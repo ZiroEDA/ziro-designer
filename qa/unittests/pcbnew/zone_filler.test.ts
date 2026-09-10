@@ -851,6 +851,126 @@ describe('zone filler', () => {
     expect(filleted).toBeLessThan(plain);
   });
 
+  describe('BuildSmoothedPoly smooths the union with the same-net neighbours', () => {
+    // "We now add in the areas of any same-net, intersecting zones. This keeps
+    // us from smoothing corners at an intersection (which often produces
+    // undesired divots between the intersecting zones -- see #2752). After
+    // smoothing, we'll subtract back out everything outside of our zone."
+    const neighbourOutline = [
+      { x: MM(40), y: 0 },
+      { x: MM(60), y: 0 },
+      { x: MM(60), y: MM(40) },
+      { x: MM(40), y: MM(40) },
+    ];
+    const filleted = (over: Partial<PcbZone>) =>
+      zone({ cornerSmoothing: 'fillet', cornerRadius: MM(2), ...over });
+
+    it('keeps a square corner where a same-net zone abuts it', () => {
+      // The 40 mm pour is filleted; a second net-1 zone shares its right
+      // edge. The two right-hand corners are not corners of the union, so
+      // they stay square; the two left-hand ones round off as before.
+      const b = board({ zones: [filleted({}), zone({ outline: neighbourOutline, uuid: 'n' })] });
+      const fill = fillZone(b, 0)[0]!.polys;
+      // The right corners are inside a 2 mm fillet's cut-off; the left ones are not.
+      expect(covered(fill, { x: MM(39.7), y: MM(0.3) })).toBe(true);
+      expect(covered(fill, { x: MM(39.7), y: MM(39.7) })).toBe(true);
+      expect(covered(fill, { x: MM(0.3), y: MM(0.3) })).toBe(false);
+      expect(covered(fill, { x: MM(0.3), y: MM(39.7) })).toBe(false);
+    });
+
+    it('but not where the neighbour is on another net', () => {
+      const b = board({
+        zones: [filleted({}), zone({ outline: neighbourOutline, uuid: 'n', net: 2 })],
+      });
+      const fill = fillZone(b, 0)[0]!.polys;
+      expect(covered(fill, { x: MM(39.7), y: MM(0.3) })).toBe(false);
+    });
+
+    it('nor where a higher-priority different-net zone cuts this one off from it entirely', () => {
+      // "check to see if they completely enclose our zone. If they do, then
+      // we need to treat the enclosed zone as isolated" — a net-2 zone of
+      // higher priority over the whole of THIS zone means the same-net
+      // neighbour does not adjoin it at all, and the corner is smoothed.
+      const b = board({
+        zones: [
+          filleted({}),
+          zone({ outline: neighbourOutline, uuid: 'n' }),
+          zone({ net: 2, priority: 9, uuid: 'cutter' }),
+        ],
+      });
+      // fillZone pours the first zone alone; the cutter has no fill and knocks
+      // nothing out, which leaves the corner's shape as the only question.
+      const fill = fillZone(b, 0)[0]!.polys;
+      expect(covered(fill, { x: MM(39.7), y: MM(0.3) })).toBe(false);
+    });
+
+    it('never adds copper outside the outline for a concave corner', () => {
+      // An L: the inside corner at (20, 20) is concave, and a fillet there
+      // sweeps OUTWARD. `maxExtents` is the flattened outline and the result
+      // is intersected with it — `m_ZoneKeepExternalFillets` is off.
+      const b = board({
+        zones: [
+          filleted({
+            outline: [
+              { x: 0, y: 0 },
+              { x: MM(40), y: 0 },
+              { x: MM(40), y: MM(20) },
+              { x: MM(20), y: MM(20) },
+              { x: MM(20), y: MM(40) },
+              { x: 0, y: MM(40) },
+            ],
+          }),
+        ],
+      });
+      const fill = fillZone(b, 0)[0]!.polys;
+      // Just outside the L, in the notch, where an external fillet would be.
+      expect(covered(fill, { x: MM(20.3), y: MM(20.3) })).toBe(false);
+      expect(covered(fill, { x: MM(21), y: MM(21) })).toBe(false);
+    });
+  });
+
+  describe("a pad's own thermal settings override the zone's", () => {
+    // `DRC_ENGINE::EvalRules( THERMAL_RELIEF_GAP_CONSTRAINT / THERMAL_SPOKE_
+    // WIDTH_CONSTRAINT, pad, zone )`: "Local override on %s" when the pad
+    // states a value above zero, else the zone's.
+    const at = { x: MM(20), y: MM(20) };
+    const relief = (over: Partial<PcbPad>) =>
+      fillZone(
+        board({ zones: [zone()], footprints: [footprint([{ ...pad(at, 1), ...over }])] }),
+        0,
+      )[0]!.polys;
+
+    it("the gap: a 1 mm pad gap opens a wider relief than the zone's 0.5", () => {
+      const fill = relief({ thermalGap: MM(1) });
+      // 0.71 mm off the pad's corner on the diagonal, clear of the spokes: the
+      // relief is the pad inflated with round corners, so that is inside a
+      // 1 mm one and outside a 0.5 mm one.
+      expect(covered(fill, { x: MM(21.5), y: MM(21.5) })).toBe(false);
+      expect(covered(relief({}), { x: MM(21.5), y: MM(21.5) })).toBe(true);
+    });
+
+    it("the spoke width: a 1.5 mm pad bridge is drawn 1.5 wide, not the zone's 0.5", () => {
+      const fill = relief({ thermalBridgeWidth: MM(1.5) });
+      // 0.6 mm off the spoke axis, in the relief gap: inside a 1.5 mm spoke,
+      // outside a 0.5 mm one.
+      expect(covered(fill, { x: MM(20.6), y: MM(21.3) })).toBe(true);
+      expect(covered(relief({}), { x: MM(20.6), y: MM(21.3) })).toBe(false);
+    });
+
+    it('a pad bridge below the zone minimum thickness is raised to it', () => {
+      // "%s min thickness" — the override is clamped UP, so a 0.1 mm bridge
+      // on a 0.25 mm zone still gets 0.25 mm spokes, and the pad connects.
+      const fill = relief({ thermalBridgeWidth: MM(0.1) });
+      expect(covered(fill, { x: MM(20.1), y: MM(21.3) })).toBe(true);
+    });
+
+    it("a zero states nothing: the zone's value stands", () => {
+      const withZero = relief({ thermalGap: 0, thermalBridgeWidth: 0 });
+      const plain = relief({});
+      expect(area(withZero)).toBeCloseTo(area(plain), 3);
+    });
+  });
+
   it('hatches a zone into webbing instead of solid copper', () => {
     const solid = area(fillZone(board({ zones: [zone()] }), 0)[0]!.polys);
     const hatched = fillZone(

@@ -475,6 +475,39 @@ function padHoleShape(pad: PcbPad, gap: number): Shape | null {
 }
 
 /**
+ * `DRC_ENGINE::EvalRules( THERMAL_RELIEF_GAP_CONSTRAINT, pad, zone )`
+ * (drc_engine.cpp:1223-1237, 2027-2042): the pad's own `(thermal_gap …)` when
+ * it states one above zero — "Local override on %s; thermal relief gap" —
+ * otherwise the zone's. There is no footprint-level value for this one, and
+ * a rule area's `thermal_relief_gap` constraint is not modelled.
+ *
+ * A pad on StickHub says `(thermal_gap 0.25)` over a zone whose gap is 0.15;
+ * the relief around it is 0.1 mm wider on every side than the zone's, and
+ * this read the zone's for every pad.
+ */
+function thermalReliefGap(pad: PcbPad, zone: PcbZone): number {
+  if (pad.thermalGap !== undefined && pad.thermalGap > 0) return pad.thermalGap;
+  return zone.thermalGap ?? mmToIU(0.5);
+}
+
+/**
+ * `DRC_ENGINE::EvalRules( THERMAL_SPOKE_WIDTH_CONSTRAINT, pad, zone )`
+ * (drc_engine.cpp:1240-1265, 2044-2059): the pad's own
+ * `(thermal_bridge_width …)` when it states one above zero, RAISED to the
+ * zone's minimum thickness — "%s min thickness" — otherwise the zone's.
+ *
+ * The override sets only `Min`, and `buildThermalSpokes` reads `Opt()` and
+ * then clamps to [Min, Max], so the value that comes out is the override.
+ * The same StickHub pad says `(thermal_bridge_width 0.5)` over a 0.15 mm
+ * zone: its four spokes are 0.5 wide, and this drew them 0.15.
+ */
+function thermalSpokeWidth(pad: PcbPad, zone: PcbZone): number {
+  if (pad.thermalBridgeWidth !== undefined && pad.thermalBridgeWidth > 0)
+    return Math.max(pad.thermalBridgeWidth, zone.minThickness ?? 0);
+  return zone.thermalBridgeWidth ?? mmToIU(0.5);
+}
+
+/**
  * `PAD::GetLocalClearance` — the pad's own `(clearance …)`, or its footprint's
  * when the pad states none.
  *
@@ -635,11 +668,11 @@ function placeSpoke(spoke: ThermalSpoke, deg: number, to: Vec2): ThermalSpoke {
 }
 
 function thermalSpokes(pad: PcbPad, zone: PcbZone, maxError: number): ThermalSpoke[] {
-  const gap = zone.thermalGap ?? mmToIU(0.5);
+  const gap = thermalReliefGap(pad, zone);
   const minor = Math.min(pad.size.x, pad.size.y);
   // "ensure the spoke width is smaller than the pad minor size", then "Cannot
   // create stubs having a width < zone min thickness".
-  const width = Math.min(zone.thermalBridgeWidth ?? mmToIU(0.5), minor);
+  const width = Math.min(thermalSpokeWidth(pad, zone), minor);
   if (width < (zone.minThickness ?? 0)) return [];
 
   // A custom pad can declare where its spokes attach, as `gr_vector` proxy
@@ -766,7 +799,7 @@ function customThermalSpokes(
     y: centre.y + p.x * sin + p.y * cos,
   });
 
-  const gap = zone.thermalGap ?? mmToIU(0.5);
+  const gap = thermalReliefGap(pad, zone);
   const reach = zone.minThickness ?? 0;
   const halfW = width / 2;
   const out: ThermalSpoke[] = [];
@@ -958,17 +991,9 @@ function fillZoneParts(
   for (const layer of zone.layers) {
     if (!isCopper(layer)) continue;
 
-    // ZONE::BuildSmoothedPoly: chamfer or fillet the outline's corners before
-    // anything is knocked out of it. Rule areas and teardrops are left alone
-    // upstream; so is a zone with no smoothing set, which is the default.
-    const smoothed = smoothOutline(zone.outline, zone, maxError);
-    // "We like keepouts just the way they are" — a rule area is returned from
-    // `BuildSmoothedPoly` before the board outline is ever applied. It is not
-    // poured either, so this only guards the shared path.
-    const outline: Geom =
-      boardOutline && !zone.ruleArea
-        ? (clip.intersection([ringOf(smoothed)] as Geom, boardOutline) as MultiPolygon)
-        : [ringOf(smoothed)];
+    // ZONE::BuildSmoothedPoly: the outline, clipped to the board and with its
+    // corners chamfered or filleted, before anything is knocked out of it.
+    const outline: Geom = buildSmoothedPoly(board, zoneIndex, layer, boardOutline, maxError);
     if ((outline as MultiPolygon).length === 0) continue;
     const holes: Geom[] = [];
     const spokes: ThermalSpoke[] = [];
@@ -1001,9 +1026,11 @@ function fillZoneParts(
     for (const fp of board.footprints) {
       if (fp.localClearance !== undefined)
         worstClearance = Math.max(worstClearance, fp.localClearance);
-      for (const pad of fp.pads)
+      for (const pad of fp.pads) {
         if (pad.localClearance !== undefined)
           worstClearance = Math.max(worstClearance, pad.localClearance);
+        if (pad.thermalGap !== undefined) worstClearance = Math.max(worstClearance, pad.thermalGap);
+      }
     }
     const zoneBox = boxInflate(boxOf(zone.outline), worstClearance);
     const near = (b: Box): boolean => boxesIntersect(b, zoneBox);
@@ -1049,7 +1076,7 @@ function fillZoneParts(
           // A thermally-relieved pad's own copper sits INSIDE the relief hole;
           // what touches the pour is its spokes, so its anchors are added with
           // them below.
-          const reliefGap = zone.thermalGap ?? mmToIU(0.5);
+          const reliefGap = thermalReliefGap(pad, zone);
           for (const s of shapes) reliefHoles.push(...shapeToPolygon(s, reliefGap, maxError));
           spokes.push(...thermalSpokes(pad, zone, maxError));
           // The pad is in the cluster whether or not a spoke survives, so any
@@ -1147,8 +1174,10 @@ function fillZoneParts(
       // inside the area.
       if (other.ruleArea) {
         if (other.ruleArea.copperPour && !zone.teardropType) {
-          const pts = smoothOutline(other.outline, other, maxError);
-          holes.push(...shapeToPolygon({ kind: 'poly', pts, r: 0 }, 0, maxError));
+          // "We like keepouts just the way they are" — `BuildSmoothedPoly`
+          // hands a rule area's outline back untouched, whatever smoothing it
+          // states.
+          holes.push(...shapeToPolygon({ kind: 'poly', pts: other.outline, r: 0 }, 0, maxError));
         }
         return;
       }
@@ -1840,19 +1869,106 @@ function ringArea(ring: Vec2[]): number {
 }
 
 /**
- * ZONE::BuildSmoothedPoly's `smooth` lambda: the outline with its corners
- * chamfered or filleted by the zone's corner radius. SMOOTHING_NONE, a zero
- * radius, and shapes too small to smooth all fall through unchanged.
+ * `ZONE::BuildSmoothedPoly` (zone.cpp:1470-1626), the outline a pour starts
+ * from, in upstream's order:
+ *
+ *  1. the flattened outline — and for a rule area, nothing more: "We like
+ *     keepouts just the way they are";
+ *  2. UNIONED with every same-net zone on this layer whose outline collides
+ *     with it, "which keeps us from smoothing corners at an intersection
+ *     (which often produces undesired divots between the intersecting
+ *     zones)". A same-net zone that a higher-priority different-net zone cuts
+ *     off completely is left out ("treat the enclosed zone as isolated");
+ *  3. INTERSECTED with the board outline — before the smoothing, not after;
+ *  4. the `smooth` lambda, chamfer or fillet by the corner radius; a teardrop
+ *     is never smoothed;
+ *  5. INTERSECTED with `maxExtents`, the flattened outline, so an external
+ *     fillet at a concave corner is cut back off (`m_ZoneKeepExternalFillets`
+ *     is false by default) and the same-net neighbours' area goes again.
+ *
+ * Step 2 is what makes a filleted zone that abuts another zone of its net
+ * keep a SQUARE corner where the two meet: the corner is not a corner of the
+ * union. CM5's 0.5 mm-fillet +3V3 pours meet other +3V3 pours edge to edge,
+ * and this filleted them anyway, losing 0.11 mm² of copper at each corner.
+ *
+ * Step 5 is why a fillet never adds copper: `chamferFilletPolygon` rounds a
+ * concave corner OUTWARD, and upstream keeps that only in the 5.1 mode.
  */
-function smoothOutline(outline: Vec2[], zone: PcbZone, maxError: number): Vec2[] {
+function buildSmoothedPoly(
+  board: Board,
+  zoneIndex: number,
+  layer: string,
+  boardOutline: Geom | null,
+  maxError: number,
+): Geom {
+  const zone = board.zones[zoneIndex]!;
+  const flattened: Geom = [[intRingOf(zone.outline!)]];
+  if (zone.ruleArea) return flattened;
+
   const mode = zone.cornerSmoothing ?? 'none';
   const radius = zone.cornerRadius ?? 0;
-  if (mode === 'none' || radius <= 0 || outline.length < 3) return outline;
+  const smoothRequested =
+    (mode === 'chamfer' || mode === 'fillet') && radius > 0 && zone.teardropType === undefined;
 
-  const smoothed =
-    mode === 'chamfer' ? chamfer([[outline]], radius) : fillet([[outline]], radius, maxError);
+  // `GetInteractingZones`: same-net zones whose outline collides, and the
+  // different-net ones whose bounding box touches.
+  const epsilon = mmToIU(0.001);
+  const bbox = boxInflate(boxOf(zone.outline!), epsilon);
+  const sameNet: PcbZone[] = [];
+  const diffNet: PcbZone[] = [];
+  board.zones.forEach((other, i) => {
+    if (i === zoneIndex || !other.outline || other.outline.length < 3) return;
+    if (!other.layers.includes(layer)) return;
+    if (other.ruleArea || other.teardropType !== undefined) return;
+    if (!boxesIntersect(boxOf(other.outline), bbox)) return;
+    if (other.net === zone.net) {
+      // `m_Poly->Collide( candidate->m_Poly )` — touching along an edge counts,
+      // which a plain intersection reads as nothing, so the outline is grown
+      // by the same epsilon before it is asked.
+      const grown = inflate([[zone.outline!]], epsilon, epsilon);
+      if (
+        grown.length > 0 &&
+        (clip.intersection(fromPolys(grown), [[intRingOf(other.outline)]] as Geom) as MultiPolygon)
+          .length > 0
+      )
+        sameNet.push(other);
+    } else {
+      diffNet.push(other);
+    }
+  });
 
-  return smoothed[0]?.[0] ?? outline;
+  let poly: Geom = flattened;
+
+  for (const neighbour of sameNet) {
+    // "The same-net intersecting zone *might* get knocked out along the
+    // border by a higher-priority, different-net zone" — and if those enclose
+    // THIS zone completely, the neighbour is not really adjoining it.
+    const nBox = boxOf(neighbour.outline!);
+    const cutters: Ring[][] = [];
+    for (const d of diffNet)
+      if (higherPriority(d, neighbour) && boxesIntersect(boxOf(d.outline!), nBox))
+        cutters.push([intRingOf(d.outline!)]);
+    if (cutters.length > 0) {
+      const left = clip.difference(flattened, cutters as unknown as Geom) as MultiPolygon;
+      if (left.length === 0) continue;
+    }
+    poly = clip.union(poly, [[intRingOf(neighbour.outline!)]] as Geom) as MultiPolygon;
+  }
+
+  if (boardOutline) {
+    poly = clip.intersection(poly, boardOutline) as MultiPolygon;
+    if ((poly as MultiPolygon).length === 0) return poly;
+  }
+
+  if (smoothRequested) {
+    const polys = asPolys(poly);
+    const smoothed = mode === 'chamfer' ? chamfer(polys, radius) : fillet(polys, radius, maxError);
+    poly = smoothed
+      .map((q) => q.map(intRingOf))
+      .filter((q) => q[0]!.length >= 3) as unknown as MultiPolygon;
+  }
+
+  return clip.intersection(poly, flattened) as MultiPolygon;
 }
 
 /**
