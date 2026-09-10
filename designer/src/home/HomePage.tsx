@@ -333,6 +333,12 @@ export function HomePage({
   }, [demoOpen, demoSource, onDemoStateChange]);
   // Saved projects (IndexedDB), the offline half of cloud persistence.
   const [saved, setSaved] = useState<ProjectMeta[]>([]);
+  /**
+   * Whether `saved` has been read at least once. Before that, an empty list
+   * means "not looked yet", not "nothing there" - and the two must be told
+   * apart by whoever reads the open project's id off it (below).
+   */
+  const [savedLoaded, setSavedLoaded] = useState(false);
   // Expanded directory-tree folder paths (collapsed by default, like KiCad).
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   // Selected tree row (single click). Double click opens, like KiCad's tree.
@@ -797,7 +803,11 @@ export function HomePage({
     { kind: 'joined'; role: ProjectRole } | { kind: 'failed'; message: string } | null
   >(null);
   const refreshSaved = (): void => {
-    if (storageAvailable()) void listProjects().then(setSaved);
+    if (storageAvailable())
+      void listProjects().then((list) => {
+        setSaved(list);
+        setSavedLoaded(true);
+      });
   };
   useEffect(refreshSaved, []);
 
@@ -1443,8 +1453,15 @@ export function HomePage({
   // address has to name the open project, and this is the only side that knows
   // which one it is.
   useEffect(() => {
+    // Not before the list has loaded. This component is mounted only while
+    // the manager is the view, so coming back from an editor remounts it with
+    // an empty list; reporting null then made the app forget the open
+    // project for one render, the address fell to `/`, and came back to
+    // `/p/<uid>` once the list arrived - the URL visibly following a state
+    // that was momentarily wrong.
+    if (!savedLoaded && projName) return;
     onProjectIdChange?.(openProjectId);
-  }, [openProjectId, onProjectIdChange]);
+  }, [openProjectId, onProjectIdChange, savedLoaded, projName]);
 
   // `HistoryExists( Prj().GetProjectPath() )`, which the File menu's enable
   // condition asks for on every UI update (kicad/menubar.cpp:108-113). Read the
