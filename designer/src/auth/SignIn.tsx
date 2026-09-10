@@ -67,17 +67,44 @@ export function SignInDialog({
   // same reason a wxDialog with SetEscapeId( wxID_NONE ) ignores the key.
   useModalEscape(close, !gate);
 
-  const { signIn, signUp, resendSignupCode, verifyOtp } = useAuth();
+  const {
+    session,
+    signIn,
+    signUp,
+    signOut,
+    unlock,
+    resendSignupCode,
+    verifyOtp,
+    pendingRecoveryKey,
+    acknowledgeRecoveryKey,
+    keyState,
+    recovering,
+    requestPasswordReset,
+    completeRecovery,
+  } = useAuth();
   // Controlled by the route when the gate owns it, local otherwise. One `step`
   // drives everything below, so the address and the form cannot disagree.
   const [localStep, setLocalStep] = useState<AuthStep>(gate ? 'signup' : 'signin');
   const step = stepProp ?? localStep;
   const setStep = onStep ?? setLocalStep;
   // 'verify' is reached only from 'signup', so it shows the sign-up side.
-  // 'recover' has no screen yet -- the recovery key cannot be checked until the
-  // wrapped key attributes are stored server-side -- so a typed `/recover`
-  // lands on sign-in rather than on a form that cannot finish.
-  const mode: 'signup' | 'signin' = step === 'signup' || step === 'verify' ? 'signup' : 'signin';
+  // 'unlock' and 'recovery-key' are the signed-in half of the wall: the
+  // session is there, the keys are not in this tab yet (or the recovery key
+  // is waiting to be read), and the address says which. See AuthGate.
+  // 'recover' is two screens under one address: asking for the email that a
+  // reset link goes to, and - once that link has opened the app with a session
+  // marked for recovery - the new password, with the recovery key beside it
+  // when the account has keys to unwrap.
+  const mode: 'signup' | 'signin' | 'unlock' | 'recovery-key' | 'recover' =
+    step === 'signup' || step === 'verify'
+      ? 'signup'
+      : step === 'unlock'
+        ? 'unlock'
+        : step === 'recovery-key'
+          ? 'recovery-key'
+          : step === 'recover'
+            ? 'recover'
+            : 'signin';
   const codeSent = step === 'verify';
   // `/verify` is a real address, so it can be reloaded or reached by Back — and
   // the code is verified against the address it was sent to, which lived only
@@ -146,6 +173,47 @@ export function SignInDialog({
     if (await run(() => signIn(email, password))) close();
   }
 
+  async function onUnlock(e: FormEvent) {
+    e.preventDefault();
+    if (await run(() => unlock(password))) close();
+  }
+
+  const [recoveryKeyText, setRecoveryKeyText] = useState('');
+  const [resetSent, setResetSent] = useState(false);
+  async function onRequestReset(e: FormEvent) {
+    e.preventDefault();
+    if (await run(() => requestPasswordReset(email))) setResetSent(true);
+  }
+  async function onCompleteRecovery(e: FormEvent) {
+    e.preventDefault();
+    if (password !== confirm) {
+      setError('The two passwords do not match.');
+      return;
+    }
+    if (strength.score < 2) {
+      setError('Please choose a stronger password.');
+      return;
+    }
+    if (
+      await run(() =>
+        completeRecovery(password, keyState === 'none' ? null : recoveryKeyText.trim() || null),
+      )
+    )
+      close();
+  }
+
+  const [copied, setCopied] = useState(false);
+  const copyRecoveryKey = async (): Promise<void> => {
+    if (!pendingRecoveryKey) return;
+    try {
+      await navigator.clipboard.writeText(pendingRecoveryKey);
+      setCopied(true);
+    } catch {
+      // No clipboard (an insecure context, or denied): the key is on screen
+      // to be written down, which is the point of the screen anyway.
+    }
+  };
+
   async function onVerify(e: FormEvent) {
     e.preventDefault();
     if (!(await run(() => verifyOtp(email, code.trim())))) return;
@@ -194,7 +262,17 @@ export function SignInDialog({
         className={`ze-auth-card ze-auth-modal${gate ? ' ze-auth-panel' : ''}`}
         onMouseDown={(e) => e.stopPropagation()}
         role="dialog"
-        aria-label={mode === 'signup' ? 'Create an account' : 'Sign in'}
+        aria-label={
+          mode === 'signup'
+            ? 'Create an account'
+            : mode === 'unlock'
+              ? 'Unlock your account'
+              : mode === 'recovery-key'
+                ? 'Your recovery key'
+                : mode === 'recover'
+                  ? 'Reset your password'
+                  : 'Sign in'
+        }
       >
         {!gate && (
           <span className="ze-auth-close" title="Close" onClick={close}>
@@ -212,7 +290,13 @@ export function SignInDialog({
               ? 'Confirm your email'
               : mode === 'signup'
                 ? 'Create your free ZiroEDA account'
-                : 'Sign in to ZiroEDA'}
+                : mode === 'unlock'
+                  ? 'Unlock your ZiroEDA account'
+                  : mode === 'recovery-key'
+                    ? 'Save your recovery key'
+                    : mode === 'recover'
+                      ? 'Reset your password'
+                      : 'Sign in to ZiroEDA'}
           </div>
         </div>
 
@@ -292,6 +376,153 @@ export function SignInDialog({
           </form>
         )}
 
+        {mode === 'unlock' && (
+          <form onSubmit={onUnlock}>
+            <p className="ze-auth-note">
+              Signed in as <strong>{session?.user.email}</strong>. Your projects are encrypted;
+              enter your password to open them in this tab.
+            </p>
+            <label className="ze-auth-field">
+              <span>Password</span>
+              <input
+                type="password"
+                autoComplete="current-password"
+                required
+                autoFocus
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </label>
+            {error && <div className="ze-auth-error">{error}</div>}
+            <button type="submit" className="ze-btn primary ze-auth-submit" disabled={busy}>
+              {busy ? 'Unlocking...' : 'Unlock'}
+            </button>
+            <div className="ze-auth-toggle">
+              Not you?{' '}
+              <button
+                type="button"
+                className="ze-auth-switch"
+                disabled={busy}
+                onClick={() => void signOut()}
+              >
+                Sign out
+              </button>
+            </div>
+          </form>
+        )}
+        {mode === 'recovery-key' && (
+          <div>
+            <p className="ze-auth-note">
+              This key is the only way back into your projects if you forget your password. We
+              cannot recover it for you: it is not stored anywhere we can read. Keep it somewhere
+              safe, such as a password manager.
+            </p>
+            <div className="ze-auth-recovery-key" aria-label="Recovery key">
+              {pendingRecoveryKey}
+            </div>
+            <div className="ze-auth-recovery-actions">
+              <button type="button" className="ze-btn" onClick={() => void copyRecoveryKey()}>
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+              <button
+                type="button"
+                className="ze-btn primary ze-auth-submit"
+                onClick={() => {
+                  acknowledgeRecoveryKey();
+                  close();
+                }}
+              >
+                I have saved it
+              </button>
+            </div>
+          </div>
+        )}
+        {mode === 'recover' && !recovering && (
+          <form onSubmit={onRequestReset}>
+            {resetSent ? (
+              <p className="ze-auth-note">
+                If <strong>{email}</strong> has an account, a reset link is on its way. Open it on
+                this device to choose a new password.
+              </p>
+            ) : (
+              <>
+                <p className="ze-auth-note">
+                  We will email you a link to set a new password. Your projects stay encrypted: to
+                  open them under the new password you will also need your recovery key.
+                </p>
+                {emailField}
+                {error && <div className="ze-auth-error">{error}</div>}
+                <button type="submit" className="ze-btn primary ze-auth-submit" disabled={busy}>
+                  {busy ? 'Sending...' : 'Send reset link'}
+                </button>
+              </>
+            )}
+            <div className="ze-auth-toggle">
+              <button
+                type="button"
+                className="ze-auth-switch"
+                onClick={() => {
+                  setError(null);
+                  setResetSent(false);
+                  setStep('signin');
+                }}
+              >
+                Back to sign in
+              </button>
+            </div>
+          </form>
+        )}
+        {mode === 'recover' && recovering && (
+          <form onSubmit={onCompleteRecovery}>
+            <p className="ze-auth-note">
+              Choose a new password for <strong>{session?.user.email}</strong>.
+              {keyState !== 'none' &&
+                ' Your projects are encrypted under the old one; the recovery key you saved at sign-up is what carries them across.'}
+            </p>
+            {keyState !== 'none' && (
+              <label className="ze-auth-field">
+                <span>Recovery key</span>
+                <input
+                  type="text"
+                  autoComplete="off"
+                  spellCheck={false}
+                  required
+                  autoFocus
+                  value={recoveryKeyText}
+                  onChange={(e) => setRecoveryKeyText(e.target.value)}
+                />
+              </label>
+            )}
+            <label className="ze-auth-field">
+              <span>New password</span>
+              <input
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                autoFocus={keyState === 'none'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </label>
+            {password && <PasswordStrengthHint strength={strength} />}
+            <label className="ze-auth-field">
+              <span>Confirm password</span>
+              <input
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+              />
+            </label>
+            {error && <div className="ze-auth-error">{error}</div>}
+            <button type="submit" className="ze-btn primary ze-auth-submit" disabled={busy}>
+              {busy ? 'Setting password...' : 'Set new password'}
+            </button>
+          </form>
+        )}
         {!codeSent && mode === 'signin' && (
           <form onSubmit={onSignIn}>
             {emailField}
@@ -300,6 +531,18 @@ export function SignInDialog({
             <button type="submit" className="ze-btn primary ze-auth-submit" disabled={busy}>
               {busy ? 'Signing in...' : 'Sign in'}
             </button>
+            <div className="ze-auth-toggle">
+              <button
+                type="button"
+                className="ze-auth-switch"
+                onClick={() => {
+                  setError(null);
+                  setStep('recover');
+                }}
+              >
+                Forgot password?
+              </button>
+            </div>
             <div className="ze-auth-toggle">
               New to ZiroEDA?{' '}
               <button

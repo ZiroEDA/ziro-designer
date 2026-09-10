@@ -6,7 +6,7 @@ import { authEnabled } from './supabaseClient.js';
 import { useAuth } from './AuthProvider.js';
 import { SignInDialog } from './SignIn.js';
 import { useRoute } from '../nav/useRoute.js';
-import { HOME, type Route } from '../nav/route.js';
+import { HOME, type AuthStep, type Route } from '../nav/route.js';
 
 /**
  * Sign-in wall. When Supabase auth is configured, the app is gated behind a
@@ -66,32 +66,53 @@ function takeDestination(): Route | null {
 }
 
 export function AuthGate({ children }: { children: ReactNode }): JSX.Element {
-  const { session, loading } = useAuth();
+  const { session, loading, keyState, pendingRecoveryKey, recovering } = useAuth();
   const { route, navigate } = useRoute();
   // Whether this mount has already sent a signed-in visitor onward, so the
   // restore runs once rather than on every render while the session settles.
   const restored = useRef(false);
 
-  const gated = authEnabled && !loading && !session;
+  // The wall stands for two reasons, not one. No session is the obvious one.
+  // The other is a session whose master key is not in this tab: everything
+  // encrypted is unreadable until the password opens it, and a new account's
+  // recovery key has to be seen before anything else. So the wall holds on
+  // `locked` and `none`, and while the recovery key is waiting to be read.
+  const settling = !!session && keyState === 'loading';
+  const gated =
+    authEnabled &&
+    !loading &&
+    (!session ||
+      recovering ||
+      keyState === 'locked' ||
+      keyState === 'none' ||
+      pendingRecoveryKey !== null);
+  const wallStep: AuthStep = !session
+    ? 'signup'
+    : recovering
+      ? 'recover'
+      : pendingRecoveryKey
+        ? 'recovery-key'
+        : 'unlock';
 
-  // Signed out: put the wall in the address, keeping where they were headed.
+  // Walled: put the wall in the address, keeping where they were headed.
   useEffect(() => {
-    if (!gated || route.kind === 'auth') return;
+    if (!gated || settling || route.kind === 'auth') return;
     rememberDestination(route);
-    navigate({ kind: 'auth', step: 'signup' }, { replace: true });
-  }, [gated, route, navigate]);
+    navigate({ kind: 'auth', step: wallStep }, { replace: true });
+  }, [gated, settling, route, navigate, wallStep]);
 
-  // Signed in while standing on the wall: go where they were headed.
+  // Through the wall while standing on it: go where they were headed.
   useEffect(() => {
-    if (!session || restored.current) return;
+    if (!session || gated || settling || restored.current) return;
     if (route.kind !== 'auth') return;
     restored.current = true;
     navigate(takeDestination() ?? HOME, { replace: true });
-  }, [session, route, navigate]);
+  }, [session, gated, settling, route, navigate]);
 
-  // Hold the first paint while an existing session resolves, so a signed-in
-  // user doesn't flash the wall on every reload.
-  if (authEnabled && loading) {
+  // Hold the first paint while an existing session resolves, and while its
+  // keys are being asked for, so a signed-in user doesn't flash the wall on
+  // every reload.
+  if (authEnabled && (loading || settling)) {
     return (
       <div className="ze-auth">
         <div className="ze-auth-splash">ZiroEDA...</div>
@@ -107,7 +128,7 @@ export function AuthGate({ children }: { children: ReactNode }): JSX.Element {
         </div>
         <SignInDialog
           gate
-          step={route.kind === 'auth' ? route.step : 'signup'}
+          step={route.kind === 'auth' ? route.step : wallStep}
           onStep={(step) => navigate({ kind: 'auth', step })}
         />
       </div>

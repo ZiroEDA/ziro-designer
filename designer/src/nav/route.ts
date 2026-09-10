@@ -78,7 +78,7 @@ export type Route =
  * reach the master key, which is why it is shown once at sign-up and why losing
  * both it and the password is unrecoverable by anyone, us included.
  */
-export type AuthStep = 'signup' | 'signin' | 'verify' | 'recover';
+export type AuthStep = 'signup' | 'signin' | 'verify' | 'recover' | 'unlock' | 'recovery-key';
 
 /** The frame names as they appear in a path, and the view each one means. */
 const VIEW_SEGMENTS: Record<string, ProjectView> = {
@@ -93,6 +93,11 @@ const AUTH_SEGMENTS: Record<string, AuthStep> = {
   signin: 'signin',
   verify: 'verify',
   recover: 'recover',
+  // Signed in, keys not in this tab: the password opens them. A restored
+  // session lands here, and so does a second tab.
+  unlock: 'unlock',
+  // Shown once, right after the keys are made, before anything else.
+  'recovery-key': 'recovery-key',
 };
 
 const TOOL_SEGMENTS: Record<string, ToolName> = {

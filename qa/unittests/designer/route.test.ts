@@ -239,11 +239,15 @@ describe('the sign-in wall is a place', () => {
     expect(parseRoute(`${AT}/verify`)).toEqual({ kind: 'auth', step: 'verify' });
     // The forgotten-password path, and the only one: see AuthStep.
     expect(parseRoute(`${AT}/recover`)).toEqual({ kind: 'auth', step: 'recover' });
+    // The signed-in half of the wall: keys not in this tab, and the key shown once.
+    expect(parseRoute(`${AT}/unlock`)).toEqual({ kind: 'auth', step: 'unlock' });
+    expect(parseRoute(`${AT}/recovery-key`)).toEqual({ kind: 'auth', step: 'recovery-key' });
   });
 
   it('writes the step back as the path', () => {
     expect(routeHref({ kind: 'auth', step: 'signup' })).toBe('/signup');
     expect(routeHref({ kind: 'auth', step: 'verify' })).toBe('/verify');
+    expect(routeHref({ kind: 'auth', step: 'recovery-key' })).toBe('/recovery-key');
   });
 
   it('survives the round trip', () => {

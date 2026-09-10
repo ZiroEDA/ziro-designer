@@ -48,10 +48,15 @@ So when you first sign up, we give you a **recovery key** — a one-time code.
 
 - **Save it somewhere safe** (a password manager, or written down and stored
   securely). It is the master key to your own data.
-- If you sign in on a new device, you can use it (or approve the new device from
-  a device you're already signed in on) to unlock your projects.
-- If you ever lose access to all your devices, the recovery key is how you get
-  back in.
+- Your password opens your projects on any device. Signing in on a new device
+  asks for it, and that is all it asks for.
+- **If you forget your password**, "Forgot password?" emails you a link to
+  choose a new one, as any site does. The difference is what happens next: your
+  projects are encrypted under the old password, and the recovery key is what
+  carries them across to the new one. You enter both, and nothing is lost.
+- Your password never reaches our servers, even when you sign in. What the
+  server is given is a value derived from it, which cannot be turned back into
+  the password or into the key that opens your projects.
 
 **If you lose both your devices and your recovery key, your encrypted projects
 cannot be recovered by anyone — including us.** That is the cost of the guarantee

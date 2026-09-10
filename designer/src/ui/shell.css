@@ -9265,6 +9265,30 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   color: var(--chrome-fg-muted);
   line-height: 1.5;
 }
+/* The recovery key, shown once. Monospace so the groups can be read back
+   character by character, and selectable in one drag. */
+.ze-auth-recovery-key {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: var(--ui-font-size);
+  line-height: 1.6;
+  word-break: break-all;
+  user-select: all;
+  background: var(--field-bg);
+  color: var(--chrome-fg);
+  border: 1px solid var(--ctl-border);
+  border-radius: 6px; /* [css] the same radius the auth entries use */
+  padding: 9px var(--field-pad-x); /* [css] the auth entry's padding */
+  margin: var(--field-pad-x) 0;
+}
+.ze-auth-recovery-actions {
+  display: flex;
+  gap: var(--field-pad-x);
+  align-items: center;
+}
+.ze-auth-recovery-actions .ze-auth-submit {
+  flex: 1;
+  margin: 0;
+}
 .ze-auth-modal form {
   display: flex;
   flex-direction: column;
