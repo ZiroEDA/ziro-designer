@@ -38,6 +38,12 @@ We modelled the key hierarchy on a proven, externally audited, libsodium-based
 design used by established end-to-end-encrypted products. Two facts about *our*
 codebase forced deliberate departures from it. These are the parts to get right.
 
+> **Superseded (2026-09-10):** blobs are no longer addressed by the plaintext
+> hash. See `encryption-plan.md`, "Random blob ids, not plaintext hashes":
+> random ids on the server, the plaintext hash kept inside the encrypted
+> manifest for deduplication and verification. The section below is kept for
+> the reasoning it records.
+
 ### 1. Content addressing keys blobs by the hash of their bytes
 
 `blobStore.ts` stores every blob at a path derived from `sha256(bytes)`, and
