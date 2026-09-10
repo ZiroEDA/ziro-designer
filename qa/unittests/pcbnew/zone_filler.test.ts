@@ -379,15 +379,26 @@ describe('zone filler', () => {
   });
 
   it("a via's RIM anchors copper its centre is outside of", () => {
-    // The connectivity engine's item for a via is its whole annulus, and a
-    // fill outline joins the via's cluster when the two overlap anywhere. A
-    // net-2 bar splits the pour; a same-net 1 mm via sits on the bar's
-    // clearance edge with its centre 0.1 mm inside the bar's clearance and
-    // its rim reaching 0.4 mm into the lower half. Upstream keeps the lower
+    // `checkZoneItemConnection`: the via's anchor (its centre) is tried
+    // first, and failing that its whole effective shape is collided with the
+    // outline. A net-2 bar splits the pour; a same-net 1 mm via sits on the
+    // bar's clearance edge with its centre 0.1 mm inside the bar's clearance
+    // and its rim reaching 0.4 mm into the lower half. The via itself anchors
+    // nothing — `CN_CLUSTER::IsOrphaned` is "no PAD in the cluster" — so a
+    // B.Cu track carries it to a through-hole pad. Upstream keeps the lower
     // half (tinytapeout has exactly this, a 0.65 mm GND via on a sliver).
     const b = board({
       zones: [zone()],
-      footprints: [footprint([pad({ x: MM(20), y: MM(5) }, 1)])],
+      footprints: [
+        footprint([
+          {
+            ...pad({ x: MM(20), y: MM(5) }, 1),
+            type: 'thru_hole',
+            layers: ['F.Cu', 'B.Cu'],
+            drill: { oblong: false, w: MM(1), h: MM(1) },
+          },
+        ]),
+      ],
       tracks: [
         {
           start: { x: 0, y: MM(20) },
@@ -395,6 +406,14 @@ describe('zone filler', () => {
           width: MM(1),
           layer: 'F.Cu',
           net: 2,
+          source: EMPTY,
+        },
+        {
+          start: { x: MM(20), y: MM(5) },
+          end: { x: MM(30), y: MM(20.9) },
+          width: MM(0.5),
+          layer: 'B.Cu',
+          net: 1,
           source: EMPTY,
         },
       ],
@@ -426,10 +445,13 @@ describe('zone filler', () => {
      */
     it('a track crossing a region anchors it, wherever the track STARTS', () => {
       // The pour is split in two by a different-net bar. A same-net track runs
-      // from the left half into the right half; its start is on the left, so
-      // one anchor per item would leave the right half an island.
+      // from a pad on the left half into the right half; its start is on the
+      // left, so one anchor per item would leave the right half an island.
+      // (The pad is what anchors: `CN_CLUSTER::IsOrphaned` is "no pad in the
+      // cluster", so a track on its own would leave BOTH halves islands.)
       const b = board({
         zones: [zone()],
+        footprints: [footprint([pad({ x: MM(5), y: MM(10) }, 1)])],
         tracks: [
           {
             start: { x: MM(20), y: 0 },
@@ -458,6 +480,7 @@ describe('zone filler', () => {
       // right half touches nothing on net 1 and goes.
       const b = board({
         zones: [zone()],
+        footprints: [footprint([pad({ x: MM(5), y: MM(10) }, 1)])],
         tracks: [
           {
             start: { x: MM(20), y: 0 },
@@ -1451,9 +1474,15 @@ describe('zone filler', () => {
     expect(area(fills[0]!.polys)).toBeLessThan(1600);
   });
 
-  it('leaves a zone alone when it is set not to fill', () => {
+  it('pours a zone saved unfilled, and marks it filled', () => {
+    // `ZONE_FILLER::Fill` skips only rule areas; `(fill no …)` records that
+    // the zone has no fill yet, and the filler ends with an unconditional
+    // `zone->SetIsFilled( true )` (zone_filler.cpp:968).
     const b = board({ zones: [zone({ filled: false, fills: [] })] });
-    expect(fillZones(b).zones[0]!.fills).toEqual([]);
+    const out = fillZones(b).zones[0]!;
+    expect(out.fills).toHaveLength(1);
+    expect(area(out.fills[0]!.polys)).toBeCloseTo(1600, 0);
+    expect(out.filled).toBe(true);
   });
 });
 

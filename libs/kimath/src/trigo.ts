@@ -23,23 +23,27 @@ export function RotatePoint(point: VECTOR2I, b: VECTOR2I | EDA_ANGLE, c?: EDA_AN
   return { x: o.x + centre.x, y: o.y + centre.y };
 }
 
-/** Squared distance from a point to segment a-b (KiCad SEG::SquaredDistance). */
-function segSquaredDistance(ref: VECTOR2I, a: VECTOR2I, b: VECTOR2I): number {
-  const dx = b.x - a.x,
-    dy = b.y - a.y;
-  const len2 = dx * dx + dy * dy;
-  if (len2 === 0) {
-    const ex = ref.x - a.x,
-      ey = ref.y - a.y;
-    return ex * ex + ey * ey;
+/**
+ * `SEG::SquaredDistance( const VECTOR2I& )` (seg.cpp:714): the projection in
+ * 64-bit integers, the residual as a double, `KiROUND`ed — an INTEGER, which
+ * is what `TestSegmentHit` compares with `SEG::Square( aDist + 1 )`.
+ */
+export function segSquaredDistance(ref: VECTOR2I, a: VECTOR2I, b: VECTOR2I): number {
+  const abx = BigInt(b.x) - BigInt(a.x);
+  const aby = BigInt(b.y) - BigInt(a.y);
+  const apx = BigInt(ref.x) - BigInt(a.x);
+  const apy = BigInt(ref.y) - BigInt(a.y);
+  const e = apx * abx + apy * aby;
+  if (e <= 0n) return Number(apx * apx + apy * apy);
+  const f = abx * abx + aby * aby;
+  if (e >= f) {
+    const bpx = BigInt(ref.x) - BigInt(b.x);
+    const bpy = BigInt(ref.y) - BigInt(b.y);
+    return Number(bpx * bpx + bpy * bpy);
   }
-  let t = ((ref.x - a.x) * dx + (ref.y - a.y) * dy) / len2;
-  t = Math.max(0, Math.min(1, t));
-  const px = a.x + t * dx,
-    py = a.y + t * dy;
-  const ex = ref.x - px,
-    ey = ref.y - py;
-  return ex * ex + ey * ey;
+  const g = Number(apx * apx + apy * apy) - (Number(e) * Number(e)) / Number(f);
+  if (g < 0 || g > 2 ** 63) return 0;
+  return KiROUND(g);
 }
 
 /**

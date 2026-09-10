@@ -24,6 +24,7 @@ import {
 } from '../clipper2/clipper.core.js';
 import { Clipper64, PolyPath64, type PolyTree64 } from '../clipper2/clipper.engine.js';
 import { stdSort } from '../clipper2/clipper.core.js';
+import { simplifyLineChain } from './shape_line_chain.js';
 import { ClipperOffset } from '../clipper2/clipper.offset.js';
 import { cos } from '../math/libm.js';
 import type { Vec2 } from '../math/vector2.js';
@@ -370,6 +371,44 @@ export function fractureSingleSlow(paths: Polygon): Polygon {
   append(e.p1);
 
   return [out];
+}
+
+/**
+ * `SHAPE_POLY_SET::unfractureSingle` (shape_poly_set.cpp:1675), as it
+ * actually behaves.
+ *
+ * It simplifies the ring (`SHAPE_LINE_CHAIN::Simplify`, tolerance 0) and
+ * then means to cut out every edge that has an exact reverse twin — the
+ * slits — by looking each edge up in an `unordered_set<EDGE, EDGE::HASH>`
+ * whose equality is "reverse of". But `EDGE::HASH` hashes (A.x, B.x, A.y,
+ * B.y) in order, so an edge and its twin hash differently and `find` only
+ * meets the twin when the two happen to share a bucket. In practice nothing
+ * is cut, the ring comes back whole, and it is the `Simplify()` that
+ * `Unfracture` runs next — a union — that turns the slits back into holes.
+ * So this is the simplification alone; the union follows in `unfracture`.
+ */
+function unfractureSingle(paths: Polygon): Polygon {
+  if (paths.length !== 1) return paths;
+  return [simplifyLineChain(paths[0]!, true, 0)];
+}
+
+/** `SHAPE_POLY_SET::Unfracture`: every polygon unfractured, then `Simplify()`. */
+export function unfracture(polygons: Polygon[]): Polygon[] {
+  return booleanAdd(polygons.map(unfractureSingle), []);
+}
+
+/**
+ * `SHAPE_POLY_SET::InflateWithLinkedHoles( aFactor, aCornerStrategy, aMaxError )`:
+ * `Unfracture`, `Inflate`, `Fracture` — how a zone's fill, which is stored
+ * fractured, is grown when it knocks out another zone.
+ */
+export function inflateWithLinkedHoles(
+  polygons: Polygon[],
+  amount: number,
+  strategy: CornerStrategy,
+  circleSegCount: number,
+): Vec2[][] {
+  return fracture(inflate(unfracture(polygons), amount, strategy, circleSegCount));
 }
 
 /**
