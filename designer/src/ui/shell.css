@@ -16316,9 +16316,9 @@ td.ze-grid-bool {
 .ze-chat-frame {
   position: fixed;
   right: 0;
-  bottom: var(--statusbar-height, 0px);
+  bottom: var(--statusbar-height);
   width: 100vw;
-  height: calc(100vh - var(--statusbar-height, 0px));
+  height: calc(100vh - var(--statusbar-height));
   border: 0;
   color-scheme: normal;
   background: transparent;
@@ -16338,7 +16338,7 @@ td.ze-grid-bool {
 .ze-chat-handle {
   position: fixed;
   right: 34px; /* [data] the site's launcher inset */
-  bottom: calc(34px + var(--statusbar-height, 0px)); /* [data] the same, lifted */
+  bottom: calc(34px + var(--statusbar-height)); /* [data] the same, lifted */
   width: 54px; /* [data] Crisp's launcher diameter */
   height: 54px; /* [data] Crisp's launcher diameter */
   border-radius: 50%;
