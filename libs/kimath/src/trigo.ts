@@ -9,6 +9,7 @@
 
 import { EDA_ANGLE, ANGLE_0, ANGLE_90, ANGLE_180, ANGLE_270 } from './geometry/eda_angle.js';
 import { VECTOR2I, type Vec2 } from './math/vector2.js';
+import { KiROUND } from './math/util.js';
 
 /** Rotate a point about the origin by `aAngle` (KiCad RotatePoint(int*,int*,angle)). */
 export function RotatePoint(point: VECTOR2I, aAngle: EDA_ANGLE): VECTOR2I;
@@ -262,7 +263,7 @@ function rotateAboutOrigin(p: VECTOR2I, aAngle: EDA_ANGLE): VECTOR2I {
   if (angle.equals(ANGLE_270)) return VECTOR2I(-p.y, p.x); // sin=-1, cos=0
   const s = angle.Sin();
   const cos = angle.Cos();
-  return VECTOR2I(Math.round(p.y * s + p.x * cos), Math.round(p.y * cos - p.x * s));
+  return VECTOR2I(KiROUND(p.y * s + p.x * cos), KiROUND(p.y * cos - p.x * s));
 }
 
 /**

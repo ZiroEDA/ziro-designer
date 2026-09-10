@@ -64,12 +64,85 @@ export class Vertex {
   nextZ: Vertex | null = null;
   prevZ: Vertex | null = null;
   private readonly parent: VertexSet;
+  /** `m_userData`: the outline index a VERTEX_CONNECTOR tags each vertex with. */
+  readonly userData: number;
 
-  constructor(i: number, x: number, y: number, parent: VertexSet) {
+  constructor(i: number, x: number, y: number, parent: VertexSet, userData = 0) {
     this.i = i;
     this.x = x;
     this.y = y;
     this.parent = parent;
+    this.userData = userData;
+  }
+
+  /** `VERTEX::inTriangle`: does the triangle a-b-c surround this vertex? */
+  inTriangle(a: Vertex, b: Vertex, c: Vertex): boolean {
+    return (
+      (c.x - this.x) * (a.y - this.y) - (a.x - this.x) * (c.y - this.y) >= 0 &&
+      (a.x - this.x) * (b.y - this.y) - (b.x - this.x) * (a.y - this.y) >= 0 &&
+      (b.x - this.x) * (c.y - this.y) - (c.x - this.x) * (b.y - this.y) >= 0
+    );
+  }
+
+  /**
+   * `VERTEX::isEar( aMatchUserData )`: is this a convex vertex with no
+   * reflex vertex inside its ear triangle? The candidates are walked in
+   * z-order both ways from this vertex, to the Morton range of the
+   * triangle's box, exactly as upstream walks them.
+   */
+  isEar(aMatchUserData = false): boolean {
+    let a: Vertex = this.prev;
+
+    let c: Vertex = this.next;
+
+    if (aMatchUserData) {
+      while (a.userData !== this.userData) a = a.prev;
+      while (c.userData !== this.userData) c = c.next;
+    }
+
+    // If the area >=0, then the three points for a concave sequence
+    // with b as the reflex point
+    if (this.parent.area(a, this, c) >= 0) return false;
+
+    // triangle bbox
+    const minTX = Math.min(a.x, Math.min(this.x, c.x));
+    const minTY = Math.min(a.y, Math.min(this.y, c.y));
+    const maxTX = Math.max(a.x, Math.max(this.x, c.x));
+    const maxTY = Math.max(a.y, Math.max(this.y, c.y));
+
+    // z-order range for the current triangle bounding box
+    const minZ = this.parent.zOrder(minTX, minTY);
+    const maxZ = this.parent.zOrder(maxTX, maxTY);
+
+    // first look for points inside the triangle in increasing z-order
+    let p = this.nextZ;
+    while (p && p.z <= maxZ) {
+      if (
+        (!aMatchUserData || p.userData === this.userData) &&
+        p !== a &&
+        p !== c &&
+        p.inTriangle(a, this, c) &&
+        this.parent.area(p.prev, p, p.next) >= 0
+      )
+        return false;
+      p = p.nextZ;
+    }
+
+    // then look for points in decreasing z-order
+    p = this.prevZ;
+    while (p && p.z >= minZ) {
+      if (
+        (!aMatchUserData || p.userData === this.userData) &&
+        p !== a &&
+        p !== c &&
+        p.inTriangle(a, this, c) &&
+        this.parent.area(p.prev, p, p.next) >= 0
+      )
+        return false;
+      p = p.prevZ;
+    }
+
+    return true;
   }
 
   /** Same *place*, not the same vertex — an outline may revisit a point. */
@@ -200,8 +273,8 @@ export class VertexSet {
   }
 
   /** Link one point into the outline ring after `last`. */
-  insertVertex(index: number, pt: Vec2, last: Vertex | null): Vertex {
-    const p = new Vertex(index, pt.x, pt.y, this);
+  insertVertex(index: number, pt: Vec2, last: Vertex | null, userData = 0): Vertex {
+    const p = new Vertex(index, pt.x, pt.y, this, userData);
     this.vertices.push(p);
 
     if (!last) {
@@ -223,7 +296,7 @@ export class VertexSet {
    * wound the way this structure does not want, so they go in backwards. Every
    * orientation-reading predicate below depends on that being settled here.
    */
-  createList(points: readonly Vec2[], tail: Vertex | null = null): Vertex | null {
+  createList(points: readonly Vec2[], tail: Vertex | null = null, userData = 0): Vertex | null {
     let out = tail;
     let sum = 0;
 
@@ -241,7 +314,7 @@ export class VertexSet {
       const dx = pt.x - lastPt.x;
       const dy = pt.y - lastPt.y;
       if (first || dx * dx + dy * dy > this.simplificationLevel) {
-        out = this.insertVertex(i, pt, out);
+        out = this.insertVertex(i, pt, out, userData);
         lastPt = pt;
         first = false;
       }

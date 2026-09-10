@@ -1205,11 +1205,17 @@ describe('zone filler', () => {
   });
 
   it('hatches a zone into webbing instead of solid copper', () => {
-    const solid = area(fillZone(board({ zones: [zone()] }), 0)[0]!.polys);
+    // The 40 mm square at (100, 100) of ~/kicad-oracle/refill/hatch40.kicad_pcb,
+    // 1 mm web on a 2 mm gap: `kicad-cli pcb drc --refill-zones` pours
+    // 980.6458021203615 mm² of it (SHAPE_POLY_SET::Area of the F.Cu fill).
+    // A 1 mm web on a 3 mm pitch is nominally 1 - (2/3)² = 55.6 % plus the
+    // solid border, so not "well under half" — the number is KiCad's.
+    const at = (x: number, y: number) => ({ x: MM(100 + x), y: MM(100 + y) });
     const hatched = fillZone(
       board({
         zones: [
           zone({
+            outline: [at(0, 0), at(40, 0), at(40, 40), at(0, 40)],
             fillMode: 'hatch',
             hatchThickness: MM(1),
             hatchGap: MM(2),
@@ -1220,9 +1226,7 @@ describe('zone filler', () => {
       0,
     );
     const webbing = area(hatched[0]!.polys);
-    // A 1 mm web on a 3 mm pitch keeps well under half the copper.
-    expect(webbing).toBeLessThan(solid * 0.6);
-    expect(webbing).toBeGreaterThan(0);
+    expect(webbing).toBeCloseTo(980.6458021203615, 6);
     // It is one connected mesh: fracture joins every hole to the outline, so
     // the whole grid comes back as a single ring with a great many points.
     expect(hatched[0]!.polys).toHaveLength(1);

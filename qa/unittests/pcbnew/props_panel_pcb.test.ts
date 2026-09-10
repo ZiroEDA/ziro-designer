@@ -1190,7 +1190,12 @@ describe('ZONE rows', () => {
     expect(names(rows)).not.toContain('Position X');
   });
 
-  it('draws the hatch rows greyed until the fill mode is a hatch pattern', () => {
+  // The `set` below refills the zone, and a zone switched to a hatch pattern
+  // with its hatch gap still 0 is hatched the way KiCad hatches it: holes one
+  // minimum thickness across on a pitch a micron wider, thousands of them.
+  it('draws the hatch rows greyed until the fill mode is a hatch pattern', {
+    timeout: 60_000,
+  }, () => {
     // `SetWriteableFunc( isHatchedFill )` is wxPG_PROP_READONLY, not absence:
     // the rows are there, and they cannot be typed into. That is a different
     // state from SetAvailableFunc, which removes the row.

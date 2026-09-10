@@ -9,6 +9,7 @@
  * see units.ts for our IU).
  */
 
+import { hypot } from './libm.js';
 import { KiROUND, rescale64 } from './util.js';
 
 /** 2D point/vector in integer internal units (100 nm). Immutable variant. */
@@ -55,7 +56,7 @@ export const EuclideanNormI = (v: VECTOR2I): number => {
   if (Math.abs(v.x) === Math.abs(v.y)) return KiROUND(Math.abs(v.x) * Math.SQRT2);
   if (v.x === 0) return Math.abs(v.y);
   if (v.y === 0) return Math.abs(v.x);
-  return KiROUND(Math.hypot(v.x, v.y));
+  return KiROUND(hypot(v.x, v.y));
 };
 
 /**

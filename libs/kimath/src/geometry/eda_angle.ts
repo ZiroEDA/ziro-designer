@@ -12,6 +12,8 @@
  * gt / le / ge. Everything else keeps KiCad's names and semantics exactly.
  */
 
+import { acos, atan2, cos, sin } from '../math/libm.js';
+
 export enum EDA_ANGLE_T {
   TENTHS_OF_A_DEGREE_T,
   DEGREES_T,
@@ -47,7 +49,7 @@ export class EDA_ANGLE {
     if (v.x === 0) return new EDA_ANGLE(v.y > 0 ? 90.0 : -90.0);
     if (v.x === v.y) return new EDA_ANGLE(v.x < 0 ? -180.0 + 45.0 : 45.0);
     if (v.x === -v.y) return new EDA_ANGLE(v.x < 0 ? 180.0 - 45.0 : -45.0);
-    return new EDA_ANGLE(Math.atan2(v.y, v.x), EDA_ANGLE_T.RADIANS_T);
+    return new EDA_ANGLE(atan2(v.y, v.x), EDA_ANGLE_T.RADIANS_T);
   }
 
   AsDegrees(): number {
@@ -81,7 +83,7 @@ export class EDA_ANGLE {
     if (v === 225.0 || v === 315.0) return -Math.SQRT1_2;
     if (v === 90.0) return 1.0;
     if (v === 270.0) return -1.0;
-    return Math.sin(this.AsRadians());
+    return sin(this.AsRadians());
   }
 
   Cos(): number {
@@ -91,7 +93,7 @@ export class EDA_ANGLE {
     if (v === 90.0 || v === 270.0) return 0.0;
     if (v === 45.0 || v === 315.0) return Math.SQRT1_2;
     if (v === 135.0 || v === 225.0) return -Math.SQRT1_2;
-    return Math.cos(this.AsRadians());
+    return cos(this.AsRadians());
   }
 
   Tan(): number {
@@ -99,7 +101,7 @@ export class EDA_ANGLE {
   }
 
   static Arccos(x: number): EDA_ANGLE {
-    return new EDA_ANGLE(Math.acos(x), EDA_ANGLE_T.RADIANS_T);
+    return new EDA_ANGLE(acos(x), EDA_ANGLE_T.RADIANS_T);
   }
   static Arcsin(x: number): EDA_ANGLE {
     return new EDA_ANGLE(Math.asin(x), EDA_ANGLE_T.RADIANS_T);

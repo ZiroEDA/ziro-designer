@@ -87,6 +87,10 @@ function glyphs(): Glyph[] {
   return decoded;
 }
 
+/** The decoded newstroke table, `STROKE_FONT::m_glyphs`, for a faithful layout. */
+export const strokeGlyphs = (): readonly Glyph[] => glyphs();
+export type { Glyph as StrokeGlyph };
+
 /** Advance width of the space glyph (index 0), in em units. */
 function spaceAdvance(): number {
   return glyphs()[0]!.advance;

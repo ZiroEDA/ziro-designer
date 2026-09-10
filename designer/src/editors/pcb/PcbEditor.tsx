@@ -1960,6 +1960,13 @@ export function PcbEditor({
       holeClearance: Math.round(boardSetup.constraints.copperToHoleMM * MM),
       // `m_MinClearance`, the floor under a pad's own clearance override.
       minClearance: Math.round(boardSetup.constraints.minClearanceMM * MM),
+      // `m_HoleToHoleMin` and the worst netclass clearance: two of the terms
+      // of `GetBiggestClearanceValue`, which sizes the box the filler looks
+      // for knockouts in.
+      holeToHoleMin: Math.round(boardSetup.constraints.minHoleToHoleMM * MM),
+      worstNetClassClearance: Math.round(
+        Math.max(0, ...boardSetup.netClasses.classes.map((c) => Number(c.clearance) || 0)) * MM,
+      ),
       // `CLEARANCE_CONSTRAINT`. Without this the pour used the zone's own
       // `(connect_pads (clearance …))` alone, so a zone that states none — and
       // plenty do — kept no gap at all from other nets.
@@ -1983,6 +1990,7 @@ export function PcbEditor({
       boardSetup.constraints.copperToEdgeMM,
       boardSetup.constraints.copperToHoleMM,
       boardSetup.constraints.minClearanceMM,
+      boardSetup.constraints.minHoleToHoleMM,
       boardSetup.netClasses,
     ],
   );

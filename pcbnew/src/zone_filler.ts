@@ -28,8 +28,11 @@
 import type { Geom, MultiPolygon, Ring } from 'polygon-clipping';
 import { pcbIuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import {
+  booleanAdd,
+  booleanIntersection,
   booleanOp,
   BooleanOp,
+  booleanSubtract,
   chamfer,
   CornerStrategy,
   fillet,
@@ -39,12 +42,17 @@ import {
 } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { getBoardPolygonOutlines } from './board_statistics.js';
+import { type Vertex, VertexSet } from '@ziroeda/kimath/src/geometry/vertex_set.js';
+import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
+import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { defaultThermalSpokeAngle } from './padstack.js';
 import { graphicShapes, padShapes } from './drc/drc_engine.js';
 import { shapeDist, type Shape } from './drc/drc_geometry.js';
 import { tessellateArc } from './read-board.js';
 import { padShapePos } from './padstack.js';
-import { textShapes } from './text_geometry.js';
+import { textTransformShapeToPolygon, textTransformTextToPolySet } from './text_to_polyset.js';
 import {
   arcToPolygon,
   circlePoly,
@@ -55,11 +63,23 @@ import {
 
 export { segmentsForRadius };
 import { barcodeGeometry, barcodeHullBoxes } from './barcode_geometry.js';
+import {
+  arcTrackTransformShapeToPolygon,
+  edaShapeTransformShapeToPolygon,
+  ErrorLoc,
+  padTransformHoleToPolygon,
+  padTransformShapeToPolygon,
+  trackTransformShapeToPolygon,
+  viaTransformShapeToPolygon,
+} from './transform_shape_to_polygon.js';
+import { transformCircleToPolygonSet } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import type {
   Board,
   PadPrimitive,
   PcbFootprint,
   PcbPad,
+  PcbShape,
+  PcbTextItem,
   PcbVia,
   PcbZone,
   PcbZoneFill,
@@ -85,6 +105,9 @@ const DEFAULT_MAX_ERROR = mmToIU(0.005);
  * slivers along thousands of them added up to the last 0.02–0.15 %.
  */
 // [data] 0.0005 mm, ADVANCED_CFG's default; the user can change it in kicad_advanced.
+/** The implicit "barcode visual separation default" rule: 1 mm (drc_engine.cpp:261). */
+const BARCODE_VISUAL_SEPARATION_DEFAULT = mmToIU(1.0);
+
 const EXTRA_CLEARANCE = mmToIU(0.0005);
 
 /** `DEFAULT_COPPEREDGECLEARANCE` (`include/board_design_settings.h:89`). */
@@ -128,6 +151,26 @@ export interface ZoneFillOptions {
    * for an NPTH it is the only ordinary clearance that applies at all.
    */
   holeClearance?: number;
+  /**
+   * `PHYSICAL_CLEARANCE_CONSTRAINT` / `PHYSICAL_HOLE_CLEARANCE_CONSTRAINT` as
+   * resolved for the zone — a rule-only constraint, so a board with no
+   * custom rules has none (`EvalRules` answers a null constraint, `Min()` 0).
+   */
+  physicalClearance?: number;
+  physicalHoleClearance?: number;
+  /** `m_HoleToHoleMin`, one of the terms of `GetBiggestClearanceValue`. */
+  holeToHoleMin?: number;
+  /**
+   * `QueryWorstConstraint( CLEARANCE_CONSTRAINT )`: the largest clearance any
+   * netclass or rule states, whether or not a net uses it.
+   */
+  worstNetClassClearance?: number;
+  /**
+   * `DUMP_POLYS_TO_COPPER_LAYER`: every intermediate poly set of
+   * `fillCopperZone`, named as upstream names its debug layers, for a test
+   * that holds KiCad's own `DebugZoneFiller` dumps.
+   */
+  onStage?: (name: string, layer: string, polys: Polygon[]) => void;
   /**
    * `BOARD_DESIGN_SETTINGS::m_MinClearance` — Board Setup > Constraints'
    * "Minimum clearance". A pad's local clearance override is floored at it
@@ -264,6 +307,24 @@ const fromPolys = (polys: Polygon[]): MultiPolygon =>
 const intRingOf = (pts: Vec2[]): Ring =>
   dedupeRing(pts.map((p) => [Math.round(p.x), Math.round(p.y)] as [number, number]));
 const ptsOf = (ring: Ring): Vec2[] => ring.map(([x, y]) => ({ x, y }));
+/**
+ * `PCB_SHAPE::GetBoundingBox`, near enough for the zone's own guard: the
+ * shape's points widened by its stroke.
+ */
+function shapeBox(s: PcbShape): Box {
+  const pts: Vec2[] = [];
+  for (const p of [s.start, s.end, s.mid, s.center]) if (p) pts.push(p);
+  if (s.pts) pts.push(...s.pts);
+  let box = boxOf(pts.length ? pts : [{ x: 0, y: 0 }]);
+  if (s.kind === 'circle' && s.center && s.end) {
+    const r = Math.hypot(s.end.x - s.center.x, s.end.y - s.center.y);
+    box = boxInflate(boxOf([s.center]), r);
+  }
+  return boxInflate(box, Math.trunc(s.width / 2));
+}
+
+/** kimath polygons as the `Geom` list the knockout sets are collected in. */
+const asGeoms = (polys: Polygon[]): Geom[] => polys.map((poly) => poly.map(ringOf) as Geom);
 
 /**
  * A DRC shape as a polygon grown by `gap`. Inflation is a union of the shape
@@ -536,29 +597,11 @@ interface ThermalSpoke {
  * short-circuits on `dx == 0`, so the difference is the difference between an
  * axis spoke and a very slightly diagonal one.
  */
-function angleCos(deg: number): number {
-  const d = ((deg % 360) + 360) % 360;
-  if (d === 0) return 1;
-  if (d === 90 || d === 270) return 0;
-  if (d === 180) return -1;
-  return Math.cos((d * Math.PI) / 180);
-}
+const angleCos = (deg: number): number => new EDA_ANGLE(deg).Cos();
+const angleSin = (deg: number): number => new EDA_ANGLE(deg).Sin();
 
-function angleSin(deg: number): number {
-  const d = ((deg % 360) + 360) % 360;
-  if (d === 0 || d === 180) return 0;
-  if (d === 90) return 1;
-  if (d === 270) return -1;
-  return Math.sin((d * Math.PI) / 180);
-}
-
-const rotate = (p: Vec2, deg: number): Vec2 => {
-  const c = angleCos(deg);
-  const s = angleSin(deg);
-  // RotatePoint is clockwise in screen coordinates, which is what every other
-  // rotation in the board model uses.
-  return { x: Math.round(p.x * c + p.y * s), y: Math.round(-p.x * s + p.y * c) };
-};
+/** `RotatePoint( VECTOR2I&, const EDA_ANGLE& )` — the integer one, KiROUND. */
+const rotate = (p: Vec2, deg: number): Vec2 => RotatePoint(p, new EDA_ANGLE(deg));
 
 /**
  * `buildSpokesFromOrigin`: four spokes out of the origin, in the cardinal
@@ -583,10 +626,10 @@ function spokesFromOrigin(half: Vec2, deg: number, spokeHalfW: number): ThermalS
 
     if (dx === 0) {
       side = { x: spokeHalfW, y: 0 };
-      at = { x: 0, y: Math.round(dy * half.y) };
+      at = { x: KiROUND(0.0), y: KiROUND(dy * half.y) };
     } else if (dy === 0) {
       side = { x: 0, y: spokeHalfW };
-      at = { x: Math.round(dx * half.x), y: 0 };
+      at = { x: KiROUND(dx * half.x), y: KiROUND(0.0) };
     } else {
       // "We are going to intersect with one side or the other. Whichever we hit
       // first is the fraction of the spoke length we keep."
@@ -594,11 +637,11 @@ function spokesFromOrigin(half: Vec2, deg: number, spokeHalfW: number): ThermalS
       const distY = half.y / Math.abs(dy);
 
       if (distX < distY) {
-        side = { x: 0, y: Math.round(spokeHalfW / angleSin(90 - a)) };
-        at = { x: Math.round(dx * distX), y: Math.round(dy * distX) };
+        side = { x: KiROUND(0.0), y: KiROUND(spokeHalfW / angleSin(90 - a)) };
+        at = { x: KiROUND(dx * distX), y: KiROUND(dy * distX) };
       } else {
-        side = { x: Math.round(spokeHalfW / angleSin(a)), y: 0 };
-        at = { x: Math.round(dx * distY), y: Math.round(dy * distY) };
+        side = { x: KiROUND(spokeHalfW / angleSin(a)), y: KiROUND(0.0) };
+        at = { x: KiROUND(dx * distY), y: KiROUND(dy * distY) };
       }
     }
 
@@ -661,9 +704,20 @@ function thermalSpokes(pad: PcbPad, zone: PcbZone, maxError: number): ThermalSpo
   // upstream's box would be larger there, and its spokes correspondingly
   // longer. A custom pad that says where its spokes go takes the branch above
   // instead, so this is only the ones that do not.
+  // `half_size = KiROUND( box.GetWidth() / 2.0, box.GetHeight() / 2.0 )`,
+  // the box being `size / 2` (integer halves, plus `trap_delta / 2` for a
+  // trapezoid) inflated by the gap.
   const half: Vec2 = {
-    x: pad.size.x / 2 + Math.abs(pad.delta?.y ?? 0) / 2 + inflate,
-    y: pad.size.y / 2 + Math.abs(pad.delta?.x ?? 0) / 2 + inflate,
+    x: KiROUND(
+      (2 * (Math.trunc(pad.size.x / 2) + Math.abs(Math.trunc((pad.delta?.y ?? 0) / 2))) +
+        2 * inflate) /
+        2.0,
+    ),
+    y: KiROUND(
+      (2 * (Math.trunc(pad.size.y / 2) + Math.abs(Math.trunc((pad.delta?.x ?? 0) / 2))) +
+        2 * inflate) /
+        2.0,
+    ),
   };
 
   // "the bounding box for circles will overshoot the mark considerably when the
@@ -672,10 +726,10 @@ function thermalSpokes(pad: PcbPad, zone: PcbZone, maxError: number): ThermalSpo
   // pointed diagonally, not out to the box's corner.
   const circular = pad.shape === 'circle' || (pad.shape === 'oval' && pad.size.x === pad.size.y);
   const built = circular
-    ? spokesFromOrigin(half, 0, Math.round(width / 2)).map((sp) =>
-        placeSpoke(sp, spokeAngle, { x: 0, y: 0 }),
+    ? spokesFromOrigin(half, 0, Math.trunc(width / 2)).map((sp) =>
+        spokeAngle !== 0 ? placeSpoke(sp, spokeAngle, { x: 0, y: 0 }) : sp,
       )
-    : spokesFromOrigin(half, spokeAngle, Math.round(width / 2));
+    : spokesFromOrigin(half, spokeAngle, Math.trunc(width / 2));
 
   // "Spokes are from center of pad shape, not from hole" — a drill offset
   // moves the copper, and the spokes go with it.
@@ -915,11 +969,41 @@ function subtractHigherPriorityZones(
 
   if (knockouts.length === 0) return fill;
 
-  const kept = clip.difference(
-    fill.map((poly) => poly.map(intRingOf)).filter((poly) => poly[0]!.length >= 3) as Geom,
-    knockouts as unknown as Geom,
-  ) as MultiPolygon;
-  return kept.map((poly) => poly.map(ptsOf));
+  return booleanSubtract(
+    fill,
+    knockouts.map((poly) => poly.map(ptsOf)),
+  );
+}
+
+/**
+ * `SHAPE_POLY_SET::Inflate( aAmount, aCornerStrategy, aMaxError, aSimplify )`:
+ * the segment count is `GetArcToSegmentCount( |aAmount|, aMaxError, 360° )`.
+ */
+function inflateKi(
+  polys: Polygon[],
+  amount: number,
+  strategy: CornerStrategy,
+  maxError: number,
+  simplify = false,
+): Polygon[] {
+  return inflate(polys, amount, strategy, segmentsForRadius(Math.abs(amount), maxError), simplify);
+}
+
+/** The `islandExtents.GetSizeMax()` of `fillCopperZone`'s blob test. */
+function islandExtentMax(poly: Polygon): number {
+  const outer = poly[0];
+  if (!outer || outer.length === 0) return 0;
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const p of outer) {
+    minX = Math.min(minX, p.x);
+    minY = Math.min(minY, p.y);
+    maxX = Math.max(maxX, p.x);
+    maxY = Math.max(maxY, p.y);
+  }
+  return Math.max(maxX - minX, maxY - minY);
 }
 
 /**
@@ -973,10 +1057,11 @@ function fillZoneParts(
   for (const layer of zone.layers) {
     if (!isCopper(layer)) continue;
 
-    // ZONE::BuildSmoothedPoly: the outline, clipped to the board and with its
-    // corners chamfered or filleted, before anything is knocked out of it.
-    const outline: Geom = buildSmoothedPoly(board, zoneIndex, layer, boardOutline, maxError);
-    if ((outline as MultiPolygon).length === 0) continue;
+    // `ZONE::BuildSmoothedPoly( maxExtents, aLayer, boardOutline, &smoothedPoly )`:
+    // the fill STARTS from the outline with its apron, and is trimmed back to
+    // `maxExtents` only at the end (zone_filler.cpp:3126).
+    const smoothed = buildSmoothedPoly(board, zoneIndex, layer, boardOutline, maxError);
+    if (smoothed.maxExtents.length === 0) continue;
     const holes: Geom[] = [];
     const spokes: ThermalSpoke[] = [];
     // `knockoutThermalReliefs` keeps its reliefs in a set of its OWN and
@@ -996,22 +1081,33 @@ function fillZoneParts(
     // small pour still polygonises every pad and every track on the board:
     // `m_worstClearance` is `BOARD::GetMaxClearanceValue`, the largest gap any
     // rule can ask for, so nothing that could reach the zone is skipped.
-    let worstClearance = 0;
-    for (const net of board.nets.keys()) worstClearance = Math.max(worstClearance, gapTo(net));
-    worstClearance = Math.max(
-      worstClearance,
-      zone.thermalGap ?? 0,
+    // `BOARD_DESIGN_SETTINGS::GetBiggestClearanceValue`: the board minimum
+    // clearance, hole clearance, hole-to-hole and copper-to-edge, then the
+    // worst of every clearance rule and netclass.
+    //
+    // `QueryWorstConstraint( PHYSICAL_CLEARANCE_CONSTRAINT )` counts every rule
+    // whatever its condition, and `loadImplicitRules` always adds "barcode
+    // visual separation default", a 1 mm physical clearance on
+    // `A.Type == 'Barcode'` (drc_engine.cpp:259-263). So the worst clearance
+    // on any board is at least 1 mm, and a board edge 0.6 mm from a pour is
+    // knocked out where a smaller guard would have skipped it.
+    let worstClearance = Math.max(
+      opts.minClearance ?? 0,
+      opts.holeClearance ?? 0,
+      opts.holeToHoleMin ?? 0,
       opts.edgeClearance ?? DEFAULT_EDGE_CLEARANCE,
+      opts.worstNetClassClearance ?? 0,
+      BARCODE_VISUAL_SEPARATION_DEFAULT,
     );
+    for (const net of board.nets.keys()) worstClearance = Math.max(worstClearance, gapTo(net));
     // `GetMaxClearanceValue` walks the items too, and a local override on one
     // pad can be larger than any netclass on the board.
     for (const fp of board.footprints) {
-      if (fp.localClearance !== undefined)
-        worstClearance = Math.max(worstClearance, fp.localClearance);
       for (const pad of fp.pads) {
-        if (pad.localClearance !== undefined)
-          worstClearance = Math.max(worstClearance, pad.localClearance);
-        if (pad.thermalGap !== undefined) worstClearance = Math.max(worstClearance, pad.thermalGap);
+        // `pad->GetClearanceOverrides( nullptr )`: the pad's own, else its
+        // footprint's.
+        const override = pad.localClearance ?? fp.localClearance;
+        if (override !== undefined) worstClearance = Math.max(worstClearance, override);
       }
     }
     // `GetMaxClearanceValue` walks the zones too: another zone's own
@@ -1021,6 +1117,13 @@ function fillZoneParts(
         worstClearance = Math.max(worstClearance, z.clearance);
     const zoneBox = boxInflate(boxOf(zone.outline), worstClearance + EXTRA_CLEARANCE);
     const near = (b: Box): boolean => boxesIntersect(b, zoneBox);
+
+    const stage = (name: string, polys: Polygon[]): void => {
+      if (opts.onStage) opts.onStage(name, layer, polys);
+    };
+
+    let fill: Polygon[] = smoothed.smoothed;
+    stage('smoothed-outline', fill);
 
     // Pads (`ZONE_FILLER::knockoutThermalReliefs` and, for the ones it hands on,
     // `knockoutPadClearance`).
@@ -1044,7 +1147,6 @@ function fillZoneParts(
         const shapeAt = padShapePos(pad);
         if (!near(boxAround(pad.at, shapeAt, reach))) continue;
 
-        const shapes = padShapes(pad);
         const holeRadius = pad.drill ? Math.max(pad.drill.w, pad.drill.h) / 2 : 0;
 
         // `noConnection`: a different net, or any pad at all on a zone with no
@@ -1064,7 +1166,11 @@ function fillZoneParts(
           // what touches the pour is its spokes, so its anchors are added with
           // them below.
           const reliefGap = thermalReliefGap(pad, zone);
-          for (const s of shapes) reliefHoles.push(...shapeToPolygon(s, reliefGap, maxError));
+          reliefHoles.push(
+            ...asGeoms(
+              padTransformShapeToPolygon(pad, reliefGap, maxError, ErrorLoc.ERROR_OUTSIDE),
+            ),
+          );
           spokes.push(...thermalSpokes(pad, zone, maxError));
           // The pad is in the cluster whether or not a spoke survives, so any
           // copper left standing on it is connected copper.
@@ -1076,14 +1182,38 @@ function fillZoneParts(
           // after the spokes have been added and the min-width prune has run.
           // The spokes all start at the pad centre, so without this the four
           // of them fill the middle of the pad's own hole.
-          const drill = padHoleShape(pad, 0);
-          if (drill) thermalHoles.push(...shapeToPolygon(drill, 0, maxError));
+          thermalHoles.push(
+            ...asGeoms(padTransformHoleToPolygon(pad, 0, maxError, ErrorLoc.ERROR_OUTSIDE)),
+          );
           continue;
         }
 
-        // NONE, and every different-net pad. `knockoutPadClearance` treats the
-        // copper and the hole as two separate knockouts with two different
-        // gaps.
+        if (sameNet && mode === 'none') {
+          // A same-net pad with NO connection is knocked out right here in
+          // `knockoutThermalReliefs`, into the same set as the reliefs: the
+          // gap is the physical clearance or the zone's own, whichever is
+          // larger, with NO `m_ExtraClearance`, and a flashed pad's hole is
+          // not knocked out separately (zone_filler.cpp:1955-1980).
+          const padClearance = Math.max(opts.physicalClearance ?? 0, zone.clearance ?? 0);
+          if (padOnLayer(pad, layer) && pad.type !== 'np_thru_hole') {
+            reliefHoles.push(
+              ...asGeoms(
+                padTransformShapeToPolygon(pad, padClearance, maxError, ErrorLoc.ERROR_OUTSIDE),
+              ),
+            );
+          } else if (pad.drill) {
+            const holeClearance = Math.max(opts.physicalHoleClearance ?? 0, padClearance);
+            reliefHoles.push(
+              ...asGeoms(
+                padTransformHoleToPolygon(pad, holeClearance, maxError, ErrorLoc.ERROR_OUTSIDE),
+              ),
+            );
+          }
+          continue;
+        }
+
+        // Every different-net pad. `knockoutPadClearance` treats the copper
+        // and the hole as two separate knockouts with two different gaps.
         //
         // "if( flashLayer && gap >= 0 ) addKnockout( … )" — the COPPER only
         // goes when the pad HAS copper on this layer, and an NPTH whose drill
@@ -1105,8 +1235,16 @@ function fillZoneParts(
             : (opts.holeClearance ?? 0);
 
         if (padOnLayer(pad, layer) && !npth) {
-          for (const s of shapes)
-            holes.push(...shapeToPolygon(s, copperGap + EXTRA_CLEARANCE, maxError));
+          holes.push(
+            ...asGeoms(
+              padTransformShapeToPolygon(
+                pad,
+                copperGap + EXTRA_CLEARANCE,
+                maxError,
+                ErrorLoc.ERROR_OUTSIDE,
+              ),
+            ),
+          );
         }
 
         // The hole's own gap: the board's hole clearance, and — "oblong NPTH
@@ -1118,51 +1256,284 @@ function fillZoneParts(
         if (npth && pad.drill && pad.drill.w !== pad.drill.h)
           holeGap = Math.max(holeGap, opts.edgeClearance ?? DEFAULT_EDGE_CLEARANCE);
 
-        const hole = padHoleShape(pad, holeGap + EXTRA_CLEARANCE);
-        if (hole) holes.push(...shapeToPolygon(hole, 0, maxError));
+        holes.push(
+          ...asGeoms(
+            padTransformHoleToPolygon(
+              pad,
+              holeGap + EXTRA_CLEARANCE,
+              maxError,
+              ErrorLoc.ERROR_OUTSIDE,
+            ),
+          ),
+        );
       }
     }
 
+    /* ---------------------------------------------------------------------
+     * Knockout thermal reliefs: `aFill.BooleanSubtract( holes )`, the reliefs
+     * and the same-net no-connection pads, and nothing else.
+     */
+    fill = booleanSubtract(fill, reliefHoles.flatMap(asPolys));
+    stage('minus-thermal-reliefs', fill);
+
+    // `buildCopperItemClearances` walks the board in ONE order, and the
+    // order is not cosmetic: the knockouts are unioned into a single poly
+    // set, and where a ring of Clipper's answer STARTS depends on the order
+    // its inputs arrived in. `Fracture` then bridges each hole from its
+    // first leftmost vertex, so a ring rotated by one vertex is a slit
+    // landing on a different corner, and a fill that is the same copper
+    // with different vertices. Tracks, arcs and vias come in the file's own
+    // interleaving (`m_board->Tracks()`); then per footprint the reference,
+    // the value and its graphical items in file order; then the board's
+    // drawings in file order; then the zones.
+    const fileOrder = new Map<unknown, number>();
+    board.source.items.forEach((node, i) => fileOrder.set(node, i));
+    const at = (item: { source: unknown }): number =>
+      fileOrder.get(item.source) ?? Number.MAX_SAFE_INTEGER;
+
+    const copperItems: { at: number; run: () => void }[] = [];
     // Tracks, arcs and vias on other nets.
-    for (const t of board.tracks) {
-      if (t.layer !== layer) continue;
-      if (!near(boxAround(t.start, t.end, t.width))) continue;
-      if (t.net === zone.net && zone.net > 0) {
-        connected.push(...alongSegment(t.start, t.end));
-        continue;
-      }
-      holes.push([
-        stadiumPoly(t.start, t.end, t.width / 2 + gapTo(t.net) + EXTRA_CLEARANCE, maxError),
-      ]);
-    }
-    for (const a of board.arcs) {
-      if (a.layer !== layer) continue;
-      if (!near(boxInflate(boxOf([a.start, a.mid, a.end]), a.width))) continue;
-      if (a.net === zone.net && zone.net > 0) {
-        const pts = tessellateArc(a.start, a.mid, a.end);
-        for (let i = 1; i < pts.length; i++) connected.push(...alongSegment(pts[i - 1]!, pts[i]!));
-        continue;
-      }
-      // `PCB_TRACK::TransformShapeToPolygon`, PCB_ARC_T: "width = m_width + ( 2
-      // * aClearance )" into `TransformArcToPolygon`.
-      holes.push([
-        arcToPolygon(
-          a.start,
-          a.mid,
-          a.end,
-          a.width + 2 * (gapTo(a.net) + EXTRA_CLEARANCE),
-          maxError,
+    for (const t of board.tracks)
+      copperItems.push({
+        at: at(t),
+        run: () => {
+          if (t.layer !== layer) return;
+          if (!near(boxAround(t.start, t.end, t.width))) return;
+          if (t.net === zone.net && zone.net > 0) {
+            connected.push(...alongSegment(t.start, t.end));
+            return;
+          }
+          holes.push(
+            ...asGeoms(
+              trackTransformShapeToPolygon(
+                t,
+                gapTo(t.net) + EXTRA_CLEARANCE,
+                maxError,
+                ErrorLoc.ERROR_OUTSIDE,
+              ),
+            ),
+          );
+        },
+      });
+    for (const a of board.arcs)
+      copperItems.push({
+        at: at(a),
+        run: () => {
+          if (a.layer !== layer) return;
+          if (!near(boxInflate(boxOf([a.start, a.mid, a.end]), a.width))) return;
+          if (a.net === zone.net && zone.net > 0) {
+            const pts = tessellateArc(a.start, a.mid, a.end);
+            for (let i = 1; i < pts.length; i++)
+              connected.push(...alongSegment(pts[i - 1]!, pts[i]!));
+            return;
+          }
+          // `PCB_TRACK::TransformShapeToPolygon`, PCB_ARC_T: "width = m_width + ( 2
+          // * aClearance )" into `TransformArcToPolygon`.
+          holes.push(
+            ...asGeoms(
+              arcTrackTransformShapeToPolygon(
+                a,
+                gapTo(a.net) + EXTRA_CLEARANCE,
+                maxError,
+                ErrorLoc.ERROR_OUTSIDE,
+              ),
+            ),
+          );
+        },
+      });
+    for (const v of board.vias)
+      copperItems.push({
+        at: at(v),
+        run: () => {
+          // "viaBBox.Inflate( m_worstClearance )".
+          if (!near(boxAround(v.at, v.at, v.size))) return;
+          if (v.net === zone.net && zone.net > 0) {
+            connected.push(...viaAnchors(v));
+            return;
+          }
+          // `knockoutTrackClearance`, PCB_VIA_T: the copper at the clearance, and
+          // the DRILL at the larger of that and the hole clearance
+          // (zone_filler.cpp:2303-2320) — a second circle, usually inside the
+          // first, in the same set.
+          const viaGap = gapTo(v.net);
+          holes.push(
+            ...asGeoms(
+              viaTransformShapeToPolygon(
+                v,
+                viaGap + EXTRA_CLEARANCE,
+                maxError,
+                ErrorLoc.ERROR_OUTSIDE,
+              ),
+            ),
+          );
+          const drillGap = Math.max(viaGap, opts.holeClearance ?? 0);
+          holes.push([
+            transformCircleToPolygonSet(
+              v.at,
+              Math.trunc(v.drill / 2) + drillGap + EXTRA_CLEARANCE,
+              maxError,
+              ErrorLoc.ERROR_OUTSIDE,
+            ).map((p) => [p.x, p.y] as [number, number]),
+          ]);
+        },
+      });
+    copperItems.sort((p, q) => p.at - q.at);
+    for (const item of copperItems) item.run();
+
+    // Footprints: courtyard (no physical clearance rule, so nothing), the
+    // reference, the value, then the graphical items in file order; then the
+    // board's own drawings in file order.
+    const knockoutGraphic = (s: PcbShape): void => {
+      // Board graphics, and the BOARD EDGE (`zone_filler.cpp:2400-2440`).
+      //
+      // "A item on the Edge_Cuts or Margin is always seen as on any layer", so
+      // the board outline knocks copper out of every zone on every layer — and
+      // it is the one item measured against `EDGE_CLEARANCE_CONSTRAINT` rather
+      // than the ordinary clearance. That gap is the inset a filled board has
+      // all the way round its edge, and this filler had no board-graphics
+      // knockout at all: the pour ran to the outline the user drew, straight
+      // over the edge and over every copper graphic on its own layer.
+      //
+      // `ignoreLineWidths = true` for Edge.Cuts and only for Edge.Cuts: the
+      // outline graphic's stroke is a drawing convention, and the board edge is
+      // its CENTRELINE. Margin keeps its width.
+      const onLayer = s.layer === layer;
+      const isEdge = s.layer === 'Edge.Cuts';
+      const isMargin = s.layer === 'Margin';
+      if (!onLayer && !isEdge && !isMargin) return;
+      // "if( aItem->GetBoundingBox().Intersects( zone_boundingbox ) )" — the
+      // top edge of a board whose pour sits well below it is not knocked out,
+      // and so never joins the other three edges into one band.
+      if (!near(shapeBox(s))) return;
+
+      // "if( !aZone->IsTeardropArea() && aZone->GetNetCode() == 0 ) sameNet =
+      // false" — a zone with no net is never the same net as anything.
+      const sameNet = (s.net ?? 0) === zone.net && zone.net > 0;
+
+      // The CLEARANCE_CONSTRAINT upgrade applies only to a different-net item
+      // on this layer; everything else falls back to the physical clearance,
+      // which is 0 on a board with no rules.
+      const gap =
+        isEdge || isMargin
+          ? (opts.edgeClearance ?? DEFAULT_EDGE_CLEARANCE)
+          : sameNet
+            ? 0
+            : gapTo(s.net ?? 0);
+
+      holes.push(
+        ...asGeoms(
+          edaShapeTransformShapeToPolygon(
+            s,
+            gap + EXTRA_CLEARANCE,
+            maxError,
+            ErrorLoc.ERROR_OUTSIDE,
+            isEdge,
+          ),
         ),
-      ]);
+      );
+    };
+
+    const knockoutText = (t: PcbTextItem): void => {
+      // Copper TEXT, which `knockoutGraphicClearance` treats exactly like a
+      // graphic — `addKnockout` has a `PCB_TEXT_T` case
+      // (zone_filler.cpp:1735-1760). Without it the pour ran straight through the
+      // lettering on a copper layer: on complex_hierarchy a two-line B.Cu label
+      // is 140 mm² of copper we filled and KiCad does not, which is not a
+      // cosmetic difference but a short.
+      const onLayer = t.layer === layer;
+      const isEdge = t.layer === 'Edge.Cuts';
+      const isMargin = t.layer === 'Margin';
+      if (!onLayer && !isEdge && !isMargin) return;
+
+      // Text carries no net, so it is never the same net as the pour: `shapeNet`
+      // is -1 for anything that is not a PCB_SHAPE.
+      const gap = isEdge || isMargin ? (opts.edgeClearance ?? DEFAULT_EDGE_CLEARANCE) : gapTo(0);
+
+      // `if( text->IsVisible() )` — and then the rendered hull,
+      // `text->TransformShapeToPolygon( aHoles, aLayer, aGap, m_maxError,
+      // ERROR_OUTSIDE )`, or for knockout text the rendered strokes themselves.
+      if (t.hide) return;
+      const polys = t.knockout
+        ? textTransformTextToPolySet(t, 0, maxError, ErrorLoc.ERROR_INSIDE)
+        : textTransformShapeToPolygon(t, gap + EXTRA_CLEARANCE, maxError, ErrorLoc.ERROR_OUTSIDE);
+      if (polys.length === 0) return;
+      // `aItem->GetBoundingBox().Intersects( zone_boundingbox )`
+      if (!near(boxOf(polys.flatMap((poly) => poly[0]!)))) return;
+      holes.push(...asGeoms(polys));
+    };
+
+    const fpOrder = (fp: PcbFootprint): Map<unknown, number> => {
+      const m = new Map<unknown, number>();
+      fp.source.items.forEach((node, i) => m.set(node, i));
+      return m;
+    };
+    const isField = (t: PcbTextItem): boolean =>
+      t.kind === 'reference' ||
+      t.kind === 'value' ||
+      headOf(t.source as { items: unknown[] }) === 'property';
+
+    for (const fp of board.footprints) {
+      const ref = fp.texts.find((t) => t.kind === 'reference');
+      const val = fp.texts.find((t) => t.kind === 'value');
+      if (ref) knockoutText(ref);
+      if (val) knockoutText(val);
+      const order = fpOrder(fp);
+      const items: { at: number; run: () => void }[] = [];
+      for (const s of fp.shapes ?? [])
+        items.push({
+          at: order.get(s.source) ?? Number.MAX_SAFE_INTEGER,
+          run: () => knockoutGraphic(s),
+        });
+      // `GraphicalItems()` holds every text that is not a field.
+      for (const t of fp.texts)
+        if (!isField(t))
+          items.push({
+            at: order.get(t.source) ?? Number.MAX_SAFE_INTEGER,
+            run: () => knockoutText(t),
+          });
+      items.sort((p, q) => p.at - q.at);
+      for (const item of items) item.run();
     }
-    for (const v of board.vias) {
-      // "viaBBox.Inflate( m_worstClearance )".
-      if (!near(boxAround(v.at, v.at, v.size))) continue;
-      if (v.net === zone.net && zone.net > 0) {
-        connected.push(...viaAnchors(v));
-        continue;
+
+    const drawings: { at: number; run: () => void }[] = [];
+    for (const s of board.shapes) drawings.push({ at: at(s), run: () => knockoutGraphic(s) });
+    for (const t of board.texts) drawings.push({ at: at(t), run: () => knockoutText(t) });
+    drawings.sort((p, q) => p.at - q.at);
+    for (const item of drawings) item.run();
+
+    // A barcode on this layer knocks the pour out — `ZONE_FILLER::…`'s
+    // `case PCB_BARCODE_T` (`zone_filler.cpp:1765-1770`):
+    //
+    //     barcode->GetBoundingHull( aHoles, aLayer, aGap, m_maxError, ERROR_OUTSIDE );
+    //
+    // `GetBoundingHull`, NOT `TransformShapeToPolygon`. Every other item hands
+    // the filler its own outline; a barcode hands it two RECTANGLES, one round
+    // the symbol and one round the text. So copper is kept out of the whole
+    // box rather than threaded between the modules — which is the only useful
+    // answer, since a pour reaching into a QR code's light squares would make
+    // it unreadable.
+    for (const bc of [...board.barcodes, ...board.footprints.flatMap((f) => f.barcodes)]) {
+      if (bc.layer !== layer) continue;
+
+      const g = barcodeGeometry(bc);
+      for (const hull of barcodeHullBoxes(g, bc)) {
+        holes.push(
+          ...shapeToPolygon(
+            {
+              kind: 'poly',
+              pts: [
+                { x: hull.x1, y: hull.y1 },
+                { x: hull.x2, y: hull.y1 },
+                { x: hull.x2, y: hull.y2 },
+                { x: hull.x1, y: hull.y2 },
+              ],
+              r: 0,
+            },
+            gapTo(0) + EXTRA_CLEARANCE,
+            maxError,
+          ),
+        );
       }
-      holes.push([circlePoly(v.at, v.size / 2 + gapTo(v.net) + EXTRA_CLEARANCE, maxError)]);
     }
 
     // Other zones on this layer knock this one out
@@ -1220,119 +1591,13 @@ function fillZoneParts(
       for (const poly of inflated) holes.push(poly.map(ringOf) as Geom);
     });
 
-    // Board graphics, and the BOARD EDGE (`zone_filler.cpp:2400-2440`).
-    //
-    // "A item on the Edge_Cuts or Margin is always seen as on any layer", so
-    // the board outline knocks copper out of every zone on every layer — and
-    // it is the one item measured against `EDGE_CLEARANCE_CONSTRAINT` rather
-    // than the ordinary clearance. That gap is the inset a filled board has
-    // all the way round its edge, and this filler had no board-graphics
-    // knockout at all: the pour ran to the outline the user drew, straight
-    // over the edge and over every copper graphic on its own layer.
-    //
-    // `ignoreLineWidths = true` for Edge.Cuts and only for Edge.Cuts: the
-    // outline graphic's stroke is a drawing convention, and the board edge is
-    // its CENTRELINE. Margin keeps its width.
-    for (const s of [...board.shapes, ...board.footprints.flatMap((f) => f.shapes ?? [])]) {
-      const onLayer = s.layer === layer;
-      const isEdge = s.layer === 'Edge.Cuts';
-      const isMargin = s.layer === 'Margin';
-      if (!onLayer && !isEdge && !isMargin) continue;
-
-      // "if( !aZone->IsTeardropArea() && aZone->GetNetCode() == 0 ) sameNet =
-      // false" — a zone with no net is never the same net as anything.
-      const sameNet = (s.net ?? 0) === zone.net && zone.net > 0;
-
-      // The CLEARANCE_CONSTRAINT upgrade applies only to a different-net item
-      // on this layer; everything else falls back to the physical clearance,
-      // which is 0 on a board with no rules.
-      const gap =
-        isEdge || isMargin
-          ? (opts.edgeClearance ?? DEFAULT_EDGE_CLEARANCE)
-          : sameNet
-            ? 0
-            : gapTo(s.net ?? 0);
-
-      for (const sh of graphicShapes(isEdge ? { ...s, width: 0 } : s))
-        holes.push(...shapeToPolygon(sh, gap + EXTRA_CLEARANCE, maxError));
-    }
-
-    // Copper TEXT, which `knockoutGraphicClearance` treats exactly like a
-    // graphic — `addKnockout` has a `PCB_TEXT_T` case
-    // (zone_filler.cpp:1735-1760). Without it the pour ran straight through the
-    // lettering on a copper layer: on complex_hierarchy a two-line B.Cu label
-    // is 140 mm² of copper we filled and KiCad does not, which is not a
-    // cosmetic difference but a short.
-    for (const t of [...board.texts, ...board.footprints.flatMap((f) => f.texts)]) {
-      const onLayer = t.layer === layer;
-      const isEdge = t.layer === 'Edge.Cuts';
-      const isMargin = t.layer === 'Margin';
-      if (!onLayer && !isEdge && !isMargin) continue;
-
-      // Text carries no net, so it is never the same net as the pour: `shapeNet`
-      // is -1 for anything that is not a PCB_SHAPE.
-      const gap = isEdge || isMargin ? (opts.edgeClearance ?? DEFAULT_EDGE_CLEARANCE) : gapTo(0);
-
-      // `text->TransformShapeToPolygon( aHoles, aLayer, aGap, … )` is the hull's
-      // `BBox( aGap )`: the clearance is part of the rectangle, square-cornered.
-      const shapes = textShapes(t, maxError, gap + EXTRA_CLEARANCE);
-      if (shapes.length === 0) continue;
-      if (!near(boxOf(shapes.flatMap(shapeCorners)))) continue;
-
-      for (const sh of shapes) holes.push(...shapeToPolygon(sh, 0, maxError));
-    }
-
-    // A barcode on this layer knocks the pour out — `ZONE_FILLER::…`'s
-    // `case PCB_BARCODE_T` (`zone_filler.cpp:1765-1770`):
-    //
-    //     barcode->GetBoundingHull( aHoles, aLayer, aGap, m_maxError, ERROR_OUTSIDE );
-    //
-    // `GetBoundingHull`, NOT `TransformShapeToPolygon`. Every other item hands
-    // the filler its own outline; a barcode hands it two RECTANGLES, one round
-    // the symbol and one round the text. So copper is kept out of the whole
-    // box rather than threaded between the modules — which is the only useful
-    // answer, since a pour reaching into a QR code's light squares would make
-    // it unreadable.
-    for (const bc of [...board.barcodes, ...board.footprints.flatMap((f) => f.barcodes)]) {
-      if (bc.layer !== layer) continue;
-
-      const g = barcodeGeometry(bc);
-      for (const hull of barcodeHullBoxes(g, bc)) {
-        holes.push(
-          ...shapeToPolygon(
-            {
-              kind: 'poly',
-              pts: [
-                { x: hull.x1, y: hull.y1 },
-                { x: hull.x2, y: hull.y1 },
-                { x: hull.x2, y: hull.y2 },
-                { x: hull.x1, y: hull.y2 },
-              ],
-              r: 0,
-            },
-            gapTo(0) + EXTRA_CLEARANCE,
-            maxError,
-          ),
-        );
-      }
-    }
-
     // `buildCopperItemClearances` ends with `aHoles.Simplify()`: the knockouts
-    // become ONE poly set, which is then subtracted three times over — before
-    // the spokes, after them, and again after the re-inflate. Keeping them as a
-    // list and re-feeding it to the clipper at each of those is the same answer
-    // at several times the cost.
-    const holeSet: MultiPolygon =
-      holes.length === 0 ? [] : (clip.union(holes[0]!, ...holes.slice(1)) as MultiPolygon);
-
-    let area: MultiPolygon =
-      holeSet.length === 0 && reliefHoles.length === 0
-        ? (clip.union(outline) as MultiPolygon)
-        : (clip.difference(
-            outline,
-            ...(holeSet.length > 0 ? [holeSet as Geom] : []),
-            ...reliefHoles,
-          ) as MultiPolygon);
+    // become ONE poly set. `Simplify` is `splitCollinearOutlines` — which
+    // finds nothing to split in a set of simple shapes — and then a union with
+    // an empty set.
+    stage('input:clearance-holes', holes.flatMap(asPolys));
+    let clearanceHoles: Polygon[] = booleanAdd(holes.flatMap(asPolys), []);
+    stage('clearance-holes', clearanceHoles);
 
     // Spokes are added back — but only the ones that reach real copper.
     //
@@ -1352,12 +1617,10 @@ function fillZoneParts(
     // ANOTHER spoke is kept too, tested both ways round "to avoid interactions
     // with round-off errors" (kicad#13316). That is how two pads facing each
     // other across a gap too narrow for the pour still connect.
-    if (spokes.length > 0 && area.length > 0) {
-      const testAreas = spokeTestAreas(
-        area.map((poly) => poly.map(ptsOf)),
-        zone,
-        maxError,
-      );
+    if (spokes.length > 0) {
+      let testAreas = booleanSubtract(fill, clearanceHoles);
+      stage('minus-clearance-holes', testAreas);
+      testAreas = spokeTestAreas(testAreas, zone, maxError, stage);
       const onCopper = (p: Vec2): boolean => testAreas.some((poly) => pointInPolygon(poly, p));
       const insideSpoke = (spoke: ThermalSpoke, p: Vec2): boolean => pointInRing(p, spoke.ring);
 
@@ -1369,82 +1632,114 @@ function fillZoneParts(
               other !== spoke && insideSpoke(other, spoke.tip) && insideSpoke(spoke, other.tip),
           ),
       );
+      stage(
+        'spokes',
+        kept.map((k) => [k.ring]),
+      );
 
-      if (kept.length > 0) {
-        // A kept spoke's tip is by construction ON the copper it bridges to,
-        // which makes it the anchor for the pad it belongs to. A dropped one
-        // is not — and a pad whose spokes were all dropped connects to
-        // nothing, so it anchors nothing.
-        for (const k of kept) connected.push(k.tip);
+      // A kept spoke's tip is by construction ON the copper it bridges to,
+      // which makes it the anchor for the pad it belongs to. A dropped one
+      // is not — and a pad whose spokes were all dropped connects to
+      // nothing, so it anchors nothing.
+      for (const k of kept) connected.push(k.tip);
 
-        // "the 'real' subtract-clearance-holes has to be done after the spokes
-        // are added" (zone_filler.cpp:3020). A spoke runs from the pad centre
-        // out past the relief, straight through whatever sits in between; the
-        // holes are what stop it short of a neighbour's clearance.
-        //
-        // Every spoke goes in, then the holes come out ONCE. Trimming each
-        // spoke on its own is the same copper, but it re-feeds the whole hole
-        // set to the clipper per spoke — on a ground plane with hundreds of
-        // relieved pads that never finishes.
-        const withSpokes = clip.union(area as Geom, ...kept.map((k) => k.geom)) as MultiPolygon;
-        const trimmedFill =
-          holeSet.length > 0
-            ? (clip.difference(withSpokes as Geom, holeSet as Geom) as MultiPolygon)
-            : withSpokes;
-        area = clip.intersection(trimmedFill as Geom, outline) as MultiPolygon;
-      }
+      // `aFillPolys.AddOutline( spoke )`: a kept spoke is one more OUTLINE of
+      // the fill's poly set, and no boolean runs until the next line.
+      fill = [...fill, ...kept.map((k) => [k.ring])];
     }
 
-    // Prune anything thinner than the zone's minimum thickness, then fracture,
-    // as `fillCopperZone` does — and only THEN look for islands.
-    //
-    // The order is the whole point. `ZONE_FILLER::Fill` calls
-    // `FillIsolatedIslandsMap` after every `fillCopperZone` has returned, so
-    // what it sees is the finished, fractured poly set: each outline is one
-    // disjoint piece of copper, holes already cut by slits. Asking earlier
-    // reads a different board. On ecc83-pp four regions hang off the pour by
-    // necks thinner than its 0.381 mm minimum; the deflate/inflate severs them,
-    // and 212 mm² of copper KiCad drops as islands survived here because at the
-    // time we asked they were still attached.
-    // Three points, not four: polygon-clipping hands back OPEN rings, so a
-    // triangle is three of them and a `>= 4` guard threw it away. That is not a
-    // degenerate case — a straight zone corner cut off by one straight
-    // clearance edge IS a triangle, and on One-Air-Max a diagonal track slices
-    // 5.9 mm² of the PGND pour into exactly that shape, which upstream fills
-    // and this dropped before the prune ever saw it.
-    let pruned = postKnockoutMinWidthPrune(
-      area.map((poly) => poly.map(ptsOf)).filter((poly) => (poly[0]?.length ?? 0) >= 3),
-      zone,
-      maxError,
-    );
+    // "the 'real' subtract-clearance-holes has to be done after the spokes
+    // are added" (zone_filler.cpp:3020). A spoke runs from the pad centre
+    // out past the relief, straight through whatever sits in between; the
+    // holes are what stop it short of a neighbour's clearance.
+    stage('input:after-spoke-trimming:subject', fill);
+    stage('input:after-spoke-trimming:clip', clearanceHoles);
+    fill = booleanSubtract(fill, clearanceHoles);
+    stage('after-spoke-trimming', fill);
 
-    // `BooleanIntersection( aMaxExtents )` then `BooleanSubtract( clearanceHoles )`
-    // once more (zone_filler.cpp:3136-3139): re-inflating pushes copper back
-    // out over the edges the prune had cleared, and the thermal pads' own
-    // drills join the holes only here.
-    if (pruned.length > 0 && (thermalHoles.length > 0 || holeSet.length > 0)) {
-      const trimmed = clip.difference(
-        clip.intersection(
-          pruned.map((poly) => poly.map(intRingOf)).filter((poly) => poly[0]!.length >= 3) as Geom,
-          outline,
-        ) as Geom,
-        ...(holeSet.length > 0 ? [holeSet as Geom] : []),
-        ...thermalHoles,
-      ) as MultiPolygon;
-      pruned = trimmed.map((poly) => poly.map(ptsOf));
-    }
+    /* ---------------------------------------------------------------------
+     * Prune features that don't meet minimum-width criteria, then fracture,
+     * as `fillCopperZone` does — and only THEN look for islands.
+     *
+     * The order is the whole point. `ZONE_FILLER::Fill` calls
+     * `FillIsolatedIslandsMap` after every `fillCopperZone` has returned, so
+     * what it sees is the finished, fractured poly set: each outline is one
+     * disjoint piece of copper, holes already cut by slits. Asking earlier
+     * reads a different board. On ecc83-pp four regions hang off the pour by
+     * necks thinner than its 0.381 mm minimum; the deflate/inflate severs them,
+     * and 212 mm² of copper KiCad drops as islands survived here because at the
+     * time we asked they were still attached.
+     */
+    const halfMinWidth = Math.trunc((zone.minThickness ?? 0) / 2);
+    const epsilon = mmToIU(0.001);
+    const prune = halfMinWidth - epsilon > epsilon;
 
-    // A hatched zone keeps only its webbing (ZONE_FILLER::addHatchFillTypeOnZone),
-    // and a thieving zone keeps only its stamps.
-    if (zone.fillMode === 'hatch')
-      pruned = addHatchFillTypeOnZone(
-        pruned,
+    if (prune)
+      fill = inflateKi(
+        fill,
+        -(halfMinWidth - epsilon),
+        CornerStrategy.CHAMFER_ALL_CORNERS,
+        maxError,
+      );
+
+    // "Min-thickness is the web thickness. On the other hand, a blob
+    // min-thickness by min-thickness is not useful" — an island whose whole
+    // extent, deflated, is under the min thickness is deleted.
+    fill = fill.filter((poly) => islandExtentMax(poly) >= (zone.minThickness ?? 0));
+    stage('deflated', fill);
+
+    if (zone.fillMode === 'hatch') {
+      // A hatched zone keeps only its webbing (ZONE_FILLER::addHatchFillTypeOnZone),
+      // "note that we do this while deflated".
+      fill = addHatchFillTypeOnZone(
+        fill,
         zone,
         maxError,
         hatchingOffsetFor(layer, opts.hatchingOffsets, zone.layerProperties),
       );
-    else if (zone.fillMode === 'thieving')
-      pruned = addCopperThievingPattern(pruned, zone, maxError);
+    } else {
+      // "Connect nearby polygons with zero-width lines in order to ensure
+      // correct re-inflation" — `aFillPolys.Fracture(); connect_nearby_polys(
+      // aFillPolys, aZone->GetMinThickness() )`, in the deflated state.
+      fill = connectNearbyPolys(fracture(fill), zone.minThickness ?? 0).map((ring) => [ring]);
+      stage('connected-nearby-polys', fill);
+    }
+
+    /* ---------------------------------------------------------------------
+     * Finish minimum-width pruning by re-inflating
+     */
+    if (prune)
+      fill = inflateKi(
+        fill,
+        halfMinWidth - epsilon,
+        CornerStrategy.ROUND_ALL_CORNERS,
+        maxError,
+        true,
+      );
+
+    // "The deflation/inflation process can leave notches in the outline.
+    // Remove these by doing a union with the original ring" —
+    // `BooleanAdd( thermalRings )`, which is empty for a solid zone but is a
+    // pass through the clipper all the same.
+    fill = booleanAdd(fill, []);
+    stage('after-reinflating', fill);
+
+    /* ---------------------------------------------------------------------
+     * Ensure additive changes (thermal stubs and inflating acute corners) do
+     * not add copper outside the zone boundary, inside the clearance holes, or
+     * between otherwise isolated islands
+     */
+
+    // "for( BOARD_ITEM* item : thermalConnectionPads ) addHoleKnockout( pad, 0,
+    // clearanceHoles )": the drills join the SIMPLIFIED set as extra outlines.
+    clearanceHoles = [...clearanceHoles, ...thermalHoles.flatMap(asPolys)];
+
+    fill = booleanIntersection(fill, smoothed.maxExtents);
+    stage('after-trim-to-outline', fill);
+    fill = booleanSubtract(fill, clearanceHoles);
+    stage('after-trim-to-clearance-holes', fill);
+
+    if (zone.fillMode === 'thieving') fill = addCopperThievingPattern(fill, zone, maxError);
 
     // "Lastly give any same-net but higher-priority zones control over their
     // own area" — `ZONE_FILLER::subtractHigherPriorityZones`, the last thing
@@ -1459,9 +1754,10 @@ function fillZoneParts(
     // overlap ends up poured twice, under the wrong rules: on One-Air-Max the
     // +3V3 zone of priority 9 ran 146 mm² past where KiCad stops it, which is
     // the entire span it shares with the priority-24 zone beside it.
-    pruned = subtractHigherPriorityZones(pruned, board, zoneIndex, layer, near);
+    fill = subtractHigherPriorityZones(fill, board, zoneIndex, layer, near);
+    stage('minus-higher-priority-zones', fill);
 
-    fills.push({ layer, polys: fracture(pruned), connected });
+    fills.push({ layer, polys: fracture(fill), connected });
   }
 
   return fills;
@@ -1748,132 +2044,157 @@ function addCopperThievingPattern(fill: Polygon[], zone: PcbZone, maxError: numb
 }
 
 /**
- * ZONE_FILLER::addHatchFillTypeOnZone: cut a grid of holes out of a finished
- * fill so only its webbing is left.
+ * `ZONE_FILLER::addHatchFillTypeOnZone` (zone_filler.cpp:3826-4053): cut a
+ * grid of holes out of the DEFLATED fill so only its webbing is left.
  *
  * The grid pitch is the web thickness plus the gap; each hole is a square of
- * `gap + minThickness`, optionally chamfered (level 1) or filleted (level 2+) by
- * half the gap scaled by the smoothing value. Holes are clipped to the fill
- * deflated by the web thickness, so the zone keeps a solid border, and any hole
- * left smaller than `hatchHoleMinArea` of a full one is dropped rather than
- * leaving a speck.
+ * `gap + minThickness`, optionally chamfered (level 1) or filleted (level 2+)
+ * by half the gap scaled by the smoothing value. The holes are clipped to the
+ * fill deflated by what the web thickness exceeds the minimum by, and to the
+ * zone outline deflated by the minimum thickness, and any hole left smaller
+ * than `hatchHoleMinArea` of a full one is dropped.
+ *
+ * `maxError` is a LOCAL upstream reassigns while smoothing the hole, and the
+ * reassigned value is what the two deflates below then use.
  *
  * The per-layer `hatching_offset` shifts the whole grid — the Board Setup >
  * Zone Hatch Offsets page's value for this layer, or the zone's own override.
  *
- * Not ported: the board-outline deflation (pcbnew clips holes to the board edge,
- * which needs an Edge.Cuts outline this layer does not have) and the thermal
- * ring interaction, which belongs with hatched thermal reliefs.
+ * Not ported: the thermal-ring protection of a hatched zone's thermal pads
+ * (`aThermalRings`, from `buildHatchZoneThermalRings`).
  */
 function addHatchFillTypeOnZone(
   fill: Polygon[],
   zone: PcbZone,
-  maxError: number,
+  boardMaxError: number,
   offset: { x: number; y: number } = { x: 0, y: 0 },
 ): Polygon[] {
-  if (fill.length === 0) return fill;
-
-  const minThickness = zone.minThickness ?? 0;
-  const gap = zone.hatchGap ?? 0;
-  if (gap <= 0) return fill;
-
-  // The webbing must be at least the min thickness; the micron of margin is
-  // upstream's, to keep Gerber rounding from closing the gap.
-  const thickness = Math.max(zone.hatchThickness ?? 0, minThickness + mmToIU(0.001));
-  const gridsize = thickness + gap;
+  // obviously line thickness must be > zone min thickness.
+  const thickness = Math.max(zone.hatchThickness ?? 0, (zone.minThickness ?? 0) + mmToIU(0.001));
+  const gridsize = thickness + (zone.hatchGap ?? 0);
+  let maxError = boardMaxError;
   if (gridsize <= 0) return fill;
 
-  const orientation = ((zone.hatchOrientation ?? 0) * Math.PI) / 180;
+  const orientation = new EDA_ANGLE(zone.hatchOrientation ?? 0);
+  const minus = new EDA_ANGLE(-orientation.AsDegrees());
 
-  // The hole is larger than the gap because the webbing has width of its own.
-  const holeSize = gap + minThickness;
-  let holeBase: Polygon = [
-    [
-      { x: 0, y: 0 },
-      { x: holeSize, y: 0 },
-      { x: holeSize, y: holeSize },
-      { x: 0, y: holeSize },
-    ],
+  // Use a area that contains the rotated bbox by orientation
+  let x0 = Number.POSITIVE_INFINITY;
+  let y0 = Number.POSITIVE_INFINITY;
+  let x1 = Number.NEGATIVE_INFINITY;
+  let y1 = Number.NEGATIVE_INFINITY;
+  for (const poly of fill)
+    for (const ring of poly)
+      for (const pt of ring) {
+        const r = orientation.IsZero() ? pt : RotatePoint(pt, minus);
+        if (r.x < x0) x0 = r.x;
+        if (r.y < y0) y0 = r.y;
+        if (r.x > x1) x1 = r.x;
+        if (r.y > y1) y1 = r.y;
+      }
+  if (!Number.isFinite(x0)) return fill;
+
+  // Build hole shape
+  const hole_size = (zone.hatchGap ?? 0) + (zone.minThickness ?? 0);
+  let hole_base: Vec2[] = [
+    { x: 0, y: 0 },
+    { x: hole_size, y: 0 },
+    { x: hole_size, y: hole_size },
+    { x: 0, y: hole_size },
   ];
 
-  const level = zone.hatchSmoothingLevel ?? 0;
-  if (level > 0) {
-    const smoothValue = Math.round((gap * (zone.hatchSmoothingValue ?? 0)) / 2);
-    // Upstream skips smoothing below 0.02 mm, and prefers a chamfer under
-    // 0.04 mm even when a fillet was asked for, to save segments.
-    if (smoothValue > mmToIU(0.02)) {
-      holeBase =
-        level === 1 || smoothValue <= mmToIU(0.04)
-          ? chamfer([holeBase], smoothValue)[0]!
-          : fillet([holeBase], smoothValue, level > 2 ? maxError / 2 : maxError)[0]!;
+  // Calculate minimal area of a grid hole.
+  const minimal_hole_area = Math.abs(chainArea(hole_base)) * (zone.hatchHoleMinArea ?? 0.3);
+
+  // Now convert this hole to a smoothed shape:
+  if ((zone.hatchSmoothingLevel ?? 0) > 0) {
+    let smooth_value = KiROUND(((zone.hatchGap ?? 0) * (zone.hatchSmoothingValue ?? 0)) / 2);
+    const SMOOTH_MIN_VAL_MM = 0.02;
+    const SMOOTH_SMALL_VAL_MM = 0.04;
+
+    if (smooth_value > mmToIU(SMOOTH_MIN_VAL_MM)) {
+      let smooth_level = zone.hatchSmoothingLevel ?? 0;
+      if (smooth_value < mmToIU(SMOOTH_SMALL_VAL_MM) && smooth_level > 1) smooth_level = 1;
+
+      // Use a larger smooth_value to compensate the outline tickness
+      smooth_value += Math.trunc((zone.minThickness ?? 0) / 2);
+      // smooth_value cannot be bigger than the half size oh the hole:
+      smooth_value = Math.min(smooth_value, Math.trunc((zone.hatchGap ?? 0) / 2));
+      // the error to approximate a circle by segments when smoothing corners by a arc
+      maxError = Math.max(maxError * 2, Math.trunc(smooth_value / 20));
+
+      switch (smooth_level) {
+        case 1:
+          hole_base = chamfer([[hole_base]], smooth_value)[0]![0]!;
+          break;
+        case 0:
+          break;
+        default:
+          if ((zone.hatchSmoothingLevel ?? 0) > 2) maxError = Math.trunc(maxError / 2); // Force better smoothing
+          hole_base = fillet([[hole_base]], smooth_value, maxError)[0]![0]!;
+          break;
+      }
     }
   }
 
-  const minimalHoleArea = Math.abs(ringArea(holeBase[0]!)) * (zone.hatchHoleMinArea ?? 0.3);
+  // Build holes
+  const holes: Polygon[] = [];
+  const x_offset = x0 - (x0 % gridsize) - gridsize;
+  const y_offset = y0 - (y0 % gridsize) - gridsize;
+  const shift = { x: offset.x % gridsize, y: offset.y % gridsize };
 
-  // The grid is laid out in the un-rotated frame and each hole rotated back, so
-  // the pattern lines up however the zone is turned.
-  const rot = (p: Vec2, a: number): Vec2 => ({
-    x: p.x * Math.cos(a) - p.y * Math.sin(a),
-    y: p.x * Math.sin(a) + p.y * Math.cos(a),
-  });
-  const unrotated = fill.map((poly) => poly.map((ring) => ring.map((p) => rot(p, -orientation))));
-
-  let minX = Number.POSITIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
-  for (const poly of unrotated) {
-    for (const p of poly[0] ?? []) {
-      minX = Math.min(minX, p.x);
-      minY = Math.min(minY, p.y);
-      maxX = Math.max(maxX, p.x);
-      maxY = Math.max(maxY, p.y);
-    }
-  }
-  if (!Number.isFinite(minX)) return fill;
-
-  const xOffset = minX - (minX % gridsize) - gridsize;
-  const yOffset = minY - (minY % gridsize) - gridsize;
-
-  const holes: Geom[] = [];
-  for (let xx = xOffset; xx <= maxX; xx += gridsize) {
-    for (let yy = yOffset; yy <= maxY; yy += gridsize) {
-      // `hole.Move( xx, yy )`, `hole.Rotate( orientation )`, THEN
-      // `hole.Move( offset.x % gridsize, offset.y % gridsize )` — the offset is
-      // applied in the ROTATED frame, after the grid placement, and modulo the
-      // pitch because the pattern repeats (`zone_filler.cpp:3943-3958`).
-      const moved = holeBase[0]!.map((p) => {
-        const r = rot({ x: p.x + xx, y: p.y + yy }, orientation);
-        return { x: r.x + (offset.x % gridsize), y: r.y + (offset.y % gridsize) };
+  for (let xx = x_offset; xx <= x1; xx += gridsize) {
+    for (let yy = y_offset; yy <= y1; yy += gridsize) {
+      const hole = hole_base.map((p) => {
+        let q: Vec2 = { x: p.x + xx, y: p.y + yy };
+        if (!orientation.IsZero()) q = RotatePoint(q, orientation);
+        return { x: q.x + shift.x, y: q.y + shift.y };
       });
-      holes.push([moved.map((p) => [p.x, p.y] as [number, number])]);
+      holes.push([hole]);
     }
   }
-  if (holes.length === 0) return fill;
 
-  // Clip the holes to the fill pulled in by the web thickness: that inset is
-  // what leaves a solid border around the hatching.
-  const deflatedBy = Math.max((zone.hatchThickness ?? 0) - minThickness, maxError * 2);
-  const inner = inflate(fill, -deflatedBy, CornerStrategy.CHAMFER_ALL_CORNERS);
-  if (inner.length === 0) return fill;
-
-  const multi = (ps: Polygon[]): MultiPolygon =>
-    ps.map((poly) => poly.map((ring) => ring.map((p) => [p.x, p.y] as [number, number])));
-
-  const clipped = clip.intersection(
-    clip.union(holes[0]!, ...holes.slice(1)) as Geom,
-    multi(inner) as Geom,
-  ) as MultiPolygon;
-
-  // A hole clipped down to a speck is dropped rather than pitting the copper.
-  const kept = clipped.filter(
-    (poly) => Math.abs(ringArea(poly[0]!.map(([x, y]) => ({ x, y })))) >= minimalHoleArea,
+  // Don't let thickness drop below maxError * 2 or it might not get reinflated.
+  const deflated_thickness = Math.max(
+    (zone.hatchThickness ?? 0) - (zone.minThickness ?? 0),
+    maxError * 2,
   );
-  if (kept.length === 0) return fill;
 
-  const out = clip.difference(multi(fill) as Geom, kept as Geom) as MultiPolygon;
-  return out.map((poly) => poly.map(ptsOf));
+  // The fill has already been deflated to ensure GetMinThickness() so we just
+  // have to account for anything beyond that.
+  const deflatedFilledPolys = inflateKi(
+    fill,
+    -deflated_thickness,
+    CornerStrategy.CHAMFER_ALL_CORNERS,
+    maxError,
+  );
+  let clipped = booleanIntersection(holes, deflatedFilledPolys);
+
+  const deflatedOutline = inflateKi(
+    [[zone.outline!.map((p) => ({ x: p.x, y: p.y }))]],
+    -(zone.minThickness ?? 0),
+    CornerStrategy.CHAMFER_ALL_CORNERS,
+    maxError,
+  );
+  clipped = booleanIntersection(clipped, deflatedOutline);
+
+  // Now filter truncated holes to avoid small holes in pattern
+  clipped = clipped.filter((poly) => Math.abs(chainArea(poly[0]!)) >= minimal_hole_area);
+
+  // create grid. Useto generate strictly simple polygons needed by Gerber
+  // files and Fracture()
+  return booleanSubtract(fill, clipped);
+}
+
+/** `SHAPE_LINE_CHAIN::Area( true )`. */
+function chainArea(ring: Vec2[]): number {
+  let area = 0.0;
+  const size = ring.length;
+  for (let i = 0, j = size - 1; i < size; ++i) {
+    area += (ring[j]!.x + ring[i]!.x) * (ring[j]!.y - ring[i]!.y);
+    j = i;
+  }
+  return Math.abs(area * 0.5);
 }
 
 /** Twice the signed area of a ring, halved: the enclosed area. */
@@ -1885,30 +2206,24 @@ function ringArea(ring: Vec2[]): number {
 }
 
 /**
- * `ZONE::BuildSmoothedPoly` (zone.cpp:1470-1626), the outline a pour starts
- * from, in upstream's order:
+ * `ZONE::BuildSmoothedPoly( aSmoothedPoly, aLayer, aBoardOutline,
+ * aSmoothedPolyWithApron )` (zone.cpp:1470-1627), both of its answers:
  *
- *  1. the flattened outline — and for a rule area, nothing more: "We like
- *     keepouts just the way they are";
- *  2. UNIONED with every same-net zone on this layer whose outline collides
- *     with it, "which keeps us from smoothing corners at an intersection
- *     (which often produces undesired divots between the intersecting
- *     zones)". A same-net zone that a higher-priority different-net zone cuts
- *     off completely is left out ("treat the enclosed zone as isolated");
- *  3. INTERSECTED with the board outline — before the smoothing, not after;
- *  4. the `smooth` lambda, chamfer or fillet by the corner radius; a teardrop
- *     is never smoothed;
- *  5. INTERSECTED with `maxExtents`, the flattened outline, so an external
- *     fillet at a concave corner is cut back off (`m_ZoneKeepExternalFillets`
- *     is false by default) and the same-net neighbours' area goes again.
+ * - `maxExtents` is `aSmoothedPoly`: the outline, unioned with every
+ *   colliding same-net zone (so a corner shared with one is not smoothed
+ *   into a divot), clipped to the board, smoothed, and clipped back to the
+ *   flattened outline.
+ * - `smoothed` is `aSmoothedPolyWithApron`, which is what `fillCopperZone`
+ *   STARTS from: the smoothed poly clipped to the outline inflated by the
+ *   minimum thickness within the same-net envelope — "we pre-inflate the
+ *   contour by the min-thickness within the same-net-intersecting-zones
+ *   envelope" so the deflate/inflate cycle cannot dig divots at a same-net
+ *   border either. The final `BooleanIntersection( aMaxExtents )` takes the
+ *   apron off again.
  *
- * Step 2 is what makes a filleted zone that abuts another zone of its net
- * keep a SQUARE corner where the two meet: the corner is not a corner of the
- * union. CM5's 0.5 mm-fillet +3V3 pours meet other +3V3 pours edge to edge,
- * and this filleted them anyway, losing 0.11 mm² of copper at each corner.
- *
- * Step 5 is why a fillet never adds copper: `chamferFilletPolygon` rounds a
- * concave corner OUTWARD, and upstream keeps that only in the 5.1 mode.
+ * `m_ZoneKeepExternalFillets` is false on every board this reads
+ * (board_design_settings.cpp:215; the setting has no UI), so that branch is
+ * not taken.
  */
 function buildSmoothedPoly(
   board: Board,
@@ -1916,15 +2231,20 @@ function buildSmoothedPoly(
   layer: string,
   boardOutline: Geom | null,
   maxError: number,
-): Geom {
+): { smoothed: Polygon[]; maxExtents: Polygon[] } {
   const zone = board.zones[zoneIndex]!;
-  const flattened: Geom = [[intRingOf(zone.outline!)]];
-  if (zone.ruleArea) return flattened;
+  const flattened: Polygon[] = [[zone.outline!.map((p) => ({ x: p.x, y: p.y }))]];
+  if (zone.ruleArea) return { smoothed: flattened, maxExtents: flattened };
 
   const mode = zone.cornerSmoothing ?? 'none';
   const radius = zone.cornerRadius ?? 0;
   const smoothRequested =
-    (mode === 'chamfer' || mode === 'fillet') && radius > 0 && zone.teardropType === undefined;
+    (mode === 'chamfer' || mode === 'fillet') && zone.teardropType === undefined;
+
+  const smooth = (polys: Polygon[]): Polygon[] => {
+    if (!smoothRequested) return polys;
+    return mode === 'chamfer' ? chamfer(polys, radius) : fillet(polys, radius, maxError);
+  };
 
   // `GetInteractingZones`: same-net zones whose outline collides, and the
   // different-net ones whose bounding box touches.
@@ -1941,50 +2261,49 @@ function buildSmoothedPoly(
       // `m_Poly->Collide( candidate->m_Poly )` — touching along an edge counts,
       // which a plain intersection reads as nothing, so the outline is grown
       // by the same epsilon before it is asked.
-      const grown = inflate([[zone.outline!]], epsilon, epsilon);
-      if (
-        grown.length > 0 &&
-        (clip.intersection(fromPolys(grown), [[intRingOf(other.outline)]] as Geom) as MultiPolygon)
-          .length > 0
-      )
+      const grown = inflate([[zone.outline!]], epsilon, CornerStrategy.ROUND_ALL_CORNERS);
+      if (grown.length > 0 && booleanIntersection(grown, [[other.outline]]).length > 0)
         sameNet.push(other);
     } else {
       diffNet.push(other);
     }
   });
 
-  let poly: Geom = flattened;
+  let smoothedPoly: Polygon[] = flattened;
 
   for (const neighbour of sameNet) {
     // "The same-net intersecting zone *might* get knocked out along the
     // border by a higher-priority, different-net zone" — and if those enclose
     // THIS zone completely, the neighbour is not really adjoining it.
     const nBox = boxOf(neighbour.outline!);
-    const cutters: Ring[][] = [];
+    let diffNetPoly: Polygon[] = [];
     for (const d of diffNet)
       if (higherPriority(d, neighbour) && boxesIntersect(boxOf(d.outline!), nBox))
-        cutters.push([intRingOf(d.outline!)]);
-    if (cutters.length > 0) {
-      const left = clip.difference(flattened, cutters as unknown as Geom) as MultiPolygon;
-      if (left.length === 0) continue;
-    }
-    poly = clip.union(poly, [[intRingOf(neighbour.outline!)]] as Geom) as MultiPolygon;
+        diffNetPoly = booleanAdd(diffNetPoly, [[d.outline!]]);
+    let isolated = false;
+    if (diffNetPoly.length > 0) isolated = booleanSubtract(flattened, diffNetPoly).length === 0;
+    if (!isolated) smoothedPoly = booleanAdd(smoothedPoly, [[neighbour.outline!]]);
   }
 
-  if (boardOutline) {
-    poly = clip.intersection(poly, boardOutline) as MultiPolygon;
-    if ((poly as MultiPolygon).length === 0) return poly;
-  }
+  if (boardOutline) smoothedPoly = booleanIntersection(smoothedPoly, asPolys(boardOutline));
 
-  if (smoothRequested) {
-    const polys = asPolys(poly);
-    const smoothed = mode === 'chamfer' ? chamfer(polys, radius) : fillet(polys, radius, maxError);
-    poly = smoothed
-      .map((q) => q.map(intRingOf))
-      .filter((q) => q[0]!.length >= 3) as unknown as MultiPolygon;
-  }
+  const withSameNetIntersectingZones = smoothedPoly;
 
-  return clip.intersection(poly, flattened) as MultiPolygon;
+  smoothedPoly = smooth(smoothedPoly);
+
+  // The apron.
+  let poly = inflateKi(
+    flattened,
+    zone.minThickness ?? 0,
+    CornerStrategy.ROUND_ALL_CORNERS,
+    maxError,
+  );
+  poly = booleanIntersection(poly, withSameNetIntersectingZones);
+  const smoothed = booleanIntersection(smoothedPoly, poly);
+
+  const maxExtents = booleanIntersection(smoothedPoly, flattened);
+
+  return { smoothed, maxExtents };
 }
 
 /**
@@ -2002,25 +2321,36 @@ function buildSmoothedPoly(
  * corner: upstream keeps it, and the real prune's rounded test dropped it,
  * 0.6 mm² of copper and one fewer connection to the pad.
  */
-function spokeTestAreas(fill: Polygon[], zone: PcbZone, maxError: number): Polygon[] {
-  const halfMinWidth = Math.floor((zone.minThickness ?? 0) / 2);
+function spokeTestAreas(
+  fill: Polygon[],
+  zone: PcbZone,
+  maxError: number,
+  stage: (name: string, polys: Polygon[]) => void = () => {},
+): Polygon[] {
+  const halfMinWidth = Math.trunc((zone.minThickness ?? 0) / 2);
   const epsilon = mmToIU(0.001);
-  if (halfMinWidth - epsilon <= epsilon || fill.length === 0) return fill;
+  if (halfMinWidth - epsilon <= epsilon) return fill;
 
-  const segs = segmentsForRadius(halfMinWidth, maxError);
-  const deflated = inflate(
+  let testAreas = inflateKi(
     fill,
     -(halfMinWidth - epsilon),
     CornerStrategy.CHAMFER_ALL_CORNERS,
-    segs,
+    maxError,
   );
-  if (deflated.length === 0) return [];
-  return inflate(deflated, halfMinWidth - epsilon, CornerStrategy.CHAMFER_ALL_CORNERS, segs);
+  stage('spoke-test-deflated', testAreas);
+  testAreas = inflateKi(
+    testAreas,
+    halfMinWidth - epsilon,
+    CornerStrategy.CHAMFER_ALL_CORNERS,
+    maxError,
+  );
+  stage('spoke-test-reinflated', testAreas);
+  return testAreas;
 }
 
 /**
  * `ZONE_FILLER::connect_nearby_polys` (zone_filler.cpp:2712-2757) and the
- * `VERTEX_CONNECTOR` it runs on (:94-230).
+ * `VERTEX_CONNECTOR` it runs on (:94-230), over kimath's `VERTEX_SET`.
  *
  * The deflate that prunes anything thinner than the minimum width also
  * severs every NECK thinner than it, and a severed neck is not what the
@@ -2029,192 +2359,124 @@ function spokeTestAreas(fill: Polygon[], zone: PcbZone, maxError: number): Polyg
  * apart along the same one) within `minThickness` of each other, and joins
  * them with a zero-width spike — `line.Insert( vertex + 1, pt1 );
  * line.Insert( vertex + 1, pt2 )` on the first outline — that the round
- * re-inflate turns into a bar one minimum thickness wide. A neck shorter
- * than the minimum thickness comes back; a long thin channel, whose two ends
- * are further apart than that after the deflate, stays cut. tinytapeout
- * has a 0.23 mm GND neck between a via's clearance and a track's on a
- * 0.25 mm pour: upstream keeps the 2.2 mm² strip below it, and this dropped
- * it as an island.
+ * re-inflate turns into a bar one minimum thickness wide.
  *
- * The vertex model is `VERTEX_SET`'s: every outline's points, each outline
- * reversed if it winds the other way, points within √50 units of the last
- * dropped (`m_TriangulateSimplificationLevel`), all threaded onto ONE
- * circular list in outline order — which is why the list's own neighbours
- * are used for the first ear test and the outline's for the second. The
- * z-order neighbourhood search is a plain nearest search here; it picks the
- * same vertex except in an exact tie.
+ * The search is upstream's own: the vertices are threaded onto ONE circular
+ * list in outline order, simplified at `m_TriangulateSimplificationLevel`
+ * (50 units, squared), Morton-sorted, and a candidate is looked for by
+ * walking that z-order both ways within the ±distance box — which is what
+ * decides between two candidates at the same distance.
  */
-interface ConnectVertex {
-  x: number;
-  y: number;
-  /** Index in the original outline. */
-  i: number;
-  outline: number;
-  prev: ConnectVertex;
-  next: ConnectVertex;
-}
-
 function connectNearbyPolys(rings: Vec2[][], distance: number): Vec2[][] {
   if (rings.length < 1) return rings;
 
-  // VERTEX_CONNECTOR's constructor: `createList` per outline, threaded on.
-  const verts: ConnectVertex[] = [];
-  const outlineDistances: number[][] = [];
-  let tail: ConnectVertex | null = null;
-  const insert = (i: number, pt: Vec2, outline: number): ConnectVertex => {
-    const v = { x: pt.x, y: pt.y, i, outline } as ConnectVertex;
-    if (!tail) {
-      v.prev = v;
-      v.next = v;
-    } else {
-      v.next = tail.next;
-      v.prev = tail;
-      tail.next.prev = v;
-      tail.next = v;
+  // `VERTEX_SET( ADVANCED_CFG::GetCfg().m_TriangulateSimplificationLevel )`
+  const vs = new VertexSet(50);
+  // `aPolys.BBoxFromCaches()`
+  let x0 = Number.POSITIVE_INFINITY;
+  let y0 = Number.POSITIVE_INFINITY;
+  let x1 = Number.NEGATIVE_INFINITY;
+  let y1 = Number.NEGATIVE_INFINITY;
+  for (const r of rings)
+    for (const p of r) {
+      if (p.x < x0) x0 = p.x;
+      if (p.y < y0) y0 = p.y;
+      if (p.x > x1) x1 = p.x;
+      if (p.y > y1) y1 = p.y;
     }
-    verts.push(v);
-    return v;
-  };
-  const SIMPLIFICATION = 50; // m_TriangulateSimplificationLevel, a squared distance
+  vs.setBoundingBox({ x: x0, y: y0, width: x1 - x0, height: y1 - y0 });
 
-  rings.forEach((pts, o) => {
-    const n = pts.length;
-    const distances = [0];
-    for (let j = 0; j < n; j++) {
-      const a = pts[j]!;
-      const b = pts[(j + 1) % n]!;
-      distances.push(distances[distances.length - 1]! + Math.hypot(b.x - a.x, b.y - a.y));
+  const outlineDistances: number[][] = [];
+  let tail: Vertex | null = null;
+  rings.forEach((outline, i) => {
+    const distances: number[] = [0.0];
+    for (let j = 0; j < outline.length; j++) {
+      const a = outline[j]!;
+      const b = outline[(j + 1) % outline.length]!;
+      distances.push(
+        distances[distances.length - 1]! + EuclideanNormI({ x: b.x - a.x, y: b.y - a.y }),
+      );
     }
     outlineDistances.push(distances);
+    tail = vs.createList(outline, tail, i);
+  });
+  if (tail) (tail as Vertex).updateList();
+  if (vs.vertices.length === 0) return rings;
 
-    let sum = 0;
-    for (let j = 0; j < n; j++) {
-      const p1 = pts[j]!;
-      const p2 = pts[(j + 1) % n]!;
-      sum += (p2.x - p1.x) * (p2.y + p1.y);
-    }
-    let first = true;
-    let last: Vec2 = { x: 0, y: 0 };
-    const add = (i: number): void => {
-      const pt = pts[i]!;
-      const dx = pt.x - last.x;
-      const dy = pt.y - last.y;
-      if (first || dx * dx + dy * dy > SIMPLIFICATION) {
-        tail = insert(i, pt, o);
-        last = pt;
-        first = false;
+  const limit2 = distance * distance;
+  const getPoint = (aPt: Vertex): Vertex | null => {
+    // z-order range for the current point ± limit bounding box
+    const maxZ = vs.zOrder(aPt.x + distance, aPt.y + distance);
+    const minZ = vs.zOrder(aPt.x - distance, aPt.y - distance);
+
+    let min_dist = Number.POSITIVE_INFINITY;
+    let retval: Vertex | null = null;
+
+    const check_pt = (p: Vertex): void => {
+      // A nearby point along the same contour is already connected and would
+      // consume the visited-point suppression before a contour-distant point
+      // across a neck is considered.
+      if (p.userData === aPt.userData) {
+        const distances = outlineDistances[p.userData]!;
+        const directDistance = Math.abs(distances[p.i]! - distances[aPt.i]!);
+        const contourDistance = Math.min(
+          directDistance,
+          distances[distances.length - 1]! - directDistance,
+        );
+        if (contourDistance < distance) return;
+      }
+      const dx = p.x - aPt.x;
+      const dy = p.y - aPt.y;
+      const dist2 = dx * dx + dy * dy;
+      if (dist2 > 0 && dist2 < limit2 && dist2 < min_dist && p.isEar(true)) {
+        min_dist = dist2;
+        retval = p;
       }
     };
-    if (sum > 0) for (let i = n - 1; i >= 0; i--) add(i);
-    else for (let i = 0; i < n; i++) add(i);
 
-    if (tail && tail.x === tail.next.x && tail.y === tail.next.y) {
-      const gone = tail.next;
-      gone.next.prev = gone.prev;
-      gone.prev.next = gone.next;
+    let p = aPt.nextZ;
+    while (p && p.z <= maxZ) {
+      check_pt(p);
+      p = p.nextZ;
     }
-  });
-  if (verts.length === 0) return rings;
-
-  const area = (p: ConnectVertex, q: ConnectVertex, r: ConnectVertex): number =>
-    (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
-  const inTriangle = (
-    p: ConnectVertex,
-    a: ConnectVertex,
-    b: ConnectVertex,
-    c: ConnectVertex,
-  ): boolean =>
-    (c.x - p.x) * (a.y - p.y) - (a.x - p.x) * (c.y - p.y) >= 0 &&
-    (a.x - p.x) * (b.y - p.y) - (b.x - p.x) * (a.y - p.y) >= 0 &&
-    (b.x - p.x) * (c.y - p.y) - (c.x - p.x) * (b.y - p.y) >= 0;
-
-  // `VERTEX::isEar( aMatchUserData )`.
-  const isEar = (v: ConnectVertex, match: boolean): boolean => {
-    let a = v.prev;
-    let c = v.next;
-    if (match) {
-      while (a.outline !== v.outline) a = a.prev;
-      while (c.outline !== v.outline) c = c.next;
+    p = aPt.prevZ;
+    while (p && p.z >= minZ) {
+      check_pt(p);
+      p = p.prevZ;
     }
-    if (area(a, v, c) >= 0) return false;
-    const minX = Math.min(a.x, v.x, c.x);
-    const minY = Math.min(a.y, v.y, c.y);
-    const maxX = Math.max(a.x, v.x, c.x);
-    const maxY = Math.max(a.y, v.y, c.y);
-    for (const q of verts) {
-      // The z-order walk starts at `nextZ` / `prevZ`: the vertex itself is
-      // never a candidate, and it would fail its own test whenever its list
-      // neighbour is on another outline.
-      if (q === v) continue;
-      if (q.x < minX || q.x > maxX || q.y < minY || q.y > maxY) continue;
-      if (
-        (!match || q.outline === v.outline) &&
-        q !== a &&
-        q !== c &&
-        inTriangle(q, a, v, c) &&
-        area(q.prev, q, q.next) >= 0
-      )
-        return false;
-    }
-    return true;
+    return retval;
   };
 
-  // `getPoint`: the nearest ear within `distance`, not along the same contour.
-  const limit2 = distance * distance;
-  const getPoint = (v: ConnectVertex): ConnectVertex | null => {
-    let minDist = Number.POSITIVE_INFINITY;
-    let best: ConnectVertex | null = null;
-    for (const q of verts) {
-      if (q.outline === v.outline) {
-        const d = outlineDistances[q.outline]!;
-        const direct = Math.abs(d[q.i]! - d[v.i]!);
-        const contour = Math.min(direct, d[d.length - 1]! - direct);
-        if (contour < distance) continue;
-      }
-      const dx = q.x - v.x;
-      const dy = q.y - v.y;
-      const dist2 = dx * dx + dy * dy;
-      if (dist2 > 0 && dist2 < limit2 && dist2 < minDist && isEar(q, true)) {
-        minDist = dist2;
-        best = q;
-      }
-    }
-    return best;
-  };
-
-  // `FindResults`.
-  const front = verts[0]!;
-  const visited = new Set<ConnectVertex>();
+  // `FindResults`
+  const front = vs.vertices[0]!;
+  const visited = new Set<Vertex>();
   const seen = new Set<string>();
   const results: { o1: number; o2: number; v1: number; v2: number }[] = [];
   let p = front.next;
-  let guard = verts.length + 1;
-  while (p !== front && guard-- > 0) {
-    if (!isEar(p, false)) {
+  while (p !== front) {
+    // Skip points that are concave
+    if (!p.isEar()) {
       p = p.next;
       continue;
     }
     const q = visited.has(p) ? null : getPoint(p);
     if (q) {
       visited.add(p);
-      const key = `${p.outline},${q.outline},${p.i},${q.i}`;
+      const key = `${p.userData},${q.userData},${p.i},${q.i}`;
       if (!visited.has(q) && !seen.has(key)) {
         seen.add(key);
-        results.push({ o1: p.outline, o2: q.outline, v1: p.i, v2: q.i });
-        // "We don't want to connect multiple points in the same vicinity, so
-        // skip 2 points before and after each point and match."
-        for (const w of [
-          p.prev,
-          p.prev.prev,
-          p.next,
-          p.next.next,
-          q.prev,
-          q.prev.prev,
-          q.next,
-          q.next.next,
-          q,
-        ])
-          visited.add(w);
+        results.push({ o1: p.userData, o2: q.userData, v1: p.i, v2: q.i });
+        // We don't want to connect multiple points in the same vicinity, so
+        // skip 2 points before and after each point and match.
+        visited.add(p.prev);
+        visited.add(p.prev.prev);
+        visited.add(p.next);
+        visited.add(p.next.next);
+        visited.add(q.prev);
+        visited.add(q.prev.prev);
+        visited.add(q.next);
+        visited.add(q.next.next);
+        visited.add(q);
       }
     }
     p = p.next;
@@ -2236,83 +2498,23 @@ function connectNearbyPolys(rings: Vec2[][], distance: number): Vec2[][] {
 
   const out = rings.map((r) => [...r]);
   for (const [outline, vertices] of insertions) {
-    // Stable, highest index first, so inserting never moves a later target.
+    // "Stable sort here because we want to make sure that we are inserting
+    // pt1 first and pt2 second but still sorting the rest of the indices
+    // from highest to lowest."
     const sorted = vertices
       .map((v, k) => ({ ...v, k }))
       .sort((a, b) => b.vertex - a.vertex || a.k - b.k);
     const line = out[outline]!;
-    for (const { vertex, pt } of sorted) line.splice(vertex + 1, 0, { x: pt.x, y: pt.y });
+    for (const { vertex, pt } of sorted) {
+      // `SHAPE_LINE_CHAIN::Insert( aVertex, aP )`: past the end it is an
+      // `Append`, which drops a point equal to the last one.
+      if (vertex + 1 === line.length) {
+        const l = line[line.length - 1]!;
+        if (l.x !== pt.x || l.y !== pt.y) line.push({ x: pt.x, y: pt.y });
+      } else line.splice(vertex + 1, 0, { x: pt.x, y: pt.y });
+    }
   }
   return out;
-}
-
-/**
- * ZONE_FILLER::postKnockoutMinWidthPrune: deflate by half the minimum thickness,
- * drop what is left of anything too small to survive, then inflate back and clip
- * to where we started. Copper narrower than min thickness vanishes in the
- * deflate and never comes back, which is how upstream removes slivers and
- * hairline necks without touching the rest of the pour.
- *
- * Upstream deflates with CHAMFER_ALL_CORNERS and re-inflates with
- * ROUND_ALL_CORNERS, which is not symmetric on purpose: inflating with a miter
- * would throw spikes off acute corners.
- */
-function postKnockoutMinWidthPrune(fill: Polygon[], zone: PcbZone, maxError: number): Polygon[] {
-  const halfMinWidth = Math.floor((zone.minThickness ?? 0) / 2);
-  const epsilon = mmToIU(0.001);
-  if (halfMinWidth - epsilon <= epsilon) return fill;
-  if (fill.length === 0) return fill;
-
-  const segs = segmentsForRadius(halfMinWidth, maxError);
-  const preDeflate = fill;
-
-  let polys = inflate(fill, -(halfMinWidth - epsilon), CornerStrategy.CHAMFER_ALL_CORNERS, segs);
-
-  // Islands whose whole extent is under the min thickness cannot hold copper.
-  const minThickness = zone.minThickness ?? 0;
-  polys = polys.filter((poly) => {
-    const outer = poly[0];
-    if (!outer || outer.length < 3) return false;
-    let minX = Number.POSITIVE_INFINITY;
-    let minY = Number.POSITIVE_INFINITY;
-    let maxX = Number.NEGATIVE_INFINITY;
-    let maxY = Number.NEGATIVE_INFINITY;
-    for (const p of outer) {
-      minX = Math.min(minX, p.x);
-      minY = Math.min(minY, p.y);
-      maxX = Math.max(maxX, p.x);
-      maxY = Math.max(maxY, p.y);
-    }
-    return Math.max(maxX - minX, maxY - minY) >= minThickness;
-  });
-
-  if (polys.length === 0) return [];
-
-  // "Connect nearby polygons with zero-width lines in order to ensure correct
-  // re-inflation" — `aFillPolys.Fracture(); connect_nearby_polys( aFillPolys,
-  // aZone->GetMinThickness() )`, in the deflated state.
-  polys = connectNearbyPolys(fracture(polys), minThickness).map((ring) => [ring]);
-
-  // `Inflate( half_min_width - epsilon, ROUND_ALL_CORNERS, m_maxError, true )`
-  // — the `true` is `aSimplify`, and it does NOTHING in 10.0.5: `inflate2`
-  // calls `Clipper2Lib::SimplifyPaths( paths, … )` and discards the thinned
-  // paths it returns (shape_poly_set.cpp:1009), so only the trailing union
-  // runs, which changes no vertex. Measured: a chamfered square re-inflated
-  // with and without the flag comes back from KiCad with the same 24 points.
-  // A port that thinned here moved every edge by up to an arc tolerance and
-  // was 0.2 mm² off on a 40 mm square.
-  polys = inflate(polys, halfMinWidth - epsilon, CornerStrategy.ROUND_ALL_CORNERS, segs);
-
-  // The re-inflate can push past where the fill started, so clip back to it.
-  // Both sides are one multipolygon each: intersecting them flat would demand
-  // every piece overlap every other.
-  const multi = (ps: Polygon[]): MultiPolygon =>
-    ps.map((poly) => poly.map((ring) => ring.map((p) => [p.x, p.y] as [number, number])));
-  const a = multi(polys);
-  const b = multi(preDeflate);
-  if (a.length === 0 || b.length === 0) return [];
-  const clipped = clip.intersection(a as Geom, b as Geom) as MultiPolygon;
-  return clipped.map((poly) => poly.map(ptsOf));
 }
 
 /** Ray-cast containment, for the island test. */

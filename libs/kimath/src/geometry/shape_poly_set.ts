@@ -13,21 +13,214 @@
  * draws the pour correctly; rings left as holes would be filled in solid.
  */
 
-import ClipperLib from 'clipper-lib';
+import {
+  ClipType,
+  EndType,
+  FillRule,
+  JoinType,
+  PI,
+  type Path64,
+  type Paths64,
+} from '../clipper2/clipper.core.js';
+import { Clipper64, PolyPath64, type PolyTree64 } from '../clipper2/clipper.engine.js';
+import { stdSort } from '../clipper2/clipper.core.js';
+import { ClipperOffset } from '../clipper2/clipper.offset.js';
+import { cos } from '../math/libm.js';
 import type { Vec2 } from '../math/vector2.js';
 
 /** An outline followed by its holes, KiCad's SHAPE_POLY_SET::POLYGON. */
 export type Polygon = Vec2[][];
 
-/** FractureEdgeSlow: one directed edge of the working chain. */
+/** `FractureEdge`: one directed edge of the working chain, `m_next` an index. */
 interface FractureEdge {
+  p1: Vec2;
+  p2: Vec2;
+  next: number;
+}
+
+/** `FractureEdge::matches`: does the horizontal line at `y` cross this edge? */
+const matches = (e: FractureEdge, y: number): boolean =>
+  (y >= e.p1.y || y >= e.p2.y) && (y <= e.p1.y || y <= e.p2.y);
+
+/**
+ * `rescale<int>( a, b, c )` (math/util.cpp:66): `a * b` in 64 bits, then a
+ * round-to-nearest integer division. The product of two board-sized deltas
+ * passes 2^53, so it is done in BigInt.
+ */
+function rescale(a: number, b: number, c: number): number {
+  const numerator = BigInt(a) * BigInt(b);
+  const denominator = BigInt(c);
+  const half = denominator / 2n; // C++ `/`: truncates toward zero, as BigInt's does
+  if (numerator < 0n !== denominator < 0n) return Number((numerator - half) / denominator);
+  return Number((numerator + half) / denominator);
+}
+
+/**
+ * `processHole`: cut the hole open to the nearest edge to the left of its
+ * leftmost point, along the horizontal through that point. Every edge before
+ * the hole's own is a candidate — the holes are taken left to right, so all
+ * of those are already part of the outline.
+ */
+function processHole(
+  edges: FractureEdge[],
+  provokingIndex: number,
+  edgeIndex: number,
+  bridgeIndex: number,
+): boolean {
+  const e0 = edges[edgeIndex]!;
+  const x = e0.p1.x;
+  const y = e0.p1.y;
+  let min_dist = 2147483647;
+  let x_nearest = 0;
+  let e_nearest = -1;
+
+  for (let i = 0; i < provokingIndex; i++) {
+    const e = edges[i]!;
+    if (!matches(e, y)) continue;
+
+    let x_intersect: number;
+    if (e.p1.y === e.p2.y)
+      x_intersect = Math.max(e.p1.x, e.p2.x); // horizontal edge
+    else x_intersect = e.p1.x + rescale(e.p2.x - e.p1.x, y - e.p1.y, e.p2.y - e.p1.y);
+
+    const dist = x - x_intersect;
+    if (dist >= 0 && dist < min_dist) {
+      min_dist = dist;
+      x_nearest = x_intersect;
+      e_nearest = i;
+    }
+  }
+
+  if (e_nearest < 0) return false;
+
+  const outline2hole_index = bridgeIndex;
+  const hole2outline_index = bridgeIndex + 1;
+  const split_index = bridgeIndex + 2;
+  const near = edges[e_nearest]!;
+  // Make an edge between the split outline edge and the hole...
+  edges[outline2hole_index] = { p1: { x: x_nearest, y }, p2: e0.p1, next: edgeIndex };
+  // ...between the hole and the edge...
+  edges[hole2outline_index] = { p1: e0.p1, p2: { x: x_nearest, y }, next: split_index };
+  // ...and between the split outline edge and the rest.
+  edges[split_index] = { p1: { x: x_nearest, y }, p2: near.p2, next: near.next };
+
+  // Perform the actual outline edge split
+  near.p2 = { x: x_nearest, y };
+  near.next = outline2hole_index;
+
+  let last = e0;
+  for (; last.next !== edgeIndex; last = edges[last.next]!);
+  last.next = hole2outline_index;
+  return true;
+}
+
+/**
+ * `SHAPE_POLY_SET::fractureSingle` — `fractureSingleCacheFriendly`, which is
+ * what `m_EnableCacheFriendlyFracture` (default true) selects: turn one
+ * outline-plus-holes polygon into a single ring, joining each hole to the
+ * outline with a zero-width slit at the hole's leftmost point (the FIRST of
+ * equal-x points), holes taken in order of that x, then their top y.
+ */
+export function fractureSingle(paths: Polygon): Polygon {
+  if (paths.length === 1) return paths.map((p) => p.map((q) => ({ ...q })));
+  if (paths.length === 0) return [];
+
+  const edges: FractureEdge[] = [];
+
+  interface PathInfo {
+    path_or_provoking_index: number;
+    leftmost: number;
+    x: number;
+    y_or_bridge: number;
+  }
+  const sorted_paths: PathInfo[] = [];
+
+  for (let path_index = 0; path_index < paths.length; path_index++) {
+    const points = paths[path_index]!;
+    let x_min = 2147483647;
+    let y_min = 2147483647;
+    let leftmost = -1;
+    for (let point_index = 0; point_index < points.length; point_index++) {
+      const point = points[point_index]!;
+      if (point.x < x_min) {
+        x_min = point.x;
+        leftmost = point_index;
+      }
+      if (point.y < y_min) y_min = point.y;
+    }
+    sorted_paths.push({
+      path_or_provoking_index: path_index,
+      leftmost,
+      x: x_min,
+      y_or_bridge: y_min,
+    });
+  }
+
+  // `std::sort( begin + 1, end )` — the outline stays first.
+  const holesSorted = sorted_paths.slice(1);
+  stdSort(holesSorted, (a, b) => (a.x === b.x ? a.y_or_bridge < b.y_or_bridge : a.x < b.x));
+  sorted_paths.splice(1, holesSorted.length, ...holesSorted);
+
+  let edge_index = 0;
+  let outline = true;
+
+  for (const path_info of sorted_paths) {
+    const points = paths[path_info.path_or_provoking_index]!;
+    const point_count = points.length;
+    const provoking_edge = edge_index;
+
+    for (let i = 0; i < point_count - 1; i++) {
+      edges.push({ p1: points[i]!, p2: points[i + 1]!, next: edge_index + 1 });
+      edge_index++;
+    }
+    // Create last edge looping back to the provoking one.
+    edges.push({ p1: points[point_count - 1]!, p2: points[0]!, next: provoking_edge });
+    edge_index++;
+
+    if (!outline) {
+      path_info.path_or_provoking_index = provoking_edge;
+      path_info.y_or_bridge = edge_index;
+      // Reserve 3 additional edges to bridge with the outline.
+      edge_index += 3;
+      edges.length = edge_index;
+    }
+    outline = false;
+  }
+
+  for (let k = 1; k < sorted_paths.length; k++) {
+    const it = sorted_paths[k]!;
+    if (
+      !processHole(
+        edges,
+        it.path_or_provoking_index,
+        it.path_or_provoking_index + it.leftmost,
+        it.y_or_bridge,
+      )
+    )
+      return []; // "Broken polygon, dropping path"
+  }
+
+  // `newPath.Append( e->m_p1 )`: a point equal to the previous one is dropped.
+  const out: Vec2[] = [];
+  const append = (p: Vec2): void => {
+    const l = out[out.length - 1];
+    if (!l || l.x !== p.x || l.y !== p.y) out.push({ x: p.x, y: p.y });
+  };
+  let e = edges[0]!;
+  for (; e.next !== 0; e = edges[e.next]!) append(e.p1);
+  append(e.p1);
+  return [out];
+}
+
+/** FractureEdgeSlow: one directed edge of the working chain. */
+interface FractureEdgeSlow {
   connected: boolean;
   p1: Vec2;
   p2: Vec2;
-  next: FractureEdge | null;
+  next: FractureEdgeSlow | null;
 }
 
-const edge = (connected: boolean, p1: Vec2, p2: Vec2): FractureEdge => ({
+const edgeSlow = (connected: boolean, p1: Vec2, p2: Vec2): FractureEdgeSlow => ({
   connected,
   p1,
   p2,
@@ -35,26 +228,25 @@ const edge = (connected: boolean, p1: Vec2, p2: Vec2): FractureEdge => ({
 });
 
 /** FractureEdgeSlow::matches: does the horizontal line at `y` cross this edge? */
-const matches = (e: FractureEdge, y: number): boolean =>
+const matchesSlow = (e: FractureEdgeSlow, y: number): boolean =>
   (y >= e.p1.y || y >= e.p2.y) && (y <= e.p1.y || y <= e.p2.y);
 
 /** KiCad's rescale( a, b, c ) = a * b / c, rounded. */
-const rescale = (a: number, b: number, c: number): number => Math.round((a * b) / c);
 
 /**
  * processEdge: cut `edge`'s hole open to the nearest connected edge to its left,
  * along the horizontal at its first point, and splice the hole into the chain.
  * Returns how many edges became connected, or 0 if the polygon is broken.
  */
-function processEdge(edges: FractureEdge[], e: FractureEdge): number {
+function processEdgeSlow(edges: FractureEdgeSlow[], e: FractureEdgeSlow): number {
   const x = e.p1.x;
   const y = e.p1.y;
   let minDist = Number.POSITIVE_INFINITY;
   let xNearest = 0;
-  let nearest: FractureEdge | null = null;
+  let nearest: FractureEdgeSlow | null = null;
 
   for (const candidate of edges) {
-    if (!matches(candidate, y)) continue;
+    if (!matchesSlow(candidate, y)) continue;
 
     const xIntersect =
       candidate.p1.y === candidate.p2.y
@@ -78,9 +270,9 @@ function processEdge(edges: FractureEdge[], e: FractureEdge): number {
   if (!nearest?.connected) return 0;
 
   let count = 0;
-  const lead1 = edge(true, { x: xNearest, y }, { x, y });
-  const lead2 = edge(true, { x, y }, { x: xNearest, y });
-  const split2 = edge(true, { x: xNearest, y }, nearest.p2);
+  const lead1 = edgeSlow(true, { x: xNearest, y }, { x, y });
+  const lead2 = edgeSlow(true, { x, y }, { x: xNearest, y });
+  const split2 = edgeSlow(true, { x: xNearest, y }, nearest.p2);
 
   edges.push(split2, lead1, lead2);
 
@@ -109,27 +301,27 @@ function processEdge(edges: FractureEdge[], e: FractureEdge): number {
  * single ring, joining each hole to the outline with a zero-width slit. Holes
  * are taken left-most first, which is what keeps the slits from crossing.
  */
-export function fractureSingle(paths: Polygon): Polygon {
+export function fractureSingleSlow(paths: Polygon): Polygon {
   if (paths.length <= 1) return paths.map((p) => p.map((q) => ({ ...q })));
 
-  const edges: FractureEdge[] = [];
-  const borderEdges: FractureEdge[] = [];
-  let root: FractureEdge | null = null;
+  const edges: FractureEdgeSlow[] = [];
+  const borderEdges: FractureEdgeSlow[] = [];
+  let root: FractureEdgeSlow | null = null;
   let first = true;
   let numUnconnected = 0;
 
   for (const path of paths) {
     const points = path;
     const pointCount = points.length;
-    let prev: FractureEdge | null = null;
-    let firstEdge: FractureEdge | null = null;
+    let prev: FractureEdgeSlow | null = null;
+    let firstEdge: FractureEdgeSlow | null = null;
     let xMin = Number.POSITIVE_INFINITY;
 
     for (const p of points) xMin = Math.min(xMin, p.x);
 
     for (let i = 0; i < pointCount; i++) {
       // The first path is the outline, and starts out connected.
-      const fe = edge(first, points[i]!, points[i + 1 === pointCount ? 0 : i + 1]!);
+      const fe = edgeSlow(first, points[i]!, points[i + 1 === pointCount ? 0 : i + 1]!);
 
       root ??= fe;
       firstEdge ??= fe;
@@ -149,7 +341,7 @@ export function fractureSingle(paths: Polygon): Polygon {
   // Keep connecting holes to the main outline until none are left.
   while (numUnconnected > 0) {
     let xMin = Number.POSITIVE_INFINITY;
-    let smallestX: FractureEdge | null = null;
+    let smallestX: FractureEdgeSlow | null = null;
 
     for (const borderEdge of borderEdges) {
       const xt = borderEdge.p1.x;
@@ -160,7 +352,7 @@ export function fractureSingle(paths: Polygon): Polygon {
     }
 
     if (!smallestX) break;
-    const processed = processEdge(edges, smallestX);
+    const processed = processEdgeSlow(edges, smallestX);
 
     // A polygon we cannot join is broken; upstream warns and drops it.
     if (!processed) return [];
@@ -169,9 +361,13 @@ export function fractureSingle(paths: Polygon): Polygon {
   }
 
   const out: Vec2[] = [];
+  const append = (p: Vec2): void => {
+    const l = out[out.length - 1];
+    if (!l || l.x !== p.x || l.y !== p.y) out.push({ x: p.x, y: p.y });
+  };
   let e = root!;
-  for (; e.next !== root; e = e.next!) out.push({ ...e.p1 });
-  out.push({ ...e.p1 });
+  for (; e.next !== root; e = e.next!) append(e.p1);
+  append(e.p1);
 
   return [out];
 }
@@ -209,83 +405,78 @@ export enum CornerStrategy {
 }
 
 /**
- * Clipper2's round join, over the Clipper 1 port.
- *
- * KiCad offsets with Clipper2 (`SHAPE_POLY_SET::inflate2`); the `clipper-lib`
- * package is the JavaScript port of Clipper 1. The two agree on everything
- * that reaches an integer polygon — the same offset-triginometry, the same
- * half-away-from-zero rounding — except the number of vertices a rounded
- * corner gets:
- *
- *     Clipper 1:  steps = max( Round( stepsPerRad * |angle| ), 1 )
- *     Clipper2:   steps = ceil( steps_per_rad_ * |angle| )       // #448, #456
- *
- * so a 90° corner that Clipper2 gives six chords, Clipper 1 gives five, and
- * every one of ours lost the vertex at 81.8°. Measured on a 10 mm square
- * inflated by 0.5 mm: the five vertices both produce agree TO THE NANOMETRE
- * with KiCad's, and KiCad has a sixth. Over a plane with thousands of pad
- * reliefs and via holes that missing chord is the whole of the last
- * 0.05–0.1 % between our pour and KiCad's.
- *
- * This is `ClipperOffset::DoRound` (clipper.offset.cpp:343-380) with its
- * `steps_per_360` (:552-556) recomputed per call, in Clipper2's own operation
- * order — the delta-scaled vector is what gets rotated — and with `Math.PI`
- * where the port carries a 15-digit `two_pi`, because the last-ulp difference
- * moves a rounded vertex by one unit now and then.
+ * `SHAPE_LINE_CHAIN::Area( false )`: `-area * 0.5`, negative for a ring wound
+ * anti-clockwise, with the terms cast in the order the C++ casts them.
  */
-type OffsetInternals = {
-  m_delta: number;
-  ArcTolerance: number;
-  m_sinA: number;
-  m_normals: { X: number; Y: number }[];
-  m_srcPoly: { X: number; Y: number }[];
-  m_destPoly: { X: number; Y: number }[];
-};
-
-(
-  ClipperLib.ClipperOffset.prototype as unknown as {
-    DoRound: (this: OffsetInternals, j: number, k: number) => void;
+function chainArea(ring: Vec2[]): number {
+  let area = 0.0;
+  const size = ring.length;
+  for (let i = 0, j = size - 1; i < size; ++i) {
+    area += (ring[j]!.x + ring[i]!.x) * (ring[j]!.y - ring[i]!.y);
+    j = i;
   }
-).DoRound = function doRoundClipper2(this: OffsetInternals, j: number, k: number): void {
-  const nj = this.m_normals[j]!;
-  const nk = this.m_normals[k]!;
-  const src = this.m_srcPoly[j]!;
-  const delta = this.m_delta;
-  const absDelta = Math.abs(delta);
-
-  // `steps_per_360 = min( PI / acos( 1 - arcTol / abs_delta ), abs_delta * PI )`.
-  const arcTol = Math.min(absDelta, this.ArcTolerance);
-  const stepsPer360 = Math.min(Math.PI / Math.acos(1 - arcTol / absDelta), absDelta * Math.PI);
-  let stepSin = Math.sin((2 * Math.PI) / stepsPer360);
-  const stepCos = Math.cos((2 * Math.PI) / stepsPer360);
-  if (delta < 0) stepSin = -stepSin;
-  const stepsPerRad = stepsPer360 / (2 * Math.PI);
-
-  const cosA = nk.X * nj.X + nk.Y * nj.Y;
-  const angle = Math.atan2(this.m_sinA, cosA);
-
-  let vx = nk.X * delta;
-  let vy = nk.Y * delta;
-  const round = (a: number): number => (a < 0 ? Math.ceil(a - 0.5) : Math.floor(a + 0.5));
-  this.m_destPoly.push({ X: round(src.X + vx), Y: round(src.Y + vy) });
-
-  const steps = Math.ceil(stepsPerRad * Math.abs(angle));
-  for (let i = 1; i < steps; i++) {
-    const x = vx * stepCos - stepSin * vy;
-    vy = vx * stepSin + vy * stepCos;
-    vx = x;
-    this.m_destPoly.push({ X: round(src.X + vx), Y: round(src.Y + vy) });
-  }
-  this.m_destPoly.push({ X: round(src.X + nj.X * delta), Y: round(src.Y + nj.Y * delta) });
-};
+  return -area * 0.5;
+}
 
 /**
- * SHAPE_POLY_SET::Inflate. Offsets every polygon by `amount` (negative
- * deflates), with the join type and miter limit upstream maps each corner
+ * `SHAPE_LINE_CHAIN::convertToClipper2`: the ring reversed when its winding is
+ * not the one asked for — an outline one way, a hole the other. Clipper2's
+ * non-zero rule counts windings, so this is what makes two overlapping paths
+ * union rather than cancel.
+ */
+function convertToClipper2(ring: Vec2[], aRequiredOrientation: boolean): Path64 {
+  const orientation = chainArea(ring) >= 0;
+  const input = orientation !== aRequiredOrientation ? [...ring].reverse() : ring;
+  // A SHAPE_LINE_CHAIN is VECTOR2I; a caller here may still hold a fraction,
+  // and Clipper2 is an integer engine. KiROUND is what fills a VECTOR2I.
+  return input.map((p) => ({ x: kiRound(p.x), y: kiRound(p.y) }));
+}
+
+/**
+ * `SHAPE_LINE_CHAIN( const Path64& )`: `Append` refuses a point equal to the
+ * one before it, and nothing else is touched.
+ */
+function chainFromPath(path: Path64): Vec2[] {
+  const out: Vec2[] = [];
+  for (const p of path) {
+    const last = out[out.length - 1];
+    if (!last || last.x !== p.x || last.y !== p.y) out.push({ x: p.x, y: p.y });
+  }
+  return out;
+}
+
+/**
+ * `SHAPE_POLY_SET::importTree` / `importPolyPath`: a PolyPath that is not a
+ * hole is an outline, its children are its holes, and an outline nested inside
+ * one of those holes starts a polygon of its own.
+ */
+function importTree(tree: PolyTree64): Polygon[] {
+  const out: Polygon[] = [];
+
+  const importPolyPath = (node: PolyPath64): void => {
+    if (node.isHole()) return;
+    const paths: Polygon = [chainFromPath(node.polygon)];
+    for (const child of node.childs) {
+      paths.push(chainFromPath(child.polygon));
+      for (const grandchild of child.childs) importPolyPath(grandchild);
+    }
+    out.push(paths);
+  };
+
+  for (const n of tree.childs) importPolyPath(n);
+  return out;
+}
+
+/**
+ * `SHAPE_POLY_SET::inflate2`. Offsets every polygon by `amount` (negative
+ * deflates) with the join type and miter limit upstream maps each corner
  * strategy to, and the arc tolerance it derives from the segment count:
  *
  *   ArcTolerance = |amount| * (1 - cos(pi / circleSegCount))
  *
+ * `simplify` is upstream's `aSimplify`: `SimplifyPaths` is called and its
+ * result discarded (shape_poly_set.cpp:1009), so what it actually does is run
+ * the offset's own union a second time, `FillRule::Positive`, un-reversed.
  * Clipper works in integers, which our internal units already are.
  */
 export function inflate(
@@ -293,115 +484,57 @@ export function inflate(
   amount: number,
   strategy: CornerStrategy = CornerStrategy.ROUND_ALL_CORNERS,
   circleSegCount = 16,
+  simplify = false,
 ): Polygon[] {
-  if (amount === 0 || polygons.length === 0) return polygons.map((p) => p.map((r) => [...r]));
+  const c = new ClipperOffset();
 
-  let joinType: number;
+  let joinType = JoinType.Round;
   let miterLimit = 2.0;
 
   switch (strategy) {
     case CornerStrategy.ALLOW_ACUTE_CORNERS:
-      joinType = ClipperLib.JoinType.jtMiter;
-      miterLimit = 10; // allows large spikes
+      joinType = JoinType.Miter;
+      miterLimit = 10; // Allows large spikes
       break;
     case CornerStrategy.CHAMFER_ACUTE_CORNERS:
     case CornerStrategy.ROUND_ACUTE_CORNERS:
-      joinType = ClipperLib.JoinType.jtMiter;
+      joinType = JoinType.Miter;
       break;
     case CornerStrategy.CHAMFER_ALL_CORNERS:
-      joinType = ClipperLib.JoinType.jtSquare;
+      joinType = JoinType.Square;
       break;
-    default:
-      joinType = ClipperLib.JoinType.jtRound;
+    case CornerStrategy.ROUND_ALL_CORNERS:
+      joinType = JoinType.Round;
       break;
   }
 
-  // Guard the segment count the way upstream does before deriving the tolerance.
-  const segs = circleSegCount < 6 ? 6 : circleSegCount;
-  const coeff = 1.0 - Math.cos(Math.PI / segs);
-
-  const co = new ClipperLib.ClipperOffset(miterLimit, Math.abs(amount) * coeff);
-
-  for (const poly of polygons) {
-    co.AddPaths(
-      poly.map((ring) => ring.map((p) => ({ X: p.x, Y: p.y }))),
+  for (const poly of polygons)
+    c.addPaths(
+      poly.map((ring, i) => convertToClipper2(ring, i === 0)),
       joinType,
-      ClipperLib.EndType.etClosedPolygon,
+      EndType.Polygon,
     );
+
+  if (circleSegCount < 6) circleSegCount = 6; // avoid incorrect aCircleSegCount values
+  const coeff = 1.0 - cos(PI / circleSegCount);
+
+  c.arcTolerance(Math.abs(amount) * coeff);
+  c.miterLimit(miterLimit);
+
+  const tree = new PolyPath64();
+
+  if (simplify) {
+    const paths = c.executePaths(amount);
+    const c2 = new Clipper64();
+    c2.preserveCollinear(false);
+    c2.reverseSolution(false);
+    c2.addSubject(paths);
+    c2.executeTree(ClipType.Union, FillRule.Positive, tree);
+  } else {
+    c.executeTree(amount, tree);
   }
 
-  const tree = new ClipperLib.PolyTree();
-  co.Execute(tree, amount);
   return importTree(tree);
-}
-
-/**
- * A ring with whole-IU corners, consecutive duplicates dropped.
- *
- * `SHAPE_POLY_SET` is `VECTOR2I`: every polygon KiCad hands Clipper, and every
- * one it takes back, has integer corners, and `SHAPE_LINE_CHAIN::Append`
- * refuses a zero-length edge. An offset works in floating point, so without
- * this the result carries fractional vertices — and a later boolean on two
- * shapes that very nearly coincide fails outright ("Unable to find segment …
- * in SweepLine tree") rather than answering wrongly. Rounding here is both the
- * faithful thing and the robust one.
- */
-function roundRing(ring: { X: number; Y: number }[]): Vec2[] {
-  const out: Vec2[] = [];
-
-  for (const p of ring) {
-    const q = { x: Math.round(p.X), y: Math.round(p.Y) };
-    const last = out[out.length - 1];
-    if (last && last.x === q.x && last.y === q.y) continue;
-    out.push(q);
-  }
-
-  while (out.length > 1) {
-    const first = out[0]!;
-    const last = out[out.length - 1]!;
-    if (first.x !== last.x || first.y !== last.y) break;
-    out.pop();
-  }
-
-  return out;
-}
-
-/**
- * `SHAPE_POLY_SET::importTree` — keep the hierarchy Clipper already worked out,
- * rather than deriving it again from containment.
- *
- * A PolyTree node that is not a hole is an outline, the hole children under it
- * are its holes, and an outline nested inside one of those holes starts a
- * polygon of its own. Asking Clipper for a flat list instead and nesting it by
- * point-in-polygon is O(rings²), which on a pour with thousands of rings is the
- * difference between two seconds and not finishing.
- */
-interface PolyNode {
-  Contour: () => { X: number; Y: number }[];
-  IsHole: () => boolean;
-  Childs: () => PolyNode[];
-}
-
-function importTree(tree: { Childs: () => PolyNode[] }): Polygon[] {
-  const out: Polygon[] = [];
-
-  const visitOutline = (node: PolyNode): void => {
-    const outer = roundRing(node.Contour());
-    const poly: Polygon = outer.length >= 3 ? [outer] : [];
-
-    for (const hole of node.Childs()) {
-      const ring = roundRing(hole.Contour());
-      if (poly.length > 0 && ring.length >= 3) poly.push(ring);
-      // An outline nested inside a hole is a separate polygon.
-      for (const inner of hole.Childs()) visitOutline(inner);
-    }
-
-    if (poly.length > 0) out.push(poly);
-  };
-
-  for (const child of tree.Childs()) visitOutline(child);
-
-  return out;
 }
 
 /** `SHAPE_POLY_SET`'s three boolean operations. */
@@ -412,67 +545,39 @@ export enum BooleanOp {
 }
 
 /**
- * `SHAPE_POLY_SET::BooleanAdd` / `BooleanSubtract` / `BooleanIntersection`.
+ * `SHAPE_POLY_SET::booleanOp`: `Clipper64`, `FillRule::NonZero`, the answer
+ * read back through its PolyTree.
  *
- * `FillRule::NonZero`, which is what `SHAPE_POLY_SET::booleanOp` declares
- * (shape_poly_set.cpp:859).
- *
- * It was even-odd here, on the reasoning that the two rules agree for single
- * rings and for Clipper's own output — which they do. They part company the
- * moment a caller hands in shapes that OVERLAP EACH OTHER: the zone filler
+ * It was even-odd here once, on the reasoning that the two rules agree for
+ * single rings and for Clipper's own output — which they do. They part company
+ * the moment a caller hands in shapes that OVERLAP EACH OTHER: the zone filler
  * subtracts a list of knockouts that overlap constantly (two pads of one part,
  * a track ending on a pad), and under even-odd the overlap between two holes
  * cancels back to copper.
  */
 export function booleanOp(subject: Polygon[], clip: Polygon[], op: BooleanOp): Polygon[] {
-  const toPaths = (polys: Polygon[]): { X: number; Y: number }[][] =>
-    polys.flatMap((poly) =>
-      poly.map((ring, i) => oriented(ring, i === 0).map((p) => ({ X: p.x, Y: p.y }))),
-    );
+  const c = new Clipper64();
 
-  const clipper = new ClipperLib.Clipper();
-  clipper.AddPaths(toPaths(subject), ClipperLib.PolyType.ptSubject, true);
-  clipper.AddPaths(toPaths(clip), ClipperLib.PolyType.ptClip, true);
+  const paths: Paths64 = [];
+  const clips: Paths64 = [];
+  for (const poly of subject)
+    poly.forEach((ring, i) => void paths.push(convertToClipper2(ring, i === 0)));
+  for (const poly of clip)
+    poly.forEach((ring, i) => void clips.push(convertToClipper2(ring, i === 0)));
+
+  c.addSubject(paths);
+  c.addClip(clips);
 
   const clipType =
     op === BooleanOp.ADD
-      ? ClipperLib.ClipType.ctUnion
+      ? ClipType.Union
       : op === BooleanOp.SUBTRACT
-        ? ClipperLib.ClipType.ctDifference
-        : ClipperLib.ClipType.ctIntersection;
+        ? ClipType.Difference
+        : ClipType.Intersection;
 
-  const tree = new ClipperLib.PolyTree();
-  clipper.Execute(
-    clipType,
-    tree,
-    ClipperLib.PolyFillType.pftNonZero,
-    ClipperLib.PolyFillType.pftNonZero,
-  );
-
-  return importTree(tree);
-}
-
-/** Twice the signed area of a ring; its sign is the ring's orientation. */
-function signedArea2(ring: Vec2[]): number {
-  let a = 0;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++)
-    a += (ring[j]!.x + ring[i]!.x) * (ring[j]!.y - ring[i]!.y);
-  return a;
-}
-
-/**
- * The ring wound the way `SHAPE_POLY_SET` keeps it: an outline one way, its
- * holes the other.
- *
- * The non-zero rule counts windings, so two overlapping paths only union if
- * they turn the same way — wind one of them backwards and the overlap sums to
- * zero and disappears. Upstream never hits this because a SHAPE_POLY_SET is
- * always oriented; a caller handing in rings it built itself (a knockout circle,
- * a stadium along a pad edge) has no such guarantee, so they are oriented here.
- */
-function oriented(ring: Vec2[], outline: boolean): Vec2[] {
-  const positive = signedArea2(ring) > 0;
-  return positive === outline ? ring : [...ring].reverse();
+  const solution = new PolyPath64();
+  c.executeTree(clipType, FillRule.NonZero, solution);
+  return importTree(solution);
 }
 
 /** `SHAPE_POLY_SET::BooleanAdd`. */
@@ -485,26 +590,6 @@ export const booleanSubtract = (a: Polygon[], b: Polygon[]): Polygon[] =>
 /** `SHAPE_POLY_SET::BooleanIntersection`. */
 export const booleanIntersection = (a: Polygon[], b: Polygon[]): Polygon[] =>
   booleanOp(a, b, BooleanOp.INTERSECT);
-
-/** Twice the signed area; the sign gives the winding. */
-function signedArea(ring: Vec2[]): number {
-  let a = 0;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++)
-    a += (ring[j]!.x + ring[i]!.x) * (ring[j]!.y - ring[i]!.y);
-  return a / 2;
-}
-
-/** Ray-cast containment. */
-function pointInRing(p: Vec2, ring: Vec2[]): boolean {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const a = ring[i]!;
-    const b = ring[j]!;
-    if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x)
-      inside = !inside;
-  }
-  return inside;
-}
 
 // ----- corner smoothing (corner_operations.cpp) --------------------------------
 
@@ -664,20 +749,11 @@ export const fillet = (polygons: Polygon[], radius: number, errorMax: number): P
  * `SHAPE_POLY_SET::importTree` reads it.
  */
 export function buildPolysetFromOrientedPaths(paths: Vec2[][], evenOdd: boolean): Polygon[] {
-  const clipper = new ClipperLib.Clipper();
+  const clipper = new Clipper64();
+  const tree = new PolyPath64();
 
-  clipper.AddPaths(
-    paths.map((ring) => ring.map((p) => ({ X: p.x, Y: p.y }))),
-    ClipperLib.PolyType.ptSubject,
-    true,
-  );
-
-  const fillRule = evenOdd
-    ? ClipperLib.PolyFillType.pftEvenOdd
-    : ClipperLib.PolyFillType.pftNonZero;
-  const tree = new ClipperLib.PolyTree();
-
-  clipper.Execute(ClipperLib.ClipType.ctUnion, tree, fillRule, fillRule);
+  clipper.addSubject(paths.map((ring) => ring.map((p) => ({ x: p.x, y: p.y }))));
+  clipper.executeTree(ClipType.Union, evenOdd ? FillRule.EvenOdd : FillRule.NonZero, tree);
 
   return importTree(tree);
 }
