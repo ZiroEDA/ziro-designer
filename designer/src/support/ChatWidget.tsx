@@ -33,9 +33,15 @@
  * read their designs; sending identifiers for those designs to a chat vendor
  * cuts against that, and the frame name is enough to triage.
  *
- * The iframe reports whether the panel is open so this side can size it: a
- * collapsed bubble needs a corner, an open conversation needs a panel, and an
- * iframe cannot resize itself.
+ * ### Why the launcher bubble is ours
+ *
+ * Crisp's loader refuses to run in a window narrower than 280px (`l.js`,
+ * `this.m=280`), so an iframe the size of a bubble never gets a chatbox at all
+ * — that is how the first version shipped with nothing visible. So the frame is
+ * always the size of an open conversation, `visibility: hidden` until it is
+ * opened (invisible AND click-through, so the app underneath still works), and
+ * the bubble in the corner is a plain button of ours. Clicking it asks the
+ * frame to open; the frame reports closed and unread back.
  */
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
 import { useAuth } from '../auth/AuthProvider.js';
@@ -72,6 +78,7 @@ export function ChatWidget(): JSX.Element | null {
   const { route } = useRoute();
   const frame = useRef<HTMLIFrameElement>(null);
   const [open, setOpen] = useState(false);
+  const [unread, setUnread] = useState(false);
 
   const email = session?.user?.email ?? '';
   const screen = screenName(route);
@@ -88,7 +95,11 @@ export function ChatWidget(): JSX.Element | null {
       if (e.origin !== origin) return;
       const data = e.data as { type?: string; state?: string } | null;
       if (data?.type !== 'ziro-chat') return;
-      setOpen(data.state === 'opened');
+      if (data.state === 'unread') setUnread(true);
+      else {
+        setOpen(data.state === 'opened');
+        if (data.state === 'opened') setUnread(false);
+      }
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
@@ -106,6 +117,12 @@ export function ChatWidget(): JSX.Element | null {
 
   useEffect(identify, [identify]);
 
+  const openChat = useCallback(() => {
+    if (!origin) return;
+    setUnread(false);
+    frame.current?.contentWindow?.postMessage({ type: 'ziro-chat-open' }, origin);
+  }, [origin]);
+
   // The address is fixed on first render on purpose. `screen` changes every
   // time the user moves between frames, and a changed src RELOADS the iframe,
   // which would throw away a conversation in progress on the way from the
@@ -118,16 +135,36 @@ export function ChatWidget(): JSX.Element | null {
   if (!WIDGET_URL) return null;
 
   return (
-    <iframe
-      ref={frame}
-      title="ZiroEDA support chat"
-      src={src}
-      onLoad={identify}
-      className={`ze-chat-frame${open ? ' open' : ''}`}
-      // Only what the widget needs: scripts and its own storage to run at all,
-      // popups for the links it shows, forms for the message box. Nothing else
-      // -- a frame from another origin is given nothing it does not need.
-      sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-    />
+    <>
+      <iframe
+        ref={frame}
+        title="ZiroEDA support chat"
+        src={src}
+        onLoad={identify}
+        className={`ze-chat-frame${open ? ' open' : ''}`}
+        // Only what the widget needs: scripts and its own storage to run at all,
+        // popups for the links it shows, forms for the message box. Nothing else
+        // -- a frame from another origin is given nothing it does not need.
+        sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+      />
+      {!open && (
+        <button
+          type="button"
+          className={`ze-chat-launcher${unread ? ' unread' : ''}`}
+          onClick={openChat}
+          title="Chat with us"
+          aria-label="Chat with us"
+        >
+          {/* [art] a speech bubble; Crisp ships its launcher as an SVG we do
+              not copy, so this is our glyph on our button. */}
+          <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+            <path
+              fill="currentColor"
+              d="M12 3C6.5 3 2 6.6 2 11c0 2.3 1.2 4.4 3.2 5.9L4 21l4.6-2.2c1.1.3 2.2.4 3.4.4 5.5 0 10-3.6 10-8s-4.5-8-10-8z"
+            />
+          </svg>
+        </button>
+      )}
+    </>
   );
 }

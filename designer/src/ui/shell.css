@@ -16302,34 +16302,70 @@ td.ze-grid-bool {
 
 /* ---- Support chat (cross-origin iframe, see support/ChatWidget.tsx) -------
 
-   The frame is transparent and only as big as the widget inside it: a
-   collapsed bubble is a corner, an open conversation is a panel. Sized from
-   out here because an iframe cannot resize itself; the widget page reports
-   which state it is in.
+   The frame is ALWAYS the size of an open conversation, because Crisp's
+   loader refuses to run in a window narrower than 280px: a frame the size of
+   a bubble would never get a chatbox at all. Until it is opened it is
+   `visibility: hidden`, which is both invisible and click-through, so the app
+   underneath keeps working. The bubble in the corner is our own button.
 
    None of these numbers is chrome of ours. The inset is the marketing site's
    own `#crisp-chatbox` rule (ZiroEDA_final index.html:485-489), so the bubble
-   sits where it does on ziroeda.com; the frame sizes are the room Crisp's
-   widget takes as rendered, bubble and open panel. */
+   sits where it does on ziroeda.com; the panel is the room Crisp's open
+   conversation takes as rendered; the bubble is Crisp's launcher diameter. */
 .ze-chat-frame {
   position: fixed;
   right: 24px; /* [data] the site's #crisp-chatbox inset */
-  /* Clear of the status bar wherever a frame has one, so the bubble never
+  /* Clear of the status bar wherever a frame has one, so the panel never
      covers the layer/units cells. The fallback is for the screens that have
      no status bar at all (the sign-in wall, the project manager). */
   bottom: calc(24px + var(--statusbar-height, 0px)); /* [data] the same inset, lifted */
-  width: 96px; /* [data] Crisp's launcher bubble, with its shadow */
-  height: 96px; /* [data] Crisp's launcher bubble, with its shadow */
+  /* An open conversation, clamped so it never runs off a short window. */
+  width: min(400px, calc(100vw - 48px)); /* [data] Crisp's open panel; twice the inset */
+  height: min(
+    600px,
+    calc(100vh - 48px - var(--statusbar-height, 0px))
+  ); /* [data] Crisp's open panel; twice the inset */
   border: 0;
   color-scheme: normal;
   background: transparent;
+  visibility: hidden;
   /* Above the modal backdrop (200), so support is reachable from the sign-in
      wall -- which is exactly where someone who cannot get in needs it -- but
      below the loading overlay (300), which must not be clicked past. */
   z-index: 210;
 }
 .ze-chat-frame.open {
-  /* An open conversation, clamped so it never runs off a short window. */
-  width: min(400px, calc(100vw - 48px)); /* [data] Crisp's open panel; twice the inset */
-  height: min(600px, calc(100vh - 48px - var(--statusbar-height, 0px))); /* [data] Crisp's open panel; twice the inset */
+  visibility: visible;
+}
+.ze-chat-launcher {
+  position: fixed;
+  right: 24px; /* [data] the site's #crisp-chatbox inset */
+  bottom: calc(24px + var(--statusbar-height, 0px)); /* [data] the same inset, lifted */
+  width: 54px; /* [data] Crisp's launcher diameter */
+  height: 54px; /* [data] Crisp's launcher diameter */
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--selection-fg);
+  background: var(--selection-bg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35); /* [data] Crisp's launcher shadow */
+  z-index: 210;
+}
+.ze-chat-launcher:hover {
+  background: var(--accent-fill-hover-checked);
+}
+.ze-chat-launcher.unread::after {
+  content: "";
+  position: absolute;
+  top: 2px; /* [data] Crisp's unread dot */
+  right: 2px; /* [data] Crisp's unread dot */
+  width: 12px; /* [data] Crisp's unread dot */
+  height: 12px; /* [data] Crisp's unread dot */
+  border-radius: 50%;
+  background: var(--selection-fg);
+  border: 2px solid var(--selection-bg); /* [data] Crisp's unread dot */
 }
