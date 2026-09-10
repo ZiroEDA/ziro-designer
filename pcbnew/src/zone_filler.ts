@@ -907,17 +907,33 @@ function subtractHigherPriorityZones(
   return kept.map((poly) => poly.map(ptsOf));
 }
 
-export function fillZone(
+/**
+ * One zone's copper, per layer, BEFORE the island pass — with the anchors that
+ * pass will need.
+ *
+ * `ZONE_FILLER::Fill` pours every zone and only then calls
+ * `FillIsolatedIslandsMap`, so what decides an island is the finished board,
+ * not the board as it stood when this zone's turn came. Splitting the two is
+ * what lets `fillZones` ask the question in upstream's order.
+ */
+interface ZoneFillParts {
+  layer: string;
+  polys: Vec2[][];
+  /** Points where same-net copper reaches this layer's pour. */
+  connected: Vec2[];
+}
+
+function fillZoneParts(
   board: Board,
   zoneIndex: number,
   opts: ZoneFillOptions = {},
-): PcbZoneFill[] {
+): ZoneFillParts[] {
   const zone = board.zones[zoneIndex];
   if (!zone?.outline || zone.outline.length < 3) return [];
 
   const maxError = opts.maxError ?? DEFAULT_MAX_ERROR;
   const clearanceOf = opts.clearanceOf ?? ((z: PcbZone) => z.clearance ?? mmToIU(0.5));
-  const fills: PcbZoneFill[] = [];
+  const fills: ZoneFillParts[] = [];
 
   // `ZONE_FILLER::Fill`'s `m_brdOutlinesValid = GetBoardPolygonOutlines( … )`,
   // handed to `BuildSmoothedPoly` as `aBoardOutline` and used there for one
@@ -1345,8 +1361,14 @@ export function fillZone(
     // necks thinner than its 0.381 mm minimum; the deflate/inflate severs them,
     // and 212 mm² of copper KiCad drops as islands survived here because at the
     // time we asked they were still attached.
+    // Three points, not four: polygon-clipping hands back OPEN rings, so a
+    // triangle is three of them and a `>= 4` guard threw it away. That is not a
+    // degenerate case — a straight zone corner cut off by one straight
+    // clearance edge IS a triangle, and on One-Air-Max a diagonal track slices
+    // 5.9 mm² of the PGND pour into exactly that shape, which upstream fills
+    // and this dropped before the prune ever saw it.
     let pruned = postKnockoutMinWidthPrune(
-      area.map((poly) => poly.map(ptsOf)).filter((poly) => (poly[0]?.length ?? 0) >= 4),
+      area.map((poly) => poly.map(ptsOf)).filter((poly) => (poly[0]?.length ?? 0) >= 3),
       zone,
       maxError,
     );
@@ -1394,11 +1416,92 @@ export function fillZone(
     // the entire span it shares with the priority-24 zone beside it.
     pruned = subtractHigherPriorityZones(pruned, board, zoneIndex, layer, near);
 
-    const polys: Vec2[][] = removeIslands(fracture(pruned), zone, connected);
-    if (polys.length > 0) fills.push({ layer, polys });
+    fills.push({ layer, polys: fracture(pruned), connected });
   }
 
   return fills;
+}
+
+/**
+ * One zone's finished copper.
+ *
+ * The island pass here sees only the fills the other zones are already
+ * carrying — the file's, when nothing has re-poured them. `fillZones` is the
+ * one that asks it the way `ZONE_FILLER::Fill` does, with every zone poured.
+ */
+export function fillZone(
+  board: Board,
+  zoneIndex: number,
+  opts: ZoneFillOptions = {},
+): PcbZoneFill[] {
+  const zone = board.zones[zoneIndex];
+  if (!zone) return [];
+  const maxError = opts.maxError ?? DEFAULT_MAX_ERROR;
+
+  return fillZoneParts(board, zoneIndex, opts)
+    .map((part) => ({
+      layer: part.layer,
+      polys: removeIslands(
+        part.polys,
+        zone,
+        part.connected,
+        sameNetZoneTouch(board, zoneIndex, part.layer, maxError),
+      ),
+    }))
+    .filter((f) => f.polys.length > 0);
+}
+
+/**
+ * Does this outline touch another zone's copper of the same net?
+ *
+ * `CN_CLUSTER::IsOrphaned()` asks whether anything in a fill outline's cluster
+ * is a pad, and a cluster is built by the connectivity engine over ALL copper:
+ * two same-net zone fills that meet on a layer are one piece of copper, so a
+ * pad on either of them speaks for both. Nothing in the point model can see
+ * that — the two pours touch along a shared edge and neither has an item of
+ * its own inside the other.
+ *
+ * It is exactly the case a priority knockout creates. On One-Air-Max the PGND
+ * pour of priority 15 is cut along the priority-4 pour's outline, and the
+ * 5.9 mm² corner left over reaches nothing of its own; upstream keeps it,
+ * because it is welded to the other pour along that cut. The same reading, run
+ * the other way, is what finally drops the 9.1 mm² strip of the +3V3 pour on
+ * In1.Cu: the rest of that zone turns out to be connected through its
+ * neighbour, so the layer is no longer "unconnected pour, preserve as-is".
+ *
+ * The touch is tested with a `maxError` of slack because upstream's `Collide`
+ * counts a shared edge as a collision, and a boolean over two polygons that
+ * share an edge exactly answers with zero area.
+ */
+function sameNetZoneTouch(
+  board: Board,
+  zoneIndex: number,
+  layer: string,
+  maxError: number,
+): (ring: Vec2[]) => boolean {
+  const zone = board.zones[zoneIndex]!;
+  if (zone.net <= 0) return () => false;
+
+  const neighbours: Vec2[][] = [];
+  board.zones.forEach((other, i) => {
+    if (i === zoneIndex || other.ruleArea || other.net !== zone.net) return;
+    const fill = other.fills.find((f) => f.layer === layer);
+    if (!fill) return;
+    for (const poly of fill.polys) if (poly.length >= 3) neighbours.push(poly);
+  });
+  if (neighbours.length === 0) return () => false;
+
+  const boxes = neighbours.map(boxOf);
+  const geom = neighbours.map((poly) => [intRingOf(poly)]) as unknown as Geom;
+
+  return (ring: Vec2[]): boolean => {
+    const box = boxOf(ring);
+    const grownBox = boxInflate(box, maxError);
+    if (!boxes.some((b) => boxesIntersect(b, grownBox))) return false;
+    const grown = inflate([[ring]], maxError, maxError);
+    if (grown.length === 0) return false;
+    return (clip.intersection(fromPolys(grown), geom) as MultiPolygon).length > 0;
+  };
 }
 
 /**
@@ -1415,16 +1518,22 @@ export function fillZone(
  * `island_area_min` (`outline.Area( true ) < minArea`), NEVER keeps them all
  * and is the only mode a zone with no net can have.
  */
-function removeIslands(polys: Vec2[][], zone: PcbZone, connected: Vec2[]): Vec2[][] {
+function removeIslands(
+  polys: Vec2[][],
+  zone: PcbZone,
+  connected: Vec2[],
+  touchesSameNetZone: (ring: Vec2[]) => boolean = () => false,
+): Vec2[][] {
   const mode = zone.islandRemovalMode ?? 'always';
-  if (mode === 'never' || zone.net <= 0 || connected.length === 0 || polys.length === 0)
-    return polys;
+  if (mode === 'never' || zone.net <= 0 || polys.length === 0) return polys;
 
   // island_area_min is stored in mm², so the comparison happens there too.
   const iuPerMM = mmToIU(1);
   const minIslandArea = (zone.islandAreaMin ?? 10) * iuPerMM * iuPerMM;
 
-  const isolated = polys.filter((ring) => !connected.some((p) => pointInPolygon([ring], p)));
+  const isolated = polys.filter(
+    (ring) => !connected.some((p) => pointInPolygon([ring], p)) && !touchesSameNetZone(ring),
+  );
 
   // "skip island removal on layers where every outline is an island
   // (unconnected pour — must be preserved as-is)" (zone_filler.cpp:988-1004).
@@ -1833,6 +1942,7 @@ export function fillZones(board: Board, opts: ZoneFillOptions = {}): Board {
     .sort((a, b) => (higherPriority(board.zones[a]!, board.zones[b]!) ? -1 : 1));
 
   let working = board;
+  const poured: { index: number; parts: ZoneFillParts[] }[] = [];
 
   for (const i of order) {
     const z = working.zones[i]!;
@@ -1848,13 +1958,46 @@ export function fillZones(board: Board, opts: ZoneFillOptions = {}): Board {
     // it goes through the pour like any other zone, and on a board whose island
     // removal is set to NEVER that lays filled copper inside the keepout.
     if (z.filled === false || z.teardropType || z.ruleArea) continue;
-    const fills = fillZone(working, i, opts);
+    const parts = fillZoneParts(working, i, opts);
+    poured.push({ index: i, parts });
+
+    // The next zone down knocks itself out of these, so they have to be on the
+    // board before it is poured — islands and all.
+    const fills = parts.map((part) => ({ layer: part.layer, polys: part.polys }));
     const zones = [...working.zones];
     zones[i] = { ...z, fills, source: withFilledPolygons(z, fills) };
     working = { ...working, zones };
   }
 
-  return working;
+  // "m_connAlgo->SearchClusters(); for each zone, for each layer …" —
+  // `ZONE_FILLER::Fill` runs `FillIsolatedIslandsMap` once, over the finished
+  // board, and only then deletes. Asking per zone as it was poured reads a
+  // different board: a zone still to be poured carries the file's fill or
+  // none, so a pour that is welded to its neighbour looks isolated, and one
+  // whose neighbour has since been cut back looks connected.
+  const maxError = opts.maxError ?? DEFAULT_MAX_ERROR;
+  const finished = poured.map(({ index, parts }) => ({
+    index,
+    fills: parts
+      .map((part) => ({
+        layer: part.layer,
+        polys: removeIslands(
+          part.polys,
+          working.zones[index]!,
+          part.connected,
+          sameNetZoneTouch(working, index, part.layer, maxError),
+        ),
+      }))
+      .filter((f) => f.polys.length > 0),
+  }));
+
+  const zones = [...working.zones];
+  for (const { index, fills } of finished) {
+    const z = zones[index]!;
+    zones[index] = { ...z, fills, source: withFilledPolygons(z, fills) };
+  }
+
+  return { ...working, zones };
 }
 
 /** Rewrite a zone's `(filled_polygon …)` children from its new fills. */

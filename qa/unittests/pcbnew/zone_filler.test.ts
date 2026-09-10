@@ -554,6 +554,116 @@ describe('zone filler', () => {
     expect(covered(fill, { x: MM(20), y: MM(20.85) })).toBe(true);
   });
 
+  it('keeps a triangle: a corner sliced off by one straight clearance edge', () => {
+    // polygon-clipping hands back OPEN rings, so a triangle is three points.
+    // A `>= 4` guard in front of the min-width prune threw every triangle away
+    // before the prune saw it, and a zone corner cut off by a diagonal track's
+    // clearance IS a triangle — 5.9 mm² of One-Air-Max's PGND pour.
+    //
+    // A 1 mm net-2 track across the top-left corner of the 40 mm pour, with a
+    // 0.5 mm clearance, leaves a right isosceles triangle of leg ~6.3 mm above
+    // it — connected to nothing, so islands are left in place to see it.
+    const b = board({
+      zones: [zone({ islandRemovalMode: 'never' })],
+      tracks: [
+        {
+          start: { x: 0, y: MM(8) },
+          end: { x: MM(8), y: 0 },
+          width: MM(1),
+          layer: 'F.Cu',
+          net: 2,
+          source: EMPTY,
+        },
+      ],
+    });
+    const fill = fillZone(b, 0)[0]!.polys;
+    // The corner is its own outline, and a point deep inside it is copper.
+    expect(fill.length).toBe(2);
+    expect(covered(fill, { x: MM(1.5), y: MM(1.5) })).toBe(true);
+  });
+
+  describe('the island pass runs over the finished board', () => {
+    /**
+     * `ZONE_FILLER::Fill` pours every zone, then runs `FillIsolatedIslandsMap`
+     * ONCE and deletes. The connectivity search underneath it — `SearchClusters`
+     * — sees all the copper on a layer as one graph, and `CN_CLUSTER::
+     * IsOrphaned()` asks whether anything in an outline's cluster is a pad.
+     * Two same-net pours that touch are one cluster, so a pad on either one
+     * speaks for both.
+     *
+     * The layout: a priority-5 pour on the left 20 mm, a priority-0 pour over
+     * the whole 40 mm, both net 1. The lower pour is cut along the higher
+     * one's outline (`subtractHigherPriorityZones`), so its copper is the
+     * right half only. A different-net bar at x=30 splits that right half in
+     * two; the strip between 20 and ~29 touches the left pour along x=20 and
+     * has nothing of its own, and the strip beyond 31 has the net's only pad.
+     */
+    const overlap = (): Board =>
+      board({
+        zones: [
+          zone({ uuid: 'low', priority: 0 }),
+          zone({
+            uuid: 'high',
+            priority: 5,
+            outline: [
+              { x: 0, y: 0 },
+              { x: MM(20), y: 0 },
+              { x: MM(20), y: MM(40) },
+              { x: 0, y: MM(40) },
+            ],
+          }),
+        ],
+        footprints: [
+          footprint([pad({ x: MM(10), y: MM(20) }, 1), pad({ x: MM(36), y: MM(20) }, 1)]),
+        ],
+        tracks: [
+          {
+            start: { x: MM(30), y: 0 },
+            end: { x: MM(30), y: MM(40) },
+            width: MM(1),
+            layer: 'F.Cu',
+            net: 2,
+            source: EMPTY,
+          },
+        ],
+      });
+
+    it('keeps copper welded to a same-net pour, though nothing of its own is on it', () => {
+      const out = fillZones(overlap());
+      const low = out.zones[0]!.fills[0]!.polys;
+      // The 20..29.5 strip has no pad, no via, no track — only the shared edge
+      // at x=20 with the priority-5 pour. Upstream keeps it; a point model of
+      // "what is inside this ring" cannot see why.
+      expect(covered(low, { x: MM(25), y: MM(20) })).toBe(true);
+      // And the strip with the pad is of course kept too.
+      expect(covered(low, { x: MM(38), y: MM(5) })).toBe(true);
+    });
+
+    it('asks after EVERY zone is poured, not as each one finishes', () => {
+      // Two pours meeting edge to edge at x=20: the left one priority 0, the
+      // right one priority 5. Pour order is by priority, so the RIGHT pour is
+      // poured first and the left — the one with the only pad that can reach
+      // the right pour's welded strip — does not exist yet when the right
+      // pour's turn comes. Asked per zone, the strip is an island and goes;
+      // asked once at the end, as `Fill` does, the left pour is there.
+      const b = overlap();
+      b.zones[0]!.priority = 5;
+      b.zones[0]!.outline = [
+        { x: MM(20), y: 0 },
+        { x: MM(40), y: 0 },
+        { x: MM(40), y: MM(40) },
+        { x: MM(20), y: MM(40) },
+      ];
+      b.zones[1]!.priority = 0;
+      const out = fillZones(b);
+      const right = out.zones[0]!.fills[0]!.polys;
+      // The 20..29.5 strip of the right pour has nothing but the shared edge,
+      // and the left pour is poured AFTER it. With the island pass run at the
+      // end, the left pour is there to weld to; run per zone, it is not.
+      expect(covered(right, { x: MM(25), y: MM(20) })).toBe(true);
+    });
+  });
+
   it('a same-net zone of higher priority takes its own outline back', () => {
     // `ZONE_FILLER::subtractHigherPriorityZones` — "Lastly give any same-net but
     // higher-priority zones control over their own area", the last thing
