@@ -34,6 +34,7 @@ import {
   rememberMasterKey,
   storeWrappedAccount,
 } from './account_keys.js';
+import { setSessionKeys } from '../cloud/session_keys.js';
 
 export interface SignUpResult {
   error: string | null;
@@ -158,11 +159,16 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     made: Promise<{ keys: AccountKeys; wrapped: WrappedAccount }>;
   } | null>(null);
 
-  const open = useCallback((unlocked: AccountKeys) => {
-    rememberMasterKey(unlocked.masterKey);
-    setKeys(unlocked);
-    setKeyState('unlocked');
-  }, []);
+  const open = useCallback(
+    (unlocked: AccountKeys, userId: string) => {
+      rememberMasterKey(unlocked.masterKey);
+      // The sync layer is not React: hand it the keys the same moment.
+      setSessionKeys(unlocked, userId);
+      setKeys(unlocked);
+      setKeyState('unlocked');
+    },
+    [],
+  );
 
   /**
    * Store a freshly made account's keys under the session, open it, and queue
@@ -173,7 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
       if (!supabase) return;
       await storeWrappedAccount(supabase, userId, made.wrapped);
       setPendingRecoveryKey(await encodeRecoveryKey(made.keys.recoveryKey));
-      open(made.keys);
+      open(made.keys, userId);
     },
     [open],
   );
@@ -190,6 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
       if (!supabase || !next) {
         setKeyState('absent');
         setKeys(null);
+        setSessionKeys(null);
         return;
       }
       if (pendingSetup.current) return;
@@ -205,12 +212,13 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
           setKeyState('locked');
           return;
         }
-        open(await unlockWithMasterKey(masterKey, wrapped));
+        open(await unlockWithMasterKey(masterKey, wrapped), next.user.id);
       } catch (err) {
         // A stale or foreign key in the tab, or the network: the password can
         // always open it, so `locked` is the honest answer, not an error.
         console.warn('Account keys:', err);
         forgetMasterKey();
+        setSessionKeys(null);
         setKeyState('locked');
       }
     },
@@ -273,7 +281,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
             // The server accepted the login secret, so the password is right and
             // this unwrap cannot fail on it; if it does, the row is damaged, and
             // that is worth seeing rather than "wrong password".
-            open(await unlockWithPassword(password, wrapped));
+            open(await unlockWithPassword(password, wrapped), userId);
           } else {
             // A sign-up that ended before its keys were stored, or an account
             // from before encryption: make them now, under the same password.
@@ -313,7 +321,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
         if (!supabase || !session) return { error: 'Not signed in.' };
         try {
           const wrapped = await fetchWrappedAccount(supabase, session.user.id);
-          if (wrapped) open(await unlockWithPassword(password, wrapped));
+          if (wrapped) open(await unlockWithPassword(password, wrapped), session.user.id);
           else await finishSetup(session.user.id, await createAccount(password));
           return { error: null };
         } catch {
@@ -366,7 +374,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
           });
           if (error) return { error: error.message };
           if (fresh) setPendingRecoveryKey(await encodeRecoveryKey(unlocked.recoveryKey));
-          open(unlocked);
+          open(unlocked, userId);
           setRecovering(false);
           return { error: null };
         } catch (err) {
@@ -376,6 +384,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
       async signOut() {
         if (!supabase) return;
         forgetMasterKey();
+        setSessionKeys(null);
         setKeys(null);
         setKeyState('absent');
         setPendingRecoveryKey(null);

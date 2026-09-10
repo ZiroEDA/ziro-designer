@@ -110,6 +110,29 @@ export interface ProjectRow {
    */
   version?: number;
   files: RowFile[];
+  /**
+   * The project's name and manifest, encrypted under its project key
+   * (`enc_meta.ts`). Present on an encrypted row; for one, `name` is empty
+   * and every entry of `files` is `{ hash: <random blob id>, size: <ciphertext
+   * length> }` - what the blob index and the storage policy key on, and
+   * nothing the server can read.
+   */
+  enc_meta?: string | null;
+  /**
+   * The decrypted view of an encrypted row, attached by the CLIENT after it
+   * opened `enc_meta` (cloudStore.cloudGetRow). Never sent anywhere; never
+   * present on a row as the server returned it. Readers that compare or show
+   * a project use `row.plain ?? row` so a plaintext row reads the same way.
+   */
+  plain?: { name: string; files: ManifestEntry[] };
+}
+
+/** A user's copy of a project key, as the `project_keys` table holds it. */
+export interface ProjectKeyRow {
+  /** Base64 ciphertext. */
+  enc_key: string;
+  /** `master`: wrapped under the user's master key. `sealed`: to their public key. */
+  how: 'master' | 'sealed';
 }
 
 /**
@@ -283,6 +306,30 @@ export interface CloudBackend {
   removeObjects(paths: string[]): Promise<void>;
 
   /**
+   * The signed-in user's own key row for a project, or null. Optional only
+   * because a backend that predates encryption (a test fake) need not have
+   * it; the encrypted path refuses to run without it rather than guessing.
+   */
+  getProjectKey?(projectUid: string): Promise<ProjectKeyRow | null>;
+  /** Write (or replace) a key row. The server enforces who may write which. */
+  putProjectKey?(
+    projectUid: string,
+    userId: string,
+    encKey: string,
+    how: 'master' | 'sealed',
+  ): Promise<void>;
+  /** Take a member's key away (the owner), or drop one's own. */
+  deleteProjectKey?(projectUid: string, userId: string): Promise<void>;
+  /**
+   * Every object path under a prefix, recursively. For the sweep that removes
+   * an owner's plaintext blobs once all their projects are encrypted; the
+   * one place the client asks the store what it holds rather than telling it.
+   */
+  listObjects?(prefix: string): Promise<string[]>;
+  /** Public keys of other users, for sealing a project key to them. */
+  publicKeysOf?(userIds: string[]): Promise<Map<string, Uint8Array>>;
+
+  /**
    * Append a committed manifest to the project's history, if the database has
    * the table for it.
    *
@@ -308,7 +355,7 @@ export interface CloudBackend {
     userId: string,
     projectId: string,
     uid?: string,
-  ): Promise<{ name: string; files: RowFile[]; committed_at: string }[]>;
+  ): Promise<{ name: string; files: RowFile[]; committed_at: string; enc_meta?: string | null }[]>;
 
   /**
    * Every settings file the signed-in user has stored, with its bytes.

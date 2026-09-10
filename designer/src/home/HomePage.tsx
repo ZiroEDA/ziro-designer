@@ -257,7 +257,7 @@ export function HomePage({
   /** Switch the active project (double-clicking another .kicad_pro in the tree). */
   onSwitchProject?: (proFullName: string) => void;
 }): JSX.Element {
-  const { session, signOut, recoveryKeyMnemonic } = useAuth();
+  const { session, signOut, recoveryKeyMnemonic, keyState } = useAuth();
   /** The recovery key, shown again from the account menu; null when closed. */
   const [shownRecoveryKey, setShownRecoveryKey] = useState<string | null>(null);
   // Guest-first: sign-in is offered, never forced. The dialog opens from the
@@ -818,6 +818,11 @@ export function HomePage({
   const userId = session?.user.id;
   useEffect(() => {
     if (!userId || !storageAvailable()) return;
+    // Not until the account is open: an encrypted row cannot be read or
+    // written without its key, and a sync that ran on a locked session would
+    // report every project unreadable. `unlocked` is the one state with keys;
+    // a build without auth reports `absent` and syncs in the clear.
+    if (keyState !== 'unlocked' && keyState !== 'absent') return;
     let cancelled = false;
     // Redeem first, and do not let a failure stop the sync. A bad link is the
     // reader's problem with that link; it says nothing about the twenty
@@ -956,7 +961,7 @@ export function HomePage({
     };
     // refreshTemplates is a useCallback with no dependencies of its own, so
     // naming it here is free: the effect still runs once per sign-in.
-  }, [userId, refreshTemplates]);
+  }, [userId, refreshTemplates, keyState]);
 
   // Derive a project name from the .kicad_pro (else the root .kicad_sch, else folder).
   const projectNameOf = (files: PickedHomeFile[]): string => {

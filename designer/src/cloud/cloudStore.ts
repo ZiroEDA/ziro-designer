@@ -43,8 +43,24 @@ import {
   legacyPath,
   putBlob,
   sha256Hex,
+  getEncryptedBlob,
+  putEncryptedBlob,
 } from './blobStore.js';
 import type { SyncableProject } from '../home/projectStore.js';
+import {
+  type EncFileEntry,
+  type EncMeta,
+  openMeta,
+  sealMeta,
+  unwrapFileKey,
+  wrapFileKey,
+} from './enc_meta.js';
+import {
+  createProjectKeyFor,
+  projectKeyFor,
+  sessionUnlocked,
+  sessionUserId,
+} from './session_keys.js';
 import { syncUserTemplates, type TemplateSyncResult } from './templateSync.js';
 
 let backend: CloudBackend | null = null;
@@ -178,6 +194,26 @@ async function readFiles(
   userId: string,
 ): Promise<{ name: string; gzB64: string }[]> {
   const files: RowFile[] = row.files ?? [];
+  if (row.enc_meta) {
+    // Encrypted: the names and the per-file keys are in the metadata, the
+    // bytes are under random ids, and both are opened with the project key.
+    if (!userId) throw new Error(`project ${row.id}: row has no user_id, cannot address its blobs`);
+    const { key, meta } = await openRow(be, row);
+    return Promise.all(
+      meta.files.map(async (f) => ({
+        name: f.name,
+        gzB64: bytesToB64(
+          await getEncryptedBlob(
+            be,
+            userId,
+            f.blobId,
+            await unwrapFileKey(key, f.encFileKey),
+            f.hash,
+          ),
+        ),
+      })),
+    );
+  }
   if (files.length === 0) return [];
 
   // Current shape: content-addressed, and verified on arrival.
@@ -219,13 +255,50 @@ async function readFiles(
  * what this did and is exactly right for a shared project: the bytes live in
  * the owner's space and are readable from there by anyone on the project.
  */
+/**
+ * The project key and the opened metadata of an encrypted row.
+ *
+ * The key is the signed-in user's own copy (their `project_keys` row); a row
+ * they have no key to is one shared with them before keys existed, or one
+ * they were never given a key to, and it says so rather than reading as an
+ * empty project.
+ */
+async function openRow(
+  be: CloudBackend,
+  row: ProjectRow,
+): Promise<{ key: Uint8Array; meta: EncMeta }> {
+  if (!row.uid) throw new Error(`project ${row.id} is encrypted but has no identity`);
+  if (!sessionUnlocked())
+    throw new Error(`project ${row.id} is encrypted and the account is locked`);
+  const key = await projectKeyFor(be, sessionUserId(), row.uid);
+  if (!key) {
+    throw new Error(
+      `no key to project ${row.uid}: it was shared before it was encrypted, or not with you`,
+    );
+  }
+  return { key, meta: await openMeta(key, row.enc_meta!) };
+}
+
+/** The row as the server returned it, plus its decrypted view when it has one. */
+async function withPlain(be: CloudBackend, row: ProjectRow | null): Promise<ProjectRow | null> {
+  if (!row?.enc_meta) return row;
+  const { meta } = await openRow(be, row);
+  return {
+    ...row,
+    plain: {
+      name: meta.name,
+      files: meta.files.map((f) => ({ name: f.name, hash: f.hash, size: f.size })),
+    },
+  };
+}
+
 export async function cloudGet(id: string, uid?: string): Promise<SyncableProject | null> {
   const be = need();
-  const row = await be.getProject(id, uid);
+  const row = await withPlain(be, await be.getProject(id, uid));
   if (!row) return null;
   return {
     id: row.id,
-    name: row.name,
+    name: row.plain?.name ?? row.name,
     createdAt: new Date(row.created_at).getTime(),
     updatedAt: new Date(row.updated_at).getTime(),
     ...(row.uid ? { cloudUid: row.uid } : {}),
@@ -247,7 +320,8 @@ export async function cloudGet(id: string, uid?: string): Promise<SyncableProjec
  * its owner, its sharing setting.
  */
 export async function cloudGetRow(id: string, uid?: string): Promise<ProjectRow | null> {
-  return need().getProject(id, uid);
+  const be = need();
+  return withPlain(be, await be.getProject(id, uid));
 }
 
 /**
@@ -275,15 +349,16 @@ export async function cloudMissingObjects(
   uid?: string,
 ): Promise<{ name: string; missing: number; total: number; version: number } | null> {
   const be = need();
-  const row = await be.getProject(id, uid);
+  const row = await withPlain(be, await be.getProject(id, uid));
   if (!row) return null;
 
   const files: RowFile[] = row.files ?? [];
   const userId = row.user_id ?? '';
+  const name = row.plain?.name ?? row.name;
   // An inline row carries its bytes in the row itself, so it has no objects to
   // be missing; without a user id nothing can be addressed to check.
   if (files.length === 0 || !userId || isInlineFile(files[0]!)) {
-    return { name: row.name, missing: 0, total: files.length, version: Number(row.version ?? 1) };
+    return { name, missing: 0, total: files.length, version: Number(row.version ?? 1) };
   }
 
   // Manifest rows address blobs by hash, which may be stored under either
@@ -296,7 +371,7 @@ export async function cloudMissingObjects(
   // The row's own name, so a report can say which project rather than which
   // key — and its version, which a repair has to name as the thing it replaces.
   return {
-    name: row.name,
+    name,
     missing: present.filter((ok) => !ok).length,
     total: present.length,
     version: Number(row.version ?? 1),
@@ -391,10 +466,12 @@ export async function restoreFromHistory(
         // The owner, so the repaired row keeps belonging to whoever it belonged
         // to. A repair is not a transfer.
         user_id: row?.user_id ?? userId,
-        name: version.name || row?.name || 'Recovered project',
+        name: version.name || row?.name || (version.enc_meta ? '' : 'Recovered project'),
         created_at: row?.created_at ?? version.committed_at,
         updated_at: new Date().toISOString(),
         files: entries,
+        // An encrypted version's name and keys come back with it.
+        enc_meta: version.enc_meta ?? null,
       },
       // A row that is there but carries no version is at 1 — what the migration
       // defaulted every existing row to. Only the absence of the row itself is
@@ -440,7 +517,7 @@ export async function cloudUpsert(
   p: SyncableProject,
   knownPresent: ReadonlySet<string> = new Set(),
   base = 0,
-): Promise<{ manifest: ManifestEntry[]; version: number }> {
+): Promise<{ manifest: ManifestEntry[]; version: number; uid?: string }> {
   const be = need();
 
   if (p.cloudRole === 'viewer') {
@@ -492,6 +569,15 @@ export async function cloudUpsert(
   //    upload when the object is there, and the confirm below catches the rarer
   //    case of a write that reports success and does not land, which is exactly
   //    the class of failure that started all this.
+  // Encrypted, whenever there is an open account to encrypt for. This is the
+  // whole of docs/encryption-plan.md P1 on the way up: per-file keys, random
+  // blob ids, the name and manifest sealed under the project key. The
+  // plaintext path below stays for a build with no account (self-hosted, no
+  // auth) and for the tests that exercise the store without one.
+  if (sessionUnlocked()) {
+    return commitEncrypted(be, p, owner, manifest, bytesFor, base);
+  }
+
   const fresh = manifest.filter((m) => !knownPresent.has(m.hash));
   await Promise.all(
     fresh.map(async (m) => {
@@ -570,6 +656,119 @@ export async function cloudUpsert(
  * objects cost storage, and this is the only code path in the module that can
  * destroy anything.
  */
+/**
+ * The encrypted commit.
+ *
+ * Every file the previous encrypted row already had, by plaintext hash, is
+ * reused as it stands - same blob, same file key, possibly a new name - so an
+ * edit to one schematic uploads one blob. Everything else is encrypted under
+ * a fresh file key and stored under a random id. The row the server gets has
+ * an empty name, a manifest of ids and ciphertext sizes, and the real thing
+ * sealed in `enc_meta`. A row that was plaintext until now is rewritten
+ * encrypted in full: its old blobs are still addressed by other plaintext
+ * rows of the same owner until the sweep, so they are left in place here.
+ */
+async function commitEncrypted(
+  be: CloudBackend,
+  p: SyncableProject,
+  owner: string,
+  manifest: ManifestEntry[],
+  bytesFor: (f: { name: string; gzB64?: string }) => Promise<Uint8Array>,
+  base: number,
+): Promise<{ manifest: ManifestEntry[]; version: number; uid: string }> {
+  const me = sessionUserId();
+  // The identity, which the key row hangs off: the local one, or the row's
+  // for a project pushed before identities were minted here, or a fresh one.
+  const uid =
+    p.cloudUid ??
+    (base > 0 ? (await be.getProject(p.cloudId ?? p.id))?.uid : undefined) ??
+    crypto.randomUUID();
+  const key =
+    p.cloudRole && p.cloudRole !== 'owner'
+      ? await projectKeyFor(be, me, uid)
+      : await createProjectKeyFor(be, me, uid);
+  if (!key) {
+    throw new Error(
+      `refusing to push "${p.name}": you have no key to this project; ask its owner to share it again`,
+    );
+  }
+
+  const previous = new Map<string, EncFileEntry>();
+  if (base > 0) {
+    const prev = await be.getProject(p.cloudId ?? p.id, uid);
+    if (prev?.enc_meta) {
+      for (const e of (await openMeta(key, prev.enc_meta)).files) previous.set(e.hash, e);
+    }
+  }
+
+  const uploaded: EncFileEntry[] = [];
+  const entries: EncFileEntry[] = await Promise.all(
+    manifest.map(async (m) => {
+      const had = previous.get(m.hash);
+      if (had) return { ...had, name: m.name };
+      const src = p.files.find((f) => f.name === m.name)!;
+      const put = await putEncryptedBlob(be, owner, await bytesFor(src));
+      const entry: EncFileEntry = {
+        name: m.name,
+        hash: m.hash,
+        size: m.size,
+        blobId: put.blobId,
+        encSize: put.encSize,
+        encFileKey: await wrapFileKey(key, put.fileKey),
+      };
+      uploaded.push(entry);
+      return entry;
+    }),
+  );
+
+  // Commit-verify, as the plaintext path does: a store that accepted an
+  // upload and dropped it must not be pointed at by a row.
+  const missing = (
+    await Promise.all(
+      uploaded.map(async (e) => ((await be.hasObject(blobPath(owner, e.blobId))) ? null : e.name)),
+    )
+  ).filter((n): n is string => n !== null);
+  if (missing.length > 0) {
+    throw new Error(
+      `refusing to commit "${p.name}": ${missing.length} of ${entries.length} blobs are not in the store (${missing.slice(0, 3).join(', ')})`,
+    );
+  }
+
+  const row: ProjectRow & { user_id: string } = {
+    id: p.cloudId ?? p.id,
+    uid,
+    user_id: owner,
+    name: '',
+    created_at: new Date(p.createdAt).toISOString(),
+    updated_at: new Date(p.updatedAt).toISOString(),
+    // The manifest shape the blob index keys on, with the name gone: the id
+    // is what the server grants a member, and it means nothing to it.
+    files: entries.map((e) => ({ name: '', hash: e.blobId, size: e.encSize })),
+    enc_meta: await sealMeta(key, { v: 1, name: p.name, files: entries }),
+  };
+  const version = await be.commitProject(row, base);
+  if (version === null) throw new StaleBaseError(p.id);
+  try {
+    await be.recordVersion?.(me, { ...row, version });
+  } catch (e) {
+    console.warn(`project history not recorded for "${p.name}":`, e);
+  }
+  return { manifest, version, uid };
+}
+
+/**
+ * The two store operations the plaintext sweep needs, or null when the
+ * installed backend cannot list (a fake, or a store without the call).
+ */
+export function cloudStoreListing(): {
+  list: (prefix: string) => Promise<string[]>;
+  remove: (paths: string[]) => Promise<void>;
+} | null {
+  const be = need();
+  if (!be.listObjects) return null;
+  return { list: (prefix) => be.listObjects!(prefix), remove: (paths) => be.removeObjects(paths) };
+}
+
 export async function cloudDelete(
   id: string,
   opts: { keepBlobs?: boolean; uid?: string; signedInUser?: string } = {},

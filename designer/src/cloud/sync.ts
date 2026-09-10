@@ -59,10 +59,12 @@ import {
   markSynced,
 } from '../home/projectStore.js';
 import { isManifestEntry, type ProjectRow } from './backend.js';
+import { sessionUnlocked } from './session_keys.js';
 import type { SyncableProject } from '../home/projectStore.js';
 import {
   cloudBackendInstalled,
   cloudDelete,
+  cloudStoreListing,
   cloudGet,
   cloudGetRow,
   cloudListMeta,
@@ -330,6 +332,14 @@ export async function syncAllProjects(
 
   if (ops.length > 0) onProgress?.(0, ops.length);
   await Promise.all(ops);
+  // The last plaintext goes only when every project of the owner's is
+  // encrypted; until then this returns null and touches nothing.
+  try {
+    const swept = await sweepPlaintextBlobs(userId);
+    if (swept) console.info(`removed ${swept} plaintext blob(s) left from before encryption`);
+  } catch (e) {
+    console.warn('plaintext sweep did not run:', e);
+  }
   return result;
 }
 
@@ -381,7 +391,7 @@ async function pushOne(userId: string, id: string, base?: number): Promise<Outco
   // never been in the cloud, which is stated as base 0: the commit lands only
   // if no such row exists, so a project another device already created under
   // this id is never silently overwritten.
-  const { manifest, version } = await cloudUpsert(
+  const { manifest, version, uid } = await cloudUpsert(
     userId,
     p,
     await knownPushedHashes(id),
@@ -422,7 +432,11 @@ async function pushOne(userId: string, id: string, base?: number): Promise<Outco
   // Only for a record that predates minting its own identity. A project made by
   // this build already named itself at creation, so there is nothing to learn
   // and no extra round trip to pay for.
-  if (!p.cloudUid) {
+  // An encrypted commit names its own identity (the key row hangs off it);
+  // record it, so the next push and the key lookup agree on which project.
+  if (!p.cloudUid && uid) {
+    await linkCloudProject(id, { uid, cloudId: p.cloudId ?? id, role: p.cloudRole ?? 'owner' });
+  } else if (!p.cloudUid) {
     try {
       const row = await cloudGetRow(p.cloudId ?? id);
       if (row?.uid) {
@@ -489,7 +503,7 @@ async function pullOne(
         );
         return 'pulled';
       }
-      conflicts?.push({ localId: ref.localId, name: row?.name ?? ref.localId });
+      conflicts?.push({ localId: ref.localId, name: row?.plain?.name ?? row?.name ?? ref.localId });
       // Neither side touched. See `SyncConflict`.
       return 'conflict';
     }
@@ -508,8 +522,10 @@ async function pullOne(
  * here means overwriting one side.
  */
 function sameContent(row: ProjectRow, local: SyncableProject): boolean {
-  const theirs = (row.files ?? []).filter(isManifestEntry);
-  if (theirs.length !== (row.files ?? []).length) return false;
+  // An encrypted row's `files` are blob ids; the hashes are in the plain view.
+  const rowFiles = row.plain?.files ?? row.files ?? [];
+  const theirs = rowFiles.filter(isManifestEntry);
+  if (theirs.length !== rowFiles.length) return false;
   const mine = local.files.map((f) => f.hash).filter((h): h is string => !!h);
   if (mine.length !== local.files.length) return false;
   if (theirs.length !== mine.length) return false;
@@ -568,6 +584,38 @@ async function refFor(localId: string): Promise<ProjectRef | null> {
  * The base comes from the row as it stands rather than from the local record,
  * whose own base is stale by definition -- that is what the conflict was.
  */
+/**
+ * Remove an owner's plaintext blobs, once nothing refers to them.
+ *
+ * A project written before encryption left its files in the store under
+ * their plaintext hashes, and the encrypted rewrite left them there: the same
+ * blob may be addressed by another plaintext row of the same owner, so no
+ * single push may delete it. This runs after a sync, only when EVERY row the
+ * user owns carries `enc_meta`, and removes every object under the owner's
+ * namespace that no row's manifest names. It is the last plaintext to go.
+ *
+ * Returns how many objects went, or null when it was not yet time.
+ */
+export async function sweepPlaintextBlobs(userId: string): Promise<number | null> {
+  if (!cloudBackendInstalled() || !sessionUnlocked()) return null;
+  const listing = cloudStoreListing();
+  if (!listing) return null;
+  const rows = await Promise.all(
+    (await cloudListMeta())
+      .filter((m) => m.ownerId === userId)
+      .map((m) => cloudGetRow(m.id, m.uid)),
+  );
+  const own = rows.filter((r): r is NonNullable<typeof r> => r !== null);
+  if (own.length === 0 || own.some((r) => !r.enc_meta)) return null;
+  const referenced = new Set<string>();
+  for (const r of own)
+    for (const f of r.files ?? []) if (isManifestEntry(f)) referenced.add(f.hash);
+  const objects = await listing.list(`${userId}/`);
+  const stale = objects.filter((path) => !referenced.has(path.slice(path.lastIndexOf('/') + 1)));
+  if (stale.length > 0) await listing.remove(stale);
+  return stale.length;
+}
+
 export async function resolveKeepMine(userId: string, localId: string): Promise<void> {
   if (!cloudBackendInstalled()) return;
   const ref = await refFor(localId);

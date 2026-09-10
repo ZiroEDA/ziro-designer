@@ -30,6 +30,7 @@
  */
 
 import type { CloudBackend } from './backend.js';
+import { decryptBlob, encryptBlob, randomKey } from './crypto.js';
 
 /** Hex SHA-256 of the given bytes. */
 export async function sha256Hex(bytes: Uint8Array): Promise<string> {
@@ -146,4 +147,52 @@ export async function getBlob(
     );
   }
   return bytes;
+}
+
+// ---------------------------------------------------------------------------
+// Encrypted blobs (docs/encryption-plan.md P1).
+//
+// The object at `<owner>/blobs/<xx>/<id>` is `iv ‖ AES-256-GCM(fileKey, bytes)`
+// under a RANDOM id, not the hash of anything: the server learns nothing from
+// the name, and deduplication is done here against the plaintext hashes kept
+// inside the encrypted manifest. The functions above stay for rows written
+// before encryption, which a client reads once and rewrites encrypted.
+
+/** 32 random bytes as 64 hex characters: shaped like a hash, so every path and policy written for hashes applies unchanged. */
+export function randomBlobId(): string {
+  return Array.from(randomKey())
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/**
+ * Encrypt and store one file under a fresh key. Returns what the manifest
+ * records about it; the caller wraps `fileKey` under the project key.
+ */
+export async function putEncryptedBlob(
+  backend: CloudBackend,
+  ownerId: string,
+  bytes: Uint8Array,
+): Promise<{ blobId: string; fileKey: Uint8Array; hash: string; encSize: number }> {
+  const fileKey = randomKey();
+  const { stored, hash } = await encryptBlob(fileKey, bytes);
+  const blobId = randomBlobId();
+  await backend.putObject(blobPath(ownerId, blobId), stored);
+  return { blobId, fileKey, hash, encSize: stored.length };
+}
+
+/**
+ * Fetch and open one file. The AEAD tag catches a wrong key or a tampered
+ * object; the hash the manifest recorded catches the wrong blob under the
+ * right key. Both before the bytes are handed to anyone.
+ */
+export async function getEncryptedBlob(
+  backend: CloudBackend,
+  ownerId: string,
+  blobId: string,
+  fileKey: Uint8Array,
+  expectedHash: string,
+): Promise<Uint8Array> {
+  const stored = await backend.getObject(blobPath(ownerId, blobId));
+  return decryptBlob(fileKey, stored, expectedHash);
 }

@@ -18,6 +18,7 @@
 
 import { supabase } from '../auth/supabaseClient.js';
 import type { CloudBackend, ProjectRow, RowFile, SettingsRow } from './backend.js';
+import { base64ToBytes } from './crypto.js';
 
 /**
  * Bucket for file blobs. Without it there is no object store to address, and
@@ -139,6 +140,8 @@ export function supabaseBackend(): CloudBackend {
         // finds nothing, and reports the caller stale — which reads as a
         // conflict rather than as "you were editing someone else's project".
         ...(row.uid ? { p_uid: row.uid } : {}),
+        // The encrypted name and manifest. Null keeps a plaintext row plaintext.
+        p_enc_meta: row.enc_meta ?? null,
       });
       if (error) throw new Error(`commit project ${row.id}: ${error.message}`);
       // Null is the contract's "you are stale", not a failure to write.
@@ -302,6 +305,55 @@ export function supabaseBackend(): CloudBackend {
       return (data ?? []).some((o) => o.name === base);
     },
 
+    async getProjectKey(projectUid) {
+      const { data, error } = await db
+        .from('project_keys')
+        .select('enc_key, how')
+        .eq('project_uid', projectUid)
+        .eq('user_id', (await db.auth.getUser()).data.user?.id ?? '')
+        .maybeSingle<{ enc_key: string; how: 'master' | 'sealed' }>();
+      if (error) throw new Error(`project key ${projectUid}: ${error.message}`);
+      return data;
+    },
+    async putProjectKey(projectUid, userId, encKey, how) {
+      const { error } = await db
+        .from('project_keys')
+        .upsert({ project_uid: projectUid, user_id: userId, enc_key: encKey, how });
+      if (error) throw new Error(`project key ${projectUid}: ${error.message}`);
+    },
+    async deleteProjectKey(projectUid, userId) {
+      const { error } = await db
+        .from('project_keys')
+        .delete()
+        .eq('project_uid', projectUid)
+        .eq('user_id', userId);
+      if (error) throw new Error(`project key ${projectUid}: ${error.message}`);
+    },
+    async publicKeysOf(userIds) {
+      const { data, error } = await db.rpc('public_keys_of', { user_ids: userIds });
+      if (error) throw new Error(`public keys: ${error.message}`);
+      const out = new Map<string, Uint8Array>();
+      for (const r of (data ?? []) as { user_id: string; public_key: string }[]) {
+        out.set(r.user_id, base64ToBytes(r.public_key));
+      }
+      return out;
+    },
+    async listObjects(prefix) {
+      // Storage lists one folder at a time and reports subfolders as entries
+      // with no id; walk them. A page is 1000 entries, more than any shard.
+      const out: string[] = [];
+      const walk = async (dir: string): Promise<void> => {
+        const { data, error } = await store().list(dir, { limit: 1000 });
+        if (error) throw new Error(`list ${dir}: ${error.message}`);
+        for (const e of data ?? []) {
+          const path = dir ? `${dir}/${e.name}` : e.name;
+          if (e.id === null || e.id === undefined) await walk(path);
+          else out.push(path);
+        }
+      };
+      await walk(prefix.replace(/\/$/, ''));
+      return out;
+    },
     async removeObjects(paths) {
       if (paths.length === 0) return;
       const { error } = await store().remove(paths);
@@ -325,6 +377,7 @@ export function supabaseBackend(): CloudBackend {
         ...(row.uid ? { project_uid: row.uid } : {}),
         name: row.name,
         files: row.files,
+        enc_meta: row.enc_meta ?? null,
         committed_at: row.updated_at,
       });
       // Once per session, not per push. Every save reports the same missing
@@ -344,7 +397,7 @@ export function supabaseBackend(): CloudBackend {
       // committed it, so on a shared project filtering by it returns only the
       // versions this user happened to write and hides exactly the history a
       // recovery would need.
-      const q = db.from('project_versions').select('name, files, committed_at');
+      const q = db.from('project_versions').select('name, files, committed_at, enc_meta');
       const { data, error } = await (uid
         ? q.eq('project_uid', uid)
         : q.eq('user_id', userId).eq('project_id', projectId)
