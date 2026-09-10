@@ -1429,7 +1429,11 @@ describe('zone filler', () => {
 
   it("takes a custom pad's spoke templates instead of the four axis spokes", () => {
     // Same pad either way, only the number of templates differs, so the relief
-    // knocked out is identical and the spokes are the only variable.
+    // knocked out is identical and the spokes are the only variable. A
+    // template is TRIMMED to the pad grown by the thermal gap and only kept
+    // when it crosses both the pad's outline and that one (`trimToOutline`),
+    // so it has to reach past the relief: 3 mm from the centre of a 4 mm pad
+    // with a 0.5 mm gap. One that stops at the copper edge yields no spoke.
     const vector = (x: number, y: number): PadPrimitive => ({
       kind: 'gr_vector',
       start: { x: 0, y: 0 },
@@ -1448,10 +1452,13 @@ describe('zone filler', () => {
           .polys,
       );
 
-    const two = filled([vector(MM(2), 0), vector(-MM(2), 0)]);
-    const four = filled([vector(MM(2), 0), vector(-MM(2), 0), vector(0, MM(2)), vector(0, -MM(2))]);
+    const none = filled([vector(MM(2), 0), vector(-MM(2), 0)]);
+    const two = filled([vector(MM(3), 0), vector(-MM(3), 0)]);
+    const four = filled([vector(MM(3), 0), vector(-MM(3), 0), vector(0, MM(3)), vector(0, -MM(3))]);
     // Each spoke adds copper back across the relief, so four bridge more than two.
     expect(four).toBeGreaterThan(two);
+    // Templates that stop at the copper edge cross no outline: no spoke at all.
+    expect(two).toBeGreaterThan(none);
   });
 
   it('ignores a spoke template with neither end in the pad', () => {

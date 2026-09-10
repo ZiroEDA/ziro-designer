@@ -128,6 +128,17 @@ describe("the pour is KiCad's, vertex for vertex", () => {
     });
   }
 
+  it('custompads: custom pads — an off-centre polygon, a convex-hull clearance, spoke templates', () => {
+    // Five custom pads on the hatch40 outline poured solid: a polygon whose
+    // box is not centred on the anchor (the spokes start at the box centre,
+    // `buildSpokesFromOrigin`), one at 20° with `(clearance convexhull)`, a
+    // different-net one, a rect + two stroked lines, and one with three
+    // `gr_vector` spoke templates of which one lies outside the pad.
+    const { kicad, ours } = refill('custompads');
+    expect(ours.zones[0]!.fills[0]!.polys).toEqual(kicad[0]![0]!.polys);
+    expect(kicad[0]![0]!.polys[0]!.length).toBeGreaterThan(500);
+  });
+
   it('hatch40: a hatched zone comes back as the same 1037-vertex web', () => {
     const { kicad, ours } = refill('hatch40');
     expect(ours.zones[0]!.fills[0]!.polys).toEqual(kicad[0]![0]!.polys);

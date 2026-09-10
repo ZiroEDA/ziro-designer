@@ -45,9 +45,10 @@ import {
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { getBoardPolygonOutlines } from './board_statistics.js';
 import { type Vertex, VertexSet } from '@ziroeda/kimath/src/geometry/vertex_set.js';
-import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
+import { EuclideanNormI, Perpendicular, ResizeI } from '@ziroeda/kimath/src/math/vector2.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
+import { hypot } from '@ziroeda/kimath/src/math/libm.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { defaultThermalSpokeAngle } from './padstack.js';
 import { graphicShapes, padShapes } from './drc/drc_engine.js';
@@ -85,7 +86,12 @@ import {
   transformCircleToPolygonSet,
   transformRingToPolygon,
 } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
-import { segCollinear, segContains, segIntersect } from '@ziroeda/kimath/src/geometry/seg.js';
+import {
+  chainIntersect,
+  segCollinear,
+  segContains,
+  segIntersect,
+} from '@ziroeda/kimath/src/geometry/seg.js';
 import type {
   Board,
   PadPrimitive,
@@ -708,7 +714,12 @@ const rotate = (p: Vec2, deg: number): Vec2 => RotatePoint(p, new EDA_ANGLE(deg)
  * must be at idx 3) which is used for testing whether or not the spoke connects
  * to copper in the parent zone".
  */
-function spokesFromOrigin(half: Vec2, deg: number, spokeHalfW: number): ThermalSpoke[] {
+function spokesFromOrigin(
+  half: Vec2,
+  deg: number,
+  spokeHalfW: number,
+  center: Vec2 = { x: 0, y: 0 },
+): ThermalSpoke[] {
   const out: ThermalSpoke[] = [];
 
   for (let i = 0; i < 4; i++) {
@@ -740,14 +751,15 @@ function spokesFromOrigin(half: Vec2, deg: number, spokeHalfW: number): ThermalS
       }
     }
 
+    const c = center;
     const ring: Vec2[] = [
-      { x: side.x, y: side.y },
-      { x: -side.x, y: -side.y },
-      { x: at.x - side.x, y: at.y - side.y },
-      { x: at.x, y: at.y }, // test pt, idx 3
-      { x: at.x + side.x, y: at.y + side.y },
+      { x: c.x + side.x, y: c.y + side.y },
+      { x: c.x - side.x, y: c.y - side.y },
+      { x: c.x + at.x - side.x, y: c.y + at.y - side.y },
+      { x: c.x + at.x, y: c.y + at.y }, // test pt, idx 3
+      { x: c.x + at.x + side.x, y: c.y + at.y + side.y },
     ];
-    out.push({ geom: [ringOf(ring)], ring, tip: { x: at.x, y: at.y } });
+    out.push({ geom: [ringOf(ring)], ring, tip: { x: c.x + at.x, y: c.y + at.y } });
   }
 
   return out;
@@ -802,7 +814,7 @@ function thermalSpokes(pad: PcbPad, zone: PcbZone, maxError: number): ThermalSpo
   // `half_size = KiROUND( box.GetWidth() / 2.0, box.GetHeight() / 2.0 )`,
   // the box being `size / 2` (integer halves, plus `trap_delta / 2` for a
   // trapezoid) inflated by the gap.
-  const half: Vec2 = {
+  let half: Vec2 = {
     x: KiROUND(
       (2 * (Math.trunc(pad.size.x / 2) + Math.abs(Math.trunc((pad.delta?.y ?? 0) / 2))) +
         2 * inflate) /
@@ -814,6 +826,19 @@ function thermalSpokes(pad: PcbPad, zone: PcbZone, maxError: number): ThermalSpo
         2.0,
     ),
   };
+  // A CUSTOM pad's box is its anchor and primitives, and it need not be
+  // centred on the origin: `buildSpokesFromOrigin` starts at `box.GetCenter()`
+  // — the origin plus half the size, integer halves — and the spokes are
+  // rotated about the ORIGIN and moved to the pad, so the offset turns with
+  // the pad.
+  let center: Vec2 = { x: 0, y: 0 };
+  if (pad.shape === 'custom') {
+    const box = boxInflate(customPadLocalBox(pad, maxError), inflate);
+    const w = box.x1 - box.x0;
+    const h = box.y1 - box.y0;
+    center = { x: box.x0 + Math.trunc(w / 2), y: box.y0 + Math.trunc(h / 2) };
+    half = { x: KiROUND(w / 2.0), y: KiROUND(h / 2.0) };
+  }
 
   // "the bounding box for circles will overshoot the mark considerably when the
   // spokes are near a 45 degree increment. So we build the spokes at 0 degrees
@@ -821,14 +846,107 @@ function thermalSpokes(pad: PcbPad, zone: PcbZone, maxError: number): ThermalSpo
   // pointed diagonally, not out to the box's corner.
   const circular = pad.shape === 'circle' || (pad.shape === 'oval' && pad.size.x === pad.size.y);
   const built = circular
-    ? spokesFromOrigin(half, 0, Math.trunc(width / 2)).map((sp) =>
+    ? spokesFromOrigin(half, 0, Math.trunc(width / 2), center).map((sp) =>
         spokeAngle !== 0 ? placeSpoke(sp, spokeAngle, { x: 0, y: 0 }) : sp,
       )
-    : spokesFromOrigin(half, spokeAngle, Math.trunc(width / 2));
+    : spokesFromOrigin(half, spokeAngle, Math.trunc(width / 2), center);
 
   // "Spokes are from center of pad shape, not from hole" — a drill offset
   // moves the copper, and the spokes go with it.
   return built.map((sp) => placeSpoke(sp, pad.angle ?? 0, padShapePos(pad)));
+}
+
+/**
+ * `dummy_pad.GetBoundingBox( aLayer )` for a CUSTOM pad — the dummy at the
+ * origin, unrotated, with no offset: `buildEffectiveShape`'s box, which is
+ * the anchor shape merged with every primitive's `MakeEffectiveShapes()` —
+ * a filled polygon's points, a segment grown by `( width + 1 ) / 2`, a
+ * circle's `[c - r, c + r]`, an unfilled circle's `SHAPE_ARC` box grown by
+ * `KiROUND( width / 2 ) + 1`. This box is NOT centred on the pad's origin,
+ * and `buildSpokesFromOrigin` starts the spokes at ITS centre.
+ */
+function customPadLocalBox(pad: PcbPad, maxError: number): Box {
+  let box: Box | undefined;
+  const merge = (b: Box): void => {
+    box = box ? boxMerge(box, b) : b;
+  };
+  // the anchor shape
+  if ((pad.anchorShape ?? 'circle') === 'circle') {
+    const r = Math.trunc(pad.size.x / 2);
+    merge({ x0: -r, y0: -r, x1: r, y1: r });
+  } else {
+    // `SHAPE_RECT( shapePos - size / 2, size.x, size.y )`: a VECTOR2I over a
+    // scalar is KiROUND per component.
+    const hx = KiROUND(pad.size.x / 2);
+    const hy = KiROUND(pad.size.y / 2);
+    merge({ x0: -hx, y0: -hy, x1: -hx + pad.size.x, y1: -hy + pad.size.y });
+  }
+  const segBox = (pts: Vec2[], width: number): Box =>
+    boxInflate(boxOf(pts), Math.trunc((width + 1) / 2));
+  for (const prim of pad.primitives ?? []) {
+    if (prim.kind === 'gr_vector') continue; // a proxy item, not copper
+    const width = prim.width;
+    switch (prim.kind) {
+      case 'gr_poly': {
+        const pts = prim.pts ?? [];
+        if (pts.length < 2) break;
+        if (prim.fill) merge(boxOf(pts));
+        if (width > 0 || !prim.fill)
+          for (let i = 0; i < pts.length; i++)
+            merge(segBox([pts[i]!, pts[(i + 1) % pts.length]!], width));
+        break;
+      }
+      case 'gr_rect': {
+        if (!prim.start || !prim.end) break;
+        const pts = [
+          prim.start,
+          { x: prim.end.x, y: prim.start.y },
+          prim.end,
+          { x: prim.start.x, y: prim.end.y },
+        ];
+        if (prim.fill) merge(boxOf(pts));
+        if (width > 0 || !prim.fill)
+          for (let i = 0; i < 4; i++) merge(segBox([pts[i]!, pts[(i + 1) % 4]!], width));
+        break;
+      }
+      case 'gr_line':
+        if (prim.start && prim.end) merge(segBox([prim.start, prim.end], width));
+        break;
+      case 'gr_circle': {
+        if (!prim.center || !prim.end) break;
+        const c = prim.center;
+        // `EDA_SHAPE::GetRadius()`: `KiROUND( hypot )`
+        const r = KiROUND(hypot(prim.end.x - c.x, prim.end.y - c.y));
+        if (prim.fill) merge({ x0: c.x - r, y0: c.y - r, x1: c.x + r, y1: c.y + r });
+        if (width > 0 || !prim.fill) {
+          // `SHAPE_ARC( center, end, ANGLE_360, width )`: every quadrant point
+          // is on it, so its box is the circle's, grown by KiROUND( w/2 ) + 1
+          const rr = KiROUND(hypot(prim.end.x - c.x, prim.end.y - c.y));
+          merge(
+            boxInflate(
+              boxOf([
+                prim.end,
+                { x: c.x + rr, y: c.y },
+                { x: c.x, y: c.y + rr },
+                { x: c.x - rr, y: c.y },
+                { x: c.x, y: c.y - rr },
+              ]),
+              KiROUND(width / 2.0) + 1,
+            ),
+          );
+        }
+        break;
+      }
+      case 'gr_arc':
+        if (prim.start && prim.mid && prim.end)
+          merge(arcTrackBox(prim.start, prim.mid, prim.end, width));
+        break;
+      default:
+        break;
+    }
+  }
+  void maxError;
+  return box ?? { x0: 0, y0: 0, x1: 0, y1: 0 };
 }
 
 /**
@@ -991,19 +1109,18 @@ function pointInPolygon(poly: Polygon, p: Vec2): boolean {
 }
 
 /**
- * The custom-pad half of ZONE_FILLER::buildThermalSpokes: a pad whose primitives
- * carry `gr_vector` proxy segments says where its spokes go, instead of taking
- * the four on its own axes.
- *
- * Each template segment is placed into board coordinates, oriented so it starts
- * inside the pad (and dropped if neither end is), then widened into a spoke of
- * the bridge width and run out past the relief by the zone's minimum thickness,
- * which is what gives the connection its full width.
- *
- * Upstream additionally trims each spoke and both of its edges against the pad
- * and thermal outlines, dropping a spoke whose edges miss; that trimming needs
- * polygon/segment intersection this layer does not have, so a template that
- * points outward is used as drawn.
+ * `buildThermalSpokes`' `customSpokes` branch (zone_filler.cpp:3560-3620): a
+ * CUSTOM pad whose primitives include proxy SEGMENTs says where its spokes
+ * go. Each template is rotated with the pad and moved to `ShapePos`, turned
+ * so that A is the end inside the pad's effective polygon (dropped when
+ * neither is), and TRIMMED: B is moved to the first crossing of the pad
+ * grown by the thermal gap + maxError (`trimToOutline`), provided the segment
+ * crosses the pad's own outline at all. Two edge lines half a spoke width
+ * either side, each pushed half a width past both ends, are trimmed the same
+ * way — both must cross, or there is no spoke — and the five points are the
+ * two at A, the two trimmed edge ends and the trimmed centre, all three
+ * pushed out by the zone's minimum thickness, the centre one being the test
+ * point at index 3.
  */
 function customThermalSpokes(
   pad: PcbPad,
@@ -1012,63 +1129,73 @@ function customThermalSpokes(
   width: number,
   maxError: number,
 ): ThermalSpoke[] {
-  const angle = ((pad.angle ?? 0) * Math.PI) / 180;
-  const cos = Math.cos(angle);
-  const sin = Math.sin(angle);
-  // "seg.A += pad->ShapePos( aLayer )".
-  const centre = padShapePos(pad);
-  const place = (p: Vec2): Vec2 => ({
-    x: centre.x + p.x * cos - p.y * sin,
-    y: centre.y + p.x * sin + p.y * cos,
-  });
-
   const gap = thermalReliefGap(pad, zone);
-  const reach = zone.minThickness ?? 0;
-  const halfW = width / 2;
+  const spokeHalfW = Math.trunc(width / 2);
+  const orientation = new EDA_ANGLE(pad.angle ?? 0);
+  const shapePos = padShapePos(pad);
+
+  const thermalPoly = padTransformShapeToPolygon(
+    pad,
+    gap + maxError,
+    maxError,
+    ErrorLoc.ERROR_OUTSIDE,
+  );
+  const thermalOutline = thermalPoly[0]?.[0] ?? [];
+  const effective = padTransformShapeToPolygon(pad, 0, maxError, ErrorLoc.ERROR_OUTSIDE);
+  const padOutline = effective[0]?.[0] ?? [];
+  // `SHAPE_POLY_SET::Contains( aP )`: inside an outline and in none of its holes.
+  const contains = (pt: Vec2): boolean =>
+    effective.some(
+      (poly) =>
+        chainPointInside(poly[0]!, pt) && !poly.slice(1).some((h) => chainPointInside(h, pt)),
+    );
+
+  // `trimToOutline`: crosses the pad outline, and then B becomes the first
+  // crossing of the thermal outline.
+  const trimToOutline = (seg: { a: Vec2; b: Vec2 }): boolean => {
+    if (chainIntersect(padOutline, seg.a, seg.b).length === 0) return false;
+    const hits = chainIntersect(thermalOutline, seg.a, seg.b);
+    if (hits.length === 0) return false;
+    seg.b = { x: hits[0]!.p.x, y: hits[0]!.p.y };
+    return true;
+  };
+
   const out: ThermalSpoke[] = [];
-
   for (const prim of templates) {
-    let a = place(prim.start!);
-    let b = place(prim.end!);
-
-    // seg.A must be the end inside the pad; upstream reverses if it is not, and
-    // skips the template when neither end is.
-    const inside = (p: Vec2): boolean =>
-      Math.hypot(p.x - centre.x, p.y - centre.y) <= Math.max(pad.size.x, pad.size.y) / 2;
-    if (!inside(a)) {
-      if (!inside(b)) continue;
-      [a, b] = [b, a];
+    const rotA = RotatePoint({ x: prim.start!.x, y: prim.start!.y }, orientation);
+    const rotB = RotatePoint({ x: prim.end!.x, y: prim.end!.y }, orientation);
+    const seg = {
+      a: { x: rotA.x + shapePos.x, y: rotA.y + shapePos.y },
+      b: { x: rotB.x + shapePos.x, y: rotB.y + shapePos.y },
+    };
+    // "Make sure seg.A is the origin"
+    if (!contains(seg.a)) {
+      if (!contains(seg.b)) continue;
+      [seg.a, seg.b] = [seg.b, seg.a];
     }
-
-    const len = Math.hypot(b.x - a.x, b.y - a.y);
-    if (len === 0) continue;
-    const dx = (b.x - a.x) / len;
-    const dy = (b.y - a.y) / len;
-
-    // `trimToOutline` runs the far end out to the THERMAL OUTLINE — the pad
-    // inflated by the relief gap — because a spoke has to cross the relief to
-    // reach the pour at all. This extended it by the zone's minimum thickness
-    // past the template's own end instead, which on any pad whose template
-    // stops at the copper edge leaves the spoke buried inside the relief hole,
-    // connecting nothing. It went unnoticed because the spoke was unioned in
-    // regardless; the tip test above is what surfaces it.
-    const extent = (Math.abs(dx) > Math.abs(dy) ? pad.size.x : pad.size.y) / 2;
-    const need = extent + gap + maxError;
-    const have = Math.hypot(b.x - centre.x, b.y - centre.y);
-    const grow = Math.max(reach, need - have);
-    const tip = { x: b.x + dx * grow, y: b.y + dy * grow };
-    const hx = -dy * halfW;
-    const hy = dx * halfW;
+    if (!trimToOutline(seg)) continue;
+    let direction = ResizeI({ x: seg.b.x - seg.a.x, y: seg.b.y - seg.a.y }, spokeHalfW);
+    const offset = ResizeI(Perpendicular(direction), spokeHalfW);
+    const segL = {
+      a: { x: seg.a.x - direction.x - offset.x, y: seg.a.y - direction.y - offset.y },
+      b: { x: seg.b.x + direction.x - offset.x, y: seg.b.y + direction.y - offset.y },
+    };
+    const segR = {
+      a: { x: seg.a.x - direction.x + offset.x, y: seg.a.y - direction.y + offset.y },
+      b: { x: seg.b.x + direction.x + offset.x, y: seg.b.y + direction.y + offset.y },
+    };
+    if (!(trimToOutline(segL) && trimToOutline(segR))) continue;
+    direction = ResizeI(direction, zone.minThickness ?? 0);
+    const tip = { x: seg.b.x + direction.x, y: seg.b.y + direction.y };
     const ring: Vec2[] = [
-      { x: a.x + hx, y: a.y + hy },
-      { x: tip.x + hx, y: tip.y + hy },
-      { x: tip.x - hx, y: tip.y - hy },
-      { x: a.x - hx, y: a.y - hy },
+      { x: seg.a.x + offset.x, y: seg.a.y + offset.y },
+      { x: seg.a.x - offset.x, y: seg.a.y - offset.y },
+      { x: segL.b.x + direction.x, y: segL.b.y + direction.y },
+      tip, // test pt at index 3
+      { x: segR.b.x + direction.x, y: segR.b.y + direction.y },
     ];
-
     out.push({ geom: [ringOf(ring)], ring, tip });
   }
-
   return out;
 }
 

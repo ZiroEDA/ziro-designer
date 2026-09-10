@@ -39,3 +39,10 @@ pipeline was matched stage by stage.
   0.5 mm vias at hatch-hole centres (hatchsmall); and that same layout with
   `connect_pads yes` (hatchfull). Built by hand from hatch40; no project file, so KiCad's
   design-rule defaults apply.
+
+- `custompads_kicad_cli.kicad_pcb`: the hatchpads board poured SOLID with
+  five custom pads added — a polygon off-centre of its anchor, a rotated
+  one with `(clearance convexhull)`, one on another net, a rect with stroked
+  lines, and one with `gr_vector` spoke templates — two that cross the
+  relief, one lying outside the pad, and one grazing a corner so that one of
+  its edge lines misses the pad and the spoke is dropped. Refilled by kicad-cli.
