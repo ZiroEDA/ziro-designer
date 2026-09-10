@@ -50,6 +50,7 @@ import {
   bytesToBase64,
   base64ToBytes,
 } from '@ziroeda/designer/src/cloud/crypto.js';
+import { BIP39_ENGLISH } from '@ziroeda/designer/src/cloud/bip39_english.js';
 
 const bytes = (s: string): Uint8Array => new TextEncoder().encode(s);
 const text = (b: Uint8Array): string => new TextDecoder().decode(b);
@@ -221,22 +222,69 @@ describe('blob encryption (content-addressed by plaintext)', () => {
   });
 });
 
-describe('recovery-key presentation', () => {
-  it('encode/decode is a faithful round trip', () => {
-    const key = randomKey();
-    const shown = encodeRecoveryKey(key);
-    expect(shown).toMatch(/^[0-9A-F]{4}(-[0-9A-F]{4}){15}$/);
-    expect(same(decodeRecoveryKey(shown), key)).toBe(true);
+describe('recovery-key presentation: 24 words, BIP-39', () => {
+  const bytes = (f: (i: number) => number) => new Uint8Array(32).map((_, i) => f(i));
+
+  it('the wordlist is the canonical English one, all 2048, untouched', async () => {
+    expect(BIP39_ENGLISH).toHaveLength(2048);
+    expect(BIP39_ENGLISH[0]).toBe('abandon');
+    expect(BIP39_ENGLISH[2047]).toBe('zoo');
+    const d = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(BIP39_ENGLISH.join('\n')),
+    );
+    const hex = [...new Uint8Array(d)].map((x) => x.toString(16).padStart(2, '0')).join('');
+    // bip-0039/english.txt, as the `mnemonic` package ships it.
+    expect(hex.startsWith('187db04a869dd9bc')).toBe(true);
   });
 
-  it('tolerates spaces, lowercase and missing dashes on the way back in', () => {
-    const key = randomKey();
-    const shown = encodeRecoveryKey(key).replace(/-/g, ' ').toLowerCase();
-    expect(same(decodeRecoveryKey(shown), key)).toBe(true);
+  it('spells the reference vectors the way the reference implementation does', async () => {
+    // From python-mnemonic (the reference implementation of BIP-39):
+    //   bytes 00..1f, and 32 x 0xff.
+    expect(await encodeRecoveryKey(bytes((i) => i))).toBe(
+      'abandon amount liar amount expire adjust cage candy arch gather drum bullet absurd math era live bid rhythm alien crouch range attend journey unaware',
+    );
+    expect(await encodeRecoveryKey(bytes(() => 0xff))).toBe(
+      'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo vote',
+    );
   });
 
-  it('rejects a recovery key of the wrong length', () => {
-    expect(() => decodeRecoveryKey('ABCD-1234')).toThrow(/hex characters/);
+  it('encode/decode is a faithful round trip', async () => {
+    const key = randomKey();
+    const words = await encodeRecoveryKey(key);
+    expect(words.split(' ')).toHaveLength(24);
+    expect(same(await decodeRecoveryKey(words), key)).toBe(true);
+  });
+
+  it('tolerates case, extra spaces and line breaks on the way back in', async () => {
+    const key = bytes((i) => i);
+    const words = await encodeRecoveryKey(key);
+    const messy = `  ${words.toUpperCase().replace(/ /g, '\n  ')} \n`;
+    expect(same(await decodeRecoveryKey(messy), key)).toBe(true);
+  });
+
+  it('a word out of place fails the checksum, before any key is tried', async () => {
+    const words = (await encodeRecoveryKey(bytes((i) => i))).split(' ');
+    // Swap two different words.
+    [words[1], words[2]] = [words[2]!, words[1]!];
+    await expect(decodeRecoveryKey(words.join(' '))).rejects.toThrow(/incorrect recovery key/);
+    // A word not in the list at all.
+    words[0] = 'zirosoft';
+    await expect(decodeRecoveryKey(words.join(' '))).rejects.toThrow(/incorrect recovery key/);
+  });
+
+  it('still accepts the 64 hex digits, dashed or not, as the reference design accepts its old form', async () => {
+    const key = bytes((i) => i * 7);
+    const hex = [...key].map((b) => b.toString(16).padStart(2, '0')).join('');
+    expect(same(await decodeRecoveryKey(hex), key)).toBe(true);
+    const dashed = (hex.toUpperCase().match(/.{4}/g) ?? []).join('-');
+    expect(same(await decodeRecoveryKey(dashed), key)).toBe(true);
+  });
+
+  it('rejects a recovery key of the wrong length', async () => {
+    await expect(decodeRecoveryKey('abandon abandon abandon')).rejects.toThrow();
+    await expect(decodeRecoveryKey('abcd')).rejects.toThrow();
+    await expect(encodeRecoveryKey(new Uint8Array(16))).rejects.toThrow(/32 bytes/);
   });
 });
 
@@ -360,7 +408,7 @@ describe('Argon2id is the same function the reference design runs', () => {
   });
 });
 
-describe('the ladder: start at SENSITIVE, come down only if the device cannot', () => {
+describe('the ladder: SENSITIVE work in a MODERATE footprint, down only if the device cannot', () => {
   /** A device that can give at most `maxKiB`; records every attempt. */
   const deviceWith = (maxKiB: number) => {
     const tried: Array<[number, number]> = [];
@@ -372,36 +420,37 @@ describe('the ladder: start at SENSITIVE, come down only if the device cannot', 
     return { tried, argon2 };
   };
 
-  it('a capable device gets 4 passes over 1 GiB, first try', async () => {
+  it("the first try is 16 passes over 256 MiB: SENSITIVE's work, MODERATE's memory", async () => {
+    // The reference design's core: desired strength = SENSITIVE mem x ops;
+    // start at MODERATE mem with ops scaled up, so the product is unchanged.
     const d = deviceWith(ARGON2ID.MEM_SENSITIVE_KIB);
     const { params } = await deriveNewKeyFromPassword(PW, { argon2: d.argon2 });
-    expect(params).toMatchObject({ name: 'argon2id', opsLimit: 4, memLimitKiB: 1_048_576 });
+    expect(params).toMatchObject({ name: 'argon2id', opsLimit: 16, memLimitKiB: 262_144 });
+    expect(params.opsLimit * params.memLimitKiB).toBe(
+      ARGON2ID.OPS_SENSITIVE * ARGON2ID.MEM_SENSITIVE_KIB,
+    );
     expect(d.tried).toHaveLength(1);
   });
 
-  it('a device with 256 MiB: memory halves and passes double, so the work is the same', async () => {
-    const d = deviceWith(262_144);
+  it('a device with 128 MiB: memory halves and passes double, so the work is the same', async () => {
+    const d = deviceWith(131_072);
     const { params } = await deriveNewKeyFromPassword(PW, { argon2: d.argon2 });
-    expect(params).toMatchObject({ opsLimit: 16, memLimitKiB: 262_144 });
+    expect(params).toMatchObject({ opsLimit: 32, memLimitKiB: 131_072 });
     expect(d.tried).toEqual([
-      [4, 1_048_576],
-      [8, 524_288],
       [16, 262_144],
+      [32, 131_072],
     ]);
     expect(params.opsLimit * params.memLimitKiB).toBe(4 * 1_048_576);
   });
 
-  it('it stops at INTERACTIVE (64 MiB) and refuses below it, rather than issuing a weak key', async () => {
-    const floor = deviceWith(ARGON2ID.MEM_INTERACTIVE_KIB);
-    const { params } = await deriveNewKeyFromPassword(PW, { argon2: floor.argon2 });
-    expect(params).toMatchObject({ opsLimit: 64, memLimitKiB: 65_536 });
-
-    const weak = deviceWith(32_768);
+  it("it stops at the design's floor (128 MiB) and refuses below it, rather than issuing a weak key", async () => {
+    const weak = deviceWith(65_536);
     await expect(deriveNewKeyFromPassword(PW, { argon2: weak.argon2 })).rejects.toThrow(
       /cannot derive/,
     );
     // It tried the floor, and nothing under it.
-    expect(weak.tried.at(-1)).toEqual([64, 65_536]);
+    expect(weak.tried.at(-1)).toEqual([32, 131_072]);
+    expect(ARGON2ID.MEM_SENSITIVE_MIN_KIB * 1024).toBe(134_217_728);
   });
 
   it('a fresh salt every time', async () => {

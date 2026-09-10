@@ -75,6 +75,12 @@ interface AuthContextValue {
    */
   pendingRecoveryKey: string | null;
   acknowledgeRecoveryKey: () => void;
+  /**
+   * The unlocked account's recovery key, spelled out, for showing again: the
+   * reference design offers it from settings for exactly the person who chose
+   * "Do this later" at sign-up. Null while the account is not unlocked.
+   */
+  recoveryKeyMnemonic: () => Promise<string | null>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string) => Promise<SignUpResult>;
   /** Open a `locked` account with its password, or set up a `none` one. */
@@ -119,7 +125,9 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 /** Supabase's wording for a refused password, with the fact it hides restored. */
 const describe = (message: string): string =>
-  /invalid login credentials/i.test(message) ? 'Wrong email or password.' : message;
+  /invalid login credentials/i.test(message)
+    ? 'Incorrect password or email not registered'
+    : message;
 
 export function AuthProvider({ children }: { children: ReactNode }): JSX.Element {
   const [session, setSession] = useState<Session | null>(null);
@@ -158,7 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     async (userId: string, made: { keys: AccountKeys; wrapped: WrappedAccount }) => {
       if (!supabase) return;
       await storeWrappedAccount(supabase, userId, made.wrapped);
-      setPendingRecoveryKey(encodeRecoveryKey(made.keys.recoveryKey));
+      setPendingRecoveryKey(await encodeRecoveryKey(made.keys.recoveryKey));
       open(made.keys);
     },
     [open],
@@ -243,6 +251,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
       keys,
       pendingRecoveryKey,
       acknowledgeRecoveryKey: () => setPendingRecoveryKey(null),
+      recoveryKeyMnemonic: async () => (keys ? encodeRecoveryKey(keys.recoveryKey) : null),
       async signIn(email, password) {
         if (!supabase) return { error: 'Auth is not configured.' };
         // The server is given a value derived from the password, never the
@@ -275,7 +284,13 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
         const { data, error } = await supabase.auth.signUp({ email, password: secret });
         if (error) return { error: error.message, needsConfirm: false };
         // Start on the keys now; the code is going to take a while to arrive.
-        const made = createAccount(password);
+        const made = createAccount(password).catch((err: unknown) => {
+          throw new Error(
+            /cannot derive/.test(String(err))
+              ? "Your browser was unable to generate a strong key that meets ZiroEDA's encryption standards, please try another browser"
+              : String(err),
+          );
+        });
         pendingSetup.current = { email, made };
         const needsConfirm = !!data.user && !data.session;
         if (!needsConfirm && data.user) {
@@ -298,7 +313,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
         } catch {
           // The AEAD tag did not verify: the only way that happens with the
           // stored row intact is the wrong password.
-          return { error: 'Wrong password.' };
+          return { error: 'Incorrect password' };
         }
       },
       async requestPasswordReset(email) {
@@ -318,13 +333,13 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
           let next: WrappedAccount;
           let fresh = false;
           if (wrapped) {
-            if (!recoveryKeyText) return { error: 'Your recovery key is needed.' };
+            if (!recoveryKeyText) return { error: 'Recovery key is required' };
             let recoveryKey: Uint8Array;
             try {
-              recoveryKey = decodeRecoveryKey(recoveryKeyText);
+              recoveryKey = await decodeRecoveryKey(recoveryKeyText);
               unlocked = await unlockWithRecoveryKey(recoveryKey, wrapped);
             } catch {
-              return { error: 'That recovery key is not right.' };
+              return { error: 'Incorrect recovery key' };
             }
             // The SAME master key, under the new password.
             next = await rewrapWithNewPassword(unlocked.masterKey, newPassword, wrapped);
@@ -343,7 +358,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
             password: await loginSecret(session.user.email, newPassword),
           });
           if (error) return { error: error.message };
-          if (fresh) setPendingRecoveryKey(encodeRecoveryKey(unlocked.recoveryKey));
+          if (fresh) setPendingRecoveryKey(await encodeRecoveryKey(unlocked.recoveryKey));
           open(unlocked);
           setRecovering(false);
           return { error: null };

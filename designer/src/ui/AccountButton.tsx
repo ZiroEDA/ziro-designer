@@ -36,11 +36,18 @@ export function AccountButton({
   email,
   photoUrl,
   onSignOut,
+  onRecoveryKey,
 }: {
   email: string;
   /** The provider's picture, when the person signed in with one. */
   photoUrl?: string | null;
   onSignOut: () => void;
+  /**
+   * Show the account's recovery key again, for whoever chose "Do this later"
+   * at sign-up. The reference design offers exactly this from its settings;
+   * absent (a build without auth) the row is not drawn.
+   */
+  onRecoveryKey?: () => void;
 }): JSX.Element {
   const [open, setOpen] = useState(false);
   /**
@@ -75,6 +82,18 @@ export function AccountButton({
             <span className="lbl">{email}</span>
           </div>
           <div className="ze-msep" />
+          {onRecoveryKey && (
+            <div
+              className="ze-mitem"
+              onClick={() => {
+                setOpen(false);
+                onRecoveryKey();
+              }}
+            >
+              <span className="mico" />
+              <span className="lbl">Recovery key</span>
+            </div>
+          )}
           <div
             className="ze-mitem"
             onClick={() => {

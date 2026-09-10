@@ -100,7 +100,7 @@ describe('AuthProvider: the server never gets the password', () => {
 
   it('a sign-up starts making its keys before the code is typed, and stores them when the session exists', () => {
     const signUp = SRC.slice(SRC.indexOf('async signUp('), SRC.indexOf('async unlock('));
-    expect(signUp).toContain('const made = createAccount(password);');
+    expect(signUp).toContain('const made = createAccount(password).catch(');
     expect(signUp).toContain('pendingSetup.current = { email, made };');
     const verify = SRC.slice(SRC.indexOf('async verifyOtp('));
     expect(verify).toContain('await finishSetup(userId, await pending.made);');
@@ -115,7 +115,7 @@ describe('AuthProvider: the server never gets the password', () => {
   it('the recovery key is queued for the wall the moment the keys are stored', () => {
     const finish = SRC.slice(SRC.indexOf('const finishSetup'), SRC.indexOf('const settleKeys'));
     expect(finish).toContain('await storeWrappedAccount(supabase, userId, made.wrapped);');
-    expect(finish).toContain('setPendingRecoveryKey(encodeRecoveryKey(made.keys.recoveryKey));');
+    expect(finish).toContain('setPendingRecoveryKey(await encodeRecoveryKey(made.keys.recoveryKey));');
     // Stored BEFORE it is shown: a key the user wrote down for an account the
     // server never got would be a key to nothing.
     expect(finish.indexOf('storeWrappedAccount')).toBeLessThan(
@@ -150,6 +150,67 @@ describe('AuthProvider: the server never gets the password', () => {
     const out = SRC.slice(SRC.indexOf('async signOut('), SRC.indexOf('async resendSignupCode('));
     expect(out).toContain('forgetMasterKey();');
     expect(out.indexOf('forgetMasterKey')).toBeLessThan(out.indexOf('supabase.auth.signOut()'));
+  });
+});
+
+describe('the screens say what the reference design says', () => {
+  const SIGNIN = read('auth/SignIn.tsx');
+  const CONTENTS = read('auth/RecoveryKeyContents.tsx');
+
+  it('the recovery key screen: what the key is for, why it must be saved now, and the two answers', () => {
+    expect(CONTENTS).toContain(
+      'If you forget your password, the only way you can recover your data is with this key.',
+    );
+    expect(CONTENTS).toContain("We don't store this key, so please save this in a safe place");
+    expect(CONTENTS).toContain("laterLabel = 'Do this later'");
+    expect(CONTENTS).toContain('Save Key');
+    expect(CONTENTS).toContain("a.download = 'ziroeda-recovery-key.txt';");
+  });
+
+  it('"No recovery key?" is answered honestly, with the one true sentence', () => {
+    expect(SIGNIN).toContain('No recovery key?');
+    expect(SIGNIN).toContain('caption="Sorry"');
+    expect(SIGNIN).toContain(
+      'Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key',
+    );
+  });
+
+  it('the unlock screen offers Forgot password, as the reference credentials page does', () => {
+    const unlock = SIGNIN.slice(
+      SIGNIN.indexOf("{mode === 'unlock' && ("),
+      SIGNIN.indexOf("{mode === 'recovery-key' &&"),
+    );
+    expect(unlock).toContain('Forgot password');
+    expect(unlock).toContain("setStep('recover');");
+  });
+
+  it('the recovery key can be seen again from the account menu, for whoever chose later', () => {
+    const btn = read('ui/AccountButton.tsx');
+    expect(btn).toContain('Recovery key');
+    const home = read('home/HomePage.tsx');
+    expect(home).toContain('onRecoveryKey={() => {');
+    expect(home).toContain('<RecoveryKeyDialog words={shownRecoveryKey}');
+    const provider = read('auth/AuthProvider.tsx');
+    expect(provider).toContain(
+      'recoveryKeyMnemonic: async () => (keys ? encodeRecoveryKey(keys.recoveryKey) : null),',
+    );
+  });
+
+  it("password strength is zxcvbn's score, weak under 2 and moderate under 3, scored again at submit", () => {
+    expect(SIGNIN).toContain("import('@zxcvbn-ts/core')");
+    expect(SIGNIN).toMatch(
+      /return score < 2\s*\? \{ score, label: 'Password strength: Weak' \}\s*: score < 3/,
+    );
+    expect(SIGNIN).toContain('if ((await loadZxcvbn())(password).score < 2) {');
+  });
+
+  it("the errors are the reference design's words", () => {
+    const provider = read('auth/AuthProvider.tsx');
+    expect(provider).toContain("'Incorrect password'");
+    expect(provider).toContain("'Incorrect password or email not registered'");
+    expect(provider).toContain("'Incorrect recovery key'");
+    expect(SIGNIN).toContain("Passwords don't match");
+    expect(SIGNIN).toContain("'Generating encryption keys...'");
   });
 });
 

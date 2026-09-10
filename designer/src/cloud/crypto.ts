@@ -39,6 +39,7 @@
  */
 
 import { argon2id } from 'hash-wasm';
+import { BIP39_ENGLISH } from './bip39_english.js';
 import { sha256Hex } from './blobStore.js';
 
 const KEY_BYTES = 32; // 256-bit symmetric keys
@@ -164,15 +165,20 @@ export interface Pbkdf2Params {
 }
 
 /**
- * libsodium's `crypto_pwhash` limits for Argon2id, as the reference design uses
- * them: it starts at SENSITIVE and comes down only if the device cannot.
+ * libsodium's `crypto_pwhash` limits for Argon2id, which the reference design
+ * uses as its units of strength.
  * [data] libsodium `crypto_pwhash_argon2id.h`: OPSLIMIT_SENSITIVE 4,
- * MEMLIMIT_SENSITIVE 1073741824; OPSLIMIT_INTERACTIVE 2, MEMLIMIT_INTERACTIVE
- * 67108864. Parallelism is fixed at 1 there, and so it is here.
+ * MEMLIMIT_SENSITIVE 1073741824; OPSLIMIT_MODERATE 3, MEMLIMIT_MODERATE
+ * 268435456; OPSLIMIT_INTERACTIVE 2, MEMLIMIT_INTERACTIVE 67108864.
+ * Parallelism is fixed at 1 there, and so it is here. MEM_SENSITIVE_MIN_KIB is
+ * the reference design's own floor for a SENSITIVE key (its core's
+ * MEMLIMIT_SENSITIVE_MIN, 134217728), not libsodium's.
  */
 export const ARGON2ID = {
   OPS_SENSITIVE: 4,
   MEM_SENSITIVE_KIB: 1_048_576,
+  MEM_MODERATE_KIB: 262_144,
+  MEM_SENSITIVE_MIN_KIB: 131_072,
   OPS_INTERACTIVE: 2,
   MEM_INTERACTIVE_KIB: 65_536,
   PARALLELISM: 1,
@@ -204,13 +210,16 @@ const argon2idReal: Argon2Fn = (password, salt, opsLimit, memLimitKiB) =>
  * A NEW account's key from its password: the parameters are chosen here, by
  * trying, and stored with the key so every later device derives the same.
  *
- * This is the reference design's ladder. Start at libsodium's SENSITIVE
- * limits (4 passes over 1 GiB). If the device cannot give that memory — a WASM
- * allocation that fails, a phone — halve the memory and double the passes and
- * try again, so the WORK stays the same and only the footprint drops, down to
- * INTERACTIVE (64 MiB), below which it refuses rather than issuing a weak key.
- * The device that made the account decides once; a weaker device signing in
- * later must still manage what it chose, which is why the floor is not lower.
+ * This is the reference design's ladder, as its core (shared by its web and
+ * mobile apps) runs it now. The strength wanted is SENSITIVE — 4 passes over
+ * 1 GiB — but a 1 GiB allocation is one browsers and phones often refuse, so
+ * the first attempt is the same work in a MODERATE footprint: 16 passes over
+ * 256 MiB. If the device cannot give even that, halve the memory and double
+ * the passes and try again, so the WORK never changes and only the footprint
+ * drops, down to the design's floor of 128 MiB, below which it refuses rather
+ * than issue a weak key. The device that made the account decides once; a
+ * weaker device signing in later must still manage what it chose, which is
+ * why the floor is not lower.
  */
 export async function deriveNewKeyFromPassword(
   password: string,
@@ -218,8 +227,9 @@ export async function deriveNewKeyFromPassword(
 ): Promise<{ key: Uint8Array; params: Argon2idParams }> {
   const run = opts.argon2 ?? argon2idReal;
   const salt = randomBytes(16);
-  let opsLimit = opts.opsLimit ?? ARGON2ID.OPS_SENSITIVE;
-  let memLimitKiB = opts.memLimitKiB ?? ARGON2ID.MEM_SENSITIVE_KIB;
+  const factor = ARGON2ID.MEM_SENSITIVE_KIB / ARGON2ID.MEM_MODERATE_KIB;
+  let opsLimit = opts.opsLimit ?? ARGON2ID.OPS_SENSITIVE * factor;
+  let memLimitKiB = opts.memLimitKiB ?? ARGON2ID.MEM_MODERATE_KIB;
   // The start is always tried, so a caller (a test) may name one under the
   // floor; the DESCENT never goes under it.
   for (;;) {
@@ -232,7 +242,7 @@ export async function deriveNewKeyFromPassword(
     } catch {
       opsLimit *= 2;
       memLimitKiB /= 2;
-      if (memLimitKiB < ARGON2ID.MEM_INTERACTIVE_KIB)
+      if (memLimitKiB < ARGON2ID.MEM_SENSITIVE_MIN_KIB)
         throw new Error('this device cannot derive an account key');
     }
   }
@@ -637,28 +647,60 @@ export async function decryptBlob(
 // ---------------------------------------------------------------------------
 
 /**
- * Render a recovery key for a human to write down: uppercase hex in groups of
- * four, dash-separated. Not a mnemonic yet — a word list is a nicety to add
- * later; this is unambiguous and copy-pastes cleanly.
+ * Render a recovery key for a human: 24 English words, BIP-39.
+ *
+ * 256 bits of key plus an 8-bit checksum (the first byte of its SHA-256) is
+ * 264 bits, which is exactly 24 eleven-bit indexes into the 2048-word list.
+ * Words are what a person can read back over the phone and type without
+ * confusing 0 and O; the checksum catches a word out of place before the
+ * wrong key is even tried. The reference design spells its recovery key the
+ * same way, with the same list, and still accepts the plain hex it used first
+ * — so does {@link decodeRecoveryKey}.
  */
-export function encodeRecoveryKey(recoveryKey: Uint8Array): string {
-  const hex = Array.from(recoveryKey)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-    .toUpperCase();
-  return (hex.match(/.{1,4}/g) ?? []).join('-');
+export async function encodeRecoveryKey(recoveryKey: Uint8Array): Promise<string> {
+  if (recoveryKey.length !== KEY_BYTES) throw new Error('recovery key must be 32 bytes');
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', ab(recoveryKey)));
+  // 264 bits, as one string of '0'/'1': simple, and it runs once per sign-up.
+  let bits = '';
+  for (const b of recoveryKey) bits += b.toString(2).padStart(8, '0');
+  bits += digest[0]!.toString(2).padStart(8, '0');
+  const words: string[] = [];
+  for (let i = 0; i < 24; i++) {
+    words.push(BIP39_ENGLISH[Number.parseInt(bits.slice(i * 11, i * 11 + 11), 2)]!);
+  }
+  return words.join(' ');
 }
 
-/** Parse a recovery key a user typed back, tolerant of spaces, dashes and case. */
-export function decodeRecoveryKey(text: string): Uint8Array {
-  const hex = text.replace(/[^0-9a-fA-F]/g, '').toLowerCase();
-  if (hex.length !== KEY_BYTES * 2) {
-    throw new Error(`recovery key must be ${KEY_BYTES * 2} hex characters, got ${hex.length}`);
+/**
+ * Parse a recovery key a user typed back: the 24 words, or the 64 hex digits.
+ *
+ * Whitespace runs, case and dashes are forgiven, as the reference design
+ * forgives them. A wrong word, a word out of place, or a checksum that does
+ * not match is a refusal here rather than a wrong key tried against the
+ * ciphertext: "incorrect recovery key" is the honest message either way, but
+ * this one is instant.
+ */
+export async function decodeRecoveryKey(text: string): Promise<Uint8Array> {
+  const parts = text.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (parts.length === 24) {
+    let bits = '';
+    for (const w of parts) {
+      const i = BIP39_ENGLISH.indexOf(w);
+      if (i < 0) throw new Error('incorrect recovery key');
+      bits += i.toString(2).padStart(11, '0');
+    }
+    const out = new Uint8Array(KEY_BYTES);
+    for (let i = 0; i < KEY_BYTES; i++) out[i] = Number.parseInt(bits.slice(i * 8, i * 8 + 8), 2);
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', ab(out)));
+    if (Number.parseInt(bits.slice(256, 264), 2) !== digest[0]) {
+      throw new Error('incorrect recovery key');
+    }
+    return out;
   }
+  const hex = parts.join('').replace(/-/g, '');
+  if (!/^[0-9a-f]{64}$/.test(hex)) throw new Error('incorrect recovery key');
   const out = new Uint8Array(KEY_BYTES);
-  for (let i = 0; i < KEY_BYTES; i++) {
-    out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-  }
+  for (let i = 0; i < KEY_BYTES; i++) out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
   return out;
 }
 

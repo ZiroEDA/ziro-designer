@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
-import { useState, type FormEvent, type JSX } from 'react';
+import { useEffect, useState, type FormEvent, type JSX } from 'react';
+import { MessageDialogOk } from '../ui/dialog_message.js';
+import { RecoveryKeyContents } from './RecoveryKeyContents.js';
 import { useAuth } from './AuthProvider.js';
 import { useModalEscape } from '../ui/useModalEscape.js';
 import { ZiroLogo } from '../ui/ZiroLogo.js';
@@ -125,7 +127,8 @@ export function SignInDialog({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const strength = passwordStrength(password);
+  const strength = usePasswordStrength(password);
+  const [noRecoveryKey, setNoRecoveryKey] = useState(false);
 
   const run = async (fn: () => Promise<{ error: string | null }>): Promise<boolean> => {
     setError(null);
@@ -142,10 +145,12 @@ export function SignInDialog({
   async function onSignUp(e: FormEvent) {
     e.preventDefault();
     if (password !== confirm) {
-      setError('The two passwords do not match.');
+      setError("Passwords don't match");
       return;
     }
-    if (strength.score < 2) {
+    // Scored at submit through the loader itself, so a submit that beats the
+    // dictionaries to the page is judged, not refused for a meter still blank.
+    if ((await loadZxcvbn())(password).score < 2) {
       setError('Please choose a stronger password.');
       return;
     }
@@ -187,10 +192,12 @@ export function SignInDialog({
   async function onCompleteRecovery(e: FormEvent) {
     e.preventDefault();
     if (password !== confirm) {
-      setError('The two passwords do not match.');
+      setError("Passwords don't match");
       return;
     }
-    if (strength.score < 2) {
+    // Scored at submit through the loader itself, so a submit that beats the
+    // dictionaries to the page is judged, not refused for a meter still blank.
+    if ((await loadZxcvbn())(password).score < 2) {
       setError('Please choose a stronger password.');
       return;
     }
@@ -201,18 +208,6 @@ export function SignInDialog({
     )
       close();
   }
-
-  const [copied, setCopied] = useState(false);
-  const copyRecoveryKey = async (): Promise<void> => {
-    if (!pendingRecoveryKey) return;
-    try {
-      await navigator.clipboard.writeText(pendingRecoveryKey);
-      setCopied(true);
-    } catch {
-      // No clipboard (an insecure context, or denied): the key is on screen
-      // to be written down, which is the point of the screen anyway.
-    }
-  };
 
   async function onVerify(e: FormEvent) {
     e.preventDefault();
@@ -270,7 +265,7 @@ export function SignInDialog({
               : mode === 'recovery-key'
                 ? 'Your recovery key'
                 : mode === 'recover'
-                  ? 'Reset your password'
+                  ? 'Recover account'
                   : 'Sign in'
         }
       >
@@ -293,9 +288,9 @@ export function SignInDialog({
                 : mode === 'unlock'
                   ? 'Unlock your ZiroEDA account'
                   : mode === 'recovery-key'
-                    ? 'Save your recovery key'
+                    ? 'Recovery key'
                     : mode === 'recover'
-                      ? 'Reset your password'
+                      ? 'Recover account'
                       : 'Sign in to ZiroEDA'}
           </div>
         </div>
@@ -303,8 +298,8 @@ export function SignInDialog({
         {codeSent && (
           <form onSubmit={onVerify}>
             <p className="ze-auth-note">
-              We sent a 6-digit code to <strong>{email}</strong>. Enter it to finish creating your
-              account.
+              We sent a 6-digit code to <strong>{email}</strong>. Please check your inbox (and spam)
+              to complete verification.
             </p>
             <label className="ze-auth-field">
               <span>Code</span>
@@ -354,7 +349,7 @@ export function SignInDialog({
             </label>
             {error && <div className="ze-auth-error">{error}</div>}
             <button type="submit" className="ze-btn primary ze-auth-submit" disabled={busy}>
-              {busy ? 'Creating account...' : 'Create account'}
+              {busy ? 'Generating encryption keys...' : 'Create account'}
             </button>
             <p className="ze-auth-note ze-auth-warn">
               Your password encrypts your projects. We cannot reset it or read your designs without
@@ -398,6 +393,19 @@ export function SignInDialog({
               {busy ? 'Unlocking...' : 'Unlock'}
             </button>
             <div className="ze-auth-toggle">
+              <button
+                type="button"
+                className="ze-auth-switch"
+                disabled={busy}
+                onClick={() => {
+                  setError(null);
+                  setStep('recover');
+                }}
+              >
+                Forgot password
+              </button>
+            </div>
+            <div className="ze-auth-toggle">
               Not you?{' '}
               <button
                 type="button"
@@ -410,32 +418,14 @@ export function SignInDialog({
             </div>
           </form>
         )}
-        {mode === 'recovery-key' && (
-          <div>
-            <p className="ze-auth-note">
-              This key is the only way back into your projects if you forget your password. We
-              cannot recover it for you: it is not stored anywhere we can read. Keep it somewhere
-              safe, such as a password manager.
-            </p>
-            <div className="ze-auth-recovery-key" aria-label="Recovery key">
-              {pendingRecoveryKey}
-            </div>
-            <div className="ze-auth-recovery-actions">
-              <button type="button" className="ze-btn" onClick={() => void copyRecoveryKey()}>
-                {copied ? 'Copied' : 'Copy'}
-              </button>
-              <button
-                type="button"
-                className="ze-btn primary ze-auth-submit"
-                onClick={() => {
-                  acknowledgeRecoveryKey();
-                  close();
-                }}
-              >
-                I have saved it
-              </button>
-            </div>
-          </div>
+        {mode === 'recovery-key' && pendingRecoveryKey && (
+          <RecoveryKeyContents
+            recoveryKey={pendingRecoveryKey}
+            onLater={() => {
+              acknowledgeRecoveryKey();
+              close();
+            }}
+          />
         )}
         {mode === 'recover' && !recovering && (
           <form onSubmit={onRequestReset}>
@@ -475,9 +465,9 @@ export function SignInDialog({
         {mode === 'recover' && recovering && (
           <form onSubmit={onCompleteRecovery}>
             <p className="ze-auth-note">
-              Choose a new password for <strong>{session?.user.email}</strong>.
-              {keyState !== 'none' &&
-                ' Your projects are encrypted under the old one; the recovery key you saved at sign-up is what carries them across.'}
+              {keyState !== 'none'
+                ? 'Enter the recovery key you saved when you created your account, and choose a new password.'
+                : `Choose a new password for ${session?.user.email}.`}
             </p>
             {keyState !== 'none' && (
               <label className="ze-auth-field">
@@ -486,6 +476,7 @@ export function SignInDialog({
                   type="text"
                   autoComplete="off"
                   spellCheck={false}
+                  placeholder="Paste your 24-word recovery key"
                   required
                   autoFocus
                   value={recoveryKeyText}
@@ -519,9 +510,30 @@ export function SignInDialog({
             </label>
             {error && <div className="ze-auth-error">{error}</div>}
             <button type="submit" className="ze-btn primary ze-auth-submit" disabled={busy}>
-              {busy ? 'Setting password...' : 'Set new password'}
+              {busy ? 'Generating encryption keys...' : 'Recover'}
             </button>
+            {keyState !== 'none' && (
+              <div className="ze-auth-toggle">
+                <button
+                  type="button"
+                  className="ze-auth-switch"
+                  onClick={() => setNoRecoveryKey(true)}
+                >
+                  No recovery key?
+                </button>
+              </div>
+            )}
           </form>
+        )}
+        {noRecoveryKey && (
+          // The reference design's answer, word for word, because there is no
+          // kinder true one: the server holds nothing that could decrypt the
+          // data, which is the whole promise, and this is its price.
+          <MessageDialogOk
+            caption="Sorry"
+            message="Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key"
+            onClose={() => setNoRecoveryKey(false)}
+          />
         )}
         {!codeSent && mode === 'signin' && (
           <form onSubmit={onSignIn}>
@@ -569,27 +581,56 @@ interface Strength {
   label: string;
 }
 
+/** What the reference design shows: its three bands, on zxcvbn's score. */
+function strengthOf(score: number): Strength {
+  return score < 2
+    ? { score, label: 'Password strength: Weak' }
+    : score < 3
+      ? { score, label: 'Password strength: Moderate' }
+      : { score, label: 'Password strength: Strong' };
+}
+
 /**
- * A deliberately simple strength estimate: length first, then how many
- * character classes appear.
- *
- * Not a dictionary check — a real one (zxcvbn and friends) is a ~400 kB word
- * list, which is a lot of bundle for a hint. This catches the cases that
- * actually matter here (short, single-class) and the copy beside it does the
- * rest of the work by explaining *why* the password matters.
+ * zxcvbn, as the reference design uses it (weak under 2, moderate under 3),
+ * and loaded only once a password is being typed: its English dictionaries are
+ * a few hundred kilobytes that a sign-in has no use for, so they are a
+ * separate chunk that the sign-up form pulls in on the first keystroke. Until
+ * it arrives the meter says nothing rather than something wrong; the submit
+ * still refuses a score under 2 once it has.
  */
-function passwordStrength(password: string): Strength {
+type Zxcvbn = (password: string) => { score: number };
+let zxcvbnLoaded: Promise<Zxcvbn> | null = null;
+function loadZxcvbn(): Promise<Zxcvbn> {
+  zxcvbnLoaded ??= Promise.all([
+    import('@zxcvbn-ts/core'),
+    import('@zxcvbn-ts/language-common'),
+    import('@zxcvbn-ts/language-en'),
+  ]).then(([core, common, en]) => {
+    const z = new core.ZxcvbnFactory({
+      dictionary: { ...common.dictionary, ...en.dictionary },
+      graphs: common.adjacencyGraphs,
+      translations: en.translations,
+    });
+    return (pw: string) => z.check(pw);
+  });
+  return zxcvbnLoaded;
+}
+
+function usePasswordStrength(password: string): Strength {
+  const [fn, setFn] = useState<Zxcvbn | null>(null);
+  useEffect(() => {
+    if (!password || fn) return;
+    let live = true;
+    void loadZxcvbn().then((f) => {
+      if (live) setFn(() => f);
+    });
+    return () => {
+      live = false;
+    };
+  }, [password, fn]);
   if (!password) return { score: 0, label: '' };
-  const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/].filter((re) =>
-    re.test(password),
-  ).length;
-  let score = 0;
-  if (password.length >= 8) score += 1;
-  if (password.length >= 12) score += 1;
-  if (classes >= 2) score += 1;
-  if (classes >= 3 && password.length >= 10) score += 1;
-  const labels = ['Too weak', 'Weak', 'Fair', 'Good', 'Strong'];
-  return { score, label: labels[score] ?? '' };
+  if (!fn) return { score: 0, label: '' };
+  return strengthOf(fn(password).score);
 }
 
 function PasswordStrengthHint({ strength }: { strength: Strength }): JSX.Element {

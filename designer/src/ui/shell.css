@@ -9280,6 +9280,27 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 9px var(--field-pad-x); /* [css] the auth entry's padding */
   margin: var(--field-pad-x) 0;
 }
+.ze-auth-recovery-key {
+  position: relative;
+}
+/* Copy sits inside the block, top right, as the reference design's code block
+   carries its copy control; padding on the right keeps the last words clear
+   of it. */
+.ze-auth-recovery-key .ze-auth-recovery-copy {
+  position: absolute;
+  top: var(--field-pad-x);
+  right: var(--field-pad-x);
+  font: inherit;
+  font-size: var(--ui-font-size);
+  color: var(--chrome-fg-muted);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.ze-auth-recovery-key .ze-auth-recovery-copy:hover {
+  color: var(--chrome-fg);
+}
 .ze-auth-recovery-actions {
   display: flex;
   gap: var(--field-pad-x);
