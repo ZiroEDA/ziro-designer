@@ -21,6 +21,13 @@ import type {
 
 const EMPTY = { kind: 'list' as const, items: [] };
 const MM = (n: number): number => mmToIU(n);
+/**
+ * `ADVANCED_CFG::m_ExtraClearance`, 0.0005 mm: "A small extra clearance to be
+ * sure actual track clearances are not smaller than requested clearance due to
+ * many approximations in calculations" — added to every gap
+ * `buildCopperItemClearances` knocks out (zone_filler.cpp:2135, 2170-2660).
+ */
+const EXTRA = MM(0.0005);
 
 const pad = (at: { x: number; y: number }, net: number, size = MM(2)): PcbPad => ({
   number: '1',
@@ -841,6 +848,48 @@ describe('zone filler', () => {
     const fill = fillZone(b, 0)[0]!.polys;
     // Mid-spoke, on the lower-left diagonal, inside the relief gap.
     expect(covered(fill, { x: MM(19), y: MM(21) })).toBe(true);
+  });
+
+  describe('m_ExtraClearance', () => {
+    // Half a micron is the whole difference between a knockout edge of ours
+    // and KiCad's: `gap + extra_margin` at every site in
+    // `buildCopperItemClearances`, and nowhere else.
+    const edgeFrom = (fill: { x: number; y: number }[][], x0: number, y: number): number => {
+      for (let d = 0; d < MM(2); d += MM(0.0001)) if (filled(fill, { x: x0 + d, y })) return d;
+      return Number.POSITIVE_INFINITY;
+    };
+
+    it("is on a track's knockout, exactly", () => {
+      const b = board({
+        zones: [zone()],
+        tracks: [
+          {
+            start: { x: MM(20), y: 0 },
+            end: { x: MM(20), y: MM(40) },
+            width: MM(1),
+            layer: 'F.Cu',
+            net: 2,
+            source: EMPTY,
+          },
+        ],
+      });
+      const fill = fillZone(b, 0)[0]!.polys;
+      // Track edge at 20.5, zone clearance 0.5, plus 0.0005: copper at 21.0005.
+      expect(edgeFrom(fill, MM(20.5), MM(10))).toBeCloseTo(MM(0.5) + EXTRA, -2);
+    });
+
+    it("is NOT on a thermal relief, which is `knockoutThermalReliefs`' own", () => {
+      // "addKnockout( pad, aLayer, padClearance, holes )" — the relief gap is
+      // handed over bare; the extra margin belongs to the clearance pass only.
+      const b = board({
+        zones: [zone({ thermalGap: MM(0.5) })],
+        footprints: [footprint([pad({ x: MM(20), y: MM(20) }, 1)])],
+      });
+      const fill = fillZone(b, 0)[0]!.polys;
+      // Beside the spoke, on the pad's flat right side: the relief's straight
+      // edge is the pad edge plus the gap, with no arc correction to blur it.
+      expect(edgeFrom(fill, MM(21), MM(20.6))).toBeCloseTo(MM(0.5), -2);
+    });
   });
 
   it('breaks a priority tie on the uuid, as HigherPriority does', () => {
@@ -1805,15 +1854,17 @@ describe('CLEARANCE_CONSTRAINT', () => {
     });
     const fill = fillZone(b, 0, opts)[0]!.polys;
     // Walk out along +x from the pad edge until copper starts.
-    for (let d = 0; d < MM(2); d += MM(0.005))
+    for (let d = 0; d < MM(2); d += MM(0.0005))
       if (filled(fill, { x: MM(21) + d, y: MM(20) })) return d;
     return Number.POSITIVE_INFINITY;
   };
 
   it('takes the netclass clearance when the zone states none', () => {
+    // Every gap `buildCopperItemClearances` knocks out carries
+    // `m_ExtraClearance` on top — 0.0005 mm, `ADVANCED_CFG`'s default.
     expect(
       gapAround({ clearanceOf: zoneClearanceOf({ netClassClearance: () => MM(0.4) }) }),
-    ).toBeCloseTo(MM(0.4), -3);
+    ).toBeCloseTo(MM(0.4) + EXTRA, -3);
   });
 
   it('raises it to the board minimum', () => {
@@ -1821,7 +1872,7 @@ describe('CLEARANCE_CONSTRAINT', () => {
       gapAround({
         clearanceOf: zoneClearanceOf({ minClearance: MM(0.7), netClassClearance: () => MM(0.4) }),
       }),
-    ).toBeCloseTo(MM(0.7), -3);
+    ).toBeCloseTo(MM(0.7) + EXTRA, -3);
   });
 
   it("lets the zone's own clearance win when it is the largest", () => {
@@ -1833,8 +1884,8 @@ describe('CLEARANCE_CONSTRAINT', () => {
       clearanceOf: zoneClearanceOf({ minClearance: MM(0.2), netClassClearance: () => MM(0.4) }),
     })[0]!.polys;
     let d = 0;
-    for (; d < MM(2); d += MM(0.005)) if (filled(fill, { x: MM(21) + d, y: MM(20) })) break;
-    expect(d).toBeCloseTo(MM(0.9), -3);
+    for (; d < MM(2); d += MM(0.0005)) if (filled(fill, { x: MM(21) + d, y: MM(20) })) break;
+    expect(d).toBeCloseTo(MM(0.9) + EXTRA, -3);
   });
 
   it('asks about BOTH nets, not just the other one', () => {
@@ -2186,7 +2237,7 @@ describe("a pad's own local clearance", () => {
   const gapAt = (fp: PcbFootprint): number => {
     const b = board({ zones: [zone({ clearance: MM(0.2) })], footprints: [fp] });
     const fill = fillZone(b, 0)[0]!.polys;
-    for (let d = 0; d < MM(4); d += MM(0.005))
+    for (let d = 0; d < MM(4); d += MM(0.0005))
       if (filled(fill, { x: MM(21) + d, y: MM(20) })) return d;
     return Number.POSITIVE_INFINITY;
   };
@@ -2196,13 +2247,13 @@ describe("a pad's own local clearance", () => {
     const local = footprint([
       { ...pad({ x: MM(20), y: MM(20) }, 2, MM(2)), localClearance: MM(1.5) },
     ]);
-    expect(gapAt(plain)).toBeCloseTo(MM(0.2), -3);
-    expect(gapAt(local)).toBeCloseTo(MM(1.5), -3);
+    expect(gapAt(plain)).toBeCloseTo(MM(0.2) + EXTRA, -3);
+    expect(gapAt(local)).toBeCloseTo(MM(1.5) + EXTRA, -3);
   });
 
   it("falls back to the footprint's when the pad states none", () => {
     const fp = footprint([pad({ x: MM(20), y: MM(20) }, 2, MM(2))]);
-    expect(gapAt({ ...fp, localClearance: MM(1.2) })).toBeCloseTo(MM(1.2), -3);
+    expect(gapAt({ ...fp, localClearance: MM(1.2) })).toBeCloseTo(MM(1.2) + EXTRA, -3);
   });
 
   it("LOWERS it too: the override replaces the zone's clearance", () => {
@@ -2218,7 +2269,7 @@ describe("a pad's own local clearance", () => {
     const fp = footprint([
       { ...pad({ x: MM(20), y: MM(20) }, 2, MM(2)), localClearance: MM(0.05) },
     ]);
-    expect(gapAt(fp)).toBeCloseTo(MM(0.05), -3);
+    expect(gapAt(fp)).toBeCloseTo(MM(0.05) + EXTRA, -3);
   });
 
   it('but never below the board minimum clearance', () => {
@@ -2230,18 +2281,18 @@ describe("a pad's own local clearance", () => {
     const b = board({ zones: [zone({ clearance: MM(0.2) })], footprints: [fp] });
     const fill = fillZone(b, 0, { minClearance: MM(0.1) })[0]!.polys;
     let gap = Number.POSITIVE_INFINITY;
-    for (let d = 0; d < MM(4); d += MM(0.005))
+    for (let d = 0; d < MM(4); d += MM(0.0005))
       if (filled(fill, { x: MM(21) + d, y: MM(20) })) {
         gap = d;
         break;
       }
-    expect(gap).toBeCloseTo(MM(0.1), -3);
+    expect(gap).toBeCloseTo(MM(0.1) + EXTRA, -3);
   });
 
   it('and a stated zero is no override at all', () => {
     // `if( override_val )` — a zero falls through to the ordinary answer.
     const fp = footprint([{ ...pad({ x: MM(20), y: MM(20) }, 2, MM(2)), localClearance: 0 }]);
-    expect(gapAt(fp)).toBeCloseTo(MM(0.2), -3);
+    expect(gapAt(fp)).toBeCloseTo(MM(0.2) + EXTRA, -3);
   });
 
   it("keeps an NPTH's hole clear by the pad's local clearance", () => {
@@ -2259,7 +2310,7 @@ describe("a pad's own local clearance", () => {
         localClearance: MM(1.5),
       },
     ]);
-    expect(gapAt(fp)).toBeCloseTo(MM(1.5), -3);
+    expect(gapAt(fp)).toBeCloseTo(MM(1.5) + EXTRA, -3);
   });
 
   it("ignores the zone's clearance around an NPTH, and takes the board's hole clearance", () => {
@@ -2274,13 +2325,14 @@ describe("a pad's own local clearance", () => {
     const gapWith = (opts: Parameters<typeof fillZone>[2]): number => {
       const b = board({ zones: [zone({ clearance: MM(0.2) })], footprints: [fp] });
       const fill = fillZone(b, 0, opts)[0]!.polys;
-      for (let d = 0; d < MM(4); d += MM(0.005))
+      for (let d = 0; d < MM(4); d += MM(0.0005))
         if (filled(fill, { x: MM(21) + d, y: MM(20) })) return d;
       return Number.POSITIVE_INFINITY;
     };
     // The zone says 0.2 and it does not apply; the board's hole clearance does.
-    expect(gapWith({ holeClearance: MM(0.6) })).toBeCloseTo(MM(0.6), -3);
-    expect(gapWith({ holeClearance: 0 })).toBeCloseTo(0, -3);
+    expect(gapWith({ holeClearance: MM(0.6) })).toBeCloseTo(MM(0.6) + EXTRA, -3);
+    // With no hole clearance at all, only the extra margin is left.
+    expect(gapWith({ holeClearance: 0 })).toBeCloseTo(EXTRA, -3);
   });
 
   it('knocks out an oblong drill as a SLOT, not a disc of its longer side', () => {

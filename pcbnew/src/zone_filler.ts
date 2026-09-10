@@ -60,6 +60,24 @@ import type { ZoneConnection } from './zone_connection.js';
 /** BOARD_DESIGN_SETTINGS::m_MaxError, the arc approximation limit (0.005 mm). */
 const DEFAULT_MAX_ERROR = mmToIU(0.005);
 
+/**
+ * `ADVANCED_CFG::m_ExtraClearance` (advanced_config.cpp:244), the
+ * `ExtraFillMargin` key: "A small extra clearance to be sure actual track
+ * clearances are not smaller than requested clearance due to many
+ * approximations in calculations, like arc to segment approx, rounding
+ * issues, etc." `buildCopperItemClearances` adds it to EVERY gap it knocks
+ * out — pads, holes, vias, tracks, arcs, graphics, text, the board edge,
+ * other zones — and to nothing else: not a thermal relief, not a spoke, not
+ * a rule area.
+ *
+ * Half a micron does not sound like a pour. It is the whole of what was
+ * left between our fill and KiCad's on eleven of the twelve demo boards:
+ * every knockout edge sat exactly 500 units inside upstream's, and the
+ * slivers along thousands of them added up to the last 0.02–0.15 %.
+ */
+// [data] 0.0005 mm, ADVANCED_CFG's default; the user can change it in kicad_advanced.
+const EXTRA_CLEARANCE = mmToIU(0.0005);
+
 /** `DEFAULT_COPPEREDGECLEARANCE` (`include/board_design_settings.h:89`). */
 // [data] 0.5 mm, "clearance between copper items and edge cuts".
 const DEFAULT_EDGE_CLEARANCE = mmToIU(0.5);
@@ -1090,7 +1108,7 @@ function fillZoneParts(
     for (const z of board.zones)
       if (!z.ruleArea && z.clearance !== undefined)
         worstClearance = Math.max(worstClearance, z.clearance);
-    const zoneBox = boxInflate(boxOf(zone.outline), worstClearance);
+    const zoneBox = boxInflate(boxOf(zone.outline), worstClearance + EXTRA_CLEARANCE);
     const near = (b: Box): boolean => boxesIntersect(b, zoneBox);
 
     // Pads (`ZONE_FILLER::knockoutThermalReliefs` and, for the ones it hands on,
@@ -1176,7 +1194,8 @@ function fillZoneParts(
             : (opts.holeClearance ?? 0);
 
         if (padOnLayer(pad, layer) && !npth) {
-          for (const s of shapes) holes.push(...shapeToPolygon(s, copperGap, maxError));
+          for (const s of shapes)
+            holes.push(...shapeToPolygon(s, copperGap + EXTRA_CLEARANCE, maxError));
         }
 
         // The hole's own gap: the board's hole clearance, and — "oblong NPTH
@@ -1188,7 +1207,7 @@ function fillZoneParts(
         if (npth && pad.drill && pad.drill.w !== pad.drill.h)
           holeGap = Math.max(holeGap, opts.edgeClearance ?? DEFAULT_EDGE_CLEARANCE);
 
-        const hole = padHoleShape(pad, holeGap);
+        const hole = padHoleShape(pad, holeGap + EXTRA_CLEARANCE);
         if (hole) holes.push(...shapeToPolygon(hole, 0, maxError));
       }
     }
@@ -1201,7 +1220,9 @@ function fillZoneParts(
         connected.push(...alongSegment(t.start, t.end));
         continue;
       }
-      holes.push([stadiumPoly(t.start, t.end, t.width / 2 + gapTo(t.net), maxError)]);
+      holes.push([
+        stadiumPoly(t.start, t.end, t.width / 2 + gapTo(t.net) + EXTRA_CLEARANCE, maxError),
+      ]);
     }
     for (const a of board.arcs) {
       if (a.layer !== layer) continue;
@@ -1213,7 +1234,9 @@ function fillZoneParts(
       }
       const pts = tessellateArc(a.start, a.mid, a.end);
       for (let i = 1; i < pts.length; i++)
-        holes.push([stadiumPoly(pts[i - 1]!, pts[i]!, a.width / 2 + gapTo(a.net), maxError)]);
+        holes.push([
+          stadiumPoly(pts[i - 1]!, pts[i]!, a.width / 2 + gapTo(a.net) + EXTRA_CLEARANCE, maxError),
+        ]);
     }
     for (const v of board.vias) {
       // "viaBBox.Inflate( m_worstClearance )".
@@ -1222,7 +1245,7 @@ function fillZoneParts(
         connected.push(...viaAnchors(v));
         continue;
       }
-      holes.push([circlePoly(v.at, v.size / 2 + gapTo(v.net), maxError)]);
+      holes.push([circlePoly(v.at, v.size / 2 + gapTo(v.net) + EXTRA_CLEARANCE, maxError)]);
     }
 
     // Other zones on this layer knock this one out
@@ -1273,9 +1296,9 @@ function fillZoneParts(
 
       const inflated = inflate(
         otherFill.polys.map((poly) => [poly]),
-        gap + maxError,
+        gap + EXTRA_CLEARANCE + maxError,
         CornerStrategy.ROUND_ALL_CORNERS,
-        segmentsForRadius(gap + maxError, maxError),
+        segmentsForRadius(gap + EXTRA_CLEARANCE + maxError, maxError),
       );
       for (const poly of inflated) holes.push(poly.map(ringOf) as Geom);
     });
@@ -1314,7 +1337,7 @@ function fillZoneParts(
             : gapTo(s.net ?? 0);
 
       for (const sh of graphicShapes(isEdge ? { ...s, width: 0 } : s))
-        holes.push(...shapeToPolygon(sh, gap, maxError));
+        holes.push(...shapeToPolygon(sh, gap + EXTRA_CLEARANCE, maxError));
     }
 
     // Copper TEXT, which `knockoutGraphicClearance` treats exactly like a
@@ -1337,7 +1360,7 @@ function fillZoneParts(
       // is -1 for anything that is not a PCB_SHAPE.
       const gap = isEdge || isMargin ? (opts.edgeClearance ?? DEFAULT_EDGE_CLEARANCE) : gapTo(0);
 
-      for (const sh of shapes) holes.push(...shapeToPolygon(sh, gap, maxError));
+      for (const sh of shapes) holes.push(...shapeToPolygon(sh, gap + EXTRA_CLEARANCE, maxError));
     }
 
     // A barcode on this layer knocks the pour out — `ZONE_FILLER::…`'s
@@ -1368,7 +1391,7 @@ function fillZoneParts(
               ],
               r: 0,
             },
-            gapTo(0),
+            gapTo(0) + EXTRA_CLEARANCE,
             maxError,
           ),
         );

@@ -209,6 +209,77 @@ export enum CornerStrategy {
 }
 
 /**
+ * Clipper2's round join, over the Clipper 1 port.
+ *
+ * KiCad offsets with Clipper2 (`SHAPE_POLY_SET::inflate2`); the `clipper-lib`
+ * package is the JavaScript port of Clipper 1. The two agree on everything
+ * that reaches an integer polygon — the same offset-triginometry, the same
+ * half-away-from-zero rounding — except the number of vertices a rounded
+ * corner gets:
+ *
+ *     Clipper 1:  steps = max( Round( stepsPerRad * |angle| ), 1 )
+ *     Clipper2:   steps = ceil( steps_per_rad_ * |angle| )       // #448, #456
+ *
+ * so a 90° corner that Clipper2 gives six chords, Clipper 1 gives five, and
+ * every one of ours lost the vertex at 81.8°. Measured on a 10 mm square
+ * inflated by 0.5 mm: the five vertices both produce agree TO THE NANOMETRE
+ * with KiCad's, and KiCad has a sixth. Over a plane with thousands of pad
+ * reliefs and via holes that missing chord is the whole of the last
+ * 0.05–0.1 % between our pour and KiCad's.
+ *
+ * This is `ClipperOffset::DoRound` (clipper.offset.cpp:343-380) with its
+ * `steps_per_360` (:552-556) recomputed per call, in Clipper2's own operation
+ * order — the delta-scaled vector is what gets rotated — and with `Math.PI`
+ * where the port carries a 15-digit `two_pi`, because the last-ulp difference
+ * moves a rounded vertex by one unit now and then.
+ */
+type OffsetInternals = {
+  m_delta: number;
+  ArcTolerance: number;
+  m_sinA: number;
+  m_normals: { X: number; Y: number }[];
+  m_srcPoly: { X: number; Y: number }[];
+  m_destPoly: { X: number; Y: number }[];
+};
+
+(
+  ClipperLib.ClipperOffset.prototype as unknown as {
+    DoRound: (this: OffsetInternals, j: number, k: number) => void;
+  }
+).DoRound = function doRoundClipper2(this: OffsetInternals, j: number, k: number): void {
+  const nj = this.m_normals[j]!;
+  const nk = this.m_normals[k]!;
+  const src = this.m_srcPoly[j]!;
+  const delta = this.m_delta;
+  const absDelta = Math.abs(delta);
+
+  // `steps_per_360 = min( PI / acos( 1 - arcTol / abs_delta ), abs_delta * PI )`.
+  const arcTol = Math.min(absDelta, this.ArcTolerance);
+  const stepsPer360 = Math.min(Math.PI / Math.acos(1 - arcTol / absDelta), absDelta * Math.PI);
+  let stepSin = Math.sin((2 * Math.PI) / stepsPer360);
+  const stepCos = Math.cos((2 * Math.PI) / stepsPer360);
+  if (delta < 0) stepSin = -stepSin;
+  const stepsPerRad = stepsPer360 / (2 * Math.PI);
+
+  const cosA = nk.X * nj.X + nk.Y * nj.Y;
+  const angle = Math.atan2(this.m_sinA, cosA);
+
+  let vx = nk.X * delta;
+  let vy = nk.Y * delta;
+  const round = (a: number): number => (a < 0 ? Math.ceil(a - 0.5) : Math.floor(a + 0.5));
+  this.m_destPoly.push({ X: round(src.X + vx), Y: round(src.Y + vy) });
+
+  const steps = Math.ceil(stepsPerRad * Math.abs(angle));
+  for (let i = 1; i < steps; i++) {
+    const x = vx * stepCos - stepSin * vy;
+    vy = vx * stepSin + vy * stepCos;
+    vx = x;
+    this.m_destPoly.push({ X: round(src.X + vx), Y: round(src.Y + vy) });
+  }
+  this.m_destPoly.push({ X: round(src.X + nj.X * delta), Y: round(src.Y + nj.Y * delta) });
+};
+
+/**
  * SHAPE_POLY_SET::Inflate. Offsets every polygon by `amount` (negative
  * deflates), with the join type and miter limit upstream maps each corner
  * strategy to, and the arc tolerance it derives from the segment count:
