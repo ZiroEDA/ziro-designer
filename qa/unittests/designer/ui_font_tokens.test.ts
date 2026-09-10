@@ -384,7 +384,7 @@ const BASELINE: Record<string, number> = {
   // ×3, 13 ×4, 14 ×3, 16, 18 and 22 — replaced by `--ui-font-size`,
   // `--ui-font-size-info` and a `calc()` off the former when the card became
   // the docked sign-in panel.
-  ui: 68,
+  ui: 65,
   widgets: 6,
 };
 
@@ -642,7 +642,10 @@ describe('hardcoded font sizes do not grow', () => {
     // the only row that moves and 219 - 1 agrees with it.
     // 218 -> 204: the sign-in wall's fourteen; `ui` 82 -> 68 is the only row
     // that moves and 218 - 14 agrees with it.
-    expect(sites.length).toBe(204);
+    // 204 -> 201: the loading card's `13px` and `10pt` and the canvas
+    // spinner's `13px`, gone with them; `ui` 68 -> 65 is the only row that
+    // moves and 204 - 3 agrees with it.
+    expect(sites.length).toBe(201);
   });
 });
 

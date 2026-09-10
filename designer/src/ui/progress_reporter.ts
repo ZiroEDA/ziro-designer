@@ -10,16 +10,16 @@
  * `(phase + current/max) / numPhases`.
  *
  * The web port publishes an immutable snapshot on every change; a React
- * component holds one in state and renders the LoadingOverlay from it.
+ * component holds one in state and renders the ProgressDialog from it.
  */
 
-/** What the overlay renders: message + optional counts and bar value. */
+/** What the dialog renders: the message and the gauge value. wxProgressDialog
+ *  has exactly those two (plus the clock it keeps itself); there is no second
+ *  "detail" line. */
 export interface ProgressSnapshot {
-  /** Headline, e.g. "Loading schematic: amp.kicad_sch". */
+  /** Headline, e.g. "Loading amp.kicad_sch...". */
   message: string;
-  /** Secondary count line, e.g. "3 of 12 files". */
-  detail?: string;
-  /** Overall 0..1 bar value; undefined = indeterminate (spinner only). */
+  /** Overall 0..1 gauge value; undefined = no max yet, an empty gauge. */
   value?: number;
 }
 
@@ -29,7 +29,6 @@ export class ProgressReporter {
   private maxProgress = 0;
   private progress = 0;
   private message = '';
-  private detail = '';
 
   /** Called with every new snapshot, and with null when the job finishes. */
   constructor(private readonly publish: (s: ProgressSnapshot | null) => void) {}
@@ -45,7 +44,6 @@ export class ProgressReporter {
     this.phase = Math.min(this.phase + 1, this.numPhases - 1);
     this.maxProgress = 0;
     this.progress = 0;
-    this.detail = '';
     if (message !== undefined) this.message = message;
     this.update();
   }
@@ -64,9 +62,8 @@ export class ProgressReporter {
   }
 
   /** AdvanceProgress: one unit of work done inside the current phase. */
-  advanceProgress(detail?: string): void {
+  advanceProgress(): void {
     this.progress = Math.min(this.progress + 1, this.maxProgress || this.progress + 1);
-    if (detail !== undefined) this.detail = detail;
     this.update();
   }
 
@@ -93,13 +90,7 @@ export class ProgressReporter {
   private update(): void {
     this.publish({
       message: this.message,
-      ...(this.detail ? { detail: this.detail } : {}),
       ...(this.currentValue() !== undefined ? { value: this.currentValue() } : {}),
     });
   }
-}
-
-/** "n of m" detail text, as the KiCad gauge dialogs word it. */
-export function ofText(done: number, total: number, unit = ''): string {
-  return `${done} of ${total}${unit ? ` ${unit}` : ''}`;
 }

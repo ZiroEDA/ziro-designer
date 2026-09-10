@@ -313,7 +313,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // (`ui/DialogTableProperties.tsx`), and its layout went from twenty inline
   // `style={{ … }}` objects to rules in the stylesheet. The six that left this
   // area are the ones eeschema's copy stated inline.
-  'editors/schematic': { colours: 33, metrics: 185 },
+  'editors/schematic': { colours: 32, metrics: 185 },
   // colours 12 -> 7: the Symbol Editor parity pass. Four were
   // SYMBOL_EDITOR_COLORS, a private copy of LAYER_SCHEMATIC_ANCHOR /
   // LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS that matched the Default
@@ -631,7 +631,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // metrics row is NOT lowered: the docked sign-in panel that replaced the
   // card added 15 chrome px literals and took 7 away, +8, and those still
   // stand — see the `[data]`/`[css]`/`[px]`/`[art]` rule above.
-  ui: { colours: 196, metrics: 708 },
+  ui: { colours: 190, metrics: 707 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -1037,7 +1037,12 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // `editors/pcb` is the only row that moves and 521 - 4 agrees with it.
     // 517 -> 505: the sign-in wall. `auth` 4 -> 0 (the Google mark) and `ui`
     // 204 -> 196 (the card's palette); the per-area table agrees, 517 - 12.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(505);
+    // 505 -> 498: the loading card and the in-canvas spinners, replaced by
+    // WX_PROGRESS_REPORTER's dialog on the shared chrome. `ui` 196 -> 190 (the
+    // card's `#fff` text, `#aaa` detail, two backdrop/shadow rgba()s, the
+    // gauge track's rgba() and the canvas spinner's `#ddd`) and
+    // `editors/schematic` 33 -> 32 (the library browser's `#555`); 505 - 7.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(498);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1200,7 +1205,12 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // Table Properties pass claimed 706 over a tree holding 708, and this
     // total inherited the error. Two independent derivations agree now: the
     // per-area table sums to 1297, and a rescan of this tree reads 1297.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1297);
+    // 1297 -> 1296: the loading card's uncited geometry (a 12px gap, 16px 22px
+    // padding, 6px corners, a 6px track) went with the card; what replaced it,
+    // WX_PROGRESS_REPORTER's dialog, is every number off the wx probe or Yaru's
+    // stylesheet and carries its marker. `ui` 708 -> 707 is the only row that
+    // moves, and 1297 - 1 agrees with it.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1296);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

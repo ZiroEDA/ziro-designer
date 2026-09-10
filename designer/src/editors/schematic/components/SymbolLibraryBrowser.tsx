@@ -582,7 +582,15 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-lib-viewer" onMouseDown={(e) => e.stopPropagation()}>
+      <div
+        className="ze-modal ze-lib-viewer"
+        // `wxBusyCursor` while a library is read (SYMBOL_VIEWER_FRAME::ReCreateLibList
+        // and every library load in eeschema): the pointer says busy, the
+        // canvas stays as it is. Here the read is a fetch, so the wait is
+        // real, but it is still not a thing drawn over the canvas.
+        style={fetching ? { cursor: 'progress' } : undefined}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <div className="ze-modal-header" title={title}>
           <span className="ze-lib-viewer-title">{title}</span>
           <span className="x" title="Close" onClick={onClose}>
@@ -708,12 +716,6 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
                 );
               }}
             />
-            {fetching && (
-              <div className="ze-canvas-loading" style={{ color: '#555' }}>
-                <span className="ze-spinner" />
-                <span>Loading {curLib}...</span>
-              </div>
-            )}
           </div>
         </div>
 

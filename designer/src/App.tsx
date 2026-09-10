@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, useCallback, lazy, Suspense } fro
 import type { LibSymbol } from '@ziroeda/eeschema';
 import { HomePage } from './home/HomePage.js';
 import type { PickedFile } from './editors/schematic/SchematicEditor.js';
-import { LoadingOverlay } from './ui/LoadingOverlay.js';
+import { ProgressDialog } from './ui/ProgressDialog.js';
 import {
   storageAvailable,
   cloudIdentityOf,
@@ -139,8 +139,19 @@ function prefetchEditors(): () => void {
   };
 }
 
-/** Fallback while a frame's chunk is in flight, in the app's own overlay style. */
-const frameLoading = (what: string): JSX.Element => <LoadingOverlay label={`Loading ${what}...`} />;
+/**
+ * What shows while a frame's chunk is in flight: nothing.
+ *
+ * Launching eeschema from the manager, there is a beat between the click and
+ * the frame appearing in which the process starts and no window exists yet;
+ * KiCad draws nothing in it, and certainly not a "Loading the schematic
+ * editor..." card — no such thing exists in the suite. This is that beat. In a
+ * built app it is milliseconds, because every editor chunk is precached by the
+ * service worker (vite.config.ts) and comes off disk; only the dev server,
+ * which serves the editor as hundreds of unbundled modules, makes it long.
+ * The face is the shell's own, so the beat is a dark frame, not a white flash.
+ */
+const frameLoading: JSX.Element = <div className="ze-app" />;
 
 const dec = new TextDecoder();
 const enc = new TextEncoder();
@@ -1240,14 +1251,8 @@ export function App(): JSX.Element {
 
   if (restoring) {
     return (
-      <div
-        className="ze-app"
-        style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-      >
-        <div className="ze-loading-card">
-          <span className="ze-spinner" />
-          <span>Restoring your project...</span>
-        </div>
+      <div className="ze-app" style={{ height: '100vh' }}>
+        <ProgressDialog title="Restore Project" label="Restoring your project..." />
       </div>
     );
   }
@@ -1384,7 +1389,7 @@ export function App(): JSX.Element {
       <SaveIndicator />
       {schMounted && (
         <div style={{ display: view === 'schematic' ? 'contents' : 'none' }}>
-          <Suspense fallback={frameLoading('the schematic editor')}>
+          <Suspense fallback={frameLoading}>
             <SchematicEditor
               onExitToHome={goHome}
               onShowPcb={pcbFile ? showPcb : undefined}
@@ -1457,7 +1462,7 @@ export function App(): JSX.Element {
       )}
       {pcbMounted && pcbFile && (
         <div style={{ display: view === 'pcb' ? 'contents' : 'none' }}>
-          <Suspense fallback={frameLoading('the board editor')}>
+          <Suspense fallback={frameLoading}>
             <PcbEditor
               fileName={pcbBasename(pcbFile.name)}
               text={pcbFile.text}
@@ -1492,7 +1497,7 @@ export function App(): JSX.Element {
       )}
       {symMounted && (
         <div style={{ display: view === 'symbols' ? 'contents' : 'none' }}>
-          <Suspense fallback={frameLoading('the symbol editor')}>
+          <Suspense fallback={frameLoading}>
             <SymbolEditor
               onExitToHome={goHome}
               projectName={projectName}
@@ -1515,7 +1520,7 @@ export function App(): JSX.Element {
       )}
       {fpMounted && (
         <div style={{ display: view === 'footprints' ? 'contents' : 'none' }}>
-          <Suspense fallback={frameLoading('the footprint editor')}>
+          <Suspense fallback={frameLoading}>
             <FootprintEditor
               onExitToHome={goHome}
               initialProject={projectFiles}
@@ -1526,14 +1531,14 @@ export function App(): JSX.Element {
       )}
       {calcMounted && (
         <div style={{ display: view === 'calculator' ? 'contents' : 'none' }}>
-          <Suspense fallback={frameLoading('the calculator')}>
+          <Suspense fallback={frameLoading}>
             <CalculatorTools onExitToHome={goHome} />
           </Suspense>
         </div>
       )}
       {dsMounted && (
         <div style={{ display: view === 'drawingsheet' ? 'contents' : 'none' }}>
-          <Suspense fallback={frameLoading('the drawing sheet editor')}>
+          <Suspense fallback={frameLoading}>
             <DrawingSheetEditor
               onExitToHome={goHome}
               projectName={projectName}
@@ -1563,14 +1568,14 @@ export function App(): JSX.Element {
       )}
       {imgMounted && (
         <div style={{ display: view === 'image' ? 'contents' : 'none' }}>
-          <Suspense fallback={frameLoading('the image converter')}>
+          <Suspense fallback={frameLoading}>
             <ImageConverter onExitToHome={goHome} />
           </Suspense>
         </div>
       )}
       {gbMounted && (
         <div style={{ display: view === 'gerber' ? 'contents' : 'none' }}>
-          <Suspense fallback={frameLoading('the gerber viewer')}>
+          <Suspense fallback={frameLoading}>
             <GerberViewer onExitToHome={goHome} projectName={projectName} openRequest={gbRequest} />
           </Suspense>
         </div>

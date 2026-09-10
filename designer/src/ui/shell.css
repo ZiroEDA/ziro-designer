@@ -522,6 +522,13 @@
      border colour and it is this one. Flagged rather than unified, because
      changing --chrome-border moves every launcher at once. */
   --ctl-border: #181818;
+  /* [css] wxGauge: Yaru gtk.css `progressbar trough` / `progressbar progress`
+     (border, background-color); the fill is the accent every other control
+     already holds as --chrome-active. */
+  --gauge-trough: #222222;
+  --gauge-trough-edge: #181818;
+  --gauge-fill: #e95420;
+  --gauge-fill-edge: #eb6637;
   /* [css] button, entry: border-radius: 6px. Our controls used 2-3px. */
   --ctl-radius: 6px;
   /* Outer height of a button, a text field and a combo — all three are the
@@ -5138,25 +5145,109 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   justify-content: center;
 }
 
-/* Loading overlay (KiCad's progress dialog): blocks the UI and shows a spinner
-   while a project is read/saved/opened. */
-.ze-loading-backdrop {
+/* WX_PROGRESS_REPORTER's dialog (ui/ProgressDialog.tsx), a wxProgressDialog:
+   the message, a gauge, the elapsed clock, Cancel. Every number is off the
+   real dialog on this theme (qa/probes/progress_dialog_probe.py); the face,
+   caption, font and button are the shared dialog's and are not restated.
+
+   The parent is under a `wxWindowDisabler`, so the pointer over it is the
+   busy one. */
+.ze-progress-backdrop {
   cursor: progress;
   z-index: 300;
-  background: rgba(0, 0, 0, 0.35);
 }
-.ze-loading-card {
+.ze-progress-dialog .ze-modal-body {
+  flex-direction: column;
+  align-items: stretch;
+}
+/* wxStaticText at (16,16): Add( m_msg, 0, wxLEFT | wxRIGHT | wxTOP, 2*LAYOUT_MARGIN ).
+   A single line: the message is a filename and wx never wraps a wxStaticText
+   that was not asked to. */
+.ze-progress-dialog .msg {
+  /* [data] wxGenericProgressDialog's LAYOUT_MARGIN is 8 (generic/progdlgg.cpp),
+     and the message takes twice it on three sides. */
+  margin: 16px 16px 0;
+  /* [px] the room `wxString( ' ', 80 )` reserves (wx_progress_reporters.cpp:37):
+     80 spaces of the dialog font, 240 asked of Pango. `min-width`, because the
+     dialog only ever grows; the latch in the component is the other half. */
+  min-width: 240px;
+  white-space: nowrap;
+}
+/* wxGauge at (16,50), 300 x 4: Add( m_gauge, 0, wxLEFT | wxRIGHT | wxTOP | wxEXPAND,
+   2*LAYOUT_MARGIN ), so EXPAND lets a wider message widen it. */
+.ze-progress-dialog .ze-gauge {
+  /* [data] 2*LAYOUT_MARGIN, as the message above. */
+  margin: 16px 16px 0;
+  /* [data] created wxSize( wxMin( displayWidth/3, 300 ), -1 ): 300 is its floor. */
+  min-width: 300px;
+}
+/* wxFlexGridSizer( 2 ): Add( sizerLabels, 0, wxALIGN_CENTER_HORIZONTAL | wxTOP,
+   LAYOUT_MARGIN ), holding the label with wxALIGN_RIGHT | wxTOP | wxRIGHT, 8 and
+   the value with wxTOP, 8: the pair centred, 8 between, 16 under the gauge. */
+.ze-progress-dialog .times {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 22px;
-  font-size: 13px;
-  color: #fff;
-  background: var(--chrome-bg);
-  border: 1px solid var(--chrome-border);
-  border-radius: 6px;
-  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.55);
+  justify-content: center;
+  /* [data] the sizer's own LAYOUT_MARGIN. */
+  margin-top: 8px;
+  white-space: nowrap;
 }
+.ze-progress-dialog .times .lbl {
+  /* [data] the label's wxTOP | wxRIGHT, LAYOUT_MARGIN. */
+  margin: 8px 8px 0 0;
+}
+.ze-progress-dialog .times .val {
+  /* [data] the value's wxTOP, LAYOUT_MARGIN. */
+  margin-top: 8px;
+}
+/* Without PR_CAN_ABORT the button sizer is empty but still added with its
+   wxALL border, so the clock row keeps 16 under it: the dialog is 104 tall on
+   the probe (`--no-abort`) against 138 with the button. */
+.ze-progress-dialog .ze-modal-body:last-child {
+  /* [data] 2 * LAYOUT_MARGIN: the empty sizer's top and bottom borders. */
+  padding-bottom: 16px;
+}
+/* wxStdDialogButtonSizer, Add( …, 0, wxEXPAND | wxALL, LAYOUT_MARGIN ): the
+   85 x 34 Cancel sits 96..130 of 138. */
+.ze-progress-dialog .ze-modal-footer {
+  /* [px] its right edge is 20 from the dialog's on the probe — 8 (the sizer's
+     border) + 9 (GTK's trailing spacer in the standard button sizer) + 3 (the
+     button's own) — and the row is 8 above and below. */
+  padding: 8px 20px 8px 17px;
+}
+
+/* wxGauge, as GTK draws it (Yaru gtk.css, `progressbar trough` and
+   `progressbar progress`). <progress> has the same two parts. */
+.ze-gauge {
+  appearance: none;
+  box-sizing: border-box;
+  display: block;
+  /* [css] `progressbar.horizontal trough { min-height: 2px }` inside its 1px
+     border each side — 4, which is the height wx reports for the widget. */
+  height: 4px;
+  /* [css] `border: 1px solid #181818`. */
+  border: 1px solid var(--gauge-trough-edge);
+  /* [css] `border-radius: 3px`. */
+  border-radius: 3px;
+  background: var(--gauge-trough);
+  overflow: hidden;
+}
+.ze-gauge::-webkit-progress-bar {
+  background: var(--gauge-trough);
+}
+.ze-gauge::-webkit-progress-value {
+  background: var(--gauge-fill);
+  /* [css] `progressbar progress { border: 1px solid #eb6637 }`. */
+  box-shadow: 0 0 0 1px var(--gauge-fill-edge);
+  /* [css] `progressbar progress { border-radius: 1.5px }`. */
+  border-radius: 1.5px;
+}
+.ze-gauge::-moz-progress-bar {
+  background: var(--gauge-fill);
+  /* [css] as above. */
+  border-radius: 1.5px;
+}
+/* The one spinner left in the shell: the cloud-sync pill and the library
+   chooser's "loading" row, neither of which is a KiCad dialog. */
 .ze-spinner {
   width: 18px;
   height: 18px;
@@ -5170,48 +5261,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   to {
     transform: rotate(360deg);
   }
-}
-/* Determinate progress (ProgressReporter → LoadingOverlay): the gauge under
-   the message, like KiCad's WX_PROGRESS_REPORTER dialog. */
-.ze-loading-card.with-progress {
-  align-items: flex-start;
-}
-.ze-loading-text {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1;
-  /* [chrome, measured] The room WX_PROGRESS_REPORTER reserves for its message:
-     `wxString( ' ', 80 )` (wx_progress_reporters.cpp:37), which is 240 px of
-     Ubuntu Sans 11 - the GTK dialog font, and the face --ui-font-size names.
-     Asked of Pango directly rather than guessed; 80 `ch` would be 640 px,
-     because `ch` is the width of a zero and upstream reserves spaces.
-
-     A width, not a min-width, so the card is the same size on every tick. The
-     card's own 320 px min-width was an invention and is gone: it floored the
-     width without holding it, so the card widened for a long filename and
-     snapped back on the next short one. */
-  width: 240px;
-}
-.ze-loading-detail {
-  /* [data] `NUMBER_BADGE`'s `m_textSize( 10 )` (number_badge.cpp:33) — a POINT
-     size, drawn with `wxFont( m_textSize, ... )` at :141. DIALOG_ERC never
-     calls SetTextSize, so it keeps the default. This said 11px, which is
-     smaller than the 10pt it is meant to be. */
-  font-size: 10pt;
-  color: #aaa;
-}
-.ze-progress-track {
-  height: 6px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.12);
-  overflow: hidden;
-}
-.ze-progress-fill {
-  height: 100%;
-  border-radius: 3px;
-  background: var(--chrome-active);
-  transition: width 0.15s ease-out;
 }
 /* Cloud-sync status pill (bottom-right, non-blocking): shows pull/push counts
    while projects sync on sign-in, then a brief "synced" confirmation. */
@@ -5305,17 +5354,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: transparent;
   border: 1px solid currentColor;
   border-radius: 4px;
-}
-/* Spinner centered over a canvas while its document parses (PCB/board load). */
-.ze-canvas-loading {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  color: #ddd;
-  font-size: 13px;
 }
 /* Entered-group banner (SELECTION_TOOL::EnterGroup context indicator). */
 .ze-group-editing {

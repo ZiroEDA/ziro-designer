@@ -479,7 +479,7 @@ import {
 } from './render/plot.js';
 import { DEFAULT_SETUP } from '@ziroeda/common/src/drawing_sheet/types.js';
 import { BUILTIN_THEMES } from './theme.js';
-import { LoadingOverlay, nextPaint } from '../../ui/LoadingOverlay.js';
+import { ProgressDialog, nextPaint } from '../../ui/ProgressDialog.js';
 import type { ProgressSnapshot } from '../../ui/progress_reporter.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import type { PrefsPageId } from '../../dialogs/prefs/types.js';
@@ -4376,7 +4376,7 @@ export function SchematicEditor({
 
   const loadText = useCallback(
     async (text: string, name?: string) => {
-      setLoading('Loading schematic...');
+      setLoading(`Loading ${name ?? 'untitled.kicad_sch'}...`);
       await nextPaint();
       try {
         const next = { ...readSchematic(parse(text)), fileName: name ?? 'untitled.kicad_sch' };
@@ -4410,8 +4410,10 @@ export function SchematicEditor({
   // .kicad_pro's schematic, else the sheet nothing references), and show it.
   const loadProject = useCallback(
     async (files: PickedFile[], startFile?: string) => {
-      setLoading('Loading schematic...');
-      await nextPaint(); // paint the overlay before the (synchronous) sheet parse
+      // The reporter comes up before anything is read; its message is empty
+      // (an 80-space reservation) until the loader's first Report().
+      setLoading({ message: '' });
+      await nextPaint(); // paint the dialog before the (synchronous) sheet parse
       try {
         const docs = new Map<string, Schematic>();
         const problems: string[] = [];
@@ -4440,12 +4442,15 @@ export function SchematicEditor({
             continue;
           }
           if (!/\.kicad_sch$/i.test(base)) continue;
-          setLoading({
-            message: `Loading schematic: ${base}`,
-            detail: `${parsed + 1} of ${sheets.length} sheets`,
-            value: parsed / sheets.length,
-          });
-          if (sheets.length > 1) await nextPaint();
+          // `Loading %s...` (sch_io_kicad_sexpr.cpp:324) per sheet; the gauge
+          // is the sheet count, one phase per file as KiCad's loader adds them.
+          setLoading({ message: `Loading ${base}...`, value: parsed / sheets.length });
+          // Unconditional: `Report()` is followed by `KeepRefreshing()` before
+          // the read (sch_io_kicad_sexpr.cpp:324-327), so the name is on screen
+          // while the sheet parses — for one sheet as much as for twelve. Skipping
+          // the yield for a single sheet batched the message with the close, and
+          // the dialog showed its blank reservation for the whole read.
+          await nextPaint();
           try {
             docs.set(base, { ...readSchematic(parse(f.text)), fileName: base });
           } catch (e) {
@@ -4472,7 +4477,7 @@ export function SchematicEditor({
           const rootSch = legacyRootFile(sch, proName?.replace(/\.kicad_pro$/i, ''));
           if (rootSch) {
             legacy = true;
-            setLoading(`Loading schematic: ${rootSch}`);
+            setLoading(`Loading ${rootSch}...`);
             await nextPaint();
             const converted = readLegacyProject({
               files: sch,
@@ -9023,7 +9028,7 @@ export function SchematicEditor({
       <pre style={{ color: 'crimson', padding: 16 }}>Failed to load schematic: {error}</pre>
     ) : (
       <div className="ze-app sch-theme">
-        <LoadingOverlay label={loading ?? 'Loading schematic...'} />
+        <ProgressDialog title="Load Schematic" label={loading ?? 'Loading schematic...'} />
       </div>
     );
   }
@@ -11086,7 +11091,11 @@ export function SchematicEditor({
         />
       )}
 
-      <LoadingOverlay label={loading} />
+      {/* WX_PROGRESS_REPORTER( this, _( "Load Schematic" ), 1, PR_CAN_ABORT )
+          (files-io.cpp:179), over the frame — which is already up, menus,
+          toolbars and grid, with its blank sheet, exactly as SCH_EDIT_FRAME
+          is before OpenProjectFiles runs. */}
+      <ProgressDialog title="Load Schematic" label={loading} />
     </div>
   );
 }

@@ -440,20 +440,21 @@ export function Viewer3DFrame({
           minHeight: 0,
           position: 'relative',
           background: 'linear-gradient(180deg, rgb(204,204,230) 0%, rgb(102,102,128) 100%)',
+          // BUSY_INDICATOR (a wxBusyCursor) for as long as the reload runs.
+          cursor: ready ? undefined : 'progress',
         }}
-      >
-        {!ready && (
-          <div className="ze-canvas-loading">
-            <span className="ze-spinner" />
-            <span>Loading 3D viewer...</span>
-          </div>
-        )}
-      </div>
+      />
       {/* EDA_3D_VIEWER_STATUSBAR: ACTIVITY, HOVERED_ITEM, X_POS, Y_POS,
           ZOOM_LEVEL, at the widths eda_3d_viewer_frame.cpp:112 states
           ({ -1, 170, 130, 130, 130 }). */}
       <KiStatusBar>
-        <span className="cell msg" data-testid="view3d-activity" />
+        {/* RENDER_3D_OPENGL::Redraw: `aStatusReporter->Report( _( "Loading..." ) )`
+            under a BUSY_INDICATOR while the scene reloads (render_3d_opengl.cpp:
+            524-528). The word goes in the ACTIVITY field, and nothing is drawn
+            over the canvas. */}
+        <span className="cell msg" data-testid="view3d-activity">
+          {ready ? '' : 'Loading...'}
+        </span>
         <span className="cell pane" style={{ width: 170 }} data-testid="view3d-hovered" />
         <span className="cell pane" style={{ width: 130 }} data-testid="view3d-x">
           {status.x === null ? '' : `X ${status.x.toFixed(4)}`}

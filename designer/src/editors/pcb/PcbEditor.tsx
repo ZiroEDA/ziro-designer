@@ -514,6 +514,9 @@ import { PCB_CONTROL, PCB_DEFAULT_TOOLBARS } from './pcbToolbars.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
+import { EMPTY_PCB } from '../../home/new_project.js';
+import { ProgressDialog } from '../../ui/ProgressDialog.js';
+import type { ProgressSnapshot } from '../../ui/progress_reporter.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
@@ -1030,12 +1033,30 @@ export function PcbEditor({
   const pcbAuxBar = useToolbarEntries('pcbnew', 'TOP_AUX', PCB_DEFAULT_TOOLBARS);
   const pcbLeftBar = useToolbarEntries('pcbnew', 'LEFT', PCB_DEFAULT_TOOLBARS);
   const pcbRightBar = useToolbarEntries('pcbnew', 'RIGHT', PCB_DEFAULT_TOOLBARS);
-  const [board, setBoard] = useState<Board | null>(null);
+  /**
+   * The board the frame is born with: an empty one.
+   *
+   * `PCB_EDIT_FRAME::PCB_EDIT_FRAME` does `SetBoard( new BOARD() )` and shows
+   * the canvas before `OpenProjectFiles` ever runs (pcb_edit_frame.cpp), which
+   * is why pcbnew's window — menus, toolbars, the grid on a blank sheet — is
+   * up in an instant and the file loads *over* it behind a progress dialog.
+   * Ours held `null` until the parse finished and drew a spinner in the
+   * canvas instead. The parse below replaces this the moment it is done.
+   */
+  const emptyBoard = useMemo<Board>(
+    () => ({ ...readBoard(parse(EMPTY_PCB)), fileName }),
+    [fileName],
+  );
+  const [board, setBoard] = useState<Board | null>(emptyBoard);
+  /** WX_PROGRESS_REPORTER( this, _( "Load PCB" ), 1, PR_CAN_ABORT ) (files.cpp:561). */
+  const [loading, setLoading] = useState<ProgressSnapshot | null>(null);
   // Unsaved-changes flag: '*' in the title while modified, Save greys when
   // clean (KiCad's IsContentModified / m_infoBar save affordance).
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [visible, setVisible] = useState<ReadonlySet<string>>(new Set());
+  const [visible, setVisible] = useState<ReadonlySet<string>>(
+    () => new Set(emptyBoard.layers.map((l) => l.name)),
+  );
   const [activeLayer, setActiveLayer] = useState('F.Cu');
   // `getView()->GetTopLayer()`, which every snap reads to prefer items on the
   // layer being worked on. A ref because `draw` reads it without wanting to be
@@ -2321,15 +2342,31 @@ export function PcbEditor({
   const textRef = useRef(text);
   textRef.current = text;
 
-  // Parse after the first paint so "Loading…" is visible for big boards.
+  // Parse after the first paint, so the frame — and the progress dialog over
+  // it — is on screen before the (synchronous) read blocks the thread.
   useEffect(() => {
     let cancelled = false;
+    // The frame's own blank board, in the refs the canvas draws from, so the
+    // grid is up while the file is read. Only the first time: a reopen
+    // (`openNonce`) keeps the board being edited on screen until the new one
+    // has parsed, as pcbnew keeps the old board up until `SetBoard`.
+    if (!boardRef.current) {
+      boardRef.current = emptyBoard;
+      sceneRef.current = buildBoardScene(emptyBoard);
+      requestDrawRef.current();
+    }
+    // `Loading %s...` (pcb_io_kicad_sexpr.cpp:3144) is the loader's first
+    // Report(); the gauge stays at 0 because the parse is one call with no
+    // checkpoint() to move it.
+    setLoading({ message: `Loading ${fileName}...`, value: 0 });
     const id = setTimeout(() => {
       try {
         const b = { ...readBoard(parse(textRef.current)), fileName };
         if (cancelled) return;
         boardRef.current = b;
         sceneRef.current = buildBoardScene(b);
+        // The first fit went to the blank sheet; the loaded board gets its own.
+        fittedRef.current = false;
         setBoard(b);
         setVisible(new Set(b.layers.map((l) => l.name)));
         // `PCB_EDIT_FRAME::OpenProjectFiles`' preload (pcbnew/files.cpp:610):
@@ -2338,13 +2375,15 @@ export function PcbEditor({
         preloadBoardLibraries(b);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        if (!cancelled) setLoading(null);
       }
     }, 30);
     return () => {
       cancelled = true;
       clearTimeout(id);
     };
-  }, [openNonce, fileName]);
+  }, [openNonce, fileName, emptyBoard]);
 
   /**
    * The `.kicad_pro` / `.kicad_dru` content Board Setup is derived from.
@@ -10554,12 +10593,6 @@ export function PcbEditor({
                 </button>
               </div>
             )}
-            {!board && !error && (
-              <div className="ze-canvas-loading">
-                <span className="ze-spinner" />
-                <span>Loading board... (large boards can take a while)</span>
-              </div>
-            )}
             {error && (
               <div
                 style={{
@@ -11065,14 +11098,13 @@ export function PcbEditor({
       )}
       {aboutOpen && <AboutDialog title={ABOUT_TITLES.pcb} onClose={() => setAboutOpen(false)} />}
       {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
-      {updatePcbBusy && (
-        <div className="ze-modal-backdrop ze-loading-backdrop">
-          <div className="ze-loading-card">
-            <span className="ze-spinner" />
-            Loading footprint libraries...
-          </div>
-        </div>
-      )}
+      {/* `WX_PROGRESS_REPORTER( this, _( "Load Footprint Libraries" ), 1, PR_CAN_ABORT )`
+          (cvpcb_mainframe.cpp:910), the same reporter the footprint reads use. */}
+      <ProgressDialog
+        title="Load Footprint Libraries"
+        label={updatePcbBusy ? 'Loading footprint libraries...' : null}
+      />
+      <ProgressDialog title="Load PCB" label={loading} />
       {updatePcbError && (
         <div className="ze-modal-backdrop" onMouseDown={() => setUpdatePcbError(null)}>
           <div className="ze-modal ze-message-dialog" onMouseDown={(e) => e.stopPropagation()}>

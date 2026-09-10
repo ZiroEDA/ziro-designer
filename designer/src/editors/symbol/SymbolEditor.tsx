@@ -24,7 +24,7 @@ import { DO_NOT_SHOW_KEYS } from '../../ui/do_not_show_again.js';
 
 /** `SCH_SCREEN::m_LocalOrigin`; a module constant so its identity is stable. */
 const SYM_LOCAL_ORIGIN = { x: 0, y: 0 };
-import { LoadingOverlay } from '../../ui/LoadingOverlay.js';
+import { ProgressDialog } from '../../ui/ProgressDialog.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
@@ -599,7 +599,9 @@ export function SymbolEditor({
   /** LoadSymbol: buffer the working copy, load the target, reset undo, zoom to fit. */
   const loadSymbol = useCallback(
     async (libName: string, symName: string) => {
-      setLoading('Loading symbol...');
+      // The library is read on demand here, which upstream is the
+      // "Loading Symbol Libraries" APP_PROGRESS_DIALOG (symbol_edit_frame.cpp:1415).
+      setLoading(`Loading library ${libName}...`);
       try {
         const lib = await manager.current.ensureLoaded(libName);
         const sym = lib?.symbols.get(symName);
@@ -2824,7 +2826,7 @@ export function SymbolEditor({
       {/* Tree context actions (delete/duplicate) via keyboard on the tree selection. */}
       <TreeSelActions treeSel={treeSel} onDuplicate={(l, s) => void duplicateSymbol(l, s)} />
 
-      <LoadingOverlay label={loading} />
+      <ProgressDialog title="Loading Symbol Libraries" label={loading} />
     </div>
   );
 }

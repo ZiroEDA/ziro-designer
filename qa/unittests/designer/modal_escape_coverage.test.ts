@@ -32,20 +32,6 @@ const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const BACKDROPS = ['ze-modal-backdrop', 'calc-modal-backdrop', 'imgc-modal-backdrop'];
 
 /**
- * Modals with no `Cancel` for Esc to press, so nothing to register.
- *
- * Both are the web reading of `WX_PROGRESS_REPORTER`, which is a
- * `wxProgressDialog` and not a `DIALOG_SHIM` at all: they report that work is
- * happening and offer no way to stop it.
- */
-const NO_CANCEL_PATH = [
-  'ui/LoadingOverlay.tsx',
-  // `ze-loading-backdrop`, the second backdrop in the file; the first one it
-  // renders (the Update PCB error box) does register.
-  'editors/pcb/PcbEditor.tsx',
-];
-
-/**
  * Frames that render a dialog inline and also own a canvas, where Esc is
  * `ACTIONS::cancelInteractive` - abandon the tool - and has nothing to do with
  * any dialog. `PanelHotkeysEditor` is here for the mirror image: HK_PROMPT_DIALOG
@@ -85,10 +71,10 @@ describe('every modal gets wxDialog Esc', () => {
   });
 
   it('registers a cancel with the shared stack', () => {
-    const missing = modalFiles
-      .filter((f) => !NO_CANCEL_PATH.includes(f.rel))
-      .filter((f) => !/\buseModalEscape\(/.test(f.src))
-      .map((f) => f.rel);
+    // No exemptions. `ui/ProgressDialog.tsx` — WX_PROGRESS_REPORTER, a
+    // wxProgressDialog rather than a DIALOG_SHIM — used to be one: it had no
+    // Cancel. It has PR_CAN_ABORT's now, and Esc is that button's wxID_CANCEL.
+    const missing = modalFiles.filter((f) => !/\buseModalEscape\(/.test(f.src)).map((f) => f.rel);
     expect(missing, 'these render a modal backdrop and never ask for Esc').toEqual([]);
   });
 

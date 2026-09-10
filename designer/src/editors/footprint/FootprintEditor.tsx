@@ -48,7 +48,7 @@ import { useStatusReadout } from '../../ui/useStatusReadout.js';
 
 /** `BOARD::m_LocalOrigin`; a module constant so its identity is stable. */
 const FP_LOCAL_ORIGIN = { x: 0, y: 0 };
-import { LoadingOverlay } from '../../ui/LoadingOverlay.js';
+import { ProgressDialog } from '../../ui/ProgressDialog.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { FP_FRAME_NAME, fpFrameTitle } from './frame_title.js';
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
@@ -560,7 +560,9 @@ export function FootprintEditor({
   // ----- load / save ------------------------------------------------------------
   const loadFootprint = useCallback(
     async (libName: string, fpName: string) => {
-      setLoading('Loading footprint...');
+      // The library is read on demand here: `WX_PROGRESS_REPORTER( this,
+      // _( "Load Footprint Libraries" ), 1, PR_CAN_ABORT )` (cvpcb_mainframe.cpp:910).
+      setLoading(`Loading library ${libName}...`);
       try {
         const fp = await manager.current.loadFootprint(libName, fpName);
         if (!fp) {
@@ -2196,7 +2198,7 @@ export function FootprintEditor({
         onDelete={deleteFootprint}
         canvasSelection={selection.size > 0}
       />
-      <LoadingOverlay label={loading} />
+      <ProgressDialog title="Load Footprint Libraries" label={loading} />
     </div>
   );
 }
