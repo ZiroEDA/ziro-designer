@@ -294,7 +294,14 @@ export async function syncAllProjects(
       // attempting it every pass would report a failure they can do nothing
       // about. It surfaces as a forked local copy the next time the cloud side
       // moves, which is where work that cannot go up belongs.
-      if (here.diverged && ref.role !== 'viewer') {
+      //
+      // One more reason to push, with the account open: a row of the owner's
+      // that is still plaintext on the server. "Encrypted on its next push"
+      // is the migration rule, and a project that never changes never pushes,
+      // so the library folders and any untouched board would have stayed in
+      // the clear for good. The browser check found exactly that.
+      const stillPlaintext = sessionUnlocked() && ref.role === 'owner' && there.encrypted === false;
+      if ((here.diverged || stillPlaintext) && ref.role !== 'viewer') {
         track(here.id, 'push', pushFallingBackToPull(userId, ref));
       }
     } else {

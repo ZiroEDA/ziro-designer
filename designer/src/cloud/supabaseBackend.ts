@@ -61,14 +61,17 @@ export function supabaseBackend(): CloudBackend {
       // `uid` and `user_id` come back because this listing now spans two
       // accounts: row-level security returns projects shared with the signed-in
       // user alongside their own, and `id` alone cannot tell them apart.
-      const withIdentity = await db.from('projects').select('id, uid, user_id, version');
+      const withIdentity = await db.from('projects').select('id, uid, user_id, version, enc_meta');
       if (!withIdentity.error) {
-        return (withIdentity.data ?? []) as {
-          id: string;
-          version: number;
-          uid?: string;
-          user_id?: string;
-        }[];
+        return (
+          (withIdentity.data ?? []) as {
+            id: string;
+            version: number;
+            uid?: string;
+            user_id?: string;
+            enc_meta?: string | null;
+          }[]
+        ).map(({ enc_meta, ...r }) => ({ ...r, encrypted: enc_meta != null }));
       }
 
       // A database whose `uid` migration has not been run has no such column,

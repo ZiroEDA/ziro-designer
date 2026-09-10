@@ -152,7 +152,9 @@ export interface CloudBackend {
    * because a database without the membership migration reports neither — in
    * which case every row is the user's own, which is what it was before.
    */
-  listProjects(): Promise<{ id: string; version: number; uid?: string; user_id?: string }[]>;
+  listProjects(): Promise<
+    { id: string; version: number; uid?: string; user_id?: string; encrypted?: boolean }[]
+  >;
 
   /**
    * One project row, or null when there is no such project.

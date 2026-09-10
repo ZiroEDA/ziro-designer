@@ -137,7 +137,7 @@ const bytesToB64 = (u: Uint8Array): string => {
  * rather than an inference.
  */
 export async function cloudListMeta(): Promise<
-  { id: string; version: number; uid?: string; ownerId?: string }[]
+  { id: string; version: number; uid?: string; ownerId?: string; encrypted?: boolean }[]
 > {
   const rows = await need().listProjects();
   return rows.map((r) => ({
@@ -148,6 +148,8 @@ export async function cloudListMeta(): Promise<
     // assumes when they are missing.
     ...(r.uid ? { uid: r.uid } : {}),
     ...(r.user_id ? { ownerId: r.user_id } : {}),
+    // Whether the row carries enc_meta; absent from a backend that does not say.
+    ...(r.encrypted !== undefined ? { encrypted: r.encrypted } : {}),
   }));
 }
 
