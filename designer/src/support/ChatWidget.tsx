@@ -47,9 +47,10 @@
  * The bubble can be put anywhere. Clicks on it land in the other origin, so a
  * transparent handle of ours sits over it: a drag moves the whole frame (the
  * bubble and, with it, where the panel opens), a plain click asks the frame to
- * toggle the chat. Opening clamps the frame so the panel stays on screen even
- * when the bubble was dragged to the top; closing puts it back. The position
- * is kept in localStorage, like every other preference.
+ * toggle the chat. The bubble may be pushed off any edge until only a sliver
+ * is left to grab it back by. Opening clamps the frame so the panel stays on
+ * screen wherever the bubble is; closing puts it back. The position is kept
+ * in localStorage, like every other preference.
  */
 import { useCallback, useEffect, useRef, useState, type JSX, type PointerEvent } from 'react';
 import { useAuth } from '../auth/AuthProvider.js';
@@ -69,14 +70,20 @@ const POS_KEY = 'ziro.chat.pos';
 
 /**
  * Crisp's geometry inside the frame, all [data] from the widget as it renders
- * on the site (sampled off a 1905x1200 window; the 34px inset is the site's
- * own CSS, copied into chat-widget.html). The handle and the clip both assume
- * these; if Crisp's launcher changes, they change together here.
+ * on the site, sampled off a 1905x1200 window: its default launcher, 24px in
+ * from the right and 20px up from the bottom. (The site's own CSS asks for
+ * 34px; that selector matches nothing, and the bubble sits at the default.)
+ * The handle and the clip in shell.css assume the same numbers; if Crisp's
+ * launcher changes, they change together.
  */
 const BUBBLE = 54; // launcher diameter
-const INSET = 34; // launcher inset from the frame's corner
+const INSET_X = 24; // launcher inset from the frame's right edge
+const INSET_Y = 20; // launcher inset from the frame's bottom edge
 const PANEL_W = 460; // the open panel with its margins, from the right edge
 const PANEL_H = 860; // the open panel plus the close button under it, from the bottom
+
+/** How much of the bubble must stay on screen, so it can be pulled back. */
+const PEEK = 12;
 
 /** A drag shorter than this is a click. */
 const CLICK_SLOP = 4;
@@ -112,14 +119,17 @@ function loadPos(): Pos {
   return { x: 0, y: 0 };
 }
 
-/** Keep the bubble itself on screen: the translate is ≤ 0 in both axes. */
+/**
+ * Keep PEEK of the bubble on screen on every side. At translate 0 the bubble
+ * spans [w - INSET_X - BUBBLE, w - INSET_X]; it may leave by the right until
+ * PEEK remains, and by the left likewise.
+ */
 function clampToViewport(p: Pos, host: HTMLElement | null): Pos {
   const w = host?.clientWidth ?? window.innerWidth;
   const h = host?.clientHeight ?? window.innerHeight;
-  const reach = INSET + BUBBLE;
   return {
-    x: Math.min(0, Math.max(reach - w, p.x)),
-    y: Math.min(0, Math.max(reach - h, p.y)),
+    x: Math.min(INSET_X + BUBBLE - PEEK, Math.max(INSET_X + PEEK - w, p.x)),
+    y: Math.min(INSET_Y + BUBBLE - PEEK, Math.max(INSET_Y + PEEK - h, p.y)),
   };
 }
 
@@ -205,13 +215,17 @@ export function ChatWidget(): JSX.Element | null {
 
   if (!WIDGET_URL) return null;
 
-  // Open, the panel rises from the bubble; if the bubble was dragged up or
-  // left past where the panel fits, slide the frame just enough that it does.
+  // Open, the panel rises from the bubble; if the bubble was dragged past
+  // where the panel fits - up, left, or off an edge - slide the frame just
+  // enough that it does.
   let shown = pos;
   if (open) {
     const w = frame.current?.clientWidth ?? window.innerWidth;
     const h = frame.current?.clientHeight ?? window.innerHeight;
-    shown = { x: Math.max(pos.x, PANEL_W - w), y: Math.max(pos.y, PANEL_H - h) };
+    shown = {
+      x: Math.min(0, Math.max(pos.x, PANEL_W - w)),
+      y: Math.min(0, Math.max(pos.y, PANEL_H - h)),
+    };
   }
   const translate = `translate(${shown.x}px, ${shown.y}px)`;
 

@@ -16309,10 +16309,12 @@ td.ze-grid-bool {
    the app underneath keeps working: closed, only the bubble; open, the panel
    and the close button under it.
 
-   The bubble's geometry is Crisp's launcher as it renders on the site (54px,
-   nudged 34px in from the corner by the site's own CSS, which the widget
-   page copies), sampled off a 1905x1200 window. The handle in the app that
-   sits over it and the clip share these numbers with ChatWidget.tsx. */
+   The bubble's geometry is Crisp's default launcher as it renders on the
+   site, sampled off a 1905x1200 window: 54px, 24px in from the right, 20px
+   up from the bottom, so its centre is 51 / 47 from the corner. (The site's
+   own CSS asks for 34px; that selector matches nothing.) The handle in the
+   app that sits over it and the clip share these numbers with
+   ChatWidget.tsx. */
 .ze-chat-frame {
   position: fixed;
   right: 0;
@@ -16322,9 +16324,12 @@ td.ze-grid-bool {
   border: 0;
   color-scheme: normal;
   background: transparent;
-  /* Closed: the bubble, and only the bubble. Its centre is 34 + 27 in from
-     the corner; the circle is a little wider than the bubble for its shadow. */
-  clip-path: circle(32px at calc(100% - 61px) calc(100% - 61px)); /* [px] Crisp's launcher as sampled */
+  /* Closed: the bubble, and only the bubble. Its centre is 24 + 27 in from
+     the right and 20 + 27 up from the bottom; the circle is a little wider
+     than the bubble for its shadow. */
+  clip-path: circle(
+    30px at calc(100% - 51px) calc(100% - 47px)
+  ); /* [px] Crisp's launcher as sampled */
   /* Above the modal backdrop (200), so support is reachable from the sign-in
      wall -- which is exactly where someone who cannot get in needs it -- but
      below the loading overlay (300), which must not be clicked past. */
@@ -16332,13 +16337,15 @@ td.ze-grid-bool {
 }
 .ze-chat-frame.open {
   /* The panel, its shadow, and the close button under it. */
-  clip-path: inset(calc(100% - 860px) 0 0 calc(100% - 460px)); /* [px] Crisp's open panel as sampled */
+  clip-path: inset(
+    calc(100% - 860px) 0 0 calc(100% - 460px)
+  ); /* [px] Crisp's open panel as sampled */
 }
 /* The drag handle: invisible, exactly over the bubble, in our origin. */
 .ze-chat-handle {
   position: fixed;
-  right: 34px; /* [data] the site's launcher inset */
-  bottom: calc(34px + var(--statusbar-height)); /* [data] the same, lifted */
+  right: 24px; /* [px] Crisp's default launcher inset */
+  bottom: calc(20px + var(--statusbar-height)); /* [px] Crisp's default launcher inset, lifted */
   width: 54px; /* [data] Crisp's launcher diameter */
   height: 54px; /* [data] Crisp's launcher diameter */
   border-radius: 50%;
