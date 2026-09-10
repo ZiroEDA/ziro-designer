@@ -20,38 +20,66 @@
  *     user flips the setting.
  */
 
-import * as Sentry from '@sentry/browser';
+import type * as SentryNs from '@sentry/browser';
 import { prepareEvent, type TelemetrySink } from './reporter.js';
 import type { ScrubbableEvent } from './scrub.js';
 
+type Sdk = typeof SentryNs;
+
+/**
+ * The SDK arrives after the first paint.
+ *
+ * `@sentry/browser` and its core are 208 KB of the entry chunk, and nothing a
+ * sign-in screen needs. `install` is called at boot so a crash during the
+ * first paint is still reported — and it still is: the import starts at
+ * once, anything captured before it lands is queued, and the queue drains
+ * into the SDK the moment it initialises. What changes is that the bytes no
+ * longer stand between the user and the first screen.
+ */
+let sdk: Sdk | null = null;
+let closed = false;
+const queued: [unknown, Record<string, string> | undefined][] = [];
+
 export const sentrySink: TelemetrySink = {
   install({ dsn, release, installId }) {
-    Sentry.init({
-      dsn,
-      release,
-      sendDefaultPii: false,
-      // Breadcrumbs are heavily filtered downstream; keep a shallow trail.
-      maxBreadcrumbs: 20,
-      tracesSampleRate: 0,
-      integrations: (defaults) =>
-        // Drop the integrations that would collect far more than a stack trace.
-        defaults.filter((i) => !['BrowserTracing', 'Replay', 'BrowserProfiling'].includes(i.name)),
-      beforeSend: (event) => prepareEvent(event as ScrubbableEvent) as typeof event | null,
-      beforeBreadcrumb: (crumb) =>
-        // Console breadcrumbs are dropped at source as well as in the scrubber:
-        // they are the likeliest carrier of project data, and not capturing them
-        // is cheaper than sanitising them.
-        crumb.category === 'console' ? null : crumb,
+    closed = false;
+    void import('@sentry/browser').then((Sentry) => {
+      // Closed before it arrived (reporting switched off in the meantime).
+      if (closed) return;
+      Sentry.init({
+        dsn,
+        release,
+        sendDefaultPii: false,
+        // Breadcrumbs are heavily filtered downstream; keep a shallow trail.
+        maxBreadcrumbs: 20,
+        tracesSampleRate: 0,
+        integrations: (defaults) =>
+          // Drop the integrations that would collect far more than a stack trace.
+          defaults.filter(
+            (i) => !['BrowserTracing', 'Replay', 'BrowserProfiling'].includes(i.name),
+          ),
+        beforeSend: (event) => prepareEvent(event as ScrubbableEvent) as typeof event | null,
+        beforeBreadcrumb: (crumb) =>
+          // Console breadcrumbs are dropped at source as well as in the scrubber:
+          // they are the likeliest carrier of project data, and not capturing them
+          // is cheaper than sanitising them.
+          crumb.category === 'console' ? null : crumb,
+      });
+      Sentry.setTag('install_id', installId);
+      sdk = Sentry;
+      for (const [err, context] of queued.splice(0))
+        sdk.captureException(err, context ? { tags: context } : undefined);
     });
-    Sentry.setTag('install_id', installId);
   },
-
   close() {
     // Stops the transport and prevents any queued event from being sent.
-    void Sentry.close(0);
+    closed = true;
+    queued.length = 0;
+    if (sdk) void sdk.close(0);
+    sdk = null;
   },
-
   capture(err, context) {
-    Sentry.captureException(err, context ? { tags: context } : undefined);
+    if (sdk) sdk.captureException(err, context ? { tags: context } : undefined);
+    else if (!closed) queued.push([err, context]);
   },
 };

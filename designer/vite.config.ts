@@ -64,7 +64,21 @@ const uploadMaps = !!(SENTRY_ORG && SENTRY_PROJECT && SENTRY_AUTH_TOKEN);
 export default defineConfig({
   base: process.env.VITE_BASE ?? '/',
   define: { __BUILD_STAMP__: JSON.stringify(buildStamp()) },
-  build: { sourcemap: uploadMaps ? 'hidden' : false },
+  build: {
+    sourcemap: uploadMaps ? 'hidden' : false,
+    /**
+     * Bitmaps are files, as KiCad's are.
+     *
+     * Vite's default inlines any asset under 4 KB as a data: URI, and the
+     * toolbar's 472 icons are all under it — so 799 KB of base64 SVG sat in
+     * the entry chunk, downloaded and parsed before the sign-in screen could
+     * paint, for icons nothing shows until an editor frame does. As files
+     * they are hashed and immutable, precached by the worker, and fetched by
+     * a frame when it first paints — which is at idle, since the frames warm
+     * behind the manager (App.tsx, `warmFrames`). The entry drops by half.
+     */
+    assetsInlineLimit: 0,
+  },
   /**
    * ES, not Vite's default IIFE.
    *
