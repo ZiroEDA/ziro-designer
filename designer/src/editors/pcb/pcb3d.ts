@@ -33,11 +33,17 @@ import type { Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Board } from '@ziroeda/pcbnew';
 import { viaIsTented } from '@ziroeda/pcbnew/src/export_d356.js';
+import {
+  clickSelectionParts,
+  hoveredItemMessage,
+  pickBoardItem,
+  type PickedItem,
+} from './pick3d.js';
 import { childNamed, childrenNamed } from '@ziroeda/sexpr/src/query.js';
 import earcut from 'earcut';
 import * as THREE from 'three';
 import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/src/settings/builtin_color_themes.js';
-import { COLOR4D_UNSPECIFIED } from '@ziroeda/common/src/color4d.js';
+import { COLOR4D_UNSPECIFIED, parseColor4d } from '@ziroeda/common/src/color4d.js';
 import type { StackupColors } from './board_adapter_colors.js';
 import {
   buildBoard3dLayers,
@@ -854,20 +860,28 @@ export function mount3DViewer(
    * the model's diffuse. DIFFUSE_ONLY / CAD_MODE go through
    * `OglSetDiffuseMaterial`.
    */
+  // `render.opengl_selection_color`, `GetColor( cfg.opengl_selection_color )`
+  const selColor4 = parseColor4d(render.selectionColor ?? 'rgb(0, 255, 0)');
+  const selColor: Vec3 = [selColor4.r, selColor4.g, selColor4.b];
   const modelMaterial = (
     m: SMaterial,
     opacity: number,
     transparentPass: boolean,
+    selected: boolean,
   ): THREE.ShaderMaterial => {
     let sm = m;
     if (materialMode === 1) sm = diffuseOnlyMaterial(m.diffuse);
     else if (materialMode === 2) sm = diffuseOnlyMaterial(materialDiffuseToColorCAD(m.diffuse));
+    // A selected model is drawn with `BeginDrawMulti( false )` — no colour
+    // array, so ambient is the loader's own (0.1·diffuse for STEP) and the
+    // diffuse is the selection colour (OglSetMaterial's aUseSelectedMaterial).
+    if (selected) sm = { ...sm, diffuse: selColor };
     const mat = makeFixedFunctionMaterial(
       { ...sm, transparency: materialMode === 1 ? 0 : m.transparency },
       lights,
       {
         opacity,
-        colorMaterial: true,
+        colorMaterial: !selected,
         transparent: transparentPass,
         depthWrite: !transparentPass,
       },
@@ -1389,6 +1403,75 @@ export function mount3DViewer(
     requestStartMovingCamera();
   };
 
+  // ---- picking (IntersectBoardItem), rollover and selection ----------------
+  const raycaster = new THREE.Raycaster();
+  const netClassOf = (net: number): string => render.netClassOf?.(net) ?? 'Default';
+  /** `getRayAtCurrentMousePosition` → the board item under it. */
+  const pickUnderMouse = (): PickedItem | null => {
+    const ray = camera.makeRayAtCurrentMousePosition();
+    if (!ray) return null;
+    raycaster.set(new THREE.Vector3(...ray.origin), new THREE.Vector3(...ray.dir).normalize());
+    raycaster.far = Number.POSITIVE_INFINITY;
+    let modelHit: { t: number; footprint: number } | null = null;
+    for (const hit of raycaster.intersectObject(modelsGroup, true)) {
+      let o: THREE.Object3D | null = hit.object;
+      while (o && o.userData.footprint === undefined) o = o.parent;
+      if (o) {
+        modelHit = { t: hit.distance, footprint: o.userData.footprint as number };
+        break;
+      }
+    }
+    return pickBoardItem(
+      board,
+      {
+        scale: s,
+        zTopFront: adapter.zTop['F.Cu']!,
+        zBottomBack: adapter.zBot['B.Cu']!,
+        boardOutline: built.boardPoly.map((poly) => poly[0]!),
+      },
+      ray.origin,
+      ray.dir,
+      modelHit,
+    );
+  };
+  /** `m_currentRollOverItem`, as the footprint it highlights (a model hit only). */
+  let rollOverFootprint: number | null = null;
+  /** `fp->IsSelected()` — the board editor's selection, cross-probed in. */
+  let selectedFootprints: ReadonlySet<number> = new Set();
+  const highlightOnRollover = render.highlightOnRollover !== false;
+  const applyHighlights = (): void => {
+    for (const inst of modelsGroup.children) {
+      const fi = inst.userData.footprint as number | undefined;
+      if (fi === undefined) continue;
+      const on = selectedFootprints.has(fi) || (highlightOnRollover && rollOverFootprint === fi);
+      inst.traverse((child) => {
+        if (!(child instanceof THREE.Mesh)) return;
+        const want = on ? child.userData.selectedMat : child.userData.normalMat;
+        if (want && child.material !== want) child.material = want;
+      });
+    }
+  };
+  const setSelectedFootprints = (set: ReadonlySet<number>): void => {
+    selectedFootprints = set;
+    applyHighlights();
+    needsRender = true;
+  };
+  /** OnMouseMove's rollover half: the HOVERED_ITEM pane and the highlight. */
+  const updateRollOver = (): void => {
+    const item = pickUnderMouse();
+    const msg = hoveredItemMessage(board, item, netClassOf);
+    const fp = item?.kind === 'footprint' ? item.footprint : null;
+    if (fp !== rollOverFootprint) {
+      rollOverFootprint = fp;
+      applyHighlights();
+      needsRender = true;
+    }
+    if (msg !== status.hovered) {
+      status = { ...status, hovered: msg };
+      pushStatus();
+    }
+  };
+
   // ---- mouse (HIDPI_GL_3D_CANVAS::OnMouse*Camera) ---------------------------
   const nativePos = (e: PointerEvent | WheelEvent): { x: number; y: number } => {
     const r = canvas.getBoundingClientRect();
@@ -1437,6 +1520,8 @@ export function mount3DViewer(
       displayStatus();
       needsRender = true;
     }
+    // `if( !event.Dragging() && engine == OPENGL )` — the rollover probe
+    if (!leftDown && !middleDown) updateRollOver();
   };
   const onPointerUp = (e: PointerEvent): void => {
     const wasLeft = leftDown && e.button === 0;
@@ -1452,6 +1537,13 @@ export function mount3DViewer(
       const my = (canvas.clientHeight - p.y) * dpr;
       const idx = gizmoHit(mx, my, camera.getRotationMatrix());
       if (idx >= 0) setView3D(GIZMO_VIEWS[idx]!);
+      else {
+        // A plain click that missed the gizmo: cross-probe the clicked
+        // footprint, or clear the selection when clicking empty space
+        // (`$SELECT: 0,` with nothing after it).
+        camera.setCurMousePosition(p.x, p.y);
+        api.onSelect?.(clickSelectionParts(board, pickUnderMouse()));
+      }
     }
     needsRender = true;
   };
@@ -1649,6 +1741,7 @@ export function mount3DViewer(
     },
     setCamera,
     pivotCenter,
+    setSelectedFootprints,
     snapshot: () =>
       new Promise<Blob | null>((resolve) => {
         // The drawing buffer is not preserved, so re-render in the same frame

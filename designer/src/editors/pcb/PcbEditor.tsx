@@ -4811,77 +4811,98 @@ export function PcbEditor({
   // and the interval handle, kept out of state so a phase tick does not have to
   // survive a re-render to be cancellable.
   const flashRef = useRef<{ ids: readonly string[]; timer: number } | null>(null);
+  /**
+   * `PCB_EDIT_FRAME::ExecuteRemoteCommand`'s `$SELECT` — one handler, whichever
+   * frame mailed it: the schematic (`syncSelection`) or the 3D viewer's click
+   * (`EDA_3D_CANVAS::OnLeftUp`, eda_3d_canvas.cpp:1155-1161), which both go
+   * through `MAIL_SELECTION` and the same cross-probing settings.
+   */
+  const applySyncSelection = useCallback(
+    (parts: readonly string[]) => {
+      const brd = boardRef.current;
+      const canvas = canvasRef.current;
+      if (!brd) return;
+      const cfg = settings.pcbnew.cross_probing;
+      // null is `case MAIL_SELECTION: if( !...on_selection ) break;` — the packet
+      // is dropped whole, so the existing selection stays as the user left it.
+      const ids = crossProbeSelection(cfg, brd, parts);
+      if (ids === null) return;
+      setSelection(new Set(ids));
+
+      // A fresh probe restarts any flash still running (`m_crossProbeFlashTimer.Stop()`).
+      if (flashRef.current) {
+        clearInterval(flashRef.current.timer);
+        flashRef.current = null;
+      }
+      if (cfg.flash_selection && ids.length > 0) {
+        let phase = 0;
+        const timer = window.setInterval(() => {
+          setSelection(new Set(crossProbeFlashSelection(phase, ids)));
+          phase++;
+          if (phase > CROSS_PROBE_FLASH_LAST_PHASE) {
+            if (flashRef.current) clearInterval(flashRef.current.timer);
+            flashRef.current = null;
+            setSelection(new Set(ids));
+          }
+        }, CROSS_PROBE_FLASH_INTERVAL_MS);
+        flashRef.current = { ids, timer };
+      }
+
+      if (ids.length === 0 || !canvas) return;
+
+      let box: BoardBBox | null = null;
+      for (const id of ids) {
+        const b = boardItemBBox(brd, id);
+        if (!b) continue;
+        box = box
+          ? {
+              minX: Math.min(box.minX, b.minX),
+              minY: Math.min(box.minY, b.minY),
+              maxX: Math.max(box.maxX, b.maxX),
+              maxY: Math.max(box.maxY, b.maxY),
+            }
+          : b;
+      }
+
+      const view = viewRef.current;
+      // Where the view is looking now. The zoom changes first and keeps this
+      // point (`VIEW::SetScale` scales about the centre), so it is read off the
+      // old scale and re-applied under the new one.
+      const next = crossProbeViewChange(
+        cfg,
+        box,
+        {
+          scale: view.scale,
+          cx: (canvas.width / 2 - view.tx) / (view.flipX ? -view.scale : view.scale),
+          cy: (canvas.height / 2 - view.ty) / view.scale,
+        },
+        { width: canvas.width, height: canvas.height },
+      );
+      if (!next) return;
+
+      viewRef.current = {
+        scale: next.scale,
+        flipX: view.flipX,
+        tx: canvas.width / 2 - next.cx * (view.flipX ? -next.scale : next.scale),
+        ty: canvas.height / 2 - next.cy * next.scale,
+      };
+      requestDraw();
+    },
+    [requestDraw, settings.pcbnew.cross_probing],
+  );
   useEffect(() => {
     if (syncNonce === undefined) return;
-    const brd = boardRef.current;
-    const canvas = canvasRef.current;
-    if (!brd) return;
-    const cfg = settings.pcbnew.cross_probing;
-    // null is `case MAIL_SELECTION: if( !...on_selection ) break;` — the packet
-    // is dropped whole, so the existing selection stays as the user left it.
-    const ids = crossProbeSelection(cfg, brd, syncPartsRef.current ?? []);
-    if (ids === null) return;
-    setSelection(new Set(ids));
-
-    // A fresh probe restarts any flash still running (`m_crossProbeFlashTimer.Stop()`).
-    if (flashRef.current) {
-      clearInterval(flashRef.current.timer);
-      flashRef.current = null;
-    }
-    if (cfg.flash_selection && ids.length > 0) {
-      let phase = 0;
-      const timer = window.setInterval(() => {
-        setSelection(new Set(crossProbeFlashSelection(phase, ids)));
-        phase++;
-        if (phase > CROSS_PROBE_FLASH_LAST_PHASE) {
-          if (flashRef.current) clearInterval(flashRef.current.timer);
-          flashRef.current = null;
-          setSelection(new Set(ids));
-        }
-      }, CROSS_PROBE_FLASH_INTERVAL_MS);
-      flashRef.current = { ids, timer };
-    }
-
-    if (ids.length === 0 || !canvas) return;
-
-    let box: BoardBBox | null = null;
-    for (const id of ids) {
-      const b = boardItemBBox(brd, id);
-      if (!b) continue;
-      box = box
-        ? {
-            minX: Math.min(box.minX, b.minX),
-            minY: Math.min(box.minY, b.minY),
-            maxX: Math.max(box.maxX, b.maxX),
-            maxY: Math.max(box.maxY, b.maxY),
-          }
-        : b;
-    }
-
-    const view = viewRef.current;
-    // Where the view is looking now. The zoom changes first and keeps this
-    // point (`VIEW::SetScale` scales about the centre), so it is read off the
-    // old scale and re-applied under the new one.
-    const next = crossProbeViewChange(
-      cfg,
-      box,
-      {
-        scale: view.scale,
-        cx: (canvas.width / 2 - view.tx) / (view.flipX ? -view.scale : view.scale),
-        cy: (canvas.height / 2 - view.ty) / view.scale,
-      },
-      { width: canvas.width, height: canvas.height },
-    );
-    if (!next) return;
-
-    viewRef.current = {
-      scale: next.scale,
-      flipX: view.flipX,
-      tx: canvas.width / 2 - next.cx * (view.flipX ? -next.scale : next.scale),
-      ty: canvas.height / 2 - next.cy * next.scale,
-    };
-    requestDraw();
-  }, [syncNonce, requestDraw]);
+    applySyncSelection(syncPartsRef.current ?? []);
+  }, [syncNonce, applySyncSelection]);
+  /** The footprint indices in the selection, for the 3D viewer's `IsSelected()`. */
+  const selectedFootprints = useMemo(() => {
+    const out = new Set<number>();
+    if (!board) return out;
+    board.footprints.forEach((_, i) => {
+      if (selection.has(boardItemId('footprint', i))) out.add(i);
+    });
+    return out;
+  }, [board, selection]);
   // Never leave a flash interval behind when the board editor unmounts.
   useEffect(
     () => () => {
@@ -10768,6 +10789,9 @@ export function PcbEditor({
           backLabel="← PCB Editor"
           imageBaseName={projectName || fileName.replace(/\.kicad_pcb$/i, '') || 'board'}
           onClose={() => setShow3D(false)}
+          selectedFootprints={selectedFootprints}
+          onSelect={applySyncSelection}
+          netClassOf={netClassOf}
         />
       )}
 

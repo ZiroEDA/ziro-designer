@@ -76,6 +76,17 @@ export interface Viewer3D {
   setCamera: (o: Partial<Viewer3dCameraOptions>) => void;
   /** `EDA_3D_ACTIONS::pivotCenter` (Space) — look at the board point under the cursor. */
   pivotCenter: () => void;
+  /**
+   * `FOOTPRINT::IsSelected()` as `renderOpaqueModels` reads it — the board
+   * editor's selection, by footprint index, drawn in the selection colour.
+   */
+  setSelectedFootprints: (footprints: ReadonlySet<number>) => void;
+  /**
+   * `EDA_3D_CANVAS::OnLeftUp`'s `$SELECT: 0,F<ref>` — a click on a model or
+   * pad names its footprint, a click on nothing sends an empty list. The
+   * board editor treats it exactly as a `$SELECT` from the schematic.
+   */
+  onSelect?: (parts: string[]) => void;
 
   // -- File / Edit menu ----------------------------------------------------
   /** `EDA_3D_ACTIONS::exportImage` — the current view as a PNG blob. */
@@ -108,6 +119,10 @@ export interface Viewer3dRenderOptions {
   showModelBbox?: boolean;
   /** `render.opengl_selection_color`, as CSS. */
   selectionColor?: string;
+  /** `render.opengl_highlight_on_rollover` (default true). */
+  highlightOnRollover?: boolean;
+  /** `GetNetClass()->GetHumanReadableName()` by net code, for the HOVERED_ITEM pane. */
+  netClassOf?: (net: number) => string;
   /**
    * `EDA_3D_VIEWER_SETTINGS::m_UseStackupColors` — the appearance panel's
    * "Use board stackup colors". Stored true, but the first open of the frame

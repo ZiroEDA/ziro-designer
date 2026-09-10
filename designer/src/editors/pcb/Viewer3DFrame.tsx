@@ -79,6 +79,20 @@ export interface Viewer3DFrameProps {
   /** Basename for `EDA_3D_ACTIONS::exportImage`'s download. */
   imageBaseName: string;
   onClose: () => void;
+  /**
+   * `FOOTPRINT::IsSelected()` — the board editor's selection by footprint
+   * index. `renderOpaqueModels` reads it off the board on every redraw, so
+   * the models of selected footprints wear the selection colour.
+   */
+  selectedFootprints?: ReadonlySet<number>;
+  /**
+   * `EDA_3D_CANVAS::OnLeftUp`'s ExpressMail: `$SELECT: 0,F<ref>` to the
+   * board editor (and the schematic, which the board editor's own sync
+   * forwards). Empty parts clear the selection.
+   */
+  onSelect?: (parts: string[]) => void;
+  /** `GetNetClass()->GetHumanReadableName()` by net code, for HOVERED_ITEM. */
+  netClassOf?: ReadonlyMap<number, string>;
 }
 
 export function Viewer3DFrame({
@@ -90,6 +104,9 @@ export function Viewer3DFrame({
   backLabel,
   imageBaseName,
   onClose,
+  selectedFootprints,
+  onSelect,
+  netClassOf,
 }: Viewer3DFrameProps): JSX.Element {
   /*
    * `RecreateToolbars` reads the TOOLBAR_SETTINGS, never `DefaultToolbarConfig`
@@ -101,6 +118,17 @@ export function Viewer3DFrame({
   const hostRef = useRef<HTMLDivElement>(null);
   const api = useRef<Viewer3D | null>(null);
   const [ready, setReady] = useState(false);
+  // The selection and the callbacks reach the viewer through refs so a change
+  // in either does not remount the scene (the scene is the expensive half).
+  const onSelectRef = useRef(onSelect);
+  onSelectRef.current = onSelect;
+  const netClassOfRef = useRef(netClassOf);
+  netClassOfRef.current = netClassOf;
+  const selectedRef = useRef(selectedFootprints);
+  selectedRef.current = selectedFootprints;
+  useEffect(() => {
+    api.current?.setSelectedFootprints(selectedFootprints ?? new Set());
+  }, [selectedFootprints]);
   const [status, setStatus] = useState<Viewer3DStatus>({
     dx: 0,
     dy: 0,
@@ -181,6 +209,8 @@ export function Viewer3DFrame({
             copperThickness: renderRef.current.opengl_copper_thickness,
             subtractMaskFromSilk: renderRef.current.subtract_mask_from_silk,
             clipSilkOnViaAnnuli: renderRef.current.clip_silk_on_via_annulus,
+            highlightOnRollover: renderRef.current.opengl_highlight_on_rollover,
+            netClassOf: (net) => netClassOfRef.current?.get(net) ?? 'Default',
           },
         );
       } catch {
@@ -188,6 +218,8 @@ export function Viewer3DFrame({
       }
       if (viewer) {
         viewer.onStatus = setStatus;
+        viewer.onSelect = (parts) => onSelectRef.current?.(parts);
+        viewer.setSelectedFootprints(selectedRef.current ?? new Set());
         // Re-apply the sticky view settings across a remount/reload.
         viewer.setGrid(grid);
         viewer.setOrtho(ortho);
@@ -467,7 +499,12 @@ export function Viewer3DFrame({
         <span className="cell msg" data-testid="view3d-activity">
           {ready ? status.activity : 'Loading...'}
         </span>
-        <span className="cell pane" style={{ width: 170 }} data-testid="view3d-hovered">
+        {/* "Pad %s\tNet %s\tNet class %s": wx keeps the tabs as gaps. */}
+        <span
+          className="cell pane"
+          style={{ width: 170, whiteSpace: 'pre' }}
+          data-testid="view3d-hovered"
+        >
           {status.hovered}
         </span>
         {/* EDA_3D_CANVAS::DisplayStatus: "dx %3.2f", "dy %3.2f", "zoom %3.2f"

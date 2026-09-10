@@ -11,17 +11,22 @@ import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
 import {
   B_Cu,
+  B_Mask,
+  B_Paste,
   B_SilkS,
   Dwgs_User,
   Edge_Cuts,
   F_Cu,
   F_Mask,
+  F_Paste,
   F_SilkS,
   In_Cu,
 } from '@ziroeda/pcbnew/src/layer_ids.js';
 import type { Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import {
   DEFAULT_HOLE_PLATING_THICKNESS,
+  LAYER_RENUMBER_VERSION,
+  remapLegacyLayerSet,
   boardMaskPasteDefaults,
   buildBoard3dLayers,
   defaultPlotLayerSelection,
@@ -78,6 +83,21 @@ describe('BASE_SET::ParseHex / the plot layer selection', () => {
     expect(s.has(Edge_Cuts)).toBe(true);
     expect(s.has(B_Cu)).toBe(false);
     expect(s.size).toBe(4);
+  });
+
+  it('a pre-20240819 file is in the LEGACY numbering: silk at 36/37, mask at 38/39, B_Cu at 31', () => {
+    // KiCad 8's default plot set: F_Cu, B_Cu, F/B_SilkS, F/B_Mask, F/B_Paste, Edge_Cuts
+    // = bits 0, 31, 36, 37, 38, 39, 34, 35, 44
+    const legacy = new Set([0, 31, 34, 35, 36, 37, 38, 39, 44]);
+    const mapped = remapLegacyLayerSet(legacy);
+    expect([...mapped].sort((a, b) => a - b)).toEqual(
+      [F_Cu, F_Mask, B_Cu, B_Mask, F_SilkS, B_SilkS, F_Paste, B_Paste, Edge_Cuts].sort(
+        (a, b) => a - b,
+      ),
+    );
+    // read unmapped, bit 36 would be F_Fab (35 is F_Fab; 36 is nothing) — the silk is lost
+    expect(parseLayerSetHex('0000000_00000000_00000000_1000000000').has(F_SilkS)).toBe(false);
+    expect(LAYER_RENUMBER_VERSION).toBe(20240819);
   });
 
   it('the constructor default plots silk, mask, paste, edge cuts and every copper layer', () => {

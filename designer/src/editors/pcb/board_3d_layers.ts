@@ -65,14 +65,22 @@ import {
   Dwgs_User,
   Eco1_User,
   Eco2_User,
+  B_CrtYd,
+  B_Fab,
   Edge_Cuts,
   F_Adhes,
+  F_CrtYd,
   F_Cu,
+  F_Fab,
   F_Mask,
   F_Paste,
   F_SilkS,
+  In_Cu,
   IsCopperLayer,
+  Margin,
   PCB_LAYER_ID_COUNT,
+  Rescue,
+  User_1,
 } from '@ziroeda/pcbnew/src/layer_ids.js';
 import { boardOutlineLoops, type Box } from './boardOutline.js';
 
@@ -163,6 +171,36 @@ export function parseLayerSetHex(hex: string): Set<number> {
   return out;
 }
 
+/**
+ * `s_legacyLayerIdMap` (pcb_plot_params.cpp:475): the file's layer NUMBERING
+ * changed in 5e0abadb without a version bump, so a `layerselection` written
+ * by a board older than 20240819 is in `LEGACY_PCB_LAYER_ID` order —
+ * F_Cu 0, In1..In30 1..30, B_Cu 31, then B/F Adhes, B/F Paste, B/F SilkS,
+ * B/F Mask (32..39), Dwgs, Cmts, Eco1, Eco2, Edge, Margin (40..45), B/F
+ * CrtYd, B/F Fab (46..49), User_1..9 (50..58), Rescue 59. Read unmapped, a
+ * KiCad 8 board's silk bit (36) lands on F_Fab and its silk vanishes.
+ */
+export function remapLegacyLayerSet(legacy: Set<number>): Set<number> {
+  const map = new Map<number, number>();
+  map.set(0, F_Cu);
+  for (let n = 1; n <= 30; n++) map.set(n, In_Cu(n));
+  map.set(31, B_Cu);
+  const tail = [B_Adhes, F_Adhes, B_Paste, F_Paste, B_SilkS, F_SilkS, B_Mask, F_Mask];
+  tail.forEach((id, i) => map.set(32 + i, id));
+  const users = [Dwgs_User, Cmts_User, Eco1_User, Eco2_User, Edge_Cuts, Margin];
+  users.forEach((id, i) => map.set(40 + i, id));
+  [B_CrtYd, F_CrtYd, B_Fab, F_Fab].forEach((id, i) => map.set(46 + i, id));
+  // User_n == User_1 + 2(n − 1) — the odd ids after Rescue
+  for (let n = 1; n <= 9; n++) map.set(49 + n, User_1 + 2 * (n - 1));
+  map.set(59, Rescue);
+  const out = new Set<number>();
+  for (const [legacyId, newId] of map) if (legacy.has(legacyId)) out.add(newId);
+  return out;
+}
+
+/** The board file version the new numbering arrived with (pcb_plot_params.cpp:622). */
+export const LAYER_RENUMBER_VERSION = 20240819;
+
 /** `PCB_PLOT_PARAMS::PCB_PLOT_PARAMS()`: the layer set a board without one plots. */
 export function defaultPlotLayerSelection(): Set<number> {
   const out = new Set<number>([F_SilkS, B_SilkS, F_Mask, B_Mask, F_Paste, B_Paste, Edge_Cuts]);
@@ -182,12 +220,17 @@ export function plotLayerSelection(board: Board): PlotLayerSelection {
     const v = arg(name);
     return v === undefined ? dflt : v === 'yes' || v === 'true';
   };
+  // The renumbering had no version bump of its own; the first version
+  // after it is the test (pcb_plot_params.cpp:620-625).
+  const legacy = board.version < LAYER_RENUMBER_VERSION;
+  const parseSet = (hex: string): Set<number> => {
+    const raw = parseLayerSetHex(hex);
+    return legacy ? remapLegacyLayerSet(raw) : raw;
+  };
   const sel = arg('layerselection');
-  const layers =
-    sel && sel.startsWith('0x') ? parseLayerSetHex(sel.slice(2)) : defaultPlotLayerSelection();
+  const layers = sel && sel.startsWith('0x') ? parseSet(sel.slice(2)) : defaultPlotLayerSelection();
   const onAll = arg('plotonalllayersselection');
-  if (onAll && onAll.startsWith('0x'))
-    for (const id of parseLayerSetHex(onAll.slice(2))) layers.add(id);
+  if (onAll && onAll.startsWith('0x')) for (const id of parseSet(onAll.slice(2))) layers.add(id);
   return {
     layers,
     plotReference: yes('plotreference', true),

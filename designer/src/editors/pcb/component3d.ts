@@ -149,8 +149,18 @@ export function smaterialOf(m: THREE.Material): SMaterial {
 }
 
 export interface ComponentRenderHooks {
-  /** `OglSetMaterial( mat, opacity )` in the current `MATERIAL_MODE`. */
-  material: (m: SMaterial, opacity: number, transparentPass: boolean) => THREE.Material;
+  /**
+   * `OglSetMaterial( mat, opacity, aUseSelectedMaterial )` in the current
+   * `MATERIAL_MODE`. Both materials are built up front and parked on the
+   * mesh (`userData.normalMat` / `userData.selectedMat`) so a rollover or a
+   * cross-probed selection is a swap, not a rebuild.
+   */
+  material: (
+    m: SMaterial,
+    opacity: number,
+    transparentPass: boolean,
+    selected: boolean,
+  ) => THREE.Material;
   /** `renderOpaqueModels` / `renderTransparentModels` slots. */
   opaqueOrder: number;
   transparentOrder: number;
@@ -227,8 +237,8 @@ export function mountComponents(
     }
   };
 
-  for (const fp of board.footprints) {
-    if (hooks && !hooks.showFootprint(fp)) continue;
+  board.footprints.forEach((fp, fpIndex) => {
+    if (hooks && !hooks.showFootprint(fp)) return;
     for (const model of fp.models) {
       if (model.hide || !model.path) continue;
       const res = resolvePath(model.path, { libBase, libExt: 'glb', projectFiles: fileNames });
@@ -250,6 +260,8 @@ export function mountComponents(
         inst.matrixAutoUpdate = false;
         inst.matrix.copy(matrix);
         inst.matrixWorldNeedsUpdate = true;
+        // the BOARD_ITEM a ray-hit on this model reports (addModels' aBoardItem)
+        inst.userData.footprint = fpIndex;
         if (hooks) {
           inst.traverse((child) => {
             if (!(child instanceof THREE.Mesh)) return;
@@ -258,14 +270,21 @@ export function mountComponents(
             // MODEL_3D::Draw: a material with transparency goes to the
             // transparent pass; a model with opacity < 1 goes there whole.
             const transparentPass = !opaque || sm.transparency > 1.1920929e-7;
-            const mat = hooks.material(sm, transparentPass ? opacity : 1, transparentPass);
+            const op = transparentPass ? opacity : 1;
+            const mat = hooks.material(sm, op, transparentPass, false);
+            const sel = hooks.material(sm, op, transparentPass, true);
             // glEnable( GL_CULL_FACE ) throughout — but a VRML file's winding
             // is its own affair (`solid`/`ccw`), and three.js's loader keeps
             // it two-sided; STEP faces come oriented.
-            if (src.side === THREE.DoubleSide && 'side' in mat) mat.side = THREE.DoubleSide;
+            if (src.side === THREE.DoubleSide) {
+              mat.side = THREE.DoubleSide;
+              sel.side = THREE.DoubleSide;
+            }
             child.material = mat;
+            child.userData.normalMat = mat;
+            child.userData.selectedMat = sel;
             child.renderOrder = transparentPass ? hooks.transparentOrder : hooks.opaqueOrder;
-            disposables.push(mat);
+            disposables.push(mat, sel);
           });
         } else if (opacity < 1) {
           inst.traverse((child) => {
@@ -287,7 +306,7 @@ export function mountComponents(
         onChange?.();
       });
     }
-  }
+  });
 
   return () => {
     cancelled = true;
