@@ -46,7 +46,15 @@ import { tessellateArc } from './read-board.js';
 import { padShapePos } from './padstack.js';
 import { textShapes } from './text_geometry.js';
 import { barcodeGeometry, barcodeHullBoxes } from './barcode_geometry.js';
-import type { Board, PadPrimitive, PcbFootprint, PcbPad, PcbZone, PcbZoneFill } from './types.js';
+import type {
+  Board,
+  PadPrimitive,
+  PcbFootprint,
+  PcbPad,
+  PcbVia,
+  PcbZone,
+  PcbZoneFill,
+} from './types.js';
 import type { ZoneConnection } from './zone_connection.js';
 
 /** BOARD_DESIGN_SETTINGS::m_MaxError, the arc approximation limit (0.005 mm). */
@@ -780,6 +788,30 @@ function padAnchors(pad: PcbPad): Vec2[] {
   return out;
 }
 
+/**
+ * The points that stand for a via's copper in the island test.
+ *
+ * The connectivity engine's `CN_ITEM` for a via is its whole annulus, and a
+ * fill outline is in the via's cluster when the two OVERLAP — anywhere. A
+ * centre point cannot say that: on tinytapeout a 0.65 mm GND via sits with
+ * its centre 0.1 mm outside a sliver of the pour and its rim 0.3 mm inside
+ * it, and upstream keeps the sliver where this dropped it.
+ *
+ * The centre plus a ring of points just inside the rim. Sixteen is enough
+ * that a piece of copper the via's rim crosses at all — one at least the
+ * zone's minimum thickness wide — meets one of them.
+ */
+function viaAnchors(v: PcbVia): Vec2[] {
+  const out: Vec2[] = [v.at];
+  const r = v.size / 2 - 1;
+  if (r <= 0) return out;
+  for (let i = 0; i < 16; i++) {
+    const a = (i * Math.PI) / 8;
+    out.push({ x: v.at.x + r * Math.cos(a), y: v.at.y + r * Math.sin(a) });
+  }
+  return out;
+}
+
 /** Is `p` inside `poly`'s outer ring and outside every hole? */
 function pointInPolygon(poly: Polygon, p: Vec2): boolean {
   const outer = poly[0];
@@ -1187,7 +1219,7 @@ function fillZoneParts(
       // "viaBBox.Inflate( m_worstClearance )".
       if (!near(boxAround(v.at, v.at, v.size))) continue;
       if (v.net === zone.net && zone.net > 0) {
-        connected.push(v.at);
+        connected.push(...viaAnchors(v));
         continue;
       }
       holes.push([circlePoly(v.at, v.size / 2 + gapTo(v.net), maxError)]);

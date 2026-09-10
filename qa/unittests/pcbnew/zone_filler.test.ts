@@ -371,6 +371,45 @@ describe('zone filler', () => {
     expect(area(fills[0]!.polys)).toBeLessThan(790);
   });
 
+  it("a via's RIM anchors copper its centre is outside of", () => {
+    // The connectivity engine's item for a via is its whole annulus, and a
+    // fill outline joins the via's cluster when the two overlap anywhere. A
+    // net-2 bar splits the pour; a same-net 1 mm via sits on the bar's
+    // clearance edge with its centre 0.1 mm inside the bar's clearance and
+    // its rim reaching 0.4 mm into the lower half. Upstream keeps the lower
+    // half (tinytapeout has exactly this, a 0.65 mm GND via on a sliver).
+    const b = board({
+      zones: [zone()],
+      footprints: [footprint([pad({ x: MM(20), y: MM(5) }, 1)])],
+      tracks: [
+        {
+          start: { x: 0, y: MM(20) },
+          end: { x: MM(40), y: MM(20) },
+          width: MM(1),
+          layer: 'F.Cu',
+          net: 2,
+          source: EMPTY,
+        },
+      ],
+      // Bar clearance edge at y = 21; the via's centre at 20.9 is inside the
+      // knockout (its own clearance hole is not cut — same net), its rim at
+      // 21.4 is on the lower pour.
+      vias: [
+        {
+          at: { x: MM(30), y: MM(20.9) },
+          size: MM(1),
+          drill: MM(0.4),
+          layers: ['F.Cu', 'B.Cu'],
+          kind: 'through',
+          net: 1,
+          source: EMPTY,
+        },
+      ],
+    });
+    const fill = fillZone(b, 0)[0]!.polys;
+    expect(covered(fill, { x: MM(10), y: MM(30) })).toBe(true);
+  });
+
   describe('island removal asks what TOUCHES the copper', () => {
     /**
      * `FindIsolatedCopperIslands` (zone_filler.cpp:943-1050) asks whether any
