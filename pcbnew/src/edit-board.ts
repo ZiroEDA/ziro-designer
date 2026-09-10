@@ -34,7 +34,12 @@ import { barcodeBBox, barcodeGeometry, barcodeHullBoxes } from './barcode_geomet
 import { textItemBBox } from './text_metrics.js';
 import { arcCenter, rotatePcb } from './read-board.js';
 import { connectedTrackEnds } from './connectivity.js';
-import { footprintBBox, footprintHasNoDrawItems, footprintHull, padBBox } from './edit-footprint.js';
+import {
+  footprintBBox,
+  footprintHasNoDrawItems,
+  footprintHull,
+  padBBox,
+} from './edit-footprint.js';
 import { dimensionBBox, distanceToDimension } from './dimension_geometry.js';
 import { textBoxBBox } from './textbox_geometry.js';
 import { tableBBox } from './table_geometry.js';

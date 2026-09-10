@@ -132,9 +132,7 @@ describe('a click beside the body, on the value string', () => {
   });
 
   it('the reference field above the body is the field, not the part', () => {
-    expect(boardHitCandidates(board([j1]), { x: mm(10), y: mm(3) }, SLOP)).toEqual([
-      'fptext:0:0',
-    ]);
+    expect(boardHitCandidates(board([j1]), { x: mm(10), y: mm(3) }, SLOP)).toEqual(['fptext:0:0']);
   });
 });
 

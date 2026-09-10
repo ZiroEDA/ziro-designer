@@ -224,11 +224,7 @@ export function fpItemBBox(fp: PcbFootprint, id: string): FpBBox | null {
  * accuracy (`footprint.cpp:2349-2353`). There the footprint is always sided,
  * and its annotation graphics are dropped along with its text.
  */
-export function footprintBBox(
-  fp: PcbFootprint,
-  includeText = true,
-  sided = false,
-): FpBBox | null {
+export function footprintBBox(fp: PcbFootprint, includeText = true, sided = false): FpBBox | null {
   let minX = Infinity,
     minY = Infinity,
     maxX = -Infinity,
