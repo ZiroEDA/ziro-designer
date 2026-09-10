@@ -13,11 +13,15 @@
  *    drill's slot is placed half a unit further out than truncation puts it;
  *  - a fill outline whose vertex lies within `SEG::SquaredDistance == 0` of
  *    another outline's edge is connected to it (`SHAPE_LINE_CHAIN_BASE::
- *    Collide( aP, 0 )` counts an edge at distance 0, rounded).
+ *    Collide( aP, 0 )` counts an edge at distance 0, rounded);
+ *  - `SHAPE_LINE_CHAIN_BASE::PointInside` tests `p.y >= pt.y` at BOTH ends of
+ *    an edge, so a point on the ring's larger-y edge is inside and one on its
+ *    smaller-y edge is not — which decides a thermal spoke whose test point
+ *    sits exactly on the end of the spoke beside it (hackrf-one's U21).
  */
 
 import { ErrorLoc } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
-import { simplify } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import { chainPointInside, simplify } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { doConvertOutlineToPolygon } from '@ziroeda/pcbnew/src/convert_shape_list_to_polygon.js';
 import { arcConvertToPolyline } from '@ziroeda/pcbnew/src/router/shape_arc_ops.js';
 import { padTransformHoleToPolygon } from '@ziroeda/pcbnew/src/transform_shape_to_polygon.js';
@@ -213,5 +217,27 @@ describe('a fill outline touching another within half a unit is connected', () =
       { zone: 0, layer: 'F.Cu', index: 1, ring: sliver },
     ]);
     expect(islands.get(0)?.get('F.Cu') ?? []).toEqual([1]);
+  });
+});
+
+describe('PointInside on a point that sits exactly on an edge', () => {
+  // A 0.28 x 1.14 mm spoke rectangle, as `buildThermalSpokes` lays one out.
+  const spoke = [
+    { x: 169_640_000, y: 110_751_200 },
+    { x: 169_920_000, y: 110_751_200 },
+    { x: 169_920_000, y: 109_614_400 },
+    { x: 169_640_000, y: 109_614_400 },
+  ];
+
+  it('is NOT inside on the smaller-y edge', () => {
+    expect(chainPointInside(spoke, { x: 169_780_000, y: 109_614_400 })).toBe(false);
+  });
+
+  it('IS inside on the larger-y edge', () => {
+    expect(chainPointInside(spoke, { x: 169_780_000, y: 110_751_200 })).toBe(true);
+  });
+
+  it('and plainly inside in between', () => {
+    expect(chainPointInside(spoke, { x: 169_780_000, y: 110_000_000 })).toBe(true);
   });
 });

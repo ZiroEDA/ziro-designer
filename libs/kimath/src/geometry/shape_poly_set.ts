@@ -447,10 +447,13 @@ function segApproxCollinear(aA: Vec2, aB: Vec2, bA: Vec2, bB: Vec2, threshold: n
 }
 
 /**
- * `SHAPE_LINE_CHAIN_BASE::PointInside( aPt, 0, false )`: the +x ray cast,
- * the crossing abscissa in `rescale` integer arithmetic.
+ * `SHAPE_LINE_CHAIN_BASE::PointInside( aPt, aAccuracy <= 1 )`: the +x ray
+ * cast, the crossing abscissa in `rescale` integer arithmetic. The `>=` on
+ * both ends is load-bearing: a point ON an edge at the ring's larger y counts
+ * as inside and one at its smaller y does not, which is what decides a
+ * thermal spoke whose test point sits exactly on another spoke's end.
  */
-function chainPointInside(ring: readonly Vec2[], pt: Vec2): boolean {
+export function chainPointInside(ring: readonly Vec2[], pt: Vec2): boolean {
   if (ring.length < 3) return false;
   const n = ring.length;
   let inside = false;

@@ -28,6 +28,7 @@
 import type { Geom, MultiPolygon, Ring } from 'polygon-clipping';
 import { pcbIuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import {
+  chainPointInside,
   booleanAdd,
   booleanIntersection,
   booleanOp,
@@ -2973,17 +2974,8 @@ function connectNearbyPolys(rings: Vec2[][], distance: number): Vec2[][] {
   return out;
 }
 
-/** Ray-cast containment, for the island test. */
-function pointInRing(p: Vec2, ring: Vec2[]): boolean {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const a = ring[i]!;
-    const b = ring[j]!;
-    if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x)
-      inside = !inside;
-  }
-  return inside;
-}
+/** `SHAPE_LINE_CHAIN_BASE::PointInside( p, 1 )`, as `SHAPE_POLY_SET::Contains` asks it. */
+const pointInRing = (p: Vec2, ring: Vec2[]): boolean => chainPointInside(ring, p);
 
 /**
  * `ZONE_FILLER::postKnockoutMinWidthPrune` (zone_filler.cpp:2757-2796): the

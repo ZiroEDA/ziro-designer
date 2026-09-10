@@ -23,7 +23,7 @@
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { arcShape, graphicShapes, padShapes } from './drc/drc_engine.js';
-import { rescale64 } from '@ziroeda/kimath/src/math/util.js';
+import { chainPointInside } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { segSquaredDistance } from '@ziroeda/kimath/src/trigo.js';
 import { shapeBBox, shapeDist, type Shape } from './drc/drc_geometry.js';
 import { padShapePos } from './padstack.js';
@@ -87,16 +87,7 @@ const boxContains = (b: Item['box'], p: Vec2): boolean =>
 function outlineContains(ring: Vec2[], p: Vec2): boolean {
   const n = ring.length;
   if (n < 3) return false;
-  let inside = false;
-  for (let i = 0; i < n; ) {
-    const p1 = ring[i++]!;
-    const p2 = ring[i === n ? 0 : i]!;
-    const dy = p2.y - p1.y;
-    if (dy === 0) continue;
-    const d = Number(rescale64(BigInt(p2.x - p1.x), BigInt(p.y - p1.y), BigInt(dy)));
-    if (p1.y >= p.y !== p2.y >= p.y && p.x - p1.x < d) inside = !inside;
-  }
-  if (inside) return true;
+  if (chainPointInside(ring, p)) return true;
   for (let i = 0, j = n - 1; i < n; j = i++)
     if (segSquaredDistance(p, ring[j]!, ring[i]!) === 0) return true;
   return false;
