@@ -934,6 +934,54 @@ describe('zone filler', () => {
     expect(covered(fill, inside)).toBe(true);
   });
 
+  it('re-bridges a short neck the deflate severed: connect_nearby_polys', () => {
+    // tinytapeout, in miniature. A 1 mm channel of pour between two net-2
+    // tracks; a small net-2 via in it whose clearance hole reaches the right
+    // edge and leaves a 0.2335 mm neck against the left one — narrower than
+    // the 0.25 mm minimum thickness. The deflate severs it, and the copper
+    // below the via has no anchor of its own; the only same-net copper is a
+    // via at the top of the channel.
+    //
+    // The cut is SHORT — the neck widens fast against a 0.4 mm hole — so the
+    // two severed tips sit 0.2463 mm apart in the deflated state: too far for
+    // the 0.124 mm re-inflate to close on its own, and within the minimum
+    // thickness for `connect_nearby_polys`, which joins them with a zero-width
+    // spike that the round re-inflate turns into a min-width bar. The lower
+    // copper stays connected and stays; without the bridge it is an island.
+    //
+    // The band is narrow — a via 1 µm nearer and the inflate alone closes it —
+    // because that is what the mechanism is for: the last few microns.
+    const track = (x: number): Board['tracks'][number] => ({
+      start: { x, y: 0 },
+      end: { x, y: MM(40) },
+      width: MM(0.25),
+      layer: 'F.Cu',
+      net: 2,
+      source: EMPTY,
+    });
+    const via = (x: number, y: number, net: number, size = 0.62): Board['vias'][number] => ({
+      at: { x: MM(x), y: MM(y) },
+      size: MM(size),
+      drill: MM(0.2),
+      layers: ['F.Cu', 'B.Cu'],
+      kind: 'through',
+      net,
+      source: EMPTY,
+    });
+    const b = board({
+      zones: [zone({ clearance: MM(0.25), minThickness: MM(0.25) })],
+      // Clearance edges at x = 20 and x = 21.
+      tracks: [track(MM(19.6245)), track(MM(21.3755))],
+      // Hole radius 0.15 + 0.25 + 0.0005 = 0.4005: the left neck is 0.2335.
+      vias: [via(20.634, 20, 2, 0.3), via(20.5, 5, 1)],
+    });
+    const fill = fillZone(b, 0)[0]!.polys;
+    // Below the via, in the channel: reachable only through the neck.
+    expect(covered(fill, { x: MM(20.5), y: MM(30) })).toBe(true);
+    // And the bridge itself is copper, at the neck's narrowest.
+    expect(covered(fill, { x: MM(20.12), y: MM(20) })).toBe(true);
+  });
+
   it('breaks a priority tie on the uuid, as HigherPriority does', () => {
     // `return m_Uuid > aOther->m_Uuid` — two ordinary zones of equal priority
     // on different nets are not peers. One wins; both filling the overlap is a

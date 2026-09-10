@@ -2019,6 +2019,234 @@ function spokeTestAreas(fill: Polygon[], zone: PcbZone, maxError: number): Polyg
 }
 
 /**
+ * `ZONE_FILLER::connect_nearby_polys` (zone_filler.cpp:2712-2757) and the
+ * `VERTEX_CONNECTOR` it runs on (:94-230).
+ *
+ * The deflate that prunes anything thinner than the minimum width also
+ * severs every NECK thinner than it, and a severed neck is not what the
+ * user drew: two pieces of copper that were one. So, in the deflated state,
+ * upstream looks for pairs of convex vertices on different outlines (or far
+ * apart along the same one) within `minThickness` of each other, and joins
+ * them with a zero-width spike — `line.Insert( vertex + 1, pt1 );
+ * line.Insert( vertex + 1, pt2 )` on the first outline — that the round
+ * re-inflate turns into a bar one minimum thickness wide. A neck shorter
+ * than the minimum thickness comes back; a long thin channel, whose two ends
+ * are further apart than that after the deflate, stays cut. tinytapeout
+ * has a 0.23 mm GND neck between a via's clearance and a track's on a
+ * 0.25 mm pour: upstream keeps the 2.2 mm² strip below it, and this dropped
+ * it as an island.
+ *
+ * The vertex model is `VERTEX_SET`'s: every outline's points, each outline
+ * reversed if it winds the other way, points within √50 units of the last
+ * dropped (`m_TriangulateSimplificationLevel`), all threaded onto ONE
+ * circular list in outline order — which is why the list's own neighbours
+ * are used for the first ear test and the outline's for the second. The
+ * z-order neighbourhood search is a plain nearest search here; it picks the
+ * same vertex except in an exact tie.
+ */
+interface ConnectVertex {
+  x: number;
+  y: number;
+  /** Index in the original outline. */
+  i: number;
+  outline: number;
+  prev: ConnectVertex;
+  next: ConnectVertex;
+}
+
+function connectNearbyPolys(rings: Vec2[][], distance: number): Vec2[][] {
+  if (rings.length < 1) return rings;
+
+  // VERTEX_CONNECTOR's constructor: `createList` per outline, threaded on.
+  const verts: ConnectVertex[] = [];
+  const outlineDistances: number[][] = [];
+  let tail: ConnectVertex | null = null;
+  const insert = (i: number, pt: Vec2, outline: number): ConnectVertex => {
+    const v = { x: pt.x, y: pt.y, i, outline } as ConnectVertex;
+    if (!tail) {
+      v.prev = v;
+      v.next = v;
+    } else {
+      v.next = tail.next;
+      v.prev = tail;
+      tail.next.prev = v;
+      tail.next = v;
+    }
+    verts.push(v);
+    return v;
+  };
+  const SIMPLIFICATION = 50; // m_TriangulateSimplificationLevel, a squared distance
+
+  rings.forEach((pts, o) => {
+    const n = pts.length;
+    const distances = [0];
+    for (let j = 0; j < n; j++) {
+      const a = pts[j]!;
+      const b = pts[(j + 1) % n]!;
+      distances.push(distances[distances.length - 1]! + Math.hypot(b.x - a.x, b.y - a.y));
+    }
+    outlineDistances.push(distances);
+
+    let sum = 0;
+    for (let j = 0; j < n; j++) {
+      const p1 = pts[j]!;
+      const p2 = pts[(j + 1) % n]!;
+      sum += (p2.x - p1.x) * (p2.y + p1.y);
+    }
+    let first = true;
+    let last: Vec2 = { x: 0, y: 0 };
+    const add = (i: number): void => {
+      const pt = pts[i]!;
+      const dx = pt.x - last.x;
+      const dy = pt.y - last.y;
+      if (first || dx * dx + dy * dy > SIMPLIFICATION) {
+        tail = insert(i, pt, o);
+        last = pt;
+        first = false;
+      }
+    };
+    if (sum > 0) for (let i = n - 1; i >= 0; i--) add(i);
+    else for (let i = 0; i < n; i++) add(i);
+
+    if (tail && tail.x === tail.next.x && tail.y === tail.next.y) {
+      const gone = tail.next;
+      gone.next.prev = gone.prev;
+      gone.prev.next = gone.next;
+    }
+  });
+  if (verts.length === 0) return rings;
+
+  const area = (p: ConnectVertex, q: ConnectVertex, r: ConnectVertex): number =>
+    (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
+  const inTriangle = (
+    p: ConnectVertex,
+    a: ConnectVertex,
+    b: ConnectVertex,
+    c: ConnectVertex,
+  ): boolean =>
+    (c.x - p.x) * (a.y - p.y) - (a.x - p.x) * (c.y - p.y) >= 0 &&
+    (a.x - p.x) * (b.y - p.y) - (b.x - p.x) * (a.y - p.y) >= 0 &&
+    (b.x - p.x) * (c.y - p.y) - (c.x - p.x) * (b.y - p.y) >= 0;
+
+  // `VERTEX::isEar( aMatchUserData )`.
+  const isEar = (v: ConnectVertex, match: boolean): boolean => {
+    let a = v.prev;
+    let c = v.next;
+    if (match) {
+      while (a.outline !== v.outline) a = a.prev;
+      while (c.outline !== v.outline) c = c.next;
+    }
+    if (area(a, v, c) >= 0) return false;
+    const minX = Math.min(a.x, v.x, c.x);
+    const minY = Math.min(a.y, v.y, c.y);
+    const maxX = Math.max(a.x, v.x, c.x);
+    const maxY = Math.max(a.y, v.y, c.y);
+    for (const q of verts) {
+      // The z-order walk starts at `nextZ` / `prevZ`: the vertex itself is
+      // never a candidate, and it would fail its own test whenever its list
+      // neighbour is on another outline.
+      if (q === v) continue;
+      if (q.x < minX || q.x > maxX || q.y < minY || q.y > maxY) continue;
+      if (
+        (!match || q.outline === v.outline) &&
+        q !== a &&
+        q !== c &&
+        inTriangle(q, a, v, c) &&
+        area(q.prev, q, q.next) >= 0
+      )
+        return false;
+    }
+    return true;
+  };
+
+  // `getPoint`: the nearest ear within `distance`, not along the same contour.
+  const limit2 = distance * distance;
+  const getPoint = (v: ConnectVertex): ConnectVertex | null => {
+    let minDist = Number.POSITIVE_INFINITY;
+    let best: ConnectVertex | null = null;
+    for (const q of verts) {
+      if (q.outline === v.outline) {
+        const d = outlineDistances[q.outline]!;
+        const direct = Math.abs(d[q.i]! - d[v.i]!);
+        const contour = Math.min(direct, d[d.length - 1]! - direct);
+        if (contour < distance) continue;
+      }
+      const dx = q.x - v.x;
+      const dy = q.y - v.y;
+      const dist2 = dx * dx + dy * dy;
+      if (dist2 > 0 && dist2 < limit2 && dist2 < minDist && isEar(q, true)) {
+        minDist = dist2;
+        best = q;
+      }
+    }
+    return best;
+  };
+
+  // `FindResults`.
+  const front = verts[0]!;
+  const visited = new Set<ConnectVertex>();
+  const seen = new Set<string>();
+  const results: { o1: number; o2: number; v1: number; v2: number }[] = [];
+  let p = front.next;
+  let guard = verts.length + 1;
+  while (p !== front && guard-- > 0) {
+    if (!isEar(p, false)) {
+      p = p.next;
+      continue;
+    }
+    let q: ConnectVertex | null = null;
+    if (!visited.has(p) && (q = getPoint(p))) {
+      visited.add(p);
+      const key = `${p.outline},${q.outline},${p.i},${q.i}`;
+      if (!visited.has(q) && !seen.has(key)) {
+        seen.add(key);
+        results.push({ o1: p.outline, o2: q.outline, v1: p.i, v2: q.i });
+        // "We don't want to connect multiple points in the same vicinity, so
+        // skip 2 points before and after each point and match."
+        for (const w of [
+          p.prev,
+          p.prev.prev,
+          p.next,
+          p.next.next,
+          q.prev,
+          q.prev.prev,
+          q.next,
+          q.next.next,
+          q,
+        ])
+          visited.add(w);
+      }
+    }
+    p = p.next;
+  }
+  if (results.length === 0) return rings;
+
+  // `std::set<RESULTS>` iterates in (outline1, outline2, vertex1, vertex2) order.
+  results.sort((a, b) => a.o1 - b.o1 || a.o2 - b.o2 || a.v1 - b.v1 || a.v2 - b.v2);
+  const insertions = new Map<number, { vertex: number; pt: Vec2 }[]>();
+  for (const r of results) {
+    const pt1 = rings[r.o1]![r.v1]!;
+    const pt2 = rings[r.o2]![r.v2]!;
+    const list = insertions.get(r.o1) ?? [];
+    // "insert the existing point first so that we can place the new point
+    // between the two points at the same location"
+    list.push({ vertex: r.v1, pt: pt1 }, { vertex: r.v1, pt: pt2 });
+    insertions.set(r.o1, list);
+  }
+
+  const out = rings.map((r) => [...r]);
+  for (const [outline, vertices] of insertions) {
+    // Stable, highest index first, so inserting never moves a later target.
+    const sorted = vertices
+      .map((v, k) => ({ ...v, k }))
+      .sort((a, b) => b.vertex - a.vertex || a.k - b.k);
+    const line = out[outline]!;
+    for (const { vertex, pt } of sorted) line.splice(vertex + 1, 0, { x: pt.x, y: pt.y });
+  }
+  return out;
+}
+
+/**
  * ZONE_FILLER::postKnockoutMinWidthPrune: deflate by half the minimum thickness,
  * drop what is left of anything too small to survive, then inflate back and clip
  * to where we started. Copper narrower than min thickness vanishes in the
@@ -2059,6 +2287,11 @@ function postKnockoutMinWidthPrune(fill: Polygon[], zone: PcbZone, maxError: num
   });
 
   if (polys.length === 0) return [];
+
+  // "Connect nearby polygons with zero-width lines in order to ensure correct
+  // re-inflation" — `aFillPolys.Fracture(); connect_nearby_polys( aFillPolys,
+  // aZone->GetMinThickness() )`, in the deflated state.
+  polys = connectNearbyPolys(fracture(polys), minThickness).map((ring) => [ring]);
 
   polys = inflate(polys, halfMinWidth - epsilon, CornerStrategy.ROUND_ALL_CORNERS, segs);
 
