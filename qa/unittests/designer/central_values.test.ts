@@ -119,7 +119,10 @@ const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
  * The rest are seeded where they stand, so they can only go down.
  */
 const BASELINE: Record<string, { colours: number; metrics: number }> = {
-  auth: { colours: 4, metrics: 0 },
+  // 4 -> 0: the Google "G" mark's four brand hues left `SignIn.tsx` with the
+  // sign-in-with-Google button (the wall signs in with an email and a
+  // password now).
+  auth: { colours: 0, metrics: 0 },
   // DIALOG_PAGES_SETTINGS moved from editors/schematic to dialogs — it is
   // `common/dialogs/dialog_page_settings.cpp` upstream, opened by pl_editor,
   // pcbnew and eeschema alike, and PcbEditor was importing it across. Nothing
@@ -622,7 +625,13 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // commit from there to this one reads 708 — a flat line, so nothing was
   // added and the number was simply claimed two low. Corrected here rather
   // than chased, and the tree-wide total below agrees at 1297.
-  ui: { colours: 204, metrics: 708 },
+  // colours 204 -> 196: the sign-in card's own palette — `#b7bcc4` seven
+  // times, `#7d838d`, a `#1e6bab` button face and two `#fff` — replaced by
+  // `--chrome-fg-muted`, `--chrome-fg` and the shared `.ze-btn.primary`. The
+  // metrics row is NOT lowered: the docked sign-in panel that replaced the
+  // card added 15 chrome px literals and took 7 away, +8, and those still
+  // stand — see the `[data]`/`[css]`/`[px]`/`[art]` rule above.
+  ui: { colours: 196, metrics: 708 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -1026,7 +1035,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // four colours the Draw Text one had — a `#2a2c30` face, a `#444` border,
     // an `rgba(0,0,0,0.3)` backdrop and an `rgba(0,0,0,0.5)` shadow.
     // `editors/pcb` is the only row that moves and 521 - 4 agrees with it.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(517);
+    // 517 -> 505: the sign-in wall. `auth` 4 -> 0 (the Google mark) and `ui`
+    // 204 -> 196 (the card's palette); the per-area table agrees, 517 - 12.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(505);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.

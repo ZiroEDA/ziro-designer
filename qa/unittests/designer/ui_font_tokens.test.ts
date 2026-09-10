@@ -380,7 +380,11 @@ const BASELINE: Record<string, number> = {
   // `{ padding: 16, color: 'var(--ze-muted, #888)', fontSize: 12 }`. No token
   // named `--ze-muted` is declared in this stylesheet, so the fallback was what
   // painted; the row is `.ze-paged-unimplemented` now and states no size.
-  ui: 82,
+  // 82 -> 68: the sign-in card's fourteen `font-size: NNpx` rows — 11.5, 12.5
+  // ×3, 13 ×4, 14 ×3, 16, 18 and 22 — replaced by `--ui-font-size`,
+  // `--ui-font-size-info` and a `calc()` off the former when the card became
+  // the docked sign-in panel.
+  ui: 68,
   widgets: 6,
 };
 
@@ -636,7 +640,9 @@ describe('hardcoded font sizes do not grow', () => {
     // 221 - 2 agrees with it.
     // 219 -> 218: the Draw Filled Zone dialog's one; `editors/pcb` 62 -> 61 is
     // the only row that moves and 219 - 1 agrees with it.
-    expect(sites.length).toBe(218);
+    // 218 -> 204: the sign-in wall's fourteen; `ui` 82 -> 68 is the only row
+    // that moves and 218 - 14 agrees with it.
+    expect(sites.length).toBe(204);
   });
 });
 
