@@ -31,6 +31,8 @@
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TreeIcon } from '../home/project_tree_pane.js';
 import { treeIconFor } from '../home/project_tree.js';
+import { ContextMenu } from '../ui/MenuBar.js';
+import type { MenuItem } from '../ui/menu_types.js';
 import { useModalEscape } from '../ui/useModalEscape.js';
 import '../ui/file_chooser.css';
 import { fileExtension, fileTypeLabel } from './file_types.js';
@@ -119,6 +121,16 @@ export interface FileChooserProps {
    * press is reported and the caller decides.
    */
   onDelete?: (entry: Entry) => void;
+  /**
+   * After the tree took a rename, with the path the entry now has.
+   *
+   * The rename itself is the filesystem's (F2 or the row's menu, edited in
+   * place the way GTK does). But a renamed PROJECT has consequences the tree
+   * does not know about — the manager's own list, and the cloud copy that
+   * carries the name and would bring the old one back on the next device that
+   * syncs — so whoever opened the window is told.
+   */
+  onRenamed?: (entry: Entry, path: string) => void;
 }
 
 /** Folders first, then the chosen column — as every file manager orders. */
@@ -243,6 +255,7 @@ export function FileChooser({
   onAccept,
   onCancel,
   onDelete,
+  onRenamed,
 }: FileChooserProps): JSX.Element {
   /**
    * Which sidebar row is lit. The first place is the one the window opens on,
@@ -331,6 +344,21 @@ export function FileChooser({
    * new folder appears as an editable row rather than as a prompt.
    */
   const [editing, setEditing] = useState<{ path: string | null; name: string } | null>(null);
+  /**
+   * The row's right-click menu: where it is up, and over which entry.
+   *
+   * GTK's file chooser pops one over a row (gtkfilechooserwidget.ui's
+   * browse_files_popover) with Rename and Delete in it, and hides each of the
+   * two — does not grey it — when the file's info says it cannot be done
+   * (G_FILE_ATTRIBUTE_ACCESS_CAN_RENAME, _CAN_DELETE). Ours follows that
+   * rule: Rename is offered where the place can be written to, and the tree
+   * itself refuses the folders with a fixed name (Templates, 3D Models...);
+   * Delete where whoever opened the window said what deleting means. The rest
+   * of GTK's popover — Open With File Manager, Add to Bookmarks, Move to
+   * Trash, the column toggles — has nothing behind it here and is left out
+   * rather than drawn greyed.
+   */
+  const [menu, setMenu] = useState<{ x: number; y: number; path: string } | null>(null);
   /** Where Back and Forward go. GTK's path bar has both. */
   const [history, setHistory] = useState<{ past: string[]; future: string[] }>({
     past: [],
@@ -489,7 +517,11 @@ export function FileChooser({
     if (!now || !isValidName(now.name)) return;
     try {
       if (now.path === null) await activeFs.mkdir(join(dir, now.name));
-      else await activeFs.rename(now.path, now.name);
+      else {
+        const entry = shown.find((x) => x.path === now.path);
+        await activeFs.rename(now.path, now.name);
+        if (entry && onRenamed) onRenamed(entry, join(dir, now.name));
+      }
       await reload(dir);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -730,6 +762,15 @@ export function FileChooser({
                         if (mode === 'save' && e.kind === 'file') setName(e.name);
                       }}
                       onDoubleClick={() => activate(e)}
+                      onContextMenu={(ev) => {
+                        ev.preventDefault();
+                        // Right-clicking a row selects it first, as GTK's tree
+                        // view does; the menu is about ONE row.
+                        setAlsoSelected(new Set());
+                        setSelected(e.path);
+                        if (mode === 'save' && e.kind === 'file') setName(e.name);
+                        setMenu({ x: ev.clientX, y: ev.clientY, path: e.path });
+                      }}
                     >
                       <span className="ze-chooser-name-cell">
                         <TreeIcon name={iconFor(e)} />
@@ -781,6 +822,21 @@ export function FileChooser({
           confirmation dismissed the file manager with it, and the name you were
           about to change went with it. Esc was already right - `useModalEscape`
           is a stack and only the topmost dialog answers. */}
+      {menu !== null &&
+        (() => {
+          const entry = shown.find((x) => x.path === menu.path);
+          if (!entry) return null;
+          const items: MenuItem[] = [];
+          // GTK's labels, mnemonics dropped: `_Rename`, `_Delete`.
+          if (placeWritable)
+            items.push({
+              label: 'Rename',
+              action: () => setEditing({ path: entry.path, name: entry.name }),
+            });
+          if (onDelete) items.push({ label: 'Delete', action: () => onDelete(entry) });
+          if (items.length === 0) return null;
+          return <ContextMenu x={menu.x} y={menu.y} items={items} onClose={() => setMenu(null)} />;
+        })()}
       {confirmOverwrite !== null && (
         // biome-ignore lint/a11y/noStaticElementInteractions: a backdrop guard, not a control
         <div onMouseDown={(e) => e.stopPropagation()}>

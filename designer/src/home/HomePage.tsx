@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import type { Entry } from '../fs/filesystem.js';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { preloadBundle } from '../libraryPreload.js';
 import { MenuBar, type Menu } from '../ui/MenuBar.js';
@@ -45,7 +46,7 @@ import {
   redeemPendingInvite,
   type ProjectRole,
 } from '../cloud/invites.js';
-import { LoadingOverlay, nextPaint } from '../ui/LoadingOverlay.js';
+import { ProgressDialog, nextPaint } from '../ui/ProgressDialog.js';
 import type { ProgressSnapshot } from '../ui/progress_reporter.js';
 import {
   loadTemplates,
@@ -760,13 +761,16 @@ export function HomePage({
     // files - and both used to name the file in flight, so the line changed on
     // every one of 89 ticks and the card resized under it. A fraction is the
     // one thing both paths agree on, and the bar already carries it.
-    setLoading({ message: `Downloading demo: ${d.title}`, value: 0 });
+    setLoading({
+      title: 'Download Demo',
+      label: { message: `Downloading demo: ${d.title}`, value: 0 },
+    });
     let files: PickedHomeFile[];
     try {
       files = await openDemo(d, (done, total) =>
         setLoading({
-          message: `Downloading demo: ${d.title}`,
-          value: done / total,
+          title: 'Download Demo',
+          label: { message: `Downloading demo: ${d.title}`, value: done / total },
         }),
       );
     } catch (e) {
@@ -897,7 +901,16 @@ export function HomePage({
   // Non-null while opening/saving a project, drives KiCad's "Load Schematic"
   // style progress overlay (message + optional gauge) so the UI doesn't look
   // frozen mid-load.
-  const [loading, setLoading] = useState<string | ProgressSnapshot | null>(null);
+  /**
+   * The manager's WX_PROGRESS_REPORTER. KiCad's manager has none of these jobs
+   * (a project there is a folder on disk), so the titles are ours, in the
+   * imperative KiCad gives its own — "Load PCB", "Fetch Remote", "Download
+   * Package" — and the dialog is the same one every editor puts up.
+   */
+  const [loading, setLoading] = useState<{
+    title: string;
+    label: string | ProgressSnapshot;
+  } | null>(null);
   // Cloud sync status pill (non-blocking, bottom-right): transfers done/total
   // while projects reconcile on sign-in, then a brief "synced" confirmation.
   const [syncState, setSyncState] = useState<
@@ -1102,7 +1115,7 @@ export function HomePage({
     persist = true,
     templateId?: string,
   ): Promise<string | null> => {
-    setLoading({ message: 'Reading files...', value: 0 });
+    setLoading({ title: 'Load Files', label: { message: 'Reading files...', value: 0 } });
     await nextPaint(); // show the overlay before the main thread gets busy
     try {
       // A picked or dropped FOLDER puts its own name on the front of every
@@ -1121,8 +1134,8 @@ export function HomePage({
         const bytes = await f.bytesOf();
         out.push({ name: f.name, text: dec.decode(bytes), bytes });
         setLoading({
-          message: 'Reading files...',
-          value: (i + 1) / files.length,
+          title: 'Load Files',
+          label: { message: 'Reading files...', value: (i + 1) / files.length },
         });
       }
       if (out.length === 0) return null;
@@ -1132,7 +1145,7 @@ export function HomePage({
           // Persist every file's raw bytes (empty files carry nothing to reopen).
           const withBytes = out.filter((f) => f.bytes && f.bytes.length > 0);
           if (withBytes.length > 0) {
-            setLoading('Saving project...');
+            setLoading({ title: 'Save Project', label: 'Saving project...' });
             const name = projectNameOf(out);
             // Reuse an existing record of the same name so reopening a folder
             // updates it rather than piling up duplicates.
@@ -1267,7 +1280,7 @@ export function HomePage({
      */
     activateRel?: string,
   ): Promise<void> => {
-    setLoading('Opening project...');
+    setLoading({ title: 'Open Project', label: 'Opening project...' });
     await nextPaint();
     try {
       const loaded = await loadProject(id);
@@ -1353,6 +1366,33 @@ export function HomePage({
       void deleteCloudProject(id, userId).catch((e) => console.warn('Cloud delete failed:', e));
   };
 
+  /**
+   * The two things the file chooser asks of the window that opened it, for
+   * both project dialogs (Open Existing Project, New Project Folder): their
+   * rows are the account's projects, so a row's Delete and Rename are a
+   * PROJECT's.
+   *
+   * Deleting is the caller's because the sentence differs: signed in it leaves
+   * the account, signed out only this browser. removeStored is what already
+   * asks that question. A rename the tree has done still has to reach the
+   * manager's list and the cloud copy, which carries the name and would bring
+   * the old one back on the next device that syncs — the same two things
+   * renameStored does after its own rename.
+   */
+  const deleteEntry = (entry: Entry): void => {
+    void projectAt(entry.path).then((p) => {
+      if (p) void removeStored(p.id);
+    });
+  };
+  const renamedEntry = (_entry: Entry, path: string): void => {
+    void projectAt(path).then((p) => {
+      if (!p) return;
+      refreshSaved();
+      if (userId)
+        void pushProject(userId, p.id).catch((err) => console.warn('Cloud rename failed:', err));
+    });
+  };
+
   const onPicked = async (list: FileList | null): Promise<void> => {
     if (!list || list.length === 0) return;
     await ingest(filesFromFileList(list));
@@ -1406,7 +1446,7 @@ export function HomePage({
     const name = projectNameOf(picked);
     const entries = archiveEntries(picked, name);
     if (!entries) return;
-    setLoading('Archiving project...');
+    setLoading({ title: 'Archive Project', label: 'Archiving project...' });
     await nextPaint(); // paint the overlay before zipSync blocks the main thread
     try {
       const blob = new Blob([zipArchive(entries)], { type: 'application/zip' });
@@ -2130,14 +2170,8 @@ export function HomePage({
               </button>
             </>
           }
-          onDelete={(entry) => {
-            // Deleting is the caller's because the sentence differs: signed in
-            // it leaves the account, signed out only this browser. removeStored
-            // is what already asks that question.
-            void projectAt(entry.path).then((p) => {
-              if (p) void removeStored(p.id);
-            });
-          }}
+          onDelete={deleteEntry}
+          onRenamed={renamedEntry}
           onAccept={(path) => {
             setOpenPrjOpen(false);
             void projectAt(path).then((p) => {
@@ -2231,6 +2265,8 @@ export function HomePage({
           // be created; Recent, Demos and Templates are read-only listings.
           places={[{ id: 'projects', label: 'Projects', icon: 'open_project' }]}
           filters={NEW_PROJECT_FOLDER_FILTERS}
+          onDelete={deleteEntry}
+          onRenamed={renamedEntry}
           onCancel={() => setTplStep('none')}
           onAccept={(path) => {
             // The name half of what NewProject does to the returned path, and
@@ -2427,7 +2463,7 @@ export function HomePage({
             setRestoring(null);
             if (r !== 'yes') return;
             void (async () => {
-              setLoading('Restoring...');
+              setLoading({ title: 'Restore Project', label: 'Restoring...' });
               await nextPaint();
               try {
                 const files = await restoreSnapshot(openProjectId, snapshot.id);
@@ -2447,7 +2483,7 @@ export function HomePage({
         />
       )}
 
-      <LoadingOverlay label={loading} />
+      <ProgressDialog title={loading?.title ?? ''} label={loading?.label ?? null} />
     </div>
   );
 }
