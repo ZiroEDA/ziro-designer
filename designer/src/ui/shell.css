@@ -5150,9 +5150,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    real dialog on this theme (qa/probes/progress_dialog_probe.py); the face,
    caption, font and button are the shared dialog's and are not restated.
 
-   The parent is under a `wxWindowDisabler`, so the pointer over it is the
-   busy one. */
+   The parent is under a `wxWindowDisabler`: it stops taking input, and that
+   is ALL that happens to it. GTK draws nothing over a window behind a modal
+   dialog, so the frame — menus, toolbars, the grid on its blank sheet — stays
+   exactly as bright as it was, and the dialog simply sits on it. The shared
+   backdrop's dim is not something KiCad has, and it is not wanted here. The
+   pointer over the disabled frame is the busy one. */
 .ze-progress-backdrop {
+  background: transparent;
   cursor: progress;
   z-index: 300;
 }
