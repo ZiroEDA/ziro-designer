@@ -469,17 +469,49 @@ export function SymbolEditor({
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
 
   // ----- library bootstrap ------------------------------------------------------
+  /**
+   * Which project the tree's project rows belong to.
+   *
+   * The identity, not the content: the project's `sym-lib-table` rows and the
+   * names of the `.kicad_sym` files it holds. `initialProject` itself changes
+   * on every autosave settle, and the text of a project library is this
+   * editor's own output once it has edited one — re-registering from it would
+   * replace the working copy with the last flush. A different project has
+   * different rows or files; the same one, however often it is saved, has
+   * the same key.
+   */
+  const projectLibsKey = useMemo(
+    () =>
+      resolvedProjectSymLibs(initialProject ?? [])
+        .map(({ row, file }) => `${row.name}\t${file.name}\t${row.disabled ? 0 : 1}`)
+        .sort()
+        .join('\n'),
+    [initialProject],
+  );
+  /**
+   * Project libraries: the rows of the project's `sym-lib-table`, under the
+   * nickname each row gives. SYMBOL_LIB_TABLE is what makes a library exist —
+   * a `.kicad_sym` sitting in the project folder that no row points at is a
+   * file, not a library, and must not appear in the tree. A disabled row is
+   * registered by neither (`HasLibrary( nickname, true )`).
+   *
+   * `SYMBOL_EDIT_FRAME::ProjectChanged` -> `SyncLibraries`: re-run when the
+   * project changes, on the frame that already exists, rather than building
+   * a new frame per project. The previous project's rows go first.
+   */
   useEffect(() => {
-    // Project libraries: the rows of the project's `sym-lib-table`, under the
-    // nickname each row gives. SYMBOL_LIB_TABLE is what makes a library exist —
-    // a `.kicad_sym` sitting in the project folder that no row points at is a
-    // file, not a library, and must not appear in the tree. A disabled row is
-    // registered by neither (`HasLibrary( nickname, true )`).
+    manager.current.dropProjectLibraries();
     for (const { row, file } of resolvedProjectSymLibs(initialProject ?? [])) {
       if (row.disabled) continue;
       if (row.descr) libDescs.current.set(row.name, row.descr);
       manager.current.addProjectLibrary(row.name, file.name, file.text);
     }
+    // A selection in a library that just went is no selection.
+    setCurLib((lib) => (lib && !manager.current.libraryExists(lib) ? null : lib));
+    bump();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectLibsKey]);
+  useEffect(() => {
     // Libraries installed through the Plugin and Content Manager (loaded eagerly
     // from their stored `.kicad_sym` text).
     for (const lib of pcm.installedLibraries())

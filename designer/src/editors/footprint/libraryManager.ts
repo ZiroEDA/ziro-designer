@@ -123,6 +123,17 @@ export class FootprintLibraryManager {
   }
 
   /**
+   * Forget every project library: `FOOTPRINT_EDIT_FRAME::ProjectChanged` ->
+   * `SyncLibraryTree`, the half that lets the previous project's rows go. The
+   * frame outlives a project switch now, so the rows of the one that closed
+   * must not stay in its tree.
+   */
+  dropProjectLibraries(): void {
+    for (const [name, lib] of this.libs) if (lib.scope === 'project') this.libs.delete(name);
+    this.touch();
+  }
+
+  /**
    * Add a project library from its already-loaded `.kicad_mod` files (the
    * members of one `.pretty` directory of the open project).
    */

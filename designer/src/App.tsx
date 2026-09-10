@@ -187,6 +187,26 @@ const frameStyle = (shown: boolean): CSSProperties =>
   shown ? { display: 'contents' } : HIDDEN_FRAME;
 
 /**
+ * A hidden frame is not re-rendered either.
+ *
+ * `content-visibility` stops the browser laying a hidden frame out; it does
+ * nothing about React, which on every render of App reconciled all eight
+ * editors — their props are inline lambdas, new each time — so a click on a
+ * launcher cost the render of every frame that existed, ~500 ms with all of
+ * them warm. React skips a child whose element is the very same object it was
+ * handed last time, so while hidden this returns the element from the last
+ * shown render: the subtree is left exactly as it is. The frame's own state
+ * still renders itself; what it stops is the host pushing props into a frame
+ * nobody can see. Those arrive, all at once, with the render that shows it —
+ * which is when `shown` flips true and the editor reads its open.
+ */
+function Frozen({ shown, children }: { shown: boolean; children: JSX.Element }): JSX.Element {
+  const last = useRef(children);
+  if (shown) last.current = children;
+  return last.current;
+}
+
+/**
  * The board a pcbnew frame is built on when the project has none yet: the
  * empty board `PCB_EDIT_FRAME` itself starts with. It lets the frame exist
  * before a project does — see `warmFrames` — and is replaced the moment a
@@ -194,8 +214,29 @@ const frameStyle = (shown: boolean): CSSProperties =>
  */
 const WARM_BOARD: PickedFile = { name: 'untitled.kicad_pcb', text: EMPTY_PCB };
 
+/** The frames the manager's launchers open, in the order they are reached for. */
+type FrameView =
+  | 'schematic'
+  | 'pcb'
+  | 'symbols'
+  | 'footprints'
+  | 'gerber'
+  | 'drawingsheet'
+  | 'image'
+  | 'calculator';
+const WARM_ORDER: FrameView[] = [
+  'schematic',
+  'pcb',
+  'symbols',
+  'footprints',
+  'gerber',
+  'drawingsheet',
+  'image',
+  'calculator',
+];
+
 /**
- * Build the two big frames before they are asked for.
+ * Build every frame before it is asked for.
  *
  * With every chunk on disk, a first click on a launcher still paid for the
  * frame's construction — React's first render of a very large tree, its
@@ -207,17 +248,21 @@ const WARM_BOARD: PickedFile = { name: 'untitled.kicad_pcb', text: EMPTY_PCB };
  * and the thread is idle, one per idle slot.
  *
  * This is safe only because of two things that were not true before: a
- * hidden frame does no work (`shown` gates the open in both editors, so the
- * warm frame does not parse a project behind the manager), and a launcher
- * click on the open project is a raise, not a re-open (`raiseOrOpen`), so
- * the frame that was warmed is the one that is shown.
+ * hidden frame does no work (`shown` gates the open in the schematic and
+ * board editors, so a warm frame does not parse a project behind the
+ * manager), and a launcher click on the open project is a raise, not a
+ * re-open (`raiseOrOpen`), so the frame that was warmed is the one that is
+ * shown. The symbol and footprint editors re-register the project's
+ * library rows on the frame that exists when the project changes
+ * (`SYMBOL_EDIT_FRAME::ProjectChanged` -> `SyncLibraries`); the remaining
+ * four take no project and have nothing to redo.
  *
  * Idle callbacks with a deadline: a page that is never idle would otherwise
  * never warm, and two seconds after the manager paints is late enough for
  * it to have finished its own work.
  */
-function warmFrames(mount: (v: 'schematic' | 'pcb') => void): () => void {
-  const order: ('schematic' | 'pcb')[] = ['schematic', 'pcb'];
+function warmFrames(mount: (v: FrameView) => void): () => void {
+  const order = WARM_ORDER;
   const g = globalThis as {
     requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
     cancelIdleCallback?: (h: number) => void;
@@ -1540,162 +1585,173 @@ export function App(): JSX.Element {
       {view !== 'home' && <SaveIndicator />}
       {schMounted && (
         <div style={frameStyle(view === 'schematic')}>
-          <Suspense fallback={frameLoading}>
-            <SchematicEditor
-              onExitToHome={goHome}
-              onShowPcb={pcbFile ? showPcb : undefined}
-              onEditSymbolInEditor={editSymbolInEditor}
-              editedSymbol={editedSymbol}
-              // Tools > Update Schematic from PCB: read the board here, so the
-              // schematic editor never has to know the board model — the adapter
-              // is the whole coupling between the two.
-              readBoardFootprints={
-                pcbFile
-                  ? async () => {
-                      try {
-                        // Pulled in on use rather than imported at the top of
-                        // this file: statically, it put the whole .kicad_pcb
-                        // parser into the entry chunk for every visitor,
-                        // including the ones who never open a board.
-                        const [{ readBoard }, { parse }, { boardFootprintData }] =
-                          await Promise.all([
-                            import('@ziroeda/pcbnew'),
-                            import('@ziroeda/sexpr'),
-                            import('./editors/schematic/back_annotate_source.js'),
-                          ]);
-                        return boardFootprintData(readBoard(parse(pcbFile.text)));
-                      } catch {
-                        return null;
+          <Frozen shown={view === 'schematic'}>
+            <Suspense fallback={frameLoading}>
+              <SchematicEditor
+                onExitToHome={goHome}
+                onShowPcb={pcbFile ? showPcb : undefined}
+                onEditSymbolInEditor={editSymbolInEditor}
+                editedSymbol={editedSymbol}
+                // Tools > Update Schematic from PCB: read the board here, so the
+                // schematic editor never has to know the board model — the adapter
+                // is the whole coupling between the two.
+                readBoardFootprints={
+                  pcbFile
+                    ? async () => {
+                        try {
+                          // Pulled in on use rather than imported at the top of
+                          // this file: statically, it put the whole .kicad_pcb
+                          // parser into the entry chunk for every visitor,
+                          // including the ones who never open a board.
+                          const [{ readBoard }, { parse }, { boardFootprintData }] =
+                            await Promise.all([
+                              import('@ziroeda/pcbnew'),
+                              import('@ziroeda/sexpr'),
+                              import('./editors/schematic/back_annotate_source.js'),
+                            ]);
+                          return boardFootprintData(readBoard(parse(pcbFile.text)));
+                        } catch {
+                          return null;
+                        }
                       }
-                    }
-                  : undefined
-              }
-              onUpdatePcb={
-                pcbFile
-                  ? () => {
-                      showPcb();
-                      setUpdatePcbNonce((n) => (n ?? 0) + 1);
-                    }
-                  : undefined
-              }
-              onShowSymbolEditor={showSymbolEditor}
-              onShowFootprintEditor={showFootprintEditor}
-              onShowCalculator={showCalculator}
-              initialProject={projectFiles}
-              initialFile={startFile}
-              rootPro={activeBase || undefined}
-              placeRequest={placeRequest}
-              onProjectChange={onProjectChange}
-              // Whether edits actually reach storage. `onProjectChange` is always
-              // passed but no-ops without an open project or without IndexedDB,
-              // and the editor cannot see that from its side — so it is told,
-              // rather than left to infer that its work is being saved.
-              autosaveActive={!!projectFiles && storageAvailable() && !demoProject}
-              onPersistFiles={persistFilesNow}
-              // Explicit Save only — it records a Local History point, which
-              // autosave must not. See saveProjectFiles.
-              onSaveFiles={saveProjectFiles}
-              onRevert={revertProject}
-              onOutputFile={onOutputFile}
-              registerAutosaveFlush={registerSchFlush}
-              openNonce={openNonce}
-              shown={view === 'schematic'}
-              extraSheetFiles={sessionSheets}
-              projectName={projectName}
-              readOnlyNotice={demoNotice}
-              readOnly={!!demoProject}
-              onCrossProbeNet={setCrossProbeNet}
-              syncSelectionFromPcb={schSyncSelection}
-              crossProbeNetFromPcb={schCrossProbeNet}
-              onSelectOnPcb={selectOnPcb}
-            />
-          </Suspense>
+                    : undefined
+                }
+                onUpdatePcb={
+                  pcbFile
+                    ? () => {
+                        showPcb();
+                        setUpdatePcbNonce((n) => (n ?? 0) + 1);
+                      }
+                    : undefined
+                }
+                onShowSymbolEditor={showSymbolEditor}
+                onShowFootprintEditor={showFootprintEditor}
+                onShowCalculator={showCalculator}
+                initialProject={projectFiles}
+                initialFile={startFile}
+                rootPro={activeBase || undefined}
+                placeRequest={placeRequest}
+                onProjectChange={onProjectChange}
+                // Whether edits actually reach storage. `onProjectChange` is always
+                // passed but no-ops without an open project or without IndexedDB,
+                // and the editor cannot see that from its side — so it is told,
+                // rather than left to infer that its work is being saved.
+                autosaveActive={!!projectFiles && storageAvailable() && !demoProject}
+                onPersistFiles={persistFilesNow}
+                // Explicit Save only — it records a Local History point, which
+                // autosave must not. See saveProjectFiles.
+                onSaveFiles={saveProjectFiles}
+                onRevert={revertProject}
+                onOutputFile={onOutputFile}
+                registerAutosaveFlush={registerSchFlush}
+                openNonce={openNonce}
+                shown={view === 'schematic'}
+                extraSheetFiles={sessionSheets}
+                projectName={projectName}
+                readOnlyNotice={demoNotice}
+                readOnly={!!demoProject}
+                onCrossProbeNet={setCrossProbeNet}
+                syncSelectionFromPcb={schSyncSelection}
+                crossProbeNetFromPcb={schCrossProbeNet}
+                onSelectOnPcb={selectOnPcb}
+              />
+            </Suspense>
+          </Frozen>
         </div>
       )}
       {pcbMounted && (
         <div style={frameStyle(view === 'pcb')}>
-          <Suspense fallback={frameLoading}>
-            <PcbEditor
-              fileName={pcbBasename(boardFile.name)}
-              text={boardFile.text}
-              onExit={goHome}
-              onShowSchematic={hasSchematic ? showSchematic : undefined}
-              onShowFootprintEditor={showFootprintEditor}
-              onBoardChange={(text: string) => onProjectChange([{ name: boardFile.name, text }])}
-              registerAutosaveFlush={registerPcbFlush}
-              openNonce={openNonce}
-              shown={view === 'pcb'}
-              onSaveBoard={(text: string) => {
-                const name = boardFile.name;
-                setProjectFiles((prev) =>
-                  prev ? prev.map((f) => (f.name === name ? { ...f, text } : f)) : prev,
-                );
-                persistFilesNow([{ name, text }]);
-              }}
-              projectName={projectName}
-              projectFiles={projectFiles ?? undefined}
-              rootPro={activeBase || undefined}
-              onPersistFiles={persistFilesNow}
-              onOutputFile={onOutputFile}
-              crossProbeNet={crossProbeNet}
-              syncSelection={pcbSyncSelection}
-              onSyncSelectionToSch={setSchSyncSelection}
-              onCrossProbeNetToSch={setSchCrossProbeNet}
-              updateFromSchematic={updatePcbNonce}
-              readOnlyNotice={demoNotice}
-              readOnly={!!demoProject}
-            />
-          </Suspense>
+          <Frozen shown={view === 'pcb'}>
+            <Suspense fallback={frameLoading}>
+              <PcbEditor
+                fileName={pcbBasename(boardFile.name)}
+                text={boardFile.text}
+                onExit={goHome}
+                onShowSchematic={hasSchematic ? showSchematic : undefined}
+                onShowFootprintEditor={showFootprintEditor}
+                onBoardChange={(text: string) => onProjectChange([{ name: boardFile.name, text }])}
+                registerAutosaveFlush={registerPcbFlush}
+                openNonce={openNonce}
+                shown={view === 'pcb'}
+                onSaveBoard={(text: string) => {
+                  const name = boardFile.name;
+                  setProjectFiles((prev) =>
+                    prev ? prev.map((f) => (f.name === name ? { ...f, text } : f)) : prev,
+                  );
+                  persistFilesNow([{ name, text }]);
+                }}
+                projectName={projectName}
+                projectFiles={projectFiles ?? undefined}
+                rootPro={activeBase || undefined}
+                onPersistFiles={persistFilesNow}
+                onOutputFile={onOutputFile}
+                crossProbeNet={crossProbeNet}
+                syncSelection={pcbSyncSelection}
+                onSyncSelectionToSch={setSchSyncSelection}
+                onCrossProbeNetToSch={setSchCrossProbeNet}
+                updateFromSchematic={updatePcbNonce}
+                readOnlyNotice={demoNotice}
+                readOnly={!!demoProject}
+              />
+            </Suspense>
+          </Frozen>
         </div>
       )}
       {symMounted && (
         <div style={frameStyle(view === 'symbols')}>
-          <Suspense fallback={frameLoading}>
-            <SymbolEditor
-              onExitToHome={goHome}
-              projectName={projectName}
-              initialProject={projectFiles}
-              onAddSymbolToSchematic={addSymbolToSchematic}
-              openRequest={symRequest}
-              schematicSymbol={symFromSchematic}
-              onSaveToSchematic={saveSymbolToSchematic}
-              /* `SYMBOL_EDIT_FRAME::ShowInfoBarMessages` puts up "Library is
+          <Frozen shown={view === 'symbols'}>
+            <Suspense fallback={frameLoading}>
+              <SymbolEditor
+                onExitToHome={goHome}
+                projectName={projectName}
+                initialProject={projectFiles}
+                onAddSymbolToSchematic={addSymbolToSchematic}
+                openRequest={symRequest}
+                schematicSymbol={symFromSchematic}
+                onSaveToSchematic={saveSymbolToSchematic}
+                /* `SYMBOL_EDIT_FRAME::ShowInfoBarMessages` puts up "Library is
                  read-only.  Changes cannot be saved to this library." with a
                  "Create an editable copy" link. When a demo project is what
                  makes it read-only, the thing to copy is the PROJECT - one
                  editable symbol in a project that still is not saved would be
                  a worse answer than upstream's - so this is the project's own
                  strip, the same call pl_editor makes just above. */
-              readOnlyNotice={demoProject ? demoNotice : null}
-            />
-          </Suspense>
+                readOnlyNotice={demoProject ? demoNotice : null}
+              />
+            </Suspense>
+          </Frozen>
         </div>
       )}
       {fpMounted && (
         <div style={frameStyle(view === 'footprints')}>
-          <Suspense fallback={frameLoading}>
-            <FootprintEditor
-              onExitToHome={goHome}
-              initialProject={projectFiles}
-              openRequest={fpRequest}
-            />
-          </Suspense>
+          <Frozen shown={view === 'footprints'}>
+            <Suspense fallback={frameLoading}>
+              <FootprintEditor
+                onExitToHome={goHome}
+                initialProject={projectFiles}
+                openRequest={fpRequest}
+              />
+            </Suspense>
+          </Frozen>
         </div>
       )}
       {calcMounted && (
         <div style={frameStyle(view === 'calculator')}>
-          <Suspense fallback={frameLoading}>
-            <CalculatorTools onExitToHome={goHome} />
-          </Suspense>
+          <Frozen shown={view === 'calculator'}>
+            <Suspense fallback={frameLoading}>
+              <CalculatorTools onExitToHome={goHome} />
+            </Suspense>
+          </Frozen>
         </div>
       )}
       {dsMounted && (
         <div style={frameStyle(view === 'drawingsheet')}>
-          <Suspense fallback={frameLoading}>
-            <DrawingSheetEditor
-              onExitToHome={goHome}
-              projectName={projectName}
-              /* Two cases, because this frame is reachable both ways.
+          <Frozen shown={view === 'drawingsheet'}>
+            <Suspense fallback={frameLoading}>
+              <DrawingSheetEditor
+                onExitToHome={goHome}
+                projectName={projectName}
+                /* Two cases, because this frame is reachable both ways.
                  WITH a project open, the thing to keep is the project, not the
                  sheet - the editor already saves sheet copies on its own - so
                  it gets the project's own strip and its Save a copy.
@@ -1704,33 +1760,42 @@ export function App(): JSX.Element {
                  after RemoveAllButtons() and AddCloseButton()
                  (pagelayout_editor/files.cpp:276-281) - message in KiCad's
                  words, close button and nothing else. */
-              readOnlyNotice={
-                !demoProject ? null : projectFiles ? (
-                  demoNotice
-                ) : (
-                  <ReadOnlyNotice message="Layout file is read only." />
-                )
-              }
-              // Always passed: a Save As into `/Templates` needs no open project,
-              // and the editor's only other answer was a browser download.
-              onSaveToProject={onSaveToProject}
-              openRequest={dsRequest}
-            />
-          </Suspense>
+                readOnlyNotice={
+                  !demoProject ? null : projectFiles ? (
+                    demoNotice
+                  ) : (
+                    <ReadOnlyNotice message="Layout file is read only." />
+                  )
+                }
+                // Always passed: a Save As into `/Templates` needs no open project,
+                // and the editor's only other answer was a browser download.
+                onSaveToProject={onSaveToProject}
+                openRequest={dsRequest}
+              />
+            </Suspense>
+          </Frozen>
         </div>
       )}
       {imgMounted && (
         <div style={frameStyle(view === 'image')}>
-          <Suspense fallback={frameLoading}>
-            <ImageConverter onExitToHome={goHome} />
-          </Suspense>
+          <Frozen shown={view === 'image'}>
+            <Suspense fallback={frameLoading}>
+              <ImageConverter onExitToHome={goHome} />
+            </Suspense>
+          </Frozen>
         </div>
       )}
       {gbMounted && (
         <div style={frameStyle(view === 'gerber')}>
-          <Suspense fallback={frameLoading}>
-            <GerberViewer onExitToHome={goHome} projectName={projectName} openRequest={gbRequest} />
-          </Suspense>
+          <Frozen shown={view === 'gerber'}>
+            <Suspense fallback={frameLoading}>
+              <GerberViewer
+                onExitToHome={goHome}
+                projectName={projectName}
+                openRequest={gbRequest}
+              />
+            </Suspense>
+          </Frozen>
         </div>
       )}
     </>

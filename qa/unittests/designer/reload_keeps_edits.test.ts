@@ -40,6 +40,8 @@ const SRC = join(__dirname, '../../../designer/src');
 const APP = readFileSync(join(SRC, 'App.tsx'), 'utf8');
 const SCH = readFileSync(join(SRC, 'editors/schematic/SchematicEditor.tsx'), 'utf8');
 const PCB = readFileSync(join(SRC, 'editors/pcb/PcbEditor.tsx'), 'utf8');
+const SYM = readFileSync(join(SRC, 'editors/symbol/SymbolEditor.tsx'), 'utf8');
+const FP = readFileSync(join(SRC, 'editors/footprint/FootprintEditor.tsx'), 'utf8');
 
 /** The body of a `const <name> = useCallback(…)`, up to its dependency array. */
 function body(src: string, name: string): string {
@@ -66,9 +68,12 @@ function effectAround(src: string, needle: string): { code: string; deps: string
 function element(src: string, name: string): string {
   const start = src.indexOf(`<${name}\n`);
   expect(start, `<${name}> not found`).toBeGreaterThan(-1);
-  const end = src.indexOf('\n            />', start);
-  expect(end).toBeGreaterThan(start);
-  return src.slice(start, end);
+  // The closing `/>` on its own line, at whatever depth the element sits.
+  const close = /\n\s*\/>/g;
+  close.lastIndex = start;
+  const m = close.exec(src);
+  expect(m, `<${name}> never closes`).not.toBeNull();
+  return src.slice(start, m!.index);
 }
 
 describe('the in-memory project is the freshest copy, not the file as opened', () => {
@@ -239,11 +244,13 @@ describe('the manager raises an open project; it does not re-open it', () => {
     expect(APP.match(/style=\{frameStyle\(view === '[a-z]+'\)\}/g)?.length).toBe(8);
   });
 
-  it('the schematic and board frames are built while the manager is up', () => {
+  it('every frame is built while the manager is up, most-used first', () => {
     expect(APP).toMatch(
-      /useEffect\(\(\) => \(view === 'home' \? warmFrames\(mountFor\) : undefined\), \[view, mountFor\]\)/,
+      /useEffect\(\s*\(\) => \(view === 'home' \? warmFrames\(mountFor\) : undefined\),\s*\[view, mountFor\],?\s*\)/,
     );
-    expect(APP).toMatch(/const order: \('schematic' \| 'pcb'\)\[\] = \['schematic', 'pcb'\]/);
+    expect(APP).toMatch(
+      /const WARM_ORDER: FrameView\[\] = \[\s*'schematic',\s*'pcb',\s*'symbols',\s*'footprints',\s*'gerber',\s*'drawingsheet',\s*'image',\s*'calculator',?\s*\]/,
+    );
     // The board frame can exist before a project does: it is born on the
     // empty board, as PCB_EDIT_FRAME is.
     expect(APP).toMatch(/const boardFile: PickedFile = pcbFile \?\? WARM_BOARD;/);
@@ -256,5 +263,37 @@ describe('the manager raises an open project; it does not re-open it', () => {
     // open must not show the last project.
     const { code } = effectAround(SCH, 'openedKey.current !== key');
     expect(code).toMatch(/else if \(!first\) void loadText\(EMPTY_SCH\);/);
+  });
+
+  it('a hidden frame is not re-rendered by the host: Frozen hands back the last element', () => {
+    // With eight frames warm, every App render reconciled all eight — ~500 ms
+    // a click. React skips a child whose element is the same object as last
+    // time; Frozen keeps the last shown one while hidden.
+    expect(APP).toMatch(
+      /function Frozen\(\{ shown, children \}[\s\S]*?if \(shown\) last\.current = children;\s*return last\.current;/,
+    );
+    expect(APP.match(/<Frozen shown=\{view === '[a-z]+'\}>/g)?.length).toBe(8);
+  });
+
+  it('the library editors re-sync the project on the frame that exists, keyed on identity', () => {
+    // SYMBOL_EDIT_FRAME::ProjectChanged -> SyncLibraries; never a remount, so
+    // a warm frame survives the session's first real open. The key is the
+    // rows and file names, not the text an autosave rewrites.
+    for (const [src, label] of [
+      [SYM, 'symbol'],
+      [FP, 'footprint'],
+    ] as const) {
+      const { code, deps } = effectAround(src, 'manager.current.dropProjectLibraries()');
+      expect(deps, label).toBe('[projectLibsKey]');
+      expect(code, label).toMatch(
+        /setCurLib\(\(lib\) => \(lib && !manager\.current\.libraryExists\(lib\) \? null : lib\)\)/,
+      );
+    }
+    expect(SYM).toMatch(
+      /const projectLibsKey = useMemo\([\s\S]*?\$\{row\.name\}\\t\$\{file\.name\}/,
+    );
+    expect(SYM).not.toMatch(/projectLibsKey[\s\S]{0,400}file\.text/);
+    expect(APP).not.toMatch(/<SymbolEditor\s+key=/);
+    expect(APP).not.toMatch(/<FootprintEditor\s+key=/);
   });
 });

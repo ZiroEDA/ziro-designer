@@ -472,7 +472,28 @@ export function FootprintEditor({
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
 
   // ----- library bootstrap ------------------------------------------------------
+  /**
+   * Which project the tree's project rows belong to: the `fp-lib-table` rows
+   * and the `.kicad_mod` names, not their text — see the same key in the
+   * symbol editor for why content is the wrong thing to key on.
+   */
+  const projectLibsKey = useMemo(
+    () =>
+      [
+        ...projectFpLibTable(initialProject ?? []).map((r) => `${r.name}\t${r.uri}`),
+        ...(initialProject ?? []).filter((f) => /\.kicad_mod$/i.test(f.name)).map((f) => f.name),
+      ]
+        .sort()
+        .join('\n'),
+    [initialProject],
+  );
+  /**
+   * `FOOTPRINT_EDIT_FRAME::ProjectChanged` -> `SyncLibraryTree`: the project's
+   * rows are re-registered on the frame that exists whenever the project
+   * changes, the previous project's rows going first.
+   */
   useEffect(() => {
+    manager.current.dropProjectLibraries();
     // Group the open project's `.kicad_mod` files by their `.pretty` directory.
     const byDir = new Map<string, { fileName: string; text: string }[]>();
     for (const f of initialProject ?? []) {
@@ -492,6 +513,12 @@ export function FootprintEditor({
       const name = projectLibraryNickname(libRows, `${dir}/x.kicad_mod`);
       if (name) manager.current.addProjectLibrary(name, dir, entries);
     }
+    // A selection in a library that just went is no selection.
+    setCurLib((lib) => (lib && !manager.current.libraryExists(lib) ? null : lib));
+    bump();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectLibsKey]);
+  useEffect(() => {
     // Bundled global footprint libraries (names up front, files fetched lazily).
     fetch(`${footprintsBase()}/index.json`)
       .then((r) => (r.ok ? r.json() : []))

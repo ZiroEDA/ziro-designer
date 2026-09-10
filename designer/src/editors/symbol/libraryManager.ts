@@ -80,6 +80,17 @@ export class SymbolLibraryManager {
     this.touch();
   }
 
+  /**
+   * Forget every project library: `SYMBOL_EDIT_FRAME::ProjectChanged` ->
+   * `SyncLibraries`, the half that lets the previous project's rows go. The
+   * frame outlives a project switch now, so the rows of the one that closed
+   * must not stay in its tree.
+   */
+  dropProjectLibraries(): void {
+    for (const [name, lib] of this.libs) if (lib.scope === 'project') this.libs.delete(name);
+    this.touch();
+  }
+
   /** Add a project library from already-loaded file text. */
   addProjectLibrary(name: string, fileName: string, text: string): void {
     const lib: ManagedLibrary = {
