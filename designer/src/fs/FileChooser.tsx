@@ -119,8 +119,13 @@ export interface FileChooserProps {
    * signed in takes it out of the account, and signed out only out of this
    * browser. That sentence belongs to whoever opened the window, so the key
    * press is reported and the caller decides.
+   *
+   * It may return a promise: the listing is reloaded once it settles, so a
+   * deleted row goes the moment it is gone and not when the window is next
+   * opened. (A caller that asks first and is told no resolves too; the reload
+   * then shows the same rows, which is right.)
    */
-  onDelete?: (entry: Entry) => void;
+  onDelete?: (entry: Entry) => void | Promise<void>;
   /**
    * After the tree took a rename, with the path the entry now has.
    *
@@ -511,6 +516,16 @@ export function FileChooser({
     activate(e);
   };
 
+  /** The caller deletes; the listing follows, however long the caller took. */
+  const deleteEntry = async (entry: Entry): Promise<void> => {
+    if (!onDelete) return;
+    try {
+      await onDelete(entry);
+    } finally {
+      await reload(dir);
+    }
+  };
+
   const commitEdit = async (): Promise<void> => {
     const now = editing;
     setEditing(null);
@@ -559,7 +574,7 @@ export function FileChooser({
           }
           if (e.key === 'Delete' && selected && onDelete) {
             const entry = shown.find((x) => x.path === selected);
-            if (entry) onDelete(entry);
+            if (entry) void deleteEntry(entry);
           }
         }}
       >
@@ -833,9 +848,19 @@ export function FileChooser({
               label: 'Rename',
               action: () => setEditing({ path: entry.path, name: entry.name }),
             });
-          if (onDelete) items.push({ label: 'Delete', action: () => onDelete(entry) });
+          if (onDelete) items.push({ label: 'Delete', action: () => void deleteEntry(entry) });
           if (items.length === 0) return null;
-          return <ContextMenu x={menu.x} y={menu.y} items={items} onClose={() => setMenu(null)} />;
+          return (
+            // The same guard the overwrite confirmation below has, for the same
+            // reason: this sits beside the chooser, directly in the backdrop,
+            // whose mousedown is Cancel for the WHOLE dialog. Without it the
+            // press on "Delete" closed the chooser, the menu unmounted with it,
+            // and the click never happened - no confirmation, no delete.
+            // biome-ignore lint/a11y/noStaticElementInteractions: a backdrop guard, not a control
+            <div onMouseDown={(e) => e.stopPropagation()}>
+              <ContextMenu x={menu.x} y={menu.y} items={items} onClose={() => setMenu(null)} />
+            </div>
+          );
         })()}
       {confirmOverwrite !== null && (
         // biome-ignore lint/a11y/noStaticElementInteractions: a backdrop guard, not a control

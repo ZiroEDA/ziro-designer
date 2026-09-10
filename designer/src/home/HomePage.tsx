@@ -1379,10 +1379,10 @@ export function HomePage({
    * the old one back on the next device that syncs — the same two things
    * renameStored does after its own rename.
    */
-  const deleteEntry = (entry: Entry): void => {
-    void projectAt(entry.path).then((p) => {
-      if (p) void removeStored(p.id);
-    });
+  const deleteEntry = async (entry: Entry): Promise<void> => {
+    // Returned, not fired: the chooser reloads its rows when this settles.
+    const p = await projectAt(entry.path);
+    if (p) await removeStored(p.id);
   };
   const renamedEntry = (_entry: Entry, path: string): void => {
     void projectAt(path).then((p) => {

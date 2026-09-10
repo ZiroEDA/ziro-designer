@@ -51,8 +51,23 @@ describe('what is in it, and what hides it', () => {
 
   it('Delete is offered where the caller said what deleting means', () => {
     expect(menu).toMatch(
-      /if \(onDelete\) items\.push\(\{ label: 'Delete', action: \(\) => onDelete\(entry\) \}\)/,
+      /if \(onDelete\) items\.push\(\{ label: 'Delete', action: \(\) => void deleteEntry\(entry\) \}\)/,
     );
+  });
+
+  it('a deleted row goes when the caller is done, not when the window is next opened', () => {
+    const fn = CHOOSER.slice(
+      CHOOSER.indexOf('const deleteEntry'),
+      CHOOSER.indexOf('const commitEdit'),
+    );
+    expect(fn).toContain('await onDelete(entry);');
+    expect(fn).toContain('await reload(dir);');
+    // The Delete key takes the same road as the menu.
+    expect(CHOOSER).toContain('if (entry) void deleteEntry(entry);');
+    // And the manager returns its promise rather than firing and forgetting.
+    const home = HOME.slice(HOME.indexOf('const deleteEntry'), HOME.indexOf('const renamedEntry'));
+    expect(home).toContain('const p = await projectAt(entry.path);');
+    expect(home).toContain('if (p) await removeStored(p.id);');
   });
 
   it('with neither, there is no menu at all rather than an empty one', () => {
@@ -63,6 +78,15 @@ describe('what is in it, and what hides it', () => {
     expect(menu).toContain(
       '<ContextMenu x={menu.x} y={menu.y} items={items} onClose={() => setMenu(null)} />',
     );
+  });
+
+  it('its mousedown does not reach the backdrop, whose mousedown is Cancel', () => {
+    // Without the guard the press on "Delete" closed the chooser, the menu
+    // unmounted with it, and the click never happened: no confirm, no delete.
+    const guard = menu.indexOf('<div onMouseDown={(e) => e.stopPropagation()}>');
+    const ctx = menu.indexOf('<ContextMenu');
+    expect(guard).toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(ctx);
   });
 });
 
