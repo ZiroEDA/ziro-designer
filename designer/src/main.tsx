@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App.js';
 import { AuthProvider } from './auth/AuthProvider.js';
 import { AuthGate } from './auth/AuthGate.js';
+import { ChatWidget } from './support/ChatWidget.js';
 import { DesktopGate } from './mobile/DesktopGate.js';
 import { ErrorBoundary } from './ui/ErrorBoundary.js';
 import { StorageBanner } from './ui/StorageBanner.js';
@@ -98,6 +99,13 @@ if (missing.length > 0) {
             <AuthGate>
               <App />
             </AuthGate>
+            {/* Inside AuthProvider so it can name the account on a
+                conversation, and OUTSIDE AuthGate so it is reachable on the
+                sign-in wall too -- somebody who cannot get in is exactly the
+                person who needs support, and the wall is where they are
+                stuck. It loads nothing itself: see support/ChatWidget.tsx for
+                why the vendor's script is kept in another origin. */}
+            <ChatWidget />
           </AuthProvider>
           <StorageBanner />
           {/* One tooltip layer for the whole document. It draws every tooltip

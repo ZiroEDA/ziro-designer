@@ -16299,3 +16299,37 @@ td.ze-grid-bool {
      line in this shell is written in. */
   color: var(--error-ink);
 }
+
+/* ---- Support chat (cross-origin iframe, see support/ChatWidget.tsx) -------
+
+   The frame is transparent and only as big as the widget inside it: a
+   collapsed bubble is a corner, an open conversation is a panel. Sized from
+   out here because an iframe cannot resize itself; the widget page reports
+   which state it is in.
+
+   None of these numbers is chrome of ours. The inset is the marketing site's
+   own `#crisp-chatbox` rule (ZiroEDA_final index.html:485-489), so the bubble
+   sits where it does on ziroeda.com; the frame sizes are the room Crisp's
+   widget takes as rendered, bubble and open panel. */
+.ze-chat-frame {
+  position: fixed;
+  right: 24px; /* [data] the site's #crisp-chatbox inset */
+  /* Clear of the status bar wherever a frame has one, so the bubble never
+     covers the layer/units cells. The fallback is for the screens that have
+     no status bar at all (the sign-in wall, the project manager). */
+  bottom: calc(24px + var(--statusbar-height, 0px)); /* [data] the same inset, lifted */
+  width: 96px; /* [data] Crisp's launcher bubble, with its shadow */
+  height: 96px; /* [data] Crisp's launcher bubble, with its shadow */
+  border: 0;
+  color-scheme: normal;
+  background: transparent;
+  /* Above the modal backdrop (200), so support is reachable from the sign-in
+     wall -- which is exactly where someone who cannot get in needs it -- but
+     below the loading overlay (300), which must not be clicked past. */
+  z-index: 210;
+}
+.ze-chat-frame.open {
+  /* An open conversation, clamped so it never runs off a short window. */
+  width: min(400px, calc(100vw - 48px)); /* [data] Crisp's open panel; twice the inset */
+  height: min(600px, calc(100vh - 48px - var(--statusbar-height, 0px))); /* [data] Crisp's open panel; twice the inset */
+}
