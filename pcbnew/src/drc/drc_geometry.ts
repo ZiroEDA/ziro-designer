@@ -72,7 +72,21 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 export type Shape =
   | { kind: 'circle'; c: Vec2; r: number }
   | { kind: 'stadium'; a: Vec2; b: Vec2; r: number }
-  | { kind: 'arc'; c: Vec2; rad: number; a0: number; sweep: number; r: number }
+  | {
+      kind: 'arc';
+      c: Vec2;
+      rad: number;
+      a0: number;
+      sweep: number;
+      r: number;
+      /**
+       * The three points the arc was drawn from, when it has them. A polygon
+       * of the arc is built on `ARC_CHORD_PARAMS`' circle through THESE, which
+       * is not the circumcircle when the mid is off the bisector, and the pour
+       * has to sag where upstream's sags.
+       */
+      chord?: { s: Vec2; m: Vec2; e: Vec2 };
+    }
   | { kind: 'poly'; pts: Vec2[]; r: number };
 
 const dist = (a: Vec2, b: Vec2): number => Math.hypot(a.x - b.x, a.y - b.y);

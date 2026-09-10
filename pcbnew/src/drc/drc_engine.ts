@@ -285,7 +285,7 @@ export function arcShape(s: Vec2, m: Vec2, e: Vec2, width: number): Shape {
   const norm = (a: number): number => ((a % TAU) + TAU) % TAU;
   let sweep = norm(a1 - a0);
   if (norm(am - a0) > sweep) sweep -= TAU; // the mid point picks the direction
-  return { kind: 'arc', c, rad, a0, sweep, r: width / 2 };
+  return { kind: 'arc', c, rad, a0, sweep, r: width / 2, chord: { s, m, e } };
 }
 
 /** The pad's copper shapes (board-absolute; pad.at/angle are absolute).

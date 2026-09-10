@@ -126,3 +126,285 @@ export function stadiumPoly(a: Vec2, b: Vec2, r: number, maxError: number): Ring
   ring.push(put(0, r)); // finish left arc
   return dedupeRing(ring);
 }
+
+/** `KiROUND`: half away from zero, where `Math.round` is half up. */
+const kiround = (v: number): number => (v < 0 ? -Math.round(-v) : Math.round(v));
+
+/**
+ * `EDA_ANGLE`'s trig, in degrees, with its exact answers at the multiples of
+ * 45° that `sin`/`cos` would return a last-ulp off — the difference between
+ * a vertex landing on 152400 and on 152399.999 before it is rounded.
+ */
+function edaSin(deg: number): number {
+  const t = ((deg % 360) + 360) % 360;
+  if (t === 0 || t === 180) return 0;
+  if (t === 45 || t === 135) return Math.SQRT1_2;
+  if (t === 225 || t === 315) return -Math.SQRT1_2;
+  if (t === 90) return 1;
+  if (t === 270) return -1;
+  return Math.sin((deg * Math.PI) / 180);
+}
+function edaCos(deg: number): number {
+  const t = ((deg % 360) + 360) % 360;
+  if (t === 0) return 1;
+  if (t === 180) return -1;
+  if (t === 90 || t === 270) return 0;
+  if (t === 45 || t === 315) return Math.SQRT1_2;
+  if (t === 135 || t === 225) return -Math.SQRT1_2;
+  return Math.cos((deg * Math.PI) / 180);
+}
+/** `EDA_ANGLE( const VECTOR2D& )`, degrees, with the same axis special cases. */
+function edaAngleOf(x: number, y: number): number {
+  if (x === 0 && y === 0) return 0;
+  if (y === 0) return x >= 0 ? 0 : -180;
+  if (x === 0) return y >= 0 ? 90 : -90;
+  if (x === y) return x >= 0 ? 45 : -135;
+  if (x === -y) return x >= 0 ? -45 : 135;
+  return (Math.atan2(y, x) * 180) / Math.PI;
+}
+
+/** `CircleToEndSegmentDeltaRadius` (geometry_utils.cpp:67). */
+function circleToEndSegmentDeltaRadius(radius: number, segCount: number): number {
+  const n = segCount <= 2 ? 3 : segCount;
+  return kiround(Math.abs(radius * (1 - 1 / Math.cos(Math.PI / n))));
+}
+
+/**
+ * `ARC_CHORD_PARAMS` (arc_chord_params.cpp): the circle an arc's polygon is
+ * built on — and it is NOT the circle through the three points.
+ *
+ * The radius comes from the chord and the SAGITTA, and the sagitta is the
+ * mid point's distance from the chord: `r = ( h² + s² ) / 2s`. That is exact
+ * only when the mid point is the arc's true midpoint. CM5's board corner
+ * stores a mid 7.6° off the bisector, so upstream's radius comes out 3101197
+ * for a 3100000 arc and its centre lands 29 µm further from the chord —
+ * and its knockout polygon sags by that much in the middle. The exact
+ * circumcircle, which this used, is the better circle and the wrong pour.
+ */
+interface ArcChordParams {
+  radius: number;
+  sagitta: number;
+  halfChord: number;
+  ux: number;
+  uy: number;
+  nx: number;
+  ny: number;
+  centerOffset: number;
+  midx: number;
+  midy: number;
+}
+
+function arcChordParams(start: Vec2, mid: Vec2, end: Vec2): ArcChordParams | null {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const chordLen = Math.sqrt(dx * dx + dy * dy);
+  if (chordLen <= 0) return null;
+  const mx = mid.x - start.x;
+  const my = mid.y - start.y;
+  const cross = mx * dy - my * dx;
+  if (cross === 0) return null;
+  const sagitta = Math.abs(cross) / chordLen;
+  if (sagitta <= 0) return null;
+  const halfChord = chordLen / 2;
+  const radius = (halfChord * halfChord + sagitta * sagitta) / (2 * sagitta);
+  if (radius <= 0) return null;
+  const ux = dx / chordLen;
+  const uy = dy / chordLen;
+  let nx = -uy;
+  let ny = ux;
+  if (cross < 0) {
+    nx = -nx;
+    ny = -ny;
+  }
+  return {
+    radius,
+    sagitta,
+    halfChord,
+    ux,
+    uy,
+    nx,
+    ny,
+    centerOffset: radius - sagitta,
+    midx: (start.x + end.x) * 0.5,
+    midy: (start.y + end.y) * 0.5,
+  };
+}
+
+function chordArcAngle(p: ArcChordParams): number {
+  const ratio = Math.min(1, Math.max(0, p.halfChord / p.radius));
+  const base = 2 * Math.asin(ratio);
+  return p.sagitta > p.radius ? 2 * Math.PI - base : base;
+}
+function chordStartAngle(p: ArcChordParams): number {
+  const sinHalf = p.halfChord / p.radius;
+  const cosHalf = p.centerOffset / p.radius;
+  return edaAngleOf(-sinHalf * p.ux - cosHalf * p.nx, -sinHalf * p.uy - cosHalf * p.ny);
+}
+function chordEndAngle(p: ArcChordParams): number {
+  const sinHalf = p.halfChord / p.radius;
+  const cosHalf = p.centerOffset / p.radius;
+  return edaAngleOf(sinHalf * p.ux - cosHalf * p.nx, sinHalf * p.uy - cosHalf * p.ny);
+}
+
+export type ErrorLoc = 'inside' | 'outside';
+
+/**
+ * `ConvertArcToPolyline( aPolyline, aStart, aMid, aEnd, aAccuracy, aErrorLoc,
+ * aRadialOffset )` (convert_basic_shapes_to_polygon.cpp:524-626): one edge of
+ * a thick arc, at the chord circle's radius plus `radialOffset`, appended to
+ * `out`.
+ */
+function arcEdge(
+  out: [number, number][],
+  start: Vec2,
+  mid: Vec2,
+  end: Vec2,
+  accuracy: number,
+  errorLoc: ErrorLoc,
+  radialOffset: number,
+): void {
+  const p = arcChordParams(start, mid, end);
+  if (!p) {
+    out.push([start.x, start.y]);
+    if (end.x !== start.x || end.y !== start.y) out.push([end.x, end.y]);
+    return;
+  }
+  const arcAngle = chordArcAngle(p);
+  if (arcAngle <= 0) {
+    out.push([start.x, start.y], [end.x, end.y]);
+    return;
+  }
+  const MAX = 2147483647;
+  const append = (alpha: number, effRadius: number): boolean => {
+    const u = effRadius * Math.sin(alpha);
+    const nOff = p.centerOffset - effRadius * Math.cos(alpha);
+    const x = p.midx + p.ux * u + p.nx * nOff;
+    const y = p.midy + p.uy * u + p.ny * nOff;
+    if (!Number.isFinite(x) || !Number.isFinite(y) || Math.abs(x) > MAX || Math.abs(y) > MAX) {
+      out.length = 0;
+      out.push([start.x, start.y], [end.x, end.y]);
+      return false;
+    }
+    out.push([kiround(x), kiround(y)]);
+    return true;
+  };
+
+  const effectiveRadius = p.radius + radialOffset;
+  const arcAngleDeg = (arcAngle * 180) / Math.PI;
+  const radiusForSeg = kiround(Math.min(Math.abs(effectiveRadius), MAX));
+  let n = 2;
+  if (radiusForSeg >= accuracy) n = segmentsForRadius(radiusForSeg, accuracy, arcAngleDeg) + 1;
+  const halfAngle = arcAngle / 2;
+  const delta = arcAngle / n;
+
+  if (errorLoc === 'inside') {
+    for (let i = 0; i <= n; i++) if (!append(-halfAngle + delta * i, effectiveRadius)) return;
+    return;
+  }
+  const seg360 = Math.abs(kiround((n * 360) / arcAngleDeg));
+  if (seg360 <= 0) {
+    for (let i = 0; i <= n; i++) if (!append(-halfAngle + delta * i, effectiveRadius)) return;
+    return;
+  }
+  const errorRadius = effectiveRadius + circleToEndSegmentDeltaRadius(radiusForSeg, seg360);
+  if (!append(-halfAngle, effectiveRadius)) return;
+  for (let i = 0; i < n; i++) if (!append(-halfAngle + delta * (i + 0.5), errorRadius)) return;
+  append(halfAngle, effectiveRadius);
+}
+
+/**
+ * `ConvertArcToPolyline( aPolyline, aCenter, aRadius, aStartAngle, aArcAngle,
+ * aAccuracy, aErrorLoc )` (:628-690): an arc about a centre, angles in
+ * DEGREES, appended to `out`. The end caps of a thick arc.
+ */
+function arcAboutCentre(
+  out: [number, number][],
+  c: Vec2,
+  radius: number,
+  startDeg: number,
+  arcDeg: number,
+  accuracy: number,
+  errorLoc: ErrorLoc,
+): void {
+  let n = 2;
+  if (radius >= accuracy) n = segmentsForRadius(radius, accuracy, arcDeg) + 1;
+  const delta = arcDeg / n;
+  if (errorLoc === 'inside') {
+    let rot = startDeg;
+    for (let i = 0; i <= n; i++, rot += delta)
+      out.push([kiround(c.x + radius * edaCos(rot)), kiround(c.y + radius * edaSin(rot))]);
+    return;
+  }
+  const seg360 = Math.abs(kiround((n * 360) / arcDeg));
+  const errorRadius = radius + circleToEndSegmentDeltaRadius(radius, seg360);
+  out.push([kiround(c.x + radius * edaCos(startDeg)), kiround(c.y + radius * edaSin(startDeg))]);
+  let rot = startDeg + delta / 2;
+  for (let i = 0; i < n; i++, rot += delta)
+    out.push([kiround(c.x + errorRadius * edaCos(rot)), kiround(c.y + errorRadius * edaSin(rot))]);
+  out.push([
+    kiround(c.x + radius * edaCos(startDeg + arcDeg)),
+    kiround(c.y + radius * edaSin(startDeg + arcDeg)),
+  ]);
+}
+
+/**
+ * `TransformArcToPolygon( aBuffer, aStart, aMid, aEnd, aWidth, aError,
+ * aErrorLoc )` (:692-760): a thick arc as ONE polygon — start cap, outer
+ * edge, end cap, inner edge — on the chord circle. `width` is the full
+ * width, clearance included, as `EDA_SHAPE::TransformShapeToPolygon` hands it
+ * over (`width += 2 * aClearance`).
+ *
+ * A mid within one unit of the chord is "not an arc but essentially a
+ * straight line with a small error" and becomes an oval of `width +
+ * distanceToMid`.
+ */
+export function arcToPolygon(
+  start: Vec2,
+  mid: Vec2,
+  end: Vec2,
+  width: number,
+  maxError: number,
+  errorLoc: ErrorLoc = 'outside',
+): Ring {
+  // `SEG::Distance( aMid )`, an integer.
+  const ex = end.x - start.x;
+  const ey = end.y - start.y;
+  const len2 = ex * ex + ey * ey;
+  let distanceToMid: number;
+  if (len2 === 0) distanceToMid = Math.floor(Math.hypot(mid.x - start.x, mid.y - start.y));
+  else {
+    const t = Math.max(0, Math.min(1, ((mid.x - start.x) * ex + (mid.y - start.y) * ey) / len2));
+    distanceToMid = Math.floor(Math.hypot(mid.x - start.x - t * ex, mid.y - start.y - t * ey));
+  }
+  if (distanceToMid <= 1) return stadiumPoly(start, end, (width + distanceToMid) / 2, maxError);
+
+  // "For consistent polygon winding, ensure we always process a CCW arc by
+  // swapping endpoints if needed."
+  const cross = (mid.x - start.x) * ey - (mid.y - start.y) * ex;
+  let p0 = start;
+  let p1 = end;
+  if (cross < 0) {
+    p0 = end;
+    p1 = start;
+  }
+  const params = arcChordParams(p0, mid, p1);
+  if (!params) return stadiumPoly(start, end, width / 2, maxError);
+
+  const startAngle = chordStartAngle(params);
+  const endAngle = chordEndAngle(params);
+  const radialOffset = Math.trunc(width / 2);
+  const innerRadius = params.radius - radialOffset;
+  const errorLocInner: ErrorLoc = errorLoc === 'inside' ? 'outside' : 'inside';
+  const errorLocOuter: ErrorLoc = errorLoc === 'inside' ? 'inside' : 'outside';
+
+  const out: [number, number][] = [];
+  // Starting end cap (semicircle at p0)
+  arcAboutCentre(out, p0, radialOffset, startAngle - 180, 180, maxError, errorLoc);
+  // Outside edge
+  arcEdge(out, p0, mid, p1, maxError, errorLocOuter, radialOffset);
+  // Ending end cap (semicircle at p1)
+  arcAboutCentre(out, p1, radialOffset, endAngle, 180, maxError, errorLoc);
+  // Inside edge (reversed direction)
+  if (innerRadius > 0) arcEdge(out, p1, mid, p0, maxError, errorLocInner, -radialOffset);
+  return dedupeRing(out);
+}

@@ -46,6 +46,7 @@ import { tessellateArc } from './read-board.js';
 import { padShapePos } from './padstack.js';
 import { textShapes } from './text_geometry.js';
 import {
+  arcToPolygon,
   circlePoly,
   dedupeRing,
   segmentsForRadius,
@@ -275,7 +276,22 @@ export function shapeToPolygon(shape: Shape, gap: number, maxError: number): Geo
     case 'stadium':
       return [[stadiumPoly(shape.a, shape.b, shape.r + gap, maxError)]];
     case 'arc': {
-      // The arc's centreline, thickened by its own half-width plus the gap.
+      // `TransformArcToPolygon( start, mid, end, width + 2 * clearance, … )` —
+      // one polygon on the chord circle, when the arc came with its points.
+      if (shape.chord)
+        return [
+          [
+            arcToPolygon(
+              shape.chord.s,
+              shape.chord.m,
+              shape.chord.e,
+              2 * (shape.r + gap),
+              maxError,
+            ),
+          ],
+        ];
+      // A full circle drawn as an arc: the centreline, thickened by its own
+      // half-width plus the gap.
       const out: Geom[] = [];
       const steps = segmentsForRadius(shape.rad, maxError);
       let prev: Vec2 | null = null;
@@ -1127,11 +1143,17 @@ function fillZoneParts(
         for (let i = 1; i < pts.length; i++) connected.push(...alongSegment(pts[i - 1]!, pts[i]!));
         continue;
       }
-      const pts = tessellateArc(a.start, a.mid, a.end);
-      for (let i = 1; i < pts.length; i++)
-        holes.push([
-          stadiumPoly(pts[i - 1]!, pts[i]!, a.width / 2 + gapTo(a.net) + EXTRA_CLEARANCE, maxError),
-        ]);
+      // `PCB_TRACK::TransformShapeToPolygon`, PCB_ARC_T: "width = m_width + ( 2
+      // * aClearance )" into `TransformArcToPolygon`.
+      holes.push([
+        arcToPolygon(
+          a.start,
+          a.mid,
+          a.end,
+          a.width + 2 * (gapTo(a.net) + EXTRA_CLEARANCE),
+          maxError,
+        ),
+      ]);
     }
     for (const v of board.vias) {
       // "viaBBox.Inflate( m_worstClearance )".

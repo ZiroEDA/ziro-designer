@@ -892,6 +892,48 @@ describe('zone filler', () => {
     });
   });
 
+  it("knocks a board-edge arc out on ARC_CHORD_PARAMS' circle, not the circumcircle", () => {
+    // CM5's board corner: a 3.1 mm arc whose stored mid is 7.6° off the
+    // bisector. Upstream's `TransformArcToPolygon` builds on the chord-and-
+    // sagitta circle, radius 3101197 with its centre 29 µm further from the
+    // chord, so the knockout's inner edge at the arc's middle sits 27.8 µm
+    // deeper into the board than the exact offset circle would put it
+    // (2699692 from the true centre against 2727499). A probe between the
+    // two, on the bisector, is copper on the exact circle and not on KiCad's.
+    const c = { x: 78_150_000, y: 23_350_000 };
+    const ang = (-138.65 * Math.PI) / 180;
+    const probe = { x: c.x + 2_713_000 * Math.cos(ang), y: c.y + 2_713_000 * Math.sin(ang) };
+    const b = board({
+      zones: [
+        zone({
+          outline: [
+            { x: 74_000_000, y: 19_000_000 },
+            { x: 82_000_000, y: 19_000_000 },
+            { x: 82_000_000, y: 27_000_000 },
+            { x: 74_000_000, y: 27_000_000 },
+          ],
+        }),
+      ],
+      shapes: [
+        {
+          kind: 'arc',
+          layer: 'Edge.Cuts',
+          start: { x: 76_016_039, y: 25_598_601 },
+          mid: { x: 76_117_273, y: 21_009_482 },
+          end: { x: 80_108_863, y: 20_947_324 },
+          width: 50_000,
+          fillMode: 'none',
+          source: EMPTY,
+        },
+      ],
+    });
+    const fill = fillZone(b, 0, { edgeClearance: MM(0.372), maxError: MM(0.005) })[0]!.polys;
+    expect(covered(fill, probe)).toBe(false);
+    // And 60 µm further in it is copper on both circles.
+    const inside = { x: c.x + 2_650_000 * Math.cos(ang), y: c.y + 2_650_000 * Math.sin(ang) };
+    expect(covered(fill, inside)).toBe(true);
+  });
+
   it('breaks a priority tie on the uuid, as HigherPriority does', () => {
     // `return m_Uuid > aOther->m_Uuid` — two ordinary zones of equal priority
     // on different nets are not peers. One wins; both filling the overlap is a
