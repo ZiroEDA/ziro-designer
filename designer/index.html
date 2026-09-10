@@ -10,9 +10,11 @@
     <meta property="og:title" content="ZiroEDA — Browser-native PCB design" />
     <meta property="og:description" content="Design schematics and PCBs in your browser with an open-source, KiCad-compatible workflow." />
     <meta property="og:site_name" content="ZIRO EDA" />
-    <!-- Always revalidate the entry document so a new GitHub Pages deploy is picked
-         up without a manual hard-refresh (the hashed JS/CSS bundles it references
-         are themselves immutable, so only this file needs to be re-fetched). -->
+    <!-- Always revalidate the entry document so a new deploy is picked up without
+         a manual hard-refresh. The hashed JS/CSS bundles it references are
+         immutable, and vercel.json says so in a Cache-Control header, so only this
+         file (and sw.js, which the browser revalidates on its own) is ever
+         re-fetched. -->
     <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
     <!-- The tab icon. SVG so it stays sharp at every density the browser asks
          for; `href` is relative so a GitHub Pages deploy under a repo subpath

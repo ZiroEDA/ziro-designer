@@ -5,6 +5,16 @@
   "buildCommand": "pnpm -C designer build",
   "outputDirectory": "designer/dist",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "headers": [
+    {
+      "source": "/(assets/.*|workbox-[a-z0-9]+\\.js)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/(sw\\.js|registerSW\\.js|manifest\\.webmanifest|index\\.html)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
+    }
+  ],
   "build": {
     "env": {
       "VITE_DEMOS_URL": "https://pub-ac941e05e1284f409be2ed74ddb151b3.r2.dev/demos",

@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
+import { VitePWA } from 'vite-plugin-pwa';
 import { execSync } from 'node:child_process';
 
 function gitSha(short = false): string | undefined {
@@ -80,6 +81,80 @@ export default defineConfig({
   worker: { format: 'es' },
   plugins: [
     react(),
+    /**
+     * The app is installed, not fetched.
+     *
+     * KiCad's editors are on disk; opening one never waits for a network. Ours
+     * were downloaded on every visit — Vercel serves hashed chunks as
+     * `max-age=0, must-revalidate` unless told otherwise (that is now
+     * vercel.json's job) — and an editor nobody had opened yet was fetched the
+     * moment they first asked for it, behind a "Loading the board editor..."
+     * overlay. This service worker precaches every built chunk on the first
+     * visit, so the second launch, and every editor in it, comes off disk with
+     * no request at all, and the app works with the network down.
+     *
+     * `prompt`, not `autoUpdate`: a new deploy is *installed* in the background
+     * but *activates* only once every tab of the old build is closed — the way
+     * a desktop update applies at the next launch. `autoUpdate` would swap the
+     * worker under a running editor, whose still-lazy chunks then hit the
+     * network for hashes the new deploy no longer serves.
+     */
+    VitePWA({
+      registerType: 'prompt',
+      // registerSW.js as a separate script rather than inline: index.html carries
+      // no CSP nonce and we want the register call to stay out of the entry.
+      injectRegister: 'script-defer',
+      manifest: {
+        name: 'ZiroEDA',
+        short_name: 'ZiroEDA',
+        description: 'Browser-native, KiCad-compatible schematic and PCB design.',
+        start_url: '/',
+        display: 'standalone',
+        // The chrome the shell paints while the first chunk loads. Matches the
+        // mark's own ground in favicon.svg and the dark shell in ui/shell.css.
+        background_color: '#18181b',
+        theme_color: '#18181b',
+        icons: [
+          { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+          {
+            src: 'icons/icon-512-maskable.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
+          },
+        ],
+      },
+      workbox: {
+        // The code, and only the code. public/ also ships 50 MB of symbol
+        // libraries, 5 MB of templates and the demo boards; those are data the
+        // app fetches when a project needs them, and precaching them would turn
+        // the first visit into a download of the whole library. Likewise the
+        // 7.4 MB OCCT kernel is cached the first time a 3D view asks for it,
+        // below, not up front.
+        globPatterns: ['index.html', 'favicon.svg', 'icons/*.png', 'assets/**/*.{js,css,png,svg}'],
+        // index.js alone is 1.7 MB; workbox's default 2 MiB cap would otherwise
+        // quietly skip the one file that matters most.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        // Every app route (/p/<uid>/pcb, /demo/<id>) is index.html, as
+        // vercel.json's rewrite already says. Serving it from the precache is
+        // what makes a cold-start with no network still paint the launcher.
+        navigateFallback: 'index.html',
+        runtimeCaching: [
+          {
+            // WASM kernels are hashed like every other asset, so cache-first is
+            // exact; they are just too big to insist on before first paint.
+            urlPattern: ({ url }) =>
+              url.pathname.startsWith('/assets/') && url.pathname.endsWith('.wasm'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'wasm', expiration: { maxEntries: 8 } },
+          },
+        ],
+      },
+      // Dev keeps Vite's own module server, where a stale worker would serve
+      // yesterday's source; the worker exists in builds only.
+      devOptions: { enabled: false },
+    }),
     ...(uploadMaps
       ? [
           sentryVitePlugin({
