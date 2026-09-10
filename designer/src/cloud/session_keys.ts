@@ -170,3 +170,13 @@ export function holdProjectKey(projectUid: string, key: Uint8Array): void {
 export function replaceCachedProjectKey(projectUid: string, key: Uint8Array): void {
   projectKeys.set(projectUid, key);
 }
+
+/** A cached key that no longer opens the row: the next lookup asks the server. */
+export function forgetCachedProjectKey(projectUid: string): void {
+  projectKeys.delete(projectUid);
+}
+
+/** The open account's keys, for the one caller that must wrap under the master key itself. */
+export function sessionAccount(): AccountKeys {
+  return needAccount();
+}

@@ -35,6 +35,10 @@ import {
   redeemPendingInvite,
   rememberProjectLink,
   shareUrlFor,
+  inviteUrlFor,
+  keyInFragment,
+  takePendingProjectKey,
+  withKeyFragment,
 } from '@ziroeda/designer/src/cloud/invites.js';
 import type { CloudBackend } from '@ziroeda/designer/src/cloud/backend.js';
 
@@ -161,10 +165,10 @@ describe('an ordinary share link, `?p=<uid>`', () => {
       return 'editor';
     };
 
-    expect(await openProjectLink(be)).toEqual({ uid: UID, role: 'editor' });
+    expect(await openProjectLink(be)).toEqual({ uid: UID, role: 'editor', key: null });
     // Nothing was spent, so this is not a second use of anything -- it is the
     // same page being opened again, which must behave identically.
-    expect(await openProjectLink(be)).toEqual({ uid: UID, role: 'editor' });
+    expect(await openProjectLink(be)).toEqual({ uid: UID, role: 'editor', key: null });
     expect(seen).toEqual([UID, UID]);
   });
 
@@ -196,7 +200,7 @@ describe('a share link followed through a sign-in', () => {
     const be = fakeBackend(async () => null);
     (be as unknown as { openByLink: (u: string) => Promise<string> }).openByLink = async () =>
       'viewer';
-    expect(await openProjectLink(be)).toEqual({ uid: UID, role: 'viewer' });
+    expect(await openProjectLink(be)).toEqual({ uid: UID, role: 'viewer', key: null });
   });
 
   it('is acted on once, not on every later sign-in', async () => {
@@ -250,7 +254,7 @@ describe('a share link followed through a sign-in', () => {
 
     const be = fakeBackend(async () => null);
     (be as unknown as { openByLink: () => Promise<string> }).openByLink = async () => 'editor';
-    expect(await openProjectLink(be)).toEqual({ uid: UID, role: 'editor' });
+    expect(await openProjectLink(be)).toEqual({ uid: UID, role: 'editor', key: null });
   });
 });
 
@@ -280,7 +284,7 @@ describe('redeeming it', () => {
     captureInviteFromUrl();
     const be = fakeBackend(async () => ({ project_uid: 'uid-1', role: 'viewer' }));
 
-    expect(await redeemPendingInvite(be)).toEqual({ uid: 'uid-1', role: 'viewer' });
+    expect(await redeemPendingInvite(be)).toEqual({ uid: 'uid-1', role: 'viewer', key: null });
     expect(be.asked).toEqual([TOKEN]);
 
     // Spent: a second pass must not ask again.
@@ -322,5 +326,65 @@ describe('redeeming it', () => {
     const be = fakeBackend(async () => ({ project_uid: 'uid-1', role: 'editor' }));
     expect(await redeemPendingInvite(be)).toBeNull();
     expect(be.asked).toEqual([]);
+  });
+});
+
+describe('the project key rides in the fragment, and never in what a server sees', () => {
+  const UID = '11111111-2222-3333-4444-555555555555';
+  const KEY = new Uint8Array(32).map((_, i) => (i * 37) & 0xff);
+  const same = (a: Uint8Array | null, b: Uint8Array): boolean =>
+    !!a && a.length === b.length && a.every((x, i) => x === b[i]);
+
+  it('a share link carries the key after the #, base64url, and is otherwise the plain link', () => {
+    const url = shareUrlFor(UID, BASE, KEY);
+    const [plain, fragment] = url.split('#');
+    expect(plain).toBe(shareUrlFor(UID, BASE));
+    expect(fragment).toMatch(/^k=[A-Za-z0-9_-]{43}$/);
+    expect(same(keyInFragment(url), KEY)).toBe(true);
+    // The part a server receives has no key in it.
+    expect(new URL(url).search).not.toContain('k=');
+  });
+
+  it('an invite link is the token plus the same fragment', () => {
+    const url = inviteUrlFor(TOKEN, KEY, BASE);
+    expect(new URL(url).searchParams.get('join')).toBe(TOKEN);
+    expect(same(keyInFragment(url), KEY)).toBe(true);
+    expect(inviteUrlFor(TOKEN, null, BASE)).not.toContain('#');
+  });
+
+  it('a fragment that is not a 32-byte key is ignored', () => {
+    expect(keyInFragment(withKeyFragment(BASE, new Uint8Array(16)))).toBeNull();
+    expect(keyInFragment(`${BASE}#k=not-a-key`)).toBeNull();
+    expect(keyInFragment(`${BASE}#other=1`)).toBeNull();
+  });
+
+  it('following a share link stashes the key, strips it from the address bar, and hands it to the join', async () => {
+    window.history.replaceState(null, '', shareUrlFor(UID, BASE, KEY));
+    rememberProjectLink();
+    expect(window.location.hash).toBe('');
+    const be = fakeBackend(async () => null);
+    (be as unknown as { openByLink: (u: string) => Promise<string> }).openByLink = async () =>
+      'editor';
+    const joined = await openProjectLink(be);
+    expect(joined?.uid).toBe(UID);
+    expect(same(joined?.key ?? null, KEY)).toBe(true);
+    // Used once: a second join has no key to hand over.
+    expect(takePendingProjectKey()).toBeNull();
+  });
+
+  it('following an invite link does the same, through the token stash', async () => {
+    window.history.replaceState(null, '', inviteUrlFor(TOKEN, KEY, BASE));
+    captureInviteFromUrl();
+    expect(window.location.hash).toBe('');
+    expect(window.location.search).toBe('');
+    const be = fakeBackend(async () => null);
+    (
+      be as unknown as {
+        redeemInvite: (t: string) => Promise<{ project_uid: string; role: string }>;
+      }
+    ).redeemInvite = async () => ({ project_uid: UID, role: 'viewer' });
+    const joined = await redeemPendingInvite(be);
+    expect(joined?.uid).toBe(UID);
+    expect(same(joined?.key ?? null, KEY)).toBe(true);
   });
 });

@@ -21,6 +21,7 @@ import {
   cloudGetRow,
   cloudUpsert,
   setCloudBackend,
+  rotateProjectKey,
 } from '@ziroeda/designer/src/cloud/cloudStore.js';
 import { sha256Hex } from '@ziroeda/designer/src/cloud/blobStore.js';
 import { createAccount, decryptBlob } from '@ziroeda/designer/src/cloud/crypto.js';
@@ -308,6 +309,38 @@ describe('sharing, on keys', () => {
     await cloudUpsert(OWNER, project({ a: 'AAA' }));
     setSessionKeys(null);
     await expect(cloudGet('p1', UID)).rejects.toThrow(/locked/);
+  });
+});
+
+describe('rotation: whoever leaves keeps nothing, whoever stays keeps reading', () => {
+  it('after a member is removed and the key rotated, their old key opens nothing and the rest read on', async () => {
+    await cloudUpsert(OWNER, project({ a: 'AAA' }));
+    const key = (await projectKeyFor(f, OWNER, UID))!;
+    const third = await createAccount('third pw', FAST);
+    await shareProjectKeyWith(f, UID, key, { userId: MEMBER, publicKey: member.keys.publicKey });
+    await shareProjectKeyWith(f, UID, key, {
+      userId: 'user-third',
+      publicKey: third.keys.publicKey,
+    });
+    const versionBefore = f.rows.get('p1')!.version!;
+
+    await f.deleteProjectKey!(UID, MEMBER);
+    await rotateProjectKey(UID, [{ userId: 'user-third', publicKey: third.keys.publicKey }]);
+    expect(f.rows.get('p1')!.version).toBe(versionBefore + 1);
+    expect(f.uploads).toBe(1); // no blob was touched by the rotation
+
+    setSessionKeys(member.keys, MEMBER);
+    f.asUser = MEMBER;
+    await expect(cloudGet('p1', UID)).rejects.toThrow(/no key to project/);
+    await expect(openMeta(key, f.rows.get('p1')!.enc_meta!)).rejects.toThrow();
+
+    setSessionKeys(third.keys, 'user-third');
+    f.asUser = 'user-third';
+    expect(text((await cloudGet('p1', UID))!.files[0]!.gzB64!)).toBe('AAA');
+
+    setSessionKeys(owner.keys, OWNER);
+    f.asUser = OWNER;
+    expect((await cloudGet('p1', UID))?.name).toBe('Amp');
   });
 });
 

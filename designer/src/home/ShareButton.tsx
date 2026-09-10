@@ -34,7 +34,9 @@ import { Combo } from '../ui/Combo.js';
 import { useDismissOnOutside } from '../ui/useDismissOnOutside.js';
 import { Icon } from '../ui/icons.js';
 import { cloudBackend } from '../cloud/cloudStore.js';
-import { shareUrlFor } from '../cloud/invites.js';
+import { inviteUrlFor, shareUrlFor } from '../cloud/invites.js';
+import { cloudBackend as backendFor, rotateProjectKey } from '../cloud/cloudStore.js';
+import { projectKeyFor, sessionUnlocked, sessionUserId } from '../cloud/session_keys.js';
 import { profileInitial } from '../auth/profile.js';
 import { cloudIdentityOf } from './projectStore.js';
 
@@ -71,6 +73,12 @@ export function ShareButton({
   const [uid, setUid] = useState<string | null>(null);
   const [isOwner, setIsOwner] = useState(true);
   const [people, setPeople] = useState<Person[]>([]);
+  /**
+   * The project's key, for the links. Every link carries it in its fragment
+   * (invites.ts): without it a link opens a row nobody can read. Null while
+   * it is being fetched, or for a project from before encryption.
+   */
+  const [key, setKey] = useState<Uint8Array | null>(null);
   const [pending, setPending] = useState<{ token: string; email: string; role: string }[]>([]);
   const [linkAccess, setLinkAccess] = useState<LinkAccess>(null);
   const [invitee, setInvitee] = useState('');
@@ -110,6 +118,7 @@ export function ShareButton({
       setLinkAccess(row?.link_access ?? null);
       setPeople(roster);
       setPending(invites);
+      setKey(sessionUnlocked() ? await projectKeyFor(be, sessionUserId(), id.uid) : null);
     } catch (e) {
       setNote(e instanceof Error ? e.message : String(e));
     } finally {
@@ -117,9 +126,44 @@ export function ShareButton({
     }
   }, [projectId]);
 
-  const url = uid ? shareUrlFor(uid) : '';
+  const url = uid ? shareUrlFor(uid, undefined, key) : '';
 
   /** Run a change, then re-read: the server is what decides, not this panel. */
+  /**
+   * Whoever leaves must not keep the key, and a link turned off must open
+   * nothing: both rotate the project key, re-wrapping the file keys (never
+   * the files) and re-sealing it for everyone who stays. The removed
+   * member's key row goes first, so the new key never reaches them.
+   */
+  const remainingMembers = async (except?: string) => {
+    const be = backendFor();
+    if (!be?.publicKeysOf || !uid) return [];
+    const ids = people
+      .map((p) => p.user_id)
+      .filter((id) => id !== except && id !== sessionUserId());
+    const keys = await be.publicKeysOf(ids);
+    return ids.flatMap((userId) => {
+      const publicKey = keys.get(userId);
+      return publicKey ? [{ userId, publicKey }] : [];
+    });
+  };
+  const removeAndRotate = async (userId: string): Promise<void> => {
+    const be = backendFor();
+    if (!be || !uid) return;
+    await be.removeMember?.(uid, userId);
+    await be.deleteProjectKey?.(uid, userId);
+    if (key) await rotateProjectKey(uid, await remainingMembers(userId));
+  };
+  const setLinkAccessAndRotate = async (role: Role | null): Promise<void> => {
+    const be = backendFor();
+    if (!be || !uid) return;
+    await be.setLinkAccess?.(uid, role);
+    // Off, or narrowed: every link out there carried the old key.
+    if (key && (role === null || role === 'viewer')) {
+      await rotateProjectKey(uid, await remainingMembers());
+    }
+  };
+
   const act = (what: Promise<unknown> | undefined): void => {
     if (!what) return;
     setNote(null);
@@ -216,7 +260,7 @@ export function ShareButton({
                           className="ze-share-remove"
                           title={`Remove ${p.email}`}
                           aria-label={`Remove ${p.email}`}
-                          onClick={() => act(cloudBackend()?.removeMember?.(uid, p.user_id))}
+                          onClick={() => act(removeAndRotate(p.user_id))}
                         >
                           ✕
                         </button>
@@ -232,6 +276,24 @@ export function ShareButton({
                     {/* Said plainly. Nothing has been emailed, so an invitation
                         shown as sent would be a claim this app cannot keep. */}
                     <span className="ze-auth-note">Invited &mdash; not signed in yet</span>
+                    {/* Nothing is emailed; the owner sends this themselves.
+                        The link carries the project key in its fragment,
+                        which is why it, and not the token alone, is the
+                        invitation. */}
+                    <button
+                      type="button"
+                      className="ze-share-remove"
+                      title={`Copy an invitation link for ${i.email}`}
+                      aria-label={`Copy an invitation link for ${i.email}`}
+                      onClick={() => {
+                        void navigator.clipboard
+                          .writeText(inviteUrlFor(i.token, key))
+                          .then(() => setNote(`Link for ${i.email} copied`))
+                          .catch(() => setNote('Could not copy; select the link and copy it'));
+                      }}
+                    >
+                      ⧉
+                    </button>
                     <button
                       type="button"
                       className="ze-share-remove"
@@ -252,9 +314,7 @@ export function ShareButton({
                   options={LINK_OPTIONS}
                   disabled={!isOwner}
                   ariaLabel="What a link to this project is worth"
-                  onChange={(v) =>
-                    act(cloudBackend()?.setLinkAccess?.(uid, v === 'off' ? null : (v as Role)))
-                  }
+                  onChange={(v) => act(setLinkAccessAndRotate(v === 'off' ? null : (v as Role)))}
                 />
                 <div className="ze-share-linkrow">
                   <input readOnly value={url} onFocus={(e) => e.currentTarget.select()} />

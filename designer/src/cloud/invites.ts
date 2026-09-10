@@ -51,6 +51,90 @@ export const PROJECT_PARAM = 'p';
 /** The query parameter an *invitation* link carries: a one-time token. */
 export const INVITE_PARAM = 'join';
 
+/**
+ * The project key travels in the URL FRAGMENT: `#k=<base64url key>`.
+ *
+ * docs/encryption-plan.md P3, and the reference design's public links. A
+ * fragment is never sent to a server - not to ours, not to a link shortener,
+ * not in a Referer - so a link can carry the one thing the server must never
+ * hold and still be a plain link. Whoever opens it wraps the key under their
+ * own master key (`adoptProjectKey`) and is a member with a key from then on;
+ * the owner's device need not be online. The fragment is taken out of the
+ * address bar and stashed beside the token or the uid the moment it is read,
+ * for the same reasons the token is.
+ *
+ * Because the link IS the key, turning link access off or removing someone
+ * rotates the project key (`rotateProjectKey`): an old link then opens
+ * nothing, which is what "off" has to mean.
+ */
+const KEY_FRAGMENT = 'k';
+const KEY_STASH = 'ziro.pendingProjectKey';
+
+const b64url = (bytes: Uint8Array): string =>
+  btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+const fromB64url = (s: string): Uint8Array | null => {
+  try {
+    const std = s.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = std + '='.repeat((4 - (std.length % 4)) % 4);
+    const bin = atob(padded);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out.length === 32 ? out : null;
+  } catch {
+    return null;
+  }
+};
+
+/** The key in a link's fragment, or null. */
+export function keyInFragment(href: string): Uint8Array | null {
+  try {
+    const hash = new URL(href).hash.replace(/^#/, '');
+    const raw = new URLSearchParams(hash).get(KEY_FRAGMENT);
+    return raw ? fromB64url(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The link with the key in its fragment. */
+export function withKeyFragment(url: string, key: Uint8Array): string {
+  return `${url.split('#')[0]}#${KEY_FRAGMENT}=${b64url(key)}`;
+}
+
+/** Stash a key read off a link, beside whatever the link named. sessionStorage: one visit. */
+function stashKey(key: Uint8Array | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (key) window.sessionStorage.setItem(KEY_STASH, b64url(key));
+  } catch {
+    // no storage: the key lives only until this page unloads
+  }
+}
+
+/** The stashed key, taken: it is used once, by the join that follows. */
+export function takePendingProjectKey(): Uint8Array | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(KEY_STASH);
+    window.sessionStorage.removeItem(KEY_STASH);
+    return raw ? fromB64url(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Strip the fragment from the address bar; the key must not stay on screen. */
+function stripFragment(): void {
+  if (typeof window === 'undefined' || !window.location.hash) return;
+  const url = new URL(window.location.href);
+  if (!new URLSearchParams(url.hash.replace(/^#/, '')).has(KEY_FRAGMENT)) return;
+  url.hash = '';
+  window.history.replaceState(window.history.state, '', url.href);
+}
+
 /** Where the token waits while the reader signs in. */
 const STASH_KEY = 'ziro.pendingInvite';
 
@@ -106,14 +190,29 @@ export function projectLinkIn(href: string): string | null {
  * was in it — another project's `?p=`, a `?join=` token, a demo parameter —
  * which is how a share button quietly shares the wrong thing.
  */
-export function shareUrlFor(uid: string, base?: string): string {
+export function shareUrlFor(uid: string, base?: string, key?: Uint8Array | null): string {
   const href = base ?? (typeof window === 'undefined' ? '' : window.location.href);
+  let url: string;
   try {
-    const url = new URL(href);
-    return `${url.origin}${url.pathname}?${PROJECT_PARAM}=${uid}`;
+    const u = new URL(href);
+    url = `${u.origin}${u.pathname}?${PROJECT_PARAM}=${uid}`;
   } catch {
-    return `?${PROJECT_PARAM}=${uid}`;
+    url = `?${PROJECT_PARAM}=${uid}`;
   }
+  return key ? withKeyFragment(url, key) : url;
+}
+
+/** An invite link: the token, and the key the token is worth nothing without. */
+export function inviteUrlFor(token: string, key: Uint8Array | null, base?: string): string {
+  const href = base ?? (typeof window === 'undefined' ? '' : window.location.href);
+  let url: string;
+  try {
+    const u = new URL(href);
+    url = `${u.origin}${u.pathname}?${INVITE_PARAM}=${token}`;
+  } catch {
+    url = `?${INVITE_PARAM}=${token}`;
+  }
+  return key ? withKeyFragment(url, key) : url;
 }
 
 /**
@@ -137,6 +236,8 @@ export function rememberProjectLink(): string | null {
   if (typeof window === 'undefined') return null;
   const uid = projectLinkIn(window.location.href);
   if (!uid) return pendingProjectLink();
+  stashKey(keyInFragment(window.location.href));
+  stripFragment();
   try {
     window.localStorage.setItem(LINK_KEY, JSON.stringify({ uid, at: Date.now() }));
   } catch {
@@ -181,7 +282,7 @@ export function clearPendingProjectLink(): void {
  */
 export async function openProjectLink(
   backend: CloudBackend | null,
-): Promise<{ uid: string; role: ProjectRole } | null> {
+): Promise<{ uid: string; role: ProjectRole; key: Uint8Array | null } | null> {
   if (typeof window === 'undefined') return null;
   const uid = projectLinkIn(window.location.href) ?? pendingProjectLink();
   if (!uid) return null;
@@ -192,7 +293,11 @@ export async function openProjectLink(
   clearPendingProjectLink();
   const role = await backend.openByLink(uid);
   if (!role) return null;
-  return { uid, role: role === 'owner' || role === 'editor' ? role : 'viewer' };
+  return {
+    uid,
+    role: role === 'owner' || role === 'editor' ? role : 'viewer',
+    key: takePendingProjectKey(),
+  };
 }
 
 /**
@@ -213,6 +318,8 @@ export function inviteTokenIn(href: string): { token: string | null; cleaned: st
   if (!raw) return { token: null, cleaned: href };
 
   url.searchParams.delete(INVITE_PARAM);
+  // The key rides in the fragment and must not stay in the address bar either.
+  url.hash = '';
   // `toString()` leaves a bare "?" behind when that was the only parameter,
   // which is a visible difference in the address bar for no reason.
   const cleaned = url.searchParams.size === 0 ? url.href.replace(/\?(?=#|$)/, '') : url.href;
@@ -236,6 +343,7 @@ export function captureInviteFromUrl(): string | null {
   if (typeof window === 'undefined') return null;
   const { token, cleaned } = inviteTokenIn(window.location.href);
   if (!token) return pendingInvite();
+  stashKey(keyInFragment(window.location.href));
   try {
     window.sessionStorage.setItem(STASH_KEY, token);
   } catch {
@@ -280,7 +388,7 @@ export function clearPendingInvite(): void {
  */
 export async function redeemPendingInvite(
   backend: CloudBackend | null,
-): Promise<{ uid: string; role: ProjectRole } | null> {
+): Promise<{ uid: string; role: ProjectRole; key: Uint8Array | null } | null> {
   const token = pendingInvite();
   if (!token) return null;
   // No backend, or a deployment without the membership migration: leave the
@@ -295,5 +403,6 @@ export async function redeemPendingInvite(
   return {
     uid: joined.project_uid,
     role: role === 'owner' || role === 'editor' ? role : 'viewer',
+    key: takePendingProjectKey(),
   };
 }

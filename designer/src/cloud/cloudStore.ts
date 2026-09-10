@@ -57,10 +57,15 @@ import {
 } from './enc_meta.js';
 import {
   createProjectKeyFor,
+  forgetCachedProjectKey,
   projectKeyFor,
+  replaceCachedProjectKey,
+  sessionAccount,
   sessionUnlocked,
   sessionUserId,
+  shareProjectKeyWith,
 } from './session_keys.js';
+import { bytesToBase64, createProjectKey, encryptSecret } from './crypto.js';
 import { syncUserTemplates, type TemplateSyncResult } from './templateSync.js';
 
 let backend: CloudBackend | null = null;
@@ -276,7 +281,66 @@ async function openRow(
       `no key to project ${row.uid}: it was shared before it was encrypted, or not with you`,
     );
   }
-  return { key, meta: await openMeta(key, row.enc_meta!) };
+  try {
+    return { key, meta: await openMeta(key, row.enc_meta!) };
+  } catch (e) {
+    // The owner may have rotated the key since this session cached it (a
+    // member removed, a link turned off) and re-sealed a new one for us. One
+    // fresh fetch; if that does not open it either, the row is not ours.
+    forgetCachedProjectKey(row.uid);
+    const fresh = await projectKeyFor(be, sessionUserId(), row.uid);
+    if (!fresh) throw e;
+    return { key: fresh, meta: await openMeta(fresh, row.enc_meta!) };
+  }
+}
+
+/**
+ * Rotate a project's key: the owner's answer to a member removed or a link
+ * turned off, since the link carried the key.
+ *
+ * A new key; every file key re-wrapped under it (the blobs are untouched -
+ * this is why files have keys of their own); the manifest re-sealed and
+ * committed against the current version; the owner's own row re-wrapped; and
+ * a fresh sealed row for every member who stays, written by the owner. The
+ * rows of whoever was removed are gone by then (the caller deletes them
+ * first), so the new key reaches nobody it should not.
+ */
+export async function rotateProjectKey(
+  uid: string,
+  remaining: { userId: string; publicKey: Uint8Array }[],
+): Promise<void> {
+  const be = need();
+  const me = sessionUserId();
+  const row = await be.getProject('', uid);
+  if (!row?.enc_meta) throw new Error(`project ${uid} is not encrypted; nothing to rotate`);
+  const { key: old, meta } = await openRow(be, row);
+  const next = createProjectKey();
+  const files: EncFileEntry[] = await Promise.all(
+    meta.files.map(async (e) => ({
+      ...e,
+      encFileKey: await wrapFileKey(next, await unwrapFileKey(old, e.encFileKey)),
+    })),
+  );
+  const version = await be.commitProject(
+    {
+      ...row,
+      user_id: row.user_id ?? me,
+      updated_at: new Date().toISOString(),
+      enc_meta: await sealMeta(next, { ...meta, files }),
+    },
+    Number(row.version ?? 1),
+  );
+  if (version === null) throw new StaleBaseError(row.id);
+  if (!be.putProjectKey) throw new Error('this backend cannot hold project keys');
+  const account = sessionAccount();
+  await be.putProjectKey(
+    uid,
+    me,
+    bytesToBase64(await encryptSecret(account.masterKey, next)),
+    'master',
+  );
+  replaceCachedProjectKey(uid, next);
+  await Promise.all(remaining.map((m) => shareProjectKeyWith(be, uid, next, m)));
 }
 
 /** The row as the server returned it, plus its decrypted view when it has one. */

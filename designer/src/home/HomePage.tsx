@@ -7,6 +7,7 @@ import { preloadBundle } from '../libraryPreload.js';
 import { MenuBar, type Menu } from '../ui/MenuBar.js';
 import { HomeLink } from '../ui/HomeLink.js';
 import { AccountButton } from '../ui/AccountButton.js';
+import { adoptProjectKey, projectKeyFor } from '../cloud/session_keys.js';
 import { RecoveryKeyDialog } from '../auth/RecoveryKeyDialog.js';
 import { ShareButton } from './ShareButton.js';
 import { PRODUCT } from '../ui/about_titles.js';
@@ -790,6 +791,8 @@ export function HomePage({
   // down. A ref rather than state: nothing renders from it, and a re-render
   // between the join and the open would drop it.
   const openAfterJoin = useRef<string | null>(null);
+  /** What a followed link resolved to: the project, and the key it carried. */
+  type Joined = { uid: string; key: Uint8Array | null };
   const [joinNotice, setJoinNotice] = useState<
     { kind: 'joined'; role: ProjectRole } | { kind: 'failed'; message: string } | null
   >(null);
@@ -848,13 +851,13 @@ export function HomePage({
       redeemPendingInvite(cloudBackend()),
     ])
       .then(([viaLink, viaInvite]) => ({ joined: viaLink ?? viaInvite }))
-      .then<{ uid: string } | null, { uid: string } | null>(
+      .then<Joined | null, Joined | null>(
         ({ joined }) => {
           if (joined && !cancelled) setJoinNotice({ kind: 'joined', role: joined.role });
           // Carried through the reconcile so the project can be opened once it
           // has actually arrived: joining makes it visible, the sync is what
           // brings it down, and opening it before that would find nothing.
-          return joined ? { uid: joined.uid } : null;
+          return joined ? { uid: joined.uid, key: joined.key } : null;
         },
         (e: unknown) => {
           // Worth a sentence rather than a console line: the person deliberately
@@ -869,6 +872,17 @@ export function HomePage({
 
     void joining
       .then(async (joined) => {
+        // The link carried the project's key in its fragment (P3): wrap it
+        // under this account's master key and keep it, so the project opens
+        // here from now on without the owner's device ever being online.
+        if (joined?.key && joined.uid && userId) {
+          const be = cloudBackend();
+          if (be) {
+            await adoptProjectKey(be, userId, joined.uid, joined.key).catch((e) =>
+              console.warn('project key not adopted:', e),
+            );
+          }
+        }
         // Land in the project the link named.
         //
         // Following a link and being shown whatever this account had open last
