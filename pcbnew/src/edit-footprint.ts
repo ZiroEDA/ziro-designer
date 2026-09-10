@@ -21,6 +21,10 @@ import { atom, str, list, isList, head, type SList } from '@ziroeda/sexpr/src/in
 import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
 import { textItemBBox, textItemHitTest } from './text_metrics.js';
 import { rotatePcb } from './read-board.js';
+import { shapePoints as shapeOutline } from './courtyard.js';
+import { ARC_LOW_DEF, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
+import { buildConvexHull } from '@ziroeda/kimath/src/geometry/convex_hull.js';
+import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
 import type {
   PadShape,
   PadType,
@@ -213,8 +217,18 @@ export function fpItemBBox(fp: PcbFootprint, id: string): FpBBox | null {
  * footprint-holder board (`footprint.cpp:2219-2225`), which is the only board
  * the false case is ever asked about. So on that path nothing but text is
  * dropped, and that is what this does.
+ *
+ * `sided` is that `footprintSide != UNDEFINED_LAYER` test, for the one other
+ * caller of the false case: point selection on a board, where the collector's
+ * `FOOTPRINT::HitTest( VECTOR2I )` is `GetBoundingBox( false )` inflated by the
+ * accuracy (`footprint.cpp:2349-2353`). There the footprint is always sided,
+ * and its annotation graphics are dropped along with its text.
  */
-export function footprintBBox(fp: PcbFootprint, includeText = true): FpBBox | null {
+export function footprintBBox(
+  fp: PcbFootprint,
+  includeText = true,
+  sided = false,
+): FpBBox | null {
   let minX = Infinity,
     minY = Infinity,
     maxX = -Infinity,
@@ -233,7 +247,13 @@ export function footprintBBox(fp: PcbFootprint, includeText = true): FpBBox | nu
   // moves a pivot. Ours answers null for that footprint instead. Left as its
   // own change rather than smuggled in with the preview's framing fix.
   for (const pad of fp.pads) padPoints(pad).forEach(grow);
-  for (const s of fp.shapes) shapePoints(s).forEach(grow);
+  for (const s of fp.shapes) {
+    // "If we're not including text then drop annotations as well -- unless,
+    // of course, it's an unsided footprint" (`footprint.cpp`): the four user
+    // layers are left out of the text-free box of a footprint on a board.
+    if (!includeText && sided && ANNOTATION_LAYERS.has(s.layer)) continue;
+    shapePoints(s).forEach(grow);
+  }
   // `bbox.Merge( point->GetBoundingBox() )` (`footprint.cpp:1853-1854`), and a
   // point's box is `BOX2I::ByCenter( m_pos, { m_size, m_size } )` — half a size
   // each way, not the bare position. Unconditional: a point is not text, so
@@ -242,7 +262,9 @@ export function footprintBBox(fp: PcbFootprint, includeText = true): FpBBox | nu
     grow({ x: p.at.x - p.size / 2, y: p.at.y - p.size / 2 });
     grow({ x: p.at.x + p.size / 2, y: p.at.y + p.size / 2 });
   }
-  if (includeText) {
+  // `if( aIncludeText || noDrawItems )`: a footprint that is nothing but its
+  // fields is measured by them, or it would have no box at all.
+  if (includeText || footprintHasNoDrawItems(fp)) {
     for (const t of fp.texts) {
       if (t.hide) continue;
       // The same `textItemBBox` `fpItemBBox` selects this text with, so the box
@@ -266,6 +288,91 @@ export function footprintBBox(fp: PcbFootprint, includeText = true): FpBBox | nu
  */
 export function footprintTextOnly(fp: PcbFootprint): boolean {
   return fp.shapes.length === 0;
+}
+
+/** `Cmts_User || Dwgs_User || Eco1_User || Eco2_User`, the annotation layers. */
+const ANNOTATION_LAYERS: ReadonlySet<string> = new Set([
+  'Cmts.User',
+  'Dwgs.User',
+  'Eco1.User',
+  'Eco2.User',
+]);
+
+/**
+ * `m_drawings.empty() && m_pads.empty() && m_zones.empty()`. Upstream's
+ * `m_drawings` holds the plain texts and barcodes alongside the graphics —
+ * only the FIELDS live elsewhere — so a footprint that is nothing but its
+ * reference and value is the one this answers true for.
+ */
+export function footprintHasNoDrawItems(fp: PcbFootprint): boolean {
+  return (
+    fp.shapes.length === 0 &&
+    fp.pads.length === 0 &&
+    fp.barcodes.length === 0 &&
+    !fp.texts.some((t) => t.kind === 'user')
+  );
+}
+
+/**
+ * `FOOTPRINT::GetBoundingHull` (`footprint.cpp:1985-2071`): the convex hull of
+ * the footprint's pads and graphics, which is what a click has to land in.
+ *
+ * Upstream builds it from every drawing that is not a field or an image —
+ * `TransformShapeToPolygon` of each, so a stroked outline counts out to its
+ * half-width — plus each pad's shape and each zone's fill, and then
+ * `BuildConvexHull`. "We intentionally exclude footprint fields from the
+ * bounding hull": the reference and value hang off a footprint wherever the
+ * designer put them, and a click on a value string a centimetre from its
+ * part selects the string, not the part. Fewer than three points (a footprint
+ * holding nothing but its two fields) gives the 1 mm square around the anchor
+ * instead.
+ *
+ * A stroke is taken out to its half-width on the two axes rather than
+ * tessellated round its caps; the hull of that differs from upstream's by a
+ * fraction of the line width at the corners, under the selection slop.
+ */
+export function footprintHull(fp: PcbFootprint): Vec2[] {
+  const raw: Vec2[] = [];
+  for (const s of fp.shapes) {
+    const half = s.width / 2;
+    const pts =
+      s.kind === 'curve' && s.pts && s.pts.length >= 4
+        ? new BezierPoly(s.pts.slice(0, 4)).getPoly(ARC_LOW_DEF)
+        : (shapeOutline(s, ARC_LOW_DEF)?.pts ?? shapePoints(s));
+    for (const p of pts) {
+      if (half > 0) {
+        raw.push(
+          { x: p.x - half, y: p.y - half },
+          { x: p.x + half, y: p.y - half },
+          { x: p.x + half, y: p.y + half },
+          { x: p.x - half, y: p.y + half },
+        );
+      } else raw.push(p);
+    }
+  }
+  // Plain texts are drawings; the fields are not.
+  for (const t of fp.texts) {
+    if (t.kind !== 'user' || t.hide) continue;
+    const b = textItemBBox(t);
+    raw.push(
+      { x: b.x, y: b.y },
+      { x: b.x + b.w, y: b.y },
+      { x: b.x + b.w, y: b.y + b.h },
+      { x: b.x, y: b.y + b.h },
+    );
+  }
+  for (const pad of fp.pads) raw.push(...padPoints(pad));
+  if (raw.length < 3) {
+    // "generate a small dummy rectangular outline around the anchor"
+    const halfsize = pcbMmToIU(1.0);
+    return [
+      { x: fp.at.x - halfsize, y: fp.at.y - halfsize },
+      { x: fp.at.x + halfsize, y: fp.at.y - halfsize },
+      { x: fp.at.x + halfsize, y: fp.at.y + halfsize },
+      { x: fp.at.x - halfsize, y: fp.at.y + halfsize },
+    ];
+  }
+  return buildConvexHull(raw);
 }
 
 // ----- hit testing ------------------------------------------------------------

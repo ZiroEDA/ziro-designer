@@ -34,7 +34,7 @@ import { barcodeBBox, barcodeGeometry, barcodeHullBoxes } from './barcode_geomet
 import { textItemBBox } from './text_metrics.js';
 import { arcCenter, rotatePcb } from './read-board.js';
 import { connectedTrackEnds } from './connectivity.js';
-import { footprintBBox, padBBox } from './edit-footprint.js';
+import { footprintBBox, footprintHasNoDrawItems, footprintHull, padBBox } from './edit-footprint.js';
 import { dimensionBBox, distanceToDimension } from './dimension_geometry.js';
 import { textBoxBBox } from './textbox_geometry.js';
 import { tableBBox } from './table_geometry.js';
@@ -456,6 +456,16 @@ const polyArea = (pts: Vec2[]): number => {
   for (let i = 0, j = pts.length - 1; i < pts.length; j = i++)
     a += (pts[j]!.x + pts[i]!.x) * (pts[j]!.y - pts[i]!.y);
   return Math.abs(a / 2);
+};
+
+/** Distance from a point to a closed polygon's edge, 0 inside (`SHAPE_LINE_CHAIN::Collide`). */
+const polyDist = (p: Vec2, poly: Vec2[]): number => {
+  if (poly.length === 0) return Infinity;
+  if (poly.length >= 3 && pointInPolygon(p, poly)) return 0;
+  let d = Infinity;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++)
+    d = Math.min(d, distToSeg(p, poly[j]!, poly[i]!));
+  return d;
 };
 
 /** Distance from a point to a bbox (0 inside). */
@@ -904,9 +914,25 @@ export function boardHitCandidates(
           layers: p.layers,
         });
     });
-    const b = footprintBBox(f);
-    if (b) {
-      let d = bboxDist(b, pos);
+    // GENERAL_COLLECTOR::Inspect (`collectors.cpp:413`):
+    //
+    //     if( footprint->HitTest( m_refPos, accuracy )
+    //         && footprint->HitTestAccurate( m_refPos, accuracy ) )
+    //
+    // The first is the text-free bounding box inflated by the accuracy; the
+    // second is the convex hull of the pads and graphics — the fields are
+    // deliberately not in it. A footprint is picked by its body, never by its
+    // reference or value: those are items of their own and a click on one
+    // selects the text. Ours took the box WITH the text, so a footprint with
+    // a long value string hanging off it was selected from anywhere along the
+    // string, a whole part-width away from the part.
+    const b = footprintBBox(f, false, true);
+    if (b && bboxDist(b, pos) <= tol) {
+      const hull = footprintHull(f);
+      // `hitTestDistance` (`pcb_selection_tool.cpp:4142-4159`): the hull's
+      // collision distance, and the coverage area is the hull's too
+      // (`FOOTPRINT::GetCoverageArea`, `footprint.cpp:3433-3436`).
+      let d = polyDist(pos, hull);
       // "Consider footprints larger than the viewport only as a last resort."
       if (
         opts.viewportIU &&
@@ -918,7 +944,7 @@ export function boardHitCandidates(
           id: boardItemId('footprint', i),
           kind: 'footprint',
           dist: d,
-          area: bboxArea(b),
+          area: polyArea(hull),
           layers: [f.layer],
         });
     }
@@ -1096,10 +1122,47 @@ export function boardItemsInBox(
     const hit = contained ? bboxContained('via', i) : circleInRect(rect, v.at, v.size / 2);
     if (hit) push('via', i);
   });
-  board.footprints.forEach((_, i) => {
-    // FOOTPRINT: bbox contain/intersect
-    const b = boardItemBBox(board, boardItemId('footprint', i));
-    if (b && (contained ? boxContainsBox(rect, b) : boxIntersects(rect, b))) push('footprint', i);
+  board.footprints.forEach((f, i) => {
+    // `FOOTPRINT::HitTest( BOX2I, bool )` (`footprint.cpp:2362-2416`). Both
+    // arms measure the footprint WITHOUT its fields: a window drawn round a
+    // reference designator selects the designator, not the part it names.
+    const b = footprintBBox(f, false, true);
+    if (!b) return;
+    if (contained) {
+      if (boxContainsBox(rect, b)) push('footprint', i);
+      return;
+    }
+    // "If the rect does not intersect the bounding box, skip any tests"
+    if (!boxIntersects(rect, b)) return;
+    // "If there are no pads, zones, or drawings, allow intersection with text"
+    if (footprintHasNoDrawItems(f)) {
+      const bt = footprintBBox(f);
+      if (bt && boxIntersects(rect, bt)) push('footprint', i);
+      return;
+    }
+    // "Determine if any elements in the FOOTPRINT intersect the rect" — the
+    // pads, the points and the non-text drawings; "PCB fields are selectable
+    // on their own, so they don't get tested", and so are the plain texts.
+    const hit =
+      f.pads.some((p) => {
+        const pb = padBBox(p);
+        return !!pb && boxIntersects(rect, pb);
+      }) ||
+      f.points.some((p) => {
+        const h = p.size / 2;
+        return boxIntersects(rect, {
+          minX: p.at.x - h,
+          minY: p.at.y - h,
+          maxX: p.at.x + h,
+          maxY: p.at.y + h,
+        });
+      }) ||
+      f.shapes.some((s) => {
+        if (s.kind === 'line' && s.start && s.end) return segInRect(rect, s.start, s.end);
+        const sb = shapeBBox(s);
+        return !isEmpty(sb) && boxIntersects(rect, sb);
+      });
+    if (hit) push('footprint', i);
   });
   board.shapes.forEach((s, i) => {
     if (contained) {
