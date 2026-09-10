@@ -88,6 +88,27 @@ describe("the pour is KiCad's, vertex for vertex", () => {
     expect(kicad[0]![0]!.polys[0]!.length).toBe(1759);
   });
 
+  it('StickHub: five pours on two layers — fillet smoothing, an arc board edge, arc tracks', () => {
+    // What this one pins that ecc83 does not: `SHAPE_POLY_SET::Fillet` on the
+    // smoothed outline (radius 0.5), the board outline's arcs through
+    // `SHAPE_ARC::ConvertToPolyline`, `PCB_ARC` knockouts, the item bounding
+    // boxes that decide which copper below the pour is skipped, and
+    // `Fracture()`'s Simplify — the Clipper pass that decides where every
+    // ring starts. Without the last, 5 of its 11 rings come out rotated.
+    const { kicad, ours } = refill('StickHub');
+    expect(ours.zones).toHaveLength(kicad.length);
+    let rings = 0;
+    ours.zones.forEach((z, i) => {
+      for (const k of kicad[i]!) {
+        const f = z.fills.find((x) => x.layer === k.layer);
+        expect(f, `zone ${i} ${k.layer}`).toBeDefined();
+        expect(f!.polys, `zone ${i} ${k.layer}`).toEqual(k.polys);
+        rings += k.polys.length;
+      }
+    });
+    expect(rings).toBe(11);
+  }, 60_000);
+
   it('hatch40: a hatched zone comes back as the same 1037-vertex web', () => {
     const { kicad, ours } = refill('hatch40');
     expect(ours.zones[0]!.fills[0]!.polys).toEqual(kicad[0]![0]!.polys);

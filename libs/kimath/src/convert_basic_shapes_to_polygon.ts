@@ -11,12 +11,12 @@ import { KiROUND, rescale64 } from './math/util.js';
 import { EuclideanNormI, Perpendicular, ResizeI, type VECTOR2I } from './math/vector2.js';
 import { acos, asin, cos, hypot, sin } from './math/libm.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from './geometry/eda_angle.js';
+import { getArcToSegmentCount } from './geometry/geometry_utils.js';
+
+export { getArcToSegmentCount };
 import { RotatePoint } from './trigo.js';
 import { segIntersectLines } from './geometry/seg.js';
 import { booleanIntersection, fractureSingle, type Polygon } from './geometry/shape_poly_set.js';
-
-/** MIN_SEGCOUNT_FOR_CIRCLE. */
-const MIN_SEGCOUNT_FOR_CIRCLE = 8;
 
 /** Where the approximation error is spent relative to the true shape. */
 export enum ErrorLoc {
@@ -24,36 +24,6 @@ export enum ErrorLoc {
   ERROR_INSIDE = 0,
   /** The polygon encloses the shape: the radius is grown to compensate. */
   ERROR_OUTSIDE = 1,
-}
-
-/**
- * GetArcToSegmentCount: segments needed so the sagitta stays under aErrorMax.
- *
- * @param aArcAngleDeg the arc's span in degrees; 360 for a full circle.
- */
-export function getArcToSegmentCount(
-  aRadius: number,
-  aErrorMax: number,
-  aArcAngleDeg: number,
-): number {
-  // Avoid divide-by-zero.
-  const radius = Math.max(1, aRadius);
-  const errorMax = Math.max(1, aErrorMax);
-
-  const relError = errorMax / radius;
-
-  // An error budget larger than the diameter drives acos out of its domain.
-  // Upstream leaves this to the platform, where the resulting NaN falls through
-  // `std::min` and lands on the 8-segment floor; clamping to -1 reaches the
-  // same floor deliberately instead of by accident.
-  let arcIncrement = (180 / Math.PI) * Math.acos(Math.max(-1.0, 1.0 - relError)) * 2;
-
-  // A minimum increment keeps very small radii sane.
-  arcIncrement = Math.min(360.0 / MIN_SEGCOUNT_FOR_CIRCLE, arcIncrement);
-
-  const segCount = KiROUND(Math.abs(aArcAngleDeg) / arcIncrement);
-
-  return Math.max(segCount, 2);
 }
 
 /**

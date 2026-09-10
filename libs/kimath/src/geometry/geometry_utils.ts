@@ -11,7 +11,42 @@
  * `DRAWING_TOOL::constrainDimension`. A copy parked next to any one of those
  * callers is a copy the other three will drift from.
  */
+import { acos } from '../math/libm.js';
+import { KiROUND } from '../math/util.js';
 import type { Vec2 } from '../math/vector2.js';
+
+/** MIN_SEGCOUNT_FOR_CIRCLE. */
+const MIN_SEGCOUNT_FOR_CIRCLE = 8;
+
+/**
+ * GetArcToSegmentCount: segments needed so the sagitta stays under aErrorMax.
+ *
+ * @param aArcAngleDeg the arc's span in degrees; 360 for a full circle.
+ */
+export function getArcToSegmentCount(
+  aRadius: number,
+  aErrorMax: number,
+  aArcAngleDeg: number,
+): number {
+  // Avoid divide-by-zero.
+  const radius = Math.max(1, aRadius);
+  const errorMax = Math.max(1, aErrorMax);
+
+  const relError = errorMax / radius;
+
+  // An error budget larger than the diameter drives acos out of its domain.
+  // Upstream leaves this to the platform, where the resulting NaN falls through
+  // `std::min` and lands on the 8-segment floor; clamping to -1 reaches the
+  // same floor deliberately instead of by accident.
+  let arcIncrement = (180 / Math.PI) * acos(Math.max(-1.0, 1.0 - relError)) * 2;
+
+  // A minimum increment keeps very small radii sane.
+  arcIncrement = Math.min(360.0 / MIN_SEGCOUNT_FOR_CIRCLE, arcIncrement);
+
+  const segCount = KiROUND(Math.abs(aArcAngleDeg) / arcIncrement);
+
+  return Math.max(segCount, 2);
+}
 
 /**
  * `LEADER_MODE` (`geometry_utils.h:42-51`) — the kind of the leader line.

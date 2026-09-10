@@ -26,7 +26,9 @@ import { Clipper64, PolyPath64, type PolyTree64 } from '../clipper2/clipper.engi
 import { stdSort } from '../clipper2/clipper.core.js';
 import { simplifyLineChain } from './shape_line_chain.js';
 import { ClipperOffset } from '../clipper2/clipper.offset.js';
-import { cos } from '../math/libm.js';
+import { acos, atan2, cos, hypot, sin } from '../math/libm.js';
+import { EDA_ANGLE, EDA_ANGLE_T } from './eda_angle.js';
+import { getArcToSegmentCount } from './geometry_utils.js';
 import type { Vec2 } from '../math/vector2.js';
 
 /** An outline followed by its holes, KiCad's SHAPE_POLY_SET::POLYGON. */
@@ -412,10 +414,27 @@ export function inflateWithLinkedHoles(
 }
 
 /**
- * SHAPE_POLY_SET::Fracture: fracture every polygon of the set, leaving a list of
- * simple rings.
+ * `SHAPE_POLY_SET::Simplify()`: `splitCollinearOutlines()` and then a union
+ * with an empty set — a Clipper pass, which is what re-starts every ring at
+ * the vertex Clipper picks. (`splitCollinearOutlines` cuts an outline at an
+ * "exterior waist" — two collinear overlapping edges with no material on
+ * either side; a union's output has none, so it is not ported.)
+ */
+export const simplify = (polygons: Polygon[]): Polygon[] => booleanAdd(polygons, []);
+
+/**
+ * `SHAPE_POLY_SET::Fracture( aSimplify = true )`: `Simplify()` — "remove
+ * overlapping holes/degeneracy" — and then every polygon fractured into one
+ * simple ring. The default is what every caller in the zone filler uses, and
+ * the Simplify is load-bearing for parity: it is a Clipper pass, so the
+ * fractured ring starts where Clipper's union starts it.
  */
 export function fracture(polygons: Polygon[]): Vec2[][] {
+  return fractureNoSimplify(simplify(polygons));
+}
+
+/** `SHAPE_POLY_SET::Fracture( false )`: the fracture alone. */
+export function fractureNoSimplify(polygons: Polygon[]): Vec2[][] {
   const out: Vec2[][] = [];
   for (const poly of polygons) {
     for (const ring of fractureSingle(poly)) out.push(ring);
@@ -642,17 +661,16 @@ export enum CornerMode {
 const kiRound = (v: number): number => (v < 0 ? Math.ceil(v - 0.5) : Math.floor(v + 0.5));
 
 /**
- * GetArcToSegmentCount: segments needed to hold an arc of `radius` sweeping
- * `angleRad` within `errorMax`.
+ * `SHAPE_POLY_SET::RemoveNullSegments` on one polygon: a vertex equal to the
+ * one after it (the last wrapping to the first) is dropped.
  */
-function arcToSegmentCount(radius: number, errorMax: number, angleRad: number): number {
-  if (radius < 10 || angleRad === 0) return 1;
-  const arcAngle = Math.abs(angleRad);
-  const maxSegs = Math.ceil((2 * Math.PI) / arcAngle) * 8;
-  const argument = 1.0 - errorMax / radius;
-  let segCount = argument <= -1 ? maxSegs : Math.ceil((2 * Math.PI) / Math.acos(argument) / 2);
-  segCount = Math.ceil((segCount * arcAngle) / (2 * Math.PI));
-  return Math.max(1, Math.min(segCount, maxSegs));
+function removeNullSegments(poly: Polygon): Polygon {
+  return poly.map((ring) =>
+    ring.filter((p, i) => {
+      const q = ring[(i + 1) % ring.length]!;
+      return p.x !== q.x || p.y !== q.y;
+    }),
+  );
 }
 
 /**
@@ -662,11 +680,14 @@ function arcToSegmentCount(radius: number, errorMax: number, angleRad: number): 
  * can never eat its neighbour, and both leave parallel edges alone.
  */
 export function chamferFilletPolygon(
-  poly: Polygon,
+  aPoly: Polygon,
   mode: CornerMode,
   distance: number,
   errorMax = 0,
 ): Polygon {
+  // "Null segments create serious issues in calculations. Remove them" —
+  // before the zero-distance early return, as upstream orders it.
+  const poly = removeNullSegments(aPoly);
   if (distance === 0) return poly.map((ring) => ring.map((p) => ({ ...p })));
 
   const out: Polygon = [];
@@ -689,8 +710,8 @@ export function chamferFilletPolygon(
       // Avoid segments that would generate NaNs below.
       if (Math.abs(xa + xb) < Number.EPSILON && Math.abs(ya + yb) < Number.EPSILON) continue;
 
-      const lena = Math.hypot(xa, ya);
-      const lenb = Math.hypot(xb, yb);
+      const lena = hypot(xa, ya);
+      const lenb = hypot(xb, yb);
 
       if (mode === CornerMode.CHAMFERED) {
         let d = distance;
@@ -716,7 +737,10 @@ export function chamferFilletPolygon(
 
       // The fillet arc's centre.
       let k = radius / Math.sqrt(0.5 * (1 - cosine));
-      const lenab = Math.hypot(xa / lena + xb / lenb, ya / lena + yb / lenb);
+      const lenab = Math.sqrt(
+        (xa / lena + xb / lenb) * (xa / lena + xb / lenb) +
+          (ya / lena + yb / lenb) * (ya / lena + yb / lenb),
+      );
       const xc = x1 + (k * (xa / lena + xb / lenb)) / lenab;
       const yc = y1 + (k * (ya / lena + yb / lenb)) / lenab;
 
@@ -730,10 +754,16 @@ export function chamferFilletPolygon(
       let argument = (xs * xe + ys * ye) / (radius * radius);
       argument = Math.max(-1, Math.min(1, argument));
 
-      const arcAngle = Math.acos(argument);
-      const segments = arcToSegmentCount(radius, errorMax, arcAngle);
+      const arcAngle = acos(argument);
+      // `GetArcToSegmentCount( radius, aErrorMax, EDA_ANGLE( arcAngle, RADIANS_T ) )`
+      // takes `int aRadius`: the double radius truncates on the way in.
+      const segments = getArcToSegmentCount(
+        Math.trunc(radius),
+        errorMax,
+        new EDA_ANGLE(arcAngle, EDA_ANGLE_T.RADIANS_T).AsDegrees(),
+      );
       let deltaAngle = arcAngle / segments;
-      const startAngle = Math.atan2(-ys, xs);
+      const startAngle = atan2(-ys, xs);
 
       // Flip the arc for inner corners.
       if (xa * yb - ya * xb <= 0) deltaAngle *= -1;
@@ -748,8 +778,8 @@ export function chamferFilletPolygon(
       let prevY = kiRound(ny);
 
       for (let j = 0; j < segments; j++) {
-        nx = xc + Math.cos(startAngle + (j + 1) * deltaAngle) * radius;
-        ny = yc - Math.sin(startAngle + (j + 1) * deltaAngle) * radius;
+        nx = xc + cos(startAngle + (j + 1) * deltaAngle) * radius;
+        ny = yc - sin(startAngle + (j + 1) * deltaAngle) * radius;
         if (Number.isNaN(nx) || Number.isNaN(ny)) continue;
 
         // Rounding can repeat a corner; do not add it twice.

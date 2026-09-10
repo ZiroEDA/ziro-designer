@@ -50,7 +50,13 @@ import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { defaultThermalSpokeAngle } from './padstack.js';
 import { graphicShapes, padShapes } from './drc/drc_engine.js';
-import { shapeDist, type Shape } from './drc/drc_geometry.js';
+import {
+  arcCentralAngle,
+  arcRadius,
+  arcStartAngle,
+  shapeArcCenter,
+} from './router/shape_arc_ops.js';
+import { shapeBBox, shapeDist, type Shape } from './drc/drc_geometry.js';
 import { tessellateArc } from './read-board.js';
 import { padShapePos } from './padstack.js';
 import { type FillOutline, isolatedIslands } from './zone_islands.js';
@@ -415,6 +421,86 @@ const boxInflate = (b: Box, d: number): Box => ({
 
 const boxesIntersect = (a: Box, b: Box): boolean =>
   a.x0 <= b.x1 && b.x0 <= a.x1 && a.y0 <= b.y1 && b.y0 <= a.y1;
+
+const drcBox = (b: { minX: number; minY: number; maxX: number; maxY: number }): Box => ({
+  x0: b.minX,
+  y0: b.minY,
+  x1: b.maxX,
+  y1: b.maxY,
+});
+const boxMerge = (a: Box, b: Box): Box => ({
+  x0: Math.min(a.x0, b.x0),
+  y0: Math.min(a.y0, b.y0),
+  x1: Math.max(a.x1, b.x1),
+  y1: Math.max(a.y1, b.y1),
+});
+
+/**
+ * `PCB_TRACK::GetBoundingBox` / `PCB_VIA::GetBoundingBox`: the end points
+ * grown by the rounded-up radius `( width + 1 ) / 2`, as a `[pos, dim)`
+ * rectangle whose far edges are one unit further out.
+ */
+function trackBox(a: Vec2, b: Vec2, width: number): Box {
+  const radius = Math.trunc((width + 1) / 2);
+  const bb = boxOf([a, b]);
+  return { x0: bb.x0 - radius, y0: bb.y0 - radius, x1: bb.x1 + radius + 1, y1: bb.y1 + radius + 1 };
+}
+
+/**
+ * `SHAPE_ARC::update_values` + `BBox( 0 )`: start, mid, end and the
+ * quadrant points the arc sweeps through, grown by `KiROUND( width / 2 ) + 1`.
+ */
+function arcTrackBox(start: Vec2, mid: Vec2, end: Vec2, width: number): Box {
+  const arc = { p0: start, arcMid: mid, p1: end, width };
+  const center = shapeArcCenter(arc);
+  const radiusD = arcRadius(arc);
+  const points: Vec2[] = [start, mid, end];
+  let startAngle = arcStartAngle(arc);
+  let endAngle = startAngle.add(arcCentralAngle(arc));
+  if (startAngle.gt(endAngle)) [startAngle, endAngle] = [endAngle, startAngle];
+  const quadStart = Math.ceil(startAngle.AsDegrees() / 90.0);
+  const quadEnd = Math.floor(endAngle.AsDegrees() / 90.0);
+  if (radiusD < 2147483647 / 2.0) {
+    const radius = KiROUND(radiusD);
+    for (let quad = quadStart; quad <= quadEnd; ++quad) {
+      const q = quad % 4;
+      if (q === 0) points.push({ x: center.x + radius, y: center.y });
+      else if (q === 1 || q === -3) points.push({ x: center.x, y: center.y + radius });
+      else if (q === 2 || q === -2) points.push({ x: center.x - radius, y: center.y });
+      else points.push({ x: center.x, y: center.y - radius });
+    }
+  }
+  const bb = boxOf(points);
+  return width !== 0 ? boxInflate(bb, KiROUND(width / 2.0) + 1) : bb;
+}
+
+/**
+ * `PAD::GetBoundingBox`: the effective shapes' boxes merged with the hole's
+ * (`SHAPE_SEGMENT( pos - half_len, pos + half_len, half_width * 2 )`).
+ */
+function padBox(pad: PcbPad): Box {
+  let box: Box | undefined;
+  for (const sh of padShapes(pad)) {
+    const b = drcBox(shapeBBox(sh));
+    box = box ? boxMerge(box, b) : b;
+  }
+  if (pad.drill) {
+    const halfW = Math.trunc(Math.min(pad.drill.w, pad.drill.h) / 2);
+    const halfLen = RotatePoint(
+      { x: Math.trunc(pad.drill.w / 2) - halfW, y: Math.trunc(pad.drill.h / 2) - halfW },
+      new EDA_ANGLE(pad.angle),
+    );
+    const hole = boxInflate(
+      boxOf([
+        { x: pad.at.x - halfLen.x, y: pad.at.y - halfLen.y },
+        { x: pad.at.x + halfLen.x, y: pad.at.y + halfLen.y },
+      ]),
+      halfW,
+    );
+    box = box ? boxMerge(box, hole) : hole;
+  }
+  return box ?? boxOf([pad.at]);
+}
 
 /** The extreme points of a DRC shape, enough for a bounding box. */
 function shapeCorners(s: Shape): Vec2[] {
@@ -1124,7 +1210,8 @@ function fillZoneParts(
     for (const z of board.zones)
       if (!z.ruleArea && z.clearance !== undefined)
         worstClearance = Math.max(worstClearance, z.clearance);
-    const zoneBox = boxInflate(boxOf(zone.outline), worstClearance + EXTRA_CLEARANCE);
+    const rawZoneBox = boxOf(zone.outline);
+    const zoneBox = boxInflate(rawZoneBox, worstClearance + EXTRA_CLEARANCE);
     const near = (b: Box): boolean => boxesIntersect(b, zoneBox);
 
     const stage = (name: string, polys: Polygon[]): void => {
@@ -1145,16 +1232,9 @@ function fillZoneParts(
         if (!padOnLayer(pad, layer) && !npthWithHole) continue;
 
         // "padBBox.Inflate( m_worstClearance ); if( !padBBox.Intersects(
-        // aZone->GetBoundingBox() ) ) continue".
-        const reach = Math.max(
-          pad.size.x,
-          pad.size.y,
-          pad.drill ? Math.max(pad.drill.w, pad.drill.h) : 0,
-        );
-        // The copper sits at `ShapePos` and the hole at `pad.at`; the guard has
-        // to cover both, so it spans the two.
-        const shapeAt = padShapePos(pad);
-        if (!near(boxAround(pad.at, shapeAt, reach))) continue;
+        // aZone->GetBoundingBox() ) ) continue" — the pad's REAL box against
+        // the zone's own, not the extra-margin one the copper items get.
+        if (!boxesIntersect(boxInflate(padBox(pad), worstClearance), rawZoneBox)) continue;
 
         const holeRadius = pad.drill ? Math.max(pad.drill.w, pad.drill.h) / 2 : 0;
 
@@ -1307,7 +1387,7 @@ function fillZoneParts(
         at: at(t),
         run: () => {
           if (t.layer !== layer) return;
-          if (!near(boxAround(t.start, t.end, t.width))) return;
+          if (!near(trackBox(t.start, t.end, t.width))) return;
           if (t.net === zone.net && zone.net > 0) {
             connected.push(...alongSegment(t.start, t.end));
             return;
@@ -1329,7 +1409,7 @@ function fillZoneParts(
         at: at(a),
         run: () => {
           if (a.layer !== layer) return;
-          if (!near(boxInflate(boxOf([a.start, a.mid, a.end]), a.width))) return;
+          if (!near(arcTrackBox(a.start, a.mid, a.end, a.width))) return;
           if (a.net === zone.net && zone.net > 0) {
             const pts = tessellateArc(a.start, a.mid, a.end);
             for (let i = 1; i < pts.length; i++)
@@ -1354,8 +1434,10 @@ function fillZoneParts(
       copperItems.push({
         at: at(v),
         run: () => {
-          // "viaBBox.Inflate( m_worstClearance )".
-          if (!near(boxAround(v.at, v.at, v.size))) return;
+          // "viaBBox.Inflate( m_worstClearance ); if( !viaBBox.Intersects(
+          // aZone->GetBoundingBox() ) )".
+          if (!boxesIntersect(boxInflate(trackBox(v.at, v.at, v.size), worstClearance), rawZoneBox))
+            return;
           if (v.net === zone.net && zone.net > 0) {
             connected.push(...viaAnchors(v));
             return;

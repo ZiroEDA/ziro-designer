@@ -64,6 +64,7 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
 import { booleanAdd, type Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { chainOutlines, shapePoints } from './courtyard.js';
+import { arcConvertToPolyline } from './router/shape_arc_ops.js';
 import { padIsOnLayer } from './pad_enumerate.js';
 import { copperRank, enabledCopperLayers, isCopperLayerName } from './swap_layers.js';
 import type { Board, PcbFootprint, PcbPad, PcbShape, PcbVia } from './types.js';
@@ -268,6 +269,16 @@ function edgePoints(s: PcbShape, maxError: number): { pts: Vec2[]; closed: boole
     if (!ctrl || (ctrl.length !== 3 && ctrl.length !== 4)) return undefined;
     return { pts: new BezierPoly(ctrl).getPoly(maxError), closed: false };
   }
+
+  // `SHAPE_ARC sarc( pstart, pmid, pend, 0 ); arcChain.Append( sarc, aErrorMax )`
+  // (convert_shape_list_to_polygon.cpp:303-306): the edge arc is polygonised
+  // by `SHAPE_ARC::ConvertToPolyline`, on the mid point as the file has it
+  // (`GetArcMid` keeps it while nothing has moved).
+  if (s.kind === 'arc' && s.start && s.mid && s.end)
+    return {
+      pts: arcConvertToPolyline({ p0: s.start, arcMid: s.mid, p1: s.end, width: 0 }, maxError),
+      closed: false,
+    };
 
   return shapePoints(s, maxError);
 }

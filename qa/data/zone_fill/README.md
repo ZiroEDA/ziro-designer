@@ -24,3 +24,9 @@ zone put on `F.Cu` and `In1.Cu`…`In19.Cu` gets each inner layer's fill
 replaced by one intermediate poly set of the F.Cu fill
 (`DUMP_POLYS_TO_COPPER_LAYER` in `zone_filler.cpp`), which is how the
 pipeline was matched stage by stage.
+
+- `StickHub_kicad_cli.kicad_pcb` + `StickHub.kicad_pro`: the StickHub demo
+  board refilled by `kicad-cli pcb drc --refill-zones --save-board`. Five
+  zones on F.Cu/B.Cu with fillet smoothing (radius 0.5 mm), a board outline
+  with arcs, arc tracks, and copper below the pour that the bounding-box
+  guards must skip.
