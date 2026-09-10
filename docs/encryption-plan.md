@@ -164,6 +164,31 @@ convert, because it cannot.
 - Real-time presence, when it comes, carries only ciphertext under the
   project key.
 
+## Where this stands (2026-09-10)
+
+P0, P1, P2 and P3 are on `main` and live: the migrations are applied to the
+production ref, and the account that tested it holds five encrypted rows,
+no plaintext row, no file name, and only ciphertext in its browser once
+locked (verified in a real browser and by querying production). P4 came
+with them: the four user-data folders are records of the same store and
+were re-pushed encrypted by the same rule as any project.
+
+P5 is deferred, not dropped. Each item, and what it is for:
+
+- **Verification ID.** A fingerprint of each member's public key in the
+  Share popover, read out over a call and compared. It is the one defence
+  against the server, or someone in it, swapping a member's public key for
+  their own at share time; Signal's safety numbers and the reference design's
+  verification ID are the same idea. About an hour of UI.
+- **Link password.** A share link carries the key in its fragment, so the link
+  alone opens the project. The reference design lets a link also carry a
+  password the server checks before handing over the ciphertext, so a leaked
+  link is not enough. A column, a server check, and a field in the popover.
+  Decide first whether it is wanted as a product feature.
+- **Encrypted presence.** Nothing to build until live presence exists; when it
+  does, presence messages go under the project key or the server sees names
+  and cursors.
+
 ## Order and size
 
 P0 and P1 together are the behaviour change and go first; P2 closes the local
