@@ -272,9 +272,19 @@ describe('a pane that leaves the document takes its bars with it, now', () => {
     'utf8',
   );
 
-  it('watches the document for removals and drops the bars of a disconnected pane', () => {
-    expect(SRC).toContain('gone.observe(doc.body, { childList: true, subtree: true });');
-    expect(SRC).toContain('if (!b.pane.isConnected) detach(b);');
+  it('watches the document for removals AND hidings, and drops the bars of a pane no longer visible', () => {
+    // A dialog that unmounts is the easy case. A notebook page switched
+    // away, a dialog kept behind `hidden`, and every editor frame left for
+    // another (content-visibility: hidden) all hide WITHOUT a removal, and
+    // each left its bar fading over whatever came next. Hiding is an
+    // attribute change, so attributes are watched; visibility is the test.
+    expect(SRC).toMatch(
+      /gone\.observe\(doc\.body, \{\s*childList: true,\s*subtree: true,\s*attributes: true,\s*attributeFilter: \['style', 'class', 'hidden', 'open'\],?\s*\}\)/,
+    );
+    expect(SRC).toContain('if (!visible(b.pane)) detach(b);');
+    expect(SRC).toMatch(
+      /const visible = \(pane: HTMLElement\): boolean =>\s*pane\.isConnected &&[\s\S]*?pane\.checkVisibility\(\{ contentVisibilityAuto: true, visibilityProperty: true \}\)/,
+    );
   });
 
   it('detach removes the bar elements rather than hiding them, so there is no fade to outlive the pane', () => {

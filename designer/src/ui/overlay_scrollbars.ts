@@ -559,16 +559,43 @@ export const installOverlayScrollbars = (doc: Document = document): (() => void)
   // A pane that scrolls its own content also moves under the bars.
   doc.addEventListener('scroll', onResize, { passive: true, capture: true });
 
+  /**
+   * Whether a pane is still something the user can see.
+   *
+   * Not in the document is the obvious way to be gone, and the only one the
+   * first version of this checked - so a dialog that CLOSED BY UNMOUNTING took
+   * its bar with it, while everything that hides without unmounting did not:
+   * a notebook page switched away, a panel collapsed, a dialog kept mounted
+   * behind `hidden`, and since the frames stopped unmounting on a view change
+   * (they sit behind `content-visibility: hidden` now) every editor left on
+   * the way to another. Each left its bar on the layer, running GTK's 2 s
+   * hold and 1 s fade over whatever was on screen instead. `checkVisibility`
+   * is false for all of those - display:none, `hidden`, content-visibility,
+   * visibility - which is exactly the set GTK's child-of-the-window indicator
+   * disappears with.
+   */
+  const visible = (pane: HTMLElement): boolean =>
+    pane.isConnected &&
+    (typeof pane.checkVisibility !== 'function' ||
+      pane.checkVisibility({ contentVisibilityAuto: true, visibilityProperty: true }));
+
   // Panes are found by delegation, so nothing walks the tree to find them;
   // this walks nothing either. On a DOM change it looks only at the panes that
   // HAVE bars - the handful the pointer has been in - and drops the ones no
-  // longer in the document. A closed dialog's bar is gone in the same
-  // mutation batch that removed the dialog.
+  // longer visible. A closed dialog's bar is gone in the same mutation batch
+  // that removed or hid the dialog. Attributes are watched as well as
+  // children, because hiding is an attribute change - a style, a class, the
+  // `hidden` flag - and never a removal.
   const gone = new MutationObserver(() => {
     if (disposed || bars.size === 0) return;
-    for (const b of [...bars.values()]) if (!b.pane.isConnected) detach(b);
+    for (const b of [...bars.values()]) if (!visible(b.pane)) detach(b);
   });
-  gone.observe(doc.body, { childList: true, subtree: true });
+  gone.observe(doc.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['style', 'class', 'hidden', 'open'],
+  });
 
   return () => {
     if (disposed) return;
