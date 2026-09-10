@@ -772,6 +772,38 @@ describe('zone filler', () => {
     expect(covered(fill, { x: MM(17.5), y: MM(20) })).toBe(true);
   });
 
+  it('tests a spoke tip against a CHAMFERED re-inflate, as upstream does', () => {
+    // `testAreas` (zone_filler.cpp:2936-2965) is deflated and re-inflated with
+    // `fastCornerStrategy` — CHAMFER_ALL_CORNERS both ways — while the real
+    // prune re-inflates ROUND. At a reflex corner of the copper, where a
+    // track's clearance band meets a pad's relief arc, the round one leaves a
+    // fillet the chamfered one does not, and a spoke tip in that fillet is
+    // kept by upstream and would be dropped by a test that used the prune.
+    //
+    // A 2 mm round pad (45° spokes) on a 1 mm-thick pour, whose lower-left
+    // tip — 1 + 0.5 + 0.005 + 0.5 mm out on the diagonal, at (18.58, 21.42) —
+    // lands 0.08 mm inside a net-2 track's clearance edge at x = 18.5, in the
+    // wedge that edge makes with the relief arc. The chamfered test keeps it
+    // up to an edge at 18.50; the rounded one only up to 18.45.
+    const b = board({
+      zones: [zone({ islandRemovalMode: 'never', minThickness: MM(1), thermalBridgeWidth: MM(1) })],
+      footprints: [footprint([{ ...pad({ x: MM(20), y: MM(20) }, 1), shape: 'circle' }])],
+      tracks: [
+        {
+          start: { x: MM(17.5), y: 0 },
+          end: { x: MM(17.5), y: MM(40) },
+          width: MM(1),
+          layer: 'F.Cu',
+          net: 2,
+          source: EMPTY,
+        },
+      ],
+    });
+    const fill = fillZone(b, 0)[0]!.polys;
+    // Mid-spoke, on the lower-left diagonal, inside the relief gap.
+    expect(covered(fill, { x: MM(19), y: MM(21) })).toBe(true);
+  });
+
   it('breaks a priority tie on the uuid, as HigherPriority does', () => {
     // `return m_Uuid > aOther->m_Uuid` — two ordinary zones of equal priority
     // on different nets are not peers. One wins; both filling the overlap is a
@@ -2134,12 +2166,42 @@ describe("a pad's own local clearance", () => {
     expect(gapAt({ ...fp, localClearance: MM(1.2) })).toBeCloseTo(MM(1.2), -3);
   });
 
-  it('never LOWERS it', () => {
-    // "if( localA > clearance )" — a local clearance smaller than the resolved
-    // one is ignored.
+  it("LOWERS it too: the override replaces the zone's clearance", () => {
+    // Not "if( localA > clearance )" — that is the path for items with no
+    // override of their own. A pad's `(clearance …)` goes through the block
+    // above it first: "Local overrides take precedence over everything
+    // *except* board min clearance" (drc_engine.cpp:1134-1203), and the
+    // zone's own clearance never enters.
+    //
+    // Measured on pic_programmer with KiCad's own refill: the solder jumper's
+    // `(clearance 0.25)` over a 0.508 zone gives a 0.25 relief; deleting the
+    // line gives 0.508; setting it to 0.9 gives 0.9.
     const fp = footprint([
       { ...pad({ x: MM(20), y: MM(20) }, 2, MM(2)), localClearance: MM(0.05) },
     ]);
+    expect(gapAt(fp)).toBeCloseTo(MM(0.05), -3);
+  });
+
+  it('but never below the board minimum clearance', () => {
+    // "if( override_val < m_designSettings->m_MinClearance ) override_val =
+    // m_designSettings->m_MinClearance; msg = _( "board minimum" )".
+    const fp = footprint([
+      { ...pad({ x: MM(20), y: MM(20) }, 2, MM(2)), localClearance: MM(0.05) },
+    ]);
+    const b = board({ zones: [zone({ clearance: MM(0.2) })], footprints: [fp] });
+    const fill = fillZone(b, 0, { minClearance: MM(0.1) })[0]!.polys;
+    let gap = Number.POSITIVE_INFINITY;
+    for (let d = 0; d < MM(4); d += MM(0.005))
+      if (filled(fill, { x: MM(21) + d, y: MM(20) })) {
+        gap = d;
+        break;
+      }
+    expect(gap).toBeCloseTo(MM(0.1), -3);
+  });
+
+  it('and a stated zero is no override at all', () => {
+    // `if( override_val )` — a zero falls through to the ordinary answer.
+    const fp = footprint([{ ...pad({ x: MM(20), y: MM(20) }, 2, MM(2)), localClearance: 0 }]);
     expect(gapAt(fp)).toBeCloseTo(MM(0.2), -3);
   });
 

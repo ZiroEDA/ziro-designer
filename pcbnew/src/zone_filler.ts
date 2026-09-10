@@ -93,6 +93,14 @@ export interface ZoneFillOptions {
    * for an NPTH it is the only ordinary clearance that applies at all.
    */
   holeClearance?: number;
+  /**
+   * `BOARD_DESIGN_SETTINGS::m_MinClearance` — Board Setup > Constraints'
+   * "Minimum clearance". A pad's local clearance override is floored at it
+   * ("Local overrides take precedence over everything *except* board min
+   * clearance", drc_engine.cpp:1135). `clearanceOf` already folds it into
+   * the ordinary answer; this is the one place the filler needs it on its own.
+   */
+  minClearance?: number;
 }
 
 /**
@@ -508,18 +516,31 @@ function thermalSpokeWidth(pad: PcbPad, zone: PcbZone): number {
 }
 
 /**
- * `PAD::GetLocalClearance` — the pad's own `(clearance …)`, or its footprint's
- * when the pad states none.
+ * `PAD::GetClearanceOverrides` — the pad's own `(clearance …)`, or its
+ * footprint's when the pad states none — and what `DRC_ENGINE::EvalRules`
+ * does with it for CLEARANCE_CONSTRAINT and HOLE_CLEARANCE_CONSTRAINT
+ * (drc_engine.cpp:1134-1203):
  *
- * `DRC_ENGINE::EvalRules` folds this into `CLEARANCE_CONSTRAINT` as "Local
- * clearance on %s", and it only ever RAISES the answer. It belongs to the ITEM,
- * not to its net, which is why a resolver taking only a net code cannot see it:
- * CM5's module mounting holes carry `(clearance 1.7)` on a 3 mm NPTH pad, and
- * without it the pour came 1.7 mm closer to the hole than KiCad's — on every
- * one of that board's five layers.
+ *     // Local overrides take precedence over everything *except* board min
+ *     // clearance
+ *
+ * It does NOT merely raise the answer. When a pad states one above zero, that
+ * value REPLACES the netclass and the zone's own clearance, floored at the
+ * board minimum (or the board minimum hole clearance, for the hole). A zone
+ * has no override of its own — `BOARD_CONNECTED_ITEM::GetClearanceOverrides`
+ * is empty — so the pad's is the only one in play. A stated zero falls
+ * through to the ordinary answer: `if( override_val )`.
+ *
+ * Measured, not read: pic_programmer's solder jumper carries `(clearance
+ * 0.25)` on the footprint over a 0.508 mm GND pour. Refilled by KiCad with
+ * that line, the relief is 0.25 from the pad; with it deleted, 0.508; with it
+ * at 0.9, 0.9. This tree maxed the two and kept 0.508 — 1 mm² of copper too
+ * little around the jumper, and the same on CM5's 1.7 mm mounting holes only
+ * by luck, 1.7 being the larger there.
  */
-function localPadClearance(pad: PcbPad, fp: PcbFootprint): number {
-  return pad.localClearance ?? fp.localClearance ?? 0;
+function padClearanceOverride(pad: PcbPad, fp: PcbFootprint): number | undefined {
+  const override = pad.localClearance ?? fp.localClearance;
+  return override !== undefined && override > 0 ? override : undefined;
 }
 
 /**
@@ -1108,21 +1129,30 @@ function fillZoneParts(
         // fills its pad has none ("NPTH do not need copper clearance gaps to
         // their holes"). Knocking its shape out as well takes away copper
         // KiCad pours.
-        const local = localPadClearance(pad, fp);
+        const override = padClearanceOverride(pad, fp);
         const npth = pad.type === 'np_thru_hole';
 
+        // `CLEARANCE_CONSTRAINT( aZone, aPad )`: the override, floored at the
+        // board minimum, or else the ordinary net-based answer.
+        const copperGap =
+          override !== undefined ? Math.max(override, opts.minClearance ?? 0) : gapTo(pad.net ?? 0);
+        // `HOLE_CLEARANCE_CONSTRAINT( aZone, aPad )`: the same override,
+        // floored at the board's hole clearance instead.
+        const holeClearance =
+          override !== undefined
+            ? Math.max(override, opts.holeClearance ?? 0)
+            : (opts.holeClearance ?? 0);
+
         if (padOnLayer(pad, layer) && !npth) {
-          const gap = Math.max(gapTo(pad.net ?? 0), local);
-          for (const s of shapes) holes.push(...shapeToPolygon(s, gap, maxError));
+          for (const s of shapes) holes.push(...shapeToPolygon(s, copperGap, maxError));
         }
 
-        // The hole's own gap: the board's hole clearance, the pad's local
-        // clearance, and — "oblong NPTH holes are milled rather than drilled,
-        // so they need edge clearance in addition to hole clearance" — the edge
-        // clearance for a slot. A plated hole also takes the ordinary
-        // clearance; an NPTH does not.
-        let holeGap = Math.max(opts.holeClearance ?? 0, local);
-        if (!npth) holeGap = Math.max(holeGap, gapTo(pad.net ?? 0));
+        // The hole's own gap: the board's hole clearance, and — "oblong NPTH
+        // holes are milled rather than drilled, so they need edge clearance in
+        // addition to hole clearance" — the edge clearance for a slot. A plated
+        // hole also takes the ordinary clearance; an NPTH does not.
+        let holeGap = holeClearance;
+        if (!npth) holeGap = Math.max(holeGap, copperGap);
         if (npth && pad.drill && pad.drill.w !== pad.drill.h)
           holeGap = Math.max(holeGap, opts.edgeClearance ?? DEFAULT_EDGE_CLEARANCE);
 
@@ -1349,7 +1379,7 @@ function fillZoneParts(
     // with round-off errors" (kicad#13316). That is how two pads facing each
     // other across a gap too narrow for the pour still connect.
     if (spokes.length > 0 && area.length > 0) {
-      const testAreas = postKnockoutMinWidthPrune(
+      const testAreas = spokeTestAreas(
         area.map((poly) => poly.map(ptsOf)),
         zone,
         maxError,
@@ -1981,6 +2011,37 @@ function buildSmoothedPoly(
   }
 
   return clip.intersection(poly, flattened) as MultiPolygon;
+}
+
+/**
+ * The throwaway `testAreas` a spoke's tip is hit-tested against
+ * (zone_filler.cpp:2936-2965): the fill minus every clearance hole, deflated
+ * and re-inflated by half the minimum width — with `fastCornerStrategy`,
+ * CHAMFER_ALL_CORNERS, on BOTH legs, and neither the tiny-island cull nor the
+ * clip back to the starting copper that the real prune gets.
+ *
+ * The corner strategy is the whole difference. At a reflex corner of the
+ * copper — where a track's clearance band meets a pad's relief arc — a
+ * round re-inflate leaves a fillet that a chamfered one does not, and a
+ * spoke aimed into that corner has its tip inside one and outside the other.
+ * On complex_hierarchy a GND pad's 45° spoke lands 0.02 mm from such a
+ * corner: upstream keeps it, and the real prune's rounded test dropped it,
+ * 0.6 mm² of copper and one fewer connection to the pad.
+ */
+function spokeTestAreas(fill: Polygon[], zone: PcbZone, maxError: number): Polygon[] {
+  const halfMinWidth = Math.floor((zone.minThickness ?? 0) / 2);
+  const epsilon = mmToIU(0.001);
+  if (halfMinWidth - epsilon <= epsilon || fill.length === 0) return fill;
+
+  const segs = segmentsForRadius(halfMinWidth, maxError);
+  const deflated = inflate(
+    fill,
+    -(halfMinWidth - epsilon),
+    CornerStrategy.CHAMFER_ALL_CORNERS,
+    segs,
+  );
+  if (deflated.length === 0) return [];
+  return inflate(deflated, halfMinWidth - epsilon, CornerStrategy.CHAMFER_ALL_CORNERS, segs);
 }
 
 /**

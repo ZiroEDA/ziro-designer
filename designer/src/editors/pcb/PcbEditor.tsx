@@ -1924,6 +1924,8 @@ export function PcbEditor({
       // `HOLE_CLEARANCE_CONSTRAINT`, off the same page. For an NPTH it is the
       // only ordinary clearance that reaches the hole at all.
       holeClearance: Math.round(boardSetup.constraints.copperToHoleMM * MM),
+      // `m_MinClearance`, the floor under a pad's own clearance override.
+      minClearance: Math.round(boardSetup.constraints.minClearanceMM * MM),
       // `CLEARANCE_CONSTRAINT`. Without this the pour used the zone's own
       // `(connect_pads (clearance …))` alone, so a zone that states none — and
       // plenty do — kept no gap at all from other nets.
