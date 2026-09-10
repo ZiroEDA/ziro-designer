@@ -1152,7 +1152,6 @@ function fillZoneParts(
       : null;
 
   for (const layer of zone.layers) {
-    if (!isCopper(layer)) continue;
     if (onlyLayers && !onlyLayers.has(layer)) continue;
 
     // `ZONE::BuildSmoothedPoly( maxExtents, aLayer, boardOutline, &smoothedPoly )`:
@@ -1160,6 +1159,14 @@ function fillZoneParts(
     // `maxExtents` only at the end (zone_filler.cpp:3126).
     const smoothed = buildSmoothedPoly(board, zoneIndex, layer, boardOutline, maxError);
     if (smoothed.maxExtents.length === 0) continue;
+
+    // `fillSingleZone`: "if( aZone->IsOnCopperLayer() ) fillCopperZone( … )
+    // else fillNonCopperZone( … )".
+    if (!isCopper(layer)) {
+      const polys = fillNonCopperZone(board, zoneIndex, layer, smoothed.smoothed, opts);
+      fills.push({ layer, polys, connected: [], preKnockout: [] });
+      continue;
+    }
     const holes: Geom[] = [];
     const spokes: ThermalSpoke[] = [];
     // `knockoutThermalReliefs` keeps its reliefs in a set of its OWN and
@@ -2042,7 +2049,9 @@ export function fillZones(board: Board, opts: ZoneFillOptions = {}): Board {
   const toFill: Item[] = [];
   working.zones.forEach((z, zi) => {
     if (!pourable(z)) return;
-    for (const layer of z.layers) if (isCopper(layer)) toFill.push({ zone: zi, layer });
+    // "for( PCB_LAYER_ID layer : zone->GetLayerSet() ) toFill.emplace_back( zone, layer )":
+    // a zone on a technical layer is poured too (`fillNonCopperZone`).
+    for (const layer of z.layers) toFill.push({ zone: zi, layer });
   });
 
   // `zone_fill_dependency( aZone, aLayer, aOtherZone, true )`
@@ -2308,12 +2317,16 @@ export function fillZones(board: Board, opts: ZoneFillOptions = {}): Board {
     const minArea = (z.minThickness ?? 0) * (z.minThickness ?? 0) * 3;
     const fills = z.fills.map((f) => ({
       layer: f.layer,
-      polys: f.polys.filter((ring) => {
-        const islandArea = Math.abs(ringArea(ring));
-        if (islandArea < minArea) return true;
-        const intersection = booleanIntersection(boardOutline, [[ring]]);
-        return polysArea(intersection) >= islandArea / 2.0;
-      }),
+      // "zoneCopperLayers = zone->GetLayerSet() & LSET::AllCuMask( … )": a
+      // technical-layer fill is not measured against the board outline.
+      polys: !isCopper(f.layer)
+        ? f.polys
+        : f.polys.filter((ring) => {
+            const islandArea = Math.abs(ringArea(ring));
+            if (islandArea < minArea) return true;
+            const intersection = booleanIntersection(boardOutline, [[ring]]);
+            return polysArea(intersection) >= islandArea / 2.0;
+          }),
     }));
     // A layer with no copper writes no `(filled_polygon …)`, so it has no
     // entry, as a board read back would not; and `zone->SetIsFilled( true )`
@@ -2976,6 +2989,91 @@ function connectNearbyPolys(rings: Vec2[][], distance: number): Vec2[][] {
 
 /** `SHAPE_LINE_CHAIN_BASE::PointInside( p, 1 )`, as `SHAPE_POLY_SET::Contains` asks it. */
 const pointInRing = (p: Vec2, ring: Vec2[]): boolean => chainPointInside(ring, p);
+
+/**
+ * `ZONE_FILLER::fillNonCopperZone( aZone, aLayer, aSmoothedOutline, aFillPolys )`
+ * (zone_filler.cpp:3186-3283): a zone on a technical layer — silkscreen,
+ * mask, paste — is the smoothed outline (with its apron; there is no
+ * `maxExtents` trim here) minus the KNOCKOUT text on the layer (`IsKnockout()`
+ * items only: a knockout text's own strokes, `TransformTextToPolySet( 0,
+ * ERROR_INSIDE )`), minus the rule areas that forbid zone fills (their
+ * outlines as drawn, `appendZoneOutlineWithoutArcs`), then the min-thickness
+ * cycle — deflate with chamfered corners, the hatch pattern if any, inflate
+ * with round corners — and `Fracture()`. No clearances, no thermal reliefs,
+ * no islands: nothing on these layers is connected to anything.
+ */
+function fillNonCopperZone(
+  board: Board,
+  zoneIndex: number,
+  layer: string,
+  smoothedOutline: Polygon[],
+  opts: ZoneFillOptions,
+): Vec2[][] {
+  const zone = board.zones[zoneIndex]!;
+  const maxError = opts.maxError ?? DEFAULT_MAX_ERROR;
+  const zoneBox = boxOf(zone.outline ?? []);
+  const stage = (name: string, polys: Polygon[]): void => {
+    if (opts.onStage) opts.onStage(name, layer, polys);
+  };
+
+  // `knockoutGraphicItem`: "aItem->IsKnockout() && aItem->IsOnLayer( aLayer )
+  // && aItem->GetBoundingBox().Intersects( zone_boundingbox )" →
+  // `addKnockout( aItem, aLayer, 0, true, clearanceHoles )`. Only text carries
+  // the knockout flag, and a knockout text's hole is its strokes.
+  const clearanceHoles: Polygon[] = [];
+  const knockoutText = (t: PcbTextItem): void => {
+    if (!t.knockout || t.layer !== layer || t.hide) return;
+    const polys = textTransformTextToPolySet(t, 0, maxError, ErrorLoc.ERROR_INSIDE);
+    if (polys.length === 0) return;
+    if (!boxesIntersect(boxOf(polys.flatMap((poly) => poly[0]!)), zoneBox)) return;
+    clearanceHoles.push(...polys);
+  };
+  for (const fp of board.footprints) {
+    // `knockoutGraphicItem( &footprint->Reference() ); …Value(); then GraphicalItems()`
+    const ref = fp.texts.find((t) => t.kind === 'reference');
+    const val = fp.texts.find((t) => t.kind === 'value');
+    if (ref) knockoutText(ref);
+    if (val) knockoutText(val);
+    for (const t of fp.texts) if (t.kind === 'user') knockoutText(t);
+  }
+  for (const t of board.texts) knockoutText(t);
+
+  let fill = booleanSubtract(smoothedOutline, clearanceHoles);
+  stage('minus-knockouts', fill);
+
+  // `collectKeepout`: `isZoneFillKeepout( candidate, aLayer, zone_boundingbox )`
+  // → `appendZoneOutlineWithoutArcs( candidate, keepoutHoles )`.
+  const keepoutHoles: Polygon[] = [];
+  board.zones.forEach((other, i) => {
+    if (i === zoneIndex || !other.outline || other.outline.length < 3) return;
+    if (!other.ruleArea?.copperPour || zone.teardropType) return;
+    if (!other.layers.includes(layer)) return;
+    if (!boxesIntersect(boxOf(other.outline), zoneBox)) return;
+    keepoutHoles.push([other.outline.map((p) => ({ x: p.x, y: p.y }))]);
+  });
+  if (keepoutHoles.length > 0) fill = booleanSubtract(fill, keepoutHoles);
+
+  // "Features which are min_width should survive pruning; features that are
+  // *less* than min_width should not."
+  const half_min_width = Math.trunc((zone.minThickness ?? 0) / 2);
+  const epsilon = mmToIU(0.001);
+  fill = inflateKi(fill, -(half_min_width - epsilon), CornerStrategy.CHAMFER_ALL_CORNERS, maxError);
+  stage('deflated', fill);
+
+  if (zone.fillMode === 'hatch')
+    fill = addHatchFillTypeOnZone(
+      fill,
+      zone,
+      maxError,
+      hatchingOffsetFor(layer, opts.hatchingOffsets, zone.layerProperties),
+    );
+
+  if (half_min_width - epsilon > epsilon)
+    fill = inflateKi(fill, half_min_width - epsilon, CornerStrategy.ROUND_ALL_CORNERS, maxError);
+  stage('after-reinflating', fill);
+
+  return fracture(fill);
+}
 
 /**
  * `ZONE_FILLER::postKnockoutMinWidthPrune` (zone_filler.cpp:2757-2796): the

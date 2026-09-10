@@ -2594,3 +2594,54 @@ describe("a pad's own local clearance", () => {
     expect(filled(upright, { x: MM(20), y: MM(21.5) })).toBe(false);
   });
 });
+
+// -----------------------------------------------------------------------------
+// a zone on a technical layer: fillNonCopperZone
+// -----------------------------------------------------------------------------
+
+describe('a zone on a technical layer is poured too', () => {
+  // `fillSingleZone`: "if( aZone->IsOnCopperLayer() ) fillCopperZone( … )
+  // else fillNonCopperZone( … )" (zone_filler.cpp:3186). A silkscreen zone
+  // has no net, no clearances and no thermal reliefs; it is the outline
+  // through the min-thickness cycle, minus KNOCKOUT text on its layer.
+  const text = (over: Partial<PcbTextItem> = {}): PcbTextItem => ({
+    kind: 'user',
+    text: 'AB',
+    at: { x: MM(20), y: MM(20) },
+    angle: 0,
+    layer: 'F.SilkS',
+    size: { x: MM(1.5), y: MM(2) },
+    thickness: MM(0.3),
+    source: EMPTY,
+    ...over,
+  });
+  const silk = (): PcbZone => zone({ net: 0, layers: ['F.SilkS'], fills: [] });
+
+  it('fills the whole outline, net or no net', () => {
+    const fill = fillZones(board({ zones: [silk()] })).zones[0]!.fills;
+    expect(fill).toHaveLength(1);
+    expect(fill[0]!.layer).toBe('F.SilkS');
+    expect(area(fill[0]!.polys)).toBeCloseTo(1600, 0);
+  });
+
+  it('knocks out a KNOCKOUT text by its strokes, and only that', () => {
+    // Plain text on the layer is not a knockout item and leaves no hole; a
+    // knockout text's strokes do (`TransformTextToPolySet( 0, ERROR_INSIDE )`),
+    // and the hole is the glyphs, not the text's bounding block.
+    const plain = fillZones(board({ zones: [silk()], texts: [text()] })).zones[0]!.fills[0]!.polys;
+    expect(filled(plain, { x: MM(20), y: MM(20) })).toBe(true);
+    const ko = fillZones(board({ zones: [silk()], texts: [text({ knockout: true })] })).zones[0]!
+      .fills[0]!.polys;
+    expect(area(ko)).toBeLessThan(area(plain));
+    // Between the two glyphs' block and the pour's edge nothing is taken.
+    expect(filled(ko, { x: MM(30), y: MM(30) })).toBe(true);
+    // The glyph strokes are gone but the block is not: a point inside the
+    // text's box that no stroke of "AB" crosses keeps its silk.
+    expect(filled(ko, { x: MM(20), y: MM(20.9) })).toBe(true);
+  });
+
+  it('ignores a knockout text on another layer', () => {
+    const b = board({ zones: [silk()], texts: [text({ knockout: true, layer: 'B.SilkS' })] });
+    expect(area(fillZones(b).zones[0]!.fills[0]!.polys)).toBeCloseTo(1600, 0);
+  });
+});

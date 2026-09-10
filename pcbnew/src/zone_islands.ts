@@ -201,7 +201,8 @@ export function isolatedIslands(
   }
   for (const f of fills) {
     const zone = board.zones[f.zone]!;
-    if (zone.net <= 0 || f.ring.length < 3) continue;
+    // "Non-copper zones (silk, mask, etc.) are never added to the connectivity graph"
+    if (zone.net <= 0 || f.ring.length < 3 || !isCopper(f.layer)) continue;
     add(zone.net, {
       pad: false,
       net: zone.net,
