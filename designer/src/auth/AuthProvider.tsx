@@ -102,6 +102,12 @@ interface AuthContextValue {
   requestPasswordReset: (email: string) => Promise<{ error: string | null }>;
   /** True from the moment a reset link opened the app until recovery completes. */
   recovering: boolean;
+  /**
+   * Leave the reset without finishing it: the password came back to mind, or
+   * the link was a mistake. The session the link made is a real one, so the
+   * wall goes on to ask for the password as it would for any restored session.
+   */
+  cancelRecovery: () => void;
   completeRecovery: (
     newPassword: string,
     recoveryKey: string | null,
@@ -324,6 +330,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
         return { error: error?.message ?? null };
       },
       recovering,
+      cancelRecovery: () => setRecovering(false),
       async completeRecovery(newPassword, recoveryKeyText) {
         if (!supabase || !session?.user.email) return { error: 'Not signed in.' };
         const userId = session.user.id;

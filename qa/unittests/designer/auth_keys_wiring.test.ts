@@ -115,7 +115,9 @@ describe('AuthProvider: the server never gets the password', () => {
   it('the recovery key is queued for the wall the moment the keys are stored', () => {
     const finish = SRC.slice(SRC.indexOf('const finishSetup'), SRC.indexOf('const settleKeys'));
     expect(finish).toContain('await storeWrappedAccount(supabase, userId, made.wrapped);');
-    expect(finish).toContain('setPendingRecoveryKey(await encodeRecoveryKey(made.keys.recoveryKey));');
+    expect(finish).toContain(
+      'setPendingRecoveryKey(await encodeRecoveryKey(made.keys.recoveryKey));',
+    );
     // Stored BEFORE it is shown: a key the user wrote down for an account the
     // server never got would be a key to nothing.
     expect(finish.indexOf('storeWrappedAccount')).toBeLessThan(
@@ -167,12 +169,20 @@ describe('the screens say what the reference design says', () => {
     expect(CONTENTS).toContain("a.download = 'ziroeda-recovery-key.txt';");
   });
 
-  it('"No recovery key?" is answered honestly, with the one true sentence', () => {
+  it('"No recovery key?" is answered honestly, in the panel, with the one true sentence and a way out', () => {
     expect(SIGNIN).toContain('No recovery key?');
-    expect(SIGNIN).toContain('caption="Sorry"');
-    expect(SIGNIN).toContain(
-      'Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key',
+    // In the panel as its own step, not a KiCad message box floating over the wall.
+    expect(SIGNIN).not.toContain('MessageDialogOk');
+    expect(SIGNIN).toMatch(/noRecoveryKey\s*\?\s*'Sorry'/);
+    expect(SIGNIN).toMatch(
+      /Due to the nature of our end-to-end encryption protocol, your data cannot be\s+decrypted without your password or recovery key\./,
     );
+    // The password remembered after all is a real exit: the reset is left and
+    // the wall asks for the password as for any restored session.
+    expect(SIGNIN).toContain('I remember my password');
+    expect(SIGNIN).toContain('cancelRecovery();');
+    const provider = read('auth/AuthProvider.tsx');
+    expect(provider).toContain('cancelRecovery: () => setRecovering(false),');
   });
 
   it('the unlock screen offers Forgot password, as the reference credentials page does', () => {

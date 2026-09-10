@@ -2,7 +2,6 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { useEffect, useState, type FormEvent, type JSX } from 'react';
-import { MessageDialogOk } from '../ui/dialog_message.js';
 import { RecoveryKeyContents } from './RecoveryKeyContents.js';
 import { useAuth } from './AuthProvider.js';
 import { useModalEscape } from '../ui/useModalEscape.js';
@@ -81,6 +80,7 @@ export function SignInDialog({
     acknowledgeRecoveryKey,
     keyState,
     recovering,
+    cancelRecovery,
     requestPasswordReset,
     completeRecovery,
   } = useAuth();
@@ -290,7 +290,9 @@ export function SignInDialog({
                   : mode === 'recovery-key'
                     ? 'Recovery key'
                     : mode === 'recover'
-                      ? 'Recover account'
+                      ? noRecoveryKey
+                        ? 'Sorry'
+                        : 'Recover account'
                       : 'Sign in to ZiroEDA'}
           </div>
         </div>
@@ -462,7 +464,39 @@ export function SignInDialog({
             </div>
           </form>
         )}
-        {mode === 'recover' && recovering && (
+        {mode === 'recover' && recovering && noRecoveryKey && (
+          // The reference design's answer, in the panel rather than a popup,
+          // because there is no kinder true one: the server holds nothing
+          // that could decrypt the data, which is the whole promise, and this
+          // is its price. What CAN still be done is offered, not implied.
+          <div>
+            <p className="ze-auth-note">
+              Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted
+              without your password or recovery key.
+            </p>
+            <p className="ze-auth-note">
+              If the password comes back to you, sign in with it as usual and save your recovery key
+              from the account menu, so this never comes up again.
+            </p>
+            <div className="ze-auth-recovery-actions">
+              <button type="button" className="ze-btn" onClick={() => setNoRecoveryKey(false)}>
+                Back
+              </button>
+              <button
+                type="button"
+                className="ze-btn primary ze-auth-submit"
+                onClick={() => {
+                  setNoRecoveryKey(false);
+                  setError(null);
+                  cancelRecovery();
+                }}
+              >
+                I remember my password
+              </button>
+            </div>
+          </div>
+        )}
+        {mode === 'recover' && recovering && !noRecoveryKey && (
           <form onSubmit={onCompleteRecovery}>
             <p className="ze-auth-note">
               {keyState !== 'none'
@@ -524,16 +558,6 @@ export function SignInDialog({
               </div>
             )}
           </form>
-        )}
-        {noRecoveryKey && (
-          // The reference design's answer, word for word, because there is no
-          // kinder true one: the server holds nothing that could decrypt the
-          // data, which is the whole promise, and this is its price.
-          <MessageDialogOk
-            caption="Sorry"
-            message="Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key"
-            onClose={() => setNoRecoveryKey(false)}
-          />
         )}
         {!codeSent && mode === 'signin' && (
           <form onSubmit={onSignIn}>
