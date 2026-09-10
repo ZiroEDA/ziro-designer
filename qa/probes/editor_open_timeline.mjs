@@ -9,8 +9,7 @@
 // The sign-in wall blocks a fresh profile, so build a copy with no Supabase
 // keys first:
 //
-//   mkdir -p $S/env && grep -v SUPABASE designer/.env.production > $S/env/.env.production
-//   (cd designer && pnpm exec vite build --envDir $S/env --outDir $S/dist-noauth)
+//   (cd designer && VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY= pnpm exec vite build --outDir $S/dist-noauth)
 //   node qa/probes/serve_spa.mjs $S/dist-noauth 4174 &
 //   PROF=$S/prof OUT=$S/shots node --experimental-websocket qa/probes/editor_open_timeline.mjs \
 //       http://localhost:4174/demo/ecc83 "PCB Editor" pcb 4000
