@@ -567,11 +567,14 @@ export class GlRecorder {
    * convex symbol body, and completely wrong on a board, where a copper pour
    * carries a clearance ring around every pad and via.
    *
-   * The `rule` argument is accepted for signature compatibility and ignored:
-   * every call in the codebase is `nonzero` or the default, and quietly doing
-   * the wrong winding would be worse than not offering the choice.
+   * The rule is passed through. It was ignored here on the grounds that every
+   * call was `nonzero`, which stopped being true when the board area (the
+   * shadow inside Edge.Cuts) asked for `evenodd`: its cutouts are circles
+   * wound the same way as the outline, so under `nonzero` each was filled
+   * again and a mounting hole showed the shadow twice over instead of the
+   * background KiCad shows.
    */
-  fill(path?: GlPath, _rule?: CanvasFillRule): void {
+  fill(path?: GlPath, rule: CanvasFillRule = 'nonzero'): void {
     this.sync();
     const c = this.color(this.st.fillStyle, this.st.globalAlpha);
     // Fills are a few hundred triangles against tens of thousands of segments,
@@ -597,7 +600,7 @@ export class GlRecorder {
     }
     for (const [owner, rings] of groups) {
       this.scene.setItem(owner);
-      const tri = triangulateRings(rings);
+      const tri = triangulateRings(rings, rule);
       for (let i = 0; i + 2 < tri.length; i += 3) {
         const a = tri[i]!;
         const b = tri[i + 1]!;

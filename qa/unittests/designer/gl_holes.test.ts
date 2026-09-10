@@ -19,6 +19,8 @@
 import { describe, expect, it } from 'vitest';
 import { triangulateRings } from '@ziroeda/designer/src/render/gl/holes.js';
 import type { Pt } from '@ziroeda/designer/src/render/gl/tessellate.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const ring = (x: number, y: number, w: number, h: number): Pt[] => [
   { x, y },
@@ -63,6 +65,32 @@ describe('triangulateRings', () => {
 
     // 10000 minus 400. The regression is this coming back as 10000.
     expect(area(tris)).toBeCloseTo(9600, 6);
+  });
+
+  it('under evenodd, a ring wound the SAME way as its outline is still a hole', () => {
+    // The board area's cutouts: an Edge.Cuts circle is wound like the outline
+    // around it, and drawBoard asks for `evenodd` so it reads as a hole. Under
+    // `nonzero` the same rings make an island, filled a second time - which is
+    // what a mounting hole looked like on screen, the shadow twice over.
+    const rings = [ring(0, 0, 100, 100), ring(40, 40, 20, 20)];
+    const even = triangulateRings(rings, 'evenodd');
+    expect(covers(even, { x: 50, y: 50 })).toBe(false);
+    expect(covers(even, { x: 10, y: 10 })).toBe(true);
+    expect(area(even)).toBeCloseTo(9600, 6);
+
+    // And nonzero keeps its meaning: same winding is an island, painted again.
+    const non = triangulateRings(rings, 'nonzero');
+    expect(covers(non, { x: 50, y: 50 })).toBe(true);
+    expect(area(non)).toBeCloseTo(10400, 6);
+  });
+
+  it('under evenodd, an island inside a hole is solid again (depth two)', () => {
+    const rings = [ring(0, 0, 100, 100), ring(20, 20, 60, 60), ring(40, 40, 20, 20)];
+    const tris = triangulateRings(rings, 'evenodd');
+    expect(covers(tris, { x: 10, y: 10 })).toBe(true); // outline
+    expect(covers(tris, { x: 25, y: 25 })).toBe(false); // the hole
+    expect(covers(tris, { x: 50, y: 50 })).toBe(true); // the island in it
+    expect(area(tris)).toBeCloseTo(10000 - 3600 + 400, 6);
   });
 
   it('handles several holes in one outline', () => {
@@ -231,5 +259,18 @@ describe('triangulateRings', () => {
         ]),
       ),
     ).toBeCloseTo(100, 6);
+  });
+});
+
+describe('the GL recorder hands the fill rule to the triangulator', () => {
+  it('passes `rule` through rather than ignoring it', () => {
+    // It was ignored, on the grounds that every call was nonzero; the board
+    // area's evenodd fill was the call that was not.
+    const src = readFileSync(
+      fileURLToPath(new URL('../../../designer/src/render/gl/recorder.ts', import.meta.url)),
+      'utf8',
+    );
+    expect(src).toContain("fill(path?: GlPath, rule: CanvasFillRule = 'nonzero'): void {");
+    expect(src).toContain('triangulateRings(rings, rule)');
   });
 });

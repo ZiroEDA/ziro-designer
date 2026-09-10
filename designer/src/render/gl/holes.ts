@@ -110,7 +110,7 @@ function emit(outline: readonly Pt[], holes: readonly (readonly Pt[])[], out: Pt
 }
 
 /**
- * Triangulate a set of closed rings under `nonzero`, honouring holes.
+ * Triangulate a set of closed rings under `nonzero` (or `evenodd`), honouring holes.
  *
  * Returns a flat list of points, three per triangle, so a caller can walk it in
  * threes straight into `Scene.triangle`.
@@ -128,7 +128,10 @@ function emit(outline: readonly Pt[], holes: readonly (readonly Pt[])[], out: Pt
  * Overlapping opaque fills are identical either way, and KiCad draws each pad as
  * its own primitive, so it blends translucent overlaps the same way.
  */
-export function triangulateRings(rings: readonly (readonly Pt[])[]): Pt[] {
+export function triangulateRings(
+  rings: readonly (readonly Pt[])[],
+  rule: CanvasFillRule = 'nonzero',
+): Pt[] {
   const valid = rings.filter((r) => r.length >= 3);
   if (valid.length === 0) return [];
 
@@ -149,7 +152,19 @@ export function triangulateRings(rings: readonly (readonly Pt[])[]): Pt[] {
   // The winding number of the region immediately inside each ring: its own turn
   // plus every ring enclosing it. Zero means the enclosing rings cancel it out,
   // which under `nonzero` is exactly what a hole is.
+  //
+  // Under `evenodd` winding is irrelevant: a ring is a hole when an odd number
+  // of rings enclose it, solid when an even number do. That is what the board
+  // area asks for, because an Edge.Cuts cutout is drawn as a circle wound the
+  // same way as the outline around it - under `nonzero` it would read as an
+  // island and be filled a second time. The number below is 0 for a hole and
+  // non-zero for a solid ring under either rule, so the rest is shared.
   const windingNumber = valid.map((_, i) => {
+    if (rule === 'evenodd') {
+      let depth = 0;
+      for (let j = 0; j < valid.length; j++) if (inside[i]![j]) depth++;
+      return depth % 2 === 0 ? 1 : 0;
+    }
     let w = winding[i]!;
     for (let j = 0; j < valid.length; j++) if (inside[i]![j]) w += winding[j]!;
     return w;
