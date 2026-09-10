@@ -16302,45 +16302,50 @@ td.ze-grid-bool {
 
 /* ---- Support chat (cross-origin iframe, see support/ChatWidget.tsx) -------
 
-   Crisp draws everything inside the frame - launcher, panel, close button -
-   exactly as on the site. Two things are decided out here, because an iframe
-   cannot resize itself: how big the frame is, and where it takes clicks.
+   The frame is the whole viewport (above the status bar where a frame has
+   one), so Crisp lays out exactly as it does on the site: any narrower and it
+   renders for a phone. It is transparent, and a clip-path decides what takes
+   clicks - pointer events are not dispatched outside an element's clip - so
+   the app underneath keeps working: closed, only the bubble; open, the panel
+   and the close button under it.
 
-   Collapsed, the frame is still 300px wide, because Crisp's loader refuses to
-   run in a window narrower than 280px; a clip-path circle around the bubble
-   makes the rest of that width click-through (pointer events are not
-   dispatched outside an element's clip), so the app underneath keeps working.
-   Open, the frame is the room the conversation and the close button take.
-
-   None of these numbers is chrome of ours: the bubble is Crisp's launcher
-   as it renders (54px, 20px in from its window's corner: sampled off the
-   site at 1905x1200, bubble centre 1854,1153), and the frame's own inset puts
-   that bubble 34px from the screen corner, which is where the site's
-   `#crisp-chatbox` CSS puts it (ZiroEDA_final index.html:656-660). */
+   The bubble's geometry is Crisp's launcher as it renders on the site (54px,
+   nudged 34px in from the corner by the site's own CSS, which the widget
+   page copies), sampled off a 1905x1200 window. The handle in the app that
+   sits over it and the clip share these numbers with ChatWidget.tsx. */
 .ze-chat-frame {
   position: fixed;
-  right: 14px; /* [data] 34px site inset minus Crisp's own 20px */
-  /* Clear of the status bar wherever a frame has one, so the bubble never
-     covers the layer/units cells. The fallback is for the screens that have
-     no status bar at all (the sign-in wall, the project manager). */
-  bottom: calc(14px + var(--statusbar-height, 0px)); /* [data] the same, lifted */
-  width: 300px; /* [data] Crisp's 280px loader floor, with room */
-  height: 120px; /* [data] the 54px bubble, its 20px inset, and its hover shadow */
-  /* The bubble's centre is 20 + 27 in from the frame's corner; the circle is
-     a little wider than the bubble so its hover growth stays clickable. */
-  clip-path: circle(32px at calc(100% - 47px) calc(100% - 47px)); /* [px] Crisp's launcher as sampled */
+  right: 0;
+  bottom: var(--statusbar-height, 0px);
+  width: 100vw;
+  height: calc(100vh - var(--statusbar-height, 0px));
   border: 0;
   color-scheme: normal;
   background: transparent;
+  /* Closed: the bubble, and only the bubble. Its centre is 34 + 27 in from
+     the corner; the circle is a little wider than the bubble for its shadow. */
+  clip-path: circle(32px at calc(100% - 61px) calc(100% - 61px)); /* [px] Crisp's launcher as sampled */
   /* Above the modal backdrop (200), so support is reachable from the sign-in
      wall -- which is exactly where someone who cannot get in needs it -- but
      below the loading overlay (300), which must not be clicked past. */
   z-index: 210;
 }
 .ze-chat-frame.open {
-  /* The conversation plus the close button under it, clamped so it never
-     runs off a short window. Crisp fits its panel to the frame's height. */
-  width: min(440px, calc(100vw - 28px)); /* [data] Crisp's panel and its margins; twice the inset */
-  height: min(800px, calc(100vh - 28px - var(--statusbar-height, 0px))); /* [data] Crisp's panel; twice the inset */
-  clip-path: none;
+  /* The panel, its shadow, and the close button under it. */
+  clip-path: inset(calc(100% - 860px) 0 0 calc(100% - 460px)); /* [px] Crisp's open panel as sampled */
+}
+/* The drag handle: invisible, exactly over the bubble, in our origin. */
+.ze-chat-handle {
+  position: fixed;
+  right: 34px; /* [data] the site's launcher inset */
+  bottom: calc(34px + var(--statusbar-height, 0px)); /* [data] the same, lifted */
+  width: 54px; /* [data] Crisp's launcher diameter */
+  height: 54px; /* [data] Crisp's launcher diameter */
+  border-radius: 50%;
+  cursor: grab;
+  touch-action: none;
+  z-index: 211;
+}
+.ze-chat-handle:active {
+  cursor: grabbing;
 }

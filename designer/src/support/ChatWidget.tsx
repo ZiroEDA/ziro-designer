@@ -33,21 +33,28 @@
  * read their designs; sending identifiers for those designs to a chat vendor
  * cuts against that, and the frame name is enough to triage.
  *
- * ### Why the collapsed frame is wider than the bubble
+ * ### Why the frame is the whole viewport
  *
- * Crisp's loader refuses to run in a window narrower than 280px (`l.js`,
- * `this.m=280`), so an iframe the size of a bubble never gets a chatbox at all
- * — that is how the first version shipped with nothing visible. So the frame
- * stays 300px wide even when only the bubble shows, and a `clip-path` circle
- * around the bubble makes the rest of it click-through: pointer events are not
- * dispatched outside an element's clip. Crisp draws everything — its launcher,
- * its panel, its close button, its unread badge — exactly as on the site. The
- * frame only reports opened / closed so this side can size it.
+ * Crisp lays out for a phone — full-bleed panel, no corners, no close button —
+ * in any window narrower than a desktop one, and refuses to load at all under
+ * 280px. Two smaller frames were tried and both looked wrong. So the frame is
+ * the viewport, Crisp renders exactly as on the site, and a `clip-path` keeps
+ * only the bubble (or, open, the panel) clickable: pointer events are not
+ * dispatched outside an element's clip, so the app underneath keeps working.
+ *
+ * ### Dragging
+ *
+ * The bubble can be put anywhere. Clicks on it land in the other origin, so a
+ * transparent handle of ours sits over it: a drag moves the whole frame (the
+ * bubble and, with it, where the panel opens), a plain click asks the frame to
+ * toggle the chat. Opening clamps the frame so the panel stays on screen even
+ * when the bubble was dragged to the top; closing puts it back. The position
+ * is kept in localStorage, like every other preference.
  */
-import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
+import { useCallback, useEffect, useRef, useState, type JSX, type PointerEvent } from 'react';
 import { useAuth } from '../auth/AuthProvider.js';
-import { useRoute } from '../nav/useRoute.js';
 import type { Route } from '../nav/route.js';
+import { useRoute } from '../nav/useRoute.js';
 
 /**
  * Where the widget page is served from. Unset — a self-hosted build, or a dev
@@ -57,6 +64,22 @@ const WIDGET_URL: string | undefined = import.meta.env.VITE_CHAT_WIDGET_URL;
 
 /** The build, for the data panel beside the conversation. */
 const VERSION: string = import.meta.env.VITE_APP_VERSION ?? 'dev';
+
+const POS_KEY = 'ziro.chat.pos';
+
+/**
+ * Crisp's geometry inside the frame, all [data] from the widget as it renders
+ * on the site (sampled off a 1905x1200 window; the 34px inset is the site's
+ * own CSS, copied into chat-widget.html). The handle and the clip both assume
+ * these; if Crisp's launcher changes, they change together here.
+ */
+const BUBBLE = 54; // launcher diameter
+const INSET = 34; // launcher inset from the frame's corner
+const PANEL_W = 460; // the open panel with its margins, from the right edge
+const PANEL_H = 860; // the open panel plus the close button under it, from the bottom
+
+/** A drag shorter than this is a click. */
+const CLICK_SLOP = 4;
 
 /** The frame the user is looking at. Deliberately never the project itself. */
 function screenName(route: Route): string {
@@ -74,19 +97,47 @@ function screenName(route: Route): string {
   }
 }
 
+type Pos = { x: number; y: number };
+
+function loadPos(): Pos {
+  try {
+    const raw = localStorage.getItem(POS_KEY);
+    if (raw) {
+      const p = JSON.parse(raw) as Pos;
+      if (Number.isFinite(p.x) && Number.isFinite(p.y)) return p;
+    }
+  } catch {
+    // no storage, or garbage in it: the corner
+  }
+  return { x: 0, y: 0 };
+}
+
+/** Keep the bubble itself on screen: the translate is ≤ 0 in both axes. */
+function clampToViewport(p: Pos, host: HTMLElement | null): Pos {
+  const w = host?.clientWidth ?? window.innerWidth;
+  const h = host?.clientHeight ?? window.innerHeight;
+  const reach = INSET + BUBBLE;
+  return {
+    x: Math.min(0, Math.max(reach - w, p.x)),
+    y: Math.min(0, Math.max(reach - h, p.y)),
+  };
+}
+
 export function ChatWidget(): JSX.Element | null {
   const { session } = useAuth();
   const { route } = useRoute();
   const frame = useRef<HTMLIFrameElement>(null);
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<Pos>(loadPos);
+  const drag = useRef<{ start: Pos; origin: Pos; moved: boolean } | null>(null);
 
   const email = session?.user?.email ?? '';
   const screen = screenName(route);
 
   const origin = WIDGET_URL ? new URL(WIDGET_URL, window.location.href).origin : '';
 
-  // The iframe tells us when the conversation opens, because only it knows —
-  // and it cannot resize itself.
+  // The iframe tells us when the conversation opens and closes, because only
+  // it knows; that decides what is clickable and whether the panel must fit.
   useEffect(() => {
     if (!origin) return;
     const onMessage = (e: MessageEvent): void => {
@@ -122,19 +173,78 @@ export function ChatWidget(): JSX.Element | null {
       `${WIDGET_URL}?source=designer&screen=${encodeURIComponent(screen)}&v=${encodeURIComponent(VERSION)}`,
   );
 
+  const onPointerDown = (e: PointerEvent<HTMLDivElement>): void => {
+    if (e.button !== 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drag.current = { start: { x: e.clientX, y: e.clientY }, origin: pos, moved: false };
+  };
+  const onPointerMove = (e: PointerEvent<HTMLDivElement>): void => {
+    const d = drag.current;
+    if (!d) return;
+    const dx = e.clientX - d.start.x;
+    const dy = e.clientY - d.start.y;
+    if (!d.moved && Math.hypot(dx, dy) < CLICK_SLOP) return;
+    d.moved = true;
+    setPos(clampToViewport({ x: d.origin.x + dx, y: d.origin.y + dy }, frame.current));
+  };
+  const onPointerUp = (e: PointerEvent<HTMLDivElement>): void => {
+    const d = drag.current;
+    drag.current = null;
+    if (!d) return;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    if (d.moved) {
+      try {
+        localStorage.setItem(POS_KEY, JSON.stringify(pos));
+      } catch {
+        // no storage: the position lasts the session
+      }
+      return;
+    }
+    if (origin) frame.current?.contentWindow?.postMessage({ type: 'ziro-chat-toggle' }, origin);
+  };
+
   if (!WIDGET_URL) return null;
 
+  // Open, the panel rises from the bubble; if the bubble was dragged up or
+  // left past where the panel fits, slide the frame just enough that it does.
+  let shown = pos;
+  if (open) {
+    const w = frame.current?.clientWidth ?? window.innerWidth;
+    const h = frame.current?.clientHeight ?? window.innerHeight;
+    shown = { x: Math.max(pos.x, PANEL_W - w), y: Math.max(pos.y, PANEL_H - h) };
+  }
+  const translate = `translate(${shown.x}px, ${shown.y}px)`;
+
   return (
-    <iframe
-      ref={frame}
-      title="ZiroEDA support chat"
-      src={src}
-      onLoad={identify}
-      className={`ze-chat-frame${open ? ' open' : ''}`}
-      // Only what the widget needs: scripts and its own storage to run at all,
-      // popups for the links it shows, forms for the message box. Nothing else
-      // -- a frame from another origin is given nothing it does not need.
-      sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-    />
+    <>
+      <iframe
+        ref={frame}
+        title="ZiroEDA support chat"
+        src={src}
+        onLoad={identify}
+        className={`ze-chat-frame${open ? ' open' : ''}`}
+        style={{ transform: translate }}
+        // Only what the widget needs: scripts and its own storage to run at all,
+        // popups for the links it shows, forms for the message box. Nothing else
+        // -- a frame from another origin is given nothing it does not need.
+        sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+      />
+      {/* Over the bubble, in the app's origin, so it can be dragged and its
+          click can be seen. Hidden while the panel is open: Crisp's close
+          button is there then, and it must get the click. */}
+      {!open && (
+        <div
+          className="ze-chat-handle"
+          style={{ transform: translate }}
+          title="Chat with us (drag to move)"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={() => {
+            drag.current = null;
+          }}
+        />
+      )}
+    </>
   );
 }
