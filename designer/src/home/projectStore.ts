@@ -366,7 +366,9 @@ async function putRecord(record: StoredRecord): Promise<void> {
  */
 export async function sealLocalStore(): Promise<number> {
   const db = await openDB();
-  const raw = await runTx<(StoredRecord | SealedRecord)[]>(db, STORE, 'readonly', (s) => s.getAll());
+  const raw = await runTx<(StoredRecord | SealedRecord)[]>(db, STORE, 'readonly', (s) =>
+    s.getAll(),
+  );
   const plain = raw.filter((r): r is StoredRecord => !isSealed(r));
   for (const r of plain) {
     const sealed = await sealRecord(r, KEEP_CLEAR);

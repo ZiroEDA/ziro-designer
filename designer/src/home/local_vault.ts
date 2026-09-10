@@ -90,7 +90,9 @@ function lift(value: unknown, bins: Uint8Array[]): unknown {
     const kind = value.constructor.name as ViewKind;
     if (!(kind in VIEWS)) throw new Error(`cannot seal a ${kind}`);
     bins.push(new Uint8Array(value.buffer, value.byteOffset, value.byteLength));
-    return kind === 'Uint8Array' ? { [BIN]: bins.length - 1 } : { [BIN]: bins.length - 1, [KIND]: kind };
+    return kind === 'Uint8Array'
+      ? { [BIN]: bins.length - 1 }
+      : { [BIN]: bins.length - 1, [KIND]: kind };
   }
   if (Array.isArray(value)) return value.map((v) => lift(v, bins));
   if (value && typeof value === 'object') {
@@ -107,7 +109,10 @@ function lower(value: unknown, bins: Uint8Array[]): unknown {
   if (Array.isArray(value)) return value.map((v) => lower(v, bins));
   if (value && typeof value === 'object') {
     const o = value as Record<string, unknown>;
-    if (typeof o[BIN] === 'number' && (Object.keys(o).length === 1 || (Object.keys(o).length === 2 && KIND in o))) {
+    if (
+      typeof o[BIN] === 'number' &&
+      (Object.keys(o).length === 1 || (Object.keys(o).length === 2 && KIND in o))
+    ) {
       const bytes = bins[o[BIN] as number]!;
       const kind = (o[KIND] as ViewKind | undefined) ?? 'Uint8Array';
       // Each bin was sliced into its own buffer, offset 0, so every element
