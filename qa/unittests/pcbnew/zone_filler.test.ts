@@ -749,6 +749,29 @@ describe('zone filler', () => {
     expect(area(fillZone(b, 0)[0]!.polys)).toBeCloseTo(1600, 0);
   });
 
+  it("keeps the OTHER zone's clearance from it when that is the larger", () => {
+    // `EvalRules( CLEARANCE_CONSTRAINT, aZone, otherZone )` asks "Local
+    // clearance on %s" of both items and takes the larger. A 0.5 mm pour
+    // beside a higher-priority 2 mm pour of another net stays 2 mm away.
+    const other = zone({
+      net: 2,
+      priority: 1,
+      uuid: 'z2',
+      clearance: MM(2),
+      outline: [
+        { x: MM(20), y: 0 },
+        { x: MM(40), y: 0 },
+        { x: MM(40), y: MM(40) },
+        { x: MM(20), y: MM(40) },
+      ],
+    });
+    const out = fillZones(board({ zones: [zone(), other] }));
+    const fill = out.zones[0]!.fills[0]!.polys;
+    // 1 mm from the other pour: inside a 2 mm gap, outside a 0.5 mm one.
+    expect(covered(fill, { x: MM(19), y: MM(20) })).toBe(false);
+    expect(covered(fill, { x: MM(17.5), y: MM(20) })).toBe(true);
+  });
+
   it('breaks a priority tie on the uuid, as HigherPriority does', () => {
     // `return m_Uuid > aOther->m_Uuid` — two ordinary zones of equal priority
     // on different nets are not peers. One wins; both filling the overlap is a

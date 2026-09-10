@@ -1032,6 +1032,11 @@ function fillZoneParts(
         if (pad.thermalGap !== undefined) worstClearance = Math.max(worstClearance, pad.thermalGap);
       }
     }
+    // `GetMaxClearanceValue` walks the zones too: another zone's own
+    // `(clearance …)` is a gap this pour has to keep.
+    for (const z of board.zones)
+      if (!z.ruleArea && z.clearance !== undefined)
+        worstClearance = Math.max(worstClearance, z.clearance);
     const zoneBox = boxInflate(boxOf(zone.outline), worstClearance);
     const near = (b: Box): boolean => boxesIntersect(b, zoneBox);
 
@@ -1194,7 +1199,14 @@ function fillZoneParts(
       const otherFill = other.fills.find((f) => f.layer === layer);
       if (!otherFill || otherFill.polys.length === 0) return;
 
-      const gap = gapTo(other.net);
+      // `EvalRules( CLEARANCE_CONSTRAINT, aZone, otherZone )`: "Local
+      // clearance on %s" is asked of BOTH items, and the larger wins — so the
+      // other zone's own `(clearance …)` raises this gap as much as ours does
+      // (drc_engine.cpp:1908-1953; `ZONE::GetLocalClearance` is
+      // `m_ZoneClearance`). This asked only ours: on One-Air-Max the 0.1 mm
+      // BAT- pour ran to within 0.1 mm of a PGND pour that says 0.5, which
+      // is 3.3 mm² of copper KiCad keeps clear.
+      const gap = Math.max(gapTo(other.net), other.clearance ?? 0);
       if (gap < 0) return; // "Negative clearance permits zones to short"
 
       const inflated = inflate(
