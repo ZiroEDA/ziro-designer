@@ -84,6 +84,9 @@ export async function storeWrappedAccount(
  * browser closes it. Script in this origin can read it, which is the same
  * exposure the key has in memory; the reference design keeps its session key
  * the same way. What this never holds is anything a server could use.
+ *
+ * A new tab has no copy of its own and asks its siblings for one first
+ * (`tab_keys.ts`); only a tab with no unlocked sibling asks for the password.
  */
 const MASTER_KEY = 'ziro.mk';
 

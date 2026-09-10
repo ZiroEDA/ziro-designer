@@ -34,6 +34,7 @@ import {
   rememberMasterKey,
   storeWrappedAccount,
 } from './account_keys.js';
+import { askSiblingsForMasterKey, serveMasterKey } from './tab_keys.js';
 import { setSessionKeys } from '../cloud/session_keys.js';
 import { setLocalVaultFromMasterKey } from '../home/local_vault.js';
 import { sealLocalStore } from '../home/projectStore.js';
@@ -197,6 +198,9 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
   const settleKeys = useCallback(
     async (next: Session | null) => {
       if (!supabase || !next) {
+        // No session, so the key in this tab is of no use and should not
+        // outlive it: a sign-out in another tab ends here too.
+        forgetMasterKey();
         setKeyState('absent');
         setKeys(null);
         setSessionKeys(null);
@@ -211,7 +215,9 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
           setKeyState('none');
           return;
         }
-        const masterKey = recallMasterKey();
+        // This tab's own copy first; failing that, a sibling tab's. Only when
+        // neither has it does the wall ask for the password.
+        const masterKey = recallMasterKey() ?? (await askSiblingsForMasterKey(next.user.id));
         if (!masterKey) {
           setKeyState('locked');
           return;
@@ -261,6 +267,14 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
       sub.subscription.unsubscribe();
     };
   }, [settleKeys]);
+
+  // While open, answer a new tab of this origin that asks for the key, so it
+  // opens without the password. Closed (sign-out, lock) unregisters.
+  const userId = session?.user.id;
+  useEffect(() => {
+    if (!keys || !userId) return;
+    return serveMasterKey(userId, keys.masterKey);
+  }, [keys, userId]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
