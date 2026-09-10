@@ -2293,6 +2293,14 @@ function postKnockoutMinWidthPrune(fill: Polygon[], zone: PcbZone, maxError: num
   // aZone->GetMinThickness() )`, in the deflated state.
   polys = connectNearbyPolys(fracture(polys), minThickness).map((ring) => [ring]);
 
+  // `Inflate( half_min_width - epsilon, ROUND_ALL_CORNERS, m_maxError, true )`
+  // — the `true` is `aSimplify`, and it does NOTHING in 10.0.5: `inflate2`
+  // calls `Clipper2Lib::SimplifyPaths( paths, … )` and discards the thinned
+  // paths it returns (shape_poly_set.cpp:1009), so only the trailing union
+  // runs, which changes no vertex. Measured: a chamfered square re-inflated
+  // with and without the flag comes back from KiCad with the same 24 points.
+  // A port that thinned here moved every edge by up to an arc tolerance and
+  // was 0.2 mm² off on a 40 mm square.
   polys = inflate(polys, halfMinWidth - epsilon, CornerStrategy.ROUND_ALL_CORNERS, segs);
 
   // The re-inflate can push past where the fill started, so clip back to it.
