@@ -378,6 +378,32 @@ export const installOverlayScrollbars = (doc: Document = document): (() => void)
     show(b, b === active ? b.over : { v: false, h: false });
   };
 
+  let lastTarget: Element | null = null;
+  let lastPane: HTMLElement | null = null;
+
+  /**
+   * A pane that has left the document takes its bars with it, now.
+   *
+   * GTK's indicator is a child of the scrolled window and goes when the window
+   * does. Ours live in a layer on the body, so a dialog could close and leave
+   * its bar hanging where the pane had been, running the 2 s hold and 1 s fade
+   * of an indicator whose pane no longer existed - a thin line slowly
+   * vanishing after the dialog had already gone.
+   */
+  const detach = (b: PaneBars) => {
+    clearFade(b);
+    if (b.frame) cancelAnimationFrame(b.frame);
+    b.pane.removeEventListener('scroll', onScroll);
+    b.vertical.remove();
+    b.horizontal.remove();
+    bars.delete(b.pane);
+    if (active === b) active = null;
+    if (lastPane === b.pane) {
+      lastPane = null;
+      lastTarget = null;
+    }
+  };
+
   const attach = (pane: HTMLElement): PaneBars => {
     const existing = bars.get(pane);
     if (existing) return existing;
@@ -409,8 +435,6 @@ export const installOverlayScrollbars = (doc: Document = document): (() => void)
   // `nearestScroller` reads computed styles up the ancestor chain, which is far
   // too expensive to repeat for every pointermove over a canvas. The answer only
   // changes when the pointer crosses into a different element, so cache it.
-  let lastTarget: Element | null = null;
-  let lastPane: HTMLElement | null = null;
 
   const onPointerMove = (ev: PointerEvent) => {
     if (disposed) return;
@@ -535,9 +559,21 @@ export const installOverlayScrollbars = (doc: Document = document): (() => void)
   // A pane that scrolls its own content also moves under the bars.
   doc.addEventListener('scroll', onResize, { passive: true, capture: true });
 
+  // Panes are found by delegation, so nothing walks the tree to find them;
+  // this walks nothing either. On a DOM change it looks only at the panes that
+  // HAVE bars - the handful the pointer has been in - and drops the ones no
+  // longer in the document. A closed dialog's bar is gone in the same
+  // mutation batch that removed the dialog.
+  const gone = new MutationObserver(() => {
+    if (disposed || bars.size === 0) return;
+    for (const b of [...bars.values()]) if (!b.pane.isConnected) detach(b);
+  });
+  gone.observe(doc.body, { childList: true, subtree: true });
+
   return () => {
     if (disposed) return;
     disposed = true;
+    gone.disconnect();
     doc.removeEventListener('pointermove', onPointerMove, { capture: true });
     doc.removeEventListener('pointerdown', onPointerDown, true);
     doc.removeEventListener('pointermove', onDragMove, true);

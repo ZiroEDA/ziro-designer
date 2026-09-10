@@ -259,3 +259,34 @@ describe('the proximity hysteresis, recovered from where GTK flipped', () => {
     expect(GTK_OVERLAY.overLeavePx).toBeGreaterThan(GTK_OVERLAY.overEnterPx);
   });
 });
+
+describe('a pane that leaves the document takes its bars with it, now', () => {
+  // GTK's indicator is a child of the scrolled window and goes when the window
+  // does. Ours live in a layer on the body, so a closed dialog left its bar
+  // hanging where the pane had been, running a 2 s hold and 1 s fade for a
+  // pane that no longer existed. Source-level, for the reason at the top of
+  // this file: the drop happens on a DOM mutation, which node has no engine
+  // to deliver.
+  const SRC = readFileSync(
+    fileURLToPath(new URL('../../../designer/src/ui/overlay_scrollbars.ts', import.meta.url)),
+    'utf8',
+  );
+
+  it('watches the document for removals and drops the bars of a disconnected pane', () => {
+    expect(SRC).toContain('gone.observe(doc.body, { childList: true, subtree: true });');
+    expect(SRC).toContain('if (!b.pane.isConnected) detach(b);');
+  });
+
+  it('detach removes the bar elements rather than hiding them, so there is no fade to outlive the pane', () => {
+    const fn = SRC.slice(SRC.indexOf('const detach = '), SRC.indexOf('const attach = '));
+    expect(fn).toContain('b.vertical.remove();');
+    expect(fn).toContain('b.horizontal.remove();');
+    expect(fn).toContain('bars.delete(b.pane);');
+    expect(fn).toContain('clearFade(b);');
+  });
+
+  it('the observer goes with the installation', () => {
+    const teardown = SRC.slice(SRC.lastIndexOf('return () => {'));
+    expect(teardown).toContain('gone.disconnect();');
+  });
+});
