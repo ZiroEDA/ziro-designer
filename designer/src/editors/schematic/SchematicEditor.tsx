@@ -525,6 +525,7 @@ import {
   unitsMsg,
 } from '../../ui/status_format.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
+import { useLiveState } from '../../ui/useLiveState.js';
 import { withSaveEnablement } from '../../ui/save_enablement.js';
 import { fileBaseName, pathHumanReadable, SCH_FRAME_NAME, schFrameTitle } from './frame_title.js';
 import {
@@ -894,7 +895,10 @@ export function SchematicEditor({
    */
   const [unsaved, setUnsaved] = useState(false);
 
-  const [doc, setDoc] = useState<Schematic | null>(initial);
+  // Live, not plain `useState`: the undo step is folded in a `setDoc` updater,
+  // and a plain updater is replayed by React whenever it replays a render —
+  // which popped the stack twice and left the document as it was. See the hook.
+  const [doc, setDoc, docRef] = useLiveState<Schematic | null>(initial);
   // Multi-sheet project: every parsed document by basename, and the root file.
   // `doc` is always the currently-shown sheet; it is written back into `docs`
   // when switching. The undo stack is NOT here — there is one for the whole
@@ -1772,9 +1776,7 @@ export function SchematicEditor({
     return { lineIds, color: chain.color };
   }, [netlist, highlightedChain, committedChains]);
 
-  // The live document for stable callbacks (selection promotion needs groups).
-  const docRef = useRef(doc);
-  docRef.current = doc;
+  // The live document for stable callbacks is `docRef`, kept by `setDoc`.
   // Which file that document is, for the same reason: an undo step is applied
   // inside a `setDoc` updater, where the state value of `currentFile` may be a
   // render behind.
