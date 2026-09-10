@@ -260,10 +260,31 @@ const menuSource = (rel: string): string => {
   return moved ? `${readFileSync(join(SRC, moved), 'utf8')}\n${source(rel)}` : source(rel);
 };
 
+/**
+ * A menu bar that is scenery, not a frame: the sign-in wall's backdrop draws
+ * the manager's chrome with every menu empty and nothing clickable, so the
+ * visitor sees what they are signing up for without the app being mounted
+ * (auth/GateBackdrop.tsx). It has no rows, no accelerators and no listener,
+ * and belongs on neither list; it is left out of the inventory by name so a
+ * second such file cannot slip in unnamed.
+ */
+const SCENERY: readonly string[] = ['auth/GateBackdrop.tsx'];
+
 /** Every frame that puts a menu bar on screen. */
 const menuBarFiles = FILES.filter((f) => /<MenuBar\b/.test(f.src))
   .map((f) => f.rel)
+  .filter((rel) => !SCENERY.includes(rel))
   .sort();
+
+describe('scenery is scenery', () => {
+  it('a menu bar left out of the inventory declares no menu rows at all', () => {
+    for (const rel of SCENERY) {
+      const src = source(rel);
+      expect(src).toContain('items: []');
+      expect(src).not.toMatch(/shortcut:|hotkey/i);
+    }
+  });
+});
 
 describe('every frame with a menu bar is accounted for', () => {
   it('finds the frames in the first place', () => {
