@@ -159,7 +159,7 @@ export function isolatedIslands(
       box: shapeBBox(shape),
     });
   }
-  const copperLayers = enabledCopperLayers(board);
+  let copperLayers: string[] | undefined;
   for (const v of board.vias) {
     const shape: Shape = { kind: 'circle', c: v.at, r: v.size / 2 };
     // `SetLayers( via->TopLayer(), via->BottomLayer() )`: a through via is on
@@ -167,7 +167,10 @@ export function isolatedIslands(
     add(v.net, {
       pad: false,
       net: v.net,
-      layers: v.kind === 'through' ? null : new Set(viaCopperLayers(v, copperLayers)),
+      layers:
+        v.kind === 'through'
+          ? null
+          : new Set(viaCopperLayers(v, (copperLayers ??= enabledCopperLayers(board)))),
       anchors: [v.at],
       shapes: [shape],
       box: shapeBBox(shape),
