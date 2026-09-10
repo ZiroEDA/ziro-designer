@@ -10,12 +10,14 @@
  * requests have already fired `onsuccess`, so resolving on request success
  * reported a clean save for bytes that never landed.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   classifyError,
+  RECHECK_MS,
   reportStorageFailure,
   reportStorageOk,
   runTx,
+  setStorageRecheck,
   storageStatus,
   subscribeStorageHealth,
 } from '@ziroeda/designer/src/home/storageHealth.js';
@@ -176,5 +178,89 @@ describe('health reporting', () => {
     reportStorageFailure({ name: 'SecurityError' });
     await settle();
     expect(calls).toBe(0);
+  });
+});
+
+/**
+ * The stuck-banner bug: a transient failure latched the banner, and because
+ * `reportStorageOk` fires only on the next successful write, a user who then
+ * stopped editing never lifted it — and the banner cannot be dismissed. While
+ * unhealthy the health layer now re-runs the probe on a timer, so a failure
+ * that has passed clears itself.
+ */
+describe('self-healing recheck while latched', () => {
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    reportStorageOk();
+    await vi.advanceTimersByTimeAsync(0);
+  });
+  afterEach(() => {
+    setStorageRecheck(null as unknown as () => Promise<never>);
+    vi.useRealTimers();
+  });
+
+  it('re-probes a recoverable failure and clears when the probe passes', async () => {
+    let probes = 0;
+    // First probe still fails (the blip has not passed), the second succeeds.
+    setStorageRecheck(async () => {
+      probes += 1;
+      if (probes >= 2) {
+        reportStorageOk();
+        return { ok: true };
+      }
+      reportStorageFailure({ name: 'InvalidStateError' }); // connection closing
+      return { ok: false, failure: 'blocked' };
+    });
+
+    reportStorageFailure({ name: 'InvalidStateError' });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(storageStatus().ok).toBe(false);
+    expect(probes).toBe(0); // scheduled, not yet fired
+
+    await vi.advanceTimersByTimeAsync(RECHECK_MS);
+    expect(probes).toBe(1);
+    expect(storageStatus().ok).toBe(false); // still bad: it reschedules
+
+    await vi.advanceTimersByTimeAsync(RECHECK_MS);
+    expect(probes).toBe(2);
+    expect(storageStatus().ok).toBe(true); // recovered, banner clears
+
+    // Cleared means cleared: no further probes once healthy.
+    await vi.advanceTimersByTimeAsync(RECHECK_MS * 3);
+    expect(probes).toBe(2);
+  });
+
+  it('keeps re-probing a genuine ongoing failure until it recovers', async () => {
+    let probes = 0;
+    // Quota stays full for three checks, then space is freed.
+    setStorageRecheck(async () => {
+      probes += 1;
+      if (probes >= 4) {
+        reportStorageOk();
+        return { ok: true };
+      }
+      reportStorageFailure({ name: 'QuotaExceededError' });
+      return { ok: false, failure: 'quota' };
+    });
+
+    reportStorageFailure({ name: 'QuotaExceededError' });
+    await vi.advanceTimersByTimeAsync(0);
+
+    // It does not give up after one failed re-probe.
+    await vi.advanceTimersByTimeAsync(RECHECK_MS * 3);
+    expect(probes).toBe(3);
+    expect(storageStatus().ok).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(RECHECK_MS);
+    expect(probes).toBe(4);
+    expect(storageStatus().ok).toBe(true);
+  });
+
+  it('does not schedule a recheck when no probe is registered', async () => {
+    setStorageRecheck(null as unknown as () => Promise<never>);
+    reportStorageFailure({ name: 'QuotaExceededError' });
+    await vi.advanceTimersByTimeAsync(RECHECK_MS * 2);
+    // Nothing to run and nothing to throw: the failure just stays latched.
+    expect(storageStatus().ok).toBe(false);
   });
 });

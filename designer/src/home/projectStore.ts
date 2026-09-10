@@ -23,6 +23,7 @@ import {
   reportStorageFailure,
   reportStorageOk,
   runTx,
+  setStorageRecheck,
   type StorageStatus,
 } from './storageHealth.js';
 import { withRecordLock } from './record_lock.js';
@@ -381,6 +382,11 @@ export async function sealLocalStore(): Promise<number> {
 export function checkStorageHealth(): Promise<StorageStatus> {
   return probeStorage(openDB, STORE);
 }
+
+// The health layer re-runs this on a timer while a failure is latched, so a
+// transient one clears itself instead of leaving the banner stuck until the
+// next edit. Registered here because this is where `openDB`/`STORE` live.
+setStorageRecheck(checkStorageHealth);
 
 // ----- public API ------------------------------------------------------------
 

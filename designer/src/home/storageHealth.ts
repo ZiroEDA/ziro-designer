@@ -71,6 +71,59 @@ export function subscribeStorageHealth(fn: Listener): () => void {
   return () => listeners.delete(fn);
 }
 
+/**
+ * A re-probe the store registers ({@link checkStorageHealth}), so a latched
+ * failure can re-test itself without waiting for the user to make another edit.
+ *
+ * Without it a *transient* failure never clears: {@link reportStorageOk} fires
+ * only on the next successful write, so a dropped connection during a
+ * navigation (the "database connection is closing" case the store reopens from)
+ * latches the banner, and a user who then only pans and clicks — both
+ * read-only — makes no write to lift it. The banner is loud and cannot be
+ * dismissed, on purpose, so a stale one is a scary dead end with no way out.
+ * KiCad has no analogue: its saves are explicit and synchronous, so it never
+ * has a save that quietly succeeded a second later.
+ *
+ * So while unhealthy we re-run the real write/read/delete probe on a timer: a
+ * transient failure clears within {@link RECHECK_MS}, and a genuine one (quota
+ * full, site data blocked) clears the moment space is freed or permission is
+ * granted. `unsupported` is the one failure that cannot recover in a session —
+ * there is no IndexedDB to come back — so it is not re-probed.
+ */
+let recheck: (() => Promise<StorageStatus>) | null = null;
+let recheckTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** How often a latched failure re-tests itself. */
+export const RECHECK_MS = 4000;
+
+export function setStorageRecheck(fn: () => Promise<StorageStatus>): void {
+  recheck = fn;
+}
+
+function clearRecheck(): void {
+  if (recheckTimer !== null) {
+    clearTimeout(recheckTimer);
+    recheckTimer = null;
+  }
+}
+
+function scheduleRecheck(): void {
+  if (recheckTimer !== null || recheck === null) return;
+  recheckTimer = setTimeout(() => {
+    recheckTimer = null;
+    if (current.ok || recheck === null) return;
+    // probeStorage emits its own result through `emit`: an ok clears the
+    // banner and the timer below never re-arms. The poll re-arms itself here
+    // rather than from that emit, so it continues even if a still-failing
+    // probe reports the same failure as last time and emits nothing.
+    void recheck()
+      .catch(() => undefined)
+      .finally(() => {
+        if (!current.ok) scheduleRecheck();
+      });
+  }, RECHECK_MS);
+}
+
 function emit(status: StorageStatus): void {
   current = status;
   for (const fn of listeners) {
@@ -80,6 +133,11 @@ function emit(status: StorageStatus): void {
       /* a broken listener must not break persistence */
     }
   }
+  // Self-heal: start re-testing a recoverable failure; stop once it clears.
+  // `unsupported` cannot recover in a session — there is no IndexedDB to come
+  // back — so it is never re-probed.
+  if (status.ok || status.failure === 'unsupported') clearRecheck();
+  else scheduleRecheck();
 }
 
 /**
@@ -89,6 +147,9 @@ function emit(status: StorageStatus): void {
  */
 export function reportStorageFailure(err: unknown): void {
   const failure = classifyError(err);
+  // The banner says what the user can do, not what broke; the console says
+  // what broke, or a "Saving failed" is impossible to diagnose from a report.
+  console.error('Project store write failed:', err);
   if (!current.ok && current.failure === failure) return; // already reported
   void withEstimate({ ok: false, failure }).then(emit);
 }
