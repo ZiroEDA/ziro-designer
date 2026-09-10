@@ -17,10 +17,11 @@
  * 0.196 mm to one side, and the pour cut its 5.6 x 21 mm hole in the wrong
  * place — 8 mm² of copper on the wrong side of the letters.
  *
- * The tolerance is 10 µm: KiCad's hull is measured off the *rendered* glyph
- * polygons, whose oval stroke ends are pushed outward by up to one `maxError`
- * (5 µm here) by ERROR_OUTSIDE, while ours is measured off the stroke
- * centrelines grown by exactly half a pen.
+ * The tolerance is half a micron: the hull is measured off the stroke
+ * polygons `TransformOvalToPolygon` builds, inflated by the same `maxError`
+ * (5 µm here) upstream applies under ERROR_OUTSIDE, so what is left is the
+ * rounding of a vertex to a whole unit and the four decimals the oracle
+ * printed.
  */
 import { describe, it, expect } from 'vitest';
 import { textShapes } from '@ziroeda/pcbnew/src/text_geometry.js';
@@ -28,7 +29,7 @@ import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { PcbTextItem } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const TOL = MM(0.01);
+const TOL = MM(0.0005);
 
 /**
  *     (gr_text "Complex hierarchy\nDemo"
@@ -51,7 +52,7 @@ const text = (over: Partial<PcbTextItem> = {}): PcbTextItem => ({
 });
 
 const box = (t: PcbTextItem) => {
-  const shapes = textShapes(t);
+  const shapes = textShapes(t, MM(0.005));
   expect(shapes).toHaveLength(1);
   const pts = (shapes[0] as { pts: { x: number; y: number }[] }).pts;
   const xs = pts.map((p) => p.x);
@@ -83,12 +84,14 @@ describe('text knockout hull', () => {
     // the effective pen KiCad would still stroke it with.
     const thin = box(text({ thickness: 0 }));
     const thick = box(text());
-    // Across the lines (board x here) the block centre moves by the fudge.
-    expect((thin.x0 + thin.x1) / 2 - (thick.x0 + thick.x1) / 2).toBeCloseTo(MM(0.3048) * 0.052, -1);
+    // Across the lines (board x here) the block centre moves by the fudge — to
+    // 50 units, since the two pens round their stroke caps to different segment
+    // counts and that moves the hull's edges by a few tens of units as well.
+    expect((thin.x0 + thin.x1) / 2 - (thick.x0 + thick.x1) / 2).toBeCloseTo(MM(0.3048) * 0.052, -2);
   });
 
   it('gives a hidden text no hull at all', () => {
     // "if( text->IsVisible() )" guards the knockout in `addKnockout`.
-    expect(textShapes(text({ hide: true }))).toHaveLength(0);
+    expect(textShapes(text({ hide: true }), MM(0.005))).toHaveLength(0);
   });
 });

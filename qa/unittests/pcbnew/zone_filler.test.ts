@@ -2187,6 +2187,34 @@ describe('copper text is knocked out of the pour', () => {
     expect(filled(fill, { x: MM(25), y: MM(21.6) })).toBe(false);
   });
 
+  it('keeps the knockout SQUARE-cornered: the clearance is BBox( aClearance ), not an inflate', () => {
+    // `PCB_TEXT::TransformShapeToPolygon( …, aClearance )` is
+    // `buildBoundingHull( &aBuffer, poly, aClearance )`, and that is
+    // `poly.BBox( aClearance )` — the box grown by the clearance — whose four
+    // corners are rotated back. No round join, no maxError correction. An
+    // inflate of the bare hull would round every corner by the clearance.
+    //
+    // A single 'I' at (20, 20): its hull is narrow and known, so probe just
+    // inside the grown box's bottom-right corner, on the diagonal, where a
+    // rounded corner of radius `gap` would have left copper.
+    const gapMM = 0.5 + 0.0005;
+    const b = board({ zones: [zone()], texts: [text({ text: 'I' })] });
+    const fill = fillZone(b, 0)[0]!.polys;
+    // Find the hole's own extent first: walk right from the centre on the
+    // baseline until copper, then down from the centre.
+    let right = 0;
+    for (; right < MM(5); right += MM(0.001))
+      if (filled(fill, { x: MM(20) + right, y: MM(20) })) break;
+    let down = 0;
+    for (; down < MM(5); down += MM(0.001))
+      if (filled(fill, { x: MM(20), y: MM(20) + down })) break;
+    // 0.9 of the gap in from each grown edge, at the corner: 0.1 gap inside the
+    // square box, but 1.27 gap from the box's un-grown corner — outside a round
+    // corner of radius gap.
+    const probe = { x: MM(20) + right - MM(gapMM) * 0.1, y: MM(20) + down - MM(gapMM) * 0.1 };
+    expect(filled(fill, probe)).toBe(false);
+  });
+
   it('turns the rectangle with the text', () => {
     // A long label rotated 90° reserves a tall block, not a wide one.
     const long = 'LONG LABEL HERE';
