@@ -259,6 +259,12 @@ export interface Layer3dOptions {
   subtractMaskFromSilk?: boolean;
   /** `clip_silk_on_via_annulus` (default false): silk is clipped on the via annulus, not just the hole. */
   clipSilkOnViaAnnuli?: boolean;
+  /**
+   * `plated_and_bare_copper` (`DifferentiatePlatedCopper()`, default false):
+   * the copper exposed through the mask is "plated" and drawn in the finish
+   * colour; the rest is raw copper.
+   */
+  differentiatePlatedCopper?: boolean;
   /** `show_plated_barrels` (default true). */
   showPlatedBarrels?: boolean;
   /** Board Setup > Solder Mask/Paste; read from the file when omitted. */
@@ -295,6 +301,19 @@ export interface Board3dLayers {
   maskOpenings: { 'F.Mask': Polygon[]; 'B.Mask': Polygon[] };
   /** `m_boardPos` / `m_boardSize`: the bbox the 3D units are derived from, IU. */
   bbox: Box;
+  /**
+   * `generateViaBarrels`: every via that is not a plain through via — blind
+   * and micro vias — as the cylinder between its two end layers, drill/2
+   * inside and plating outside. Its hole is already cut from the copper of
+   * the layers it spans (`m_outerLayerHoles[layer]`).
+   */
+  viaBarrels: { at: Vec2; drill: number; topLayer: string; bottomLayer: string }[];
+  /**
+   * `m_platedPadsFront/Back` when `DifferentiatePlatedCopper()`: the copper
+   * under the mask openings, already taken out of `layers['F.Cu'/'B.Cu']`.
+   * Empty otherwise.
+   */
+  platedCopper: { 'F.Cu': Polygon[]; 'B.Cu': Polygon[] };
 }
 
 /** `ADVANCED_CFG::m_HoleWallThickness`, 0.020 mm, in IU. */
@@ -388,6 +407,29 @@ export function buildBoard3dLayers(
   thID = simplify(thID);
   npthOD = simplify(npthOD);
   viaAnnuli = simplify(viaAnnuli);
+
+  // Blind/micro vias (create_layer_items.cpp:536-546): their hole is per
+  // layer, not through the board.
+  const layerViaHoles: Partial<Record<Layer3d, Polygon[]>> = {};
+  const viaBarrels: Board3dLayers['viaBarrels'] = [];
+  for (const via of board.vias) {
+    if (via.kind === 'through') continue;
+    viaBarrels.push({
+      at: via.at,
+      drill: via.drill,
+      topLayer: via.layers[0],
+      bottomLayer: via.layers[1],
+    });
+    const holeOuterRadius = Math.trunc(via.drill / 2) + plating;
+    for (const layer of ['F.Cu', 'B.Cu'] as const) {
+      if (via.layers[0] !== layer && via.layers[1] !== layer) continue;
+      const list = layerViaHoles[layer] ?? [];
+      list.push([
+        transformCircleToPolygonSet(via.at, holeOuterRadius, maxError, ErrorLoc.ERROR_INSIDE),
+      ]);
+      layerViaHoles[layer] = list;
+    }
+  }
 
   // `board_poly_with_holes` (create_scene.cpp:720-744).
   let boardWithHoles = booleanSubtract(boardPoly, thOD);
@@ -596,10 +638,28 @@ export function buildBoard3dLayers(
       }
     } else {
       poly = booleanSubtract(poly, allHoles);
+      // a copper layer is also cut by the blind/micro via holes that end on it
+      const viaHoles = layerViaHoles[layer];
+      if (viaHoles && viaHoles.length) poly = booleanSubtract(poly, simplify(viaHoles));
       // `LSET::PhysicalLayersMask().test( layer )` — every layer here is physical.
       poly = booleanIntersection(poly, boardPoly);
     }
     layers[layer] = poly;
+  }
+  // TRIM PLATED COPPER TO SOLDERMASK, then subtract it from the unplated
+  // (create_layer_items.cpp:1673-1697).
+  const platedCopper = { 'F.Cu': [] as Polygon[], 'B.Cu': [] as Polygon[] };
+  if (opts.differentiatePlatedCopper) {
+    for (const [cu, mask] of [
+      ['F.Cu', 'F.Mask'],
+      ['B.Cu', 'B.Mask'],
+    ] as const) {
+      const copper = layers[cu];
+      if (!copper) continue;
+      const plated = booleanIntersection(copper, maskOpenings[mask]);
+      platedCopper[cu] = plated;
+      layers[cu] = booleanSubtract(copper, plated);
+    }
   }
   // The mask layers were unioned before the silk asked for their openings;
   // a silk layer visited before its mask would have missed them, so do the
@@ -622,5 +682,7 @@ export function buildBoard3dLayers(
     platedBarrels,
     maskOpenings,
     bbox,
+    viaBarrels,
+    platedCopper,
   };
 }

@@ -189,3 +189,39 @@ describe('createLayers on ecc83-pp', () => {
     expect(area(noZones.layers['B.Cu']!)).toBeLessThan(area(built.layers['B.Cu']!));
   });
 });
+
+describe('blind vias and plated-copper differentiation', () => {
+  const board = load('blindvias');
+  const bbox = bboxOf(board);
+  const built = buildBoard3dLayers(board, bbox);
+
+  it('a blind/micro via is a barrel between its own two layers, never a through hole', () => {
+    const blind = board.vias.filter((v) => v.kind !== 'through');
+    expect(blind.length).toBeGreaterThan(0);
+    expect(built.viaBarrels).toHaveLength(blind.length);
+    for (const b of built.viaBarrels) expect(b.topLayer).not.toBe(b.bottomLayer);
+    // the through-hole set holds only the through vias and the pads
+    const through = board.vias.filter((v) => v.kind === 'through').length;
+    const thtPads = board.footprints
+      .flatMap((f) => f.pads)
+      .filter((p) => p.drill && p.type !== 'np_thru_hole').length;
+    expect(built.thID.length).toBe(through + thtPads);
+  });
+
+  it('a board with no mask layers enabled builds none — and so has no plated copper either', () => {
+    expect(built.layers['F.Mask']).toBeUndefined();
+    const diff = buildBoard3dLayers(board, bbox, { differentiatePlatedCopper: true });
+    expect(area(diff.platedCopper['F.Cu'])).toBe(0);
+  });
+
+  it('differentiate plated copper: the exposed copper leaves the layer and returns as plated', () => {
+    const ecc = load('ecc83-pp');
+    const eccBox = bboxOf(ecc);
+    const plain = buildBoard3dLayers(ecc, eccBox);
+    const diff = buildBoard3dLayers(ecc, eccBox, { differentiatePlatedCopper: true });
+    const plated = area(diff.platedCopper['F.Cu']);
+    expect(plated).toBeGreaterThan(0);
+    expect(area(diff.layers['F.Cu']!) + plated).toBeCloseTo(area(plain.layers['F.Cu']!), -6);
+    expect(area(plain.platedCopper['F.Cu'])).toBe(0);
+  });
+});

@@ -26,7 +26,10 @@
  * the port, `ShaderMaterial`s carrying the GL 1.x equation, `renderOrder`
  * for the pass order. Nothing in it decides a colour or a light.
  */
-import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
+import { ARC_HIGH_DEF, PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
+import { transformCircleToPolygonSet } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import { getArcToSegmentCount } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
+import { ErrorLoc } from '@ziroeda/pcbnew/src/transform_shape_to_polygon.js';
 import type { Color4d } from '@ziroeda/common/src/color4d.js';
 import { LEGACY_COLORS } from '@ziroeda/common/src/color4d.js';
 import type { Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
@@ -577,6 +580,7 @@ export function mount3DViewer(
     subtractMaskFromSilk: render.subtractMaskFromSilk,
     clipSilkOnViaAnnuli: render.clipSilkOnViaAnnuli,
     showPlatedBarrels: render.showPlatedBarrels,
+    differentiatePlatedCopper: render.differentiatePlatedCopper,
   };
   const built = buildBoard3dLayers(board, bbox, layerOpts);
   const showThickness = render.copperThickness !== false;
@@ -728,6 +732,35 @@ export function mount3DViewer(
     addMesh(toGeometry(buf), makeFixedFunctionMaterial(mats.copper, lights), RENDER_ORDER.holes);
   }
 
+  // m_microviaHoles (generateViaBarrels): a blind/micro via's barrel between
+  // its two end layers, drawn first with the copper material like the pad
+  // holes. The ring's two circles share their segment count and angles
+  // (generateRing), so the wall quads pair up vertex for vertex.
+  if (built.viaBarrels.length && render.showPlatedBarrels !== false) {
+    const buf = newBuf();
+    const plating = 0.02 * MM;
+    for (const v of built.viaBarrels) {
+      const outer = transformCircleToPolygonSet(
+        v.at,
+        Math.trunc(v.drill / 2) + plating,
+        ARC_HIGH_DEF,
+        ErrorLoc.ERROR_INSIDE,
+      );
+      const inner = transformCircleToPolygonSet(
+        v.at,
+        Math.trunc(v.drill / 2),
+        ARC_HIGH_DEF,
+        ErrorLoc.ERROR_INSIDE,
+      );
+      const ring = polys3d([[outer, [...inner].reverse()]]);
+      const [zt] = zOf(v.topLayer);
+      const [, zb] = zOf(v.bottomLayer);
+      addTopAndBottom(buf, ring, zt, zb);
+      addMiddleContours(buf, ring, zb, zt);
+    }
+    addMesh(toGeometry(buf), makeFixedFunctionMaterial(mats.copper, lights), RENDER_ORDER.holes);
+  }
+
   // Display copper and tech layers
   for (const layer of Object.keys(built.layers) as Layer3d[]) {
     const polys = built.layers[layer];
@@ -739,15 +772,33 @@ export function mount3DViewer(
     addTopAndBottom(buf, p, zTop, zBot);
     if (showThickness) addMiddleContours(buf, p, zBot, zTop);
     const isCopper = layer === 'F.Cu' || layer === 'B.Cu';
+    // `cfg.DifferentiatePlatedCopper() ? setCopperMaterial() : setLayerMaterial( layer )`
+    const copperMat = render.differentiatePlatedCopper ? mats.nonPlatedCopper : mats.copper;
     // Offset non-copper layers slightly closer to the screen than soldermask
     // to avoid Z-fighting (glPolygonOffset( 0, -4 )).
     addMesh(
       toGeometry(buf),
-      makeFixedFunctionMaterial(layerMaterial(layer), lights, {
+      makeFixedFunctionMaterial(isCopper ? copperMat : layerMaterial(layer), lights, {
         polygonOffset: isCopper ? undefined : [0, -4],
       }),
       isCopper ? RENDER_ORDER.copper : RENDER_ORDER.tech,
     );
+    // Draw plated & offboard pads: setPlatedCopperAndDepthOffset — the finish
+    // colour, pulled towards the screen by glPolygonOffset( -0.1, -2 ).
+    if (isCopper) {
+      const plated = built.platedCopper[layer as 'F.Cu' | 'B.Cu'];
+      if (plated.length) {
+        const pb = newBuf();
+        const pp = polys3d(plated);
+        addTopAndBottom(pb, pp, zTop, zBot);
+        if (showThickness) addMiddleContours(pb, pp, zBot, zTop);
+        addMesh(
+          toGeometry(pb),
+          makeFixedFunctionMaterial(mats.copper, lights, { polygonOffset: [-0.1, -2] }),
+          RENDER_ORDER.copper,
+        );
+      }
+    }
   }
 
   // Display board body: m_boardWithHoles, EpoxyBoard material, translucent,
@@ -818,17 +869,31 @@ export function mount3DViewer(
     const side = layer === 'F.Mask' ? 'front' : 'back';
     const plating3d = 0.02 * MM * s;
     for (const via of board.vias) {
-      if (!viaIsTented(board, via, side)) continue;
+      // generateViaCovers: COVERED explicitly, or tented on this side. A
+      // FROM_BOARD covering mode is not COVERED here — only the tenting is
+      // resolved against the board.
+      const covering = via.covering?.[side] === true || viaIsTented(board, via, side);
+      if (!covering) continue;
+      // (post-machined and backdrilled vias are not covered — not modelled)
+      const plugged = via.plugging?.[side] === true;
+      const filled = via.filling === true || via.capping === true;
       const holeRadius = (via.drill * s) / 2 + 2 * plating3d;
       const [cx, cy] = to3d(via.at);
-      const [zt] = zOf('F.Cu');
-      const [, zb] = zOf('B.Cu');
+      // via->LayerPair(): ztop of its top layer, zbot of its bottom layer
+      const [zt] = zOf(via.layers[0]);
+      const [, zb] = zOf(via.layers[1]);
       const zList = layer === 'F.Mask' ? zt : zb;
       const z = zBase + zList * 4 * adapter.nonCopperLayerThickness3DU;
-      const seg = Math.max(8, Math.min(64, Math.round((via.drill / MM) * 24)));
-      const base = buf.pos.length / 3;
+      const seg = getArcToSegmentCount(Math.trunc(via.drill / 2), ARC_HIGH_DEF, 360);
       const nz = layer === 'F.Mask' ? 1 : -1;
-      buf.pos.push(cx, cy, z);
+      // generateDisk for a filled or unplugged via; generateDimple (a cone
+      // 0.3·r deep into the hole) for a plugged one — both lit as a flat
+      // top/bottom face, the list's own normal.
+      const depth = holeRadius * 0.3;
+      const zCentre =
+        filled || !plugged ? z : z - nz * depth * 4 * adapter.nonCopperLayerThickness3DU;
+      const base = buf.pos.length / 3;
+      buf.pos.push(cx, cy, zCentre);
       buf.nrm.push(0, 0, nz);
       for (let i = 0; i < seg; i++) {
         const a = (2 * Math.PI * i) / seg;

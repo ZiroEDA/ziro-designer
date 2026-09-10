@@ -210,6 +210,7 @@ export function Viewer3DFrame({
             subtractMaskFromSilk: renderRef.current.subtract_mask_from_silk,
             clipSilkOnViaAnnuli: renderRef.current.clip_silk_on_via_annulus,
             highlightOnRollover: renderRef.current.opengl_highlight_on_rollover,
+            differentiatePlatedCopper: renderRef.current.plated_and_bare_copper,
             netClassOf: (net) => netClassOfRef.current?.get(net) ?? 'Default',
           },
         );

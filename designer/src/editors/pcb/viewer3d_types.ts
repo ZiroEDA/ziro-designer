@@ -144,6 +144,8 @@ export interface Viewer3dRenderOptions {
   clipSilkOnViaAnnuli?: boolean;
   /** `render.show_plated_barrels` (default true). */
   showPlatedBarrels?: boolean;
+  /** `render.plated_and_bare_copper` (default false): finish colour only where the mask opens. */
+  differentiatePlatedCopper?: boolean;
   /** `render.opengl_copper_thickness` (default true): extrude the layers' walls. */
   copperThickness?: boolean;
   /** `render.show_board_body` (default true). */
