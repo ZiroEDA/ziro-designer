@@ -13,7 +13,9 @@
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 
-IMAGE=public.ecr.aws/supabase/postgres:17.6.1.141
+# Overridable for a machine that has another tag cached; the chain and the
+# tests do not depend on anything between the two.
+IMAGE=${ZIRO_RLS_IMAGE:-public.ecr.aws/supabase/postgres:17.6.1.141}
 NAME=${ZIRO_RLS_CONTAINER:-ziro-rls-test}
 
 docker rm -f "$NAME" >/dev/null 2>&1
@@ -63,9 +65,13 @@ for f in supabase/migrations/*.sql; do
 done
 [ "$fail" -eq 0 ] || exit 1
 
-docker cp supabase/tests/rls_membership.sql "$NAME":/tmp/t.sql >/dev/null
-docker exec "$NAME" psql -U postgres -d postgres -f /tmp/t.sql 2>&1 \
-  | grep -v '^SET$\|^BEGIN$\|^COMMIT$\|^ROLLBACK$\|^ *$\|^-\{3,\}$\|^(1 row)$\|Pager'
+# Every rls_*.sql, in name order, each against the same applied chain.
+for t in supabase/tests/rls_*.sql; do
+  echo; echo "== $(basename "$t")"
+  docker cp "$t" "$NAME":/tmp/t.sql >/dev/null
+  docker exec "$NAME" psql -U postgres -d postgres -f /tmp/t.sql 2>&1 \
+    | grep -v '^SET$\|^BEGIN$\|^COMMIT$\|^ROLLBACK$\|^ *$\|^-\{3,\}$\|^(1 row)$\|Pager'
+done
 
 echo
 echo "container '$NAME' left running for poking; docker rm -f $NAME when done"
