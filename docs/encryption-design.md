@@ -63,40 +63,58 @@ their *own* namespace (`<userId>/blobs/…`), which is already how the store
 works and carries no cross-user leak — blobs are namespaced per user precisely
 so "does this hash exist" never answers a question about someone else's files.
 
-### 2. We are OAuth-first, so there is no password
+### 2. The auth server takes a password, and must not get ours
 
-The reference design derives a key-encryption-key from the user's password with
-Argon2, and wraps the master key with it. We sign users in with Google; there is
-no password and never will be for most accounts. OAuth proves identity and hands
-back a token — it yields **no secret** we could turn into a key.
+The reference design derives a key-encryption-key (KEK) from the user's password
+with Argon2id and wraps the master key with it. Signing in there uses SRP, so
+the password itself never leaves the device. We do the same derivation, but our
+auth server (Supabase Auth) has no SRP: it takes a password string and bcrypts
+it. Handing it the real password would put the one secret that unwraps every
+project on a server we promised cannot read anything.
 
-**Resolution: the recovery key is the root secret, not a password.**
+**Resolution: the server is given a login secret derived one way from the KEK.**
 
-- At signup the client generates a random 256-bit **recovery key** and shows it
-  to the user once, to save. This is the thing a human carries between machines.
-- The **master key** is wrapped by the recovery key (and, if the user later opts
-  into a password, additionally by a password-derived key). The server stores
-  only the wrapped forms.
-- A **new device** gets the master key one of two ways: the user pastes their
-  recovery key, or an already-signed-in device approves it (device-approval
-  flow, modelled on the trusted-devices pattern — the existing device seals the
-  master key to the new device's public key; the server relays ciphertext only).
+- The client derives `passwordKey = Argon2id(password, salt, ops, mem)`. This is
+  the KEK. It never leaves the device.
+- The client derives `loginSecret = HKDF-SHA256(passwordKey, "ziro-login-v1")`
+  and gives THAT to Supabase as the account's password. The reference design
+  does the same thing for its SRP input (a `loginctx` subkey off the KEK). From
+  the login secret the server can recover neither the password nor the KEK.
+- One Argon2id run per sign-in yields both: the login secret to sign in with,
+  and the KEK to unwrap the master key once the wrapped account comes back.
 
-Because the root secret is a full-entropy random key rather than a low-entropy
-password, **a memory-hard KDF (Argon2) is unnecessary**: there is nothing to
-brute-force. This is why we need no libsodium and can use Web Crypto's HKDF for
-domain separation where a KDF is called for. If we later add optional password
-protection for a *second* wrap of the master key, that path — and only that
-path — will use PBKDF2 (Web Crypto) or Argon2-wasm, because a password is the
-one input that is weak enough to need stretching.
+**The stretch is Argon2id at libsodium's SENSITIVE limits, chosen by trying.**
+Argon2id is memory-hard; PBKDF2 (the first cut, because Web Crypto has it
+natively) is not, and gives far more ground to GPUs. The parameters are the
+reference design's ladder: start at 4 passes over 1 GiB; if the device cannot
+give that memory, halve the memory and double the passes and try again, so the
+work stays constant and only the footprint drops; refuse below 64 MiB rather
+than issue a weak key. The device that creates the account decides once, and
+the salt, ops and memory are stored with the account (`KdfParams`) so every
+later device derives the same key. Storing them is also what makes the KDF
+replaceable: a stronger stretch is a new `name` on new accounts, never a flag
+day.
+
+The implementation is `hash-wasm`'s Argon2id, the one dependency this design
+takes. It is pinned against libsodium's own output (two known answers computed
+with PyNaCl live in `crypto.test.ts`), so it is the reference design's function
+and not merely one with the same name.
+
+**The recovery key is the only reset.** A random 256-bit recovery key, shown
+once at sign-up, also wraps the master key. A forgotten password is answered by
+the recovery key unwrapping the master key and a new password re-wrapping the
+SAME master key, so nothing encrypted before the reset is lost. There is no
+reset-by-email that reaches the data, because the server holds nothing that
+could perform one.
 
 ## Key hierarchy
 
 ```
+password
+    └─ Argon2id ─▶ passwordKey (the KEK) ── wraps ─▶ masterKey (256-bit random)
+                        └─ HKDF ─▶ loginSecret ── given to the auth server
 recoveryKey (256-bit random, shown to user once)
-    └─ wraps ─▶ masterKey (256-bit random)
-password (optional, future)
-    └─ PBKDF2 ─▶ passwordKey ── also wraps ─▶ masterKey
+    └─ also wraps ─▶ masterKey
 
 masterKey
     ├─ wraps ─▶ privateKey        (of the account's ECDH keypair)
@@ -155,14 +173,15 @@ viewer/editor. That is fundamentally at odds with per-recipient key wrapping —
 Recommendation: ship (1) first; consider (2) later as an explicit "public link"
 mode with a loud warning. Do not silently mix them.
 
-## Primitives (Web Crypto, no new dependency)
+## Primitives (Web Crypto, plus one dependency for Argon2id)
 
 | Purpose | Reference (libsodium) | Ours (Web Crypto) |
 |---|---|---|
 | Symmetric AEAD (wrap keys, encrypt blobs) | `crypto_secretbox` (XSalsa20-Poly1305) | **AES-256-GCM**, random 96-bit IV per message, stored as `iv ‖ ct` |
 | Asymmetric seal (share a project key) | `crypto_box_seal` (X25519) | **ECDH P-256** ephemeral-static → HKDF-SHA256 → AES-256-GCM; stored as `ephPub ‖ iv ‖ ct` |
 | Key derivation / domain separation | `crypto_kdf` | **HKDF-SHA256** |
-| Password stretch (optional, future only) | Argon2 (`crypto_pwhash`) | **PBKDF2-SHA256**, or Argon2-wasm if we want memory-hardness |
+| Password stretch | Argon2id (`crypto_pwhash`, SENSITIVE limits) | **Argon2id** via `hash-wasm`, same limits and ladder; pinned to libsodium's output. (PBKDF2-SHA256 descriptors from the first accounts still open.) |
+| Login secret for the auth server | `crypto_kdf` subkey of the KEK (`loginctx`) | **HKDF-SHA256** of the KEK, label `ziro-login-v1` |
 
 GCM nonce discipline: a fresh `crypto.getRandomValues` 96-bit IV per encryption,
 stored with the ciphertext. Random 96-bit IVs are safe well beyond the message

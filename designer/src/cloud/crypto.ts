@@ -38,6 +38,7 @@
  * handles that would have to be threaded through the whole app.
  */
 
+import { argon2id } from 'hash-wasm';
 import { sha256Hex } from './blobStore.js';
 
 const KEY_BYTES = 32; // 256-bit symmetric keys
@@ -130,46 +131,131 @@ export async function decryptSecret(key: Uint8Array, blob: Uint8Array): Promise<
  * for the same reason. Hard-coding the parameters instead would make the first
  * upgrade a flag day for every account at once.
  */
-export interface KdfParams {
-  /**
-   * PBKDF2-SHA256 today, because it is what Web Crypto implements natively and
-   * therefore needs no dependency. It is NOT the best choice on the merits:
-   * Argon2id is memory-hard and PBKDF2 is not, so PBKDF2 gives far more ground
-   * to GPUs. The upgrade is a new value here on new accounts, which is why this
-   * field exists at all.
-   */
-  name: 'PBKDF2-SHA256';
+export type KdfParams = Argon2idParams | Pbkdf2Params;
+
+/**
+ * Argon2id, the KDF every new account gets.
+ *
+ * Memory-hard: an attacker with a rack of GPUs gains far less over a laptop
+ * than with PBKDF2, because each guess has to touch the whole memory block.
+ * The limits are libsodium's, which is what the reference design runs — see
+ * {@link ARGON2ID} — and are per account because the device that created the
+ * account chose them (see {@link deriveNewKeyFromPassword}).
+ */
+export interface Argon2idParams {
+  name: 'argon2id';
   /** Base64. Fresh per account, so two identical passwords derive differently. */
+  salt: string;
+  /** Passes over the memory. libsodium's `opslimit`. */
+  opsLimit: number;
+  /** Memory in KiB. libsodium's `memlimit`, which it states in bytes. */
+  memLimitKiB: number;
+}
+
+/**
+ * PBKDF2-SHA256: what the first accounts were written with, because Web Crypto
+ * implements it natively and nothing else needed a dependency. Kept so that a
+ * descriptor already stored still opens; never produced any more.
+ */
+export interface Pbkdf2Params {
+  name: 'PBKDF2-SHA256';
   salt: string;
   iterations: number;
 }
 
+/**
+ * libsodium's `crypto_pwhash` limits for Argon2id, as the reference design uses
+ * them: it starts at SENSITIVE and comes down only if the device cannot.
+ * [data] libsodium `crypto_pwhash_argon2id.h`: OPSLIMIT_SENSITIVE 4,
+ * MEMLIMIT_SENSITIVE 1073741824; OPSLIMIT_INTERACTIVE 2, MEMLIMIT_INTERACTIVE
+ * 67108864. Parallelism is fixed at 1 there, and so it is here.
+ */
+export const ARGON2ID = {
+  OPS_SENSITIVE: 4,
+  MEM_SENSITIVE_KIB: 1_048_576,
+  OPS_INTERACTIVE: 2,
+  MEM_INTERACTIVE_KIB: 65_536,
+  PARALLELISM: 1,
+} as const;
+
 /** OWASP's floor for PBKDF2-SHA256 when it guards a key rather than a login. */
 export const DEFAULT_KDF_ITERATIONS = 600_000;
 
-/** A fresh descriptor for a new account. */
-export function newKdfParams(): KdfParams {
-  return {
-    name: 'PBKDF2-SHA256',
-    salt: bytesToBase64(randomBytes(16)),
-    iterations: DEFAULT_KDF_ITERATIONS,
-  };
+/** One Argon2id run. Injectable so the ladder can be tested without a gigabyte. */
+export type Argon2Fn = (
+  password: string,
+  salt: Uint8Array,
+  opsLimit: number,
+  memLimitKiB: number,
+) => Promise<Uint8Array>;
+
+const argon2idReal: Argon2Fn = (password, salt, opsLimit, memLimitKiB) =>
+  argon2id({
+    password,
+    salt,
+    iterations: opsLimit,
+    memorySize: memLimitKiB,
+    parallelism: ARGON2ID.PARALLELISM,
+    hashLength: KEY_BYTES,
+    outputType: 'binary',
+  });
+
+/**
+ * A NEW account's key from its password: the parameters are chosen here, by
+ * trying, and stored with the key so every later device derives the same.
+ *
+ * This is the reference design's ladder. Start at libsodium's SENSITIVE
+ * limits (4 passes over 1 GiB). If the device cannot give that memory — a WASM
+ * allocation that fails, a phone — halve the memory and double the passes and
+ * try again, so the WORK stays the same and only the footprint drops, down to
+ * INTERACTIVE (64 MiB), below which it refuses rather than issuing a weak key.
+ * The device that made the account decides once; a weaker device signing in
+ * later must still manage what it chose, which is why the floor is not lower.
+ */
+export async function deriveNewKeyFromPassword(
+  password: string,
+  opts: { opsLimit?: number; memLimitKiB?: number; argon2?: Argon2Fn } = {},
+): Promise<{ key: Uint8Array; params: Argon2idParams }> {
+  const run = opts.argon2 ?? argon2idReal;
+  const salt = randomBytes(16);
+  let opsLimit = opts.opsLimit ?? ARGON2ID.OPS_SENSITIVE;
+  let memLimitKiB = opts.memLimitKiB ?? ARGON2ID.MEM_SENSITIVE_KIB;
+  // The start is always tried, so a caller (a test) may name one under the
+  // floor; the DESCENT never goes under it.
+  for (;;) {
+    try {
+      const key = await run(password, salt, opsLimit, memLimitKiB);
+      return {
+        key,
+        params: { name: 'argon2id', salt: bytesToBase64(salt), opsLimit, memLimitKiB },
+      };
+    } catch {
+      opsLimit *= 2;
+      memLimitKiB /= 2;
+      if (memLimitKiB < ARGON2ID.MEM_INTERACTIVE_KIB)
+        throw new Error('this device cannot derive an account key');
+    }
+  }
 }
 
 /**
  * The key-encryption-key for a password — the value that wraps the master key.
  *
- * Never sent anywhere. The server sees the salt and the iteration count (it has
- * to, or a second device could not derive the same key) and never the result.
+ * Never sent anywhere. The server sees the salt and the cost (it has to, or a
+ * second device could not derive the same key) and never the result.
  */
 export async function deriveKeyFromPassword(
   password: string,
   params: KdfParams,
+  argon2: Argon2Fn = argon2idReal,
 ): Promise<Uint8Array> {
+  if (params.name === 'argon2id') {
+    return argon2(password, base64ToBytes(params.salt), params.opsLimit, params.memLimitKiB);
+  }
   if (params.name !== 'PBKDF2-SHA256') {
     // A descriptor from a newer client. Failing loudly beats deriving a
     // different key and reporting "wrong password" for the rest of time.
-    throw new Error(`unsupported key derivation: ${String(params.name)}`);
+    throw new Error(`unsupported key derivation: ${String((params as { name: unknown }).name)}`);
   }
   const material = await crypto.subtle.importKey(
     'raw',
@@ -189,6 +275,49 @@ export async function deriveKeyFromPassword(
     KEY_BYTES * 8,
   );
   return new Uint8Array(bits);
+}
+
+/**
+ * What the auth server is given in place of the password.
+ *
+ * The reference design signs in with SRP, so the password never leaves the
+ * device. Supabase Auth has no SRP: it takes a password string and bcrypts it.
+ * So what it is given is not the password, and not the key that wraps the
+ * master key either, but a second Argon2id output that shares nothing with the
+ * first: a different salt, derived from the EMAIL, and libsodium's INTERACTIVE
+ * limits. The server can bcrypt and compare it, and from it can recover
+ * neither the password nor the KEK.
+ *
+ * The salt is the email, hashed under a label, on purpose: a random per-account
+ * salt would have to be fetched BEFORE signing in, which is an unauthenticated
+ * "does this account exist" endpoint that then needs fake answers to hide that,
+ * and a sign-up that died between the auth call and storing the keys would be
+ * locked out. With the email as the salt there is no round trip and nothing to
+ * enumerate, and such a sign-up simply signs in and runs key setup again. The
+ * cost is one INTERACTIVE-sized run (2 passes over 64 MiB) beside the SENSITIVE
+ * one that unwraps the master key: under half a second, once per sign-in.
+ *
+ * The email is lowercased and trimmed first, as the auth server stores it, so
+ * "A@B.com" and "a@b.com" are the one account they are on the server.
+ */
+export async function loginSecret(
+  email: string,
+  password: string,
+  argon2: Argon2Fn = argon2idReal,
+): Promise<string> {
+  const salt = await loginSalt(email);
+  const key = await argon2(password, salt, ARGON2ID.OPS_INTERACTIVE, ARGON2ID.MEM_INTERACTIVE_KIB);
+  return bytesToBase64(key);
+}
+
+/** SHA-256 of the labelled, normalised email: 16 bytes of it, libsodium's salt size. */
+async function loginSalt(email: string): Promise<Uint8Array> {
+  const normalised = email.trim().toLowerCase();
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    ab(new TextEncoder().encode(`ziro-login-v1\0${normalised}`)),
+  );
+  return new Uint8Array(digest).slice(0, 16);
 }
 
 /** An account's ECDH keypair, as storable bytes. */
@@ -322,12 +451,12 @@ export interface WrappedAccount {
  */
 export async function createAccount(
   password: string,
+  kdfOpts?: Parameters<typeof deriveNewKeyFromPassword>[1],
 ): Promise<{ keys: AccountKeys; wrapped: WrappedAccount }> {
   const masterKey = randomKey();
   const recoveryKey = randomKey();
   const { publicKey, privateKey } = await generateKeyPair();
-  const kdf = newKdfParams();
-  const passwordKey = await deriveKeyFromPassword(password, kdf);
+  const { key: passwordKey, params: kdf } = await deriveNewKeyFromPassword(password, kdfOpts);
   const wrapped: WrappedAccount = {
     publicKey,
     kdf,
@@ -348,8 +477,16 @@ export async function createAccount(
 export async function unlockWithPassword(
   password: string,
   wrapped: WrappedAccount,
+  argon2?: Argon2Fn,
 ): Promise<AccountKeys> {
-  const passwordKey = await deriveKeyFromPassword(password, wrapped.kdf);
+  return unlockWithPasswordKey(await deriveKeyFromPassword(password, wrapped.kdf, argon2), wrapped);
+}
+
+/** Unlock with the password-derived key already in hand. */
+export async function unlockWithPasswordKey(
+  passwordKey: Uint8Array,
+  wrapped: WrappedAccount,
+): Promise<AccountKeys> {
   const masterKey = await decryptSecret(passwordKey, wrapped.encMasterKeyByPassword);
   return unlockWithMasterKey(masterKey, wrapped);
 }
@@ -367,9 +504,9 @@ export async function rewrapWithNewPassword(
   masterKey: Uint8Array,
   newPassword: string,
   wrapped: WrappedAccount,
+  kdfOpts?: Parameters<typeof deriveNewKeyFromPassword>[1],
 ): Promise<WrappedAccount> {
-  const kdf = newKdfParams();
-  const passwordKey = await deriveKeyFromPassword(newPassword, kdf);
+  const { key: passwordKey, params: kdf } = await deriveNewKeyFromPassword(newPassword, kdfOpts);
   return {
     ...wrapped,
     kdf,
