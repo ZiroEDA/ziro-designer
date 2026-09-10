@@ -109,7 +109,7 @@ describe('AuthProvider: the server never gets the password', () => {
   it('a sign-in with no stored keys sets them up under the same password rather than failing', () => {
     const signIn = SRC.slice(SRC.indexOf('async signIn('), SRC.indexOf('async signUp('));
     expect(signIn).toContain('await finishSetup(userId, await createAccount(password));');
-    expect(signIn).toContain('open(await unlockWithPassword(password, wrapped));');
+    expect(signIn).toContain('await open(await unlockWithPassword(password, wrapped), userId);');
   });
 
   it('the recovery key is queued for the wall the moment the keys are stored', () => {

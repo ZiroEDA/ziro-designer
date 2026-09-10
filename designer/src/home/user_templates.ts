@@ -32,6 +32,7 @@
 import type { PickedHomeFile } from './files.js';
 import { renameRel, type TemplateMeta } from './templates.js';
 import { idbHandle } from './idb_open.js';
+import { isSealed, openRecord, sealRecord } from './local_vault.js';
 
 const DB_NAME = 'ziroeda-templates';
 const STORE = 'templates';
@@ -108,11 +109,33 @@ function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T
         req.onsuccess = () => {
           result = req.result;
         };
-        t.oncomplete = () => resolve(result);
+        // Sealed at rest (local_vault.ts): a record comes back opened, a list
+        // with the ones this account cannot open left out.
+        t.oncomplete = () => {
+          void unsealTemplates(result).then(resolve, reject);
+        };
         t.onabort = () => reject(t.error);
         t.onerror = () => reject(t.error);
       }),
   );
+}
+
+async function unsealTemplates<T>(result: T): Promise<T> {
+  if (Array.isArray(result)) {
+    const opened = await Promise.all(result.map((r) => openRecord<unknown>(r)));
+    return opened.filter((r) => r !== null) as unknown as T;
+  }
+  if (isSealed(result)) return (await openRecord<T>(result)) as T;
+  return result;
+}
+
+/** What a sealed template keeps in the clear: its key and its time. */
+const TEMPLATE_CLEAR = ['id', 'updatedAt'] as const;
+
+/** Every write goes through here, sealed when the vault is open. */
+async function putTemplate(rec: UserTemplateRecord): Promise<void> {
+  const stored = await sealRecord(rec, TEMPLATE_CLEAR);
+  await tx('readwrite', (s) => s.put(stored));
 }
 
 /**
@@ -132,12 +155,12 @@ export async function listUserTemplateRecords(): Promise<UserTemplateRecord[]> {
 
 /** Write a record, stamping it as changed now. */
 export async function putUserTemplate(rec: UserTemplateRecord): Promise<void> {
-  await tx('readwrite', (s) => s.put({ ...rec, updatedAt: Date.now() }));
+  await putTemplate({ ...rec, updatedAt: Date.now() });
 }
 
 /** Write a record exactly as given - used by a pull, which must not restamp. */
 export async function putUserTemplateVerbatim(rec: UserTemplateRecord): Promise<void> {
-  await tx('readwrite', (s) => s.put(rec));
+  await putTemplate(rec);
 }
 
 /**
@@ -231,9 +254,7 @@ export async function deleteUserTemplate(id: string): Promise<void> {
   const rec = await getUserTemplate(id);
   if (!rec) return;
   const now = Date.now();
-  await tx('readwrite', (s) =>
-    s.put({ ...rec, files: [], html: '', icon: null, deletedAt: now, updatedAt: now }),
-  );
+  await putTemplate({ ...rec, files: [], html: '', icon: null, deletedAt: now, updatedAt: now });
 }
 
 /** A stored template's files, ready for the same rename CreateProject applies. */

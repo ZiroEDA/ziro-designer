@@ -40,6 +40,7 @@ import {
 } from './local_history.js';
 import { loadProject, updateProjectFiles, type StoredFile } from './projectStore.js';
 import { idbHandle } from './idb_open.js';
+import { openRecord, sealRecord } from './local_vault.js';
 
 const DB_NAME = 'ziroeda-history';
 const VERSION = 1;
@@ -50,6 +51,9 @@ const BLOBS = 'blobs';
 interface SnapshotRecord extends Snapshot {
   projectId: string;
 }
+
+/** What a sealed snapshot keeps in the clear: its key, its index, its time. */
+const SNAPSHOT_CLEAR = ['id', 'projectId', 'at'] as const;
 
 interface BlobRecord {
   hash: string;
@@ -116,7 +120,12 @@ export async function listSnapshots(projectId: string): Promise<Snapshot[]> {
       req.onsuccess = () => resolve(req.result as SnapshotRecord[]);
       req.onerror = () => reject(req.error);
     });
-    return rows.sort((a, b) => b.at - a.at).map(({ projectId: _p, ...s }) => s);
+    // Sealed at rest (local_vault.ts): id, projectId and `at` in the clear for
+    // the key and the index, the title and the file list opened here.
+    const opened = (await Promise.all(rows.map((r) => openRecord<SnapshotRecord>(r)))).filter(
+      (r): r is SnapshotRecord => r !== null,
+    );
+    return opened.sort((a, b) => b.at - a.at).map(({ projectId: _p, ...s }) => s);
   }, []);
 }
 
@@ -162,7 +171,8 @@ export async function commitSnapshot(
       const source = files.find((x) => x.name === f.name) ?? byHash.get(f.hash);
       if (!source) continue;
       const gz = await gzip(source.bytes);
-      await runTx(db, BLOBS, 'readwrite', (store) => store.put({ hash: f.hash, gz }));
+      const blob = await sealRecord({ hash: f.hash, gz }, ['hash']);
+      await runTx(db, BLOBS, 'readwrite', (store) => store.put(blob));
     }
 
     const at = Date.now();
@@ -178,7 +188,8 @@ export async function commitSnapshot(
       changed,
     };
 
-    await runTx(db, SNAPSHOTS, 'readwrite', (store) => store.put(record));
+    const sealedSnapshot = await sealRecord(record, SNAPSHOT_CLEAR);
+    await runTx(db, SNAPSHOTS, 'readwrite', (store) => store.put(sealedSnapshot));
     announce(projectId);
 
     const { projectId: _p, ...snapshot } = record;
@@ -226,15 +237,15 @@ export async function recordSnapshot(
 export async function readSnapshot(id: string): Promise<StoredFile[] | null> {
   return quietly(async () => {
     const db = await openDb();
-    const record = await runTx<SnapshotRecord | undefined>(db, SNAPSHOTS, 'readonly', (store) =>
-      store.get(id),
+    const record = await openRecord<SnapshotRecord>(
+      await runTx<SnapshotRecord | undefined>(db, SNAPSHOTS, 'readonly', (store) => store.get(id)),
     );
     if (!record) return null;
 
     const out: StoredFile[] = [];
     for (const f of record.files) {
-      const blob = await runTx<BlobRecord | undefined>(db, BLOBS, 'readonly', (store) =>
-        store.get(f.hash),
+      const blob = await openRecord<BlobRecord>(
+        await runTx<BlobRecord | undefined>(db, BLOBS, 'readonly', (store) => store.get(f.hash)),
       );
       // A missing blob is a torn history rather than a torn file: restore what
       // is there and let the caller see a short list, instead of failing whole.
@@ -284,8 +295,20 @@ async function collectGarbage(db: IDBDatabase): Promise<void> {
     req.onerror = () => reject(req.error);
   });
 
+  // Sealed at rest: a snapshot's file list is opened to learn its hashes. One
+  // this account cannot open is another account's; its blobs are kept, since
+  // nothing here can tell which they are.
   const live = new Set<string>();
-  for (const s of all) for (const f of s.files) live.add(f.hash);
+  let unopenable = false;
+  for (const s of all) {
+    const opened = await openRecord<SnapshotRecord>(s);
+    if (!opened) {
+      unopenable = true;
+      continue;
+    }
+    for (const f of opened.files) live.add(f.hash);
+  }
+  if (unopenable) return;
 
   const hashes = await new Promise<string[]>((resolve, reject) => {
     const t = db.transaction(BLOBS, 'readonly');

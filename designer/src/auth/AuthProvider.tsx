@@ -35,6 +35,8 @@ import {
   storeWrappedAccount,
 } from './account_keys.js';
 import { setSessionKeys } from '../cloud/session_keys.js';
+import { setLocalVaultFromMasterKey } from '../home/local_vault.js';
+import { sealLocalStore } from '../home/projectStore.js';
 
 export interface SignUpResult {
   error: string | null;
@@ -159,16 +161,17 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     made: Promise<{ keys: AccountKeys; wrapped: WrappedAccount }>;
   } | null>(null);
 
-  const open = useCallback(
-    (unlocked: AccountKeys, userId: string) => {
-      rememberMasterKey(unlocked.masterKey);
-      // The sync layer is not React: hand it the keys the same moment.
-      setSessionKeys(unlocked, userId);
-      setKeys(unlocked);
-      setKeyState('unlocked');
-    },
-    [],
-  );
+  const open = useCallback(async (unlocked: AccountKeys, userId: string) => {
+    rememberMasterKey(unlocked.masterKey);
+    // The sync layer is not React: hand it the keys the same moment. And the
+    // local store's vault key is derived from the master key, so the store
+    // opens with the account and seals whatever it still holds in the clear.
+    setSessionKeys(unlocked, userId);
+    await setLocalVaultFromMasterKey(unlocked.masterKey);
+    setKeys(unlocked);
+    setKeyState('unlocked');
+    void sealLocalStore().catch((e) => console.warn('local store not sealed:', e));
+  }, []);
 
   /**
    * Store a freshly made account's keys under the session, open it, and queue
@@ -179,7 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
       if (!supabase) return;
       await storeWrappedAccount(supabase, userId, made.wrapped);
       setPendingRecoveryKey(await encodeRecoveryKey(made.keys.recoveryKey));
-      open(made.keys, userId);
+      await open(made.keys, userId);
     },
     [open],
   );
@@ -197,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
         setKeyState('absent');
         setKeys(null);
         setSessionKeys(null);
+        void setLocalVaultFromMasterKey(null);
         return;
       }
       if (pendingSetup.current) return;
@@ -212,13 +216,14 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
           setKeyState('locked');
           return;
         }
-        open(await unlockWithMasterKey(masterKey, wrapped), next.user.id);
+        await open(await unlockWithMasterKey(masterKey, wrapped), next.user.id);
       } catch (err) {
         // A stale or foreign key in the tab, or the network: the password can
         // always open it, so `locked` is the honest answer, not an error.
         console.warn('Account keys:', err);
         forgetMasterKey();
         setSessionKeys(null);
+        void setLocalVaultFromMasterKey(null);
         setKeyState('locked');
       }
     },
@@ -281,7 +286,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
             // The server accepted the login secret, so the password is right and
             // this unwrap cannot fail on it; if it does, the row is damaged, and
             // that is worth seeing rather than "wrong password".
-            open(await unlockWithPassword(password, wrapped), userId);
+            await open(await unlockWithPassword(password, wrapped), userId);
           } else {
             // A sign-up that ended before its keys were stored, or an account
             // from before encryption: make them now, under the same password.
@@ -321,7 +326,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
         if (!supabase || !session) return { error: 'Not signed in.' };
         try {
           const wrapped = await fetchWrappedAccount(supabase, session.user.id);
-          if (wrapped) open(await unlockWithPassword(password, wrapped), session.user.id);
+          if (wrapped) await open(await unlockWithPassword(password, wrapped), session.user.id);
           else await finishSetup(session.user.id, await createAccount(password));
           return { error: null };
         } catch {
@@ -374,7 +379,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
           });
           if (error) return { error: error.message };
           if (fresh) setPendingRecoveryKey(await encodeRecoveryKey(unlocked.recoveryKey));
-          open(unlocked, userId);
+          await open(unlocked, userId);
           setRecovering(false);
           return { error: null };
         } catch (err) {
@@ -385,6 +390,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
         if (!supabase) return;
         forgetMasterKey();
         setSessionKeys(null);
+        void setLocalVaultFromMasterKey(null);
         setKeys(null);
         setKeyState('absent');
         setPendingRecoveryKey(null);

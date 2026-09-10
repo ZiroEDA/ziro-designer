@@ -78,7 +78,7 @@ function concat(...parts: Uint8Array[]): Uint8Array {
 // `SharedArrayBuffer`), which does not satisfy that parameter. Copying into a
 // fresh plain `ArrayBuffer` fixes the type and also strips any `.subarray`
 // byteOffset, so a view never leaks into a call that expects a whole buffer.
-function ab(b: Uint8Array): ArrayBuffer {
+export function ab(b: Uint8Array): ArrayBuffer {
   const out = new ArrayBuffer(b.byteLength);
   new Uint8Array(out).set(b);
   return out;

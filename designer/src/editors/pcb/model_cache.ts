@@ -32,6 +32,7 @@
  * next machine can rebuild.
  */
 import { idbHandle } from '../../home/idb_open.js';
+import { openRecord, sealRecord } from '../../home/local_vault.js';
 import { sha256Hex } from '../../cloud/blobStore.js';
 import { type Tessellation, tessellationBytes } from './occt_types.js';
 
@@ -96,6 +97,9 @@ const tx = async (mode: IDBTransactionMode): Promise<IDBObjectStore> => {
   return conn.transaction(STORE, mode).objectStore(STORE);
 };
 
+/** What a sealed cache row keeps in the clear: the key, and what eviction reads. */
+const CACHE_CLEAR = ['hash', 'bytes', 'usedAt'] as const;
+
 const wrap = <T>(req: IDBRequest<T>): Promise<T> =>
   new Promise((resolve, reject) => {
     req.onsuccess = () => resolve(req.result);
@@ -113,13 +117,19 @@ export const modelKey = (bytes: Uint8Array): Promise<string> => sha256Hex(bytes)
  */
 export async function cacheGet(hash: string): Promise<{ tess: Tessellation | null } | undefined> {
   return quiet(async () => {
-    const row = await wrap((await tx('readonly')).get(hash) as IDBRequest<CacheRow | undefined>);
+    // Sealed at rest (local_vault.ts): the tessellation is user data when the
+    // model was the user's; hash, size and time stay in the clear for the key
+    // and the eviction, which reads nothing else.
+    const row = await openRecord<CacheRow>(
+      await wrap((await tx('readonly')).get(hash) as IDBRequest<CacheRow | undefined>),
+    );
     if (!row) return undefined;
     // Touch it so eviction sees a model that is still in use. Deliberately not
     // awaited: a read should not wait on the bookkeeping of a later eviction.
     void quiet(async () => {
+      const touched = await sealRecord({ ...row, usedAt: stamp() }, CACHE_CLEAR);
       const store = await tx('readwrite');
-      store.put({ ...row, usedAt: stamp() });
+      store.put(touched);
     }, undefined);
     return { tess: row.tess };
   }, undefined);
@@ -138,7 +148,7 @@ export async function cachePut(
       bytes: tess ? tessellationBytes(tess) : 0,
       usedAt: stamp(),
     };
-    store.put(row);
+    store.put(await sealRecord(row, CACHE_CLEAR));
   }, undefined);
   await evict(maxBytes);
 }

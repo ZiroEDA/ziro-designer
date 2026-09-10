@@ -29,6 +29,7 @@ import { withRecordLock } from './record_lock.js';
 import { sha256Hex } from '../cloud/blobStore.js';
 import { gunzip, gzip } from './gzip.js';
 import { idbHandle } from './idb_open.js';
+import { isSealed, openRecord, sealRecord, type SealedRecord } from './local_vault.js';
 
 export interface StoredFile {
   name: string;
@@ -308,13 +309,28 @@ const openDB = (): Promise<IDBDatabase> => db.get();
  * rejection, so the health report has to happen here rather than at the call
  * sites.
  */
+/**
+ * Every read comes back through the vault (local_vault.ts): a sealed record
+ * is opened, a list of them is opened one by one with the ones this account
+ * cannot open left out, and a plaintext record from before the vault comes
+ * back as it is. Writes go through {@link putRecord}, which seals first.
+ */
+async function unseal<T>(result: T): Promise<T> {
+  if (Array.isArray(result)) {
+    const opened = await Promise.all(result.map((r) => openRecord<unknown>(r)));
+    return opened.filter((r) => r !== null) as unknown as T;
+  }
+  if (isSealed(result)) return (await openRecord<T>(result)) as T;
+  return result;
+}
+
 function tx<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   return openDB().then(
     (db) =>
       runTx<T>(db, STORE, mode, fn).then(
-        (result) => {
+        async (result) => {
           if (mode !== 'readonly') reportStorageOk();
-          return result;
+          return unseal(result);
         },
         (err) => {
           reportStorageFailure(err);
@@ -329,6 +345,37 @@ function tx<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBReque
 }
 
 /** Boot check: prove a real write/read/delete round-trip works. */
+/**
+ * What stays in the clear on a sealed project record: the store's key, its
+ * index, and the user-data marker the folders are found by. Nothing else.
+ */
+const KEEP_CLEAR = ['id', 'updatedAt', 'userDir'] as const;
+
+/** Write a record, sealed when the vault is open. Every write goes through here. */
+async function putRecord(record: StoredRecord): Promise<void> {
+  const stored: StoredRecord | SealedRecord = await sealRecord(record, KEEP_CLEAR);
+  await tx('readwrite', (s) => s.put(stored));
+}
+
+/**
+ * Seal every plaintext record still in the store. Runs once the account is
+ * open, so a store written before the vault existed - or before this account
+ * signed in on this machine - holds only ciphertext from then on. Records
+ * sealed by another account are left alone: they are not this account's, and
+ * the id and timestamp they show say nothing. Returns how many were sealed.
+ */
+export async function sealLocalStore(): Promise<number> {
+  const db = await openDB();
+  const raw = await runTx<(StoredRecord | SealedRecord)[]>(db, STORE, 'readonly', (s) => s.getAll());
+  const plain = raw.filter((r): r is StoredRecord => !isSealed(r));
+  for (const r of plain) {
+    const sealed = await sealRecord(r, KEEP_CLEAR);
+    if (sealed === r) return 0; // no vault: nothing to do
+    await runTx(db, STORE, 'readwrite', (s) => s.put(sealed));
+  }
+  return plain.length;
+}
+
 export function checkStorageHealth(): Promise<StorageStatus> {
   return probeStorage(openDB, STORE);
 }
@@ -443,7 +490,7 @@ export async function saveProject(
     ...(existing?.userDir ? { userDir: existing.userDir } : {}),
     ...(userDir ? { userDir } : {}),
   };
-  await tx('readwrite', (s) => s.put(record));
+  await putRecord(record);
   return pid;
 }
 
@@ -584,7 +631,7 @@ async function migrateUserDirIds(): Promise<void> {
       // back — it only knows the older `template-files` store.
       const id = USER_DIR_IDS[key]!;
       const already = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
-      if (!already) await tx('readwrite', (s) => s.put({ ...legacy, id, userDir: key }));
+      if (!already) await putRecord({ ...legacy, id, userDir: key });
       await tx('readwrite', (s) => s.delete(legacyId));
     }
   } catch {
@@ -727,7 +774,7 @@ export async function updateProjectFiles(id: string, changed: StoredFile[]): Pro
     if (!dirty) return;
     r.files = [...byName.values()];
     r.updatedAt = now;
-    await tx('readwrite', (s) => s.put(r));
+    await putRecord(r);
     mirrorTo = r.templateId;
     mirrorName = r.name;
   });
@@ -749,7 +796,7 @@ export async function touchOpened(id: string): Promise<void> {
     const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
     if (!r) return;
     r.lastOpenedAt = Date.now();
-    await tx('readwrite', (s) => s.put(r));
+    await putRecord(r);
   });
 }
 
@@ -836,7 +883,7 @@ export async function listProjectFiles(id: string): Promise<ProjectFileMeta[] | 
         changed = true;
       }
     }
-    if (changed) await tx('readwrite', (s) => s.put(cur));
+    if (changed) await putRecord(cur);
   });
 
   return r.files.map((f) => ({
@@ -878,7 +925,7 @@ export async function setEmptyFolders(id: string, folders: string[]): Promise<vo
     const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
     if (!r) return;
     r.emptyFolders = folders;
-    await tx('readwrite', (s) => s.put(r));
+    await putRecord(r);
   });
 }
 
@@ -920,7 +967,7 @@ export async function renameProjectPath(id: string, from: string, to: string): P
     }
     if (!moved) return;
     r.updatedAt = Date.now();
-    await tx('readwrite', (s) => s.put(r));
+    await putRecord(r);
   });
   return moved;
 }
@@ -995,7 +1042,7 @@ async function flattenImportedRoot(id: string): Promise<string | null> {
     }
 
     r.updatedAt = Date.now();
-    await tx('readwrite', (s) => s.put(r));
+    await putRecord(r);
     removed = prefix;
   });
 
@@ -1021,7 +1068,7 @@ export async function deleteProjectPath(id: string, path: string): Promise<numbe
     r.files = kept;
     r.emptyFolders = folders;
     r.updatedAt = Date.now();
-    await tx('readwrite', (s) => s.put(r));
+    await putRecord(r);
   });
   return removed;
 }
@@ -1035,7 +1082,7 @@ export async function claimProject(id: string, userId: string): Promise<void> {
     const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
     if (!r || r.ownerId === userId) return;
     r.ownerId = userId;
-    await tx('readwrite', (s) => s.put(r));
+    await putRecord(r);
   });
 }
 
@@ -1109,7 +1156,7 @@ export async function linkCloudProject(
     if (cloud.cloudId && cloud.cloudId !== id) r.cloudId = cloud.cloudId;
     if (cloud.ownerId) r.cloudOwnerId = cloud.ownerId;
     if (cloud.role) r.cloudRole = cloud.role;
-    await tx('readwrite', (s) => s.put(r));
+    await putRecord(r);
   });
 }
 
@@ -1139,7 +1186,7 @@ export async function markSynced(
       r.syncedHashes = pushedHashes;
     }
     if (version !== undefined) r.baseVersion = version;
-    await tx('readwrite', (s) => s.put(r));
+    await putRecord(r);
   });
 }
 
@@ -1162,7 +1209,7 @@ export async function renameProject(id: string, name: string): Promise<void> {
     if (!r) return;
     r.name = name;
     r.updatedAt = Date.now();
-    await tx('readwrite', (s) => s.put(r));
+    await putRecord(r);
   });
 }
 
@@ -1362,7 +1409,7 @@ export async function importProject(p: SyncableProject): Promise<void> {
     // one of the older shapes, which carry no hashes.
     ...(p.files.every((f) => f.hash) ? { pushedHashes: p.files.map((f) => f.hash!) } : {}),
   };
-  await tx('readwrite', (s) => s.put(record));
+  await putRecord(record);
 }
 
 /**
@@ -1504,6 +1551,6 @@ export async function forkLocalCopy(id: string, name: string): Promise<string | 
     // shared project aside to rescue your own edits would commit them over the
     // work you were forking away from. A fork is yours, and unshared.
   };
-  await tx('readwrite', (s) => s.put(copy));
+  await putRecord(copy);
   return copyId;
 }
