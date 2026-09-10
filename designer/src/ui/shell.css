@@ -9094,16 +9094,22 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-auth-gate-app {
   position: absolute;
   inset: 0;
-  filter: blur(5px) saturate(0.92) brightness(0.85);
-  /* Scale up slightly so the blur doesn't reveal soft edges at the borders. */
-  transform: scale(1.03);
-  transform-origin: center;
+  /* Soft, not hidden: the backdrop is the manager's chrome with no project in
+     it (auth/GateBackdrop), so there is nothing behind the glass to protect,
+     and the point of the glass is that the visitor SEES what they are signing
+     up for. This was blur(5px) at brightness 0.85 when the real app stood
+     here, which read as a dark smear. */
+  filter: blur(2px) saturate(0.95) brightness(0.95);
+  /* No scale. There was a scale(1.03) here to push a 5px blur's soft edge off
+     screen, and it cropped ~30px of frame on every side: the File menu and
+     the toolbar on the left, the title bar, the status bar. A 2px edge fades
+     into the gate's own background and needs no hiding. */
   pointer-events: none;
   user-select: none;
 }
 /* Lighter than the default modal backdrop so the blurred app shows through. */
 .ze-modal-backdrop.ze-auth-gate-scrim {
-  background: rgba(10, 12, 16, 0.35);
+  background: rgba(10, 12, 16, 0.18);
 }
 
 /* Split layout (the gate): the sign-in is a full-height panel docked to the

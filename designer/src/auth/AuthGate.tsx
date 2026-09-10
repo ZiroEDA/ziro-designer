@@ -4,6 +4,7 @@
 import { useEffect, useRef, type JSX, type ReactNode } from 'react';
 import { authEnabled } from './supabaseClient.js';
 import { useAuth } from './AuthProvider.js';
+import { GateBackdrop } from './GateBackdrop.js';
 import { SignInDialog } from './SignIn.js';
 import { useRoute } from '../nav/useRoute.js';
 import { HOME, type AuthStep, type Route } from '../nav/route.js';
@@ -11,8 +12,9 @@ import { HOME, type AuthStep, type Route } from '../nav/route.js';
 /**
  * Sign-in wall. When Supabase auth is configured, the app is gated behind a
  * sign-in: visitors must create an account (or sign in) before they can use it.
- * To show what they're signing up for, the real editor is rendered blurred and
- * inert behind the sign-in panel, the KiCad-like UI is right there, just out of
+ * To show what they're signing up for, the manager's chrome is rendered blurred
+ * and inert behind the sign-in panel (GateBackdrop - NOT the real app, which
+ * would load the project), the KiCad-like UI is right there, just out of
  * reach until you're in.
  *
  * (Guest-first entry was tried earlier but backfired, almost nobody signed in,
@@ -123,8 +125,13 @@ export function AuthGate({ children }: { children: ReactNode }): JSX.Element {
   if (gated) {
     return (
       <div className="ze-auth-gate">
+        {/* Not `children`. The manager behind the glass used to be the real
+            one, which loaded the project and put its file names in the DOM
+            under a CSS blur - readable with devtools before any password. The
+            backdrop is the same chrome with nothing in it; the app mounts only
+            once the wall is down. */}
         <div className="ze-auth-gate-app" aria-hidden="true">
-          {children}
+          <GateBackdrop />
         </div>
         <SignInDialog
           gate

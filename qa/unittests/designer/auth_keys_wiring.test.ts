@@ -227,6 +227,23 @@ describe('the screens say what the reference design says', () => {
 describe('AuthGate: the wall stands until the keys are in the tab', () => {
   const SRC = read('auth/AuthGate.tsx');
 
+  it('does not mount the app behind the glass: the backdrop is chrome with no project in it', () => {
+    // The real app blurred behind the wall loaded the project and put its
+    // file names in the DOM under a CSS blur, readable with devtools before
+    // any password. Only the sign-in panel and the backdrop are rendered.
+    const walled = SRC.slice(SRC.indexOf('if (gated) {'), SRC.indexOf('return <>{children}</>'));
+    expect(walled).toContain('<GateBackdrop />');
+    expect(walled).not.toContain('{children}');
+    const backdrop = read('auth/GateBackdrop.tsx');
+    // Nothing in it reads a store or opens a project.
+    expect(backdrop).not.toMatch(
+      /projectStore|listProjects|useProject|openStored|IndexedDB|localStorage/,
+    );
+    expect(backdrop).toContain(
+      "import { MGR_TOOLS, TILES, tileIcon } from '../home/launcher_tiles.js';",
+    );
+  });
+
   it('holds on locked, on none, and while the recovery key waits to be read', () => {
     expect(SRC).toMatch(
       /!session \|\|\s*recovering \|\|\s*keyState === 'locked' \|\|\s*keyState === 'none' \|\|\s*pendingRecoveryKey !== null/,
