@@ -16,7 +16,7 @@ import { getArcToSegmentCount } from './geometry/geometry_utils.js';
 export { getArcToSegmentCount };
 import { RotatePoint } from './trigo.js';
 import { segIntersectLines } from './geometry/seg.js';
-import { booleanIntersection, fractureSingle, type Polygon } from './geometry/shape_poly_set.js';
+import { booleanIntersection, fracture, type Polygon } from './geometry/shape_poly_set.js';
 
 /** Where the approximation error is spent relative to the true shape. */
 export enum ErrorLoc {
@@ -564,7 +564,11 @@ export function transformRingToPolygon(
     aErrorLoc === ErrorLoc.ERROR_OUTSIDE ? ErrorLoc.ERROR_INSIDE : ErrorLoc.ERROR_OUTSIDE;
   // `TransformCircleToPolygon( SHAPE_LINE_CHAIN& hole, … )`: no closing vertex.
   const hole = transformCircleToPolygon(aCentre, inner_radius, aError, inner_err_loc);
-  return fractureSingle([outer, hole]);
+  // `buffer.Fracture()` — with its default `aSimplify = true`, so the hole
+  // chain (drawn the same way round as the outline) is made a hole by the
+  // union before the slit is cut. Without that the fractured ring's inner
+  // loop winds like its outer one and a NonZero union fills it in.
+  return fracture([[outer, hole]]);
 }
 
 // ---------------------------------------------------------------------------

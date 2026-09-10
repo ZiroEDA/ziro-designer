@@ -30,3 +30,12 @@ pipeline was matched stage by stage.
   zones on F.Cu/B.Cu with fillet smoothing (radius 0.5 mm), a board outline
   with arcs, arc tracks, and copper below the pour that the bounding-box
   guards must skip.
+
+- `hatchpads_kicad_cli.kicad_pcb`, `hatchfull_kicad_cli.kicad_pcb`,
+  `hatchsmall_kicad_cli.kicad_pcb`: the hatch40 zone with a footprint of
+  through-hole, oval, rect and roundrect pads (GND, one SIG, one
+  `zone_connect 0`, one `zone_connect 2`) and vias, refilled by kicad-cli —
+  thermal (hatchpads); 0.3 mm gap / 0.3 mm bridge / 3 mm hatch gap with
+  0.5 mm vias at hatch-hole centres (hatchsmall); and that same layout with
+  `connect_pads yes` (hatchfull). Built by hand from hatch40; no project file, so KiCad's
+  design-rule defaults apply.

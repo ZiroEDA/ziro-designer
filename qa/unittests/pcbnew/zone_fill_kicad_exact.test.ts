@@ -109,6 +109,25 @@ describe("the pour is KiCad's, vertex for vertex", () => {
     expect(rings).toBe(11);
   }, 60_000);
 
+  // Three hatched zones with copper in them — the hatch40 web has none — each
+  // pinning a branch `fillCopperZone` takes only for HATCH_PATTERN:
+  //  - hatchpads: thermal pads and vias get RINGS (`buildHatchZoneThermalRings`)
+  //    that the webbing reaches instead of the pad, a via's spokes, a same-net
+  //    NONE pad routed through the clearance knockouts, and no
+  //    `connect_nearby_polys`;
+  //  - hatchfull: the same layout with `connect_pads yes` — pads unknocked,
+  //    and every via a DISC in the set the hatch holes must not swallow, so
+  //    the holes around the 0.5 mm vias are dropped for that reason instead;
+  //  - hatchsmall: 0.5 mm vias at hatch-hole centres with rings small enough
+  //    to sit inside one, so seven holes are dropped to keep them on the web.
+  for (const stem of ['hatchpads', 'hatchfull', 'hatchsmall']) {
+    it(`${stem}: a hatched zone with thermal pads and vias, ring for ring`, () => {
+      const { kicad, ours } = refill(stem);
+      expect(ours.zones[0]!.fills[0]!.polys).toEqual(kicad[0]![0]!.polys);
+      expect(kicad[0]![0]!.polys[0]!.length).toBeGreaterThan(1000);
+    });
+  }
+
   it('hatch40: a hatched zone comes back as the same 1037-vertex web', () => {
     const { kicad, ours } = refill('hatch40');
     expect(ours.zones[0]!.fills[0]!.polys).toEqual(kicad[0]![0]!.polys);

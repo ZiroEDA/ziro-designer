@@ -81,7 +81,11 @@ import {
   trackTransformShapeToPolygon,
   viaTransformShapeToPolygon,
 } from './transform_shape_to_polygon.js';
-import { transformCircleToPolygonSet } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import {
+  transformCircleToPolygonSet,
+  transformRingToPolygon,
+} from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import { segCollinear, segContains, segIntersect } from '@ziroeda/kimath/src/geometry/seg.js';
 import type {
   Board,
   PadPrimitive,
@@ -828,6 +832,98 @@ function thermalSpokes(pad: PcbPad, zone: PcbZone, maxError: number): ThermalSpo
 }
 
 /**
+ * `buildThermalSpokes` for a PCB_VIA — only ever asked in a hatched zone
+ * ("We don't currently support via thermal connections *except* in a hatched
+ * zone"): the via is circular, `thermalSpokeAngle` stays at its default of
+ * 0°, the gap and spoke width are the zone's, the width clamped to the via's
+ * diameter, and the box is `PCB_VIA::GetBoundingBox( aLayer )` — the rounded-
+ * up radius `( width + 1 ) / 2`, one unit wider at the far edge.
+ */
+function viaThermalSpokes(v: PcbVia, zone: PcbZone, maxError: number): ThermalSpoke[] {
+  const gap = zone.thermalGap ?? mmToIU(0.5);
+  const width = Math.min(zone.thermalBridgeWidth ?? mmToIU(0.5), v.size);
+  if (width < (zone.minThickness ?? 0)) return [];
+  const zoneHalfWidth =
+    (zone.fillMode === 'hatch' ? (zone.hatchThickness ?? 0) : (zone.minThickness ?? 0)) / 2;
+  const inflate = gap + maxError + zoneHalfWidth;
+  const radius = Math.trunc((v.size + 1) / 2);
+  // the box is `[pos, dim)`: width `2 * radius + 1`, then `Inflate( inflate )`
+  const half = KiROUND((2 * radius + 1 + 2 * inflate) / 2.0);
+  return spokesFromOrigin({ x: half, y: half }, 0, Math.trunc(width / 2)).map((sp) =>
+    placeSpoke(sp, 0, v.at),
+  );
+}
+
+/**
+ * `ZONE_FILLER::buildHatchZoneThermalRings`: in a hatched zone every
+ * thermally connected pad and via gets a RING of copper — inner radius at the
+ * thermal gap, as wide as the spoke — clipped to the smoothed outline, so
+ * the webbing has something to reach that is not the pad itself. Circular
+ * items are `TransformRingToPolygon`; anything else is the pad grown by gap +
+ * width minus the pad grown by the gap.
+ */
+function hatchThermalRing(
+  item: { pad: PcbPad } | { via: PcbVia },
+  zone: PcbZone,
+  smoothedOutline: Polygon[],
+  maxError: number,
+): Polygon[] {
+  const minThk = zone.minThickness ?? 0;
+  let ring: Polygon[];
+  if ('via' in item) {
+    const v = item.via;
+    const padRadius = Math.trunc(v.size / 2);
+    const thermalGap = zone.thermalGap ?? mmToIU(0.5);
+    const spokeWidth = Math.min(zone.thermalBridgeWidth ?? mmToIU(0.5), padRadius * 2);
+    if (spokeWidth < minThk) return [];
+    const ringInnerRadius = padRadius + thermalGap;
+    ring = [
+      [
+        ...transformRingToPolygon(
+          v.at,
+          ringInnerRadius + Math.trunc(spokeWidth / 2),
+          spokeWidth,
+          maxError,
+          ErrorLoc.ERROR_OUTSIDE,
+        ),
+      ],
+    ];
+  } else {
+    const pad = item.pad;
+    const thermalGap = thermalReliefGap(pad, zone);
+    const spokeWidth = Math.min(thermalSpokeWidth(pad, zone), Math.min(pad.size.x, pad.size.y));
+    if (spokeWidth < minThk) return [];
+    const circular = pad.shape === 'circle' || (pad.shape === 'oval' && pad.size.x === pad.size.y);
+    if (circular) {
+      const padRadius = Math.trunc(Math.max(pad.size.x, pad.size.y) / 2);
+      const ringInnerRadius = padRadius + thermalGap;
+      ring = [
+        [
+          ...transformRingToPolygon(
+            padShapePos(pad),
+            ringInnerRadius + Math.trunc(spokeWidth / 2),
+            spokeWidth,
+            maxError,
+            ErrorLoc.ERROR_OUTSIDE,
+          ),
+        ],
+      ];
+    } else {
+      const outer = padTransformShapeToPolygon(
+        pad,
+        thermalGap + spokeWidth,
+        maxError,
+        ErrorLoc.ERROR_OUTSIDE,
+      );
+      const inner = padTransformShapeToPolygon(pad, thermalGap, maxError, ErrorLoc.ERROR_OUTSIDE);
+      ring = booleanSubtract(outer, inner);
+    }
+  }
+  // "Clip the thermal ring to the zone boundary so it doesn't overflow"
+  return booleanIntersection(ring, smoothedOutline);
+}
+
+/**
  * The points that stand for a pad's own copper in the island test.
  *
  * `CN_CLUSTER::IsOrphaned()` is `m_originPad == nullptr` — a fill outline is
@@ -1176,6 +1272,12 @@ function fillZoneParts(
     const reliefHoles: Geom[] = [];
     // Subtracted last of all, after the spokes and the prune (zone_filler.cpp:3130).
     const thermalHoles: Geom[] = [];
+    // A hatched zone: the thermally connected pads and vias get rings
+    // (`buildHatchZoneThermalRings`), and a solidly connected via has the
+    // hatch hole around it dropped so it stays on the webbing.
+    const hatch = zone.fillMode === 'hatch';
+    const ringItems: ({ pad: PcbPad } | { via: PcbVia })[] = [];
+    const solidVias: PcbVia[] = [];
     const connected: Vec2[] = []; // same-net anchors, for island removal
 
     const gapTo = (net: number): number => clearanceOf(zone, net);
@@ -1271,6 +1373,7 @@ function fillZoneParts(
             ),
           );
           spokes.push(...thermalSpokes(pad, zone, maxError));
+          if (hatch) ringItems.push({ pad });
           // The pad is in the cluster whether or not a spoke survives, so any
           // copper left standing on it is connected copper.
           connected.push(...padAnchors(pad));
@@ -1287,7 +1390,11 @@ function fillZoneParts(
           continue;
         }
 
-        if (sameNet && mode === 'none') {
+        // In a hatched zone a same-net pad with NO connection is not knocked
+        // out here: "NONE connections get handled later in
+        // buildCopperItemClearances" (zone_filler.cpp:1882-1920), so it takes
+        // the different-net path below, extra margin and all.
+        if (sameNet && mode === 'none' && !hatch) {
           // A same-net pad with NO connection is knocked out right here in
           // `knockoutThermalReliefs`, into the same set as the reliefs: the
           // gap is the physical clearance or the zone's own, whichever is
@@ -1368,12 +1475,51 @@ function fillZoneParts(
       }
     }
 
+    // "For hatch zones, vias also need thermal treatment to prevent isolation
+    // inside hatch holes" (zone_filler.cpp:1992-2100) — still inside
+    // `knockoutThermalReliefs`, after the pads and in track order.
+    // `EvalZoneConnection( via, zone )`: a via has no override, so the zone's
+    // own; THT_THERMAL resolves to FULL, a via being no pad.
+    if (hatch)
+      for (const v of board.vias) {
+        if (!v.layers.includes(layer) && v.kind !== 'through') continue;
+        if (!boxesIntersect(boxInflate(trackBox(v.at, v.at, v.size), worstClearance), rawZoneBox))
+          continue;
+        if (v.net !== zone.net || zone.net <= 0) continue;
+        const conn = zone.padConnection ?? 'thermal';
+        const mode = conn === 'thru_hole_only' ? 'full' : conn;
+        if (mode === 'thermal') {
+          const thermalGap = zone.thermalGap ?? mmToIU(0.5);
+          // "Only force thermal if the via is small enough to be isolated"
+          if (thermalGap > 0) {
+            reliefHoles.push(
+              ...asGeoms(
+                viaTransformShapeToPolygon(v, thermalGap, maxError, ErrorLoc.ERROR_OUTSIDE),
+              ),
+            );
+            spokes.push(...viaThermalSpokes(v, zone, maxError));
+            ringItems.push({ via: v });
+          }
+        } else if (mode === 'full') solidVias.push(v);
+      }
+
     /* ---------------------------------------------------------------------
      * Knockout thermal reliefs: `aFill.BooleanSubtract( holes )`, the reliefs
      * and the same-net no-connection pads, and nothing else.
      */
     fill = booleanSubtract(fill, reliefHoles.flatMap(asPolys));
     stage('minus-thermal-reliefs', fill);
+
+    // "For hatch zones, add thermal rings around pads with thermal relief."
+    let thermalRings: Polygon[] = [];
+    if (hatch) {
+      for (const item of ringItems) {
+        const ring = hatchThermalRing(item, zone, smoothed.smoothed, maxError);
+        fill = booleanAdd(fill, ring);
+        thermalRings = booleanAdd(thermalRings, ring);
+      }
+      stage('plus-thermal-rings', fill);
+    }
 
     // `buildCopperItemClearances` walks the board in ONE order, and the
     // order is not cosmetic: the knockouts are unioned into a single poly
@@ -1781,13 +1927,22 @@ function fillZoneParts(
     const epsilon = mmToIU(0.001);
     const prune = halfMinWidth - epsilon > epsilon;
 
-    if (prune)
+    if (prune) {
       fill = inflateKi(
         fill,
         -(halfMinWidth - epsilon),
         CornerStrategy.CHAMFER_ALL_CORNERS,
         maxError,
       );
+      // "Also deflate thermal rings to match, for correct hatch hole notching"
+      if (thermalRings.length > 0)
+        thermalRings = inflateKi(
+          thermalRings,
+          -(halfMinWidth - epsilon),
+          CornerStrategy.CHAMFER_ALL_CORNERS,
+          maxError,
+        );
+    }
 
     // "Min-thickness is the web thickness. On the other hand, a blob
     // min-thickness by min-thickness is not useful" — an island whose whole
@@ -1795,14 +1950,32 @@ function fillZoneParts(
     fill = fill.filter((poly) => islandExtentMax(poly) >= (zone.minThickness ?? 0));
     stage('deflated', fill);
 
-    if (zone.fillMode === 'hatch') {
+    if (hatch) {
       // A hatched zone keeps only its webbing (ZONE_FILLER::addHatchFillTypeOnZone),
-      // "note that we do this while deflated".
+      // "note that we do this while deflated". The rings to protect are the
+      // thermal rings and the clearance holes, plus a disc for every solidly
+      // connected via, so no hatch hole swallows one of them whole.
+      let ringsToProtect = booleanAdd(thermalRings, clearanceHoles);
+      for (const v of solidVias) {
+        const disc: Polygon[] = [
+          [
+            transformCircleToPolygonSet(
+              v.at,
+              Math.trunc(v.size / 2),
+              maxError,
+              ErrorLoc.ERROR_OUTSIDE,
+            ).map((pt) => ({ x: pt.x, y: pt.y })),
+          ],
+        ];
+        ringsToProtect = booleanAdd(ringsToProtect, booleanIntersection(disc, smoothed.smoothed));
+      }
       fill = addHatchFillTypeOnZone(
         fill,
         zone,
         maxError,
         hatchingOffsetFor(layer, opts.hatchingOffsets, zone.layerProperties),
+        ringsToProtect,
+        stage,
       );
     } else {
       // "Connect nearby polygons with zero-width lines in order to ensure
@@ -1826,9 +1999,9 @@ function fillZoneParts(
 
     // "The deflation/inflation process can leave notches in the outline.
     // Remove these by doing a union with the original ring" —
-    // `BooleanAdd( thermalRings )`, which is empty for a solid zone but is a
-    // pass through the clipper all the same.
-    fill = booleanAdd(fill, []);
+    // `BooleanAdd( thermalRings )`: the rings as deflated above, and for a
+    // solid zone an empty set, but a pass through the clipper all the same.
+    fill = booleanAdd(fill, thermalRings);
     stage('after-reinflating', fill);
 
     /* ---------------------------------------------------------------------
@@ -2538,6 +2711,8 @@ function addHatchFillTypeOnZone(
   zone: PcbZone,
   boardMaxError: number,
   offset: { x: number; y: number } = { x: 0, y: 0 },
+  thermalRings: Polygon[] = [],
+  stage?: (name: string, polys: Polygon[]) => void,
 ): Polygon[] {
   // obviously line thickness must be > zone min thickness.
   const thickness = Math.max(zone.hatchThickness ?? 0, (zone.minThickness ?? 0) + mmToIU(0.001));
@@ -2638,7 +2813,9 @@ function addHatchFillTypeOnZone(
     CornerStrategy.CHAMFER_ALL_CORNERS,
     maxError,
   );
+  stage?.('hatch-holes', holes);
   let clipped = booleanIntersection(holes, deflatedFilledPolys);
+  stage?.('fill-clipped-hatch-holes', clipped);
 
   const deflatedOutline = inflateKi(
     [[zone.outline!.map((p) => ({ x: p.x, y: p.y }))]],
@@ -2647,13 +2824,69 @@ function addHatchFillTypeOnZone(
     maxError,
   );
   clipped = booleanIntersection(clipped, deflatedOutline);
+  stage?.('outline-clipped-hatch-holes', clipped);
 
   // Now filter truncated holes to avoid small holes in pattern
   clipped = clipped.filter((poly) => Math.abs(chainArea(poly[0]!)) >= minimal_hole_area);
 
+  // "Drop any holes that completely enclose a thermal ring to ensure thermal
+  // reliefs stay connected to the hatch webbing": the ring's box inside the
+  // hole's, the ring's box centre and its first vertex inside the hole, and
+  // the two outlines never crossing.
+  if (thermalRings.length > 0) {
+    const rings = thermalRings.map((poly) => poly[0]!);
+    const thermalBox = boxOf(rings.flat());
+    for (let holeIdx = clipped.length - 1; holeIdx >= 0; holeIdx--) {
+      const hole = clipped[holeIdx]![0]!;
+      const holeBox = boxOf(hole);
+      if (!boxesIntersect(holeBox, thermalBox)) continue;
+      for (const ring of rings) {
+        const ringBox = boxOf(ring);
+        // `BOX2I::Contains( aRect )`: the box's corners inside, inclusively
+        if (
+          ringBox.x0 < holeBox.x0 ||
+          ringBox.y0 < holeBox.y0 ||
+          ringBox.x1 > holeBox.x1 ||
+          ringBox.y1 > holeBox.y1
+        )
+          continue;
+        // `BOX2I::Centre()`: the origin plus half the size, integer halves
+        const ringCenter = {
+          x: ringBox.x0 + Math.trunc((ringBox.x1 - ringBox.x0) / 2),
+          y: ringBox.y0 + Math.trunc((ringBox.y1 - ringBox.y0) / 2),
+        };
+        if (!chainPointInside(hole, ringCenter)) continue;
+        if (ring.length === 0 || !chainPointInside(hole, ring[0]!)) continue;
+        if (chainsIntersect(ring, hole)) continue;
+        clipped.splice(holeIdx, 1);
+        break;
+      }
+    }
+  }
+
   // create grid. Useto generate strictly simple polygons needed by Gerber
   // files and Fracture()
-  return booleanSubtract(fill, clipped);
+  const out = booleanSubtract(fill, clipped);
+  stage?.('after-hatching', out);
+  return out;
+}
+
+/**
+ * `SHAPE_LINE_CHAIN::Intersect( aChain, aIp )` asked only whether it found
+ * anything: a segment of one crossing a segment of the other, or — the
+ * default `aExcludeColinearAndTouching = false` — collinear and sharing an
+ * end point.
+ */
+function chainsIntersect(a: readonly Vec2[], b: readonly Vec2[]): boolean {
+  for (let i = 0; i < a.length; i++) {
+    const sa = { a: a[i]!, b: a[(i + 1) % a.length]! };
+    for (let j = 0; j < b.length; j++) {
+      const sb = { a: b[j]!, b: b[(j + 1) % b.length]! };
+      if (segIntersect(sa, sb)) return true;
+      if (segCollinear(sa, sb) && (segContains(sa, sb.a) || segContains(sa, sb.b))) return true;
+    }
+  }
+  return false;
 }
 
 /** `SHAPE_LINE_CHAIN::Area( true )`. */
