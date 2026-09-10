@@ -5,8 +5,8 @@
  * Load and place footprint 3D models in the three.js scene, replicating KiCad's
  * exact placement matrix (render_3d_opengl.cpp get3dModelsFromFootprint):
  *
- *   footprint: translate(x, -y, surfaceZ) · rotateZ(orientation)
- *              · [if back: rotateY(π)·rotateZ(π)] · scale(model-unit→world)
+ *   footprint: translate(x·s, -y·s, GetFootprintZPos(flipped)) · rotateZ(orientation)
+ *              · [if back: rotateY(π)·rotateZ(π)] · scale(BiuTo3dUnits · IU_PER_MM)
  *   per model: translate(offset) · rotateZ(-rz)·rotateY(-ry)·rotateX(-rx)
  *              · scale(scale)
  *
@@ -19,30 +19,42 @@
  *   - `.wrl` is authored in 0.1-inch units, scaled ×2.54 at load, unless the
  *     file carries its own top-level scale transform (WRL2BASE's
  *     "ApplyUnitConversion" rule in plugins/3d/vrml).
- * Our world frame is also mm, so the footprint matrix's model-unit factor is 1.
+ *
+ * Materials: `MODEL_3D` draws every material group through `OglSetMaterial`
+ * under `glColorMaterial( GL_AMBIENT_AND_DIFFUSE )` (3d_model.cpp:479-528),
+ * so what a model brings is its diffuse (as ambient too), its specular, its
+ * shininess and its transparency — the `SMATERIAL` the loader filled. The
+ * three.js material each loader produced is read back into that struct and
+ * replaced by the fixed-function material the caller hands out; an opaque
+ * group goes in the opaque pass, a transparent one (or any group of a model
+ * with `(opacity …)` below 1) in the back-to-front pass after the mask.
  *
  * Models load async and are cached per source; a part used many times is
- * fetched once and cloned. A model's `(opacity …)` clones materials on its
- * instance (MODELTORENDER carries m_Opacity into the transparent pass).
+ * fetched once and cloned.
  */
-import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLLoader } from 'three/addons/loaders/VRMLLoader.js';
 import type { Board } from '@ziroeda/pcbnew';
 import { resolvePath } from './filename_resolver.js';
 import { loadCadModel } from './loadmodel.js';
+import { stepFaceMaterial, type SMaterial, type Vec3 } from './gl_fixed_function.js';
 
-const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 const VRML_UNIT_MM = 2.54; // legacy VRML model unit = 0.1 inch (WRL2BASE)
 
 type Footprint = Board['footprints'][number];
 type Model = Footprint['models'][number];
-interface Box {
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
+
+/** The placement frame `get3dModelsFromFootprint` builds in, 3D units. */
+export interface ModelFrame {
+  /** `BiuTo3dUnits()`. */
+  scale: number;
+  /** `GetFootprintZPos( false )` — the F.Paste top. */
+  zTopFront: number;
+  /** `GetFootprintZPos( true )` — the B.Paste bottom. */
+  zTopBack: number;
+  /** `modelunit_to_3d_units_factor = BiuTo3dUnits() · UNITS3D_TO_UNITSPCB`. */
+  modelUnitToWorld: number;
 }
 
 /** A file bundled with the uploaded project (VRML/STEP sources are ASCII). */
@@ -56,22 +68,26 @@ const rotY = (r: number): THREE.Matrix4 => new THREE.Matrix4().makeRotationY(r);
 const rotX = (r: number): THREE.Matrix4 => new THREE.Matrix4().makeRotationX(r);
 const deg = (d: number): number => (d * Math.PI) / 180;
 
-/** KiCad placement matrix for one footprint model, in our centred mm/Z-up frame. */
-export function modelMatrix(fp: Footprint, model: Model, box: Box, hz: number): THREE.Matrix4 {
-  const cx = (box.minX + box.maxX) / 2;
-  const cy = (box.minY + box.maxY) / 2;
-  const fx = (fp.at.x - cx) / MM;
-  const fy = -(fp.at.y - cy) / MM; // KiCad flips Y into the 3D frame
+/** KiCad placement matrix for one footprint model, in 3D units. */
+export function modelMatrix(fp: Footprint, model: Model, frame: ModelFrame): THREE.Matrix4 {
   const flipped = fp.layer === 'B.Cu';
-
-  const m = new THREE.Matrix4().makeTranslation(fx, fy, flipped ? -hz : hz);
+  const m = new THREE.Matrix4().makeTranslation(
+    fp.at.x * frame.scale,
+    -fp.at.y * frame.scale, // KiCad flips Y into the 3D frame
+    flipped ? frame.zTopBack : frame.zTopFront,
+  );
   m.multiply(rotZ(deg(fp.angle)));
   if (flipped) {
     m.multiply(rotY(Math.PI));
     m.multiply(rotZ(Math.PI));
   }
-  // Upstream scales by modelunit_to_3d_units_factor here; model space and our
-  // world are both mm, so that factor is 1 and offset applies in mm directly.
+  m.multiply(
+    new THREE.Matrix4().makeScale(
+      frame.modelUnitToWorld,
+      frame.modelUnitToWorld,
+      frame.modelUnitToWorld,
+    ),
+  );
   m.multiply(new THREE.Matrix4().makeTranslation(model.offset.x, model.offset.y, model.offset.z));
   m.multiply(rotZ(deg(-model.rotate.z)));
   m.multiply(rotY(deg(-model.rotate.y)));
@@ -98,16 +114,60 @@ function vrmlIntoMm(o: THREE.Object3D): THREE.Object3D {
 const extOf = (name: string): string => name.split('.').pop()?.toLowerCase() ?? '';
 
 /**
- * Load every footprint's 3D models and add them to `scene`. `libBase` is where
- * the hosted library lives (a `.glb` URL prefix); `projectFiles` carries the
- * uploaded project's own files so ${KIPRJMOD}/relative references load exactly
- * as KiCad loads them from the project directory.
+ * The `SMATERIAL` a loader's three.js material stands for.
+ *
+ * Colours come back sRGB-ENCODED: KiCad's OCE loader reads a STEP colour with
+ * `Quantity_TOC_sRGB` and its VRML parser takes the file's numbers as they
+ * are, and both light those numbers raw. three.js's loaders converted them
+ * into its linear working space, so `getRGB( …, SRGBColorSpace )` is the
+ * exact inverse — it hands back the file's numbers.
+ */
+export function smaterialOf(m: THREE.Material): SMaterial {
+  const srgb = (c: THREE.Color): Vec3 => {
+    const t = { r: 0, g: 0, b: 0 };
+    c.getRGB(t, THREE.SRGBColorSpace);
+    return [t.r, t.g, t.b];
+  };
+  const opacity = m.transparent ? m.opacity : 1;
+  if (m instanceof THREE.MeshPhongMaterial) {
+    // VRML: `Material { diffuseColor specularColor emissiveColor shininess transparency }`
+    // (plugins/3d/vrml/v2/vrml2_material.cpp:285-300), shininess in VRML's 0..1.
+    return {
+      ambient: srgb(m.color),
+      diffuse: srgb(m.color),
+      specular: srgb(m.specular),
+      emissive: srgb(m.emissive),
+      shininess: m.shininess,
+      transparency: 1 - opacity,
+    };
+  }
+  // STEP (a hosted .glb, or a project file through OCCT): one colour per
+  // BREP face, the OCE loader's fixed specular/shininess around it.
+  const color =
+    'color' in m && m.color instanceof THREE.Color ? m.color : new THREE.Color(0.6, 0.6, 0.6);
+  return stepFaceMaterial(srgb(color), opacity, true);
+}
+
+export interface ComponentRenderHooks {
+  /** `OglSetMaterial( mat, opacity )` in the current `MATERIAL_MODE`. */
+  material: (m: SMaterial, opacity: number, transparentPass: boolean) => THREE.Material;
+  /** `renderOpaqueModels` / `renderTransparentModels` slots. */
+  opaqueOrder: number;
+  transparentOrder: number;
+  /** `BOARD_ADAPTER::IsFootprintShown`. */
+  showFootprint: (fp: Footprint) => boolean;
+}
+
+/**
+ * Load every footprint's 3D models and add them to `parent`. `libBase` is
+ * where the hosted library lives (a `.glb` URL prefix); `projectFiles` carries
+ * the uploaded project's own files so ${KIPRJMOD}/relative references load
+ * exactly as KiCad loads them from the project directory.
  */
 export function mountComponents(
-  scene: THREE.Scene,
+  parent: THREE.Object3D,
   board: Board,
-  box: Box,
-  hz: number,
+  frame: ModelFrame,
   libBase: string,
   projectFiles?: ProjectFile[],
   onChange?: () => void,
@@ -115,16 +175,17 @@ export function mountComponents(
    * `EDA_3D_VIEWER_SETTINGS::m_Render.show_model_bbox` — Preferences >
    * 3D Viewer > Realtime Renderer's "Show model bounding boxes".
    *
-   * `RENDER_3D_OPENGL::renderOpaqueModels` draws each model's bounding box in
-   * a fixed colour when it is set; a `Box3Helper` is the same thing, and it is
-   * added beside the model so it is removed with it.
+   * `RENDER_3D_OPENGL::renderModel` draws each model's outer bounding box in
+   * green (`MakeBbox( m_model_bbox, …, { 0, 1, 0, 1 } )`, 3d_model.cpp:247).
    */
   showModelBbox?: boolean,
+  hooks?: ComponentRenderHooks,
 ): () => void {
   const vrmlLoader = new VRMLLoader();
   const gltfLoader = new GLTFLoader();
   const cache = new Map<string, Promise<THREE.Object3D | null>>();
   const added: THREE.Object3D[] = [];
+  const disposables: { dispose(): void }[] = [];
   let cancelled = false;
   const enc = new TextEncoder();
   const fileNames = projectFiles?.map((f) => f.name);
@@ -167,6 +228,7 @@ export function mountComponents(
   };
 
   for (const fp of board.footprints) {
+    if (hooks && !hooks.showFootprint(fp)) continue;
     for (const model of fp.models) {
       if (model.hide || !model.path) continue;
       const res = resolvePath(model.path, { libBase, libExt: 'glb', projectFiles: fileNames });
@@ -178,15 +240,34 @@ export function mountComponents(
         p = res.kind === 'url' ? loadUrl(res.url) : loadProjectFile(res.name);
         cache.set(key, p);
       }
-      const matrix = modelMatrix(fp, model, box, hz);
-      const opacity = model.opacity;
+      const matrix = modelMatrix(fp, model, frame);
+      // `sM.m_Opacity`: 1 keeps the model in the opaque pass
+      const opacity = model.opacity ?? 1;
+      const opaque = opacity >= 1;
       void p.then((obj) => {
         if (cancelled || !obj) return;
         const inst = obj.clone();
         inst.matrixAutoUpdate = false;
         inst.matrix.copy(matrix);
         inst.matrixWorldNeedsUpdate = true;
-        if (opacity !== undefined && opacity < 1) {
+        if (hooks) {
+          inst.traverse((child) => {
+            if (!(child instanceof THREE.Mesh)) return;
+            const src = child.material as THREE.Material;
+            const sm = smaterialOf(src);
+            // MODEL_3D::Draw: a material with transparency goes to the
+            // transparent pass; a model with opacity < 1 goes there whole.
+            const transparentPass = !opaque || sm.transparency > 1.1920929e-7;
+            const mat = hooks.material(sm, transparentPass ? opacity : 1, transparentPass);
+            // glEnable( GL_CULL_FACE ) throughout — but a VRML file's winding
+            // is its own affair (`solid`/`ccw`), and three.js's loader keeps
+            // it two-sided; STEP faces come oriented.
+            if (src.side === THREE.DoubleSide && 'side' in mat) mat.side = THREE.DoubleSide;
+            child.material = mat;
+            child.renderOrder = transparentPass ? hooks.transparentOrder : hooks.opaqueOrder;
+            disposables.push(mat);
+          });
+        } else if (opacity < 1) {
           inst.traverse((child) => {
             if (child instanceof THREE.Mesh) {
               const m = (child.material as THREE.Material).clone();
@@ -196,14 +277,11 @@ export function mountComponents(
             }
           });
         }
-        scene.add(inst);
+        parent.add(inst);
         added.push(inst);
         if (showModelBbox) {
-          // `Box3Helper`'s own default is yellow; upstream draws the model
-          // boxes in a fixed colour too, so this states one rather than
-          // reaching for a theme that has no key for it.
-          const helper = new THREE.Box3Helper(new THREE.Box3().setFromObject(inst));
-          scene.add(helper);
+          const helper = new THREE.Box3Helper(new THREE.Box3().setFromObject(inst), 0x00ff00);
+          parent.add(helper);
           added.push(helper);
         }
         onChange?.();
@@ -213,6 +291,7 @@ export function mountComponents(
 
   return () => {
     cancelled = true;
-    for (const o of added) scene.remove(o);
+    for (const o of added) parent.remove(o);
+    for (const d of disposables) d.dispose();
   };
 }

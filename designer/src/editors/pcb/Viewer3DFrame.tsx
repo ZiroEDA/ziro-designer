@@ -101,7 +101,13 @@ export function Viewer3DFrame({
   const hostRef = useRef<HTMLDivElement>(null);
   const api = useRef<Viewer3D | null>(null);
   const [ready, setReady] = useState(false);
-  const [status, setStatus] = useState<Viewer3DStatus>({ x: null, y: null, zoom: 1 });
+  const [status, setStatus] = useState<Viewer3DStatus>({
+    dx: 0,
+    dy: 0,
+    zoom: 1,
+    activity: '',
+    hovered: '',
+  });
   const [grid, setGrid] = useState<Grid3D>('none');
   const [ortho, setOrtho] = useState(false);
   const [showMissing, setShowMissing] = useState(true);
@@ -172,6 +178,9 @@ export function Viewer3DFrame({
             antiAliasing: renderRef.current.opengl_AA_mode,
             showModelBbox: renderRef.current.opengl_show_model_bbox,
             selectionColor: renderRef.current.opengl_selection_color,
+            copperThickness: renderRef.current.opengl_copper_thickness,
+            subtractMaskFromSilk: renderRef.current.subtract_mask_from_silk,
+            clipSilkOnViaAnnuli: renderRef.current.clip_silk_on_via_annulus,
           },
         );
       } catch {
@@ -378,7 +387,8 @@ export function Viewer3DFrame({
           v?.flip();
           break;
         case ' ':
-          break; // pivotCenter: needs the picking ray, not ported — swallow it
+          v?.pivotCenter(); // EDA_3D_ACTIONS::pivotCenter
+          break;
         case 'Home':
           v?.home();
           break;
@@ -439,6 +449,8 @@ export function Viewer3DFrame({
           flex: 1,
           minHeight: 0,
           position: 'relative',
+          // OglDrawBackground paints the gradient inside the GL frame; this
+          // is the same two colours for the instant before the first frame.
           background: 'linear-gradient(180deg, rgb(204,204,230) 0%, rgb(102,102,128) 100%)',
           // BUSY_INDICATOR (a wxBusyCursor) for as long as the reload runs.
           cursor: ready ? undefined : 'progress',
@@ -453,17 +465,21 @@ export function Viewer3DFrame({
             524-528). The word goes in the ACTIVITY field, and nothing is drawn
             over the canvas. */}
         <span className="cell msg" data-testid="view3d-activity">
-          {ready ? '' : 'Loading...'}
+          {ready ? status.activity : 'Loading...'}
         </span>
-        <span className="cell pane" style={{ width: 170 }} data-testid="view3d-hovered" />
+        <span className="cell pane" style={{ width: 170 }} data-testid="view3d-hovered">
+          {status.hovered}
+        </span>
+        {/* EDA_3D_CANVAS::DisplayStatus: "dx %3.2f", "dy %3.2f", "zoom %3.2f"
+            (eda_3d_canvas.cpp:355-361) — the camera's pan and 1/m_zoom. */}
         <span className="cell pane" style={{ width: 130 }} data-testid="view3d-x">
-          {status.x === null ? '' : `X ${status.x.toFixed(4)}`}
+          {`dx ${status.dx.toFixed(2)}`}
         </span>
         <span className="cell pane" style={{ width: 130 }} data-testid="view3d-y">
-          {status.y === null ? '' : `Y ${status.y.toFixed(4)}`}
+          {`dy ${status.dy.toFixed(2)}`}
         </span>
         <span className="cell pane" style={{ width: 130 }} data-testid="view3d-zoom">
-          Z {status.zoom.toFixed(2)}
+          {`zoom ${status.zoom.toFixed(2)}`}
         </span>
       </KiStatusBar>
     </div>

@@ -118,6 +118,15 @@ export const DEFAULT_SILKSCREEN: Color4d = { r: 0.94, g: 0.94, b: 0.94, a: 1.0 }
 export const DEFAULT_SOLDERMASK: Color4d = { r: 0.08, g: 0.2, b: 0.14, a: 0.83 };
 export const DEFAULT_SOLDERPASTE: Color4d = { r: 0.5, g: 0.5, b: 0.5, a: 1.0 };
 export const DEFAULT_SURFACE_FINISH: Color4d = { r: 0.75, g: 0.61, b: 0.23, a: 1.0 };
+/** `g_DefaultBoardBody` (board_adapter.cpp:152). */
+export const DEFAULT_BOARD_BODY: Color4d = { r: 0.43, g: 0.45, b: 0.3, a: 0.9 };
+/** `g_DefaultBackgroundTop` / `g_DefaultBackgroundBot` (board_adapter.cpp:146-147). */
+export const DEFAULT_BACKGROUND_TOP: Color4d = { r: 0.8, g: 0.8, b: 0.9, a: 1.0 };
+export const DEFAULT_BACKGROUND_BOT: Color4d = { r: 0.4, g: 0.4, b: 0.5, a: 1.0 };
+/** `g_DefaultComments` — User.Drawings and User.Comments (board_adapter.cpp:153). */
+export const DEFAULT_COMMENTS: Color4d = { r: 0.85, g: 0.85, b: 0.85, a: 1.0 };
+/** `g_DefaultECOs` — Eco1.User and Eco2.User (board_adapter.cpp:154). */
+export const DEFAULT_ECOS: Color4d = { r: 0.7, g: 0.1, b: 0.1, a: 1.0 };
 
 /**
  * `findColor( aColorName, aColorSet )` (`board_adapter.cpp:661-679`): a name

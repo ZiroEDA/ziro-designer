@@ -24,7 +24,6 @@ import { describe, it, expect } from 'vitest';
 import { readdirSync } from 'node:fs';
 import { BITMAP } from '@ziroeda/designer/src/ui/toolbar_bitmaps.js';
 import { VIEWER3D_TOP_TOOLBAR } from '@ziroeda/designer/src/editors/pcb/viewer3dToolbars.js';
-import { VIEW3D_CAMERA } from '@ziroeda/designer/src/editors/pcb/viewer3d_types.js';
 import {
   buildViewer3DMenus,
   type Viewer3DMenuActions,
@@ -261,84 +260,5 @@ describe('the 3D viewer menu bar', () => {
     expect(by['Use raytracing']?.disabled).toBe(true);
     expect(by['Show parts without 3D model']?.disabled).toBeUndefined();
     expect(by['Show parts without 3D model']?.action).toBeTypeOf('function');
-  });
-});
-
-describe('the six axis-aligned camera poses', () => {
-  // Re-derived from CAMERA::ViewCommand_T1 rather than eyeballed, because the
-  // bottom view shipped roll-flipped: its up vector was negated on the
-  // assumption that looking from underneath inverts it. It does not — the
-  // rotation that gets you there is RotateY(180), which leaves (0,1,0) alone.
-  //
-  // eye = Aux⁻¹·(0,0,1), up = Aux⁻¹·(0,1,0), with Aux = Rx(ax)·Ry(ay)·Rz(az)
-  // built from the accumulated m_rotate_aux triple (camera.cpp:216) — never
-  // the order the Rotate*_T1 calls appear in.
-  const rad = (deg: number): number => (deg * Math.PI) / 180;
-  const rotX = ([x, y, z]: number[], t: number): number[] => [
-    x!,
-    y! * Math.cos(t) - z! * Math.sin(t),
-    y! * Math.sin(t) + z! * Math.cos(t),
-  ];
-  const rotY = ([x, y, z]: number[], t: number): number[] => [
-    x! * Math.cos(t) + z! * Math.sin(t),
-    y!,
-    -x! * Math.sin(t) + z! * Math.cos(t),
-  ];
-  const rotZ = ([x, y, z]: number[], t: number): number[] => [
-    x! * Math.cos(t) - y! * Math.sin(t),
-    x! * Math.sin(t) + y! * Math.cos(t),
-    z!,
-  ];
-  /** Aux⁻¹·v, i.e. Rz(-az)·Ry(-ay)·Rx(-ax) applied to v. */
-  const auxInv = (v: number[], [ax, ay, az]: [number, number, number]): number[] =>
-    rotZ(rotY(rotX(v, rad(-ax)), rad(-ay)), rad(-az));
-
-  /** m_rotate_aux after each ViewCommand_T1 branch, in degrees. */
-  const AUX: Record<string, [number, number, number]> = {
-    top: [0, 0, 0],
-    bottom: [0, 180, 0],
-    front: [-90, 0, 0],
-    back: [-90, 0, 180],
-    right: [-90, 0, -90],
-    left: [-90, 0, 90],
-  };
-
-  const near = (a: readonly number[], b: readonly number[]): void => {
-    a.forEach((_, i) => expect(a[i]!).toBeCloseTo(b[i]!, 6));
-  };
-
-  for (const [dir, aux] of Object.entries(AUX)) {
-    it(`${dir} matches Aux⁻¹ of the reset pose`, () => {
-      const v = VIEW3D_CAMERA[dir as keyof typeof VIEW3D_CAMERA];
-      near(v.eye, auxInv([0, 0, 1], aux));
-      near(v.up, auxInv([0, 1, 0], aux));
-    });
-  }
-
-  it('keeps every up vector perpendicular to its view direction', () => {
-    // A parallel pair makes three.js lookAt() degenerate and the view rolls to
-    // an arbitrary angle instead of failing loudly.
-    for (const { eye, up } of Object.values(VIEW3D_CAMERA)) {
-      const dot = eye[0] * up[0] + eye[1] * up[1] + eye[2] * up[2];
-      expect(Math.abs(dot)).toBeLessThan(1e-9);
-    }
-  });
-
-  it('puts top/bottom, front/back and left/right on opposite sides', () => {
-    const opposed = (a: readonly number[], b: readonly number[]): void =>
-      near(
-        a,
-        b.map((n) => -n),
-      );
-    opposed(VIEW3D_CAMERA.top.eye, VIEW3D_CAMERA.bottom.eye);
-    opposed(VIEW3D_CAMERA.front.eye, VIEW3D_CAMERA.back.eye);
-    opposed(VIEW3D_CAMERA.left.eye, VIEW3D_CAMERA.right.eye);
-  });
-
-  it('looks down +X for View Right, the board X that grows rightwards', () => {
-    // Our scene X is board X un-negated (boardGeom.ts to3d), and KiCad's 3D
-    // space agrees — TO_SFVEC2F negates only Y. So "right" really is +X.
-    expect(VIEW3D_CAMERA.right.eye).toEqual([1, 0, 0]);
-    expect(VIEW3D_CAMERA.left.eye).toEqual([-1, 0, 0]);
   });
 });

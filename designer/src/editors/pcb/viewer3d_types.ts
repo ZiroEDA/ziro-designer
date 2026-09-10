@@ -27,51 +27,20 @@ export type Move3DDir = 'left' | 'right' | 'up' | 'down';
 /** The 3D Grid submenu (`EDA_3D_ACTIONS::noGrid` / `show{10,5,2_5,1}mmGrid`). */
 export type Grid3D = 'none' | '10mm' | '5mm' | '2.5mm' | '1mm';
 
-/**
- * Where the camera sits for each of the six axis-aligned views, as a unit
- * direction from the orbit target plus the up vector — `[eye, up]`.
- *
- * Derived from `CAMERA::ViewCommand_T1` rather than copied from it, because
- * upstream states these as *board* rotations off the reset pose and the
- * composition is easy to get backwards. Two things make it subtle:
- *
- *  - `m_rotate_aux` is an angle *triple*, and `updateRotationMatrix()` always
- *    applies it as `Rx·Ry·Rz` (camera.cpp:216) whatever order the Rotate*_T1
- *    calls came in. So VIEW3D_RIGHT's `RotateZ(-90); RotateX(-90);` is
- *    `Rx(-90)·Rz(-90)`, not `Rz(-90)·Rx(-90)`.
- *  - the camera starts at `(0, 0, -d)` (camera.cpp:49) and the view matrix is
- *    `T(pos)·Aux·T(-lookat)`, so the eye lands at `Aux⁻¹·(0,0,d)` and the up
- *    vector at `Aux⁻¹·(0,1,0)`.
- *
- * Our scene's axes match KiCad's 3D space: `TO_SFVEC2F` negates board Y
- * (create_3Dgraphic_brd_items.cpp:61) exactly as `boardGeom.ts`'s `to3d` does.
- */
-export const VIEW3D_CAMERA: Record<
-  View3DDir,
-  { eye: [number, number, number]; up: [number, number, number] }
-> = {
-  // aux (0,0,0) — Reset_T1()
-  top: { eye: [0, 0, 1], up: [0, 1, 0] },
-  // aux (0,180,0). A 180 deg turn about Y leaves up alone — negating it here
-  // roll-flips the whole bottom view, which is what it did.
-  bottom: { eye: [0, 0, -1], up: [0, 1, 0] },
-  // aux (-90,0,0)
-  front: { eye: [0, -1, 0], up: [0, 0, 1] },
-  // aux (-90,0,180)
-  back: { eye: [0, 1, 0], up: [0, 0, 1] },
-  // aux (-90,0,-90)
-  right: { eye: [1, 0, 0], up: [0, 0, 1] },
-  // aux (-90,0,90)
-  left: { eye: [-1, 0, 0], up: [0, 0, 1] },
-};
-
 /** What the 5-pane status bar shows (`EDA_3D_VIEWER_STATUSBAR`). */
+/**
+ * `EDA_3D_CANVAS::DisplayStatus` and the two reporters beside it: the panes
+ * are ACTIVITY ("Loading...", "Last render time N ms"), HOVERED_ITEM (the
+ * footprint/pad/net under the cursor), X_POS `dx %3.2f`, Y_POS `dy %3.2f`
+ * and ZOOM_LEVEL `zoom %3.2f` — where dx/dy are the camera's pan
+ * (`m_camera_pos.xy`, 3D units) and zoom is `1 / m_zoom`.
+ */
 export interface Viewer3DStatus {
-  /** X_POS / Y_POS: the board point under the pointer, in mm. */
-  x: number | null;
-  y: number | null;
-  /** ZOOM_LEVEL, expressed like KiCad's camera zoom (1.0 == zoom-to-fit). */
+  dx: number;
+  dy: number;
   zoom: number;
+  activity: string;
+  hovered: string;
 }
 
 export interface Viewer3D {
@@ -105,6 +74,8 @@ export interface Viewer3D {
    * Camera Options, applied live rather than at mount.
    */
   setCamera: (o: Partial<Viewer3dCameraOptions>) => void;
+  /** `EDA_3D_ACTIONS::pivotCenter` (Space) — look at the board point under the cursor. */
+  pivotCenter: () => void;
 
   // -- File / Edit menu ----------------------------------------------------
   /** `EDA_3D_ACTIONS::exportImage` — the current view as a PNG blob. */
@@ -137,6 +108,42 @@ export interface Viewer3dRenderOptions {
   showModelBbox?: boolean;
   /** `render.opengl_selection_color`, as CSS. */
   selectionColor?: string;
+  /**
+   * `EDA_3D_VIEWER_SETTINGS::m_UseStackupColors` — the appearance panel's
+   * "Use board stackup colors". Stored true, but the first open of the frame
+   * clears it (eda_3d_viewer_frame.cpp:574), so the working default is
+   * FALSE: the colour theme's `3d_viewer.*` entries.
+   */
+  useStackupColors?: boolean;
+  /** `BOARD::IsFootprintHolder()` — the footprint editor/browser's board skips the ×1.6 "home zoom" hack. */
+  footprintHolder?: boolean;
+  /** `render.show_fp_references` / `show_fp_values` / `show_fp_text` (default true). */
+  showFpReferences?: boolean;
+  showFpValues?: boolean;
+  showFpText?: boolean;
+  /** `render.opengl_show_off_board_silk` (default false). */
+  showOffBoardSilk?: boolean;
+  /** `render.subtract_mask_from_silk` (default false). */
+  subtractMaskFromSilk?: boolean;
+  /** `render.clip_silk_on_via_annulus` (default false). */
+  clipSilkOnViaAnnuli?: boolean;
+  /** `render.show_plated_barrels` (default true). */
+  showPlatedBarrels?: boolean;
+  /** `render.opengl_copper_thickness` (default true): extrude the layers' walls. */
+  copperThickness?: boolean;
+  /** `render.show_board_body` (default true). */
+  showBoardBody?: boolean;
+  /** `render.show_soldermask_top` / `_bottom` (default true). */
+  showSoldermaskTop?: boolean;
+  showSoldermaskBottom?: boolean;
+  /** `render.show_navigator` (default true): the axis spheres in the corner. */
+  showNavigator?: boolean;
+  /** `render.show_footprints_{insert,normal,virtual,not_in_posfile,dnp}`. */
+  showFootprintsInsert?: boolean;
+  showFootprintsNormal?: boolean;
+  showFootprintsVirtual?: boolean;
+  showFootprintsNotInPosfile?: boolean;
+  showFootprintsDnp?: boolean;
 }
 
 /**

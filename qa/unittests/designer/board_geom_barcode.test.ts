@@ -20,7 +20,8 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { buildBoardGeom } from '@ziroeda/designer/src/editors/pcb/boardGeom.js';
+import { buildBoard3dLayers } from '@ziroeda/designer/src/editors/pcb/board_3d_layers.js';
+import type { Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = 1e6;
@@ -41,9 +42,26 @@ const barcodeOn = (layer: string): string =>
   `(barcode (at 10 20 0) (layer "${layer}") (size 8 8) (text "ZIRO") (text_height 1.27)
      (type qr) (ecc_level L) (hide yes) (knockout no))`;
 
+/** Area of a polygon set's outlines less its holes, IU². */
+const area = (polys: Polygon[] | undefined): number => {
+  let total = 0;
+  for (const poly of polys ?? []) {
+    poly.forEach((ring, ri) => {
+      let a = 0;
+      for (let i = 0; i < ring.length; i++) {
+        const p = ring[i]!,
+          q = ring[(i + 1) % ring.length]!;
+        a += p.x * q.y - q.x * p.y;
+      }
+      total += (Math.abs(a) / 2) * (ri === 0 ? 1 : -1);
+    });
+  }
+  return total;
+};
+
 const silkTris = (b: Board): { front: number; back: number } => {
-  const g = buildBoardGeom(b, BOX);
-  return { front: g.front.silk.tris.length, back: g.back.silk.tris.length };
+  const g = buildBoard3dLayers(b, BOX);
+  return { front: area(g.layers['F.SilkS']), back: area(g.layers['B.SilkS']) };
 };
 
 describe('a barcode is silkscreen geometry', () => {
@@ -82,10 +100,11 @@ describe('a barcode is silkscreen geometry', () => {
     //
     // A filled 8x8 mm QR code covers far more area than its outlines would, so
     // the triangle count is the tell — dozens of modules, each a quad.
-    const g = buildBoardGeom(boardWith(barcodeOn('F.SilkS')), BOX);
+    const g = buildBoard3dLayers(boardWith(barcodeOn('F.SilkS')), BOX);
 
-    // Two triangles per module run, and a version-1 QR code has many.
-    expect(g.front.silk.tris.length / 3).toBeGreaterThan(20);
+    // A version-1 QR code is 21×21 modules; well over a third of an 8 mm
+    // square is ink, and a bare outline would be a few percent.
+    expect(area(g.layers['F.SilkS'])).toBeGreaterThan(0.3 * 8 * 8 * MM * MM);
   });
 
   it('takes a footprint’s barcode too', () => {
