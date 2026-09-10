@@ -751,6 +751,7 @@ export function SchematicEditor({
   onOutputFile,
   registerAutosaveFlush,
   openNonce,
+  shown = true,
   extraSheetFiles,
   projectName,
   rootPro,
@@ -839,6 +840,12 @@ export function SchematicEditor({
    * that the project should be re-opened. See the effect that reads this.
    */
   openNonce?: number;
+  /**
+   * Whether this frame is the one on screen. A hidden frame keeps what it has
+   * and opens the project when next shown; see the same prop on PcbEditor for
+   * why. Defaults to shown, for a frame that has no host.
+   */
+  shown?: boolean;
   /** `.kicad_wks` saved into the project this session (Drawing Sheet Editor →
    *  Save to Project), offered as extra Page Settings drawing-sheet choices. */
   extraSheetFiles?: PickedFile[];
@@ -4594,10 +4601,17 @@ export function SchematicEditor({
     // rootPro is part of the key so switching the active project (same folder,
     // different .kicad_pro) reloads with the newly-pinned root sheet.
     const key = `${openNonce ?? 0} ${rootPro ?? ''}`;
-    const opening = openedKey.current !== key;
-    openedKey.current = key;
-    if (opening) {
+    // Only a frame on screen opens; a hidden one takes the open when shown.
+    if (shown && openedKey.current !== key) {
+      const first = openedKey.current === null;
+      openedKey.current = key;
       if (files && files.length > 0) void loadProject(files, initialFile ?? undefined);
+      // An open with no project is a NEW schematic (`is_new` in files-io.cpp:
+      // "Create Schematic"). The frame outlives the manager now, so without
+      // this the launcher pressed with no project open would show whatever
+      // project this frame held last. The very first open needs nothing: the
+      // frame was born on the blank sheet.
+      else if (!first) void loadText(EMPTY_SCH);
       // Drop any in-session sheet override for the freshly opened project.
       setSheetOverride(null);
     }
@@ -4608,7 +4622,7 @@ export function SchematicEditor({
     setRawFiles(files ?? []);
     setSetup(readSchematicSetup(files ?? [], rootPro ?? undefined));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectMetaKey, rootPro, openNonce]);
+  }, [projectMetaKey, rootPro, openNonce, shown]);
 
   // Serialize the project's sheets (current sheet + resident others) for autosave.
   const serializeSheets = useCallback((): PickedFile[] => {

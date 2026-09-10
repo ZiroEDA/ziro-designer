@@ -1,10 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
-import { useEffect, useMemo, useRef, useState, useCallback, lazy, Suspense } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+  lazy,
+  Suspense,
+  type CSSProperties,
+} from 'react';
 import type { LibSymbol } from '@ziroeda/eeschema';
 import { HomePage } from './home/HomePage.js';
 import type { PickedFile } from './editors/schematic/SchematicEditor.js';
+import { EMPTY_PCB } from './home/new_project.js';
 import { ProgressDialog } from './ui/ProgressDialog.js';
 import {
   storageAvailable,
@@ -152,6 +162,84 @@ function prefetchEditors(): () => void {
  * The face is the shell's own, so the beat is a dark frame, not a white flash.
  */
 const frameLoading: JSX.Element = <div className="ze-app" />;
+
+/**
+ * How a frame is kept while another is shown.
+ *
+ * `display: none` was the obvious choice and the wrong one: an element with
+ * no display has no layout, so every reveal laid the whole frame out again
+ * — 240 ms for the board editor on this machine's GPU, with nothing else to
+ * do. `content-visibility: hidden` skips the subtree's layout and paint just
+ * as thoroughly, its contents take no events and are absent from `innerText`
+ * and `checkVisibility()`, but the browser KEEPS the layout it last had, and
+ * the reveal is 30-50 ms. (`visibility: hidden` measured the same on the
+ * reveal but keeps the hidden frames in every layout pass, so it costs while
+ * hidden.) Fixed at the viewport, behind everything, so the wrapper has a
+ * size and no place in flow. Measured with qa/probes/reopen_timeline.mjs.
+ */
+const HIDDEN_FRAME: CSSProperties = {
+  contentVisibility: 'hidden',
+  position: 'fixed',
+  inset: 0,
+  zIndex: -1,
+};
+const frameStyle = (shown: boolean): CSSProperties =>
+  shown ? { display: 'contents' } : HIDDEN_FRAME;
+
+/**
+ * The board a pcbnew frame is built on when the project has none yet: the
+ * empty board `PCB_EDIT_FRAME` itself starts with. It lets the frame exist
+ * before a project does — see `warmFrames` — and is replaced the moment a
+ * project with a board is opened, as any other change of board is.
+ */
+const WARM_BOARD: PickedFile = { name: 'untitled.kicad_pcb', text: EMPTY_PCB };
+
+/**
+ * Build the two big frames before they are asked for.
+ *
+ * With every chunk on disk, a first click on a launcher still paid for the
+ * frame's construction — React's first render of a very large tree, its
+ * layout, the WebGL context and shaders, the toolbar icons and the font
+ * atlas that nothing requests until the frame first paints: 450-650 ms on
+ * this machine's GPU (qa/probes/profile_editor_open.mjs). A second open of
+ * the same frame is 30-50 ms, because the frame exists. So the frames are
+ * made to exist early: mounted here, hidden, while the manager is on screen
+ * and the thread is idle, one per idle slot.
+ *
+ * This is safe only because of two things that were not true before: a
+ * hidden frame does no work (`shown` gates the open in both editors, so the
+ * warm frame does not parse a project behind the manager), and a launcher
+ * click on the open project is a raise, not a re-open (`raiseOrOpen`), so
+ * the frame that was warmed is the one that is shown.
+ *
+ * Idle callbacks with a deadline: a page that is never idle would otherwise
+ * never warm, and two seconds after the manager paints is late enough for
+ * it to have finished its own work.
+ */
+function warmFrames(mount: (v: 'schematic' | 'pcb') => void): () => void {
+  const order: ('schematic' | 'pcb')[] = ['schematic', 'pcb'];
+  const g = globalThis as {
+    requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+    cancelIdleCallback?: (h: number) => void;
+  };
+  const idle = (cb: () => void): number =>
+    g.requestIdleCallback
+      ? g.requestIdleCallback(cb, { timeout: 2000 })
+      : (setTimeout(cb, 500) as unknown as number);
+  const cancel = (h: number): void => {
+    if (g.requestIdleCallback) g.cancelIdleCallback?.(h);
+    else clearTimeout(h);
+  };
+  let handle = 0;
+  let i = 0;
+  const next = (): void => {
+    if (i >= order.length) return;
+    mount(order[i++]!);
+    handle = idle(next);
+  };
+  handle = idle(next);
+  return () => cancel(handle);
+}
 
 const dec = new TextDecoder();
 const enc = new TextEncoder();
@@ -304,11 +392,54 @@ export function App(): JSX.Element {
     setProjectFiles(files);
     setOpenNonce((n) => n + 1);
   }, []);
+  /**
+   * The file set the manager was last handed — the open project with the
+   * session's edits overlaid, exactly as `view === 'home'` builds it below.
+   * What a launcher hands back is this same set, and `raiseOrOpen` recognises
+   * it by comparing against this.
+   */
+  const shownFiles = useRef<PickedFile[] | null>(null);
+  /**
+   * A launcher click on the project that is already open is a RAISE, not an
+   * open.
+   *
+   * In KiCad the manager's "Schematic Editor" button, with eeschema already
+   * running on this project, brings its window to the front
+   * (`KICAD_MANAGER_CONTROL::ShowPlayer`: `frame->Raise()`); nothing is
+   * re-read. Here it did `openProjectFiles` every time: the session's edits
+   * were dropped, `openNonce` moved, and every mounted editor parsed the whole
+   * project again — the schematic reloading its sheets because the *board*
+   * editor was asked for, and the other way round — with the undo history of
+   * each thrown away. That, not the network, is what made an editor feel
+   * slow to open once two of them had been visited, and it is what stands in
+   * the way of building the frames before they are asked for.
+   *
+   * "Already open" is: the set the manager was given is the set it hands back
+   * — same names, same text. Text is compared, not just names, so a file the
+   * manager itself changed (an import over an existing name, a rename) is
+   * still a real open. A different `startFile` is a real open too: the
+   * caller wants a particular sheet, and only the load path takes one.
+   */
+  const raiseOrOpen = useCallback(
+    (files: PickedFile[], start?: string | null): void => {
+      const shown = shownFiles.current;
+      const same =
+        shown !== null &&
+        shown.length === files.length &&
+        (start ?? null) === startFileRef.current &&
+        files.every((f, i) => f.name === shown[i]!.name && f.text === shown[i]!.text);
+      if (same) return;
+      openProjectFiles(files);
+    },
+    [openProjectFiles],
+  );
   // `.kicad_wks` saved into the open project this session (Drawing Sheet Editor
   // → Save to Project). Kept separate from projectFiles so adding one doesn't
   // reload/reset the mounted editors; offered as schematic Page Settings choices.
   const [sessionSheets, setSessionSheets] = useState<PickedFile[]>([]);
   const [startFile, setStartFile] = useState<string | null>(null);
+  const startFileRef = useRef<string | null>(null);
+  startFileRef.current = startFile;
   // The active project's .kicad_pro (full name) when a folder holds more than
   // one project (KiCad's active project). null → the first .kicad_pro. Double-
   // clicking another .kicad_pro switches it, re-scoping every editor's root.
@@ -448,6 +579,8 @@ export function App(): JSX.Element {
     else if (v === 'image') setImgMounted(true);
     else if (v === 'gerber') setGbMounted(true);
   }, []);
+  // The two big frames, built while the manager is up. See `warmFrames`.
+  useEffect(() => (view === 'home' ? warmFrames(mountFor) : undefined), [view, mountFor]);
 
   /**
    * The address for the app's current state.
@@ -1055,6 +1188,8 @@ export function App(): JSX.Element {
     // The active project's board, else any board (single-project projects).
     return boards.find((f) => activeBase && inProject(f.name, activeBase)) ?? boards[0] ?? null;
   }, [projectFiles, standalonePcb, activeBase]);
+  /** What the pcbnew frame is built on: the project's board, else the empty one. */
+  const boardFile: PickedFile = pcbFile ?? WARM_BOARD;
   const hasSchematic = useMemo(
     () => !!projectFiles?.some((f) => /\.kicad_sch$/i.test(f.name)),
     [projectFiles],
@@ -1257,6 +1392,20 @@ export function App(): JSX.Element {
     );
   }
 
+  /**
+   * The manager, when it is the view — rendered BESIDE the frames, not instead
+   * of them.
+   *
+   * This used to `return <HomePage />` and never reach the frames below, so
+   * going home unmounted every editor, and the "kept mounted once used" the
+   * comment on this component promised held only between editors, never across
+   * the manager. Every trip home and back therefore rebuilt the frame and
+   * re-read the project, with the undo history gone — which is what made a
+   * second open slow, and is the thing `raiseOrOpen` above cannot fix from
+   * the outside. In KiCad the manager and the editor windows are all open at
+   * once; the manager's button raises the one that exists.
+   */
+  let manager: JSX.Element | null = null;
   if (view === 'home') {
     // Keep the open project visible in the manager tree on return from an editor,
     // including any .kicad_wks saved into it this session (not yet in projectFiles).
@@ -1274,7 +1423,8 @@ export function App(): JSX.Element {
       base && sessionSheets.length
         ? [...base, ...sessionSheets.filter((s) => !base.some((f) => f.name === s.name))]
         : base;
-    return (
+    shownFiles.current = openFiles;
+    manager = (
       <HomePage
         initialFiles={openFiles}
         activePro={activeProName ?? undefined}
@@ -1297,7 +1447,7 @@ export function App(): JSX.Element {
            handler that opens one, so the address is delivered to it. */
         openDemoRequest={demoRequest}
         onOpenProject={(files, start, demo) => {
-          openProjectFiles(files);
+          raiseOrOpen(files, start);
           setDemoProject(!!demo);
           setDemoSource(demo ?? null);
           setStandalonePcb(null);
@@ -1312,7 +1462,7 @@ export function App(): JSX.Element {
             // the flag here is what stopped pcbnew ever showing the read-only
             // strip: demoNotice went null on the way in, so the bar the board
             // editor renders had nothing to render.
-            openProjectFiles(files);
+            raiseOrOpen(files);
             setStandalonePcb(null);
           } else {
             // A lone .kicad_pcb with no project behind it. Not a demo by
@@ -1332,7 +1482,7 @@ export function App(): JSX.Element {
             // [Read Only] the moment a .kicad_sym was opened from the tree,
             // and with it the gate that stops a demo being edited. The board
             // editor had the same bug; the footprint editor never did.
-            openProjectFiles(files);
+            raiseOrOpen(files);
             setStandalonePcb(null);
           } else {
             // A lone .kicad_sym with no project behind it is not a demo.
@@ -1345,7 +1495,7 @@ export function App(): JSX.Element {
         }}
         onOpenFootprintEditor={(files, startFile) => {
           if (files) {
-            openProjectFiles(files);
+            raiseOrOpen(files);
             setStandalonePcb(null);
           }
           setFpMounted(true);
@@ -1386,9 +1536,10 @@ export function App(): JSX.Element {
 
   return (
     <>
-      <SaveIndicator />
+      {manager}
+      {view !== 'home' && <SaveIndicator />}
       {schMounted && (
-        <div style={{ display: view === 'schematic' ? 'contents' : 'none' }}>
+        <div style={frameStyle(view === 'schematic')}>
           <Suspense fallback={frameLoading}>
             <SchematicEditor
               onExitToHome={goHome}
@@ -1448,6 +1599,7 @@ export function App(): JSX.Element {
               onOutputFile={onOutputFile}
               registerAutosaveFlush={registerSchFlush}
               openNonce={openNonce}
+              shown={view === 'schematic'}
               extraSheetFiles={sessionSheets}
               projectName={projectName}
               readOnlyNotice={demoNotice}
@@ -1460,20 +1612,21 @@ export function App(): JSX.Element {
           </Suspense>
         </div>
       )}
-      {pcbMounted && pcbFile && (
-        <div style={{ display: view === 'pcb' ? 'contents' : 'none' }}>
+      {pcbMounted && (
+        <div style={frameStyle(view === 'pcb')}>
           <Suspense fallback={frameLoading}>
             <PcbEditor
-              fileName={pcbBasename(pcbFile.name)}
-              text={pcbFile.text}
+              fileName={pcbBasename(boardFile.name)}
+              text={boardFile.text}
               onExit={goHome}
               onShowSchematic={hasSchematic ? showSchematic : undefined}
               onShowFootprintEditor={showFootprintEditor}
-              onBoardChange={(text: string) => onProjectChange([{ name: pcbFile.name, text }])}
+              onBoardChange={(text: string) => onProjectChange([{ name: boardFile.name, text }])}
               registerAutosaveFlush={registerPcbFlush}
               openNonce={openNonce}
+              shown={view === 'pcb'}
               onSaveBoard={(text: string) => {
-                const name = pcbFile.name;
+                const name = boardFile.name;
                 setProjectFiles((prev) =>
                   prev ? prev.map((f) => (f.name === name ? { ...f, text } : f)) : prev,
                 );
@@ -1496,7 +1649,7 @@ export function App(): JSX.Element {
         </div>
       )}
       {symMounted && (
-        <div style={{ display: view === 'symbols' ? 'contents' : 'none' }}>
+        <div style={frameStyle(view === 'symbols')}>
           <Suspense fallback={frameLoading}>
             <SymbolEditor
               onExitToHome={goHome}
@@ -1519,7 +1672,7 @@ export function App(): JSX.Element {
         </div>
       )}
       {fpMounted && (
-        <div style={{ display: view === 'footprints' ? 'contents' : 'none' }}>
+        <div style={frameStyle(view === 'footprints')}>
           <Suspense fallback={frameLoading}>
             <FootprintEditor
               onExitToHome={goHome}
@@ -1530,14 +1683,14 @@ export function App(): JSX.Element {
         </div>
       )}
       {calcMounted && (
-        <div style={{ display: view === 'calculator' ? 'contents' : 'none' }}>
+        <div style={frameStyle(view === 'calculator')}>
           <Suspense fallback={frameLoading}>
             <CalculatorTools onExitToHome={goHome} />
           </Suspense>
         </div>
       )}
       {dsMounted && (
-        <div style={{ display: view === 'drawingsheet' ? 'contents' : 'none' }}>
+        <div style={frameStyle(view === 'drawingsheet')}>
           <Suspense fallback={frameLoading}>
             <DrawingSheetEditor
               onExitToHome={goHome}
@@ -1567,14 +1720,14 @@ export function App(): JSX.Element {
         </div>
       )}
       {imgMounted && (
-        <div style={{ display: view === 'image' ? 'contents' : 'none' }}>
+        <div style={frameStyle(view === 'image')}>
           <Suspense fallback={frameLoading}>
             <ImageConverter onExitToHome={goHome} />
           </Suspense>
         </div>
       )}
       {gbMounted && (
-        <div style={{ display: view === 'gerber' ? 'contents' : 'none' }}>
+        <div style={frameStyle(view === 'gerber')}>
           <Suspense fallback={frameLoading}>
             <GerberViewer onExitToHome={goHome} projectName={projectName} openRequest={gbRequest} />
           </Suspense>

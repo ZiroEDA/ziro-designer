@@ -126,8 +126,25 @@ describe('opening a project is an action, not a binding (OpenProjectFiles)', () 
     expect(deps).not.toContain('initialProject');
     // Guarded: the effect still reseeds the raw files and Schematic Setup from
     // the prop, but `loadProject` — which discards the document and the undo
-    // histories — runs only when the host says it opened something.
-    expect(code).toMatch(/if \(opening\) \{[\s\S]*void loadProject\(files/);
+    // histories — runs only when the host says it opened something, and only
+    // while the frame is the one on screen (`shown`): a hidden frame takes the
+    // open when it is next shown, rather than parsing behind the visible one.
+    expect(code).toMatch(
+      /if \(shown && openedKey\.current !== key\) \{[\s\S]*void loadProject\(files/,
+    );
+    expect(deps).toContain('shown');
+  });
+
+  it('a hidden frame does not read the open; it reads it when shown', () => {
+    // pcbnew: the parse is skipped while hidden, and the open it has read is
+    // remembered so being shown again does not read it twice.
+    const { code, deps } = effectAround(PCB, 'readBoard(parse(textRef.current))');
+    expect(deps).toContain('shown');
+    expect(code).toMatch(/if \(!shown\) return;/);
+    expect(code).toMatch(/if \(parsedOpen\.current === open\) return;/);
+    // App says which frame is on screen, to both.
+    expect(element(APP, 'SchematicEditor')).toContain("shown={view === 'schematic'}");
+    expect(element(APP, 'PcbEditor')).toContain("shown={view === 'pcb'}");
   });
 
   it('pcbnew parses the board only on an open, and reads the live text by ref', () => {
@@ -177,5 +194,67 @@ describe('the local write is not on the cloud push’s schedule', () => {
     expect(ms('LOCAL_WRITE_IDLE_MS')).toBeLessThan(ms('CLOUD_PUSH_IDLE_MS'));
     expect(ms('LOCAL_WRITE_IDLE_MS')).toBeLessThanOrEqual(500);
     expect(body(APP, 'onProjectChange')).toContain('setTimeout(writePending, LOCAL_WRITE_IDLE_MS)');
+  });
+});
+
+/**
+ * A launcher click on the open project RAISES the frame; the frames outlive
+ * the manager; and the two big ones are built before they are asked for.
+ *
+ * Measured on this machine's GPU with qa/probes/reopen_timeline.mjs, ecc83:
+ * a reopen went from ~250 ms with a full re-read (and the undo history gone)
+ * to 30-50 ms; a first open from ~600 ms to ~100. Each of the four rules
+ * below is one of the things that makes that true, and each was found by
+ * measuring what happened without it.
+ */
+describe('the manager raises an open project; it does not re-open it', () => {
+  it('a launcher hands the same files back, and that is a raise, not an open', () => {
+    // KICAD_MANAGER_CONTROL::ShowPlayer with the frame already up: Raise().
+    const raise = body(APP, 'raiseOrOpen');
+    // Same set: names AND text, so a file the manager changed is a real open.
+    expect(raise).toMatch(/f\.name === shown\[i\]!\.name && f\.text === shown\[i\]!\.text/);
+    // A different startFile is a real open too.
+    expect(raise).toMatch(/\(start \?\? null\) === startFileRef\.current/);
+    expect(raise).toMatch(/if \(same\) return;\s*openProjectFiles\(files\);/);
+    // The four project launchers go through it; only "no project" opens do not.
+    expect(APP).toMatch(
+      /onOpenProject=\{\(files, start, demo\) => \{\s*raiseOrOpen\(files, start\);/,
+    );
+    expect(APP.match(/raiseOrOpen\(files\);/g)?.length).toBe(3);
+  });
+
+  it('the manager is rendered beside the frames, never instead of them', () => {
+    // `return <HomePage` in the home branch unmounted every editor on every
+    // trip home; that was the whole cost of the second open.
+    expect(APP).not.toMatch(/if \(view === 'home'\) \{[\s\S]*?return \(\s*<HomePage/);
+    expect(APP).toMatch(/manager = \(\s*<HomePage/);
+    expect(APP).toMatch(/<>\s*\{manager\}/);
+  });
+
+  it('a hidden frame keeps its layout: content-visibility, not display:none', () => {
+    // display:none discards layout and the reveal re-lays the frame out —
+    // 240 ms for the board frame on this GPU against 30-50 with this.
+    expect(APP).toMatch(/const HIDDEN_FRAME: CSSProperties = \{\s*contentVisibility: 'hidden'/);
+    expect(APP).not.toMatch(/display: view === '[a-z]+' \? 'contents' : 'none'/);
+    expect(APP.match(/style=\{frameStyle\(view === '[a-z]+'\)\}/g)?.length).toBe(8);
+  });
+
+  it('the schematic and board frames are built while the manager is up', () => {
+    expect(APP).toMatch(
+      /useEffect\(\(\) => \(view === 'home' \? warmFrames\(mountFor\) : undefined\), \[view, mountFor\]\)/,
+    );
+    expect(APP).toMatch(/const order: \('schematic' \| 'pcb'\)\[\] = \['schematic', 'pcb'\]/);
+    // The board frame can exist before a project does: it is born on the
+    // empty board, as PCB_EDIT_FRAME is.
+    expect(APP).toMatch(/const boardFile: PickedFile = pcbFile \?\? WARM_BOARD;/);
+    expect(APP).toMatch(/\{pcbMounted && \(/);
+    expect(APP).not.toMatch(/\{pcbMounted && pcbFile && \(/);
+  });
+
+  it('a no-project open on a frame that held a project is "Create Schematic"', () => {
+    // The frame outlives the manager, so the launcher pressed with nothing
+    // open must not show the last project.
+    const { code } = effectAround(SCH, 'openedKey.current !== key');
+    expect(code).toMatch(/else if \(!first\) void loadText\(EMPTY_SCH\);/);
   });
 });

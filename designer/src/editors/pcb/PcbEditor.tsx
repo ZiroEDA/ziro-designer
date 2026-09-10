@@ -925,6 +925,7 @@ export function PcbEditor({
   onBoardChange,
   registerAutosaveFlush,
   openNonce,
+  shown = true,
   projectName,
   projectFiles,
   rootPro,
@@ -973,6 +974,18 @@ export function PcbEditor({
    * changed identity.
    */
   openNonce?: number;
+  /**
+   * Whether this frame is the one on screen.
+   *
+   * A pcbnew frame that is not shown does not exist in KiCad, so it does no
+   * work. Ours stays mounted behind the other frames, and used to read the
+   * board the moment `openNonce` moved even while hidden — so opening a
+   * project parsed every editor that had ever been visited, on the thread the
+   * visible one was trying to paint with. Hidden, the frame keeps whatever it
+   * has and reads the new board when it is next shown. Defaults to shown, for
+   * a frame that has no host.
+   */
+  shown?: boolean;
   /** Project name shown as "<project>, PCB Editor" in the menu bar. */
   projectName?: string;
   /** The open project's files (name + text), lets the 3D viewer resolve
@@ -2342,6 +2355,8 @@ export function PcbEditor({
   const textRef = useRef(text);
   textRef.current = text;
 
+  /** The open this frame has read: `openNonce` + file, set as the parse begins. */
+  const parsedOpen = useRef<string | null>(null);
   // Parse after the first paint, so the frame — and the progress dialog over
   // it — is on screen before the (synchronous) read blocks the thread.
   useEffect(() => {
@@ -2355,11 +2370,19 @@ export function PcbEditor({
       sceneRef.current = buildBoardScene(emptyBoard);
       requestDrawRef.current();
     }
+    // Not on screen: nothing to do yet. The open is read when the frame is
+    // next shown, which re-runs this with `shown` true — see the prop.
+    if (!shown) return;
+    const open = `${openNonce ?? 0} ${fileName}`;
+    if (parsedOpen.current === open) return;
     // `Loading %s...` (pcb_io_kicad_sexpr.cpp:3144) is the loader's first
     // Report(); the gauge stays at 0 because the parse is one call with no
     // checkpoint() to move it.
     setLoading({ message: `Loading ${fileName}...`, value: 0 });
     const id = setTimeout(() => {
+      // Claimed only once the read actually starts: a frame hidden again
+      // inside these 30 ms cancels the timer, and must read when next shown.
+      parsedOpen.current = open;
       try {
         const b = { ...readBoard(parse(textRef.current)), fileName };
         if (cancelled) return;
@@ -2382,8 +2405,9 @@ export function PcbEditor({
     return () => {
       cancelled = true;
       clearTimeout(id);
+      setLoading(null);
     };
-  }, [openNonce, fileName, emptyBoard]);
+  }, [openNonce, fileName, emptyBoard, shown]);
 
   /**
    * The `.kicad_pro` / `.kicad_dru` content Board Setup is derived from.
