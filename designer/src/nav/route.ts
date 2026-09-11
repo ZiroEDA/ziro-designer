@@ -65,7 +65,18 @@ export type Route =
        */
       child?: ChildFrame;
     }
-  | { kind: 'demo'; id: string }
+  | {
+      kind: 'demo';
+      id: string;
+      /**
+       * The frame open over the demo, and the 3D viewer over the board, the
+       * same segments a project address has: `/demo/<id>/pcb/3d`. Absent is
+       * the manager. A demo used to carry no frame at all, so a reload from
+       * a demo's board editor came back in the manager.
+       */
+      view?: Exclude<ProjectView, 'manager'>;
+      child?: ChildFrame;
+    }
   | { kind: 'tool'; tool: ToolName }
   /**
    * The sign-in wall, whose step is part of the address like every other place
@@ -199,7 +210,17 @@ export function parseRoute(href: string, base = '/'): Route {
   }
 
   if (head === 'demo') {
-    return second && DEMO_ID.test(second) ? { kind: 'demo', id: second } : HOME;
+    if (!second || !DEMO_ID.test(second)) return HOME;
+    if (third === undefined) return { kind: 'demo', id: second };
+    const view = VIEW_SEGMENTS[third];
+    if (!view || view === 'manager') return HOME;
+    if (fourth !== undefined && !(fourth === '3d' && view === 'pcb')) return HOME;
+    return {
+      kind: 'demo',
+      id: second,
+      view,
+      ...(fourth === '3d' ? { child: '3d' as const } : {}),
+    };
   }
 
   const step = AUTH_SEGMENTS[head!];
@@ -230,6 +251,8 @@ export function routeHref(route: Route, base = '/', carry = ''): string {
     if (route.file) params.set('f', route.file);
   } else if (route.kind === 'demo') {
     path = `demo/${route.id}`;
+    if (route.view) path += `/${SEGMENT_FOR_VIEW[route.view]}`;
+    if (route.child) path += `/${route.child}`;
   } else if (route.kind === 'tool') {
     path = route.tool;
   } else if (route.kind === 'auth') {
@@ -257,7 +280,10 @@ export function sameRoute(a: Route, b: Route): boolean {
       (a.child ?? '') === (b.child ?? '')
     );
   }
-  if (a.kind === 'demo' && b.kind === 'demo') return a.id === b.id;
+  if (a.kind === 'demo' && b.kind === 'demo')
+    return (
+      a.id === b.id && (a.view ?? '') === (b.view ?? '') && (a.child ?? '') === (b.child ?? '')
+    );
   if (a.kind === 'tool' && b.kind === 'tool') return a.tool === b.tool;
   if (a.kind === 'auth' && b.kind === 'auth') return a.step === b.step;
   return true;

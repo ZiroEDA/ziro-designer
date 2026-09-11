@@ -56,6 +56,18 @@ describe('reading an address', () => {
     expect(parseRoute(`${AT}/p/${UID}/schematic/3d`)).toEqual(HOME);
     expect(parseRoute(`${AT}/p/${UID}/pcb/nosuch`)).toEqual(HOME);
     expect(parseRoute(`${AT}/demo/ecc83`)).toEqual({ kind: 'demo', id: 'ecc83' });
+    // a demo carries the same frame and child segments a project does
+    expect(parseRoute(`${AT}/demo/ecc83/pcb`)).toEqual({ kind: 'demo', id: 'ecc83', view: 'pcb' });
+    expect(parseRoute(`${AT}/demo/ecc83/pcb/3d`)).toEqual({
+      kind: 'demo',
+      id: 'ecc83',
+      view: 'pcb',
+      child: '3d',
+    });
+    expect(parseRoute(`${AT}/demo/ecc83/schematic/3d`)).toEqual(HOME);
+    expect(parseRoute(`${AT}/demo/ecc83/nosuch`)).toEqual(HOME);
+    // a demo has no project manager page of its own
+    expect(parseRoute(`${AT}/demo/ecc83/manager`)).toEqual(HOME);
     expect(parseRoute(`${AT}/calculator`)).toEqual({ kind: 'tool', tool: 'calculator' });
     expect(parseRoute(`${AT}/drawing-sheet`)).toEqual({ kind: 'tool', tool: 'drawing-sheet' });
   });
@@ -106,6 +118,8 @@ describe('writing an address', () => {
     { kind: 'project', uid: UID, view: 'schematic', file: 'sheets/Power.kicad_sch' },
     { kind: 'project', uid: UID, view: 'pcb', child: '3d' },
     { kind: 'demo', id: 'ecc83' },
+    { kind: 'demo', id: 'ecc83', view: 'schematic' },
+    { kind: 'demo', id: 'ecc83', view: 'pcb', child: '3d' },
     { kind: 'tool', tool: 'calculator' },
     { kind: 'tool', tool: 'image-converter' },
     { kind: 'tool', tool: 'gerber' },

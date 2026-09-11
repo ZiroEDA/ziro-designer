@@ -540,12 +540,12 @@ export function App(): JSX.Element {
    * unchanged prop.
    */
   const [demoRequest, setDemoRequest] = useState<{ id: string; nonce: number } | null>(null);
-  /** The home frame telling us what it opened; see `onDemoStateChange` there. */
-  const onDemoStateChange = useCallback((demo: DemoMeta | null) => {
-    setDemoProject(!!demo);
-    setDemoSource(demo);
-    if (demo) setDemoRoute(demo.id);
-  }, []);
+  /** The frame a `/demo/<id>/<frame>` address named, until its files arrive. */
+  const pendingDemoFrame = useRef<{
+    id: string;
+    view?: 'schematic' | 'pcb' | 'symbols' | 'footprints';
+    child?: '3d';
+  } | null>(null);
   // Fetch the editors in the background while the launcher is on screen, so
   // opening one is not the first time its code is asked for.
   useEffect(() => prefetchEditors(), []);
@@ -632,6 +632,30 @@ export function App(): JSX.Element {
   }, []);
   // The two big frames, built while the manager is up. See `warmFrames`.
   useEffect(() => (view === 'home' ? warmFrames(mountFor) : undefined), [view, mountFor]);
+  /** Raise the frame a demo address names over the demo now open. */
+  const applyDemoFrame = useCallback(
+    (v: 'schematic' | 'pcb' | 'symbols' | 'footprints' | undefined, child: '3d' | undefined) => {
+      const target = v ?? 'home';
+      mountFor(target);
+      setView(target);
+      setPcb3dOpen(v === 'pcb' && child === '3d');
+    },
+    [mountFor],
+  );
+  /** The home frame telling us what it opened; see `onDemoStateChange` there. */
+  const onDemoStateChange = useCallback(
+    (demo: DemoMeta | null) => {
+      setDemoProject(!!demo);
+      setDemoSource(demo);
+      if (demo) setDemoRoute(demo.id);
+      const pending = pendingDemoFrame.current;
+      if (demo && pending && pending.id === demo.id) {
+        pendingDemoFrame.current = null;
+        applyDemoFrame(pending.view, pending.child);
+      }
+    },
+    [applyDemoFrame],
+  );
 
   /**
    * The address for the app's current state.
@@ -645,17 +669,24 @@ export function App(): JSX.Element {
     if (view === 'drawingsheet') return { kind: 'tool', tool: 'drawing-sheet' };
     if (view === 'image') return { kind: 'tool', tool: 'image-converter' };
     if (view === 'gerber') return { kind: 'tool', tool: 'gerber' };
-    if (!openUid) {
-      // A demo is not a project of the account: it is never written to the
-      // store, so it has no uid for `/p/<uid>` to name. `/demo/<id>` is its
-      // address, and it has to be written for the same reason the project's is
-      // -- without it a reload of an open demo lands on the home screen.
-      return demoRoute ? { kind: 'demo', id: demoRoute } : { kind: 'home' };
-    }
     const pv: ProjectView =
       view === 'schematic' || view === 'pcb' || view === 'symbols' || view === 'footprints'
         ? view
         : 'manager';
+    if (!openUid) {
+      // A demo is not a project of the account: it is never written to the
+      // store, so it has no uid for `/p/<uid>` to name. `/demo/<id>` is its
+      // address, and it has to be written for the same reason the project's is
+      // -- without it a reload of an open demo lands on the home screen. The
+      // frame and the 3D viewer ride on it as they do on a project's.
+      if (!demoRoute) return { kind: 'home' };
+      return {
+        kind: 'demo',
+        id: demoRoute,
+        ...(pv !== 'manager' ? { view: pv } : {}),
+        ...(pv === 'pcb' && pcb3dOpen ? { child: '3d' as const } : {}),
+      };
+    }
     // Per frame. One shared `startFile` went into the address whatever was on
     // screen, so walking from a sheet to the board wrote `?f=Amp.kicad_sch` on
     // the board's address -- a file pcbnew does not open.
@@ -781,17 +812,23 @@ export function App(): JSX.Element {
         // rewrite it to `/` during the download.
         if (route.kind === 'demo') {
           setDemoRoute(route.id);
-          // A demo is open in the MANAGER -- `/demo/<id>` names no frame, and
-          // opening one is `ingest` into the manager's own state. The project
-          // that was open is not this address, so it goes, exactly as `/` makes
-          // it go: leaving its uid set would have the mirror push `/p/<uid>`
-          // straight back over the address just applied.
+          // A demo is opened by the MANAGER -- `ingest` into its own state --
+          // so this is a request to it. The project that was open is not this
+          // address, so it goes, exactly as `/` makes it go: leaving its uid
+          // set would have the mirror push `/p/<uid>` straight back over the
+          // address just applied.
           setOpenUid(null);
           setStartFile(null);
-          setView('home');
+          const frame = { view: route.view, child: route.child };
           if (demoSource?.id !== route.id) {
+            // The frame the address names waits for the files; the manager
+            // reports them through onDemoStateChange, which applies it.
+            setView('home');
+            pendingDemoFrame.current = { id: route.id, ...frame };
             openProjectFiles(null);
             setDemoRequest((prev) => ({ id: route.id, nonce: (prev?.nonce ?? 0) + 1 }));
+          } else {
+            applyDemoFrame(frame.view, frame.child);
           }
           return;
         }
