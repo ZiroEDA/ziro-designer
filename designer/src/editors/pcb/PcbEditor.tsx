@@ -73,6 +73,7 @@ import { useStatusReadout } from '../../ui/useStatusReadout.js';
 const PCB_LOCAL_ORIGIN = { x: 0, y: 0 };
 import { drawRulerItem, rulerEnd } from '../../ui/ruler_item.js';
 import { boardToolCursor } from './cursors.js';
+import { pickerSnapsToGridOnly } from './picker_snap.js';
 import {
   groupBoxSegments,
   groupLabelAnchor,
@@ -1517,6 +1518,8 @@ export function PcbEditor({
     // nothing in `PCB_SELECTION_TOOL`'s motion path calls `BestSnapAnchor`,
     // while the drawing, placement, picker and move tools all do.
     if (!isClickTool(activeToolRef.current)) return snapToGrid(w);
+    // The pickers that `SetSnapping( false )` — see `picker_snap.ts`.
+    if (pickerSnapsToGridOnly(activeToolRef.current)) return snapToGrid(w);
 
     const brd = boardRef.current;
 
@@ -3896,8 +3899,13 @@ export function PcbEditor({
     }
     // Crosshair cursor (GAL::blitCursor): the LAYER_CURSOR cross at the
     // grid-snapped cursor, drawn topmost, by the shared painter.
+    // Every picker draws it too: `PCB_PICKER_TOOL::Main`'s `setCursor` is
+    // `SetCurrentCursor( m_cursor )` AND `controls->ShowCursor( true )`
+    // (`pcb_picker_tool.cpp:22-27`), so the local ratsnest tool shows the
+    // bullseye pointer and the crosshair together. This pass used to skip
+    // that one tool.
     const cur = cursorRef.current;
-    if (cur && activeToolRef.current !== 'localRatsnestTool') {
+    if (cur) {
       const snapped = forcedCursorRef.current ?? cursorSnapRef.current(cur);
       drawCrosshair(
         ctx,
@@ -10624,9 +10632,9 @@ export function PcbEditor({
                 // your hand and one that feels dragged through mud, and no amount
                 // of renderer work reaches it.
                 //
-                // Picker tools keep `crosshair`: KICURSOR::BULLSEYE resolves to
-                // the stock wxCURSOR_BULLSEYE on GTK (IsStockCursorOk), the
-                // system crosshair, which is what CSS `crosshair` is too.
+                // The local ratsnest picker's KICURSOR::BULLSEYE is the stock
+                // wxCURSOR_BULLSEYE on GTK (IsStockCursorOk) — GDK_TARGET, which
+                // `ui/kicursors.ts` vendors as measured, not CSS `crosshair`.
                 //
                 // The two tools that DO name a cursor name KiCad's own art,
                 // through the one CURSOR_STORE: `ZOOM_TOOL::Main` sets
