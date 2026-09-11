@@ -79,6 +79,49 @@ import { mapLimit } from '../map_limit.js';
  */
 const ENCRYPT_CONCURRENCY = 4;
 
+/**
+ * How many storage requests -- stats, existence checks -- are in flight at once.
+ *
+ * Bounds REQUESTS, not memory, which is why it is separate from
+ * ENCRYPT_CONCURRENCY even though they currently agree. A project's blobs were
+ * all stat'ed in one `Promise.all` after upload, and against a small Postgres
+ * that burst came back as
+ *
+ *   stat <path>: The connection to the database timed out
+ *
+ * Storage metadata is a database like any other, and asking it a hundred
+ * questions at once is how it stops answering.
+ */
+const STORAGE_CONCURRENCY = 4;
+
+/**
+ * Retry one storage read that failed for a reason worth trying again.
+ *
+ * The commit-verify is the last thing standing between an upload and a row
+ * that names it, so a transient failure there throws away a whole push --
+ * including every byte just uploaded. Observed against a free-tier project as
+ *
+ *   stat <path>: The connection to the database timed out
+ *
+ * Everything is retried rather than only recognised messages: this wraps a
+ * read with no side effect, so the cost of retrying something permanent is two
+ * extra calls and a second of delay, while the cost of not retrying something
+ * transient is the entire push. The error that escapes is the last one, so a
+ * genuine failure still reports itself.
+ */
+async function retrying<T>(run: () => Promise<T>, attempts = 3): Promise<T> {
+  let last: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await run();
+    } catch (e) {
+      last = e;
+      if (i < attempts - 1) await new Promise((r) => setTimeout(r, 250 * 2 ** i));
+    }
+  }
+  throw last;
+}
+
 let backend: CloudBackend | null = null;
 
 /**
@@ -443,8 +486,12 @@ export async function cloudMissingObjects(
   // reported missing merely because it predates the sharded layout would be a
   // loss this app then "repairs" by overwriting the cloud, so both are checked.
   const present = isManifestEntry(files[0]!)
-    ? await Promise.all((files as ManifestEntry[]).map((f) => blobExists(be, userId, f.hash)))
-    : await Promise.all(files.map((f) => be.hasObject(legacyPath(userId, row.id, f.name))));
+    ? await mapLimit(files as ManifestEntry[], STORAGE_CONCURRENCY, (f) =>
+        blobExists(be, userId, f.hash),
+      )
+    : await mapLimit(files, STORAGE_CONCURRENCY, (f) =>
+        be.hasObject(legacyPath(userId, row.id, f.name)),
+      );
   // The row's own name, so a report can say which project rather than which
   // key — and its version, which a repair has to name as the thing it replaces.
   return {
@@ -529,7 +576,9 @@ export async function restoreFromHistory(
     // the account, so their surviving blobs are the most likely to be sitting
     // at the pre-split path; asking only about the new one would find nothing
     // and declare exactly those unrecoverable.
-    const present = await Promise.all(entries.map((f) => blobExists(be, userId, f.hash)));
+    const present = await mapLimit(entries, STORAGE_CONCURRENCY, (f) =>
+      blobExists(be, userId, f.hash),
+    );
     if (!present.every(Boolean)) continue;
 
     const row = await be.getProject(id, uid);
@@ -832,8 +881,8 @@ async function commitEncrypted(
   // Commit-verify, as the plaintext path does: a store that accepted an
   // upload and dropped it must not be pointed at by a row.
   const missing = (
-    await Promise.all(
-      uploaded.map(async (e) => ((await be.hasObject(blobPath(owner, e.blobId))) ? null : e.name)),
+    await mapLimit(uploaded, STORAGE_CONCURRENCY, async (e) =>
+      (await retrying(() => be.hasObject(blobPath(owner, e.blobId)))) ? null : e.name,
     )
   ).filter((n): n is string => n !== null);
   if (missing.length > 0) {
