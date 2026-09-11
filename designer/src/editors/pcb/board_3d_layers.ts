@@ -84,8 +84,9 @@ import {
 } from '@ziroeda/pcbnew/src/layer_ids.js';
 import { boardOutlineLoops, type Box } from './boardOutline.js';
 
-/** The PCB_LAYER_IDs the 3D viewer builds (`techLayerList` minus the user ones). */
+/** The PCB_LAYER_IDs the 3D viewer builds (`techLayerList`). */
 export type Layer3d =
+  | `User.${number}`
   | 'F.Cu'
   | 'B.Cu'
   | 'F.Mask'
@@ -116,10 +117,18 @@ export const LAYERS_3D: readonly Layer3d[] = [
   'Cmts.User',
   'Eco1.User',
   'Eco2.User',
+  // User_1 .. User_45 (LAYER_3D_USER_1 .. LAYER_3D_USER_45)
+  ...Array.from({ length: 45 }, (_, i) => `User.${i + 1}` as const),
 ];
 
+/** `User.N`'s index, 1..45, or 0 for any other layer. */
+export const userLayerIndex = (l: string): number => {
+  const m = /^User\.(\d+)$/.exec(l);
+  return m ? Number(m[1]) : 0;
+};
+
 /** The PCB_LAYER_ID of each 3D layer (layer_ids.h). */
-const LAYER_ID: Record<Layer3d, number> = {
+const NAMED_LAYER_ID: Record<string, number> = {
   'F.Cu': F_Cu,
   'B.Cu': B_Cu,
   'F.Mask': F_Mask,
@@ -134,6 +143,11 @@ const LAYER_ID: Record<Layer3d, number> = {
   'Cmts.User': Cmts_User,
   'Eco1.User': Eco1_User,
   'Eco2.User': Eco2_User,
+};
+/** `Map3DLayerToPCBLayer`: User_N is `User_1 + 2(N − 1)` — the odd ids after Rescue. */
+const layerId = (l: Layer3d): number => {
+  const u = userLayerIndex(l);
+  return u ? User_1 + 2 * (u - 1) : NAMED_LAYER_ID[l]!;
 };
 
 /**
@@ -612,7 +626,7 @@ export function buildBoard3dLayers(
   // the preset must show it.
   const enabledNames = new Set(board.layers.map((l) => l.name));
   const visible = (layer: Layer3d): boolean =>
-    enabledNames.has(layer) && (!opts.visibleLayers || opts.visibleLayers.has(LAYER_ID[layer]));
+    enabledNames.has(layer) && (!opts.visibleLayers || opts.visibleLayers.has(layerId(layer)));
   for (const layer of LAYERS_3D) {
     if (!visible(layer)) continue;
     const raw = items[layer];

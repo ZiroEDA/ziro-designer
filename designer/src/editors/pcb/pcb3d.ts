@@ -51,6 +51,7 @@ import type { StackupColors } from './board_adapter_colors.js';
 import {
   buildBoard3dLayers,
   plotLayerSelection,
+  userLayerIndex,
   type Layer3d,
   type Layer3dOptions,
 } from './board_3d_layers.js';
@@ -291,6 +292,8 @@ function initAdapter(board: Board, bbox: BBox, footprintHolder: boolean): Adapte
     'Eco2.User',
     'Edge.Cuts',
     'Margin',
+    // User_1..45 are not back layers, so `default:` puts them on the front
+    ...Array.from({ length: 45 }, (_, i) => `User.${i + 1}`),
   ]) {
     a.zBot[name] = zposCopperTopFront + 2.0 * zposOffset;
     a.zTop[name] = a.zBot[name]! + a.nonCopperLayerThickness3DU;
@@ -709,7 +712,15 @@ export function mount3DViewer(
         return plasticMaterial([colors.eco1.r, colors.eco1.g, colors.eco1.b]);
       case 'Eco2.User':
         return plasticMaterial([colors.eco2.r, colors.eco2.g, colors.eco2.b]);
-      default:
+      default: {
+        // User_1..45: `m_UserDefinedLayerColor[ idx ]`, the theme's
+        // `3d_viewer.user_N`, whose default is the board editor's User_N colour.
+        const u = userLayerIndex(layer);
+        if (u) {
+          const c =
+            (BUILTIN_DEFAULT_THEME as Record<string, Color4d>)[`User_${u}`] ?? COLOR4D_UNSPECIFIED;
+          return plasticMaterial([c.r, c.g, c.b]);
+        }
         // F/B.Adhes: `GetLayerColor( aLayerID )` — the board editor's colour
         // for the layer; the 3D viewer has no default of its own for it.
         return plasticMaterial([
@@ -717,6 +728,7 @@ export function mount3DViewer(
           colors.userDrawings.g,
           colors.userDrawings.b,
         ]);
+      }
     }
   };
 
