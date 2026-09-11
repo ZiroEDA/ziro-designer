@@ -21,6 +21,7 @@ import {
   base64ToBytes,
   bytesToBase64,
   createProjectKey as newProjectKey,
+  ab,
   decryptSecret,
   encryptSecret,
   seal,
@@ -133,7 +134,10 @@ export async function ensureProjectKeyFor(
   projectUid: string,
 ): Promise<{ key: Uint8Array; unsaved: boolean }> {
   const existing = await projectKeyFor(backend, userId, projectUid);
-  if (existing) return { key: existing, unsaved: false };
+  if (existing) {
+    console.info(`key ${projectUid.slice(0, 8)}: reusing ${await fingerprint(existing)}`);
+    return { key: existing, unsaved: false };
+  }
   // Both checks stay here rather than moving to the save: a locked account or
   // a backend that cannot hold keys must fail before anything is encrypted
   // under a key that could never be stored.
@@ -141,7 +145,19 @@ export async function ensureProjectKeyFor(
   if (!backend.putProjectKey) throw new Error('this backend cannot hold project keys');
   const key = newProjectKey();
   projectKeys.set(projectUid, key);
+  console.info(`key ${projectUid.slice(0, 8)}: MINTED ${await fingerprint(key)}`);
   return { key, unsaved: true };
+}
+
+/**
+ * A short, non-reversible tag for a key, so logs can say whether two runs used
+ * the same one without ever printing the key.
+ */
+async function fingerprint(key: Uint8Array): Promise<string> {
+  const d = new Uint8Array(await crypto.subtle.digest('SHA-256', ab(key)));
+  return Array.from(d.slice(0, 4))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 /** Write the row for a key {@link ensureProjectKeyFor} has already minted. */

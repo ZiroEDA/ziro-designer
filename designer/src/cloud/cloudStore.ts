@@ -69,7 +69,7 @@ import {
 import { bytesToBase64, createProjectKey, encryptSecret } from './crypto.js';
 import { syncUserTemplates, type TemplateSyncResult } from './templateSync.js';
 import { mapLimit } from '../map_limit.js';
-import { isToolingDir } from '../home/project_picker.js';
+import { isToolingPath } from '../home/project_picker.js';
 
 /**
  * How many of a project's files are encrypted and uploaded at once.
@@ -78,9 +78,6 @@ import { isToolingDir } from '../home/project_picker.js';
  * uploads overlapping -- the network is still the slow part -- while capping
  * what is resident at four files rather than all of them.
  */
-/** Whether any directory on this path is tooling's rather than the project's. */
-const isToolingPath = (name: string): boolean => name.split('/').slice(0, -1).some(isToolingDir);
-
 const ENCRYPT_CONCURRENCY = 4;
 
 /**
@@ -886,7 +883,9 @@ async function commitEncrypted(
   }
 
   const step = (what: string): void => console.info(`push "${p.name}": ${what}`);
-  step(`${manifest.length} file(s) in the manifest`);
+  step(
+    `${manifest.length} file(s) in the manifest, base ${base}, ${keyUnsaved ? 'fresh key' : 'stored key'}`,
+  );
   const uploaded: EncFileEntry[] = [];
   // Bounded, not `Promise.all`. Each file in flight is held three times over:
   // the base64 the local store keeps, the bytes it decodes to, and the

@@ -28,6 +28,7 @@ import {
 } from './storageHealth.js';
 import { withRecordLock } from './record_lock.js';
 import { sha256Hex } from '../cloud/blobStore.js';
+import { isToolingPath } from './project_picker.js';
 import { gunzip, gzip } from './gzip.js';
 import { idbHandle } from './idb_open.js';
 import { isSealed, openRecord, sealRecord, type SealedRecord } from './local_vault.js';
@@ -1500,11 +1501,18 @@ async function divergedFrom(r: StoredRecord): Promise<boolean> {
   const agreed = r.syncedHashes ?? r.pushedHashes;
   if (!agreed) return false; // never synced: nothing to have diverged from
   const then = new Set(agreed);
-  if (r.files.length !== then.size) return true;
+  // Compared against what a push actually sends, which excludes tooling
+  // directories (cloudUpsert, and `isToolingPath` for why). A record imported
+  // before those were filtered still lists them -- one held 262 files where the
+  // project is 32 -- so counting them here made every such project look edited
+  // on every load, and it pushed itself forever. The two rules have to be the
+  // same rule.
+  const mine = r.files.filter((f) => !isToolingPath(f.name));
+  if (mine.length !== then.size) return true;
   // A file written before hashes were recorded has none, so it is hashed here
   // rather than counted as a difference. Treating "unknown" as "changed" would
   // fork every legacy record once, which is the failure mode being removed.
-  for (const f of r.files) {
+  for (const f of mine) {
     const h = f.hash ?? (await sha256Hex(f.gz));
     if (!then.has(h)) return true;
   }

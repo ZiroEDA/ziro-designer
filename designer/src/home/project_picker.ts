@@ -43,6 +43,20 @@ export const MAX_WALK_DEPTH = 6;
  */
 export const isToolingDir = (name: string): boolean => name.startsWith('.');
 
+/**
+ * Whether any directory on this path is tooling's rather than the project's.
+ *
+ * The path form of {@link isToolingDir}, for the two places that see a file by
+ * name rather than by handle: what a push sends, and what counts as a local
+ * change. Those two MUST agree. They did not, briefly, and the result was a
+ * project that pushed on every single load forever -- the push filtered these
+ * out, the divergence check counted them in, so the record's file count never
+ * matched the hashes the last push recorded and the project looked edited every
+ * time.
+ */
+export const isToolingPath = (name: string): boolean =>
+  name.split('/').slice(0, -1).some(isToolingDir);
+
 // --- File System Access API (directory picker) ------------------------------
 
 export interface DirHandle {

@@ -145,6 +145,29 @@ describe('the incident, replayed', () => {
     expect(new TextDecoder().decode(local!.files[0]!.bytes)).toBe('(kicad_sch (version 20250114))');
   });
 
+  it('stops pushing once a project with tooling files has synced', async () => {
+    // What a push sends and what counts as a local change must be the same
+    // set. They were not: the push filtered .git and .history out, the
+    // divergence check counted them in, so the record's file count never
+    // matched the hashes the push recorded. One real project pushed itself on
+    // every load, versions 6 through 11, with nothing edited.
+    const id = await saveProject('Amp', [
+      { name: 'amp.kicad_sch', bytes: text('(kicad_sch)') },
+      { name: '.git/HEAD', bytes: text('ref: refs/heads/main') },
+      { name: '.history/amp-20260101.kicad_sch', bytes: text('(old)') },
+    ]);
+
+    const first = await syncAllProjects(USER);
+    expect(first.failures.some((f) => f.id === id)).toBe(false);
+    expect(backend.rows.get(id)!.files).toHaveLength(1);
+    const landed = backend.rows.get(id)!.version;
+
+    // Nothing touched in between: the second pass must find nothing to do.
+    const second = await syncAllProjects(USER);
+    expect(second.failures.some((f) => f.id === id)).toBe(false);
+    expect(backend.rows.get(id)!.version).toBe(landed);
+  });
+
   it('re-creates a row that has vanished, instead of reporting success for nothing', async () => {
     // A local copy remembers the version it last agreed with, and nothing
     // rewrites that when the cloud row goes away -- deleted from another
