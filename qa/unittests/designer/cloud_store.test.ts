@@ -88,7 +88,14 @@ function fake(): Fake {
       const cur = f.rows.get(row.id);
       // The rule the RPC enforces: base 0 asserts the row is new, any other
       // base asserts the row is still exactly at that version.
-      if (base <= 0 ? cur !== undefined : (cur?.version ?? 1) !== base) return null;
+      // Mirrors commit_project (20260904121000_project_membership.sql:416-439):
+      // base 0 INSERTs and is null when a row already exists; base > 0 UPDATEs
+      // `where version = p_base` and is null when nothing matches -- including
+      // when the row is GONE. The old `cur?.version ?? 1` treated a missing row
+      // as version 1, so "update at base 1" succeeded against an empty cloud,
+      // which is the one case that mattered: a local copy remembering a version
+      // whose row has been deleted.
+      if (base <= 0 ? cur !== undefined : cur === undefined || cur.version !== base) return null;
       const version = base <= 0 ? 1 : base + 1;
       f.rows.set(row.id, { ...row, version });
       return version;

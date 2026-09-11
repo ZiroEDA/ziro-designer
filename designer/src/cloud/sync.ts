@@ -327,7 +327,16 @@ export async function syncAllProjects(
     // Local only: a project made on this machine, or one the cloud has never
     // seen. Pushed as base 0, which asserts no such row exists.
     if (!there) {
-      track(here.id, 'push', () => pushFallingBackToPull(userId, ref));
+      // Base 0, and not the record's `baseVersion`: this branch IS the finding
+      // that the cloud has no such row, so the version this copy once came from
+      // describes a row that is gone. Passing it asks the compare-and-swap to
+      // update something absent, which refuses, and the refusal used to be read
+      // as staleness and answered with a pull of nothing.
+      //
+      // Rows do disappear: deleted from another device, or from the database
+      // directly. The local record still remembers the version it last agreed
+      // with, and nothing rewrites that when the row goes.
+      track(here.id, 'push', () => pushFallingBackToPull(userId, ref, 0));
     } else if (here.baseVersion === there.version) {
       // Up to date with the cloud. Push only if this side actually changed --
       // and "changed" is the file hashes, so opening a project does not qualify
@@ -408,11 +417,19 @@ export async function syncAllProjects(
  * has changed. Reporting it as a failed push would put a red banner in front of
  * the user for something the next line of code can settle correctly.
  */
-async function pushFallingBackToPull(userId: string, ref: ProjectRef): Promise<Outcome> {
+async function pushFallingBackToPull(
+  userId: string,
+  ref: ProjectRef,
+  base?: number,
+): Promise<Outcome> {
   try {
-    return await pushOne(userId, ref.localId);
+    return await pushOne(userId, ref.localId, base);
   } catch (e) {
     if (!(e instanceof StaleBaseError)) throw e;
+    // Base 0 is refused when a row of that id DOES exist, which is what it
+    // asserts against -- an imported copy carries the id of the row it came
+    // from, and must not overwrite it. So this stays a pull rather than a
+    // failure, which is the case it was written for.
     return pullOne(userId, ref);
   }
 }

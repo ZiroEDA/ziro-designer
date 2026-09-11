@@ -55,7 +55,14 @@ function fake(): CloudBackend & {
     async commitProject(row: ProjectRow & { user_id: string }, base: number) {
       if (row.id === f.failCommitFor) throw new Error('commit refused');
       const cur = f.rows.get(row.id);
-      if (base <= 0 ? cur !== undefined : (cur?.version ?? 1) !== base) return null;
+      // Mirrors commit_project (20260904121000_project_membership.sql:416-439):
+      // base 0 INSERTs and is null when a row already exists; base > 0 UPDATEs
+      // `where version = p_base` and is null when nothing matches -- including
+      // when the row is GONE. The old `cur?.version ?? 1` treated a missing row
+      // as version 1, so "update at base 1" succeeded against an empty cloud,
+      // which is the one case that mattered: a local copy remembering a version
+      // whose row has been deleted.
+      if (base <= 0 ? cur !== undefined : cur === undefined || cur.version !== base) return null;
       const version = base <= 0 ? 1 : base + 1;
       f.rows.set(row.id, { ...row, version });
       return version;
@@ -136,6 +143,33 @@ describe('the incident, replayed', () => {
     // ...and the local copy still has its contents.
     const local = await loadProject(id);
     expect(new TextDecoder().decode(local!.files[0]!.bytes)).toBe('(kicad_sch (version 20250114))');
+  });
+
+  it('re-creates a row that has vanished, instead of reporting success for nothing', async () => {
+    // A local copy remembers the version it last agreed with, and nothing
+    // rewrites that when the cloud row goes away -- deleted from another
+    // device, or straight out of the database. The push then asked the
+    // compare-and-swap to update a row that is not there; it refused; and the
+    // refusal was read as staleness and answered by pulling, which found
+    // nothing and reported success.
+    //
+    // Observed against a real project: five of them "synced" in under a second
+    // on every reload, with an empty cloud and nothing ever committed.
+    const id = await saveProject('Amp', [{ name: 'amp.kicad_sch', bytes: text('(kicad_sch)') }]);
+    await cloudUpsert(USER, (await exportProject(id))!);
+    await markSynced(id, undefined, 1);
+    expect(backend.rows.has(id)).toBe(true);
+
+    // The row disappears; the local record still believes it is at version 1.
+    backend.rows.delete(id);
+
+    const result = await syncAllProjects(USER);
+
+    // Scoped to this project: earlier tests in this file leave records behind,
+    // and the question here is whether THIS row came back.
+    expect(result.failures.some((f) => f.id === id)).toBe(false);
+    expect(backend.rows.has(id)).toBe(true);
+    expect(backend.rows.get(id)!.files).toHaveLength(1);
   });
 
   it('one project failing does not abandon the others', async () => {

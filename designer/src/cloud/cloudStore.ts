@@ -885,6 +885,8 @@ async function commitEncrypted(
     }
   }
 
+  const step = (what: string): void => console.info(`push "${p.name}": ${what}`);
+  step(`${manifest.length} file(s) in the manifest`);
   const uploaded: EncFileEntry[] = [];
   // Bounded, not `Promise.all`. Each file in flight is held three times over:
   // the base64 the local store keeps, the bytes it decodes to, and the
@@ -941,6 +943,7 @@ async function commitEncrypted(
     );
   }
 
+  step(`${uploaded.length} uploaded, ${entries.length - uploaded.length} reused; verifying`);
   // Commit-verify, as the plaintext path does: a store that accepted an
   // upload and dropped it must not be pointed at by a row.
   const missing = (
@@ -966,6 +969,7 @@ async function commitEncrypted(
     files: entries.map((e) => ({ name: '', hash: e.blobId, size: e.encSize })),
     enc_meta: await sealMeta(key, { v: 1, name: p.name, files: entries }),
   };
+  step('verified; committing');
   const version = await be.commitProject(row, base);
   if (version === null) throw new StaleBaseError(p.id);
 
@@ -975,6 +979,7 @@ async function commitEncrypted(
   // opens on this tab, where the key is still cached, and nowhere else ever
   // again. Failing the push says so while the key can still be saved by a
   // retry, which reuses the cached key rather than minting a second one.
+  step(`committed as version ${version}; saving key`);
   if (keyUnsaved) await saveProjectKeyFor(be, me, uid);
 
   try {
@@ -982,6 +987,7 @@ async function commitEncrypted(
   } catch (e) {
     console.warn(`project history not recorded for "${p.name}":`, e);
   }
+  step('done');
   return { manifest, version, uid };
 }
 
