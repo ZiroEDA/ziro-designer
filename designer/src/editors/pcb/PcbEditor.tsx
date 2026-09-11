@@ -1724,10 +1724,13 @@ export function PcbEditor({
   const selectModeRef = useRef('selectSetRect');
   if (isSelectTool(activeTool)) selectModeRef.current = activeTool;
   activeToolRef.current = activeTool;
-  // Leaving the local ratsnest tool clears the forced-on set, like upstream.
-  useEffect(() => {
-    if (activeTool !== 'localRatsnestTool') setLocalRats(new Set());
-  }, [activeTool]);
+  // The local ratsnest overrides outlive the tool. `LocalRatsnestTool`'s
+  // finalize handler (board_inspection_tool.cpp:2354-2365) resets every pad
+  // to the global setting only `if( aCondition != END_ACTIVATE )` — Esc
+  // clears them, arming another tool keeps them, which is the manual's
+  // "remain in effect even after the local ratsnest tool is no longer
+  // active". The Esc branch below does the clearing; this effect used to
+  // clear on ANY tool change, so switching to the router lost them.
   // In-flight graphic shape (DRAWING_TOOL): the points clicked so far.
   const drawingRef = useRef<{ x: number; y: number }[]>([]);
   /**
@@ -8859,15 +8862,25 @@ export function PcbEditor({
             }
           }
         } else if (activeToolRef.current === 'localRatsnestTool') {
-          // BOARD_INSPECTION_TOOL::LocalRatsnestTool: try a PAD under the
-          // cursor first (PadFilter), then a FOOTPRINT; clicking empty space
-          // clears every local override back to the global ratsnest setting.
+          // BOARD_INSPECTION_TOOL::LocalRatsnestTool's click handler
+          // (board_inspection_tool.cpp:2299-2351): `selectionClear`, then
+          // `selectionCursor` with `EDIT_TOOL::PadFilter`, and with
+          // `FootprintFilter` if that found nothing. The hit is SELECTED, not
+          // merely toggled — that selection is the highlight KiCad shows on
+          // the clicked part, and ours never made one. Clicking empty space
+          // leaves the selection empty and puts every pad back to the global
+          // ratsnest setting.
           const w = worldAt(e.clientX, e.clientY);
           const brd = boardRef.current;
           if (w && brd) {
-            const refs = boardHitCandidates(brd, w, tolOf()).map((id) => parseBoardItemId(id));
-            const padHit2 = refs.find((r) => r?.kind === 'pad');
-            const fpHit = refs.find((r) => r?.kind === 'footprint');
+            const ids = boardHitCandidates(brd, w, tolOf());
+            const refs = ids.map((id) => parseBoardItemId(id));
+            const padAt = refs.findIndex((r) => r?.kind === 'pad');
+            const fpAt = refs.findIndex((r) => r?.kind === 'footprint');
+            const padHit2 = padAt >= 0 ? refs[padAt] : undefined;
+            const fpHit = padAt < 0 && fpAt >= 0 ? refs[fpAt] : undefined;
+            const picked = padAt >= 0 ? ids[padAt] : fpAt >= 0 ? ids[fpAt] : undefined;
+            setSelection(picked ? new Set([picked]) : new Set());
             setLocalRats((prev) => {
               const next = new Set(prev);
               if (padHit2) {
@@ -9184,6 +9197,10 @@ export function PcbEditor({
         } else if (!isSelectTool(activeToolRef.current)) {
           // Esc in a tool returns to the selection tool (TOOL_MANAGER), in
           // whichever mode it was left in.
+          // `PCB_PICKER_TOOL::Main`: `IsCancelInteractive()` is EVT_CANCEL,
+          // and the ratsnest picker's finalize handler resets every pad's
+          // local override on anything but END_ACTIVATE.
+          if (activeToolRef.current === 'localRatsnestTool') setLocalRats(new Set());
           setActiveTool(selectModeRef.current);
         } else {
           setShow3D(false);
