@@ -20,6 +20,7 @@ import type { SchSheet, SheetInstance, Schematic } from '../types.js';
 import type { EditCommand } from './command.js';
 import { str } from '@ziroeda/sexpr';
 import type { SList } from '@ziroeda/sexpr';
+import { strNumCmp } from '@ziroeda/common';
 
 /**
  * The instance key for the sheet identified by `chain` (the sheet-symbol uuids
@@ -54,9 +55,12 @@ export function getRootPageNumber(doc: Schematic, path = '/'): string {
 
 /**
  * Order two page numbers the way the hierarchy tree sorts siblings
- * (SCH_SHEET::ComparePageNum): numeric pages compare by value, a numeric page
- * always sorts before a non-numeric one (including an unset ''), and two
- * non-numeric pages fall back to a natural string compare.
+ * (SCH_SHEET::ComparePageNum, sch_sheet.cpp:1743): numeric pages compare by
+ * value, a numeric page always sorts before a non-numeric one (including an
+ * unset ''), and two non-numeric pages fall back to `StrNumCmp` — the natural
+ * compare in common/, which is case-sensitive and codepoint-ordered. This used
+ * `localeCompare(…, { sensitivity: 'base' })`, which folds case and follows
+ * the browser's locale, so "a" and "A" tied here where upstream orders them.
  */
 export function comparePageNum(a: string, b: string): number {
   if (a === b) return 0;
@@ -65,7 +69,7 @@ export function comparePageNum(a: string, b: string): number {
   if (isIntA && isIntB) return parseInt(a, 10) - parseInt(b, 10);
   if (isIntA) return -1;
   if (isIntB) return 1;
-  return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+  return Math.sign(strNumCmp(a, b));
 }
 
 const setPageOnSource = (pathNode: SList, page: string): SList => {

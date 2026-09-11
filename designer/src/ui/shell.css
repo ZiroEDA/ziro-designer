@@ -2320,62 +2320,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   transform: translate(-50%, -70%) rotate(135deg);
 }
 
-/* Hierarchy tree connector lines (HIERARCHY_TREE): one 16px gutter column per
-   ancestor level. A plain ancestor column ("line") runs the dotted guide the
-   full row height - its parent still has siblings coming up below this
-   subtree. The node's own column ("branch") elbows into the row: a middle
-   child's guide runs top-to-bottom, the last child's stops halfway down. */
-.ze-tree-guide {
-  position: relative;
-  display: inline-block;
-  width: 16px;
-  align-self: stretch;
-  flex: 0 0 auto;
-  /* align-self: stretch only reaches the row's padded content box; cancel
-     .ze-tree-item's 3px vertical padding so this - and the "first" branch's
-     -50% reach into the row above - are measured against the true row
-     height, not the shrunken one. */
-  margin: -3px 0;
-}
-.ze-tree-guide.line::before {
-  content: "";
-  position: absolute;
-  left: 7px;
-  top: 0;
-  bottom: 0;
-  border-left: 1px dotted #6b6f76;
-}
-.ze-tree-guide.branch::after {
-  content: "";
-  position: absolute;
-  left: 7px;
-  top: 50%;
-  width: 9px;
-  border-top: 1px dotted #6b6f76;
-}
-.ze-tree-guide.branch.last::before {
-  bottom: 50%;
-}
-/* A first child's branch has nothing above it to butt against - the row
-   above is its *parent*, whose twisty sits half a row height higher, not
-   flush with this row's top. Stretch the line up to meet it so the trunk
-   runs unbroken from the twisty's own center through every descendant. */
-.ze-tree-guide.branch.first::before {
-  top: -50%;
-}
-/* HIERARCHY_TREE's row highlight hugs just the sheet name, not the twisty,
-   icon or connector gutter. */
-.ze-tree-label {
-  padding: 1px 6px;
-}
-.ze-tree-label.active {
-  background: var(--chrome-active);
-  color: #fff;
-  font-weight: 700;
-}
-.ze-tree-item:hover .ze-tree-label:not(.active) {
-  background: var(--chrome-hover);
-}
 .ze-tree-spacer {
   display: inline-block;
   width: 12px;
@@ -3670,33 +3614,209 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex-direction: column;
   min-height: 0;
 }
-/* wxTreeCtrl's row selection is a sharp-edged rectangle, not rounded. */
-.sch-leftdock .ze-tree-item {
-  border-radius: 0;
+/* ---- The eeschema left dock and HIERARCHY_PANE ------------------------------
+
+   Three of the four panes in this column are `EDA_PANE().Palette()` —
+   `PaneBorder( true )` (eda_base_frame.h:965-970): the hierarchy
+   (sch_edit_frame.cpp:260), Properties and the Net Navigator
+   (eeschema_settings.cpp:74, :96). wxAUI draws that border as 1px of
+   wxAUI_DOCKART_BORDER_COLOUR round caption and content together, and puts
+   wxAUI_DOCKART_SASH_SIZE of wxAUI_DOCKART_SASH_COLOUR between neighbouring
+   panes. The Selection Filter alone is `PaneBorder( false )`
+   (eeschema_settings.cpp:118), so its caption sits straight on the sash.
+
+   [px] eeschema 10.0.5, 1920x1200, one column at x=200 top to bottom:
+   Properties' grid ends, #181818 (the grid's own frame), #292929 (pane border),
+   5px #373737 (sash), #292929 (pane border), 17px #2E2E2E (caption), #181818
+   (the tree's own frame), tree #272727 … #181818, #292929, 5px #373737, then
+   17px #2E2E2E (the Selection Filter's caption) straight into #373737, the
+   panel face, with no #292929 either side of it. Across at y=900: #292929 at
+   the dock's left edge, the tree frame, the tree, the frame, #292929, then the
+   5px sash and the 34px left toolbar.
+
+   Ours drew every pane in --panel-bg with a #1e1e1e rule under it, a
+   transparent 5px sash and no pane border, and the Selection Filter's body in
+   --panel-header, so it read as a box of its own instead of running into the
+   frame below. */
+.sch-leftdock {
+  background: var(--aui-sash);
 }
-/* The row highlight lives on .ze-tree-label now (label-only, not the whole
-   strip); drop the shared whole-row hover so it doesn't paint underneath. */
-.sch-leftdock .ze-tree-item:hover {
-  background: none;
+.sch-leftdock > .ze-panel.grow {
+  border: var(--aui-pane-border-size) solid var(--aui-pane-border);
 }
-/* KiCad's pane caption is barely taller than a tree row; our default
-   .ze-panel-header padding (5px) reads noticeably taller by comparison. */
-.sch-leftdock .ze-panel-header,
-.sch-bottomdock .ze-panel-header {
-  /* Vertical only. The SIDE padding stays the measured 3px lead-in from
-     `.ze-panel-header` - "the pane's left edge is x=100 and the caption's first
-     ink is x=103" - and 9px here put the title 9px in and pushed the close box
-     to 10px from the pane edge, where a real caption's sits at about 5. */
-  padding: 3px;
+.sch-leftdock > .ze-splitter.horizontal {
+  margin-top: 0;
+  background: var(--aui-sash);
 }
-/* HIERARCHY_PANE's row icon: a plain filled circle, not a document glyph. */
-.ze-tree-sheet-icon {
+/* The caption is the 17px strip `.ze-panel-header` already states. This
+   carried `padding: 3px`, which stacked 6px on the 8pt line and made every
+   caption in the column 20px — the shared rule is right, so nothing is said
+   here. */
+
+/* HIERARCHY_TREE (eeschema/widgets/hierarchy_pane.h:13-21):
+
+       wxTreeCtrl( parent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                   wxTR_HAS_BUTTONS | wxTR_EDIT_LABELS | wxTR_HIDE_ROOT, ... )
+
+   On GTK that is wxGenericTreeCtrl, which paints every row itself
+   (src/generic/treectlg.cpp, PaintLevel :2765 / PaintItem :2556), so the
+   layout below is its arithmetic, not a flex approximation of it — every
+   number is either wx's own or read off the realised widget by
+   `qa/probes/hierarchy_tree_probe.cpp`:
+
+     m_indent 15, m_spacing 18 (Init, :984-985)
+     row height  24: char height 18 + 4, + 2 (CalculateLineHeight, :2427-2472)
+     first row   at y = 2 (OnPaint, :3052)
+     level L     x = 15L; item X = x + 18; icon 16px at X, y + 4; text at
+                 X + 16 + MARGIN_BETWEEN_IMAGE_AND_TEXT(4)      (:2801, :2716)
+     lead-in     y_mid, from x - m_indent (x itself at level 1) to X (:2864-2870)
+     trunk       at x, from y_mid + 5 ("if (HasButtons) y_mid += 5") to the
+                 last child's y_mid (:2928-2952)
+     button      a 9x9 DrawTreeItemButton centred on (x, y_mid) (:2895-2913)
+     selection   from X + 17 to the text's end + 3, the full row height, and
+                 nothing under the icon (:2632-2648)
+     current     SetItemBold + SetFocusedItem (hierarchy_pane.cpp:145-190),
+                 and SetFocusedItem is SelectItem in this control (:2020), so
+                 the current sheet is the selected row and shows its selected
+                 image, tree_sel, where the rest show tree_nosel
+
+   The control's origin is the frame line itself — [px] the trunk is at
+   x=15 and the first row at y=2 counted from the #181818 pixel — so the
+   content box, which starts one pixel in, sees every wx x as x - 1. That is
+   the "- 1px" in --x, and the 1px of padding-top is wx's y = 2 less the same.
+
+   The dotted pen is `wxPen( wxSYS_COLOUR_GRAYTEXT, 1, wxPENSTYLE_DOT )`
+   (:1084). What lands on screen is not GRAYTEXT's #929292 nor a 1-on-1-off
+   dot: [px] two pixels of #858585 then two of the tree's #272727, in phase
+   with the line's start, on both the lead-ins and the trunk. So the guides
+   are drawn as that pattern rather than with `border-style: dotted`, whose
+   round 1px dots are a different mark. */
+.ze-hiertree {
+  /* [data] wx paints from y = 2 (treectlg.cpp:3052) inside the frame's own
+     pixel; see above. */
+  padding: 1px 0 0;
+  border: 1px solid var(--ctl-border);
+  background: var(--chrome-bg2);
+  overflow: auto;
+  position: relative;
+  /* [px] the on-pixels of the dotted guides, measured on the tree. */
+  --hier-guide: #858585;
+}
+.ze-hier-node {
+  position: relative;
+  /* wx's x for this level, in the content box's coordinates. `--lvl` is set
+     inline per node; 1 is the top-level sheet, the hidden root being level 0. */
+  --x: calc(var(--lvl) * 15px - 1px);
+  --X: calc(var(--x) + 18px);
+}
+.ze-hier-row {
+  position: relative;
+  /* [px] GetLineHeight(): 18 + 4 + 2 with this machine's 11pt font, read
+     back by qa/probes/hierarchy_tree_probe.cpp (every row h=24). */
+  height: 24px;
+  white-space: nowrap;
+  cursor: default;
+}
+/* The lead-in: from the parent's trunk to the icon, at y_mid. A top-level
+   sheet has no parent trunk; its line starts at its own x, under the button. */
+.ze-hier-guide {
+  position: absolute;
+  top: 12px;
+  height: 1px;
+  left: calc(var(--x) - 15px);
+  width: 34px;
+  background: repeating-linear-gradient(to right, var(--hier-guide) 0 2px, transparent 2px 4px);
+}
+.ze-hiertree > .ze-hier-node > .ze-hier-row > .ze-hier-guide {
+  left: var(--x);
+  width: 19px;
+}
+/* The trunk, one segment per child so it also runs past an expanded child's
+   own subtree: the full node for a middle child, down to y_mid for the last.
+   The first child's segment reaches 7px above its row — the parent's y_mid + 5
+   — and the dash phase is counted from there, which is what the two
+   background-position values keep in step across 24px rows. */
+.ze-hier-children > .ze-hier-node::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--x) - 15px);
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background:
+    linear-gradient(var(--hier-guide) 0 2px, transparent 2px 4px) 0 1px / 1px 4px repeat-y;
+}
+.ze-hier-children > .ze-hier-node.first::before {
+  top: -7px;
+  background-position: 0 0;
+}
+.ze-hier-children > .ze-hier-node.last::before {
+  bottom: auto;
+  /* [data] to y_mid, half the row (treectlg.cpp:2803, 2931). */
+  height: 12px;
+}
+.ze-hier-children > .ze-hier-node.first.last::before {
+  /* [data] the same 12, plus the 7 above the row. */
+  height: 19px;
+}
+/* DrawTreeItemButton's 9x9 rect. GTK renders its expander arrow into it:
+   [px] a 9px-wide chevron, peak #B4B4B4 on the tree's ground, 4 rows deep with
+   its point one row below y_mid. Collapsed, the same arrow points right. */
+.ze-hier-button {
+  position: absolute;
+  left: calc(var(--x) - 4px);
+  top: 8px;
+  width: 9px;
+  /* [data] FromDIP(9) (treectlg.cpp:2895-2896). */
+  height: 9px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 9'%3E%3Cpolyline points='0.5,2.5 4.5,6.5 8.5,2.5' fill='none' stroke='%23c0c0c0' stroke-width='1.5' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E")
+    center / 9px 9px no-repeat;
+}
+.ze-hier-button:not(.open) {
+  transform: rotate(-90deg);
+}
+/* [data] BITMAPS::tree_nosel / tree_sel, the dark set (resources/bitmaps_png/
+   sources/dark/tree_nosel.svg, tree_sel.svg): a circle r=10 in a 24-unit box,
+   #8f8f8f and #42B8EB, rasterised at 16px as the 16px PNGs are. */
+.ze-hier-icon {
+  position: absolute;
+  left: var(--X);
+  top: 4px;
+  width: 16px;
+  /* [art] tree_nosel_dark_16.png / tree_sel_dark_16.png, the 16px raster. */
+  height: 16px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%238f8f8f'/%3E%3C/svg%3E")
+    center / 16px 16px no-repeat;
+}
+.ze-hier-icon.sel {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%2342B8EB'/%3E%3C/svg%3E");
+}
+/* In flow rather than absolute so a long name still widens the row and the
+   tree scrolls. The 3px each side is the selection band's reach past the
+   text (rect.x -= 1, width += 2 on top of the -2/+2 at :2632-2640), which
+   also puts the text at X + 20. */
+.ze-hier-label {
   display: inline-block;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: #9a9a9a;
-  flex: 0 0 auto;
+  /* [data] the band starts at X + 17 (treectlg.cpp:2632-2640). */
+  margin-left: calc(var(--X) + 17px);
+  /* [px] the row, as above. */
+  height: 24px;
+  /* [px] the row again: DrawText centres text_h in total_h (:2722-2725). */
+  line-height: 24px;
+  /* [data] rect.x -= 1, width += 2 over the -2/+2 (treectlg.cpp:2632-2640). */
+  padding: 0 3px;
+  color: var(--view-fg);
+  vertical-align: top;
+}
+/* DrawItemSelectionRect: GTK's selected-row fill — flat, square-cornered,
+   [px] #E95420 whether or not the tree has focus — under HIGHLIGHTTEXT, and
+   the row is the bold one. */
+.ze-hier-label.sel {
+  background: var(--chrome-active);
+  color: #fff;
+  font-weight: 700;
 }
 
 /* Right dock (LayersManager + SelectionFilter panes): at the window edge,
@@ -4227,16 +4347,17 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-leftdock .ze-panel.fixed {
   flex: 0 0 auto;
 }
-/* ...and it reads as ONE body, not a boxed pane. `PANEL_SELECTION_FILTER` is a
-   plain panel whose caption and checkbox area carry the same face, so the two
-   run together; the hierarchy and properties panes above it are the ones that
-   look like boxes. Ours gave every pane a caption in --panel-header over a
-   --panel-bg body, which drew a seam across this one. */
-.ze-leftdock .ze-panel.fixed,
-.ze-leftdock .ze-panel.fixed > .ze-panel-header {
-  background: var(--panel-header);
-}
+/* ...and it reads as ONE body with the frame around it, not a boxed pane.
+   `PANEL_SCH_SELECTION_FILTER` is a plain wxPanel, so its face is
+   wxSYS_COLOUR_3DFACE — --content-bg, the same face as the toolbar beside it
+   and the sash above it — under the ordinary 17px caption. [px] eeschema at
+   x=200: 17px of #2E2E2E then #373737 straight down to the status bar, and
+   pcbnew's right dock (`.ze-rightdock .ze-panel`) already says the same.
+   This stated --panel-header for BOTH caption and body, on the belief that
+   the two carried one colour; they do not, and the darker body was the box
+   that stood off the frame. */
 .ze-leftdock .ze-panel.fixed {
+  background: var(--content-bg);
   border-bottom: none;
 }
 /* PANEL_SCH_SELECTION_FILTER is the AUI pane's client area itself — the grid

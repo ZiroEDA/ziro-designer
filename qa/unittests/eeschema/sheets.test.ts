@@ -11,9 +11,12 @@ import { readSchematic, writeSchematic } from '@ziroeda/eeschema';
 import {
   buildSheetTree,
   findRootFile,
+  repairPageNumbersOnLoad,
   sheetFile,
   sheetName,
 } from '@ziroeda/eeschema/src/project.js';
+import { comparePageNum } from '@ziroeda/eeschema/src/tools/sch_sheet_path.js';
+import { readFileSync } from 'node:fs';
 import { moveItems } from '@ziroeda/eeschema/src/tools/move.js';
 import { runErc } from '@ziroeda/eeschema/src/connectivity/erc.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
@@ -207,6 +210,167 @@ describe('project hierarchy (SCH_SHEET_LIST equivalent)', () => {
     // in behind it (ComparePageNum: numeric always before non-numeric/empty).
     expect(tree.children.map((c) => c.name)).toEqual(['xilinx', 'inout_user']);
     expect(tree.children.map((c) => c.page)).toEqual(['2', '']);
+  });
+
+  it('breaks a page-number tie by placement order, the virtual page number, not file order', () => {
+    // Two siblings stored on the same page. `HIERARCHY_TREE::OnCompareItems`
+    // is `SCH_SHEET_PATH::ComparePageNum` (sch_sheet_path.cpp:226-245): equal
+    // pages fall through to the virtual page number, which `BuildSheetList`
+    // hands out in `SCH_SCREEN::GetSheets` order - by x, then y - so the one
+    // further LEFT on the canvas comes first even though the file lists it
+    // second. Sorting the file's own order was stable on the wrong key.
+    const ROOT = 'root-uuid';
+    const tied = readSchematic(
+      parse(`(kicad_sch (version 20230121) (generator eeschema) (uuid "${ROOT}") (lib_symbols)
+        (sheet (at 50 10) (size 20 20) (uuid "u-right")
+          (property "Sheetname" "Right" (at 0 0 0))
+          (property "Sheetfile" "right.kicad_sch" (at 0 0 0))
+          (instances (project "p" (path "/${ROOT}" (page "7")))))
+        (sheet (at 10 10) (size 20 20) (uuid "u-left")
+          (property "Sheetname" "Left" (at 0 0 0))
+          (property "Sheetfile" "left.kicad_sch" (at 0 0 0))
+          (instances (project "p" (path "/${ROOT}" (page "7")))))
+        (sheet_instances (path "/" (page "1"))))`),
+    );
+    const docs = new Map([
+      ['main.kicad_sch', tied],
+      ['right.kicad_sch', doc('')],
+      ['left.kicad_sch', doc('')],
+    ]);
+    const tree = buildSheetTree(docs, 'main.kicad_sch');
+    expect(tree.children.map((c) => c.name)).toEqual(['Left', 'Right']);
+  });
+
+  it('ComparePageNum: numeric before text, text by StrNumCmp (case-sensitive, natural)', () => {
+    expect(comparePageNum('2', '10')).toBeLessThan(0);
+    expect(comparePageNum('10', 'A')).toBeLessThan(0);
+    expect(comparePageNum('', '1')).toBeGreaterThan(0);
+    expect(comparePageNum('A2', 'A10')).toBeLessThan(0);
+    // StrNumCmp is a plain codepoint compare outside digit runs: 'B' < 'a'.
+    // The localeCompare this used to call folded case and put 'a' first.
+    expect(comparePageNum('B', 'a')).toBeLessThan(0);
+    expect(comparePageNum('a', 'A')).toBeGreaterThan(0);
+  });
+
+  describe('RepairPageNumbers on load (files-io.cpp:441-446)', () => {
+    const ROOT = 'root-uuid';
+    const withPages = (pages: Record<string, string | null>, at: Record<string, number>) =>
+      readSchematic(
+        parse(`(kicad_sch (version 20230121) (generator eeschema) (uuid "${ROOT}") (lib_symbols)
+          ${Object.keys(pages)
+            .map(
+              (n) => `(sheet (at ${at[n]} 10) (size 20 20) (uuid "u-${n}")
+            (property "Sheetname" "${n}" (at 0 0 0))
+            (property "Sheetfile" "${n}.kicad_sch" (at 0 0 0))
+            (instances (project "p" (path "/${ROOT}"${
+              pages[n] === null ? '' : ` (page "${pages[n]}")`
+            }))))`,
+            )
+            .join('\n')}
+          (sheet_instances (path "/" (page "1"))))`),
+      );
+    const withDocs = (root: ReturnType<typeof withPages>, names: string[]) =>
+      new Map([
+        ['main.kicad_sch', root],
+        ...names.map((n) => [`${n}.kicad_sch`, doc('')] as const),
+      ]);
+
+    it('reassigns a duplicated page to the lowest unused number, keeping the first claimant', () => {
+      // KiCad's own cm5_minima demo: USB and PCIe-M2 both stored as page 7,
+      // USB placed further left. USB keeps 7; PCIe-M2 takes 2, the first
+      // number nobody holds. A running eeschema shows "PCIe-M2 (page 2)".
+      const root = withPages(
+        { USB: '7', HDMI: '5', CM5: '3', IO: '6', Ethernet: '4', PCIe: '7', DSI: '8' },
+        { USB: 10, HDMI: 20, CM5: 30, IO: 40, Ethernet: 50, PCIe: 60, DSI: 70 },
+      );
+      const docs = withDocs(root, ['USB', 'HDMI', 'CM5', 'IO', 'Ethernet', 'PCIe', 'DSI']);
+      const { docs: fixed, repaired } = repairPageNumbersOnLoad(docs, 'main.kicad_sch');
+      expect(repaired).toBe(true);
+      const tree = buildSheetTree(fixed, 'main.kicad_sch');
+      expect(tree.children.map((c) => `${c.name} ${c.page}`)).toEqual([
+        'PCIe 2',
+        'CM5 3',
+        'Ethernet 4',
+        'HDMI 5',
+        'IO 6',
+        'USB 7',
+        'DSI 8',
+      ]);
+      // The untouched documents are the same objects; only the root changed.
+      expect(fixed.get('USB.kicad_sch')).toBe(docs.get('USB.kicad_sch'));
+      expect(fixed.get('main.kicad_sch')).not.toBe(root);
+    });
+
+    it("reserves every stored number first, so a fix never takes a later sheet's page", () => {
+      // The root is page 1. A and B both "2"; C holds "3". B must NOT get 3 -
+      // it is C's - so it gets 4. `reservedPageIds` is filled before any
+      // reassignment, and 1 is the root's.
+      const root = withPages({ A: '2', B: '2', C: '3' }, { A: 10, B: 20, C: 30 });
+      const { docs: fixed } = repairPageNumbersOnLoad(
+        withDocs(root, ['A', 'B', 'C']),
+        'main.kicad_sch',
+      );
+      const tree = buildSheetTree(fixed, 'main.kicad_sch');
+      expect(tree.page).toBe('1');
+      expect(tree.children.map((c) => `${c.name} ${c.page}`)).toEqual(['A 2', 'C 3', 'B 4']);
+    });
+
+    it('fills a blank page the same way, and leaves a clean hierarchy untouched', () => {
+      const blank = withPages({ A: '2', B: null, C: '4' }, { A: 10, B: 20, C: 30 });
+      // B has an instance record with no (page ...); it takes 3, the first
+      // number neither the root (1), A nor C holds.
+      const r1 = repairPageNumbersOnLoad(withDocs(blank, ['A', 'B', 'C']), 'main.kicad_sch');
+      expect(r1.repaired).toBe(true);
+      expect(buildSheetTree(r1.docs, 'main.kicad_sch').children.map((c) => c.page)).toEqual([
+        '2',
+        '3',
+        '4',
+      ]);
+
+      const clean = withPages({ A: '2', B: '3' }, { A: 10, B: 20 });
+      const docs = withDocs(clean, ['A', 'B']);
+      const r2 = repairPageNumbersOnLoad(docs, 'main.kicad_sch');
+      expect(r2.repaired).toBe(false);
+      expect(r2.docs.get('main.kicad_sch')).toBe(clean);
+    });
+
+    it('seeds 1..N in placement order when nothing is numbered, without raising the box', () => {
+      const none = withPages({ B: null, A: null }, { B: 50, A: 10 });
+      // The root's own (sheet_instances) says page 1 - strip it so ALL are empty.
+      const bare = { ...none, sheetInstances: [] };
+      const { docs: fixed, repaired } = repairPageNumbersOnLoad(
+        withDocs(bare, ['A', 'B']),
+        'main.kicad_sch',
+      );
+      // SetInitialPageNumbers is not `repairedPageNumbers`: no information box.
+      expect(repaired).toBe(false);
+      const tree = buildSheetTree(fixed, 'main.kicad_sch');
+      expect(tree.children.map((c) => `${c.name} ${c.page}`)).toEqual(['A 2', 'B 3']);
+    });
+
+    it('the demo itself: cm5_minima loads with PCIe-M2 on page 2', () => {
+      const dir = '/home/akshay/kicad-reference/demos/cm5_minima';
+      const load = (f: string) => readSchematic(parse(readFileSync(`${dir}/${f}`, 'utf8')));
+      const files = ['CM5_MINIMA_3', 'CM5', 'DSI_CSI', 'Ethernet', 'HDMI', 'IO', 'PCIe-M2', 'USB'];
+      const docs = new Map(files.map((f) => [`${f}.kicad_sch`, load(`${f}.kicad_sch`)]));
+      const before = buildSheetTree(docs, 'CM5_MINIMA_3.kicad_sch');
+      expect(before.children.filter((c) => c.page === '7').map((c) => c.name)).toEqual([
+        'USB',
+        'PCIe-M2',
+      ]);
+      const { docs: fixed, repaired } = repairPageNumbersOnLoad(docs, 'CM5_MINIMA_3.kicad_sch');
+      expect(repaired).toBe(true);
+      const tree = buildSheetTree(fixed, 'CM5_MINIMA_3.kicad_sch');
+      expect(tree.children.map((c) => `${c.name} (page ${c.page})`)).toEqual([
+        'PCIe-M2 (page 2)',
+        'CM5 (page 3)',
+        'Ethernet (page 4)',
+        'HDMI (page 5)',
+        'IO (page 6)',
+        'USB (page 7)',
+        'DSI_CSI (page 8)',
+      ]);
+    });
   });
 
   it('survives a recursive sheet reference', () => {

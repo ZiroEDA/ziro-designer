@@ -31,6 +31,24 @@ export function savedFileMessage(filename: string): string {
 }
 
 /**
+ * `SCH_EDIT_FRAME::OpenProjectFiles` (eeschema/files-io.cpp:451-458), raised
+ * through `DisplayInfoMessage` when the parser fixed something or
+ * `RepairPageNumbers` reassigned a blank or duplicated page:
+ *
+ *     DisplayInfoMessage( this,
+ *                         _( "An error was found when loading the schematic that has "
+ *                            "been automatically fixed.  Please save the schematic to "
+ *                            "repair the broken file or it may not be usable with other "
+ *                            "versions of KiCad." ) );
+ *
+ * The two spaces after "fixed." are upstream's.
+ */
+export const LOAD_REPAIRED_MESSAGE =
+  'An error was found when loading the schematic that has been automatically fixed.  ' +
+  'Please save the schematic to repair the broken file or it may not be usable with other ' +
+  'versions of KiCad.';
+
+/**
  * `SCH_EDITOR_CONTROL::Revert`'s question
  * (eeschema/tools/sch_editor_control.cpp:466-467):
  *

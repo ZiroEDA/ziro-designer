@@ -212,6 +212,7 @@ import {
   type SyncPlacement,
   type SyncTemplate,
   buildSheetTree,
+  repairPageNumbersOnLoad,
   sheetFile,
   sheetName,
   findRootFile,
@@ -361,8 +362,14 @@ import {
   type HoverSelection,
 } from './hover_selection.js';
 import { buildMenus } from './menubar.js';
-import { CONFIRMATION_CAPTION, revertPromptMessage, savedFileMessage } from './files_io.js';
+import {
+  CONFIRMATION_CAPTION,
+  LOAD_REPAIRED_MESSAGE,
+  revertPromptMessage,
+  savedFileMessage,
+} from './files_io.js';
 import { MessageDialogOk, MessageDialogYesNo } from '../../ui/dialog_message.js';
+import { INFO_CAPTION } from '../../ui/message_dialog.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
 import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { remapEvent } from './hotkey_bindings.js';
@@ -539,6 +546,7 @@ import {
   type SchLeftPane,
 } from './panes.js';
 import { SelectionFilterPanel } from '../../ui/SelectionFilterPanel.js';
+import { DockSash } from '../../ui/DockSash.js';
 import { useStatusReadout } from '../../ui/useStatusReadout.js';
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import '../../ui/shell.css';
@@ -1249,21 +1257,6 @@ export function SchematicEditor({
       s.window.left_dock_pos = { ...next };
     });
   });
-  const startLeftDockResize = (e: React.MouseEvent): void => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startW = leftDockWidth;
-    const onMove = (ev: MouseEvent): void =>
-      setLeftDockWidth(Math.min(800, Math.max(240, startW + ev.clientX - startX)));
-    const onUp = (): void => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      document.body.style.cursor = '';
-    };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-    document.body.style.cursor = 'col-resize';
-  };
   // Drags the pane immediately above the sash (KiCad's HIERARCHY_TREE /
   // PROPERTIES_PANEL / NET_NAVIGATOR sashes); the pane below it keeps filling
   // the rest via flex:1, same chain KiCad's wxAUI splitters produce.
@@ -3515,6 +3508,11 @@ export function SchematicEditor({
    */
   const [rescueCandidates, setRescueCandidates] = useState<readonly RescueCandidate[] | null>(null);
   const [rescueMessage, setRescueMessage] = useState<string | null>(null);
+  /**
+   * `DisplayInfoMessage` after a load that `RepairPageNumbers` changed
+   * (files-io.cpp:451-458). One box, one string, raised by the loader alone.
+   */
+  const [loadRepairedMessage, setLoadRepairedMessage] = useState<string | null>(null);
   /** `aRunningOnDemand`: true from the Tools menu, false for the load prompt. */
   const [rescueOnDemand, setRescueOnDemand] = useState(true);
   /** Set by a legacy project load; the prompt runs once the sheet is on screen. */
@@ -4522,6 +4520,12 @@ export function SchematicEditor({
           return;
         }
         const root = findRootFile(docs, proName);
+        // Page numbers are made whole before anything reads the hierarchy
+        // (files-io.cpp:439-446): a blank or duplicated page is reassigned
+        // and, when that happened, the user is told the file needs saving.
+        const pageRepair = repairPageNumbersOnLoad(docs, root);
+        for (const [name, d] of pageRepair.docs) docs.set(name, d);
+        if (pageRepair.repaired) setLoadRepairedMessage(LOAD_REPAIRED_MESSAGE);
         project.current = { docs, root };
         // Home-page tree clicks land on the clicked sheet, else the root.
         const startBase = startFile?.split('/').pop()?.split('\\').pop();
@@ -9249,7 +9253,14 @@ export function SchematicEditor({
             // Search is no longer a term: it does not live in this column.
             (paneShown.properties || paneShown.hierarchy || paneShown.netNavigator) && (
               <>
-                <div className="ze-leftdock sch-leftdock" style={{ width: leftDockWidth }}>
+                <div
+                  className="ze-leftdock sch-leftdock"
+                  // The pane WINDOW is `leftDockWidth` wide; wxAUI's 1px pane
+                  // border sits outside it on both sides ([px] the tree's own
+                  // frame runs x=67..366 with #292929 at 66 and 367), so the
+                  // column is the window plus two borders.
+                  style={{ width: `calc(${leftDockWidth}px + 2 * var(--aui-pane-border-size))` }}
+                >
                   {/* The docked panes, in the order the wxAUI Update above
                       sorted them into — see `panes.ts`. Only the ORDER is
                       data; each pane's contents stay inline. */}
@@ -9320,7 +9331,11 @@ export function SchematicEditor({
                                 ⊠
                               </button>
                             </div>
-                            <div className="ze-panel-body">
+                            {/* HIERARCHY_TREE fills the pane: `sizer->Add( m_tree,
+                                1, wxEXPAND, wxBORDER_NONE )` (hierarchy_pane.cpp:57)
+                                — no inset, so the control's own frame is the
+                                pane's edge. */}
+                            <div className="ze-panel-body ze-hiertree">
                               {sheetTree &&
                                 renderSheetNode(
                                   sheetTree,
@@ -9392,10 +9407,19 @@ export function SchematicEditor({
                     </Fragment>
                   ))}
                 </div>
-                <div
-                  className="ze-splitter"
-                  onMouseDown={startLeftDockResize}
-                  title="Drag to resize"
+                {/* wxAUI's sash: a sibling of the dock, 5px of sash colour
+                    between the pane border and the left toolbar — the same
+                    `<DockSash>` pcbnew's Properties dock carries, and for the
+                    same reason: it is the sash, not a rule, that separates a
+                    dock from the toolbar beside it. The clamps are the
+                    Properties pane's MinSize (240) and the width past which
+                    the canvas suffers. */}
+                <DockSash
+                  edge="right"
+                  width={leftDockWidth}
+                  min={240}
+                  max={800}
+                  onResize={setLeftDockWidth}
                 />
               </>
             )
@@ -9749,6 +9773,13 @@ export function SchematicEditor({
                 caption="Project Rescue Helper"
                 message={rescueMessage}
                 onClose={() => setRescueMessage(null)}
+              />
+            )}
+            {loadRepairedMessage && (
+              <MessageDialogOk
+                caption={INFO_CAPTION}
+                message={loadRepairedMessage}
+                onClose={() => setLoadRepairedMessage(null)}
               />
             )}
             {ercOpen && (
@@ -11124,6 +11155,37 @@ export function SchematicEditor({
  * middle child, cut off halfway down for the last one - matching KiCad's
  * wxTreeCtrl connector lines.
  */
+/**
+ * One row of HIERARCHY_TREE and, below it, its subtree.
+ *
+ * On GTK a wxTreeCtrl is wxGenericTreeCtrl, and it paints every row with the
+ * same arithmetic (src/generic/treectlg.cpp, `PaintLevel` :2765 and
+ * `PaintItem` :2556), so the row is laid out from those numbers rather than
+ * from flex gaps. `qa/probes/hierarchy_tree_probe.cpp` builds the tree with
+ * HIERARCHY_TREE's style word and KiCad's two images and reads the same
+ * positions back off wx. With `m_indent` 15 and `m_spacing` 18, an item at
+ * `level` (1 for the top-level sheet — `wxTR_HIDE_ROOT` hides level 0):
+ *
+ *     x         = level * 15                 the button's centre and the trunk
+ *     item X    = x + 18                     the 16px icon
+ *     text      = X + 16 + 4                 MARGIN_BETWEEN_IMAGE_AND_TEXT
+ *     guide     = (x > 15 ? x - 15 : x) .. X the dotted lead-in, at y_mid
+ *     trunk     = x, from y_mid + 5 down to the last child's y_mid
+ *     selection = X + 17 .. text end + 3     the band leaves the icon alone
+ *
+ * The control paints from y = 2 and each row is `GetLineHeight()` = 24 tall
+ * (font extent 18 + 4 + 2, the probe's number), the icon centred at +4 and
+ * the text centred in the row.
+ *
+ * The CSS carries the same numbers as `--x`, `--X` per level; the classes are
+ * `ze-hier-*` and nothing else in the app shares them.
+ *
+ * Which row is selected: `UpdateHierarchySelection` (hierarchy_pane.cpp:145)
+ * bolds the current sheet and `SetFocusedItem`s it, which in the generic tree
+ * is `SelectItem` — so the current sheet is the selected one, and a selected
+ * item shows its SELECTED image, `tree_sel` (the blue dot), where every other
+ * row shows `tree_nosel`. wxGenericTreeCtrl has no hover state.
+ */
 function renderSheetNode(
   node: SheetTreeNode,
   depth: number,
@@ -11131,13 +11193,13 @@ function renderSheetNode(
   onOpen: (path: string, file: string) => void,
   collapsedPaths: ReadonlySet<string>,
   setCollapsedPaths: (updater: (prev: Set<string>) => Set<string>) => void,
-  guides: readonly boolean[] = [],
   isLast = true,
   isFirst = true,
 ): JSX.Element {
   const hasChildren = node.children.length > 0;
   const collapsed = collapsedPaths.has(node.path);
   const active = node.path === currentPath;
+  const level = depth + 1;
   const toggle = (e: React.MouseEvent): void => {
     e.stopPropagation();
     setCollapsedPaths((prev) => {
@@ -11148,45 +11210,44 @@ function renderSheetNode(
     });
   };
   return (
-    <div key={node.path}>
-      <div className="ze-tree-item" onClick={() => onOpen(node.path, node.file)} title={node.file}>
-        {guides.map((line, i) => (
-          <span key={i} className={`ze-tree-guide${line ? ' line' : ''}`} />
-        ))}
-        {depth > 0 && (
+    <div
+      key={node.path}
+      className={`ze-hier-node${isLast ? ' last' : ''}${isFirst ? ' first' : ''}`}
+      style={{ '--lvl': level } as React.CSSProperties}
+    >
+      <div className="ze-hier-row" onClick={() => onOpen(node.path, node.file)} title={node.file}>
+        {/* The dotted lead-in: from the parent's trunk (or, for a top-level
+            sheet, from its own button) to the icon. */}
+        <span className="ze-hier-guide" />
+        {hasChildren && (
           <span
-            className={`ze-tree-guide line branch${isLast ? ' last' : ''}${isFirst ? ' first' : ''}`}
+            className={`ze-hier-button${collapsed ? '' : ' open'}`}
+            onClick={toggle}
+            title={collapsed ? 'Expand' : 'Collapse'}
           />
         )}
-        {hasChildren ? (
-          <span className={`twisty expandable${collapsed ? '' : ' open'}`} onClick={toggle} />
-        ) : (
-          <span className="ze-tree-spacer" />
-        )}
-        <span className="ze-tree-sheet-icon" />
-        {/* Only the label pills orange when selected (HIERARCHY_TREE's row
-            highlight hugs the text, not the twisty/icon/guide gutter). */}
-        <span className={`ze-tree-label${active ? ' active' : ''}`}>
+        <span className={`ze-hier-icon${active ? ' sel' : ''}`} />
+        <span className={`ze-hier-label${active ? ' sel' : ''}`}>
           {node.name}
           {node.page && ` (page ${node.page})`}
         </span>
       </div>
-      {!collapsed &&
-        node.children.map((c, i) => (
-          <div key={c.path}>
-            {renderSheetNode(
+      {!collapsed && hasChildren && (
+        <div className="ze-hier-children">
+          {node.children.map((c, i) =>
+            renderSheetNode(
               c,
               depth + 1,
               currentPath,
               onOpen,
               collapsedPaths,
               setCollapsedPaths,
-              depth > 0 ? [...guides, !isLast] : guides,
               i === node.children.length - 1,
               i === 0,
-            )}
-          </div>
-        ))}
+            ),
+          )}
+        </div>
+      )}
     </div>
   );
 }

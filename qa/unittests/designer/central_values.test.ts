@@ -634,7 +634,8 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // metrics row is NOT lowered: the docked sign-in panel that replaced the
   // card added 15 chrome px literals and took 7 away, +8, and those still
   // stand — see the `[data]`/`[css]`/`[px]`/`[art]` rule above.
-  ui: { colours: 190, metrics: 707 },
+  // colours 190 -> 187, metrics 707 -> 704: HIERARCHY_TREE, see the totals.
+  ui: { colours: 187, metrics: 704 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -1049,7 +1050,11 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // pointhi/kicad-color-schemes files verbatim under `assets/` (which the
     // scan does not read, as vendored data), as stock themes. `pcm` 193 -> 33, and
     // `editors/pcb` 38 -> 37 from 8fc7620e, rescanned together; 498 - 161.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(337);
+    // 337 -> 334: HIERARCHY_TREE drawn from wxGenericTreeCtrl's arithmetic.
+    // `ui` 190 -> 187: the guides' two `#6b6f76` and the sheet dot's `#9a9a9a`,
+    // replaced by [px] #858585 as a declared property and the two dots as
+    // KiCad's own tree_nosel/tree_sel SVG fills; 337 - 3.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(334);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1217,7 +1222,11 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // WX_PROGRESS_REPORTER's dialog, is every number off the wx probe or Yaru's
     // stylesheet and carries its marker. `ui` 708 -> 707 is the only row that
     // moves, and 1297 - 1 agrees with it.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1296);
+    // 1296 -> 1293: HIERARCHY_TREE. `ui` 707 -> 704 — the old guides' margin,
+    // the label's padding, the 11px dot and the caption's 3px padding left
+    // (6), and every number of the wx layout that replaced them carries its
+    // marker; the three that did not are gone with the rewrite. 1296 - 3.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1293);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {
