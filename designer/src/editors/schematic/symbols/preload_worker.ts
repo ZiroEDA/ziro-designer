@@ -21,10 +21,8 @@
  * What goes back is a {@link LibTreeItem} per symbol, not the symbol: see
  * lib_tree_item.ts for why the parsed form cannot be kept.
  */
-import { parse } from '@ziroeda/sexpr';
 import { symbolLibraryText } from '../../../libraryBundleStore.js';
-import { readSymbolLib } from '@ziroeda/eeschema';
-import { libTreeItem, type LibTreeItem } from './lib_tree_item.js';
+import { readLibTreeItems, type LibTreeItem } from './lib_tree_item.js';
 
 /** `submit_task`'s argument: which library, and where it is served from. */
 export interface PreloadRequest {
@@ -53,14 +51,14 @@ export async function loadLibraryItems(library: string, url: string): Promise<Li
   // bundle — a first visit, a cleared origin, a browser without IndexedDB —
   // and the fetch below is still the answer.
   const resident = await symbolLibraryText(library);
-  if (resident !== null) return readSymbolLib(parse(resident)).map(libTreeItem);
+  if (resident !== null) return readLibTreeItems(resident);
 
   const res = await fetch(url);
   // Without this the body of a 404 or an error page reaches the parser, and a
   // missing library surfaces as `Expected a top-level list starting with "("`.
   if (!res.ok)
     throw new Error(`symbol library "${library}" could not be loaded (HTTP ${res.status})`);
-  return readSymbolLib(parse(await res.text())).map(libTreeItem);
+  return readLibTreeItems(await res.text());
 }
 
 /**

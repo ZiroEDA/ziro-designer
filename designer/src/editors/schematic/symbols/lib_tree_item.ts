@@ -27,7 +27,8 @@
  * the footprint 1 (eeschema/lib_symbol.cpp:160-183) — so carrying `keywords`
  * and letting the tree build the terms is the same data without the duplication.
  */
-import type { LibSymbol } from '@ziroeda/eeschema';
+import { readSymbolLib, type LibSymbol } from '@ziroeda/eeschema';
+import { parse, type PruneOptions } from '@ziroeda/sexpr';
 import { symbolChooserFields } from '../symbol_search_terms.js';
 
 /** One symbol, reduced to what `LIB_TREE_ITEM` exposes. */
@@ -94,4 +95,44 @@ export function libTreeItem(sym: LibSymbol): LibTreeItem {
     unitCount: libSymbolUnitCount(sym),
     chooserFields,
   };
+}
+
+/**
+ * What the parser may leave out of a library that is only being read for its
+ * `LibTreeItem`s.
+ *
+ * A symbol library is almost entirely what a tree item never looks at: the
+ * body graphics and, inside each pin and property, the placement and text
+ * effects. Built whole, MCU_ST_STM32H7 (14.8 MB) is a 198 MB tree, and the
+ * preload parses four such libraries at once -- measured at 1.5 GB of renderer
+ * footprint on a project open, which is where a "Chrome ran out of memory" on
+ * a laptop came from. Pruned, `readSymbolLib` sees `(pin passive line)` and
+ * `(property "Key" "Value")` with nothing under them and reads exactly the
+ * fields `libTreeItem` projects: every reader it goes through defaults what
+ * is missing. `symbol` stays whole because a unit's pins are counted, and
+ * `extends`/`power` stay because inheritance is resolved before projection.
+ */
+export const LIB_TREE_PRUNE: PruneOptions = {
+  drop: new Set([
+    'polyline',
+    'rectangle',
+    'circle',
+    'arc',
+    'bezier',
+    'text',
+    'text_box',
+    'embedded_fonts',
+    'embedded_files',
+  ]),
+  shallow: new Set(['pin', 'property']),
+};
+
+/**
+ * `SYMBOL_LIBRARY_ADAPTER::AsyncLoad`'s per-library task, from the file's text
+ * to the tree items: the one function the preload worker and its inline
+ * fallback both run. The result is the same list `readSymbolLib` on the full
+ * tree would give `libTreeItem`, at a fraction of the memory.
+ */
+export function readLibTreeItems(text: string): LibTreeItem[] {
+  return readSymbolLib(parse(text, LIB_TREE_PRUNE)).map(libTreeItem);
 }

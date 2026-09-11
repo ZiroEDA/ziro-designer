@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parse, serialize, tokenize, type SNode } from '@ziroeda/sexpr/src/index.js';
+import { parse, serialize, tokenize, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 
 const fixture = (name: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../data/${name}`, import.meta.url)), 'utf8');
@@ -49,6 +49,61 @@ describe('parser', () => {
 
   it('rejects an unterminated list', () => {
     expect(() => parse('(a (b)')).toThrow(/Unterminated list/);
+  });
+
+  describe('pruning', () => {
+    const src =
+      '(symbol "R" (property "Ref" "R" (at 0 1) (effects (font (size 1 1)))) (symbol "R_1_1" (rectangle (start 0 0) (end 1 1)) (pin passive line (at 0 0) (name "~" (effects hide)) (number "1"))))';
+
+    it('is off by default: the tree is the whole file', () => {
+      expect(serialize(parse(src))).toBe(serialize(parse(src, {})));
+      expect(parse(src).items[1]).toEqual({ kind: 'string', value: 'R' });
+    });
+
+    it('drops a listed head from its parent entirely', () => {
+      const unit = parse(src, { drop: new Set(['rectangle']) }).items[3] as SList;
+      expect(unit.items.map((i) => (i.kind === 'list' ? i.items[0] : i))).toEqual([
+        { kind: 'atom', value: 'symbol' },
+        { kind: 'string', value: 'R_1_1' },
+        { kind: 'atom', value: 'pin' },
+      ]);
+    });
+
+    it('keeps a shallow head with its atoms and strings and nothing nested', () => {
+      const root = parse(src, { shallow: new Set(['pin', 'property']) });
+      expect(root.items[2]).toEqual({
+        kind: 'list',
+        items: [
+          { kind: 'atom', value: 'property' },
+          { kind: 'string', value: 'Ref' },
+          { kind: 'string', value: 'R' },
+        ],
+      });
+      const unit = root.items[3] as SList;
+      expect(unit.items[3]).toEqual({
+        kind: 'list',
+        items: [
+          { kind: 'atom', value: 'pin' },
+          { kind: 'atom', value: 'passive' },
+          { kind: 'atom', value: 'line' },
+        ],
+      });
+      // The rectangle under the unit is untouched by a shallow rule elsewhere.
+      expect(unit.items[2]).toEqual(parse('(rectangle (start 0 0) (end 1 1))'));
+    });
+
+    it('skips a pruned list by its parens, not by what its strings contain', () => {
+      const root = parse('(a (text "a ) b (") (b 1))', { drop: new Set(['text']) });
+      expect(root).toEqual(parse('(a (b 1))'));
+      const flat = parse('(a (pin (name ")(") 2) (b))', { shallow: new Set(['pin']) });
+      expect(flat).toEqual(parse('(a (pin 2) (b))'));
+    });
+
+    it('still rejects a pruned list that never closes', () => {
+      expect(() => parse('(a (text 1 (b)', { drop: new Set(['text']) })).toThrow(
+        /Unterminated list/,
+      );
+    });
   });
 });
 
