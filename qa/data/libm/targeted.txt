@@ -1,0 +1,41 @@
+sin M2 412b9cf98c319abf bfc66639c7dc4d89
+cos M9 be4a15c4ddc7c97e 3fefffffffffffff
+cos M9 3e49c69d59fb6e30 3fefffffffffffff
+cos M9 3e4b42803acc0ad4 3fefffffffffffff
+cos M9 3e4d62da97e71e1a 3fefffffffffffff
+cos M9 3e4c22095b9c6d9e 3fefffffffffffff
+cos M9 be4de0a73f1b218c 3fefffffffffffff
+cos M9 be4ef9cf6f816150 3fefffffffffffff
+cos M9 be48a3c4a54d575a 3fefffffffffffff
+cos M9 be48eae9ac3b648e 3fefffffffffffff
+cos M9 be4f856ce35a18c8 3fefffffffffffff
+cos M9 be4793f2105c91d8 3fefffffffffffff
+cos M9 be49322665aa25de 3fefffffffffffff
+cos M9 3e4a5043a92c7406 3fefffffffffffff
+cos M9 be48e5ce84587f8a 3fefffffffffffff
+cos M9 3e48d15be60e967c 3fefffffffffffff
+cos M9 be4ae10c0ca3c35a 3fefffffffffffff
+cos M9 3e4f381ef7792a32 3fefffffffffffff
+cos M9 be487288a355084a 3fefffffffffffff
+cos M9 be4d87920a7ca1b2 3fefffffffffffff
+cos M9 3e4d08c738485db6 3fefffffffffffff
+atan2 M12 40f5c18000000000 412c6d6200000000 3fb86a734b4199b4
+atan2 M12 c0ecb0e000000000 412171ac00000000 bfba3947b2225b2a
+atan2 M12 c115155000000000 41228e5600000000 bfe0883f5360f404
+atan2 M12 40e80a2000000000 4122bfd600000000 3fb4788052ee580a
+atan2 M12 41241cee00000000 412c63b400000000 3fe3b96f5d0d4fa0
+atan2 M12 c0db418000000000 41143af000000000 bfb5817ce0a2e666
+atan2 M12 41a34e1a449d4f59 41c58c5db77ef417 3fcc340ac3ed0b4c
+atan2 M12 c18f3bf9a6e26d6a 41c0e87239c0ca9e bfbd6d3863a9eecb
+atan2 M12 c1b83a11e8b3d135 41c2a204481ab00f bfe2724c6cb21b11
+atan2 M12 c10fb95800000000 4123412000000000 bfd901af36b4a2c3
+atan2 M12 41aade26a92a4048 41c4dc0f276c8f53 3fd3effcd131eeae
+atan2 M12 419334a0200f7c78 41b61dcebafbe35d 3fcb5d1a76e07787
+atan2 M12 40f74af000000000 412addae00000000 3fbba2d6d22ab78e
+atan2 M12 41aa2cbb3cae9ec5 41c1f0b0d14ea04c 3fd6625eafc0136f
+atan2 M12 410440d800000000 41134a7c00000000 3fdef00fa6dcde96
+atan2 M12 41c2fb846fddbf07 41c6573fc7ff4f19 3fe689ae6e747a43
+atan2 M12 41c0d7f99a260efe 41c92d48f1d6f958 3fe2de34bd3d740d
+atan2 M12 41ac8fa480c18a63 41cbd0554934a3a8 3fd01524bc57e24e
+atan2 M12 c11fa41000000000 4129b11400000000 bfe1a98139574ecb
+atan2 M12 c0fe393000000000 41276d2e00000000 bfc4774b89fb79db

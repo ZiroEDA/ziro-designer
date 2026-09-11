@@ -28,7 +28,7 @@ import { segSquaredDistance } from '@ziroeda/kimath/src/trigo.js';
 import { shapeBBox, shapeDist, type Shape } from './drc/drc_geometry.js';
 import { padShapePos } from './padstack.js';
 import { enabledCopperLayers } from './swap_layers.js';
-import type { Board } from './types.js';
+import type { Board, PcbVia } from './types.js';
 import { viaCopperLayers } from './via_layers.js';
 
 /** A fill outline's copper: one fractured ring on one layer of one zone. */
@@ -159,7 +159,14 @@ export function isolatedIslands(
       box: shapeBBox(shape),
     });
   }
+  // Only a blind or buried via needs the copper stack; a board built without
+  // a `(layers ...)` block (the unit-test stubs) never asks for it.
   let copperLayers: string[] | undefined;
+  const layersOf = (v: PcbVia): Set<string> | null => {
+    if (v.kind === 'through') return null;
+    copperLayers ??= enabledCopperLayers(board);
+    return new Set(viaCopperLayers(v, copperLayers));
+  };
   for (const v of board.vias) {
     const shape: Shape = { kind: 'circle', c: v.at, r: v.size / 2 };
     // `SetLayers( via->TopLayer(), via->BottomLayer() )`: a through via is on
@@ -167,10 +174,7 @@ export function isolatedIslands(
     add(v.net, {
       pad: false,
       net: v.net,
-      layers:
-        v.kind === 'through'
-          ? null
-          : new Set(viaCopperLayers(v, (copperLayers ??= enabledCopperLayers(board)))),
+      layers: layersOf(v),
       anchors: [v.at],
       shapes: [shape],
       box: shapeBBox(shape),

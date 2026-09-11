@@ -111,6 +111,22 @@ excluded from formatting and linting so it stays byte-identical to upstream.
 > OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 > PERFORMANCE OF THIS SOFTWARE.
 
+## GNU C Library (libm)
+
+Copyright (C) 2001-2024 Free Software Foundation, Inc. Licensed under the GNU
+Lesser General Public License, version 2.1 or later.
+
+`libs/kimath/src/math/libm.ts` and `libs/kimath/src/math/libm_tables.ts` are
+ports of glibc 2.39's `sysdeps/ieee754/dbl-64` `sin`, `cos`, `atan2`, `asin`,
+`acos` (the IBM Accurate Mathematical Library, `s_sin.c`, `branred.c`,
+`e_atan2.c`, `e_asin.c` with their tables) and `hypot` (`e_hypot.c`). KiCad's
+zone filler links against that libm, and its polygon offsets round the way
+those routines round; V8's own `Math.*` differs in the last bit often enough
+to move a vertex by a nanometre.
+
+- Source: https://ftp.gnu.org/gnu/glibc/glibc-2.39.tar.xz
+- Licence: https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
+
 ## Ubuntu (bitmap font atlas)
 
 `designer/src/render/gl/bitmap_font.png` and the metrics in `bitmap_font.ts` are
