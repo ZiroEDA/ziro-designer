@@ -155,6 +155,25 @@ describe("the pour is KiCad's, vertex for vertex", () => {
     expect(through.kicad[0]![0]!.polys).toHaveLength(2);
   });
 
+  it("waveorder: a wave runs in the thread pool's heap order, not board order", () => {
+    // Seven same-priority zones in one wave. `run_fill_waves` submits them
+    // all at priority 0 to `BS::priority_thread_pool`, whose
+    // `std::priority_queue` pops equal keys in libstdc++ heap order:
+    // 0, 2, 5, 6, 4, 1, 3. A zone's different-net knockouts are the fills of
+    // higher zones that have already run, and any knockout at all triggers
+    // `postKnockoutMinWidthPrune` — so N1 (runs after N2), N3 (after N4) and
+    // N4 (after N5) come back with the pruned 32-vertex ring and the rest
+    // with 16. In board order nothing would be pruned; without the
+    // even-length tail step of `__adjust_heap` N6 would run before N5 and
+    // prune it; popping after the first push would prune N2 and N4.
+    const { kicad, ours } = refill('waveorder');
+    expect(ours.zones).toHaveLength(7);
+    ours.zones.forEach((z, i) =>
+      expect(z.fills[0]!.polys, `zone ${i}`).toEqual(kicad[i]![0]!.polys),
+    );
+    expect(kicad.map((z) => z[0]!.polys[0]!.length)).toEqual([16, 32, 16, 32, 32, 16, 16]);
+  });
+
   it('hatch40: a hatched zone comes back as the same 1037-vertex web', () => {
     const { kicad, ours } = refill('hatch40');
     expect(ours.zones[0]!.fills[0]!.polys).toEqual(kicad[0]![0]!.polys);

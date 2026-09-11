@@ -2378,8 +2378,51 @@ export function fillZones(board: Board, opts: ZoneFillOptions = {}): Board {
   const preKnockout = new Map<string, Polygon[]>();
   const keyOf = (it: Item): string => `${it.zone}:${it.layer}`;
 
-  // `run_fill_waves`: Kahn's algorithm over the dependency DAG, the initial
-  // wave in item order and every next wave in the order successors free up.
+  // `run_fill_waves` hands every item of a wave to the thread pool at once
+  // (`tp.submit_task`, all at priority 0) and waits. The pool is
+  // `BS::priority_thread_pool`, whose queue is `std::priority_queue<pr_task>`
+  // — a binary heap — and libstdc++'s heap does NOT pop equal keys first-in
+  // first-out: `push_heap` on an equal key appends; `pop_heap` swaps the last
+  // element to the top and sifts the hole down the SECOND-child chain (the
+  // first-child branch is taken only when `comp` is true, and it never is).
+  // So a wave of n tasks runs as 0, 2, 6, 14, 30, ... then backwards from the
+  // end — and, since a zone's different-net knockouts are the fills of the
+  // higher zones that have ALREADY run (`ZONE::TransformShapeToPolygon` reads
+  // `m_FilledPolysList`), that order decides which same-wave zones see each
+  // other, hence which get `postKnockoutMinWidthPrune`. This is the order when
+  // every task is in the queue before the worker's first pop, which is what a
+  // single-threaded KiCad does almost every time (measured on the ESP32-S3
+  // DevKit-LiPo board: 135/135 rings on 4 of 5 `MaximumThreads=1` runs); with
+  // more threads KiCad's answer varies run to run and this is one of them.
+  const heapPopOrder = (ids: number[]): number[] => {
+    const heap: number[] = [...ids]; // push_heap of equal keys: append
+    const out: number[] = [];
+    while (heap.length > 0) {
+      out.push(heap[0]!);
+      const value = heap.pop()!;
+      const len = heap.length;
+      if (len === 0) break;
+      // `std::__adjust_heap( first, 0, len, value )`
+      let hole = 0;
+      let second = 0;
+      while (second < Math.trunc((len - 1) / 2)) {
+        second = 2 * (second + 1);
+        heap[hole] = heap[second]!;
+        hole = second;
+      }
+      if ((len & 1) === 0 && second === Math.trunc((len - 2) / 2)) {
+        second = 2 * (second + 1);
+        heap[hole] = heap[second - 1]!;
+        hole = second - 1;
+      }
+      heap[hole] = value; // `__push_heap` moves nothing for an equal key
+    }
+    return out;
+  };
+
+  // Kahn's algorithm over the dependency DAG: the initial wave holds every
+  // item without a dependency, in item order, and every next wave the items
+  // freed by the last, in the order they were freed — each run in pop order.
   const runWaves = (items: Item[], fillFn: (it: Item) => void, anyDeps: boolean): void => {
     const successors: number[][] = items.map(() => []);
     const inDegree: number[] = items.map(() => 0);
@@ -2397,7 +2440,7 @@ export function fillZones(board: Board, opts: ZoneFillOptions = {}): Board {
       if (inDegree[i] === 0) wave.push(i);
     });
     while (wave.length) {
-      for (const idx of wave) fillFn(items[idx]!);
+      for (const idx of heapPopOrder(wave)) fillFn(items[idx]!);
       const next: number[] = [];
       for (const idx of wave)
         for (const succ of successors[idx]!) if (--inDegree[succ]! === 0) next.push(succ);

@@ -55,3 +55,15 @@ pipeline was matched stage by stage.
   through, and the right half stays. Both carry a SIG blind/buried/blind via
   chain, of which only the In2.Cu–B.Cu one reaches the pour. Refilled by
   kicad-cli.
+
+- `waveorder_kicad_cli.kicad_pcb`: seven same-priority zones on seven nets,
+  staggered diagonally so each pair's bounding boxes lie within the worst
+  clearance but their outlines do not collide — so none waits for another
+  and all seven go into one fill wave. Which of them see a higher zone's
+  fill (and so get `postKnockoutMinWidthPrune`) depends on the order the
+  thread pool pops them: libstdc++'s `std::priority_queue` on equal
+  priorities pops 0, 2, 5, 6, 4, 1, 3 — pruning N1, N3 and N4 — where board
+  order would prune none. Refilled by kicad-cli with `MaximumThreads=1`;
+  eight of eight single-threaded runs gave this (a six-zone version of the
+  board showed the worker can start popping before every task is queued,
+  which prunes N2 and N4 instead), and multi-threaded runs vary further.
