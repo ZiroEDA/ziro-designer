@@ -68,6 +68,16 @@ import {
 } from './session_keys.js';
 import { bytesToBase64, createProjectKey, encryptSecret } from './crypto.js';
 import { syncUserTemplates, type TemplateSyncResult } from './templateSync.js';
+import { mapLimit } from '../map_limit.js';
+
+/**
+ * How many of a project's files are encrypted and uploaded at once.
+ *
+ * Bounds memory, not round trips: see `map_limit.ts`. Four keeps several
+ * uploads overlapping -- the network is still the slow part -- while capping
+ * what is resident at four files rather than all of them.
+ */
+const ENCRYPT_CONCURRENCY = 4;
 
 let backend: CloudBackend | null = null;
 
@@ -773,24 +783,28 @@ async function commitEncrypted(
   }
 
   const uploaded: EncFileEntry[] = [];
-  const entries: EncFileEntry[] = await Promise.all(
-    manifest.map(async (m) => {
-      const had = previous.get(m.hash);
-      if (had) return { ...had, name: m.name };
-      const src = p.files.find((f) => f.name === m.name)!;
-      const put = await putEncryptedBlob(be, owner, await bytesFor(src));
-      const entry: EncFileEntry = {
-        name: m.name,
-        hash: m.hash,
-        size: m.size,
-        blobId: put.blobId,
-        encSize: put.encSize,
-        encFileKey: await wrapFileKey(key, put.fileKey),
-      };
-      uploaded.push(entry);
-      return entry;
-    }),
-  );
+  // Bounded, not `Promise.all`. Each file in flight is held three times over:
+  // the base64 the local store keeps, the bytes it decodes to, and the
+  // ciphertext beside them. Encrypting every file at once therefore makes peak
+  // memory a function of project size rather than of this limit, which is how
+  // a tab pushing several projects ran out of it. Measured on a 300 MB input,
+  // unbounded peaked at about four times the raw bytes.
+  const entries: EncFileEntry[] = await mapLimit(manifest, ENCRYPT_CONCURRENCY, async (m) => {
+    const had = previous.get(m.hash);
+    if (had) return { ...had, name: m.name };
+    const src = p.files.find((f) => f.name === m.name)!;
+    const put = await putEncryptedBlob(be, owner, await bytesFor(src));
+    const entry: EncFileEntry = {
+      name: m.name,
+      hash: m.hash,
+      size: m.size,
+      blobId: put.blobId,
+      encSize: put.encSize,
+      encFileKey: await wrapFileKey(key, put.fileKey),
+    };
+    uploaded.push(entry);
+    return entry;
+  });
 
   // Commit-verify, as the plaintext path does: a store that accepted an
   // upload and dropped it must not be pointed at by a row.

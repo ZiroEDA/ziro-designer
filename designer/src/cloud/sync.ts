@@ -75,6 +75,19 @@ import {
   restoreFromHistory,
   StaleBaseError,
 } from './cloudStore.js';
+import { mapLimit } from '../map_limit.js';
+
+/**
+ * How many projects are transferred at once.
+ *
+ * One. Each project in flight holds its whole file set -- see
+ * ENCRYPT_CONCURRENCY in cloudStore.ts for what one file costs -- so this
+ * multiplies that by however many run together. Five at once peaked at 1205 MB
+ * on a 300 MB input, against 377 MB one at a time, and a browser tab dies long
+ * before the first number. Each project still overlaps its own uploads
+ * internally, so this costs latency only when there are many small projects.
+ */
+const PROJECT_CONCURRENCY = 1;
 
 /** Progress callback: `done` of `total` transfers finished so far. */
 export type SyncProgress = (done: number, total: number) => void;
@@ -210,7 +223,11 @@ export async function syncAllProjects(
     cloudMeta.filter((c) => (c.ownerId ?? userId) === userId).map((c) => [c.id, c]),
   );
 
-  const ops: Promise<void>[] = [];
+  // Thunks, not promises. A promise starts when it is made, so building them
+  // in the loops below and joining with `Promise.all` ran every transfer at
+  // once however the join behaved. Holding the work unstarted is what lets
+  // the limit below mean anything.
+  const ops: (() => Promise<void>)[] = [];
 
   // Count the transfers up front so the UI can show "n of m", ticking one as
   // each push/pull settles (order of completion, not of dispatch).
@@ -227,9 +244,9 @@ export async function syncAllProjects(
    * is a fact to report, not a reason to abandon the other nineteen. It reaches
    * the user through `SyncResult.failures`.
    */
-  const track = (id: string, direction: 'push' | 'pull', p: Promise<Outcome>): void => {
-    ops.push(
-      p.then(
+  const track = (id: string, direction: 'push' | 'pull', start: () => Promise<Outcome>): void => {
+    ops.push(() =>
+      start().then(
         // What happened, not what was planned: a pull whose cloud copy turns out
         // to be unreadable is completed by pushing the local one, and reporting
         // that as a pull would describe the opposite of what took place.
@@ -283,7 +300,7 @@ export async function syncAllProjects(
     // Local only: a project made on this machine, or one the cloud has never
     // seen. Pushed as base 0, which asserts no such row exists.
     if (!there) {
-      track(here.id, 'push', pushFallingBackToPull(userId, ref));
+      track(here.id, 'push', () => pushFallingBackToPull(userId, ref));
     } else if (here.baseVersion === there.version) {
       // Up to date with the cloud. Push only if this side actually changed --
       // and "changed" is the file hashes, so opening a project does not qualify
@@ -302,12 +319,12 @@ export async function syncAllProjects(
       // the clear for good. The browser check found exactly that.
       const stillPlaintext = sessionUnlocked() && ref.role === 'owner' && there.encrypted === false;
       if ((here.diverged || stillPlaintext) && ref.role !== 'viewer') {
-        track(here.id, 'push', pushFallingBackToPull(userId, ref));
+        track(here.id, 'push', () => pushFallingBackToPull(userId, ref));
       }
     } else {
       // The cloud has moved since this copy last agreed with it. Pull;
       // `pullOne` forks the local copy aside if it also changed.
-      track(here.id, 'pull', pullOne(userId, ref, result.conflicts));
+      track(here.id, 'pull', () => pullOne(userId, ref, result.conflicts));
     }
   }
 
@@ -320,9 +337,7 @@ export async function syncAllProjects(
     // browser gave it: that id may already name a project of this user's, and
     // importing over it would replace their work with somebody else's.
     const localId = role === 'owner' ? there.id : (there.uid ?? there.id);
-    track(
-      localId,
-      'pull',
+    track(localId, 'pull', () =>
       pullOne(
         userId,
         {
@@ -338,7 +353,7 @@ export async function syncAllProjects(
   }
 
   if (ops.length > 0) onProgress?.(0, ops.length);
-  await Promise.all(ops);
+  await mapLimit(ops, PROJECT_CONCURRENCY, (run) => run());
   // The last plaintext goes only when every project of the owner's is
   // encrypted; until then this returns null and touches nothing.
   try {
