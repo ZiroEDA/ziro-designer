@@ -35,6 +35,7 @@ import { LEGACY_COLORS } from '@ziroeda/common/src/color4d.js';
 import type { Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Board } from '@ziroeda/pcbnew';
+import { GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
 import { viaIsTented } from '@ziroeda/pcbnew/src/export_d356.js';
 import {
   clickSelectionParts,
@@ -602,6 +603,34 @@ export function mount3DViewer(
     grid: 8,
   };
 
+  // ---- the status bar --------------------------------------------------------
+  // `RENDER_3D_OPENGL::Redraw` reports "Loading..." into the ACTIVITY field
+  // before a reload (render_3d_opengl.cpp:527), so that is the field's state
+  // from the moment the frame exists until the first frame is timed.
+  let status: Viewer3DStatus = { dx: 0, dy: 0, zoom: 1, activity: 'Loading...', hovered: '' };
+  /** `api.onStatus`, held here because the first build reports before `api` exists. */
+  let onStatus: ((s: Viewer3DStatus) => void) | undefined;
+  const pushStatus = (): void => {
+    onStatus?.(status);
+  };
+  /**
+   * The `STATUSBAR_REPORTER( m_parentStatusBar, ACTIVITY )` a reload is
+   * given (eda_3d_canvas.cpp:399): every stage of `InitSettings`,
+   * `createLayers`, `reload` and `load3dModels` names itself here, and the
+   * frame paints the field as the async stages let it.
+   */
+  const activityReporter = (text: string): void => {
+    status = { ...status, activity: text };
+    pushStatus();
+  };
+  /**
+   * Scenes still loading their models. Upstream's reload is one synchronous
+   * call inside `Redraw`, so no frame is timed while it runs; here the frame
+   * on screen keeps drawing while the next one's models arrive, and its
+   * "Last render time" must not talk over the reporter until they have.
+   */
+  let reloadsPending = 0;
+
   // ---- the board scene (BOARD_ADAPTER::InitSettings + createLayers + RENDER_3D_OPENGL::reload)
   /**
    * `RENDER_3D_OPENGL::reload()`: everything the board decides — units,
@@ -632,6 +661,11 @@ export function mount3DViewer(
     renderIn: Viewer3dRenderOptions,
     projectFiles: ProjectFile[] | undefined,
   ): BoardScene | null => {
+    const report = activityReporter;
+    // render_3d_opengl.cpp:527 and create_scene.cpp:690 (stats_startReloadTime)
+    report('Loading...');
+    const startReloadTime = performance.now();
+    reloadsPending++;
     const render: Viewer3dRenderOptions = renderIn.visible3d
       ? {
           ...renderIn,
@@ -672,6 +706,7 @@ export function mount3DViewer(
     }
     if (!items) return null;
     const bbox = edgeBBox(board, items);
+    report('Build board outline'); // board_adapter.cpp:343
     const adapter = initAdapter(board, bbox, render.footprintHolder === true);
     const s = adapter.s;
     const to3d = (p: Vec2): [number, number] => [p.x * s, -p.y * s];
@@ -767,7 +802,9 @@ export function mount3DViewer(
       showPlatedBarrels: render.showPlatedBarrels,
       differentiatePlatedCopper: render.differentiatePlatedCopper,
     };
-    const built = buildBoard3dLayers(board, bbox, layerOpts);
+    report('Create layers'); // board_adapter.cpp:579
+    const built = buildBoard3dLayers(board, bbox, { ...layerOpts, report });
+    report('Load OpenGL: board'); // create_scene.cpp:704
     const showThickness = render.copperThickness !== false;
 
     const disposables: { dispose(): void }[] = [];
@@ -847,6 +884,7 @@ export function mount3DViewer(
       }
     };
 
+    report('Load OpenGL: holes and vias'); // create_scene.cpp:754
     // m_padHoles: the plated barrels, F_Cu top to B_Cu bottom, copper material
     // (drawn first, `setLayerMaterial( B_Cu )`).
     {
@@ -888,10 +926,13 @@ export function mount3DViewer(
       addMesh(toGeometry(buf), makeFixedFunctionMaterial(mats.copper, lights), RENDER_ORDER.holes);
     }
 
+    report('Load OpenGL: layers'); // create_scene.cpp:811
     // Display copper and tech layers
     for (const layer of Object.keys(built.layers) as Layer3d[]) {
       const polys = built.layers[layer];
       if (!polys || polys.length === 0) continue;
+      // create_scene.cpp:825, the BOARD's name for the layer
+      report(`Load OpenGL layer ${GetLayerName(board.layers, layer)}`);
       if (layer === 'F.Mask' || layer === 'B.Mask') continue; // special case below
       const [zTop, zBot] = zOf(layer);
       const p = polys3d(polys);
@@ -1091,6 +1132,7 @@ export function mount3DViewer(
 
     const modelsGroup = new THREE.Group();
     scene.add(modelsGroup);
+    report('Loading 3D models...'); // create_scene.cpp:937
     const components = mountComponents(
       modelsGroup,
       board,
@@ -1108,6 +1150,7 @@ export function mount3DViewer(
         needsRender = true; // a model arrived: Request_refresh()
       },
       render.showModelBbox === true,
+      report,
       {
         material: modelMaterial,
         opaqueOrder: RENDER_ORDER.opaqueModels,
@@ -1143,7 +1186,11 @@ export function mount3DViewer(
       maskMeshes,
       bgTop: colors.bgTop,
       bgBot: colors.bgBot,
-      ready: components.ready,
+      // create_scene.cpp:941-946: the reload clock stops after load3dModels
+      ready: components.ready.then(() => {
+        reloadsPending--;
+        report(`Reload time ${((performance.now() - startReloadTime) / 1000).toFixed(3)} s`);
+      }),
       dispose: () => {
         components.dispose();
         for (const d of disposables) d.dispose();
@@ -1541,10 +1588,6 @@ export function mount3DViewer(
   let mouseWasMoved = false;
   let needsRender = true;
 
-  let status: Viewer3DStatus = { dx: 0, dy: 0, zoom: 1, activity: '', hovered: '' };
-  const pushStatus = (): void => {
-    api.onStatus?.(status);
-  };
   /** `DisplayStatus`: dx/dy are the camera pan, zoom is 1/m_zoom. */
   const displayStatus = (): void => {
     const cp = camera.getCameraPos();
@@ -1915,7 +1958,7 @@ export function mount3DViewer(
       renderer.setViewport(0, 0, w, h);
     }
     const ms = performance.now() - t0;
-    if (Math.abs(ms - lastRenderMs) >= 1) {
+    if (reloadsPending === 0 && Math.abs(ms - lastRenderMs) >= 1) {
       lastRenderMs = ms;
       status = { ...status, activity: `Last render time ${ms.toFixed(0)} ms` };
       pushStatus();
@@ -1958,6 +2001,15 @@ export function mount3DViewer(
   };
 
   const api: Viewer3D = {
+    get status() {
+      return status;
+    },
+    get onStatus() {
+      return onStatus;
+    },
+    set onStatus(fn) {
+      onStatus = fn;
+    },
     dispose: () => {
       cancelAnimationFrame(raf);
       ro.disconnect();

@@ -190,7 +190,7 @@ export function Viewer3DFrame({
     dx: 0,
     dy: 0,
     zoom: 1,
-    activity: '',
+    activity: 'Loading...', // what the reporter says first (render_3d_opengl.cpp:527)
     hovered: '',
   });
   const [grid, setGrid] = useState<Grid3D>('none');
@@ -487,6 +487,7 @@ export function Viewer3DFrame({
       if (viewer) {
         builtWith.current = { board, opts };
         viewer.onStatus = setStatus;
+        setStatus(viewer.status); // the stages the synchronous build already reported
         viewer.onSelect = (parts) => onSelectRef.current?.(parts);
         viewer.setSelectedFootprints(selectedRef.current ?? new Set());
         // Re-apply the sticky view settings across a remount/reload.
@@ -911,12 +912,13 @@ export function Viewer3DFrame({
           ZOOM_LEVEL, at the widths eda_3d_viewer_frame.cpp:112 states
           ({ -1, 170, 130, 130, 130 }). */}
       <KiStatusBar>
-        {/* RENDER_3D_OPENGL::Redraw: `aStatusReporter->Report( _( "Loading..." ) )`
-            under a BUSY_INDICATOR while the scene reloads (render_3d_opengl.cpp:
-            524-528). The word goes in the ACTIVITY field, and nothing is drawn
-            over the canvas. */}
+        {/* The ACTIVITY field is a STATUSBAR_REPORTER (eda_3d_canvas.cpp:399):
+            "Loading..." under a BUSY_INDICATOR, then every stage of the reload
+            — "Create layers", "Load OpenGL layer F.Cu", "Loading R_0603.wrl..."
+            — then "Reload time" and each frame's "Last render time". No
+            progress dialog: nothing is drawn over the canvas. */}
         <span className="cell msg" data-testid="view3d-activity">
-          {ready ? status.activity : 'Loading...'}
+          {status.activity}
         </span>
         {/* "Pad %s\tNet %s\tNet class %s": wx keeps the tabs as gaps. */}
         <span

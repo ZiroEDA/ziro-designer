@@ -204,6 +204,14 @@ export function mountComponents(
    * green (`MakeBbox( m_model_bbox, …, { 0, 1, 0, 1 } )`, 3d_model.cpp:247).
    */
   showModelBbox?: boolean,
+  /**
+   * `load3dModels( REPORTER* aStatusReporter )`: "Loading %s..." with the
+   * short file name of each model as it is fetched (create_scene.cpp:1656-
+   * 1662). Upstream loads one file at a time, so the field names the one in
+   * hand; here the fetches overlap, so the field names one still in flight
+   * and moves on as each lands.
+   */
+  report?: (text: string) => void,
   hooks?: ComponentRenderHooks,
 ): MountedComponents {
   const vrmlLoader = new VRMLLoader();
@@ -215,6 +223,12 @@ export function mountComponents(
   let cancelled = false;
   const enc = new TextEncoder();
   const fileNames = projectFiles?.map((f) => f.name);
+  // wxFileName( fp_model.m_Filename ).GetFullName(): the name and extension
+  const inFlight = new Set<string>();
+  const reportInFlight = (): void => {
+    const next = inFlight.values().next();
+    if (!next.done) report?.(`Loading ${next.value}...`);
+  };
 
   const loadUrl = (url: string): Promise<THREE.Object3D | null> =>
     /\.glb$/i.test(url)
@@ -268,6 +282,13 @@ export function mountComponents(
       if (!p) {
         p = res.kind === 'url' ? loadUrl(res.url) : loadProjectFile(res.name);
         cache.set(key, p);
+        const fullName = model.path.slice(model.path.lastIndexOf('/') + 1);
+        inFlight.add(fullName);
+        report?.(`Loading ${fullName}...`);
+        void p.finally(() => {
+          inFlight.delete(fullName);
+          reportInFlight();
+        });
       }
       pendingLoads.push(p);
       const matrix = modelMatrix(fp, model, frame);

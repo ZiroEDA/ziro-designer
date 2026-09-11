@@ -111,6 +111,8 @@ export interface Viewer3D {
 
   /** Called on pointer move / camera change to feed the status bar. */
   onStatus?: (s: Viewer3DStatus) => void;
+  /** The status bar's fields as they stand — what a listener attached late has missed. */
+  readonly status: Viewer3DStatus;
 }
 
 /**

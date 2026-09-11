@@ -298,6 +298,8 @@ export interface Layer3dOptions {
    * preset shows. A layer not in the set is not built. Omitted = every layer.
    */
   visibleLayers?: Set<number>;
+  /** `createLayers( REPORTER* aStatusReporter )`: the stage names it reports. */
+  report?: (text: string) => void;
 }
 
 export interface Board3dLayers {
@@ -384,6 +386,7 @@ export function buildBoard3dLayers(
   const showRefs = opts.showFpReferences !== false;
   const showValues = opts.showFpValues !== false;
   const showFpText = opts.showFpText !== false;
+  const report = opts.report ?? ((): void => {});
 
   // ----- the board -----------------------------------------------------------
   // `GetBoardPolygonOutlines`: the first loop is the outer boundary (largest
@@ -465,6 +468,7 @@ export function buildBoard3dLayers(
   const allHoles = booleanAdd(thOD, npthOD);
 
   // ----- per-layer item polygons ----------------------------------------------
+  report('Create tracks and vias'); // create_layer_items.cpp:315
   const items: Partial<Record<Layer3d, Polygon[]>> = {};
   const add = (layer: string, polys: Polygon[]): void => {
     if (!(LAYERS_3D as readonly string[]).includes(layer)) return;
@@ -579,6 +583,7 @@ export function buildBoard3dLayers(
   }
 
   // Tech layers (create_layer_items.cpp:1320-1655).
+  report('Build Tech layers');
   const maskOpenings = { 'F.Mask': [] as Polygon[], 'B.Mask': [] as Polygon[] };
   for (const layer of LAYERS_3D) {
     if (isCopperLayer3d(layer)) continue;
@@ -623,6 +628,7 @@ export function buildBoard3dLayers(
   }
 
   // ----- union, cut the holes, clip to the board -----------------------------
+  report('Simplifying copper layer polygons'); // create_layer_items.cpp:1674
   // `DrawCulled( showThickness, throughHolesOuter, anti_board )` for a tech
   // layer, `( outerTH, viaHoles, m_antiBoard )` for copper. The mask is the
   // odd one: its list is the OPENINGS, and the layer drawn is the BOARD minus
@@ -668,6 +674,7 @@ export function buildBoard3dLayers(
   }
   // TRIM PLATED COPPER TO SOLDERMASK, then subtract it from the unplated
   // (create_layer_items.cpp:1673-1697).
+  if (opts.differentiatePlatedCopper) report('Calculating plated copper');
   const platedCopper = { 'F.Cu': [] as Polygon[], 'B.Cu': [] as Polygon[] };
   if (opts.differentiatePlatedCopper) {
     for (const [cu, mask] of [
