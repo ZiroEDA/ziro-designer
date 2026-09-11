@@ -247,12 +247,35 @@ export function makeEllipseArc(
  * out explicitly.
  */
 export function makeRuleArea(points: readonly Vec2[]): LibGraphic {
+  const g = makePolyline(closedOutline(points), { width: 0, type: 'dash' }, { type: 'none' });
+  return { ...(g as Extract<LibGraphic, { kind: 'polyline' }>), ruleArea: true };
+}
+
+/**
+ * A `SHAPE_T::POLY` outline as a polyline: the closing edge made explicit.
+ *
+ * KiCad never stores that edge. `formatPoly` writes `Outline( 0 ).CPoints()`,
+ * which for a rectangle is four vertices, and the painter closes the figure
+ * because `MakeEffectiveShapes` walks a closed `SHAPE_LINE_CHAIN`. A polyline
+ * of those same four points draws three edges, so anything that models a POLY
+ * as a polyline must add the first vertex back — once, and only when the
+ * outline does not already meet.
+ */
+export function closedOutline(points: readonly Vec2[]): Vec2[] {
   const closed = [...points];
   const first = closed[0];
   const last = closed[closed.length - 1];
   if (first && last && (first.x !== last.x || first.y !== last.y)) closed.push({ ...first });
-  const g = makePolyline(closed, { width: 0, type: 'dash' }, { type: 'none' });
-  return { ...(g as Extract<LibGraphic, { kind: 'polyline' }>), ruleArea: true };
+  return closed;
+}
+
+/** The inverse of {@link closedOutline}: the vertices as `formatPoly` writes them. */
+export function openOutline(points: readonly Vec2[]): readonly Vec2[] {
+  const first = points[0];
+  const last = points[points.length - 1];
+  if (points.length > 1 && first && last && first.x === last.x && first.y === last.y)
+    return points.slice(0, -1);
+  return points;
 }
 
 /**

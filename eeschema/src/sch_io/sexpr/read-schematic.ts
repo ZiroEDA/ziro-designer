@@ -13,6 +13,7 @@
 import { head, isList, type SList } from '@ziroeda/sexpr/src/types.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { type Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/src/reporter.js';
+import { closedOutline } from '../../tools/build-graphics.js';
 import {
   arg,
   args,
@@ -1196,7 +1197,14 @@ export function readSchematic(root: SList, reporter?: Reporter): Schematic {
       const shape = item.items.find((c): c is SList => isList(c) && SHAPE_KINDS.has(head(c) ?? ''));
       const g = shape ? readGraphic(shape, false) : undefined;
       // `readGraphic` never returns the text variant for these node names.
-      if (g && g.kind !== 'text') graphics.push({ ...g, ruleArea: true, ruleAreaSource: item });
+      if (g && g.kind !== 'text') {
+        // The file holds the vertices of a `SHAPE_T::POLY`, which is closed by
+        // definition, so the closing edge is not among them: a rectangle is
+        // four `(xy …)`. As a polyline that is three edges, so the first
+        // vertex goes back on the end, the way `makeRuleArea` builds one.
+        const closed = g.kind === 'polyline' ? { ...g, points: closedOutline(g.points) } : g;
+        graphics.push({ ...closed, ruleArea: true, ruleAreaSource: item });
+      }
     } else if (name === 'text_box') textBoxes.push(readTextBox(item));
     else if (name === 'table') tables.push(readTable(item));
     else if (name === 'group') groups.push(readGroup(item));

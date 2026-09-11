@@ -22,6 +22,7 @@ import { arg, childNamed, numArg, stringField } from '@ziroeda/sexpr/src/query.j
 import { iuToMM, mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import { fieldIsPrivate, readEffects, readField } from './read-schematic.js';
+import { openOutline } from '../../tools/build-graphics.js';
 import { writeLibSymbolNode } from './write-symbol-lib.js';
 import type {
   LibSymbol,
@@ -1405,7 +1406,12 @@ function writeGraphic(g: LibGraphic): SList {
       break;
     case 'polyline':
     case 'bezier':
-      node = patchPts(g.source, g.points);
+      // A rule area is a `SHAPE_T::POLY`, and `formatPoly` writes its outline
+      // without the closing vertex the model carries (see `closedOutline`).
+      node = patchPts(
+        g.source,
+        g.ruleArea && g.kind === 'polyline' ? openOutline(g.points) : g.points,
+      );
       break;
     case 'ellipse':
     case 'ellipse_arc': {

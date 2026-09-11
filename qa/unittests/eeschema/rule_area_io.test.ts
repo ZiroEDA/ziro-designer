@@ -34,7 +34,7 @@ import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 const SRC = `(kicad_sch (version 20250114) (lib_symbols)
   (rule_area (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no)
     (polyline
-      (pts (xy 50 50) (xy 100 50) (xy 100 90) (xy 50 90) (xy 50 50))
+      (pts (xy 50 50) (xy 100 50) (xy 100 90) (xy 50 90))
       (stroke (width 0) (type default)) (fill (type none)) (uuid "ra1")))
   (polyline
     (pts (xy 10 10) (xy 20 20))
@@ -50,13 +50,24 @@ describe('reading a rule area', () => {
     expect(ra!.kind).toBe('polyline');
   });
 
-  it('with the points the wrapper held', () => {
+  it('with the points the wrapper held, plus the closing vertex the file leaves out', () => {
+    // `formatPoly` writes `Outline( 0 ).CPoints()`: a rectangle is four `(xy …)`
+    // and the fourth edge is implied by `SHAPE_T::POLY` being closed. As a
+    // polyline those four points draw three edges, which is exactly the
+    // "last segment missing" a loaded rule area used to show.
     const ra = doc().graphics.find((g) => g.ruleArea)!;
     expect(ra.kind === 'polyline' && ra.points).toHaveLength(5);
     if (ra.kind === 'polyline') {
       expect(ra.points[0]).toEqual({ x: mmToIU(50), y: mmToIU(50) });
       expect(ra.points[2]).toEqual({ x: mmToIU(100), y: mmToIU(90) });
+      expect(ra.points[4]).toEqual(ra.points[0]);
     }
+  });
+
+  it('but a file that already repeats the first vertex is not closed twice', () => {
+    const twice = SRC.replace('(xy 50 90))', '(xy 50 90) (xy 50 50))');
+    const ra = readSchematic(parse(twice)).graphics.find((g) => g.ruleArea)!;
+    expect(ra.kind === 'polyline' && ra.points).toHaveLength(5);
   });
 
   it('and an ordinary polyline is not flagged', () => {
@@ -94,6 +105,25 @@ describe('writing one back', () => {
     expect(ra).toBeDefined();
     expect(ra!.kind).toBe('polyline');
     if (ra?.kind === 'polyline') expect(ra.points).toHaveLength(5);
+  });
+
+  it('writes the outline the way formatPoly does: without the closing vertex', () => {
+    // The model carries five points; the file must carry KiCad's four, or every
+    // save would grow a zero-length segment KiCad itself never writes.
+    // The `(pts …)` of the first rule area in the text.
+    const ptsOf = (text: string): string => {
+      const i = text.indexOf('(pts', text.indexOf('(rule_area'));
+      return text.slice(i, text.indexOf('(stroke', i));
+    };
+    expect(ptsOf(serializeSchematic(doc())).match(/\(xy /g) ?? []).toHaveLength(4);
+    // And the same for one drawn here, whose closing vertex `makeRuleArea` added.
+    const drawn = makeRuleArea([
+      { x: 0, y: 0 },
+      { x: mmToIU(10), y: 0 },
+      { x: mmToIU(10), y: mmToIU(10) },
+    ]);
+    const out = serializeSchematic({ ...doc(), graphics: [drawn] });
+    expect(ptsOf(out).match(/\(xy /g) ?? []).toHaveLength(3);
   });
 
   it('exactly once — the source node does not also survive alongside it', () => {
