@@ -87,7 +87,7 @@ import {
   type SMaterial,
 } from './gl_fixed_function.js';
 import { MODELS3D_HOST } from '../../libraryHosts.js';
-import { buildScene } from './renderBoard.js';
+import { allBoardItemIds, boardItemBBox } from '@ziroeda/pcbnew/src/edit-board.js';
 import type {
   Grid3D,
   Move3DDir,
@@ -652,9 +652,26 @@ export function mount3DViewer(
           showNavigator: renderIn.visible3d.has('LAYER_3D_NAVIGATOR'),
         }
       : renderIn;
-    const scene2d = buildScene(board);
-    if (!scene2d.bbox) return null;
-    const bbox = edgeBBox(board, scene2d.bbox);
+    // `BOARD::ComputeBoundingBox( aBoardEdgesOnly = haveOutline, true )`:
+    // the Edge.Cuts extent, else every item's. The item extent is the union
+    // of the same per-item boxes the editor's selection uses — not a compile
+    // of the 2D scene, which is what stood here and took the CM5 board's
+    // 20-second layer build past the point of no picture at all.
+    let items: BBox | null = null;
+    for (const id of allBoardItemIds(board)) {
+      const b = boardItemBBox(board, id);
+      if (!b || !Number.isFinite(b.minX) || b.minX > b.maxX) continue;
+      items = items
+        ? {
+            minX: Math.min(items.minX, b.minX),
+            minY: Math.min(items.minY, b.minY),
+            maxX: Math.max(items.maxX, b.maxX),
+            maxY: Math.max(items.maxY, b.maxY),
+          }
+        : { ...b };
+    }
+    if (!items) return null;
+    const bbox = edgeBBox(board, items);
     const adapter = initAdapter(board, bbox, render.footprintHolder === true);
     const s = adapter.s;
     const to3d = (p: Vec2): [number, number] => [p.x * s, -p.y * s];
@@ -1164,10 +1181,6 @@ export function mount3DViewer(
     camera.setMinZoom(minZoom);
     camera.setMaxZoom(maxZoom);
   };
-  applyZoomLimits(cur);
-  void cur.ready.then(() => {
-    if (cur === first) applyZoomLimits(cur);
-  });
 
   // ---- 3D grid (generate3dGrid) ------------------------------------------------
   let gridObj: THREE.LineSegments | null = null;
@@ -1503,6 +1516,10 @@ export function mount3DViewer(
   // ---- camera (TRACK_BALL) ---------------------------------------------------
   const camera = new TrackBallCamera(INITIAL_CAMERA_DISTANCE, 'perspective');
   camera.setBoardLookAtPos(cur.adapter.boardCenter);
+  applyZoomLimits(cur);
+  void cur.ready.then(() => {
+    if (cur === first) applyZoomLimits(cur);
+  });
   const threeCam = new THREE.Camera();
   threeCam.matrixAutoUpdate = false;
   threeCam.matrixWorldAutoUpdate = false;

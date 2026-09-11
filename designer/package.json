@@ -9,7 +9,8 @@
     "build": "tsc --noEmit && vite build",
     "build:calc": "vite build --config vite.calc.config.ts && node scripts/inline-calc.mjs",
     "preview": "vite preview --port 4173",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@sentry/browser": "^10.68.0",
