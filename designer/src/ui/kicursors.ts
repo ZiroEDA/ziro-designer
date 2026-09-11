@@ -120,10 +120,31 @@ const STORE = {
 /**
  * `KICURSOR`, as far as this port goes.
  *
- * ARROW is in the union and NOT in {@link STORE}, exactly as upstream: it has
- * no entry in `cursors_defs` and is served by `GetStockCursor` instead.
+ * ARROW and BULLSEYE are in the union and NOT in {@link STORE}, exactly as
+ * upstream: neither has an entry in `cursors_defs`; both are served by
+ * `GetStockCursor` instead.
  */
-export type KiCursor = keyof typeof STORE | 'ARROW';
+export type KiCursor = keyof typeof STORE | 'ARROW' | 'BULLSEYE';
+
+/**
+ * `wxCURSOR_BULLSEYE` in CSS — what this desktop draws for `GDK_TARGET`.
+ *
+ * The two pickers that ask for `KICURSOR::BULLSEYE` —
+ * `BOARD_INSPECTION_TOOL::LocalRatsnestTool` (`board_inspection_tool.cpp:2296`)
+ * and the net-highlight pickers (`:302`; `SCH_EDITOR_CONTROL::HighlightNetCursor`,
+ * `sch_editor_control.cpp:1574`) — get a STOCK cursor, not KiCad art: GTK's
+ * `IsStockCursorOk` keeps BULLSEYE (see {@link stockCursor}), and wxGTK builds it as
+ * `gdk_cursor_new_for_display( display, GDK_TARGET )`. There is no XPM in the
+ * reference tree to vendor, and no CSS keyword for it either, so
+ * `qa/probes/stock_cursor_probe.py` makes wx's call and this is its answer:
+ * 24x24, hotspot (11, 11), the core cursor font's `target` glyph. [px] Not a
+ * bullseye drawn from the name — the schematic canvas had one of those,
+ * concentric rings with a cross, which KiCad shows on no platform we target.
+ *
+ * One size only: a core-font cursor does not scale with the display, and
+ * neither does KiCad's.
+ */
+const BULLSEYE_HOTSPOT = '11 11';
 
 /**
  * Every name the store answers, so a test can ask "is this string one of
@@ -132,6 +153,7 @@ export type KiCursor = keyof typeof STORE | 'ARROW';
 export const KICURSOR_NAMES: readonly KiCursor[] = [
   ...(Object.keys(STORE) as (keyof typeof STORE)[]),
   'ARROW',
+  'BULLSEYE',
 ];
 
 /**
@@ -150,13 +172,22 @@ export const KICURSOR_NAMES: readonly KiCursor[] = [
  * BULLSEYE, HAND, ARROW and BLANK and nothing else
  * (`libs/kiplatform/port/wxgtk/ui.cpp:185-196`), so **MOVING's
  * `wxCURSOR_SIZING` is thrown away** and MOVING draws its bitmap like every
- * other entry. Of the KICURSORs this port uses, only ARROW survives — which
- * is why it is the one branch here.
+ * other entry. Of the KICURSORs this port uses, ARROW and BULLSEYE survive —
+ * which is why they are the two branches here.
  *
  * `null` is `wxCURSOR_MAX`: no stock cursor, use the bitmap.
  */
 function stockCursor(name: KiCursor): string | null {
-  return name === 'ARROW' ? STOCK_CURSOR : null;
+  if (name === 'ARROW') return STOCK_CURSOR;
+  if (name === 'BULLSEYE') {
+    const png = URLS['../assets/cursors/stock-target.png'];
+    // The keyword behind it is the arrow for the reason STOCK_CURSOR gives:
+    // a stock cursor that fails to load has no upstream counterpart, and a
+    // crosshair here would be our invention. It is what this port showed for
+    // both pickers before the probe was run.
+    return png ? `url(${png}) ${BULLSEYE_HOTSPOT}, ${STOCK_CURSOR}` : STOCK_CURSOR;
+  }
+  return null;
 }
 
 /**

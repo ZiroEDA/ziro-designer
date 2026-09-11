@@ -33,6 +33,7 @@ import { sharedToolCursorName } from '../../ui/tool_cursors.js';
  *  - DrawShape / DrawRuleArea / DrawTable / DrawSheet, KICURSOR::PENCIL
  *  - SCH_LINE_WIRE_BUS_TOOL, LINE_WIRE / LINE_BUS / LINE_GRAPHIC
  *  - selection tools, ARROW, and the lasso its own cursor
+ *  - the net-highlight picker, KICURSOR::BULLSEYE
  */
 export function toolCursorName(tool: string): KiCursor {
   // The actions eeschema shares with the other editors answer once, in
@@ -44,6 +45,12 @@ export function toolCursorName(tool: string): KiCursor {
   switch (tool) {
     case 'select':
       return 'ARROW';
+    // `SCH_EDITOR_CONTROL::HighlightNetCursor`'s picker
+    // (`sch_editor_control.cpp:1574`): the platform's stock BULLSEYE. The
+    // canvas used to short-circuit this one to a rings-and-cross SVG of its
+    // own before reaching here, because the store had no BULLSEYE to give.
+    case 'highlightNet':
+      return 'BULLSEYE';
     case 'selectLasso':
       return 'SELECT_LASSO';
     case 'drawWire':

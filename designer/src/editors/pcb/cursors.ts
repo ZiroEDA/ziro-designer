@@ -47,13 +47,18 @@ export interface BoardCursorState {
  * `ui/tool_cursors.ts` answers for every action another editor also has; what
  * is left here is this frame's own.
  *
- * `BOARD_INSPECTION_TOOL::LocalRatsnestTool` runs a picker that sets no cursor
- * of its own, so it keeps the crosshair; everything unarmed is the plain arrow.
+ * `BOARD_INSPECTION_TOOL::LocalRatsnestTool` is a picker with
+ * `picker->SetCursor( KICURSOR::BULLSEYE )` (`board_inspection_tool.cpp:2296`).
+ * It is this frame's own — the footprint editor has no ratsnest — which is
+ * why it is answered here and not in the shared table. Ours said "sets no
+ * cursor of its own" and showed a crosshair; that was a misreading of the
+ * source, not a measurement. Everything unarmed is the plain arrow.
  */
 export const boardToolCursor = (tool: string, state: BoardCursorState = {}): string => {
   // The one tool whose cursor changes partway through the gesture. Checked
   // before the shared table, which holds its idle answer.
   if (tool === 'drawTable' && state.tableDragging) return kiCursor('MOVING');
   if (tool === 'placeReferenceImage' && state.imagePlacing) return kiCursor('MOVING');
-  return toolCursorCss(tool, tool === 'localRatsnestTool' ? 'crosshair' : 'default');
+  if (tool === 'localRatsnestTool') return kiCursor('BULLSEYE');
+  return toolCursorCss(tool, 'default');
 };

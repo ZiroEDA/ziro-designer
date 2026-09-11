@@ -281,21 +281,6 @@ import {
  */
 const CONNECTION_SNAP_TOOLS = new Set(['junction', 'noConnect', 'drawWire', 'drawBus']);
 
-// KiCad's BULLSEYE cursor (wxCURSOR_BULLSEYE), used by the net-highlight picker:
-// concentric rings with a cross through them, hotspot at the centre. The rest of
-// the tool cursors are KiCad's own bitmaps, see cursors.ts.
-const BULLSEYE_CURSOR = (() => {
-  const rings =
-    `<circle cx="16" cy="16" r="9" fill="none"/><circle cx="16" cy="16" r="4" fill="none"/>` +
-    `<line x1="16" y1="2" x2="16" y2="30"/><line x1="2" y1="16" x2="30" y2="16"/>`;
-  const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">` +
-    `<g stroke="#ffffff" stroke-width="3">${rings}</g>` +
-    `<g stroke="#000000" stroke-width="1">${rings}</g>` +
-    `</svg>`;
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 16 16, crosshair`;
-})();
-
 /**
  * The wire cursor, also shown over a dangling pin with the select tool.
  *
@@ -314,7 +299,6 @@ const wireCursor = (): string => kiCursor('LINE_WIRE');
  * same for every tool — see `attachedCursor` for the table and the sources.
  */
 function toolCursor(tool: string, attached: 'none' | 'moving' | 'place' = 'none'): string {
-  if (tool === 'highlightNet') return BULLSEYE_CURSOR;
   if (attached !== 'none') return kiCursor(attached === 'moving' ? 'MOVING' : 'PLACE');
   return kiToolCursor(tool);
 }

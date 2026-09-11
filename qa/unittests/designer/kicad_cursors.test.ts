@@ -15,8 +15,11 @@
  * half: art with the wrong hotspot puts the click somewhere other than where
  * the pencil tip is, and no screenshot comparison would show it.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { kiCursor } from '@ziroeda/designer/src/ui/kicursors.js';
+import { settings } from '@ziroeda/designer/src/prefs/settings.js';
+import { boardToolCursor } from '@ziroeda/designer/src/editors/pcb/cursors.js';
+import { toolCursor as schToolCursor } from '@ziroeda/designer/src/editors/schematic/cursors.js';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -232,5 +235,86 @@ describe('one CURSOR_STORE, like KiCad', () => {
       const src = readFileSync(join(SRCDIR, rel), 'utf8');
       expect(src, rel).not.toMatch(/toDataURL\(/);
     }
+  });
+});
+
+/**
+ * `KICURSOR::BULLSEYE` is the one cursor a tool asks for that `cursors_defs`
+ * does not hold. `GetStockCursor` (`cursors.cpp:437-463`) answers it with
+ * `wxCURSOR_BULLSEYE`, GTK's `IsStockCursorOk` keeps it
+ * (`libs/kiplatform/port/wxgtk/ui.cpp:185-196`), and wxGTK builds
+ * `GDK_TARGET` — so what KiCad shows is whatever this desktop draws for
+ * that, and `qa/probes/stock_cursor_probe.py` asked it: 24x24, hotspot
+ * (11, 11). The two askers are `BOARD_INSPECTION_TOOL::LocalRatsnestTool`
+ * (`board_inspection_tool.cpp:2296`) and `SCH_EDITOR_CONTROL::HighlightNetCursor`
+ * (`sch_editor_control.cpp:1574`).
+ *
+ * None of this was pinned: the board showed a CSS crosshair off a comment
+ * claiming the picker "sets no cursor of its own", the schematic drew
+ * concentric rings from the word "bullseye", and moving both to the store
+ * moved zero expectations.
+ */
+describe('KICURSOR::BULLSEYE is a stock cursor', () => {
+  const TARGET = path('../../../designer/src/assets/cursors/stock-target.png');
+
+  afterEach(() => {
+    settings.common.appearance.use_custom_cursors = true;
+  });
+
+  it('is the probe’s PNG at the probe’s hotspot, ending in the arrow', () => {
+    const value = kiCursor('BULLSEYE');
+    const candidates = value.split(/,(?![^()]*\))/).map((c) => c.trim());
+    expect(candidates.length, value).toBe(2);
+    expect(candidates[0]).toMatch(/^url\(.*stock-target\.png\) 11 11$/);
+    expect(candidates[1]).toBe('default');
+  });
+
+  it('is not a bullseye drawn from the name', () => {
+    // Rings and a cross are what the word suggests, and what the schematic
+    // canvas used to draw; GTK hands KiCad the core font's `target` glyph.
+    expect(kiCursor('BULLSEYE')).not.toContain('svg');
+    expect(kiCursor('BULLSEYE')).not.toContain('crosshair');
+  });
+
+  it('survives "Disable custom cursors", as every stock cursor does', () => {
+    // Both branches of `GetCursor` ask `GetStockCursor` first (`:413-421`);
+    // only a `wxCURSOR_MAX` answer is turned into the arrow.
+    settings.common.appearance.use_custom_cursors = false;
+    expect(kiCursor('BULLSEYE')).toContain('stock-target.png');
+    expect(kiCursor('BULLSEYE')).not.toBe('default');
+  });
+
+  it('is vendored as the probe wrote it: a 24x24 PNG', () => {
+    expect(existsSync(TARGET)).toBe(true);
+    const bytes = readFileSync(TARGET);
+    expect([...bytes.subarray(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+    // IHDR: width and height are the two big-endian u32s after the 16-byte
+    // signature + chunk header. A 32x32 here would be someone's redraw.
+    expect(bytes.readUInt32BE(16)).toBe(24);
+    expect(bytes.readUInt32BE(20)).toBe(24);
+  });
+
+  it('stays out of cursors_defs, because it has no XPM there', () => {
+    expect(declared.BULLSEYE).toBeUndefined();
+  });
+
+  it('is what the local ratsnest picker wears on the board', () => {
+    expect(boardToolCursor('localRatsnestTool')).toBe(kiCursor('BULLSEYE'));
+    // and the frame's fallback is still the arrow, not a crosshair — the
+    // ratsnest tool was the only reason a crosshair was ever named there.
+    expect(boardToolCursor('placeReferenceImage')).toBe('default');
+  });
+
+  it('is what the net-highlight picker wears in eeschema', () => {
+    expect(schToolCursor('highlightNet')).toBe(kiCursor('BULLSEYE'));
+  });
+
+  it('and the schematic canvas no longer draws its own', () => {
+    const SRCDIR = fileURLToPath(new URL('../../../designer/src', import.meta.url));
+    const src = readFileSync(
+      join(SRCDIR, 'editors/schematic/components/SchematicCanvas.tsx'),
+      'utf8',
+    );
+    expect(src).not.toMatch(/BULLSEYE_CURSOR|data:image\/svg\+xml/);
   });
 });
