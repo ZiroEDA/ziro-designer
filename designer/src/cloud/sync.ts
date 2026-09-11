@@ -165,7 +165,29 @@ export interface SyncResult {
   }[];
 }
 
-const message = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+/**
+ * A failure, as a line a user can act on.
+ *
+ * The fallbacks are not defensive padding. `SyncResult.failures[0].message` is
+ * the entire text of the banner in HomePage, so an error that carries an empty
+ * message renders as "4 projects did not sync: " and tells nobody anything --
+ * observed, with four real projects, and it cost a diagnosis round trip.
+ * Plenty of things throw that way: a `new Error()` with no argument, a
+ * rejected fetch with an empty body, a non-Error value like ''. Anything at
+ * all beats a blank.
+ */
+const message = (e: unknown): string => {
+  const text = e instanceof Error ? e.message : String(e);
+  if (text.trim() !== '') return text;
+  if (e instanceof Error) return e.name?.trim() || e.constructor?.name || 'unknown error';
+  if (e === null || e === undefined) return `sync threw ${String(e)}`;
+  try {
+    const json = JSON.stringify(e);
+    return json && json !== '{}' ? json : `unknown error (${typeof e})`;
+  } catch {
+    return `unknown error (${typeof e})`;
+  }
+};
 
 /**
  * Which cloud project a local copy is a copy of, and what may be done to it.
@@ -259,6 +281,11 @@ export async function syncAllProjects(
           tick();
         },
         (e) => {
+          // The banner has room for one line of the first failure only, so the
+          // whole error goes to the console: stack, cause, and any fields a
+          // backend hung on it. Without this, a project that will not sync is
+          // diagnosed by guesswork.
+          console.error(`sync: ${direction} failed for project ${id}:`, e);
           result.failures.push({
             id,
             direction,
