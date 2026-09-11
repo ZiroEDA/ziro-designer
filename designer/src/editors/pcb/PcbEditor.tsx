@@ -934,6 +934,8 @@ export function PcbEditor({
   crossProbeNet,
   syncSelection,
   onSyncSelectionToSch,
+  viewer3DOpen,
+  onViewer3DOpenChange,
   onCrossProbeNetToSch,
   updateFromSchematic,
   readOnlyNotice,
@@ -1014,6 +1016,13 @@ export function PcbEditor({
    * same items twice arrive twice, since it is an event rather than a state.
    */
   onSyncSelectionToSch?: (sel: { parts: readonly string[]; nonce: number }) => void;
+  /**
+   * The 3D viewer (`EDA_3D_VIEWER_FRAME`) open over this frame, controlled
+   * from outside so the address can carry it (`/p/<uid>/pcb/3d`). Omitted,
+   * the editor keeps the fact to itself.
+   */
+  viewer3DOpen?: boolean;
+  onViewer3DOpenChange?: (open: boolean) => void;
   /**
    * This board's highlighted net, as KiCad's `$NET: "<name>"` —
    * `PCB_EDIT_FRAME::SendCrossProbeNetName` (`pcbnew/cross-probing.cpp:405`).
@@ -1348,7 +1357,17 @@ export function PcbEditor({
     ids: string[];
     additive: boolean;
   } | null>(null);
-  const [show3D, setShow3D] = useState(false);
+  // `EDA_3D_VIEWER_FRAME`, shown by `CreateAndShow3D_Frame`. Owned here, but
+  // mirrored to App when asked so the address can say `/pcb/3d`.
+  const [show3DLocal, setShow3DLocal] = useState(false);
+  const show3D = viewer3DOpen ?? show3DLocal;
+  const setShow3D = useCallback(
+    (open: boolean) => {
+      setShow3DLocal(open);
+      onViewer3DOpenChange?.(open);
+    },
+    [onViewer3DOpenChange],
+  );
   const [inspectOpen, setInspectOpen] = useState(false);
   /** DIALOG_PASTE_SPECIAL, opened only by `ACTIONS::pasteSpecial`. */
   const [pasteSpecialOpen, setPasteSpecialOpen] = useState(false);
@@ -10818,6 +10837,7 @@ export function PcbEditor({
             fpValues: objects.fpValues,
             fpText: objects.fpText,
           }}
+          onOpenPreferences={() => setPrefsOpen(true)}
         />
       )}
 

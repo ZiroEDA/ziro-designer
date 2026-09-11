@@ -18,6 +18,7 @@ import {
   mat4Rotate,
   mat4TransformPoint,
   quatFromMat4,
+  raytraceZoomLimits,
   trackball,
   type Mat4,
   type Vec3,
@@ -369,5 +370,45 @@ describe('the mat4 helpers behave like glm', () => {
     // recovered quaternion is the conjugate — which is exactly why
     // TRACK_BALL::SetT0_and_T1_current_T conjugates it.
     near(back, [-q[0], -q[1], -q[2], q[3]], 6);
+  });
+});
+
+describe('the zoom limits the ray tracer’s Reload puts on the camera', () => {
+  it('a 50 mm board view: 0.064 .. 3.2, because 17 steps already fit', () => {
+    // s = 12.8 / 5e7 IU; ratio = max(1, 12.8/8) = 1.6 → max 3.2;
+    // min = 4 mm · s / 16 = 0.064; log(50)/log(1.26) = 16.9 → no widening.
+    const s = 12.8 / 5e7;
+    const z = raytraceZoomLimits(12.8, s);
+    expect(z.maxZoom).toBeCloseTo(3.2, 9);
+    expect(z.minZoom).toBeCloseTo(0.064, 9);
+  });
+  it('a 5 mm footprint view: widened to 9 steps, one each way', () => {
+    // s = 8 / 5e6; ratio 1 → max 2; min = 4e6·s/16 = 0.4; log(5)/log(1.26) =
+    // 6.96 → ceil 7 → steps 2 → both sides × / ÷ 1.26^1.
+    const s = 8 / 5e6;
+    const z = raytraceZoomLimits(8, s);
+    expect(z.maxZoom).toBeCloseTo(2 * 1.26, 9);
+    expect(z.minZoom).toBeCloseTo(0.4 / 1.26, 9);
+  });
+  it('an odd remainder goes to min, and min never exceeds 1', () => {
+    // maxDim 8, s such that min = 1.0 exactly: 4e6·s/16 = 1 → s = 4e-6.
+    // ratio 1 → max 2; zoomRatio 2 → ceil(log2/log1.26)=ceil(3.0)=3 → steps 6
+    // → 1.26^3 both ways; even, so min = 1/1.26^3 = 0.4999; capped ≤ 1.
+    const z = raytraceZoomLimits(8, 4e-6);
+    expect(z.maxZoom).toBeCloseTo(2 * 1.26 ** 3, 6);
+    expect(z.minZoom).toBeCloseTo(1 / 1.26 ** 3, 6);
+    // a huge min (a model bigger than the board pushes nothing; s huge does):
+    const big = raytraceZoomLimits(8, 1e-4);
+    expect(big.minZoom).toBeLessThanOrEqual(1);
+  });
+  it('the camera takes them: zooming stops there, not at 0.02 / 2', () => {
+    const c = new TrackBallCamera();
+    c.setCurWindowSize(800, 600);
+    c.setMinZoom(0.064);
+    c.setMaxZoom(3.2);
+    for (let i = 0; i < 100; i++) c.zoomBy(1 / 1.1);
+    expect(c.getZoom()).toBeCloseTo(3.2, 9);
+    for (let i = 0; i < 200; i++) c.zoomBy(1.1);
+    expect(c.getZoom()).toBeCloseTo(0.064, 9);
   });
 });

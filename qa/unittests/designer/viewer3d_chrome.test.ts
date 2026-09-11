@@ -58,17 +58,19 @@ const noopActions = (): Viewer3DMenuActions => ({
   flip: () => {},
   move: () => {},
   toggleLayersManager: () => {},
-  toggleShowMissingModels: () => {},
   openPreferences: () => {},
   resetToDefaults: () => {},
+  selectLanguage: () => {},
+  showHotkeys: () => {},
+  showAbout: () => {},
 });
 
 const baseState = (over: Partial<Viewer3DMenuState> = {}): Viewer3DMenuState => ({
   grid: 'none',
   ortho: false,
-  showMissingModels: true,
   raytracing: false,
   showAppearanceManager: false,
+  language: 'Default',
   ...over,
 });
 
@@ -152,13 +154,14 @@ describe('the 3D viewer toolbar', () => {
 });
 
 describe('the 3D viewer menu bar', () => {
-  it('is File / Edit / View / Preferences', () => {
+  it('is File / Edit / View / Preferences / Help', () => {
     // doReCreateMenuBar appends exactly these four, then AddStandardHelpMenu.
     expect(buildViewer3DMenus(baseState(), noopActions()).map((m) => m.label)).toEqual([
       'File',
       'Edit',
       'View',
       'Preferences',
+      'Help',
     ]);
   });
 
@@ -257,11 +260,25 @@ describe('the 3D viewer menu bar', () => {
     }
   });
 
-  it('greys raytracing in Preferences but leaves the model placeholder live', () => {
+  it('Preferences is 3d_menubar.cpp:128-136: raytracing (greyed), Preferences..., Reset, ---, Set Language', () => {
     const prefs = menu('Preferences');
+    expect(prefs.map((i) => (i.sep ? '---' : i.label))).toEqual([
+      'Use raytracing',
+      'Preferences...',
+      'Reset to Default Settings',
+      '---',
+      'Set Language',
+    ]);
     const by = Object.fromEntries(prefs.map((i) => [i.label, i]));
     expect(by['Use raytracing']?.disabled).toBe(true);
-    expect(by['Show parts without 3D model']?.disabled).toBeUndefined();
-    expect(by['Show parts without 3D model']?.action).toBeTypeOf('function');
+    expect(by['Preferences...']?.action).toBeTypeOf('function');
+    expect(by['Reset to Default Settings']?.action).toBeTypeOf('function');
+    expect(by['Set Language']?.submenu?.length).toBeGreaterThan(5);
+  });
+
+  it('Help is AddStandardHelpMenu, the same rows every frame gets', () => {
+    const help = menu('Help');
+    expect(help[0]?.label).toBe('Help');
+    expect(help.some((i) => i.label?.startsWith('About '))).toBe(true);
   });
 });

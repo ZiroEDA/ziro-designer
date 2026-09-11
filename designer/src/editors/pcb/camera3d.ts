@@ -369,6 +369,45 @@ export const bezierBlend = (t: number): number => t * t * (3 - 2 * t);
 export const quadricEasingInOut = (t: number): number =>
   t <= 0.5 ? t * t * 2 : 1 - (1 - t) * (1 - t) * 2;
 
+/**
+ * `RENDER_3D_RAYTRACE_BASE::Reload`'s zoom limits (raytracing/create_scene.cpp
+ * :1030-1061), which the OpenGL renderer is subject to as well — the canvas
+ * reloads the ray tracer after every OpenGL reload "for calculations"
+ * (eda_3d_canvas.cpp:529-548).
+ *
+ *   ratio    = max( 1, maxDimension / RANGE_SCALE_3D )
+ *   max_zoom = DEFAULT_MAX_ZOOM · ratio
+ *   min_zoom = MIN_DISTANCE_IU · BiuTo3dUnits / −initPos.z     (4 mm from the camera)
+ *   then the pair is widened so at least 9 steps of 1.26× fit between them,
+ *   half each way (an odd remainder goes to min), and min is capped at 1.
+ *
+ * `maxDimension` is the ray-tracing container's bounding box — the board's
+ * layers, holes and every model, in 3D units.
+ */
+export function raytraceZoomLimits(
+  maxDimension3D: number,
+  biuTo3Dunits: number,
+  initialDistance = INITIAL_CAMERA_DISTANCE,
+): { minZoom: number; maxZoom: number } {
+  const MIN_DISTANCE_IU = 4 * 1e6; // 4 * PCB_IU_PER_MM
+  const ratio = Math.max(1, maxDimension3D / RANGE_SCALE_3D);
+  let maxZoom = TrackBallCamera.DEFAULT_MAX_ZOOM * ratio;
+  let minZoom = (MIN_DISTANCE_IU * biuTo3Dunits) / initialDistance;
+  if (minZoom > maxZoom) [minZoom, maxZoom] = [maxZoom, minZoom];
+  const zoomRatio = maxZoom / minZoom;
+  // Set the minimum number of zoom 'steps' between max and min.
+  let steps = 3 * 3;
+  steps -= Math.ceil(Math.log(zoomRatio) / Math.log(1.26));
+  steps = Math.max(steps, 0);
+  // Resize max and min zoom to accomplish the number of steps.
+  const increasedZoom = 1.26 ** Math.trunc(steps / 2);
+  maxZoom *= increasedZoom;
+  minZoom /= increasedZoom;
+  if (steps & 1) minZoom /= 1.26;
+  minZoom = Math.min(minZoom, 1.0);
+  return { minZoom, maxZoom };
+}
+
 /** A helper function to normalize aAngle between -2PI and +2PI (camera.cpp). */
 function normalise2PI(a: number): number {
   while (a > 0) a -= Math.PI * 2;
@@ -548,6 +587,19 @@ export class TrackBallCamera {
   }
   getWindowSize(): { w: number; h: number } {
     return { w: this.windowW, h: this.windowH };
+  }
+  /** `SetMinZoom` / `SetMaxZoom` — what the ray tracer's Reload sets. */
+  setMinZoom(z: number): void {
+    this.minZoom = z;
+  }
+  setMaxZoom(z: number): void {
+    this.maxZoom = z;
+  }
+  getMinZoom(): number {
+    return this.minZoom;
+  }
+  getMaxZoom(): number {
+    return this.maxZoom;
   }
   /** `GetCameraMinDimension`. */
   getCameraMinDimension(): number {

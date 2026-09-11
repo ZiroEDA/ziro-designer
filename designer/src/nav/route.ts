@@ -35,6 +35,9 @@
 /** Which frame a project is open in. `manager` is the project window itself. */
 export type ProjectView = 'manager' | 'schematic' | 'pcb' | 'symbols' | 'footprints';
 
+/** The child frames a view can hold open; only the 3D viewer, so far. */
+export type ChildFrame = '3d';
+
 /** The standalone tools, which need no project. */
 export type ToolName = 'calculator' | 'image-converter' | 'gerber' | 'drawing-sheet';
 
@@ -53,6 +56,14 @@ export type Route =
       view: ProjectView;
       /** A project-relative file to open in that frame, KiCad's MAIL_* target. */
       file?: string;
+      /**
+       * A child frame of the view that is open over it, as a further path
+       * segment: `/p/<uid>/pcb/3d` is `EDA_3D_VIEWER_FRAME`, the KIWAY_PLAYER
+       * `PCB_BASE_FRAME::CreateAndShow3D_Frame` raises over the board editor.
+       * It is the one frame of ours that is neither an editor nor a tool, and
+       * it had no address: a reload from the 3D view landed on the board.
+       */
+      child?: ChildFrame;
     }
   | { kind: 'demo'; id: string }
   | { kind: 'tool'; tool: ToolName }
@@ -168,14 +179,23 @@ export function parseRoute(href: string, base = '/'): Route {
   const parts = withoutBase(url.pathname, base).split('/').filter(Boolean);
   if (parts.length === 0) return HOME;
 
-  const [head, second, third] = parts;
+  const [head, second, third, fourth] = parts;
 
   if (head === 'p') {
     if (!second || !UUID.test(second)) return HOME;
     const view = third === undefined ? 'manager' : VIEW_SEGMENTS[third];
     if (!view) return HOME;
     const file = url.searchParams.get('f');
-    return { kind: 'project', uid: second, view, ...(file ? { file } : {}) };
+    // `/pcb/3d`: the 3D viewer is the board editor's child; any other fourth
+    // segment names nothing.
+    if (fourth !== undefined && !(fourth === '3d' && view === 'pcb')) return HOME;
+    return {
+      kind: 'project',
+      uid: second,
+      view,
+      ...(file ? { file } : {}),
+      ...(fourth === '3d' ? { child: '3d' as const } : {}),
+    };
   }
 
   if (head === 'demo') {
@@ -206,6 +226,7 @@ export function routeHref(route: Route, base = '/', carry = ''): string {
   if (route.kind === 'project') {
     const seg = SEGMENT_FOR_VIEW[route.view];
     path = seg ? `p/${route.uid}/${seg}` : `p/${route.uid}`;
+    if (route.child) path += `/${route.child}`;
     if (route.file) params.set('f', route.file);
   } else if (route.kind === 'demo') {
     path = `demo/${route.id}`;
@@ -229,7 +250,12 @@ export function routeHref(route: Route, base = '/', carry = ''): string {
 export function sameRoute(a: Route, b: Route): boolean {
   if (a.kind !== b.kind) return false;
   if (a.kind === 'project' && b.kind === 'project') {
-    return a.uid === b.uid && a.view === b.view && (a.file ?? '') === (b.file ?? '');
+    return (
+      a.uid === b.uid &&
+      a.view === b.view &&
+      (a.file ?? '') === (b.file ?? '') &&
+      (a.child ?? '') === (b.child ?? '')
+    );
   }
   if (a.kind === 'demo' && b.kind === 'demo') return a.id === b.id;
   if (a.kind === 'tool' && b.kind === 'tool') return a.tool === b.tool;

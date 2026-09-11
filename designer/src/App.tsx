@@ -397,6 +397,12 @@ export function App(): JSX.Element {
    * manager is the only side that knows, and says so through `onOpenProject`.
    */
   const { route, navigate } = useRoute();
+  /**
+   * `EDA_3D_VIEWER_FRAME` open over the board editor. The frame is the
+   * editor's child and the editor owns showing it; App only holds the fact so
+   * the address can carry it (`/p/<uid>/pcb/3d`) and apply it back.
+   */
+  const [pcb3dOpen, setPcb3dOpen] = useState(false);
   const [openUid, setOpenUid] = useState<string | null>(null);
   const [projectFiles, setProjectFiles] = useState<PickedFile[] | null>(null);
   /**
@@ -658,8 +664,15 @@ export function App(): JSX.Element {
       symbols: symRequest?.file,
       footprints: fpRequest?.file,
     });
-    return { kind: 'project', uid: openUid, view: pv, ...(file ? { file } : {}) };
-  }, [view, openUid, startFile, symRequest?.file, fpRequest?.file, demoRoute]);
+    return {
+      kind: 'project',
+      uid: openUid,
+      view: pv,
+      ...(file ? { file } : {}),
+      // the 3D viewer over the board editor: `/pcb/3d`
+      ...(pv === 'pcb' && pcb3dOpen ? { child: '3d' as const } : {}),
+    };
+  }, [view, openUid, startFile, symRequest?.file, fpRequest?.file, demoRoute, pcb3dOpen]);
 
   // Restore the last view on reload. The ADDRESS is asked first, and only when
   // it names nothing does this fall back to the old behaviour -- the saved view
@@ -756,6 +769,9 @@ export function App(): JSX.Element {
           }
           mountFor(v);
           setView(v);
+          // `/pcb/3d` raises the 3D viewer over the board; any other address
+          // closes it, the way a child frame closes when you leave its parent.
+          setPcb3dOpen(route.view === 'pcb' && route.child === '3d');
           return;
         }
 
@@ -1667,6 +1683,8 @@ export function App(): JSX.Element {
                 fileName={pcbBasename(boardFile.name)}
                 text={boardFile.text}
                 onExit={goHome}
+                viewer3DOpen={pcb3dOpen}
+                onViewer3DOpenChange={setPcb3dOpen}
                 onShowSchematic={hasSchematic ? showSchematic : undefined}
                 onShowFootprintEditor={showFootprintEditor}
                 onBoardChange={(text: string) => onProjectChange([{ name: boardFile.name, text }])}

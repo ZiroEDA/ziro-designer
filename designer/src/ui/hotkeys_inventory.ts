@@ -290,9 +290,9 @@ function viewer3dItems(): MenuItem[] {
         {
           grid: 'none' as never,
           ortho: false,
-          showMissingModels: false,
           raytracing: false,
           showAppearanceManager: false,
+          language: 'Default',
         },
         new Proxy({} as Record<string, unknown>, { get: () => noop }) as never,
       ),

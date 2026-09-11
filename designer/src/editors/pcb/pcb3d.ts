@@ -62,6 +62,7 @@ import {
   INITIAL_CAMERA_DISTANCE,
   RANGE_SCALE_3D,
   TrackBallCamera,
+  raytraceZoomLimits,
   mat4Identity,
   mat4Inverse,
   mat4Multiply,
@@ -1142,6 +1143,31 @@ export function mount3DViewer(
   }
   let cur: BoardScene = first;
   setBackground(cur.bgTop, cur.bgBot);
+  /**
+   * The ray tracer's Reload, the part the OpenGL view depends on: the zoom
+   * limits from the scene's bounding box — the board's own (the layers and
+   * holes lie inside it) grown by every model.
+   */
+  const applyZoomLimits = (sc: BoardScene): void => {
+    sc.scene.updateMatrixWorld(true);
+    const box = new THREE.Box3(
+      new THREE.Vector3(...sc.adapter.bboxMin),
+      new THREE.Vector3(...sc.adapter.bboxMax),
+    );
+    for (const inst of sc.modelsGroup.children) {
+      if (inst.userData.footprint === undefined) continue;
+      box.union(new THREE.Box3().setFromObject(inst));
+    }
+    const ext = new THREE.Vector3();
+    box.getSize(ext);
+    const { minZoom, maxZoom } = raytraceZoomLimits(Math.max(ext.x, ext.y, ext.z), sc.s);
+    camera.setMinZoom(minZoom);
+    camera.setMaxZoom(maxZoom);
+  };
+  applyZoomLimits(cur);
+  void cur.ready.then(() => {
+    if (cur === first) applyZoomLimits(cur);
+  });
 
   // ---- 3D grid (generate3dGrid) ------------------------------------------------
   let gridObj: THREE.LineSegments | null = null;
@@ -1956,6 +1982,7 @@ export function mount3DViewer(
         cur.dispose();
         cur = next;
         camera.setBoardLookAtPos(cur.adapter.boardCenter);
+        applyZoomLimits(cur);
         setBackground(cur.bgTop, cur.bgBot);
         setGrid(currentGrid);
         applyHighlights();

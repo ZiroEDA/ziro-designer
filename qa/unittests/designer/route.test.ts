@@ -45,6 +45,16 @@ describe('reading an address', () => {
       view: 'schematic',
       file: 'Amp.kicad_sch',
     });
+    // the 3D viewer, a child frame of the board editor
+    expect(parseRoute(`${AT}/p/${UID}/pcb/3d`)).toEqual({
+      kind: 'project',
+      uid: UID,
+      view: 'pcb',
+      child: '3d',
+    });
+    // only the board editor has one
+    expect(parseRoute(`${AT}/p/${UID}/schematic/3d`)).toEqual(HOME);
+    expect(parseRoute(`${AT}/p/${UID}/pcb/nosuch`)).toEqual(HOME);
     expect(parseRoute(`${AT}/demo/ecc83`)).toEqual({ kind: 'demo', id: 'ecc83' });
     expect(parseRoute(`${AT}/calculator`)).toEqual({ kind: 'tool', tool: 'calculator' });
     expect(parseRoute(`${AT}/drawing-sheet`)).toEqual({ kind: 'tool', tool: 'drawing-sheet' });
@@ -94,6 +104,7 @@ describe('writing an address', () => {
     { kind: 'project', uid: UID, view: 'symbols' },
     { kind: 'project', uid: UID, view: 'footprints' },
     { kind: 'project', uid: UID, view: 'schematic', file: 'sheets/Power.kicad_sch' },
+    { kind: 'project', uid: UID, view: 'pcb', child: '3d' },
     { kind: 'demo', id: 'ecc83' },
     { kind: 'tool', tool: 'calculator' },
     { kind: 'tool', tool: 'image-converter' },

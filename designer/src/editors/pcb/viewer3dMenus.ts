@@ -15,15 +15,18 @@
  */
 
 import type { Menu, MenuItem } from '../../ui/menu_types.js';
+import { standardHelpMenu } from '../../ui/help_menu.js';
+import { setLanguageMenuItem } from '../../ui/language_menu.js';
 import { addClose } from '../../ui/action_menu.js';
 import type { Grid3D } from './viewer3d_types.js';
 
 export interface Viewer3DMenuState {
   grid: Grid3D;
   ortho: boolean;
-  showMissingModels: boolean;
   raytracing: boolean;
   showAppearanceManager: boolean;
+  /** `PGM_BASE::GetLanguageTag`'s row, for `AddMenuLanguageList`. */
+  language: string;
 }
 
 export interface Viewer3DMenuActions {
@@ -41,9 +44,15 @@ export interface Viewer3DMenuActions {
   move: (d: 'left' | 'right' | 'up' | 'down') => void;
   /** `EDA_3D_ACTIONS::showLayersManager` → `ToggleLayersManager()`. */
   toggleLayersManager: () => void;
-  toggleShowMissingModels: () => void;
+  /** `ACTIONS::openPreferences`. */
   openPreferences: () => void;
+  /** `ID_MENU3D_RESET_DEFAULTS` (eda_3d_viewer_frame.cpp:487-500). */
   resetToDefaults: () => void;
+  /** `AddMenuLanguageList`'s pick. */
+  selectLanguage: (label: string) => void;
+  /** `AddStandardHelpMenu`'s two frame-side handlers. */
+  showHotkeys: () => void;
+  showAbout: () => void;
 }
 
 /** Feature not ported yet, greyed in its upstream slot (repo convention). */
@@ -147,17 +156,20 @@ export function buildViewer3DMenus(state: Viewer3DMenuState, on: Viewer3DMenuAct
   ];
 
   //-- Preferences menu ----------------------------------------------------
+  // 3d_menubar.cpp:128-136: toggleRaytacing (CHECK), openPreferences,
+  // "Reset to Default Settings", a separator, AddMenuLanguageList.
   const prefsMenu: MenuItem[] = [
     // Raytracing is the second renderer (render_3d_raytrace_*.cpp), deferred.
     { label: 'Use raytracing', icon: 'toggleRaytracing', checked: state.raytracing, ...todo },
     {
-      label: 'Show parts without 3D model',
-      checked: state.showMissingModels,
-      action: on.toggleShowMissingModels,
+      label: 'Preferences...',
+      icon: 'preferences',
+      shortcut: 'Ctrl+,',
+      action: on.openPreferences,
     },
-    { label: 'Preferences...', shortcut: 'Ctrl+,', action: on.openPreferences },
-    { label: 'Reset to Default Settings', action: on.resetToDefaults },
-    // AddMenuLanguageList: the language list is app-wide for us, not per frame.
+    { label: 'Reset to Default Settings', icon: 'tools', action: on.resetToDefaults },
+    { sep: true },
+    setLanguageMenuItem({ current: state.language, onSelect: on.selectLanguage }),
   ];
 
   return [
@@ -165,5 +177,7 @@ export function buildViewer3DMenus(state: Viewer3DMenuState, on: Viewer3DMenuAct
     { label: 'Edit', items: editMenu },
     { label: 'View', items: viewMenu },
     { label: 'Preferences', items: prefsMenu },
+    // AddStandardHelpMenu( menuBar ): the same Help every frame gets.
+    standardHelpMenu({ showHotkeys: on.showHotkeys, showAbout: on.showAbout }),
   ];
 }

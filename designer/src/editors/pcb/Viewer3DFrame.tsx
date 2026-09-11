@@ -30,7 +30,15 @@
  * ships that.
  */
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { usePcbnewSettings, useViewer3dSettings } from '../../prefs/useSettings.js';
+import {
+  useCommonSettings,
+  usePcbnewSettings,
+  useViewer3dSettings,
+} from '../../prefs/useSettings.js';
+import { VIEWER3D_DEFAULTS } from '../../prefs/settings.js';
+import { showHotkeyList } from '../../ui/hotkey_list_action.js';
+import { AboutDialog } from '../../home/dialogs/dialog_about.js';
+import { ABOUT_TITLES } from '../../ui/about_titles.js';
 import type { Board } from '@ziroeda/pcbnew';
 import { MenuBar } from '../../ui/MenuBar.js';
 import { Toolbar } from '../../ui/Toolbar.js';
@@ -132,6 +140,8 @@ export interface Viewer3DFrameProps {
   onSelect?: (parts: string[]) => void;
   /** `GetNetClass()->GetHumanReadableName()` by net code, for HOVERED_ITEM. */
   netClassOf?: ReadonlyMap<number, string>;
+  /** `ACTIONS::openPreferences` — the owning frame shows the Preferences dialog. */
+  onOpenPreferences?: () => void;
   /**
    * The board editor's layer/element visibility, which the "Follow PCB
    * Editor" preset reads (`GetVisibleLayers`, board_adapter.cpp:880-905).
@@ -153,6 +163,7 @@ export function Viewer3DFrame({
   onSelect,
   netClassOf,
   pcbVisibility,
+  onOpenPreferences,
 }: Viewer3DFrameProps): JSX.Element {
   /*
    * `RecreateToolbars` reads the TOOLBAR_SETTINGS, never `DefaultToolbarConfig`
@@ -184,7 +195,7 @@ export function Viewer3DFrame({
   });
   const [grid, setGrid] = useState<Grid3D>('none');
   const [ortho, setOrtho] = useState(false);
-  const [showMissing, setShowMissing] = useState(true);
+  const [aboutOpen, setAboutOpen] = useState(false);
   /** Bumping it remounts the viewer (EDA_3D_ACTIONS::reloadBoard). */
   const [reload, setReload] = useState(0);
 
@@ -208,6 +219,7 @@ export function Viewer3DFrame({
    * subscription is that call.
    */
   const v3d = useViewer3dSettings();
+  const common = useCommonSettings();
   const render3d = v3d.render;
   const camera3d = v3d.camera;
   const renderRef = useRef(render3d);
@@ -648,9 +660,9 @@ export function Viewer3DFrame({
         {
           grid,
           ortho,
-          showMissingModels: showMissing,
           raytracing: false,
           showAppearanceManager: showLayerManager,
+          language: common.system.language,
         },
         {
           exportImage,
@@ -666,17 +678,52 @@ export function Viewer3DFrame({
           flip: () => api.current?.flip(),
           move: (d) => api.current?.move(d),
           toggleLayersManager: () => onAction('showLayersManager'),
-          toggleShowMissingModels: () => setShowMissing((s) => !s),
-          openPreferences: onClose,
+          // ACTIONS::openPreferences: the owner's Preferences dialog, opened
+          // on the 3D Viewer heading's first page as upstream lands there.
+          openPreferences: () => onOpenPreferences?.(),
+          // ID_MENU3D_RESET_DEFAULTS (eda_3d_viewer_frame.cpp:487-500):
+          // SetLayerColors( GetDefaultColors() ), cfg->ResetToDefaults(),
+          // LoadSettings(), NewDisplay( true ). The colour reset is the
+          // g_Default* table written over the theme entries — so after a
+          // reset the copper is 0.75/0.61/0.23, not the theme's — and the
+          // settings go back to their stored defaults, the pane with them.
           resetToDefaults: () => {
+            settings.updateViewer3d((st) => {
+              const d = structuredClone(VIEWER3D_DEFAULTS);
+              st.render = d.render;
+              st.camera = d.camera;
+              st.aui = d.aui;
+              st.use_stackup_colors = d.use_stackup_colors;
+              st.current_layer_preset = d.current_layer_preset;
+              st.layer_presets = d.layer_presets;
+              st.color_overrides = Object.fromEntries(
+                [...defaultColors3d()].map(([k, c]) => [k, toCssColor(c, ', ')]),
+              );
+            });
             applyGrid('none');
             setOrtho(false);
             api.current?.setOrtho(false);
-            api.current?.home();
           },
+          selectLanguage: (label) =>
+            settings.updateCommon((c) => {
+              c.system.language = label;
+            }),
+          showHotkeys: showHotkeyList,
+          showAbout: () => setAboutOpen(true),
         },
       ),
-    [grid, ortho, showMissing, exportImage, copyToClipboard, applyGrid, onClose],
+    [
+      grid,
+      ortho,
+      showLayerManager,
+      common.system.language,
+      exportImage,
+      copyToClipboard,
+      applyGrid,
+      onClose,
+      onAction,
+      onOpenPreferences,
+    ],
   );
 
   /**
@@ -827,6 +874,9 @@ export function Viewer3DFrame({
           </>
         )}
       </div>
+      {aboutOpen && (
+        <AboutDialog title={ABOUT_TITLES.viewer3d} onClose={() => setAboutOpen(false)} />
+      )}
       {deleteChooser === 'presets' && (
         <EdaListDialog
           title="Delete Preset"
