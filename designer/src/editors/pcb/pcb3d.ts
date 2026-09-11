@@ -50,11 +50,13 @@ import { COLOR4D_UNSPECIFIED, parseColor4d } from '@ziroeda/common/src/color4d.j
 import type { StackupColors } from './board_adapter_colors.js';
 import {
   buildBoard3dLayers,
+  pcbLayerIdOf,
   plotLayerSelection,
   userLayerIndex,
   type Layer3d,
   type Layer3dOptions,
 } from './board_3d_layers.js';
+import { pcbLayerOfFlag, type Layer3dFlag } from './viewer3d_appearance.js';
 import {
   DELTA_MOVE_STEP_FACTOR,
   INITIAL_CAMERA_DISTANCE,
@@ -523,8 +525,31 @@ export function mount3DViewer(
    * and > Realtime Renderer. Omitted (the footprint browser) takes the file's
    * own defaults, which is what a viewer with no settings object gets upstream.
    */
-  render: Viewer3dRenderOptions = {},
+  renderIn: Viewer3dRenderOptions = {},
 ): Viewer3D | null {
+  // The appearance pane hands the whole `GetVisibleLayers()` set; it is the
+  // same information as the `show_*` booleans below, so expand it into them
+  // once and let every reader stay a boolean (`SetVisibleLayers`, in reverse).
+  const render: Viewer3dRenderOptions = renderIn.visible3d
+    ? {
+        ...renderIn,
+        showBoardBody: renderIn.visible3d.has('LAYER_3D_BOARD'),
+        showPlatedBarrels: renderIn.visible3d.has('LAYER_3D_PLATED_BARRELS'),
+        showSoldermaskTop: renderIn.visible3d.has('LAYER_3D_SOLDERMASK_TOP'),
+        showSoldermaskBottom: renderIn.visible3d.has('LAYER_3D_SOLDERMASK_BOTTOM'),
+        showFpReferences: renderIn.visible3d.has('LAYER_FP_REFERENCES'),
+        showFpValues: renderIn.visible3d.has('LAYER_FP_VALUES'),
+        showFpText: renderIn.visible3d.has('LAYER_FP_TEXT'),
+        showFootprintsNormal: renderIn.visible3d.has('LAYER_3D_TH_MODELS'),
+        showFootprintsInsert: renderIn.visible3d.has('LAYER_3D_SMD_MODELS'),
+        showFootprintsVirtual: renderIn.visible3d.has('LAYER_3D_VIRTUAL_MODELS'),
+        showFootprintsNotInPosfile: renderIn.visible3d.has('LAYER_3D_MODELS_NOT_IN_POS'),
+        showFootprintsDnp: renderIn.visible3d.has('LAYER_3D_MODELS_MARKED_DNP'),
+        showModelBbox: renderIn.visible3d.has('LAYER_3D_BOUNDING_BOXES'),
+        showOffBoardSilk: renderIn.visible3d.has('LAYER_3D_OFF_BOARD_SILK'),
+        showNavigator: renderIn.visible3d.has('LAYER_3D_NAVIGATOR'),
+      }
+    : renderIn;
   const scene2d = buildScene(board);
   if (!scene2d.bbox) return null;
   const bbox = edgeBBox(board, scene2d.bbox);
@@ -545,20 +570,40 @@ export function mount3DViewer(
   // colors" is on.
   const T = BUILTIN_DEFAULT_THEME;
   const useStackup = render.useStackupColors === true && stackup !== undefined;
+  // The appearance pane's `GetLayerColors()` answer, when there is a pane;
+  // the theme-with-stackup fallback is the same function's answer with no
+  // preset and no overrides (the footprint browser).
+  const lc = render.layerColors;
+  const col = (flag: string, fallback: Color4d): Color4d => lc?.get(flag as never) ?? fallback;
   const colors = {
-    copper: (useStackup ? stackup.copper : undefined) ?? T.LAYER_3D_COPPER_TOP,
-    solderPaste: T.LAYER_3D_SOLDERPASTE,
-    silkTop: useStackup ? stackup.silkTop : T.LAYER_3D_SILKSCREEN_TOP,
-    silkBottom: useStackup ? stackup.silkBottom : T.LAYER_3D_SILKSCREEN_BOTTOM,
-    maskTop: useStackup ? stackup.maskTop : T.LAYER_3D_SOLDERMASK_TOP,
-    maskBottom: useStackup ? stackup.maskBottom : T.LAYER_3D_SOLDERMASK_BOTTOM,
-    boardBody: (useStackup ? stackup.body : undefined) ?? T.LAYER_3D_BOARD,
-    bgTop: T.LAYER_3D_BACKGROUND_TOP,
-    bgBot: T.LAYER_3D_BACKGROUND_BOTTOM,
-    userDrawings: COLOR4D_UNSPECIFIED,
-    userComments: COLOR4D_UNSPECIFIED,
-    eco1: COLOR4D_UNSPECIFIED,
-    eco2: COLOR4D_UNSPECIFIED,
+    copper: col(
+      'LAYER_3D_COPPER_TOP',
+      (useStackup ? stackup.copper : undefined) ?? T.LAYER_3D_COPPER_TOP,
+    ),
+    solderPaste: col('LAYER_3D_SOLDERPASTE', T.LAYER_3D_SOLDERPASTE),
+    silkTop: col(
+      'LAYER_3D_SILKSCREEN_TOP',
+      useStackup ? stackup.silkTop : T.LAYER_3D_SILKSCREEN_TOP,
+    ),
+    silkBottom: col(
+      'LAYER_3D_SILKSCREEN_BOTTOM',
+      useStackup ? stackup.silkBottom : T.LAYER_3D_SILKSCREEN_BOTTOM,
+    ),
+    maskTop: col(
+      'LAYER_3D_SOLDERMASK_TOP',
+      useStackup ? stackup.maskTop : T.LAYER_3D_SOLDERMASK_TOP,
+    ),
+    maskBottom: col(
+      'LAYER_3D_SOLDERMASK_BOTTOM',
+      useStackup ? stackup.maskBottom : T.LAYER_3D_SOLDERMASK_BOTTOM,
+    ),
+    boardBody: col('LAYER_3D_BOARD', (useStackup ? stackup.body : undefined) ?? T.LAYER_3D_BOARD),
+    bgTop: col('LAYER_3D_BACKGROUND_TOP', T.LAYER_3D_BACKGROUND_TOP),
+    bgBot: col('LAYER_3D_BACKGROUND_BOTTOM', T.LAYER_3D_BACKGROUND_BOTTOM),
+    userDrawings: col('LAYER_3D_USER_DRAWINGS', COLOR4D_UNSPECIFIED),
+    userComments: col('LAYER_3D_USER_COMMENTS', COLOR4D_UNSPECIFIED),
+    eco1: col('LAYER_3D_USER_ECO1', COLOR4D_UNSPECIFIED),
+    eco2: col('LAYER_3D_USER_ECO2', COLOR4D_UNSPECIFIED),
   };
   const mats = boardMaterials(colors);
   /**
@@ -573,12 +618,30 @@ export function mount3DViewer(
   // FOLLOW_PLOT_SETTINGS (`GetVisibleLayers`, board_adapter.cpp:907-935):
   // which layers exist in 3D is the board's plot layer selection.
   const plot = plotLayerSelection(board);
+  // With a pane, the visible PCB layers are the pane's flags mapped back
+  // through Map3DLayerToPCBLayer; without one, the plot selection is the flags.
+  const visiblePcbLayers = render.visible3d
+    ? new Set(
+        [...render.visible3d]
+          .map((f) => pcbLayerOfFlag(f as Layer3dFlag))
+          .filter((n): n is string => n !== undefined)
+          .flatMap((n) =>
+            // ADHESIVE and SOLDERPASTE are one flag for both sides
+            n === 'F.Adhes'
+              ? ['F.Adhes', 'B.Adhes']
+              : n === 'F.Paste'
+                ? ['F.Paste', 'B.Paste']
+                : [n],
+          )
+          .map((n) => pcbLayerIdOf(n)),
+      )
+    : plot.layers;
   const layerOpts: Layer3dOptions = {
     showZones: render.showZones !== false,
     showFpReferences: render.showFpReferences ?? plot.plotReference,
     showFpValues: render.showFpValues ?? plot.plotValue,
     showFpText: render.showFpText ?? plot.plotFPText,
-    visibleLayers: plot.layers,
+    visibleLayers: visiblePcbLayers,
     showOffBoardSilk: render.showOffBoardSilk,
     subtractMaskFromSilk: render.subtractMaskFromSilk,
     clipSilkOnViaAnnuli: render.clipSilkOnViaAnnuli,
@@ -717,8 +780,10 @@ export function mount3DViewer(
         // `3d_viewer.user_N`, whose default is the board editor's User_N colour.
         const u = userLayerIndex(layer);
         if (u) {
-          const c =
-            (BUILTIN_DEFAULT_THEME as Record<string, Color4d>)[`User_${u}`] ?? COLOR4D_UNSPECIFIED;
+          const c = col(
+            `LAYER_3D_USER_${u}`,
+            (BUILTIN_DEFAULT_THEME as Record<string, Color4d>)[`User_${u}`] ?? COLOR4D_UNSPECIFIED,
+          );
           return plasticMaterial([c.r, c.g, c.b]);
         }
         // F/B.Adhes: `GetLayerColor( aLayerID )` — the board editor's colour
@@ -785,7 +850,14 @@ export function mount3DViewer(
     if (showThickness) addMiddleContours(buf, p, zBot, zTop);
     const isCopper = layer === 'F.Cu' || layer === 'B.Cu';
     // `cfg.DifferentiatePlatedCopper() ? setCopperMaterial() : setLayerMaterial( layer )`
-    const copperMat = render.differentiatePlatedCopper ? mats.nonPlatedCopper : mats.copper;
+    let copperMat = render.differentiatePlatedCopper ? mats.nonPlatedCopper : mats.copper;
+    // setLayerMaterial's first branch: with "Use PCB editor copper colors" the
+    // copper diffuse is the board editor's colour for THAT layer (m_Copper
+    // and m_NonPlatedCopper alike), the rest of the material unchanged.
+    const edCol = render.useBoardEditorCopperColors
+      ? render.boardEditorCopperColors?.[layer as 'F.Cu' | 'B.Cu']
+      : undefined;
+    if (isCopper && edCol) copperMat = { ...copperMat, diffuse: [edCol.r, edCol.g, edCol.b] };
     // Offset non-copper layers slightly closer to the screen than soldermask
     // to avoid Z-fighting (glPolygonOffset( 0, -4 )).
     addMesh(
@@ -1819,6 +1891,12 @@ export function mount3DViewer(
     setCamera,
     pivotCenter,
     setSelectedFootprints,
+    getViewMatrix: () => Array.from(camera.getViewMatrix()),
+    setViewMatrix: (m) => {
+      camera.setViewMatrix(new Float64Array(m));
+      displayStatus();
+      needsRender = true;
+    },
     snapshot: () =>
       new Promise<Blob | null>((resolve) => {
         // The drawing buffer is not preserved, so re-render in the same frame

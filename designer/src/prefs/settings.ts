@@ -1959,6 +1959,30 @@ export interface Viewer3dSettings {
      *  (`common/settings/app_settings.cpp:285-286`). */
     custom_toolbars: boolean;
   };
+  /** `aui.*` (`eda_3d_viewer_settings.cpp:231-234`): the appearance pane. */
+  aui: {
+    /** `aui.show_layer_manager`, **true**. */
+    show_layer_manager: boolean;
+    /** `aui.right_panel_width`, **-1** — the pane's BestSize until dragged. */
+    right_panel_width: number;
+  };
+  /**
+   * `use_stackup_colors` (`:449`). Stored **true**, but the first open of the
+   * frame clears it while turning `LEGACY_PRESET_FLAG` into
+   * FOLLOW_PLOT_SETTINGS (eda_3d_viewer_frame.cpp:570-583); the stored default
+   * here is that post-first-open state, since the flag never survives it.
+   */
+  use_stackup_colors: boolean;
+  /** `current_layer_preset` (`:453`): FOLLOW_PCB, FOLLOW_PLOT_SETTINGS, a preset name, or "" for custom. */
+  current_layer_preset: string;
+  /** `layer_presets` (`:451`), `LAYER_PRESET_3D` rows — the first open adds "legacy colors". */
+  layer_presets: Viewer3dLayerPreset[];
+  /**
+   * The pane's swatch edits. Upstream `SetLayerColors` writes them into the
+   * colour theme's `3d_viewer.*` entries (board_adapter.cpp:760-769); ours
+   * has no user theme for those keys, so they live here, keyed by flag.
+   */
+  color_overrides: Record<string, string>;
   /**
    * `render.*` — `EDA_3D_VIEWER_SETTINGS::m_Render`, the half
    * `PANEL_3D_DISPLAY_OPTIONS` and `PANEL_3D_OPENGL_OPTIONS` edit
@@ -1970,6 +1994,17 @@ export interface Viewer3dSettings {
   render: Viewer3dRender;
   /** `camera.*` (`:431-438`), the three the General page's Camera group edits. */
   camera: Viewer3dCamera;
+}
+
+/**
+ * `LAYER_PRESET_3D` (eda_3d_viewer_settings.h): the visibility set as flag
+ * names and the colour map as CSS strings, the way `PARAM_LAYER_PRESET_3D`
+ * serialises them.
+ */
+export interface Viewer3dLayerPreset {
+  name: string;
+  layers: string[];
+  colors: Record<string, string>;
 }
 
 /** `EDA_3D_VIEWER_SETTINGS::m_Render`, restricted to the two shipped pages. */
@@ -1996,6 +2031,40 @@ export interface Viewer3dRender {
   material_mode: 0 | 1 | 2;
 
   // ---- Realtime Renderer (`PANEL_3D_OPENGL_OPTIONS`) -----------------------
+
+  // ---- the appearance pane's rows (`SetVisibleLayers`, board_adapter.cpp:772-805) --
+  /** `render.show_*`, the eye toggles; the third arguments of `:330-420`. */
+  show_board_body: boolean;
+  show_plated_barrels: boolean;
+  show_copper_top: boolean;
+  show_copper_bottom: boolean;
+  show_silkscreen_top: boolean;
+  show_silkscreen_bottom: boolean;
+  show_soldermask_top: boolean;
+  show_soldermask_bottom: boolean;
+  show_solderpaste: boolean;
+  show_adhesive: boolean;
+  show_comments: boolean;
+  show_drawings: boolean;
+  show_eco1: boolean;
+  show_eco2: boolean;
+  /** `render.show_user1` .. `show_user45`, all **false**. */
+  show_user: boolean[];
+  show_footprints_normal: boolean;
+  show_footprints_insert: boolean;
+  show_footprints_virtual: boolean;
+  show_footprints_not_in_posfile: boolean;
+  /** `render.show_footprints_dnp`, **false**. */
+  show_footprints_dnp: boolean;
+  show_fp_references: boolean;
+  show_fp_values: boolean;
+  show_fp_text: boolean;
+  /** `render.show_navigator`, **true**. */
+  show_navigator: boolean;
+  /** `render.opengl_show_off_board_silk`, **false**. */
+  opengl_show_off_board_silk: boolean;
+  /** `render.use_board_editor_copper_colors`, **false**. */
+  use_board_editor_copper_colors: boolean;
 
   /** `render.opengl_show_model_bbox`, **false**. */
   opengl_show_model_bbox: boolean;
@@ -2034,6 +2103,32 @@ export interface Viewer3dCamera {
 
 /** `eda_3d_viewer_settings.cpp`'s own third argument for each. */
 export const VIEWER3D_RENDER_DEFAULTS: Viewer3dRender = {
+  show_board_body: true,
+  show_plated_barrels: true,
+  show_copper_top: true,
+  show_copper_bottom: true,
+  show_silkscreen_top: true,
+  show_silkscreen_bottom: true,
+  show_soldermask_top: true,
+  show_soldermask_bottom: true,
+  show_solderpaste: true,
+  show_adhesive: true,
+  show_comments: true,
+  show_drawings: true,
+  show_eco1: true,
+  show_eco2: true,
+  show_user: Array.from({ length: 45 }, () => false),
+  show_footprints_normal: true,
+  show_footprints_insert: true,
+  show_footprints_virtual: true,
+  show_footprints_not_in_posfile: true,
+  show_footprints_dnp: false,
+  show_fp_references: true,
+  show_fp_values: true,
+  show_fp_text: true,
+  show_navigator: true,
+  opengl_show_off_board_silk: false,
+  use_board_editor_copper_colors: false,
   clip_silk_on_via_annulus: false,
   subtract_mask_from_silk: false,
   show_zones: true,
@@ -2060,6 +2155,11 @@ export const VIEWER3D_CAMERA_DEFAULTS: Viewer3dCamera = {
 
 export const VIEWER3D_DEFAULTS: Viewer3dSettings = {
   appearance: { custom_toolbars: false },
+  aui: { show_layer_manager: true, right_panel_width: -1 },
+  use_stackup_colors: false,
+  current_layer_preset: 'follow_plot_settings',
+  layer_presets: [],
+  color_overrides: {},
   render: { ...VIEWER3D_RENDER_DEFAULTS },
   camera: { ...VIEWER3D_CAMERA_DEFAULTS },
 };

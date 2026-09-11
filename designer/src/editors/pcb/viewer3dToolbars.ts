@@ -64,14 +64,12 @@ export const VIEWER3D_TOP_TOOLBAR: ToolEntry[] = [
   sep,
   { id: 'toggleOrtho', icon: 'toggleOrtho', title: 'Use orthographic projection', toggle: true },
   sep,
-  // The appearance/layers pane is not ported yet; the button holds its slot.
   {
     id: 'showLayersManager',
     icon: 'showLayersManager',
     title: 'Show appearance manager',
     toggle: true,
-    ...todo,
-  }, // prettier-ignore
+  },
 ];
 
 /**

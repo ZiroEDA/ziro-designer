@@ -10792,6 +10792,13 @@ export function PcbEditor({
           selectedFootprints={selectedFootprints}
           onSelect={applySyncSelection}
           netClassOf={netClassOf}
+          // "Follow PCB Editor": IsLayerVisible / IsElementVisible off this frame
+          pcbVisibility={{
+            layers: visible,
+            fpReferences: objects.fpReferences,
+            fpValues: objects.fpValues,
+            fpText: objects.fpText,
+          }}
         />
       )}
 

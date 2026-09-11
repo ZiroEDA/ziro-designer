@@ -12395,9 +12395,18 @@ textarea.ze-ds-textedit {
   flex-direction: column;
   background: var(--chrome-bg);
 }
-/* The canvas host must be allowed to shrink inside the flex column, or the
+/* The AUI centre of the 3D frame: the canvas pane with the Appearance pane
+   docked Right (eda_3d_viewer_frame.cpp:173-178). The same flex row the PCB
+   editor's centre is; the dock takes `.ze-rightdock` as there. */
+.ze-frame-3d > .ze-frame-3d-body {
+  display: flex;
+  flex-direction: row;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* The canvas host must be allowed to shrink inside the flex row, or the
    three.js canvas pushes the status bar off-screen as it grows. */
-.ze-frame-3d > .ze-frame-canvas {
+.ze-frame-3d .ze-frame-canvas {
   min-height: 0;
   overflow: hidden;
 }

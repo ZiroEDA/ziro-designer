@@ -940,6 +940,43 @@ export class TrackBallCamera {
     }
   }
 
+  /**
+   * `CAMERA::SetViewMatrix` (camera.cpp:388-420): a saved viewport comes
+   * back as its view matrix. The rotation is taken off it, the zoom is read
+   * from where the look-at lands in view z and clamped (moving the matrix's
+   * own z to match), and `m_camera_pos` is recovered as column 3 of
+   * `V · inverse( R·Raux·T(−lookat) )`.
+   *
+   * Upstream leaves the frustum stale here (no `updateFrustum`), so the
+   * head-light sits at the OLD position until the next camera change — one
+   * frame's lighting. Refreshed here; that transient is not worth keeping.
+   */
+  setViewMatrix(view: Mat4): void {
+    const m = new Float64Array(view);
+    this.setRotationMatrix(m);
+    const lookat = mat4TransformPoint(m, this.lookatPos);
+    this.zoom = lookat[2] / this.cameraPosInit[2];
+    if (this.zoom > this.maxZoom) {
+      this.zoom = this.maxZoom;
+      m[14] = m[14]! + -lookat[2] + this.maxZoom * this.cameraPosInit[2];
+    } else if (this.zoom < this.minZoom) {
+      this.zoom = this.minZoom;
+      m[14] = m[14]! + -lookat[2] + this.minZoom * this.cameraPosInit[2];
+    }
+    this.viewMatrix = m;
+    const inv = mat4Inverse(
+      mat4Multiply(
+        mat4Multiply(this.rotationMatrix, this.rotationMatrixAux),
+        mat4Translate(mat4Identity(), v3scale(this.lookatPos, -1)),
+      ),
+    );
+    const c = mat4Multiply(this.viewMatrix, inv);
+    this.cameraPos = [c[12]!, c[13]!, c[14]!];
+    this.parametersChanged = true;
+    this.rebuildProjection();
+    this.updateFrustum();
+  }
+
   /** `TRACK_BALL::Interpolate( t )` — t is clamped to 1. */
   interpolate(tIn: number): void {
     let t = tIn > 1 ? 1 : tIn;

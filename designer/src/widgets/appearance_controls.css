@@ -150,3 +150,47 @@
      wxTOP | wxBOTTOM, 3 ) (appearance_controls.cpp:682). */
   margin: 3px 0;
 }
+
+/* ---------------------------------------------------------------------------
+   APPEARANCE_CONTROLS_3D (3d-viewer/dialogs/appearance_controls_3D_base.cpp),
+   the 3D viewer's pane. It has no notebook: m_panelLayers is the scrolled row
+   list with the two checkboxes under it, then bBottomMargin. Only the sizer
+   flags are stated here; the row, eye, swatch, choice and info-font rules are
+   the ones the PCB pane's rows already take. */
+.ze-appearance-3d-layers {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* m_panelLayersSizer->Add( m_windowLayers, 1, wxEXPAND|wxLEFT|wxRIGHT|wxTOP, 5 );
+   the sizer inside it opens with AddSpacer( 5 ) (.cpp:465) and each row is
+   wxLEFT|wxRIGHT 5 with a 2px spacer after (.cpp:521-522). */
+.ze-appearance-3d-rows {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  margin: 5px 5px 0;
+  padding: 5px 0 0;
+}
+.ze-appearance-3d-rows > .ze-layer-row {
+  margin: 0 5px 2px;
+}
+/* RR(): m_layersOuterSizer->AddSpacer( m_pointSize ) — the GUI font's point
+   size, 11 (the PCB pane's .ze-object-sep is the same number halved). */
+.ze-appearance-3d-sep {
+  height: 11px;
+  flex: 0 0 auto;
+}
+/* sizer->AddSpacer( swatchWidth ): a swatch-wide gap where a row has no
+   colour, or no eye (the two background rows). */
+.ze-appearance-3d-swatch-gap {
+  visibility: hidden;
+}
+/* bBottomMargin opens with a wxStaticLine, wxBOTTOM|wxLEFT|wxRIGHT 3
+   (_base.cpp:24), which the PCB pane's block does not have — there the line is
+   the notebook's own edge. A wxStaticLine is a GtkSeparator. */
+.ze-appearance-3d-bottom {
+  border-top: 1px solid var(--gtk-separator);
+  margin: 2px 3px 0;
+}

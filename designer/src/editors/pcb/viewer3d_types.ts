@@ -76,6 +76,10 @@ export interface Viewer3D {
   setCamera: (o: Partial<Viewer3dCameraOptions>) => void;
   /** `EDA_3D_ACTIONS::pivotCenter` (Space) — look at the board point under the cursor. */
   pivotCenter: () => void;
+  /** `GetCurrentCamera().GetViewMatrix()` — what a saved viewport (`VIEWPORT3D`) holds. */
+  getViewMatrix: () => number[];
+  /** `GetCurrentCamera().SetViewMatrix()` — `doApplyViewport`. */
+  setViewMatrix: (m: readonly number[]) => void;
   /**
    * `FOOTPRINT::IsSelected()` as `renderOpaqueModels` reads it — the board
    * editor's selection, by footprint index, drawn in the selection colour.
@@ -121,6 +125,20 @@ export interface Viewer3dRenderOptions {
   selectionColor?: string;
   /** `render.opengl_highlight_on_rollover` (default true). */
   highlightOnRollover?: boolean;
+  /**
+   * `BOARD_ADAPTER::GetVisibleLayers()` as the appearance pane resolved it —
+   * the `LAYER_3D_*` / `LAYER_FP_*` flags that are on. Given, it overrides
+   * every `show*` boolean here; absent, the plot settings decide.
+   */
+  visible3d?: ReadonlySet<string>;
+  /** `render.use_board_editor_copper_colors` (default false), and `m_BoardEditorColors[F_Cu/B_Cu]`. */
+  useBoardEditorCopperColors?: boolean;
+  boardEditorCopperColors?: {
+    'F.Cu': import('@ziroeda/common/src/color4d.js').Color4d;
+    'B.Cu': import('@ziroeda/common/src/color4d.js').Color4d;
+  };
+  /** `GetLayerColors()` as the pane resolved it (preset, stackup, swatches). */
+  layerColors?: ReadonlyMap<string, import('@ziroeda/common/src/color4d.js').Color4d>;
   /** `GetNetClass()->GetHumanReadableName()` by net code, for the HOVERED_ITEM pane. */
   netClassOf?: (net: number) => string;
   /**

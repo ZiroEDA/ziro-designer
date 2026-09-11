@@ -57,6 +57,7 @@ const noopActions = (): Viewer3DMenuActions => ({
   rotate: () => {},
   flip: () => {},
   move: () => {},
+  toggleLayersManager: () => {},
   toggleShowMissingModels: () => {},
   openPreferences: () => {},
   resetToDefaults: () => {},
@@ -134,17 +135,19 @@ describe('the 3D viewer toolbar', () => {
     );
   });
 
-  it('greys raytracing and the appearance manager rather than dropping them', () => {
+  it('greys raytracing rather than dropping it; the appearance manager is live', () => {
     // Repo convention: an unported tool keeps its upstream slot, greyed, so the
-    // toolbar keeps KiCad's shape and the gap stays visible.
+    // toolbar keeps KiCad's shape and the gap stays visible. The appearance
+    // pane (APPEARANCE_CONTROLS_3D) is ported, so its toggle is a real one.
     const byId = Object.fromEntries(buttons(VIEWER3D_TOP_TOOLBAR).map((b) => [b.id, b]));
     expect(byId.toggleRaytracing?.disabled).toBe(true);
-    expect(byId.showLayersManager?.disabled).toBe(true);
+    expect(byId.showLayersManager?.disabled).toBeUndefined();
+    expect(byId.showLayersManager?.toggle).toBe(true);
     // Everything else must actually work.
     const deadWeight = buttons(VIEWER3D_TOP_TOOLBAR)
       .filter((b) => b.disabled)
       .map((b) => b.id);
-    expect(deadWeight).toEqual(['toggleRaytracing', 'showLayersManager']);
+    expect(deadWeight).toEqual(['toggleRaytracing']);
   });
 });
 

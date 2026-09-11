@@ -149,6 +149,12 @@ const layerId = (l: Layer3d): number => {
   const u = userLayerIndex(l);
   return u ? User_1 + 2 * (u - 1) : NAMED_LAYER_ID[l]!;
 };
+/** The PCB_LAYER_ID of a canonical layer name the 3D viewer knows, or -1. */
+export function pcbLayerIdOf(name: string): number {
+  const u = userLayerIndex(name);
+  if (u) return User_1 + 2 * (u - 1);
+  return NAMED_LAYER_ID[name] ?? -1;
+}
 
 /**
  * `PCB_PLOT_PARAMS` as the 3D viewer's FOLLOW_PLOT_SETTINGS preset reads it

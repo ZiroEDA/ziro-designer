@@ -39,6 +39,8 @@ export interface Viewer3DMenuActions {
   rotate: (axis: 'x' | 'y' | 'z', cw: boolean) => void;
   flip: () => void;
   move: (d: 'left' | 'right' | 'up' | 'down') => void;
+  /** `EDA_3D_ACTIONS::showLayersManager` → `ToggleLayersManager()`. */
+  toggleLayersManager: () => void;
   toggleShowMissingModels: () => void;
   openPreferences: () => void;
   resetToDefaults: () => void;
@@ -136,13 +138,12 @@ export function buildViewer3DMenus(state: Viewer3DMenuState, on: Viewer3DMenuAct
     { label: 'Flip Board', icon: 'flipView3d', shortcut: 'F', action: on.flip },
     { label: 'Move Board', icon: 'move', submenu: moveSubmenu },
     { sep: true },
-    // The appearance pane itself is not ported yet.
     {
       label: 'Show Appearance Manager',
       icon: 'showLayersManager',
       checked: state.showAppearanceManager,
-      ...todo,
-    }, // prettier-ignore
+      action: on.toggleLayersManager,
+    },
   ];
 
   //-- Preferences menu ----------------------------------------------------
