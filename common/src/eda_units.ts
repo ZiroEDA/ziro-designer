@@ -21,6 +21,8 @@
  */
 
 /** Gerbview IU is 10 nanometres. */
+import { formatF, formatG } from './string_utils.js';
+
 export const GERB_IU_PER_MM = 1e5;
 /** Pcbnew IU is 1 nanometre. */
 export const PCB_IU_PER_MM = 1e6;
@@ -34,6 +36,10 @@ export class EdaIuScale {
   readonly IU_PER_MM: number;
   readonly IU_PER_MILS: number;
   readonly MM_PER_IU: number;
+  /** Internal time units are attoseconds (base_units.h:78). */
+  readonly IU_PER_PS = 1e6;
+  /** Internal delay units are attoseconds/mm (base_units.h:79). */
+  readonly IU_PER_PS_PER_MM = 1e6;
 
   constructor(iuPerMM: number) {
     this.IU_PER_MM = iuPerMM;
@@ -296,4 +302,60 @@ function cFormatE3(value: number): string {
   const exponent = Number(js.slice(at + 1));
   const sign = exponent < 0 ? '-' : '+';
   return `${mantissa}e${sign}${String(Math.abs(exponent)).padStart(2, '0')}`;
+}
+
+// ---------------------------------------------------------------------------
+// EDA_UNIT_UTILS — the FILE formatters (common/eda_units.cpp:186-233), the
+// exact text KiCad writes a length or an angle as. `{:.10g}` for everything
+// except a non-zero length at or below 0.0001 mm, which takes `{:.10f}` with
+// its trailing zeros removed so it never comes out in exponent form.
+// ---------------------------------------------------------------------------
+
+/** `EDA_UNIT_UTILS::FormatAngle`: degrees through `{:.10g}`. */
+export function FormatAngle(degrees: number): string {
+  return formatG(degrees, 10);
+}
+
+/** `EDA_UNIT_UTILS::GetScaleForInternalUnitType`. */
+function GetScaleForInternalUnitType(iuScale: EdaIuScale, dataType: FileDataType): number {
+  switch (dataType) {
+    case 'time':
+      return iuScale.IU_PER_PS;
+    case 'length_delay':
+      return iuScale.IU_PER_PS_PER_MM;
+    case 'unitless':
+      return 1.0;
+    default:
+      return iuScale.IU_PER_MM;
+  }
+}
+
+/** `EDA_DATA_TYPE` as the file formatter distinguishes it. */
+export type FileDataType = 'distance' | 'time' | 'length_delay' | 'unitless';
+
+/** `EDA_UNIT_UTILS::FormatInternalUnits( aIuScale, aValue, aDataType )`. */
+export function FormatInternalUnits(
+  iuScale: EdaIuScale,
+  value: number,
+  dataType: FileDataType = 'distance',
+): string {
+  const engUnits = value / GetScaleForInternalUnitType(iuScale, dataType);
+  if (engUnits !== 0.0 && Math.abs(engUnits) <= 0.0001) {
+    let buf = formatF(engUnits, 10);
+    // remove trailing zeros
+    while (buf.length > 0 && buf.endsWith('0')) buf = buf.slice(0, -1);
+    // if the value was really small we may have just stripped all the zeros
+    // after the decimal
+    if (buf.endsWith('.')) buf = buf.slice(0, -1);
+    return buf;
+  }
+  return formatG(engUnits, 10);
+}
+
+/** `EDA_UNIT_UTILS::FormatInternalUnits( aIuScale, aPoint )`: `"x y"`. */
+export function FormatInternalUnitsPoint(
+  iuScale: EdaIuScale,
+  point: { x: number; y: number },
+): string {
+  return `${FormatInternalUnits(iuScale, point.x)} ${FormatInternalUnits(iuScale, point.y)}`;
 }

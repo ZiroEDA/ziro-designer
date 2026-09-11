@@ -891,3 +891,36 @@ export function wxSplit(text: string, sep: string, escapeChar = '\\'): string[] 
   out.push(current);
   return out;
 }
+
+/**
+ * `fmt::format("{:.<precision>f}", value)` — C's `%f`, which `toFixed` is
+ * except that `toFixed` gives up on exponent form at 1e21 and `%f` never does.
+ */
+export function formatF(value: number, precision: number): string {
+  if (Number.isNaN(value)) return 'nan';
+  if (!Number.isFinite(value)) return value > 0 ? 'inf' : '-inf';
+  if (Math.abs(value) >= 1e21) {
+    const whole = BigInt(Math.trunc(value)).toString();
+    return precision > 0 ? `${whole}.${'0'.repeat(precision)}` : whole;
+  }
+  return value.toFixed(precision);
+}
+
+/**
+ * `FormatDouble2Str` (common/string_utils.cpp:1446): a double as a file
+ * writer prints it — `{:.10g}`, except a non-zero value at or below 0.0001,
+ * which takes `{:.16f}` with its trailing zeros removed so it never comes
+ * out in exponent form.
+ */
+export function FormatDouble2Str(value: number): string {
+  if (value !== 0.0 && Math.abs(value) <= 0.0001) {
+    let buf = formatF(value, 16);
+    // remove trailing zeros (and the decimal marker if needed)
+    while (buf.length > 0 && buf.endsWith('0')) buf = buf.slice(0, -1);
+    // if the value was really small we may have just stripped all the zeros
+    // after the decimal
+    if (buf.endsWith('.')) buf = buf.slice(0, -1);
+    return buf;
+  }
+  return formatG(value, 10);
+}
