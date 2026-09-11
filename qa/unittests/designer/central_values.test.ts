@@ -237,7 +237,8 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `borderRadius: 4`, `padding: 12`, `width: 340` and three inline gaps and
   // margins. Four colours and six metrics went with the div, and nothing
   // replaced them: `DialogCopperZones` was already there.
-  'editors/pcb': { colours: 38, metrics: 200 },
+  // 38 -> 37 with 8fc7620e (the 3D viewer's Appearance pane); rescanned.
+  'editors/pcb': { colours: 37, metrics: 200 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -328,10 +329,12 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   'editors/symbol': { colours: 2, metrics: 15 },
   home: { colours: 7, metrics: 7 },
   mobile: { colours: 15, metrics: 23 },
-  // 193 colours is the worst in the tree and 176 of them are rgba(): pcm.css
-  // paints its status pills with a private palette. It is also the argument for
-  // counting rgb() at all - a hex-only rule would have reported 17 here.
-  pcm: { colours: 193, metrics: 53 },
+  // 33 colours, down from 193: 160 were `defaultRepo.ts`' invented colour
+  // themes, gone with the real ones (see `kicad_color_schemes.ts`). What is
+  // left is pcm.css painting its status pills with a private palette — 176
+  // rgba() when it was counted, and the argument for counting rgb() at all:
+  // a hex-only rule would have reported 17 here.
+  pcm: { colours: 33, metrics: 53 },
   render: { colours: 4, metrics: 0 },
   // ui/ is the shared layer itself, so its literals are the ones that ought to
   // BE tokens. shell.css is 7,000 lines and this is the size of that debt.
@@ -1042,7 +1045,11 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // card's `#fff` text, `#aaa` detail, two backdrop/shadow rgba()s, the
     // gauge track's rgba() and the canvas spinner's `#ddd`) and
     // `editors/schematic` 33 -> 32 (the library browser's `#555`); 505 - 7.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(498);
+    // 498 -> 338: the PCM's ten invented colour themes, replaced by the seven
+    // pointhi/kicad-color-schemes files verbatim under `assets/` (which the
+    // scan does not read, as vendored data). `pcm` 193 -> 33, and
+    // `editors/pcb` 38 -> 37 from 8fc7620e, rescanned together; 498 - 161.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(337);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.

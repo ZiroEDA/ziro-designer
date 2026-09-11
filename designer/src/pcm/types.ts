@@ -17,7 +17,7 @@
  * metadata is still modelled for interop with repositories that host archives.
  */
 
-import type { Theme } from '../editors/schematic/theme.js';
+import type { ColorThemeContents } from '@ziroeda/common';
 
 /** PCM_PACKAGE_TYPE (pcm_data.h): the content categories the manager handles. */
 export type PackageKind = 'plugin' | 'fab' | 'library' | 'datasource' | 'colortheme';
@@ -98,8 +98,11 @@ export interface RepoPackage {
   icon?: string;
   /** Advertised versions, newest first (KiCad "versions"). */
   versions: PackageVersion[];
-  /** Colour-theme payload (present when kind === 'colortheme'). */
-  theme?: Theme;
+  /**
+   * Colour-theme payload (present when kind === 'colortheme'): the one theme
+   * file a KiCad colour-theme package carries under `colors/`, already read.
+   */
+  theme?: ColorThemeContents;
   /** Symbol-library payload (present when kind === 'library'). */
   libraries?: LibraryPayload[];
 }

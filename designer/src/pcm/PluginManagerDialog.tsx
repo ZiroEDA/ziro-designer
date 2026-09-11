@@ -19,6 +19,7 @@
 import { useMemo, useState, type JSX } from 'react';
 import { settings } from '../prefs/settings.js';
 import { isRuntimeKind, latestVersion, pcm, pcmThemeId, usePcmVersion } from './pcmStore.js';
+import { themeFromLayerCss } from '../editors/schematic/theme.js';
 import type { PackageKind, PackageState, RepoPackage, Repository } from './types.js';
 import './pcm.css';
 import { useModalEscape } from '../ui/useModalEscape.js';
@@ -44,7 +45,7 @@ const KIND_LABEL: Record<PackageKind, string> = {
 /** A small swatch row previewing a theme's key colours. */
 function ThemeSwatches({ pkg }: { pkg: RepoPackage }): JSX.Element | null {
   if (!pkg.theme) return null;
-  const t = pkg.theme;
+  const t = themeFromLayerCss(pkg.theme.colors);
   const keys = ['background', 'wire', 'bus', 'symbolOutline', 'pin', 'label'] as const;
   return (
     <span className="ze-pcm-swatches" title="Theme preview">

@@ -57,6 +57,19 @@ This applies to:
 
 ZiroEDA packages and hosts this content. It did not author it.
 
+## KiCad colour themes
+
+The colour themes offered by the Plugin and Content Manager are Thomas
+Pointhuber's `kicad-color-schemes` packages, the same ones KiCad's own
+repository offers. Each names its designer in its metadata. They are dedicated
+to the public domain under CC0 1.0 Universal.
+
+- Source: https://github.com/pointhi/kicad-color-schemes
+- Licence: https://creativecommons.org/publicdomain/zero/1.0/
+
+The theme files and package metadata under `designer/src/assets/color_schemes/`
+are reproduced verbatim.
+
 ## rectpack2d
 
 Copyright (c) 2017 Patryk Czachurski and contributors. Licensed under the MIT

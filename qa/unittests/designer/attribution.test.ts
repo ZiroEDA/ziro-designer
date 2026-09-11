@@ -72,10 +72,18 @@ describe('bundled packages name their real author', () => {
     }
   });
 
-  it("does not claim MIT on themes derived from KiCad's GPL palette", () => {
-    for (const pkg of packages.filter((p) => p.kind === 'colortheme')) {
-      expect(pkg.license).not.toBe('MIT');
-      expect(pkg.license).toContain('GPL');
+  it('ships the colour themes under their own authors and licence, never ours', () => {
+    // The themes are pointhi/kicad-color-schemes' packages, metadata verbatim:
+    // every one is CC0-1.0 and names the person who designed it. A theme
+    // credited to ZiroEDA, or licensed as anything else, is one we made up
+    // again -- which is what the previous set was.
+    const themes = packages.filter((p) => p.kind === 'colortheme');
+    expect(themes.length).toBeGreaterThan(0);
+    for (const pkg of themes) {
+      expect(pkg.license).toBe('CC0-1.0');
+      expect(pkg.author.name).not.toMatch(/ziro/i);
+      expect(pkg.id).toMatch(/^com\.github\.pointhi\.kicad-color-schemes\./);
+      expect(pkg.resources?.Github).toBe('https://github.com/pointhi/kicad-color-schemes');
     }
   });
 });

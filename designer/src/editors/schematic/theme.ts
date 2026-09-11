@@ -168,6 +168,21 @@ const project = (colors: Partial<Record<string, Color4d>>): Theme =>
     ]),
   ) as unknown as Theme;
 
+/**
+ * The same projection for a theme that arrived as a FILE -- `colorThemeFromFile`
+ * hands back CSS strings keyed by layer id, which is what a theme the PCM
+ * installed is. A layer the file does not name falls back to "KiCad Default",
+ * which for a file is exactly upstream: `COLOR_MAP_PARAM::Load` with
+ * `aResetIfMissing` puts `s_defaultTheme`'s colour on any key the file lacks.
+ */
+export const themeFromLayerCss = (colors: Partial<Record<string, string>>): Theme =>
+  Object.fromEntries(
+    Object.entries(SCH_LAYERS).map(([field, layer]) => [
+      field,
+      colors[layer] ?? toCssColor(BUILTIN_DEFAULT_THEME[layer], ', '),
+    ]),
+  ) as unknown as Theme;
+
 /** "KiCad Default", `s_defaultTheme` (the beige theme KiCad ships as default). */
 export const KICAD_DEFAULT: Theme = project(BUILTIN_DEFAULT_THEME);
 

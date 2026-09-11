@@ -26,9 +26,12 @@ import {
   BUILTIN_CLASSIC_THEME,
   BUILTIN_DEFAULT_THEME,
   type Color4d,
+  type ColorThemeContents,
   LEGACY_COLORS,
+  parseColor4d,
   toCssColor,
 } from '@ziroeda/common';
+import { pcm } from '../../pcm/pcmStore.js';
 
 /** One theme's colours, indexed by KiCad layer-id name. */
 type ThemeColors = Partial<Record<string, Color4d>>;
@@ -241,9 +244,44 @@ export const PCB_THEMES: PcbColorTheme[] = [
   },
 ];
 
-/** The theme registered under a COLOR_SETTINGS filename (default fallback). */
-export const themeByFilename = (filename: string): PcbColorTheme =>
-  PCB_THEMES.find((t) => t.filename === filename) ?? PCB_THEMES[0]!;
+/**
+ * A theme that arrived as a FILE -- what the PCM installs -- as this module's
+ * palette. `colorThemeFromFile` hands back CSS strings keyed by layer id; the
+ * builders above take `COLOR4D`s, so each named colour is parsed and laid over
+ * `s_defaultTheme`, which is `COLOR_MAP_PARAM::Load`'s `aResetIfMissing` for a
+ * key the file lacks. A "(Schematic only)" theme has no `board` section at all
+ * and so is KiCad Default on the board, exactly as it is in KiCad.
+ */
+export function pcbThemeFromFile(filename: string, contents: ColorThemeContents): PcbColorTheme {
+  const colors: ThemeColors = { ...BUILTIN_DEFAULT_THEME };
+  for (const [layer, css] of Object.entries(contents.board ?? {})) {
+    if (css !== undefined) colors[layer] = parseColor4d(css);
+  }
+  return {
+    filename,
+    name: contents.name,
+    background: at(colors, 'LAYER_PCB_BACKGROUND'),
+    grid: at(colors, 'LAYER_GRID'),
+    gridAxes: at(colors, 'LAYER_GRID_AXES'),
+    layerColors: layerColorsFor(colors),
+    special: specialFor(colors),
+  };
+}
+
+/**
+ * The theme registered under a COLOR_SETTINGS filename: a built-in, or one the
+ * PCM installed (`SETTINGS_MANAGER::GetColorSettings` looks a name up in the
+ * same `m_color_settings` map whichever directory it was loaded from). An id
+ * nothing knows is KiCad Default, which is that function's last line
+ * (`settings_manager.cpp:288`).
+ */
+export function themeByFilename(filename: string): PcbColorTheme {
+  const builtin = PCB_THEMES.find((t) => t.filename === filename);
+  if (builtin) return builtin;
+  const installed = pcm.themeById(filename);
+  if (installed) return pcbThemeFromFile(filename, installed);
+  return PCB_THEMES[0]!;
+}
 
 /**
  * `::GetColorSettings( cfg->m_ColorTheme )` for a board frame — the built-in

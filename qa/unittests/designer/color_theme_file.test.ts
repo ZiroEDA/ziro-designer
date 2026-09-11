@@ -222,3 +222,46 @@ describe('the board section is the one KiCad wrote', () => {
     expect(Object.keys(back?.colors ?? {})).toEqual(['LAYER_WIRE']);
   });
 });
+
+describe('an older file is migrated the way COLOR_SETTINGS migrates it on load', () => {
+  // color_settings.cpp:266-312, gated as json_settings.cpp:292-321 gates it.
+  const v = (version: number | undefined, sections: Record<string, unknown>) => ({
+    ...(version === undefined ? {} : { meta: { name: 'Old', version } }),
+    ...sections,
+  });
+
+  it('3 -> 4: page_limits takes the grid colour, in both namespaces', () => {
+    const back = colorThemeFromFile(
+      v(3, { schematic: { grid: 'rgb(1, 2, 3)' }, board: { grid: 'rgb(4, 5, 6)' } }),
+    );
+    expect(back?.colors.LAYER_SCHEMATIC_PAGE_LIMITS).toBe('rgb(1, 2, 3)');
+    expect(back?.board?.LAYER_PAGE_LIMITS).toBe('rgb(4, 5, 6)');
+  });
+
+  it('1 -> 2: board.via_hole is forced to COLOR4D( 0.5, 0.4, 0, 0.8 )', () => {
+    // ToColour truncates r * 255 + 0.5: 128, 102, 0, and 204/255 printed at 3 places.
+    const back = colorThemeFromFile(v(1, { board: { via_hole: 'rgb(9, 9, 9)' } }));
+    expect(back?.board?.LAYER_VIA_HOLES).toBe('rgba(128, 102, 0, 0.800)');
+  });
+
+  it('a file at the schema version is taken as it is', () => {
+    const back = colorThemeFromFile(
+      v(5, { schematic: { grid: 'rgb(1, 2, 3)' }, board: { via_hole: 'rgb(9, 9, 9)' } }),
+    );
+    expect(back?.colors.LAYER_SCHEMATIC_PAGE_LIMITS).toBeUndefined();
+    expect(back?.board?.LAYER_VIA_HOLES).toBe('rgb(9, 9, 9)');
+  });
+
+  it('a file with no meta.version is not migrated: LoadFromFile reads -1 and skips', () => {
+    const back = colorThemeFromFile(v(undefined, { schematic: { grid: 'rgb(1, 2, 3)' } }));
+    expect(back?.colors.LAYER_SCHEMATIC_PAGE_LIMITS).toBeUndefined();
+  });
+
+  it('a page_limits the file does name is not overwritten by a newer version step', () => {
+    // Version 4 already has the key; only a file BELOW 4 gets the copy.
+    const back = colorThemeFromFile(
+      v(4, { schematic: { grid: 'rgb(1, 2, 3)', page_limits: 'rgb(7, 7, 7)' } }),
+    );
+    expect(back?.colors.LAYER_SCHEMATIC_PAGE_LIMITS).toBe('rgb(7, 7, 7)');
+  });
+});

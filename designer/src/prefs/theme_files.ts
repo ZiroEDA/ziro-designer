@@ -68,13 +68,14 @@ export function themeFilesFor(
       writable: true,
     },
     // A theme the PCM installed lands in the third-party colours directory and
-    // is read-only. Ours carry schematic colours alone, so no `board` section
-    // is written for one — an empty section is not neutral, it would name every
-    // board layer at its default.
+    // is read-only. Its payload IS the theme file, read, so it goes back out
+    // whole: a "(Schematic only)" one has no `board` section and gets none --
+    // an empty section is not neutral, it would name every board layer at its
+    // default.
     ...pcm.installedThemes().map(({ id, name, theme }) => ({
       fileName: `${id.replace(/^pcm:/, '')}.json`,
       name,
-      contents: { name, colors: themeByLayer(theme), override: false },
+      contents: theme,
       writable: false,
     })),
   ];

@@ -28,7 +28,7 @@ import {
 } from '../../../dialogs/prefs/PanelColorSettings.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 import { pcm, usePcmVersion } from '../../../pcm/pcmStore.js';
-import { BUILTIN_THEMES, KICAD_DEFAULT, type Theme } from '../theme.js';
+import { BUILTIN_THEMES, KICAD_DEFAULT, type Theme, themeFromLayerCss } from '../theme.js';
 import { ColorPreviewPanel } from './ColorPreviewPanel.js';
 import { BUILTIN_CLASSIC_THEME, BUILTIN_DEFAULT_THEME, type Color4d } from '@ziroeda/common';
 import { COLOR4D_UNSPECIFIED, parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
@@ -60,7 +60,7 @@ export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.
     const builtin = BUILTIN_THEMES[themeId];
     if (builtin) return builtin.theme;
     const installed = pcm.themeById(themeId);
-    if (installed) return installed;
+    if (installed) return themeFromLayerCss(installed.colors);
     // A theme "New Theme..." made carries its own colour table; `user` and an
     // id nothing knows both fall through to the writable one.
     const made = userThemes[themeId];

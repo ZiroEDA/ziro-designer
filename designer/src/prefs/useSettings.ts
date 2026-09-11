@@ -7,7 +7,12 @@
  */
 import { useMemo, useSyncExternalStore } from 'react';
 import { settings } from './settings.js';
-import { BUILTIN_THEMES, KICAD_DEFAULT, type Theme } from '../editors/schematic/theme.js';
+import {
+  BUILTIN_THEMES,
+  KICAD_DEFAULT,
+  type Theme,
+  themeFromLayerCss,
+} from '../editors/schematic/theme.js';
 import { dsLoadColors, type DsRenderColors } from '@ziroeda/common';
 import { pcm } from '../pcm/pcmStore.js';
 
@@ -127,7 +132,7 @@ export function resolveThemeById(id: string): Theme {
   if (builtin) return builtin.theme;
   // A colour theme installed via the Plugin and Content Manager.
   const installed = pcm.themeById(id);
-  if (installed) return installed;
+  if (installed) return themeFromLayerCss(installed.colors);
   // A theme "New Theme..." made, which carries a colour table of its own.
   const made = settings.userThemes[id];
   if (made) return { ...KICAD_DEFAULT, ...made.colors } as Theme;

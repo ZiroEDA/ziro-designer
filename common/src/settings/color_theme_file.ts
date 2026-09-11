@@ -363,9 +363,58 @@ function readSection(
   return { raw, colors };
 }
 
+/**
+ * `COLOR_SETTINGS`' registered migrators (`color_settings.cpp:266-312`), run
+ * the way `JSON_SETTINGS::LoadFromFile` runs them (`json_settings.cpp:292-321`):
+ * only when `meta.version` is a number below the schema version. A file with
+ * no `meta.version` reads as -1 there and is NOT migrated, so a hand-written
+ * file with no meta is taken as it is.
+ *
+ * The four steps, and why two of them are here and two are not:
+ *
+ * - 0 -> 1 splits a `fpedit` section out into a "(Footprints)" theme of its
+ *   own. That makes a second file, which needs the settings manager; a file
+ *   without `fpedit` is a no-op there and here.
+ * - 1 -> 2 forces `board.via_hole` to `COLOR4D( 0.5, 0.4, 0, 0.8 )`, because
+ *   before version 2 the key had no effect.
+ * - 2 -> 3 strips the alpha off six `3d_viewer` colours, a section this app
+ *   does not read.
+ * - 3 -> 4 copies `board.grid` to `board.page_limits` and `schematic.grid` to
+ *   `schematic.page_limits`, which is where the page-limit colour came from
+ *   before it had a key. Every theme the PCM offers is a version-3 file, so
+ *   without this one they would all draw their page limits in `s_defaultTheme`'s
+ *   grey rather than in their own grid colour.
+ * - 4 -> 5 is a no-op ("this bump shouldn't have happened").
+ *
+ * Mutates and returns the parsed object, as the C++ mutates `m_internals`.
+ */
+function migrate(root: Record<string, unknown>): void {
+  const meta = root.meta;
+  const filever =
+    typeof meta === 'object' &&
+    meta !== null &&
+    typeof (meta as { version?: unknown }).version === 'number'
+      ? (meta as { version: number }).version
+      : -1;
+  if (filever < 0 || filever >= COLOR_THEME_SCHEMA_VERSION) return;
+
+  if (filever < 2) {
+    // `COLOR4D( 0.5, 0.4, 0, 0.8 ).ToCSSString()`, spelled as that call spells it.
+    putAt(root, 'board.via_hole', toCssString({ r: 0.5, g: 0.4, b: 0, a: 0.8 }));
+  }
+  if (filever < 4) {
+    for (const ns of ['board', 'schematic']) {
+      const grid = getAt(root, `${ns}.grid`);
+      if (typeof grid === 'string') putAt(root, `${ns}.page_limits`, grid);
+    }
+  }
+  (root.meta as Record<string, unknown>).version = COLOR_THEME_SCHEMA_VERSION;
+}
+
 export function colorThemeFromFile(parsed: unknown): ColorThemeContents | null {
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
   const root = parsed as Record<string, unknown>;
+  migrate(root);
   const schematic = readSection(root, 'schematic', SCHEMATIC_COLOR_KEYS);
   const board = readSection(root, 'board', BOARD_COLOR_KEYS);
   // A real KiCad file carries both sections, but one this app wrote carries

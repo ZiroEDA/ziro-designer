@@ -17,23 +17,26 @@
  */
 
 import { useSyncExternalStore } from 'react';
-import type { Theme } from '../editors/schematic/theme.js';
+import type { ColorThemeContents } from '@ziroeda/common';
 import { DEFAULT_REPOSITORY } from './defaultRepo.js';
+import {
+  compareParsed,
+  latestVersion,
+  normalizeContact,
+  normalizePackage,
+  preparePackage,
+  versionParts,
+} from './package_schema.js';
 import { RUNTIME_KINDS } from './types.js';
 import type {
-  Contact,
   InstalledPackage,
   LibraryPayload,
   PackageState,
-  PackageVersion,
   PendingAction,
   PendingChange,
   Repository,
   RepoPackage,
 } from './types.js';
-
-/** The running application's KiCad-compatibility version (kicad_version check). */
-export const APP_KICAD_VERSION = '9.0.0';
 
 const INSTALLED_KEY = 'ziroeda.pcm.installed';
 const REPOS_KEY = 'ziroeda.pcm.repos';
@@ -55,114 +58,12 @@ function storeJson(key: string, value: unknown): void {
   }
 }
 
-// ---- version helpers (PreparePackage) ----------------------------------------
-
-/** Parse a "major.minor.patch" string into a numeric tuple (missing = 0). */
-function versionParts(v: string): [number, number, number] {
-  const m = /(\d{1,6})(?:\.(\d{1,6}))?(?:\.(\d{1,6}))?/.exec(v);
-  if (!m) return [0, 0, 0];
-  return [Number(m[1] ?? 0), Number(m[2] ?? 0), Number(m[3] ?? 0)];
-}
-
-/** Parsed [major, minor, patch, epoch] tuple used for ordering. */
-export function parsedVersion(pv: PackageVersion): [number, number, number, number] {
-  const [maj, min, patch] = versionParts(pv.version);
-  return [maj, min, patch, pv.versionEpoch ?? 0];
-}
-
-/** Compare parsed version tuples; epoch dominates, then major/minor/patch. */
-function compareParsed(
-  a: [number, number, number, number],
-  b: [number, number, number, number],
-): number {
-  // epoch first (index 3), then major, minor, patch.
-  return a[3] - b[3] || a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
-}
-
-/** Whether a version runs on the current app (kicad_version[_max] window). */
-function isCompatible(pv: PackageVersion): boolean {
-  const app = versionParts(APP_KICAD_VERSION);
-  if (compareParsed([...versionParts(pv.kicadVersion), 0], [...app, 0]) > 0) return false;
-  if (pv.kicadVersionMax) {
-    if (compareParsed([...app, 0], [...versionParts(pv.kicadVersionMax), 0]) > 0) return false;
-  }
-  return true;
-}
-
-/** Fill parsedVersion + compatible and sort versions newest-first (in place). */
-export function preparePackage(pkg: RepoPackage): RepoPackage {
-  for (const v of pkg.versions) {
-    v.parsedVersion = parsedVersion(v);
-    v.compatible = isCompatible(v);
-  }
-  pkg.versions.sort((a, b) => compareParsed(b.parsedVersion!, a.parsedVersion!));
-  return pkg;
-}
-
-/** The newest compatible, non-deprecated version of a package, if any. */
-export function latestVersion(pkg: RepoPackage): PackageVersion | undefined {
-  return (
-    pkg.versions.find((v) => v.compatible && v.status !== 'deprecated') ??
-    pkg.versions.find((v) => v.compatible)
-  );
-}
-
-// ---- repository JSON normalisation (KiCad pcm.v1 → our model) -----------------
-
-function normalizeContact(raw: unknown): Contact {
-  if (typeof raw === 'string') return { name: raw };
-  const r = (raw ?? {}) as { name?: string; contact?: Record<string, string> };
-  return { name: r.name ?? 'Unknown', contact: r.contact };
-}
-
-/** Map a KiCad-schema (snake_case) or native (camelCase) version object. */
-function normalizeVersion(raw: Record<string, unknown>): PackageVersion {
-  const pick = <T>(...keys: string[]): T | undefined => {
-    for (const k of keys) if (raw[k] !== undefined) return raw[k] as T;
-    return undefined;
-  };
-  return {
-    version: String(pick('version') ?? '0'),
-    versionEpoch: pick<number>('versionEpoch', 'version_epoch'),
-    downloadUrl: pick<string>('downloadUrl', 'download_url'),
-    downloadSha256: pick<string>('downloadSha256', 'download_sha256'),
-    downloadSize: pick<number>('downloadSize', 'download_size'),
-    installSize: pick<number>('installSize', 'install_size'),
-    status: (pick<string>('status') as PackageVersion['status']) ?? 'stable',
-    platforms: pick<string[]>('platforms'),
-    kicadVersion: String(pick('kicadVersion', 'kicad_version') ?? '0'),
-    kicadVersionMax: pick<string>('kicadVersionMax', 'kicad_version_max'),
-    keepOnUpdate: pick<string[]>('keepOnUpdate', 'keep_on_update'),
-    runtime: pick<PackageVersion['runtime']>('runtime'),
-  };
-}
-
-/** Map a KiCad-schema (snake_case) or native package object to a RepoPackage. */
-function normalizePackage(raw: Record<string, unknown>): RepoPackage {
-  const pick = <T>(...keys: string[]): T | undefined => {
-    for (const k of keys) if (raw[k] !== undefined) return raw[k] as T;
-    return undefined;
-  };
-  const versions = (pick<Record<string, unknown>[]>('versions') ?? []).map(normalizeVersion);
-  return preparePackage({
-    id: String(pick('id', 'identifier') ?? ''),
-    kind: (pick<string>('kind', 'type') as RepoPackage['kind']) ?? 'plugin',
-    name: String(pick('name') ?? ''),
-    description: String(pick('description') ?? ''),
-    descriptionFull: pick<string>('descriptionFull', 'description_full'),
-    author: normalizeContact(pick('author')),
-    maintainer: raw.maintainer !== undefined ? normalizeContact(raw.maintainer) : undefined,
-    license: String(pick('license') ?? 'Unknown'),
-    category: pick<string>('category'),
-    tags: pick<string[]>('tags'),
-    keepOnUpdate: pick<string[]>('keepOnUpdate', 'keep_on_update'),
-    resources: pick<Record<string, string>>('resources'),
-    icon: pick<string>('icon'),
-    versions,
-    theme: pick('theme'),
-    libraries: pick<LibraryPayload[]>('libraries'),
-  });
-}
+export {
+  APP_KICAD_VERSION,
+  latestVersion,
+  parsedVersion,
+  preparePackage,
+} from './package_schema.js';
 
 /** SHA256 hex of a UTF-8 string (the web equivalent of PCM VerifyHash). */
 export async function sha256Hex(text: string): Promise<string> {
@@ -203,6 +104,16 @@ class PcmStore {
     // Older installs (before pinning / current_version) get sane defaults.
     let migrated = false;
     for (const p of Object.values(this.installed)) {
+      // Until 2026-09 a colour-theme package carried our painter's `Theme` --
+      // camelCase keys, schematic only, colours we made up -- rather than a
+      // KiCad theme file. Those packages no longer exist in any repository and
+      // their payload reads as nothing, so an install of one is dropped, the
+      // way a theme whose file has gone is dropped from KiCad's list.
+      if (p.kind === 'colortheme' && !(p.theme && typeof p.theme.colors === 'object')) {
+        delete this.installed[p.id];
+        migrated = true;
+        continue;
+      }
       if (p.pinned === undefined) {
         p.pinned = false;
         migrated = true;
@@ -493,14 +404,23 @@ class PcmStore {
   // ---- payload accessors (consumed by the rest of the app) -------------------
 
   /** Installed colour themes keyed by their PCM theme id ("pcm:<packageId>"). */
-  installedThemes(): { id: string; name: string; theme: Theme }[] {
-    return this.installedList()
-      .filter((p) => p.kind === 'colortheme' && p.theme)
-      .map((p) => ({ id: pcmThemeId(p.id), name: p.name, theme: p.theme as Theme }));
+  installedThemes(): { id: string; name: string; theme: ColorThemeContents }[] {
+    return (
+      this.installedList()
+        .filter((p) => p.kind === 'colortheme' && p.theme)
+        // The chooser shows `COLOR_SETTINGS::GetName()`, which is the FILE's
+        // `meta.name` -- "Nord", "Solarized Dark (Schematic only)" -- and not
+        // the package's ("Nord Theme"), which only the PCM's own list shows.
+        .map((p) => ({
+          id: pcmThemeId(p.id),
+          name: (p.theme as ColorThemeContents).name,
+          theme: p.theme as ColorThemeContents,
+        }))
+    );
   }
 
   /** Resolve a colour theme by its PCM theme id, or undefined if not installed. */
-  themeById(pcmId: string): Theme | undefined {
+  themeById(pcmId: string): ColorThemeContents | undefined {
     const pkgId = pcmId.startsWith('pcm:') ? pcmId.slice(4) : pcmId;
     const p = this.installed[pkgId];
     return p?.kind === 'colortheme' ? p.theme : undefined;
