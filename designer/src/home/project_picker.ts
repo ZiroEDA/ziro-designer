@@ -20,6 +20,29 @@ export interface IngestFile {
 /** Folders deeper than this are ignored (guards against runaway trees). */
 export const MAX_WALK_DEPTH = 6;
 
+/**
+ * Whether a directory is the project's, or the tooling's.
+ *
+ * A picked folder is walked whole, and real KiCad projects live in real
+ * working directories: one opened here carried a `.git` of 60 files and 5.9 MB
+ * beside a `.history` of 170 files and 4.1 MB, none of it part of the design.
+ * Uploading it is not merely waste -- `.git` churns on every commit, so those
+ * objects are re-encrypted and re-stored on every push, and an encrypted blob
+ * is keyed by a random id, so the previous copies are orphaned rather than
+ * overwritten.
+ *
+ * Hidden, not a list of names, because the next such folder will be `.vscode`
+ * or `.idea` and a list is a thing to keep updating. Nothing KiCad reads is
+ * dot-prefixed.
+ *
+ * Deliberately NOT `fs/allowlist.ts`, which is a different question with a
+ * tempting resemblance: that mirrors `s_allowedExtensionsToList` and decides
+ * what the project TREE DISPLAYS. It has no `.wrl`, `.step` or `.pcb3d` in it,
+ * so filtering a project's contents through it would drop every 3D model the
+ * board references.
+ */
+export const isToolingDir = (name: string): boolean => name.startsWith('.');
+
 // --- File System Access API (directory picker) ------------------------------
 
 export interface DirHandle {
@@ -43,7 +66,7 @@ export async function walkDirectoryHandle(dir: DirHandle): Promise<IngestFile[]>
           name: prefix + entry.name,
           bytesOf: async () => new Uint8Array(await (await entry.getFile()).arrayBuffer()),
         });
-      else if (entry.kind === 'directory' && depth < MAX_WALK_DEPTH)
+      else if (entry.kind === 'directory' && depth < MAX_WALK_DEPTH && !isToolingDir(entry.name))
         await walk(entry, `${prefix}${entry.name}/`, depth + 1);
     }
   };
@@ -92,7 +115,7 @@ export async function walkDroppedEntries(entries: readonly DropEntry[]): Promise
           name: prefix + file.name,
           bytesOf: async () => new Uint8Array(await file.arrayBuffer()),
         });
-    } else if (entry.isDirectory && depth < MAX_WALK_DEPTH) {
+    } else if (entry.isDirectory && depth < MAX_WALK_DEPTH && !isToolingDir(entry.name)) {
       for (const child of await readAll(entry))
         await walk(child, `${prefix}${entry.name}/`, depth + 1);
     }
@@ -105,10 +128,17 @@ export async function walkDroppedEntries(entries: readonly DropEntry[]): Promise
 
 /** Map a FileList to ingest files, preserving webkitRelativePath when present. */
 export const filesFromFileList = (list: FileList): IngestFile[] =>
-  Array.from(list).map((f) => ({
-    name: (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name,
-    bytesOf: async () => new Uint8Array(await f.arrayBuffer()),
-  }));
+  Array.from(list)
+    .filter((f) => {
+      // webkitdirectory hands the whole tree over flat, so the directory rule
+      // has to be applied to the path rather than to a handle.
+      const rel = (f as File & { webkitRelativePath?: string }).webkitRelativePath || '';
+      return !rel.split('/').slice(0, -1).some(isToolingDir);
+    })
+    .map((f) => ({
+      name: (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name,
+      bytesOf: async () => new Uint8Array(await f.arrayBuffer()),
+    }));
 
 /**
  * Drop the one folder every picked file sits in.

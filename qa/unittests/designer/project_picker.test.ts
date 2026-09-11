@@ -10,6 +10,7 @@ import { describe, it, expect } from 'vitest';
 import {
   walkDirectoryHandle,
   walkDroppedEntries,
+  filesFromFileList,
   MAX_WALK_DEPTH,
   type DirHandle,
   type DropEntry,
@@ -36,6 +37,13 @@ const fakeDir = (name: string, children: FsEntry[]): FsEntry => ({
     yield* children;
   },
 });
+
+/** A File carrying the relative path webkitdirectory would have set. */
+const relFile = (rel: string, content: string): File => {
+  const f = new File([enc.encode(content)], rel.split('/').pop()!);
+  Object.defineProperty(f, 'webkitRelativePath', { value: rel });
+  return f;
+};
 
 describe('walkDirectoryHandle', () => {
   it('recurses subfolders and keeps relative paths', async () => {
@@ -107,5 +115,46 @@ describe('walkDroppedEntries', () => {
       dropDir('proj', [dropFile('bad.bin', null), dropFile('ok.txt', 'ok')]),
     ]);
     expect(files.map((f) => f.name)).toEqual(['proj/ok.txt']);
+  });
+});
+
+describe('a picked folder is a working directory, not just a project', () => {
+  // Observed on a real board: .git held 60 files and 5.9 MB, .history 170 and
+  // 4.1 MB, none of it the design. Encrypted blobs are keyed by a random id,
+  // so re-uploading a churning .git orphans the previous copies rather than
+  // replacing them, and the orphans are never collected.
+  it('leaves .git and .history out of a picked directory', async () => {
+    const root: DirHandle = fakeDir('root', [
+      fakeFile('board.kicad_pcb', '(kicad_pcb)'),
+      fakeDir('.git', [fakeFile('HEAD', 'ref: refs/heads/main')]),
+      fakeDir('.history', [fakeFile('board-20260101.kicad_pcb', '(old)')]),
+      fakeDir('3d_shapes', [fakeFile('part.wrl', 'wrl')]),
+    ]);
+    const names = (await walkDirectoryHandle(root)).map((f) => f.name);
+    expect(names).toContain('board.kicad_pcb');
+    // The models are project content and must survive: they are NOT in
+    // s_allowedExtensionsToList, which is why that list cannot be the filter.
+    expect(names).toContain('3d_shapes/part.wrl');
+    expect(names.some((n) => n.includes('.git'))).toBe(false);
+    expect(names.some((n) => n.includes('.history'))).toBe(false);
+  });
+
+  it('leaves them out of a dropped folder too', async () => {
+    const entries = [
+      dropFile('board.kicad_pcb', '(kicad_pcb)'),
+      dropDir('.git', [dropFile('HEAD', 'ref')]),
+    ];
+    const names = (await walkDroppedEntries(entries)).map((f) => f.name);
+    expect(names).toEqual(['board.kicad_pcb']);
+  });
+
+  it('leaves them out of a webkitdirectory file list, where the tree is flat', async () => {
+    const list = [
+      relFile('proj/board.kicad_pcb', 'x'),
+      relFile('proj/.git/objects/ab/cdef', 'y'),
+      relFile('proj/3d_shapes/part.step', 'z'),
+    ] as unknown as FileList;
+    const names = filesFromFileList(list).map((f) => f.name);
+    expect(names).toEqual(['proj/board.kicad_pcb', 'proj/3d_shapes/part.step']);
   });
 });
