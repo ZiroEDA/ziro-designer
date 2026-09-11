@@ -83,7 +83,13 @@ describe('pickBoardItem — the nearest hit along the ray', () => {
   const frame = { scale: 1e-7, zTopFront: 0.8, zBottomBack: -0.8, boardOutline: [outline] };
   it('a fractional hit is rounded to IU before the integer polygon tests — it must not throw', () => {
     // 2.5 / 1e-7 is exact; nudge the ray so the plane point is a non-integer IU
-    const item = pickBoardItem(board, frame, [2.50000003, -2.00000007, 16], [0.0000001, 0, -1], null);
+    const item = pickBoardItem(
+      board,
+      frame,
+      [2.50000003, -2.00000007, 16],
+      [0.0000001, 0, -1],
+      null,
+    );
     expect(item).toEqual({ kind: 'track', track: 0 });
   });
   it('drops onto the front copper first when the camera is above', () => {

@@ -314,7 +314,11 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // (`ui/DialogTableProperties.tsx`), and its layout went from twenty inline
   // `style={{ … }}` objects to rules in the stylesheet. The six that left this
   // area are the ones eeschema's copy stated inline.
-  'editors/schematic': { colours: 32, metrics: 185 },
+  // colours 32 -> 30: 8fa21c12. The ratsnest picker's BULLSEYE was a
+  // hand-drawn SVG in SchematicCanvas.tsx with a `#ffffff` halo and a
+  // `#000000` ring; it is GDK_TARGET, a stock cursor, so both went with the
+  // drawing. RESCANNED from this tree.
+  'editors/schematic': { colours: 30, metrics: 185 },
   // colours 12 -> 7: the Symbol Editor parity pass. Four were
   // SYMBOL_EDITOR_COLORS, a private copy of LAYER_SCHEMATIC_ANCHOR /
   // LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS that matched the Default
@@ -1054,7 +1058,11 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // `ui` 190 -> 187: the guides' two `#6b6f76` and the sheet dot's `#9a9a9a`,
     // replaced by [px] #858585 as a declared property and the two dots as
     // KiCad's own tree_nosel/tree_sel SVG fills; 337 - 3.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(334);
+    // 334 -> 332: the BULLSEYE's two; see the `editors/schematic` row.
+    // RESCANNED from this tree, and derived a second time from the per-area
+    // table -- `editors/schematic` 32 -> 30 is the only row that moved, and
+    // 334 - 2 agrees.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(332);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.

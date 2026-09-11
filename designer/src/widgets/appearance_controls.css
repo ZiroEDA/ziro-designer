@@ -164,21 +164,26 @@
   min-height: 0;
 }
 /* m_panelLayersSizer->Add( m_windowLayers, 1, wxEXPAND|wxLEFT|wxRIGHT|wxTOP, 5 );
-   the sizer inside it opens with AddSpacer( 5 ) (.cpp:465) and each row is
-   wxLEFT|wxRIGHT 5 with a 2px spacer after (.cpp:521-522). */
+   the sizer inside it opens with AddSpacer( 5 ) and each row is wxLEFT|wxRIGHT 5
+   with a 2px spacer after. */
 .ze-appearance-3d-rows {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  /* [data] wxLEFT|wxRIGHT|wxTOP, 5 (appearance_controls_3D_base.cpp:22). */
   margin: 5px 5px 0;
+  /* [data] m_layersOuterSizer->AddSpacer( 5 ) (appearance_controls_3D.cpp:558). */
   padding: 5px 0 0;
 }
 .ze-appearance-3d-rows > .ze-layer-row {
+  /* [data] sizer->AddSpacer( 5 ) either side of a row (appearance_controls_3D.cpp:607,
+     :648) and m_layersOuterSizer->AddSpacer( 2 ) after it (:652). */
   margin: 0 5px 2px;
 }
 /* RR(): m_layersOuterSizer->AddSpacer( m_pointSize ) — the GUI font's point
    size, 11 (the PCB pane's .ze-object-sep is the same number halved). */
 .ze-appearance-3d-sep {
+  /* [data] m_pointSize, the GUI font's point size (appearance_controls_3D.cpp:662). */
   height: 11px;
   flex: 0 0 auto;
 }
@@ -188,9 +193,11 @@
   visibility: hidden;
 }
 /* bBottomMargin opens with a wxStaticLine, wxBOTTOM|wxLEFT|wxRIGHT 3
-   (_base.cpp:24), which the PCB pane's block does not have — there the line is
+   (_base.cpp:34), which the PCB pane's block does not have — there the line is
    the notebook's own edge. A wxStaticLine is a GtkSeparator. */
 .ze-appearance-3d-bottom {
   border-top: 1px solid var(--gtk-separator);
+  /* [data] wxBOTTOM|wxLEFT|wxRIGHT, 3 (appearance_controls_3D_base.cpp:34), and the
+     2px spacer that closes the last row above it (appearance_controls_3D.cpp:652). */
   margin: 2px 3px 0;
 }
