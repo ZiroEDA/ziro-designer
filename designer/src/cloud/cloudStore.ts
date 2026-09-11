@@ -673,15 +673,27 @@ export async function cloudUpsert(
   const bytesFor = async (f: { name: string; gzB64?: string }): Promise<Uint8Array> =>
     f.gzB64 !== undefined ? b64ToBytes(f.gzB64) : await needBytes(p, f.name);
 
-  const manifest: ManifestEntry[] = await Promise.all(
-    p.files.map(async (f) => {
+  const manifest: ManifestEntry[] = (
+    await mapLimit(p.files, ENCRYPT_CONCURRENCY, async (f) => {
       if (f.hash !== undefined && f.size !== undefined) {
         return { name: f.name, hash: f.hash, size: f.size };
       }
-      const bytes = await bytesFor(f);
-      return { name: f.name, hash: f.hash ?? (await sha256Hex(bytes)), size: bytes.length };
-    }),
-  );
+      try {
+        const bytes = await bytesFor(f);
+        return { name: f.name, hash: f.hash ?? (await sha256Hex(bytes)), size: bytes.length };
+      } catch (e) {
+        // A file listed by the record whose bytes are not in the store. Same
+        // reasoning as the upload loop below, and the same consequence if it
+        // throws: sync rebuilds this manifest from the same record on every
+        // load, so one absent file fails every push for good. It cannot be
+        // hashed and it cannot be uploaded, so it is not part of this push.
+        console.warn(`"${p.name}": skipping "${f.name}", which is no longer in the local store`, e);
+        return null;
+      }
+    })
+  ).filter((m): m is ManifestEntry => m !== null);
+  // Bounded for the same reason the upload loop is: this materialises bytes
+  // for any file the store has no hash for.
 
   // 2. Store, and confirm, only the blobs not already known to be there.
   //
@@ -861,11 +873,34 @@ async function commitEncrypted(
   // memory a function of project size rather than of this limit, which is how
   // a tab pushing several projects ran out of it. Measured on a 300 MB input,
   // unbounded peaked at about four times the raw bytes.
-  const entries: EncFileEntry[] = await mapLimit(manifest, ENCRYPT_CONCURRENCY, async (m) => {
+  const built = await mapLimit(manifest, ENCRYPT_CONCURRENCY, async (m) => {
     const had = previous.get(m.hash);
     if (had) return { ...had, name: m.name };
-    const src = p.files.find((f) => f.name === m.name)!;
-    const put = await putEncryptedBlob(be, owner, await bytesFor(src));
+    const src = p.files.find((f) => f.name === m.name);
+    let bytes: Uint8Array;
+    try {
+      if (!src) throw new Error(`"${m.name}" is no longer in project ${p.id}`);
+      bytes = await bytesFor(src);
+    } catch (e) {
+      // The manifest is built from a read of the local store, and the bytes are
+      // fetched from a later one -- deliberately, so a push racing autosave
+      // stores what is there now rather than what was there a moment ago. The
+      // gap means a file can be listed and then be gone, and that used to fail
+      // the whole push.
+      //
+      // Which made it permanent. Sync retries on every load, the manifest is
+      // rebuilt from the same record every time, and so the same file vanished
+      // every time: four projects retried this on every refresh and could never
+      // finish. Observed after tooling directories stopped being imported, when
+      // records still listed `.history/.git/...` paths whose bytes had gone.
+      //
+      // Dropping the file from THIS push is the honest outcome. It cannot be
+      // uploaded -- there are no bytes -- and the local copy stays the
+      // authority, so the next push carries whatever the store really holds.
+      console.warn(`"${p.name}": skipping "${m.name}", which is no longer in the local store`, e);
+      return null;
+    }
+    const put = await putEncryptedBlob(be, owner, bytes);
     const entry: EncFileEntry = {
       name: m.name,
       hash: m.hash,
@@ -877,6 +912,15 @@ async function commitEncrypted(
     uploaded.push(entry);
     return entry;
   });
+  const entries: EncFileEntry[] = built.filter((e): e is EncFileEntry => e !== null);
+  if (entries.length === 0 && manifest.length > 0) {
+    // Every single file gone is not a push, it is a damaged record, and
+    // committing an empty row over a good cloud copy is how this app lost
+    // eleven projects once already.
+    throw new Error(
+      `refusing to push "${p.name}": none of its ${manifest.length} files are in the local store`,
+    );
+  }
 
   // Commit-verify, as the plaintext path does: a store that accepted an
   // upload and dropped it must not be pointed at by a row.

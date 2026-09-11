@@ -297,6 +297,37 @@ describe('sharing, on keys', () => {
     await expect(cloudGet('p1', UID)).rejects.toThrow(/no key to project/);
   });
 
+  it('skips a file whose bytes vanished, instead of failing every push forever', async () => {
+    // The manifest is read from the store, the bytes from a later read, so a
+    // file can be listed and then be gone. That used to fail the whole push --
+    // and sync retries on every load from the same record, so it failed the
+    // same way every time. Four real projects retried this on every refresh.
+    const p = project({ a: 'AAA', b: 'BBB' });
+    const vanishing = { ...p, files: [...p.files] };
+    let asked = 0;
+    const withGap = {
+      ...vanishing,
+      bytesOf: async (name: string) => {
+        asked++;
+        if (name === 'b') throw new Error(`"b" is no longer in project ${vanishing.id}`);
+        return new Uint8Array(Buffer.from('AAA', 'utf8'));
+      },
+    };
+    // No inline bytes, so the push goes through bytesOf -- but a size, or
+    // `isHollow` reads the whole project as damaged and refuses before it
+    // reaches the part under test.
+    withGap.files = withGap.files.map((f) => ({ name: f.name, size: 3 }));
+
+    const { version } = await cloudUpsert(OWNER, withGap as never);
+    expect(version).toBe(1);
+    expect(asked).toBeGreaterThan(0);
+
+    // The push landed, carrying the file that still exists and not the one
+    // that does not.
+    const back = await cloudGet('p1', UID);
+    expect(back!.files.map((x) => x.name)).toEqual(['a']);
+  });
+
   it('replaces a row whose key is gone instead of failing on it forever', async () => {
     // The state a crash between commitProject and saveProjectKeyFor leaves: a
     // row sealed under a key nothing holds any more. Observed for real, on
