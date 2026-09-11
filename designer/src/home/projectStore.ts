@@ -1502,12 +1502,6 @@ async function divergedFrom(r: StoredRecord): Promise<boolean> {
   if (!agreed) return false; // never synced: nothing to have diverged from
   // Compared against what a push actually sends, which excludes tooling
   // directories (cloudUpsert, and `isToolingPath` for why). A record imported
-  // before those were filtered still lists them -- one held 262 files where the
-  // project is 32 -- so counting them here made every such project look edited
-  // on every load, and it pushed itself forever. The two rules have to be the
-  // same rule.
-  // Compared against what a push actually sends, which excludes tooling
-  // directories (cloudUpsert, and `isToolingPath` for why). A record imported
   // before those were filtered still lists them, so counting them here made
   // every such project look edited on every load.
   const mine = r.files.filter((f) => !isToolingPath(f.name));
