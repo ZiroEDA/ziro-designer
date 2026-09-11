@@ -297,6 +297,25 @@ describe('sharing, on keys', () => {
     await expect(cloudGet('p1', UID)).rejects.toThrow(/no key to project/);
   });
 
+  it('never pushes a tooling directory, even from a record that still lists one', async () => {
+    // Fixing the folder walker does not rewrite records already imported, and
+    // five such projects meant thousands of uploads per push, none of it the
+    // design. A push that cannot finish before the next reload never commits,
+    // so every reload started again and orphaned what the last one wrote.
+    const withJunk = project({
+      'board.kicad_pcb': '(kicad_pcb)',
+      '.git/HEAD': 'ref: refs/heads/main',
+      '.history/.git/refs/tags/Save_pcb_4': 'junk',
+      '3d_shapes/part.wrl': 'wrl',
+    });
+    await cloudUpsert(OWNER, withJunk);
+    const back = await cloudGet('p1', UID);
+    expect(back!.files.map((f) => f.name).sort()).toEqual([
+      '3d_shapes/part.wrl',
+      'board.kicad_pcb',
+    ]);
+  });
+
   it('skips a file whose bytes vanished, instead of failing every push forever', async () => {
     // The manifest is read from the store, the bytes from a later read, so a
     // file can be listed and then be gone. That used to fail the whole push --

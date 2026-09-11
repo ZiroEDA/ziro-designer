@@ -69,6 +69,7 @@ import {
 import { bytesToBase64, createProjectKey, encryptSecret } from './crypto.js';
 import { syncUserTemplates, type TemplateSyncResult } from './templateSync.js';
 import { mapLimit } from '../map_limit.js';
+import { isToolingDir } from '../home/project_picker.js';
 
 /**
  * How many of a project's files are encrypted and uploaded at once.
@@ -77,6 +78,9 @@ import { mapLimit } from '../map_limit.js';
  * uploads overlapping -- the network is still the slow part -- while capping
  * what is resident at four files rather than all of them.
  */
+/** Whether any directory on this path is tooling's rather than the project's. */
+const isToolingPath = (name: string): boolean => name.split('/').slice(0, -1).some(isToolingDir);
+
 const ENCRYPT_CONCURRENCY = 4;
 
 /**
@@ -640,6 +644,8 @@ async function needBytes(p: SyncableProject, name: string): Promise<Uint8Array> 
  */
 export async function cloudUpsert(
   userId: string,
+  // Reassigned once below, to drop tooling paths from what is pushed.
+  // biome-ignore lint/style/noParameterAssign: see the filter below
   p: SyncableProject,
   knownPresent: ReadonlySet<string> = new Set(),
   base = 0,
@@ -655,6 +661,19 @@ export async function cloudUpsert(
   // read them, and commit a row naming objects that, for everyone else on the
   // project, are not there.
   const owner = p.cloudOwnerId ?? userId;
+
+  // A project imported before tooling directories were filtered still lists
+  // them, and a record is not rewritten by fixing the walker. One board's
+  // .git and .history came to 230 files; five such projects is thousands of
+  // uploads per push, none of them the design, and a push that cannot finish
+  // before the next reload never commits -- so every reload starts again and
+  // the abandoned blobs accumulate, because an encrypted blob is keyed by a
+  // random id and nothing collects the orphans.
+  //
+  // Filtered here rather than repaired in the local record: the bytes are the
+  // user's and are not this layer's to delete. Nothing local changes; they
+  // simply stop being part of what the cloud is told about.
+  p = { ...p, files: p.files.filter((f) => !isToolingPath(f.name)) };
 
   if (isHollow(p.files)) {
     throw new Error(

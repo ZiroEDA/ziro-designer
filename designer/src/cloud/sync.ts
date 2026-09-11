@@ -379,6 +379,12 @@ export async function syncAllProjects(
     );
   }
 
+  // One line saying what this pass decided, because "it did nothing" and "it
+  // was never asked" look identical from outside and the difference is the
+  // whole diagnosis. Cheap: one log per sync, not per project.
+  console.info(
+    `sync: ${localMeta.length} local, ${cloudMeta.length} in the cloud, ${ops.length} transfer(s) queued`,
+  );
   if (ops.length > 0) onProgress?.(0, ops.length);
   await mapLimit(ops, PROJECT_CONCURRENCY, (run) => run());
   // The last plaintext goes only when every project of the owner's is
