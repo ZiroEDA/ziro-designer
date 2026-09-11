@@ -56,9 +56,10 @@ import {
   wrapFileKey,
 } from './enc_meta.js';
 import {
-  createProjectKeyFor,
+  ensureProjectKeyFor,
   forgetCachedProjectKey,
   projectKeyFor,
+  saveProjectKeyFor,
   replaceCachedProjectKey,
   sessionAccount,
   sessionUnlocked,
@@ -749,10 +750,14 @@ async function commitEncrypted(
     p.cloudUid ??
     (base > 0 ? (await be.getProject(p.cloudId ?? p.id))?.uid : undefined) ??
     crypto.randomUUID();
-  const key =
+  // A member opens the key the owner gave them; an owner mints their own. The
+  // owner's is held back rather than written now: see `ensureProjectKeyFor`,
+  // and the commit below that has to land before it can be stored.
+  const mine =
     p.cloudRole && p.cloudRole !== 'owner'
-      ? await projectKeyFor(be, me, uid)
-      : await createProjectKeyFor(be, me, uid);
+      ? { key: await projectKeyFor(be, me, uid), unsaved: false }
+      : await ensureProjectKeyFor(be, me, uid);
+  const { key, unsaved: keyUnsaved } = mine;
   if (!key) {
     throw new Error(
       `refusing to push "${p.name}": you have no key to this project; ask its owner to share it again`,
@@ -814,6 +819,15 @@ async function commitEncrypted(
   };
   const version = await be.commitProject(row, base);
   if (version === null) throw new StaleBaseError(p.id);
+
+  // Now, and not before: `project_keys.project_uid` references `projects.uid`,
+  // so this is the first moment the row it points at exists. This one is NOT
+  // best-effort like the history below -- a project whose key was never stored
+  // opens on this tab, where the key is still cached, and nowhere else ever
+  // again. Failing the push says so while the key can still be saved by a
+  // retry, which reuses the cached key rather than minting a second one.
+  if (keyUnsaved) await saveProjectKeyFor(be, me, uid);
+
   try {
     await be.recordVersion?.(me, { ...row, version });
   } catch (e) {

@@ -116,6 +116,17 @@ function fake(): Fake {
       return r ? { enc_key: r.enc_key, how: r.how } : null;
     },
     async putProjectKey(projectUid, userId, encKey, how) {
+      // `project_keys.project_uid` references `projects.uid`, so the database
+      // refuses a key row for a project that does not exist yet. The fake used
+      // to accept anything, and that gap is the whole reason a first push of a
+      // new project passed every test here and failed against a real Postgres:
+      // the key was written before the row it points at was committed. Worded
+      // as Postgres words it, so a failure here is recognisable as that failure.
+      if (![...f.rows.values()].some((r) => r.uid === projectUid)) {
+        throw new Error(
+          'insert or update on table "project_keys" violates foreign key constraint "project_keys_project_uid_fkey"',
+        );
+      }
       f.keys.set(`${projectUid}:${userId}`, { user_id: userId, enc_key: encKey, how });
     },
     async deleteProjectKey(projectUid, userId) {

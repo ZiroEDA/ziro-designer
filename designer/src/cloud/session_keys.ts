@@ -105,19 +105,61 @@ export async function createProjectKeyFor(
   userId: string,
   projectUid: string,
 ): Promise<Uint8Array> {
+  const { key, unsaved } = await ensureProjectKeyFor(backend, userId, projectUid);
+  if (unsaved) await saveProjectKeyFor(backend, userId, projectUid);
+  return key;
+}
+
+/**
+ * The same key, minted but deliberately NOT written yet.
+ *
+ * `project_keys.project_uid` is a foreign key onto `projects.uid`, so the row
+ * cannot be written until the project row it points at exists. A first push
+ * mints the uid itself, which means there is no such row yet -- and the key is
+ * needed *as a value* long before the commit, to wrap each file key and to seal
+ * the metadata that goes into the very row being committed. Those two facts
+ * pull in opposite directions, and doing the write eagerly is what made every
+ * first push of a new project fail on a database where that project had never
+ * landed. See `commitEncrypted`, which persists it straight after the commit.
+ *
+ * `unsaved` says whether the caller now owes a {@link saveProjectKeyFor}. The
+ * key is cached either way, so anything else asking for it this session gets
+ * the same bytes, and a retry after a failed write reuses the key rather than
+ * minting a second one that would leave the first commit's metadata unopenable.
+ */
+export async function ensureProjectKeyFor(
+  backend: CloudBackend,
+  userId: string,
+  projectUid: string,
+): Promise<{ key: Uint8Array; unsaved: boolean }> {
   const existing = await projectKeyFor(backend, userId, projectUid);
-  if (existing) return existing;
-  const keys = needAccount();
+  if (existing) return { key: existing, unsaved: false };
+  // Both checks stay here rather than moving to the save: a locked account or
+  // a backend that cannot hold keys must fail before anything is encrypted
+  // under a key that could never be stored.
+  needAccount();
   if (!backend.putProjectKey) throw new Error('this backend cannot hold project keys');
   const key = newProjectKey();
+  projectKeys.set(projectUid, key);
+  return { key, unsaved: true };
+}
+
+/** Write the row for a key {@link ensureProjectKeyFor} has already minted. */
+export async function saveProjectKeyFor(
+  backend: CloudBackend,
+  userId: string,
+  projectUid: string,
+): Promise<void> {
+  const key = projectKeys.get(projectUid);
+  if (!key) throw new Error('no key is held for this project to save');
+  const keys = needAccount();
+  if (!backend.putProjectKey) throw new Error('this backend cannot hold project keys');
   await backend.putProjectKey(
     projectUid,
     userId,
     bytesToBase64(await encryptSecret(keys.masterKey, key)),
     'master',
   );
-  projectKeys.set(projectUid, key);
-  return key;
 }
 
 /**
