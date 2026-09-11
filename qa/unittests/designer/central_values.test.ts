@@ -330,7 +330,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   home: { colours: 7, metrics: 7 },
   mobile: { colours: 15, metrics: 23 },
   // 33 colours, down from 193: 160 were `defaultRepo.ts`' invented colour
-  // themes, gone with the real ones (see `kicad_color_schemes.ts`). What is
+  // themes, gone with the real ones (see `prefs/color_settings_list.ts`). What is
   // left is pcm.css painting its status pills with a private palette — 176
   // rgba() when it was counted, and the argument for counting rgb() at all:
   // a hex-only rule would have reported 17 here.
@@ -1047,7 +1047,7 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // `editors/schematic` 33 -> 32 (the library browser's `#555`); 505 - 7.
     // 498 -> 338: the PCM's ten invented colour themes, replaced by the seven
     // pointhi/kicad-color-schemes files verbatim under `assets/` (which the
-    // scan does not read, as vendored data). `pcm` 193 -> 33, and
+    // scan does not read, as vendored data), as stock themes. `pcm` 193 -> 33, and
     // `editors/pcb` 38 -> 37 from 8fc7620e, rescanned together; 498 - 161.
     expect(SITES.filter((s) => s.kind === 'colours').length).toBe(337);
     // 1657 -> 1649: the same sweep. A native colour input has no useful

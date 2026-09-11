@@ -4,11 +4,9 @@
 /**
  * The PCM package schema (`go.kicad.org/pcm/schemas/v1`), read into our model.
  *
- * Split out of `pcmStore.ts` so that a package bundled with the app -- the
- * colour themes in `kicad_color_schemes.ts` -- goes through the SAME
- * `normalizePackage` a fetched repository does. Its `metadata.json` is the
- * file the KiCad PCM ships, snake_case and all, and reading it here is what
- * keeps it a copy of upstream's rather than a transcription of it.
+ * Split out of `pcmStore.ts` so the store reads as what it is -- installed
+ * packages, repositories and the pending queue -- and so a package's payload
+ * can be normalised without the store's localStorage-backed singleton.
  *
  * `PLUGIN_CONTENT_MANAGER::PreparePackage` (`kicad/pcm/pcm.cpp`) is the model:
  * parse every version, mark which ones the running app can take, sort newest

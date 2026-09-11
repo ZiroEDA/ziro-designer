@@ -27,7 +27,8 @@ import {
   type ColorThemeIo,
 } from '../../../dialogs/prefs/PanelColorSettings.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { pcm, usePcmVersion } from '../../../pcm/pcmStore.js';
+import { usePcmVersion } from '../../../pcm/pcmStore.js';
+import { colorSettingsById } from '../../../prefs/color_settings_list.js';
 import { BUILTIN_THEMES, KICAD_DEFAULT, type Theme, themeFromLayerCss } from '../theme.js';
 import { ColorPreviewPanel } from './ColorPreviewPanel.js';
 import { BUILTIN_CLASSIC_THEME, BUILTIN_DEFAULT_THEME, type Color4d } from '@ziroeda/common';
@@ -59,7 +60,7 @@ export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.
   const activeColors: Theme = useMemo(() => {
     const builtin = BUILTIN_THEMES[themeId];
     if (builtin) return builtin.theme;
-    const installed = pcm.themeById(themeId);
+    const installed = colorSettingsById(themeId);
     if (installed) return themeFromLayerCss(installed.colors);
     // A theme "New Theme..." made carries its own colour table; `user` and an
     // id nothing knows both fall through to the writable one.

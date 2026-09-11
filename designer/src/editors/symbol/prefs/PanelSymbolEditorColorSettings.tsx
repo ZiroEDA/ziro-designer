@@ -51,7 +51,8 @@ import { useEffect, useRef, useState, type JSX } from 'react';
 import { measureTextWidth } from '../../../ui/text_ctrl_width.js';
 import { Combo } from '../../../ui/Combo.js';
 import { colorThemeOptions } from '../../../dialogs/prefs/ColorThemeChoice.js';
-import { pcm, usePcmVersion } from '../../../pcm/pcmStore.js';
+import { usePcmVersion } from '../../../pcm/pcmStore.js';
+import { colorSettingsList } from '../../../prefs/color_settings_list.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 
 /** `wxRadioButton`'s group name — the two are one `wxRB_GROUP`. */
@@ -76,7 +77,7 @@ export function PanelSymbolEditorColorSettings({ ctx }: { ctx: PrefsContext }): 
   const { symbolEditor, upSym } = ctx;
   usePcmVersion();
   const useEeschema = symbolEditor.use_eeschema_color_settings;
-  const options = colorThemeOptions(pcm.installedThemes()).map(([value, label]) => ({
+  const options = colorThemeOptions(colorSettingsList()).map(([value, label]) => ({
     value,
     label,
   }));

@@ -9,13 +9,12 @@
  * installable content out of the box (and works with no network). Third-party
  * repositories can still be added by URL, see `pcmStore.addRepository`.
  *
- * The colour themes are the ones KiCad's own repository offers, files and
- * metadata verbatim (`kicad_color_schemes.ts`). The library packages carry
- * small, real `.kicad_sym` libraries, read by the same parser as any other
- * symbol library.
+ * It carries no colour themes: the ones KiCad's repository offers are in the
+ * stock colours directory instead (`prefs/color_settings_list.ts`), which
+ * needs no manager to reach. The library packages carry small, real
+ * `.kicad_sym` libraries, read by the same parser as any other symbol library.
  */
 
-import { KICAD_COLOR_SCHEMES } from './kicad_color_schemes.js';
 import type { Contact, LibraryPayload, PackageVersion, Repository, RepoPackage } from './types.js';
 
 // ---- symbol libraries --------------------------------------------------------
@@ -525,7 +524,6 @@ function libPkg(
 }
 
 const PACKAGES: RepoPackage[] = [
-  ...KICAD_COLOR_SCHEMES,
   libPkg(
     'com.ziroeda.lib.passives',
     'Basic Passives',

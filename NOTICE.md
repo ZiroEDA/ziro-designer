@@ -59,16 +59,19 @@ ZiroEDA packages and hosts this content. It did not author it.
 
 ## KiCad colour themes
 
-The colour themes offered by the Plugin and Content Manager are Thomas
-Pointhuber's `kicad-color-schemes` packages, the same ones KiCad's own
-repository offers. Each names its designer in its metadata. They are dedicated
-to the public domain under CC0 1.0 Universal.
+The colour themes in every editor's Colors page beyond the two built-ins are
+Thomas Pointhuber's `kicad-color-schemes`, the same ones KiCad's own repository
+offers through its Plugin and Content Manager. They are dedicated to the public
+domain under CC0 1.0 Universal.
 
 - Source: https://github.com/pointhi/kicad-color-schemes
 - Licence: https://creativecommons.org/publicdomain/zero/1.0/
 
-The theme files and package metadata under `designer/src/assets/color_schemes/`
-are reproduced verbatim.
+The theme files under `designer/src/assets/color_schemes/` are reproduced
+verbatim. Their designers, as each package's metadata names them: Black/White,
+Solarized Dark and Solarized Light — Thomas Pointhuber; Eagle Dark — Rachel
+Mant; Nord — Jordi Pakey-Rodriguez (@0xdec); wDark and wLight — Jan Vykydal
+(wykys).
 
 ## rectpack2d
 

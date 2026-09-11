@@ -23,7 +23,8 @@
 import type { JSX } from 'react';
 import { Sel } from './widgets.js';
 import { BUILTIN_THEMES } from '../../editors/schematic/theme.js';
-import { pcm, usePcmVersion } from '../../pcm/pcmStore.js';
+import { usePcmVersion } from '../../pcm/pcmStore.js';
+import { colorSettingsList } from '../../prefs/color_settings_list.js';
 
 /**
  * `PANEL_COLOR_SETTINGS::GetSettingsDropdownName`
@@ -98,8 +99,8 @@ export function colorThemeOptions(
       t.name,
       true,
     ]),
-    // A PCM theme lands in the third-party colours directory, which
-    // `registerColorSettings( …, true )` marks read-only.
+    // A stock theme and a PCM one are the system and third-party colours
+    // directories, both walked by the `readOnlyLoader` that marks read-only.
     ...installed.map((t): [string, string, boolean] => [t.id, t.name, true]),
     // The user theme's name is NOT a literal "User". It is `colors/user.json`'s
     // `meta.name`, whose PARAM default is "KiCad Default"
@@ -164,7 +165,7 @@ export function ColorThemeChoice({
       label={label}
       value={value}
       options={colorThemeOptions(
-        pcm.installedThemes(),
+        colorSettingsList(),
         markReadOnly,
         userThemes ?? {},
         onNewTheme !== undefined,

@@ -14,7 +14,7 @@ import {
   themeFromLayerCss,
 } from '../editors/schematic/theme.js';
 import { dsLoadColors, type DsRenderColors } from '@ziroeda/common';
-import { pcm } from '../pcm/pcmStore.js';
+import { colorSettingsById } from './color_settings_list.js';
 
 export function useSettingsVersion(): number {
   return useSyncExternalStore(settings.subscribe, () => settings.version);
@@ -130,8 +130,8 @@ export function useHotkeyOverrides(): typeof settings.hotkeys {
 export function resolveThemeById(id: string): Theme {
   const builtin = BUILTIN_THEMES[id];
   if (builtin) return builtin.theme;
-  // A colour theme installed via the Plugin and Content Manager.
-  const installed = pcm.themeById(id);
+  // A theme with a file: the stock directory, or one the PCM installed.
+  const installed = colorSettingsById(id);
   if (installed) return themeFromLayerCss(installed.colors);
   // A theme "New Theme..." made, which carries a colour table of its own.
   const made = settings.userThemes[id];
@@ -148,7 +148,7 @@ export function resolveThemeById(id: string): Theme {
  * one. Only a theme with a file of its own carries a true.
  */
 export function overrideItemColorsFor(id: string): boolean {
-  if (BUILTIN_THEMES[id] || pcm.themeById(id)) return false;
+  if (BUILTIN_THEMES[id] || colorSettingsById(id)) return false;
   const made = settings.userThemes[id];
   if (made) return made.override;
   return settings.eeschema.appearance.override_item_colors;

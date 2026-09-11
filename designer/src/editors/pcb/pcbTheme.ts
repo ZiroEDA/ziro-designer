@@ -31,7 +31,7 @@ import {
   parseColor4d,
   toCssColor,
 } from '@ziroeda/common';
-import { pcm } from '../../pcm/pcmStore.js';
+import { colorSettingsById } from '../../prefs/color_settings_list.js';
 
 /** One theme's colours, indexed by KiCad layer-id name. */
 type ThemeColors = Partial<Record<string, Color4d>>;
@@ -245,7 +245,7 @@ export const PCB_THEMES: PcbColorTheme[] = [
 ];
 
 /**
- * A theme that arrived as a FILE -- what the PCM installs -- as this module's
+ * A theme that arrived as a FILE -- stock or PCM-installed -- as this module's
  * palette. `colorThemeFromFile` hands back CSS strings keyed by layer id; the
  * builders above take `COLOR4D`s, so each named colour is parsed and laid over
  * `s_defaultTheme`, which is `COLOR_MAP_PARAM::Load`'s `aResetIfMissing` for a
@@ -269,8 +269,8 @@ export function pcbThemeFromFile(filename: string, contents: ColorThemeContents)
 }
 
 /**
- * The theme registered under a COLOR_SETTINGS filename: a built-in, or one the
- * PCM installed (`SETTINGS_MANAGER::GetColorSettings` looks a name up in the
+ * The theme registered under a COLOR_SETTINGS filename: a built-in, or one
+ * with a file (`SETTINGS_MANAGER::GetColorSettings` looks a name up in the
  * same `m_color_settings` map whichever directory it was loaded from). An id
  * nothing knows is KiCad Default, which is that function's last line
  * (`settings_manager.cpp:288`).
@@ -278,7 +278,7 @@ export function pcbThemeFromFile(filename: string, contents: ColorThemeContents)
 export function themeByFilename(filename: string): PcbColorTheme {
   const builtin = PCB_THEMES.find((t) => t.filename === filename);
   if (builtin) return builtin;
-  const installed = pcm.themeById(filename);
+  const installed = colorSettingsById(filename);
   if (installed) return pcbThemeFromFile(filename, installed);
   return PCB_THEMES[0]!;
 }

@@ -110,8 +110,8 @@ describe('the page', () => {
     // suffix every built-in with "(read-only)", which is
     // `PANEL_COLOR_SETTINGS::GetSettingsDropdownName`'s doing and not this
     // panel's. Checked on the CALL, since the header comment names the flag.
-    expect(src).toContain('colorThemeOptions(pcm.installedThemes())');
-    expect(src).not.toContain('colorThemeOptions(pcm.installedThemes(), true)');
+    expect(src).toContain('colorThemeOptions(colorSettingsList())');
+    expect(src).not.toContain('colorThemeOptions(colorSettingsList(), true)');
     // The list itself is the shared one; a page that built its own would drift
     // from every other theme choice in the app.
     expect(colorThemeOptions([]).map(([id]) => id)).toContain('_builtin_default');
