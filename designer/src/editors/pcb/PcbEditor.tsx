@@ -5359,13 +5359,27 @@ export function PcbEditor({
   // all transcribed in boardHitCandidates. One id = unambiguous click; several
   // = KiCad would pop the disambiguation menu. Finally, a hit on a group
   // member resolves to its top-level group (PCB_GROUP::TopLevelGroup).
-  const hitCandidates = (w: { x: number; y: number }, excludeZoneFills = false): string[] => {
+  /**
+   * `clientKind` is `selectPoint`'s `aClientFilter` — `EDIT_TOOL::PadFilter`,
+   * `FootprintFilter` — which runs AFTER the Selection Filter and BEFORE
+   * `GuessSelectionCandidates` (`pcb_selection_tool.cpp`). The order is the
+   * point: at the centre of a resistor with a track under its body the
+   * heuristics prefer the track, so a caller that filtered the heuristics'
+   * output for a footprint would find none. Upstream never sees the track.
+   */
+  const hitCandidates = (
+    w: { x: number; y: number },
+    excludeZoneFills = false,
+    clientKind?: 'pad' | 'footprint',
+  ): string[] => {
     const brd = boardRef.current;
     if (!brd) return [];
     const canvas = canvasRef.current;
     const v = viewRef.current;
     const cands = boardHitCandidates(brd, w, tolOf(), {
-      filter: passesFilter,
+      filter: clientKind
+        ? (id) => passesFilter(id) && parseBoardItemId(id)?.kind === clientKind
+        : passesFilter,
       activeLayer,
       visibleLayers: visible,
       viewportIU: canvas ? { w: canvas.width / v.scale, h: canvas.height / v.scale } : undefined,
@@ -8876,13 +8890,14 @@ export function PcbEditor({
           const w = worldAt(e.clientX, e.clientY);
           const brd = boardRef.current;
           if (w && brd) {
-            const ids = boardHitCandidates(brd, w, tolOf());
-            const refs = ids.map((id) => parseBoardItemId(id));
-            const padAt = refs.findIndex((r) => r?.kind === 'pad');
-            const fpAt = refs.findIndex((r) => r?.kind === 'footprint');
-            const padHit2 = padAt >= 0 ? refs[padAt] : undefined;
-            const fpHit = padAt < 0 && fpAt >= 0 ? refs[fpAt] : undefined;
-            const picked = padAt >= 0 ? ids[padAt] : fpAt >= 0 ? ids[fpAt] : undefined;
+            // Two `selectionCursor` calls, each with its own client filter,
+            // the second only if the first selected nothing.
+            const padIds = hitCandidates(w, false, 'pad');
+            const fpIds = padIds.length > 0 ? [] : hitCandidates(w, false, 'footprint');
+            const picked = padIds[0] ?? fpIds[0];
+            const ref = picked ? parseBoardItemId(picked) : null;
+            const padHit2 = ref?.kind === 'pad' ? ref : undefined;
+            const fpHit = ref?.kind === 'footprint' ? ref : undefined;
             setSelection(picked ? new Set([picked]) : new Set());
             const hit: LocalRatsnestHit = padHit2
               ? { kind: 'pad', footprint: padHit2.index, pad: padHit2.sub ?? 0 }
