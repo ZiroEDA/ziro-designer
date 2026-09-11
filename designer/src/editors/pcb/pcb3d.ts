@@ -530,127 +530,6 @@ export function mount3DViewer(
   // The appearance pane hands the whole `GetVisibleLayers()` set; it is the
   // same information as the `show_*` booleans below, so expand it into them
   // once and let every reader stay a boolean (`SetVisibleLayers`, in reverse).
-  const render: Viewer3dRenderOptions = renderIn.visible3d
-    ? {
-        ...renderIn,
-        showBoardBody: renderIn.visible3d.has('LAYER_3D_BOARD'),
-        showPlatedBarrels: renderIn.visible3d.has('LAYER_3D_PLATED_BARRELS'),
-        showSoldermaskTop: renderIn.visible3d.has('LAYER_3D_SOLDERMASK_TOP'),
-        showSoldermaskBottom: renderIn.visible3d.has('LAYER_3D_SOLDERMASK_BOTTOM'),
-        showFpReferences: renderIn.visible3d.has('LAYER_FP_REFERENCES'),
-        showFpValues: renderIn.visible3d.has('LAYER_FP_VALUES'),
-        showFpText: renderIn.visible3d.has('LAYER_FP_TEXT'),
-        showFootprintsNormal: renderIn.visible3d.has('LAYER_3D_TH_MODELS'),
-        showFootprintsInsert: renderIn.visible3d.has('LAYER_3D_SMD_MODELS'),
-        showFootprintsVirtual: renderIn.visible3d.has('LAYER_3D_VIRTUAL_MODELS'),
-        showFootprintsNotInPosfile: renderIn.visible3d.has('LAYER_3D_MODELS_NOT_IN_POS'),
-        showFootprintsDnp: renderIn.visible3d.has('LAYER_3D_MODELS_MARKED_DNP'),
-        showModelBbox: renderIn.visible3d.has('LAYER_3D_BOUNDING_BOXES'),
-        showOffBoardSilk: renderIn.visible3d.has('LAYER_3D_OFF_BOARD_SILK'),
-        showNavigator: renderIn.visible3d.has('LAYER_3D_NAVIGATOR'),
-      }
-    : renderIn;
-  const scene2d = buildScene(board);
-  if (!scene2d.bbox) return null;
-  const bbox = edgeBBox(board, scene2d.bbox);
-  const adapter = initAdapter(board, bbox, render.footprintHolder === true);
-  const s = adapter.s;
-  const to3d = (p: Vec2): [number, number] => [p.x * s, -p.y * s];
-  const polys3d = (polys: Polygon[]): [number, number][][][] =>
-    polys.map((poly) => poly.map((ring) => ring.map(to3d)));
-
-  // ---- BOARD_ADAPTER colours ------------------------------------------------
-  // `GetLayerColors()` (board_adapter.cpp:638): with no saved preset, the
-  // colour THEME's `3d_viewer.*` entries — which is what a fresh install
-  // gets, because the first open turns `LEGACY_PRESET_FLAG` into
-  // FOLLOW_PLOT_SETTINGS and clears `m_UseStackupColors`
-  // (eda_3d_viewer_frame.cpp:570-583). The theme has no entry for the four
-  // user layers, so `GetColor()` answers UNSPECIFIED for them and they draw
-  // black. The stackup's colours replace these only when "Use board stackup
-  // colors" is on.
-  const T = BUILTIN_DEFAULT_THEME;
-  const useStackup = render.useStackupColors === true && stackup !== undefined;
-  // The appearance pane's `GetLayerColors()` answer, when there is a pane;
-  // the theme-with-stackup fallback is the same function's answer with no
-  // preset and no overrides (the footprint browser).
-  const lc = render.layerColors;
-  const col = (flag: string, fallback: Color4d): Color4d => lc?.get(flag as never) ?? fallback;
-  const colors = {
-    copper: col(
-      'LAYER_3D_COPPER_TOP',
-      (useStackup ? stackup.copper : undefined) ?? T.LAYER_3D_COPPER_TOP,
-    ),
-    solderPaste: col('LAYER_3D_SOLDERPASTE', T.LAYER_3D_SOLDERPASTE),
-    silkTop: col(
-      'LAYER_3D_SILKSCREEN_TOP',
-      useStackup ? stackup.silkTop : T.LAYER_3D_SILKSCREEN_TOP,
-    ),
-    silkBottom: col(
-      'LAYER_3D_SILKSCREEN_BOTTOM',
-      useStackup ? stackup.silkBottom : T.LAYER_3D_SILKSCREEN_BOTTOM,
-    ),
-    maskTop: col(
-      'LAYER_3D_SOLDERMASK_TOP',
-      useStackup ? stackup.maskTop : T.LAYER_3D_SOLDERMASK_TOP,
-    ),
-    maskBottom: col(
-      'LAYER_3D_SOLDERMASK_BOTTOM',
-      useStackup ? stackup.maskBottom : T.LAYER_3D_SOLDERMASK_BOTTOM,
-    ),
-    boardBody: col('LAYER_3D_BOARD', (useStackup ? stackup.body : undefined) ?? T.LAYER_3D_BOARD),
-    bgTop: col('LAYER_3D_BACKGROUND_TOP', T.LAYER_3D_BACKGROUND_TOP),
-    bgBot: col('LAYER_3D_BACKGROUND_BOTTOM', T.LAYER_3D_BACKGROUND_BOTTOM),
-    userDrawings: col('LAYER_3D_USER_DRAWINGS', COLOR4D_UNSPECIFIED),
-    userComments: col('LAYER_3D_USER_COMMENTS', COLOR4D_UNSPECIFIED),
-    eco1: col('LAYER_3D_USER_ECO1', COLOR4D_UNSPECIFIED),
-    eco2: col('LAYER_3D_USER_ECO2', COLOR4D_UNSPECIFIED),
-  };
-  const mats = boardMaterials(colors);
-  /**
-   * `MATERIAL_MODE` (3d_enums.h): NORMAL keeps `setLayerMaterial`'s set;
-   * DIFFUSE_ONLY and CAD_MODE go through `OglSetDiffuseMaterial` on the
-   * models. The board layers only ever take `OglSetMaterial`; the mode is a
-   * model-side switch upstream, and it is honoured there (`modelMaterial`).
-   */
-  const materialMode = render.materialMode ?? 0;
-
-  // ---- geometry (BOARD_ADAPTER::createLayers + RENDER_3D_OPENGL::reload) --
-  // FOLLOW_PLOT_SETTINGS (`GetVisibleLayers`, board_adapter.cpp:907-935):
-  // which layers exist in 3D is the board's plot layer selection.
-  const plot = plotLayerSelection(board);
-  // With a pane, the visible PCB layers are the pane's flags mapped back
-  // through Map3DLayerToPCBLayer; without one, the plot selection is the flags.
-  const visiblePcbLayers = render.visible3d
-    ? new Set(
-        [...render.visible3d]
-          .map((f) => pcbLayerOfFlag(f as Layer3dFlag))
-          .filter((n): n is string => n !== undefined)
-          .flatMap((n) =>
-            // ADHESIVE and SOLDERPASTE are one flag for both sides
-            n === 'F.Adhes'
-              ? ['F.Adhes', 'B.Adhes']
-              : n === 'F.Paste'
-                ? ['F.Paste', 'B.Paste']
-                : [n],
-          )
-          .map((n) => pcbLayerIdOf(n)),
-      )
-    : plot.layers;
-  const layerOpts: Layer3dOptions = {
-    showZones: render.showZones !== false,
-    showFpReferences: render.showFpReferences ?? plot.plotReference,
-    showFpValues: render.showFpValues ?? plot.plotValue,
-    showFpText: render.showFpText ?? plot.plotFPText,
-    visibleLayers: visiblePcbLayers,
-    showOffBoardSilk: render.showOffBoardSilk,
-    subtractMaskFromSilk: render.subtractMaskFromSilk,
-    clipSilkOnViaAnnuli: render.clipSilkOnViaAnnuli,
-    showPlatedBarrels: render.showPlatedBarrels,
-    differentiatePlatedCopper: render.differentiatePlatedCopper,
-  };
-  const built = buildBoard3dLayers(board, bbox, layerOpts);
-  const showThickness = render.copperThickness !== false;
-
   // ---- three.js -------------------------------------------------------------
   const canvas = document.createElement('canvas');
   canvas.style.width = '100%';
@@ -664,7 +543,7 @@ export function mount3DViewer(
       canvas,
       // `render.opengl_AA_mode` — `ANTIALIASING_MODE::AA_NONE` is 0 and the
       // rest are on. WebGL takes a BOOLEAN and picks the sample count itself.
-      antialias: render.antiAliasing !== 0,
+      antialias: renderIn.antiAliasing !== 0,
       alpha: false,
       stencil: false,
       preserveDrawingBuffer: false,
@@ -681,35 +560,34 @@ export function mount3DViewer(
   renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
   renderer.sortObjects = true;
 
-  const disposables: { dispose(): void }[] = [];
-  const lights = makeSharedLightUniforms();
-  const scene = new THREE.Scene();
-
   // OglDrawBackground: a full-screen quad, top colour at the top edge, bottom
-  // colour at the bottom, interpolated by the rasteriser.
+  // colour at the bottom, interpolated by the rasteriser. The colours are
+  // the scene's (the pane can change them), so the attribute is rewritten
+  // on every reload.
   const bgScene = new THREE.Scene();
   const bgCam = new THREE.OrthographicCamera(-1, 1, 1, -1, -1, 1);
+  const bgColorAttr = new THREE.Float32BufferAttribute(new Float32Array(16), 4);
+  const setBackground = (top: Color4d, bot: Color4d): void => {
+    const c = (col: Color4d): number[] => [col.r * col.a, col.g * col.a, col.b * col.a, col.a];
+    bgColorAttr.set([...c(top), ...c(bot), ...c(bot), ...c(top)]);
+    bgColorAttr.needsUpdate = true;
+  };
+  const mountDisposables: { dispose(): void }[] = [];
   {
     const g = new THREE.BufferGeometry();
     g.setAttribute(
       'position',
       new THREE.Float32BufferAttribute([-1, 1, 0, -1, -1, 0, 1, -1, 0, 1, 1, 0], 3),
     );
-    const c = (col: Color4d): number[] => [col.r * col.a, col.g * col.a, col.b * col.a, col.a];
-    g.setAttribute(
-      'aColor',
-      new THREE.Float32BufferAttribute(
-        [...c(colors.bgTop), ...c(colors.bgBot), ...c(colors.bgBot), ...c(colors.bgTop)],
-        4,
-      ),
-    );
+    g.setAttribute('aColor', bgColorAttr);
     g.setIndex([0, 1, 2, 0, 2, 3]);
     const m = makeVertexColorMaterial({ depthTest: false });
     m.depthWrite = false;
     m.transparent = false;
     bgScene.add(new THREE.Mesh(g, m));
-    disposables.push(g, m);
+    mountDisposables.push(g, m);
   }
+  const lights = makeSharedLightUniforms();
 
   const RENDER_ORDER = {
     holes: 0,
@@ -723,367 +601,556 @@ export function mount3DViewer(
     grid: 8,
   };
 
-  const addMesh = (
-    geom: THREE.BufferGeometry | null,
-    mat: THREE.ShaderMaterial,
-    order: number,
-  ): THREE.Mesh | null => {
-    if (!geom) return null;
-    const mesh = new THREE.Mesh(geom, mat);
-    mesh.renderOrder = order;
-    mesh.frustumCulled = false;
-    scene.add(mesh);
-    disposables.push(geom, mat);
-    return mesh;
-  };
-
-  /** `getLayerZPos`: (top, bottom) for a layer, in 3D units. */
-  const zOf = (layer: string): [number, number] => [
-    adapter.zTop[layer] ?? 0,
-    adapter.zBot[layer] ?? 0,
-  ];
-
-  const layerMaterial = (layer: Layer3d): SMaterial => {
-    switch (layer) {
-      case 'F.Cu':
-      case 'B.Cu':
-        return mats.copper;
-      case 'F.Mask':
-        return mats.maskTop;
-      case 'B.Mask':
-        return mats.maskBottom;
-      case 'F.Paste':
-      case 'B.Paste':
-        return mats.paste;
-      case 'F.SilkS':
-        return mats.silkTop;
-      case 'B.SilkS':
-        return mats.silkBottom;
-      case 'Dwgs.User':
-        return plasticMaterial([
-          colors.userDrawings.r,
-          colors.userDrawings.g,
-          colors.userDrawings.b,
-        ]);
-      case 'Cmts.User':
-        return plasticMaterial([
-          colors.userComments.r,
-          colors.userComments.g,
-          colors.userComments.b,
-        ]);
-      case 'Eco1.User':
-        return plasticMaterial([colors.eco1.r, colors.eco1.g, colors.eco1.b]);
-      case 'Eco2.User':
-        return plasticMaterial([colors.eco2.r, colors.eco2.g, colors.eco2.b]);
-      default: {
-        // User_1..45: `m_UserDefinedLayerColor[ idx ]`, the theme's
-        // `3d_viewer.user_N`, whose default is the board editor's User_N colour.
-        const u = userLayerIndex(layer);
-        if (u) {
-          const c = col(
-            `LAYER_3D_USER_${u}`,
-            (BUILTIN_DEFAULT_THEME as Record<string, Color4d>)[`User_${u}`] ?? COLOR4D_UNSPECIFIED,
-          );
-          return plasticMaterial([c.r, c.g, c.b]);
-        }
-        // F/B.Adhes: `GetLayerColor( aLayerID )` — the board editor's colour
-        // for the layer; the 3D viewer has no default of its own for it.
-        return plasticMaterial([
-          colors.userDrawings.r,
-          colors.userDrawings.g,
-          colors.userDrawings.b,
-        ]);
-      }
-    }
-  };
-
-  // m_padHoles: the plated barrels, F_Cu top to B_Cu bottom, copper material
-  // (drawn first, `setLayerMaterial( B_Cu )`).
-  {
-    const buf = newBuf();
-    const p = polys3d(built.platedBarrels);
-    const [fTop] = zOf('F.Cu');
-    const [, bBot] = zOf('B.Cu');
-    addTopAndBottom(buf, p, fTop, bBot);
-    addMiddleContours(buf, p, bBot, fTop);
-    addMesh(toGeometry(buf), makeFixedFunctionMaterial(mats.copper, lights), RENDER_ORDER.holes);
-  }
-
-  // m_microviaHoles (generateViaBarrels): a blind/micro via's barrel between
-  // its two end layers, drawn first with the copper material like the pad
-  // holes. The ring's two circles share their segment count and angles
-  // (generateRing), so the wall quads pair up vertex for vertex.
-  if (built.viaBarrels.length && render.showPlatedBarrels !== false) {
-    const buf = newBuf();
-    const plating = 0.02 * MM;
-    for (const v of built.viaBarrels) {
-      const outer = transformCircleToPolygonSet(
-        v.at,
-        Math.trunc(v.drill / 2) + plating,
-        ARC_HIGH_DEF,
-        ErrorLoc.ERROR_INSIDE,
-      );
-      const inner = transformCircleToPolygonSet(
-        v.at,
-        Math.trunc(v.drill / 2),
-        ARC_HIGH_DEF,
-        ErrorLoc.ERROR_INSIDE,
-      );
-      const ring = polys3d([[outer, [...inner].reverse()]]);
-      const [zt] = zOf(v.topLayer);
-      const [, zb] = zOf(v.bottomLayer);
-      addTopAndBottom(buf, ring, zt, zb);
-      addMiddleContours(buf, ring, zb, zt);
-    }
-    addMesh(toGeometry(buf), makeFixedFunctionMaterial(mats.copper, lights), RENDER_ORDER.holes);
-  }
-
-  // Display copper and tech layers
-  for (const layer of Object.keys(built.layers) as Layer3d[]) {
-    const polys = built.layers[layer];
-    if (!polys || polys.length === 0) continue;
-    if (layer === 'F.Mask' || layer === 'B.Mask') continue; // special case below
-    const [zTop, zBot] = zOf(layer);
-    const p = polys3d(polys);
-    const buf = newBuf();
-    addTopAndBottom(buf, p, zTop, zBot);
-    if (showThickness) addMiddleContours(buf, p, zBot, zTop);
-    const isCopper = layer === 'F.Cu' || layer === 'B.Cu';
-    // `cfg.DifferentiatePlatedCopper() ? setCopperMaterial() : setLayerMaterial( layer )`
-    let copperMat = render.differentiatePlatedCopper ? mats.nonPlatedCopper : mats.copper;
-    // setLayerMaterial's first branch: with "Use PCB editor copper colors" the
-    // copper diffuse is the board editor's colour for THAT layer (m_Copper
-    // and m_NonPlatedCopper alike), the rest of the material unchanged.
-    const edCol = render.useBoardEditorCopperColors
-      ? render.boardEditorCopperColors?.[layer as 'F.Cu' | 'B.Cu']
-      : undefined;
-    if (isCopper && edCol) copperMat = { ...copperMat, diffuse: [edCol.r, edCol.g, edCol.b] };
-    // Offset non-copper layers slightly closer to the screen than soldermask
-    // to avoid Z-fighting (glPolygonOffset( 0, -4 )).
-    addMesh(
-      toGeometry(buf),
-      makeFixedFunctionMaterial(isCopper ? copperMat : layerMaterial(layer), lights, {
-        polygonOffset: isCopper ? undefined : [0, -4],
-      }),
-      isCopper ? RENDER_ORDER.copper : RENDER_ORDER.tech,
-    );
-    // Draw plated & offboard pads: setPlatedCopperAndDepthOffset — the finish
-    // colour, pulled towards the screen by glPolygonOffset( -0.1, -2 ).
-    if (isCopper) {
-      const plated = built.platedCopper[layer as 'F.Cu' | 'B.Cu'];
-      if (plated.length) {
-        const pb = newBuf();
-        const pp = polys3d(plated);
-        addTopAndBottom(pb, pp, zTop, zBot);
-        if (showThickness) addMiddleContours(pb, pp, zBot, zTop);
-        addMesh(
-          toGeometry(pb),
-          makeFixedFunctionMaterial(mats.copper, lights, { polygonOffset: [-0.1, -2] }),
-          RENDER_ORDER.copper,
-        );
-      }
-    }
-  }
-
-  // Display board body: m_boardWithHoles, EpoxyBoard material, translucent,
-  // pushed away from the screen (glPolygonOffset( 0, 2 )). Its walls skip
-  // the edges that run through a plated hole — the barrel is there instead.
-  const bodyAlpha = colors.boardBody.a;
-  if (render.showBoardBody !== false) {
-    const buf = newBuf();
-    const p = polys3d(built.boardWithHoles);
-    const hz = adapter.boardBodyThickness3DU / 2;
-    addTopAndBottom(buf, p, hz, -hz);
-    const thID = polys3d(built.thID);
-    const inPlatedHole = (a: [number, number], b: [number, number]): boolean => {
-      const mx = (a[0] + b[0]) / 2,
-        my = (a[1] + b[1]) / 2;
-      for (const poly of thID) {
-        const ring = poly[0]!;
-        // a ring's bbox is enough: a drill ring is convex and the edge lies on it
-        let minX = Infinity,
-          minY = Infinity,
-          maxX = -Infinity,
-          maxY = -Infinity;
-        for (const q of ring) {
-          if (q[0] < minX) minX = q[0];
-          if (q[0] > maxX) maxX = q[0];
-          if (q[1] < minY) minY = q[1];
-          if (q[1] > maxY) maxY = q[1];
-        }
-        const eps = 1e-6;
-        if (mx >= minX - eps && mx <= maxX + eps && my >= minY - eps && my <= maxY + eps)
-          return true;
-      }
-      return false;
-    };
-    addMiddleContours(buf, p, -hz, hz, inPlatedHole);
-    addMesh(
-      toGeometry(buf),
-      makeFixedFunctionMaterial(mats.epoxyBoard, lights, {
-        transparent: bodyAlpha < 1,
-        polygonOffset: [0, 2],
-      }),
-      RENDER_ORDER.body,
-    );
-  }
-
-  // Display transparent mask layers: the BOARD polygon minus the openings and
-  // the holes, at the mask Z, pulled towards the screen
-  // (glPolygonOffset( 0, -2 )), bottom first when the camera is above.
-  const maskMeshes: { layer: 'F.Mask' | 'B.Mask'; mesh: THREE.Mesh }[] = [];
-  for (const layer of ['B.Mask', 'F.Mask'] as const) {
-    const polys = built.layers[layer];
-    if (!polys || polys.length === 0) continue;
-    if (layer === 'F.Mask' && render.showSoldermaskTop === false) continue;
-    if (layer === 'B.Mask' && render.showSoldermaskBottom === false) continue;
-    const mat = layer === 'F.Mask' ? mats.maskTop : mats.maskBottom;
-    // renderSolderMaskLayer: F_Mask at GetLayerBottomZPos( F_Mask ) growing
-    // by the tech thickness; B_Mask at GetLayerTopZPos( B_Mask ) likewise.
-    const [fTop, fBot] = zOf(layer);
-    const zBase = layer === 'F.Mask' ? fBot : fTop;
-    const zTop = zBase + adapter.nonCopperLayerThickness3DU;
-    const buf = newBuf();
-    const p = polys3d(polys);
-    addTopAndBottom(buf, p, zTop, zBase);
-    if (showThickness) addMiddleContours(buf, p, zBase, zTop);
-    // m_viaFrontCover / m_viaBackCover: a tented via's hole is capped by a
-    // mask-coloured disk of radius drill/2 + 2·plating, at the copper top
-    // pushed through ApplyScalePosition( zPos, 4 · techThickness ).
-    const side = layer === 'F.Mask' ? 'front' : 'back';
-    const plating3d = 0.02 * MM * s;
-    for (const via of board.vias) {
-      // generateViaCovers: COVERED explicitly, or tented on this side. A
-      // FROM_BOARD covering mode is not COVERED here — only the tenting is
-      // resolved against the board.
-      const covering = via.covering?.[side] === true || viaIsTented(board, via, side);
-      if (!covering) continue;
-      // (post-machined and backdrilled vias are not covered — not modelled)
-      const plugged = via.plugging?.[side] === true;
-      const filled = via.filling === true || via.capping === true;
-      const holeRadius = (via.drill * s) / 2 + 2 * plating3d;
-      const [cx, cy] = to3d(via.at);
-      // via->LayerPair(): ztop of its top layer, zbot of its bottom layer
-      const [zt] = zOf(via.layers[0]);
-      const [, zb] = zOf(via.layers[1]);
-      const zList = layer === 'F.Mask' ? zt : zb;
-      const z = zBase + zList * 4 * adapter.nonCopperLayerThickness3DU;
-      const seg = getArcToSegmentCount(Math.trunc(via.drill / 2), ARC_HIGH_DEF, 360);
-      const nz = layer === 'F.Mask' ? 1 : -1;
-      // generateDisk for a filled or unplugged via; generateDimple (a cone
-      // 0.3·r deep into the hole) for a plugged one — both lit as a flat
-      // top/bottom face, the list's own normal.
-      const depth = holeRadius * 0.3;
-      const zCentre =
-        filled || !plugged ? z : z - nz * depth * 4 * adapter.nonCopperLayerThickness3DU;
-      const base = buf.pos.length / 3;
-      buf.pos.push(cx, cy, zCentre);
-      buf.nrm.push(0, 0, nz);
-      for (let i = 0; i < seg; i++) {
-        const a = (2 * Math.PI * i) / seg;
-        buf.pos.push(cx + holeRadius * Math.cos(a), cy + holeRadius * Math.sin(a), z);
-        buf.nrm.push(0, 0, nz);
-      }
-      for (let i = 0; i < seg; i++) {
-        const a = base + 1 + i,
-          b = base + 1 + ((i + 1) % seg);
-        if (nz > 0) buf.idx.push(base, a, b);
-        else buf.idx.push(base, b, a);
-      }
-    }
-    const mesh = addMesh(
-      toGeometry(buf),
-      makeFixedFunctionMaterial(mat, lights, {
-        transparent: mat.transparency > 0,
-        polygonOffset: [0, -2],
-      }),
-      RENDER_ORDER.maskFar,
-    );
-    if (mesh) maskMeshes.push({ layer, mesh });
-  }
-
-  // ---- 3D models --------------------------------------------------------------
+  // ---- the board scene (BOARD_ADAPTER::InitSettings + createLayers + RENDER_3D_OPENGL::reload)
   /**
-   * `MODEL_3D::Draw` in NORMAL mode: `OglSetMaterial( mat, opacity )` under
-   * `glColorMaterial( GL_AMBIENT_AND_DIFFUSE )`, so ambient and diffuse are
-   * the model's diffuse. DIFFUSE_ONLY / CAD_MODE go through
-   * `OglSetDiffuseMaterial`.
+   * `RENDER_3D_OPENGL::reload()`: everything the board decides — units,
+   * layer Z, colours, geometry, models — built as one object so a
+   * `ReloadRequest` (an appearance toggle, a board edit) rebuilds it BESIDE
+   * the one on screen and swaps when it is ready, the way upstream keeps
+   * the previous frame up until the new display lists exist. The canvas,
+   * the camera, the lights, the gizmo and the input are the frame's and
+   * outlive it.
    */
-  // `render.opengl_selection_color`, `GetColor( cfg.opengl_selection_color )`
-  const selColor4 = parseColor4d(render.selectionColor ?? 'rgb(0, 255, 0)');
-  const selColor: Vec3 = [selColor4.r, selColor4.g, selColor4.b];
-  const modelMaterial = (
-    m: SMaterial,
-    opacity: number,
-    transparentPass: boolean,
-    selected: boolean,
-  ): THREE.ShaderMaterial => {
-    let sm = m;
-    if (materialMode === 1) sm = diffuseOnlyMaterial(m.diffuse);
-    else if (materialMode === 2) sm = diffuseOnlyMaterial(materialDiffuseToColorCAD(m.diffuse));
-    // A selected model is drawn with `BeginDrawMulti( false )` — no colour
-    // array, so ambient is the loader's own (0.1·diffuse for STEP) and the
-    // diffuse is the selection colour (OglSetMaterial's aUseSelectedMaterial).
-    if (selected) sm = { ...sm, diffuse: selColor };
-    const mat = makeFixedFunctionMaterial(
-      { ...sm, transparency: materialMode === 1 ? 0 : m.transparency },
-      lights,
+  interface BoardScene {
+    board: Board;
+    render: Viewer3dRenderOptions;
+    adapter: Adapter;
+    s: number;
+    built: ReturnType<typeof buildBoard3dLayers>;
+    scene: THREE.Scene;
+    modelsGroup: THREE.Group;
+    maskMeshes: { layer: 'F.Mask' | 'B.Mask'; mesh: THREE.Mesh }[];
+    bgTop: Color4d;
+    bgBot: Color4d;
+    ready: Promise<void>;
+    dispose: () => void;
+  }
+  const buildBoardScene = (
+    board: Board,
+    stackup: StackupColors | undefined,
+    renderIn: Viewer3dRenderOptions,
+    projectFiles: ProjectFile[] | undefined,
+  ): BoardScene | null => {
+    const render: Viewer3dRenderOptions = renderIn.visible3d
+      ? {
+          ...renderIn,
+          showBoardBody: renderIn.visible3d.has('LAYER_3D_BOARD'),
+          showPlatedBarrels: renderIn.visible3d.has('LAYER_3D_PLATED_BARRELS'),
+          showSoldermaskTop: renderIn.visible3d.has('LAYER_3D_SOLDERMASK_TOP'),
+          showSoldermaskBottom: renderIn.visible3d.has('LAYER_3D_SOLDERMASK_BOTTOM'),
+          showFpReferences: renderIn.visible3d.has('LAYER_FP_REFERENCES'),
+          showFpValues: renderIn.visible3d.has('LAYER_FP_VALUES'),
+          showFpText: renderIn.visible3d.has('LAYER_FP_TEXT'),
+          showFootprintsNormal: renderIn.visible3d.has('LAYER_3D_TH_MODELS'),
+          showFootprintsInsert: renderIn.visible3d.has('LAYER_3D_SMD_MODELS'),
+          showFootprintsVirtual: renderIn.visible3d.has('LAYER_3D_VIRTUAL_MODELS'),
+          showFootprintsNotInPosfile: renderIn.visible3d.has('LAYER_3D_MODELS_NOT_IN_POS'),
+          showFootprintsDnp: renderIn.visible3d.has('LAYER_3D_MODELS_MARKED_DNP'),
+          showModelBbox: renderIn.visible3d.has('LAYER_3D_BOUNDING_BOXES'),
+          showOffBoardSilk: renderIn.visible3d.has('LAYER_3D_OFF_BOARD_SILK'),
+          showNavigator: renderIn.visible3d.has('LAYER_3D_NAVIGATOR'),
+        }
+      : renderIn;
+    const scene2d = buildScene(board);
+    if (!scene2d.bbox) return null;
+    const bbox = edgeBBox(board, scene2d.bbox);
+    const adapter = initAdapter(board, bbox, render.footprintHolder === true);
+    const s = adapter.s;
+    const to3d = (p: Vec2): [number, number] => [p.x * s, -p.y * s];
+    const polys3d = (polys: Polygon[]): [number, number][][][] =>
+      polys.map((poly) => poly.map((ring) => ring.map(to3d)));
+
+    // ---- BOARD_ADAPTER colours ------------------------------------------------
+    // `GetLayerColors()` (board_adapter.cpp:638): with no saved preset, the
+    // colour THEME's `3d_viewer.*` entries — which is what a fresh install
+    // gets, because the first open turns `LEGACY_PRESET_FLAG` into
+    // FOLLOW_PLOT_SETTINGS and clears `m_UseStackupColors`
+    // (eda_3d_viewer_frame.cpp:570-583). The theme has no entry for the four
+    // user layers, so `GetColor()` answers UNSPECIFIED for them and they draw
+    // black. The stackup's colours replace these only when "Use board stackup
+    // colors" is on.
+    const T = BUILTIN_DEFAULT_THEME;
+    const useStackup = render.useStackupColors === true && stackup !== undefined;
+    // The appearance pane's `GetLayerColors()` answer, when there is a pane;
+    // the theme-with-stackup fallback is the same function's answer with no
+    // preset and no overrides (the footprint browser).
+    const lc = render.layerColors;
+    const col = (flag: string, fallback: Color4d): Color4d => lc?.get(flag as never) ?? fallback;
+    const colors = {
+      copper: col(
+        'LAYER_3D_COPPER_TOP',
+        (useStackup ? stackup.copper : undefined) ?? T.LAYER_3D_COPPER_TOP,
+      ),
+      solderPaste: col('LAYER_3D_SOLDERPASTE', T.LAYER_3D_SOLDERPASTE),
+      silkTop: col(
+        'LAYER_3D_SILKSCREEN_TOP',
+        useStackup ? stackup.silkTop : T.LAYER_3D_SILKSCREEN_TOP,
+      ),
+      silkBottom: col(
+        'LAYER_3D_SILKSCREEN_BOTTOM',
+        useStackup ? stackup.silkBottom : T.LAYER_3D_SILKSCREEN_BOTTOM,
+      ),
+      maskTop: col(
+        'LAYER_3D_SOLDERMASK_TOP',
+        useStackup ? stackup.maskTop : T.LAYER_3D_SOLDERMASK_TOP,
+      ),
+      maskBottom: col(
+        'LAYER_3D_SOLDERMASK_BOTTOM',
+        useStackup ? stackup.maskBottom : T.LAYER_3D_SOLDERMASK_BOTTOM,
+      ),
+      boardBody: col('LAYER_3D_BOARD', (useStackup ? stackup.body : undefined) ?? T.LAYER_3D_BOARD),
+      bgTop: col('LAYER_3D_BACKGROUND_TOP', T.LAYER_3D_BACKGROUND_TOP),
+      bgBot: col('LAYER_3D_BACKGROUND_BOTTOM', T.LAYER_3D_BACKGROUND_BOTTOM),
+      userDrawings: col('LAYER_3D_USER_DRAWINGS', COLOR4D_UNSPECIFIED),
+      userComments: col('LAYER_3D_USER_COMMENTS', COLOR4D_UNSPECIFIED),
+      eco1: col('LAYER_3D_USER_ECO1', COLOR4D_UNSPECIFIED),
+      eco2: col('LAYER_3D_USER_ECO2', COLOR4D_UNSPECIFIED),
+    };
+    const mats = boardMaterials(colors);
+    /**
+     * `MATERIAL_MODE` (3d_enums.h): NORMAL keeps `setLayerMaterial`'s set;
+     * DIFFUSE_ONLY and CAD_MODE go through `OglSetDiffuseMaterial` on the
+     * models. The board layers only ever take `OglSetMaterial`; the mode is a
+     * model-side switch upstream, and it is honoured there (`modelMaterial`).
+     */
+    const materialMode = render.materialMode ?? 0;
+
+    // ---- geometry (BOARD_ADAPTER::createLayers + RENDER_3D_OPENGL::reload) --
+    // FOLLOW_PLOT_SETTINGS (`GetVisibleLayers`, board_adapter.cpp:907-935):
+    // which layers exist in 3D is the board's plot layer selection.
+    const plot = plotLayerSelection(board);
+    // With a pane, the visible PCB layers are the pane's flags mapped back
+    // through Map3DLayerToPCBLayer; without one, the plot selection is the flags.
+    const visiblePcbLayers = render.visible3d
+      ? new Set(
+          [...render.visible3d]
+            .map((f) => pcbLayerOfFlag(f as Layer3dFlag))
+            .filter((n): n is string => n !== undefined)
+            .flatMap((n) =>
+              // ADHESIVE and SOLDERPASTE are one flag for both sides
+              n === 'F.Adhes'
+                ? ['F.Adhes', 'B.Adhes']
+                : n === 'F.Paste'
+                  ? ['F.Paste', 'B.Paste']
+                  : [n],
+            )
+            .map((n) => pcbLayerIdOf(n)),
+        )
+      : plot.layers;
+    const layerOpts: Layer3dOptions = {
+      showZones: render.showZones !== false,
+      showFpReferences: render.showFpReferences ?? plot.plotReference,
+      showFpValues: render.showFpValues ?? plot.plotValue,
+      showFpText: render.showFpText ?? plot.plotFPText,
+      visibleLayers: visiblePcbLayers,
+      showOffBoardSilk: render.showOffBoardSilk,
+      subtractMaskFromSilk: render.subtractMaskFromSilk,
+      clipSilkOnViaAnnuli: render.clipSilkOnViaAnnuli,
+      showPlatedBarrels: render.showPlatedBarrels,
+      differentiatePlatedCopper: render.differentiatePlatedCopper,
+    };
+    const built = buildBoard3dLayers(board, bbox, layerOpts);
+    const showThickness = render.copperThickness !== false;
+
+    const disposables: { dispose(): void }[] = [];
+    const scene = new THREE.Scene();
+    const addMesh = (
+      geom: THREE.BufferGeometry | null,
+      mat: THREE.ShaderMaterial,
+      order: number,
+    ): THREE.Mesh | null => {
+      if (!geom) return null;
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.renderOrder = order;
+      mesh.frustumCulled = false;
+      scene.add(mesh);
+      disposables.push(geom, mat);
+      return mesh;
+    };
+
+    /** `getLayerZPos`: (top, bottom) for a layer, in 3D units. */
+    const zOf = (layer: string): [number, number] => [
+      adapter.zTop[layer] ?? 0,
+      adapter.zBot[layer] ?? 0,
+    ];
+
+    const layerMaterial = (layer: Layer3d): SMaterial => {
+      switch (layer) {
+        case 'F.Cu':
+        case 'B.Cu':
+          return mats.copper;
+        case 'F.Mask':
+          return mats.maskTop;
+        case 'B.Mask':
+          return mats.maskBottom;
+        case 'F.Paste':
+        case 'B.Paste':
+          return mats.paste;
+        case 'F.SilkS':
+          return mats.silkTop;
+        case 'B.SilkS':
+          return mats.silkBottom;
+        case 'Dwgs.User':
+          return plasticMaterial([
+            colors.userDrawings.r,
+            colors.userDrawings.g,
+            colors.userDrawings.b,
+          ]);
+        case 'Cmts.User':
+          return plasticMaterial([
+            colors.userComments.r,
+            colors.userComments.g,
+            colors.userComments.b,
+          ]);
+        case 'Eco1.User':
+          return plasticMaterial([colors.eco1.r, colors.eco1.g, colors.eco1.b]);
+        case 'Eco2.User':
+          return plasticMaterial([colors.eco2.r, colors.eco2.g, colors.eco2.b]);
+        default: {
+          // User_1..45: `m_UserDefinedLayerColor[ idx ]`, the theme's
+          // `3d_viewer.user_N`, whose default is the board editor's User_N colour.
+          const u = userLayerIndex(layer);
+          if (u) {
+            const c = col(
+              `LAYER_3D_USER_${u}`,
+              (BUILTIN_DEFAULT_THEME as Record<string, Color4d>)[`User_${u}`] ??
+                COLOR4D_UNSPECIFIED,
+            );
+            return plasticMaterial([c.r, c.g, c.b]);
+          }
+          // F/B.Adhes: `GetLayerColor( aLayerID )` — the board editor's colour
+          // for the layer; the 3D viewer has no default of its own for it.
+          return plasticMaterial([
+            colors.userDrawings.r,
+            colors.userDrawings.g,
+            colors.userDrawings.b,
+          ]);
+        }
+      }
+    };
+
+    // m_padHoles: the plated barrels, F_Cu top to B_Cu bottom, copper material
+    // (drawn first, `setLayerMaterial( B_Cu )`).
+    {
+      const buf = newBuf();
+      const p = polys3d(built.platedBarrels);
+      const [fTop] = zOf('F.Cu');
+      const [, bBot] = zOf('B.Cu');
+      addTopAndBottom(buf, p, fTop, bBot);
+      addMiddleContours(buf, p, bBot, fTop);
+      addMesh(toGeometry(buf), makeFixedFunctionMaterial(mats.copper, lights), RENDER_ORDER.holes);
+    }
+
+    // m_microviaHoles (generateViaBarrels): a blind/micro via's barrel between
+    // its two end layers, drawn first with the copper material like the pad
+    // holes. The ring's two circles share their segment count and angles
+    // (generateRing), so the wall quads pair up vertex for vertex.
+    if (built.viaBarrels.length && render.showPlatedBarrels !== false) {
+      const buf = newBuf();
+      const plating = 0.02 * MM;
+      for (const v of built.viaBarrels) {
+        const outer = transformCircleToPolygonSet(
+          v.at,
+          Math.trunc(v.drill / 2) + plating,
+          ARC_HIGH_DEF,
+          ErrorLoc.ERROR_INSIDE,
+        );
+        const inner = transformCircleToPolygonSet(
+          v.at,
+          Math.trunc(v.drill / 2),
+          ARC_HIGH_DEF,
+          ErrorLoc.ERROR_INSIDE,
+        );
+        const ring = polys3d([[outer, [...inner].reverse()]]);
+        const [zt] = zOf(v.topLayer);
+        const [, zb] = zOf(v.bottomLayer);
+        addTopAndBottom(buf, ring, zt, zb);
+        addMiddleContours(buf, ring, zb, zt);
+      }
+      addMesh(toGeometry(buf), makeFixedFunctionMaterial(mats.copper, lights), RENDER_ORDER.holes);
+    }
+
+    // Display copper and tech layers
+    for (const layer of Object.keys(built.layers) as Layer3d[]) {
+      const polys = built.layers[layer];
+      if (!polys || polys.length === 0) continue;
+      if (layer === 'F.Mask' || layer === 'B.Mask') continue; // special case below
+      const [zTop, zBot] = zOf(layer);
+      const p = polys3d(polys);
+      const buf = newBuf();
+      addTopAndBottom(buf, p, zTop, zBot);
+      if (showThickness) addMiddleContours(buf, p, zBot, zTop);
+      const isCopper = layer === 'F.Cu' || layer === 'B.Cu';
+      // `cfg.DifferentiatePlatedCopper() ? setCopperMaterial() : setLayerMaterial( layer )`
+      let copperMat = render.differentiatePlatedCopper ? mats.nonPlatedCopper : mats.copper;
+      // setLayerMaterial's first branch: with "Use PCB editor copper colors" the
+      // copper diffuse is the board editor's colour for THAT layer (m_Copper
+      // and m_NonPlatedCopper alike), the rest of the material unchanged.
+      const edCol = render.useBoardEditorCopperColors
+        ? render.boardEditorCopperColors?.[layer as 'F.Cu' | 'B.Cu']
+        : undefined;
+      if (isCopper && edCol) copperMat = { ...copperMat, diffuse: [edCol.r, edCol.g, edCol.b] };
+      // Offset non-copper layers slightly closer to the screen than soldermask
+      // to avoid Z-fighting (glPolygonOffset( 0, -4 )).
+      addMesh(
+        toGeometry(buf),
+        makeFixedFunctionMaterial(isCopper ? copperMat : layerMaterial(layer), lights, {
+          polygonOffset: isCopper ? undefined : [0, -4],
+        }),
+        isCopper ? RENDER_ORDER.copper : RENDER_ORDER.tech,
+      );
+      // Draw plated & offboard pads: setPlatedCopperAndDepthOffset — the finish
+      // colour, pulled towards the screen by glPolygonOffset( -0.1, -2 ).
+      if (isCopper) {
+        const plated = built.platedCopper[layer as 'F.Cu' | 'B.Cu'];
+        if (plated.length) {
+          const pb = newBuf();
+          const pp = polys3d(plated);
+          addTopAndBottom(pb, pp, zTop, zBot);
+          if (showThickness) addMiddleContours(pb, pp, zBot, zTop);
+          addMesh(
+            toGeometry(pb),
+            makeFixedFunctionMaterial(mats.copper, lights, { polygonOffset: [-0.1, -2] }),
+            RENDER_ORDER.copper,
+          );
+        }
+      }
+    }
+
+    // Display board body: m_boardWithHoles, EpoxyBoard material, translucent,
+    // pushed away from the screen (glPolygonOffset( 0, 2 )). Its walls skip
+    // the edges that run through a plated hole — the barrel is there instead.
+    const bodyAlpha = colors.boardBody.a;
+    if (render.showBoardBody !== false) {
+      const buf = newBuf();
+      const p = polys3d(built.boardWithHoles);
+      const hz = adapter.boardBodyThickness3DU / 2;
+      addTopAndBottom(buf, p, hz, -hz);
+      const thID = polys3d(built.thID);
+      const inPlatedHole = (a: [number, number], b: [number, number]): boolean => {
+        const mx = (a[0] + b[0]) / 2,
+          my = (a[1] + b[1]) / 2;
+        for (const poly of thID) {
+          const ring = poly[0]!;
+          // a ring's bbox is enough: a drill ring is convex and the edge lies on it
+          let minX = Infinity,
+            minY = Infinity,
+            maxX = -Infinity,
+            maxY = -Infinity;
+          for (const q of ring) {
+            if (q[0] < minX) minX = q[0];
+            if (q[0] > maxX) maxX = q[0];
+            if (q[1] < minY) minY = q[1];
+            if (q[1] > maxY) maxY = q[1];
+          }
+          const eps = 1e-6;
+          if (mx >= minX - eps && mx <= maxX + eps && my >= minY - eps && my <= maxY + eps)
+            return true;
+        }
+        return false;
+      };
+      addMiddleContours(buf, p, -hz, hz, inPlatedHole);
+      addMesh(
+        toGeometry(buf),
+        makeFixedFunctionMaterial(mats.epoxyBoard, lights, {
+          transparent: bodyAlpha < 1,
+          polygonOffset: [0, 2],
+        }),
+        RENDER_ORDER.body,
+      );
+    }
+
+    // Display transparent mask layers: the BOARD polygon minus the openings and
+    // the holes, at the mask Z, pulled towards the screen
+    // (glPolygonOffset( 0, -2 )), bottom first when the camera is above.
+    const maskMeshes: { layer: 'F.Mask' | 'B.Mask'; mesh: THREE.Mesh }[] = [];
+    for (const layer of ['B.Mask', 'F.Mask'] as const) {
+      const polys = built.layers[layer];
+      if (!polys || polys.length === 0) continue;
+      if (layer === 'F.Mask' && render.showSoldermaskTop === false) continue;
+      if (layer === 'B.Mask' && render.showSoldermaskBottom === false) continue;
+      const mat = layer === 'F.Mask' ? mats.maskTop : mats.maskBottom;
+      // renderSolderMaskLayer: F_Mask at GetLayerBottomZPos( F_Mask ) growing
+      // by the tech thickness; B_Mask at GetLayerTopZPos( B_Mask ) likewise.
+      const [fTop, fBot] = zOf(layer);
+      const zBase = layer === 'F.Mask' ? fBot : fTop;
+      const zTop = zBase + adapter.nonCopperLayerThickness3DU;
+      const buf = newBuf();
+      const p = polys3d(polys);
+      addTopAndBottom(buf, p, zTop, zBase);
+      if (showThickness) addMiddleContours(buf, p, zBase, zTop);
+      // m_viaFrontCover / m_viaBackCover: a tented via's hole is capped by a
+      // mask-coloured disk of radius drill/2 + 2·plating, at the copper top
+      // pushed through ApplyScalePosition( zPos, 4 · techThickness ).
+      const side = layer === 'F.Mask' ? 'front' : 'back';
+      const plating3d = 0.02 * MM * s;
+      for (const via of board.vias) {
+        // generateViaCovers: COVERED explicitly, or tented on this side. A
+        // FROM_BOARD covering mode is not COVERED here — only the tenting is
+        // resolved against the board.
+        const covering = via.covering?.[side] === true || viaIsTented(board, via, side);
+        if (!covering) continue;
+        // (post-machined and backdrilled vias are not covered — not modelled)
+        const plugged = via.plugging?.[side] === true;
+        const filled = via.filling === true || via.capping === true;
+        const holeRadius = (via.drill * s) / 2 + 2 * plating3d;
+        const [cx, cy] = to3d(via.at);
+        // via->LayerPair(): ztop of its top layer, zbot of its bottom layer
+        const [zt] = zOf(via.layers[0]);
+        const [, zb] = zOf(via.layers[1]);
+        const zList = layer === 'F.Mask' ? zt : zb;
+        const z = zBase + zList * 4 * adapter.nonCopperLayerThickness3DU;
+        const seg = getArcToSegmentCount(Math.trunc(via.drill / 2), ARC_HIGH_DEF, 360);
+        const nz = layer === 'F.Mask' ? 1 : -1;
+        // generateDisk for a filled or unplugged via; generateDimple (a cone
+        // 0.3·r deep into the hole) for a plugged one — both lit as a flat
+        // top/bottom face, the list's own normal.
+        const depth = holeRadius * 0.3;
+        const zCentre =
+          filled || !plugged ? z : z - nz * depth * 4 * adapter.nonCopperLayerThickness3DU;
+        const base = buf.pos.length / 3;
+        buf.pos.push(cx, cy, zCentre);
+        buf.nrm.push(0, 0, nz);
+        for (let i = 0; i < seg; i++) {
+          const a = (2 * Math.PI * i) / seg;
+          buf.pos.push(cx + holeRadius * Math.cos(a), cy + holeRadius * Math.sin(a), z);
+          buf.nrm.push(0, 0, nz);
+        }
+        for (let i = 0; i < seg; i++) {
+          const a = base + 1 + i,
+            b = base + 1 + ((i + 1) % seg);
+          if (nz > 0) buf.idx.push(base, a, b);
+          else buf.idx.push(base, b, a);
+        }
+      }
+      const mesh = addMesh(
+        toGeometry(buf),
+        makeFixedFunctionMaterial(mat, lights, {
+          transparent: mat.transparency > 0,
+          polygonOffset: [0, -2],
+        }),
+        RENDER_ORDER.maskFar,
+      );
+      if (mesh) maskMeshes.push({ layer, mesh });
+    }
+
+    // ---- 3D models --------------------------------------------------------------
+    /**
+     * `MODEL_3D::Draw` in NORMAL mode: `OglSetMaterial( mat, opacity )` under
+     * `glColorMaterial( GL_AMBIENT_AND_DIFFUSE )`, so ambient and diffuse are
+     * the model's diffuse. DIFFUSE_ONLY / CAD_MODE go through
+     * `OglSetDiffuseMaterial`.
+     */
+    // `render.opengl_selection_color`, `GetColor( cfg.opengl_selection_color )`
+    const selColor4 = parseColor4d(render.selectionColor ?? 'rgb(0, 255, 0)');
+    const selColor: Vec3 = [selColor4.r, selColor4.g, selColor4.b];
+    const modelMaterial = (
+      m: SMaterial,
+      opacity: number,
+      transparentPass: boolean,
+      selected: boolean,
+    ): THREE.ShaderMaterial => {
+      let sm = m;
+      if (materialMode === 1) sm = diffuseOnlyMaterial(m.diffuse);
+      else if (materialMode === 2) sm = diffuseOnlyMaterial(materialDiffuseToColorCAD(m.diffuse));
+      // A selected model is drawn with `BeginDrawMulti( false )` — no colour
+      // array, so ambient is the loader's own (0.1·diffuse for STEP) and the
+      // diffuse is the selection colour (OglSetMaterial's aUseSelectedMaterial).
+      if (selected) sm = { ...sm, diffuse: selColor };
+      const mat = makeFixedFunctionMaterial(
+        { ...sm, transparency: materialMode === 1 ? 0 : m.transparency },
+        lights,
+        {
+          opacity,
+          colorMaterial: !selected,
+          transparent: transparentPass,
+          depthWrite: !transparentPass,
+        },
+      );
+      disposables.push(mat);
+      return mat;
+    };
+
+    const modelsGroup = new THREE.Group();
+    scene.add(modelsGroup);
+    const components = mountComponents(
+      modelsGroup,
+      board,
       {
-        opacity,
-        colorMaterial: !selected,
-        transparent: transparentPass,
-        depthWrite: !transparentPass,
+        // the footprint placement frame, in 3D units: translate( pos.x·s, −pos.y·s, zpos )
+        scale: s,
+        zTopFront: adapter.zTop['F.Cu']!,
+        zTopBack: adapter.zTop['B.Cu']!,
+        // modelunit_to_3d_units_factor = BiuTo3dUnits · IU_PER_MM
+        modelUnitToWorld: s * MM,
+      },
+      MODELS3D_BASE,
+      projectFiles,
+      () => {
+        needsRender = true; // a model arrived: Request_refresh()
+      },
+      render.showModelBbox === true,
+      {
+        material: modelMaterial,
+        opaqueOrder: RENDER_ORDER.opaqueModels,
+        transparentOrder: RENDER_ORDER.transparentModels,
+        showFootprint: (fp) => {
+          // BOARD_ADAPTER::IsFootprintShown: the five show_footprints_* flags.
+          const attrs = fp.attributes ?? [];
+          // show_footprints_dnp defaults to FALSE: a DNP part has no model on the board
+          if (attrs.includes('dnp') && !(render.showFootprintsDnp ?? false)) return false;
+          if (
+            attrs.includes('exclude_from_pos_files') &&
+            render.showFootprintsNotInPosfile === false
+          )
+            return false;
+          const smd = attrs.includes('smd');
+          const tht = attrs.includes('through_hole');
+          if (smd && render.showFootprintsInsert === false) return false;
+          if (tht && render.showFootprintsNormal === false) return false;
+          if (!smd && !tht && render.showFootprintsVirtual === false) return false;
+          return true;
+        },
       },
     );
-    disposables.push(mat);
-    return mat;
-  };
 
-  const modelsGroup = new THREE.Group();
-  scene.add(modelsGroup);
-  const disposeComponents = mountComponents(
-    modelsGroup,
-    board,
-    {
-      // the footprint placement frame, in 3D units: translate( pos.x·s, −pos.y·s, zpos )
-      scale: s,
-      zTopFront: adapter.zTop['F.Cu']!,
-      zTopBack: adapter.zTop['B.Cu']!,
-      // modelunit_to_3d_units_factor = BiuTo3dUnits · IU_PER_MM
-      modelUnitToWorld: s * MM,
-    },
-    MODELS3D_BASE,
-    projectFiles,
-    () => {
-      needsRender = true; // a model arrived: Request_refresh()
-    },
-    render.showModelBbox === true,
-    {
-      material: modelMaterial,
-      opaqueOrder: RENDER_ORDER.opaqueModels,
-      transparentOrder: RENDER_ORDER.transparentModels,
-      showFootprint: (fp) => {
-        // BOARD_ADAPTER::IsFootprintShown: the five show_footprints_* flags.
-        const attrs = fp.attributes ?? [];
-        // show_footprints_dnp defaults to FALSE: a DNP part has no model on the board
-        if (attrs.includes('dnp') && !(render.showFootprintsDnp ?? false)) return false;
-        if (attrs.includes('exclude_from_pos_files') && render.showFootprintsNotInPosfile === false)
-          return false;
-        const smd = attrs.includes('smd');
-        const tht = attrs.includes('through_hole');
-        if (smd && render.showFootprintsInsert === false) return false;
-        if (tht && render.showFootprintsNormal === false) return false;
-        if (!smd && !tht && render.showFootprintsVirtual === false) return false;
-        return true;
+    return {
+      board,
+      render,
+      adapter,
+      s,
+      built,
+      scene,
+      modelsGroup,
+      maskMeshes,
+      bgTop: colors.bgTop,
+      bgBot: colors.bgBot,
+      ready: components.ready,
+      dispose: () => {
+        components.dispose();
+        for (const d of disposables) d.dispose();
       },
-    },
-  );
+    };
+  };
+  /** The scene a `reload` is building, not yet on screen. */
+  let pending: BoardScene | null = null;
+  const first = buildBoardScene(board, stackup, renderIn, projectFiles);
+  if (!first) {
+    container.removeChild(canvas);
+    renderer.dispose();
+    return null;
+  }
+  let cur: BoardScene = first;
+  setBackground(cur.bgTop, cur.bgBot);
 
   // ---- 3D grid (generate3dGrid) ------------------------------------------------
   let gridObj: THREE.LineSegments | null = null;
+  let currentGrid: Grid3D = 'none';
   const setGrid = (grid: Grid3D): void => {
+    currentGrid = grid;
+    const { scene, adapter, s } = cur;
     if (gridObj) {
-      scene.remove(gridObj);
+      gridObj.parent?.remove(gridObj);
       gridObj.geometry.dispose();
       (gridObj.material as THREE.Material).dispose();
       gridObj = null;
@@ -1195,7 +1262,7 @@ export function mount3DViewer(
       const mesh = new THREE.Mesh(g, m);
       mesh.renderOrder = i;
       gizmoScene.add(mesh);
-      disposables.push(g, m);
+      mountDisposables.push(g, m);
       // drawBillboardCircle: a ring of thickness 0.4·r in the screen plane,
       // in the sphere's own colour, opaque.
       const rg = new THREE.BufferGeometry();
@@ -1222,7 +1289,7 @@ export function mount3DViewer(
       ring.renderOrder = 10 + i;
       ring.frustumCulled = false;
       gizmoScene.add(ring);
-      disposables.push(rg, rm);
+      mountDisposables.push(rg, rm);
       gizmoBillboards.push({ mesh: ring, center: sp.pos, radius: GIZMO_SPHERE_RADIUS });
       const label = (['X', '', 'Y', '', 'Z', ''] as const)[i]!;
       if (label) {
@@ -1234,7 +1301,7 @@ export function mount3DViewer(
         ls.renderOrder = 20 + i;
         ls.frustumCulled = false;
         gizmoScene.add(ls);
-        disposables.push(lg, lm);
+        mountDisposables.push(lg, lm);
         gizmoLabels.push({ mesh: ls, center: sp.pos, label });
       }
     }
@@ -1278,7 +1345,7 @@ export function mount3DViewer(
     axes.renderOrder = 30;
     axes.frustumCulled = false;
     gizmoScene.add(axes);
-    disposables.push(ag, am);
+    mountDisposables.push(ag, am);
   }
 
   /** `SPHERES_GIZMO::render3dSpheresGizmo` — the per-frame billboard/label placement. */
@@ -1409,7 +1476,7 @@ export function mount3DViewer(
 
   // ---- camera (TRACK_BALL) ---------------------------------------------------
   const camera = new TrackBallCamera(INITIAL_CAMERA_DISTANCE, 'perspective');
-  camera.setBoardLookAtPos(adapter.boardCenter);
+  camera.setBoardLookAtPos(cur.adapter.boardCenter);
   const threeCam = new THREE.Camera();
   threeCam.matrixAutoUpdate = false;
   threeCam.matrixWorldAutoUpdate = false;
@@ -1533,8 +1600,8 @@ export function mount3DViewer(
       tmax = Infinity;
     for (let i = 0; i < 3; i++) {
       const inv = 1 / (ray.dir[i]! || 1e-30);
-      let t0 = (adapter.bboxMin[i]! - ray.origin[i]!) * inv;
-      let t1 = (adapter.bboxMax[i]! - ray.origin[i]!) * inv;
+      let t0 = (cur.adapter.bboxMin[i]! - ray.origin[i]!) * inv;
+      let t1 = (cur.adapter.bboxMax[i]! - ray.origin[i]!) * inv;
       if (t0 > t1) [t0, t1] = [t1, t0];
       tmin = Math.max(tmin, t0);
       tmax = Math.min(tmax, t1);
@@ -1554,7 +1621,7 @@ export function mount3DViewer(
 
   // ---- picking (IntersectBoardItem), rollover and selection ----------------
   const raycaster = new THREE.Raycaster();
-  const netClassOf = (net: number): string => render.netClassOf?.(net) ?? 'Default';
+  const netClassOf = (net: number): string => cur.render.netClassOf?.(net) ?? 'Default';
   /** `getRayAtCurrentMousePosition` → the board item under it. */
   const pickUnderMouse = (): PickedItem | null => {
     const ray = camera.makeRayAtCurrentMousePosition();
@@ -1562,7 +1629,7 @@ export function mount3DViewer(
     raycaster.set(new THREE.Vector3(...ray.origin), new THREE.Vector3(...ray.dir).normalize());
     raycaster.far = Number.POSITIVE_INFINITY;
     let modelHit: { t: number; footprint: number } | null = null;
-    for (const hit of raycaster.intersectObject(modelsGroup, true)) {
+    for (const hit of raycaster.intersectObject(cur.modelsGroup, true)) {
       let o: THREE.Object3D | null = hit.object;
       while (o && o.userData.footprint === undefined) o = o.parent;
       if (o) {
@@ -1570,6 +1637,7 @@ export function mount3DViewer(
         break;
       }
     }
+    const { board, s, adapter, built } = cur;
     return pickBoardItem(
       board,
       {
@@ -1587,9 +1655,9 @@ export function mount3DViewer(
   let rollOverFootprint: number | null = null;
   /** `fp->IsSelected()` — the board editor's selection, cross-probed in. */
   let selectedFootprints: ReadonlySet<number> = new Set();
-  const highlightOnRollover = render.highlightOnRollover !== false;
   const applyHighlights = (): void => {
-    for (const inst of modelsGroup.children) {
+    const highlightOnRollover = cur.render.highlightOnRollover !== false;
+    for (const inst of cur.modelsGroup.children) {
       const fi = inst.userData.footprint as number | undefined;
       if (fi === undefined) continue;
       const on = selectedFootprints.has(fi) || (highlightOnRollover && rollOverFootprint === fi);
@@ -1608,7 +1676,7 @@ export function mount3DViewer(
   /** OnMouseMove's rollover half: the HOVERED_ITEM pane and the highlight. */
   const updateRollOver = (): void => {
     const item = pickUnderMouse();
-    const msg = hoveredItemMessage(board, item, netClassOf);
+    const msg = hoveredItemMessage(cur.board, item, netClassOf);
     const fp = item?.kind === 'footprint' ? item.footprint : null;
     if (fp !== rollOverFootprint) {
       rollOverFootprint = fp;
@@ -1691,7 +1759,7 @@ export function mount3DViewer(
         // footprint, or clear the selection when clicking empty space
         // (`$SELECT: 0,` with nothing after it).
         camera.setCurMousePosition(p.x, p.y);
-        api.onSelect?.(clickSelectionParts(board, pickUnderMouse()));
+        api.onSelect?.(clickSelectionParts(cur.board, pickUnderMouse()));
       }
     }
     needsRender = true;
@@ -1773,7 +1841,7 @@ export function mount3DViewer(
     pushCameraToThree();
     // Display transparent mask layers: the far one first
     const camAbove = camera.getPos()[2] > 0;
-    for (const m of maskMeshes) {
+    for (const m of cur.maskMeshes) {
       const far = m.layer === (camAbove ? 'B.Mask' : 'F.Mask');
       m.mesh.renderOrder = far ? RENDER_ORDER.maskFar : RENDER_ORDER.maskNear;
     }
@@ -1783,9 +1851,9 @@ export function mount3DViewer(
     renderer.setScissorTest(false);
     renderer.clear(true, true, true);
     renderer.render(bgScene, bgCam);
-    renderer.render(scene, threeCam);
+    renderer.render(cur.scene, threeCam);
     // Render 3D arrows: a square viewport of H/8 at (4,4), depth cleared
-    if (render.showNavigator !== false) {
+    if (cur.render.showNavigator !== false) {
       const rot = camera.getRotationMatrix();
       updateGizmo(rot);
       const view = mat4Multiply(
@@ -1855,12 +1923,13 @@ export function mount3DViewer(
       canvas.removeEventListener('pointerup', onPointerUp);
       canvas.removeEventListener('pointercancel', onPointerUp);
       canvas.removeEventListener('wheel', onWheel);
-      disposeComponents();
       if (gridObj) {
         gridObj.geometry.dispose();
         (gridObj.material as THREE.Material).dispose();
       }
-      for (const d of disposables) d.dispose();
+      pending?.dispose();
+      cur.dispose();
+      for (const d of mountDisposables) d.dispose();
       renderer.dispose();
       if (canvas.parentElement === container) container.removeChild(canvas);
     },
@@ -1869,6 +1938,29 @@ export function mount3DViewer(
     zoomFit: () => void setView3D('fit_screen'),
     redraw: () => {
       needsRender = true;
+    },
+    // EDA_3D_VIEWER_FRAME::NewDisplay( true ) → ReloadRequest(): the next
+    // Redraw rebuilds beside the frame on screen and swaps when complete.
+    reload: (nextBoard, nextStackup, nextRender, nextFiles) => {
+      const next = buildBoardScene(nextBoard, nextStackup, nextRender, nextFiles);
+      if (!next) return;
+      pending?.dispose();
+      pending = next;
+      // `load3dModels` is part of the reload; only then does the display change.
+      void next.ready.then(() => {
+        if (pending !== next) {
+          next.dispose();
+          return;
+        }
+        pending = null;
+        cur.dispose();
+        cur = next;
+        camera.setBoardLookAtPos(cur.adapter.boardCenter);
+        setBackground(cur.bgTop, cur.bgBot);
+        setGrid(currentGrid);
+        applyHighlights();
+        needsRender = true;
+      });
     },
     setView: (dir: View3DDir) => void setView3D(dir),
     flip: () => void setView3D('flip'),

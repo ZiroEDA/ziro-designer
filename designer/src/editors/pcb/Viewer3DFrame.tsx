@@ -39,7 +39,13 @@ import { KiStatusBar } from '../../ui/KiStatusBar.js';
 // makes tsc resolve its three.js / occt-import-js chain, which qa has no types
 // for. The runtime import below stays lazy, which is the point — three.js only
 // downloads when the viewer is actually opened.
-import type { Viewer3D, Viewer3DStatus, Grid3D, View3DDir } from './viewer3d_types.js';
+import type {
+  Viewer3D,
+  Viewer3DStatus,
+  Grid3D,
+  View3DDir,
+  Viewer3dRenderOptions,
+} from './viewer3d_types.js';
 import { VIEWER3D_DEFAULT_TOOLBARS } from './viewer3dToolbars.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { buildViewer3DMenus } from './viewer3dMenus.js';
@@ -408,53 +414,66 @@ export function Viewer3DFrame({
 
   // Mount the three.js viewer. Lazy-imported so three.js only downloads when
   // the viewer is actually opened.
+  // `BOARD_ADAPTER`'s render half as this frame resolves it. One object,
+  // rebuilt when any input changes, so the reload effect below has one thing
+  // to watch.
+  const sceneOptions = useMemo(
+    () =>
+      ({
+        showZones: render3d.show_zones,
+        materialMode: render3d.material_mode,
+        antiAliasing: render3d.opengl_AA_mode,
+        showModelBbox: render3d.opengl_show_model_bbox,
+        selectionColor: render3d.opengl_selection_color,
+        copperThickness: render3d.opengl_copper_thickness,
+        subtractMaskFromSilk: render3d.subtract_mask_from_silk,
+        clipSilkOnViaAnnuli: render3d.clip_silk_on_via_annulus,
+        highlightOnRollover: render3d.opengl_highlight_on_rollover,
+        differentiatePlatedCopper: render3d.plated_and_bare_copper,
+        netClassOf: (net: number) => netClassOfRef.current?.get(net) ?? 'Default',
+        // APPEARANCE_CONTROLS_3D: GetVisibleLayers() and GetLayerColors()
+        visible3d: visible3d,
+        layerColors: layerColors,
+        useStackupColors: v3d.use_stackup_colors,
+        useBoardEditorCopperColors: render3d.use_board_editor_copper_colors,
+        // `ReloadColorSettings`: the board editor's theme colours for F/B.Cu
+        boardEditorCopperColors: {
+          'F.Cu': parseColor4d(PCB_LAYER_COLORS['F.Cu'] ?? 'rgb(0,0,0)'),
+          'B.Cu': parseColor4d(PCB_LAYER_COLORS['B.Cu'] ?? 'rgb(0,0,0)'),
+        },
+      }) as Viewer3dRenderOptions,
+    [render3d, visible3d, layerColors, v3d.use_stackup_colors],
+  );
+  const sceneOptionsRef = useRef(sceneOptions);
+  sceneOptionsRef.current = sceneOptions;
+  const stackupColsRef = useRef(stackupCols);
+  stackupColsRef.current = stackupCols;
+  const projectFilesRef = useRef(projectFiles);
+  projectFilesRef.current = projectFiles;
+  /** What the mounted viewer was last built with, to skip a no-op reload. */
+  const builtWith = useRef<{ board: Board; opts: Viewer3dRenderOptions } | null>(null);
+
+  // Mount the three.js viewer ONCE per open (and per explicit Reload). The
+  // canvas, its GL context and the camera are the frame's; everything the
+  // board or the pane decides goes through `reload` below.
+  const hasBoard = shownBoard !== null;
   useEffect(() => {
-    if (!hostRef.current || !shownBoard) return undefined;
+    const board = boardRef.current;
+    if (!hostRef.current || !board) return undefined;
     let viewer: Viewer3D | null = null;
     let cancelled = false;
     setReady(false);
     const el = hostRef.current;
     void import('./pcb3d.js').then(({ mount3DViewer }) => {
       if (cancelled) return;
+      const opts = sceneOptionsRef.current;
       try {
-        viewer = mount3DViewer(
-          el,
-          shownBoard,
-          projectFiles,
-          stackup ? stackupColors(stackup, boardFinish) : undefined,
-          // Mount-time only, all of them: the zone fills and the material
-          // parameters are baked into the geometry and the materials, and
-          // `antialias` is a WebGL context flag — which is exactly what the
-          // Anti-aliasing tooltip's "3D-Viewer must be closed and re-opened to
-          // apply this setting" says upstream.
-          {
-            showZones: renderRef.current.show_zones,
-            materialMode: renderRef.current.material_mode,
-            antiAliasing: renderRef.current.opengl_AA_mode,
-            showModelBbox: renderRef.current.opengl_show_model_bbox,
-            selectionColor: renderRef.current.opengl_selection_color,
-            copperThickness: renderRef.current.opengl_copper_thickness,
-            subtractMaskFromSilk: renderRef.current.subtract_mask_from_silk,
-            clipSilkOnViaAnnuli: renderRef.current.clip_silk_on_via_annulus,
-            highlightOnRollover: renderRef.current.opengl_highlight_on_rollover,
-            differentiatePlatedCopper: renderRef.current.plated_and_bare_copper,
-            netClassOf: (net) => netClassOfRef.current?.get(net) ?? 'Default',
-            // APPEARANCE_CONTROLS_3D: GetVisibleLayers() and GetLayerColors()
-            visible3d: visible3d,
-            layerColors: layerColors,
-            useStackupColors: v3d.use_stackup_colors,
-            useBoardEditorCopperColors: renderRef.current.use_board_editor_copper_colors,
-            // `ReloadColorSettings`: the board editor's theme colours for F/B.Cu
-            boardEditorCopperColors: {
-              'F.Cu': parseColor4d(PCB_LAYER_COLORS['F.Cu'] ?? 'rgb(0,0,0)'),
-              'B.Cu': parseColor4d(PCB_LAYER_COLORS['B.Cu'] ?? 'rgb(0,0,0)'),
-            },
-          },
-        );
+        viewer = mount3DViewer(el, board, projectFilesRef.current, stackupColsRef.current, opts);
       } catch {
         viewer = null;
       }
       if (viewer) {
+        builtWith.current = { board, opts };
         viewer.onStatus = setStatus;
         viewer.onSelect = (parts) => onSelectRef.current?.(parts);
         viewer.setSelectedFootprints(selectedRef.current ?? new Set());
@@ -474,14 +493,24 @@ export function Viewer3DFrame({
       cancelled = true;
       viewer?.dispose();
       api.current = null;
+      builtWith.current = null;
     };
-    // grid/ortho are applied live by their own handlers; re-reading them here
-    // would remount the whole scene on every toggle.
+    // grid/ortho are applied live by their own handlers; the board and the
+    // options go through `reload`, which is `NewDisplay( true )`: a rebuild
+    // beside the picture on screen, not a torn-down canvas.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    // The render options are mount-time, so they belong in this effect's
-    // dependencies: changing one has to rebuild the scene, and that is what
-    // upstream's "close and re-open the 3D viewer" amounts to.
-  }, [shownBoard, projectFiles, reload, render3d, visible3d, layerColors, v3d.use_stackup_colors]);
+  }, [hasBoard, reload]);
+
+  // `EDA_3D_VIEWER_FRAME::NewDisplay( true )` — a board edit (with live
+  // refresh on), a pane toggle, a preference: the same canvas reloads.
+  useEffect(() => {
+    const v = api.current;
+    if (!v || !shownBoard) return;
+    const was = builtWith.current;
+    if (was && was.board === shownBoard && was.opts === sceneOptions) return;
+    builtWith.current = { board: shownBoard, opts: sceneOptions };
+    v.reload(shownBoard, stackupCols, sceneOptions, projectFiles);
+  }, [shownBoard, projectFiles, stackupCols, sceneOptions]);
 
   // …the CAMERA half is not: `EDA_3D_CANVAS` re-reads it in place, and
   // rebuilding the scene to change a rotation step would re-tessellate every

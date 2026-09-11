@@ -174,6 +174,21 @@ export interface ComponentRenderHooks {
  * the uploaded project's own files so ${KIPRJMOD}/relative references load
  * exactly as KiCad loads them from the project directory.
  */
+/**
+ * `S3D_CACHE`: a loaded model outlives the scene it was loaded for.
+ * `RENDER_3D_OPENGL::reload` calls `load3dModels`, which asks the cache and
+ * only reads files it has not seen — so a reload (an appearance toggle, a
+ * board edit) never re-fetches or re-tessellates. Keyed by URL for the
+ * hosted library and by name + size for a project file.
+ */
+const modelCache = new Map<string, Promise<THREE.Object3D | null>>();
+
+export interface MountedComponents {
+  dispose: () => void;
+  /** Every model settled (loaded or failed) — `load3dModels` has returned. */
+  ready: Promise<void>;
+}
+
 export function mountComponents(
   parent: THREE.Object3D,
   board: Board,
@@ -190,11 +205,12 @@ export function mountComponents(
    */
   showModelBbox?: boolean,
   hooks?: ComponentRenderHooks,
-): () => void {
+): MountedComponents {
   const vrmlLoader = new VRMLLoader();
   const gltfLoader = new GLTFLoader();
-  const cache = new Map<string, Promise<THREE.Object3D | null>>();
+  const cache = modelCache;
   const added: THREE.Object3D[] = [];
+  const pendingLoads: Promise<unknown>[] = [];
   const disposables: { dispose(): void }[] = [];
   let cancelled = false;
   const enc = new TextEncoder();
@@ -243,13 +259,17 @@ export function mountComponents(
       if (model.hide || !model.path) continue;
       const res = resolvePath(model.path, { libBase, libExt: 'glb', projectFiles: fileNames });
       if (res.kind === 'unresolved') continue;
-      const key = res.kind === 'url' ? res.url : `project:${res.name}`;
+      const key =
+        res.kind === 'url'
+          ? res.url
+          : `project:${res.name}:${projectFiles?.find((f) => f.name === res.name)?.text.length ?? 0}`;
 
       let p = cache.get(key);
       if (!p) {
         p = res.kind === 'url' ? loadUrl(res.url) : loadProjectFile(res.name);
         cache.set(key, p);
       }
+      pendingLoads.push(p);
       const matrix = modelMatrix(fp, model, frame);
       // `sM.m_Opacity`: 1 keeps the model in the opaque pass
       const opacity = model.opacity ?? 1;
@@ -308,9 +328,12 @@ export function mountComponents(
     }
   });
 
-  return () => {
-    cancelled = true;
-    for (const o of added) parent.remove(o);
-    for (const d of disposables) d.dispose();
+  return {
+    dispose: () => {
+      cancelled = true;
+      for (const o of added) parent.remove(o);
+      for (const d of disposables) d.dispose();
+    },
+    ready: Promise.allSettled(pendingLoads).then(() => undefined),
   };
 }

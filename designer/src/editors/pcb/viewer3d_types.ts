@@ -76,6 +76,19 @@ export interface Viewer3D {
   setCamera: (o: Partial<Viewer3dCameraOptions>) => void;
   /** `EDA_3D_ACTIONS::pivotCenter` (Space) — look at the board point under the cursor. */
   pivotCenter: () => void;
+  /**
+   * `EDA_3D_VIEWER_FRAME::NewDisplay( true )` → `ReloadRequest()`: rebuild the
+   * board scene for a new board / stackup / render set on the SAME canvas and
+   * camera, beside the frame on screen, and swap once its models are in —
+   * the previous picture stays up until then, as upstream's does while
+   * `reload()` runs. The camera, grid, selection and rollover survive.
+   */
+  reload: (
+    board: import('@ziroeda/pcbnew').Board,
+    stackup: import('./board_adapter_colors.js').StackupColors | undefined,
+    render: Viewer3dRenderOptions,
+    projectFiles?: { name: string; text: string }[],
+  ) => void;
   /** `GetCurrentCamera().GetViewMatrix()` — what a saved viewport (`VIEWPORT3D`) holds. */
   getViewMatrix: () => number[];
   /** `GetCurrentCamera().SetViewMatrix()` — `doApplyViewport`. */
