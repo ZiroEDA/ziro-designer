@@ -28,6 +28,7 @@ import { createAccount, decryptBlob } from '@ziroeda/designer/src/cloud/crypto.j
 import { openMeta, unwrapFileKey } from '@ziroeda/designer/src/cloud/enc_meta.js';
 import {
   createProjectKeyFor,
+  forgetCachedProjectKey,
   projectKeyFor,
   setSessionKeys,
   shareProjectKeyWith,
@@ -294,6 +295,30 @@ describe('sharing, on keys', () => {
     setSessionKeys(member.keys, MEMBER);
     f.asUser = MEMBER;
     await expect(cloudGet('p1', UID)).rejects.toThrow(/no key to project/);
+  });
+
+  it('replaces a row whose key is gone instead of failing on it forever', async () => {
+    // The state a crash between commitProject and saveProjectKeyFor leaves: a
+    // row sealed under a key nothing holds any more. Observed for real, on
+    // three projects, when a browser ran out of memory mid-sync.
+    await cloudUpsert(OWNER, project({ a: 'AAA' }));
+    expect(f.rows.get('p1')?.enc_meta).toBeTruthy();
+
+    // Lose the key exactly as that crash did: the row stays, the key does not.
+    f.keys.delete(`${UID}:${OWNER}`);
+    forgetCachedProjectKey(UID);
+
+    // The next push mints a fresh key, which cannot open the old enc_meta. It
+    // must overwrite rather than strand the project: reading the old metadata
+    // is an upload optimisation, not something worth losing a project over.
+    await cloudUpsert(OWNER, { ...project({ a: 'AAA', b: 'BBB' }), baseVersion: 1 }, new Set(), 1);
+
+    const row = f.rows.get('p1')!;
+    expect(row.version).toBe(2);
+    // And the result is readable again, under the key that now exists.
+    const back = await cloudGet('p1', UID);
+    expect(back).not.toBeNull();
+    expect(text(back!.files.find((x) => x.name === 'b')!.gzB64!)).toBe('BBB');
   });
 
   it("an editor pushes under the owner's key and into the owner's namespace", async () => {

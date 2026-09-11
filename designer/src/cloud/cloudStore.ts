@@ -778,7 +778,30 @@ async function commitEncrypted(
   if (base > 0) {
     const prev = await be.getProject(p.cloudId ?? p.id, uid);
     if (prev?.enc_meta) {
-      for (const e of (await openMeta(key, prev.enc_meta)).files) previous.set(e.hash, e);
+      try {
+        for (const e of (await openMeta(key, prev.enc_meta)).files) previous.set(e.hash, e);
+      } catch (e) {
+        // The row will not open with the key this account holds. This is an
+        // optimisation being read -- which blobs are already up there, so an
+        // unchanged file need not be uploaded again -- so failing the push over
+        // it strands the project instead of costing it some bandwidth.
+        //
+        // It is reachable. A crash between `commitProject` below and the
+        // `saveProjectKeyFor` after it leaves a row sealed under a key that was
+        // only ever in that tab's memory, and the next push mints a different
+        // one; a browser running out of memory mid-sync did exactly that to
+        // three projects. Every later push then failed here, forever, with no
+        // way out from the UI, because the condition repairs itself only by
+        // being written over.
+        //
+        // So: upload everything afresh and replace the row. Nothing readable is
+        // lost, by definition -- it could not be read.
+        console.warn(
+          `"${p.name}": the cloud copy will not open with this account's key, so it is being replaced rather than updated`,
+          e,
+        );
+        previous.clear();
+      }
     }
   }
 
