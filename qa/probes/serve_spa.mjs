@@ -20,7 +20,11 @@ createServer(async (req, res) => {
   const file = extname(path) ? join(root, path) : join(root, 'index.html');
   try {
     const body = await readFile(file);
-    res.writeHead(200, { 'content-type': types[extname(file)] ?? 'application/octet-stream' });
+    res.writeHead(200, {
+      'content-type': types[extname(file)] ?? 'application/octet-stream',
+      // A dev server on another port reads demos and libraries from here.
+      'access-control-allow-origin': '*',
+    });
     res.end(body);
   } catch {
     res.writeHead(404);

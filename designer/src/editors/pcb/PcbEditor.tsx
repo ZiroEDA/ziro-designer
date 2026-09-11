@@ -2744,6 +2744,25 @@ export function PcbEditor({
         return;
       }
     }
+    // The mirror image: a GPU on hand and a scene compiled for the 2D canvas.
+    // The recorder skips a `Path2D` (it has no vertices to adopt), so this
+    // draws every pad, track and pour as nothing while the per-frame text and
+    // the overlays still paint — a board that has "vanished" down to its net
+    // names, and Refresh cannot bring it back because nothing recompiles. It
+    // happens whenever the scene is built in the window where `glOkRef` is
+    // down but the device comes back: React re-running every effect in order
+    // on a Fast Refresh (the mount effect's cleanup drops the device, the
+    // Footprints Front/Back effect rebuilds before the mount effect recreates
+    // it), and StrictMode's double mount does the same. Recompile for the
+    // backend that is actually drawing, exactly as the branch above does.
+    if (useGl && !sceneIsGlRef.current) {
+      const brd = boardRef.current;
+      if (brd) {
+        rebuildSceneRef.current(brd);
+        requestDrawRef.current();
+        return;
+      }
+    }
     // The retained buffer is keyed on the content, not on the view, so a pan or
     // a zoom is a uniform update and there is nothing to chase.
     if (!useGl && (!viewMatchesCache() || sceneDirtyRef.current)) {
