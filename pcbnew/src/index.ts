@@ -12,6 +12,13 @@ export {
   type RatsnestEdge,
 } from './ratsnest.js';
 export {
+  airwireShown,
+  localRatsnestKey,
+  toggleLocalRatsnest,
+  type LocalRatsnestHit,
+  type LocalRatsnestOverrides,
+} from './local_ratsnest.js';
+export {
   beginCourtyardConflicts,
   conflictShadowRings,
   courtyardConflictsAt,

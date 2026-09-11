@@ -137,7 +137,10 @@ import {
   setBoardPageSettings,
   serializeBoard,
   beginCourtyardConflicts,
+  airwireShown,
   buildRatsnest,
+  toggleLocalRatsnest,
+  type LocalRatsnestHit,
   conflictShadowRings,
   courtyardConflictsAt,
   prepareLocalRatsnest,
@@ -8881,28 +8884,17 @@ export function PcbEditor({
             const fpHit = padAt < 0 && fpAt >= 0 ? refs[fpAt] : undefined;
             const picked = padAt >= 0 ? ids[padAt] : fpAt >= 0 ? ids[fpAt] : undefined;
             setSelection(picked ? new Set([picked]) : new Set());
-            setLocalRats((prev) => {
-              const next = new Set(prev);
-              if (padHit2) {
-                const key = `${padHit2.index}:${padHit2.sub ?? 0}`;
-                if (next.has(key)) next.delete(key);
-                else next.add(key);
-              } else if (fpHit) {
-                const fp = brd.footprints[fpHit.index];
-                if (fp && fp.pads.length > 0) {
-                  // enable = !firstPad.GetLocalRatsnestVisible()
-                  const enable = !next.has(`${fpHit.index}:0`);
-                  fp.pads.forEach((_, pi) => {
-                    const key = `${fpHit.index}:${pi}`;
-                    if (enable) next.add(key);
-                    else next.delete(key);
-                  });
-                }
-              } else {
-                next.clear();
-              }
-              return next;
-            });
+            const hit: LocalRatsnestHit = padHit2
+              ? { kind: 'pad', footprint: padHit2.index, pad: padHit2.sub ?? 0 }
+              : fpHit
+                ? {
+                    kind: 'footprint',
+                    footprint: fpHit.index,
+                    padCount: brd.footprints[fpHit.index]?.pads.length ?? 0,
+                  }
+                : null;
+            const globalOn = objects.ratsnest && ratsnestMode !== 'off';
+            setLocalRats((prev) => toggleLocalRatsnest(prev, globalOn, hit));
           }
         } else if (DRAW_SHAPE_TOOLS[activeToolRef.current]) {
           const w = worldAt(e.clientX, e.clientY);
@@ -9782,22 +9774,20 @@ export function PcbEditor({
       if (!brd) return [];
       const anyCuVisible = [...visible].some((l) => /\.Cu$/.test(l));
       const layerOn = (l: string): boolean => (l === 'through' ? anyCuVisible : visible.has(l));
-      const localNets = new Set<number>(forcedLocalNets);
-      for (const key of localRats) {
-        const [fi, pi] = key.split(':').map(Number);
-        const pad = brd.footprints[fi ?? -1]?.pads[pi ?? -1];
-        if (pad?.net && pad.net > 0) localNets.add(pad.net);
-      }
       const globalOn = objects.ratsnest && ratsnestMode !== 'off';
       const list: { e: RatsnestEdge; color: string }[] = [];
       for (const e of edges) {
-        const isLocal = localNets.has(e.net);
-        if (!globalOn && !isLocal) continue;
+        // The move tool's dynamic ratsnest (`forcedLocalNets`) is a whole
+        // net; the Local Ratsnest tool's is per airwire, one hop from the
+        // clicked pads — `airwireShown` is `RATSNEST_VIEW_ITEM::ViewDraw`'s
+        // rule, and the reason clicking an LED no longer lights all of GND.
+        if (!forcedLocalNets?.has(e.net) && !airwireShown(e, globalOn, localRats)) continue;
+        // Hidden nets (`ratsnest_view_item.cpp:177`) and the visible-layers
+        // mode (`:248-257`) gate every airwire alike, local or not. The
+        // layer test is EITHER end on no visible layer, not both.
         const cls = netClassOf.get(e.net) ?? 'Default';
-        if (!isLocal) {
-          if (hiddenNets.has(e.net) || hiddenClasses.has(cls)) continue;
-          if (ratsnestMode === 'visible' && !layerOn(e.aLayer) && !layerOn(e.bLayer)) continue;
-        }
+        if (hiddenNets.has(e.net) || hiddenClasses.has(cls)) continue;
+        if (ratsnestMode === 'visible' && (!layerOn(e.aLayer) || !layerOn(e.bLayer))) continue;
         let color: string = PCB_SPECIAL.ratsnest;
         if (netColorMode !== 'off') color = netColors.get(e.net) ?? classColorOf(cls) ?? color;
         list.push({ e, color });
@@ -9889,7 +9879,11 @@ export function PcbEditor({
     }
     // Ratsnest visibility is the Objects tab's LAYER_RATSNEST, single source.
     if (id === 'showRatsnest') {
+      // `SetElementVisibility( LAYER_RATSNEST )` writes the new flag into
+      // every track, pad and zone (`board.cpp:1057-1073`), so no pad differs
+      // from it any more: the Local Ratsnest overrides go with the toggle.
       setObjects((p) => ({ ...p, ratsnest: !p.ratsnest }));
+      setLocalRats(new Set());
       return;
     }
     // Toggle Net Highlight: show/hide the last-highlighted net set.
@@ -10762,7 +10756,12 @@ export function PcbEditor({
                   onToggleLayer={toggleLayer}
                   onLayerContextMenu={(x, y) => setLayerMenu({ x, y })}
                   objects={objects}
-                  onToggleObject={(key) => setObjects((p) => toggleObject(p, key))}
+                  onToggleObject={(key) => {
+                    // The Objects tab's Ratsnest row is the same
+                    // `SetElementVisibility( LAYER_RATSNEST )` as the button.
+                    if (key === 'ratsnest') setLocalRats(new Set());
+                    setObjects((p) => toggleObject(p, key));
+                  }}
                   objectColor={(key) => PCB_OBJECT_COLORS[key]}
                   opacity={opacity}
                   onOpacity={(key, value) => setOpacity((p) => ({ ...p, [key]: value }))}

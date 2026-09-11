@@ -54,6 +54,8 @@ interface Anchor {
   item: number;
   /** Index of the footprint this anchor's pad belongs to; absent for bare copper. */
   footprint?: number;
+  /** Index of the pad within that footprint, when the anchor is a pad. */
+  pad?: number;
 }
 
 /** One airwire between two unconnected clusters of a net. */
@@ -74,6 +76,15 @@ export interface RatsnestEdge {
    */
   aFootprint?: number;
   bFootprint?: number;
+  /**
+   * The pad within that footprint, for the same ends. Together with the
+   * footprint index this names the `BOARD_CONNECTED_ITEM` whose
+   * `GetLocalRatsnestVisible()` the ratsnest view asks of each end
+   * (`ratsnest_view_item.cpp:239-245`), which is what the Local Ratsnest tool
+   * toggles.
+   */
+  aPad?: number;
+  bPad?: number;
 }
 
 const layersCompatible = (a: AnchorLayer, b: AnchorLayer): boolean =>
@@ -138,14 +149,14 @@ function bucketNets(board: Board): Map<number, NetGeometry> {
   };
 
   board.footprints.forEach((fp, fpIndex) => {
-    for (const pad of fp.pads) {
-      if (!pad.net || pad.net <= 0) continue;
+    fp.pads.forEach((pad, padIndex) => {
+      if (!pad.net || pad.net <= 0) return;
       const g = forNet(pad.net);
       const item = g.items++;
       const layer = padLayer(pad);
       for (const shape of padShapes(pad)) addShape(g, item, layer, shape);
-      g.anchors.push({ x: pad.at.x, y: pad.at.y, layer, item, footprint: fpIndex });
-    }
+      g.anchors.push({ x: pad.at.x, y: pad.at.y, layer, item, footprint: fpIndex, pad: padIndex });
+    });
   });
   for (const t of board.tracks) {
     if (t.net <= 0) continue;
@@ -294,6 +305,8 @@ function solveNets(nets: Map<number, NetGeometry>, onlyNets?: ReadonlySet<number
           bLayer: to.layer,
           aFootprint: from.footprint,
           bFootprint: to.footprint,
+          aPad: from.pad,
+          bPad: to.pad,
         });
       }
       attach(pick);
