@@ -151,8 +151,10 @@ export function pickBoardItem(
     )
     .sort((a, b) => a.h.t - b.h.t);
   for (const { p, h } of hits) {
-    // 3D units → board IU, y un-flipped
-    const pt = { x: h.x / frame.scale, y: -h.y / frame.scale };
+    // 3D units → board IU, y un-flipped. Rounded: the polygon ports are the
+    // integer-IU ones (`chainPointInside` goes through BigInt) and a ray hit
+    // is a float; a nanometre is well inside any pad.
+    const pt = { x: Math.round(h.x / frame.scale), y: Math.round(-h.y / frame.scale) };
     const onBoard = frame.boardOutline.some((ring) => chainPointInside(ring, pt));
     if (!onBoard) continue;
     // the board (or a model in front of it) is what the ray meets first
