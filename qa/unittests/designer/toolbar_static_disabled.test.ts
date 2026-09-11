@@ -127,7 +127,10 @@ const UNBUILT: Readonly<Record<string, readonly string[]>> = {
     // `PCB_SELECTION_TOOL::m_selectionMode`, the gesture is `SelectPolyArea`
     // (freehand while the button is down, a straight leg after it is released,
     // double-click to finish) and the hit test is `boardItemsInLasso`.
-    'placeFootprint',
+    // `placeFootprint` came off with `BOARD_EDITOR_CONTROL::PlaceFootprint`:
+    // the chooser was already `FootprintChooserFrame`, the instantiation
+    // `placeFootprint()` in `board_exchange_footprint.ts`; what was missing
+    // was the tool loop that joins them to a click.
     'routeDiffPair',
     'tuneSingleTrack',
     'tuneDiffPair',

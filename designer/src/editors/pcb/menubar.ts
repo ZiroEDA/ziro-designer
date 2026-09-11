@@ -476,7 +476,13 @@ export function buildPcbMenus(
         // a command we have not built is a promise nothing can keep, which is
         // the whole of what `menu_hotkey_coverage.test.ts` forbids. The key
         // arrives with the tool.
-        { label: 'Place Footprints', icon: 'placeFootprint', disabled: dis },
+        {
+          label: 'Place Footprints',
+          icon: 'placeFootprint',
+          // `PCB_ACTIONS::placeFootprint`, `.DefaultHotkey( 'A' )` (pcb_actions.cpp:1464).
+          shortcut: 'A',
+          action: () => h.tool('placeFootprint'),
+        },
         {
           label: 'Place Vias',
           icon: 'drawVia',

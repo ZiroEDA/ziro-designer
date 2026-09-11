@@ -139,6 +139,7 @@ import {
   beginCourtyardConflicts,
   airwireShown,
   buildRatsnest,
+  placeFootprint as placeLibraryFootprint,
   toggleLocalRatsnest,
   type LocalRatsnestHit,
   conflictShadowRings,
@@ -455,6 +456,7 @@ import {
 } from '@ziroeda/pcbnew/src/teardrop.js';
 import { fetchNetlistFromSchematic } from './netlist_from_schematic.js';
 import { loadFootprint } from '../../widgets/footprint_list.js';
+import { FootprintChooserFrame } from './dialogs/footprint_chooser_frame.js';
 import { preloadBoardLibraries } from './preload.js';
 import { parseFootprint } from '../footprint/footprintBoard.js';
 import {
@@ -2117,6 +2119,22 @@ export function PcbEditor({
   /** The reference image being placed (`DRAWING_TOOL::PlaceReferenceImage`). */
   const placeImageRef = useRef<ImagePlaceState>(startPlaceImage());
   /**
+   * `BOARD_EDITOR_CONTROL::PlaceFootprint`'s `fp` — the library footprint the
+   * chooser returned, riding the cursor until the click that commits it
+   * (board_editor_control.cpp:1350-1560). Null between placements: the tool
+   * stays armed and the next click opens the chooser again.
+   */
+  const placeFpRef = useRef<{ lib: PcbFootprint; fpid: string } | null>(null);
+  /**
+   * The in-flight footprint compiled at its current cursor position, drawn
+   * like a move overlay — upstream it is a real board item that
+   * `ACTIONS::selectItem` selected and `SetPosition( cursorPos )` moves on
+   * every motion event.
+   */
+  const placeFpSceneRef = useRef<{ at: { x: number; y: number }; scene: BoardScene } | null>(null);
+  /** `SelectFootprintFromLibrary`'s FOOTPRINT_CHOOSER_FRAME is open. */
+  const [fpChooserOpen, setFpChooserOpen] = useState(false);
+  /**
    * Decoded reference-image pixels. A ref, not state: the map is mutated in
    * place and the redraw is what publishes it, so making it state would rebuild
    * the draw options on every decode for no gain.
@@ -2139,6 +2157,11 @@ export function PcbEditor({
     textBoxStartRef.current = null;
     setTableStart(null);
     placeImageRef.current = startPlaceImage();
+    // `evt->IsActivate()` -> `cleanup()`: the footprint on the cursor is
+    // dropped, never committed (board_editor_control.cpp:1447-1461).
+    placeFpRef.current = null;
+    placeFpSceneRef.current = null;
+    setFpChooserOpen(false);
   }, [activeTool]);
   const sceneRef = useRef<BoardScene | null>(null);
   /**
@@ -3491,6 +3514,28 @@ export function PcbEditor({
           ctx.globalAlpha = 0.9;
           ctx.strokeRect(box.minX, box.minY, w, h);
         }
+        ctx.restore();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
+    }
+    // The footprint riding the cursor (`PlaceFootprint`): the real footprint
+    // at its snapped position, painted as the selected item it is upstream.
+    {
+      const pf = placeFpSceneRef.current;
+      if (pf) {
+        ctx.save();
+        drawBoard(
+          ctx,
+          pf.scene,
+          v,
+          visible,
+          canvas.width,
+          canvas.height,
+          selDrawOpts,
+          undefined,
+          true,
+          'selected',
+        );
         ctx.restore();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
@@ -7298,6 +7343,80 @@ export function PcbEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one shot per arming
   }, [activeTool]);
 
+  /**
+   * Compile the riding footprint at `at`, the way every motion event upstream
+   * does `fp->SetPosition( cursorPos ); getView()->Update( fp )`. Skipped when
+   * the cursor has not left the grid point it was already drawn at.
+   */
+  const updatePlaceFpPreview = (at: { x: number; y: number }): void => {
+    const pf = placeFpRef.current;
+    const brd = boardRef.current;
+    if (!pf || !brd) return;
+    const prev = placeFpSceneRef.current;
+    if (prev && prev.at.x === at.x && prev.at.y === at.y) return;
+    const fp = placeLibraryFootprint(pf.lib, { fpid: pf.fpid, at });
+    placeFpSceneRef.current = fp
+      ? { at, scene: buildScene({ ...emptyBoardLike(brd), footprints: [fp] }, sceneFilter()) }
+      : null;
+  };
+
+  /**
+   * `BOARD_EDITOR_CONTROL::PlaceFootprint`'s left-click arm
+   * (board_editor_control.cpp:1466-1526): with nothing on the cursor,
+   * `SelectFootprintFromLibrary()` — the chooser — and with a footprint on it,
+   * `commit.Push( _( "Place Footprint" ) )` after `selectionClear`. Either way
+   * the tool stays armed; `fp = nullptr` is what readies the next placement.
+   */
+  const handlePlaceFootprintClick = (world: { x: number; y: number }): void => {
+    const pf = placeFpRef.current;
+    const brd = boardRef.current;
+    if (!pf) {
+      setFpChooserOpen(true);
+      return;
+    }
+    if (!brd) return;
+    const at = snapToGrid(world);
+    const fp = placeLibraryFootprint(pf.lib, { fpid: pf.fpid, at });
+    if (fp) {
+      commitBoard({ ...brd, footprints: [...brd.footprints, fp] });
+      setSelection(new Set());
+    }
+    placeFpRef.current = null;
+    placeFpSceneRef.current = null;
+    requestDraw();
+  };
+
+  /**
+   * The chooser answered. `loadFootprint( fpid )` then `ClearAllNets` and
+   * `SetPosition( cursorPos )` (:1478-1516) — `placeLibraryFootprint` is that
+   * load-and-place, and it clears the pads' orphaned nets itself. Layer F.Cu,
+   * orientation 0, reference as the library wrote it (REF**): upstream
+   * annotates nothing here.
+   */
+  const onFootprintChosen = (libId: string): void => {
+    setFpChooserOpen(false);
+    void loadFootprint(libId).then((lib) => {
+      if (!lib) return;
+      // The tool may have been switched away while the chooser was open.
+      if (activeToolRef.current !== 'placeFootprint') return;
+      placeFpRef.current = { lib, fpid: libId };
+      updatePlaceFpPreview(snapToGrid(cursorRef.current ?? { x: 0, y: 0 }));
+      requestDraw();
+    });
+  };
+
+  /**
+   * "Prime the pump" (:1406-1417): with `m_Input.immediate_actions` on — the
+   * default — arming the tool posts a synthetic click at (0,0), so the chooser
+   * opens the moment the tool is picked, and `ignorePrimePosition` keeps the
+   * footprint on the real pointer afterwards. With it off, the first click
+   * opens it. The image tool takes the same arm.
+   */
+  useEffect(() => {
+    if (activeTool !== 'placeFootprint') return;
+    if (settings.common.input.immediate_actions) setFpChooserOpen(true);
+  }, [activeTool]);
+
   const handleZoneClick = (world: { x: number; y: number }): void => {
     const brd = boardRef.current;
     if (!brd) return;
@@ -8683,6 +8802,8 @@ export function PcbEditor({
           arcMgrRef.current.addPoint(snapped, false);
         }
       }
+      // `fp->SetPosition( cursorPos )` on every motion event (:1533-1539).
+      if (placeFpRef.current) updatePlaceFpPreview(snapToGrid({ x: wx, y: wy }));
       // Repaint so the crosshair follows even on a plain hover (no pan/drag).
       requestDraw();
     }
@@ -8932,6 +9053,9 @@ export function PcbEditor({
         } else if (activeToolRef.current === 'placeReferenceImage') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleImageClick(w);
+        } else if (activeToolRef.current === 'placeFootprint') {
+          const w = worldAt(e.clientX, e.clientY);
+          if (w) handlePlaceFootprintClick(w);
         } else if (dimensionToolKind(activeToolRef.current)) {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleDimensionClick(w, dimensionToolKind(activeToolRef.current)!);
@@ -9159,6 +9283,13 @@ export function PcbEditor({
           requestDrawRef.current();
         } else if (textBoxStartRef.current) {
           textBoxStartRef.current = null;
+          requestDrawRef.current();
+        } else if (placeFpRef.current) {
+          // `IsCancelInteractive()` with `fp` set is `cleanup()` — the
+          // footprint is reverted and the tool stays on the stack; only a
+          // second Esc pops it (:1436-1446).
+          placeFpRef.current = null;
+          placeFpSceneRef.current = null;
           requestDrawRef.current();
         } else if (placeImageRef.current.step === 'placing') {
           // Esc drops the picture on the cursor but stays in the tool, ready
@@ -11074,6 +11205,13 @@ export function PcbEditor({
           `DialogTextProperties` and not a second, smaller one. It was a
           hand-rolled div with its own colours, its own border radius and two
           bare buttons — a fourth of this editor's colour literals were in it. */}
+      {/* FRAME_FOOTPRINT_CHOOSER, from `PCB_BASE_FRAME::SelectFootprintFromLibrary`
+          (load_select_footprint.cpp:190-224). The same frame the schematic's
+          footprint field opens; a cancel leaves the tool armed and waiting. */}
+      {fpChooserOpen && (
+        <FootprintChooserFrame onOk={onFootprintChosen} onCancel={() => setFpChooserOpen(false)} />
+      )}
+
       {textDialog && (
         <DialogTextProperties
           initial={newTextValues(textDialog)}

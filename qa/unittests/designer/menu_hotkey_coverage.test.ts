@@ -1108,6 +1108,8 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'Home',
     'F5',
     // Place — every tool row carries its own `.DefaultHotkey()`.
+    // `PCB_ACTIONS::placeFootprint` (`pcb_actions.cpp:1464`), with the tool.
+    'A',
     'Ctrl+Shift+X',
     'Ctrl+Shift+Z',
     // `PCB_ACTIONS::drawRuleArea` (`pcb_actions.cpp:344`). It arrived with the

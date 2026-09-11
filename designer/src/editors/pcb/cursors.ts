@@ -60,5 +60,10 @@ export const boardToolCursor = (tool: string, state: BoardCursorState = {}): str
   if (tool === 'drawTable' && state.tableDragging) return kiCursor('MOVING');
   if (tool === 'placeReferenceImage' && state.imagePlacing) return kiCursor('MOVING');
   if (tool === 'localRatsnestTool') return kiCursor('BULLSEYE');
+  // `BOARD_EDITOR_CONTROL::PlaceFootprint`'s `setCursor` is one unconditional
+  // line, `SetCurrentCursor( KICURSOR::PENCIL )` (board_editor_control.cpp:1370),
+  // before and while a footprint rides the pointer alike. This frame's own:
+  // the footprint editor has no such tool.
+  if (tool === 'placeFootprint') return kiCursor('PENCIL');
   return toolCursorCss(tool, 'default');
 };
