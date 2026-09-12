@@ -166,7 +166,9 @@ const UNBUILT: Readonly<Record<string, readonly string[]>> = {
   'drawing sheet top': [],
   'drawing sheet left': [],
   'drawing sheet right': [],
-  '3d viewer top': ['toggleRaytracing', 'showLayersManager'],
+  // `showLayersManager` left this list with 8fc7620e: the Appearance pane
+  // (APPEARANCE_CONTROLS_3D) is built, so the button toggles it.
+  '3d viewer top': ['toggleRaytracing'],
 };
 
 describe('statically greyed toolbar buttons', () => {

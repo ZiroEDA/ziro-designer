@@ -202,7 +202,37 @@ describe('3D Viewer > Realtime Renderer', () => {
 
 describe('the defaults are `eda_3d_viewer_settings.cpp`’s own', () => {
   it('ships every one of them, including the three that are not false', () => {
+    // The layer-visibility half arrived with the Appearance pane (8fc7620e);
+    // each value is the third argument of its PARAM in
+    // eda_3d_viewer_settings.cpp:269-428, and `show_user` is the 45-iteration
+    // loop at :382-386, every one false.
     expect(VIEWER3D_RENDER_DEFAULTS).toEqual({
+      show_board_body: true,
+      show_plated_barrels: true,
+      show_copper_top: true,
+      show_copper_bottom: true,
+      show_silkscreen_top: true,
+      show_silkscreen_bottom: true,
+      show_soldermask_top: true,
+      show_soldermask_bottom: true,
+      show_solderpaste: true,
+      show_adhesive: true,
+      show_comments: true,
+      show_drawings: true,
+      show_eco1: true,
+      show_eco2: true,
+      show_user: Array.from({ length: 45 }, () => false),
+      show_footprints_normal: true,
+      show_footprints_insert: true,
+      show_footprints_virtual: true,
+      show_footprints_not_in_posfile: true,
+      show_footprints_dnp: false,
+      show_fp_references: true,
+      show_fp_values: true,
+      show_fp_text: true,
+      show_navigator: true,
+      opengl_show_off_board_silk: false,
+      use_board_editor_copper_colors: false,
       clip_silk_on_via_annulus: false,
       subtract_mask_from_silk: false,
       show_zones: true,

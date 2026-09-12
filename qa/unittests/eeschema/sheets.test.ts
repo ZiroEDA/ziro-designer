@@ -16,7 +16,7 @@ import {
   sheetName,
 } from '@ziroeda/eeschema/src/project.js';
 import { comparePageNum } from '@ziroeda/eeschema/src/tools/sch_sheet_path.js';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { moveItems } from '@ziroeda/eeschema/src/tools/move.js';
 import { runErc } from '@ziroeda/eeschema/src/connectivity/erc.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
@@ -348,29 +348,44 @@ describe('project hierarchy (SCH_SHEET_LIST equivalent)', () => {
       expect(tree.children.map((c) => `${c.name} ${c.page}`)).toEqual(['A 2', 'B 3']);
     });
 
-    it('the demo itself: cm5_minima loads with PCIe-M2 on page 2', () => {
-      const dir = '/home/akshay/kicad-reference/demos/cm5_minima';
-      const load = (f: string) => readSchematic(parse(readFileSync(`${dir}/${f}`, 'utf8')));
-      const files = ['CM5_MINIMA_3', 'CM5', 'DSI_CSI', 'Ethernet', 'HDMI', 'IO', 'PCIe-M2', 'USB'];
-      const docs = new Map(files.map((f) => [`${f}.kicad_sch`, load(`${f}.kicad_sch`)]));
-      const before = buildSheetTree(docs, 'CM5_MINIMA_3.kicad_sch');
-      expect(before.children.filter((c) => c.page === '7').map((c) => c.name)).toEqual([
-        'USB',
-        'PCIe-M2',
-      ]);
-      const { docs: fixed, repaired } = repairPageNumbersOnLoad(docs, 'CM5_MINIMA_3.kicad_sch');
-      expect(repaired).toBe(true);
-      const tree = buildSheetTree(fixed, 'CM5_MINIMA_3.kicad_sch');
-      expect(tree.children.map((c) => `${c.name} (page ${c.page})`)).toEqual([
-        'PCIe-M2 (page 2)',
-        'CM5 (page 3)',
-        'Ethernet (page 4)',
-        'HDMI (page 5)',
-        'IO (page 6)',
-        'USB (page 7)',
-        'DSI_CSI (page 8)',
-      ]);
-    });
+    // KiCad's own demo, read from the installed reference — absent on CI, so
+    // the test is skipped there rather than failing on a path it cannot see.
+    const CM5_DIR = '/home/akshay/kicad-reference/demos/cm5_minima';
+    it.skipIf(!existsSync(CM5_DIR))(
+      'the demo itself: cm5_minima loads with PCIe-M2 on page 2',
+      () => {
+        const dir = CM5_DIR;
+        const load = (f: string) => readSchematic(parse(readFileSync(`${dir}/${f}`, 'utf8')));
+        const files = [
+          'CM5_MINIMA_3',
+          'CM5',
+          'DSI_CSI',
+          'Ethernet',
+          'HDMI',
+          'IO',
+          'PCIe-M2',
+          'USB',
+        ];
+        const docs = new Map(files.map((f) => [`${f}.kicad_sch`, load(`${f}.kicad_sch`)]));
+        const before = buildSheetTree(docs, 'CM5_MINIMA_3.kicad_sch');
+        expect(before.children.filter((c) => c.page === '7').map((c) => c.name)).toEqual([
+          'USB',
+          'PCIe-M2',
+        ]);
+        const { docs: fixed, repaired } = repairPageNumbersOnLoad(docs, 'CM5_MINIMA_3.kicad_sch');
+        expect(repaired).toBe(true);
+        const tree = buildSheetTree(fixed, 'CM5_MINIMA_3.kicad_sch');
+        expect(tree.children.map((c) => `${c.name} (page ${c.page})`)).toEqual([
+          'PCIe-M2 (page 2)',
+          'CM5 (page 3)',
+          'Ethernet (page 4)',
+          'HDMI (page 5)',
+          'IO (page 6)',
+          'USB (page 7)',
+          'DSI_CSI (page 8)',
+        ]);
+      },
+    );
   });
 
   it('survives a recursive sheet reference', () => {
