@@ -15,12 +15,15 @@ import { usePreviewViewControls, type PreviewView } from './preview_view_control
 import type { InputPrefs } from '../ui/view_controls.js';
 import {
   buildScene,
+  drawAnchors,
   drawBoard,
   pcbGridOptions,
   DEFAULT_DRAW_OPTIONS,
+  PCB_DEFAULT_GRID_IU,
 } from '../editors/pcb/renderBoard.js';
-import { drawGrid } from '../ui/grid_cursor.js';
-import { PCB_BACKGROUND } from '../editors/pcb/pcbTheme.js';
+import { drawCrosshair, drawGrid } from '../ui/grid_cursor.js';
+import { PCB_BACKGROUND, PCB_CURSOR } from '../editors/pcb/pcbTheme.js';
+import { settings } from '../prefs/settings.js';
 import { footprintToBoard, FOOTPRINT_LAYERS } from '../editors/footprint/footprintBoard.js';
 import { loadFootprint } from './footprint_list.js';
 
@@ -78,6 +81,14 @@ export function FootprintPreviewWidget({
   // afterwards, as on any GAL canvas).
   const fpRef = useRef<PcbFootprint | null>(fp);
   fpRef.current = fp;
+  /**
+   * `WX_VIEW_CONTROLS::m_cursorPos`, in world units: where the pointer last
+   * was over the canvas, and (0, 0) — the footprint's anchor — before it has
+   * ever been there, which is why KiCad's chooser opens with the crosshair
+   * sitting on pad 1. It is not cleared on leave; upstream keeps the last
+   * position too.
+   */
+  const cursorRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const viewRef = useRef<PreviewView | null>(null);
 
@@ -141,9 +152,52 @@ export function FootprintPreviewWidget({
       ...DEFAULT_DRAW_OPTIONS,
       drawingSheet: false,
     });
+    // `PCB_PAINTER::draw( const FOOTPRINT*, LAYER_ANCHOR )` — the 5 px cross
+    // in the anchor colour at the footprint origin. The editor runs this pass
+    // after the board; the preview never did, so the anchor KiCad's chooser
+    // shows on pad 1 was missing here.
+    drawAnchors(ctx, scene, view, ALL_LAYERS, w, h, DEFAULT_DRAW_OPTIONS, 'none', dpr);
+    // `blitCursor`: this panel runs no tool, so `m_isCursorEnabled` is never
+    // set and the crosshair is there only through `m_forceDisplayCursor` —
+    // "Always show crosshairs", `window.cursor.always_show_cursor`, default
+    // TRUE (app_settings.cpp:564-565) — at `GetCursorPosition()`, the pointer
+    // snapped to the panel's grid (`m_snappingEnabled` is constructed true).
+    const cur = cursorRef.current;
+    const g = PCB_DEFAULT_GRID_IU;
+    const snapped = { x: Math.round(cur.x / g) * g, y: Math.round(cur.y / g) * g };
+    const cursorPrefs = settings.pcbnew.window.cursor;
+    drawCrosshair(
+      ctx,
+      { x: snapped.x * view.scale + view.tx, y: snapped.y * view.scale + view.ty },
+      w,
+      h,
+      {
+        mode: cursorPrefs.crosshair,
+        color: PCB_CURSOR,
+        toolWantsCursor: false,
+        alwaysShow: cursorPrefs.always_show_cursor,
+        devicePixelRatio: dpr,
+      },
+    );
   }, []);
 
   const viewCtl = usePreviewViewControls(canvasRef, draw, inputPrefs, viewRef);
+
+  /** `onMotion` — `m_cursorPos = m_view->ToWorld( event position )`. */
+  const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>): void => {
+    const canvas = canvasRef.current;
+    const view = viewRef.current;
+    if (canvas && view) {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      cursorRef.current = {
+        x: ((e.clientX - rect.left) * dpr - view.tx) / view.scale,
+        y: ((e.clientY - rect.top) * dpr - view.ty) / view.scale,
+      };
+      draw();
+    }
+    viewCtl.handlers.onPointerMove(e);
+  };
 
   // A newly displayed footprint refits, and so does a resize (onSize).
   // biome-ignore lint/correctness/useExhaustiveDependencies: fp triggers the refit
@@ -168,7 +222,7 @@ export function FootprintPreviewWidget({
           className="ze-fp-canvas"
           onWheel={viewCtl.handlers.onWheel}
           onPointerDown={viewCtl.handlers.onPointerDown}
-          onPointerMove={viewCtl.handlers.onPointerMove}
+          onPointerMove={onPointerMove}
           onPointerUp={viewCtl.handlers.onPointerUp}
           onPointerCancel={viewCtl.handlers.onPointerUp}
           onContextMenu={viewCtl.handlers.onContextMenu}

@@ -29,8 +29,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { act, cleanup, render } from '@testing-library/react';
 import { FootprintPreviewWidget } from '@ziroeda/designer/src/widgets/footprint_preview_widget.js';
 import { parseFootprint } from '@ziroeda/designer/src/editors/footprint/footprintBoard.js';
-import { layerColor, PCB_GRID } from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
+import {
+  layerColor,
+  PCB_CURSOR,
+  PCB_GRID,
+  PCB_SPECIAL,
+} from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
 import { netnameColorFor } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+import { dimmedCursorColor } from '@ziroeda/designer/src/ui/grid_cursor.js';
 
 afterEach(cleanup);
 
@@ -151,12 +157,15 @@ const ctx = (() => {
     translate: () => rec.calls.push('translate'),
     scale: () => rec.calls.push('scale'),
     save: () => rec.calls.push('save'),
+    // `drawCrosshair` clips to the canvas before stroking.
+    rect: () => {},
+    clip: () => {},
+    setLineDash: () => {},
     restore: () => rec.calls.push('restore'),
     beginPath: () => {},
     moveTo: () => {},
     lineTo: () => {},
     closePath: () => {},
-    setLineDash: () => {},
     strokeRect: () => {},
     drawImage: () => {},
     clearRect: () => {},
@@ -177,7 +186,7 @@ const ctx = (() => {
 })();
 
 /** Paint the widget once against that context and report what happened. */
-async function paint(): Promise<{ rec: Recorder; gridFill: FakePath | null }> {
+async function paint(footprintText = DIODE): Promise<{ rec: Recorder; gridFill: FakePath | null }> {
   rec.calls.length = 0;
   rec.transforms.length = 0;
   rec.fills.length = 0;
@@ -214,7 +223,7 @@ async function paint(): Promise<{ rec: Recorder; gridFill: FakePath | null }> {
     left: 0,
   });
 
-  const fp = parseFootprint(DIODE);
+  const fp = parseFootprint(footprintText);
   try {
     await act(async () => {
       render(
@@ -327,5 +336,30 @@ describe('the preview paints its pads the way pcbnew does', () => {
     return paint().then(({ rec }) => {
       expect(rec.strokeStyles).not.toContain(layerColor('F.Cu'));
     });
+  });
+});
+
+describe('the preview draws the two crosses KiCad\u2019s does', () => {
+  it('the footprint anchor, `draw( FOOTPRINT*, LAYER_ANCHOR )`, in the anchor colour', async () => {
+    // A 5 px cross at the footprint origin, `m_pcbSettings.GetColor( fp,
+    // LAYER_ANCHOR )` (pcb_painter.cpp:2800-2818). The editor's per-frame pass
+    // draws it; this pane never called that pass, so a side-by-side against
+    // the real chooser showed pad 1 without its pink cross.
+    //
+    // Painted WITHOUT the diode's courtyard: F.CrtYd is the same magenta as
+    // LAYER_ANCHOR in the default theme, so with the courtyard on the pane a
+    // build that never draws the anchor still strokes that colour once.
+    const { rec } = await paint(DIODE.replace(/\(fp_rect[^\n]*\n[^\n]*F\.CrtYd"\)\)\n/, ''));
+    expect(rec.strokeStyles).toContain(PCB_SPECIAL.anchor);
+  });
+
+  it('the crosshair, through "Always show crosshairs", before the mouse ever arrives', async () => {
+    // This panel runs no tool, so `m_isCursorEnabled` is never set and the
+    // cursor is there only via `m_forceDisplayCursor` — `always_show_cursor`,
+    // default true (app_settings.cpp:564-565). A forced-only cursor is drawn
+    // dimmed (`cursorAlphaFactor`), and it sits at `m_cursorPos` = (0, 0)
+    // until the first motion event.
+    const { rec } = await paint();
+    expect(rec.strokeStyles).toContain(dimmedCursorColor(PCB_CURSOR, 0.5));
   });
 });
