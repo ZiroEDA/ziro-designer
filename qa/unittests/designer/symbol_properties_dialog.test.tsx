@@ -37,6 +37,7 @@ import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import type { LibSymbol, SchSymbol, SymbolEdit } from '@ziroeda/eeschema';
 import { SymbolPropertiesDialog } from '@ziroeda/designer/src/editors/schematic/components/SymbolPropertiesDialog.js';
+import { BUNDLED_FAMILIES } from '@ziroeda/designer/src/font/outline_fonts.js';
 import {
   PIN_SHAPE_BITMAPS,
   PIN_TYPE_BITMAPS,
@@ -915,6 +916,48 @@ describe('the Font cell names the DEFAULT font, not the stroke font', () => {
   it('and a field that names a face reads that face', () => {
     open(FACED);
     expect(columnText(showColumn('Font'))[0]).toBe('Times New Roman');
+  });
+
+  /** Open the Font cell of the first row and hand back its editor. */
+  function editFont(src: string): { edits: SymbolEdit[]; select: HTMLSelectElement } {
+    const { edits } = open(src);
+    const cell = fieldRows()[0]!.children[showColumn('Font')]!;
+    fireEvent.mouseDown(cell);
+    fireEvent.doubleClick(cell);
+    return { edits, select: cell.querySelector('select')! };
+  }
+
+  it('the editor is GRID_CELL_COMBOBOX( fonts ): Default, KiCad, then the installed faces sorted', () => {
+    // `fonts.Sort(); fonts.Insert( KICAD_FONT_NAME, 0 ); fonts.Insert(
+    // DEFAULT_FONT_NAME, 0 )` (fields_grid_table.cpp:407-411). The installed
+    // list is the catalogue the renderer can draw with, in codepoint order.
+    const { select } = editFont(SHEET);
+    const items = Array.from(select.options).map((o) => o.text);
+    expect(items.slice(0, 2)).toStrictEqual(['Default Font', 'KiCad Font']);
+    expect(items.slice(2)).toStrictEqual([...BUNDLED_FAMILIES]);
+    expect(items).toContain('Liberation Sans');
+    expect(select.value).toBe('Default Font');
+  });
+
+  it('choosing a face writes it to the field, and Default Font writes none', () => {
+    // `SetValue` FDC_FONT (:1011-1018): DEFAULT_FONT_NAME → `SetFont( nullptr )`,
+    // anything else → `FONT::GetFont( aValue, … )`, whose name the file keeps.
+    const a = editFont(SHEET);
+    fireEvent.change(a.select, { target: { value: 'Liberation Serif' } });
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(a.edits[0]?.fields[0]?.effects?.face).toBe('Liberation Serif');
+    cleanup();
+    const b = editFont(FACED);
+    expect(b.select.value).toBe('Times New Roman');
+    fireEvent.change(b.select, { target: { value: 'Default Font' } });
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(b.edits[0]?.fields[0]?.effects?.face).toBeUndefined();
+  });
+
+  it('a face the list lacks is still offered, as the wxComboBox keeps its text', () => {
+    const { select } = editFont(FACED);
+    expect(Array.from(select.options).map((o) => o.text)).toContain('Times New Roman');
+    expect(select.value).toBe('Times New Roman');
   });
 });
 

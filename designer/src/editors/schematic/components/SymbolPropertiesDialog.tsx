@@ -55,7 +55,12 @@ import {
 } from '@ziroeda/eeschema';
 import { PIN_SHAPE_BITMAPS, PIN_TYPE_BITMAPS } from '../pin_icons.js';
 import { bitmapUrl } from '../../../ui/toolbarIcons.js';
-import { DEFAULT_FONT_NAME, measureText } from '@ziroeda/common/src/font/stroke_font.js';
+import {
+  DEFAULT_FONT_NAME,
+  KICAD_FONT_NAME,
+  measureText,
+} from '@ziroeda/common/src/font/stroke_font.js';
+import { BUNDLED_FAMILIES } from '../../../font/outline_fonts.js';
 import { parseUnitValueDouble, stringFromValue, type EdaUnits } from '../../../ui/unit_binder.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 import { ColorSwatch } from '../../../ui/ColorSwatch.js';
@@ -117,9 +122,9 @@ import { color4dToItemColor, itemColorToColor4d } from '../dialogs/item_color.js
  *    Upstream never disables that button — it only *hides* it for a power
  *    symbol (:375) — so ours is the one control that is greyed where KiCad's
  *    is live. It carries the reason as its tooltip;
- *  - the FDC_FONT list. `Fontconfig()->ListFonts` has no browser counterpart
- *    without the Local Font Access prompt, so the cell shows the face name and
- *    offers no list. The name it shows is upstream's, "Default Font";
+ *  - the FDC_FONT list is `Fontconfig()->ListFonts`, the machine's fonts,
+ *    which a browser cannot enumerate; the cell offers the catalogue the
+ *    renderer can actually draw with (`BUNDLED_FAMILIES`) instead;
  *  - wxMINIMIZE_BOX / wxMAXIMIZE_BOX from the base file's style flags
  *    (dialog_symbol_properties_base.h:110). Those are decorations the desktop's
  *    window manager draws on a real top-level wxDialog; a DOM modal is not a
@@ -206,6 +211,16 @@ const choiceOptions = (col: number): JSX.Element[] =>
       {label}
     </option>
   ));
+
+/**
+ * `fonts.Insert( KICAD_FONT_NAME, 0 ); fonts.Insert( DEFAULT_FONT_NAME, 0 )`
+ * over the sorted installed list (fields_grid_table.cpp:407-411).
+ */
+const FONT_CELL_CHOICES: readonly string[] = [
+  DEFAULT_FONT_NAME,
+  KICAD_FONT_NAME,
+  ...BUNDLED_FAMILIES,
+];
 
 /** The grid cursor: `SetGridCursor( row, col )`, and whether its editor is up. */
 interface Cursor {
@@ -344,7 +359,7 @@ export function SymbolPropertiesDialog({
     cursor.editing && cursor.row === viewRow && cursor.col === colIndex;
 
   const cellIsEditable = (row: Row, col: { index: number; kind: FieldsGridCellKind }): boolean => {
-    if (col.kind !== 'text' && col.kind !== 'choice') return false;
+    if (col.kind !== 'text' && col.kind !== 'choice' && col.kind !== 'font') return false;
     if (col.index === 0) return !isNameReadOnly(row);
     if (col.index === 1) return !isValueReadOnly(row, isPower);
     return true;
@@ -710,7 +725,7 @@ export function SymbolPropertiesDialog({
         ) : (
           <span className="ze-grid-text">{valueStr(row.at.y, units)}</span>
         );
-      case 12:
+      case 12: {
         // FDC_FONT. `field.GetFont() ? GetName() : DEFAULT_FONT_NAME`
         // (fields_grid_table.cpp:838-841), and DEFAULT_FONT_NAME is
         // `_( "Default Font" )` (:60) — NOT "KiCad Font", which is a face a
@@ -718,10 +733,39 @@ export function SymbolPropertiesDialog({
         // separate entry (:410-411). A field with no `(face …)` reads "Default
         // Font" in KiCad even though the stroke font is what draws it.
         //
-        // The combo behind the cell is `Fontconfig()->ListFonts`, which has no
-        // browser counterpart, so the cell is text here rather than a list that
-        // could not be honoured.
-        return <span className="ze-grid-text">{row.effects.face ?? DEFAULT_FONT_NAME}</span>;
+        // The editor is a `GRID_CELL_COMBOBOX( fonts )` (:413-414): Default
+        // Font, KiCad Font, then `Fontconfig()->ListFonts` sorted — for us the
+        // catalogue `fontconfig.ts` serves, the same list `FONT_CHOICE`
+        // offers. `SetValue` (:1011-1018) stores DEFAULT_FONT_NAME as no font,
+        // and any other name as that face. A wxComboBox holds whatever text
+        // the file gave it, so a face the list lacks stays selectable as-is.
+        const face = row.effects.face ?? DEFAULT_FONT_NAME;
+        const fonts = FONT_CELL_CHOICES.includes(face)
+          ? FONT_CELL_CHOICES
+          : [...FONT_CELL_CHOICES, face];
+        return editing ? (
+          <select
+            // biome-ignore lint/a11y/noAutofocus: EnableCellEditControl( true )
+            autoFocus
+            className="ze-grid-input ze-bare"
+            value={face}
+            onBlur={() => setCursor((c) => ({ ...c, editing: false }))}
+            onChange={(e) => {
+              const v = e.target.value;
+              patchEffects(viewRow, { face: v === DEFAULT_FONT_NAME ? undefined : v });
+              setCursor((c) => ({ ...c, editing: false }));
+            }}
+          >
+            {fonts.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span className="ze-grid-text">{face}</span>
+        );
+      }
       case 13:
         // FDC_COLOR: GRID_CELL_COLOR_RENDERER, a swatch at all times. It can
         // express "unspecified" — MakeBitmap paints a checkerboard for it —
