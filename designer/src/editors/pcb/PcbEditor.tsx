@@ -251,7 +251,6 @@ import {
   hasUnlockedItems,
 } from '@ziroeda/pcbnew/src/pcb_selection_conditions.js';
 import { Icon } from '../../ui/icons.js';
-import { posturePath, routedPath as routeDecision } from './route_tool.js';
 import { applyPnsChanges, PnsSession } from '@ziroeda/pcbnew/src/router/pns_session.js';
 import { PnsRouterMode } from '@ziroeda/pcbnew/src/router/pns_router.js';
 import type { PnsDesignSettings } from '@ziroeda/pcbnew/src/router/pns_board_iface.js';
@@ -1525,11 +1524,7 @@ export function PcbEditor({
   const cursorSnapRef =
     useRef<(w: { x: number; y: number }) => { x: number; y: number }>(snapToGrid);
   cursorSnapRef.current = (w) => {
-    if (
-      activeToolRef.current === 'routeSingleTrack' ||
-      activeToolRef.current === 'routeDiffPair' ||
-      routeRef.current
-    )
+    if (activeToolRef.current === 'routeSingleTrack' || activeToolRef.current === 'routeDiffPair')
       return routeSnapRef.current(w);
 
     // The plain selection tool does not snap to items on hover in pcbnew:
@@ -1817,14 +1812,6 @@ export function PcbEditor({
     polyMgrRef.current?.setLeaderMode(mode);
     zoneMgrRef.current?.setLeaderMode(mode);
   };
-  // In-flight route (ROUTER_TOOL): net, copper layer, last committed point,
-  // and the net class routing dimensions picked up at start.
-  const routeRef = useRef<{
-    net: number;
-    layer: string;
-    last: { x: number; y: number };
-    dims: ClassDims;
-  } | null>(null);
   // Pending "Add Text" dialog: where the text will be placed.
   // Page Settings / Print dialogs (DIALOG_PAGES_SETTINGS / DIALOG_PRINT_PCBNEW).
   // The tab title (PCB_EDIT_FRAME::UpdateTitle): the board file, its project,
@@ -2148,15 +2135,15 @@ export function PcbEditor({
   /** `SelectFootprintFromLibrary`'s FOOTPRINT_CHOOSER_FRAME is open. */
   const [fpChooserOpen, setFpChooserOpen] = useState(false);
   /**
-   * `ROUTER_TOOL` in `PNS_MODE_ROUTE_DIFF_PAIR`: the PNS session that owns the
-   * pair being routed, from the click that started it to the fix that ends
-   * it. Null while the tool is armed and idle. The single-track tool is still
-   * the substitute in `route_tool.ts`; this is the first tool driven by the
-   * real router.
+   * `ROUTER_TOOL`'s router: the PNS session that owns the route in flight,
+   * single track or differential pair by `PNS::ROUTER_MODE`, from the click
+   * that started it to the fix that ends it. Null while a routing tool is
+   * armed and idle. `route_tool.ts`, the 117-line substitute the single-track
+   * tool ran on, is gone: both tools are this loop.
    */
-  const dpSessionRef = useRef<PnsSession | null>(null);
+  const pnsSessionRef = useRef<PnsSession | null>(null);
   /** `ROUTER_PREVIEW_ITEM`s of the head, compiled for the overlay. */
-  const dpPreviewSceneRef = useRef<BoardScene | null>(null);
+  const pnsPreviewSceneRef = useRef<BoardScene | null>(null);
   /**
    * `frame()->ShowInfoBarError( m_router->FailureReason(), true )`
    * (router_tool.cpp:1436, :1600) — why the router refused, in the infobar
@@ -2172,7 +2159,6 @@ export function PcbEditor({
   // Switching tools abandons the in-flight shape/route/zone/ruler/dimension.
   useEffect(() => {
     drawingRef.current = [];
-    routeRef.current = null;
     zoneRef.current = null;
     // `cleanup()`'s `polyGeomMgr.Reset()` (drawing_tool.cpp:3494).
     polyMgrRef.current?.reset();
@@ -2188,9 +2174,9 @@ export function PcbEditor({
     placeImageRef.current = startPlaceImage();
     // `ROUTER_TOOL::MainLoop`'s `IsActivate()` arm -> `StopRouting`: the
     // pair in flight is thrown away, the board untouched.
-    dpSessionRef.current?.abort();
-    dpSessionRef.current = null;
-    dpPreviewSceneRef.current = null;
+    pnsSessionRef.current?.abort();
+    pnsSessionRef.current = null;
+    pnsPreviewSceneRef.current = null;
     // `evt->IsActivate()` -> `cleanup()`: the footprint on the cursor is
     // dropped, never committed (board_editor_control.cpp:1447-1461).
     placeFpRef.current = null;
@@ -3455,30 +3441,6 @@ export function PcbEditor({
         }
       }
     }
-    // In-flight route preview (ROUTER_TOOL): the 45° two-segment path from the
-    // last committed point to the snapped cursor, at the net class track width.
-    {
-      const r = routeRef.current;
-      const cur0 = cursorRef.current;
-      if (r && cur0) {
-        // The same point the crosshair is drawn at, so the preview ends under
-        // it rather than beside it.
-        const end = cursorSnapRef.current(cur0);
-        ctx.save();
-        ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
-        ctx.strokeStyle = layerColor(r.layer);
-        ctx.lineWidth = r.dims.trackWidth;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.globalAlpha = 0.9;
-        ctx.beginPath();
-        ctx.moveTo(r.last.x, r.last.y);
-        for (const p of routedPath(r.last, end)) ctx.lineTo(p.x, p.y);
-        ctx.stroke();
-        ctx.restore();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-      }
-    }
     // Table preview: the grid this drag would produce, drawn from the engine's
     // own cells so the shape shown is the shape committed.
     {
@@ -3557,7 +3519,7 @@ export function PcbEditor({
     // ROUTER_PREVIEW_ITEM's constructor gives every preview (m_color.a = 0.8),
     // in the layer's own colour — the same treatment the track drag gets.
     {
-      const head = dpPreviewSceneRef.current;
+      const head = pnsPreviewSceneRef.current;
       if (head) {
         ctx.save();
         ctx.globalAlpha = 0.8;
@@ -6872,29 +6834,6 @@ export function PcbEditor({
   // `copperAt` exists now, so the crosshair can reach it (see `routeSnapRef`).
   routeSnapRef.current = (w) => copperAt(w)?.snap ?? snapToGrid(w);
 
-  /**
-   * The route from `from` to `to`, bent around anything in the way.
-   *
-   * The decision lives in `route_tool.ts` so it can be tested; this is the
-   * component's view of the world handed to it.
-   */
-  const routedPath = (
-    from: { x: number; y: number },
-    to: { x: number; y: number },
-  ): { x: number; y: number }[] => {
-    const brd = boardRef.current;
-    const r = routeRef.current;
-    if (!brd || !r) return posturePath(from, to);
-
-    return routeDecision(from, to, {
-      board: brd,
-      net: r.net,
-      layer: r.layer,
-      width: r.dims.trackWidth,
-      clearance: netclassInfo.classClearance.get(netClassOf.get(r.net) ?? 'Default') ?? 0,
-    });
-  };
-
   // Routing dimensions for a net: its net class dims, overridden by the
   // TOP_AUX track-width / via-size selections when they're not "use netclass"
   // (BOARD_DESIGN_SETTINGS::GetCurrentTrackWidth / GetCurrentViaSize).
@@ -6933,82 +6872,30 @@ export function PcbEditor({
     };
   };
 
-  // One left click of the Route Single Track tool.
-  const handleRouteClick = (world: { x: number; y: number }): void => {
-    const brd = boardRef.current;
-    if (!brd) return;
-    const r = routeRef.current;
-    if (!r) {
-      // Start: pick the net (and snap) from the copper item under the cursor;
-      // route on the active copper layer.
-      const c = copperAt(world);
-      const layer = /\.Cu$/.test(activeLayer) ? activeLayer : 'F.Cu';
-      if (layer !== activeLayer) setActiveLayer(layer);
-      routeRef.current = {
-        net: c?.net ?? 0,
-        layer,
-        last: c?.snap ?? snapToGrid(world),
-        dims: routeDims(c?.net ?? 0, c, layer, world),
-      };
-    } else {
-      const target = copperAt(world);
-      const landed = target !== null && target.net === r.net && r.net > 0;
-      const end = landed ? target.snap : snapToGrid(world);
-      let b = brd;
-      let prev = r.last;
-      for (const p of routedPath(r.last, end)) {
-        if (p.x !== prev.x || p.y !== prev.y) {
-          b = addBoardTrack(b, {
-            start: prev,
-            end: p,
-            width: r.dims.trackWidth,
-            layer: r.layer,
-            net: r.net,
-          }).board;
-          prev = p;
-        }
-      }
-      if (b !== brd) commitBoard(b);
-      // Landing on a same-net item finishes the route; otherwise keep going.
-      routeRef.current = landed ? null : { ...r, last: end };
-    }
-    requestDraw();
-  };
-
-  // 'V' while routing: commit up to the cursor, drop a via there, and continue
-  // on the other copper layer (ROUTER_TOOL::onViaCommand).
+  /**
+   * `ROUTER_TOOL::onViaCommand` — 'V' while routing. With no via on the head,
+   * `handleLayerSwitch( aEvent, aForceVia = true )`: the target is the other
+   * side of the layer pair (F.Cu/B.Cu, the frame's `m_Route_Layer_TOP/BOTTOM`),
+   * the via is `GetCurrentViaSize()` / `GetCurrentViaDrill()` — the top
+   * toolbar's Via selector, else the netclass — and the head gains a via. With
+   * one already there, `ToggleViaPlacement` takes it off again. The layer
+   * itself switches only when the via is FIXED (`switchLayerOnViaPlacement`),
+   * which the session does inside `fix`.
+   */
   const routeViaSwitch = (): void => {
-    const r = routeRef.current;
-    const brd = boardRef.current;
+    const session = pnsSessionRef.current;
     const cur = cursorRef.current;
-    if (!r || !brd || !cur) return;
-    const end = snapToGrid(cur);
-    let b = brd;
-    let prev = r.last;
-    for (const p of routedPath(r.last, end)) {
-      if (p.x !== prev.x || p.y !== prev.y) {
-        b = addBoardTrack(b, {
-          start: prev,
-          end: p,
-          width: r.dims.trackWidth,
-          layer: r.layer,
-          net: r.net,
-        }).board;
-        prev = p;
-      }
+    if (!session || !cur) return;
+    const at = routeSnapRef.current(cur);
+    if (session.placingVia) {
+      session.cancelVia(at);
+    } else {
+      const current = session.currentBoardLayer();
+      const target = current === 'F.Cu' ? 'B.Cu' : 'F.Cu';
+      const dims = routeDims(0);
+      session.placeVia(target, dims.viaDiameter, dims.viaDrill, at);
     }
-    b = addBoardVia(b, {
-      at: end,
-      size: r.dims.viaDiameter,
-      drill: r.dims.viaDrill,
-      layers: ['F.Cu', 'B.Cu'],
-      kind: 'through',
-      net: r.net,
-    }).board;
-    commitBoard(b);
-    const other = r.layer === 'F.Cu' ? 'B.Cu' : 'F.Cu';
-    setActiveLayer(other);
-    routeRef.current = { ...r, layer: other, last: end };
+    updatePnsPreview();
     requestDraw();
   };
   const routeViaSwitchRef = useRef(routeViaSwitch);
@@ -7535,11 +7422,11 @@ export function PcbEditor({
    * last `EraseView`, compiled the way a move overlay is so the draw pass can
    * paint it with the layer colours.
    */
-  const updateDiffPairPreview = (): void => {
-    const session = dpSessionRef.current;
+  const updatePnsPreview = (): void => {
+    const session = pnsSessionRef.current;
     const brd = boardRef.current;
     if (!session || !brd) {
-      dpPreviewSceneRef.current = null;
+      pnsPreviewSceneRef.current = null;
       return;
     }
     let head: Board = emptyBoardLike(brd);
@@ -7563,27 +7450,28 @@ export function PcbEditor({
         }).board;
       }
     }
-    dpPreviewSceneRef.current = buildScene(head, sceneFilter());
+    pnsPreviewSceneRef.current = buildScene(head, sceneFilter());
   };
 
   /**
-   * `ROUTER_TOOL::performRouting` in `PNS_MODE_ROUTE_DIFF_PAIR`, one click at
-   * a time (router_tool.cpp:1474-1650). The first click is
+   * `ROUTER_TOOL::performRouting`, one click at a time
+   * (router_tool.cpp:1474-1650), in whichever `PNS::ROUTER_MODE` the tool was
+   * armed with. The first click is
    * `prepareInteractive` + `StartRouting`; a refusal goes to the infobar as
    * `m_router->FailureReason()`. Each later click is `FixRoute`: false is
    * "fixed, keep routing", true — the head snapped onto the target pair — is
    * `finishInteractive`, and `CommitRouting` hands the segments over.
    */
-  const handleDiffPairClick = (world: { x: number; y: number }): void => {
+  const handlePnsRouteClick = (world: { x: number; y: number }, mode: PnsRouterMode): void => {
     const brd = boardRef.current;
     if (!brd) return;
     const at = routeSnapRef.current(world);
-    const session = dpSessionRef.current;
+    const session = pnsSessionRef.current;
     if (!session) {
       const layer = /\.Cu$/.test(activeLayer) ? activeLayer : 'F.Cu';
       if (layer !== activeLayer) setActiveLayer(layer);
       const next = new PnsSession(brd, {
-        mode: PnsRouterMode.PNS_MODE_ROUTE_DIFF_PAIR,
+        mode,
         designSettings: pnsDesignSettings(),
         isLayerVisible: (l) => visible.has(l),
       });
@@ -7593,9 +7481,9 @@ export function PcbEditor({
         return;
       }
       setRouterError(null);
-      dpSessionRef.current = next;
+      pnsSessionRef.current = next;
       next.move(at);
-      updateDiffPairPreview();
+      updatePnsPreview();
       requestDraw();
       return;
     }
@@ -7603,12 +7491,16 @@ export function PcbEditor({
     const finished = session.fix(at);
     if (finished) {
       const result = session.commit();
-      dpSessionRef.current = null;
-      dpPreviewSceneRef.current = null;
+      pnsSessionRef.current = null;
+      pnsPreviewSceneRef.current = null;
       if (result.ok) commitBoard(applyPnsChanges(brd, result.changes));
       else if (result.reason) setRouterError(result.reason);
     } else {
-      updateDiffPairPreview();
+      // `syncRouterAndFrameLayer()` after every fix: the frame's active layer
+      // follows the router's, which a fixed via has just changed.
+      const layer = session.currentBoardLayer();
+      if (layer !== activeLayerRef.current) setActiveLayer(layer);
+      updatePnsPreview();
     }
     requestDraw();
   };
@@ -9002,9 +8894,9 @@ export function PcbEditor({
       if (placeFpRef.current) updatePlaceFpPreview(snapToGrid({ x: wx, y: wy }));
       // `ROUTER_TOOL::performRouting`'s motion arm: `updateEndItem( *evt )`
       // then `m_router->Move( m_endSnapPoint, m_endItem )`.
-      if (dpSessionRef.current) {
-        dpSessionRef.current.move(routeSnapRef.current({ x: wx, y: wy }));
-        updateDiffPairPreview();
+      if (pnsSessionRef.current) {
+        pnsSessionRef.current.move(routeSnapRef.current({ x: wx, y: wy }));
+        updatePnsPreview();
       }
       // Repaint so the crosshair follows even on a plain hover (no pan/drag).
       requestDraw();
@@ -9239,10 +9131,10 @@ export function PcbEditor({
           if (w) handleDrawClick(w);
         } else if (activeToolRef.current === 'routeSingleTrack') {
           const w = worldAt(e.clientX, e.clientY);
-          if (w) handleRouteClick(w);
+          if (w) handlePnsRouteClick(w, PnsRouterMode.PNS_MODE_ROUTE_SINGLE);
         } else if (activeToolRef.current === 'routeDiffPair') {
           const w = worldAt(e.clientX, e.clientY);
-          if (w) handleDiffPairClick(w);
+          if (w) handlePnsRouteClick(w, PnsRouterMode.PNS_MODE_ROUTE_DIFF_PAIR);
         } else if (activeToolRef.current === 'drawVia') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleViaClick(w);
@@ -9360,7 +9252,7 @@ export function PcbEditor({
       // V while routing: place a via and switch copper layer (ROUTER_TOOL).
       // The clearest context action in the frame - it claims V only while
       // there is a route in progress, and otherwise leaves the key alone.
-      if (!mod && (e.key === 'v' || e.key === 'V') && routeRef.current) {
+      if (!mod && (e.key === 'v' || e.key === 'V') && pnsSessionRef.current) {
         e.preventDefault();
         routeViaSwitchRef.current();
         return;
@@ -9479,23 +9371,19 @@ export function PcbEditor({
           hoverRef.current = null;
           hoverSceneRef.current = null;
           setDisambig(null);
-        } else if (routeRef.current) {
-          // Esc ends the route in progress; committed segments stay.
-          routeRef.current = null;
-          requestDrawRef.current();
         } else if (tableStartRef.current) {
           setTableStart(null);
           requestDrawRef.current();
         } else if (textBoxStartRef.current) {
           textBoxStartRef.current = null;
           requestDrawRef.current();
-        } else if (dpSessionRef.current) {
+        } else if (pnsSessionRef.current) {
           // `evt->IsCancelInteractive()` inside `performRouting`: `StopRouting`
           // and `break` out of the routing loop, back to the tool's own loop
           // (router_tool.cpp:1590-1595) — the tool stays armed.
-          dpSessionRef.current.abort();
-          dpSessionRef.current = null;
-          dpPreviewSceneRef.current = null;
+          pnsSessionRef.current.abort();
+          pnsSessionRef.current = null;
+          pnsPreviewSceneRef.current = null;
           requestDrawRef.current();
         } else if (placeFpRef.current) {
           // `IsCancelInteractive()` with `fp` set is `cleanup()` — the
@@ -10625,7 +10513,7 @@ export function PcbEditor({
   // Field 7 (DisplayConstraintsMsg): the line-constraint hint shown while a
   // line/track drawing tool is active (COMMON_TOOLS line mode).
   const constraintMsg =
-    routeRef.current || DRAW_SHAPE_TOOLS[activeTool]
+    pnsSessionRef.current || DRAW_SHAPE_TOOLS[activeTool]
       ? toggles.has('lineMode45')
         ? 'Constrain to H, V, 45'
         : toggles.has('lineMode90')
