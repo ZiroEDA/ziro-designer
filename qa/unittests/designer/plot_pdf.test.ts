@@ -294,7 +294,7 @@ describe('the page carries what each item s Plot() adds beside its geometry', ()
     return Array.from(bytes, (b) => String.fromCharCode(b)).join('');
   };
   const annots = (text: string): string[] =>
-    text.match(/\/Type \/Annot\n\/Subtype \/Link\n[^]*?\nendobj/g) ?? [];
+    text.match(/\/Type \/Annot\n\/Subtype \/Link\n[\s\S]*?\nendobj/g) ?? [];
 
   it('with hierarchical links: the sheet, its pin and the child s label are /Dest links', () => {
     const text = plot({ pdfHierarchicalLinks: true });
