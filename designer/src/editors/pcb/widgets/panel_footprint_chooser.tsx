@@ -50,6 +50,15 @@ const V_SASH_GRAVITY = 0.5;
 /** `m_hsplitter->SetSashGravity( 0.8 )` — tree over preview. [data] */
 const H_SASH_GRAVITY = 0.8;
 
+/**
+ * The default history, ONE array for the life of the module. A `= []` default
+ * parameter is a fresh array on every render, and the adapter is memoised on
+ * `history` — so every render rebuilt the tree, the rebuild bumped the
+ * regenerate nonce, the nonce re-rendered, and the panel never settled. The
+ * chooser test spun at 100% CPU for as long as it was left.
+ */
+const NO_HISTORY: readonly string[] = [];
+
 export interface PanelFootprintChooserProps {
   /** The shipped footprint index; the frame loads it and hands it over. */
   index: readonly FpIndexEntry[];
@@ -100,7 +109,7 @@ export function PanelFootprintChooser({
   filter,
   filters,
   preselect,
-  history = [],
+  history = NO_HISTORY,
   showFpView = true,
   preview3D,
   showDetails = true,
