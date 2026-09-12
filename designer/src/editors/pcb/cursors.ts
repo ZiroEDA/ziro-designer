@@ -65,5 +65,12 @@ export const boardToolCursor = (tool: string, state: BoardCursorState = {}): str
   // before and while a footprint rides the pointer alike. This frame's own:
   // the footprint editor has no such tool.
   if (tool === 'placeFootprint') return kiCursor('PENCIL');
+  // `ROUTER_TOOL::MainLoop`'s `setCursor` (router_tool.cpp:1950-1953) is one
+  // line, `SetCurrentCursor( KICURSOR::PENCIL )`, run on arming and on every
+  // event — idle and mid-route alike, single track and differential pair
+  // alike (both are this loop with a different PNS::ROUTER_MODE).
+  // `finishInteractive`'s ARROW (:1465) lasts until the loop's next event.
+  // Ours showed the plain arrow.
+  if (tool === 'routeSingleTrack' || tool === 'routeDiffPair') return kiCursor('PENCIL');
   return toolCursorCss(tool, 'default');
 };

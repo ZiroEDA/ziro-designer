@@ -100,6 +100,10 @@ describe('the other shared actions', () => {
     // check above and change nothing on screen.
     expect(boardToolCursor('placeText')).toBe(kiCursor('TEXT'));
     expect(boardToolCursor('drawTextBox')).toBe(kiCursor('PENCIL'));
+    // `ROUTER_TOOL::MainLoop`'s `setCursor` (router_tool.cpp:1950-1953): the
+    // pencil for both routing modes. Neither was in any table.
+    expect(boardToolCursor('routeSingleTrack')).toBe(kiCursor('PENCIL'));
+    expect(boardToolCursor('routeDiffPair')).toBe(kiCursor('PENCIL'));
     // And the one KiCad really does leave as the arrow:
     // `PlaceReferenceImage`'s idle arm is `KICURSOR::ARROW`
     // (`drawing_tool.cpp`), which is this frame's fallback.
