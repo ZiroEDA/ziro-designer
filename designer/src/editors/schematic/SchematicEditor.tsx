@@ -547,6 +547,7 @@ import {
 } from './panes.js';
 import { SelectionFilterPanel } from '../../ui/SelectionFilterPanel.js';
 import { DockSash } from '../../ui/DockSash.js';
+import { loadOutlineFontsFor } from '../../font/outline_fonts.js';
 import { useStatusReadout } from '../../ui/useStatusReadout.js';
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import '../../ui/shell.css';
@@ -4299,35 +4300,41 @@ export function SchematicEditor({
         else if (format === 'ps') plotPs(d, plotTheme, od, name, sink);
         else void plotPdf(d, plotTheme, od, name, sink).catch(failed);
       };
-      if (allPages) {
-        const sheets = [...liveDocs()];
-        // SCH_PLOTTER::Plot: nothing to write is an error, not a silent no-op.
-        if (sheets.length === 0) report('No sheets to plot.', RPT_SEVERITY_ERROR);
-        else if (format === 'pdf') {
-          // createPDFFile opens one file and pages through the sheet list, so a
-          // hierarchy is one document rather than a file per sheet. Every other
-          // format has no page after the first, which is why only this one is
-          // gathered.
-          void plotPdfSheets(
-            sheets.map(([file, d]) => ({
-              sch: d,
-              opts: optsFor(d, file.replace(/\.kicad_sch$/i, '') || outputBaseName(), file),
-            })),
-            plotTheme,
-            outputBaseName(),
-            makeSink(),
-          ).catch((e) =>
-            report(
-              `Plot failed: ${e instanceof Error ? e.message : String(e)}`,
-              RPT_SEVERITY_ERROR,
-            ),
-          );
-        } else {
-          for (const [file, d] of sheets)
-            one(d, file.replace(/\.kicad_sch$/i, '') || outputBaseName(), file);
-        }
-      } else if (doc) one(doc, outputBaseName(), currentFile);
-      else report('No sheets to plot.', RPT_SEVERITY_ERROR);
+      const run = (): void => {
+        if (allPages) {
+          const sheets = [...liveDocs()];
+          // SCH_PLOTTER::Plot: nothing to write is an error, not a silent no-op.
+          if (sheets.length === 0) report('No sheets to plot.', RPT_SEVERITY_ERROR);
+          else if (format === 'pdf') {
+            // createPDFFile opens one file and pages through the sheet list, so a
+            // hierarchy is one document rather than a file per sheet. Every other
+            // format has no page after the first, which is why only this one is
+            // gathered.
+            void plotPdfSheets(
+              sheets.map(([file, d]) => ({
+                sch: d,
+                opts: optsFor(d, file.replace(/\.kicad_sch$/i, '') || outputBaseName(), file),
+              })),
+              plotTheme,
+              outputBaseName(),
+              makeSink(),
+            ).catch((e) =>
+              report(
+                `Plot failed: ${e instanceof Error ? e.message : String(e)}`,
+                RPT_SEVERITY_ERROR,
+              ),
+            );
+          } else {
+            for (const [file, d] of sheets)
+              one(d, file.replace(/\.kicad_sch$/i, '') || outputBaseName(), file);
+          }
+        } else if (doc) one(doc, outputBaseName(), currentFile);
+        else report('No sheets to plot.', RPT_SEVERITY_ERROR);
+      };
+      // A faced text plots from the same glyphs it is drawn with, which
+      // means its face has to be here first: a sheet never shown on screen
+      // has not asked for its fonts yet.
+      void loadOutlineFontsFor(allPages ? [...liveDocs().values()] : doc ? [doc] : []).then(run);
       // The dialog stays open after plotting (like DIALOG_PLOT_SCHEMATIC) so the
       // Output Messages panel is visible; only the Close button dismisses it.
     },

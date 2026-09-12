@@ -744,13 +744,27 @@ abstract class VectorContext {
     }
   }
   fill(): void {
-    for (const s of this.subs) {
-      if (s.pts.length < 3) continue;
-      this.emitPolygon(
-        s.pts.map((p) => this.apply(p)),
-        this.fillStyle,
-      );
-    }
+    // One `fill` is one shape, however many subpaths it holds: an outline
+    // glyph's rings — an 'O' is its outer ring and its hole — arrive in one
+    // path and cancel under non-zero winding. `CALLBACK_GAL::DrawGlyph`
+    // (common/callback_gal.cpp:70-78) hands a plotter the same thing after
+    // `Fracture()`, one outline per glyph with the holes bridged in; passing
+    // the rings together lets each back-end keep that. Emitting them one by
+    // one, which this did, painted every hole solid on the PostScript plot.
+    const rings = this.subs
+      .filter((s) => s.pts.length >= 3)
+      .map((s) => s.pts.map((p) => this.apply(p)));
+    if (rings.length) this.emitPolygonSet(rings, this.fillStyle);
+  }
+  /**
+   * A filled shape of one or more rings. The default draws each ring as its
+   * own polygon, which is right where "filled" means "a closed outline" —
+   * DXF, whose `PlotPoly` "Plot[s] outlines with lines (thickness = 0) to
+   * define the polygon" (DXF_plotter.cpp:1484-1487) — and wrong wherever
+   * the back-end really fills, which overrides it.
+   */
+  protected emitPolygonSet(rings: Pt[][], color: string): void {
+    for (const r of rings) this.emitPolygon(r, color);
   }
   strokeRect(x: number, y: number, w: number, h: number): void {
     const box: Pt[] = [
@@ -890,8 +904,8 @@ class PsContext extends VectorContext {
   private Y(y: number): string {
     return num((this.ph - y) * this.K);
   }
-  private path(pts: Pt[], closed: boolean): string {
-    const c = [`newpath ${this.X(pts[0]![0])} ${this.Y(pts[0]![1])} m`];
+  private path(pts: Pt[], closed: boolean, newpath = true): string {
+    const c = [`${newpath ? 'newpath ' : ''}${this.X(pts[0]![0])} ${this.Y(pts[0]![1])} m`];
     for (let i = 1; i < pts.length; i++) c.push(`${this.X(pts[i]![0])} ${this.Y(pts[i]![1])} l`);
     if (closed) c.push('closepath');
     return c.join(' ');
@@ -908,6 +922,12 @@ class PsContext extends VectorContext {
     if (pts.length < 3) return;
     const [r, g, b] = parseColor(color);
     this.body.push(`${this.path(pts, true)} ${ps(r)} ${ps(g)} ${ps(b)} setrgbcolor fill`);
+  }
+  /** Every ring in one path, one `fill`: PostScript's `fill` is non-zero winding. */
+  protected override emitPolygonSet(rings: Pt[][], color: string): void {
+    const [r, g, b] = parseColor(color);
+    const path = rings.map((pts, i) => this.path(pts, true, i === 0)).join(' ');
+    this.body.push(`${path} ${ps(r)} ${ps(g)} ${ps(b)} setrgbcolor fill`);
   }
   document(title: string): string {
     const w = Math.ceil(this.pw * this.K);

@@ -141,6 +141,63 @@ export function installOutlineFontProvider(): void {
   });
 }
 
+/**
+ * Load every face a set of documents names, before a plot.
+ *
+ * `FONT::GetFont` loads synchronously, so a plotter never meets a face
+ * that is not there yet. Ours does, and a face still on its way would be
+ * plotted in the stroke font — a plot that disagrees with the screen,
+ * which #154 names as worse than no outline fonts at all. So the plot
+ * waits for the faces first. Resolves when each is ready or has failed
+ * (a failed face plots as the stroke font, as `GetFont` falls back).
+ *
+ * The faces are found by walking the documents for `effects.face`
+ * (`source` subtrees skipped: they are the parsed file, not the model), so
+ * a kind of item gaining a font later is covered without a new arm here.
+ */
+export function loadOutlineFontsFor(docs: Iterable<unknown>): Promise<void> {
+  const wanted = new Set<string>();
+  const seen = new Set<object>();
+  const walk = (v: unknown): void => {
+    if (!v || typeof v !== 'object' || seen.has(v)) return;
+    seen.add(v);
+    if (Array.isArray(v)) {
+      for (const x of v) walk(x);
+      return;
+    }
+    const o = v as Record<string, unknown>;
+    const effects = o.effects as { face?: string; bold?: boolean; italic?: boolean } | undefined;
+    if (effects && typeof effects === 'object' && typeof effects.face === 'string' && effects.face)
+      wanted.add(`${effects.face}\u0000${effects.bold ? 1 : 0}${effects.italic ? 1 : 0}`);
+    for (const k in o) if (k !== 'source') walk(o[k]);
+  };
+  for (const d of docs) walk(d);
+  const pending: Promise<void>[] = [];
+  for (const key of wanted) {
+    const [face, style] = key.split('\u0000') as [string, string];
+    const bold = style[0] === '1';
+    const italic = style[1] === '1';
+    if (getOutlineFont(face, bold, italic)) continue;
+    const found = isStrokeFont(face) ? null : findFont(face, bold, italic);
+    if (!found) continue;
+    const file = found.file.file;
+    const st = faces.get(file);
+    if (!st || st.state !== 'loading') continue;
+    pending.push(
+      new Promise<void>((resolve) => {
+        const off = onOutlineFontsChanged(() => {
+          const now = faces.get(file);
+          if (now && now.state !== 'loading') {
+            off();
+            resolve();
+          }
+        });
+      }),
+    );
+  }
+  return Promise.all(pending).then(() => undefined);
+}
+
 /** For tests: forget every face and font. */
 export function resetOutlineFonts(): void {
   faces.clear();
