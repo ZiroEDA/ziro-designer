@@ -2,332 +2,415 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `CIRCLE`. Counterpart: `libs/kimath/src/geometry/circle.cpp`.
+ * `CIRCLE` (`libs/kimath/include/geometry/circle.h`, `src/geometry/circle.cpp`):
+ * a centre and an integer radius, public members as upstream has them.
  *
- * Only the members `CIRCLE::ConstructFromTanTanPt` needs are here —
- * `IntersectLine` and the constructor — plus `ConstructFromTanTanPt` itself,
- * which is what `PNS::LINE::DragArc` is built on. `NearestPoint`,
- * `FurthestPoint`, `Contains`, `Intersect( CIRCLE )` and `Intersect( SEG )` are
- * already ported in `pcbnew/src/drc/shape_collisions.ts` over a structurally
- * identical circle type; see {@link Circle}.
- *
- * ## Exact integer arithmetic
- *
- * `ConstructFromTanTanPt` is a chain of geometric constructions: an angle
- * bisector, a projection onto it, a homothety, an inversion, and a final
- * perpendicular intersection. Each step consumes the previous step's
- * **rounded integer** coordinate, so an error of one unit at any step is
- * carried, not damped. That is why `segIntersectLines`, `segLineProject` and
- * `segLineDistance` here are the int64 ports and not their double shortcuts.
+ * The `circle*` functions at the bottom are one-line delegates over the
+ * `{ c, r }` record the older callers pass; the class is the implementation.
  */
 
 import { KiROUND } from '../math/util.js';
-import { EuclideanNormI, ResizeI, type Vec2 } from '../math/vector2.js';
-import { CalcArcMid } from '../trigo.js';
+import { EuclideanNormI, ResizeI, type Vec2, type VECTOR2I } from '../math/vector2.js';
+import { CalcArcMid, RotatePoint } from '../trigo.js';
+import { EDA_ANGLE } from './eda_angle.js';
 import type { Seg } from './corner_operations.js';
-import {
-  segApproxParallel,
-  segCenter,
-  segIntersectLines,
-  segLineDistance,
-  segLineProject,
-  segParallelSeg,
-  segPerpendicularSeg,
-} from './seg.js';
+import { SEG } from './seg.js';
 
-/**
- * `CIRCLE`, whose two members upstream are the public `Center` and `Radius`.
- *
- * Spelled `c` / `r` rather than `Center` / `Radius` **on purpose**: that makes
- * it structurally identical to `CollideCircle` in
- * `pcbnew/src/drc/shape_collisions.ts`, so the `CIRCLE` members already ported
- * there — `circleNearestPoint`, `circleFurthestPoint`, `circleIntersectCircle`
- * — take one of these directly. A second circle type with different field names
- * would have needed an adapter at every boundary and would have been a rival
- * declaration of the same upstream class.
- */
-export interface Circle {
-  /** `CIRCLE::Center`. */
-  c: Vec2;
-  /** `CIRCLE::Radius`. An `int` upstream. */
-  r: number;
-}
-
-/** `SHAPE::MIN_PRECISION_IU` (`shape.h:129`). */
+/** `SHAPE::MIN_PRECISION_IU`. */
 const MIN_PRECISION_IU = 4;
 
-const sub = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x - b.x, y: a.y - b.y });
-const add = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x + b.x, y: a.y + b.y });
+const sub = (a: Vec2, b: Vec2): VECTOR2I => ({ x: a.x - b.x, y: a.y - b.y });
+const add = (a: Vec2, b: Vec2): VECTOR2I => ({ x: a.x + b.x, y: a.y + b.y });
 const samePoint = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
 
-/** `( a - b ).SquaredEuclideanNorm()`, exact — it passes 2^53 at ~9.5 cm. */
+/** `( a - b ).SquaredEuclideanNorm()` in `int64`, exact. */
 const squaredDistance = (a: Vec2, b: Vec2): bigint => {
-  const dx = BigInt(Math.round(a.x)) - BigInt(Math.round(b.x));
-  const dy = BigInt(Math.round(a.y)) - BigInt(Math.round(b.y));
-
+  const dx = BigInt(KiROUND(a.x)) - BigInt(KiROUND(b.x));
+  const dy = BigInt(KiROUND(a.y)) - BigInt(KiROUND(b.y));
   return dx * dx + dy * dy;
 };
 
-/**
- * `CIRCLE::IntersectLine( aLine )` (`circle.cpp:319`): 0, 1 (tangent) or 2
- * points where the circle meets the **infinite** line through `aLine`.
- *
- * The construction is upstream's: project the centre onto the line to get the
- * chord's midpoint `m`, then step along the line by the half-chord
- * `sqrt( R² - |Om|² )` in both directions.
- *
- * Three details carry:
- *
- * - The tangency test is a **band** of `SHAPE::MIN_PRECISION_IU` (4 IU) either
- *   side of the radius, not an equality. A line 3 IU inside the circle reports
- *   one point, not two, and that single point is `m` rather than either true
- *   crossing.
- * - `int mTo1dist = sqrt( ... )` is a C++ double-to-int conversion, which
- *   **truncates** toward zero. It is not `KiROUND`.
- * - The step is `VECTOR2I::Resize`, the integer one — {@link ResizeI} — which
- *   rounds each component through `sqrt( rescale( len², x², l² ) )` rather than
- *   scaling in doubles.
- *
- * A different `circleIntersectLine` exists, module-private, in
- * `pcbnew/src/drc/shape_collisions.ts`. It computes the same quantities in
- * doubles and backs DRC collision *locations*; it is deliberately left where it
- * is rather than repointed here, because switching it to integer rounding would
- * move DRC results for reasons unrelated to this port.
- */
-export function circleIntersectLine(aCircle: Circle, aLine: Seg): Vec2[] {
-  const m = segLineProject(aLine, aCircle.c);
-  const omDist = EuclideanNormI(sub(m, aCircle.c));
+/** `VECTOR2L( v ).EuclideanNorm()`: the int64 instantiation, `KiROUND( hypot )`. */
+const norm64 = (v: Vec2): number => EuclideanNormI(v);
 
-  if (omDist > aCircle.r + MIN_PRECISION_IU) return [];
+export class CIRCLE {
+  Radius: number; ///< Public to make access simpler
+  Center: VECTOR2I; ///< Public to make access simpler
 
-  if (omDist >= aCircle.r - MIN_PRECISION_IU) return [m]; // tangent
+  constructor();
+  constructor(aCenter: Vec2, aRadius: number);
+  constructor(aOther: CIRCLE);
+  constructor(a?: Vec2 | CIRCLE, aRadius?: number) {
+    if (a === undefined) {
+      this.Center = { x: 0, y: 0 };
+      this.Radius = 0;
+    } else if (a instanceof CIRCLE) {
+      this.Center = { x: a.Center.x, y: a.Center.y };
+      this.Radius = a.Radius;
+    } else {
+      this.Center = { x: a.x, y: a.y };
+      this.Radius = aRadius as number;
+    }
+  }
 
-  const radiusSquared = BigInt(Math.round(aCircle.r)) * BigInt(Math.round(aCircle.r));
-  const omDistSquared = BigInt(omDist) * BigInt(omDist);
+  /** `operator==`. */
+  equals(aOther: CIRCLE): boolean {
+    return this.Radius === aOther.Radius && samePoint(this.Center, aOther.Center);
+  }
 
-  const mTo1dist = Math.trunc(Math.sqrt(Number(radiusSquared - omDistSquared)));
-  // `aLine.B - aLine.A` is a difference of VECTOR2I upstream. `ResizeI` squares
-  // its arguments in BigInt and therefore throws on a fraction, so the
-  // components are converted the way `seg.ts` converts its own — through
-  // `KiROUND`, which changes nothing for the integer coordinates upstream
-  // guarantees.
-  const mTo1vec = ResizeI(
-    { x: KiROUND(aLine.b.x) - KiROUND(aLine.a.x), y: KiROUND(aLine.b.y) - KiROUND(aLine.a.y) },
-    mTo1dist,
-  );
-  const mTo2vec = { x: -mTo1vec.x, y: -mTo1vec.y };
+  /**
+   * Construct this circle such that it is tangent to the given segments and passes through the
+   * given point, generating the solution which can be used to fillet both segments.
+   *
+   * The caller is responsible for ensuring it is possible to construct a circle from the
+   * given parameters.
+   *
+   * @param aLineA is the first tangent line. Treated as an infinite line except for the
+   *               purpose of selecting the solution to return.
+   * @param aLineB is the second tangent line. Treated as an infinite line except for the
+   *               purpose of selecting the solution to return.
+   * @param aP is the point to pass through.
+   * @return this circle.
+   */
+  ConstructFromTanTanPt(aLineA: SEG, aLineB: SEG, aP: Vec2): this {
+    //fixme: There might be more efficient / accurate solution than using geometrical constructs
 
-  return [add(mTo1vec, m), add(mTo2vec, m)];
-}
+    let anglebisector: SEG;
+    let intersectPoint: VECTOR2I = { x: 0, y: 0 };
 
-/**
- * `CIRCLE::NearestPoint( const VECTOR2I& )` (`circle.cpp:196`): the point of the
- * circumference closest to `aP` — the intersection of the circle with the line
- * through `aP` and the centre.
- *
- * This is the **VECTOR2I overload**, and the distinction is not pedantic:
- * upstream has two, and the integer one resizes through `VECTOR2I::Resize`,
- * which rounds each component through
- * `sqrt( rescale( len², x², l² ) )`. `pcbnew/src/drc/shape_collisions.ts`
- * exports a `circleNearestPoint` that is the **VECTOR2D overload** — it scales
- * in doubles and returns a fractional point. Feeding that fractional point back
- * into {@link constructFromTanTanPt}, as `LINE::DragArc` does with its clamped
- * cursor, is what makes the difference visible: upstream's cursor is a
- * `VECTOR2I` throughout.
- *
- * A point exactly at the centre has no nearest point, and upstream picks the
- * `+x` direction arbitrarily rather than returning the centre.
- */
-export function circleNearestPoint(aCircle: Circle, aP: Vec2): Vec2 {
-  const vec = { x: KiROUND(aP.x) - KiROUND(aCircle.c.x), y: KiROUND(aP.y) - KiROUND(aCircle.c.y) };
+    // A tie ( `>` ) goes to the second argument here and ( `<=` ) to the first
+    // below; deliberately not mirrors of each other, as upstream writes them.
+    const furthestFromIntersect = (aPt1: VECTOR2I, aPt2: VECTOR2I): VECTOR2I =>
+      norm64(sub(aPt1, intersectPoint)) > norm64(sub(aPt2, intersectPoint)) ? aPt1 : aPt2;
 
-  // Arbitrary, to ensure the return value is always on the circumference.
-  if (vec.x === 0 && vec.y === 0) vec.x = 1;
+    const closestToIntersect = (aPt1: VECTOR2I, aPt2: VECTOR2I): VECTOR2I =>
+      norm64(sub(aPt1, intersectPoint)) <= norm64(sub(aPt2, intersectPoint)) ? aPt1 : aPt2;
 
-  return add(ResizeI(vec, aCircle.r), aCircle.c);
-}
+    if (aLineA.ApproxParallel(aLineB)) {
+      // Special case, no intersection point between the two lines
+      // The center will be in the line equidistant between the two given lines
+      // The radius will be half the distance between the two lines
+      // The possible centers can be found by intersection
 
-/**
- * `CIRCLE::ConstructFromTanTanPt( aLineA, aLineB, aP )` (`circle.cpp:51`): the
- * circle tangent to both lines that passes through `aP`, choosing the solution
- * that can be used to fillet the two lines.
- *
- * Both segments are treated as **infinite lines**; their endpoints matter only
- * for picking which of the several solutions to return.
- *
- * ## The two branches
- *
- * *Parallel lines* have no vertex to work from. The centre must lie on the
- * mid-line and the radius is half the separation, so the answer is where a
- * circle of that radius centred on `aP` crosses the mid-line — of the two
- * crossings, the one nearer `aLineA.A`.
- *
- * *The general case* uses a homothety. Every circle inscribed in the same angle
- * is a scaled copy of every other about the lines' intersection point, so
- * upstream builds an arbitrary inscribed circle (`hSolution`), finds where the
- * ray from the vertex through `aP` meets it, and scales that image back. The
- * `h` prefix upstream puts on those names means "the homothetic image".
- *
- * ## Faithfulness notes
- *
- * - Upstream's five `wxCHECK_MSG( cond, *this, ... )` guards return the circle
- *   **in whatever state it has reached**, not a fresh one. In the parallel
- *   branch `Radius` and `Center` are already written when the guard fires, so a
- *   failure there returns `{ c: aP, r: halfSeparation }`. In the general branch
- *   nothing has been written yet, so a failure returns the default-constructed
- *   `{ c: (0,0), r: 0 }`. Ported exactly, because `DragArc` reads `Radius <= 0`
- *   as its own refusal condition.
- * - `furthestFromIntersect` breaks a tie toward its *second* argument and
- *   `closestToIntersect` toward its *first* — the two use `>` and `<=`
- *   respectively, which is not symmetric and decides which solution comes back
- *   for a symmetric input.
- * - The `possibleCenters.front()` / `.back()` pair is the same element when
- *   `IntersectLine` returned a tangent point, which is the normal case for the
- *   general branch's `hProjections` when `aP` is on the construction circle.
- * - The choice between the "tangent at line A" and "tangent at line B" branches
- *   is upstream's error-minimising heuristic: use whichever tangent point is
- *   *further* from `aP`, because inverting through a short segment magnifies the
- *   rounding.
- *
- * Returns a new circle; upstream mutates `*this` and returns a reference to it.
- */
-export function constructFromTanTanPt(aLineA: Seg, aLineB: Seg, aP: Vec2): Circle {
-  // The default-constructed CIRCLE every `wxCHECK_MSG` falls back to.
-  const out: Circle = { c: { x: 0, y: 0 }, r: 0 };
+      const perpendicularAtoB = new SEG(aLineA.A, aLineB.LineProject(aLineA.A));
+      const midPt = perpendicularAtoB.Center();
 
-  let intersectPoint: Vec2 = { x: 0, y: 0 };
+      this.Radius = norm64(sub(midPt, aLineA.A));
 
-  // Mutation-testing note: relaxing this `>` to `>=` survives every test here,
-  // and it can only matter when the two arguments are *exactly* equidistant
-  // from the intersection — the intersection at a segment's midpoint, or the
-  // two `hProjections` straddling it symmetrically. No case in upstream's own
-  // suite or in `LINE::DragArc` produces that, so the tie-break is transcribed
-  // from upstream rather than justified by a test.
-  const furthestFromIntersect = (aPt1: Vec2, aPt2: Vec2): Vec2 =>
-    EuclideanNormI(sub(aPt1, intersectPoint)) > EuclideanNormI(sub(aPt2, intersectPoint))
-      ? aPt1
-      : aPt2;
+      anglebisector = aLineA.ParallelSeg(midPt);
 
-  // The same holds for this `<=`, and note it is deliberately *not* the
-  // mirror of the `>` above: upstream breaks a tie toward the first argument
-  // here and toward the second there. Tightening it to `<` survives too.
-  const closestToIntersect = (aPt1: Vec2, aPt2: Vec2): Vec2 =>
-    EuclideanNormI(sub(aPt1, intersectPoint)) <= EuclideanNormI(sub(aPt2, intersectPoint))
-      ? aPt1
-      : aPt2;
+      this.Center = { x: aP.x, y: aP.y }; // use this circle as a construction to find the actual centers
+      const possibleCenters = this.IntersectLine(anglebisector);
 
-  if (segApproxParallel(aLineA, aLineB)) {
-    // Special case, no intersection point between the two lines. The centre
-    // lies on the line equidistant from the two, and the radius is half their
-    // separation; the possible centres are found by intersection.
-    const perpendicularAtoB: Seg = { a: aLineA.a, b: segLineProject(aLineB, aLineA.a) };
-    const midPt = segCenter(perpendicularAtoB);
+      if (possibleCenters.length === 0) return this; // wxCHECK_MSG( ..., "No solutions exist!" )
 
-    out.r = EuclideanNormI(sub(midPt, aLineA.a));
+      intersectPoint = { x: aLineA.A.x, y: aLineA.A.y }; // just for the purpose of deciding which solution to return
 
-    const anglebisector = segParallelSeg(aLineA, midPt);
+      // For the special case of the two segments being parallel, we will return the solution
+      // whose center is closest to aLineA.A
+      this.Center = closestToIntersect(
+        possibleCenters[0]!,
+        possibleCenters[possibleCenters.length - 1]!,
+      );
+    } else {
+      // General case, using homothety.
+      // All circles inscribed in the same angle are homothetic with center at the intersection
+      // In this code, the prefix "h" denotes "the homothetic image"
+      const intersectCalc = aLineA.IntersectLines(aLineB);
 
-    // Use this circle as a construction to find the actual centres.
-    out.c = { x: aP.x, y: aP.y };
+      if (!intersectCalc) return this; // "Lines do not intersect but are not parallel?"
 
-    const possibleCenters = circleIntersectLine(out, anglebisector);
+      intersectPoint = intersectCalc;
 
-    if (possibleCenters.length === 0) return out; // "No solutions exist!"
+      if (samePoint(aP, intersectPoint)) {
+        //Special case: The point is at the intersection of the two lines
+        this.Center = { x: aP.x, y: aP.y };
+        this.Radius = 0;
+        return this;
+      }
 
-    // Only to decide which solution to return.
-    intersectPoint = aLineA.a;
+      // Calculate bisector
+      const lineApt = furthestFromIntersect(aLineA.A, aLineA.B);
+      const lineBpt = furthestFromIntersect(aLineB.A, aLineB.B);
+      const bisectorPt = CalcArcMid(lineApt, lineBpt, intersectPoint, true);
 
-    // For two parallel segments, return the solution whose centre is closest to
-    // `aLineA.A`.
-    out.c = closestToIntersect(
-      possibleCenters[0] as Vec2,
-      possibleCenters[possibleCenters.length - 1] as Vec2,
+      anglebisector = new SEG(intersectPoint, bisectorPt);
+
+      // Create an arbitrary circle that is tangent to both lines
+      const hSolution = new CIRCLE();
+      hSolution.Center = anglebisector.LineProject(aP);
+      hSolution.Radius = aLineA.LineDistance(hSolution.Center);
+
+      // Find the homothetic image of aP in the construction circle (hSolution)
+      const throughaP = new SEG(intersectPoint, aP);
+      const hProjections = hSolution.IntersectLine(throughaP);
+
+      if (hProjections.length === 0) return this; // "No solutions exist!"
+
+      // We want to create a fillet, so the projection of homothetic projection of aP
+      // should be the one closest to the intersection
+      const hSelected = closestToIntersect(
+        hProjections[0]!,
+        hProjections[hProjections.length - 1]!,
+      );
+
+      const hTanLineA = aLineA.LineProject(hSolution.Center);
+      const hTanLineB = aLineB.LineProject(hSolution.Center);
+
+      // To minimise errors, use the furthest away tangent point from aP
+      if (squaredDistance(hTanLineA, aP) > squaredDistance(hTanLineB, aP)) {
+        // Find the tangent at line A by homothetic inversion
+        const hT = new SEG(hTanLineA, hSelected);
+        const actTanA = hT.ParallelSeg(aP).IntersectLines(aLineA);
+
+        if (!actTanA) return this; // "No solutions exist!"
+
+        // Find circle center by perpendicular intersection with the angle bisector
+        const perpendicularToTanA = aLineA.PerpendicularSeg(actTanA);
+        const actCenter = perpendicularToTanA.IntersectLines(anglebisector);
+
+        if (!actCenter) return this; // "No solutions exist!"
+
+        this.Center = actCenter;
+        this.Radius = aLineA.LineDistance(this.Center);
+      } else {
+        // Find the tangent at line B by inversion
+        const hT = new SEG(hTanLineB, hSelected);
+        const actTanB = hT.ParallelSeg(aP).IntersectLines(aLineB);
+
+        if (!actTanB) return this; // "No solutions exist!"
+
+        // Find circle center by perpendicular intersection with the angle bisector
+        const perpendicularToTanB = aLineB.PerpendicularSeg(actTanB);
+        const actCenter = perpendicularToTanB.IntersectLines(anglebisector);
+
+        if (!actCenter) return this; // "No solutions exist!"
+
+        this.Center = actCenter;
+        this.Radius = aLineB.LineDistance(this.Center);
+      }
+    }
+
+    return this;
+  }
+
+  /**
+   * `Contains( const VECTOR2I& ) const`: on the circumference, within
+   * `MIN_PRECISION_IU`.
+   */
+  Contains(aP: Vec2): boolean {
+    const distance = norm64(sub(aP, this.Center));
+
+    return distance <= this.Radius + MIN_PRECISION_IU && distance >= this.Radius - MIN_PRECISION_IU;
+  }
+
+  /** The non-const `Contains`: strictly inside. */
+  ContainsInside(aP: Vec2): boolean {
+    return EuclideanNormI(sub(aP, this.Center)) < this.Radius;
+  }
+
+  /**
+   * Compute the point on the circumference of the circle that is the closest to aP.
+   */
+  NearestPoint(aP: Vec2): VECTOR2I {
+    const vec = {
+      x: KiROUND(aP.x) - KiROUND(this.Center.x),
+      y: KiROUND(aP.y) - KiROUND(this.Center.y),
+    };
+
+    // Handle special case where aP is equal to this circle's center
+    if (vec.x === 0 && vec.y === 0) vec.x = 1; // Arbitrary, to ensure the return value is always on the circumference
+
+    return add(ResizeI(vec, this.Radius), this.Center);
+  }
+
+  /**
+   * `NearestPoint( const VECTOR2D& )`: the double instantiation, no rounding.
+   */
+  NearestPointD(aP: Vec2): Vec2 {
+    const vec = { x: aP.x - this.Center.x, y: aP.y - this.Center.y };
+
+    if (vec.x === 0 && vec.y === 0) vec.x = 1;
+
+    // VECTOR2D::Resize: `v * ( aNewLength / |v| )`
+    const l = Math.hypot(vec.x, vec.y);
+    const s = this.Radius / l;
+    return { x: vec.x * s + this.Center.x, y: vec.y * s + this.Center.y };
+  }
+
+  /**
+   * Compute the point on the circumference of the circle that is the furthest from aP.
+   */
+  FurthestPoint(aP: Vec2): VECTOR2I {
+    const vec = {
+      x: KiROUND(this.Center.x) - KiROUND(aP.x),
+      y: KiROUND(this.Center.y) - KiROUND(aP.y),
+    };
+
+    if (vec.x === 0 && vec.y === 0) vec.x = 1;
+
+    return add(ResizeI(vec, this.Radius), this.Center);
+  }
+
+  /**
+   * Compute the intersection points between this circle and aCircle.
+   *
+   * @return std::vector containing the intersection points (0, 1 or 2 points)
+   */
+  Intersect(aCircle: CIRCLE): VECTOR2I[];
+  /**
+   * Compute the intersection points between this circle and aSeg.
+   */
+  Intersect(aSeg: SEG): VECTOR2I[];
+  Intersect(a: CIRCLE | SEG): VECTOR2I[] {
+    if (a instanceof SEG) {
+      const retval: VECTOR2I[] = [];
+
+      for (const intersection of this.IntersectLine(a)) {
+        if (a.Contains(intersection)) retval.push(intersection);
+      }
+
+      return retval;
+    }
+
+    // From https://mathworld.wolfram.com/Circle-CircleIntersection.html
+    //
+    // Simplify the problem:
+    // Let this circle be centered at (0,0), with radius r1
+    // Let aCircle be centered at (d, 0), with radius r2
+    // (i.e. d is the distance between the two circle centers)
+    //
+    // The equations of the two circles are
+    // (1)   x^2 + y^2 = r1^2
+    // (2)   (x - d)^2 + y^2 = r2^2
+    //
+    // Combining (1) into (2):
+    //       (x - d)^2 + r1^2 - x^2 = r2^2
+    // Expanding:
+    //       x^2 - 2*d*x + d^2 + r1^2 - x^2 = r2^2
+    // Rearranging for x:
+    // (3)   x = (d^2 + r1^2 - r2^2) / (2 * d)
+    //
+    // Rearranging (1) gives:
+    // (4)   y = sqrt(r1^2 - x^2)
+
+    const retval: VECTOR2I[] = [];
+
+    const vecCtoC = sub(a.Center, this.Center);
+    const d = BigInt(norm64(vecCtoC));
+    const r1 = BigInt(this.Radius);
+    const r2 = BigInt(a.Radius);
+
+    const absDiff = r1 - r2 < 0n ? r2 - r1 : r1 - r2;
+
+    if (d > r1 + r2 || d < absDiff) return retval; //circles do not intersect
+
+    if (d === 0n) return retval; // circles are co-centered. Don't return intersection points
+
+    // Equation (3)
+    const x = (d * d + r1 * r1 - r2 * r2) / (2n * d);
+
+    const r1sqMinusXsq = r1 * r1 - x * x;
+
+    if (r1sqMinusXsq < 0n) return retval; //circles do not intersect
+
+    // Equation (4)
+    const y = KiROUND(Math.sqrt(Number(r1sqMinusXsq)));
+
+    // Now correct back to original coordinates
+    const rotAngle = EDA_ANGLE.fromVector(vecCtoC);
+    const solution1 = RotatePoint({ x: Number(x), y }, rotAngle.negate());
+    retval.push(add(solution1, this.Center));
+
+    if (y !== 0) {
+      const solution2 = RotatePoint({ x: Number(x), y: -y }, rotAngle.negate());
+      retval.push(add(solution2, this.Center));
+    }
+
+    return retval;
+  }
+
+  /**
+   * Compute the intersection points between this circle and aLine.
+   *
+   * @param aLine is the line to intersect with this circle (end points ignored)
+   * @return std::vector containing the intersection points (0, 1 or 2 points)
+   */
+  IntersectLine(aLine: SEG): VECTOR2I[] {
+    const retval: VECTOR2I[] = [];
+
+    //
+    //           .   *   .
+    //         *           *
+    //  -----1-------m-------2----
+    //      *                 *
+    //     *         O         *
+    //     *                   *
+    //      *                 *
+    //       *               *
+    //         *           *
+    //           '   *   '
+    // Let O be the center of this circle, 1 and 2 the intersection points of the line
+    // and M be the center of the chord connecting points 1 and 2
+    //
+    // M will be O projected perpendicularly to the line since a chord is always perpendicular
+    // to the radius.
+    //
+    // The distance M1 = M2 can be computed by pythagoras since O1 = O2 = Radius
+    //
+    // M1= M2 = sqrt( Radius^2 - OM^2)
+    //
+    const m = aLine.LineProject(this.Center); // O projected perpendicularly to the line
+    const omDist = norm64(sub(m, this.Center));
+
+    if (omDist > this.Radius + MIN_PRECISION_IU) {
+      return retval; // does not intersect
+    } else if (
+      omDist <= this.Radius + MIN_PRECISION_IU &&
+      omDist >= this.Radius - MIN_PRECISION_IU
+    ) {
+      retval.push(m);
+      return retval; //tangent
+    }
+
+    const radiusSquared = BigInt(this.Radius) * BigInt(this.Radius);
+    const omDistSquared = BigInt(omDist) * BigInt(omDist);
+
+    const mTo1dist = Math.trunc(Math.sqrt(Number(radiusSquared - omDistSquared)));
+
+    const mTo1vec = ResizeI(
+      { x: KiROUND(aLine.B.x) - KiROUND(aLine.A.x), y: KiROUND(aLine.B.y) - KiROUND(aLine.A.y) },
+      mTo1dist,
     );
+    const mTo2vec = { x: -mTo1vec.x, y: -mTo1vec.y };
 
-    return out;
+    retval.push(add(mTo1vec, m));
+    retval.push(add(mTo2vec, m));
+
+    return retval;
   }
+}
 
-  // General case, using homothety.
-  const intersectCalc = segIntersectLines(aLineA, aLineB);
+// ---------------------------------------------------------------------------
+// The `{ c, r }`-record functions: delegates onto CIRCLE, kept only until
+// their callers move onto the class.
 
-  if (!intersectCalc) return out; // "Lines do not intersect but are not parallel?"
+/** @deprecated use `CIRCLE` */
+export interface Circle {
+  c: Vec2;
+  r: number;
+}
 
-  intersectPoint = intersectCalc;
+const C = (c: Circle): CIRCLE => new CIRCLE(c.c, c.r);
+const S = (s: Seg): SEG => new SEG(s.a, s.b);
 
-  if (samePoint(aP, intersectPoint)) {
-    // The point is at the intersection of the two lines.
-    out.c = { x: aP.x, y: aP.y };
-    out.r = 0;
-
-    return out;
-  }
-
-  // Calculate bisector.
-  const lineApt = furthestFromIntersect(aLineA.a, aLineA.b);
-  const lineBpt = furthestFromIntersect(aLineB.a, aLineB.b);
-  const bisectorPt = CalcArcMid(lineApt, lineBpt, intersectPoint, true);
-
-  const anglebisector: Seg = { a: intersectPoint, b: bisectorPt };
-
-  // An arbitrary circle tangent to both lines.
-  const hSolution: Circle = { c: segLineProject(anglebisector, aP), r: 0 };
-  // Mutation-testing note: measuring from `aLineB` here survives every test,
-  // and near enough has to — `hSolution.c` sits on the angle bisector, so it is
-  // equidistant from both lines by construction, and the two answers differ
-  // only by the integer rounding of two different `LineDistance` chains. It is
-  // `aLineA` because upstream writes `aLineA`, not because a test separates it.
-  hSolution.r = segLineDistance(aLineA, hSolution.c);
-
-  // The homothetic image of `aP` in the construction circle.
-  const throughaP: Seg = { a: intersectPoint, b: aP };
-  const hProjections = circleIntersectLine(hSolution, throughaP);
-
-  if (hProjections.length === 0) return out; // "No solutions exist!"
-
-  // A fillet is wanted, so take the image closest to the intersection.
-  const hSelected = closestToIntersect(
-    hProjections[0] as Vec2,
-    hProjections[hProjections.length - 1] as Vec2,
-  );
-
-  const hTanLineA = segLineProject(aLineA, hSolution.c);
-  const hTanLineB = segLineProject(aLineB, hSolution.c);
-
-  // To minimise errors, use the tangent point furthest from `aP`.
-  if (squaredDistance(hTanLineA, aP) > squaredDistance(hTanLineB, aP)) {
-    // Find the tangent at line A by homothetic inversion.
-    const hT: Seg = { a: hTanLineA, b: hSelected };
-    const hTParallel = segParallelSeg(hT, aP);
-    const actTanA = segIntersectLines(hTParallel, aLineA);
-
-    if (!actTanA) return out; // "No solutions exist!"
-
-    // The centre is where the perpendicular meets the angle bisector.
-    const perpendicularToTanA = segPerpendicularSeg(aLineA, actTanA);
-    const actCenter = segIntersectLines(perpendicularToTanA, anglebisector);
-
-    if (!actCenter) return out; // "No solutions exist!"
-
-    out.c = actCenter;
-    out.r = segLineDistance(aLineA, out.c);
-
-    return out;
-  }
-
-  // Find the tangent at line B by inversion.
-  const hT: Seg = { a: hTanLineB, b: hSelected };
-  const hTParallel = segParallelSeg(hT, aP);
-  const actTanB = segIntersectLines(hTParallel, aLineB);
-
-  if (!actTanB) return out; // "No solutions exist!"
-
-  const perpendicularToTanB = segPerpendicularSeg(aLineB, actTanB);
-  const actCenter = segIntersectLines(perpendicularToTanB, anglebisector);
-
-  if (!actCenter) return out; // "No solutions exist!"
-
-  out.c = actCenter;
-  out.r = segLineDistance(aLineB, out.c);
-
-  return out;
+/** @deprecated use `CIRCLE.IntersectLine` */
+export const circleIntersectLine = (aCircle: Circle, aLine: Seg): Vec2[] =>
+  C(aCircle).IntersectLine(S(aLine));
+/** @deprecated use `CIRCLE.NearestPoint` */
+export const circleNearestPoint = (aCircle: Circle, aP: Vec2): Vec2 => C(aCircle).NearestPoint(aP);
+/** @deprecated use `CIRCLE.ConstructFromTanTanPt` */
+export function constructFromTanTanPt(aLineA: Seg, aLineB: Seg, aP: Vec2): Circle {
+  const c = new CIRCLE().ConstructFromTanTanPt(S(aLineA), S(aLineB), aP);
+  return { c: c.Center, r: c.Radius };
 }
