@@ -244,7 +244,7 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
   skipCurrent(): void {
     let currLevel = 0;
     let token: Tok;
-    while ((token = this.NextTok()) !== T.EOF) {
+    for (token = this.NextTok(); token !== T.EOF; token = this.NextTok()) {
       if (token === T.LEFT) currLevel--;
       if (token === T.RIGHT) {
         currLevel++;
@@ -564,7 +564,8 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
       ret = [];
       do {
         ret.push(this.CurText());
-      } while ((tok = this.NextTok()) === T.COMMENT);
+        tok = this.NextTok();
+      } while (tok === T.COMMENT);
     }
     this.SetCommentsAreTokens(setting);
     return ret;
@@ -755,7 +756,7 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
           hdr.legacyTeardrops = this.parseMaybeAbsentBool(true);
           break;
         default: // Skip everything else.
-          while ((token = this.NextTok()) !== T.RIGHT) {
+          for (token = this.NextTok(); token !== T.RIGHT; token = this.NextTok()) {
             if (!DSNLEXER.IsSymbol(token) && token !== T.NUMBER) this.Expecting('symbol or number');
           }
       }
@@ -1601,7 +1602,7 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
   private parsePlotParams(): PcbPlotParams {
     const p = this.hdr().designSettings.plotOptions;
     let token: Tok;
-    while ((token = this.NextTok()) !== T.RIGHT) {
+    for (token = this.NextTok(); token !== T.RIGHT; token = this.NextTok()) {
       if (token === T.EOF) this.Unexpected(T.EOF);
       if (token === T.LEFT) token = this.NextTok();
       if (token === 'pcbplotparams') continue;
