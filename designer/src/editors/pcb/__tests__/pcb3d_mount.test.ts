@@ -109,4 +109,26 @@ describe('mount3DViewer', () => {
     v.dispose();
     expect(host.querySelector('canvas')).toBeNull();
   });
+
+  it('mounts an EMPTY footprint-holder board — the chooser before a selection', () => {
+    // `bbbox.Inflate( pcbIUScale.mmToIU( 10 ) )` when the box is 0 x 0
+    // (board_adapter.cpp:363-364): the scene exists, background and navigator
+    // and no board body, where this used to answer null and leave the
+    // chooser's 3D pane blank.
+    (globalThis as { ResizeObserver?: unknown }).ResizeObserver = class {
+      observe(): void {}
+      disconnect(): void {}
+    };
+    const board = readBoard(
+      parse(
+        `(kicad_pcb (version 20241229) (generator "pcbnew") (general (thickness 1.6))
+           (paper "A4") (layers (0 "F.Cu" signal) (2 "B.Cu" signal)) (net 0 ""))`,
+      ),
+    );
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const v = mount3DViewer(host, board, [], undefined, { footprintHolder: true });
+    expect(v).not.toBeNull();
+    v?.dispose();
+  });
 });

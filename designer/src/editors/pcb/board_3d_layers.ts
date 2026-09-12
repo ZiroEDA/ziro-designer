@@ -267,6 +267,15 @@ export const isPasteLayer = (l: string): boolean => l === 'F.Paste' || l === 'B.
 
 /** The `EDA_3D_VIEWER_SETTINGS::RENDER_SETTINGS` bits `createLayers` reads. */
 export interface Layer3dOptions {
+  /**
+   * The board has NOTHING on it — `BOARD_ADAPTER::createBoardPolygon` on a
+   * footprint holder with no footprint returns false before any outline is
+   * tried (board_adapter.cpp:1003-1010), so `m_board_poly` stays empty and no
+   * board body is drawn. With this set the bbox fallback rectangle is NOT
+   * used; the rectangle is `buildBoardBoundingBoxPoly`'s answer for a board
+   * that HAS items and no closed outline.
+   */
+  empty?: boolean;
   /** `show_zones` (default true). */
   showZones?: boolean;
   /** `show_fp_references` / `show_fp_values` / `show_fp_text` (all default true). */
@@ -391,7 +400,7 @@ export function buildBoard3dLayers(
   // ----- the board -----------------------------------------------------------
   // `GetBoardPolygonOutlines`: the first loop is the outer boundary (largest
   // area, as `boardOutlineLoops` orders them), the rest are cutouts.
-  const loops = boardOutlineLoops(board, bbox);
+  const loops = opts.empty ? [] : boardOutlineLoops(board, bbox);
   let boardPoly: Polygon[] = loops.length ? simplify([[loops[0]!]]) : [];
   for (const cut of loops.slice(1)) boardPoly = booleanSubtract(boardPoly, [[cut]]);
 

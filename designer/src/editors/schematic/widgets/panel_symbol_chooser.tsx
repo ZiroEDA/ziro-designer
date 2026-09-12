@@ -23,6 +23,7 @@ import {
   useState,
 } from 'react';
 import { letterSubReference, type LibSymbol } from '@ziroeda/eeschema';
+import { symbolLibraryDescription } from '../../../widgets/lib_table_descriptions.js';
 import { atom, list, str } from '@ziroeda/sexpr/src/types.js';
 import { searchTerm } from '@ziroeda/common';
 import { LibTree } from '../../../widgets/lib_tree.js';
@@ -392,7 +393,14 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
             continue;
           }
           const pinned = session.pinned_symbol_libs.includes(lib.name);
-          const libNode = adapter.addLibrary(lib.name, lib.descr ?? '', pinned);
+          // `row->GetDescr()` of the library table — shipped in
+          // `template/sym-lib-table`, not in the index (which has never
+          // carried the field it declares).
+          const libNode = adapter.addLibrary(
+            lib.name,
+            lib.descr ?? symbolLibraryDescription(lib.name),
+            pinned,
+          );
           // `std::vector<LIB_SYMBOL*> libSymbols = m_adapter->GetSymbols( lib );`
           // (:148). The library is LOADED, so its symbols are here and each
           // item is built from the real thing rather than from a name.

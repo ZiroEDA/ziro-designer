@@ -38,7 +38,11 @@ import { LibTreeModelAdapter } from '../../../widgets/lib_tree_model_adapter.js'
 import { LibTreeNodeType, type LibTreeNode } from '../../../widgets/lib_tree_model.js';
 import { FootprintPreviewWidget } from '../../../widgets/footprint_preview_widget.js';
 import type { FpIndexEntry } from '../../../widgets/footprint_list.js';
-import { addFootprintLibraries, type FootprintTreeFilter } from './fp_tree_model_adapter.js';
+import {
+  addFootprintHistory,
+  addFootprintLibraries,
+  type FootprintTreeFilter,
+} from './fp_tree_model_adapter.js';
 import { generateFootprintInfo } from './generate_footprint_info.js';
 
 /** `m_vsplitter->SetSashGravity( 0.5 )` — tree+preview over details. [data] */
@@ -58,6 +62,21 @@ export interface PanelFootprintChooserProps {
   filters?: ReactNode;
   /** `SetPreselect`: the caller's current footprint, if it names one. */
   preselect?: string;
+  /**
+   * `aFootprintHistoryList` — the "-- Recently Used --" group's LIB_IDs, most
+   * recent first. The group is built even when this is empty (:97-99).
+   */
+  history?: readonly string[];
+  /** `viewFpPanel->Show( m_showFpMode )` (footprint_chooser_frame.cpp:925). */
+  showFpView?: boolean;
+  /**
+   * `m_preview3DCanvas`, which the FRAME builds and adds to this panel's
+   * `m_RightPanelSizer` under the footprint view (:796); absent when
+   * `m_show3DMode` is off.
+   */
+  preview3D?: ReactNode;
+  /** `GetDetailsPanel()->Show( m_showDescription )` (:814). */
+  showDetails?: boolean;
   /** EVT_LIBITEM_SELECTED — the frame tracks it for OK. */
   onSelect: (libId: string | null) => void;
   /** EVT_LIBITEM_CHOSEN — a double-click, which accepts. */
@@ -81,11 +100,19 @@ export function PanelFootprintChooser({
   filter,
   filters,
   preselect,
+  history = [],
+  showFpView = true,
+  preview3D,
+  showDetails = true,
   onSelect,
   onChoose,
   onItemCountChanged,
 }: PanelFootprintChooserProps): JSX.Element {
-  const [selected, setSelected] = useState<string | null>(preselect ?? null);
+  // `if( historyInfos.size() ) adapter->SetPreselectNode( historyInfos[0]… )`
+  // in the constructor (:101-102), then the caller's `SetPreselect` on the
+  // built panel — so an explicit preselect wins over the history's.
+  const effectivePreselect = preselect || history[0];
+  const [selected, setSelected] = useState<string | null>(effectivePreselect ?? null);
   /**
    * `LIB_TREE::SelectLibId` only takes effect once the node it names EXISTS,
    * which is why LibTree keys that effect on this nonce as well as on the id.
@@ -118,10 +145,12 @@ export function PanelFootprintChooser({
   // checkbox is ticked (footprint_chooser_frame.cpp:580).
   const adapter = useMemo(() => {
     const a = new LibTreeModelAdapter();
+    // The history group first (:79-99), then `AddLibraries` (:105).
+    addFootprintHistory(a, index, history);
     addFootprintLibraries(a, index, filter ?? {});
     onItemCountChanged?.(a.getItemCount());
     return a;
-  }, [index, filter, onItemCountChanged]);
+  }, [index, filter, history, onItemCountChanged]);
 
   // A new tree is a new chance for the preselection to find its node.
   // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the adapter identity
@@ -155,7 +184,7 @@ export function PanelFootprintChooser({
             adapter={adapter}
             recentSearchesKey="footprints"
             filters={filters}
-            selectLibId={preselect}
+            selectLibId={effectivePreselect}
             regenerateNonce={regenerateNonce}
             // The tree owns the details pane upstream; ours renders it below
             // rather than inside, so it is told not to draw its own.
@@ -164,23 +193,33 @@ export function PanelFootprintChooser({
             onChoose={choose}
           />
         </div>
-        {/* m_RightPanel -> FOOTPRINT_PREVIEW_WIDGET */}
+        {/* m_RightPanel / m_RightPanelSizer: the FOOTPRINT_PREVIEW_WIDGET,
+            then the frame's 3D canvas under it, each `Add( …, 1, wxEXPAND )`
+            so two shown share the column. The frame's two view buttons
+            never hide both (on3DviewReq / onFpViewReq refuse the last). */}
         <div className="ze-fpchooser-preview">
-          <FootprintPreviewWidget
-            footprint={selected ?? ''}
-            statusText={selected ? '' : 'No footprint specified'}
-          />
+          {showFpView && (
+            <FootprintPreviewWidget
+              footprint={selected ?? ''}
+              // `m_preview_ctrl->SetStatusText( _( "No footprint selected" ) )`
+              // (panel_footprint_chooser.cpp:367).
+              statusText={selected ? '' : 'No footprint selected'}
+            />
+          )}
+          {preview3D}
         </div>
       </div>
       {/* m_detailsPanel -> HTML_WINDOW, `SetMinimumPaneSize( 80 )`. The tree
           is handed this window upstream and writes it itself; ours renders it
           here, which is what `hasExternalDetails` tells the tree. */}
-      <div
-        className="ze-libtree-details external ze-fpchooser-details"
-        style={{ ['--v-sash' as string]: V_SASH_GRAVITY }}
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: generateFootprintInfo escapes all library data
-        dangerouslySetInnerHTML={{ __html: generateFootprintInfo(selectedInfo) }}
-      />
+      {showDetails && (
+        <div
+          className="ze-libtree-details external ze-fpchooser-details"
+          style={{ ['--v-sash' as string]: V_SASH_GRAVITY }}
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: generateFootprintInfo escapes all library data
+          dangerouslySetInnerHTML={{ __html: generateFootprintInfo(selectedInfo) }}
+        />
+      )}
     </div>
   );
 }

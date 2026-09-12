@@ -257,10 +257,15 @@ describe('the values, as the probes measured them', () => {
   });
 
   it('opens at horizPixelsFromDU( 440 ) by horizPixelsFromDU( 340 )', () => {
-    // 880 x 680 measured by chooser_shell_probe. The height carries the title
-    // bar we draw ourselves and GTK does not put in SetSize.
+    // 880 x 680 measured by chooser_shell_probe. The 680 is the OUTER size:
+    // tlw_setsize_probe does `SetSize( 880, 680 )` on a wxDialog and a wxFrame
+    // in a warm process and both report GetClientSize 880 x 643, the 37px
+    // title bar INSIDE the 680. This used to be `calc(680px + 37px)` on the
+    // reasoning that SetSize is a client size on GTK; it is only in a cold
+    // process, before any window has been mapped, and KiCad's never is.
     expect(decl('.ze-modal.ze-symbol-chooser', 'width')).toBe('880px');
-    expect(decl('.ze-modal.ze-symbol-chooser', 'height')).toBe('calc(680px + 37px)');
+    expect(decl('.ze-modal.ze-symbol-chooser', 'height')).toBe('680px');
+    expect(decl('.ze-modal.ze-fpchooser-frame', 'height')).toBe('680px');
     expect(decl('.ze-modal-header', 'height')).toBe('37px');
   });
 

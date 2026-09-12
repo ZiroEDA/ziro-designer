@@ -20,6 +20,7 @@
 import { LibTreeNode, LibTreeNodeType } from '../../../widgets/lib_tree_model.js';
 import type { LibTreeModelAdapter } from '../../../widgets/lib_tree_model_adapter.js';
 import { footprintSearchTerms, type FpIndexEntry } from '../../../widgets/footprint_list.js';
+import { footprintLibraryDescription } from '../../../widgets/lib_table_descriptions.js';
 
 /**
  * The filter `FOOTPRINT_CHOOSER_FRAME` installs on the adapter
@@ -79,8 +80,63 @@ export function footprintPassesFilter(
   return true;
 }
 
+/** One tree item for the footprint at `i` of `lib`, under `parent`. */
+function footprintItem(lib: FpIndexEntry, i: number, parent: LibTreeNode): LibTreeNode {
+  const name = lib.footprints[i]!;
+  const item = new LibTreeNode();
+  item.type = LibTreeNodeType.ITEM;
+  item.parent = parent;
+  item.name = name;
+  item.libNickname = lib.name;
+  item.libItemName = name;
+  // `FOOTPRINT_INFO::m_doc` is what the Description column shows.
+  item.desc = lib.descr?.[i] ?? '';
+  // `FOOTPRINT_INFO::GetSearchTerms` — the six weighted terms, which
+  // `footprintSearchTerms` already states once for the whole app.
+  item.sourceSearchTerms = footprintSearchTerms(
+    lib.name,
+    name,
+    lib.tags?.[i] ?? '',
+    lib.descr?.[i] ?? '',
+  );
+  return item;
+}
+
+/**
+ * The "-- Recently Used --" group, `PANEL_FOOTPRINT_CHOOSER`'s constructor
+ * (panel_footprint_chooser.cpp:79-104): the history list's footprints, in
+ * history order, under a group node that is added even when empty and flagged
+ * `m_IsRecentlyUsedGroup` so it sorts first. Upstream loads each footprint
+ * to make its LIB_TREE_ITEM; ours finds the same three fields in the index,
+ * and a LIB_ID the index no longer has is skipped as a failed load is.
+ */
+export function addFootprintHistory(
+  adapter: LibTreeModelAdapter,
+  index: readonly FpIndexEntry[],
+  history: readonly string[],
+): LibTreeNode {
+  const group = adapter.addGroup('-- Recently Used --');
+  group.isRecentlyUsedGroup = true;
+  for (const libId of history) {
+    const colon = libId.indexOf(':');
+    if (colon <= 0) continue;
+    const lib = index.find((l) => l.name === libId.slice(0, colon));
+    const i = lib?.footprints.indexOf(libId.slice(colon + 1)) ?? -1;
+    if (!lib || i < 0) continue;
+    group.children.push(footprintItem(lib, i, group));
+  }
+  // `DoAddLibrary( …, presorted = true )`: history order is the order.
+  adapter.finishLibrary(group, true);
+  return group;
+}
+
 /**
  * `FP_TREE_MODEL_ADAPTER::AddLibraries`, over the shipped index.
+ *
+ * The library row's description is `m_libs->GetDescription( nickname )` — the
+ * library TABLE's `(descr …)`, which KiCad ships in `template/fp-lib-table`
+ * and `lib_table_descriptions.ts` mirrors. The index has no such field, and
+ * the column stood empty against every library.
  *
  * Presorted: the index is written in name order per library, so `finishLibrary`
  * is told so rather than re-sorting 15 000 rows on every regenerate.
@@ -92,29 +148,15 @@ export function addFootprintLibraries(
   pinnedLibs: readonly string[] = [],
 ): void {
   for (const lib of index) {
-    const libNode = adapter.addLibrary(lib.name, '', pinnedLibs.includes(lib.name));
+    const libNode = adapter.addLibrary(
+      lib.name,
+      footprintLibraryDescription(lib.name),
+      pinnedLibs.includes(lib.name),
+    );
 
     lib.footprints.forEach((name, i) => {
-      const pads = lib.pads?.[i];
-      if (!footprintPassesFilter(filter, lib.name, name, pads)) return;
-
-      const item = new LibTreeNode();
-      item.type = LibTreeNodeType.ITEM;
-      item.parent = libNode;
-      item.name = name;
-      item.libNickname = lib.name;
-      item.libItemName = name;
-      // `FOOTPRINT_INFO::m_doc` is what the Description column shows.
-      item.desc = lib.descr?.[i] ?? '';
-      // `FOOTPRINT_INFO::GetSearchTerms` — the six weighted terms, which
-      // `footprintSearchTerms` already states once for the whole app.
-      item.sourceSearchTerms = footprintSearchTerms(
-        lib.name,
-        name,
-        lib.tags?.[i] ?? '',
-        lib.descr?.[i] ?? '',
-      );
-      libNode.children.push(item);
+      if (!footprintPassesFilter(filter, lib.name, name, lib.pads?.[i])) return;
+      libNode.children.push(footprintItem(lib, i, libNode));
     });
 
     adapter.finishLibrary(libNode, true);

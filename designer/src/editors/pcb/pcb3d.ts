@@ -704,8 +704,17 @@ export function mount3DViewer(
           }
         : { ...b };
     }
-    if (!items) return null;
-    const bbox = edgeBBox(board, items);
+    // `if( bbbox.GetWidth() == 0 && bbbox.GetHeight() == 0 ) bbbox.Inflate(
+    // pcbIUScale.mmToIU( 10 ) )` (board_adapter.cpp:363-364): an empty board
+    // — the Footprint Chooser's holder before anything is selected — still
+    // gets a scene, 20 mm square about the origin, with the background and
+    // the navigator and no board body. This returned null, and the chooser's
+    // 3D pane was a blank panel where KiCad's shows the gradient.
+    const empty = !items;
+    const bbox = edgeBBox(
+      board,
+      items ?? { minX: -10 * MM, minY: -10 * MM, maxX: 10 * MM, maxY: 10 * MM },
+    );
     report('Build board outline'); // board_adapter.cpp:343
     const adapter = initAdapter(board, bbox, render.footprintHolder === true);
     const s = adapter.s;
@@ -803,7 +812,7 @@ export function mount3DViewer(
       differentiatePlatedCopper: render.differentiatePlatedCopper,
     };
     report('Create layers'); // board_adapter.cpp:579
-    const built = buildBoard3dLayers(board, bbox, { ...layerOpts, report });
+    const built = buildBoard3dLayers(board, bbox, { ...layerOpts, empty, report });
     report('Load OpenGL: board'); // create_scene.cpp:704
     const showThickness = render.copperThickness !== false;
 

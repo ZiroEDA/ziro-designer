@@ -29,8 +29,50 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { JSX } from 'react';
 import { PanelFootprintChooser } from '../widgets/panel_footprint_chooser.js';
 import type { FootprintTreeFilter } from '../widgets/fp_tree_model_adapter.js';
+import { footprintHistory } from '../widgets/footprint_history.js';
+import { FootprintPreview3D, useFootprintHolderBoard } from '../widgets/footprint_preview_3d.js';
+import { Viewer3DFrame } from '../Viewer3DFrame.js';
 import { loadFootprintIndex, type FpIndexEntry } from '../../../widgets/footprint_list.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { bitmapUrl } from '../../../ui/toolbarIcons.js';
+
+/**
+ * `inline static bool m_showDescription = true; m_showFpMode = true;
+ * m_show3DMode = false;` (footprint_chooser_frame.h:136-138) — one value per
+ * process, so a chooser opens the way the last one was left, and a restart
+ * resets them. Module-level for the same reason.
+ */
+const views = { description: true, fp: true, threeD: false };
+
+/**
+ * `BITMAP_BUTTON` with `SetIsRadioButton()` and `Check()`, the bottom panel's
+ * three toggles. The same class paints the text-format bars, so it is their
+ * `.ze-lp-iconbtn` rule and not a second one.
+ */
+function ViewToggle({
+  bitmap,
+  tooltip,
+  checked,
+  onClick,
+}: {
+  bitmap: string;
+  tooltip: string;
+  checked: boolean;
+  onClick: () => void;
+}): JSX.Element {
+  const url = bitmapUrl(bitmap);
+  return (
+    <button
+      type="button"
+      className={`ze-lp-iconbtn${checked ? ' checked' : ''}`}
+      title={tooltip}
+      aria-pressed={checked}
+      onClick={onClick}
+    >
+      {url ? <img src={url} alt="" /> : tooltip}
+    </button>
+  );
+}
 
 export interface FootprintChooserFrameProps {
   /**
@@ -84,6 +126,42 @@ export function FootprintChooserFrame({
    */
   const [useFpFilters, setUseFpFilters] = useState(false);
   const [filterByPins, setFilterByPins] = useState(false);
+
+  const [showDescription, setShowDescription] = useState(views.description);
+  const [showFp, setShowFp] = useState(views.fp);
+  const [show3D, setShow3D] = useState(views.threeD);
+  /** `m_show3DViewer`, unticked on every open — a plain wxCheckBox, no setting. */
+  const [ownWindow, setOwnWindow] = useState(false);
+  const holderBoard = useFootprintHolderBoard(show3D ? (selected ?? '') : '');
+
+  /** `toggleBottomSplit` (:808-838). */
+  const toggleDescription = (): void => {
+    views.description = !showDescription;
+    setShowDescription(views.description);
+  };
+  /**
+   * `on3DviewReq` / `onFpViewReq` (:843-895): each may switch itself OFF only
+   * while the other is on, so the right column is never empty. Turning 3D on
+   * with "own window" ticked also opens the external viewer.
+   */
+  const toggle3D = (): void => {
+    if (show3D) {
+      if (!showFp) return;
+      views.threeD = false;
+    } else {
+      views.threeD = true;
+    }
+    setShow3D(views.threeD);
+  };
+  const toggleFp = (): void => {
+    if (showFp) {
+      if (!show3D) return;
+      views.fp = false;
+    } else {
+      views.fp = true;
+    }
+    setShowFp(views.fp);
+  };
 
   useEffect(() => {
     let live = true;
@@ -162,17 +240,46 @@ export function FootprintChooserFrame({
             filter={filter}
             filters={filters}
             preselect={preselect}
+            history={footprintHistory()}
+            showFpView={showFp}
+            preview3D={show3D ? <FootprintPreview3D board={holderBoard} /> : undefined}
+            showDetails={showDescription}
             onSelect={setSelected}
             onChoose={(id) => onOk(id)}
           />
         </div>
+        {/* buttonsSizer (:144-191): a stretch spacer, then the three
+            BITMAP_BUTTONs with their two separators, the checkbox, a 20px
+            spacer and the wxStdDialogButtonSizer — everything right-aligned. */}
         <div className="ze-cp-buttons ze-fpchooser-foot">
-          {/* m_show3DViewer (:178). Disabled: the 3D viewer is a child frame
-              this app opens from the board editor, and there is nothing to
-              show it from here yet. Present because the row's shape is
-              upstream's and hiding it would put the buttons in the wrong place. */}
-          <label className="ze-check" title="Needs the 3D viewer">
-            <input type="checkbox" disabled />
+          <ViewToggle
+            bitmap={showDescription ? 'text_visibility_off' : 'text_visibility'}
+            tooltip="Show/hide description panel"
+            checked={showDescription}
+            onClick={toggleDescription}
+          />
+          <span className="ze-lp-sep" />
+          <ViewToggle
+            bitmap="shape_3d"
+            tooltip="Show/hide 3D view panel"
+            checked={show3D}
+            onClick={toggle3D}
+          />
+          <ViewToggle
+            bitmap="module"
+            tooltip="Show/hide footprint view panel"
+            checked={showFp}
+            onClick={toggleFp}
+          />
+          <span className="ze-lp-sep" />
+          {/* m_show3DViewer (:178) — `onExternalViewer3DEnable`: ticked with
+              the 3D view on opens EDA_3D_VIEWER_FRAME; unticked closes it. */}
+          <label className="ze-check">
+            <input
+              type="checkbox"
+              checked={ownWindow}
+              onChange={(e) => setOwnWindow(e.target.checked)}
+            />
             <span>Show 3D viewer in own window</span>
           </label>
           <div className="ze-modal-footer">
@@ -185,6 +292,19 @@ export function FootprintChooserFrame({
           </div>
         </div>
       </div>
+      {/* `Show3DViewerFrame` (:370-387): the child EDA_3D_VIEWER_FRAME over
+          the holder board, titled `_( "3D Viewer" ) + " — " + fpID.Format()`
+          (:396-398). Closing it is the frame's own close; the checkbox stays
+          ticked upstream too, until the user clears it. */}
+      {show3D && ownWindow && (
+        <Viewer3DFrame
+          board={holderBoard}
+          title={`3D Viewer — ${selected ?? ''}`}
+          backLabel="← Footprint Chooser"
+          imageBaseName={(selected ?? 'footprint').replace(/^.*:/, '')}
+          onClose={() => setOwnWindow(false)}
+        />
+      )}
     </div>
   );
 }

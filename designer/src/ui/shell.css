@@ -6023,17 +6023,22 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    computed: [px] `qa/probes/chooser_shell_probe.cpp` calls
    ConvertDialogToPixels on a real wxDialog here and gets 880 x 680.
 
-   680 is what `SetSize` gives the window, and on GTK that is the CLIENT area -
-   the desktop's title bar is not in it. Ours draws its own title bar inside the
-   frame (.ze-modal-header, 37px), so the box has to be that much taller to put
-   the same 680px of dialog on the screen.
+   680 is what `SetSize` gives the window, and on GTK that is the OUTER size,
+   title bar included: [px] `qa/probes/tlw_setsize_probe.cpp` does
+   `SetSize( 880, 680 )` on a wxDialog and a wxFrame in a process that has
+   already mapped a window — as KiCad's always has — and both answer
+   GetClientSize 880 x 643, a 37px title bar inside the 680. (A wxFrame sized
+   in a COLD process, before any window is mapped, does get 680 of client; that
+   is the case the "+ 37px" this rule used to carry was reasoning from, and it
+   is not KiCad's.) Ours draws its own 37px title bar inside the box, so the
+   box is the 680 and the dialog gets the same 643 KiCad's does.
 
    Do not re-derive this from a screenshot: 880 x 680 is the DEFAULT, and KiCad
    saves and restores this dialog's size, so a running instance is usually
    showing whatever the user last dragged it to. */
 .ze-modal.ze-symbol-chooser {
   width: 880px;
-  height: calc(680px + 37px);
+  height: 680px;
 }
 .ze-chooser-panel {
   flex: 1;
@@ -6062,8 +6067,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    [data] 440 DU x 2. */
 .ze-modal.ze-fpchooser-frame {
   width: 880px;
-  /* [data] 340 DU x 2, plus our own title bar, as .ze-symbol-chooser does. */
-  height: calc(680px + 37px);
+  /* [data] 340 DU x 2, the OUTER size with the title bar inside it — see
+     .ze-symbol-chooser and tlw_setsize_probe. */
+  height: 680px;
 }
 .ze-fpchooser {
   flex: 1;
@@ -6115,10 +6121,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   flex-direction: column;
 }
-/* The preview canvas fills its pane rather than sizing itself: a
-   FOOTPRINT_PREVIEW_WIDGET is given the pane by the splitter. */
-.ze-fpchooser-preview > * {
-  flex: 1;
+/* m_RightPanelSizer: the FOOTPRINT_PREVIEW_WIDGET and the frame's 3D canvas
+   are each `Add( …, 1, wxEXPAND )` — proportion 1 and 1, so two shown split
+   the column in HALF. Two class selectors, because `.ze-fp-preview`'s own
+   `flex: 10` (its share of the Assign Footprints window) is declared later at
+   the same specificity and was taking ten elevenths of the column here. */
+.ze-fpchooser-preview > .ze-fp-preview,
+.ze-fpchooser-preview > .ze-fpchooser-3d {
+  flex: 1 1 0;
   min-width: 0;
   min-height: 0;
 }
@@ -6136,9 +6146,46 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-height: 80px;
   overflow: auto;
 }
-/* The bottom panel: the 3D checkbox at the left, the std button sizer right. */
+/* The bottom panel, `buttonsSizer` (footprint_chooser_frame.cpp:144-191):
+   a stretch spacer FIRST, so everything is right-aligned; then the three
+   BITMAP_BUTTONs and two separators at `wxRIGHT|wxLEFT, 1` / `wxRIGHT, 1`, the
+   checkbox at `wxALL, 3`, a 20 px spacer and the wxStdDialogButtonSizer at
+   `wxALL, 5`. Not `.ze-cp-buttons`' uniform 5 px gap, which is that other
+   sizer's border; each child's own border is stated below. */
 .ze-fpchooser-foot {
-  justify-content: space-between;
+  justify-content: flex-end;
+  gap: 0;
+  padding-left: 0;
+}
+.ze-fpchooser-foot .ze-lp-iconbtn {
+  margin-right: 1px; /* [data] wxRIGHT, 1 */
+}
+.ze-fpchooser-foot .ze-lp-iconbtn:first-child {
+  margin-left: 1px; /* [data] m_toggleDescription's wxLEFT, 1 */
+}
+.ze-fpchooser-foot .ze-lp-sep {
+  margin-right: 1px; /* [data] wxRIGHT, 1 */
+}
+.ze-fpchooser-foot .ze-check {
+  margin: 3px; /* [data] wxALL, 3 */
+}
+/* Two classes on the container: `.ze-cp-buttons .ze-modal-footer` gives the
+   std sizer `flex: 1` later in this file at the same specificity, which is
+   what left the toggles at the LEFT. */
+.ze-cp-buttons.ze-fpchooser-foot .ze-modal-footer {
+  flex: 0 0 auto;
+  /* [data] the 20 px spacer, then sdbSizer's wxALL, 5. */
+  margin-left: 20px;
+  padding: 5px;
+}
+/* m_preview3DCanvas in m_RightPanelSizer, `Add( …, 1, wxEXPAND, 5 )`: shares
+   the right column with the footprint view when both are shown. */
+.ze-fpchooser-3d {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
 }
 .ze-chooser-panel.column {
   flex-direction: column;

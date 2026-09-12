@@ -457,6 +457,7 @@ import {
 import { fetchNetlistFromSchematic } from './netlist_from_schematic.js';
 import { loadFootprint } from '../../widgets/footprint_list.js';
 import { FootprintChooserFrame } from './dialogs/footprint_chooser_frame.js';
+import { addFootprintToHistory } from './widgets/footprint_history.js';
 import { preloadBoardLibraries } from './preload.js';
 import { parseFootprint } from '../footprint/footprintBoard.js';
 import {
@@ -7397,6 +7398,9 @@ export function PcbEditor({
     setFpChooserOpen(false);
     void loadFootprint(libId).then((lib) => {
       if (!lib) return;
+      // `AddFootprintToHistory( footprintName )` (load_select_footprint.cpp:221)
+      // — on a successful load, and this is the only caller that adds.
+      addFootprintToHistory(libId);
       // The tool may have been switched away while the chooser was open.
       if (activeToolRef.current !== 'placeFootprint') return;
       placeFpRef.current = { lib, fpid: libId };
