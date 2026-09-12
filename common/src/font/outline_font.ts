@@ -118,6 +118,8 @@ export interface OutlineTextStyle {
  */
 export interface OutlineGlyph {
   readonly rings: readonly (readonly Vec2[])[];
+  /** How many of `rings`, from the front, are filled contours; the rest are holes. */
+  readonly outlineCount: number;
 }
 
 export interface BBox {
@@ -340,8 +342,9 @@ export class OutlineFont {
         // Holes go in after the outlines, which is all the ring order needs
         // to say: a hole inside an outline cancels it under non-zero
         // winding, and one inside nothing fills on its own, both as upstream.
+        const outlineCount = rings.length;
         for (const h of holes) rings.push(h);
-        glyphs.push({ rings });
+        glyphs.push({ rings, outlineCount });
       }
       cursor.x += sg.xAdvance * unitsPerFontUnit;
       cursor.y += sg.yAdvance * unitsPerFontUnit;
@@ -477,3 +480,327 @@ function mergeBBox(b: BBox, p: Vec2): void {
   if (p.x > b.maxX) b.maxX = p.x;
   if (p.y > b.maxY) b.maxY = p.y;
 }
+
+// ---------------------------------------------------------------------------
+// OUTLINE_FONT (font/outline_font.h / common/font/outline_font.cpp)
+
+import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { FONT, IsSubscript, IsSuperscript, TEXT_STYLE, type TEXT_STYLE_FLAGS } from './font.js';
+import type { METRICS } from './font_metrics.js';
+import { type GLYPH_LIKE, OUTLINE_GLYPH } from './glyph.js';
+import type { TEXT_ATTRIBUTES } from './text_attributes.js';
+
+export enum EMBEDDING_PERMISSION {
+  INSTALLABLE = 0,
+  EDITABLE = 1,
+  PRINT_PREVIEW_ONLY = 2,
+  RESTRICTED = 3,
+  INVALID = 4,
+}
+
+/**
+ * `OUTLINE_FONT::LoadFont`'s face source: fontconfig plus the file read.
+ * The designer registers one that answers a face already fetched, and null
+ * while it is on its way (the caller then draws with the stroke font, as
+ * `FONT::GetFont` falls back when `LoadFont` fails).
+ */
+export type OutlineFaceSource = (
+  aFontName: string,
+  aBold: boolean,
+  aItalic: boolean,
+  aEmbeddedFiles: readonly string[] | null,
+) => { face: OutlineFace; fileName: string; fakeBold: boolean; fakeItalic: boolean } | null;
+
+export class OUTLINE_FONT extends FONT {
+  /** The face source `LoadFont` reads; `installOutlineFontFaces` sets it. */
+  static faceSource: OutlineFaceSource | null = null;
+
+  private m_font: OutlineFont | null = null;
+  private m_fakeBold = false;
+  private m_fakeItal = false;
+  private m_forDrawingSheet = false;
+
+  override IsOutline(): boolean {
+    return true;
+  }
+
+  override IsBold(): boolean {
+    return !!this.m_font && (this.m_fakeBold || this.m_font.face.isBold);
+  }
+
+  override IsItalic(): boolean {
+    return !!this.m_font && (this.m_fakeItal || this.m_font.face.isItalic);
+  }
+
+  // Accessors to distinguish fake vs real style for diagnostics and rendering decisions
+  IsFakeItalic(): boolean {
+    return this.m_fakeItal;
+  }
+  IsFakeBold(): boolean {
+    return this.m_fakeBold;
+  }
+
+  SetFakeBold(): void {
+    this.m_fakeBold = true;
+  }
+
+  SetFakeItal(): void {
+    this.m_fakeItal = true;
+  }
+
+  GetFileName(): string {
+    return this.m_fontFileName;
+  }
+
+  /** The face-level layout this class draws through. */
+  GetFace(): OutlineFont | null {
+    return this.m_font;
+  }
+
+  /**
+   * Load an outline font. FreeType is used to load the font, HarfBuzz for shaping.
+   *
+   * @param aFontFileName is the font file name.
+   */
+  static LoadFont(
+    aFontName: string,
+    aBold: boolean,
+    aItalic: boolean,
+    aEmbeddedFiles: readonly string[] | null,
+    aForDrawingSheet: boolean,
+  ): OUTLINE_FONT | null {
+    const font = new OUTLINE_FONT();
+
+    const found = OUTLINE_FONT.faceSource
+      ? OUTLINE_FONT.faceSource(aFontName, aBold, aItalic, aEmbeddedFiles)
+      : null;
+
+    if (!found) return null;
+
+    if (found.fakeBold) font.SetFakeBold();
+
+    if (found.fakeItalic) font.SetFakeItal();
+
+    font.m_font = new OutlineFont(found.face, aFontName, found.fakeBold, found.fakeItalic);
+
+    font.m_fontName = aFontName; // Keep asked-for name, even if we substituted.
+    font.m_fontFileName = found.fileName;
+    font.m_forDrawingSheet = aForDrawingSheet;
+
+    return font;
+  }
+
+  GetInterline(aGlyphHeight: number, aFontMetrics: METRICS): number {
+    // The em-relative interline pitch already sets the line spacing; scaling it again by the face
+    // height / units_per_EM ratio double-counts and inflates spacing for non-default fonts
+    return aFontMetrics.GetInterline(aGlyphHeight);
+  }
+
+  GetTextAsGlyphs(
+    aBBox: BOX2I | null,
+    aGlyphs: GLYPH_LIKE[] | null,
+    aText: string,
+    aSize: VECTOR2I,
+    aPosition: VECTOR2I,
+    aAngle: EDA_ANGLE,
+    aMirror: boolean,
+    aOrigin: VECTOR2I,
+    aTextStyle: TEXT_STYLE_FLAGS,
+  ): VECTOR2I {
+    // HarfBuzz needs further processing to split tab-delimited text into text runs.
+
+    const TAB_WIDTH = 4 * 0.6;
+
+    let position = { x: aPosition.x, y: aPosition.y };
+    let textRun = '';
+
+    if (aBBox) {
+      aBBox.SetOrigin(aPosition);
+      aBBox.SetEnd(aPosition);
+    }
+
+    for (const c of aText) {
+      // Handle tabs as locked to the nearest 4th column (in space-widths).
+      if (c === '\t') {
+        if (textRun !== '') {
+          position = this.getTextAsGlyphs(
+            aBBox,
+            aGlyphs,
+            textRun,
+            aSize,
+            position,
+            aAngle,
+            aMirror,
+            aOrigin,
+            aTextStyle,
+          );
+          textRun = '';
+        }
+
+        const tabWidth = KiROUND(aSize.x * TAB_WIDTH);
+        const currentIntrusion = (position.x - aOrigin.x) % tabWidth;
+
+        position.x += tabWidth - currentIntrusion;
+      } else {
+        textRun += c;
+      }
+    }
+
+    if (textRun !== '') {
+      position = this.getTextAsGlyphs(
+        aBBox,
+        aGlyphs,
+        textRun,
+        aSize,
+        position,
+        aAngle,
+        aMirror,
+        aOrigin,
+        aTextStyle,
+      );
+    }
+
+    return position;
+  }
+
+  GetLinesAsGlyphs(
+    aGlyphs: GLYPH_LIKE[],
+    aText: string,
+    aPosition: VECTOR2I,
+    aAttrs: TEXT_ATTRIBUTES,
+    aFontMetrics: METRICS,
+  ): void {
+    const strings: string[] = [];
+    const positions: VECTOR2I[] = [];
+    const extents: VECTOR2I[] = [];
+    let textStyle: TEXT_STYLE_FLAGS = 0;
+
+    if (aAttrs.m_Italic) textStyle |= TEXT_STYLE.ITALIC;
+
+    this.getLinePositions(aText, aPosition, strings, positions, extents, aAttrs, aFontMetrics);
+
+    for (let i = 0; i < strings.length; i++) {
+      this.drawMarkup(
+        null,
+        aGlyphs,
+        strings[i]!,
+        positions[i]!,
+        aAttrs.m_Size,
+        aAttrs.m_Angle,
+        aAttrs.m_Mirrored,
+        aPosition,
+        textStyle,
+        aFontMetrics,
+      );
+    }
+  }
+
+  protected getBoundingBox(aGlyphs: readonly GLYPH_LIKE[]): BOX2I {
+    let minX = 2147483647;
+    let minY = 2147483647;
+    let maxX = -2147483648;
+    let maxY = -2147483648;
+
+    for (const glyph of aGlyphs) {
+      const bbox = glyph.BoundingBox();
+      bbox.Normalize();
+
+      if (minX > bbox.GetX()) minX = bbox.GetX();
+
+      if (minY > bbox.GetY()) minY = bbox.GetY();
+
+      if (maxX < bbox.GetRight()) maxX = bbox.GetRight();
+
+      if (maxY < bbox.GetBottom()) maxY = bbox.GetBottom();
+    }
+
+    const ret = new BOX2I();
+    ret.SetOrigin(minX, minY);
+    ret.SetEnd(maxX, maxY);
+    return ret;
+  }
+
+  /**
+   * `getTextAsGlyphsUnlocked`: one tab-free run through the face, each shaped
+   * glyph's contours an OUTLINE_GLYPH with its holes placed by PointInside.
+   */
+  protected getTextAsGlyphs(
+    aBBox: BOX2I | null,
+    aGlyphs: GLYPH_LIKE[] | null,
+    aText: string,
+    aSize: VECTOR2I,
+    aPosition: VECTOR2I,
+    aAngle: EDA_ANGLE,
+    aMirror: boolean,
+    aOrigin: VECTOR2I,
+    aTextStyle: TEXT_STYLE_FLAGS,
+  ): VECTOR2I {
+    const run = this.m_font!.getTextAsGlyphs(
+      aText,
+      aSize,
+      aPosition,
+      aAngle.AsDegrees(),
+      aMirror,
+      aOrigin,
+      { subscript: IsSubscript(aTextStyle), superscript: IsSuperscript(aTextStyle) },
+      aGlyphs !== null,
+    );
+
+    if (aGlyphs) {
+      for (const g of run.glyphs) {
+        const glyph = new OUTLINE_GLYPH();
+        const holes: SHAPE_LINE_CHAIN[] = [];
+
+        g.rings.forEach((ring, idx) => {
+          const shape = new SHAPE_LINE_CHAIN();
+
+          // `shape.Append( pt.x, pt.y )`: the doubles narrow to VECTOR2I
+          for (const v of ring) shape.Append(Math.trunc(v.x), Math.trunc(v.y));
+
+          shape.SetClosed(true);
+
+          if (idx >= g.outlineCount) holes.push(shape);
+          else glyph.AddOutline(shape);
+        });
+
+        for (const hole of holes) {
+          let added_hole = false;
+
+          if (hole.PointCount()) {
+            for (let ii = 0; ii < glyph.OutlineCount(); ++ii) {
+              if (glyph.Outline(ii).PointInside(hole.GetPoint(0))) {
+                glyph.AddHole(hole, ii);
+                added_hole = true;
+                break;
+              }
+            }
+
+            // Some lovely TTF fonts decided that winding didn't matter for outlines that
+            // don't have holes, so holes that don't fit in any outline are added as
+            // outlines.
+            if (!added_hole) glyph.AddOutline(hole);
+          }
+        }
+
+        glyph.CacheTriangulation(false, false);
+
+        aGlyphs.push(glyph);
+      }
+    }
+
+    if (aBBox) {
+      // `aBBox->Merge( aPosition - VECTOR2I( 0, ascender * abs( scaleFactor.y ) ) )` and the
+      // descender corner: the run's box holds both
+      aBBox.Merge({ x: Math.trunc(run.bbox.minX), y: Math.trunc(run.bbox.minY) });
+      aBBox.Merge({ x: Math.trunc(run.bbox.maxX), y: Math.trunc(run.bbox.maxY) });
+    }
+
+    return { x: Math.trunc(run.end.x), y: Math.trunc(run.end.y) };
+  }
+}
+
+FONT.loaders.outline = (aFontName, aBold, aItalic, aEmbeddedFiles, aForDrawingSheet) =>
+  OUTLINE_FONT.LoadFont(aFontName, aBold, aItalic, aEmbeddedFiles, aForDrawingSheet);

@@ -82,8 +82,8 @@ const stubFont = (width = 1000): SvgFont => ({
 
 const attributes = (over: Partial<SvgTextAttributes> = {}): SvgTextAttributes => ({
   m_Size: { x: 1500, y: 1500 },
-  m_Halign: GR_TEXT_H_ALIGN_T.LEFT,
-  m_Valign: GR_TEXT_V_ALIGN_T.BOTTOM,
+  m_Halign: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT,
+  m_Valign: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM,
   m_StrokeWidth: 0,
   m_Angle: new EDA_ANGLE(0),
   m_Italic: false,
@@ -841,7 +841,7 @@ describe('Text', () => {
       { x: 2 * MM, y: 4 * MM },
       rgb(0, 0, 0),
       'A',
-      attributes({ m_Angle: new EDA_ANGLE(30), m_Valign: GR_TEXT_V_ALIGN_T.TOP }),
+      attributes({ m_Angle: new EDA_ANGLE(30), m_Valign: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP }),
       stubFont(),
     );
 
@@ -890,7 +890,10 @@ describe('Text', () => {
       { x: 0, y: 0 },
       rgb(0, 0, 0),
       'A',
-      attributes({ m_Size: { x: 1500, y: 1501 }, m_Valign: GR_TEXT_V_ALIGN_T.CENTER }),
+      attributes({
+        m_Size: { x: 1500, y: 1501 },
+        m_Valign: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER,
+      }),
       stubFont(),
     );
     // 1501 / 2 truncates to 750, not 750.5.
@@ -901,7 +904,7 @@ describe('Text', () => {
       { x: 0, y: 0 },
       rgb(0, 0, 0),
       'A',
-      attributes({ m_Size: { x: 1500, y: 1501 }, m_Valign: GR_TEXT_V_ALIGN_T.TOP }),
+      attributes({ m_Size: { x: 1500, y: 1501 }, m_Valign: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP }),
       stubFont(),
     );
     expect(body(top)).toContain('<text x="0.0000" y="0.0015"\n');
@@ -913,7 +916,7 @@ describe('Text', () => {
       { x: 0, y: 0 },
       rgb(0, 0, 0),
       'A',
-      attributes({ m_Halign: GR_TEXT_H_ALIGN_T.CENTER }),
+      attributes({ m_Halign: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER }),
       stubFont(),
     );
     expect(body(p)).toContain('text-anchor="middle"');
@@ -923,7 +926,7 @@ describe('Text', () => {
       { x: 0, y: 0 },
       rgb(0, 0, 0),
       'A',
-      attributes({ m_Halign: GR_TEXT_H_ALIGN_T.RIGHT }),
+      attributes({ m_Halign: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT }),
       stubFont(),
     );
     expect(body(right)).toContain('text-anchor="end"');

@@ -165,12 +165,11 @@ export function pdfRenderSettings(
     backgroundColor?: Color4d;
   } = {},
 ): PdfRenderSettings {
-  const backgroundColor = aOptions.backgroundColor ?? COLOR4D_WHITE;
+  const settings = plotterRenderSettings(aOptions);
 
-  return {
-    ...plotterRenderSettings(aOptions),
-    GetBackgroundColor: () => backgroundColor,
-  };
+  settings.SetBackgroundColor(aOptions.backgroundColor ?? COLOR4D_WHITE);
+
+  return settings;
 }
 
 /**

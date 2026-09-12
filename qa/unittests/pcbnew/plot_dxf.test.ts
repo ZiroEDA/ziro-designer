@@ -807,8 +807,8 @@ describe('DXF pad flashes', () => {
 describe('DXF native text (PlotText / plotOneLineOfText)', () => {
   const attrs = (over: Partial<DxfTextAttributes> = {}): DxfTextAttributes => ({
     m_Size: { x: 10000, y: 10000 },
-    m_Halign: GR_TEXT_H_ALIGN_T.LEFT,
-    m_Valign: GR_TEXT_V_ALIGN_T.BOTTOM,
+    m_Halign: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT,
+    m_Valign: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM,
     m_StrokeWidth: 0,
     m_Angle: new EDA_ANGLE(0),
     m_Italic: false,
@@ -850,9 +850,9 @@ describe('DXF native text (PlotText / plotOneLineOfText)', () => {
     // Not zero-based, and inverted relative to the horizontal 0/1/2. Reusing
     // the horizontal scheme would flip every label's anchor.
     for (const [valign, code] of [
-      [GR_TEXT_V_ALIGN_T.TOP, '3'],
-      [GR_TEXT_V_ALIGN_T.CENTER, '2'],
-      [GR_TEXT_V_ALIGN_T.BOTTOM, '1'],
+      [GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP, '3'],
+      [GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER, '2'],
+      [GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM, '1'],
     ] as const) {
       const p = plotter({ iusPerDecimil: 1 });
       p.SetTextMode(PLOT_TEXT_MODE.NATIVE);

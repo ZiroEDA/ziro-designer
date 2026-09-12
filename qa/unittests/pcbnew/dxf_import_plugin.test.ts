@@ -1025,7 +1025,7 @@ describe('DXF_IMPORT_PLUGIN: text', () => {
     );
 
     expect(geom<{ x: number }>(shapesOf(plugin)[0]!, 'm_origin').x).toBe(20);
-    expect(geom(shapesOf(plugin)[0]!, 'm_hJustify')).toBe(GR_TEXT_H_ALIGN_T.CENTER);
+    expect(geom(shapesOf(plugin)[0]!, 'm_hJustify')).toBe(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER);
   });
 
   it('keeps the insertion point for aligned (3) and fit (5) justification', () => {
@@ -1044,7 +1044,7 @@ describe('DXF_IMPORT_PLUGIN: text', () => {
       );
 
       expect(geom<{ x: number }>(shapesOf(plugin)[0]!, 'm_origin').x).toBe(0);
-      expect(geom(shapesOf(plugin)[0]!, 'm_hJustify')).toBe(GR_TEXT_H_ALIGN_T.LEFT);
+      expect(geom(shapesOf(plugin)[0]!, 'm_hJustify')).toBe(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT);
     }
   });
 
@@ -1069,14 +1069,17 @@ describe('DXF_IMPORT_PLUGIN: text', () => {
     };
 
     expect(justify('0', '0')).toEqual({
-      h: GR_TEXT_H_ALIGN_T.LEFT,
-      v: GR_TEXT_V_ALIGN_T.BOTTOM,
+      h: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT,
+      v: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM,
     });
-    expect(justify('1', '2').h).toBe(GR_TEXT_H_ALIGN_T.CENTER);
-    expect(justify('4', '2').h).toBe(GR_TEXT_H_ALIGN_T.CENTER);
-    expect(justify('2', '3')).toEqual({ h: GR_TEXT_H_ALIGN_T.RIGHT, v: GR_TEXT_V_ALIGN_T.TOP });
-    expect(justify('0', '1').v).toBe(GR_TEXT_V_ALIGN_T.BOTTOM);
-    expect(justify('0', '2').v).toBe(GR_TEXT_V_ALIGN_T.CENTER);
+    expect(justify('1', '2').h).toBe(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER);
+    expect(justify('4', '2').h).toBe(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER);
+    expect(justify('2', '3')).toEqual({
+      h: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT,
+      v: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP,
+    });
+    expect(justify('0', '1').v).toBe(GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM);
+    expect(justify('0', '2').v).toBe(GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER);
   });
 
   it('converts the rotation back to degrees', () => {
@@ -1112,8 +1115,8 @@ describe('DXF_IMPORT_PLUGIN: text', () => {
     const [text] = shapesOf(plugin);
 
     expect(geom(text!, 'm_text')).toBe('first second tail');
-    expect(geom(text!, 'm_hJustify')).toBe(GR_TEXT_H_ALIGN_T.CENTER);
-    expect(geom(text!, 'm_vJustify')).toBe(GR_TEXT_V_ALIGN_T.CENTER);
+    expect(geom(text!, 'm_hJustify')).toBe(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER);
+    expect(geom(text!, 'm_vJustify')).toBe(GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER);
   });
 
   it('clears the MTEXT buffer between entities', () => {
@@ -1154,11 +1157,26 @@ describe('DXF_IMPORT_PLUGIN: text', () => {
       };
     };
 
-    expect(align('1')).toEqual({ h: GR_TEXT_H_ALIGN_T.LEFT, v: GR_TEXT_V_ALIGN_T.TOP });
-    expect(align('3')).toEqual({ h: GR_TEXT_H_ALIGN_T.RIGHT, v: GR_TEXT_V_ALIGN_T.TOP });
-    expect(align('5')).toEqual({ h: GR_TEXT_H_ALIGN_T.CENTER, v: GR_TEXT_V_ALIGN_T.CENTER });
-    expect(align('7')).toEqual({ h: GR_TEXT_H_ALIGN_T.LEFT, v: GR_TEXT_V_ALIGN_T.BOTTOM });
-    expect(align('9')).toEqual({ h: GR_TEXT_H_ALIGN_T.RIGHT, v: GR_TEXT_V_ALIGN_T.BOTTOM });
+    expect(align('1')).toEqual({
+      h: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT,
+      v: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP,
+    });
+    expect(align('3')).toEqual({
+      h: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT,
+      v: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP,
+    });
+    expect(align('5')).toEqual({
+      h: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER,
+      v: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER,
+    });
+    expect(align('7')).toEqual({
+      h: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT,
+      v: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM,
+    });
+    expect(align('9')).toEqual({
+      h: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT,
+      v: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM,
+    });
   });
 });
 

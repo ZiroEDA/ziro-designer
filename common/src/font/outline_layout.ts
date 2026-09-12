@@ -102,7 +102,10 @@ export function layoutOutlineText(
       continue;
     }
     for (const g of ld.glyphs)
-      glyphs.push({ rings: g.rings.map((r) => r.map((p) => ({ x: p.x + dx, y: p.y }))) });
+      glyphs.push({
+        rings: g.rings.map((r) => r.map((p) => ({ x: p.x + dx, y: p.y }))),
+        outlineCount: g.outlineCount,
+      });
     for (const b of ld.bars) bars.push(b.map((p) => ({ x: p.x + dx, y: p.y })));
   }
   return { glyphs, bars, bbox, width: maxWidth, lineCount: lines.length };

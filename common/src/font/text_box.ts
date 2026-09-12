@@ -29,6 +29,7 @@
  * the board can use it too instead of guessing.
  */
 
+import { ClampTextPenSize, GetPenSizeForBold, GetPenSizeForNormal } from '../gr_text.js';
 import { interline, KICAD_FONT_NAME, splitTextLines } from './stroke_font.js';
 import { ITALIC_TILT, metricsInterline } from './font_metrics.js';
 import { textLimits, textWidth, type TextStyle } from './font_provider.js';
@@ -57,19 +58,15 @@ export { ITALIC_TILT };
  */
 export const kiRound = (v: number): number => (v < 0 ? Math.ceil(v - 0.5) : Math.floor(v + 0.5));
 
-/** `GetPenSizeForBold`: text size / 5. */
-export const penSizeForBold = (textSize: number): number => kiRound(textSize / 5);
+/** @deprecated `GetPenSizeForBold` in `gr_text.ts`; this delegates. */
+export const penSizeForBold = (textSize: number): number => GetPenSizeForBold(textSize);
 
-/** `GetPenSizeForNormal`: text size / 8. */
-export const penSizeForNormal = (textSize: number): number => kiRound(textSize / 8);
+/** @deprecated `GetPenSizeForNormal` in `gr_text.ts`; this delegates. */
+export const penSizeForNormal = (textSize: number): number => GetPenSizeForNormal(textSize);
 
-/**
- * `ClampTextPenSize`: a pen may not exceed a quarter of the smaller text
- * dimension (0.18 in `aStrict` mode), so small text does not blot out.
- */
+/** @deprecated `ClampTextPenSize` in `gr_text.ts`; this delegates. */
 export function clampTextPenSize(pen: number, size: TextSize, strict = false): number {
-  const smaller = Math.min(Math.abs(size.x), Math.abs(size.y));
-  return Math.min(pen, kiRound(smaller * (strict ? 0.18 : 0.25)));
+  return ClampTextPenSize(pen, size, strict);
 }
 
 /** `GetTextSize()`: the glyph box. `x` scales advances, `y` is the cap height. */

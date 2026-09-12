@@ -1165,19 +1165,19 @@ export class DXF_IMPORT_PLUGIN extends DL_CREATION_ADAPTER {
     const topLeft: MutPoint = { x: 0.0, y: 0.0 };
     const topRight: MutPoint = { x: 0.0, y: 0.0 };
 
-    let hJustify = GR_TEXT_H_ALIGN_T.LEFT;
-    let vJustify = GR_TEXT_V_ALIGN_T.BOTTOM;
+    let hJustify = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT;
+    let vJustify = GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM;
 
     switch (aData.vJustification) {
       case 0: // VBaseLine
       case 1: // VBottom
-        vJustify = GR_TEXT_V_ALIGN_T.BOTTOM;
+        vJustify = GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM;
         topLeft.y = textHeight;
         topRight.y = textHeight;
         break;
 
       case 2: // VMiddle
-        vJustify = GR_TEXT_V_ALIGN_T.CENTER;
+        vJustify = GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER;
         bottomRight.y = -textHeight / 2.0;
         bottomLeft.y = -textHeight / 2.0;
         topLeft.y = textHeight / 2.0;
@@ -1185,7 +1185,7 @@ export class DXF_IMPORT_PLUGIN extends DL_CREATION_ADAPTER {
         break;
 
       case 3: // VTop
-        vJustify = GR_TEXT_V_ALIGN_T.TOP;
+        vJustify = GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP;
         bottomLeft.y = -textHeight;
         bottomRight.y = -textHeight;
         break;
@@ -1197,14 +1197,14 @@ export class DXF_IMPORT_PLUGIN extends DL_CREATION_ADAPTER {
       case 0: // HLeft
       case 3: // HAligned — no equivalent in pcbnew
       case 5: // HFit — no equivalent in pcbnew
-        hJustify = GR_TEXT_H_ALIGN_T.LEFT;
+        hJustify = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT;
         bottomRight.x = textWidth;
         topRight.x = textWidth;
         break;
 
       case 1: // HCenter
       case 4: // HMiddle — no equivalent in pcbnew
-        hJustify = GR_TEXT_H_ALIGN_T.CENTER;
+        hJustify = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER;
         bottomLeft.x = -textWidth / 2.0;
         topLeft.x = -textWidth / 2.0;
         bottomRight.x = textWidth / 2.0;
@@ -1212,7 +1212,7 @@ export class DXF_IMPORT_PLUGIN extends DL_CREATION_ADAPTER {
         break;
 
       case 2: // HRight
-        hJustify = GR_TEXT_H_ALIGN_T.RIGHT;
+        hJustify = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT;
         bottomLeft.x = -textWidth;
         topLeft.x = -textWidth;
         break;
@@ -1314,37 +1314,37 @@ export class DXF_IMPORT_PLUGIN extends DL_CREATION_ADAPTER {
     const textposCoords = this.ocsToWcs(arbAxis, { x: aData.ipx, y: aData.ipy, z: aData.ipz });
     const textpos: Vec2 = { x: this.mapX(textposCoords.x), y: this.mapY(textposCoords.y) };
 
-    let hJustify = GR_TEXT_H_ALIGN_T.LEFT;
-    let vJustify = GR_TEXT_V_ALIGN_T.BOTTOM;
+    let hJustify = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT;
+    let vJustify = GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM;
 
     if (aData.attachmentPoint <= 3) {
-      vJustify = GR_TEXT_V_ALIGN_T.TOP;
+      vJustify = GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP;
       bottomLeft.y = -textHeight;
       bottomRight.y = -textHeight;
     } else if (aData.attachmentPoint <= 6) {
-      vJustify = GR_TEXT_V_ALIGN_T.CENTER;
+      vJustify = GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER;
       bottomRight.y = -textHeight / 2.0;
       bottomLeft.y = -textHeight / 2.0;
       topLeft.y = textHeight / 2.0;
       topRight.y = textHeight / 2.0;
     } else {
-      vJustify = GR_TEXT_V_ALIGN_T.BOTTOM;
+      vJustify = GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM;
       topLeft.y = textHeight;
       topRight.y = textHeight;
     }
 
     if (aData.attachmentPoint % 3 === 1) {
-      hJustify = GR_TEXT_H_ALIGN_T.LEFT;
+      hJustify = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT;
       bottomRight.x = textWidth;
       topRight.x = textWidth;
     } else if (aData.attachmentPoint % 3 === 2) {
-      hJustify = GR_TEXT_H_ALIGN_T.CENTER;
+      hJustify = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER;
       bottomLeft.x = -textWidth / 2.0;
       topLeft.x = -textWidth / 2.0;
       bottomRight.x = textWidth / 2.0;
       topRight.x = textWidth / 2.0;
     } else {
-      hJustify = GR_TEXT_H_ALIGN_T.RIGHT;
+      hJustify = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT;
       bottomLeft.x = -textWidth;
       topLeft.x = -textWidth;
     }

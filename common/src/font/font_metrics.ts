@@ -39,16 +39,17 @@ export const UNDERLINE_OFFSET = -0.16;
  */
 export const STROKE_LEGACY_FACTOR = 0.9583;
 
-/** `METRICS::GetInterline`: `aFontHeight * m_InterlinePitch`. */
-export const metricsInterline = (glyphHeight: number): number => glyphHeight * INTERLINE_PITCH;
+/** @deprecated `METRICS.Default().GetInterline`; this delegates. */
+export const metricsInterline = (glyphHeight: number): number =>
+  METRICS.Default().GetInterline(glyphHeight);
 
-/** `METRICS::GetOverbarVerticalPosition`. */
+/** @deprecated `METRICS.Default().GetOverbarVerticalPosition`; this delegates. */
 export const overbarVerticalPosition = (glyphHeight: number): number =>
-  glyphHeight * OVERBAR_HEIGHT;
+  METRICS.Default().GetOverbarVerticalPosition(glyphHeight);
 
-/** `METRICS::GetUnderlineVerticalPosition`. */
+/** @deprecated `METRICS.Default().GetUnderlineVerticalPosition`; this delegates. */
 export const underlineVerticalPosition = (glyphHeight: number): number =>
-  glyphHeight * UNDERLINE_OFFSET;
+  METRICS.Default().GetUnderlineVerticalPosition(glyphHeight);
 
 /**
  * `include/font/font.h:62` `static constexpr double ITALIC_TILT = 1.0 / 8`.
@@ -58,3 +59,29 @@ export const underlineVerticalPosition = (glyphHeight: number): number =>
  * `EDA_TEXT::GetTextBox` uses the same constant for its `italicOffset`.
  */
 export const ITALIC_TILT = 1.0 / 8;
+
+/** `KIFONT::METRICS`: the three ratios a font's layout reads. */
+export class METRICS {
+  m_InterlinePitch = INTERLINE_PITCH;
+  m_OverbarHeight = OVERBAR_HEIGHT;
+  m_UnderlineOffset = UNDERLINE_OFFSET;
+
+  GetOverbarVerticalPosition(aGlyphHeight: number): number {
+    return aGlyphHeight * this.m_OverbarHeight;
+  }
+
+  GetUnderlineVerticalPosition(aGlyphHeight: number): number {
+    return aGlyphHeight * this.m_UnderlineOffset;
+  }
+
+  GetInterline(aFontHeight: number): number {
+    return aFontHeight * this.m_InterlinePitch;
+  }
+
+  /** `g_defaultMetrics` (font.cpp). */
+  static Default(): METRICS {
+    return g_defaultMetrics;
+  }
+}
+
+const g_defaultMetrics = new METRICS();

@@ -6,9 +6,8 @@
  * field): pcbnew/pcb_field.{h,cpp}. A PCB_TEXT with a field id/name.
  */
 
-import { PCB_TEXT } from './pcb_text.js';
+import { type EdaTextOpts, PCB_TEXT } from './pcb_text.js';
 import type { PCB_LAYER_ID } from './layer_ids.js';
-import type { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
 
 export enum MANDATORY_FIELD_T {
   REFERENCE = 0,
@@ -17,8 +16,6 @@ export enum MANDATORY_FIELD_T {
   FOOTPRINT_FIELD = 3,
   DESCRIPTION = 4,
 }
-
-type EdaTextOpts = ConstructorParameters<typeof EDA_TEXT>[0];
 
 export class PCB_FIELD extends PCB_TEXT {
   private m_id: number;

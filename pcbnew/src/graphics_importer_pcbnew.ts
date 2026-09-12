@@ -381,14 +381,14 @@ export class GRAPHICS_IMPORTER_PCBNEW extends GRAPHICS_IMPORTER<IMPORTED_ITEM> {
         size: { x: Math.trunc(aWidth * factor.x), y: Math.trunc(aHeight * factor.y) },
         thickness: this.MapLineWidth(aThickness),
         justify: joinJustify(
-          aHJustify === GR_TEXT_H_ALIGN_T.LEFT
+          aHJustify === GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT
             ? 'left'
-            : aHJustify === GR_TEXT_H_ALIGN_T.RIGHT
+            : aHJustify === GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT
               ? 'right'
               : 'center',
-          aVJustify === GR_TEXT_V_ALIGN_T.TOP
+          aVJustify === GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP
             ? 'top'
-            : aVJustify === GR_TEXT_V_ALIGN_T.BOTTOM
+            : aVJustify === GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM
               ? 'bottom'
               : 'center',
           false,

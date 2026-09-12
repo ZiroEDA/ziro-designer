@@ -2,8 +2,8 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `RENDER_SETTINGS`, reduced to the accessors a plotter reaches for —
- * KiCad's `include/render_settings.h` and `common/render_settings.cpp`.
+ * `KIGFX::RENDER_SETTINGS` — KiCad's `include/render_settings.h` and
+ * `common/render_settings.cpp`.
  *
  * The dash and gap ratios are NOT `PLOTTER` statics: upstream keeps them on
  * `RENDER_SETTINGS` (render_settings.h:347-348, defaulted in
@@ -11,14 +11,15 @@
  * `GetDashGapLenIU` (common/plotters/plotter.cpp:142,148) ask the render
  * settings for the length. So they live here rather than next to the
  * line-width sentinels, at the level of sharing upstream gives them.
- *
- * Settings are injected rather than imported because the engine packages must
- * not reach into `designer/`'s theme; `plotterRenderSettings` builds a
- * faithful one for a caller that has no theme to offer.
  */
 
-import { type Color4d, mix } from './color4d.js';
+import { type Color4d, COLOR4D_BLACK, mix } from './color4d.js';
+import type { VIEW_ITEM } from './view/view_item.js';
 
+/**
+ * The accessors a plotter reaches for. `RENDER_SETTINGS` satisfies it; the
+ * plotters take this type until they take `RENDER_SETTINGS` itself.
+ */
 export interface PlotterRenderSettings {
   GetDefaultPenWidth(): number;
   GetDashLength(aLineWidth: number): number;
@@ -31,31 +32,336 @@ export interface PlotterRenderSettings {
  * visually") behind an `#if 0` and compiles 1.0; the dead value is not an
  * option, it is dead.
  */
-const DASH_CORRECTION = 1.0;
+const correction = 1.0;
 
 /** `RENDER_SETTINGS`' ISO 128-2 defaults — render_settings.cpp:32-33. */
 export const DEFAULT_DASH_LENGTH_RATIO = 12;
 export const DEFAULT_GAP_LENGTH_RATIO = 3;
 
 /**
- * `RENDER_SETTINGS::GetDashLength` / `GetDotLength` / `GetGapLength`
- * (render_settings.cpp:65-83). The dot length ignores both ratios and is
- * floored at 0.2 of the width, which is what keeps a dot from collapsing to a
- * zero-length line. `m_defaultPenWidth` starts at a bare zero.
+ * `KIGFX::RENDER_SETTINGS` (`include/render_settings.h`): the drawing
+ * parameters a PAINTER reads. Every member that is not keyed by a layer id is
+ * here; the layer-keyed ones — `m_activeLayer`, `m_printLayers`,
+ * `GetPrimaryHighContrastLayer`, `GetLayerColor`/`SetLayerColor` with their
+ * shade maps and `update()` — come with `layer_ids.h`/`lset.h` when those
+ * move into `common` for the PAINTER port (#636 stage 5). `m_printDC` is
+ * wxDC-only and has no browser form.
+ */
+export abstract class RENDER_SETTINGS {
+  protected m_layerName = '';
+  protected m_highContrastLayers = new Set<number>(); // High-contrast layers (both board layers and
+  //   synthetic GAL layers)
+
+  /// Parameters for display modes
+  protected m_hiContrastEnabled: boolean; // High contrast display mode on/off
+  protected m_hiContrastFactor: number; // Factor used for computing high contrast color
+  protected m_highlightEnabled: boolean; // Highlight display mode on/off
+  protected m_highlightNetcodes = new Set<number>(); // Set of net cods to be highlighted
+  protected m_highlightFactor: number; // Factor used for computing highlight color
+  protected m_drawBoundingBoxes: boolean; // Visual aid for debugging
+  protected m_selectFactor: number; // Specifies how color of selected items is changed
+  protected m_outlineWidth: number; // Line width used when drawing outlines
+  protected m_drawingSheetLineWidth: number; // Line width used for borders and titleblock
+  protected m_defaultPenWidth: number;
+  protected m_minPenWidth: number; // Some clients (such as PDF) don't like ultra-thin
+  // lines.  This sets an absolute minimum.
+  protected m_dashLengthRatio: number;
+  protected m_gapLengthRatio: number;
+  protected m_defaultFont = '';
+  protected m_isPrinting: boolean; // true when draw to a printer
+  protected m_printBlackAndWite: boolean; // true if black and white printing is requested: some
+  // backgrounds are not printed to avoid not visible items
+
+  constructor() {
+    this.m_drawBoundingBoxes = false;
+    this.m_dashLengthRatio = 12; // From ISO 128-2
+    this.m_gapLengthRatio = 3; // From ISO 128-2
+
+    // Set the default initial values
+    this.m_highlightFactor = 0.5;
+    this.m_selectFactor = 0.5;
+    this.m_highlightEnabled = false;
+    this.m_hiContrastEnabled = false;
+    this.m_hiContrastFactor = Math.fround(0.2);
+    this.m_outlineWidth = 1;
+    this.m_drawingSheetLineWidth = 100000;
+    this.m_defaultPenWidth = 0;
+    this.m_minPenWidth = 0;
+    this.m_isPrinting = false;
+    this.m_printBlackAndWite = false;
+  }
+
+  /**
+   * Set the specified layer as high-contrast.
+   *
+   * @param aLayerId is a layer number that should be displayed in a specific mode.
+   * @param aEnabled is the new layer state ( true = active or false = not active).
+   */
+  SetLayerIsHighContrast(aLayerId: number, aEnabled = true): void {
+    if (aEnabled) this.m_highContrastLayers.add(aLayerId);
+    else this.m_highContrastLayers.delete(aLayerId);
+  }
+
+  /**
+   * Return information whether the queried layer is marked as high-contrast.
+   *
+   * @return True if the queried layer is marked as active.
+   */
+  GetLayerIsHighContrast(aLayerId: number): boolean {
+    return this.m_highContrastLayers.has(aLayerId);
+  }
+
+  /**
+   * Returns the set of currently high-contrast layers.
+   */
+  GetHighContrastLayers(): Set<number> {
+    return new Set(this.m_highContrastLayers);
+  }
+
+  GetLayerName(): string {
+    return this.m_layerName;
+  }
+  SetLayerName(aLayerName: string): void {
+    this.m_layerName = aLayerName;
+  }
+
+  /**
+   * Clear the list of active layers.
+   */
+  ClearHighContrastLayers(): void {
+    this.m_highContrastLayers.clear();
+  }
+
+  /**
+   * Return current highlight setting.
+   */
+  IsHighlightEnabled(): boolean {
+    return this.m_highlightEnabled;
+  }
+
+  /**
+   * Return the netcode of currently highlighted net.
+   */
+  GetHighlightNetCodes(): Set<number> {
+    return this.m_highlightNetcodes;
+  }
+
+  /**
+   * Turns on/off highlighting.
+   *
+   * It may be done for the active layer or the specified net(s)..
+   *
+   * @param aEnabled tells if highlighting should be enabled.
+   * @param aNetcode is optional and if specified, turns on highlighting only for the net with
+   *                 number given as the parameter.
+   */
+  SetHighlight(aEnabled: boolean, aNetcode?: number, aMulti?: boolean): void;
+  SetHighlight(aHighlight: Set<number>, aEnabled?: boolean): void;
+  SetHighlight(a: boolean | Set<number>, b?: number | boolean, c?: boolean): void {
+    if (a instanceof Set) {
+      const aEnabled = (b as boolean | undefined) ?? true;
+
+      this.m_highlightEnabled = aEnabled;
+
+      if (aEnabled) this.m_highlightNetcodes = new Set(a);
+      else this.m_highlightNetcodes.clear();
+
+      return;
+    }
+
+    const aNetcode = (b as number | undefined) ?? -1;
+    const aMulti = c ?? false;
+
+    this.m_highlightEnabled = a;
+
+    if (a) {
+      if (!aMulti) this.m_highlightNetcodes.clear();
+
+      this.m_highlightNetcodes.add(aNetcode);
+    } else this.m_highlightNetcodes.clear();
+  }
+
+  /**
+   * Turns on/off high contrast display mode.
+   */
+  SetHighContrast(aEnabled: boolean): void {
+    this.m_hiContrastEnabled = aEnabled;
+  }
+  GetHighContrast(): boolean {
+    return this.m_hiContrastEnabled;
+  }
+
+  SetDrawBoundingBoxes(aEnabled: boolean): void {
+    this.m_drawBoundingBoxes = aEnabled;
+  }
+  GetDrawBoundingBoxes(): boolean {
+    return this.m_drawBoundingBoxes;
+  }
+
+  /**
+   * Returns the color that should be used to draw the specific VIEW_ITEM on the specific layer
+   * using currently used render settings.
+   *
+   * @param aItem is the VIEW_ITEM.
+   * @param aLayer is the layer.
+   * @return The color.
+   */
+  abstract GetColor(aItem: VIEW_ITEM | null, aLayer: number): Color4d;
+
+  GetDrawingSheetLineWidth(): number {
+    return this.m_drawingSheetLineWidth;
+  }
+
+  GetDefaultPenWidth(): number {
+    return this.m_defaultPenWidth;
+  }
+  SetDefaultPenWidth(aWidth: number): void {
+    this.m_defaultPenWidth = aWidth;
+  }
+
+  GetMinPenWidth(): number {
+    return this.m_minPenWidth;
+  }
+  SetMinPenWidth(aWidth: number): void {
+    this.m_minPenWidth = aWidth;
+  }
+
+  GetDashLengthRatio(): number {
+    return this.m_dashLengthRatio;
+  }
+  SetDashLengthRatio(aRatio: number): void {
+    this.m_dashLengthRatio = aRatio;
+  }
+  GetDashLength(aLineWidth: number): number {
+    return Math.max(this.m_dashLengthRatio - correction, 1.0) * aLineWidth;
+  }
+  GetDotLength(aLineWidth: number): number {
+    // The minimal length scale is arbitrary set to 0.2 after trials
+    // 0 lenght can create drawing issues
+    return Math.max(1.0 - correction, 0.2) * aLineWidth;
+  }
+
+  GetGapLengthRatio(): number {
+    return this.m_gapLengthRatio;
+  }
+  SetGapLengthRatio(aRatio: number): void {
+    this.m_gapLengthRatio = aRatio;
+  }
+  GetGapLength(aLineWidth: number): number {
+    return Math.max(this.m_gapLengthRatio + correction, 1.0) * aLineWidth;
+  }
+
+  GetShowPageLimits(): boolean {
+    return true;
+  }
+
+  IsPrinting(): boolean {
+    return this.m_isPrinting;
+  }
+  SetIsPrinting(isPrinting: boolean): void {
+    this.m_isPrinting = isPrinting;
+  }
+
+  IsPrintBlackAndWhite(): boolean {
+    return this.m_printBlackAndWite;
+  }
+  SetPrintBlackAndWhite(aPrintBlackAndWhite: boolean): void {
+    this.m_printBlackAndWite = aPrintBlackAndWhite;
+  }
+
+  PrintBlackAndWhiteReq(): boolean {
+    return this.m_printBlackAndWite && this.m_isPrinting;
+  }
+
+  /**
+   * Return current background color settings.
+   */
+  abstract GetBackgroundColor(): Color4d;
+
+  /**
+   * Set the background color.
+   */
+  abstract SetBackgroundColor(aColor: Color4d): void;
+
+  /**
+   * Return current grid color settings.
+   */
+  abstract GetGridColor(): Color4d;
+
+  /**
+   * Return current cursor color settings.
+   */
+  abstract GetCursorColor(): Color4d;
+
+  IsBackgroundDark(): boolean {
+    return false;
+  }
+
+  /**
+   * Set line width used for drawing outlines.
+   *
+   * @param aWidth is the new width.
+   */
+  SetOutlineWidth(aWidth: number): void {
+    this.m_outlineWidth = aWidth;
+  }
+  GetOutlineWidth(): number {
+    return this.m_outlineWidth;
+  }
+
+  SetHighlightFactor(aFactor: number): void {
+    this.m_highlightFactor = aFactor;
+  }
+  SetSelectFactor(aFactor: number): void {
+    this.m_selectFactor = aFactor;
+  }
+
+  SetDefaultFont(aFont: string): void {
+    this.m_defaultFont = aFont;
+  }
+  GetDefaultFont(): string {
+    return this.m_defaultFont;
+  }
+}
+
+/** The concrete stub `plotterRenderSettings` hands out. */
+class PLOTTER_RENDER_SETTINGS_STUB extends RENDER_SETTINGS {
+  private m_backgroundColor: Color4d = COLOR4D_BLACK;
+
+  GetColor(): Color4d {
+    return COLOR4D_BLACK;
+  }
+  GetBackgroundColor(): Color4d {
+    return this.m_backgroundColor;
+  }
+  SetBackgroundColor(aColor: Color4d): void {
+    this.m_backgroundColor = aColor;
+  }
+  GetGridColor(): Color4d {
+    return COLOR4D_BLACK;
+  }
+  GetCursorColor(): Color4d {
+    return COLOR4D_BLACK;
+  }
+}
+
+/**
+ * A `RENDER_SETTINGS` with only the pen width and dash ratios set, for a
+ * plotter that has no editor settings to be handed.
+ *
+ * @deprecated the plotters take the editor's `PCB_RENDER_SETTINGS` /
+ * `SCH_RENDER_SETTINGS` once those are ported (#636 stage 5).
  */
 export function plotterRenderSettings(
   aOptions: { defaultPenWidth?: number; dashLengthRatio?: number; gapLengthRatio?: number } = {},
-): PlotterRenderSettings {
-  const defaultPenWidth = aOptions.defaultPenWidth ?? 0;
-  const dashLengthRatio = aOptions.dashLengthRatio ?? DEFAULT_DASH_LENGTH_RATIO;
-  const gapLengthRatio = aOptions.gapLengthRatio ?? DEFAULT_GAP_LENGTH_RATIO;
+): RENDER_SETTINGS {
+  const settings = new PLOTTER_RENDER_SETTINGS_STUB();
 
-  return {
-    GetDefaultPenWidth: () => defaultPenWidth,
-    GetDashLength: (aLineWidth) => Math.max(dashLengthRatio - DASH_CORRECTION, 1.0) * aLineWidth,
-    GetDotLength: (aLineWidth) => Math.max(1.0 - DASH_CORRECTION, 0.2) * aLineWidth,
-    GetGapLength: (aLineWidth) => Math.max(gapLengthRatio + DASH_CORRECTION, 1.0) * aLineWidth,
-  };
+  settings.SetDefaultPenWidth(aOptions.defaultPenWidth ?? 0);
+  settings.SetDashLengthRatio(aOptions.dashLengthRatio ?? DEFAULT_DASH_LENGTH_RATIO);
+  settings.SetGapLengthRatio(aOptions.gapLengthRatio ?? DEFAULT_GAP_LENGTH_RATIO);
+
+  return settings;
 }
 
 /**

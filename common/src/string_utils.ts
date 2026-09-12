@@ -756,7 +756,7 @@ export function formatG(value: number, precision = 4): string {
  * `if( !tmp.IsEmpty() )`, so exactly ONE trailing empty is dropped. `"a  "`
  * therefore splits to `["a", ""]`, where `split(' ')` gives `["a", "", ""]`.
  */
-function wxStringSplit(text: string, splitter: string): string[] {
+export function wxStringSplit(text: string, splitter: string): string[] {
   const parts = text.split(splitter);
   if (parts.length > 0 && parts[parts.length - 1] === '') parts.pop();
   return parts;

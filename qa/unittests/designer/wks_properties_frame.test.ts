@@ -235,9 +235,13 @@ describe('"KiCad Font" is the stroke font, not an outline family', () => {
 
   it('names it once, in the font module that owns it', () => {
     // include/font/kicad_font_name.h, which stroke_font.cpp:189 assigns to the
-    // stroke font's own m_fontName.
-    const FONT = read('../../../common/src/font/stroke_font.ts');
+    // stroke font's own m_fontName. `font.ts` (font.cpp includes the header)
+    // defines it; `stroke_font.ts` re-exports, never redefines.
+    const FONT = read('../../../common/src/font/font.ts');
     expect(FONT).toContain("export const KICAD_FONT_NAME = 'KiCad Font';");
+    const STROKE = read('../../../common/src/font/stroke_font.ts');
+    expect(STROKE).toContain("export { KICAD_FONT_NAME } from './font.js';");
+    expect(STROKE).not.toContain("KICAD_FONT_NAME = 'KiCad Font'");
   });
 
   it('strokes it rather than sending it to a CSS family', () => {

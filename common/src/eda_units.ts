@@ -74,6 +74,8 @@ export const gerbIUScale = new EdaIuScale(GERB_IU_PER_MM);
 export const pcbIUScale = new EdaIuScale(PCB_IU_PER_MM);
 export const drawSheetIUScale = new EdaIuScale(PL_IU_PER_MM);
 export const schIUScale = new EdaIuScale(SCH_IU_PER_MM);
+/** `unityScale` (base_units.h): a scale of 1, the plotters' independent scaling. */
+export const unityScale = new EdaIuScale(1.0);
 
 /**
  * `ARC_LOW_DEF_MM` / `ARC_HIGH_DEF_MM` and the board-IU forms of them

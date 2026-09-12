@@ -1420,25 +1420,25 @@ export class SvgPlotter {
     let hjust = 'start';
 
     switch (aH_justify) {
-      case GR_TEXT_H_ALIGN_T.CENTER:
+      case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER:
         hjust = 'middle';
         break;
-      case GR_TEXT_H_ALIGN_T.RIGHT:
+      case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT:
         hjust = 'end';
         break;
-      case GR_TEXT_H_ALIGN_T.LEFT:
+      case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT:
         hjust = 'start';
         break;
     }
 
     switch (aV_justify) {
-      case GR_TEXT_V_ALIGN_T.CENTER:
+      case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER:
         text_pos.y += Math.trunc(aSize.y / 2);
         break;
-      case GR_TEXT_V_ALIGN_T.TOP:
+      case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP:
         text_pos.y += aSize.y;
         break;
-      case GR_TEXT_V_ALIGN_T.BOTTOM:
+      case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM:
         break;
     }
 

@@ -1775,25 +1775,25 @@ export class PsPlotter {
     let dy = 0;
 
     switch (aH_justify) {
-      case GR_TEXT_H_ALIGN_T.CENTER:
+      case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER:
         dx = Math.trunc(-tw / 2);
         break;
-      case GR_TEXT_H_ALIGN_T.RIGHT:
+      case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT:
         dx = -tw;
         break;
-      case GR_TEXT_H_ALIGN_T.LEFT:
+      case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT:
         dx = 0;
         break;
     }
 
     switch (aV_justify) {
-      case GR_TEXT_V_ALIGN_T.CENTER:
+      case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER:
         dy = Math.trunc(th / 2);
         break;
-      case GR_TEXT_V_ALIGN_T.TOP:
+      case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP:
         dy = th;
         break;
-      case GR_TEXT_V_ALIGN_T.BOTTOM:
+      case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM:
         dy = 0;
         break;
     }

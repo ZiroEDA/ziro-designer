@@ -12,7 +12,7 @@
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { NEWSTROKE_GLYPHS } from './newstroke_glyphs.js';
-import { metricsInterline, OVERBAR_HEIGHT, STROKE_LEGACY_FACTOR } from './font_metrics.js';
+import { OVERBAR_HEIGHT, STROKE_LEGACY_FACTOR } from './font_metrics.js';
 
 /**
  * The stroke font's own name — `KICAD_FONT_NAME` (include/font/kicad_font_name.h),
@@ -23,7 +23,7 @@ import { metricsInterline, OVERBAR_HEIGHT, STROKE_LEGACY_FACTOR } from './font_m
  * hands back the stroke font — so it is a face name that must NOT be treated
  * as an outline family.
  */
-export const KICAD_FONT_NAME = 'KiCad Font';
+export { KICAD_FONT_NAME } from './font.js';
 
 /**
  * The OTHER name a font control can show: `_( "Default Font" )`, the entry that
@@ -397,6 +397,249 @@ export function textBlockOffset(opts: {
   return { x, y };
 }
 
+/** @deprecated `STROKE_FONT.GetInterline( size, METRICS.Default() )`; this delegates. */
 export function interline(size: number): number {
-  return metricsInterline(size) * STROKE_LEGACY_FACTOR;
+  return STROKE_FONT.LoadFont('')!.GetInterline(size, METRICS.Default());
 }
+
+// ---------------------------------------------------------------------------
+// STROKE_FONT (font/stroke_font.h / common/font/stroke_font.cpp)
+
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
+import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import {
+  FONT,
+  ITALIC_TILT as FONT_ITALIC_TILT,
+  KICAD_FONT_NAME as FONT_KICAD_FONT_NAME,
+  TEXT_STYLE,
+  type TEXT_STYLE_FLAGS,
+} from './font.js';
+import { METRICS } from './font_metrics.js';
+import { type GLYPH_LIKE, STROKE_GLYPH } from './glyph.js';
+
+/// Offset (in stroke font units) to move the origin to the baseline.
+// (`STROKE_FONT_SCALE` and `FONT_OFFSET` are declared at the top of this file)
+
+let g_defaultFontInitialized = false;
+const g_defaultFontGlyphs: STROKE_GLYPH[] = [];
+let g_defaultFontGlyphBoundingBoxes: BOX2D[] | null = null;
+
+function buildGlyphBoundingBox(aGlyph: STROKE_GLYPH, aGlyphWidth: number): void {
+  const min = { x: 0, y: 0 };
+  const max = { x: aGlyphWidth, y: 0 };
+
+  for (const pointList of aGlyph.strokes) {
+    for (const point of pointList) {
+      min.y = Math.min(min.y, point.y);
+      max.y = Math.max(max.y, point.y);
+    }
+  }
+
+  aGlyph.SetBoundingBox(new BOX2D(min, { x: max.x - min.x, y: max.y - min.y }));
+}
+
+export class STROKE_FONT extends FONT {
+  private m_glyphs: readonly STROKE_GLYPH[] | null = null;
+  private m_glyphBoundingBoxes: readonly BOX2D[] | null = null;
+  private m_maxGlyphWidth = 0.0;
+
+  override IsStroke(): boolean {
+    return true;
+  }
+
+  /**
+   * Load the standard KiCad stroke font.
+   *
+   * @param aFontName is the name of the font. If empty, the standard KiCad stroke font is loaded.
+   */
+  static LoadFont(aFontName: string): STROKE_FONT | null {
+    if (aFontName === '') {
+      const font = new STROKE_FONT();
+      font.loadNewStrokeFont(NEWSTROKE_GLYPHS, NEWSTROKE_GLYPHS.length);
+      return font;
+    }
+    // If we ever supported other stroke fonts, the code would go here.
+    return null;
+  }
+
+  private loadNewStrokeFont(aNewStrokeFont: readonly string[], aNewStrokeFontSize: number): void {
+    if (!g_defaultFontInitialized) {
+      g_defaultFontGlyphBoundingBoxes = [];
+
+      for (let j = 0; j < aNewStrokeFontSize; j++) {
+        const glyph = new STROKE_GLYPH();
+        const src = aNewStrokeFont[j]!;
+
+        let glyphStartX = 0.0;
+        let glyphEndX = 0.0;
+        let glyphWidth = 0.0;
+        let i = 0;
+
+        while (i < src.length) {
+          const coordinate = [src.charCodeAt(i), src.charCodeAt(i + 1)];
+          const R = 'R'.charCodeAt(0);
+
+          if (i < 2) {
+            // The first two values contain the width of the char
+            glyphStartX = (coordinate[0]! - R) * STROKE_FONT_SCALE;
+            glyphEndX = (coordinate[1]! - R) * STROKE_FONT_SCALE;
+            glyphWidth = glyphEndX - glyphStartX;
+          } else if (src[i] === ' ' && src[i + 1] === 'R') {
+            glyph.RaisePen();
+          } else {
+            // In stroke font, coordinates values are coded as <value> + 'R', where
+            // <value> is an ASCII char.
+            // therefore every coordinate description of the Hershey format has an offset,
+            // it has to be subtracted
+            // Note:
+            //  * the stroke coordinates are stored in reduced form (-1.0 to +1.0),
+            //    and the actual size is stroke coordinate * glyph size
+            //  * a few shapes have a height slightly bigger than 1.0 ( like '{' '[' )
+            const point = { x: 0.0, y: 0.0 };
+            point.x = (coordinate[0]! - R) * STROKE_FONT_SCALE - glyphStartX;
+
+            // FONT_OFFSET is here for historical reasons, due to the way the stroke font
+            // was built. It allows shapes coordinates like W M ... to be >= 0
+            // Only shapes like j y have coordinates < 0
+            point.y = (coordinate[1]! - R + FONT_OFFSET) * STROKE_FONT_SCALE;
+
+            glyph.AddPoint(point);
+          }
+
+          i += 2;
+        }
+
+        glyph.Finalize();
+
+        // Compute the bounding box of the glyph
+        buildGlyphBoundingBox(glyph, glyphWidth);
+        g_defaultFontGlyphBoundingBoxes.push(glyph.BoundingBox());
+        g_defaultFontGlyphs.push(glyph);
+        this.m_maxGlyphWidth = Math.max(this.m_maxGlyphWidth, glyphWidth);
+      }
+
+      g_defaultFontInitialized = true;
+    }
+
+    this.m_glyphs = g_defaultFontGlyphs;
+    this.m_glyphBoundingBoxes = g_defaultFontGlyphBoundingBoxes;
+    this.m_fontName = FONT_KICAD_FONT_NAME;
+    this.m_fontFileName = '';
+  }
+
+  GetInterline(aGlyphHeight: number, aFontMetrics: METRICS): number {
+    const LEGACY_FACTOR = STROKE_LEGACY_FACTOR; // Adjustment to match legacy spacing
+
+    return aFontMetrics.GetInterline(aGlyphHeight) * LEGACY_FACTOR;
+  }
+
+  GetTextAsGlyphs(
+    aBBox: BOX2I | null,
+    aGlyphs: GLYPH_LIKE[] | null,
+    aText: string,
+    aSize: VECTOR2I,
+    aPosition: VECTOR2I,
+    aAngle: EDA_ANGLE,
+    aMirror: boolean,
+    aOrigin: VECTOR2I,
+    aTextStyle: TEXT_STYLE_FLAGS,
+  ): VECTOR2I {
+    const TAB_WIDTH = 4;
+    const INTER_CHAR = 0.2;
+    const SUPER_SUB_SIZE_MULTIPLIER = 0.8;
+    const SUPER_HEIGHT_OFFSET = 0.35;
+    const SUB_HEIGHT_OFFSET = 0.15;
+
+    const cursor = { x: aPosition.x, y: aPosition.y };
+    let glyphSize = { x: aSize.x, y: aSize.y };
+    const tilt = aTextStyle & TEXT_STYLE.ITALIC ? FONT_ITALIC_TILT : 0.0;
+    const space_width = this.m_glyphBoundingBoxes![0]!.GetWidth(); // First char is space
+    let char_count = 0;
+
+    if (aTextStyle & TEXT_STYLE.SUBSCRIPT || aTextStyle & TEXT_STYLE.SUPERSCRIPT) {
+      glyphSize = {
+        x: glyphSize.x * SUPER_SUB_SIZE_MULTIPLIER,
+        y: glyphSize.y * SUPER_SUB_SIZE_MULTIPLIER,
+      };
+
+      // `cursor.y += glyphSize.y * SUB_HEIGHT_OFFSET`: the double sum, truncated into the int
+      if (aTextStyle & TEXT_STYLE.SUBSCRIPT)
+        cursor.y = Math.trunc(cursor.y + glyphSize.y * SUB_HEIGHT_OFFSET);
+      else cursor.y = Math.trunc(cursor.y - glyphSize.y * SUPER_HEIGHT_OFFSET);
+    }
+
+    for (let c of aText) {
+      // Handle tabs as locked to the next 4th column (in base-widths).
+      if (c === '\t') {
+        char_count = (Math.trunc(char_count / TAB_WIDTH) + 1) * TAB_WIDTH - 1;
+
+        // `int new_cursor = ...`: the double sum, truncated
+        let new_cursor = Math.trunc(aPosition.x + aSize.x * char_count + aSize.x * space_width);
+
+        while (new_cursor <= cursor.x) {
+          char_count += TAB_WIDTH;
+          new_cursor += aSize.x * TAB_WIDTH;
+        }
+
+        cursor.x = new_cursor;
+      } else if (c === ' ') {
+        // 'space' character - draw nothing, advance cursor position
+        cursor.x += KiROUND(glyphSize.x * space_width);
+      } else {
+        // dd is the index into bounding boxes table
+        let dd = c.codePointAt(0)! - 0x20;
+
+        // Filtering non existing glyphs and non printable chars
+        if (dd < 0 || dd >= this.m_glyphBoundingBoxes!.length) {
+          c = '?';
+          dd = c.codePointAt(0)! - 0x20;
+        }
+
+        const source = this.m_glyphs![dd]!;
+
+        if (aGlyphs) {
+          aGlyphs.push(source.Transform(glyphSize, cursor, tilt, aAngle, aMirror, aOrigin));
+        }
+
+        const glyphExtents = source.BoundingBox().GetEnd();
+
+        cursor.x += KiROUND(glyphExtents.x * glyphSize.x);
+      }
+
+      ++char_count;
+    }
+
+    if (aBBox) {
+      aBBox.SetOrigin(aPosition);
+      aBBox.SetEnd(
+        cursor.x - KiROUND(glyphSize.x * INTER_CHAR),
+        Math.trunc(cursor.y - glyphSize.y),
+      );
+      aBBox.Normalize();
+    }
+
+    return { x: cursor.x, y: aPosition.y };
+  }
+
+  GetGlyphCount(): number {
+    return this.m_glyphs ? this.m_glyphs.length : 0;
+  }
+
+  GetGlyph(aIndex: number): STROKE_GLYPH | null {
+    if (!this.m_glyphs || aIndex >= this.m_glyphs.length) return null;
+
+    return this.m_glyphs[aIndex]!;
+  }
+
+  GetGlyphBoundingBox(aIndex: number): BOX2D {
+    if (!this.m_glyphBoundingBoxes || aIndex >= this.m_glyphBoundingBoxes.length)
+      return new BOX2D();
+
+    return this.m_glyphBoundingBoxes[aIndex]!;
+  }
+}
+
+FONT.loaders.stroke = (aFontName) => STROKE_FONT.LoadFont(aFontName);

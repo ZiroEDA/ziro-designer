@@ -2409,8 +2409,8 @@ export { FormatAngle };
 // EDA_TEXT::Format (common/eda_text.cpp:1061)
 // ---------------------------------------------------------------------------
 
-export const CTL_OMIT_COLOR = 1 << 9;
-export const CTL_OMIT_HYPERLINK = 1 << 10;
+export { CTL_OMIT_COLOR, CTL_OMIT_HYPERLINK } from '@ziroeda/common/src/ctl_flags.js';
+import { CTL_OMIT_COLOR, CTL_OMIT_HYPERLINK } from '@ziroeda/common/src/ctl_flags.js';
 
 /** `EDA_TEXT::Format( aFormatter, aControlBits )` (eda_text.cpp:1061). */
 export function formatEdaText(out: OUTPUTFORMATTER, text: KEdaText, controlBits: number): void {

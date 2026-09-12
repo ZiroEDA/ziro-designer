@@ -2217,25 +2217,25 @@ export class DxfPlotter {
     let v_code = 0;
 
     switch (aAttributes.m_Halign) {
-      case GR_TEXT_H_ALIGN_T.LEFT:
+      case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT:
         h_code = 0;
         break;
-      case GR_TEXT_H_ALIGN_T.CENTER:
+      case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER:
         h_code = 1;
         break;
-      case GR_TEXT_H_ALIGN_T.RIGHT:
+      case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT:
         h_code = 2;
         break;
     }
 
     switch (aAttributes.m_Valign) {
-      case GR_TEXT_V_ALIGN_T.TOP:
+      case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP:
         v_code = 3;
         break;
-      case GR_TEXT_V_ALIGN_T.CENTER:
+      case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER:
         v_code = 2;
         break;
-      case GR_TEXT_V_ALIGN_T.BOTTOM:
+      case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM:
         v_code = 1;
         break;
     }

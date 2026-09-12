@@ -216,8 +216,8 @@ describe('GRAPHICS_IMPORTER_PCBNEW: entity to board graphic', () => {
       1.0000009,
       0.15,
       30,
-      GR_TEXT_H_ALIGN_T.LEFT,
-      GR_TEXT_V_ALIGN_T.TOP,
+      GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT,
+      GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP,
       COLOR4D_UNSPECIFIED,
     );
 
@@ -245,8 +245,8 @@ describe('GRAPHICS_IMPORTER_PCBNEW: entity to board graphic', () => {
       1,
       -1,
       0,
-      GR_TEXT_H_ALIGN_T.CENTER,
-      GR_TEXT_V_ALIGN_T.CENTER,
+      GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER,
+      GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER,
       COLOR4D_UNSPECIFIED,
     );
 
@@ -260,9 +260,9 @@ describe('GRAPHICS_IMPORTER_PCBNEW: entity to board graphic', () => {
     const add = (h: GR_TEXT_H_ALIGN_T, v: GR_TEXT_V_ALIGN_T): void =>
       imp.AddText({ x: 0, y: 0 }, 'A', 1, 1, 0.1, 0, h, v, COLOR4D_UNSPECIFIED);
 
-    add(GR_TEXT_H_ALIGN_T.LEFT, GR_TEXT_V_ALIGN_T.BOTTOM);
-    add(GR_TEXT_H_ALIGN_T.RIGHT, GR_TEXT_V_ALIGN_T.TOP);
-    add(GR_TEXT_H_ALIGN_T.CENTER, GR_TEXT_V_ALIGN_T.CENTER);
+    add(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT, GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM);
+    add(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT, GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP);
+    add(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER, GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER);
 
     // Each of the four non-default words has to reach the file, and neither
     // `center` may: KiCad never writes it, so emitting one changes the file on
@@ -655,8 +655,8 @@ describe('IMPORTED_SHAPE: clone and transform', () => {
       1,
       0.1,
       0,
-      GR_TEXT_H_ALIGN_T.LEFT,
-      GR_TEXT_V_ALIGN_T.BOTTOM,
+      GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT,
+      GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM,
       COLOR4D_UNSPECIFIED,
     );
 

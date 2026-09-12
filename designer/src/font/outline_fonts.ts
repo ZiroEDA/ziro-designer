@@ -29,9 +29,10 @@
  * "Liberation Sans", but each keeps the name it was asked for.
  */
 import { BUNDLED_FONTS, findFont } from '@ziroeda/common/src/font/fontconfig.js';
+import { FONT } from '@ziroeda/common/src/font/font.js';
 import { setFontProvider } from '@ziroeda/common/src/font/font_provider.js';
 import { type OutlineFace, parseOutlineFace } from '@ziroeda/common/src/font/outline_face.js';
-import { OutlineFont } from '@ziroeda/common/src/font/outline_font.js';
+import { OUTLINE_FONT, OutlineFont } from '@ziroeda/common/src/font/outline_font.js';
 import {
   outlineBoundaryLimits,
   outlineTextWidth,
@@ -130,6 +131,25 @@ export function getOutlineFont(
  */
 export function installOutlineFontProvider(): void {
   installOutlineFontFaces();
+
+  // `OUTLINE_FONT::LoadFont`'s face source (`FONT::GetFont` calls it for any
+  // non-stroke name): a face already fetched answers; one still on its way
+  // answers null, so `GetFont` hands back the stroke font, and the font map
+  // is cleared when the face lands so the next ask resolves the real one.
+  OUTLINE_FONT.faceSource = (fontName, bold, italic) => {
+    const found = findFont(fontName, bold, italic);
+    if (!found) return null;
+    const st = loadFace(found.file.file);
+    if (st.state !== 'ready') return null;
+    return {
+      face: st.face,
+      fileName: found.file.file,
+      fakeBold: found.fakeBold,
+      fakeItalic: found.fakeItalic,
+    };
+  };
+  onOutlineFontsChanged(() => FONT.ClearFontMap());
+
   setFontProvider({
     measure(text, size, style) {
       const font = getOutlineFont(style.face, !!style.bold, !!style.italic);
@@ -237,4 +257,5 @@ export function installOutlineFontFaces(doc: Document | undefined = globalThis.d
 export function resetOutlineFonts(): void {
   faces.clear();
   fonts.clear();
+  FONT.ClearFontMap();
 }
