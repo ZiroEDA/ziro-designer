@@ -97,6 +97,19 @@ describe('PCB_ARC', () => {
     a.Rotate({ x: 0, y: 0 }, ANGLE_90);
     expect(a.GetMid()).toEqual({ x: 707, y: -707 });
   });
+
+  // PCB_ARC::GetAngle is `angle1.Normalize180() + angle2.Normalize180()`: a
+  // clockwise sweep is NEGATIVE, and PCB_ARC::HitTest's `arc_angle < ANGLE_0`
+  // branch then keeps the hit inside the sweep. Normalize() instead of
+  // Normalize180() made this arc report 540 and hit its whole circle.
+  it('a clockwise half circle sweeps -180 and misses its other half', () => {
+    // centre origin, r=100: 0 -> -90 -> 180 degrees, the y-negative half
+    const a = new PCB_ARC({ x: 100, y: 0 }, { x: 0, y: -100 }, { x: -100, y: 0 }, 10, 'F.Cu');
+    expect(a.GetAngle().AsDegrees()).toBe(-180);
+    expect(a.HitTest({ x: 0, y: -100 }, 0)).toBe(true);
+    expect(a.HitTest({ x: 0, y: 100 }, 0)).toBe(false); // on the circle, off the sweep
+    expect(a.HitTest({ x: 71, y: 71 }, 0)).toBe(false);
+  });
 });
 
 describe('PCB_VIA', () => {

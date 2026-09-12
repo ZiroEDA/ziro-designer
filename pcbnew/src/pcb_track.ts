@@ -180,8 +180,12 @@ export class PCB_ARC extends PCB_TRACK {
       x: this.m_End.x - center.x,
       y: this.m_End.y - center.y,
     });
-    const angle1 = midAngle.sub(startAngle).Normalize();
-    const angle2 = endAngle.sub(midAngle).Normalize();
+    // `angle1.Normalize180() + angle2.Normalize180()` (pcb_track.cpp): each
+    // half-sweep lands in (-180, 180], so a clockwise arc comes out NEGATIVE
+    // and HitTest's `arc_angle < ANGLE_0` branch is reachable. Normalize()
+    // here summed two [0, 360) values and every CW arc hit anywhere on its circle.
+    const angle1 = midAngle.sub(startAngle).Normalize180();
+    const angle2 = endAngle.sub(midAngle).Normalize180();
     return angle1.add(angle2);
   }
 }
