@@ -94,7 +94,7 @@ export function Prettify(source: string, mode: FORMAT_MODE = FORMAT_MODE.NORMAL)
 
   let listDepth = 0;
   let libDepth = 0;
-  let lastNonWhitespace = '';
+  let lastNonWhitespace = 0;
   let inQuote = false;
   let hasInsertedSpace = false;
   let inMultiLineList = false;
@@ -105,30 +105,41 @@ export function Prettify(source: string, mode: FORMAT_MODE = FORMAT_MODE.NORMAL)
   let column = 0;
   let backslashCount = 0; // Count of successive backslash read since any other char
 
-  const isWhitespace = (c: string): boolean => c === ' ' || c === '\t' || c === '\n' || c === '\r';
+  // Character codes: the loop below is per byte of an 85 MB board, so it
+  // compares codes and copies runs of ordinary characters in one slice.
+  const SPACE = 0x20;
+  const TAB = 0x09;
+  const LF = 0x0a;
+  const CR = 0x0d;
+  const LPAREN = 0x28;
+  const RPAREN = 0x29;
+  const BACKSLASH = 0x5c;
+  const QUOTE = quoteChar.charCodeAt(0);
 
-  const isAlpha = (c: string): boolean => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+  const isWhitespace = (c: number): boolean => c === SPACE || c === TAB || c === LF || c === CR;
 
-  const nextNonWhitespace = (at: number): string => {
+  const isAlpha = (c: number): boolean => (c >= 0x61 && c <= 0x7a) || (c >= 0x41 && c <= 0x5a);
+
+  const nextNonWhitespace = (at: number): number => {
     let seek = at;
-    while (seek < n && isWhitespace(source[seek]!)) seek++;
-    if (seek >= n) return '';
-    return source[seek]!;
+    while (seek < n && isWhitespace(source.charCodeAt(seek))) seek++;
+    if (seek >= n) return 0;
+    return source.charCodeAt(seek);
   };
 
   const isXY = (at: number): boolean => {
     let seek = at;
-    if (++seek >= n || source[seek] !== 'x') return false;
-    if (++seek >= n || source[seek] !== 'y') return false;
-    if (++seek >= n || source[seek] !== ' ') return false;
+    if (++seek >= n || source.charCodeAt(seek) !== 0x78 /* x */) return false;
+    if (++seek >= n || source.charCodeAt(seek) !== 0x79 /* y */) return false;
+    if (++seek >= n || source.charCodeAt(seek) !== SPACE) return false;
     return true;
   };
 
   const tokenAfter = (at: number): string => {
-    let seek = at;
-    let token = '';
-    while (++seek < n && isAlpha(source[seek]!)) token += source[seek];
-    return token;
+    let seek = at + 1;
+    const from = seek;
+    while (seek < n && isAlpha(source.charCodeAt(seek))) seek++;
+    return source.slice(from, seek);
   };
 
   const isShortForm = (at: number): boolean => {
@@ -146,9 +157,8 @@ export function Prettify(source: string, mode: FORMAT_MODE = FORMAT_MODE.NORMAL)
 
   const isLib = (at: number): boolean => tokenAfter(at) === 'lib';
 
-  /** How many UTF-8 bytes the code unit at `at` contributes. */
-  const utf8Bytes = (c: string, src: string, at: number): number => {
-    const code = c.charCodeAt(0);
+  /** How many UTF-8 bytes the code unit contributes. */
+  const utf8Bytes = (code: number): number => {
     if (code < 0x80) return 1;
     if (code < 0x800) return 2;
     if (code >= 0xd800 && code <= 0xdbff) return 4; // high surrogate: the pair's four bytes
@@ -156,58 +166,83 @@ export function Prettify(source: string, mode: FORMAT_MODE = FORMAT_MODE.NORMAL)
     return 3;
   };
 
-  const push = (text: string): void => {
+  /** `"\n" + indent` for a depth, made once. */
+  const newlineIndent: string[] = [];
+  const nlIndent = (depth: number): string => {
+    let s = newlineIndent[depth];
+    if (s === undefined) {
+      s = `\n${indentChar.repeat(depth * indentSize)}`;
+      newlineIndent[depth] = s;
+    }
+    return s;
+  };
+
+  // Ordinary characters are copied through unchanged, so a run of them is
+  // one slice: `runStart` is where the pending run begins, -1 for none.
+  let runStart = -1;
+  const flushRun = (at: number): void => {
+    if (runStart >= 0) {
+      formatted.push(source.slice(runStart, at));
+      runStart = -1;
+    }
+  };
+  const push = (text: string, at: number): void => {
+    flushRun(at);
     formatted.push(text);
     formattedEmpty = false;
   };
 
   for (let cursor = 0; cursor < n; ++cursor) {
-    const ch = source[cursor]!;
-    const next = nextNonWhitespace(cursor);
+    const ch = source.charCodeAt(cursor);
 
     if (isWhitespace(ch) && !inQuote) {
       if (
         !hasInsertedSpace && // Only permit one space between chars
         listDepth > 0 && // Do not permit spaces in outer list
-        lastNonWhitespace !== '(' && // Remove extra space after start of list
-        next !== ')' && // Remove extra space before end of list
-        next !== '(' // Remove extra space before newline
+        lastNonWhitespace !== LPAREN // Remove extra space after start of list
       ) {
-        if (inXY || column < consecutiveTokenWrapThreshold) {
-          // Note that we only insert spaces here, no matter what kind of whitespace is
-          // in the input.  Newlines will be inserted as needed by the logic below.
-          push(' ');
-          column++;
-        } else if (inShortForm || inLibRow) {
-          push(' ');
-        } else {
-          push(`\n${indentChar.repeat(listDepth * indentSize)}`);
-          column = listDepth * indentSize;
-          inMultiLineList = true;
-        }
+        const next = nextNonWhitespace(cursor);
+        if (
+          next !== RPAREN && // Remove extra space before end of list
+          next !== LPAREN // Remove extra space before newline
+        ) {
+          if (inXY || column < consecutiveTokenWrapThreshold) {
+            // Note that we only insert spaces here, no matter what kind of whitespace is
+            // in the input.  Newlines will be inserted as needed by the logic below.
+            push(' ', cursor);
+            column++;
+          } else if (inShortForm || inLibRow) {
+            push(' ', cursor);
+          } else {
+            push(nlIndent(listDepth), cursor);
+            column = listDepth * indentSize;
+            inMultiLineList = true;
+          }
 
-        hasInsertedSpace = true;
+          hasInsertedSpace = true;
+        }
       }
+      flushRun(cursor);
     } else {
       hasInsertedSpace = false;
 
-      if (ch === '(' && !inQuote) {
+      if (ch === LPAREN && !inQuote) {
         const currentIsXY = isXY(cursor);
         const currentIsShortForm = textSpecialCase && isShortForm(cursor);
         const currentIsLib = libSpecialCase && isLib(cursor);
 
         if (formattedEmpty) {
-          push('(');
+          push('(', cursor);
           column++;
         } else if (inXY && currentIsXY && column < xySpecialCaseColumnLimit) {
           // List-of-points special case
-          push(' (');
+          push(' (', cursor);
           column += 2;
         } else if (inShortForm || inLibRow) {
-          push(' (');
+          push(' (', cursor);
           column += 2;
         } else {
-          push(`\n${indentChar.repeat(listDepth * indentSize)}(`);
+          push(`${nlIndent(listDepth)}(`, cursor);
           column = listDepth * indentSize + 1;
         }
 
@@ -222,21 +257,21 @@ export function Prettify(source: string, mode: FORMAT_MODE = FORMAT_MODE.NORMAL)
         }
 
         listDepth++;
-      } else if (ch === ')' && !inQuote) {
+      } else if (ch === RPAREN && !inQuote) {
         if (listDepth > 0) listDepth--;
 
         if (inShortForm) {
-          push(')');
+          push(')', cursor);
           column++;
         } else if (inLibRow && listDepth === libDepth) {
-          push(')');
+          push(')', cursor);
           inLibRow = false;
-        } else if (lastNonWhitespace === ')' || inMultiLineList) {
-          push(`\n${indentChar.repeat(listDepth * indentSize)})`);
+        } else if (lastNonWhitespace === RPAREN || inMultiLineList) {
+          push(`${nlIndent(listDepth)})`, cursor);
           column = listDepth * indentSize + 1;
           inMultiLineList = false;
         } else {
-          push(')');
+          push(')', cursor);
           column++;
         }
 
@@ -248,15 +283,16 @@ export function Prettify(source: string, mode: FORMAT_MODE = FORMAT_MODE.NORMAL)
         // The output formatter escapes double-quotes (like \")
         // But a corner case is a sequence like \\"
         // therefore a '\' is attached to a '"' if a odd number of '\' is detected
-        if (ch === '\\') backslashCount++;
-        else if (ch === quoteChar && (backslashCount & 1) === 0) inQuote = !inQuote;
+        if (ch === BACKSLASH) backslashCount++;
+        else if (ch === QUOTE && (backslashCount & 1) === 0) inQuote = !inQuote;
 
-        if (ch !== '\\') backslashCount = 0;
+        if (ch !== BACKSLASH) backslashCount = 0;
 
-        push(ch);
+        if (runStart < 0) runStart = cursor;
+        formattedEmpty = false;
         // The C++ walks UTF-8 bytes and counts each one as a column; the
         // wrap thresholds above are therefore byte columns.
-        column += utf8Bytes(ch, source, cursor);
+        column += utf8Bytes(ch);
       }
 
       lastNonWhitespace = ch;
@@ -264,7 +300,7 @@ export function Prettify(source: string, mode: FORMAT_MODE = FORMAT_MODE.NORMAL)
   }
 
   // newline required at end of line / file for POSIX compliance. Keeps git diffs clean.
-  push('\n');
+  push('\n', n);
 
   return formatted.join('');
 }

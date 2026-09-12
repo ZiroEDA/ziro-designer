@@ -340,7 +340,37 @@ export function FormatInternalUnits(
   dataType: FileDataType = 'distance',
 ): string {
   // `aValue` is an int: it has no negative zero, and neither may the quotient.
-  const engUnits = (value === 0 ? 0 : value) / GetScaleForInternalUnitType(iuScale, dataType);
+  const scale = GetScaleForInternalUnitType(iuScale, dataType);
+  if (scale === 1e6 && Number.isInteger(value) && Math.abs(value) < 1e10) {
+    // The board-file case, exactly: an integer count of nanometres below
+    // 10 m has at most ten significant digits, so `{:.10g}` of `iu / 1e6`
+    // is the decimal iu/1e6 itself, trailing zeros trimmed (and `%g` cannot
+    // reach its exponent forms: those need |x| < 1e-4, handled below, or
+    // |x| >= 1e10). Written with integer arithmetic, this is the formatter's
+    // hot path on a large board.
+    if (value === 0) return '0';
+    const neg = value < 0;
+    const v = neg ? -value : value;
+    const whole = Math.floor(v / 1e6);
+    const frac = v - whole * 1e6;
+    if (frac === 0) return neg ? `-${whole}` : String(whole);
+    if (frac < 100) {
+      // |x| <= 0.0001 with a zero whole part takes the fixed-notation branch
+      // below; with a non-zero whole part it is an ordinary decimal.
+      if (whole === 0) {
+        let buf = formatF(v / 1e6, 10);
+        while (buf.length > 0 && buf.endsWith('0')) buf = buf.slice(0, -1);
+        if (buf.endsWith('.')) buf = buf.slice(0, -1);
+        return neg ? `-${buf}` : buf;
+      }
+    }
+    let digits = String(frac).padStart(6, '0');
+    let end = digits.length;
+    while (digits.charCodeAt(end - 1) === 0x30) end--;
+    digits = digits.slice(0, end);
+    return `${neg ? '-' : ''}${whole}.${digits}`;
+  }
+  const engUnits = (value === 0 ? 0 : value) / scale;
   if (engUnits !== 0.0 && Math.abs(engUnits) <= 0.0001) {
     let buf = formatF(engUnits, 10);
     // remove trailing zeros
