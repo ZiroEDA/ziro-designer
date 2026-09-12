@@ -49,6 +49,13 @@ export interface TextStyle {
  */
 export interface FontProvider {
   measure(text: string, size: number, style: TextStyle): number | null;
+  /**
+   * `FONT::StringBoundaryLimits` for one line of an outline face: the box
+   * `drawMarkup` merges over the line's runs — as wide as the advance, and
+   * as tall as the face's ascender plus descender at the text size. Null
+   * declines, like `measure`.
+   */
+  limits?(text: string, size: number, style: TextStyle): { x: number; y: number } | null;
 }
 
 let provider: FontProvider | null = null;
@@ -82,4 +89,22 @@ export function textWidth(text: string, size: number, style?: TextStyle): number
     if (w !== null && Number.isFinite(w) && w >= 0) return w;
   }
   return measureText(text, size);
+}
+
+/**
+ * `FONT::StringBoundaryLimits` of one line, for the face in `style`, or null
+ * when the answer has to come from the stroke font — no face, no provider,
+ * a provider without `limits`, or one that declines.
+ */
+export function textLimits(
+  text: string,
+  size: number,
+  style?: TextStyle,
+): { x: number; y: number } | null {
+  const face = style?.face;
+  if (face && provider?.limits) {
+    const l = provider.limits(text, size, style ?? {});
+    if (l && Number.isFinite(l.x) && Number.isFinite(l.y) && l.x >= 0 && l.y >= 0) return l;
+  }
+  return null;
 }

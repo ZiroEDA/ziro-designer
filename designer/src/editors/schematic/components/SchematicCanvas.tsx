@@ -258,6 +258,7 @@ import { kiCursor } from '../../../ui/kicursors.js';
 import { remapEvent } from '../hotkey_bindings.js';
 import { settings } from '../../../prefs/settings.js';
 import type { InputPrefs } from '../../../ui/view_controls.js';
+import { onOutlineFontsChanged } from '../../../font/outline_fonts.js';
 import {
   drawGrid,
   drawCrosshair,
@@ -2726,6 +2727,21 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     sceneDirtyRef.current = true;
     schedule();
   }, [schedule]);
+
+  // A text with `(font (face …))` draws in the stroke font until its face has
+  // been fetched (`FONT::GetFont` loads off the disk synchronously; ours cannot).
+  // When the face lands, the scene is rebuilt so that text is redrawn in it —
+  // and the GL buffer is invalidated explicitly, because `SchematicGl` only
+  // re-records when the content key changes by reference, and nothing in the
+  // document changed: the same text now has a face to draw with.
+  useEffect(
+    () =>
+      onOutlineFontsChanged(() => {
+        glRef.current?.invalidate();
+        requestDraw();
+      }),
+    [requestDraw],
+  );
 
   /** Let go of a grabbed move without committing anything. */
   const endGrab = useCallback(() => {

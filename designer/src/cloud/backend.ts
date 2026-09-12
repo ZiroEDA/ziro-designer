@@ -22,8 +22,8 @@
  * interface, testable against a backend that fails on demand — which is what
  * `qa/unittests/designer/cloud_store.test.ts` does.
  *
- * The same shape as `setFontProvider` and the injected measuring context in
- * `canvas_font_provider.ts`: a path that only runs in a browser is a path
+ * The same shape as `setFontProvider` and the injected face fetcher in
+ * `font/outline_fonts.ts`: a path that only runs in a browser is a path
  * nobody checks.
  */
 

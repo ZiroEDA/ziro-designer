@@ -81,8 +81,18 @@ import {
   interline,
   layoutText,
   measureText,
+  splitTextLines,
   type TextHAlign,
 } from '@ziroeda/common/src/font/stroke_font.js';
+import { metricsInterline } from '@ziroeda/common/src/font/font_metrics.js';
+import type { TextEffects as SchTextEffects } from '@ziroeda/eeschema/src/types.js';
+import type { OutlineFont } from '@ziroeda/common/src/font/outline_font.js';
+import {
+  layoutOutlineText,
+  outlineBoundaryLimits,
+  type OutlineTextLayout,
+} from '@ziroeda/common/src/font/outline_layout.js';
+import { getOutlineFont } from '../../../font/outline_fonts.js';
 import { globalLabelShape, isEmpty, textPenWidth } from '@ziroeda/eeschema/src/tools/bbox.js';
 import { contentBBox } from '@ziroeda/eeschema/src/tools/scene_bbox.js';
 import { tableCellId } from '@ziroeda/eeschema/src/tools/table_cells.js';
@@ -171,6 +181,8 @@ interface FieldDraw {
   rot: 0 | 90;
   bold: boolean;
   italic: boolean;
+  /** `(font (face …))`, when the field carries one. */
+  face?: string;
   /**
    * `(font (thickness …))`, when the field carries one.
    *
@@ -332,6 +344,7 @@ function fieldDrawsFor(
         italic: !!f.effects?.italic,
       };
       if (f.effects?.thickness !== undefined) fd.pen = f.effects.thickness;
+      if (f.effects?.face) fd.face = f.effects.face;
       if (f.effects?.hidden) fd.hidden = true;
       if (f.effects?.color) fd.cssColor = cssColor(f.effects.color);
       out.push(fd);
@@ -1456,6 +1469,8 @@ export function renderSchematic(
         !!f.effects?.bold,
         !!f.effects?.italic,
         f.effects?.thickness,
+        0,
+        f.effects?.face,
       );
     }
   }
@@ -1582,6 +1597,8 @@ export function renderSchematic(
         fd.bold,
         fd.italic,
         fd.pen,
+        0,
+        fd.face,
       );
     }
     // Locked symbols show a small padlock at the body's top-left corner
@@ -1697,6 +1714,8 @@ export function renderSchematic(
         f.effects?.bold,
         f.effects?.italic,
         f.effects?.thickness,
+        0,
+        f.effects?.face,
       );
     }
 
@@ -2131,6 +2150,9 @@ function drawTextBox(
       0,
       bold,
       italic,
+      tb.effects?.thickness,
+      0,
+      tb.effects?.face,
     );
   });
 }
@@ -2170,6 +2192,8 @@ function drawBoxText(
       effects?.bold ?? false,
       effects?.italic ?? false,
       effects?.thickness,
+      0,
+      effects?.face,
     );
   });
 }
@@ -2794,6 +2818,8 @@ function drawLabel(
      * absence normally says.
      */
     thickness?: number,
+    /** `(font (face …))`, when the item carries one. */
+    face?: string,
   ): void => {
     const pen =
       thickness !== undefined && thickness > 1
@@ -2818,6 +2844,7 @@ function drawLabel(
       // belonged under.
       pen,
       shadow ? shadow.width : 0,
+      face,
     );
   };
 
@@ -2857,6 +2884,11 @@ function drawLabel(
         { x: l.at.x + flow.x * off, y: l.at.y + flow.y * off },
         h,
         justifyFor(spin),
+        0,
+        l.effects?.bold ?? false,
+        l.effects?.italic ?? false,
+        l.effects?.thickness,
+        l.effects?.face,
       );
     } else {
       // Global label: the outline comes from eeschema's globalLabelShape, the
@@ -2890,6 +2922,11 @@ function drawLabel(
         // SetSpinStyle justifies the text away from the anchor;
         // SCH_GLOBALLABEL centres it vertically, which is drawText's default.
         justifyFor(spin),
+        0,
+        l.effects?.bold ?? false,
+        l.effects?.italic ?? false,
+        l.effects?.thickness,
+        l.effects?.face,
       );
       /*
        * The implicit "Intersheet References" field (${INTERSHEET_REFS}).
@@ -2957,6 +2994,9 @@ function drawLabel(
             field.angle % 180 === 90 ? 90 : 0,
             field.effects?.bold ?? false,
             field.effects?.italic ?? false,
+            field.effects?.thickness,
+            0,
+            field.effects?.face,
           );
         }
       }
@@ -2979,12 +3019,14 @@ function drawLabel(
   if (l.kind === 'text') {
     paintText(
       l.text,
-      l.at,
+      schTextDrawPos(l, h),
       h,
       l.effects?.justify ?? ['center'],
       l.angle % 180 === 90 ? 90 : 0,
       l.effects?.bold ?? false,
       l.effects?.italic ?? false,
+      l.effects?.thickness,
+      l.effects?.face,
     );
     return;
   }
@@ -3005,7 +3047,67 @@ function drawLabel(
     l.effects?.bold ?? false,
     l.effects?.italic ?? false,
     l.effects?.thickness,
+    l.effects?.face,
   );
+}
+
+/**
+ * Where a plain `SCH_TEXT` is drawn from: `GetDrawPos()` plus the two offsets
+ * `SCH_PAINTER::draw( const SCH_TEXT* )` (sch_painter.cpp:2245, 2373) and
+ * `SCH_TEXT::Plot` (sch_text.cpp:598-600) both add —
+ *
+ *     VECTOR2I text_offset = aText->GetSchematicTextOffset( &m_schSettings );
+ *     …
+ *     if( aText->Type() == SCH_TEXT_T )
+ *         text_offset += aText->GetOffsetToMatchSCH_FIELD( nullptr );
+ *
+ * `SCH_TEXT::GetSchematicTextOffset` is a constant `( 0, -2500 )`, "Fudge
+ * factor to match KiCad 6" (sch_text.cpp:76-80): every plain text sits a
+ * quarter of a millimetre above its anchor, whatever its angle. We drew it
+ * exactly at the anchor. [px] kicad-cli's SVG of a bottom-justified
+ * Newstroke text puts the baseline 0.69 mm above the anchor, which is this
+ * 0.25 plus `getLinePositions`' 0.17 × size.
+ *
+ * `GetOffsetToMatchSCH_FIELD` (sch_text.cpp:456-470) is outline-only:
+ *
+ *     if( GetDrawFont( aRenderSettings )->IsOutline() )
+ *     {
+ *         BOX2I    firstLineBBox = GetTextBox( aRenderSettings, 0 );
+ *         int      sizeDiff = firstLineBBox.GetHeight() - GetTextSize().y;
+ *         int      adjust = KiROUND( sizeDiff * 0.4 );
+ *         VECTOR2I adjust_offset( 0, -adjust );
+ *         RotatePoint( adjust_offset, GetDrawRotation() );
+ *         return adjust_offset;
+ *     }
+ *
+ * — an outline face's box is ascender + descender tall (about 1.56 × the
+ * size for Liberation Sans) where a stroke glyph's is the size itself, and
+ * without this a faced text would sit visibly lower than the same text in
+ * Newstroke. [px] the same SVG: an Arial text's baseline is 1.255 mm above
+ * its anchor at size 2.54 — 0.25 + 0.4318 + 0.573, the last being this.
+ * Only `SCH_TEXT_T` gets it; a label's `GetSchematicTextOffset` is its own.
+ */
+export function schTextDrawPos(
+  l: { at: Vec2; angle: number; text: string; effects?: SchTextEffects },
+  h: number,
+): Vec2 {
+  const pos = { x: l.at.x, y: l.at.y - 2500 };
+  const face = l.effects?.face;
+  const font = face ? getOutlineFont(face, !!l.effects?.bold, !!l.effects?.italic) : null;
+  if (!font) return pos;
+  const first = splitTextLines(l.text)[0] ?? '';
+  // `GetTextBox( …, 0 )`'s height for an outline face: the line's limits plus
+  // the overbar allowance (`extents.y / 6` when the line opens one); the 0.17
+  // fudge is stroke-only.
+  const limits = outlineBoundaryLimits(font, first, h);
+  const boxH = limits.y + (first.includes('~{') ? Math.trunc(limits.y / 6) : 0);
+  const adjust = Math.round(0.4 * (boxH - h));
+  // `RotatePoint( { 0, -adjust }, GetDrawRotation() )`: for ANGLE_90 KiCad's
+  // integer RotatePoint maps (x, y) to (y, -x), so the lift becomes a shift
+  // to the left.
+  if (l.angle % 180 === 90) pos.x -= adjust;
+  else pos.y -= adjust;
+  return pos;
 }
 
 /** Text justification for a spin style: anchored at the connection point, reading outward. */
@@ -3218,6 +3320,7 @@ function drawSelectionShadows(
         fd.italic,
         fd.pen,
         width,
+        fd.face,
       );
     }
   });
@@ -3280,6 +3383,7 @@ function drawSelectionShadows(
           f.effects?.italic,
           f.effects?.thickness,
           width,
+          f.effects?.face,
         );
       }
     }
@@ -4078,6 +4182,8 @@ function drawLibUnit(
         g.effects?.bold,
         g.effects?.italic,
         g.effects?.thickness,
+        0,
+        g.effects?.face,
       );
       continue;
     }
@@ -4320,6 +4426,13 @@ function drawText(
    * you zoomed out.
    */
   shadowIU = 0,
+  /**
+   * `(font (face "…"))`. `FONT::GetFont( face, bold, italic )` picks the
+   * font for the run; an outline face fills glyph polygons where the stroke
+   * font strokes polylines, and the two are placed by the same
+   * `getLinePositions` arithmetic below, minus the stroke-only fudges.
+   */
+  face?: string,
 ): void {
   if (text === '' || text === '~') return;
 
@@ -4328,6 +4441,29 @@ function drawText(
     left = justify?.includes('left');
   const top = justify?.includes('top'),
     bottom = justify?.includes('bottom');
+  const hAlign: TextHAlign = right ? 'right' : left ? 'left' : 'center';
+
+  // `FONT::GetFont`: null is the stroke font — no face, the KiCad Font by
+  // name, a face still on its way from the server, or one that failed to
+  // load, which `GetFont` answers with `getDefaultFont()` too.
+  const outline = face ? getOutlineFont(face, bold, italic) : null;
+  if (outline) {
+    drawOutlineText(
+      ctx,
+      outline,
+      text,
+      at,
+      heightIU,
+      color,
+      hAlign,
+      top,
+      bottom,
+      angleDeg,
+      penIU,
+      shadowIU,
+    );
+    return;
+  }
 
   // KiCad reads 90°/rotated text turned counter-clockwise (screen y is down).
   const a = (((angleDeg % 360) + 360) % 360) * (Math.PI / 180);
@@ -4355,7 +4491,6 @@ function drawText(
   // once into a Path2D (baseline-left origin, italic shear baked in) and cached
   // by text+size, then placed per call with a canvas transform, retained paths
   // make dense sheets (hundreds of labels/pin names) pan smoothly.
-  const hAlign: TextHAlign = right ? 'right' : left ? 'left' : 'center';
   const run = glyphRun(text, heightIU, italic, hAlign);
   const width = run.width;
   // KiCad text pen: normal text uses the constant default pen (6 mil,
@@ -4404,6 +4539,116 @@ function drawText(
   if (g_vectorText) strokeGlyphs(ctx, text, heightIU, italic, hAlign);
   else ctx.stroke(textPath(text, heightIU, italic, hAlign).path);
   ctx.restore();
+}
+
+/**
+ * `FONT::Draw` for an `OUTLINE_FONT`: the run laid out by `layoutOutlineText`
+ * (block frame, line 0 on the baseline), placed by `getLinePositions`
+ * (font.cpp:181-243) and handed to the GAL as filled polygons — what
+ * `OPENGL_GAL::DrawGlyph` does with an `OUTLINE_GLYPH` (opengl_gal.cpp:
+ * 3122-3138): `Triangulate` into `m_fillColor`, no stroke at all. The
+ * recorder's `fill` triangulates the same rings under the non-zero rule the
+ * winding was built for.
+ *
+ * The placement is `drawText`'s stroke arithmetic without the two
+ * `if( IsStroke() )` terms — `offset.x += strokeWidth / 1.52` and
+ * `offset.y -= strokeWidth * 0.052` — and with `OUTLINE_FONT::GetInterline`,
+ * which has no legacy factor. The 1.17 block fudge is `getLinePositions`'
+ * own and applies to both.
+ *
+ * The overbar is the one stroke: `drawMarkup` adds it as a `STROKE_GLYPH`
+ * for every font, at the pen `FONT::Draw` set (`aGal->SetLineWidth(
+ * aAttrs.m_StrokeWidth )`), which is why `penIU`/`shadowIU` still reach here.
+ */
+function drawOutlineText(
+  ctx: CanvasRenderingContext2D,
+  font: OutlineFont,
+  text: string,
+  at: Vec2,
+  heightIU: number,
+  color: string,
+  hAlign: TextHAlign,
+  top: boolean | undefined,
+  bottom: boolean | undefined,
+  angleDeg: number,
+  penIU: number | undefined,
+  shadowIU: number,
+): void {
+  const cap = heightIU;
+  const a = (((angleDeg % 360) + 360) % 360) * (Math.PI / 180);
+  const layout = outlineLayout(font, text, heightIU, hAlign);
+  const width = layout.width;
+  const blockH = cap * SINGLE_LINE_BLOCK + (layout.lineCount - 1) * metricsInterline(cap);
+  const offY = top ? cap : bottom ? cap - blockH : cap - blockH / 2;
+  const offX = hAlign === 'right' ? -width : hAlign === 'left' ? 0 : -width / 2;
+
+  ctx.save();
+  ctx.translate(at.x, at.y);
+  if (a !== 0) ctx.rotate(-a);
+  ctx.translate(offX, offY);
+  ctx.fillStyle = color;
+  if (shadowIU > 0) {
+    // "Trying to draw glyph-shaped shadows on outline text is a fool's
+    // errand. Just box it." (sch_painter.cpp:2258-2268): the text's bounding
+    // box, inflated by half the pen across and twice the pen up and down,
+    // filled in the shadow colour — where `attrs.m_StrokeWidth` is the
+    // item's pen plus the shadow width.
+    const w = (penIU ?? Math.min(g_defaultPen, heightIU * 0.25)) + shadowIU;
+    const b = layout.bbox;
+    ctx.fillRect(b.minX - w / 2, b.minY - 2 * w, b.maxX - b.minX + w, b.maxY - b.minY + 4 * w);
+    ctx.restore();
+    return;
+  }
+  ctx.beginPath();
+  for (const g of layout.glyphs) {
+    for (const ring of g.rings) {
+      if (ring.length < 3) continue;
+      const p0 = ring[0]!;
+      ctx.moveTo(p0.x, p0.y);
+      for (let i = 1; i < ring.length; i++) ctx.lineTo(ring[i]!.x, ring[i]!.y);
+      ctx.closePath();
+    }
+  }
+  // Canvas2D's default rule is non-zero, which is the one the winding was
+  // built for. Not `fill('nonzero')`: the recorder's `fill( path, rule )`
+  // would take the string as the path and draw nothing.
+  ctx.fill();
+  if (layout.bars.length) {
+    // The bar's pen: the item's own, or the default the stroke path uses,
+    // plus the selection shadow — a glow is a wider bar, as it is a wider
+    // glyph stroke.
+    const pen = (penIU ?? Math.min(g_defaultPen, heightIU * 0.25)) + shadowIU;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = penWidth(pen);
+    ctx.lineCap = 'round';
+    for (const bar of layout.bars) {
+      ctx.beginPath();
+      ctx.moveTo(bar[0]!.x, bar[0]!.y);
+      ctx.lineTo(bar[1]!.x, bar[1]!.y);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+// Retained outline layouts, keyed like `g_glyphRuns`, plus the font, since
+// two faces lay the same string out differently.
+const g_outlineLayouts = new Map<string, OutlineTextLayout>();
+
+function outlineLayout(
+  font: OutlineFont,
+  text: string,
+  size: number,
+  hAlign: TextHAlign,
+): OutlineTextLayout {
+  const key = `${font.fontName}|${font.isBold ? 1 : 0}${font.isItalic ? 1 : 0}|${hAlign}|${size}|${text}`;
+  let entry = g_outlineLayouts.get(key);
+  if (!entry) {
+    entry = layoutOutlineText(font, text, size, hAlign);
+    if (g_outlineLayouts.size > 6000) g_outlineLayouts.clear();
+    g_outlineLayouts.set(key, entry);
+  }
+  return entry;
 }
 
 // Vector-text mode (Plot to SVG): stroke glyph segments directly onto the

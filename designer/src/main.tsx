@@ -17,6 +17,7 @@ import { sentrySink } from './telemetry/sentrySink.js';
 import { installGlobalErrorHandlers } from './telemetry/global_handlers.js';
 import { installOverlayScrollbars } from './ui/overlay_scrollbars.js';
 import { installDialogSizeHints } from './ui/dialog_size_hints.js';
+import { installOutlineFontProvider } from './font/outline_fonts.js';
 import { missingFeatures, unsupportedMessage } from './browser_support.js';
 import { checkStorageHealth, setTemplateSink } from './home/projectStore.js';
 import { updateUserTemplateFiles } from './home/user_templates.js';
@@ -44,6 +45,9 @@ installOverlayScrollbars();
 // own text changed. Installed here rather than per dialog because in wx it
 // comes from the dialog base class, not from the dialog.
 installDialogSizeHints();
+// `textWidth` measures an outline face with the glyphs the renderer fills
+// (#154); until a face has loaded both sides fall back to the stroke font.
+installOutlineFontProvider();
 // The real storage test, at boot. storageAvailable() only proves the API
 // exists; this proves a write/read/delete round-trip lands. Without it the
 // first a user hears of a full or read-only origin is a save failing mid-edit,

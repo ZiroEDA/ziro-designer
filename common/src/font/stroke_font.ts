@@ -116,14 +116,20 @@ export function setOverbarHeightRatio(ratio?: number): void {
   overbarHeight = ratio && ratio > 0 ? ratio : DEFAULT_OVERBAR_HEIGHT;
 }
 
-type MarkupStyle = 'normal' | 'overbar' | 'sub' | 'super';
-interface MarkupRun {
+export type MarkupStyle = 'normal' | 'overbar' | 'sub' | 'super';
+export interface MarkupRun {
   text: string;
   style: MarkupStyle;
 }
 
-/** Split one line into markup runs; plain text passes through untouched. */
-function parseMarkup(line: string): MarkupRun[] {
+/**
+ * Split one line into markup runs; plain text passes through untouched.
+ *
+ * Shared with the outline font: `FONT::drawMarkup` parses once for every
+ * `FONT` subclass, and a run that the two fonts split differently would put
+ * an overbar in two places.
+ */
+export function parseMarkup(line: string): MarkupRun[] {
   if (!/[~_^]\{/.test(line)) return [{ text: line, style: 'normal' }];
   const runs: MarkupRun[] = [];
   let plain = '';

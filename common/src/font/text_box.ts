@@ -29,9 +29,9 @@
  * the board can use it too instead of guessing.
  */
 
-import { interline, splitTextLines } from './stroke_font.js';
+import { interline, KICAD_FONT_NAME, splitTextLines } from './stroke_font.js';
 import { ITALIC_TILT, metricsInterline } from './font_metrics.js';
-import { textWidth, type TextStyle } from './font_provider.js';
+import { textLimits, textWidth, type TextStyle } from './font_provider.js';
 
 /** A `BOX2I`: origin plus size, in internal units. */
 export interface TextBox2 {
@@ -99,8 +99,18 @@ export interface TextBoxAttrs {
   face?: string;
 }
 
-/** Whether this face is drawn (and measured) as the built-in stroke font. */
-export const isStrokeFont = (face?: string): boolean => !face;
+/**
+ * Whether this face is drawn (and measured) as the built-in stroke font —
+ * `FONT::GetFont`'s first line (font.cpp:150):
+ *
+ *     if( aFontName.empty() || aFontName.StartsWith( KICAD_FONT_NAME ) )
+ *         return getDefaultFont();
+ *
+ * A file can name the stroke font explicitly, `(font (face "KiCad Font"))`,
+ * and that is the stroke font too; this read only the empty case, so such a
+ * face would have gone looking for an outline font called "KiCad Font".
+ */
+export const isStrokeFont = (face?: string): boolean => !face || face.startsWith(KICAD_FONT_NAME);
 
 /**
  * `EDA_TEXT::GetEffectiveTextPenWidth`.
@@ -165,6 +175,14 @@ export function stringBoundaryLimits(
   thickness: number,
 ): TextSize {
   const style: TextStyle = { face: attrs.face, bold: attrs.bold, italic: attrs.italic };
+  // An outline face answers with its own box — the advance wide, the
+  // ascender + descender tall, no INTER_CHAR trim and no inflation. When the
+  // face has not loaded the answer is the stroke font's, which is also what
+  // is on screen at that moment.
+  if (!isStrokeFont(attrs.face) && text !== '') {
+    const limits = textLimits(text, attrs.size.x, style);
+    if (limits) return { x: limits.x, y: limits.y };
+  }
   // Advances scale with the glyph box *width* (GetTextAsGlyphs multiplies each
   // glyph extent by glyphSize.x); the single-scale measurer takes that as its
   // size argument, exactly as fieldbox.ts does for schematic fields.
