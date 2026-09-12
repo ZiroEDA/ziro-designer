@@ -34,7 +34,11 @@ export {
   DEFAULT_POINT_SIZE,
 } from './read-board.js';
 export { arcSweepDegrees } from './autoplace_matrix.js';
-export { serializeFootprint } from './write-footprint.js';
+export {
+  serializeFootprint,
+  FLIP_DIRECTION,
+  type SerializeFootprintOptions,
+} from './write-footprint.js';
 export {
   fpItemId,
   parseFpItemId,

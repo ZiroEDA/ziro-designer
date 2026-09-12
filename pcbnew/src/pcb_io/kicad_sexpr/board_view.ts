@@ -1587,7 +1587,7 @@ function applyImage(k: KPcbReferenceImage, v: PcbImage): void {
   if (v.uuid) k.uuid = v.uuid;
 }
 
-function dimensionView(k: KPcbDimension, t: FpTransform | null): PcbDimension {
+export function dimensionView(k: KPcbDimension, t: FpTransform | null): PcbDimension {
   const aligned = k.type === 'aligned' || k.type === 'orthogonal';
   const center = k.type === 'center';
   const format: DimensionFormat | undefined = center
@@ -1628,7 +1628,7 @@ function dimensionView(k: KPcbDimension, t: FpTransform | null): PcbDimension {
   };
 }
 
-function applyDimension(k: KPcbDimension, v: PcbDimension, t: FpTransform | null): void {
+export function applyDimension(k: KPcbDimension, v: PcbDimension, t: FpTransform | null): void {
   void t;
   k.type = v.kind;
   if (layerName(k.layer) !== v.layer) k.layer = layerId(v.layer);
@@ -2309,18 +2309,15 @@ export function kboardFromBoard(board: Board): KBoard {
 }
 
 /**
- * A library footprint's view back into its model, for `FormatFootprintFile`:
- * `FootprintSave`'s clone — orientation zero, `ClearAllNets` — with the
- * editor's fields applied over it. The view is in the footprint's own frame
- * (`footprintViewOfLibrary`), so its placement is the origin.
+ * A footprint's view back into a model of its own — `FOOTPRINT::Clone()` with
+ * the editor's fields applied over it, its placement as the view says. The
+ * Footprint Editor's view is in the footprint's own frame
+ * (`footprintViewOfLibrary`), so that placement is the origin; what
+ * `FootprintSave` then does to the clone is `footprintSaveClone`.
  */
-export function kfootprintFromView(fp: PcbFootprint): KFootprint {
+export function kfootprintFromView(fp: PcbFootprint, copperLayerCount = 2): KFootprint {
   const k = fp.k ? cloneK(fp.k) : newFootprint();
-  const local: PcbFootprint = { ...fp, at: { x: 0, y: 0 }, angle: 0 };
-  applyFootprint(k, local, new Map([[0, '']]), 2, new Set());
-  k.at = { x: 0, y: 0 };
-  k.orientation = 0;
-  for (const pad of k.pads) pad.net = null;
+  applyFootprint(k, fp, new Map([[0, '']]), copperLayerCount, new Set());
   return k;
 }
 

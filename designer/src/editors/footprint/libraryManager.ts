@@ -21,7 +21,13 @@
 
 import { parse } from '@ziroeda/sexpr';
 import { footprintText } from '../../libraryBundleStore.js';
-import { readFootprintFile, serializeFootprint, type PcbFootprint } from '@ziroeda/pcbnew';
+import {
+  FLIP_DIRECTION,
+  readFootprintFile,
+  serializeFootprint,
+  type PcbFootprint,
+} from '@ziroeda/pcbnew';
+import { settings } from '../../prefs/settings.js';
 import { libraryBase } from '../../libraryHosts.js';
 import { trackLibraryLoad } from '../../widgets/library_loading.js';
 
@@ -313,12 +319,21 @@ export class FootprintLibraryManager {
     return false;
   }
 
-  /** Serialize one footprint to its `.kicad_mod` text (clears its modified mark). */
+  /**
+   * Serialize one footprint to its `.kicad_mod` text (clears its modified mark).
+   * `FootprintSave` brings a back-side footprint to the front with
+   * `PCBNEW_SETTINGS::m_FlipDirection` — `editing.flip_left_right` — which the
+   * Footprint Editor reads from pcbnew's settings, as `Kiface().KifaceSettings()` does.
+   */
   saveFootprintText(libName: string, fpName: string): string | undefined {
     const lib = this.libs.get(libName);
     const fp = lib?.footprints.get(fpName);
     if (!lib || !fp) return undefined;
-    const text = serializeFootprint(fp);
+    const text = serializeFootprint(fp, {
+      flipDirection: settings.pcbnew.editing.flip_left_right
+        ? FLIP_DIRECTION.LEFT_RIGHT
+        : FLIP_DIRECTION.TOP_BOTTOM,
+    });
     lib.original.set(fpName, fp);
     lib.modified.delete(fpName);
     if (lib.modified.size === 0) lib.libModified = false;
