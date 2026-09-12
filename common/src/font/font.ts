@@ -14,7 +14,7 @@ import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { GAL } from '../gal/graphics_abstraction_layer.js';
 import { MARKUP_PARSER, type NODE } from '../markup_parser.js';
 import { wxStringSplit } from '../string_utils.js';
-import type { METRICS } from './font_metrics.js';
+import { ITALIC_TILT, type METRICS } from './font_metrics.js';
 import { type GLYPH_LIKE, STROKE_GLYPH } from './glyph.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T, type TEXT_ATTRIBUTES } from './text_attributes.js';
 
@@ -27,7 +27,8 @@ export enum TEXT_STYLE {
   UNDERLINE = 1 << 5,
 }
 
-export const ITALIC_TILT = 1.0 / 8;
+// `font.h`'s `ITALIC_TILT` has its one home in font_metrics.ts.
+export { ITALIC_TILT } from './font_metrics.js';
 
 export type TEXT_STYLE_FLAGS = number;
 
