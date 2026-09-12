@@ -1289,8 +1289,14 @@ function readZone(item: SList): PcbZone {
   }
   // The zone boundary `(polygon (pts …))`, drawn as the border, and larger
   // than the (clearance-inset) fill.
-  const polyNode = childNamed(item, 'polygon');
-  const outline = polyNode ? readPts(childNamed(polyNode, 'pts'), null) : [];
+  // `parseZONE`'s `case T_polygon` (:8288-8310): every one is a ring of
+  // `m_Poly`, and "the first polygon is the main outline. Others are holes
+  // inside the main outline." This took the first and dropped the rest, so a
+  // cutout filled over and a saved zone lost it.
+  const polyNodes = childrenNamed(item, 'polygon');
+  const rings = polyNodes.map((n) => readPts(childNamed(n, 'pts'), null));
+  const outline = rings[0] ?? [];
+  const holes = rings.slice(1).filter((r) => r.length >= 3);
   // `(hatch <style> <pitch>)`, border display style + hatch pitch (mm).
   const hatchNode = childNamed(item, 'hatch');
   const hatchWord = hatchNode ? arg(hatchNode, 0) : undefined;
@@ -1335,6 +1341,7 @@ function readZone(item: SList): PcbZone {
     layers,
     fills,
     outline: outline.length >= 3 ? outline : undefined,
+    ...(holes.length ? { holes } : {}),
     // The generator sets INVISIBLE_BORDER, which upstream's writer spells as
     // `none` — so a saved teardrop loses it. Restore it on read: a bright
     // full-opacity border traced around every flare is not what the feature

@@ -391,12 +391,16 @@ export function buildZoneNode(z: PcbZone, board?: Board): SList {
     );
   }
   items.push({ kind: 'list', items: fill });
-  items.push(
-    list(atom('polygon'), {
-      kind: 'list',
-      items: [atom('pts'), ...(z.outline ?? []).map((p) => xy('xy', p))],
-    }),
-  );
+  // `format( const ZONE* )`: one `(polygon (pts …))` per ring of `m_Poly`,
+  // the outline first and each hole after it — the reader's rule in reverse.
+  for (const ring of [z.outline ?? [], ...(z.holes ?? [])]) {
+    items.push(
+      list(atom('polygon'), {
+        kind: 'list',
+        items: [atom('pts'), ...ring.map((p) => xy('xy', p))],
+      }),
+    );
+  }
 
   // The filled copper, one node per outline per layer.
   for (const fill of z.fills) {

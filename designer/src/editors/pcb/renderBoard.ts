@@ -1783,12 +1783,13 @@ function pointInPoly(p: Vec2, poly: Vec2[]): boolean {
  * DIAGONAL_FULL style). Copper zones use slope −1 (all copper layer ids are even).
  */
 function zoneHatchSegments(
-  outline: Vec2[],
+  rings: Vec2[][],
   slope: number,
   spacing: number,
   lineLen: number,
 ): [Vec2, Vec2][] {
   const out: [Vec2, Vec2][] = [];
+  const outline = rings[0] ?? [];
   if (outline.length < 3 || spacing <= 0) return out;
   let minX = outline[0]!.x;
   let maxX = minX;
@@ -1800,6 +1801,17 @@ function zoneHatchSegments(
     if (p.y < minY) minY = p.y;
     if (p.y > maxY) maxY = p.y;
   }
+  // `HatchBorder` walks `m_Poly->CIterateSegmentsWithHoles()`: every ring's
+  // edges cut the hatch line, and the parity pairing below then leaves the
+  // inside of a hole unhatched by itself. Outline-only, a cutout hatched over.
+  const edges: [Vec2, Vec2][] = [];
+  for (const ring of rings) {
+    if (ring.length < 3) continue;
+    for (let i = 0; i < ring.length; i++) edges.push([ring[i]!, ring[(i + 1) % ring.length]!]);
+  }
+  // `SHAPE_POLY_SET::Contains`: inside the outline and in none of the holes.
+  const inside = (p: Vec2): boolean =>
+    pointInPoly(p, outline) && !rings.slice(1).some((h) => h.length >= 3 && pointInPoly(p, h));
   let maxA: number;
   let minA: number;
   if (slope > 0) {
@@ -1810,12 +1822,9 @@ function zoneHatchSegments(
     minA = Math.round(minY - slope * minX);
   }
   minA = Math.floor(minA / spacing) * spacing;
-  const n = outline.length;
   for (let a = minA; a < maxA; a += spacing) {
     const pts: Vec2[] = [];
-    for (let i = 0; i < n; i++) {
-      const A = outline[i]!;
-      const B = outline[(i + 1) % n]!;
+    for (const [A, B] of edges) {
       // Segment A→B ∩ line y = slope·x + a. f(t) = f0 + t·d, t ∈ [0,1).
       const f0 = A.y - slope * A.x - a;
       const d = B.y - A.y - slope * (B.x - A.x);
@@ -1833,7 +1842,7 @@ function zoneHatchSegments(
       const p2 = pts[ip + 1]!;
       if (p1.x === p2.x && p1.y === p2.y) continue;
       const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
-      if (!pointInPoly(mid, outline)) continue;
+      if (!inside(mid)) continue;
       const dx = p2.x - p1.x;
       if (lineLen === -1 || Math.abs(dx) < 2 * lineLen) {
         out.push([p1, p2]);
@@ -2080,10 +2089,13 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
       // DIAGONAL_FULL = full diagonals (spacing = pitch·2). Copper slope = −1.
       const style = z.hatchStyle ?? 'edge';
       const pitch = z.hatchPitch ?? 0;
+      // The border is every ring of `m_Poly` — a cutout has its own edge, in
+      // the same stroke, and the hatch stops at it.
+      const rings = [z.outline, ...(z.holes ?? [])];
       const hatch =
         style !== 'none' && pitch > 0
           ? zoneHatchSegments(
-              z.outline,
+              rings,
               -1,
               style === 'full' ? pitch * 2 : pitch,
               style === 'full' ? -1 : pitch,
@@ -2091,10 +2103,12 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
           : [];
       for (const layer of z.layers) {
         const b = buckets(scene, layer);
-        b.zoneOutlines.moveTo(z.outline[0]!.x, z.outline[0]!.y);
-        for (let i = 1; i < z.outline.length; i++)
-          b.zoneOutlines.lineTo(z.outline[i]!.x, z.outline[i]!.y);
-        b.zoneOutlines.closePath();
+        for (const ring of rings) {
+          if (ring.length < 3) continue;
+          b.zoneOutlines.moveTo(ring[0]!.x, ring[0]!.y);
+          for (let i = 1; i < ring.length; i++) b.zoneOutlines.lineTo(ring[i]!.x, ring[i]!.y);
+          b.zoneOutlines.closePath();
+        }
         for (const [p, q] of hatch) {
           b.zoneOutlines.moveTo(p.x, p.y);
           b.zoneOutlines.lineTo(q.x, q.y);

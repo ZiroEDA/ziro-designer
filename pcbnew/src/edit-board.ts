@@ -1637,6 +1637,7 @@ const moveZone = (z: PcbZone, d: Vec2): PcbZone => {
   return {
     ...z,
     ...(z.outline ? { outline: z.outline.map((p) => add(p, d)) } : {}),
+    ...(z.holes ? { holes: z.holes.map((h) => h.map((p) => add(p, d))) } : {}),
     fills: z.fills.map((f) => ({ ...f, polys: f.polys.map((poly) => poly.map((p) => add(p, d))) })),
     source: shiftIn(z.source),
   };
@@ -3315,8 +3316,14 @@ export function zoneHandles(board: Board, zoneIndex: number): ZoneHandle[] {
 
 /** Rewrite a zone's `(polygon (pts …))` from an outline, and drop its fills. */
 function withZoneOutline(z: PcbZone, outline: Vec2[]): PcbZone {
+  // Only the FIRST `(polygon …)` is the outline; the ones after it are the
+  // holes, which a corner or edge drag of the outline leaves alone. This
+  // rewrote every polygon node with the outline's points, so a zone with a
+  // cutout had it replaced by a copy of its boundary on the first drag.
+  let seen = false;
   const items = z.source.items.map((it) => {
-    if (!isList(it) || head(it) !== 'polygon') return it;
+    if (!isList(it) || head(it) !== 'polygon' || seen) return it;
+    seen = true;
     return {
       kind: 'list' as const,
       items: it.items.map((c) => (isList(c) && head(c) === 'pts' ? ptsNode(outline) : c)),

@@ -1279,7 +1279,9 @@ function subtractHigherPriorityZones(
     if (!other.layers.includes(layer)) return;
     // "if( aKnockout->GetBoundingBox().Intersects( zoneBBox ) )".
     if (!near(boxOf(other.outline))) return;
-    knockouts.push([intRingOf(other.outline)]);
+    // `appendZoneOutlineWithoutArcs`: the whole `m_Poly`, holes included, so
+    // a lower-priority pour fills inside a higher one's cutout.
+    knockouts.push([intRingOf(other.outline), ...(other.holes ?? []).map(intRingOf)]);
   });
 
   if (knockouts.length === 0) return fill;
@@ -1941,7 +1943,7 @@ function fillZoneParts(
       // inflate, so it is the outline, fractured. A teardrop is exempt.
       if (other.ruleArea) {
         if (other.ruleArea.copperPour && !zone.teardropType)
-          keepoutHoles.push(...fracture([[other.outline]]).map((r) => [r]));
+          keepoutHoles.push(...fracture([[other.outline, ...(other.holes ?? [])]]).map((r) => [r]));
         return;
       }
 
@@ -3118,7 +3120,15 @@ function buildSmoothedPoly(
   maxError: number,
 ): { smoothed: Polygon[]; maxExtents: Polygon[] } {
   const zone = board.zones[zoneIndex]!;
-  const flattened: Polygon[] = [[zone.outline!.map((p) => ({ x: p.x, y: p.y }))]];
+  // `m_Poly` with its holes: `TransformSmoothedOutlineToPolygon` starts from
+  // the whole SHAPE_POLY_SET, so a cutout is a hole in the smoothed outline
+  // before any knockout runs.
+  const flattened: Polygon[] = [
+    [
+      zone.outline!.map((p) => ({ x: p.x, y: p.y })),
+      ...(zone.holes ?? []).map((h) => h.map((p) => ({ x: p.x, y: p.y }))),
+    ],
+  ];
   if (zone.ruleArea) return { smoothed: flattened, maxExtents: flattened };
 
   const mode = zone.cornerSmoothing ?? 'none';

@@ -531,6 +531,14 @@ export interface PcbZone {
   fills: PcbZoneFill[];
   /** The user-drawn zone boundary `(polygon (pts …))`, drawn as the zone border. */
   outline?: Vec2[];
+  /**
+   * Cutouts in that boundary: every `(polygon (pts …))` after the first.
+   * `parseZONE` (pcb_io_kicad_sexpr_parser.cpp:8288-8310): "The first polygon
+   * is the main outline. Others are holes inside the main outline." Each is a
+   * ring in `m_Poly` beside the outline, so the fill, the hatch, the border
+   * and the transforms all see them; a zone without cutouts has none.
+   */
+  holes?: Vec2[][];
   /** How the fill connects to same-net pads, `(connect_pads [<mode>] …)`:
    *  ZONE_CONNECTION thermal (the default) / full (solid) / no / thruHoleOnly. */
   padConnection?: 'thermal' | 'full' | 'none' | 'thru_hole_only';
