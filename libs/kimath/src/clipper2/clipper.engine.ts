@@ -69,7 +69,7 @@ export interface OutPt {
 }
 
 function newOutPt(pt: Point64, outrec: OutRec): OutPt {
-  const op = { pt: { x: pt.x, y: pt.y }, outrec, horz: null } as OutPt;
+  const op = { pt: { x: pt.x, y: pt.y, z: pt.z }, outrec, horz: null } as OutPt;
   op.next = op;
   op.prev = op;
   return op;
@@ -508,7 +508,7 @@ function addPaths_(
         if (ptEq(prev_v.pt, pt)) continue; // ie skips duplicates
       }
       const curr_v: Vertex = {
-        pt: { x: pt.x, y: pt.y },
+        pt: { x: pt.x, y: pt.y, z: pt.z },
         next: null,
         prev: prev_v,
         flags: VertexFlags.None,
@@ -611,7 +611,53 @@ export type PolyTree64 = PolyPath64;
 // ---------------------------------------------------------------------------
 // ClipperBase
 
+/**
+ * `ZCallback64` (`USINGZ`): called for every NEW vertex the clipper creates
+ * at an intersection, with the two edges that meet there. KiCad uses it to
+ * carry its arc bookkeeping through a boolean operation.
+ */
+export type ZCallback64 = (
+  e1bot: Point64,
+  e1top: Point64,
+  e2bot: Point64,
+  e2top: Point64,
+  pt: Point64,
+) => void;
+
+/** `DefaultZ`. */
+const DefaultZ = 0;
+
 export class ClipperBase {
+  private zCallback_: ZCallback64 | null = null;
+
+  /** `SetZCallback`. */
+  SetZCallback(cb: ZCallback64 | null): void {
+    this.zCallback_ = cb;
+  }
+
+  /** `ClipperBase::SetZ` (`USINGZ`). */
+  private setZ(e1: Active, e2: Active, ip: Point64): void {
+    if (!this.zCallback_) return;
+
+    // prioritize subject over clip vertices by passing
+    // subject vertices before clip vertices in the callback
+    if (getPolyType(e1) === PathType.Subject) {
+      if (ptEq(ip, e1.bot)) ip.z = e1.bot.z;
+      else if (ptEq(ip, e1.top)) ip.z = e1.top.z;
+      else if (ptEq(ip, e2.bot)) ip.z = e2.bot.z;
+      else if (ptEq(ip, e2.top)) ip.z = e2.top.z;
+      else ip.z = DefaultZ;
+      this.zCallback_(e1.bot, e1.top, e2.bot, e2.top, ip);
+    } else {
+      if (ptEq(ip, e2.bot)) ip.z = e2.bot.z;
+      else if (ptEq(ip, e2.top)) ip.z = e2.top.z;
+      else if (ptEq(ip, e1.bot)) ip.z = e1.bot.z;
+      else if (ptEq(ip, e1.top)) ip.z = e1.top.z;
+      else ip.z = DefaultZ;
+      this.zCallback_(e2.bot, e2.top, e1.bot, e1.top, ip);
+    }
+  }
+
   private cliptype_: ClipType = ClipType.None;
   private fillrule_: FillRule = FillRule.EvenOdd;
   private readonly fillpos: FillRule = FillRule.Positive;
@@ -1151,6 +1197,8 @@ export class ClipperBase {
     const ip: Point64 = { x: 0, y: 0 };
     getIntersectPoint(prevOp.pt, splitOp.pt, splitOp.next.pt, nextNextOp.pt, ip);
 
+    if (this.zCallback_) this.zCallback_(prevOp.pt, splitOp.pt, splitOp.next.pt, nextNextOp.pt, ip);
+
     const area1 = areaOp(outrec.pts);
     const absArea1 = Math.abs(area1);
     if (absArea1 < 2) {
@@ -1297,6 +1345,7 @@ export class ClipperBase {
         }
         resultOp = this.startOpenPath(edge_o, pt);
       } else resultOp = this.startOpenPath(edge_o, pt);
+      if (this.zCallback_) this.setZ(edge_o, edge_c, resultOp.pt);
       return resultOp;
     }
 
@@ -1359,19 +1408,31 @@ export class ClipperBase {
         (e1.local_min.polytype !== e2.local_min.polytype && this.cliptype_ !== ClipType.Xor)
       ) {
         resultOp = this.addLocalMaxPoly(e1, e2, pt);
+        if (this.zCallback_ && resultOp) this.setZ(e1, e2, resultOp.pt);
       } else if (isFront(e1) || e1.outrec === e2.outrec) {
+        //this 'else if' condition isn't strictly needed but
+        //it's sensible to split polygons that ony touch at
+        //a common vertex (not at common edges).
         resultOp = this.addLocalMaxPoly(e1, e2, pt);
-        this.addLocalMinPoly(e1, e2, pt);
+        const op2 = this.addLocalMinPoly(e1, e2, pt);
+        if (this.zCallback_ && resultOp) this.setZ(e1, e2, resultOp.pt);
+        if (this.zCallback_) this.setZ(e1, e2, op2.pt);
       } else {
         resultOp = this.addOutPt(e1, pt);
-        this.addOutPt(e2, pt);
+        const op2 = this.addOutPt(e2, pt);
+        if (this.zCallback_) {
+          this.setZ(e1, e2, resultOp.pt);
+          this.setZ(e1, e2, op2.pt);
+        }
         swapOutrecs(e1, e2);
       }
     } else if (isHotEdge(e1)) {
       resultOp = this.addOutPt(e1, pt);
+      if (this.zCallback_) this.setZ(e1, e2, resultOp.pt);
       swapOutrecs(e1, e2);
     } else if (isHotEdge(e2)) {
       resultOp = this.addOutPt(e2, pt);
+      if (this.zCallback_) this.setZ(e1, e2, resultOp.pt);
       swapOutrecs(e1, e2);
     } else {
       let e1Wc2: number;
@@ -1395,6 +1456,7 @@ export class ClipperBase {
 
       if (!isSamePolyType(e1, e2)) {
         resultOp = this.addLocalMinPoly(e1, e2, pt, false);
+        if (this.zCallback_) this.setZ(e1, e2, resultOp.pt);
       } else if (old_e1_windcnt === 1 && old_e2_windcnt === 1) {
         resultOp = null;
         switch (this.cliptype_) {
@@ -1415,6 +1477,7 @@ export class ClipperBase {
             if (e1Wc2 > 0 && e2Wc2 > 0) resultOp = this.addLocalMinPoly(e1, e2, pt, false);
             break;
         }
+        if (resultOp && this.zCallback_) this.setZ(e1, e2, resultOp.pt);
       }
     }
     return resultOp;
@@ -1703,7 +1766,7 @@ export class ClipperBase {
     let isLeftToRight = resetHorzDirection(horz, vertex_max, dir);
 
     if (isHotEdge(horz)) {
-      const op = this.addOutPt(horz, { x: horz.curr_x, y });
+      const op = this.addOutPt(horz, { x: horz.curr_x, y, z: horz.bot.z });
       this.addTrialHorzJoin(op);
     }
 
@@ -2111,11 +2174,11 @@ export function buildPath64(
     lastPt = op.pt;
     op2 = op.next;
   }
-  path.push({ x: lastPt.x, y: lastPt.y });
+  path.push({ x: lastPt.x, y: lastPt.y, z: lastPt.z });
   while (op2 !== op) {
     if (!ptEq(op2.pt, lastPt)) {
       lastPt = op2.pt;
-      path.push({ x: lastPt.x, y: lastPt.y });
+      path.push({ x: lastPt.x, y: lastPt.y, z: lastPt.z });
     }
     op2 = reverse ? op2.prev : op2.next;
   }

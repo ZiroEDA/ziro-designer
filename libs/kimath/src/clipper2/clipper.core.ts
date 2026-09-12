@@ -19,10 +19,17 @@
 export interface Point64 {
   x: number;
   y: number;
+  /**
+   * `USINGZ`: the Z value KiCad attaches to every vertex (an index into its
+   * CLIPPER_Z_VALUE buffer for arc bookkeeping). Absent means `DefaultZ` (0).
+   */
+  z?: number;
 }
 export interface PointD {
   x: number;
   y: number;
+  /** `USINGZ`: carried from the source vertex; absent means `DefaultZ` (0). */
+  z?: number;
 }
 export type Path64 = Point64[];
 export type Paths64 = Path64[];
@@ -87,9 +94,10 @@ export function nearbyint(v: number): number {
 }
 
 /** `Point64( double x, double y )`. */
-export const point64 = (x: number, y: number): Point64 => ({
+export const point64 = (x: number, y: number, z?: number): Point64 => ({
   x: roundHalfAway(x),
   y: roundHalfAway(y),
+  z,
 });
 export const ptEq = (a: Point64, b: Point64): boolean => a.x === b.x && a.y === b.y;
 

@@ -117,11 +117,12 @@ const getAvgUnitVector = (vec1: PointD, vec2: PointD): PointD =>
   normalizeVector({ x: vec1.x + vec2.x, y: vec1.y + vec2.y });
 
 const getPerpendic = (pt: Point64, norm: PointD, delta: number): Point64 =>
-  point64(pt.x + norm.x * delta, pt.y + norm.y * delta);
+  point64(pt.x + norm.x * delta, pt.y + norm.y * delta, pt.z);
 
 const getPerpendicD = (pt: Point64, norm: PointD, delta: number): PointD => ({
   x: pt.x + norm.x * delta,
   y: pt.y + norm.y * delta,
+  z: pt.z,
 });
 
 function negatePath(path: PathD): void {
@@ -134,11 +135,13 @@ function negatePath(path: PathD): void {
 const translatePoint = (pt: PointD, dx: number, dy: number): PointD => ({
   x: pt.x + dx,
   y: pt.y + dy,
+  z: pt.z,
 });
 
 const reflectPoint = (pt: PointD, pivot: PointD): PointD => ({
   x: pivot.x + (pivot.x - pt.x),
   y: pivot.y + (pivot.y - pt.y),
+  z: pt.z,
 });
 
 function intersectPoint(pt1a: PointD, pt1b: PointD, pt2a: PointD, pt2b: PointD): PointD {
@@ -319,7 +322,7 @@ export class ClipperOffset {
     const gd = this.group_delta_;
 
     // now offset the original vertex delta units along unit vector
-    let ptQ: PointD = { x: path[j]!.x, y: path[j]!.y };
+    let ptQ: PointD = { x: path[j]!.x, y: path[j]!.y, z: path[j]!.z };
     ptQ = translatePoint(ptQ, abs_delta * vec.x, abs_delta * vec.y);
     // get perpendicular vertices
     const pt1 = translatePoint(ptQ, gd * vec.y, gd * -vec.x);
@@ -329,17 +332,19 @@ export class ClipperOffset {
     if (j === k) {
       const pt4: PointD = { x: pt3.x + vec.x * gd, y: pt3.y + vec.y * gd };
       const pt = intersectPoint(pt1, pt2, pt3, pt4);
+      pt.z = ptQ.z;
       //get the second intersect point through reflecion
       const r = reflectPoint(pt, ptQ);
-      this.path_out.push(point64(r.x, r.y));
-      this.path_out.push(point64(pt.x, pt.y));
+      this.path_out.push(point64(r.x, r.y, r.z));
+      this.path_out.push(point64(pt.x, pt.y, pt.z));
     } else {
       const pt4 = getPerpendicD(path[j]!, norms[k]!, gd);
       const pt = intersectPoint(pt1, pt2, pt3, pt4);
-      this.path_out.push(point64(pt.x, pt.y));
+      pt.z = ptQ.z;
+      this.path_out.push(point64(pt.x, pt.y, pt.z));
       //get the second intersect point through reflecion
       const r = reflectPoint(pt, ptQ);
-      this.path_out.push(point64(r.x, r.y));
+      this.path_out.push(point64(r.x, r.y, r.z));
     }
   }
 
@@ -350,6 +355,7 @@ export class ClipperOffset {
       point64(
         path[j]!.x + (norms[k]!.x + norms[j]!.x) * q,
         path[j]!.y + (norms[k]!.y + norms[j]!.y) * q,
+        path[j]!.z,
       ),
     );
   }
@@ -363,7 +369,7 @@ export class ClipperOffset {
     };
 
     if (j === k) offsetVec = { x: -offsetVec.x, y: -offsetVec.y };
-    this.path_out.push(point64(pt.x + offsetVec.x, pt.y + offsetVec.y));
+    this.path_out.push(point64(pt.x + offsetVec.x, pt.y + offsetVec.y, pt.z));
     const steps = Math.trunc(Math.ceil(this.steps_per_rad_ * Math.abs(angle))); // #448, #456
     for (let i = 1; i < steps; ++i) {
       // ie 1 less than steps
@@ -371,7 +377,7 @@ export class ClipperOffset {
         x: offsetVec.x * this.step_cos_ - this.step_sin_ * offsetVec.y,
         y: offsetVec.x * this.step_sin_ + offsetVec.y * this.step_cos_,
       };
-      this.path_out.push(point64(pt.x + offsetVec.x, pt.y + offsetVec.y));
+      this.path_out.push(point64(pt.x + offsetVec.x, pt.y + offsetVec.y, pt.z));
     }
     this.path_out.push(getPerpendic(path[j]!, norms[j]!, this.group_delta_));
   }
@@ -391,7 +397,7 @@ export class ClipperOffset {
     else if (sin_a < -1.0) sin_a = -1.0;
 
     if (Math.abs(this.group_delta_) <= floating_point_tolerance) {
-      this.path_out.push({ x: path[j]!.x, y: path[j]!.y });
+      this.path_out.push({ x: path[j]!.x, y: path[j]!.y, z: path[j]!.z });
       return;
     }
 
@@ -401,7 +407,7 @@ export class ClipperOffset {
       this.path_out.push(getPerpendic(path[j]!, norms[k]!, this.group_delta_));
       // this extra point is the only (simple) way to ensure that
       // path reversals are fully cleaned with the trailing clipper
-      this.path_out.push({ x: path[j]!.x, y: path[j]!.y }); // (#405)
+      this.path_out.push({ x: path[j]!.x, y: path[j]!.y, z: path[j]!.z }); // (#405)
       this.path_out.push(getPerpendic(path[j]!, norms[j]!, this.group_delta_));
     } else if (cos_a > 0.999 && this.join_type_ !== JoinType.Round) {
       // almost straight - less than 2.5 degree (#424, #482, #526 & #724)
@@ -437,7 +443,7 @@ export class ClipperOffset {
   private offsetOpenPath(path: Path64): void {
     // do the line start cap
     if (Math.abs(this.group_delta_) <= floating_point_tolerance)
-      this.path_out.push({ x: path[0]!.x, y: path[0]!.y });
+      this.path_out.push({ x: path[0]!.x, y: path[0]!.y, z: path[0]!.z });
     else {
       switch (this.end_type_) {
         case EndType.Butt:
@@ -463,7 +469,7 @@ export class ClipperOffset {
 
     // do the line end cap
     if (Math.abs(this.group_delta_) <= floating_point_tolerance)
-      this.path_out.push({ x: path[highI]!.x, y: path[highI]!.y });
+      this.path_out.push({ x: path[highI]!.x, y: path[highI]!.y, z: path[highI]!.z });
     else {
       switch (this.end_type_) {
         case EndType.Butt:
@@ -534,10 +540,12 @@ export class ClipperOffset {
           const radius = abs_delta;
           const steps = Math.trunc(Math.ceil(this.steps_per_rad_ * 2 * PI)); //#617
           this.path_out = ellipse(pt, radius, radius, steps);
+          for (const p of this.path_out) p.z = pt.z;
         } else {
           const d = Math.trunc(Math.ceil(abs_delta));
           const r = rect64(pt.x - d, pt.y - d, pt.x + d, pt.y + d);
           this.path_out = rectAsPath(r);
+          for (const p of this.path_out) p.z = pt.z;
         }
         this.solution.push(this.path_out);
         continue;
