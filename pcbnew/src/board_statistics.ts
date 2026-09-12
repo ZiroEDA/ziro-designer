@@ -62,7 +62,10 @@
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
-import { booleanIntersection, type Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import {
+  booleanIntersection,
+  type Polygon,
+} from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import { ErrorLoc } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { buildBoardPolygonOutlines } from './convert_shape_list_to_polygon.js';
 import { padTransformShapeToPolygon } from './transform_shape_to_polygon.js';

@@ -23,7 +23,7 @@
 import type { Board } from '@ziroeda/pcbnew';
 import { ARC_HIGH_DEF } from '@ziroeda/common/src/eda_units.js';
 import { escapeIpc } from '@ziroeda/common/src/string_utils.js';
-import { chainPointInside } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import { chainPointInside } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { padIsOnLayer } from '@ziroeda/pcbnew/src/pad_enumerate.js';
 import {

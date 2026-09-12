@@ -32,9 +32,7 @@ const stage = <T>(name: string, fn: () => T): T => {
 
 const text = stage('read text', () => readFileSync(file, 'utf8'));
 // The parser reads the text itself now; no s-expression tree is built or kept.
-let board: ReturnType<typeof readBoard> | null = stage('readBoard -> Board', () =>
-  readBoard(text),
-);
+let board: ReturnType<typeof readBoard> | null = stage('readBoard -> Board', () => readBoard(text));
 console.log(
   `   ${board!.footprints.length} footprints, ${board!.tracks.length} tracks, ${board!.vias.length} vias, ${board!.zones.length} zones`,
 );

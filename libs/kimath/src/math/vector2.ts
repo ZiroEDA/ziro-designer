@@ -128,3 +128,38 @@ export const ResizeI = (v: VECTOR2I, aNewLength: number): VECTOR2I => {
     y: (v.y < 0 ? -KiROUND(newY) : KiROUND(newY)) * s || 0,
   };
 };
+
+/**
+ * `VECTOR2I::ECOORD_MAX`, the `int64` sentinel the geometry starts a
+ * "closest so far" search from. `2^63 - 1` is not a double, and every use is
+ * a `<` comparison against a real squared distance (which fits 2^53), so the
+ * largest exact integer serves.
+ */
+export const ECOORD_MAX = Number.MAX_SAFE_INTEGER;
+
+/**
+ * `VECTOR2<double>::Resize`: the same direction, the given length, with the
+ * 45-degree short-circuit and the `sign( aNewLength )` factor of the template.
+ * `rescale< double >` is a plain `a * b / c`.
+ */
+export const ResizeD = (v: Vec2, aNewLength: number): Vec2 => {
+  if (v.x === 0 && v.y === 0) return { x: 0, y: 0 };
+
+  let newX: number;
+  let newY: number;
+
+  if (Math.abs(v.x) === Math.abs(v.y)) {
+    newX = newY = Math.abs(aNewLength) * Math.SQRT1_2;
+  } else {
+    const x_sq = v.x * v.x;
+    const y_sq = v.y * v.y;
+    const l_sq = x_sq + y_sq;
+    const newLength_sq = aNewLength * aNewLength;
+    newX = Math.sqrt((newLength_sq * x_sq) / l_sq);
+    newY = Math.sqrt((newLength_sq * y_sq) / l_sq);
+  }
+
+  const s = sgn(aNewLength);
+
+  return { x: (v.x < 0 ? -newX : newX) * s || 0, y: (v.y < 0 ? -newY : newY) * s || 0 };
+};

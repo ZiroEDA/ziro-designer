@@ -2,28 +2,9 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Faithful port of KiCad's include/core/mirror.h, FLIP_DIRECTION and the MIRROR
- * helpers used throughout BOARD_ITEM::Flip.
+ * `include/core/mirror.h`. The definition lives in kimath
+ * (`@ziroeda/kimath/src/core/mirror.ts`) because kimath's shapes need it and
+ * this package depends on kimath; this module is the `core/` spelling of it.
  */
 
-import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-
-export enum FLIP_DIRECTION {
-  LEFT_RIGHT, // Flip left to right (around the Y axis)
-  TOP_BOTTOM, // Flip top to bottom (around the X axis)
-}
-
-/** Mirror of aPoint relative to aMirrorRef (scalar). */
-export function MIRRORVAL(aPoint: number, aMirrorRef: number): number {
-  return -(aPoint - aMirrorRef) + aMirrorRef;
-}
-
-/** Mirror a point about a reference point, in the given direction (in place). */
-export function MIRROR(
-  aPoint: VECTOR2I,
-  aMirrorRef: VECTOR2I,
-  aFlipDirection: FLIP_DIRECTION,
-): void {
-  if (aFlipDirection === FLIP_DIRECTION.LEFT_RIGHT) aPoint.x = MIRRORVAL(aPoint.x, aMirrorRef.x);
-  else aPoint.y = MIRRORVAL(aPoint.y, aMirrorRef.y);
-}
+export { FLIP_DIRECTION, MIRROR, MIRRORVAL } from '@ziroeda/kimath/src/core/mirror.js';

@@ -36,7 +36,10 @@ import { buildRatsnest } from '../ratsnest.js';
 import { padShapePos } from '../padstack.js';
 import { shapeToPolygon } from '../zone_filler.js';
 import type { Geom } from 'polygon-clipping';
-import { booleanAdd, type Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import {
+  booleanAdd,
+  type Polygon,
+} from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import { shapeAsPolygon } from '../polygon_booleans.js';
 import { findSliverPoints } from './drc_sliver.js';
 import { findNecks } from './drc_connection_width.js';

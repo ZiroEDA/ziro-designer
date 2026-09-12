@@ -18,7 +18,7 @@ import {
   booleanOp,
   inflate,
   type Polygon,
-} from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+} from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import { segmentsForRadius } from '@ziroeda/pcbnew/src/convert_basic_shapes_to_polygon.js';
 
 interface Case {

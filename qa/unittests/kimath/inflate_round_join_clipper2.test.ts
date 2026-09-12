@@ -20,7 +20,7 @@
  * pour on the board.
  */
 import { describe, it, expect } from 'vitest';
-import { inflate, CornerStrategy } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import { inflate, CornerStrategy } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import { segmentsForRadius } from '@ziroeda/pcbnew/src/zone_filler.js';
 
 const square = [

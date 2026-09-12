@@ -150,6 +150,36 @@ export class Vertex {
     return this.x === other.x && this.y === other.y;
   }
 
+  /**
+   * `VERTEX::split( b )`: split the outline ring at this vertex and `b`,
+   * duplicating both, so that this..b and b2..a2 become two rings. Returns
+   * the new copy of `b` that heads the second ring.
+   *
+   * Upstream's first `emplace_back` is a stray copy that nothing links; it is
+   * kept out here since no ring reaches it.
+   */
+  split(b: Vertex): Vertex {
+    const a2 = this.parent.insertVertex(this.i, { x: this.x, y: this.y }, null, this.userData);
+    const b2 = new Vertex(b.i, b.x, b.y, this.parent, this.userData);
+    this.parent.vertices.push(b2);
+    const an = this.next;
+    const bp = b.prev;
+
+    this.next = b;
+    b.prev = this;
+
+    a2.next = an;
+    an.prev = a2;
+
+    b2.next = a2;
+    a2.prev = b2;
+
+    bp.next = b2;
+    b2.prev = bp;
+
+    return b2;
+  }
+
   /** Unlink from both rings. */
   remove(): void {
     this.next.prev = this.prev;

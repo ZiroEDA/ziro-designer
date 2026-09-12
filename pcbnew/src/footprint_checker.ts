@@ -74,7 +74,7 @@ import {
   booleanAdd,
   booleanSubtract,
   type Polygon,
-} from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+} from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { allowsMissingCourtyard, buildCourtyard } from './courtyard.js';
 import {

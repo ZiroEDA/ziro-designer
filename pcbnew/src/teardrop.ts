@@ -30,7 +30,7 @@ import {
   transformCircleToPolygon,
 } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
-import { CornerStrategy, inflate } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import { CornerStrategy, inflate } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import polygonClipping, { type Geom, type MultiPolygon, type Ring } from 'polygon-clipping';

@@ -16,15 +16,27 @@ import { getArcToSegmentCount } from './geometry/geometry_utils.js';
 export { getArcToSegmentCount };
 import { RotatePoint } from './trigo.js';
 import { segIntersectLines } from './geometry/seg.js';
-import { booleanIntersection, fracture, type Polygon } from './geometry/shape_poly_set.js';
+import {
+  booleanIntersection,
+  fracture,
+  type Polygon,
+} from './geometry/shape_poly_set_algorithms.js';
 
-/** Where the approximation error is spent relative to the true shape. */
-export enum ErrorLoc {
-  /** The polygon lies inside the shape: vertices sit on the true outline. */
-  ERROR_INSIDE = 0,
+/**
+ * `ERROR_LOC` (`geometry/approximation.h`): where the approximation error is
+ * spent relative to the true shape. The numbering is upstream's.
+ */
+export enum ERROR_LOC {
   /** The polygon encloses the shape: the radius is grown to compensate. */
-  ERROR_OUTSIDE = 1,
+  ERROR_OUTSIDE = 0,
+  /** The polygon lies inside the shape: vertices sit on the true outline. */
+  ERROR_INSIDE = 1,
 }
+
+/** @deprecated use `ERROR_LOC` */
+export const ErrorLoc = ERROR_LOC;
+/** @deprecated use `ERROR_LOC` */
+export type ErrorLoc = ERROR_LOC;
 
 /**
  * `CircleToEndSegmentDeltaRadius` (geometry_utils.cpp): how far the polygon's

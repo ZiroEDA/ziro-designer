@@ -30,7 +30,7 @@
  * "sliver" fixture were all shapes this check is deliberately silent about.
  */
 import { describe, expect, it } from 'vitest';
-import { booleanAdd } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import { booleanAdd } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import {
   SLIVER_ANGLE_TOLERANCE_DEG,

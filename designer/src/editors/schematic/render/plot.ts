@@ -25,7 +25,7 @@ import { zlibSync } from 'fflate';
 import type { LibSymbol } from '@ziroeda/eeschema';
 import { plotPdfAnnotations, type PdfNetInfo } from './pdf_annotations.js';
 import { schIUScale } from '@ziroeda/common/src/eda_units.js';
-import { fracture, type Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import { fracture, type Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import {

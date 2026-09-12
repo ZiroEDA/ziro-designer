@@ -32,7 +32,7 @@ import { getArcToSegmentCount } from '@ziroeda/kimath/src/geometry/geometry_util
 import { ErrorLoc } from '@ziroeda/pcbnew/src/transform_shape_to_polygon.js';
 import type { Color4d } from '@ziroeda/common/src/color4d.js';
 import { LEGACY_COLORS } from '@ziroeda/common/src/color4d.js';
-import type { Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import type { Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Board } from '@ziroeda/pcbnew';
 import { B_Cu, B_Mask, F_Cu, F_Mask, GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';

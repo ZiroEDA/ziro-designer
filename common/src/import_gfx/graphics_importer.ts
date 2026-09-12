@@ -51,7 +51,7 @@ import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import {
   buildPolysetFromOrientedPaths,
   fracture,
-} from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+} from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '../eda_text.js';
 

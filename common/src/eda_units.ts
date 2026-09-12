@@ -89,10 +89,12 @@ export const schIUScale = new EdaIuScale(SCH_IU_PER_MM);
  * `base_units.h`, which is shared. A caller working in another editor's units
  * has to scale them itself — see `iu_scale_differs_per_editor`.
  */
-export const ARC_LOW_DEF_MM = 0.02;
-export const ARC_HIGH_DEF_MM = 0.005;
-export const ARC_LOW_DEF = pcbIUScale.mmToIU(ARC_LOW_DEF_MM);
-export const ARC_HIGH_DEF = pcbIUScale.mmToIU(ARC_HIGH_DEF_MM);
+export {
+  ARC_HIGH_DEF,
+  ARC_HIGH_DEF_MM,
+  ARC_LOW_DEF,
+  ARC_LOW_DEF_MM,
+} from '@ziroeda/kimath/src/base_units.js';
 
 /**
  * Schematic millimetres to IU. Board code wants {@link pcbIUScale} instead;

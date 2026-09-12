@@ -44,7 +44,7 @@ import {
   booleanOp,
   fractureNoSimplify,
   type Polygon,
-} from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+} from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 const partition = (outline: { x: number; y: number }[], size: number) => {
   let minX = Infinity,
     minY = Infinity,

@@ -25,7 +25,7 @@ import {
   booleanSubtract,
   fractureSingle,
   type Polygon,
-} from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+} from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import type { Board, PcbShape } from './types.js';
 
 export type PolygonBoolean = 'merge' | 'subtract' | 'intersect';

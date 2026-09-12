@@ -14,7 +14,7 @@ import {
   fracture,
   fractureSingle,
   inflate,
-} from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+} from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 
 /** Signed area; sign tells the winding, magnitude the enclosed area. */
 const signedArea = (ring: { x: number; y: number }[]): number => {

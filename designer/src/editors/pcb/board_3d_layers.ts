@@ -27,7 +27,7 @@ import {
   booleanSubtract,
   booleanIntersection,
   simplify,
-} from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+} from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import {
   transformCircleToPolygonSet,
   transformOvalToPolygon,

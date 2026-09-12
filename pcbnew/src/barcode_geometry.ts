@@ -30,7 +30,7 @@ import {
   fracture,
   inflate,
   type Polygon,
-} from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+} from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import { encodeBarcode } from './barcode/zint.js';
 import { moduleIsSet, type ZintSymbol } from './barcode/common.js';
 import type { BarcodeEcc, BarcodeKind, PcbBarcode } from './types.js';

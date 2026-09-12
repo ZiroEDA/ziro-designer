@@ -33,7 +33,7 @@ import {
   fracture,
   inflate,
   type Polygon,
-} from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+} from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import { hypot } from '@ziroeda/kimath/src/math/libm.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

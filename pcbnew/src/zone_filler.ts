@@ -41,7 +41,7 @@ import {
   fracture,
   inflate,
   type Polygon,
-} from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+} from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { getBoardPolygonOutlines } from './board_statistics.js';
 import { type Vertex, VertexSet } from '@ziroeda/kimath/src/geometry/vertex_set.js';

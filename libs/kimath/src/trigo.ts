@@ -7,8 +7,15 @@
  * VECTOR2I. Cardinal angles use the same exact-integer shortcuts KiCad does.
  */
 
-import { EDA_ANGLE, ANGLE_0, ANGLE_90, ANGLE_180, ANGLE_270 } from './geometry/eda_angle.js';
-import { VECTOR2I, type Vec2 } from './math/vector2.js';
+import {
+  EDA_ANGLE,
+  ANGLE_0,
+  ANGLE_90,
+  ANGLE_180,
+  ANGLE_270,
+  ANGLE_360,
+} from './geometry/eda_angle.js';
+import { VECTOR2I, type Vec2, ResizeD } from './math/vector2.js';
 import { KiROUND } from './math/util.js';
 
 /** Rotate a point about the origin by `aAngle` (KiCad RotatePoint(int*,int*,angle)). */
@@ -370,4 +377,54 @@ export function SegmentIntersectsSegment(
   if (num_b > den) return false;
 
   return true;
+}
+
+/**
+ * `CalcArcCenter( const VECTOR2I& aStart, const VECTOR2I& aMid, const VECTOR2I& aEnd )`
+ * (`trigo.cpp`): the double circumcentre, clamped a hundred units inside the
+ * `int` range and `KiROUND`ed.
+ */
+export function CalcArcCenterI(aStart: VECTOR2I, aMid: VECTOR2I, aEnd: VECTOR2I): VECTOR2I {
+  const dCenter = CalcArcCenter(aStart, aMid, aEnd);
+
+  const lo = -2147483648 + 100;
+  const hi = 2147483647 - 100;
+
+  return {
+    x: KiROUND(Math.min(Math.max(dCenter.x, lo), hi)),
+    y: KiROUND(Math.min(Math.max(dCenter.y, lo), hi)),
+  };
+}
+
+/**
+ * `CalcArcCenter( const VECTOR2D& aStart, const VECTOR2D& aEnd, const EDA_ANGLE& aAngle )`
+ * (`trigo.cpp:333`): the centre of the arc of `aAngle` from `aStart` to `aEnd`.
+ */
+export function CalcArcCenterFromAngle(aStart: Vec2, aEnd: Vec2, aAngle: EDA_ANGLE): Vec2 {
+  let angle = aAngle.Clone();
+  let start = aStart;
+  let end = aEnd;
+
+  if (angle.lt(ANGLE_0)) {
+    [start, end] = [end, start];
+    angle = angle.negate();
+  }
+
+  if (angle.gt(ANGLE_180)) {
+    [start, end] = [end, start];
+    angle = ANGLE_360.sub(angle);
+  }
+
+  const chord = Math.hypot(start.x - end.x, start.y - end.y);
+  const r = chord / 2.0 / angle.divide(2.0).Sin();
+  const d_squared = r * r - (chord * chord) / 4.0;
+  let d = 0.0;
+
+  if (d_squared > 0.0) d = Math.sqrt(d_squared);
+
+  const es = { x: end.x - start.x, y: end.y - start.y };
+  const vec2 = RotatePointD(ResizeD(es, d), ANGLE_90.negate());
+  const vc = ResizeD(es, chord / 2);
+
+  return { x: start.x + vc.x + vec2.x, y: start.y + vc.y + vec2.y };
 }

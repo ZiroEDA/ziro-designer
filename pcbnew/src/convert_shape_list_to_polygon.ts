@@ -28,7 +28,7 @@ import {
   booleanSubtract,
   type Polygon,
   simplify,
-} from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+} from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import { rescale64 } from '@ziroeda/kimath/src/math/util.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { arcConvertToPolyline, constructArcFromStartEndAngle } from './router/shape_arc_ops.js';
