@@ -106,6 +106,15 @@ Confirm it by running biome on a pristine worktree of `origin/main` if in doubt.
 `designer/save_cost` and `eeschema/writer_kicad_grammar` are wall-clock
 assertions and flake under load — re-run in isolation before believing either.
 
+**Hook dependency lists are not optional (#7).** Every value a `useEffect` /
+`useCallback` / `useMemo` body reads goes in its list, or is read through a
+ref; an effect whose dependency is only the *trigger* gets a
+`biome-ignore lint/correctness/useExhaustiveDependencies: <why>` on the line
+above. Never the autofix. Check with
+`npx biome lint <file> --only=correctness/useExhaustiveDependencies` before
+committing a `.tsx` — biome's default output stops at 20 diagnostics, so a
+plain `biome lint` under-reports this badly.
+
 ## Durability
 
 Scratch space under `/tmp` is wiped without warning. Anything worth keeping —
