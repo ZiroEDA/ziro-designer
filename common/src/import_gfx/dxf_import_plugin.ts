@@ -50,13 +50,13 @@
  */
 
 import {
-  BOX2D,
   GRAPHICS_IMPORTER_BUFFER,
   IMPORTED_STROKE,
   type GRAPHICS_IMPORTER,
   type MATRIX3x3D,
   matrixGetScale,
 } from './graphics_importer.js';
+import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import {
   DL_CREATION_ADAPTER,
   DL_ENTITY_LWPOLYLINE,

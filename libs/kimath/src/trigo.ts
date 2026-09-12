@@ -313,3 +313,61 @@ export function CalcArcMid(
 
   return RotatePoint(VECTOR2I(aStart.x, aStart.y), aCenter, midPointRotAngle);
 }
+
+/**
+ * `SegmentIntersectsSegment` (`trigo.cpp:107`): whether the two closed
+ * segments share a point, by the sign tests on the 64-bit line-equation
+ * numerators. Parallel (including collinear) segments never intersect here.
+ * With `aIntersectionPoint`, the point is written into it, `KiROUND`ed.
+ */
+export function SegmentIntersectsSegment(
+  a_p1_l1: VECTOR2I,
+  a_p2_l1: VECTOR2I,
+  a_p1_l2: VECTOR2I,
+  a_p2_l2: VECTOR2I,
+  aIntersectionPoint?: VECTOR2I,
+): boolean {
+  // 64-bit in the C++ because the products overflow int; exact in doubles up
+  // to 2^53, which a board coordinate product (< 2^62) can exceed - BigInt for
+  // the products keeps the sign tests exact.
+  const dX_a = BigInt(a_p2_l1.x - a_p1_l1.x);
+  const dY_a = BigInt(a_p2_l1.y - a_p1_l1.y);
+  const dX_b = BigInt(a_p2_l2.x - a_p1_l2.x);
+  const dY_b = BigInt(a_p2_l2.y - a_p1_l2.y);
+  const dX_ab = BigInt(a_p1_l2.x - a_p1_l1.x);
+  const dY_ab = BigInt(a_p1_l2.y - a_p1_l1.y);
+
+  let den = dY_a * dX_b - dY_b * dX_a;
+
+  // Check if lines are parallel.
+  if (den === 0n) return false;
+
+  let num_a = dY_ab * dX_b - dY_b * dX_ab;
+  let num_b = dY_ab * dX_a - dY_a * dX_ab;
+
+  // Only compute the intersection point if requested.
+  if (aIntersectionPoint) {
+    aIntersectionPoint.x = a_p1_l1.x + KiROUND((Number(dX_a) * Number(num_a)) / Number(den));
+    aIntersectionPoint.y = a_p1_l1.y + KiROUND((Number(dY_a) * Number(num_b)) / Number(den));
+  }
+
+  if (den < 0n) {
+    den = -den;
+    num_a = -num_a;
+    num_b = -num_b;
+  }
+
+  // Test sign( u_a ) and return false if negative.
+  if (num_a < 0n) return false;
+
+  // Test sign( u_b ) and return false if negative.
+  if (num_b < 0n) return false;
+
+  // Test to ensure (u_a <= 1).
+  if (num_a > den) return false;
+
+  // Test to ensure (u_b <= 1).
+  if (num_b > den) return false;
+
+  return true;
+}

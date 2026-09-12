@@ -42,6 +42,7 @@
 
 import { LINE_STYLE } from '../stroke_params.js';
 import type { Color4d } from '../color4d.js';
+import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import type { Vec2, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { segApproxCollinear } from '@ziroeda/kimath/src/geometry/seg.js';
 import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
@@ -136,120 +137,6 @@ export const matrixMulVec2 = (m: MATRIX3x3D, v: Vec2): Vec2 => ({
 
 /** `MATRIX3x3<T>::GetScale`: the diagonal, which is all a pure scale sets. */
 export const matrixGetScale = (m: MATRIX3x3D): Vec2 => ({ x: m[0][0], y: m[1][1] });
-
-/**
- * `BOX2D`, only as much of it as `ImportTo` uses.
- *
- * The `m_init` flag is the point: a default-constructed box is *not* the origin
- * with zero size, it is "no box yet", and merging into it adopts the merged
- * value outright. Without that, an import whose drawing lies away from the
- * origin would be measured from (0, 0) and judged too large.
- */
-export class BOX2D {
-  private m_pos: MutPoint = { x: 0, y: 0 };
-  private m_size: MutPoint = { x: 0, y: 0 };
-  private m_init = false;
-
-  IsValid(): boolean {
-    return this.m_init;
-  }
-  GetPosition(): Vec2 {
-    return { ...this.m_pos };
-  }
-  GetOrigin(): Vec2 {
-    return { ...this.m_pos };
-  }
-  GetSize(): Vec2 {
-    return { ...this.m_size };
-  }
-  GetLeft(): number {
-    return this.m_pos.x;
-  }
-  GetTop(): number {
-    return this.m_pos.y;
-  }
-  GetRight(): number {
-    return this.m_pos.x + this.m_size.x;
-  }
-  GetBottom(): number {
-    return this.m_pos.y + this.m_size.y;
-  }
-
-  SetOrigin(x: number, y: number): void {
-    this.m_pos = { x, y };
-    this.m_init = true;
-  }
-  SetSize(x: number, y: number): void {
-    this.m_size = { x, y };
-    this.m_init = true;
-  }
-  SetEnd(x: number, y: number): void {
-    this.m_size = { x: x - this.m_pos.x, y: y - this.m_pos.y };
-    this.m_init = true;
-  }
-
-  /** `BOX2::Normalize`: fold a negative extent back onto the position. */
-  Normalize(): void {
-    if (this.m_size.y < 0) {
-      this.m_pos.y += this.m_size.y;
-      this.m_size.y = -this.m_size.y;
-    }
-    if (this.m_size.x < 0) {
-      this.m_pos.x += this.m_size.x;
-      this.m_size.x = -this.m_size.x;
-    }
-  }
-
-  /** `BOX2::Merge( const Vec& )`. */
-  MergePoint(p: Vec2): this {
-    if (!this.m_init) {
-      this.m_pos = { ...p };
-      this.m_size = { x: 0, y: 0 };
-      this.m_init = true;
-      return this;
-    }
-
-    this.Normalize();
-    const end = { x: this.GetRight(), y: this.GetBottom() };
-    this.m_pos.x = Math.min(this.m_pos.x, p.x);
-    this.m_pos.y = Math.min(this.m_pos.y, p.y);
-    this.SetEnd(Math.max(end.x, p.x), Math.max(end.y, p.y));
-    return this;
-  }
-
-  /**
-   * `BOX2::Merge( const BOX2& )`.
-   *
-   * The argument's init flag is consulted only when `this` has none of its
-   * own — so merging an *invalid* box into a valid one stretches it to include
-   * the origin, because an uninitialised box reads as zero-size at (0, 0).
-   * `ImportTo` is written around that: it tests each shape's box itself.
-   */
-  MergeBox(other: BOX2D): this {
-    if (!this.m_init) {
-      if (other.m_init) {
-        this.m_pos = other.GetPosition();
-        this.m_size = other.GetSize();
-        this.m_init = true;
-      }
-      return this;
-    }
-
-    this.Normalize();
-    const rect = new BOX2D();
-    rect.m_pos = other.GetPosition();
-    rect.m_size = other.GetSize();
-    rect.m_init = other.m_init;
-    rect.Normalize();
-
-    const end = { x: this.GetRight(), y: this.GetBottom() };
-    const rectEnd = { x: rect.GetRight(), y: rect.GetBottom() };
-    this.m_pos.x = Math.min(this.m_pos.x, rect.m_pos.x);
-    this.m_pos.y = Math.min(this.m_pos.y, rect.m_pos.y);
-    this.SetEnd(Math.max(end.x, rectEnd.x), Math.max(end.y, rectEnd.y));
-    return this;
-  }
-}
 
 /**
  * One board item the importer produced.
@@ -496,7 +383,7 @@ export class IMPORTED_LINE extends IMPORTED_SHAPE {
   }
 
   GetBoundingBox(): BOX2D {
-    return new BOX2D().MergePoint(this.m_start).MergePoint(this.m_end);
+    return new BOX2D().Merge(this.m_start).Merge(this.m_end);
   }
 }
 
@@ -548,8 +435,8 @@ export class IMPORTED_CIRCLE extends IMPORTED_SHAPE {
 
   GetBoundingBox(): BOX2D {
     return new BOX2D()
-      .MergePoint({ x: this.m_center.x - this.m_radius, y: this.m_center.y - this.m_radius })
-      .MergePoint({ x: this.m_center.x + this.m_radius, y: this.m_center.y + this.m_radius });
+      .Merge({ x: this.m_center.x - this.m_radius, y: this.m_center.y - this.m_radius })
+      .Merge({ x: this.m_center.x + this.m_radius, y: this.m_center.y + this.m_radius });
   }
 }
 
@@ -589,13 +476,13 @@ export class IMPORTED_ARC extends IMPORTED_SHAPE {
     const box = new BOX2D();
     const w = this.m_stroke.GetWidth();
 
-    box.MergePoint({ x: this.m_start.x + w, y: this.m_start.y + w });
-    box.MergePoint({ x: this.m_start.x - w, y: this.m_start.y - w });
+    box.Merge({ x: this.m_start.x + w, y: this.m_start.y + w });
+    box.Merge({ x: this.m_start.x - w, y: this.m_start.y - w });
 
     for (let angle = 0; angle < this.m_angle.AsDegrees(); angle += 5) {
       const ang = new EDA_ANGLE(angle);
       const start = addVec(this.m_center, this.m_start);
-      box.MergePoint({
+      box.Merge({
         x: start.x * ang.Cos() + start.y * ang.Sin(),
         y: start.x * ang.Sin() - start.y * ang.Cos(),
       });
@@ -651,7 +538,7 @@ export class IMPORTED_POLYGON extends IMPORTED_SHAPE {
 
   GetBoundingBox(): BOX2D {
     const box = new BOX2D();
-    for (const vert of this.m_vertices) box.MergePoint(vert);
+    for (const vert of this.m_vertices) box.Merge(vert);
     return box;
   }
 }
@@ -714,7 +601,7 @@ export class IMPORTED_TEXT extends IMPORTED_SHAPE {
   }
 
   GetBoundingBox(): BOX2D {
-    return new BOX2D().MergePoint(this.m_origin).MergePoint({
+    return new BOX2D().Merge(this.m_origin).Merge({
       x: this.m_origin.x + this.m_width * this.m_text.length,
       y: this.m_origin.y + this.m_height,
     });
@@ -763,7 +650,7 @@ export class IMPORTED_SPLINE extends IMPORTED_SHAPE {
 
   /** Only the endpoints, so a curve that bulges outside them measures short. */
   GetBoundingBox(): BOX2D {
-    return new BOX2D().MergePoint(this.m_start).MergePoint(this.m_end);
+    return new BOX2D().Merge(this.m_start).Merge(this.m_end);
   }
 }
 
@@ -925,8 +812,8 @@ function transformEllipseAxes(
 function ellipseBBox(aCenter: Vec2, aMajorRadius: number, aMinorRadius: number): BOX2D {
   const r = Math.max(aMajorRadius, aMinorRadius);
   return new BOX2D()
-    .MergePoint({ x: aCenter.x - r, y: aCenter.y - r })
-    .MergePoint({ x: aCenter.x + r, y: aCenter.y + r });
+    .Merge({ x: aCenter.x - r, y: aCenter.y - r })
+    .Merge({ x: aCenter.x + r, y: aCenter.y + r });
 }
 
 /**
@@ -1125,7 +1012,7 @@ export class GRAPHICS_IMPORTER_BUFFER extends GRAPHICS_IMPORTER {
 
       const box = shape.GetBoundingBox();
 
-      if (box.IsValid()) boundingBox = boundingBox.MergeBox(box);
+      if (box.IsValid()) boundingBox = boundingBox.Merge(box);
     }
 
     if (!boundingBox.IsValid()) return;

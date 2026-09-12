@@ -4,6 +4,7 @@
 /** @ziroeda/kimath, math foundations ported from KiCad's libs/kimath. */
 export * from './math/vector2.js';
 export * from './math/util.js';
+export * from './math/box2.js';
 export * from './geometry/eda_angle.js';
 export * from './geometry/convex_hull.js';
 export * from './geometry/seg.js';

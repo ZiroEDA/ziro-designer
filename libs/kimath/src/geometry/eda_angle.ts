@@ -13,6 +13,7 @@
  */
 
 import { acos, atan2, cos, sin } from '../math/libm.js';
+import { KiROUND, equals } from '../math/util.js';
 
 export enum EDA_ANGLE_T {
   TENTHS_OF_A_DEGREE_T,
@@ -71,9 +72,68 @@ export class EDA_ANGLE {
   IsVertical(): boolean {
     return this.m_value === 90.0 || this.m_value === 270.0;
   }
+  /** `IsCardinal`: a multiple of 90 degrees (eda_angle.cpp). */
+  IsCardinal(): boolean {
+    let test = this.m_value;
+
+    while (test < 0.0) test += 90.0;
+
+    while (test >= 90.0) test -= 90.0;
+
+    return test === 0.0;
+  }
+
+  /** `IsCardinal90`: one of the two cardinal directions (90/270 degrees). */
   IsCardinal90(): boolean {
-    const n = this.Normalized().AsDegrees();
-    return n === 0.0 || n === 90.0 || n === 180.0 || n === 270.0;
+    let test = Math.abs(this.m_value);
+
+    while (test >= 180.0) test -= 180.0;
+
+    return test === 90.0;
+  }
+
+  /** `IsParallelTo`: equal modulo 180, on (-90, 90]. */
+  IsParallelTo(aAngle: EDA_ANGLE): boolean {
+    const thisNormalized = this.Clone();
+
+    // Normalize90 is inclusive on both ends [-90, +90]
+    // but we need it to be (-90, +90] for this test to work
+    thisNormalized.Normalize90();
+
+    if (equals(thisNormalized.AsDegrees(), -90.0)) thisNormalized.m_value = 90.0;
+
+    const other = aAngle.Clone();
+    other.Normalize90();
+
+    if (equals(other.AsDegrees(), -90.0)) other.m_value = 90.0;
+
+    return equals(thisNormalized.AsDegrees(), other.AsDegrees());
+  }
+
+  /** `KeepUpright`: the 0 or 90 an upright text of this angle takes (eda_angle.cpp). */
+  KeepUpright(): EDA_ANGLE {
+    const inAngle = this.Clone();
+    inAngle.Normalize();
+
+    const inDegrees = inAngle.AsDegrees();
+    let outDegrees: number;
+
+    if (inDegrees <= 45 || inDegrees >= 315 || (inDegrees > 135 && inDegrees <= 225))
+      outDegrees = 0;
+    else outDegrees = 90;
+
+    return new EDA_ANGLE(outDegrees);
+  }
+
+  /** `Round( digits )`: degrees rounded to `digits` decimals through `KiROUND`. */
+  Round(digits: number): EDA_ANGLE {
+    const rounded = KiROUND(this.AsDegrees() * 10.0 ** digits) / 10.0 ** digits;
+    return new EDA_ANGLE(rounded);
+  }
+
+  /** `std::abs( EDA_ANGLE )`. */
+  abs(): EDA_ANGLE {
+    return new EDA_ANGLE(Math.abs(this.m_value));
   }
 
   Sin(): number {
@@ -169,6 +229,10 @@ export class EDA_ANGLE {
   divide(k: number): EDA_ANGLE {
     return new EDA_ANGLE(this.m_value / k);
   }
+  /** `operator/( EDA_ANGLE, EDA_ANGLE )`: the ratio of two angles. */
+  divideAngle(o: EDA_ANGLE): number {
+    return this.m_value / o.m_value;
+  }
 
   equals(o: EDA_ANGLE): boolean {
     return this.m_value === o.m_value;
@@ -194,3 +258,7 @@ export const ANGLE_90 = new EDA_ANGLE(90);
 export const ANGLE_180 = new EDA_ANGLE(180);
 export const ANGLE_270 = new EDA_ANGLE(270);
 export const ANGLE_360 = new EDA_ANGLE(360);
+export const ANGLE_135 = new EDA_ANGLE(135);
+export const ANGLE_HORIZONTAL = new EDA_ANGLE(0);
+export const ANGLE_VERTICAL = new EDA_ANGLE(90);
+export const FULL_CIRCLE = new EDA_ANGLE(360);

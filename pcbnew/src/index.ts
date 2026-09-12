@@ -1055,7 +1055,7 @@ export {
 } from './diff_footprint.js';
 
 // Graphics import (DXF/SVG into board graphics). Only the import-specific
-// names travel: BOX2D, MATRIX3x3D, the IMPORTED_* shape classes and
+// names travel: MATRIX3x3D, the IMPORTED_* shape classes and
 // setupSplineOrLine are KiCad names another port will want and stay importable
 // from '@ziroeda/common/src/import_gfx/graphics_importer.js' / './graphics_importer_pcbnew.js' alone.
 export {

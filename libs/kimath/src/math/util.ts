@@ -45,3 +45,53 @@ export function rescale64(aNumerator: bigint, aValue: bigint, aDenominator: bigi
     ? (numerator - half) / aDenominator
     : (numerator + half) / aDenominator;
 }
+
+/** `std::numeric_limits<int>::max()`. */
+export const INT_MAX = 2147483647;
+/** `std::numeric_limits<int>::lowest()`. */
+export const INT_MIN = -2147483648;
+
+/**
+ * `KiCheckedCast< int64_t, int >` (`math/util.h:69`): a 64-bit value clamped
+ * into `int`, logging the overflow. The only instantiation KiCad's geometry
+ * uses; the identity one (`int -> int`, `double -> double`) is not a cast.
+ */
+export function KiCheckedCast(v: number): number {
+  if (v > INT_MAX) {
+    kimathLogOverflow(v, 'int');
+    return INT_MAX;
+  }
+  if (v < INT_MIN) {
+    kimathLogOverflow(v, 'int');
+    return INT_MIN;
+  }
+  return v;
+}
+
+/** `kimathLogOverflow` (`math/util.cpp`): a `wxLogDebug` in KiCad, a console line here. */
+export function kimathLogOverflow(v: number, aTypeName: string): void {
+  console.debug(`Overflow converting value ${v} to ${aTypeName}.`);
+}
+
+/**
+ * `equals( aFirst, aSecond, aEpsilon )` (`math/util.h:168`): floating-point
+ * equality, absolute below `aEpsilon`, else relative to the larger magnitude.
+ * The default epsilon is `std::numeric_limits< double >::epsilon()`.
+ */
+export function equals(aFirst: number, aSecond: number, aEpsilon = Number.EPSILON): boolean {
+  const diff = Math.abs(aFirst - aSecond);
+
+  if (diff < aEpsilon) {
+    return true;
+  }
+
+  aFirst = Math.abs(aFirst);
+  aSecond = Math.abs(aSecond);
+  const largest = aFirst > aSecond ? aFirst : aSecond;
+
+  if (diff <= largest * aEpsilon) {
+    return true;
+  }
+
+  return false;
+}

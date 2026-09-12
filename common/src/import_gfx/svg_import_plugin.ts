@@ -39,13 +39,13 @@
  */
 
 import {
-  BOX2D,
   COLOR4D_UNSPECIFIED,
   GRAPHICS_IMPORTER_BUFFER,
   IMPORTED_STROKE,
   POLY_FILL_RULE,
   type GRAPHICS_IMPORTER,
 } from './graphics_importer.js';
+import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import { NSVG_FLAGS_VISIBLE, NSVGfillRule, NSVGpaintType, nsvgParse } from './nanosvg.js';
 import type { NSVGimage } from './nanosvg.js';
 import { LINE_STYLE } from '../stroke_params.js';
@@ -525,7 +525,7 @@ export class SVG_IMPORT_PLUGIN {
       shapeBbox.SetOrigin(shape.bounds[0], shape.bounds[1]);
       shapeBbox.SetEnd(shape.bounds[2], shape.bounds[3]);
 
-      bbox.MergeBox(shapeBbox);
+      bbox.Merge(shapeBbox);
     }
 
     return bbox;

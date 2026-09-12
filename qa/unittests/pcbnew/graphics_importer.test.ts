@@ -3,10 +3,10 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, it, expect } from 'vitest';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/eda_text.js';
 import { LINE_STYLE } from '@ziroeda/pcbnew/src/plot_dxf.js';
 import {
-  BOX2D,
   COLOR4D_UNSPECIFIED,
   GRAPHICS_IMPORTER_BUFFER,
   IMPORTED_ARC,
@@ -691,7 +691,7 @@ describe('BOX2D', () => {
     // The first merge adopts the point outright. Treating a fresh box as (0,0)
     // would stretch every drawing back to the origin and make a distant one
     // look far too large to import.
-    box.MergePoint({ x: 100, y: 100 });
+    box.Merge({ x: 100, y: 100 });
     expect(box.IsValid()).toBe(true);
     expect(box.GetPosition()).toEqual({ x: 100, y: 100 });
     expect(box.GetSize()).toEqual({ x: 0, y: 0 });
@@ -699,7 +699,7 @@ describe('BOX2D', () => {
 
   it('grows in both directions as points arrive', () => {
     const box = new BOX2D();
-    box.MergePoint({ x: 10, y: 10 }).MergePoint({ x: -5, y: 30 });
+    box.Merge({ x: 10, y: 10 }).Merge({ x: -5, y: 30 });
 
     expect(box.GetLeft()).toBe(-5);
     expect(box.GetTop()).toBe(10);
@@ -708,8 +708,8 @@ describe('BOX2D', () => {
   });
 
   it('swallows the origin when a valid box is merged with an invalid one', () => {
-    const box = new BOX2D().MergePoint({ x: 1, y: 1 });
-    box.MergeBox(new BOX2D());
+    const box = new BOX2D().Merge({ x: 1, y: 1 });
+    box.Merge(new BOX2D());
 
     // Upstream checks the *argument's* init flag only on the path where `this`
     // is uninitialised; a valid box merged with an invalid one takes it at face
