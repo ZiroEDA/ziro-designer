@@ -339,7 +339,8 @@ export function FormatInternalUnits(
   value: number,
   dataType: FileDataType = 'distance',
 ): string {
-  const engUnits = value / GetScaleForInternalUnitType(iuScale, dataType);
+  // `aValue` is an int: it has no negative zero, and neither may the quotient.
+  const engUnits = (value === 0 ? 0 : value) / GetScaleForInternalUnitType(iuScale, dataType);
   if (engUnits !== 0.0 && Math.abs(engUnits) <= 0.0001) {
     let buf = formatF(engUnits, 10);
     // remove trailing zeros

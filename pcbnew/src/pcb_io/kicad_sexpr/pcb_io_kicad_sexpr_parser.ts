@@ -230,7 +230,7 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
     return this.m_hdr;
   }
 
-  private throwParse(message: string): never {
+  throwParse(message: string): never {
     throw new PARSE_ERROR(
       message,
       this.CurSource(),
@@ -289,6 +289,15 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
     return KiROUND(Math.min(Math.max(retval, -INT_LIMIT), INT_LIMIT));
   }
 
+  /**
+   * `parseBoardUnits()` (:200), the overload that reads the CURRENT token:
+   * `parseDouble() * IU_PER_MM`, rounded and clamped.
+   */
+  parseBoardUnitsCur(): number {
+    const retval = this.parseDouble() * pcbIUScale.IU_PER_MM;
+    return KiROUND(Math.min(Math.max(retval, -INT_LIMIT), INT_LIMIT));
+  }
+
   /** `parseBool()` (:230). */
   parseBool(): boolean {
     const token = this.NextTok();
@@ -324,26 +333,77 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
     return ret;
   }
 
+  // -------------------------------------------------------------------------
+  // NETINFO_LIST (pcbnew/netinfo_list.cpp): the board's nets, code 0 the
+  // unconnected net, new nets numbered by first appearance.
+  // -------------------------------------------------------------------------
+
+  /** `m_netNames` of the list: name -> code. */
+  private readonly m_netNamesToCode = new Map<string, number>([['', 0]]);
+  private m_newNetCode = 0;
+
+  /** `NETINFO_LIST::getFreeNetCode()`. */
+  private getFreeNetCode(): number {
+    do {
+      if (this.m_newNetCode < 0) this.m_newNetCode = 0;
+    } while (this.hdr().netNames.has(++this.m_newNetCode));
+    return this.m_newNetCode;
+  }
+
   /**
-   * `parseNet( aItem )` (:296): the item's net, as a legacy netcode or a name.
-   * Returns the net NAME; the caller resolves the code through the board.
+   * `BOARD::Add( new NETINFO_ITEM( board, name, code ) )` → `AppendNet`
+   * (netinfo_list.cpp:149): a net with that name keeps its code; a code that
+   * is not the next consecutive one (or -1) is auto-assigned. Returns the code.
    */
-  parseNet(): { name: string } | { code: number } {
+  addNet(name: string, code = -1): number {
+    const netNames = this.hdr().netNames;
+    const sameName = this.m_netNamesToCode.get(name);
+    if (sameName !== undefined) return sameName;
+    if (code !== netNames.size || code < 0) code = this.getFreeNetCode();
+    netNames.set(code, name);
+    this.m_netNamesToCode.set(name, code);
+    return code;
+  }
+
+  /** `BOARD::FindNet( aNetname )`: the code, or undefined. */
+  findNet(name: string): number | undefined {
+    return this.m_netNamesToCode.get(name);
+  }
+
+  /** `BOARD::GetNetCount()`. */
+  getNetCount(): number {
+    return this.hdr().netNames.size;
+  }
+
+  /**
+   * `BOARD_CONNECTED_ITEM::SetNetCode( code, aNoAssert )`: the net with that
+   * code, or — when the board has none — no net at all (`GetNetCode()` -1,
+   * `GetNetname()` empty). Returns null when the code is unknown.
+   */
+  netByCode(code: number): { name: string; code: number } | null {
+    if (code < 0) return null;
+    const name = this.hdr().netNames.get(code);
+    return name === undefined ? null : { name, code };
+  }
+
+  /** `parseNet( aItem )` (:296): the item's net, as a legacy netcode or a name. */
+  parseNet(): { name: string; code: number } {
     const token = this.NextTok();
     // Legacy files (pre-10.0) will have a netcode instead of a netname.  This netcode
     // is authoratative (though may be mapped by getNetCode() to prevent collisions).
     if (DSNLEXER.IsNumber(token)) {
       const code = Math.max(0, this.getNetCode(Number.parseInt(this.CurText(), 10)));
       this.NeedRIGHT();
-      return { code };
+      return this.netByCode(code) ?? { name: '', code: -1 };
     }
     if (!DSNLEXER.IsSymbol(token)) this.Expecting('net name');
     let netName = this.CurText();
     // Convert overbar syntax from `~...~` to `~{...}`.  These were left out of the
     // first merge so the version is a bit later.
     if (this.m_requiredVersion < 20210606) netName = convertToNewOverbarNotation(netName);
+    const code = this.addNet(netName);
     this.NeedRIGHT();
-    return { name: netName };
+    return { name: netName, code };
   }
 
   /** `getNetCode( aNetCode )`: through the file's net number map, or as-is. */
@@ -353,7 +413,7 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
   }
 
   /** `pushValueIntoMap( aIndex, aValue )` (:188). */
-  private pushValueIntoMap(index: number, value: number): void {
+  pushValueIntoMap(index: number, value: number): void {
     while (this.m_netCodes.length <= index) this.m_netCodes.push(0);
     this.m_netCodes[index] = value;
   }
@@ -596,13 +656,24 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
       designSettings: defaultDesignSettingsFile(),
       properties: new Map(),
       variants: [],
-      netNames: new Map(),
+      // Make sure that the unconnected net has number 0
+      netNames: new Map([[0, '']]),
       embeddedFiles: emptyEmbeddedFiles(),
       legacyTeardrops: false,
       parseWarnings: this.m_parseWarnings,
     };
     this.parseBOARD_unchecked(onItem);
     return this.m_hdr;
+  }
+
+  /** `m_board->GetCopperLayerCount()` while the items are being read. */
+  hdrCopperLayerCount(): number {
+    return this.hdr().copperLayerCount;
+  }
+
+  /** `m_undefinedLayers`: the layer names items referred to that the board lacks. */
+  undefinedLayerNames(): string[] {
+    return [...this.m_undefinedLayers];
   }
 
   /** `parseBOARD_unchecked()` (:1116), the header half; items go to `onItem`. */
@@ -1185,6 +1256,28 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
     return hit;
   }
 
+  /** `m_layerIndices.find( name )`. */
+  layerIndexOf(name: string): number | undefined {
+    return this.m_layerIndices.get(name);
+  }
+
+  /** A nested footprint's `(version N)`: `max( m_requiredVersion, N )` and the bar rule. */
+  raiseRequiredVersion(thisVersion: number): void {
+    this.m_requiredVersion = Math.max(this.m_requiredVersion, thisVersion);
+    this.m_tooRecent = this.m_requiredVersion > SEXPR_BOARD_FILE_VERSION;
+    this.SetKnowsBar(this.m_requiredVersion >= 20240706); // Bar token is known from this version
+  }
+
+  /** `EMBEDDED_FILES_PARSER::ParseEmbedded` for a footprint's own files. */
+  ParseEmbeddedInto(files: EmbeddedFiles): void {
+    this.ParseEmbedded(files);
+  }
+
+  /** `lookUpLayer( m_layerIndices )` on the CURRENT token. */
+  lookUpLayerCur(): number {
+    return this.lookUpLayer();
+  }
+
   /** `parseBoardItemLayer()` (:2437): after `(layer`, the id; the caller reads the `)`. */
   parseBoardItemLayer(): number {
     this.NextTok();
@@ -1522,11 +1615,11 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
 
     // net 0 should be already in list, so store this net
     // if it is not the net 0, or if the net 0 does not exists.
-    const hdr = this.hdr();
-    if (netCode > 0 || !hdr.netNames.has(0)) {
-      hdr.netNames.set(netCode, name);
+    // (TODO: a better test.)
+    if (netCode > 0 || !this.hdr().netNames.has(0)) {
+      const assigned = this.addNet(name, netCode);
       // Store the new code mapping
-      this.pushValueIntoMap(netCode, netCode);
+      this.pushValueIntoMap(netCode, assigned);
     }
   }
 
