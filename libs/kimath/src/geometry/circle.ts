@@ -49,7 +49,8 @@ export class CIRCLE {
       this.Radius = a.Radius;
     } else {
       this.Center = { x: a.x, y: a.y };
-      this.Radius = aRadius as number;
+      // `int aRadius`: a double (SHAPE_ARC::GetRadius()) truncates on the way in
+      this.Radius = Math.trunc(aRadius as number);
     }
   }
 

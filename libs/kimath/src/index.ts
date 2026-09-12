@@ -59,6 +59,13 @@ export { ROUNDRECT } from './geometry/roundrect.js';
 export { SHAPE_SIMPLE } from './geometry/shape_simple.js';
 export { SHAPE_COMPOUND } from './geometry/shape_compound.js';
 export { SHAPE_ARC } from './geometry/shape_arc.js';
+export { POINT_TYPE, TYPED_POINT2I } from './geometry/point_types.js';
+export {
+  KIGEOM_ConvertToChain,
+  KIGEOM_GetOvalKeyPoints,
+  OVAL_KEY_POINTS,
+  type OVAL_KEY_POINT_FLAGS,
+} from './geometry/oval.js';
 export {
   CLIPPER_Z_VALUE,
   INTERSECTION,

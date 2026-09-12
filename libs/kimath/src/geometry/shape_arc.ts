@@ -8,7 +8,7 @@
  */
 
 import { ECOORD_MAX, EuclideanNormI, ResizeI, type Vec2, type VECTOR2I } from '../math/vector2.js';
-import { INT_MAX, KiROUND } from '../math/util.js';
+import { INT_MAX, KiROUND, toInt } from '../math/util.js';
 import { ANGLE_0, ANGLE_90, ANGLE_180, ANGLE_360, EDA_ANGLE } from './eda_angle.js';
 import { FLIP_DIRECTION } from '../core/mirror.js';
 import { BOX2I } from '../math/box2.js';
@@ -814,8 +814,8 @@ export class SHAPE_ARC extends SHAPE {
     if (dist <= minDist) {
       // `*aLocation = nearestPt` narrows the VECTOR2D to VECTOR2I: truncation
       if (aLocation) {
-        aLocation.x = Math.trunc(nearestPt.x);
-        aLocation.y = Math.trunc(nearestPt.y);
+        aLocation.x = toInt(nearestPt.x);
+        aLocation.y = toInt(nearestPt.y);
       }
 
       if (aActual) aActual.value = Math.max(0, dist - Math.trunc(this.m_width / 2));

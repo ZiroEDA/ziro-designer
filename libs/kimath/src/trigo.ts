@@ -245,6 +245,17 @@ export function CalcArcCenter(
  * scale and *then* multiplying by a million turns a sub-nanometre difference
  * into half a millimetre.
  */
+/**
+ * Return a new VECTOR2I that is the result of rotating aVector by aAngle
+ * (about aCentre when given).
+ */
+export function GetRotated(aVector: VECTOR2I, aAngle: EDA_ANGLE): VECTOR2I;
+export function GetRotated(aVector: VECTOR2I, aCentre: VECTOR2I, aAngle: EDA_ANGLE): VECTOR2I;
+export function GetRotated(aVector: VECTOR2I, b: VECTOR2I | EDA_ANGLE, c?: EDA_ANGLE): VECTOR2I {
+  if (b instanceof EDA_ANGLE) return RotatePoint(aVector, b);
+  return RotatePoint(aVector, b, c as EDA_ANGLE);
+}
+
 export function RotatePointD(point: Vec2, aAngle: EDA_ANGLE): Vec2;
 export function RotatePointD(point: Vec2, aCentre: Vec2, aAngle: EDA_ANGLE): Vec2;
 export function RotatePointD(point: Vec2, b: Vec2 | EDA_ANGLE, c?: EDA_ANGLE): Vec2 {

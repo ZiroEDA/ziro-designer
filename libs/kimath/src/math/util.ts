@@ -14,6 +14,12 @@
  */
 export const KiROUND = (v: number): number => (v < 0 ? Math.ceil(v - 0.5) : Math.floor(v + 0.5));
 
+/**
+ * `static_cast<int>( v )` / a `VECTOR2D` narrowed to a `VECTOR2I`: truncation
+ * toward zero. `+ 0` folds the double's -0 into the int's 0.
+ */
+export const toInt = (v: number): number => Math.trunc(v) + 0;
+
 /** rescale( n, v, d ) = n * v / d, rounded like KiROUND. */
 export const rescale = (numerator: number, value: number, denominator: number): number =>
   KiROUND((numerator * value) / denominator);
