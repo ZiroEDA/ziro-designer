@@ -282,9 +282,9 @@ describe('the two File menus that are plain data, built for real', () => {
       {
         grid: 'none',
         ortho: false,
-        showMissingModels: false,
         raytracing: false,
         showAppearanceManager: false,
+        language: 'en',
       },
       Object.fromEntries(
         [
