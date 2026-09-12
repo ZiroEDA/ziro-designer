@@ -62,7 +62,6 @@ const bc = (over: Partial<PcbBarcode> = {}): PcbBarcode => ({
   showText: false,
   knockout: false,
   margin: { x: 0, y: 0 },
-  source: { kind: 'list', items: [] },
   ...over,
 });
 

@@ -31,11 +31,6 @@ import { parse } from '@ziroeda/sexpr/src/index.js';
 import type { Board, PcbFootprint, PcbTextItem } from '@ziroeda/pcbnew/src/types.js';
 import type { SList, SNode } from '@ziroeda/sexpr/src/types.js';
 
-const EMPTY: SList = { kind: 'list', items: [] };
-const atom = (value: string): SNode => ({ kind: 'atom', value });
-const str = (value: string): SNode => ({ kind: 'string', value });
-const list = (...items: SNode[]): SList => ({ kind: 'list', items });
-
 /** 1 mm in board IU (nanometres). */
 const MM = 1_000_000;
 
@@ -57,7 +52,6 @@ const refText = (ref: string, at: { x: number; y: number }): PcbTextItem => ({
   angle: 0,
   layer: 'F.SilkS',
   size: { x: MM, y: MM },
-  source: list(atom('property'), str('Reference'), str(ref)),
 });
 
 let uuidSeed = 0;
@@ -78,7 +72,6 @@ const fp = (spec: FpSpec): PcbFootprint => {
     points: [],
     barcodes: [],
     models: [],
-    source: list(atom('footprint')),
   };
 };
 
@@ -103,7 +96,6 @@ const board = (specs: FpSpec[]): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 /** The designators after a run, in board order. */

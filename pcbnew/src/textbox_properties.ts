@@ -27,12 +27,8 @@
  * of one, and the stroke stays in the file either way so the width survives
  * being toggled off and on.
  */
-import { atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
-import { dropChild, mm, parseBoardItemId, patchChild } from './edit-board.js';
+import { parseBoardItemId } from './edit-board.js';
 import type { Board, PcbTextBox, StrokeType } from './types.js';
-import { fontNode } from './eda_text_format.js';
-
-const list = (...items: SNode[]): SList => ({ kind: 'list', items });
 
 export type HorizJustify = 'left' | 'center' | 'right';
 export type VertJustify = 'top' | 'center' | 'bottom';
@@ -171,58 +167,6 @@ export function applyTextBoxValues(board: Board, index: number, v: TextBoxValues
 
   return {
     ...board,
-    textBoxes: board.textBoxes.map((cur, i) =>
-      i === index ? { ...next, source: patchTextBoxSource(next, cur.source) } : cur,
-    ),
+    textBoxes: board.textBoxes.map((cur, i) => (i === index ? next : cur)),
   };
-}
-
-/** Rewrite the `(gr_text_box …)` node's children in place. */
-function patchTextBoxSource(t: PcbTextBox, src: SList): SList {
-  if (src.items.length === 0) return src; // built from scratch on save
-
-  // The string is the node's first positional argument.
-  const items = [...src.items];
-  items[1] = str(t.text);
-  let out: SList = { kind: 'list', items };
-
-  out = patchChild(out, 'layer', list(atom('layer'), str(t.layer)));
-  out = t.locked
-    ? patchChild(out, 'locked', list(atom('locked'), atom('yes')))
-    : dropChild(out, 'locked');
-  out = t.angle
-    ? patchChild(out, 'angle', list(atom('angle'), atom(String(t.angle))))
-    : dropChild(out, 'angle');
-  out = patchChild(
-    out,
-    'margins',
-    list(
-      atom('margins'),
-      atom(mm(t.margins.left)),
-      atom(mm(t.margins.top)),
-      atom(mm(t.margins.right)),
-      atom(mm(t.margins.bottom)),
-    ),
-  );
-
-  const font = fontNode(t);
-  const effects: SNode[] = [atom('effects'), font];
-  if (t.justify && t.justify.length > 0)
-    effects.push({ kind: 'list', items: [atom('justify'), ...t.justify.map((j) => atom(j))] });
-  out = patchChild(out, 'effects', { kind: 'list', items: effects });
-
-  // Both are written explicitly either way — a missing `(border …)` reads back
-  // as true, so `no` has to be on the page.
-  out = patchChild(out, 'border', list(atom('border'), atom(t.border ? 'yes' : 'no')));
-  out = patchChild(
-    out,
-    'stroke',
-    list(
-      atom('stroke'),
-      list(atom('width'), atom(mm(t.strokeWidth ?? 0))),
-      list(atom('type'), atom(t.strokeType ?? 'solid')),
-    ),
-  );
-  out = patchChild(out, 'knockout', list(atom('knockout'), atom(t.knockout ? 'yes' : 'no')));
-  return out;
 }

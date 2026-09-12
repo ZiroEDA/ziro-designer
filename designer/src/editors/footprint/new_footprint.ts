@@ -28,7 +28,6 @@
  * `-pcbIUScale.mmToIU( 1 )` and the value at `+pcbIUScale.mmToIU( 1 )` on the
  * footprint origin, as literals in that function. [data]
  */
-import { EMPTY_SOURCE } from '@ziroeda/eeschema';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { PcbFootprint, PcbTextItem } from '@ziroeda/pcbnew/src/types.js';
 import { settings, type FpEditSettings } from '../../prefs/settings.js';
@@ -71,7 +70,6 @@ function textItem(
     layer,
     size: { x: mmToIU(d.text_size_h), y: mmToIU(d.text_size_v) },
     thickness: mmToIU(d.text_thickness),
-    source: EMPTY_SOURCE,
   };
 }
 
@@ -120,6 +118,5 @@ export function newFootprint(name: string, cfg: FpEditSettings = settings.fpEdit
     points: [],
     barcodes: [],
     models: [],
-    source: EMPTY_SOURCE,
   };
 }

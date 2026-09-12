@@ -23,34 +23,15 @@
  * The clipboard payload is *text* — a `.kicad_pcb` document, or a bare
  * `(footprint …)` when exactly one footprint is copied — because that is what
  * KiCad puts on the system clipboard and the two applications have to
- * interoperate through it. Serialization therefore goes through our own
- * `write-board.ts` / `read-board.ts`, never a second writer or parser: an item
- * is emitted from the very `source` node the board was read from, so anything
- * the typed model does not represent still survives the trip.
+ * interoperate through it. Serialization goes through `PCB_IO_KICAD_SEXPR`
+ * with `CTL_FOR_CLIPBOARD` and back through the board parser — the same pair
+ * `SaveSelection` and `CLIPBOARD_IO::Parse` use.
  *
  * Nothing here touches the DOM, `navigator.clipboard`, React or the tool
  * manager. The caller owns the actual clipboard I/O (which is asynchronous in a
  * browser and permission-gated, unlike wxTheClipboard) and owns the interactive
  * placement that upstream runs inside `placeBoardItems`; every function here is
  * synchronous and returns a new `Board` rather than mutating one.
- *
- * ## Where the payload deliberately differs from KiCad 10.0.5
- *
- * KiCad 10 writes a net as its *name* on each item — `(net "GND")` — and so its
- * clipboard payload carries no `(net N "name")` declarations at all
- * (`CTL_FOR_CLIPBOARD` is `CTL_OMIT_INITIAL_COMMENTS`; the `CTL_OMIT_NETS` beside
- * it is commented out). Our reader and writer are the pre-10 code-based format
- * (board file version 20241229, the version every file in the tree carries), so
- * an item here spells its net as a code. We therefore emit the *declarations*
- * for the nets the copied items reference, right after the layer block, and
- * leave the codes on the items.
- *
- * That is still readable by KiCad 10: `PCB_IO_KICAD_SEXPR_PARSER::parseNet`
- * takes the legacy branch when the token is a number, and
- * `parseNETINFO_ITEM` registers each declaration and maps its code
- * (`pushValueIntoMap`). And it is what makes {@link pasteIntoBoard} able to do
- * `BOARD::MapNets` — match by *name* into the destination board — which is the
- * whole point of the plain-paste net behaviour.
  *
  * ## What is not ported, and why
  *
@@ -86,51 +67,29 @@
  *    in our model, so their `DeepClone` branch has nothing to port to.
  */
 
-import { atom, str, isList, head, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
-import { parse } from '@ziroeda/sexpr/src/parser.js';
-import { serialize } from '@ziroeda/sexpr/src/serializer.js';
+import { kboardFromBoard } from './pcb_io/kicad_sexpr/board_view.js';
+import {
+  FormatClipboardBoard,
+  FormatClipboardFootprint,
+} from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { newKiid } from '@ziroeda/common/src/kiid.js';
-import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import {
   boardItemId,
   parseBoardItemId,
-  dropChild,
-  patchChild,
   boardUuidIndex,
   isBoardItemLocked,
-  mm,
   setBoardItemsLocked,
   moveBoardItems,
   deleteBoardItems,
   type BoardItemKind,
 } from './edit-board.js';
 import { readBoard, readFootprintFile } from './read-board.js';
-import {
-  buildArcTrackNode,
-  buildBoardShapeNode,
-  buildBoardTextNode,
-  buildDimensionNode,
-  buildGroupNode,
-  buildImageNode,
-  buildPointNode,
-  buildTableNode,
-  buildTextBoxNode,
-  buildTrackNode,
-  buildViaNode,
-  buildZoneNode,
-  serializeBoard,
-} from './write-board.js';
-import {
-  FOOTPRINT_FILE_VERSION,
-  serializeFootprint,
-  writeFootprintNode,
-} from './write-footprint.js';
 import { uniqueZoneName } from './rule_area_properties.js';
+import { expandLayerWildcards } from './swap_layers.js';
 import { reannotateDuplicates } from './board_reannotate.js';
 import type { Board, PcbFootprint, PcbGroup, PcbPad, PcbTextItem, PcbZone } from './types.js';
+import type { KFootprint } from './pcb_io/kicad_sexpr/kicad_board_items.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-
-const list = (...items: SNode[]): SList => ({ kind: 'list', items });
 
 // ----- paste-special options --------------------------------------------------
 
@@ -214,59 +173,6 @@ export interface ParsedClipboard {
    * `placeBoardItems( …, std::vector<BOARD_ITEM*>&, … )`.
    */
   board: Board;
-}
-
-// ----- small source-node helpers ---------------------------------------------
-
-/** Replace the `n`-th positional argument (head is argument -1) of a list. */
-function replaceArg(src: SList, argIndex: number, node: SNode): SList {
-  let seen = -1;
-  const items = src.items.map((it) => {
-    if (isList(it)) return it;
-    seen++;
-    return seen === argIndex + 1 ? node : it;
-  });
-  return { kind: 'list', items };
-}
-
-/** The positional atoms/strings of a list, head excluded. */
-function argsOf(src: SList): string[] {
-  const out: string[] = [];
-  let first = true;
-  for (const it of src.items) {
-    if (isList(it)) continue;
-    if (first) {
-      first = false;
-      continue;
-    }
-    out.push(it.value);
-  }
-  return out;
-}
-
-/**
- * Rewrite an item's `(net …)` child to `code`, keeping the node's existing
- * arity. Our files spell a track's net `(net 3)` and a pad's `(net 3 "GND")`;
- * a remap changes only the code, because the mapping is *by name* and the name
- * is therefore unchanged. `name` is passed only when clearing, where upstream's
- * orphan net has both a zero code and an empty name.
- */
-function patchNetCode(src: SList, code: number, name?: string): SList {
-  let touched = false;
-  const items = src.items.map((it) => {
-    if (touched || !isList(it) || head(it) !== 'net') return it;
-    touched = true;
-    let node = replaceArg(it, 0, atom(String(code)));
-    if (name !== undefined && argsOf(it).length > 1) node = replaceArg(node, 1, str(name));
-    return node;
-  });
-  return touched ? { kind: 'list', items } : src;
-}
-
-/** A fresh KIID on the model and in the source (`KIID()`, common/kiid.cpp:75). */
-function reuuid<T extends { uuid?: string; source: SList }>(item: T): T {
-  const uuid = newKiid();
-  return { ...item, uuid, source: patchChild(item.source, 'uuid', list(atom('uuid'), str(uuid))) };
 }
 
 // ----- copy -------------------------------------------------------------------
@@ -409,7 +315,6 @@ function padWrapperFootprint(pads: PcbPad[]): PcbFootprint {
     points: [],
     barcodes: [],
     models: [],
-    source: { kind: 'list', items: [] },
   };
 }
 
@@ -426,9 +331,8 @@ function padWrapperFootprint(pads: PcbPad[]): PcbFootprint {
  *
  * Our footprint texts are already `PcbTextItem`s — the same type board text
  * uses — so the promotion is a change of `kind` plus the substitution. The
- * source node is dropped so the writer rebuilds it as a `(gr_text …)`; keeping
- * the `(property …)` / `(fp_text …)` node would emit a field at board level,
- * which no reader accepts.
+ * PCB_FIELD model behind it is dropped so the writer builds a PCB_TEXT from the
+ * view; a field cannot exist at board level.
  */
 function fieldToBoardText(t: PcbTextItem, fp: PcbFootprint): PcbTextItem {
   let text = t.text;
@@ -441,43 +345,13 @@ function fieldToBoardText(t: PcbTextItem, fp: PcbFootprint): PcbTextItem {
     // Board text has no keep-upright rule; PCB_TEXT::GetDrawRotation only
     // consults it for text inside a footprint.
     keepUpright: undefined,
-    source: { kind: 'list', items: [] },
+    k: undefined,
   };
 }
 
-/** `(layers (0 "F.Cu" signal ["User name"]) …)`, `formatBoardLayers`. */
-function layersNode(board: Board): SList {
-  return {
-    kind: 'list',
-    items: [
-      atom('layers'),
-      ...board.layers.map((l) =>
-        l.userName === undefined
-          ? list(atom(String(l.id)), str(l.name), atom(l.kind))
-          : list(atom(String(l.id)), str(l.name), atom(l.kind), str(l.userName)),
-      ),
-    ],
-  };
-}
-
-/** The net codes the payload's items reference, so only those get declared. */
-function referencedNetCodes(clip: Board): Set<number> {
-  const codes = new Set<number>();
-  for (const t of clip.tracks) codes.add(t.net);
-  for (const a of clip.arcs) codes.add(a.net);
-  for (const v of clip.vias) codes.add(v.net);
-  for (const z of clip.zones) codes.add(z.net);
-  for (const f of clip.footprints)
-    for (const p of f.pads) if (p.net !== undefined) codes.add(p.net);
-  // Net 0 is declared unconditionally by the header, so leaving it here would
-  // emit `(net 0 "")` twice.
-  codes.delete(0);
-  return codes;
-}
-
-/** Strip `(locked yes)` from an item that {@link setBoardItemsLocked} skips. */
-function unlockOther<T extends { locked?: boolean; source: SList }>(item: T): T {
-  return { ...item, locked: false, source: dropChild(item.source, 'locked') };
+/** Unlock an item that {@link setBoardItemsLocked} skips. */
+function unlockOther<T extends { locked?: boolean }>(item: T): T {
+  return { ...item, locked: false };
 }
 
 /**
@@ -542,21 +416,18 @@ export function copySelectionToClipboardText(
     const safe: PcbFootprint = {
       ...fp,
       locked: false,
-      source: dropChild(fp.source, 'locked'),
-      pads: fp.pads.map((p) => ({
-        ...p,
-        net: 0,
-        // `format( const PAD* )` writes no `(net …)` at all when the code is 0
-        // (pcb_io_kicad_sexpr.cpp:1856), so the node goes rather than zeroing.
-        source: dropChild(p.source, 'net'),
-      })),
+      // `pad->SetNetCode( 0 )`: `format( const PAD* )` then writes no
+      // `(net …)` at all (pcb_io_kicad_sexpr.cpp:1856).
+      pads: fp.pads.map((p) => ({ ...p, net: 0 })),
     };
     const oneFp: Board = {
       ...emptyClipboardBoard(board),
-      footprints: [materialize(safe, footprintSourceNode)],
+      footprints: [safe],
     };
     const moved = moveBoardItems(oneFp, new Set([boardItemId('footprint', 0)]), back);
-    return serializeFootprint(withFootprintFileHeader(moved.footprints[0]!));
+    // `Format( &newFootprint )` with CTL_FOR_CLIPBOARD (kicad_clipboard.cpp:207).
+    const kb = kboardFromBoard(moved);
+    return FormatClipboardFootprint(kb.footprints[0]!, kb);
   }
 
   // --- the board payload -----------------------------------------------------
@@ -577,99 +448,10 @@ export function copySelectionToClipboardText(
     dimensions: unlocked.dimensions.map(unlockOther),
   };
 
-  const moved = moveBoardItems(materializePayload(unlocked), new Set(allIds), back);
-  return serializeBoard(withClipboardHeader(moved));
-}
-
-/**
- * Give a freshly-drawn item its canonical source node before anything patches
- * it.
- *
- * An item the user has just drawn (`addBoardTrack` and friends) carries
- * `source: { items: [] }` and is emitted by the writer's canonical builder.
- * That is fine until something patches the source: `patchChild` *appends* when
- * it finds no child to replace, so shifting an empty source produces a list
- * with no head — `((start …) (end …))` — which the writer emits verbatim,
- * because its "does this item have a source?" test is `items.length > 0`. The
- * result is a document nothing can read.
- *
- * Materialising first means the reference-point shift always has a real node to
- * patch. The same hazard exists for `moveBoardItems` at large; fixing it there
- * is a change to shared code and a separate job.
- */
-function materialize<T extends { source: SList }>(item: T, build: (i: T) => SList): T {
-  return item.source.items.length > 0 ? item : { ...item, source: build(item) };
-}
-
-/**
- * `writeFootprintNode`'s canonical header stops short of `(at …)` — a footprint
- * built from scratch has never been positioned in a file — so the anchor is
- * added here, or a materialised footprint would paste at the origin.
- */
-function footprintSourceNode(fp: PcbFootprint): SList {
-  const node = writeFootprintNode(fp);
-  const at = fp.angle
-    ? list(atom('at'), atom(mm(fp.at.x)), atom(mm(fp.at.y)), atom(String(fp.angle)))
-    : list(atom('at'), atom(mm(fp.at.x)), atom(mm(fp.at.y)));
-  return patchChild(node, 'at', at);
-}
-
-/** {@link materialize} over every item of a payload board. */
-function materializePayload(clip: Board): Board {
-  return {
-    ...clip,
-    footprints: clip.footprints.map((f) => materialize(f, footprintSourceNode)),
-    tracks: clip.tracks.map((t) => materialize(t, buildTrackNode)),
-    arcs: clip.arcs.map((a) => materialize(a, buildArcTrackNode)),
-    vias: clip.vias.map((v) => materialize(v, buildViaNode)),
-    zones: clip.zones.map((z) => materialize(z, buildZoneNode)),
-    shapes: clip.shapes.map((s) => materialize(s, buildBoardShapeNode)),
-    texts: clip.texts.map((t) => materialize(t, buildBoardTextNode)),
-    textBoxes: clip.textBoxes.map((t) => materialize(t, buildTextBoxNode)),
-    tables: clip.tables.map((t) => materialize(t, buildTableNode)),
-    images: clip.images.map((i) => materialize(i, buildImageNode)),
-    dimensions: clip.dimensions.map((d) => materialize(d, buildDimensionNode)),
-    points: clip.points.map((p) => materialize(p, buildPointNode)),
-    groups: clip.groups.map((g) => materialize(g, buildGroupNode)),
-  };
-}
-
-/**
- * A footprint read out of a board carries no file header, but the clipboard
- * payload is a standalone footprint *document* and upstream stamps one on:
- *
- *     if( !( m_ctl & CTL_OMIT_FOOTPRINT_VERSION ) )
- *         m_out->Print( "(version %d) (generator \"pcbnew\") (generator_version %s)", … );
- *
- * (pcb_io_kicad_sexpr.cpp:1210 — `CTL_FOR_CLIPBOARD` does not set that bit,
- * unlike `CTL_FOR_BOARD`, which is why a board's inline footprints have none.)
- * The nodes go after the leading `(footprint "lib:name"` atoms, where upstream
- * writes them; anything already present is left alone.
- */
-function withFootprintFileHeader(fp: PcbFootprint): PcbFootprint {
-  // Precondition: the caller has run {@link materialize}, so the source node
-  // has a head. A source-less footprint would come back from here as a list of
-  // bare header children with no `(footprint …)` head at all — and
-  // `writeFootprintNode`'s canonical branch, which writes this same header
-  // itself, would no longer run.
-  const have = new Set(fp.source.items.filter(isList).map((it) => head(it)));
-  const header: SNode[] = [];
-  if (!have.has('version'))
-    header.push(list(atom('version'), atom(String(FOOTPRINT_FILE_VERSION))));
-  if (!have.has('generator')) header.push(list(atom('generator'), str(GENERATOR)));
-  if (!have.has('generator_version'))
-    header.push(list(atom('generator_version'), str(GENERATOR_VERSION)));
-  if (header.length === 0) return fp;
-
-  let cut = 0;
-  while (cut < fp.source.items.length && !isList(fp.source.items[cut]!)) cut++;
-  return {
-    ...fp,
-    source: {
-      kind: 'list',
-      items: [...fp.source.items.slice(0, cut), ...header, ...fp.source.items.slice(cut)],
-    },
-  };
+  const moved = moveBoardItems(unlocked, new Set(allIds), back);
+  // "we will fake being a .kicad_pcb to get the full parser kicking"
+  // (kicad_clipboard.cpp:322): the header, the layers, the items.
+  return FormatClipboardBoard(kboardFromBoard(moved));
 }
 
 /** A payload board with nothing in it, carrying the donor board's metadata. */
@@ -692,7 +474,6 @@ function emptyClipboardBoard(board: Board): Board {
     points: [],
     barcodes: [],
     groups: [],
-    source: { kind: 'list', items: [] },
   };
 }
 
@@ -823,46 +604,9 @@ function collectSelection(board: Board, idx: KindIndices): Board {
   return clip;
 }
 
-/** A group with its member list replaced, model and source together. */
+/** A group with its member list replaced. */
 function withMembers(g: PcbGroup, members: string[]): PcbGroup {
-  return {
-    ...g,
-    members,
-    source:
-      g.source.items.length > 0
-        ? patchChild(g.source, 'members', list(atom('members'), ...members.map((m) => str(m))))
-        : g.source,
-  };
-}
-
-/**
- * Give the payload board the header `SaveSelection` writes: the format version,
- * the generator stamp, the layer block, and (see the module note) the net
- * declarations our code-based item nets need to stay meaningful.
- *
- * The header is installed as the board's `source`, with no item children, so
- * `writeBoardNode` emits the header verbatim and then appends every model item
- * from its own patched source node. That is the whole reason this reuses the
- * board writer instead of formatting items itself.
- */
-function withClipboardHeader(clip: Board): Board {
-  const codes = [...referencedNetCodes(clip)].sort((a, b) => a - b);
-  const items: SNode[] = [
-    atom('kicad_pcb'),
-    list(atom('version'), atom(String(clip.version))),
-    list(atom('generator'), str(GENERATOR)),
-    list(atom('generator_version'), str(GENERATOR_VERSION)),
-    layersNode(clip),
-  ];
-  if (codes.length > 0) {
-    // Net 0 is the unconnected net and every board has it; upstream's
-    // `parseNETINFO_ITEM` skips a `(net 0 …)` when one already exists. It is
-    // declared once, not once per referenced net.
-    items.push(list(atom('net'), atom('0'), str('')));
-    for (const c of codes)
-      items.push(list(atom('net'), atom(String(c)), str(clip.nets.get(c) ?? '')));
-  }
-  return { ...clip, source: { kind: 'list', items } };
+  return { ...g, members };
 }
 
 // ----- cut --------------------------------------------------------------------
@@ -962,25 +706,17 @@ function isCutBlockedByLock(board: Board, id: string): boolean {
  * (pcb_control.cpp:1165) — a fallback that belongs to the caller here, since it
  * needs the system clipboard's non-text flavours.
  *
- * Both payload shapes KiCad writes are accepted, including one written by KiCad
- * 10 itself. A KiCad-10 payload spells its nets as names rather than codes, so
- * its items arrive with net 0 and no net declarations; see the module note.
+ * Both payload shapes KiCad writes are accepted.
  */
 export function parseClipboardText(text: string): ParsedClipboard | null {
   if (text.trim() === '') return null;
-  let root: SList;
-  try {
-    root = parse(text);
-  } catch {
-    return null;
-  }
-  if (!isList(root)) return null;
 
-  const kind = head(root);
+  // `PCB_IO_KICAD_SEXPR_PARSER::Parse` dispatches on the first token.
+  const kind = /^\s*\(\s*([A-Za-z_]+)/.exec(text)?.[1];
   try {
-    if (kind === 'kicad_pcb') return { form: 'board', board: readBoard(root) };
+    if (kind === 'kicad_pcb') return { form: 'board', board: readBoard(text) };
     if (kind === 'footprint' || kind === 'module') {
-      const fp = readFootprintFile(root);
+      const fp = readFootprintFile(text);
       if (!fp) return null;
       const board: Board = {
         version: 0,
@@ -1000,7 +736,6 @@ export function parseClipboardText(text: string): ParsedClipboard | null {
         points: [],
         barcodes: [],
         groups: [],
-        source: { kind: 'list', items: [atom('kicad_pcb')] },
       };
       return { form: 'footprint', board };
     }
@@ -1115,30 +850,21 @@ export function pasteIntoBoard(
   return { board: out, newIds: merged.newIds, prunedCount: pruned.prunedCount };
 }
 
-/** Set a footprint's Reference, model and `(property "Reference" …)` alike. */
+/** `FOOTPRINT::SetReference`: the Reference field's text. */
 function withReference(fp: PcbFootprint, reference: string): PcbFootprint {
   return {
     ...fp,
     reference,
-    texts: fp.texts.map((t) =>
-      t.kind === 'reference'
-        ? { ...t, text: reference, source: replaceArg(t.source, 1, str(reference)) }
-        : t,
-    ),
+    texts: fp.texts.map((t) => (t.kind === 'reference' ? { ...t, text: reference } : t)),
   };
 }
 
 /**
  * `item->SetNet( NETINFO_LIST::OrphanedItem() )` over every connected item.
- * The orphan net is code 0 with an empty name (netinfo.h:255), so this zeroes
- * the code and blanks any name the node carried.
+ * The orphan net is code 0 with an empty name (netinfo.h:255).
  */
 function clearPayloadNets(clip: Board): Board {
-  const zero = <T extends { net: number; source: SList }>(item: T): T => ({
-    ...item,
-    net: 0,
-    source: patchNetCode(item.source, 0, ''),
-  });
+  const zero = <T extends { net: number }>(item: T): T => ({ ...item, net: 0 });
   return {
     ...clip,
     nets: new Map([[0, '']]),
@@ -1148,7 +874,7 @@ function clearPayloadNets(clip: Board): Board {
     zones: clip.zones.map((z) => ({ ...zero(z), netName: '' })),
     footprints: clip.footprints.map((f) => ({
       ...f,
-      pads: f.pads.map((p) => ({ ...p, net: 0, source: dropChild(p.source, 'net') })),
+      pads: f.pads.map((p) => ({ ...p, net: 0 })),
     })),
   };
 }
@@ -1161,10 +887,8 @@ function clearPayloadNets(clip: Board): Board {
  *     else { newNet = new NETINFO_ITEM( aDestBoard, item->GetNetname() );
  *            aDestBoard->Add( newNet ); item->SetNet( newNet ); }
  *
- * The match is by **name**, never by code, which is why the payload declares
- * its nets. A name the destination does not have becomes a new net there — so
- * this returns the destination board too, with the new `(net N "name")`
- * declarations added to its source so they survive the next save.
+ * The match is by **name**, never by code. A name the destination does not
+ * have becomes a new net there — so this returns the destination board too.
  */
 function mapPayloadNets(dest: Board, clip: Board): { board: Board; clip: Board } {
   const byName = new Map<string, number>();
@@ -1196,11 +920,9 @@ function mapPayloadNets(dest: Board, clip: Board): { board: Board; clip: Board }
     return nextCode;
   };
 
-  const map = <T extends { net: number; source: SList }>(item: T): T => {
+  const map = <T extends { net: number }>(item: T): T => {
     const code = codeFor(item.net);
-    return code === item.net
-      ? item
-      : { ...item, net: code, source: patchNetCode(item.source, code) };
+    return code === item.net ? item : { ...item, net: code };
   };
 
   const nextClip: Board = {
@@ -1214,7 +936,7 @@ function mapPayloadNets(dest: Board, clip: Board): { board: Board; clip: Board }
       pads: f.pads.map((p) => {
         if (p.net === undefined) return p;
         const code = codeFor(p.net);
-        return code === p.net ? p : { ...p, net: code, source: patchNetCode(p.source, code) };
+        return code === p.net ? p : { ...p, net: code };
       }),
     })),
   };
@@ -1223,35 +945,7 @@ function mapPayloadNets(dest: Board, clip: Board): { board: Board; clip: Board }
 
   const nets = new Map(dest.nets);
   for (const n of added) nets.set(n.code, n.name);
-  return {
-    board: { ...dest, nets, source: addNetDeclarations(dest.source, added) },
-    clip: nextClip,
-  };
-}
-
-/**
- * Insert `(net N "name")` declarations after the last one the board already
- * has, so `BOARD::Add( netInfo )` is visible in the file the writer produces.
- * With no declarations to follow, they go after `(general …)` if there is one,
- * else at the end — either way ahead of nothing that reads them.
- */
-function addNetDeclarations(src: SList, added: readonly { code: number; name: string }[]): SList {
-  if (src.items.length === 0) return src;
-  const decls = added.map((n) => list(atom('net'), atom(String(n.code)), str(n.name)));
-  let last = -1;
-  src.items.forEach((it, i) => {
-    if (isList(it) && head(it) === 'net') last = i;
-  });
-  if (last < 0) {
-    src.items.forEach((it, i) => {
-      if (isList(it) && head(it) === 'general') last = i;
-    });
-  }
-  if (last < 0) return { kind: 'list', items: [...src.items, ...decls] };
-  return {
-    kind: 'list',
-    items: [...src.items.slice(0, last + 1), ...decls, ...src.items.slice(last + 1)],
-  };
+  return { board: { ...dest, nets }, clip: nextClip };
 }
 
 /**
@@ -1271,13 +965,9 @@ function addNetDeclarations(src: SList, added: readonly { code: number; name: st
  * pasted before any board was loaded) prunes nothing: an empty enabled set
  * would reject every item, which is never what an absent block means.
  *
- * One narrowing against upstream: `item->SetLayerSet( allowed )` *trims* a
- * multi-layer item to the enabled subset, so a zone on F.Cu and In1.Cu pasted
- * into a two-layer board arrives on F.Cu alone. We keep the item's layer set
- * as it is when any one of its layers is enabled, because our zone layers are
- * a `string[]` we would have to rewrite in the source node too, and an
- * untrimmed zone renders on the layers it has rather than disappearing. The
- * keep/drop decision itself is upstream's.
+ * `item->SetLayerSet( allowed )` *trims* a multi-layer item to the enabled
+ * subset, so a zone on F.Cu and In1.Cu pasted into a two-layer board arrives
+ * on F.Cu alone.
  */
 function pruneItemLayers(dest: Board, clip: Board): { clip: Board; prunedCount: number } {
   if (dest.layers.length === 0) return { clip, prunedCount: 0 };
@@ -1289,10 +979,18 @@ function pruneItemLayers(dest: Board, clip: Board): { clip: Board; prunedCount: 
     if (!ok) pruned++;
     return ok;
   };
-  const keepMulti = <T extends { layers: readonly string[] }>(item: T): boolean => {
-    const ok = item.layers.some((l) => enabled.has(l));
-    if (!ok) pruned++;
-    return ok;
+  // `LSET allowed = item->GetLayerSet() & enabledLayers; … item->SetLayerSet( allowed )`.
+  const trimMulti = (zones: PcbZone[]): PcbZone[] => {
+    const out: PcbZone[] = [];
+    for (const z of zones) {
+      const allowed = expandLayerWildcards(z.layers, dest).filter((l) => enabled.has(l));
+      if (allowed.length === 0) {
+        pruned++;
+        continue;
+      }
+      out.push(allowed.length === z.layers.length ? z : { ...z, layers: allowed });
+    }
+    return out;
   };
   const keepVia = (v: { layers: readonly [string, string] }): boolean => {
     const ok = enabled.has(v.layers[0]) && enabled.has(v.layers[1]);
@@ -1305,7 +1003,7 @@ function pruneItemLayers(dest: Board, clip: Board): { clip: Board; prunedCount: 
     tracks: clip.tracks.filter(keepOne),
     arcs: clip.arcs.filter(keepOne),
     vias: clip.vias.filter(keepVia),
-    zones: clip.zones.filter(keepMulti),
+    zones: trimMulti(clip.zones),
     shapes: clip.shapes.filter(keepOne),
     texts: clip.texts.filter(keepOne),
     textBoxes: clip.textBoxes.filter(keepOne),
@@ -1360,25 +1058,38 @@ function pruneItemLayers(dest: Board, clip: Board): { clip: Board; prunedCount: 
  * Group membership is by uuid in our model, so re-stamping has to carry the
  * member lists with it: an unremapped group would point at the *originals* and
  * silently swallow them into the pasted group.
+ *
+ * A footprint's children that the view does not list (its fields, its own
+ * zones and groups, a table's cells) are re-stamped on the payload's model
+ * directly; the payload is what `CLIPBOARD_IO::Parse` produced for this paste
+ * and nothing else holds it.
  */
 function restamp(dest: Board, clip: Board): Board {
   const remap = new Map<string, string>();
-  const stamp = <T extends { uuid?: string; source: SList }>(item: T): T => {
-    const next = reuuid(item);
-    if (item.uuid) remap.set(item.uuid, next.uuid!);
-    return next;
+  const fresh = (old: string | undefined): string => {
+    const uuid = newKiid();
+    if (old) remap.set(old, uuid);
+    return uuid;
   };
+  const stamp = <T extends { uuid?: string }>(item: T): T => ({ ...item, uuid: fresh(item.uuid) });
 
   const footprints = clip.footprints.map((f) => {
     const next = stamp(f);
+    if (next.k) restampFootprintChildren(next.k, remap);
+    // The view's children take the uuids their models were just given.
+    const child = <T extends { uuid?: string; k?: { uuid: string } }>(c: T): T => ({
+      ...c,
+      uuid: c.k?.uuid ?? fresh(c.uuid),
+    });
     return {
       ...next,
       // A pasted footprint is not the schematic symbol's footprint any more.
       path: undefined,
-      source: dropChild(next.source, 'path'),
-      pads: next.pads.map(reuuid),
-      texts: next.texts.map(reuuid),
-      shapes: next.shapes.map(reuuid),
+      pads: next.pads.map(child),
+      texts: next.texts.map(child),
+      shapes: next.shapes.map(child),
+      points: next.points.map(child),
+      barcodes: next.barcodes.map(child),
     };
   });
 
@@ -1389,25 +1100,28 @@ function restamp(dest: Board, clip: Board): Board {
     const next = stamp(z);
     if (!next.name) return next;
     const name = uniqueZoneName(zoneScope, next.name);
-    const renamed: PcbZone =
-      name === next.name
-        ? next
-        : { ...next, name, source: patchChild(next.source, 'name', list(atom('name'), str(name))) };
+    const renamed: PcbZone = name === next.name ? next : { ...next, name };
     zoneScope = { ...zoneScope, zones: [...zoneScope.zones, renamed] };
     return renamed;
+  });
+
+  const tables = clip.tables.map((t) => {
+    const next = stamp(t);
+    for (const cell of next.k?.cells ?? []) cell.uuid = fresh(cell.uuid);
+    return next;
   });
 
   const next: Board = {
     ...clip,
     footprints,
     zones,
+    tables,
     tracks: clip.tracks.map(stamp),
     arcs: clip.arcs.map(stamp),
     vias: clip.vias.map(stamp),
     shapes: clip.shapes.map(stamp),
     texts: clip.texts.map(stamp),
     textBoxes: clip.textBoxes.map(stamp),
-    tables: clip.tables.map(stamp),
     images: clip.images.map(stamp),
     dimensions: clip.dimensions.map(stamp),
     points: clip.points.map(stamp),
@@ -1421,6 +1135,28 @@ function restamp(dest: Board, clip: Board): Board {
     ),
   );
   return next;
+}
+
+/** `RunOnChildren( …, RECURSE_MODE::RECURSE )` over a FOOTPRINT's model. */
+function restampFootprintChildren(k: KFootprint, remap: Map<string, string>): void {
+  const fresh = (item: { uuid: string }): void => {
+    const uuid = newKiid();
+    remap.set(item.uuid, uuid);
+    item.uuid = uuid;
+  };
+  for (const f of k.fields) fresh(f);
+  for (const g of k.graphicalItems) {
+    fresh(g.item);
+    if (g.kind === 'table') for (const cell of g.item.cells) fresh(cell);
+    if (g.kind === 'dimension') g.item.text.uuid = g.item.uuid;
+  }
+  for (const p of k.points) fresh(p);
+  for (const p of k.pads) fresh(p);
+  for (const z of k.zones) fresh(z);
+  for (const g of k.groups) fresh(g);
+  for (const g of k.groups)
+    g.memberUuids = g.memberUuids.map((m) => remap.get(m)).filter((m): m is string => !!m);
+  k.groupMembers = undefined;
 }
 
 /** Append every payload item to the destination board, reporting the new ids. */

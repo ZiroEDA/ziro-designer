@@ -16,16 +16,8 @@
  * The zone's *outline* is not edited here; that is the point editor's job.
  */
 
-import { atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
-import { dropChild, mm, parseBoardItemId, patchChild } from './edit-board.js';
+import { parseBoardItemId } from './edit-board.js';
 import type { Board, PcbZone, RuleAreaKeepout, ZonePlacementArea } from './types.js';
-
-const list = (...items: SNode[]): SList => ({ kind: 'list', items });
-
-const nodeHead = (n: SList): string | undefined => {
-  const first = n.items[0];
-  return first && first.kind === 'atom' ? first.value : undefined;
-};
 
 /** Every field PANEL_ZONE_PROPERTIES edits. */
 export interface ZoneValues {
@@ -184,122 +176,12 @@ export function applyZoneRuleArea(
     ? { ...zone.placementArea, ...patch.placement }
     : undefined;
 
-  let src = zone.source;
-
-  if (patch.keepout) {
-    // Each flag is written as `allowed` / `not_allowed`, and the model stores
-    // the DO-NOT-ALLOW sense, so the words are the negation.
-    const word = (on: boolean): string => (on ? 'not_allowed' : 'allowed');
-    src = patchChild(src, 'keepout', {
-      kind: 'list',
-      items: [
-        atom('keepout'),
-        list(atom('tracks'), atom(word(ruleArea.tracks))),
-        list(atom('vias'), atom(word(ruleArea.vias))),
-        list(atom('pads'), atom(word(ruleArea.pads))),
-        list(atom('copperpour'), atom(word(ruleArea.copperPour))),
-        list(atom('footprints'), atom(word(ruleArea.footprints))),
-      ],
-    });
-  }
-
-  if (patch.placement && placement) {
-    src = patchChild(src, 'placement', {
-      kind: 'list',
-      items: [
-        atom('placement'),
-        list(atom('enabled'), atom(placement.enabled ? 'yes' : 'no')),
-        list(atom(placement.sourceType), str(placement.source)),
-      ],
-    });
-  }
-
   return {
     ...board,
     zones: board.zones.map((z, i) =>
-      i === index ? { ...z, ruleArea, placementArea: placement, source: src } : z,
+      i === index ? { ...z, ruleArea, placementArea: placement } : z,
     ),
   };
-}
-
-/** Rebuild `(connect_pads [mode] (clearance …))`. */
-function connectPadsNode(v: ZoneValues): SList {
-  const items: SNode[] = [atom('connect_pads')];
-  if (v.padConnection === 'none') items.push(atom('no'));
-  else if (v.padConnection === 'full') items.push(atom('yes'));
-  else if (v.padConnection === 'thru_hole_only') items.push(atom('thru_hole_only'));
-  items.push(list(atom('clearance'), atom(mm(v.clearance))));
-  return { kind: 'list', items };
-}
-
-/**
- * Rebuild the whole `(fill …)` child.
- *
- * Its sub-tokens are conditional upstream — hatch parameters only for a hatched
- * fill, `island_area_min` only for the area mode — so patching them one by one
- * would leave stale ones behind when the mode changes. Rebuilding the node is
- * both simpler and the only way to drop what no longer applies.
- */
-function fillNode(v: ZoneValues, prev: PcbZone): SList {
-  const items: SNode[] = [
-    atom('fill'),
-    atom(v.filled ? 'yes' : 'no'),
-    list(atom('thermal_gap'), atom(mm(v.thermalGap))),
-    list(atom('thermal_bridge_width'), atom(mm(v.thermalBridgeWidth))),
-  ];
-
-  if (v.cornerSmoothing !== 'none') {
-    items.push(list(atom('smoothing'), atom(v.cornerSmoothing)));
-    if (v.cornerRadius) items.push(list(atom('radius'), atom(mm(v.cornerRadius))));
-  }
-
-  if (v.islandRemovalMode !== 'always') {
-    items.push(
-      list(atom('island_removal_mode'), atom(v.islandRemovalMode === 'never' ? '1' : '2')),
-    );
-    if (v.islandRemovalMode === 'area')
-      items.push(list(atom('island_area_min'), atom(String(v.islandAreaMin))));
-  }
-
-  if (v.fillMode === 'hatch') {
-    items.push(
-      list(atom('mode'), atom('hatch')),
-      list(atom('hatch_thickness'), atom(mm(v.hatchThickness))),
-      list(atom('hatch_gap'), atom(mm(v.hatchGap))),
-      list(atom('hatch_orientation'), atom(String(v.hatchOrientation))),
-    );
-    if (v.hatchSmoothingLevel > 0) {
-      items.push(
-        list(atom('hatch_smoothing_level'), atom(String(v.hatchSmoothingLevel))),
-        list(atom('hatch_smoothing_value'), atom(String(v.hatchSmoothingValue))),
-      );
-    }
-    items.push(list(atom('hatch_min_hole_area'), atom(String(v.hatchHoleMinArea))));
-  } else if (v.fillMode === 'thieving') {
-    // The thieving settings themselves are not edited here, so the existing
-    // `(thieving …)` sub-node is carried across untouched.
-    items.push(list(atom('mode'), atom('thieving')));
-    const prevFill = prev.source.items.find(
-      (it): it is SList => typeof it === 'object' && 'items' in it && nodeHead(it) === 'fill',
-    );
-    const thieving = prevFill?.items.find(
-      (it): it is SList => typeof it === 'object' && 'items' in it && nodeHead(it) === 'thieving',
-    );
-    if (thieving) items.push(thieving);
-  }
-
-  return { kind: 'list', items };
-}
-
-/** The layer children: `(layer …)` for one, `(layers …)` for several. */
-function layerNodes(src: SList, layers: readonly string[]): SList {
-  if (layers.length === 1) {
-    return patchChild(dropChild(src, 'layers'), 'layer', list(atom('layer'), str(layers[0]!)));
-  }
-  return patchChild(dropChild(src, 'layer'), 'layers', {
-    kind: 'list',
-    items: [atom('layers'), ...layers.map((l) => str(l))],
-  });
 }
 
 /**
@@ -344,37 +226,6 @@ export function applyZoneValues(board: Board, index: number, v: ZoneValues): Boa
   // Nothing to do if every field came back as it went in.
   const before = collectZoneValues(zone);
   if (JSON.stringify(before) === JSON.stringify(v)) return board;
-
-  let src = zone.source;
-
-  src =
-    v.name === ''
-      ? dropChild(src, 'name')
-      : patchChild(src, 'name', list(atom('name'), str(v.name)));
-  src = patchChild(src, 'net', list(atom('net'), atom(String(v.net))));
-  src = layerNodes(src, v.layers);
-  src = v.locked
-    ? patchChild(src, 'locked', list(atom('locked'), atom('yes')))
-    : dropChild(src, 'locked');
-  src = patchChild(
-    src,
-    'hatch',
-    list(
-      atom('hatch'),
-      // INVISIBLE_BORDER has no token; upstream's switch falls through to none.
-      atom(v.hatchStyle === 'invisible' ? 'none' : v.hatchStyle),
-      atom(mm(v.hatchPitch)),
-    ),
-  );
-  src =
-    v.priority > 0
-      ? patchChild(src, 'priority', list(atom('priority'), atom(String(v.priority))))
-      : dropChild(src, 'priority');
-  src = patchChild(src, 'connect_pads', connectPadsNode(v));
-  src = patchChild(src, 'min_thickness', list(atom('min_thickness'), atom(mm(v.minThickness))));
-  src = patchChild(src, 'fill', fillNode(v, zone));
-
-  next.source = src;
 
   const zones = board.zones.map((z, i) => (i === index ? next : z));
   return { ...board, zones };

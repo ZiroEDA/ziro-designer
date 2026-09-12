@@ -20,7 +20,6 @@ import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
 import type { Board, PcbFootprint, PcbShape } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const line = (x0: number, x1: number, layer: string, width = 0.15, y = 0): PcbShape => ({
   kind: 'line',
@@ -29,7 +28,6 @@ const line = (x0: number, x1: number, layer: string, width = 0.15, y = 0): PcbSh
   width: MM(width),
   fillMode: 'none',
   layer,
-  source: EMPTY,
 });
 
 /** A vertical board edge at x. */
@@ -40,7 +38,6 @@ const edge = (x: number, layer = 'Edge.Cuts', width = 0.05): PcbShape => ({
   width: MM(width),
   fillMode: 'none',
   layer,
-  source: EMPTY,
 });
 
 const board = (over: Partial<Board> = {}): Board => ({
@@ -64,7 +61,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -151,7 +147,6 @@ describe('silkscreen to board edge', () => {
       barcodes: [],
       models: [],
       attributes: ['allow_missing_courtyard'],
-      source: EMPTY,
     };
     const b = board({ shapes: [edge(10)], footprints: [fp] });
 

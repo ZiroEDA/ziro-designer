@@ -26,7 +26,6 @@ import {
 import type { Board, PcbShape, PcbTrack } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const rect = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
   kind: 'rect',
@@ -35,7 +34,6 @@ const rect = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
   width: MM(0.15),
   fillMode: 'solid',
   layer: 'F.SilkS',
-  source: EMPTY,
 });
 
 const poly = (pts: { x: number; y: number }[]): PcbShape => ({
@@ -44,7 +42,6 @@ const poly = (pts: { x: number; y: number }[]): PcbShape => ({
   width: MM(0.15),
   fillMode: 'solid',
   layer: 'F.SilkS',
-  source: EMPTY,
 });
 
 const lineShape = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
@@ -54,7 +51,6 @@ const lineShape = (x0: number, y0: number, x1: number, y1: number): PcbShape => 
   width: MM(0.2),
   fillMode: 'none',
   layer: 'F.SilkS',
-  source: EMPTY,
 });
 
 const arcShape = (): PcbShape => ({
@@ -65,7 +61,6 @@ const arcShape = (): PcbShape => ({
   width: MM(0.2),
   fillMode: 'none',
   layer: 'F.SilkS',
-  source: EMPTY,
 });
 
 const track = (x0: number, y0: number, x1: number, y1: number, net = 0): PcbTrack => ({
@@ -74,7 +69,6 @@ const track = (x0: number, y0: number, x1: number, y1: number, net = 0): PcbTrac
   width: MM(0.25),
   layer: 'F.Cu',
   net,
-  source: EMPTY,
 });
 
 const board = (over: Partial<Board> = {}): Board => ({
@@ -95,7 +89,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -124,7 +117,7 @@ describe('the rings an item decomposes into', () => {
       { x: 0, y: MM(8) },
     ];
     const b = board({
-      zones: [{ net: 0, layers: ['F.Cu'], fills: [], outline, source: EMPTY }],
+      zones: [{ net: 0, layers: ['F.Cu'], fills: [], outline }],
     });
 
     expect(itemRings(b, 'zone:0')[0]).toEqual(outline);
@@ -140,7 +133,6 @@ describe('the rings an item decomposes into', () => {
           width: MM(0.2),
           fillMode: 'none',
           layer: 'F.SilkS',
-          source: EMPTY,
         },
       ],
     });
@@ -259,7 +251,6 @@ describe('breaking an area into lines', () => {
             { x: MM(8), y: 0 },
             { x: 0, y: MM(8) },
           ],
-          source: EMPTY,
         },
       ],
     });
@@ -368,7 +359,6 @@ describe('convert to arc', () => {
           width: MM(0.25),
           layer: 'F.Cu',
           net: 4,
-          source: EMPTY,
         },
       ],
     });

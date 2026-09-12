@@ -20,7 +20,6 @@ import {
 import type { Board, PcbShape } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const rect = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
   kind: 'rect',
@@ -29,7 +28,6 @@ const rect = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
   width: MM(0.15),
   fillMode: 'none',
   layer: 'F.SilkS',
-  source: EMPTY,
 });
 
 const circle = (cx: number, cy: number, r: number): PcbShape => ({
@@ -39,7 +37,6 @@ const circle = (cx: number, cy: number, r: number): PcbShape => ({
   width: MM(0.15),
   fillMode: 'none',
   layer: 'F.SilkS',
-  source: EMPTY,
 });
 
 const line = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
@@ -49,7 +46,6 @@ const line = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
   width: MM(0.15),
   fillMode: 'none',
   layer: 'F.SilkS',
-  source: EMPTY,
 });
 
 const board = (shapes: PcbShape[]): Board => ({
@@ -70,7 +66,6 @@ const board = (shapes: PcbShape[]): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 /** Ring area by the shoelace formula, in mm². */
@@ -287,7 +282,6 @@ describe('anything else', () => {
       width: MM(0.15),
       fillMode: 'solid',
       layer: 'F.SilkS',
-      source: EMPTY,
     };
     const out = outsetItems(board([poly]), ['shape:0'], { distance: MM(1) });
 

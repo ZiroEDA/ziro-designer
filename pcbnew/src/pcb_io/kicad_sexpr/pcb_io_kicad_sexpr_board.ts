@@ -198,6 +198,20 @@ export function ParseBoard(text: string, source = 'string'): KBoard {
 }
 
 /**
+ * `Parse()` (:1041) for a footprint file: the `(footprint …)` in its own
+ * frame, with `SetLocked( false )` — locking a footprint has no meaning
+ * outside of a board — and its groups resolved.
+ */
+export function ParseFootprintFile(text: string, source = 'string'): KFootprint {
+  const p = new PCB_IO_KICAD_SEXPR_PARSER(text, source);
+  const initialComments = p.BeginFootprintFile();
+  const fp = parseFOOTPRINT(p, null, initialComments);
+  fp.locked = false;
+  resolveFootprintGroups(fp, null);
+  return fp;
+}
+
+/**
  * `BOARD::FixupEmbeddedData()` (board.cpp:1212): a footprint's embedded file
  * entry, written without its data in a board, takes the data of the board's
  * file of the same name.
@@ -264,7 +278,7 @@ export function resolveGroups(board: KBoard): void {
 }
 
 /** `resolveGroups( footprint )`: members from the footprint's own children. */
-function resolveFootprintGroups(fp: KFootprint, board: KBoard): void {
+function resolveFootprintGroups(fp: KFootprint, board: KBoard | null): void {
   const children = new Set<string>();
   for (const d of fp.graphicalItems) children.add(d.item.uuid);
   for (const f of fp.fields) children.add(f.uuid);
@@ -277,6 +291,6 @@ function resolveFootprintGroups(fp: KFootprint, board: KBoard): void {
     const members: string[] = [];
     for (const uuid of g.memberUuids) if (children.has(uuid)) members.push(uuid);
     fp.groupMembers.set(g.uuid, members);
-    board.groupMembers.set(g.uuid, members);
+    board?.groupMembers.set(g.uuid, members);
   }
 }

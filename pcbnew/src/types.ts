@@ -4,16 +4,15 @@
 /**
  * Typed board model for `.kicad_pcb` files.
  *
- * Mirrors the item set of KiCad's `PCB_IO_KICAD_SEXPR_PARSER`
- * (pcbnew/pcb_io/sexpr/pcb_io_sexpr_parser.cpp). Coordinates are in
- * the same integer internal units as the schematic model (mmToIU), positions of
- * footprint children are stored board-absolute (the parent transform is applied
- * at read time exactly like the parser's legacy-file path: rotate by the
- * footprint orientation about its anchor, then translate, `RebakeFromLib`).
- * Every item keeps its source `SList` for lossless round-tripping.
+ * A view over the KiCad model (`pcb_io/kicad_sexpr/kicad_board_items.ts`) that
+ * `PCB_IO_KICAD_SEXPR_PARSER` builds: `Board` is derived from a `KBoard` by
+ * `boardFromKBoard`, and `kboardFromBoard` folds the editor's changes back
+ * into the model the writer formats. Every item carries its model as `k`.
+ * Coordinates are in the same integer internal units as the schematic model
+ * (mmToIU); positions of footprint children are stored board-absolute (rotate
+ * by the footprint orientation about its anchor, then translate).
  */
 
-import type { SList } from '@ziroeda/sexpr/src/types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { ZoneConnection } from './zone_connection.js';
 import type { PcbFillMode } from './shape_fill.js';
@@ -151,7 +150,6 @@ export interface PcbPad {
    */
   unconnectedLayerMode?: UnconnectedLayerMode;
   uuid?: string;
-  source: SList;
   /** The item in KiCad's own model, what the file is written from. */
   k?: KPad;
 }
@@ -258,7 +256,6 @@ export interface PcbShape {
    */
   netName?: string;
   uuid?: string;
-  source: SList;
   /** The item in KiCad's own model, what the file is written from. */
   k?: KPcbShape;
 }
@@ -293,7 +290,6 @@ export interface PcbTextItem {
   knockout?: boolean;
   locked?: boolean;
   uuid?: string;
-  source: SList;
   /** The item in KiCad's own model, what the file is written from. */
   k?: KPcbText;
 }
@@ -321,7 +317,6 @@ export interface Model3D {
 export interface PcbFootprintField {
   name: string;
   value: string;
-  source: SList;
   /** The item in KiCad's own model, what the file is written from. */
   k?: KPcbField;
 }
@@ -408,7 +403,6 @@ export interface PcbFootprint {
   /** 3D model references (rendered by the 3D viewer, resolved to hosted assets). */
   models: Model3D[];
   uuid?: string;
-  source: SList;
   /** The item in KiCad's own model, what the file is written from. */
   k?: KFootprint;
 }
@@ -430,7 +424,6 @@ export interface PcbTrack {
   /** `(locked yes)` on the track. */
   locked?: boolean;
   uuid?: string;
-  source: SList;
   /** The item in KiCad's own model, what the file is written from. */
   k?: KPcbTrack;
 }
@@ -452,7 +445,6 @@ export interface PcbArcTrack {
   solderMaskMargin?: number;
   locked?: boolean;
   uuid?: string;
-  source: SList;
   /** The item in KiCad's own model, what the file is written from. */
   k?: KPcbTrack;
 }
@@ -511,7 +503,6 @@ export interface PcbVia {
   unconnectedLayerMode?: UnconnectedLayerMode;
   locked?: boolean;
   uuid?: string;
-  source: SList;
   /** The item in KiCad's own model, what the file is written from. */
   k?: KPcbVia;
 }
@@ -640,7 +631,6 @@ export interface PcbZone {
   placementArea?: ZonePlacementArea;
   locked?: boolean;
   uuid?: string;
-  source: SList;
   /** The item in KiCad's own model, what the file is written from. */
   k?: KZone;
 }
@@ -684,7 +674,6 @@ export interface PcbGroup {
   uuid?: string;
   locked?: boolean;
   members: string[];
-  source: SList;
   /** The item in KiCad's own model, what the file is written from. */
   k?: KPcbGroup;
 }
@@ -723,7 +712,6 @@ export interface PcbImage {
   /** The PNG, base64-encoded, with the file's line splits joined out. */
   data: string;
   uuid?: string;
-  source: SList;
   /** The item in KiCad's own model, what the file is written from. */
   k?: KPcbReferenceImage;
 }
@@ -774,7 +762,6 @@ export interface PcbTable {
   columnWidths: number[];
   rowHeights: number[];
   cells: PcbTableCell[];
-  source: SList;
   /** The item in KiCad's own model, what the file is written from. */
   k?: KPcbTable;
 }
@@ -825,7 +812,6 @@ export interface PcbTextBox {
   strokeWidth?: number;
   strokeType?: StrokeType;
   knockout?: boolean;
-  source: SList;
   /** The item in KiCad's own model, what the file is written from. */
   k?: KPcbTextBox;
 }
@@ -907,7 +893,6 @@ export interface PcbDimension {
   style: DimensionStyle;
   /** The `(gr_text …)` child. Absent on a centre dimension. */
   text?: PcbTextItem;
-  source: SList;
   /** The item in KiCad's own model, what the file is written from. */
   k?: KPcbDimension;
 }
@@ -945,7 +930,6 @@ export interface PcbPoint {
    * never patch it into the source node.
    */
   locked?: boolean;
-  source: SList;
   /** The item in KiCad's own model, what the file is written from. */
   k?: KPcbPoint;
 }
@@ -1000,7 +984,6 @@ export interface PcbBarcode {
   margin: Vec2;
   uuid?: string;
   locked?: boolean;
-  source: SList;
   /** The item in KiCad's own model, what the file is written from. */
   k?: KPcbBarcode;
 }
@@ -1027,6 +1010,9 @@ export interface Board {
   layers: PcbLayerDef[];
   /** net code -> name, from the top-level `(net N "name")` declarations. */
   nets: Map<number, string>;
+  /** `BOARD_DESIGN_SETTINGS::GetGridOrigin()` / `GetAuxOrigin()`, `(setup (grid_origin …))` / `(aux_axis_origin …)`. */
+  gridOrigin?: Vec2;
+  auxOrigin?: Vec2;
   footprints: PcbFootprint[];
   tracks: PcbTrack[];
   arcs: PcbArcTrack[];
@@ -1044,7 +1030,6 @@ export interface Board {
   barcodes: PcbBarcode[];
   groups: PcbGroup[];
   fileName?: string;
-  source: SList;
   /** The item in KiCad's own model, what the file is written from. */
   k?: KBoard;
 }

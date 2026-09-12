@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { SEXPR_BOARD_FILE_VERSION } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 import {
   boardItemId,
   deleteBoardItems,
@@ -89,8 +90,6 @@ const NETTED_FP_TEXT =
   ' (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu") (net 4 "GND")' +
   '   (uuid "10000000-0000-4000-8000-000000000006")))';
 
-const EMPTY = { kind: 'list' as const, items: [] };
-
 const LAYERS = [
   { id: 0, name: 'F.Cu', kind: 'signal' },
   { id: 2, name: 'B.Cu', kind: 'signal' },
@@ -108,7 +107,6 @@ const track = (
   width: 200000,
   layer: 'F.Cu',
   net,
-  source: EMPTY,
 });
 
 const via = (
@@ -121,7 +119,6 @@ const via = (
   layers,
   kind: 'through',
   net: 0,
-  source: EMPTY,
 });
 
 const pad = (at: { x: number; y: number }, number = '1', net?: number): PcbPad => ({
@@ -133,7 +130,6 @@ const pad = (at: { x: number; y: number }, number = '1', net?: number): PcbPad =
   size: { x: 1000000, y: 1000000 },
   layers: ['F.Cu'],
   ...(net === undefined ? {} : { net }),
-  source: EMPTY,
 });
 
 const fpText = (
@@ -147,7 +143,6 @@ const fpText = (
   angle: 0,
   layer: 'F.SilkS',
   size: { x: 1000000, y: 1000000 },
-  source: EMPTY,
 });
 
 const footprint = (over: Partial<PcbFootprint> = {}): PcbFootprint => ({
@@ -161,7 +156,6 @@ const footprint = (over: Partial<PcbFootprint> = {}): PcbFootprint => ({
   points: [],
   barcodes: [],
   models: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -172,7 +166,6 @@ const shape = (layer: string): PcbShape => ({
   width: 100000,
   fillMode: 'none',
   layer,
-  source: EMPTY,
 });
 
 const zone = (over: Partial<PcbZone> = {}): PcbZone => ({
@@ -184,7 +177,6 @@ const zone = (over: Partial<PcbZone> = {}): PcbZone => ({
     { x: 5000000, y: 0 },
     { x: 5000000, y: 5000000 },
   ],
-  source: EMPTY,
   ...over,
 });
 
@@ -206,7 +198,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: { kind: 'list', items: [{ kind: 'atom', value: 'kicad_pcb' }] },
   ...over,
 });
 
@@ -229,11 +220,16 @@ describe('copySelectionToClipboardText: the payload document', () => {
     // "we will fake being a .kicad_pcb to get the full parser kicking.
     //  This means we also need layers and nets" (kicad_clipboard.cpp:314).
     expect(text.startsWith('(kicad_pcb')).toBe(true);
-    expect(text).toContain('(version 20241229)');
+    // `SEXPR_BOARD_FILE_VERSION`: the payload is written in the current format.
+    expect(text).toContain(`(version ${SEXPR_BOARD_FILE_VERSION})`);
     expect(text).toContain('(layers');
     expect(text).toContain('(0 "F.Cu" signal)');
+    expect(text).toContain('(2 "B.Cu" signal)');
     expect(text).toContain('(25 "Edge.Cuts" user)');
     expect(text).toContain('(segment');
+    // No net table and no setup: "This means we also need layers and nets",
+    // and from 20251028 an item's `(net "name")` is the whole of the nets.
+    expect(text).not.toContain('(setup');
   });
 
   it('names us, not pcbnew, in the generator stamp', () => {
@@ -243,7 +239,9 @@ describe('copySelectionToClipboardText: the payload document', () => {
     expect(text).not.toContain('"pcbnew"');
   });
 
-  it('declares only the nets its items reference, plus net 0', () => {
+  it('names each item’s net by name, and only on the items that have one', () => {
+    // From 20251028 KiCad writes no net table: `(net "VCC")` on the item is
+    // the declaration, and the unconnected net is written nowhere.
     const b = board({
       nets: new Map([
         [0, ''],
@@ -251,39 +249,16 @@ describe('copySelectionToClipboardText: the payload document', () => {
         [2, 'VCC'],
         [3, 'UNUSED'],
       ]),
-      tracks: [track({ x: 0, y: 0 }, { x: 1000000, y: 0 }, 2)],
-    });
-    const text = copySelectionToClipboardText(b, ['track:0']);
-    expect(text).toContain('(net 0 "")');
-    expect(text).toContain('(net 2 "VCC")');
-    expect(text).not.toContain('"GND"');
-    expect(text).not.toContain('"UNUSED"');
-  });
-
-  it('declares each net exactly once', () => {
-    // The unconnected net is written by the header itself, so a copied item
-    // that sits on net 0 must not make it be declared a second time.
-    const b = board({
-      nets: new Map([
-        [0, ''],
-        [2, 'VCC'],
-      ]),
       tracks: [
         track({ x: 0, y: 0 }, { x: 1000000, y: 0 }, 2),
         track({ x: 0, y: 2000000 }, { x: 1000000, y: 2000000 }, 0),
       ],
     });
     const text = copySelectionToClipboardText(b, ['track:0', 'track:1']);
-    expect(text.split('(net 0 "")').length - 1).toBe(1);
-    expect(text.split('(net 2 "VCC")').length - 1).toBe(1);
-  });
-
-  it("carries the donor board's file version, not a constant", () => {
-    const b = {
-      ...board({ tracks: [track({ x: 0, y: 0 }, { x: 1000000, y: 0 })] }),
-      version: 20230620,
-    };
-    expect(copySelectionToClipboardText(b, ['track:0'])).toContain('(version 20230620)');
+    expect(text.split('(net "VCC")').length - 1).toBe(1);
+    expect(text).toContain('(net "")');
+    expect(text).not.toContain('"GND"');
+    expect(text).not.toContain('"UNUSED"');
   });
 
   it("carries the donor board's layer block, not a canned one", () => {
@@ -291,12 +266,19 @@ describe('copySelectionToClipboardText: the payload document', () => {
       layers: [
         { id: 0, name: 'F.Cu', kind: 'signal' },
         { id: 4, name: 'In1.Cu', kind: 'signal', userName: 'Power' },
+        { id: 6, name: 'In2.Cu', kind: 'signal' },
+        { id: 2, name: 'B.Cu', kind: 'signal' },
       ],
       tracks: [track({ x: 0, y: 0 }, { x: 1000000, y: 0 })],
     });
     const text = copySelectionToClipboardText(b, ['track:0']);
     expect(text).toContain('(4 "In1.Cu" signal "Power")');
-    expect(mustParse(text).board.layers.map((l) => l.name)).toEqual(['F.Cu', 'In1.Cu']);
+    expect(mustParse(text).board.layers.map((l) => l.name)).toEqual([
+      'F.Cu',
+      'In1.Cu',
+      'In2.Cu',
+      'B.Cu',
+    ]);
   });
 
   it('writes no net block when nothing copied carries a net', () => {
@@ -422,14 +404,16 @@ describe('copySelectionToClipboardText: a lone footprint', () => {
 
   it('carries the footprint file header upstream stamps on a clipboard footprint', () => {
     const text = copySelectionToClipboardText(fp(), ['footprint:0']);
-    expect(text).toContain('(version 20241229)');
+    expect(text).toContain(`(version ${SEXPR_BOARD_FILE_VERSION})`);
     expect(text).toContain('(generator "ziroeda")');
-    expect(text).toContain('(generator_version "1.0")');
+    expect(text).toContain('(generator_version "10.0")');
   });
 
   it('zeroes every pad net to "make the footprint safe to transfer to other pcbs"', () => {
     const donor = fp();
-    expect(donor.footprints[0]!.pads[0]!.net).toBe(4); // the donor really has one
+    // The donor really has one: `(net 4 "GND")` in the text, and
+    // `NETINFO_LIST::AppendNet` renumbers a code that is not the next one.
+    expect(donor.footprints[0]!.pads[0]!.net).toBe(1);
     const text = copySelectionToClipboardText(donor, ['footprint:0']);
     expect(text).not.toContain('(net ');
     const p = mustParse(text);
@@ -591,7 +575,10 @@ describe('cutSelectionToClipboardText', () => {
   it('is copy followed by delete', () => {
     const b = two();
     const r = cutSelectionToClipboardText(b, ['track:0']);
-    expect(r.text).toBe(copySelectionToClipboardText(b, ['track:0']));
+    // A fixture track has no uuid, and every write of it gets a fresh KIID
+    // (as an item built without one does in KiCad), so those are masked.
+    const sansUuid = (t: string): string => t.replace(/\(uuid "[^"]*"\)/g, '(uuid)');
+    expect(sansUuid(r.text)).toBe(sansUuid(copySelectionToClipboardText(b, ['track:0'])));
     expect(r.board.tracks).toHaveLength(1);
     expect(r.board.tracks[0]!.start).toEqual({ x: 0, y: 1000000 });
   });
@@ -765,7 +752,6 @@ describe('pasteIntoBoard', () => {
       footprints: [
         footprint({
           path: '/1111/2222',
-          source: parse('(footprint "L:R" (layer "F.Cu") (at 10 10) (path "/1111/2222"))'),
         }),
       ],
     });
@@ -863,7 +849,8 @@ describe('pasteIntoBoard: nets', () => {
     const p = mustParse(copySelectionToClipboardText(donor(), ['track:0']));
     const r = pasteIntoBoard(dest, p);
     expect(r.board.tracks[0]!.net).toBe(7);
-    expect(serializeBoard(r.board)).toContain('(net 7)');
+    // Written by name (20251028: "Stop writing netcodes").
+    expect(serializeBoard(r.board)).toContain('(net "GND")');
   });
 
   it('creates a net the destination does not have, and declares it', () => {
@@ -872,24 +859,24 @@ describe('pasteIntoBoard: nets', () => {
         [0, ''],
         [1, 'VCC'],
       ]),
-      source: parse(
-        '(kicad_pcb (version 20241229) (general (thickness 1.6)) (net 0 "") (net 1 "VCC"))',
-      ),
     });
     const p = mustParse(copySelectionToClipboardText(donor(), ['track:0']));
     const r = pasteIntoBoard(dest, p);
     expect(r.board.nets.get(2)).toBe('GND');
     expect(r.board.tracks[0]!.net).toBe(2);
     const text = serializeBoard(r.board);
-    expect(text).toContain('(net 2 "GND")');
-    // The declaration has to survive a save/load, or the paste loses its net.
-    expect(readBoard(parse(text)).nets.get(2)).toBe('GND');
+    expect(text).toContain('(net "GND")');
+    // The net has to survive a save/load, or the paste loses it: a 10.0 file
+    // declares a net by naming it on an item, and the reader numbers the
+    // names as it meets them.
+    const back = readBoard(text);
+    expect([...back.nets.values()]).toContain('GND');
+    expect(back.nets.get(back.tracks[0]!.net)).toBe('GND');
   });
 
   it('gives two payload nets two distinct new codes', () => {
     const dest = board({
       nets: new Map([[0, '']]),
-      source: parse('(kicad_pcb (version 20241229) (net 0 ""))'),
     });
     const p = mustParse(copySelectionToClipboardText(donor(), ['track:0', 'track:1']));
     const r = pasteIntoBoard(dest, p);
@@ -914,7 +901,7 @@ describe('pasteIntoBoard: nets', () => {
     const r = pasteIntoBoard(dest, p);
     expect(r.board.footprints[0]!.pads[0]!.net).toBe(9);
     expect(r.board.tracks[0]!.net).toBe(9);
-    expect(serializeBoard(r.board)).toContain('(net 9 "GND")');
+    expect(serializeBoard(r.board)).toContain('(net "GND")');
   });
 
   it('orphans every connected item when "Clear net assignments" is ticked', () => {
@@ -974,7 +961,6 @@ describe('pasteIntoBoard: reference designators', () => {
           uuid: 'ffffffff-0000-4000-8000-000000000001',
           reference: 'R1',
           texts: [fpText('reference', 'R1', { x: 10000000, y: 8000000 })],
-          source: parse('(footprint "L:R" (layer "F.Cu") (at 10 10))'),
         }),
       ],
     });
@@ -1029,7 +1015,11 @@ describe('pasteIntoBoard: reference designators', () => {
 describe('pasteIntoBoard: pruning items by layer', () => {
   const donor = (): Board =>
     board({
-      layers: [...LAYERS, { id: 4, name: 'In1.Cu', kind: 'signal' }],
+      layers: [
+        ...LAYERS,
+        { id: 4, name: 'In1.Cu', kind: 'signal' },
+        { id: 6, name: 'In2.Cu', kind: 'signal' },
+      ],
       tracks: [track({ x: 0, y: 0 }, { x: 1000000, y: 0 })],
       shapes: [{ ...shape('In1.Cu') }],
     });
@@ -1053,8 +1043,17 @@ describe('pasteIntoBoard: pruning items by layer', () => {
     // "Ensure, for vias, the top and bottom layers are compatible ...
     //  Otherwise they must be skipped, even is one layer is valid"
     const viaDonor = board({
-      layers: [...LAYERS, { id: 4, name: 'In1.Cu', kind: 'signal' }],
-      vias: [via({ x: 0, y: 0 }, ['F.Cu', 'In1.Cu']), via({ x: 1000000, y: 0 }, ['F.Cu', 'B.Cu'])],
+      layers: [
+        ...LAYERS,
+        { id: 4, name: 'In1.Cu', kind: 'signal' },
+        { id: 6, name: 'In2.Cu', kind: 'signal' },
+      ],
+      // A via reaching an inner layer is a blind one: `SanitizeLayers` puts a
+      // through via back on F.Cu/B.Cu whatever pair it was given.
+      vias: [
+        { ...via({ x: 0, y: 0 }, ['F.Cu', 'In1.Cu']), kind: 'blind' },
+        via({ x: 1000000, y: 0 }, ['F.Cu', 'B.Cu']),
+      ],
     });
     const p = mustParse(copySelectionToClipboardText(viaDonor, ['via:0', 'via:1']));
     const r = pasteIntoBoard(board(), p);
@@ -1067,7 +1066,11 @@ describe('pasteIntoBoard: pruning items by layer', () => {
     // "Items living in a parent footprint are never removed" — a fp lives in a
     // library that knows nothing of this board's enabled layers.
     const fpDonor = board({
-      layers: [...LAYERS, { id: 4, name: 'In1.Cu', kind: 'signal' }],
+      layers: [
+        ...LAYERS,
+        { id: 4, name: 'In1.Cu', kind: 'signal' },
+        { id: 6, name: 'In2.Cu', kind: 'signal' },
+      ],
       footprints: [footprint({ shapes: [shape('In1.Cu')] })],
     });
     const p = mustParse(copySelectionToClipboardText(fpDonor, ['footprint:0']));
@@ -1078,7 +1081,11 @@ describe('pasteIntoBoard: pruning items by layer', () => {
 
   it('drops a pruned item from the pasted group’s members', () => {
     const base = board({
-      layers: [...LAYERS, { id: 4, name: 'In1.Cu', kind: 'signal' }],
+      layers: [
+        ...LAYERS,
+        { id: 4, name: 'In1.Cu', kind: 'signal' },
+        { id: 6, name: 'In2.Cu', kind: 'signal' },
+      ],
       tracks: [
         {
           ...track({ x: 0, y: 0 }, { x: 1000000, y: 0 }),
@@ -1119,11 +1126,19 @@ describe('round trip through the demo board', () => {
     expect(reread.zones).toHaveLength(b.zones.length + 1);
 
     // A copy anchored on track 0's start and dropped on the same point is the
-    // original, geometry for geometry.
-    expect(reread.tracks[b.tracks.length]!.start).toEqual(b.tracks[0]!.start);
-    expect(reread.tracks[b.tracks.length]!.end).toEqual(b.tracks[0]!.end);
-    expect(reread.zones[b.zones.length]!.outline).toEqual(b.zones[0]!.outline);
-    expect(reread.footprints[b.footprints.length]!.at).toEqual(b.footprints[0]!.at);
+    // original, geometry for geometry. The saved board is in the formatter's
+    // sorted order, so the twin is found rather than indexed.
+    const same = (a: { x: number; y: number }, c: { x: number; y: number }): boolean =>
+      a.x === c.x && a.y === c.y;
+    expect(
+      reread.tracks.filter(
+        (t) => same(t.start, b.tracks[0]!.start) && same(t.end, b.tracks[0]!.end),
+      ),
+    ).toHaveLength(2);
+    expect(
+      reread.zones.filter((z) => JSON.stringify(z.outline) === JSON.stringify(b.zones[0]!.outline)),
+    ).toHaveLength(2);
+    expect(reread.footprints.filter((f) => same(f.at, b.footprints[0]!.at))).toHaveLength(2);
   });
 
   it('keeps the pasted tracks on the nets they were copied from', () => {

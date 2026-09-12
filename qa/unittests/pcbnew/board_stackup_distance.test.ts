@@ -122,7 +122,6 @@ const BOARD: Board = {
   points: [],
   barcodes: [],
   groups: [],
-  source: { kind: 'list', items: [] },
 };
 
 function designSettings(over: Partial<PnsDesignSettings> = {}): PnsDesignSettings {

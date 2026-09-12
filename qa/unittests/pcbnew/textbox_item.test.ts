@@ -73,7 +73,7 @@ const ROTATED = `(gr_text_box "Turned"
 const read = (...extra: string[]): Board =>
   readBoard(
     parse(`(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal) (44 "Edge.Cuts" user) (39 "F.SilkS" user "F.Silkscreen"))
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (44 "Edge.Cuts" user) (39 "F.SilkS" user "F.Silkscreen"))
   (net 0 "")
   ${extra.join('\n  ')}
 )`),

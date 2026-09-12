@@ -18,10 +18,10 @@
  * Writer: `format( const PCB_BARCODE* )` (`pcb_io_kicad_sexpr.cpp:2198-2261`).
  */
 import { describe, expect, it } from 'vitest';
-import { parse, serialize } from '@ziroeda/sexpr/src/index.js';
+import { parse, head } from '@ziroeda/sexpr/src/index.js';
 import { readBoard, readFootprintFile } from '@ziroeda/pcbnew/src/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
-import { buildBarcodeNode } from '@ziroeda/pcbnew/src/write-footprint.js';
+import { emptyBoard, flatText, writtenNode } from './support/written_node.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { GENERATOR } from '@ziroeda/common/src/generator.js';
 import type { Board, PcbBarcode } from '@ziroeda/pcbnew/src/types.js';
@@ -137,7 +137,8 @@ describe('reading the tokens', () => {
     expect(only(withBarcode(`(text "X") (locked yes)`)).locked).toBe(true);
     expect(only(withBarcode(`(text "X") (locked)`)).locked).toBe(true);
     expect(only(withBarcode(`(text "X") (locked no)`)).locked).toBe(false);
-    expect(only(withBarcode(`(text "X")`)).locked).toBeUndefined();
+    // `BOARD_ITEM::m_isLocked` starts false; the model has no "unsaid".
+    expect(only(withBarcode(`(text "X")`)).locked).toBe(false);
   });
 });
 
@@ -187,7 +188,6 @@ describe('writing', () => {
     showText: true,
     knockout: false,
     margin: { x: 0, y: 0 },
-    source: { kind: 'list', items: [] },
     ...over,
   });
   /**
@@ -197,11 +197,15 @@ describe('writing', () => {
    * PRESENCE of tokens, which is what the formatter decides, rather than about
    * the printer's line breaks, which a different test owns.
    */
-  const out = (over: Partial<PcbBarcode> = {}): string =>
-    serialize(buildBarcodeNode(built(over)))
-      .replace(/\s+/g, ' ')
-      .replace(/ \)/g, ')')
-      .trim();
+  const out = (over: Partial<PcbBarcode> = {}): string => {
+    const node = writtenNode({ ...emptyBoard(), barcodes: [built(over)] }, 'barcode');
+    // `FormatUuid` is the last token (:2258); a built barcode's KIID is fresh,
+    // so it is dropped from the one-line form the assertions read.
+    return flatText({
+      kind: 'list',
+      items: node.items.filter((it) => !(it.kind === 'list' && head(it) === 'uuid')),
+    }).trim();
+  };
 
   it('writes the formatter’s tokens in the formatter’s order', () => {
     expect(out()).toBe(
@@ -261,7 +265,7 @@ describe('writing', () => {
 
   it('emits the canonical spelling for a kind read through its alias', () => {
     const b = withBarcode(`(text "X") (type data_matrix)`);
-    b.barcodes[0] = { ...b.barcodes[0]!, source: { kind: 'list', items: [] } };
+    b.barcodes[0] = { ...b.barcodes[0]! };
 
     expect(serializeBoard(b)).toContain('(type datamatrix)');
   });
@@ -270,19 +274,23 @@ describe('writing', () => {
 describe('round-tripping', () => {
   it('leaves an untouched board byte-identical', () => {
     const src = parse(`(kicad_pcb (version 20241229) (generator "${GENERATOR}")
-    (layers (0 "F.Cu" signal))
+    (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
     (net 0 "")
     (barcode (at 20 30 45) (layer "F.SilkS") (size 8 8) (text "ZIRO-1") (text_height 1.5)
       (type qr) (ecc_level M) (hide no) (knockout yes) (margins 2 3)
       (uuid "aaaaaaaa-0000-0000-0000-000000000001"))
   )`);
 
-    expect(serializeBoard(readBoard(src))).toBe(serialize(src));
+    // KiCad's formatter normalises the fixture on the first save; the second
+    // save writes the same bytes, barcode included.
+    const once = serializeBoard(readBoard(src));
+    expect(once).toContain('(text "ZIRO-1")');
+    expect(serializeBoard(readBoard(once))).toBe(once);
   });
 
   it('keeps a footprint’s barcode where the file put it', () => {
     const src = parse(`(kicad_pcb (version 20241229) (generator "${GENERATOR}")
-    (layers (0 "F.Cu" signal))
+    (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
     (net 0 "")
     (footprint "L:B" (layer "F.Cu") (at 100 50 90)
       (barcode (at 1 2 0) (layer "F.SilkS") (size 5 5) (text "AB") (text_height 1)
@@ -290,6 +298,10 @@ describe('round-tripping', () => {
         (uuid "bbbbbbbb-0000-0000-0000-000000000002")))
   )`);
 
-    expect(serializeBoard(readBoard(src))).toBe(serialize(src));
+    // A footprint's barcode is stored in board coordinates and written as it
+    // was read: the placement does not move it.
+    const once = serializeBoard(readBoard(src));
+    expect(once).toContain('(at 1 2 0)');
+    expect(serializeBoard(readBoard(once))).toBe(once);
   });
 });

@@ -119,17 +119,9 @@ describe('a new reference image', () => {
   it('is not locked', () => {
     expect(newReferenceImage(DATA, P(0, 0), 'F.SilkS').locked).toBeUndefined();
   });
-
-  it('carries an empty source, so the writer builds it rather than patching', () => {
-    expect(newReferenceImage(DATA, P(0, 0), 'F.SilkS').source).toEqual({
-      kind: 'list',
-      items: [],
-    });
-  });
 });
 
 describe('committing to the board', () => {
-  const EMPTY = { kind: 'list' as const, items: [] };
   const board = (): Board => ({
     version: 20240108,
     layers: [{ id: 0, name: 'F.Cu', kind: 'signal' }],
@@ -148,7 +140,6 @@ describe('committing to the board', () => {
     points: [],
     barcodes: [],
     groups: [],
-    source: EMPTY,
   });
 
   it('appends the image and names it by index', () => {

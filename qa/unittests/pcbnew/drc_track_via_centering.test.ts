@@ -17,7 +17,6 @@ import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
 import type { Board, PcbTrack, PcbVia } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 /** A via 1 mm across at (10, 10): its copper reaches 0.5 mm from centre. */
 const via = (over: Partial<PcbVia> = {}): PcbVia => ({
@@ -27,7 +26,6 @@ const via = (over: Partial<PcbVia> = {}): PcbVia => ({
   layers: ['F.Cu', 'B.Cu'],
   kind: 'through',
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -43,7 +41,6 @@ const track = (
   width: MM(0.2),
   layer: 'F.Cu',
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -73,7 +70,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -175,7 +171,6 @@ describe('track not centered on via', () => {
           width: MM(0.2),
           layer: 'F.Cu',
           net: 1,
-          source: EMPTY,
         },
       ],
     });

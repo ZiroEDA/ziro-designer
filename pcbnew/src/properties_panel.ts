@@ -43,15 +43,7 @@
  */
 
 import { LINE_STYLE_CHOICES } from '@ziroeda/common/src/stroke_params.js';
-import {
-  boardItemId,
-  moveBoardItems,
-  parseBoardItemId,
-  setFootprintField,
-  setFootprintFieldByName,
-  setFootprintLocked,
-  setFootprintOrientation,
-} from './edit-board.js';
+import { parseBoardItemId, setFootprintFieldByName } from './edit-board.js';
 import { applyPadValues, collectPadValues, type PadRef, type PadValues } from './pad_properties.js';
 import {
   applyFootprintValues,
@@ -118,12 +110,7 @@ import {
   sizeForScale,
   type ImageValues,
 } from './image_properties.js';
-import { atom, head, list, str, type SList } from '@ziroeda/sexpr/src/index.js';
-import { dropChild, patchChild } from './edit-board.js';
-import { padstackDrillNodes } from './write-board.js';
-import type { PcbDrillSlot } from './padstack_drill.js';
-import { pcbIuToMM, pcbMmToIU, type EdaUnits } from '@ziroeda/common/src/eda_units.js';
-import { formatG } from '@ziroeda/common/src/plotters/fmt.js';
+import { pcbMmToIU, type EdaUnits } from '@ziroeda/common/src/eda_units.js';
 import {
   RESERVED_FOOTPRINT_PROPERTIES,
   type BarcodeEcc,
@@ -144,12 +131,6 @@ import {
   type PcbGroup,
   type PcbZone,
 } from './types.js';
-
-/** `formatInternalUnits`, for the point source patcher below. */
-function mm(iu: number): string {
-  const v = pcbIuToMM(iu).toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
-  return v === '' || v === '-0' ? '0' : v;
-}
 
 /**
  * One row of the property grid, in the shape
@@ -373,12 +354,10 @@ const SHAPE_T_CHOICES = [
 ] as const satisfies readonly (readonly [PcbShape['kind'], string])[];
 
 /**
- * Write padstack fields straight onto a pad or a via and re-patch its source.
+ * Write padstack fields straight onto a pad or a via.
  *
  * These four tokens are not part of either dialog's value object — no dialog
  * edits them — so they do not go through `applyPadValues` / `applyTrackViaValues`.
- * The node is patched child by child, in the writer's order, so a via's
- * unrelated tokens survive.
  */
 function patchPad(board: Board, ref: PadRef, patch: Partial<PcbPad>): Board {
   const fp = board.footprints[ref.footprint];
@@ -391,9 +370,7 @@ function patchPad(board: Board, ref: PadRef, patch: Partial<PcbPad>): Board {
       i === ref.footprint
         ? {
             ...f,
-            pads: f.pads.map((p, j) =>
-              j === ref.pad ? { ...next, source: repatchPadstackDrills(next) } : p,
-            ),
+            pads: f.pads.map((p, j) => (j === ref.pad ? next : p)),
           }
         : f,
     ),
@@ -408,58 +385,22 @@ function patchVia(board: Board, sel: TrackViaSelection, patch: Partial<PcbVia>):
   const next: PcbVia = { ...via, ...patch };
   return {
     ...board,
-    vias: board.vias.map((v, i) =>
-      i === idx ? { ...next, source: repatchPadstackDrills(next) } : v,
-    ),
+    vias: board.vias.map((v, i) => (i === idx ? next : v)),
   };
-}
-
-/** The four padstack tokens, patched into a stored source or dropped from it. */
-function repatchPadstackDrills<
-  T extends {
-    source: SList;
-    backdrill?: PcbDrillSlot;
-    tertiaryDrill?: PcbDrillSlot;
-    frontPostMachining?: PcbPostMachining;
-    backPostMachining?: PcbPostMachining;
-  },
->(item: T): SList {
-  if (item.source.items.length === 0) return item.source;
-  let src = item.source;
-  const nodes = padstackDrillNodes(item);
-  for (const token of [
-    'backdrill',
-    'tertiary_drill',
-    'front_post_machining',
-    'back_post_machining',
-  ] as const) {
-    const node = nodes.find((n) => head(n) === token);
-    src = node ? patchChild(src, token, node) : dropChild(src, token);
-  }
-  return src;
 }
 
 /**
  * A dimension's own geometry fields, which are not part of what the DIALOG
  * edits: the aligned crossbar's height and the radial leader's length. Both are
- * one token, so the node is patched in place.
+ * one field each.
  */
 function patchDimension(board: Board, index: number, patch: Partial<PcbDimension>): Board {
   const d = board.dimensions[index];
   if (!d) return board;
   const next: PcbDimension = { ...d, ...patch };
-  let src = next.source;
-  if (patch.height !== undefined)
-    src = patchChild(src, 'height', list(atom('height'), atom(mm(patch.height))));
-  if (patch.leaderLength !== undefined)
-    src = patchChild(
-      src,
-      'leader_length',
-      list(atom('leader_length'), atom(mm(patch.leaderLength))),
-    );
   return {
     ...board,
-    dimensions: board.dimensions.map((x, i) => (i === index ? { ...next, source: src } : x)),
+    dimensions: board.dimensions.map((x, i) => (i === index ? next : x)),
   };
 }
 
@@ -1826,9 +1767,7 @@ function pointRows(board: Board, index: number, ctx: PcbPropertiesContext): PcbP
     const next: PcbPoint = { ...p, ...patch };
     return {
       ...board,
-      points: board.points.map((q, i) =>
-        i === index ? { ...next, source: repatchPoint(next) } : q,
-      ),
+      points: board.points.map((q, i) => (i === index ? next : q)),
     };
   };
 
@@ -1893,9 +1832,7 @@ function barcodeRows(board: Board, index: number, ctx: PcbPropertiesContext): Pc
     const next: PcbBarcode = { ...b, ...patch };
     return {
       ...board,
-      barcodes: board.barcodes.map((q, i) =>
-        i === index ? { ...next, source: repatchBarcode(next) } : q,
-      ),
+      barcodes: board.barcodes.map((q, i) => (i === index ? next : q)),
     };
   };
 
@@ -2032,73 +1969,6 @@ const BARCODE_ECC_CHOICES_ALL: readonly (readonly [BarcodeEcc, string])[] = [
   ['Q', 'Q (Quartile)'],
   ['H', 'H (High)'],
 ];
-
-/**
- * Re-patch a barcode's source after an edit, so the writer emits the new
- * values.
- *
- * Nine of the node's children are editable from this panel, which is nearly
- * all of them — but patching child by child is still right: the tokens this
- * does NOT own (`(uuid …)`, and anything a newer KiCad writes that we do not
- * model) survive untouched, which rebuilding the node would throw away.
- */
-function repatchBarcode(b: PcbBarcode): SList {
-  if (b.source.items.length === 0) return b.source;
-
-  let src = patchChild(b.source, 'at', {
-    kind: 'list',
-    items: [atom('at'), atom(mm(b.at.x)), atom(mm(b.at.y)), atom(formatG(b.angle, 10))],
-  });
-  src = patchChild(src, 'layer', list(atom('layer'), str(b.layer)));
-  src = patchChild(src, 'size', list(atom('size'), atom(mm(b.width)), atom(mm(b.height))));
-  src = patchChild(src, 'text', list(atom('text'), str(b.text)));
-  src = patchChild(src, 'text_height', list(atom('text_height'), atom(mm(b.textHeight))));
-  src = patchChild(src, 'type', list(atom('type'), atom(BARCODE_KIND_TOKEN[b.kind])));
-  // `(ecc_level …)` is written for the two QR kinds only, so a barcode changed
-  // away from QR has to lose it rather than keep a stale one.
-  src =
-    b.kind === 'qr' || b.kind === 'microqr'
-      ? patchChild(src, 'ecc_level', list(atom('ecc_level'), atom(b.ecc)))
-      : dropChild(src, 'ecc_level');
-  src = patchChild(src, 'hide', list(atom('hide'), atom(b.showText ? 'no' : 'yes')));
-  src = patchChild(src, 'knockout', list(atom('knockout'), atom(b.knockout ? 'yes' : 'no')));
-  src =
-    b.margin.x !== 0 || b.margin.y !== 0
-      ? patchChild(
-          src,
-          'margins',
-          list(atom('margins'), atom(mm(b.margin.x)), atom(mm(b.margin.y))),
-        )
-      : dropChild(src, 'margins');
-  src = b.locked
-    ? patchChild(src, 'locked', list(atom('locked'), atom('yes')))
-    : dropChild(src, 'locked');
-
-  return src;
-}
-
-/** `format( const PCB_BARCODE* )`'s `(type …)` spellings (`:2225-2229`). */
-const BARCODE_KIND_TOKEN: Readonly<Record<BarcodeKind, string>> = {
-  code39: 'code39',
-  code128: 'code128',
-  datamatrix: 'datamatrix',
-  qr: 'qr',
-  microqr: 'microqr',
-};
-
-/**
- * Re-patch a point's source after an edit, so the writer emits the new value.
- *
- * Deliberately does NOT touch `(locked …)`: the formatter has no such token and
- * `parsePCB_POINT` rejects one, so writing it would produce a file KiCad cannot
- * read. The lock lives in the model alone.
- */
-function repatchPoint(p: PcbPoint): SList {
-  if (p.source.items.length === 0) return p.source;
-  let src = patchChild(p.source, 'at', list(atom('at'), atom(mm(p.at.x)), atom(mm(p.at.y))));
-  src = patchChild(src, 'size', list(atom('size'), atom(mm(p.size))));
-  return patchChild(src, 'layer', list(atom('layer'), str(p.layer)));
-}
 
 /**
  * PCB_SHAPE's rows: `PCB_SHAPE_DESC` (pcb_shape.cpp:1050-1230) over
@@ -2594,21 +2464,9 @@ function groupRows(board: Board, index: number): PcbPropRow[] {
   if (!g) return [];
   const commit = (patch: Partial<PcbGroup>): Board => {
     const next: PcbGroup = { ...g, ...patch };
-    // The name is the node's first positional argument, `(group "name" …)`, and
-    // the lock is a child — `format( const PCB_GROUP* )`.
-    let src = next.source;
-    if (patch.name !== undefined) {
-      const items = [...src.items];
-      items[1] = str(next.name);
-      src = { kind: 'list', items };
-    }
-    if (patch.locked !== undefined)
-      src = next.locked
-        ? patchChild(src, 'locked', list(atom('locked'), atom('yes')))
-        : dropChild(src, 'locked');
     return {
       ...board,
-      groups: board.groups.map((x, i) => (i === index ? { ...next, source: src } : x)),
+      groups: board.groups.map((x, i) => (i === index ? next : x)),
     };
   };
 

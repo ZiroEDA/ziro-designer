@@ -27,6 +27,7 @@
  * surgery: the caller supplies the click, and what comes back is a board.
  */
 
+import { newKiid } from '@ziroeda/common/src/kiid.js';
 import type { Board, PcbTrack, PcbVia } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { segNearestPoint } from '@ziroeda/kimath/src/geometry/seg.js';
@@ -96,18 +97,17 @@ export interface PlaceViaResult {
  */
 export function placeVia(
   board: Board,
-  via: Omit<PcbVia, 'source'>,
+  via: PcbVia,
   opts: { allowSplit?: boolean } = {},
 ): PlaceViaResult {
   const allowSplit = opts.allowSplit !== false;
-  const withSource: PcbVia = { ...via, source: { kind: 'list', items: [] } };
   const viaId = `via:${board.vias.length}`;
 
   const idx = trackUnderVia(board, via.at, via.layers, via.size);
   const track = idx === null ? null : board.tracks[idx];
 
   const noSplit = (): PlaceViaResult => ({
-    board: { ...board, vias: [...board.vias, withSource] },
+    board: { ...board, vias: [...board.vias, via] },
     viaId,
     splitTrack: false,
   });
@@ -125,8 +125,7 @@ export function placeVia(
   const farHalf: PcbTrack = {
     ...track,
     start: { x: via.at.x, y: via.at.y },
-    uuid: undefined,
-    source: { kind: 'list', items: [] },
+    uuid: newKiid(),
   };
 
   const tracks = [...board.tracks];
@@ -134,7 +133,7 @@ export function placeVia(
   tracks.push(farHalf);
 
   return {
-    board: { ...board, tracks, vias: [...board.vias, withSource] },
+    board: { ...board, tracks, vias: [...board.vias, via] },
     viaId,
     splitTrack: true,
   };

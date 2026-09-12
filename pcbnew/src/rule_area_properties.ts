@@ -29,15 +29,11 @@
  * step, because the writer emits a stored source verbatim.
  */
 
-import { atom, head, isList, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { dropChild, mm, patchChild } from './edit-board.js';
 // ZONE_SETTINGS' defaults for a fresh rule area, which is also what a copper
 // zone being *converted* into one starts from.
 import { DEFAULT_RULE_AREA_KEEPOUT } from './convert_shapes.js';
 import type { Board, PcbZone, PlacementSourceType, ZonePlacementArea } from './types.js';
-
-const list = (...items: SNode[]): SList => ({ kind: 'list', items });
 
 /** ZONE_BORDER_HATCH_{DIST,MINDIST,MAXDIST}_MM (pcbnew/zones.h:34-36). */
 const BORDER_HATCH_DEFAULT = mmToIU(0.5);
@@ -369,36 +365,6 @@ export function uniqueZoneName(board: Board, baseName: string): string {
 }
 
 /**
- * Replace the named child, or insert it just before `beforeName` when it is
- * missing, so a copper zone converted into a rule area gains its `(keepout …)`
- * and `(placement …)` where upstream's writer puts them rather than trailing
- * after the filled polygons.
- */
-function patchChildBefore(src: SList, name: string, node: SList, beforeName: string): SList {
-  if (src.items.some((it) => isList(it) && head(it) === name)) return patchChild(src, name, node);
-
-  const at = src.items.findIndex((it) => isList(it) && head(it) === beforeName);
-  if (at < 0) return patchChild(src, name, node);
-
-  const items = [...src.items];
-  items.splice(at, 0, node);
-  return { kind: 'list', items };
-}
-
-/** The layer children: `(layer …)` for one, `(layers …)` for several. */
-function layerNodes(src: SList, layers: readonly string[]): SList {
-  if (layers.length === 1) {
-    return patchChild(dropChild(src, 'layers'), 'layer', list(atom('layer'), str(layers[0]!)));
-  }
-  return patchChild(dropChild(src, 'layer'), 'layers', {
-    kind: 'list',
-    items: [atom('layers'), ...layers.map((l) => str(l))],
-  });
-}
-
-const allowed = (forbidden: boolean): SNode => atom(forbidden ? 'not_allowed' : 'allowed');
-
-/**
  * DIALOG_RULE_AREA_PROPERTIES::TransferDataFromWindow, patching the source in
  * step. The board comes back untouched when the values are invalid — upstream
  * returns false and the dialog stays open — or when nothing moved.
@@ -442,41 +408,5 @@ export function applyRuleAreaValues(board: Board, index: number, v: RuleAreaValu
 
   // No "nothing changed" shortcut: `Edit_Zone_Params` pushes a commit on every
   // OK, so an untouched dialog is still an undo entry upstream.
-  let src = zone.source;
-
-  src =
-    name === '' ? dropChild(src, 'name') : patchChild(src, 'name', list(atom('name'), str(name)));
-  src = layerNodes(src, v.layers);
-  src = v.locked
-    ? patchChild(src, 'locked', list(atom('locked'), atom('yes')))
-    : dropChild(src, 'locked');
-  src = patchChild(src, 'hatch', list(atom('hatch'), atom(v.hatchStyle), atom(mm(v.hatchPitch))));
-  src = dropChild(src, 'priority');
-  src = patchChildBefore(
-    src,
-    'keepout',
-    list(
-      atom('keepout'),
-      list(atom('tracks'), allowed(v.doNotAllowTracks)),
-      list(atom('vias'), allowed(v.doNotAllowVias)),
-      list(atom('pads'), allowed(v.doNotAllowPads)),
-      list(atom('copperpour'), allowed(v.doNotAllowCopperPour)),
-      list(atom('footprints'), allowed(v.doNotAllowFootprints)),
-    ),
-    'fill',
-  );
-  src = patchChildBefore(
-    src,
-    'placement',
-    list(
-      atom('placement'),
-      list(atom('enabled'), atom(v.placementEnabled ? 'yes' : 'no')),
-      list(atom(v.placementSourceType), str(v.placementSource)),
-    ),
-    'fill',
-  );
-
-  next.source = src;
-
   return { ...board, zones: board.zones.map((z, i) => (i === index ? next : z)) };
 }

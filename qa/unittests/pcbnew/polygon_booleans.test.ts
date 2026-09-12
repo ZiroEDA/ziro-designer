@@ -29,7 +29,6 @@ import {
 import type { Board, PcbShape } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const rect = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
   kind: 'rect',
@@ -38,7 +37,6 @@ const rect = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
   width: MM(0.15),
   fillMode: 'solid',
   layer: 'F.SilkS',
-  source: EMPTY,
 });
 
 const board = (shapes: PcbShape[]): Board => ({
@@ -59,7 +57,6 @@ const board = (shapes: PcbShape[]): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 const ids = (n: number): string[] => Array.from({ length: n }, (_, i) => `shape:${i}`);
@@ -94,7 +91,6 @@ describe('what a shape contributes', () => {
       width: 0,
       fillMode: 'solid',
       layer: 'F.SilkS',
-      source: EMPTY,
     };
 
     expect(shapeAsPolygon(poly)).toEqual([pts]);
@@ -112,7 +108,6 @@ describe('what a shape contributes', () => {
       width: MM(0.2),
       fillMode: 'none',
       layer: 'F.SilkS',
-      source: EMPTY,
     };
     const ring = shapeAsPolygon(circle)![0]!;
 
@@ -128,7 +123,6 @@ describe('what a shape contributes', () => {
       width: MM(0.2),
       fillMode: 'none',
       layer: 'F.SilkS',
-      source: EMPTY,
     };
 
     expect(shapeAsPolygon(line)).toBeNull();
@@ -144,7 +138,6 @@ describe('what a shape contributes', () => {
         width: MM(0.2),
         fillMode: 'none',
         layer: 'F.SilkS',
-        source: EMPTY,
       },
     ]);
 
@@ -257,7 +250,6 @@ describe('merging on the board', () => {
         width: MM(0.2),
         fillMode: 'none',
         layer: 'F.SilkS',
-        source: EMPTY,
       },
     ]);
 

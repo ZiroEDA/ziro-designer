@@ -22,7 +22,6 @@ import {
 } from '@ziroeda/pcbnew/src/graphics_cleaner.js';
 import type { Board, PcbShape } from '@ziroeda/pcbnew/src/types.js';
 
-const EMPTY = { kind: 'list' as const, items: [] };
 const P = (x: number, y: number) => ({ x, y });
 
 const shape = (over: Partial<PcbShape> = {}): PcbShape => ({
@@ -32,7 +31,6 @@ const shape = (over: Partial<PcbShape> = {}): PcbShape => ({
   width: 100,
   fillMode: 'none',
   layer: 'F.SilkS',
-  source: EMPTY,
   ...over,
 });
 
@@ -55,7 +53,6 @@ const board = (shapes: PcbShape[]): Board =>
     points: [],
     barcodes: [],
     groups: [],
-    source: EMPTY,
   }) as unknown as Board;
 
 describe('what counts as the same point', () => {

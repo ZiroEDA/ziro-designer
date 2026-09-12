@@ -38,8 +38,6 @@ import {
 } from '@ziroeda/common/src/reporter.js';
 import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { unescapeString } from '@ziroeda/common/src/string_utils.js';
-import { atom, head, isList, str, type SList, type SNode } from '@ziroeda/sexpr/src/types.js';
-import { arg } from '@ziroeda/sexpr/src/query.js';
 import { exchangeFootprint, placeFootprint } from '../board_exchange_footprint.js';
 import { newKiid } from '@ziroeda/common/src/kiid.js';
 import { boardItemBBox } from '../edit-board.js';
@@ -97,74 +95,6 @@ export interface BoardNetlistUpdateResult {
  */
 export type FootprintLoader = (fpid: string) => PcbFootprint | null | undefined;
 
-// ----- small source helpers ---------------------------------------------------
-
-const list = (...items: SNode[]): SList => ({ kind: 'list', items });
-
-/** Replace (or append) the first `name` child of a source node. */
-function patchChild(src: SList, name: string, node: SList): SList {
-  let replaced = false;
-  const items = src.items.map((it) => {
-    if (!replaced && isList(it) && head(it) === name) {
-      replaced = true;
-      return node;
-    }
-    return it;
-  });
-  if (!replaced) items.push(node);
-  return { kind: 'list', items };
-}
-
-/** Drop every `name` child from a source list. */
-function removeChildNamed(src: SList, name: string): SList {
-  return { kind: 'list', items: src.items.filter((it) => !(isList(it) && head(it) === name)) };
-}
-
-/** Set (or clear) a `(name "value")` string child. */
-function setStringChild(src: SList, name: string, value: string): SList {
-  return value === ''
-    ? removeChildNamed(src, name)
-    : patchChild(src, name, list(atom(name), str(value)));
-}
-
-/** Rewrite the scalar at position `index` after the head (0-based). */
-function replaceArg(src: SList, index: number, value: string): SList {
-  let seen = -1;
-  const items = src.items.map((it) => {
-    if (isList(it)) return it;
-    seen++;
-    return seen === index + 1 ? str(value) : it;
-  });
-  return { kind: 'list', items };
-}
-
-/** `(attr flag flag …)`, dropped entirely when there are no flags. */
-function setAttributes(src: SList, attributes: readonly string[]): SList {
-  return attributes.length === 0
-    ? removeChildNamed(src, 'attr')
-    : patchChild(src, 'attr', {
-        kind: 'list',
-        items: [atom('attr'), ...attributes.map((a) => atom(a))],
-      });
-}
-
-/** `(net <code> "<name>")` on a pad, plus its pin function and type. */
-function setPadNetSource(
-  src: SList,
-  net: number | undefined,
-  netName: string,
-  pinFunction: string,
-  pinType: string,
-): SList {
-  let out =
-    net === undefined || net === UNCONNECTED_NET
-      ? removeChildNamed(src, 'net')
-      : patchChild(src, 'net', list(atom('net'), atom(String(net)), str(netName)));
-  out = setStringChild(out, 'pinfunction', pinFunction);
-  out = setStringChild(out, 'pintype', pinType);
-  return out;
-}
-
 /** Replace one footprint of a board by index. */
 const replaceFp = (board: Board, index: number, fp: PcbFootprint): Board => ({
   ...board,
@@ -189,7 +119,7 @@ function withAttribute(fp: PcbFootprint, flag: string, on: boolean): PcbFootprin
   const current = fp.attributes ?? [];
   if (on === current.includes(flag)) return fp;
   const attributes = on ? [...current, flag] : current.filter((a) => a !== flag);
-  return { ...fp, attributes, source: setAttributes(fp.source, attributes) };
+  return { ...fp, attributes };
 }
 
 // ----- pad helpers ------------------------------------------------------------
@@ -207,6 +137,9 @@ const padIsNoConnect = (pad: PcbPad): boolean => pad.number === '';
  * BOARD_NETLIST_UPDATER, one instance per run, exactly as upstream: construct,
  * set the options, call {@link UpdateNetlist}, read the counts back.
  */
+/** `PCB_FIELD::IsMandatory()` for the two mandatory fields that are not the reference or value. */
+const MANDATORY_FIELD_NAMES: ReadonlySet<string> = new Set(['Datasheet', 'Description']);
+
 export class BOARD_NETLIST_UPDATER {
   private m_board: Board;
   private readonly m_reporter: Reporter;
@@ -474,7 +407,6 @@ export class BOARD_NETLIST_UPDATER {
         footprint = {
           ...footprint,
           path: newPath,
-          source: setStringChild(footprint.source, 'path', newPath),
         };
       }
     }
@@ -540,6 +472,9 @@ export class BOARD_NETLIST_UPDATER {
     // The footprint's *user* fields: a reserved property is not one (see
     // RESERVED_FOOTPRINT_PROPERTIES), so a legacy board's Sheetname / Sheetfile /
     // ki_description properties must not read as fields the symbol is missing.
+    // The mandatory Datasheet and Description fields are compared like the
+    // C++ does (`fpFieldsAsMap` holds every field but reference and value) but
+    // `IsMandatory()` keeps them from ever being removed as extra.
     const userFields = (footprint.fields ?? []).filter(
       (f) => !RESERVED_FOOTPRINT_PROPERTIES.has(f.name),
     );
@@ -568,7 +503,9 @@ export class BOARD_NETLIST_UPDATER {
 
     const wantsUpdate =
       this.m_options.updateFields && (!removeOnly || this.m_options.removeExtraFields);
-    const extraFields = [...fpFields.keys()].filter((name) => !compFields.has(name));
+    const extraFields = [...fpFields.keys()].filter(
+      (name) => !compFields.has(name) && !MANDATORY_FIELD_NAMES.has(name),
+    );
 
     if (this.dryRun) {
       if (wantsUpdate) this.report(`Update ${reference} fields.`, RPT_SEVERITY_ACTION);
@@ -585,20 +522,24 @@ export class BOARD_NETLIST_UPDATER {
         const existing = fields.findIndex((f) => f.name === name);
         if (existing >= 0) {
           const field = fields[existing]!;
-          fields[existing] = { ...field, value, source: replaceArg(field.source, 1, value) };
+          fields[existing] = { ...field, value };
         } else {
-          // A brand-new field is source-less; the writer builds it from the model
+          // A brand-new field: the writer builds its PCB_FIELD from the model
           // (invisible, on the fab layer, at the footprint anchor).
-          fields.push({ name, value, source: { kind: 'list', items: [] } });
+          fields.push({ name, value });
         }
       }
     }
 
     if (this.m_options.removeExtraFields && extraFields.length > 0) {
       this.report(`Removed ${reference} footprint fields not in symbol.`, RPT_SEVERITY_ACTION);
-      // A reserved property is not a field, so it is never removed as "extra".
+      // A reserved property is not a field, so it is never removed as "extra";
+      // a mandatory field never is either (`field->IsMandatory()`).
       fields = fields.filter(
-        (f) => compFields.has(f.name) || RESERVED_FOOTPRINT_PROPERTIES.has(f.name),
+        (f) =>
+          compFields.has(f.name) ||
+          RESERVED_FOOTPRINT_PROPERTIES.has(f.name) ||
+          MANDATORY_FIELD_NAMES.has(f.name),
       );
     }
 
@@ -701,13 +642,6 @@ export class BOARD_NETLIST_UPDATER {
             // A pad with no net from the netlist cannot have a pin function.
             pinFunction: currentNetname === '' ? '' : pinFunction,
             pinType,
-            source: setPadNetSource(
-              pad.source,
-              UNCONNECTED_NET,
-              '',
-              currentNetname === '' ? '' : pinFunction,
-              pinType,
-            ),
           };
         }
         continue;
@@ -769,7 +703,6 @@ export class BOARD_NETLIST_UPDATER {
           net: code,
           pinFunction,
           pinType,
-          source: setPadNetSource(pad.source, code, netName, pinFunction, pinType),
         };
       }
     }
@@ -842,7 +775,6 @@ export class BOARD_NETLIST_UPDATER {
             name: netlistGroup.name,
             uuid: newGroupUuid,
             members: [uuid],
-            source: { kind: 'list', items: [] },
           };
           this.m_board = { ...this.m_board, groups: [...this.m_board.groups, group] };
           this.m_addedGroups.push(newGroupUuid);
@@ -871,9 +803,7 @@ export class BOARD_NETLIST_UPDATER {
         this.m_board = {
           ...this.m_board,
           groups: this.m_board.groups.map((g, j) =>
-            j === i
-              ? { ...g, name: netlistGroup.name, source: renameGroup(g.source, netlistGroup.name) }
-              : g,
+            j === i ? { ...g, name: netlistGroup.name } : g,
           ),
         };
       }
@@ -938,9 +868,7 @@ export class BOARD_NETLIST_UPDATER {
       if (code === undefined) return;
       this.m_board = {
         ...this.m_board,
-        vias: this.m_board.vias.map((v, j) =>
-          j === i ? { ...v, net: code, source: setItemNet(v.source, code) } : v,
-        ),
+        vias: this.m_board.vias.map((v, j) => (j === i ? { ...v, net: code } : v)),
       };
     });
 
@@ -1004,7 +932,6 @@ export class BOARD_NETLIST_UPDATER {
                 ...z,
                 net: code,
                 netName: updatedNetname,
-                source: setZoneNet(z.source, code, updatedNetname),
               }
             : z,
         ),
@@ -1191,7 +1118,6 @@ export class BOARD_NETLIST_UPDATER {
         this.m_board = replaceFp(this.m_board, i, {
           ...footprint,
           path: undefined,
-          source: removeChildNamed(footprint.source, 'path'),
         });
       }
     });
@@ -1316,54 +1242,21 @@ function setSheetInfo(
     return {
       ...fp,
       [which]: value,
-      fields: fields.map((f, i) =>
-        i === legacyIndex ? { ...field, value, source: replaceArg(field.source, 1, value) } : f,
-      ),
+      fields: fields.map((f, i) => (i === legacyIndex ? { ...field, value } : f)),
     };
   }
 
-  return { ...fp, [which]: value, source: setStringChild(fp.source, which, value) };
+  return { ...fp, [which]: value };
 }
 
 /** Set (or drop) a footprint's `(property ki_fp_filters "…")`. */
 function setFootprintFilters(fp: PcbFootprint, filters: string): PcbFootprint {
-  const items = fp.source.items.filter(
-    (it) => !(isList(it) && head(it) === 'property' && arg(it, 0) === 'ki_fp_filters'),
-  );
-  if (filters !== '') items.push(list(atom('property'), str('ki_fp_filters'), str(filters)));
-  return { ...fp, filters: filters || undefined, source: { kind: 'list', items } };
+  return { ...fp, filters: filters || undefined };
 }
 
-/** `(members "uuid" …)` of a group, kept in step with the model. */
+/** `PCB_GROUP`'s member list. */
 function withGroupMembers(group: PcbGroup, members: string[]): PcbGroup {
-  return {
-    ...group,
-    members,
-    source:
-      group.source.items.length === 0
-        ? group.source
-        : patchChild(group.source, 'members', {
-            kind: 'list',
-            items: [atom('members'), ...[...members].sort().map((m) => str(m))],
-          }),
-  };
-}
-
-/** `(group "name" …)`, the name is the first scalar after the head. */
-function renameGroup(src: SList, name: string): SList {
-  return src.items.length === 0 ? src : replaceArg(src, 0, name);
-}
-
-/** `(net <code>)` on a track/arc/via. */
-function setItemNet(src: SList, code: number): SList {
-  return patchChild(src, 'net', list(atom('net'), atom(String(code))));
-}
-
-/** `(net <code>)` + `(net_name "…")` on a zone. */
-function setZoneNet(src: SList, code: number, name: string): SList {
-  let out = patchChild(src, 'net', list(atom('net'), atom(String(code))));
-  out = patchChild(out, 'net_name', list(atom('net_name'), str(name)));
-  return out;
+  return { ...group, members };
 }
 
 /**

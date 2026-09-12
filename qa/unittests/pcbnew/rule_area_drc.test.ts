@@ -22,7 +22,6 @@ import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
 import type { Board, PcbTrack, PcbVia, PcbZone } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 /** A square from (x0,y0) to (x1,y1). */
 const box = (x0: number, y0: number, x1: number, y1: number) => [
@@ -40,7 +39,6 @@ const ruleArea = (over: Partial<PcbZone> = {}): PcbZone => ({
   uuid: 'area-1',
   name: 'ko',
   ruleArea: { tracks: true, vias: true, pads: false, copperPour: false, footprints: false },
-  source: EMPTY,
   ...over,
 });
 
@@ -50,7 +48,6 @@ const track = (x0: number, x1: number, layer = 'F.Cu'): PcbTrack => ({
   width: MM(0.2),
   layer,
   net: 1,
-  source: EMPTY,
 });
 
 const via = (x: number): PcbVia => ({
@@ -60,7 +57,6 @@ const via = (x: number): PcbVia => ({
   layers: ['F.Cu', 'B.Cu'],
   kind: 'through',
   net: 1,
-  source: EMPTY,
 });
 
 const board = (over: Partial<Board> = {}): Board => ({
@@ -87,7 +83,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 

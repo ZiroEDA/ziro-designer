@@ -30,7 +30,6 @@ import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { PcbPad } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const pad = (over: Partial<PcbPad> = {}): PcbPad => ({
   number: '1',
@@ -42,7 +41,6 @@ const pad = (over: Partial<PcbPad> = {}): PcbPad => ({
   layers: ['*.Cu'],
   net: 1,
   drill: { oblong: false, w: MM(0.75), h: MM(0.75), offset: { x: 0, y: MM(0.4) } },
-  source: EMPTY,
   ...over,
 });
 

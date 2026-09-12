@@ -6,31 +6,22 @@
  * Counterpart: `pcbnew/dialogs/dialog_footprint_properties.cpp`.
  *
  * Single-footprint, so there is no three-state fold; every field carries a
- * value. What it shares with the other item dialogs is that each applied field
- * patches the footprint's source node in step — the writer emits a stored
- * source verbatim, so a model-only change never reaches the file.
+ * value. Every applied field lands on the model; the writer formats the model.
  *
  * Moving and rotating go through edit-board's own helpers rather than writing
  * `(at …)` directly: a footprint's pads, texts and graphics are stored
  * board-absolute in this model, so its anchor cannot move on its own.
  */
 
-import { atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import {
   boardItemId,
-  dropChild,
   flipBoardItems,
-  mm,
   moveBoardItems,
   parseBoardItemId,
-  patchChild,
   setFootprintField,
   setFootprintOrientation,
 } from './edit-board.js';
 import type { Board, PcbFootprint } from './types.js';
-import { ZONE_CONNECTION_CODE } from './zone_connection.js';
-
-const list = (...items: SNode[]): SList => ({ kind: 'list', items });
 
 /** FOOTPRINT_ATTR_T, in the order PCB_IO_KICAD_SEXPR writes them. */
 export const FOOTPRINT_ATTRIBUTES = [
@@ -169,9 +160,8 @@ export function applyFootprintValues(board: Board, index: number, v: FootprintVa
     if (placed) next = flipBoardItems(next, new Set([id]), placed.at);
   }
 
-  // Reference and Value live in their own text items, each with its own source
-  // node — the writer emits those directly, so patching a copy inside the
-  // footprint's source would be ignored. setFootprintField owns that pairing.
+  // Reference and Value live in their own text items; setFootprintField owns
+  // that pairing.
   if (v.reference !== (fp.reference ?? ''))
     next = setFootprintField(next, index, 'reference', v.reference);
   if (v.value !== (fp.value ?? '')) next = setFootprintField(next, index, 'value', v.value);
@@ -180,64 +170,19 @@ export function applyFootprintValues(board: Board, index: number, v: FootprintVa
   if (!moved) return board;
 
   const patched: PcbFootprint = { ...moved };
-  let src = moved.source;
 
-  if (v.locked !== (moved.locked ?? false)) {
-    patched.locked = v.locked;
-    src = v.locked
-      ? patchChild(src, 'locked', list(atom('locked'), atom('yes')))
-      : dropChild(src, 'locked');
-  }
+  if (v.locked !== (moved.locked ?? false)) patched.locked = v.locked;
 
   const attrs = attributesFor(v);
   patched.attributes = attrs.length > 0 ? attrs : undefined;
-  src =
-    attrs.length > 0
-      ? patchChild(src, 'attr', {
-          kind: 'list',
-          items: [atom('attr'), ...attrs.map((a) => atom(a))],
-        })
-      : dropChild(src, 'attr');
 
-  // Clearance overrides: a blank box drops the token, which is not the same as
-  // writing zero — zero is a real override meaning "no clearance at all".
-  const override = (
-    key: 'localClearance' | 'localSolderMaskMargin' | 'localSolderPasteMargin',
-    token: string,
-    value: number | null,
-  ): void => {
-    patched[key] = value ?? undefined;
-    src =
-      value === null
-        ? dropChild(src, token)
-        : patchChild(src, token, list(atom(token), atom(mm(value))));
-  };
-
-  override('localClearance', 'clearance', v.localClearance);
-  override('localSolderMaskMargin', 'solder_mask_margin', v.localSolderMaskMargin);
-  override('localSolderPasteMargin', 'solder_paste_margin', v.localSolderPasteMargin);
-
+  // Clearance overrides: a blank box clears the override, which is not the same
+  // as writing zero — zero is a real override meaning "no clearance at all".
+  patched.localClearance = v.localClearance ?? undefined;
+  patched.localSolderMaskMargin = v.localSolderMaskMargin ?? undefined;
+  patched.localSolderPasteMargin = v.localSolderPasteMargin ?? undefined;
   patched.localSolderPasteMarginRatio = v.localSolderPasteMarginRatio ?? undefined;
-  src =
-    v.localSolderPasteMarginRatio === null
-      ? dropChild(src, 'solder_paste_margin_ratio')
-      : patchChild(
-          src,
-          'solder_paste_margin_ratio',
-          list(atom('solder_paste_margin_ratio'), atom(String(v.localSolderPasteMarginRatio))),
-        );
-
   patched.zoneConnection = v.zoneConnection === 'inherited' ? undefined : v.zoneConnection;
-  src =
-    v.zoneConnection === 'inherited'
-      ? dropChild(src, 'zone_connect')
-      : patchChild(
-          src,
-          'zone_connect',
-          list(atom('zone_connect'), atom(String(ZONE_CONNECTION_CODE[v.zoneConnection]))),
-        );
-
-  patched.source = src;
 
   return {
     ...next,

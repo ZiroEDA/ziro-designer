@@ -21,7 +21,6 @@ import {
 import type { Board, PcbFootprint, PcbPad, PcbShape, PcbZone } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const line = (x0: number, y0: number, x1: number, y1: number, layer: string): PcbShape => ({
   kind: 'line',
@@ -30,7 +29,6 @@ const line = (x0: number, y0: number, x1: number, y1: number, layer: string): Pc
   width: MM(0.05),
   fillMode: 'none',
   layer,
-  source: EMPTY,
 });
 
 /** Four hand-drawn lines closing into a box, which is what a courtyard is. */
@@ -57,7 +55,6 @@ const drilledPad = (x: number, y: number): PcbPad => ({
   drill: { oblong: false, w: MM(0.8), h: MM(0.8) },
   layers: ['*.Cu'],
   net: 0,
-  source: EMPTY,
 });
 
 const footprint = (over: Partial<PcbFootprint> = {}): PcbFootprint => ({
@@ -72,7 +69,6 @@ const footprint = (over: Partial<PcbFootprint> = {}): PcbFootprint => ({
   points: [],
   barcodes: [],
   models: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -97,7 +93,6 @@ const board = (footprints: PcbFootprint[], zones: PcbZone[] = []): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 /** fp 0 static at 0..10 mm, fp 1 moving at 20..30 mm — 10 mm of clear air. */
@@ -189,7 +184,6 @@ describe('courtyard collisions while moving', () => {
         { x: MM(0), y: MM(10) },
       ],
       ruleArea: { tracks: false, vias: false, pads: false, copperPour: false, footprints },
-      source: EMPTY,
     });
 
     const moving = footprint({ reference: 'B', shapes: courtyard(20, 0, 30, 10) });

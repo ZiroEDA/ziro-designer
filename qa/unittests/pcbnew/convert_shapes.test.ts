@@ -28,7 +28,6 @@ import {
 import type { Board, PcbShape, PcbTrack } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const line = (x0: number, y0: number, x1: number, y1: number, width = MM(0.1)): PcbShape => ({
   kind: 'line',
@@ -37,7 +36,6 @@ const line = (x0: number, y0: number, x1: number, y1: number, width = MM(0.1)): 
   width,
   fillMode: 'none',
   layer: 'Edge.Cuts',
-  source: EMPTY,
 });
 
 const mmLine = (x0: number, y0: number, x1: number, y1: number, width = MM(0.1)): PcbShape =>
@@ -49,7 +47,6 @@ const track = (x0: number, y0: number, x1: number, y1: number): PcbTrack => ({
   width: MM(0.25),
   layer: 'F.Cu',
   net: 0,
-  source: EMPTY,
 });
 
 const board = (over: Partial<Board> = {}): Board => ({
@@ -70,7 +67,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -126,7 +122,6 @@ describe('which items can chain', () => {
           width: 0,
           fillMode: 'solid',
           layer: 'F.SilkS',
-          source: EMPTY,
         },
       ],
     });
@@ -269,7 +264,6 @@ describe('chaining a ring of segments', () => {
           width: MM(0.1),
           fillMode: 'none',
           layer: 'Edge.Cuts',
-          source: EMPTY,
         },
       ],
     });
@@ -301,7 +295,6 @@ describe('shapes that are already areas', () => {
       width: 0,
       fillMode: 'solid',
       layer: 'F.SilkS',
-      source: EMPTY,
     })!;
 
     expect(r).toHaveLength(4);
@@ -316,7 +309,6 @@ describe('shapes that are already areas', () => {
       width: MM(0.1),
       fillMode: 'none',
       layer: 'F.SilkS',
-      source: EMPTY,
     })!;
 
     // Tessellated, so slightly inside the true circle — but not by much.
@@ -333,7 +325,6 @@ describe('shapes that are already areas', () => {
       width: MM(0.1),
       fillMode: 'none',
       layer: 'F.SilkS',
-      source: EMPTY,
     })!;
 
     expect(r[0]).not.toEqual(r[r.length - 1]);
@@ -351,7 +342,6 @@ describe('shapes that are already areas', () => {
       width: 0,
       fillMode: 'solid',
       layer: 'F.SilkS',
-      source: EMPTY,
     })!;
 
     expect(r).toEqual(pts);
@@ -374,7 +364,6 @@ describe('putting the two paths together', () => {
           width: 0,
           fillMode: 'solid',
           layer: 'F.SilkS',
-          source: EMPTY,
         },
       ],
     });
@@ -397,7 +386,6 @@ describe('putting the two paths together', () => {
           width: 0,
           fillMode: 'solid',
           layer: 'F.SilkS',
-          source: EMPTY,
         },
       ],
     });
@@ -417,7 +405,6 @@ describe('putting the two paths together', () => {
             { x: MM(8), y: 0 },
             { x: 0, y: MM(8) },
           ],
-          source: EMPTY,
         },
       ],
     });
@@ -446,7 +433,6 @@ describe('putting the two paths together', () => {
           showText: false,
           knockout: false,
           margin: { x: 0, y: 0 },
-          source: EMPTY,
         },
       ],
     });

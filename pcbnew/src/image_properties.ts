@@ -36,12 +36,9 @@
  * pixels, for an effect a user can get before importing. Left out rather than
  * half-done.
  */
-import { atom, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
-import { dropChild, mm, parseBoardItemId, patchChild } from './edit-board.js';
+import { parseBoardItemId } from './edit-board.js';
 import { imageSizeIU } from './image_geometry.js';
 import type { Board, PcbImage } from './types.js';
-
-const list = (...items: SNode[]): SList => ({ kind: 'list', items });
 
 /** Every control on the dialog, flattened. */
 export interface ImageValues {
@@ -143,27 +140,6 @@ export function applyImageValues(board: Board, index: number, v: ImageValues): B
 
   return {
     ...board,
-    images: board.images.map((cur, i) =>
-      i === index ? { ...next, source: patchImageSource(next, cur.source) } : cur,
-    ),
+    images: board.images.map((cur, i) => (i === index ? next : cur)),
   };
-}
-
-/** Rewrite the `(image …)` node's children in place. */
-function patchImageSource(img: PcbImage, src: SList): SList {
-  if (src.items.length === 0) return src; // built from scratch on save
-
-  let out = patchChild(src, 'at', list(atom('at'), atom(mm(img.at.x)), atom(mm(img.at.y))));
-  out = patchChild(out, 'layer', list(atom('layer'), { kind: 'string', value: img.layer }));
-
-  out =
-    img.scale === undefined
-      ? dropChild(out, 'scale')
-      : patchChild(out, 'scale', list(atom('scale'), atom(String(img.scale))));
-
-  out = img.locked
-    ? patchChild(out, 'locked', list(atom('locked'), atom('yes')))
-    : dropChild(out, 'locked');
-
-  return out;
 }

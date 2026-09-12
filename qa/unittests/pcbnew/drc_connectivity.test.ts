@@ -18,7 +18,6 @@ import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
 import type { Board, PcbFootprint, PcbPad, PcbTrack, PcbVia } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const track = (
   x0: number,
@@ -32,7 +31,6 @@ const track = (
   width: MM(0.25),
   layer: 'F.Cu',
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -43,7 +41,6 @@ const via = (x: number, y: number, over: Partial<PcbVia> = {}): PcbVia => ({
   layers: ['F.Cu', 'B.Cu'],
   kind: 'through',
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -56,7 +53,6 @@ const pad = (x: number, y: number, over: Partial<PcbPad> = {}): PcbPad => ({
   size: { x: MM(1), y: MM(1) },
   layers: ['F.Cu'],
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -73,7 +69,6 @@ const fp = (pads: PcbPad[]): PcbFootprint => ({
   barcodes: [],
   models: [],
   attributes: ['allow_missing_courtyard'],
-  source: EMPTY,
 });
 
 const board = (over: Partial<Board> = {}): Board => ({
@@ -100,7 +95,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -251,7 +245,6 @@ describe('dangling tracks', () => {
               ],
             },
           ],
-          source: EMPTY,
         },
       ],
     });

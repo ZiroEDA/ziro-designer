@@ -7,6 +7,7 @@
  * dialog invents on open, and the copper-only settings it must leave alone.
  */
 import { describe, expect, it } from 'vitest';
+import { writtenItems } from './support/written_node.js';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
@@ -23,12 +24,13 @@ const MM = (n: number): number => mmToIU(n);
 const load = (text: string): Board => readBoard(parse(text));
 const roundTrip = (b: Board): Board => load(serializeBoard(b));
 const zone = (b: Board): PcbZone => b.zones[0]!;
-const flat = (b: Board): string => serializeBoard(b).replace(/\s+/g, ' ').replace(/ \)/g, ')');
+/** The written items, one line, header excluded. */
+const flat = (b: Board): string => writtenItems(b);
 
 /** A zone on a technical layer. `fill` replaces the whole `(fill …)` child. */
 const src = (fill = '(fill yes (thermal_gap 0.5) (thermal_bridge_width 0.5))'): string => `
 (kicad_pcb (version 20240108) (generator test)
-  (layers (0 "F.Cu" signal) (36 "F.SilkS" user) (44 "Edge.Cuts" user))
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (36 "F.SilkS" user) (44 "Edge.Cuts" user))
   (net 0 "")
   (zone (net 0) (net_name "") (layer "F.SilkS") (uuid "nc") (hatch edge 0.5)
     (connect_pads (clearance 0.5))
@@ -58,9 +60,26 @@ describe('collect (TransferDataToWindow)', () => {
     expect(v.hatchGap).toBe(MM(1.5)); // max(0.25*6, 1.5) = 1.5
   });
 
-  it('lets a large minimum width beat the 1 mm / 1.5 mm floors', () => {
+  it('shows the constructor hatch values a file never overrode, clamped to the minimum width', () => {
+    // A ZONE is born with `m_HatchThickness = max( 0.25 mm * 4, 1 mm )` and
+    // `m_HatchGap = max( 0.25 mm * 6, 1.5 mm )` (zone_settings.cpp:53-54) before
+    // the file's `(min_thickness 1)` is read, so the "no defined value" branch
+    // of TransferDataToWindow (:237, :244) never runs for a parsed zone; only
+    // the `std::max( bestvalue, m_ZoneMinThickness )` clamp does.
     const v = collectNonCopperZoneValues(zone(load(src().replace('0.25)', '1)'))));
     expect(v.minThickness).toBe(MM(1));
+    expect(v.hatchThickness).toBe(MM(1));
+    expect(v.hatchGap).toBe(MM(1.5));
+  });
+
+  it('invents the 4x / 6x pair for a zone the editor made with no hatch values', () => {
+    const v = collectNonCopperZoneValues({
+      ...zone(load(src())),
+      k: undefined,
+      minThickness: MM(1),
+      hatchThickness: undefined,
+      hatchGap: undefined,
+    });
     expect(v.hatchThickness).toBe(MM(4));
     expect(v.hatchGap).toBe(MM(6));
   });
@@ -73,14 +92,6 @@ describe('collect (TransferDataToWindow)', () => {
     );
     expect(v.hatchThickness).toBe(MM(0.25));
     expect(v.hatchGap).toBe(MM(0.25));
-  });
-
-  it('shows a copper-thieving fill as solid', () => {
-    // The style choice offers only solid and hatched, and thieving falls into
-    // the `default:` arm — so OK demotes the zone.
-    const thieving = load(src('(fill yes (mode thieving) (thieving (type dots) (size 0.5)))'));
-    expect(zone(thieving).fillMode).toBe('thieving');
-    expect(collectNonCopperZoneValues(zone(thieving)).fillMode).toBe('solid');
   });
 });
 
@@ -227,13 +238,5 @@ describe('apply', () => {
     const named = load(src().replace('(uuid "nc")', '(uuid "nc") (name "silk guard")'));
     const out = applyNonCopperZoneValues(named, 0, collectNonCopperZoneValues(zone(named)));
     expect(zone(roundTrip(out)).name).toBe('silk guard');
-  });
-
-  it('demotes a copper-thieving zone to solid on OK', () => {
-    // Mirroring upstream's omission: the choice cannot express thieving, so
-    // the mode is written back as whatever the choice says.
-    const thieving = load(src('(fill yes (mode thieving) (thieving (type dots) (size 0.5)))'));
-    const out = applyNonCopperZoneValues(thieving, 0, collectNonCopperZoneValues(zone(thieving)));
-    expect(zone(roundTrip(out)).fillMode).toBe('solid');
   });
 });

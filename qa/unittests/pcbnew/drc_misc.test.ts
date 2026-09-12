@@ -25,7 +25,6 @@ import type {
 } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const track = (layer: string): PcbTrack => ({
   start: { x: 0, y: 0 },
@@ -33,7 +32,6 @@ const track = (layer: string): PcbTrack => ({
   width: MM(0.2),
   layer,
   net: 1,
-  source: EMPTY,
 });
 
 const via = (layers: [string, string]): PcbVia => ({
@@ -43,7 +41,6 @@ const via = (layers: [string, string]): PcbVia => ({
   layers,
   kind: 'blind',
   net: 1,
-  source: EMPTY,
 });
 
 const pad = (over: Partial<PcbPad> = {}): PcbPad => ({
@@ -55,7 +52,6 @@ const pad = (over: Partial<PcbPad> = {}): PcbPad => ({
   size: { x: MM(1), y: MM(1) },
   layers: ['F.Cu'],
   net: 0,
-  source: EMPTY,
   ...over,
 });
 
@@ -66,7 +62,6 @@ const shape = (layer: string): PcbShape => ({
   width: MM(0.1),
   fillMode: 'none',
   layer,
-  source: EMPTY,
 });
 
 const text = (over: Partial<PcbTextItem> = {}): PcbTextItem => ({
@@ -76,7 +71,6 @@ const text = (over: Partial<PcbTextItem> = {}): PcbTextItem => ({
   angle: 0,
   layer: 'F.SilkS',
   size: { x: MM(1), y: MM(1) },
-  source: EMPTY,
   ...over,
 });
 
@@ -93,7 +87,6 @@ const barcode = (over: Partial<PcbBarcode> = {}): PcbBarcode => ({
   showText: false,
   knockout: false,
   margin: { x: 0, y: 0 },
-  source: EMPTY,
   ...over,
 });
 
@@ -111,7 +104,6 @@ const footprint = (over: Partial<PcbFootprint> = {}): PcbFootprint => ({
   barcodes: [],
   models: [],
   attributes: ['allow_missing_courtyard'],
-  source: EMPTY,
   ...over,
 });
 
@@ -140,7 +132,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 

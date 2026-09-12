@@ -165,9 +165,12 @@ describe('the default at each call site', () => {
   });
 
   it('hide inside (effects …): parseMaybeAbsentBool( true ) at :841', () => {
-    // parseEDA_TEXT's own hide, the pre-v7 location.
-    expect(grText('(font (size 1 1)) hide').hide).toBe(true);
-    expect(grText('(font (size 1 1)) (hide)').hide).toBe(true);
+    // parseEDA_TEXT's own hide, the pre-v7 location. It is read — a malformed
+    // argument is still an error below — but on a BOARD text it changes
+    // nothing: "Hidden PCB text is no longer supported", parsePCB_TEXT sets
+    // the text visible again (pcb_io_kicad_sexpr_parser.cpp:3830-3831).
+    expect(grText('(font (size 1 1)) hide').hide).toBe(false);
+    expect(grText('(font (size 1 1)) (hide)').hide).toBe(false);
     expect(grText('(font (size 1 1)) (hide no)').hide).toBe(false);
     expect(grText('(font (size 1 1))').hide).toBe(false);
   });
@@ -176,7 +179,7 @@ describe('the default at each call site', () => {
     boardWith(
       `(footprint "L:F" (layer "F.Cu") (at 0 0) ` +
         `(fp_text value "V" (at 0 0) (layer "F.Fab") ${tokens} (effects (font (size 1 1)))))`,
-    ).footprints[0]!.texts[0]!;
+    ).footprints[0]!.texts.find((t) => t.kind === 'value')!;
 
   it('hide on the text item: parseMaybeAbsentBool( true ) at :3913', () => {
     expect(fpText('hide').hide).toBe(true);
@@ -217,43 +220,54 @@ describe('the default at each call site', () => {
   > = [
     [
       'segment',
-      '(segment (start 0 0) (end 1 1) (width 0.2) (layer "F.Cu") (net 0) TOKEN)',
+      '(segment TOKEN (start 0 0) (end 1 1) (width 0.2) (layer "F.Cu") (net 0))',
       (b) => b.tracks[0]!.locked,
     ],
     [
       'arc',
-      '(arc (start 0 0) (mid 1 0) (end 1 1) (width 0.2) (layer "F.Cu") (net 0) TOKEN)',
+      '(arc TOKEN (start 0 0) (mid 1 0) (end 1 1) (width 0.2) (layer "F.Cu") (net 0))',
       (b) => b.arcs[0]!.locked,
     ],
     [
       'via',
-      '(via (at 5 5) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 0) TOKEN)',
+      '(via TOKEN (at 5 5) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 0))',
       (b) => b.vias[0]!.locked,
     ],
     [
       'gr_line',
-      '(gr_line (start 0 0) (end 1 1) (stroke (width 0.1) (type default)) (layer "F.SilkS") TOKEN)',
+      '(gr_line BARE (start 0 0) (end 1 1) (stroke (width 0.1) (type default)) (layer "F.SilkS") LIST)',
       (b) => b.shapes[0]!.locked,
     ],
     [
       'gr_text_box',
-      '(gr_text_box "t" (start 0 0) (end 5 5) (layer "F.SilkS") TOKEN)',
+      '(gr_text_box BARE "t" (start 0 0) (end 5 5) (layer "F.SilkS") LIST)',
       (b) => b.textBoxes[0]!.locked,
     ],
     [
       'dimension',
-      '(dimension (type aligned) (layer "Dwgs.User") (pts (xy 0 0) (xy 9 0)) ' +
-        '(style (thickness 0.1) (arrow_length 1)) TOKEN)',
+      '(dimension BARE (type aligned) (layer "Dwgs.User") (pts (xy 0 0) (xy 9 0)) ' +
+        '(style (thickness 0.1) (arrow_length 1)) LIST)',
       (b) => b.dimensions[0]!.locked,
     ],
   ];
 
+  // The bare word is the legacy form, and the parser takes it only where the
+  // 5.99 writer put it: before the first child (`if( token == T_locked )` at
+  // the loop head, then `Expecting( T_LEFT )`), so the templates place it there.
+  // A shape and a text box take the bare word only at the head and the list
+  // form only among the children (`parsePCB_SHAPE` expects `(start` right
+  // after it): BARE and LIST mark the two places.
+  const withToken = (template: string, bare: string, list: string): string =>
+    template.includes('BARE')
+      ? template.replace('BARE', bare).replace('LIST', list)
+      : template.replace('TOKEN', bare || list);
   for (const [name, template, pick] of lockable) {
     it(`locked on a ${name}: parseMaybeAbsentBool( true )`, () => {
-      expect(pick(boardWith(template.replace('TOKEN', 'locked')))).toBe(true);
-      expect(pick(boardWith(template.replace('TOKEN', '(locked)')))).toBe(true);
-      expect(pick(boardWith(template.replace('TOKEN', '(locked no)')))).toBe(false);
-      expect(pick(boardWith(template.replace('TOKEN', '')))).toBeUndefined();
+      expect(pick(boardWith(withToken(template, 'locked', '')))).toBe(true);
+      expect(pick(boardWith(withToken(template, '', '(locked)')))).toBe(true);
+      expect(pick(boardWith(withToken(template, '', '(locked no)')))).toBe(false);
+      // `BOARD_ITEM::m_isLocked` starts false; the model has no "unsaid".
+      expect(pick(boardWith(withToken(template, '', '')))).toBe(false);
     });
   }
 
@@ -269,18 +283,19 @@ describe('the default at each call site', () => {
   it('remove_unused_layers / keep_end_layers / start_end_only: parseMaybeAbsentBool( true )', () => {
     // :6366 and :6373 on a pad; :7497, :7503 and :7509 on a via. Both the
     // argument-less list and the bare token have to reach the same place.
+    // The argument-less list is the "absent" form these accept; the bare word
+    // is not one of them — a pad's and a via's token loops demand a `(` for
+    // every child but the legacy `locked` (`if( token != T_LEFT ) Expecting`).
     expect(via('(remove_unused_layers)').unconnectedLayerMode).toBe('remove_all');
-    expect(via('remove_unused_layers').unconnectedLayerMode).toBe('remove_all');
     expect(via('(keep_end_layers)').unconnectedLayerMode).toBe('remove_except_start_and_end');
-    expect(via('keep_end_layers').unconnectedLayerMode).toBe('remove_except_start_and_end');
     expect(via('(start_end_only)').unconnectedLayerMode).toBe('start_end_only');
-    expect(via('start_end_only').unconnectedLayerMode).toBe('start_end_only');
     expect(pad('(remove_unused_layers)').unconnectedLayerMode).toBe('remove_all');
-    expect(pad('remove_unused_layers').unconnectedLayerMode).toBe('remove_all');
     // A via ignores an explicit `no` (it only ever calls the setter with true),
     // a pad applies it — so the default is not the only thing under test here.
     expect(via('(remove_unused_layers no)').unconnectedLayerMode).toBeUndefined();
-    expect(pad('(remove_unused_layers no)').unconnectedLayerMode).toBe('keep_all');
+    // KEEP_ALL is the padstack's starting mode, and the view spells it as the
+    // absent token; `SetRemoveUnconnected( false )` lands on the same mode.
+    expect(pad('(remove_unused_layers no)').unconnectedLayerMode ?? 'keep_all').toBe('keep_all');
   });
 });
 
@@ -294,7 +309,7 @@ describe('a malformed flag is an error, not a default', () => {
       boardWith(
         '(gr_text "x" (at 0 0) (layer "F.SilkS") (effects (font (size 1 1)) (hide sometimes)))',
       ),
-    ).toThrow(/Expecting "yes or no"/);
+    ).toThrow(/Expecting yes or no/);
   });
 
   it('accepts `true`/`false`, which pcbnew — unlike eeschema — allows', () => {

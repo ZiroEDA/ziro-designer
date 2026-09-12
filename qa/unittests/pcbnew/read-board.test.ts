@@ -80,6 +80,7 @@ describe('readBoard (synthetic)', () => {
     (segment (start 100 49) (end 110 49) (width 0.25) (layer "F.Cu") (net 1))
     (via (at 105 49) (size 0.6) (drill 0.3) (layers "F.Cu" "B.Cu") (net 1))
     (zone (net 1) (net_name "GND") (layers "B.Cu")
+      (polygon (pts (xy 90 40) (xy 120 40) (xy 120 60) (xy 90 60)))
       (filled_polygon (layer "B.Cu") (pts (xy 90 40) (xy 120 40) (xy 120 60) (xy 90 60)))))`;
   const board = readBoard(parse(src));
 

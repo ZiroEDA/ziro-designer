@@ -16,9 +16,6 @@
  *
  * Coordinates are internal units (+Y down), matching the reader/writer.
  */
-
-import { atom, str, list, isList, head, type SList } from '@ziroeda/sexpr/src/index.js';
-import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
 import { textItemBBox, textItemHitTest } from './text_metrics.js';
 import { rotatePcb } from './read-board.js';
 import { shapePoints as shapeOutline } from './courtyard.js';
@@ -59,40 +56,6 @@ export function parseFpItemId(id: string): FpItemRef | null {
   }
   return null;
 }
-
-// ----- source patching --------------------------------------------------------
-
-const mm = (iu: number): string => {
-  let s = iuToMM(iu).toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
-  if (s === '' || s === '-0') s = '0';
-  return s;
-};
-
-/** Replace (or append) the first `name` child of a source node. */
-function patchChild(src: SList, name: string, node: SList): SList {
-  let replaced = false;
-  const items = src.items.map((it) => {
-    if (!replaced && isList(it) && head(it) === name) {
-      replaced = true;
-      return node;
-    }
-    return it;
-  });
-  if (!replaced) items.push(node);
-  return { kind: 'list', items };
-}
-
-const atNode = (p: Vec2, angle: number): SList =>
-  angle
-    ? list(atom('at'), atom(mm(p.x)), atom(mm(p.y)), atom(String(angle)))
-    : list(atom('at'), atom(mm(p.x)), atom(mm(p.y)));
-
-const xyNode = (name: string, p: Vec2): SList => list(atom(name), atom(mm(p.x)), atom(mm(p.y)));
-
-const ptsNode = (pts: Vec2[]): SList => ({
-  kind: 'list',
-  items: [atom('pts'), ...pts.map((p) => list(atom('xy'), atom(mm(p.x)), atom(mm(p.y))))],
-});
 
 // ----- geometry helpers -------------------------------------------------------
 
@@ -528,10 +491,7 @@ function mapSelected(
 ): PcbFootprint {
   const sel = new Set<string>();
   for (const id of ids) if (parseFpItemId(id)) sel.add(id);
-  const to: PointT = (p) => {
-    const at = moveAt(p.at);
-    return { ...p, at, source: patchChild(p.source, 'at', xyNode('at', at)) };
-  };
+  const to: PointT = (p) => ({ ...p, at: moveAt(p.at) });
   return {
     ...fp,
     pads: fp.pads.map((p, i) => (sel.has(fpItemId('pad', i)) ? tp(p) : p)),
@@ -543,46 +503,23 @@ function mapSelected(
 
 const movePad =
   (delta: Vec2): PadT =>
-  (p) => {
-    const at = { x: p.at.x + delta.x, y: p.at.y + delta.y };
-    return { ...p, at, source: patchChild(p.source, 'at', atNode(at, p.angle)) };
-  };
+  (p) => ({ ...p, at: { x: p.at.x + delta.x, y: p.at.y + delta.y } });
 const moveText =
   (delta: Vec2): TextT =>
-  (t) => {
-    const at = { x: t.at.x + delta.x, y: t.at.y + delta.y };
-    return { ...t, at, source: patchChild(t.source, 'at', atNode(at, t.angle)) };
-  };
+  (t) => ({ ...t, at: { x: t.at.x + delta.x, y: t.at.y + delta.y } });
 const moveShape =
   (delta: Vec2): ShapeT =>
   (s) =>
     shiftShape(s, (p) => ({ x: p.x + delta.x, y: p.y + delta.y }));
 
-/** Apply a point transform to every coordinate of a shape and patch its source. */
+/** Apply a point transform to every coordinate of a shape. */
 function shiftShape(s: PcbShape, fn: (p: Vec2) => Vec2): PcbShape {
-  let src = s.source;
   const next: PcbShape = { ...s };
-  if (s.center) {
-    next.center = fn(s.center);
-    src = patchChild(src, 'center', xyNode('center', next.center));
-  }
-  if (s.start) {
-    next.start = fn(s.start);
-    src = patchChild(src, 'start', xyNode('start', next.start));
-  }
-  if (s.end) {
-    next.end = fn(s.end);
-    src = patchChild(src, 'end', xyNode('end', next.end));
-  }
-  if (s.mid) {
-    next.mid = fn(s.mid);
-    src = patchChild(src, 'mid', xyNode('mid', next.mid));
-  }
-  if (s.pts) {
-    next.pts = s.pts.map(fn);
-    src = patchChild(src, 'pts', ptsNode(next.pts));
-  }
-  next.source = src;
+  if (s.center) next.center = fn(s.center);
+  if (s.start) next.start = fn(s.start);
+  if (s.end) next.end = fn(s.end);
+  if (s.mid) next.mid = fn(s.mid);
+  if (s.pts) next.pts = s.pts.map(fn);
   return next;
 }
 
@@ -619,16 +556,16 @@ export function rotateFootprintItems(
 ): PcbFootprint {
   if (ids.size === 0) return fp;
   const deg = ccw ? degrees : -degrees;
-  const tp: PadT = (p) => {
-    const at = rotAbout(p.at, center, deg);
-    const angle = norm360(p.angle + deg);
-    return { ...p, at, angle, source: patchChild(p.source, 'at', atNode(at, angle)) };
-  };
-  const tt: TextT = (t) => {
-    const at = rotAbout(t.at, center, deg);
-    const angle = norm360(t.angle + deg);
-    return { ...t, at, angle, source: patchChild(t.source, 'at', atNode(at, angle)) };
-  };
+  const tp: PadT = (p) => ({
+    ...p,
+    at: rotAbout(p.at, center, deg),
+    angle: norm360(p.angle + deg),
+  });
+  const tt: TextT = (t) => ({
+    ...t,
+    at: rotAbout(t.at, center, deg),
+    angle: norm360(t.angle + deg),
+  });
   const ts: ShapeT = (s) => shiftShape(s, (p) => rotAbout(p, center, deg));
   return mapSelected(fp, ids, tp, ts, tt, (p) => rotAbout(p, center, deg));
 }
@@ -640,15 +577,8 @@ export function mirrorFootprintItems(
 ): PcbFootprint {
   if (ids.size === 0) return fp;
   const cx = center.x;
-  const tp: PadT = (p) => {
-    const at = mirrorX(p.at, cx);
-    const angle = norm360(180 - p.angle);
-    return { ...p, at, angle, source: patchChild(p.source, 'at', atNode(at, angle)) };
-  };
-  const tt: TextT = (t) => {
-    const at = mirrorX(t.at, cx);
-    return { ...t, at, mirror: !t.mirror, source: patchChild(t.source, 'at', atNode(at, t.angle)) };
-  };
+  const tp: PadT = (p) => ({ ...p, at: mirrorX(p.at, cx), angle: norm360(180 - p.angle) });
+  const tt: TextT = (t) => ({ ...t, at: mirrorX(t.at, cx), mirror: !t.mirror });
   const ts: ShapeT = (s) => shiftShape(s, (p) => mirrorX(p, cx));
   return mapSelected(fp, ids, tp, ts, tt, (p) => mirrorX(p, cx));
 }
@@ -711,21 +641,6 @@ export const setBarcode = (fp: PcbFootprint, index: number, next: PcbBarcode): P
 
 // ----- footprint properties (Reference / Value / Description / Keywords) ------
 
-/** Replace the index-th positional item of a source node with a string. */
-function patchArg(src: SList, index: number, value: string): SList {
-  if (src.items.length <= index) return src;
-  const items = src.items.slice();
-  items[index] = str(value);
-  return { kind: 'list', items };
-}
-
-/** Patch a Reference/Value text's stored string: `(property "Reference" VAL …)`
- *  or `(fp_text reference VAL …)`, the value is the 3rd positional in both. */
-function patchTextValue(src: SList, value: string): SList {
-  if (src.items.length === 0) return src; // new item: buildTextNode uses .text
-  return patchArg(src, 2, value);
-}
-
 /**
  * The text as the FILE holds it, before the reader substituted `${REFERENCE}`
  * and `${VALUE}` into it.
@@ -743,10 +658,8 @@ function patchTextValue(src: SList, value: string): SList {
  * board text, `(gr_text "…")`, keeps it at the 2nd and is never substituted.
  */
 export function footprintTextRaw(t: PcbTextItem): string {
-  if (t.source.items.length === 0) return t.text; // built from scratch: nothing to recover
-  const name = head(t.source) ?? '';
-  const node = t.source.items[name === 'gr_text' ? 1 : 2];
-  return node && node.kind !== 'list' ? node.value : t.text;
+  // The model keeps the text as the file has it; the view shows it resolved.
+  return t.k?.text ?? t.text;
 }
 
 /**
@@ -779,9 +692,7 @@ const setRefOrVal = (fp: PcbFootprint, kind: 'reference' | 'value', value: strin
   resolveFootprintTextVars({
     ...fp,
     ...(kind === 'reference' ? { reference: value } : { value }),
-    texts: fp.texts.map((t) =>
-      t.kind === kind ? { ...t, text: value, source: patchTextValue(t.source, value) } : t,
-    ),
+    texts: fp.texts.map((t) => (t.kind === kind ? { ...t, text: value } : t)),
   });
 
 export const setFootprintReference = (fp: PcbFootprint, value: string): PcbFootprint =>
@@ -789,27 +700,20 @@ export const setFootprintReference = (fp: PcbFootprint, value: string): PcbFootp
 export const setFootprintValue = (fp: PcbFootprint, value: string): PcbFootprint =>
   setRefOrVal(fp, 'value', value);
 
-/** Set a top-level single-string child of the footprint node (descr / tags). */
-function setFootprintStringChild(fp: PcbFootprint, name: string, value: string): PcbFootprint {
-  const src = fp.source;
-  if (src.items.length === 0) return fp; // built-from-scratch footprints carry no source yet
-  return { ...fp, source: patchChild(src, name, list(atom(name), str(value))) };
-}
-
-export const setFootprintDescription = (fp: PcbFootprint, value: string): PcbFootprint =>
-  setFootprintStringChild(fp, 'descr', value);
-export const setFootprintKeywords = (fp: PcbFootprint, value: string): PcbFootprint =>
-  setFootprintStringChild(fp, 'tags', value);
+/** `FOOTPRINT::SetLibDescription`, the `(descr …)` text. */
+export const setFootprintDescription = (fp: PcbFootprint, value: string): PcbFootprint => ({
+  ...fp,
+  descr: value || undefined,
+});
+/** `FOOTPRINT::SetKeywords`, the `(tags …)` text. */
+export const setFootprintKeywords = (fp: PcbFootprint, value: string): PcbFootprint => ({
+  ...fp,
+  tags: value || undefined,
+});
 
 /** Read the footprint's `(descr …)` / `(tags …)` text for the properties dialog. */
 export function footprintStringChild(fp: PcbFootprint, name: string): string {
-  for (const it of fp.source.items) {
-    if (isList(it) && head(it) === name) {
-      const v = it.items[1];
-      return v && v.kind === 'string' ? v.value : v && v.kind === 'atom' ? v.value : '';
-    }
-  }
-  return '';
+  return (name === 'descr' ? fp.descr : name === 'tags' ? fp.tags : undefined) ?? '';
 }
 
 // ----- pad properties ---------------------------------------------------------
@@ -826,72 +730,21 @@ export interface PadEdit {
   layers?: string[];
 }
 
-const patchArgAtom = (src: SList, index: number, value: string): SList => {
-  if (src.items.length <= index) return src;
-  const items = src.items.slice();
-  items[index] = atom(value);
-  return { kind: 'list', items };
-};
-
-const removeChild = (src: SList, name: string): SList => ({
-  kind: 'list',
-  items: src.items.filter((it) => !(isList(it) && head(it) === name)),
-});
-
-const drillNode = (d: { oblong: boolean; w: number; h: number }): SList => {
-  const items: SList['items'] = [atom('drill')];
-  if (d.oblong) items.push(atom('oval'));
-  if (d.w > 0) items.push(atom(mm(d.w)));
-  if (d.oblong && d.h > 0 && d.h !== d.w) items.push(atom(mm(d.h)));
-  return { kind: 'list', items };
-};
-
 /**
- * Apply a pad-properties edit, patching the pad's source node field-by-field so
- * every unmodelled property (pinfunction, custom primitives, margins…) survives
- * (DIALOG_PAD_PROPERTIES::TransferDataFromWindow). A source-less (just-placed)
- * pad is left for the canonical writer to build.
+ * Apply a pad-properties edit (DIALOG_PAD_PROPERTIES::TransferDataFromWindow):
+ * the edited fields on the view, the model taking them when the board is
+ * written; every other property of the pad stays as it was.
  */
 export function patchPad(pad: PcbPad, e: PadEdit): PcbPad {
   const next: PcbPad = { ...pad };
-  let src = pad.source;
-  const hasSrc = src.items.length > 0;
-  if (e.number !== undefined) {
-    next.number = e.number;
-    if (hasSrc) src = patchArg(src, 1, e.number);
-  }
-  if (e.type !== undefined) {
-    next.type = e.type;
-    if (hasSrc) src = patchArgAtom(src, 2, e.type);
-  }
-  if (e.shape !== undefined) {
-    next.shape = e.shape;
-    if (hasSrc) src = patchArgAtom(src, 3, e.shape);
-  }
+  if (e.number !== undefined) next.number = e.number;
+  if (e.type !== undefined) next.type = e.type;
+  if (e.shape !== undefined) next.shape = e.shape;
   if (e.angle !== undefined) next.angle = e.angle;
-  if (e.at !== undefined || e.angle !== undefined) {
-    next.at = e.at ?? pad.at;
-    if (hasSrc) src = patchChild(src, 'at', atNode(next.at, next.angle));
-  }
-  if (e.size !== undefined) {
-    next.size = e.size;
-    if (hasSrc)
-      src = patchChild(src, 'size', list(atom('size'), atom(mm(e.size.x)), atom(mm(e.size.y))));
-  }
-  if (e.drill !== undefined) {
-    next.drill = e.drill ?? undefined;
-    if (hasSrc)
-      src = e.drill ? patchChild(src, 'drill', drillNode(e.drill)) : removeChild(src, 'drill');
-  }
-  if (e.layers !== undefined) {
-    next.layers = e.layers;
-    if (hasSrc)
-      src = patchChild(src, 'layers', {
-        kind: 'list',
-        items: [atom('layers'), ...e.layers.map((l) => str(l))],
-      });
-  }
-  next.source = src;
+  if (e.at !== undefined) next.at = e.at;
+  if (e.size !== undefined) next.size = e.size;
+  if (e.drill !== undefined) next.drill = e.drill ?? undefined;
+  if (e.layers !== undefined) next.layers = e.layers;
   return next;
 }
 

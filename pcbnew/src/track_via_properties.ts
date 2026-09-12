@@ -15,11 +15,8 @@
  * The decision logic lives here so it can be tested without a UI.
  */
 
-import { atom, isList, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
-import { dropChild, mm, parseBoardItemId, patchChild } from './edit-board.js';
-import { itemNetNode } from './netinfo.js';
+import { parseBoardItemId } from './edit-board.js';
 import { defaultTeardropParameters } from './teardrop.js';
-import { buildTeardropParamsNode, isDefaultTeardropParams } from './write-footprint.js';
 import type {
   Board,
   FrontBackOptBool,
@@ -28,47 +25,6 @@ import type {
   PcbVia,
   TeardropParams,
 } from './types.js';
-import { viaOuterLayerNodes } from './write-board.js';
-
-const list = (...items: SNode[]): SList => ({ kind: 'list', items });
-const numNode = (name: string, iu: number): SList => list(atom(name), atom(mm(iu)));
-const xyNode = (name: string, p: { x: number; y: number }): SList =>
-  list(atom(name), atom(mm(p.x)), atom(mm(p.y)));
-
-/**
- * `(locked yes)` is present-or-absent upstream, not a `no` value, so unlocking
- * drops the child rather than writing `(locked no)`.
- */
-const patchLocked = (src: SList, locked: boolean): SList =>
-  locked ? patchChild(src, 'locked', list(atom('locked'), atom('yes'))) : dropChild(src, 'locked');
-
-/**
- * A copper item's layer children: `(layer …)` alone, or `(layers "F.Cu"
- * "F.Mask")` when it also opens the solder mask. Swapping between the two forms
- * means dropping the other spelling, or the file would carry both.
- */
-function patchCopperLayers(src: SList, layer: string, maskLayer: string | undefined): SList {
-  if (!maskLayer) {
-    return patchChild(dropChild(src, 'layers'), 'layer', list(atom('layer'), str(layer)));
-  }
-  return patchChild(dropChild(src, 'layer'), 'layers', {
-    kind: 'list',
-    items: [atom('layers'), str(layer), str(maskLayer)],
-  });
-}
-
-/**
- * The via type is a *positional* atom right after the head (`(via micro …)`),
- * so it cannot be patched like a child: the old one has to be removed and the
- * new one inserted in place.
- */
-function patchViaKind(src: SList, kind: PcbVia['kind']): SList {
-  const items = src.items.filter(
-    (it) => isList(it) || it.kind !== 'atom' || !['micro', 'blind', 'buried'].includes(it.value),
-  );
-  if (kind === 'through') return { kind: 'list', items };
-  return { kind: 'list', items: [items[0]!, atom(kind), ...items.slice(1)] };
-}
 
 /** The mask layer that pairs with a copper layer, F.Cu -> F.Mask. */
 const maskSideOf = (layer: string): string | undefined =>
@@ -309,9 +265,8 @@ export function collectTrackViaValues(sel: TrackViaSelection): TrackViaValues {
 }
 
 /**
- * Apply the fields that still hold a value, patching the item's source node in
- * step. A model change without the matching patch is invisible on save: the
- * writer emits the item's stored source verbatim.
+ * Apply the fields that still hold a value. The model takes the edit when the
+ * board is written.
  */
 function applyToTrack<T extends PcbTrack | PcbArcTrack>(
   board: Board,
@@ -319,24 +274,20 @@ function applyToTrack<T extends PcbTrack | PcbArcTrack>(
   v: TrackViaValues,
 ): T {
   let next: T = { ...item };
-  let src = item.source;
   let changed = false;
 
   if (v.net !== undefined && v.net !== item.net) {
     next.net = v.net;
-    src = patchChild(src, 'net', itemNetNode(board, v.net));
     changed = true;
   }
 
   if (v.trackWidth !== undefined && v.trackWidth !== item.width) {
     next.width = v.trackWidth;
-    src = patchChild(src, 'width', numNode('width', v.trackWidth));
     changed = true;
   }
 
   if (v.locked !== undefined && v.locked !== (item.locked ?? false)) {
     next.locked = v.locked;
-    src = patchLocked(src, v.locked);
     changed = true;
   }
 
@@ -349,7 +300,6 @@ function applyToTrack<T extends PcbTrack | PcbArcTrack>(
   if (layer !== item.layer || maskLayer !== item.maskLayer) {
     next.layer = layer;
     next.maskLayer = maskLayer;
-    src = patchCopperLayers(src, layer, maskLayer);
     changed = true;
   }
 
@@ -357,21 +307,16 @@ function applyToTrack<T extends PcbTrack | PcbArcTrack>(
     const margin = v.maskMargin === null ? undefined : v.maskMargin;
     if (margin !== item.solderMaskMargin) {
       next.solderMaskMargin = margin;
-      src =
-        margin === undefined
-          ? dropChild(src, 'solder_mask_margin')
-          : patchChild(src, 'solder_mask_margin', numNode('solder_mask_margin', margin));
       changed = true;
     }
   }
 
   if (!changed) return item;
 
-  next = { ...next, source: src };
   return next;
 }
 
-/** Move one endpoint of a straight track, patching `(start …)` / `(end …)`. */
+/** Move one endpoint of a straight track. */
 function applyTrackGeometry(track: PcbTrack, v: TrackViaValues): PcbTrack {
   const start = { x: v.startX ?? track.start.x, y: v.startY ?? track.start.y };
   const end = { x: v.endX ?? track.end.x, y: v.endY ?? track.end.y };
@@ -381,63 +326,48 @@ function applyTrackGeometry(track: PcbTrack, v: TrackViaValues): PcbTrack {
 
   if (!movedStart && !movedEnd) return track;
 
-  let src = track.source;
-  if (movedStart) src = patchChild(src, 'start', xyNode('start', start));
-  if (movedEnd) src = patchChild(src, 'end', xyNode('end', end));
-
-  return { ...track, start, end, source: src };
+  return { ...track, start, end };
 }
 
-/** Apply the via half, patching `(at …)`, `(size …)`, `(drill …)`, … */
+/** Apply the via half. */
 function applyToVia(board: Board, via: PcbVia, v: TrackViaValues): PcbVia {
   const next: PcbVia = { ...via };
-  let src = via.source;
   let changed = false;
 
   const at = { x: v.viaX ?? via.at.x, y: v.viaY ?? via.at.y };
   if (at.x !== via.at.x || at.y !== via.at.y) {
     next.at = at;
-    src = patchChild(src, 'at', xyNode('at', at));
     changed = true;
   }
 
   if (v.net !== undefined && v.net !== via.net) {
     next.net = v.net;
-    src = patchChild(src, 'net', itemNetNode(board, v.net));
     changed = true;
   }
 
   if (v.locked !== undefined && v.locked !== (via.locked ?? false)) {
     next.locked = v.locked;
-    src = patchLocked(src, v.locked);
     changed = true;
   }
 
   if (v.viaDiameter !== undefined && v.viaDiameter !== via.size) {
     next.size = v.viaDiameter;
-    src = patchChild(src, 'size', numNode('size', v.viaDiameter));
     changed = true;
   }
 
   if (v.viaDrill !== undefined && v.viaDrill !== via.drill) {
     next.drill = v.viaDrill;
-    src = patchChild(src, 'drill', numNode('drill', v.viaDrill));
     changed = true;
   }
 
   if (v.viaType !== undefined && v.viaType !== via.kind) {
     next.kind = v.viaType;
-    src = patchViaKind(src, v.viaType);
     changed = true;
   }
 
   const layers: [string, string] = [v.startLayer ?? via.layers[0], v.endLayer ?? via.layers[1]];
   if (layers[0] !== via.layers[0] || layers[1] !== via.layers[1]) {
     next.layers = layers;
-    src = patchChild(src, 'layers', {
-      kind: 'list',
-      items: [atom('layers'), str(layers[0]), str(layers[1])],
-    });
     changed = true;
   }
 
@@ -447,10 +377,6 @@ function applyToVia(board: Board, via: PcbVia, v: TrackViaValues): PcbVia {
     const have = via[key] ?? {};
     if (want.front === have.front && want.back === have.back) continue;
     next[key] = want;
-    src =
-      want.front === undefined && want.back === undefined
-        ? dropChild(src, key)
-        : patchChild(src, key, viaOuterLayerNodes({ ...next, [key]: want })[0] ?? src);
     changed = true;
   }
 
@@ -460,10 +386,6 @@ function applyToVia(board: Board, via: PcbVia, v: TrackViaValues): PcbVia {
     const value = want === null ? undefined : want;
     if (value === via[key]) continue;
     next[key] = value;
-    src =
-      value === undefined
-        ? dropChild(src, key)
-        : patchChild(src, key, list(atom(key), atom(value ? 'yes' : 'no')));
     changed = true;
   }
 
@@ -483,13 +405,10 @@ function applyToVia(board: Board, via: PcbVia, v: TrackViaValues): PcbVia {
 
   if ((Object.keys(nextTd) as (keyof TeardropParams)[]).some((k) => nextTd[k] !== td[k])) {
     next.teardrops = nextTd;
-    src = isDefaultTeardropParams(nextTd)
-      ? dropChild(src, 'teardrops')
-      : patchChild(src, 'teardrops', buildTeardropParamsNode(nextTd));
     changed = true;
   }
 
-  return changed ? { ...next, source: src } : via;
+  return changed ? next : via;
 }
 
 /**

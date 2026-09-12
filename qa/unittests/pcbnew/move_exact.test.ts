@@ -17,8 +17,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { atom, head, isList, list, str } from '@ziroeda/sexpr/src/index.js';
-import { writeBoardNode } from '@ziroeda/pcbnew/src/write-board.js';
+import { head, isList } from '@ziroeda/sexpr/src/index.js';
+import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { writtenNode, writtenNodes } from './support/written_node.js';
 import {
   defaultRotationAnchor,
   itemAnchorPoint,
@@ -30,7 +31,6 @@ import {
 import type { Board, PcbShape, PcbTrack } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const track = (x0: number, y0: number, x1: number, y1: number): PcbTrack => ({
   start: { x: MM(x0), y: MM(y0) },
@@ -38,7 +38,6 @@ const track = (x0: number, y0: number, x1: number, y1: number): PcbTrack => ({
   width: MM(0.25),
   layer: 'F.Cu',
   net: 0,
-  source: EMPTY,
 });
 
 const rect = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
@@ -48,7 +47,6 @@ const rect = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
   width: 0,
   fillMode: 'solid',
   layer: 'F.SilkS',
-  source: EMPTY,
 });
 
 const board = (over: Partial<Board> = {}): Board => ({
@@ -69,7 +67,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -305,7 +302,6 @@ describe('what each kind of item calls its anchor', () => {
           width: MM(0.25),
           layer: 'F.Cu',
           net: 0,
-          source: EMPTY,
         },
       ],
     });
@@ -327,7 +323,6 @@ describe('what each kind of item calls its anchor', () => {
           layers: ['F.Cu', 'B.Cu'],
           kind: 'through',
           net: 0,
-          source: EMPTY,
         },
       ],
     });
@@ -348,7 +343,6 @@ describe('what each kind of item calls its anchor', () => {
           width: 0,
           fillMode: 'solid',
           layer: 'F.SilkS',
-          source: EMPTY,
         },
       ],
     });
@@ -368,7 +362,6 @@ describe('what each kind of item calls its anchor', () => {
           width: MM(0.1),
           fillMode: 'none',
           layer: 'F.SilkS',
-          source: EMPTY,
         },
       ],
     });
@@ -387,7 +380,6 @@ describe('what each kind of item calls its anchor', () => {
             { x: MM(2), y: MM(3) },
             { x: MM(12), y: MM(3) },
           ],
-          source: EMPTY,
         },
       ],
     });
@@ -490,30 +482,18 @@ describe('a rectangle rotated off-axis', () => {
     expect(out.shapes[0]!.fillMode).toBe('solid');
   });
 
-  it('writes itself back out as a polygon', () => {
-    // The shape kind lives in the source node's head atom. Changing the model
-    // without the source would write a gr_rect back out and lose the rotation
-    // on the next load.
-    const withSource = board({
-      shapes: [
-        {
-          ...rect(0, 0, 10, 4),
-          source: list(
-            atom('gr_rect'),
-            list(atom('start'), atom('0'), atom('0')),
-            list(atom('end'), atom('10'), atom('4')),
-            list(atom('layer'), str('F.SilkS')),
-          ),
-        },
-      ],
-      source: list(atom('kicad_pcb'), list(atom('gr_rect'))),
-    });
-    const out = moveExact(withSource, ['shape:0'], { translation: { x: 0, y: 0 }, rotation: 30 });
-    const node = writeBoardNode(out);
-    const shapeNode = node.items[1]!;
+  /** A board read from text, so the rectangle carries its PCB_SHAPE model. */
+  const readRect = (): Board =>
+    readBoard(`(kicad_pcb (version 20241229) (generator "test")
+      (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
+      (gr_rect (start 0 0) (end 10 4) (stroke (width 0) (type solid)) (fill yes) (layer "F.SilkS")))`);
 
-    if (!isList(shapeNode)) throw new Error('expected a shape node');
-    expect(head(shapeNode)).toBe('gr_poly');
+  it('writes itself back out as a polygon', () => {
+    // `PCB_SHAPE::Rotate` retypes the rectangle as a POLY; the writer must
+    // format what the model now is, or a gr_rect would come back out and lose
+    // the rotation on the next load.
+    const out = moveExact(readRect(), ['shape:0'], { translation: { x: 0, y: 0 }, rotation: 30 });
+    const shapeNode = writtenNode(out, 'gr_poly');
 
     const childHeads = shapeNode.items.filter(isList).map((i) => head(i));
     expect(childHeads).toContain('pts');
@@ -522,27 +502,14 @@ describe('a rectangle rotated off-axis', () => {
     expect(childHeads).not.toContain('end');
     // Unrelated children are left where they were.
     expect(childHeads).toContain('layer');
+    expect(writtenNodes(out, 'gr_rect')).toHaveLength(0);
   });
 
   it('leaves a cardinal rotation writing gr_rect', () => {
-    const withSource = board({
-      shapes: [
-        {
-          ...rect(0, 0, 10, 4),
-          source: list(
-            atom('gr_rect'),
-            list(atom('start'), atom('0'), atom('0')),
-            list(atom('end'), atom('10'), atom('4')),
-          ),
-        },
-      ],
-      source: list(atom('kicad_pcb'), list(atom('gr_rect'))),
-    });
-    const out = moveExact(withSource, ['shape:0'], { translation: { x: 0, y: 0 }, rotation: 90 });
-    const shapeNode = writeBoardNode(out).items[1]!;
+    const out = moveExact(readRect(), ['shape:0'], { translation: { x: 0, y: 0 }, rotation: 90 });
 
-    if (!isList(shapeNode)) throw new Error('expected a shape node');
-    expect(head(shapeNode)).toBe('gr_rect');
+    expect(writtenNodes(out, 'gr_rect')).toHaveLength(1);
+    expect(writtenNodes(out, 'gr_poly')).toHaveLength(0);
   });
 
   it('treats a full turn as cardinal', () => {

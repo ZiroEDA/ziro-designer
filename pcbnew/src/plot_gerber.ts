@@ -16,13 +16,12 @@
  */
 
 import type { Board, PcbBarcode, PcbPad, PcbShape, PcbFootprint } from './types.js';
-import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
 import {
   GENERATOR_APPLICATION,
   GENERATOR_VENDOR,
   GENERATOR_VERSION,
 } from '@ziroeda/common/src/generator.js';
-import { childNamed, numArg } from '@ziroeda/sexpr/src/query.js';
 import { tessellateArc, rotatePcb } from './read-board.js';
 import { barcodeGeometry } from './barcode_geometry.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
@@ -98,20 +97,14 @@ interface Aperture {
 /** The board's drill/place file origin (`(setup (aux_axis_origin x y))`), the
  *  coordinate origin the "Use drill/place file origin" option plots against. */
 export function boardAuxOrigin(board: Board): Vec2 {
-  const setup = childNamed(board.source, 'setup');
-  const aux = setup ? childNamed(setup, 'aux_axis_origin') : undefined;
-  if (!aux) return { x: 0, y: 0 };
-  return { x: mmToIU(numArg(aux, 0) ?? 0), y: mmToIU(numArg(aux, 1) ?? 0) };
+  return board.auxOrigin ?? board.k?.designSettings.auxOrigin ?? { x: 0, y: 0 };
 }
 
 /** The board's grid origin (`(setup (grid_origin x y))`),
  *  `BOARD_DESIGN_SETTINGS::GetGridOrigin` — what Position Relative offers as
- *  its "grid origin" reference. Absent means the origin, as upstream defaults. */
+ *  its "Use Grid Origin" reference. */
 export function boardGridOrigin(board: Board): Vec2 {
-  const setup = childNamed(board.source, 'setup');
-  const org = setup ? childNamed(setup, 'grid_origin') : undefined;
-  if (!org) return { x: 0, y: 0 };
-  return { x: mmToIU(numArg(org, 0) ?? 0), y: mmToIU(numArg(org, 1) ?? 0) };
+  return board.gridOrigin ?? board.k?.designSettings.gridOrigin ?? { x: 0, y: 0 };
 }
 
 /** Gerber writer options (the dialog's Gerber Options + General Options). */

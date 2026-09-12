@@ -27,7 +27,6 @@ import { rotatePcb } from '@ziroeda/pcbnew/src/read-board.js';
 import type { PcbFootprint, PcbPad, PcbShape, PcbTextItem } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 /** A pad at a footprint-local offset, placed into the parent's frame. */
 const pad = (
@@ -45,7 +44,6 @@ const pad = (
     size: { x: MM(1), y: MM(1) },
     layers: ['F.Cu', 'F.Mask'],
     net: 0,
-    source: EMPTY,
     ...over,
   };
 };
@@ -65,7 +63,6 @@ const silk = (
     width: MM(0.12),
     fillMode: 'none',
     layer: 'F.SilkS',
-    source: EMPTY,
     ...over,
   };
 };
@@ -78,7 +75,6 @@ const text = (over: Partial<PcbTextItem> = {}): PcbTextItem => ({
   layer: 'F.SilkS',
   size: { x: MM(1), y: MM(1) },
   thickness: MM(0.15),
-  source: EMPTY,
   ...over,
 });
 
@@ -92,7 +88,6 @@ const polyFp = (pts: { x: number; y: number }[], filled = true): PcbFootprint =>
         width: MM(0.12),
         fillMode: filled ? 'solid' : 'none',
         layer: 'F.SilkS',
-        source: EMPTY,
       },
     ],
   });
@@ -116,7 +111,6 @@ const make = (at = { x: 0, y: 0 }, angle = 0, over: Partial<PcbFootprint> = {}):
     points: [],
     barcodes: [],
     models: [],
-    source: EMPTY,
     ...over,
   };
 };
@@ -269,7 +263,6 @@ describe('geometry', () => {
             width: MM(0.12),
             fillMode: 'none',
             layer: 'F.SilkS',
-            source: EMPTY,
           },
         ],
       });
@@ -292,7 +285,6 @@ describe('geometry', () => {
           width: MM(0.12),
           fillMode: 'none',
           layer: 'F.SilkS',
-          source: EMPTY,
         },
       ],
     });
@@ -345,7 +337,6 @@ describe('geometry', () => {
             width: MM(0.12),
             fillMode: 'none',
             layer: 'F.SilkS',
-            source: EMPTY,
           },
         ],
       });

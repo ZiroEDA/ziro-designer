@@ -1249,7 +1249,6 @@ function addTextBox(scene: BoardScene, t: PcbTextBox): void {
       bold: t.bold,
       italic: t.italic,
       justify: t.justify,
-      source: { kind: 'list', items: [] },
     });
   }
 }
@@ -1323,7 +1322,6 @@ function addTable(scene: BoardScene, t: PcbTable): void {
         bold: cell.bold,
         italic: cell.italic,
         justify: cell.justify,
-        source: { kind: 'list', items: [] },
       });
     }
   }
@@ -3213,7 +3211,6 @@ export function drawNetNames(
           layer: label.layer,
           size: { x: textSize * 0.55, y: textSize * 0.55 },
           thickness: textSize / 12,
-          source: { kind: 'list', items: [] },
         },
       });
     }
@@ -3800,7 +3797,6 @@ function addTrackNetName(
         // GAL glyph size is 0.55 · textSize; the pen is textSize/12.
         size: { x: textSize * 0.55, y: textSize * 0.55 },
         thickness: textSize / 12,
-        source: { kind: 'list', items: [] },
       },
     });
   }

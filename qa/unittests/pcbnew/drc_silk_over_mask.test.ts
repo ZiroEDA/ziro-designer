@@ -21,7 +21,6 @@ import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
 import type { Board, PcbFootprint, PcbPad, PcbShape } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 /** A 2 mm square pad at (10, 10), open on the front mask. */
 const pad = (over: Partial<PcbPad> = {}): PcbPad => ({
@@ -33,7 +32,6 @@ const pad = (over: Partial<PcbPad> = {}): PcbPad => ({
   size: { x: MM(2), y: MM(2) },
   layers: ['F.Cu', 'F.Mask'],
   net: 0,
-  source: EMPTY,
   ...over,
 });
 
@@ -44,7 +42,6 @@ const silk = (x0: number, x1: number, y = 10, layer = 'F.SilkS'): PcbShape => ({
   width: MM(0.15),
   fillMode: 'none',
   layer,
-  source: EMPTY,
 });
 
 const fp = (pads: PcbPad[], shapes: PcbShape[] = []): PcbFootprint => ({
@@ -60,7 +57,6 @@ const fp = (pads: PcbPad[], shapes: PcbShape[] = []): PcbFootprint => ({
   barcodes: [],
   models: [],
   attributes: ['allow_missing_courtyard'],
-  source: EMPTY,
 });
 
 const board = (footprints: PcbFootprint[], shapes: PcbShape[] = []): Board => ({
@@ -84,7 +80,6 @@ const board = (footprints: PcbFootprint[], shapes: PcbShape[] = []): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 const opts = (minSilkClearance: number): DrcOptions => ({

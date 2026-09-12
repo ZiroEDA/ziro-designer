@@ -26,7 +26,7 @@
  */
 
 import type { Geom, MultiPolygon, Ring } from 'polygon-clipping';
-import { pcbIuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import {
   chainPointInside,
   booleanAdd,
@@ -51,7 +51,7 @@ import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { hypot } from '@ziroeda/kimath/src/math/libm.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { defaultThermalSpokeAngle } from './padstack.js';
-import { graphicShapes, padShapes } from './drc/drc_engine.js';
+import { padShapes } from './drc/drc_engine.js';
 import {
   arcCentralAngle,
   arcRadius,
@@ -1662,11 +1662,13 @@ function fillZoneParts(
     // the value and its graphical items in file order; then the board's
     // drawings in file order; then the zones.
     const fileOrder = new Map<unknown, number>();
-    board.source.items.forEach((node, i) => {
-      fileOrder.set(node, i);
+    board.k?.tracks.forEach((t, i) => {
+      fileOrder.set(t.item, i);
     });
-    const at = (item: { source: unknown }): number =>
-      fileOrder.get(item.source) ?? Number.MAX_SAFE_INTEGER;
+    board.k?.drawings.forEach((d, i) => {
+      fileOrder.set(d.item, i);
+    });
+    const at = (item: { k?: unknown }): number => fileOrder.get(item.k) ?? Number.MAX_SAFE_INTEGER;
 
     const copperItems: { at: number; run: () => void }[] = [];
     // Tracks, arcs and vias on other nets.
@@ -1846,15 +1848,14 @@ function fillZoneParts(
 
     const fpOrder = (fp: PcbFootprint): Map<unknown, number> => {
       const m = new Map<unknown, number>();
-      fp.source.items.forEach((node, i) => {
-        m.set(node, i);
+      fp.k?.graphicalItems.forEach((g, i) => {
+        m.set(g.item, i);
       });
       return m;
     };
-    const isField = (t: PcbTextItem): boolean =>
-      t.kind === 'reference' ||
-      t.kind === 'value' ||
-      headOf(t.source as { items: unknown[] }) === 'property';
+    // The view lists the two mandatory fields among `texts`; the other fields
+    // live in `fields` and are not graphical items.
+    const isField = (t: PcbTextItem): boolean => t.kind === 'reference' || t.kind === 'value';
 
     for (const fp of board.footprints) {
       const ref = fp.texts.find((t) => t.kind === 'reference');
@@ -1865,14 +1866,14 @@ function fillZoneParts(
       const items: { at: number; run: () => void }[] = [];
       for (const s of fp.shapes ?? [])
         items.push({
-          at: order.get(s.source) ?? Number.MAX_SAFE_INTEGER,
+          at: order.get(s.k) ?? Number.MAX_SAFE_INTEGER,
           run: () => knockoutGraphic(s),
         });
       // `GraphicalItems()` holds every text that is not a field.
       for (const t of fp.texts)
         if (!isField(t))
           items.push({
-            at: order.get(t.source) ?? Number.MAX_SAFE_INTEGER,
+            at: order.get(t.k) ?? Number.MAX_SAFE_INTEGER,
             run: () => knockoutText(t),
           });
       items.sort((p, q) => p.at - q.at);
@@ -2688,7 +2689,7 @@ export function fillZones(board: Board, opts: ZoneFillOptions = {}): Board {
     // is unconditional — a zone saved `(fill no …)` is poured all the same.
     const nonEmpty = fills.filter((f) => f.polys.length > 0);
     const zones = [...working.zones];
-    zones[zi] = { ...z, filled: true, fills: nonEmpty, source: withFilledPolygons(z, nonEmpty) };
+    zones[zi] = { ...z, filled: true, fills: nonEmpty };
     working = { ...working, zones };
   }
   return working;
@@ -3541,52 +3542,4 @@ function postKnockoutMinWidthPrune(
   );
   stage?.('prune:inflated', polys);
   return booleanIntersection(polys, preDeflate);
-}
-
-/** Rewrite a zone's `(filled_polygon …)` children from its new fills. */
-function withFilledPolygons(zone: PcbZone, fills: PcbZoneFill[]): PcbZone['source'] {
-  const kept = zone.source.items.filter(
-    (it) => !(typeof it === 'object' && 'items' in it && headOf(it) === 'filled_polygon'),
-  );
-  const nodes = fills.flatMap((f) =>
-    f.polys.map((poly) => ({
-      kind: 'list' as const,
-      items: [
-        { kind: 'atom' as const, value: 'filled_polygon' },
-        {
-          kind: 'list' as const,
-          items: [
-            { kind: 'atom' as const, value: 'layer' },
-            { kind: 'string' as const, value: f.layer },
-          ],
-        },
-        {
-          kind: 'list' as const,
-          items: [
-            { kind: 'atom' as const, value: 'pts' },
-            ...poly.map((p) => ({
-              kind: 'list' as const,
-              items: [
-                { kind: 'atom' as const, value: 'xy' },
-                { kind: 'atom' as const, value: fmt(p.x) },
-                { kind: 'atom' as const, value: fmt(p.y) },
-              ],
-            })),
-          ],
-        },
-      ],
-    })),
-  );
-  return { kind: 'list', items: [...kept, ...nodes] };
-}
-
-const headOf = (node: { items: unknown[] }): string | undefined => {
-  const first = node.items[0] as { kind?: string; value?: string } | undefined;
-  return first?.kind === 'atom' ? first.value : undefined;
-};
-
-/** Internal units -> the trimmed millimetre string the writer uses. */
-function fmt(iu: number): string {
-  const s = pcbIuToMM(iu).toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
-  return s === '' || s === '-0' ? '0' : s;
 }

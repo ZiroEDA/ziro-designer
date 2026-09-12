@@ -24,9 +24,10 @@ import {
   hasEditPoints,
 } from '@ziroeda/pcbnew/src/point_editor.js';
 import type { Board, PcbShape, PcbTrack } from '@ziroeda/pcbnew/src/types.js';
+import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { flatText, writtenNode } from './support/written_node.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const rect = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
   kind: 'rect',
@@ -35,7 +36,6 @@ const rect = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
   width: MM(0.15),
   fillMode: 'none',
   layer: 'F.SilkS',
-  source: { kind: 'list', items: [{ kind: 'atom', value: 'gr_rect' }] },
 });
 
 const track = (x0: number, y0: number, x1: number, y1: number): PcbTrack => ({
@@ -44,7 +44,6 @@ const track = (x0: number, y0: number, x1: number, y1: number): PcbTrack => ({
   width: MM(0.25),
   layer: 'F.Cu',
   net: 0,
-  source: EMPTY,
 });
 
 const board = (over: Partial<Board> = {}): Board => ({
@@ -65,7 +64,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -83,7 +81,6 @@ describe('which items carry handles', () => {
           layers: ['F.Cu', 'B.Cu'],
           kind: 'through',
           net: 0,
-          source: EMPTY,
         },
       ],
     });
@@ -230,15 +227,18 @@ describe('a rectangle', () => {
     expect(out.shapes[0]!.end!.x).toBe(MM(10));
   });
 
-  it('drops the stale source node so the writer rebuilds it', () => {
-    // The parsed node still describes the old corners; keeping it would write
-    // the original geometry back out.
-    const out = dragBoardHandle(b(), 'shape:0', handle(b(), 'shape:0', 'point', 0), {
+  it('writes the dragged corners, not the ones it was read with', () => {
+    // The model behind the shape still describes the old corners until the
+    // view is folded back; the writer must format the new geometry.
+    const read = readBoard(`(kicad_pcb (version 20241229) (generator "test")
+      (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
+      (gr_rect (start 0 0) (end 10 4) (stroke (width 0.15) (type solid)) (fill no) (layer "F.SilkS")))`);
+    const out = dragBoardHandle(read, 'shape:0', handle(read, 'shape:0', 'point', 0), {
       x: MM(-5),
       y: MM(-5),
     });
 
-    expect(out.shapes[0]!.source.items).toEqual([]);
+    expect(flatText(writtenNode(out, 'gr_rect'))).toContain('(start -5 -5)');
   });
 
   it('is idempotent for a given cursor position', () => {
@@ -267,7 +267,6 @@ describe('a circle', () => {
           width: MM(0.15),
           fillMode: 'none',
           layer: 'F.SilkS',
-          source: EMPTY,
         },
       ],
     });
@@ -317,7 +316,6 @@ describe('a polygon', () => {
           width: MM(0.15),
           fillMode: 'solid',
           layer: 'F.SilkS',
-          source: EMPTY,
         },
       ],
     });
@@ -387,7 +385,6 @@ describe('tracks and arcs', () => {
           width: MM(0.25),
           layer: 'F.Cu',
           net: 0,
-          source: EMPTY,
         },
       ],
     });
@@ -405,7 +402,6 @@ describe('tracks and arcs', () => {
           width: MM(0.25),
           layer: 'F.Cu',
           net: 0,
-          source: EMPTY,
         },
       ],
     });
@@ -435,7 +431,6 @@ describe('a zone', () => {
             { x: MM(10), y: MM(10) },
             { x: 0, y: MM(10) },
           ],
-          source: EMPTY,
         },
       ],
     });

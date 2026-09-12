@@ -433,7 +433,7 @@ describe('the dragged text position', () => {
 
 describe('committing to the board', () => {
   const EMPTY_BOARD = `(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal) (44 "Edge.Cuts" user))
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (44 "Edge.Cuts" user))
   (net 0 ""))`;
 
   it('appends it and hands back its id', () => {

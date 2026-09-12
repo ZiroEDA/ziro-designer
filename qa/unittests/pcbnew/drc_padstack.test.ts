@@ -13,10 +13,9 @@
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
-import type { Board, PcbFootprint, PcbPad } from '@ziroeda/pcbnew/src/types.js';
+import type { Board, PcbPad } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const pad = (over: Partial<PcbPad> = {}): PcbPad => ({
   number: '1',
@@ -27,7 +26,6 @@ const pad = (over: Partial<PcbPad> = {}): PcbPad => ({
   size: { x: MM(1), y: MM(1) },
   layers: ['F.Cu'],
   net: 0,
-  source: EMPTY,
   ...over,
 });
 
@@ -52,7 +50,6 @@ const board = (pads: PcbPad[]): Board => ({
       barcodes: [],
       models: [],
       attributes: ['allow_missing_courtyard'],
-      source: EMPTY,
     },
   ],
   tracks: [],
@@ -68,7 +65,6 @@ const board = (pads: PcbPad[]): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 const OPTS: DrcOptions = {

@@ -11,12 +11,13 @@
  * rather than left as zero-length items.
  */
 import { describe, expect, it } from 'vitest';
+import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { flatText, writtenNodes } from './support/written_node.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { modifiableLineCount, modifyLines } from '@ziroeda/pcbnew/src/modify_lines.js';
 import type { Board, PcbShape } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const line = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
   kind: 'line',
@@ -25,7 +26,6 @@ const line = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
   width: MM(0.15),
   fillMode: 'none',
   layer: 'Edge.Cuts',
-  source: EMPTY,
 });
 
 const board = (shapes: PcbShape[]): Board => ({
@@ -46,7 +46,6 @@ const board = (shapes: PcbShape[]): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...{},
 });
 
@@ -78,7 +77,6 @@ describe('what counts as a modifiable line', () => {
         width: 0,
         fillMode: 'solid',
         layer: 'F.SilkS',
-        source: EMPTY,
       },
     ]);
 
@@ -263,18 +261,18 @@ describe('extending a selection', () => {
   });
 });
 
-describe('the source node', () => {
-  it('is dropped from a shortened line so the writer rebuilds it', () => {
-    // The parsed node still describes the old endpoints. Keeping it would write
-    // the original geometry back out and lose the fillet on reload.
-    const b = board(elbow());
-    b.shapes[0] = {
-      ...b.shapes[0]!,
-      source: { kind: 'list', items: [{ kind: 'atom', value: 'gr_line' }] },
-    };
+describe('the written file', () => {
+  it('carries the shortened line, not the endpoints it was read with', () => {
+    // The model behind the shape still describes the old endpoints until the
+    // view is folded back; the writer must format the fillet's geometry.
+    const b = readBoard(`(kicad_pcb (version 20241229) (generator "test")
+      (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
+      (gr_line (start 0 0) (end 100 0) (stroke (width 0.15) (type solid)) (layer "F.SilkS"))
+      (gr_line (start 100 0) (end 100 100) (stroke (width 0.15) (type solid)) (layer "F.SilkS")))`);
     const out = modifyLines(b, ids(2), 'fillet', { radius: MM(20) });
-    const shortened = out.board.shapes.find((s) => s.kind === 'line' && s.start!.x === 0)!;
+    const lines = writtenNodes(out.board, 'gr_line').map(flatText);
 
-    expect(shortened.source.items).toEqual([]);
+    expect(lines.some((l) => l.includes('(start 0 0)') && l.includes('(end 80 0)'))).toBe(true);
+    expect(lines.some((l) => l.includes('(end 100 0)'))).toBe(false);
   });
 });

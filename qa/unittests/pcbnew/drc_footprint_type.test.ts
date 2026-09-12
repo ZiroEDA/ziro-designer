@@ -19,7 +19,6 @@ import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
 import type { Board, PcbFootprint, PcbPad } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const smdPad = (over: Partial<PcbPad> = {}): PcbPad => ({
   number: '1',
@@ -30,7 +29,6 @@ const smdPad = (over: Partial<PcbPad> = {}): PcbPad => ({
   size: { x: MM(1), y: MM(1) },
   layers: ['F.Cu'],
   net: 0,
-  source: EMPTY,
   ...over,
 });
 
@@ -56,7 +54,6 @@ const fp = (attrs: string[], pads: PcbPad[]): PcbFootprint => ({
   barcodes: [],
   models: [],
   attributes: [...attrs, 'allow_missing_courtyard'],
-  source: EMPTY,
 });
 
 const board = (footprints: PcbFootprint[]): Board => ({
@@ -80,7 +77,6 @@ const board = (footprints: PcbFootprint[]): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 const OPTS: DrcOptions = {

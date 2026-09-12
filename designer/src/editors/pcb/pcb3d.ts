@@ -35,7 +35,7 @@ import { LEGACY_COLORS } from '@ziroeda/common/src/color4d.js';
 import type { Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Board } from '@ziroeda/pcbnew';
-import { GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
+import { B_Cu, B_Mask, F_Cu, F_Mask, GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
 import { viaIsTented } from '@ziroeda/pcbnew/src/export_d356.js';
 import {
   clickSelectionParts,
@@ -43,7 +43,6 @@ import {
   pickBoardItem,
   type PickedItem,
 } from './pick3d.js';
-import { childNamed, childrenNamed } from '@ziroeda/sexpr/src/query.js';
 import earcut from 'earcut';
 import * as THREE from 'three';
 import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/src/settings/builtin_color_themes.js';
@@ -177,7 +176,7 @@ interface Adapter {
 }
 
 /**
- * `BOARD_STACKUP` from the file's `(setup (stackup …))`: dielectric (and
+ * `BOARD_STACKUP` (`(setup (stackup …))`): dielectric (and
  * enabled inner copper) thicknesses summed into the body, F/B copper and mask
  * thicknesses taken as their own. A board without a stackup section keeps
  * the `#define` defaults — `GetStackupDescriptor().GetCount()` is 0 for it,
@@ -190,29 +189,22 @@ function stackupThicknesses(board: Board): {
   fMask?: number;
   bMask?: number;
 } {
-  const setup = childNamed(board.source, 'setup');
-  const stackup = setup ? childNamed(setup, 'stackup') : undefined;
-  if (!stackup) return {};
+  const bds = board.k?.designSettings;
+  if (!bds?.hasStackup) return {};
   const out: { body?: number; fCu?: number; bCu?: number; fMask?: number; bMask?: number } = {};
   let body = 0;
-  const str = (n: { items: { kind: string; value?: string }[] } | undefined, i: number): string => {
-    const a = n?.items[i];
-    return a && a.kind !== 'list' && a.value !== undefined ? a.value : '';
-  };
-  for (const layer of childrenNamed(stackup, 'layer')) {
-    const name = str(layer, 1);
-    const type = str(childNamed(layer, 'type'), 1);
-    // every `(thickness …)` in the node, which is the sublayers' too
+  for (const item of bds.stackup.list) {
+    // every sublayer's thickness
     let sum = 0;
-    for (const t of childrenNamed(layer, 'thickness')) sum += Number(str(t, 1)) * MM || 0;
-    if (type === 'core' || type === 'prepreg') body += sum;
-    else if (type === 'copper') {
+    for (const sub of item.sublayers) sum += sub.thickness;
+    if (item.typeName === 'core' || item.typeName === 'prepreg') body += sum;
+    else if (item.type === 'copper') {
       const t = Math.max(sum, 0.001 * MM);
-      if (name === 'F.Cu') out.fCu = t;
-      else if (name === 'B.Cu') out.bCu = t;
+      if (item.brdLayerId === F_Cu) out.fCu = t;
+      else if (item.brdLayerId === B_Cu) out.bCu = t;
       else body += t;
-    } else if (name === 'F.Mask') out.fMask = Math.max(sum, 0.001 * MM);
-    else if (name === 'B.Mask') out.bMask = Math.max(sum, 0.001 * MM);
+    } else if (item.brdLayerId === F_Mask) out.fMask = Math.max(sum, 0.001 * MM);
+    else if (item.brdLayerId === B_Mask) out.bMask = Math.max(sum, 0.001 * MM);
   }
   out.body = body;
   return out;

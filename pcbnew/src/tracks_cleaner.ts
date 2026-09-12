@@ -79,7 +79,6 @@
 
 import { segApproxCollinear } from '@ziroeda/kimath/src/geometry/seg.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { atom, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import type { Reporter } from '@ziroeda/common/src/reporter.js';
 import {
   buildCleanupConnectivity,
@@ -91,7 +90,7 @@ import {
 import { makeCleanupItem, type CleanupRcItem } from './cleanup_item.js';
 import { arcShape, viaLayers } from './drc/drc_engine.js';
 import { shapeDist, type Shape } from './drc/drc_geometry.js';
-import { boardItemId, deleteBoardItems, mm, patchChild } from './edit-board.js';
+import { boardItemId, deleteBoardItems } from './edit-board.js';
 import { groupLockedUuids } from './global_deletion.js';
 import { enabledCopperLayers } from './swap_layers.js';
 import type { Board, PcbTrack } from './types.js';
@@ -726,11 +725,6 @@ function geometryCleanup(
 // ---------------------------------------------------------------------------
 // The board the run produces
 
-const xyNode = (aName: string, aPoint: Vec2): SList => ({
-  kind: 'list',
-  items: [atom(aName), atom(mm(aPoint.x)), atom(mm(aPoint.y))] as SNode[],
-});
-
 function emitBoard(aBoard: Board, aState: CleanerState): Board {
   const merged = aState.recs.filter((r) => r.merged);
 
@@ -741,16 +735,7 @@ function emitBoard(aBoard: Board, aState: CleanerState): Board {
 
     if (!rec?.merged) return track;
 
-    return {
-      ...track,
-      start: rec.start,
-      end: rec.end,
-      source: patchChild(
-        patchChild(track.source, 'start', xyNode('start', rec.start)),
-        'end',
-        xyNode('end', rec.end),
-      ),
-    };
+    return { ...track, start: rec.start, end: rec.end };
   });
 
   return deleteBoardItems({ ...aBoard, tracks }, aState.removed);

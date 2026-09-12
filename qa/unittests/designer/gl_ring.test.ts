@@ -184,7 +184,7 @@ describe('the ring still behaves like every other primitive', () => {
 describe('a placed point reaches the GPU as a ring', () => {
   const POINT_BOARD = readBoard(
     parse(`(kicad_pcb (version 20241229)
-  (layers (0 "F.Cu" signal) (37 "F.SilkS" user "F.Silkscreen"))
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (37 "F.SilkS" user "F.Silkscreen"))
   (net 0 "")
   (point (at 10 20) (size 2) (layer "F.SilkS"))
 )`),

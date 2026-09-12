@@ -17,7 +17,6 @@ import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
 import type { Board, PcbTextItem } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const text = (over: Partial<PcbTextItem> = {}): PcbTextItem => ({
   kind: 'user',
@@ -27,7 +26,6 @@ const text = (over: Partial<PcbTextItem> = {}): PcbTextItem => ({
   layer: 'F.SilkS',
   size: { x: MM(1), y: MM(1) },
   thickness: MM(0.15),
-  source: EMPTY,
   ...over,
 });
 
@@ -52,7 +50,6 @@ const board = (texts: PcbTextItem[]): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 const BASE: DrcOptions = {

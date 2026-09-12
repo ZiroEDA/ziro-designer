@@ -286,7 +286,6 @@ import { isDrawableTextBox, newTextBox } from '@ziroeda/pcbnew/src/draw_textbox.
 import { newTable, type TableDefaults } from '@ziroeda/pcbnew/src/draw_table.js';
 
 /** An empty source node, for an item that has not been saved yet. */
-const EMPTY_SLIST = { kind: 'list' as const, items: [] };
 
 /** Stable empty/`toggleOrtho`-only sets for the 3D toolbar's `toggled` prop. */
 const EMPTY_IDS: ReadonlySet<string> = new Set();
@@ -557,7 +556,6 @@ import { HomeLink } from '../../ui/HomeLink.js';
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
 /** A node with no children, for an item that has never been in a file. */
-const EMPTY_SOURCE = { kind: 'list' as const, items: [] };
 
 /**
  * `PCB_BARCODE`'s constructor (`pcb_barcode.cpp:61-72`), for the item the
@@ -3428,7 +3426,6 @@ export function PcbEditor({
                 size: { x: textSize, y: textSize },
                 italic: true,
                 justify: ['bottom'],
-                source: EMPTY_SLIST,
               });
               if (label) {
                 ctx.lineWidth = Math.max(label.thickness, pen / v.scale);
@@ -6937,7 +6934,6 @@ export function PcbEditor({
       at: barcodeDialog.at,
       layer: activeLayer,
       textHeight: Math.round((layerClassRow(activeLayer).textHeight ?? 1) * MM),
-      source: EMPTY_SOURCE,
     };
   };
 
@@ -11557,7 +11553,7 @@ export function PcbEditor({
       )}
       {pendingTable && (
         <DialogTableProperties<TableValues>
-          initial={collectTableValues({ ...pendingTable, source: EMPTY_SLIST })}
+          initial={collectTableValues(pendingTable)}
           iuScale={pcbIUScale}
           isNew
           header={tableDialogHeader}
@@ -11576,7 +11572,7 @@ export function PcbEditor({
       )}
       {pendingTextBox && (
         <DialogTextBoxProperties
-          initial={collectTextBoxValues({ ...pendingTextBox, source: EMPTY_SLIST })}
+          initial={collectTextBoxValues(pendingTextBox)}
           units={unitLabel}
           layers={board?.layers.map((l) => l.name) ?? []}
           layerColor={layerColor}

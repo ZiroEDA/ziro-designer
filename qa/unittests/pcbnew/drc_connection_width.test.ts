@@ -29,7 +29,6 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const MM = (n: number): number => mmToIU(n);
 const P = (x: number, y: number): Vec2 => ({ x: MM(x), y: MM(y) });
-const EMPTY = { kind: 'list' as const, items: [] };
 
 /** Two 10 mm pads joined by a 0.5 mm channel — the textbook neck. */
 const DUMBBELL = [
@@ -166,7 +165,6 @@ const zone = (polys: Vec2[][], net = 1): PcbZone => ({
   layers: ['F.Cu'],
   fills: [{ layer: 'F.Cu', polys }],
   outline: [P(-10, -10), P(50, -10), P(50, 50), P(-10, 50)],
-  source: EMPTY,
 });
 
 const track = (a: Vec2, b: Vec2, width: number, net = 1): PcbTrack => ({
@@ -175,7 +173,6 @@ const track = (a: Vec2, b: Vec2, width: number, net = 1): PcbTrack => ({
   width,
   layer: 'F.Cu',
   net,
-  source: EMPTY,
 });
 
 const board = (over: Partial<Board> = {}): Board => ({
@@ -203,7 +200,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 

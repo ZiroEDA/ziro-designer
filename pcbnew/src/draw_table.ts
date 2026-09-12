@@ -123,7 +123,6 @@ export function newTable(
         border: true,
         colSpan: 1,
         rowSpan: 1,
-        source: { kind: 'list', items: [] },
       });
     }
   }

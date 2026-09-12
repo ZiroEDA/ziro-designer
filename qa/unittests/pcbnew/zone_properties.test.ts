@@ -19,6 +19,7 @@ import {
 } from '@ziroeda/pcbnew/src/zone_properties.js';
 import { fillZone } from '@ziroeda/pcbnew/src/zone_filler.js';
 import type { Board, PcbZone } from '@ziroeda/pcbnew/src/types.js';
+import { U } from './support/written_node.js';
 
 const MM = (n: number): number => mmToIU(n);
 const load = (text: string): Board => readBoard(parse(text));
@@ -28,7 +29,7 @@ const SRC = `(kicad_pcb (version 20240108) (generator "pcbnew")
   (net 0 "")
   (net 1 "GND")
   (net 2 "VCC")
-  (zone (net 1) (net_name "GND") (layer "F.Cu") (uuid "z1") (hatch edge 0.5)
+  (zone (net 1) (net_name "GND") (layer "F.Cu") (uuid "${U('z1')}") (hatch edge 0.5)
     (connect_pads (clearance 0.5))
     (min_thickness 0.25)
     (fill yes (thermal_gap 0.5) (thermal_bridge_width 0.5))
@@ -91,12 +92,17 @@ describe('apply', () => {
   });
 
   it('changes the net', () => {
-    expect(zone(roundTrip(edit({ net: 2 }))).net).toBe(2);
+    // By name: a 10.0 file carries no codes, so the reader numbers the names
+    // as it meets them and the only item's net comes back as 1.
+    const out = roundTrip(edit({ net: 2 }));
+    expect(out.nets.get(zone(out).net)).toBe('VCC');
   });
 
   it('changes a single layer, and spreads onto several', () => {
     expect(zone(roundTrip(edit({ layers: ['B.Cu'] }))).layers).toEqual(['B.Cu']);
 
+    // "Always enumerate every layer for a zone on a copper layer"
+    // (pcb_io_kicad_sexpr.cpp:2883): no `*.Cu` wildcard for a copper zone.
     const multi = edit({ layers: ['F.Cu', 'B.Cu'] });
     const flat = serializeBoard(multi).replace(/\s+/g, ' ').replace(/ \)/g, ')');
     expect(flat).toContain('(layers "F.Cu" "B.Cu")');
@@ -165,9 +171,12 @@ describe('apply', () => {
   });
 
   it('writes the area limit only in the area mode', () => {
+    // `(island_removal_mode %d)` is written unconditionally (:3022); the area
+    // follows only for AREA (:3025).
     const flat = (bd: Board) => serializeBoard(bd).replace(/\s+/g, ' ');
     expect(flat(edit({ islandRemovalMode: 'never' }))).not.toContain('island_area_min');
-    expect(flat(edit({ islandRemovalMode: 'always' }))).not.toContain('island_removal_mode');
+    expect(flat(edit({ islandRemovalMode: 'always' }))).toContain('(island_removal_mode 0)');
+    expect(flat(edit({ islandRemovalMode: 'always' }))).not.toContain('island_area_min');
     expect(flat(edit({ islandRemovalMode: 'area', islandAreaMin: 4 }))).toContain(
       '(island_area_min 4)',
     );
@@ -218,7 +227,7 @@ describe('apply', () => {
     const out = roundTrip(edit({ clearance: MM(0.3) }));
 
     expect(out.zones[0]!.outline).toEqual(b.zones[0]!.outline);
-    expect(out.zones[0]!.uuid).toBe('z1');
+    expect(out.zones[0]!.uuid).toBe(U('z1'));
     expect(out.zones[0]!.netName).toBe('GND');
   });
 
@@ -230,8 +239,6 @@ describe('apply', () => {
 });
 
 describe('island removal reaches the filler', () => {
-  const EMPTY = { kind: 'list' as const, items: [] };
-
   const pad = (at: { x: number; y: number }, net: number, size: number) => ({
     number: '1',
     type: 'smd' as const,
@@ -241,7 +248,6 @@ describe('island removal reaches the filler', () => {
     size: { x: MM(size), y: MM(size) },
     layers: ['F.Cu'],
     net,
-    source: EMPTY,
   });
 
   /**
@@ -269,7 +275,6 @@ describe('island removal reaches the filler', () => {
         points: [],
         barcodes: [],
         models: [],
-        source: EMPTY,
       },
     ],
     tracks: [],
@@ -299,7 +304,6 @@ describe('island removal reaches the filler', () => {
         minThickness: MM(0.25),
         islandRemovalMode: mode,
         islandAreaMin: areaMin,
-        source: EMPTY,
       },
     ],
     shapes: [],
@@ -311,7 +315,6 @@ describe('island removal reaches the filler', () => {
     points: [],
     barcodes: [],
     groups: [],
-    source: EMPTY,
   });
 
   const polyCount = (b: Board): number => fillZone(b, 0)[0]?.polys.length ?? 0;
@@ -347,7 +350,6 @@ describe('uniqueZonePriority', () => {
       layers: ['F.Cu'],
       outline: [],
       fills: [],
-      source: { kind: 'list', items: [] },
       ...z,
     })) as PcbZone[],
   });

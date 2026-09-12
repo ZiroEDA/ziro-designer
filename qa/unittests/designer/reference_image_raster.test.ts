@@ -25,7 +25,6 @@ import {
 import type { Board, PcbImage } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 /** Records path ops instead of drawing, so a scene can be built under node. */
 class RecordingPath2D {
@@ -65,7 +64,6 @@ const image = (over: Partial<PcbImage> = {}): PcbImage => ({
   at: { x: MM(10), y: MM(20) },
   layer: 'F.SilkS',
   data: PNG,
-  source: EMPTY,
   ...over,
 });
 
@@ -87,7 +85,6 @@ const board = (images: PcbImage[]): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 describe('the scene', () => {

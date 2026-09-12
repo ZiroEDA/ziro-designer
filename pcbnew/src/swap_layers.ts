@@ -31,13 +31,7 @@
  * Items on non-copper layers never move either — silk, mask, paste, Edge.Cuts
  * and user layers are neither keys nor values of the map.
  */
-import { dropChild, patchChild } from './edit-board.js';
-import type { SList, SNode } from '@ziroeda/sexpr/src/types.js';
 import type { Board, PcbShape, PcbTrack, PcbArcTrack, PcbVia, PcbZone } from './types.js';
-
-const atom = (value: string): SNode => ({ kind: 'atom', value });
-const str = (value: string): SNode => ({ kind: 'string', value });
-const list = (...items: SNode[]): SList => ({ kind: 'list', items });
 
 /** `IsCopperLayer` (layer_ids.h), by name: the front, the back, or an inner. */
 export function isCopperLayerName(name: string): boolean {
@@ -125,14 +119,14 @@ export function swapItemLayers(
 /**
  * Zone layer sets can hold the wildcards the file format allows.
  *
- * `read-board.ts` stores a zone's `(layers …)` verbatim, so `*.Cu` and `F&B.Cu`
- * survive into the model as literal strings where KiCad's parser would already
- * have expanded them into a real `LSET`. Neither spelling is a key in the map,
+ * The view spells a zone's `(layers …)` the way `formatLayers` writes them, so
+ * `*.Cu` and `F&B.Cu` reach the model as literal strings where KiCad's own
+ * `LSET` has already expanded them. Neither spelling is a key in the map,
  * so without this a zone on `F&B.Cu` would not move at all — the swap would
  * appear to work everywhere else and silently skip exactly the zones most
  * likely to be on both sides.
  */
-function expandLayerWildcards(layers: readonly string[], board: Board): string[] {
+export function expandLayerWildcards(layers: readonly string[], board: Board): string[] {
   const copper = enabledCopperLayers(board);
   const out: string[] = [];
 
@@ -177,28 +171,6 @@ export function swapViaLayerPair(
 }
 
 /** `(layer …)` / `(layers …)` are exclusive spellings; switching drops the other. */
-function patchLayerChild(src: SList, layers: readonly string[]): SList {
-  if (layers.length === 1)
-    return patchChild(dropChild(src, 'layers'), 'layer', list(atom('layer'), str(layers[0]!)));
-  return patchChild(dropChild(src, 'layer'), 'layers', {
-    kind: 'list',
-    items: [atom('layers'), ...layers.map(str)],
-  });
-}
-
-/** A copper item that also opens the solder mask keeps the mask entry alongside. */
-function patchCopperLayerChild(src: SList, layer: string, maskLayer?: string): SList {
-  if (!maskLayer)
-    return patchChild(dropChild(src, 'layers'), 'layer', list(atom('layer'), str(layer)));
-  return patchChild(dropChild(src, 'layer'), 'layers', {
-    kind: 'list',
-    items: [atom('layers'), str(layer), str(maskLayer)],
-  });
-}
-
-/** Every board collection is written from `source` when it has one, so a model-only change is lost on save. */
-const hasSource = (s: SList): boolean => s.items.length > 0;
-
 function movedTrack<T extends PcbTrack | PcbArcTrack>(t: T, map: ReadonlyMap<string, string>): T {
   const next = map.get(t.layer) ?? t.layer;
   if (next === t.layer) return t;
@@ -210,21 +182,13 @@ function movedTrack<T extends PcbTrack | PcbArcTrack>(t: T, map: ReadonlyMap<str
   // added by sweep was silently wiped). Carrying the name is the conservative
   // half of the divergence — nothing is lost, only kept where upstream would
   // stop emitting it.
-  return {
-    ...t,
-    layer: next,
-    source: hasSource(t.source) ? patchCopperLayerChild(t.source, next, t.maskLayer) : t.source,
-  };
+  return { ...t, layer: next };
 }
 
 function movedShape(s: PcbShape, map: ReadonlyMap<string, string>): PcbShape {
   const next = map.get(s.layer) ?? s.layer;
   if (next === s.layer) return s;
-  return {
-    ...s,
-    layer: next,
-    source: hasSource(s.source) ? patchCopperLayerChild(s.source, next, s.maskLayer) : s.source,
-  };
+  return { ...s, layer: next };
 }
 
 function movedZone(z: PcbZone, map: ReadonlyMap<string, string>, board: Board): PcbZone {
@@ -238,14 +202,7 @@ function movedZone(z: PcbZone, map: ReadonlyMap<string, string>, board: Board): 
   // lists whenever the set actually changes, and flags a refill. Keeping the
   // old fill would leave copper drawn on a layer the zone no longer occupies —
   // visually convincing and completely wrong.
-  return {
-    ...z,
-    layers: next,
-    fills: [],
-    source: hasSource(z.source)
-      ? patchLayerChild(dropChild(z.source, 'filled_polygon'), next)
-      : z.source,
-  };
+  return { ...z, layers: next, fills: [] };
 }
 
 /**
@@ -266,16 +223,7 @@ export function swapBoardLayers(board: Board, map: ReadonlyMap<string, string>):
   const vias = board.vias.map((v) => {
     const pair = swapViaLayerPair(v, map);
     if (!pair) return v;
-    return {
-      ...v,
-      layers: pair,
-      source: hasSource(v.source)
-        ? patchChild(v.source, 'layers', {
-            kind: 'list',
-            items: [atom('layers'), str(pair[0]), str(pair[1])],
-          })
-        : v.source,
-    };
+    return { ...v, layers: pair };
   });
 
   const changed =

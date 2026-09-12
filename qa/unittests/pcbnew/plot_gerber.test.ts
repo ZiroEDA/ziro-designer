@@ -149,7 +149,7 @@ describe('a barcode reaches the film', () => {
   // silkscreen or fab film that gets manufactured. Without it the board would
   // carry a barcode the fabricator never sees.
   const WITH_BARCODE = `(kicad_pcb (version 20241229) (generator x)
-  (layers (0 "F.Cu" signal) (37 "F.SilkS" user "F.Silkscreen") (44 "Dwgs.User" user))
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (37 "F.SilkS" user "F.Silkscreen") (44 "Dwgs.User" user))
   (net 0 "")
   (barcode (at 10 20 0) (layer "F.SilkS") (size 8 8) (text "ZIRO") (text_height 1.27)
     (type qr) (ecc_level L) (hide yes) (knockout no) (uuid "b1"))

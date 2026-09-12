@@ -151,14 +151,59 @@ export interface BoardHeaderView {
   embeddedFiles: EmbeddedFiles;
 }
 
+/** The `CTL_*` control bits (pcb_io_kicad_sexpr.h:200-223). */
+export const CTL_OMIT_INITIAL_COMMENTS = 1 << 0;
+export const CTL_OMIT_FOOTPRINT_VERSION = 1 << 1;
+export const CTL_OMIT_PAD_NETS = 1 << 2;
+export const CTL_OMIT_UUIDS = 1 << 3;
+export const CTL_OMIT_PATH = 1 << 4;
+export const CTL_OMIT_AT = 1 << 5;
+export const CTL_OMIT_LIBNAME = 1 << 6;
+/** Format output for a footprint library instead of clipboard or BOARD. */
+export const CTL_FOR_LIBRARY =
+  CTL_OMIT_PAD_NETS | CTL_OMIT_UUIDS | CTL_OMIT_PATH | CTL_OMIT_AT | CTL_OMIT_LIBNAME;
+/** The zero arg constructor when PCB_PLUGIN is used for PLUGIN::Load() and PLUGIN::Save()ing a BOARD file. */
+export const CTL_FOR_BOARD = CTL_OMIT_INITIAL_COMMENTS | CTL_OMIT_FOOTPRINT_VERSION;
+
+/**
+ * What a footprint formatted for a library sees where it asks the board
+ * (`GetBoard()` is null there): every layer, `MAX_CU_LAYERS` copper.
+ */
+const NO_BOARD: BoardHeaderView = {
+  generator: '',
+  netNames: new Map([[0, '']]),
+  designSettings: undefined as unknown as BoardDesignSettingsFile,
+  legacyTeardrops: false,
+  pageInfo: undefined as unknown as PageInfo,
+  titleBlock: undefined as unknown as TitleBlock,
+  enabledLayers: LSET.AllLayersMask(),
+  copperLayerCount: MAX_CU_LAYERS,
+  layerDescrs: new Map(),
+  properties: new Map(),
+  variants: [],
+  embeddedFiles: { files: new Map(), areFontsEmbedded: false },
+};
+
 export class PCB_IO_KICAD_SEXPR {
   /** `resolveGroups`' answer: group uuid -> member uuids that exist, set by `formatBoard`. */
   private m_groupMembers: Map<string, string[]> | null = null;
+  private readonly m_board: BoardHeaderView;
+  /** `GetBoard()` is null for a footprint formatted on its own. */
+  private readonly m_hasBoard: boolean;
+
+  /** The `(generator …)` a footprint written with its version names. */
+  private readonly m_generator: string;
 
   constructor(
     private readonly m_out: OUTPUTFORMATTER,
-    private readonly m_board: BoardHeaderView,
-  ) {}
+    board: BoardHeaderView | null,
+    private readonly m_ctl: number = CTL_FOR_BOARD,
+    generator: string = GENERATOR,
+  ) {
+    this.m_hasBoard = board !== null;
+    this.m_board = board ?? NO_BOARD;
+    this.m_generator = generator;
+  }
 
   // -------------------------------------------------------------------------
   // The header: formatHeader (:747) and what it calls
@@ -527,7 +572,8 @@ export class PCB_IO_KICAD_SEXPR {
       this.m_out.Print(`(solder_mask_margin ${formatInternalUnits(shape.solderMaskMargin)})`);
 
     const net = this.netName(shape.net);
-    if (net.code > 0) this.m_out.Print(`(net ${this.m_out.Quotew(net.name)})`);
+    if (!(this.m_ctl & CTL_OMIT_PAD_NETS) && net.code > 0)
+      this.m_out.Print(`(net ${this.m_out.Quotew(net.name)})`);
 
     FormatUuid(this.m_out, shape.uuid);
     this.m_out.Print(')');
@@ -705,11 +751,19 @@ export class PCB_IO_KICAD_SEXPR {
 
   /** `format( const FOOTPRINT* aFootprint )` (:1186), with `m_ctl == CTL_FOR_BOARD`. */
   formatFootprint(fp: KFootprint): void {
-    // CTL_OMIT_INITIAL_COMMENTS: none in a board.
+    if (!(this.m_ctl & CTL_OMIT_INITIAL_COMMENTS)) {
+      for (const line of fp.initialComments ?? []) this.m_out.Print(`${line}\n`);
+    }
 
-    this.m_out.Print(`(footprint ${this.m_out.Quotes(fp.fpid)}`);
+    if (this.m_ctl & CTL_OMIT_LIBNAME)
+      this.m_out.Print(`(footprint ${this.m_out.Quotes(libItemName(fp.fpid))}`);
+    else this.m_out.Print(`(footprint ${this.m_out.Quotes(fp.fpid)}`);
 
-    // CTL_OMIT_FOOTPRINT_VERSION: no (version) (generator) in a board.
+    if (!(this.m_ctl & CTL_OMIT_FOOTPRINT_VERSION)) {
+      this.m_out.Print(
+        `(version ${SEXPR_BOARD_FILE_VERSION}) (generator ${this.m_out.Quotew(this.m_generator)}) (generator_version ${this.m_out.Quotew(MAJOR_MINOR_VERSION)})`,
+      );
+    }
 
     if (fp.locked) FormatBool(this.m_out, 'locked', true);
 
@@ -717,11 +771,13 @@ export class PCB_IO_KICAD_SEXPR {
 
     this.formatLayer(fp.layer);
 
-    FormatUuid(this.m_out, fp.uuid);
+    if (!(this.m_ctl & CTL_OMIT_UUIDS)) FormatUuid(this.m_out, fp.uuid);
 
-    this.m_out.Print(
-      `(at ${formatInternalUnitsPt(fp.at)} ${fp.orientation === 0 ? '' : FormatAngle(fp.orientation)})`,
-    );
+    if (!(this.m_ctl & CTL_OMIT_AT)) {
+      this.m_out.Print(
+        `(at ${formatInternalUnitsPt(fp.at)} ${fp.orientation === 0 ? '' : FormatAngle(fp.orientation)})`,
+      );
+    }
 
     if (fp.libDescription !== '')
       this.m_out.Print(`(descr ${this.m_out.Quotew(fp.libDescription)})`);
@@ -748,7 +804,8 @@ export class PCB_IO_KICAD_SEXPR {
     if (fp.filters !== '')
       this.m_out.Print(`(property ki_fp_filters ${this.m_out.Quotew(fp.filters)})`);
 
-    if (fp.path !== '') this.m_out.Print(`(path ${this.m_out.Quotew(fp.path)})`);
+    if (!(this.m_ctl & CTL_OMIT_PATH) && fp.path !== '')
+      this.m_out.Print(`(path ${this.m_out.Quotew(fp.path)})`);
 
     if (fp.sheetname !== '') this.m_out.Print(`(sheetname ${this.m_out.Quotew(fp.sheetname)})`);
 
@@ -908,7 +965,7 @@ export class PCB_IO_KICAD_SEXPR {
     FormatBool(this.m_out, 'embedded_fonts', fp.embeddedFiles.areFontsEmbedded);
 
     if (fp.embeddedFiles.files.size > 0)
-      writeEmbeddedFiles(this.m_out, fp.embeddedFiles, false /* CTL_FOR_BOARD */);
+      writeEmbeddedFiles(this.m_out, fp.embeddedFiles, !(this.m_ctl & CTL_FOR_BOARD));
 
     // Save 3D info.
     for (const m of fp.models) {
@@ -1124,7 +1181,7 @@ export class PCB_IO_KICAD_SEXPR {
           ps.unconnectedLayerMode === 'remove_except_start_and_end',
         );
 
-        if (board) {
+        if (this.m_hasBoard) {
           // Will be nullptr in footprint library
           this.m_out.Print('(zone_layer_connections');
           for (const layer of board.enabledLayers.CuStack()) {
@@ -1166,14 +1223,17 @@ export class PCB_IO_KICAD_SEXPR {
 
     // Unconnected pad is default net so don't save it.
     const net = this.netName(pad.net);
-    if (net.code > 0) this.m_out.Print(`(net ${this.m_out.Quotew(net.name)})`);
+    if (!(this.m_ctl & CTL_OMIT_PAD_NETS) && net.code > 0)
+      this.m_out.Print(`(net ${this.m_out.Quotew(net.name)})`);
 
     // Pin functions and types are closely related to nets, so if CTL_OMIT_NETS is set, omit
     // them as well (for instance when saved from library editor).
-    if (pad.pinFunction !== '')
-      this.m_out.Print(`(pinfunction ${this.m_out.Quotew(pad.pinFunction)})`);
+    if (!(this.m_ctl & CTL_OMIT_PAD_NETS)) {
+      if (pad.pinFunction !== '')
+        this.m_out.Print(`(pinfunction ${this.m_out.Quotew(pad.pinFunction)})`);
 
-    if (pad.pinType !== '') this.m_out.Print(`(pintype ${this.m_out.Quotew(pad.pinType)})`);
+      if (pad.pinType !== '') this.m_out.Print(`(pintype ${this.m_out.Quotew(pad.pinType)})`);
+    }
 
     if (pad.padToDieLength !== 0)
       this.m_out.Print(`(die_length ${formatInternalUnits(pad.padToDieLength)})`);
@@ -1400,7 +1460,7 @@ export class PCB_IO_KICAD_SEXPR {
       } else {
         this.m_out.Print('(padstack (mode custom)');
 
-        const layerCount = board ? board.copperLayerCount : MAX_CU_LAYERS;
+        const layerCount = this.m_hasBoard ? board.copperLayerCount : MAX_CU_LAYERS;
 
         for (const layer of LAYER_RANGE(F_Cu, B_Cu, layerCount)) {
           if (layer === F_Cu) continue;
@@ -1852,7 +1912,8 @@ export class PCB_IO_KICAD_SEXPR {
 
     if (!isDefaultTeardropParameters(via.teardrops)) this.formatTeardropParameters(via.teardrops);
 
-    this.m_out.Print(`(net ${this.m_out.Quotew(this.netName(via.net).name)})`);
+    if (!(this.m_ctl & CTL_OMIT_PAD_NETS))
+      this.m_out.Print(`(net ${this.m_out.Quotew(this.netName(via.net).name)})`);
 
     FormatUuid(this.m_out, via.uuid);
     this.m_out.Print(')');
@@ -1885,7 +1946,8 @@ export class PCB_IO_KICAD_SEXPR {
     )
       this.m_out.Print(`(solder_mask_margin ${formatInternalUnits(track.solderMaskMargin)})`);
 
-    this.m_out.Print(`(net ${this.m_out.Quotew(this.netName(track.net).name)})`);
+    if (!(this.m_ctl & CTL_OMIT_PAD_NETS))
+      this.m_out.Print(`(net ${this.m_out.Quotew(this.netName(track.net).name)})`);
 
     FormatUuid(this.m_out, track.uuid);
     this.m_out.Print(')');
@@ -1902,7 +1964,7 @@ export class PCB_IO_KICAD_SEXPR {
     const onCopper = zone.layerSet.and(LSET.AllCuMask()).any();
     const net = this.netName(zone.net);
 
-    if (onCopper && !zone.isRuleArea && net.code > 0)
+    if (!(this.m_ctl & CTL_OMIT_PAD_NETS) && onCopper && !zone.isRuleArea && net.code > 0)
       this.m_out.Print(`(net ${this.m_out.Quotew(net.name)})`);
 
     if (zone.locked) FormatBool(this.m_out, 'locked', true);
@@ -1910,7 +1972,7 @@ export class PCB_IO_KICAD_SEXPR {
     // If a zone exists on multiple layers, format accordingly
     let layers = zone.layerSet;
 
-    layers = layers.and(this.m_board.enabledLayers);
+    if (this.m_hasBoard) layers = layers.and(this.m_board.enabledLayers);
 
     // Always enumerate every layer for a zone on a copper layer
     if (layers.count() > 1) this.formatLayers(layers, onCopper, true);
@@ -2090,6 +2152,27 @@ export class PCB_IO_KICAD_SEXPR {
   // -------------------------------------------------------------------------
   // BOARD (:802)
   // -------------------------------------------------------------------------
+
+  /**
+   * Every item of a board in its list order — what `SaveSelection` does with
+   * `Format( copy )` for each selected item, no sorting.
+   */
+  formatItems(board: KBoard): void {
+    this.m_groupMembers = board.groupMembers;
+    for (const fp of board.footprints) this.formatFootprint(fp);
+    for (const item of board.drawings) {
+      if (item.kind === 'target') this.formatTarget(item.item);
+      else this.formatFpGraphicalItem(item, null);
+    }
+    for (const point of board.points) this.formatPoint(point);
+    for (const t of board.tracks) {
+      if (t.kind === 'via') this.formatVia(t.item);
+      else this.formatTrack(t.item);
+    }
+    for (const zone of board.zones) this.formatZone(zone);
+    for (const group of board.groups) this.formatGroup(group);
+    for (const gen of board.generators) this.formatGenerator(gen);
+  }
 
   /** `format( const BOARD* aBoard )` (:802): the header, then every item list sorted. */
   formatBoard(board: KBoard): void {
@@ -2342,7 +2425,8 @@ export function formatEdaText(out: OUTPUTFORMATTER, text: KEdaText, controlBits:
 
   if (text.lineSpacing !== 1.0) out.Print(`(line_spacing ${FormatDouble2Str(text.lineSpacing)})`);
 
-  if (!text.autoThickness) out.Print(`(thickness ${formatInternalUnits(text.thickness)})`);
+  // `if( !GetAutoThickness() )`, and that is `GetTextThickness() == 0`.
+  if (text.thickness !== 0) out.Print(`(thickness ${formatInternalUnits(text.thickness)})`);
 
   if (text.bold) FormatBool(out, 'bold', true);
 
@@ -3188,8 +3272,61 @@ export function FormatBoard(board: KBoard, generator: string = GENERATOR): strin
   out.Print(
     `(kicad_pcb (version ${SEXPR_BOARD_FILE_VERSION}) (generator ${out.Quotew(generator)}) (generator_version ${out.Quotew(MAJOR_MINOR_VERSION)})`,
   );
-  const io = new PCB_IO_KICAD_SEXPR(out, board);
+  const io = new PCB_IO_KICAD_SEXPR(out, board, CTL_FOR_BOARD);
   io.formatBoard(board);
   out.Print(')');
   return out.Finish();
+}
+
+/**
+ * `FootprintSave` (:3360) → `FP_CACHE::Save` → `Format( footprint )` with
+ * `CTL_FOR_LIBRARY`, through a `PRETTIFIED_STRING_FORMATTER`: the
+ * `.kicad_mod` text KiCad writes. The caller has done what `FootprintSave`
+ * does to its clone first — orientation zero, front layer, no nets.
+ */
+export function FormatFootprintFile(fp: KFootprint, generator: string = GENERATOR): string {
+  const out = new PRETTIFIED_STRING_FORMATTER();
+  const io = new PCB_IO_KICAD_SEXPR(out, null, CTL_FOR_LIBRARY, generator);
+  io.formatFootprint(fp);
+  return out.Finish();
+}
+
+/**
+ * `CLIPBOARD_IO::SaveSelection` (kicad_clipboard.cpp:322) for a board
+ * selection: "we will fake being a .kicad_pcb to get the full parser
+ * kicking" — the file header, the layer table, then every item, and nothing
+ * else (no setup, no nets table: a 10.0 item names its net).
+ */
+export function FormatClipboardBoard(board: KBoard, generator: string = GENERATOR): string {
+  const out = new PRETTIFIED_STRING_FORMATTER();
+  out.Print(
+    `(kicad_pcb (version ${SEXPR_BOARD_FILE_VERSION}) (generator ${out.Quotew(generator)}) (generator_version ${out.Quotew(MAJOR_MINOR_VERSION)})`,
+  );
+  const io = new PCB_IO_KICAD_SEXPR(out, board, CTL_OMIT_INITIAL_COMMENTS, generator);
+  io.formatBoardLayers();
+  io.formatItems(board);
+  out.Print(')');
+  return out.Finish();
+}
+
+/**
+ * `CLIPBOARD_IO::SaveSelection` for a lone footprint (kicad_clipboard.cpp:207):
+ * `Format( &newFootprint )` with `CTL_FOR_CLIPBOARD`, so the footprint's own
+ * version and generator are written and its uuids and placement kept.
+ */
+export function FormatClipboardFootprint(
+  fp: KFootprint,
+  board: KBoard,
+  generator: string = GENERATOR,
+): string {
+  const out = new PRETTIFIED_STRING_FORMATTER();
+  const io = new PCB_IO_KICAD_SEXPR(out, board, CTL_OMIT_INITIAL_COMMENTS, generator);
+  io.formatFootprint(fp);
+  return out.Finish();
+}
+
+/** `LIB_ID::GetLibItemName()` of a `nickname:item` string. */
+function libItemName(fpid: string): string {
+  const i = fpid.indexOf(':');
+  return i >= 0 ? fpid.slice(i + 1) : fpid;
 }

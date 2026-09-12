@@ -55,9 +55,6 @@
 
 import { layerNameToId, viaIsTented } from './export_d356.js';
 import { enabledCopperLayers, isCopperLayerName } from './swap_layers.js';
-import { dropChild, patchChild } from './edit-board.js';
-import { atom } from '@ziroeda/sexpr/src/index.js';
-import type { SList } from '@ziroeda/sexpr/src/types.js';
 import type { Board, PcbFootprint, PcbPad, PcbVia, UnconnectedLayerMode } from './types.js';
 
 const F_CU = 0;
@@ -163,83 +160,27 @@ export function viaHasPotentiallyUnusedLayers(board: Board, via: PcbVia): boolea
 export const padHasPotentiallyUnusedLayers = (pad: PcbPad): boolean => pad.type === 'thru_hole';
 
 // ---------------------------------------------------------------------------
-// Writing the mode onto an item (model + source, so it persists)
-
-const boolNode = (name: string, value: boolean): SList => ({
-  kind: 'list',
-  items: [atom(name), atom(value ? 'yes' : 'no')],
-});
+// Writing the mode onto an item
 
 /**
- * `PCB_IO_KICAD_SEXPR::format( const PAD* )` (pcb_io_kicad_sexpr.cpp:1990).
- *
- * The pad spelling is a *pair of booleans*, not the enum: `remove_unused_layers`
- * is written both ways, and `keep_end_layers` only when the first is yes. There
- * is no pad token for `start_end_only` — neither writer nor parser has one — so
- * that mode cannot round-trip on a pad. The dialog never produces it, and this
- * function refuses to invent a spelling for it.
- *
- * `zone_layer_connections` is the filler's cache of which layers a zone forced
- * flashed. Upstream emits it only alongside a yes, so restoring all layers has
- * to drop it or the next reader would resurrect overrides for a pad that no
- * longer removes anything.
+ * `PAD::SetUnconnectedLayerMode` — the enum on the padstack; the writer spells
+ * it as the `remove_unused_layers`/`keep_end_layers` pair
+ * (`PCB_IO_KICAD_SEXPR::format( const PAD* )`, pcb_io_kicad_sexpr.cpp:1990).
+ * There is no pad token for `start_end_only`, so that mode cannot round-trip on
+ * a pad; the dialog never produces it.
  */
 export function withPadUnconnectedLayerMode(pad: PcbPad, mode: UnconnectedLayerMode): PcbPad {
-  const remove = mode !== 'keep_all';
-  let src = patchChild(
-    pad.source,
-    'remove_unused_layers',
-    boolNode('remove_unused_layers', remove),
-  );
-
-  if (remove) {
-    src = patchChild(
-      src,
-      'keep_end_layers',
-      boolNode('keep_end_layers', mode === 'remove_except_start_and_end'),
-    );
-  } else {
-    src = dropChild(src, 'keep_end_layers');
-    src = dropChild(src, 'zone_layer_connections');
-  }
-
-  return { ...pad, unconnectedLayerMode: mode, source: src };
+  return { ...pad, unconnectedLayerMode: mode };
 }
 
 /**
- * `PCB_IO_KICAD_SEXPR::format( const PCB_TRACK* )` for a via
- * (pcb_io_kicad_sexpr.cpp:2974), which spells the enum properly:
- * `keep_all` writes nothing at all, and `start_end_only` has its own token.
- *
- * Note the asymmetry with the pad above — a via in `remove_all` writes
- * `(keep_end_layers no)` explicitly, whereas `keep_all` writes neither token.
- * The via *parser* ignores a `no` on either token entirely (it only acts when
- * the value is true), so the explicit `no` is decoration; dropping the tokens
- * is what actually clears the mode.
+ * `PCB_VIA::SetUnconnectedLayerMode`; the writer
+ * (`PCB_IO_KICAD_SEXPR::format( const PCB_TRACK* )`, pcb_io_kicad_sexpr.cpp:2974)
+ * spells the enum properly: `keep_all` writes nothing at all, and
+ * `start_end_only` has its own token.
  */
 export function withViaUnconnectedLayerMode(via: PcbVia, mode: UnconnectedLayerMode): PcbVia {
-  let src = via.source;
-
-  if (mode === 'keep_all') {
-    src = dropChild(src, 'remove_unused_layers');
-    src = dropChild(src, 'keep_end_layers');
-    src = dropChild(src, 'start_end_only');
-    src = dropChild(src, 'zone_layer_connections');
-  } else if (mode === 'start_end_only') {
-    src = dropChild(src, 'remove_unused_layers');
-    src = dropChild(src, 'keep_end_layers');
-    src = patchChild(src, 'start_end_only', boolNode('start_end_only', true));
-  } else {
-    src = dropChild(src, 'start_end_only');
-    src = patchChild(src, 'remove_unused_layers', boolNode('remove_unused_layers', true));
-    src = patchChild(
-      src,
-      'keep_end_layers',
-      boolNode('keep_end_layers', mode === 'remove_except_start_and_end'),
-    );
-  }
-
-  return { ...via, unconnectedLayerMode: mode, source: src };
+  return { ...via, unconnectedLayerMode: mode };
 }
 
 // ---------------------------------------------------------------------------

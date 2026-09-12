@@ -63,14 +63,24 @@ describe('FOOTPRINT::GetUniquePadNumbers', () => {
     expect(uniquePadNumbers(fp, true).has('9')).toBe(false);
   });
 
-  it('skips an NPTH pad even when it is numbered', () => {
-    // This is the mounting-hole case A8 is about: the hole carries a number,
-    // so the empty-number rule does not catch it, and the count is inflated
-    // past anything the symbol can have pins for.
+  it('skips an NPTH pad even when the file numbers it', () => {
+    // This is the mounting-hole case A8 is about. The parser already strips
+    // the number — `if( !pad->CanHaveNumber() ) pad->SetNumber( wxEmptyString )`
+    // (pcb_io_kicad_sexpr_parser.cpp:6467-6471), NPTH being one of the two
+    // kinds that cannot — so the empty-number rule catches it on a loaded
+    // footprint, and the INCLUDE_NPTH flag only matters for a pad the editor
+    // numbered in memory.
     expect(uniquePadNumbers(fp).has('MH1')).toBe(false);
-    // …unless the caller asks for them; footprint_info_impl.cpp:53 does not.
-    expect([...uniquePadNumbers(fp, true)].sort()).toEqual(['1', '2', 'MH1']);
-    expect(uniquePadCount(fp, true)).toBe(3);
+    expect([...uniquePadNumbers(fp, true)].sort()).toEqual(['1', '2']);
+    const numbered = {
+      ...fp,
+      pads: fp.pads.map((p) =>
+        p.type === 'np_thru_hole' && p.at.x < 0 ? { ...p, number: 'MH1' } : p,
+      ),
+    };
+    expect(uniquePadNumbers(numbered).has('MH1')).toBe(false);
+    expect([...uniquePadNumbers(numbered, true)].sort()).toEqual(['1', '2', 'MH1']);
+    expect(uniquePadCount(numbered, true)).toBe(3);
   });
 
   it('skips pads with an empty number', () => {

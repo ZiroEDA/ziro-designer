@@ -17,7 +17,6 @@ import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
 import type { Board, PcbTrack, PcbZone } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const box = (x0: number, y0: number, x1: number, y1: number) => [
   { x: MM(x0), y: MM(y0) },
@@ -33,7 +32,6 @@ const zone = (polys: ReturnType<typeof box>[], over: Partial<PcbZone> = {}): Pcb
   fills: [{ layer: 'F.Cu', polys }],
   outline: box(0, 0, 100, 100),
   islandRemovalMode: 'never',
-  source: EMPTY,
   ...over,
 });
 
@@ -43,7 +41,6 @@ const track = (x0: number, y0: number, x1: number, y1: number, net = 1): PcbTrac
   width: MM(0.2),
   layer: 'F.Cu',
   net,
-  source: EMPTY,
 });
 
 const board = (over: Partial<Board> = {}): Board => ({
@@ -71,7 +68,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 

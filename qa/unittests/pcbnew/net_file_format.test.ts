@@ -30,6 +30,7 @@ import {
 } from '@ziroeda/pcbnew/src/track_via_properties.js';
 import { ORPHANED_NET } from '@ziroeda/pcbnew/src/netinfo.js';
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import { U } from './support/written_node.js';
 
 const load = (text: string): Board => readBoard(parse(text));
 
@@ -37,21 +38,20 @@ const load = (text: string): Board => readBoard(parse(text));
 function src(version: number, decls: string, netOf: (name: string) => string): string {
   return `(kicad_pcb (version ${version}) (generator "pcbnew") (generator_version "10.0")
   (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (44 "Edge.Cuts" user))
-${decls}  (footprint "R" (layer "F.Cu") (uuid "f1") (at 0 0)
-    (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu") ${netOf('GND')} (uuid "p1"))
-    (pad "2" smd rect (at 2 0) (size 1 1) (layers "F.Cu") ${netOf('VCC')} (uuid "p2")))
-  (gr_line (start 0 5) (end 5 5) (stroke (width 0.1) (type solid)) (layer "F.Cu") ${netOf('GND')} (uuid "g1"))
-  (segment (start 0 0) (end 5 0) (width 0.2) (layer "F.Cu") ${netOf('GND')} (uuid "t1"))
-  (segment (start 0 1) (end 5 1) (width 0.2) (layer "F.Cu") ${netOf('VCC')} (uuid "t2"))
-  (arc (start 0 2) (mid 1 2.5) (end 2 2) (width 0.2) (layer "F.Cu") ${netOf('GND')} (uuid "a1"))
-  (via (at 3 3) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") ${netOf('VCC')} (uuid "v1"))
-  (zone ${netOf('GND')} (layer "F.Cu") (uuid "z1") (hatch edge 0.5)
+${decls}  (footprint "R" (layer "F.Cu") (uuid "${U('f1')}") (at 0 0)
+    (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu") ${netOf('GND')} (uuid "${U('p1')}"))
+    (pad "2" smd rect (at 2 0) (size 1 1) (layers "F.Cu") ${netOf('VCC')} (uuid "${U('p2')}")))
+  (gr_line (start 0 5) (end 5 5) (stroke (width 0.1) (type solid)) (layer "F.Cu") ${netOf('GND')} (uuid "${U('g1')}"))
+  (segment (start 0 0) (end 5 0) (width 0.2) (layer "F.Cu") ${netOf('GND')} (uuid "${U('t1')}"))
+  (segment (start 0 1) (end 5 1) (width 0.2) (layer "F.Cu") ${netOf('VCC')} (uuid "${U('t2')}"))
+  (arc (start 0 2) (mid 1 2.5) (end 2 2) (width 0.2) (layer "F.Cu") ${netOf('GND')} (uuid "${U('a1')}"))
+  (via (at 3 3) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") ${netOf('VCC')} (uuid "${U('v1')}"))
+  (zone ${netOf('GND')} (layer "F.Cu") (uuid "${U('z1')}") (hatch edge 0.5)
     (polygon (pts (xy 0 0) (xy 10 0) (xy 10 10) (xy 0 10))))
 )`;
 }
 
 const LEGACY_DECLS = '  (net 0 "")\n  (net 1 "GND")\n  (net 2 "VCC")\n';
-const CODES: Record<string, string> = { GND: '1', VCC: '2' };
 
 /** A pre-20251028 file: a declaration table, and codes on the items. */
 const legacy = (): string =>
@@ -68,7 +68,7 @@ const modern = (): string => src(20260206, '', (n) => `(net "${n}")`);
 const netsOf = (b: Board): Record<string, number> => ({
   padGND: b.footprints[0]!.pads[0]!.net ?? 0,
   padVCC: b.footprints[0]!.pads[1]!.net ?? 0,
-  shape: b.shapes.find((s) => s.uuid === 'g1')!.net ?? 0,
+  shape: b.shapes.find((s) => s.uuid === U('g1'))!.net ?? 0,
   trackGND: b.tracks[0]!.net,
   trackVCC: b.tracks[1]!.net,
   arc: b.arcs[0]!.net,
@@ -123,15 +123,16 @@ describe('reading', () => {
     expect(b.vias[0]!.net).toBe(b.tracks[1]!.net);
   });
 
-  it('still calls a legacy netcode authoritative', () => {
+  it('leaves a legacy netcode the table never declared with no net at all', () => {
     // "Legacy files (pre-10.0) will have a netcode instead of a netname. This
-    // netcode is authoratative." A code the table never declared is kept as-is
-    // rather than being invented a name.
+    // netcode is authoratative." — `SetNetCode( 7 )` asks `board->FindNet( 7 )`,
+    // which misses, so `m_netinfo` is null and `GetNetCode()` is -1
+    // (board_connected_item.cpp:100-101, :117). No name is invented.
     const b = load(
       `(kicad_pcb (version 20241229) (net 0 "") (net 1 "GND")
          (segment (start 0 0) (end 1 0) (width 0.2) (layer "F.Cu") (net 7)))`,
     );
-    expect(b.tracks[0]!.net).toBe(7);
+    expect(b.tracks[0]!.net).toBe(ORPHANED_NET);
   });
 
   it('orphans a pad whose code and name disagree', () => {
@@ -176,17 +177,14 @@ function netTokens(text: string): string[] {
 const hasNetName = (text: string): boolean => /\(net_name /.test(text);
 
 describe('writing', () => {
-  it('keeps a legacy file legacy, item by item', () => {
-    // Nothing in the tree is at 20251028 yet — BOARD_FILE_VERSION is 20241229 —
-    // so this is the shape every file we write today has.
+  it('writes a legacy file at the current version, names and no table', () => {
+    // `PCB_IO_KICAD_SEXPR::SaveBoard` always writes SEXPR_BOARD_FILE_VERSION;
+    // a pre-10.0 file is re-saved in the 10.0 spelling.
     const b = load(legacy());
-    const out = serializeBoard({
-      ...b,
-      tracks: b.tracks.map((t) => ({ ...t, source: { kind: 'list', items: [] } as SList })),
-      zones: b.zones.map((z) => ({ ...z, source: { kind: 'list', items: [] } as SList })),
-    });
-    expect(netTokens(out)).toContain('1');
-    expect(hasNetName(out)).toBe(true);
+    const out = serializeBoard(b);
+    expect(out).toContain('(version 20260206)');
+    expect(netTokens(out).every((t) => /^"/.test(t))).toBe(true);
+    expect(hasNetName(out)).toBe(false);
   });
 
   it('writes names into a 20251028 file, and no net_name', () => {
@@ -195,10 +193,10 @@ describe('writing', () => {
     const b = load(modern());
     const out = serializeBoard({
       ...b,
-      tracks: b.tracks.map((t) => ({ ...t, source: { kind: 'list', items: [] } as SList })),
-      vias: b.vias.map((v) => ({ ...v, source: { kind: 'list', items: [] } as SList })),
-      arcs: b.arcs.map((a) => ({ ...a, source: { kind: 'list', items: [] } as SList })),
-      zones: b.zones.map((z) => ({ ...z, source: { kind: 'list', items: [] } as SList })),
+      tracks: b.tracks.map((t) => ({ ...t })),
+      vias: b.vias.map((v) => ({ ...v })),
+      arcs: b.arcs.map((a) => ({ ...a })),
+      zones: b.zones.map((z) => ({ ...z })),
     });
     expect(netTokens(out).every((t) => /^"/.test(t))).toBe(true);
     expect(netTokens(out)).toContain('"GND"');
@@ -208,7 +206,6 @@ describe('writing', () => {
   it('omits a 20251028 zone net when there is none to write', () => {
     // `aZone->IsOnCopperLayer() && !aZone->GetIsRuleArea() && GetNetCode() > 0`.
     const b = load(modern());
-    const bare = { kind: 'list', items: [] } as SList;
     const out = serializeBoard({
       ...b,
       tracks: [],
@@ -216,7 +213,7 @@ describe('writing', () => {
       vias: [],
       shapes: [],
       footprints: [],
-      zones: [{ ...b.zones[0]!, net: 0, source: bare }],
+      zones: [{ ...b.zones[0]!, net: 0 }],
     });
     expect(netTokens(out)).toEqual([]);
   });
@@ -226,16 +223,7 @@ describe('writing', () => {
     // again must still be the same netlist. A numeric net written into a file
     // with no declaration table is a silent rewire.
     const b = load(modern());
-    const bare = { kind: 'list', items: [] } as SList;
-    const again = load(
-      serializeBoard({
-        ...b,
-        tracks: b.tracks.map((t) => ({ ...t, source: bare })),
-        arcs: b.arcs.map((a) => ({ ...a, source: bare })),
-        vias: b.vias.map((v) => ({ ...v, source: bare })),
-        zones: b.zones.map((z) => ({ ...z, source: bare })),
-      }),
-    );
+    const again = load(serializeBoard(b));
     expect(netsOf(again)).toEqual(netsOf(b));
   });
 });
@@ -282,18 +270,16 @@ describe("changing an item's net", () => {
 
   it('writes a pad net with its name, which the parser insists on', () => {
     // `if( !IsSymbol( token ) ) Expecting( "net name" )` — a pad written as the
-    // bare code is a file KiCad refuses to open. Read off the pad itself: the
-    // legacy declaration table spells `(net 2 "VCC")` too, so a whole-file
-    // search would pass no matter what the pad said.
-    expect(itemNet(setPadNet(load(legacy()), 2), 'pad')).toBe('2 "VCC"');
+    // bare code is a file KiCad refuses to open. Read off the pad itself.
+    expect(itemNet(setPadNet(load(legacy()), 2), 'pad')).toBe('"VCC"');
   });
 
   it('writes the 20251028 pad net as the name alone', () => {
     expect(itemNet(setPadNet(load(modern()), 2), 'pad')).toBe('"VCC"');
   });
 
-  it('follows the file version on a track too', () => {
-    expect(itemNet(setTrackNet(load(legacy()), 2), 'segment')).toBe('2');
+  it('writes a track net as the name whatever the file was', () => {
+    expect(itemNet(setTrackNet(load(legacy()), 2), 'segment')).toBe('"VCC"');
     expect(itemNet(setTrackNet(load(modern()), 2), 'segment')).toBe('"VCC"');
   });
 

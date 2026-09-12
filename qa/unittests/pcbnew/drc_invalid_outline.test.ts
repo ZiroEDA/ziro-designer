@@ -20,7 +20,6 @@ import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
 import type { Board, PcbShape } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const line = (x0: number, y0: number, x1: number, y1: number, layer = 'Edge.Cuts'): PcbShape => ({
   kind: 'line',
@@ -29,7 +28,6 @@ const line = (x0: number, y0: number, x1: number, y1: number, layer = 'Edge.Cuts
   width: MM(0.05),
   fillMode: 'none',
   layer,
-  source: EMPTY,
 });
 
 /** Four lines forming a closed rectangle, as a real outline is drawn. */
@@ -61,7 +59,6 @@ const board = (shapes: PcbShape[]): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 const OPTS: DrcOptions = {
@@ -126,7 +123,6 @@ describe('board outline', () => {
       width: MM(0.05),
       fillMode: 'none',
       layer: 'Edge.Cuts',
-      source: EMPTY,
     };
 
     expect(outline(board([rect]))).toHaveLength(0);
@@ -153,7 +149,6 @@ describe('board outline', () => {
       width: MM(0.05),
       fillMode: 'none',
       layer: 'Edge.Cuts',
-      source: EMPTY,
     });
 
     expect(outline(board([circle(MM(5))]))).toHaveLength(0);

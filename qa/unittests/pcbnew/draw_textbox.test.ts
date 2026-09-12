@@ -37,7 +37,7 @@ const MM = (n: number): number => mmToIU(n);
 const P = (x: number, y: number): { x: number; y: number } => ({ x: MM(x), y: MM(y) });
 
 const EMPTY_BOARD = `(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal) (44 "Edge.Cuts" user) (39 "F.SilkS" user "F.Silkscreen"))
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (44 "Edge.Cuts" user) (39 "F.SilkS" user "F.Silkscreen"))
   (net 0 ""))`;
 const emptyBoard = (): Board => readBoard(parse(EMPTY_BOARD));
 

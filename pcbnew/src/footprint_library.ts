@@ -44,7 +44,6 @@
  */
 
 import { parse } from '@ziroeda/sexpr/src/parser.js';
-import { isList, str } from '@ziroeda/sexpr/src/types.js';
 import {
   NESTED_TABLE_ROW_TYPE,
   absolutePath,
@@ -308,20 +307,9 @@ export function footprintLibraryTimestamp(fs: FootprintLibraryFs, libPath: strin
 
 /**
  * `FOOTPRINT::SetFPID( LIB_ID( "", aName ) )` as `FP_CACHE::Load` applies it.
- * The source node's name atom is rewritten too: `writeFootprintNode` emits the
- * source's own header when there is one, so patching only the model would let
- * the old name come back the moment the footprint were saved.
  */
 function setFootprintLibId(fp: PcbFootprint, name: string): void {
   fp.lib = name;
-
-  const items = fp.source.items;
-
-  for (let i = 1; i < items.length; i++) {
-    if (isList(items[i]!)) continue;
-    items[i] = str(name);
-    return;
-  }
 }
 
 /**

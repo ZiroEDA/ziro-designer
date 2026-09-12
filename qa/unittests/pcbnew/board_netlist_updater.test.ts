@@ -274,7 +274,9 @@ describe('BOARD_NETLIST_UPDATER on an empty board', () => {
     const { result } = update(EMPTY_BOARD, NETLIST);
     const reread = readBoard(parse(serializeBoard(result.board)));
 
-    expect(reread.footprints.map((f) => f.reference)).toEqual(['C1', 'R1', 'R2']);
+    // As a set: the writer orders footprints by uuid (`BOARD_ITEM::ptr_cmp`), and
+    // a footprint the updater adds gets a fresh one.
+    expect(reread.footprints.map((f) => f.reference).sort()).toEqual(['C1', 'R1', 'R2']);
     expect([...reread.nets.values()].sort()).toEqual(['', 'GND', 'VIN', 'VOUT']);
 
     const r1 = reread.footprints.find((f) => f.reference === 'R1')!;
@@ -444,19 +446,25 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
   });
 
   it('copies symbol fields onto the footprint only with Update Fields on', () => {
+    // Every footprint carries its mandatory Datasheet and Description fields
+    // (FOOTPRINT's constructor); the user fields are the ones after them.
+    const userFields = (fp: { fields?: { name: string; value: string }[] }) =>
+      (fp.fields ?? [])
+        .filter((f) => f.name !== 'Datasheet' && f.name !== 'Description')
+        .map(({ name, value }) => ({ name, value }));
     const off = runUpdate(populated(), loadKicadNetlist(NETLIST));
-    expect(off.result.board.footprints.find((f) => f.reference === 'C1')!.fields).toEqual([]);
+    expect(userFields(off.result.board.footprints.find((f) => f.reference === 'C1')!)).toEqual([]);
 
     const on = runUpdate(populated(), loadKicadNetlist(NETLIST), { updateFields: true });
     expect(messages(on.reporter)).toContain('Updated C1 fields.');
-    expect(on.result.board.footprints.find((f) => f.reference === 'C1')!.fields).toEqual([
-      { name: 'MPN', value: 'CAP-100N', source: { kind: 'list', items: [] } },
+    expect(userFields(on.result.board.footprints.find((f) => f.reference === 'C1')!)).toEqual([
+      { name: 'MPN', value: 'CAP-100N' },
     ]);
     // The new field is written out as an invisible fab-layer property.
     const text = serializeBoard(on.result.board);
     expect(text).toContain('(property "MPN" "CAP-100N"');
-    expect(readBoard(parse(text)).footprints.find((f) => f.reference === 'C1')!.fields).toEqual([
-      expect.objectContaining({ name: 'MPN', value: 'CAP-100N' }),
+    expect(userFields(readBoard(text).footprints.find((f) => f.reference === 'C1')!)).toEqual([
+      { name: 'MPN', value: 'CAP-100N' },
     ]);
   });
 
@@ -469,15 +477,21 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
       '',
     );
 
+    const userFieldNames = (fp: { fields?: { name: string }[] }) =>
+      (fp.fields ?? []).map((f) => f.name).filter((n) => n !== 'Datasheet' && n !== 'Description');
     const kept = runUpdate(withField, loadKicadNetlist(withoutField), { updateFields: true });
-    expect(kept.result.board.footprints.find((f) => f.reference === 'C1')!.fields).toHaveLength(1);
+    expect(userFieldNames(kept.result.board.footprints.find((f) => f.reference === 'C1')!)).toEqual(
+      ['MPN'],
+    );
 
     const removed = runUpdate(withField, loadKicadNetlist(withoutField), {
       updateFields: true,
       removeExtraFields: true,
     });
     expect(messages(removed.reporter)).toContain('Removed C1 footprint fields not in symbol.');
-    expect(removed.result.board.footprints.find((f) => f.reference === 'C1')!.fields).toEqual([]);
+    expect(
+      userFieldNames(removed.result.board.footprints.find((f) => f.reference === 'C1')!),
+    ).toEqual([]);
     expect(serializeBoard(removed.result.board)).not.toContain('"CAP-100N"');
   });
 
@@ -527,10 +541,6 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
   it('reconnects a zone left on a renamed net', () => {
     let board = populated();
     const gnd = [...board.nets].find(([, name]) => name === 'GND')![0];
-    const zoneSrc = parse(
-      `(zone (net ${gnd}) (net_name "GND") (layer "B.Cu") (hatch edge 0.5)
-        (polygon (pts (xy 100 60) (xy 160 60) (xy 160 100) (xy 100 100))))`,
-    );
     board = {
       ...board,
       zones: [
@@ -543,10 +553,8 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
             { x: mmToIU(100), y: mmToIU(60) },
             { x: mmToIU(160), y: mmToIU(60) },
           ],
-          source: zoneSrc,
         },
       ],
-      source: { kind: 'list', items: [...board.source.items, zoneSrc] },
     };
 
     const { reporter, result } = runUpdate(
@@ -559,10 +567,6 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
 
   it('warns about a zone whose net has no pads at all', () => {
     let board = populated();
-    const zoneSrc = parse(
-      `(zone (net 99) (net_name "ORPHAN") (layer "B.Cu") (hatch edge 0.5)
-        (polygon (pts (xy 100 60) (xy 160 60))))`,
-    );
     board = {
       ...board,
       nets: new Map([...board.nets, [99, 'ORPHAN']]),
@@ -573,7 +577,6 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
           layers: ['B.Cu'],
           fills: [],
           outline: [{ x: mmToIU(100), y: mmToIU(60) }],
-          source: zoneSrc,
         },
       ],
     };

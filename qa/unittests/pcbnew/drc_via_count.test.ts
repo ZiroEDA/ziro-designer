@@ -21,7 +21,6 @@ import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
 import type { Board, PcbVia } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const via = (x: number, net = 1): PcbVia => ({
   at: { x: MM(x), y: MM(5) },
@@ -30,7 +29,6 @@ const via = (x: number, net = 1): PcbVia => ({
   layers: ['F.Cu', 'B.Cu'],
   kind: 'through',
   net,
-  source: EMPTY,
 });
 
 const board = (vias: PcbVia[]): Board => ({
@@ -58,7 +56,6 @@ const board = (vias: PcbVia[]): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 const BASE: DrcOptions = {

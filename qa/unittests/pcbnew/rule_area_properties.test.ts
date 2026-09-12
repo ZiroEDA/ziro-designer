@@ -28,12 +28,14 @@ import {
 } from '@ziroeda/pcbnew/src/rule_area_properties.js';
 import { convertToZone } from '@ziroeda/pcbnew/src/convert_shapes.js';
 import type { Board, PcbZone } from '@ziroeda/pcbnew/src/types.js';
+import { writtenItems } from './support/written_node.js';
 
 const MM = (n: number): number => mmToIU(n);
 const load = (text: string): Board => readBoard(parse(text));
 const roundTrip = (b: Board): Board => load(serializeBoard(b));
 const zone = (b: Board, i = 0): PcbZone => b.zones[i]!;
-const flat = (b: Board): string => serializeBoard(b).replace(/\s+/g, ' ').replace(/ \)/g, ')');
+/** The written items, one line, header excluded. */
+const flat = (b: Board): string => writtenItems(b);
 
 const KEEPOUT = `(keepout (tracks not_allowed) (vias not_allowed) (pads allowed)
     (copperpour allowed) (footprints allowed))`;
@@ -332,7 +334,9 @@ describe('uniqueZoneName', () => {
   });
 
   it('only strips an all-digit suffix', () => {
-    const c = load(src({ extra: `(zone (net 0) (layer "F.Cu") (name "guard_a"))` }));
+    const c = load(
+      src({ extra: `(zone (net 0) (layer "F.Cu") (name "guard_a") (polygon (pts (xy 0 0))))` }),
+    );
     expect(uniqueZoneName(c, 'guard_a')).toBe('guard_a_1');
   });
 });
@@ -471,7 +475,13 @@ describe('apply', () => {
       ...collectRuleAreaValues(zone(two, 1)),
       name: 'guard',
     });
-    expect(zone(roundTrip(typed), 1).name).toBe('guard_1');
+    // By name, not index: the writer orders zones by uuid, and the fixture's
+    // second zone has a fresh one.
+    expect(
+      roundTrip(typed)
+        .zones.map((z) => z.name)
+        .sort(),
+    ).toEqual(['guard', 'guard_1']);
 
     // A free name is taken as typed.
     const renamed = applyRuleAreaValues(b, 0, { ...base, name: 'shield' });

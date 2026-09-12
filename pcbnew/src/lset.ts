@@ -204,6 +204,11 @@ export class LSET {
     return found;
   }
 
+  /** `JSON.stringify` cannot serialise a BigInt; the hex form is what the file carries. */
+  toJSON(): string {
+    return this.FmtHex();
+  }
+
   /**
    * `BASE_SET::FmtHex()`: the bits as hex, least significant nibble last,
    * an underscore every eight nibbles from the right.

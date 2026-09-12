@@ -34,7 +34,6 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const MM = (n: number): number => mmToIU(n);
 const P = (x: number, y: number): Vec2 => ({ x: MM(x), y: MM(y) });
-const EMPTY = { kind: 'list' as const, items: [] };
 
 describe('finding a pair by name', () => {
   it('reads a trailing P or N', () => {
@@ -239,7 +238,6 @@ const track = (a: Vec2, b: Vec2, net: number, width = MM(0.2)): PcbTrack => ({
   width,
   layer: 'F.Cu',
   net,
-  source: EMPTY,
 });
 
 const board = (tracks: PcbTrack[], names: [number, string][]): Board => ({
@@ -263,7 +261,6 @@ const board = (tracks: PcbTrack[], names: [number, string][]): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 const OPTS: DrcOptions = {

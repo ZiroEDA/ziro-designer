@@ -34,14 +34,7 @@ export {
   DEFAULT_POINT_SIZE,
 } from './read-board.js';
 export { arcSweepDegrees } from './autoplace_matrix.js';
-export {
-  serializeFootprint,
-  writeFootprintNode,
-  buildPadNode,
-  buildShapeNode,
-  buildTextNode,
-  FOOTPRINT_FILE_VERSION,
-} from './write-footprint.js';
+export { serializeFootprint } from './write-footprint.js';
 export {
   fpItemId,
   parseFpItemId,
@@ -242,21 +235,7 @@ export {
   type PsFont,
   type PsTextAttributes,
 } from './plot_ps.js';
-export {
-  serializeBoard,
-  writeBoardNode,
-  buildTrackNode,
-  buildArcTrackNode,
-  buildViaNode,
-  buildBoardShapeNode,
-  buildBoardTextNode,
-  buildDimensionNode,
-  buildTextBoxNode,
-  buildTableNode,
-  buildImageNode,
-  BASE64_LINE_WIDTH,
-  buildTableCellNode,
-} from './write-board.js';
+export { serializeBoard } from './write-board.js';
 export {
   runDrc,
   type DrcOptions,
@@ -300,7 +279,6 @@ export {
 } from './netlist_reader/board_netlist_updater.js';
 export {
   appendNet,
-  declaredNetCodes,
   displayNetname,
   displayNetnames,
   findNet,

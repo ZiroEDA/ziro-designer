@@ -23,6 +23,7 @@ import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
 import { fontNode } from '@ziroeda/pcbnew/src/eda_text_format.js';
+import { flatText, writtenNodes } from './support/written_node.js';
 import { applyTextValues, collectTextValues } from '@ziroeda/pcbnew/src/graphic_properties.js';
 import {
   applyTextBoxValues,
@@ -63,7 +64,9 @@ describe('the face survives a read and a write', () => {
   });
 
   it('writes no token at all for a text that has none', () => {
-    const plain = out.slice(out.indexOf('"plain"'), out.indexOf('gr_text_box'));
+    const plain = writtenNodes(board, 'gr_text')
+      .map(flatText)
+      .find((t) => t.includes('"plain"'))!;
     expect(plain).not.toContain('(face');
   });
 });

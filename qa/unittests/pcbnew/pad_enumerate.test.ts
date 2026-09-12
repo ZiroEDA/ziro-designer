@@ -35,8 +35,6 @@ import {
 } from '@ziroeda/pcbnew/src/pad_enumerate.js';
 import type { PcbFootprint, PcbPad } from '@ziroeda/pcbnew/src/types.js';
 
-const EMPTY = { kind: 'list' as const, items: [] };
-
 const pad = (over: Partial<PcbPad> = {}): PcbPad => ({
   number: '',
   type: 'smd',
@@ -45,7 +43,6 @@ const pad = (over: Partial<PcbPad> = {}): PcbPad => ({
   angle: 0,
   size: { x: 500000, y: 500000 },
   layers: ['F.Cu'],
-  source: EMPTY,
   ...over,
 });
 
@@ -60,7 +57,6 @@ const footprint = (pads: PcbPad[]): PcbFootprint => ({
   points: [],
   barcodes: [],
   models: [],
-  source: EMPTY,
 });
 
 const numbers = (fp: PcbFootprint): string[] => fp.pads.map((p) => p.number);
@@ -506,10 +502,7 @@ describe('writing the number back', () => {
 )
 `;
 
-  it('survives a save and reload, keeping unmodelled pad fields', () => {
-    // The number lives twice: in PcbPad.number and as argument 1 of the pad's
-    // source node. Writing only the field round-trips the OLD number to disk,
-    // so the rename would appear to work and then vanish on reload.
+  it('survives a save and reload', () => {
     const fp = readFootprintFile(parse(SRC))!;
     const order = padEnumerationHitOrder(fp, fp.pads[1]!.at, fp.pads[1]!.at, 0, 'F.Cu');
     expect(order).toEqual([1]);
@@ -521,6 +514,8 @@ describe('writing the number back', () => {
     );
     const reread = readFootprintFile(parse(serializeFootprint(r.footprint)))!;
     expect(numbers(reread)).toEqual(['1', '9']);
-    expect(serializeFootprint(r.footprint)).toContain('(pinfunction "A")');
+    // The other pad's fields are untouched (a library file names no pin
+    // function: `CTL_OMIT_PAD_NETS`, so the layers stand in for it).
+    expect(reread.pads[0]!.layers).toEqual(fp.pads[0]!.layers);
   });
 });

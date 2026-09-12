@@ -7,6 +7,7 @@
  * makes each edit reach the file.
  */
 import { describe, it, expect } from 'vitest';
+import { U, writtenItems } from './support/written_node.js';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
@@ -24,19 +25,20 @@ const MM = (n: number): number => mmToIU(n);
 const load = (text: string): Board => readBoard(parse(text));
 const roundTrip = (b: Board): Board => load(serializeBoard(b));
 const fp = (b: Board): PcbFootprint => b.footprints[0]!;
-const flat = (b: Board): string => serializeBoard(b).replace(/\s+/g, ' ').replace(/ \)/g, ')');
+/** The written items, one line, header excluded. */
+const flat = (b: Board): string => writtenItems(b);
 
 const SRC = `(kicad_pcb (version 20240108) (generator "pcbnew")
   (net 0 "")
   (net 1 "N1")
-  (footprint "Resistor_SMD:R_0603" (layer "F.Cu") (uuid "f1") (at 20 30 90)
+  (footprint "Resistor_SMD:R_0603" (layer "F.Cu") (uuid "${U('f1')}") (at 20 30 90)
     (attr smd)
-    (property "Reference" "R1" (at 0 -2 90) (layer "F.SilkS") (uuid "t1")
+    (property "Reference" "R1" (at 0 -2 90) (layer "F.SilkS") (uuid "${U('t1')}")
       (effects (font (size 1 1) (thickness 0.15))))
-    (property "Value" "10k" (at 0 2 90) (layer "F.Fab") (uuid "t2")
+    (property "Value" "10k" (at 0 2 90) (layer "F.Fab") (uuid "${U('t2')}")
       (effects (font (size 1 1) (thickness 0.15))))
-    (pad "1" smd rect (at -0.8 0 90) (size 0.9 0.9) (layers "F.Cu") (net 1) (uuid "p1"))
-    (pad "2" smd rect (at 0.8 0 90) (size 0.9 0.9) (layers "F.Cu") (net 1) (uuid "p2")))
+    (pad "1" smd rect (at -0.8 0 90) (size 0.9 0.9) (layers "F.Cu") (net 1 "N1") (uuid "${U('p1')}"))
+    (pad "2" smd rect (at 0.8 0 90) (size 0.9 0.9) (layers "F.Cu") (net 1 "N1") (uuid "${U('p2')}")))
 )`;
 
 describe('footprintAt', () => {
@@ -80,7 +82,9 @@ describe('collect (TransferDataToWindow)', () => {
   });
 
   it('reads overrides that are present, keeping zero distinct from blank', () => {
-    const b = load(`(kicad_pcb (version 20240108)
+    // "In pre-9.0 files '0' meant inherit" (:5423-5425): the file has to be
+    // newer than 20240201 for a zero to be a real override.
+    const b = load(`(kicad_pcb (version 20241229)
       (footprint "L:F" (layer "F.Cu") (at 0 0)
         (clearance 0) (solder_mask_margin 0.1)
         (solder_paste_margin_ratio -0.05) (zone_connect 2)))`);
@@ -253,7 +257,7 @@ describe('apply', () => {
     const out = roundTrip(edit({ localClearance: MM(0.3) }));
 
     expect(fp(out).lib).toBe('Resistor_SMD:R_0603');
-    expect(fp(out).uuid).toBe('f1');
+    expect(fp(out).uuid).toBe(U('f1'));
     expect(fp(out).pads).toHaveLength(2);
     expect(fp(out).pads[1]!.number).toBe('2');
   });

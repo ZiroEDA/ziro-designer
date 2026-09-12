@@ -20,7 +20,6 @@ import {
 import { fillZones } from '@ziroeda/pcbnew/src/zone_filler.js';
 import type { Board, PcbFootprint, PcbPad, PcbVia } from '@ziroeda/pcbnew/src/types.js';
 
-const EMPTY = { kind: 'list' as const, items: [] };
 const MM = (n: number): number => mmToIU(n);
 
 const via = (at: { x: number; y: number }, over: Partial<PcbVia> = {}): PcbVia => ({
@@ -30,7 +29,6 @@ const via = (at: { x: number; y: number }, over: Partial<PcbVia> = {}): PcbVia =
   layers: ['F.Cu', 'B.Cu'],
   kind: 'through',
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -43,7 +41,6 @@ const pad = (at: { x: number; y: number }, over: Partial<PcbPad> = {}): PcbPad =
   size: { x: MM(1.5), y: MM(1.5) },
   layers: ['F.Cu'],
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -58,7 +55,6 @@ const footprint = (pads: PcbPad[]): PcbFootprint => ({
   points: [],
   barcodes: [],
   models: [],
-  source: EMPTY,
 });
 
 const board = (over: Partial<Board> = {}): Board => ({
@@ -83,7 +79,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -111,7 +106,6 @@ const mixed = (): Board =>
         width: MM(0.25),
         layer: 'F.Cu',
         net: 1,
-        source: EMPTY,
       },
       {
         start: { x: MM(20), y: MM(10) },
@@ -119,7 +113,6 @@ const mixed = (): Board =>
         width: MM(0.25),
         layer: 'F.Cu',
         net: 1,
-        source: EMPTY,
       },
       {
         start: { x: MM(30), y: MM(10) },
@@ -127,7 +120,6 @@ const mixed = (): Board =>
         width: MM(0.25),
         layer: 'F.Cu',
         net: 1,
-        source: EMPTY,
       },
     ],
   });

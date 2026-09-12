@@ -28,12 +28,9 @@
  * that case — so it is not modelled; the flags alone carry it, and the width is
  * kept so switching a border back on restores what was there.
  */
-import { atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
-import { dropChild, mm, parseBoardItemId, patchChild } from './edit-board.js';
+import { parseBoardItemId } from './edit-board.js';
 import { tableRowCount } from '@ziroeda/common/src/table.js';
 import type { Board, PcbTable, PcbTableCell, StrokeType } from './types.js';
-
-const list = (...items: SNode[]): SList => ({ kind: 'list', items });
 
 /** Every control on the dialog, flattened. The cell texts are the grid. */
 export interface TableValues {
@@ -152,72 +149,11 @@ export function applyTableValues(board: Board, index: number, v: TableValues): B
     separatorCols: v.separatorCols,
     separatorWidth: v.separatorWidth,
     separatorStyle: v.separatorStyle,
-    cells: cells.map((c) => ({ ...c, source: patchCellSource(c) })),
+    cells,
   };
 
   return {
     ...board,
-    tables: board.tables.map((cur, i) =>
-      i === index ? { ...next, source: patchTableSource(next, cur.source) } : cur,
-    ),
-  };
-}
-
-/** The cell's own `(table_cell …)` node: its text and layer. */
-function patchCellSource(c: PcbTableCell): SList {
-  if (c.source.items.length === 0) return c.source;
-  const items = [...c.source.items];
-  items[1] = str(c.text);
-  return patchChild({ kind: 'list', items }, 'layer', list(atom('layer'), str(c.layer)));
-}
-
-/** Rewrite the `(table …)` node's own children in place. */
-function patchTableSource(t: PcbTable, src: SList): SList {
-  if (src.items.length === 0) return src;
-
-  let out = patchChild(src, 'layer', list(atom('layer'), str(t.layer)));
-  out = t.locked
-    ? patchChild(out, 'locked', list(atom('locked'), atom('yes')))
-    : dropChild(out, 'locked');
-
-  const strokeNode = (w: number, style: StrokeType): SList =>
-    list(atom('stroke'), list(atom('width'), atom(mm(w))), list(atom('type'), atom(style)));
-
-  const border: SNode[] = [
-    atom('border'),
-    list(atom('external'), atom(t.borderExternal ? 'yes' : 'no')),
-    list(atom('header'), atom(t.borderHeader ? 'yes' : 'no')),
-  ];
-  if (t.borderExternal || t.borderHeader)
-    border.push(strokeNode(t.borderWidth ?? 0, t.borderStyle ?? 'solid'));
-  out = patchChild(out, 'border', { kind: 'list', items: border });
-
-  const seps: SNode[] = [
-    atom('separators'),
-    list(atom('rows'), atom(t.separatorRows ? 'yes' : 'no')),
-    list(atom('cols'), atom(t.separatorCols ? 'yes' : 'no')),
-  ];
-  if (t.separatorRows || t.separatorCols)
-    seps.push(strokeNode(t.separatorWidth ?? 0, t.separatorStyle ?? 'solid'));
-  out = patchChild(out, 'separators', { kind: 'list', items: seps });
-
-  // The cells keep their own patched nodes, in storage order.
-  let ci = 0;
-  return {
-    kind: 'list',
-    items: out.items.map((it) => {
-      if (it.kind !== 'list') return it;
-      const h = it.items[0];
-      if (!(h && h.kind === 'atom' && h.value === 'cells')) return it;
-      return {
-        kind: 'list',
-        items: it.items.map((c) => {
-          if (c.kind !== 'list') return c;
-          const ch = c.items[0];
-          if (!(ch && ch.kind === 'atom' && ch.value === 'table_cell')) return c;
-          return t.cells[ci++]?.source ?? c;
-        }),
-      };
-    }),
+    tables: board.tables.map((cur, i) => (i === index ? next : cur)),
   };
 }

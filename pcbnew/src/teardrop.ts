@@ -1760,9 +1760,6 @@ export function teardropZones(
       teardropType: td.type,
       // ZONE_BORDER_DISPLAY_STYLE::INVISIBLE_BORDER.
       hatchStyle: 'invisible' as const,
-      // Source-less, so the writer emits it from buildZoneNode. A non-empty
-      // source here would be echoed to the file verbatim.
-      source: { kind: 'list' as const, items: [] },
     });
 
     if (!td.mask) continue;
@@ -1782,7 +1779,6 @@ export function teardropZones(
       priority: td.priority,
       teardropType: td.type,
       hatchStyle: 'invisible' as const,
-      source: { kind: 'list' as const, items: [] },
     });
   }
 

@@ -28,12 +28,10 @@
  * to the wrong kind produces a file KiCad reads back differently from what was
  * saved.
  */
-import { atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
-import { dropChild, mm, parseBoardItemId, patchChild } from './edit-board.js';
+import { parseBoardItemId } from './edit-board.js';
 import { updateDimension } from './dimension_text.js';
 import { isAlignedKind } from './types.js';
-import { fontNode } from './eda_text_format.js';
 import type {
   Board,
   DimPrecision,
@@ -43,8 +41,6 @@ import type {
   DimUnitsMode,
   PcbDimension,
 } from './types.js';
-
-const list = (...items: SNode[]): SList => ({ kind: 'list', items });
 
 /** Every control on the dialog, flattened. */
 export interface DimensionValues {
@@ -207,87 +203,6 @@ export function applyDimensionValues(
 
   return {
     ...board,
-    dimensions: board.dimensions.map((cur, i) =>
-      i === index ? { ...next, source: patchDimensionSource(next, cur.source) } : cur,
-    ),
+    dimensions: board.dimensions.map((cur, i) => (i === index ? next : cur)),
   };
-}
-
-/** Rewrite the `(dimension …)` node's children in place. */
-function patchDimensionSource(d: PcbDimension, src: SList): SList {
-  if (src.items.length === 0) return src; // built from scratch on save
-
-  let out = patchChild(src, 'layer', list(atom('layer'), str(d.layer)));
-  out = d.locked
-    ? patchChild(out, 'locked', list(atom('locked'), atom('yes')))
-    : dropChild(out, 'locked');
-
-  out = {
-    kind: 'list',
-    items: out.items.map((it) => {
-      if (it.kind !== 'list') return it;
-      const head = it.items[0];
-      const name = head && head.kind === 'atom' ? head.value : '';
-      if (name === 'format' && d.format) return formatNode(d.format);
-      if (name === 'style') return styleNode(d);
-      if (name === 'gr_text' && d.text) return patchTextNode(it, d);
-      return it;
-    }),
-  };
-  return out;
-}
-
-function formatNode(f: NonNullable<PcbDimension['format']>): SList {
-  const items: SNode[] = [
-    atom('format'),
-    list(atom('prefix'), str(f.prefix)),
-    list(atom('suffix'), str(f.suffix)),
-    list(atom('units'), atom(String(f.units))),
-    list(atom('units_format'), atom(String(f.unitsFormat))),
-    list(atom('precision'), atom(String(f.precision))),
-  ];
-  // Presence is the enable flag, so an empty override is still written.
-  if (f.overrideValue !== undefined) items.push(list(atom('override_value'), str(f.overrideValue)));
-  if (f.suppressZeroes) items.push(list(atom('suppress_zeroes'), atom('yes')));
-  return { kind: 'list', items };
-}
-
-function styleNode(d: PcbDimension): SList {
-  const s = d.style;
-  const aligned = isAlignedKind(d.kind);
-  const items: SNode[] = [
-    atom('style'),
-    list(atom('thickness'), atom(mm(s.thickness))),
-    list(atom('arrow_length'), atom(mm(s.arrowLength))),
-    list(atom('text_position_mode'), atom(String(s.textPositionMode))),
-  ];
-  if (aligned && s.arrowDirection)
-    items.push(list(atom('arrow_direction'), atom(s.arrowDirection)));
-  if (aligned) items.push(list(atom('extension_height'), atom(mm(s.extensionHeight ?? 0))));
-  if (d.kind === 'leader') items.push(list(atom('text_frame'), atom(String(s.textFrame ?? 0))));
-  items.push(list(atom('extension_offset'), atom(mm(s.extensionOffset))));
-  if (s.keepTextAligned) items.push(list(atom('keep_text_aligned'), atom('yes')));
-  return { kind: 'list', items };
-}
-
-/** Patch the `(gr_text …)` child: its string, position, layer and effects. */
-function patchTextNode(node: SList, d: PcbDimension): SList {
-  const t = d.text!;
-  const items = [...node.items];
-  items[1] = str(t.text);
-  let out: SList = { kind: 'list', items };
-
-  out = patchChild(
-    out,
-    'at',
-    t.angle
-      ? list(atom('at'), atom(mm(t.at.x)), atom(mm(t.at.y)), atom(String(t.angle)))
-      : list(atom('at'), atom(mm(t.at.x)), atom(mm(t.at.y))),
-  );
-  out = patchChild(out, 'layer', list(atom('layer'), str(t.layer)));
-
-  const font = fontNode(t);
-  const effects: SNode[] = [atom('effects'), font];
-  if (t.mirror) effects.push(list(atom('justify'), atom('mirror')));
-  return patchChild(out, 'effects', { kind: 'list', items: effects });
 }

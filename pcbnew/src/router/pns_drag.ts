@@ -207,10 +207,11 @@ export function trackDragSegments(board: Board, drag: TrackDrag, chain: Chain): 
     if (reuse) {
       rebuilt.push(withTrackEnds(reuse, a, b));
     } else {
-      // A new segment the drag created: writer-canonical, with its own identity.
-      const { uuid, ...rest } = template;
+      // A new segment the drag created: its own model and identity.
+      const { uuid, k, ...rest } = template;
       void uuid;
-      rebuilt.push({ ...rest, start: a, end: b, source: { kind: 'list', items: [] } });
+      void k;
+      rebuilt.push({ ...rest, start: a, end: b });
     }
   }
   return rebuilt;

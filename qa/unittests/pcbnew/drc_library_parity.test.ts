@@ -25,7 +25,6 @@ import type { FootprintLibraryFs, LibraryDirEntry } from '@ziroeda/pcbnew/src/fo
 import type { Board, PcbFootprint, PcbPad, PcbShape } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 /* -------------------------------------------------------------------------- */
 /*  A filesystem, counting the directory scans it is asked for                 */
@@ -100,7 +99,6 @@ const pad = (number: string, localX: number, over: Partial<PcbPad> = {}): PcbPad
   size: { x: MM(0.9), y: MM(0.95) },
   layers: ['F.Cu', 'F.Paste', 'F.Mask'],
   net: 0,
-  source: EMPTY,
   ...over,
 });
 
@@ -111,7 +109,6 @@ const silk = (): PcbShape => ({
   width: MM(0.12),
   fillMode: 'none',
   layer: 'F.SilkS',
-  source: EMPTY,
 });
 
 /** A board copy of R_0603 that matches the library exactly. */
@@ -129,7 +126,6 @@ const fp = (over: Partial<PcbFootprint> = {}): PcbFootprint => ({
   points: [],
   barcodes: [],
   models: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -154,7 +150,6 @@ const board = (footprints: PcbFootprint[]): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 /* -------------------------------------------------------------------------- */

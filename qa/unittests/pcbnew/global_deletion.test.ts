@@ -41,16 +41,9 @@ import type {
 } from '@ziroeda/pcbnew/src/types.js';
 import type { SList, SNode } from '@ziroeda/sexpr/src/types.js';
 
-const EMPTY: SList = { kind: 'list', items: [] };
 const P = (x: number, y: number) => ({ x, y });
-const atom = (value: string): SNode => ({ kind: 'atom', value });
 
 /** A source node carrying `(tenting …)`, the only way the model states it. */
-const tenting = (...words: string[]): SList => ({
-  kind: 'list',
-  items: [atom('via'), { kind: 'list', items: [atom('tenting'), ...words.map(atom)] }],
-});
-
 const opts = (over: Partial<GlobalDeletionOptions> = {}): GlobalDeletionOptions => ({
   ...DEFAULTS,
   ...over,
@@ -82,7 +75,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -93,7 +85,6 @@ const shape = (layer: string, over: Partial<PcbShape> = {}): PcbShape => ({
   width: 100,
   fillMode: 'none',
   layer,
-  source: EMPTY,
   ...over,
 });
 
@@ -103,7 +94,6 @@ const track = (layer: string, over: Partial<PcbTrack> = {}): PcbTrack => ({
   width: 250,
   layer,
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -114,7 +104,6 @@ const arc = (layer: string, over: Partial<PcbArcTrack> = {}): PcbArcTrack => ({
   width: 250,
   layer,
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -129,7 +118,6 @@ const via = (
   layers,
   kind,
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -137,7 +125,6 @@ const zone = (layers: string[], over: Partial<PcbZone> = {}): PcbZone => ({
   net: 1,
   layers,
   fills: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -152,7 +139,6 @@ const footprint = (layer: string, over: Partial<PcbFootprint> = {}): PcbFootprin
   points: [],
   barcodes: [],
   models: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -163,7 +149,6 @@ const text = (layer: string, over: Partial<PcbTextItem> = {}): PcbTextItem => ({
   angle: 0,
   layer,
   size: P(1000, 1000),
-  source: EMPTY,
   ...over,
 });
 
@@ -175,7 +160,6 @@ const textBox = (layer: string, over: Partial<PcbTextBox> = {}): PcbTextBox => (
   layer,
   size: P(1000, 1000),
   border: true,
-  source: EMPTY,
   ...over,
 });
 
@@ -189,10 +173,9 @@ const table = (layer: string): PcbTable => ({
   columnWidths: [1000],
   rowHeights: [1000],
   cells: [],
-  source: EMPTY,
 });
 
-const image = (layer: string): PcbImage => ({ at: P(0, 0), layer, data: '', source: EMPTY });
+const image = (layer: string): PcbImage => ({ at: P(0, 0), layer, data: '' });
 
 const dimension = (layer: string): PcbDimension => ({
   kind: 'aligned',
@@ -200,13 +183,11 @@ const dimension = (layer: string): PcbDimension => ({
   start: P(0, 0),
   end: P(1000, 0),
   style: {} as PcbDimension['style'],
-  source: EMPTY,
 });
 
 const group = (members: string[], over: Partial<PcbGroup> = {}): PcbGroup => ({
   name: 'g',
   members,
-  source: EMPTY,
   ...over,
 });
 
@@ -517,12 +498,12 @@ describe('tracks, arcs and vias', () => {
   });
 
   it('gives an untented via its mask layer, and a tented one none', () => {
-    // `(tenting none)` on the via itself; both board defaults are "tented", so
+    // `(tenting (front no) (back no))` on the via itself; both board defaults are "tented", so
     // an ordinary via has no mask layer and a mask-layer run misses it.
     const b = board({
       vias: [
         via('through', ['F.Cu', 'B.Cu']),
-        via('through', ['F.Cu', 'B.Cu'], { source: tenting('none') }),
+        via('through', ['F.Cu', 'B.Cu'], { tenting: { front: false, back: false } }),
       ],
     });
     const onMask = opts({ tracks: true, currentLayerOnly: true, currentLayer: 'F.Mask' });

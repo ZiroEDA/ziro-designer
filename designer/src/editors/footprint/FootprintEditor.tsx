@@ -9,7 +9,6 @@ import { footprintGridForTool, footprintGridIU, footprintSnappingEnabled } from 
 import { newFootprint } from './new_footprint.js';
 import { fpLineThicknessMM } from './graphics_defaults.js';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
-import { EMPTY_SOURCE } from '@ziroeda/eeschema';
 import { applyBarcodeValues, barcodeValues } from '@ziroeda/pcbnew/src/barcode_properties.js';
 import { DialogBarcodeProperties } from '../pcb/dialogs/dialog_barcode_properties.js';
 import {
@@ -184,7 +183,6 @@ const NEW_FP_BARCODE: PcbBarcode = {
   showText: true,
   knockout: false,
   margin: { x: 0, y: 0 },
-  source: EMPTY_SOURCE,
 };
 
 /**
@@ -776,7 +774,6 @@ export function FootprintEditor({
         size: { x: mmToIU(1.524), y: mmToIU(1.524) },
         drill: { oblong: false, w: mmToIU(0.762), h: mmToIU(0.762) },
         layers: ['*.Cu', '*.Mask'],
-        source: EMPTY_SOURCE,
       };
       commit(addPad(workFp, pad), 'Add Pad');
     },
@@ -795,7 +792,6 @@ export function FootprintEditor({
         width: mmToIU(fpLineThicknessMM(activeLayer, fpCfg)),
         fillMode: 'none' as const,
         layer: activeLayer,
-        source: EMPTY_SOURCE,
       };
       if (tool === 'drawLine') return { kind: 'line', start: a, end: b, ...base };
       if (tool === 'drawRectangle') return { kind: 'rect', start: a, end: b, ...base };
@@ -833,7 +829,6 @@ export function FootprintEditor({
               at: p,
               size: DEFAULT_POINT_SIZE,
               layer: activeLayer,
-              source: EMPTY_SOURCE,
             }),
             'Place point',
           );

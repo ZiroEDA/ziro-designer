@@ -13,7 +13,6 @@
  */
 
 import { parse } from '@ziroeda/sexpr';
-import { EMPTY_SOURCE } from '@ziroeda/eeschema';
 import { settings, type FpEditSettings } from '../../prefs/settings.js';
 import {
   readFootprintFile,
@@ -192,7 +191,6 @@ export function footprintToBoard(
     shapes: [],
     texts: [],
     groups: [],
-    source: EMPTY_SOURCE,
   };
 }
 

@@ -21,7 +21,7 @@ import { fractureWithHoles, signedArea, pointInPolygon } from './geometry.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import { RPT_SEVERITY_ERROR, type Reporter } from '@ziroeda/common/src/reporter.js';
-import { FOOTPRINT_FILE_VERSION } from '@ziroeda/pcbnew/src/write-footprint.js';
+import { SEXPR_BOARD_FILE_VERSION } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 import { SYMBOL_LIB_FILE_VERSION } from '@ziroeda/eeschema/src/sch_io/sexpr/write-symbol-lib.js';
 import { WKS_FILE_VERSION } from '@ziroeda/common/src/drawing_sheet/types.js';
 
@@ -466,7 +466,7 @@ function writeFootprint(regions: Region[], o: ConvertOptions, w: number, h: numb
   const layer = o.layer;
   let s = '';
   s += `(footprint "${o.name}"\n`;
-  s += `\t(version ${FOOTPRINT_FILE_VERSION})\n`;
+  s += `\t(version ${SEXPR_BOARD_FILE_VERSION})\n`;
   s += `\t(generator "${GENERATOR}")\n`;
   s += `\t(generator_version "${GENERATOR_VERSION}")\n`;
   s += `\t(layer "F.Cu")\n`;

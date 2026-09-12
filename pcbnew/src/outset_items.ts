@@ -141,8 +141,6 @@ export function outsetSegmentRing(a: Vec2, b: Vec2, distance: number, round: boo
   return [...capA, ...capB];
 }
 
-const blank = { kind: 'list' as const, items: [] };
-
 /** `OUTSET_ROUTINE::ProcessItem`. */
 export function outsetItems(
   board: Board,
@@ -165,7 +163,6 @@ export function outsetItems(
       ...shape,
       layer: opts.layer ?? src?.layer ?? 'F.CrtYd',
       width: opts.lineWidth ?? src?.width ?? 0,
-      source: blank,
     });
   };
 

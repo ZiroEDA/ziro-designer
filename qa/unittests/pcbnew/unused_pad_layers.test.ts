@@ -33,7 +33,6 @@ import {
 } from '@ziroeda/pcbnew/src/unused_pad_layers.js';
 import type { Board, PcbFootprint, PcbPad, PcbVia } from '@ziroeda/pcbnew/src/types.js';
 
-const EMPTY = { kind: 'list' as const, items: [] };
 const P = (x: number, y: number) => ({ x, y });
 
 /** Copper layer ids, as `layerNameToId` numbers them: F=0, B=2, In<n>=2n+2. */
@@ -66,7 +65,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -91,7 +89,6 @@ const via = (
   layers,
   kind,
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -105,7 +102,6 @@ const pad = (over: Partial<PcbPad> = {}): PcbPad => ({
   drill: { oblong: false, w: 800000, h: 800000 },
   layers: ['*.Cu', '*.Mask'],
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -120,7 +116,6 @@ const footprint = (pads: PcbPad[], over: Partial<PcbFootprint> = {}): PcbFootpri
   points: [],
   barcodes: [],
   models: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -429,11 +424,10 @@ describe('the file format', () => {
   });
 
   it('spells a via built from scratch the way KiCad does', () => {
-    // buildViaNode covers source-less vias; remove_all still emits the
+    // A via the editor placed has no model yet; remove_all still emits the
     // decorative `(keep_end_layers no)` upstream writes.
     const b = board({
       vias: [via('through', ['F.Cu', 'B.Cu'], { unconnectedLayerMode: 'remove_all' })],
-      source: parse('(kicad_pcb (version 20240108))'),
     });
     const text = serializeBoard(b);
 
@@ -441,10 +435,10 @@ describe('the file format', () => {
     expect(text).toContain('(keep_end_layers no)');
   });
 
-  it('patches a source node rather than rebuilding it', () => {
+  it('rewrites the mode tokens of a via read from a file', () => {
     const src = `(kicad_pcb (version 20240108) (generator "pcbnew") ${LAYERS} (net 0 "")
       (via (at 10 10) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1)
-        (remove_unused_layers yes) (keep_end_layers yes) (uuid "v1")))`;
+        (remove_unused_layers yes) (keep_end_layers yes) (uuid "0b7b9fd4-0fd7-4a4b-9b7f-4f8a6f2d2a01")))`;
     const before = load(src);
     const after = withViaUnconnectedLayerMode(before.vias[0]!, 'start_end_only');
     const text = serializeBoard({ ...before, vias: [after] });
@@ -453,7 +447,7 @@ describe('the file format', () => {
     expect(text).toContain('(start_end_only yes)');
     expect(text).not.toContain('remove_unused_layers');
     expect(text).not.toContain('keep_end_layers');
-    expect(text).toContain('"v1"');
+    expect(text).toContain('"0b7b9fd4-0fd7-4a4b-9b7f-4f8a6f2d2a01"');
   });
 });
 
@@ -589,7 +583,7 @@ describe('PCB_VIA::FlashLayer', () => {
     // An untented via is on F.Mask; the mode never applies to a mask layer.
     const untented = via('through', ['F.Cu', 'B.Cu'], {
       unconnectedLayerMode: 'remove_all',
-      source: parse('(via (tenting (front no) (back no)))'),
+      tenting: { front: false, back: false },
     });
 
     expect(viaFlashState(b, untented, 'F.Mask')).toBe('flashed');

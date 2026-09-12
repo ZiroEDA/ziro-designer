@@ -24,19 +24,18 @@
  * measure from.
  */
 import { describe, expect, it } from 'vitest';
-import { parse, serialize } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
 import { setBoardOrigin } from '@ziroeda/pcbnew/src/edit-board.js';
 import { boardAuxOrigin, boardGridOrigin } from '@ziroeda/pcbnew/src/plot_gerber.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { GENERATOR } from '@ziroeda/common/src/generator.js';
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 
 const WITH_SETUP = `(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal))
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
   (setup
     (pad_to_mask_clearance 0)
     (aux_axis_origin 5 6)
@@ -84,7 +83,7 @@ describe('moving an origin', () => {
 
 describe('a board that never named an origin', () => {
   const NO_ORIGIN = `(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal))
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
   (setup (pad_to_mask_clearance 0))
   (net 0 "")
 )`;
@@ -107,14 +106,13 @@ describe('a board that never named an origin', () => {
 });
 
 describe('the file otherwise round-trips', () => {
-  it('an untouched board is byte-identical', () => {
-    // The guard against the writer running on every save: it must only fire
-    // when a tool actually moved an origin.
-    // The generator name comes from the constant, not from a literal: the
-    // writer stamps it on every save, and a test that spells it out fails when
-    // the product is renamed for reasons unrelated to what it checks.
-    const src = parse(WITH_SETUP.replace('"test"', `"${GENERATOR}"`));
-
-    expect(serializeBoard(readBoard(src))).toBe(serialize(src));
+  it('an untouched board writes stable bytes with both origins in place', () => {
+    // The writer is KiCad's own formatter, so a hand-written fixture is
+    // normalised by its first save; the second save must write the first
+    // one's bytes again, origins included.
+    const once = serializeBoard(readBoard(WITH_SETUP));
+    expect(once).toContain('(grid_origin 1 2)');
+    expect(once).toContain('(aux_axis_origin 5 6)');
+    expect(serializeBoard(readBoard(once))).toBe(once);
   });
 });

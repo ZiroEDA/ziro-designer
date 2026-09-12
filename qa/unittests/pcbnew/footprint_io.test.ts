@@ -83,17 +83,24 @@ const R_0603 = `(footprint "R_0603_1608Metric"
  * Comparing the ASTs made this a byte-fidelity test wearing a model test's name,
  * and it failed on the one bundled footprint still written the old way.
  */
-const strip = (fp: PcbFootprint): unknown =>
-  JSON.parse(
-    JSON.stringify({
-      ...fp,
-      source: undefined,
-      pads: fp.pads.map((p) => ({ ...p, source: undefined })),
-      texts: fp.texts.map((t) => ({ ...t, source: undefined })),
-      shapes: fp.shapes.map((sh) => ({ ...sh, source: undefined })),
-      fields: fp.fields?.map((f) => ({ ...f, source: undefined })),
-    }),
-  );
+// The view without its model (`k`) and without uuids: a library file is
+// written with CTL_OMIT_UUIDS, so every re-read item gets a fresh KIID, as
+// in KiCad.
+// `format( FOOTPRINT )` writes each child list in its comparator's order, not
+// the file's, so the lists compare as sets.
+const strip = (fp: PcbFootprint): unknown => {
+  const plain = JSON.parse(
+    JSON.stringify(fp, (key, value) =>
+      key === 'source' || key === 'k' || key === 'uuid' ? undefined : value,
+    ),
+  ) as Record<string, unknown>;
+  for (const list of ['pads', 'texts', 'shapes', 'fields', 'points', 'barcodes', 'models']) {
+    const arr = plain[list];
+    if (Array.isArray(arr))
+      plain[list] = [...arr].sort((a, b) => (JSON.stringify(a) < JSON.stringify(b) ? -1 : 1));
+  }
+  return plain;
+};
 
 describe('readFootprintFile / serializeFootprint (.kicad_mod)', () => {
   it('reads a footprint in its own local frame', () => {
@@ -230,7 +237,7 @@ describe('text variables and the footprint-holder board', () => {
   it('substitutes it on a board, where ResolveTextVar answers', () => {
     const board = readBoard(
       parse(`(kicad_pcb (version 20241229) (generator "t")
-  (layers (0 "F.Cu" signal) (35 "F.Fab" user))
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (35 "F.Fab" user))
   (net 0 "")
   ${WITH_VAR.replace('(property "Reference" "REF**"', '(property "Reference" "D7"')})`),
     );

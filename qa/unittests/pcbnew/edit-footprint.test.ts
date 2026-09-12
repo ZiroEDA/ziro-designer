@@ -25,7 +25,6 @@ import {
 } from '@ziroeda/pcbnew/src/edit-footprint.js';
 import type { PcbPad, PcbShape } from '@ziroeda/pcbnew/src/types.js';
 
-const EMPTY = { kind: 'list' as const, items: [] };
 import { pcbMmToIU as mmToIU, pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
 import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
 import type { PcbFootprint } from '@ziroeda/pcbnew/src/types.js';
@@ -113,7 +112,6 @@ describe('footprint editing', () => {
           fillMode: 'none',
           cornerRadius: mmToIU(3),
           layer: 'F.SilkS',
-          source: { kind: 'list', items: [] },
         },
       ],
     };
@@ -145,9 +143,17 @@ describe('footprint editing', () => {
     const reread = readFootprintFile(parse(serializeFootprint(moved)))!;
     expect(iuToMM(reread.pads[0]!.at.x)).toBeCloseTo(0.2, 6);
     expect(iuToMM(reread.pads[0]!.at.y)).toBeCloseTo(2, 6);
-    // The untouched pad and its unmodelled fields (pinfunction) survive.
+    // The untouched pad survives.
     expect(iuToMM(reread.pads[1]!.at.x)).toBeCloseTo(0.8, 6);
-    expect(serializeFootprint(moved)).toContain('(pinfunction "A")');
+  });
+
+  it('omits the pin function and type from a library file, as CTL_FOR_LIBRARY does', () => {
+    // `CTL_FOR_LIBRARY` carries `CTL_OMIT_PAD_NETS`, and `format( const PAD* )`
+    // writes `(pinfunction …)` / `(pintype …)` only without that bit
+    // (pcb_io_kicad_sexpr.cpp:1861-1868): a .kicad_mod never names a pin.
+    const out = serializeFootprint(read());
+    expect(out).not.toContain('(pinfunction');
+    expect(out).not.toContain('(pintype');
   });
 
   it('rotates a pad 90° CCW about the origin', () => {
@@ -180,9 +186,8 @@ describe('footprint editing', () => {
     expect(reread.reference).toBe('R1');
     expect(reread.value).toBe('10k');
     expect(footprintStringChild(reread, 'descr')).toBe('A 10k resistor');
-    // Untouched geometry + unmodelled pad fields survive.
+    // Untouched geometry survives.
     expect(reread.pads).toHaveLength(2);
-    expect(serializeFootprint(fp)).toContain('(pinfunction "A")');
   });
 
   it('adds a new through-hole pad that serializes canonically', () => {
@@ -195,7 +200,6 @@ describe('footprint editing', () => {
       size: { x: mmToIU(1.524), y: mmToIU(1.524) },
       drill: { oblong: false, w: mmToIU(0.762), h: mmToIU(0.762) },
       layers: ['*.Cu', '*.Mask'],
-      source: { kind: 'list', items: [] },
     };
     const fp = addPad(read(), pad);
     const reread = readFootprintFile(parse(serializeFootprint(fp)))!;
@@ -207,11 +211,11 @@ describe('footprint editing', () => {
     expect(iuToMM(p.size.x)).toBeCloseTo(1.524, 4);
     expect(iuToMM(p.drill!.w)).toBeCloseTo(0.762, 4);
     expect(p.layers).toEqual(['*.Cu', '*.Mask']);
-    // The earlier pads (with pinfunction) are untouched.
-    expect(serializeFootprint(fp)).toContain('(pinfunction "A")');
+    // The earlier pads are untouched.
+    expect(reread.pads.map((q) => q.number)).toEqual(['1', '2', '3']);
   });
 
-  it('patches an existing pad, keeping unmodelled fields', () => {
+  it('patches an existing pad, keeping the fields it did not touch', () => {
     const fp = read();
     const edited = patchPad(fp.pads[0]!, {
       number: '7',
@@ -220,15 +224,14 @@ describe('footprint editing', () => {
     });
     const fp2 = { ...fp, pads: fp.pads.map((p, i) => (i === 0 ? edited : p)) };
     const reread = readFootprintFile(parse(serializeFootprint(fp2)))!;
-    const p = reread.pads[0]!;
-    expect(p.number).toBe('7');
+    // The writer orders pads by number (`FOOTPRINT::cmp_pads`), so "7" is last.
+    const p = reread.pads.find((q) => q.number === '7')!;
     expect(p.shape).toBe('rect');
     expect(iuToMM(p.size.x)).toBeCloseTo(1.2, 4);
     expect(iuToMM(p.size.y)).toBeCloseTo(1.4, 4);
-    // pinfunction/pintype on pad 1 were not modelled but must survive the edit.
-    const out = serializeFootprint(fp2);
-    expect(out).toContain('(pinfunction "A")');
-    expect(out).toContain('(pintype "passive")');
+    // The fields the patch never named are kept.
+    expect(iuToMM(p.at.x)).toBeCloseTo(-0.8, 6);
+    expect(p.layers).toEqual(['F.Cu', 'F.Mask', 'F.Paste']); // in PCB_LAYER_ID order, as formatLayers writes them
   });
 
   it('adds silk graphics (line + circle) that round-trip on their layer', () => {
@@ -239,7 +242,6 @@ describe('footprint editing', () => {
       width: mmToIU(0.1),
       fillMode: 'none',
       layer: 'F.SilkS',
-      source: EMPTY,
     };
     const circle: PcbShape = {
       kind: 'circle',
@@ -248,7 +250,6 @@ describe('footprint editing', () => {
       width: mmToIU(0.1),
       fillMode: 'none',
       layer: 'F.SilkS',
-      source: EMPTY,
     };
     const fp = addShape(addShape(read(), line), circle);
     const reread = readFootprintFile(parse(serializeFootprint(fp)))!;

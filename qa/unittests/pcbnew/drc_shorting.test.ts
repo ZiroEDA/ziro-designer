@@ -16,7 +16,6 @@ import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
 import type { Board, PcbTrack } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const track = (
   x0: number,
@@ -31,7 +30,6 @@ const track = (
   width: MM(0.2),
   layer: 'F.Cu',
   net,
-  source: EMPTY,
   ...over,
 });
 
@@ -60,7 +58,6 @@ const board = (tracks: PcbTrack[], over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -181,7 +178,6 @@ describe('tracks crossing', () => {
           width: MM(0.2),
           layer: 'F.Cu',
           net: 2,
-          source: EMPTY,
         },
       ],
     });

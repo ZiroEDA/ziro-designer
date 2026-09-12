@@ -25,7 +25,6 @@ import { parse } from '@ziroeda/sexpr/src/index.js';
 import type { PcbFootprint, PcbPad, PcbShape } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const pad = (over: Partial<PcbPad> = {}): PcbPad => ({
   number: '1',
@@ -35,7 +34,6 @@ const pad = (over: Partial<PcbPad> = {}): PcbPad => ({
   angle: 0,
   size: { x: MM(1), y: MM(1) },
   layers: ['F.Cu'],
-  source: EMPTY,
   ...over,
 });
 
@@ -44,7 +42,7 @@ const line = (
   b: { x: number; y: number },
   layer: string,
   width = MM(0.1),
-): PcbShape => ({ kind: 'line', start: a, end: b, layer, width, fillMode: 'none', source: EMPTY });
+): PcbShape => ({ kind: 'line', start: a, end: b, layer, width, fillMode: 'none' });
 
 const fp = (over: Partial<PcbFootprint> = {}): PcbFootprint => ({
   lib: 'L:FP',
@@ -61,7 +59,6 @@ const fp = (over: Partial<PcbFootprint> = {}): PcbFootprint => ({
   points: [],
   barcodes: [],
   models: [],
-  source: EMPTY,
   ...over,
 });
 

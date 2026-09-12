@@ -175,28 +175,11 @@ describe('the ASCII table', () => {
   });
 
   it('takes the aux origin off every coordinate when asked', () => {
-    const withOrigin = {
+    // `BOARD_DESIGN_SETTINGS::GetAuxOrigin()`, `(setup (aux_axis_origin 4 1))`.
+    const withOrigin: Board = {
       ...board([fp({ at: P(10_000_000, 5_000_000) })]),
-      source: {
-        kind: 'list' as const,
-        items: [
-          {
-            kind: 'list' as const,
-            items: [
-              { kind: 'atom' as const, value: 'setup' },
-              {
-                kind: 'list' as const,
-                items: [
-                  { kind: 'atom' as const, value: 'aux_axis_origin' },
-                  { kind: 'atom' as const, value: '4' },
-                  { kind: 'atom' as const, value: '1' },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-    } as unknown as Board;
+      auxOrigin: P(4_000_000, 1_000_000),
+    };
 
     // Without the flag the origin is (0,0) whatever the board says.
     expect(rows(genPositionData(withOrigin, BOTH).data)[0]).toContain('  10.0000    -5.0000');

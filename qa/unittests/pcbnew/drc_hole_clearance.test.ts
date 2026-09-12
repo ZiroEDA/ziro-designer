@@ -21,7 +21,6 @@ import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
 import type { Board, PcbFootprint, PcbPad, PcbTrack, PcbVia } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const track = (x0: number, x1: number, net = 1, over: Partial<PcbTrack> = {}): PcbTrack => ({
   start: { x: MM(x0), y: 0 },
@@ -29,7 +28,6 @@ const track = (x0: number, x1: number, net = 1, over: Partial<PcbTrack> = {}): P
   width: MM(0.2),
   layer: 'F.Cu',
   net,
-  source: EMPTY,
   ...over,
 });
 
@@ -40,7 +38,6 @@ const via = (x: number, net = 1, over: Partial<PcbVia> = {}): PcbVia => ({
   layers: ['F.Cu', 'B.Cu'],
   kind: 'through',
   net,
-  source: EMPTY,
   ...over,
 });
 
@@ -54,7 +51,6 @@ const pad = (x: number, net = 1, over: Partial<PcbPad> = {}): PcbPad => ({
   drill: { oblong: false, w: MM(0.6), h: MM(0.6) },
   layers: ['*.Cu'],
   net,
-  source: EMPTY,
   ...over,
 });
 
@@ -71,7 +67,6 @@ const fp = (pads: PcbPad[]): PcbFootprint => ({
   barcodes: [],
   models: [],
   attributes: ['allow_missing_courtyard'],
-  source: EMPTY,
 });
 
 const board = (over: Partial<Board> = {}): Board => ({
@@ -100,7 +95,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 

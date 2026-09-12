@@ -391,7 +391,7 @@ describe("bestDragOrigin — EDIT_TOOL::Move's reference point", () => {
     // hovering cursor is never pulled onto it.
     const oneTrack = readBoard(
       parse(`(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal))
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
   (net 0 "") (net 1 "a")
   (segment (start 10 10) (end 20 10) (width 0.25) (layer "F.Cu") (net 1))
 )`),

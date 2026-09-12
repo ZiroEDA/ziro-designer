@@ -26,10 +26,7 @@
  * (KiCad selects the FOOTPRINT, not its pad, unless you alt/nested-select).
  */
 
-import { atom, str, isList, head, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
-import { childNamed, numArg } from '@ziroeda/sexpr/src/query.js';
 import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { formatG } from '@ziroeda/common/src/plotters/fmt.js';
 import { barcodeBBox, barcodeGeometry, barcodeHullBoxes } from './barcode_geometry.js';
 import { textItemBBox } from './text_metrics.js';
 import { arcCenter, rotatePcb } from './read-board.js';
@@ -1361,11 +1358,8 @@ export function allBoardItemIds(board: Board): string[] {
 
 // ----- move (PCB_MOVE_TOOL / EDIT_TOOL::Move) ---------------------------------
 //
-// Source-patched exactly like edit-footprint.ts: an edited item keeps its
-// `source` node and only the changed coordinate child (`(start …)`, `(at …)`,
-// `(pts …)`) is rewritten, so serializeBoard round-trips every unmodelled field.
-
-const list = (...items: SNode[]): SList => ({ kind: 'list', items });
+// Every mover returns a new view item with its coordinates shifted; the
+// model (`k`) takes the edit when the board is written (`kboardFromBoard`).
 
 /** Internal units -> trimmed millimetre string (KiCad formatInternalUnits). */
 export const mm = (iu: number): string => {
@@ -1374,155 +1368,51 @@ export const mm = (iu: number): string => {
   return s;
 };
 
-/** Drop the first `name` child of a source node, if it has one. */
-export function dropChild(src: SList, name: string): SList {
-  let dropped = false;
-  const items = src.items.filter((it) => {
-    if (!dropped && isList(it) && head(it) === name) {
-      dropped = true;
-      return false;
-    }
-    return true;
-  });
-  return dropped ? { kind: 'list', items } : src;
-}
-
-/** Replace (or append) the first `name` child of a source node. */
-export function patchChild(src: SList, name: string, node: SList): SList {
-  let replaced = false;
-  const items = src.items.map((it) => {
-    if (!replaced && isList(it) && head(it) === name) {
-      replaced = true;
-      return node;
-    }
-    return it;
-  });
-  if (!replaced) items.push(node);
-  return { kind: 'list', items };
-}
-
-const atNode = (p: Vec2, angle = 0): SList =>
-  angle
-    ? list(atom('at'), atom(mm(p.x)), atom(mm(p.y)), atom(String(angle)))
-    : list(atom('at'), atom(mm(p.x)), atom(mm(p.y)));
-const xyNode = (name: string, p: Vec2): SList => list(atom(name), atom(mm(p.x)), atom(mm(p.y)));
-const ptsNode = (pts: Vec2[]): SList => ({
-  kind: 'list',
-  items: [atom('pts'), ...pts.map((p) => list(atom('xy'), atom(mm(p.x)), atom(mm(p.y))))],
-});
-
 const add = (p: Vec2, d: Vec2): Vec2 => ({ x: p.x + d.x, y: p.y + d.y });
 
-const moveTrack = (t: PcbTrack, d: Vec2): PcbTrack => {
-  const start = add(t.start, d),
-    end = add(t.end, d);
-  let src = patchChild(t.source, 'start', xyNode('start', start));
-  src = patchChild(src, 'end', xyNode('end', end));
-  return { ...t, start, end, source: src };
-};
+const moveTrack = (t: PcbTrack, d: Vec2): PcbTrack => ({
+  ...t,
+  start: add(t.start, d),
+  end: add(t.end, d),
+});
 
-const moveArc = (a: PcbArcTrack, d: Vec2): PcbArcTrack => {
-  const start = add(a.start, d),
-    mid = add(a.mid, d),
-    end = add(a.end, d);
-  let src = patchChild(a.source, 'start', xyNode('start', start));
-  src = patchChild(src, 'mid', xyNode('mid', mid));
-  src = patchChild(src, 'end', xyNode('end', end));
-  return { ...a, start, mid, end, source: src };
-};
+const moveArc = (a: PcbArcTrack, d: Vec2): PcbArcTrack => ({
+  ...a,
+  start: add(a.start, d),
+  mid: add(a.mid, d),
+  end: add(a.end, d),
+});
 
-const moveVia = (v: PcbVia, d: Vec2): PcbVia => {
-  const at = add(v.at, d);
-  return { ...v, at, source: patchChild(v.source, 'at', atNode(at)) };
-};
+const moveVia = (v: PcbVia, d: Vec2): PcbVia => ({ ...v, at: add(v.at, d) });
 
-const moveText = (t: PcbTextItem, d: Vec2): PcbTextItem => {
-  const at = add(t.at, d);
-  return { ...t, at, source: patchChild(t.source, 'at', atNode(at, t.angle)) };
-};
+const moveText = (t: PcbTextItem, d: Vec2): PcbTextItem => ({ ...t, at: add(t.at, d) });
+
+/** Shift a reference image: the whole item is one point plus a payload. */
+const moveImage = (img: PcbImage, d: Vec2): PcbImage => ({ ...img, at: add(img.at, d) });
 
 /**
- * Shift a reference image and patch its `(at …)`.
- *
- * The whole item is one point plus a payload, so this is the simplest mover on
- * the board — but the `(data …)` must be left strictly alone: it is megabytes
- * of base64, and rebuilding the node rather than patching one child would
- * rewrite all of it on every nudge.
+ * Shift a table: every cell moves. A table has no coordinates of its own —
+ * its position *is* its cells — so moving one is moving all of them. The
+ * column widths and row heights are sizes, not positions, and stay put.
  */
-const moveImage = (img: PcbImage, d: Vec2): PcbImage => {
-  const at = add(img.at, d);
-  return { ...img, at, source: patchChild(img.source, 'at', xyNode('at', at)) };
-};
+const moveTable = (t: PcbTable, d: Vec2): PcbTable => ({
+  ...t,
+  cells: t.cells.map((c) => ({ ...moveTextBox(c, d), colSpan: c.colSpan, rowSpan: c.rowSpan })),
+});
 
 /**
- * Shift a table: every cell moves, and the source is patched cell by cell.
- *
- * A table has no coordinates of its own — its position *is* its cells — so
- * moving one is moving all of them. The column widths and row heights are
- * sizes, not positions, and stay put.
- */
-const moveTable = (t: PcbTable, d: Vec2): PcbTable => {
-  const cells = t.cells.map((c) => ({
-    ...moveTextBox(c, d),
-    colSpan: c.colSpan,
-    rowSpan: c.rowSpan,
-  }));
-  let ci = 0;
-  const src: SList = {
-    kind: 'list',
-    items: t.source.items.map((it) => {
-      if (!isList(it) || head(it) !== 'cells') return it;
-      return {
-        kind: 'list',
-        items: it.items.map((c) =>
-          isList(c) && head(c) === 'table_cell' ? (cells[ci++]?.source ?? c) : c,
-        ),
-      };
-    }),
-  };
-  return { ...t, cells, source: src };
-};
-
-/**
- * Shift a text box and patch its source.
- *
- * A box is corners *or* a polygon, so both forms have to move — a mover that
- * only handled `(start …)/(end …)` would leave every rotated box behind.
+ * Shift a text box. A box is corners *or* a polygon, so both forms have to
+ * move — a mover that only handled the corners would leave every rotated box
+ * behind.
  */
 const moveTextBox = (t: PcbTextBox, d: Vec2): PcbTextBox => {
-  let src = t.source;
   const next: PcbTextBox = { ...t };
-
   if (t.pts && t.pts.length > 0) {
     next.pts = t.pts.map((p) => add(p, d));
-    src = {
-      kind: 'list',
-      items: src.items.map((it) =>
-        isList(it) && head(it) === 'pts'
-          ? {
-              kind: 'list',
-              items: it.items.map((n) => {
-                if (!isList(n) || head(n) !== 'xy') return n;
-                const x = numArg(n, 0);
-                const y = numArg(n, 1);
-                if (x === undefined || y === undefined) return n;
-                return list(atom('xy'), atom(mm(mmToIU(x) + d.x)), atom(mm(mmToIU(y) + d.y)));
-              }),
-            }
-          : it,
-      ),
-    };
   } else {
-    if (t.start) {
-      next.start = add(t.start, d);
-      src = patchChild(src, 'start', xyNode('start', next.start));
-    }
-    if (t.end) {
-      next.end = add(t.end, d);
-      src = patchChild(src, 'end', xyNode('end', next.end));
-    }
+    if (t.start) next.start = add(t.start, d);
+    if (t.end) next.end = add(t.end, d);
   }
-  next.source = src;
   return next;
 };
 
@@ -1530,124 +1420,46 @@ const moveTextBox = (t: PcbTextBox, d: Vec2): PcbTextBox => {
  * Shift a snap point. `PCB_POINT::Move` is `m_pos += aMoveVector` and nothing
  * else — a point has no second coordinate to keep in step.
  */
-const movePoint = (p: PcbPoint, d: Vec2): PcbPoint => {
-  const at = add(p.at, d);
-  return { ...p, at, source: patchChild(p.source, 'at', xyNode('at', at)) };
-};
+const movePoint = (p: PcbPoint, d: Vec2): PcbPoint => ({ ...p, at: add(p.at, d) });
 
-/**
- * Shift a dimension: both feature points, and the text if it has one.
- *
- * The `(pts …)` list holds the feature points and the `(gr_text … (at …))`
- * child holds the text, so both have to be patched — moving only `pts` would
- * leave the label behind on save. The text child is patched inside the
- * dimension's own source node rather than through `moveText`, because the text
- * is not a top-level board text and has no separate source of its own.
- */
-const moveDimension = (dm: PcbDimension, d: Vec2): PcbDimension => {
-  const shiftPts = (node: SList): SList => ({
-    kind: 'list',
-    items: node.items.map((it) => {
-      if (!isList(it) || head(it) !== 'xy') return it;
-      const x = numArg(it, 0);
-      const y = numArg(it, 1);
-      if (x === undefined || y === undefined) return it;
-      return list(atom('xy'), atom(mm(mmToIU(x) + d.x)), atom(mm(mmToIU(y) + d.y)));
-    }),
-  });
+/** Shift a dimension: both feature points, and the text if it has one. */
+const moveDimension = (dm: PcbDimension, d: Vec2): PcbDimension => ({
+  ...dm,
+  start: add(dm.start, d),
+  end: add(dm.end, d),
+  ...(dm.text ? { text: { ...dm.text, at: add(dm.text.at, d) } } : {}),
+});
 
-  let src = dm.source;
-  src = {
-    kind: 'list',
-    items: src.items.map((it) => {
-      if (!isList(it)) return it;
-      if (head(it) === 'pts') return shiftPts(it);
-      if (head(it) === 'gr_text' && dm.text) {
-        return patchChild(it, 'at', atNode(add(dm.text.at, d), dm.text.angle));
-      }
-      return it;
-    }),
-  };
-
-  return {
-    ...dm,
-    start: add(dm.start, d),
-    end: add(dm.end, d),
-    ...(dm.text ? { text: { ...dm.text, at: add(dm.text.at, d) } } : {}),
-    source: src,
-  };
-};
-
-/** Shift every coordinate of a board graphic and patch its source in place. */
+/** Shift every coordinate of a board graphic. */
 const moveShape = (s: PcbShape, d: Vec2): PcbShape => {
-  let src = s.source;
   const next: PcbShape = { ...s };
-  if (s.center) {
-    next.center = add(s.center, d);
-    src = patchChild(src, 'center', xyNode('center', next.center));
-  }
-  if (s.start) {
-    next.start = add(s.start, d);
-    src = patchChild(src, 'start', xyNode('start', next.start));
-  }
-  if (s.end) {
-    next.end = add(s.end, d);
-    src = patchChild(src, 'end', xyNode('end', next.end));
-  }
-  if (s.mid) {
-    next.mid = add(s.mid, d);
-    src = patchChild(src, 'mid', xyNode('mid', next.mid));
-  }
-  if (s.pts) {
-    next.pts = s.pts.map((p) => add(p, d));
-    src = patchChild(src, 'pts', ptsNode(next.pts));
-  }
-  next.source = src;
+  if (s.center) next.center = add(s.center, d);
+  if (s.start) next.start = add(s.start, d);
+  if (s.end) next.end = add(s.end, d);
+  if (s.mid) next.mid = add(s.mid, d);
+  if (s.pts) next.pts = s.pts.map((p) => add(p, d));
   return next;
 };
 
 /**
- * ZONE::Move: the outline polygon and every filled polygon shift together, so a
- * poured zone travels with its fill rather than being re-poured. Upstream also
- * translates the border hatch lines and the bbox cache, which are both derived
- * here rather than stored, and sets NeedRefill (the fill is only exactly right
- * again after a re-pour, but a translated one is far better than none).
- *
- * The source carries the same points twice, `(polygon (pts …))` for the outline
- * and a `(pts …)` inside every `(filled_polygon …)`, so both are patched.
+ * ZONE::Move: the outline polygon, its holes and every filled polygon shift
+ * together, so a poured zone travels with its fill rather than being
+ * re-poured. Upstream also translates the border hatch lines and the bbox
+ * cache, which are both derived here rather than stored, and sets NeedRefill
+ * (the fill is only exactly right again after a re-pour, but a translated one
+ * is far better than none).
  */
-const moveZone = (z: PcbZone, d: Vec2): PcbZone => {
-  const shiftPts = (node: SList): SList => ({
-    kind: 'list',
-    items: node.items.map((it) => {
-      if (!isList(it) || head(it) !== 'xy') return it;
-      const x = numArg(it, 0);
-      const y = numArg(it, 1);
-      if (x === undefined || y === undefined) return it;
-      return list(atom('xy'), atom(mm(mmToIU(x) + d.x)), atom(mm(mmToIU(y) + d.y)));
-    }),
-  });
-  const shiftIn = (node: SList): SList => ({
-    kind: 'list',
-    items: node.items.map((it) =>
-      isList(it) && head(it) === 'pts' ? shiftPts(it) : isList(it) ? shiftIn(it) : it,
-    ),
-  });
-
-  return {
-    ...z,
-    ...(z.outline ? { outline: z.outline.map((p) => add(p, d)) } : {}),
-    ...(z.holes ? { holes: z.holes.map((h) => h.map((p) => add(p, d))) } : {}),
-    fills: z.fills.map((f) => ({ ...f, polys: f.polys.map((poly) => poly.map((p) => add(p, d))) })),
-    source: shiftIn(z.source),
-  };
-};
+const moveZone = (z: PcbZone, d: Vec2): PcbZone => ({
+  ...z,
+  ...(z.outline ? { outline: z.outline.map((p) => add(p, d)) } : {}),
+  ...(z.holes ? { holes: z.holes.map((h) => h.map((p) => add(p, d))) } : {}),
+  fills: z.fills.map((f) => ({ ...f, polys: f.polys.map((poly) => poly.map((p) => add(p, d))) })),
+});
 
 /**
- * Move a whole footprint: only its anchor `(at …)` is patched in the source
- * (children stay in the footprint's local frame, exactly as the writer emits
- * them). The model's board-absolute child coordinates are shifted too, so
- * hit-testing and rendering follow the footprint to its new spot.
+ * Move a whole footprint: its anchor, and the model's board-absolute child
+ * coordinates with it, so hit-testing and rendering follow the footprint to
+ * its new spot.
  */
 const moveFootprint = (fp: PcbFootprint, d: Vec2): PcbFootprint => ({
   ...fp,
@@ -1655,23 +1467,10 @@ const moveFootprint = (fp: PcbFootprint, d: Vec2): PcbFootprint => ({
   pads: fp.pads.map((p) => ({ ...p, at: add(p.at, d) })),
   texts: fp.texts.map((t) => ({ ...t, at: add(t.at, d) })),
   // `FOOTPRINT::SetPosition` shifts every child by the same delta, points
-  // included (`footprint.cpp:3022`). Ours are held board-absolute, so a mover
-  // that skipped them would leave them behind on the board — and because the
-  // writer derives a child's `(at …)` by un-baking against the footprint's NEW
-  // anchor, the wrong offset would then be saved. A move of (10, 20) on a point
-  // at (+1, +2) writes `(at -9 -18)`.
+  // included (`footprint.cpp:3022`).
   points: fp.points.map((p) => ({ ...p, at: add(p.at, d) })),
   barcodes: fp.barcodes.map((b) => moveBarcode(b, d)),
-  shapes: fp.shapes.map((s) => {
-    const n: PcbShape = { ...s };
-    if (s.center) n.center = add(s.center, d);
-    if (s.start) n.start = add(s.start, d);
-    if (s.end) n.end = add(s.end, d);
-    if (s.mid) n.mid = add(s.mid, d);
-    if (s.pts) n.pts = s.pts.map((p) => add(p, d));
-    return n;
-  }),
-  source: patchChild(fp.source, 'at', atNode(add(fp.at, d), fp.angle)),
+  shapes: fp.shapes.map((s) => moveShape(s, d)),
 });
 
 /**
@@ -1707,32 +1506,26 @@ export function moveBoardItems(board: Board, ids: ReadonlySet<string>, delta: Ve
   };
 }
 
-/** Put a track's ends at `start`/`end`, keeping the rest of its source node. */
-export const withTrackEnds = (t: PcbTrack, start: Vec2, end: Vec2): PcbTrack => {
-  let src = patchChild(t.source, 'start', xyNode('start', start));
-  src = patchChild(src, 'end', xyNode('end', end));
-  return { ...t, start, end, source: src };
-};
+/** Put a track's ends at `start`/`end`. */
+export const withTrackEnds = (t: PcbTrack, start: Vec2, end: Vec2): PcbTrack => ({
+  ...t,
+  start,
+  end,
+});
 
-/** Move one or both ends of a track by `d`, patching only the moved ends. */
-const moveTrackEnds = (t: PcbTrack, ends: ReadonlySet<'start' | 'end'>, d: Vec2): PcbTrack => {
-  let src = t.source;
-  const start = ends.has('start') ? add(t.start, d) : t.start;
-  const end = ends.has('end') ? add(t.end, d) : t.end;
-  if (ends.has('start')) src = patchChild(src, 'start', xyNode('start', start));
-  if (ends.has('end')) src = patchChild(src, 'end', xyNode('end', end));
-  return { ...t, start, end, source: src };
-};
+/** Move one or both ends of a track by `d`. */
+const moveTrackEnds = (t: PcbTrack, ends: ReadonlySet<'start' | 'end'>, d: Vec2): PcbTrack => ({
+  ...t,
+  start: ends.has('start') ? add(t.start, d) : t.start,
+  end: ends.has('end') ? add(t.end, d) : t.end,
+});
 
 /** Move one or both ends of an arc by `d` (mid stays; drag arc reshaping is later). */
-const moveArcEnds = (a: PcbArcTrack, ends: ReadonlySet<'start' | 'end'>, d: Vec2): PcbArcTrack => {
-  let src = a.source;
-  const start = ends.has('start') ? add(a.start, d) : a.start;
-  const end = ends.has('end') ? add(a.end, d) : a.end;
-  if (ends.has('start')) src = patchChild(src, 'start', xyNode('start', start));
-  if (ends.has('end')) src = patchChild(src, 'end', xyNode('end', end));
-  return { ...a, start, end, source: src };
-};
+const moveArcEnds = (a: PcbArcTrack, ends: ReadonlySet<'start' | 'end'>, d: Vec2): PcbArcTrack => ({
+  ...a,
+  start: ends.has('start') ? add(a.start, d) : a.start,
+  end: ends.has('end') ? add(a.end, d) : a.end,
+});
 
 /**
  * Drag the selection like {@link moveBoardItems}, but additionally stretch the
@@ -1777,34 +1570,14 @@ export function dragBoardItems(board: Board, ids: ReadonlySet<string>, delta: Ve
 
 // ----- footprint field edits (PCB_PROPERTIES_PANEL) ---------------------------
 
-/** Replace the `argIndex`-th positional atom (head = atom 0) of a source list. */
-function replaceArg(src: SList, argIndex: number, value: string): SList {
-  let atomN = -1;
-  const target = argIndex + 1;
-  const items = src.items.map((it) => {
-    if (!isList(it)) {
-      atomN++;
-      if (atomN === target) return str(value);
-    }
-    return it;
-  });
-  return { kind: 'list', items };
-}
-
-/** Drop every `name` child from a source list. */
-function removeChild(src: SList, name: string): SList {
-  return { kind: 'list', items: src.items.filter((it) => !(isList(it) && head(it) === name)) };
-}
-
 const replaceFp = (board: Board, index: number, fp: PcbFootprint): Board => ({
   ...board,
   footprints: board.footprints.map((f, i) => (i === index ? fp : f)),
 });
 
 /**
- * Set a footprint's Reference or Value text. The writer emits these from the
- * model's text items (their own `(property …)` / `(fp_text …)` source), so we
- * patch each matching text item's text and its source's value atom (arg 1).
+ * Set a footprint's Reference or Value text: the field is the text item of
+ * that kind, and the footprint's own `reference` / `value` mirror it.
  */
 export function setFootprintField(
   board: Board,
@@ -1814,17 +1587,11 @@ export function setFootprintField(
 ): Board {
   const f = board.footprints[index];
   if (!f) return board;
-  const patchTextSrc = (src: SList): SList => {
-    const h = head(src);
-    return h === 'property' || h === 'fp_text' ? replaceArg(src, 1, value) : src;
-  };
   return replaceFp(board, index, {
     ...f,
     reference: field === 'reference' ? value : f.reference,
     value: field === 'value' ? value : f.value,
-    texts: f.texts.map((t) =>
-      t.kind === field ? { ...t, text: value, source: patchTextSrc(t.source) } : t,
-    ),
+    texts: f.texts.map((t) => (t.kind === field ? { ...t, text: value } : t)),
   });
 }
 
@@ -1836,8 +1603,9 @@ export function setFootprintField(
  * `FIELD_T::USER` field carrying it. Reference and Value are the two names that
  * are also text items, so they go through {@link setFootprintField}.
  *
- * A new field is source-less; `writeFootprintNode` builds its `(property …)`
- * from the model, the same way the netlist updater's new fields are written.
+ * A new field gets its model when the board is written (invisible, on the
+ * fab layer, at the footprint anchor), the same way the netlist updater's new
+ * fields are written.
  */
 export function setFootprintFieldByName(
   board: Board,
@@ -1855,13 +1623,13 @@ export function setFootprintFieldByName(
   if (at < 0)
     return replaceFp(board, index, {
       ...f,
-      fields: [...fields, { name, value, source: { kind: 'list', items: [] } }],
+      fields: [...fields, { name, value }],
     });
 
   const field = fields[at]!;
   if (field.value === value) return board;
   const next = fields.slice();
-  next[at] = { ...field, value, source: replaceArg(field.source, 1, value) };
+  next[at] = { ...field, value };
   return replaceFp(board, index, { ...f, fields: next });
 }
 
@@ -1869,10 +1637,7 @@ export function setFootprintFieldByName(
 export function setFootprintLocked(board: Board, index: number, locked: boolean): Board {
   const f = board.footprints[index];
   if (!f) return board;
-  const source = locked
-    ? patchChild(f.source, 'locked', list(atom('locked'), atom('yes')))
-    : removeChild(f.source, 'locked');
-  return replaceFp(board, index, { ...f, locked, source });
+  return replaceFp(board, index, { ...f, locked });
 }
 
 /** Set a footprint's absolute orientation (degrees), rotating about its anchor. */
@@ -1885,23 +1650,11 @@ export function setFootprintOrientation(board: Board, index: number, deg: number
 }
 
 /**
- * `(at x y angle)` for a barcode: the formatter always writes the angle
- * (`pcb_io_kicad_sexpr.cpp:2207-2209`), so the patched node always has three
- * fields even when the rotation is zero.
- */
-const patchBarcodeAt = (b: PcbBarcode, at: Vec2, angle: number): SList =>
-  patchChild(b.source, 'at', {
-    kind: 'list',
-    items: [atom('at'), atom(mm(at.x)), atom(mm(at.y)), atom(formatG(angle, 10))],
-  });
-
-/**
  * `PCB_BARCODE::Move` (`pcb_barcode.cpp:285-293`). The polygons move with the
  * position upstream; ours are recomputed on demand, so only `m_pos` is stored.
  */
 const moveBarcode = (b: PcbBarcode, d: Vec2): PcbBarcode => {
-  const at = add(b.at, d);
-  return { ...b, at, source: patchBarcodeAt(b, at, b.angle) };
+  return { ...b, at: add(b.at, d) };
 };
 
 /**
@@ -1916,9 +1669,7 @@ const moveBarcode = (b: PcbBarcode, d: Vec2): PcbBarcode => {
  * relative to itself.
  */
 const rotateBarcodeAbout = (b: PcbBarcode, c: Vec2, deg: number): PcbBarcode => {
-  const at = rotAbout(b.at, c, deg);
-  const angle = norm360(b.angle + deg);
-  return { ...b, at, angle, source: patchBarcodeAt(b, at, angle) };
+  return { ...b, at: rotAbout(b.at, c, deg), angle: norm360(b.angle + deg) };
 };
 
 /**
@@ -1929,8 +1680,7 @@ const rotateBarcodeAbout = (b: PcbBarcode, c: Vec2, deg: number): PcbBarcode => 
  * board's business (`BOARD::FlipLayer`) rather than the item's.
  */
 const flipBarcodeTo = (b: PcbBarcode, at: Vec2, layer: string, topBottom: boolean): PcbBarcode => {
-  const angle = topBottom ? norm360(b.angle + 180) : b.angle;
-  return { ...b, at, angle, layer, source: patchBarcodeAt(b, at, angle) };
+  return { ...b, at, angle: topBottom ? norm360(b.angle + 180) : b.angle, layer };
 };
 
 /**
@@ -1938,13 +1688,7 @@ const flipBarcodeTo = (b: PcbBarcode, at: Vec2, layer: string, topBottom: boolea
  * `format( const PCB_BARCODE* )` writes it (`pcb_io_kicad_sexpr.cpp:2204-2205`)
  * and `parsePCB_BARCODE` reads it (`…_parser.cpp:4081-4083`).
  */
-const lockBarcode = (b: PcbBarcode, locked: boolean): PcbBarcode => ({
-  ...b,
-  locked,
-  source: locked
-    ? patchChild(b.source, 'locked', list(atom('locked'), atom('yes')))
-    : dropChild(b.source, 'locked'),
-});
+const lockBarcode = (b: PcbBarcode, locked: boolean): PcbBarcode => ({ ...b, locked });
 
 // ----- delete (EDIT_TOOL::Remove) ---------------------------------------------
 
@@ -2009,17 +1753,6 @@ function fpTextsByFp(ids: ReadonlySet<string>): Map<number, Set<number>> {
   return m;
 }
 
-/** Replace the x/y atoms of an `(at x y …)` node, keeping any trailing tokens
- *  (angle, `unlocked`) intact. */
-const patchAtCoords = (atSrc: SList, xMM: string, yMM: string): SList => {
-  const items = [...atSrc.items];
-  if (items.length >= 3) {
-    items[1] = atom(xMM);
-    items[2] = atom(yMM);
-  }
-  return { kind: 'list', items };
-};
-
 /**
  * Move only the given texts of a footprint (individual FP_TEXT drag).
  *
@@ -2038,8 +1771,6 @@ const moveFootprintTexts = (
 
 /**
  * Remove the selected items from the board (Delete key / EDIT_TOOL::Remove).
- * The writer drops the corresponding source children positionally, so a deleted
- * item leaves no trace in the serialized `.kicad_pcb`.
  */
 export function deleteBoardItems(board: Board, ids: ReadonlySet<string>): Board {
   if (ids.size === 0) return board;
@@ -2074,13 +1805,10 @@ export function deleteBoardItems(board: Board, ids: ReadonlySet<string>): Board 
 
 /**
  * Append a freshly-drawn graphic shape (DRAWING_TOOL commit). The shape is
- * source-less; the writer emits it from buildBoardShapeNode.
+ * written from the model the view builds for it.
  */
-export function addBoardShape(
-  board: Board,
-  shape: Omit<PcbShape, 'source'>,
-): { board: Board; id: string } {
-  const withSource: PcbShape = { ...shape, source: { kind: 'list', items: [] } };
+export function addBoardShape(board: Board, shape: PcbShape): { board: Board; id: string } {
+  const withSource: PcbShape = shape;
   return {
     board: { ...board, shapes: [...board.shapes, withSource] },
     id: boardItemId('shape', board.shapes.length),
@@ -2088,11 +1816,8 @@ export function addBoardShape(
 }
 
 /** Append a routed track segment (ROUTER_TOOL commit); writer-canonical. */
-export function addBoardTrack(
-  board: Board,
-  track: Omit<PcbTrack, 'source'>,
-): { board: Board; id: string } {
-  const withSource: PcbTrack = { ...track, source: { kind: 'list', items: [] } };
+export function addBoardTrack(board: Board, track: PcbTrack): { board: Board; id: string } {
+  const withSource: PcbTrack = track;
   return {
     board: { ...board, tracks: [...board.tracks, withSource] },
     id: boardItemId('track', board.tracks.length),
@@ -2100,11 +1825,8 @@ export function addBoardTrack(
 }
 
 /** Append a via (ROUTER_TOOL layer switch / free via placement). */
-export function addBoardVia(
-  board: Board,
-  via: Omit<PcbVia, 'source'>,
-): { board: Board; id: string } {
-  const withSource: PcbVia = { ...via, source: { kind: 'list', items: [] } };
+export function addBoardVia(board: Board, via: PcbVia): { board: Board; id: string } {
+  const withSource: PcbVia = via;
   return {
     board: { ...board, vias: [...board.vias, withSource] },
     id: boardItemId('via', board.vias.length),
@@ -2112,11 +1834,8 @@ export function addBoardVia(
 }
 
 /** Append a free text item (DRAWING_TOOL::PlaceText commit). */
-export function addBoardText(
-  board: Board,
-  text: Omit<PcbTextItem, 'source'>,
-): { board: Board; id: string } {
-  const withSource: PcbTextItem = { ...text, source: { kind: 'list', items: [] } };
+export function addBoardText(board: Board, text: PcbTextItem): { board: Board; id: string } {
+  const withSource: PcbTextItem = text;
   return {
     board: { ...board, texts: [...board.texts, withSource] },
     id: boardItemId('text', board.texts.length),
@@ -2129,11 +1848,8 @@ export function addBoardText(
  * Source-less, so the writer builds the node — and every cell's node — from the
  * model on the first save.
  */
-export function addBoardTable(
-  board: Board,
-  table: Omit<PcbTable, 'source'>,
-): { board: Board; id: string } {
-  const withSource: PcbTable = { ...table, source: { kind: 'list', items: [] } };
+export function addBoardTable(board: Board, table: PcbTable): { board: Board; id: string } {
+  const withSource: PcbTable = table;
   return {
     board: { ...board, tables: [...board.tables, withSource] },
     id: boardItemId('table', board.tables.length),
@@ -2147,11 +1863,8 @@ export function addBoardTable(
  * Source-less, so the writer builds the node from the model — there is nothing
  * to patch until it has been saved once.
  */
-export function addBoardTextBox(
-  board: Board,
-  box: Omit<PcbTextBox, 'source'>,
-): { board: Board; id: string } {
-  const withSource: PcbTextBox = { ...box, source: { kind: 'list', items: [] } };
+export function addBoardTextBox(board: Board, box: PcbTextBox): { board: Board; id: string } {
+  const withSource: PcbTextBox = box;
   return {
     board: { ...board, textBoxes: [...board.textBoxes, withSource] },
     id: boardItemId('textbox', board.textBoxes.length),
@@ -2161,15 +1874,13 @@ export function addBoardTextBox(
 /**
  * Append a freshly-placed dimension (`DRAWING_TOOL::DrawDimension`'s commit).
  *
- * The item carries an empty source node, so the writer builds it from the model
- * with `buildDimensionNode` rather than patching — there is nothing to patch
- * until it has been saved once.
+ * The item has no model yet; the writer builds a PCB_DIMENSION from the view.
  */
 export function addBoardDimension(
   board: Board,
-  dimension: Omit<PcbDimension, 'source'>,
+  dimension: PcbDimension,
 ): { board: Board; id: string } {
-  const withSource: PcbDimension = { ...dimension, source: { kind: 'list', items: [] } };
+  const withSource: PcbDimension = dimension;
   return {
     board: { ...board, dimensions: [...board.dimensions, withSource] },
     id: boardItemId('dimension', board.dimensions.length),
@@ -2186,11 +1897,8 @@ export function addBoardDimension(
  * {@link DEFAULT_POINT_SIZE} and the position is whatever `SnapItem` last
  * forced the cursor to. Source-less, like every other adder here.
  */
-export function addBoardPoint(
-  board: Board,
-  point: Omit<PcbPoint, 'source'>,
-): { board: Board; id: string } {
-  const withSource: PcbPoint = { ...point, source: { kind: 'list', items: [] } };
+export function addBoardPoint(board: Board, point: PcbPoint): { board: Board; id: string } {
+  const withSource: PcbPoint = point;
   return {
     board: { ...board, points: [...board.points, withSource] },
     id: boardItemId('point', board.points.length),
@@ -2207,11 +1915,8 @@ export function addBoardPoint(
  * `bds.GetTextSize( layer ).y` — a *board* setting, so it is the caller's to
  * supply. Everything else is `PCB_BARCODE`'s constructor.
  */
-export function addBoardBarcode(
-  board: Board,
-  barcode: Omit<PcbBarcode, 'source'>,
-): { board: Board; id: string } {
-  const withSource: PcbBarcode = { ...barcode, source: { kind: 'list', items: [] } };
+export function addBoardBarcode(board: Board, barcode: PcbBarcode): { board: Board; id: string } {
+  const withSource: PcbBarcode = barcode;
   return {
     board: { ...board, barcodes: [...board.barcodes, withSource] },
     id: boardItemId('barcode', board.barcodes.length),
@@ -2228,11 +1933,8 @@ export function setBoardBarcode(board: Board, index: number, next: PcbBarcode): 
 }
 
 /** Append a freshly-placed reference image (`DRAWING_TOOL::PlaceReferenceImage`'s commit). */
-export function addBoardImage(
-  board: Board,
-  image: Omit<PcbImage, 'source'>,
-): { board: Board; id: string } {
-  const withSource: PcbImage = { ...image, source: { kind: 'list', items: [] } };
+export function addBoardImage(board: Board, image: PcbImage): { board: Board; id: string } {
+  const withSource: PcbImage = image;
   return {
     board: { ...board, images: [...board.images, withSource] },
     id: boardItemId('image', board.images.length),
@@ -2242,13 +1944,9 @@ export function addBoardImage(
 /** Append a freshly-drawn (unfilled) zone (DRAWING_TOOL::DrawZone commit). */
 export function addBoardZone(
   board: Board,
-  zone: Omit<PcbZone, 'source' | 'fills'> & { fills?: PcbZone['fills'] },
+  zone: Omit<PcbZone, 'fills'> & { fills?: PcbZone['fills'] },
 ): { board: Board; id: string } {
-  const withSource: PcbZone = {
-    fills: [],
-    ...zone,
-    source: { kind: 'list', items: [] },
-  };
+  const withSource: PcbZone = { fills: [], ...zone };
   return {
     board: { ...board, zones: [...board.zones, withSource] },
     id: boardItemId('zone', board.zones.length),
@@ -2484,16 +2182,15 @@ const rotShapeCoords = <
   return n as Partial<T>;
 };
 
-/** Rotate a whole footprint by `deg` about centre `c` (anchor + children + source). */
+/** Rotate a whole footprint by `deg` about centre `c` (anchor + children). */
 function rotateFootprintAbout(f: PcbFootprint, c: Vec2, deg: number): PcbFootprint {
   const at = rotAbout(f.at, c, deg);
   const angle = norm360(f.angle + deg);
   // `FOOTPRINT::Rotate`: the anchor and orientation move, and every child moves
-  // with them in board coordinates. Nothing here touches a child's `source` —
-  // the writer derives each child's `(at …)` from the model the way
-  // `PCB_IO_KICAD_SEXPR::format` does, so there is one place that knows a
-  // child's position is stored footprint-relative while its angle is stored
-  // absolute, instead of one per mutation.
+  // with them in board coordinates. The view bridge derives each child's
+  // footprint-relative position from these board coordinates, so there is one
+  // place that knows a child's position is stored footprint-relative while its
+  // angle is stored absolute, instead of one per mutation.
   return {
     ...f,
     at,
@@ -2510,7 +2207,6 @@ function rotateFootprintAbout(f: PcbFootprint, c: Vec2, deg: number): PcbFootpri
     // the position moves — `PCB_POINT::Rotate` is `RotatePoint( m_pos, … )`.
     points: f.points.map((p) => ({ ...p, at: rotAbout(p.at, c, deg) })),
     barcodes: f.barcodes.map((b) => rotateBarcodeAbout(b, c, deg)),
-    source: patchChild(f.source, 'at', atNode(at, angle)),
   };
 }
 
@@ -2533,20 +2229,6 @@ const rectCorners = (start: Vec2, end: Vec2): Vec2[] => [
 ];
 
 /**
- * Retype a `(gr_rect …)` source node as `(gr_poly … (pts …))`.
- *
- * The head atom carries the shape kind in the file, so changing the model's
- * `kind` without changing the head would write a rect back out and lose the
- * rotation on the next load. `start`/`end` go because a polygon has none.
- */
-function rectSourceToPoly(src: SList, pts: Vec2[]): SList {
-  const rest = src.items
-    .slice(1)
-    .filter((it) => !(isList(it) && (head(it) === 'start' || head(it) === 'end')));
-  return { kind: 'list', items: [atom('gr_poly'), ptsNode(pts), ...rest] };
-}
-
-/**
  * Rotate one board graphic. `EDA_SHAPE::rotate`.
  *
  * Every kind but the rectangle is carried by its defining points. A rectangle
@@ -2559,17 +2241,10 @@ function rotateBoardShape(s: PcbShape, c: Vec2, deg: number): PcbShape {
   if (s.kind === 'rect' && s.start && s.end && !isCardinal(deg)) {
     const pts = rectCorners(s.start, s.end).map((p) => rotAbout(p, c, deg));
     const { start: _s, end: _e, ...rest } = s;
-    return { ...rest, kind: 'poly', pts, source: rectSourceToPoly(s.source, pts) };
+    return { ...rest, kind: 'poly', pts };
   }
 
-  const next = { ...s, ...rotShapeCoords(s, c, deg) };
-  let src = s.source;
-  if (next.center) src = patchChild(src, 'center', xyNode('center', next.center));
-  if (next.start) src = patchChild(src, 'start', xyNode('start', next.start));
-  if (next.end) src = patchChild(src, 'end', xyNode('end', next.end));
-  if (next.mid) src = patchChild(src, 'mid', xyNode('mid', next.mid));
-  if (next.pts) src = patchChild(src, 'pts', ptsNode(next.pts));
-  return { ...next, source: src };
+  return { ...s, ...rotShapeCoords(s, c, deg) };
 }
 
 /**
@@ -2610,39 +2285,28 @@ export function rotateBoardItemsBy(
   const deg = degrees;
   const idx = indicesByKind(ids);
 
-  const rotTrack = (t: PcbTrack): PcbTrack => {
-    const start = rotAbout(t.start, c, deg),
-      end = rotAbout(t.end, c, deg);
-    let src = patchChild(t.source, 'start', xyNode('start', start));
-    src = patchChild(src, 'end', xyNode('end', end));
-    return { ...t, start, end, source: src };
-  };
-  const rotArc = (a: PcbArcTrack): PcbArcTrack => {
-    const start = rotAbout(a.start, c, deg),
-      mid = rotAbout(a.mid, c, deg),
-      end = rotAbout(a.end, c, deg);
-    let src = patchChild(a.source, 'start', xyNode('start', start));
-    src = patchChild(src, 'mid', xyNode('mid', mid));
-    src = patchChild(src, 'end', xyNode('end', end));
-    return { ...a, start, mid, end, source: src };
-  };
-  const rotVia = (v: PcbVia): PcbVia => {
-    const at = rotAbout(v.at, c, deg);
-    return { ...v, at, source: patchChild(v.source, 'at', atNode(at)) };
-  };
-  const rotText = (t: PcbTextItem): PcbTextItem => {
-    const at = rotAbout(t.at, c, deg),
-      angle = norm360(t.angle + deg);
-    return { ...t, at, angle, source: patchChild(t.source, 'at', atNode(at, angle)) };
-  };
+  const rotTrack = (t: PcbTrack): PcbTrack => ({
+    ...t,
+    start: rotAbout(t.start, c, deg),
+    end: rotAbout(t.end, c, deg),
+  });
+  const rotArc = (a: PcbArcTrack): PcbArcTrack => ({
+    ...a,
+    start: rotAbout(a.start, c, deg),
+    mid: rotAbout(a.mid, c, deg),
+    end: rotAbout(a.end, c, deg),
+  });
+  const rotVia = (v: PcbVia): PcbVia => ({ ...v, at: rotAbout(v.at, c, deg) });
+  const rotText = (t: PcbTextItem): PcbTextItem => ({
+    ...t,
+    at: rotAbout(t.at, c, deg),
+    angle: norm360(t.angle + deg),
+  });
   const rotShape = (s: PcbShape): PcbShape => rotateBoardShape(s, c, deg);
   const rotFootprint = (f: PcbFootprint): PcbFootprint => rotateFootprintAbout(f, c, deg);
   // `PCB_POINT::Rotate` is `RotatePoint( m_pos, aRotCentre, aAngle )` and
   // nothing more — no orientation to carry round with it.
-  const rotPoint = (p: PcbPoint): PcbPoint => {
-    const at = rotAbout(p.at, c, deg);
-    return { ...p, at, source: patchChild(p.source, 'at', xyNode('at', at)) };
-  };
+  const rotPoint = (p: PcbPoint): PcbPoint => ({ ...p, at: rotAbout(p.at, c, deg) });
 
   return {
     ...board,
@@ -2853,7 +2517,6 @@ export function groupBoardItems(
     name,
     uuid: genUuid(),
     members,
-    source: { kind: 'list', items: [] },
   };
   return {
     board: { ...board, groups: [...board.groups, g] },
@@ -2995,16 +2658,9 @@ export function setBoardItemsLocked(
     const r = parseBoardItemId(id);
     if (r && (r.kind === 'pad' || r.kind === 'fptext')) idx.footprint.add(r.index);
   }
-  const patch = <T extends { locked?: boolean; source: SList }>(item: T): T => {
+  const patch = <T extends { locked?: boolean }>(item: T): T => {
     // 'toggle' flips each item independently (PCB_ACTIONS::toggleLock).
-    const next = locked === 'toggle' ? !item.locked : locked;
-    return {
-      ...item,
-      locked: next,
-      source: next
-        ? patchChild(item.source, 'locked', list(atom('locked'), atom('yes')))
-        : removeChild(item.source, 'locked'),
-    };
+    return { ...item, locked: locked === 'toggle' ? !item.locked : locked };
   };
   return {
     ...board,
@@ -3016,11 +2672,10 @@ export function setBoardItemsLocked(
     texts: board.texts.map((t, i) => (idx.text.has(i) ? patch(t) : t)),
     footprints: board.footprints.map((f, i) => (idx.footprint.has(i) ? patch(f) : f)),
     groups: board.groups.map((g, i) => (idx.group.has(i) ? patch(g) : g)),
-    // A point takes the flag but NOT the source patch every other kind takes.
-    // `format( const PCB_POINT* )` has no `(locked …)` token and
-    // `parsePCB_POINT` `Expecting( "at, size, layer or uuid" )`, so writing one
-    // would hand KiCad a `(point …)` its own parser throws on. Upstream's lock
-    // is equally unsaveable and equally real within the session.
+    // A point takes the flag, which never reaches the file: `format( const
+    // PCB_POINT* )` has no `(locked …)` token and `parsePCB_POINT` rejects
+    // one. Upstream's lock is equally unsaveable and equally real within the
+    // session.
     points: board.points.map((p, i) =>
       idx.point.has(i) ? { ...p, locked: locked === 'toggle' ? !p.locked : locked } : p,
     ),
@@ -3045,44 +2700,23 @@ export interface BoardPageSettings {
 }
 
 /**
- * Apply the Page Settings dialog result: rebuild the `(paper …)` and
- * `(title_block …)` source nodes (replace-or-append, like the schematic's
- * page_settings command) and mirror the typed model fields.
+ * Apply the Page Settings dialog result: the paper token and the title block
+ * fields, which the writer turns into `PAGE_INFO` and `TITLE_BLOCK`.
  */
 export function setBoardPageSettings(board: Board, s: BoardPageSettings): Board {
-  const parts = s.paper.split(/\s+/);
-  const paperItems: SNode[] = [atom('paper'), str(parts[0] ?? 'A4')];
-  if (parts[0] === 'User' && parts.length >= 3) paperItems.push(atom(parts[1]!), atom(parts[2]!));
-  else if (parts[1] === 'portrait') paperItems.push(atom('portrait'));
-
-  const tb: SNode[] = [atom('title_block')];
-  if (s.title) tb.push(list(atom('title'), str(s.title)));
-  if (s.date) tb.push(list(atom('date'), str(s.date)));
-  if (s.rev) tb.push(list(atom('rev'), str(s.rev)));
-  if (s.company) tb.push(list(atom('company'), str(s.company)));
-  s.comments.forEach((c, i) => {
-    if (c) tb.push(list(atom('comment'), atom(String(i + 1)), str(c)));
-  });
-
-  let source = patchChild(board.source, 'paper', { kind: 'list', items: paperItems });
-  source =
-    tb.length > 1
-      ? patchChild(source, 'title_block', { kind: 'list', items: tb })
-      : removeChild(source, 'title_block');
+  const tb = [s.title, s.date, s.rev, s.company, ...s.comments].some((v) => v);
   return {
     ...board,
     paper: s.paper,
-    titleBlock:
-      tb.length > 1
-        ? {
-            title: s.title || undefined,
-            date: s.date || undefined,
-            rev: s.rev || undefined,
-            company: s.company || undefined,
-            comments: s.comments.some((c) => c) ? [...s.comments] : undefined,
-          }
-        : undefined,
-    source,
+    titleBlock: tb
+      ? {
+          title: s.title || undefined,
+          date: s.date || undefined,
+          rev: s.rev || undefined,
+          company: s.company || undefined,
+          comments: s.comments.some((c) => c) ? [...s.comments] : undefined,
+        }
+      : undefined,
   };
 }
 
@@ -3116,31 +2750,19 @@ export function mirrorBoardItems(
   const mirAngle = (deg: number): number => norm360(direction === 'v' ? -deg : 180 - deg);
   const idx = indicesByKind(ids);
 
-  const mirTrack = (t: PcbTrack): PcbTrack => {
-    const start = mir(t.start),
-      end = mir(t.end);
-    let src = patchChild(t.source, 'start', xyNode('start', start));
-    src = patchChild(src, 'end', xyNode('end', end));
-    return { ...t, start, end, source: src };
-  };
-  const mirArc = (a: PcbArcTrack): PcbArcTrack => {
-    const start = mir(a.start),
-      mid = mir(a.mid),
-      end = mir(a.end);
-    let src = patchChild(a.source, 'start', xyNode('start', start));
-    src = patchChild(src, 'mid', xyNode('mid', mid));
-    src = patchChild(src, 'end', xyNode('end', end));
-    return { ...a, start, mid, end, source: src };
-  };
-  const mirVia = (v: PcbVia): PcbVia => {
-    const at = mir(v.at);
-    return { ...v, at, source: patchChild(v.source, 'at', atNode(at)) };
-  };
-  const mirText = (t: PcbTextItem): PcbTextItem => {
-    const at = mir(t.at),
-      angle = mirAngle(t.angle);
-    return { ...t, at, angle, source: patchChild(t.source, 'at', atNode(at, angle)) };
-  };
+  const mirTrack = (t: PcbTrack): PcbTrack => ({ ...t, start: mir(t.start), end: mir(t.end) });
+  const mirArc = (a: PcbArcTrack): PcbArcTrack => ({
+    ...a,
+    start: mir(a.start),
+    mid: mir(a.mid),
+    end: mir(a.end),
+  });
+  const mirVia = (v: PcbVia): PcbVia => ({ ...v, at: mir(v.at) });
+  const mirText = (t: PcbTextItem): PcbTextItem => ({
+    ...t,
+    at: mir(t.at),
+    angle: mirAngle(t.angle),
+  });
   const mirShape = (s: PcbShape): PcbShape => {
     const next = { ...s };
     if (s.center) next.center = mir(s.center);
@@ -3148,13 +2770,7 @@ export function mirrorBoardItems(
     if (s.end) next.end = mir(s.end);
     if (s.mid) next.mid = mir(s.mid);
     if (s.pts) next.pts = s.pts.map(mir);
-    let src = s.source;
-    if (next.center) src = patchChild(src, 'center', xyNode('center', next.center));
-    if (next.start) src = patchChild(src, 'start', xyNode('start', next.start));
-    if (next.end) src = patchChild(src, 'end', xyNode('end', next.end));
-    if (next.mid) src = patchChild(src, 'mid', xyNode('mid', next.mid));
-    if (next.pts) src = patchChild(src, 'pts', ptsNode(next.pts));
-    return { ...next, source: src };
+    return next;
   };
 
   // `PCB_POINT::Mirror`, which 10.0.5 forgot to write.
@@ -3177,10 +2793,7 @@ export function mirrorBoardItems(
   // coordinate, so `PCB_POINT::Mirror` is `MIRROR( m_pos, aCentre, aDir )` and
   // nothing else. The layer is untouched: flipping it is `Flip`, a different
   // command, and `PCB_POINT::Flip` does have an implementation.
-  const mirPoint = (p: PcbPoint): PcbPoint => {
-    const at = mir(p.at);
-    return { ...p, at, source: patchChild(p.source, 'at', xyNode('at', at)) };
-  };
+  const mirPoint = (p: PcbPoint): PcbPoint => ({ ...p, at: mir(p.at) });
 
   return {
     ...board,
@@ -3196,12 +2809,7 @@ export function mirrorBoardItems(
           // reasoning as `mirPoint` applies: `BOARD_ITEM::Mirror` is a message
           // box, and every sibling's is `MIRROR` on its own coordinates. The
           // orientation reflects with it, as a shape's does.
-          {
-            ...b,
-            at: mir(b.at),
-            angle: mirAngle(b.angle),
-            source: patchBarcodeAt(b, mir(b.at), mirAngle(b.angle)),
-          }
+          { ...b, at: mir(b.at), angle: mirAngle(b.angle) }
         : b,
     ),
   };
@@ -3212,13 +2820,27 @@ export function mirrorBoardItems(
 const genUuid = (): string =>
   globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-/** Deep-clone a board item and give it a fresh uuid (model + source). */
-function cloneItem<T extends { uuid?: string; source: SList }>(item: T): T {
-  const c = structuredClone(item);
-  const uuid = genUuid();
-  c.uuid = uuid;
-  c.source = patchChild(c.source, 'uuid', list(atom('uuid'), str(uuid)));
+/**
+ * Clone a board item and give it a fresh uuid. The view is copied; the model
+ * (`k`) stays shared and is cloned when the board is written, since two view
+ * items must not write the same model item.
+ */
+function cloneItem<T extends { uuid?: string }>(item: T): T {
+  const c = cloneView(item);
+  c.uuid = genUuid();
   return c;
+}
+
+/** A deep copy of a view item that shares every `k` (model) reference. */
+function cloneView<T>(value: T): T {
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map((v) => cloneView(v)) as T;
+  if (value instanceof Map) return new Map([...value].map(([k, v]) => [k, cloneView(v)])) as T;
+  if (value instanceof Set) return new Set([...value].map((v) => cloneView(v))) as T;
+  const out: Record<string, unknown> = {};
+  for (const [key, v] of Object.entries(value as Record<string, unknown>))
+    out[key] = key === 'k' ? v : cloneView(v);
+  return out as T;
 }
 
 /**
@@ -3244,7 +2866,7 @@ export function duplicateBoardItems(
     points = [...board.points],
     barcodes = [...board.barcodes];
   const newIds: string[] = [];
-  const dup = <T extends { uuid?: string; source: SList }>(
+  const dup = <T extends { uuid?: string }>(
     arr: T[],
     src: T[],
     sel: Set<number>,
@@ -3314,21 +2936,8 @@ export function zoneHandles(board: Board, zoneIndex: number): ZoneHandle[] {
   return out;
 }
 
-/** Rewrite a zone's `(polygon (pts …))` from an outline, and drop its fills. */
+/** A zone with a new outline; its holes stay, its fills go. */
 function withZoneOutline(z: PcbZone, outline: Vec2[]): PcbZone {
-  // Only the FIRST `(polygon …)` is the outline; the ones after it are the
-  // holes, which a corner or edge drag of the outline leaves alone. This
-  // rewrote every polygon node with the outline's points, so a zone with a
-  // cutout had it replaced by a copy of its boundary on the first drag.
-  let seen = false;
-  const items = z.source.items.map((it) => {
-    if (!isList(it) || head(it) !== 'polygon' || seen) return it;
-    seen = true;
-    return {
-      kind: 'list' as const,
-      items: it.items.map((c) => (isList(c) && head(c) === 'pts' ? ptsNode(outline) : c)),
-    };
-  });
   return {
     ...z,
     outline,
@@ -3336,10 +2945,6 @@ function withZoneOutline(z: PcbZone, outline: Vec2[]): PcbZone {
     // polygon: the pour no longer matches its boundary, so KiCad drops it and
     // waits to be re-filled.
     fills: [],
-    source: {
-      kind: 'list',
-      items: items.filter((it) => !(isList(it) && head(it) === 'filled_polygon')),
-    },
   };
 }
 
@@ -3438,70 +3043,41 @@ export function flipBoardItems(board: Board, ids: ReadonlySet<string>, centre?: 
   const mirY = (p: Vec2): Vec2 => ({ x: p.x, y: 2 * c.y - p.y });
   const idx = indicesByKind(ids);
 
-  const layerNode = (l: string): SList => list(atom('layer'), str(l));
+  const flipTrack = (t: PcbTrack): PcbTrack => ({
+    ...t,
+    start: mirY(t.start),
+    end: mirY(t.end),
+    layer: flipLayer(t.layer),
+    maskLayer: t.maskLayer ? flipLayer(t.maskLayer) : undefined,
+  });
 
-  const flipTrack = (t: PcbTrack): PcbTrack => {
-    const start = mirY(t.start);
-    const end = mirY(t.end);
-    const layer = flipLayer(t.layer);
-    const maskLayer = t.maskLayer ? flipLayer(t.maskLayer) : undefined;
-    let src = patchChild(t.source, 'start', xyNode('start', start));
-    src = patchChild(src, 'end', xyNode('end', end));
-    src = maskLayer
-      ? patchChild(dropChild(src, 'layer'), 'layers', {
-          kind: 'list',
-          items: [atom('layers'), str(layer), str(maskLayer)],
-        })
-      : patchChild(dropChild(src, 'layers'), 'layer', layerNode(layer));
-    return { ...t, start, end, layer, maskLayer, source: src };
-  };
-
-  const flipArc = (a: PcbArcTrack): PcbArcTrack => {
-    const start = mirY(a.start);
-    const mid = mirY(a.mid);
-    const end = mirY(a.end);
-    const layer = flipLayer(a.layer);
-    let src = patchChild(a.source, 'start', xyNode('start', start));
-    src = patchChild(src, 'mid', xyNode('mid', mid));
-    src = patchChild(src, 'end', xyNode('end', end));
-    src = patchChild(dropChild(src, 'layers'), 'layer', layerNode(layer));
-    return { ...a, start, mid, end, layer, source: src };
-  };
+  const flipArc = (a: PcbArcTrack): PcbArcTrack => ({
+    ...a,
+    start: mirY(a.start),
+    mid: mirY(a.mid),
+    end: mirY(a.end),
+    layer: flipLayer(a.layer),
+  });
 
   // A through via spans the whole stack, so only its position moves.
-  const flipVia = (v: PcbVia): PcbVia => {
-    const at = mirY(v.at);
-    const layers: [string, string] =
-      v.kind === 'through' ? v.layers : [flipLayer(v.layers[0]), flipLayer(v.layers[1])];
-    let src = patchChild(v.source, 'at', atNode(at));
-    if (layers !== v.layers) {
-      src = patchChild(src, 'layers', {
-        kind: 'list',
-        items: [atom('layers'), str(layers[0]), str(layers[1])],
-      });
-    }
-    return { ...v, at, layers, source: src };
-  };
+  const flipVia = (v: PcbVia): PcbVia => ({
+    ...v,
+    at: mirY(v.at),
+    layers: v.kind === 'through' ? v.layers : [flipLayer(v.layers[0]), flipLayer(v.layers[1])],
+  });
 
   /**
-   * PCB_TEXT::Flip: TOP_BOTTOM turns the angle into 180 - angle rather than
-   * negating it (text mirrors as text, it does not rotate), and a side-specific
-   * layer toggles the mirrored flag.
+   * `PCB_TEXT::Flip`: TOP_BOTTOM turns the angle into 180 - angle rather than
+   * negating it (text mirrors as text, it does not rotate), and a
+   * side-specific layer toggles the mirrored flag.
    */
-  /**
-   * `PCB_TEXT::Flip`. `inFootprint` is the one difference between a `gr_text`
-   * and an `fp_text`: a board text's `(at …)` is the board position and this is
-   * the only thing that writes it, while a footprint child's is footprint-
-   * relative and the writer derives it from the model.
-   */
-  const flipText = (t: PcbTextItem, inFootprint = false): PcbTextItem => {
-    const at = mirY(t.at);
-    const angle = norm360(180 - t.angle);
-    const layer = flipLayer(t.layer);
-    let src = inFootprint ? t.source : patchChild(t.source, 'at', atNode(at, angle));
-    src = patchChild(src, 'layer', layerNode(layer));
-    return { ...t, at, angle, layer, mirror: !t.mirror, source: src };
-  };
+  const flipText = (t: PcbTextItem): PcbTextItem => ({
+    ...t,
+    at: mirY(t.at),
+    angle: norm360(180 - t.angle),
+    layer: flipLayer(t.layer),
+    mirror: !t.mirror,
+  });
 
   const flipShape = (s: PcbShape): PcbShape => {
     const next: PcbShape = { ...s, layer: flipLayer(s.layer) };
@@ -3516,14 +3092,7 @@ export function flipBoardItems(board: Board, ids: ReadonlySet<string>, centre?: 
       next.start = next.end;
       next.end = swap;
     }
-    let src = s.source;
-    if (next.center) src = patchChild(src, 'center', xyNode('center', next.center));
-    if (next.start) src = patchChild(src, 'start', xyNode('start', next.start));
-    if (next.end) src = patchChild(src, 'end', xyNode('end', next.end));
-    if (next.mid) src = patchChild(src, 'mid', xyNode('mid', next.mid));
-    if (next.pts) src = patchChild(src, 'pts', ptsNode(next.pts));
-    src = patchChild(src, 'layer', layerNode(next.layer));
-    return { ...next, source: src };
+    return next;
   };
 
   /**
@@ -3536,22 +3105,14 @@ export function flipBoardItems(board: Board, ids: ReadonlySet<string>, centre?: 
     const layer = flipLayer(f.layer);
     const angle = norm180(-f.angle);
 
-    const pads = f.pads.map((p) => {
-      const padAt = mirY(p.at);
-      // Only the layers and the trapezoid delta are patched: the pad's `(at …)`
-      // is the writer's to derive (it is footprint-relative, and `padAt` here is
-      // board-absolute — writing it into that slot reloaded the pads a hundred
-      // millimetres away from their own footprint).
-      const layers = p.layers.map(flipLayer);
-      let src = patchChild(p.source, 'layers', {
-        kind: 'list',
-        items: [atom('layers'), ...layers.map((l) => str(l))],
-      });
+    const pads = f.pads.map((p) => ({
+      ...p,
+      at: mirY(p.at),
+      angle: norm360(-p.angle),
+      layers: p.layers.map(flipLayer),
       // A trapezoid's delta and an oblong drill's offset are mirrored with it.
-      const delta = p.delta ? { x: p.delta.x, y: -p.delta.y } : undefined;
-      if (delta) src = patchChild(src, 'rect_delta', xyNode('rect_delta', delta));
-      return { ...p, at: padAt, angle: norm360(-p.angle), layers, delta, source: src };
-    });
+      delta: p.delta ? { x: p.delta.x, y: -p.delta.y } : undefined,
+    }));
 
     return {
       ...f,
@@ -3559,7 +3120,7 @@ export function flipBoardItems(board: Board, ids: ReadonlySet<string>, centre?: 
       angle,
       layer,
       pads,
-      texts: f.texts.map((t) => flipText(t, true)),
+      texts: f.texts.map((t) => flipText(t)),
       shapes: f.shapes.map(flipShape),
       // `for( PCB_POINT* point : m_points ) point->Flip( m_pos, TOP_BOTTOM )`
       // (`footprint.cpp:2977-2979`). The comment upstream puts above that loop
@@ -3569,7 +3130,6 @@ export function flipBoardItems(board: Board, ids: ReadonlySet<string>, centre?: 
       // (`pcb_point.cpp:139-144`). The code is what runs, so the layer flips.
       points: f.points.map((p) => ({ ...p, at: mirY(p.at), layer: flipLayer(p.layer) })),
       barcodes: f.barcodes.map((b) => flipBarcodeTo(b, mirY(b.at), flipLayer(b.layer), true)),
-      source: patchChild(patchChild(f.source, 'at', atNode(at, angle)), 'layer', layerNode(layer)),
     };
   };
 
@@ -3608,10 +3168,8 @@ export function flipBoardItems(board: Board, ids: ReadonlySet<string>, centre?: 
  *
  * Four of those five lines are view bookkeeping the browser does by redrawing;
  * what has to survive is the design setting, which lives in the file as
- * `(setup (grid_origin x y))` / `(setup (aux_axis_origin x y))`. Both are
- * *preserved-opaque* nodes in `board_file_settings.ts` — Board Setup carries
- * them through untouched — so this is the one writer for them, and it patches
- * the source rather than going through that dialog's whole-section rebuild.
+ * `(setup (grid_origin x y))` / `(setup (aux_axis_origin x y))` —
+ * `BOARD_DESIGN_SETTINGS::SetGridOrigin` / `SetAuxOrigin`.
  *
  * A board with no `(setup …)` at all gains one, because
  * `BOARD_DESIGN_SETTINGS` always has an origin to write even when the file
@@ -3622,12 +3180,7 @@ export function setBoardOrigin(
   which: 'grid_origin' | 'aux_axis_origin',
   at: Vec2,
 ): Board {
-  const node = list(atom(which), atom(mm(at.x)), atom(mm(at.y)));
-  const setup = childNamed(board.source, 'setup');
-  const nextSetup = setup ? patchChild(setup, which, node) : list(atom('setup'), node);
-
-  return {
-    ...board,
-    source: patchChild(board.source, 'setup', nextSetup),
-  };
+  // `BOARD_DESIGN_SETTINGS::SetGridOrigin` / `SetAuxOrigin`; the writer puts
+  // them in `(setup …)`.
+  return which === 'grid_origin' ? { ...board, gridOrigin: at } : { ...board, auxOrigin: at };
 }

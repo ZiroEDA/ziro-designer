@@ -32,7 +32,6 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const MM = (n: number): number => mmToIU(n);
 const P = (x: number, y: number): Vec2 => ({ x: MM(x), y: MM(y) });
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const line = (x1: number, y1: number, x2: number, y2: number): PcbShape => ({
   kind: 'line',
@@ -41,7 +40,6 @@ const line = (x1: number, y1: number, x2: number, y2: number): PcbShape => ({
   layer: 'Edge.Cuts',
   width: MM(0.1),
   fillMode: 'none',
-  source: EMPTY,
 });
 
 const track = (x1: number, y1: number, x2: number, y2: number, net: number): PcbTrack => ({
@@ -50,7 +48,6 @@ const track = (x1: number, y1: number, x2: number, y2: number, net: number): Pcb
   width: MM(1),
   layer: 'F.Cu',
   net,
-  source: EMPTY,
 });
 
 /** A 60 x 30 board outline. */
@@ -91,7 +88,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -153,7 +149,6 @@ describe('board edges become corners', () => {
       layer: 'Edge.Cuts',
       width: MM(0.1),
       fillMode: 'none',
-      source: EMPTY,
     };
 
     expect(boardEdgeShapes(board({ shapes: [arc] }))[0]?.kind).toBe('be-arc');
@@ -181,7 +176,6 @@ describe('what counts as a net’s copper', () => {
           drill: MM(0.4),
           net: 1,
           layers: ['F.Cu', 'B.Cu'],
-          source: EMPTY,
         },
       ],
       zones: [
@@ -190,7 +184,6 @@ describe('what counts as a net’s copper', () => {
           layers: ['F.Cu'],
           fills: [{ layer: 'F.Cu', polys: [[P(30, 5), P(40, 5), P(40, 10), P(30, 10)]] }],
           outline: [P(30, 5), P(40, 5), P(40, 10), P(30, 10)],
-          source: EMPTY,
         },
       ],
     });

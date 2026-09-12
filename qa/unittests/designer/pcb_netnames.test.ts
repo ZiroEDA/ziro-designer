@@ -210,7 +210,7 @@ describe('which side of the board a name is painted on', () => {
   const sideBoard = (): Board =>
     readBoard(
       parse(`(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal) (1 "In1.Cu" signal) (31 "B.Cu" signal))
+  (layers (0 "F.Cu" signal) (1 "In1.Cu" signal) (2 "In2.Cu" signal) (31 "B.Cu" signal))
   (net 0 "")
   (net 1 "VCC")
   (segment (start 100 100) (end 180 100) (width 2) (layer "F.Cu") (net 1))

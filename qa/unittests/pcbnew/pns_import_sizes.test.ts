@@ -35,7 +35,6 @@ import type { PnsRouterSizes } from '@ziroeda/pcbnew/src/router/pns_router.js';
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const BOARD: Board = {
   version: 20240108,
@@ -61,7 +60,6 @@ const BOARD: Board = {
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 };
 
 function sizesModel(over: Partial<TrackViaSizes> = {}): TrackViaSizes {

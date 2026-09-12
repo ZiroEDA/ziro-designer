@@ -38,11 +38,12 @@ import {
 } from '../../board_file_model.js';
 import {
   B_Cu,
+  B_Fab,
   B_Mask,
   F_Cu,
+  F_Fab,
   F_Mask,
   IsCopperLayer,
-  IsExternalCopperLayer,
   LSET_Name,
   LSET_NameToLayer,
   UNDEFINED_LAYER,
@@ -69,7 +70,6 @@ import type {
   PcbBarcode,
   PcbDimension,
   PcbFootprint,
-  PcbFootprintField,
   PcbGroup,
   PcbImage,
   PcbLayerDef,
@@ -87,13 +87,8 @@ import type {
   PlacementSourceType,
   StrokeType,
   TeardropParams,
-  UnconnectedLayerMode,
 } from '../../types.js';
-import {
-  ZONE_CONNECTION_CODE,
-  type ZoneConnection,
-  zoneConnectionFromCode,
-} from '../../zone_connection.js';
+import { ZONE_CONNECTION_CODE, zoneConnectionFromCode } from '../../zone_connection.js';
 import type { PcbFillMode } from '../../shape_fill.js';
 import { rotatePcb, tessellateArc } from '../../read-board.js';
 import {
@@ -161,9 +156,6 @@ import { isDefaultTeardropParameters } from './pcb_io_kicad_sexpr.js';
 // ---------------------------------------------------------------------------
 // Small conversions
 // ---------------------------------------------------------------------------
-
-/** The view's empty source node: the tree is gone, the type still names it. */
-const NO_SOURCE = { kind: 'list' as const, items: [] };
 
 const sameVec = (a: Vec2 | undefined, b: Vec2 | undefined): boolean =>
   a === b || (a !== undefined && b !== undefined && a.x === b.x && a.y === b.y);
@@ -258,35 +250,49 @@ const strokeOf = (
 // Layers: the `(layers …)` tokens of a multi-layer item, `formatLayers` (:1549)
 // ---------------------------------------------------------------------------
 
-/** The `(layers …)` tokens KiCad writes for a layer set, wildcards and all. */
-export function layerTokens(layerMaskIn: LSET, copperLayerCount: number, isZone = false): string[] {
+/**
+ * The `(layers …)` tokens KiCad writes for a layer set, wildcards and all —
+ * `formatLayers( aLayerMask, aEnumerateLayers, aIsZone )` (:1549). With
+ * `enumerate` no wildcard is used ("Always enumerate every layer for a zone on
+ * a copper layer", :2883).
+ */
+export function layerTokens(
+  layerMaskIn: LSET,
+  copperLayerCount: number,
+  isZone = false,
+  enumerate = false,
+): string[] {
   const cu_all = LSET.AllCuMask();
   const fr_bk = new LSET([B_Cu, F_Cu]);
   const cu_board_mask = LSET.AllCuMask(copperLayerCount);
   let layerMask = layerMaskIn.clone();
   const out: string[] = [];
-  if (layerMask.and(cu_board_mask).equals(cu_board_mask)) {
-    out.push('*.Cu');
-    layerMask = layerMask.andNot(cu_all);
-  } else if (layerMask.and(cu_board_mask).equals(fr_bk)) {
-    out.push(isZone ? 'F&B.Cu' : '*.Cu');
-    layerMask = layerMask.andNot(fr_bk);
-  }
-  const pairs: [string, number, number][] = [
-    ['*.Adhes', 9, 11],
-    ['*.Paste', 13, 15],
-    ['*.SilkS', 5, 7],
-    ['*.Mask', 1, 3],
-    ['*.CrtYd', 31, 29],
-    ['*.Fab', 35, 33],
-  ];
-  for (const [name, a, b] of pairs) {
-    const set = new LSET([a, b]);
-    if (layerMask.and(set).equals(set)) {
-      out.push(name);
-      layerMask = layerMask.andNot(set);
+  if (!enumerate) {
+    // If all copper layers present on the board are enabled, then output the wildcard
+    if (layerMask.and(cu_board_mask).equals(cu_board_mask)) {
+      out.push('*.Cu');
+      layerMask = layerMask.andNot(cu_all);
+    } else if (layerMask.and(cu_board_mask).equals(fr_bk)) {
+      out.push(isZone ? 'F&B.Cu' : '*.Cu');
+      layerMask = layerMask.andNot(fr_bk);
+    }
+    const pairs: [string, number, number][] = [
+      ['*.Adhes', 9, 11],
+      ['*.Paste', 13, 15],
+      ['*.SilkS', 5, 7],
+      ['*.Mask', 1, 3],
+      ['*.CrtYd', 31, 29],
+      ['*.Fab', 35, 33],
+    ];
+    for (const [name, a, b] of pairs) {
+      const set = new LSET([a, b]);
+      if (layerMask.and(set).equals(set)) {
+        out.push(name);
+        layerMask = layerMask.andNot(set);
+      }
     }
   }
+  // output any individual layers not handled in wildcard combos above
   for (const layer of layerMask.Seq()) out.push(LSET_Name(layer));
   return out;
 }
@@ -492,6 +498,26 @@ function applyLayerTable(kb: KBoard, rows: readonly PcbLayerDef[]): void {
       visible: prev?.visible ?? true,
     });
   }
+  // A BOARD never has fewer than two copper layers (`SetCopperLayerCount`
+  // enables `AllCuMask( count )`, and the parser rejects a smaller count), so
+  // a view with no layer table keeps the model's F.Cu and B.Cu.
+  if (copper < 2) {
+    for (const id of [F_Cu, B_Cu]) {
+      if (enabled.test(id)) continue;
+      enabled.set(id);
+      descrs.set(
+        id,
+        kb.layerDescrs.get(id) ?? {
+          number: id,
+          name: LSET_Name(id),
+          userName: '',
+          type: 'signal',
+          visible: true,
+        },
+      );
+    }
+    copper = 2;
+  }
   kb.enabledLayers = enabled;
   kb.copperLayerCount = copper;
   kb.layerDescrs = descrs;
@@ -532,7 +558,7 @@ function textView(k: KPcbText, kind: PcbTextItem['kind'], t: FpTransform | null)
     layer: layerName(k.layer),
     face: k.fontName || undefined,
     size: { x: k.size.x, y: k.size.y },
-    thickness: k.autoThickness ? undefined : k.thickness,
+    thickness: k.thickness === 0 ? undefined : k.thickness,
     bold: k.bold,
     italic: k.italic,
     mirror: justify?.includes('mirror'),
@@ -542,7 +568,6 @@ function textView(k: KPcbText, kind: PcbTextItem['kind'], t: FpTransform | null)
     knockout: k.knockout,
     locked: k.locked,
     uuid: k.uuid,
-    source: NO_SOURCE,
     k,
   };
 }
@@ -560,11 +585,8 @@ function applyText(
   if (layerName(k.layer) !== v.layer) k.layer = layerId(v.layer);
   k.fontName = v.face ?? '';
   k.size = { x: v.size.x, y: v.size.y };
-  if (v.thickness === undefined) k.autoThickness = true;
-  else {
-    k.autoThickness = false;
-    k.thickness = v.thickness;
-  }
+  // `SetAutoThickness( true )` is `SetTextThickness( 0 )`.
+  k.thickness = v.thickness ?? 0;
   k.bold = v.bold ?? false;
   k.italic = v.italic ?? false;
   if (!sameStrings(justifyWords(k), v.justify) || (v.mirror ?? false) !== k.mirrored)
@@ -639,7 +661,6 @@ function shapeView(k: KPcbShape, t: FpTransform | null): PcbShape {
     solderMaskMargin: k.solderMaskMargin,
     locked: k.locked,
     uuid: k.uuid,
-    source: NO_SOURCE,
     k,
   };
   if (kind === 'circle') {
@@ -974,7 +995,6 @@ function padView(k: KPad, t: FpTransform | null, copperLayerCount: number): PcbP
     unconnectedLayerMode:
       ps.unconnectedLayerMode === 'keep_all' ? undefined : ps.unconnectedLayerMode,
     uuid: k.uuid,
-    source: NO_SOURCE,
     k,
   };
   return view;
@@ -1085,7 +1105,6 @@ function trackView(k: KPcbTrack): PcbTrack {
     solderMaskMargin: k.solderMaskMargin,
     locked: k.locked,
     uuid: k.uuid,
-    source: NO_SOURCE,
     k,
   };
 }
@@ -1151,7 +1170,6 @@ function viaView(k: KPcbVia): PcbVia {
       ps.unconnectedLayerMode === 'keep_all' ? undefined : ps.unconnectedLayerMode,
     locked: k.locked,
     uuid: k.uuid,
-    source: NO_SOURCE,
     k,
   };
 }
@@ -1248,7 +1266,7 @@ function zoneView(k: KZone, copperLayerCount: number): PcbZone {
     name: k.name || undefined,
     layers:
       k.layerSet.count() > 1
-        ? layerTokens(k.layerSet, copperLayerCount, true)
+        ? layerTokens(k.layerSet, copperLayerCount, true, k.layerSet.and(LSET.AllCuMask()).any())
         : k.layerSet.Seq().map(layerName),
     fills: zoneFillsView(k.filledPolygons),
     outline: outline.length >= 3 ? outline : undefined,
@@ -1275,7 +1293,8 @@ function zoneView(k: KZone, copperLayerCount: number): PcbZone {
     islandRemovalMode:
       k.islandRemovalMode === 1 ? 'never' : k.islandRemovalMode === 2 ? 'area' : 'always',
     // Stored in mm², not IU: upstream divides by IU_PER_MM when writing it.
-    islandAreaMin: k.minIslandArea / pcbIUScale.IU_PER_MM,
+    // The view keeps mm²; the model keeps IU² (`SetMinIslandArea( area * IU_PER_MM )`).
+    islandAreaMin: k.minIslandArea / (pcbIUScale.IU_PER_MM * pcbIUScale.IU_PER_MM),
     priority: k.priority,
     teardropType: k.isTeardropArea
       ? k.teardropType === 'padvia'
@@ -1302,7 +1321,6 @@ function zoneView(k: KZone, copperLayerCount: number): PcbZone {
       : undefined,
     locked: k.locked,
     uuid: k.uuid,
-    source: NO_SOURCE,
     k,
   };
 }
@@ -1317,7 +1335,7 @@ function applyZone(
   k.name = v.name ?? '';
   const derivedLayers =
     k.layerSet.count() > 1
-      ? layerTokens(k.layerSet, copperLayerCount, true)
+      ? layerTokens(k.layerSet, copperLayerCount, true, k.layerSet.and(LSET.AllCuMask()).any())
       : k.layerSet.Seq().map(layerName);
   if (!sameStrings(derivedLayers, v.layers)) k.layerSet = layerSetOfTokens(v.layers);
   if (!sameFills(zoneFillsView(k.filledPolygons), v.fills)) {
@@ -1348,8 +1366,13 @@ function applyZone(
   }
   k.isTeardropArea = v.teardropType !== undefined;
   if (k.isTeardropArea) k.teardropType = v.teardropType === 'viapad' ? 'padvia' : 'track_end';
+  // A loaded teardrop keeps the style its file says (the view shows it as
+  // `invisible` regardless); one the generator just made is
+  // `SetBorderDisplayStyle( INVISIBLE_BORDER, … )` (teardrop.cpp:81), which
+  // the writer spells `none`.
   if (v.hatchStyle !== undefined && v.hatchStyle !== 'invisible') k.hatchStyle = v.hatchStyle;
   else if (v.hatchStyle === 'invisible' && !k.isTeardropArea) k.hatchStyle = 'none';
+  else if (v.hatchStyle === 'invisible' && !v.k) k.hatchStyle = 'invisible';
   if (v.hatchPitch !== undefined) k.hatchPitch = v.hatchPitch;
   k.padConnection = PAD_CONNECTION_CODE[v.padConnection ?? 'thermal'];
   if (v.clearance !== undefined) k.localClearance = v.clearance;
@@ -1383,7 +1406,8 @@ function applyZone(
   k.isFilled = v.filled ?? false;
   k.islandRemovalMode =
     v.islandRemovalMode === 'never' ? 1 : v.islandRemovalMode === 'area' ? 2 : 0;
-  if (v.islandAreaMin !== undefined) k.minIslandArea = v.islandAreaMin * pcbIUScale.IU_PER_MM;
+  if (v.islandAreaMin !== undefined)
+    k.minIslandArea = v.islandAreaMin * pcbIUScale.IU_PER_MM * pcbIUScale.IU_PER_MM;
   k.priority = v.priority ?? 0;
   k.isRuleArea = v.ruleArea !== undefined || v.placementArea !== undefined;
   if (v.ruleArea) {
@@ -1426,7 +1450,7 @@ function textBoxView(k: KPcbTextBox, t: FpTransform | null): PcbTextBox {
     uuid: k.uuid,
     face: k.fontName || undefined,
     size: { x: k.size.x, y: k.size.y },
-    thickness: k.autoThickness ? undefined : k.thickness,
+    thickness: k.thickness === 0 ? undefined : k.thickness,
     bold: k.bold,
     italic: k.italic,
     justify: justifyWords(k),
@@ -1435,7 +1459,6 @@ function textBoxView(k: KPcbTextBox, t: FpTransform | null): PcbTextBox {
     strokeType: k.stroke.type,
     knockout: k.knockout,
     locked: k.locked,
-    source: NO_SOURCE,
     k,
   };
   if (k.shape === 'rectangle') {
@@ -1449,7 +1472,14 @@ function textBoxView(k: KPcbTextBox, t: FpTransform | null): PcbTextBox {
 
 function applyTextBox(k: KPcbTextBox, v: PcbTextBox, t: FpTransform | null): void {
   k.text = v.text;
-  if (v.start && v.end) {
+  // The polygon wins when a view somehow carries both: it is the form a
+  // rotated box takes, and in the parser a `(pts …)` after `(start …)` wins too.
+  if (v.pts) {
+    if (k.shape !== 'poly' || !sameVecs(pointsOf(k.outline ?? [], t), v.pts)) {
+      k.shape = 'poly';
+      k.outline = outlineOf(v.pts, t);
+    }
+  } else if (v.start && v.end) {
     if (
       k.shape !== 'rectangle' ||
       !sameVec(toBoard(k.start, t), v.start) ||
@@ -1458,11 +1488,6 @@ function applyTextBox(k: KPcbTextBox, v: PcbTextBox, t: FpTransform | null): voi
       k.shape = 'rectangle';
       k.start = toLocal(v.start, t);
       k.end = toLocal(v.end, t);
-    }
-  } else if (v.pts) {
-    if (k.shape !== 'poly' || !sameVecs(pointsOf(k.outline ?? [], t), v.pts)) {
-      k.shape = 'poly';
-      k.outline = outlineOf(v.pts, t);
     }
   }
   k.marginLeft = v.margins.left;
@@ -1473,11 +1498,8 @@ function applyTextBox(k: KPcbTextBox, v: PcbTextBox, t: FpTransform | null): voi
   if (layerName(k.layer) !== v.layer) k.layer = layerId(v.layer);
   k.fontName = v.face ?? '';
   k.size = { x: v.size.x, y: v.size.y };
-  if (v.thickness === undefined) k.autoThickness = true;
-  else {
-    k.autoThickness = false;
-    k.thickness = v.thickness;
-  }
+  // `SetAutoThickness( true )` is `SetTextThickness( 0 )`.
+  k.thickness = v.thickness ?? 0;
   k.bold = v.bold ?? false;
   k.italic = v.italic ?? false;
   if (!sameStrings(justifyWords(k), v.justify)) applyJustify(k, v.justify, undefined);
@@ -1516,7 +1538,6 @@ function tableView(k: KPcbTable, t: FpTransform | null): PcbTable {
       (c) =>
         ({ ...textBoxView(c, t), colSpan: c.colSpan, rowSpan: c.rowSpan, k: c }) as PcbTableCell,
     ),
-    source: NO_SOURCE,
     k,
   };
 }
@@ -1553,7 +1574,6 @@ function imageView(k: KPcbReferenceImage): PcbImage {
     locked: k.locked,
     data: k.data,
     uuid: k.uuid,
-    source: NO_SOURCE,
     k,
   };
 }
@@ -1604,7 +1624,6 @@ function dimensionView(k: KPcbDimension, t: FpTransform | null): PcbDimension {
     format,
     style,
     text: center ? undefined : textView(k.text, 'user', null),
-    source: NO_SOURCE,
     k,
   };
 }
@@ -1670,7 +1689,6 @@ function barcodeView(k: KPcbBarcode): PcbBarcode {
     margin: k.margin,
     uuid: k.uuid,
     locked: k.locked,
-    source: NO_SOURCE,
     k,
   };
 }
@@ -1699,7 +1717,6 @@ function pointView(k: KPcbPoint): PcbPoint {
     layer: layerName(k.layer),
     uuid: k.uuid,
     locked: k.locked,
-    source: NO_SOURCE,
     k,
   };
 }
@@ -1718,7 +1735,6 @@ function groupView(k: KPcbGroup): PcbGroup {
     uuid: k.uuid,
     locked: k.locked,
     members: [...k.memberUuids],
-    source: NO_SOURCE,
     k,
   };
 }
@@ -1825,7 +1841,6 @@ function footprintView(k: KFootprint, copperLayerCount: number, local = false): 
     barcodes: [],
     models: [],
     uuid: k.uuid,
-    source: NO_SOURCE,
     k,
   };
   for (const field of k.fields) {
@@ -1837,7 +1852,6 @@ function footprintView(k: KFootprint, copperLayerCount: number, local = false): 
       fp.fields!.push({
         name: fieldCanonicalName(field),
         value: field.text,
-        source: NO_SOURCE,
         k: field,
       });
     }
@@ -1918,13 +1932,23 @@ function applyFootprint(
   for (const f of v.fields ?? []) {
     let kf = f.k ?? rest.get(f.name);
     if (!kf || placed.has(kf)) {
+      // `BOARD_NETLIST_UPDATER::updateFootprintParameters` (:607-620): a new
+      // PCB_FIELD, hidden, on the parent's fab layer, at the anchor, then
+      // `StyleFromSettings( bds, true )` — the fab class of a default
+      // BOARD_DESIGN_SETTINGS (board_design_settings.cpp:111-116), since the
+      // project's own text defaults are not part of the board model.
       kf = {
         ...newPcbText({ at: v.at, layer: k.layer }),
         fieldId: 'user',
         name: f.name,
         visible: false,
       };
-      kf.layer = F_Cu === k.layer ? kf.layer : kf.layer;
+      kf.layer = k.layer === F_Cu ? F_Fab : B_Fab;
+      kf.size = { x: pcbIUScale.mmToIU(1.0), y: pcbIUScale.mmToIU(1.0) };
+      kf.thickness = pcbIUScale.mmToIU(0.15);
+      kf.italic = false;
+      kf.keepUpright = false;
+      kf.mirrored = k.layer !== F_Cu;
     }
     kf.text = f.value;
     if (kf.fieldId === 'user') kf.name = f.name;
@@ -2063,16 +2087,41 @@ function newDimension(): KPcbDimension {
 }
 
 /**
+ * A deep copy of a model item: plain data, `Map`s and `Set`s copied,
+ * `LSET`s cloned (a `structuredClone` would turn one into a bare object).
+ */
+export function cloneK<T>(value: T): T {
+  if (value === null || typeof value !== 'object') return value;
+  if (value instanceof LSET) return value.clone() as T;
+  if (Array.isArray(value)) return value.map((v) => cloneK(v)) as T;
+  if (value instanceof Map) return new Map([...value].map(([k, v]) => [k, cloneK(v)])) as T;
+  if (value instanceof Set) return new Set([...value].map((v) => cloneK(v))) as T;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = cloneK(v);
+  return out as T;
+}
+
+/**
+ * A marker in the `seen` set: every K item is cloned before it is written to
+ * — the view is a detached one (a clipboard payload) whose items are borrowed
+ * from another board's model.
+ */
+const CLONE_ALL = Object.freeze({});
+
+/**
  * A K item reached from two view items (a duplicate made by spreading the
  * view) is cloned for the second, so each view item writes its own.
  */
 function dedupe<T extends object>(k: T, seen: Set<object>): T {
-  if (!seen.has(k)) {
+  const borrowed = seen.has(CLONE_ALL);
+  if (!seen.has(k) && !borrowed) {
     seen.add(k);
     return k;
   }
-  const copy = structuredClone(k) as T & { uuid?: string };
-  if ('uuid' in copy) copy.uuid = newKiid();
+  const copy = cloneK(k) as T & { uuid?: string };
+  // A borrowed item keeps its identity (`Clone()` does); a second view of
+  // one item on the same board is another item.
+  if (!borrowed && 'uuid' in copy) copy.uuid = newKiid();
   seen.add(copy);
   return copy;
 }
@@ -2092,6 +2141,8 @@ export function boardFromKBoard(kb: KBoard, fileName?: string): Board {
     titleBlock: titleBlockView(kb.titleBlock),
     layers: layerTableView(kb),
     nets: kb.netNames,
+    gridOrigin: { ...kb.designSettings.gridOrigin },
+    auxOrigin: { ...kb.designSettings.auxOrigin },
     footprints: kb.footprints.map((fp) => footprintView(fp, cu)),
     tracks: [],
     arcs: [],
@@ -2107,7 +2158,6 @@ export function boardFromKBoard(kb: KBoard, fileName?: string): Board {
     barcodes: [],
     groups: kb.groups.map(groupView),
     fileName,
-    source: NO_SOURCE,
     k: kb,
   };
   for (const t of kb.tracks) {
@@ -2151,6 +2201,15 @@ export function footprintViewOfLibrary(k: KFootprint): PcbFootprint {
 }
 
 /**
+ * A footprint placed on a board, children baked to board coordinates through
+ * its placement. The layer tokens of its pads are derived for a two-layer
+ * board; `kboardFromBoard` re-derives them against the board it lands on.
+ */
+export function footprintViewOfBoard(k: KFootprint, copperLayerCount = 2): PcbFootprint {
+  return footprintView(k, copperLayerCount, false);
+}
+
+/**
  * The view written back into the model: the editor's fields where they
  * differ from what the model would show, every item list rebuilt from the
  * view's (so deleted items go, added ones get a fresh K item), and the
@@ -2160,18 +2219,22 @@ export function kboardFromBoard(board: Board): KBoard {
   const kb = board.k ?? emptyKBoard();
   const nets = board.nets;
   kb.netNames = nets;
+  const seen = new Set<object>();
+  // A board without a model of its own borrows its items' models from the
+  // board they were copied out of; those are cloned, never written to.
+  if (!board.k) seen.add(CLONE_ALL);
 
   // Header.
   if (board.thickness !== undefined) kb.designSettings.boardThickness = board.thickness;
   kb.legacyTeardrops = board.legacyTeardrops ?? false;
+  if (board.gridOrigin) kb.designSettings.gridOrigin = { ...board.gridOrigin };
+  if (board.auxOrigin) kb.designSettings.auxOrigin = { ...board.auxOrigin };
   if (board.paper !== undefined && paperOfPageInfo(kb.pageInfo) !== board.paper)
     kb.pageInfo = pageInfoOfPaper(board.paper, kb.pageInfo);
   if (!sameTitleBlock(titleBlockView(kb.titleBlock), board.titleBlock))
     kb.titleBlock = titleBlockOfView(board.titleBlock);
   if (!sameLayerRows(layerTableView(kb), board.layers)) applyLayerTable(kb, board.layers);
   const cu = kb.copperLayerCount;
-
-  const seen = new Set<object>();
 
   kb.footprints = board.footprints.map((fp) => {
     const k = dedupe(fp.k ?? newFootprint(), seen);
@@ -2243,6 +2306,22 @@ export function kboardFromBoard(board: Board): KBoard {
   kb.groupMembers = new Map();
   resolveGroups(kb);
   return kb;
+}
+
+/**
+ * A library footprint's view back into its model, for `FormatFootprintFile`:
+ * `FootprintSave`'s clone — orientation zero, `ClearAllNets` — with the
+ * editor's fields applied over it. The view is in the footprint's own frame
+ * (`footprintViewOfLibrary`), so its placement is the origin.
+ */
+export function kfootprintFromView(fp: PcbFootprint): KFootprint {
+  const k = fp.k ? cloneK(fp.k) : newFootprint();
+  const local: PcbFootprint = { ...fp, at: { x: 0, y: 0 }, angle: 0 };
+  applyFootprint(k, local, new Map([[0, '']]), 2, new Set());
+  k.at = { x: 0, y: 0 };
+  k.orientation = 0;
+  for (const pad of k.pads) pad.net = null;
+  return k;
 }
 
 /** `BOARD()`: what a board built by the editor from nothing starts as — a two-layer board with nothing on it. */

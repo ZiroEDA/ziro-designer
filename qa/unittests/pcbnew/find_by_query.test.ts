@@ -19,7 +19,6 @@ import {
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const board = (): Board => ({
   version: 20240108,
@@ -50,7 +49,6 @@ const board = (): Board => ({
           size: { x: MM(1), y: MM(1) },
           layers: ['F.Cu'],
           net: 1,
-          source: EMPTY,
         },
       ],
       shapes: [],
@@ -58,7 +56,6 @@ const board = (): Board => ({
       points: [],
       barcodes: [],
       models: [],
-      source: EMPTY,
     },
   ],
   tracks: [
@@ -69,7 +66,6 @@ const board = (): Board => ({
       width: MM(0.2),
       layer: 'F.Cu',
       net: 1,
-      source: EMPTY,
     },
     {
       start: { x: 0, y: MM(5) },
@@ -77,7 +73,6 @@ const board = (): Board => ({
       width: MM(0.5),
       layer: 'B.Cu',
       net: 2,
-      source: EMPTY,
     },
   ],
   arcs: [],
@@ -89,7 +84,6 @@ const board = (): Board => ({
       layers: ['F.Cu', 'B.Cu'],
       kind: 'through',
       net: 1,
-      source: EMPTY,
     },
   ],
   zones: [],
@@ -102,7 +96,6 @@ const board = (): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 const noClasses = (): readonly string[] => [];

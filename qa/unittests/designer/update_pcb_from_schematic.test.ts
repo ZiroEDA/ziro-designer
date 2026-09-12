@@ -198,16 +198,19 @@ describe('BOARD_NETLIST_UPDATER over the Arduino_Uno template', () => {
 
   it("does not churn a legacy board's Sheetname / Sheetfile properties", () => {
     // This board predates PCB fields (version 20221018), so it keeps its sheet name
-    // and file in `(property "Sheetname" …)` rather than the modern `(sheetname …)`
-    // token. Those reserved properties are not user fields, so they must neither be
-    // reported as fields the symbol is missing nor duplicated into a second token.
+    // and file in `(property "Sheetname" …)`. "Sheet file and name used to be
+    // stored as properties invisible to the user": `parseFOOTPRINT` folds them
+    // into `SetSheetfile` / `SetSheetname` (pcb_io_kicad_sexpr_parser.cpp:5168-5181),
+    // so they are neither user fields the symbol is missing nor written twice —
+    // the modern `(sheetfile …)` token is the only spelling that comes back out.
     const { result, reporter } = run(false);
     expect(actionsOf(reporter)).not.toContain("Updated J1 sheetfile to ''.");
 
     const text = serializeBoard(result.board);
-    // Exactly one Sheetfile answer per footprint, still where the file had it.
-    expect(text.match(/"Sheetfile"/g)?.length).toBe(boardText.match(/"Sheetfile"/g)?.length);
-    expect(text).not.toContain('(sheetfile ');
+    expect(text).not.toContain('"Sheetfile"');
+    expect(text.match(/\(sheetfile "Arduino_Uno.kicad_sch"\)/g)?.length).toBe(
+      boardText.match(/"Sheetfile"/g)?.length,
+    );
     const j1 = result.board.footprints.find((f) => f.reference === 'J1')!;
     expect(j1.sheetfile).toBe('Arduino_Uno.kicad_sch');
   });

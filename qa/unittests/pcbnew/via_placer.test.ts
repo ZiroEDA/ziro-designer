@@ -11,6 +11,7 @@
  * it and dragging either end moves the whole track.
  */
 import { describe, expect, it } from 'vitest';
+import { U } from './support/written_node.js';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
@@ -23,7 +24,7 @@ const MM = (n: number): number => mmToIU(n);
 const SRC = `(kicad_pcb (version 20240108) (generator "pcbnew")
   (net 0 "")
   (net 1 "GND")
-  (segment (start 0 0) (end 20 0) (width 0.25) (layer "F.Cu") (net 1) (uuid "t1"))
+  (segment (start 0 0) (end 20 0) (width 0.25) (layer "F.Cu") (net 1) (uuid "${U('t1')}"))
 )`;
 
 const load = (): Board => readBoard(parse(SRC));
@@ -83,8 +84,9 @@ describe('placing on a track', () => {
     expect(far!.width).toBe(near!.width);
     expect(far!.layer).toBe(near!.layer);
     expect(far!.net).toBe(near!.net);
-    expect(near!.uuid).toBe('t1');
-    expect(far!.uuid).toBeUndefined();
+    expect(near!.uuid).toBe(U('t1'));
+    expect(far!.uuid).toBeDefined();
+    expect(far!.uuid).not.toBe(U('t1'));
   });
 
   it('does NOT break it when the via lands on an end', () => {

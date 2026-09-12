@@ -25,9 +25,9 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard, buildDimensionNode } from '@ziroeda/pcbnew/src/write-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { emptyBoard, flatText, writtenNode } from './support/written_node.js';
 import { isAlignedKind, type Board, type PcbDimension } from '@ziroeda/pcbnew/src/types.js';
-import { serialize } from '@ziroeda/sexpr/src/serializer.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 
 const ALIGNED = `(dimension
@@ -139,13 +139,11 @@ describe('reading dimensions', () => {
     expect(d.end).toEqual({ x: mmToIU(56.5), y: mmToIU(56.5) });
   });
 
-  it('takes only the first two xy children as the feature points', () => {
-    // `(pts …)` is a generic point list elsewhere in the format; a dimension has
-    // exactly two feature points and reading a third as `end` would silently
-    // move the measurement.
-    const d = only(ALIGNED.replace('(xy 56.5 56.5))', '(xy 56.5 56.5) (xy 99 99))'));
-
-    expect(d.end).toEqual({ x: mmToIU(56.5), y: mmToIU(56.5) });
+  it('refuses a third xy child among the feature points', () => {
+    // `parseDIMENSION`'s `T_pts` reads exactly two points and then `NeedRIGHT()`
+    // (pcb_io_kicad_sexpr_parser.cpp:4623-4628): a third is a parse error, not
+    // a silently moved measurement.
+    expect(() => read(ALIGNED.replace('(xy 56.5 56.5))', '(xy 56.5 56.5) (xy 99 99))'))).toThrow();
   });
 
   it('reads the format block', () => {
@@ -211,9 +209,10 @@ describe('reading dimensions', () => {
     expect(d.style.arrowDirection).toBe('outward');
   });
 
-  it('skips a dimension whose type it does not know', () => {
-    // Rather than guessing a kind and writing back something different.
-    expect(read(ALIGNED.replace('(type aligned)', '(type ordinate)')).dimensions).toHaveLength(0);
+  it('rejects a dimension whose type it does not know', () => {
+    // `Expecting( "aligned, orthogonal, radial, leader, or center" )` — the
+    // parser refuses the file rather than guessing a kind.
+    expect(() => read(ALIGNED.replace('(type aligned)', '(type ordinate)'))).toThrow();
   });
 });
 
@@ -226,8 +225,11 @@ describe('round-tripping through the writer', () => {
     const back = readBoard(parse(out));
 
     expect(back.dimensions).toHaveLength(5);
-    expect(back.dimensions.map((d) => d.kind)).toEqual(
-      read(ALIGNED, ORTHOGONAL, RADIAL, LEADER, CENTER).dimensions.map((d) => d.kind),
+    // As a set: the writer orders drawings (`BOARD::cmp_drawings`), not the file.
+    expect(back.dimensions.map((d) => d.kind).sort()).toEqual(
+      read(ALIGNED, ORTHOGONAL, RADIAL, LEADER, CENTER)
+        .dimensions.map((d) => d.kind)
+        .sort(),
     );
     for (const k of [
       '(type aligned)',
@@ -248,7 +250,6 @@ describe('round-tripping through the writer', () => {
       angle: 0,
       layer: 'F.SilkS',
       size: { x: mmToIU(1), y: mmToIU(1) },
-      source: { kind: 'list', items: [] },
     });
     const back = readBoard(parse(serializeBoard(b)));
 
@@ -288,10 +289,10 @@ describe('building a dimension node from scratch', () => {
       extensionOffset: mmToIU(0.5),
     },
     format: { prefix: '', suffix: '', units: 3, unitsFormat: 1, precision: 4 },
-    source: { kind: 'list', items: [] },
     ...over,
   });
-  const text = (d: PcbDimension): string => serialize(buildDimensionNode(d));
+  const text = (d: PcbDimension): string =>
+    flatText(writtenNode({ ...emptyBoard(), dimensions: [d] }, 'dimension'));
 
   it('writes the aligned members for an aligned dimension', () => {
     const s = text(base());
@@ -351,7 +352,6 @@ describe('building a dimension node from scratch', () => {
           angle: 0,
           layer: 'Dwgs.User',
           size: { x: mmToIU(1), y: mmToIU(1) },
-          source: { kind: 'list', items: [] },
         },
       }),
     );
@@ -392,7 +392,12 @@ describe('building a dimension node from scratch', () => {
     expect(text(on)).toContain('(suppress_zeroes yes)');
     expect(text(on)).toContain('(keep_text_aligned yes)');
     expect(text(base())).not.toContain('(suppress_zeroes');
-    expect(text(base())).not.toContain('(keep_text_aligned');
+    // `PCB_DIMENSION_BASE` is born with `m_keepTextAligned( true )`, so a drawn
+    // dimension whose style never says otherwise writes the token.
+    expect(text(base())).toContain('(keep_text_aligned yes)');
+    expect(text(base({ style: { ...base().style, keepTextAligned: false } }))).not.toContain(
+      '(keep_text_aligned',
+    );
   });
 
   it('round-trips a built dimension back through the reader', () => {

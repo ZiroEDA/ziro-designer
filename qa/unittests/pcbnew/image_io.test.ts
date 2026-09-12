@@ -26,12 +26,9 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import {
-  BASE64_LINE_WIDTH,
-  buildImageNode,
-  serializeBoard,
-} from '@ziroeda/pcbnew/src/write-board.js';
-import { serialize } from '@ziroeda/sexpr/src/serializer.js';
+import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import type { SList } from '@ziroeda/sexpr/src/types.js';
+import { childNode, emptyBoard, flatText, writtenNode } from './support/written_node.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { Board, PcbImage } from '@ziroeda/pcbnew/src/types.js';
 
@@ -40,6 +37,9 @@ const MM = (n: number): number => mmToIU(n);
 /** A 1x1 transparent PNG, base64 — 96 characters, so it wraps. */
 const PNG =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+/** `FormatStreamData`'s MIME width: "the MIME standard character width for base64 encoding is 76". */
+const BASE64_LINE_WIDTH = 76;
 
 /** Split as the file does, to prove the reader joins rather than assumes one string. */
 const wrapped = (s: string, width = BASE64_LINE_WIDTH): string => {
@@ -58,7 +58,7 @@ const IMAGE = (extra = ''): string => `(image
 const read = (...extra: string[]): Board =>
   readBoard(
     parse(`(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal) (39 "F.SilkS" user "F.Silkscreen"))
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (39 "F.SilkS" user "F.Silkscreen"))
   (net 0 "")
   ${extra.join('\n  ')}
 )`),
@@ -94,9 +94,12 @@ describe('reading a reference image', () => {
     expect(only(IMAGE()).locked).toBeFalsy();
   });
 
-  it('skips an image with no position', () => {
-    // Nothing to place it by, and guessing an origin would silently move it.
-    expect(read(IMAGE().replace('(at 145.5 108.25)', '')).images).toHaveLength(0);
+  it('keeps an image with no position, at the origin the constructor gave it', () => {
+    // `parsePCB_REFERENCE_IMAGE` never insists on `(at …)`; the item stays
+    // where `PCB_REFERENCE_IMAGE( aParent )` put it.
+    const images = read(IMAGE().replace('(at 145.5 108.25)', '')).images;
+    expect(images).toHaveLength(1);
+    expect(images[0]!.at).toEqual({ x: 0, y: 0 });
   });
 
   it('reads an image with no data as empty rather than failing', () => {
@@ -126,7 +129,6 @@ describe('round-tripping through the writer', () => {
       angle: 0,
       layer: 'F.SilkS',
       size: { x: MM(1), y: MM(1) },
-      source: { kind: 'list', items: [] },
     });
     const back = readBoard(parse(serializeBoard(b)));
 
@@ -150,10 +152,10 @@ describe('building an image from scratch', () => {
     at: { x: MM(10), y: MM(20) },
     layer: 'F.SilkS',
     data: PNG,
-    source: { kind: 'list', items: [] },
     ...over,
   });
-  const text = (img: PcbImage): string => serialize(buildImageNode(img));
+  const node = (img: PcbImage): SList => writtenNode({ ...emptyBoard(), images: [img] }, 'image');
+  const text = (img: PcbImage): string => flatText(node(img));
 
   it('writes the position and layer', () => {
     const s = text(base());
@@ -163,31 +165,23 @@ describe('building an image from scratch', () => {
   });
 
   it('splits the data at the MIME width', () => {
-    const node = buildImageNode(base());
-    const dataNode = node.items.find(
-      (it) => it.kind === 'list' && it.items[0]?.kind === 'atom' && it.items[0].value === 'data',
-    );
-    const pieces = dataNode && dataNode.kind === 'list' ? dataNode.items.slice(1) : [];
+    const dataNode = childNode(node(base()), 'data');
+    const pieces = dataNode ? dataNode.items.slice(1) : [];
 
     // 96 characters at 76 per line is two pieces, the second a remainder.
     expect(pieces).toHaveLength(2);
-    expect(BASE64_LINE_WIDTH).toBe(76);
   });
 
   it('splits so the pieces rejoin to exactly the original', () => {
     // The property that matters more than the chunk count.
-    const node = buildImageNode(base());
-    const dataNode = node.items.find(
-      (it) => it.kind === 'list' && it.items[0]?.kind === 'atom' && it.items[0].value === 'data',
-    );
-    // The pieces are quoted strings (`str()` -> kind 'string'), not bare atoms.
-    const joined =
-      dataNode && dataNode.kind === 'list'
-        ? dataNode.items
-            .slice(1)
-            .map((n) => (n.kind === 'string' ? n.value : ''))
-            .join('')
-        : '';
+    const dataNode = childNode(node(base()), 'data');
+    // The pieces are quoted strings, not bare atoms.
+    const joined = dataNode
+      ? dataNode.items
+          .slice(1)
+          .map((n) => (n.kind === 'string' ? n.value : ''))
+          .join('')
+      : '';
 
     expect(joined).toBe(PNG);
   });
@@ -217,7 +211,11 @@ describe('building an image from scratch', () => {
 
   it('round-trips a payload longer than one line', () => {
     // Three full lines plus a remainder, so the split is exercised properly.
-    const long = 'A'.repeat(BASE64_LINE_WIDTH * 3 + 10);
+    // Real base64 (200 bytes -> 268 characters): the writer decodes and
+    // re-encodes the payload the way `wxBase64Decode` / `FormatStreamData` do,
+    // so a string that is not a whole number of quartets cannot come back.
+    const long = btoa(String.fromCharCode(...Array.from({ length: 200 }, (_, i) => i)));
+    expect(long.length).toBeGreaterThan(BASE64_LINE_WIDTH * 3);
     const b = read();
     b.images.push(base({ data: long }));
     const back = readBoard(parse(serializeBoard(b)));

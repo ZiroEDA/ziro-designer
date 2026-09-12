@@ -166,6 +166,8 @@ export interface ParsedBoardHeader {
 
 export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
   private m_requiredVersion = 0;
+  /** `m_board`: null while a footprint file is read; the net parsers skip the board then. */
+  private m_hasBoard = true;
   private m_generatorVersion = '';
   private m_tooRecent = false;
   /** `m_layerIndices`: layer name (canonical or as the board renamed it) -> id. */
@@ -386,17 +388,26 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
     return name === undefined ? null : { name, code };
   }
 
-  /** `parseNet( aItem )` (:296): the item's net, as a legacy netcode or a name. */
-  parseNet(): { name: string; code: number } {
+  /**
+   * `parseNet( aItem )` (:296): the item's net, as a legacy netcode or a name.
+   * Null is `m_netinfo` left on `NETINFO_LIST::OrphanedItem()`: a net read
+   * with no board (`if( m_board )`, :321) — a footprint file.
+   */
+  parseNet(): { name: string; code: number } | null {
     const token = this.NextTok();
     // Legacy files (pre-10.0) will have a netcode instead of a netname.  This netcode
     // is authoratative (though may be mapped by getNetCode() to prevent collisions).
     if (DSNLEXER.IsNumber(token)) {
       const code = Math.max(0, this.getNetCode(Number.parseInt(this.CurText(), 10)));
       this.NeedRIGHT();
-      return this.netByCode(code) ?? { name: '', code: -1 };
+      // `FindNet( code )` missing leaves `m_netinfo` null: `GetNetCode()` -1.
+      return this.m_hasBoard ? (this.netByCode(code) ?? { name: '', code: -1 }) : null;
     }
     if (!DSNLEXER.IsSymbol(token)) this.Expecting('net name');
+    if (!this.m_hasBoard) {
+      this.NeedRIGHT();
+      return null;
+    }
     let netName = this.CurText();
     // Convert overbar syntax from `~...~` to `~{...}`.  These were left out of the
     // first merge so the version is a bit later.
@@ -644,7 +655,37 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
     token = this.NextTok();
     if (token !== 'kicad_pcb') this.throwParse(`Unknown token '${this.CurText()}'`);
 
-    this.m_hdr = {
+    this.m_hdr = this.freshHeader();
+    this.parseBOARD_unchecked(onItem);
+    return this.m_hdr;
+  }
+
+  /**
+   * `Parse()` (:1041) for a `.kicad_mod` / a `(footprint …)` on its own: the
+   * leading comment lines, the `(` and the `footprint` / `module` token, with
+   * an empty board header behind it (a library footprint has no board, so
+   * its nets and layers are the defaults). The caller then runs the
+   * footprint parser; the comments are returned for `Format()`.
+   */
+  BeginFootprintFile(): string[] | null {
+    const initialComments = this.ReadCommentLines();
+    let token = this.CurTok();
+    if (token === T.EOF) this.Unexpected(token);
+    if (token !== T.LEFT) this.Expecting(T.LEFT);
+    token = this.NextTok();
+    if (token !== 'footprint' && token !== 'module')
+      this.throwParse(`Unknown token '${this.CurText()}'`);
+    this.m_hdr = this.freshHeader();
+    this.m_hasBoard = false;
+    // `init()` left m_requiredVersion at 0: a footprint file's own
+    // `(version …)` raises it from inside the footprint, and one without is
+    // read as the oldest format.
+    return initialComments;
+  }
+
+  /** `BOARD()` as the parser starts from: two copper layers, the defaults, no items. */
+  private freshHeader(): ParsedBoardHeader {
+    return {
       fileFormatVersionAtLoad: 0,
       generator: '',
       generatorVersion: '',
@@ -662,8 +703,6 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
       legacyTeardrops: false,
       parseWarnings: this.m_parseWarnings,
     };
-    this.parseBOARD_unchecked(onItem);
-    return this.m_hdr;
   }
 
   /** `m_board->GetCopperLayerCount()` while the items are being read. */

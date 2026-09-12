@@ -19,7 +19,6 @@ import { COMPONENT, NETLIST } from '@ziroeda/pcbnew/src/netlist_reader/pcb_netli
 import type { Board, PcbFootprint, PcbPad } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const pad = (number: string, net: number): PcbPad => ({
   number,
@@ -30,7 +29,6 @@ const pad = (number: string, net: number): PcbPad => ({
   size: { x: MM(1), y: MM(1) },
   layers: ['F.Cu'],
   net,
-  source: EMPTY,
 });
 
 const fp = (over: Partial<PcbFootprint> = {}): PcbFootprint => ({
@@ -47,7 +45,6 @@ const fp = (over: Partial<PcbFootprint> = {}): PcbFootprint => ({
   barcodes: [],
   models: [],
   attributes: ['allow_missing_courtyard'],
-  source: EMPTY,
   ...over,
 });
 
@@ -72,7 +69,6 @@ const board = (footprints: PcbFootprint[], nets: [number, string][] = []): Board
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 /** One symbol, with whatever pin/net pairs the caller wants. */
@@ -216,7 +212,7 @@ describe('custom field parity', () => {
     for (const [k, v] of symbolFields) c.GetFields().set(k, v);
 
     const f = fp({
-      fields: boardFields.map(([name, value]) => ({ name, value, source: EMPTY })),
+      fields: boardFields.map(([name, value]) => ({ name, value })),
     });
 
     return codes(board([f]), netlistOf(c), 'footprint_symbol_field_mismatch');

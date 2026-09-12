@@ -24,7 +24,6 @@ import type {
 } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const track = (x0: number, y0: number, x1: number, y1: number, net = 1): PcbTrack => ({
   start: { x: MM(x0), y: MM(y0) },
@@ -32,7 +31,6 @@ const track = (x0: number, y0: number, x1: number, y1: number, net = 1): PcbTrac
   width: MM(0.2),
   layer: 'F.Cu',
   net,
-  source: EMPTY,
 });
 
 const board = (over: Partial<Board> = {}): Board => ({
@@ -60,7 +58,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -129,7 +126,6 @@ describe('track segment length', () => {
       width: MM(0.2),
       layer: 'F.Cu',
       net: 1,
-      source: EMPTY,
     };
     const b = board({ arcs: [arc] });
 
@@ -222,7 +218,6 @@ describe('track angle', () => {
       size: { x: MM(2), y: MM(2) },
       layers: ['F.Cu'],
       net: 1,
-      source: EMPTY,
     };
     const fp: PcbFootprint = {
       lib: 'L:F',
@@ -237,7 +232,6 @@ describe('track angle', () => {
       barcodes: [],
       models: [],
       attributes: ['allow_missing_courtyard'],
-      source: EMPTY,
     };
     const b = board({ tracks: [track(0, 0, 10, 0), track(10, 0, 10, 10)], footprints: [fp] });
 

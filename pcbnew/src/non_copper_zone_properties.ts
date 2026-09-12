@@ -26,13 +26,9 @@
  * but a thieving zone that somehow reached a technical layer is not guarded.
  */
 
-import { atom, head, isList, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { dropChild, mm, patchChild } from './edit-board.js';
 import type { Board, PcbZone } from './types.js';
 import type { ZoneBorderStyle, ZoneValueError } from './rule_area_properties.js';
-
-const list = (...items: SNode[]): SList => ({ kind: 'list', items });
 
 /** ZONE_BORDER_HATCH_{DIST,MINDIST,MAXDIST}_MM (pcbnew/zones.h:34-36). */
 const BORDER_HATCH_DEFAULT = mmToIU(0.5);
@@ -128,86 +124,6 @@ export function nonCopperZoneValuesError(v: NonCopperZoneValues): ZoneValueError
   return null;
 }
 
-/** The layer children: `(layer …)` for one, `(layers …)` for several. */
-function layerNodes(src: SList, layers: readonly string[]): SList {
-  if (layers.length === 1) {
-    return patchChild(dropChild(src, 'layers'), 'layer', list(atom('layer'), str(layers[0]!)));
-  }
-  return patchChild(dropChild(src, 'layer'), 'layers', {
-    kind: 'list',
-    items: [atom('layers'), ...layers.map((l) => str(l))],
-  });
-}
-
-/**
- * Patch the `(fill …)` child in place rather than rebuild it.
- *
- * This dialog owns eight of the fill's tokens and none of the rest — thermal
- * relief, island removal and the thieving block all belong to the copper form
- * — so rebuilding the node would quietly drop settings the user never saw.
- * Which of the eight are written follows `PCB_IO_KICAD_SEXPR::format`: the
- * radius only when non-zero, the hatch parameters only for a hatched fill, and
- * the hatch smoothing pair only above level 0.
- */
-function patchFill(src: SList, v: NonCopperZoneValues): SList {
-  const existing = src.items.find((it): it is SList => isList(it) && head(it) === 'fill');
-  let fill: SList = existing ?? list(atom('fill'));
-
-  fill =
-    v.fillMode === 'hatch'
-      ? patchChild(fill, 'mode', list(atom('mode'), atom('hatch')))
-      : dropChild(fill, 'mode');
-
-  if (v.cornerSmoothing === 'none') {
-    fill = dropChild(dropChild(fill, 'smoothing'), 'radius');
-  } else {
-    fill = patchChild(fill, 'smoothing', list(atom('smoothing'), atom(v.cornerSmoothing)));
-    fill = v.cornerRadius
-      ? patchChild(fill, 'radius', list(atom('radius'), atom(mm(v.cornerRadius))))
-      : dropChild(fill, 'radius');
-  }
-
-  if (v.fillMode === 'hatch') {
-    fill = patchChild(
-      fill,
-      'hatch_thickness',
-      list(atom('hatch_thickness'), atom(mm(v.hatchThickness))),
-    );
-    fill = patchChild(fill, 'hatch_gap', list(atom('hatch_gap'), atom(mm(v.hatchGap))));
-    fill = patchChild(
-      fill,
-      'hatch_orientation',
-      list(atom('hatch_orientation'), atom(String(v.hatchOrientation))),
-    );
-
-    if (v.hatchSmoothingLevel > 0) {
-      fill = patchChild(
-        fill,
-        'hatch_smoothing_level',
-        list(atom('hatch_smoothing_level'), atom(String(v.hatchSmoothingLevel))),
-      );
-      fill = patchChild(
-        fill,
-        'hatch_smoothing_value',
-        list(atom('hatch_smoothing_value'), atom(String(v.hatchSmoothingValue))),
-      );
-    } else {
-      fill = dropChild(dropChild(fill, 'hatch_smoothing_level'), 'hatch_smoothing_value');
-    }
-  } else {
-    for (const name of [
-      'hatch_thickness',
-      'hatch_gap',
-      'hatch_orientation',
-      'hatch_smoothing_level',
-      'hatch_smoothing_value',
-    ])
-      fill = dropChild(fill, name);
-  }
-
-  return patchChild(src, 'fill', fill);
-}
-
 /**
  * DIALOG_NON_COPPER_ZONES_EDITOR::TransferDataFromWindow, patching the source
  * in step. The board comes back untouched when the values are refused.
@@ -244,17 +160,6 @@ export function applyNonCopperZoneValues(
     hatchSmoothingLevel: v.hatchSmoothingLevel,
     hatchSmoothingValue: v.hatchSmoothingValue,
   };
-
-  let src = zone.source;
-  src = layerNodes(src, v.layers);
-  src = v.locked
-    ? patchChild(src, 'locked', list(atom('locked'), atom('yes')))
-    : dropChild(src, 'locked');
-  src = patchChild(src, 'hatch', list(atom('hatch'), atom(v.hatchStyle), atom(mm(v.hatchPitch))));
-  src = patchChild(src, 'min_thickness', list(atom('min_thickness'), atom(mm(v.minThickness))));
-  src = patchFill(src, { ...v, cornerRadius });
-
-  next.source = src;
 
   return { ...board, zones: board.zones.map((z, i) => (i === index ? next : z)) };
 }

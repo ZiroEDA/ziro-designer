@@ -10,6 +10,7 @@
  * the interesting case, and the fixture has one.
  */
 import { describe, it, expect } from 'vitest';
+import { U, writtenItems } from './support/written_node.js';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
@@ -27,16 +28,17 @@ const MM = (n: number): number => mmToIU(n);
 const load = (text: string): Board => readBoard(parse(text));
 const roundTrip = (b: Board): Board => load(serializeBoard(b));
 const pad = (b: Board, i = 0): PcbPad => b.footprints[0]!.pads[i]!;
-const flat = (b: Board): string => serializeBoard(b).replace(/\s+/g, ' ').replace(/ \)/g, ')');
+/** The written items, one line, header excluded. */
+const flat = (b: Board): string => writtenItems(b);
 
 /** A footprint rotated 90°, so the local/absolute conversion has to work. */
 const SRC = `(kicad_pcb (version 20240108) (generator "pcbnew")
   (net 0 "") (net 1 "N1") (net 2 "N2")
-  (footprint "L:R" (layer "F.Cu") (uuid "f1") (at 20 30 90)
+  (footprint "L:R" (layer "F.Cu") (uuid "${U('f1')}") (at 20 30 90)
     (pad "1" smd roundrect (at -1 0 90) (size 1 2) (layers "F.Cu" "F.Paste" "F.Mask")
-      (roundrect_rratio 0.25) (net 1) (uuid "p1"))
+      (roundrect_rratio 0.25) (net 1 "N1") (uuid "${U('p1')}"))
     (pad "2" thru_hole circle (at 1 0 90) (size 1.5 1.5) (drill 0.8)
-      (layers "*.Cu" "*.Mask") (net 1) (uuid "p2")))
+      (layers "*.Cu" "*.Mask") (net 1 "N1") (uuid "${U('p2')}")))
 )`;
 
 describe('padAt', () => {
@@ -77,7 +79,8 @@ describe('collect', () => {
     expect(v.sizeY).toBe(MM(2));
     expect(v.orientation).toBe(90);
     expect(v.net).toBe(1);
-    expect(v.layers).toEqual(['F.Cu', 'F.Paste', 'F.Mask']);
+    // In PCB_LAYER_ID order, as `formatLayers` writes them (F_Cu 0, F_Mask 1, F_Paste 13).
+    expect(v.layers).toEqual(['F.Cu', 'F.Mask', 'F.Paste']);
     expect(v.roundrectRatio).toBeCloseTo(0.25);
     expect(v.hasHole).toBe(false);
   });
@@ -101,7 +104,9 @@ describe('collect', () => {
   });
 
   it('keeps a zero override distinct from a blank one', () => {
-    const z = load(`(kicad_pcb (version 20240108)
+    // "In pre-9.0 files '0' meant inherit" (:6195-6197): the file has to be
+    // newer than 20240201 for a zero to be a real override.
+    const z = load(`(kicad_pcb (version 20241229)
       (footprint "L:R" (layer "F.Cu") (at 0 0)
         (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu") (clearance 0) (zone_connect 3))))`);
     const v = collectPadValues(pad(z));
@@ -124,8 +129,11 @@ describe('apply', () => {
 
   it('renames the pad and changes its net', () => {
     const out = roundTrip(edit({ number: '7', net: 2 }));
-    expect(pad(out).number).toBe('7');
-    expect(pad(out).net).toBe(2);
+    // By number and by name: the writer orders pads (`FOOTPRINT::cmp_pads`)
+    // and a 10.0 file numbers its nets as it meets them.
+    const renamed = out.footprints[0]!.pads.find((p) => p.number === '7')!;
+    expect(renamed).toBeDefined();
+    expect(out.nets.get(renamed.net!)).toBe('N2');
   });
 
   it('changes type and shape, which are positional atoms', () => {
@@ -178,7 +186,9 @@ describe('apply', () => {
   });
 
   it('adds, reshapes and removes the hole', () => {
-    const drilled = edit({ hasHole: true, holeW: MM(0.9) });
+    // A hole lives on a through-hole pad: `parsePAD` zeroes the drill of an
+    // SMD or CONN pad whatever the file says (:5973-5975).
+    const drilled = edit({ type: 'thru_hole', hasHole: true, holeW: MM(0.9) });
     expect(pad(roundTrip(drilled)).drill?.w).toBe(MM(0.9));
 
     const oblong = applyPadValues(drilled, ref, {
@@ -192,6 +202,7 @@ describe('apply', () => {
 
     const smd = applyPadValues(oblong, ref, {
       ...collectPadValues(pad(oblong)),
+      type: 'smd',
       hasHole: false,
     });
     // Scope the check to this pad's node: pad 2 keeps its own drill.
@@ -201,10 +212,15 @@ describe('apply', () => {
   });
 
   it('writes the hole offset only when it is non-zero', () => {
-    const centred = edit({ hasHole: true, holeW: MM(0.9) });
+    const centred = edit({ type: 'thru_hole', hasHole: true, holeW: MM(0.9) });
     expect(flat(centred)).not.toContain('(offset');
 
-    const shifted = edit({ hasHole: true, holeW: MM(0.9), holeOffsetX: MM(0.2) });
+    const shifted = edit({
+      type: 'thru_hole',
+      hasHole: true,
+      holeW: MM(0.9),
+      holeOffsetX: MM(0.2),
+    });
     expect(flat(shifted)).toContain('(offset 0.2 0)');
     expect(pad(roundTrip(shifted)).drill?.offset).toEqual({ x: MM(0.2), y: 0 });
   });
@@ -268,7 +284,7 @@ describe('apply', () => {
     expect(pad(out, 1).number).toBe('2');
     expect(pad(out, 1).drill?.w).toBe(MM(0.8));
     expect(out.footprints[0]!.at).toEqual(b.footprints[0]!.at);
-    expect(pad(out).uuid).toBe('p1');
+    expect(pad(out).uuid).toBe(U('p1'));
   });
 
   it('survives a collect/apply round with no edits', () => {

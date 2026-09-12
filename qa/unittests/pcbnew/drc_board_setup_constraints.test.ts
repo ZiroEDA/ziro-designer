@@ -28,7 +28,6 @@ import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
 import type { Board, PcbTextItem, PcbTrack, PcbVia } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const board = (over: Partial<Board> = {}): Board => ({
   version: 20240108,
@@ -55,7 +54,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -80,7 +78,6 @@ const track = (x0: number, x1: number, net = 1): PcbTrack => ({
   width: MM(0.2),
   layer: 'F.Cu',
   net,
-  source: EMPTY,
 });
 
 const via = (x: number, net = 2, over: Partial<PcbVia> = {}): PcbVia => ({
@@ -90,7 +87,6 @@ const via = (x: number, net = 2, over: Partial<PcbVia> = {}): PcbVia => ({
   layers: ['F.Cu', 'B.Cu'],
   kind: 'through',
   net,
-  source: EMPTY,
   ...over,
 });
 
@@ -102,7 +98,6 @@ const text = (layer: string, height: number, thickness: number): PcbTextItem => 
   layer,
   size: { x: MM(height), y: MM(height) },
   thickness: MM(thickness),
-  source: EMPTY,
 });
 
 // ---------------------------------------------------------------------------

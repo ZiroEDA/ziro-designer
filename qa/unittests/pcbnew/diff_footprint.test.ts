@@ -67,7 +67,10 @@ const MOD = (padSize = '1 1'): string =>
  */
 const boardFootprint = (fpid = 'Lib:R_0603', padSize = '1 1'): PcbFootprint =>
   readBoardFootprint(
-    parse(`(footprint "${fpid}" (layer "F.Cu") (at 50 30 90)
+    // The version matters: a footprint read without one is a pre-20200826
+    // file, and `parseFOOTPRINT` gives such a footprint the through-hole
+    // attribute it never spelled.
+    parse(`(footprint "${fpid}" (version 20240108) (generator "pcbnew") (layer "F.Cu") (at 50 30 90)
   (pad "1" smd rect (at -0.8 0 90) (size ${padSize}) (layers "F.Cu" "F.Mask"))
   (pad "2" smd rect (at 0.8 0 90) (size 1 1) (layers "F.Cu" "F.Mask"))
   (fp_line (start -1 -0.5) (end 1 -0.5) (stroke (width 0.12) (type solid)) (layer "F.SilkS"))

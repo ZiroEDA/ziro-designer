@@ -31,7 +31,6 @@
  */
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { boardAuxOrigin } from './plot_gerber.js';
-import type { SList, SNode } from '@ziroeda/sexpr/src/types.js';
 import type { Board, PcbPad, PcbVia } from './types.js';
 
 /** `PCB_LAYER_ID` for the layers this exporter cares about (layer_ids.h). */
@@ -189,54 +188,18 @@ export function viaLayerPair(via: PcbVia): { top: number; bottom: number } {
 // ---------------------------------------------------------------------------
 // Tenting
 
-const childList = (src: SList | undefined, name: string): SList | undefined => {
-  if (!src) return undefined;
-  for (const item of src.items) {
-    if (item.kind === 'list' && item.items[0]?.kind === 'atom' && item.items[0].value === name)
-      return item;
-  }
-  return undefined;
-};
-
-const atomsOf = (l: SList | undefined): string[] =>
-  l
-    ? l.items
-        .slice(1)
-        .filter((n): n is SNode & { value: string } => 'value' in n)
-        .map((n) => n.value)
-    : [];
-
-const yesNo = (v: string | undefined): boolean | undefined =>
-  v === 'yes' || v === 'true' ? true : v === 'no' || v === 'false' ? false : undefined;
-
-/** `(tenting …)` on a node, in both the modern and legacy spellings. */
-function tentingOf(src: SList | undefined): { front?: boolean; back?: boolean } {
-  const t = childList(src, 'tenting');
-  if (!t) return {};
-
-  const front = childList(t, 'front');
-  const back = childList(t, 'back');
-  if (front || back) return { front: yesNo(atomsOf(front)[0]), back: yesNo(atomsOf(back)[0]) };
-
-  // Legacy bare form: `(tenting front back)`, `(tenting front)`, `(tenting none)`.
-  const words = atomsOf(t);
-  if (words.includes('none')) return { front: false, back: false };
-  return { front: words.includes('front'), back: words.includes('back') };
-}
-
 /**
  * `BOARD_DESIGN_SETTINGS::m_TentViasFront/Back`, which both default to **true**.
  * Tented means covered by mask, i.e. *not* probeable.
  */
 export function boardTentVias(board: Board): { front: boolean; back: boolean } {
-  const t = tentingOf(childList(board.source, 'setup'));
-  return { front: t.front ?? true, back: t.back ?? true };
+  const bds = board.k?.designSettings;
+  return { front: bds?.tentViasFront ?? true, back: bds?.tentViasBack ?? true };
 }
 
 /** `PCB_VIA::IsTented`: the via's own setting wins, else the board default. */
 export function viaIsTented(board: Board, via: PcbVia, side: 'front' | 'back'): boolean {
-  const own = tentingOf(via.source)[side];
-  return own ?? boardTentVias(board)[side];
+  return via.tenting?.[side] ?? boardTentVias(board)[side];
 }
 
 // ---------------------------------------------------------------------------
@@ -282,21 +245,13 @@ export function buildViaTestpoints(board: Board): D356Record[] {
 }
 
 /**
- * The drill upstream would see.
- *
- * `np_thru_hole` diverges: our reader leaves a missing `(drill …)` as 1 nm,
- * mirroring what the parser does for `thru_hole`, but upstream's NPTH pads keep
- * the `PAD` constructor default of 30 mils because the NPTH branch never
- * overwrites it. Compensating here rather than in `read-board` keeps a shared
- * reader out of an exporter change.
+ * `std::min( drill.x, drill.y )` of `pad->GetDrillSize()`. The parser has
+ * already decided the size a missing `(drill …)` means: 1 nm on a `thru_hole`
+ * pad, the PAD constructor's 30 mils on an `np_thru_hole`, nothing on SMD and
+ * CONN.
  */
 function padDrill(pad: PcbPad): number {
-  if (pad.type === 'smd' || pad.type === 'connect') return 0;
-
-  const stated = childList(pad.source, 'drill') !== undefined;
-  if (!stated && pad.type === 'np_thru_hole') return 762_000;
-  if (!pad.drill) return stated ? 0 : 1;
-
+  if (!pad.drill) return 0;
   return Math.min(pad.drill.w, pad.drill.h);
 }
 

@@ -161,11 +161,15 @@ describe('the dimension text', () => {
     expect(bk.textBoard.size).toBeGreaterThan(0);
   });
 
-  it('is left out when hidden', () => {
+  it('cannot be hidden: the parser refuses the token on a board text', () => {
+    // "Hidden PCB text is no longer supported": `parsePCB_TEXT_effects` takes
+    // `(hide …)` only under a footprint and otherwise `Expecting( "layer,
+    // effects, locked, render_cache, uuid or tstamp" )`
+    // (pcb_io_kicad_sexpr_parser.cpp:3909-3918); a dimension's text is parsed
+    // with the board as parent (:4598).
     const hidden = ORTHO().replace('(at 115 75 0)', '(at 115 75 0) (hide yes)');
-    const bk = layerOf(read(hidden), 'Dwgs.User');
 
-    expect(bk.textBoard.size).toBe(0);
+    expect(() => read(hidden)).toThrow();
   });
 
   it('is absent from a centre dimension, which carries none', () => {

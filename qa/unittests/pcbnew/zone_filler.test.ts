@@ -8,6 +8,7 @@
  */
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import { describe, it, expect } from 'vitest';
+import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
 import { fillZone, fillZones, zoneClearanceOf } from '@ziroeda/pcbnew/src/zone_filler.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type {
@@ -19,7 +20,6 @@ import type {
   PcbZone,
 } from '@ziroeda/pcbnew/src/types.js';
 
-const EMPTY = { kind: 'list' as const, items: [] };
 const MM = (n: number): number => mmToIU(n);
 /**
  * `ADVANCED_CFG::m_ExtraClearance`, 0.0005 mm: "A small extra clearance to be
@@ -38,7 +38,6 @@ const pad = (at: { x: number; y: number }, net: number, size = MM(2)): PcbPad =>
   size: { x: size, y: size },
   layers: ['F.Cu'],
   net,
-  source: EMPTY,
 });
 const footprint = (pads: PcbPad[]): PcbFootprint => ({
   lib: 'R',
@@ -51,7 +50,6 @@ const footprint = (pads: PcbPad[]): PcbFootprint => ({
   points: [],
   barcodes: [],
   models: [],
-  source: EMPTY,
 });
 
 /** A 40 x 40 mm pour on F.Cu, net 1, with KiCad's default fill settings. */
@@ -72,7 +70,6 @@ const zone = (over: Partial<PcbZone> = {}): PcbZone => ({
   thermalBridgeWidth: MM(0.5),
   filled: true,
   priority: 0,
-  source: EMPTY,
   ...over,
 });
 
@@ -97,7 +94,6 @@ const board = (over: Partial<Board>): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -160,7 +156,6 @@ describe('zone filler', () => {
       width: MM(0.1),
       fillMode: 'none',
       layer: 'Edge.Cuts',
-      source: EMPTY,
     });
 
     it('insets the pour by the EDGE clearance, not the copper one', () => {
@@ -223,7 +218,6 @@ describe('zone filler', () => {
       fillMode: 'none',
       layer,
       net,
-      source: EMPTY,
     });
 
     it('a different-net graphic is knocked out at the copper clearance', () => {
@@ -276,7 +270,6 @@ describe('zone filler', () => {
       showText: false,
       knockout: false,
       margin: { x: 0, y: 0 },
-      source: EMPTY,
     };
     const filled = area(fillZone(board({ zones: [zone()], barcodes: [bc] }), 0)[0]!.polys);
 
@@ -301,7 +294,6 @@ describe('zone filler', () => {
       showText: false,
       knockout: false,
       margin: { x: 0, y: 0 },
-      source: EMPTY,
     };
 
     expect(area(fillZone(board({ zones: [zone()], barcodes: [bc] }), 0)[0]!.polys)).toBeCloseTo(
@@ -341,7 +333,6 @@ describe('zone filler', () => {
           width: MM(1),
           layer: 'F.Cu',
           net: 2,
-          source: EMPTY,
         },
       ],
     });
@@ -365,7 +356,6 @@ describe('zone filler', () => {
           width: MM(1),
           layer: 'F.Cu',
           net: 2,
-          source: EMPTY,
         },
       ],
     });
@@ -406,7 +396,6 @@ describe('zone filler', () => {
           width: MM(1),
           layer: 'F.Cu',
           net: 2,
-          source: EMPTY,
         },
         {
           start: { x: MM(20), y: MM(5) },
@@ -414,7 +403,6 @@ describe('zone filler', () => {
           width: MM(0.5),
           layer: 'B.Cu',
           net: 1,
-          source: EMPTY,
         },
       ],
       // Bar clearance edge at y = 21; the via's centre at 20.9 is inside the
@@ -428,7 +416,6 @@ describe('zone filler', () => {
           layers: ['F.Cu', 'B.Cu'],
           kind: 'through',
           net: 1,
-          source: EMPTY,
         },
       ],
     });
@@ -459,7 +446,6 @@ describe('zone filler', () => {
             width: MM(3),
             layer: 'F.Cu',
             net: 2,
-            source: EMPTY,
           },
           {
             start: { x: MM(5), y: MM(10) },
@@ -467,7 +453,6 @@ describe('zone filler', () => {
             width: MM(0.5),
             layer: 'F.Cu',
             net: 1,
-            source: EMPTY,
           },
         ],
       });
@@ -488,7 +473,6 @@ describe('zone filler', () => {
             width: MM(3),
             layer: 'F.Cu',
             net: 2,
-            source: EMPTY,
           },
           {
             start: { x: MM(5), y: MM(10) },
@@ -496,7 +480,6 @@ describe('zone filler', () => {
             width: MM(0.5),
             layer: 'F.Cu',
             net: 1,
-            source: EMPTY,
           },
         ],
       });
@@ -521,7 +504,6 @@ describe('zone filler', () => {
             width: MM(0.5),
             layer: 'F.Cu',
             net: 1,
-            source: EMPTY,
           },
         ],
       });
@@ -641,7 +623,6 @@ describe('zone filler', () => {
           width: MM(1),
           layer: 'F.Cu',
           net: 2,
-          source: EMPTY,
         },
       ],
     });
@@ -692,7 +673,6 @@ describe('zone filler', () => {
             width: MM(1),
             layer: 'F.Cu',
             net: 2,
-            source: EMPTY,
           },
         ],
       });
@@ -864,7 +844,6 @@ describe('zone filler', () => {
           width: MM(1),
           layer: 'F.Cu',
           net: 2,
-          source: EMPTY,
         },
       ],
     });
@@ -892,7 +871,6 @@ describe('zone filler', () => {
             width: MM(1),
             layer: 'F.Cu',
             net: 2,
-            source: EMPTY,
           },
         ],
       });
@@ -946,7 +924,6 @@ describe('zone filler', () => {
           end: { x: 80_108_863, y: 20_947_324 },
           width: 50_000,
           fillMode: 'none',
-          source: EMPTY,
         },
       ],
     });
@@ -980,7 +957,6 @@ describe('zone filler', () => {
       width: MM(0.25),
       layer: 'F.Cu',
       net: 2,
-      source: EMPTY,
     });
     const via = (x: number, y: number, net: number, size = 0.62): Board['vias'][number] => ({
       at: { x: MM(x), y: MM(y) },
@@ -989,7 +965,6 @@ describe('zone filler', () => {
       layers: ['F.Cu', 'B.Cu'],
       kind: 'through',
       net,
-      source: EMPTY,
     });
     const b = board({
       zones: [zone({ clearance: MM(0.25), minThickness: MM(0.25) })],
@@ -1031,7 +1006,7 @@ describe('zone filler', () => {
     expect(firstWins.zones[1]!.fills).toHaveLength(0);
   });
 
-  it('fillZones writes the polygons into every zone and its source', () => {
+  it('fillZones writes the polygons into every zone, and the file carries them', () => {
     const b = board({
       zones: [zone()],
       footprints: [footprint([pad({ x: MM(20), y: MM(20) }, 2)])],
@@ -1039,12 +1014,7 @@ describe('zone filler', () => {
     const out = fillZones(b);
     expect(out.zones[0]!.fills).toHaveLength(1);
     expect(out.zones[0]!.fills[0]!.polys.length).toBeGreaterThan(0);
-    const items = out.zones[0]!.source.items;
-    expect(
-      items.some(
-        (i) => 'items' in i && (i.items[0] as { value?: string })?.value === 'filled_polygon',
-      ),
-    ).toBe(true);
+    expect(serializeBoard(out)).toContain('(filled_polygon');
   });
 
   it('writes the fill fractured, with no holes left for KiCad to fill in', () => {
@@ -1405,7 +1375,6 @@ describe('zone filler', () => {
         width: MM(1),
         layer: 'F.Cu',
         net: 2,
-        source: EMPTY,
       });
       const walled = board({
         zones: [zone()],
@@ -1881,7 +1850,6 @@ describe('a knockout polygon is built OUTSIDE the shape it stands for', () => {
           width: MM(1.7),
           layer: 'F.Cu',
           net: 2,
-          source: EMPTY,
         },
       ],
     });
@@ -1942,7 +1910,6 @@ describe('a spoke is trimmed by the clearance holes it crosses', () => {
           layers: ['F.Cu', 'B.Cu'],
           kind: 'through',
           net: 2,
-          source: EMPTY,
         },
       ],
     });
@@ -2071,7 +2038,6 @@ describe('knockouts that overlap each other', () => {
       width: MM(1),
       layer: 'F.Cu',
       net: 2,
-      source: EMPTY,
     });
     const forward = board({
       zones: [zone()],
@@ -2122,7 +2088,6 @@ describe('a fill outline standing on its own pad', () => {
           layers: ['F.Cu', 'B.Cu'],
           kind: 'through',
           net: 2,
-          source: EMPTY,
         },
       ],
       tracks: Array.from({ length: 32 }, (_, i) => {
@@ -2135,7 +2100,6 @@ describe('a fill outline standing on its own pad', () => {
           width: MM(0.4),
           layer: 'F.Cu',
           net: 2,
-          source: EMPTY,
         };
       }),
     });
@@ -2175,7 +2139,6 @@ describe('an item OUTSIDE the zone still keeps its clearance', () => {
           width: MM(0.4),
           layer: 'F.Cu',
           net: 2,
-          source: EMPTY,
         },
       ],
     });
@@ -2209,7 +2172,6 @@ describe('an item OUTSIDE the zone still keeps its clearance', () => {
           layers: ['F.Cu', 'B.Cu'],
           kind: 'through',
           net: 2,
-          source: EMPTY,
         },
       ],
     });
@@ -2286,7 +2248,6 @@ describe('copper text is knocked out of the pour', () => {
     layer: 'F.Cu',
     size: { x: MM(1.5), y: MM(2) },
     thickness: MM(0.3),
-    source: EMPTY,
     ...over,
   });
 
@@ -2619,7 +2580,6 @@ describe('a zone on a technical layer is poured too', () => {
     layer: 'F.SilkS',
     size: { x: MM(1.5), y: MM(2) },
     thickness: MM(0.3),
-    source: EMPTY,
     ...over,
   });
   const silk = (): PcbZone => zone({ net: 0, layers: ['F.SilkS'], fills: [] });

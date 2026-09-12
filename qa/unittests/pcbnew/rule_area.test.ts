@@ -95,8 +95,10 @@ describe('reading', () => {
 
 describe('writing', () => {
   it('round-trips an untouched rule area byte for byte', () => {
-    const text = src({ keepout: ALL_FORBIDDEN });
-    expect(serializeBoard(load(text))).toBe(serializeBoard(load(serializeBoard(load(text)))));
+    // The fixture names no uuids, so the first save mints them; the second
+    // save must write the first one's bytes again.
+    const once = serializeBoard(load(src({ keepout: ALL_FORBIDDEN })));
+    expect(serializeBoard(load(once))).toBe(once);
   });
 
   it('emits the flags for a zone built from the model', () => {
@@ -106,7 +108,6 @@ describe('writing', () => {
       ...b.zones[0]!,
       name: 'ka',
       ruleArea: { tracks: true, vias: false, pads: false, copperPour: true, footprints: false },
-      source: { kind: 'list', items: [] },
     };
 
     const text = serializeBoard({ ...b, zones: [area] });
@@ -121,7 +122,6 @@ describe('writing', () => {
     const area: PcbZone = {
       ...b.zones[0]!,
       ruleArea: { tracks: true, vias: false, pads: true, copperPour: false, footprints: true },
-      source: { kind: 'list', items: [] },
     };
 
     expect(ruleAreaOf(load(serializeBoard({ ...b, zones: [area] })))?.ruleArea).toEqual(

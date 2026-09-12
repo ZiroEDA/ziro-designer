@@ -16,7 +16,6 @@ import { netInspectorRows, netInspectorSummary } from '@ziroeda/pcbnew/src/net_i
 import type { Board, PcbPad } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const pad = (number: string, net: number): PcbPad => ({
   number,
@@ -27,7 +26,6 @@ const pad = (number: string, net: number): PcbPad => ({
   size: { x: MM(1), y: MM(1) },
   layers: ['F.Cu'],
   net,
-  source: EMPTY,
 });
 
 const board = (over: Partial<Board> = {}): Board => ({
@@ -55,7 +53,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -65,7 +62,6 @@ const track = (net: number) => ({
   width: MM(0.2),
   layer: 'F.Cu',
   net,
-  source: EMPTY,
 });
 
 const via = (net: number) => ({
@@ -75,7 +71,6 @@ const via = (net: number) => ({
   layers: ['F.Cu', 'B.Cu'] as [string, string],
   kind: 'through' as const,
   net,
-  source: EMPTY,
 });
 
 const fp = (pads: PcbPad[]) => ({
@@ -90,7 +85,6 @@ const fp = (pads: PcbPad[]) => ({
   points: [],
   barcodes: [],
   models: [],
-  source: EMPTY,
 });
 
 describe('rows', () => {
@@ -138,7 +132,6 @@ describe('rows', () => {
           width: MM(0.2),
           layer: 'F.Cu',
           net: 1,
-          source: EMPTY,
         },
       ],
     });

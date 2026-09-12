@@ -20,7 +20,6 @@ import {
 } from '@ziroeda/pcbnew/src/global_edit_tracks_and_vias.js';
 import type { Board, PcbVia } from '@ziroeda/pcbnew/src/types.js';
 
-const EMPTY = { kind: 'list' as const, items: [] };
 const P = (x: number, y: number) => ({ x, y });
 
 const track = (over: Record<string, unknown> = {}) => ({
@@ -29,7 +28,6 @@ const track = (over: Record<string, unknown> = {}) => ({
   width: 250_000,
   layer: 'F.Cu',
   net: 1,
-  source: EMPTY,
   ...over,
 });
 const arc = (over: Record<string, unknown> = {}) => ({ ...track(), mid: P(500, 100), ...over });
@@ -40,7 +38,6 @@ const via = (over: Partial<PcbVia> = {}): PcbVia => ({
   layers: ['F.Cu', 'B.Cu'],
   kind: 'through',
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -69,7 +66,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -151,8 +147,8 @@ describe('the filters', () => {
     const b = board({
       tracks: [track({ uuid: 't-1' })],
       groups: [
-        { name: 'inner', uuid: 'g-inner', members: ['t-1'], source: EMPTY },
-        { name: 'outer', uuid: 'g-outer', members: ['g-inner'], source: EMPTY },
+        { name: 'inner', uuid: 'g-inner', members: ['t-1'] },
+        { name: 'outer', uuid: 'g-outer', members: ['g-inner'] },
       ],
     });
     const opts = { ...ALL, selectedOnly: true };
@@ -173,8 +169,8 @@ describe('the filters', () => {
     const b = board({
       tracks: [track({ uuid: 't-1' })],
       groups: [
-        { name: 'a', uuid: 'g-a', members: ['t-1', 'g-b'], source: EMPTY },
-        { name: 'b', uuid: 'g-b', members: ['g-a'], source: EMPTY },
+        { name: 'a', uuid: 'g-a', members: ['t-1', 'g-b'] },
+        { name: 'b', uuid: 'g-b', members: ['g-a'] },
       ],
     });
 

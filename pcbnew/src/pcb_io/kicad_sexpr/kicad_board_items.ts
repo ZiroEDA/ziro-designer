@@ -49,9 +49,8 @@ export interface KEdaText {
   fontName: string;
   /** `GetTextSize()`: x is width, y is height. */
   size: Vec2;
-  /** `GetTextThickness()`; 0 with `GetAutoThickness()` true. */
+  /** `GetTextThickness()`; 0 means `GetAutoThickness()` (eda_text.h:150). */
   thickness: number;
-  autoThickness: boolean;
   lineSpacing: number;
   bold: boolean;
   italic: boolean;
@@ -79,7 +78,6 @@ export function defaultEdaText(): KEdaText {
     fontName: '',
     size: { x: DEFAULT_SIZE_TEXT_IU, y: DEFAULT_SIZE_TEXT_IU },
     thickness: 0,
-    autoThickness: true,
     lineSpacing: 1.0,
     bold: false,
     italic: false,

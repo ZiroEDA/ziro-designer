@@ -109,7 +109,6 @@ export function convertToLines(
         width,
         layer: opts.layer,
         net: opts.net ?? 0,
-        source: { kind: 'list', items: [] },
       });
     } else {
       shapes.push({
@@ -119,7 +118,6 @@ export function convertToLines(
         width,
         fillMode: 'none',
         layer: opts.layer,
-        source: { kind: 'list', items: [] },
       });
     }
   };
@@ -147,10 +145,10 @@ export function convertToLines(
             width,
             layer: opts.layer,
             net: opts.net ?? 0,
-            source: { kind: 'list', items: [] },
           });
         } else {
-          shapes.push({ ...s, layer: opts.layer, width, source: { kind: 'list', items: [] } });
+          // A new PCB_SHAPE, not the source arc: its own model and identity.
+          shapes.push({ ...s, layer: opts.layer, width, k: undefined, uuid: undefined });
         }
         continue;
       }
@@ -247,8 +245,6 @@ export function segmentToArc(board: Board, id: string): { board: Board; id: stri
   const r = parseBoardItemId(id);
   if (!r) return { board, id: null };
 
-  const blank = { kind: 'list' as const, items: [] };
-
   if (r.kind === 'shape') {
     const s = board.shapes[r.index];
     if (!s || !s.start || !s.end) return { board, id: null };
@@ -266,7 +262,6 @@ export function segmentToArc(board: Board, id: string): { board: Board; id: stri
         strokeType: s.strokeType,
         fillMode: 'none',
         layer: s.layer,
-        source: blank,
       };
 
       return {
@@ -284,7 +279,6 @@ export function segmentToArc(board: Board, id: string): { board: Board; id: stri
         width: s.width,
         layer: s.layer,
         net: 0,
-        source: blank,
       };
 
       return {
@@ -308,7 +302,6 @@ export function segmentToArc(board: Board, id: string): { board: Board; id: stri
       width: t.width,
       layer: t.layer,
       net: t.net,
-      source: blank,
     };
 
     return {
@@ -331,7 +324,6 @@ export function segmentToArc(board: Board, id: string): { board: Board; id: stri
       width: a.width,
       fillMode: 'none',
       layer: a.layer,
-      source: blank,
     };
 
     return {

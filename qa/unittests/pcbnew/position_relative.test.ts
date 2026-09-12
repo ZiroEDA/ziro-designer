@@ -28,7 +28,6 @@ import { parse } from '@ziroeda/sexpr/src/index.js';
 import type { Board, PcbFootprint, PcbPad, PcbTrack } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const track = (x0: number, y0: number, x1: number, y1: number): PcbTrack => ({
   start: { x: MM(x0), y: MM(y0) },
@@ -36,7 +35,6 @@ const track = (x0: number, y0: number, x1: number, y1: number): PcbTrack => ({
   width: MM(0.25),
   layer: 'F.Cu',
   net: 0,
-  source: EMPTY,
 });
 
 const pad = (x: number, y: number, number = '1'): PcbPad => ({
@@ -48,7 +46,6 @@ const pad = (x: number, y: number, number = '1'): PcbPad => ({
   size: { x: MM(1), y: MM(1) },
   layers: ['F.Cu'],
   net: 0,
-  source: EMPTY,
 });
 
 const footprint = (x: number, y: number, pads: PcbPad[] = []): PcbFootprint => ({
@@ -64,7 +61,6 @@ const footprint = (x: number, y: number, pads: PcbPad[] = []): PcbFootprint => (
   points: [],
   barcodes: [],
   models: [],
-  source: EMPTY,
 });
 
 const board = (over: Partial<Board> = {}): Board => ({
@@ -85,7 +81,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -227,7 +222,7 @@ describe('pads move their footprint', () => {
 describe('the grid origin the dialog can measure from', () => {
   const withSetup = (body: string): Board => {
     const text = `(kicad_pcb (version 20240108) (generator "pcbnew")
-	(layers (0 "F.Cu" signal))
+	(layers (0 "F.Cu" signal) (31 "B.Cu" signal))
 	(net 0 "")
 	(setup ${body})
 )

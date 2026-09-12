@@ -33,13 +33,7 @@
  * box would select nothing. The scope options below therefore expose no buried
  * flag rather than one that silently does nothing.
  */
-import { patchChild } from './edit-board.js';
-import type { SList, SNode } from '@ziroeda/sexpr/src/types.js';
 import type { Board, PcbArcTrack, PcbTrack, PcbVia } from './types.js';
-
-const atom = (value: string): SNode => ({ kind: 'atom', value });
-const str = (value: string): SNode => ({ kind: 'string', value });
-const list = (...items: SNode[]): SList => ({ kind: 'list', items });
 
 /** Which items the dialog's Scope box lets through. */
 export interface GlobalTrackViaEditOptions {
@@ -172,12 +166,6 @@ function viaInScope(via: PcbVia, opts: GlobalTrackViaEditOptions): boolean {
   return opts.throughVias;
 }
 
-/** Millimetres, as the writer spells them. */
-const mm = (iu: number): string => {
-  const v = iu / 1e6;
-  return Number.isInteger(v) ? String(v) : String(Number(v.toFixed(6)));
-};
-
 const changedTrack = <T extends PcbTrack | PcbArcTrack>(
   t: T,
   opts: GlobalTrackViaEditOptions,
@@ -186,13 +174,7 @@ const changedTrack = <T extends PcbTrack | PcbArcTrack>(
   const layer = opts.layer ?? t.layer;
   if (width === t.width && layer === t.layer) return t;
 
-  let source = t.source;
-  if (source.items.length > 0) {
-    if (width !== t.width)
-      source = patchChild(source, 'width', list(atom('width'), atom(mm(width))));
-    if (layer !== t.layer) source = patchChild(source, 'layer', list(atom('layer'), str(layer)));
-  }
-  return { ...t, width, layer, source };
+  return { ...t, width, layer };
 };
 
 function changedVia(
@@ -219,13 +201,7 @@ function changedVia(
 
   if (size === v.size && drill === v.drill) return v;
 
-  let source = v.source;
-  if (source.items.length > 0) {
-    if (size !== v.size) source = patchChild(source, 'size', list(atom('size'), atom(mm(size))));
-    if (drill !== v.drill)
-      source = patchChild(source, 'drill', list(atom('drill'), atom(mm(drill))));
-  }
-  return { ...v, size, drill, source };
+  return { ...v, size, drill };
 }
 
 /**

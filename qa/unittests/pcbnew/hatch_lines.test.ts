@@ -20,7 +20,6 @@ import {
 import { shapeFillOutline, shapeHatchLines } from '@ziroeda/pcbnew/src/shape_fill.js';
 import type { PcbShape } from '@ziroeda/pcbnew/src/types.js';
 
-const EMPTY = { kind: 'list' as const, items: [] };
 const square = (side: number, fillMode: PcbShape['fillMode'], width = 100): PcbShape => ({
   kind: 'rect',
   start: { x: 0, y: 0 },
@@ -28,7 +27,6 @@ const square = (side: number, fillMode: PcbShape['fillMode'], width = 100): PcbS
   width,
   fillMode,
   layer: 'F.SilkS',
-  source: EMPTY,
 });
 
 describe('SEG::IntersectsLine', () => {
@@ -153,7 +151,6 @@ describe('UpdateHatching, per shape', () => {
         width: 100,
         fillMode: 'hatch',
         layer: 'F.SilkS',
-        source: EMPTY,
       }),
     ).toEqual([]);
     expect(shapeHatchLines({ ...square(1000, 'hatch'), kind: 'line' })).toEqual([]);

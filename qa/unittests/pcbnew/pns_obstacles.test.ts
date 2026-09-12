@@ -28,7 +28,6 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const MM = (n: number): number => mmToIU(n);
 const P = (x: number, y: number): Vec2 => ({ x: MM(x), y: MM(y) });
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const track = (
   x1: number,
@@ -43,7 +42,6 @@ const track = (
   width: MM(0.25),
   layer,
   net,
-  source: EMPTY,
 });
 
 const via = (x: number, y: number, net: number): PcbVia => ({
@@ -53,7 +51,6 @@ const via = (x: number, y: number, net: number): PcbVia => ({
   drill: MM(0.4),
   net,
   layers: ['F.Cu', 'B.Cu'],
-  source: EMPTY,
 });
 
 const footprintWith = (pads: PcbFootprint['pads']): PcbFootprint =>
@@ -66,7 +63,6 @@ const footprintWith = (pads: PcbFootprint['pads']): PcbFootprint =>
     pads,
     shapes: [],
     texts: [],
-    source: EMPTY,
   }) as unknown as PcbFootprint;
 
 const pad = (x: number, y: number, net: number, shape = 'circle', angle = 0) =>
@@ -78,7 +74,6 @@ const pad = (x: number, y: number, net: number, shape = 'circle', angle = 0) =>
     size: { x: MM(1), y: MM(0.6) },
     layers: ['F.Cu'],
     net,
-    source: EMPTY,
   }) as unknown as PcbFootprint['pads'][number];
 
 const board = (over: Partial<Board> = {}): Board => ({
@@ -106,7 +101,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -188,7 +182,6 @@ describe('every kind of copper becomes a hull', () => {
           width: MM(0.25),
           layer: 'F.Cu',
           net: 2,
-          source: EMPTY,
         },
       ],
       vias: [via(40, 0, 2)],

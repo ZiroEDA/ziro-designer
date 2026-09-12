@@ -54,7 +54,7 @@ const BOARD = `(kicad_pcb (version 20241229) (generator "test")
   (net 0 "")
   (footprint "Resistor_SMD:R_0805"
     (layer "F.Cu")
-    (uuid "22222222-0000-0000-0000-00000000fp01")
+    (uuid "22222222-0000-0000-0000-00000000f001")
     (at 100 100)
     (property "Reference" "R1" (at 0 -2 0) (layer "F.SilkS")
       (uuid "22222222-0000-0000-0000-000000000001")
@@ -114,8 +114,8 @@ const BOARD = `(kicad_pcb (version 20241229) (generator "test")
     (gr_text "10" (at 75 66 0) (layer "Dwgs.User")
       (uuid "11111111-0000-0000-0000-000000000009")
       (effects (font (size 1 1) (thickness 0.15)))))
-  (group "g" (uuid "33333333-0000-0000-0000-0000000000g1")
-    (members "22222222-0000-0000-0000-00000000fp01"))
+  (group "g" (uuid "33333333-0000-0000-0000-0000000000a1")
+    (members "22222222-0000-0000-0000-00000000f001"))
 )`;
 
 const read = (): Board => readBoard(parse(BOARD));
@@ -771,7 +771,7 @@ describe('the filter gauntlet', () => {
     expect(
       countGlobalTextAndGraphicsTargets(read(), base, {
         ...CTX,
-        isSelected: (id) => id === '33333333-0000-0000-0000-0000000000g1',
+        isSelected: (id) => id === '33333333-0000-0000-0000-0000000000a1',
       }),
     ).toBe(3);
   });
@@ -853,7 +853,6 @@ describe('styleTextFromSettings on its own', () => {
       layer: 'B.SilkS',
       size: { x: MM(1), y: MM(1) },
       mirror: false,
-      source: { kind: 'list', items: [] },
     };
     expect(styleTextFromSettings(t, 'B.SilkS', false, DEF).mirror).toBe(false);
     // The footprint loader and the parser do pass true; this dialog never does.

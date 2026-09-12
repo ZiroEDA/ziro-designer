@@ -12,8 +12,6 @@ import type {
   PcbZone,
 } from '@ziroeda/pcbnew/src/types.js';
 
-const EMPTY = { kind: 'list' as const, items: [] };
-
 const pad = (at: { x: number; y: number }, net: number, type: PcbPad['type'] = 'smd'): PcbPad => ({
   number: '1',
   type,
@@ -23,7 +21,6 @@ const pad = (at: { x: number; y: number }, net: number, type: PcbPad['type'] = '
   size: { x: 100, y: 100 },
   layers: type === 'thru_hole' ? ['*.Cu'] : ['F.Cu'],
   net,
-  source: EMPTY,
 });
 const footprint = (pads: PcbPad[]): PcbFootprint => ({
   lib: 'R',
@@ -36,14 +33,13 @@ const footprint = (pads: PcbPad[]): PcbFootprint => ({
   points: [],
   barcodes: [],
   models: [],
-  source: EMPTY,
 });
 const track = (
   start: { x: number; y: number },
   end: { x: number; y: number },
   net: number,
   layer = 'F.Cu',
-): PcbTrack => ({ start, end, width: 100, layer, net, source: EMPTY });
+): PcbTrack => ({ start, end, width: 100, layer, net });
 const via = (at: { x: number; y: number }, net: number): PcbVia => ({
   at,
   size: 200,
@@ -51,7 +47,6 @@ const via = (at: { x: number; y: number }, net: number): PcbVia => ({
   layers: ['F.Cu', 'B.Cu'],
   kind: 'through',
   net,
-  source: EMPTY,
 });
 const zone = (
   net: number,
@@ -63,7 +58,6 @@ const zone = (
   layers: [layer],
   outline: poly,
   fills: (fillPolys ?? [poly]).map((polys) => ({ layer, polys: [polys] })),
-  source: EMPTY,
 });
 
 const board = (over: Partial<Board>): Board => ({
@@ -87,7 +81,6 @@ const board = (over: Partial<Board>): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -169,9 +162,7 @@ describe('buildRatsnest', () => {
     ];
     const b = board({
       footprints: [footprint([pad({ x: 100, y: 100 }, 1), pad({ x: 900, y: 900 }, 1)])],
-      zones: [
-        { net: 1, layers: ['F.Cu'], outline, fills: [], source: { kind: 'list', items: [] } },
-      ],
+      zones: [{ net: 1, layers: ['F.Cu'], outline, fills: [] }],
     });
     expect(buildRatsnest(b)).toHaveLength(1);
   });

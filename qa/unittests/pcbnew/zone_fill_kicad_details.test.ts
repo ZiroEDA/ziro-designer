@@ -29,7 +29,6 @@ import type { Board, PcbPad, PcbShape, PcbZone } from '@ziroeda/pcbnew/src/types
 import { isolatedIslands } from '@ziroeda/pcbnew/src/zone_islands.js';
 import { describe, expect, it } from 'vitest';
 
-const EMPTY = { kind: 'list' as const, items: [] };
 const MM = (v: number): number => Math.round(v * 1_000_000);
 
 describe('Simplify() splits an exterior waist', () => {
@@ -65,7 +64,6 @@ describe('the board outline walks an arc from where the chain arrived', () => {
     width: 100_000,
     fillMode: 'none',
     layer: 'Edge.Cuts',
-    source: EMPTY,
     ...over,
   });
 
@@ -116,7 +114,6 @@ describe('an odd drill size halves with KiROUND', () => {
       drill: { oblong: true, w: 500_024, h: 1_399_997 },
       layers: ['F.Cu', 'B.Cu'],
       net: 1,
-      source: EMPTY,
     };
     const poly = padTransformHoleToPolygon(pad, 0, 5000, ErrorLoc.ERROR_OUTSIDE)[0]![0]!;
     expect(Math.min(...poly.map((p) => p.x))).toBe(82_400_001);
@@ -137,7 +134,6 @@ describe('a fill outline touching another within half a unit is connected', () =
     fills,
     priority: 0,
     uuid: 'z',
-    source: EMPTY,
   });
   const board = (z: PcbZone): Board =>
     ({
@@ -158,12 +154,10 @@ describe('a fill outline touching another within half a unit is connected', () =
               size: { x: MM(1), y: MM(1) },
               layers: ['F.Cu'],
               net: 1,
-              source: EMPTY,
             } as PcbPad,
           ],
           shapes: [],
           texts: [],
-          source: EMPTY,
           uuid: 'f',
         },
       ],
@@ -173,7 +167,6 @@ describe('a fill outline touching another within half a unit is connected', () =
       shapes: [],
       texts: [],
       nets: new Map([[1, 'N']]),
-      source: EMPTY,
     }) as unknown as Board;
 
   it('is ON the edge when SEG::SquaredDistance rounds to 0, not only when exactly collinear', () => {

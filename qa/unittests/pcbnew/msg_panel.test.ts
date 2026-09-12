@@ -41,7 +41,6 @@ import type {
   PcbZone,
 } from '@ziroeda/pcbnew/src/types.js';
 
-const EMPTY = { kind: 'list' as const, items: [] };
 const P = (x: number, y: number) => ({ x, y });
 
 /** 1 mm in pcbnew internal units. */
@@ -56,7 +55,6 @@ const pad = (over: Partial<PcbPad> = {}): PcbPad => ({
   size: P(MM, 2 * MM),
   layers: ['F.Cu', 'F.Mask', 'F.Paste'],
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -75,7 +73,6 @@ const fp = (over: Partial<PcbFootprint> = {}): PcbFootprint => ({
   points: [],
   barcodes: [],
   models: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -85,7 +82,6 @@ const track = (over: Partial<PcbTrack> = {}): PcbTrack => ({
   width: 250_000,
   layer: 'F.Cu',
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -96,7 +92,6 @@ const via = (over: Partial<PcbVia> = {}): PcbVia => ({
   layers: ['F.Cu', 'B.Cu'],
   kind: 'through',
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -130,7 +125,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -443,7 +437,6 @@ describe('PCB_TRACK / PCB_ARC / PCB_VIA (pcbnew/pcb_track.cpp:2329, :2427)', () 
       width: 250_000,
       layer: 'F.Cu',
       net: 1,
-      source: EMPTY,
     };
     const rows = arcMsgPanelInfo(ctx(), a);
 
@@ -478,7 +471,6 @@ describe('ZONE::GetMsgPanelInfo (pcbnew/zone.cpp:929)', () => {
     net: 1,
     layers: ['F.Cu'],
     fills: [{ layer: 'F.Cu', polys: [[P(0, 0), P(2 * MM, 0), P(2 * MM, MM), P(0, MM)]] }],
-    source: EMPTY,
     ...over,
   });
 
@@ -558,7 +550,6 @@ describe('PCB_TEXT::GetMsgPanelInfo (pcbnew/pcb_text.cpp:296)', () => {
     angle: 0,
     layer: 'F.SilkS',
     size: P(MM, MM),
-    source: EMPTY,
     ...over,
   });
 
@@ -605,7 +596,6 @@ describe('PCB_SHAPE::GetMsgPanelInfo (pcbnew/pcb_shape.cpp:699)', () => {
     width: 100_000,
     fillMode: 'none',
     layer: 'F.SilkS',
-    source: EMPTY,
     ...over,
   });
 

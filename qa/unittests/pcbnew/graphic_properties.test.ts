@@ -6,7 +6,7 @@
  * DIALOG_SHAPE_PROPERTIES).
  */
 import { describe, it, expect } from 'vitest';
-import { parse, serialize } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/src/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
@@ -22,21 +22,22 @@ import {
   type TextValues,
 } from '@ziroeda/pcbnew/src/graphic_properties.js';
 import type { Board, PcbShape } from '@ziroeda/pcbnew/src/types.js';
-import { buildBoardShapeNode } from '@ziroeda/pcbnew/src/write-board.js';
+import { U, emptyBoard, flatText, writtenItems, writtenNodes } from './support/written_node.js';
 
 const MM = (n: number): number => mmToIU(n);
 const load = (text: string): Board => readBoard(parse(text));
 const roundTrip = (b: Board): Board => load(serializeBoard(b));
-const flat = (b: Board): string => serializeBoard(b).replace(/\s+/g, ' ').replace(/ \)/g, ')');
+/** The written items, one line, header excluded. */
+const flat = (b: Board): string => writtenItems(b);
 
 const SRC = `(kicad_pcb (version 20240108) (generator "pcbnew")
-  (gr_text "hello" (at 10 20 30) (layer "F.SilkS") (uuid "x1")
+  (gr_text "hello" (at 10 20 30) (layer "F.SilkS") (uuid "${U('x1')}")
     (effects (font (size 1.5 1) (thickness 0.2) (bold yes)) (justify left)))
-  (gr_line (start 0 0) (end 10 0) (stroke (width 0.15) (type dash)) (layer "F.SilkS") (uuid "s1"))
+  (gr_line (start 0 0) (end 10 0) (stroke (width 0.15) (type dash)) (layer "F.SilkS") (uuid "${U('s1')}"))
   (gr_circle (center 30 30) (end 35 30) (stroke (width 0.1) (type solid)) (fill solid)
-    (layer "B.SilkS") (uuid "s2"))
+    (layer "B.SilkS") (uuid "${U('s2')}"))
   (gr_arc (start 40 40) (mid 45 45) (end 50 40) (stroke (width 0.1) (type solid))
-    (layer "Edge.Cuts") (uuid "s3"))
+    (layer "Edge.Cuts") (uuid "${U('s3')}"))
 )`;
 
 describe('resolution', () => {
@@ -110,9 +111,11 @@ describe('text', () => {
     expect(flat(off)).not.toContain('mirror');
   });
 
-  it('hides and knocks out, dropping the tokens again', () => {
+  it('knocks out, dropping the token again; a hidden board text is not a thing', () => {
     const on = edit({ hidden: true, knockout: true });
-    expect(txt(roundTrip(on)).hide).toBe(true);
+    // "Hidden PCB text is no longer supported": `parsePCB_TEXT` forces a board
+    // text visible whatever the file says, so the flag cannot survive a save.
+    expect(txt(roundTrip(on)).hide).toBeFalsy();
     expect(txt(roundTrip(on)).knockout).toBe(true);
 
     const off = applyTextValues(on, 0, {
@@ -133,7 +136,7 @@ describe('text', () => {
 
   it('leaves the shapes and the uuid alone', () => {
     const out = roundTrip(edit({ text: 'x' }));
-    expect(out.texts[0]!.uuid).toBe('x1');
+    expect(out.texts[0]!.uuid).toBe(U('x1'));
     expect(out.shapes).toHaveLength(3);
   });
 });
@@ -232,24 +235,30 @@ describe('shape', () => {
     expect(out.mid).toEqual({ x: MM(45), y: MM(48) });
   });
 
+  /** The `(gr_* …)` node the writer produces for a shape the editor drew. */
+  const writtenShape = (s: PcbShape): string => {
+    const nodes = writtenNodes({ ...emptyBoard(), shapes: [s] }, 'gr_line')
+      .concat(writtenNodes({ ...emptyBoard(), shapes: [s] }, 'gr_arc'))
+      .concat(writtenNodes({ ...emptyBoard(), shapes: [s] }, 'gr_rect'))
+      .concat(writtenNodes({ ...emptyBoard(), shapes: [s] }, 'gr_circle'))
+      .concat(writtenNodes({ ...emptyBoard(), shapes: [s] }, 'gr_poly'));
+    return flatText(nodes[0]!);
+  };
+
   it('builds the fill token for the three shapes that have one, and no others', () => {
-    // The builder is what a NEWLY DRAWN shape goes through, having no source to
-    // copy. `format( const PCB_SHAPE* )` (pcb_io_kicad_sexpr.cpp:1071-1097)
+    // A NEWLY DRAWN shape has no model; the writer builds a PCB_SHAPE for it. `format( const PCB_SHAPE* )` (pcb_io_kicad_sexpr.cpp:1071-1097)
     // writes the token for a POLY, a RECTANGLE or a CIRCLE — and for those three
     // always, `(fill no)` included — so a fresh segment must not sprout one and
     // a fresh unfilled circle must not lose one.
     const built = (s: Partial<PcbShape> & Pick<PcbShape, 'kind'>): string =>
-      serialize(
-        buildBoardShapeNode({
-          width: 2e5,
-          fillMode: 'none',
-          layer: 'F.SilkS',
-          source: { kind: 'list', items: [] },
-          start: { x: 0, y: 0 },
-          end: { x: 1e6, y: 0 },
-          ...s,
-        } as PcbShape),
-      );
+      writtenShape({
+        width: 2e5,
+        fillMode: 'none',
+        layer: 'F.SilkS',
+        start: { x: 0, y: 0 },
+        end: { x: 1e6, y: 0 },
+        ...s,
+      } as PcbShape);
 
     expect(built({ kind: 'line' })).not.toContain('(fill');
     expect(built({ kind: 'arc', mid: { x: 5e5, y: 5e5 } })).not.toContain('(fill');
@@ -258,7 +267,13 @@ describe('shape', () => {
     expect(built({ kind: 'circle', center: { x: 0, y: 0 }, fillMode: 'solid' })).toContain(
       '(fill yes)',
     );
-    expect(built({ kind: 'poly', pts: [], fillMode: 'hatch' })).toContain('(fill hatch)');
+    // An empty polygon is not written at all (`IsPolyShapeValid()`, :1040-1051).
+    const tri = [
+      { x: 0, y: 0 },
+      { x: 1e6, y: 0 },
+      { x: 0, y: 1e6 },
+    ];
+    expect(built({ kind: 'poly', pts: tri, fillMode: 'hatch' })).toContain('(fill hatch)');
   });
 
   it('clamps a corner radius to half the shorter side, as SetCornerRadius does', () => {
@@ -269,7 +284,7 @@ describe('shape', () => {
     const rect = load(
       SRC.replace(
         '(gr_line (start 0 0) (end 10 0)',
-        '(gr_rect (start 0 0) (end 20 10) (stroke (width 0.1) (type solid)) (fill no) (layer "F.SilkS") (uuid "r1"))\n  (gr_line (start 0 0) (end 10 0)',
+        `(gr_rect (start 0 0) (end 20 10) (stroke (width 0.1) (type solid)) (fill no) (layer "F.SilkS") (uuid "${U('r1')}"))\n  (gr_line (start 0 0) (end 10 0)`,
       ),
     );
     const base = collectShapeValues(rect.shapes[0]!);
@@ -289,7 +304,7 @@ describe('shape', () => {
     const rect = load(
       SRC.replace(
         '(gr_line (start 0 0) (end 10 0)',
-        '(gr_rect (start 0 0) (end 20 10) (radius 3) (stroke (width 0.1) (type solid)) (fill no) (layer "F.SilkS") (uuid "r1"))\n  (gr_line (start 0 0) (end 10 0)',
+        `(gr_rect (start 0 0) (end 20 10) (radius 3) (stroke (width 0.1) (type solid)) (fill no) (layer "F.SilkS") (uuid "${U('r1')}"))\n  (gr_line (start 0 0) (end 10 0)`,
       ),
     );
     expect(rect.shapes[0]?.cornerRadius).toBe(mmToIU(3));
@@ -300,23 +315,20 @@ describe('shape', () => {
   });
 
   it('builds the stroke type and the corner radius, not a hardcoded solid', () => {
-    // The BUILDER is the path a newly drawn shape takes. It wrote `(type solid)`
+    // The path a newly drawn shape takes. The old builder wrote `(type solid)`
     // whatever the shape's dash was, so a dashed graphic drawn here came back
     // solid on the next load; and it had no radius at all.
-    const built = serialize(
-      buildBoardShapeNode({
-        kind: 'rect',
-        start: { x: 0, y: 0 },
-        end: { x: 2e7, y: 1e7 },
-        width: 2e5,
-        strokeType: 'dash',
-        cornerRadius: 3e6,
-        fillMode: 'none',
-        layer: 'F.SilkS',
-        locked: true,
-        source: { kind: 'list', items: [] },
-      }),
-    ).replace(/\s+/g, ' ');
+    const built = writtenShape({
+      kind: 'rect',
+      start: { x: 0, y: 0 },
+      end: { x: 2e7, y: 1e7 },
+      width: 2e5,
+      strokeType: 'dash',
+      cornerRadius: 3e6,
+      fillMode: 'none',
+      layer: 'F.SilkS',
+      locked: true,
+    });
     expect(built).toContain('(type dash)');
     expect(built).toContain('(radius 3)');
     // `if( aShape->IsLocked() )`, before the layer.
@@ -373,12 +385,14 @@ describe('shape', () => {
   });
 
   it('opens and closes a solder mask window', () => {
-    const on = editLine({ hasMask: true, maskMargin: MM(0.1) });
-    expect(flat(on)).toContain('(layers "F.SilkS" "F.Mask")');
+    // `PCB_SHAPE::GetLayerSet` adds the mask layer only for a shape on F.Cu or
+    // B.Cu (pcb_shape.cpp:239-253), so the line goes onto copper first.
+    const on = editLine({ layer: 'F.Cu', hasMask: true, maskMargin: MM(0.1) });
+    expect(flat(on)).toContain('(layers "F.Cu" "F.Mask")');
     expect(flat(on)).toContain('(solder_mask_margin 0.1)');
 
     const back = sh(roundTrip(on));
-    expect(back.layer).toBe('F.SilkS');
+    expect(back.layer).toBe('F.Cu');
     expect(back.maskLayer).toBe('F.Mask');
 
     const off = applyShapeValues(on, 0, {
@@ -386,7 +400,7 @@ describe('shape', () => {
       hasMask: false,
       maskMargin: null,
     });
-    expect(flat(off)).toContain('(layer "F.SilkS")');
+    expect(flat(off)).toContain('(layer "F.Cu")');
     expect(flat(off).split('(gr_circle')[0]).not.toContain('F.Mask');
     expect(sh(roundTrip(off)).maskLayer).toBeUndefined();
   });
@@ -401,7 +415,7 @@ describe('shape', () => {
 
     expect(sh(out, 1).width).toBe(MM(0.1));
     expect(sh(out, 2).mid).toEqual({ x: MM(45), y: MM(45) });
-    expect(sh(out).uuid).toBe('s1');
+    expect(sh(out).uuid).toBe(U('s1'));
   });
 
   it('survives a collect/apply round with no edits', () => {

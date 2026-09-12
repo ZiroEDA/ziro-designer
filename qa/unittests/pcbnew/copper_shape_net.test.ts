@@ -23,8 +23,7 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard, readFootprintFile } from '@ziroeda/pcbnew/src/read-board.js';
-import { buildBoardShapeNode } from '@ziroeda/pcbnew/src/write-board.js';
-import { serialize } from '@ziroeda/sexpr/src/serializer.js';
+import { flatText, writtenNode } from './support/written_node.js';
 
 const board = (body: string) =>
   readBoard(
@@ -79,11 +78,12 @@ describe('a copper graphic carrying a net', () => {
     expect(b.shapes[0]!.netName).toBe('/uart/SDA');
   });
 
-  it('is written back out by a builder that had no source to copy', () => {
-    // An existing shape round-trips through `source`; a newly drawn one goes
-    // through the builder, which had no `(net …)` at all. That is the load-side
-    // bug of #631 arriving from the other direction, so it gets its own test.
-    const node = buildBoardShapeNode({
+  it('is written back out for a shape the editor drew', () => {
+    // A newly drawn shape has no model yet; the PCB_SHAPE the writer builds for
+    // it has to carry the net. That is the load-side bug of #631 arriving from
+    // the other direction, so it gets its own test.
+    const b = board('');
+    b.shapes.push({
       kind: 'line',
       start: { x: 0, y: 0 },
       end: { x: 1e6, y: 0 },
@@ -92,24 +92,23 @@ describe('a copper graphic carrying a net', () => {
       layer: 'F.Cu',
       net: 1,
       netName: '/uart/SDA',
-      source: { kind: 'list', items: [] },
     });
-    expect(serialize(node)).toContain('(net "/uart/SDA")');
+    expect(flatText(writtenNode(b, 'gr_line'))).toContain('(net "/uart/SDA")');
   });
 
   it('writes no net token for an unconnected graphic', () => {
     // `GetNetCode() > 0` — code 0 is the unconnected net and upstream omits the
     // token entirely rather than writing an empty name.
-    const node = buildBoardShapeNode({
+    const b = board('');
+    b.shapes.push({
       kind: 'line',
       start: { x: 0, y: 0 },
       end: { x: 1e6, y: 0 },
       width: 2e5,
       fillMode: 'none',
       layer: 'F.SilkS',
-      source: { kind: 'list', items: [] },
     });
-    expect(serialize(node)).not.toContain('(net');
+    expect(flatText(writtenNode(b, 'gr_line'))).not.toContain('(net');
   });
 });
 
@@ -137,7 +136,7 @@ describe('the reader is not left holding a board it has finished with', () => {
     );
     const b2 = readBoard(
       parse(`(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal))
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
   (net 0 "")
 )`),
     );

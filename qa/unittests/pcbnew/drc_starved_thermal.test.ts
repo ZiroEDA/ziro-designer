@@ -16,7 +16,6 @@ import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
 import type { Board, PcbFootprint, PcbPad, PcbZone } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 /**
  * A pour plus `count` spoke polygons bridging the relief ring into the pad.
@@ -78,7 +77,6 @@ const pad = (over: Partial<PcbPad> = {}): PcbPad => ({
   size: { x: MM(2), y: MM(2) },
   layers: ['F.Cu'],
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -95,7 +93,6 @@ const fp = (pads: PcbPad[], over: Partial<PcbFootprint> = {}): PcbFootprint => (
   barcodes: [],
   models: [],
   attributes: ['allow_missing_courtyard'],
-  source: EMPTY,
   ...over,
 });
 
@@ -112,7 +109,6 @@ const zone = (polys: { x: number; y: number }[][], over: Partial<PcbZone> = {}):
   padConnection: 'thermal',
   thermalGap: MM(1),
   islandRemovalMode: 'always',
-  source: EMPTY,
   ...over,
 });
 
@@ -141,7 +137,6 @@ const board = (zones: PcbZone[], footprints: PcbFootprint[]): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 const opts = (minResolvedSpokes = 2): DrcOptions => ({

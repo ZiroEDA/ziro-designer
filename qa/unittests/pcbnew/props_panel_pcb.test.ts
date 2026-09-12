@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest';
 import { head, isList, parse, serialize } from '@ziroeda/sexpr/src/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { buildViaNode, writeBoardNode } from '@ziroeda/pcbnew/src/write-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
 import {
   pcbItemFriendlyName,
   pcbPropertiesFor,
@@ -28,22 +28,32 @@ import type { Board } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 const load = (text: string): Board => readBoard(parse(text));
-/** What the board WRITES — a model-only edit that never reaches the source reverts on reload. */
-const written = (board: Board): string => serialize(writeBoardNode(board));
-/** One node's bytes with the pretty-printer's newlines squeezed out. */
-const flat = (n: { kind: 'list'; items: unknown[] }): string =>
-  serialize(n as Parameters<typeof serialize>[0])
+/** What the board WRITES — `serializeBoard`, KiCad's own formatter over the model. */
+const written = (board: Board): string => serializeBoard(board);
+/** The written board with the pretty-printer's newlines squeezed out. */
+const flat = (board: Board): string =>
+  serializeBoard(board).replace(/\s+/g, ' ').replace(/\( /g, '(').replace(/ \)/g, ')');
+
+/** The nth top-level node of that head in the written board, flattened. */
+const flatNode = (board: Board, headName: string, nth = 0): string => {
+  const root = parse(serializeBoard(board));
+  const nodes = root.items.filter((i) => isList(i) && head(i) === headName);
+  const node = nodes[nth];
+  if (!node) throw new Error(`no (${headName} …) #${nth} in the written board`);
+  return serialize(node as Parameters<typeof serialize>[0])
     .replace(/\s+/g, ' ')
     .replace(/\( /g, '(')
     .replace(/ \)/g, ')');
+};
 
-/** The first board text's own node, as the writer emits it (it is stored source). */
-const writtenText = (board: Board): string => serialize(board.texts[0]!.source);
+/** The first board text's own node as written. */
+const writtenText = (board: Board): string => flatNode(board, 'gr_text');
 
-/** The head of every DIRECT child of the first footprint's source node. */
+/** The head of every DIRECT child of the first footprint node as written. */
 const fpChildren = (board: Board): string[] => {
-  const src = board.footprints[0]?.source;
-  return (src?.items ?? []).filter(isList).map((i) => head(i) ?? '');
+  const root = parse(serializeBoard(board));
+  const fp = root.items.find((i) => isList(i) && head(i) === 'footprint');
+  return (fp && isList(fp) ? fp.items : []).filter(isList).map((i) => head(i) ?? '');
 };
 
 /** A distinct colour per layer, so a swatch cannot pass by accident. */
@@ -56,10 +66,48 @@ const COLOURS: Record<string, string> = {
 };
 const CTX = { layerColor: (l: string): string => COLOURS[l] ?? '#000000' };
 
+/**
+ * The fixture's uuids, real ones: `KIID( string )` turns anything that is not a
+ * uuid (or an 8-digit legacy timestamp) into a fresh random id, as KiCad does,
+ * so a group naming `"gl1"` would name nothing and be dropped on write.
+ */
+const U: Record<string, string> = {
+  a1: '10000000-0000-4000-8000-000000000001',
+  d1: '10000000-0000-4000-8000-000000000002',
+  d2: '10000000-0000-4000-8000-000000000003',
+  dt1: '10000000-0000-4000-8000-000000000004',
+  dt2: '10000000-0000-4000-8000-000000000005',
+  f1: '10000000-0000-4000-8000-000000000006',
+  f2: '10000000-0000-4000-8000-000000000007',
+  f3: '10000000-0000-4000-8000-000000000008',
+  f4: '10000000-0000-4000-8000-000000000009',
+  f5: '10000000-0000-4000-8000-00000000000a',
+  f6: '10000000-0000-4000-8000-00000000000b',
+  f7: '10000000-0000-4000-8000-00000000000c',
+  fp1: '10000000-0000-4000-8000-00000000000d',
+  g1: '10000000-0000-4000-8000-00000000000e',
+  ga1: '10000000-0000-4000-8000-00000000000f',
+  gc1: '10000000-0000-4000-8000-000000000010',
+  gcu1: '10000000-0000-4000-8000-000000000011',
+  gl1: '10000000-0000-4000-8000-000000000012',
+  gp1: '10000000-0000-4000-8000-000000000013',
+  gr1: '10000000-0000-4000-8000-000000000014',
+  gt1: '10000000-0000-4000-8000-000000000015',
+  im1: '10000000-0000-4000-8000-000000000016',
+  p1: '10000000-0000-4000-8000-000000000017',
+  p2: '10000000-0000-4000-8000-000000000018',
+  t1: '10000000-0000-4000-8000-000000000019',
+  tb1: '10000000-0000-4000-8000-00000000001a',
+  tbl1: '10000000-0000-4000-8000-00000000001b',
+  v1: '10000000-0000-4000-8000-00000000001c',
+  z1: '10000000-0000-4000-8000-00000000001d',
+};
+
 const SRC = `(kicad_pcb (version 20240108) (generator "pcbnew")
   (layers
     (0 "F.Cu" signal)
     (1 "In1.Cu" signal)
+    (2 "In2.Cu" signal)
     (31 "B.Cu" signal)
     (37 "F.SilkS" user)
     (44 "Edge.Cuts" user)
@@ -67,35 +115,35 @@ const SRC = `(kicad_pcb (version 20240108) (generator "pcbnew")
   (net 0 "")
   (net 2 "VCC")
   (net 1 "GND")
-  (footprint "Lib:R_0805" (layer "F.Cu") (uuid "fp1") (at 10 20 90)
+  (footprint "Lib:R_0805" (layer "F.Cu") (uuid "${U.fp1}") (at 10 20 90)
     (descr "Resistor 0805")
     (tags "resistor smd")
     (attr smd exclude_from_bom dnp)
-    (property "Reference" "R1" (at 0 0 0) (layer "F.SilkS") (uuid "f1"))
-    (property "Value" "10k" (at 0 1 0) (layer "F.Fab") (uuid "f2"))
+    (property "Reference" "R1" (at 0 0 0) (layer "F.SilkS") (uuid "${U.f1}"))
+    (property "Value" "10k" (at 0 1 0) (layer "F.Fab") (uuid "${U.f2}"))
     (pad "1" smd rect (at -1 0) (size 1 1.2) (layers "F.Cu" "F.Paste" "F.Mask")
-      (net 1 "GND") (pinfunction "A") (pintype "passive") (uuid "p1"))
+      (net 1 "GND") (pinfunction "A") (pintype "passive") (uuid "${U.p1}"))
     (pad "2" thru_hole circle (at 1 0) (size 1.2 1.2) (drill 0.6)
-      (layers "*.Cu" "*.Mask") (net 2 "VCC") (uuid "p2")
+      (layers "*.Cu" "*.Mask") (net 2 "VCC") (uuid "${U.p2}")
       (clearance 0.3) (zone_connect 1))
   )
-  (segment (start 0 0) (end 10 0) (width 0.25) (layer "F.Cu") (net 1) (uuid "t1"))
-  (arc (start 20 0) (mid 25 5) (end 30 0) (width 0.25) (layer "F.Cu") (net 1) (uuid "a1"))
-  (via (at 40 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1) (uuid "v1"))
-  (zone (net 1) (net_name "GND") (layer "F.Cu") (uuid "z1") (name "pour") (priority 3)
+  (segment (start 0 0) (end 10 0) (width 0.25) (layer "F.Cu") (net 1) (uuid "${U.t1}"))
+  (arc (start 20 0) (mid 25 5) (end 30 0) (width 0.25) (layer "F.Cu") (net 1) (uuid "${U.a1}"))
+  (via (at 40 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1) (uuid "${U.v1}"))
+  (zone (net 1) (net_name "GND") (layer "F.Cu") (uuid "${U.z1}") (name "pour") (priority 3)
     (hatch edge 0.5)
     (connect_pads (clearance 0.5))
     (min_thickness 0.25)
     (fill yes (thermal_gap 0.5) (thermal_bridge_width 0.5))
     (polygon (pts (xy 0 0) (xy 20 0) (xy 20 20) (xy 0 20)))
   )
-  (gr_text "hello" (at 5 5 0) (layer "F.SilkS") (uuid "gt1")
+  (gr_text "hello" (at 5 5 0) (layer "F.SilkS") (uuid "${U.gt1}")
     (effects (font (size 1 1) (thickness 0.15))))
   (gr_text_box "note" (start 60 60) (end 80 70) (margins 0.5 0.6 0.7 0.8)
-    (layer "F.SilkS") (uuid "tb1") (border yes)
+    (layer "F.SilkS") (uuid "${U.tb1}") (border yes)
     (stroke (width 0.15) (type dash))
     (effects (font (size 1 1) (thickness 0.15)) (justify left top)))
-  (table (column_count 2) (layer "F.SilkS") (uuid "tbl1")
+  (table (column_count 2) (layer "F.SilkS") (uuid "${U.tbl1}")
     (border (external yes) (header no) (stroke (width 0.2) (type solid)))
     (separators (rows yes) (cols no) (stroke (width 0.1) (type dash)))
     (column_widths 10 10) (row_heights 5)
@@ -104,34 +152,34 @@ const SRC = `(kicad_pcb (version 20240108) (generator "pcbnew")
         (layer "F.SilkS") (span 1 1) (effects (font (size 1 1))))
       (table_cell "b" (start 10 0) (end 20 5) (margins 0.5 0.5 0.5 0.5)
         (layer "F.SilkS") (span 1 1) (effects (font (size 1 1))))))
-  (dimension (type orthogonal) (layer "Dwgs.User") (uuid "d1")
+  (dimension (type orthogonal) (layer "Dwgs.User") (uuid "${U.d1}")
     (pts (xy 113.6 58.975) (xy 113.35 28.975)) (height 12.85) (orientation 1)
     (format (prefix "R ") (suffix " typ") (units 3) (units_format 0) (precision 4)
       (suppress_zeroes yes))
     (style (thickness 0.1) (arrow_length 1.27) (text_position_mode 0)
       (arrow_direction outward) (extension_height 0.58642) (extension_offset 0.5)
       (keep_text_aligned yes))
-    (gr_text "30" (at 125.3 43.975 90) (layer "Dwgs.User") (uuid "dt1")
+    (gr_text "30" (at 125.3 43.975 90) (layer "Dwgs.User") (uuid "${U.dt1}")
       (effects (font (size 1 1) (thickness 0.15)))))
-  (dimension (type leader) (layer "Cmts.User") (uuid "d2")
+  (dimension (type leader) (layer "Cmts.User") (uuid "${U.d2}")
     (pts (xy 152.9 67.3) (xy 156.2 63.9))
     (format (prefix "") (suffix "") (units 0) (units_format 0) (precision 4)
       (override_value "0.3mm Thickness"))
     (style (thickness 0.1) (arrow_length 1.27) (text_position_mode 0)
       (text_frame 1) (extension_offset 0.5))
-    (gr_text "0.3mm Thickness" (at 168.9 63.9 0) (layer "Cmts.User") (uuid "dt2")
+    (gr_text "0.3mm Thickness" (at 168.9 63.9 0) (layer "Cmts.User") (uuid "${U.dt2}")
       (effects (font (size 1 1) (thickness 0.15)))))
-  (group "cluster" (uuid "g1") (members "gl1" "gc1"))
-  (gr_line (start 0 0) (end 5 0) (stroke (width 0.1) (type dash)) (layer "Edge.Cuts") (uuid "gl1"))
+  (group "cluster" (uuid "${U.g1}") (members "${U.gl1}" "${U.gc1}"))
+  (gr_line (start 0 0) (end 5 0) (stroke (width 0.1) (type dash)) (layer "Edge.Cuts") (uuid "${U.gl1}"))
   (gr_circle (center 30 30) (end 33 34) (stroke (width 0.1) (type solid)) (fill none)
-    (layer "F.SilkS") (uuid "gc1"))
+    (layer "F.SilkS") (uuid "${U.gc1}"))
   (gr_poly (pts (xy 0 0) (xy 5 0) (xy 5 5)) (stroke (width 0.1) (type solid)) (fill none)
-    (layer "F.SilkS") (uuid "gp1"))
+    (layer "F.SilkS") (uuid "${U.gp1}"))
   (gr_arc (start 0 5) (mid -5 0) (end 0 -5) (stroke (width 0.1) (type solid))
-    (layer "F.SilkS") (uuid "ga1"))
+    (layer "F.SilkS") (uuid "${U.ga1}"))
   (gr_rect (start 0 0) (end 20 10) (stroke (width 0.1) (type solid)) (fill none)
-    (layer "F.SilkS") (uuid "gr1"))
-  (gr_line (start 1 1) (end 2 2) (stroke (width 0.2) (type solid)) (layer "F.Cu") (uuid "gcu1"))
+    (layer "F.SilkS") (uuid "${U.gr1}"))
+  (gr_line (start 1 1) (end 2 2) (stroke (width 0.2) (type solid)) (layer "F.Cu") (uuid "${U.gcu1}"))
 )`;
 
 const B = load(SRC);
@@ -432,13 +480,13 @@ describe('FOOTPRINT rows: the editable attributes and overrides', () => {
  */
 describe("FOOTPRINT rows: the footprint's own fields", () => {
   const WITH_FIELDS = SRC.replace(
-    '(property "Value" "10k" (at 0 1 0) (layer "F.Fab") (uuid "f2"))',
-    `(property "Value" "10k" (at 0 1 0) (layer "F.Fab") (uuid "f2"))
-    (property "Datasheet" "https://ds" (at 0 2 0) (layer "F.Fab") (uuid "f3"))
-    (property "Description" "Generic resistor" (at 0 3 0) (layer "F.Fab") (uuid "f4"))
-    (property "MPN" "RC0805" (at 0 4 0) (layer "F.Fab") (uuid "f5"))
-    (property "KiLib_Generator" "kicad" (at 0 5 0) (layer "F.Fab") (uuid "f6"))
-    (property "Sheetname" "/" (at 0 6 0) (layer "F.Fab") (uuid "f7"))`,
+    `(property "Value" "10k" (at 0 1 0) (layer "F.Fab") (uuid "${U.f2}"))`,
+    `(property "Value" "10k" (at 0 1 0) (layer "F.Fab") (uuid "${U.f2}"))
+    (property "Datasheet" "https://ds" (at 0 2 0) (layer "F.Fab") (uuid "${U.f3}"))
+    (property "Description" "Generic resistor" (at 0 3 0) (layer "F.Fab") (uuid "${U.f4}"))
+    (property "MPN" "RC0805" (at 0 4 0) (layer "F.Fab") (uuid "${U.f5}"))
+    (property "KiLib_Generator" "kicad" (at 0 5 0) (layer "F.Fab") (uuid "${U.f6}"))
+    (property "Sheetname" "/" (at 0 6 0) (layer "F.Fab") (uuid "${U.f7}"))`,
   );
   const F = load(WITH_FIELDS);
   const rows = rowsFor('footprint:0', F);
@@ -472,10 +520,12 @@ describe("FOOTPRINT rows: the footprint's own fields", () => {
 
   it('leaves a reserved property out: it is not a PCB_FIELD', () => {
     // `parseFOOTPRINT` consumes Sheetname into `FOOTPRINT::SetSheetname`
-    // (pcb_io_kicad_sexpr_parser.cpp:5176-5180) rather than adding a field, so
-    // nothing in GetFields() carries it and the panel never offers a row.
+    // (pcb_io_kicad_sexpr_parser.cpp:5176-5180) rather than adding a field —
+    // but only for a file older than 20230620, the PCB fields format. This
+    // fixture is newer, so in KiCad the property is an ordinary user field;
+    // the panel's reserved-name filter still keeps it off the rows.
     expect(fieldRows()).not.toContain('Sheetname');
-    expect(F.footprints[0]?.sheetname).toBe('/');
+    expect(F.footprints[0]?.sheetname).toBeUndefined();
   });
 
   it('commits an edited field into the model AND its source', () => {
@@ -491,9 +541,11 @@ describe("FOOTPRINT rows: the footprint's own fields", () => {
     // PCB_FOOTPRINT_FIELD_PROPERTY::setter (:99-105): `GetField( m_name )`
     // finding nothing means a new FIELD_T::USER field, not a dropped edit. Here
     // that is Datasheet on the FIXTURE footprint, which writes no such property.
+    // Datasheet and Description are FOOTPRINT's mandatory fields, so both
+    // exist on every footprint whether or not the file wrote them.
     const bare = rowsFor('footprint:0');
     const next = row(bare, 'Datasheet').set?.('https://example/ds.pdf');
-    expect(next?.footprints[0]?.fields?.map((f) => f.name)).toEqual(['Datasheet']);
+    expect(next?.footprints[0]?.fields?.map((f) => f.name)).toEqual(['Datasheet', 'Description']);
     expect(written(next!)).toContain('"Datasheet" "https://example/ds.pdf"');
   });
 
@@ -624,7 +676,10 @@ describe('PAD rows', () => {
     // before GND, so an unsorted builder would fail here.
     expect(row(smd, 'Net').choices).toEqual(['<no net>', 'GND', 'VCC']);
     expect(row(smd, 'Net').value).toBe('GND');
-    expect(row(smd, 'Net').set?.('VCC')?.footprints[0]?.pads[0]?.net).toBe(2);
+    // The file declares `(net 2 "VCC")` before `(net 1 "GND")`, and
+    // `NETINFO_LIST::AppendNet` renumbers a code that is not the next
+    // consecutive one (netinfo_list.cpp:160-165): VCC is net 1 on the board.
+    expect(row(smd, 'Net').set?.('VCC')?.footprints[0]?.pads[0]?.net).toBe(1);
   });
 
   it('offers the pad type and shape as labels, and commits the token', () => {
@@ -722,7 +777,7 @@ describe('TRACK and ARC rows', () => {
     // updateLists gives a BOARD_CONNECTED_ITEM `layersCu`, not `layersAll`:
     // F.SilkS and Edge.Cuts are enabled on this board and must not be here.
     const layer = row(track, 'Layer');
-    expect(layer.choices).toEqual(['F.Cu', 'In1.Cu', 'B.Cu']);
+    expect(layer.choices).toEqual(['F.Cu', 'In1.Cu', 'In2.Cu', 'B.Cu']);
     expect(layer.swatch).toBe('#c83434');
     expect(layer.set?.('B.Cu')?.tracks[0]?.layer).toBe('B.Cu');
   });
@@ -807,24 +862,24 @@ describe('VIA rows', () => {
     expect(tented?.vias[0]?.tenting).toEqual({ front: true, back: undefined });
     // `(front yes) (back none)` — the sides are independent, and `none` is how
     // the empty optional is spelled.
-    expect(flat(tented!.vias[0]!.source)).toContain('(tenting (front yes) (back none))');
+    expect(flatNode(tented!, 'via')).toContain('(tenting (front yes) (back none))');
 
     const capped = row(rows, 'Capping').set?.('Not capped');
     expect(capped?.vias[0]?.capping).toBe(false);
-    expect(flat(capped!.vias[0]!.source)).toContain('(capping no)');
+    expect(flatNode(capped!, 'via')).toContain('(capping no)');
 
     // Back to the board: the token goes away rather than reading `(capping none)`,
     // because the writer emits it only `if( …is_capped.has_value() )`.
     const back = row(rowsFor('via:0', capped!), 'Capping').set?.('From board stackup');
     expect(back?.vias[0]?.capping).toBeUndefined();
-    expect(flat(back!.vias[0]!.source)).not.toContain('capping');
+    expect(flatNode(back!, 'via')).not.toContain('capping');
   });
 
   it("reads the flags back, including tenting's legacy bare-word spelling", () => {
     const withFlags = load(
       SRC.replace(
-        '(via (at 40 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1) (uuid "v1"))',
-        `(via (at 40 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1) (uuid "v1")
+        `(via (at 40 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1) (uuid "${U.v1}"))`,
+        `(via (at 40 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1) (uuid "${U.v1}")
            (tenting (front yes) (back no)) (covering (front no) (back none))
            (plugging (front yes) (back yes)) (capping yes) (filling no))`,
       ),
@@ -838,7 +893,7 @@ describe('VIA rows', () => {
     // `parseFrontBackOptBool( true )`: before the sides could differ, tenting was
     // written as bare words, and `none` reset both.
     const legacy = load(
-      SRC.replace('(net 1) (uuid "v1"))', '(net 1) (uuid "v1") (tenting front))'),
+      SRC.replace(`(net 1) (uuid "${U.v1}"))`, `(net 1) (uuid "${U.v1}") (tenting front))`),
     );
     expect(legacy.vias[0]?.tenting?.front).toBe(true);
     expect(legacy.vias[0]?.tenting?.back).toBeUndefined();
@@ -846,7 +901,7 @@ describe('VIA rows', () => {
     // `none` resets BOTH sides whatever came before it, so this is not
     // "front, then nothing" — it is nothing at all.
     const legacyNone = load(
-      SRC.replace('(net 1) (uuid "v1"))', '(net 1) (uuid "v1") (tenting front none))'),
+      SRC.replace(`(net 1) (uuid "${U.v1}"))`, `(net 1) (uuid "${U.v1}") (tenting front none))`),
     );
     expect(legacyNone.vias[0]?.tenting?.front).toBeUndefined();
 
@@ -859,8 +914,9 @@ describe('VIA rows', () => {
     // The BUILDER is the path a newly placed via takes, having no source. The
     // writer's own condition is `has_value()` on the side or the drill flag
     // (pcb_io_kicad_sexpr.cpp:2740-2778), so an opinion-free via gains nothing.
-    const bare = flat(
-      buildViaNode({
+    const withVia = (via: Board['vias'][number]): Board => ({ ...load(SRC), vias: [via] });
+    const bare = flatNode(
+      withVia({
         at: { x: 0, y: 0 },
         size: MM(0.8),
         drill: MM(0.4),
@@ -873,14 +929,14 @@ describe('VIA rows', () => {
         // the token is still not written.
         tenting: {},
         covering: {},
-        source: { kind: 'list', items: [] },
       }),
+      'via',
     );
     for (const t of ['tenting', 'covering', 'plugging', 'capping', 'filling'])
       expect(bare, t).not.toContain(t);
 
-    const opinionated = flat(
-      buildViaNode({
+    const opinionated = flatNode(
+      withVia({
         at: { x: 0, y: 0 },
         size: MM(0.8),
         drill: MM(0.4),
@@ -889,8 +945,8 @@ describe('VIA rows', () => {
         net: 0,
         tenting: { front: true },
         filling: false,
-        source: { kind: 'list', items: [] },
       }),
+      'via',
     );
     expect(opinionated).toContain('(tenting (front yes) (back none))');
     expect(opinionated).toContain('(filling no)');
@@ -911,8 +967,8 @@ describe('VIA rows', () => {
 describe('the padstack drill groups, on the pad and the via', () => {
   const drilled = load(
     SRC.replace(
-      '(via (at 40 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1) (uuid "v1"))',
-      `(via (at 40 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1) (uuid "v1")
+      `(via (at 40 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1) (uuid "${U.v1}"))`,
+      `(via (at 40 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1) (uuid "${U.v1}")
          (backdrill (size 0.6) (layers "B.Cu" "In1.Cu"))
          (front_post_machining counterbore (size 1.2) (depth 0.3))
          (back_post_machining countersink (size 1.4) (angle 90)))`,
@@ -949,17 +1005,18 @@ describe('the padstack drill groups, on the pad and the via', () => {
 
   it('writes the backdrill back as its own node, and drops it with the mode', () => {
     const both = row(via, 'Backdrill Mode').set?.('Backdrill both');
-    expect(flat(both!.vias[0]!.source)).toContain('(tertiary_drill (size 0.44)');
+    expect(flat(both!)).toContain('(tertiary_drill (size 0.44)');
     const none = row(via, 'Backdrill Mode').set?.('No backdrill');
-    expect(flat(none!.vias[0]!.source)).not.toContain('backdrill');
+    expect(flat(none!)).not.toContain('backdrill');
   });
 
   it('builds no drill node for a slot with no size, as the writer does not', () => {
     // `if( …SecondaryDrill().size.x > 0 )` (pcb_io_kicad_sexpr.cpp:2657): an
     // empty slot is not a backdrill, and the BUILDER — the path a newly placed
     // via takes — must not write one either.
+    const withVia = (v: Board['vias'][number]): Board => ({ ...load(SRC), vias: [v] });
     const built = flat(
-      buildViaNode({
+      withVia({
         at: { x: 0, y: 0 },
         size: MM(0.8),
         drill: MM(0.4),
@@ -967,13 +1024,12 @@ describe('the padstack drill groups, on the pad and the via', () => {
         kind: 'through',
         net: 0,
         backdrill: { size: 0, start: 'B.Cu', end: 'In1.Cu' },
-        source: { kind: 'list', items: [] },
       }),
     );
     expect(built).not.toContain('backdrill');
 
     const real = flat(
-      buildViaNode({
+      withVia({
         at: { x: 0, y: 0 },
         size: MM(0.8),
         drill: MM(0.4),
@@ -981,7 +1037,6 @@ describe('the padstack drill groups, on the pad and the via', () => {
         kind: 'through',
         net: 0,
         backdrill: { size: MM(0.6), start: 'B.Cu', end: 'In1.Cu' },
-        source: { kind: 'list', items: [] },
       }),
     );
     expect(real).toContain('(backdrill (size 0.6) (layers "B.Cu" "In1.Cu"))');
@@ -1008,14 +1063,14 @@ describe('the padstack drill groups, on the pad and the via', () => {
 
     const wider = row(via, 'Back Countersink Angle').set?.('120');
     expect(wider?.vias[0]?.backPostMachining?.angle).toBe(1200);
-    expect(flat(wider!.vias[0]!.source)).toContain('(angle 120)');
+    expect(flat(wider!)).toContain('(angle 120)');
   });
 
   it('turns post-machining off by dropping the whole token', () => {
     const off = row(via, 'Front Post-machining').set?.('Not post-machined');
     expect(off?.vias[0]?.frontPostMachining).toBeUndefined();
-    expect(flat(off!.vias[0]!.source)).not.toContain('front_post_machining');
-    expect(flat(off!.vias[0]!.source)).toContain('back_post_machining');
+    expect(flat(off!)).not.toContain('front_post_machining');
+    expect(flat(off!)).toContain('back_post_machining');
   });
 
   it("gives a pad the same rows under the pad's own names", () => {
@@ -1029,9 +1084,7 @@ describe('the padstack drill groups, on the pad and the via', () => {
 
     const bored = row(pad, 'Top Post-machining').set?.('Counterbore');
     expect(bored?.footprints[0]?.pads[1]?.frontPostMachining?.mode).toBe('counterbore');
-    expect(flat(bored!.footprints[0]!.pads[1]!.source)).toContain(
-      '(front_post_machining counterbore)',
-    );
+    expect(flat(bored!)).toContain('(front_post_machining counterbore)');
   });
 
   it('registers the two groups in the opposite order on a pad and a via', () => {
@@ -1104,11 +1157,11 @@ describe('the Teardrops group, on both items that have one', () => {
   it('commits through the item, and writes the (teardrops …) node', () => {
     const on = row(via, 'Enable Teardrops').set?.(true);
     expect(on?.vias[0]?.teardrops?.enabled).toBe(true);
-    expect(serialize(on!.vias[0]!.source)).toContain('(teardrops');
+    expect(flat(on!)).toContain('(teardrops');
 
     const curved = row(pad, 'Curved Teardrops').set?.(true);
     expect(curved?.footprints[0]?.pads[1]?.teardrops?.curvedEdges).toBe(true);
-    expect(serialize(curved!.footprints[0]!.pads[1]!.source)).toContain('(curved_edges yes)');
+    expect(flat(curved!)).toContain('(curved_edges yes)');
   });
 
   it('stores Prefer Zone Connections INVERTED, as the parameter is', () => {
@@ -1119,16 +1172,18 @@ describe('the Teardrops group, on both items that have one', () => {
     expect(prefer.value).toBe(true);
     const off = prefer.set?.(false);
     expect(off?.footprints[0]?.pads[1]?.teardrops?.tdOnPadsInZones).toBe(true);
-    expect(serialize(off!.footprints[0]!.pads[1]!.source)).toContain(
-      '(prefer_zone_connections no)',
-    );
+    expect(flat(off!)).toContain('(prefer_zone_connections no)');
   });
 
   it('offers no teardrop rows at all on a legacy-teardrop board', () => {
     // `supportsTeardrops` opens with `if( !bci->GetBoard() ||
     // bci->GetBoard()->LegacyTeardrops() ) return false` — those boards draw
     // teardrops as zones, so there is nothing per-item to edit.
-    const legacy = load(SRC.replace('(net 0 "")', '(setup (legacy_teardrops yes))\n  (net 0 "")'));
+    // `(legacy_teardrops …)` is a `(general …)` token (parseGeneralSection,
+    // pcb_io_kicad_sexpr_parser.cpp:1713); `parseSetup` rejects it.
+    const legacy = load(
+      SRC.replace('(net 0 "")', '(general (legacy_teardrops yes))\n  (net 0 "")'),
+    );
     expect(legacy.legacyTeardrops).toBe(true);
     expect(groupOrder(rowsFor('via:0', legacy))).not.toContain('Teardrops');
     expect(groupOrder(rowsFor('pad:0:1', legacy))).not.toContain('Teardrops');
@@ -1220,7 +1275,7 @@ describe('ZONE rows', () => {
     // silently discarded this row's edit.
     const ratio = row(hatched, 'Hatch Minimum Hole Ratio').set?.('0.42');
     expect(ratio?.zones[0]?.hatchHoleMinArea).toBe(0.42);
-    expect(flat(ratio!.zones[0]!.source)).toContain('(hatch_min_hole_area 0.42)');
+    expect(flat(ratio!)).toContain('(hatch_min_hole_area 0.42)');
   });
 
   it('greys Minimum Island Area until Remove Islands is the area mode', () => {
@@ -1290,10 +1345,10 @@ describe('ZONE rows: a rule area', () => {
   it('commits a flag back as the file word, not the model bool', () => {
     const next = row(rows, 'Keep Out Vias').set?.(true);
     expect(next?.zones[0]?.ruleArea?.vias).toBe(true);
-    expect(flat(next!.zones[0]!.source)).toContain('(vias not_allowed)');
+    expect(flat(next!)).toContain('(vias not_allowed)');
     // The other four are rewritten from the model and must not flip with it.
-    expect(flat(next!.zones[0]!.source)).toContain('(tracks not_allowed)');
-    expect(flat(next!.zones[0]!.source)).toContain('(copperpour allowed)');
+    expect(flat(next!)).toContain('(tracks not_allowed)');
+    expect(flat(next!)).toContain('(copperpour allowed)');
   });
 
   it('reads and writes the placement source as its own token', () => {
@@ -1303,13 +1358,13 @@ describe('ZONE rows: a rule area', () => {
 
     const renamed = row(rows, 'Source Name').set?.('GND');
     expect(renamed?.zones[0]?.placementArea?.source).toBe('GND');
-    expect(flat(renamed!.zones[0]!.source)).toContain('(component_class "GND")');
+    expect(flat(renamed!)).toContain('(component_class "GND")');
 
     // The source token IS the type, so changing the type moves the name into a
     // different token rather than leaving both.
     const asSheet = row(rows, 'Source Type').set?.('Sheet Name');
-    expect(flat(asSheet!.zones[0]!.source)).toContain('(sheetname "PWR")');
-    expect(flat(asSheet!.zones[0]!.source)).not.toContain('component_class');
+    expect(flat(asSheet!)).toContain('(sheetname "PWR")');
+    expect(flat(asSheet!)).not.toContain('component_class');
   });
 });
 
@@ -1328,6 +1383,7 @@ describe('TEXT rows', () => {
     expect(row(rows, 'Layer').choices).toEqual([
       'F.Cu',
       'In1.Cu',
+      'In2.Cu',
       'B.Cu',
       'F.Silkscreen',
       'Edge.Cuts',
@@ -1439,11 +1495,11 @@ describe('TEXT rows', () => {
   it('reads a stored zero as automatic too, not just an absent token', () => {
     // `GetAutoThickness()` is `GetTextThickness() == 0` (eda_text.h:150). A file
     // CAN carry `(thickness 0)` — KiCad reads it as automatic and writes it back
-    // without the token. Deriving the flag from "the model field is undefined"
-    // agrees on every file KiCad wrote and is wrong on this one.
+    // without the token, and the view spells automatic as no thickness at all.
     const zero = load(SRC.replace('(thickness 0.15)', '(thickness 0)'));
-    expect(zero.texts[0]?.thickness).toBe(0);
+    expect(zero.texts[0]?.thickness).toBeUndefined();
     expect(row(rowsFor('text:0', zero), 'Auto Thickness').value).toBe(true);
+    expect(serializeBoard(zero)).not.toContain('(thickness 0)');
   });
 });
 
@@ -1517,7 +1573,7 @@ describe('SHAPE rows', () => {
 
     const hatched = fill.set?.('Cross-hatch');
     expect(hatched?.shapes[1]?.fillMode).toBe('cross_hatch');
-    expect(serialize(hatched!.shapes[1]!.source)).toContain('(fill cross_hatch)');
+    expect(flat(hatched!)).toContain('(fill cross_hatch)');
   });
 
   it('shows an arc its read-only sweep, and no Mid row', () => {
@@ -1566,13 +1622,13 @@ describe('SHAPE rows', () => {
     expect(asRect?.shapes[0]?.kind).toBe('rect');
     expect(asRect?.shapes[0]?.start).toEqual({ x: MM(0), y: MM(0) });
     expect(asRect?.shapes[0]?.end).toEqual({ x: MM(5), y: MM(0) });
-    const written = flat(writeBoardNode(asRect as Board));
+    const written = flat(asRect as Board);
     expect(written).toContain('(gr_rect (start 0 0) (end 5 0)');
     expect(written).not.toContain('(gr_line (start 0 0) (end 5 0)');
     // The builder has to carry what the source did: this shape's dash type, its
     // uuid and its layer all survive the rewrite.
     expect(written).toContain('(type dash)');
-    expect(written).toContain('"gl1"');
+    expect(written).toContain(`"${U.gl1}"`);
   });
 
   it('gives a rectangle a Corner Radius, and refuses one past half the short side', () => {
@@ -1587,12 +1643,12 @@ describe('SHAPE rows', () => {
 
     const rounded = row(rect, 'Corner Radius').set?.(MM(2));
     expect(rounded?.shapes[4]?.cornerRadius).toBe(MM(2));
-    expect(flat(rounded!.shapes[4]!.source)).toContain('(radius 2)');
+    expect(flat(rounded!)).toContain('(radius 2)');
 
     // And zero drops the token: the writer emits it only when it is non-zero.
     const square = row(rowsFor('shape:4', rounded as Board), 'Corner Radius').set?.(0);
     expect(square?.shapes[4]?.cornerRadius).toBeUndefined();
-    expect(flat(square!.shapes[4]!.source)).not.toContain('radius');
+    expect(flat(square!)).not.toContain('radius');
   });
 
   it('has no Corner Radius on anything but a rectangle', () => {
@@ -1608,9 +1664,10 @@ describe('SHAPE rows', () => {
     expect(names(copper)).toContain('Net');
 
     const gnd = row(copper, 'Net').set?.('GND');
-    expect(gnd?.shapes[5]?.net).toBe(1);
+    // GND is net 2 on the board (see the pad Net test: AppendNet renumbers).
+    expect(gnd?.shapes[5]?.net).toBe(2);
     expect(gnd?.shapes[5]?.netName).toBe('GND');
-    expect(serialize(gnd!.shapes[5]!.source)).toContain('(net "GND")');
+    expect(flat(gnd!)).toContain('(net "GND")');
   });
 
   it('offers the Technical Layers group on an external copper layer only', () => {
@@ -1621,7 +1678,7 @@ describe('SHAPE rows', () => {
 
     const masked = row(rowsFor('shape:5'), 'Soldermask').set?.(true);
     expect(masked?.shapes[5]?.maskLayer).toBe('F.Mask');
-    expect(serialize(masked!.shapes[5]!.source)).toContain('(layers "F.Cu" "F.Mask")');
+    expect(flat(masked!)).toContain('(layers "F.Cu" "F.Mask")');
   });
 
   it('offers ENUM_MAP<LINE_STYLE> without DEFAULT', () => {
@@ -1678,7 +1735,7 @@ describe('TEXT BOX rows', () => {
 
     const off = row(rows, 'Border').set?.(false);
     expect(off?.textBoxes[0]?.border).toBe(false);
-    expect(flat(off!.textBoxes[0]!.source)).toContain('(border no)');
+    expect(flat(off!)).toContain('(border no)');
 
     const margin = row(rows, 'Margin Top').set?.(MM(1.25));
     expect(margin?.textBoxes[0]?.margins.top).toBe(MM(1.25));
@@ -1740,7 +1797,7 @@ describe('REFERENCE IMAGE rows', () => {
   const withImage = load(
     SRC.replace(
       '(group "cluster"',
-      `(image (at 100 50) (layer "F.SilkS") (scale 2) (uuid "im1")
+      `(image (at 100 50) (layer "F.SilkS") (scale 2) (uuid "${U.im1}")
          (data "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="))
        (group "cluster"`,
     ),
@@ -1795,7 +1852,7 @@ describe('REFERENCE IMAGE rows', () => {
     // (locked) and the data — upstream loses this on save too.
     const moved = row(rows, 'Transform Offset X').set?.(MM(3));
     expect(moved?.images[0]?.transformOffset).toEqual({ x: MM(3), y: 0 });
-    expect(flat(moved!.images[0]!.source)).not.toContain('transform');
+    expect(flat(moved!)).not.toContain('transform');
   });
 });
 
@@ -1813,9 +1870,9 @@ describe('GROUP rows', () => {
   it('renames the group in its own node, which is the first argument', () => {
     const renamed = row(rows, 'Name').set?.('power');
     expect(renamed?.groups[0]?.name).toBe('power');
-    expect(flat(renamed!.groups[0]!.source)).toContain('(group "power"');
+    expect(flat(renamed!)).toContain('(group "power"');
     // The members are untouched: renaming is not re-grouping.
-    expect(renamed?.groups[0]?.members).toEqual(['gl1', 'gc1']);
+    expect(renamed?.groups[0]?.members).toEqual([U.gl1, U.gc1]);
   });
 });
 
@@ -1897,7 +1954,7 @@ describe('DIMENSION rows', () => {
 
     const taller = row(ortho, 'Crossbar Height').set?.(MM(20));
     expect(taller?.dimensions[0]?.height).toBe(MM(20));
-    expect(flat(taller!.dimensions[0]!.source)).toContain('(height 20)');
+    expect(flat(taller!)).toContain('(height 20)');
   });
 });
 

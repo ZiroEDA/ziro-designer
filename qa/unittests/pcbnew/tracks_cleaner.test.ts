@@ -16,6 +16,7 @@
  * by hand instead, one behaviour each.
  */
 import { describe, expect, it } from 'vitest';
+import { U } from './support/written_node.js';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { segApproxCollinear } from '@ziroeda/kimath/src/geometry/seg.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
@@ -35,7 +36,6 @@ import type {
   PcbVia,
 } from '@ziroeda/pcbnew/src/types.js';
 
-const EMPTY = { kind: 'list' as const, items: [] };
 const P = (x: number, y: number) => ({ x, y });
 
 const board = (over: Partial<Board> = {}): Board => ({
@@ -64,7 +64,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -72,7 +71,7 @@ const track = (
   start: { x: number; y: number },
   end: { x: number; y: number },
   over: Partial<PcbTrack> = {},
-): PcbTrack => ({ start, end, width: 200, layer: 'F.Cu', net: 1, source: EMPTY, ...over });
+): PcbTrack => ({ start, end, width: 200, layer: 'F.Cu', net: 1, ...over });
 
 const arc = (
   start: { x: number; y: number },
@@ -86,7 +85,6 @@ const arc = (
   width: 200,
   layer: 'F.Cu',
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -97,7 +95,6 @@ const via = (at: { x: number; y: number }, over: Partial<PcbVia> = {}): PcbVia =
   layers: ['F.Cu', 'B.Cu'],
   kind: 'through',
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -118,13 +115,11 @@ const padFootprint = (at: { x: number; y: number }, over: Partial<PcbPad> = {}):
         size: P(1000, 1000),
         layers: ['F.Cu', 'F.Mask'],
         net: 1,
-        source: EMPTY,
         ...over,
       },
     ],
     texts: [],
     shapes: [],
-    source: EMPTY,
   }) as unknown as PcbFootprint;
 
 const run = (b: Board, opts: Partial<TrackGeometryCleanupOptions> = {}) =>
@@ -545,7 +540,7 @@ describe('locked and filtered items', () => {
   it('treats a track inside a locked group as locked', () => {
     const b = board({
       tracks: [track(P(0, 0), P(10000, 0), { uuid: 'in-group' }), track(P(0, 0), P(10000, 0))],
-      groups: [{ name: 'g', uuid: 'g-1', locked: true, members: ['in-group'], source: EMPTY }],
+      groups: [{ name: 'g', uuid: 'g-1', locked: true, members: ['in-group'] }],
     });
 
     expect(run(b).items.map((i) => i.items)).toEqual([['track:1']]);
@@ -570,14 +565,13 @@ describe('the merged track survives serialization', () => {
   (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
   (net 0 "")
   (net 1 "N1")
-  (segment (start 0 0) (end 10 0) (width 0.2) (layer "F.Cu") (net 1) (uuid "aaa"))
-  (segment (start 10 0) (end 20 0) (width 0.2) (layer "F.Cu") (net 1) (uuid "bbb"))
+  (segment (start 0 0) (end 10 0) (width 0.2) (layer "F.Cu") (net 1) (uuid "${U('aaa')}"))
+  (segment (start 10 0) (end 20 0) (width 0.2) (layer "F.Cu") (net 1) (uuid "${U('bbb')}"))
 )`;
 
   it('patches (start …) / (end …) in the surviving segment and drops the other', () => {
-    // The writer passes a track's own s-expression through, so a merge that
-    // updated only the model would save the *old* endpoints and the merge would
-    // silently undo itself on reload.
+    // The surviving segment is written with the merged endpoints; the other
+    // is gone.
     const res = cleanupTrackGeometry(readBoard(parse(BOARD)), {
       dryRun: false,
       mergeSegments: true,
@@ -588,8 +582,8 @@ describe('the merged track survives serialization', () => {
     expect(text).toContain('(end 20 0)');
     expect(text).not.toContain('(end 10 0)');
     expect(text.match(/\(segment/g)).toHaveLength(1);
-    expect(text).toContain('"aaa"');
-    expect(text).not.toContain('"bbb"');
+    expect(text).toContain(`"${U('aaa')}"`);
+    expect(text).not.toContain(`"${U('bbb')}"`);
   });
 });
 

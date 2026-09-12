@@ -42,6 +42,7 @@ import { LSET } from '../../lset.js';
 import type { PCB_IO_KICAD_SEXPR_PARSER } from './pcb_io_kicad_sexpr_parser.js';
 import type { StrokeType } from '../../types.js';
 import {
+  DEFAULT_SIZE_TEXT_IU,
   type FieldT,
   type KEdaText,
   type KFp3DModel,
@@ -669,7 +670,6 @@ export function parseEDA_TEXT(p: PCB_IO_KICAD_SEXPR_PARSER, text: KEdaText): voi
               break;
             case 'thickness':
               text.thickness = p.parseBoardUnits('text thickness');
-              text.autoThickness = false;
               p.NeedRIGHT();
               break;
             case 'bold':
@@ -1088,16 +1088,18 @@ export function parsePCB_REFERENCE_IMAGE(p: PCB_IO_KICAD_SEXPR_PARSER): KPcbRefe
 
 /** `parsePCB_BARCODE( aParent )` (:3979). */
 export function parsePCB_BARCODE(p: PCB_IO_KICAD_SEXPR_PARSER): KPcbBarcode {
+  // `PCB_BARCODE( parent )` (pcb_barcode.cpp:61): 40 mm square, QR, ECC L, on
+  // Dwgs_User; its text a default `PCB_TEXT`, so `DEFAULT_SIZE_TEXT` (50 mils) high.
   const barcode: KPcbBarcode = {
     locked: false,
     pos: { x: 0, y: 0 },
     angle: 0,
-    layer: F_SilkS,
-    width: 0,
-    height: 0,
+    layer: Dwgs_User,
+    width: pcbIUScale.mmToIU(40),
+    height: pcbIUScale.mmToIU(40),
     text: '',
-    textHeight: 0,
-    kind: 'code39',
+    textHeight: DEFAULT_SIZE_TEXT_IU,
+    kind: 'qr',
     ecc: 'L',
     showText: true,
     knockout: false,
@@ -4296,9 +4298,10 @@ export function parseZONE(p: PCB_IO_KICAD_SEXPR_PARSER, parentFP: ParentFP | nul
 
 /** `parsePCB_POINT()` (:8582). */
 export function parsePCB_POINT(p: PCB_IO_KICAD_SEXPR_PARSER): KPcbPoint {
+  // `PCB_POINT( parent )`: `DEFAULT_PT_SIZE_MM` (pcb_point.cpp:43); BOARD_ITEM's layer default is F_Cu.
   const point: KPcbPoint = {
     pos: { x: 0, y: 0 },
-    size: 0,
+    size: pcbIUScale.mmToIU(1.0),
     layer: F_Cu,
     uuid: newKiid(),
     locked: false,

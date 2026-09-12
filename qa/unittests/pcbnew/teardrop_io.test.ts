@@ -66,8 +66,11 @@ describe('(teardrops …) on a via', () => {
     expect(td.bestWidthRatio).toBe(1.0);
     expect(td.tdMaxWidth).toBe(MM(2.0));
     expect(td.widthtoSizeFilterRatio).toBe(0.9);
-    expect(td.allowUseTwoTracks).toBe(true);
-    expect(td.tdOnPadsInZones).toBe(false);
+    // `parseTEARDROP_PARAMETERS` resets these two on entry (:671-672), the
+    // opposite way round from the constructor: absent tokens mean "no" and
+    // "yes" here, not the defaults.
+    expect(td.allowUseTwoTracks).toBe(false);
+    expect(td.tdOnPadsInZones).toBe(true);
   });
 
   it('reads the legacy (curve_points …) spelling', () => {
@@ -99,7 +102,7 @@ describe('(teardrops …) on a pad', () => {
   it('reads through the footprint', () => {
     const board = load(`(kicad_pcb (version 20240108)
       (footprint "R" (at 0 0) (layer "F.Cu")
-        (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu") (net 1)
+        (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu") (net 1 "N1")
           (teardrops (enabled yes) (curved_edges yes))))
     )`);
 
@@ -162,7 +165,6 @@ describe('applyTeardrops', () => {
             { x: MM(40), y: MM(40) },
           ],
           fills: [],
-          source: { kind: 'list', items: [] },
         },
       ],
     };

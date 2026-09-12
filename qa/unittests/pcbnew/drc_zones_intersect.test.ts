@@ -16,7 +16,6 @@ import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
 import type { Board, PcbZone } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const box = (x0: number, y0: number, x1: number, y1: number) => [
   { x: MM(x0), y: MM(y0) },
@@ -31,7 +30,6 @@ const zone = (outline: ReturnType<typeof box>, over: Partial<PcbZone> = {}): Pcb
   fills: [],
   outline,
   priority: 0,
-  source: EMPTY,
   ...over,
 });
 
@@ -60,7 +58,6 @@ const board = (zones: PcbZone[]): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 const OPTS: DrcOptions = {

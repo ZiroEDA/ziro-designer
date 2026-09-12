@@ -128,7 +128,6 @@ export interface DimensionDrawOptions {
   constrain45?: boolean;
 }
 
-const EMPTY = { kind: 'list' as const, items: [] };
 const sub = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x - b.x, y: a.y - b.y });
 const add = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x + b.x, y: a.y + b.y });
 const same = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
@@ -153,7 +152,6 @@ const textAt = (at: Vec2, d: DimensionDefaults, layer: string, text: string): Pc
   // `dimension->SetMirrored( m_board->IsBackLayer( layer ) )`: a label placed on
   // a back layer is read through the board, so it is stored mirrored.
   ...(isBackLayer(layer) ? { mirror: true } : {}),
-  source: EMPTY,
 });
 
 /**
@@ -202,7 +200,6 @@ export function startDimension(
     start: at,
     end: at,
     style,
-    source: EMPTY,
   };
 
   if (isAlignedKind(kind)) dimension.height = 0;

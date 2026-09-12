@@ -27,15 +27,13 @@ import {
 } from '@ziroeda/pcbnew/src/router/pns_drag.js';
 import type { Board, PcbTrack, PcbPad, PcbFootprint } from '@ziroeda/pcbnew/src/types.js';
 
-const EMPTY = { kind: 'list' as const, items: [] };
-
 const track = (
   start: { x: number; y: number },
   end: { x: number; y: number },
   net = 1,
   width = 200,
   layer = 'F.Cu',
-): PcbTrack => ({ start, end, width, layer, net, source: EMPTY });
+): PcbTrack => ({ start, end, width, layer, net });
 
 const pad = (at: { x: number; y: number }, net = 1): PcbPad => ({
   number: '1',
@@ -46,7 +44,6 @@ const pad = (at: { x: number; y: number }, net = 1): PcbPad => ({
   size: { x: 600, y: 600 },
   layers: ['*.Cu'],
   net,
-  source: EMPTY,
 });
 const footprint = (pads: PcbPad[]): PcbFootprint => ({
   lib: 'R',
@@ -59,7 +56,6 @@ const footprint = (pads: PcbPad[]): PcbFootprint => ({
   points: [],
   barcodes: [],
   models: [],
-  source: EMPTY,
 });
 
 const board = (over: Partial<Board>): Board => ({
@@ -80,7 +76,6 @@ const board = (over: Partial<Board>): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -281,7 +276,6 @@ describe('assembleLine (NODE::AssembleLine)', () => {
           layers: ['F.Cu', 'B.Cu'],
           kind: 'through',
           net: 1,
-          source: EMPTY,
         },
       ],
       tracks: [

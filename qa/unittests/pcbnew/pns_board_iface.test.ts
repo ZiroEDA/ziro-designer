@@ -227,19 +227,21 @@ describe('a real board in a real node: demos/ecc83/ecc83-pp.kicad_pcb', () => {
 
 // ---------------------------------------------------------------------------
 
+// The copper stack in file order: `parseLayers` numbers copper layers by their
+// POSITION in the list, first F.Cu and last B.Cu (:2296-2306), so B.Cu goes last.
 const MULTILAYER = `(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (4 "In1.Cu" signal) (6 "In2.Cu" signal))
+  (layers (0 "F.Cu" signal) (4 "In1.Cu" signal) (6 "In2.Cu" signal) (2 "B.Cu" signal))
   (net 0 "") (net 1 "GND") (net 2 "VCC")
   (segment (start 0 0) (end 10 0) (width 0.25) (layer "F.Cu") (net 1))
   (segment (start 10 0) (end 10 10) (width 0.25) (layer "In2.Cu") (net 1))
   (arc (start 0 5) (mid 2 7) (end 5 9) (width 0.3) (layer "In1.Cu") (net 2))
   (via (at 10 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1))
-  (via (at 20 0) (size 0.6) (drill 0.3) (layers "F.Cu" "In1.Cu") (net 2))
+  (via blind (at 20 0) (size 0.6) (drill 0.3) (layers "F.Cu" "In1.Cu") (net 2))
   (footprint "T" (layer "F.Cu") (at 30 0)
-    (pad "1" thru_hole circle (at 0 0) (size 1.2 1.2) (drill 0.6) (layers "*.Cu") (net 1))
-    (pad "2" smd rect (at 2 0) (size 1 0.6) (layers "F.Cu") (net 2))
+    (pad "1" thru_hole circle (at 0 0) (size 1.2 1.2) (drill 0.6) (layers "*.Cu") (net 1 "GND"))
+    (pad "2" smd rect (at 2 0) (size 1 0.6) (layers "F.Cu") (net 2 "VCC"))
     (pad "3" np_thru_hole circle (at 4 0) (size 2 2) (drill 1) (layers "*.Cu"))
-    (pad "4" thru_hole oval (at 6 0) (size 2 1.4) (drill oval 1.2 0.6) (layers "*.Cu") (net 1))))`;
+    (pad "4" thru_hole oval (at 6 0) (size 2 1.4) (drill oval 1.2 0.6) (layers "*.Cu") (net 1 "GND"))))`;
 
 describe('a four-layer board: vias, arcs and the inner-layer mapping', () => {
   const board = readBoard(parse(MULTILAYER));
@@ -548,14 +550,14 @@ describe('the parts that are deliberately not implemented', () => {
 describe('isFlashedOnLayer', () => {
   const board = readBoard(
     parse(`(kicad_pcb (version 20241229) (generator "test")
-      (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (4 "In1.Cu" signal) (6 "In2.Cu" signal))
+      (layers (0 "F.Cu" signal) (4 "In1.Cu" signal) (6 "In2.Cu" signal) (2 "B.Cu" signal))
       (net 0 "") (net 1 "GND")
       (via (at 0 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1)
         (remove_unused_layers yes) (keep_end_layers yes))
       (footprint "T" (layer "F.Cu") (at 10 0)
-        (pad "1" thru_hole circle (at 0 0) (size 1.2 1.2) (drill 0.6) (layers "*.Cu") (net 1)
+        (pad "1" thru_hole circle (at 0 0) (size 1.2 1.2) (drill 0.6) (layers "*.Cu") (net 1 "GND")
           (remove_unused_layers yes) (keep_end_layers yes))
-        (pad "2" smd rect (at 2 0) (size 1 0.6) (layers "F.Cu") (net 1))))`),
+        (pad "2" smd rect (at 2 0) (size 1 0.6) (layers "F.Cu") (net 1 "GND"))))`),
   );
   const { iface, node } = syncInto(board);
   const pads = allPads(board);

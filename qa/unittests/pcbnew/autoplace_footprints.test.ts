@@ -32,7 +32,6 @@ import {
 import type { Board, PcbFootprint, PcbPad, PcbShape } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const line = (x0: number, y0: number, x1: number, y1: number, layer = 'Edge.Cuts'): PcbShape => ({
   kind: 'line',
@@ -41,7 +40,6 @@ const line = (x0: number, y0: number, x1: number, y1: number, layer = 'Edge.Cuts
   width: 0,
   fillMode: 'none',
   layer,
-  source: EMPTY,
 });
 
 /** A rectangular board outline drawn as four separate Edge.Cuts segments. */
@@ -61,7 +59,6 @@ const pad = (x: number, y: number, over: Partial<PcbPad> = {}): PcbPad => ({
   size: { x: MM(1), y: MM(1) },
   layers: ['F.Cu'],
   net: 0,
-  source: EMPTY,
   ...over,
 });
 
@@ -77,7 +74,6 @@ const footprint = (over: Partial<PcbFootprint> = {}): PcbFootprint => ({
   points: [],
   barcodes: [],
   models: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -102,7 +98,6 @@ const board = (footprints: PcbFootprint[], shapes: PcbShape[] = []): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 /** No design rules to consult: every test states its own clearances in geometry. */
@@ -577,7 +572,6 @@ describe('choosing which footprint to place next', () => {
         width: MM(0.25),
         layer: 'F.Cu',
         net: 5,
-        source: EMPTY,
       },
     ];
 

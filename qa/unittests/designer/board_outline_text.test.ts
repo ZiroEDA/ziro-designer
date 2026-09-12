@@ -49,7 +49,7 @@ class RecordingPath2D {
 const board = (font: string): Board =>
   readBoard(
     parse(`(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal) (39 "F.SilkS" user "F.Silkscreen"))
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (39 "F.SilkS" user "F.Silkscreen"))
   (net 0 "")
   (gr_text "Hello" (at 50 50) (layer "F.SilkS")
     (uuid "11111111-0000-0000-0000-000000000001")

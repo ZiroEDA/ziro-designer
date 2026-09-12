@@ -21,44 +21,15 @@
  * attributes, clearance overrides, 3D models) comes from the library, which is what
  * ExchangeFootprint's default reset flags do.
  */
-
-import { atom, head, isList, str, type SList, type SNode } from '@ziroeda/sexpr/src/types.js';
-import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
 import { newKiid } from '@ziroeda/common/src/kiid.js';
 import { ANGLE_0 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { computeFootprintShift } from './footprint_utils.js';
 import { fpidItemName } from './netlist_reader/pcb_netlist.js';
-import { readBoardFootprint, rotatePcb } from './read-board.js';
+import { rotatePcb } from './read-board.js';
+import { cloneK, footprintViewOfBoard } from './pcb_io/kicad_sexpr/board_view.js';
+import { LSET_NameToLayer } from './layer_ids.js';
 import type { PcbFootprint } from './types.js';
-
-/** Internal units -> trimmed millimetre string, KiCad's formatInternalUnits. */
-function mm(iu: number): string {
-  let s = iuToMM(iu).toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
-  if (s === '' || s === '-0') s = '0';
-  return s;
-}
-
-const list = (...items: SNode[]): SList => ({ kind: 'list', items });
-
-/**
- * Children the placement envelope owns: the library node's own header
- * (`version`/`generator`/`generator_version`, which CTL_OMIT_FOOTPRINT_VERSION drops
- * for a board footprint) plus anything `placeFootprint` writes itself.
- */
-const ENVELOPE_CHILDREN = new Set([
-  'version',
-  'generator',
-  'generator_version',
-  'at',
-  'layer',
-  'uuid',
-  'tstamp',
-  'locked',
-  'path',
-  'sheetname',
-  'sheetfile',
-]);
 
 export interface PlaceFootprintOptions {
   /** The full LIB_ID the board footprint should carry ("Library:Footprint"). */
@@ -87,43 +58,41 @@ export function placeFootprint(
   libFootprint: PcbFootprint,
   opts: PlaceFootprintOptions,
 ): PcbFootprint | null {
-  const src = libFootprint.source;
-  if (src.items.length === 0) return null;
+  const lib = libFootprint.k;
+  if (!lib) return null;
 
-  const items: SNode[] = [atom('footprint'), str(opts.fpid)];
-
-  if (opts.locked) items.push(list(atom('locked'), atom('yes')));
-  items.push(list(atom('layer'), str(opts.layer ?? 'F.Cu')));
-  items.push(list(atom('uuid'), str(opts.uuid ?? newKiid())));
-
+  // `FOOTPRINT( *lib )`: a copy of the library footprint, then the board's own
+  // placement written over it — CTL_OMIT_FOOTPRINT_VERSION drops the library
+  // header's version and generator, which live on the board instead.
+  const k = cloneK(lib);
+  k.initialComments = null;
+  k.fpid = opts.fpid;
+  k.locked = opts.locked ?? false;
+  k.layer = LSET_NameToLayer(opts.layer ?? 'F.Cu');
+  k.uuid = opts.uuid ?? newKiid();
   const angle = opts.angle ?? 0;
-  items.push(
-    angle
-      ? list(atom('at'), atom(mm(opts.at.x)), atom(mm(opts.at.y)), atom(String(angle)))
-      : list(atom('at'), atom(mm(opts.at.x)), atom(mm(opts.at.y))),
-  );
+  k.path = opts.path ?? '';
+  k.sheetname = opts.sheetname ?? '';
+  k.sheetfile = opts.sheetfile ?? '';
 
-  // Everything the library node holds, minus its own header and any placement it
-  // happened to carry, and minus the pads' stale `(net …)` (ClearAllNets).
-  for (let i = 1; i < src.items.length; i++) {
-    const it = src.items[i]!;
-    if (!isList(it)) continue; // the library's own name atom
-    const h = head(it) ?? '';
-    if (ENVELOPE_CHILDREN.has(h)) continue;
-    if (h === 'pad') {
-      items.push(clearPadNet(it));
-    } else if (h === 'point') {
-      items.push(placePoint(it, opts.at, angle));
-    } else {
-      items.push(it);
-    }
+  // `FOOTPRINT::ClearAllNets`: a library pad's net, pin function and type are
+  // the symbol's business, and the netlist fills them in.
+  for (const pad of k.pads) {
+    pad.net = null;
+    pad.pinFunction = '';
+    pad.pinType = '';
   }
 
-  if (opts.path) items.push(list(atom('path'), str(opts.path)));
-  if (opts.sheetname) items.push(list(atom('sheetname'), str(opts.sheetname)));
-  if (opts.sheetfile) items.push(list(atom('sheetfile'), str(opts.sheetfile)));
+  // `SetPosition` / `SetOrientation` carry the points explicitly (see
+  // `placePoint`); every other child rides the footprint's placement.
+  k.at = opts.at;
+  k.orientation = angle;
+  for (const point of k.points) {
+    const r = rotatePcb(point.pos, angle);
+    point.pos = { x: r.x + opts.at.x, y: r.y + opts.at.y };
+  }
 
-  return readBoardFootprint({ kind: 'list', items });
+  return footprintViewOfBoard(k);
 }
 
 /**
@@ -134,10 +103,9 @@ export function placeFootprint(
  * orientation); Move( parentFP->GetPosition() )`. A point is the one child with
  * no such parser arm, and that is not an oversight: `format( const PCB_POINT* )`
  * prints through the *one-argument* `formatInternalUnits`, so a footprint's
- * points are written and read in absolute board coordinates. `read-board.ts`'s
- * `readPoint` is right to leave them alone.
+ * points are written and read in absolute board coordinates.
  *
- * But this function stands in for `FOOTPRINT::SetPosition` and
+ * But `placeFootprint` stands in for `FOOTPRINT::SetPosition` and
  * `FOOTPRINT::SetOrientation`, and both of those carry the points explicitly:
  *
  *     for( PCB_POINT* point : m_points ) point->Move( delta );      (:3022-3023)
@@ -147,57 +115,8 @@ export function placeFootprint(
  * sits at the origin, so placing one has to bring them along. Without this they
  * stay at the origin of the sheet — which is both a stray marker in the corner
  * of every board and, because `footprintBBox` counts points, a footprint whose
- * bounding box stretches from the origin to wherever it was placed. That box is
- * what `SpreadFootprints` sizes its blocks from, so one such footprint is given
- * a block the size of the page and the netlist update's neat cluster falls apart
- * around it.
+ * bounding box stretches from the origin to wherever it was placed.
  */
-function placePoint(point: SList, at: VECTOR2I, angleDeg: number): SList {
-  const atNode = point.items.find((it) => isList(it) && head(it) === 'at') as SList | undefined;
-  if (!atNode) return point;
-
-  const x = Number(nodeArg(atNode, 0));
-  const y = Number(nodeArg(atNode, 1));
-  if (!Number.isFinite(x) || !Number.isFinite(y)) return point;
-
-  // The reader's own order for a footprint child: rotate about the footprint's
-  // origin, then translate. `read-board.ts`'s `toBoard`.
-  const r = rotatePcb({ x: mmToIUlocal(x), y: mmToIUlocal(y) }, angleDeg);
-  const moved = { x: r.x + at.x, y: r.y + at.y };
-
-  return {
-    kind: 'list',
-    items: point.items.map((it) =>
-      it === atNode
-        ? ({
-            kind: 'list',
-            items: [atom('at'), atom(mm(moved.x)), atom(mm(moved.y))],
-          } as SList)
-        : it,
-    ),
-  };
-}
-
-/** The first `n` arguments of a node, as written. */
-const nodeArg = (node: SList, n: number): string | undefined => {
-  const it = node.items[n + 1];
-  return it && it.kind === 'atom' ? it.value : undefined;
-};
-
-/** Millimetres from the file into IU, the reader's own conversion. */
-const mmToIUlocal = (v: number): number => Math.round(v * 1e6);
-
-/** FOOTPRINT::ClearAllNets, drop a pad's `(net …)`, `(pinfunction …)`, `(pintype …)`. */
-function clearPadNet(pad: SList): SList {
-  return {
-    kind: 'list',
-    items: pad.items.filter((it) => {
-      if (!isList(it)) return true;
-      const h = head(it);
-      return h !== 'net' && h !== 'pinfunction' && h !== 'pintype';
-    }),
-  };
-}
 
 /**
  * BOARD::ExchangeFootprint with the netlist updater's arguments
@@ -269,7 +188,6 @@ export function exchangeFootprint(
       ...(oldPad.net !== undefined ? { net: oldPad.net } : {}),
       ...(oldPad.pinFunction !== undefined ? { pinFunction: oldPad.pinFunction } : {}),
       ...(oldPad.pinType !== undefined ? { pinType: oldPad.pinType } : {}),
-      source: carryPadNet(pad.source, oldPad.source),
     };
   });
 
@@ -283,9 +201,8 @@ export function exchangeFootprint(
   placed.reference = reference;
   placed.value = value;
   placed.texts = placed.texts.map((t) => {
-    if (t.kind === 'reference')
-      return { ...t, text: reference, source: setTextValue(t.source, reference) };
-    if (t.kind === 'value') return { ...t, text: value, source: setTextValue(t.source, value) };
+    if (t.kind === 'reference') return { ...t, text: reference };
+    if (t.kind === 'value') return { ...t, text: value };
     return t;
   });
 
@@ -298,29 +215,4 @@ export function exchangeFootprint(
   }
 
   return placed;
-}
-
-/** Copy a pad's `(net …)` / `(pinfunction …)` / `(pintype …)` from the old source. */
-function carryPadNet(next: SList, old: SList): SList {
-  const carried = old.items.filter((it) => {
-    if (!isList(it)) return false;
-    const h = head(it);
-    return h === 'net' || h === 'pinfunction' || h === 'pintype';
-  });
-  if (carried.length === 0) return next;
-  return { kind: 'list', items: [...next.items, ...carried] };
-}
-
-/**
- * Rewrite the text of a `(property "Reference" "R1" …)` or `(fp_text reference "R1" …)`:
- * in both spellings the text is the second scalar after the head.
- */
-function setTextValue(src: SList, value: string): SList {
-  let seen = -1;
-  const items = src.items.map((it) => {
-    if (isList(it)) return it;
-    seen++;
-    return seen === 2 ? str(value) : it;
-  });
-  return { kind: 'list', items };
 }

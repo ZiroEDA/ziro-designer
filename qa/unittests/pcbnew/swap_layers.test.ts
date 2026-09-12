@@ -23,7 +23,6 @@ import {
 } from '@ziroeda/pcbnew/src/swap_layers.js';
 import type { Board, PcbVia } from '@ziroeda/pcbnew/src/types.js';
 
-const EMPTY = { kind: 'list' as const, items: [] };
 const P = (x: number, y: number) => ({ x, y });
 
 const board = (over: Partial<Board> = {}): Board => ({
@@ -53,7 +52,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -63,7 +61,6 @@ const track = (layer: string, over = {}) => ({
   width: 250,
   layer,
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -74,14 +71,12 @@ const via = (kind: PcbVia['kind'], layers: [string, string]): PcbVia => ({
   layers,
   kind,
   net: 1,
-  source: EMPTY,
 });
 
 const zone = (layers: string[], over = {}) => ({
   net: 1,
   layers,
   fills: [{ layer: layers[0]!, polys: [[P(0, 0), P(10, 0), P(10, 10)]] }],
-  source: EMPTY,
   ...over,
 });
 
@@ -271,7 +266,6 @@ describe('applying it to a board', () => {
           width: 100,
           fillMode: 'none',
           layer: 'F.Cu',
-          source: EMPTY,
         },
       ],
       zones: [zone(['F.Cu'])],
@@ -289,7 +283,7 @@ describe('applying it to a board', () => {
     // Swapping a real board therefore moves the copper and strands every pad,
     // leaving the board electrically inconsistent. That is KiCad's behaviour;
     // "fixing" it here would make a round-trip through both tools disagree.
-    const fp = { ref: 'R1', layer: 'F.Cu', at: P(0, 0), pads: [], source: EMPTY } as never;
+    const fp = { ref: 'R1', layer: 'F.Cu', at: P(0, 0), pads: [] } as never;
     const b = board({ footprints: [fp], tracks: [track('F.Cu')] });
     const out = swapBoardLayers(b, swap);
 
@@ -307,7 +301,6 @@ describe('applying it to a board', () => {
           width: 100,
           fillMode: 'none',
           layer: 'F.SilkS',
-          source: EMPTY,
         },
       ],
     });

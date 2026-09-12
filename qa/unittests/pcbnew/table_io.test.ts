@@ -27,8 +27,8 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard, buildTableNode } from '@ziroeda/pcbnew/src/write-board.js';
-import { serialize } from '@ziroeda/sexpr/src/serializer.js';
+import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { emptyBoard, flatText, writtenNode } from './support/written_node.js';
 import { head, isList, type SList } from '@ziroeda/sexpr/src/types.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { Board, PcbTable } from '@ziroeda/pcbnew/src/types.js';
@@ -81,7 +81,7 @@ const BARE = `(table
 const read = (...extra: string[]): Board =>
   readBoard(
     parse(`(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal) (44 "Edge.Cuts" user) (39 "F.SilkS" user "F.Silkscreen"))
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (44 "Edge.Cuts" user) (39 "F.SilkS" user "F.Silkscreen"))
   (net 0 "")
   ${extra.join('\n  ')}
 )`),
@@ -180,7 +180,6 @@ describe('round-tripping through the writer', () => {
       angle: 0,
       layer: 'F.SilkS',
       size: { x: MM(1), y: MM(1) },
-      source: { kind: 'list', items: [] },
     });
     const back = readBoard(parse(serializeBoard(b)));
 
@@ -212,6 +211,8 @@ describe('building a table from scratch', () => {
     separatorStyle: 'dash',
     columnWidths: [MM(10), MM(20)],
     rowHeights: [MM(5)],
+    // Two columns, so one row is two cells: `GetRowCount()` is
+    // `m_cells.size() / m_colCount` (pcb_table.h:125-128).
     cells: [
       {
         text: 'x',
@@ -223,16 +224,26 @@ describe('building a table from scratch', () => {
         border: true,
         colSpan: 1,
         rowSpan: 1,
-        source: { kind: 'list', items: [] },
+      },
+      {
+        text: 'y',
+        start: { x: MM(10), y: 0 },
+        end: { x: MM(30), y: MM(5) },
+        margins: { left: MM(1), top: MM(1), right: MM(1), bottom: MM(1) },
+        layer: 'F.SilkS',
+        size: { x: MM(1), y: MM(1) },
+        border: true,
+        colSpan: 1,
+        rowSpan: 1,
       },
     ],
-    source: { kind: 'list', items: [] },
     ...over,
   });
-  const text = (t: PcbTable): string => serialize(buildTableNode(t));
-  /** The named child block of the built node, so assertions survive formatting. */
+  const node = (t: PcbTable): SList => writtenNode({ ...emptyBoard(), tables: [t] }, 'table');
+  const text = (t: PcbTable): string => flatText(node(t));
+  /** The named child block of the written node, so assertions survive formatting. */
   const block = (t: PcbTable, name: string): SList | undefined => {
-    const node = buildTableNode(t);
+    const node = writtenNode({ ...emptyBoard(), tables: [t] }, 'table');
     return node.items.find((it): it is SList => isList(it) && head(it) === name);
   };
   /** Whether that block carries a `(stroke …)`. */
@@ -304,7 +315,7 @@ describe('building a table from scratch', () => {
 
     expect(back.tables).toHaveLength(1);
     expect(back.tables[0]!.columnCount).toBe(2);
-    expect(back.tables[0]!.cells).toHaveLength(1);
+    expect(back.tables[0]!.cells).toHaveLength(2);
     expect(back.tables[0]!.cells[0]!.text).toBe('x');
     expect(back.tables[0]!.separatorStyle).toBe('dash');
   });

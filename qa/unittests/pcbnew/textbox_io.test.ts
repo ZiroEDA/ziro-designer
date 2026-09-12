@@ -28,8 +28,8 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard, buildTextBoxNode } from '@ziroeda/pcbnew/src/write-board.js';
-import { serialize } from '@ziroeda/sexpr/src/serializer.js';
+import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { emptyBoard, flatText, writtenNode } from './support/written_node.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { Board, PcbTextBox } from '@ziroeda/pcbnew/src/types.js';
 
@@ -62,7 +62,7 @@ const ROTATED = `(gr_text_box "Turned"
 const read = (...extra: string[]): Board =>
   readBoard(
     parse(`(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal) (44 "Edge.Cuts" user) (39 "F.SilkS" user "F.Silkscreen"))
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (44 "Edge.Cuts" user) (39 "F.SilkS" user "F.Silkscreen"))
   (net 0 "")
   ${extra.join('\n  ')}
 )`),
@@ -132,10 +132,13 @@ describe('reading a text box', () => {
     expect(only(BOX).angle).toBeUndefined();
   });
 
-  it('skips a box with neither corners nor points', () => {
+  it('keeps a box with neither corners nor points, where the constructor left it', () => {
+    // `parsePCB_TEXTBOX_base` never insists on a corner token; a box the file
+    // does not position is the PCB_TEXTBOX constructor's, at the origin.
     const broken = BOX.replace('(start 116.9 49.9)', '').replace('(end 127.3 55.45)', '');
 
-    expect(read(broken).textBoxes).toHaveLength(0);
+    expect(read(broken).textBoxes).toHaveLength(1);
+    expect(read(broken).textBoxes[0]!.start).toEqual({ x: 0, y: 0 });
   });
 
   it('does not mistake one for a gr_text', () => {
@@ -170,7 +173,6 @@ describe('round-tripping through the writer', () => {
       angle: 0,
       layer: 'F.SilkS',
       size: { x: MM(1), y: MM(1) },
-      source: { kind: 'list', items: [] },
     });
     const back = readBoard(parse(serializeBoard(b)));
 
@@ -198,10 +200,10 @@ describe('building a box from scratch', () => {
     size: { x: MM(1), y: MM(1) },
     border: true,
     strokeWidth: MM(0.1),
-    source: { kind: 'list', items: [] },
     ...over,
   });
-  const text = (t: PcbTextBox): string => serialize(buildTextBoxNode(t));
+  const text = (t: PcbTextBox): string =>
+    flatText(writtenNode({ ...emptyBoard(), textBoxes: [t] }, 'gr_text_box'));
 
   it('writes corners for a rectangle', () => {
     const s = text(base());

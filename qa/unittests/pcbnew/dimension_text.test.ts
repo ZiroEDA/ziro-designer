@@ -33,8 +33,6 @@ import type { PcbDimension, PcbTextItem } from '@ziroeda/pcbnew/src/types.js';
 const MM = (n: number): number => mmToIU(n);
 const P = (x: number, y: number): { x: number; y: number } => ({ x: MM(x), y: MM(y) });
 
-const EMPTY = { kind: 'list' as const, items: [] };
-
 const text = (over: Partial<PcbTextItem> = {}): PcbTextItem => ({
   kind: 'user',
   text: '',
@@ -43,7 +41,6 @@ const text = (over: Partial<PcbTextItem> = {}): PcbTextItem => ({
   layer: 'Dwgs.User',
   size: { x: MM(1), y: MM(1) },
   thickness: MM(0.15),
-  source: EMPTY,
   ...over,
 });
 
@@ -72,7 +69,6 @@ const aligned = (over: Partial<PcbDimension> = {}): PcbDimension => ({
     suppressZeroes: true,
   },
   text: text(),
-  source: EMPTY,
   ...over,
 });
 
@@ -184,7 +180,7 @@ describe('where the label lands, against a dimension KiCad wrote', () => {
   // Verbatim from demos/cm5_minima. Every number in the `(gr_text …)` line is
   // derived, so it is a fixed point for the whole placement port.
   const CM5 = `(kicad_pcb (version 20241229) (generator "test")
-    (layers (0 "F.Cu" signal) (44 "Edge.Cuts" user))
+    (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (44 "Edge.Cuts" user))
     (net 0 "")
     (dimension
       (type orthogonal)
@@ -373,7 +369,6 @@ describe('the kinds whose label the tool places, not the geometry', () => {
         textPositionMode: 0,
         extensionOffset: MM(0.5),
       },
-      source: EMPTY,
     };
     expect(updateDimension(d)).toBe(d);
   });

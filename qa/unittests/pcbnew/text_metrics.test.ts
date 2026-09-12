@@ -30,7 +30,6 @@ const padAt = (): PcbPad => ({
   size: { x: MM, y: MM },
   layers: ['F.Cu'],
   net: 0,
-  source: { kind: 'list', items: [] } as unknown as PcbPad['source'],
 });
 
 const MM = 1e6;
@@ -45,7 +44,6 @@ const text = (over: Partial<PcbTextItem> = {}): PcbTextItem => ({
   layer: 'F.SilkS',
   size: SIZE,
   thickness: THICK,
-  source: [] as unknown as PcbTextItem['source'],
   ...over,
 });
 
@@ -189,8 +187,6 @@ describe('PCB_TEXT::TextHitTest', () => {
 // The four call sites. None of them had a text case before, which is why the
 // `chars x size.x x 0.6` guess survived: nothing ever asked it for a number.
 
-const EMPTY = { kind: 'list' as const, items: [] };
-
 const footprint = (over: Partial<PcbFootprint> = {}): PcbFootprint => ({
   lib: 'L:F',
   reference: 'U1',
@@ -203,7 +199,6 @@ const footprint = (over: Partial<PcbFootprint> = {}): PcbFootprint => ({
   points: [],
   barcodes: [],
   models: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -225,7 +220,6 @@ const board = (texts: PcbTextItem[]): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 describe('edit-footprint.ts fpItemBBox (the selection highlight)', () => {

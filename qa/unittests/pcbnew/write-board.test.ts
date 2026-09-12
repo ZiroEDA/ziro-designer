@@ -8,12 +8,10 @@ import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
 
-// Strip `source` (and turn Maps into entry arrays) so two boards compare by
+// Strip the model (`k`) and turn Maps into entry arrays so two boards compare by
 // their modelled content, like the footprint round-trip test's strip().
 const strip = (b: Board): unknown =>
-  JSON.parse(
-    JSON.stringify(b, (k, v) => (k === 'source' ? undefined : v instanceof Map ? [...v] : v)),
-  );
+  JSON.parse(JSON.stringify(b, (k, v) => (k === 'k' ? undefined : v instanceof Map ? [...v] : v)));
 
 // A small but representative board: a footprint, two graphics, a track, an arc
 // track and a via, across a minimal layer table with two nets.
@@ -45,7 +43,10 @@ const BOARD = `(kicad_pcb (version 20241229) (generator "pcbnew")
 
 describe('serializeBoard (.kicad_pcb writer)', () => {
   it('re-parses to an equal model (lossless round-trip)', () => {
-    const b1 = readBoard(parse(BOARD));
+    // The first save normalises a hand-written fixture — the current file
+    // version, fresh uuids for items that had none — so the property is that
+    // the second read equals the first.
+    const b1 = readBoard(parse(serializeBoard(readBoard(parse(BOARD)))));
     const b2 = readBoard(parse(serializeBoard(b1)));
     expect(strip(b2)).toEqual(strip(b1));
   });

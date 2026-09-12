@@ -54,7 +54,6 @@ import {
   viaTransformShapeToPolygon,
 } from '@ziroeda/pcbnew/src/transform_shape_to_polygon.js';
 import type { PcbFootprint, PcbPad, PcbShape, PcbTextItem } from '@ziroeda/pcbnew/src/types.js';
-import { childNamed } from '@ziroeda/sexpr/src/query.js';
 import {
   B_Adhes,
   B_Cu,
@@ -229,34 +228,13 @@ export function defaultPlotLayerSelection(): Set<number> {
 }
 
 export function plotLayerSelection(board: Board): PlotLayerSelection {
-  const setup = childNamed(board.source, 'setup');
-  const pp = setup ? childNamed(setup, 'pcbplotparams') : undefined;
-  const arg = (name: string): string | undefined => {
-    const n = pp ? childNamed(pp, name) : undefined;
-    const a = n?.items[1];
-    return a && a.kind !== 'list' ? a.value : undefined;
-  };
-  const yes = (name: string, dflt: boolean): boolean => {
-    const v = arg(name);
-    return v === undefined ? dflt : v === 'yes' || v === 'true';
-  };
-  // The renumbering had no version bump of its own; the first version
-  // after it is the test (pcb_plot_params.cpp:620-625).
-  const legacy = board.version < LAYER_RENUMBER_VERSION;
-  const parseSet = (hex: string): Set<number> => {
-    const raw = parseLayerSetHex(hex);
-    return legacy ? remapLegacyLayerSet(raw) : raw;
-  };
-  const sel = arg('layerselection');
-  const layers = sel && sel.startsWith('0x') ? parseSet(sel.slice(2)) : defaultPlotLayerSelection();
-  const onAll = arg('plotonalllayersselection');
-  if (onAll && onAll.startsWith('0x')) for (const id of parseSet(onAll.slice(2))) layers.add(id);
-  return {
-    layers,
-    plotReference: yes('plotreference', true),
-    plotValue: yes('plotvalue', true),
-    plotFPText: yes('plotfptext', true),
-  };
+  const p = board.k?.designSettings.plotOptions;
+  const layers = p ? new Set(p.layerSelection.Seq()) : defaultPlotLayerSelection();
+  if (p) for (const id of p.plotOnAllLayersSelection.Seq()) layers.add(id);
+  // `m_plotReference` / `m_plotValue` / `m_plotFPText` are not board-file
+  // tokens in 10.0.5 (`PCB_PLOT_PARAMS::Parse` has no case for them), so a
+  // loaded board holds the constructor's `true` for all three.
+  return { layers, plotReference: true, plotValue: true, plotFPText: true };
 }
 
 export const isBackLayer = (l: string): boolean => l.startsWith('B.');
@@ -351,25 +329,15 @@ export interface Board3dLayers {
 export const DEFAULT_HOLE_PLATING_THICKNESS = 20000;
 
 /**
- * `BOARD_DESIGN_SETTINGS::m_SolderMaskExpansion` etc. from the file's
- * `(setup …)`. Absent tokens are 0 — the writer omits zeros.
+ * `BOARD_DESIGN_SETTINGS::m_SolderMaskExpansion` etc.; a board with no model
+ * (a footprint holder) leaves them undefined, which the callers read as 0.
  */
 export function boardMaskPasteDefaults(board: Board): BoardMaskPasteDefaults {
-  const setup = childNamed(board.source, 'setup');
-  const num = (name: string): number | undefined => {
-    const n = setup ? childNamed(setup, name) : undefined;
-    const a = n?.items[1];
-    if (!a || a.kind === 'list') return undefined;
-    const v = Number(a.value);
-    return Number.isFinite(v) ? Math.round(v * 1e6) : undefined;
-  };
-  const ratioNode = setup ? childNamed(setup, 'pad_to_paste_clearance_ratio') : undefined;
-  const ratioArg = ratioNode?.items[1];
-  const ratio = ratioArg && ratioArg.kind !== 'list' ? Number(ratioArg.value) : undefined;
+  const bds = board.k?.designSettings;
   return {
-    solderMaskExpansion: num('pad_to_mask_clearance'),
-    solderPasteMargin: num('pad_to_paste_clearance'),
-    solderPasteMarginRatio: Number.isFinite(ratio) ? ratio : undefined,
+    solderMaskExpansion: bds?.solderMaskExpansion,
+    solderPasteMargin: bds?.solderPasteMargin,
+    solderPasteMarginRatio: bds?.solderPasteMarginRatio,
   };
 }
 

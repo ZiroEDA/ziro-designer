@@ -63,7 +63,7 @@ export function startPlaceImage(): ImagePlaceState {
  * writes. Same reasoning as the model's.
  */
 export function newReferenceImage(data: string, at: Vec2, layer: string): PcbImage {
-  return { at, layer, data, source: { kind: 'list', items: [] } };
+  return { at, layer, data };
 }
 
 /**

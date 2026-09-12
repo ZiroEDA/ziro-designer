@@ -20,7 +20,6 @@ import {
 } from '@ziroeda/designer/src/editors/pcb/inspect_selection.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const board = (): Board => ({
   version: 20240108,
@@ -49,7 +48,6 @@ const board = (): Board => ({
           size: { x: MM(1), y: MM(1) },
           layers: ['F.Cu'],
           net: 1,
-          source: EMPTY,
         },
       ],
       shapes: [],
@@ -57,7 +55,6 @@ const board = (): Board => ({
       points: [],
       barcodes: [],
       models: [],
-      source: EMPTY,
     },
   ],
   tracks: [
@@ -67,7 +64,6 @@ const board = (): Board => ({
       width: MM(0.2),
       layer: 'F.Cu',
       net: 1,
-      source: EMPTY,
     },
   ],
   arcs: [],
@@ -79,7 +75,6 @@ const board = (): Board => ({
       layers: ['F.Cu', 'B.Cu'],
       kind: 'through',
       net: 1,
-      source: EMPTY,
     },
   ],
   zones: [
@@ -93,7 +88,6 @@ const board = (): Board => ({
         { x: MM(20), y: 0 },
         { x: MM(20), y: MM(20) },
       ],
-      source: EMPTY,
     },
   ],
   shapes: [
@@ -104,7 +98,6 @@ const board = (): Board => ({
       width: MM(0.1),
       fillMode: 'none',
       layer: 'F.SilkS',
-      source: EMPTY,
     },
   ],
   texts: [],
@@ -115,7 +108,6 @@ const board = (): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 const RULES = parseDrcRules(`(version 1) (rule "wide" (constraint clearance (min 0.5mm)))`);

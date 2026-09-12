@@ -49,7 +49,7 @@ const BOX = (justify = '(justify top)'): string => `(gr_text_box "boxed"
 const read = (src = BOX()): Board =>
   readBoard(
     parse(`(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal) (44 "Edge.Cuts" user) (39 "F.SilkS" user "F.Silkscreen"))
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (44 "Edge.Cuts" user) (39 "F.SilkS" user "F.Silkscreen"))
   (net 0 "")
   ${src}
 )`),

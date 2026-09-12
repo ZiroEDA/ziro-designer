@@ -20,7 +20,7 @@
  *
  * So the check is behavioural and the fixture is the thing that has to stay
  * honest: one shape of every kind the reader accepts, compiled through the GL
- * factory. The kind list is read back out of `read-board.ts` rather than
+ * factory. The kind list is read back out of `board_view.ts` rather than
  * written here, so a seventh `SHAPE_T` cannot be added without this failing.
  */
 import { describe, expect, it } from 'vitest';
@@ -45,20 +45,20 @@ const SHAPES: Readonly<Record<string, string>> = {
     '(gr_curve (pts (xy 0 0) (xy 2 4) (xy 8 -4) (xy 10 0)) (stroke (width 0.1) (type solid)) (layer "F.SilkS"))',
 };
 
-const READER = readFileSync(
-  fileURLToPath(new URL('../../../pcbnew/src/read-board.ts', import.meta.url)),
+const VIEW = readFileSync(
+  fileURLToPath(new URL('../../../pcbnew/src/pcb_io/kicad_sexpr/board_view.ts', import.meta.url)),
   'utf8',
 );
 
 describe('the fixture covers what the reader accepts', () => {
   it('has one shape of every kind readShape will build', () => {
-    // `if (!['line', 'arc', 'circle', 'rect', 'poly', 'curve'].includes(kind)) return null;`
-    // — read back rather than restated, so this file cannot quietly fall behind
-    // the reader. A test whose fixture is a copy of the list it is checking is
-    // one of the four shapes that cannot fail.
-    const m = READER.match(/if \(!\[([^\]]+)\]\.includes\(kind\)\) return null;/);
+    // `SHAPE_KIND`, the view's SHAPE_T -> kind table — read back rather than
+    // restated, so this file cannot quietly fall behind the reader. A test
+    // whose fixture is a copy of the list it is checking is one of the four
+    // shapes that cannot fail.
+    const m = VIEW.match(/const SHAPE_KIND[^{]*\{([^}]+)\}/);
     expect(m).not.toBeNull();
-    const kinds = [...m![1]!.matchAll(/'([a-z]+)'/g)].map((x) => x[1]!);
+    const kinds = [...m![1]!.matchAll(/:\s*'([a-z]+)'/g)].map((x) => x[1]!);
     expect(kinds.length).toBeGreaterThan(0);
     expect(new Set(Object.keys(SHAPES))).toEqual(new Set(kinds));
   });
@@ -67,7 +67,7 @@ describe('the fixture covers what the reader accepts', () => {
 describe('compiling a board for the GPU', () => {
   const board = readBoard(
     parse(`(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal) (37 "F.SilkS" user "F.Silkscreen"))
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (37 "F.SilkS" user "F.Silkscreen"))
   (net 0 "")
   ${Object.values(SHAPES).join('\n  ')}
 )`),

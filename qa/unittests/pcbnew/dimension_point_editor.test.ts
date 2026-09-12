@@ -26,7 +26,6 @@ import type { Board, PcbDimension, PcbTextItem } from '@ziroeda/pcbnew/src/types
 
 const MM = (n: number): number => mmToIU(n);
 const P = (x: number, y: number): { x: number; y: number } => ({ x: MM(x), y: MM(y) });
-const EMPTY = { kind: 'list' as const, items: [] };
 
 // Upstream's point order (pcb_point_editor.h:135-146).
 const DIM_START = 0;
@@ -44,7 +43,6 @@ const text = (over: Partial<PcbTextItem> = {}): PcbTextItem => ({
   layer: 'Dwgs.User',
   size: { x: MM(1), y: MM(1) },
   thickness: MM(0.15),
-  source: EMPTY,
   ...over,
 });
 
@@ -72,7 +70,6 @@ const dim = (over: Partial<PcbDimension> = {}): PcbDimension => ({
     suppressZeroes: true,
   },
   text: text(),
-  source: EMPTY,
   ...over,
 });
 
@@ -94,7 +91,6 @@ const boardWith = (d: PcbDimension): Board =>
     groups: [],
     nets: [],
     layers: [],
-    source: EMPTY,
   }) as unknown as Board;
 
 const ID = boardItemId('dimension', 0);

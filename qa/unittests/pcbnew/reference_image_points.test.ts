@@ -50,7 +50,6 @@ const image = (over: Partial<PcbImage> = {}): PcbImage => ({
   at: { x: 100_000_000, y: 50_000_000 },
   layer: 'F.SilkS',
   data: PNG,
-  source: { kind: 'list', items: [] },
   ...over,
 });
 

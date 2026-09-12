@@ -31,7 +31,6 @@ import type {
   PcbZone,
 } from '@ziroeda/pcbnew/src/types.js';
 
-const EMPTY = { kind: 'list' as const, items: [] };
 const MM = (n: number): number => mmToIU(n);
 
 const via = (at: { x: number; y: number }, net = 1, size = MM(0.8)): PcbVia => ({
@@ -41,7 +40,6 @@ const via = (at: { x: number; y: number }, net = 1, size = MM(0.8)): PcbVia => (
   layers: ['F.Cu', 'B.Cu'],
   kind: 'through',
   net,
-  source: EMPTY,
 });
 
 const track = (
@@ -49,7 +47,7 @@ const track = (
   end: { x: number; y: number },
   width = MM(0.25),
   net = 1,
-): PcbTrack => ({ start, end, width, layer: 'F.Cu', net, source: EMPTY });
+): PcbTrack => ({ start, end, width, layer: 'F.Cu', net });
 
 const pad = (at: { x: number; y: number }, over: Partial<PcbPad> = {}): PcbPad => ({
   number: '1',
@@ -60,7 +58,6 @@ const pad = (at: { x: number; y: number }, over: Partial<PcbPad> = {}): PcbPad =
   size: { x: MM(1.5), y: MM(1.5) },
   layers: ['F.Cu'],
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -75,7 +72,6 @@ const footprint = (pads: PcbPad[]): PcbFootprint => ({
   points: [],
   barcodes: [],
   models: [],
-  source: EMPTY,
 });
 
 const board = (over: Partial<Board> = {}): Board => ({
@@ -99,7 +95,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -461,7 +456,6 @@ describe('updateTeardrops', () => {
         },
       ],
       padConnection: 'thermal',
-      source: EMPTY,
     };
     const b = board({
       footprints: [footprint([P])],

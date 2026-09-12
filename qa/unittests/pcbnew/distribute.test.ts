@@ -24,7 +24,6 @@ import { distributeBoardItems } from '@ziroeda/pcbnew/src/distribute_items.js';
 import type { Board, PcbShape } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 /** A filled rectangle from (x0,y0) to (x1,y1) — a bbox we can predict. */
 const rect = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
@@ -34,7 +33,6 @@ const rect = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
   width: 0,
   fillMode: 'solid',
   layer: 'F.SilkS',
-  source: EMPTY,
 });
 
 const board = (shapes: PcbShape[]): Board => ({
@@ -55,7 +53,6 @@ const board = (shapes: PcbShape[]): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 const xs = (b: Board): number[] => b.shapes.map((s) => s.start!.x);

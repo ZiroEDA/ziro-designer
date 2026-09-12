@@ -16,7 +16,6 @@ import { arraySize, createArray } from '@ziroeda/pcbnew/src/create_array.js';
 import type { Board, PcbVia } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const via = (x: number, y: number): PcbVia => ({
   at: { x: MM(x), y: MM(y) },
@@ -25,7 +24,6 @@ const via = (x: number, y: number): PcbVia => ({
   layers: ['F.Cu', 'B.Cu'],
   kind: 'through',
   net: 0,
-  source: EMPTY,
 });
 
 const board = (vias: PcbVia[]): Board => ({
@@ -46,7 +44,6 @@ const board = (vias: PcbVia[]): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 /** Every via position, sorted, so the *set* can be compared without order. */

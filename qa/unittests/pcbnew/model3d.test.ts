@@ -49,7 +49,7 @@ describe('footprint 3D models', () => {
   it('converts legacy (at (xyz …)) offsets from inches to mm', () => {
     const b = readBoard(
       parse(`(kicad_pcb (version 20241229) (generator "test")
-        (layers (0 "F.Cu" signal))
+        (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
         (footprint "Test:Legacy" (layer "F.Cu") (at 0 0)
           (model "x.wrl" (at (xyz 0.1 0 -0.05)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 0)))))`),
     );
@@ -62,7 +62,7 @@ describe('footprint 3D models', () => {
   it('parses (opacity …) like FP_3DMODEL::m_Opacity', () => {
     const b = readBoard(
       parse(`(kicad_pcb (version 20241229) (generator "test")
-        (layers (0 "F.Cu" signal))
+        (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
         (footprint "Test:Ghost" (layer "F.Cu") (at 0 0)
           (model "x.wrl" (opacity 0.4) (offset (xyz 0 0 0))))
         (footprint "Test:Solid" (layer "F.Cu") (at 5 0)

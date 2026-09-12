@@ -8,16 +8,12 @@
  * polyline, and the geometry must sit centred on the origin at the requested
  * DPI, with holes cut out of the fill.
  */
-import {
-  GENERATOR,
-  GENERATOR_APPLICATION,
-  GENERATOR_VERSION,
-} from '@ziroeda/common/src/generator.js';
+import { GENERATOR } from '@ziroeda/common/src/generator.js';
 import { describe, it, expect } from 'vitest';
 import { Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/src/reporter.js';
 import { parse } from '@ziroeda/sexpr';
 import { readFootprintFile } from '@ziroeda/pcbnew';
-import { FOOTPRINT_FILE_VERSION } from '@ziroeda/pcbnew/src/write-footprint.js';
+import { SEXPR_BOARD_FILE_VERSION } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 import { readSymbolLib } from '@ziroeda/eeschema';
 import { serializeSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/write-symbol-lib.js';
 import { readDrawingSheet } from '@ziroeda/common/src/drawing_sheet/read.js';
@@ -701,12 +697,11 @@ describe('and where it deliberately does not: the dialect (#105 item 5)', () => 
     );
   });
 
-  it("the footprint's version is pcbnew's FOOTPRINT_FILE_VERSION", () => {
-    // Weaker than the two above, and knowingly so: `writeFootprintNode` needs
-    // a PcbFootprint to serialize, and the only one to hand would be parsed
-    // back out of our own output, which would make the check circular. The
-    // constant is the next-best independent source.
-    expect(versionOf(emit('footprint'))).toBe(FOOTPRINT_FILE_VERSION);
+  it("the footprint's version is SEXPR_BOARD_FILE_VERSION", () => {
+    // `bitmap2component.cpp` writes `(version %d)` with SEXPR_BOARD_FILE_VERSION
+    // (:290). The constant is the independent source; a footprint written by
+    // `FormatFootprintFile` would be parsed back out of our own output.
+    expect(versionOf(emit('footprint'))).toBe(SEXPR_BOARD_FILE_VERSION);
   });
 
   it('emits the modern spellings that version claims, not the legacy ones', () => {

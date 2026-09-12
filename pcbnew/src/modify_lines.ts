@@ -86,8 +86,6 @@ function lineRefs(board: Board, selection: Iterable<string>): LineRef[] {
   return out;
 }
 
-const blank = { kind: 'list' as const, items: [] };
-
 /** An arc graphic taking its stroke and layer from the line it came from. */
 function arcFrom(src: PcbShape, pts: { start: Vec2; mid: Vec2; end: Vec2 }): PcbShape {
   return {
@@ -100,7 +98,6 @@ function arcFrom(src: PcbShape, pts: { start: Vec2; mid: Vec2; end: Vec2 }): Pcb
     fillMode: 'none',
     layer: src.layer,
     locked: src.locked,
-    source: blank,
   };
 }
 
@@ -113,7 +110,6 @@ function lineFrom(src: PcbShape, seg: Seg): PcbShape {
     end: seg.b,
     // The source node still describes the old endpoints; dropping it makes the
     // writer rebuild the shape from the model rather than emit stale geometry.
-    source: blank,
   };
 }
 

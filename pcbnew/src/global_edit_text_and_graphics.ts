@@ -78,8 +78,7 @@
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { wildCompareString } from '@ziroeda/common/src/string_utils.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import { atom, head, isList, list, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
-import { boardItemId, dropChild, mm, patchChild } from './edit-board.js';
+import { boardItemId } from './edit-board.js';
 import { isCopperLayerName } from './swap_layers.js';
 import type {
   PcbBarcode,
@@ -96,7 +95,6 @@ import type {
   PcbTextItem,
 } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { fontNode } from './eda_text_format.js';
 
 // ---------------------------------------------------------------------------
 // Layer classes — BOARD_DESIGN_SETTINGS::GetLayerClass
@@ -594,242 +592,6 @@ export function globalTextGfxSizesValid(opts: GlobalTextGfxOptions): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Source patching — see the docblock; the writer emits `source` verbatim
-
-const hasSource = (s: SList): boolean => s.items.length > 0;
-
-/** Replace, or create then append, the named child after running `fn` over it. */
-function patchInChild(src: SList, name: string, fn: (node: SList) => SList): SList {
-  let done = false;
-  const items = src.items.map((it) => {
-    if (!done && isList(it) && head(it) === name) {
-      done = true;
-      return fn(it);
-    }
-    return it;
-  });
-
-  if (!done) items.push(fn(list(atom(name))));
-  return { kind: 'list', items };
-}
-
-/**
- * `(effects (font (size <height> <width>) [(thickness t)] [(bold yes)]
- * [(italic yes)]) [(justify …)])`, following `EDA_TEXT::Format` (eda_text.cpp:1092).
- *
- * Two things to get right. The font size is written **height first**, the
- * opposite order to every other `(size x y)` in the format — assume otherwise
- * and the text silently transposes. And `(thickness …)` is emitted only when the
- * thickness is non-zero (Format:1110 tests `!GetAutoThickness()`), so the auto
- * path must *drop* the token rather than write a zero: `(thickness 0)` is not
- * something KiCad produces, and it re-reads as auto anyway.
- *
- * `(justify …)` is preserved verbatim from the previous node rather than
- * regenerated, because it carries the alignment words *and* the mirror flag,
- * none of which this dialog edits.
- */
-function patchTextEffects(
-  src: SList,
-  t: { size: Vec2; thickness?: number; bold?: boolean; italic?: boolean },
-): SList {
-  const font = fontNode(t);
-
-  return patchInChild(src, 'effects', (prev) => {
-    const justify = prev.items.find((it) => isList(it) && head(it) === 'justify');
-    const items: SNode[] = [atom('effects'), font];
-    if (justify) items.push(justify);
-    return { kind: 'list', items };
-  });
-}
-
-/**
- * `(layer "X" [knockout])`.
- *
- * Knockout is a modifier *inside* the layer token, not a sibling of it, so a
- * naive rewrite silently clears it however faithfully a separate token would
- * round-trip (the same trap `graphic_properties.ts:186` documents).
- */
-const patchLayerToken = (src: SList, layer: string, knockout: boolean): SList =>
-  patchChild(
-    src,
-    'layer',
-    knockout ? list(atom('layer'), str(layer), atom('knockout')) : list(atom('layer'), str(layer)),
-  );
-
-/** `(stroke (width w) (type t))`, preserving the existing type. */
-const patchStroke = (src: SList, width: number, type: string): SList =>
-  patchChild(
-    src,
-    'stroke',
-    list(atom('stroke'), list(atom('width'), atom(mm(width))), list(atom('type'), atom(type))),
-  );
-
-/**
- * Keep-upright, which the file stores **inverted** as `unlocked` — and in either
- * of two spellings: positional inside `(at x y a unlocked)`, or a child
- * `(unlocked yes)` (read-board.ts:517). Patch whichever form the item already
- * uses, so a file written by KiCad keeps the shape KiCad gave it.
- */
-function patchKeepUpright(src: SList, keepUpright: boolean): SList {
-  const at = src.items.find((it): it is SList => isList(it) && head(it) === 'at');
-  const positional = at?.items.some((it) => it.kind === 'atom' && it.value === 'unlocked') ?? false;
-
-  if (keepUpright) {
-    const stripped = positional
-      ? patchChild(src, 'at', {
-          kind: 'list',
-          items: at!.items.filter((it) => !(it.kind === 'atom' && it.value === 'unlocked')),
-        })
-      : src;
-    return dropChild(stripped, 'unlocked');
-  }
-
-  if (positional) return src;
-  return patchChild(src, 'unlocked', list(atom('unlocked'), atom('yes')));
-}
-
-/** A `PcbTextItem`'s node: layer, effects, visibility and keep-upright. */
-function patchTextSource(t: PcbTextItem, inFootprint: boolean): SList {
-  if (!hasSource(t.source)) return t.source;
-
-  let src = patchLayerToken(t.source, t.layer, t.knockout ?? false);
-  src = patchTextEffects(src, t);
-  src = t.hide ? patchChild(src, 'hide', list(atom('hide'), atom('yes'))) : dropChild(src, 'hide');
-  // Board `gr_text` has no upright concept; writing `unlocked` onto one would
-  // add a token KiCad never emits there.
-  if (inFootprint) src = patchKeepUpright(src, t.keepUpright ?? false);
-
-  return src;
-}
-
-/** A `PcbTextBox`'s node: layer, effects and stroke. */
-function patchTextBoxSource(b: PcbTextBox): SList {
-  if (!hasSource(b.source)) return b.source;
-
-  let src = patchLayerToken(b.source, b.layer, b.knockout ?? false);
-  src = patchTextEffects(src, b);
-  src = patchStroke(src, b.strokeWidth ?? 0, b.strokeType ?? 'solid');
-  return src;
-}
-
-/**
- * A `PcbTableCell`'s node: layer and effects only.
- *
- * The shared serializer withholds `(border …)` and `(stroke …)` from a cell —
- * the table draws every line — so a line width applied to a cell lives in the
- * model and is never written. That is upstream's behaviour too, and the cell's
- * stroke is set there just as pointlessly.
- */
-function patchTableCellSource(c: PcbTableCell): SList {
-  if (!hasSource(c.source)) return c.source;
-  return patchTextEffects(patchLayerToken(c.source, c.layer, c.knockout ?? false), c);
-}
-
-/**
- * Fold the cells' patched nodes back into the **table's** `(cells …)` list.
- *
- * A cell is not written from `board.tables[].cells`; the writer emits the
- * table's own stored source verbatim, and that source still holds the original
- * `(table_cell …)` subtrees. Patch only the cell and the edit renders, survives
- * every in-memory assertion, and then vanishes on save with nothing else
- * failing. `table_properties.ts:196` does the same stitch for the same reason.
- */
-function restitchTableCells(src: SList, cells: readonly PcbTableCell[]): SList {
-  if (!hasSource(src)) return src;
-
-  let ci = 0;
-  return {
-    kind: 'list',
-    items: src.items.map((it) => {
-      if (!isList(it) || head(it) !== 'cells') return it;
-      return {
-        kind: 'list',
-        items: it.items.map((c) =>
-          isList(c) && head(c) === 'table_cell' ? (cells[ci++]?.source ?? c) : c,
-        ),
-      };
-    }),
-  };
-}
-
-/** A `PcbShape`'s node: layer and stroke width, keeping the stroke type. */
-/**
- * A barcode's `(layer …)` and `(text_height …)` after a global edit — the only
- * two children this dialog can change on one.
- */
-function patchBarcodeSource(b: PcbBarcode): SList {
-  if (b.source.items.length === 0) return b.source;
-  const patched = patchChild(b.source, 'layer', list(atom('layer'), str(b.layer)));
-  return patchChild(patched, 'text_height', list(atom('text_height'), atom(mm(b.textHeight))));
-}
-
-function patchShapeSource(s: PcbShape): SList {
-  if (!hasSource(s.source)) return s.source;
-
-  // A graphic that also opens the solder mask spells its layers `(layers own
-  // mask)`; the two spellings are exclusive, so the single-layer form is only
-  // written when there is no mask entry.
-  const src = s.maskLayer
-    ? patchChild(dropChild(s.source, 'layer'), 'layers', {
-        kind: 'list',
-        items: [atom('layers'), str(s.layer), str(s.maskLayer)],
-      })
-    : patchChild(dropChild(s.source, 'layers'), 'layer', list(atom('layer'), str(s.layer)));
-
-  return patchStroke(src, s.width, s.strokeType ?? 'solid');
-}
-
-/**
- * A `PcbDimension`'s node.
- *
- * `(style …)` and `(format …)` are patched **child by child** rather than
- * rebuilt, so every token this dialog does not touch — arrow length, extension
- * height, prefix, suffix, an override value — survives byte-identical.
- */
-function patchDimensionSource(d: PcbDimension): SList {
-  if (!hasSource(d.source)) return d.source;
-
-  let src = patchChild(d.source, 'layer', list(atom('layer'), str(d.layer)));
-
-  src = patchInChild(src, 'style', (style) => {
-    let out = patchChild(style, 'thickness', list(atom('thickness'), atom(mm(d.style.thickness))));
-    out = patchChild(
-      out,
-      'text_position_mode',
-      list(atom('text_position_mode'), atom(String(d.style.textPositionMode))),
-    );
-    return d.style.keepTextAligned
-      ? patchChild(out, 'keep_text_aligned', list(atom('keep_text_aligned'), atom('yes')))
-      : dropChild(out, 'keep_text_aligned');
-  });
-
-  if (d.format) {
-    const f = d.format;
-    src = patchInChild(src, 'format', (fmt) => {
-      let out = patchChild(fmt, 'units', list(atom('units'), atom(String(f.units))));
-      out = patchChild(
-        out,
-        'units_format',
-        list(atom('units_format'), atom(String(f.unitsFormat))),
-      );
-      out = patchChild(out, 'precision', list(atom('precision'), atom(String(f.precision))));
-      return f.suppressZeroes
-        ? patchChild(out, 'suppress_zeroes', list(atom('suppress_zeroes'), atom('yes')))
-        : dropChild(out, 'suppress_zeroes');
-    });
-  }
-
-  if (d.text) {
-    const t = d.text;
-    src = patchInChild(src, 'gr_text', (node) =>
-      patchTextEffects(patchChild(node, 'layer', list(atom('layer'), str(t.layer))), t),
-    );
-  }
-
-  return src;
-}
-
-// ---------------------------------------------------------------------------
 // processItem
 
 /**
@@ -1133,11 +895,8 @@ function visitItem(
  * never substituted, so only footprint text needs this.
  */
 function rawTextOf(t: PcbTextItem): string {
-  if (!hasSource(t.source)) return t.text;
-
-  const name = head(t.source) ?? '';
-  const node = t.source.items[name === 'gr_text' ? 1 : 2];
-  return node && node.kind !== 'list' ? node.value : t.text;
+  // The model keeps the text as the file has it; the view shows it resolved.
+  return t.k?.text ?? t.text;
 }
 
 /** Which scope box, if any, puts this footprint text in scope. */
@@ -1307,49 +1066,14 @@ function enumerate(board: Board, opts: GlobalTextGfxOptions): Visit[] {
   return out;
 }
 
-/** Re-attach a processed item's patched `source`, or hand back the original. */
+/** The processed item, or the original when nothing changed. */
 function withPatchedSource(
   before: EditableItem,
   after: EditableItem,
   inFootprint: boolean,
 ): EditableItem {
-  if (before.item === after.item) return before;
-
-  switch (after.shape) {
-    case 'text':
-      return {
-        shape: 'text',
-        item: {
-          ...after.item,
-          source: patchTextSource(after.item, inFootprint),
-        },
-      };
-    case 'textbox':
-      return {
-        shape: 'textbox',
-        item: { ...after.item, source: patchTextBoxSource(after.item) },
-      };
-    case 'cell':
-      return {
-        shape: 'cell',
-        item: { ...after.item, source: patchTableCellSource(after.item) },
-      };
-    case 'shape':
-      return {
-        shape: 'shape',
-        item: { ...after.item, source: patchShapeSource(after.item) },
-      };
-    case 'barcode':
-      return {
-        shape: 'barcode',
-        item: { ...after.item, source: patchBarcodeSource(after.item) },
-      };
-    case 'dimension':
-      return {
-        shape: 'dimension',
-        item: { ...after.item, source: patchDimensionSource(after.item) },
-      };
-  }
+  void inFootprint;
+  return before.item === after.item ? before : after;
 }
 
 /**
@@ -1417,7 +1141,7 @@ export function applyGlobalTextAndGraphicsEdit(
       tables: board.tables.map((table) => {
         const cells = table.cells.map(swap);
         if (!cells.some((c, i) => c !== table.cells[i])) return table;
-        return { ...table, cells, source: restitchTableCells(table.source, cells) };
+        return { ...table, cells };
       }),
     },
     changed,

@@ -13,6 +13,7 @@
  * has to go back to being *absent* rather than written out.
  */
 import { describe, expect, it } from 'vitest';
+import { U, writtenItems } from './support/written_node.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import {
@@ -28,7 +29,6 @@ import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
 import type { Board, PcbImage } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 /** A 1x1 PNG: real header, so the pixel size and PPI are read rather than faked. */
 const PNG =
@@ -38,7 +38,6 @@ const image = (over: Partial<PcbImage> = {}): PcbImage => ({
   at: { x: MM(10), y: MM(20) },
   layer: 'F.SilkS',
   data: PNG,
-  source: EMPTY,
   ...over,
 });
 
@@ -60,7 +59,6 @@ const board = (images: PcbImage[]): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 describe('which image the dialog edits', () => {
@@ -241,7 +239,7 @@ describe('writing the dialog back', () => {
 
 describe('through a real file', () => {
   const FILE = `(kicad_pcb (version 20240108) (generator "test")
-  (image (at 10 20) (layer "F.SilkS") (scale 3) (uuid "aaa")
+  (image (at 10 20) (layer "F.SilkS") (scale 3) (uuid "${U('aaa')}")
     (data "${PNG}")
   )
 )`;
@@ -252,14 +250,14 @@ describe('through a real file', () => {
     const out = serializeBoard(applyImageValues(b, 0, v));
 
     expect(out).toContain('(at 30 20)');
-    expect(out).toContain('(uuid "aaa")');
+    expect(out).toContain(`(uuid "${U('aaa')}")`);
     expect(out).toContain(PNG.slice(0, 20));
   });
 
   it('removes the scale token when the scale goes back to 1', () => {
     const b = readBoard(parse(FILE) as never);
     const v = { ...collectImageValues(b.images[0]!), scale: 1 };
-    const out = serializeBoard(applyImageValues(b, 0, v));
+    const out = writtenItems(applyImageValues(b, 0, v));
 
     expect(out).not.toContain('(scale');
   });

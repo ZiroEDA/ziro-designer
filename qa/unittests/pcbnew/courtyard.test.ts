@@ -17,7 +17,6 @@ import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
 import type { Board, PcbFootprint, PcbPad, PcbShape } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const line = (x0: number, y0: number, x1: number, y1: number, layer = 'F.CrtYd'): PcbShape => ({
   kind: 'line',
@@ -26,7 +25,6 @@ const line = (x0: number, y0: number, x1: number, y1: number, layer = 'F.CrtYd')
   width: MM(0.05),
   fillMode: 'none',
   layer,
-  source: EMPTY,
 });
 
 /** Four lines forming a closed box, as a hand-drawn courtyard is. */
@@ -53,7 +51,6 @@ const pad = (x: number, y: number, over: Partial<PcbPad> = {}): PcbPad => ({
   drill: { oblong: false, w: MM(0.5), h: MM(0.5) },
   layers: ['*.Cu'],
   net: 0,
-  source: EMPTY,
   ...over,
 });
 
@@ -69,7 +66,6 @@ const footprint = (over: Partial<PcbFootprint> = {}): PcbFootprint => ({
   points: [],
   barcodes: [],
   models: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -94,7 +90,6 @@ const board = (footprints: PcbFootprint[]): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 const BASE: DrcOptions = {
@@ -143,7 +138,6 @@ describe('buildCourtyard', () => {
       width: MM(0.05),
       fillMode: 'none',
       layer: 'F.CrtYd',
-      source: EMPTY,
     };
 
     expect(buildCourtyard(footprint({ shapes: [rect] }), 'F.CrtYd').outlines).toHaveLength(1);

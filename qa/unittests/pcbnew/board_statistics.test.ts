@@ -31,7 +31,6 @@ import type {
   PcbVia,
 } from '@ziroeda/pcbnew/src/types.js';
 
-const EMPTY = { kind: 'list' as const, items: [] };
 const P = (x: number, y: number) => ({ x, y });
 
 /** 1 mm in internal units. */
@@ -45,7 +44,6 @@ const pad = (over: Partial<PcbPad> = {}): PcbPad => ({
   angle: 0,
   size: P(MM, MM),
   layers: ['F.Cu', 'F.Mask', 'F.Paste'],
-  source: EMPTY,
   ...over,
 });
 
@@ -65,7 +63,6 @@ const via = (over: Partial<PcbVia> = {}): PcbVia => ({
   layers: ['F.Cu', 'B.Cu'],
   kind: 'through',
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -75,7 +72,6 @@ const track = (over: Partial<PcbTrack> = {}): PcbTrack => ({
   width: 250_000,
   layer: 'F.Cu',
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -91,7 +87,6 @@ const fp = (over: Partial<PcbFootprint> = {}): PcbFootprint => ({
   points: [],
   barcodes: [],
   models: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -102,7 +97,6 @@ const line = (a: { x: number; y: number }, b: { x: number; y: number }): PcbShap
   width: 100_000,
   fillMode: 'none',
   layer: 'Edge.Cuts',
-  source: EMPTY,
 });
 
 /** A closed Edge.Cuts rectangle, drawn as four separate lines. */
@@ -134,7 +128,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -215,7 +208,6 @@ describe('counting footprints', () => {
               width: 100_000,
               fillMode: 'none',
               layer: 'User.Drawings',
-              source: EMPTY,
             },
           ],
         }),
@@ -237,7 +229,6 @@ describe('counting footprints', () => {
       angle: 0,
       layer: 'F.SilkS',
       size: P(MM, MM),
-      source: EMPTY,
     };
 
     const withField = board({
@@ -336,7 +327,6 @@ describe('counting pads and vias', () => {
           width: 50_000,
           layer: 'F.Cu',
           net: 1,
-          source: EMPTY,
         },
       ],
     });
@@ -623,7 +613,6 @@ describe('the board outline', () => {
       width: 100_000,
       fillMode: 'none',
       layer: 'Edge.Cuts',
-      source: EMPTY,
     });
 
     expect(getBoardPolygonOutlines(board({ shapes })).success).toBe(false);
@@ -639,7 +628,6 @@ describe('the board outline', () => {
           width: 100_000,
           fillMode: 'none',
           layer: 'Edge.Cuts',
-          source: EMPTY,
         },
       ],
     });

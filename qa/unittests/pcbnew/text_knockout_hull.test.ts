@@ -47,7 +47,6 @@ const text = (over: Partial<PcbTextItem> = {}): PcbTextItem => ({
   thickness: MM(0.3048),
   justify: ['mirror'],
   mirror: true,
-  source: { kind: 'list', items: [] },
   ...over,
 });
 

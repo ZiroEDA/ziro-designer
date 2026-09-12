@@ -149,7 +149,8 @@ describe('flipping a footprint', () => {
 
     expect(after.at).toEqual({ x: before.at.x, y: -before.at.y });
     expect(after.angle).toBe(330);
-    expect(after.layers).toEqual(['B.Cu', 'B.Paste', 'B.Mask']);
+    // In PCB_LAYER_ID order, as `formatLayers` writes them (B_Cu 2, B_Mask 3, B_Paste 15).
+    expect(after.layers).toEqual(['B.Cu', 'B.Mask', 'B.Paste']);
   });
 
   it('carries its text and graphics across', () => {
@@ -185,7 +186,7 @@ describe('source patching', () => {
     expect(out.layer).toBe('B.Cu');
     expect(out.angle).toBe(-30);
     expect(out.at).toEqual({ x: MM(20), y: -MM(30) });
-    expect(out.pads[0]!.layers).toEqual(['B.Cu', 'B.Paste', 'B.Mask']);
+    expect(out.pads[0]!.layers).toEqual(['B.Cu', 'B.Mask', 'B.Paste']);
     expect(out.texts[0]!.layer).toBe('B.SilkS');
   });
 

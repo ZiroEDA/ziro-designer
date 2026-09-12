@@ -33,6 +33,7 @@ import {
 } from '@ziroeda/pcbnew/src/edit-board.js';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { U } from './support/written_node.js';
 import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type {
@@ -47,14 +48,12 @@ import type {
   PcbPad,
 } from '@ziroeda/pcbnew/src/types.js';
 
-const EMPTY = { kind: 'list' as const, items: [] };
-
 // Minimal typed-model builders (geometry is unit-agnostic; coords in internal units).
 const track = (
   start: { x: number; y: number },
   end: { x: number; y: number },
   width = 100,
-): PcbTrack => ({ start, end, width, layer: 'F.Cu', net: 0, source: EMPTY });
+): PcbTrack => ({ start, end, width, layer: 'F.Cu', net: 0 });
 const via = (at: { x: number; y: number }, size = 200): PcbVia => ({
   at,
   size,
@@ -62,14 +61,13 @@ const via = (at: { x: number; y: number }, size = 200): PcbVia => ({
   layers: ['F.Cu', 'B.Cu'],
   kind: 'through',
   net: 0,
-  source: EMPTY,
 });
 const arcTrack = (
   start: { x: number; y: number },
   mid: { x: number; y: number },
   end: { x: number; y: number },
   width = 100,
-): PcbArcTrack => ({ start, mid, end, width, layer: 'F.Cu', net: 0, source: EMPTY });
+): PcbArcTrack => ({ start, mid, end, width, layer: 'F.Cu', net: 0 });
 const pad = (at: { x: number; y: number }, sx: number, sy: number): PcbPad => ({
   number: '1',
   type: 'smd',
@@ -78,7 +76,6 @@ const pad = (at: { x: number; y: number }, sx: number, sy: number): PcbPad => ({
   angle: 0,
   size: { x: sx, y: sy },
   layers: ['F.Cu'],
-  source: EMPTY,
 });
 const footprint = (pads: PcbPad[]): PcbFootprint => ({
   lib: 'R',
@@ -91,7 +88,6 @@ const footprint = (pads: PcbPad[]): PcbFootprint => ({
   points: [],
   barcodes: [],
   models: [],
-  source: EMPTY,
 });
 const lineShape = (
   start: { x: number; y: number },
@@ -104,7 +100,6 @@ const lineShape = (
   width,
   fillMode: 'none',
   layer: 'Edge.Cuts',
-  source: EMPTY,
 });
 const text = (at: { x: number; y: number }, s: string, size = 1000): PcbTextItem => ({
   kind: 'user',
@@ -113,13 +108,11 @@ const text = (at: { x: number; y: number }, s: string, size = 1000): PcbTextItem
   angle: 0,
   layer: 'F.SilkS',
   size: { x: size, y: size },
-  source: EMPTY,
 });
 const zone = (poly: { x: number; y: number }[]): PcbZone => ({
   net: 0,
   layers: ['F.Cu'],
   fills: [{ layer: 'F.Cu', polys: [poly] }],
-  source: EMPTY,
 });
 
 const board = (over: Partial<Board>): Board => ({
@@ -140,7 +133,6 @@ const board = (over: Partial<Board>): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
@@ -213,7 +205,6 @@ describe('shape hit-test (EDA_SHAPE)', () => {
       width: 40,
       fillMode: 'none',
       layer: 'Edge.Cuts',
-      source: EMPTY,
     };
     const b = board({ shapes: [s] });
     expect(hitTestBoard(b, { x: 0, y: 500 }, 5)).toBe('shape:0'); // on left border
@@ -227,7 +218,6 @@ describe('shape hit-test (EDA_SHAPE)', () => {
       width: 20,
       fillMode: 'solid',
       layer: 'F.SilkS',
-      source: EMPTY,
     };
     const b = board({ shapes: [s] });
     expect(hitTestBoard(b, { x: 100, y: 100 }, 0)).toBe('shape:0');
@@ -243,7 +233,6 @@ describe('shape hit-test (EDA_SHAPE)', () => {
       width: 100,
       fillMode: 'hatch',
       layer: 'F.SilkS',
-      source: EMPTY,
     };
     const b = board({ shapes: [hatched] });
     // The -1 family through the middle: the line at offset 10000 runs corner to
@@ -266,7 +255,6 @@ describe('shape hit-test (EDA_SHAPE)', () => {
       fillMode: 'none',
       cornerRadius: 300,
       layer: 'Edge.Cuts',
-      source: EMPTY,
     };
     const b = board({ shapes: [rounded] });
     // The square corner: 300 IU in from each side is where the arc runs, and
@@ -292,7 +280,6 @@ describe('shape hit-test (EDA_SHAPE)', () => {
       width: 20,
       fillMode: 'cross_hatch',
       layer: 'F.SilkS',
-      source: EMPTY,
     };
     const b = board({ shapes: [hatched] });
     // The pen is 20, so the spacing is 200 and the -1 family runs through
@@ -407,7 +394,6 @@ describe("a pour is grabbed by its border, PCB_SELECTION_TOOL's zoneFilledAreaFi
           width: 0.2 * mm,
           layer: 'F.Cu',
           net: 0,
-          source: EMPTY,
         },
       ],
     });
@@ -557,7 +543,7 @@ describe('deleteBoardItems', () => {
     // Three named tracks; delete the middle one and confirm the writer emits the
     // other two (positional deletion, not "drop the last").
     const TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew")
-	(layers (0 "F.Cu" signal))
+	(layers (0 "F.Cu" signal) (31 "B.Cu" signal))
 	(net 0 "") (net 1 "A") (net 2 "B") (net 3 "C")
 	(segment (start 0 0) (end 1 0) (width 0.2) (layer "F.Cu") (net 1))
 	(segment (start 0 1) (end 1 1) (width 0.2) (layer "F.Cu") (net 2))
@@ -567,7 +553,9 @@ describe('deleteBoardItems', () => {
     const b = readBoard(parse(TEXT));
     const out = deleteBoardItems(b, new Set(['track:1'])); // the net-2 track
     const reread = readBoard(parse(serializeBoard(out)));
-    expect(reread.tracks.map((t) => t.net)).toEqual([1, 3]);
+    // By name: a 10.0 file carries no codes, so the reader numbers the names
+    // as it meets them.
+    expect(reread.tracks.map((t) => reread.nets.get(t.net))).toEqual(['A', 'C']);
   });
 });
 
@@ -598,7 +586,7 @@ describe('rotateBoardItems', () => {
 
   it('patched source survives a serialize round-trip', () => {
     const TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew")
-	(layers (0 "F.Cu" signal))
+	(layers (0 "F.Cu" signal) (31 "B.Cu" signal))
 	(net 0 "") (net 1 "GND")
 	(segment (start 10 10) (end 30 10) (width 0.25) (layer "F.Cu") (net 1))
 )
@@ -636,7 +624,7 @@ describe('duplicateBoardItems', () => {
 
   it('the appended copy serializes (writer append pass) and re-reads', () => {
     const TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew")
-	(layers (0 "F.Cu" signal))
+	(layers (0 "F.Cu" signal) (31 "B.Cu" signal))
 	(net 0 "") (net 1 "GND")
 	(segment (start 10 10) (end 30 10) (width 0.25) (layer "F.Cu") (net 1))
 )
@@ -705,20 +693,22 @@ describe('groups (PCB_GROUP: group / ungroup / expansion)', () => {
     expect(u.tracks).toHaveLength(2);
   });
   it('round-trips the exact (group …) s-expression: sorted members, no empty groups', () => {
+    const A = U('a');
+    const B = U('b');
     const src = `(kicad_pcb (version 20241229) (generator x)
-      (segment (start 0 0) (end 1 0) (width 0.2) (layer "F.Cu") (net 0) (uuid "uuid-b"))
-      (segment (start 0 1) (end 1 1) (width 0.2) (layer "F.Cu") (net 0) (uuid "uuid-a"))
+      (segment (start 0 0) (end 1 0) (width 0.2) (layer "F.Cu") (net 0) (uuid "${B}"))
+      (segment (start 0 1) (end 1 1) (width 0.2) (layer "F.Cu") (net 0) (uuid "${A}"))
     )`;
     const b = readBoard(parse(src));
     const { board: g } = groupBoardItems(b, new Set(['track:0', 'track:1']), 'G1');
     const out = serializeBoard(g);
     expect(out).toContain('(group "G1"');
     // Members are written sorted alphabetically (PCB_IO_KICAD_SEXPR).
-    expect(out).toMatch(/\(members\s+"uuid-a"\s+"uuid-b"\)/);
+    expect(out).toMatch(new RegExp(`\\(members\\s+"${A}"\\s+"${B}"\\)`));
     const reread = readBoard(parse(out));
     expect(reread.groups).toHaveLength(1);
     expect(reread.groups[0]!.name).toBe('G1');
-    expect(reread.groups[0]!.members).toEqual(['uuid-a', 'uuid-b']);
+    expect(reread.groups[0]!.members).toEqual([A, B]);
     // Deleting the group (with its expansion) drops the node entirely.
     const gone = deleteBoardItems(reread, new Set(['group:0', 'track:0', 'track:1']));
     expect(serializeBoard(gone)).not.toContain('(group');
@@ -921,10 +911,6 @@ describe('zone move (ZONE::Move)', () => {
     { x: 10000, y: 10000 },
     { x: 0, y: 10000 },
   ];
-  const src = parse(`(zone (net 1) (layer "F.Cu")
-      (polygon (pts (xy 0 0) (xy 1 0) (xy 1 1) (xy 0 1)))
-      (filled_polygon (layer "F.Cu") (pts (xy 0 0) (xy 1 0) (xy 1 1) (xy 0 1))))`);
-
   const zoned = (): Board =>
     board({
       zones: [
@@ -933,10 +919,16 @@ describe('zone move (ZONE::Move)', () => {
           layers: ['F.Cu'],
           outline: poly,
           fills: [{ layer: 'F.Cu', polys: [poly] }],
-          source: src,
         },
       ],
     });
+  /** The same zone read from a file, so it carries its ZONE model. */
+  const readZoned = (): Board =>
+    readBoard(`(kicad_pcb (version 20241229) (generator "test")
+      (layers (0 "F.Cu" signal) (31 "B.Cu" signal)) (net 0 "") (net 1 "N")
+      (zone (net 1) (net_name "N") (layer "F.Cu") (hatch edge 0.5) (min_thickness 0.25)
+        (polygon (pts (xy 0 0) (xy 0.01 0) (xy 0.01 0.01) (xy 0 0.01)))
+        (filled_polygon (layer "F.Cu") (pts (xy 0 0) (xy 0.01 0) (xy 0.01 0.01) (xy 0 0.01)))))`);
 
   it('moves the outline and the fill together', () => {
     const d = { x: 5000, y: -2500 };
@@ -948,13 +940,13 @@ describe('zone move (ZONE::Move)', () => {
     expect(out.zones[0]!.fills[0]!.polys[0]![2]).toEqual({ x: 15000, y: 7500 });
   });
 
-  it('patches both point lists in the source, so the move survives a save', () => {
+  it('writes both point lists moved, so the move survives a save', () => {
     const d = { x: mmToIU(1), y: mmToIU(2) };
-    const out = moveBoardItems(zoned(), new Set(['zone:0']), d);
-    const text = serializeBoard({ ...out, source: out.zones[0]!.source });
-    // Every (xy ...) shifted by (1, 2) mm: the outline started at 0 0 and 1 0.
+    const out = moveBoardItems(readZoned(), new Set(['zone:0']), d);
+    const text = serializeBoard(out);
+    // Every (xy ...) shifted by (1, 2) mm: the outline started at 0 0 and 0.01 0.
     expect(text).toContain('(xy 1 2)');
-    expect(text).toContain('(xy 2 2)');
+    expect(text).toContain('(xy 1.01 2)');
     expect(text).not.toContain('(xy 0 0)');
   });
 
@@ -981,14 +973,16 @@ describe('zone outline editing (PCB_POINT_EDITOR over a ZONE)', () => {
           layers: ['F.Cu'],
           outline: square,
           fills: [{ layer: 'F.Cu', polys: [square] }],
-          source: parse(
-            `(zone (net 1) (layer "F.Cu")
-               (polygon (pts (xy 0 0) (xy 1 0) (xy 1 1) (xy 0 1)))
-               (filled_polygon (layer "F.Cu") (pts (xy 0 0) (xy 1 0) (xy 1 1) (xy 0 1))))`,
-          ),
         },
       ],
     });
+  /** The same zone read from a file, so it carries its ZONE model. */
+  const readZoneBoard = (): Board =>
+    readBoard(`(kicad_pcb (version 20241229) (generator "test")
+      (layers (0 "F.Cu" signal) (31 "B.Cu" signal)) (net 0 "") (net 1 "N")
+      (zone (net 1) (net_name "N") (layer "F.Cu") (hatch edge 0.5) (min_thickness 0.25)
+        (polygon (pts (xy 0 0) (xy 0.01 0) (xy 0.01 0.01) (xy 0 0.01)))
+        (filled_polygon (layer "F.Cu") (pts (xy 0 0) (xy 0.01 0) (xy 0.01 0.01) (xy 0 0.01)))))`);
 
   it('puts a handle on every corner and every edge midpoint', () => {
     const h = zoneHandles(zoneBoard(), 0);
@@ -1024,16 +1018,14 @@ describe('zone outline editing (PCB_POINT_EDITOR over a ZONE)', () => {
   });
 
   it('unfills the zone, as UpdateItem does before touching the polygon', () => {
-    const out = moveZoneCorner(zoneBoard(), 0, 0, { x: -5000, y: -5000 });
+    const out = moveZoneCorner(readZoneBoard(), 0, 0, { x: -5000, y: -5000 });
     expect(out.zones[0]!.fills).toEqual([]);
-    expect(serializeBoard({ ...out, source: out.zones[0]!.source })).not.toContain(
-      'filled_polygon',
-    );
+    expect(serializeBoard(out)).not.toContain('filled_polygon');
   });
 
-  it('writes the new outline into the source', () => {
-    const out = moveZoneCorner(zoneBoard(), 0, 0, { x: mmToIU(5), y: mmToIU(6) });
-    expect(serializeBoard({ ...out, source: out.zones[0]!.source })).toContain('(xy 5 6)');
+  it('writes the new outline', () => {
+    const out = moveZoneCorner(readZoneBoard(), 0, 0, { x: mmToIU(5), y: mmToIU(6) });
+    expect(serializeBoard(out)).toContain('(xy 5 6)');
   });
 
   it('leaves a zone with no outline alone', () => {

@@ -154,7 +154,7 @@ function strokes(board: Board, opts = {}, visible = ['F.Cu', 'F.SilkS']): Stroke
 const boardWith = (...items: string[]): Board =>
   readBoard(
     parse(`(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal) (37 "F.SilkS" user "F.Silkscreen"))
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (37 "F.SilkS" user "F.Silkscreen"))
   (net 0 "")
   ${items.join('\n  ')}
 )`),

@@ -43,7 +43,7 @@ const board = readBoard(
 	(layers (0 "F.Cu" signal) (31 "B.Cu" signal) (37 "F.SilkS" user))
 	(net 0 "") (net 1 "a")
 	(footprint "D_DO-41" (layer "F.Cu") (at 100 100)
-		(pad "1" thru_hole circle (at 0 0) (size 1.6 1.6) (drill 0.8) (layers "*.Cu") (net 1))
+		(pad "1" thru_hole circle (at 0 0) (size 1.6 1.6) (drill 0.8) (layers "*.Cu") (net 1 "a"))
 		(pad "2" thru_hole circle (at 0 5) (size 1.6 1.6) (drill 0.8) (layers "*.Cu"))
 		(fp_line (start -1 -1) (end -1 8) (stroke (width 0.12) (type solid)) (layer "F.SilkS"))
 	)

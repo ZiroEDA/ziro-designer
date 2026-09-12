@@ -7,7 +7,7 @@
  * actually reach the file.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { head, parse, serialize } from '@ziroeda/sexpr/src/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
@@ -23,22 +23,43 @@ import type { Board } from '@ziroeda/pcbnew/src/types.js';
 const MM = (n: number): number => mmToIU(n);
 const load = (text: string): Board => readBoard(parse(text));
 
+/** Real uuids: `KIID( string )` replaces anything else with a random id, and the writer sorts by it. */
+const U = {
+  t1: '10000000-0000-4000-8000-000000000001',
+  t2: '10000000-0000-4000-8000-000000000002',
+  a1: '10000000-0000-4000-8000-000000000003',
+  v1: '10000000-0000-4000-8000-000000000004',
+  v2: '10000000-0000-4000-8000-000000000005',
+};
+
 /** Two tracks of different widths on one layer, one arc, two vias. */
 const SRC = `(kicad_pcb (version 20240108) (generator "pcbnew")
   (net 0 "")
   (net 1 "N1")
   (net 2 "N2")
-  (segment (start 0 0) (end 10 0) (width 0.25) (layer "F.Cu") (net 1) (uuid "t1"))
-  (segment (start 10 0) (end 20 0) (width 0.5) (layer "F.Cu") (net 1) (uuid "t2"))
-  (arc (start 20 0) (mid 25 5) (end 30 0) (width 0.25) (layer "F.Cu") (net 1) (uuid "a1"))
-  (via (at 40 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1) (uuid "v1"))
-  (via micro (at 50 0) (size 0.6) (drill 0.3) (layers "F.Cu" "In1.Cu") (net 2) (uuid "v2"))
+  (segment (start 0 0) (end 10 0) (width 0.25) (layer "F.Cu") (net 1) (uuid "${U.t1}"))
+  (segment (start 10 0) (end 20 0) (width 0.5) (layer "F.Cu") (net 1) (uuid "${U.t2}"))
+  (arc (start 20 0) (mid 25 5) (end 30 0) (width 0.25) (layer "F.Cu") (net 1) (uuid "${U.a1}"))
+  (via (at 40 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1) (uuid "${U.v1}"))
+  (via micro (at 50 0) (size 0.6) (drill 0.3) (layers "F.Cu" "In1.Cu") (net 2) (uuid "${U.v2}"))
 )`;
 
 const sel = (board: Board, ids: string[]) => trackViaSelection(board, ids);
 
-/** Serialize and read back, the only way to prove a source patch landed. */
+/** Serialize and read back, the only way to prove an edit reached the file. */
 const roundTrip = (board: Board): Board => load(serializeBoard(board));
+/** The item with that uuid: the written board is in the formatter's sorted order. */
+const byUuid = <T extends { uuid?: string }>(items: readonly T[], uuid: string): T =>
+  items.find((i) => i.uuid === uuid)!;
+/** The first top-level node of that head in a written board, flattened to one line. */
+const flatNode = (text: string, headName: string): string => {
+  const node = parse(text).items.find((i) => i.kind === 'list' && head(i) === headName);
+  if (!node) throw new Error(`no (${headName} …) in the written board`);
+  return serialize(node as Parameters<typeof serialize>[0])
+    .replace(/\s+/g, ' ')
+    .replace(/\( /g, '(')
+    .replace(/ \)/g, ')');
+};
 
 describe('selection resolution', () => {
   it('picks out tracks, arcs and vias, ignoring everything else', () => {
@@ -200,13 +221,13 @@ describe('source patching — the edit has to reach the file', () => {
     const b = load(SRC);
     const out = applyTrackViaValues(b, sel(b, ['track:0']), { trackWidth: MM(0.3) });
 
-    expect(roundTrip(out).tracks[0]!.width).toBe(MM(0.3));
+    expect(byUuid(roundTrip(out).tracks, U.t1).width).toBe(MM(0.3));
   });
 
   it('an endpoint move survives', () => {
     const b = load(SRC);
     const out = applyTrackViaValues(b, sel(b, ['track:0']), { startY: MM(2), endY: MM(3) });
-    const back = roundTrip(out).tracks[0]!;
+    const back = byUuid(roundTrip(out).tracks, U.t1);
 
     expect(back.start).toEqual({ x: 0, y: MM(2) });
     expect(back.end).toEqual({ x: MM(10), y: MM(3) });
@@ -215,7 +236,7 @@ describe('source patching — the edit has to reach the file', () => {
   it('a net and layer change survives', () => {
     const b = load(SRC);
     const out = applyTrackViaValues(b, sel(b, ['track:0']), { net: 2, layer: 'B.Cu' });
-    const back = roundTrip(out).tracks[0]!;
+    const back = byUuid(roundTrip(out).tracks, U.t1);
 
     expect(back.net).toBe(2);
     expect(back.layer).toBe('B.Cu');
@@ -224,10 +245,10 @@ describe('source patching — the edit has to reach the file', () => {
   it('locking and unlocking survives, and unlocking drops the token', () => {
     const b = load(SRC);
     const locked = applyTrackViaValues(b, sel(b, ['track:0']), { locked: true });
-    expect(roundTrip(locked).tracks[0]!.locked).toBe(true);
+    expect(byUuid(roundTrip(locked).tracks, U.t1).locked).toBe(true);
 
     const unlocked = applyTrackViaValues(locked, sel(locked, ['track:0']), { locked: false });
-    expect(roundTrip(unlocked).tracks[0]!.locked).toBeFalsy();
+    expect(byUuid(roundTrip(unlocked).tracks, U.t1).locked).toBeFalsy();
     expect(serializeBoard(unlocked).replace(/\s+/g, ' ')).not.toContain('(locked yes)');
   });
 
@@ -242,7 +263,7 @@ describe('source patching — the edit has to reach the file', () => {
     expect(flat).toContain('(layers "F.Cu" "F.Mask")');
     expect(flat).toContain('(solder_mask_margin 0.1)');
 
-    const back = roundTrip(out).tracks[0]!;
+    const back = byUuid(roundTrip(out).tracks, U.t1);
     expect(back.layer).toBe('F.Cu');
     expect(back.maskLayer).toBe('F.Mask');
     expect(back.solderMaskMargin).toBe(MM(0.1));
@@ -252,22 +273,26 @@ describe('source patching — the edit has to reach the file', () => {
     const b = load(SRC);
     const on = applyTrackViaValues(b, sel(b, ['track:0']), { hasMask: true, maskMargin: MM(0.1) });
     const off = applyTrackViaValues(on, sel(on, ['track:0']), { hasMask: false, maskMargin: null });
-    const flat = serializeBoard(off).replace(/\s+/g, ' ').replace(/ \)/g, ')');
+    // Scoped to the segment: the board's own layer table names F.Mask.
+    const flat = flatNode(serializeBoard(off), 'segment');
 
     expect(flat).toContain('(layer "F.Cu")');
     expect(flat).not.toContain('F.Mask');
     expect(flat).not.toContain('solder_mask_margin');
-    expect(roundTrip(off).tracks[0]!.maskLayer).toBeUndefined();
+    expect(byUuid(roundTrip(off).tracks, U.t1).maskLayer).toBeUndefined();
   });
 
   it('a via diameter, drill and layer-span change survives', () => {
     const b = load(SRC);
+    // A through via keeps F.Cu/B.Cu whatever pair it is given
+    // (`PCB_VIA::SanitizeLayers`); reaching In2.Cu makes it a blind one.
     const out = applyTrackViaValues(b, sel(b, ['via:0']), {
       viaDiameter: MM(1),
       viaDrill: MM(0.5),
+      viaType: 'blind',
       endLayer: 'In2.Cu',
     });
-    const back = roundTrip(out).vias[0]!;
+    const back = byUuid(roundTrip(out).vias, U.v1);
 
     expect(back.size).toBe(MM(1));
     expect(back.drill).toBe(MM(0.5));
@@ -280,7 +305,7 @@ describe('source patching — the edit has to reach the file', () => {
     // through -> blind inserts the atom right after the head.
     const blind = applyTrackViaValues(b, sel(b, ['via:0']), { viaType: 'blind' });
     expect(serializeBoard(blind).replace(/\s+/g, ' ')).toContain('(via blind');
-    expect(roundTrip(blind).vias[0]!.kind).toBe('blind');
+    expect(byUuid(roundTrip(blind).vias, U.v1).kind).toBe('blind');
 
     // blind -> buried swaps the atom: KiCad 10 has a token for each
     // (`T_buried`, pcb_io_kicad_sexpr_parser.cpp:7450), not one for both.
@@ -288,19 +313,19 @@ describe('source patching — the edit has to reach the file', () => {
     const buriedFlat = serializeBoard(buried).replace(/\s+/g, ' ');
     expect(buriedFlat).toContain('(via buried');
     expect(buriedFlat).not.toContain('(via blind');
-    expect(roundTrip(buried).vias[0]!.kind).toBe('buried');
+    expect(byUuid(roundTrip(buried).vias, U.v1).kind).toBe('buried');
 
     // micro -> through removes it, and does not leave both atoms behind.
     const through = applyTrackViaValues(b, sel(b, ['via:1']), { viaType: 'through' });
     const flat = serializeBoard(through).replace(/\s+/g, ' ');
     expect(flat).not.toContain('(via micro');
-    expect(roundTrip(through).vias[1]!.kind).toBe('through');
+    expect(byUuid(roundTrip(through).vias, U.v2).kind).toBe('through');
   });
 
   it('teardrop parameters survive, and default ones are not written', () => {
     const b = load(SRC);
     const on = applyTrackViaValues(b, sel(b, ['via:0']), { tdEnabled: true, tdBestLengthPct: 70 });
-    const back = roundTrip(on).vias[0]!.teardrops!;
+    const back = byUuid(roundTrip(on).vias, U.v1).teardrops!;
 
     expect(back.enabled).toBe(true);
     expect(back.bestLengthRatio).toBeCloseTo(0.7);
@@ -318,10 +343,10 @@ describe('source patching — the edit has to reach the file', () => {
     const out = applyTrackViaValues(b, sel(b, ['track:0']), { trackWidth: MM(0.3) });
     const back = roundTrip(out);
 
-    expect(back.tracks[1]!.width).toBe(MM(0.5));
-    expect(back.arcs[0]!.mid).toEqual({ x: MM(25), y: MM(5) });
-    expect(back.vias[1]!.kind).toBe('micro');
-    expect(back.tracks[0]!.uuid).toBe('t1');
+    expect(byUuid(back.tracks, U.t2).width).toBe(MM(0.5));
+    expect(byUuid(back.arcs, U.a1).mid).toEqual({ x: MM(25), y: MM(5) });
+    expect(byUuid(back.vias, U.v2).kind).toBe('micro');
+    expect(byUuid(back.tracks, U.t1).uuid).toBe(U.t1);
   });
 });
 

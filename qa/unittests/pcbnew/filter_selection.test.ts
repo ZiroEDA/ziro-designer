@@ -23,7 +23,6 @@ import {
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 
 const board = (): Board => ({
   version: 20240108,
@@ -49,7 +48,6 @@ const board = (): Board => ({
           size: { x: MM(1), y: MM(1) },
           layers: ['F.Cu'],
           net: 0,
-          source: EMPTY,
         },
       ],
       shapes: [],
@@ -57,7 +55,6 @@ const board = (): Board => ({
       points: [],
       barcodes: [],
       models: [],
-      source: EMPTY,
     },
     // Index 1: a locked footprint.
     {
@@ -73,7 +70,6 @@ const board = (): Board => ({
       points: [],
       barcodes: [],
       models: [],
-      source: EMPTY,
     },
   ],
   tracks: [
@@ -83,7 +79,6 @@ const board = (): Board => ({
       width: MM(0.2),
       layer: 'F.Cu',
       net: 0,
-      source: EMPTY,
     },
   ],
   arcs: [],
@@ -95,10 +90,9 @@ const board = (): Board => ({
       layers: ['F.Cu', 'B.Cu'],
       kind: 'through',
       net: 0,
-      source: EMPTY,
     },
   ],
-  zones: [{ net: 0, layers: ['F.Cu'], fills: [], source: EMPTY }],
+  zones: [{ net: 0, layers: ['F.Cu'], fills: [] }],
   shapes: [
     // 0: silkscreen, 1: board outline.
     {
@@ -108,7 +102,6 @@ const board = (): Board => ({
       width: MM(0.1),
       fillMode: 'none',
       layer: 'F.SilkS',
-      source: EMPTY,
     },
     {
       kind: 'line',
@@ -117,7 +110,6 @@ const board = (): Board => ({
       width: MM(0.05),
       fillMode: 'none',
       layer: 'Edge.Cuts',
-      source: EMPTY,
     },
   ],
   texts: [
@@ -128,7 +120,6 @@ const board = (): Board => ({
       angle: 0,
       layer: 'F.SilkS',
       size: { x: MM(1), y: MM(1) },
-      source: EMPTY,
     },
   ],
   dimensions: [],
@@ -138,7 +129,6 @@ const board = (): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
 });
 
 /** Nothing ticked but the boxes named. */

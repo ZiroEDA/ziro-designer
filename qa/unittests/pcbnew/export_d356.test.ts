@@ -16,6 +16,7 @@
  * code.
  */
 import { describe, expect, it } from 'vitest';
+import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
 import {
   boardTentVias,
   computePadAccessCode,
@@ -29,20 +30,7 @@ import {
 } from '@ziroeda/pcbnew/src/export_d356.js';
 import type { Board, PcbPad, PcbVia } from '@ziroeda/pcbnew/src/types.js';
 
-const EMPTY = { kind: 'list' as const, items: [] };
 const P = (x: number, y: number) => ({ x, y });
-const sexpr = (name: string, ...vals: string[]) => ({
-  kind: 'list' as const,
-  items: [
-    {
-      kind: 'list' as const,
-      items: [
-        { kind: 'atom' as const, value: name },
-        ...vals.map((v) => ({ kind: 'atom' as const, value: v })),
-      ],
-    },
-  ],
-});
 
 const pad = (over: Partial<PcbPad> = {}): PcbPad => ({
   number: '1',
@@ -53,7 +41,6 @@ const pad = (over: Partial<PcbPad> = {}): PcbPad => ({
   size: P(1_500_000, 800_000),
   layers: ['F.Cu', 'F.Mask'],
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -64,7 +51,6 @@ const via = (over: Partial<PcbVia> = {}): PcbVia => ({
   layers: ['F.Cu', 'B.Cu'],
   kind: 'through',
   net: 1,
-  source: EMPTY,
   ...over,
 });
 
@@ -93,12 +79,11 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 
 const fp = (pads: PcbPad[], reference = 'R1') =>
-  ({ reference, layer: 'F.Cu', at: P(0, 0), pads, source: EMPTY }) as never;
+  ({ reference, layer: 'F.Cu', at: P(0, 0), pads }) as never;
 
 const records = (text: string): string[] =>
   text.split('\n').filter((l) => l && !l.startsWith('P  ') && l !== '999');
@@ -187,39 +172,9 @@ describe('tenting', () => {
   });
 
   it('reads the modern (tenting (front no) (back yes)) form', () => {
-    const b = board({
-      source: {
-        kind: 'list',
-        items: [
-          {
-            kind: 'list',
-            items: [
-              { kind: 'atom', value: 'setup' },
-              {
-                kind: 'list',
-                items: [
-                  { kind: 'atom', value: 'tenting' },
-                  {
-                    kind: 'list',
-                    items: [
-                      { kind: 'atom', value: 'front' },
-                      { kind: 'atom', value: 'no' },
-                    ],
-                  },
-                  {
-                    kind: 'list',
-                    items: [
-                      { kind: 'atom', value: 'back' },
-                      { kind: 'atom', value: 'yes' },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-    });
+    const b = readBoard(`(kicad_pcb (version 20241229) (generator "test")
+      (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
+      (setup (tenting (front no) (back yes))))`);
 
     expect(boardTentVias(b)).toEqual({ front: false, back: true });
   });
@@ -319,7 +274,6 @@ describe('the emitted file', () => {
             net: 1,
             drill: { oblong: false, w: 800_000, h: 800_000 },
             layers: ['*.Cu', '*.Mask'],
-            source: sexpr('drill', '0.8'),
           }),
         ]),
       ],
@@ -336,12 +290,12 @@ describe('the emitted file', () => {
   it('gives a NPTH pad with no drill token the 30 mil default', () => {
     // Upstream's NPTH branch never overwrites the PAD constructor default,
     // where thru_hole would have been set to 1 nm. 30 mils = 762000 IU = 300
-    // decimils.
-    const b = board({
-      footprints: [
-        fp([pad({ type: 'np_thru_hole', shape: 'circle', layers: ['*.Cu'], source: EMPTY })]),
-      ],
-    });
+    // decimils. The parser decides this, so the pad has to come from text.
+    const b = readBoard(`(kicad_pcb (version 20241229) (generator "test")
+      (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
+      (footprint "L:R" (layer "F.Cu") (at 0 0)
+        (property "Reference" "R1" (at 0 0) (layer "F.SilkS"))
+        (pad "1" np_thru_hole circle (at 0 0) (size 1.5 1.5) (layers "*.Cu"))))`);
 
     expect(records(exportD356(b))[0]).toContain('D0300U');
   });

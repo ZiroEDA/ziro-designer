@@ -83,10 +83,12 @@ describe('addBoardShape (DRAWING_TOOL commits)', () => {
     }).board;
 
     const back = readBoard(parse(serializeBoard(b)));
-    expect(back.shapes.map((s) => s.kind)).toEqual(['rect', 'circle', 'arc', 'poly']);
-    expect(back.shapes[1]!.center).toEqual({ x: mmToIU(2), y: mmToIU(2) });
-    expect(back.shapes[2]!.mid).toEqual({ x: mmToIU(1), y: mmToIU(1) });
-    expect(back.shapes[3]!.pts).toHaveLength(3);
+    // As a set: the writer orders drawings (`BOARD::cmp_drawings`), not the tool.
+    expect(back.shapes.map((s) => s.kind).sort()).toEqual(['arc', 'circle', 'poly', 'rect']);
+    const of = (kind: string) => back.shapes.find((s) => s.kind === kind)!;
+    expect(of('circle').center).toEqual({ x: mmToIU(2), y: mmToIU(2) });
+    expect(of('arc').mid).toEqual({ x: mmToIU(1), y: mmToIU(1) });
+    expect(of('poly').pts).toHaveLength(3);
   });
 
   it('round-trips routed tracks, vias and placed text (ROUTER_TOOL / PlaceText)', () => {

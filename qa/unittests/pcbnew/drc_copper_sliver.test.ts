@@ -217,14 +217,11 @@ describe('the winding the test depends on', () => {
 // Through the engine
 // ---------------------------------------------------------------------------
 
-const EMPTY = { kind: 'list' as const, items: [] };
-
 const zone = (polys: Vec2[][]): PcbZone => ({
   net: 1,
   layers: ['F.Cu'],
   fills: [{ layer: 'F.Cu', polys }],
   outline: [P(0, 0), P(100, 0), P(100, 100), P(0, 100)],
-  source: EMPTY,
 });
 
 const board = (over: Partial<Board> = {}): Board => ({
@@ -252,7 +249,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-  source: EMPTY,
   ...over,
 });
 

@@ -30,8 +30,6 @@ import type {
 } from '@ziroeda/pcbnew/src/types.js';
 import type { SList } from '@ziroeda/sexpr/src/index.js';
 
-const EMPTY: SList = { kind: 'list', items: [] } as unknown as SList;
-
 const pad = (at: { x: number; y: number }, s: number): PcbPad => ({
   number: '1',
   type: 'smd',
@@ -40,14 +38,13 @@ const pad = (at: { x: number; y: number }, s: number): PcbPad => ({
   angle: 0,
   size: { x: s, y: s },
   layers: ['F.Cu'],
-  source: EMPTY,
 });
 const rect = (
   start: { x: number; y: number },
   end: { x: number; y: number },
   layer = 'F.CrtYd',
   width = mm(0.05),
-): PcbShape => ({ kind: 'rect', start, end, width, fillMode: 'none', layer, source: EMPTY });
+): PcbShape => ({ kind: 'rect', start, end, width, fillMode: 'none', layer });
 const text = (
   kind: PcbTextItem['kind'],
   at: { x: number; y: number },
@@ -61,7 +58,6 @@ const text = (
   layer: 'F.Fab',
   size: { x: mm(1), y: mm(1) },
   thickness: mm(0.15),
-  source: EMPTY,
 });
 const fp = (over: Partial<PcbFootprint>): PcbFootprint => ({
   lib: 'TerminalBlock:2P',
@@ -74,7 +70,6 @@ const fp = (over: Partial<PcbFootprint>): PcbFootprint => ({
   points: [],
   barcodes: [],
   models: [],
-  source: EMPTY,
   ...over,
 });
 const board = (footprints: PcbFootprint[]): Board =>
@@ -96,7 +91,6 @@ const board = (footprints: PcbFootprint[]): Board =>
     points: [],
     barcodes: [],
     groups: [],
-    source: EMPTY,
   }) as unknown as Board;
 
 /**

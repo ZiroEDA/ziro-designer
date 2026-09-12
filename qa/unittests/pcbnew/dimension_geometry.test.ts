@@ -32,7 +32,6 @@ import {
 } from '@ziroeda/pcbnew/src/dimension_geometry.js';
 
 const MM = (n: number): number => mmToIU(n);
-const EMPTY = { kind: 'list' as const, items: [] };
 const P = (x: number, y: number): { x: number; y: number } => ({ x: MM(x), y: MM(y) });
 
 const text = (x: number, y: number): PcbTextItem => ({
@@ -42,7 +41,6 @@ const text = (x: number, y: number): PcbTextItem => ({
   angle: 0,
   layer: 'Dwgs.User',
   size: { x: MM(1), y: MM(1) },
-  source: EMPTY,
 });
 
 const dim = (over: Partial<PcbDimension> = {}): PcbDimension => ({
@@ -59,7 +57,6 @@ const dim = (over: Partial<PcbDimension> = {}): PcbDimension => ({
     extensionHeight: MM(0.58642),
     extensionOffset: MM(0.5),
   },
-  source: EMPTY,
   ...over,
 });
 

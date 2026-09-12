@@ -14,36 +14,15 @@
  * source node in step, since the writer emits a stored source verbatim.
  */
 
-import { atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
-import { dropChild, mm, parseBoardItemId, patchChild } from './edit-board.js';
+import { parseBoardItemId } from './edit-board.js';
 import type { PcbFillMode } from './shape_fill.js';
 import { effectiveTextPenWidth, isAutoThickness } from './global_edit_text_and_graphics.js';
 import type { Board, PcbShape, PcbTextItem, StrokeType } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { fontNode } from './eda_text_format.js';
-
-const list = (...items: SNode[]): SList => ({ kind: 'list', items });
-const xyNode = (name: string, p: Vec2): SList => list(atom(name), atom(mm(p.x)), atom(mm(p.y)));
 
 /** The mask layer that pairs with a graphic's own layer, F.SilkS -> F.Mask. */
 const maskSideOf = (layer: string): string | undefined =>
   layer.startsWith('F.') ? 'F.Mask' : layer.startsWith('B.') ? 'B.Mask' : undefined;
-
-/**
- * `(layer …)` alone, or `(layers own mask)` when the graphic also opens the
- * solder mask. The two spellings are exclusive, so switching drops the other.
- */
-function patchLayers(src: SList, layer: string, maskLayer: string | undefined): SList {
-  if (!maskLayer)
-    return patchChild(dropChild(src, 'layers'), 'layer', list(atom('layer'), str(layer)));
-  return patchChild(dropChild(src, 'layer'), 'layers', {
-    kind: 'list',
-    items: [atom('layers'), str(layer), str(maskLayer)],
-  });
-}
-
-const patchLocked = (src: SList, locked: boolean): SList =>
-  locked ? patchChild(src, 'locked', list(atom('locked'), atom('yes'))) : dropChild(src, 'locked');
 
 // ---------------------------------------------------------------------------
 // Text
@@ -142,47 +121,7 @@ export function collectTextValues(t: PcbTextItem): TextValues {
   };
 }
 
-/**
- * `(effects (font (size h w) [(thickness t)] [bold] [italic]) [(justify …)])`.
- *
- * KiCad writes the font size **height first**, which is the opposite order to
- * the `(size x y)` every other item uses — a detail that silently transposes a
- * text box if you assume otherwise.
- */
-function effectsNode(v: TextValues): SList {
-  // `if( !GetAutoThickness() )` (eda_text.cpp:1079-1084), and auto IS a
-  // thickness of zero, which is the test `fontNode` makes — so the flag is
-  // passed as the zero it means. `v.thickness` carries the EFFECTIVE width
-  // while auto is on, and that must not be written.
-  const font = fontNode({
-    ...(v.face ? { face: v.face } : {}),
-    size: { x: v.width, y: v.height },
-    thickness: v.autoThickness ? 0 : v.thickness,
-    bold: v.bold,
-    italic: v.italic,
-  });
-
-  const items: SNode[] = [atom('effects'), font];
-
-  // `(justify …)` in EDA_TEXT::Format's own order (eda_text.cpp:1100-1114):
-  // horizontal word, then vertical, then `mirror`, each omitted at its default —
-  // and the whole token omitted when all three are. It is built from the values
-  // rather than patched into the old words, because the alignment IS these
-  // words: keeping them and only editing `mirror` is what left a text whose
-  // justification the panel could not change.
-  const words = [
-    ...(v.hJustify === 'center' ? [] : [v.hJustify]),
-    ...(v.vJustify === 'center' ? [] : [v.vJustify]),
-    ...(v.mirrored ? ['mirror'] : []),
-  ];
-
-  if (words.length > 0)
-    items.push({ kind: 'list', items: [atom('justify'), ...words.map((w) => atom(w))] });
-
-  return { kind: 'list', items };
-}
-
-/** The `(justify …)` words {@link effectsNode} writes, for the model to carry. */
+/** The `(justify …)` words `EDA_TEXT::Format` writes, for the model to carry. */
 const justifyWords = (v: TextValues): string[] | undefined => {
   const words = [
     ...(v.hJustify === 'center' ? [] : [v.hJustify]),
@@ -219,40 +158,6 @@ export function applyTextValues(board: Board, index: number, v: TextValues): Boa
     knockout: v.knockout,
     locked: v.locked,
   };
-
-  let src = t.source;
-
-  // The text itself is the first positional argument of `(gr_text "…" …)`.
-  if (v.text !== t.text) {
-    const items = [...src.items];
-    items[1] = str(v.text);
-    src = { kind: 'list', items };
-  }
-
-  src = patchChild(
-    src,
-    'at',
-    v.orientation
-      ? list(atom('at'), atom(mm(v.x)), atom(mm(v.y)), atom(String(v.orientation)))
-      : xyNode('at', { x: v.x, y: v.y }),
-  );
-  // Knockout is a modifier *inside* the layer token — `(layer "F.SilkS"
-  // knockout)` — not a child of its own, so it has to be written there or it
-  // reads back as false however faithfully a separate token round-trips.
-  src = patchChild(
-    src,
-    'layer',
-    v.knockout
-      ? list(atom('layer'), str(v.layer), atom('knockout'))
-      : list(atom('layer'), str(v.layer)),
-  );
-  src = patchChild(src, 'effects', effectsNode(v));
-  src = v.hidden
-    ? patchChild(src, 'hide', list(atom('hide'), atom('yes')))
-    : dropChild(src, 'hide');
-  src = patchLocked(src, v.locked);
-
-  next.source = src;
 
   return { ...board, texts: board.texts.map((x, i) => (i === index ? next : x)) };
 }
@@ -361,16 +266,6 @@ export function applyShapeValues(board: Board, index: number, v: ShapeValues): B
 
   const used = shapePointsUsed(v.kind);
   const next: PcbShape = { ...s, kind: v.kind };
-  // `SetShape` changes the node's HEAD token, and a stored source is emitted
-  // verbatim — so on a kind change the source is DISCARDED at the end and the
-  // writer rebuilds the node from the model. Everything the builder does not
-  // carry would be lost, which is why it carries the lock, both layer
-  // spellings, the mask margin, the net and the uuid; a kind change is the one
-  // edit that goes through it. (The patching below still runs and is simply
-  // thrown away — patching an empty list would build a headless node, which is
-  // what a `(` with no `gr_rect` in the file was.)
-  const rebuild = v.kind !== s.kind;
-  let src: SList = s.source;
 
   // `SetCornerRadius` clamps to half the shorter side for a RECTANGLE and takes
   // the value as given for anything else (eda_shape.cpp:508-522) — and only a
@@ -380,91 +275,35 @@ export function applyShapeValues(board: Board, index: number, v: ShapeValues): B
     const h = Math.abs(v.end.y - v.start.y);
     const clamped = Math.min(Math.max(v.cornerRadius, 0), Math.trunc(Math.min(w, h) / 2));
     next.cornerRadius = clamped > 0 ? clamped : undefined;
-    src =
-      clamped > 0
-        ? patchChild(src, 'radius', list(atom('radius'), atom(mm(clamped))))
-        : dropChild(src, 'radius');
   } else {
     next.cornerRadius = undefined;
-    src = dropChild(src, 'radius');
   }
 
   // Only write back the points this kind owns: a circle has no `mid`, and
   // inventing one would put a token in the file that KiCad never wrote.
-  if (used.start) {
-    next.start = v.start;
-    src = patchChild(src, 'start', xyNode('start', v.start));
-  }
-  if (used.end) {
-    next.end = v.end;
-    src = patchChild(src, 'end', xyNode('end', v.end));
-  }
-  if (used.mid) {
-    next.mid = v.mid;
-    src = patchChild(src, 'mid', xyNode('mid', v.mid));
-  }
-  if (used.center) {
-    next.center = v.center;
-    src = patchChild(src, 'center', xyNode('center', v.center));
-  }
+  if (used.start) next.start = v.start;
+  if (used.end) next.end = v.end;
+  if (used.mid) next.mid = v.mid;
+  if (used.center) next.center = v.center;
 
   next.width = v.lineWidth;
   next.strokeType = v.strokeType;
-  src = patchChild(
-    src,
-    'stroke',
-    list(
-      atom('stroke'),
-      list(atom('width'), atom(mm(v.lineWidth))),
-      list(atom('type'), atom(v.strokeType)),
-    ),
-  );
 
   // `format( const PCB_SHAPE* )` (pcb_io_kicad_sexpr.cpp:1071-1097) writes the
-  // token for a POLY, a RECTANGLE or a CIRCLE and for those three ALWAYS —
-  // `(fill no)` included — so a shape that can be filled keeps its token and one
-  // that cannot (a segment, an arc) never grows one.
+  // fill for a POLY, a RECTANGLE or a CIRCLE and for those three always.
   next.fillMode = v.fillMode;
-  src =
-    s.kind === 'poly' || s.kind === 'rect' || s.kind === 'circle'
-      ? patchChild(
-          src,
-          'fill',
-          list(
-            atom('fill'),
-            atom(v.fillMode === 'solid' ? 'yes' : v.fillMode === 'none' ? 'no' : v.fillMode),
-          ),
-        )
-      : dropChild(src, 'fill');
 
   next.layer = v.layer;
   next.maskLayer = v.hasMask ? maskSideOf(v.layer) : undefined;
-  src = patchLayers(src, v.layer, next.maskLayer);
 
   next.solderMaskMargin = v.maskMargin ?? undefined;
-  src =
-    v.maskMargin === null
-      ? dropChild(src, 'solder_mask_margin')
-      : patchChild(
-          src,
-          'solder_mask_margin',
-          list(atom('solder_mask_margin'), atom(mm(v.maskMargin))),
-        );
 
   // `(net …)` carries the NAME, not the code (`pcb_io_kicad_sexpr.cpp:1116`,
-  // emitted only when `GetNetCode() > 0`), so the board's table is what names it
-  // — and net 0 drops the token rather than writing an empty name.
+  // emitted only when `GetNetCode() > 0`), so the board's table is what names it.
   next.net = v.net > 0 ? v.net : undefined;
   next.netName = v.net > 0 ? (board.nets.get(v.net) ?? '') : undefined;
-  src =
-    next.net === undefined
-      ? dropChild(src, 'net')
-      : patchChild(src, 'net', list(atom('net'), str(next.netName ?? '')));
 
   next.locked = v.locked;
-  src = patchLocked(src, v.locked);
-
-  next.source = rebuild ? { kind: 'list', items: [] } : src;
 
   return { ...board, shapes: board.shapes.map((x, i) => (i === index ? next : x)) };
 }
