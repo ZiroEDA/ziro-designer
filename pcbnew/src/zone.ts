@@ -13,7 +13,7 @@
  */
 
 import { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
-import { FlipLayer, type PCB_LAYER_ID } from './layer_ids.js';
+import { FlipLayer, type PCB_LAYER_NAME } from './layer_ids.js';
 import { type VECTOR2I, Distance } from '@ziroeda/kimath/src/math/vector2.js';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { RotatePoint, TestSegmentHit } from '@ziroeda/kimath/src/trigo.js';
@@ -22,14 +22,14 @@ import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 
 export class ZONE extends BOARD_CONNECTED_ITEM {
   protected m_outline: VECTOR2I[];
-  protected m_layers: PCB_LAYER_ID[];
+  protected m_layers: PCB_LAYER_NAME[];
   /** Per-layer filled areas (each an array of point rings). */
-  protected m_fills: Map<PCB_LAYER_ID, VECTOR2I[][]>;
+  protected m_fills: Map<PCB_LAYER_NAME, VECTOR2I[][]>;
 
   constructor(opts: {
     outline?: VECTOR2I[];
-    layers: PCB_LAYER_ID[];
-    fills?: Map<PCB_LAYER_ID, VECTOR2I[][]>;
+    layers: PCB_LAYER_NAME[];
+    fills?: Map<PCB_LAYER_NAME, VECTOR2I[][]>;
     netCode?: number;
   }) {
     super(opts.layers[0] ?? 'F.Cu', opts.netCode ?? 0);
@@ -38,13 +38,13 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     this.m_fills = opts.fills ?? new Map();
   }
 
-  GetLayerSet(): PCB_LAYER_ID[] {
+  GetLayerSet(): PCB_LAYER_NAME[] {
     return this.m_layers;
   }
   GetOutline(): VECTOR2I[] {
     return this.m_outline;
   }
-  GetFills(): Map<PCB_LAYER_ID, VECTOR2I[][]> {
+  GetFills(): Map<PCB_LAYER_NAME, VECTOR2I[][]> {
     return this.m_fills;
   }
 
@@ -85,7 +85,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
   Flip(aCentre: VECTOR2I, aFlipDirection: FLIP_DIRECTION): void {
     this.Mirror(aCentre, aFlipDirection);
     this.m_layers = this.m_layers.map((l) => FlipLayer(l));
-    const flipped = new Map<PCB_LAYER_ID, VECTOR2I[][]>();
+    const flipped = new Map<PCB_LAYER_NAME, VECTOR2I[][]>();
     for (const [layer, rings] of this.m_fills) flipped.set(FlipLayer(layer), rings);
     this.m_fills = flipped;
     this.SetLayer(this.m_layers[0] ?? this.GetLayer());
@@ -114,7 +114,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
   }
 
   /** ZONE::HitTestFilledArea, inside a filled polygon on `aLayer`. */
-  HitTestFilledArea(aLayer: PCB_LAYER_ID, aRefPos: VECTOR2I): boolean {
+  HitTestFilledArea(aLayer: PCB_LAYER_NAME, aRefPos: VECTOR2I): boolean {
     const rings = this.m_fills.get(aLayer);
     if (!rings) return false;
     return rings.some((ring) => ring.length >= 3 && pointInPolygon(aRefPos, ring));

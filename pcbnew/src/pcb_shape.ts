@@ -16,7 +16,7 @@ import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
 import { BOARD_ITEM } from './board_item.js';
-import { FlipLayer, type PCB_LAYER_ID } from './layer_ids.js';
+import { FlipLayer, type PCB_LAYER_NAME } from './layer_ids.js';
 
 export interface PCB_SHAPE extends EDA_SHAPE {}
 
@@ -24,7 +24,7 @@ export interface PCB_SHAPE extends EDA_SHAPE {}
 export class PCB_SHAPE extends BOARD_ITEM {
   constructor(
     shape: SHAPE_T,
-    layer: PCB_LAYER_ID,
+    layer: PCB_LAYER_NAME,
     opts: {
       start?: VECTOR2I;
       end?: VECTOR2I;

@@ -15,7 +15,7 @@
  */
 
 import { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
-import { FlipLayer, type PCB_LAYER_ID } from './layer_ids.js';
+import { FlipLayer, type PCB_LAYER_NAME } from './layer_ids.js';
 import { type VECTOR2I, SquaredEuclideanNorm } from '@ziroeda/kimath/src/math/vector2.js';
 import { type EDA_ANGLE, ANGLE_0 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
@@ -44,7 +44,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
   protected m_size: VECTOR2I;
   protected m_shape: PAD_SHAPE;
   protected m_attribute: PAD_ATTRIB;
-  protected m_layerSet: PCB_LAYER_ID[];
+  protected m_layerSet: PCB_LAYER_NAME[];
   protected m_roundRectRadiusRatio: number;
   protected m_chamferRatio: number;
   /** roundrect corner radius (absolute IU), derived from ratio for hit-test. */
@@ -56,7 +56,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     size: VECTOR2I;
     shape: PAD_SHAPE;
     attribute: PAD_ATTRIB;
-    layers: PCB_LAYER_ID[];
+    layers: PCB_LAYER_NAME[];
     netCode?: number;
     roundRectRadiusRatio?: number;
     chamferRatio?: number;
@@ -91,7 +91,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
   GetAttribute(): PAD_ATTRIB {
     return this.m_attribute;
   }
-  GetLayerSet(): PCB_LAYER_ID[] {
+  GetLayerSet(): PCB_LAYER_NAME[] {
     return this.m_layerSet;
   }
 

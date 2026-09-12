@@ -428,7 +428,7 @@ export class PCB_IO_KICAD_SEXPR {
 
     const cu_board_mask = LSET.AllCuMask(this.m_board.copperLayerCount);
 
-    let layerMask = layerMaskIn.clone();
+    let layerMask = new LSET(layerMaskIn);
     let output = '';
 
     if (!enumerateLayers) {
@@ -438,16 +438,16 @@ export class PCB_IO_KICAD_SEXPR {
         // Clear all copper bits because pads might have internal layers that aren't part of the
         // board enabled, and we don't want to output those in the layers listing if we already
         // output the wildcard.
-        layerMask = layerMask.andNot(cu_all);
+        layerMask = layerMask.and(cu_all.not());
       } else if (layerMask.and(cu_board_mask).equals(fr_bk)) {
         if (isZone) output += ` ${this.m_out.Quotew('F&B.Cu')}`;
         else output += ` ${this.m_out.Quotew('*.Cu')}`;
-        layerMask = layerMask.andNot(fr_bk);
+        layerMask = layerMask.and(fr_bk.not());
       }
       const pair = (set: LSET, name: string): void => {
         if (layerMask.and(set).equals(set)) {
           output += ` ${this.m_out.Quotew(name)}`;
-          layerMask = layerMask.andNot(set);
+          layerMask = layerMask.and(set.not());
         }
       };
       pair(adhes, '*.Adhes');
@@ -1462,7 +1462,7 @@ export class PCB_IO_KICAD_SEXPR {
 
         const layerCount = this.m_hasBoard ? board.copperLayerCount : MAX_CU_LAYERS;
 
-        for (const layer of LAYER_RANGE(F_Cu, B_Cu, layerCount)) {
+        for (const layer of new LAYER_RANGE(F_Cu, B_Cu, layerCount)) {
           if (layer === F_Cu) continue;
 
           this.m_out.Print(`(layer ${this.m_out.Quotew(LSET_Name(layer))}`);
@@ -1896,7 +1896,7 @@ export class PCB_IO_KICAD_SEXPR {
       } else {
         this.m_out.Print('(mode custom)');
 
-        for (const layer of LAYER_RANGE(F_Cu, B_Cu, board.copperLayerCount)) {
+        for (const layer of new LAYER_RANGE(F_Cu, B_Cu, board.copperLayerCount)) {
           if (layer === F_Cu) continue;
 
           this.m_out.Print(`(layer ${this.m_out.Quotew(LSET_Name(layer))}`);
@@ -2973,7 +2973,7 @@ function viaLayerSet(via: KPcbVia, copperLayerCount: number): LSET {
   const layermask = new LSET();
   let cnt = copperLayerCount;
   // PCB_LAYER_IDs are numbered from front to back, this is top to bottom.
-  for (const id of LAYER_RANGE(via.layer1, via.layer2, copperLayerCount)) {
+  for (const id of new LAYER_RANGE(via.layer1, via.layer2, copperLayerCount)) {
     layermask.set(id);
     if (--cnt <= 0) break;
   }

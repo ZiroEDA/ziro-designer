@@ -265,16 +265,16 @@ export function layerTokens(
   const cu_all = LSET.AllCuMask();
   const fr_bk = new LSET([B_Cu, F_Cu]);
   const cu_board_mask = LSET.AllCuMask(copperLayerCount);
-  let layerMask = layerMaskIn.clone();
+  let layerMask = new LSET(layerMaskIn);
   const out: string[] = [];
   if (!enumerate) {
     // If all copper layers present on the board are enabled, then output the wildcard
     if (layerMask.and(cu_board_mask).equals(cu_board_mask)) {
       out.push('*.Cu');
-      layerMask = layerMask.andNot(cu_all);
+      layerMask = layerMask.and(cu_all.not());
     } else if (layerMask.and(cu_board_mask).equals(fr_bk)) {
       out.push(isZone ? 'F&B.Cu' : '*.Cu');
-      layerMask = layerMask.andNot(fr_bk);
+      layerMask = layerMask.and(fr_bk.not());
     }
     const pairs: [string, number, number][] = [
       ['*.Adhes', 9, 11],
@@ -288,7 +288,7 @@ export function layerTokens(
       const set = new LSET([a, b]);
       if (layerMask.and(set).equals(set)) {
         out.push(name);
-        layerMask = layerMask.andNot(set);
+        layerMask = layerMask.and(set.not());
       }
     }
   }
@@ -2092,7 +2092,7 @@ function newDimension(): KPcbDimension {
  */
 export function cloneK<T>(value: T): T {
   if (value === null || typeof value !== 'object') return value;
-  if (value instanceof LSET) return value.clone() as T;
+  if (value instanceof LSET) return new LSET(value) as T;
   if (Array.isArray(value)) return value.map((v) => cloneK(v)) as T;
   if (value instanceof Map) return new Map([...value].map(([k, v]) => [k, cloneK(v)])) as T;
   if (value instanceof Set) return new Set([...value].map((v) => cloneK(v))) as T;

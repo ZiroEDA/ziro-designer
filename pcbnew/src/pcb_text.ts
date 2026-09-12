@@ -20,7 +20,7 @@ import { ANGLE_180, EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js'
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { BOARD_ITEM } from './board_item.js';
-import { FlipLayer, type PCB_LAYER_ID } from './layer_ids.js';
+import { FlipLayer, type PCB_LAYER_NAME } from './layer_ids.js';
 
 /** The values a caller may set at construction; each goes through the EDA_TEXT setter. */
 export interface EdaTextOpts {
@@ -42,7 +42,7 @@ export interface PCB_TEXT extends EDA_TEXT {}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: KiCad's multiple inheritance, see libs/core/src/mixins.ts
 export class PCB_TEXT extends BOARD_ITEM {
-  constructor(layer: PCB_LAYER_ID, opts: EdaTextOpts = {}) {
+  constructor(layer: PCB_LAYER_NAME, opts: EdaTextOpts = {}) {
     super(layer);
     this.initEdaText(pcbIUScale, opts.text ?? '');
 

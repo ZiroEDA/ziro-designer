@@ -42,7 +42,7 @@ import {
   setupSplineOrLine,
 } from '@ziroeda/common/src/import_gfx/graphics_importer.js';
 import { LINE_STYLE } from '@ziroeda/common/src/stroke_params.js';
-import type { PCB_LAYER_ID } from './layer_ids.js';
+import type { PCB_LAYER_NAME } from './layer_ids.js';
 import { joinJustify } from './textbox_properties.js';
 import type { PcbShape, PcbTextItem, StrokeType } from './types.js';
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
@@ -91,7 +91,7 @@ export type IMPORTED_ITEM =
   | { type: 'text'; text: Omit<PcbTextItem, 'source'> };
 
 /** `Dwgs_User`, the layer an import lands on until the caller says otherwise. */
-export const DEFAULT_IMPORT_LAYER: PCB_LAYER_ID = 'Dwgs.User';
+export const DEFAULT_IMPORT_LAYER: PCB_LAYER_NAME = 'Dwgs.User';
 
 /**
  * `STROKE_PARAMS` reduced to what a board graphic stores.
@@ -110,12 +110,12 @@ export interface STROKE_PARAMS {
  * every test in this file treats them identically — neither is importable and
  * both fall back to the default layer. They collapse to one `null`.
  */
-export type LayerMapTarget = PCB_LAYER_ID | null;
+export type LayerMapTarget = PCB_LAYER_NAME | null;
 
 export class GRAPHICS_IMPORTER_PCBNEW extends GRAPHICS_IMPORTER<IMPORTED_ITEM> {
   /** Target layer for the imported shapes. */
-  protected m_layer: PCB_LAYER_ID = DEFAULT_IMPORT_LAYER;
-  protected m_defaultLayer: PCB_LAYER_ID = DEFAULT_IMPORT_LAYER;
+  protected m_layer: PCB_LAYER_NAME = DEFAULT_IMPORT_LAYER;
+  protected m_defaultLayer: PCB_LAYER_NAME = DEFAULT_IMPORT_LAYER;
   protected m_useLayerMap = false;
   protected m_layerMap = new Map<string, LayerMapTarget>();
 
@@ -125,12 +125,12 @@ export class GRAPHICS_IMPORTER_PCBNEW extends GRAPHICS_IMPORTER<IMPORTED_ITEM> {
   }
 
   /** Note that this also moves the *default*: the two are set together. */
-  SetLayer(aLayer: PCB_LAYER_ID): void {
+  SetLayer(aLayer: PCB_LAYER_NAME): void {
     this.m_layer = aLayer;
     this.m_defaultLayer = aLayer;
   }
 
-  GetLayer(): PCB_LAYER_ID {
+  GetLayer(): PCB_LAYER_NAME {
     return this.m_layer;
   }
 

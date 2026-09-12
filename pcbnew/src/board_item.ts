@@ -15,23 +15,23 @@
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
-import type { PCB_LAYER_ID } from './layer_ids.js';
+import type { PCB_LAYER_NAME } from './layer_ids.js';
 
 export abstract class BOARD_ITEM {
   /** The primary layer the item lives on (BOARD_ITEM::m_layer). */
-  protected m_layer: PCB_LAYER_ID;
+  protected m_layer: PCB_LAYER_NAME;
 
-  constructor(layer: PCB_LAYER_ID = 'F.Cu') {
+  constructor(layer: PCB_LAYER_NAME = 'F.Cu') {
     this.m_layer = layer;
   }
 
-  GetLayer(): PCB_LAYER_ID {
+  GetLayer(): PCB_LAYER_NAME {
     return this.m_layer;
   }
-  SetLayer(aLayer: PCB_LAYER_ID): void {
+  SetLayer(aLayer: PCB_LAYER_NAME): void {
     this.m_layer = aLayer;
   }
-  IsOnLayer(aLayer: PCB_LAYER_ID): boolean {
+  IsOnLayer(aLayer: PCB_LAYER_NAME): boolean {
     return this.m_layer === aLayer;
   }
 

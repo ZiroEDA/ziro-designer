@@ -12,7 +12,7 @@
  */
 
 import { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
-import { FlipLayer, type PCB_LAYER_ID } from './layer_ids.js';
+import { FlipLayer, type PCB_LAYER_NAME } from './layer_ids.js';
 import { type VECTOR2I, add, Distance } from '@ziroeda/kimath/src/math/vector2.js';
 import { EDA_ANGLE, ANGLE_0, ANGLE_360 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { RotatePoint, TestSegmentHit } from '@ziroeda/kimath/src/trigo.js';
@@ -24,7 +24,7 @@ export class PCB_TRACK extends BOARD_CONNECTED_ITEM {
   protected m_End: VECTOR2I;
   protected m_width: number;
 
-  constructor(start: VECTOR2I, end: VECTOR2I, width: number, layer: PCB_LAYER_ID, netCode = 0) {
+  constructor(start: VECTOR2I, end: VECTOR2I, width: number, layer: PCB_LAYER_NAME, netCode = 0) {
     super(layer, netCode);
     this.m_Start = { ...start };
     this.m_End = { ...end };
@@ -95,7 +95,7 @@ export class PCB_ARC extends PCB_TRACK {
     mid: VECTOR2I,
     end: VECTOR2I,
     width: number,
-    layer: PCB_LAYER_ID,
+    layer: PCB_LAYER_NAME,
     netCode = 0,
   ) {
     super(start, end, width, layer, netCode);
@@ -197,7 +197,7 @@ export enum VIATYPE {
 }
 
 export class PCB_VIA extends PCB_TRACK {
-  protected m_bottomLayer: PCB_LAYER_ID;
+  protected m_bottomLayer: PCB_LAYER_NAME;
   protected m_viaType: VIATYPE;
   protected m_drill: number;
 
@@ -205,8 +205,8 @@ export class PCB_VIA extends PCB_TRACK {
     pos: VECTOR2I,
     size: number,
     drill: number,
-    topLayer: PCB_LAYER_ID,
-    bottomLayer: PCB_LAYER_ID,
+    topLayer: PCB_LAYER_NAME,
+    bottomLayer: PCB_LAYER_NAME,
     viaType: VIATYPE,
     netCode = 0,
   ) {
@@ -222,7 +222,7 @@ export class PCB_VIA extends PCB_TRACK {
   GetDrillValue(): number {
     return this.m_drill;
   }
-  GetBottomLayer(): PCB_LAYER_ID {
+  GetBottomLayer(): PCB_LAYER_NAME {
     return this.m_bottomLayer;
   }
 

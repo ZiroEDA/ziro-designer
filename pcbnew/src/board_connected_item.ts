@@ -8,13 +8,13 @@
  */
 
 import { BOARD_ITEM } from './board_item.js';
-import type { PCB_LAYER_ID } from './layer_ids.js';
+import type { PCB_LAYER_NAME } from './layer_ids.js';
 
 export abstract class BOARD_CONNECTED_ITEM extends BOARD_ITEM {
   /** Net code (BOARD_CONNECTED_ITEM::m_netinfo->GetNetCode()). */
   protected m_netCode: number;
 
-  constructor(layer: PCB_LAYER_ID = 'F.Cu', netCode = 0) {
+  constructor(layer: PCB_LAYER_NAME = 'F.Cu', netCode = 0) {
     super(layer);
     this.m_netCode = netCode;
   }

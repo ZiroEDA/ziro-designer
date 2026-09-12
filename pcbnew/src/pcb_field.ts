@@ -7,7 +7,7 @@
  */
 
 import { type EdaTextOpts, PCB_TEXT } from './pcb_text.js';
-import type { PCB_LAYER_ID } from './layer_ids.js';
+import type { PCB_LAYER_NAME } from './layer_ids.js';
 
 export enum MANDATORY_FIELD_T {
   REFERENCE = 0,
@@ -21,7 +21,7 @@ export class PCB_FIELD extends PCB_TEXT {
   private m_id: number;
   private m_name: string;
 
-  constructor(layer: PCB_LAYER_ID, id: number, name: string, opts: EdaTextOpts = {}) {
+  constructor(layer: PCB_LAYER_NAME, id: number, name: string, opts: EdaTextOpts = {}) {
     super(layer, opts);
     this.m_id = id;
     this.m_name = name;

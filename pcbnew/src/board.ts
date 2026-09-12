@@ -9,7 +9,7 @@
  * collections + Add/Remove + the accessors the tools and formatter need.
  */
 
-import { FlipLayer as flipLayerImpl, type PCB_LAYER_ID } from './layer_ids.js';
+import { FlipLayer as flipLayerImpl, type PCB_LAYER_NAME } from './layer_ids.js';
 import { FOOTPRINT } from './footprint.js';
 import { PCB_TRACK } from './pcb_track.js';
 import { ZONE } from './zone.js';
@@ -74,7 +74,7 @@ export class BOARD {
   }
 
   /** BOARD::FlipLayer, the opposite-side layer (delegates to layer_ids). */
-  FlipLayer(aLayer: PCB_LAYER_ID): PCB_LAYER_ID {
+  FlipLayer(aLayer: PCB_LAYER_NAME): PCB_LAYER_NAME {
     return flipLayerImpl(aLayer);
   }
 

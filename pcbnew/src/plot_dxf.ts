@@ -56,7 +56,7 @@ import { EDA_ANGLE, ANGLE_90, ANGLE_180 } from '@ziroeda/kimath/src/geometry/eda
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/eda_text.js';
-import type { PCB_LAYER_ID } from './layer_ids.js';
+import type { PCB_LAYER_NAME } from './layer_ids.js';
 
 /** `DXF_UNITS` (plotter.h). MM is 1 because Windows headers claim `MM`. */
 export enum DXF_UNITS {
@@ -137,7 +137,7 @@ const colorEquals = (a: Color4d, b: Color4d): boolean =>
  * imported because pcbnew/src must not reach into designer/'s theme.
  */
 export interface DxfRenderSettings {
-  GetLayerColor(aLayer: PCB_LAYER_ID): Color4d;
+  GetLayerColor(aLayer: PCB_LAYER_NAME): Color4d;
 }
 
 /**
@@ -163,7 +163,7 @@ export interface DxfTextAttributes {
 }
 
 /** One `m_layersToExport` entry: the board layer and the DXF layer name for it. */
-export type DxfLayerExport = readonly [layer: PCB_LAYER_ID, name: string];
+export type DxfLayerExport = readonly [layer: PCB_LAYER_NAME, name: string];
 
 interface DxfLayout {
   name: string;
@@ -900,7 +900,7 @@ export class DxfPlotter {
   private m_colorMode = false;
   private m_currentPenWidth = -1;
   private m_penLastpos: Vec2 = { x: 0, y: 0 };
-  private m_layer: PCB_LAYER_ID = '';
+  private m_layer: PCB_LAYER_NAME = '';
   private m_layersToExport: readonly DxfLayerExport[] = [];
 
   // ---- DXF_PLOTTER state ---------------------------------------------------
@@ -1080,11 +1080,11 @@ export class DxfPlotter {
     this.m_currentLineType = aLineStyle;
   }
 
-  SetLayer(aLayer: PCB_LAYER_ID): void {
+  SetLayer(aLayer: PCB_LAYER_NAME): void {
     this.m_layer = aLayer;
   }
 
-  GetLayer(): PCB_LAYER_ID {
+  GetLayer(): PCB_LAYER_NAME {
     return this.m_layer;
   }
 
@@ -1117,7 +1117,7 @@ export class DxfPlotter {
    * Current_Layer_Color_Name ignores the layer id it was handed in favour of
    * the current layer. `int( c * 255 )` truncates towards zero, so 0.5 is 127.
    */
-  GetCurrentLayerName(aMode: DXF_LAYER_OUTPUT_MODE, aLayerId?: PCB_LAYER_ID): string {
+  GetCurrentLayerName(aMode: DXF_LAYER_OUTPUT_MODE, aLayerId?: PCB_LAYER_NAME): string {
     const actualLayerId = aLayerId !== undefined ? aLayerId : this.m_layer;
 
     switch (aMode) {

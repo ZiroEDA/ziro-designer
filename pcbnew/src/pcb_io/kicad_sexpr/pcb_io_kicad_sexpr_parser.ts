@@ -1280,7 +1280,7 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
   private lookUpLayerSet(): LSET {
     const hit = this.m_layerMasks.get(this.CurText());
     if (!hit) return new LSET([Rescue]);
-    return hit.clone();
+    return new LSET(hit);
   }
 
   /** `lookUpLayer( aMap )` (:2418). */

@@ -18,7 +18,7 @@
  */
 
 import { BOARD_ITEM } from './board_item.js';
-import { FlipLayer, type PCB_LAYER_ID } from './layer_ids.js';
+import { FlipLayer, type PCB_LAYER_NAME } from './layer_ids.js';
 import type { PAD } from './pad.js';
 import type { PCB_FIELD } from './pcb_field.js';
 import { PCB_SHAPE } from './pcb_shape.js';
@@ -46,7 +46,7 @@ export class FOOTPRINT extends BOARD_ITEM {
       fpid?: string;
       pos?: VECTOR2I;
       orient?: EDA_ANGLE;
-      layer?: PCB_LAYER_ID;
+      layer?: PCB_LAYER_NAME;
       fields?: PCB_FIELD[];
       pads?: PAD[];
       drawings?: FP_DRAWING[];
