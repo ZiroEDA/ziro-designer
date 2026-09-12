@@ -84,15 +84,10 @@ import {
   splitTextLines,
   type TextHAlign,
 } from '@ziroeda/common/src/font/stroke_font.js';
-import { metricsInterline } from '@ziroeda/common/src/font/font_metrics.js';
 import type { TextEffects as SchTextEffects } from '@ziroeda/eeschema/src/types.js';
-import type { OutlineFont } from '@ziroeda/common/src/font/outline_font.js';
-import {
-  layoutOutlineText,
-  outlineBoundaryLimits,
-  type OutlineTextLayout,
-} from '@ziroeda/common/src/font/outline_layout.js';
+import { outlineBoundaryLimits } from '@ziroeda/common/src/font/outline_layout.js';
 import { getOutlineFont } from '../../../font/outline_fonts.js';
+import { drawOutlineText } from '../../../font/draw_outline_text.js';
 import { globalLabelShape, isEmpty, textPenWidth } from '@ziroeda/eeschema/src/tools/bbox.js';
 import { contentBBox } from '@ziroeda/eeschema/src/tools/scene_bbox.js';
 import { tableCellId } from '@ziroeda/eeschema/src/tools/table_cells.js';
@@ -4448,20 +4443,20 @@ function drawText(
   // load, which `GetFont` answers with `getDefaultFont()` too.
   const outline = face ? getOutlineFont(face, bold, italic) : null;
   if (outline) {
-    drawOutlineText(
-      ctx,
-      outline,
+    drawOutlineText(ctx, outline, {
       text,
       at,
-      heightIU,
+      size: heightIU,
       color,
       hAlign,
-      top,
-      bottom,
+      vAlign: top ? 'top' : bottom ? 'bottom' : 'center',
       angleDeg,
-      penIU,
-      shadowIU,
-    );
+      // The item's pen or the default the stroke path uses, plus the
+      // selection shadow: a glow is a wider bar, as it is a wider stroke.
+      penIU: (penIU ?? Math.min(g_defaultPen, heightIU * 0.25)) + shadowIU,
+      lineWidth: penWidth,
+      shadow: shadowIU > 0,
+    });
     return;
   }
 
@@ -4539,116 +4534,6 @@ function drawText(
   if (g_vectorText) strokeGlyphs(ctx, text, heightIU, italic, hAlign);
   else ctx.stroke(textPath(text, heightIU, italic, hAlign).path);
   ctx.restore();
-}
-
-/**
- * `FONT::Draw` for an `OUTLINE_FONT`: the run laid out by `layoutOutlineText`
- * (block frame, line 0 on the baseline), placed by `getLinePositions`
- * (font.cpp:181-243) and handed to the GAL as filled polygons — what
- * `OPENGL_GAL::DrawGlyph` does with an `OUTLINE_GLYPH` (opengl_gal.cpp:
- * 3122-3138): `Triangulate` into `m_fillColor`, no stroke at all. The
- * recorder's `fill` triangulates the same rings under the non-zero rule the
- * winding was built for.
- *
- * The placement is `drawText`'s stroke arithmetic without the two
- * `if( IsStroke() )` terms — `offset.x += strokeWidth / 1.52` and
- * `offset.y -= strokeWidth * 0.052` — and with `OUTLINE_FONT::GetInterline`,
- * which has no legacy factor. The 1.17 block fudge is `getLinePositions`'
- * own and applies to both.
- *
- * The overbar is the one stroke: `drawMarkup` adds it as a `STROKE_GLYPH`
- * for every font, at the pen `FONT::Draw` set (`aGal->SetLineWidth(
- * aAttrs.m_StrokeWidth )`), which is why `penIU`/`shadowIU` still reach here.
- */
-function drawOutlineText(
-  ctx: CanvasRenderingContext2D,
-  font: OutlineFont,
-  text: string,
-  at: Vec2,
-  heightIU: number,
-  color: string,
-  hAlign: TextHAlign,
-  top: boolean | undefined,
-  bottom: boolean | undefined,
-  angleDeg: number,
-  penIU: number | undefined,
-  shadowIU: number,
-): void {
-  const cap = heightIU;
-  const a = (((angleDeg % 360) + 360) % 360) * (Math.PI / 180);
-  const layout = outlineLayout(font, text, heightIU, hAlign);
-  const width = layout.width;
-  const blockH = cap * SINGLE_LINE_BLOCK + (layout.lineCount - 1) * metricsInterline(cap);
-  const offY = top ? cap : bottom ? cap - blockH : cap - blockH / 2;
-  const offX = hAlign === 'right' ? -width : hAlign === 'left' ? 0 : -width / 2;
-
-  ctx.save();
-  ctx.translate(at.x, at.y);
-  if (a !== 0) ctx.rotate(-a);
-  ctx.translate(offX, offY);
-  ctx.fillStyle = color;
-  if (shadowIU > 0) {
-    // "Trying to draw glyph-shaped shadows on outline text is a fool's
-    // errand. Just box it." (sch_painter.cpp:2258-2268): the text's bounding
-    // box, inflated by half the pen across and twice the pen up and down,
-    // filled in the shadow colour — where `attrs.m_StrokeWidth` is the
-    // item's pen plus the shadow width.
-    const w = (penIU ?? Math.min(g_defaultPen, heightIU * 0.25)) + shadowIU;
-    const b = layout.bbox;
-    ctx.fillRect(b.minX - w / 2, b.minY - 2 * w, b.maxX - b.minX + w, b.maxY - b.minY + 4 * w);
-    ctx.restore();
-    return;
-  }
-  ctx.beginPath();
-  for (const g of layout.glyphs) {
-    for (const ring of g.rings) {
-      if (ring.length < 3) continue;
-      const p0 = ring[0]!;
-      ctx.moveTo(p0.x, p0.y);
-      for (let i = 1; i < ring.length; i++) ctx.lineTo(ring[i]!.x, ring[i]!.y);
-      ctx.closePath();
-    }
-  }
-  // Canvas2D's default rule is non-zero, which is the one the winding was
-  // built for. Not `fill('nonzero')`: the recorder's `fill( path, rule )`
-  // would take the string as the path and draw nothing.
-  ctx.fill();
-  if (layout.bars.length) {
-    // The bar's pen: the item's own, or the default the stroke path uses,
-    // plus the selection shadow — a glow is a wider bar, as it is a wider
-    // glyph stroke.
-    const pen = (penIU ?? Math.min(g_defaultPen, heightIU * 0.25)) + shadowIU;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = penWidth(pen);
-    ctx.lineCap = 'round';
-    for (const bar of layout.bars) {
-      ctx.beginPath();
-      ctx.moveTo(bar[0]!.x, bar[0]!.y);
-      ctx.lineTo(bar[1]!.x, bar[1]!.y);
-      ctx.stroke();
-    }
-  }
-  ctx.restore();
-}
-
-// Retained outline layouts, keyed like `g_glyphRuns`, plus the font, since
-// two faces lay the same string out differently.
-const g_outlineLayouts = new Map<string, OutlineTextLayout>();
-
-function outlineLayout(
-  font: OutlineFont,
-  text: string,
-  size: number,
-  hAlign: TextHAlign,
-): OutlineTextLayout {
-  const key = `${font.fontName}|${font.isBold ? 1 : 0}${font.isItalic ? 1 : 0}|${hAlign}|${size}|${text}`;
-  let entry = g_outlineLayouts.get(key);
-  if (!entry) {
-    entry = layoutOutlineText(font, text, size, hAlign);
-    if (g_outlineLayouts.size > 6000) g_outlineLayouts.clear();
-    g_outlineLayouts.set(key, entry);
-  }
-  return entry;
 }
 
 // Vector-text mode (Plot to SVG): stroke glyph segments directly onto the

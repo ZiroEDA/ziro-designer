@@ -26,6 +26,8 @@ import { iuToMM, mmToIU } from '@ziroeda/common';
 import type { LibGraphic, LibPin, LibSymbol, LibSymbolUnit, SchField } from '@ziroeda/eeschema';
 import { layoutText, measureText } from '@ziroeda/common/src/font/stroke_font.js';
 import { textWidth } from '@ziroeda/common/src/font/font_provider.js';
+import { getOutlineFont } from '../../../font/outline_fonts.js';
+import { drawOutlineText } from '../../../font/draw_outline_text.js';
 import { ITALIC_TILT } from '@ziroeda/eeschema';
 import type { Theme } from '../../schematic/theme.js';
 import { drawGrid, viewFromOffsets, type GridStyle } from '../../../ui/grid_cursor.js';
@@ -163,6 +165,8 @@ function drawText(
   bold = false,
   italic = false,
   penWidth?: number,
+  /** `(font (face …))`: `FONT::GetFont( face, bold, italic )` picks the font. */
+  face?: string,
 ): void {
   if (text === '' || text === '~') return;
   const cap = heightIU;
@@ -170,6 +174,25 @@ function drawText(
     left = justify?.includes('left');
   const top = justify?.includes('top'),
     bottom = justify?.includes('bottom');
+  // An outline face fills glyph polygons through the one `FONT::Draw` port
+  // the schematic renderer uses; null is the stroke font (no face, the
+  // KiCad Font by name, or a face not loaded yet).
+  const outline = face ? getOutlineFont(face, bold, italic) : null;
+  if (outline) {
+    drawOutlineText(ctx, outline, {
+      text,
+      at,
+      size: heightIU,
+      color,
+      hAlign: right ? 'right' : left ? 'left' : 'center',
+      vAlign: top ? 'top' : bottom ? 'bottom' : 'center',
+      angleDeg,
+      penIU:
+        penWidth ?? (bold ? heightIU / 5 : Math.max(heightIU * 0.11, DEFAULT_LINE_WIDTH * 0.6)),
+      lineWidth: (w) => w,
+    });
+    return;
+  }
   const a = (((angleDeg % 360) + 360) % 360) * (Math.PI / 180);
   const { path, width } = textPath(text, heightIU, italic);
   const offX = right ? -width : left ? 0 : -width / 2;
@@ -747,6 +770,8 @@ export function drawGraphic(
         g.angle % 180 === 90 ? 90 : 0,
         g.effects?.bold,
         g.effects?.italic,
+        undefined,
+        g.effects?.face,
       );
       break;
     }
@@ -807,6 +832,8 @@ export function drawField(
     f.angle % 180 === 90 ? 90 : 0,
     f.effects?.bold,
     f.effects?.italic,
+    undefined,
+    f.effects?.face,
   );
 }
 
