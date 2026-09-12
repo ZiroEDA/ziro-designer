@@ -175,3 +175,13 @@ export function kiidFromString(text: string): string {
 
   return newKiid();
 }
+
+/**
+ * `KIID`: the identifier as its string form. KiCad's class wraps a boost
+ * uuid; the file format, the parser and every consumer here hold the
+ * `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` text, which is also its `AsString()`.
+ */
+export type KIID = string;
+
+/** `niluuid`: the nil identifier, `KIID( 0 )`. */
+export const niluuid: KIID = '00000000-0000-0000-0000-000000000000';

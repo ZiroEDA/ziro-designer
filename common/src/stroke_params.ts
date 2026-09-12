@@ -135,3 +135,381 @@ export const WIRE_STYLE_CHOICES: readonly (readonly [LineStyleToken, string])[] 
   ['default', DEFAULT_WIRE_STYLE_LABEL],
   ...LINE_STYLE_CHOICES,
 ];
+
+// ---------------------------------------------------------------------------
+// STROKE_PARAMS (stroke_params.h / common/stroke_params.cpp)
+
+import {
+  ANGLE_0,
+  ANGLE_360,
+  EDA_ANGLE,
+  EDA_ANGLE_T,
+} from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { ClipLine } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
+import { type SHAPE, SHAPE_TYPE, SHAPE_TYPE_asString } from '@ziroeda/kimath/src/geometry/shape.js';
+import type { SHAPE_ARC } from '@ziroeda/kimath/src/geometry/shape_arc.js';
+import type { SHAPE_RECT } from '@ziroeda/kimath/src/geometry/shape_rect.js';
+import { SHAPE_SEGMENT } from '@ziroeda/kimath/src/geometry/shape_segment.js';
+import type { SHAPE_SIMPLE } from '@ziroeda/kimath/src/geometry/shape_simple.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { type Color4d, COLOR4D_UNSPECIFIED } from './color4d.js';
+import { type EdaIuScale, FormatInternalUnits } from './eda_units.js';
+import type { PlotterRenderSettings } from './render_settings.js';
+import type { OUTPUTFORMATTER } from './richio.js';
+import { FormatDouble2Str } from './string_utils.js';
+import type { UNITS_PROVIDER } from './units_provider.js';
+import { MSG_PANEL_ITEM } from './widgets/msgpanel.js';
+
+/** `LINE_STYLE_DESC`. */
+export interface LINE_STYLE_DESC_T {
+  name: string;
+  bitmap: string;
+}
+
+/**
+ * Conversion map between LINE_STYLE values and style names displayed.
+ */
+export const lineTypeNames: ReadonlyMap<LINE_STYLE, LINE_STYLE_DESC_T> = new Map<
+  LINE_STYLE,
+  LINE_STYLE_DESC_T
+>([
+  [LINE_STYLE.SOLID, { name: 'Solid', bitmap: 'stroke_solid' }],
+  [LINE_STYLE.DASH, { name: 'Dashed', bitmap: 'stroke_dash' }],
+  [LINE_STYLE.DOT, { name: 'Dotted', bitmap: 'stroke_dot' }],
+  [LINE_STYLE.DASHDOT, { name: 'Dash-Dot', bitmap: 'stroke_dashdot' }],
+  [LINE_STYLE.DASHDOTDOT, { name: 'Dash-Dot-Dot', bitmap: 'stroke_dashdotdot' }],
+]);
+
+const sameColor = (a: Color4d, b: Color4d): boolean =>
+  a.r === b.r && a.g === b.g && a.b === b.b && a.a === b.a;
+
+/**
+ * Simple container to manage line stroke parameters.
+ */
+export class STROKE_PARAMS {
+  private m_width: number;
+  private m_lineStyle: LINE_STYLE;
+  private m_color: Color4d;
+
+  constructor(
+    aWidth = 0,
+    aLineStyle: LINE_STYLE = LINE_STYLE.DEFAULT,
+    aColor: Color4d = COLOR4D_UNSPECIFIED,
+  ) {
+    this.m_width = aWidth;
+    this.m_lineStyle = aLineStyle;
+    this.m_color = { ...aColor };
+  }
+
+  /** The copy. */
+  clone(): STROKE_PARAMS {
+    return new STROKE_PARAMS(this.m_width, this.m_lineStyle, this.m_color);
+  }
+
+  GetWidth(): number {
+    return this.m_width;
+  }
+  SetWidth(aWidth: number): void {
+    this.m_width = aWidth;
+  }
+
+  GetLineStyle(): LINE_STYLE {
+    return this.m_lineStyle;
+  }
+  SetLineStyle(aLineStyle: LINE_STYLE): void {
+    this.m_lineStyle = aLineStyle;
+  }
+
+  GetColor(): Color4d {
+    return this.m_color;
+  }
+  SetColor(aColor: Color4d): void {
+    this.m_color = { ...aColor };
+  }
+
+  /** `operator!=`. */
+  notEquals(aOther: STROKE_PARAMS): boolean {
+    return (
+      this.m_width !== aOther.m_width ||
+      this.m_lineStyle !== aOther.m_lineStyle ||
+      !sameColor(this.m_color, aOther.m_color)
+    );
+  }
+
+  Format(aFormatter: OUTPUTFORMATTER, aIuScale: EdaIuScale): void {
+    if (sameColor(this.GetColor(), COLOR4D_UNSPECIFIED)) {
+      aFormatter.Print(
+        `(stroke (width ${FormatInternalUnits(aIuScale, this.GetWidth())}) (type ${STROKE_PARAMS.GetLineStyleToken(this.GetLineStyle())}))`,
+      );
+    } else {
+      aFormatter.Print(
+        `(stroke (width ${FormatInternalUnits(aIuScale, this.GetWidth())}) (type ${STROKE_PARAMS.GetLineStyleToken(this.GetLineStyle())}) (color ${KiROUND(this.GetColor().r * 255.0)} ${KiROUND(this.GetColor().g * 255.0)} ${KiROUND(this.GetColor().b * 255.0)} ${FormatDouble2Str(this.GetColor().a)}))`,
+      );
+    }
+  }
+
+  GetMsgPanelInfo(
+    aUnitsProvider: UNITS_PROVIDER,
+    aList: MSG_PANEL_ITEM[],
+    aIncludeStyle = true,
+    aIncludeWidth = true,
+  ): void {
+    if (aIncludeStyle) {
+      let msg = 'Default';
+
+      for (const [lineStyle, lineStyleDesc] of lineTypeNames) {
+        if (lineStyle === this.GetLineStyle()) {
+          msg = lineStyleDesc.name;
+          break;
+        }
+      }
+
+      aList.push(new MSG_PANEL_ITEM('Line Style', msg));
+    }
+
+    if (aIncludeWidth)
+      aList.push(
+        new MSG_PANEL_ITEM('Line Width', aUnitsProvider.MessageTextFromValue(this.GetWidth())),
+      );
+  }
+
+  // Helper functions
+
+  static GetLineStyleToken(aStyle: LINE_STYLE): string {
+    let token = '';
+
+    switch (aStyle) {
+      case LINE_STYLE.DASH:
+        token = 'dash';
+        break;
+      case LINE_STYLE.DOT:
+        token = 'dot';
+        break;
+      case LINE_STYLE.DASHDOT:
+        token = 'dash_dot';
+        break;
+      case LINE_STYLE.DASHDOTDOT:
+        token = 'dash_dot_dot';
+        break;
+      case LINE_STYLE.SOLID:
+        token = 'solid';
+        break;
+      case LINE_STYLE.DEFAULT:
+        token = 'default';
+        break;
+    }
+
+    return token;
+  }
+
+  static Stroke(
+    aShape: SHAPE,
+    aLineStyle: LINE_STYLE,
+    aWidth: number,
+    aRenderSettings: PlotterRenderSettings,
+    aStroker: (a: VECTOR2I, b: VECTOR2I) => void,
+  ): void {
+    const strokes: number[] = [
+      aWidth * 1.0,
+      aWidth * 1.0,
+      aWidth * 1.0,
+      aWidth * 1.0,
+      aWidth * 1.0,
+      aWidth * 1.0,
+    ];
+    let wrapAround = 6;
+
+    switch (aLineStyle) {
+      case LINE_STYLE.DASH:
+        strokes[0] = aRenderSettings.GetDashLength(aWidth);
+        strokes[1] = aRenderSettings.GetGapLength(aWidth);
+        wrapAround = 2;
+        break;
+      case LINE_STYLE.DOT:
+        strokes[0] = aRenderSettings.GetDotLength(aWidth);
+        strokes[1] = aRenderSettings.GetGapLength(aWidth);
+        wrapAround = 2;
+        break;
+      case LINE_STYLE.DASHDOT:
+        strokes[0] = aRenderSettings.GetDashLength(aWidth);
+        strokes[1] = aRenderSettings.GetGapLength(aWidth);
+        strokes[2] = aRenderSettings.GetDotLength(aWidth);
+        strokes[3] = aRenderSettings.GetGapLength(aWidth);
+        wrapAround = 4;
+        break;
+      case LINE_STYLE.DASHDOTDOT:
+        strokes[0] = aRenderSettings.GetDashLength(aWidth);
+        strokes[1] = aRenderSettings.GetGapLength(aWidth);
+        strokes[2] = aRenderSettings.GetDotLength(aWidth);
+        strokes[3] = aRenderSettings.GetGapLength(aWidth);
+        strokes[4] = aRenderSettings.GetDotLength(aWidth);
+        strokes[5] = aRenderSettings.GetGapLength(aWidth);
+        wrapAround = 6;
+        break;
+      default:
+        throw new Error(`UNIMPLEMENTED_FOR ${lineTypeNames.get(aLineStyle)?.name ?? aLineStyle}`);
+    }
+
+    switch (aShape.Type()) {
+      case SHAPE_TYPE.SH_RECT: {
+        const outline = (aShape as SHAPE_RECT).Outline();
+        const arcsHandled = new Set<number>();
+
+        for (let ii = 0; ii < outline.SegmentCount(); ++ii) {
+          if (outline.IsArcSegment(ii)) {
+            const arcIndex = outline.ArcIndex(ii);
+
+            if (!arcsHandled.has(arcIndex)) {
+              arcsHandled.add(arcIndex);
+              const arc = outline.Arc(arcIndex);
+              STROKE_PARAMS.Stroke(arc, aLineStyle, aWidth, aRenderSettings, aStroker);
+            }
+          } else {
+            const seg = outline.GetSegment(ii);
+            const line = new SHAPE_SEGMENT(seg.A, seg.B);
+            STROKE_PARAMS.Stroke(line, aLineStyle, aWidth, aRenderSettings, aStroker);
+          }
+        }
+
+        for (let jj = 0; jj < outline.ArcCount(); ++jj) {
+          const arc = outline.Arc(jj);
+          STROKE_PARAMS.Stroke(arc, aLineStyle, aWidth, aRenderSettings, aStroker);
+        }
+
+        break;
+      }
+
+      case SHAPE_TYPE.SH_SIMPLE: {
+        const poly = aShape as SHAPE_SIMPLE;
+
+        for (let ii = 0; ii < poly.GetSegmentCount(); ++ii) {
+          const seg = poly.GetSegment(ii);
+          const line = new SHAPE_SEGMENT(seg.A, seg.B);
+          STROKE_PARAMS.Stroke(line, aLineStyle, aWidth, aRenderSettings, aStroker);
+        }
+
+        break;
+      }
+
+      case SHAPE_TYPE.SH_SEGMENT: {
+        const line = aShape as SHAPE_SEGMENT;
+
+        let start = { x: line.GetSeg().A.x, y: line.GetSeg().A.y };
+        const end = { x: line.GetSeg().B.x, y: line.GetSeg().B.y };
+        const clip = new BOX2I(
+          { x: KiROUND(start.x), y: KiROUND(start.y) },
+          { x: KiROUND(end.x - start.x), y: KiROUND(end.y - start.y) },
+        );
+        clip.Normalize();
+
+        const theta = Math.atan2(end.y - start.y, end.x - start.x);
+
+        for (let i = 0; i < 10000; ++i) {
+          // Calculations MUST be done in doubles to keep from accumulating rounding
+          // errors as we go.
+          const next = {
+            x: start.x + strokes[i % wrapAround]! * Math.cos(theta),
+            y: start.y + strokes[i % wrapAround]! * Math.sin(theta),
+          };
+
+          // Drawing each segment can be done rounded to ints.
+          const a = { x: KiROUND(start.x), y: KiROUND(start.y) };
+          const b = { x: KiROUND(next.x), y: KiROUND(next.y) };
+
+          const ends = { x1: a.x, y1: a.y, x2: b.x, y2: b.y };
+          if (ClipLine(clip, ends)) break;
+          if (i % 2 === 0) aStroker({ x: ends.x1, y: ends.y1 }, { x: ends.x2, y: ends.y2 });
+
+          start = next;
+        }
+
+        break;
+      }
+
+      case SHAPE_TYPE.SH_ARC: {
+        const arc = aShape as SHAPE_ARC;
+
+        const r = arc.GetRadius();
+        const C = 2.0 * Math.PI * r;
+        const center = arc.GetCenter();
+        const startRadial = { x: arc.GetP0().x - center.x, y: arc.GetP0().y - center.y };
+        let startAngle = EDA_ANGLE.fromVector(startRadial);
+        const endRadial = { x: arc.GetP1().x - center.x, y: arc.GetP1().y - center.y };
+        let arcEndAngle = EDA_ANGLE.fromVector(endRadial);
+
+        if (arcEndAngle.equals(startAngle)) arcEndAngle = startAngle.add(ANGLE_360); // ring, not null
+
+        if (startAngle.gt(arcEndAngle)) {
+          if (arcEndAngle.lt(ANGLE_0)) arcEndAngle = arcEndAngle.Normalize();
+          else startAngle = startAngle.Normalize().sub(ANGLE_360);
+        }
+
+        const angleIncrement = new EDA_ANGLE(0.5, EDA_ANGLE_T.DEGREES_T);
+
+        for (let i = 0; i < 10000 && startAngle.lt(arcEndAngle); ++i) {
+          const theta = ANGLE_360.multiply(strokes[i % wrapAround]! / C);
+          const endAngle = startAngle.add(theta).lt(arcEndAngle)
+            ? startAngle.add(theta)
+            : arcEndAngle; // std::min
+
+          if (i % 2 === 0) {
+            if (
+              ((aLineStyle === LINE_STYLE.DASHDOT || aLineStyle === LINE_STYLE.DASHDOTDOT) &&
+                i % wrapAround === 0) ||
+              aLineStyle === LINE_STYLE.DASH
+            ) {
+              for (
+                let currentAngle = startAngle;
+                currentAngle.lt(endAngle);
+                currentAngle = currentAngle.add(angleIncrement)
+              ) {
+                const a = {
+                  x: center.x + KiROUND(r * currentAngle.Cos()),
+                  y: center.y + KiROUND(r * currentAngle.Sin()),
+                };
+
+                // Calculate the next angle step, ensuring it doesn't exceed the endAngle
+                let nextAngle = currentAngle.add(angleIncrement);
+
+                if (nextAngle.gt(endAngle)) {
+                  nextAngle = endAngle; // Set nextAngle to endAngle if it exceeds
+                }
+
+                const b = {
+                  x: center.x + KiROUND(r * nextAngle.Cos()),
+                  y: center.y + KiROUND(r * nextAngle.Sin()),
+                };
+
+                aStroker(a, b); // Draw the segment as an arc
+              }
+            } else {
+              const a = {
+                x: center.x + KiROUND(r * startAngle.Cos()),
+                y: center.y + KiROUND(r * startAngle.Sin()),
+              };
+              const b = {
+                x: center.x + KiROUND(r * endAngle.Cos()),
+                y: center.y + KiROUND(r * endAngle.Sin()),
+              };
+
+              aStroker(a, b);
+            }
+          }
+
+          startAngle = endAngle;
+        }
+
+        break;
+      }
+
+      case SHAPE_TYPE.SH_CIRCLE:
+      // A circle is always filled; a ring is represented by a 360° arc.
+      // KI_FALLTHROUGH
+
+      default:
+        throw new Error(`UNIMPLEMENTED_FOR ${SHAPE_TYPE_asString(aShape.Type())}`);
+    }
+  }
+}
