@@ -53,6 +53,7 @@ import {
   deleteSymbolItems,
   symbolDeleteOutcome,
   hitTestSymbol,
+  moveGraphic,
   moveSymbolItems,
   symbolEditHandles,
   symbolIndicatorLines,
@@ -101,6 +102,14 @@ interface Props {
   pendingPin: LibPin | null;
   /** A text item configured in the dialog, following the cursor. */
   pendingText: { text: string; fontSize?: number } | null;
+  /**
+   * Imported graphics riding the cursor (`SYMBOL_EDITOR_DRAWING_TOOLS::
+   * ImportGraphics`' preview): the drawing's origin sits on the cursor —
+   * `item->Move( cursorPos )` — and a left click drops it.
+   */
+  pendingImport?: readonly LibGraphic[] | null;
+  /** The imported drawing was dropped with its origin at pos. */
+  onPlacePendingImport?: (pos: Vec2) => void;
   onSelect: (id: string | null, additive: boolean) => void;
   onSelectBox: (ids: ReadonlySet<string>, additive: boolean, subtractive: boolean) => void;
   /** Commit an edited symbol as one undoable step. */
@@ -170,6 +179,8 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
     activeTool,
     pendingPin,
     pendingText,
+    pendingImport = null,
+    onPlacePendingImport,
     onSelect,
     onSelectBox,
     onCommit,
@@ -396,6 +407,12 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
       drawGraphic(ctx, g, theme);
     }
 
+    // Ghost: the imported drawing, its origin on the cursor.
+    if (pendingImport && cur) {
+      const at = snap(cur);
+      for (const g of pendingImport) drawGraphic(ctx, moveGraphic(g, at), theme);
+    }
+
     // Preview: the shape being drawn.
     const ds = drawStateRef.current;
     if (ds) {
@@ -523,7 +540,17 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
     }
 
     onScaleChange?.(vp.scale);
-  }, [symbol, theme, opts, selection, activeTool, pendingPin, pendingText, onScaleChange]);
+  }, [
+    symbol,
+    theme,
+    opts,
+    selection,
+    activeTool,
+    pendingPin,
+    pendingText,
+    pendingImport,
+    onScaleChange,
+  ]);
 
   const zoomAbout = useCallback(
     (px: number, py: number, factor: number) => {
@@ -769,6 +796,13 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
 
       const gridPos = snap(world);
 
+      // An imported drawing on the cursor: the click drops it, whatever tool
+      // was active — ImportGraphics is "a one-shot command, not a tool".
+      if (pendingImport) {
+        onPlacePendingImport?.(gridPos);
+        return;
+      }
+
       // Two-click pin placement.
       if (activeTool === 'placePin') {
         if (pendingPin) onPlacePendingPin(gridPos);
@@ -892,6 +926,8 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
       selection,
       pendingPin,
       pendingText,
+      pendingImport,
+      onPlacePendingImport,
       onSelect,
       onCommit,
       onPinToolClick,
@@ -990,7 +1026,7 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
         draw();
         return;
       }
-      if (pendingPin || pendingText) {
+      if (pendingPin || pendingText || pendingImport) {
         draw();
         return;
       }
@@ -1007,7 +1043,7 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
       // Nothing is in flight, but the crosshair still follows the pointer.
       draw();
     },
-    [draw, pendingPin, pendingText, onCursorMove, zoomAbout, inputPrefs],
+    [draw, pendingPin, pendingText, pendingImport, onCursorMove, zoomAbout, inputPrefs],
   );
 
   const onPointerUp = useCallback(

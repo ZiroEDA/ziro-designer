@@ -110,7 +110,7 @@ describe('the dialog', () => {
   it('the import re-runs when a parameter changes, not only when a file is picked', () => {
     // The scale, the origin, the width and the units all change what the
     // import *produces*, not what is done with it afterwards.
-    expect(DIALOG).toContain('}, [file, params, interactive]);');
+    expect(DIALOG).toContain('}, [file, params, interactive, sink]);');
   });
 
   it('and what the import could not carry is shown, not swallowed', () => {

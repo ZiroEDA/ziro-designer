@@ -202,7 +202,7 @@ export function symbolEditorMenus(
           label: 'Import',
           submenu: [
             act('Symbol...', 'importSymbol'),
-            stub('Graphics...', 'importGraphics', { shortcut: 'Ctrl+Shift+F' }),
+            act('Graphics...', 'importGraphics', { shortcut: 'Ctrl+Shift+F' }),
           ],
         },
         {

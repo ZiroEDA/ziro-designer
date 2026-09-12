@@ -177,7 +177,7 @@ function movePin(pin: LibPin, d: Vec2): LibPin {
   return { ...pin, at: translate(pin.at, d) };
 }
 
-function moveGraphic(g: LibGraphic, d: Vec2): LibGraphic {
+export function moveGraphic(g: LibGraphic, d: Vec2): LibGraphic {
   switch (g.kind) {
     case 'ellipse':
     case 'ellipse_arc':

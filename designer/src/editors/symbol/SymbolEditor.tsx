@@ -69,6 +69,7 @@ import {
 import { pcm } from '../../pcm/pcmStore.js';
 import {
   addGraphicToSymbol,
+  moveGraphic,
   addPinToSymbol,
   allPins,
   createImagePins,
@@ -106,6 +107,8 @@ import {
   type NewSymbolResult,
   type PinDialogResult,
 } from './components/dialogs.js';
+import { DialogImportGfx } from '../schematic/dialogs/dialog_import_gfx.js';
+import { MessageDialogOk } from '../../ui/dialog_message.js';
 import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
@@ -419,6 +422,13 @@ export function SymbolEditor({
     italic: boolean;
   } | null>(null);
   const [shapeDialog, setShapeDialog] = useState<{ editId: string } | null>(null);
+  // Import > Graphics... (SYMBOL_EDITOR_DRAWING_TOOLS::ImportGraphics): the
+  // dialog, then — for interactive placement — the imported items riding the
+  // cursor until a click drops them into the unit being edited.
+  const [importGfxOpen, setImportGfxOpen] = useState(false);
+  const [pendingImport, setPendingImport] = useState<LibGraphic[] | null>(null);
+  /** The bare `wxMessageBox( … )` an empty import puts up. */
+  const [importMessage, setImportMessage] = useState<string | null>(null);
   /**
    * `Add Library` and `Import Symbol`, over the account's tree.
    *
@@ -1536,6 +1546,31 @@ export function SymbolEditor({
     [workSymbol, pendingText, unit, bodyStyle, commit],
   );
 
+  /**
+   * `ImportGraphics`' commit: `commit.Modify( symbol ); for( item ) symbol->
+   * AddDrawItem( item )` under one "Import Graphic". The items carry the
+   * unit and body style being edited (`SetUnit( m_unit )` in the importer),
+   * which is what `addGraphicToSymbol` folds in.
+   */
+  const commitImport = useCallback(
+    (items: readonly LibGraphic[]) => {
+      if (!workSymbol) return;
+      let sym = workSymbol;
+      for (const g of items) sym = addGraphicToSymbol(sym, g, unit, bodyStyle).sym;
+      commit(sym, 'Import Graphic');
+    },
+    [workSymbol, unit, bodyStyle, commit],
+  );
+  /** The drop: every item moved by the cursor position (`item->Move( delta )`, delta = cursorPos). */
+  const onPlacePendingImport = useCallback(
+    (pos: Vec2) => {
+      if (!pendingImport) return;
+      commitImport(pendingImport.map((g) => moveGraphic(g, pos)));
+      setPendingImport(null);
+    },
+    [pendingImport, commitImport],
+  );
+
   const onPlaceShape = useCallback(
     (g: LibGraphic) => {
       if (!workSymbol || isAlias) return;
@@ -1699,6 +1734,7 @@ export function SymbolEditor({
       symbolPropsOpen ||
       pinTableOpen ||
       checkOpen ||
+      importGfxOpen ||
       newLibName !== null;
     const onKey = (e: KeyboardEvent): void => {
       // Hidden frames must not act on global hotkeys (editors stay mounted
@@ -1735,9 +1771,11 @@ export function SymbolEditor({
           setSymbolPropsOpen(false);
           setPinTableOpen(false);
           setCheckOpen(false);
+          setImportGfxOpen(false);
           setNewLibName(null);
         } else if (pendingPin) setPendingPin(null);
         else if (pendingText) setPendingText(null);
+        else if (pendingImport) setPendingImport(null);
         else if (activeTool !== 'select') setActiveTool('select');
         else setSelection(new Set());
         return;
@@ -1819,9 +1857,11 @@ export function SymbolEditor({
     symbolPropsOpen,
     pinTableOpen,
     checkOpen,
+    importGfxOpen,
     newLibName,
     pendingPin,
     pendingText,
+    pendingImport,
   ]);
 
   // ----- selection ---------------------------------------------------------------------
@@ -2062,6 +2102,9 @@ export function SymbolEditor({
         case 'importSymbol':
           setSymOpenDlg('importSymbol');
           break;
+        case 'importGraphics':
+          if (workSymbol) setImportGfxOpen(true);
+          break;
         case 'exportSymbol':
           void exportSymbol();
           break;
@@ -2172,7 +2215,7 @@ export function SymbolEditor({
         // `SELECTION_CONDITIONS::Idle` (`selection_conditions.cpp:45-50`) is
         // "the selection front is not IS_NEW | IS_PASTED | IS_MOVING". The
         // item being placed is this frame's IS_NEW.
-        idle: pendingPin === null && pendingText === null,
+        idle: pendingPin === null && pendingText === null && pendingImport === null,
         activeTool,
         isSymbolModified: (nickname, item) =>
           nickname !== '' && item !== '' && manager.current.isSymbolModified(nickname, item),
@@ -2190,6 +2233,7 @@ export function SymbolEditor({
       curName,
       pendingPin,
       pendingText,
+      pendingImport,
       activeTool,
       revision,
     ],
@@ -2615,6 +2659,8 @@ export function SymbolEditor({
               activeTool={activeTool}
               pendingPin={pendingPin}
               pendingText={pendingText}
+              pendingImport={pendingImport}
+              onPlacePendingImport={onPlacePendingImport}
               onSelect={onSelect}
               onSelectBox={onSelectBox}
               onCommit={commit}
@@ -2690,6 +2736,25 @@ export function SymbolEditor({
           onOk={onPinDialogOk}
           onCancel={() => setPinDialog(null)}
         />
+      )}
+      {importGfxOpen && (
+        <DialogImportGfx
+          sink="lib_symbol"
+          onCancel={() => setImportGfxOpen(false)}
+          onOk={(graphics, _labels, interactive) => {
+            setImportGfxOpen(false);
+            // `if( list.empty() ) wxMessageBox( _( "No graphic items found in file." ) )`.
+            if (graphics.length === 0) {
+              setImportMessage('No graphic items found in file.');
+              return;
+            }
+            if (interactive) setPendingImport(graphics);
+            else commitImport(graphics);
+          }}
+        />
+      )}
+      {importMessage !== null && (
+        <MessageDialogOk message={importMessage} onClose={() => setImportMessage(null)} />
       )}
       {textDialog && (
         <SymbolTextDialog

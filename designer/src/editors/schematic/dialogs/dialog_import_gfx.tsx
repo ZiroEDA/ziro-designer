@@ -29,7 +29,11 @@
  */
 
 import { useMemo, useState, type JSX } from 'react';
-import { GRAPHICS_IMPORTER_SCH } from '@ziroeda/eeschema/src/import_gfx/graphics_importer_sch.js';
+import {
+  GRAPHICS_IMPORTER_SCH,
+  type SchImportedItem,
+} from '@ziroeda/eeschema/src/import_gfx/graphics_importer_sch.js';
+import { GRAPHICS_IMPORTER_LIB_SYMBOL } from '@ziroeda/eeschema/src/import_gfx/graphics_importer_lib_symbol.js';
 import {
   fileExtension,
   getImportableFileTypes,
@@ -53,6 +57,13 @@ interface Props {
    */
   onOk: (graphics: LibGraphic[], labels: SchLabel[], interactive: boolean) => void;
   onCancel: () => void;
+  /**
+   * Which sink the file is read through: `GRAPHICS_IMPORTER_SCH` for a sheet
+   * (the default), `GRAPHICS_IMPORTER_LIB_SYMBOL` for the Symbol Editor's arm
+   * of the same action — whose free text is a `LibGraphic` of kind `text`,
+   * so it arrives in `graphics` and `labels` stays empty.
+   */
+  sink?: 'sch' | 'lib_symbol';
 }
 
 /**
@@ -69,14 +80,14 @@ const DXF_UNIT_CHOICES: readonly { value: DXF_IMPORT_UNITS; label: string }[] = 
 ];
 
 /** What the parameters the import depends on currently are. */
-interface Params {
+export interface Params {
   scale: number;
   originMM: { x: number; y: number };
   lineWidthMM: number;
   dxfUnits: DXF_IMPORT_UNITS;
 }
 
-const DEFAULT_PARAMS: Params = {
+export const DEFAULT_PARAMS: Params = {
   scale: 1,
   originMM: { x: 0, y: 0 },
   lineWidthMM: 0.2,
@@ -84,7 +95,7 @@ const DEFAULT_PARAMS: Params = {
 };
 
 /** What one import produced, so the dialog can report before it commits. */
-interface Imported {
+export interface Imported {
   graphics: LibGraphic[];
   labels: SchLabel[];
   /** `GetImageWidth`/`Height`: the drawing's extent in millimetres. */
@@ -108,13 +119,19 @@ const acceptedExtensions = (): string =>
  * This is `TransferDataFromWindow`: pick the plugin, hand the DXF one its two
  * extra settings, set the offset and scale on the importer, load, import.
  */
-function runImport(name: string, text: string, p: Params): Imported {
+export function runImport(
+  name: string,
+  text: string,
+  p: Params,
+  sink: 'sch' | 'lib_symbol' = 'sch',
+): Imported {
   const empty = { graphics: [], labels: [], widthMM: 0, heightMM: 0, notes: [] };
 
   const plugin = getPluginByExt(fileExtension(name));
   if (!plugin) return { ...empty, error: 'Unsupported file format.' };
 
-  const importer = new GRAPHICS_IMPORTER_SCH();
+  const importer =
+    sink === 'sch' ? new GRAPHICS_IMPORTER_SCH() : new GRAPHICS_IMPORTER_LIB_SYMBOL();
 
   if (plugin instanceof DXF_IMPORT_PLUGIN) {
     plugin.SetUnit(p.dxfUnits);
@@ -138,18 +155,21 @@ function runImport(name: string, text: string, p: Params): Imported {
     .map((l) => l.trim())
     .filter((l) => l !== '');
 
-  const items = importer.GetItems();
+  const items: readonly (SchImportedItem | LibGraphic)[] = importer.GetItems();
+  const isSchItem = (i: SchImportedItem | LibGraphic): i is SchImportedItem => 'type' in i;
 
   return {
-    graphics: items.flatMap((i) => (i.type === 'graphic' ? [i.graphic] : [])),
-    labels: items.flatMap((i) => (i.type === 'text' ? [i.text] : [])),
+    graphics: items.flatMap((i) =>
+      isSchItem(i) ? (i.type === 'graphic' ? [i.graphic] : []) : [i],
+    ),
+    labels: items.flatMap((i) => (isSchItem(i) && i.type === 'text' ? [i.text] : [])),
     widthMM: plugin.GetImageWidth(),
     heightMM: plugin.GetImageHeight(),
     notes: [...new Set(notes)],
   };
 }
 
-export function DialogImportGfx({ onOk, onCancel }: Props): JSX.Element {
+export function DialogImportGfx({ onOk, onCancel, sink = 'sch' }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
   useModalEscape(onCancel);
@@ -170,8 +190,9 @@ export function DialogImportGfx({ onOk, onCancel }: Props): JSX.Element {
       file.name,
       file.text,
       interactive ? { ...params, originMM: { x: 0, y: 0 } } : params,
+      sink,
     );
-  }, [file, params, interactive]);
+  }, [file, params, interactive, sink]);
 
   const choose = async (chosen: File | undefined): Promise<void> => {
     if (!chosen) return;
