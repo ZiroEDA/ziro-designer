@@ -18,7 +18,11 @@ import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
-import { sheetToPs, sheetToSvg } from '@ziroeda/designer/src/editors/schematic/render/plot.js';
+import {
+  sheetsToPdf,
+  sheetToPs,
+  sheetToSvg,
+} from '@ziroeda/designer/src/editors/schematic/render/plot.js';
 import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
 import {
   getOutlineFont,
@@ -177,5 +181,38 @@ describe('plotting a faced text', () => {
     expect(ringed.length).toBeGreaterThan(5);
     // …and every such fill opened exactly one path.
     for (const l of ringed) expect((l.match(/newpath/g) ?? []).length).toBe(1);
+  });
+
+  it('PDF fills a glyph the way CALLBACK_GAL hands it to PlotPoly: fractured, one outline', () => {
+    // `PDF_PLOTTER::PlotPoly` takes one ring; a glyph with a hole reaches it
+    // `Fracture()`d — the hole bridged into the outline — so the stream holds
+    // one `m … h f` per glyph and never a second `m` inside a fill. Every
+    // ringed glyph on the Arial row ('o', '0') is therefore a filled path
+    // whose corner count exceeds the outline's alone.
+    const bytes = sheetsToPdf([{ sch: doc, opts }], KICAD_DEFAULT, undefined, {
+      debugPdfWriter: true,
+    });
+    const page = Array.from(bytes, (b) => String.fromCharCode(b)).join('');
+    const fills = page.match(/^[\d.]+ [\d.]+ m (?:[\d.]+ [\d.]+ l )+h f$/gm) ?? [];
+    // No fill holds a second moveto: PlotPoly writes exactly one.
+    for (const f of fills) expect((f.match(/ m /g) ?? []).length).toBe(1);
+    // One fill per glyph. PostScript writes one `fill` per text RUN with a
+    // subpath per ring, so its subpaths count the rings: more rings than PDF
+    // fills means the holes were bridged in rather than filled on their own,
+    // and more PDF fills than runs means a run was not fractured as one lump.
+    const psFills = sheetToPs(doc, KICAD_DEFAULT, opts, 'fonttest')
+      .split('\n')
+      .filter((l) => l.endsWith(' fill'));
+    const rings = psFills.reduce((n, l) => n + (l.match(/ m /g) ?? []).length, 0);
+    expect(fills.length).toBeGreaterThan(psFills.length * 5);
+    expect(rings).toBeGreaterThan(fills.length + 5);
+    // And the holes' points are still there. A hole mistaken for an outline
+    // is unioned away by `Fracture()`'s Simplify — the 'o' comes out solid,
+    // with the same fill count and a quarter of the points fewer (measured:
+    // 5532 against 7175 for the PostScript's 7251; Simplify trims a few
+    // collinear points, the bridges add a couple per hole).
+    const pdfPts = fills.reduce((n, f) => n + (f.match(/ l /g) ?? []).length + 1, 0);
+    const psPts = psFills.reduce((n, l) => n + (l.match(/ [ml] /g) ?? []).length, 0);
+    expect(pdfPts).toBeGreaterThan(psPts * 0.97);
   });
 });

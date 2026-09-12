@@ -536,6 +536,21 @@ export interface RenderOpts {
    */
   devicePixelRatio?: number;
   showPageLimits: boolean;
+  /**
+   * The dangling marks — the square on a loose wire end or label anchor, the
+   * circle on an unconnected pin. They are `SCH_PAINTER`'s
+   * (`drawDanglingIndicator`, `drawPinDanglingIndicator`) and no `Plot()`
+   * draws one: a plot has no connectivity to show. Defaults to true; a plot
+   * turns it off.
+   */
+  showDanglingIndicators?: boolean;
+  /**
+   * Clear to the theme background before drawing. The screen always does; a
+   * plot fills the page only for `m_useBackgroundColor && GetColorMode()`
+   * (`SCH_PLOTTER::plotOneSheetPDF/PS/SVG`) and otherwise draws nothing
+   * there. Defaults to true.
+   */
+  paintBackground?: boolean;
   /** Draw the page border + title block (LAYER_DRAWINGSHEET). Defaults to true;
    *  Print/Plot's "drawing sheet" option turns it off. */
   showDrawingSheet?: boolean;
@@ -1029,7 +1044,7 @@ export function renderSchematic(
   const halos = opts.halos ?? 'both';
   const overlayPass = !!g_only || halos === 'only';
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  if (!overlayPass) {
+  if (!overlayPass && opts.paintBackground !== false) {
     ctx.fillStyle = theme.background;
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
   }
@@ -1749,9 +1764,12 @@ export function renderSchematic(
   // once, and it travels with its item.
   const moving = g_only ?? g_hidden;
   const movingKeys = moving ? previewAnchorKeys(sch, libById, moving) : null;
-  const dangling = movingKeys
-    ? filterDangling(danglingFor(sch, libById), movingKeys, g_only ? 'keep' : 'drop')
-    : danglingFor(sch, libById);
+  const dangling =
+    opts.showDanglingIndicators === false
+      ? { pins: [], wireEnds: [], labels: [] }
+      : movingKeys
+        ? filterDangling(danglingFor(sch, libById), movingKeys, g_only ? 'keep' : 'drop')
+        : danglingFor(sch, libById);
   if (dangling.pins.length > 0) {
     ctx.strokeStyle = brighten(theme.pin, 0.3);
     ctx.lineWidth = penWidth(g_defaultPen / 3);

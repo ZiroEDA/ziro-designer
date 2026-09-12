@@ -439,6 +439,10 @@ import {
   resolveEffectiveNetClass,
   subpartSettings,
 } from './schematic_settings.js';
+import { netClassHumanReadableName } from '@ziroeda/common/src/project/net_settings.js';
+import type { PdfNetInfo } from './render/pdf_annotations.js';
+import type { Netlist } from '@ziroeda/eeschema/src/connectivity/nets.js';
+import { DEFAULT_WIRE_WIDTH } from './render/renderer.js';
 import { computeNetClassOverrides } from './net_overrides.js';
 import {
   RefDesTracker,
@@ -478,6 +482,7 @@ import {
   plotSvg,
   plotPdf,
   plotPdfSheets,
+  type PdfPlotSheet,
   plotDxf,
   plotPs,
   pageIU,
@@ -4212,6 +4217,8 @@ export function SchematicEditor({
       themeId,
       outputDir,
       pdfMetadata,
+      pdfPropertyPopups,
+      pdfHierarchicalLinks,
       openAfter,
       downloadCopy,
       report,
@@ -4221,6 +4228,8 @@ export function SchematicEditor({
         ...opts,
         ...drawingDefaults,
         ...(activeSheet ? { sheet: activeSheet } : {}),
+        pdfPropertyPopups,
+        pdfHierarchicalLinks,
       };
       // "Open file after plot": open the tab now, in the click gesture, so the
       // browser doesn't block it, the sink navigates it once the file (which
@@ -4236,10 +4245,35 @@ export function SchematicEditor({
           setup,
         );
         const resolve = resolverForDoc(d, name);
+        // The PDF popups' "Net" / "Resolved netclass" lines and a bus's
+        // members, from this sheet's connectivity (SCH_CONNECTION::Name,
+        // GetEffectiveNetClass()->GetHumanReadableName()). Computed lazily:
+        // the other formats never ask.
+        const docLib = new Map(d.libSymbols.map((l) => [l.libId, l]));
+        let nl: Netlist | null = null;
+        const netOf = (id: string): PdfNetInfo | undefined => {
+          nl ??= computeNetlist(d, docLib);
+          const code = nl.netByItem.get(id);
+          const net = code !== undefined ? nl.nets.find((n) => n.code === code) : undefined;
+          if (!net) return undefined;
+          const members = nl.buses.find((b) => b.items.includes(id))?.members;
+          return {
+            net: net.name,
+            netclass: netClassHumanReadableName(
+              resolveEffectiveNetClass(net.name, setup.netClasses),
+            ),
+            ...(members ? { members } : {}),
+            // SCH_LINE::GetPenWidth: the netclass width, else the stroke's,
+            // else the default wire width the plot renderer strokes with.
+            penWidth: nov?.lines.get(id)?.widthIU ?? DEFAULT_WIRE_WIDTH,
+          };
+        };
         const od: PlotOpts = {
           ...o,
           ...(nov ? { netOverrides: nov } : {}),
           resolveTextVar: resolve,
+          netOf,
+          libById: docLib,
           ...((): Partial<PlotOpts> => {
             const idx = sheetInstanceRefs.findIndex((s) => s.file === file);
             const r = intersheetRefsFor(idx === -1 ? 1 : idx + 1);
@@ -4306,15 +4340,60 @@ export function SchematicEditor({
           // SCH_PLOTTER::Plot: nothing to write is an error, not a silent no-op.
           if (sheets.length === 0) report('No sheets to plot.', RPT_SEVERITY_ERROR);
           else if (format === 'pdf') {
-            // createPDFFile opens one file and pages through the sheet list, so a
-            // hierarchy is one document rather than a file per sheet. Every other
-            // format has no page after the first, which is why only this one is
-            // gathered.
+            // createPDFFile opens one file and pages through the SHEET LIST —
+            // one page per sheet instance, in hierarchy order, each with its
+            // own page number and sheet name (StartPlot / StartPage's
+            // arguments) and its parent's, so the document's outline nests
+            // the way the hierarchy does. Every other format has no page
+            // after the first, which is why only this one is gathered.
+            const refs = sheetInstanceRefs;
+            const docs = liveDocs();
+            const pageOf = (path: string): string =>
+              pageNumberOf(path) || String(refs.findIndex((r) => r.path === path) + 1);
+            const pages: PdfPlotSheet[] = refs.flatMap((s, i) => {
+              const d = docs.get(s.file);
+              if (!d) return [];
+              const parentPath = s.path === '/' ? null : s.path.replace(/[^/]+\/$/, '');
+              const parent = refs.find((r) => r.path === parentPath);
+              const r = intersheetRefsFor(i + 1);
+              // `findSelf().GetPageNumber()` for each sheet symbol on this page:
+              // the instance at this path plus the sheet's uuid.
+              const childPages = new Map(
+                d.sheets.flatMap((sh) =>
+                  sh.uuid ? [[sh.uuid, pageOf(`${s.path}${sh.uuid}/`)] as const] : [],
+                ),
+              );
+              return [
+                {
+                  sch: d,
+                  childPages,
+                  opts: {
+                    ...optsFor(d, s.file.replace(/\.kicad_sch$/i, '') || outputBaseName(), s.file),
+                    pageNumber: pageOf(s.path),
+                    sheetNumber: i + 1,
+                    sheetCount: refs.length,
+                    ...(s.path !== '/' ? { sheetName: s.name } : {}),
+                    sheetPath: s.namePath,
+                    ...(r ? { intersheetRefs: r } : {}),
+                  },
+                  ...(parent
+                    ? {
+                        parent: {
+                          pageNumber: pageOf(parent.path),
+                          sheetName: parent.path === '/' ? '' : parent.name,
+                        },
+                      }
+                    : {}),
+                },
+              ];
+            });
             void plotPdfSheets(
-              sheets.map(([file, d]) => ({
-                sch: d,
-                opts: optsFor(d, file.replace(/\.kicad_sch$/i, '') || outputBaseName(), file),
-              })),
+              pages.length > 0
+                ? pages
+                : sheets.map(([file, d]) => ({
+                    sch: d,
+                    opts: optsFor(d, file.replace(/\.kicad_sch$/i, '') || outputBaseName(), file),
+                  })),
               plotTheme,
               outputBaseName(),
               makeSink(),
@@ -4349,6 +4428,7 @@ export function SchematicEditor({
       resolverForDoc,
       intersheetRefsFor,
       sheetInstanceRefs,
+      pageNumberOf,
       currentFile,
       onOutputFile,
     ],

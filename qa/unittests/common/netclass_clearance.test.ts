@@ -13,8 +13,13 @@
  * `resolveEffectiveNetClass`.
  */
 import { describe, expect, it } from 'vitest';
-import { blankNetClass, netClassClearanceMM } from '@ziroeda/common/src/project/net_settings.js';
-import type { NetClassesData } from '@ziroeda/common/src/project/net_settings.js';
+import {
+  blankNetClass,
+  netClassClearanceMM,
+  netClassHumanReadableName,
+  resolveEffectiveNetClass,
+} from '@ziroeda/common/src/project/net_settings.js';
+import type { NetClass, NetClassesData } from '@ziroeda/common/src/project/net_settings.js';
 
 const cls = (name: string, clearance: string): ReturnType<typeof blankNetClass> => ({
   ...blankNetClass(name),
@@ -76,5 +81,44 @@ describe('netClassClearanceMM', () => {
         data([cls('Default', '0.2'), cls('Power', '0.5')], [{ pattern: '*', netClass: 'Power' }]),
       ),
     ).toBe(0.2);
+  });
+});
+
+describe('netClassHumanReadableName', () => {
+  const cls = (name: string, extra: Partial<NetClass> = {}): NetClass => ({
+    ...blankNetClass(name),
+    ...extra,
+  });
+  it('a schematic-only class needs Default to complete the set: "A and Default"', () => {
+    // addMissingDefaults (net_settings.cpp:1048-1090): a class setting only
+    // the wire width leaves clearance & co. unset, so Default joins the
+    // constituents and GetHumanReadableName reads two names.
+    const data = {
+      classes: [cls('Default'), cls('Power', { wireThickness: '12' })],
+      assignments: [{ pattern: 'VCC', netClass: 'Power' }],
+    } as NetClassesData;
+    const eff = resolveEffectiveNetClass('VCC', data);
+    expect(eff.constituents).toStrictEqual(['Power', 'Default']);
+    expect(netClassHumanReadableName(eff)).toBe('Power and Default');
+    // An unmatched net is Default alone.
+    expect(netClassHumanReadableName(resolveEffectiveNetClass('GND', data))).toBe('Default');
+  });
+
+  it('three constituents read "A, B and C"; four "A, B and 2 more"', () => {
+    const data = {
+      classes: [cls('Default'), cls('A'), cls('B'), cls('C')],
+      assignments: [
+        { pattern: 'N*', netClass: 'A' },
+        { pattern: 'NE*', netClass: 'B' },
+        { pattern: 'NET*', netClass: 'C' },
+      ],
+    } as NetClassesData;
+    const eff = resolveEffectiveNetClass('NET1', data);
+    expect(netClassHumanReadableName(eff)).toBe('A, B and 2 more');
+    expect(
+      netClassHumanReadableName(
+        resolveEffectiveNetClass('NET1', { ...data, assignments: data.assignments.slice(0, 2) }),
+      ),
+    ).toBe('A, B and Default');
   });
 });

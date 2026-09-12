@@ -176,6 +176,25 @@ export interface EffectiveNetClass {
   busWidthMils?: number;
   /** A LINE_STYLES name; always present (Default's style completes the set). */
   lineStyle: string;
+  /**
+   * `NETCLASS::GetConstituentNetclasses()`, by name, highest priority first:
+   * the matched classes, then Default when `addMissingDefaults` had to add
+   * it — which it does whenever one of the ten sized parameters (clearance,
+   * track, via, µvia, diff-pair, wire, bus) is unset by every matched class.
+   */
+  constituents: string[];
+}
+
+/**
+ * `NETCLASS::GetHumanReadableName` (netclass.cpp:294-326): one constituent is
+ * its name; two are "A and B"; three "A, B and C"; more "A, B and N more".
+ */
+export function netClassHumanReadableName(eff: EffectiveNetClass): string {
+  const c = eff.constituents;
+  if (c.length <= 1) return eff.name;
+  if (c.length === 2) return `${c[0]} and ${c[1]}`;
+  if (c.length === 3) return `${c[0]}, ${c[1]} and ${c[2]}`;
+  return `${c[0]}, ${c[1]} and ${c.length - 2} more`;
 }
 
 /**
@@ -254,7 +273,28 @@ export function resolveEffectiveNetClass(
   }
   const constituents = matched.length > 0 ? [...matched] : [dflt];
   if (!constituents.includes(dflt)) constituents.push(dflt); // complete params
-  constituents.sort((a, b) => priorityOf(a) - priorityOf(b) || a.name.localeCompare(b.name));
+  // `makeEffectiveNetclass`'s sort: priority, then `GetName().Cmp` — a
+  // codepoint compare, never the locale's.
+  const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+  constituents.sort((a, b) => priorityOf(a) - priorityOf(b) || cmp(a.name, b.name));
+  // `addMissingDefaults`: Default joins the constituents when a sized
+  // parameter is set by none of the matched classes.
+  const sized: (keyof NetClass)[] = [
+    'clearance',
+    'trackWidth',
+    'viaSize',
+    'viaHole',
+    'uviaSize',
+    'uviaHole',
+    'dpWidth',
+    'dpGap',
+    'wireThickness',
+    'busThickness',
+  ];
+  const defaultNeeded =
+    matched.length === 0 ||
+    sized.some((k) => !matched.some((c) => String(c[k] ?? '').trim() !== ''));
+  const named = constituents.filter((c) => c !== dflt || defaultNeeded || matched.includes(dflt));
   const eff: EffectiveNetClass = {
     name:
       matched.length === 0
@@ -263,6 +303,7 @@ export function resolveEffectiveNetClass(
           ? matched[0]!.name
           : `Effective for net: ${netName}`,
     lineStyle: 'Solid',
+    constituents: named.map((c) => c.name),
   };
   const num = (s: string): number | undefined => {
     const v = Number.parseFloat(s);

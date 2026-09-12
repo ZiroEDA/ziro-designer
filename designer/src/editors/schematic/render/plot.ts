@@ -8,9 +8,11 @@
  *
  * Both reuse the on-screen schematic renderer: a sheet is drawn at page size
  * with the grid/cursor off and the drawing sheet + colours chosen by the
- * dialog. Raster outputs (PNG, and the PDF's embedded image, and Print) go
- * through a real `<canvas>`; the SVG output goes through a tiny Canvas2D-shaped
- * adapter that records the same draw calls as vector `<path>`/`<image>` markup.
+ * dialog. Raster outputs (PNG, and Print) go through a real `<canvas>`; the
+ * vector ones go through a Canvas2D-shaped adapter that records the same
+ * draw calls — SVG as `<path>` markup, DXF and PostScript as their entities,
+ * and PDF as calls on the ported `PDF_PLOTTER`, the one class KiCad plots
+ * every PDF through.
  */
 
 import type { Schematic } from '@ziroeda/eeschema';
@@ -19,6 +21,19 @@ import type { WksSheet } from '@ziroeda/common';
 import type { Theme } from '../theme.js';
 import { KICAD_CLASSIC } from '../theme.js';
 import { renderSchematic, paperSizeIU, setVectorText, type RenderOpts } from './renderer.js';
+import { zlibSync } from 'fflate';
+import type { LibSymbol } from '@ziroeda/eeschema';
+import { plotPdfAnnotations, type PdfNetInfo } from './pdf_annotations.js';
+import { schIUScale } from '@ziroeda/common/src/eda_units.js';
+import { fracture, type Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+import {
+  FILL_T,
+  PdfPlotter,
+  pdfRenderSettings,
+  type Color4d,
+} from '@ziroeda/pcbnew/src/plot_pdf.js';
 
 const MM = 10000; // IU per mm (matches the renderer)
 
@@ -32,7 +47,7 @@ export interface PlotOpts {
   sheet?: WksSheet;
   /** Fill the page with the theme background colour (m_useBackgroundColor). */
   background: boolean;
-  /** Raster resolution for PNG/PDF output (the PNG Options DPI; default 300). */
+  /** Raster resolution for PNG output (the PNG Options DPI; default 300). */
   dpi?: number;
   /** Title-block page context of this sheet instance (SCH_SHEET_PATH):
    *  page-number string (${#}), sheet ordinal (page1only visibility), sheet
@@ -76,6 +91,18 @@ export interface PlotOpts {
   /** PDF document properties from the AUTHOR / SUBJECT text variables
    *  (m_PDFMetadata); unset = no /Info dictionary. */
   pdfMetadata?: { title?: string; author?: string; subject?: string };
+  /** `m_PDFPropertyPopups`: a popup of an item's properties on the plotted page. */
+  pdfPropertyPopups?: boolean;
+  /** `m_PDFHierarchicalLinks`: sheets, sheet pins and hierarchical labels link to their pages. */
+  pdfHierarchicalLinks?: boolean;
+  /**
+   * What the connectivity knows about a wire, bus, label or sheet pin (by
+   * refId), for the PDF popups; the plotter has no connection graph of its
+   * own, so the editor answers.
+   */
+  netOf?: (itemId: string) => PdfNetInfo | undefined;
+  /** The symbols the sheet's symbols come from, for their bookmarks and popups. */
+  libById?: Map<string, LibSymbol>;
 }
 
 /** PAGE_SIZE_AUTO / PAGE_SIZE_A4 / PAGE_SIZE_A (the "Page size:" choice). */
@@ -182,6 +209,11 @@ function outputRenderOpts(opts: PlotOpts, sch: Schematic): RenderOpts {
     showHiddenPins: false,
     showHiddenFields: false,
     showPageLimits: false,
+    // No `Plot()` draws a dangling mark; they are the painter's alone.
+    showDanglingIndicators: false,
+    // `if( aPlotOpts.m_useBackgroundColor && aPlotter->GetColorMode() )`
+    // fill the page; otherwise the page is left as it is.
+    paintBackground: opts.background && opts.color,
     // Directive labels are ordinary schematic content, not a "hidden item"
     // like the two above, so a plot carries them. Upstream the painter reads
     // the LIVE `eeconfig()` here as it does on screen, which we cannot from a
@@ -307,23 +339,106 @@ export async function plotPng(
 export interface PdfPlotSheet {
   sch: Schematic;
   opts: PlotOpts;
+  /**
+   * `StartPage`'s parent — the sheet path with its last entry popped
+   * (sch_plotter.cpp:194-207): the parent's page number and Sheetname, which
+   * hang this page's outline entry under the parent's. Unset for a root.
+   */
+  parent?: { pageNumber: string; sheetName: string };
+  /** The page each sheet symbol on this page opens, by the sheet's uuid. */
+  childPages?: ReadonlyMap<string, string>;
 }
 
-/** Render one sheet to the JPEG page the PDF writer embeds. */
-function pdfPageOf(sch: Schematic, base: Theme, opts: PlotOpts): PdfImagePage {
-  const canvas = renderSheetToCanvas(sch, base, opts, opts.dpi ?? 300);
-  const page = plotPageIU(sch, opts);
-  // PDF user space is 72 pt/inch; page size in points from the mm page size.
-  return {
-    jpeg: dataUriToBytes(canvas.toDataURL('image/jpeg', 0.92)),
-    pxW: canvas.width,
-    pxH: canvas.height,
-    ptW: (page.w / MM / 25.4) * 72,
-    ptH: (page.h / MM / 25.4) * 72,
-  };
+/**
+ * `SCH_PLOTTER::createPDFFile`, over the ported `PDF_PLOTTER`: one document,
+ * one page per sheet, every page a compressed content stream of the same
+ * paths the screen draws — `PDF_PLOTTER` is the one KiCad class both editors
+ * plot PDF through, which is why this reaches for `pcbnew/src/plot_pdf.ts`
+ * rather than writing a second file format.
+ *
+ * `setupPlotPagePDF` (:276-310) sizes the page and sets the viewport in
+ * decimils; the A4 / A choice's `min( scalex, scaley )` is `plotPageIU`'s
+ * scale, folded into the render walk's CTM here rather than into the
+ * plotter's, so every back-end scales the one way.
+ */
+export function sheetsToPdf(
+  sheets: readonly PdfPlotSheet[],
+  base: Theme,
+  metadata?: PlotOpts['pdfMetadata'],
+  options: { debugPdfWriter?: boolean; now?: Date } = {},
+): Uint8Array {
+  const first = sheets[0];
+  if (!first) return new Uint8Array();
+  const bw = !first.opts.color;
+  const plotter = new PdfPlotter(
+    // SCH_RENDER_SETTINGS' default pen: the schematic's "Minimum line width",
+    // which the renderer strokes zero-width items with.
+    pdfRenderSettings({ defaultPenWidth: first.opts.defaultPenIU ?? 0 }),
+    // wxZlibOutputStream( wxZ_BEST_COMPRESSION, wxZLIB_ZLIB ): a zlib stream.
+    (bytes) => zlibSync(bytes, { level: 9 }),
+    { debugPdfWriter: options.debugPdfWriter ?? false },
+  );
+  plotter.SetColorMode(!bw);
+  plotter.SetCreator('Eeschema-PDF');
+  // `SetTitle( ExpandTextVars( RootScreen()->GetTitleBlock().GetTitle() ) )`.
+  const rootTitle = first.sch.titleBlock?.title ?? '';
+  plotter.SetTitle(
+    metadata?.title ?? (first.opts.resolveTextVar ? expandVars(rootTitle, first) : rootTitle),
+  );
+  sheets.forEach((s, i) => {
+    const page = plotPageIU(s.sch, s.opts);
+    if (metadata) {
+      // The AUTHOR / SUBJECT text variables, resolved per sheet (:139-151).
+      if (metadata.author !== undefined) plotter.SetAuthor(metadata.author);
+      if (metadata.subject !== undefined) plotter.SetSubject(metadata.subject);
+    }
+    // "For the following pages you need to close the (finished) page,
+    // reconfigure, and then start a new one" — and in that order: ClosePage
+    // writes the finished page's /MediaBox from the size still in force.
+    if (i > 0) plotter.ClosePage();
+    // setupPlotPagePDF: the page in mils, the viewport in decimils.
+    const mils = schIUScale.IU_PER_MILS;
+    plotter.SetPageSettings({ x: page.w / mils, y: page.h / mils });
+    plotter.SetViewport({ x: 0, y: 0 }, mils / 10, 1, false);
+    const pageNumber = s.opts.pageNumber ?? String(i + 1);
+    const sheetName = s.opts.sheetName ?? '';
+    if (i === 0) {
+      plotter.OpenFile('');
+      plotter.StartPlot(pageNumber, sheetName);
+    } else {
+      plotter.StartPage(
+        pageNumber,
+        sheetName,
+        s.parent?.pageNumber ?? '',
+        s.parent?.sheetName ?? '',
+      );
+    }
+    renderToVector(s.sch, base, s.opts, new PdfContext(plotter, page.w, page.h), () => '');
+    // Then what each item's Plot() adds beside its geometry: the links, the
+    // popups and the bookmarks, which ClosePage writes as the page's /Annots
+    // and EndPlot as the outline.
+    plotPdfAnnotations(plotter, s.sch, s.opts.libById ?? new Map(), {
+      hierarchicalLinks: s.opts.pdfHierarchicalLinks ?? false,
+      propertyPopups: s.opts.pdfPropertyPopups ?? false,
+      parentPageNumber: s.parent?.pageNumber,
+      childPageNumber: (uuid) => s.childPages?.get(uuid),
+      netOf: s.opts.netOf,
+      resolve: s.opts.resolveTextVar,
+      scale: page.scale,
+    });
+  });
+  plotter.EndPlot(options.now);
+  return plotter.bytes();
 }
 
-/** Plot one sheet to a single-page PDF (JPEG/DCTDecode). */
+/** `ExpandTextVars` over the sheet's own resolver. */
+function expandVars(text: string, s: PdfPlotSheet): string {
+  const resolve = s.opts.resolveTextVar;
+  if (!resolve) return text;
+  return text.replace(/\$\{([^}]*)\}/g, (whole, name: string) => resolve(name) ?? whole);
+}
+
+/** Plot one sheet to a single-page PDF. */
 export async function plotPdf(
   sch: Schematic,
   base: Theme,
@@ -331,7 +446,7 @@ export async function plotPdf(
   name: string,
   sink: PlotSink = downloadBlob,
 ): Promise<void> {
-  sink(buildImagePdf([pdfPageOf(sch, base, opts)], opts.pdfMetadata), `${name}.pdf`);
+  await plotPdfSheets([{ sch, opts }], base, name, sink, opts.pdfMetadata);
 }
 
 /**
@@ -352,8 +467,8 @@ export async function plotPdfSheets(
   metadata?: PlotOpts['pdfMetadata'],
 ): Promise<void> {
   if (sheets.length === 0) return;
-  const pages = sheets.map((s) => pdfPageOf(s.sch, base, s.opts));
-  sink(buildImagePdf(pages, metadata ?? sheets[0]!.opts.pdfMetadata), `${name}.pdf`);
+  const bytes = sheetsToPdf(sheets, base, metadata ?? sheets[0]!.opts.pdfMetadata);
+  sink(new Blob([bytes as BlobPart], { type: 'application/pdf' }), `${name}.pdf`);
 }
 
 /** Plot to a true-vector SVG. */
@@ -961,6 +1076,108 @@ function ps(v: number): string {
   return (v / 255).toFixed(3);
 }
 
+/**
+ * The PDF back-end: the render walk's paths handed to the ported
+ * `PDF_PLOTTER` as the primitives `SCH_SCREEN::Plot` would call — a stroke is
+ * `MoveTo`/`LineTo`/`FinishTo` (a closed one `PlotPoly( NO_FILL )`), a fill is
+ * `PlotPoly( FILLED_SHAPE, 0 )`, colour and pen through `SetColor` and
+ * `SetCurrentLineWidth`. The plotter writes the operators, the page's CTM,
+ * the compressed stream and the xref; nothing about the file format lives
+ * here.
+ *
+ * A multi-ring fill — an outline glyph's rings — goes the way
+ * `CALLBACK_GAL::DrawGlyph` sends one (callback_gal.cpp:70-78): the
+ * `SHAPE_POLY_SET` is `Fracture()`d into one simple outline per glyph, holes
+ * bridged in, and each outline is one `PlotPoly`.
+ */
+class PdfContext extends VectorContext {
+  constructor(
+    private readonly plotter: PdfPlotter,
+    pw: number,
+    ph: number,
+  ) {
+    super(pw, ph);
+  }
+  private static colour(color: string): Color4d {
+    const [r, g, b] = parseColor(color);
+    return { r: r / 255, g: g / 255, b: b / 255, a: 1 };
+  }
+  private static vec(pts: Pt[]): Vec2[] {
+    return pts.map(([x, y]) => ({ x, y }));
+  }
+  protected emitPolyline(pts: Pt[], width: number, color: string, closed: boolean): void {
+    if (pts.length < 2) return;
+    this.plotter.SetColor(PdfContext.colour(color));
+    if (closed) {
+      this.plotter.PlotPoly(PdfContext.vec(pts), FILL_T.NO_FILL, width);
+      return;
+    }
+    this.plotter.SetCurrentLineWidth(width);
+    this.plotter.MoveTo({ x: pts[0]![0], y: pts[0]![1] });
+    for (let i = 1; i < pts.length - 1; i++) this.plotter.LineTo({ x: pts[i]![0], y: pts[i]![1] });
+    const last = pts[pts.length - 1]!;
+    this.plotter.FinishTo({ x: last[0], y: last[1] });
+  }
+  protected emitPolygon(pts: Pt[], color: string): void {
+    if (pts.length < 3) return;
+    this.plotter.SetColor(PdfContext.colour(color));
+    this.plotter.PlotPoly(PdfContext.vec(pts), FILL_T.FILLED_SHAPE, 0);
+  }
+  protected override emitPolygonSet(rings: Pt[][], color: string): void {
+    if (rings.length === 1) {
+      this.emitPolygon(rings[0]!, color);
+      return;
+    }
+    this.plotter.SetColor(PdfContext.colour(color));
+    // An OUTLINE_GLYPH is a SHAPE_POLY_SET of VECTOR2I: whole IU before the
+    // fracture, as `KiROUND` fills one.
+    const whole = rings.map((r) => r.map(([x, y]) => ({ x: KiROUND(x), y: KiROUND(y) })));
+    for (const outline of fracture(nestRings(whole)))
+      this.plotter.PlotPoly(outline, FILL_T.FILLED_SHAPE, 0);
+  }
+}
+
+/**
+ * Rings from one non-zero fill, sorted into `SHAPE_POLY_SET` polygons — an
+ * outline and the holes directly inside it — by containment depth, the way
+ * `OUTLINE_FONT` builds a glyph (`AddOutline` for a filled contour,
+ * `AddHole` for the one it sits in). Even depth is an outline, odd a hole of
+ * the innermost ring around it.
+ */
+function nestRings(rings: Vec2[][]): Polygon[] {
+  const inside = (p: Vec2, ring: Vec2[]): boolean => {
+    let c = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const a = ring[i]!;
+      const b = ring[j]!;
+      if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) c = !c;
+    }
+    return c;
+  };
+  const containers = rings.map((r, i) =>
+    rings.map((_, j) => j).filter((j) => j !== i && inside(r[0]!, rings[j]!)),
+  );
+  const polygons: Polygon[] = [];
+  const outlineOf = new Map<number, Polygon>();
+  rings.forEach((r, i) => {
+    if (containers[i]!.length % 2 === 0) {
+      const poly: Polygon = [r];
+      outlineOf.set(i, poly);
+      polygons.push(poly);
+    }
+  });
+  rings.forEach((r, i) => {
+    const around = containers[i]!;
+    if (around.length % 2 === 0) return;
+    // The innermost ring around a hole is the one with the most containers.
+    const owner = around.reduce((best, j) =>
+      containers[j]!.length > containers[best]!.length ? j : best,
+    );
+    outlineOf.get(owner)?.push(r);
+  });
+  return polygons;
+}
+
 /** Plot the sheet to a true-vector DXF (AutoCAD) drawing. */
 export function sheetToDxf(sch: Schematic, base: Theme, opts: PlotOpts): string {
   const page = plotPageIU(sch, opts);
@@ -1037,118 +1254,6 @@ function escText(s: string): string {
 }
 
 // ----- minimal single-image PDF ---------------------------------------------
-
-function dataUriToBytes(uri: string): Uint8Array {
-  const b64 = uri.slice(uri.indexOf(',') + 1);
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes;
-}
-
-/** PDF literal string body: escape the delimiters and drop non-Latin-1 bytes. */
-function pdfString(s: string): string {
-  return s
-    .replace(/[\\()]/g, (c) => `\\${c}`)
-    .replace(/[\r\n]+/g, ' ')
-    .replace(/[^\x20-\xff]/g, '');
-}
-
-/** One page of an image PDF: the rendered sheet and the page size it fills. */
-interface PdfImagePage {
-  jpeg: Uint8Array;
-  pxW: number;
-  pxH: number;
-  ptW: number;
-  ptH: number;
-}
-
-/**
- * Build a PDF showing one JPEG (DCTDecode) per page.
- *
- * **A hierarchy is one document, not one file per sheet.** `SCH_PLOTTER::
- * createPDFFile` opens the file once and `StartPage`/`ClosePage`s through the
- * sheet list, so plotting a twelve-sheet design gives you a twelve-page PDF you
- * can page through and send — not twelve files to keep together by hand.
- *
- * Each page keeps its own `/MediaBox`: sheets in one project can have different
- * paper sizes, and forcing them to share one would either crop the big ones or
- * pad the small ones.
- *
- * `info` (the "Generate metadata from AUTHOR & SUBJECT variables" option)
- * writes the document-properties dictionary.
- */
-function buildImagePdf(
-  pages: readonly PdfImagePage[],
-  info?: { title?: string; author?: string; subject?: string },
-): Blob {
-  const enc = new TextEncoder();
-  const parts: (string | Uint8Array)[] = [];
-  const offsets: number[] = [];
-  let pos = 0;
-  const push = (chunk: string | Uint8Array): void => {
-    const bytes = typeof chunk === 'string' ? enc.encode(chunk) : chunk;
-    parts.push(bytes);
-    pos += bytes.length;
-  };
-  const obj = (i: number, body: string): void => {
-    offsets[i] = pos;
-    push(`${i} 0 obj\n${body}\nendobj\n`);
-  };
-
-  // Object numbering: 1 catalog, 2 page tree, then three objects per page
-  // (page, image, content), then the /Info dictionary last.
-  const pageObj = (i: number): number => 3 + i * 3;
-  const imageObj = (i: number): number => 4 + i * 3;
-  const contentObj = (i: number): number => 5 + i * 3;
-  const infoObj = 3 + pages.length * 3;
-
-  push('%PDF-1.4\n%\xff\xff\xff\xff\n');
-  obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
-  const kids = pages.map((_p, i) => `${pageObj(i)} 0 R`).join(' ');
-  obj(2, `<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`);
-
-  pages.forEach((p, i) => {
-    obj(
-      pageObj(i),
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${round(p.ptW)} ${round(p.ptH)}] ` +
-        `/Resources << /XObject << /Im0 ${imageObj(i)} 0 R >> >> /Contents ${contentObj(i)} 0 R >>`,
-    );
-    // Image XObject (JPEG stream).
-    offsets[imageObj(i)] = pos;
-    push(
-      `${imageObj(i)} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${p.pxW} /Height ${p.pxH} ` +
-        `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.jpeg.length} >>\nstream\n`,
-    );
-    push(p.jpeg);
-    push('\nendstream\nendobj\n');
-    // Content stream: place the image to fill the page.
-    const content = `q ${round(p.ptW)} 0 0 ${round(p.ptH)} 0 0 cm /Im0 Do Q`;
-    obj(contentObj(i), `<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
-  });
-
-  // Document properties (PDF_PLOTTER::StartPlot's /Info dictionary).
-  const entries: string[] = ['/Producer (ZiroEDA)'];
-  if (info?.title) entries.push(`/Title (${pdfString(info.title)})`);
-  if (info?.author) entries.push(`/Author (${pdfString(info.author)})`);
-  if (info?.subject) entries.push(`/Subject (${pdfString(info.subject)})`);
-  obj(infoObj, `<< ${entries.join(' ')} >>`);
-
-  const xrefPos = pos;
-  const count = infoObj + 1;
-  let xref = `xref\n0 ${count}\n0000000000 65535 f \n`;
-  for (let i = 1; i < count; i++) xref += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
-  push(xref);
-  push(
-    `trailer\n<< /Size ${count} /Root 1 0 R /Info ${infoObj} 0 R >>\nstartxref\n${xrefPos}\n%%EOF\n`,
-  );
-
-  return new Blob(parts as BlobPart[], { type: 'application/pdf' });
-}
-
-function round(v: number): number {
-  return Math.round(v * 100) / 100;
-}
 
 // ----- Print (browser) -------------------------------------------------------
 

@@ -23,8 +23,7 @@
  * through the browser's download flow, and "Open file after plot" shows it in a
  * new tab (upstream opens the system PDF viewer). Controls a browser cannot
  * honour are left out rather than shown dead: PNG anti-aliasing (canvas always
- * anti-aliases), and the PDF property-popup / hierarchical-link options (our
- * PDF writer emits a page image, not annotated vector content).
+ * anti-aliases).
  */
 
 import { useMemo, useRef, useState, type JSX } from 'react';
@@ -52,6 +51,10 @@ export interface PlotRequest {
   outputDir: string;
   /** Fill the PDF document properties from AUTHOR / SUBJECT. */
   pdfMetadata: boolean;
+  /** `m_PDFPropertyPopups`: a popup of each item's properties on the page. */
+  pdfPropertyPopups: boolean;
+  /** `m_PDFHierarchicalLinks`: sheets, pins and hierarchical labels link to their pages. */
+  pdfHierarchicalLinks: boolean;
   /** Open the plotted file in a new tab (upstream OpenPDF). */
   openAfter: boolean;
   /** Also stream the file to the browser's download folder. */
@@ -99,6 +102,10 @@ export function DialogPlot({ themeId, projectFolders = [], onPlot, onClose }: Pr
   );
   const [dpi, setDpi] = useState(300);
   const [dxfUnits, setDxfUnits] = useState<'in' | 'mm'>('in');
+  // The three PDF checkboxes, each `SetValue(true)` in the base file
+  // (dialog_plot_schematic_base.cpp:139-151).
+  const [pdfPropertyPopups, setPdfPropertyPopups] = useState(true);
+  const [pdfHierarchicalLinks, setPdfHierarchicalLinks] = useState(true);
   const [pdfMetadata, setPdfMetadata] = useState(true);
   // TransferDataToWindow seeds the pen width from the drawing defaults (mils).
   const [minWidthMm, setMinWidthMm] = useState(() =>
@@ -146,6 +153,8 @@ export function DialogPlot({ themeId, projectFolders = [], onPlot, onClose }: Pr
       themeId: themeSel,
       outputDir: outputDir.trim().replace(/^\/+|\/+$/g, ''),
       pdfMetadata: format === 'pdf' && pdfMetadata,
+      pdfPropertyPopups: format === 'pdf' && pdfPropertyPopups,
+      pdfHierarchicalLinks: format === 'pdf' && pdfHierarchicalLinks,
       openAfter: openAfter && canOpenAfter && !allPages,
       downloadCopy,
       report,
@@ -370,6 +379,24 @@ export function DialogPlot({ themeId, projectFolders = [], onPlot, onClose }: Pr
             >
               <fieldset style={group}>
                 <legend style={legend}>PDF Options</legend>
+                <label style={check(format !== 'pdf')}>
+                  <input
+                    type="checkbox"
+                    checked={pdfPropertyPopups}
+                    disabled={format !== 'pdf'}
+                    onChange={(e) => setPdfPropertyPopups(e.target.checked)}
+                  />{' '}
+                  Generate property popups
+                </label>
+                <label style={check(format !== 'pdf')}>
+                  <input
+                    type="checkbox"
+                    checked={pdfHierarchicalLinks}
+                    disabled={format !== 'pdf'}
+                    onChange={(e) => setPdfHierarchicalLinks(e.target.checked)}
+                  />{' '}
+                  Generate clickable links for hierarchical elements
+                </label>
                 <label
                   style={check(format !== 'pdf')}
                   title="Generate PDF document properties from AUTHOR and SUBJECT text variables"
