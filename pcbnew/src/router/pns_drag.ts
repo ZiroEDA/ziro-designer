@@ -231,7 +231,9 @@ export function applyTrackDrag(board: Board, drag: TrackDrag, chain: Chain): Boa
   // of a shortened line is dropped.
   const dropped = new Set(drag.line.tracks.slice(count));
   const byIndex = new Map<number, PcbTrack>();
-  drag.line.tracks.slice(0, count).forEach((boardIdx, i) => byIndex.set(boardIdx, rebuilt[i]!));
+  drag.line.tracks.slice(0, count).forEach((boardIdx, i) => {
+    byIndex.set(boardIdx, rebuilt[i]!);
+  });
   const extra = rebuilt.slice(drag.line.tracks.length);
 
   const tracks = board.tracks.map((t, i) => byIndex.get(i) ?? t).filter((_, i) => !dropped.has(i));

@@ -1660,7 +1660,9 @@ function fillZoneParts(
     // the value and its graphical items in file order; then the board's
     // drawings in file order; then the zones.
     const fileOrder = new Map<unknown, number>();
-    board.source.items.forEach((node, i) => fileOrder.set(node, i));
+    board.source.items.forEach((node, i) => {
+      fileOrder.set(node, i);
+    });
     const at = (item: { source: unknown }): number =>
       fileOrder.get(item.source) ?? Number.MAX_SAFE_INTEGER;
 
@@ -1842,7 +1844,9 @@ function fillZoneParts(
 
     const fpOrder = (fp: PcbFootprint): Map<unknown, number> => {
       const m = new Map<unknown, number>();
-      fp.source.items.forEach((node, i) => m.set(node, i));
+      fp.source.items.forEach((node, i) => {
+        m.set(node, i);
+      });
       return m;
     };
     const isField = (t: PcbTextItem): boolean =>
@@ -2226,7 +2230,9 @@ function fillOutlinesOf(board: Board, zoneIndices: Iterable<number>): FillOutlin
   for (const zi of zoneIndices) {
     const z = board.zones[zi]!;
     for (const f of z.fills)
-      f.polys.forEach((ring, index) => out.push({ zone: zi, layer: f.layer, index, ring }));
+      f.polys.forEach((ring, index) => {
+        out.push({ zone: zi, layer: f.layer, index, ring });
+      });
   }
   return out;
 }
@@ -2703,7 +2709,9 @@ function fillHash(polys: Vec2[][]): string {
 function polysArea(polys: Polygon[]): number {
   let a = 0;
   for (const poly of polys)
-    poly.forEach((ring, i) => (a += (i === 0 ? 1 : -1) * Math.abs(ringArea(ring))));
+    poly.forEach((ring, i) => {
+      a += (i === 0 ? 1 : -1) * Math.abs(ringArea(ring));
+    });
   return a;
 }
 

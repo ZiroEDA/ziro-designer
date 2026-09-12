@@ -1317,19 +1317,45 @@ export function boardItemsInLasso(
  *  texts are children and never selected on their own here. */
 export function allBoardItemIds(board: Board): string[] {
   const out: string[] = [];
-  board.tracks.forEach((_, i) => out.push(boardItemId('track', i)));
-  board.arcs.forEach((_, i) => out.push(boardItemId('arc', i)));
-  board.vias.forEach((_, i) => out.push(boardItemId('via', i)));
-  board.footprints.forEach((_, i) => out.push(boardItemId('footprint', i)));
-  board.shapes.forEach((_, i) => out.push(boardItemId('shape', i)));
-  board.texts.forEach((_, i) => out.push(boardItemId('text', i)));
-  board.textBoxes.forEach((_, i) => out.push(boardItemId('textbox', i)));
-  board.tables.forEach((_, i) => out.push(boardItemId('table', i)));
-  board.images.forEach((_, i) => out.push(boardItemId('image', i)));
-  board.dimensions.forEach((_, i) => out.push(boardItemId('dimension', i)));
-  board.points.forEach((_, i) => out.push(boardItemId('point', i)));
-  board.barcodes.forEach((_, i) => out.push(boardItemId('barcode', i)));
-  board.zones.forEach((_, i) => out.push(boardItemId('zone', i)));
+  board.tracks.forEach((_, i) => {
+    out.push(boardItemId('track', i));
+  });
+  board.arcs.forEach((_, i) => {
+    out.push(boardItemId('arc', i));
+  });
+  board.vias.forEach((_, i) => {
+    out.push(boardItemId('via', i));
+  });
+  board.footprints.forEach((_, i) => {
+    out.push(boardItemId('footprint', i));
+  });
+  board.shapes.forEach((_, i) => {
+    out.push(boardItemId('shape', i));
+  });
+  board.texts.forEach((_, i) => {
+    out.push(boardItemId('text', i));
+  });
+  board.textBoxes.forEach((_, i) => {
+    out.push(boardItemId('textbox', i));
+  });
+  board.tables.forEach((_, i) => {
+    out.push(boardItemId('table', i));
+  });
+  board.images.forEach((_, i) => {
+    out.push(boardItemId('image', i));
+  });
+  board.dimensions.forEach((_, i) => {
+    out.push(boardItemId('dimension', i));
+  });
+  board.points.forEach((_, i) => {
+    out.push(boardItemId('point', i));
+  });
+  board.barcodes.forEach((_, i) => {
+    out.push(boardItemId('barcode', i));
+  });
+  board.zones.forEach((_, i) => {
+    out.push(boardItemId('zone', i));
+  });
   return out;
 }
 
@@ -2640,15 +2666,33 @@ export function boardUuidIndex(board: Board): Map<string, string> {
   const put = (uuid: string | undefined, id: string): void => {
     if (uuid) m.set(uuid, id);
   };
-  board.tracks.forEach((t, i) => put(t.uuid, boardItemId('track', i)));
-  board.arcs.forEach((a, i) => put(a.uuid, boardItemId('arc', i)));
-  board.vias.forEach((v, i) => put(v.uuid, boardItemId('via', i)));
-  board.zones.forEach((z, i) => put(z.uuid, boardItemId('zone', i)));
-  board.shapes.forEach((s, i) => put(s.uuid, boardItemId('shape', i)));
-  board.texts.forEach((t, i) => put(t.uuid, boardItemId('text', i)));
-  board.points.forEach((p, i) => put(p.uuid, boardItemId('point', i)));
-  board.footprints.forEach((f, i) => put(f.uuid, boardItemId('footprint', i)));
-  board.groups.forEach((g, i) => put(g.uuid, boardItemId('group', i)));
+  board.tracks.forEach((t, i) => {
+    put(t.uuid, boardItemId('track', i));
+  });
+  board.arcs.forEach((a, i) => {
+    put(a.uuid, boardItemId('arc', i));
+  });
+  board.vias.forEach((v, i) => {
+    put(v.uuid, boardItemId('via', i));
+  });
+  board.zones.forEach((z, i) => {
+    put(z.uuid, boardItemId('zone', i));
+  });
+  board.shapes.forEach((s, i) => {
+    put(s.uuid, boardItemId('shape', i));
+  });
+  board.texts.forEach((t, i) => {
+    put(t.uuid, boardItemId('text', i));
+  });
+  board.points.forEach((p, i) => {
+    put(p.uuid, boardItemId('point', i));
+  });
+  board.footprints.forEach((f, i) => {
+    put(f.uuid, boardItemId('footprint', i));
+  });
+  board.groups.forEach((g, i) => {
+    put(g.uuid, boardItemId('group', i));
+  });
   return m;
 }
 
@@ -3258,7 +3302,9 @@ export function zoneHandles(board: Board, zoneIndex: number): ZoneHandle[] {
   if (!outline || outline.length < 3) return [];
 
   const out: ZoneHandle[] = [];
-  outline.forEach((p, i) => out.push({ kind: 'corner', index: i, at: p }));
+  outline.forEach((p, i) => {
+    out.push({ kind: 'corner', index: i, at: p });
+  });
   outline.forEach((p, i) => {
     const q = outline[(i + 1) % outline.length]!;
     // EDIT_LINE::GetPosition, the midpoint of the two ends.
