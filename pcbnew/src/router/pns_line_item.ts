@@ -2194,8 +2194,31 @@ export class PnsLine extends PnsLinkHolder {
 
   // ----- the via at the end -----------------------------------------------------
 
+  /**
+   * `LINE::AppendVia( const VIA& )` (pns_line.cpp:1366-1376):
+   *
+   *     if( m_line.PointCount() > 1 && aVia.Pos() == m_line.CPoint( 0 ) )
+   *         Reverse();
+   *     m_via = aVia.Clone();
+   *     m_via->SetOwner( this );
+   *     m_via->SetNet( m_net );
+   *
+   * The net is the load-bearing line. `makeVia` builds the via with no net,
+   * and a netless via reaches the node at FixRoute with a netless HOLE — which
+   * `collideSimple` then treats as another net's, so the head continuing on
+   * the via's far layer collided with its own via and every `Move` after a 'V'
+   * produced a zero-length line. This stored the reference, net and all.
+   */
   appendVia(aVia: PnsVia): void {
-    this.mVia = aVia;
+    const pos = aVia.pos();
+    const first = this.mLine.pointCount() > 1 ? this.mLine.cPoint(0) : null;
+
+    if (first && pos.x === first.x && pos.y === first.y) this.reverse();
+
+    const via = aVia.clone();
+    via.setOwner(this);
+    via.setNet(this.net());
+    this.mVia = via;
   }
 
   removeVia(): void {

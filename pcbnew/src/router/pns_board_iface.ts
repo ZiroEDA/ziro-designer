@@ -999,6 +999,11 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
    * Returns false with no design settings, which is upstream's `if( !m_board )`
    * early-out: the caller's sizes are left as they were.
    */
+  /** Whether {@link PnsBoardIface.importSizes} has a BOARD_DESIGN_SETTINGS to read. */
+  get importSizesEnabled(): boolean {
+    return this.mDeps.designSettings != null;
+  }
+
   importSizes(
     aSizes: PnsRouterSizes,
     aStartItem: PnsItem | null,

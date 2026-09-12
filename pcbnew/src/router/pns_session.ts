@@ -490,8 +490,75 @@ export class PnsSession {
    */
   start(aWhere: Vec2, aBoardLayer: string): boolean {
     this.layer = this.pnsLayer(aBoardLayer);
+    const startItem = this.pick(aWhere, this.layer);
 
-    return this.router.startRouting(aWhere, this.pick(aWhere, this.layer), this.layer);
+    // `ROUTER_TOOL::prepareInteractive`, now that there IS a start item:
+    //
+    //     m_iface->ImportSizes( sizes, m_startItem, nullptr, aStartPosition );
+    //     m_router->UpdateSizes( sizes );
+    //
+    // The constructor's import had no item; this one is what lets "Use
+    // Existing Track Width" inherit from the track the route starts on.
+    if (this.iface.importSizesEnabled) {
+      const sizes = { ...this.router.sizes() };
+      this.iface.importSizes(sizes, startItem, null, aWhere);
+      this.router.updateSizes(sizes);
+    }
+
+    return this.router.startRouting(aWhere, startItem, this.layer);
+  }
+
+  /** `m_iface->GetBoardLayerFromPNSLayer( m_router->GetCurrentLayer() )`. */
+  currentBoardLayer(): string {
+    return boardLayerFromPnsLayer(this.router.getCurrentLayer(), copperLayerCount(this.board));
+  }
+
+  /** `ROUTER::IsPlacingVia`. */
+  get placingVia(): boolean {
+    return this.router.isPlacingVia();
+  }
+
+  /**
+   * `ROUTER_TOOL::handleLayerSwitch( aEvent, aForceVia = true )`'s tail
+   * (router_tool.cpp:1325-1368), for a target layer the caller has already
+   * chosen: the via's geometry and layer pair go into the sizes, via placement
+   * is switched on if it was not, and the head is re-run against the cursor.
+   *
+   *     sizes.SetViaDiameter( … ); sizes.SetViaDrill( … );
+   *     sizes.SetViaType( viaType );
+   *     sizes.AddLayerPair( currentLayer, targetLayer );
+   *     m_router->UpdateSizes( sizes );
+   *     if( !m_router->IsPlacingVia() ) m_router->ToggleViaPlacement();
+   *     if( m_router->RoutingInProgress() ) m_router->Move( … );
+   */
+  placeVia(
+    aTargetBoardLayer: string,
+    aViaDiameter: number,
+    aViaDrill: number,
+    aCursor: Vec2,
+  ): void {
+    const sizes = {
+      ...this.router.sizes(),
+      viaDiameter: aViaDiameter,
+      viaDrill: aViaDrill,
+      viaType: 'through' as const,
+      layerTop: this.router.getCurrentLayer(),
+      layerBottom: this.pnsLayer(aTargetBoardLayer),
+    };
+    this.router.updateSizes(sizes);
+
+    if (!this.router.isPlacingVia()) this.router.toggleViaPlacement();
+
+    if (this.router.routingInProgress()) this.move(aCursor);
+  }
+
+  /**
+   * `ROUTER_TOOL::onViaCommand` when a via is already on the head:
+   * `ToggleViaPlacement()` takes it off again, and the head is re-run.
+   */
+  cancelVia(aCursor: Vec2): void {
+    if (this.router.isPlacingVia()) this.router.toggleViaPlacement();
+    if (this.router.routingInProgress()) this.move(aCursor);
   }
 
   /** `ROUTER::Move` — re-run the placer against the cursor. */
@@ -506,7 +573,27 @@ export class PnsSession {
    * rather than leaving the placer running from this point.
    */
   fix(aWhere: Vec2, aForceFinish = false): boolean {
-    return this.router.fixRoute(aWhere, this.pick(aWhere, this.layer), aForceFinish, false);
+    // `bool needLayerSwitch = m_router->IsPlacingVia();` before the fix
+    // (router_tool.cpp:1608), `switchLayerOnViaPlacement()` after it (:1617):
+    // the TOOL, not the placer, moves the run onto the via's other layer —
+    // `Sizes().PairedLayer( currentLayer )`, else `GetLayerTop()`.
+    const needLayerSwitch = this.router.isPlacingVia();
+    const done = this.router.fixRoute(aWhere, this.pick(aWhere, this.layer), aForceFinish, false);
+
+    if (!done && needLayerSwitch) {
+      const sizes = this.router.sizes();
+      const current = this.router.getCurrentLayer();
+      const paired =
+        current === sizes.layerTop
+          ? sizes.layerBottom
+          : current === sizes.layerBottom
+            ? sizes.layerTop
+            : sizes.layerTop;
+      this.router.switchLayer(paired);
+      this.layer = paired;
+    }
+
+    return done;
   }
 
   /** Whether a route is in progress. */

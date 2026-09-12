@@ -321,3 +321,42 @@ describe('the router mode', () => {
     expect(s.failureReason).toBe('');
   });
 });
+
+describe('a via mid-route, ROUTER_TOOL::onViaCommand', () => {
+  it('drops a via on the head, the run continues on the target layer, and both commit', () => {
+    // `handleLayerSwitch( aEvent, aForceVia = true )`'s tail: the via geometry
+    // and the layer pair into the sizes, `ToggleViaPlacement`, `Move`. The
+    // next `FixRoute` commits the segment AND the via, and the placer carries
+    // on from the via on the pair's other layer.
+    const s = new PnsSession(twoPads(), { trackWidth: W, viaDiameter: 600_000, viaDrill: 300_000 });
+    expect(s.start({ x: 100 * MM, y: 100 * MM }, 'F.Cu')).toBe(true);
+    s.move({ x: 104 * MM, y: 100 * MM });
+    expect(s.placingVia).toBe(false);
+    s.placeVia('B.Cu', 600_000, 300_000, { x: 104 * MM, y: 100 * MM });
+    expect(s.placingVia).toBe(true);
+    // The head now ends in a via, so the preview carries one.
+    expect(s.preview.some((p) => p.kind === 'via')).toBe(true);
+
+    expect(s.fix({ x: 104 * MM, y: 100 * MM })).toBe(false); // fixed, keep routing
+    expect(s.currentBoardLayer()).toBe('B.Cu');
+    expect(s.placingVia).toBe(false);
+
+    s.move({ x: 110 * MM, y: 100 * MM });
+    expect(s.fix({ x: 110 * MM, y: 100 * MM })).toBe(true); // landed on the far pad
+    const after = applyPnsChanges(twoPads(), s.commit().changes);
+    expect(after.vias.length).toBe(1);
+    expect(after.vias[0]!.at).toEqual({ x: 104 * MM, y: 100 * MM });
+    expect(after.tracks.some((t) => t.layer === 'F.Cu')).toBe(true);
+    expect(after.tracks.some((t) => t.layer === 'B.Cu')).toBe(true);
+  });
+
+  it('a second V takes the via off the head again', () => {
+    const s = new PnsSession(twoPads(), { trackWidth: W, viaDiameter: 600_000, viaDrill: 300_000 });
+    s.start({ x: 100 * MM, y: 100 * MM }, 'F.Cu');
+    s.move({ x: 104 * MM, y: 100 * MM });
+    s.placeVia('B.Cu', 600_000, 300_000, { x: 104 * MM, y: 100 * MM });
+    s.cancelVia({ x: 104 * MM, y: 100 * MM });
+    expect(s.placingVia).toBe(false);
+    expect(s.preview.some((p) => p.kind === 'via')).toBe(false);
+  });
+});
