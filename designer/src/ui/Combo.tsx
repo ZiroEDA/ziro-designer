@@ -61,6 +61,15 @@ export interface ComboOption {
    * KiCad bitmap we ship, so a call site never spells a path.
    */
   bitmap?: string;
+  /**
+   * A specimen drawn AFTER the label in another face — `FONT_CHOICE::
+   * OnDrawItem` (common/widgets/font_choice.cpp:336-370): the name in the GUI
+   * font, then for every installed face "AaBbCcDd123456" 15 px to its right
+   * in that face, at the GUI size, in GRAYTEXT (the highlight text colour on
+   * the selected row). Only the popup rows carry it; the closed box shows the
+   * name alone, as a wxOwnerDrawnComboBox's text control does.
+   */
+  sample?: { text: string; fontFamily: string };
 }
 
 export function Combo({
@@ -237,6 +246,11 @@ export function Combo({
                 <img className="ze-combo-bitmap" src={bitmapUrl(o.bitmap)} alt="" />
               )}
               {o.label}
+              {o.sample !== undefined && (
+                <span className="ze-combo-sample" style={{ fontFamily: o.sample.fontFamily }}>
+                  {o.sample.text}
+                </span>
+              )}
             </div>
           ))}
         </div>

@@ -29,7 +29,8 @@
  */
 import type { JSX } from 'react';
 import { toolbarIconUrl } from './toolbarIcons.js';
-import { Combo } from './Combo.js';
+import { BUNDLED_FAMILIES, FONT_SAMPLE } from '../font/outline_fonts.js';
+import { Combo, type ComboOption } from './Combo.js';
 
 /** `GR_TEXT_H_ALIGN_T` minus INDETERMINATE, which no button stands for. */
 export type HAlign = 'left' | 'center' | 'right';
@@ -83,13 +84,32 @@ export function IconButton({
  * `FONT_CHOICE` (`common/widgets/font_choice.cpp`), whose two built-in entries
  * the generated bases spell "Default Font" and "KiCad Font".
  */
-/** `wxString m_fontCtrlChoices[] = { _( "Default Font" ), _( "KiCad Font" ) };`
- *  (`dialog_field_properties_base.cpp:142`). Upstream appends the installed
- *  faces after these two; a browser cannot enumerate them. */
-const FONT_OPTIONS = [
+/**
+ * `FONT_CHOICE::RefreshFonts` (common/widgets/font_choice.cpp:227-262): the
+ * two built-ins — `wxString m_fontCtrlChoices[] = { _( "Default Font" ),
+ * _( "KiCad Font" ) }` (`dialog_field_properties_base.cpp:142`) — then
+ * `FONT_LIST_MANAGER::Get().GetFonts()`, which is fontconfig's list of the
+ * installed families. A browser cannot enumerate the machine's fonts; what it
+ * has is the catalogue `fontconfig.ts` serves, the same families the
+ * substitutions land on, so those are the "installed" faces here.
+ *
+ * `OnDrawItem` draws every installed face's row with a specimen in that
+ * face (:355-369); the `sample` on each option is that, and the faces come
+ * from the `@font-face` rules `installOutlineFontFaces` declares over the
+ * same files the renderer fills glyphs from.
+ */
+const FONT_OPTIONS: ComboOption[] = [
   { value: 'Default Font', label: 'Default Font' },
   { value: 'KiCad Font', label: 'KiCad Font' },
+  ...BUNDLED_FAMILIES.map((family) => ({
+    value: family,
+    label: family,
+    sample: { text: FONT_SAMPLE, fontFamily: `"${family}"` },
+  })),
 ];
+
+/** `FONT_CHOICE::m_notFound`: `wxS( " " ) + _( "<not found>" )`. */
+const NOT_FOUND = ' <not found>';
 
 export function FontChoice({
   face,
@@ -105,12 +125,20 @@ export function FontChoice({
   // same widget the toolbars' grid and zoom selectors use, so this asks for it
   // rather than falling back to the browser's `<select>` chrome — which is the
   // one control in these dialogs that was not ours.
+  //
+  // `SetFontSelection` (:269-285): a face the list does not hold — "Arial" in
+  // a file authored on a machine that had it — is appended as
+  // `name + m_notFound` and selected; its value stays the face, so OK keeps
+  // what the file said.
+  const value = face === '' ? 'Default Font' : face;
+  const options = FONT_OPTIONS.some((o) => o.value === value)
+    ? FONT_OPTIONS
+    : [...FONT_OPTIONS, { value, label: `${value}${NOT_FOUND}` }];
   return (
     <Combo
       className="ze-lp-font"
-      title="Text is drawn with KiCad's own font in the browser build."
-      value={face === '' ? 'Default Font' : face}
-      options={FONT_OPTIONS}
+      value={value}
+      options={options}
       onChange={(v) => onChange(v === 'Default Font' ? '' : v)}
     />
   );

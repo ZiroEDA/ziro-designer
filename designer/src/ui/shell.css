@@ -13397,6 +13397,17 @@ textarea.ze-ds-textedit {
 .ze-combo-item.disabled {
   color: var(--ctl-fg-disabled);
 }
+/* `FONT_CHOICE::OnDrawItem`: the specimen sits `nameRect.GetRight() + 15`
+   from the name, in wxSYS_COLOUR_GRAYTEXT (--ctl-fg-disabled carries it) —
+   the highlight text colour on the selected row. Baselines are aligned by
+   the DC arithmetic there; a flex row of two inline spans does the same. */
+.ze-combo-sample {
+  margin-left: 15px; /* [data] font_choice.cpp:367 */
+  color: var(--ctl-fg-disabled);
+}
+.ze-combo-item.selected .ze-combo-sample {
+  color: var(--selection-fg);
+}
 
 /* ---------------------------------------------------------------------------
    wxOwnerDrawnComboBox (ui/OwnerDrawnCombo.tsx).

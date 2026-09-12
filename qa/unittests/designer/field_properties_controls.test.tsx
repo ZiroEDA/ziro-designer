@@ -157,9 +157,12 @@ describe('DIALOG_FIELD_PROPERTIES: the checkbox row', () => {
 describe('DIALOG_FIELD_PROPERTIES: the formatting bar', () => {
   /**
    * FONT_CHOICE's two built-in entries, spelled by the generated base
-   * (dialog_field_properties_base.cpp:145).
+   * (dialog_field_properties_base.cpp:145), then the installed faces —
+   * `FONT_LIST_MANAGER::GetFonts()`, which here is the catalogue
+   * `fontconfig.ts` serves, sorted by codepoint as fontconfig's set is —
+   * each row followed by `OnDrawItem`'s specimen in that face.
    */
-  it('offers the font choice with its two built-in faces', () => {
+  it('offers the font choice: the two built-ins, then the catalogue with a specimen each', () => {
     open();
     // `FONT_CHOICE` is a wxOwnerDrawnComboBox (`font_choice.h:28`), so this is
     // our `Combo` — the owner-drawn one the toolbars use — and not a native
@@ -171,9 +174,25 @@ describe('DIALOG_FIELD_PROPERTIES: the formatting bar', () => {
     // are asserted through the gesture that shows them rather than by reading
     // markup a wxChoice would have had sitting there.
     fireEvent.click(combo!);
-    expect(
-      Array.from(document.querySelectorAll('[role="option"]')).map((o) => o.textContent),
-    ).toStrictEqual(['Default Font', 'KiCad Font']);
+    const rows = Array.from(document.querySelectorAll('[role="option"]'));
+    const names = rows.map((o) => o.firstChild?.textContent ?? o.textContent);
+    expect(names.slice(0, 2)).toStrictEqual(['Default Font', 'KiCad Font']);
+    expect(names.slice(2)).toStrictEqual([
+      'DejaVu Sans',
+      'DejaVu Sans Mono',
+      'Liberation Mono',
+      'Liberation Sans',
+      'Liberation Serif',
+      'Noto Sans',
+      'Noto Serif',
+    ]);
+    // The built-ins carry no specimen; every installed face does, in itself.
+    expect(rows.slice(0, 2).map((r) => r.querySelector('.ze-combo-sample'))).toEqual([null, null]);
+    for (const r of rows.slice(2)) {
+      const sample = r.querySelector('.ze-combo-sample') as HTMLElement;
+      expect(sample.textContent).toBe('AaBbCcDd123456');
+      expect(sample.style.fontFamily).toBe(`"${r.firstChild?.textContent}"`);
+    }
     expect(screen.getByText('Font:')).toBeTruthy();
   });
 

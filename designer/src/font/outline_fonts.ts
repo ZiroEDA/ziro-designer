@@ -28,7 +28,7 @@
  * as `s_fontMap` is keyed — the same face file serves "Arial" and
  * "Liberation Sans", but each keeps the name it was asked for.
  */
-import { findFont } from '@ziroeda/common/src/font/fontconfig.js';
+import { BUNDLED_FONTS, findFont } from '@ziroeda/common/src/font/fontconfig.js';
 import { setFontProvider } from '@ziroeda/common/src/font/font_provider.js';
 import { type OutlineFace, parseOutlineFace } from '@ziroeda/common/src/font/outline_face.js';
 import { OutlineFont } from '@ziroeda/common/src/font/outline_font.js';
@@ -129,6 +129,7 @@ export function getOutlineFont(
  * falls back to the stroke font, which is what is on screen at that moment.
  */
 export function installOutlineFontProvider(): void {
+  installOutlineFontFaces();
   setFontProvider({
     measure(text, size, style) {
       const font = getOutlineFont(style.face, !!style.bold, !!style.italic);
@@ -196,6 +197,40 @@ export function loadOutlineFontsFor(docs: Iterable<unknown>): Promise<void> {
     );
   }
   return Promise.all(pending).then(() => undefined);
+}
+
+/**
+ * The families the catalogue holds, in the order `FONT_LIST_MANAGER` would
+ * list them — `FONTCONFIG::ListFonts` collects family names into a
+ * `std::set<std::string>` (fontconfig.cpp:395-470), so they come out sorted
+ * by codepoint, never by locale.
+ */
+export const BUNDLED_FAMILIES: readonly string[] = [
+  ...new Set(BUNDLED_FONTS.map((f) => f.family)),
+].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+
+/** `FONT_CHOICE::OnDrawItem`'s `c_sampleString`. */
+export const FONT_SAMPLE = 'AaBbCcDd123456';
+
+/**
+ * Declare every catalogue file as a CSS `@font-face`, so a dialog can show a
+ * face's name in the face (`FONT_CHOICE::OnDrawItem`) from the same bytes
+ * the renderer fills glyphs from. The browser fetches a face only when a
+ * rule using it is first painted, so this costs nothing until a font combo
+ * opens. Once per document.
+ */
+export function installOutlineFontFaces(doc: Document | undefined = globalThis.document): void {
+  if (!doc || doc.getElementById('ze-outline-font-faces')) return;
+  const weightOf = (style: string): number => (/bold/i.test(style) ? 700 : 400);
+  const slantOf = (style: string): string => (/italic|oblique/i.test(style) ? 'italic' : 'normal');
+  const style = doc.createElement('style');
+  style.id = 'ze-outline-font-faces';
+  style.textContent = BUNDLED_FONTS.map(
+    (f) =>
+      `@font-face{font-family:"${f.family}";font-weight:${weightOf(f.style)};` +
+      `font-style:${slantOf(f.style)};src:url("${FONTS_URL}${f.file}") format("truetype")}`,
+  ).join('\n');
+  doc.head.appendChild(style);
 }
 
 /** For tests: forget every face and font. */
