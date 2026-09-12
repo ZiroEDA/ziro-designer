@@ -10288,6 +10288,7 @@ export function SchematicEditor({
                 doc={doc}
                 libById={libById}
                 baseName={outputBaseName()}
+                {...(projectName ? { projectName } : {})}
                 projectFolders={projectFolders}
                 onOutputFile={onOutputFile}
                 onClose={() => setNetlistOpen(false)}

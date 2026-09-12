@@ -15,7 +15,7 @@
  * the full SIM_MODEL registry is the simulator project's next chunk.
  */
 
-import type { LibSymbol, Schematic } from '../types.js';
+import type { LibSymbol, SchLabel, Schematic } from '../types.js';
 import { refId } from '../tools/hittest.js';
 import { enumeratePins, computeNetlist, type Netlist } from '../connectivity/nets.js';
 
@@ -36,6 +36,51 @@ export interface SpiceExportOptions {
   saveAllDissipations?: boolean;
   /** GetShownText's `${VAR}` resolver for field/text values. */
   resolve?: (text: string) => string;
+  /**
+   * NETLIST_EXPORTER_SPICE_MODEL (netlist_exporter_spice_model.cpp): wrap the
+   * netlist as `.subckt <name>` … `.ends`, the name being the project's, with
+   * every hierarchical label a port of the subcircuit. Undefined is the plain
+   * NETLIST_EXPORTER_SPICE.
+   */
+  subcktName?: string;
+}
+
+/** `NETLIST_EXPORTER_SPICE_MODEL::PORT_INFO`: the label's shown text and shape. */
+interface SpicePort {
+  name: string;
+  dir: NonNullable<SchLabel['shape']>;
+}
+
+/** `WriteHead`'s `portDir` switch over `LABEL_FLAG_SHAPE`. */
+const PORT_DIR: Record<SpicePort['dir'], string> = {
+  input: 'input',
+  output: 'output',
+  bidirectional: 'inout',
+  tri_state: 'tristate',
+  passive: 'passive',
+};
+
+/**
+ * `readPorts`: every SCH_HIER_LABEL_T item, keyed by its connection name in a
+ * `std::map<wxString, …>` — so ordered by codepoint, and `insert` keeps the
+ * first of two labels on one net. A hierarchical label's shape defaults to
+ * `L_INPUT` (sch_label.cpp's SCH_HIERLABEL ctor) when the file omits it.
+ */
+function readPorts(
+  sch: Schematic,
+  nl: Netlist,
+  resolve: ((t: string) => string) | undefined,
+): Map<string, SpicePort> {
+  const ports = new Map<string, SpicePort>();
+  sch.labels.forEach((l, i) => {
+    if (l.kind !== 'hierarchical_label') return;
+    const code = nl.netByItem.get(refId('label', l.uuid, i));
+    if (code === undefined) return;
+    const conn = nl.nets.find((n) => n.code === code)?.name;
+    if (conn === undefined || ports.has(conn)) return;
+    ports.set(conn, { name: resolve ? resolve(l.text) : l.text, dir: l.shape ?? 'input' });
+  });
+  return new Map([...ports].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
 }
 
 /**
@@ -408,6 +453,8 @@ export function generateSpiceNetlist(
   }
   const netName = (code: number | undefined): string =>
     code !== undefined ? (nl.nets.find((n) => n.code === code)?.name ?? '') : '';
+  const ports =
+    opts.subcktName !== undefined ? readPorts(sch, nl, opts.resolve) : new Map<string, SpicePort>();
 
   sch.symbols.forEach((sym, si) => {
     // ResolveExcludedFromSim: skipped symbols never reach the netlist.
@@ -436,7 +483,9 @@ export function generateSpiceNetlist(
     const netOf = (pinNumber: string): string => {
       const pin = pinsOf.find((p) => p.number === pinNumber);
       const raw = pin ? netName(nl.netByItem.get(pin.id)) : '';
-      const converted = convertToSpiceMarkup(raw);
+      // The model exporter's override: a net that is a port goes out under
+      // the port's name (`GenerateItemPinNetName`, netlist_exporter_spice_model.cpp:73-83).
+      const converted = convertToSpiceMarkup(ports.get(raw)?.name ?? raw);
       return converted === '' ? `NC-${ncCounter++}` : converted;
     };
     const nodes = ` ${netOf(model.pinPlus)} ${netOf(model.pinMinus)}`;
@@ -480,7 +529,17 @@ export function generateSpiceNetlist(
   const directives = collectSpiceDirectives(sch, opts.resolve);
 
   // DoWriteNetlist assembly order: head, includes, models, directives, items, tail.
-  let text = '.title KiCad schematic\n';
+  let text: string;
+  if (opts.subcktName !== undefined) {
+    // NETLIST_EXPORTER_SPICE_MODEL::WriteHead: a comment line, a blank, the
+    // `.subckt` line, one continuation line per port with its direction as a
+    // comment, then two blanks.
+    text = `*\n\n.subckt ${opts.subcktName}\n`;
+    for (const port of ports.values()) text += `+       ${port.name} ; ${PORT_DIR[port.dir]}\n`;
+    text += '\n\n';
+  } else {
+    text = '.title KiCad schematic\n';
+  }
   if (items.length > 0) {
     if (opts.saveAllVoltages) text += '.save all\n';
     if (opts.saveAllCurrents) text += '.probe alli\n';
@@ -493,7 +552,8 @@ export function generateSpiceNetlist(
     for (const directive of directives) text += `${directive}\n`;
   }
   for (const item of items) text += item.line;
-  text += '.end\n';
+  // The model's WriteTail is `\n.ends\n`; the plain exporter's `.end\n`.
+  text += opts.subcktName !== undefined ? '\n.ends\n' : '.end\n';
 
   return { text, errors };
 }

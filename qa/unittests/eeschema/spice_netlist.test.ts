@@ -175,6 +175,61 @@ describe('generateSpiceNetlist', () => {
     expect(text).toContain('K1 L1 L2 0.99');
   });
 
+  it('as a SPICE model: .subckt with the hierarchical labels as ports, in map order', () => {
+    // NETLIST_EXPORTER_SPICE_MODEL (netlist_exporter_spice_model.cpp):
+    // WriteHead is `*`, a blank, `.subckt <project>`, one `+       NAME ; dir`
+    // per port out of a std::map keyed by connection name (codepoint order),
+    // then two blanks; the tail is a blank and `.ends`. A pin on a port's net
+    // is written under the PORT name (GenerateItemPinNetName :73-83), so the
+    // sheet-path prefix the connection carries never reaches the .subckt.
+    const d = doc(`
+      ${sym('R1', '10k', 10, 'r1')}
+      (wire (pts (xy 0 10) (xy 7.46 10)) (uuid "wa"))
+      (wire (pts (xy 12.54 10) (xy 20 10)) (uuid "wb"))
+      (hierarchical_label "VIN" (shape input) (at 0 10 180) (uuid "ha"))
+      (hierarchical_label "OUT" (shape output) (at 20 10 0) (uuid "hb"))
+      (hierarchical_label "BUS_IO" (shape bidirectional) (at 40 40 0) (uuid "hc"))
+      (hierarchical_label "EN" (shape tri_state) (at 40 50 0) (uuid "hd"))
+      (hierarchical_label "PAD" (shape passive) (at 40 60 0) (uuid "he"))
+      (text ".model D1N4148 D" (at 50 50 0) (uuid "t1"))`);
+    const lib = new Map(d.libSymbols.map((l) => [l.libId, l]));
+    const { text, errors } = generateSpiceNetlist(d, lib, null, { subcktName: 'amp' });
+    expect(errors).toEqual([]);
+    expect(text).toBe(
+      [
+        '*',
+        '',
+        '.subckt amp',
+        '+       BUS_IO ; inout',
+        '+       EN ; tristate',
+        '+       OUT ; output',
+        '+       PAD ; passive',
+        '+       VIN ; input',
+        '',
+        '',
+        '.model D1N4148 D',
+        'R1 VIN OUT 10k',
+        '',
+        '.ends',
+        '',
+      ].join('\n'),
+    );
+  });
+
+  it('as a SPICE model, a label with no shape is an input port, and one label per net', () => {
+    // `m_shape = L_INPUT` in SCH_HIERLABEL's ctor; `m_ports.insert` keeps the
+    // first label on a connection.
+    const d = doc(`
+      ${sym('R1', '10k', 10, 'r1')}
+      (wire (pts (xy 0 10) (xy 7.46 10)) (uuid "wa"))
+      (hierarchical_label "A" (at 0 10 180) (uuid "ha"))
+      (hierarchical_label "A" (shape output) (at 3 10 180) (uuid "hb"))`);
+    const lib = new Map(d.libSymbols.map((l) => [l.libId, l]));
+    const { text } = generateSpiceNetlist(d, lib, null, { subcktName: 'p' });
+    expect(text.match(/^\+ {7}A ; input$/gm)).toHaveLength(1);
+    expect(text).not.toContain('; output');
+  });
+
   it('suppresses directives entirely when no items netlist (ngspice-segfault guard)', () => {
     const d = doc('(text ".tran 1u 10m" (at 50 50 0) (uuid "t1"))');
     const lib = new Map(d.libSymbols.map((l) => [l.libId, l]));
