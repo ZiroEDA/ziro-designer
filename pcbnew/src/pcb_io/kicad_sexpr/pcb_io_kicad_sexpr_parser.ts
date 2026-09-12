@@ -92,8 +92,8 @@ const INT_LIMIT = 2147483647 - 10;
 const KiROUND = (v: number): number => (v < 0 ? Math.ceil(v - 0.5) : Math.floor(v + 0.5));
 
 /** `MIN_PAGE_SIZE_MM` / `MAX_PAGE_SIZE_PCBNEW_MM` (include/page_info.h:39-40). */
-const MIN_PAGE_SIZE_MM = 25.4;
-const MAX_PAGE_SIZE_PCBNEW_MM = 48000 * 0.0254;
+export const MIN_PAGE_SIZE_MM = 25.4;
+export const MAX_PAGE_SIZE_PCBNEW_MM = 48000 * 0.0254;
 
 /**
  * `LEGACY_PCB_LAYER_ID` (pcb_plot_params.cpp): the layer numbering before

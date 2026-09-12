@@ -227,7 +227,7 @@ function zoneNumCorners(z: KZone): number {
  * as the group. Groups and generators are themselves items, so nested groups
  * resolve too. A generator takes the layer of its first track member.
  */
-function resolveGroups(board: KBoard): void {
+export function resolveGroups(board: KBoard): void {
   // The board's item-by-id cache holds every top-level item; footprint
   // children are in it too but fail the same-parent test below.
   const topLevel = new Map<string, KBoardTrack | null>();

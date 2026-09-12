@@ -3605,7 +3605,7 @@ export function newVia(): KPcbVia {
 }
 
 /** `PCB_VIA::SetLayerPair` + `SanitizeLayers` (pcb_track.cpp:1643, :1725). */
-function viaSetLayerPair(via: KPcbVia, top: number, bottom: number): void {
+export function viaSetLayerPair(via: KPcbVia, top: number, bottom: number): void {
   let start = top;
   let end = bottom;
   if (via.viaType === 'through') {
