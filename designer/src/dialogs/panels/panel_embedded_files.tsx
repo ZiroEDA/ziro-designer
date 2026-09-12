@@ -107,6 +107,7 @@ export function PanelEmbeddedFiles({ value, onChange, onExport }: Props): JSX.El
           }}
         />
         <button
+          type="button"
           className="ze-gridbtn"
           title="Add embedded file"
           onClick={() => fileInput.current?.click()}
@@ -115,6 +116,7 @@ export function PanelEmbeddedFiles({ value, onChange, onExport }: Props): JSX.El
         </button>
         <span style={{ width: 15 }} />
         <button
+          type="button"
           className="ze-gridbtn"
           title="Remove embedded file"
           disabled={sel === null}
@@ -133,6 +135,7 @@ export function PanelEmbeddedFiles({ value, onChange, onExport }: Props): JSX.El
         </label>
         <span style={{ flex: 1 }} />
         <button
+          type="button"
           className="ze-btn"
           title="Export embedded files"
           disabled={!onExport || value.files.length === 0}

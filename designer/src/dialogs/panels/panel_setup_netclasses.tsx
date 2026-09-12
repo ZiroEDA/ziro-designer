@@ -161,13 +161,20 @@ export function PanelSetupNetclasses({ value, onChange }: Props): JSX.Element {
       </div>
 
       <div className="ze-grid-btns">
-        <button className="ze-gridbtn" title="Add netclass" onClick={add}>
+        <button type="button" className="ze-gridbtn" title="Add netclass" onClick={add}>
           <Icon name="plus" />
         </button>
-        <button className="ze-gridbtn" title="Move up" disabled={sel <= 1} onClick={() => move(-1)}>
+        <button
+          type="button"
+          className="ze-gridbtn"
+          title="Move up"
+          disabled={sel <= 1}
+          onClick={() => move(-1)}
+        >
           <Icon name="arrowUp" />
         </button>
         <button
+          type="button"
           className="ze-gridbtn"
           title="Move down"
           disabled={sel === 0 || sel >= value.classes.length - 1}
@@ -177,6 +184,7 @@ export function PanelSetupNetclasses({ value, onChange }: Props): JSX.Element {
         </button>
         <span className="ze-gridbtn-gap" />
         <button
+          type="button"
           className="ze-gridbtn"
           title="Remove netclass"
           disabled={isDefault(sel)}
@@ -190,7 +198,7 @@ export function PanelSetupNetclasses({ value, onChange }: Props): JSX.Element {
             the dialog's own font and ink, not a grey 11px caption. */}
         <span>Set color to transparent to use layer default color.</span>
         {/* Stubbed: copies net colors from the schematic's netclass definitions. */}
-        <button className="ze-btn ze-nc-importcolors" title="Not implemented yet">
+        <button type="button" className="ze-btn ze-nc-importcolors" title="Not implemented yet">
           Import colors from schematic
         </button>
       </div>
@@ -246,6 +254,7 @@ export function PanelSetupNetclasses({ value, onChange }: Props): JSX.Element {
       </div>
       <div className="ze-grid-btns">
         <button
+          type="button"
           className="ze-gridbtn"
           title="Add assignment"
           onClick={() => setAssign([...value.assignments, { pattern: '', netClass: 'Default' }])}
@@ -254,6 +263,7 @@ export function PanelSetupNetclasses({ value, onChange }: Props): JSX.Element {
         </button>
         <span style={{ width: 15 }} />
         <button
+          type="button"
           className="ze-gridbtn"
           title="Remove assignment"
           disabled={value.assignments.length === 0}

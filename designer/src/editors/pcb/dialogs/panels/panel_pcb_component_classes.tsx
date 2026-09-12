@@ -68,7 +68,7 @@ export function PanelPcbComponentClasses({ value, onChange }: Props): JSX.Elemen
       </label>
       <div className="ze-pref-group-title ze-compclass-title">
         <span>Custom Assignments:</span>
-        <button className="ze-btn" onClick={addAssignment}>
+        <button type="button" className="ze-btn" onClick={addAssignment}>
           Add Custom Assignment
         </button>
       </div>
@@ -93,10 +93,11 @@ export function PanelPcbComponentClasses({ value, onChange }: Props): JSX.Elemen
                     onChange={(e) => setAssignment(i, { componentClass: e.target.value })}
                   />
                   <span className="ze-compclass-spacer" />
-                  <button className="ze-btn" title="Not implemented yet">
+                  <button type="button" className="ze-btn" title="Not implemented yet">
                     Highlight matching footprints
                   </button>
                   <button
+                    type="button"
                     className="ze-gridbtn"
                     title="Delete assignment"
                     onClick={() => setAssignments(value.assignments.filter((_, j) => j !== i))}
@@ -174,6 +175,7 @@ export function PanelPcbComponentClasses({ value, onChange }: Props): JSX.Elemen
                       />
                     )}
                     <button
+                      type="button"
                       className="ze-gridbtn"
                       title="Delete row"
                       onClick={() => setConditions(a.conditions.filter((_, j) => j !== ci))}
@@ -183,6 +185,7 @@ export function PanelPcbComponentClasses({ value, onChange }: Props): JSX.Elemen
                   </div>
                 ))}
                 <button
+                  type="button"
                   className="ze-btn ze-compclass-addcond"
                   onClick={() => setConditions([...a.conditions, { type: 'Reference', value: '' }])}
                 >

@@ -592,6 +592,7 @@ export function PanelPcbStackup({ value, onChange, finish }: Props): JSX.Element
       <div key={`${key}-matb`}>
         {hasField(l.type, 'mat') ? (
           <button
+            type="button"
             className="ze-gridbtn"
             style={{ width: 24, height: 24 }}
             title="Select material"
@@ -683,10 +684,15 @@ export function PanelPcbStackup({ value, onChange, finish }: Props): JSX.Element
           Impedance controlled
         </label>
         <span className="ze-stackup-spacer" />
-        <button className="ze-btn" onClick={onAddDielectric}>
+        <button type="button" className="ze-btn" onClick={onAddDielectric}>
           Add Dielectric Layer...
         </button>
-        <button className="ze-btn" disabled={!removableExists} onClick={onRemoveDielectric}>
+        <button
+          type="button"
+          className="ze-btn"
+          disabled={!removableExists}
+          onClick={onRemoveDielectric}
+        >
           Remove Dielectric Layer...
         </button>
       </div>
@@ -728,11 +734,11 @@ export function PanelPcbStackup({ value, onChange, finish }: Props): JSX.Element
             Export hard right and Adjust beside the field (`:139-148`). This had
             the growable spacer first, so both buttons bunched on the right. */}
         <span className="ze-stackup-gap10" />
-        <button className="ze-btn" onClick={onAdjustThickness}>
+        <button type="button" className="ze-btn" onClick={onAdjustThickness}>
           Adjust Dielectric Thickness
         </button>
         <span className="ze-stackup-spacer" />
-        <button className="ze-btn" onClick={onExport}>
+        <button type="button" className="ze-btn" onClick={onExport}>
           Export to Clipboard
         </button>
       </div>
@@ -817,10 +823,10 @@ export function PanelPcbStackup({ value, onChange, finish }: Props): JSX.Element
               </div>
             </div>
             <div className="ze-modal-footer">
-              <button className="ze-btn" onClick={() => setMatTarget(null)}>
+              <button type="button" className="ze-btn" onClick={() => setMatTarget(null)}>
                 Cancel
               </button>
-              <button className="ze-btn primary" onClick={commitMaterial}>
+              <button type="button" className="ze-btn primary" onClick={commitMaterial}>
                 OK
               </button>
             </div>

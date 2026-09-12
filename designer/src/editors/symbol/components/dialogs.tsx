@@ -309,10 +309,10 @@ export function PinPropertiesDialog({
           </div>
         </div>
         <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={onCancel}>
+          <button type="button" className="ze-btn" onClick={onCancel}>
             Cancel
           </button>
-          <button className="ze-btn primary" onClick={submit}>
+          <button type="button" className="ze-btn primary" onClick={submit}>
             {isNew ? 'OK' : 'OK'}
           </button>
         </div>
@@ -549,10 +549,10 @@ export function NewSymbolDialog({
           </label>
         </div>
         <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={onCancel}>
+          <button type="button" className="ze-btn" onClick={onCancel}>
             Cancel
           </button>
-          <button className="ze-btn primary" onClick={submit}>
+          <button type="button" className="ze-btn primary" onClick={submit}>
             OK
           </button>
         </div>
@@ -737,11 +737,11 @@ export function LibSymbolPropertiesDialog({
             </table>
           </div>
           <div className="ze-props-rowbtns">
-            <button className="ze-btn sm" title="Add field" onClick={addRow}>
+            <button type="button" className="ze-btn sm" title="Add field" onClick={addRow}>
               +
             </button>
             <span className="grow" />
-            <button className="ze-btn sm" title="Delete field" onClick={deleteRow}>
+            <button type="button" className="ze-btn sm" title="Delete field" onClick={deleteRow}>
               🗑
             </button>
           </div>
@@ -830,10 +830,10 @@ export function LibSymbolPropertiesDialog({
           </div>
         </div>
         <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={onCancel}>
+          <button type="button" className="ze-btn" onClick={onCancel}>
             Cancel
           </button>
-          <button className="ze-btn primary" onClick={submit}>
+          <button type="button" className="ze-btn primary" onClick={submit}>
             OK
           </button>
         </div>
@@ -922,10 +922,10 @@ export function SymbolTextDialog({
           </div>
         </div>
         <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={onCancel}>
+          <button type="button" className="ze-btn" onClick={onCancel}>
             Cancel
           </button>
-          <button className="ze-btn primary" disabled={!text.trim()} onClick={submit}>
+          <button type="button" className="ze-btn primary" disabled={!text.trim()} onClick={submit}>
             OK
           </button>
         </div>
@@ -1001,10 +1001,11 @@ export function ShapePropertiesDialog({
           </label>
         </div>
         <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={onCancel}>
+          <button type="button" className="ze-btn" onClick={onCancel}>
             Cancel
           </button>
           <button
+            type="button"
             className="ze-btn primary"
             onClick={() => onOk({ strokeWidth: width, strokeType: type, fillType: fill })}
           >
@@ -1173,10 +1174,10 @@ export function PinTableDialog({
           </div>
         </div>
         <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={onCancel}>
+          <button type="button" className="ze-btn" onClick={onCancel}>
             Cancel
           </button>
-          <button className="ze-btn primary" onClick={submit}>
+          <button type="button" className="ze-btn primary" onClick={submit}>
             OK
           </button>
         </div>
@@ -1290,7 +1291,7 @@ export function SymbolCheckDialog({
           )}
         </div>
         <div className="ze-modal-footer">
-          <button className="ze-btn primary" onClick={onClose}>
+          <button type="button" className="ze-btn primary" onClick={onClose}>
             Close
           </button>
         </div>

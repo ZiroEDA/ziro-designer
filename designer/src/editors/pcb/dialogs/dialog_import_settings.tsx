@@ -138,7 +138,7 @@ export function DialogImportSettings({ onImport, onClose }: Props): JSX.Element 
               value={files.map((f) => f.name).join(', ')}
               placeholder="Select the other project's .kicad_pcb + .kicad_pro files"
             />
-            <button className="ze-btn sm" onClick={() => fileInput.current?.click()}>
+            <button type="button" className="ze-btn sm" onClick={() => fileInput.current?.click()}>
               Browse...
             </button>
             <input
@@ -160,13 +160,19 @@ export function DialogImportSettings({ onImport, onClose }: Props): JSX.Element 
           ))}
         </div>
         <div className="ze-modal-footer">
-          <button className="ze-btn" style={{ marginRight: 'auto' }} onClick={selectAll}>
+          <button
+            type="button"
+            className="ze-btn"
+            style={{ marginRight: 'auto' }}
+            onClick={selectAll}
+          >
             {selectAllNext && !allChecked ? 'Select All' : 'Deselect All'}
           </button>
-          <button className="ze-btn" onClick={onClose}>
+          <button type="button" className="ze-btn" onClick={onClose}>
             Cancel
           </button>
           <button
+            type="button"
             className="ze-btn primary"
             disabled={!anyChecked || files.length === 0}
             onClick={() => onImport(files, opts)}

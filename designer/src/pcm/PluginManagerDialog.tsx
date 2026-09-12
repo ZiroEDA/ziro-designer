@@ -181,6 +181,7 @@ export function PluginManagerDialog({
             : 'Install queued';
       return (
         <button
+          type="button"
           className="ze-btn sm"
           title="Remove from pending"
           onClick={() => pcm.unqueue(pkg.id)}
@@ -193,6 +194,7 @@ export function PluginManagerDialog({
     if (state === 'available') {
       return (
         <button
+          type="button"
           className="ze-btn primary sm"
           disabled={runtime}
           title={runtime ? 'Requires a runtime not yet available in the browser' : 'Queue install'}
@@ -207,23 +209,24 @@ export function PluginManagerDialog({
     return (
       <>
         {state === 'update_available' && (
-          <button className="ze-btn primary sm" onClick={() => queueUpdate(pkg)}>
+          <button type="button" className="ze-btn primary sm" onClick={() => queueUpdate(pkg)}>
             Update
           </button>
         )}
         {pkg.kind === 'colortheme' && !isActiveTheme && (
-          <button className="ze-btn sm" onClick={() => applyTheme(pkg)}>
+          <button type="button" className="ze-btn sm" onClick={() => applyTheme(pkg)}>
             Set active
           </button>
         )}
         <button
+          type="button"
           className={`ze-btn sm${pcm.isPinned(pkg.id) ? ' pinned' : ''}`}
           title={pcm.isPinned(pkg.id) ? 'Unpin (allow updates)' : 'Pin (hold back updates)'}
           onClick={() => togglePin(pkg)}
         >
           {pcm.isPinned(pkg.id) ? '📌 Pinned' : 'Pin'}
         </button>
-        <button className="ze-btn sm" onClick={() => queueUninstall(pkg)}>
+        <button type="button" className="ze-btn sm" onClick={() => queueUninstall(pkg)}>
           Uninstall
         </button>
       </>
@@ -267,7 +270,11 @@ export function PluginManagerDialog({
             {(pkg.descriptionFull || pkg.resources || pkg.tags?.length) && (
               <>
                 {' · '}
-                <button className="ze-linkbtn" onClick={() => setExpanded(open ? null : pkg.id)}>
+                <button
+                  type="button"
+                  className="ze-linkbtn"
+                  onClick={() => setExpanded(open ? null : pkg.id)}
+                >
                   {open ? 'Hide details' : 'Details'}
                 </button>
               </>
@@ -331,7 +338,7 @@ export function PluginManagerDialog({
                 <div className="ze-pcm-card-meta">from {c.source}</div>
               </div>
               <div className="ze-pcm-card-actions">
-                <button className="ze-btn sm" onClick={() => pcm.unqueue(c.pkg.id)}>
+                <button type="button" className="ze-btn sm" onClick={() => pcm.unqueue(c.pkg.id)}>
                   Cancel
                 </button>
               </div>
@@ -426,6 +433,7 @@ export function PluginManagerDialog({
               onKeyDown={(e) => e.key === 'Enter' && void addRepo()}
             />
             <button
+              type="button"
               className="ze-btn sm"
               disabled={busy || !addingUrl.trim()}
               onClick={() => void addRepo()}
@@ -434,6 +442,7 @@ export function PluginManagerDialog({
             </button>
             {activeRepo.url && (
               <button
+                type="button"
                 className="ze-btn sm"
                 title="Remove this repository"
                 onClick={() => {
@@ -452,6 +461,7 @@ export function PluginManagerDialog({
         <div className="ze-pcm-tabs">
           {allTabs.map(([id, label]) => (
             <button
+              type="button"
               key={id}
               className={`ze-pcm-tab${tab === id ? ' active' : ''}`}
               onClick={() => setTab(id)}
@@ -467,10 +477,10 @@ export function PluginManagerDialog({
           <span className="ze-pcm-status">{status ?? ''}</span>
           {pendingCount > 0 && (
             <>
-              <button className="ze-btn sm" onClick={() => pcm.discardPending()}>
+              <button type="button" className="ze-btn sm" onClick={() => pcm.discardPending()}>
                 Discard Pending
               </button>
-              <button className="ze-btn primary" onClick={applyPending}>
+              <button type="button" className="ze-btn primary" onClick={applyPending}>
                 Apply Pending Changes ({pendingCount})
               </button>
             </>

@@ -1842,7 +1842,11 @@ export function HomePage({
               <ShareButton projectId={openProjectId} projectName={projName || 'this project'} />
             ) : null
           ) : authEnabled ? (
-            <button className="ze-account-signout" onClick={() => setSignInOpen(true)}>
+            <button
+              type="button"
+              className="ze-account-signout"
+              onClick={() => setSignInOpen(true)}
+            >
               Sign in
             </button>
           ) : null
@@ -1861,6 +1865,7 @@ export function HomePage({
               <span key={`s${i}`} className="sep" />
             ) : (
               <button
+                type="button"
                 key={t.icon}
                 data-tip={buttonTooltipFor(t.name, t.hotkey, t.tip)}
                 aria-label={t.name}
@@ -1975,6 +1980,7 @@ export function HomePage({
                               : (): void => launchSchematic();
               return (
                 <button
+                  type="button"
                   key={t.id}
                   className="ze-launcher"
                   // The guard runs when the button is pressed, rather than
@@ -2230,7 +2236,7 @@ export function HomePage({
       {authEnabled && !session && !guestNudgeDismissed && saved.length > 0 && !signInOpen && (
         <div className="ze-guest-nudge">
           <span>Your projects are saved on this device only.</span>
-          <button className="ze-btn primary" onClick={() => setSignInOpen(true)}>
+          <button type="button" className="ze-btn primary" onClick={() => setSignInOpen(true)}>
             Sign in to back them up
           </button>
           <span className="x" title="Dismiss" onClick={dismissGuestNudge}>

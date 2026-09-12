@@ -484,11 +484,11 @@ export function TemplateSelectorDialog({
         )}
 
         <div className="ze-modal-footer" style={{ justifyContent: 'space-between' }}>
-          <button className="ze-btn" disabled={state === 'initial'} onClick={goBack}>
+          <button type="button" className="ze-btn" disabled={state === 'initial'} onClick={goBack}>
             Go Back
           </button>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="ze-btn" onClick={onCancel}>
+            <button type="button" className="ze-btn" onClick={onCancel}>
               Cancel
             </button>
             {/* A plain wxButton, not a highlighted one. m_sdbSizerOK->SetDefault()
@@ -501,7 +501,7 @@ export function TemplateSelectorDialog({
                 window closes, in the file dialog and the message boxes that
                 follow it. Pressing OK with nothing selected is answered by
                 NewProject's own "No project template was selected." */}
-            <button className="ze-btn" onClick={() => onOk(selected)}>
+            <button type="button" className="ze-btn" onClick={() => onOk(selected)}>
               OK
             </button>
           </div>
@@ -579,10 +579,10 @@ export function DuplicateTemplateDialog({
           )}
         </div>
         <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={onCancel}>
+          <button type="button" className="ze-btn" onClick={onCancel}>
             Cancel
           </button>
-          <button className="ze-btn" disabled={!ok} onClick={() => onConfirm(clean)}>
+          <button type="button" className="ze-btn" disabled={!ok} onClick={() => onConfirm(clean)}>
             OK
           </button>
         </div>

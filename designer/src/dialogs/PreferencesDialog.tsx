@@ -503,6 +503,7 @@ export function PreferencesDialog({
         </div>
         <div className="ze-modal-footer">
           <button
+            type="button"
             className="ze-btn"
             disabled={!resettable}
             title={resettable ? (panel?.resetTooltip ?? DEFAULT_RESET_TOOLTIP) : undefined}
@@ -521,10 +522,10 @@ export function PreferencesDialog({
               has. It is removed, as every other browser-impossible control is.
               */}
           <span style={{ flex: 1 }} />
-          <button className="ze-btn" onClick={onClose}>
+          <button type="button" className="ze-btn" onClick={onClose}>
             Cancel
           </button>
-          <button className="ze-btn primary" onClick={() => ok()}>
+          <button type="button" className="ze-btn primary" onClick={() => ok()}>
             OK
           </button>
         </div>

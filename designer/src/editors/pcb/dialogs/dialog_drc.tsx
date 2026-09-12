@@ -160,20 +160,21 @@ export function DialogDrc({
       </div>
       <div className="ze-modal-footer" style={{ display: 'flex', gap: 6 }}>
         <button
+          type="button"
           className="ze-btn"
           disabled={selected === null}
           onClick={() => selected !== null && onDeleteMarker(selected)}
         >
           Delete Marker
         </button>
-        <button className="ze-btn" disabled={results === null} onClick={onDeleteAll}>
+        <button type="button" className="ze-btn" disabled={results === null} onClick={onDeleteAll}>
           Delete All Markers
         </button>
         <span style={{ flex: 1 }} />
-        <button className="ze-btn" onClick={onClose}>
+        <button type="button" className="ze-btn" onClick={onClose}>
           Close
         </button>
-        <button className="ze-btn primary" disabled={running} onClick={doRun}>
+        <button type="button" className="ze-btn primary" disabled={running} onClick={doRun}>
           {running ? 'Running...' : 'Run DRC'}
         </button>
       </div>

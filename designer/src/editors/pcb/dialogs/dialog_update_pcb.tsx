@@ -189,7 +189,7 @@ export function DialogUpdatePcb({
           />
         </div>
         {/* `m_sdbSizer1`, a wxStdDialogButtonSizer: GTK's order, and both of
-            them ordinary wxButtons. They were BARE `<button>`s, so they took
+            them ordinary wxButtons. They were BARE `<button type="button">`s, so they took
             the user-agent's control font and padding instead of `.ze-btn` -
             the shared rule that states what a wxButton is once for the app. */}
         <div className="ze-modal-footer">

@@ -2793,7 +2793,7 @@ export function SymbolEditor({
               </div>
             </div>
             <div className="ze-modal-footer">
-              <button className="ze-btn primary" onClick={() => setLibError(null)}>
+              <button type="button" className="ze-btn primary" onClick={() => setLibError(null)}>
                 OK
               </button>
             </div>
@@ -2832,10 +2832,11 @@ export function SymbolEditor({
               </div>
             </div>
             <div className="ze-modal-footer">
-              <button className="ze-btn" onClick={() => setNewLibName(null)}>
+              <button type="button" className="ze-btn" onClick={() => setNewLibName(null)}>
                 Cancel
               </button>
               <button
+                type="button"
                 className="ze-btn primary"
                 disabled={!newLibName.trim()}
                 onClick={() => {

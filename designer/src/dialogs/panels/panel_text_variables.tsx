@@ -80,11 +80,12 @@ export function PanelTextVariables({ vars, onChange }: Props): JSX.Element {
       </div>
 
       <div className="ze-grid-btns">
-        <button className="ze-gridbtn" title="Add text variable" onClick={add}>
+        <button type="button" className="ze-gridbtn" title="Add text variable" onClick={add}>
           <Icon name="plus" />
         </button>
         <span style={{ width: 15 }} />
         <button
+          type="button"
           className="ze-gridbtn"
           title="Delete text variable"
           disabled={sel === null}

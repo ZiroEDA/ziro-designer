@@ -150,10 +150,10 @@ export function DialogPasteSpecial({
           )}
         </div>
         <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={onCancel}>
+          <button type="button" className="ze-btn" onClick={onCancel}>
             Cancel
           </button>
-          <button className="ze-btn primary" onClick={() => onOk(mode, clearNets)}>
+          <button type="button" className="ze-btn primary" onClick={() => onOk(mode, clearNets)}>
             OK
           </button>
         </div>

@@ -186,12 +186,13 @@ export function PanelPcbTuningProfiles({ value, onChange }: Props): JSX.Element 
 
       {/* Add / remove profile */}
       <div className="ze-grid-btns">
-        <button className="ze-gridbtn" title="Add tuning profile" onClick={add}>
+        <button type="button" className="ze-gridbtn" title="Add tuning profile" onClick={add}>
           <Icon name="plus" />
         </button>
         {/* [data] `bSizer91->Add( 20, 0, 1, wxEXPAND )` between the two. */}
         <span className="ze-tuneprof-btngap" />
         <button
+          type="button"
           className="ze-gridbtn"
           title="Remove tuning profile"
           disabled={!profiles.length}

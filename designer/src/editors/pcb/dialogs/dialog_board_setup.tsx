@@ -597,6 +597,7 @@ export function DialogBoardSetup({ value, units, initialPage, onOk, onClose }: P
               `AppendViaSize( 0, 0 )`, `AppendDiffPairs( 0, 0, 0 )` — and puts
               the cursor in its first column. It does not invent a size. */}
           <button
+            type="button"
             className="ze-gridbtn ze-gridbtn-add"
             title="Add"
             onClick={() => {
@@ -620,6 +621,7 @@ export function DialogBoardSetup({ value, units, initialPage, onOk, onClose }: P
               same diameter in whatever order they were typed. The button is
               not disabled: upstream's handler returns early under two rows. */}
           <button
+            type="button"
             className="ze-gridbtn ze-gridbtn-sort"
             title="Sort ascending"
             onClick={() =>
@@ -636,6 +638,7 @@ export function DialogBoardSetup({ value, units, initialPage, onOk, onClose }: P
           {/* `WX_GRID::OnDeleteRows` deletes the SELECTED rows. This deleted
               the last row of the grid whatever was selected. */}
           <button
+            type="button"
             className="ze-gridbtn ze-gridbtn-remove"
             title="Remove"
             disabled={sel === null}

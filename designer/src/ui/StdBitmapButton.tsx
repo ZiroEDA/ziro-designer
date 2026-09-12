@@ -22,7 +22,7 @@ export interface StdBitmapButtonProps {
   /** A `BITMAPS::` name, e.g. `small_plus`; resolved out of KiCad's own SVGs. */
   bitmap: string;
   /** The accessible name. An icon-only button must have one; wx gets it free
-   *  from the bitmap's context, a bare `<button>` does not. */
+   *  from the bitmap's context, a bare `<button type="button">` does not. */
   title: string;
   /**
    * `SetToolTip( … )`, which is NOT the same question as the accessible name:

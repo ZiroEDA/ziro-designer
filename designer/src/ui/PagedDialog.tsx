@@ -259,6 +259,7 @@ export function PagedDialog({
             // onResetButton: enabled only for resettable pages, exactly like
             // KiCad; ResetPanel() restores the active page's slice to defaults.
             <button
+              type="button"
               className="ze-btn"
               disabled={!(active?.resettable && active.onReset)}
               title="Reset this page to defaults"
@@ -268,15 +269,20 @@ export function PagedDialog({
             </button>
           )}
           {auxiliaryAction && (
-            <button className="ze-btn" disabled={!onAuxiliaryAction} onClick={onAuxiliaryAction}>
+            <button
+              type="button"
+              className="ze-btn"
+              disabled={!onAuxiliaryAction}
+              onClick={onAuxiliaryAction}
+            >
               {auxiliaryAction}
             </button>
           )}
           <div className="ze-paged-footer-spacer" />
-          <button className="ze-btn" onClick={onCancel}>
+          <button type="button" className="ze-btn" onClick={onCancel}>
             Cancel
           </button>
-          <button className="ze-btn primary" onClick={handleOk}>
+          <button type="button" className="ze-btn primary" onClick={handleOk}>
             OK
           </button>
         </div>

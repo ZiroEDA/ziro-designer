@@ -110,12 +110,14 @@ export function DialogSymLibTable({
           {/* The two library tables (upstream's notebook pages). */}
           <div className="ze-tabbar">
             <button
+              type="button"
               className={`ze-tab${tab === 'global' ? ' active' : ''}`}
               onClick={() => setTab('global')}
             >
               Global Libraries
             </button>
             <button
+              type="button"
               className={`ze-tab${tab === 'project' ? ' active' : ''}`}
               onClick={() => setTab('project')}
             >
@@ -231,6 +233,7 @@ export function DialogSymLibTable({
 
               <div className="ze-grid-btns" style={{ position: 'relative' }}>
                 <button
+                  type="button"
                   className="ze-gridbtn"
                   title="Add empty row to table"
                   onClick={() =>
@@ -240,6 +243,7 @@ export function DialogSymLibTable({
                   <Icon name="plus" size={14} />
                 </button>
                 <button
+                  type="button"
                   className="ze-btn sm"
                   title="Add Existing"
                   disabled={unregistered.length === 0}
@@ -286,6 +290,7 @@ export function DialogSymLibTable({
                 )}
                 <span style={{ width: 8 }} />
                 <button
+                  type="button"
                   className="ze-gridbtn"
                   title="Move up"
                   disabled={sel === null || sel === 0}
@@ -294,6 +299,7 @@ export function DialogSymLibTable({
                   <Icon name="arrowUp" size={14} />
                 </button>
                 <button
+                  type="button"
                   className="ze-gridbtn"
                   title="Move down"
                   disabled={sel === null || sel === rows.length - 1}
@@ -302,6 +308,7 @@ export function DialogSymLibTable({
                   <Icon name="arrowDown" size={14} />
                 </button>
                 <button
+                  type="button"
                   className="ze-gridbtn"
                   title="Remove library from table"
                   disabled={sel === null}
@@ -333,10 +340,11 @@ export function DialogSymLibTable({
           )}
         </div>
         <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={onClose}>
+          <button type="button" className="ze-btn" onClick={onClose}>
             Cancel
           </button>
           <button
+            type="button"
             className="ze-btn primary"
             onClick={() => {
               onSave(rows.filter((r) => r.name.trim() && r.uri.trim()));

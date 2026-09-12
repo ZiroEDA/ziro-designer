@@ -237,6 +237,7 @@ export function Toolbar({
     const g = opts.group;
     return (
       <button
+        type="button"
         key={b.id}
         className={`ze-tbtn${isActive ? ' active' : ''}${disabled ? ' disabled' : ''}${g ? ' ze-tbtn-group' : ''}`}
         /*

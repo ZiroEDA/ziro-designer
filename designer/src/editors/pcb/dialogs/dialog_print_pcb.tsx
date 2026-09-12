@@ -542,13 +542,13 @@ export function DialogPcbPrint({ board, drawOpts, onClose }: Props): JSX.Element
 
         {/* KiCad std-button order (GTK): Print Preview (Apply), Close, Print (OK). */}
         <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={() => doPrint(true)}>
+          <button type="button" className="ze-btn" onClick={() => doPrint(true)}>
             Print Preview
           </button>
-          <button className="ze-btn" onClick={saveAndClose}>
+          <button type="button" className="ze-btn" onClick={saveAndClose}>
             Close
           </button>
-          <button className="ze-btn primary" onClick={() => doPrint(false)}>
+          <button type="button" className="ze-btn primary" onClick={() => doPrint(false)}>
             Print
           </button>
         </div>

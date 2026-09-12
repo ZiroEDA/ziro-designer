@@ -132,10 +132,15 @@ export function EdaListDialog({
           )}
         </div>
         <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={() => onResult(null)}>
+          <button type="button" className="ze-btn" onClick={() => onResult(null)}>
             Cancel
           </button>
-          <button className="ze-btn primary" disabled={shown.length === 0} onClick={accept}>
+          <button
+            type="button"
+            className="ze-btn primary"
+            disabled={shown.length === 0}
+            onClick={accept}
+          >
             OK
           </button>
         </div>

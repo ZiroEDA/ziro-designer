@@ -167,7 +167,7 @@ export function PanelPcbLayers({ value, onChange }: Props): JSX.Element {
       {/* `bSizerLayerCnt`: a stretch spacer then the button, so it sits hard
           right (`panel_setup_layers_base.cpp:22-30`). */}
       <div className="ze-pcb-layers-head">
-        <button className="ze-btn" onClick={openAdd}>
+        <button type="button" className="ze-btn" onClick={openAdd}>
           Add User Defined Layer...
         </button>
       </div>

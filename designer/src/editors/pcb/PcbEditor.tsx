@@ -10664,7 +10664,7 @@ export function PcbEditor({
           gap, padding, face and a 1px #333 bottom rule the shared toolbar rule
           suppresses between two stacked bars. Its three "buttons" read
           "auto" / "pair" / "locks" in the user-agent font because a bare
-          <button> takes it. The five combos are AppendControl slots and are
+          <button type="button"> takes it. The five combos are AppendControl slots and are
           supplied through `controls`, as KiCad supplies them through
           RegisterCustomToolbarControlFactory. */}
       <Toolbar

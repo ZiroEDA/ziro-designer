@@ -205,7 +205,7 @@ export function DesignInspector({
         <div className="ze-modal-footer">
           {/* m_sdbSizer holds exactly one button, wxID_CANCEL
               (dialog_design_inspector_base.cpp:60-63). */}
-          <button className="ze-btn" onClick={onClose}>
+          <button type="button" className="ze-btn" onClick={onClose}>
             Cancel
           </button>
         </div>

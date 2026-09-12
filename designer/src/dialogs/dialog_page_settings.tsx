@@ -429,6 +429,7 @@ export function DialogPageSettings({
                   button width: [px] 25 x 24 on a live pl_editor against our 85
                   x 34. The path is KiCad's own small_folder.svg. */}
               <button
+                type="button"
                 className="ze-btn ze-btn-bitmap"
                 disabled={!pickerOn}
                 title="Drawing Sheet File"
@@ -475,6 +476,7 @@ export function DialogPageSettings({
                         onChange={(e) => set({ date: e.target.value })}
                       />
                       <button
+                        type="button"
                         className="ze-btn ze-btn-exactfit"
                         onClick={() => set({ date: pick })}
                       >
@@ -497,6 +499,7 @@ export function DialogPageSettings({
                           onChange={(e) => setPick(e.target.value)}
                         />
                         <button
+                          type="button"
                           className="ze-btn"
                           aria-label="Pick a date"
                           onClick={() => pickRef.current?.showPicker?.()}
@@ -560,10 +563,11 @@ export function DialogPageSettings({
         )}
 
         <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={onCancel}>
+          <button type="button" className="ze-btn" onClick={onCancel}>
             Cancel
           </button>
           <button
+            type="button"
             className="ze-btn primary"
             onClick={() => onOk({ ...s, portrait }, exports, wksSheet, wksName)}
           >

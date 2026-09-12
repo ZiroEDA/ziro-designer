@@ -125,10 +125,10 @@ export function SelectColumnsDialog({
           </div>
         </div>
         <div className="ze-modal-footer">
-          <button className="ze-btn primary" onClick={() => onOk(enabledList)}>
+          <button type="button" className="ze-btn primary" onClick={() => onOk(enabledList)}>
             OK
           </button>
-          <button className="ze-btn" onClick={onCancel}>
+          <button type="button" className="ze-btn" onClick={onCancel}>
             Cancel
           </button>
         </div>

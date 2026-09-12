@@ -90,10 +90,10 @@ export function FootprintPropertiesDialog({
           />
         </div>
         <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={onCancel}>
+          <button type="button" className="ze-btn" onClick={onCancel}>
             Cancel
           </button>
-          <button className="ze-btn primary" onClick={submit}>
+          <button type="button" className="ze-btn primary" onClick={submit}>
             OK
           </button>
         </div>
@@ -284,10 +284,10 @@ export function PadPropertiesDialog({
           </Row>
         </div>
         <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={onCancel}>
+          <button type="button" className="ze-btn" onClick={onCancel}>
             Cancel
           </button>
-          <button className="ze-btn primary" onClick={submit}>
+          <button type="button" className="ze-btn primary" onClick={submit}>
             OK
           </button>
         </div>

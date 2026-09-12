@@ -247,6 +247,7 @@ export function DialogPcbPlot({
             />
             <div style={{ position: 'relative' }}>
               <button
+                type="button"
                 className="ze-btn sm"
                 title="Select output directory"
                 onMouseDown={(e) => {
@@ -412,6 +413,7 @@ export function DialogPcbPlot({
             Close (Cancel), Plot (OK); Run DRC… on the far left. */}
         <div className="ze-modal-footer">
           <button
+            type="button"
             className="ze-btn"
             style={{ marginRight: 'auto' }}
             disabled={!onRunDrc}
@@ -419,13 +421,13 @@ export function DialogPcbPlot({
           >
             Run DRC...
           </button>
-          <button className="ze-btn" onClick={drill}>
+          <button type="button" className="ze-btn" onClick={drill}>
             Generate Drill Files...
           </button>
-          <button className="ze-btn" onClick={onClose}>
+          <button type="button" className="ze-btn" onClick={onClose}>
             Close
           </button>
-          <button className="ze-btn primary" onClick={plot}>
+          <button type="button" className="ze-btn primary" onClick={plot}>
             Plot
           </button>
         </div>

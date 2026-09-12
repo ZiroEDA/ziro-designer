@@ -326,6 +326,7 @@ function FormatButton({
 }): JSX.Element {
   return (
     <button
+      type="button"
       className={`ze-btn ze-ds-fmt${active ? ' active' : ''}`}
       title={title}
       onClick={onClick}
@@ -410,10 +411,18 @@ export function PropertiesFrame({
           pane — 17 px of flat fill, normal weight, no gradient. */}
       <div className="ze-panel-header">Properties</div>
       <div className="ze-ds-tabs">
-        <button className={tab === 'item' ? 'active' : ''} onClick={() => setTab('item')}>
+        <button
+          type="button"
+          className={tab === 'item' ? 'active' : ''}
+          onClick={() => setTab('item')}
+        >
           Item Properties
         </button>
-        <button className={tab === 'general' ? 'active' : ''} onClick={() => setTab('general')}>
+        <button
+          type="button"
+          className={tab === 'general' ? 'active' : ''}
+          onClick={() => setTab('general')}
+        >
           General Options
         </button>
       </div>
@@ -910,6 +919,7 @@ function GeneralOptions({
         </StackRow>
         <div className="ze-ds-row">
           <button
+            type="button"
             className="ze-btn"
             onClick={() =>
               onChange({
@@ -1013,7 +1023,7 @@ export function SyntaxHelpDialog({ onClose }: { onClose: () => void }): JSX.Elem
           </table>
         </div>
         <div className="ze-modal-footer">
-          <button className="ze-btn primary" onClick={onClose}>
+          <button type="button" className="ze-btn primary" onClick={onClose}>
             Close
           </button>
         </div>
