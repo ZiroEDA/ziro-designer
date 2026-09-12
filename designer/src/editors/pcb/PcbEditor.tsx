@@ -62,6 +62,7 @@ import {
   zoomFitScale,
 } from '../../ui/view_controls.js';
 import { DockSash } from '../../ui/DockSash.js';
+import { onOutlineFontsChanged } from '../../font/outline_fonts.js';
 import { applyCanvasSize, canvasBackingSize, isMeasured } from '../../ui/canvas_size.js';
 import { appearanceNetRows } from './appearance_nets.js';
 import { useStatusReadout } from '../../ui/useStatusReadout.js';
@@ -4133,6 +4134,19 @@ export function PcbEditor({
 
   const rebuildSceneRef = useRef(rebuildScene);
   rebuildSceneRef.current = rebuildScene;
+
+  // A board text in an outline face is compiled as the stroke font until its
+  // face has been fetched (`FONT::GetFont` loads off the disk synchronously;
+  // ours cannot). When the face lands, the scene is rebuilt so the text is
+  // recompiled as its glyph rings — the board is unchanged, so nothing else
+  // would.
+  useEffect(
+    () =>
+      onOutlineFontsChanged(() => {
+        if (boardRef.current) rebuildSceneRef.current(boardRef.current);
+      }),
+    [],
+  );
 
   /**
    * Bring the GL device up once its layer is mounted.

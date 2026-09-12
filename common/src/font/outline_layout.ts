@@ -43,17 +43,19 @@ export interface OutlineTextLayout {
 }
 
 /**
- * Lay `text` out at glyph height `size` (square: `size.x = size.y`, which is
- * what every schematic and board text has).
+ * Lay `text` out at glyph height `size`. `sizeX` is the glyph width when
+ * the text is not square — a board text's `(size h w)` — and scales the
+ * advances and the glyphs across, as `glyphSize.x / faceSize()` does.
  */
 export function layoutOutlineText(
   font: OutlineFont,
   text: string,
   size: number,
   hAlign: TextHAlign = 'center',
+  sizeX = size,
 ): OutlineTextLayout {
   const lines = splitTextLines(text);
-  const sz = { x: size, y: size };
+  const sz = { x: sizeX, y: size };
   const origin = { x: 0, y: 0 };
   // Pass 1: each line from x = 0 on its own baseline.
   const laid = lines.map((line, li) => {

@@ -92,6 +92,10 @@ import {
   type PcbColorTheme,
 } from './pcbTheme.js';
 import { layoutText, measureText, textBlockOffset } from '@ziroeda/common/src/font/stroke_font.js';
+import { metricsInterline } from '@ziroeda/common/src/font/font_metrics.js';
+import type { OutlineFont } from '@ziroeda/common/src/font/outline_font.js';
+import { getOutlineFont } from '../../font/outline_fonts.js';
+import { outlineLayout } from '../../font/draw_outline_text.js';
 import { padShapePos } from '@ziroeda/pcbnew/src/padstack.js';
 import type { BitmapTextPlacement } from '../../render/gl/bitmap_text.js';
 import { expandTextVars, type TextVarResolver } from '@ziroeda/common/src/text_vars.js';
@@ -519,6 +523,19 @@ interface LayerBuckets {
   textFp: Map<number, Path2D>;
   textBoard: Map<number, Path2D>;
   /**
+   * The same four kinds of text set in an OUTLINE face: filled glyph rings
+   * rather than stroked polylines, so they cannot share the pen-keyed maps
+   * above. `PCB_PAINTER::draw( const PCB_TEXT* )` (pcb_painter.cpp:2573-2579)
+   * takes the outline font's render cache to `DrawGlyphs`, which fills, in
+   * sketch mode as much as in filled mode — there is no thin-pen variant of a
+   * faced text, so these have no `minPen` twin.
+   */
+  textRefFill: Path2D;
+  textValFill: Path2D;
+  textFpFill: Path2D;
+  textBoardFill: Path2D;
+  hasTextFill: boolean;
+  /**
    * `PCB_POINT`s on this layer, as two paths because they are two colours: the
    * X takes LAYER_POINTS and the ring takes the point's own board layer
    * (`draw( const PCB_POINT* )`, `pcb_painter.cpp:3225-3269`). Bucketed per
@@ -789,6 +806,11 @@ const newBuckets = (): LayerBuckets => ({
   textVal: new Map(),
   textFp: new Map(),
   textBoard: new Map(),
+  textRefFill: pathFactory.path(),
+  textValFill: pathFactory.path(),
+  textFpFill: pathFactory.path(),
+  textBoardFill: pathFactory.path(),
+  hasTextFill: false,
   pointCross: pathFactory.path(),
   pointRing: pathFactory.path(),
   hasPoints: false,
@@ -1216,7 +1238,7 @@ function addTextBox(scene: BoardScene, t: PcbTextBox): void {
     }
   }
   if (t.text !== '') {
-    addText(b.textBoard, {
+    addText(b, 'board', {
       kind: 'user',
       text: t.text,
       at: textBoxTextAnchor(t),
@@ -1290,7 +1312,7 @@ function addTable(scene: BoardScene, t: PcbTable): void {
     // A zero span means the cell was merged away; upstream skips those.
     if (cell.colSpan === 0 || cell.rowSpan === 0) continue;
     if (cell.text !== '') {
-      addText(b.textBoard, {
+      addText(b, 'board', {
         kind: 'user',
         text: cell.text,
         at: textBoxTextAnchor(cell),
@@ -1330,7 +1352,7 @@ function addDimension(scene: BoardScene, d: PcbDimension): void {
     p.moveTo(seg.a.x, seg.a.y);
     p.lineTo(seg.b.x, seg.b.y);
   }
-  if (d.text && !d.text.hide) addText(b.textBoard, d.text);
+  if (d.text && !d.text.hide) addText(b, 'board', d.text);
 }
 
 // Text-variable resolver for the current render (unset = draw verbatim).
@@ -1341,13 +1363,108 @@ function shownText(text: string): string {
   return g_resolveText && text.includes('${') ? expandTextVars(text, g_resolveText) : text;
 }
 
-function addText(map: Map<number, Path2D>, t: PcbTextItem): void {
+type TextKind = 'ref' | 'val' | 'fp' | 'board';
+
+function addText(b: LayerBuckets, kind: TextKind, t: PcbTextItem): void {
   // Every board text goes through here — board text, footprint fields,
   // dimensions, table cells and text boxes — so this is the one place the
   // expansion has to happen, the way `GetShownText` is the one place upstream.
   if (g_resolveText && t.text.includes('${')) t = { ...t, text: shownText(t.text) };
   if (t.size.y <= 0 || t.text === '') return;
+  // `FONT::GetFont( face, bold, italic )`: an outline face fills its glyph
+  // rings; the stroke font — no face, or a face not fetched yet — strokes.
+  const outline = t.face ? getOutlineFont(t.face, !!t.bold, !!t.italic) : null;
+  if (outline) {
+    const fill =
+      kind === 'ref'
+        ? b.textRefFill
+        : kind === 'val'
+          ? b.textValFill
+          : kind === 'fp'
+            ? b.textFpFill
+            : b.textBoardFill;
+    emitBoardOutlineText(t, outline, fill);
+    b.hasTextFill = true;
+    return;
+  }
+  const map =
+    kind === 'ref'
+      ? b.textRef
+      : kind === 'val'
+        ? b.textVal
+        : kind === 'fp'
+          ? b.textFp
+          : b.textBoard;
+  addStrokeText(map, t);
+}
+
+/** A stroke-font text into a pen-keyed map: the net-name runs, which carry no face. */
+function addStrokeText(map: Map<number, Path2D>, t: PcbTextItem): void {
+  if (t.size.y <= 0 || t.text === '') return;
   emitBoardText(t, pathIn(map, boardTextPen(t)));
+}
+
+/**
+ * A faced text's glyph rings, appended to `path` — `OUTLINE_FONT` through
+ * the shared layout, placed by `FONT::getLinePositions` without its two
+ * stroke-only fudges, and put on the board by the same rotation, mirror and
+ * keep-upright arithmetic the stroke glyphs get in {@link emitBoardText}.
+ *
+ * The x size is the outline font's own: `GetTextAsGlyphs` scales each glyph
+ * by `glyphSize.x / faceSize()` across and `glyphSize.y / faceSize()` down
+ * (outline_font.cpp:398-400), so a condensed `(size 1.5 0.6)` text condenses
+ * in the layout itself rather than by the `sx` squeeze the stroke path
+ * applies after the fact.
+ */
+function emitBoardOutlineText(t: PcbTextItem, font: OutlineFont, path: Path2D): void {
+  const size = t.size.y;
+  const justify = t.justify ?? [];
+  const hAlign = justify.includes('left') ? 'left' : justify.includes('right') ? 'right' : 'center';
+  const vAlign = justify.includes('top') ? 'top' : justify.includes('bottom') ? 'bottom' : 'center';
+  const layout = outlineLayout(font, t.text, size, hAlign, t.size.x);
+  const blockH = size * 1.17 + (layout.lineCount - 1) * metricsInterline(size);
+  const offY = vAlign === 'top' ? size : vAlign === 'bottom' ? size - blockH : size - blockH / 2;
+  const offX = hAlign === 'right' ? -layout.width : hAlign === 'left' ? 0 : -layout.width / 2;
+  let drawAngle = t.angle;
+  if (t.keepUpright) {
+    while (drawAngle > 90) drawAngle -= 180;
+    while (drawAngle <= -90) drawAngle += 180;
+  }
+  const rad = (-drawAngle * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const mir = t.mirror ? -1 : 1;
+  const place = (px: number, py: number): [number, number] => {
+    const gx = (px + offX) * mir;
+    const gy = py + offY;
+    return [t.at.x + gx * cos - gy * sin, t.at.y + gx * sin + gy * cos];
+  };
+  for (const g of layout.glyphs) {
+    for (const ring of g.rings) {
+      if (ring.length < 3) continue;
+      const [x0, y0] = place(ring[0]!.x, ring[0]!.y);
+      path.moveTo(x0, y0);
+      for (let i = 1; i < ring.length; i++) {
+        const [x, y] = place(ring[i]!.x, ring[i]!.y);
+        path.lineTo(x, y);
+      }
+      path.closePath();
+    }
+  }
+  // The overbar is a stroke upstream (`drawMarkup`'s STROKE_GLYPH), at the
+  // text's pen; as a ring of the fill it is a rectangle of that width.
+  const pen = boardTextPen(t);
+  for (const bar of layout.bars) {
+    const [ax, ay] = place(bar[0]!.x, bar[0]!.y - pen / 2);
+    const [bx, by] = place(bar[1]!.x, bar[1]!.y - pen / 2);
+    const [cx, cy] = place(bar[1]!.x, bar[1]!.y + pen / 2);
+    const [dx, dy] = place(bar[0]!.x, bar[0]!.y + pen / 2);
+    path.moveTo(ax, ay);
+    path.lineTo(bx, by);
+    path.lineTo(cx, cy);
+    path.lineTo(dx, dy);
+    path.closePath();
+  }
 }
 
 /**
@@ -2054,7 +2171,7 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     for (const t of fp.texts) {
       if (t.hide) continue;
       const b = buckets(scene, t.layer);
-      addText(t.kind === 'reference' ? b.textRef : t.kind === 'value' ? b.textVal : b.textFp, t);
+      addText(b, t.kind === 'reference' ? 'ref' : t.kind === 'value' ? 'val' : 'fp', t);
     }
     for (const pad of fp.pads) {
       if (pad.type === 'np_thru_hole') {
@@ -2142,7 +2259,7 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
   }
   pathFactory.setOwner?.(undefined);
   for (const t of board.texts) {
-    if (!t.hide) addText(buckets(scene, t.layer).textBoard, t);
+    if (!t.hide) addText(buckets(scene, t.layer), 'board', t);
   }
   for (const t of board.textBoxes) {
     addTextBox(scene, t);
@@ -2817,6 +2934,16 @@ export function buildDrawSteps(
     if (opts.fpValues) strokeText(b.textVal);
     if (opts.fpText) strokeText(b.textFp);
     strokeText(b.textBoard);
+    if (b.hasTextFill) {
+      // An outline face is filled whatever the text-fill setting: the
+      // painter's outline_mode only changes `attrs.m_StrokeWidth`, and an
+      // OUTLINE_GLYPH is drawn by `DrawGlyphs`, which fills.
+      ctx.fillStyle = col(layer);
+      if (opts.fpReferences) ctx.fill(b.textRefFill);
+      if (opts.fpValues) ctx.fill(b.textValFill);
+      if (opts.fpText) ctx.fill(b.textFpFill);
+      ctx.fill(b.textBoardFill);
+    }
     ctx.globalAlpha = 1;
   };
   /**
@@ -3188,7 +3315,7 @@ export function drawNetNames(
   // side-by-side against pcbnew shows.
   const strokeRuns = (target: CanvasRenderingContext2D, runs: NetTextRun[]): void => {
     const map = new Map<number, Path2D>();
-    for (const run of runs) addText(map, run.item);
+    for (const run of runs) addStrokeText(map, run.item);
     strokeAll(target, map, minPen);
   };
   const sc = scratchFor(widthPx, heightPx);

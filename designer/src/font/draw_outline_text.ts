@@ -47,11 +47,12 @@ export function outlineLayout(
   text: string,
   size: number,
   hAlign: TextHAlign,
+  sizeX = size,
 ): OutlineTextLayout {
-  const key = `${font.fontName}|${font.isBold ? 1 : 0}${font.isItalic ? 1 : 0}|${hAlign}|${size}|${text}`;
+  const key = `${font.fontName}|${font.isBold ? 1 : 0}${font.isItalic ? 1 : 0}|${hAlign}|${size}|${sizeX}|${text}`;
   let entry = g_outlineLayouts.get(key);
   if (!entry) {
-    entry = layoutOutlineText(font, text, size, hAlign);
+    entry = layoutOutlineText(font, text, size, hAlign, sizeX);
     if (g_outlineLayouts.size > 6000) g_outlineLayouts.clear();
     g_outlineLayouts.set(key, entry);
   }
