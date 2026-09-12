@@ -148,21 +148,35 @@ export interface PnsRouterSizes extends DpPlacerSizes {
   diffPairGapSource: string;
 }
 
-/** Every {@link PnsRouterSizes} member at its C++ default. */
+/**
+ * Every {@link PnsRouterSizes} member at its C++ default — `SIZES_SETTINGS`'s
+ * constructor (pns_sizes_settings.h:41-56), [data]:
+ *
+ *     m_trackWidth( 155000 ), m_trackWidthIsExplicit( true ),
+ *     m_viaDiameter( 600000 ), m_viaDrill( 250000 ),
+ *     m_diffPairWidth( 125000 ), m_diffPairGap( 180000 ),
+ *     m_diffPairViaGap( 180000 ), m_diffPairViaGapSameAsTraceGap( true )
+ *
+ * `ImportSizes` overwrites every one of these on a real board, so they only
+ * ever reach a placer through a caller that supplies no design settings. This
+ * table used to be all zeros, and a differential pair placed through such a
+ * caller had a gap of 0 and a width of 0 — which `routeHead` cannot fit, so
+ * `Move` answered false on every board.
+ */
 export const DEFAULT_ROUTER_SIZES: PnsRouterSizes = {
-  diffPairWidth: 0,
-  diffPairGap: 0,
-  diffPairViaGap: 0,
-  diffPairViaGapSameAsTraceGap: false,
+  diffPairWidth: 125000,
+  diffPairGap: 180000,
+  diffPairViaGap: 180000,
+  diffPairViaGapSameAsTraceGap: true,
   diffPairHoleToHole: 0,
   diffPairCopperToHole: 0,
-  viaDiameter: 0,
-  viaDrill: 0,
+  viaDiameter: 600000,
+  viaDrill: 250000,
   viaType: 'through',
   layerTop: 0,
   layerBottom: 0,
-  trackWidthIsExplicit: false,
-  trackWidth: 0,
+  trackWidthIsExplicit: true,
+  trackWidth: 155000,
   boardMinTrackWidth: 0,
   minClearance: 0,
   clearance: 0,

@@ -332,6 +332,18 @@ export interface PnsBoardIfaceDeps {
    * and the caller's sizes are left alone.
    */
   designSettings?: PnsDesignSettings | null;
+  /**
+   * `PNS_KICAD_IFACE::DisplayItem` — a `ROUTER_PREVIEW_ITEM` put on the
+   * view's overlay for the head the placer is proposing. The router calls it
+   * on every `Move`, after `EraseView`, once per line and once per via
+   * (`ROUTER::movePlacing`), with `PNS_HEAD_TRACE` in `aFlags` for the head.
+   * The host draws; this only forwards.
+   */
+  onDisplayItem?: (aItem: PnsItem, aClearance: number, aEdit: boolean, aFlags: number) => void;
+  /** `PNS_KICAD_IFACE::EraseView` — the overlay is cleared. */
+  onEraseView?: () => void;
+  /** `PNS_KICAD_IFACE::HideItem` — a board item the shove has re-drawn. */
+  onHideItem?: (aItem: PnsItem) => void;
 }
 
 /**
@@ -1350,9 +1362,9 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
 
   // ----- the view, which does not exist here ---------------------------------
 
-  /** `DisplayItem` — `ROUTER_PREVIEW_ITEM` on a `KIGFX::VIEW`. Not ported. */
-  displayItem(_aItem: PnsItem, _aClearance: number, _aEdit?: boolean, _aFlags?: number): void {
-    // Intentionally empty: pure view.
+  /** `DisplayItem` — `ROUTER_PREVIEW_ITEM` on a `KIGFX::VIEW`; the host's. */
+  displayItem(aItem: PnsItem, aClearance: number, aEdit = false, aFlags = 0): void {
+    this.mDeps.onDisplayItem?.(aItem, aClearance, aEdit, aFlags);
   }
 
   /** `DisplayPathLine` — pure view. Not ported. */
@@ -1365,14 +1377,14 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
     // Intentionally empty: pure view.
   }
 
-  /** `HideItem` — pure view. Not ported. */
-  hideItem(_aItem: PnsItem): void {
-    // Intentionally empty: pure view.
+  /** `HideItem` — the host's. */
+  hideItem(aItem: PnsItem): void {
+    this.mDeps.onHideItem?.(aItem);
   }
 
-  /** `EraseView` — pure view. Not ported. */
+  /** `EraseView` — the host's. */
   eraseView(): void {
-    // Intentionally empty: pure view.
+    this.mDeps.onEraseView?.();
   }
 
   // ----- PnsResolverHost -----------------------------------------------------
