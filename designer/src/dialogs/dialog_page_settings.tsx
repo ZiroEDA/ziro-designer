@@ -277,7 +277,7 @@ export function DialogPageSettings({
       minWidth: 1 / scale,
     });
     ctx.restore();
-  }, [wksSheet, s, pageW, pageH, thumb, sheetCount, sheetNumber]);
+  }, [wksSheet, s, pageW, pageH, thumb, sheetCount, sheetNumber, preview.background, preview.ink]);
 
   /*
    * `UNIT_BINDER::Enable( false )` / `m_staticTextOrient->Enable( false )` grey

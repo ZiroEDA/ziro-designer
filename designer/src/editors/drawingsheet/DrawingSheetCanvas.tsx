@@ -727,7 +727,7 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
         v.ty = canvas.height / 2 - cy * scale;
         requestDraw();
       },
-      [requestDraw],
+      [requestDraw, dpr],
     );
 
     /**
@@ -1228,6 +1228,7 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
     };
 
     // Clear the in-flight drawing marker when the tool changes.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: activeTool is the trigger, not a value the effect reads
     useEffect(() => {
       drawingRef.current = false;
       requestDraw();

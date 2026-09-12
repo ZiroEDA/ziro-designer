@@ -99,7 +99,7 @@ function HotkeyPrompt({
     // currently bound to on the way past.
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [onPick, onCancel]);
+  }, [onPick]);
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>

@@ -433,7 +433,7 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       });
 
       onScaleChange?.(v.scale);
-    }, [dpr, onScaleChange]);
+    }, [dpr, onScaleChange, showGrid]);
 
     /**
      * Create the backend once, and recreate it when the context is lost.
@@ -493,6 +493,7 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       };
     }, [draw]);
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: the listed props are the triggers — a repaint when any changes — and the draw pass reads them through refs
     useEffect(() => {
       requestDraw();
     }, [
@@ -906,7 +907,18 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
         canvas.removeEventListener('pointermove', onMove);
         canvas.removeEventListener('pointerup', onUp);
       };
-    }, [activeTool, dpr, requestDraw, toWorld, onCursorMove, onMeasure, onPick]);
+    }, [
+      activeTool,
+      dpr,
+      requestDraw,
+      toWorld,
+      onCursorMove,
+      onMeasure,
+      onPick,
+      applyZoomArea,
+      onZoomAreaDone,
+      zoomStep,
+    ]);
 
     // Escape cancels an in-flight measurement.
     useEffect(() => {

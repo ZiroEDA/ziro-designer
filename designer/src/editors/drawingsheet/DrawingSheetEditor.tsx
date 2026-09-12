@@ -713,7 +713,7 @@ export function DrawingSheetEditor({
       // (pl_editor_undo_redo.cpp:143-147).
       if (!aModify && r.hardRedraw) requestAnimationFrame(() => controller.current?.zoomToFit());
     },
-    [syncHistoryDepth],
+    [syncHistoryDepth, onModify, setSelection],
   );
 
   /**

@@ -878,7 +878,7 @@ export function App(): JSX.Element {
         setRestoring(false);
       }
     })();
-  }, [route, openUid, openByUid, mountFor, openProjectFiles, demoSource?.id]);
+  }, [route, openUid, openByUid, mountFor, openProjectFiles, demoSource?.id, applyDemoFrame]);
 
   /**
    * And the address mirrors the state.
@@ -1340,6 +1340,7 @@ export function App(): JSX.Element {
 
   // A different project folder drops any drawing sheets saved into the previous
   // one, and resets the active project to its default (first .kicad_pro).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: folderName is the trigger — the effect runs on a folder change and reads nothing from it
   useEffect(() => {
     setSessionSheets([]);
     setActivePro(null);
@@ -1386,7 +1387,7 @@ export function App(): JSX.Element {
         window.alert(`Could not save a copy: ${e instanceof Error ? e.message : String(e)}`);
       }
     })();
-  }, [demoSource]);
+  }, []);
 
   /** KiCad shows "Schematic is read only." as a strip above the canvas; this is
    *  the same place and the same skin, plus the action that resolves it. */

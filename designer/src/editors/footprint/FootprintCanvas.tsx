@@ -358,6 +358,14 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       );
     }, []);
 
+    /**
+     * `startCrispRender` asks for a repaint when the raster lands, and
+     * `requestDraw` (defined below, off `draw`) starts a crisp render when the
+     * view moved — a cycle two `useCallback`s cannot express in their
+     * dependency lists. The later one is reached through a ref, the way the
+     * drawing-sheet canvas does it (`DrawingSheetCanvas.tsx`).
+     */
+    const requestDrawRef = useRef<() => void>(() => {});
     const startCrispRender = useCallback(() => {
       if (renderingRef.current) return;
       const canvas = canvasRef.current;
@@ -392,12 +400,11 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
         } else {
           cacheRef.current = { canvas: work, view: jobView };
           renderingRef.current = false;
-          requestDraw();
+          requestDrawRef.current();
           if (viewChangedRef.current || !viewMatchesCache()) startCrispRender();
         }
       };
       run();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [visible, drawOpts, viewMatchesCache]);
 
     const draw = useCallback(() => {
@@ -627,20 +634,23 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
 
       setScale(v.scale);
       onScaleChange?.(v.scale);
-    }, [startCrispRender, viewMatchesCache, onScaleChange, drawOpts, dpr]);
+    }, [startCrispRender, viewMatchesCache, onScaleChange, drawOpts, dpr, visible]);
 
     const requestDraw = useCallback(() => {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(draw);
     }, [draw]);
+    requestDrawRef.current = requestDraw;
 
     // Invalidate the raster when the compiled scene, layers or options change.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: scene, visible and drawOpts are the triggers; the raster is rebuilt from refs
     useEffect(() => {
       cacheRef.current = null;
       requestDraw();
     }, [scene, visible, drawOpts, requestDraw]);
 
     // The selection only affects the overlay, not the raster, just repaint.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: selection is the trigger; the overlay reads it through a ref
     useEffect(() => {
       requestDraw();
     }, [selection, requestDraw]);
