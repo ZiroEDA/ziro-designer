@@ -252,6 +252,14 @@ import {
 } from '@ziroeda/pcbnew/src/pcb_selection_conditions.js';
 import { Icon } from '../../ui/icons.js';
 import { posturePath, routedPath as routeDecision } from './route_tool.js';
+import { applyPnsChanges, PnsSession } from '@ziroeda/pcbnew/src/router/pns_session.js';
+import { PnsRouterMode } from '@ziroeda/pcbnew/src/router/pns_router.js';
+import type { PnsDesignSettings } from '@ziroeda/pcbnew/src/router/pns_board_iface.js';
+import {
+  defaultTrackViaSizeState,
+  withNetclassEntry,
+} from '@ziroeda/pcbnew/src/board_design_settings_sizes.js';
+import { Infobar } from '../../ui/ReadOnlyNotice.js';
 import { ReferenceImageCache } from './image_cache.js';
 import { cleanup3dCache } from './model_cache.js';
 import { buildPcbMenus } from './menubar.js';
@@ -1517,7 +1525,11 @@ export function PcbEditor({
   const cursorSnapRef =
     useRef<(w: { x: number; y: number }) => { x: number; y: number }>(snapToGrid);
   cursorSnapRef.current = (w) => {
-    if (activeToolRef.current === 'routeSingleTrack' || routeRef.current)
+    if (
+      activeToolRef.current === 'routeSingleTrack' ||
+      activeToolRef.current === 'routeDiffPair' ||
+      routeRef.current
+    )
       return routeSnapRef.current(w);
 
     // The plain selection tool does not snap to items on hover in pcbnew:
@@ -2136,6 +2148,22 @@ export function PcbEditor({
   /** `SelectFootprintFromLibrary`'s FOOTPRINT_CHOOSER_FRAME is open. */
   const [fpChooserOpen, setFpChooserOpen] = useState(false);
   /**
+   * `ROUTER_TOOL` in `PNS_MODE_ROUTE_DIFF_PAIR`: the PNS session that owns the
+   * pair being routed, from the click that started it to the fix that ends
+   * it. Null while the tool is armed and idle. The single-track tool is still
+   * the substitute in `route_tool.ts`; this is the first tool driven by the
+   * real router.
+   */
+  const dpSessionRef = useRef<PnsSession | null>(null);
+  /** `ROUTER_PREVIEW_ITEM`s of the head, compiled for the overlay. */
+  const dpPreviewSceneRef = useRef<BoardScene | null>(null);
+  /**
+   * `frame()->ShowInfoBarError( m_router->FailureReason(), true )`
+   * (router_tool.cpp:1436, :1600) — why the router refused, in the infobar
+   * above the canvas, with its close button.
+   */
+  const [routerError, setRouterError] = useState<string | null>(null);
+  /**
    * Decoded reference-image pixels. A ref, not state: the map is mutated in
    * place and the redraw is what publishes it, so making it state would rebuild
    * the draw options on every decode for no gain.
@@ -2158,6 +2186,11 @@ export function PcbEditor({
     textBoxStartRef.current = null;
     setTableStart(null);
     placeImageRef.current = startPlaceImage();
+    // `ROUTER_TOOL::MainLoop`'s `IsActivate()` arm -> `StopRouting`: the
+    // pair in flight is thrown away, the board untouched.
+    dpSessionRef.current?.abort();
+    dpSessionRef.current = null;
+    dpPreviewSceneRef.current = null;
     // `evt->IsActivate()` -> `cleanup()`: the footprint on the cursor is
     // dropped, never committed (board_editor_control.cpp:1447-1461).
     placeFpRef.current = null;
@@ -3515,6 +3548,31 @@ export function PcbEditor({
           ctx.globalAlpha = 0.9;
           ctx.strokeRect(box.minX, box.minY, w, h);
         }
+        ctx.restore();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
+    }
+    // The router's head (`ROUTER_PREVIEW_ITEM`, `PNS_HEAD_TRACE`): the two
+    // lanes the differential-pair placer proposes, at the 80% alpha
+    // ROUTER_PREVIEW_ITEM's constructor gives every preview (m_color.a = 0.8),
+    // in the layer's own colour — the same treatment the track drag gets.
+    {
+      const head = dpPreviewSceneRef.current;
+      if (head) {
+        ctx.save();
+        ctx.globalAlpha = 0.8;
+        drawBoard(
+          ctx,
+          head,
+          v,
+          visible,
+          canvas.width,
+          canvas.height,
+          selDrawOpts,
+          undefined,
+          true,
+          'none',
+        );
         ctx.restore();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
@@ -7421,6 +7479,140 @@ export function PcbEditor({
     if (settings.common.input.immediate_actions) setFpChooserOpen(true);
   }, [activeTool]);
 
+  /**
+   * `BOARD_DESIGN_SETTINGS` as `PNS_KICAD_IFACE_BASE::ImportSizes` reads it:
+   * the four minimums from Board Setup > Constraints, the two width toggles,
+   * the three Pre-defined Sizes lists behind their `[0]` "use netclass" entry,
+   * the Default netclass, and the toolbar's current selection.
+   */
+  const pnsDesignSettings = (): PnsDesignSettings => {
+    const c = boardSetup.constraints;
+    const mm = (v: number): number => Math.round(v * MM);
+    const rows = boardSetup.netClasses.classes;
+    const dflt = rows.find((r) => r.name === 'Default') ?? rows[0];
+    const mmOpt = (t: string | undefined): number | undefined => {
+      const v = parseFloat(t ?? '');
+      return Number.isFinite(v) && v > 0 ? mm(v) : undefined;
+    };
+    const dims = netclassInfo.classDims.get('Default') ?? DEFAULT_CLASS_DIMS;
+    return {
+      minClearance: mm(c.minClearanceMM),
+      trackMinWidth: mm(c.minTrackMM),
+      viasMinSize: mm(c.minViaMM),
+      minThroughDrill: mm(c.minThroughHoleMM),
+      holeToHoleMin: mm(c.minHoleToHoleMM),
+      useConnectedTrackWidth: autoTrackWidthRef.current,
+      tempOverrideTrackWidth: false,
+      sizes: {
+        trackWidthList: withNetclassEntry(trackWidthListRef.current, 0),
+        viasDimensionsList: withNetclassEntry(viaSizeListRef.current, { diameter: 0, drill: 0 }),
+        diffPairDimensionsList: withNetclassEntry(
+          boardSetup.diffPairsMM
+            .filter((d) => d.width > 0)
+            .map((d) => ({ width: mm(d.width), gap: mm(d.gap), viaGap: mm(d.viaGap) })),
+          { width: 0, gap: 0, viaGap: 0 },
+        ),
+        defaultNetclass: {
+          trackWidth: dims.trackWidth,
+          clearance: netclassInfo.classClearance.get('Default') ?? 0,
+          viaDiameter: dims.viaDiameter,
+          viaDrill: dims.viaDrill,
+          ...(mmOpt(dflt?.dpWidth) !== undefined ? { diffPairWidth: mmOpt(dflt?.dpWidth) } : {}),
+          ...(mmOpt(dflt?.dpGap) !== undefined ? { diffPairGap: mmOpt(dflt?.dpGap) } : {}),
+          ...(mmOpt(dflt?.dpViaGap) !== undefined ? { diffPairViaGap: mmOpt(dflt?.dpViaGap) } : {}),
+        },
+        selection: {
+          ...defaultTrackViaSizeState(),
+          trackWidthIndex: trackSelRef.current,
+          viaSizeIndex: viaSelRef.current,
+        },
+      },
+    };
+  };
+
+  /**
+   * `ROUTER::updateView` for the head: what `movePlacing` displayed since the
+   * last `EraseView`, compiled the way a move overlay is so the draw pass can
+   * paint it with the layer colours.
+   */
+  const updateDiffPairPreview = (): void => {
+    const session = dpSessionRef.current;
+    const brd = boardRef.current;
+    if (!session || !brd) {
+      dpPreviewSceneRef.current = null;
+      return;
+    }
+    let head: Board = emptyBoardLike(brd);
+    for (const item of session.preview) {
+      if (item.kind === 'track') {
+        head = addBoardTrack(head, {
+          start: item.start,
+          end: item.end,
+          width: item.width,
+          layer: item.layer,
+          net: item.net,
+        }).board;
+      } else {
+        head = addBoardVia(head, {
+          at: item.at,
+          size: item.size,
+          drill: item.drill,
+          layers: item.layers,
+          kind: 'through',
+          net: item.net,
+        }).board;
+      }
+    }
+    dpPreviewSceneRef.current = buildScene(head, sceneFilter());
+  };
+
+  /**
+   * `ROUTER_TOOL::performRouting` in `PNS_MODE_ROUTE_DIFF_PAIR`, one click at
+   * a time (router_tool.cpp:1474-1650). The first click is
+   * `prepareInteractive` + `StartRouting`; a refusal goes to the infobar as
+   * `m_router->FailureReason()`. Each later click is `FixRoute`: false is
+   * "fixed, keep routing", true — the head snapped onto the target pair — is
+   * `finishInteractive`, and `CommitRouting` hands the segments over.
+   */
+  const handleDiffPairClick = (world: { x: number; y: number }): void => {
+    const brd = boardRef.current;
+    if (!brd) return;
+    const at = routeSnapRef.current(world);
+    const session = dpSessionRef.current;
+    if (!session) {
+      const layer = /\.Cu$/.test(activeLayer) ? activeLayer : 'F.Cu';
+      if (layer !== activeLayer) setActiveLayer(layer);
+      const next = new PnsSession(brd, {
+        mode: PnsRouterMode.PNS_MODE_ROUTE_DIFF_PAIR,
+        designSettings: pnsDesignSettings(),
+        isLayerVisible: (l) => visible.has(l),
+      });
+      if (!next.start(at, layer)) {
+        setRouterError(next.failureReason || 'The routing start point violates DRC.');
+        next.abort();
+        return;
+      }
+      setRouterError(null);
+      dpSessionRef.current = next;
+      next.move(at);
+      updateDiffPairPreview();
+      requestDraw();
+      return;
+    }
+    session.move(at);
+    const finished = session.fix(at);
+    if (finished) {
+      const result = session.commit();
+      dpSessionRef.current = null;
+      dpPreviewSceneRef.current = null;
+      if (result.ok) commitBoard(applyPnsChanges(brd, result.changes));
+      else if (result.reason) setRouterError(result.reason);
+    } else {
+      updateDiffPairPreview();
+    }
+    requestDraw();
+  };
+
   const handleZoneClick = (world: { x: number; y: number }): void => {
     const brd = boardRef.current;
     if (!brd) return;
@@ -8808,6 +9000,12 @@ export function PcbEditor({
       }
       // `fp->SetPosition( cursorPos )` on every motion event (:1533-1539).
       if (placeFpRef.current) updatePlaceFpPreview(snapToGrid({ x: wx, y: wy }));
+      // `ROUTER_TOOL::performRouting`'s motion arm: `updateEndItem( *evt )`
+      // then `m_router->Move( m_endSnapPoint, m_endItem )`.
+      if (dpSessionRef.current) {
+        dpSessionRef.current.move(routeSnapRef.current({ x: wx, y: wy }));
+        updateDiffPairPreview();
+      }
       // Repaint so the crosshair follows even on a plain hover (no pan/drag).
       requestDraw();
     }
@@ -9042,6 +9240,9 @@ export function PcbEditor({
         } else if (activeToolRef.current === 'routeSingleTrack') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleRouteClick(w);
+        } else if (activeToolRef.current === 'routeDiffPair') {
+          const w = worldAt(e.clientX, e.clientY);
+          if (w) handleDiffPairClick(w);
         } else if (activeToolRef.current === 'drawVia') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleViaClick(w);
@@ -9287,6 +9488,14 @@ export function PcbEditor({
           requestDrawRef.current();
         } else if (textBoxStartRef.current) {
           textBoxStartRef.current = null;
+          requestDrawRef.current();
+        } else if (dpSessionRef.current) {
+          // `evt->IsCancelInteractive()` inside `performRouting`: `StopRouting`
+          // and `break` out of the routing loop, back to the tool's own loop
+          // (router_tool.cpp:1590-1595) — the tool stays armed.
+          dpSessionRef.current.abort();
+          dpSessionRef.current = null;
+          dpPreviewSceneRef.current = null;
           requestDrawRef.current();
         } else if (placeFpRef.current) {
           // `IsCancelInteractive()` with `fp` set is `cleanup()` — the
@@ -10767,6 +10976,14 @@ export function PcbEditor({
           style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
         >
           {readOnlyNotice}
+          {routerError !== null && (
+            <Infobar
+              message={routerError}
+              closable
+              className="ze-router-infobar"
+              key={routerError}
+            />
+          )}
           <div
             className="ze-canvas-wrap"
             ref={wrapRef}

@@ -696,7 +696,13 @@ export function buildPcbMenus(
           shortcut: 'X',
           action: () => h.tool('routeSingleTrack'),
         },
-        { label: 'Route Differential Pair', icon: 'routeDiffPair', disabled: dis },
+        {
+          label: 'Route Differential Pair',
+          icon: 'routeDiffPair',
+          // `PCB_ACTIONS::routeDiffPair`, `.DefaultHotkey( '6' )` (pcb_actions.cpp:2563).
+          shortcut: '6',
+          action: () => h.tool('routeDiffPair'),
+        },
         { sep: true },
         { label: 'Tune Length of a Single Track', disabled: dis },
         { label: 'Tune Length of a Differential Pair', disabled: dis },

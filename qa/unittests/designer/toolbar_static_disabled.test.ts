@@ -131,7 +131,9 @@ const UNBUILT: Readonly<Record<string, readonly string[]>> = {
     // the chooser was already `FootprintChooserFrame`, the instantiation
     // `placeFootprint()` in `board_exchange_footprint.ts`; what was missing
     // was the tool loop that joins them to a click.
-    'routeDiffPair',
+    // `routeDiffPair` came off with `ROUTER_TOOL` in PNS_MODE_ROUTE_DIFF_PAIR:
+    // `PnsSession` drives the ported `PnsDiffPairPlacer`, and the head reaches
+    // the canvas through the iface's DisplayItem hook.
     'tuneSingleTrack',
     'tuneDiffPair',
     'tuneSkew',

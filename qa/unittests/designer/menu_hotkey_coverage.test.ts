@@ -1124,8 +1124,9 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'Ctrl+Shift+B',
     'Ctrl+Shift+H',
     'Ctrl+Alt+Shift+T',
-    // Route / Inspect.
+    // Route / Inspect. `PCB_ACTIONS::routeDiffPair` is '6' (pcb_actions.cpp:2563).
     'X',
+    '6',
     'Ctrl+Shift+M',
     // Tools / Preferences / Help.
     'F8',

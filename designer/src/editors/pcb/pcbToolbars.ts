@@ -267,7 +267,6 @@ export const PCB_RIGHT_TOOLBAR: ToolEntry[] = [
         id: 'routeDiffPair',
         icon: 'routeDiffPair',
         title: 'Route Differential Pair (6)\nRoute differential pairs',
-        ...todo,
       },
     ],
   },
