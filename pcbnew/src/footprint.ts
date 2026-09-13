@@ -9,8 +9,10 @@
  * `FOOTPRINT_DESC` property registration, and `FootprintNeedsUpdate` (which
  * lives in `footprint_needs_update.cpp`).
  *
- * IN PROGRESS (#636): `EMBEDDED_FILES` (the second base; `m_embedFonts` is
- * kept, `GetEmbeddedFiles` answers null and `EmbedFonts` waits on it),
+ * `EMBEDDED_FILES` is the second base, mixed in with `applyMixins`.
+ *
+ * IN PROGRESS (#636): `EmbedFonts` waits on
+ * `OUTLINE_FONT::GetEmbeddingPermission`,
  * `COMPONENT_CLASS_CACHE_PROXY` (the component class is empty),
  * `GENERAL_COLLECTOR` (`CoverageRatio` reads a transient
  * interface), `BOARD::GetMaxClearanceValue` and
@@ -103,6 +105,12 @@ import { PCB_TEXTBOX } from './pcb_textbox.js';
 import type { PCB_TRACK } from './pcb_track.js';
 import { ZONE } from './zone.js';
 import { ZONE_CONNECTION } from './zones.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
+import { applyMixins } from '@ziroeda/core/src/mixins.js';
+
+// `class FOOTPRINT : public BOARD_ITEM_CONTAINER, public EMBEDDED_FILES`
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (EMBEDDED_FILES mixin)
+export interface FOOTPRINT extends EMBEDDED_FILES {}
 
 export enum INCLUDE_NPTH_T {
   DO_NOT_INCLUDE_NPTH = 0,
@@ -367,6 +375,7 @@ function polygonArea(aPolySet: SHAPE_POLY_SET): number {
   return aPolySet.Area();
 }
 
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (EMBEDDED_FILES mixin)
 export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
   private m_fields: PCB_FIELD[] = []; // Fields, mapped by name, owned by pointer
   private m_drawings: BOARD_ITEM[] = []; // Drawings in the footprint, owned by pointer
@@ -553,7 +562,6 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
     copy.m_initial_comments = aFootprint.m_initial_comments
       ? [...aFootprint.m_initial_comments]
       : null;
-    copy.m_embedFonts = aFootprint.m_embedFonts;
     copy.m_variants = new Map([...aFootprint.m_variants].map(([k, v]) => [k, v.clone()]));
 
     // m_componentClassCacheProxy->SetStaticComponentClass( ... )   -- COMPONENT_CLASS pending (#636)
@@ -627,7 +635,7 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
     // Embedded files are inherited via the EMBEDDED_FILES copy constructor invoked in the
     // member initializer list above; the underlying file payloads are reference-counted so
     // cloning a footprint is cheap even when it carries large embedded models or fonts.
-    //                                                     -- EMBEDDED_FILES pending (#636)
+    copy.initEmbeddedFilesFrom(aFootprint);
 
     return copy;
   }
@@ -748,8 +756,7 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
     this.m_initial_comments = aOther.m_initial_comments ? [...aOther.m_initial_comments] : null;
 
     // m_componentClassCacheProxy->SetStaticComponentClass( ... )   -- COMPONENT_CLASS pending (#636)
-    // EMBEDDED_FILES::operator=( aOther );                           -- EMBEDDED_FILES pending (#636)
-    this.m_embedFonts = aOther.m_embedFonts;
+    this.assignEmbeddedFiles(aOther);
 
     return this;
   }
@@ -4462,8 +4469,8 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
     return this.m_geometry_cache.hull;
   }
 
-  override GetEmbeddedFiles(): null {
-    return null; // EMBEDDED_FILES pending (#636)
+  override GetEmbeddedFiles(): EMBEDDED_FILES {
+    return this;
   }
 
   /**
@@ -4477,7 +4484,7 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
 
   EmbedFonts(): void {
     // for( OUTLINE_FONT* font : GetFonts() ) GetEmbeddedFiles()->AddFile( font->GetFileName(), false )
-    //                                                     -- EMBEDDED_FILES pending (#636)
+    //                                                     -- OUTLINE_FONT embedding pending (#636)
   }
 
   Similarity(aOther: BOARD_ITEM): number {
@@ -4808,3 +4815,5 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
 
 /** `static const std::set<int> emptySet` of `GetNetTieCache`. */
 const emptySet: ReadonlySet<number> = new Set();
+
+applyMixins(FOOTPRINT, [EMBEDDED_FILES]);

@@ -5,14 +5,14 @@
  * `pcbnew/board.h` / `pcbnew/board.cpp`: `BOARD`, information pertinent to a
  * Pcbnew printed circuit board.
  *
- * IN PROGRESS (#636 stage 1): the container, the layer table with its
- * opposites, the design settings, the board use, and `Add`/`Remove` over
- * the item collections are here. Each item class lands in turn; the parts
- * of BOARD that read them (`m_NetInfo`, `m_connectivity`, the listeners,
- * the outline, the solder-mask bridges zone, the caches, the item-by-id
- * cache walks into footprints and tables, `EMBEDDED_FILES`, the project)
- * follow as their classes do. `board_types.ts` carries `LAYER_T`, `LAYER`
- * and `BOARD_USE`, which C++ declares in this header.
+ * IN PROGRESS (#636): the container, the layer table with its opposites,
+ * the design settings, the page, title block and plot options, the board
+ * use, the file-format bookkeeping, `EMBEDDED_FILES` (the second base,
+ * mixed in), `m_NetInfo`, and `Add`/`Remove` over the item collections are
+ * here. Still to land with their classes: `m_connectivity` and the
+ * listeners (stage 2), the outline, the solder-mask bridges zone, the DRC
+ * caches, the project. `board_types.ts` carries `LAYER_T`, `LAYER` and
+ * `BOARD_USE`, which C++ declares in this header.
  */
 
 import { RECURSE_MODE } from '@ziroeda/common/src/eda_item.js';
@@ -33,6 +33,10 @@ import { LSET } from '@ziroeda/common/src/lset.js';
 import type { OutStr } from '@ziroeda/common/src/font/font.js';
 import { GetDefaultVariantName } from '@ziroeda/common/src/string_utils.js';
 import { TITLE_BLOCK } from '@ziroeda/common/src/title_block.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
+import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/src/page_info.js';
+import { applyMixins } from '@ziroeda/core/src/mixins.js';
+import { PCB_PLOT_PARAMS } from './pcb_plot_params.js';
 import { NETCLASS } from '@ziroeda/common/src/netclass.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
@@ -56,18 +60,60 @@ export { BOARD_USE, LAYER, LAYER_T } from './board_types.js';
 /** `DEFAULT_CHAINING_EPSILON_MM` (`board.h`): the outline-chaining tolerance. */
 export const DEFAULT_CHAINING_EPSILON_MM = 0.01;
 
+/** `LEGACY_BOARD_FILE_VERSION` (cmake/config.h.cmake:76). */
+export const LEGACY_BOARD_FILE_VERSION = 2;
+
+// `class BOARD : public BOARD_ITEM_CONTAINER, public EMBEDDED_FILES`
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (EMBEDDED_FILES mixin)
+export interface BOARD extends EMBEDDED_FILES {}
+
 /**
  * Information pertinent to a Pcbnew printed circuit board.
  */
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (EMBEDDED_FILES mixin)
 export class BOARD extends BOARD_ITEM_CONTAINER {
+  /**
+   * Visibility settings stored in board prior to 6.0, only used for loading legacy files
+   */
+  m_LegacyVisibleLayers = new LSET();
+  // m_LegacyVisibleItems: GAL_SET  -- pending (#636)
+
+  /**
+   * True if the legacy board design settings were loaded from a file
+   */
+  m_LegacyDesignSettingsLoaded: boolean;
+  m_LegacyCopperEdgeClearanceLoaded: boolean;
+
+  /**
+   * True if netclasses were loaded from the file
+   */
+  m_LegacyNetclassesLoaded: boolean;
+
   static ClassOf(aItem: { Type(): KICAD_T } | null): boolean {
     return !!aItem && KICAD_T.PCB_T === aItem.Type();
   }
 
   private m_boardUse: BOARD_USE;
-  private m_timeStamp: number;
+  private m_timeStamp: number; // actually a modification counter
   private m_userUnits: EdaUnits = 'mm'; // BOARD::BOARD() : m_userUnits( EDA_UNITS::MM )
   private m_fileName = '';
+
+  private m_fileFormatVersionAtLoad: number; // the version loaded from the file
+  private m_generator = ''; // the generator tag from the file
+
+  private m_paper: PAGE_INFO;
+  private m_plotOptions = new PCB_PLOT_PARAMS();
+
+  /**
+   * Teardrops in 7.0 were applied as a post-processing step (rather than from pad and via
+   * properties).  If this flag is set, then the teardrops are generated from pad and via
+   * properties instead.
+   */
+  private m_legacyTeardrops = false;
+
+  // Used for dummy boards, such as a footprint holder, where we don't want to make a copy
+  // of all the parent's embedded data.
+  private m_embeddedFilesDelegate: EMBEDDED_FILES | null;
 
   private m_designSettings: BOARD_DESIGN_SETTINGS;
 
@@ -102,10 +148,19 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
   constructor() {
     super(null, KICAD_T.PCB_T);
+    this.m_LegacyDesignSettingsLoaded = false;
+    this.m_LegacyCopperEdgeClearanceLoaded = false;
+    this.m_LegacyNetclassesLoaded = false;
     this.m_boardUse = BOARD_USE.NORMAL;
     this.m_timeStamp = 1;
+    this.m_paper = new PAGE_INFO(PAGE_SIZE_TYPE.A4);
     this.m_designSettings = new BOARD_DESIGN_SETTINGS();
     this.m_NetInfo = new NETINFO_LIST(this);
+    this.initEmbeddedFiles();
+    this.m_embeddedFilesDelegate = null;
+
+    // we have not loaded a board yet, assume latest until then.
+    this.m_fileFormatVersionAtLoad = LEGACY_BOARD_FILE_VERSION;
 
     // A too small value do not allow connecting 2 shapes (i.e. segments) not exactly connected
     // A too large value do not allow safely connecting 2 shapes like very short segments.
@@ -399,9 +454,78 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
     return this.m_points;
   }
 
-  /** `EMBEDDED_FILES::GetFontFiles`: the embedded-files half of BOARD is not ported yet. */
+  /** `EMBEDDED_FILES::GetFontFiles`: the fontconfig cache is not ported (no disk). */
   GetFontFiles(): readonly string[] | null {
     return null;
+  }
+
+  SetFileFormatVersionAtLoad(aVersion: number): void {
+    this.m_fileFormatVersionAtLoad = aVersion;
+  }
+
+  GetFileFormatVersionAtLoad(): number {
+    return this.m_fileFormatVersionAtLoad;
+  }
+
+  SetGenerator(aGenerator: string): void {
+    this.m_generator = aGenerator;
+  }
+
+  GetGenerator(): string {
+    return this.m_generator;
+  }
+
+  GetPageSettings(): PAGE_INFO {
+    return this.m_paper;
+  }
+
+  SetPageSettings(aPageSettings: PAGE_INFO): void {
+    this.m_paper.assign(aPageSettings);
+  }
+
+  GetPlotOptions(): PCB_PLOT_PARAMS {
+    return this.m_plotOptions;
+  }
+
+  SetPlotOptions(aOptions: PCB_PLOT_PARAMS): void {
+    this.m_plotOptions.assign(aOptions);
+  }
+
+  LegacyTeardrops(): boolean {
+    return this.m_legacyTeardrops;
+  }
+
+  SetLegacyTeardrops(aFlag: boolean): void {
+    this.m_legacyTeardrops = aFlag;
+  }
+
+  override GetEmbeddedFiles(): EMBEDDED_FILES {
+    if (this.m_embeddedFilesDelegate) return this.m_embeddedFilesDelegate;
+
+    return this;
+  }
+
+  /** `BOARD::SetEmbeddedFilesDelegate`: the footprint holder shares its parent's files. */
+  SetEmbeddedFilesDelegate(aDelegate: EMBEDDED_FILES | null): void {
+    this.m_embeddedFilesDelegate = aDelegate;
+  }
+
+  RunOnNestedEmbeddedFiles(aFunction: (aFiles: EMBEDDED_FILES) => void): void {
+    for (const footprint of this.m_footprints) aFunction(footprint.GetEmbeddedFiles());
+  }
+
+  /**
+   * Get a list of outline fonts referenced in the board
+   */
+  GetFonts(): Set<unknown> {
+    // for each EDA_TEXT drawing: if the font is an outline font whose EMBEDDING_PERMISSION is
+    // EDITABLE or INSTALLABLE, collect it        -- OUTLINE_FONT::GetEmbeddingPermission pending (#636)
+    return new Set();
+  }
+
+  EmbedFonts(): void {
+    // for( OUTLINE_FONT* font : GetFonts() ) GetEmbeddedFiles()->AddFile( font->GetFileName(), false )
+    //                                                     -- OUTLINE_FONT embedding pending (#636)
   }
 
   /**
@@ -1217,3 +1341,5 @@ function wxAfterFirst(aStr: string, ch: string): string {
 
   return i < 0 ? '' : aStr.slice(i + 1);
 }
+
+applyMixins(BOARD, [EMBEDDED_FILES]);

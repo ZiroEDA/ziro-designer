@@ -9,6 +9,7 @@
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import type { EMBEDDED_FILES } from './embedded_files.js';
 import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import type { EDA_GROUP } from './eda_group.js';
 import type { ORIGIN_TRANSFORMS } from './origin_transforms.js';
@@ -719,7 +720,7 @@ export abstract class EDA_ITEM extends VIEW_ITEM {
     return layers;
   }
 
-  GetEmbeddedFiles(): unknown {
+  GetEmbeddedFiles(): EMBEDDED_FILES | null {
     return null;
   }
   GetEmbeddedFonts(): readonly string[] | null {

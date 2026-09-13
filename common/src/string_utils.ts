@@ -925,6 +925,28 @@ export function FormatDouble2Str(value: number): string {
   return formatG(value, 10);
 }
 
+/**
+ * `UIDouble2Str` (common/string_utils.cpp:1476): a double for the UI, the
+ * same `%.16f`-trimmed / `%.10g` choice as `FormatDouble2Str`.
+ */
+export function UIDouble2Str(aValue: number): string {
+  if (aValue !== 0.0 && Math.abs(aValue) <= 0.0001) {
+    // For these small values, %f works fine,
+    // and %g gives an exponent
+    let buf = formatF(aValue, 16);
+
+    while (buf.length > 1 && buf.endsWith('0')) buf = buf.slice(0, -1);
+
+    if (buf.endsWith('.') || buf.endsWith(',')) buf = buf.slice(0, -1);
+
+    return buf;
+  }
+
+  // For these values, %g works fine, and sometimes %f
+  // gives a bad value (try aValue = 1.222222222222, with %.16f format!)
+  return formatG(aValue, 10);
+}
+
 /** `GetDefaultVariantName()`: the name the default (no) variant shows as. */
 export function GetDefaultVariantName(): string {
   return '< Default >';

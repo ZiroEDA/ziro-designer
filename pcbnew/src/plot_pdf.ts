@@ -97,12 +97,6 @@ export enum LINE_STYLE {
  * write-only here. It is kept because SetTextMode is part of the contract a
  * caller drives a PS-like plotter through.
  */
-export enum PLOT_TEXT_MODE {
-  STROKE = 0,
-  NATIVE,
-  PHANTOM,
-  DEFAULT,
-}
 
 /**
  * `PLOTTER::DO_NOT_SET_LINE_WIDTH` / `USE_DEFAULT_LINE_WIDTH` (plotter.h:139-140).
@@ -118,6 +112,8 @@ import {
   DO_NOT_SET_LINE_WIDTH,
   USE_DEFAULT_LINE_WIDTH,
 } from '@ziroeda/common/src/plotters/plotter.js';
+import { PLOT_TEXT_MODE } from '@ziroeda/common/src/plotters/plotter.js';
+export { PLOT_TEXT_MODE };
 
 // `COLOR4D` lives in `common` because the graphics importers, shared with
 // eeschema, need it too. Re-exported here so existing consumers are unaffected.

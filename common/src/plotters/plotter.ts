@@ -28,3 +28,79 @@ export const DO_NOT_SET_LINE_WIDTH = -2;
  * i.e. resolve through `RENDER_SETTINGS::GetDefaultPenWidth()`.
  */
 export const USE_DEFAULT_LINE_WIDTH = -1;
+
+// Must be in the same order as the drop-down list in the plot dialog inside pcbnew
+// Units (inch/mm for DXF plotter
+export enum DXF_UNITS {
+  INCH = 0, // Do not use MM: it conficts with a Windows header
+  MM = 1,
+}
+
+/**
+ * The set of supported output plot formats.
+ *
+ * They should be kept in order of the radio buttons in the plot panel/windows.
+ */
+export enum PLOT_FORMAT {
+  UNDEFINED = -1,
+  FIRST_FORMAT = 0,
+  HPGL = FIRST_FORMAT,
+  GERBER,
+  POST,
+  DXF,
+  PDF,
+  SVG,
+  LAST_FORMAT = SVG,
+}
+
+/**
+ * Options to draw items with thickness ( segments, arcs, circles, texts...)
+ */
+export enum DXF_OUTLINE_MODE {
+  SKETCH = 0, // sketch mode: draw segments outlines only
+  FILLED = 1, // normal mode: solid segments
+}
+
+/**
+ * Which kind of text to output with the PSLIKE plotters.
+ *
+ * You can:
+ * 1) only use the internal vector font
+ * 2) only use native postscript fonts
+ * 3) use the internal vector font and add 'phantom' text to aid
+ *    searching
+ * 4) keep the default for the plot driver
+ *
+ * This is recognized by the DXF driver too, where NATIVE emits
+ * TEXT entities instead of stroking the text
+ */
+export enum PLOT_TEXT_MODE {
+  STROKE = 0,
+  NATIVE,
+  PHANTOM,
+  DEFAULT,
+}
+
+export class PLOT_PARAMS {
+  GetDXFPlotMode(): DXF_OUTLINE_MODE {
+    return DXF_OUTLINE_MODE.FILLED; // wxFAIL
+  }
+
+  GetTextMode(): PLOT_TEXT_MODE {
+    return PLOT_TEXT_MODE.DEFAULT;
+  }
+}
+
+/**
+ * @enum DXF_LAYER_OUTPUT_MODE
+ * @brief Specifies the output mode for the DXF layer.
+ *
+ * This enumeration is used to define the mode of output for the DXF layer.
+ * It allows the user to choose between retrieving the layer name or the color name.
+ */
+export enum DXF_LAYER_OUTPUT_MODE {
+  Layer_Name = 0,
+  Layer_Color_Name,
+  Current_Layer_Name,
+  Current_Layer_Color_Name,
+}

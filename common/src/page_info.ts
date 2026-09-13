@@ -87,6 +87,8 @@ export const PAPER_MM: Record<string, [number, number]> = Object.fromEntries(
  * a real 32000 x 32000 mil page. Reproduced rather than tidied away: the bar is
  * that a user cannot tell which app they are in.
  */
+import type { OUTPUTFORMATTER } from './richio.js';
+import { FormatDouble2Str } from './string_utils.js';
 export const PAPER_CHOICES: { id: string; label: string }[] = [
   { id: 'A5', label: 'A5 148 x 210mm' },
   { id: 'A4', label: 'A4 210 x 297mm' },
@@ -170,4 +172,514 @@ export function pageSizeMM(paper: string | undefined): { w: number; h: number } 
 
   const [w, h] = parts.includes('portrait') ? [dims[1], dims[0]] : dims;
   return { w, h };
+}
+
+// ---------------------------------------------------------------------------
+// PAGE_INFO (include/page_info.h / common/page_info.cpp)
+// ---------------------------------------------------------------------------
+
+/// Min and max page sizes for clamping, in mils.
+export const MIN_PAGE_SIZE_MILS = 1000;
+export const MAX_PAGE_SIZE_PCBNEW_MILS = 48000;
+export const MAX_PAGE_SIZE_EESCHEMA_MILS = 120000;
+
+/// Min and max page sizes for clamping, in mm.
+export const MIN_PAGE_SIZE_MM = 25.4;
+export const MAX_PAGE_SIZE_PCBNEW_MM = 48000 * 0.0254;
+export const MAX_PAGE_SIZE_EESCHEMA_MM = 120000 * 0.0254;
+
+/*
+ * @brief Standard paper sizes nicknames
+ * Do not rename entires as these names are saved to file and parsed back
+ */
+export enum PAGE_SIZE_TYPE {
+  A5 = 0,
+  A4,
+  A3,
+  A2,
+  A1,
+  A0,
+  A,
+  B,
+  C,
+  D,
+  E,
+  GERBER,
+  USLetter,
+  USLegal,
+  USLedger,
+  User,
+}
+
+/** `magic_enum::enum_name( PAGE_SIZE_TYPE )`. */
+const PAGE_SIZE_TYPE_NAMES: readonly string[] = [
+  'A5',
+  'A4',
+  'A3',
+  'A2',
+  'A1',
+  'A0',
+  'A',
+  'B',
+  'C',
+  'D',
+  'E',
+  'GERBER',
+  'USLetter',
+  'USLegal',
+  'USLedger',
+  'User',
+];
+
+/** `wxPaperSize`, the wx print ids the table names; `wxPAPER_NONE` is 0. */
+export enum wxPaperSize {
+  wxPAPER_NONE = 0,
+  wxPAPER_LETTER = 1,
+  wxPAPER_LEGAL = 5,
+  wxPAPER_A3 = 8,
+  wxPAPER_A4 = 9,
+  wxPAPER_A5 = 11,
+  wxPAPER_TABLOID = 3,
+  wxPAPER_CSHEET = 24,
+  wxPAPER_DSHEET = 25,
+  wxPAPER_ESHEET = 26,
+  wxPAPER_A2 = 66,
+  wxPAPER_A1 = 99,
+  wxPAPER_A0 = 100,
+}
+
+/** `wxPrintOrientation`. */
+export enum wxPrintOrientation {
+  wxPORTRAIT = 1,
+  wxLANDSCAPE = 2,
+}
+
+/** `EDA_UNIT_UTILS::Mm2mils`: `KiROUND( aVal * 1000. / 25.4 )`. */
+const Mm2mils = (aVal: number): number => Math.round((aVal * 1000) / 25.4);
+
+// local readability macro for millimeter wxSize
+const MMsize = (x: number, y: number): { x: number; y: number } => ({
+  x: Mm2mils(x),
+  y: Mm2mils(y),
+});
+
+function clampWidth(aWidthInMils: number): number {
+  if (aWidthInMils < 10) aWidthInMils = 10;
+
+  return aWidthInMils;
+}
+
+function clampHeight(aHeightInMils: number): number {
+  if (aHeightInMils < 10.0) aHeightInMils = 10.0;
+
+  return aHeightInMils;
+}
+
+/**
+ * Describe the page size and margins of a paper page on which to eventually print or plot.
+ *
+ * Paper sizes are often described in inches.  Here paper is described in 1/1000th of an
+ * inch (mils).  For convenience there are some read only accessors for internal units
+ * which is a compile time calculation, not runtime.
+ */
+export class PAGE_INFO {
+  // Custom paper size for next instantiation of type "User"
+  private static s_user_width = 17000;
+  private static s_user_height = 11000;
+
+  // all dimensions here are in mils
+  private m_type: PAGE_SIZE_TYPE; ///< paper type: A4, A3, etc.
+  private m_size: { x: number; y: number }; ///< mils
+  private m_portrait: boolean; ///< true if portrait, false if landscape
+  private m_paper_id: wxPaperSize; ///< wx' style paper id.
+  private m_description: string; ///< more human friendly description of page size
+
+  // only the class implementation(s) may use this constructor
+  private static make(
+    aSizeMils: { x: number; y: number },
+    aType: PAGE_SIZE_TYPE,
+    aPaperId: wxPaperSize,
+    aDescription = '',
+  ): PAGE_INFO {
+    const p = Object.create(PAGE_INFO.prototype) as PAGE_INFO;
+    p.m_type = aType;
+    p.m_size = { ...aSizeMils };
+    p.m_paper_id = aPaperId;
+    p.m_description = aDescription;
+    p.m_portrait = false;
+    p.updatePortrait();
+
+    // This constructor is protected, and only used by const PAGE_INFO's known
+    // only to class implementation, so no further changes to "this" object are
+    // expected.
+    return p;
+  }
+
+  // Standard page sizes in mils, all constants
+  // see:  https://lists.launchpad.net/kicad-developers/msg07389.html
+  // also see: wx/defs.h
+  private static standardPageSizes: PAGE_INFO[] = [
+    // All MUST be defined as landscape.
+    PAGE_INFO.make(MMsize(210, 148), PAGE_SIZE_TYPE.A5, wxPaperSize.wxPAPER_A5, 'A5 148 x 210mm'),
+    PAGE_INFO.make(MMsize(297, 210), PAGE_SIZE_TYPE.A4, wxPaperSize.wxPAPER_A4, 'A4 210 x 297mm'),
+    PAGE_INFO.make(MMsize(420, 297), PAGE_SIZE_TYPE.A3, wxPaperSize.wxPAPER_A3, 'A3 297 x 420mm'),
+    PAGE_INFO.make(MMsize(594, 420), PAGE_SIZE_TYPE.A2, wxPaperSize.wxPAPER_A2, 'A2 420 x 594mm'),
+    PAGE_INFO.make(MMsize(841, 594), PAGE_SIZE_TYPE.A1, wxPaperSize.wxPAPER_A1, 'A1 594 x 841mm'),
+    PAGE_INFO.make(MMsize(1189, 841), PAGE_SIZE_TYPE.A0, wxPaperSize.wxPAPER_A0, 'A0 841 x 1189mm'),
+    PAGE_INFO.make(
+      { x: 11000, y: 8500 },
+      PAGE_SIZE_TYPE.A,
+      wxPaperSize.wxPAPER_LETTER,
+      'A 8.5 x 11in',
+    ),
+    PAGE_INFO.make(
+      { x: 17000, y: 11000 },
+      PAGE_SIZE_TYPE.B,
+      wxPaperSize.wxPAPER_TABLOID,
+      'B 11 x 17in',
+    ),
+    PAGE_INFO.make(
+      { x: 22000, y: 17000 },
+      PAGE_SIZE_TYPE.C,
+      wxPaperSize.wxPAPER_CSHEET,
+      'C 17 x 22in',
+    ),
+    PAGE_INFO.make(
+      { x: 34000, y: 22000 },
+      PAGE_SIZE_TYPE.D,
+      wxPaperSize.wxPAPER_DSHEET,
+      'D 22 x 34in',
+    ),
+    PAGE_INFO.make(
+      { x: 44000, y: 34000 },
+      PAGE_SIZE_TYPE.E,
+      wxPaperSize.wxPAPER_ESHEET,
+      'E 34 x 44in',
+    ),
+
+    // US paper sizes
+    PAGE_INFO.make({ x: 32000, y: 32000 }, PAGE_SIZE_TYPE.GERBER, wxPaperSize.wxPAPER_NONE),
+    PAGE_INFO.make(
+      { x: 17000, y: 11000 },
+      PAGE_SIZE_TYPE.User,
+      wxPaperSize.wxPAPER_NONE,
+      'User (Custom)',
+    ),
+
+    PAGE_INFO.make(
+      { x: 11000, y: 8500 },
+      PAGE_SIZE_TYPE.USLetter,
+      wxPaperSize.wxPAPER_LETTER,
+      'US Letter 8.5 x 11in',
+    ),
+    PAGE_INFO.make(
+      { x: 14000, y: 8500 },
+      PAGE_SIZE_TYPE.USLegal,
+      wxPaperSize.wxPAPER_LEGAL,
+      'US Legal 8.5 x 14in',
+    ),
+    PAGE_INFO.make(
+      { x: 17000, y: 11000 },
+      PAGE_SIZE_TYPE.USLedger,
+      wxPaperSize.wxPAPER_TABLOID,
+      'US Ledger 11 x 17in',
+    ),
+  ];
+
+  constructor(aType: PAGE_SIZE_TYPE = PAGE_SIZE_TYPE.A3, aIsPortrait = false) {
+    this.m_type = PAGE_SIZE_TYPE.A4;
+    this.m_size = { x: PAGE_INFO.s_user_width, y: PAGE_INFO.s_user_height };
+    this.m_portrait = false;
+    this.m_paper_id = wxPaperSize.wxPAPER_NONE;
+    this.m_description = '';
+    this.SetType(aType, aIsPortrait);
+  }
+
+  /** The compiler-generated copy (`PAGE_INFO pageInfo = aBoard->GetPageSettings()`). */
+  static copyOf(aOther: PAGE_INFO): PAGE_INFO {
+    const p = Object.create(PAGE_INFO.prototype) as PAGE_INFO;
+    p.assign(aOther);
+    return p;
+  }
+
+  /** `operator=` (`*this = *result`). */
+  assign(aOther: PAGE_INFO): this {
+    this.m_type = aOther.m_type;
+    this.m_size = { ...aOther.m_size };
+    this.m_portrait = aOther.m_portrait;
+    this.m_paper_id = aOther.m_paper_id;
+    this.m_description = aOther.m_description;
+    return this;
+  }
+
+  /** The compiler-generated `operator==` (`m_paper != aPageSettings` in BOARD). */
+  equals(aOther: PAGE_INFO): boolean {
+    return (
+      this.m_type === aOther.m_type &&
+      this.m_size.x === aOther.m_size.x &&
+      this.m_size.y === aOther.m_size.y &&
+      this.m_portrait === aOther.m_portrait &&
+      this.m_paper_id === aOther.m_paper_id &&
+      this.m_description === aOther.m_description
+    );
+  }
+
+  private updatePortrait(): void {
+    // update m_portrait based on orientation of m_size.x and m_size.y
+    this.m_portrait = this.m_size.y > this.m_size.x;
+  }
+
+  /**
+   * Set the name of the page type and also the sizes and margins commonly associated with
+   * that type name.
+   *
+   * @param aPageSize is one of the PAGE_SIZE_TYPE values, or its name: "A5" "A4" "A3"
+   * "A2" "A1" "A0" "A" "B" "C" "D" "E" "GERBER", "USLetter", "USLegal", "USLedger",
+   * or "User".  If "User" then the width and height are custom, and will be set
+   * according to <b>previous</b> calls to static PAGE_INFO::SetUserWidthMils() and
+   * static PAGE_INFO::SetUserHeightMils();
+   * @param aIsPortrait Set to true to set page orientation to portrait mode.
+   * @return true if @a aStandarePageDescription was a recognized type.
+   */
+  SetType(aPageSize: PAGE_SIZE_TYPE | string, aIsPortrait = false): boolean {
+    if (typeof aPageSize === 'string') {
+      // magic_enum::enum_cast<PAGE_SIZE_TYPE>( …, magic_enum::case_insensitive )
+      const lower = aPageSize.toLowerCase();
+      const idx = PAGE_SIZE_TYPE_NAMES.findIndex((n) => n.toLowerCase() === lower);
+
+      if (idx < 0) return false;
+
+      return this.SetType(idx as PAGE_SIZE_TYPE, aIsPortrait);
+    }
+
+    const aType = aPageSize;
+    let rc = true;
+
+    const result = PAGE_INFO.standardPageSizes.find((p) => p.m_type === aType);
+
+    if (result) this.assign(result);
+    else rc = false;
+
+    if (aType === PAGE_SIZE_TYPE.User) {
+      this.m_type = PAGE_SIZE_TYPE.User;
+      this.m_paper_id = wxPaperSize.wxPAPER_NONE;
+      this.m_size.x = PAGE_INFO.s_user_width;
+      this.m_size.y = PAGE_INFO.s_user_height;
+
+      this.updatePortrait();
+    }
+
+    if (aIsPortrait) {
+      // all private PAGE_INFOs are landscape, must swap x and y
+      [this.m_size.x, this.m_size.y] = [this.m_size.y, this.m_size.x];
+      this.updatePortrait();
+    }
+
+    return rc;
+  }
+
+  GetType(): PAGE_SIZE_TYPE {
+    return this.m_type;
+  }
+
+  GetTypeAsString(): string {
+    return PAGE_SIZE_TYPE_NAMES[this.m_type]!;
+  }
+
+  GetPageFormatDescription(): string {
+    return this.m_description;
+  }
+
+  /**
+   * @return True if the object has the default page settings which are A3, landscape.
+   */
+  IsDefault(): boolean {
+    return this.m_type === PAGE_SIZE_TYPE.A3 && !this.m_portrait;
+  }
+
+  /**
+   * @return true if the type is Custom.
+   */
+  IsCustom(): boolean {
+    return this.m_type === PAGE_SIZE_TYPE.User;
+  }
+
+  /**
+   * Rotate the paper page 90 degrees.
+   *
+   * This PAGE_INFO may either be in portrait or landscape mode.  Use this function to
+   * change from one mode to the other mode.
+   *
+   * @param aIsPortrait if true and not already in portrait mode, will change this
+   *                    PAGE_INFO to portrait mode.  Or if false and not already in
+   *                    landscape mode, will change this PAGE_INFO to landscape mode.
+   */
+  SetPortrait(aIsPortrait: boolean): void {
+    if (this.m_portrait !== aIsPortrait) {
+      // swap x and y in m_size
+      [this.m_size.x, this.m_size.y] = [this.m_size.y, this.m_size.x];
+
+      this.m_portrait = aIsPortrait;
+
+      // margins are not touched, do that if you want
+    }
+  }
+
+  IsPortrait(): boolean {
+    return this.m_portrait;
+  }
+
+  /**
+   * @return ws' style printing orientation (wxPORTRAIT or wxLANDSCAPE).
+   */
+  GetWxOrientation(): wxPrintOrientation {
+    return this.IsPortrait() ? wxPrintOrientation.wxPORTRAIT : wxPrintOrientation.wxLANDSCAPE;
+  }
+
+  /**
+   * @return wxPrintData's style paper id associated with page type name.
+   */
+  GetPaperId(): wxPaperSize {
+    return this.m_paper_id;
+  }
+
+  SetWidthMM(aWidthInMM: number): void {
+    this.SetWidthMils((aWidthInMM * 1000) / 25.4);
+  }
+
+  SetWidthMils(aWidthInMils: number): void {
+    if (this.m_size.x !== aWidthInMils) {
+      this.m_size.x = clampWidth(aWidthInMils);
+
+      this.m_type = PAGE_SIZE_TYPE.User;
+      this.m_paper_id = wxPaperSize.wxPAPER_NONE;
+
+      this.updatePortrait();
+    }
+  }
+
+  GetWidthMils(): number {
+    return this.m_size.x;
+  }
+
+  GetWidthMM(): number {
+    return (this.m_size.x * 25.4) / 1000;
+  }
+
+  SetHeightMM(aHeightInMM: number): void {
+    this.SetHeightMils((aHeightInMM * 1000) / 25.4);
+  }
+
+  SetHeightMils(aHeightInMils: number): void {
+    if (this.m_size.y !== aHeightInMils) {
+      this.m_size.y = clampHeight(aHeightInMils);
+
+      this.m_type = PAGE_SIZE_TYPE.User;
+      this.m_paper_id = wxPaperSize.wxPAPER_NONE;
+
+      this.updatePortrait();
+    }
+  }
+
+  GetHeightMils(): number {
+    return this.m_size.y;
+  }
+
+  GetHeightMM(): number {
+    return (this.m_size.y * 25.4) / 1000;
+  }
+
+  GetSizeMils(): { x: number; y: number } {
+    return this.m_size;
+  }
+
+  /**
+   * Gets the page width in IU
+   *
+   * @param aIUScale The IU scale, this is most likely always going to be IU_PER_MILS
+   * variable being passed. Note, this constexpr variable changes depending
+   * on application, hence why it is passed.
+   */
+  GetWidthIU(aIUScale: number): number {
+    return Math.trunc(aIUScale * this.GetWidthMils());
+  }
+
+  /**
+   * Gets the page height in IU
+   *
+   * @param aIUScale The IU scale, this is most likely always going to be IU_PER_MILS
+   * variable being passed. Note, this constexpr variable changes depending
+   * on application, hence why it is passed.
+   */
+  GetHeightIU(aIUScale: number): number {
+    return Math.trunc(aIUScale * this.GetHeightMils());
+  }
+
+  /**
+   * Gets the page size in internal units
+   *
+   * @param aIUScale The IU scale, this is most likely always going to be IU_PER_MILS
+   * variable being passed. Note, this constexpr variable changes depending
+   * on application, hence why it is passed.
+   */
+  GetSizeIU(aIUScale: number): { x: number; y: number } {
+    return { x: this.GetWidthIU(aIUScale), y: this.GetHeightIU(aIUScale) };
+  }
+
+  /**
+   * Set the width of Custom page in mils for any custom page constructed or made via
+   * SetType() after making this call.
+   */
+  static SetCustomWidthMils(aWidthInMils: number): void {
+    PAGE_INFO.s_user_width = clampWidth(aWidthInMils);
+  }
+
+  /**
+   * Set the height of Custom page in mils for any custom page constructed or made via
+   * SetType() after making this call.
+   */
+  static SetCustomHeightMils(aHeightInMils: number): void {
+    PAGE_INFO.s_user_height = clampHeight(aHeightInMils);
+  }
+
+  /**
+   * @return custom paper width in mils.
+   */
+  static GetCustomWidthMils(): number {
+    return PAGE_INFO.s_user_width;
+  }
+
+  /**
+   * @return custom paper height in mils.
+   */
+  static GetCustomHeightMils(): number {
+    return PAGE_INFO.s_user_height;
+  }
+
+  /**
+   * Output the page class to \a aFormatter in s-expression form.
+   *
+   * @param aFormatter The #OUTPUTFORMATTER object to write to.
+   * @throw IO_ERROR on write error.
+   */
+  Format(aFormatter: OUTPUTFORMATTER): void {
+    const typeStr = PAGE_SIZE_TYPE_NAMES[this.GetType()]!;
+    aFormatter.Print(`(paper ${aFormatter.Quotew(typeStr)}`);
+
+    // The page dimensions are only required for user defined page sizes.
+    // Internally, the page size is in mils
+    if (this.GetType() === PAGE_SIZE_TYPE.User) {
+      aFormatter.Print(
+        ` ${FormatDouble2Str((this.GetWidthMils() * 25.4) / 1000.0)} ${FormatDouble2Str((this.GetHeightMils() * 25.4) / 1000.0)}`,
+      );
+    }
+
+    if (!this.IsCustom() && this.IsPortrait()) aFormatter.Print(' portrait');
+
+    aFormatter.Print(')');
+  }
+
+  static GetPageFormatsList(): readonly PAGE_INFO[] {
+    return PAGE_INFO.standardPageSizes;
+  }
 }

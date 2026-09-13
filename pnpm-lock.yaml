@@ -20,6 +20,9 @@ importers:
 
   common:
     dependencies:
+      '@bokuweb/zstd-wasm':
+        specifier: ^0.0.27
+        version: 0.0.27
       '@ziroeda/core':
         specifier: workspace:*
         version: link:../libs/core

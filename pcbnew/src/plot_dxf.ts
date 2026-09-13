@@ -59,32 +59,12 @@ import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/eda_te
 import type { PCB_LAYER_NAME } from './layer_ids.js';
 
 /** `DXF_UNITS` (plotter.h). MM is 1 because Windows headers claim `MM`. */
-export enum DXF_UNITS {
-  INCH = 0,
-  MM = 1,
-}
 
 /** `PLOT_TEXT_MODE` (plotter.h). Only NATIVE reaches the TEXT entity path. */
-export enum PLOT_TEXT_MODE {
-  STROKE = 0,
-  NATIVE,
-  PHANTOM,
-  DEFAULT,
-}
 
 /** `DXF_LAYER_OUTPUT_MODE` (plotter.h). */
-export enum DXF_LAYER_OUTPUT_MODE {
-  Layer_Name = 0,
-  Layer_Color_Name,
-  Current_Layer_Name,
-  Current_Layer_Color_Name,
-}
 
 /** `DXF_OUTLINE_MODE` (plotter.h): the plot dialog's DXF outline/filled radio. */
-export enum DXF_OUTLINE_MODE {
-  SKETCH = 0,
-  FILLED = 1,
-}
 
 /** `FILL_T` (eda_shape.h). NO_FILL is 1, not 0 — never treat this as a boolean. */
 export enum FILL_T {
@@ -119,6 +99,13 @@ import {
   DO_NOT_SET_LINE_WIDTH,
   USE_DEFAULT_LINE_WIDTH,
 } from '@ziroeda/common/src/plotters/plotter.js';
+import {
+  DXF_UNITS,
+  PLOT_TEXT_MODE,
+  DXF_LAYER_OUTPUT_MODE,
+  DXF_OUTLINE_MODE,
+} from '@ziroeda/common/src/plotters/plotter.js';
+export { DXF_UNITS, PLOT_TEXT_MODE, DXF_LAYER_OUTPUT_MODE, DXF_OUTLINE_MODE };
 
 /**
  * `#define DXF_LINE_WIDTH DO_NOT_SET_LINE_WIDTH` — DXF carries no line widths,

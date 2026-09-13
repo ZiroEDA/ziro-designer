@@ -9,10 +9,9 @@
  * its constructor default — the layer counts and enabled set, the per-class
  * line/text defaults, the minimums, the mask and paste margins, the via
  * tenting/covering/plugging flags, the custom track/via/diff-pair values,
- * the origins, `m_NetSettings` and `m_TeardropParamsList`. Still to land
- * with their own classes: `m_Pad_Master`, the three `MEANDER_SETTINGS`,
- * `m_DRCEngine`,
- * and `m_stackup`; and the
+ * the origins, `m_NetSettings`, `m_TeardropParamsList`, `m_Pad_Master`,
+ * `m_stackup` and `m_ZoneLayerProperties`. Still to land with their own
+ * classes: the three `MEANDER_SETTINGS` and `m_DRCEngine`; and the
  * `NESTED_SETTINGS` JSON registration is not ported (the file parser sets
  * the fields directly).
  */
@@ -37,7 +36,11 @@ import { ARC_HIGH_DEF } from '@ziroeda/kimath/src/base_units.js';
 import { NET_SETTINGS } from '@ziroeda/common/src/project/net_settings.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { TEARDROP_PARAMETERS_LIST } from './teardrop/teardrop_parameters.js';
-import { ZONE_SETTINGS } from './zone_settings.js';
+import { ZONE_SETTINGS, type ZONE_LAYER_PROPERTIES } from './zone_settings.js';
+import { BOARD_STACKUP } from './board_stackup_manager/board_stackup.js';
+import { PAD } from './pad.js';
+import { PAD_DRILL_SHAPE, PAD_SHAPE, PADSTACK } from './padstack.js';
+import { ANGLE_45, ANGLE_90 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import {
   DEFAULT_COPPER_LINE_WIDTH,
   DEFAULT_COPPER_TEXT_SIZE,
@@ -61,6 +64,10 @@ import {
   DEFAULT_MINGROOVEWIDTH,
   DEFAULT_MINRESOLVEDSPOKES,
   DEFAULT_MINTHROUGHDRILL,
+  DEFAULT_PAD_DRILL_DIAMETER_MM,
+  DEFAULT_PAD_HEIGTH_MM,
+  DEFAULT_PAD_RR_RADIUS_RATIO,
+  DEFAULT_PAD_WIDTH_MM,
   DEFAULT_SILK_LINE_WIDTH,
   DEFAULT_SILK_TEXT_SIZE,
   DEFAULT_SILK_TEXT_WIDTH,
@@ -253,6 +260,9 @@ export class BOARD_DESIGN_SETTINGS {
   // Variables used in footprint editing (default value in item/footprint creation)
   m_DefaultFPTextItems: TEXT_ITEM_INFO[] = [];
 
+  // Default zone hatching offsets
+  m_ZoneLayerProperties = new Map<PCB_LAYER_ID, ZONE_LAYER_PROPERTIES>();
+
   // Map between user layer default names and custom names
   m_UserLayerNames = new Map<string, string>();
 
@@ -286,6 +296,9 @@ export class BOARD_DESIGN_SETTINGS {
   // Set to true if the board has a stackup management.
   // If not set a default basic stackup will be used to generate the gbrjob file.
   // Could be removed later, or at least always set to true
+  m_Pad_Master: PAD; // A dummy pad to store all default parameters
+  // when importing values from a previously created board:
+
   m_HasStackup: boolean;
 
   /// Enable inclusion of stackup height in track length measurements and length tuning
@@ -319,6 +332,9 @@ export class BOARD_DESIGN_SETTINGS {
   /// This is also the last used netclass after starting a track.
   private m_currentNetClassName = '';
 
+  /// Stack-up settings
+  private m_stackup = new BOARD_STACKUP();
+
   constructor() {
     // Create a default NET_SETTINGS so that things don't break horribly if there's no project
     // loaded.  This also is used during file load for legacy boards that have netclasses stored
@@ -327,6 +343,8 @@ export class BOARD_DESIGN_SETTINGS {
     this.m_NetSettings = new NET_SETTINGS();
 
     this.m_HasStackup = false; // no stackup defined by default
+
+    this.m_Pad_Master = new PAD(null);
 
     const all_set = new LSET().set();
     this.m_enabledLayers = all_set; // All layers enabled at first.
@@ -593,6 +611,13 @@ export class BOARD_DESIGN_SETTINGS {
     if (aNewLayerCount > 0) this.m_enabledLayers.orAssign(LSET.AllCuMask(aNewLayerCount));
   }
 
+  /**
+   * Return a reference to the BOARD_STACKUP descriptor.
+   */
+  GetStackupDescriptor(): BOARD_STACKUP {
+    return this.m_stackup;
+  }
+
   GetDefaultZoneSettings(): ZONE_SETTINGS {
     return this.m_defaultZoneSettings;
   }
@@ -697,6 +722,24 @@ export class BOARD_DESIGN_SETTINGS {
 
   GetTextItalic(aLayer: PCB_LAYER_ID): boolean {
     return this.m_TextItalic[this.GetLayerClass(aLayer)]!;
+  }
+
+  /**
+   * Set the default values of the master pad.
+   */
+  SetDefaultMasterPad(): void {
+    this.m_Pad_Master.SetSizeX(pcbIUScale.mmToIU(DEFAULT_PAD_WIDTH_MM));
+    this.m_Pad_Master.SetSizeY(pcbIUScale.mmToIU(DEFAULT_PAD_HEIGTH_MM));
+    this.m_Pad_Master.SetDrillShape(PAD_DRILL_SHAPE.CIRCLE);
+    this.m_Pad_Master.SetDrillSize({ x: pcbIUScale.mmToIU(DEFAULT_PAD_DRILL_DIAMETER_MM), y: 0 });
+    this.m_Pad_Master.SetShape(PADSTACK.ALL_LAYERS, PAD_SHAPE.ROUNDRECT);
+
+    const RR_RADIUS = DEFAULT_PAD_HEIGTH_MM * DEFAULT_PAD_RR_RADIUS_RATIO;
+    this.m_Pad_Master.SetRoundRectCornerRadius(PADSTACK.ALL_LAYERS, pcbIUScale.mmToIU(RR_RADIUS));
+
+    if (this.m_Pad_Master.GetFrontShape() === PAD_SHAPE.CIRCLE)
+      this.m_Pad_Master.SetThermalSpokeAngle(ANGLE_45);
+    else this.m_Pad_Master.SetThermalSpokeAngle(ANGLE_90);
   }
 
   GetTextUpright(aLayer: PCB_LAYER_ID): boolean {
