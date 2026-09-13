@@ -18,7 +18,7 @@
 import { RECURSE_MODE } from '@ziroeda/common/src/eda_item.js';
 import { STRUCT_DELETED } from '@ziroeda/common/src/eda_item_flags.js';
 import { type EdaUnits, pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import type { KIID } from '@ziroeda/common/src/kiid.js';
+import { type KIID, niluuid } from '@ziroeda/common/src/kiid.js';
 import {
   FlipLayer as flipLayerId,
   type GAL_LAYER_ID,
@@ -38,11 +38,14 @@ import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
-import { BOARD_ITEM } from './board_item.js';
+import { BOARD_ITEM, DELETED_BOARD_ITEM } from './board_item.js';
 import { ADD_MODE, BOARD_ITEM_CONTAINER, REMOVE_MODE } from './board_item_container.js';
 import { BOARD_USE, LAYER, LAYER_T } from './board_types.js';
 import { type NETINFO_ITEM, NETINFO_LIST } from './netinfo.js';
 import type { FOOTPRINT } from './footprint.js';
+import type { PCB_GROUP } from './pcb_group.js';
+import type { PCB_MARKER } from './pcb_marker.js';
+import type { PCB_TRACK } from './pcb_track.js';
 import type { ZONE } from './zone.js';
 
 export { BOARD_USE, LAYER, LAYER_T } from './board_types.js';
@@ -79,13 +82,13 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
   // The item collections (`m_footprints`, `m_tracks` are std::deques; the rest vectors).
   protected m_drawings: BOARD_ITEM[] = [];
-  protected m_footprints: BOARD_ITEM[] = [];
-  protected m_tracks: BOARD_ITEM[] = [];
-  protected m_zones: BOARD_ITEM[] = [];
-  protected m_generators: BOARD_ITEM[] = [];
-  protected m_markers: BOARD_ITEM[] = [];
-  protected m_groups: BOARD_ITEM[] = [];
-  protected m_points: BOARD_ITEM[] = [];
+  protected m_footprints: FOOTPRINT[] = [];
+  protected m_tracks: PCB_TRACK[] = [];
+  protected m_zones: ZONE[] = [];
+  protected m_generators: BOARD_ITEM[] = []; // PCB_GENERATOR pending (#636)
+  protected m_markers: PCB_MARKER[] = [];
+  protected m_groups: PCB_GROUP[] = [];
+  protected m_points: BOARD_ITEM[] = []; // PCB_POINT pending (#636)
 
   protected m_itemByIdCache = new Map<KIID, BOARD_ITEM>();
 
@@ -299,7 +302,7 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
       const colon = token.value.indexOf(':');
       const ref = token.value.slice(0, colon);
       let remainder = token.value.slice(colon + 1);
-      const refItem = this.m_itemByIdCache.get(ref) ?? null; // ResolveItem( KIID( ref ), true )
+      const refItem = this.ResolveItem(ref, true);
 
       if (refItem && refItem.Type() === KICAD_T.PCB_FOOTPRINT_T) {
         const refFP = refItem as FOOTPRINT;
@@ -368,25 +371,25 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
     return false;
   }
 
-  Footprints(): BOARD_ITEM[] {
+  Footprints(): FOOTPRINT[] {
     return this.m_footprints;
   }
-  Tracks(): BOARD_ITEM[] {
+  Tracks(): PCB_TRACK[] {
     return this.m_tracks;
   }
-  Zones(): BOARD_ITEM[] {
+  Zones(): ZONE[] {
     return this.m_zones;
   }
   Generators(): BOARD_ITEM[] {
     return this.m_generators;
   }
-  Markers(): BOARD_ITEM[] {
+  Markers(): PCB_MARKER[] {
     return this.m_markers;
   }
   Drawings(): BOARD_ITEM[] {
     return this.m_drawings;
   }
-  Groups(): BOARD_ITEM[] {
+  Groups(): PCB_GROUP[] {
     return this.m_groups;
   }
   Points(): BOARD_ITEM[] {
@@ -700,6 +703,104 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
   }
 
   /** `CacheItemById`: add an item (and a group's children) to the item-by-id cache. */
+  /**
+   * Fetch an item by KIID.
+   *
+   * Note that this only checks items which are currently in the cache; the linear scan is
+   * the fallback and any hit is cached.
+   *
+   * @return the item, nullptr (when aAllowNullptrReturn), or DELETED_BOARD_ITEM
+   */
+  ResolveItem(aID: KIID, aAllowNullptrReturn = false): BOARD_ITEM | null {
+    if (aID === niluuid) return null;
+
+    const cacheIt = this.m_itemByIdCache.get(aID);
+
+    if (cacheIt !== undefined) return cacheIt;
+
+    // Linear scan fallback for items not in the cache.  Any hit is cached so
+    // subsequent lookups for the same item are O(1).
+
+    const cacheAndReturn = (aItem: BOARD_ITEM): BOARD_ITEM => {
+      this.m_itemByIdCache.set(aID, aItem);
+      return aItem;
+    };
+
+    for (const group of this.m_groups) {
+      if (group.m_Uuid === aID) return cacheAndReturn(group);
+    }
+
+    for (const generator of this.m_generators) {
+      if (generator.m_Uuid === aID) return cacheAndReturn(generator);
+    }
+
+    for (const track of this.Tracks()) {
+      if (track.m_Uuid === aID) return cacheAndReturn(track);
+    }
+
+    for (const footprint of this.Footprints()) {
+      if (footprint.m_Uuid === aID) return cacheAndReturn(footprint);
+
+      for (const pad of footprint.Pads()) {
+        if (pad.m_Uuid === aID) return cacheAndReturn(pad);
+      }
+
+      for (const field of footprint.GetFields()) {
+        if (!field) continue; // wxCHECK2( field, continue )
+
+        if (field && field.m_Uuid === aID) return cacheAndReturn(field);
+      }
+
+      for (const drawing of footprint.GraphicalItems()) {
+        if (drawing.m_Uuid === aID) return cacheAndReturn(drawing);
+      }
+
+      for (const zone of footprint.Zones()) {
+        if (zone.m_Uuid === aID) return cacheAndReturn(zone);
+      }
+
+      for (const group of footprint.Groups()) {
+        if (group.m_Uuid === aID) return cacheAndReturn(group);
+      }
+
+      for (const point of footprint.Points()) {
+        if (point.m_Uuid === aID) return cacheAndReturn(point);
+      }
+    }
+
+    for (const zone of this.Zones()) {
+      if (zone.m_Uuid === aID) return cacheAndReturn(zone);
+    }
+
+    for (const drawing of this.Drawings()) {
+      if (drawing.Type() === KICAD_T.PCB_TABLE_T) {
+        // for( PCB_TABLECELL* cell : static_cast<PCB_TABLE*>( drawing )->GetCells() )
+        //     if( cell->m_Uuid == aID ) return cacheAndReturn( drawing );  -- PCB_TABLE pending (#636)
+      }
+
+      if (drawing.m_Uuid === aID) return cacheAndReturn(drawing);
+    }
+
+    for (const marker of this.m_markers) {
+      if (marker.m_Uuid === aID) return cacheAndReturn(marker);
+    }
+
+    for (const point of this.m_points) {
+      if (point.m_Uuid === aID) return cacheAndReturn(point);
+    }
+
+    for (const netInfo of this.m_NetInfo) {
+      if (netInfo.m_Uuid === aID) return cacheAndReturn(netInfo);
+    }
+
+    if (this.m_Uuid === aID) return this;
+
+    // Not found; weak reference has been deleted.
+    if (aAllowNullptrReturn) return null;
+
+    return DELETED_BOARD_ITEM.GetInstance();
+  }
+
   CacheItemById(aItem: BOARD_ITEM): void {
     if (this.IsFootprintHolder()) return;
 
@@ -864,12 +965,12 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
       // this one uses a vector
       case KICAD_T.PCB_MARKER_T:
-        this.m_markers.push(aBoardItem);
+        this.m_markers.push(aBoardItem as PCB_MARKER);
         break;
 
       // this one uses a vector
       case KICAD_T.PCB_GROUP_T:
-        this.m_groups.push(aBoardItem);
+        this.m_groups.push(aBoardItem as PCB_GROUP);
         break;
 
       // this one uses a vector
@@ -879,13 +980,13 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
       // this one uses a vector
       case KICAD_T.PCB_ZONE_T:
-        this.m_zones.push(aBoardItem);
+        this.m_zones.push(aBoardItem as ZONE);
         break;
 
       case KICAD_T.PCB_VIA_T:
         if (aMode === ADD_MODE.APPEND || aMode === ADD_MODE.BULK_APPEND)
-          this.m_tracks.push(aBoardItem);
-        else this.m_tracks.unshift(aBoardItem);
+          this.m_tracks.push(aBoardItem as PCB_TRACK);
+        else this.m_tracks.unshift(aBoardItem as PCB_TRACK);
 
         break;
 
@@ -902,13 +1003,13 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
         }
 
         if (aMode === ADD_MODE.APPEND || aMode === ADD_MODE.BULK_APPEND)
-          this.m_tracks.push(aBoardItem);
-        else this.m_tracks.unshift(aBoardItem);
+          this.m_tracks.push(aBoardItem as PCB_TRACK);
+        else this.m_tracks.unshift(aBoardItem as PCB_TRACK);
 
         break;
 
       case KICAD_T.PCB_FOOTPRINT_T: {
-        const footprint = aBoardItem;
+        const footprint = aBoardItem as FOOTPRINT;
 
         if (aMode === ADD_MODE.APPEND || aMode === ADD_MODE.BULK_APPEND)
           this.m_footprints.push(footprint);

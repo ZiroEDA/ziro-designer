@@ -11,7 +11,7 @@
  * tenting/covering/plugging flags, the custom track/via/diff-pair values,
  * the origins, `m_NetSettings` and `m_TeardropParamsList`. Still to land
  * with their own classes: `m_Pad_Master`, the three `MEANDER_SETTINGS`,
- * `m_DRCEngine`/`m_DRCSeverities`/`m_DrcExclusions`,
+ * `m_DRCEngine`,
  * and `m_stackup`; and the
  * `NESTED_SETTINGS` JSON registration is not ported (the file parser sets
  * the fields directly).
@@ -26,6 +26,13 @@ import {
 } from './pcb_dimension_types.js';
 import { IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { LSET } from '@ziroeda/common/src/lset.js';
+import {
+  RPT_SEVERITY_ERROR,
+  RPT_SEVERITY_IGNORE,
+  RPT_SEVERITY_WARNING,
+  type Severity,
+} from '@ziroeda/common/src/reporter.js';
+import { PCB_DRC_CODE } from './drc/drc_item.js';
 import { ARC_HIGH_DEF } from '@ziroeda/kimath/src/base_units.js';
 import { NET_SETTINGS } from '@ziroeda/common/src/project/net_settings.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
@@ -274,6 +281,8 @@ export class BOARD_DESIGN_SETTINGS {
   m_DimensionArrowLength: number;
   m_DimensionExtensionOffset: number;
 
+  m_DRCSeverities = new Map<number, Severity>(); // Map from DRCErrorCode to SEVERITY
+
   // Set to true if the board has a stackup management.
   // If not set a default basic stackup will be used to generate the gbrjob file.
   // Could be removed later, or at least always set to true
@@ -437,6 +446,51 @@ export class BOARD_DESIGN_SETTINGS {
     this.m_MinSilkTextHeight = pcbIUScale.mmToIU(DEFAULT_SILK_TEXT_SIZE * 0.8);
     this.m_MinSilkTextThickness = pcbIUScale.mmToIU(DEFAULT_SILK_TEXT_WIDTH * 0.8);
     this.m_MinGrooveWidth = pcbIUScale.mmToIU(DEFAULT_MINGROOVEWIDTH);
+
+    for (let errorCode = PCB_DRC_CODE.DRCE_FIRST; errorCode <= PCB_DRC_CODE.DRCE_LAST; ++errorCode)
+      this.m_DRCSeverities.set(errorCode, RPT_SEVERITY_ERROR);
+
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_DRILLED_HOLES_COLOCATED, RPT_SEVERITY_WARNING);
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_DRILLED_HOLES_TOO_CLOSE, RPT_SEVERITY_WARNING);
+
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_MISSING_COURTYARD, RPT_SEVERITY_IGNORE);
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_PTH_IN_COURTYARD, RPT_SEVERITY_ERROR);
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_NPTH_IN_COURTYARD, RPT_SEVERITY_ERROR);
+
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_DANGLING_TRACK, RPT_SEVERITY_WARNING);
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_DANGLING_VIA, RPT_SEVERITY_WARNING);
+
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_COPPER_SLIVER, RPT_SEVERITY_WARNING);
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_ISOLATED_COPPER, RPT_SEVERITY_WARNING);
+
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_PADSTACK, RPT_SEVERITY_WARNING);
+
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_MISSING_FOOTPRINT, RPT_SEVERITY_WARNING);
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_DUPLICATE_FOOTPRINT, RPT_SEVERITY_WARNING);
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_EXTRA_FOOTPRINT, RPT_SEVERITY_WARNING);
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_NET_CONFLICT, RPT_SEVERITY_WARNING);
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_SCHEMATIC_PARITY, RPT_SEVERITY_WARNING);
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_FOOTPRINT_FILTERS, RPT_SEVERITY_IGNORE);
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_SCHEMATIC_FIELDS_PARITY, RPT_SEVERITY_WARNING);
+
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_SILK_CLEARANCE, RPT_SEVERITY_WARNING);
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_SILK_MASK_CLEARANCE, RPT_SEVERITY_WARNING);
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_SILK_EDGE_CLEARANCE, RPT_SEVERITY_WARNING);
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_TEXT_HEIGHT, RPT_SEVERITY_WARNING);
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_TEXT_THICKNESS, RPT_SEVERITY_WARNING);
+
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_FOOTPRINT_TYPE_MISMATCH, RPT_SEVERITY_IGNORE);
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_LIB_FOOTPRINT_ISSUES, RPT_SEVERITY_WARNING);
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_LIB_FOOTPRINT_MISMATCH, RPT_SEVERITY_WARNING);
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_CONNECTION_WIDTH, RPT_SEVERITY_WARNING);
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_MIRRORED_TEXT_ON_FRONT_LAYER, RPT_SEVERITY_WARNING);
+    this.m_DRCSeverities.set(
+      PCB_DRC_CODE.DRCE_NONMIRRORED_TEXT_ON_BACK_LAYER,
+      RPT_SEVERITY_WARNING,
+    );
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_MISSING_TUNING_PROFILE, RPT_SEVERITY_WARNING);
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_TUNING_PROFILE_IMPLICIT_RULES, RPT_SEVERITY_IGNORE);
+    this.m_DRCSeverities.set(PCB_DRC_CODE.DRCE_TRACK_NOT_CENTERED_ON_VIA, RPT_SEVERITY_IGNORE);
 
     this.m_MaxError = ARC_HIGH_DEF;
     this.m_ZoneKeepExternalFillets = false;
@@ -609,6 +663,20 @@ export class BOARD_DESIGN_SETTINGS {
   /**
    * Return the default graphic segment thickness from the layer class for the given layer.
    */
+  /**
+   * Return the severity of the DRC error code.
+   */
+  GetSeverity(aDRCErrorCode: number): Severity {
+    return this.m_DRCSeverities.get(aDRCErrorCode)!;
+  }
+
+  /**
+   * Return true if the DRC error code's severity is SEVERITY_IGNORE.
+   */
+  Ignore(aDRCErrorCode: number): boolean {
+    return this.m_DRCSeverities.get(aDRCErrorCode) === RPT_SEVERITY_IGNORE;
+  }
+
   GetLineThickness(aLayer: PCB_LAYER_ID): number {
     return this.m_LineThickness[this.GetLayerClass(aLayer)]!;
   }

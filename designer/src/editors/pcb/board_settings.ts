@@ -20,6 +20,9 @@
 // The netclass half is NET_SETTINGS and comes from common/; embedded files and
 // text variables are still eeschema's PROJECT_FILE sections here.
 import { defaultNetClasses, type NetClassesData } from '@ziroeda/common';
+import { RPT_SEVERITY_IGNORE, RPT_SEVERITY_WARNING } from '@ziroeda/common/src/reporter.js';
+import { BOARD_DESIGN_SETTINGS } from '@ziroeda/pcbnew/src/board_design_settings.js';
+import { DRC_ITEM } from '@ziroeda/pcbnew/src/drc/drc_item.js';
 import { AllCuMask, LSET_Name } from '@ziroeda/pcbnew/src/layer_ids.js';
 import {
   defaultEmbeddedFiles,
@@ -766,168 +769,36 @@ interface DrcCategory {
   items: DrcItem[];
 }
 
-// DRC items in KiCad's category order (drc_item.cpp allItemTypes, v10),
-// codes are the exact GetSettingsKey() strings used in
-// board.design_settings.rule_severities; the internal group (padstack_invalid,
-// generic_warning/error) has no user-editable severity and is omitted, like
-// upstream (heading_internal). Non-error defaults per the BDS constructor
-// (board_design_settings.cpp:165-211).
-export const DRC_CATEGORIES: DrcCategory[] = [
-  {
-    heading: 'Electrical',
-    items: [
-      { code: 'shorting_items', title: 'Items shorting two nets' },
-      { code: 'tracks_crossing', title: 'Tracks crossing' },
-      { code: 'clearance', title: 'Clearance violation' },
-      { code: 'creepage', title: 'Creepage violation' },
-      {
-        code: 'via_dangling',
-        title: 'Via is not connected or connected on only one layer',
-        def: 'warning',
-      },
-      { code: 'track_dangling', title: 'Track has unconnected end', def: 'warning' },
-      { code: 'starved_thermal', title: 'Thermal relief connection to zone incomplete' },
-    ],
-  },
-  {
-    heading: 'Design for Manufacturing',
-    items: [
-      { code: 'copper_edge_clearance', title: 'Board edge clearance violation' },
-      { code: 'hole_clearance', title: 'Hole clearance violation' },
-      { code: 'hole_to_hole', title: 'Drilled hole too close to other hole', def: 'warning' },
-      { code: 'holes_co_located', title: 'Drilled holes co-located', def: 'warning' },
-      { code: 'track_width', title: 'Track width' },
-      { code: 'track_angle', title: 'Track angle' },
-      { code: 'track_segment_length', title: 'Track segment length' },
-      { code: 'annular_width', title: 'Annular width' },
-      { code: 'drill_out_of_range', title: 'Hole size out of range' },
-      { code: 'microvia_drill_out_of_range', title: 'Micro via hole size out of range' },
-      { code: 'via_diameter', title: 'Via diameter' },
-      { code: 'courtyards_overlap', title: 'Courtyards overlap' },
-      { code: 'missing_courtyard', title: 'Footprint has no courtyard defined', def: 'ignore' },
-      { code: 'malformed_courtyard', title: 'Footprint has malformed courtyard' },
-      { code: 'invalid_outline', title: 'Board has malformed outline' },
-      { code: 'copper_sliver', title: 'Copper sliver', def: 'warning' },
-      {
-        code: 'solder_mask_bridge',
-        title: 'Solder mask aperture bridges items with different nets',
-      },
-      { code: 'connection_width', title: 'Copper connection too narrow', def: 'warning' },
-      {
-        code: 'track_on_post_machined_layer',
-        title: 'Track connected to post-machined or backdrilled layer',
-      },
-      {
-        code: 'track_not_centered_on_via',
-        title: 'Track endpoint not centered on via',
-        def: 'ignore',
-      },
-      {
-        code: 'tuning_profile_track_geometries',
-        title: 'Tuning profile track geometries',
-        def: 'ignore',
-      },
-    ],
-  },
-  {
-    heading: 'Schematic Parity',
-    items: [
-      { code: 'duplicate_footprints', title: 'Duplicate footprints', def: 'warning' },
-      { code: 'missing_footprint', title: 'Missing footprint', def: 'warning' },
-      { code: 'extra_footprint', title: 'Extra footprint', def: 'warning' },
-      {
-        code: 'footprint_symbol_mismatch',
-        title: "Footprint attributes don't match symbol",
-        def: 'warning',
-      },
-      {
-        code: 'footprint_symbol_field_mismatch',
-        title: 'Footprint field does not match symbol field',
-        def: 'warning',
-      },
-      {
-        code: 'footprint_filters_mismatch',
-        title: "Footprint doesn't match symbol's footprint filters",
-        def: 'ignore',
-      },
-      { code: 'net_conflict', title: "Pad net doesn't match schematic", def: 'warning' },
-      { code: 'unconnected_items', title: 'Missing connection between items' },
-    ],
-  },
-  {
-    heading: 'Signal Integrity',
-    items: [
-      { code: 'length_out_of_range', title: 'Track length out of range' },
-      { code: 'net_chain_stub_length', title: 'Net chain stub length out of range' },
-      {
-        code: 'net_chain_return_path',
-        title: 'Net chain routed without continuous copper on the required reference layer',
-      },
-      { code: 'skew_out_of_range', title: 'Skew between tracks out of range' },
-      { code: 'too_many_vias', title: 'Too many or too few vias on a connection' },
-      { code: 'diff_pair_gap_out_of_range', title: 'Differential pair gap out of range' },
-      {
-        code: 'diff_pair_uncoupled_length_too_long',
-        title: 'Differential uncoupled length too long',
-      },
-    ],
-  },
-  {
-    heading: 'Readability',
-    items: [
-      { code: 'silk_overlap', title: 'Silkscreen clearance', def: 'warning' },
-      { code: 'silk_over_copper', title: 'Silkscreen clipped by solder mask', def: 'warning' },
-      { code: 'silk_edge_clearance', title: 'Silkscreen clipped by board edge', def: 'warning' },
-      { code: 'text_height', title: 'Text height out of range', def: 'warning' },
-      { code: 'text_thickness', title: 'Text thickness out of range', def: 'warning' },
-      {
-        code: 'mirrored_text_on_front_layer',
-        title: 'Mirrored text on front layer',
-        def: 'warning',
-      },
-      {
-        code: 'nonmirrored_text_on_back_layer',
-        title: 'Non-Mirrored text on back layer',
-        def: 'warning',
-      },
-    ],
-  },
-  {
-    heading: 'Miscellaneous',
-    items: [
-      { code: 'items_not_allowed', title: 'Items not allowed' },
-      { code: 'text_on_edge_cuts', title: 'Text or graphic on Edge.Cuts layer' },
-      { code: 'zones_intersect', title: 'Copper zones intersect' },
-      { code: 'isolated_copper', title: 'Isolated copper fill', def: 'warning' },
-      { code: 'copper_sliver', title: 'Copper sliver', def: 'warning' },
-      { code: 'footprint', title: 'Footprint is not valid' },
-      { code: 'padstack', title: 'Padstack is questionable', def: 'warning' },
-      { code: 'pth_inside_courtyard', title: 'PTH inside courtyard' },
-      { code: 'npth_inside_courtyard', title: 'NPTH inside courtyard' },
-      { code: 'item_on_disabled_layer', title: 'Item on a disabled copper layer' },
-      { code: 'unresolved_variable', title: 'Unresolved text variable' },
-      { code: 'assertion_failure', title: 'Assertion failure' },
-      {
-        code: 'footprint_type_mismatch',
-        title: "Footprint component type doesn't match footprint pads",
-        def: 'ignore',
-      },
-      { code: 'lib_footprint_issues', title: 'Footprint not found in libraries', def: 'warning' },
-      {
-        code: 'lib_footprint_mismatch',
-        title: "Footprint doesn't match copy in library",
-        def: 'warning',
-      },
-      { code: 'through_hole_pad_without_hole', title: 'Through hole pad has no hole' },
-      {
-        code: 'footprint_scaled_with_pads',
-        title: 'Footprint with pads is scaled (physical part size unchanged)',
-        def: 'warning',
-      },
-      { code: 'missing_tuning_profile', title: 'Missing tuning profile', def: 'warning' },
-    ],
-  },
-];
+/**
+ * DRC items in KiCad's category order: `DRC_ITEM::GetItemsWithSeverities()`
+ * (drc_item.cpp `allItemTypes` up to `heading_internal`), each heading opening a
+ * category. The codes are the `GetSettingsKey()` strings used in
+ * `board.design_settings.rule_severities`; the defaults are the
+ * `BOARD_DESIGN_SETTINGS` constructor's `m_DRCSeverities`. Both are read from
+ * the classes, never restated here.
+ */
+export const DRC_CATEGORIES: DrcCategory[] = (() => {
+  const defaults = new BOARD_DESIGN_SETTINGS();
+  const severityName = (s: number): DrcSeverity =>
+    s === RPT_SEVERITY_WARNING ? 'warning' : s === RPT_SEVERITY_IGNORE ? 'ignore' : 'error';
+  const categories: DrcCategory[] = [];
+
+  for (const item of DRC_ITEM.GetItemsWithSeverities()) {
+    if (item.GetSettingsKey() === '') {
+      categories.push({ heading: item.GetErrorText(true), items: [] });
+      continue;
+    }
+
+    const def = severityName(defaults.GetSeverity(item.GetErrorCode()));
+    categories[categories.length - 1]!.items.push({
+      code: item.GetSettingsKey(),
+      title: item.GetErrorText(true),
+      ...(def !== 'error' ? { def } : {}),
+    });
+  }
+
+  return categories;
+})();
 
 /** DRC severity defaults (per-item `def`, else error). */
 export function defaultDrcSeverities(): DrcSeverities {

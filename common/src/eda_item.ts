@@ -89,6 +89,8 @@ export interface OutStr {
 export interface EDA_DRAW_FRAME_LIKE extends UNITS_PROVIDER {
   GetName(): string;
   GetOriginTransforms(): ORIGIN_TRANSFORMS;
+  /** `EDA_DRAW_FRAME::ResolveItem( const KIID&, bool aAllowNullptrReturn )`. */
+  ResolveItem(aId: KIID, aAllowNullptrReturn?: boolean): EDA_ITEM | null;
 }
 
 /**
