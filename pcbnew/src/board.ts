@@ -43,7 +43,9 @@ import { ADD_MODE, BOARD_ITEM_CONTAINER, REMOVE_MODE } from './board_item_contai
 import { BOARD_USE, LAYER, LAYER_T } from './board_types.js';
 import { type NETINFO_ITEM, NETINFO_LIST } from './netinfo.js';
 import type { FOOTPRINT } from './footprint.js';
+import type { PCB_GENERATOR } from './pcb_generator.js';
 import type { PCB_GROUP } from './pcb_group.js';
+import type { PCB_POINT } from './pcb_point.js';
 import type { PCB_MARKER } from './pcb_marker.js';
 import type { PCB_TABLE } from './pcb_table.js';
 import type { PCB_TRACK } from './pcb_track.js';
@@ -86,10 +88,10 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
   protected m_footprints: FOOTPRINT[] = [];
   protected m_tracks: PCB_TRACK[] = [];
   protected m_zones: ZONE[] = [];
-  protected m_generators: BOARD_ITEM[] = []; // PCB_GENERATOR pending (#636)
+  protected m_generators: PCB_GENERATOR[] = [];
   protected m_markers: PCB_MARKER[] = [];
   protected m_groups: PCB_GROUP[] = [];
-  protected m_points: BOARD_ITEM[] = []; // PCB_POINT pending (#636)
+  protected m_points: PCB_POINT[] = [];
 
   protected m_itemByIdCache = new Map<KIID, BOARD_ITEM>();
 
@@ -381,7 +383,7 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
   Zones(): ZONE[] {
     return this.m_zones;
   }
-  Generators(): BOARD_ITEM[] {
+  Generators(): PCB_GENERATOR[] {
     return this.m_generators;
   }
   Markers(): PCB_MARKER[] {
@@ -393,7 +395,7 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
   Groups(): PCB_GROUP[] {
     return this.m_groups;
   }
-  Points(): BOARD_ITEM[] {
+  Points(): PCB_POINT[] {
     return this.m_points;
   }
 
@@ -977,7 +979,7 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
       // this one uses a vector
       case KICAD_T.PCB_GENERATOR_T:
-        this.m_generators.push(aBoardItem);
+        this.m_generators.push(aBoardItem as PCB_GENERATOR);
         break;
 
       // this one uses a vector
@@ -1053,7 +1055,7 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
       case KICAD_T.PCB_POINT_T:
         // These aren't graphics as they have no physical presence
-        this.m_points.push(aBoardItem);
+        this.m_points.push(aBoardItem as PCB_POINT);
         break;
 
       case KICAD_T.PCB_TABLECELL_T:

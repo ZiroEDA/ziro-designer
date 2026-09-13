@@ -12,8 +12,7 @@
  * IN PROGRESS (#636): `EMBEDDED_FILES` (the second base; `m_embedFonts` is
  * kept, `GetEmbeddedFiles` answers null and `EmbedFonts` waits on it),
  * `COMPONENT_CLASS_CACHE_PROXY` (the component class is empty),
- * `PCB_GROUP` and `PCB_POINT` (their collections are `BOARD_ITEM[]` until the
- * classes land), `GENERAL_COLLECTOR` (`CoverageRatio` reads a transient
+ * `GENERAL_COLLECTOR` (`CoverageRatio` reads a transient
  * interface), `BOARD::GetMaxClearanceValue` and
  * `OUTLINE_FONT::GetEmbeddingPermission`.
  */
@@ -97,6 +96,7 @@ import { PAD } from './pad.js';
 import { PAD_ATTRIB, PAD_PROP, PAD_SHAPE, PADSTACK_MODE } from './padstack.js';
 import { PCB_FIELD } from './pcb_field.js';
 import type { PCB_GROUP } from './pcb_group.js';
+import { PCB_POINT } from './pcb_point.js';
 import { PCB_SHAPE, type PCB_VIEW_FOR_LOD } from './pcb_shape.js';
 import { PCB_TEXT } from './pcb_text.js';
 import { PCB_TEXTBOX } from './pcb_textbox.js';
@@ -373,7 +373,7 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
   private m_pads: PAD[] = []; // Pads, owned by pointer
   private m_zones: ZONE[] = []; // Rule area zones, owned by pointer
   private m_groups: PCB_GROUP[] = []; // Groups, owned by pointer
-  private m_points: BOARD_ITEM[] = []; // Points, owned by pointer
+  private m_points: PCB_POINT[] = []; // Points, owned by pointer
 
   private m_orient: EDA_ANGLE; // Orientation
   private m_pos: VECTOR2I; // Position of footprint on the board in internal units.
@@ -836,8 +836,8 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
         return;
 
       case KICAD_T.PCB_POINT_T:
-        if (aMode === ADD_MODE.APPEND) this.m_points.push(aBoardItem);
-        else this.m_points.unshift(aBoardItem);
+        if (aMode === ADD_MODE.APPEND) this.m_points.push(aBoardItem as PCB_POINT);
+        else this.m_points.unshift(aBoardItem as PCB_POINT);
 
         break;
 
@@ -1206,7 +1206,7 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
   Groups(): PCB_GROUP[] {
     return this.m_groups;
   }
-  Points(): BOARD_ITEM[] {
+  Points(): PCB_POINT[] {
     return this.m_points;
   }
 
@@ -3526,7 +3526,7 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
       }
 
       case KICAD_T.PCB_POINT_T: {
-        const new_point = aItem.Clone() as BOARD_ITEM; // PCB_POINT( const PCB_POINT& ) -- PCB_POINT pending (#636)
+        const new_point = PCB_POINT.copyOf(aItem as PCB_POINT);
         (new_point as { m_Uuid: KIID }).m_Uuid = newKiid();
 
         if (addToFootprint) this.m_points.push(new_point);
