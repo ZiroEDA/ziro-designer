@@ -184,8 +184,15 @@ export class Vertex {
   remove(): void {
     this.next.prev = this.prev;
     this.prev.next = this.next;
+
     if (this.prevZ) this.prevZ.nextZ = this.nextZ;
+
     if (this.nextZ) this.nextZ.prevZ = this.prevZ;
+
+    // A removed vertex points nowhere: earcut's `if( !aStart->next )` and
+    // `p->next && p->prev` guards read exactly this.
+    this.next = null as unknown as Vertex;
+    this.prev = null as unknown as Vertex;
     this.nextZ = null;
     this.prevZ = null;
   }

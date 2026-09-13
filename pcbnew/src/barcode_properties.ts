@@ -2,6 +2,10 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
+ * @deprecated The plain-object (`PcbBarcode`) form, kept for the properties
+ * dialog until it moves onto `PCB_BARCODE` (#636 stage 6). The class port is
+ * `pcb_barcode.ts`; new code uses that one.
+ *
  * The decisions behind `DIALOG_BARCODE_PROPERTIES`
  * (`pcbnew/dialogs/dialog_barcode_properties.cpp`), separated from its layout.
  *

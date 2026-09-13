@@ -2,6 +2,11 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
+ * @deprecated The plain-object (`PcbBarcode`) form of `PCB_BARCODE`'s
+ * ComputeBarcode/SetRect/ComputeTextPoly/AssembleBarcode, kept for the renderer
+ * and selection until they move onto `PCB_BARCODE` (#636 stages 3 and 5). The
+ * class port is `pcb_barcode.ts`; new code uses that one.
+ *
  * A `PCB_BARCODE`'s geometry: `ComputeBarcode`, `ComputeTextPoly`, `SetRect`
  * and `AssembleBarcode` (`pcbnew/pcb_barcode.cpp:324-537`).
  *

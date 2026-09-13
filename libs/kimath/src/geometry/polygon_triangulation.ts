@@ -529,7 +529,7 @@ export class POLYGON_TRIANGULATION extends VertexSet {
    */
   private insertTriVertex(pt: VECTOR2I, last: Vertex): Vertex {
     this.m_result.AddVertex(pt);
-    return this.insertVertex(this.m_result.GetVertexCount() - 1, pt, null);
+    return this.insertVertex(this.m_result.GetVertexCount() - 1, pt, last);
   }
 }
 
