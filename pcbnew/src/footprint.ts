@@ -96,6 +96,7 @@ import { NETINFO_LIST } from './netinfo.js';
 import { PAD } from './pad.js';
 import { PAD_ATTRIB, PAD_PROP, PAD_SHAPE, PADSTACK_MODE } from './padstack.js';
 import { PCB_FIELD } from './pcb_field.js';
+import type { PCB_GROUP } from './pcb_group.js';
 import { PCB_SHAPE, type PCB_VIEW_FOR_LOD } from './pcb_shape.js';
 import { PCB_TEXT } from './pcb_text.js';
 import { PCB_TRACK } from './pcb_track.js';
@@ -309,14 +310,6 @@ export interface FP_UNIT_INFO {
   m_pins: string[]; // pin numbers in this unit
 }
 
-/** The `PCB_GROUP` members a footprint uses of its groups, until the class lands (#636). */
-export interface PCB_GROUP_FOR_FP extends BOARD_ITEM {
-  GetItems(): Set<EDA_ITEM>;
-  AddItem(aItem: EDA_ITEM): boolean;
-  DeepDuplicate(addToParentGroup: boolean, aCommit: BOARD_COMMIT_LIKE | null): PCB_GROUP_FOR_FP;
-  GetBoardItems(): BOARD_ITEM[];
-}
-
 /** The `GENERAL_COLLECTOR` members `CoverageRatio` reads, until the collectors land (#636 stage 4). */
 export interface GENERAL_COLLECTOR_FOR_COVERAGE {
   GetGuide(): { Accuracy(): number };
@@ -378,7 +371,7 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
   private m_drawings: BOARD_ITEM[] = []; // Drawings in the footprint, owned by pointer
   private m_pads: PAD[] = []; // Pads, owned by pointer
   private m_zones: ZONE[] = []; // Rule area zones, owned by pointer
-  private m_groups: BOARD_ITEM[] = []; // Groups, owned by pointer
+  private m_groups: PCB_GROUP[] = []; // Groups, owned by pointer
   private m_points: BOARD_ITEM[] = []; // Points, owned by pointer
 
   private m_orient: EDA_ANGLE; // Orientation
@@ -621,8 +614,8 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
     }
 
     // Rebuild groups
-    for (const group of aFootprint.Groups() as PCB_GROUP_FOR_FP[]) {
-      const newGroup = ptrMap.get(group) as PCB_GROUP_FOR_FP;
+    for (const group of aFootprint.Groups()) {
+      const newGroup = ptrMap.get(group) as PCB_GROUP;
       newGroup.GetItems().clear();
 
       for (const member of group.GetItems()) {
@@ -728,8 +721,8 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
     // Copy groups
     this.m_groups = [];
 
-    for (const group of aOther.Groups() as PCB_GROUP_FOR_FP[]) {
-      const newGroup = group.Clone() as PCB_GROUP_FOR_FP;
+    for (const group of aOther.Groups()) {
+      const newGroup = group.Clone() as PCB_GROUP;
       newGroup.GetItems().clear();
 
       for (const member of group.GetItems()) newGroup.AddItem(ptrMap.get(member)!);
@@ -825,8 +818,8 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
         break;
 
       case KICAD_T.PCB_GROUP_T:
-        if (aMode === ADD_MODE.APPEND) this.m_groups.push(aBoardItem);
-        else this.m_groups.unshift(aBoardItem);
+        if (aMode === ADD_MODE.APPEND) this.m_groups.push(aBoardItem as PCB_GROUP);
+        else this.m_groups.unshift(aBoardItem as PCB_GROUP);
 
         break;
 
@@ -1209,7 +1202,7 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
   Zones(): ZONE[] {
     return this.m_zones;
   }
-  Groups(): BOARD_ITEM[] {
+  Groups(): PCB_GROUP[] {
     return this.m_groups;
   }
   Points(): BOARD_ITEM[] {
@@ -3594,7 +3587,7 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
       }
 
       case KICAD_T.PCB_GROUP_T: {
-        const group = (aItem as PCB_GROUP_FOR_FP).DeepDuplicate(addToParentGroup, aCommit);
+        const group = (aItem as PCB_GROUP).DeepDuplicate(addToParentGroup, aCommit);
 
         if (addToFootprint) {
           group.RunOnChildren((aCurrItem: BOARD_ITEM) => {
@@ -4028,7 +4021,7 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
     } else if (aItem.Type() === KICAD_T.PCB_GROUP_T || aItem.Type() === KICAD_T.PCB_GENERATOR_T) {
       let combinedArea = 0.0;
 
-      for (const member of (aItem as PCB_GROUP_FOR_FP).GetBoardItems())
+      for (const member of (aItem as PCB_GROUP).GetBoardItems())
         combinedArea += FOOTPRINT.GetCoverageArea(member, aCollector);
 
       return combinedArea;

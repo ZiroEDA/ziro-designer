@@ -30,6 +30,24 @@ export abstract class EDA_GROUP {
     this.m_designBlockLibId = new LIB_ID();
   }
 
+  /**
+   * The compiler-generated copy constructor's part: the member set is copied
+   * as a set of the same items, which are NOT re-parented to the copy.
+   */
+  protected initEdaGroupFrom(aOther: EDA_GROUP): void {
+    this.m_items = new Set(aOther.m_items);
+    this.m_name = aOther.m_name;
+    this.m_designBlockLibId = aOther.m_designBlockLibId.clone();
+  }
+
+  /** The compiler-generated `operator=`. */
+  assignEdaGroup(aOther: EDA_GROUP): this {
+    this.m_items = new Set(aOther.m_items);
+    this.m_name = aOther.m_name;
+    this.m_designBlockLibId = aOther.m_designBlockLibId.clone();
+    return this;
+  }
+
   abstract AsEdaItem(): EDA_ITEM;
 
   GetName(): string {
