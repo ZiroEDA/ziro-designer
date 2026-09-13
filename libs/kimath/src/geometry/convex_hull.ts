@@ -7,6 +7,9 @@
  */
 
 import type { VECTOR2I } from '../math/vector2.js';
+import { RotatePoint } from '../trigo.js';
+import { ANGLE_0, type EDA_ANGLE } from './eda_angle.js';
+import type { SHAPE_POLY_SET } from './shape_poly_set.js';
 
 /** compare_point: lexicographic, x then y. */
 const comparePoint = (ref: VECTOR2I, p: VECTOR2I): boolean =>
@@ -53,4 +56,36 @@ export function buildConvexHull(aPoly: readonly VECTOR2I[]): VECTOR2I[] {
   if (k > 1 && result[0]!.x === result[k - 1]!.x && result[0]!.y === result[k - 1]!.y) k -= 1;
 
   return result.slice(0, k);
+}
+
+/**
+ * `BuildConvexHull( std::vector<VECTOR2I>& aResult, const SHAPE_POLY_SET& aPolygons,
+ *                   const VECTOR2I& aPosition, const EDA_ANGLE& aRotation )`:
+ * the convex hull of the SHAPE_POLY_SET, then moved and rotated.
+ */
+export function buildConvexHullOfPolySet(
+  aPolygons: SHAPE_POLY_SET,
+  aPosition: VECTOR2I = { x: 0, y: 0 },
+  aRotation: EDA_ANGLE = ANGLE_0,
+): VECTOR2I[] {
+  // Build the convex hull of the SHAPE_POLY_SET
+  const buf: VECTOR2I[] = [];
+
+  for (let cnt = 0; cnt < aPolygons.OutlineCount(); cnt++) {
+    const poly = aPolygons.COutline(cnt);
+
+    for (let ii = 0; ii < poly.PointCount(); ++ii)
+      buf.push({ x: poly.CPoint(ii).x, y: poly.CPoint(ii).y });
+  }
+
+  const aResult = buildConvexHull(buf);
+
+  // Move and rotate the points according to aPosition and aRotation
+
+  for (let ii = 0; ii < aResult.length; ii++) {
+    const rotated = RotatePoint(aResult[ii]!, aRotation);
+    aResult[ii] = { x: rotated.x + aPosition.x, y: rotated.y + aPosition.y };
+  }
+
+  return aResult;
 }

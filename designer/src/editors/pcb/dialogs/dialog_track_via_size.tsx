@@ -24,7 +24,7 @@
  */
 import { useState, type JSX } from 'react';
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { validateViaParameters } from '@ziroeda/pcbnew/src/pcb_track.js';
+import { PCB_VIA, VIA_PARAMETER_ERROR_FIELD } from '@ziroeda/pcbnew/src/pcb_track.js';
 import type { ViaDimension } from '@ziroeda/pcbnew/src/board_design_settings_sizes.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
@@ -84,12 +84,13 @@ export function DialogTrackViaSize({ value, units, onOk, onClose }: Props): JSX.
       },
     };
 
-    const bad = validateViaParameters(next.via.diameter, next.via.drill);
+    const bad = PCB_VIA.ValidateViaParameters(next.via.diameter, next.via.drill);
 
     if (bad) {
       // `DisplayError( … ); m_viaDrillText->SetFocus();`
-      setError(bad);
-      document.getElementById(`ze-ctv-${bad.field}`)?.focus();
+      const field = bad.m_Field === VIA_PARAMETER_ERROR_FIELD.DIAMETER ? 'diameter' : 'drill';
+      setError({ message: bad.m_Message, field });
+      document.getElementById(`ze-ctv-${field}`)?.focus();
       return;
     }
 

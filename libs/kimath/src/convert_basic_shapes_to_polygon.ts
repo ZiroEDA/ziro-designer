@@ -477,10 +477,17 @@ export function transformTrapezoidToPolygon(
   return placeOutline(outline, aRotation, aPosition);
 }
 
+/** `enum RECT_CHAMFER_POSITIONS` (`convert_basic_shapes_to_polygon.h:36`). */
+export const RECT_NO_CHAMFER = 0;
 export const RECT_CHAMFER_TOP_LEFT = 1;
 export const RECT_CHAMFER_TOP_RIGHT = 2;
 export const RECT_CHAMFER_BOTTOM_LEFT = 4;
 export const RECT_CHAMFER_BOTTOM_RIGHT = 8;
+export const RECT_CHAMFER_ALL =
+  RECT_CHAMFER_BOTTOM_RIGHT |
+  RECT_CHAMFER_BOTTOM_LEFT |
+  RECT_CHAMFER_TOP_RIGHT |
+  RECT_CHAMFER_TOP_LEFT;
 
 /** `TransformRoundChamferedRectToPolygon`. */
 export function transformRoundChamferedRectToPolygon(

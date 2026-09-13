@@ -43,6 +43,15 @@ export class LIB_ID {
    * @return minus 1 (i.e. -1) means success, >= 0 indicates the character offset into
    *         aId at which an error was detected.
    */
+  /** The copy the C++ value semantics give. */
+  clone(): LIB_ID {
+    const c = new LIB_ID();
+    c.m_libraryName = this.m_libraryName;
+    c.m_itemName = this.m_itemName;
+    c.m_subLibraryName = this.m_subLibraryName;
+    return c;
+  }
+
   Parse(aId: string, aFix = false): number {
     this.clear();
 

@@ -13,6 +13,10 @@
  * Not here: `Serialize`/`Deserialize` (the protobuf API), `Print` /
  * `printOneLineOfText` (a wxDC printing path), and the `PROPERTY_MANAGER`
  * registration (`EDA_TEXT_DESC`), which the properties panels carry.
+ *
+ * The C++ `protected`/`private` members are public here: the mix-in reaches
+ * its host through declaration merging (`interface PCB_X extends Omit<EDA_TEXT,
+ * …>`), and a mapped type carries only public members.
  */
 
 import { IsEeschemaType, type KICAD_T } from '@ziroeda/core/src/typeinfo.js';
@@ -103,24 +107,24 @@ export class EDA_TEXT {
   /**
    * A hyperlink URL.  If empty, this text object is not a hyperlink.
    */
-  protected m_hyperlink!: string;
+  m_hyperlink!: string;
 
-  protected m_activeUrl!: string;
+  m_activeUrl!: string;
 
-  private m_text!: string;
-  private m_shown_text!: string; // Cache of unescaped text for efficient access
-  private m_shown_text_has_text_var_refs!: boolean;
+  m_text!: string;
+  m_shown_text!: string; // Cache of unescaped text for efficient access
+  m_shown_text_has_text_var_refs!: boolean;
 
-  private m_IuScale!: EdaIuScale;
+  m_IuScale!: EdaIuScale;
 
-  private m_render_cache!: EDA_TEXT_RENDER_CACHE_DATA | null;
+  m_render_cache!: EDA_TEXT_RENDER_CACHE_DATA | null;
 
-  private m_bbox_cache!: Map<number, BBOX_CACHE_ENTRY>;
+  m_bbox_cache!: Map<number, BBOX_CACHE_ENTRY>;
 
-  private m_attributes!: TEXT_ATTRIBUTES;
-  private m_unresolvedFontName!: string;
-  private m_pos!: VECTOR2I;
-  private m_visible!: boolean; // For SCH_FIELDs and PCB_FIELDs
+  m_attributes!: TEXT_ATTRIBUTES;
+  m_unresolvedFontName!: string;
+  m_pos!: VECTOR2I;
+  m_visible!: boolean; // For SCH_FIELDs and PCB_FIELDs
 
   constructor(aIuScale: EdaIuScale, aText?: string);
   constructor(aText: EDA_TEXT);
@@ -130,7 +134,7 @@ export class EDA_TEXT {
   }
 
   /** `EDA_TEXT( const EDA_IU_SCALE& aIuScale, const wxString& aText )`: the mixin's constructor. */
-  protected initEdaText(aIuScale: EdaIuScale, aText = ''): void {
+  initEdaText(aIuScale: EdaIuScale, aText = ''): void {
     this.m_hyperlink = '';
     this.m_activeUrl = '';
     this.m_text = aText;
@@ -159,7 +163,7 @@ export class EDA_TEXT {
   }
 
   /** `EDA_TEXT( const EDA_TEXT& aText )`: the copy constructor, as an init. */
-  protected initEdaTextFrom(aText: EDA_TEXT): void {
+  initEdaTextFrom(aText: EDA_TEXT): void {
     this.m_IuScale = aText.m_IuScale;
     this.m_hyperlink = aText.m_hyperlink;
     this.m_activeUrl = aText.m_activeUrl;
@@ -1406,11 +1410,11 @@ export class EDA_TEXT {
     return `#${aDestination}`;
   }
 
-  protected getFontMetrics(): METRICS {
+  getFontMetrics(): METRICS {
     return METRICS.Default();
   }
 
-  protected cacheShownText(): void {
+  cacheShownText(): void {
     if (this.m_text === '') {
       this.m_shown_text = '';
       this.m_shown_text_has_text_var_refs = false;
@@ -1424,7 +1428,7 @@ export class EDA_TEXT {
     this.ClearBoundingBoxCache();
   }
 
-  protected containsURL(): boolean {
+  containsURL(): boolean {
     const showntext = this.GetShownText(false);
     const markupParser = new MARKUP_PARSER(showntext);
     const root = markupParser.Parse();

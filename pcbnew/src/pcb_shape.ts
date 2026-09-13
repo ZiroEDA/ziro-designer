@@ -2,76 +2,907 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * PCB_SHAPE, a board graphic (pcbnew/pcb_shape.{h,cpp}): `class PCB_SHAPE :
- * public BOARD_ITEM, public EDA_SHAPE`, here `extends BOARD_ITEM` with
- * EDA_SHAPE mixed in. The BOARD_ITEM side is still the July skeleton; the
- * pcbnew item step replaces it with the C++ class. Transform/hit-test bodies
- * mirror pcb_shape.cpp: Move->move, Rotate->rotate, Mirror->flip,
- * Flip->flip + FlipLayer.
+ * `pcbnew/pcb_shape.h` / `pcbnew/pcb_shape.cpp`: `PCB_SHAPE`, a graphic
+ * shape on a board — `class PCB_SHAPE : public BOARD_CONNECTED_ITEM, public
+ * EDA_SHAPE`, the EDA_SHAPE half mixed in.
+ *
+ * Not here: `Serialize`/`Deserialize` (protobuf) and `PCB_SHAPE_DESC`.
+ * `GetSolderMaskExpansion` takes the DRC-engine branch once the engine is
+ * on the design settings; `getHatchingKnockouts` walks the board's
+ * footprints and their courtyards, which come with FOOTPRINT.
  */
 
-import { applyMixins } from '@ziroeda/core/src/mixins.js';
+import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
+import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/src/eda_draw_frame.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/src/eda_item.js';
+import { RECURSE_MODE } from '@ziroeda/common/src/eda_item.js';
 import { EDA_SHAPE, FILL_T, SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
-import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
-import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import {
+  FLASHING,
+  GAL_LAYER_ID,
+  GetNetnameLayer,
+  IsBackLayer,
+  IsCopperLayer,
+  IsFrontLayer,
+  IsSolderMaskLayer,
+  PCB_LAYER_ID,
+} from '@ziroeda/common/src/layer_ids.js';
+import { LSET } from '@ziroeda/common/src/lset.js';
+import type { RENDER_SETTINGS } from '@ziroeda/common/src/render_settings.js';
+import type { STROKE_PARAMS } from '@ziroeda/common/src/stroke_params.js';
+import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/src/widgets/msgpanel.js';
+import { applyMixins } from '@ziroeda/core/src/mixins.js';
 import type { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
+import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { ARC_LOW_DEF } from '@ziroeda/kimath/src/base_units.js';
+import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import { CIRCLE } from '@ziroeda/kimath/src/geometry/circle.js';
+import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import type { SEG } from '@ziroeda/kimath/src/geometry/seg.js';
+import type { SHAPE } from '@ziroeda/kimath/src/geometry/shape.js';
+import { SHAPE_COMPOUND } from '@ziroeda/kimath/src/geometry/shape_compound.js';
+import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
+import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import { KIGEOM_GetCircleKeyPoints } from '@ziroeda/kimath/src/geometry/shape_utils.js';
+import { type BOX2D, BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import type { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
+import { DEFAULT_LINE_WIDTH } from './board_design_settings_defaults.js';
+import { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
 import { BOARD_ITEM } from './board_item.js';
-import { FlipLayer, type PCB_LAYER_NAME } from './layer_ids.js';
+import { BOARD_USE } from './board_types.js';
+import { ZONE_THERMAL_RELIEF_COPPER_WIDTH_MM } from './zones.js';
 
-export interface PCB_SHAPE extends EDA_SHAPE {}
+// `Similarity` and `TransformShapeToPolygon` are overloaded across the two bases in C++; the
+// class carries both forms, so the merged interface leaves the EDA_SHAPE ones out.
+// biome-ignore lint/suspicious/noEmptyInterface: declaration merging carries the EDA_SHAPE mixin's members
+export interface PCB_SHAPE extends Omit<EDA_SHAPE, 'Similarity' | 'TransformShapeToPolygon'> {}
 
-// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: the mixin half of `PCB_SHAPE : BOARD_ITEM, EDA_SHAPE`; initEdaShape() initialises its fields
-export class PCB_SHAPE extends BOARD_ITEM {
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: KiCad's multiple inheritance, see libs/core/src/mixins.ts
+export class PCB_SHAPE extends BOARD_CONNECTED_ITEM {
+  protected m_hasSolderMask: boolean;
+  protected m_solderMaskMargin: number | undefined;
+
+  constructor(aParent: BOARD_ITEM | null, aItemType: KICAD_T, aShapeType: SHAPE_T);
+  constructor(aParent?: BOARD_ITEM | null, aShapeType?: SHAPE_T);
   constructor(
-    shape: SHAPE_T,
-    layer: PCB_LAYER_NAME,
-    opts: {
-      start?: VECTOR2I;
-      end?: VECTOR2I;
-      mid?: VECTOR2I;
-      poly?: VECTOR2I[];
-      width?: number;
-      filled?: boolean;
-    } = {},
+    aParent: BOARD_ITEM | null = null,
+    b: KICAD_T | SHAPE_T = SHAPE_T.SEGMENT,
+    c?: SHAPE_T,
   ) {
-    super(layer);
-    this.initEdaShape(shape, opts.width ?? 0, opts.filled ? FILL_T.FILLED_SHAPE : FILL_T.NO_FILL);
+    const itemType = c !== undefined ? (b as KICAD_T) : KICAD_T.PCB_SHAPE_T;
+    const shapeType = c !== undefined ? c : (b as SHAPE_T);
 
-    if (shape === SHAPE_T.ARC && opts.start && opts.mid && opts.end) {
-      this.SetArcGeometry(opts.start, opts.mid, opts.end);
-    } else {
-      if (opts.start) this.SetStart(opts.start);
-      if (opts.end) this.SetEnd(opts.end);
+    super(aParent, itemType);
+    this.initEdaShape(shapeType, pcbIUScale.mmToIU(DEFAULT_LINE_WIDTH), FILL_T.NO_FILL);
+
+    this.m_hasSolderMask = false;
+    this.m_solderMaskMargin = undefined;
+  }
+
+  // Do not create a copy constructor & operator=.
+  // The ones generated by the compiler are adequate.
+
+  /** `PCB_SHAPE( const PCB_SHAPE& )`: the compiler-generated copy, as a static. */
+  static copyOf(aOther: PCB_SHAPE): PCB_SHAPE {
+    const copy = new PCB_SHAPE(null, aOther.Type(), aOther.GetShape());
+    copy.assignPcbShape(aOther);
+    (copy as { m_Uuid: string }).m_Uuid = aOther.m_Uuid;
+    return copy;
+  }
+
+  /** `operator=`: the compiler-generated one over every base and member. */
+  assignPcbShape(aOther: PCB_SHAPE): this {
+    const uuid = this.m_Uuid;
+    BOARD_CONNECTED_ITEM.copyConnected(this, aOther);
+    (this as { m_Uuid: string }).m_Uuid = uuid; // operator= keeps the UUID of `this`
+    this.assignEdaShape(aOther as unknown as EDA_SHAPE);
+    this.m_hasSolderMask = aOther.m_hasSolderMask;
+    this.m_solderMaskMargin = aOther.m_solderMaskMargin;
+    return this;
+  }
+
+  override CopyFrom(aOther: BOARD_ITEM | null): void {
+    if (!(aOther && aOther.Type() === KICAD_T.PCB_SHAPE_T)) return; // wxCHECK
+
+    this.assignPcbShape(aOther as PCB_SHAPE);
+  }
+
+  static override ClassOf(aItem: { Type(): KICAD_T } | null): boolean {
+    return !!aItem && KICAD_T.PCB_SHAPE_T === aItem.Type();
+  }
+
+  GetClass(): string {
+    return 'PCB_SHAPE';
+  }
+
+  override IsConnected(): boolean {
+    // Only board-level copper shapes are connectable
+    return this.IsOnCopperLayer() && !this.GetParentFootprint();
+  }
+
+  override GetFriendlyName(): string {
+    return this.getFriendlyName();
+  }
+
+  override IsType(aScanTypes: readonly KICAD_T[]): boolean {
+    if (BOARD_ITEM.prototype.IsType.call(this, aScanTypes)) return true;
+
+    let sametype = false;
+
+    for (const scanType of aScanTypes) {
+      if (scanType === KICAD_T.PCB_LOCATE_BOARD_EDGE_T)
+        sametype = this.m_layer === PCB_LAYER_ID.Edge_Cuts;
+      else if (scanType === KICAD_T.PCB_SHAPE_LOCATE_ARC_T) sametype = this.m_shape === SHAPE_T.ARC;
+      else if (scanType === KICAD_T.PCB_SHAPE_LOCATE_CIRCLE_T)
+        sametype = this.m_shape === SHAPE_T.CIRCLE;
+      else if (scanType === KICAD_T.PCB_SHAPE_LOCATE_RECT_T)
+        sametype = this.m_shape === SHAPE_T.RECTANGLE;
+      else if (scanType === KICAD_T.PCB_SHAPE_LOCATE_SEGMENT_T)
+        sametype = this.m_shape === SHAPE_T.SEGMENT;
+      else if (scanType === KICAD_T.PCB_SHAPE_LOCATE_POLY_T)
+        sametype = this.m_shape === SHAPE_T.POLY;
+      else if (scanType === KICAD_T.PCB_SHAPE_LOCATE_BEZIER_T)
+        sametype = this.m_shape === SHAPE_T.BEZIER;
+
+      if (sametype) return true;
     }
 
-    if (opts.poly) this.SetPolyPoints(opts.poly);
+    return false;
   }
 
-  GetPosition(): VECTOR2I {
-    return this.getPosition();
+  override SetLayer(aLayer: PCB_LAYER_ID): void {
+    BOARD_ITEM.prototype.SetLayer.call(this, aLayer);
+
+    if (!this.IsOnCopperLayer()) this.SetNetCode(-1);
   }
-  SetPosition(aPos: VECTOR2I): void {
+
+  override GetLayer(): PCB_LAYER_ID {
+    return this.m_layer;
+  }
+
+  override IsOnLayer(aLayer: PCB_LAYER_ID): boolean {
+    if (aLayer === this.m_layer) return true;
+
+    if (
+      this.m_hasSolderMask &&
+      ((aLayer === PCB_LAYER_ID.F_Mask && this.m_layer === PCB_LAYER_ID.F_Cu) ||
+        (aLayer === PCB_LAYER_ID.B_Mask && this.m_layer === PCB_LAYER_ID.B_Cu))
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  override GetLayerSet(): LSET {
+    const layermask = new LSET([this.m_layer]);
+
+    if (this.m_hasSolderMask) {
+      if (layermask.test(PCB_LAYER_ID.F_Cu)) layermask.set(PCB_LAYER_ID.F_Mask);
+
+      if (layermask.test(PCB_LAYER_ID.B_Cu)) layermask.set(PCB_LAYER_ID.B_Mask);
+    }
+
+    return layermask;
+  }
+
+  override SetLayerSet(aLayerSet: LSET): void {
+    aLayerSet.RunOnLayers((layer) => {
+      if (IsCopperLayer(layer)) this.SetLayer(layer);
+      else if (IsSolderMaskLayer(layer)) this.SetHasSolderMask(true);
+    });
+  }
+
+  override SetPosition(aPos: VECTOR2I): void {
     this.setPosition(aPos);
   }
+  override GetPosition(): VECTOR2I {
+    return this.getPosition();
+  }
 
-  Move(aMoveVector: VECTOR2I): void {
+  override GetCenter(): VECTOR2I {
+    return this.getCenter();
+  }
+
+  /**
+   * @return a list of connection points (may be empty): points where this shape can form
+   * electrical connections to other shapes that are natural "start/end" points.
+   */
+  GetConnectionPoints(): VECTOR2I[] {
+    const ret: VECTOR2I[] = [];
+
+    // For filled shapes, we may as well use a centroid
+    if (this.IsSolidFill()) {
+      ret.push(this.GetCenter());
+      return ret;
+    }
+
+    switch (this.m_shape) {
+      case SHAPE_T.CIRCLE: {
+        const circle = new CIRCLE(this.GetCenter(), this.GetRadius());
+
+        for (const pt of KIGEOM_GetCircleKeyPoints(circle, false)) ret.push(pt.m_point);
+
+        break;
+      }
+
+      // biome-ignore lint/suspicious/noFallthroughSwitchClause: KI_FALLTHROUGH in the C++
+      case SHAPE_T.ARC:
+        ret.push(this.GetArcMid());
+      // KI_FALLTHROUGH;
+      case SHAPE_T.SEGMENT:
+      case SHAPE_T.BEZIER:
+        ret.push(this.GetStart());
+        ret.push(this.GetEnd());
+        break;
+
+      case SHAPE_T.POLY:
+        for (const iter = this.GetPolyShape().CIterate(); iter.valid(); iter.Advance())
+          ret.push(iter.Get());
+        break;
+
+      case SHAPE_T.RECTANGLE:
+        for (const pt of this.GetRectCorners()) ret.push(pt);
+        break;
+
+      case SHAPE_T.UNDEFINED:
+        throw new Error(`GetConnectionPoints not implemented for ${this.SHAPE_T_asString()}`); // UNIMPLEMENTED_FOR
+    }
+
+    return ret;
+  }
+
+  override HasLineStroke(): boolean {
+    return true;
+  }
+
+  override GetStroke(): STROKE_PARAMS {
+    return this.m_stroke;
+  }
+  override SetStroke(aStroke: STROKE_PARAMS): void {
+    this.m_stroke = aStroke;
+  }
+
+  GetWidth(): number {
+    // A stroke width of 0 in PCBNew means no-border, but negative stroke-widths are only used
+    // in EEschema (see SCH_SHAPE::GetPenWidth()).
+    // Since negative stroke widths can trip up down-stream code (such as the Gerber plotter), we
+    // weed them out here.
+    return Math.max(EDA_SHAPE.prototype.GetWidth.call(this), 0);
+  }
+
+  override StyleFromSettings(settings: BOARD_DESIGN_SETTINGS, aCheckSide: boolean): void {
+    this.m_stroke.SetWidth(settings.GetLineThickness(this.GetLayer()));
+  }
+
+  /**
+   * Return 4 corners for a rectangle or rotated rectangle (stored as a poly).  Unimplemented
+   * for other shapes.
+   */
+  GetCorners(): VECTOR2I[] {
+    let pts: VECTOR2I[] = [];
+
+    if (this.GetShape() === SHAPE_T.RECTANGLE) {
+      pts = this.GetRectCorners();
+    } else if (this.GetShape() === SHAPE_T.POLY) {
+      for (let ii = 0; ii < this.GetPolyShape().OutlineCount(); ++ii) {
+        for (const pt of this.GetPolyShape().Outline(ii).CPoints()) pts.push(pt);
+      }
+    } else {
+      throw new Error(`GetCorners not implemented for ${this.SHAPE_T_asString()}`); // UNIMPLEMENTED_FOR
+    }
+
+    while (pts.length < 4) {
+      const back = pts[pts.length - 1]!;
+      pts.push({ x: back.x + 10, y: back.y + 10 });
+    }
+
+    return pts;
+  }
+
+  /**
+   * Allows items to return their visual center rather than their anchor. For some shapes this
+   * is similar to GetCenter(), but for unfilled shapes a point on the outline is better.
+   */
+  override GetFocusPosition(): VECTOR2I {
+    // For some shapes return the visual center, but for not filled polygonal shapes,
+    // the center is usually far from the shape: a point on the outline is better
+    switch (this.m_shape) {
+      case SHAPE_T.CIRCLE:
+        if (!this.IsAnyFill())
+          return { x: this.GetCenter().x + this.GetRadius(), y: this.GetCenter().y };
+        else return this.GetCenter();
+
+      case SHAPE_T.RECTANGLE:
+        if (!this.IsAnyFill()) return this.GetStart();
+        else return this.GetCenter();
+
+      case SHAPE_T.POLY:
+        if (!this.IsAnyFill()) {
+          const pos = this.GetPolyShape().Outline(0).CPoint(0);
+          return { x: pos.x, y: pos.y };
+        } else {
+          return this.GetCenter();
+        }
+
+      case SHAPE_T.ARC:
+        return this.GetArcMid();
+
+      case SHAPE_T.BEZIER:
+        return this.GetStart();
+
+      default:
+        return this.GetCenter();
+    }
+  }
+
+  /**
+   * Make a set of SHAPE objects representing the PCB_SHAPE.  Caller owns the objects.
+   */
+  override GetEffectiveShape(
+    aLayer: PCB_LAYER_ID = PCB_LAYER_ID.UNDEFINED_LAYER,
+    aFlash: FLASHING = FLASHING.DEFAULT,
+  ): SHAPE {
+    return new SHAPE_COMPOUND(this.MakeEffectiveShapes());
+  }
+
+  IsProxyItem(): boolean {
+    return this.m_proxyItem;
+  }
+
+  SetIsProxyItem(aIsProxy = true): void {
+    // PAD* parentPad: the entered pad of the footprint holder, whose thermal spoke width
+    // override sets the proxy segment's width. That walk (Footprints()/Pads()/IsEntered)
+    // comes with PAD (#636 stage 1).
+    const parentPadSpokeWidth: number | undefined = undefined;
+
+    if (aIsProxy && !this.m_proxyItem) {
+      if (this.GetShape() === SHAPE_T.SEGMENT) {
+        if (parentPadSpokeWidth !== undefined) this.SetWidth(parentPadSpokeWidth);
+        else this.SetWidth(pcbIUScale.mmToIU(ZONE_THERMAL_RELIEF_COPPER_WIDTH_MM));
+      } else {
+        this.SetWidth(1);
+      }
+    } else if (this.m_proxyItem && !aIsProxy) {
+      this.SetWidth(pcbIUScale.mmToIU(DEFAULT_LINE_WIDTH));
+    }
+
+    this.m_proxyItem = aIsProxy;
+  }
+
+  override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
+    if (aFrame.GetName() === PCB_EDIT_FRAME_NAME) {
+      const parent = this.GetParentFootprint();
+
+      if (parent) aList.push(new MSG_PANEL_ITEM('Footprint', parent.GetReference()));
+    }
+
+    aList.push(new MSG_PANEL_ITEM('Type', 'Drawing'));
+
+    if (aFrame.GetName() === PCB_EDIT_FRAME_NAME && this.IsLocked())
+      aList.push(new MSG_PANEL_ITEM('Status', 'Locked'));
+
+    this.ShapeGetMsgPanelInfo(aFrame as unknown as UNITS_PROVIDER, aList);
+
+    aList.push(new MSG_PANEL_ITEM('Layer', this.GetLayerName()));
+
+    if (this.IsOnCopperLayer()) {
+      if (this.GetNetCode() > 0)
+        // Only graphics connected to a net have a netcode > 0
+        aList.push(new MSG_PANEL_ITEM('Net', this.GetNetname()));
+    }
+  }
+
+  override GetBoundingBox(): BOX2I {
+    return this.getBoundingBox();
+  }
+
+  override HitTest(aPosition: VECTOR2I, aAccuracy?: number): boolean;
+  override HitTest(aRect: BOX2I, aContained: boolean, aAccuracy?: number): boolean;
+  override HitTest(aPoly: SHAPE_LINE_CHAIN, aContained: boolean): boolean;
+  override HitTest(
+    a: VECTOR2I | BOX2I | SHAPE_LINE_CHAIN,
+    b?: number | boolean,
+    c?: number,
+  ): boolean {
+    if (a instanceof BOX2I) return this.hitTest(a, b as boolean, c ?? 0);
+
+    if ('x' in a && 'y' in a) return this.hitTest(a, (b as number | undefined) ?? 0);
+
+    return this.hitTest(a, b as boolean);
+  }
+
+  override Normalize(): void {
+    if (this.m_shape === SHAPE_T.RECTANGLE) {
+      const start = this.GetStart();
+      const end = this.GetEnd();
+
+      const rect = new BOX2I(start, { x: end.x - start.x, y: end.y - start.y });
+      rect.Normalize();
+      this.SetStart(rect.GetPosition());
+      this.SetEnd(rect.GetEnd());
+    } else if (this.m_shape === SHAPE_T.POLY) {
+      const horizontal = (seg: SEG): boolean => seg.A.y === seg.B.y;
+
+      const vertical = (seg: SEG): boolean => seg.A.x === seg.B.x;
+
+      // Convert a poly back to a rectangle if appropriate
+      if (
+        this.GetPolyShape().OutlineCount() === 1 &&
+        this.GetPolyShape().Outline(0).SegmentCount() === 4
+      ) {
+        const outline = this.GetPolyShape().Outline(0);
+
+        if (
+          horizontal(outline.Segment(0)) &&
+          vertical(outline.Segment(1)) &&
+          horizontal(outline.Segment(2)) &&
+          vertical(outline.Segment(3))
+        ) {
+          this.m_shape = SHAPE_T.RECTANGLE;
+          this.m_start.x = Math.min(outline.Segment(0).A.x, outline.Segment(0).B.x);
+          this.m_start.y = Math.min(outline.Segment(1).A.y, outline.Segment(1).B.y);
+          this.m_end.x = Math.max(outline.Segment(0).A.x, outline.Segment(0).B.x);
+          this.m_end.y = Math.max(outline.Segment(1).A.y, outline.Segment(1).B.y);
+        } else if (
+          vertical(outline.Segment(0)) &&
+          horizontal(outline.Segment(1)) &&
+          vertical(outline.Segment(2)) &&
+          horizontal(outline.Segment(3))
+        ) {
+          this.m_shape = SHAPE_T.RECTANGLE;
+          this.m_start.x = Math.min(outline.Segment(1).A.x, outline.Segment(1).B.x);
+          this.m_start.y = Math.min(outline.Segment(0).A.y, outline.Segment(0).B.y);
+          this.m_end.x = Math.max(outline.Segment(1).A.x, outline.Segment(1).B.x);
+          this.m_end.y = Math.max(outline.Segment(0).A.y, outline.Segment(0).B.y);
+        }
+      }
+    }
+  }
+
+  /**
+   * Normalize coordinates to compare 2 similar PCB_SHAPES
+   * similat to Normalize(), but also normalize SEGMENT end points
+   * needed only for graphic comparisons
+   */
+  override NormalizeForCompare(): void {
+    if (this.m_shape === SHAPE_T.SEGMENT) {
+      // we want start point the top left point and end point the bottom right
+      // (more easy to compare 2 segments: we are seeing them as equivalent if
+      // they have the same end points, not necessary the same order)
+      const start = this.GetStart();
+      const end = this.GetEnd();
+
+      if (start.x > end.x || (start.x === end.x && start.y < end.y)) {
+        this.SetStart(end);
+        this.SetEnd(start);
+      }
+    } else this.Normalize();
+  }
+
+  override Move(aMoveVector: VECTOR2I): void {
     this.move(aMoveVector);
   }
-  Rotate(aRotCentre: VECTOR2I, aAngle: EDA_ANGLE): void {
+
+  override Rotate(aRotCentre: VECTOR2I, aAngle: EDA_ANGLE): void {
     this.rotate(aRotCentre, aAngle);
   }
-  Mirror(aCentre: VECTOR2I, aFlipDirection: FLIP_DIRECTION): void {
+
+  override Flip(aCentre: VECTOR2I, aFlipDirection: FLIP_DIRECTION): void {
+    this.flip(aCentre, aFlipDirection);
+
+    this.SetLayer(this.GetBoard()!.FlipLayer(this.GetLayer()));
+  }
+
+  override Mirror(aCentre: VECTOR2I, aFlipDirection: FLIP_DIRECTION): void {
     this.flip(aCentre, aFlipDirection);
   }
 
-  Flip(aCentre: VECTOR2I, aFlipDirection: FLIP_DIRECTION): void {
-    this.flip(aCentre, aFlipDirection);
-    this.SetLayer(FlipLayer(this.GetLayer()));
+  Scale(aScale: number): void {
+    this.scale(aScale);
   }
 
-  HitTest(aPosition: VECTOR2I, aAccuracy = 0): boolean {
-    return this.hitTest(aPosition, aAccuracy);
+  UpdateHatching(): void {
+    // Force update; we don't bother to propagate damage from all the things that might
+    // knock-out parts of our hatching.
+    this.m_hatchingDirty = true;
+    EDA_SHAPE.prototype.UpdateHatching.call(this);
+  }
+
+  /**
+   * Convert the shape to a closed polygon.  Circles and arcs are approximated by segments.
+   *
+   * @param aBuffer is a buffer to store the polygon.
+   * @param aClearance is the clearance around the pad.
+   * @param aError is the maximum deviation from a true arc.
+   * @param aErrorLoc whether any approximation error should be placed inside or outside
+   * @param ignoreLineWidth is used for edge cut items where the line width is only for
+   *                        visualization
+   */
+  override TransformShapeToPolygon(
+    aBuffer: SHAPE_POLY_SET,
+    aLayer: PCB_LAYER_ID,
+    aClearance: number,
+    aError: number,
+    aErrorLoc: ERROR_LOC,
+    ignoreLineWidth?: boolean,
+  ): void;
+  /** `EDA_SHAPE::TransformShapeToPolygon`, the other overload the C++ class carries. */
+  override TransformShapeToPolygon(
+    aBuffer: SHAPE_POLY_SET,
+    aClearance: number,
+    aError: number,
+    aErrorLoc: ERROR_LOC,
+    ignoreLineWidth?: boolean,
+    includeFill?: boolean,
+  ): void;
+  override TransformShapeToPolygon(
+    aBuffer: SHAPE_POLY_SET,
+    b: number,
+    c: number,
+    d: number,
+    e?: number | boolean,
+    f?: boolean,
+  ): void {
+    if (typeof e === 'number') {
+      // ( aBuffer, aLayer, aClearance, aError, aErrorLoc, ignoreLineWidth )
+      EDA_SHAPE.prototype.TransformShapeToPolygon.call(
+        this,
+        aBuffer,
+        c,
+        d,
+        e as ERROR_LOC,
+        f ?? false,
+        false,
+      );
+      return;
+    }
+
+    EDA_SHAPE.prototype.TransformShapeToPolygon.call(
+      this,
+      aBuffer,
+      b,
+      c,
+      d as ERROR_LOC,
+      e ?? false,
+      f ?? false,
+    );
+  }
+
+  /**
+   * Convert the item shape to a polyset. Circles and arcs are approximated by segments; hatched
+   * fills and details (if any) will be included.
+   *
+   * @param aBuffer a buffer to store the polygon.
+   * @param aClearance the clearance around the pad.
+   * @param aError the maximum deviation from true circle.
+   * @param aErrorLoc should the approximation error be placed outside or inside the polygon?
+   * @param aRenderSettings used to plot outlines with not solid segments like dashed lines.
+   * So it is not used by all BOARD_ITEMS. If null lines like dashed will be converted as SOLID
+   */
+  override TransformShapeToPolySet(
+    aBuffer: SHAPE_POLY_SET,
+    aLayer: PCB_LAYER_ID,
+    aClearance: number,
+    aError: number,
+    aErrorLoc: ERROR_LOC,
+    aRenderSettings: RENDER_SETTINGS | null = null,
+  ): void {
+    EDA_SHAPE.prototype.TransformShapeToPolygon.call(
+      this,
+      aBuffer,
+      aClearance,
+      aError,
+      aErrorLoc,
+      false,
+      true,
+    );
+  }
+
+  override GetItemDescription(aUnitsProvider: UNITS_PROVIDER | null, aFull: boolean): string {
+    let parentFP = this.GetParentFootprint();
+
+    // Don't report parent footprint info from footprint editor, viewer, etc.
+    if (this.GetBoard() && this.GetBoard()!.GetBoardUse() === BOARD_USE.FPHOLDER) parentFP = null;
+
+    if (this.IsOnCopperLayer()) {
+      if (parentFP) {
+        return `${this.GetFriendlyName()} ${this.GetNetnameMsg()} of ${parentFP.GetReference()} on ${this.GetLayerName()}`;
+      } else {
+        return `${this.GetFriendlyName()} ${this.GetNetnameMsg()} on ${this.GetLayerName()}`;
+      }
+    } else {
+      if (parentFP) {
+        return `${this.GetFriendlyName()} of ${parentFP.GetReference()} on ${this.GetLayerName()}`;
+      } else {
+        return `${this.GetFriendlyName()} on ${this.GetLayerName()}`;
+      }
+    }
+  }
+
+  override GetMenuImage(): string {
+    if (this.GetParentFootprint()) return 'show_mod_edge';
+    else return 'add_dashed_line';
+  }
+
+  override Clone(): PCB_SHAPE {
+    return PCB_SHAPE.copyOf(this);
+  }
+
+  override ViewBBox(): BOX2I {
+    const return_box = super.ViewBBox();
+
+    // Inflate the bounding box by just a bit more for safety.
+    return_box.Inflate(this.GetWidth());
+
+    return return_box;
+  }
+
+  override ViewGetLayers(): number[] {
+    const layers: number[] = [];
+
+    layers.push(this.GetLayer());
+
+    if (this.IsOnCopperLayer()) {
+      layers.push(GetNetnameLayer(this.GetLayer()));
+
+      if (this.m_hasSolderMask) {
+        if (this.m_layer === PCB_LAYER_ID.F_Cu) layers.push(PCB_LAYER_ID.F_Mask);
+        else if (this.m_layer === PCB_LAYER_ID.B_Cu) layers.push(PCB_LAYER_ID.B_Mask);
+      }
+    }
+
+    if (this.IsLocked() || (this.GetParentFootprint() && this.GetParentFootprint()!.IsLocked()))
+      layers.push(GAL_LAYER_ID.LAYER_LOCKED_ITEM_SHADOW);
+
+    return layers;
+  }
+
+  ///< @copydoc VIEW_ITEM::ViewGetLOD
+  override ViewGetLOD(aLayer: number, aView: PCB_VIEW_FOR_LOD | null): number {
+    if (!aView) return PCB_SHAPE.LOD_SHOW;
+
+    const renderSettings = aView.GetPainter().GetSettings();
+
+    if (aLayer === GAL_LAYER_ID.LAYER_LOCKED_ITEM_SHADOW) {
+      // Hide shadow if the main layer is not shown
+      if (!aView.IsLayerVisible(this.m_layer)) return PCB_SHAPE.LOD_HIDE;
+
+      // Hide shadow on dimmed tracks
+      if (renderSettings.GetHighContrast()) {
+        if (this.m_layer !== renderSettings.GetPrimaryHighContrastLayer())
+          return PCB_SHAPE.LOD_HIDE;
+      }
+    }
+
+    const parent = this.GetParentFootprint();
+
+    if (parent) {
+      let checkLayer = this.m_layer;
+
+      if (!IsFrontLayer(checkLayer) && !IsBackLayer(checkLayer)) checkLayer = parent.GetLayer();
+
+      if (IsFrontLayer(checkLayer) && !aView.IsLayerVisible(GAL_LAYER_ID.LAYER_FOOTPRINTS_FR))
+        return PCB_SHAPE.LOD_HIDE;
+
+      if (IsBackLayer(checkLayer) && !aView.IsLayerVisible(GAL_LAYER_ID.LAYER_FOOTPRINTS_BK))
+        return PCB_SHAPE.LOD_HIDE;
+    }
+
+    return PCB_SHAPE.LOD_SHOW;
+  }
+
+  /** `Similarity( const BOARD_ITEM& )`, and `EDA_SHAPE::Similarity( const EDA_SHAPE& )` for a bare shape. */
+  Similarity(aOther: BOARD_ITEM | EDA_SHAPE): number {
+    if (!(aOther instanceof BOARD_ITEM)) return EDA_SHAPE.prototype.Similarity.call(this, aOther);
+
+    if (aOther.Type() !== this.Type()) return 0.0;
+
+    const other = aOther as PCB_SHAPE;
+
+    let similarity = 1.0;
+
+    if (this.GetLayer() !== other.GetLayer()) similarity *= 0.9;
+
+    if (this.m_isKnockout !== other.m_isKnockout) similarity *= 0.9;
+
+    if (this.m_isLocked !== other.m_isLocked) similarity *= 0.9;
+
+    if (this.m_flags !== other.m_flags) similarity *= 0.9;
+
+    if (this.m_forceVisible !== other.m_forceVisible) similarity *= 0.9;
+
+    if (this.m_netinfo!.GetNetCode() !== other.m_netinfo!.GetNetCode()) similarity *= 0.9;
+
+    if (this.m_hasSolderMask !== other.m_hasSolderMask) similarity *= 0.9;
+
+    if (this.m_solderMaskMargin !== other.m_solderMaskMargin) similarity *= 0.9;
+
+    similarity *= EDA_SHAPE.prototype.Similarity.call(this, other as unknown as EDA_SHAPE);
+
+    return similarity;
+  }
+
+  /** `operator==( const PCB_SHAPE& )` and `operator==( const BOARD_ITEM& )`. */
+  equals(aOther: BOARD_ITEM): boolean {
+    if (aOther.Type() !== this.Type()) return false;
+
+    const other = aOther as PCB_SHAPE;
+
+    if (this.m_layer !== other.m_layer) return false;
+
+    if (this.m_isKnockout !== other.m_isKnockout) return false;
+
+    if (this.m_isLocked !== other.m_isLocked) return false;
+
+    if (this.m_flags !== other.m_flags) return false;
+
+    if (this.m_forceVisible !== other.m_forceVisible) return false;
+
+    if (this.m_netinfo!.GetNetCode() !== other.m_netinfo!.GetNetCode()) return false;
+
+    if (this.m_hasSolderMask !== other.m_hasSolderMask) return false;
+
+    if (this.m_solderMaskMargin !== other.m_solderMaskMargin) return false;
+
+    return this.equalsEdaShape(other as unknown as EDA_SHAPE);
+  }
+
+  SetHasSolderMask(aVal: boolean): void {
+    this.m_hasSolderMask = aVal;
+  }
+  HasSolderMask(): boolean {
+    return this.m_hasSolderMask;
+  }
+
+  SetLocalSolderMaskMargin(aMargin: number | undefined): void {
+    this.m_solderMaskMargin = aMargin;
+  }
+  GetLocalSolderMaskMargin(): number | undefined {
+    return this.m_solderMaskMargin;
+  }
+
+  GetSolderMaskExpansion(): number {
+    let margin = 0;
+
+    // if( GetBoard() && GetBoard()->GetDesignSettings().m_DRCEngine
+    //     && m_DRCEngine->HasRulesForConstraintType( SOLDER_MASK_EXPANSION_CONSTRAINT ) )
+    //     margin = EvalRules( SOLDER_MASK_EXPANSION_CONSTRAINT, ... ).m_Value.Opt();
+    //                                                    -- DRC_ENGINE pending (#636)
+    if (this.m_solderMaskMargin !== undefined) {
+      margin = this.m_solderMaskMargin;
+    } else {
+      const board = this.GetBoard();
+
+      if (board) margin = board.GetDesignSettings().m_SolderMaskExpansion;
+    }
+
+    // Ensure the resulting mask opening has a non-negative size
+    if (margin < 0 && !this.IsSolidFill())
+      margin = Math.max(margin, -Math.trunc(this.GetWidth() / 2));
+
+    return margin;
+  }
+
+  protected override swapData(aImage: BOARD_ITEM): void {
+    const image = aImage as PCB_SHAPE;
+
+    if (!(image instanceof PCB_SHAPE)) return; // wxCHECK( image, /* void */ )
+
+    this.SwapShape(image as unknown as EDA_SHAPE);
+
+    // Swap params not handled by SwapShape( image )
+    [this.m_layer, image.m_layer] = [image.m_layer, this.m_layer];
+    [this.m_isKnockout, image.m_isKnockout] = [image.m_isKnockout, this.m_isKnockout];
+    [this.m_isLocked, image.m_isLocked] = [image.m_isLocked, this.m_isLocked];
+    [this.m_flags, image.m_flags] = [image.m_flags, this.m_flags];
+    [this.m_parent, image.m_parent] = [image.m_parent, this.m_parent];
+    [this.m_forceVisible, image.m_forceVisible] = [image.m_forceVisible, this.m_forceVisible];
+    [this.m_netinfo, image.m_netinfo] = [image.m_netinfo, this.m_netinfo];
+    [this.m_hasSolderMask, image.m_hasSolderMask] = [image.m_hasSolderMask, this.m_hasSolderMask];
+    [this.m_solderMaskMargin, image.m_solderMaskMargin] = [
+      image.m_solderMaskMargin,
+      this.m_solderMaskMargin,
+    ];
+  }
+
+  isMoving(): boolean {
+    return this.IsMoving();
+  }
+
+  getMaxError(): number {
+    return this.GetMaxError();
+  }
+
+  getHatchingKnockouts(): SHAPE_POLY_SET {
+    const knockouts = new SHAPE_POLY_SET();
+    const layer = this.GetLayer();
+    const bbox = this.GetBoundingBox();
+    const maxError = ARC_LOW_DEF;
+
+    const knockoutItem = (item: BOARD_ITEM): void => {
+      let margin = Math.trunc(this.GetHatchLineSpacing() / 2);
+
+      if (item.Type() === KICAD_T.PCB_TEXTBOX_T) margin = 0;
+
+      item.TransformShapeToPolygon(knockouts, layer, margin, maxError, ERROR_LOC.ERROR_OUTSIDE);
+    };
+
+    const board = this.GetBoard();
+
+    if (!board) return knockouts;
+
+    for (const item of board.Drawings()) {
+      if (item === (this as BOARD_ITEM)) continue;
+
+      if (
+        item.Type() === KICAD_T.PCB_FIELD_T ||
+        item.Type() === KICAD_T.PCB_TEXT_T ||
+        item.Type() === KICAD_T.PCB_TEXTBOX_T ||
+        item.Type() === KICAD_T.PCB_SHAPE_T
+      ) {
+        if (item.GetLayer() === layer && item.GetBoundingBox().Intersects(bbox)) knockoutItem(item);
+      }
+    }
+
+    for (const footprint of board.Footprints()) {
+      if (footprint === (this.GetParentFootprint() as BOARD_ITEM | null)) continue;
+
+      // GetCourtyard() returns the front courtyard for any non-back layer, so only knock it
+      // out when the hatched shape actually lives on a courtyard layer.
+      // if( layer == F_CrtYd || layer == B_CrtYd ) knockouts.Append( footprint->GetCourtyard( layer ) );
+      //                                                    -- FOOTPRINT::GetCourtyard (#636 stage 1)
+
+      // Knockout footprint fields
+      footprint.RunOnChildren((item) => {
+        if (
+          (item.Type() === KICAD_T.PCB_FIELD_T || item.Type() === KICAD_T.PCB_SHAPE_T) &&
+          item.GetLayer() === layer &&
+          !(
+            item.Type() === KICAD_T.PCB_FIELD_T &&
+            !(item as unknown as { IsVisible(): boolean }).IsVisible()
+          ) &&
+          item.GetBoundingBox().Intersects(bbox)
+        ) {
+          knockoutItem(item);
+        }
+      }, RECURSE_MODE.RECURSE);
+    }
+
+    return knockouts;
+  }
+
+  /** `PCB_SHAPE::cmp_drawings::operator()`. */
+  static cmp_drawings(aFirst: BOARD_ITEM, aSecond: BOARD_ITEM): boolean {
+    if (aFirst.Type() !== aSecond.Type()) return aFirst.Type() < aSecond.Type();
+
+    if (aFirst.GetLayer() !== aSecond.GetLayer()) return aFirst.GetLayer() < aSecond.GetLayer();
+
+    if (aFirst.Type() === KICAD_T.PCB_SHAPE_T) {
+      const dwgA = aFirst as PCB_SHAPE;
+      const dwgB = aSecond as PCB_SHAPE;
+
+      if (dwgA.GetShape() !== dwgB.GetShape()) return dwgA.GetShape() < dwgB.GetShape();
+    }
+
+    return aFirst.m_Uuid < aSecond.m_Uuid;
   }
 }
 
 applyMixins(PCB_SHAPE, [EDA_SHAPE]);
+
+/** The `KIGFX::VIEW` surface `ViewGetLOD` reads, until the VIEW port (#636 stage 5). */
+export interface PCB_VIEW_FOR_LOD {
+  GetPainter(): { GetSettings(): PCB_RENDER_SETTINGS_FOR_LOD };
+  IsLayerVisible(aLayer: number): boolean;
+  GetViewport(): BOX2D;
+}
+
+/** The `PCB_RENDER_SETTINGS` members the items' `ViewGetLOD` read. */
+export interface PCB_RENDER_SETTINGS_FOR_LOD {
+  IsPrinting(): boolean;
+  GetHighContrast(): boolean;
+  GetPrimaryHighContrastLayer(): PCB_LAYER_ID;
+}

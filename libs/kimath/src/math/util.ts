@@ -12,7 +12,9 @@
  * every negative coordinate ending in .5 — the kind of one-IU divergence that
  * makes a ported polygon miscompare against KiCad's.
  */
-export const KiROUND = (v: number): number => (v < 0 ? Math.ceil(v - 0.5) : Math.floor(v + 0.5));
+export const KiROUND = (v: number): number =>
+  // `+ 0` folds the `-0` that `Math.ceil` returns for (-0.5, 0): an `int` has no negative zero
+  v < 0 ? Math.ceil(v - 0.5) + 0 : Math.floor(v + 0.5);
 
 /**
  * `static_cast<int>( v )` / a `VECTOR2D` narrowed to a `VECTOR2I`: truncation

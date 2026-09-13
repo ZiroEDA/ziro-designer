@@ -52,3 +52,14 @@ export function nearestHalfGridPosition(
 ): Vec2 {
   return nearestGridPosition(p, grid / 2, gridOrigin);
 }
+
+// The frame names (`eda_draw_frame.h:70-77`), which an item's message panel reads to know
+// which editor it is describing itself for.
+export const SCH_EDIT_FRAME_NAME = 'SchematicFrame';
+export const SYMBOL_CHOOSER_FRAME_NAME = 'SymbolChooserFrame';
+export const PL_EDITOR_FRAME_NAME = 'PlEditorFrame';
+export const FOOTPRINT_WIZARD_FRAME_NAME = 'FootprintWizard';
+export const FOOTPRINT_CHOOSER_FRAME_NAME = 'FootprintChooserFrame';
+export const FOOTPRINT_EDIT_FRAME_NAME = 'ModEditFrame';
+export const FOOTPRINT_VIEWER_FRAME_NAME = 'ModViewFrame';
+export const PCB_EDIT_FRAME_NAME = 'PcbFrame';

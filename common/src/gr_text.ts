@@ -64,3 +64,24 @@ export function ClampTextPenSizeF(aPenSize: number, aSize: number, aStrict = fal
 
   return Math.min(aPenSize, maxWidth);
 }
+
+/** `InferBold( TEXT_ATTRIBUTES* )`: bold when the pen is nearer the bold size than the normal. */
+export function InferBold(aAttrs: {
+  m_StrokeWidth: number;
+  m_Size: VECTOR2I;
+  m_Bold: boolean;
+}): void {
+  const penSize = aAttrs.m_StrokeWidth;
+  const textSize = { x: aAttrs.m_Size.x, y: aAttrs.m_Size.y };
+
+  aAttrs.m_Bold =
+    Math.abs(penSize - GetPenSizeForBold(textSize)) <
+    Math.abs(penSize - GetPenSizeForNormal(textSize));
+}
+
+/**
+ * Return the margin for knocking out text.
+ */
+export function GetKnockoutTextMargin(aSize: VECTOR2I, aThickness: number): number {
+  return Math.max(KiROUND(aThickness / 2.0), KiROUND(aSize.y / 9.0));
+}

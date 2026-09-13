@@ -25,7 +25,7 @@ import {
   chainPointInside,
   simplify,
 } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
-import { doConvertOutlineToPolygon } from '@ziroeda/pcbnew/src/convert_shape_list_to_polygon.js';
+import { doConvertOutlineToPolygon } from '@ziroeda/pcbnew/src/convert_shape_list_to_polygon_legacy.js';
 import { arcConvertToPolyline } from '@ziroeda/pcbnew/src/router/shape_arc_ops.js';
 import { padTransformHoleToPolygon } from '@ziroeda/pcbnew/src/transform_shape_to_polygon.js';
 import type { Board, PcbPad, PcbShape, PcbZone } from '@ziroeda/pcbnew/src/types.js';

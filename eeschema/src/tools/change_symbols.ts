@@ -24,6 +24,7 @@
  * Footprint set should not wipe the footprint you assigned.
  */
 
+import { GetRefDesNumber, GetRefDesPrefix } from '@ziroeda/common/src/refdes_utils.js';
 import { unescapeString, wildCompareString } from '@ziroeda/common/src/string_utils.js';
 import { Reporter } from '@ziroeda/common/src/reporter.js';
 import type { LibPin, LibSymbol, Schematic, SchField, SchSymbol } from '../types.js';
@@ -158,17 +159,6 @@ const fieldOf = (fields: readonly SchField[], key: string): SchField | undefined
 /** The three fields every symbol has, which are matched by canonical name. */
 const MANDATORY = new Set(['Reference', 'Value', 'Footprint', 'Datasheet']);
 
-/** `UTIL::GetRefDesPrefix`: the reference without its trailing number. */
-export function refDesPrefix(ref: string): string {
-  return ref.replace(/\d+$/, '').replace(/\?+$/, '');
-}
-
-/** `UTIL::GetRefDesNumber`: the trailing number, or -1. */
-export function refDesNumber(ref: string): number {
-  const m = /(\d+)$/.exec(ref);
-  return m ? Number(m[1]) : -1;
-}
-
 /** `SCH_SYMBOL::GetLibId` comparison, which is exact rather than wildcarded. */
 const sameLibId = (a: string, b: string): boolean => a === b;
 
@@ -223,8 +213,8 @@ function updateField(
     if (field.key === 'Reference') {
       // The number is kept and only the prefix comes from the library, so
       // updating R1 against a part called "RES" gives RES1, not RES.
-      const prefix = refDesPrefix(libField.value);
-      const number = refDesNumber(field.value);
+      const prefix = GetRefDesPrefix(libField.value);
+      const number = GetRefDesNumber(field.value);
       next = { ...next, value: number >= 0 ? `${prefix}${number}` : `${prefix}?` };
       refInstances.push(next.value);
     } else if (field.key === 'Value') {

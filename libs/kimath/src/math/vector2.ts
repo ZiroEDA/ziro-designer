@@ -163,3 +163,15 @@ export const ResizeD = (v: Vec2, aNewLength: number): Vec2 => {
 
   return { x: (v.x < 0 ? -newX : newX) * s || 0, y: (v.y < 0 ? -newY : newY) * s || 0 };
 };
+
+/** `LexicographicalCompare( aA, aB )`: x first, then y; -1, 0 or 1. */
+export function LexicographicalCompare(aA: Vec2, aB: Vec2): number {
+  if (aA.x < aB.x) return -1;
+  else if (aA.x > aB.x) return 1;
+  else {
+    // aA.x == aB.x
+    if (aA.y < aB.y) return -1;
+    else if (aA.y > aB.y) return 1;
+    else return 0;
+  }
+}

@@ -5,18 +5,20 @@
  * `units_provider.h`: the frame's (or dialog's) view of the user's units,
  * which items format their message-panel rows and descriptions through.
  *
- * `StringFromValue` / `ValueFromString` (the dialog-field forms) arrive with
- * the `EDA_UNIT_UTILS::UI` port that the dialogs need; the item classes use
- * the message-text forms here.
+ * `ValueFromString` (the dialog-field parser) arrives with the
+ * `EDA_UNIT_UTILS::UI` port that the dialogs need.
  */
 
+import type { MINOPTMAX } from '@ziroeda/core/src/minoptmax.js';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import {
   type EdaDataType,
   type EdaIuScale,
   type EdaUnits,
   messageTextFromAngle,
+  messageTextFromMinOptMax,
   messageTextFromValue,
+  stringFromValue,
 } from './eda_units.js';
 
 /** `EDA_UNIT_UTILS::IsImperialUnit`. */
@@ -58,6 +60,16 @@ export class UNITS_PROVIDER {
     return this.m_iuScale;
   }
 
+  StringFromValue(aValue: number, aAddUnitLabel = false, aType: EdaDataType = 'distance'): string {
+    return stringFromValue(
+      this.GetIuScale(),
+      this.GetUnitsFromType(aType),
+      aValue,
+      aAddUnitLabel,
+      aType,
+    );
+  }
+
   /**
    * A lower-precision version of StringFromValue().
    *
@@ -76,6 +88,10 @@ export class UNITS_PROVIDER {
       aAddUnitLabel,
       aType,
     );
+  }
+
+  MessageTextFromMinOptMax(aValue: MINOPTMAX, aType: EdaDataType = 'distance'): string {
+    return messageTextFromMinOptMax(this.GetIuScale(), this.GetUnitsFromType(aType), aValue);
   }
 
   MessageTextFromAngle(aValue: EDA_ANGLE, aAddUnitLabel = true): string {

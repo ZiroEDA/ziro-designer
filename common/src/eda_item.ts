@@ -123,7 +123,7 @@ export abstract class EDA_ITEM extends VIEW_ITEM {
     c?: boolean,
     d?: boolean,
   ) {
-    if (a instanceof EDA_ITEM) {
+    if (a instanceof EDA_ITEM && b === undefined) {
       const base = a;
       super(base.IsSCH_ITEM(), base.IsBOARD_ITEM());
       this.m_Uuid = base.m_Uuid;

@@ -9,6 +9,10 @@
  *
  * `EDA_SHAPE_DESC` (the properties-manager registration) is the properties
  * panel's, which the panel port carries.
+ *
+ * The C++ `protected`/`private` members are public here: the mix-in reaches
+ * its host through declaration merging (`interface PCB_X extends Omit<EDA_SHAPE,
+ * …>`), and a mapped type carries only public members.
  */
 
 import { longest_common_subset } from '@ziroeda/core/src/kicad_algo.js';
@@ -156,35 +160,35 @@ export function GetArcAngle(start: Vec2, end: Vec2, center: Vec2): EDA_ANGLE {
 }
 
 export abstract class EDA_SHAPE {
-  protected m_endsSwapped!: boolean; // true if start/end were swapped e.g. SetArcAngleAndEnd
-  protected m_shape!: SHAPE_T; // Shape: line, Circle, Arc
-  protected m_stroke!: STROKE_PARAMS; // Line style, width, etc.
-  protected m_fill!: FILL_T;
-  protected m_fillColor!: Color4d;
+  m_endsSwapped!: boolean; // true if start/end were swapped e.g. SetArcAngleAndEnd
+  m_shape!: SHAPE_T; // Shape: line, Circle, Arc
+  m_stroke!: STROKE_PARAMS; // Line style, width, etc.
+  m_fill!: FILL_T;
+  m_fillColor!: Color4d;
 
-  protected m_hatchingCache!: EDA_SHAPE_HATCH_CACHE_DATA | null;
-  protected m_hatchingDirty!: boolean;
+  m_hatchingCache!: EDA_SHAPE_HATCH_CACHE_DATA | null;
+  m_hatchingDirty!: boolean;
 
-  protected m_rectangleHeight!: number;
-  protected m_rectangleWidth!: number;
-  protected m_cornerRadius!: number;
+  m_rectangleHeight!: number;
+  m_rectangleWidth!: number;
+  m_cornerRadius!: number;
 
-  protected m_start!: VECTOR2I; // Line start point or Circle center
-  protected m_end!: VECTOR2I; // Line end point or Circle 3 o'clock point
-  protected m_arcCenter!: VECTOR2I; // Used only for Arcs: arc end point
-  protected m_arcMidData!: ARC_MID; // Used to store originating data
+  m_start!: VECTOR2I; // Line start point or Circle center
+  m_end!: VECTOR2I; // Line end point or Circle 3 o'clock point
+  m_arcCenter!: VECTOR2I; // Used only for Arcs: arc end point
+  m_arcMidData!: ARC_MID; // Used to store originating data
 
-  protected m_bezierC1!: VECTOR2I; // Bezier Control Point 1
-  protected m_bezierC2!: VECTOR2I; // Bezier Control Point 2
-  protected m_bezierPoints!: VECTOR2I[];
-  protected m_poly!: SHAPE_POLY_SET | null; // Stores the S_POLYGON shape
+  m_bezierC1!: VECTOR2I; // Bezier Control Point 1
+  m_bezierC2!: VECTOR2I; // Bezier Control Point 2
+  m_bezierPoints!: VECTOR2I[];
+  m_poly!: SHAPE_POLY_SET | null; // Stores the S_POLYGON shape
 
-  protected m_editState!: number;
-  protected m_proxyItem!: boolean; // A shape storing proxy information (ie: a pad
+  m_editState!: number;
+  m_proxyItem!: boolean; // A shape storing proxy information (ie: a pad
   //   number box, thermal spoke template, etc.)
 
   /** `EDA_SHAPE( SHAPE_T aType, int aLineWidth, FILL_T aFill )`: the mixin's constructor. */
-  protected initEdaShape(aType: SHAPE_T, aLineWidth: number, aFill: FILL_T): void {
+  initEdaShape(aType: SHAPE_T, aLineWidth: number, aFill: FILL_T): void {
     this.m_endsSwapped = false;
     this.m_shape = aType;
     this.m_stroke = new STROKE_PARAMS(aLineWidth, LINE_STYLE.DEFAULT, COLOR4D_UNSPECIFIED);
@@ -208,7 +212,7 @@ export abstract class EDA_SHAPE {
   }
 
   /// Construct an EDA_SHAPE from an abstract SHAPE geometry.
-  protected initEdaShapeFromShape(aShape: SHAPE): void {
+  initEdaShapeFromShape(aShape: SHAPE): void {
     this.initEdaShape(SHAPE_T.UNDEFINED, 0, FILL_T.NO_FILL);
     // `m_fill()`: value-initialised, i.e. 0, which is no FILL_T member
     this.m_fill = 0 as FILL_T;
@@ -282,7 +286,7 @@ export abstract class EDA_SHAPE {
   }
 
   /** `EDA_SHAPE( const EDA_SHAPE& aOther )`: the copy constructor, as an init. */
-  protected initEdaShapeFrom(aOther: EDA_SHAPE): void {
+  initEdaShapeFrom(aOther: EDA_SHAPE): void {
     this.m_endsSwapped = aOther.m_endsSwapped;
     this.m_shape = aOther.m_shape;
     this.m_stroke = aOther.m_stroke.clone();
@@ -1777,7 +1781,7 @@ export abstract class EDA_SHAPE {
 
   // ---- protected ---------------------------------------------------------
 
-  protected getFriendlyName(): string {
+  getFriendlyName(): string {
     if (this.IsProxyItem()) {
       switch (this.m_shape) {
         case SHAPE_T.RECTANGLE:
@@ -1807,26 +1811,26 @@ export abstract class EDA_SHAPE {
     }
   }
 
-  protected setPosition(aPos: Vec2): void {
+  setPosition(aPos: Vec2): void {
     const p = this.getPosition();
     this.move({ x: aPos.x - p.x, y: aPos.y - p.y });
   }
 
-  protected getPosition(): VECTOR2I {
+  getPosition(): VECTOR2I {
     if (this.m_shape === SHAPE_T.ARC) return this.getCenter();
     if (this.m_shape === SHAPE_T.POLY) return this.GetPolyShape().CVertex(0);
     return this.m_start;
   }
 
-  protected setFilled(aFlag: boolean): void {
+  setFilled(aFlag: boolean): void {
     this.m_fill = aFlag ? FILL_T.FILLED_SHAPE : FILL_T.NO_FILL;
   }
 
-  protected getHatchingKnockouts(): SHAPE_POLY_SET {
+  getHatchingKnockouts(): SHAPE_POLY_SET {
     return new SHAPE_POLY_SET();
   }
 
-  protected move(aMoveVector: Vec2): void {
+  move(aMoveVector: Vec2): void {
     const add = (p: VECTOR2I): void => {
       p.x += aMoveVector.x;
       p.y += aMoveVector.y;
@@ -1884,7 +1888,7 @@ export abstract class EDA_SHAPE {
     this.m_hatchingDirty = true;
   }
 
-  protected rotate(aRotCentre: Vec2, aAngle: EDA_ANGLE): void {
+  rotate(aRotCentre: Vec2, aAngle: EDA_ANGLE): void {
     switch (this.m_shape) {
       case SHAPE_T.SEGMENT:
       case SHAPE_T.CIRCLE:
@@ -1942,7 +1946,7 @@ export abstract class EDA_SHAPE {
     this.m_hatchingDirty = true;
   }
 
-  protected flip(aCentre: Vec2, aFlipDirection: FLIP_DIRECTION): void {
+  flip(aCentre: Vec2, aFlipDirection: FLIP_DIRECTION): void {
     switch (this.m_shape) {
       case SHAPE_T.SEGMENT:
       case SHAPE_T.RECTANGLE:
@@ -1987,7 +1991,7 @@ export abstract class EDA_SHAPE {
     this.m_hatchingDirty = true;
   }
 
-  protected scale(aScale: number): void {
+  scale(aScale: number): void {
     const scalePt = (pt: VECTOR2I): void => {
       pt.x = KiROUND(pt.x * aScale);
       pt.y = KiROUND(pt.y * aScale);
@@ -2039,11 +2043,11 @@ export abstract class EDA_SHAPE {
     this.m_hatchingDirty = true;
   }
 
-  protected getDrawRotation(): EDA_ANGLE {
+  getDrawRotation(): EDA_ANGLE {
     return ANGLE_0;
   }
 
-  protected getBoundingBox(): BOX2I {
+  getBoundingBox(): BOX2I {
     const bbox = new BOX2I();
 
     switch (this.m_shape) {
@@ -2091,7 +2095,7 @@ export abstract class EDA_SHAPE {
     return bbox;
   }
 
-  protected computeArcBBox(aBBox: BOX2I): void {
+  computeArcBBox(aBBox: BOX2I): void {
     // Start, end, and each inflection point the arc crosses will enclose the entire arc.
     // Only include the center when filled; it's not necessarily inside the BB of an unfilled
     // arc with a small included angle.
@@ -2135,12 +2139,12 @@ export abstract class EDA_SHAPE {
   }
 
   /** `hitTest( const VECTOR2I& aPosition, int aAccuracy )`. */
-  protected hitTest(aPosition: Vec2, aAccuracy?: number): boolean;
+  hitTest(aPosition: Vec2, aAccuracy?: number): boolean;
   /** `hitTest( const BOX2I& aRect, bool aContained, int aAccuracy )`. */
-  protected hitTest(aRect: BOX2I, aContained: boolean, aAccuracy?: number): boolean;
+  hitTest(aRect: BOX2I, aContained: boolean, aAccuracy?: number): boolean;
   /** `hitTest( const SHAPE_LINE_CHAIN& aPoly, bool aContained )`. */
-  protected hitTest(aPoly: SHAPE_LINE_CHAIN, aContained: boolean): boolean;
-  protected hitTest(a: Vec2 | BOX2I | SHAPE_LINE_CHAIN, b?: number | boolean, c?: number): boolean {
+  hitTest(aPoly: SHAPE_LINE_CHAIN, aContained: boolean): boolean;
+  hitTest(a: Vec2 | BOX2I | SHAPE_LINE_CHAIN, b?: number | boolean, c?: number): boolean {
     if (a instanceof BOX2I) return this.hitTestRect(a, b as boolean, c ?? 0);
     if (a instanceof SHAPE_LINE_CHAIN) return this.hitTestPoly(a, b as boolean);
     return this.hitTestPoint(a, (b as number | undefined) ?? 0);
@@ -2445,7 +2449,7 @@ export abstract class EDA_SHAPE {
     return KIGEOM_ShapeHitTest(aPoly, shape, aContained);
   }
 
-  protected buildBezierToSegmentsPointsList(aMaxError: number): VECTOR2I[] {
+  buildBezierToSegmentsPointsList(aMaxError: number): VECTOR2I[] {
     // Rebuild the m_BezierPoints vertex list that approximate the Bezier curve
     const ctrlPoints = [this.m_start, this.m_bezierC1, this.m_bezierC2, this.m_end];
     const converter = new BezierPoly(ctrlPoints);
@@ -2454,7 +2458,7 @@ export abstract class EDA_SHAPE {
     return bezierPoints;
   }
 
-  protected beginEdit(aPosition: Vec2): void {
+  beginEdit(aPosition: Vec2): void {
     switch (this.GetShape()) {
       case SHAPE_T.SEGMENT:
       case SHAPE_T.CIRCLE:
@@ -2492,7 +2496,7 @@ export abstract class EDA_SHAPE {
     }
   }
 
-  protected continueEdit(aPosition: Vec2): boolean {
+  continueEdit(aPosition: Vec2): boolean {
     switch (this.GetShape()) {
       case SHAPE_T.ARC:
       case SHAPE_T.SEGMENT:
@@ -2522,7 +2526,7 @@ export abstract class EDA_SHAPE {
     }
   }
 
-  protected calcEdit(aPosition: Vec2): void {
+  calcEdit(aPosition: Vec2): void {
     const sq = (x: number): number => x ** 2;
 
     switch (this.GetShape()) {
@@ -2679,7 +2683,7 @@ export abstract class EDA_SHAPE {
    *
    * @param aClosed Should polygon shapes be closed (yes for pcbnew/fpeditor, no for libedit).
    */
-  protected endEdit(aClosed = true): void {
+  endEdit(aClosed = true): void {
     switch (this.GetShape()) {
       case SHAPE_T.ARC:
       case SHAPE_T.SEGMENT:
@@ -2709,11 +2713,11 @@ export abstract class EDA_SHAPE {
     }
   }
 
-  protected setEditState(aState: number): void {
+  setEditState(aState: number): void {
     this.m_editState = aState;
   }
 
-  protected isMoving(): boolean {
+  isMoving(): boolean {
     return false;
   }
 
@@ -2728,11 +2732,7 @@ export abstract class EDA_SHAPE {
    *                       lineChain rather than a closed polygon.
    */
   // fixme: move to shape_compound
-  protected makeEffectiveShapes(
-    aEdgeOnly: boolean,
-    aLineChainOnly = false,
-    aHittesting = false,
-  ): SHAPE[] {
+  makeEffectiveShapes(aEdgeOnly: boolean, aLineChainOnly = false, aHittesting = false): SHAPE[] {
     const effectiveShapes: SHAPE[] = [];
     const width = this.GetEffectiveWidth();
     let solidFill =
@@ -2849,19 +2849,19 @@ export abstract class EDA_SHAPE {
     return effectiveShapes;
   }
 
-  protected getMaxError(): number {
+  getMaxError(): number {
     return 100;
   }
 
   // non-const for PCB_SHAPE
-  protected hatching(): SHAPE_POLY_SET {
+  hatching(): SHAPE_POLY_SET {
     if (!this.m_hatchingCache)
       this.m_hatchingCache = { hatching: new SHAPE_POLY_SET(), hatchLines: [] };
 
     return this.m_hatchingCache.hatching;
   }
 
-  protected hatchLines(): SEG[] {
+  hatchLines(): SEG[] {
     if (!this.m_hatchingCache)
       this.m_hatchingCache = { hatching: new SHAPE_POLY_SET(), hatchLines: [] };
 

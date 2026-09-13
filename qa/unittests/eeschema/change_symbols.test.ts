@@ -7,6 +7,7 @@
  * the library part, and the two rules that stop it destroying work — an empty
  * library field does not blank yours, and a power symbol's value is its net.
  */
+import { GetRefDesNumber, GetRefDesPrefix } from '@ziroeda/common/src/refdes_utils.js';
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
@@ -14,8 +15,6 @@ import {
   changeSymbols,
   changeSymbolsCommand,
   defaultChangeSymbolsOptions,
-  refDesNumber,
-  refDesPrefix,
   type ChangeSymbolsOptions,
 } from '@ziroeda/eeschema/src/tools/change_symbols.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
@@ -76,10 +75,10 @@ const field = (d: Schematic, i: number, key: string) =>
 
 describe('reference splitting', () => {
   it('keeps the number and takes only the prefix from the library', () => {
-    expect(refDesPrefix('RS')).toBe('RS');
-    expect(refDesPrefix('R12')).toBe('R');
-    expect(refDesNumber('R7')).toBe(7);
-    expect(refDesNumber('R?')).toBe(-1);
+    expect(GetRefDesPrefix('RS')).toBe('RS');
+    expect(GetRefDesPrefix('R12')).toBe('R');
+    expect(GetRefDesNumber('R7')).toBe(7);
+    expect(GetRefDesNumber('R?')).toBe(-1);
   });
 });
 

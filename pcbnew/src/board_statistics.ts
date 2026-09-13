@@ -67,7 +67,7 @@ import {
   type Polygon,
 } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import { ErrorLoc } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
-import { buildBoardPolygonOutlines } from './convert_shape_list_to_polygon.js';
+import { buildBoardPolygonOutlines } from './convert_shape_list_to_polygon_legacy.js';
 import { padTransformShapeToPolygon } from './transform_shape_to_polygon.js';
 import { chainOutlines, shapePoints } from './courtyard.js';
 import { arcConvertToPolyline } from './router/shape_arc_ops.js';

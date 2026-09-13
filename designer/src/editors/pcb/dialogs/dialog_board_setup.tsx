@@ -29,7 +29,7 @@ import {
 } from '../../../ui/PagedDialog.js';
 import { validateUnitValue, type UnitRange } from '../../../ui/unit_binder.js';
 import { pcbIUScale, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
-import { validateViaParameters } from '@ziroeda/pcbnew/src/pcb_track.js';
+import { PCB_VIA, VIA_PARAMETER_ERROR_FIELD } from '@ziroeda/pcbnew/src/pcb_track.js';
 import { Icon } from '../../../ui/icons.js';
 import { SpinCtrl } from '../../../ui/SpinCtrl.js';
 
@@ -118,12 +118,15 @@ export function validateSizes(v: {
     // `PCB_VIA::ValidateViaParameters`, shared with the Custom Track/Via Size
     // dialog so the two refuse the same values in the same words. A zero is
     // this page's empty cell, which is upstream's empty `std::optional`.
-    const bad = validateViaParameters(
+    const bad = PCB_VIA.ValidateViaParameters(
       via.diameter > 0 ? pcbMmToIU(via.diameter) : undefined,
       via.drill > 0 ? pcbMmToIU(via.drill) : undefined,
     );
 
-    if (bad) return { message: bad.message, row, grid: 'Vias', col: bad.field };
+    if (bad) {
+      const col = bad.m_Field === VIA_PARAMETER_ERROR_FIELD.DIAMETER ? 'diameter' : 'drill';
+      return { message: bad.m_Message, row, grid: 'Vias', col };
+    }
   }
 
   // "No differential pair gap defined." — a width with no gap. A via gap is

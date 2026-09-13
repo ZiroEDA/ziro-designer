@@ -20,8 +20,10 @@
  * `166.9637`. Board code must take {@link pcbIUScale}.
  */
 
-/** Gerbview IU is 10 nanometres. */
+import type { MINOPTMAX } from '@ziroeda/core/src/minoptmax.js';
 import { formatF, formatG } from './string_utils.js';
+
+/** Gerbview IU is 10 nanometres. */
 
 export const GERB_IU_PER_MM = 1e5;
 /** Pcbnew IU is 1 nanometre. */
@@ -283,6 +285,113 @@ export function messageTextFromValue(
   }
 
   return addUnitsText ? text + unitLabelText(units, type) : text;
+}
+
+/**
+ * `removeTrailingZeros` (common/eda_units.cpp:32) — strip trailing zeros, and
+ * the decimal separator too if that is all that is left before it.
+ */
+function removeTrailingZeros(text: string): string {
+  let len = text.length;
+  let removeLast = 0;
+
+  while (--len > 0 && text[len] === '0') removeLast++;
+
+  if (len >= 0 && (text[len] === '.' || text[len] === ',')) removeLast++;
+
+  return text.slice(0, text.length - removeLast);
+}
+
+/**
+ * `EDA_UNIT_UTILS::UI::StringFromValue` (`eda_units.cpp:323`), the full-precision
+ * dialog-field formatter over internal units.
+ *
+ * The digit counts are per unit: mils `%.5f`, inch `%.8f`, everything else
+ * `%.10f`, each then stripped of trailing zeros; `is_eeschema`
+ * (`IU_PER_MM == SCH_IU_PER_MM`) drops mils to `%.3f` and inch to `%.6f`.
+ */
+export function stringFromValue(
+  aIuScale: EdaIuScale,
+  aUnits: EdaUnits,
+  aValue: number,
+  aAddUnitsText = false,
+  aType: EdaDataType = 'distance',
+): string {
+  let value_to_print = aValue;
+  const is_eeschema = aIuScale.IU_PER_MM === SCH_IU_PER_MM;
+
+  switch (aType) {
+    // biome-ignore lint/suspicious/noFallthroughSwitchClause: KI_FALLTHROUGH
+    case 'volume':
+      value_to_print = toUserUnit(aIuScale, aUnits, value_to_print);
+    // KI_FALLTHROUGH;
+
+    // biome-ignore lint/suspicious/noFallthroughSwitchClause: KI_FALLTHROUGH
+    case 'area':
+      value_to_print = toUserUnit(aIuScale, aUnits, value_to_print);
+    // KI_FALLTHROUGH;
+
+    case 'distance':
+      value_to_print = toUserUnit(aIuScale, aUnits, value_to_print);
+      break;
+
+    case 'unitless':
+      break;
+  }
+
+  let digits: number;
+
+  switch (aUnits) {
+    case 'mils':
+      digits = is_eeschema ? 3 : 5;
+      break;
+    case 'in':
+      digits = is_eeschema ? 6 : 8;
+      break;
+    case 'degrees':
+      digits = 4;
+      break;
+    default:
+      digits = 10;
+      break;
+  }
+
+  let text = removeTrailingZeros(value_to_print.toFixed(digits));
+
+  if (value_to_print !== 0.0 && (text === '0' || text === '-0')) {
+    text = removeTrailingZeros(value_to_print.toFixed(10));
+  }
+
+  if (aAddUnitsText) text += unitLabelText(aUnits, aType);
+
+  return text;
+}
+
+/** `EDA_UNIT_UTILS::UI::MessageTextFromMinOptMax` (`eda_units.cpp:513`). */
+export function messageTextFromMinOptMax(
+  aIuScale: EdaIuScale,
+  aUnits: EdaUnits,
+  aValue: MINOPTMAX,
+): string {
+  let msg = '';
+
+  if (aValue.HasMin() && aValue.Min() > 0) {
+    msg += `min ${messageTextFromValue(aIuScale, aUnits, aValue.Min())}`;
+  }
+
+  if (aValue.HasOpt()) {
+    if (msg !== '') msg += '; ';
+
+    msg += `opt ${messageTextFromValue(aIuScale, aUnits, aValue.Opt())}`;
+  }
+
+  if (aValue.HasMax()) {
+    if (msg !== '') msg += '; ';
+
+    msg += `max ${messageTextFromValue(aIuScale, aUnits, aValue.Max())}`;
+  }
+
+  return msg;
 }
 
 /**

@@ -924,3 +924,30 @@ export function FormatDouble2Str(value: number): string {
   }
   return formatG(value, 10);
 }
+
+/** `GetDefaultVariantName()`: the name the default (no) variant shows as. */
+export function GetDefaultVariantName(): string {
+  return '< Default >';
+}
+
+/**
+ * `IsURL( wxString )`: whether the string holds an http(s)/ftp/file URL.
+ */
+export function IsURL(aStr: string): boolean {
+  // The C++ runs ReplaceAll first, then Matches; the replacement leaves at least one
+  // match in the string whenever there was one, so the answer is the same.
+  const regex = /(https?|ftp|file):\/\/([-\w+&@#/%?=~|!:,.;]*[^.,:;<>\s¶])/i;
+
+  return regex.test(aStr);
+}
+
+/**
+ * `AccumulateDescription( wxString& aDesc, const wxString& aItem )` (`string_utils.h:379`):
+ * append `aItem` to `aDesc`, comma-separated. Returns the accumulated string.
+ */
+export function AccumulateDescription(aDesc: string, aItem: string): string {
+  if (aDesc !== '') aDesc += ', ';
+
+  aDesc += aItem;
+  return aDesc;
+}

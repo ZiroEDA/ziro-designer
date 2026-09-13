@@ -4183,14 +4183,23 @@ export function TransformArcToPolygon(
   aError: number,
   aErrorLoc: ERROR_LOC,
 ): void {
+  // `polyshape.NewOutline()` then `outline.Append( pt )` per point: the inner edge ends where
+  // the start cap began, and that last point stays (Append only refuses a repeat of the LAST
+  // point), so the outline carries a closing duplicate exactly as the C++ one does.
   for (const poly of transformArcToRings(aStart, aMid, aEnd, aWidth, aError, aErrorLoc)) {
+    const polyshape = new SHAPE_POLY_SET();
     poly.forEach((ring, i) => {
-      const c = new SHAPE_LINE_CHAIN();
-      for (const p of ring) c.Append(p);
-      c.SetClosed(true);
-      if (i === 0) aBuffer.AddOutline(c);
-      else aBuffer.AddHole(c);
+      if (i === 0) {
+        polyshape.NewOutline();
+        for (const p of ring) polyshape.Append(p.x, p.y);
+      } else {
+        const c = new SHAPE_LINE_CHAIN();
+        for (const p of ring) c.Append(p);
+        c.SetClosed(true);
+        polyshape.AddHole(c);
+      }
     });
+    aBuffer.Append(polyshape);
   }
 }
 
