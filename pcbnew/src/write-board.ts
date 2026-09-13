@@ -8,8 +8,8 @@
  * tree-patching writer that used to live here is gone with the `source`
  * nodes it patched.
  */
-import { kboardFromBoard } from './pcb_io/kicad_sexpr/board_view.js';
-import { FormatBoard } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { kboardFromBoard } from './pcb_io/kicad_sexpr/legacy_k/board_view.js';
+import { FormatBoard } from './pcb_io/kicad_sexpr/legacy_k/pcb_io_kicad_sexpr.js';
 import type { Board } from './types.js';
 
 /**

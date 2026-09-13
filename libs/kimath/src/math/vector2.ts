@@ -23,7 +23,9 @@ export interface VECTOR2I {
   y: number;
 }
 
-export const VECTOR2I = (x = 0, y = 0): VECTOR2I => ({ x, y });
+// `+ 0` folds a `-0` (the negation of an int 0 in double arithmetic) into the
+// int's only zero, so that a rotated (0, 0) compares equal to (0, 0).
+export const VECTOR2I = (x = 0, y = 0): VECTOR2I => ({ x: x + 0, y: y + 0 });
 
 export const add = (a: VECTOR2I, b: VECTOR2I): VECTOR2I => ({ x: a.x + b.x, y: a.y + b.y });
 

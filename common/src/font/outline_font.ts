@@ -504,8 +504,11 @@ export enum EMBEDDING_PERMISSION {
 /**
  * `OUTLINE_FONT::LoadFont`'s face source: fontconfig plus the file read.
  * The designer registers one that answers a face already fetched, and null
- * while it is on its way (the caller then draws with the stroke font, as
- * `FONT::GetFont` falls back when `LoadFont` fails).
+ * while it is on its way. A null does not fail `LoadFont`: fontconfig never
+ * fails a family — it substitutes — so the font is created under the
+ * asked-for name with no face, and draws with the stroke font as its
+ * stand-in until a face lands (`FONT::ClearFontMap` then resolves it anew).
+ * The name is what the file carries, and it survives a load/save either way.
  */
 export type OutlineFaceSource = (
   aFontName: string,
@@ -578,16 +581,19 @@ export class OUTLINE_FONT extends FONT {
       ? OUTLINE_FONT.faceSource(aFontName, aBold, aItalic, aEmbeddedFiles)
       : null;
 
-    if (!found) return null;
+    // `Fontconfig()->FindFont` answers FF_ERROR only when fontconfig itself is broken; a face
+    // that is not installed comes back as a substitute. Here the substitute for a face that
+    // is absent (or not fetched yet) is the stroke font, behind the asked-for name.
+    if (found) {
+      if (found.fakeBold) font.SetFakeBold();
 
-    if (found.fakeBold) font.SetFakeBold();
+      if (found.fakeItalic) font.SetFakeItal();
 
-    if (found.fakeItalic) font.SetFakeItal();
-
-    font.m_font = new OutlineFont(found.face, aFontName, found.fakeBold, found.fakeItalic);
+      font.m_font = new OutlineFont(found.face, aFontName, found.fakeBold, found.fakeItalic);
+      font.m_fontFileName = found.fileName;
+    }
 
     font.m_fontName = aFontName; // Keep asked-for name, even if we substituted.
-    font.m_fontFileName = found.fileName;
     font.m_forDrawingSheet = aForDrawingSheet;
 
     return font;
@@ -738,7 +744,23 @@ export class OUTLINE_FONT extends FONT {
     aOrigin: VECTOR2I,
     aTextStyle: TEXT_STYLE_FLAGS,
   ): VECTOR2I {
-    const run = this.m_font!.getTextAsGlyphs(
+    // No face (not installed, or not fetched yet): the stroke font is the stand-in, as
+    // fontconfig's substitute face would be.
+    if (!this.m_font) {
+      return FONT.getDefaultFont().GetTextAsGlyphs(
+        aBBox,
+        aGlyphs,
+        aText,
+        aSize,
+        aPosition,
+        aAngle,
+        aMirror,
+        aOrigin,
+        aTextStyle,
+      );
+    }
+
+    const run = this.m_font.getTextAsGlyphs(
       aText,
       aSize,
       aPosition,

@@ -155,6 +155,7 @@ import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { type Color4d, COLOR4D_UNSPECIFIED } from './color4d.js';
+import { type DSNLEXER, T } from './dsnlexer.js';
 import { type EdaIuScale, FormatInternalUnits } from './eda_units.js';
 import type { PlotterRenderSettings } from './render_settings.js';
 import type { OUTPUTFORMATTER } from './richio.js';
@@ -511,5 +512,95 @@ export class STROKE_PARAMS {
       default:
         throw new Error(`UNIMPLEMENTED_FOR ${SHAPE_TYPE_asString(aShape.Type())}`);
     }
+  }
+}
+
+/**
+ * `STROKE_PARAMS_PARSER` (stroke_params_parser.h / stroke_params.cpp:324):
+ * reads a `(stroke …)` list. The C++ is its own `STROKE_PARAMS_LEXER`
+ * synchronised onto the containing file's reader; here it reads that
+ * parser's own token stream.
+ */
+export class STROKE_PARAMS_PARSER {
+  constructor(
+    private readonly m_lexer: DSNLEXER,
+    private readonly m_iuPerMM: number,
+  ) {}
+
+  ParseStroke(aStroke: STROKE_PARAMS): void {
+    for (let token = this.m_lexer.NextTok(); token !== T.RIGHT; token = this.m_lexer.NextTok()) {
+      if (token !== T.LEFT) this.m_lexer.Expecting(T.LEFT);
+
+      token = this.m_lexer.NextTok();
+
+      switch (token) {
+        case 'width':
+          aStroke.SetWidth(KiROUND(this.parseDouble('stroke width') * this.m_iuPerMM));
+          this.m_lexer.NeedRIGHT();
+          break;
+
+        case 'type': {
+          token = this.m_lexer.NextTok();
+
+          switch (token) {
+            case 'dash':
+              aStroke.SetLineStyle(LINE_STYLE.DASH);
+              break;
+            case 'dot':
+              aStroke.SetLineStyle(LINE_STYLE.DOT);
+              break;
+            case 'dash_dot':
+              aStroke.SetLineStyle(LINE_STYLE.DASHDOT);
+              break;
+            case 'dash_dot_dot':
+              aStroke.SetLineStyle(LINE_STYLE.DASHDOTDOT);
+              break;
+            case 'solid':
+              aStroke.SetLineStyle(LINE_STYLE.SOLID);
+              break;
+            case 'default':
+              aStroke.SetLineStyle(LINE_STYLE.DEFAULT);
+              break;
+            default:
+              this.m_lexer.Expecting('solid, dash, dash_dot, dash_dot_dot, dot or default');
+          }
+
+          this.m_lexer.NeedRIGHT();
+          break;
+        }
+
+        case 'color': {
+          const color: Color4d = { r: 0, g: 0, b: 0, a: 0 };
+
+          color.r = this.parseInt('red') / 255.0;
+          color.g = this.parseInt('green') / 255.0;
+          color.b = this.parseInt('blue') / 255.0;
+          color.a = Math.min(Math.max(this.parseDouble('alpha'), 0.0), 1.0);
+
+          aStroke.SetColor(color);
+          this.m_lexer.NeedRIGHT();
+          break;
+        }
+
+        default:
+          this.m_lexer.Expecting('width, type, or color');
+      }
+    }
+  }
+
+  private parseInt(aText: string): number {
+    const token = this.m_lexer.NextTok();
+
+    if (token !== T.NUMBER) this.m_lexer.Expecting(aText);
+
+    return Number.parseInt(this.m_lexer.CurText(), 10); // atoi
+  }
+
+  private parseDouble(aText: string): number {
+    const token = this.m_lexer.NextTok();
+
+    if (token !== T.NUMBER) this.m_lexer.Expecting(aText);
+
+    return this.m_lexer.parseDouble();
   }
 }

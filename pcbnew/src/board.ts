@@ -16,12 +16,14 @@
  */
 
 import { RECURSE_MODE } from '@ziroeda/common/src/eda_item.js';
+import type { EDA_GROUP } from '@ziroeda/common/src/eda_group.js';
 import { STRUCT_DELETED } from '@ziroeda/common/src/eda_item_flags.js';
 import { type EdaUnits, pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import { type KIID, niluuid } from '@ziroeda/common/src/kiid.js';
 import {
   FlipLayer as flipLayerId,
   type GAL_LAYER_ID,
+  GAL_SET,
   IsBackLayer as isBackLayerId,
   IsCopperLayer,
   IsFrontLayer as isFrontLayerId,
@@ -51,7 +53,13 @@ import type { PCB_GENERATOR } from './pcb_generator.js';
 import type { PCB_GROUP } from './pcb_group.js';
 import type { PCB_POINT } from './pcb_point.js';
 import type { PCB_MARKER } from './pcb_marker.js';
-import type { PCB_TABLE } from './pcb_table.js';
+import { PCB_TABLE } from './pcb_table.js';
+import { PCB_BARCODE } from './pcb_barcode.js';
+import type { PCB_SHAPE } from './pcb_shape.js';
+import type { PCB_TEXT } from './pcb_text.js';
+import type { PCB_TEXTBOX } from './pcb_textbox.js';
+import { EDA_SHAPE } from '@ziroeda/common/src/eda_shape.js';
+import { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
 import type { PCB_TRACK } from './pcb_track.js';
 import type { ZONE } from './zone.js';
 
@@ -76,7 +84,7 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
    * Visibility settings stored in board prior to 6.0, only used for loading legacy files
    */
   m_LegacyVisibleLayers = new LSET();
-  // m_LegacyVisibleItems: GAL_SET  -- pending (#636)
+  m_LegacyVisibleItems = new GAL_SET();
 
   /**
    * True if the legacy board design settings were loaded from a file
@@ -532,7 +540,7 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
    * Set the layer information from a #LAYER object.
    */
   SetLayerDescr(aIndex: PCB_LAYER_ID, aLayer: LAYER): boolean {
-    this.m_layers.set(aIndex, aLayer);
+    this.m_layers.set(aIndex, LAYER.copyOf(aLayer)); // m_layers[aIndex] = aLayer: by value
     this.recalcOpposites();
     return true;
   }
@@ -927,6 +935,205 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
     if (aAllowNullptrReturn) return null;
 
     return DELETED_BOARD_ITEM.GetInstance();
+  }
+
+  /**
+   * Must be used if Add() is used using a BULK_x ADD_MODE to generate a change event for
+   * listeners.
+   */
+  FinalizeBulkAdd(_aNewItems: BOARD_ITEM[]): void {
+    // InvokeListeners( &BOARD_LISTENER::OnBoardItemsAdded, *this, aNewItems )   -- listeners pending (#636 stage 2)
+  }
+
+  /**
+   * Must be used if Remove() is used using a BULK_x REMOVE_MODE to generate a change event
+   * for listeners.
+   */
+  FinalizeBulkRemove(_aRemovedItems: BOARD_ITEM[]): void {
+    // InvokeListeners( &BOARD_LISTENER::OnBoardItemsRemoved, *this, aRemovedItems )   -- listeners pending (#636 stage 2)
+  }
+
+  FixupEmbeddedData(): void {
+    this.RunOnNestedEmbeddedFiles((nested) => {
+      for (const [filename, embeddedFile] of nested.EmbeddedFileMap()) {
+        const file = this.GetEmbeddedFile(filename);
+
+        if (file) {
+          embeddedFile.compressedEncodedData = file.compressedEncodedData;
+          embeddedFile.decompressedData = file.decompressedData;
+          embeddedFile.data_hash = file.data_hash;
+          embeddedFile.is_valid = file.is_valid;
+        }
+      }
+    });
+  }
+
+  /**
+   * Check that the board is valid and that all groups are sane.
+   *
+   * @param repair if true, the board is repaired (as well as possible).
+   * @return the error message, or an empty string on success.
+   */
+  GroupsSanityCheck(repair = false): string {
+    if (repair) {
+      while (this.GroupsSanityCheckInternal(repair) !== '') {
+        // repeat until clean
+      }
+
+      return '';
+    }
+    return this.GroupsSanityCheckInternal(repair);
+  }
+
+  GroupsSanityCheckInternal(repair: boolean): string {
+    // Cycle detection
+    //
+    // Each group has at most one parent group.
+    // So we start at group 0 and traverse the parent chain, marking groups seen along the way.
+    // If we ever see a group that we've already marked, that's a cycle.
+    // If we reach the end of the chain, we know all groups in that chain are not part of any cycle.
+    //
+    // Algorithm below is linear in the # of groups because each group is visited only once.
+    // There may be extra time taken due to the container access calls and iterators.
+    //
+    // Groups we know are cycle free
+    const knownCycleFreeGroups = new Set<EDA_GROUP>();
+    // Groups in the current chain we're exploring.
+    const currentChainGroups = new Set<EDA_GROUP>();
+    // Groups we haven't checked yet.
+    const toCheckGroups = new Set<EDA_GROUP>();
+
+    // Initialize set of groups and generators to check that could participate in a cycle.
+    for (const group of this.Groups()) toCheckGroups.add(group);
+
+    for (const gen of this.Generators()) toCheckGroups.add(gen);
+
+    while (toCheckGroups.size > 0) {
+      currentChainGroups.clear();
+      let group: EDA_GROUP | null = toCheckGroups.values().next().value as EDA_GROUP;
+
+      while (true) {
+        if (currentChainGroups.has(group)) {
+          if (repair) this.Remove(group.AsEdaItem() as BOARD_ITEM);
+
+          return 'Cycle detected in group membership';
+        }
+
+        if (knownCycleFreeGroups.has(group)) {
+          // Parent is a group we know does not lead to a cycle
+          break;
+        }
+
+        currentChainGroups.add(group);
+        // We haven't visited currIdx yet, so it must be in toCheckGroups
+        toCheckGroups.delete(group);
+
+        group = group.AsEdaItem().GetParentGroup();
+
+        if (!group) {
+          // end of chain and no cycles found in this chain
+          break;
+        }
+      }
+
+      // No cycles found in chain, so add it to set of groups we know don't participate
+      // in a cycle.
+      for (const g of currentChainGroups) knownCycleFreeGroups.add(g);
+    }
+
+    // Success
+    return '';
+  }
+
+  /** `BOARD::cmp_items::operator()`. */
+  static cmp_items(a: BOARD_ITEM, b: BOARD_ITEM): boolean {
+    if (a.Type() !== b.Type()) return a.Type() < b.Type();
+
+    if (a.GetLayer() !== b.GetLayer()) return a.GetLayer() < b.GetLayer();
+
+    if (a.GetPosition().x !== b.GetPosition().x) return a.GetPosition().x < b.GetPosition().x;
+
+    if (a.GetPosition().y !== b.GetPosition().y) return a.GetPosition().y < b.GetPosition().y;
+
+    if (a.m_Uuid !== b.m_Uuid)
+      // shopuld be always the case foer valid boards
+      return a.m_Uuid < b.m_Uuid;
+
+    return false; // a < b: pointer order, no analogue
+  }
+
+  /** `BOARD::cmp_drawings::operator()`. */
+  static cmp_drawings(aFirst: BOARD_ITEM, aSecond: BOARD_ITEM): boolean {
+    if (aFirst.Type() !== aSecond.Type()) return aFirst.Type() < aSecond.Type();
+
+    if (aFirst.GetLayer() !== aSecond.GetLayer()) return aFirst.GetLayer() < aSecond.GetLayer();
+
+    if (aFirst.Type() === KICAD_T.PCB_SHAPE_T) {
+      const shape = aFirst as PCB_SHAPE;
+      const other = aSecond as PCB_SHAPE;
+      return shape.Compare(other as unknown as EDA_SHAPE) < 0;
+    }
+
+    if (aFirst.Type() === KICAD_T.PCB_TEXT_T || aFirst.Type() === KICAD_T.PCB_FIELD_T) {
+      const text = aFirst as PCB_TEXT;
+      const other = aSecond as PCB_TEXT;
+      return text.Compare(other as unknown as EDA_TEXT) < 0;
+    }
+
+    if (aFirst.Type() === KICAD_T.PCB_TEXTBOX_T) {
+      const textbox = aFirst as PCB_TEXTBOX;
+      const other = aSecond as PCB_TEXTBOX;
+
+      const shapeCmp = EDA_SHAPE.prototype.Compare.call(textbox, other as unknown as EDA_SHAPE);
+
+      if (shapeCmp !== 0) return shapeCmp < 0;
+
+      return EDA_TEXT.prototype.Compare.call(textbox, other as unknown as EDA_TEXT) < 0;
+    }
+
+    if (aFirst.Type() === KICAD_T.PCB_TABLE_T) {
+      const table = aFirst as PCB_TABLE;
+      const other = aSecond as PCB_TABLE;
+
+      return PCB_TABLE.Compare(table, other) < 0;
+    }
+
+    if (aFirst.Type() === KICAD_T.PCB_BARCODE_T) {
+      const barcode = aFirst as PCB_BARCODE;
+      const other = aSecond as PCB_BARCODE;
+
+      return PCB_BARCODE.Compare(barcode, other) < 0;
+    }
+
+    return aFirst.m_Uuid < aSecond.m_Uuid;
+  }
+
+  override RunOnChildren(aFunction: (aItem: BOARD_ITEM) => void, aMode: RECURSE_MODE): void {
+    for (const track of this.m_tracks) aFunction(track);
+
+    for (const zone of this.m_zones) aFunction(zone);
+
+    for (const marker of this.m_markers) aFunction(marker);
+
+    for (const group of this.m_groups) aFunction(group);
+
+    for (const point of this.m_points) aFunction(point);
+
+    for (const footprint of this.m_footprints) {
+      aFunction(footprint);
+
+      if (aMode === RECURSE_MODE.RECURSE) footprint.RunOnChildren(aFunction, RECURSE_MODE.RECURSE);
+    }
+
+    for (const drawing of this.m_drawings) {
+      aFunction(drawing);
+
+      if (aMode === RECURSE_MODE.RECURSE) drawing.RunOnChildren(aFunction, RECURSE_MODE.RECURSE);
+    }
+  }
+
+  GetItemByIdCache(): ReadonlyMap<KIID, BOARD_ITEM> {
+    return this.m_itemByIdCache;
   }
 
   CacheItemById(aItem: BOARD_ITEM): void {

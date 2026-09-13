@@ -40,6 +40,18 @@ export class LAYER {
     this.clear();
   }
 
+  /** The compiler-generated copy (`m_layers[aIndex] = aLayer`). */
+  static copyOf(aOther: LAYER): LAYER {
+    const l = new LAYER();
+    l.m_name = aOther.m_name;
+    l.m_userName = aOther.m_userName;
+    l.m_type = aOther.m_type;
+    l.m_visible = aOther.m_visible;
+    l.m_number = aOther.m_number;
+    l.m_opposite = aOther.m_opposite;
+    return l;
+  }
+
   clear(): void {
     this.m_type = LAYER_T.LT_SIGNAL;
     this.m_visible = true;

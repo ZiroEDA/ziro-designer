@@ -23,6 +23,7 @@ import {
   plotPdf,
   plotPdfSheets,
   sheetsToPdf,
+  type PlotOpts,
 } from '@ziroeda/designer/src/editors/schematic/render/plot.js';
 import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
@@ -73,7 +74,7 @@ afterAll(() => {
 const sheet = (paper: string): Schematic =>
   readSchematic(parse(`(kicad_sch (version 20250114) (paper "${paper}") (lib_symbols))`));
 
-const opts = { color: true, drawingSheet: false, background: false } as never;
+const opts = { color: true, drawingSheet: false, background: false } as PlotOpts;
 
 /** Every page content stream of `bytes`, inflated. */
 function contentStreams(bytes: Uint8Array): string[] {

@@ -23,7 +23,7 @@ import { FLIP_DIRECTION, serializeFootprint } from '@ziroeda/pcbnew/src/write-fo
 import {
   boardOpposites,
   flipLayerId,
-} from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/kicad_footprint_ops.js';
+} from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/legacy_k/kicad_footprint_ops.js';
 import { B_Cu, F_Cu, In_Cu, User_1 } from '@ziroeda/pcbnew/src/layer_ids.js';
 import type { LayerDescr } from '@ziroeda/pcbnew/src/board_file_model.js';
 import type { PcbFootprint } from '@ziroeda/pcbnew/src/types.js';

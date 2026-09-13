@@ -7,6 +7,10 @@
  * footprint, a schematic or a symbol carries, with its zstd + base64 codec
  * and MurmurHash3 checksum.
  *
+ * The checksum is `MMH3_HASH` as 10.0.5 computes it (`mmh3HashToStringV1`:
+ * the padded tail); kimath's `mmh3HashToString` is master's later fix and
+ * would reject every file KiCad 10.0.5 writes.
+ *
  * zstd is the same wasm build eeschema's tools use; its module has to be
  * instantiated once, asynchronously, before the synchronous codec can run —
  * `await EMBEDDED_FILES.InitCodec()` ahead of a parse that may meet data.
@@ -18,7 +22,7 @@
  */
 
 import { compress, decompress, init as zstdInit } from '@bokuweb/zstd-wasm';
-import { mmh3HashToString } from '@ziroeda/kimath/src/mmh3_hash.js';
+import { mmh3HashToStringV1 as mmh3HashToString } from '@ziroeda/kimath/src/mmh3_hash.js';
 import { type DSNLEXER, DSNLEXER as DSNLEXER_CLASS, PARSE_ERROR, T, type Tok } from './dsnlexer.js';
 import { hash256_hex_string } from './picosha2.js';
 import type { OUTPUTFORMATTER } from './richio.js';

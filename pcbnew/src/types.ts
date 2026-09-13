@@ -32,9 +32,9 @@ import type {
   KPcbTrack,
   KPcbVia,
   KZone,
-} from './pcb_io/kicad_sexpr/kicad_board_items.js';
-import type { KPcbShape } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_items.js';
-import type { KBoard } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_board.js';
+} from './pcb_io/kicad_sexpr/legacy_k/kicad_board_items.js';
+import type { KPcbShape } from './pcb_io/kicad_sexpr/legacy_k/pcb_io_kicad_sexpr_items.js';
+import type { KBoard } from './pcb_io/kicad_sexpr/legacy_k/pcb_io_kicad_sexpr_board.js';
 
 /** One `(N "Name" type [userName])` row of the `(layers …)` table. */
 export interface PcbLayerDef {

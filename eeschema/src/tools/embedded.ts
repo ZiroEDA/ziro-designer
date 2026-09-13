@@ -124,7 +124,8 @@ export async function compressAndEncode(
   const compressed = compress(bytes, 15);
   return {
     data: base64Encode(new Uint8Array(compressed)),
-    checksum: mmh3HashToString(bytes, EMBEDDED_FILES_SEED),
+    // 10.0.5's MMH3_HASH::addData is the padded-tail variant (mmh3HashToStringV1).
+    checksum: mmh3HashToStringV1(bytes, EMBEDDED_FILES_SEED),
   };
 }
 

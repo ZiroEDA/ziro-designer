@@ -9,8 +9,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { GENERATOR } from '@ziroeda/common/src/generator.js';
-import { FormatBoard } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { ParseBoard } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_board.js';
+import { FormatBoard } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/legacy_k/pcb_io_kicad_sexpr.js';
+import { ParseBoard } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/legacy_k/pcb_io_kicad_sexpr_board.js';
 
 const RESAVE = fileURLToPath(new URL('../../data/pcbnew/resave/', import.meta.url));
 const boards = readdirSync(RESAVE)

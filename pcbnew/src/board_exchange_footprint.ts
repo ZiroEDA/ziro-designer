@@ -27,7 +27,7 @@ import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { computeFootprintShift } from './footprint_utils.js';
 import { fpidItemName } from './netlist_reader/pcb_netlist.js';
 import { rotatePcb } from './read-board.js';
-import { cloneK, footprintViewOfBoard } from './pcb_io/kicad_sexpr/board_view.js';
+import { cloneK, footprintViewOfBoard } from './pcb_io/kicad_sexpr/legacy_k/board_view.js';
 import { LSET_NameToLayer } from './layer_ids.js';
 import type { PcbFootprint } from './types.js';
 

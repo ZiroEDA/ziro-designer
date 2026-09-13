@@ -385,7 +385,7 @@ export abstract class FONT {
     return false;
   }
 
-  private static getDefaultFont(): FONT {
+  protected static getDefaultFont(): FONT {
     if (!FONT.s_defaultFont) FONT.s_defaultFont = FONT.loaders.stroke!('');
 
     return FONT.s_defaultFont!;

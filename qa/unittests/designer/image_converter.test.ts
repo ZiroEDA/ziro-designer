@@ -13,7 +13,7 @@ import { describe, it, expect } from 'vitest';
 import { Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/src/reporter.js';
 import { parse } from '@ziroeda/sexpr';
 import { readFootprintFile } from '@ziroeda/pcbnew';
-import { SEXPR_BOARD_FILE_VERSION } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
+import { SEXPR_BOARD_FILE_VERSION } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/legacy_k/pcb_io_kicad_sexpr_parser.js';
 import { readSymbolLib } from '@ziroeda/eeschema';
 import { serializeSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/write-symbol-lib.js';
 import { readDrawingSheet } from '@ziroeda/common/src/drawing_sheet/read.js';

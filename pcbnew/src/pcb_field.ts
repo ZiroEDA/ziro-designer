@@ -80,6 +80,15 @@ export class PCB_FIELD extends PCB_TEXT {
     return copy;
   }
 
+  /** The compiler-generated `operator=` (`footprint->Reference() = PCB_FIELD( … )`). */
+  assignPcbField(aOther: PCB_FIELD): this {
+    this.assignPcbText(aOther);
+    this.m_id = aOther.m_id;
+    this.m_ordinal = aOther.m_ordinal;
+    this.m_name = aOther.m_name;
+    return this;
+  }
+
   static override ClassOf(aItem: { Type(): KICAD_T } | null): boolean {
     return !!aItem && KICAD_T.PCB_FIELD_T === aItem.Type();
   }

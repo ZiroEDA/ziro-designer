@@ -7,13 +7,13 @@
  * onto the front, detached and cleared of nets, then `Format`ted with
  * `CTL_FOR_LIBRARY` — over the footprint's model.
  */
-import { kfootprintFromView } from './pcb_io/kicad_sexpr/board_view.js';
+import { kfootprintFromView } from './pcb_io/kicad_sexpr/legacy_k/board_view.js';
 import {
   FLIP_DIRECTION,
   type FlipBoard,
   footprintSaveClone,
-} from './pcb_io/kicad_sexpr/kicad_footprint_ops.js';
-import { FormatFootprintFile } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+} from './pcb_io/kicad_sexpr/legacy_k/kicad_footprint_ops.js';
+import { FormatFootprintFile } from './pcb_io/kicad_sexpr/legacy_k/pcb_io_kicad_sexpr.js';
 import type { PcbFootprint } from './types.js';
 
 export { FLIP_DIRECTION };

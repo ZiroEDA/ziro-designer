@@ -32,8 +32,8 @@ import { EDA_ANGLE, ANGLE_180 } from '@ziroeda/kimath/src/geometry/eda_angle.js'
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { FLIP_DIRECTION, MIRROR } from '@ziroeda/core/src/mirror.js';
-import type { LayerDescr } from '../../board_file_model.js';
-import { updateDimension } from '../../dimension_text.js';
+import type { LayerDescr } from '../../../board_file_model.js';
+import { updateDimension } from '../../../dimension_text.js';
 import {
   B_Adhes,
   B_CrtYd,
@@ -53,8 +53,8 @@ import {
   IsCopperLayer,
   PCB_LAYER_ID_COUNT,
   User_1,
-} from '../../layer_ids.js';
-import { LSET } from '../../lset.js';
+} from '../../../layer_ids.js';
+import { LSET } from '../../../lset.js';
 import { applyDimension, dimensionView } from './board_view.js';
 import {
   type CopperLayerProps,

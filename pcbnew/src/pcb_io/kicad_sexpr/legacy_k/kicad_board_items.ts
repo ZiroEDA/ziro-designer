@@ -32,10 +32,10 @@ import {
   F_Paste,
   F_SilkS,
   UNDEFINED_LAYER,
-} from '../../layer_ids.js';
-import { LSET } from '../../lset.js';
-import type { EmbeddedFiles, ZoneLayerProperties } from '../../board_file_model.js';
-import type { TeardropParams } from '../../types.js';
+} from '../../../layer_ids.js';
+import { LSET } from '../../../lset.js';
+import type { EmbeddedFiles, ZoneLayerProperties } from '../../../board_file_model.js';
+import type { TeardropParams } from '../../../types.js';
 import type { KPcbShape, NetRef, OutlineEntry, StrokeParams } from './pcb_io_kicad_sexpr_items.js';
 
 // ---------------------------------------------------------------------------

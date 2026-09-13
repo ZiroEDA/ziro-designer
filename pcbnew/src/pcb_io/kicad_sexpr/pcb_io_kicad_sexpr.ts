@@ -2,16 +2,24 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `PCB_IO_KICAD_SEXPR` (pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.cpp): the
- * `.kicad_pcb` writer. Each `format*` is the C++ function of the same name in
- * the same order with the same `Print` calls, printed compact into an
- * `OUTPUTFORMATTER` and laid out by `KICAD_FORMAT::Prettify` at the end —
- * which is exactly how `PRETTIFIED_FILE_OUTPUTFORMATTER::Finish` writes the
- * file upstream, and why a board we write is the bytes KiCad would write.
- *
- * Line references are to the 10.0.5 source.
+ * `PCB_IO_KICAD_SEXPR` (pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.cpp):
+ * the `.kicad_pcb` / `.kicad_mod` writer over the item classes, `Format`
+ * per item in the C++ order. The file-system half of the plugin — the
+ * library cache, `FootprintEnumerate`, `SaveBoard` to a path — is not
+ * here; `FormatBoardToFormatter` and `Format( aItem )` are the writer.
  */
-import { FormatAngle, FormatInternalUnits, pcbIUScale } from '@ziroeda/common/src/eda_units.js';
+
+import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
+import { FILL_T, SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
+import { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
+import { CTL_OMIT_COLOR, CTL_OMIT_HYPERLINK } from '@ziroeda/common/src/ctl_flags.js';
+import {
+  type FileDataType,
+  FormatAngle,
+  FormatInternalUnits,
+  pcbIUScale,
+} from '@ziroeda/common/src/eda_units.js';
+import { CALLBACK_GAL } from '@ziroeda/common/src/callback_gal.js';
 import { GENERATOR } from '@ziroeda/common/src/generator.js';
 import {
   FormatBool,
@@ -19,64 +27,7 @@ import {
   FormatStreamData,
   FormatUuid,
 } from '@ziroeda/common/src/io/kicad/kicad_io_utils.js';
-import { type OUTPUTFORMATTER, PRETTIFIED_STRING_FORMATTER } from '@ziroeda/common/src/richio.js';
-import { FormatDouble2Str, formatF, formatG, strNumCmp } from '@ziroeda/common/src/string_utils.js';
-import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
-import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
-import type { TeardropParams } from '../../types.js';
-import {
-  copperLayerPropsConst,
-  defaultTeardropParams,
-  fieldCanonicalName,
-  FP_BOARD_ONLY,
-  FP_DNP,
-  FP_EXCLUDE_FROM_BOM,
-  FP_EXCLUDE_FROM_POS_FILES,
-  FP_SMD,
-  FP_THROUGH_HOLE,
-  type KEdaText,
-  type KFootprint,
-  type KFpGraphicalItem,
-  type KPad,
-  type KPcbBarcode,
-  type KPcbDimension,
-  type KPcbGenerator,
-  type KPcbGroup,
-  type KPcbPoint,
-  type KPcbReferenceImage,
-  type KPcbTable,
-  type KPcbTableCell,
-  type KPcbTarget,
-  type KPcbText,
-  type KPcbTextBox,
-  type KPcbTrack,
-  type KPcbVia,
-  type KZone,
-  PADSTACK_ALL_LAYERS,
-  PADSTACK_INNER_LAYERS,
-  type PadShape,
-  padstackThermalSpokeAngle,
-  type PostMachiningProps,
-  RECT_CHAMFER_BOTTOM_LEFT,
-  RECT_CHAMFER_BOTTOM_RIGHT,
-  RECT_CHAMFER_TOP_LEFT,
-  RECT_CHAMFER_TOP_RIGHT,
-  uniquePadstackLayers,
-} from './kicad_board_items.js';
-import type { KBoard, KBoardDrawing, KBoardTrack } from './pcb_io_kicad_sexpr_board.js';
-import {
-  type BoardDesignSettingsFile,
-  type BoardStackup,
-  type BoardVariant,
-  type EmbeddedFiles,
-  IsPrmSpecified,
-  type LayerDescr,
-  type PageInfo,
-  type PcbPlotParams,
-  type TitleBlock,
-  type ZoneLayerProperties,
-} from '../../board_file_model.js';
+import { kiidPathAsString } from '@ziroeda/common/src/kiid.js';
 import {
   B_Adhes,
   B_CrtYd,
@@ -94,62 +45,88 @@ import {
   F_SilkS,
   IsCopperLayer,
   IsExternalCopperLayer,
-  LSET_Name,
   MAX_CU_LAYERS,
-  PCB_LAYER_ID_COUNT,
-  UNDEFINED_LAYER,
+  PCB_LAYER_ID,
   User_1,
-} from '../../layer_ids.js';
-import { LAYER_RANGE, LSET } from '../../lset.js';
+} from '@ziroeda/common/src/layer_ids.js';
+import { LAYER_RANGE } from '@ziroeda/common/src/layer_range.js';
+import { LSET } from '@ziroeda/common/src/lset.js';
+import { type OUTPUTFORMATTER, PRETTIFIED_STRING_FORMATTER } from '@ziroeda/common/src/richio.js';
+import { FormatDouble2Str, formatF, formatG } from '@ziroeda/common/src/string_utils.js';
 import {
-  type FillT,
-  type KPcbShape,
-  type NetRef,
-  type OutlineEntry,
-  type ParentFP,
-  type ShapeT,
-  shapeLayerSet,
-  type StrokeParams,
-  trackLayerSet,
-  UNDEFINED_DRILL_DIAMETER,
-  zoneFirstLayer,
-} from './pcb_io_kicad_sexpr_items.js';
-import type { StrokeType } from '../../types.js';
+  RECT_CHAMFER_BOTTOM_LEFT,
+  RECT_CHAMFER_BOTTOM_RIGHT,
+  RECT_CHAMFER_TOP_LEFT,
+  RECT_CHAMFER_TOP_RIGHT,
+} from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import { ANGLE_45, ANGLE_90, type EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
+import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
+import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { BOARD } from '../../board.js';
+import { BOARD_ITEM, ZONE_LAYER_OVERRIDE } from '../../board_item.js';
+import { LAYER, LAYER_T } from '../../board_types.js';
+import {
+  FOOTPRINT,
+  FOOTPRINT_STACKUP,
+  FP_BOARD_ONLY,
+  FP_DNP,
+  FP_EXCLUDE_FROM_BOM,
+  FP_EXCLUDE_FROM_POS_FILES,
+  FP_SMD,
+  FP_THROUGH_HOLE,
+} from '../../footprint.js';
+import { PAD } from '../../pad.js';
+import {
+  CUSTOM_SHAPE_ZONE_MODE,
+  PAD_ATTRIB,
+  PAD_DRILL_POST_MACHINING_MODE,
+  PAD_DRILL_SHAPE,
+  PAD_PROP,
+  PAD_SHAPE,
+  PADSTACK,
+  PADSTACK_MODE,
+  type PADSTACK_POST_MACHINING_PROPS,
+  UNCONNECTED_LAYER_MODE,
+} from '../../padstack.js';
+import { BARCODE_ECC_T, BARCODE_T, PCB_BARCODE } from '../../pcb_barcode.js';
+import { DIM_ARROW_DIRECTION } from '../../pcb_dimension_types.js';
+import {
+  PCB_DIM_ALIGNED,
+  PCB_DIM_CENTER,
+  PCB_DIM_LEADER,
+  PCB_DIM_ORTHOGONAL,
+  PCB_DIM_RADIAL,
+  PCB_DIMENSION_BASE,
+} from '../../pcb_dimension.js';
+import { PCB_FIELD } from '../../pcb_field.js';
+import type { PCB_GENERATOR } from '../../pcb_generator.js';
+import { PCB_GROUP } from '../../pcb_group.js';
+import { PCB_POINT } from '../../pcb_point.js';
+import { PCB_REFERENCE_IMAGE } from '../../pcb_reference_image.js';
+import { PCB_SHAPE } from '../../pcb_shape.js';
+import { PCB_TABLE, PCB_TABLECELL } from '../../pcb_table.js';
+import { PCB_TARGET } from '../../pcb_target.js';
+import { PCB_TEXT } from '../../pcb_text.js';
+import { PCB_TEXTBOX } from '../../pcb_textbox.js';
+import { PCB_ARC, PCB_TRACK, PCB_VIA, UNDEFINED_DRILL_DIAMETER, VIATYPE } from '../../pcb_track.js';
+import { TEARDROP_PARAMETERS } from '../../teardrop/teardrop_parameters.js';
+import { TEARDROP_TYPE } from '../../teardrop/teardrop_types.js';
+import { ZONE } from '../../zone.js';
+import {
+  ISLAND_REMOVAL_MODE,
+  PLACEMENT_SOURCE_T,
+  ZONE_BORDER_DISPLAY_STYLE,
+  ZONE_FILL_MODE,
+  type ZONE_LAYER_PROPERTIES,
+  ZONE_SETTINGS,
+} from '../../zone_settings.js';
+import { ZONE_CONNECTION } from '../../zones.js';
 import { SEXPR_BOARD_FILE_VERSION } from './pcb_io_kicad_sexpr_parser.js';
-
-/** `KiROUND`. */
-const KiROUND = (v: number): number => (v < 0 ? Math.ceil(v - 0.5) : Math.floor(v + 0.5));
 
 /** `GetMajorMinorVersion()`: the `generator_version` a 10.0.x build writes. */
 export const MAJOR_MINOR_VERSION = '10.0';
-
-/** `formatInternalUnits( int )` (:454). */
-export const formatInternalUnits = (
-  value: number,
-  dataType: 'distance' | 'time' = 'distance',
-): string => FormatInternalUnits(pcbIUScale, value, dataType);
-
-/** `formatInternalUnits( const VECTOR2I& )` (:460). */
-export const formatInternalUnitsPt = (p: Vec2): string =>
-  `${FormatInternalUnits(pcbIUScale, p.x)} ${FormatInternalUnits(pcbIUScale, p.y)}`;
-
-/** What the header formatter reads: the board's header model. */
-export interface BoardHeaderView {
-  /** The generator name written after `(kicad_pcb (version …)`. */
-  generator: string;
-  /** `BOARD::GetNetname( code )` for a legacy net code; `''` when unknown. */
-  netNames: Map<number, string>;
-  designSettings: BoardDesignSettingsFile;
-  legacyTeardrops: boolean;
-  pageInfo: PageInfo;
-  titleBlock: TitleBlock;
-  enabledLayers: LSET;
-  copperLayerCount: number;
-  layerDescrs: Map<number, LayerDescr>;
-  properties: Map<string, string>;
-  variants: BoardVariant[];
-  embeddedFiles: EmbeddedFiles;
-}
 
 /** The `CTL_*` control bits (pcb_io_kicad_sexpr.h:200-223). */
 export const CTL_OMIT_INITIAL_COMMENTS = 1 << 0;
@@ -165,122 +142,402 @@ export const CTL_FOR_LIBRARY =
 /** The zero arg constructor when PCB_PLUGIN is used for PLUGIN::Load() and PLUGIN::Save()ing a BOARD file. */
 export const CTL_FOR_BOARD = CTL_OMIT_INITIAL_COMMENTS | CTL_OMIT_FOOTPRINT_VERSION;
 
-/**
- * What a footprint formatted for a library sees where it asks the board
- * (`GetBoard()` is null there): every layer, `MAX_CU_LAYERS` copper.
- */
-const NO_BOARD: BoardHeaderView = {
-  generator: '',
-  netNames: new Map([[0, '']]),
-  designSettings: undefined as unknown as BoardDesignSettingsFile,
-  legacyTeardrops: false,
-  pageInfo: undefined as unknown as PageInfo,
-  titleBlock: undefined as unknown as TitleBlock,
-  enabledLayers: LSET.AllLayersMask(),
-  copperLayerCount: MAX_CU_LAYERS,
-  layerDescrs: new Map(),
-  properties: new Map(),
-  variants: [],
-  embeddedFiles: { files: new Map(), areFontsEmbedded: false },
-};
+/** `formatInternalUnits( int, aDataType )` (:454). */
+export function formatInternalUnits(aValue: number, aDataType: FileDataType = 'distance'): string {
+  return FormatInternalUnits(pcbIUScale, aValue, aDataType);
+}
+
+/** `formatInternalUnits( const VECTOR2I& )` (:460). */
+export function formatInternalUnitsPt(aCoord: VECTOR2I): string {
+  return `${FormatInternalUnits(pcbIUScale, aCoord.x)} ${FormatInternalUnits(pcbIUScale, aCoord.y)}`;
+}
+
+/** `formatInternalUnits( const VECTOR2I&, const FOOTPRINT* )` (:466). */
+export function formatInternalUnitsFp(aCoord: VECTOR2I, aParentFP: FOOTPRINT | null): string {
+  if (aParentFP) {
+    const pos = aParentFP.GetPosition();
+    let coord: VECTOR2I = { x: aCoord.x - pos.x, y: aCoord.y - pos.y };
+    coord = RotatePoint(coord, aParentFP.GetOrientation().negate());
+    return formatInternalUnitsPt(coord);
+  }
+
+  return formatInternalUnitsPt(aCoord);
+}
+
+/** `isDefaultTeardropParameters( tdParams )` (:766). */
+function isDefaultTeardropParameters(tdParams: TEARDROP_PARAMETERS): boolean {
+  const defaults = new TEARDROP_PARAMETERS();
+
+  return (
+    tdParams.m_Enabled === defaults.m_Enabled &&
+    tdParams.m_BestLengthRatio === defaults.m_BestLengthRatio &&
+    tdParams.m_TdMaxLen === defaults.m_TdMaxLen &&
+    tdParams.m_BestWidthRatio === defaults.m_BestWidthRatio &&
+    tdParams.m_TdMaxWidth === defaults.m_TdMaxWidth &&
+    tdParams.m_CurvedEdges === defaults.m_CurvedEdges &&
+    tdParams.m_WidthtoSizeFilterRatio === defaults.m_WidthtoSizeFilterRatio &&
+    tdParams.m_AllowUseTwoTracks === defaults.m_AllowUseTwoTracks &&
+    tdParams.m_TdOnPadsInZones === defaults.m_TdOnPadsInZones
+  );
+}
+
+/** `std::set<T, Cmp>`: the items in the comparator's order, duplicates (never equal) dropped. */
+function sortedSet<T>(aItems: readonly T[], aLess: (a: T, b: T) => boolean): T[] {
+  const out = [...aItems];
+  out.sort((a, b) => (aLess(a, b) ? -1 : aLess(b, a) ? 1 : 0));
+  return out;
+}
+
+/** `wxArrayString::Sort()`: `wxStrcmp`, code-unit order. */
+function sortStrings(aStrings: string[]): string[] {
+  return aStrings.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+}
+
+/** `wxString::CmpNoCase` order, for a `CASE_INSENSITIVE_MAP`. */
+function cmpNoCase(a: string, b: string): number {
+  const la = a.toLowerCase();
+  const lb = b.toLowerCase();
+  return la < lb ? -1 : la > lb ? 1 : 0;
+}
 
 export class PCB_IO_KICAD_SEXPR {
-  /** `resolveGroups`' answer: group uuid -> member uuids that exist, set by `formatBoard`. */
-  private m_groupMembers: Map<string, string[]> | null = null;
-  private readonly m_board: BoardHeaderView;
-  /** `GetBoard()` is null for a footprint formatted on its own. */
-  private readonly m_hasBoard: boolean;
-
-  /** The `(generator …)` a footprint written with its version names. */
+  /** `m_out`: the output formatter. */
+  private m_out: OUTPUTFORMATTER;
+  private readonly m_ctl: number;
+  /** `m_board`: which BOARD, no ownership here. */
+  private m_board: BOARD | null = null;
+  /** `m_groupValidPtrs`: the board's items, for validating group members. */
+  private readonly m_groupValidPtrs = new Set<BOARD_ITEM>();
+  /**
+   * The `(generator …)` written after a `(version …)`: the C++ writes its own
+   * program name, "pcbnew", as a literal; ours is the one place it deviates.
+   */
   private readonly m_generator: string;
 
   constructor(
-    private readonly m_out: OUTPUTFORMATTER,
-    board: BoardHeaderView | null,
-    private readonly m_ctl: number = CTL_FOR_BOARD,
-    generator: string = GENERATOR,
+    aOut: OUTPUTFORMATTER,
+    aControlFlags: number = CTL_FOR_BOARD,
+    aGenerator: string = GENERATOR,
   ) {
-    this.m_hasBoard = board !== null;
-    this.m_board = board ?? NO_BOARD;
-    this.m_generator = generator;
+    this.m_out = aOut;
+    this.m_ctl = aControlFlags;
+    this.m_generator = aGenerator;
+  }
+
+  /** `m_board`, for the item formatters that ask it (`GetBoard()` is null in a library). */
+  SetBoard(aBoard: BOARD | null): void {
+    this.m_board = aBoard;
+  }
+
+  /** `FormatBoardToFormatter( aOut, aBoard )` (:322). */
+  FormatBoardToFormatter(aOut: OUTPUTFORMATTER, aBoard: BOARD): void {
+    this.m_board = aBoard; // after init()
+
+    // If the user wants fonts embedded, make sure that they are added to the board.  Otherwise,
+    // remove any fonts that were previously embedded.
+    if (this.m_board.GetAreFontsEmbedded()) this.m_board.EmbedFonts();
+    else this.m_board.GetEmbeddedFiles().ClearEmbeddedFonts();
+
+    this.m_out = aOut;
+
+    this.m_out.Print(
+      `(kicad_pcb (version ${SEXPR_BOARD_FILE_VERSION}) (generator ${this.m_out.Quotew(this.m_generator)}) (generator_version ${this.m_out.Quotew(MAJOR_MINOR_VERSION)})`,
+    );
+
+    this.Format(aBoard);
+
+    this.m_out.Print(')');
+  }
+
+  /** `Format( aItem )` (:371). */
+  Format(aItem: BOARD_ITEM): void {
+    switch (aItem.Type()) {
+      case KICAD_T.PCB_T:
+        this.formatBoard(aItem as BOARD);
+        break;
+
+      case KICAD_T.PCB_DIM_ALIGNED_T:
+      case KICAD_T.PCB_DIM_CENTER_T:
+      case KICAD_T.PCB_DIM_RADIAL_T:
+      case KICAD_T.PCB_DIM_ORTHOGONAL_T:
+      case KICAD_T.PCB_DIM_LEADER_T:
+        this.formatDimension(aItem as PCB_DIMENSION_BASE);
+        break;
+
+      case KICAD_T.PCB_SHAPE_T:
+        this.formatShape(aItem as PCB_SHAPE);
+        break;
+
+      case KICAD_T.PCB_REFERENCE_IMAGE_T:
+        this.formatReferenceImage(aItem as PCB_REFERENCE_IMAGE);
+        break;
+
+      case KICAD_T.PCB_POINT_T:
+        this.formatPoint(aItem as PCB_POINT);
+        break;
+
+      case KICAD_T.PCB_TARGET_T:
+        this.formatTarget(aItem as PCB_TARGET);
+        break;
+
+      case KICAD_T.PCB_FOOTPRINT_T:
+        this.formatFootprint(aItem as FOOTPRINT);
+        break;
+
+      case KICAD_T.PCB_PAD_T:
+        this.formatPad(aItem as PAD);
+        break;
+
+      case KICAD_T.PCB_FIELD_T:
+        // Handled in the footprint formatter when properties are formatted
+        break;
+
+      case KICAD_T.PCB_TEXT_T:
+        this.formatText(aItem as PCB_TEXT);
+        break;
+
+      case KICAD_T.PCB_TEXTBOX_T:
+        this.formatTextBox(aItem as PCB_TEXTBOX);
+        break;
+
+      case KICAD_T.PCB_BARCODE_T:
+        this.formatBarcode(aItem as PCB_BARCODE);
+        break;
+
+      case KICAD_T.PCB_TABLE_T:
+        this.formatTable(aItem as PCB_TABLE);
+        break;
+
+      case KICAD_T.PCB_GROUP_T:
+        this.formatGroup(aItem as PCB_GROUP);
+        break;
+
+      case KICAD_T.PCB_GENERATOR_T:
+        this.formatGenerator(aItem as PCB_GENERATOR);
+        break;
+
+      case KICAD_T.PCB_TRACE_T:
+      case KICAD_T.PCB_ARC_T:
+      case KICAD_T.PCB_VIA_T:
+        this.formatTrack(aItem as PCB_TRACK);
+        break;
+
+      case KICAD_T.PCB_ZONE_T:
+        this.formatZone(aItem as ZONE);
+        break;
+
+      default:
+        throw new Error(`Cannot format item ${aItem.GetClass()}`); // wxFAIL_MSG
+    }
   }
 
   // -------------------------------------------------------------------------
-  // The header: formatHeader (:747) and what it calls
+  // formatLayer (:480), formatPolyPts (:488), formatRenderCache (:523)
   // -------------------------------------------------------------------------
 
-  /** `formatHeader( aBoard )` (:747). */
-  formatHeader(): void {
-    this.formatGeneral();
-    // Layers list.
-    this.formatBoardLayers();
+  private formatLayer(aLayer: PCB_LAYER_ID, aIsKnockout = false): void {
+    this.m_out.Print(
+      `(layer ${this.m_out.Quotew(LSET.Name(aLayer))} ${aIsKnockout ? 'knockout' : ''})`,
+    );
+  }
+
+  private formatPolyPts(outline: SHAPE_LINE_CHAIN, aParentFP: FOOTPRINT | null = null): void {
+    this.m_out.Print('(pts');
+
+    for (let ii = 0; ii < outline.PointCount(); ++ii) {
+      const ind = outline.ArcIndex(ii);
+
+      if (ind < 0) {
+        this.m_out.Print(`(xy ${formatInternalUnitsFp(outline.CPoint(ii), aParentFP)})`);
+      } else {
+        const arc = outline.Arc(ind);
+        this.m_out.Print(
+          `(arc (start ${formatInternalUnitsFp(arc.GetP0(), aParentFP)}) (mid ${formatInternalUnitsFp(arc.GetArcMid(), aParentFP)}) (end ${formatInternalUnitsFp(arc.GetP1(), aParentFP)}))`,
+        );
+
+        do {
+          ++ii;
+        } while (ii < outline.PointCount() && outline.ArcIndex(ii) === ind);
+
+        --ii;
+      }
+    }
+
+    this.m_out.Print(')');
+  }
+
+  private formatRenderCache(aText: EDA_TEXT): void {
+    const resolvedText = aText.GetShownText(true);
+    const cache = aText.GetRenderCache(aText.GetFont()!, resolvedText);
+
+    this.m_out.Print(
+      `(render_cache ${this.m_out.Quotew(resolvedText)} ${FormatAngle(aText.GetDrawRotation().AsDegrees())}`,
+    );
+
+    const callback_gal = new CALLBACK_GAL(
+      // Polygon callback
+      (aPoly: SHAPE_LINE_CHAIN) => {
+        this.m_out.Print('(polygon');
+        this.formatPolyPts(aPoly);
+        this.m_out.Print(')');
+      },
+    );
+
+    callback_gal.SetLineWidth(aText.GetTextThickness());
+    callback_gal.DrawGlyphs(cache ?? []);
+
+    this.m_out.Print(')');
+  }
+
+  // -------------------------------------------------------------------------
+  // The header: formatSetup (:551), formatGeneral (:641), formatBoardLayers (:659),
+  // formatProperties (:711), formatVariants (:722), formatHeader (:747)
+  // -------------------------------------------------------------------------
+
+  private formatSetup(aBoard: BOARD): void {
     // Setup
-    this.formatSetup();
-    // Properties
-    this.formatProperties();
-    // Variants
-    this.formatVariants();
+    this.m_out.Print('(setup');
+
+    // Save the board physical stackup structure
+    const stackup = aBoard.GetDesignSettings().GetStackupDescriptor();
+
+    if (aBoard.GetDesignSettings().m_HasStackup) stackup.FormatBoardStackup(this.m_out);
+
+    const dsnSettings = aBoard.GetDesignSettings();
+
+    this.m_out.Print(
+      `(pad_to_mask_clearance ${formatInternalUnits(dsnSettings.m_SolderMaskExpansion)})`,
+    );
+
+    if (dsnSettings.m_SolderMaskMinWidth) {
+      this.m_out.Print(
+        `(solder_mask_min_width ${formatInternalUnits(dsnSettings.m_SolderMaskMinWidth)})`,
+      );
+    }
+
+    if (dsnSettings.m_SolderPasteMargin !== 0) {
+      this.m_out.Print(
+        `(pad_to_paste_clearance ${formatInternalUnits(dsnSettings.m_SolderPasteMargin)})`,
+      );
+    }
+
+    if (dsnSettings.m_SolderPasteMarginRatio !== 0) {
+      this.m_out.Print(
+        `(pad_to_paste_clearance_ratio ${FormatDouble2Str(dsnSettings.m_SolderPasteMarginRatio)})`,
+      );
+    }
+
+    FormatBool(
+      this.m_out,
+      'allow_soldermask_bridges_in_footprints',
+      dsnSettings.m_AllowSoldermaskBridgesInFPs,
+    );
+
+    this.m_out.Print(0, ' (tenting ');
+    FormatBool(this.m_out, 'front', dsnSettings.m_TentViasFront);
+    FormatBool(this.m_out, 'back', dsnSettings.m_TentViasBack);
+    this.m_out.Print(0, ')');
+
+    this.m_out.Print(0, ' (covering ');
+    FormatBool(this.m_out, 'front', dsnSettings.m_CoverViasFront);
+    FormatBool(this.m_out, 'back', dsnSettings.m_CoverViasBack);
+    this.m_out.Print(0, ')');
+
+    this.m_out.Print(0, ' (plugging ');
+    FormatBool(this.m_out, 'front', dsnSettings.m_PlugViasFront);
+    FormatBool(this.m_out, 'back', dsnSettings.m_PlugViasBack);
+    this.m_out.Print(0, ')');
+
+    FormatBool(this.m_out, 'capping', dsnSettings.m_CapVias);
+
+    FormatBool(this.m_out, 'filling', dsnSettings.m_FillVias);
+
+    if (dsnSettings.m_ZoneLayerProperties.size > 0) {
+      this.m_out.Print(0, ' (zone_defaults');
+
+      // std::map<PCB_LAYER_ID, …>: layer order
+      for (const layer of [...dsnSettings.m_ZoneLayerProperties.keys()].sort((a, b) => a - b))
+        this.formatZoneLayerProperties(dsnSettings.m_ZoneLayerProperties.get(layer)!, 0, layer);
+
+      this.m_out.Print(0, ')\n');
+    }
+
+    let origin = dsnSettings.GetAuxOrigin();
+
+    if (origin.x !== 0 || origin.y !== 0) {
+      this.m_out.Print(
+        `(aux_axis_origin ${formatInternalUnits(origin.x)} ${formatInternalUnits(origin.y)})`,
+      );
+    }
+
+    origin = dsnSettings.GetGridOrigin();
+
+    if (origin.x !== 0 || origin.y !== 0) {
+      this.m_out.Print(
+        `(grid_origin ${formatInternalUnits(origin.x)} ${formatInternalUnits(origin.y)})`,
+      );
+    }
+
+    aBoard.GetPlotOptions().Format(this.m_out);
+
+    this.m_out.Print(')');
   }
 
-  /** `formatGeneral( aBoard )` (:641). */
-  formatGeneral(): void {
-    const dsnSettings = this.m_board.designSettings;
+  private formatGeneral(aBoard: BOARD): void {
+    const dsnSettings = aBoard.GetDesignSettings();
+
     this.m_out.Print('(general');
-    this.m_out.Print(`(thickness ${formatInternalUnits(dsnSettings.boardThickness)})`);
-    FormatBool(this.m_out, 'legacy_teardrops', this.m_board.legacyTeardrops);
+
+    this.m_out.Print(`(thickness ${formatInternalUnits(dsnSettings.GetBoardThickness())})`);
+
+    FormatBool(this.m_out, 'legacy_teardrops', aBoard.LegacyTeardrops());
+
     this.m_out.Print(')');
 
-    formatPageInfo(this.m_out, this.m_board.pageInfo);
-    formatTitleBlock(this.m_out, this.m_board.titleBlock);
+    aBoard.GetPageSettings().Format(this.m_out);
+    aBoard.GetTitleBlock().Format(this.m_out);
   }
 
-  /** `formatBoardLayers( aBoard )` (:659). */
-  formatBoardLayers(): void {
-    const board = this.m_board;
+  private formatBoardLayers(aBoard: BOARD): void {
     this.m_out.Print('(layers');
 
-    const layerName = (layer: number): string => {
-      // `BOARD::GetLayerName`: the user's name when set, else the canonical.
-      const d = board.layerDescrs.get(layer);
-      return d && d.userName !== '' ? d.userName : LSET_Name(layer);
-    };
-    const layerType = (layer: number): string => {
-      // `BOARD::GetLayerType` (board.cpp:793): the descriptor's type when the
-      // layer is enabled and described; else LT_AUX for a user layer, LT_SIGNAL
-      // for copper, LT_UNDEFINED otherwise — through `LAYER::ShowType`, whose
-      // `default` is "signal".
-      const d = board.enabledLayers.test(layer) ? board.layerDescrs.get(layer) : undefined;
-      let t: string;
-      if (d) t = d.type;
-      else if (layer >= User_1 && !IsCopperLayer(layer)) t = 'auxiliary';
-      else if (IsCopperLayer(layer)) t = 'signal';
-      else t = 'undefined';
-      return t === 'undefined' ? 'signal' : t;
-    };
-
     // Save only the used copper layers from front to back.
-    for (const layer of board.enabledLayers.CuStack()) {
+
+    for (const layer of aBoard.GetEnabledLayers().CuStack()) {
       this.m_out.Print(
-        `(${layer} ${this.m_out.Quotew(LSET_Name(layer))} ${layerType(layer)} ${
-          LSET_Name(layer) === layerName(layer) ? '' : this.m_out.Quotew(layerName(layer))
+        `(${layer} ${this.m_out.Quotew(LSET.Name(layer))} ${LAYER.ShowType(aBoard.GetLayerType(layer))} ${
+          LSET.Name(layer) === this.m_board!.GetLayerName(layer)
+            ? ''
+            : this.m_out.Quotew(this.m_board!.GetLayerName(layer))
         })`,
       );
     }
 
     // Save used non-copper layers in the order they are defined.
-    const seq = board.enabledLayers.TechAndUserUIOrder();
+    const seq = aBoard.GetEnabledLayers().TechAndUserUIOrder();
+
     for (const layer of seq) {
-      let printType = false;
+      let print_type = false;
+
       // User layers (layer id >= User_1) have a qualifier
       // default is "user", but other qualifiers exist
       if (layer >= User_1) {
-        if (IsCopperLayer(layer)) printType = true;
-        const t = layerType(layer);
-        if (t === 'front' || t === 'back') printType = true;
+        if (IsCopperLayer(layer)) print_type = true;
+
+        if (
+          aBoard.GetLayerType(layer) === LAYER_T.LT_FRONT ||
+          aBoard.GetLayerType(layer) === LAYER_T.LT_BACK
+        )
+          print_type = true;
       }
+
       this.m_out.Print(
-        `(${layer} ${this.m_out.Quotew(LSET_Name(layer))} ${printType ? layerType(layer) : 'user'} ${
-          layerName(layer) === LSET_Name(layer) ? '' : this.m_out.Quotew(layerName(layer))
+        `(${layer} ${this.m_out.Quotew(LSET.Name(layer))} ${
+          print_type ? LAYER.ShowType(aBoard.GetLayerType(layer)) : 'user'
+        } ${
+          this.m_board!.GetLayerName(layer) === LSET.Name(layer)
+            ? ''
+            : this.m_out.Quotew(this.m_board!.GetLayerName(layer))
         })`,
       );
     }
@@ -288,476 +545,414 @@ export class PCB_IO_KICAD_SEXPR {
     this.m_out.Print(')');
   }
 
-  /** `formatSetup( aBoard )` (:551). */
-  formatSetup(): void {
-    // Setup
-    this.m_out.Print('(setup');
-
-    // Save the board physical stackup structure
-    const dsnSettings = this.m_board.designSettings;
-    if (dsnSettings.hasStackup) formatBoardStackup(this.m_out, dsnSettings.stackup);
-
-    this.m_out.Print(
-      `(pad_to_mask_clearance ${formatInternalUnits(dsnSettings.solderMaskExpansion)})`,
+  private formatProperties(aBoard: BOARD): void {
+    // std::map<wxString, wxString>: key order
+    const props = [...aBoard.GetProperties().entries()].sort(([a], [b]) =>
+      a < b ? -1 : a > b ? 1 : 0,
     );
 
-    if (dsnSettings.solderMaskMinWidth)
-      this.m_out.Print(
-        `(solder_mask_min_width ${formatInternalUnits(dsnSettings.solderMaskMinWidth)})`,
-      );
-
-    if (dsnSettings.solderPasteMargin !== 0)
-      this.m_out.Print(
-        `(pad_to_paste_clearance ${formatInternalUnits(dsnSettings.solderPasteMargin)})`,
-      );
-
-    if (dsnSettings.solderPasteMarginRatio !== 0)
-      this.m_out.Print(
-        `(pad_to_paste_clearance_ratio ${FormatDouble2Str(dsnSettings.solderPasteMarginRatio)})`,
-      );
-
-    FormatBool(
-      this.m_out,
-      'allow_soldermask_bridges_in_footprints',
-      dsnSettings.allowSoldermaskBridgesInFPs,
-    );
-
-    this.m_out.Print(0, ' (tenting ');
-    FormatBool(this.m_out, 'front', dsnSettings.tentViasFront);
-    FormatBool(this.m_out, 'back', dsnSettings.tentViasBack);
-    this.m_out.Print(0, ')');
-
-    this.m_out.Print(0, ' (covering ');
-    FormatBool(this.m_out, 'front', dsnSettings.coverViasFront);
-    FormatBool(this.m_out, 'back', dsnSettings.coverViasBack);
-    this.m_out.Print(0, ')');
-
-    this.m_out.Print(0, ' (plugging ');
-    FormatBool(this.m_out, 'front', dsnSettings.plugViasFront);
-    FormatBool(this.m_out, 'back', dsnSettings.plugViasBack);
-    this.m_out.Print(0, ')');
-
-    FormatBool(this.m_out, 'capping', dsnSettings.capVias);
-
-    FormatBool(this.m_out, 'filling', dsnSettings.fillVias);
-
-    if (dsnSettings.zoneLayerProperties.size > 0) {
-      this.m_out.Print(0, ' (zone_defaults');
-      // `std::map<PCB_LAYER_ID, …>` iterates in layer-id order.
-      for (const layer of [...dsnSettings.zoneLayerProperties.keys()].sort((a, b) => a - b))
-        this.formatZoneLayerProperties(dsnSettings.zoneLayerProperties.get(layer)!, 0, layer);
-      this.m_out.Print(0, ')\n');
+    for (const [first, second] of props) {
+      this.m_out.Print(`(property ${this.m_out.Quotew(first)} ${this.m_out.Quotew(second)})`);
     }
-
-    let origin = dsnSettings.auxOrigin;
-    if (origin.x !== 0 || origin.y !== 0)
-      this.m_out.Print(
-        `(aux_axis_origin ${formatInternalUnits(origin.x)} ${formatInternalUnits(origin.y)})`,
-      );
-
-    origin = dsnSettings.gridOrigin;
-    if (origin.x !== 0 || origin.y !== 0)
-      this.m_out.Print(
-        `(grid_origin ${formatInternalUnits(origin.x)} ${formatInternalUnits(origin.y)})`,
-      );
-
-    formatPlotParams(this.m_out, dsnSettings.plotOptions);
-
-    this.m_out.Print(')');
   }
 
-  /** `format( const ZONE_LAYER_PROPERTIES&, int aNestLevel, PCB_LAYER_ID )` (:3096). */
-  formatZoneLayerProperties(props: ZoneLayerProperties, nestLevel: number, layer: number): void {
-    // Do not store the layer properties if no value is actually set.
-    if (props.hatchingOffset === undefined) return;
-    this.m_out.Print(nestLevel, '(property\n');
-    this.m_out.Print(nestLevel, `(layer ${this.m_out.Quotew(LSET_Name(layer))})\n`);
-    this.m_out.Print(
-      nestLevel,
-      `(hatch_position (xy ${formatInternalUnitsPt(props.hatchingOffset)}))`,
-    );
-    this.m_out.Print(nestLevel, ')\n');
-  }
+  private formatVariants(aBoard: BOARD): void {
+    const variantNames = aBoard.GetVariantNames();
 
-  /** `formatProperties( aBoard )` (:711). */
-  formatProperties(): void {
-    for (const [k, v] of this.m_board.properties)
-      this.m_out.Print(`(property ${this.m_out.Quotew(k)} ${this.m_out.Quotew(v)})`);
-  }
-
-  /** `formatVariants( aBoard )` (:722). */
-  formatVariants(): void {
-    const variantNames = this.m_board.variants;
     if (variantNames.length === 0) return;
+
     this.m_out.Print('(variants');
-    for (const v of variantNames) {
-      this.m_out.Print(`(variant (name ${this.m_out.Quotew(v.name)})`);
-      if (v.description !== '')
-        this.m_out.Print(`(description ${this.m_out.Quotew(v.description)})`);
+
+    for (const variantName of variantNames) {
+      this.m_out.Print(`(variant (name ${this.m_out.Quotew(variantName)})`);
+
+      const description = aBoard.GetVariantDescription(variantName);
+
+      if (description !== '') this.m_out.Print(`(description ${this.m_out.Quotew(description)})`);
+
       this.m_out.Print(')');
     }
+
     this.m_out.Print(')');
   }
 
-  // -------------------------------------------------------------------------
-  // Shared item helpers
-  // -------------------------------------------------------------------------
+  private formatHeader(aBoard: BOARD): void {
+    this.formatGeneral(aBoard);
 
-  /** `GetNetname()` and `GetNetCode()` for an item's net; null is the unconnected net. */
-  netName(net: NetRef): { name: string; code: number } {
-    return net ?? { name: '', code: 0 };
+    // Layers list.
+    this.formatBoardLayers(aBoard);
+
+    // Setup
+    this.formatSetup(aBoard);
+
+    // Properties
+    this.formatProperties(aBoard);
+
+    // Variants
+    this.formatVariants(aBoard);
   }
 
-  /** `formatLayer( aLayer, aIsKnockout )` (:480). */
-  formatLayer(layer: number, isKnockout = false): void {
+  private formatTeardropParameters(tdParams: TEARDROP_PARAMETERS): void {
     this.m_out.Print(
-      `(layer ${this.m_out.Quotew(LSET_Name(layer))} ${isKnockout ? 'knockout' : ''})`,
+      `(teardrops (best_length_ratio ${FormatDouble2Str(tdParams.m_BestLengthRatio)}) (max_length ${formatInternalUnits(tdParams.m_TdMaxLen)}) (best_width_ratio ${FormatDouble2Str(tdParams.m_BestWidthRatio)}) (max_width ${formatInternalUnits(tdParams.m_TdMaxWidth)})`,
     );
-  }
 
-  /** `formatLayers( aLayerMask, aEnumerateLayers, aIsZone )` (:1549). */
-  formatLayers(layerMaskIn: LSET, enumerateLayers: boolean, isZone = false): void {
-    const cu_all = LSET.AllCuMask();
-    const fr_bk = new LSET([B_Cu, F_Cu]);
-    const adhes = new LSET([B_Adhes, F_Adhes]);
-    const paste = new LSET([B_Paste, F_Paste]);
-    const silks = new LSET([B_SilkS, F_SilkS]);
-    const mask = new LSET([B_Mask, F_Mask]);
-    const crt_yd = new LSET([B_CrtYd, F_CrtYd]);
-    const fab = new LSET([B_Fab, F_Fab]);
+    FormatBool(this.m_out, 'curved_edges', tdParams.m_CurvedEdges);
 
-    const cu_board_mask = LSET.AllCuMask(this.m_board.copperLayerCount);
+    this.m_out.Print(`(filter_ratio ${FormatDouble2Str(tdParams.m_WidthtoSizeFilterRatio)})`);
 
-    let layerMask = new LSET(layerMaskIn);
-    let output = '';
-
-    if (!enumerateLayers) {
-      // If all copper layers present on the board are enabled, then output the wildcard
-      if (layerMask.and(cu_board_mask).equals(cu_board_mask)) {
-        output += ` ${this.m_out.Quotew('*.Cu')}`;
-        // Clear all copper bits because pads might have internal layers that aren't part of the
-        // board enabled, and we don't want to output those in the layers listing if we already
-        // output the wildcard.
-        layerMask = layerMask.and(cu_all.not());
-      } else if (layerMask.and(cu_board_mask).equals(fr_bk)) {
-        if (isZone) output += ` ${this.m_out.Quotew('F&B.Cu')}`;
-        else output += ` ${this.m_out.Quotew('*.Cu')}`;
-        layerMask = layerMask.and(fr_bk.not());
-      }
-      const pair = (set: LSET, name: string): void => {
-        if (layerMask.and(set).equals(set)) {
-          output += ` ${this.m_out.Quotew(name)}`;
-          layerMask = layerMask.and(set.not());
-        }
-      };
-      pair(adhes, '*.Adhes');
-      pair(paste, '*.Paste');
-      pair(silks, '*.SilkS');
-      pair(mask, '*.Mask');
-      pair(crt_yd, '*.CrtYd');
-      pair(fab, '*.Fab');
-    }
-
-    // output any individual layers not handled in wildcard combos above
-    for (let layer = 0; layer < PCB_LAYER_ID_COUNT; ++layer) {
-      if (layerMask.test(layer)) output += ` ${this.m_out.Quotew(LSET_Name(layer))}`;
-    }
-
-    this.m_out.Print(`(layers ${output})`);
-  }
-
-  /** `formatPolyPts( outline, aParentFP )` (:488). */
-  formatPolyPts(outline: readonly OutlineEntry[]): void {
-    this.m_out.Print('(pts');
-    for (const e of outline) {
-      if ('xy' in e) this.m_out.Print(`(xy ${formatInternalUnitsPt(e.xy)})`);
-      else
-        this.m_out.Print(
-          `(arc (start ${formatInternalUnitsPt(e.arc.start)}) (mid ${formatInternalUnitsPt(e.arc.mid)}) (end ${formatInternalUnitsPt(e.arc.end)}))`,
-        );
-    }
-    this.m_out.Print(')');
-  }
-
-  /** `STROKE_PARAMS::Format( aFormatter, aIuScale )` (common/stroke_params.cpp). */
-  formatStroke(stroke: StrokeParams): void {
-    if (!stroke.color) {
-      this.m_out.Print(
-        `(stroke (width ${formatInternalUnits(stroke.width)}) (type ${stroke.type}))`,
-      );
-    } else {
-      const c = stroke.color;
-      this.m_out.Print(
-        `(stroke (width ${formatInternalUnits(stroke.width)}) (type ${stroke.type}) (color ${KiROUND(c.r * 255.0)} ${KiROUND(c.g * 255.0)} ${KiROUND(c.b * 255.0)} ${FormatDouble2Str(c.a)}))`,
-      );
-    }
-  }
-
-  // -------------------------------------------------------------------------
-  // PCB_SHAPE (:1000)
-  // -------------------------------------------------------------------------
-
-  /** `format( const PCB_SHAPE* aShape )` (:1000). */
-  formatShape(shape: KPcbShape, parentFP: ParentFP | null): void {
-    const prefix = parentFP ? 'fp' : 'gr';
-    const pt = formatInternalUnitsPt;
-
-    switch (shape.shape) {
-      case 'segment':
-        this.m_out.Print(`(${prefix}_line (start ${pt(shape.start)}) (end ${pt(shape.end)})`);
-        break;
-      case 'rectangle':
-        this.m_out.Print(`(${prefix}_rect (start ${pt(shape.start)}) (end ${pt(shape.end)})`);
-        if (shape.cornerRadius > 0)
-          this.m_out.Print(` (radius ${formatInternalUnits(shape.cornerRadius)})`);
-        break;
-      case 'circle':
-        this.m_out.Print(`(${prefix}_circle (center ${pt(shape.start)}) (end ${pt(shape.end)})`);
-        break;
-      case 'arc':
-        this.m_out.Print(
-          `(${prefix}_arc (start ${pt(shape.start)}) (mid ${pt(shape.arcMid!)}) (end ${pt(shape.end)})`,
-        );
-        break;
-      case 'poly':
-        // `IsPolyShapeValid()`: an outline with at least three points.
-        if ((shape.outline?.length ?? 0) >= 3) {
-          this.m_out.Print(`(${prefix}_poly`);
-          this.formatPolyPts(shape.outline!);
-        } else {
-          return;
-        }
-        break;
-      case 'bezier':
-        this.m_out.Print(
-          `(${prefix}_curve (pts (xy ${pt(shape.start)}) (xy ${pt(shape.bezierC1!)}) (xy ${pt(shape.bezierC2!)}) (xy ${pt(shape.end)}))`,
-        );
-        break;
-    }
-
-    this.formatStroke(shape.stroke);
-
-    // The filled flag represents if a solid fill is present on circles, rectangles and polygons
-    if (shape.shape === 'poly' || shape.shape === 'rectangle' || shape.shape === 'circle') {
-      switch (shape.fill) {
-        case 'hatch':
-          this.m_out.Print('(fill hatch)');
-          break;
-        case 'reverse_hatch':
-          this.m_out.Print('(fill reverse_hatch)');
-          break;
-        case 'cross_hatch':
-          this.m_out.Print('(fill cross_hatch)');
-          break;
-        case 'filled_shape':
-          FormatBool(this.m_out, 'fill', true);
-          break;
-        default:
-          FormatBool(this.m_out, 'fill', false);
-          break;
-      }
-    }
-
-    if (shape.locked) FormatBool(this.m_out, 'locked', true);
-
-    const layerSet = shapeLayerSet(shape);
-    if (layerSet.count() > 1) this.formatLayers(layerSet, false /* enumerate layers */);
-    else this.formatLayer(shape.layer);
-
-    if (
-      shape.hasSolderMask &&
-      shape.solderMaskMargin !== undefined &&
-      IsExternalCopperLayer(shape.layer)
-    )
-      this.m_out.Print(`(solder_mask_margin ${formatInternalUnits(shape.solderMaskMargin)})`);
-
-    const net = this.netName(shape.net);
-    if (!(this.m_ctl & CTL_OMIT_PAD_NETS) && net.code > 0)
-      this.m_out.Print(`(net ${this.m_out.Quotew(net.name)})`);
-
-    FormatUuid(this.m_out, shape.uuid);
+    FormatBool(this.m_out, 'enabled', tdParams.m_Enabled);
+    FormatBool(this.m_out, 'allow_two_segments', tdParams.m_AllowUseTwoTracks);
+    FormatBool(this.m_out, 'prefer_zone_connections', !tdParams.m_TdOnPadsInZones);
     this.m_out.Print(')');
   }
 
   // -------------------------------------------------------------------------
-  // formatRenderCache (:523), formatTeardropParameters (:781)
+  // format( const BOARD* ) (:802)
   // -------------------------------------------------------------------------
 
-  /**
-   * `formatRenderCache( aText )` (:523). The C++ regenerates the glyph
-   * polygons from the outline font; the model keeps the cache as read.
-   */
-  formatRenderCache(text: KEdaText): void {
-    const cache = text.renderCache!;
-    this.m_out.Print(`(render_cache ${this.m_out.Quotew(cache.text)} ${FormatAngle(cache.angle)}`);
-    for (const glyph of cache.glyphs) {
-      for (const poly of glyph) {
-        this.m_out.Print('(polygon');
-        this.formatPolyPts(poly);
-        this.m_out.Print(')');
-      }
-    }
-    this.m_out.Print(')');
-  }
+  private formatBoard(aBoard: BOARD): void {
+    // Rebuild once per board-level save rather than lazily on first use, so a caller that
+    // reuses this plugin instance to save the same board pointer more than once (e.g. after
+    // items were added to or removed from a group) never formats groups against a stale cache.
+    this.m_groupValidPtrs.clear();
 
-  /** `formatTeardropParameters( tdParams )` (:781). */
-  formatTeardropParameters(td: TeardropParams): void {
+    for (const [, item] of aBoard.GetItemByIdCache()) this.m_groupValidPtrs.add(item);
+
+    const sorted_footprints = sortedSet<BOARD_ITEM>(aBoard.Footprints(), BOARD_ITEM.ptr_cmp);
+    const sorted_drawings = sortedSet<BOARD_ITEM>(aBoard.Drawings(), BOARD.cmp_drawings);
+    const sorted_tracks = sortedSet<PCB_TRACK>(aBoard.Tracks(), PCB_TRACK.cmp_tracks);
+    const sorted_points = sortedSet<PCB_POINT>(aBoard.Points(), PCB_POINT.cmp_points);
+    const sorted_zones = sortedSet<BOARD_ITEM>(aBoard.Zones(), BOARD_ITEM.ptr_cmp);
+    const sorted_groups = sortedSet<BOARD_ITEM>(aBoard.Groups(), BOARD_ITEM.ptr_cmp);
+    const sorted_generators = sortedSet<BOARD_ITEM>(aBoard.Generators(), BOARD_ITEM.ptr_cmp);
+    this.formatHeader(aBoard);
+
+    // Save the footprints.
+    for (const footprint of sorted_footprints) this.Format(footprint);
+
+    // Save the graphical items on the board (not owned by a footprint)
+    for (const item of sorted_drawings) this.Format(item);
+
+    // Save the points
+    for (const point of sorted_points) this.Format(point);
+
+    // Do not save PCB_MARKERs, they can be regenerated easily.
+
+    // Save the tracks and vias.
+    for (const track of sorted_tracks) this.Format(track);
+
+    // Save the polygon (which are the newer technology) zones.
+    for (const zone of sorted_zones) this.Format(zone);
+
+    // Save the groups
+    for (const group of sorted_groups) this.Format(group);
+
+    // Save the generators
+    for (const gen of sorted_generators) this.Format(gen);
+
+    // Save any embedded files
+    // Consolidate the embedded models in footprints into a single map
+    // to avoid duplicating the same model in the board file.
+    const files_to_write = new EMBEDDED_FILES();
+
+    for (const [, file] of aBoard.GetEmbeddedFiles().EmbeddedFileMap())
+      files_to_write.AddFile(file);
+
+    for (const item of sorted_footprints) {
+      const fp = item as FOOTPRINT;
+
+      for (const [, file] of fp.GetEmbeddedFiles().EmbeddedFileMap()) files_to_write.AddFile(file);
+    }
+
     this.m_out.Print(
-      `(teardrops (best_length_ratio ${FormatDouble2Str(td.bestLengthRatio)}) (max_length ${formatInternalUnits(td.tdMaxLen)}) (best_width_ratio ${FormatDouble2Str(td.bestWidthRatio)}) (max_width ${formatInternalUnits(td.tdMaxWidth)})`,
+      `(embedded_fonts ${aBoard.GetEmbeddedFiles().GetAreFontsEmbedded() ? 'yes' : 'no'})`,
     );
-    FormatBool(this.m_out, 'curved_edges', td.curvedEdges);
-    this.m_out.Print(`(filter_ratio ${FormatDouble2Str(td.widthtoSizeFilterRatio)})`);
-    FormatBool(this.m_out, 'enabled', td.enabled);
-    FormatBool(this.m_out, 'allow_two_segments', td.allowUseTwoTracks);
-    FormatBool(this.m_out, 'prefer_zone_connections', !td.tdOnPadsInZones);
-    this.m_out.Print(')');
+
+    if (!files_to_write.IsEmpty())
+      files_to_write.WriteEmbeddedFiles(this.m_out, (this.m_ctl & CTL_FOR_BOARD) !== 0);
+
+    // Remove the files so that they are not freed in the DTOR
+    files_to_write.ClearEmbeddedFiles(false);
   }
 
   // -------------------------------------------------------------------------
-  // PCB_DIMENSION_BASE (:885)
+  // format( const PCB_DIMENSION_BASE* ) (:885)
   // -------------------------------------------------------------------------
 
-  /** `format( const PCB_DIMENSION_BASE* aDimension )` (:885). */
-  formatDimension(dim: KPcbDimension): void {
-    const aligned = dim.type === 'aligned' || dim.type === 'orthogonal';
-    const ortho = dim.type === 'orthogonal';
-    const center = dim.type === 'center';
-    const radial = dim.type === 'radial';
-    const leader = dim.type === 'leader';
+  private formatDimension(aDimension: PCB_DIMENSION_BASE): void {
+    const aligned = aDimension instanceof PCB_DIM_ALIGNED ? aDimension : null;
+    const ortho = aDimension instanceof PCB_DIM_ORTHOGONAL ? aDimension : null;
+    const center = aDimension instanceof PCB_DIM_CENTER ? aDimension : null;
+    const radial = aDimension instanceof PCB_DIM_RADIAL ? aDimension : null;
+    const leader = aDimension instanceof PCB_DIM_LEADER ? aDimension : null;
 
     this.m_out.Print('(dimension');
 
-    if (ortho) this.m_out.Print('(type orthogonal)');
+    if (ortho)
+      // must be tested before aligned, because ortho is derived from aligned
+      // and aligned is not null
+      this.m_out.Print('(type orthogonal)');
     else if (aligned) this.m_out.Print('(type aligned)');
     else if (leader) this.m_out.Print('(type leader)');
     else if (center) this.m_out.Print('(type center)');
     else if (radial) this.m_out.Print('(type radial)');
+    else throw new Error('Cannot format unknown dimension type!'); // wxFAIL_MSG
 
-    if (dim.locked) FormatBool(this.m_out, 'locked', dim.locked);
+    if (aDimension.IsLocked()) FormatBool(this.m_out, 'locked', aDimension.IsLocked());
 
-    this.formatLayer(dim.layer);
+    this.formatLayer(aDimension.GetLayer());
 
-    FormatUuid(this.m_out, dim.uuid);
+    FormatUuid(this.m_out, aDimension.m_Uuid);
 
     this.m_out.Print(
-      `(pts (xy ${formatInternalUnits(dim.start.x)} ${formatInternalUnits(dim.start.y)}) (xy ${formatInternalUnits(dim.end.x)} ${formatInternalUnits(dim.end.y)}))`,
+      `(pts (xy ${formatInternalUnits(aDimension.GetStart().x)} ${formatInternalUnits(aDimension.GetStart().y)}) (xy ${formatInternalUnits(aDimension.GetEnd().x)} ${formatInternalUnits(aDimension.GetEnd().y)}))`,
     );
 
-    if (aligned) this.m_out.Print(`(height ${formatInternalUnits(dim.height)})`);
+    if (aligned) this.m_out.Print(`(height ${formatInternalUnits(aligned.GetHeight())})`);
 
-    if (radial) this.m_out.Print(`(leader_length ${formatInternalUnits(dim.leaderLength)})`);
+    if (radial) {
+      this.m_out.Print(`(leader_length ${formatInternalUnits(radial.GetLeaderLength())})`);
+    }
 
-    if (ortho) this.m_out.Print(`(orientation ${dim.orientation})`);
+    if (ortho) this.m_out.Print(`(orientation ${ortho.GetOrientation()})`);
 
     if (!center) {
       this.m_out.Print(
-        `(format (prefix ${this.m_out.Quotew(dim.prefix)}) (suffix ${this.m_out.Quotew(dim.suffix)}) (units ${dim.unitsMode}) (units_format ${dim.unitsFormat}) (precision ${dim.precision})`,
+        `(format (prefix ${this.m_out.Quotew(aDimension.GetPrefix())}) (suffix ${this.m_out.Quotew(aDimension.GetSuffix())}) (units ${aDimension.GetUnitsMode()}) (units_format ${aDimension.GetUnitsFormat()}) (precision ${aDimension.GetPrecision()})`,
       );
-      if (dim.overrideTextEnabled)
-        this.m_out.Print(`(override_value ${this.m_out.Quotew(dim.overrideText)})`);
-      if (dim.suppressZeroes) FormatBool(this.m_out, 'suppress_zeroes', true);
+
+      if (aDimension.GetOverrideTextEnabled()) {
+        this.m_out.Print(`(override_value ${this.m_out.Quotew(aDimension.GetOverrideText())})`);
+      }
+
+      if (aDimension.GetSuppressZeroes()) FormatBool(this.m_out, 'suppress_zeroes', true);
+
       this.m_out.Print(')');
     }
 
     this.m_out.Print(
-      `(style (thickness ${formatInternalUnits(dim.lineThickness)}) (arrow_length ${formatInternalUnits(dim.arrowLength)}) (text_position_mode ${dim.textPositionMode})`,
+      `(style (thickness ${formatInternalUnits(aDimension.GetLineThickness())}) (arrow_length ${formatInternalUnits(aDimension.GetArrowLength())}) (text_position_mode ${aDimension.GetTextPositionMode()})`,
     );
 
     if (ortho || aligned) {
-      switch (dim.arrowDirection) {
-        case 'outward':
+      switch (aDimension.GetArrowDirection()) {
+        case DIM_ARROW_DIRECTION.OUTWARD:
           this.m_out.Print('(arrow_direction outward)');
           break;
-        case 'inward':
+        case DIM_ARROW_DIRECTION.INWARD:
           this.m_out.Print('(arrow_direction inward)');
           break;
         // No default, handle all cases
       }
     }
 
-    if (aligned) this.m_out.Print(`(extension_height ${formatInternalUnits(dim.extensionHeight)})`);
+    if (aligned) {
+      this.m_out.Print(`(extension_height ${formatInternalUnits(aligned.GetExtensionHeight())})`);
+    }
 
-    if (leader) this.m_out.Print(`(text_frame ${dim.textBorder})`);
+    if (leader) this.m_out.Print(`(text_frame ${leader.GetTextBorder()})`);
 
-    this.m_out.Print(`(extension_offset ${formatInternalUnits(dim.extensionOffset)})`);
+    this.m_out.Print(`(extension_offset ${formatInternalUnits(aDimension.GetExtensionOffset())})`);
 
-    if (dim.keepTextAligned) FormatBool(this.m_out, 'keep_text_aligned', true);
+    if (aDimension.GetKeepTextAligned()) FormatBool(this.m_out, 'keep_text_aligned', true);
 
     this.m_out.Print(')');
 
     // Write dimension text after all other options to be sure the
     // text options are known when reading the file
-    if (!center)
-      this.formatText(
-        { ...dim.text, layer: dim.layer, uuid: dim.uuid, locked: dim.locked },
-        null,
-        true,
-      );
+    if (!center) this.formatText(aDimension);
 
     this.m_out.Print(')');
   }
 
   // -------------------------------------------------------------------------
-  // PCB_REFERENCE_IMAGE (:1124), PCB_POINT (:1156), PCB_TARGET (:1170)
+  // format( const PCB_SHAPE* ) (:1000)
   // -------------------------------------------------------------------------
 
-  /** `format( const PCB_REFERENCE_IMAGE* aBitmap )` (:1124). */
-  formatReferenceImage(img: KPcbReferenceImage): void {
+  private formatShape(aShape: PCB_SHAPE): void {
+    const parentFP = aShape.GetParentFootprint();
+    const prefix = parentFP ? 'fp' : 'gr';
+
+    switch (aShape.GetShape()) {
+      case SHAPE_T.SEGMENT:
+        this.m_out.Print(
+          `(${prefix}_line (start ${formatInternalUnitsFp(aShape.GetStart(), parentFP)}) (end ${formatInternalUnitsFp(aShape.GetEnd(), parentFP)})`,
+        );
+        break;
+
+      case SHAPE_T.RECTANGLE:
+        this.m_out.Print(
+          `(${prefix}_rect (start ${formatInternalUnitsFp(aShape.GetStart(), parentFP)}) (end ${formatInternalUnitsFp(aShape.GetEnd(), parentFP)})`,
+        );
+
+        if (aShape.GetCornerRadius() > 0)
+          this.m_out.Print(` (radius ${formatInternalUnits(aShape.GetCornerRadius())})`);
+        break;
+
+      case SHAPE_T.CIRCLE:
+        this.m_out.Print(
+          `(${prefix}_circle (center ${formatInternalUnitsFp(aShape.GetStart(), parentFP)}) (end ${formatInternalUnitsFp(aShape.GetEnd(), parentFP)})`,
+        );
+        break;
+
+      case SHAPE_T.ARC:
+        this.m_out.Print(
+          `(${prefix}_arc (start ${formatInternalUnitsFp(aShape.GetStart(), parentFP)}) (mid ${formatInternalUnitsFp(aShape.GetArcMid(), parentFP)}) (end ${formatInternalUnitsFp(aShape.GetEnd(), parentFP)})`,
+        );
+        break;
+
+      case SHAPE_T.POLY:
+        if (aShape.IsPolyShapeValid()) {
+          const poly = aShape.GetPolyShape();
+          const outline = poly.Outline(0);
+
+          this.m_out.Print(`(${prefix}_poly`);
+          this.formatPolyPts(outline, parentFP);
+        } else {
+          return;
+        }
+
+        break;
+
+      case SHAPE_T.BEZIER:
+        this.m_out.Print(
+          `(${prefix}_curve (pts (xy ${formatInternalUnitsFp(aShape.GetStart(), parentFP)}) (xy ${formatInternalUnitsFp(aShape.GetBezierC1(), parentFP)}) (xy ${formatInternalUnitsFp(aShape.GetBezierC2(), parentFP)}) (xy ${formatInternalUnitsFp(aShape.GetEnd(), parentFP)}))`,
+        );
+        break;
+
+      default:
+        // UNIMPLEMENTED_FOR( aShape->SHAPE_T_asString() )
+        return;
+    }
+
+    aShape.GetStroke().Format(this.m_out, pcbIUScale);
+
+    // The filled flag represents if a solid fill is present on circles, rectangles and polygons
+    if (
+      aShape.GetShape() === SHAPE_T.POLY ||
+      aShape.GetShape() === SHAPE_T.RECTANGLE ||
+      aShape.GetShape() === SHAPE_T.CIRCLE
+    ) {
+      switch (aShape.GetFillMode()) {
+        case FILL_T.HATCH:
+          this.m_out.Print('(fill hatch)');
+          break;
+
+        case FILL_T.REVERSE_HATCH:
+          this.m_out.Print('(fill reverse_hatch)');
+          break;
+
+        case FILL_T.CROSS_HATCH:
+          this.m_out.Print('(fill cross_hatch)');
+          break;
+
+        case FILL_T.FILLED_SHAPE:
+          FormatBool(this.m_out, 'fill', true);
+          break;
+
+        default:
+          FormatBool(this.m_out, 'fill', false);
+          break;
+      }
+    }
+
+    if (aShape.IsLocked()) FormatBool(this.m_out, 'locked', true);
+
+    if (aShape.GetLayerSet().count() > 1)
+      this.formatLayers(aShape.GetLayerSet(), false /* enumerate layers */);
+    else this.formatLayer(aShape.GetLayer());
+
+    if (
+      aShape.HasSolderMask() &&
+      aShape.GetLocalSolderMaskMargin() !== undefined &&
+      IsExternalCopperLayer(aShape.GetLayer())
+    ) {
+      this.m_out.Print(
+        `(solder_mask_margin ${formatInternalUnits(aShape.GetLocalSolderMaskMargin()!)})`,
+      );
+    }
+
+    if (!(this.m_ctl & CTL_OMIT_PAD_NETS) && aShape.GetNetCode() > 0)
+      this.m_out.Print(`(net ${this.m_out.Quotew(aShape.GetNetname())})`);
+
+    FormatUuid(this.m_out, aShape.m_Uuid);
+    this.m_out.Print(')');
+  }
+
+  // -------------------------------------------------------------------------
+  // format( const PCB_REFERENCE_IMAGE* ) (:1124), PCB_POINT (:1156), PCB_TARGET (:1170)
+  // -------------------------------------------------------------------------
+
+  private formatReferenceImage(aBitmap: PCB_REFERENCE_IMAGE): void {
+    const refImage = aBitmap.GetReferenceImage();
+
+    const image = refImage.GetImage().GetImageData();
+
+    if (!image) return; // wxCHECK_RET( image != nullptr, "wxImage* is NULL" )
+
     this.m_out.Print(
-      `(image (at ${formatInternalUnits(img.pos.x)} ${formatInternalUnits(img.pos.y)})`,
+      `(image (at ${formatInternalUnits(aBitmap.GetPosition().x)} ${formatInternalUnits(aBitmap.GetPosition().y)})`,
     );
 
-    this.formatLayer(img.layer);
+    this.formatLayer(aBitmap.GetLayer());
 
-    if (img.scale !== 1.0) this.m_out.Print(`(scale ${formatG(img.scale, 6)})`);
+    if (refImage.GetImageScale() !== 1.0)
+      this.m_out.Print(`(scale ${formatG(refImage.GetImageScale(), 6)})`);
 
-    if (img.locked) FormatBool(this.m_out, 'locked', true);
+    if (aBitmap.IsLocked()) FormatBool(this.m_out, 'locked', true);
 
-    // `SaveImageData`: the original image bytes, as loaded.
-    FormatStreamData(this.m_out, base64ToBytes(img.data));
+    const ostream = refImage.GetImage().SaveImageData();
 
-    FormatUuid(this.m_out, img.uuid);
+    FormatStreamData(this.m_out, ostream ?? new Uint8Array(0));
+
+    FormatUuid(this.m_out, aBitmap.m_Uuid);
     this.m_out.Print(')'); // Closes image token.
   }
 
-  /** `format( const PCB_POINT* aPoint )` (:1156). */
-  formatPoint(point: KPcbPoint): void {
+  private formatPoint(aPoint: PCB_POINT): void {
     this.m_out.Print(
-      `(point (at ${formatInternalUnitsPt(point.pos)}) (size ${formatInternalUnits(point.size)})`,
+      `(point (at ${formatInternalUnitsPt(aPoint.GetPosition())}) (size ${formatInternalUnits(aPoint.GetSize())})`,
     );
 
-    this.formatLayer(point.layer);
+    this.formatLayer(aPoint.GetLayer());
 
-    FormatUuid(this.m_out, point.uuid);
+    FormatUuid(this.m_out, aPoint.m_Uuid);
     this.m_out.Print(')');
   }
 
-  /** `format( const PCB_TARGET* aTarget )` (:1170). */
-  formatTarget(target: KPcbTarget): void {
+  private formatTarget(aTarget: PCB_TARGET): void {
     this.m_out.Print(
-      `(target ${target.shape ? 'x' : 'plus'} (at ${formatInternalUnitsPt(target.pos)}) (size ${formatInternalUnits(target.size)})`,
+      `(target ${aTarget.GetShape() ? 'x' : 'plus'} (at ${formatInternalUnitsPt(aTarget.GetPosition())}) (size ${formatInternalUnits(aTarget.GetSize())})`,
     );
 
-    if (target.width !== 0) this.m_out.Print(`(width ${formatInternalUnits(target.width)})`);
+    if (aTarget.GetWidth() !== 0)
+      this.m_out.Print(`(width ${formatInternalUnits(aTarget.GetWidth())})`);
 
-    this.formatLayer(target.layer);
-    FormatUuid(this.m_out, target.uuid);
+    this.formatLayer(aTarget.GetLayer());
+    FormatUuid(this.m_out, aTarget.m_Uuid);
     this.m_out.Print(')');
   }
 
   // -------------------------------------------------------------------------
-  // FOOTPRINT (:1186)
+  // format( const FOOTPRINT* ) (:1186)
   // -------------------------------------------------------------------------
 
-  /** `format( const FOOTPRINT* aFootprint )` (:1186), with `m_ctl == CTL_FOR_BOARD`. */
-  formatFootprint(fp: KFootprint): void {
+  private formatFootprint(aFootprint: FOOTPRINT): void {
     if (!(this.m_ctl & CTL_OMIT_INITIAL_COMMENTS)) {
-      for (const line of fp.initialComments ?? []) this.m_out.Print(`${line}\n`);
+      const initial_comments = aFootprint.GetInitialComments();
+
+      if (initial_comments) {
+        for (let i = 0; i < initial_comments.length; ++i)
+          this.m_out.Print(`${initial_comments[i]}\n`);
+      }
     }
 
-    if (this.m_ctl & CTL_OMIT_LIBNAME)
-      this.m_out.Print(`(footprint ${this.m_out.Quotes(libItemName(fp.fpid))}`);
-    else this.m_out.Print(`(footprint ${this.m_out.Quotes(fp.fpid)}`);
+    if (this.m_ctl & CTL_OMIT_LIBNAME) {
+      this.m_out.Print(`(footprint ${this.m_out.Quotes(aFootprint.GetFPID().GetLibItemName())}`);
+    } else {
+      this.m_out.Print(`(footprint ${this.m_out.Quotes(aFootprint.GetFPID().Format())}`);
+    }
 
     if (!(this.m_ctl & CTL_OMIT_FOOTPRINT_VERSION)) {
       this.m_out.Print(
@@ -765,192 +960,257 @@ export class PCB_IO_KICAD_SEXPR {
       );
     }
 
-    if (fp.locked) FormatBool(this.m_out, 'locked', true);
+    if (aFootprint.IsLocked()) FormatBool(this.m_out, 'locked', true);
 
-    if (fp.placed) FormatBool(this.m_out, 'placed', true);
+    if (aFootprint.IsPlaced()) FormatBool(this.m_out, 'placed', true);
 
-    this.formatLayer(fp.layer);
+    this.formatLayer(aFootprint.GetLayer());
 
-    if (!(this.m_ctl & CTL_OMIT_UUIDS)) FormatUuid(this.m_out, fp.uuid);
+    if (!(this.m_ctl & CTL_OMIT_UUIDS)) FormatUuid(this.m_out, aFootprint.m_Uuid);
 
     if (!(this.m_ctl & CTL_OMIT_AT)) {
       this.m_out.Print(
-        `(at ${formatInternalUnitsPt(fp.at)} ${fp.orientation === 0 ? '' : FormatAngle(fp.orientation)})`,
+        `(at ${formatInternalUnitsPt(aFootprint.GetPosition())} ${
+          aFootprint.GetOrientation().IsZero()
+            ? ''
+            : FormatAngle(aFootprint.GetOrientation().AsDegrees())
+        })`,
       );
     }
 
-    if (fp.libDescription !== '')
-      this.m_out.Print(`(descr ${this.m_out.Quotew(fp.libDescription)})`);
+    if (aFootprint.GetLibDescription() !== '')
+      this.m_out.Print(`(descr ${this.m_out.Quotew(aFootprint.GetLibDescription())})`);
 
-    if (fp.keywords !== '') this.m_out.Print(`(tags ${this.m_out.Quotew(fp.keywords)})`);
+    if (aFootprint.GetKeywords() !== '')
+      this.m_out.Print(`(tags ${this.m_out.Quotew(aFootprint.GetKeywords())})`);
 
-    const parent: ParentFP = { at: fp.at, angle: fp.orientation };
+    for (const field of aFootprint.GetFields()) {
+      if (!field) continue;
 
-    for (const field of fp.fields) {
       this.m_out.Print(
-        `(property ${this.m_out.Quotew(fieldCanonicalName(field))} ${this.m_out.Quotew(field.text)}`,
+        `(property ${this.m_out.Quotew(field.GetCanonicalName())} ${this.m_out.Quotew(field.GetText())}`,
       );
-      this.formatText(field, parent, false, true);
+
+      this.formatText(field);
+
       this.m_out.Print(')');
     }
 
-    if (fp.componentClasses.length > 0) {
-      this.m_out.Print('(component_classes');
-      for (const name of fp.componentClasses)
-        this.m_out.Print(`(class ${this.m_out.Quotew(name)})`);
-      this.m_out.Print(')');
+    // if( const COMPONENT_CLASS* compClass = aFootprint->GetStaticComponentClass() ) …
+    //                                                     -- COMPONENT_CLASS pending (#636)
+    {
+      const classNames = aFootprint.GetTransientComponentClassNames();
+
+      if (classNames.size > 0) {
+        this.m_out.Print('(component_classes');
+
+        // COMPONENT_CLASS_MANAGER sorts constituent names; a std::set is name order
+        for (const name of [...classNames].sort())
+          this.m_out.Print(`(class ${this.m_out.Quotew(name)})`);
+
+        this.m_out.Print(')');
+      }
     }
 
-    if (fp.filters !== '')
-      this.m_out.Print(`(property ki_fp_filters ${this.m_out.Quotew(fp.filters)})`);
+    if (aFootprint.GetFilters() !== '') {
+      this.m_out.Print(`(property ki_fp_filters ${this.m_out.Quotew(aFootprint.GetFilters())})`);
+    }
 
-    if (!(this.m_ctl & CTL_OMIT_PATH) && fp.path !== '')
-      this.m_out.Print(`(path ${this.m_out.Quotew(fp.path)})`);
+    if (!(this.m_ctl & CTL_OMIT_PATH) && aFootprint.GetPath().length > 0)
+      this.m_out.Print(`(path ${this.m_out.Quotew(kiidPathAsString(aFootprint.GetPath()))})`);
 
-    if (fp.sheetname !== '') this.m_out.Print(`(sheetname ${this.m_out.Quotew(fp.sheetname)})`);
+    if (aFootprint.GetSheetname() !== '')
+      this.m_out.Print(`(sheetname ${this.m_out.Quotew(aFootprint.GetSheetname())})`);
 
-    if (fp.sheetfile !== '') this.m_out.Print(`(sheetfile ${this.m_out.Quotew(fp.sheetfile)})`);
+    if (aFootprint.GetSheetfile() !== '')
+      this.m_out.Print(`(sheetfile ${this.m_out.Quotew(aFootprint.GetSheetfile())})`);
 
     // Emit unit info for gate swapping metadata (flat pin list form)
-    if (fp.unitInfo.length > 0) {
+    if (aFootprint.GetUnitInfo().length > 0) {
       this.m_out.Print('(units');
-      for (const u of fp.unitInfo) {
-        this.m_out.Print(`(unit (name ${this.m_out.Quotew(u.unitName)})`);
+
+      for (const u of aFootprint.GetUnitInfo()) {
+        this.m_out.Print(`(unit (name ${this.m_out.Quotew(u.m_unitName)})`);
         this.m_out.Print('(pins');
-        for (const n of u.pins) this.m_out.Print(` ${this.m_out.Quotew(n)}`);
+
+        for (const n of u.m_pins) this.m_out.Print(` ${this.m_out.Quotew(n)}`);
+
         this.m_out.Print(')'); // </pins>
         this.m_out.Print(')'); // </unit>
       }
+
       this.m_out.Print(')'); // </units>
     }
 
-    if (fp.localSolderMaskMargin !== undefined)
-      this.m_out.Print(`(solder_mask_margin ${formatInternalUnits(fp.localSolderMaskMargin)})`);
-
-    if (fp.localSolderPasteMargin !== undefined)
-      this.m_out.Print(`(solder_paste_margin ${formatInternalUnits(fp.localSolderPasteMargin)})`);
-
-    if (fp.localSolderPasteMarginRatio !== undefined)
+    if (aFootprint.GetLocalSolderMaskMargin() !== undefined) {
       this.m_out.Print(
-        `(solder_paste_margin_ratio ${FormatDouble2Str(fp.localSolderPasteMarginRatio)})`,
+        `(solder_mask_margin ${formatInternalUnits(aFootprint.GetLocalSolderMaskMargin()!)})`,
       );
+    }
 
-    if (fp.localClearance !== undefined)
-      this.m_out.Print(`(clearance ${formatInternalUnits(fp.localClearance)})`);
+    if (aFootprint.GetLocalSolderPasteMargin() !== undefined) {
+      this.m_out.Print(
+        `(solder_paste_margin ${formatInternalUnits(aFootprint.GetLocalSolderPasteMargin()!)})`,
+      );
+    }
 
-    if (fp.localZoneConnection !== -1) this.m_out.Print(`(zone_connect ${fp.localZoneConnection})`);
+    if (aFootprint.GetLocalSolderPasteMarginRatio() !== undefined) {
+      this.m_out.Print(
+        `(solder_paste_margin_ratio ${FormatDouble2Str(aFootprint.GetLocalSolderPasteMarginRatio()!)})`,
+      );
+    }
+
+    if (aFootprint.GetLocalClearance() !== undefined) {
+      this.m_out.Print(`(clearance ${formatInternalUnits(aFootprint.GetLocalClearance()!)})`);
+    }
+
+    if (aFootprint.GetLocalZoneConnection() !== ZONE_CONNECTION.INHERITED) {
+      this.m_out.Print(`(zone_connect ${aFootprint.GetLocalZoneConnection()})`);
+    }
 
     // Attributes
-    if (fp.attributes || fp.allowMissingCourtyard || fp.allowSolderMaskBridges) {
+    if (
+      aFootprint.GetAttributes() ||
+      aFootprint.AllowMissingCourtyard() ||
+      aFootprint.AllowSolderMaskBridges()
+    ) {
       this.m_out.Print('(attr');
 
-      if (fp.attributes & FP_SMD) this.m_out.Print(' smd');
+      if (aFootprint.GetAttributes() & FP_SMD) this.m_out.Print(' smd');
 
-      if (fp.attributes & FP_THROUGH_HOLE) this.m_out.Print(' through_hole');
+      if (aFootprint.GetAttributes() & FP_THROUGH_HOLE) this.m_out.Print(' through_hole');
 
-      if (fp.attributes & FP_BOARD_ONLY) this.m_out.Print(' board_only');
+      if (aFootprint.GetAttributes() & FP_BOARD_ONLY) this.m_out.Print(' board_only');
 
-      if (fp.attributes & FP_EXCLUDE_FROM_POS_FILES) this.m_out.Print(' exclude_from_pos_files');
+      if (aFootprint.GetAttributes() & FP_EXCLUDE_FROM_POS_FILES)
+        this.m_out.Print(' exclude_from_pos_files');
 
-      if (fp.attributes & FP_EXCLUDE_FROM_BOM) this.m_out.Print(' exclude_from_bom');
+      if (aFootprint.GetAttributes() & FP_EXCLUDE_FROM_BOM) this.m_out.Print(' exclude_from_bom');
 
-      if (fp.allowMissingCourtyard) this.m_out.Print(' allow_missing_courtyard');
+      if (aFootprint.AllowMissingCourtyard()) this.m_out.Print(' allow_missing_courtyard');
 
-      if (fp.attributes & FP_DNP) this.m_out.Print(' dnp');
+      if (aFootprint.GetAttributes() & FP_DNP) this.m_out.Print(' dnp');
 
-      if (fp.allowSolderMaskBridges) this.m_out.Print(' allow_soldermask_bridges');
+      if (aFootprint.AllowSolderMaskBridges()) this.m_out.Print(' allow_soldermask_bridges');
 
       this.m_out.Print(')');
     }
 
     // Expand inner layers is the default stackup mode
-    if (fp.stackupMode !== 'expand_inner_layers') {
+    if (aFootprint.GetStackupMode() !== FOOTPRINT_STACKUP.EXPAND_INNER_LAYERS) {
       this.m_out.Print('(stackup');
-      for (const layer of fp.stackupLayers.Seq())
-        this.m_out.Print(`(layer ${this.m_out.Quotew(LSET_Name(layer))})`);
+
+      const fpLset = aFootprint.GetStackupLayers();
+      for (const layer of fpLset.Seq()) {
+        const canonicalName = LSET.Name(layer);
+        this.m_out.Print(`(layer ${this.m_out.Quotew(canonicalName)})`);
+      }
+
       this.m_out.Print(')');
     }
 
-    if (fp.privateLayers.any()) {
+    if (aFootprint.GetPrivateLayers().any()) {
       this.m_out.Print('(private_layers');
-      for (const layer of fp.privateLayers.Seq())
-        this.m_out.Print(` ${this.m_out.Quotew(LSET_Name(layer))}`);
+
+      for (const layer of aFootprint.GetPrivateLayers().Seq()) {
+        const canonicalName = LSET.Name(layer);
+        this.m_out.Print(` ${this.m_out.Quotew(canonicalName)}`);
+      }
+
       this.m_out.Print(')');
     }
 
-    // `IsNetTie()`: any non-empty group.
-    if (fp.netTiePadGroups.some((g) => g !== '')) {
+    if (aFootprint.IsNetTie()) {
       this.m_out.Print('(net_tie_pad_groups');
-      for (const group of fp.netTiePadGroups) this.m_out.Print(` ${this.m_out.Quotew(group)}`);
+
+      for (const group of aFootprint.GetNetTiePadGroups())
+        this.m_out.Print(` ${this.m_out.Quotew(group)}`);
+
       this.m_out.Print(')');
     }
 
-    FormatBool(this.m_out, 'duplicate_pad_numbers_are_jumpers', fp.duplicatePadNumbersAreJumpers);
+    FormatBool(
+      this.m_out,
+      'duplicate_pad_numbers_are_jumpers',
+      aFootprint.GetDuplicatePadNumbersAreJumpers(),
+    );
 
-    if (fp.jumperPadGroups.length > 0) {
+    const jumperGroups = aFootprint.JumperPadGroups();
+
+    if (jumperGroups.length > 0) {
       this.m_out.Print('(jumper_pad_groups');
-      for (const group of fp.jumperPadGroups) {
+
+      for (const group of jumperGroups) {
         this.m_out.Print('(');
-        // A `std::set<wxString>`: codepoint order.
-        for (const padName of [...group].sort(cmpWxString))
+
+        // std::set<wxString>: name order
+        for (const padName of sortStrings([...group]))
           this.m_out.Print(`${this.m_out.Quotew(padName)} `);
+
         this.m_out.Print(')');
       }
+
       this.m_out.Print(')');
     }
 
-    // Format( &Reference() ) and Format( &Value() ): PCB_FIELD_T is handled
-    // above with the properties, so these print nothing.
+    this.Format(aFootprint.Reference());
+    this.Format(aFootprint.Value());
 
-    const sortedPads = stdSet(fp.pads, cmpPads);
-    const sortedDrawings = stdSet(fp.graphicalItems, (a, b, ia, ib) =>
-      cmpFpDrawings(a, b, ia, ib, parent),
+    const sorted_pads = sortedSet<PAD>(aFootprint.Pads(), FOOTPRINT.cmp_pads);
+    const sorted_drawings = sortedSet<BOARD_ITEM>(
+      aFootprint.GraphicalItems(),
+      FOOTPRINT.cmp_drawings,
     );
-    const sortedPoints = stdSet(fp.points, cmpPoints);
-    const sortedZones = stdSet(fp.zones, cmpZones);
-    const layerSets = footprintChildLayerSets(fp);
-    const sortedGroups = stdSet(fp.groups, (a, b, ia, ib) => ptrCmpGroup(a, b, ia, ib, layerSets));
+    const sorted_points = sortedSet<PCB_POINT>(aFootprint.Points(), PCB_POINT.cmp_points);
+    const sorted_zones = sortedSet<ZONE>(aFootprint.Zones(), FOOTPRINT.cmp_zones);
+    const sorted_groups = sortedSet<BOARD_ITEM>(aFootprint.Groups(), BOARD_ITEM.ptr_cmp);
 
     // Save drawing elements.
-    for (const gr of sortedDrawings) this.formatFpGraphicalItem(gr, parent);
 
-    for (const point of sortedPoints) this.formatPoint(point);
+    for (const gr of sorted_drawings) this.Format(gr);
+
+    for (const point of sorted_points) this.Format(point);
 
     // Save pads.
-    for (const pad of sortedPads) this.formatPad(pad);
+    for (const pad of sorted_pads) this.Format(pad);
 
     // Save zones.
-    for (const zone of sortedZones) this.formatZone(zone);
+    for (const zone of sorted_zones) this.Format(zone);
 
     // Save groups.
-    for (const group of sortedGroups) this.formatGroup(group);
+    for (const group of sorted_groups) this.Format(group);
 
     // Save variants.
-    const baseDnp = (fp.attributes & FP_DNP) !== 0;
-    const baseExcludedFromBOM = (fp.attributes & FP_EXCLUDE_FROM_BOM) !== 0;
-    const baseExcludedFromPosFiles = (fp.attributes & FP_EXCLUDE_FROM_POS_FILES) !== 0;
+    const baseDnp = aFootprint.IsDNP();
+    const baseExcludedFromBOM = aFootprint.IsExcludedFromBOM();
+    const baseExcludedFromPosFiles = aFootprint.IsExcludedFromPosFiles();
 
-    // `GetVariants()`: a `std::map` by name.
-    for (const variant of [...fp.variants].sort((a, b) => cmpWxString(a.name, b.name))) {
-      this.m_out.Print(`(variant (name ${this.m_out.Quotew(variant.name)})`);
+    // CASE_INSENSITIVE_MAP: CmpNoCase order
+    const variantNames = [...aFootprint.GetVariants().keys()].sort(cmpNoCase);
 
-      const dnp = variant.dnp ?? baseDnp;
-      if (dnp !== baseDnp) FormatBool(this.m_out, 'dnp', dnp);
+    for (const variantName of variantNames) {
+      const variant = aFootprint.GetVariants().get(variantName)!;
 
-      const exBom = variant.excludedFromBOM ?? baseExcludedFromBOM;
-      if (exBom !== baseExcludedFromBOM) FormatBool(this.m_out, 'exclude_from_bom', exBom);
+      this.m_out.Print(`(variant (name ${this.m_out.Quotew(variantName)})`);
 
-      const exPos = variant.excludedFromPosFiles ?? baseExcludedFromPosFiles;
-      if (exPos !== baseExcludedFromPosFiles)
-        FormatBool(this.m_out, 'exclude_from_pos_files', exPos);
+      if (variant.GetDNP() !== baseDnp) FormatBool(this.m_out, 'dnp', variant.GetDNP());
 
-      for (const [fieldName, fieldValue] of [...variant.fields.entries()].sort(([a], [b]) =>
-        cmpWxString(a, b),
-      )) {
-        const baseField = fp.fields.find(
-          (f) => fieldCanonicalName(f) === fieldName || f.name === fieldName,
-        );
-        const baseValue = baseField ? baseField.text : '';
+      if (variant.GetExcludedFromBOM() !== baseExcludedFromBOM)
+        FormatBool(this.m_out, 'exclude_from_bom', variant.GetExcludedFromBOM());
+
+      if (variant.GetExcludedFromPosFiles() !== baseExcludedFromPosFiles) {
+        FormatBool(this.m_out, 'exclude_from_pos_files', variant.GetExcludedFromPosFiles());
+      }
+
+      // std::map<wxString, wxString>: key order
+      const fieldNames = [...variant.GetFields().keys()].sort((a, b) =>
+        a < b ? -1 : a > b ? 1 : 0,
+      );
+
+      for (const fieldName of fieldNames) {
+        const fieldValue = variant.GetFields().get(fieldName)!;
+        const baseField = aFootprint.GetField(fieldName);
+        const baseValue = baseField ? baseField.GetText() : '';
 
         if (fieldValue === baseValue) continue;
 
@@ -962,166 +1222,223 @@ export class PCB_IO_KICAD_SEXPR {
       this.m_out.Print(')');
     }
 
-    FormatBool(this.m_out, 'embedded_fonts', fp.embeddedFiles.areFontsEmbedded);
+    FormatBool(this.m_out, 'embedded_fonts', aFootprint.GetEmbeddedFiles().GetAreFontsEmbedded());
 
-    if (fp.embeddedFiles.files.size > 0)
-      writeEmbeddedFiles(this.m_out, fp.embeddedFiles, !(this.m_ctl & CTL_FOR_BOARD));
+    if (!aFootprint.GetEmbeddedFiles().IsEmpty())
+      aFootprint.WriteEmbeddedFiles(this.m_out, !(this.m_ctl & CTL_FOR_BOARD));
 
     // Save 3D info.
-    for (const m of fp.models) {
-      if (m.filename === '') continue;
+    for (const bs3D of aFootprint.Models()) {
+      if (bs3D.m_Filename !== '') {
+        this.m_out.Print(`(model ${this.m_out.Quotew(bs3D.m_Filename)}`);
 
-      this.m_out.Print(`(model ${this.m_out.Quotew(m.filename)}`);
+        if (!bs3D.m_Show) FormatBool(this.m_out, 'hide', !bs3D.m_Show);
 
-      if (!m.show) FormatBool(this.m_out, 'hide', !m.show);
+        if (bs3D.m_Opacity !== 1.0) this.m_out.Print(`(opacity ${formatF(bs3D.m_Opacity, 4)})`);
 
-      if (m.opacity !== 1.0) this.m_out.Print(`(opacity ${formatF(m.opacity, 4)})`);
+        this.m_out.Print(
+          `(offset (xyz ${FormatDouble2Str(bs3D.m_Offset.x)} ${FormatDouble2Str(bs3D.m_Offset.y)} ${FormatDouble2Str(bs3D.m_Offset.z)}))`,
+        );
 
-      this.m_out.Print(
-        `(offset (xyz ${FormatDouble2Str(m.offset.x)} ${FormatDouble2Str(m.offset.y)} ${FormatDouble2Str(m.offset.z)}))`,
-      );
+        this.m_out.Print(
+          `(scale (xyz ${FormatDouble2Str(bs3D.m_Scale.x)} ${FormatDouble2Str(bs3D.m_Scale.y)} ${FormatDouble2Str(bs3D.m_Scale.z)}))`,
+        );
 
-      this.m_out.Print(
-        `(scale (xyz ${FormatDouble2Str(m.scale.x)} ${FormatDouble2Str(m.scale.y)} ${FormatDouble2Str(m.scale.z)}))`,
-      );
+        this.m_out.Print(
+          `(rotate (xyz ${FormatDouble2Str(bs3D.m_Rotation.x)} ${FormatDouble2Str(bs3D.m_Rotation.y)} ${FormatDouble2Str(bs3D.m_Rotation.z)}))`,
+        );
 
-      this.m_out.Print(
-        `(rotate (xyz ${FormatDouble2Str(m.rotation.x)} ${FormatDouble2Str(m.rotation.y)} ${FormatDouble2Str(m.rotation.z)}))`,
-      );
-
-      this.m_out.Print(')');
+        this.m_out.Print(')');
+      }
     }
 
     this.m_out.Print(')');
   }
 
-  /** `Format( aItem )` (:371) for a footprint's graphical item. */
-  formatFpGraphicalItem(gr: KFpGraphicalItem, parent: ParentFP | null): void {
-    switch (gr.kind) {
-      case 'shape':
-        this.formatShape(gr.item, parent);
-        break;
-      case 'text':
-        this.formatText(gr.item, parent);
-        break;
-      case 'textbox':
-        this.formatTextBox(gr.item, parent, false);
-        break;
-      case 'table':
-        this.formatTable(gr.item, parent);
-        break;
-      case 'image':
-        this.formatReferenceImage(gr.item);
-        break;
-      case 'barcode':
-        this.formatBarcode(gr.item);
-        break;
-      case 'dimension':
-        this.formatDimension(gr.item);
-        break;
+  // -------------------------------------------------------------------------
+  // formatLayers (:1549)
+  // -------------------------------------------------------------------------
+
+  private formatLayers(aLayerMask: LSET, aEnumerateLayers: boolean, aIsZone = false): void {
+    const cu_all = LSET.AllCuMask();
+    const fr_bk = new LSET([B_Cu, F_Cu]);
+    const adhes = new LSET([B_Adhes, F_Adhes]);
+    const paste = new LSET([B_Paste, F_Paste]);
+    const silks = new LSET([B_SilkS, F_SilkS]);
+    const mask = new LSET([B_Mask, F_Mask]);
+    const crt_yd = new LSET([B_CrtYd, F_CrtYd]);
+    const fab = new LSET([B_Fab, F_Fab]);
+
+    const cu_board_mask = LSET.AllCuMask(
+      this.m_board ? this.m_board.GetCopperLayerCount() : MAX_CU_LAYERS,
+    );
+
+    let output = '';
+    let layerMask = new LSET(aLayerMask);
+
+    if (!aEnumerateLayers) {
+      // If all copper layers present on the board are enabled, then output the wildcard
+      if (new LSET(layerMask).and(cu_board_mask).equals(cu_board_mask)) {
+        output += ` ${this.m_out.Quotew('*.Cu')}`;
+
+        // Clear all copper bits because pads might have internal layers that aren't part of the
+        // board enabled, and we don't want to output those in the layers listing if we already
+        // output the wildcard.
+        layerMask = layerMask.and(new LSET(cu_all).not());
+      } else if (new LSET(layerMask).and(cu_board_mask).equals(fr_bk)) {
+        if (aIsZone) output += ` ${this.m_out.Quotew('F&B.Cu')}`;
+        else output += ` ${this.m_out.Quotew('*.Cu')}`;
+
+        layerMask = layerMask.and(new LSET(fr_bk).not());
+      }
+
+      if (new LSET(layerMask).and(adhes).equals(adhes)) {
+        output += ` ${this.m_out.Quotew('*.Adhes')}`;
+        layerMask = layerMask.and(new LSET(adhes).not());
+      }
+
+      if (new LSET(layerMask).and(paste).equals(paste)) {
+        output += ` ${this.m_out.Quotew('*.Paste')}`;
+        layerMask = layerMask.and(new LSET(paste).not());
+      }
+
+      if (new LSET(layerMask).and(silks).equals(silks)) {
+        output += ` ${this.m_out.Quotew('*.SilkS')}`;
+        layerMask = layerMask.and(new LSET(silks).not());
+      }
+
+      if (new LSET(layerMask).and(mask).equals(mask)) {
+        output += ` ${this.m_out.Quotew('*.Mask')}`;
+        layerMask = layerMask.and(new LSET(mask).not());
+      }
+
+      if (new LSET(layerMask).and(crt_yd).equals(crt_yd)) {
+        output += ` ${this.m_out.Quotew('*.CrtYd')}`;
+        layerMask = layerMask.and(new LSET(crt_yd).not());
+      }
+
+      if (new LSET(layerMask).and(fab).equals(fab)) {
+        output += ` ${this.m_out.Quotew('*.Fab')}`;
+        layerMask = layerMask.and(new LSET(fab).not());
+      }
     }
+
+    // output any individual layers not handled in wildcard combos above
+    for (let layer = 0; layer < PCB_LAYER_ID.PCB_LAYER_ID_COUNT; ++layer) {
+      if (layerMask.test(layer))
+        output += ` ${this.m_out.Quotew(LSET.Name(layer as PCB_LAYER_ID))}`;
+    }
+
+    this.m_out.Print(`(layers ${output})`);
   }
 
   // -------------------------------------------------------------------------
-  // PAD (:1634)
+  // format( const PAD* ) (:1634)
   // -------------------------------------------------------------------------
 
-  /** `format( const PAD* aPad )` (:1634). */
-  formatPad(pad: KPad): void {
-    const ps = pad.padstack;
-    const board = this.m_board;
+  private formatPad(aPad: PAD): void {
+    const board = aPad.GetBoard();
 
-    const shapeOf = (layer: number): PadShape => copperLayerPropsConst(ps, layer).shape.shape;
-    const shapeName = (layer: number): string => {
-      switch (shapeOf(layer)) {
-        case 'circle':
+    const shapeName = (aLayer: PCB_LAYER_ID): string => {
+      switch (aPad.GetShape(aLayer)) {
+        case PAD_SHAPE.CIRCLE:
           return 'circle';
-        case 'rectangle':
+        case PAD_SHAPE.RECTANGLE:
           return 'rect';
-        case 'oval':
+        case PAD_SHAPE.OVAL:
           return 'oval';
-        case 'trapezoid':
+        case PAD_SHAPE.TRAPEZOID:
           return 'trapezoid';
-        case 'chamfered_rect':
-        case 'roundrect':
+        case PAD_SHAPE.CHAMFERED_RECT:
+        case PAD_SHAPE.ROUNDRECT:
           return 'roundrect';
-        case 'custom':
+        case PAD_SHAPE.CUSTOM:
           return 'custom';
+
+        default:
+          throw new Error(`unknown pad type: ${aPad.GetShape(aLayer)}`); // THROW_IO_ERROR
       }
     };
 
     let type: string;
-    switch (pad.attribute) {
-      case 'pth':
+
+    switch (aPad.GetAttribute()) {
+      case PAD_ATTRIB.PTH:
         type = 'thru_hole';
         break;
-      case 'smd':
+      case PAD_ATTRIB.SMD:
         type = 'smd';
         break;
-      case 'conn':
+      case PAD_ATTRIB.CONN:
         type = 'connect';
         break;
-      case 'npth':
+      case PAD_ATTRIB.NPTH:
         type = 'np_thru_hole';
         break;
+
+      default:
+        throw new Error(`unknown pad attribute: ${aPad.GetAttribute()}`); // THROW_IO_ERROR
     }
 
     let property: string | null = null;
-    switch (pad.property) {
-      case 'none':
+
+    switch (aPad.GetProperty()) {
+      case PAD_PROP.NONE:
         break; // could be "none"
-      case 'bga':
+      case PAD_PROP.BGA:
         property = 'pad_prop_bga';
         break;
-      case 'fiducial_glbl':
+      case PAD_PROP.FIDUCIAL_GLBL:
         property = 'pad_prop_fiducial_glob';
         break;
-      case 'fiducial_local':
+      case PAD_PROP.FIDUCIAL_LOCAL:
         property = 'pad_prop_fiducial_loc';
         break;
-      case 'testpoint':
+      case PAD_PROP.TESTPOINT:
         property = 'pad_prop_testpoint';
         break;
-      case 'heatsink':
+      case PAD_PROP.HEATSINK:
         property = 'pad_prop_heatsink';
         break;
-      case 'castellated':
+      case PAD_PROP.CASTELLATED:
         property = 'pad_prop_castellated';
         break;
-      case 'mechanical':
+      case PAD_PROP.MECHANICAL:
         property = 'pad_prop_mechanical';
         break;
-      case 'pressfit':
+      case PAD_PROP.PRESSFIT:
         property = 'pad_prop_pressfit';
         break;
+
+      default:
+        throw new Error(`unknown pad property: ${aPad.GetProperty()}`); // THROW_IO_ERROR
     }
 
     this.m_out.Print(
-      `(pad ${this.m_out.Quotew(pad.number)} ${type} ${shapeName(PADSTACK_ALL_LAYERS)}`,
+      `(pad ${this.m_out.Quotew(aPad.GetNumber())} ${type} ${shapeName(PADSTACK.ALL_LAYERS)}`,
     );
 
     this.m_out.Print(
-      `(at ${formatInternalUnitsPt(pad.at)} ${pad.orientation === 0 ? '' : FormatAngle(pad.orientation)})`,
+      `(at ${formatInternalUnitsPt(aPad.GetFPRelativePosition())} ${
+        aPad.GetOrientation().IsZero() ? '' : FormatAngle(aPad.GetOrientation().AsDegrees())
+      })`,
     );
 
-    const sizeOf = (layer: number): Vec2 => copperLayerPropsConst(ps, layer).shape.size;
-    const deltaOf = (layer: number): Vec2 =>
-      copperLayerPropsConst(ps, layer).shape.trapezoidDeltaSize;
-    const offsetOf = (layer: number): Vec2 => copperLayerPropsConst(ps, layer).shape.offset;
+    this.m_out.Print(`(size ${formatInternalUnitsPt(aPad.GetSize(PADSTACK.ALL_LAYERS))})`);
 
-    this.m_out.Print(`(size ${formatInternalUnitsPt(sizeOf(PADSTACK_ALL_LAYERS))})`);
+    if (aPad.GetDelta(PADSTACK.ALL_LAYERS).x !== 0 || aPad.GetDelta(PADSTACK.ALL_LAYERS).y !== 0) {
+      this.m_out.Print(`(rect_delta ${formatInternalUnitsPt(aPad.GetDelta(PADSTACK.ALL_LAYERS))})`);
+    }
 
-    if (deltaOf(PADSTACK_ALL_LAYERS).x !== 0 || deltaOf(PADSTACK_ALL_LAYERS).y !== 0)
-      this.m_out.Print(`(rect_delta ${formatInternalUnitsPt(deltaOf(PADSTACK_ALL_LAYERS))})`);
-
-    const drill = ps.drill.size;
-    let shapeoffset = offsetOf(PADSTACK_ALL_LAYERS);
+    const drill = aPad.GetDrillSize();
+    let shapeoffset = aPad.GetOffset(PADSTACK.ALL_LAYERS);
     let forceShapeOffsetOutput = false;
 
-    for (const layer of uniquePadstackLayers(ps)) {
-      const o = offsetOf(layer);
-      if (o.x !== shapeoffset.x || o.y !== shapeoffset.y) forceShapeOffsetOutput = true;
-    }
+    aPad.Padstack().ForEachUniqueLayer((layer: PCB_LAYER_ID) => {
+      const off = aPad.GetOffset(layer);
+
+      if (off.x !== shapeoffset.x || off.y !== shapeoffset.y) forceShapeOffsetOutput = true;
+    });
 
     if (
       drill.x > 0 ||
@@ -1132,7 +1449,7 @@ export class PCB_IO_KICAD_SEXPR {
     ) {
       this.m_out.Print('(drill');
 
-      if (ps.drill.shape === 'oblong') this.m_out.Print(' oval');
+      if (aPad.GetDrillShape() === PAD_DRILL_SHAPE.OBLONG) this.m_out.Print(' oval');
 
       if (drill.x > 0) this.m_out.Print(` ${formatInternalUnits(drill.x)}`);
 
@@ -1143,75 +1460,78 @@ export class PCB_IO_KICAD_SEXPR {
       // changes, but note that the other padstack layers (if present) will have an offset stored
       // separately.
       if (shapeoffset.x !== 0 || shapeoffset.y !== 0 || forceShapeOffsetOutput)
-        this.m_out.Print(`(offset ${formatInternalUnitsPt(offsetOf(PADSTACK_ALL_LAYERS))})`);
+        this.m_out.Print(`(offset ${formatInternalUnitsPt(aPad.GetOffset(PADSTACK.ALL_LAYERS))})`);
 
       this.m_out.Print(')');
     }
 
-    if (ps.secondaryDrill.size.x > 0) {
+    if (aPad.Padstack().SecondaryDrill().size.x > 0) {
       this.m_out.Print(
-        `(backdrill (size ${formatInternalUnits(ps.secondaryDrill.size.x)}) (layers ${this.m_out.Quotew(LSET_Name(ps.secondaryDrill.start))} ${this.m_out.Quotew(LSET_Name(ps.secondaryDrill.end))}))`,
+        `(backdrill (size ${formatInternalUnits(aPad.Padstack().SecondaryDrill().size.x)}) (layers ${this.m_out.Quotew(LSET.Name(aPad.Padstack().SecondaryDrill().start))} ${this.m_out.Quotew(LSET.Name(aPad.Padstack().SecondaryDrill().end))}))`,
       );
     }
 
-    if (ps.tertiaryDrill.size.x > 0) {
+    if (aPad.Padstack().TertiaryDrill().size.x > 0) {
       this.m_out.Print(
-        `(tertiary_drill (size ${formatInternalUnits(ps.tertiaryDrill.size.x)}) (layers ${this.m_out.Quotew(LSET_Name(ps.tertiaryDrill.start))} ${this.m_out.Quotew(LSET_Name(ps.tertiaryDrill.end))}))`,
+        `(tertiary_drill (size ${formatInternalUnits(aPad.Padstack().TertiaryDrill().size.x)}) (layers ${this.m_out.Quotew(LSET.Name(aPad.Padstack().TertiaryDrill().start))} ${this.m_out.Quotew(LSET.Name(aPad.Padstack().TertiaryDrill().end))}))`,
       );
     }
 
-    this.formatPostMachining('front_post_machining', ps.frontPostMachining);
-    this.formatPostMachining('back_post_machining', ps.backPostMachining);
+    this.formatPostMachining('front_post_machining', aPad.Padstack().FrontPostMachining());
+    this.formatPostMachining('back_post_machining', aPad.Padstack().BackPostMachining());
 
     // Add pad property, if exists.
     if (property) this.m_out.Print(`(property ${property})`);
 
-    this.formatLayers(ps.layerSet, false /* enumerate layers */);
+    this.formatLayers(aPad.GetLayerSet(), false /* enumerate layers */);
 
-    if (pad.attribute === 'pth') {
-      // `GetRemoveUnconnected()`: any mode but KEEP_ALL.
-      const removeUnconnected = ps.unconnectedLayerMode !== 'keep_all';
-      FormatBool(this.m_out, 'remove_unused_layers', removeUnconnected);
+    if (aPad.GetAttribute() === PAD_ATTRIB.PTH) {
+      FormatBool(this.m_out, 'remove_unused_layers', aPad.GetRemoveUnconnected());
 
-      if (removeUnconnected) {
-        // `GetKeepTopBottom()`: REMOVE_EXCEPT_START_AND_END only.
-        FormatBool(
-          this.m_out,
-          'keep_end_layers',
-          ps.unconnectedLayerMode === 'remove_except_start_and_end',
-        );
+      if (aPad.GetRemoveUnconnected()) {
+        FormatBool(this.m_out, 'keep_end_layers', aPad.GetKeepTopBottom());
 
-        if (this.m_hasBoard) {
+        if (board) {
           // Will be nullptr in footprint library
           this.m_out.Print('(zone_layer_connections');
-          for (const layer of board.enabledLayers.CuStack()) {
-            if (pad.zoneLayerForceFlashed.has(layer))
-              this.m_out.Print(` ${this.m_out.Quotew(LSET_Name(layer))}`);
+
+          for (const layer of board.GetEnabledLayers().CuStack()) {
+            if (aPad.GetZoneLayerOverride(layer) === ZONE_LAYER_OVERRIDE.ZLO_FORCE_FLASHED)
+              this.m_out.Print(` ${this.m_out.Quotew(LSET.Name(layer))}`);
           }
+
           this.m_out.Print(')');
         }
       }
     }
 
-    const formatCornerProperties = (layer: number): void => {
-      const s = copperLayerPropsConst(ps, layer).shape;
+    const formatCornerProperties = (aLayer: PCB_LAYER_ID): void => {
       // Output the radius ratio for rounded and chamfered rect pads
-      if (s.shape === 'roundrect' || s.shape === 'chamfered_rect')
-        this.m_out.Print(`(roundrect_rratio ${FormatDouble2Str(s.roundRectRadiusRatio)})`);
+      if (
+        aPad.GetShape(aLayer) === PAD_SHAPE.ROUNDRECT ||
+        aPad.GetShape(aLayer) === PAD_SHAPE.CHAMFERED_RECT
+      ) {
+        this.m_out.Print(
+          `(roundrect_rratio ${FormatDouble2Str(aPad.GetRoundRectRadiusRatio(aLayer))})`,
+        );
+      }
 
       // Output the chamfer corners for chamfered rect pads
-      if (s.shape === 'chamfered_rect') {
-        this.m_out.Print(`(chamfer_ratio ${FormatDouble2Str(s.chamferedRectRatio)})`);
+      if (aPad.GetShape(aLayer) === PAD_SHAPE.CHAMFERED_RECT) {
+        this.m_out.Print(`(chamfer_ratio ${FormatDouble2Str(aPad.GetChamferRectRatio(aLayer))})`);
 
         this.m_out.Print('(chamfer');
 
-        if (s.chamferedRectPositions & RECT_CHAMFER_TOP_LEFT) this.m_out.Print(' top_left');
+        if (aPad.GetChamferPositions(aLayer) & RECT_CHAMFER_TOP_LEFT) this.m_out.Print(' top_left');
 
-        if (s.chamferedRectPositions & RECT_CHAMFER_TOP_RIGHT) this.m_out.Print(' top_right');
+        if (aPad.GetChamferPositions(aLayer) & RECT_CHAMFER_TOP_RIGHT)
+          this.m_out.Print(' top_right');
 
-        if (s.chamferedRectPositions & RECT_CHAMFER_BOTTOM_LEFT) this.m_out.Print(' bottom_left');
+        if (aPad.GetChamferPositions(aLayer) & RECT_CHAMFER_BOTTOM_LEFT)
+          this.m_out.Print(' bottom_left');
 
-        if (s.chamferedRectPositions & RECT_CHAMFER_BOTTOM_RIGHT) this.m_out.Print(' bottom_right');
+        if (aPad.GetChamferPositions(aLayer) & RECT_CHAMFER_BOTTOM_RIGHT)
+          this.m_out.Print(' bottom_right');
 
         this.m_out.Print(')');
       }
@@ -1219,142 +1539,169 @@ export class PCB_IO_KICAD_SEXPR {
 
     // For normal padstacks, this is the one and only set of properties.  For complex ones, this
     // will represent the front layer properties, and other layers will be formatted below
-    formatCornerProperties(PADSTACK_ALL_LAYERS);
+    formatCornerProperties(PADSTACK.ALL_LAYERS);
 
     // Unconnected pad is default net so don't save it.
-    const net = this.netName(pad.net);
-    if (!(this.m_ctl & CTL_OMIT_PAD_NETS) && net.code > 0)
-      this.m_out.Print(`(net ${this.m_out.Quotew(net.name)})`);
+    if (!(this.m_ctl & CTL_OMIT_PAD_NETS) && aPad.GetNetCode() > 0)
+      this.m_out.Print(`(net ${this.m_out.Quotew(aPad.GetNetname())})`);
 
     // Pin functions and types are closely related to nets, so if CTL_OMIT_NETS is set, omit
     // them as well (for instance when saved from library editor).
     if (!(this.m_ctl & CTL_OMIT_PAD_NETS)) {
-      if (pad.pinFunction !== '')
-        this.m_out.Print(`(pinfunction ${this.m_out.Quotew(pad.pinFunction)})`);
+      if (aPad.GetPinFunction() !== '')
+        this.m_out.Print(`(pinfunction ${this.m_out.Quotew(aPad.GetPinFunction())})`);
 
-      if (pad.pinType !== '') this.m_out.Print(`(pintype ${this.m_out.Quotew(pad.pinType)})`);
+      if (aPad.GetPinType() !== '')
+        this.m_out.Print(`(pintype ${this.m_out.Quotew(aPad.GetPinType())})`);
     }
 
-    if (pad.padToDieLength !== 0)
-      this.m_out.Print(`(die_length ${formatInternalUnits(pad.padToDieLength)})`);
+    if (aPad.GetPadToDieLength() !== 0) {
+      this.m_out.Print(`(die_length ${formatInternalUnits(aPad.GetPadToDieLength())})`);
+    }
 
-    if (pad.padToDieDelay !== 0)
-      this.m_out.Print(`(die_delay ${formatInternalUnits(pad.padToDieDelay, 'time')})`);
+    if (aPad.GetPadToDieDelay() !== 0) {
+      this.m_out.Print(`(die_delay ${formatInternalUnits(aPad.GetPadToDieDelay(), 'time')})`);
+    }
 
-    // The pad-level locals: `m_padStack.SolderMaskMargin()` etc. read F_Cu / the front.
-    const front = ps.frontOuterLayers;
-    const fcu = copperLayerPropsConst(ps, F_Cu);
-
-    if (front.solderMaskMargin !== undefined)
-      this.m_out.Print(`(solder_mask_margin ${formatInternalUnits(front.solderMaskMargin)})`);
-
-    if (front.solderPasteMargin !== undefined)
-      this.m_out.Print(`(solder_paste_margin ${formatInternalUnits(front.solderPasteMargin)})`);
-
-    if (front.solderPasteMarginRatio !== undefined)
+    if (aPad.GetLocalSolderMaskMargin() !== undefined) {
       this.m_out.Print(
-        `(solder_paste_margin_ratio ${FormatDouble2Str(front.solderPasteMarginRatio)})`,
+        `(solder_mask_margin ${formatInternalUnits(aPad.GetLocalSolderMaskMargin()!)})`,
       );
+    }
 
-    if (fcu.clearance !== undefined)
-      this.m_out.Print(`(clearance ${formatInternalUnits(fcu.clearance)})`);
+    if (aPad.GetLocalSolderPasteMargin() !== undefined) {
+      this.m_out.Print(
+        `(solder_paste_margin ${formatInternalUnits(aPad.GetLocalSolderPasteMargin()!)})`,
+      );
+    }
 
-    // `GetLocalZoneConnection()`: `value_or( INHERITED )`, INHERITED being -1.
-    if ((fcu.zoneConnection ?? -1) !== -1) this.m_out.Print(`(zone_connect ${fcu.zoneConnection})`);
+    if (aPad.GetLocalSolderPasteMarginRatio() !== undefined) {
+      this.m_out.Print(
+        `(solder_paste_margin_ratio ${FormatDouble2Str(aPad.GetLocalSolderPasteMarginRatio()!)})`,
+      );
+    }
 
-    if (fcu.thermalSpokeWidth !== undefined)
-      this.m_out.Print(`(thermal_bridge_width ${formatInternalUnits(fcu.thermalSpokeWidth)})`);
+    if (aPad.GetLocalClearance() !== undefined) {
+      this.m_out.Print(`(clearance ${formatInternalUnits(aPad.GetLocalClearance()!)})`);
+    }
 
-    let defaultThermalSpokeAngle = 90;
+    if (aPad.GetLocalZoneConnection() !== ZONE_CONNECTION.INHERITED) {
+      this.m_out.Print(`(zone_connect ${aPad.GetLocalZoneConnection()})`);
+    }
 
-    const allShape = copperLayerPropsConst(ps, PADSTACK_ALL_LAYERS).shape;
+    if (aPad.GetLocalThermalSpokeWidthOverride() !== undefined) {
+      this.m_out.Print(
+        `(thermal_bridge_width ${formatInternalUnits(aPad.GetLocalThermalSpokeWidthOverride()!)})`,
+      );
+    }
+
+    let defaultThermalSpokeAngle: EDA_ANGLE = ANGLE_90;
+
     if (
-      allShape.shape === 'circle' ||
-      (allShape.shape === 'custom' && allShape.anchorShape === 'circle')
-    )
-      defaultThermalSpokeAngle = 45;
+      aPad.GetShape(PADSTACK.ALL_LAYERS) === PAD_SHAPE.CIRCLE ||
+      (aPad.GetShape(PADSTACK.ALL_LAYERS) === PAD_SHAPE.CUSTOM &&
+        aPad.GetAnchorPadShape(PADSTACK.ALL_LAYERS) === PAD_SHAPE.CIRCLE)
+    ) {
+      defaultThermalSpokeAngle = ANGLE_45;
+    }
 
-    if (padstackThermalSpokeAngle(ps, F_Cu) !== defaultThermalSpokeAngle)
+    if (!aPad.GetThermalSpokeAngle().equals(defaultThermalSpokeAngle)) {
       this.m_out.Print(
-        `(thermal_bridge_angle ${FormatAngle(padstackThermalSpokeAngle(ps, F_Cu))})`,
+        `(thermal_bridge_angle ${FormatAngle(aPad.GetThermalSpokeAngle().AsDegrees())})`,
       );
+    }
 
-    if (fcu.thermalGap !== undefined)
-      this.m_out.Print(`(thermal_gap ${formatInternalUnits(fcu.thermalGap)})`);
+    if (aPad.GetLocalThermalGapOverride() !== undefined) {
+      this.m_out.Print(`(thermal_gap ${formatInternalUnits(aPad.GetLocalThermalGapOverride()!)})`);
+    }
 
-    const anchorShape = (layer: number): string =>
-      copperLayerPropsConst(ps, layer).shape.anchorShape === 'rectangle' ? 'rect' : 'circle';
+    const anchorShape = (aLayer: PCB_LAYER_ID): string => {
+      switch (aPad.GetAnchorPadShape(aLayer)) {
+        case PAD_SHAPE.RECTANGLE:
+          return 'rect';
+        default:
+          return 'circle';
+      }
+    };
 
-    const formatPrimitives = (layer: number): void => {
+    const formatPrimitives = (aLayer: PCB_LAYER_ID): void => {
       this.m_out.Print('(primitives');
 
       // Output all basic shapes
-      for (const primitive of copperLayerPropsConst(ps, layer).customShapes) {
-        const pt = formatInternalUnitsPt;
-        switch (primitive.shape) {
-          case 'segment':
-            if (primitive.proxy)
+      for (const primitive of aPad.GetPrimitives(aLayer)) {
+        switch (primitive.GetShape()) {
+          case SHAPE_T.SEGMENT:
+            if (primitive.IsProxyItem()) {
               this.m_out.Print(
-                `(gr_vector (start ${pt(primitive.start)}) (end ${pt(primitive.end)})`,
-              );
-            else
-              this.m_out.Print(
-                `(gr_line (start ${pt(primitive.start)}) (end ${pt(primitive.end)})`,
-              );
-            break;
-
-          case 'rectangle':
-            if (primitive.proxy) {
-              this.m_out.Print(
-                `(gr_bbox (start ${pt(primitive.start)}) (end ${pt(primitive.end)})`,
+                `(gr_vector (start ${formatInternalUnitsPt(primitive.GetStart())}) (end ${formatInternalUnitsPt(primitive.GetEnd())})`,
               );
             } else {
               this.m_out.Print(
-                `(gr_rect (start ${pt(primitive.start)}) (end ${pt(primitive.end)})`,
+                `(gr_line (start ${formatInternalUnitsPt(primitive.GetStart())}) (end ${formatInternalUnitsPt(primitive.GetEnd())})`,
+              );
+            }
+            break;
+
+          case SHAPE_T.RECTANGLE:
+            if (primitive.IsProxyItem()) {
+              this.m_out.Print(
+                `(gr_bbox (start ${formatInternalUnitsPt(primitive.GetStart())}) (end ${formatInternalUnitsPt(primitive.GetEnd())})`,
+              );
+            } else {
+              this.m_out.Print(
+                `(gr_rect (start ${formatInternalUnitsPt(primitive.GetStart())}) (end ${formatInternalUnitsPt(primitive.GetEnd())})`,
               );
 
-              if (primitive.cornerRadius > 0)
-                this.m_out.Print(` (radius ${formatInternalUnits(primitive.cornerRadius)})`);
+              if (primitive.GetCornerRadius() > 0) {
+                this.m_out.Print(` (radius ${formatInternalUnits(primitive.GetCornerRadius())})`);
+              }
             }
             break;
 
-          case 'arc':
+          case SHAPE_T.ARC:
             this.m_out.Print(
-              `(gr_arc (start ${pt(primitive.start)}) (mid ${pt(primitive.arcMid!)}) (end ${pt(primitive.end)})`,
+              `(gr_arc (start ${formatInternalUnitsPt(primitive.GetStart())}) (mid ${formatInternalUnitsPt(primitive.GetArcMid())}) (end ${formatInternalUnitsPt(primitive.GetEnd())})`,
             );
             break;
 
-          case 'circle':
+          case SHAPE_T.CIRCLE:
             this.m_out.Print(
-              `(gr_circle (center ${pt(primitive.start)}) (end ${pt(primitive.end)})`,
+              `(gr_circle (center ${formatInternalUnitsPt(primitive.GetStart())}) (end ${formatInternalUnitsPt(primitive.GetEnd())})`,
             );
             break;
 
-          case 'bezier':
+          case SHAPE_T.BEZIER:
             this.m_out.Print(
-              `(gr_curve (pts (xy ${pt(primitive.start)}) (xy ${pt(primitive.bezierC1!)}) (xy ${pt(primitive.bezierC2!)}) (xy ${pt(primitive.end)}))`,
+              `(gr_curve (pts (xy ${formatInternalUnitsPt(primitive.GetStart())}) (xy ${formatInternalUnitsPt(primitive.GetBezierC1())}) (xy ${formatInternalUnitsPt(primitive.GetBezierC2())}) (xy ${formatInternalUnitsPt(primitive.GetEnd())}))`,
             );
             break;
 
-          case 'poly':
-            if ((primitive.outline?.length ?? 0) >= 3) {
+          case SHAPE_T.POLY:
+            if (primitive.IsPolyShapeValid()) {
+              const poly = primitive.GetPolyShape();
+              const outline = poly.Outline(0);
+
               this.m_out.Print('(gr_poly');
-              this.formatPolyPts(primitive.outline!);
+              this.formatPolyPts(outline);
             }
+            break;
+
+          default:
             break;
         }
 
-        if (!primitive.proxy)
-          this.m_out.Print(`(width ${formatInternalUnits(primitive.stroke.width)})`);
+        if (!primitive.IsProxyItem())
+          this.m_out.Print(`(width ${formatInternalUnits(primitive.GetWidth())})`);
 
         // The filled flag represents if a solid fill is present on circles,
         // rectangles and polygons
         if (
-          primitive.shape === 'poly' ||
-          primitive.shape === 'rectangle' ||
-          primitive.shape === 'circle'
-        )
-          FormatBool(this.m_out, 'fill', primitive.fill === 'filled_shape');
+          primitive.GetShape() === SHAPE_T.POLY ||
+          primitive.GetShape() === SHAPE_T.RECTANGLE ||
+          primitive.GetShape() === SHAPE_T.CIRCLE
+        ) {
+          FormatBool(this.m_out, 'fill', primitive.IsSolidFill());
+        }
 
         this.m_out.Print(')');
       }
@@ -1362,97 +1709,109 @@ export class PCB_IO_KICAD_SEXPR {
       this.m_out.Print(')'); // end of (primitives
     };
 
-    if (shapeOf(PADSTACK_ALL_LAYERS) === 'custom') {
+    if (aPad.GetShape(PADSTACK.ALL_LAYERS) === PAD_SHAPE.CUSTOM) {
       this.m_out.Print('(options');
 
-      if (ps.customShapeInZoneMode === 'convexhull') this.m_out.Print('(clearance convexhull)');
+      if (aPad.GetCustomShapeInZoneOpt() === CUSTOM_SHAPE_ZONE_MODE.CONVEXHULL)
+        this.m_out.Print('(clearance convexhull)');
       else this.m_out.Print('(clearance outline)');
 
       // Output the anchor pad shape (circle/rect)
-      this.m_out.Print(`(anchor ${anchorShape(PADSTACK_ALL_LAYERS)})`);
+      this.m_out.Print(`(anchor ${anchorShape(PADSTACK.ALL_LAYERS)})`);
 
       this.m_out.Print(')'); // end of (options ...
 
       // Output graphic primitive of the pad shape
-      formatPrimitives(PADSTACK_ALL_LAYERS);
+      formatPrimitives(PADSTACK.ALL_LAYERS);
     }
 
-    if (!isDefaultTeardropParameters(pad.teardrops)) this.formatTeardropParameters(pad.teardrops);
+    if (!isDefaultTeardropParameters(aPad.GetTeardropParams()))
+      this.formatTeardropParameters(aPad.GetTeardropParams());
 
     if (
-      ps.frontOuterLayers.hasSolderMask !== undefined ||
-      ps.backOuterLayers.hasSolderMask !== undefined
+      aPad.Padstack().FrontOuterLayers().has_solder_mask !== undefined ||
+      aPad.Padstack().BackOuterLayers().has_solder_mask !== undefined
     ) {
       this.m_out.Print(0, ' (tenting ');
-      FormatOptBool(this.m_out, 'front', ps.frontOuterLayers.hasSolderMask);
-      FormatOptBool(this.m_out, 'back', ps.backOuterLayers.hasSolderMask);
+      FormatOptBool(this.m_out, 'front', aPad.Padstack().FrontOuterLayers().has_solder_mask);
+      FormatOptBool(this.m_out, 'back', aPad.Padstack().BackOuterLayers().has_solder_mask);
       this.m_out.Print(0, ')');
     }
 
-    FormatUuid(this.m_out, pad.uuid);
+    FormatUuid(this.m_out, aPad.m_Uuid);
 
-    const formatPadLayer = (layer: number): void => {
-      const props = copperLayerPropsConst(ps, layer);
+    // TODO: Refactor so that we call formatPadLayer( ALL_LAYERS ) above instead of redundant code
+    const formatPadLayer = (aLayer: PCB_LAYER_ID): void => {
+      const padstack = aPad.Padstack();
 
-      this.m_out.Print(`(shape ${shapeName(layer)})`);
-      this.m_out.Print(`(size ${formatInternalUnitsPt(sizeOf(layer))})`);
+      this.m_out.Print(`(shape ${shapeName(aLayer)})`);
+      this.m_out.Print(`(size ${formatInternalUnitsPt(aPad.GetSize(aLayer))})`);
 
-      const delta = deltaOf(layer);
+      const delta = aPad.GetDelta(aLayer);
 
       if (delta.x !== 0 || delta.y !== 0)
         this.m_out.Print(`(rect_delta ${formatInternalUnitsPt(delta)})`);
 
-      shapeoffset = offsetOf(layer);
+      shapeoffset = aPad.GetOffset(aLayer);
 
       if (shapeoffset.x !== 0 || shapeoffset.y !== 0)
         this.m_out.Print(`(offset ${formatInternalUnitsPt(shapeoffset)})`);
 
-      formatCornerProperties(layer);
+      formatCornerProperties(aLayer);
 
-      if (shapeOf(layer) === 'custom') {
+      if (aPad.GetShape(aLayer) === PAD_SHAPE.CUSTOM) {
         this.m_out.Print('(options');
 
         // Output the anchor pad shape (circle/rect)
-        this.m_out.Print(`(anchor ${anchorShape(layer)})`);
+        this.m_out.Print(`(anchor ${anchorShape(aLayer)})`);
 
         this.m_out.Print(')'); // end of (options ...
 
         // Output graphic primitive of the pad shape
-        formatPrimitives(layer);
+        formatPrimitives(aLayer);
       }
 
-      let defaultLayerAngle = 90;
+      let defaultLayerAngle: EDA_ANGLE = ANGLE_90;
 
       if (
-        shapeOf(layer) === 'circle' ||
-        (shapeOf(layer) === 'custom' && props.shape.anchorShape === 'circle')
-      )
-        defaultLayerAngle = 45;
+        aPad.GetShape(aLayer) === PAD_SHAPE.CIRCLE ||
+        (aPad.GetShape(aLayer) === PAD_SHAPE.CUSTOM &&
+          aPad.GetAnchorPadShape(aLayer) === PAD_SHAPE.CIRCLE)
+      ) {
+        defaultLayerAngle = ANGLE_45;
+      }
 
-      const layerSpokeAngle = padstackThermalSpokeAngle(ps, layer);
+      const layerSpokeAngle = padstack.ThermalSpokeAngle(aLayer);
 
-      if (layerSpokeAngle !== defaultLayerAngle)
-        this.m_out.Print(`(thermal_bridge_angle ${FormatAngle(layerSpokeAngle)})`);
+      if (!layerSpokeAngle.equals(defaultLayerAngle)) {
+        this.m_out.Print(`(thermal_bridge_angle ${FormatAngle(layerSpokeAngle.AsDegrees())})`);
+      }
 
-      if (props.thermalGap !== undefined)
-        this.m_out.Print(`(thermal_gap ${formatInternalUnits(props.thermalGap)})`);
+      if (padstack.ThermalGap(aLayer) !== undefined) {
+        this.m_out.Print(`(thermal_gap ${formatInternalUnits(padstack.ThermalGap(aLayer)!)})`);
+      }
 
-      if (props.thermalSpokeWidth !== undefined)
-        this.m_out.Print(`(thermal_bridge_width ${formatInternalUnits(props.thermalSpokeWidth)})`);
+      if (padstack.ThermalSpokeWidth(aLayer) !== undefined) {
+        this.m_out.Print(
+          `(thermal_bridge_width ${formatInternalUnits(padstack.ThermalSpokeWidth(aLayer)!)})`,
+        );
+      }
 
-      if (props.clearance !== undefined)
-        this.m_out.Print(`(clearance ${formatInternalUnits(props.clearance)})`);
+      if (padstack.Clearance(aLayer) !== undefined) {
+        this.m_out.Print(`(clearance ${formatInternalUnits(padstack.Clearance(aLayer)!)})`);
+      }
 
-      if (props.zoneConnection !== undefined)
-        this.m_out.Print(`(zone_connect ${props.zoneConnection})`);
+      if (padstack.ZoneConnection(aLayer) !== undefined) {
+        this.m_out.Print(`(zone_connect ${padstack.ZoneConnection(aLayer)})`);
+      }
     };
 
-    if (ps.mode !== 'normal') {
-      if (ps.mode === 'front_inner_back') {
+    if (aPad.Padstack().Mode() !== PADSTACK_MODE.NORMAL) {
+      if (aPad.Padstack().Mode() === PADSTACK_MODE.FRONT_INNER_BACK) {
         this.m_out.Print('(padstack (mode front_inner_back)');
 
         this.m_out.Print('(layer "Inner"');
-        formatPadLayer(PADSTACK_INNER_LAYERS);
+        formatPadLayer(PADSTACK.INNER_LAYERS);
         this.m_out.Print(')');
         this.m_out.Print('(layer "B.Cu"');
         formatPadLayer(B_Cu);
@@ -1460,12 +1819,12 @@ export class PCB_IO_KICAD_SEXPR {
       } else {
         this.m_out.Print('(padstack (mode custom)');
 
-        const layerCount = this.m_hasBoard ? board.copperLayerCount : MAX_CU_LAYERS;
+        const layerCount = board ? board.GetCopperLayerCount() : MAX_CU_LAYERS;
 
         for (const layer of new LAYER_RANGE(F_Cu, B_Cu, layerCount)) {
           if (layer === F_Cu) continue;
 
-          this.m_out.Print(`(layer ${this.m_out.Quotew(LSET_Name(layer))}`);
+          this.m_out.Print(`(layer ${this.m_out.Quotew(LSET.Name(layer))}`);
           formatPadLayer(layer);
           this.m_out.Print(')');
         }
@@ -1477,223 +1836,312 @@ export class PCB_IO_KICAD_SEXPR {
     this.m_out.Print(')');
   }
 
-  /** The `formatPostMachining` lambda of `format( PAD )` and `format( PCB_TRACK )`. */
-  formatPostMachining(name: string, props: PostMachiningProps): void {
-    if (props.mode === undefined || props.mode === 'not_post_machined') return;
+  private formatPostMachining(aName: string, aProps: PADSTACK_POST_MACHINING_PROPS): void {
+    if (
+      aProps.mode === undefined ||
+      aProps.mode === PAD_DRILL_POST_MACHINING_MODE.NOT_POST_MACHINED
+    )
+      return;
 
-    this.m_out.Print(`(${name} ${props.mode === 'counterbore' ? 'counterbore' : 'countersink'}`);
+    this.m_out.Print(
+      `(${aName} ${aProps.mode === PAD_DRILL_POST_MACHINING_MODE.COUNTERBORE ? 'counterbore' : 'countersink'}`,
+    );
 
-    if (props.size > 0) this.m_out.Print(` (size ${formatInternalUnits(props.size)})`);
+    if (aProps.size > 0) this.m_out.Print(` (size ${formatInternalUnits(aProps.size)})`);
 
-    if (props.depth > 0) this.m_out.Print(` (depth ${formatInternalUnits(props.depth)})`);
+    if (aProps.depth > 0) this.m_out.Print(` (depth ${formatInternalUnits(aProps.depth)})`);
 
-    if (props.angle > 0) this.m_out.Print(` (angle ${FormatDouble2Str(props.angle / 10.0)})`);
+    if (aProps.angle > 0) this.m_out.Print(` (angle ${FormatDouble2Str(aProps.angle / 10.0)})`);
 
     this.m_out.Print(')');
   }
 
   // -------------------------------------------------------------------------
-  // PCB_BARCODE (:2198), PCB_TEXT (:2264), PCB_TEXTBOX (:2328), PCB_TABLE (:2400)
+  // format( const PCB_BARCODE* ) (:2198)
   // -------------------------------------------------------------------------
 
-  /** `format( const PCB_BARCODE* aBarcode )` (:2198). */
-  formatBarcode(bc: KPcbBarcode): void {
+  private formatBarcode(aBarcode: PCB_BARCODE): void {
     this.m_out.Print('(barcode');
 
-    if (bc.locked) FormatBool(this.m_out, 'locked', true);
+    if (aBarcode.IsLocked()) FormatBool(this.m_out, 'locked', true);
 
-    this.m_out.Print(`(at ${formatInternalUnitsPt(bc.pos)} ${FormatAngle(bc.angle)})`);
+    this.m_out.Print(
+      `(at ${formatInternalUnitsPt(aBarcode.GetPosition())} ${FormatAngle(aBarcode.GetAngle().AsDegrees())})`,
+    );
 
-    this.formatLayer(bc.layer);
+    this.formatLayer(aBarcode.GetLayer());
 
-    this.m_out.Print(`(size ${formatInternalUnits(bc.width)} ${formatInternalUnits(bc.height)})`);
+    this.m_out.Print(
+      `(size ${formatInternalUnits(aBarcode.GetWidth())} ${formatInternalUnits(aBarcode.GetHeight())})`,
+    );
 
-    this.m_out.Print(`(text ${this.m_out.Quotew(bc.text)})`);
+    this.m_out.Print(`(text ${this.m_out.Quotew(aBarcode.GetText())})`);
 
-    this.m_out.Print(`(text_height ${formatInternalUnits(bc.textHeight)})`);
+    this.m_out.Print(`(text_height ${formatInternalUnits(aBarcode.GetTextSize())})`);
 
-    this.m_out.Print(`(type ${bc.kind})`);
+    let typeStr = 'code39';
 
-    if (bc.kind === 'qr' || bc.kind === 'microqr') this.m_out.Print(`(ecc_level ${bc.ecc})`);
+    switch (aBarcode.GetKind()) {
+      case BARCODE_T.CODE_39:
+        typeStr = 'code39';
+        break;
+      case BARCODE_T.CODE_128:
+        typeStr = 'code128';
+        break;
+      case BARCODE_T.DATA_MATRIX:
+        typeStr = 'datamatrix';
+        break;
+      case BARCODE_T.QR_CODE:
+        typeStr = 'qr';
+        break;
+      case BARCODE_T.MICRO_QR_CODE:
+        typeStr = 'microqr';
+        break;
+    }
 
-    FormatBool(this.m_out, 'hide', !bc.showText);
-    FormatBool(this.m_out, 'knockout', bc.knockout);
+    this.m_out.Print(`(type ${typeStr})`);
 
-    if (bc.margin.x !== 0 || bc.margin.y !== 0)
+    if (
+      aBarcode.GetKind() === BARCODE_T.QR_CODE ||
+      aBarcode.GetKind() === BARCODE_T.MICRO_QR_CODE
+    ) {
+      let eccStr = 'L';
+      switch (aBarcode.GetErrorCorrection()) {
+        case BARCODE_ECC_T.L:
+          eccStr = 'L';
+          break;
+        case BARCODE_ECC_T.M:
+          eccStr = 'M';
+          break;
+        case BARCODE_ECC_T.Q:
+          eccStr = 'Q';
+          break;
+        case BARCODE_ECC_T.H:
+          eccStr = 'H';
+          break;
+      }
+
+      this.m_out.Print(`(ecc_level ${eccStr})`);
+    }
+
+    FormatBool(this.m_out, 'hide', !aBarcode.GetShowText());
+    FormatBool(this.m_out, 'knockout', aBarcode.IsKnockout());
+
+    if (aBarcode.GetMargin().x !== 0 || aBarcode.GetMargin().y !== 0) {
       this.m_out.Print(
-        `(margins ${formatInternalUnits(bc.margin.x)} ${formatInternalUnits(bc.margin.y)})`,
+        `(margins ${formatInternalUnits(aBarcode.GetMargin().x)} ${formatInternalUnits(aBarcode.GetMargin().y)})`,
       );
+    }
 
-    FormatUuid(this.m_out, bc.uuid);
+    FormatUuid(this.m_out, aBarcode.m_Uuid);
 
     this.m_out.Print(')');
   }
 
-  /**
-   * `format( const PCB_TEXT* aText )` (:2264). `isDimension` forces the
-   * `gr_text` form; `isField` is the `PCB_FIELD` branch, which prints only
-   * the body inside the footprint's `(property …)`.
-   */
-  formatText(
-    text: KPcbText,
-    parentFP: ParentFP | null,
-    isDimension = false,
-    isField = false,
-  ): void {
+  // -------------------------------------------------------------------------
+  // format( const PCB_TEXT* ) (:2264), format( const PCB_TEXTBOX* ) (:2328),
+  // format( const PCB_TABLE* ) (:2400)
+  // -------------------------------------------------------------------------
+
+  private formatText(aText: PCB_TEXT): void {
+    let parentFP = aText.GetParentFootprint();
+    let prefix: string;
+    let type = '';
+    let pos: VECTOR2I = aText.GetTextPos();
+    const field = aText instanceof PCB_FIELD ? aText : null;
+
     // Always format dimension text as gr_text
-    if (isDimension) parentFP = null;
+    if (aText instanceof PCB_DIMENSION_BASE) parentFP = null;
 
-    const prefix = parentFP ? 'fp' : 'gr';
-    const type = parentFP ? 'user' : '';
+    if (parentFP) {
+      prefix = 'fp';
+      type = 'user';
 
-    // The model holds the footprint-relative position already.
-    const pos = text.pos;
-
-    if (!isField) {
-      this.m_out.Print(`(${prefix}_text ${type} ${this.m_out.Quotew(text.text)}`);
-
-      if (text.locked) FormatBool(this.m_out, 'locked', true);
+      const fpPos = parentFP.GetPosition();
+      pos = { x: pos.x - fpPos.x, y: pos.y - fpPos.y };
+      pos = RotatePoint(pos, parentFP.GetOrientation().negate());
+    } else {
+      prefix = 'gr';
     }
 
-    this.m_out.Print(`(at ${formatInternalUnitsPt(pos)} ${FormatAngle(text.angle)})`);
+    if (!field) {
+      this.m_out.Print(`(${prefix}_text ${type} ${this.m_out.Quotew(aText.GetText())}`);
 
-    if (parentFP && !text.keepUpright) FormatBool(this.m_out, 'unlocked', true);
+      if (aText.IsLocked()) FormatBool(this.m_out, 'locked', true);
+    }
 
-    this.formatLayer(text.layer, text.knockout);
+    this.m_out.Print(
+      `(at ${formatInternalUnitsPt(pos)} ${FormatAngle(aText.GetTextAngle().AsDegrees())})`,
+    );
 
-    if (isField && !text.visible) FormatBool(this.m_out, 'hide', true);
+    if (parentFP && !aText.IsKeepUpright()) FormatBool(this.m_out, 'unlocked', true);
 
-    FormatUuid(this.m_out, text.uuid);
+    this.formatLayer(aText.GetLayer(), aText.IsKnockout());
+
+    if (field && !field.IsVisible()) FormatBool(this.m_out, 'hide', true);
+
+    FormatUuid(this.m_out, aText.m_Uuid);
 
     // Currently, texts have no specific color and no hyperlink.
     // so ensure they are never written in kicad_pcb file
-    formatEdaText(this.m_out, text, CTL_OMIT_COLOR | CTL_OMIT_HYPERLINK);
+    const ctl_flags = CTL_OMIT_COLOR | CTL_OMIT_HYPERLINK;
 
-    if (text.renderCache) this.formatRenderCache(text);
+    EDA_TEXT.prototype.Format.call(aText as unknown as EDA_TEXT, this.m_out, ctl_flags);
 
-    if (!isField) this.m_out.Print(')');
+    if (aText.GetFont()?.IsOutline()) this.formatRenderCache(aText as unknown as EDA_TEXT);
+
+    if (!field) this.m_out.Print(')');
   }
 
-  /** `format( const PCB_TEXTBOX* aTextBox )` (:2328); `isCell` for a `PCB_TABLECELL`. */
-  formatTextBox(tb: KPcbTextBox, parentFP: ParentFP | null, isCell: boolean): void {
+  private formatTextBox(aTextBox: PCB_TEXTBOX): void {
+    const parentFP = aTextBox.GetParentFootprint();
+
     this.m_out.Print(
-      `(${isCell ? 'table_cell' : parentFP ? 'fp_text_box' : 'gr_text_box'} ${this.m_out.Quotew(tb.text)}`,
+      `(${
+        aTextBox.Type() === KICAD_T.PCB_TABLECELL_T
+          ? 'table_cell'
+          : parentFP
+            ? 'fp_text_box'
+            : 'gr_text_box'
+      } ${this.m_out.Quotew(aTextBox.GetText())}`,
     );
 
-    if (tb.locked) FormatBool(this.m_out, 'locked', true);
+    if (aTextBox.IsLocked()) FormatBool(this.m_out, 'locked', true);
 
-    if (tb.shape === 'rectangle') {
+    if (aTextBox.GetShape() === SHAPE_T.RECTANGLE) {
       this.m_out.Print(
-        `(start ${formatInternalUnitsPt(tb.start)}) (end ${formatInternalUnitsPt(tb.end)})`,
+        `(start ${formatInternalUnitsFp(aTextBox.GetStart(), parentFP)}) (end ${formatInternalUnitsFp(aTextBox.GetEnd(), parentFP)})`,
       );
+    } else if (aTextBox.GetShape() === SHAPE_T.POLY) {
+      const poly = aTextBox.GetPolyShape();
+      const outline = poly.Outline(0);
+
+      this.formatPolyPts(outline, parentFP);
     } else {
-      this.formatPolyPts(tb.outline ?? []);
+      // UNIMPLEMENTED_FOR( aTextBox->SHAPE_T_asString() )
     }
 
     this.m_out.Print(
-      `(margins ${formatInternalUnits(tb.marginLeft)} ${formatInternalUnits(tb.marginTop)} ${formatInternalUnits(tb.marginRight)} ${formatInternalUnits(tb.marginBottom)})`,
+      `(margins ${formatInternalUnits(aTextBox.GetMarginLeft())} ${formatInternalUnits(aTextBox.GetMarginTop())} ${formatInternalUnits(aTextBox.GetMarginRight())} ${formatInternalUnits(aTextBox.GetMarginBottom())})`,
     );
 
-    if (isCell) {
-      const cell = tb as KPcbTableCell;
-      this.m_out.Print(`(span ${cell.colSpan} ${cell.rowSpan})`);
+    if (aTextBox instanceof PCB_TABLECELL)
+      this.m_out.Print(`(span ${aTextBox.GetColSpan()} ${aTextBox.GetRowSpan()})`);
+
+    let angle = aTextBox.GetTextAngle();
+
+    if (parentFP) {
+      angle = angle.sub(parentFP.GetOrientation());
+      angle.Normalize720();
     }
 
-    // The model keeps the footprint-relative angle (`Normalize720`ed on read).
-    const angle = tb.angle;
+    if (!angle.IsZero()) this.m_out.Print(`(angle ${FormatAngle(angle.AsDegrees())})`);
 
-    if (angle !== 0) this.m_out.Print(`(angle ${FormatAngle(angle)})`);
+    this.formatLayer(aTextBox.GetLayer());
 
-    this.formatLayer(tb.layer);
+    FormatUuid(this.m_out, aTextBox.m_Uuid);
 
-    FormatUuid(this.m_out, tb.uuid);
+    EDA_TEXT.prototype.Format.call(aTextBox as unknown as EDA_TEXT, this.m_out, 0);
 
-    formatEdaText(this.m_out, tb, 0);
+    if (aTextBox.Type() !== KICAD_T.PCB_TABLECELL_T) {
+      FormatBool(this.m_out, 'border', aTextBox.IsBorderEnabled());
+      aTextBox.GetStroke().Format(this.m_out, pcbIUScale);
 
-    if (!isCell) {
-      FormatBool(this.m_out, 'border', tb.borderEnabled);
-      this.formatStroke(tb.stroke);
-
-      FormatBool(this.m_out, 'knockout', tb.knockout);
+      FormatBool(this.m_out, 'knockout', aTextBox.IsKnockout());
     }
 
-    if (tb.renderCache) this.formatRenderCache(tb);
+    if (aTextBox.GetFont()?.IsOutline()) this.formatRenderCache(aTextBox as unknown as EDA_TEXT);
 
     this.m_out.Print(')');
   }
 
-  /** `format( const PCB_TABLE* aTable )` (:2400). */
-  formatTable(table: KPcbTable, parentFP: ParentFP | null): void {
-    this.m_out.Print(`(table (column_count ${table.colCount})`);
+  private formatTable(aTable: PCB_TABLE): void {
+    this.m_out.Print(`(table (column_count ${aTable.GetColCount()})`);
 
-    FormatUuid(this.m_out, table.uuid);
+    FormatUuid(this.m_out, aTable.m_Uuid);
 
-    if (table.locked) FormatBool(this.m_out, 'locked', true);
+    if (aTable.IsLocked()) FormatBool(this.m_out, 'locked', true);
 
-    this.formatLayer(table.layer);
+    this.formatLayer(aTable.GetLayer());
 
     this.m_out.Print('(border');
-    FormatBool(this.m_out, 'external', table.strokeExternal);
-    FormatBool(this.m_out, 'header', table.strokeHeaderSeparator);
+    FormatBool(this.m_out, 'external', aTable.StrokeExternal());
+    FormatBool(this.m_out, 'header', aTable.StrokeHeaderSeparator());
 
-    if (table.strokeExternal || table.strokeHeaderSeparator) this.formatStroke(table.borderStroke);
+    if (aTable.StrokeExternal() || aTable.StrokeHeaderSeparator())
+      aTable.GetBorderStroke().Format(this.m_out, pcbIUScale);
 
     this.m_out.Print(')'); // Close `border` token.
 
     this.m_out.Print('(separators');
-    FormatBool(this.m_out, 'rows', table.strokeRows);
-    FormatBool(this.m_out, 'cols', table.strokeColumns);
+    FormatBool(this.m_out, 'rows', aTable.StrokeRows());
+    FormatBool(this.m_out, 'cols', aTable.StrokeColumns());
 
-    if (table.strokeRows || table.strokeColumns) this.formatStroke(table.separatorsStroke);
+    if (aTable.StrokeRows() || aTable.StrokeColumns())
+      aTable.GetSeparatorsStroke().Format(this.m_out, pcbIUScale);
 
     this.m_out.Print(')'); // Close `separators` token.
 
     this.m_out.Print('(column_widths');
 
-    for (let col = 0; col < table.colCount; ++col)
-      this.m_out.Print(` ${formatInternalUnits(table.colWidths[col] ?? 0)}`);
+    for (let col = 0; col < aTable.GetColCount(); ++col)
+      this.m_out.Print(` ${formatInternalUnits(aTable.GetColWidth(col))}`);
 
     this.m_out.Print(')');
 
     this.m_out.Print('(row_heights');
 
-    const rowCount = tableRowCount(table);
-    for (let row = 0; row < rowCount; ++row)
-      this.m_out.Print(` ${formatInternalUnits(table.rowHeights[row] ?? 0)}`);
+    for (let row = 0; row < aTable.GetRowCount(); ++row)
+      this.m_out.Print(` ${formatInternalUnits(aTable.GetRowHeight(row))}`);
 
     this.m_out.Print(')');
 
     this.m_out.Print('(cells');
 
-    for (const cell of table.cells) this.formatTextBox(cell, parentFP, true);
+    for (const cell of aTable.GetCells()) this.formatTextBox(cell);
 
     this.m_out.Print(')'); // Close `cells` token.
     this.m_out.Print(')'); // Close `table` token.
   }
 
   // -------------------------------------------------------------------------
-  // PCB_GROUP (:2455), PCB_GENERATOR (:2509)
+  // format( const PCB_GROUP* ) (:2455), format( const PCB_GENERATOR* ) (:2509)
   // -------------------------------------------------------------------------
 
-  /** The resolved member uuids of a group, `memberIds.Sort()`ed. */
-  private groupMemberIds(group: KPcbGroup): string[] {
-    const ids = this.m_groupMembers?.get(group.uuid) ?? group.memberUuids;
-    return [...ids].sort(cmpWxString);
-  }
+  private formatGroup(aGroup: PCB_GROUP): void {
+    const memberIds: string[] = [];
 
-  /** `format( const PCB_GROUP* aGroup )` (:2455). */
-  formatGroup(group: KPcbGroup): void {
-    const memberIds = this.groupMemberIds(group);
+    // Validate member pointers against the board cache to avoid use-after-free on dangling
+    // pointers (e.g. when a group held a reference to a deleted item).  This validation only
+    // applies when the group itself is part of m_board; for groups created off-board (e.g. a
+    // DeepClone() used by the clipboard) the cache contains the originals, not our clones, so
+    // skip the validation in that case and trust the member pointers.
+    //
+    // m_groupValidPtrs is rebuilt once per board-level save (see format( const BOARD* )) rather
+    // than once per group; formatting scaled as O(Groups * BoardItems) when the pointer set was
+    // rebuilt inside this function.
+    const validateAgainstBoard = this.m_board !== null && this.m_groupValidPtrs.has(aGroup);
+
+    if (validateAgainstBoard) {
+      for (const member of aGroup.GetItems()) {
+        if (this.m_groupValidPtrs.has(member as BOARD_ITEM)) memberIds.push(member.m_Uuid);
+      }
+    } else {
+      for (const member of aGroup.GetItems()) memberIds.push(member.m_Uuid);
+    }
 
     if (memberIds.length === 0) return;
 
-    this.m_out.Print(`(group ${this.m_out.Quotew(group.name)}`);
+    this.m_out.Print(`(group ${this.m_out.Quotew(aGroup.GetName())}`);
 
-    FormatUuid(this.m_out, group.uuid);
+    FormatUuid(this.m_out, aGroup.m_Uuid);
 
-    if (group.locked) FormatBool(this.m_out, 'locked', true);
+    if (aGroup.IsLocked()) FormatBool(this.m_out, 'locked', true);
 
-    if (libIdIsValid(group.libId)) this.m_out.Print(`(lib_id "${group.libId}")`);
+    if (aGroup.HasDesignBlockLink())
+      this.m_out.Print(`(lib_id "${aGroup.GetDesignBlockLibId().Format()}")`);
+
+    sortStrings(memberIds);
 
     this.m_out.Print('(members');
 
@@ -1703,45 +2151,54 @@ export class PCB_IO_KICAD_SEXPR {
     this.m_out.Print(')'); // Close `group` token.
   }
 
-  /** `format( const PCB_GENERATOR* aGenerator )` (:2509). */
-  formatGenerator(gen: KPcbGenerator): void {
-    const memberIds = this.groupMemberIds(gen);
-
+  private formatGenerator(aGenerator: PCB_GENERATOR): void {
     // Some conditions appear to still be creating ghost tuning patterns.  Don't save them.
-    if (gen.generatorType === 'tuning_pattern' && memberIds.length === 0) return;
+    if (aGenerator.GetGeneratorType() === 'tuning_pattern' && aGenerator.GetItems().size === 0) {
+      return;
+    }
 
     this.m_out.Print('(generated');
 
-    FormatUuid(this.m_out, gen.uuid);
+    FormatUuid(this.m_out, aGenerator.m_Uuid);
 
     this.m_out.Print(
-      `(type ${gen.generatorType}) (name ${this.m_out.Quotew(gen.name)}) (layer ${this.m_out.Quotew(LSET_Name(gen.layer))})`,
+      `(type ${aGenerator.GetGeneratorType()}) (name ${this.m_out.Quotew(aGenerator.GetName())}) (layer ${this.m_out.Quotew(LSET.Name(aGenerator.GetLayer()))})`,
     );
 
-    if (gen.locked) FormatBool(this.m_out, 'locked', true);
+    if (aGenerator.IsLocked()) FormatBool(this.m_out, 'locked', true);
 
-    for (const { key, value } of gen.properties) {
-      switch (value.kind) {
-        case 'number':
-          // Don't quote numbers
-          this.m_out.Print(`(${key} ${formatG(value.value, 10)})`);
-          break;
-        case 'bool':
-          FormatBool(this.m_out, key, value.value);
-          break;
-        case 'xy':
-          this.m_out.Print(`(${key} (xy ${formatInternalUnitsPt(value.value)}))`);
-          break;
-        case 'pts':
-          this.m_out.Print(`(${key} `);
-          this.formatPolyPts(value.value);
-          this.m_out.Print(')');
-          break;
-        case 'string':
-          this.m_out.Print(`(${key} ${this.m_out.Quotew(value.value)})`);
-          break;
+    // STRING_ANY_MAP is a std::map<std::string, wxAny>: key order
+    const props = aGenerator.GetProperties();
+    const keys = [...props.keys()].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+
+    for (const key of keys) {
+      const value = props.get(key);
+
+      if (typeof value === 'number') {
+        const buf = formatG(value, 10);
+
+        // Don't quote numbers
+        this.m_out.Print(`(${key} ${buf})`);
+      } else if (typeof value === 'boolean') {
+        FormatBool(this.m_out, key, value);
+      } else if (value instanceof SHAPE_LINE_CHAIN) {
+        this.m_out.Print(`(${key} `);
+        this.formatPolyPts(value);
+        this.m_out.Print(')');
+      } else if (isVector2(value)) {
+        this.m_out.Print(`(${key} (xy ${formatInternalUnitsPt(value)}))`);
+      } else {
+        const val = typeof value === 'string' ? value : '';
+
+        this.m_out.Print(`(${key} ${this.m_out.Quotew(val)})`);
       }
     }
+
+    const memberIds: string[] = [];
+
+    for (const member of aGenerator.GetItems()) memberIds.push(member.m_Uuid);
+
+    sortStrings(memberIds);
 
     this.m_out.Print('(members');
 
@@ -1752,308 +2209,322 @@ export class PCB_IO_KICAD_SEXPR {
   }
 
   // -------------------------------------------------------------------------
-  // PCB_TRACK / PCB_ARC / PCB_VIA (:2607)
+  // format( const PCB_TRACK* ) (:2607)
   // -------------------------------------------------------------------------
 
-  /** `format( const PCB_TRACK* aTrack )` (:2607) for a via. */
-  formatVia(via: KPcbVia): void {
-    const board = this.m_board;
-    const ps = via.padstack;
+  private formatTrack(aTrack: PCB_TRACK): void {
+    if (aTrack.Type() === KICAD_T.PCB_VIA_T) {
+      const via = aTrack as PCB_VIA;
+      const board = via.GetBoard();
 
-    this.m_out.Print('(via');
+      if (!board) return; // wxCHECK_RET( board != nullptr, "Via has no parent." )
 
-    const layer1 = via.layer1;
-    const layer2 = via.layer2;
+      this.m_out.Print('(via');
 
-    switch (via.viaType) {
-      case 'through': //  Default shape not saved.
-        break;
-      case 'blind':
-        this.m_out.Print(' blind ');
-        break;
-      case 'buried':
-        this.m_out.Print(' buried ');
-        break;
-      case 'micro':
-        this.m_out.Print(' micro ');
-        break;
-    }
+      const [layer1, layer2] = via.LayerPair();
 
-    this.m_out.Print(
-      `(at ${formatInternalUnitsPt(via.at)}) (size ${formatInternalUnits(copperLayerPropsConst(ps, F_Cu).shape.size.x)})`,
-    );
+      switch (via.GetViaType()) {
+        case VIATYPE.THROUGH: //  Default shape not saved.
+          break;
 
-    // Old boards were using UNDEFINED_DRILL_DIAMETER value in file for via drill when
-    // via drill was the netclass value.
-    // recent boards always set the via drill to the actual value, but now we need to
-    // always store the drill value, because netclass value is not stored in the board file.
-    // Otherwise the drill value of some (old) vias can be unknown
-    if (via.drill !== UNDEFINED_DRILL_DIAMETER)
-      this.m_out.Print(`(drill ${formatInternalUnits(via.drill)})`);
-    else this.m_out.Print(`(drill ${formatInternalUnits(viaDrillValue(via))})`);
+        case VIATYPE.BLIND:
+          this.m_out.Print(' blind ');
+          break;
 
-    if (ps.secondaryDrill.size.x > 0) {
-      this.m_out.Print(
-        `(backdrill (size ${formatInternalUnits(ps.secondaryDrill.size.x)}) (layers ${this.m_out.Quotew(LSET_Name(ps.secondaryDrill.start))} ${this.m_out.Quotew(LSET_Name(ps.secondaryDrill.end))}))`,
-      );
-    }
+        case VIATYPE.BURIED:
+          this.m_out.Print(' buried ');
+          break;
 
-    if (ps.tertiaryDrill.size.x > 0) {
-      this.m_out.Print(
-        `(tertiary_drill (size ${formatInternalUnits(ps.tertiaryDrill.size.x)}) (layers ${this.m_out.Quotew(LSET_Name(ps.tertiaryDrill.start))} ${this.m_out.Quotew(LSET_Name(ps.tertiaryDrill.end))}))`,
-      );
-    }
+        case VIATYPE.MICROVIA:
+          this.m_out.Print(' micro ');
+          break;
 
-    this.formatPostMachining('front_post_machining', ps.frontPostMachining);
-    this.formatPostMachining('back_post_machining', ps.backPostMachining);
-
-    this.m_out.Print(
-      `(layers ${this.m_out.Quotew(LSET_Name(layer1))} ${this.m_out.Quotew(LSET_Name(layer2))})`,
-    );
-
-    switch (ps.unconnectedLayerMode) {
-      case 'remove_all':
-        FormatBool(this.m_out, 'remove_unused_layers', true);
-        FormatBool(this.m_out, 'keep_end_layers', false);
-        break;
-      case 'remove_except_start_and_end':
-        FormatBool(this.m_out, 'remove_unused_layers', true);
-        FormatBool(this.m_out, 'keep_end_layers', true);
-        break;
-      case 'start_end_only':
-        FormatBool(this.m_out, 'start_end_only', true);
-        break;
-      case 'keep_all':
-        break;
-    }
-
-    if (via.locked) FormatBool(this.m_out, 'locked', true);
-
-    if (via.isFree) FormatBool(this.m_out, 'free', true);
-
-    // `GetRemoveUnconnected()`: any mode but KEEP_ALL.
-    if (ps.unconnectedLayerMode !== 'keep_all') {
-      this.m_out.Print('(zone_layer_connections');
-
-      for (const layer of board.enabledLayers.CuStack()) {
-        if (via.zoneLayerForceFlashed.has(layer))
-          this.m_out.Print(` ${this.m_out.Quotew(LSET_Name(layer))}`);
+        default:
+          throw new Error(`unknown via type ${via.GetViaType()}`); // THROW_IO_ERROR
       }
 
-      this.m_out.Print(')');
-    }
+      this.m_out.Print(
+        `(at ${formatInternalUnitsPt(aTrack.GetStart())}) (size ${formatInternalUnits(via.GetWidth(F_Cu))})`,
+      );
 
-    if (
-      ps.frontOuterLayers.hasSolderMask !== undefined ||
-      ps.backOuterLayers.hasSolderMask !== undefined
-    ) {
-      this.m_out.Print(0, ' (tenting ');
-      FormatOptBool(this.m_out, 'front', ps.frontOuterLayers.hasSolderMask);
-      FormatOptBool(this.m_out, 'back', ps.backOuterLayers.hasSolderMask);
-      this.m_out.Print(0, ')');
-    }
+      // Old boards were using UNDEFINED_DRILL_DIAMETER value in file for via drill when
+      // via drill was the netclass value.
+      // recent boards always set the via drill to the actual value, but now we need to
+      // always store the drill value, because netclass value is not stored in the board file.
+      // Otherwise the drill value of some (old) vias can be unknown
+      if (via.GetDrill() !== UNDEFINED_DRILL_DIAMETER)
+        this.m_out.Print(`(drill ${formatInternalUnits(via.GetDrill())})`);
+      else this.m_out.Print(`(drill ${formatInternalUnits(via.GetDrillValue())})`);
 
-    if (ps.drill.isCapped !== undefined) FormatOptBool(this.m_out, 'capping', ps.drill.isCapped);
-
-    if (
-      ps.frontOuterLayers.hasCovering !== undefined ||
-      ps.backOuterLayers.hasCovering !== undefined
-    ) {
-      this.m_out.Print(0, ' (covering ');
-      FormatOptBool(this.m_out, 'front', ps.frontOuterLayers.hasCovering);
-      FormatOptBool(this.m_out, 'back', ps.backOuterLayers.hasCovering);
-      this.m_out.Print(0, ')');
-    }
-
-    if (
-      ps.frontOuterLayers.hasPlugging !== undefined ||
-      ps.backOuterLayers.hasPlugging !== undefined
-    ) {
-      this.m_out.Print(0, ' (plugging ');
-      FormatOptBool(this.m_out, 'front', ps.frontOuterLayers.hasPlugging);
-      FormatOptBool(this.m_out, 'back', ps.backOuterLayers.hasPlugging);
-      this.m_out.Print(0, ')');
-    }
-
-    if (ps.drill.isFilled !== undefined) FormatOptBool(this.m_out, 'filling', ps.drill.isFilled);
-
-    if (ps.mode !== 'normal') {
-      this.m_out.Print('(padstack');
-
-      if (ps.mode === 'front_inner_back') {
-        this.m_out.Print('(mode front_inner_back)');
-
-        this.m_out.Print('(layer "Inner"');
+      if (via.Padstack().SecondaryDrill().size.x > 0) {
         this.m_out.Print(
-          `(size ${formatInternalUnits(copperLayerPropsConst(ps, PADSTACK_INNER_LAYERS).shape.size.x)})`,
+          `(backdrill (size ${formatInternalUnits(via.Padstack().SecondaryDrill().size.x)}) (layers ${this.m_out.Quotew(LSET.Name(via.Padstack().SecondaryDrill().start))} ${this.m_out.Quotew(LSET.Name(via.Padstack().SecondaryDrill().end))}))`,
         );
-        this.m_out.Print(')');
-        this.m_out.Print('(layer "B.Cu"');
+      }
+
+      if (via.Padstack().TertiaryDrill().size.x > 0) {
         this.m_out.Print(
-          `(size ${formatInternalUnits(copperLayerPropsConst(ps, B_Cu).shape.size.x)})`,
+          `(tertiary_drill (size ${formatInternalUnits(via.Padstack().TertiaryDrill().size.x)}) (layers ${this.m_out.Quotew(LSET.Name(via.Padstack().TertiaryDrill().start))} ${this.m_out.Quotew(LSET.Name(via.Padstack().TertiaryDrill().end))}))`,
         );
-        this.m_out.Print(')');
-      } else {
-        this.m_out.Print('(mode custom)');
+      }
 
-        for (const layer of new LAYER_RANGE(F_Cu, B_Cu, board.copperLayerCount)) {
-          if (layer === F_Cu) continue;
+      this.formatPostMachining('front_post_machining', via.Padstack().FrontPostMachining());
+      this.formatPostMachining('back_post_machining', via.Padstack().BackPostMachining());
 
-          this.m_out.Print(`(layer ${this.m_out.Quotew(LSET_Name(layer))}`);
-          this.m_out.Print(
-            `(size ${formatInternalUnits(copperLayerPropsConst(ps, layer).shape.size.x)})`,
-          );
-          this.m_out.Print(')');
+      this.m_out.Print(
+        `(layers ${this.m_out.Quotew(LSET.Name(layer1))} ${this.m_out.Quotew(LSET.Name(layer2))})`,
+      );
+
+      switch (via.Padstack().UnconnectedLayerMode()) {
+        case UNCONNECTED_LAYER_MODE.REMOVE_ALL:
+          FormatBool(this.m_out, 'remove_unused_layers', true);
+          FormatBool(this.m_out, 'keep_end_layers', false);
+          break;
+
+        case UNCONNECTED_LAYER_MODE.REMOVE_EXCEPT_START_AND_END:
+          FormatBool(this.m_out, 'remove_unused_layers', true);
+          FormatBool(this.m_out, 'keep_end_layers', true);
+          break;
+
+        case UNCONNECTED_LAYER_MODE.START_END_ONLY:
+          FormatBool(this.m_out, 'start_end_only', true);
+          break;
+
+        case UNCONNECTED_LAYER_MODE.KEEP_ALL:
+          break;
+      }
+
+      if (via.IsLocked()) FormatBool(this.m_out, 'locked', true);
+
+      if (via.GetIsFree()) FormatBool(this.m_out, 'free', true);
+
+      if (via.GetRemoveUnconnected()) {
+        this.m_out.Print('(zone_layer_connections');
+
+        for (const layer of board.GetEnabledLayers().CuStack()) {
+          if (via.GetZoneLayerOverride(layer) === ZONE_LAYER_OVERRIDE.ZLO_FORCE_FLASHED)
+            this.m_out.Print(` ${this.m_out.Quotew(LSET.Name(layer))}`);
         }
+
+        this.m_out.Print(')');
       }
 
-      this.m_out.Print(')');
-    }
+      const padstack = via.Padstack();
 
-    if (!isDefaultTeardropParameters(via.teardrops)) this.formatTeardropParameters(via.teardrops);
+      if (
+        padstack.FrontOuterLayers().has_solder_mask !== undefined ||
+        padstack.BackOuterLayers().has_solder_mask !== undefined
+      ) {
+        this.m_out.Print(0, ' (tenting ');
+        FormatOptBool(this.m_out, 'front', padstack.FrontOuterLayers().has_solder_mask);
+        FormatOptBool(this.m_out, 'back', padstack.BackOuterLayers().has_solder_mask);
+        this.m_out.Print(0, ')');
+      }
 
-    if (!(this.m_ctl & CTL_OMIT_PAD_NETS))
-      this.m_out.Print(`(net ${this.m_out.Quotew(this.netName(via.net).name)})`);
+      if (padstack.Drill().is_capped !== undefined)
+        FormatOptBool(this.m_out, 'capping', padstack.Drill().is_capped);
 
-    FormatUuid(this.m_out, via.uuid);
-    this.m_out.Print(')');
-  }
+      if (
+        padstack.FrontOuterLayers().has_covering !== undefined ||
+        padstack.BackOuterLayers().has_covering !== undefined
+      ) {
+        this.m_out.Print(0, ' (covering ');
+        FormatOptBool(this.m_out, 'front', padstack.FrontOuterLayers().has_covering);
+        FormatOptBool(this.m_out, 'back', padstack.BackOuterLayers().has_covering);
+        this.m_out.Print(0, ')');
+      }
 
-  /** `format( const PCB_TRACK* aTrack )` (:2607) for a segment or an arc. */
-  formatTrack(track: KPcbTrack): void {
-    const pt = formatInternalUnitsPt;
+      if (
+        padstack.FrontOuterLayers().has_plugging !== undefined ||
+        padstack.BackOuterLayers().has_plugging !== undefined
+      ) {
+        this.m_out.Print(0, ' (plugging ');
+        FormatOptBool(this.m_out, 'front', padstack.FrontOuterLayers().has_plugging);
+        FormatOptBool(this.m_out, 'back', padstack.BackOuterLayers().has_plugging);
+        this.m_out.Print(0, ')');
+      }
 
-    if (track.type === 'arc') {
-      this.m_out.Print(
-        `(arc (start ${pt(track.start)}) (mid ${pt(track.mid!)}) (end ${pt(track.end)}) (width ${formatInternalUnits(track.width)})`,
-      );
+      if (padstack.Drill().is_filled !== undefined)
+        FormatOptBool(this.m_out, 'filling', padstack.Drill().is_filled);
+
+      if (padstack.Mode() !== PADSTACK_MODE.NORMAL) {
+        this.m_out.Print('(padstack');
+
+        if (padstack.Mode() === PADSTACK_MODE.FRONT_INNER_BACK) {
+          this.m_out.Print('(mode front_inner_back)');
+
+          this.m_out.Print('(layer "Inner"');
+          this.m_out.Print(`(size ${formatInternalUnits(padstack.Size(PADSTACK.INNER_LAYERS).x)})`);
+          this.m_out.Print(')');
+          this.m_out.Print('(layer "B.Cu"');
+          this.m_out.Print(`(size ${formatInternalUnits(padstack.Size(B_Cu).x)})`);
+          this.m_out.Print(')');
+        } else {
+          this.m_out.Print('(mode custom)');
+
+          for (const layer of new LAYER_RANGE(F_Cu, B_Cu, board.GetCopperLayerCount())) {
+            if (layer === F_Cu) continue;
+
+            this.m_out.Print(`(layer ${this.m_out.Quotew(LSET.Name(layer))}`);
+            this.m_out.Print(`(size ${formatInternalUnits(padstack.Size(layer).x)})`);
+            this.m_out.Print(')');
+          }
+        }
+
+        this.m_out.Print(')');
+      }
+
+      if (!isDefaultTeardropParameters(via.GetTeardropParams()))
+        this.formatTeardropParameters(via.GetTeardropParams());
     } else {
-      this.m_out.Print(
-        `(segment (start ${pt(track.start)}) (end ${pt(track.end)}) (width ${formatInternalUnits(track.width)})`,
-      );
+      if (aTrack.Type() === KICAD_T.PCB_ARC_T) {
+        const arc = aTrack as PCB_ARC;
+
+        this.m_out.Print(
+          `(arc (start ${formatInternalUnitsPt(arc.GetStart())}) (mid ${formatInternalUnitsPt(arc.GetMid())}) (end ${formatInternalUnitsPt(arc.GetEnd())}) (width ${formatInternalUnits(arc.GetWidth())})`,
+        );
+      } else {
+        this.m_out.Print(
+          `(segment (start ${formatInternalUnitsPt(aTrack.GetStart())}) (end ${formatInternalUnitsPt(aTrack.GetEnd())}) (width ${formatInternalUnits(aTrack.GetWidth())})`,
+        );
+      }
+
+      if (aTrack.IsLocked()) FormatBool(this.m_out, 'locked', true);
+
+      if (aTrack.GetLayerSet().count() > 1)
+        this.formatLayers(aTrack.GetLayerSet(), false /* enumerate layers */);
+      else this.formatLayer(aTrack.GetLayer());
+
+      if (
+        aTrack.HasSolderMask() &&
+        aTrack.GetLocalSolderMaskMargin() !== undefined &&
+        IsExternalCopperLayer(aTrack.GetLayer())
+      ) {
+        this.m_out.Print(
+          `(solder_mask_margin ${formatInternalUnits(aTrack.GetLocalSolderMaskMargin()!)})`,
+        );
+      }
     }
 
-    if (track.locked) FormatBool(this.m_out, 'locked', true);
-
-    const layerSet = trackLayerSet(track);
-    if (layerSet.count() > 1) this.formatLayers(layerSet, false /* enumerate layers */);
-    else this.formatLayer(track.layer);
-
-    if (
-      track.hasSolderMask &&
-      track.solderMaskMargin !== undefined &&
-      IsExternalCopperLayer(track.layer)
-    )
-      this.m_out.Print(`(solder_mask_margin ${formatInternalUnits(track.solderMaskMargin)})`);
-
     if (!(this.m_ctl & CTL_OMIT_PAD_NETS))
-      this.m_out.Print(`(net ${this.m_out.Quotew(this.netName(track.net).name)})`);
+      this.m_out.Print(`(net ${this.m_out.Quotew(aTrack.GetNetname())})`);
 
-    FormatUuid(this.m_out, track.uuid);
+    FormatUuid(this.m_out, aTrack.m_Uuid);
     this.m_out.Print(')');
   }
 
   // -------------------------------------------------------------------------
-  // ZONE (:2864)
+  // format( const ZONE* ) (:2864), format( const ZONE_LAYER_PROPERTIES& ) (:3096)
   // -------------------------------------------------------------------------
 
-  /** `format( const ZONE* aZone )` (:2864). */
-  formatZone(zone: KZone): void {
+  private formatZone(aZone: ZONE): void {
     this.m_out.Print('(zone');
 
-    const onCopper = zone.layerSet.and(LSET.AllCuMask()).any();
-    const net = this.netName(zone.net);
+    if (
+      !(this.m_ctl & CTL_OMIT_PAD_NETS) &&
+      aZone.IsOnCopperLayer() &&
+      !aZone.GetIsRuleArea() &&
+      aZone.GetNetCode() > 0
+    ) {
+      this.m_out.Print(`(net ${this.m_out.Quotew(aZone.GetNetname())})`);
+    }
 
-    if (!(this.m_ctl & CTL_OMIT_PAD_NETS) && onCopper && !zone.isRuleArea && net.code > 0)
-      this.m_out.Print(`(net ${this.m_out.Quotew(net.name)})`);
-
-    if (zone.locked) FormatBool(this.m_out, 'locked', true);
+    if (aZone.IsLocked()) FormatBool(this.m_out, 'locked', true);
 
     // If a zone exists on multiple layers, format accordingly
-    let layers = zone.layerSet;
+    let layers = new LSET(aZone.GetLayerSet());
 
-    if (this.m_hasBoard) layers = layers.and(this.m_board.enabledLayers);
+    const zoneBoard = aZone.GetBoard();
+
+    if (zoneBoard) layers = layers.and(zoneBoard.GetEnabledLayers());
 
     // Always enumerate every layer for a zone on a copper layer
-    if (layers.count() > 1) this.formatLayers(layers, onCopper, true);
-    else this.formatLayer(zoneFirstLayer(zone));
+    if (layers.count() > 1) this.formatLayers(layers, aZone.IsOnCopperLayer(), true);
+    else this.formatLayer(aZone.GetFirstLayer());
 
-    if (!zone.isTeardropArea) FormatUuid(this.m_out, zone.uuid);
+    if (!aZone.IsTeardropArea()) FormatUuid(this.m_out, aZone.m_Uuid);
 
-    if (zone.name !== '' && !zone.isTeardropArea)
-      this.m_out.Print(`(name ${this.m_out.Quotew(zone.name)})`);
+    if (aZone.GetZoneName() !== '' && !aZone.IsTeardropArea())
+      this.m_out.Print(`(name ${this.m_out.Quotew(aZone.GetZoneName())})`);
 
     // Save the outline aux info
     let hatch: string;
 
-    switch (zone.hatchStyle) {
+    switch (aZone.GetHatchStyle()) {
       default:
+      case ZONE_BORDER_DISPLAY_STYLE.NO_HATCH:
         hatch = 'none';
         break;
-      case 'edge':
+      case ZONE_BORDER_DISPLAY_STYLE.DIAGONAL_EDGE:
         hatch = 'edge';
         break;
-      case 'full':
+      case ZONE_BORDER_DISPLAY_STYLE.DIAGONAL_FULL:
         hatch = 'full';
         break;
     }
 
-    this.m_out.Print(`(hatch ${hatch} ${formatInternalUnits(zone.hatchPitch)})`);
+    this.m_out.Print(`(hatch ${hatch} ${formatInternalUnits(aZone.GetBorderHatchPitch())})`);
 
-    if (zone.priority > 0) this.m_out.Print(`(priority ${zone.priority})`);
+    if (aZone.GetAssignedPriority() > 0)
+      this.m_out.Print(`(priority ${aZone.GetAssignedPriority()})`);
 
     // Add teardrop keywords in file: (attr (teardrop (type xxx))) where xxx is the teardrop type
-    if (zone.isTeardropArea)
+    if (aZone.IsTeardropArea()) {
       this.m_out.Print(
-        `(attr (teardrop (type ${zone.teardropType === 'padvia' ? 'padvia' : 'track_end'})))`,
+        `(attr (teardrop (type ${aZone.GetTeardropAreaType() === TEARDROP_TYPE.TD_VIAPAD ? 'padvia' : 'track_end'})))`,
       );
+    }
 
     this.m_out.Print('(connect_pads');
 
-    switch (zone.padConnection) {
+    switch (aZone.GetPadConnection()) {
       default:
-      case 1: // ZONE_CONNECTION::THERMAL: Default option not saved or loaded.
+      case ZONE_CONNECTION.THERMAL: // Default option not saved or loaded.
         break;
-      case 3: // ZONE_CONNECTION::THT_THERMAL
+
+      case ZONE_CONNECTION.THT_THERMAL:
         this.m_out.Print(' thru_hole_only');
         break;
-      case 2: // ZONE_CONNECTION::FULL
+
+      case ZONE_CONNECTION.FULL:
         this.m_out.Print(' yes');
         break;
-      case 0: // ZONE_CONNECTION::NONE
+
+      case ZONE_CONNECTION.NONE:
         this.m_out.Print(' no');
         break;
     }
 
-    this.m_out.Print(`(clearance ${formatInternalUnits(zone.localClearance)})`);
+    this.m_out.Print(`(clearance ${formatInternalUnits(aZone.GetLocalClearance()!)})`);
 
     this.m_out.Print(')');
 
-    this.m_out.Print(`(min_thickness ${formatInternalUnits(zone.minThickness)})`);
+    this.m_out.Print(`(min_thickness ${formatInternalUnits(aZone.GetMinThickness())})`);
 
-    if (zone.isRuleArea) {
+    if (aZone.GetIsRuleArea()) {
       // Keepout settings
-      const na = (b: boolean): string => (b ? 'not_allowed' : 'allowed');
       this.m_out.Print(
-        `(keepout (tracks ${na(zone.doNotAllowTracks)}) (vias ${na(zone.doNotAllowVias)}) (pads ${na(zone.doNotAllowPads)}) (copperpour ${na(zone.doNotAllowZoneFills)}) (footprints ${na(zone.doNotAllowFootprints)}))`,
+        `(keepout (tracks ${aZone.GetDoNotAllowTracks() ? 'not_allowed' : 'allowed'}) (vias ${aZone.GetDoNotAllowVias() ? 'not_allowed' : 'allowed'}) (pads ${aZone.GetDoNotAllowPads() ? 'not_allowed' : 'allowed'}) (copperpour ${aZone.GetDoNotAllowZoneFills() ? 'not_allowed' : 'allowed'}) (footprints ${aZone.GetDoNotAllowFootprints() ? 'not_allowed' : 'allowed'}))`,
       );
 
       // Multichannel settings
       this.m_out.Print('(placement');
-      FormatBool(this.m_out, 'enabled', zone.placementEnabled);
+      FormatBool(this.m_out, 'enabled', aZone.GetPlacementAreaEnabled());
 
-      switch (zone.placementSourceType) {
-        case 'sheetname':
-          this.m_out.Print(`(sheetname ${this.m_out.Quotew(zone.placementSource)})`);
+      switch (aZone.GetPlacementAreaSourceType()) {
+        case PLACEMENT_SOURCE_T.SHEETNAME:
+          this.m_out.Print(`(sheetname ${this.m_out.Quotew(aZone.GetPlacementAreaSource())})`);
           break;
-        case 'component_class':
-          this.m_out.Print(`(component_class ${this.m_out.Quotew(zone.placementSource)})`);
+        case PLACEMENT_SOURCE_T.COMPONENT_CLASS:
+          this.m_out.Print(
+            `(component_class ${this.m_out.Quotew(aZone.GetPlacementAreaSource())})`,
+          );
           break;
-        case 'group':
-          this.m_out.Print(`(group ${this.m_out.Quotew(zone.placementSource)})`);
+        case PLACEMENT_SOURCE_T.GROUP_PLACEMENT:
+          this.m_out.Print(`(group ${this.m_out.Quotew(aZone.GetPlacementAreaSource())})`);
           break;
         // These are transitory and should not be saved
-        case 'design_block':
+        case PLACEMENT_SOURCE_T.DESIGN_BLOCK:
           break;
       }
 
@@ -2063,67 +2534,71 @@ export class PCB_IO_KICAD_SEXPR {
     this.m_out.Print('(fill');
 
     // Default is not filled.
-    if (zone.isFilled) this.m_out.Print(' yes');
+    if (aZone.IsFilled()) this.m_out.Print(' yes');
 
     // Default is polygon filled.
-    if (zone.fillMode === 'hatch_pattern') this.m_out.Print('(mode hatch)');
+    if (aZone.GetFillMode() === ZONE_FILL_MODE.HATCH_PATTERN) this.m_out.Print('(mode hatch)');
 
-    if (!zone.isTeardropArea) {
+    if (!aZone.IsTeardropArea()) {
       this.m_out.Print(
-        `(thermal_gap ${formatInternalUnits(zone.thermalReliefGap)}) (thermal_bridge_width ${formatInternalUnits(zone.thermalReliefSpokeWidth)})`,
+        `(thermal_gap ${formatInternalUnits(aZone.GetThermalReliefGap())}) (thermal_bridge_width ${formatInternalUnits(aZone.GetThermalReliefSpokeWidth())})`,
       );
     }
 
-    if (zone.cornerSmoothingType !== 0) {
-      switch (zone.cornerSmoothingType) {
-        case 1: // SMOOTHING_CHAMFER
+    if (aZone.GetCornerSmoothingType() !== ZONE_SETTINGS.SMOOTHING_NONE) {
+      switch (aZone.GetCornerSmoothingType()) {
+        case ZONE_SETTINGS.SMOOTHING_CHAMFER:
           this.m_out.Print('(smoothing chamfer)');
           break;
-        case 2: // SMOOTHING_FILLET
+
+        case ZONE_SETTINGS.SMOOTHING_FILLET:
           this.m_out.Print('(smoothing fillet)');
           break;
+
         default:
-          throw new Error(`unknown zone corner smoothing type ${zone.cornerSmoothingType}`);
+          throw new Error(`unknown zone corner smoothing type ${aZone.GetCornerSmoothingType()}`); // THROW_IO_ERROR
       }
 
-      if (zone.cornerRadius !== 0)
-        this.m_out.Print(`(radius ${formatInternalUnits(zone.cornerRadius)})`);
+      if (aZone.GetCornerRadius() !== 0)
+        this.m_out.Print(`(radius ${formatInternalUnits(aZone.GetCornerRadius())})`);
     }
 
-    this.m_out.Print(`(island_removal_mode ${zone.islandRemovalMode})`);
+    this.m_out.Print(`(island_removal_mode ${aZone.GetIslandRemovalMode()})`);
 
-    if (zone.islandRemovalMode === 2) {
-      // AREA: `formatInternalUnits( int )` of a double — truncated.
+    if (aZone.GetIslandRemovalMode() === ISLAND_REMOVAL_MODE.AREA) {
       this.m_out.Print(
-        `(island_area_min ${formatInternalUnits(Math.trunc(zone.minIslandArea / pcbIUScale.IU_PER_MM))})`,
+        `(island_area_min ${formatInternalUnits(aZone.GetMinIslandArea() / pcbIUScale.IU_PER_MM)})`,
       );
     }
 
-    if (zone.fillMode === 'hatch_pattern') {
+    if (aZone.GetFillMode() === ZONE_FILL_MODE.HATCH_PATTERN) {
       this.m_out.Print(
-        `(hatch_thickness ${formatInternalUnits(zone.hatchThickness)}) (hatch_gap ${formatInternalUnits(zone.hatchGap)}) (hatch_orientation ${FormatDouble2Str(zone.hatchOrientation)})`,
+        `(hatch_thickness ${formatInternalUnits(aZone.GetHatchThickness())}) (hatch_gap ${formatInternalUnits(aZone.GetHatchGap())}) (hatch_orientation ${FormatDouble2Str(aZone.GetHatchOrientation().AsDegrees())})`,
       );
 
-      if (zone.hatchSmoothingLevel > 0) {
+      if (aZone.GetHatchSmoothingLevel() > 0) {
         this.m_out.Print(
-          `(hatch_smoothing_level ${zone.hatchSmoothingLevel}) (hatch_smoothing_value ${FormatDouble2Str(zone.hatchSmoothingValue)})`,
+          `(hatch_smoothing_level ${aZone.GetHatchSmoothingLevel()}) (hatch_smoothing_value ${FormatDouble2Str(aZone.GetHatchSmoothingValue())})`,
         );
       }
 
       this.m_out.Print(
-        `(hatch_border_algorithm ${zone.hatchBorderAlgorithm ? 'hatch_thickness' : 'min_thickness'}) (hatch_min_hole_area ${FormatDouble2Str(zone.hatchHoleMinArea)})`,
+        `(hatch_border_algorithm ${aZone.GetHatchBorderAlgorithm() ? 'hatch_thickness' : 'min_thickness'}) (hatch_min_hole_area ${FormatDouble2Str(aZone.GetHatchHoleMinArea())})`,
       );
     }
 
     this.m_out.Print(')');
 
-    // `LayerProperties()`: a `std::map` by layer id.
-    for (const [layer, properties] of [...zone.layerProperties.entries()].sort(([a], [b]) => a - b))
-      this.formatZoneLayerProperties(properties, 0, layer);
+    // std::map<PCB_LAYER_ID, …>: layer order
+    for (const layer of [...aZone.LayerProperties().keys()].sort((a, b) => a - b)) {
+      this.formatZoneLayerProperties(aZone.LayerProperties().get(layer)!, 0, layer);
+    }
 
-    if (zoneNumCorners(zone)) {
-      for (const chain of zone.outline) {
-        if (chain.length === 0) continue;
+    if (aZone.GetNumCorners()) {
+      const poly = aZone.Outline().Polygon(0);
+
+      for (const chain of poly) {
+        if (chain.PointCount() === 0) continue;
 
         this.m_out.Print('(polygon');
         this.formatPolyPts(chain);
@@ -2132,16 +2607,18 @@ export class PCB_IO_KICAD_SEXPR {
     }
 
     // Save the PolysList (filled areas)
-    for (const layer of zone.layerSet.Seq()) {
-      for (const fill of zone.filledPolygons) {
-        if (fill.layer !== layer) continue;
+    for (const layer of aZone.GetLayerSet().Seq()) {
+      const fv = aZone.GetFilledPolysList(layer);
 
+      for (let ii = 0; ii < fv.OutlineCount(); ++ii) {
         this.m_out.Print('(filled_polygon');
-        this.m_out.Print(`(layer ${this.m_out.Quotew(LSET_Name(layer))})`);
+        this.m_out.Print(`(layer ${this.m_out.Quotew(LSET.Name(layer))})`);
 
-        if (fill.island) FormatBool(this.m_out, 'island', true);
+        if (aZone.IsIsland(layer, ii)) FormatBool(this.m_out, 'island', true);
 
-        this.formatPolyPts(fill.outline);
+        const chain = fv.COutline(ii);
+
+        this.formatPolyPts(chain);
         this.m_out.Print(')');
       }
     }
@@ -2149,1184 +2626,62 @@ export class PCB_IO_KICAD_SEXPR {
     this.m_out.Print(')');
   }
 
-  // -------------------------------------------------------------------------
-  // BOARD (:802)
-  // -------------------------------------------------------------------------
+  private formatZoneLayerProperties(
+    aZoneLayerProperties: ZONE_LAYER_PROPERTIES,
+    aNestLevel: number,
+    aLayer: PCB_LAYER_ID,
+  ): void {
+    // Do not store the layer properties if no value is actually set.
+    if (aZoneLayerProperties.hatching_offset === undefined) return;
 
-  /**
-   * Every item of a board in its list order — what `SaveSelection` does with
-   * `Format( copy )` for each selected item, no sorting.
-   */
-  formatItems(board: KBoard): void {
-    this.m_groupMembers = board.groupMembers;
-    for (const fp of board.footprints) this.formatFootprint(fp);
-    for (const item of board.drawings) {
-      if (item.kind === 'target') this.formatTarget(item.item);
-      else this.formatFpGraphicalItem(item, null);
-    }
-    for (const point of board.points) this.formatPoint(point);
-    for (const t of board.tracks) {
-      if (t.kind === 'via') this.formatVia(t.item);
-      else this.formatTrack(t.item);
-    }
-    for (const zone of board.zones) this.formatZone(zone);
-    for (const group of board.groups) this.formatGroup(group);
-    for (const gen of board.generators) this.formatGenerator(gen);
-  }
+    this.m_out.Print(aNestLevel, '(property\n');
+    this.m_out.Print(aNestLevel, `(layer ${this.m_out.Quotew(LSET.Name(aLayer))})\n`);
 
-  /** `format( const BOARD* aBoard )` (:802): the header, then every item list sorted. */
-  formatBoard(board: KBoard): void {
-    this.m_groupMembers = board.groupMembers;
-
-    const sortedFootprints = stdSet(board.footprints, ptrCmpFootprint);
-    const sortedDrawings = stdSet(board.drawings, cmpBoardDrawings);
-    const sortedTracks = stdSet(board.tracks, cmpTracks(this));
-    const sortedPoints = stdSet(board.points, cmpPoints);
-    const sortedZones = stdSet(board.zones, ptrCmpZone);
-    const layerSets = boardItemLayerSets(board);
-    const sortedGroups = stdSet(board.groups, (a, b, ia, ib) =>
-      ptrCmpGroup(a, b, ia, ib, layerSets),
-    );
-    const sortedGenerators = stdSet(board.generators, (a, b, ia, ib) =>
-      ptrCmpGroup(a, b, ia, ib, layerSets),
-    );
-
-    this.formatHeader();
-
-    // Save the footprints.
-    for (const fp of sortedFootprints) this.formatFootprint(fp);
-
-    // Save the graphical items on the board (not owned by a footprint)
-    for (const item of sortedDrawings) {
-      if (item.kind === 'target') this.formatTarget(item.item);
-      else this.formatFpGraphicalItem(item, null);
+    if (aZoneLayerProperties.hatching_offset !== undefined) {
+      this.m_out.Print(
+        aNestLevel,
+        `(hatch_position (xy ${formatInternalUnitsPt(aZoneLayerProperties.hatching_offset)}))`,
+      );
     }
 
-    // Save the points
-    for (const point of sortedPoints) this.formatPoint(point);
-
-    // Do not save PCB_MARKERs, they can be regenerated easily.
-
-    // Save the tracks and vias.
-    for (const t of sortedTracks) {
-      if (t.kind === 'via') this.formatVia(t.item);
-      else this.formatTrack(t.item);
-    }
-
-    // Save the polygon (which are the newer technology) zones.
-    for (const zone of sortedZones) this.formatZone(zone);
-
-    // Save the groups
-    for (const group of sortedGroups) this.formatGroup(group);
-
-    // Save the generators
-    for (const gen of sortedGenerators) this.formatGenerator(gen);
-
-    // Save any embedded files
-    // Consolidate the embedded models in footprints into a single map
-    // to avoid duplicating the same model in the board file.
-    const filesToWrite: EmbeddedFiles = { files: new Map(), areFontsEmbedded: false };
-
-    for (const [name, file] of board.embeddedFiles.files)
-      if (!filesToWrite.files.has(name)) filesToWrite.files.set(name, file);
-
-    for (const fp of sortedFootprints) {
-      for (const [name, file] of fp.embeddedFiles.files)
-        if (!filesToWrite.files.has(name)) filesToWrite.files.set(name, file);
-    }
-
-    this.m_out.Print(`(embedded_fonts ${board.embeddedFiles.areFontsEmbedded ? 'yes' : 'no'})`);
-
-    if (filesToWrite.files.size > 0)
-      writeEmbeddedFiles(this.m_out, filesToWrite, true /* CTL_FOR_BOARD */);
+    this.m_out.Print(aNestLevel, ')\n');
   }
 }
 
-/** `PAGE_INFO::Format( aFormatter )` (common/page_info.cpp). */
-export function formatPageInfo(out: OUTPUTFORMATTER, page: PageInfo): void {
-  out.Print(`(paper ${out.Quotew(page.type)}`);
-  // The page dimensions are only required for user defined page sizes.
-  // Internally, the page size is in mils
-  if (page.type === 'User') {
-    out.Print(
-      ` ${FormatDouble2Str((page.widthMils * 25.4) / 1000.0)} ${FormatDouble2Str((page.heightMils * 25.4) / 1000.0)}`,
-    );
-  }
-  // `IsCustom()` is `m_type == User`.
-  if (page.type !== 'User' && page.portrait) out.Print(' portrait');
-  out.Print(')');
-}
-
-/** `TITLE_BLOCK::Format( aFormatter )` (common/title_block.cpp). */
-export function formatTitleBlock(out: OUTPUTFORMATTER, tb: TitleBlock): void {
-  // Don't write the title block information if there is nothing to write.
-  const texts = [tb.title, tb.date, tb.revision, tb.company, ...tb.comments];
-  if (!texts.some((t) => t !== undefined && t !== '')) return;
-  out.Print('(title_block');
-  if (tb.title !== '') out.Print(`(title ${out.Quotew(tb.title)})`);
-  if (tb.date !== '') out.Print(`(date ${out.Quotew(tb.date)})`);
-  if (tb.revision !== '') out.Print(`(rev ${out.Quotew(tb.revision)})`);
-  if (tb.company !== '') out.Print(`(company ${out.Quotew(tb.company)})`);
-  for (let ii = 0; ii < 9; ii++) {
-    const c = tb.comments[ii];
-    if (c !== undefined && c !== '') out.Print(`(comment ${ii + 1} ${out.Quotew(c)})`);
-  }
-  out.Print(')');
-}
-
-/** `BOARD_STACKUP::FormatBoardStackup( aFormatter, aBoard )` (board_stackup.cpp). */
-export function formatBoardStackup(out: OUTPUTFORMATTER, stackup: BoardStackup): void {
-  // Board stackup is the ordered list from top to bottom of
-  // physical layers and substrate used to build the board.
-  if (stackup.list.length === 0) return;
-  out.Print('(stackup');
-  // Note:
-  // Unspecified parameters are not stored in file.
-  for (const item of stackup.list) {
-    const layerName =
-      item.brdLayerId === UNDEFINED_LAYER
-        ? `dielectric ${item.dielectricLayerId}`
-        : LSET_Name(item.brdLayerId);
-    out.Print(`(layer ${out.Quotew(layerName)} (type ${out.Quotew(item.typeName)})`);
-
-    const isColorEditable =
-      item.type === 'dielectric' || item.type === 'soldermask' || item.type === 'silkscreen';
-    const isThicknessEditable =
-      item.type === 'copper' || item.type === 'dielectric' || item.type === 'soldermask';
-    const isMaterialEditable = isColorEditable;
-    const hasEpsilonRValue = item.type === 'dielectric' || item.type === 'soldermask';
-    const hasLossTangentValue = hasEpsilonRValue;
-
-    // Output other parameters (in sub layer list there is at least one item)
-    for (let idx = 0; idx < item.sublayers.length; idx++) {
-      const prms = item.sublayers[idx]!;
-      if (idx) out.Print(' addsublayer'); // not for the main (first) layer.
-
-      if (isColorEditable && IsPrmSpecified(prms.color))
-        out.Print(`(color ${out.Quotew(prms.color)})`);
-
-      if (isThicknessEditable) {
-        out.Print(`(thickness ${formatInternalUnits(prms.thickness)}`);
-        if (item.type === 'dielectric' && prms.thicknessLocked) out.Print(' locked');
-        out.Print(')');
-      }
-
-      const hasMaterialValue = isMaterialEditable && IsPrmSpecified(prms.material);
-      if (hasMaterialValue) out.Print(`(material ${out.Quotew(prms.material)})`);
-
-      if (hasEpsilonRValue && hasMaterialValue)
-        out.Print(`(epsilon_r ${FormatDouble2Str(prms.epsilonR)})`);
-
-      if (hasLossTangentValue && hasMaterialValue)
-        out.Print(`(loss_tangent ${FormatDouble2Str(prms.lossTangent)})`);
-    }
-    out.Print(')');
-  }
-
-  // Other infos about board, related to layers and other fabrication specifications
-  if (IsPrmSpecified(stackup.finishType))
-    out.Print(`(copper_finish ${out.Quotew(stackup.finishType)})`);
-
-  FormatBool(out, 'dielectric_constraints', stackup.hasDielectricConstraints);
-
-  if (stackup.edgeConnectorConstraints > 0)
-    out.Print(`(edge_connector ${stackup.edgeConnectorConstraints > 1 ? 'bevelled' : 'yes'})`);
-
-  if (stackup.edgePlating) FormatBool(out, 'edge_plating', true);
-
-  out.Print(')');
-}
-
-/** `PCB_PLOT_PARAMS::Format( aFormatter )` (pcbnew/pcb_plot_params.cpp). */
-export function formatPlotParams(out: OUTPUTFORMATTER, p: PcbPlotParams): void {
-  out.Print('(pcbplotparams');
-  out.Print(`(layerselection 0x${p.layerSelection.FmtHex()})`);
-  out.Print(`(plot_on_all_layers_selection 0x${p.plotOnAllLayersSelection.FmtHex()})`);
-  FormatBool(out, 'disableapertmacros', p.gerberDisableApertMacros);
-  FormatBool(out, 'usegerberextensions', p.useGerberProtelExtensions);
-  FormatBool(out, 'usegerberattributes', p.useGerberX2format);
-  FormatBool(out, 'usegerberadvancedattributes', p.includeGerberNetlistInfo);
-  FormatBool(out, 'creategerberjobfile', p.createGerberJobFile);
-  // save this option only if it is not the default value,
-  // to avoid incompatibility with older Pcbnew version
-  if (p.gerberPrecision !== 6) out.Print(`(gerberprecision ${p.gerberPrecision})`);
-  out.Print(`(dashed_line_dash_ratio ${FormatDouble2Str(p.dashedLineDashRatio)})`);
-  out.Print(`(dashed_line_gap_ratio ${FormatDouble2Str(p.dashedLineGapRatio)})`);
-  // SVG options
-  out.Print(`(svgprecision ${p.svgPrecision})`);
-  FormatBool(out, 'plotframeref', p.plotDrawingSheet);
-  out.Print(`(mode ${p.dxfPlotModeSketch ? 2 : 1})`);
-  FormatBool(out, 'useauxorigin', p.useAuxOrigin);
-  // PDF options
-  FormatBool(out, 'pdf_front_fp_property_popups', p.pdfFrontFPPropertyPopups);
-  FormatBool(out, 'pdf_back_fp_property_popups', p.pdfBackFPPropertyPopups);
-  FormatBool(out, 'pdf_metadata', p.pdfMetadata);
-  FormatBool(out, 'pdf_single_document', p.pdfSingle);
-  // DXF options
-  FormatBool(out, 'dxfpolygonmode', p.dxfPolygonMode);
-  FormatBool(out, 'dxfimperialunits', p.dxfImperialUnits);
-  FormatBool(out, 'dxfusepcbnewfont', p.dxfUsePcbnewFont);
-  FormatBool(out, 'psnegative', p.negative);
-  FormatBool(out, 'psa4output', p.a4Output);
-  FormatBool(out, 'plot_black_and_white', p.blackAndWhite);
-  FormatBool(out, 'sketchpadsonfab', p.sketchPadsOnFabLayers);
-  FormatBool(out, 'plotpadnumbers', p.plotPadNumbers);
-  FormatBool(out, 'hidednponfab', p.hideDNPFPsOnFabLayers);
-  FormatBool(out, 'sketchdnponfab', p.sketchDNPFPsOnFabLayers);
-  FormatBool(out, 'crossoutdnponfab', p.crossoutDNPFPsOnFabLayers);
-  FormatBool(out, 'subtractmaskfromsilk', p.subtractMaskFromSilk);
-  out.Print(`(outputformat ${p.format})`);
-  FormatBool(out, 'mirror', p.mirror);
-  out.Print(`(drillshape ${p.drillMarks})`);
-  out.Print(`(scaleselection ${p.scaleSelection})`);
-  out.Print(`(outputdirectory ${out.Quotew(p.outputDirectory)})`);
-  out.Print(')');
-}
-
-/**
- * `FormatBoardToFormatter` (:322) for the header alone: the prettified text
- * of `(kicad_pcb (version …) … <header> )`, with `items` printed between the
- * header and the close — the item formatters of part 2, or nothing.
- */
-export function formatBoardText(
-  board: BoardHeaderView,
-  items: (io: PCB_IO_KICAD_SEXPR, out: OUTPUTFORMATTER) => void = () => {},
-): string {
-  const out = new PRETTIFIED_STRING_FORMATTER();
-  out.Print(
-    `(kicad_pcb (version ${SEXPR_BOARD_FILE_VERSION}) (generator ${out.Quotew(board.generator)}) (generator_version ${out.Quotew(MAJOR_MINOR_VERSION)})`,
-  );
-  const io = new PCB_IO_KICAD_SEXPR(out, board);
-  io.formatHeader();
-  items(io, out);
-  out.Print(')');
-  return out.Finish();
-}
-
-export { FormatAngle };
-
-// ---------------------------------------------------------------------------
-// EDA_TEXT::Format (common/eda_text.cpp:1061)
-// ---------------------------------------------------------------------------
-
-export { CTL_OMIT_COLOR, CTL_OMIT_HYPERLINK } from '@ziroeda/common/src/ctl_flags.js';
-import { CTL_OMIT_COLOR, CTL_OMIT_HYPERLINK } from '@ziroeda/common/src/ctl_flags.js';
-
-/** `EDA_TEXT::Format( aFormatter, aControlBits )` (eda_text.cpp:1061). */
-export function formatEdaText(out: OUTPUTFORMATTER, text: KEdaText, controlBits: number): void {
-  out.Print('(effects');
-
-  out.Print('(font');
-
-  if (text.fontName !== '') out.Print(`(face ${out.Quotew(text.fontName)})`);
-
-  // Text size
-  out.Print(`(size ${formatInternalUnits(text.size.y)} ${formatInternalUnits(text.size.x)})`);
-
-  if (text.lineSpacing !== 1.0) out.Print(`(line_spacing ${FormatDouble2Str(text.lineSpacing)})`);
-
-  // `if( !GetAutoThickness() )`, and that is `GetTextThickness() == 0`.
-  if (text.thickness !== 0) out.Print(`(thickness ${formatInternalUnits(text.thickness)})`);
-
-  if (text.bold) FormatBool(out, 'bold', true);
-
-  if (text.italic) FormatBool(out, 'italic', true);
-
-  if (!(controlBits & CTL_OMIT_COLOR) && text.color) {
-    const c = text.color;
-    out.Print(
-      `(color ${KiROUND(c.r * 255.0)} ${KiROUND(c.g * 255.0)} ${KiROUND(c.b * 255.0)} ${FormatDouble2Str(c.a)})`,
-    );
-  }
-
-  out.Print(')'); // (font
-
-  if (text.mirrored || text.hJustify !== 'center' || text.vJustify !== 'center') {
-    out.Print('(justify');
-
-    if (text.hJustify !== 'center') out.Print(text.hJustify === 'left' ? ' left' : ' right');
-
-    if (text.vJustify !== 'center') out.Print(text.vJustify === 'top' ? ' top' : ' bottom');
-
-    if (text.mirrored) out.Print(' mirror');
-
-    out.Print(')'); // (justify
-  }
-
-  if (!(controlBits & CTL_OMIT_HYPERLINK) && text.hyperlink !== '')
-    out.Print(`(href ${out.Quotew(text.hyperlink)})`);
-
-  out.Print(')'); // (effects
-}
-
-// ---------------------------------------------------------------------------
-// EMBEDDED_FILES::WriteEmbeddedFiles (common/embedded_files.cpp:190)
-// ---------------------------------------------------------------------------
-
-/** `EMBEDDED_FILES::WriteEmbeddedFiles( aOut, aWriteData )`. */
-export function writeEmbeddedFiles(
-  out: OUTPUTFORMATTER,
-  files: EmbeddedFiles,
-  writeData: boolean,
-): void {
-  const MIME_BASE64_LENGTH = 76;
-  out.Print('(embedded_files ');
-
-  // `m_files` is a `std::map`: name order.
-  for (const [, file] of [...files.files.entries()].sort(([a], [b]) => cmpWxString(a, b))) {
-    // Skip empty files
-    if (file.compressedEncodedData === '') continue;
-
-    out.Print('(file ');
-    out.Print(`(name ${out.Quotew(file.name)})`);
-
-    out.Print(`(type ${file.type})`);
-
-    if (writeData) {
-      out.Print('(data');
-
-      let first = 0;
-      const data = file.compressedEncodedData;
-
-      while (first < data.length) {
-        const remaining = data.length - first;
-        const length = Math.min(remaining, MIME_BASE64_LENGTH);
-        out.Print(
-          `\n${first ? '' : '|'}${data.slice(first, first + length)}${remaining === length ? '|' : ''}\n`,
-        );
-        first += MIME_BASE64_LENGTH;
-      }
-
-      out.Print(')'); // Close data
-    }
-
-    out.Print(`(checksum ${out.Quotew(file.dataHash)})`);
-    out.Print(')'); // Close file
-  }
-
-  out.Print(')'); // Close embedded_files
-}
-
-// ---------------------------------------------------------------------------
-// Small helpers the C++ gets from its classes
-// ---------------------------------------------------------------------------
-
-/** `wxString::Cmp`: code point order. */
-export function cmpWxString(a: string, b: string): number {
-  const ia = a[Symbol.iterator]();
-  const ib = b[Symbol.iterator]();
-  for (;;) {
-    const na = ia.next();
-    const nb = ib.next();
-    if (na.done) return nb.done ? 0 : -1;
-    if (nb.done) return 1;
-    const ca = na.value.codePointAt(0)!;
-    const cb = nb.value.codePointAt(0)!;
-    if (ca !== cb) return ca < cb ? -1 : 1;
-  }
-}
-
-/** `LIB_ID::IsValid()` on a `nickname:item` string: both halves present. */
-export function libIdIsValid(libId: string): boolean {
-  const i = libId.indexOf(':');
-  return i > 0 && i < libId.length - 1;
-}
-
-/** `PCB_TABLE::GetRowCount()`. */
-export function tableRowCount(table: KPcbTable): number {
-  return Math.trunc(table.cells.length / table.colCount);
-}
-
-/** `ZONE::GetNumCorners()`: `Outline()->TotalVertices()`. */
-export function zoneNumCorners(zone: KZone): number {
-  let n = 0;
-  for (const chain of zone.outline) n += chain.length;
-  return n;
-}
-
-/** `DEFAULT_VIA_DRILL` / `DEFAULT_UVIA_DRILL` (common/netclass.cpp:41): the netclass defaults. */
-export const DEFAULT_VIA_DRILL = pcbIUScale.mmToIU(0.3);
-export const DEFAULT_UVIA_DRILL = pcbIUScale.mmToIU(0.1);
-
-/**
- * `PCB_VIA::GetDrillValue()` (pcb_track.cpp:694) for a via whose drill is
- * the netclass value. The board file carries no netclasses, so this is the
- * `NETCLASS` constructor default — the value a board loaded without its
- * project gets.
- */
-export function viaDrillValue(via: KPcbVia): number {
-  if (via.drill > 0) return via.drill;
-  return via.viaType === 'micro' ? DEFAULT_UVIA_DRILL : DEFAULT_VIA_DRILL;
-}
-
-/** `isDefaultTeardropParameters( tdParams )` (:765). */
-export function isDefaultTeardropParameters(td: TeardropParams): boolean {
-  const d = defaultTeardropParams();
+/** `wxAny::CheckType<VECTOR2I>()`. */
+function isVector2(aValue: unknown): aValue is VECTOR2I {
   return (
-    td.enabled === d.enabled &&
-    td.bestLengthRatio === d.bestLengthRatio &&
-    td.tdMaxLen === d.tdMaxLen &&
-    td.bestWidthRatio === d.bestWidthRatio &&
-    td.tdMaxWidth === d.tdMaxWidth &&
-    td.curvedEdges === d.curvedEdges &&
-    td.widthtoSizeFilterRatio === d.widthtoSizeFilterRatio &&
-    td.allowUseTwoTracks === d.allowUseTwoTracks &&
-    td.tdOnPadsInZones === d.tdOnPadsInZones
+    typeof aValue === 'object' &&
+    aValue !== null &&
+    typeof (aValue as VECTOR2I).x === 'number' &&
+    typeof (aValue as VECTOR2I).y === 'number'
   );
 }
 
-/** The `(data …)` base64 of a reference image, back to the bytes `SaveImageData` writes. */
-export function base64ToBytes(data: string): Uint8Array {
-  const binary = atob(data);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
-/** `RotatePoint( rel, θ ) + pos`: a footprint child's board position, as `GetPosition()` returns it. */
-function toBoard(pt: Vec2, fp: ParentFP | null): Vec2 {
-  if (!fp) return pt;
-  const p = fp.angle === 0 ? { x: pt.x, y: pt.y } : RotatePoint(pt, new EDA_ANGLE(fp.angle));
-  return { x: p.x + fp.at.x, y: p.y + fp.at.y };
-}
-
-// ---------------------------------------------------------------------------
-// The sort comparators: std::set< …, cmp > in format( BOARD ) and format( FOOTPRINT )
-// ---------------------------------------------------------------------------
-
 /**
- * `std::set<T, less>` built from a list: sorted, and an element equivalent
- * to one already present (neither orders before the other) is not inserted —
- * so KiCad drops, on save, a drawing that compares equal to an earlier one.
- * `less` gets the insertion indices for the C++'s final pointer compare.
+ * `PCB_IO_KICAD_SEXPR::SaveBoard` to a string: `FormatBoardToFormatter` on a
+ * `PRETTIFIED_FILE_OUTPUTFORMATTER`, `Finish()`ed.
  */
-export function stdSet<T>(
-  items: readonly T[],
-  less: (a: T, b: T, ia: number, ib: number) => boolean,
-): T[] {
-  const indexed = items.map((item, i) => ({ item, i }));
-  indexed.sort((a, b) =>
-    less(a.item, b.item, a.i, b.i) ? -1 : less(b.item, a.item, b.i, a.i) ? 1 : 0,
-  );
-  const out: T[] = [];
-  let prev: { item: T; i: number } | null = null;
-  for (const e of indexed) {
-    if (prev && !less(prev.item, e.item, prev.i, e.i) && !less(e.item, prev.item, e.i, prev.i))
-      continue;
-    out.push(e.item);
-    prev = e;
-  }
-  return out;
-}
-
-/** `KICAD_T` (include/core/typeinfo.h), the part of the order the comparators need. */
-const enum KT {
-  FOOTPRINT = 0,
-  PAD,
-  SHAPE,
-  REFERENCE_IMAGE,
-  FIELD,
-  GENERATOR,
-  TEXT,
-  TEXTBOX,
-  TABLE,
-  TABLECELL,
-  TRACE,
-  VIA,
-  ARC,
-  MARKER,
-  DIMENSION,
-  BARCODE,
-  DIM_ALIGNED,
-  DIM_LEADER,
-  DIM_CENTER,
-  DIM_RADIAL,
-  DIM_ORTHOGONAL,
-  TARGET,
-  ZONE,
-  GROUP,
-  POINT,
-}
-
-function drawingType(d: KBoardDrawing): KT {
-  switch (d.kind) {
-    case 'shape':
-      return KT.SHAPE;
-    case 'image':
-      return KT.REFERENCE_IMAGE;
-    case 'text':
-      return KT.TEXT;
-    case 'textbox':
-      return KT.TEXTBOX;
-    case 'table':
-      return KT.TABLE;
-    case 'barcode':
-      return KT.BARCODE;
-    case 'dimension':
-      switch (d.item.type) {
-        case 'aligned':
-          return KT.DIM_ALIGNED;
-        case 'leader':
-          return KT.DIM_LEADER;
-        case 'center':
-          return KT.DIM_CENTER;
-        case 'radial':
-          return KT.DIM_RADIAL;
-        case 'orthogonal':
-          return KT.DIM_ORTHOGONAL;
-      }
-      break;
-    case 'target':
-      return KT.TARGET;
-  }
-  return KT.SHAPE;
-}
-
-/** `BOARD_ITEM::GetLayer()` of a drawing. */
-function drawingLayer(d: KBoardDrawing): number {
-  return d.item.layer;
-}
-
-/** `SHAPE_T` order. */
-const SHAPE_T_ORDER: Record<ShapeT, number> = {
-  segment: 0,
-  rectangle: 1,
-  arc: 2,
-  circle: 3,
-  poly: 4,
-  bezier: 5,
-};
-/** `LINE_STYLE` order (`DEFAULT` is -1). */
-const LINE_STYLE_ORDER: Record<StrokeType, number> = {
-  default: -1,
-  solid: 0,
-  dash: 1,
-  dot: 2,
-  dash_dot: 3,
-  dash_dot_dot: 4,
-};
-/** `FILL_T` order. */
-const FILL_T_ORDER: Record<FillT, number> = {
-  no_fill: 1,
-  filled_shape: 2,
-  hatch: 3,
-  reverse_hatch: 4,
-  cross_hatch: 5,
-};
-/** `PAD_SHAPE` order. */
-const PAD_SHAPE_ORDER: Record<PadShape, number> = {
-  circle: 0,
-  rectangle: 1,
-  oval: 2,
-  trapezoid: 3,
-  roundrect: 4,
-  chamfered_rect: 5,
-  custom: 6,
-};
-/** `GR_TEXT_H_ALIGN_T` / `GR_TEXT_V_ALIGN_T`: LEFT/TOP -1, CENTER 0, RIGHT/BOTTOM 1. */
-const H_ALIGN_ORDER = { left: -1, center: 0, right: 1 } as const;
-const V_ALIGN_ORDER = { top: -1, center: 0, bottom: 1 } as const;
-/** `BARCODE_T` and `BARCODE_ECC_T` orders. */
-const BARCODE_T_ORDER = { code39: 0, code128: 1, datamatrix: 2, qr: 3, microqr: 4 } as const;
-const BARCODE_ECC_ORDER = { L: 0, M: 1, Q: 2, H: 3 } as const;
-
-/**
- * The vertices `SHAPE_POLY_SET::CVertex( ii )` walks: an arc entry stands
- * for the points KiCad approximates it into; the three it names are used
- * here, which orders two outlines the same way unless they differ only
- * inside an arc.
- */
-function outlineVertices(outline: readonly OutlineEntry[]): Vec2[] {
-  const pts: Vec2[] = [];
-  for (const e of outline) {
-    if ('xy' in e) pts.push(e.xy);
-    else pts.push(e.arc.start, e.arc.mid, e.arc.end);
-  }
-  return pts;
-}
-
-/** `cmp_points_opt` (footprint.cpp:4333). */
-function cmpPointsOpt(a: Vec2, b: Vec2): boolean | undefined {
-  if (a.x !== b.x) return a.x < b.x;
-  if (a.y !== b.y) return a.y < b.y;
-  return undefined;
-}
-
-/** `EDA_SHAPE::Compare( aOther )` (eda_shape.cpp:2449). */
-export function edaShapeCompare(a: KPcbShape, b: KPcbShape, fp: ParentFP | null): number {
-  const EPSILON = 2; // Should be enough for rounding errors on calculated items
-  const TEST = (x: number, y: number): number | undefined => (x !== y ? x - y : undefined);
-  const TEST_E = (x: number, y: number): number | undefined =>
-    Math.abs(x - y) > EPSILON ? x - y : undefined;
-  const TEST_PT = (p: Vec2, q: Vec2): number | undefined => TEST_E(p.x, q.x) ?? TEST_E(p.y, q.y);
-  let r: number | undefined;
-
-  r = TEST_PT(toBoard(a.start, fp), toBoard(b.start, fp));
-  if (r !== undefined) return r;
-  r = TEST_PT(toBoard(a.end, fp), toBoard(b.end, fp));
-  if (r !== undefined) return r;
-
-  r = TEST(SHAPE_T_ORDER[a.shape], SHAPE_T_ORDER[b.shape]);
-  if (r !== undefined) return r;
-
-  if (a.shape === 'rectangle') {
-    r = TEST(a.cornerRadius, b.cornerRadius);
-    if (r !== undefined) return r;
-  } else if (a.shape === 'arc') {
-    r = TEST_PT(toBoard(a.arcMid!, fp), toBoard(b.arcMid!, fp));
-    if (r !== undefined) return r;
-  } else if (a.shape === 'bezier') {
-    r = TEST_PT(toBoard(a.bezierC1!, fp), toBoard(b.bezierC1!, fp));
-    if (r !== undefined) return r;
-    r = TEST_PT(toBoard(a.bezierC2!, fp), toBoard(b.bezierC2!, fp));
-    if (r !== undefined) return r;
-  } else if (a.shape === 'poly') {
-    const va = outlineVertices(a.outline ?? []);
-    const vb = outlineVertices(b.outline ?? []);
-    r = TEST(va.length, vb.length);
-    if (r !== undefined) return r;
-    for (let ii = 0; ii < va.length; ++ii) {
-      r = TEST_PT(toBoard(va[ii]!, fp), toBoard(vb[ii]!, fp));
-      if (r !== undefined) return r;
-    }
-  }
-
-  // (The `m_bezierPoints` loop: the segment approximation, which two beziers
-  // whose control points agree within EPSILON share.)
-
-  r = TEST_E(a.stroke.width, b.stroke.width);
-  if (r !== undefined) return r;
-  r = TEST(LINE_STYLE_ORDER[a.stroke.type], LINE_STYLE_ORDER[b.stroke.type]);
-  if (r !== undefined) return r;
-  r = TEST(FILL_T_ORDER[a.fill], FILL_T_ORDER[b.fill]);
-  if (r !== undefined) return r;
-
-  return 0;
-}
-
-/** `TEXT_ATTRIBUTES::Compare` (text_attributes.cpp:44) then the rest of `EDA_TEXT::Compare` (eda_text.cpp:1201). */
-export function edaTextCompare(
-  a: KEdaText,
-  b: KEdaText,
-  fp: ParentFP | null,
-  keepUprightA = false,
-  keepUprightB = false,
-): number {
-  let retv = cmpWxString(a.fontName, b.fontName);
-  if (retv) return retv;
-
-  if (a.size.x !== b.size.x) return a.size.x - b.size.x;
-  if (a.size.y !== b.size.y) return a.size.y - b.size.y;
-  if (a.thickness !== b.thickness) return a.thickness - b.thickness;
-  if (a.angle !== b.angle) return a.angle < b.angle ? -1 : 1;
-  if (a.lineSpacing !== b.lineSpacing) return a.lineSpacing < b.lineSpacing ? -1 : 1;
-  if (a.hJustify !== b.hJustify) return H_ALIGN_ORDER[a.hJustify] - H_ALIGN_ORDER[b.hJustify];
-  if (a.vJustify !== b.vJustify) return V_ALIGN_ORDER[a.vJustify] - V_ALIGN_ORDER[b.vJustify];
-  if (a.italic !== b.italic) return Number(a.italic) - Number(b.italic);
-  if (a.bold !== b.bold) return Number(a.bold) - Number(b.bold);
-  // m_Underlined: never set on a board text.
-  // COLOR4D::Compare; UNSPECIFIED is (0, 0, 0, 0).
-  const ca = a.color ?? { r: 0, g: 0, b: 0, a: 0 };
-  const cb = b.color ?? { r: 0, g: 0, b: 0, a: 0 };
-  if (ca.r !== cb.r) return ca.r < cb.r ? -1 : 1;
-  if (ca.g !== cb.g) return ca.g < cb.g ? -1 : 1;
-  if (ca.b !== cb.b) return ca.b < cb.b ? -1 : 1;
-  if (ca.a !== cb.a) return ca.a < cb.a ? -1 : 1;
-  if (a.mirrored !== b.mirrored) return Number(a.mirrored) - Number(b.mirrored);
-  // m_Multiline: every PCB_TEXT allows it.
-  retv = Number(keepUprightA) - Number(keepUprightB);
-  if (retv) return retv;
-
-  const pa = toBoard(a.pos, fp);
-  const pb = toBoard(b.pos, fp);
-  if (pa.x !== pb.x) return pa.x - pb.x;
-  if (pa.y !== pb.y) return pa.y - pb.y;
-
-  retv = cmpWxString(a.fontName, b.fontName);
-  if (retv) return retv;
-
-  return cmpWxString(a.text, b.text);
-}
-
-/** The textbox as a `PCB_SHAPE` for `PCB_SHAPE::Compare`. */
-function textBoxAsShape(tb: KPcbTextBox): KPcbShape {
-  return {
-    shape: tb.shape === 'rectangle' ? 'rectangle' : 'poly',
-    start: tb.start,
-    end: tb.end,
-    outline: tb.outline,
-    cornerRadius: 0,
-    stroke: tb.stroke,
-    fill: 'no_fill',
-    locked: tb.locked,
-    layer: tb.layer,
-    hasSolderMask: false,
-    net: null,
-    uuid: tb.uuid,
-    proxy: false,
-  };
-}
-
-/** `PCB_TABLE::Compare( aTable, aOther )` (pcb_table.cpp:730). */
-export function pcbTableCompare(a: KPcbTable, b: KPcbTable, fp: ParentFP | null): number {
-  let diff: number;
-
-  diff = a.cells.length - b.cells.length;
-  if (diff !== 0) return diff;
-
-  diff = a.colCount - b.colCount;
-  if (diff !== 0) return diff;
-
-  for (let col = 0; col < a.colCount; ++col) {
-    diff = (a.colWidths[col] ?? 0) - (b.colWidths[col] ?? 0);
-    if (diff !== 0) return diff;
-  }
-
-  const rows = tableRowCount(a);
-  for (let row = 0; row < rows; ++row) {
-    diff = (a.rowHeights[row] ?? 0) - (b.rowHeights[row] ?? 0);
-    if (diff !== 0) return diff;
-  }
-
-  for (let row = 0; row < rows; ++row) {
-    for (let col = 0; col < a.colCount; ++col) {
-      const cell = a.cells[row * a.colCount + col]!;
-      const other = b.cells[row * b.colCount + col]!;
-
-      diff = edaShapeCompare(textBoxAsShape(cell), textBoxAsShape(other), fp);
-      if (diff !== 0) return diff;
-
-      diff = edaTextCompare(cell, other, fp);
-      if (diff !== 0) return diff;
-    }
-  }
-
-  return 0;
-}
-
-/** `PCB_BARCODE::Compare( aBarcode, aOther )` (pcb_barcode.cpp:832). */
-export function pcbBarcodeCompare(a: KPcbBarcode, b: KPcbBarcode): number {
-  let diff: number;
-
-  diff = a.pos.x - b.pos.x;
-  if (diff !== 0) return diff;
-  diff = a.pos.y - b.pos.y;
-  if (diff !== 0) return diff;
-  diff = cmpWxString(a.text, b.text);
-  if (diff !== 0) return diff;
-  diff = a.width - b.width;
-  if (diff !== 0) return diff;
-  diff = a.height - b.height;
-  if (diff !== 0) return diff;
-  diff = a.textHeight - b.textHeight;
-  if (diff !== 0) return diff;
-  diff = BARCODE_T_ORDER[a.kind] - BARCODE_T_ORDER[b.kind];
-  if (diff !== 0) return diff;
-  diff = KiROUND(a.angle * 10) - KiROUND(b.angle * 10);
-  if (diff !== 0) return diff;
-  diff = BARCODE_ECC_ORDER[a.ecc] - BARCODE_ECC_ORDER[b.ecc];
-  if (diff !== 0) return diff;
-
-  return 0;
-}
-
-/** `LSET::Seq() <` on two sets: `std::vector<PCB_LAYER_ID>` lexicographic. */
-function seqLess(a: LSET, b: LSET): boolean {
-  const sa = a.Seq();
-  const sb = b.Seq();
-  const n = Math.min(sa.length, sb.length);
-  for (let i = 0; i < n; i++) {
-    if (sa[i]! !== sb[i]!) return sa[i]! < sb[i]!;
-  }
-  return sa.length < sb.length;
-}
-
-/** `KIID::operator<`: the 16 bytes, which for canonical lowercase strings is string order. */
-function uuidLess(a: string, b: string): boolean {
-  return a < b;
-}
-
-/** `BOARD_ITEM::ptr_cmp` (board_item.cpp:320) on items of one type. */
-function ptrCmp(
-  layerSetA: LSET,
-  layerSetB: LSET,
-  uuidA: string,
-  uuidB: string,
-  ia: number,
-  ib: number,
-): boolean {
-  if (!layerSetA.equals(layerSetB)) return seqLess(layerSetA, layerSetB);
-
-  if (uuidA !== uuidB) return uuidLess(uuidA, uuidB); // UUIDs *should* always be unique (for valid boards anyway)
-
-  return ia < ib; // But just in case; ptrs are guaranteed to be different
-}
-
-/** `BOARD_ITEM::GetLayerSet()` (board_item.h:257): the one layer, none when UNDEFINED. */
-function oneLayerSet(layer: number): LSET {
-  return layer === UNDEFINED_LAYER ? new LSET() : new LSET([layer]);
-}
-
-/** `PCB_VIA::GetLayerSet()` (pcb_track.cpp:1565). */
-function viaLayerSet(via: KPcbVia, copperLayerCount: number): LSET {
-  if (via.viaType === 'through') return LSET.AllCuMask(copperLayerCount);
-  const layermask = new LSET();
-  let cnt = copperLayerCount;
-  // PCB_LAYER_IDs are numbered from front to back, this is top to bottom.
-  for (const id of new LAYER_RANGE(via.layer1, via.layer2, copperLayerCount)) {
-    layermask.set(id);
-    if (--cnt <= 0) break;
-  }
-  return layermask;
-}
-
-/** An item's `GetLayerSet()` by uuid, for `PCB_GROUP::GetLayerSet()`: the union of its members'. */
-type LayerSetLookup = {
-  sets: Map<string, LSET>;
-  /** Group uuid -> resolved member uuids. */
-  members: Map<string, string[]>;
-};
-
-function groupLayerSet(uuid: string, lookup: LayerSetLookup, depth = 0): LSET {
-  let set = new LSET();
-  const members = lookup.members.get(uuid) ?? [];
-  for (const m of members) {
-    if (lookup.members.has(m)) {
-      // A nested group: its own union. (`GroupsSanityCheck` forbids cycles.)
-      if (depth < 64) set = set.or(groupLayerSet(m, lookup, depth + 1));
-    } else {
-      const s = lookup.sets.get(m);
-      if (s) set = set.or(s);
-    }
-  }
-  const own = lookup.sets.get(uuid);
-  return own ? set.or(own) : set;
-}
-
-/** `GetItemByIdCache()`-like layer sets of the board's top-level items. */
-function boardItemLayerSets(board: KBoard): LayerSetLookup {
-  const sets = new Map<string, LSET>();
-  for (const fp of board.footprints) sets.set(fp.uuid, oneLayerSet(fp.layer));
-  for (const d of board.drawings)
-    sets.set(d.item.uuid, d.kind === 'shape' ? shapeLayerSet(d.item) : oneLayerSet(d.item.layer));
-  for (const t of board.tracks)
-    sets.set(
-      t.item.uuid,
-      t.kind === 'via' ? viaLayerSet(t.item, board.copperLayerCount) : trackLayerSet(t.item),
-    );
-  for (const pt of board.points) sets.set(pt.uuid, oneLayerSet(pt.layer));
-  for (const z of board.zones) sets.set(z.uuid, z.layerSet);
-  // `PCB_GENERATOR::GetLayerSet()`: the members' plus its own layer.
-  for (const g of board.generators) sets.set(g.uuid, oneLayerSet(g.layer));
-  return { sets, members: board.groupMembers };
-}
-
-/** The same for a footprint's children. */
-function footprintChildLayerSets(fp: KFootprint): LayerSetLookup {
-  const sets = new Map<string, LSET>();
-  for (const d of fp.graphicalItems)
-    sets.set(d.item.uuid, d.kind === 'shape' ? shapeLayerSet(d.item) : oneLayerSet(d.item.layer));
-  for (const f of fp.fields) sets.set(f.uuid, oneLayerSet(f.layer));
-  for (const pad of fp.pads) sets.set(pad.uuid, pad.padstack.layerSet);
-  for (const z of fp.zones) sets.set(z.uuid, z.layerSet);
-  for (const pt of fp.points) sets.set(pt.uuid, oneLayerSet(pt.layer));
-  const members = new Map<string, string[]>();
-  for (const g of fp.groups) members.set(g.uuid, fp.groupMembers?.get(g.uuid) ?? g.memberUuids);
-  return { sets, members };
-}
-
-function ptrCmpFootprint(a: KFootprint, b: KFootprint, ia: number, ib: number): boolean {
-  return ptrCmp(oneLayerSet(a.layer), oneLayerSet(b.layer), a.uuid, b.uuid, ia, ib);
-}
-
-function ptrCmpZone(a: KZone, b: KZone, ia: number, ib: number): boolean {
-  return ptrCmp(a.layerSet, b.layerSet, a.uuid, b.uuid, ia, ib);
-}
-
-/** `BOARD_ITEM::ptr_cmp` on groups and generators, whose layer set is their members'. */
-function ptrCmpGroup(
-  a: KPcbGroup,
-  b: KPcbGroup,
-  ia: number,
-  ib: number,
-  lookup: LayerSetLookup,
-): boolean {
-  return ptrCmp(
-    groupLayerSet(a.uuid, lookup),
-    groupLayerSet(b.uuid, lookup),
-    a.uuid,
-    b.uuid,
-    ia,
-    ib,
-  );
-}
-
-/** `BOARD::cmp_drawings` (board.cpp:3507). */
-function cmpBoardDrawings(a: KBoardDrawing, b: KBoardDrawing, ia: number, ib: number): boolean {
-  const ta = drawingType(a);
-  const tb = drawingType(b);
-  if (ta !== tb) return ta < tb;
-
-  if (drawingLayer(a) !== drawingLayer(b)) return drawingLayer(a) < drawingLayer(b);
-
-  if (a.kind === 'shape' && b.kind === 'shape') return edaShapeCompare(a.item, b.item, null) < 0;
-  if (a.kind === 'text' && b.kind === 'text') return edaTextCompare(a.item, b.item, null) < 0;
-  if (a.kind === 'textbox' && b.kind === 'textbox') {
-    const shapeCmp = edaShapeCompare(textBoxAsShape(a.item), textBoxAsShape(b.item), null);
-    if (shapeCmp !== 0) return shapeCmp < 0;
-    return edaTextCompare(a.item, b.item, null) < 0;
-  }
-  if (a.kind === 'table' && b.kind === 'table') return pcbTableCompare(a.item, b.item, null) < 0;
-  if (a.kind === 'barcode' && b.kind === 'barcode') return pcbBarcodeCompare(a.item, b.item) < 0;
-
-  if (a.item.uuid !== b.item.uuid) return uuidLess(a.item.uuid, b.item.uuid);
-  return ia < ib;
-}
-
-/** `PCB_TRACK::cmp_tracks` (pcb_track.cpp:2718). */
-function cmpTracks(
-  io: PCB_IO_KICAD_SEXPR,
-): (a: KBoardTrack, b: KBoardTrack, ia: number, ib: number) => boolean {
-  const netCode = (t: KBoardTrack): number => io.netName(t.item.net).code;
-  const layer = (t: KBoardTrack): number => (t.kind === 'via' ? t.item.layer1 : t.item.layer);
-  const type = (t: KBoardTrack): KT =>
-    t.kind === 'via' ? KT.VIA : t.item.type === 'arc' ? KT.ARC : KT.TRACE;
-  return (a, b, ia, ib) => {
-    if (netCode(a) !== netCode(b)) return netCode(a) < netCode(b);
-
-    if (layer(a) !== layer(b)) return layer(a) < layer(b);
-
-    if (type(a) !== type(b)) return type(a) < type(b);
-
-    if (a.item.uuid !== b.item.uuid) return uuidLess(a.item.uuid, b.item.uuid);
-
-    return ia < ib;
-  };
-}
-
-/** `PCB_POINT::cmp_points` (pcb_point.cpp:62). */
-function cmpPoints(a: KPcbPoint, b: KPcbPoint, ia: number, ib: number): boolean {
-  if (a.layer !== b.layer) return a.layer < b.layer;
-
-  if (a.pos.x !== b.pos.x) return a.pos.x < b.pos.x;
-
-  if (a.pos.y !== b.pos.y) return a.pos.y < b.pos.y;
-
-  if (a.size !== b.size) return a.size < b.size;
-
-  if (a.uuid !== b.uuid) return uuidLess(a.uuid, b.uuid);
-
-  return ia < ib;
-}
-
-/** `FOOTPRINT::cmp_drawings` (footprint.cpp:4345). */
-function cmpFpDrawings(
-  a: KFpGraphicalItem,
-  b: KFpGraphicalItem,
-  ia: number,
-  ib: number,
-  fp: ParentFP,
-): boolean {
-  {
-    const ta = drawingType(a);
-    const tb = drawingType(b);
-    if (ta !== tb) return ta < tb;
-
-    if (a.item.layer !== b.item.layer) return a.item.layer < b.item.layer;
-
-    if (a.kind === 'shape' && b.kind === 'shape') {
-      const dwgA = a.item;
-      const dwgB = b.item;
-      let cmp: boolean | undefined;
-
-      if (dwgA.shape !== dwgB.shape) return SHAPE_T_ORDER[dwgA.shape] < SHAPE_T_ORDER[dwgB.shape];
-
-      // GetStart() and GetEnd() have no meaning with polygons.
-      // We cannot use them for sorting polygons
-      if (dwgA.shape !== 'poly') {
-        cmp = cmpPointsOpt(toBoard(dwgA.start, fp), toBoard(dwgB.start, fp));
-        if (cmp !== undefined) return cmp;
-
-        cmp = cmpPointsOpt(toBoard(dwgA.end, fp), toBoard(dwgB.end, fp));
-        if (cmp !== undefined) return cmp;
-      }
-
-      if (dwgA.shape === 'arc') {
-        cmp = cmpPointsOpt(toBoard(dwgA.arcCenter!, fp), toBoard(dwgB.arcCenter!, fp));
-        if (cmp !== undefined) return cmp;
-      } else if (dwgA.shape === 'bezier') {
-        cmp = cmpPointsOpt(toBoard(dwgA.bezierC1!, fp), toBoard(dwgB.bezierC1!, fp));
-        if (cmp !== undefined) return cmp;
-
-        cmp = cmpPointsOpt(toBoard(dwgA.bezierC2!, fp), toBoard(dwgB.bezierC2!, fp));
-        if (cmp !== undefined) return cmp;
-      } else if (dwgA.shape === 'poly') {
-        const va = outlineVertices(dwgA.outline ?? []);
-        const vb = outlineVertices(dwgB.outline ?? []);
-        if (va.length !== vb.length) return va.length < vb.length;
-
-        for (let ii = 0; ii < va.length; ++ii) {
-          cmp = cmpPointsOpt(toBoard(va[ii]!, fp), toBoard(vb[ii]!, fp));
-          if (cmp !== undefined) return cmp;
-        }
-      }
-
-      if (dwgA.stroke.width !== dwgB.stroke.width) return dwgA.stroke.width < dwgB.stroke.width;
-    } else if (a.kind === 'text' && b.kind === 'text') {
-      const textA = a.item;
-      const textB = b.item;
-      let cmp: boolean | undefined;
-
-      cmp = cmpPointsOpt(toBoard(textA.pos, fp), toBoard(textB.pos, fp));
-      if (cmp !== undefined) return cmp;
-
-      if (textA.angle !== textB.angle) return textA.angle < textB.angle;
-
-      cmp = cmpPointsOpt(textA.size, textB.size);
-      if (cmp !== undefined) return cmp;
-
-      if (textA.thickness !== textB.thickness) return textA.thickness < textB.thickness;
-
-      if (textA.bold !== textB.bold) return Number(textA.bold) < Number(textB.bold);
-
-      if (textA.italic !== textB.italic) return Number(textA.italic) < Number(textB.italic);
-
-      if (textA.mirrored !== textB.mirrored) return Number(textA.mirrored) < Number(textB.mirrored);
-
-      if (textA.lineSpacing !== textB.lineSpacing) return textA.lineSpacing < textB.lineSpacing;
-
-      if (textA.text !== textB.text) return cmpWxString(textA.text, textB.text) < 0;
-    }
-    // These items don't have their own specific sorting criteria.
-
-    if (a.item.uuid !== b.item.uuid) return uuidLess(a.item.uuid, b.item.uuid);
-
-    return ia < ib;
-  }
-}
-
-/** `FOOTPRINT::cmp_pads` (footprint.cpp:4455). */
-function cmpPads(aFirst: KPad, aSecond: KPad, ia: number, ib: number): boolean {
-  if (aFirst.number !== aSecond.number) return strNumCmp(aFirst.number, aSecond.number) < 0;
-
-  const cmp = cmpPointsOpt(aFirst.at, aSecond.at);
-  if (cmp !== undefined) return cmp;
-
-  let padCopperMatches: boolean | undefined;
-
-  // Pick the "most complex" padstack to iterate
-  let checkPad = aFirst;
-
-  if (
-    aSecond.padstack.mode === 'custom' ||
-    (aSecond.padstack.mode === 'front_inner_back' && aFirst.padstack.mode === 'normal')
-  ) {
-    checkPad = aSecond;
-  }
-
-  for (const layer of uniquePadstackLayers(checkPad.padstack)) {
-    const sa = copperLayerPropsConst(aFirst.padstack, layer).shape;
-    const sb = copperLayerPropsConst(aSecond.padstack, layer).shape;
-    if (sa.size.x !== sb.size.x) padCopperMatches = sa.size.x < sb.size.x;
-    else if (sa.size.y !== sb.size.y) padCopperMatches = sa.size.y < sb.size.y;
-    else if (sa.shape !== sb.shape)
-      padCopperMatches = PAD_SHAPE_ORDER[sa.shape] < PAD_SHAPE_ORDER[sb.shape];
-  }
-
-  if (padCopperMatches !== undefined) return padCopperMatches;
-
-  if (!aFirst.padstack.layerSet.equals(aSecond.padstack.layerSet))
-    return seqLess(aFirst.padstack.layerSet, aSecond.padstack.layerSet);
-
-  if (aFirst.uuid !== aSecond.uuid) return uuidLess(aFirst.uuid, aSecond.uuid);
-
-  return ia < ib;
-}
-
-/** `FOOTPRINT::cmp_zones` (footprint.cpp:4556). */
-function cmpZones(aFirst: KZone, aSecond: KZone, ia: number, ib: number): boolean {
-  if (aFirst.priority !== aSecond.priority) return aFirst.priority < aSecond.priority;
-
-  if (!aFirst.layerSet.equals(aSecond.layerSet)) return seqLess(aFirst.layerSet, aSecond.layerSet);
-
-  const va = outlineVertices(aFirst.outline.flat());
-  const vb = outlineVertices(aSecond.outline.flat());
-  if (va.length !== vb.length) return va.length < vb.length;
-
-  for (let ii = 0; ii < va.length; ++ii) {
-    const cmp = cmpPointsOpt(va[ii]!, vb[ii]!);
-    if (cmp !== undefined) return cmp;
-  }
-
-  if (aFirst.uuid !== aSecond.uuid) return uuidLess(aFirst.uuid, aSecond.uuid);
-
-  return ia < ib;
+export function FormatBoard(aBoard: BOARD, aGenerator: string = GENERATOR): string {
+  // wxString sanityResult = aBoard->GroupsSanityCheck(): the "Internal Group Data Error" query
+  // is not ported; a cycle is repaired at load.
+  const formatter = new PRETTIFIED_STRING_FORMATTER();
+  const pcb_io = new PCB_IO_KICAD_SEXPR(formatter, CTL_FOR_BOARD, aGenerator);
+  pcb_io.FormatBoardToFormatter(formatter, aBoard);
+  return formatter.Finish();
 }
 
 /**
- * `FormatBoardToFormatter( aOut, aBoard )` (:322) through a
- * `PRETTIFIED_STRING_FORMATTER`: the whole `.kicad_pcb` text KiCad writes.
+ * `PCB_IO_KICAD_SEXPR::FootprintSave`'s text (:3360): `Format( aFootprint )`
+ * with `CTL_FOR_LIBRARY`, prettified.
  */
-export function FormatBoard(board: KBoard, generator: string = GENERATOR): string {
-  const out = new PRETTIFIED_STRING_FORMATTER();
-  out.Print(
-    `(kicad_pcb (version ${SEXPR_BOARD_FILE_VERSION}) (generator ${out.Quotew(generator)}) (generator_version ${out.Quotew(MAJOR_MINOR_VERSION)})`,
-  );
-  const io = new PCB_IO_KICAD_SEXPR(out, board, CTL_FOR_BOARD);
-  io.formatBoard(board);
-  out.Print(')');
-  return out.Finish();
-}
-
-/**
- * `FootprintSave` (:3360) → `FP_CACHE::Save` → `Format( footprint )` with
- * `CTL_FOR_LIBRARY`, through a `PRETTIFIED_STRING_FORMATTER`: the
- * `.kicad_mod` text KiCad writes. The caller has done what `FootprintSave`
- * does to its clone first — orientation zero, front layer, no nets.
- */
-export function FormatFootprintFile(fp: KFootprint, generator: string = GENERATOR): string {
-  const out = new PRETTIFIED_STRING_FORMATTER();
-  const io = new PCB_IO_KICAD_SEXPR(out, null, CTL_FOR_LIBRARY, generator);
-  io.formatFootprint(fp);
-  return out.Finish();
-}
-
-/**
- * `CLIPBOARD_IO::SaveSelection` (kicad_clipboard.cpp:322) for a board
- * selection: "we will fake being a .kicad_pcb to get the full parser
- * kicking" — the file header, the layer table, then every item, and nothing
- * else (no setup, no nets table: a 10.0 item names its net).
- */
-export function FormatClipboardBoard(board: KBoard, generator: string = GENERATOR): string {
-  const out = new PRETTIFIED_STRING_FORMATTER();
-  out.Print(
-    `(kicad_pcb (version ${SEXPR_BOARD_FILE_VERSION}) (generator ${out.Quotew(generator)}) (generator_version ${out.Quotew(MAJOR_MINOR_VERSION)})`,
-  );
-  const io = new PCB_IO_KICAD_SEXPR(out, board, CTL_OMIT_INITIAL_COMMENTS, generator);
-  io.formatBoardLayers();
-  io.formatItems(board);
-  out.Print(')');
-  return out.Finish();
-}
-
-/**
- * `CLIPBOARD_IO::SaveSelection` for a lone footprint (kicad_clipboard.cpp:207):
- * `Format( &newFootprint )` with `CTL_FOR_CLIPBOARD`, so the footprint's own
- * version and generator are written and its uuids and placement kept.
- */
-export function FormatClipboardFootprint(
-  fp: KFootprint,
-  board: KBoard,
-  generator: string = GENERATOR,
+export function FormatFootprintForLibrary(
+  aFootprint: FOOTPRINT,
+  aGenerator: string = GENERATOR,
 ): string {
-  const out = new PRETTIFIED_STRING_FORMATTER();
-  const io = new PCB_IO_KICAD_SEXPR(out, board, CTL_OMIT_INITIAL_COMMENTS, generator);
-  io.formatFootprint(fp);
-  return out.Finish();
-}
-
-/** `LIB_ID::GetLibItemName()` of a `nickname:item` string. */
-function libItemName(fpid: string): string {
-  const i = fpid.indexOf(':');
-  return i >= 0 ? fpid.slice(i + 1) : fpid;
+  const formatter = new PRETTIFIED_STRING_FORMATTER();
+  const pcb_io = new PCB_IO_KICAD_SEXPR(formatter, CTL_FOR_LIBRARY, aGenerator);
+  pcb_io.SetBoard(aFootprint.GetBoard());
+  pcb_io.Format(aFootprint);
+  return formatter.Finish();
 }

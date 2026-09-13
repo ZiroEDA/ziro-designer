@@ -134,7 +134,68 @@ export function pcbIuToMM(iu: number): number {
 // ---------------------------------------------------------------------------
 
 /** `EDA_UNITS` (include/eda_units.h), the members our frames can display. */
-export type EdaUnits = 'mm' | 'in' | 'mils' | 'um' | 'cm' | 'degrees' | 'percent' | 'unscaled';
+export type EdaUnits =
+  | 'mm'
+  | 'in'
+  | 'mils'
+  | 'um'
+  | 'cm'
+  | 'degrees'
+  | 'percent'
+  | 'unscaled'
+  | 'fs'
+  | 'ps'
+  | 'ps/in'
+  | 'ps/cm'
+  | 'ps/mm';
+
+/**
+ * `EDA_UNIT_UTILS::FetchUnitsFromString( aTextValue, aUnits )` (common/eda_units.cpp:88):
+ * the unit designator after the number in a text, or null when it names none
+ * (the C++ returns false and leaves `aUnits` alone).
+ */
+export function FetchUnitsFromString(aTextValue: string): EdaUnits | null {
+  const buf = aTextValue.trim();
+  let brk_point = 0;
+
+  while (brk_point < buf.length) {
+    const c = buf[brk_point]!;
+
+    if (!((c >= '0' && c <= '9') || c === '.' || c === ',' || c === '-' || c === '+')) break;
+
+    ++brk_point;
+  }
+
+  // Check the unit designator (2 ch significant)
+  const unit = buf.slice(brk_point).trimStart().slice(0, 2).toLowerCase();
+
+  let aUnits: EdaUnits | null = null;
+
+  //check for um, μm (µ is MICRO SIGN) and µm (µ is GREEK SMALL LETTER MU) for micrometre
+  if (unit === 'um' || unit === '\u00B5m' || unit === '\u03BCm') aUnits = 'um';
+  else if (unit === 'mm') aUnits = 'mm';
+
+  if (unit === 'cm') aUnits = 'cm';
+  else if (unit === 'mi' || unit === 'th')
+    // "mils" or "thou"
+    aUnits = 'mils';
+  else if (unit === 'in' || unit === '"') aUnits = 'in';
+  else if (unit === 'de' || unit === 'ra')
+    // "deg" or "rad"
+    aUnits = 'degrees';
+  else if (unit === 'fs') aUnits = 'fs';
+  else if (unit === 'ps') {
+    const timeUnit = buf.slice(brk_point).trimStart().slice(0, 5).toLowerCase();
+
+    if (timeUnit === 'ps') aUnits = 'ps';
+    else if (timeUnit === 'ps/in') aUnits = 'ps/in';
+    else if (timeUnit === 'ps/cm') aUnits = 'ps/cm';
+    else if (timeUnit === 'ps/mm') aUnits = 'ps/mm';
+    else return null;
+  } else return aUnits === 'um' || aUnits === 'mm' ? aUnits : null;
+
+  return aUnits;
+}
 
 /** `EDA_DATA_TYPE` (include/eda_units.h:44-53). */
 export type EdaDataType = 'distance' | 'area' | 'volume' | 'unitless';
@@ -171,6 +232,21 @@ export function unitLabelText(units: EdaUnits, type: EdaDataType = 'distance'): 
       break;
     case 'percent':
       label = '%';
+      break;
+    case 'fs':
+      label = ' fs';
+      break;
+    case 'ps':
+      label = ' ps';
+      break;
+    case 'ps/in':
+      label = ' ps/in';
+      break;
+    case 'ps/cm':
+      label = ' ps/cm';
+      break;
+    case 'ps/mm':
+      label = ' ps/mm';
       break;
     case 'unscaled':
       label = '';

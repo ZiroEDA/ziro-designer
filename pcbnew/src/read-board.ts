@@ -17,8 +17,11 @@ import {
   boardFromKBoard,
   footprintViewOfBoard,
   footprintViewOfLibrary,
-} from './pcb_io/kicad_sexpr/board_view.js';
-import { ParseBoard, ParseFootprintFile } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_board.js';
+} from './pcb_io/kicad_sexpr/legacy_k/board_view.js';
+import {
+  ParseBoard,
+  ParseFootprintFile,
+} from './pcb_io/kicad_sexpr/legacy_k/pcb_io_kicad_sexpr_board.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { Board, PcbFootprint } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

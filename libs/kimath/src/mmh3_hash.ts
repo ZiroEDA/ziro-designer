@@ -111,13 +111,22 @@ function mmh3_x64_128(data: Uint8Array, seed: number, v1Tail: boolean): { h1: bi
 
 const hex16 = (v: bigint): string => v.toString(16).toUpperCase().padStart(16, '0');
 
-/** MMH3_HASH(seed).add(data).digest().ToString(), the current algorithm. */
+/**
+ * `MMH3_HASH( seed ).add( data ).digest().ToString()` as KiCad MASTER computes it
+ * (the tail fix). **Not** what the pinned 10.0.5 writes: its `addData`
+ * (libs/kimath/include/mmh3_hash.h:73) is the padded variant below. Use
+ * `mmh3HashToStringV1` for every checksum a 10.0.5 file carries.
+ */
 export function mmh3HashToString(data: Uint8Array, seed: number): string {
   const { h1, h2 } = mmh3_x64_128(data, seed, false);
   return hex16(h1) + hex16(h2);
 }
 
-/** The addDataV1 variant, for validating files saved before the tail fix. */
+/**
+ * `MMH3_HASH::addData` of KiCad 10.0.5 (libs/kimath/include/mmh3_hash.h:73):
+ * the tail is padded to 4 bytes and the padding counted in `len`. This is
+ * the checksum every 10.0.5 `(embedded_files …)` block carries.
+ */
 export function mmh3HashToStringV1(data: Uint8Array, seed: number): string {
   const { h1, h2 } = mmh3_x64_128(data, seed, true);
   return hex16(h1) + hex16(h2);

@@ -460,11 +460,9 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
 
   private m_searchTerms: SearchTerm[];
 
-  /** `EMBEDDED_FILES::m_embedFonts`, the one member of the second base the parser and formatter read. */
-  m_embedFonts: boolean;
-
   constructor(parent: BOARD | null) {
     super(parent as BOARD_ITEM | null, KICAD_T.PCB_FOOTPRINT_T);
+    this.initEmbeddedFiles();
 
     this.m_orient = ANGLE_0;
     this.m_pos = { x: 0, y: 0 };
@@ -503,7 +501,6 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
     this.m_searchTerms = [];
 
     this.m_layer = PCB_LAYER_ID.F_Cu;
-    this.m_embedFonts = false;
 
     const addField = (id: FIELD_T, layer: PCB_LAYER_ID, visible: boolean): void => {
       const field = new PCB_FIELD(this, id);

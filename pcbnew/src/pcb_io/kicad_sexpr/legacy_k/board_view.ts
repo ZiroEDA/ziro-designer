@@ -35,7 +35,7 @@ import {
   STANDARD_PAGE_SIZES_MILS,
   type TitleBlock,
   emptyTitleBlock,
-} from '../../board_file_model.js';
+} from '../../../board_file_model.js';
 import {
   B_Cu,
   B_Fab,
@@ -48,9 +48,9 @@ import {
   LSET_NameToLayer,
   UNDEFINED_LAYER,
   User_1,
-} from '../../layer_ids.js';
-import { LSET } from '../../lset.js';
-import type { PcbDrillSlot, PcbPostMachining } from '../../padstack_drill.js';
+} from '../../../layer_ids.js';
+import { LSET } from '../../../lset.js';
+import type { PcbDrillSlot, PcbPostMachining } from '../../../padstack_drill.js';
 import type {
   BarcodeEcc,
   BarcodeKind,
@@ -87,10 +87,10 @@ import type {
   PlacementSourceType,
   StrokeType,
   TeardropParams,
-} from '../../types.js';
-import { ZONE_CONNECTION_CODE, zoneConnectionFromCode } from '../../zone_connection.js';
-import type { PcbFillMode } from '../../shape_fill.js';
-import { rotatePcb, tessellateArc } from '../../read-board.js';
+} from '../../../types.js';
+import { ZONE_CONNECTION_CODE, zoneConnectionFromCode } from '../../../zone_connection.js';
+import type { PcbFillMode } from '../../../shape_fill.js';
+import { rotatePcb, tessellateArc } from '../../../read-board.js';
 import {
   copperLayerProps,
   copperLayerPropsConst,

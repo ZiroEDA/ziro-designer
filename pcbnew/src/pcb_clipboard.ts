@@ -67,11 +67,11 @@
  *    in our model, so their `DeepClone` branch has nothing to port to.
  */
 
-import { kboardFromBoard } from './pcb_io/kicad_sexpr/board_view.js';
+import { kboardFromBoard } from './pcb_io/kicad_sexpr/legacy_k/board_view.js';
 import {
   FormatClipboardBoard,
   FormatClipboardFootprint,
-} from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+} from './pcb_io/kicad_sexpr/legacy_k/pcb_io_kicad_sexpr.js';
 import { newKiid } from '@ziroeda/common/src/kiid.js';
 import {
   boardItemId,
@@ -88,7 +88,7 @@ import { uniqueZoneName } from './rule_area_properties.js';
 import { expandLayerWildcards } from './swap_layers.js';
 import { reannotateDuplicates } from './board_reannotate.js';
 import type { Board, PcbFootprint, PcbGroup, PcbPad, PcbTextItem, PcbZone } from './types.js';
-import type { KFootprint } from './pcb_io/kicad_sexpr/kicad_board_items.js';
+import type { KFootprint } from './pcb_io/kicad_sexpr/legacy_k/kicad_board_items.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 // ----- paste-special options --------------------------------------------------
