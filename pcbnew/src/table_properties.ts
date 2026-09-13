@@ -2,6 +2,10 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
+ * @deprecated The plain-object (`PcbTable`) form, kept for the properties
+ * dialog until it moves onto `PCB_TABLE` (#636 stage 6). The class port is
+ * `pcb_table.ts`; new code uses that one.
+ *
  * Reading and writing a table's properties.
  * Counterpart: `DIALOG_TABLE_PROPERTIES` (pcbnew/dialogs/dialog_table_properties.cpp).
  *

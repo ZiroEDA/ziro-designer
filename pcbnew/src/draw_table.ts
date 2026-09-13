@@ -2,6 +2,10 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
+ * @deprecated The plain-object (`PcbTable`) form of the table tool's item
+ * construction, kept until the tool moves onto `PCB_TABLE` (#636 stage 3). The
+ * class port is `pcb_table.ts`; new code uses that one.
+ *
  * Placing a table.
  * Counterpart: `DRAWING_TOOL::DrawTable` (pcbnew/tools/drawing_tool.cpp) and
  * `PCB_TABLE`'s constructor.

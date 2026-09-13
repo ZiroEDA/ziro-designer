@@ -45,6 +45,7 @@ import { type NETINFO_ITEM, NETINFO_LIST } from './netinfo.js';
 import type { FOOTPRINT } from './footprint.js';
 import type { PCB_GROUP } from './pcb_group.js';
 import type { PCB_MARKER } from './pcb_marker.js';
+import type { PCB_TABLE } from './pcb_table.js';
 import type { PCB_TRACK } from './pcb_track.js';
 import type { ZONE } from './zone.js';
 
@@ -774,8 +775,9 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
     for (const drawing of this.Drawings()) {
       if (drawing.Type() === KICAD_T.PCB_TABLE_T) {
-        // for( PCB_TABLECELL* cell : static_cast<PCB_TABLE*>( drawing )->GetCells() )
-        //     if( cell->m_Uuid == aID ) return cacheAndReturn( drawing );  -- PCB_TABLE pending (#636)
+        for (const cell of (drawing as PCB_TABLE).GetCells()) {
+          if (cell.m_Uuid === aID) return cacheAndReturn(drawing);
+        }
       }
 
       if (drawing.m_Uuid === aID) return cacheAndReturn(drawing);

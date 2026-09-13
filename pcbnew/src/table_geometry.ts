@@ -2,6 +2,11 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
+ * @deprecated The plain-object (`PcbTable`) form of `PCB_TABLE::DrawBorders` /
+ * `GetBoundingBox` / `HitTest`, kept for the renderer and selection until they
+ * move onto `PCB_TABLE` (#636 stages 3 and 5). The class port is
+ * `pcb_table.ts`; new code uses that one.
+ *
  * A table's extent and the lines it draws.
  * Counterparts: `PCB_TABLE::GetBoundingBox`, `PCB_TABLE::DrawBorders` and
  * `PCB_TABLE::GetRowCount` / `GetCell` (pcbnew/pcb_table.cpp).

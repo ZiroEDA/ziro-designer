@@ -71,6 +71,7 @@ export interface PCB_SHAPE
     | 'SetRight'
     | 'SetBottom'
     | 'getDrawRotation'
+    | 'IsFilledForHitTesting'
   > {
   GetTopLeft(): VECTOR2I;
   GetBotRight(): VECTOR2I;
@@ -79,6 +80,7 @@ export interface PCB_SHAPE
   SetRight(val: number): void;
   SetBottom(val: number): void;
   getDrawRotation(): EDA_ANGLE;
+  IsFilledForHitTesting(): boolean;
 }
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: KiCad's multiple inheritance, see libs/core/src/mixins.ts
