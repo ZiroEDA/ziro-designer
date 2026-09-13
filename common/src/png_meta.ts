@@ -96,7 +96,10 @@ export function pngPPI(data: string): number {
       // The same test is applied here, to the converted figure: without it a
       // pHYs stating a couple of dozen pixels per metre rounds to a PPI of zero,
       // and an image of infinite size is not a thing the canvas can draw.
-      const ppi = Math.round((ppuX / 100) * 2.54);
+      // wxPNGHandler first turns pixels per metre into dots per centimetre with an
+      // INTEGER division (`resX /= 100`), and only then does BITMAP_BASE::updatePPI
+      // KiROUND `dpiX * 2.54`: a 100 dpi file (3937 px/m) reads as 39 dots/cm -> 99 ppi.
+      const ppi = Math.round(Math.trunc(ppuX / 100) * 2.54);
       if (unit === 1 && ppi > 1) return ppi;
       return DEFAULT_PPI;
     }

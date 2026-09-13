@@ -1342,7 +1342,7 @@ export {
   adler32,
   PNG_SIGNATURE,
   type PngEncodeOptions,
-} from './png_encoder.js';
+} from '@ziroeda/common/src/png_encoder.js';
 // ----- PNS: collision querying (pns_node, pns_rule_resolver, pns_item_hull) --------
 //
 // `PnsNode`'s three collision entry points are methods, so they arrive with the

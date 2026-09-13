@@ -13,7 +13,7 @@
  */
 import { acos } from '../math/libm.js';
 import type { BOX2I } from '../math/box2.js';
-import { KiROUND } from '../math/util.js';
+import { INT_MAX, INT_MIN, KiROUND } from '../math/util.js';
 import type { Vec2, VECTOR2I } from '../math/vector2.js';
 import type { EDA_ANGLE } from './eda_angle.js';
 import type { SHAPE } from './shape.js';
@@ -386,4 +386,14 @@ export function KIGEOM_ShapeHitTest(
   }
   // Touching (poly)line - any of the subshapes should intersect the selection polyline.
   return intersectsAny();
+}
+
+/**
+ * Check if both coordinates of a vector are within the limits of the integer type.
+ */
+export function IsVec2SafeXY(aVec: Vec2): boolean {
+  const min = INT_MIN;
+  const max = INT_MAX;
+
+  return aVec.x > min && aVec.x < max && aVec.y > min && aVec.y < max;
 }

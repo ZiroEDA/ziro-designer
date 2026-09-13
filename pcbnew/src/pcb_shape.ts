@@ -50,6 +50,7 @@ import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
 import { DEFAULT_LINE_WIDTH } from './board_design_settings_defaults.js';
 import { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
+import type { HIGH_CONTRAST_MODE } from './board_project_settings.js';
 import { BOARD_ITEM } from './board_item.js';
 import { BOARD_USE } from './board_types.js';
 import { ZONE_THERMAL_RELIEF_COPPER_WIDTH_MM } from './zones.js';
@@ -929,4 +930,6 @@ export interface PCB_RENDER_SETTINGS_FOR_LOD {
   IsPrinting(): boolean;
   GetHighContrast(): boolean;
   GetPrimaryHighContrastLayer(): PCB_LAYER_ID;
+  GetLayerIsHighContrast(aLayerId: number): boolean;
+  m_ContrastModeDisplay: HIGH_CONTRAST_MODE;
 }

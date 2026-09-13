@@ -153,8 +153,11 @@ describe('reading the PNG header', () => {
     expect(pngPPI(PNG_100x50)).toBe(DEFAULT_PPI);
   });
 
-  it('reads a stated density', () => {
-    expect(pngPPI(PNG_100x50_600DPI)).toBe(600);
+  it('reads a stated density the way wx and BITMAP_BASE do', () => {
+    // 600 dpi is 23622 px/m; wxPNGHandler makes that 236 dots/cm by integer division and
+    // BITMAP_BASE::updatePPI KiROUNDs 236 x 2.54 = 599.44 -> 599. KiCad's own python
+    // reads a 600 dpi PNG as 599 ppi (the board box is 13 px x 25400000 / 599 wide).
+    expect(pngPPI(PNG_100x50_600DPI)).toBe(599);
   });
 
   it('ignores a density whose unit is unknown', () => {
@@ -167,13 +170,14 @@ describe('reading the PNG header', () => {
     // resolution only `if( dpiX > 1 )` and keeps its 300 otherwise. Without that
     // test a pHYs of a couple of dozen pixels per metre rounds to a PPI of zero,
     // which every consumer then divides by, giving an image of infinite size.
-    for (const ppuX of [1, 19, 40, 59]) {
+    // Anything under 100 px/m is 0 dots/cm after wx's integer division, so it fails `dpiX > 1`.
+    for (const ppuX of [1, 19, 40, 59, 99]) {
       expect(pngPPI(png(100, 50, ppuX))).toBe(DEFAULT_PPI);
       expect(Number.isFinite(imageSizeIU(read(IMAGE(png(100, 50, ppuX))).images[0]!).w)).toBe(true);
     }
 
-    // 60 px/m rounds to 2 ppi, which passes the test and is used as stated.
-    expect(pngPPI(png(100, 50, 60))).toBe(2);
+    // 200 px/m is 2 dots/cm, which passes the test: 2 x 2.54 = 5.08 -> 5 ppi.
+    expect(pngPPI(png(100, 50, 200))).toBe(5);
   });
 });
 
@@ -186,12 +190,11 @@ describe('how much board an image covers', () => {
     expect(size.w / MM(25.4 / 3)).toBeCloseTo(1, 4);
   });
 
-  it('halves with twice the resolution', () => {
-    // The same picture at 600 ppi is half as wide on the board.
+  it('shrinks with the resolution: a "600 dpi" file reads as 599 ppi', () => {
     const at300 = imageSizeIU(read(IMAGE(PNG_100x50)).images[0]!);
     const at600 = imageSizeIU(read(IMAGE(PNG_100x50_600DPI)).images[0]!);
 
-    expect(at600.w / at300.w).toBeCloseTo(0.5, 6);
+    expect(at600.w / at300.w).toBeCloseTo(300 / 599, 6);
   });
 
   it('multiplies by the scale, rather than replacing the resolution', () => {
@@ -225,8 +228,8 @@ describe('the bounding box', () => {
     const b = imageBBox(img);
     const size = imageSizeIU(img);
 
-    // ByCenter truncates the half-size, so an odd size leaves the centre half
-    // an IU off — a nanometre. The width, though, is exact.
+    // ByCenter rounds the half-size (VECTOR2<int> / 2 is KiROUND), so an odd size leaves
+    // the centre half an IU off — a nanometre. The width, though, is exact.
     expect((b.minX + b.maxX) / 2).toBeCloseTo(MM(50), -1);
     expect((b.minY + b.maxY) / 2).toBeCloseTo(MM(40), -1);
     expect(b.maxX - b.minX).toBe(size.w);

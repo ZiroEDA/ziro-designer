@@ -31,6 +31,7 @@
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import { pngPPI, pngPixelSize } from '@ziroeda/common/src/png_meta.js';
 import { pixelSizeIu } from '@ziroeda/common/src/reference_image.js';
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { PcbImage } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
@@ -63,11 +64,9 @@ export function imageSizeIU(img: PcbImage): { w: number; h: number } {
  * `REFERENCE_IMAGE::GetBoundingBox`, which is `BOX2I::ByCenter(pos, size)` —
  * `BOX2(center - size / 2, size)`.
  *
- * The origin is offset by *truncating* division and the box is then exactly
- * `size` across. Halving and adding on both sides instead makes an odd size
- * come back one IU wider than the image really is — a nanometre, but it means
- * the box and `imageSizeIU` disagree, and something downstream eventually
- * cares which one it asked.
+ * `size / 2` is `VECTOR2<int>::operator/( double )`, which ROUNDS each
+ * coordinate (KiROUND), so an odd size sits half an IU off-centre towards the
+ * origin; the box is then exactly `size` across.
  */
 export function imageBBox(img: PcbImage): {
   minX: number;
@@ -76,7 +75,7 @@ export function imageBBox(img: PcbImage): {
   maxY: number;
 } {
   const { w, h } = imageSizeIU(img);
-  const minX = img.at.x - Math.trunc(w / 2);
-  const minY = img.at.y - Math.trunc(h / 2);
+  const minX = img.at.x - KiROUND(w / 2);
+  const minY = img.at.y - KiROUND(h / 2);
   return { minX, minY, maxX: minX + w, maxY: minY + h };
 }

@@ -79,7 +79,7 @@
  *   Cairo-equivalent and is where real pixels come from in the application. The
  *   interface is declared structurally here, so this module needs no DOM
  *   import and `qa` can drive it with a plain recorder;
- * - the encoding is `pcbnew/src/png_encoder.ts`, a byte-exact PNG writer
+ * - the encoding is `common/src/png_encoder.ts`, a byte-exact PNG writer
  *   standing in for `cairo_surface_write_to_png`, including cairo's own
  *   un-premultiply arithmetic.
  *
@@ -103,7 +103,7 @@ import {
   pngPremultiplyRgba8,
   pngUnpremultiplyArgb32,
   type PngEncodeOptions,
-} from './png_encoder.js';
+} from '@ziroeda/common/src/png_encoder.js';
 
 /** `FILL_T` (eda_shape.h). NO_FILL is 1, not 0 — never treat this as a boolean. */
 export enum FILL_T {

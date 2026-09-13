@@ -774,8 +774,9 @@ export class BOX2I extends BOX2 {
 
   /** `ByCenter`: the box of `aSize` centred on `aCenter`. */
   static ByCenter(aCenter: Vec2, aSize: Vec2): BOX2I {
+    // `aCenter - aSize / 2`: VECTOR2<int>::operator/( double ) rounds (KiROUND), not truncates
     return new BOX2I(
-      { x: aCenter.x - Math.trunc(aSize.x / 2), y: aCenter.y - Math.trunc(aSize.y / 2) },
+      { x: aCenter.x - KiROUND(aSize.x / 2), y: aCenter.y - KiROUND(aSize.y / 2) },
       aSize,
     );
   }

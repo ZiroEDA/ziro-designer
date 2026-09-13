@@ -52,6 +52,7 @@ import { vectorSnapped45 } from '@ziroeda/kimath/src/geometry/geometry_utils.js'
 import type { Board, PcbBarcode, PcbDimension, PcbShape } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { imageBBox } from './image_geometry.js';
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { PcbImage } from './types.js';
 
 /** A square handle on a corner or vertex (`EDIT_POINT`), or a circle at an edge
@@ -540,9 +541,14 @@ export function dragBoardHandle(
     // didn't move, we can get the image extent from them", so the offset is
     // measured from the box's own centre.
     if (handle.index === REFIMG_ORIGIN) {
-      const centre = { x: (box.minX + box.maxX) / 2, y: (box.minY + box.maxY) / 2 };
+      // `xfrmOrigin - ( topLeft + botRight ) / 2`: the VECTOR2I division KiROUNDs the
+      // centre first; the subtraction is then exact.
+      const centre = {
+        x: KiROUND((box.minX + box.maxX) / 2),
+        y: KiROUND((box.minY + box.maxY) / 2),
+      };
       return write({
-        transformOffset: { x: Math.round(pos.x - centre.x), y: Math.round(pos.y - centre.y) },
+        transformOffset: { x: pos.x - centre.x, y: pos.y - centre.y },
       });
     }
 

@@ -101,12 +101,12 @@ const TARGET_PIN_RADIUS = mmToIU(15 * 0.0254);
  */
 const PIN_TEXT_OFFSET = mmToIU(kiRound(24 * 0.15) * 0.0254);
 
-/** `BOX2I::ByCenter`: the origin is the centre less half the size, truncated. */
+/** `BOX2I::ByCenter`: the origin is the centre less half the size — `VECTOR2<int> / 2` rounds (KiROUND). */
 const byCenter = (cx: number, cy: number, w: number, h: number): BBox => ({
-  minX: cx - idiv(w, 2),
-  minY: cy - idiv(h, 2),
-  maxX: cx - idiv(w, 2) + w,
-  maxY: cy - idiv(h, 2) + h,
+  minX: cx - kiRound(w / 2),
+  minY: cy - kiRound(h / 2),
+  maxX: cx - kiRound(w / 2) + w,
+  maxY: cy - kiRound(h / 2) + h,
 });
 
 const merge = (a: BBox | null, b: BBox): BBox =>
