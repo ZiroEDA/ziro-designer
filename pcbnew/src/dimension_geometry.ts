@@ -2,6 +2,11 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
+ * @deprecated The plain-object (`PcbDimension`) form of the dimensions'
+ * `updateGeometry` / `HitTest` / `GetBoundingBox`, kept for the renderer and
+ * selection until they move onto the `PCB_DIMENSION_BASE` family (#636
+ * stages 3 and 5). The class port is `pcb_dimension.ts`; new code uses that one.
+ *
  * The lines a dimension is drawn as, and the value it measures.
  * Counterparts: `PCB_DIM_*::updateGeometry` and
  * `PCB_DIMENSION_BASE::drawAnArrow` (pcbnew/pcb_dimension.cpp).

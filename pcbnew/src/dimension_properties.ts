@@ -2,6 +2,10 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
+ * @deprecated The plain-object (`PcbDimension`) form, kept for the properties
+ * dialog until it moves onto `PCB_DIMENSION_BASE` (#636 stage 6). The class
+ * port is `pcb_dimension.ts`; new code uses that one.
+ *
  * Reading and writing a dimension's properties.
  * Counterpart: `DIALOG_DIMENSION_PROPERTIES::TransferDataToWindow` and
  * `updateDimensionFromDialog` (pcbnew/dialogs/dialog_dimension_properties.cpp).

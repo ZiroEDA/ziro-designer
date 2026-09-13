@@ -2,6 +2,10 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
+ * @deprecated The plain-object (`PcbDimension`) form of the dimension tool's
+ * item construction, kept until the tool moves onto `PCB_DIMENSION_BASE`
+ * (#636 stage 3). The class port is `pcb_dimension.ts`; new code uses that one.
+ *
  * Placing a dimension: the click sequence and what each click means.
  * Counterpart: `DRAWING_TOOL::DrawDimension` (pcbnew/tools/drawing_tool.cpp),
  * which drives all five `drawAlignedDimension` / `drawOrthogonalDimension` /

@@ -78,8 +78,13 @@ export interface PCB_TEXT_KNOCKOUT_CACHE_DATA {
 
 // `Replace` and `Similarity` are overloaded across the two bases in C++; the class carries both
 // forms, so the merged interface leaves the EDA_TEXT ones out.
-// biome-ignore lint/suspicious/noEmptyInterface: declaration merging carries the EDA_TEXT mixin's members
-export interface PCB_TEXT extends Omit<EDA_TEXT, 'Replace' | 'Similarity' | 'Compare'> {}
+// `ClearRenderCache` is re-declared as a method so that a derived class (PCB_DIMENSION_BASE)
+// can override it: a mapped type carries it as a property, which TS will not let a method
+// override.
+export interface PCB_TEXT
+  extends Omit<EDA_TEXT, 'Replace' | 'Similarity' | 'Compare' | 'ClearRenderCache'> {
+  ClearRenderCache(): void;
+}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: KiCad's multiple inheritance, see libs/core/src/mixins.ts
 export class PCB_TEXT extends BOARD_ITEM {

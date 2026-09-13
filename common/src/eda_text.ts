@@ -866,7 +866,7 @@ export class EDA_TEXT {
         cache_it.m_pos.x === drawPos.x &&
         cache_it.m_pos.y === drawPos.y
       )
-        return cache_it.m_bbox;
+        return cache_it.m_bbox.Clone(); // returned by value in C++: the cache is not aliased
     }
 
     const bbox = new BOX2I();
@@ -988,7 +988,7 @@ export class EDA_TEXT {
 
     this.m_bbox_cache.set(aLine, { m_pos: drawPos, m_bbox: bbox });
 
-    return bbox;
+    return bbox.Clone();
   }
 
   /**

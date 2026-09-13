@@ -17,7 +17,7 @@
 
 import { RECURSE_MODE } from '@ziroeda/common/src/eda_item.js';
 import { STRUCT_DELETED } from '@ziroeda/common/src/eda_item_flags.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
+import { type EdaUnits, pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import type { KIID } from '@ziroeda/common/src/kiid.js';
 import {
   FlipLayer as flipLayerId,
@@ -41,7 +41,7 @@ import { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
 import { BOARD_ITEM } from './board_item.js';
 import { ADD_MODE, BOARD_ITEM_CONTAINER, REMOVE_MODE } from './board_item_container.js';
 import { BOARD_USE, LAYER, LAYER_T } from './board_types.js';
-import { NETINFO_ITEM, NETINFO_LIST } from './netinfo.js';
+import { type NETINFO_ITEM, NETINFO_LIST } from './netinfo.js';
 import type { FOOTPRINT } from './footprint.js';
 import type { ZONE } from './zone.js';
 
@@ -60,6 +60,7 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
   private m_boardUse: BOARD_USE;
   private m_timeStamp: number;
+  private m_userUnits: EdaUnits = 'mm'; // BOARD::BOARD() : m_userUnits( EDA_UNITS::MM )
   private m_fileName = '';
 
   private m_designSettings: BOARD_DESIGN_SETTINGS;
@@ -211,6 +212,13 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
    * Get the name of the currently active variant.
    * @return The active variant name, or empty string for default
    */
+  GetUserUnits(): EdaUnits {
+    return this.m_userUnits;
+  }
+  SetUserUnits(aUnits: EdaUnits): void {
+    this.m_userUnits = aUnits;
+  }
+
   GetCurrentVariant(): string {
     return this.m_currentVariant;
   }

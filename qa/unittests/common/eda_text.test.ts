@@ -116,7 +116,10 @@ describe('EdaText', () => {
     expect(box.GetX()).toBe(-516071);
     expect(box.GetY()).toBe(-804375);
 
-    expect(t.GetTextBox(null)).toBe(box); // cached
+    // Returned by value in C++: inflating the caller's copy must not touch the cache.
+    box.Inflate(1000);
+    expect(t.GetTextBox(null).GetWidth()).toBe(1032143);
+    expect(t.GetTextBox(null)).not.toBe(box);
     t.SetTextPos({ x: 10, y: 0 });
     expect(t.GetTextBox(null)).not.toBe(box); // position changed: recomputed
     expect(t.GetTextBox(null).GetX()).toBe(-516061);

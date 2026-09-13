@@ -12,12 +12,18 @@
  * the origins, `m_NetSettings` and `m_TeardropParamsList`. Still to land
  * with their own classes: `m_Pad_Master`, the three `MEANDER_SETTINGS`,
  * `m_DRCEngine`/`m_DRCSeverities`/`m_DrcExclusions`,
- * the dimension defaults (`DIM_*` enums) and `m_stackup`; and the
+ * and `m_stackup`; and the
  * `NESTED_SETTINGS` JSON registration is not ported (the file parser sets
  * the fields directly).
  */
 
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
+import {
+  DIM_PRECISION,
+  DIM_TEXT_POSITION,
+  DIM_UNITS_FORMAT,
+  DIM_UNITS_MODE,
+} from './pcb_dimension_types.js';
 import { IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { LSET } from '@ziroeda/common/src/lset.js';
 import { ARC_HIGH_DEF } from '@ziroeda/kimath/src/base_units.js';
@@ -31,6 +37,8 @@ import {
   DEFAULT_COPPER_TEXT_WIDTH,
   DEFAULT_COPPEREDGECLEARANCE,
   DEFAULT_COURTYARD_WIDTH,
+  DEFAULT_DIMENSION_ARROW_LENGTH,
+  DEFAULT_DIMENSION_EXTENSION_OFFSET,
   DEFAULT_CUSTOMDPAIRGAP,
   DEFAULT_CUSTOMDPAIRVIAGAP,
   DEFAULT_CUSTOMDPAIRWIDTH,
@@ -257,6 +265,15 @@ export class BOARD_DESIGN_SETTINGS {
   m_StyleFPDimensions: boolean;
   m_StyleFPBarcodes: boolean;
 
+  m_DimensionUnitsMode: DIM_UNITS_MODE;
+  m_DimensionPrecision: DIM_PRECISION; ///< Number of digits after the decimal
+  m_DimensionUnitsFormat: DIM_UNITS_FORMAT;
+  m_DimensionSuppressZeroes: boolean;
+  m_DimensionTextPosition: DIM_TEXT_POSITION;
+  m_DimensionKeepTextAligned: boolean;
+  m_DimensionArrowLength: number;
+  m_DimensionExtensionOffset: number;
+
   // Set to true if the board has a stackup management.
   // If not set a default basic stackup will be used to generate the gbrjob file.
   // Could be removed later, or at least always set to true
@@ -382,6 +399,15 @@ export class BOARD_DESIGN_SETTINGS {
     this.m_StyleFPShapes = false;
     this.m_StyleFPDimensions = false;
     this.m_StyleFPBarcodes = false;
+
+    this.m_DimensionPrecision = DIM_PRECISION.X_XXXX;
+    this.m_DimensionUnitsMode = DIM_UNITS_MODE.AUTOMATIC;
+    this.m_DimensionUnitsFormat = DIM_UNITS_FORMAT.NO_SUFFIX;
+    this.m_DimensionSuppressZeroes = true;
+    this.m_DimensionTextPosition = DIM_TEXT_POSITION.OUTSIDE;
+    this.m_DimensionKeepTextAligned = true;
+    this.m_DimensionArrowLength = pcbIUScale.milsToIU(DEFAULT_DIMENSION_ARROW_LENGTH);
+    this.m_DimensionExtensionOffset = pcbIUScale.mmToIU(DEFAULT_DIMENSION_EXTENSION_OFFSET);
 
     this.m_useCustomTrackVia = false;
     this.m_customTrackWidth = pcbIUScale.mmToIU(DEFAULT_CUSTOMTRACKWIDTH);

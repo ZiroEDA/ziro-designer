@@ -2,6 +2,10 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
+ * @deprecated The plain-object (`PcbDimension`) form of `GetValueText` /
+ * `updateText`, kept until the readers move onto `PCB_DIMENSION_BASE` (#636).
+ * The class port is `pcb_dimension.ts`; new code uses that one.
+ *
  * The label a dimension shows, and where it sits.
  * Counterparts: `PCB_DIMENSION_BASE::GetValueText` / `::updateText` and the five
  * `PCB_DIM_*::updateText` overrides (pcbnew/pcb_dimension.cpp).
