@@ -13,7 +13,7 @@ import {
   SHAPE_POLY_SET,
   TransformOvalToPolygon,
 } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
-import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { type VECTOR2I, toVECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { type GLYPH_LIKE, OUTLINE_GLYPH, type STROKE_GLYPH } from './font/glyph.js';
 import { GAL } from './gal/graphics_abstraction_layer.js';
 
@@ -65,8 +65,9 @@ export class CALLBACK_GAL extends GAL {
 
       for (const pointList of glyph.strokes) {
         for (let ii = 1; ii < pointList.length; ii++) {
+          // The glyph points are VECTOR2D; the callbacks take VECTOR2I (the casting ctor).
           if (this.m_stroke) {
-            this.m_strokeCallback(pointList[ii - 1]!, pointList[ii]!);
+            this.m_strokeCallback(toVECTOR2I(pointList[ii - 1]!), toVECTOR2I(pointList[ii]!));
           } else {
             const strokeWidth = Math.trunc(this.GetLineWidth());
             const poly = new SHAPE_POLY_SET();
@@ -74,8 +75,8 @@ export class CALLBACK_GAL extends GAL {
             // Use ERROR_INSIDE because it avoids Clipper and is therefore much faster.
             TransformOvalToPolygon(
               poly,
-              pointList[ii - 1]!,
-              pointList[ii]!,
+              toVECTOR2I(pointList[ii - 1]!),
+              toVECTOR2I(pointList[ii]!),
               strokeWidth,
               Math.trunc(strokeWidth / 180),
               ERROR_LOC.ERROR_INSIDE,

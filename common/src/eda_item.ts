@@ -11,6 +11,7 @@ import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import type { EDA_GROUP } from './eda_group.js';
+import type { ORIGIN_TRANSFORMS } from './origin_transforms.js';
 import {
   BRIGHTENED,
   CANDIDATE,
@@ -32,7 +33,7 @@ import {
   STRUCT_DELETED,
 } from './eda_item_flags.js';
 import { CombinedMatcherContext, EdaCombinedMatcher } from './eda_pattern_match.js';
-import { EDA_SEARCH_DATA, EDA_SEARCH_MATCH_MODE, compileRegex } from './eda_search_data.js';
+import { type EDA_SEARCH_DATA, EDA_SEARCH_MATCH_MODE, compileRegex } from './eda_search_data.js';
 import { type KIID, newKiid, niluuid } from './kiid.js';
 import { wildCompareString } from './string_utils.js';
 import type { UNITS_PROVIDER } from './units_provider.js';
@@ -80,9 +81,14 @@ export interface OutStr {
   value: string;
 }
 
-/** The `EDA_DRAW_FRAME` an item formats its message panel for; the frames declare it. */
-export interface EDA_DRAW_FRAME_LIKE {
+/**
+ * The `EDA_DRAW_FRAME` an item formats its message panel for: a `UNITS_PROVIDER`
+ * (through `EDA_BASE_FRAME`) with a name and an `ORIGIN_TRANSFORMS`; the frames
+ * declare it until the frame classes land.
+ */
+export interface EDA_DRAW_FRAME_LIKE extends UNITS_PROVIDER {
   GetName(): string;
+  GetOriginTransforms(): ORIGIN_TRANSFORMS;
 }
 
 /**

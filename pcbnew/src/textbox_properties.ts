@@ -2,6 +2,10 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
+ * @deprecated The plain-object (`PcbTextBox`) form, kept for the properties
+ * dialog until it moves onto `PCB_TEXTBOX` (#636 stage 6). The class port is
+ * `pcb_textbox.ts`; new code uses that one.
+ *
  * Reading and writing a text box's properties.
  * Counterpart: `DIALOG_TEXTBOX_PROPERTIES::TransferDataToWindow` /
  * `TransferDataFromWindow` (pcbnew/dialogs/dialog_textbox_properties.cpp).

@@ -20,6 +20,9 @@ import { PAD } from '@ziroeda/pcbnew/src/pad.js';
 import { PAD_ATTRIB, PAD_SHAPE } from '@ziroeda/pcbnew/src/padstack.js';
 import { PCB_SHAPE } from '@ziroeda/pcbnew/src/pcb_shape.js';
 import { PCB_TEXT } from '@ziroeda/pcbnew/src/pcb_text.js';
+import { PCB_TEXTBOX } from '@ziroeda/pcbnew/src/pcb_textbox.js';
+import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 
 const bbox = (fp: FOOTPRINT, aIncludeText?: boolean): [number, number, number, number] => {
   const r = fp.GetBoundingBox(aIncludeText);
@@ -171,5 +174,38 @@ describe('FOOTPRINT', () => {
     // `*existingField = *field`: operator= keeps the copy's own UUID for a mandatory field
     expect(c.GetFields()[0]!.m_Uuid).not.toBe(fp.GetFields()[0]!.m_Uuid);
     expect(c.LegacyPadsLocked()).toBe(true); // m_fpStatus travels with the copy
+  });
+
+  it('TransformFPShapesToPolySet includes a text box: its border ovals and its text strokes', () => {
+    const b = new BOARD();
+    const fp = new FOOTPRINT(b);
+    b.Add(fp);
+    const t = new PCB_TEXTBOX(fp);
+    t.SetStart({ x: 0, y: 0 });
+    t.SetEnd({ x: 4000000, y: 2000000 });
+    t.SetText('Hi');
+    fp.Add(t);
+
+    const ps = new SHAPE_POLY_SET();
+    fp.TransformFPShapesToPolySet(
+      ps,
+      PCB_LAYER_ID.UNDEFINED_LAYER,
+      0,
+      5000,
+      ERROR_LOC.ERROR_INSIDE,
+      true,
+      true,
+    );
+    expect(ps.OutlineCount()).toBe(7);
+    const bb = ps.BBox();
+    expect([bb.GetX(), bb.GetY(), bb.GetWidth(), bb.GetHeight()]).toEqual([
+      -50000, -50000, 4100000, 2100000,
+    ]);
+    expect(ps.Area()).toBeCloseTo(1968365363535.5, 0);
+
+    const d = fp.DuplicateItem(false, null, t, true) as PCB_TEXTBOX;
+    expect(d).toBeInstanceOf(PCB_TEXTBOX);
+    expect(d.m_Uuid).not.toBe(t.m_Uuid);
+    expect(fp.GraphicalItems()).toHaveLength(2);
   });
 });

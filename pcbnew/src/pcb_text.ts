@@ -19,10 +19,10 @@ import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import type { OutStr } from '@ziroeda/common/src/font/font.js';
 import type { FONT } from '@ziroeda/common/src/font/font.js';
 import type { METRICS } from '@ziroeda/common/src/font/font_metrics.js';
-import {
+import type {
   GR_TEXT_H_ALIGN_T,
   GR_TEXT_V_ALIGN_T,
-  type TEXT_ATTRIBUTES,
+  TEXT_ATTRIBUTES,
 } from '@ziroeda/common/src/font/text_attributes.js';
 import { CALLBACK_GAL } from '@ziroeda/common/src/callback_gal.js';
 import { GetKnockoutTextMargin } from '@ziroeda/common/src/gr_text.js';
@@ -313,7 +313,7 @@ export class PCB_TEXT extends BOARD_ITEM {
 
     aList.push(new MSG_PANEL_ITEM('Font', this.GetFont() ? this.GetFont()!.GetName() : 'Default'));
 
-    const units = aFrame as unknown as UNITS_PROVIDER;
+    const units = aFrame;
 
     if (this.GetTextThickness())
       aList.push(

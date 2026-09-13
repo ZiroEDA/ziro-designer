@@ -10,7 +10,7 @@
  */
 
 import { hypot } from './libm.js';
-import { KiROUND, rescale64 } from './util.js';
+import { INT_MAX, INT_MIN, KiROUND, rescale64, toInt } from './util.js';
 
 /** 2D point/vector in integer internal units (100 nm). Immutable variant. */
 export interface Vec2 {
@@ -26,6 +26,16 @@ export interface VECTOR2I {
 export const VECTOR2I = (x = 0, y = 0): VECTOR2I => ({ x, y });
 
 export const add = (a: VECTOR2I, b: VECTOR2I): VECTOR2I => ({ x: a.x + b.x, y: a.y + b.y });
+
+/**
+ * `VECTOR2<int>( const VECTOR2<double>& )`: the casting constructor, which
+ * `static_cast`s each coordinate — truncation toward zero, not rounding —
+ * after clamping to the int range.
+ */
+export const toVECTOR2I = (v: VECTOR2I): VECTOR2I => ({
+  x: toInt(Math.min(Math.max(v.x, INT_MIN), INT_MAX)),
+  y: toInt(Math.min(Math.max(v.y, INT_MIN), INT_MAX)),
+});
 export const sub = (a: VECTOR2I, b: VECTOR2I): VECTOR2I => ({ x: a.x - b.x, y: a.y - b.y });
 export const equal = (a: VECTOR2I, b: VECTOR2I): boolean => a.x === b.x && a.y === b.y;
 

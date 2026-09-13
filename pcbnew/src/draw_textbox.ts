@@ -2,6 +2,11 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
+ * @deprecated The plain-object (`PcbTextBox`) form of `PCB_TEXTBOX`'s
+ * constructor and `GetLegacyTextMargin`, kept for the drawing tool until it
+ * moves onto `PCB_TEXTBOX` (#636 stage 3). The class port is `pcb_textbox.ts`;
+ * new code uses that one.
+ *
  * Placing a text box.
  * Counterparts: `DRAWING_TOOL::DrawRectangle` with `isTextBox` set (which is
  * how `drawTextBox` is registered — the same handler as `drawRectangle`),

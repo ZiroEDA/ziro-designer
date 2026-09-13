@@ -56,8 +56,30 @@ import { ZONE_THERMAL_RELIEF_COPPER_WIDTH_MM } from './zones.js';
 
 // `Similarity` and `TransformShapeToPolygon` are overloaded across the two bases in C++; the
 // class carries both forms, so the merged interface leaves the EDA_SHAPE ones out.
-// biome-ignore lint/suspicious/noEmptyInterface: declaration merging carries the EDA_SHAPE mixin's members
-export interface PCB_SHAPE extends Omit<EDA_SHAPE, 'Similarity' | 'TransformShapeToPolygon'> {}
+// The rectangle-edge virtuals are re-declared as methods so that a derived class (PCB_TEXTBOX)
+// can override them: a mapped type carries them as properties, which TS will not let a method
+// override.
+export interface PCB_SHAPE
+  extends Omit<
+    EDA_SHAPE,
+    | 'Similarity'
+    | 'TransformShapeToPolygon'
+    | 'GetTopLeft'
+    | 'GetBotRight'
+    | 'SetTop'
+    | 'SetLeft'
+    | 'SetRight'
+    | 'SetBottom'
+    | 'getDrawRotation'
+  > {
+  GetTopLeft(): VECTOR2I;
+  GetBotRight(): VECTOR2I;
+  SetTop(val: number): void;
+  SetLeft(val: number): void;
+  SetRight(val: number): void;
+  SetBottom(val: number): void;
+  getDrawRotation(): EDA_ANGLE;
+}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: KiCad's multiple inheritance, see libs/core/src/mixins.ts
 export class PCB_SHAPE extends BOARD_CONNECTED_ITEM {
@@ -384,7 +406,7 @@ export class PCB_SHAPE extends BOARD_CONNECTED_ITEM {
     if (aFrame.GetName() === PCB_EDIT_FRAME_NAME && this.IsLocked())
       aList.push(new MSG_PANEL_ITEM('Status', 'Locked'));
 
-    this.ShapeGetMsgPanelInfo(aFrame as unknown as UNITS_PROVIDER, aList);
+    this.ShapeGetMsgPanelInfo(aFrame, aList);
 
     aList.push(new MSG_PANEL_ITEM('Layer', this.GetLayerName()));
 

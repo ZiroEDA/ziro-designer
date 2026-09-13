@@ -62,4 +62,14 @@ describe('PCB_TEXT', () => {
     expect(bbox(t)).toEqual([-991, -979, 1782, 1958]);
     expect(t.GetShownText(true)).toBe('X');
   });
+
+  it('GetEffectiveShape: the stroke segments are integer (the VECTOR2D glyph points are static_cast)', () => {
+    const t = new PCB_TEXT(new BOARD());
+    t.SetText('The quick');
+    t.SetPosition({ x: 0, y: 0 });
+    const bb = t.GetEffectiveShape().BBox();
+    expect([bb.GetX(), bb.GetY(), bb.GetWidth(), bb.GetHeight()]).toEqual([
+      -4554612, -761848, 8988273, 1852082,
+    ]);
+  });
 });

@@ -99,7 +99,8 @@ import { PCB_FIELD } from './pcb_field.js';
 import type { PCB_GROUP } from './pcb_group.js';
 import { PCB_SHAPE, type PCB_VIEW_FOR_LOD } from './pcb_shape.js';
 import { PCB_TEXT } from './pcb_text.js';
-import { PCB_TRACK } from './pcb_track.js';
+import { PCB_TEXTBOX } from './pcb_textbox.js';
+import type { PCB_TRACK } from './pcb_track.js';
 import { ZONE } from './zone.js';
 import { ZONE_CONNECTION } from './zones.js';
 
@@ -2404,15 +2405,26 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
       }
 
       if (item.Type() === KICAD_T.PCB_TEXTBOX_T && aIncludeText) {
-        // PCB_TEXTBOX* textbox = static_cast<PCB_TEXTBOX*>( item );
-        // if( aLayer == UNDEFINED_LAYER || textbox->GetLayer() == aLayer )
-        // {
-        //     // border
-        //     if( textbox->IsBorderEnabled() )
-        //         textbox->PCB_SHAPE::TransformShapeToPolygon( aBuffer, aLayer, 0, aError, aErrorLoc );
-        //     // text
-        //     textbox->TransformTextToPolySet( aBuffer, 0, aError, aErrorLoc );
-        // }                                                   -- PCB_TEXTBOX pending (#636)
+        const textbox = item as PCB_TEXTBOX;
+
+        if (aLayer === PCB_LAYER_ID.UNDEFINED_LAYER || textbox.GetLayer() === aLayer) {
+          // border
+          if (textbox.IsBorderEnabled())
+            // textbox->PCB_SHAPE::TransformShapeToPolygon( aBuffer, aLayer, 0, aError, aErrorLoc )
+            (
+              PCB_SHAPE.prototype.TransformShapeToPolygon as (
+                this: PCB_SHAPE,
+                aBuffer: SHAPE_POLY_SET,
+                aLayer: PCB_LAYER_ID,
+                aClearance: number,
+                aError: number,
+                aErrorLoc: ERROR_LOC,
+              ) => void
+            ).call(textbox, aBuffer, aLayer, 0, aError, aErrorLoc);
+
+          // text
+          textbox.TransformTextToPolySet(aBuffer, 0, aError, aErrorLoc);
+        }
       }
 
       if (item.Type() === KICAD_T.PCB_SHAPE_T && aIncludeShapes) {
@@ -3561,15 +3573,24 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
       }
 
       case KICAD_T.PCB_BARCODE_T:
-      case KICAD_T.PCB_REFERENCE_IMAGE_T:
-      case KICAD_T.PCB_TEXTBOX_T: {
-        // PCB_BARCODE( const PCB_BARCODE& ) / PCB_REFERENCE_IMAGE( ... ) / PCB_TEXTBOX( ... ) -- pending (#636)
+      case KICAD_T.PCB_REFERENCE_IMAGE_T: {
+        // PCB_BARCODE( const PCB_BARCODE& ) / PCB_REFERENCE_IMAGE( ... ) -- pending (#636)
         const new_copy = aItem.Clone() as BOARD_ITEM;
         (new_copy as { m_Uuid: KIID }).m_Uuid = newKiid();
 
         if (addToFootprint) this.Add(new_copy);
 
         new_item = new_copy;
+        break;
+      }
+
+      case KICAD_T.PCB_TEXTBOX_T: {
+        const new_textbox = PCB_TEXTBOX.copyOf(aItem as PCB_TEXTBOX);
+        (new_textbox as { m_Uuid: KIID }).m_Uuid = newKiid();
+
+        if (addToFootprint) this.Add(new_textbox);
+
+        new_item = new_textbox;
         break;
       }
 
@@ -4034,8 +4055,8 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
       const text = aItem as PCB_TEXT;
       text.TransformTextToPolySet(poly, textMargin, ARC_LOW_DEF, ERROR_LOC.ERROR_INSIDE);
     } else if (aItem.Type() === KICAD_T.PCB_TEXTBOX_T) {
-      // const PCB_TEXTBOX* tb; tb->TransformTextToPolySet( poly, textMargin, ARC_LOW_DEF, ERROR_INSIDE );
-      //                                                     -- PCB_TEXTBOX pending (#636)
+      const tb = aItem as PCB_TEXTBOX;
+      tb.TransformTextToPolySet(poly, textMargin, ARC_LOW_DEF, ERROR_LOC.ERROR_INSIDE);
     } else if (aItem.Type() === KICAD_T.PCB_SHAPE_T) {
       // Approximate "linear" shapes with just their width squared, as we don't want to consider
       // a linear shape as being much bigger than another for purposes of selection filtering

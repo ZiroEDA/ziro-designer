@@ -2,6 +2,11 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
+ * @deprecated The plain-object (`PcbTextBox`) form of `PCB_TEXTBOX::GetCorners`
+ * / `HitTest` / `GetBoundingBox`, kept for the renderer and selection until
+ * they move onto `PCB_TEXTBOX` (#636 stages 3 and 5). The class port is
+ * `pcb_textbox.ts`; new code uses that one.
+ *
  * A text box's outline and extent.
  * Counterparts: `PCB_TEXTBOX::GetCorners` and `PCB_TEXTBOX::HitTest`
  * (pcbnew/pcb_textbox.cpp).
