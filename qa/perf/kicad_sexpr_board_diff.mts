@@ -1,7 +1,11 @@
 // Stage 1 gate on the classes: the new parser + formatter (BOARD in, bytes
-// out) against KiCad's own re-save of each oracle board.
+// out) against KiCad's own re-save of each oracle board. With VIEW=1 the
+// BOARD goes through the editor's view and back (`boardFromBOARD`,
+// `boardToBOARD`) before it is written: an untouched view must write the
+// bytes it was read from.
 //
-//   npx tsx qa/perf/kicad_sexpr_board_diff2.mts [dir] [name-filter]
+//   npx tsx qa/perf/kicad_sexpr_board_diff.mts [dir] [name-filter]
+//   VIEW=1 MAX_MB=10 npx tsx qa/perf/kicad_sexpr_board_diff.mts
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
@@ -9,6 +13,10 @@ import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
 import type { BOARD } from '@ziroeda/pcbnew/src/board.js';
 import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 import { FormatBoard } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import {
+  boardFromBOARD,
+  boardToBOARD,
+} from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/board_view.js';
 import { installNodeOutlineFaces } from './node_outline_faces.mjs';
 
 async function main(): Promise<void> {
@@ -43,7 +51,8 @@ async function main(): Promise<void> {
       const parser = new PCB_IO_KICAD_SEXPR_PARSER(theirs, f);
       const board = parser.Parse() as BOARD;
       const t1 = performance.now();
-      const ours = FormatBoard(board, 'pcbnew');
+      const written = process.env.VIEW ? boardToBOARD(boardFromBOARD(board, f)) : board;
+      const ours = FormatBoard(written, 'pcbnew');
       const t2 = performance.now();
       writeFileSync(join(outDir, f), ours);
       if (ours === theirs) {

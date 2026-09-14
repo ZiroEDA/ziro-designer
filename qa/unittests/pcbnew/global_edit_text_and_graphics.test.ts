@@ -555,10 +555,14 @@ describe('the table', () => {
       opts({ boardText: true, layer: 'B.Cu', lineWidth: MM(0.9), textHeight: MM(3) }),
       CTX,
     ).board;
+    expect(b.tables[0]!.cells[0]!.layer).toBe('B.Cu');
     const t = saved(b).tables[0]!;
     expect(t.layer).toBe('F.SilkS');
     expect(t.borderWidth).toBe(MM(0.05));
-    expect(t.cells[0]!.layer).toBe('B.Cu');
+    // A cell's layer is its table's once read back: `PCB_TABLE::AddCell`
+    // (pcb_table.h:165-170) sets it from the table as the parser adds each
+    // cell, so the edit reaches the cell in memory and not the file.
+    expect(t.cells[0]!.layer).toBe('F.SilkS');
     expect(t.cells[0]!.size.y).toBe(MM(3));
   });
 

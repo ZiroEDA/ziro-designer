@@ -219,14 +219,25 @@ describe('a footprint’s own points', () => {
     expect(fp.points[0]!.layer).toBe('F.Fab');
   });
 
-  it('round-trips a library footprint unchanged', () => {
+  it('round-trips a library footprint unchanged, its point uuid included', () => {
     const src = parse(FP);
 
-    // `FootprintSave` writes the library form (no uuids, no placement), so a
-    // fixture is normalised once and stable from then on.
+    // `FootprintSave` writes the library form (no footprint uuid, no placement)
+    // from a `FOOTPRINT( const FOOTPRINT& )` copy, whose four mandatory fields
+    // are the new footprint's own — `*existingField = *field` copies no KIID —
+    // so pcbnew 10.0.5 itself writes fresh uuids for Reference, Value,
+    // Datasheet and Description on every save (python `FootprintLoad( …, True )`
+    // then `FootprintSave` shows exactly those four change). Everything else,
+    // the point's uuid with it, is stable from the first save on.
     const once = serializeFootprint(readFootprintFile(src)!);
     expect(once).toContain('(point');
-    expect(serializeFootprint(readFootprintFile(once)!)).toBe(once);
+    const twice = serializeFootprint(readFootprintFile(once)!);
+    const fieldUuids = (text: string): string =>
+      text.replace(/\(property [^\n]*\n(?:[^\n]*\n)*?\t\t\(uuid "[^"]+"\)/g, (m) =>
+        m.replace(/\(uuid "[^"]+"\)/, '(uuid "<field>")'),
+      );
+    expect(fieldUuids(twice)).toBe(fieldUuids(once));
+    expect(twice).toContain('(uuid "cccccccc-0000-0000-0000-000000000003")');
   });
 
   it('is stored in ABSOLUTE board coordinates, unlike every graphic', () => {

@@ -5,15 +5,15 @@
  * `.kicad_mod` writing: `PCB_IO_KICAD_SEXPR::FootprintSave`
  * (pcb_io_kicad_sexpr.cpp:3362) — the footprint is cloned, turned upright and
  * onto the front, detached and cleared of nets, then `Format`ted with
- * `CTL_FOR_LIBRARY` — over the footprint's model.
+ * `CTL_FOR_LIBRARY` — over the footprint's class.
  */
-import { kfootprintFromView } from './pcb_io/kicad_sexpr/legacy_k/board_view.js';
-import {
-  FLIP_DIRECTION,
-  type FlipBoard,
-  footprintSaveClone,
-} from './pcb_io/kicad_sexpr/legacy_k/kicad_footprint_ops.js';
-import { FormatFootprintFile } from './pcb_io/kicad_sexpr/legacy_k/pcb_io_kicad_sexpr.js';
+import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
+import { ANGLE_0 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import type { BOARD } from './board.js';
+import type { FOOTPRINT } from './footprint.js';
+import { footprintOfView } from './pcb_io/kicad_sexpr/board_view.js';
+import { FormatFootprintForLibrary } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import type { PcbFootprint } from './types.js';
 
 export { FLIP_DIRECTION };
@@ -30,15 +30,43 @@ export interface SerializeFootprintOptions {
    * copper count and layer table. The Footprint Editor's holder board is a
    * plain two-layer BOARD with no user-layer pairing.
    */
-  board?: FlipBoard;
+  board?: BOARD;
 }
 
-const HOLDER_BOARD: FlipBoard = { copperLayerCount: 2, layerDescrs: new Map() };
+/**
+ * What `FootprintSave` does to its clone before `Format` (:3449-3462):
+ *
+ *     footprint->SetOrientation( ANGLE_0 );
+ *     if( footprint->GetLayer() != F_Cu )
+ *         footprint->Flip( footprint->GetPosition(), cfg->m_FlipDirection );
+ *     footprint->SetParent( nullptr ); footprint->SetParentGroup( nullptr );
+ *     footprint->ClearAllNets();
+ *
+ * "It's orientation should be zero and it should be on the front layer."
+ */
+export function footprintSaveClone(
+  footprint: FOOTPRINT,
+  aFlipDirection: FLIP_DIRECTION = FLIP_DIRECTION.TOP_BOTTOM,
+): void {
+  footprint.SetOrientation(ANGLE_0);
+
+  if (footprint.GetLayer() !== PCB_LAYER_ID.F_Cu)
+    footprint.Flip(footprint.GetPosition(), aFlipDirection);
+
+  // Detach it from the board and its group
+  footprint.SetParent(null);
+  footprint.SetParentGroup(null);
+
+  // Now that the clone is detached from its parent board, any m_netinfo pointers its
+  // descendants still carry reference NETINFO_ITEMs owned by that board and may dangle.
+  // Force them all to the board-independent ORPHANED singleton before serialization.
+  footprint.ClearAllNets();
+}
 
 /** Serialize a footprint to `.kicad_mod` text, the bytes `FootprintSave` writes. */
 export function serializeFootprint(fp: PcbFootprint, opts: SerializeFootprintOptions = {}): string {
-  const board = opts.board ?? HOLDER_BOARD;
-  const k = kfootprintFromView(fp, board.copperLayerCount);
-  footprintSaveClone(k, board, opts.flipDirection ?? FLIP_DIRECTION.TOP_BOTTOM);
-  return FormatFootprintFile(k);
+  // "I need my own copy for the cache": FOOTPRINT::Clone() with the view's edits over it.
+  const footprint = footprintOfView(fp, opts.board);
+  footprintSaveClone(footprint, opts.flipDirection ?? FLIP_DIRECTION.TOP_BOTTOM);
+  return FormatFootprintForLibrary(footprint);
 }

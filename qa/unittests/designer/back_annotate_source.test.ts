@@ -10,13 +10,16 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readBoard } from '@ziroeda/pcbnew';
 import { boardFootprintData } from '@ziroeda/designer/src/editors/schematic/back_annotate_source.js';
+// The symbol and sheet uuids are real ones: a `(path …)` in a board file is
+// read as a KIID_PATH, and `KIID( const wxString& )` (kiid.cpp) draws a random
+// uuid for any text that does not parse as one.
 
 const board = (footprints: string) =>
   readBoard(parse(`(kicad_pcb (version 20241229) (generator "test") ${footprints})`));
 
 const FP = `(footprint "Resistor_SMD:R_0805"
     (layer "F.Cu") (uuid "fp-1") (at 10 10)
-    (path "/sheet-1/sym-1")
+    (path "/bbbbbbbb-0000-4000-8000-0000000000b1/aaaaaaaa-0000-4000-8000-0000000000a1")
     (attr smd exclude_from_bom dnp)
     (property "Reference" "R1" (at 0 0 0) (layer "F.SilkS") (uuid "t-1")
       (effects (font (size 1 1) (thickness 0.15))))
@@ -43,9 +46,9 @@ describe('reading the board as back-annotation data', () => {
   it('reduces the KIID path to the symbol it names', () => {
     // `(path "/sheet/symbol")` on a sub-sheet; the engine matches the symbol,
     // which is the last element.
-    expect(boardFootprintData(board(FP))[0]!.path).toBe('/sym-1');
-    const root = FP.replace('(path "/sheet-1/sym-1")', '(path "/sym-1")');
-    expect(boardFootprintData(board(root))[0]!.path).toBe('/sym-1');
+    expect(boardFootprintData(board(FP))[0]!.path).toBe('/aaaaaaaa-0000-4000-8000-0000000000a1');
+    const root = FP.replace('(path "/bbbbbbbb-0000-4000-8000-0000000000b1/aaaaaaaa-0000-4000-8000-0000000000a1")', '(path "/aaaaaaaa-0000-4000-8000-0000000000a1")');
+    expect(boardFootprintData(board(root))[0]!.path).toBe('/aaaaaaaa-0000-4000-8000-0000000000a1');
   });
 
   it('carries user fields and drops the format’s own bookkeeping', () => {
@@ -58,7 +61,7 @@ describe('reading the board as back-annotation data', () => {
   it('skips a footprint with no path rather than guessing at one', () => {
     // A footprint placed on the board by hand never had a symbol. Matching it
     // by reference is what the "re-link footprints" option asks permission for.
-    const orphan = FP.replace('(path "/sheet-1/sym-1")', '');
+    const orphan = FP.replace('(path "/bbbbbbbb-0000-4000-8000-0000000000b1/aaaaaaaa-0000-4000-8000-0000000000a1")', '');
     expect(boardFootprintData(board(orphan))).toEqual([]);
   });
 

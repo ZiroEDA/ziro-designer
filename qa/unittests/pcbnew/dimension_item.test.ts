@@ -180,8 +180,12 @@ describe('moving a dimension', () => {
 
   it('shifts the text with them', () => {
     // A dimension that moved without its label would look right on screen for
-    // exactly as long as nobody re-read the file.
-    expect(moved().dimensions[0]!.text!.at).toEqual({ x: MM(120), y: MM(72) });
+    // exactly as long as nobody re-read the file. In `text_position_mode 0`
+    // (OUTSIDE) the label sits where `Update()` puts it, not where the file
+    // said: pcbnew 10.0.5 loads this text at (115, 71.7), not (115, 75), and
+    // `Move( 5, -3 )` takes it to (120, 68.7) — python pcbnew's own numbers.
+    expect(read(ORTHO()).dimensions[0]!.text!.at).toEqual({ x: MM(115), y: MM(71.7) });
+    expect(moved().dimensions[0]!.text!.at).toEqual({ x: MM(120), y: MM(68.7) });
   });
 
   it('survives a save and reload', () => {
@@ -190,7 +194,7 @@ describe('moving a dimension', () => {
 
     expect(d.start).toEqual({ x: MM(105), y: MM(57) });
     expect(d.end).toEqual({ x: MM(135), y: MM(57) });
-    expect(d.text!.at).toEqual({ x: MM(120), y: MM(72) });
+    expect(d.text!.at).toEqual({ x: MM(120), y: MM(68.7) });
   });
 
   it('keeps everything else in the source node', () => {

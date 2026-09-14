@@ -896,7 +896,7 @@ function visitItem(
  */
 function rawTextOf(t: PcbTextItem): string {
   // The model keeps the text as the file has it; the view shows it resolved.
-  return t.k?.text ?? t.text;
+  return t.k?.GetText() ?? t.text;
 }
 
 /** Which scope box, if any, puts this footprint text in scope. */

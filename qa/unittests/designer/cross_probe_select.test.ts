@@ -33,6 +33,9 @@ import { findItemsFromSyncSelection, crossProbeZoomScale } from '@ziroeda/pcbnew
 import { escapeIpc } from '@ziroeda/common/src/string_utils.js';
 import { pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
+// The symbol and sheet uuids are real ones: a `(path …)` in a board file is
+// read as a KIID_PATH, and `KIID( const wxString& )` (kiid.cpp) draws a random
+// uuid for any text that does not parse as one.
 
 const SCH = `(kicad_sch (version 20250114) (generator "eeschema")
   (lib_symbols
@@ -45,13 +48,13 @@ const SCH = `(kicad_sch (version 20250114) (generator "eeschema")
         (pin passive line (at 0 -3.81 90) (length 1.27)
           (name "~" (effects (font (size 1.27 1.27))))
           (number "2" (effects (font (size 1.27 1.27))))))))
-  (symbol (lib_id "Device:R") (at 100 100 0) (unit 1) (uuid "sym-1")
+  (symbol (lib_id "Device:R") (at 100 100 0) (unit 1) (uuid "aaaaaaaa-0000-4000-8000-0000000000a1")
     (property "Reference" "R1" (at 100 95 0) (effects (font (size 1.27 1.27))))
     (property "Footprint" "R_0402" (at 100 105 0) (effects (font (size 1.27 1.27)))))
-  (symbol (lib_id "Device:R") (at 120 100 0) (unit 1) (uuid "sym-2")
+  (symbol (lib_id "Device:R") (at 120 100 0) (unit 1) (uuid "aaaaaaaa-0000-4000-8000-0000000000a2")
     (property "Reference" "R,2" (at 120 95 0) (effects (font (size 1.27 1.27)))))
   (wire (pts (xy 60 60) (xy 100 60)) (stroke (width 0) (type default)) (uuid "wire-1"))
-  (sheet (at 20 20) (size 30 20) (uuid "sheet-1")
+  (sheet (at 20 20) (size 30 20) (uuid "bbbbbbbb-0000-4000-8000-0000000000b1")
     (property "Sheetname" "sub" (at 20 19 0) (effects (font (size 1.27 1.27))))
     (property "Sheetfile" "sub.kicad_sch" (at 20 51 0) (effects (font (size 1.27 1.27)))))
   (sheet_instances (path "/" (page "1"))))
@@ -63,24 +66,24 @@ const ids = (...list: string[]): Set<string> => new Set(list);
 
 describe('the parts a schematic selection sends', () => {
   it('names a symbol by its reference', () => {
-    expect(syncSelectionParts(doc, ids('sym-1'), '/')).toEqual(['FR1']);
+    expect(syncSelectionParts(doc, ids('aaaaaaaa-0000-4000-8000-0000000000a1'), '/')).toEqual(['FR1']);
   });
 
   it('escapes a reference that would break the packet', () => {
     // The parts are joined with commas, so a comma inside one has to go.
-    expect(syncSelectionParts(doc, ids('sym-2'), '/')).toEqual(['FR{comma}2']);
+    expect(syncSelectionParts(doc, ids('aaaaaaaa-0000-4000-8000-0000000000a2'), '/')).toEqual(['FR{comma}2']);
     expect(escapeIpc('R,2')).toBe('R{comma}2');
   });
 
   it('names a sheet by the path of the sheet it sits on, plus its own uuid', () => {
-    expect(syncSelectionParts(doc, ids('sheet-1'), '/')).toEqual(['S/sheet-1']);
+    expect(syncSelectionParts(doc, ids('bbbbbbbb-0000-4000-8000-0000000000b1'), '/')).toEqual(['S/bbbbbbbb-0000-4000-8000-0000000000b1']);
     // Two instances of the same sheet differ only by where they hang, which is
     // exactly what the prefix carries.
-    expect(syncSelectionParts(doc, ids('sheet-1'), '/top/')).toEqual(['S/top/sheet-1']);
+    expect(syncSelectionParts(doc, ids('bbbbbbbb-0000-4000-8000-0000000000b1'), '/top/')).toEqual(['S/top/bbbbbbbb-0000-4000-8000-0000000000b1']);
   });
 
   it('names a pin down to its pad', () => {
-    expect(syncSelectionParts(doc, ids('sym-1:pin1'), '/', libById)).toEqual(['PR1/2']);
+    expect(syncSelectionParts(doc, ids('aaaaaaaa-0000-4000-8000-0000000000a1:pin1'), '/', libById)).toEqual(['PR1/2']);
   });
 
   it('sends nothing for a wire — there is no board item to name', () => {
@@ -99,7 +102,7 @@ describe('the parts a schematic selection sends', () => {
   it('sends nothing for a pin whose library is not loaded', () => {
     // Without the library there is no pin number, and a guessed one would
     // select the wrong pad.
-    expect(syncSelectionParts(doc, ids('sym-1:pin0'), '/')).toEqual([]);
+    expect(syncSelectionParts(doc, ids('aaaaaaaa-0000-4000-8000-0000000000a1:pin0'), '/')).toEqual([]);
   });
 });
 
@@ -108,17 +111,17 @@ const BOARD = `(kicad_pcb (version 20241229) (generator "pcbnew")
   (paper "A4")
   (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
   (footprint "R_0402" (layer "F.Cu") (uuid "fp-1") (at 10 10)
-    (path "/sheet-1/sym-1")
+    (path "/bbbbbbbb-0000-4000-8000-0000000000b1/aaaaaaaa-0000-4000-8000-0000000000a1")
     (property "Reference" "R1" (at 0 0 0) (layer "F.SilkS") (uuid "t1")
       (effects (font (size 1 1) (thickness 0.15)))))
   (footprint "R_0402" (layer "F.Cu") (uuid "fp-2") (at 30 10)
-    (path "/sym-2")
+    (path "/aaaaaaaa-0000-4000-8000-0000000000a2")
     (property "Reference" "R,2" (at 0 0 0) (layer "F.SilkS") (uuid "t2")
       (effects (font (size 1 1) (thickness 0.15))))
     (pad "1" smd rect (at -0.5 0) (size 0.6 0.6) (layers "F.Cu"))
     (pad "2" smd rect (at 0.5 0) (size 0.6 0.6) (layers "F.Cu")))
   (footprint "C_0402" (layer "F.Cu") (uuid "fp-3") (at 50 10)
-    (path "/sheet-1/deeper/sym-3")
+    (path "/bbbbbbbb-0000-4000-8000-0000000000b1/bbbbbbbb-0000-4000-8000-0000000000b2/aaaaaaaa-0000-4000-8000-0000000000a3")
     (property "Reference" "C3" (at 0 0 0) (layer "F.SilkS") (uuid "t3")
       (effects (font (size 1 1) (thickness 0.15))))))
 `;
@@ -135,16 +138,16 @@ describe('the board items those parts name', () => {
   });
 
   it('takes the subsheets with the sheet', () => {
-    // fp-1 sits on /sheet-1 and fp-3 on /sheet-1/deeper; the prefix test is the
+    // fp-1 sits on /bbbbbbbb-0000-4000-8000-0000000000b1 and fp-3 on /bbbbbbbb-0000-4000-8000-0000000000b1/bbbbbbbb-0000-4000-8000-0000000000b2; the prefix test is the
     // only thing that reaches the second one.
-    expect(findItemsFromSyncSelection(board, ['S/sheet-1'])).toEqual([
+    expect(findItemsFromSyncSelection(board, ['S/bbbbbbbb-0000-4000-8000-0000000000b1'])).toEqual([
       'footprint:0',
       'footprint:2',
     ]);
   });
 
   it('leaves a footprint on another sheet alone', () => {
-    expect(findItemsFromSyncSelection(board, ['S/sheet-1'])).not.toContain('footprint:1');
+    expect(findItemsFromSyncSelection(board, ['S/bbbbbbbb-0000-4000-8000-0000000000b1'])).not.toContain('footprint:1');
   });
 
   it('selects the pad, not its footprint', () => {
@@ -165,7 +168,7 @@ describe('the board items those parts name', () => {
   });
 
   it('returns each item once when two parts name it', () => {
-    expect(findItemsFromSyncSelection(board, ['FR1', 'S/sheet-1'])).toEqual([
+    expect(findItemsFromSyncSelection(board, ['FR1', 'S/bbbbbbbb-0000-4000-8000-0000000000b1'])).toEqual([
       'footprint:0',
       'footprint:2',
     ]);
@@ -269,12 +272,12 @@ describe('the parts a board selection sends', () => {
 
 describe('the schematic items those parts name', () => {
   it('matches a symbol by reference', () => {
-    expect(findSymbolsFromSyncSelection(doc, ['FR1'], '/', libById)).toEqual(['sym-1']);
+    expect(findSymbolsFromSyncSelection(doc, ['FR1'], '/', libById)).toEqual(['aaaaaaaa-0000-4000-8000-0000000000a1']);
   });
 
   it('matches the escaped reference, so a comma survives the round trip', () => {
     const parts = boardSyncSelectionParts(board, new Set(['footprint:1']));
-    expect(findSymbolsFromSyncSelection(doc, parts, '/', libById)).toEqual(['sym-2']);
+    expect(findSymbolsFromSyncSelection(doc, parts, '/', libById)).toEqual(['aaaaaaaa-0000-4000-8000-0000000000a2']);
   });
 
   it('matches a pad down to the symbol that owns the pin', () => {
@@ -282,33 +285,33 @@ describe('the schematic items those parts name', () => {
     // SYMBOL — `select( item )`'s parent fallback (`sch_selection_tool.cpp:
     // 3506-3512`).
     const parts = boardSyncSelectionParts(board, new Set(['pad:1:0']));
-    expect(findSymbolsFromSyncSelection(doc, parts, '/', libById)).toEqual(['sym-2']);
+    expect(findSymbolsFromSyncSelection(doc, parts, '/', libById)).toEqual(['aaaaaaaa-0000-4000-8000-0000000000a2']);
   });
 
   it('matches a sheet as a PREFIX, which is what reaches its subsheets', () => {
-    expect(findSymbolsFromSyncSelection(doc, ['S/'], '/', libById)).toEqual(['sheet-1']);
+    expect(findSymbolsFromSyncSelection(doc, ['S/'], '/', libById)).toEqual(['bbbbbbbb-0000-4000-8000-0000000000b1']);
   });
 
   it('ignores a letter it does not know rather than failing the packet', () => {
     // `default: break` — a message from a newer board selects what it can.
     expect(findSymbolsFromSyncSelection(doc, ['FR1', 'Zwhatever'], '/', libById)).toEqual([
-      'sym-1',
+      'aaaaaaaa-0000-4000-8000-0000000000a1',
     ]);
   });
 
   it('returns each id once even when two parts name the same symbol', () => {
     const parts = boardSyncSelectionParts(board, new Set(['footprint:1', 'pad:1:0', 'pad:1:1']));
-    expect(findSymbolsFromSyncSelection(doc, parts, '/', libById)).toEqual(['sym-2']);
+    expect(findSymbolsFromSyncSelection(doc, parts, '/', libById)).toEqual(['aaaaaaaa-0000-4000-8000-0000000000a2']);
   });
 
   it('round-trips a schematic selection through the board and back', () => {
     // The pair's real contract: what the schematic sends, the board resolves,
     // and what the board sends back resolves to the same symbol.
-    const out = syncSelectionParts(doc, ids('sym-1'), '/', libById);
+    const out = syncSelectionParts(doc, ids('aaaaaaaa-0000-4000-8000-0000000000a1'), '/', libById);
     const onBoard = findItemsFromSyncSelection(board, out);
     expect(onBoard).toEqual(['footprint:0']);
     const back = boardSyncSelectionParts(board, new Set(onBoard));
-    expect(findSymbolsFromSyncSelection(doc, back, '/', libById)).toEqual(['sym-1']);
+    expect(findSymbolsFromSyncSelection(doc, back, '/', libById)).toEqual(['aaaaaaaa-0000-4000-8000-0000000000a1']);
   });
 });
 
@@ -319,7 +322,7 @@ describe('on_selection gates the probe, and force overrides it', () => {
 
   it('applies with it on', () => {
     expect(crossProbeSchSelection({ on_selection: true }, doc, ['FR1'], '/', libById)).toEqual([
-      'sym-1',
+      'aaaaaaaa-0000-4000-8000-0000000000a1',
     ]);
   });
 
@@ -328,7 +331,7 @@ describe('on_selection gates the probe, and force overrides it', () => {
     // cross-probe menu commands are not subject to the preference.
     expect(
       crossProbeSchSelection({ on_selection: false }, doc, ['FR1'], '/', libById, true),
-    ).toEqual(['sym-1']);
+    ).toEqual(['aaaaaaaa-0000-4000-8000-0000000000a1']);
   });
 });
 

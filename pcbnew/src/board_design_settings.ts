@@ -72,6 +72,7 @@ import {
   DEFAULT_SILK_TEXT_SIZE,
   DEFAULT_SILK_TEXT_WIDTH,
   DEFAULT_SILKCLEARANCE,
+  DEFAULT_BOARD_THICKNESS_MM,
   DEFAULT_SOLDERMASK_EXPANSION,
   DEFAULT_SOLDERMASK_MIN_WIDTH,
   DEFAULT_SOLDERMASK_TO_COPPER_CLEARANCE,
@@ -538,6 +539,9 @@ export class BOARD_DESIGN_SETTINGS {
 
     this.m_CapVias = false;
     this.m_FillVias = false;
+
+    // Layer thickness for 3D viewer
+    this.m_boardThickness = pcbIUScale.mmToIU(DEFAULT_BOARD_THICKNESS_MM);
   }
 
   /**

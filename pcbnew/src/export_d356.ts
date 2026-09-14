@@ -193,8 +193,8 @@ export function viaLayerPair(via: PcbVia): { top: number; bottom: number } {
  * Tented means covered by mask, i.e. *not* probeable.
  */
 export function boardTentVias(board: Board): { front: boolean; back: boolean } {
-  const bds = board.k?.designSettings;
-  return { front: bds?.tentViasFront ?? true, back: bds?.tentViasBack ?? true };
+  const bds = board.k?.GetDesignSettings();
+  return { front: bds?.m_TentViasFront ?? true, back: bds?.m_TentViasBack ?? true };
 }
 
 /** `PCB_VIA::IsTented`: the via's own setting wins, else the board default. */

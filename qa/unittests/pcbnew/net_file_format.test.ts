@@ -59,7 +59,14 @@ const legacy = (): string =>
     // Only a pad carries the `(net <code> "<name>")` pair; everything else is
     // the bare code.
     /\((segment|arc|via|zone|gr_line)([\s\S]*?)\(net (\d) "(\w+)"\)/g,
-    (_m, kind, mid, code) => `(${kind}${mid}(net ${code})`,
+    // A zone also carried `(net_name …)`, "the (non-authoratative) zone net
+    // name found in a legacy file": the code alone is read before the zone
+    // has a layer, so `SetNetCode` makes it 0, and it is the name that
+    // `parseZONE` repairs the net from (pcb_io_kicad_sexpr_parser.cpp:8547).
+    (_m, kind, mid, code, name) =>
+      kind === 'zone'
+        ? `(${kind}${mid}(net ${code}) (net_name "${name}")`
+        : `(${kind}${mid}(net ${code})`,
   );
 
 /** A 20251028-or-later file: names on the items, and no declaration table. */
@@ -138,7 +145,9 @@ describe('reading', () => {
   it('orphans a pad whose code and name disagree', () => {
     // `if( netName != m_board->FindNet( pad->GetNetCode() )->GetNetname() )` →
     // `SetNetCode( NETINFO_LIST::ORPHANED )`. Neither half of a contradiction is
-    // trusted, so the pad joins nothing.
+    // trusted, so the pad joins nothing — `NETINFO_LIST::OrphanedItem()` is a
+    // `NETINFO_ITEM( nullptr, "", UNCONNECTED )` (netinfo.h:260), so the pad
+    // reads as net 0: python pcbnew 10.0.5 reports `GetNetCode() == 0` for it.
     const pad = (net: string): number =>
       load(`(kicad_pcb (version 20241229) (net 0 "") (net 1 "GND") (net 2 "VCC")
         (footprint "R" (layer "F.Cu") (at 0 0)
@@ -146,7 +155,7 @@ describe('reading', () => {
         .net ?? 0;
 
     expect(pad('(net 1 "GND")')).toBe(1);
-    expect(pad('(net 1 "VCC")')).toBe(ORPHANED_NET);
+    expect(pad('(net 1 "VCC")')).toBe(0);
   });
 });
 

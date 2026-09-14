@@ -636,8 +636,11 @@ describe('duplicateBoardItems', () => {
     });
     const reread = readBoard(parse(serializeBoard(out)));
     expect(reread.tracks).toHaveLength(2);
-    expect(reread.tracks[1]!.start).toEqual({ x: mmToIU(10), y: mmToIU(15) });
-    expect(reread.tracks[1]!.net).toBe(1);
+    // `PCB_TRACK::cmp_tracks` orders the file by net, layer, type and then
+    // uuid, so which of the two comes back first is the copy's random uuid.
+    const copy = reread.tracks.find((t) => t.uuid === out.tracks[1]!.uuid)!;
+    expect(copy.start).toEqual({ x: mmToIU(10), y: mmToIU(15) });
+    expect(copy.net).toBe(1);
   });
 });
 

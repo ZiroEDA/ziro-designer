@@ -1662,11 +1662,11 @@ function fillZoneParts(
     // the value and its graphical items in file order; then the board's
     // drawings in file order; then the zones.
     const fileOrder = new Map<unknown, number>();
-    board.k?.tracks.forEach((t, i) => {
-      fileOrder.set(t.item, i);
+    board.k?.Tracks().forEach((t, i) => {
+      fileOrder.set(t, i);
     });
-    board.k?.drawings.forEach((d, i) => {
-      fileOrder.set(d.item, i);
+    board.k?.Drawings().forEach((d, i) => {
+      fileOrder.set(d, i);
     });
     const at = (item: { k?: unknown }): number => fileOrder.get(item.k) ?? Number.MAX_SAFE_INTEGER;
 
@@ -1848,8 +1848,8 @@ function fillZoneParts(
 
     const fpOrder = (fp: PcbFootprint): Map<unknown, number> => {
       const m = new Map<unknown, number>();
-      fp.k?.graphicalItems.forEach((g, i) => {
-        m.set(g.item, i);
+      fp.k?.GraphicalItems().forEach((g, i) => {
+        m.set(g, i);
       });
       return m;
     };

@@ -97,14 +97,14 @@ interface Aperture {
 /** The board's drill/place file origin (`(setup (aux_axis_origin x y))`), the
  *  coordinate origin the "Use drill/place file origin" option plots against. */
 export function boardAuxOrigin(board: Board): Vec2 {
-  return board.auxOrigin ?? board.k?.designSettings.auxOrigin ?? { x: 0, y: 0 };
+  return board.auxOrigin ?? board.k?.GetDesignSettings().GetAuxOrigin() ?? { x: 0, y: 0 };
 }
 
 /** The board's grid origin (`(setup (grid_origin x y))`),
  *  `BOARD_DESIGN_SETTINGS::GetGridOrigin` — what Position Relative offers as
  *  its "Use Grid Origin" reference. */
 export function boardGridOrigin(board: Board): Vec2 {
-  return board.gridOrigin ?? board.k?.designSettings.gridOrigin ?? { x: 0, y: 0 };
+  return board.gridOrigin ?? board.k?.GetDesignSettings().GetGridOrigin() ?? { x: 0, y: 0 };
 }
 
 /** Gerber writer options (the dialog's Gerber Options + General Options). */

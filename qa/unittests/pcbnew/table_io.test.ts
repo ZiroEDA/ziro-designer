@@ -94,7 +94,10 @@ describe('reading a table', () => {
 
     expect(t.columnCount).toBe(2);
     expect(t.columnWidths).toEqual([MM(18.5), MM(18.5)]);
-    expect(t.rowHeights).toEqual([MM(3.5), MM(3.5)]);
+    // `GetRowCount()` is `m_cells.size() / m_colCount` (pcb_table.h:125): two
+    // cells in two columns are one row, and `format( const PCB_TABLE* )` writes
+    // that many heights however many the file listed.
+    expect(t.rowHeights).toEqual([MM(3.5)]);
   });
 
   it('reads the layer and uuid', () => {

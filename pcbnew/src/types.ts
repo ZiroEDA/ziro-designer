@@ -4,10 +4,10 @@
 /**
  * Typed board model for `.kicad_pcb` files.
  *
- * A view over the KiCad model (`pcb_io/kicad_sexpr/kicad_board_items.ts`) that
- * `PCB_IO_KICAD_SEXPR_PARSER` builds: `Board` is derived from a `KBoard` by
- * `boardFromKBoard`, and `kboardFromBoard` folds the editor's changes back
- * into the model the writer formats. Every item carries its model as `k`.
+ * A view over KiCad's own `BOARD` that `PCB_IO_KICAD_SEXPR_PARSER` builds:
+ * `Board` is derived from it by `boardFromBOARD`, and `boardToBOARD` folds the
+ * editor's changes back into the classes `PCB_IO_KICAD_SEXPR` formats. Every
+ * item carries its class item as `k`.
  * Coordinates are in the same integer internal units as the schematic model
  * (mmToIU); positions of footprint children are stored board-absolute (rotate
  * by the footprint orientation about its anchor, then translate).
@@ -17,24 +17,21 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { ZoneConnection } from './zone_connection.js';
 import type { PcbFillMode } from './shape_fill.js';
 import type { PcbDrillSlot, PcbPostMachining } from './padstack_drill.js';
-import type {
-  KFootprint,
-  KPad,
-  KPcbBarcode,
-  KPcbDimension,
-  KPcbField,
-  KPcbGroup,
-  KPcbPoint,
-  KPcbReferenceImage,
-  KPcbTable,
-  KPcbText,
-  KPcbTextBox,
-  KPcbTrack,
-  KPcbVia,
-  KZone,
-} from './pcb_io/kicad_sexpr/legacy_k/kicad_board_items.js';
-import type { KPcbShape } from './pcb_io/kicad_sexpr/legacy_k/pcb_io_kicad_sexpr_items.js';
-import type { KBoard } from './pcb_io/kicad_sexpr/legacy_k/pcb_io_kicad_sexpr_board.js';
+import type { BOARD } from './board.js';
+import type { FOOTPRINT } from './footprint.js';
+import type { PAD } from './pad.js';
+import type { PCB_BARCODE } from './pcb_barcode.js';
+import type { PCB_DIMENSION_BASE } from './pcb_dimension.js';
+import type { PCB_FIELD } from './pcb_field.js';
+import type { PCB_GROUP } from './pcb_group.js';
+import type { PCB_POINT } from './pcb_point.js';
+import type { PCB_REFERENCE_IMAGE } from './pcb_reference_image.js';
+import type { PCB_SHAPE } from './pcb_shape.js';
+import type { PCB_TABLE, PCB_TABLECELL } from './pcb_table.js';
+import type { PCB_TEXT } from './pcb_text.js';
+import type { PCB_TEXTBOX } from './pcb_textbox.js';
+import type { PCB_ARC, PCB_TRACK, PCB_VIA } from './pcb_track.js';
+import type { ZONE } from './zone.js';
 
 /** One `(N "Name" type [userName])` row of the `(layers …)` table. */
 export interface PcbLayerDef {
@@ -151,7 +148,7 @@ export interface PcbPad {
   unconnectedLayerMode?: UnconnectedLayerMode;
   uuid?: string;
   /** The item in KiCad's own model, what the file is written from. */
-  k?: KPad;
+  k?: PAD;
 }
 
 /**
@@ -257,7 +254,7 @@ export interface PcbShape {
   netName?: string;
   uuid?: string;
   /** The item in KiCad's own model, what the file is written from. */
-  k?: KPcbShape;
+  k?: PCB_SHAPE;
 }
 
 /** Footprint property/fp_text or gr_text, board-absolute. */
@@ -291,7 +288,7 @@ export interface PcbTextItem {
   locked?: boolean;
   uuid?: string;
   /** The item in KiCad's own model, what the file is written from. */
-  k?: KPcbText;
+  k?: PCB_TEXT;
 }
 
 /** A 3D model attached to a footprint, KiCad `(model path (offset)(scale)(rotate))`.
@@ -318,7 +315,7 @@ export interface PcbFootprintField {
   name: string;
   value: string;
   /** The item in KiCad's own model, what the file is written from. */
-  k?: KPcbField;
+  k?: PCB_FIELD;
 }
 
 /**
@@ -404,7 +401,7 @@ export interface PcbFootprint {
   models: Model3D[];
   uuid?: string;
   /** The item in KiCad's own model, what the file is written from. */
-  k?: KFootprint;
+  k?: FOOTPRINT;
 }
 
 export interface PcbTrack {
@@ -425,7 +422,7 @@ export interface PcbTrack {
   locked?: boolean;
   uuid?: string;
   /** The item in KiCad's own model, what the file is written from. */
-  k?: KPcbTrack;
+  k?: PCB_TRACK;
 }
 
 export interface PcbArcTrack {
@@ -446,7 +443,7 @@ export interface PcbArcTrack {
   locked?: boolean;
   uuid?: string;
   /** The item in KiCad's own model, what the file is written from. */
-  k?: KPcbTrack;
+  k?: PCB_ARC;
 }
 
 /**
@@ -504,7 +501,7 @@ export interface PcbVia {
   locked?: boolean;
   uuid?: string;
   /** The item in KiCad's own model, what the file is written from. */
-  k?: KPcbVia;
+  k?: PCB_VIA;
 }
 
 export interface PcbZoneFill {
@@ -632,7 +629,7 @@ export interface PcbZone {
   locked?: boolean;
   uuid?: string;
   /** The item in KiCad's own model, what the file is written from. */
-  k?: KZone;
+  k?: ZONE;
 }
 
 /** `(keepout (tracks …) (vias …) (pads …) (copperpour …) (footprints …))`. */
@@ -675,7 +672,7 @@ export interface PcbGroup {
   locked?: boolean;
   members: string[];
   /** The item in KiCad's own model, what the file is written from. */
-  k?: KPcbGroup;
+  k?: PCB_GROUP;
 }
 
 /**
@@ -713,7 +710,7 @@ export interface PcbImage {
   data: string;
   uuid?: string;
   /** The item in KiCad's own model, what the file is written from. */
-  k?: KPcbReferenceImage;
+  k?: PCB_REFERENCE_IMAGE;
 }
 
 /**
@@ -763,7 +760,7 @@ export interface PcbTable {
   rowHeights: number[];
   cells: PcbTableCell[];
   /** The item in KiCad's own model, what the file is written from. */
-  k?: KPcbTable;
+  k?: PCB_TABLE;
 }
 
 /**
@@ -813,7 +810,7 @@ export interface PcbTextBox {
   strokeType?: StrokeType;
   knockout?: boolean;
   /** The item in KiCad's own model, what the file is written from. */
-  k?: KPcbTextBox;
+  k?: PCB_TEXTBOX;
 }
 
 /**
@@ -894,7 +891,7 @@ export interface PcbDimension {
   /** The `(gr_text …)` child. Absent on a centre dimension. */
   text?: PcbTextItem;
   /** The item in KiCad's own model, what the file is written from. */
-  k?: KPcbDimension;
+  k?: PCB_DIMENSION_BASE;
 }
 
 /**
@@ -931,7 +928,7 @@ export interface PcbPoint {
    */
   locked?: boolean;
   /** The item in KiCad's own model, what the file is written from. */
-  k?: KPcbPoint;
+  k?: PCB_POINT;
 }
 
 /**
@@ -985,7 +982,7 @@ export interface PcbBarcode {
   uuid?: string;
   locked?: boolean;
   /** The item in KiCad's own model, what the file is written from. */
-  k?: KPcbBarcode;
+  k?: PCB_BARCODE;
 }
 
 export interface Board {
@@ -1031,5 +1028,5 @@ export interface Board {
   groups: PcbGroup[];
   fileName?: string;
   /** The item in KiCad's own model, what the file is written from. */
-  k?: KBoard;
+  k?: BOARD;
 }

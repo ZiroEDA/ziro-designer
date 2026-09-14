@@ -8,14 +8,14 @@
  * tree-patching writer that used to live here is gone with the `source`
  * nodes it patched.
  */
-import { kboardFromBoard } from './pcb_io/kicad_sexpr/legacy_k/board_view.js';
-import { FormatBoard } from './pcb_io/kicad_sexpr/legacy_k/pcb_io_kicad_sexpr.js';
+import { boardToBOARD } from './pcb_io/kicad_sexpr/board_view.js';
+import { FormatBoard } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import type { Board } from './types.js';
 
 /**
  * Serialize a board to `.kicad_pcb` text: the view's edits go back into
- * KiCad's model (`kboardFromBoard`) and `format( BOARD )` writes it.
+ * KiCad's model (`boardToBOARD`) and `format( BOARD )` writes it.
  */
 export function serializeBoard(board: Board): string {
-  return FormatBoard(kboardFromBoard(board));
+  return FormatBoard(boardToBOARD(board));
 }

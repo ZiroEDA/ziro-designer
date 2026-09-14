@@ -93,7 +93,12 @@ const EMPTY_BOARD = `(kicad_pcb (version 20241229) (generator "pcbnew") (generat
     (layer "Edge.Cuts") (uuid "aaaaaaaa-0000-4000-8000-000000000001"))
 )`;
 
-/** The netlist a two-resistor / one-capacitor divider would produce. */
+/**
+ * The netlist a two-resistor / one-capacitor divider would produce. The
+ * symbol tstamps are valid uuids: `KIID( const wxString& )` (kiid.cpp) draws
+ * a random one for any text that does not parse, so a `(path …)` written from
+ * a made-up tstamp would come back different on every read.
+ */
 const NETLIST = `(export (version "E")
   (design
     (source "divider.kicad_sch")
@@ -120,7 +125,7 @@ const NETLIST = `(export (version "E")
       (property (name "Sheetname") (value ""))
       (property (name "Sheetfile") (value "divider.kicad_sch"))
       (sheetpath (names "/") (tstamps "/"))
-      (tstamps "rrrrrrr1-0000-4000-8000-000000000001"))
+      (tstamps "aaaaaaa1-0000-4000-8000-000000000001"))
     (comp (ref "R2")
       (value "10k")
       (footprint "Resistor_SMD:R_0805")
@@ -129,7 +134,7 @@ const NETLIST = `(export (version "E")
       (property (name "Sheetname") (value ""))
       (property (name "Sheetfile") (value "divider.kicad_sch"))
       (sheetpath (names "/") (tstamps "/"))
-      (tstamps "rrrrrrr2-0000-4000-8000-000000000001")))
+      (tstamps "aaaaaaa2-0000-4000-8000-000000000001")))
   (libparts)
   (libraries)
   (nets
@@ -177,7 +182,7 @@ describe('loadKicadNetlist', () => {
     expect(r1.GetFPID()).toBe('Resistor_SMD:R_0805');
     expect(r1.GetValue()).toBe('10k');
     expect(r1.path).toBe('/');
-    expect(r1.kiids).toEqual(['rrrrrrr1-0000-4000-8000-000000000001']);
+    expect(r1.kiids).toEqual(['aaaaaaa1-0000-4000-8000-000000000001']);
     expect(r1.GetProperties().get('Sheetfile')).toBe('divider.kicad_sch');
   });
 
@@ -200,7 +205,7 @@ describe('loadKicadNetlist', () => {
 
   it('finds a component by its full symbol path', () => {
     expect(
-      netlist.GetComponentByPath('/rrrrrrr2-0000-4000-8000-000000000001')?.GetReference(),
+      netlist.GetComponentByPath('/aaaaaaa2-0000-4000-8000-000000000001')?.GetReference(),
     ).toBe('R2');
   });
 
@@ -246,7 +251,7 @@ describe('BOARD_NETLIST_UPDATER on an empty board', () => {
     const r1 = board.footprints.find((f) => f.reference === 'R1')!;
     expect(r1.lib).toBe('Resistor_SMD:R_0805');
     expect(r1.value).toBe('10k');
-    expect(r1.path).toBe('/rrrrrrr1-0000-4000-8000-000000000001');
+    expect(r1.path).toBe('/aaaaaaa1-0000-4000-8000-000000000001');
     expect(r1.sheetfile).toBe('divider.kicad_sch');
     expect(r1.uuid).toBeTruthy();
 
@@ -281,7 +286,7 @@ describe('BOARD_NETLIST_UPDATER on an empty board', () => {
 
     const r1 = reread.footprints.find((f) => f.reference === 'R1')!;
     expect(reread.nets.get(r1.pads.find((p) => p.number === '1')!.net!)).toBe('VIN');
-    expect(r1.path).toBe('/rrrrrrr1-0000-4000-8000-000000000001');
+    expect(r1.path).toBe('/aaaaaaa1-0000-4000-8000-000000000001');
     // Pad positions survive the round trip through board-absolute coordinates.
     const pad1 = r1.pads.find((p) => p.number === '1')!;
     expect(pad1.at.x).toBe(r1.at.x - mmToIU(0.9375));
@@ -408,7 +413,7 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
 
   it('deletes a footprint whose symbol is gone only when asked', () => {
     const withoutR2 = NETLIST.replace(
-      /\s*\(comp \(ref "R2"\)[\s\S]*?\(tstamps "rrrrrrr2-0000-4000-8000-000000000001"\)\)/,
+      /\s*\(comp \(ref "R2"\)[\s\S]*?\(tstamps "aaaaaaa2-0000-4000-8000-000000000001"\)\)/,
       '',
     )
       .replace('(node (ref "R2") (pin "2") (pintype "passive"))', '')
@@ -436,7 +441,7 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
       ),
     };
     const withoutR2 = NETLIST.replace(
-      /\s*\(comp \(ref "R2"\)[\s\S]*?\(tstamps "rrrrrrr2-0000-4000-8000-000000000001"\)\)/,
+      /\s*\(comp \(ref "R2"\)[\s\S]*?\(tstamps "aaaaaaa2-0000-4000-8000-000000000001"\)\)/,
       '',
     );
     const { result } = runUpdate(board, loadKicadNetlist(withoutR2), {
@@ -497,8 +502,8 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
 
   it('applies the DNP and exclude-from-BOM attributes with Update Fields on', () => {
     const dnp = NETLIST.replace(
-      '(property (name "Sheetname") (value ""))\n      (property (name "Sheetfile") (value "divider.kicad_sch"))\n      (sheetpath (names "/") (tstamps "/"))\n      (tstamps "rrrrrrr1',
-      '(property (name "dnp"))\n      (property (name "exclude_from_bom"))\n      (property (name "Sheetname") (value ""))\n      (property (name "Sheetfile") (value "divider.kicad_sch"))\n      (sheetpath (names "/") (tstamps "/"))\n      (tstamps "rrrrrrr1',
+      '(property (name "Sheetname") (value ""))\n      (property (name "Sheetfile") (value "divider.kicad_sch"))\n      (sheetpath (names "/") (tstamps "/"))\n      (tstamps "aaaaaaa1',
+      '(property (name "dnp"))\n      (property (name "exclude_from_bom"))\n      (property (name "Sheetname") (value ""))\n      (property (name "Sheetfile") (value "divider.kicad_sch"))\n      (sheetpath (names "/") (tstamps "/"))\n      (tstamps "aaaaaaa1',
     );
     const { reporter, result } = runUpdate(populated(), loadKicadNetlist(dnp), {
       updateFields: true,

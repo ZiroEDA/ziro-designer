@@ -45,6 +45,8 @@ import {
   iuPerPixel,
 } from '@ziroeda/pcbnew/src/image_geometry.js';
 import { DEFAULT_PPI, pngPPI, pngPixelSize } from '@ziroeda/common/src/png_meta.js';
+import { pngCrc32 } from '@ziroeda/common/src/png_encoder.js';
+import { WX_IMAGE } from '@ziroeda/common/src/wx_image.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
 
@@ -52,39 +54,29 @@ const MM = (n: number): number => mmToIU(n);
 const IMG = 'image:0';
 
 /** Build a PNG header with the given pixel size and optional pHYs density. */
+/**
+ * A real PNG of `w` x `h` pixels — `wxImage::SaveFile` through WX_IMAGE, so
+ * that `BITMAP_BASE::ReadImageFile` (libpng: CRCs checked, an IDAT required)
+ * accepts it — with a `pHYs` of `ppuX` pixels per unit spliced in after the
+ * IHDR when one is asked for, the unit byte as given (1 = metre).
+ */
 function png(w: number, h: number, ppuX?: number, unit = 1): string {
-  const bytes: number[] = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  const image = new WX_IMAGE(w, h);
+  const base = image.SaveFilePng()!;
+  if (ppuX === undefined) return btoa(String.fromCharCode(...base));
   const be32 = (n: number): number[] => [
     (n >>> 24) & 255,
     (n >>> 16) & 255,
     (n >>> 8) & 255,
     n & 255,
   ];
-  // IHDR: length 13, type, width, height, then the rest of the header.
-  bytes.push(
-    ...be32(13),
-    0x49,
-    0x48,
-    0x44,
-    0x52,
-    ...be32(w),
-    ...be32(h),
-    8,
-    6,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-  );
-  if (ppuX !== undefined) {
-    // pHYs: length 9, type, ppuX, ppuY, unit byte.
-    bytes.push(...be32(9), 0x70, 0x48, 0x59, 0x73, ...be32(ppuX), ...be32(ppuX), unit, 0, 0, 0, 0);
-  }
-  // IEND, so the chunk walk terminates the way a real file does.
-  bytes.push(...be32(0), 0x49, 0x45, 0x4e, 0x44, 0, 0, 0, 0);
+  // pHYs: length 9, type, ppuX, ppuY, unit byte, then the CRC of type + data.
+  const chunk = [...be32(9), 0x70, 0x48, 0x59, 0x73, ...be32(ppuX), ...be32(ppuX), unit];
+  const crcOver = Uint8Array.from(chunk.slice(4));
+  chunk.push(...be32(pngCrc32(crcOver)));
+  // The IHDR chunk is the first after the 8-byte signature: 4 + 4 + 13 + 4 bytes.
+  const afterIhdr = 8 + 4 + 4 + 13 + 4;
+  const bytes = [...base.slice(0, afterIhdr), ...chunk, ...base.slice(afterIhdr)];
   return btoa(String.fromCharCode(...bytes));
 }
 
@@ -210,9 +202,16 @@ describe('how much board an image covers', () => {
     expect(size.w / size.h).toBeCloseTo(2, 6);
   });
 
-  it('falls back to a small square when the payload cannot be read', () => {
-    // So a broken image is still selectable rather than a zero-size ghost.
-    const broken = read(IMAGE(btoa('garbage'))).images[0]!;
+  it('refuses a payload it cannot read, as the C++ parser does', () => {
+    // `parsePCB_REFERENCE_IMAGE` (pcb_io_kicad_sexpr_parser.cpp): "Failed to
+    // read image data." — the board does not load with a broken image in it.
+    expect(() => read(IMAGE(btoa('garbage')))).toThrow('Failed to read image data.');
+  });
+
+  it('falls back to a small square when a view item carries no readable payload', () => {
+    // So a broken image (one the editor made and has not decoded yet) is still
+    // selectable rather than a zero-size ghost.
+    const broken = { ...read(IMAGE()).images[0]!, data: btoa('garbage'), k: undefined };
     const size = imageSizeIU(broken);
 
     expect(size.w).toBe(Math.round(FALLBACK_PIXELS.w * iuPerPixel(DEFAULT_PPI)));

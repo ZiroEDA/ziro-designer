@@ -4,8 +4,8 @@
 /**
  * Reader: `.kicad_pcb` / `.kicad_mod` text -> the typed `Board` view.
  *
- * `PCB_IO_KICAD_SEXPR_PARSER` (pcb_io/kicad_sexpr/) builds the model; the
- * `Board` returned here is its view (`boardFromKBoard`). Footprint children are
+ * `PCB_IO_KICAD_SEXPR_PARSER` (pcb_io/kicad_sexpr/) builds the BOARD; the
+ * `Board` returned here is its view (`boardFromBOARD`). Footprint children are
  * stored board-absolute in the view: `fpPos + RotatePoint(local, fpAngle)`,
  * with RotatePoint (libs/kimath/src/trigo.cpp): x' = x·cos + y·sin,
  * y' = y·cos − x·sin.
@@ -13,16 +13,16 @@
 
 import { head, type SList } from '@ziroeda/sexpr/src/types.js';
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';
+import type { BOARD } from './board.js';
+import type { FOOTPRINT } from './footprint.js';
 import {
-  boardFromKBoard,
+  boardFromBOARD,
   footprintViewOfBoard,
   footprintViewOfLibrary,
-} from './pcb_io/kicad_sexpr/legacy_k/board_view.js';
-import {
-  ParseBoard,
-  ParseFootprintFile,
-} from './pcb_io/kicad_sexpr/legacy_k/pcb_io_kicad_sexpr_board.js';
+} from './pcb_io/kicad_sexpr/board_view.js';
+import { PCB_IO_KICAD_SEXPR_PARSER } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { Board, PcbFootprint } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
@@ -131,5 +131,22 @@ export function readBoardFootprint(input: string | SList): PcbFootprint | null {
  */
 export function readBoard(input: string | SList): Board {
   const text = typeof input === 'string' ? input : serialize(input);
-  return boardFromKBoard(ParseBoard(text));
+  return boardFromBOARD(ParseBoard(text));
+}
+
+/** `PCB_IO_KICAD_SEXPR::LoadBoard` for a string: the parser over it, a BOARD back. */
+export function ParseBoard(text: string, source = 'board'): BOARD {
+  const item = new PCB_IO_KICAD_SEXPR_PARSER(text, source).Parse();
+  if (item.Type() !== KICAD_T.PCB_T) throw new Error('Not a board file');
+  return item as BOARD;
+}
+
+/**
+ * `PCB_IO_KICAD_SEXPR::ImportFootprint` for a string: a `(footprint …)` file
+ * parsed on its own, no board.
+ */
+export function ParseFootprintFile(text: string, source = 'footprint'): FOOTPRINT {
+  const item = new PCB_IO_KICAD_SEXPR_PARSER(text, source).Parse();
+  if (item.Type() !== KICAD_T.PCB_FOOTPRINT_T) throw new Error('Not a footprint file');
+  return item as FOOTPRINT;
 }

@@ -21,7 +21,7 @@ import { fractureWithHoles, signedArea, pointInPolygon } from './geometry.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import { RPT_SEVERITY_ERROR, type Reporter } from '@ziroeda/common/src/reporter.js';
-import { SEXPR_BOARD_FILE_VERSION } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/legacy_k/pcb_io_kicad_sexpr_parser.js';
+import { SEXPR_BOARD_FILE_VERSION } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 import { SYMBOL_LIB_FILE_VERSION } from '@ziroeda/eeschema/src/sch_io/sexpr/write-symbol-lib.js';
 import { WKS_FILE_VERSION } from '@ziroeda/common/src/drawing_sheet/types.js';
 

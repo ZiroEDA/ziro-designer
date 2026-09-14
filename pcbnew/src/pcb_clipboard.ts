@@ -67,12 +67,13 @@
  *    in our model, so their `DeepClone` branch has nothing to port to.
  */
 
-import { kboardFromBoard } from './pcb_io/kicad_sexpr/legacy_k/board_view.js';
+import { boardToBOARD } from './pcb_io/kicad_sexpr/board_view.js';
 import {
   FormatClipboardBoard,
   FormatClipboardFootprint,
-} from './pcb_io/kicad_sexpr/legacy_k/pcb_io_kicad_sexpr.js';
-import { newKiid } from '@ziroeda/common/src/kiid.js';
+} from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { type KIID, newKiid } from '@ziroeda/common/src/kiid.js';
+import { RECURSE_MODE } from '@ziroeda/common/src/eda_item.js';
 import {
   boardItemId,
   parseBoardItemId,
@@ -88,7 +89,7 @@ import { uniqueZoneName } from './rule_area_properties.js';
 import { expandLayerWildcards } from './swap_layers.js';
 import { reannotateDuplicates } from './board_reannotate.js';
 import type { Board, PcbFootprint, PcbGroup, PcbPad, PcbTextItem, PcbZone } from './types.js';
-import type { KFootprint } from './pcb_io/kicad_sexpr/legacy_k/kicad_board_items.js';
+import type { FOOTPRINT } from './footprint.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 // ----- paste-special options --------------------------------------------------
@@ -426,8 +427,8 @@ export function copySelectionToClipboardText(
     };
     const moved = moveBoardItems(oneFp, new Set([boardItemId('footprint', 0)]), back);
     // `Format( &newFootprint )` with CTL_FOR_CLIPBOARD (kicad_clipboard.cpp:207).
-    const kb = kboardFromBoard(moved);
-    return FormatClipboardFootprint(kb.footprints[0]!, kb);
+    const kb = boardToBOARD(moved);
+    return FormatClipboardFootprint(kb.Footprints()[0]!);
   }
 
   // --- the board payload -----------------------------------------------------
@@ -451,7 +452,7 @@ export function copySelectionToClipboardText(
   const moved = moveBoardItems(unlocked, new Set(allIds), back);
   // "we will fake being a .kicad_pcb to get the full parser kicking"
   // (kicad_clipboard.cpp:322): the header, the layers, the items.
-  return FormatClipboardBoard(kboardFromBoard(moved));
+  return FormatClipboardBoard(boardToBOARD(moved));
 }
 
 /** A payload board with nothing in it, carrying the donor board's metadata. */
@@ -1077,9 +1078,9 @@ function restamp(dest: Board, clip: Board): Board {
     const next = stamp(f);
     if (next.k) restampFootprintChildren(next.k, remap);
     // The view's children take the uuids their models were just given.
-    const child = <T extends { uuid?: string; k?: { uuid: string } }>(c: T): T => ({
+    const child = <T extends { uuid?: string; k?: { m_Uuid: KIID } }>(c: T): T => ({
       ...c,
-      uuid: c.k?.uuid ?? fresh(c.uuid),
+      uuid: c.k?.m_Uuid ?? fresh(c.uuid),
     });
     return {
       ...next,
@@ -1107,7 +1108,8 @@ function restamp(dest: Board, clip: Board): Board {
 
   const tables = clip.tables.map((t) => {
     const next = stamp(t);
-    for (const cell of next.k?.cells ?? []) cell.uuid = fresh(cell.uuid);
+    for (const cell of next.k?.GetCells() ?? [])
+      (cell as { m_Uuid: KIID }).m_Uuid = fresh(cell.m_Uuid);
     return next;
   });
 
@@ -1137,26 +1139,17 @@ function restamp(dest: Board, clip: Board): Board {
   return next;
 }
 
-/** `RunOnChildren( …, RECURSE_MODE::RECURSE )` over a FOOTPRINT's model. */
-function restampFootprintChildren(k: KFootprint, remap: Map<string, string>): void {
-  const fresh = (item: { uuid: string }): void => {
+/**
+ * `RunOnChildren( …, RECURSE_MODE::RECURSE )` over a FOOTPRINT: every child
+ * gets a fresh uuid (`const_cast<KIID&>( item->m_Uuid ) = KIID()`). A group's
+ * members are references, so they follow.
+ */
+function restampFootprintChildren(k: FOOTPRINT, remap: Map<string, string>): void {
+  k.RunOnChildren((item) => {
     const uuid = newKiid();
-    remap.set(item.uuid, uuid);
-    item.uuid = uuid;
-  };
-  for (const f of k.fields) fresh(f);
-  for (const g of k.graphicalItems) {
-    fresh(g.item);
-    if (g.kind === 'table') for (const cell of g.item.cells) fresh(cell);
-    if (g.kind === 'dimension') g.item.text.uuid = g.item.uuid;
-  }
-  for (const p of k.points) fresh(p);
-  for (const p of k.pads) fresh(p);
-  for (const z of k.zones) fresh(z);
-  for (const g of k.groups) fresh(g);
-  for (const g of k.groups)
-    g.memberUuids = g.memberUuids.map((m) => remap.get(m)).filter((m): m is string => !!m);
-  k.groupMembers = undefined;
+    remap.set(item.m_Uuid, uuid);
+    (item as { m_Uuid: KIID }).m_Uuid = uuid;
+  }, RECURSE_MODE.RECURSE);
 }
 
 /** Append every payload item to the destination board, reporting the new ids. */

@@ -25,6 +25,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
+import { WX_IMAGE } from '@ziroeda/common/src/wx_image.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
 import type { SList } from '@ziroeda/sexpr/src/types.js';
@@ -211,10 +212,11 @@ describe('building an image from scratch', () => {
 
   it('round-trips a payload longer than one line', () => {
     // Three full lines plus a remainder, so the split is exercised properly.
-    // Real base64 (200 bytes -> 268 characters): the writer decodes and
-    // re-encodes the payload the way `wxBase64Decode` / `FormatStreamData` do,
-    // so a string that is not a whole number of quartets cannot come back.
-    const long = btoa(String.fromCharCode(...Array.from({ length: 200 }, (_, i) => i)));
+    // A real PNG (`BITMAP_BASE::ReadImageFile` decodes what it is given, and
+    // the writer re-encodes the decoded image's original bytes the way
+    // `wxBase64Decode` / `FormatStreamData` do): 20 x 20 pixels stored
+    // uncompressed is well over three lines of base64.
+    const long = btoa(String.fromCharCode(...new WX_IMAGE(20, 20).SaveFilePng()!));
     expect(long.length).toBeGreaterThan(BASE64_LINE_WIDTH * 3);
     const b = read();
     b.images.push(base({ data: long }));

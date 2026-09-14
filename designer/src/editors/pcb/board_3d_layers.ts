@@ -228,9 +228,9 @@ export function defaultPlotLayerSelection(): Set<number> {
 }
 
 export function plotLayerSelection(board: Board): PlotLayerSelection {
-  const p = board.k?.designSettings.plotOptions;
-  const layers = p ? new Set(p.layerSelection.Seq()) : defaultPlotLayerSelection();
-  if (p) for (const id of p.plotOnAllLayersSelection.Seq()) layers.add(id);
+  const p = board.k?.GetPlotOptions();
+  const layers = p ? new Set(p.GetLayerSelection().Seq()) : defaultPlotLayerSelection();
+  if (p) for (const id of p.GetPlotOnAllLayersSequence()) layers.add(id);
   // `m_plotReference` / `m_plotValue` / `m_plotFPText` are not board-file
   // tokens in 10.0.5 (`PCB_PLOT_PARAMS::Parse` has no case for them), so a
   // loaded board holds the constructor's `true` for all three.
@@ -333,11 +333,11 @@ export const DEFAULT_HOLE_PLATING_THICKNESS = 20000;
  * (a footprint holder) leaves them undefined, which the callers read as 0.
  */
 export function boardMaskPasteDefaults(board: Board): BoardMaskPasteDefaults {
-  const bds = board.k?.designSettings;
+  const bds = board.k?.GetDesignSettings();
   return {
-    solderMaskExpansion: bds?.solderMaskExpansion,
-    solderPasteMargin: bds?.solderPasteMargin,
-    solderPasteMarginRatio: bds?.solderPasteMarginRatio,
+    solderMaskExpansion: bds?.m_SolderMaskExpansion,
+    solderPasteMargin: bds?.m_SolderPasteMargin,
+    solderPasteMarginRatio: bds?.m_SolderPasteMarginRatio,
   };
 }
 

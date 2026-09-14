@@ -616,7 +616,7 @@ function isNormal(aValue: number): boolean {
 }
 
 /** `wxBase64Decode( data )`: an invalid string decodes to what could be read. */
-function base64Decode(aText: string): Uint8Array {
+export function base64Decode(aText: string): Uint8Array {
   let bin: string;
 
   try {

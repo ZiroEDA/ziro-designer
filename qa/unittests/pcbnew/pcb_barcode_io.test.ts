@@ -17,7 +17,11 @@
  * Reader: `parsePCB_BARCODE` (`…_parser.cpp:3979-4117`).
  * Writer: `format( const PCB_BARCODE* )` (`pcb_io_kicad_sexpr.cpp:2198-2261`).
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// Every read assembles the barcode's symbol (`PCB_BARCODE::AssembleBarcode`,
+// the parser's last step), and a knockout QR takes a second or more.
+vi.setConfig({ testTimeout: 30_000 });
 import { parse, head } from '@ziroeda/sexpr/src/index.js';
 import { readBoard, readFootprintFile } from '@ziroeda/pcbnew/src/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
@@ -77,10 +81,13 @@ describe('reading the tokens', () => {
     expect(only(withBarcode(`(text "X")`)).showText).toBe(true);
   });
 
-  it('takes the angle as a plain double, and defaults it to zero', () => {
-    // `if( CurTok() == T_NUMBER ) barcode->SetOrientation( parseDouble() )`
-    // (:4002-4004): the third field of `(at …)` is optional.
-    expect(only(withBarcode(`(at 1 2) (text "X")`)).angle).toBe(0);
+  it('takes the angle as a plain double, and needs one', () => {
+    // `token = NextTok(); if( CurTok() == T_NUMBER ) barcode->SetOrientation(
+    // parseDouble() ); NeedRIGHT();` (:4000-4004): with no angle the `)` is the
+    // token NextTok() took, and NeedRIGHT() then wants another — pcbnew 10.0.5
+    // refuses `(barcode (at 1 2) …)` (python `LoadBoard` returns None), and its
+    // own writer always spells the angle.
+    expect(() => withBarcode(`(at 1 2) (text "X")`)).toThrow(/Expecting '\)'/);
     expect(only(withBarcode(`(at 1 2 -12.5) (text "X")`)).angle).toBe(-12.5);
   });
 

@@ -21,6 +21,7 @@
  * whether the board *looks* right. That needs the browser.
  */
 import { describe, expect, it } from 'vitest';
+import { WX_IMAGE } from '@ziroeda/common/src/wx_image.js';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
@@ -52,6 +53,9 @@ const board = (): Board =>
 )`),
   );
 
+/** A real 1 x 1 PNG: `BITMAP_BASE::ReadImageFile` decodes what the file carries. */
+const PNG_1x1 = btoa(String.fromCharCode(...new WX_IMAGE(1, 1).SaveFilePng()!));
+
 /** The same board with a reference image dropped on it. */
 const boardWithImage = (): Board =>
   readBoard(
@@ -60,7 +64,7 @@ const boardWithImage = (): Board =>
   (net 0 "")
   (segment (start 100 100) (end 120 100) (width 0.25) (layer "F.Cu") (net 0))
   (image (at 110 105) (layer "F.Cu")
-    (data "aVZCT1J3MEtHZ29BQUFBTlNVaEVVZ0FBQUFFQUFBQUJDQVlBQUFBZkZjU0pBQUFBQzBsRVFWUjQybUw4"))
+    (data "${PNG_1x1}"))
 )`),
   );
 

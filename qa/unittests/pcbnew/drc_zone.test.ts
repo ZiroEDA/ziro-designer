@@ -8,9 +8,11 @@ import { parse } from '@ziroeda/sexpr';
 import { readBoard, runDrc } from '@ziroeda/pcbnew';
 
 const MM = PCB_IU_PER_MM;
+// Version 20250210: an older file's `filled_polygon` is a stroked fill that
+// `parseZONE` inflates by half the min thickness, which would move this edge.
 const base = (extra: string) =>
   readBoard(
-    parse(`(kicad_pcb (version 20241229) (generator "test")
+    parse(`(kicad_pcb (version 20250210) (generator "test")
       (layers (0 "F.Cu" signal) (2 "B.Cu" signal))
       (net 0 "") (net 1 "GND") (net 2 "VCC") ${extra})`),
   );

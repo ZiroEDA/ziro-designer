@@ -21,13 +21,13 @@
  * attributes, clearance overrides, 3D models) comes from the library, which is what
  * ExchangeFootprint's default reset flags do.
  */
-import { newKiid } from '@ziroeda/common/src/kiid.js';
-import { ANGLE_0 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { kiidFromString, newKiid } from '@ziroeda/common/src/kiid.js';
+import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
+import { ANGLE_0, EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { computeFootprintShift } from './footprint_utils.js';
 import { fpidItemName } from './netlist_reader/pcb_netlist.js';
-import { rotatePcb } from './read-board.js';
-import { cloneK, footprintViewOfBoard } from './pcb_io/kicad_sexpr/legacy_k/board_view.js';
+import { footprintViewOfBoard } from './pcb_io/kicad_sexpr/board_view.js';
 import { LSET_NameToLayer } from './layer_ids.js';
 import type { PcbFootprint } from './types.js';
 
@@ -50,9 +50,11 @@ export interface PlaceFootprintOptions {
 
 /**
  * Turn a library footprint into a board footprint at a given place.
- * `LoadFootprintFromProject` + `FOOTPRINT::SetPosition`: all nets are cleared (a
- * library footprint's pads carry orphaned net codes) and the placement envelope is
- * written, then the node is re-read so children land in board coordinates.
+ * `LoadFootprintFromProject` + the placement: `FOOTPRINT( *lib )`, its nets
+ * cleared (a library footprint's pads carry orphaned net codes), then
+ * `SetPosition` / `SetOrientation`, which carry every child with the anchor,
+ * and `Flip` for the back side, the way `ExchangeFootprint` puts a new
+ * footprint on the side of the old one (pcb_edit_frame.cpp:2671).
  */
 export function placeFootprint(
   libFootprint: PcbFootprint,
@@ -64,59 +66,39 @@ export function placeFootprint(
   // `FOOTPRINT( *lib )`: a copy of the library footprint, then the board's own
   // placement written over it — CTL_OMIT_FOOTPRINT_VERSION drops the library
   // header's version and generator, which live on the board instead.
-  const k = cloneK(lib);
-  k.initialComments = null;
-  k.fpid = opts.fpid;
-  k.locked = opts.locked ?? false;
-  k.layer = LSET_NameToLayer(opts.layer ?? 'F.Cu');
-  k.uuid = opts.uuid ?? newKiid();
-  const angle = opts.angle ?? 0;
-  k.path = opts.path ?? '';
-  k.sheetname = opts.sheetname ?? '';
-  k.sheetfile = opts.sheetfile ?? '';
+  const k = lib.Clone();
+  k.SetInitialComments(null);
+  k.SetFPIDAsString(opts.fpid);
+  k.SetLocked(opts.locked ?? false);
+  (k as { m_Uuid: string }).m_Uuid = opts.uuid ?? newKiid();
+  const path = opts.path ?? '';
+  k.SetPath(
+    path === ''
+      ? []
+      : path
+          .split('/')
+          .filter((s) => s !== '')
+          .map(kiidFromString),
+  );
+  k.SetSheetname(opts.sheetname ?? '');
+  k.SetSheetfile(opts.sheetfile ?? '');
 
   // `FOOTPRINT::ClearAllNets`: a library pad's net, pin function and type are
   // the symbol's business, and the netlist fills them in.
-  for (const pad of k.pads) {
-    pad.net = null;
-    pad.pinFunction = '';
-    pad.pinType = '';
+  k.ClearAllNets();
+  for (const pad of k.Pads()) {
+    pad.SetPinFunction('');
+    pad.SetPinType('');
   }
 
-  // `SetPosition` / `SetOrientation` carry the points explicitly (see
-  // `placePoint`); every other child rides the footprint's placement.
-  k.at = opts.at;
-  k.orientation = angle;
-  for (const point of k.points) {
-    const r = rotatePcb(point.pos, angle);
-    point.pos = { x: r.x + opts.at.x, y: r.y + opts.at.y };
-  }
+  // A library footprint sits at the origin, unrotated; the children ride the anchor.
+  k.SetPosition({ x: opts.at.x, y: opts.at.y });
+  k.SetOrientation(new EDA_ANGLE(opts.angle ?? 0));
+  if (LSET_NameToLayer(opts.layer ?? 'F.Cu') !== k.GetLayer())
+    k.Flip(k.GetPosition(), FLIP_DIRECTION.TOP_BOTTOM);
 
   return footprintViewOfBoard(k);
 }
-
-/**
- * Move a `(point …)` child into board coordinates.
- *
- * Every other child rides the footprint's `(at …)` for free, because the reader
- * applies the placement to it — `parsePCB_SHAPE` finishes with `Rotate({0,0},
- * orientation); Move( parentFP->GetPosition() )`. A point is the one child with
- * no such parser arm, and that is not an oversight: `format( const PCB_POINT* )`
- * prints through the *one-argument* `formatInternalUnits`, so a footprint's
- * points are written and read in absolute board coordinates.
- *
- * But `placeFootprint` stands in for `FOOTPRINT::SetPosition` and
- * `FOOTPRINT::SetOrientation`, and both of those carry the points explicitly:
- *
- *     for( PCB_POINT* point : m_points ) point->Move( delta );      (:3022-3023)
- *     for( PCB_POINT* point : m_points ) point->Rotate( …, angle ); (:3122-3123)
- *
- * A library footprint's points are in the library's frame, where the footprint
- * sits at the origin, so placing one has to bring them along. Without this they
- * stay at the origin of the sheet — which is both a stray marker in the corner
- * of every board and, because `footprintBBox` counts points, a footprint whose
- * bounding box stretches from the origin to wherever it was placed.
- */
 
 /**
  * BOARD::ExchangeFootprint with the netlist updater's arguments

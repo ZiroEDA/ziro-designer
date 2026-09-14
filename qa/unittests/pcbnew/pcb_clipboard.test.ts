@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
-import { SEXPR_BOARD_FILE_VERSION } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/legacy_k/pcb_io_kicad_sexpr_parser.js';
+import { SEXPR_BOARD_FILE_VERSION } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 import {
   boardItemId,
   deleteBoardItems,
@@ -273,11 +273,18 @@ describe('copySelectionToClipboardText: the payload document', () => {
     });
     const text = copySelectionToClipboardText(b, ['track:0']);
     expect(text).toContain('(4 "In1.Cu" signal "Power")');
+    // `BOARD_DESIGN_SETTINGS::SetEnabledLayers` "Ensures mandatory layers are
+    // always enabled" (board_design_settings.cpp): Edge.Cuts, Margin and the
+    // two courtyards follow the four copper layers the view named.
     expect(mustParse(text).board.layers.map((l) => l.name)).toEqual([
       'F.Cu',
       'In1.Cu',
       'In2.Cu',
       'B.Cu',
+      'Edge.Cuts',
+      'Margin',
+      'F.CrtYd',
+      'B.CrtYd',
     ]);
   });
 
@@ -517,9 +524,10 @@ describe('copySelectionToClipboardText: groups', () => {
 
   it('drops a member the payload does not contain', () => {
     // A group whose member list names something not on the board — a file
-    // written by a tool that deleted the item, or a hand-edited one. Upstream's
-    // equivalent is `copy->SetParentGroup( nullptr )` for items whose group is
-    // not being copied: a group must never claim what did not travel with it.
+    // written by a tool that deleted the item, or a hand-edited one.
+    // `resolveGroups` already leaves such a member out at load ("ResolveItem"
+    // finds nothing for it), and the payload's group claims only what
+    // travelled with it: a group must never claim what is not there.
     const b = fromText(
       [
         TRACK_TEXT,
@@ -528,7 +536,7 @@ describe('copySelectionToClipboardText: groups', () => {
           '          "deadbeef-0000-4000-8000-000000000000"))',
       ].join('\n'),
     );
-    expect(b.groups[0]!.members).toHaveLength(2);
+    expect(b.groups[0]!.members).toEqual(['10000000-0000-4000-8000-000000000002']);
     const p = mustParse(copySelectionToClipboardText(b, ['group:0']));
     expect(p.board.groups[0]!.members).toEqual(['10000000-0000-4000-8000-000000000002']);
   });

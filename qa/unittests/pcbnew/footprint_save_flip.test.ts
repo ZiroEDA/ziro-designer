@@ -20,12 +20,11 @@ import { head, isList, type SList } from '@ziroeda/sexpr/src/types.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { readFootprintFile } from '@ziroeda/pcbnew/src/read-board.js';
 import { FLIP_DIRECTION, serializeFootprint } from '@ziroeda/pcbnew/src/write-footprint.js';
-import {
-  boardOpposites,
-  flipLayerId,
-} from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/legacy_k/kicad_footprint_ops.js';
+import { FlipLayer, type PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { LSET } from '@ziroeda/common/src/lset.js';
+import { LAYER_T } from '@ziroeda/pcbnew/src/board_types.js';
 import { B_Cu, F_Cu, In_Cu, User_1 } from '@ziroeda/pcbnew/src/layer_ids.js';
-import type { LayerDescr } from '@ziroeda/pcbnew/src/board_file_model.js';
+import { emptyBOARD } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/board_view.js';
 import type { PcbFootprint } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
@@ -164,8 +163,16 @@ describe('a back footprint saved with FLIP_DIRECTION::TOP_BOTTOM', () => {
   });
 
   it('writes stable bytes: saving the saved footprint changes nothing', () => {
+    // Nothing but the four mandatory fields' uuids, which `FootprintSave`'s
+    // `FOOTPRINT( const FOOTPRINT& )` copy renews on every save in pcbnew
+    // 10.0.5 as well (`*existingField = *field` carries no KIID).
     const once = serializeFootprint(read(BACK));
-    expect(serializeFootprint(read(once))).toBe(once);
+    const twice = serializeFootprint(read(once));
+    const fieldUuids = (text: string): string =>
+      text.replace(/\(property [^\n]*\n(?:[^\n]*\n)*?\t\t\(uuid "[^"]+"\)/g, (m) =>
+        m.replace(/\(uuid "[^"]+"\)/, '(uuid "<field>")'),
+      );
+    expect(fieldUuids(twice)).toBe(fieldUuids(once));
   });
 });
 
@@ -200,49 +207,48 @@ describe('a back footprint saved with FLIP_DIRECTION::LEFT_RIGHT', () => {
 describe('BOARD::FlipLayer', () => {
   it('pairs the inner layers of a four- and a six-layer board', () => {
     // FlipLayer( aLayerId, aCopperLayersCount ) (layer_id.cpp:197-212).
-    expect(flipLayerId(In_Cu(1), 4)).toBe(In_Cu(2));
-    expect(flipLayerId(In_Cu(2), 4)).toBe(In_Cu(1));
-    expect(flipLayerId(In_Cu(1), 6)).toBe(In_Cu(4));
-    expect(flipLayerId(In_Cu(3), 6)).toBe(In_Cu(2));
+    const L = (n: number): PCB_LAYER_ID => n as PCB_LAYER_ID;
+    expect(FlipLayer(L(In_Cu(1)), 4)).toBe(In_Cu(2));
+    expect(FlipLayer(L(In_Cu(2)), 4)).toBe(In_Cu(1));
+    expect(FlipLayer(L(In_Cu(1)), 6)).toBe(In_Cu(4));
+    expect(FlipLayer(L(In_Cu(3)), 6)).toBe(In_Cu(2));
     // A two-layer board has no inner layers to pair.
-    expect(flipLayerId(In_Cu(1), 2)).toBe(In_Cu(1));
-    expect(flipLayerId(F_Cu, 2)).toBe(B_Cu);
+    expect(FlipLayer(L(In_Cu(1)), 2)).toBe(In_Cu(1));
+    expect(FlipLayer(L(F_Cu), 2)).toBe(B_Cu);
   });
+
+  /** A two-layer BOARD with the given user layers enabled, named and typed. */
+  const boardWith = (layers: [number, string, LAYER_T][]): ReturnType<typeof emptyBOARD> => {
+    const board = emptyBOARD();
+    const enabled = new LSET(board.GetEnabledLayers());
+    for (const [id] of layers) enabled.set(id);
+    board.SetEnabledLayers(enabled);
+    for (const [id, userName, type] of layers) {
+      board.SetLayerType(id as PCB_LAYER_ID, type);
+      board.SetLayerName(id as PCB_LAYER_ID, userName);
+    }
+    return board;
+  };
 
   it('pairs front/back user layers by their name after the dot', () => {
     // recalcOpposites (board.cpp:867-898): "Match up similary-named front/back user layers".
-    const d = (number: number, userName: string, type: LayerDescr['type']): LayerDescr => ({
-      number,
-      name: `User.${(number - User_1) / 2 + 1}`,
-      userName,
-      type,
-      visible: true,
-    });
-    const descrs = new Map<number, LayerDescr>([
-      [User_1, d(User_1, 'F.Glue', 'front')],
-      [User_1 + 4, d(User_1 + 4, 'B.Glue', 'back')],
+    const board = boardWith([
+      [User_1, 'F.Glue', LAYER_T.LT_FRONT],
+      [User_1 + 4, 'B.Glue', LAYER_T.LT_BACK],
     ]);
-    const opp = boardOpposites(descrs, 2);
-    expect(opp.get(User_1)).toBe(User_1 + 4);
-    expect(opp.get(User_1 + 4)).toBe(User_1);
+    expect(board.FlipLayer(User_1 as PCB_LAYER_ID)).toBe(User_1 + 4);
+    expect(board.FlipLayer((User_1 + 4) as PCB_LAYER_ID)).toBe(User_1);
   });
 
   it('pairs consecutive renamed front/back user layers', () => {
     // recalcOpposites (board.cpp:900-918): "Match up non-custom-named consecutive front/back user layer pairs".
-    const d = (number: number, userName: string, type: LayerDescr['type']): LayerDescr => ({
-      number,
-      name: `User.${(number - User_1) / 2 + 1}`,
-      userName,
-      type,
-      visible: true,
-    });
-    const descrs = new Map<number, LayerDescr>([
-      [User_1, d(User_1, 'Top Stuff', 'front')],
-      [User_1 + 2, d(User_1 + 2, 'Bottom Stuff', 'back')],
+    const board = boardWith([
+      [User_1, 'Top Stuff', LAYER_T.LT_FRONT],
+      [User_1 + 2, 'Bottom Stuff', LAYER_T.LT_BACK],
+      [User_1 + 4, '', LAYER_T.LT_AUX],
     ]);
-    const opp = boardOpposites(descrs, 2);
-    expect(opp.get(User_1)).toBe(User_1 + 2);
+    expect(board.FlipLayer(User_1 as PCB_LAYER_ID)).toBe(User_1 + 2);
     // A user layer nobody typed or paired stays its own opposite.
-    expect(opp.get(User_1 + 4)).toBe(User_1 + 4);
+    expect(board.FlipLayer((User_1 + 4) as PCB_LAYER_ID)).toBe(User_1 + 4);
   });
 });

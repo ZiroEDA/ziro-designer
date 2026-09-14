@@ -68,7 +68,11 @@ describe('readBoard (synthetic)', () => {
   // A 90°-rotated footprint: pad at local (1, 0) must land at fp + (0, -1)
   // (KiCad RotatePoint +90°: (x,y) -> (y,-x)), and the file pad angle is
   // board-absolute so it stays 90 regardless of the footprint rotation.
-  const src = `(kicad_pcb (version 20241229) (generator "pcbnew")
+  // Version 20250210: a `filled_polygon` in an older file is a stroked fill,
+  // which `parseZONE` inflates by half the min thickness with round corners
+  // ("Zone fills will be converted on best-effort basis"), so the four
+  // corners below would come back as twenty.
+  const src = `(kicad_pcb (version 20250210) (generator "pcbnew")
     (general (thickness 1.6))
     (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (25 "Edge.Cuts" user))
     (net 0 "") (net 1 "GND")

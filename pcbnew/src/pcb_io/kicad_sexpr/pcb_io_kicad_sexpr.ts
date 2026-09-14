@@ -498,6 +498,11 @@ export class PCB_IO_KICAD_SEXPR {
     aBoard.GetTitleBlock().Format(this.m_out);
   }
 
+  /** `formatBoardLayers`, which `CLIPBOARD_IO::SaveSelection` calls from outside. */
+  FormatBoardLayers(aBoard: BOARD): void {
+    this.formatBoardLayers(aBoard);
+  }
+
   private formatBoardLayers(aBoard: BOARD): void {
     this.m_out.Print('(layers');
 
@@ -2681,6 +2686,51 @@ export function FormatFootprintForLibrary(
 ): string {
   const formatter = new PRETTIFIED_STRING_FORMATTER();
   const pcb_io = new PCB_IO_KICAD_SEXPR(formatter, CTL_FOR_LIBRARY, aGenerator);
+  pcb_io.SetBoard(aFootprint.GetBoard());
+  pcb_io.Format(aFootprint);
+  return formatter.Finish();
+}
+
+/** `CTL_FOR_CLIPBOARD` (pcb_io_kicad_sexpr.h:215). */
+export const CTL_FOR_CLIPBOARD = CTL_OMIT_INITIAL_COMMENTS;
+
+/**
+ * `CLIPBOARD_IO::SaveSelection` (kicad_clipboard.cpp:322) for a board
+ * selection, over a payload BOARD the caller has already reduced to the
+ * selection: "we will fake being a .kicad_pcb to get the full parser
+ * kicking" — the file header, the layer table, then every item, and nothing
+ * else (no setup, no nets table: a 10.0 item names its net).
+ */
+export function FormatClipboardBoard(aBoard: BOARD, aGenerator: string = GENERATOR): string {
+  const formatter = new PRETTIFIED_STRING_FORMATTER();
+  const pcb_io = new PCB_IO_KICAD_SEXPR(formatter, CTL_FOR_CLIPBOARD, aGenerator);
+  pcb_io.SetBoard(aBoard);
+  formatter.Print(
+    `(kicad_pcb (version ${SEXPR_BOARD_FILE_VERSION}) (generator ${formatter.Quotew(aGenerator)}) (generator_version ${formatter.Quotew(MAJOR_MINOR_VERSION)})`,
+  );
+  pcb_io.FormatBoardLayers(aBoard);
+  for (const fp of aBoard.Footprints()) pcb_io.Format(fp);
+  for (const item of aBoard.Drawings()) pcb_io.Format(item);
+  for (const point of aBoard.Points()) pcb_io.Format(point);
+  for (const track of aBoard.Tracks()) pcb_io.Format(track);
+  for (const zone of aBoard.Zones()) pcb_io.Format(zone);
+  for (const group of aBoard.Groups()) pcb_io.Format(group);
+  for (const generator of aBoard.Generators()) pcb_io.Format(generator);
+  formatter.Print(')');
+  return formatter.Finish();
+}
+
+/**
+ * `CLIPBOARD_IO::SaveSelection` for a lone footprint (kicad_clipboard.cpp:207):
+ * `Format( &newFootprint )` with `CTL_FOR_CLIPBOARD`, so the footprint's own
+ * version and generator are written and its uuids and placement kept.
+ */
+export function FormatClipboardFootprint(
+  aFootprint: FOOTPRINT,
+  aGenerator: string = GENERATOR,
+): string {
+  const formatter = new PRETTIFIED_STRING_FORMATTER();
+  const pcb_io = new PCB_IO_KICAD_SEXPR(formatter, CTL_FOR_CLIPBOARD, aGenerator);
   pcb_io.SetBoard(aFootprint.GetBoard());
   pcb_io.Format(aFootprint);
   return formatter.Finish();

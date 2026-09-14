@@ -1380,6 +1380,9 @@ describe('TEXT rows', () => {
     // Labelled with `BOARD::GetLayerName()`, which is the STANDARD name for a
     // layer the board did not rename — "F.Silkscreen", the string KiCad's own
     // layer list and Appearance panel show, not the file token "F.SilkS".
+    // Margin and the courtyards are enabled on every board whatever its
+    // `(layers …)` says: `BOARD_DESIGN_SETTINGS::SetEnabledLayers` "Ensures
+    // mandatory layers are always enabled" (board_design_settings.cpp).
     expect(row(rows, 'Layer').choices).toEqual([
       'F.Cu',
       'In1.Cu',
@@ -1387,6 +1390,9 @@ describe('TEXT rows', () => {
       'B.Cu',
       'F.Silkscreen',
       'Edge.Cuts',
+      'Margin',
+      'F.Courtyard',
+      'B.Courtyard',
     ]);
     expect(row(rows, 'Layer').swatch).toBe('#f2eda1');
   });

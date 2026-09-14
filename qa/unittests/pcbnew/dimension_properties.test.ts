@@ -271,7 +271,14 @@ describe('override text, which is a mode rather than a string', () => {
   });
 
   it('removes the override when it is cleared to undefined', () => {
-    const back = roundTrip(LEADER, { overrideValue: undefined });
+    // On a dimension that measures something: a leader's text is always its
+    // override (`PCB_DIM_LEADER::PCB_DIM_LEADER` sets `m_overrideTextEnabled`
+    // and "Leader", pcb_dimension.cpp:1360-1363), so clearing it there is
+    // not an operation the C++ has.
+    const withOverride = roundTrip(ORTHO, { overrideValue: '30 typ.' });
+    expect(withOverride.dimensions[0]!.format!.overrideValue).toBe('30 typ.');
+    const v = { ...collectDimensionValues(withOverride.dimensions[0]!), overrideValue: undefined };
+    const back = readBoard(parse(serializeBoard(applyDimensionValues(withOverride, 0, v))));
 
     expect(back.dimensions[0]!.format!.overrideValue).toBeUndefined();
   });

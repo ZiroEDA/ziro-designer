@@ -37,6 +37,7 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Board } from '@ziroeda/pcbnew';
 import { B_Cu, B_Mask, F_Cu, F_Mask, GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
 import { viaIsTented } from '@ziroeda/pcbnew/src/export_d356.js';
+import { BOARD_STACKUP_ITEM_TYPE } from '@ziroeda/pcbnew/src/board_stackup_manager/board_stackup.js';
 import {
   clickSelectionParts,
   hoveredItemMessage,
@@ -189,22 +190,22 @@ function stackupThicknesses(board: Board): {
   fMask?: number;
   bMask?: number;
 } {
-  const bds = board.k?.designSettings;
-  if (!bds?.hasStackup) return {};
+  const bds = board.k?.GetDesignSettings();
+  if (!bds?.m_HasStackup) return {};
   const out: { body?: number; fCu?: number; bCu?: number; fMask?: number; bMask?: number } = {};
   let body = 0;
-  for (const item of bds.stackup.list) {
+  for (const item of bds.GetStackupDescriptor().GetList()) {
     // every sublayer's thickness
     let sum = 0;
-    for (const sub of item.sublayers) sum += sub.thickness;
-    if (item.typeName === 'core' || item.typeName === 'prepreg') body += sum;
-    else if (item.type === 'copper') {
+    for (let sub = 0; sub < item.GetSublayersCount(); sub++) sum += item.GetThickness(sub);
+    if (item.GetTypeName() === 'core' || item.GetTypeName() === 'prepreg') body += sum;
+    else if (item.GetType() === BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_COPPER) {
       const t = Math.max(sum, 0.001 * MM);
-      if (item.brdLayerId === F_Cu) out.fCu = t;
-      else if (item.brdLayerId === B_Cu) out.bCu = t;
+      if (item.GetBrdLayerId() === F_Cu) out.fCu = t;
+      else if (item.GetBrdLayerId() === B_Cu) out.bCu = t;
       else body += t;
-    } else if (item.brdLayerId === F_Mask) out.fMask = Math.max(sum, 0.001 * MM);
-    else if (item.brdLayerId === B_Mask) out.bMask = Math.max(sum, 0.001 * MM);
+    } else if (item.GetBrdLayerId() === F_Mask) out.fMask = Math.max(sum, 0.001 * MM);
+    else if (item.GetBrdLayerId() === B_Mask) out.bMask = Math.max(sum, 0.001 * MM);
   }
   out.body = body;
   return out;
