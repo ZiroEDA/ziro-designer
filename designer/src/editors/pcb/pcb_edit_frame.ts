@@ -19,6 +19,7 @@ import type { BOARD } from '@ziroeda/pcbnew/src/board.js';
 import type { BOARD_ITEM } from '@ziroeda/pcbnew/src/board_item.js';
 import type { BOARD_ITEM_CONTAINER } from '@ziroeda/pcbnew/src/board_item_container.js';
 import { BOARD_LISTENER } from '@ziroeda/pcbnew/src/board_listener.js';
+import type { PROGRESS_REPORTER_LIKE } from '@ziroeda/pcbnew/src/connectivity/connectivity_algo.js';
 import { PCB_BASE_EDIT_FRAME } from '@ziroeda/pcbnew/src/pcb_base_edit_frame.js';
 import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from '@ziroeda/pcbnew/src/pcb_base_frame.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/src/pcbnew_settings.js';
@@ -92,15 +93,34 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.m_toolManager.SetEnvironment(this.m_pcb, null, null, this.hooks.settings(), this);
   }
 
-  override SetBoard(aBoard: BOARD | null): void {
-    const changed = this.m_pcb !== aBoard;
-    super.SetBoard(aBoard);
-
-    if (changed) {
-      this.m_toolManager!.SetEnvironment(aBoard, null, null, this.hooks.settings(), this);
-      // A new board has no history
-      this.ClearUndoRedoList();
+  override SetBoard(
+    aBoard: BOARD | null,
+    aBuildConnectivity: boolean | PROGRESS_REPORTER_LIKE | null = true,
+    aReporter: PROGRESS_REPORTER_LIKE | null = null,
+  ): void {
+    // `SetBoard( BOARD*, PROGRESS_REPORTER* )` is `SetBoard( aBoard, true, aReporter )`
+    if (typeof aBuildConnectivity !== 'boolean') {
+      aReporter = aBuildConnectivity;
+      aBuildConnectivity = true;
     }
+
+    // m_pcb->ClearProject() / aBoard->SetProject( &Prj() ): with PROJECT (#636 stage 6)
+
+    super.SetBoard(aBoard, aReporter);
+
+    if (aBuildConnectivity) aBoard!.BuildConnectivity();
+
+    // reload the drawing-sheet: SetPageSettings( aBoard->GetPageSettings() ) is the window's
+    // UpdateVariantSelectionCtrl(): the toolbar's
+  }
+
+  /**
+   * `PCB_EDIT_FRAME::Clear_Pcb`, the part that outlives the window: the undo
+   * and redo lists go because the board is about to be replaced whole.
+   */
+  Clear_Pcb(): void {
+    // Clear undo and redo lists because we want a full deletion
+    this.ClearUndoRedoList();
   }
 
   GetName(): string {

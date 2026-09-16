@@ -4260,8 +4260,11 @@ export function PcbEditor({
     const frame = frameRef.current;
     const listener = listenerRef.current;
     if (!boardK || !frame || !listener) return;
-    // PCB_EDIT_FRAME::SetBoard: a new board, a new history
-    frame.SetBoard(boardK);
+    // PCB_EDIT_FRAME::OpenProjectFiles: Clear_Pcb, SetBoard( loadedBoard, false ),
+    // then "Rebuild list of nets (full ratsnest rebuild)".
+    frame.Clear_Pcb();
+    frame.SetBoard(boardK, false);
+    boardK.BuildConnectivity();
     boardK.AddListener(listener);
     return () => boardK.RemoveListener(listener);
   }, [boardK]);

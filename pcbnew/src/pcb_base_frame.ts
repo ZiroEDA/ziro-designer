@@ -17,7 +17,9 @@ import type { KIID } from '@ziroeda/common/src/kiid.js';
 import type { PAGE_INFO } from '@ziroeda/common/src/page_info.js';
 import type { TITLE_BLOCK } from '@ziroeda/common/src/title_block.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import type { APP_SETTINGS_BASE } from '@ziroeda/common/src/settings/app_settings.js';
 import type { BOARD } from './board.js';
+import type { PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
 import type { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
 import type { BOARD_ITEM } from './board_item.js';
 import type { BOARD_ITEM_CONTAINER } from './board_item_container.js';
@@ -46,7 +48,7 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
    * Set the #m_Pcb member in such a way that all the derived classes (that have their own
    * board) will point to the same board.
    */
-  SetBoard(aBoard: BOARD | null): void {
+  SetBoard(aBoard: BOARD | null, _aReporter: PROGRESS_REPORTER_LIKE | null = null): void {
     if (this.m_pcb !== aBoard) {
       this.m_pcb = aBoard;
 
@@ -147,6 +149,14 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
    * the designer's settings store supplies the object.
    */
   abstract GetPcbNewSettings(): PCBNEW_SETTINGS;
+
+  /**
+   * `EDA_BASE_FRAME::config()` is `Kiface().KifaceSettings()`, which in
+   * pcbnew's kiface is its PCBNEW_SETTINGS; FOOTPRINT_EDIT_FRAME overrides it.
+   */
+  config(): APP_SETTINGS_BASE {
+    return this.GetPcbNewSettings();
+  }
 
   /**
    * `Pgm().GetSettingsManager().GetAppSettings<FOOTPRINT_EDITOR_SETTINGS>( "fpedit" )`.

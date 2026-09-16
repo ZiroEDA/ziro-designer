@@ -26,6 +26,7 @@ import {
   TOOL_EVENT_CATEGORY,
 } from '@ziroeda/common/src/tool/tool_event.js';
 import { TOOL_ACTION_SCOPE } from '@ziroeda/common/src/tool/tool_action.js';
+import { RESET_REASON } from '@ziroeda/common/src/tool/tool_base.js';
 import {
   ITEM_PICKER,
   PICKED_ITEMS_LIST,
@@ -35,12 +36,14 @@ import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { BOARD_COMMIT } from './board_commit.js';
+import type { BOARD } from './board.js';
 import type { BOARD_ITEM } from './board_item.js';
 import { ADD_MODE, type BOARD_ITEM_CONTAINER, REMOVE_MODE } from './board_item_container.js';
 import type { FOOTPRINT } from './footprint.js';
 import { PCB_BASE_FRAME } from './pcb_base_frame.js';
 import type { PCB_GROUP } from './pcb_group.js';
 import type { PCB_TRACK } from './pcb_track.js';
+import type { PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
 import { SHOW_WITH_VIA_ALWAYS } from './pcbnew_settings.js';
 import { PCB_ACTIONS } from './tools/pcb_actions.js';
 import type { ZONE } from './zone.js';
@@ -93,6 +96,32 @@ export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {
   /** The canvas's view, as the undo code needs it (`KIGFX::PCB_VIEW`). */
   protected pcbView(): PCB_VIEW_LIKE | null {
     return (this.GetCanvas()?.GetView() as PCB_VIEW_LIKE | null | undefined) ?? null;
+  }
+
+  override SetBoard(aBoard: BOARD | null, aReporter: PROGRESS_REPORTER_LIKE | null = null): void {
+    const is_new_board = aBoard !== this.m_pcb;
+
+    if (is_new_board) {
+      if (this.m_toolManager) this.m_toolManager.ResetTools(RESET_REASON.MODEL_RELOAD);
+
+      // EDA_EVT_BOARD_CHANGING, the view's Clear and InitPreview: with the canvas (#636 stage 5)
+    }
+
+    super.SetBoard(aBoard, aReporter);
+
+    // GetCanvas()->GetGAL()->SetGridOrigin( bds.GetGridOrigin() ): with the canvas (#636 stage 5)
+
+    if (is_new_board) {
+      // bds.m_DRCEngine = std::make_shared<DRC_ENGINE>( aBoard, &bds ): with the DRC engine (#636 stage 4)
+    }
+
+    // update the tool manager with the new board and its view.
+    if (this.m_toolManager) {
+      // GetCanvas()->DisplayBoard( aBoard, aReporter ) and UpdateColors(): with the canvas (#636 stage 5)
+      this.m_toolManager.SetEnvironment(aBoard, null, null, this.config(), this);
+
+      if (is_new_board) this.m_toolManager.ResetTools(RESET_REASON.MODEL_RELOAD);
+    }
   }
 
   /**

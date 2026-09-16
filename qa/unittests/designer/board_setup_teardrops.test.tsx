@@ -218,6 +218,8 @@ describe('what the painter is handed', () => {
     // ...and that it reaches the generator: every commit copies it onto
     // BOARD_DESIGN_SETTINGS::m_TeardropParamsList, which TEARDROP_MANAGER
     // reads inside BOARD_COMMIT::Push, rather than computing it and dropping it.
-    expect(frame).toMatch(/applyTeardropParametersList\(\s*kb\.GetDesignSettings\(\)\.GetTeadropParamsList\(\),\s*teardropListRef\.current\(\),?\s*\)/);
+    expect(frame).toMatch(
+      /applyTeardropParametersList\(\s*kb\.GetDesignSettings\(\)\.GetTeadropParamsList\(\),\s*teardropListRef\.current\(\),?\s*\)/,
+    );
   });
 });
