@@ -9,13 +9,28 @@
  * the design settings, the page, title block and plot options, the board
  * use, the file-format bookkeeping, `EMBEDDED_FILES` (the second base,
  * mixed in), `m_NetInfo`, and `Add`/`Remove` over the item collections are
- * here. Still to land with their classes: `m_connectivity` and the
- * listeners (stage 2), the outline, the solder-mask bridges zone, the DRC
- * caches, the project. `board_types.ts` carries `LAYER_T`, `LAYER` and
- * `BOARD_USE`, which C++ declares in this header.
+ * here, with `m_connectivity`, the listeners, the outline and the
+ * solder-mask bridges zone. Still to land with their classes: the DRC
+ * caches (the RTree cache is declared, DRC fills it), the component-class
+ * manager, the length/delay calculator, the project. `board_types.ts`
+ * carries `LAYER_T`, `LAYER` and `BOARD_USE`, which C++ declares in this
+ * header.
  */
 
-import { RECURSE_MODE } from '@ziroeda/common/src/eda_item.js';
+import {
+  EDA_ITEM,
+  INSPECT_RESULT,
+  type INSPECTOR,
+  RECURSE_MODE,
+} from '@ziroeda/common/src/eda_item.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import { PAD_ATTRIB } from './padstack.js';
+import {
+  BuildBoardPolygonOutlines,
+  type OUTLINE_ERROR_HANDLER,
+} from './convert_shape_list_to_polygon.js';
 import type { EDA_GROUP } from '@ziroeda/common/src/eda_group.js';
 import { STRUCT_DELETED } from '@ziroeda/common/src/eda_item_flags.js';
 import { type EdaUnits, pcbIUScale } from '@ziroeda/common/src/eda_units.js';
@@ -41,11 +56,11 @@ import { applyMixins } from '@ziroeda/core/src/mixins.js';
 import { PCB_PLOT_PARAMS } from './pcb_plot_params.js';
 import { NETCLASS } from '@ziroeda/common/src/netclass.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
-import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
 import { BOARD_ITEM, DELETED_BOARD_ITEM } from './board_item.js';
 import { ADD_MODE, BOARD_ITEM_CONTAINER, REMOVE_MODE } from './board_item_container.js';
+import { BOARD_LISTENER, HIGH_LIGHT_INFO } from './board_listener.js';
 import { BOARD_USE, LAYER, LAYER_T } from './board_types.js';
 import { type NETINFO_ITEM, NETINFO_LIST } from './netinfo.js';
 import type { FOOTPRINT } from './footprint.js';
@@ -61,7 +76,15 @@ import type { PCB_TEXTBOX } from './pcb_textbox.js';
 import { EDA_SHAPE } from '@ziroeda/common/src/eda_shape.js';
 import { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
 import type { PCB_TRACK } from './pcb_track.js';
-import type { ZONE } from './zone.js';
+import { ZONE } from './zone.js';
+import { ZONE_BORDER_DISPLAY_STYLE } from './zone_settings.js';
+import type { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
+import type { PAD } from './pad.js';
+import type { SHAPE } from '@ziroeda/kimath/src/geometry/shape.js';
+import { MARKER_T } from '@ziroeda/common/src/marker_base.js';
+import { PCB_BOARD_OUTLINE } from './pcb_board_outline.js';
+import { CONNECTIVITY_DATA } from './connectivity/connectivity_data.js';
+import type { CN_EDGE, PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
 
 export { BOARD_USE, LAYER, LAYER_T } from './board_types.js';
 
@@ -145,6 +168,10 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
   protected m_generators: PCB_GENERATOR[] = [];
   protected m_markers: PCB_MARKER[] = [];
   protected m_groups: PCB_GROUP[] = [];
+
+  private m_listeners: BOARD_LISTENER[] = [];
+  private m_highLight = new HIGH_LIGHT_INFO(); // current high light data
+  private m_highLightPrevious = new HIGH_LIGHT_INFO(); // a previously stored high light data
   protected m_points: PCB_POINT[] = [];
 
   protected m_itemByIdCache = new Map<KIID, BOARD_ITEM>();
@@ -153,6 +180,19 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
   /** `m_ZoneBBoxCache`: the zone bounding boxes, written by `ZONE::GetBoundingBox` (`friend class ZONE`). */
   m_ZoneBBoxCache = new Map<ZONE, BOX2I>();
+
+  /**
+   * `std::unordered_map<ZONE*, std::unique_ptr<DRC_RTREE>> m_CopperZoneRTreeCache`:
+   * filled by DRC_CACHE_GENERATOR; empty until the DRC engine lands (#636 stage 4).
+   */
+  m_CopperZoneRTreeCache = new Map<ZONE, DRC_RTREE_LIKE>();
+
+  /** Zone to show sloder mask bridges created by a min web value. */
+  m_SolderMaskBridges: ZONE;
+
+  private m_boardOutline: PCB_BOARD_OUTLINE;
+
+  private m_connectivity: CONNECTIVITY_DATA;
 
   constructor() {
     super(null, KICAD_T.PCB_T);
@@ -186,6 +226,23 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
     this.recalcOpposites();
 
+    this.m_boardOutline = new PCB_BOARD_OUTLINE(this);
+
+    // Creates a zone to show sloder mask bridges created by a min web value
+    // it it just to show them
+    this.m_SolderMaskBridges = new ZONE(this);
+    this.m_SolderMaskBridges.SetHatchStyle(ZONE_BORDER_DISPLAY_STYLE.INVISIBLE_BORDER);
+    this.m_SolderMaskBridges.SetLayerSet(
+      new LSET().set(PCB_LAYER_ID.F_Mask).set(PCB_LAYER_ID.B_Mask),
+    );
+    const infinity = Math.trunc(2147483647 / 2) - pcbIUScale.mmToIU(1);
+    this.m_SolderMaskBridges.Outline().NewOutline();
+    this.m_SolderMaskBridges.Outline().Append(-infinity, -infinity);
+    this.m_SolderMaskBridges.Outline().Append(-infinity, +infinity);
+    this.m_SolderMaskBridges.Outline().Append(+infinity, +infinity);
+    this.m_SolderMaskBridges.Outline().Append(+infinity, -infinity);
+    this.m_SolderMaskBridges.SetMinThickness(0);
+
     const bds = this.GetDesignSettings();
 
     // Initialize default netclass.
@@ -193,6 +250,417 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
     bds.m_NetSettings.GetDefaultNetclass().SetDescription('This is the default net class.');
 
     bds.UseCustomTrackViaSize(false);
+
+    // Initialize ratsnest
+    this.m_connectivity = new CONNECTIVITY_DATA();
+  }
+
+  override Visit(
+    inspector: INSPECTOR,
+    testData: unknown,
+    scanTypes: readonly KICAD_T[],
+  ): INSPECT_RESULT {
+    let footprintsScanned = false;
+    let drawingsScanned = false;
+    let tracksScanned = false;
+
+    for (const scanType of scanTypes) {
+      switch (scanType) {
+        case KICAD_T.PCB_T:
+          if (inspector(this, testData) === INSPECT_RESULT.QUIT) return INSPECT_RESULT.QUIT;
+
+          break;
+
+        /*
+         * Instances of the requested KICAD_T live in a list, either one that I manage, or one
+         * that my footprints manage.  If it's a type managed by class FOOTPRINT, then simply
+         * pass it on to each footprint's Visit() function via IterateForward( m_footprints, ... ).
+         */
+
+        case KICAD_T.PCB_FOOTPRINT_T:
+        case KICAD_T.PCB_PAD_T:
+        case KICAD_T.PCB_SHAPE_T:
+        case KICAD_T.PCB_REFERENCE_IMAGE_T:
+        case KICAD_T.PCB_FIELD_T:
+        case KICAD_T.PCB_TEXT_T:
+        case KICAD_T.PCB_TEXTBOX_T:
+        case KICAD_T.PCB_TABLE_T:
+        case KICAD_T.PCB_TABLECELL_T:
+        case KICAD_T.PCB_DIM_ALIGNED_T:
+        case KICAD_T.PCB_DIM_CENTER_T:
+        case KICAD_T.PCB_DIM_RADIAL_T:
+        case KICAD_T.PCB_DIM_ORTHOGONAL_T:
+        case KICAD_T.PCB_DIM_LEADER_T:
+        case KICAD_T.PCB_TARGET_T:
+        case KICAD_T.PCB_BARCODE_T:
+          if (!footprintsScanned) {
+            if (
+              EDA_ITEM.IterateForward(this.m_footprints, inspector, testData, scanTypes) ===
+              INSPECT_RESULT.QUIT
+            ) {
+              return INSPECT_RESULT.QUIT;
+            }
+
+            footprintsScanned = true;
+          }
+
+          if (!drawingsScanned) {
+            if (
+              EDA_ITEM.IterateForward(this.m_drawings, inspector, testData, scanTypes) ===
+              INSPECT_RESULT.QUIT
+            ) {
+              return INSPECT_RESULT.QUIT;
+            }
+
+            drawingsScanned = true;
+          }
+
+          break;
+
+        case KICAD_T.PCB_VIA_T:
+        case KICAD_T.PCB_TRACE_T:
+        case KICAD_T.PCB_ARC_T:
+          if (!tracksScanned) {
+            if (
+              EDA_ITEM.IterateForward(this.m_tracks, inspector, testData, scanTypes) ===
+              INSPECT_RESULT.QUIT
+            ) {
+              return INSPECT_RESULT.QUIT;
+            }
+
+            tracksScanned = true;
+          }
+
+          break;
+
+        case KICAD_T.PCB_MARKER_T:
+          for (const marker of this.m_markers) {
+            if (marker.Visit(inspector, testData, [scanType]) === INSPECT_RESULT.QUIT)
+              return INSPECT_RESULT.QUIT;
+          }
+
+          break;
+
+        case KICAD_T.PCB_POINT_T:
+          for (const point of this.m_points) {
+            if (point.Visit(inspector, testData, [scanType]) === INSPECT_RESULT.QUIT)
+              return INSPECT_RESULT.QUIT;
+          }
+
+          break;
+
+        case KICAD_T.PCB_ZONE_T:
+          if (!footprintsScanned) {
+            if (
+              EDA_ITEM.IterateForward(this.m_footprints, inspector, testData, scanTypes) ===
+              INSPECT_RESULT.QUIT
+            ) {
+              return INSPECT_RESULT.QUIT;
+            }
+
+            footprintsScanned = true;
+          }
+
+          for (const zone of this.m_zones) {
+            if (zone.Visit(inspector, testData, [scanType]) === INSPECT_RESULT.QUIT)
+              return INSPECT_RESULT.QUIT;
+          }
+
+          break;
+
+        case KICAD_T.PCB_GENERATOR_T:
+          if (!footprintsScanned) {
+            if (
+              EDA_ITEM.IterateForward(this.m_footprints, inspector, testData, scanTypes) ===
+              INSPECT_RESULT.QUIT
+            ) {
+              return INSPECT_RESULT.QUIT;
+            }
+
+            footprintsScanned = true;
+          }
+
+          if (
+            EDA_ITEM.IterateForward(this.m_generators, inspector, testData, [scanType]) ===
+            INSPECT_RESULT.QUIT
+          ) {
+            return INSPECT_RESULT.QUIT;
+          }
+
+          break;
+
+        case KICAD_T.PCB_GROUP_T:
+          if (
+            EDA_ITEM.IterateForward(this.m_groups, inspector, testData, [scanType]) ===
+            INSPECT_RESULT.QUIT
+          ) {
+            return INSPECT_RESULT.QUIT;
+          }
+
+          break;
+
+        default:
+          break;
+      }
+    }
+
+    return INSPECT_RESULT.CONTINUE;
+  }
+
+  /**
+   * Calculate the bounding box containing all board items (or board edge segments).
+   *
+   * @param aBoardEdgesOnly is true if we are interested in board edge segments only.
+   * @param aPhysicalLayersOnly is true if we are interested in physical layers only.
+   * @return the board's bounding box.
+   */
+  ComputeBoundingBox(aBoardEdgesOnly = false, aPhysicalLayersOnly = false): BOX2I {
+    const bbox = new BOX2I();
+    let visible = this.GetVisibleLayers();
+
+    if (aPhysicalLayersOnly) visible = visible.and(LSET.PhysicalLayersMask());
+
+    // If the board is just showing a footprint, we want all footprint layers included in the
+    // bounding box
+    if (this.IsFootprintHolder()) visible.set();
+
+    if (aBoardEdgesOnly) visible.set(PCB_LAYER_ID.Edge_Cuts);
+
+    // Check shapes, dimensions, texts, and fiducials
+    for (const item of this.m_drawings) {
+      if (
+        aBoardEdgesOnly &&
+        (item.GetLayer() !== PCB_LAYER_ID.Edge_Cuts || item.Type() !== KICAD_T.PCB_SHAPE_T)
+      )
+        continue;
+
+      if (item.GetLayerSet().and(visible).any()) bbox.Merge(item.GetBoundingBox());
+    }
+
+    // Check footprints
+    for (const footprint of this.m_footprints) {
+      if (aBoardEdgesOnly) {
+        for (const edge of footprint.GraphicalItems()) {
+          if (edge.GetLayer() === PCB_LAYER_ID.Edge_Cuts && edge.Type() === KICAD_T.PCB_SHAPE_T)
+            bbox.Merge(edge.GetBoundingBox());
+        }
+      } else if (footprint.GetLayerSet().and(visible).any()) {
+        bbox.Merge(footprint.GetBoundingBox(true));
+      }
+    }
+
+    if (!aBoardEdgesOnly) {
+      // Check tracks
+      for (const track of this.m_tracks) {
+        if (track.GetLayerSet().and(visible).any()) bbox.Merge(track.GetBoundingBox());
+      }
+
+      // Check zones
+      for (const aZone of this.m_zones) {
+        if (aZone.GetLayerSet().and(visible).any()) bbox.Merge(aZone.GetBoundingBox());
+      }
+
+      for (const point of this.m_points) {
+        bbox.Merge(point.GetBoundingBox());
+      }
+    }
+
+    return bbox;
+  }
+
+  override GetBoundingBox(): BOX2I {
+    return this.ComputeBoundingBox(false, false);
+  }
+
+  /**
+   * Return the board bounding box calculated using exclusively the board edges (graphics
+   * on Edge.Cuts layer).
+   *
+   * If there is no edge, inits the board bounding box to a default size of 100 mm x 100 mm.
+   */
+  GetBoardEdgesBoundingBox(): BOX2I {
+    return this.ComputeBoundingBox(true, true);
+  }
+
+  /**
+   * Extract the board outlines and build a closed polygon from lines, arcs and circle items
+   * on edge cut layer.
+   *
+   * Any closed outline inside the main outline is a hole.  All contours should be closed,
+   * i.e. have valid vertices to build a closed polygon.
+   *
+   * @param aOutlines is the #SHAPE_POLY_SET to fill in with outlines/holes.
+   * @param aInferOutlineIfNecessary is true to build a rectangle outline from the board or
+   *                                 items bounding box when no valid outline is found.
+   * @param aErrorHandler is an optional DRC_ITEM error handler.
+   * @param aAllowUseArcsInPolygons is an optional flag to allow adding arcs in
+   *                                #SHAPE_LINE_CHAIN polylines/polygons when building outlines
+   *                                from aShapeList
+   * @param aIncludeNPTHAsOutlines is an optional flag to include NPTH pad holes in board
+   *                               outlines.
+   * @return true if success, false if a contour is not valid
+   */
+  GetBoardPolygonOutlines(
+    aOutlines: SHAPE_POLY_SET,
+    aInferOutlineIfNecessary: boolean,
+    aErrorHandler: OUTLINE_ERROR_HANDLER | null = null,
+    aAllowUseArcsInPolygons = false,
+    aIncludeNPTHAsOutlines = false,
+  ): boolean {
+    // max dist from one endPt to next startPt: use the current value
+    const chainingEpsilon = this.GetOutlinesChainingEpsilon();
+
+    const success = BuildBoardPolygonOutlines(
+      this,
+      aOutlines,
+      this.GetDesignSettings().m_MaxError,
+      chainingEpsilon,
+      aInferOutlineIfNecessary,
+      aErrorHandler,
+      aAllowUseArcsInPolygons,
+    );
+
+    // Now subtract NPTH oval holes from outlines if required
+    if (aIncludeNPTHAsOutlines) {
+      for (const fp of this.Footprints()) {
+        for (const pad of fp.Pads()) {
+          if (pad.GetAttribute() !== PAD_ATTRIB.NPTH) continue;
+
+          const hole = new SHAPE_POLY_SET();
+          pad.TransformHoleToPolygon(hole, 0, pad.GetMaxError(), ERROR_LOC.ERROR_INSIDE);
+
+          if (hole.OutlineCount() > 0) {
+            // can be not the case for malformed NPTH holes
+            // Issue #20159: BooleanSubtract correctly clips holes extending past board
+            // edges (common with oval holes near irregular boards). O(n log n) per hole
+            // vs O(1) for AddHole, but only used for 3D viewer generation, not a hot path.
+            aOutlines.BooleanSubtract(hole);
+          }
+        }
+      }
+    }
+
+    // Make polygon strictly simple to avoid issues (especially in 3D viewer)
+    aOutlines.Simplify();
+
+    return success;
+  }
+
+  GetFirstFootprint(): FOOTPRINT | null {
+    return this.m_footprints.length === 0 ? null : this.m_footprints[0]!;
+  }
+
+  GetOutlinesChainingEpsilon(): number {
+    return this.m_outlinesChainingEpsilon;
+  }
+
+  SetOutlinesChainingEpsilon(aValue: number): void {
+    this.m_outlinesChainingEpsilon = aValue;
+  }
+
+  BuildConnectivity(aReporter: PROGRESS_REPORTER_LIKE | null = null): boolean {
+    if (!this.GetConnectivity().Build(this, aReporter)) return false;
+
+    this.UpdateRatsnestExclusions();
+    return true;
+  }
+
+  /**
+   * Return a list of missing connections between components/tracks.
+   * @return an object that contains information about missing connections.
+   */
+  GetConnectivity(): CONNECTIVITY_DATA {
+    return this.m_connectivity;
+  }
+
+  BoardOutline(): PCB_BOARD_OUTLINE {
+    return this.m_boardOutline;
+  }
+
+  UpdateBoardOutline(): void {
+    this.m_boardOutline.GetOutline().RemoveAllContours();
+
+    const has_outline = this.GetBoardPolygonOutlines(this.m_boardOutline.GetOutline(), false);
+
+    if (has_outline) this.m_boardOutline.GetOutline().Fracture();
+  }
+
+  UpdateRatsnestExclusions(): void {
+    const m_ratsnestExclusions = new Set<string>();
+
+    for (const marker of this.GetBoard()!.Markers()) {
+      if (marker.GetMarkerType() === MARKER_T.MARKER_RATSNEST && marker.IsExcluded()) {
+        const rcItem = marker.GetRCItem()!;
+        m_ratsnestExclusions.add(`${rcItem.GetMainItemID()}|${rcItem.GetAuxItemID()}`);
+        m_ratsnestExclusions.add(`${rcItem.GetAuxItemID()}|${rcItem.GetMainItemID()}`);
+      }
+    }
+
+    this.GetConnectivity().RunOnUnconnectedEdges((aEdge: CN_EDGE) => {
+      if (
+        aEdge.GetSourceNode() &&
+        aEdge.GetTargetNode() &&
+        !aEdge.GetSourceNode()!.Dirty() &&
+        !aEdge.GetTargetNode()!.Dirty()
+      ) {
+        const ids = `${aEdge.GetSourceNode()!.Parent().m_Uuid}|${aEdge.GetTargetNode()!.Parent().m_Uuid}`;
+
+        aEdge.SetVisible(!m_ratsnestExclusions.has(ids));
+      }
+
+      return true;
+    });
+  }
+
+  CacheTriangulation(
+    aReporter: PROGRESS_REPORTER_LIKE | null = null,
+    aZones: readonly ZONE[] = [],
+  ): void {
+    let zones: readonly ZONE[] = aZones;
+
+    if (zones.length === 0) zones = this.m_zones;
+
+    if (zones.length === 0) return;
+
+    if (aReporter) aReporter.Report('Tessellating copper zones...');
+
+    for (const aZone of zones) {
+      if (aReporter?.IsCancelled()) continue;
+
+      aZone.CacheTriangulation();
+
+      if (aReporter) aReporter.AdvanceProgress();
+    }
+  }
+
+  AllConnectedItems(): BOARD_CONNECTED_ITEM[] {
+    const items: BOARD_CONNECTED_ITEM[] = [];
+
+    for (const track of this.Tracks()) items.push(track);
+
+    for (const footprint of this.Footprints()) {
+      for (const pad of footprint.Pads()) items.push(pad);
+
+      for (const zone of footprint.Zones()) items.push(zone);
+
+      for (const dwg of footprint.GraphicalItems()) {
+        if (dwg.IsConnected()) items.push(dwg as BOARD_CONNECTED_ITEM);
+      }
+    }
+
+    for (const zone of this.Zones()) items.push(zone);
+
+    for (const item of this.Drawings()) {
+      if (item.IsConnected()) items.push(item as BOARD_CONNECTED_ITEM);
+    }
+
+    return items;
+  }
+
+  SanitizeNetcodes(): void {
+    for (const item of this.AllConnectedItems()) {
+      if (this.FindNet(item.GetNetCode()) === null) item.SetNetCode(NETINFO_LIST.ORPHANED);
+    }
   }
 
   /** `m_layers[layer]`: a `std::map` creates the entry on first access. */
@@ -941,16 +1409,16 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
    * Must be used if Add() is used using a BULK_x ADD_MODE to generate a change event for
    * listeners.
    */
-  FinalizeBulkAdd(_aNewItems: BOARD_ITEM[]): void {
-    // InvokeListeners( &BOARD_LISTENER::OnBoardItemsAdded, *this, aNewItems )   -- listeners pending (#636 stage 2)
+  FinalizeBulkAdd(aNewItems: BOARD_ITEM[]): void {
+    this.InvokeListeners((l) => l.OnBoardItemsAdded(this, aNewItems));
   }
 
   /**
    * Must be used if Remove() is used using a BULK_x REMOVE_MODE to generate a change event
    * for listeners.
    */
-  FinalizeBulkRemove(_aRemovedItems: BOARD_ITEM[]): void {
-    // InvokeListeners( &BOARD_LISTENER::OnBoardItemsRemoved, *this, aRemovedItems )   -- listeners pending (#636 stage 2)
+  FinalizeBulkRemove(aRemovedItems: BOARD_ITEM[]): void {
+    this.InvokeListeners((l) => l.OnBoardItemsRemoved(this, aRemovedItems));
   }
 
   FixupEmbeddedData(): void {
@@ -1401,8 +1869,10 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
     aBoardItem.SetParent(this);
     aBoardItem.ClearEditFlags();
 
-    // if( !aSkipConnectivity ) m_connectivity->Add( aBoardItem );      -- CONNECTIVITY_DATA pending
-    // InvokeListeners( &BOARD_LISTENER::OnBoardItemAdded, ... )       -- BOARD_LISTENER pending
+    if (!aSkipConnectivity) this.m_connectivity.Add(aBoardItem);
+
+    if (aMode !== ADD_MODE.BULK_INSERT && aMode !== ADD_MODE.BULK_APPEND)
+      this.InvokeListeners((l) => l.OnBoardItemAdded(this, aBoardItem));
   }
 
   /**
@@ -1425,10 +1895,12 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
     switch (aBoardItem.Type()) {
       case KICAD_T.PCB_NETINFO_T: {
         const netItem = aBoardItem as NETINFO_ITEM;
-        // NETINFO_ITEM* unconnected = m_NetInfo.GetNetItem( NETINFO_LIST::UNCONNECTED );
-        // for( BOARD_CONNECTED_ITEM* boardItem : AllConnectedItems() )
-        //     if( boardItem->GetNet() == netItem ) boardItem->SetNet( unconnected );
-        //                                        -- AllConnectedItems() with the items (#636)
+        const unconnected = this.m_NetInfo.GetNetItem(NETINFO_LIST.UNCONNECTED);
+
+        for (const boardItem of this.AllConnectedItems()) {
+          if (boardItem.GetNet() === netItem) boardItem.SetNet(unconnected);
+        }
+
         this.m_NetInfo.RemoveNet(netItem);
         break;
       }
@@ -1507,8 +1979,145 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
     aBoardItem.SetFlags(STRUCT_DELETED);
 
-    // m_connectivity->Remove( aBoardItem );                              -- CONNECTIVITY_DATA pending
-    // InvokeListeners( &BOARD_LISTENER::OnBoardItemRemoved, ... )       -- BOARD_LISTENER pending
+    this.m_connectivity.Remove(aBoardItem);
+
+    if (aRemoveMode !== REMOVE_MODE.BULK)
+      this.InvokeListeners((l) => l.OnBoardItemRemoved(this, aBoardItem));
+  }
+
+  /**
+   * Add a listener to the board to receive calls whenever something on the
+   * board has been modified.  The board does not take ownership of the
+   * listener object.  Make sure to call RemoveListener before deleting the
+   * listener object.  The order of listener invocations is not guaranteed.
+   * If the specified listener object has been added before, it will not be
+   * added again.
+   */
+  AddListener(aListener: BOARD_LISTENER): void {
+    if (!this.m_listeners.includes(aListener)) this.m_listeners.push(aListener);
+  }
+
+  /**
+   * Remove the specified listener.  If it has not been added before, it
+   * will do nothing.
+   */
+  RemoveListener(aListener: BOARD_LISTENER): void {
+    const i = this.m_listeners.indexOf(aListener);
+
+    if (i >= 0) {
+      // std::iter_swap( i, end - 1 ); pop_back()
+      this.m_listeners[i] = this.m_listeners[this.m_listeners.length - 1]!;
+      this.m_listeners.pop();
+    }
+  }
+
+  /**
+   * Remove all listeners
+   */
+  RemoveAllListeners(): void {
+    this.m_listeners = [];
+  }
+
+  /**
+   * Notify the board and its listeners that an item on the board has
+   * been modified in some way.
+   */
+  OnItemChanged(aItem: BOARD_ITEM): void {
+    this.InvokeListeners((l) => l.OnBoardItemChanged(this, aItem));
+  }
+
+  /**
+   * Notify the board and its listeners that an item on the board has
+   * been modified in some way.
+   */
+  OnItemsChanged(aItems: BOARD_ITEM[]): void {
+    this.InvokeListeners((l) => l.OnBoardItemsChanged(this, aItems));
+  }
+
+  /**
+   * Notify the board and its listeners that items on the board have
+   * been modified in a composite operation.
+   */
+  OnItemsCompositeUpdate(
+    aAddedItems: BOARD_ITEM[],
+    aRemovedItems: BOARD_ITEM[],
+    aChangedItems: BOARD_ITEM[],
+  ): void {
+    this.InvokeListeners((l) =>
+      l.OnBoardCompositeUpdate(this, aAddedItems, aRemovedItems, aChangedItems),
+    );
+  }
+
+  /**
+   * Notify the board and its listeners that the ratsnest has been recomputed.
+   */
+  OnRatsnestChanged(): void {
+    this.InvokeListeners((l) => l.OnBoardRatsnestChanged(this));
+  }
+
+  /** `InvokeListeners( &BOARD_LISTENER::X, *this, args... )`. */
+  InvokeListeners(aFunc: (aListener: BOARD_LISTENER) => void): void {
+    for (const l of this.m_listeners) aFunc(l);
+  }
+
+  /**
+   * Reset all high light data to the init state
+   */
+  ResetNetHighLight(): void {
+    this.m_highLight.Clear();
+    this.m_highLightPrevious.Clear();
+
+    this.InvokeListeners((l) => l.OnBoardHighlightNetChanged(this));
+  }
+
+  /**
+   * @return the set of net codes that should be highlighted
+   */
+  GetHighLightNetCodes(): ReadonlySet<number> {
+    return this.m_highLight.m_netCodes;
+  }
+
+  /**
+   * Select the netcode to be highlighted.
+   *
+   * @param aNetCode is the net to highlight.
+   * @param aMulti is true if you want to add a highlighted net without clearing the old one.
+   */
+  SetHighLightNet(aNetCode: number, aMulti = false): void {
+    if (!this.m_highLight.m_netCodes.has(aNetCode)) {
+      if (!aMulti) this.m_highLight.m_netCodes.clear();
+
+      this.m_highLight.m_netCodes.add(aNetCode);
+      this.InvokeListeners((l) => l.OnBoardHighlightNetChanged(this));
+    }
+  }
+
+  /**
+   * @return true if a net is currently highlighted
+   */
+  IsHighLightNetON(): boolean {
+    return this.m_highLight.m_highLightOn;
+  }
+
+  /**
+   * Enable or disable net highlighting.
+   *
+   * If a netcode >= 0 has been set with SetHighLightNet and aValue is true, the net will be
+   * highlighted.  If aValue is false, net highlighting will be disabled regardless of
+   * the highlight status.
+   */
+  HighLightON(aValue = true): void {
+    if (this.m_highLight.m_highLightOn !== aValue) {
+      this.m_highLight.m_highLightOn = aValue;
+      this.InvokeListeners((l) => l.OnBoardHighlightNetChanged(this));
+    }
+  }
+
+  /**
+   * Disable net highlight.
+   */
+  HighLightOFF(): void {
+    this.HighLightON(false);
   }
 }
 
@@ -1550,3 +2159,12 @@ function wxAfterFirst(aStr: string, ch: string): string {
 }
 
 applyMixins(BOARD, [EMBEDDED_FILES]);
+
+/**
+ * The slice of `DRC_RTREE` the board holds per copper zone
+ * (`m_CopperZoneRTreeCache`); the class lands with the DRC engine (#636
+ * stage 4).
+ */
+export interface DRC_RTREE_LIKE {
+  QueryColliding(aBox: BOX2I, aRefShape: SHAPE, aLayer: PCB_LAYER_ID): boolean;
+}

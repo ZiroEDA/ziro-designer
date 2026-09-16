@@ -10,9 +10,6 @@
  * `nearestTwoEndpoints` answers the same question by scanning the endpoint
  * list, which is the answer the tree gives without the tree.
  *
- * IN PROGRESS (#636): `TestBoardOutlinesGraphicItems`, `BuildBoardPolygonOutlines`
- * and `BuildFootprintPolygonOutlines` need `PCB_TYPE_COLLECTOR` and the board's
- * footprint walk; they land with `BOARD::GetBoardPolygonOutlines`.
  */
 
 import { SKIP_STRUCT } from '@ziroeda/common/src/eda_item_flags.js';
@@ -33,7 +30,15 @@ import {
   equal,
   sub,
 } from '@ziroeda/kimath/src/math/vector2.js';
+import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
+import type { BOARD } from './board.js';
 import type { BOARD_ITEM } from './board_item.js';
+import { PCB_TYPE_COLLECTOR } from './collectors.js';
+import type { FOOTPRINT } from './footprint.js';
 import type { PCB_SHAPE } from './pcb_shape.js';
 
 export type OUTLINE_ERROR_HANDLER = (
@@ -955,6 +960,770 @@ export function ConvertOutlineToPolygon(
       aAllowUseArcsInPolygons,
       cleaner,
     );
+  } finally {
+    cleaner.dispose();
+  }
+}
+
+function isCopperOutside(aFootprint: FOOTPRINT, aShape: SHAPE_POLY_SET): boolean {
+  let padOutside = false;
+
+  for (const pad of aFootprint.Pads()) {
+    pad.Padstack().ForEachUniqueLayer((aLayer: PCB_LAYER_ID) => {
+      const poly = aShape.CloneDropTriangulation();
+
+      poly.ClearArcs();
+
+      poly.BooleanIntersection(pad.GetEffectivePolygon(aLayer, ERROR_LOC.ERROR_INSIDE));
+
+      if (poly.OutlineCount() === 0) {
+        padOutside = true;
+      }
+    });
+
+    if (padOutside) break;
+  }
+
+  return padOutside;
+}
+
+/**
+ * Check a board outline is valid.
+ *
+ * Every shape must be a closed contour or joined to the next with a gap at
+ * most aMinDist, and no closed contour may cross another.
+ */
+export function TestBoardOutlinesGraphicItems(
+  aBoard: BOARD,
+  aMinDist: number,
+  aErrorHandler: OUTLINE_ERROR_HANDLER | null,
+): boolean {
+  let success = true;
+  const items = new PCB_TYPE_COLLECTOR();
+  const min_dist = Math.max(0, aMinDist);
+
+  // Get all the shapes into 'items', then keep only those on layer == Edge_Cuts.
+  items.Collect(aBoard, [KICAD_T.PCB_SHAPE_T]);
+
+  const shapeList: PCB_SHAPE[] = [];
+
+  for (let ii = 0; ii < items.GetCount(); ii++) {
+    const seg = items.at(ii) as PCB_SHAPE;
+
+    if (seg.GetLayer() === PCB_LAYER_ID.Edge_Cuts) shapeList.push(seg);
+  }
+
+  // Now Test validity of collected items
+  for (const shape of shapeList) {
+    switch (shape.GetShape()) {
+      case SHAPE_T.RECTANGLE: {
+        const seg = sub(shape.GetEnd(), shape.GetStart());
+        const dim = EuclideanNormI(seg);
+
+        if (dim <= min_dist) {
+          success = false;
+
+          if (aErrorHandler) {
+            aErrorHandler(
+              `(rectangle has null or very small size: ${dim} nm)`,
+              shape,
+              null,
+              shape.GetStart(),
+            );
+          }
+        }
+
+        break;
+      }
+
+      case SHAPE_T.CIRCLE: {
+        const r = shape.GetRadius();
+
+        if (r <= min_dist) {
+          success = false;
+
+          if (aErrorHandler) {
+            aErrorHandler(
+              `(circle has null or very small radius: ${r} nm)`,
+              shape,
+              null,
+              shape.GetStart(),
+            );
+          }
+        }
+
+        break;
+      }
+
+      case SHAPE_T.SEGMENT: {
+        const seg = sub(shape.GetEnd(), shape.GetStart());
+        const dim = EuclideanNormI(seg);
+
+        if (dim <= min_dist) {
+          success = false;
+
+          if (aErrorHandler) {
+            aErrorHandler(
+              `(segment has null or very small length: ${dim} nm)`,
+              shape,
+              null,
+              shape.GetStart(),
+            );
+          }
+        }
+
+        break;
+      }
+
+      case SHAPE_T.ARC: {
+        // Arc size can be evaluated from the distance between arc middle point and arc ends
+        // We do not need a precise value, just an idea of its size
+        const arcMiddle = shape.GetArcMid();
+        const seg1 = sub(arcMiddle, shape.GetStart());
+        const seg2 = sub(shape.GetEnd(), arcMiddle);
+        const dim = EuclideanNormI(seg1) + EuclideanNormI(seg2);
+
+        if (dim <= min_dist) {
+          success = false;
+
+          if (aErrorHandler) {
+            aErrorHandler(
+              `(arc has null or very small size: ${dim} nm)`,
+              shape,
+              null,
+              shape.GetStart(),
+            );
+          }
+        }
+
+        break;
+      }
+
+      case SHAPE_T.POLY:
+        break;
+
+      case SHAPE_T.BEZIER:
+        break;
+
+      default:
+        throw new Error(`UNIMPLEMENTED_FOR( ${shape.SHAPE_T_asString()} )`);
+    }
+  }
+
+  const closedContours: [PCB_SHAPE, SHAPE_LINE_CHAIN][] = [];
+  // std::set<PCB_SHAPE*>: pointer order; insertion order stands in for it
+  const openShapes = new Set<PCB_SHAPE>();
+
+  for (const shape of shapeList) {
+    if (
+      shape.GetShape() === SHAPE_T.POLY ||
+      shape.GetShape() === SHAPE_T.CIRCLE ||
+      shape.GetShape() === SHAPE_T.RECTANGLE
+    ) {
+      const contour = new SHAPE_LINE_CHAIN();
+      const shapeOwners: SHAPE_OWNERS = new Map();
+      processClosedShape(shape, contour, shapeOwners, shape.GetMaxError(), true);
+      closedContours.push([shape, contour]);
+    } else if (
+      shape.GetShape() === SHAPE_T.SEGMENT ||
+      shape.GetShape() === SHAPE_T.ARC ||
+      shape.GetShape() === SHAPE_T.BEZIER
+    ) {
+      openShapes.add(shape);
+    }
+  }
+
+  // Gather closed contours from chained open shapes (slots formed by segments/arcs/beziers).
+  // Without this, malformed-outline detection misses overlaps involving such slots.
+  if (openShapes.size > 0) {
+    const openShapeList = [...openShapes];
+    const adaptor = new PCB_SHAPE_ENDPOINTS_ADAPTOR(openShapeList);
+
+    const chainingEpsilon = aBoard.GetOutlinesChainingEpsilon();
+    const maxError = aBoard.GetDesignSettings().m_MaxError;
+
+    while (openShapes.size > 0) {
+      const start = openShapes.values().next().value as PCB_SHAPE;
+      const contour = new SHAPE_LINE_CHAIN();
+      const owner: { value: PCB_SHAPE | null } = { value: null };
+
+      if (
+        buildChainedClosedContour(
+          start,
+          openShapes,
+          adaptor,
+          maxError,
+          chainingEpsilon,
+          contour,
+          owner,
+        )
+      ) {
+        closedContours.push([owner.value!, contour]);
+      } else {
+        openShapes.delete(start);
+      }
+    }
+  }
+
+  for (let ii = 0; ii < closedContours.length; ++ii) {
+    const contourA = closedContours[ii]![1];
+
+    for (let jj = ii + 1; jj < closedContours.length; ++jj) {
+      const contourB = closedContours[jj]![1];
+      const intersections: INTERSECTIONS = [];
+
+      // Ignore touching-only cases; report only real overlap/crossing.
+      if (contourA.Intersect(contourB, intersections, true) === 0) continue;
+
+      success = false;
+
+      if (aErrorHandler) {
+        const shapeA = closedContours[ii]![0];
+        const shapeB = closedContours[jj]![0];
+
+        let midpoint = intersections[0]!.p;
+        const effectiveShapeA = shapeA.GetEffectiveShape();
+        const effectiveShapeB = shapeB.GetEffectiveShape();
+
+        if (effectiveShapeA && effectiveShapeB) {
+          const bboxA = effectiveShapeA.BBox();
+          const bboxB = effectiveShapeB.BBox();
+          const overlapBox = bboxA.Intersect(bboxB);
+
+          if (overlapBox.GetWidth() > 0 && overlapBox.GetHeight() > 0)
+            midpoint = overlapBox.Centre();
+        }
+
+        aErrorHandler('(self-intersecting)', shapeA, shapeB, midpoint);
+      }
+    }
+  }
+
+  return success;
+}
+
+/**
+ * Extract the board outlines and build a closed polygon from lines, arcs and circle items
+ * on edge cut layer.
+ *
+ * Any closed outline inside the main outline is a hole.  All contours should be closed,
+ * i.e. have valid vertices to build a closed polygon.
+ *
+ * @param aBoard is the board to build outlines from.
+ * @param aOutlines is the SHAPE_POLY_SET to fill in with outlines/holes.
+ * @param aErrorMax is the max error distance when polygonizing a curve (internal units).
+ * @param aChainingEpsilon is the max distance from one endPt to the next startPt (internal units).
+ * @param aInferOutlineIfNecessary is true to build a rectangle outline from the board or
+ *                                 items bounding box when no valid outline is found.
+ * @param aErrorHandler is an optional error handler.
+ * @param aAllowUseArcsInPolygons is an option to allow adding arcs in SHAPE_LINE_CHAIN
+ *                                polylines/polygons when building outlines from aShapeList
+ *                                This is mainly for export to STEP files.
+ * @return true if success, false if a contour is not valid (self intersecting).
+ */
+export function BuildBoardPolygonOutlines(
+  aBoard: BOARD,
+  aOutlines: SHAPE_POLY_SET,
+  aErrorMax: number,
+  aChainingEpsilon: number,
+  aInferOutlineIfNecessary: boolean,
+  aErrorHandler: OUTLINE_ERROR_HANDLER | null,
+  aAllowUseArcsInPolygons: boolean,
+): boolean {
+  const items = new PCB_TYPE_COLLECTOR();
+  const fpHoles = new SHAPE_POLY_SET();
+  let success = false;
+
+  const cleaner = new SCOPED_FLAGS_CLEANER(SKIP_STRUCT);
+
+  try {
+    // Get all the shapes into 'items', then keep only those on layer == Edge_Cuts.
+    items.Collect(aBoard, [KICAD_T.PCB_SHAPE_T]);
+
+    for (let ii = 0; ii < items.GetCount(); ++ii) items.at(ii)!.ClearFlags(SKIP_STRUCT);
+
+    for (const fp of aBoard.Footprints()) {
+      const fpItems = new PCB_TYPE_COLLECTOR();
+      fpItems.Collect(fp, [KICAD_T.PCB_SHAPE_T]);
+
+      const fpSegList: PCB_SHAPE[] = [];
+
+      for (let ii = 0; ii < fpItems.GetCount(); ii++) {
+        const fpSeg = fpItems.at(ii) as PCB_SHAPE;
+
+        if (fpSeg.GetLayer() === PCB_LAYER_ID.Edge_Cuts) fpSegList.push(fpSeg);
+      }
+
+      if (fpSegList.length > 0) {
+        const fpOutlines = new SHAPE_POLY_SET();
+        success = doConvertOutlineToPolygon(
+          fpSegList,
+          fpOutlines,
+          aErrorMax,
+          aChainingEpsilon,
+          false,
+          null, // don't report errors here; the second pass also
+          // gets an opportunity to use these segments
+          aAllowUseArcsInPolygons,
+          cleaner,
+        );
+
+        // Test to see if we should make holes or outlines.  Holes are made if the footprint
+        // has copper outside of a single, closed outline.  If there are multiple outlines,
+        // we assume that the footprint edges represent holes as we do not support multiple
+        // boards.  Similarly, if any of the footprint pads are located outside of the edges,
+        // then the edges are holes
+        if (success && (isCopperOutside(fp, fpOutlines) || fpOutlines.OutlineCount() > 1)) {
+          fpHoles.Append(fpOutlines);
+        } else {
+          // If it wasn't a closed area, or wasn't a hole, the we want to keep the fpSegs
+          // in contention for the board outline builds.
+          for (let ii = 0; ii < fpItems.GetCount(); ++ii) fpItems.at(ii)!.ClearFlags(SKIP_STRUCT);
+        }
+      }
+    }
+
+    // Make a working copy of aSegList, because the list is modified during calculations
+    const segList: PCB_SHAPE[] = [];
+
+    for (let ii = 0; ii < items.GetCount(); ii++) {
+      const seg = items.at(ii) as PCB_SHAPE;
+
+      // Skip anything already used to generate footprint holes (above)
+      if (seg.GetFlags() & SKIP_STRUCT) continue;
+
+      if (seg.GetLayer() === PCB_LAYER_ID.Edge_Cuts) segList.push(seg);
+    }
+
+    if (segList.length) {
+      success = doConvertOutlineToPolygon(
+        segList,
+        aOutlines,
+        aErrorMax,
+        aChainingEpsilon,
+        true,
+        aErrorHandler,
+        aAllowUseArcsInPolygons,
+        cleaner,
+      );
+    }
+
+    if ((!success || !aOutlines.OutlineCount()) && aInferOutlineIfNecessary) {
+      // Couldn't create a valid polygon outline.  Use the board edge cuts bounding box to
+      // create a rectangular outline, or, failing that, the bounding box of the items on
+      // the board.
+      let bbbox = aBoard.GetBoardEdgesBoundingBox();
+
+      // If null area, uses the global bounding box.
+      if (bbbox.GetWidth() === 0 || bbbox.GetHeight() === 0)
+        bbbox = aBoard.ComputeBoundingBox(false, true);
+
+      // Ensure non null area. If happen, gives a minimal size.
+      if (bbbox.GetWidth() === 0 || bbbox.GetHeight() === 0) bbbox.Inflate(pcbIUScale.mmToIU(1.0));
+
+      aOutlines.RemoveAllContours();
+      aOutlines.NewOutline();
+
+      aOutlines.Append(bbbox.GetOrigin());
+
+      aOutlines.Append({ x: bbbox.GetOrigin().x, y: bbbox.GetEnd().y });
+
+      aOutlines.Append(bbbox.GetEnd());
+
+      aOutlines.Append({ x: bbbox.GetEnd().x, y: bbbox.GetOrigin().y });
+    }
+
+    if (aAllowUseArcsInPolygons) {
+      for (let ii = 0; ii < fpHoles.OutlineCount(); ++ii) {
+        const holePt = fpHoles.Outline(ii).CPoint(0);
+
+        for (let jj = 0; jj < aOutlines.OutlineCount(); ++jj) {
+          if (aOutlines.Outline(jj).PointInside(holePt)) {
+            aOutlines.AddHole(fpHoles.Outline(ii), jj);
+            break;
+          }
+        }
+      }
+    } else {
+      fpHoles.Simplify();
+      aOutlines.BooleanSubtract(fpHoles);
+    }
+
+    return success;
+  } finally {
+    cleaner.dispose();
+  }
+}
+
+/**
+ * Get the complete bounding box of the board (including all items).
+ *
+ * The vertex numbers and segment numbers of the rectangle returned.
+ *              1
+ *      *---------------*
+ *      |1             2|
+ *     0|               |2
+ *      |0             3|
+ *      *---------------*
+ *              3
+ */
+export function buildBoardBoundingBoxPoly(aBoard: BOARD, aOutline: SHAPE_POLY_SET): void {
+  let bbbox = aBoard.GetBoundingBox();
+  const chain = new SHAPE_LINE_CHAIN();
+
+  // If null area, uses the global bounding box.
+  if (bbbox.GetWidth() === 0 || bbbox.GetHeight() === 0)
+    bbbox = aBoard.ComputeBoundingBox(false, true);
+
+  // Ensure non null area. If happen, gives a minimal size.
+  if (bbbox.GetWidth() === 0 || bbbox.GetHeight() === 0) bbbox.Inflate(pcbIUScale.mmToIU(1.0));
+
+  // Inflate slightly (by 1/10th the size of the box)
+  bbbox.Inflate(Math.trunc(bbbox.GetWidth() / 10), Math.trunc(bbbox.GetHeight() / 10));
+
+  chain.Append(bbbox.GetOrigin());
+  chain.Append(bbbox.GetOrigin().x, bbbox.GetEnd().y);
+  chain.Append(bbbox.GetEnd());
+  chain.Append(bbbox.GetEnd().x, bbbox.GetOrigin().y);
+  chain.SetClosed(true);
+
+  aOutline.RemoveAllContours();
+  aOutline.AddOutline(chain);
+}
+
+export function projectPointOnSegment(
+  aEndPoint: VECTOR2I,
+  aOutline: SHAPE_POLY_SET,
+  aOutlineNum = 0,
+): VECTOR2I {
+  let minDistance = -1;
+  let projPoint: VECTOR2I = { x: 0, y: 0 };
+
+  for (const it = aOutline.CIterateSegments(aOutlineNum); it.valid(); it.Advance()) {
+    const seg = it.Get();
+    const dis = seg.Distance(aEndPoint);
+
+    if (minDistance < 0 || dis < minDistance) {
+      minDistance = dis;
+      projPoint = seg.NearestPoint(aEndPoint);
+    }
+  }
+
+  return projPoint;
+}
+
+export function findEndSegments(aChain: SHAPE_LINE_CHAIN, aEnds: { start: SEG; end: SEG }): number {
+  let foundSegs = 0;
+
+  for (let i = 0; i < aChain.SegmentCount(); i++) {
+    const seg = aChain.Segment(i);
+
+    let foundA = false;
+    let foundB = false;
+
+    for (let j = 0; j < aChain.SegmentCount(); j++) {
+      // Don't test the segment against itself
+      if (i === j) continue;
+
+      const testSeg = aChain.Segment(j);
+
+      if (testSeg.Contains(seg.A)) foundA = true;
+
+      if (testSeg.Contains(seg.B)) foundB = true;
+    }
+
+    // This segment isn't a start or end
+    if (foundA && foundB) continue;
+
+    if (foundSegs === 0) {
+      // The first segment we encounter is the "start" segment
+      aEnds.start = seg;
+      foundSegs++;
+    } else {
+      // Once we find both start and end, we can stop
+      aEnds.end = seg;
+      foundSegs++;
+      break;
+    }
+  }
+
+  return foundSegs;
+}
+
+/**
+ * Extract a board outline for a footprint view.
+ */
+export function BuildFootprintPolygonOutlines(
+  aBoard: BOARD,
+  aOutlines: SHAPE_POLY_SET,
+  aErrorMax: number,
+  aChainingEpsilon: number,
+  aErrorHandler: OUTLINE_ERROR_HANDLER | null,
+): boolean {
+  const footprint = aBoard.GetFirstFootprint();
+
+  // No footprint loaded
+  if (!footprint) {
+    return false;
+  }
+
+  const items = new PCB_TYPE_COLLECTOR();
+  const outlines = new SHAPE_POLY_SET();
+  let success = false;
+
+  const cleaner = new SCOPED_FLAGS_CLEANER(SKIP_STRUCT);
+
+  try {
+    // Get all the SHAPEs into 'items', then keep only those on layer == Edge_Cuts.
+    items.Collect(aBoard, [KICAD_T.PCB_SHAPE_T]);
+
+    // Make a working copy of aSegList, because the list is modified during calculations
+    const segList: PCB_SHAPE[] = [];
+
+    for (let ii = 0; ii < items.GetCount(); ii++) {
+      if (items.at(ii)!.GetLayer() === PCB_LAYER_ID.Edge_Cuts)
+        segList.push(items.at(ii) as PCB_SHAPE);
+    }
+
+    if (segList.length > 0) {
+      success = doConvertOutlineToPolygon(
+        segList,
+        outlines,
+        aErrorMax,
+        aChainingEpsilon,
+        true,
+        aErrorHandler,
+        false,
+        cleaner,
+      );
+    }
+
+    // A closed outline was found on Edge_Cuts
+    if (success) {
+      // If copper is outside a closed polygon, treat it as a hole
+      // If there are multiple outlines in the footprint, they are also holes
+      if (isCopperOutside(footprint, outlines) || outlines.OutlineCount() > 1) {
+        buildBoardBoundingBoxPoly(aBoard, aOutlines);
+
+        // Copy all outlines from the conversion as holes into the new outline
+        for (let i = 0; i < outlines.OutlineCount(); i++) {
+          const out = outlines.Outline(i);
+
+          if (out.IsClosed()) aOutlines.AddHole(out, -1);
+
+          for (let j = 0; j < outlines.HoleCount(i); j++) {
+            const hole = outlines.Hole(i, j);
+
+            if (hole.IsClosed()) aOutlines.AddHole(hole, -1);
+          }
+        }
+      }
+      // If all copper is inside, then the computed outline is the board outline
+      else {
+        aOutlines.assign(outlines);
+      }
+
+      return true;
+    }
+    // No board outlines were found, so use the bounding box
+    if (outlines.OutlineCount() === 0) {
+      buildBoardBoundingBoxPoly(aBoard, aOutlines);
+      return true;
+    }
+    // There is an outline present, but it is not closed
+
+    const closedChains: SHAPE_LINE_CHAIN[] = [];
+    const openChains: SHAPE_LINE_CHAIN[] = [];
+
+    // The ConvertOutlineToPolygon function returns only one main outline and the rest as
+    // holes, so we promote the holes and process them
+    openChains.push(outlines.Outline(0));
+
+    for (let j = 0; j < outlines.HoleCount(0); j++) {
+      const hole = outlines.Hole(0, j);
+
+      if (hole.IsClosed()) {
+        closedChains.push(hole);
+      } else {
+        openChains.push(hole);
+      }
+    }
+
+    const bbox = new SHAPE_POLY_SET();
+    buildBoardBoundingBoxPoly(aBoard, bbox);
+
+    // Treat the open polys as the board edge
+    const chain = new SHAPE_LINE_CHAIN(openChains[0]!);
+    const rect = bbox.Outline(0);
+
+    // We know the outline chain is open, so set to non-closed to get better segment count
+    chain.SetClosed(false);
+
+    const ends = { start: new SEG(), end: new SEG() };
+
+    // The two possible board outlines
+    const upper = new SHAPE_LINE_CHAIN();
+    const lower = new SHAPE_LINE_CHAIN();
+
+    findEndSegments(chain, ends);
+
+    if (chain.SegmentCount() === 0) {
+      // Something is wrong, bail out with the overall footprint bounding box
+      aOutlines.assign(bbox);
+      return true;
+    }
+    if (chain.SegmentCount() === 1) {
+      // This case means there is only 1 line segment making up the edge cuts of the
+      // footprint, so we just need to use it to cut the bounding box in half.
+      const startSeg = chain.Segment(0);
+
+      // Intersect with all the sides of the rectangle
+      const inter0 = startSeg.IntersectLines(rect.Segment(0));
+      const inter1 = startSeg.IntersectLines(rect.Segment(1));
+      const inter2 = startSeg.IntersectLines(rect.Segment(2));
+      const inter3 = startSeg.IntersectLines(rect.Segment(3));
+
+      if (inter0 && inter2 && !inter1 && !inter3) {
+        // Intersects the vertical rectangle sides only
+
+        // The upper half
+        upper.Append(inter0);
+        upper.Append(rect.GetPoint(1));
+        upper.Append(rect.GetPoint(2));
+        upper.Append(inter2);
+        upper.SetClosed(true);
+
+        // The lower half
+        lower.Append(inter0);
+        lower.Append(rect.GetPoint(0));
+        lower.Append(rect.GetPoint(3));
+        lower.Append(inter2);
+        lower.SetClosed(true);
+      } else if (inter1 && inter3 && !inter0 && !inter2) {
+        // Intersects the horizontal rectangle sides only
+
+        // The left half
+        upper.Append(inter1);
+        upper.Append(rect.GetPoint(1));
+        upper.Append(rect.GetPoint(0));
+        upper.Append(inter3);
+        upper.SetClosed(true);
+
+        // The right half
+        lower.Append(inter1);
+        lower.Append(rect.GetPoint(2));
+        lower.Append(rect.GetPoint(3));
+        lower.Append(inter3);
+        lower.SetClosed(true);
+      } else {
+        // Angled line segment that cuts across a corner
+
+        // Figure out which actual lines are intersected, since IntersectLines assumes
+        // an infinite line
+        const hit0 = rect.Segment(0).Contains(inter0!);
+        const hit1 = rect.Segment(1).Contains(inter1!);
+        const hit2 = rect.Segment(2).Contains(inter2!);
+        const hit3 = rect.Segment(3).Contains(inter3!);
+
+        if (hit0 && hit1) {
+          // Cut across the upper left corner
+
+          // The upper half
+          upper.Append(inter0!);
+          upper.Append(rect.GetPoint(1));
+          upper.Append(inter1!);
+          upper.SetClosed(true);
+
+          // The lower half
+          lower.Append(inter0!);
+          lower.Append(rect.GetPoint(0));
+          lower.Append(rect.GetPoint(3));
+          lower.Append(rect.GetPoint(2));
+          lower.Append(inter1!);
+          lower.SetClosed(true);
+        } else if (hit1 && hit2) {
+          // Cut across the upper right corner
+
+          // The upper half
+          upper.Append(inter1!);
+          upper.Append(rect.GetPoint(2));
+          upper.Append(inter2!);
+          upper.SetClosed(true);
+
+          // The lower half
+          lower.Append(inter1!);
+          lower.Append(rect.GetPoint(1));
+          lower.Append(rect.GetPoint(0));
+          lower.Append(rect.GetPoint(3));
+          lower.Append(inter2!);
+          lower.SetClosed(true);
+        } else if (hit2 && hit3) {
+          // Cut across the lower right corner
+
+          // The upper half
+          upper.Append(inter2!);
+          upper.Append(rect.GetPoint(2));
+          upper.Append(rect.GetPoint(1));
+          upper.Append(rect.GetPoint(0));
+          upper.Append(inter3!);
+          upper.SetClosed(true);
+
+          // The bottom half
+          lower.Append(inter2!);
+          lower.Append(rect.GetPoint(3));
+          lower.Append(inter3!);
+          lower.SetClosed(true);
+        } else {
+          // Cut across the lower left corner
+
+          // The upper half
+          upper.Append(inter0!);
+          upper.Append(rect.GetPoint(1));
+          upper.Append(rect.GetPoint(2));
+          upper.Append(rect.GetPoint(3));
+          upper.Append(inter3!);
+          upper.SetClosed(true);
+
+          // The bottom half
+          lower.Append(inter0!);
+          lower.Append(rect.GetPoint(0));
+          lower.Append(inter3!);
+          lower.SetClosed(true);
+        }
+      }
+    } else {
+      // More than 1 segment
+
+      // Just a temporary thing
+      aOutlines.assign(bbox);
+      return true;
+    }
+
+    // Figure out which is the correct outline
+    const poly1 = new SHAPE_POLY_SET();
+    const poly2 = new SHAPE_POLY_SET();
+
+    // `Append( upper )` takes the SHAPE_LINE_CHAIN through SHAPE_POLY_SET's
+    // converting constructor: the chain lands as a second outline after the
+    // empty one NewOutline() made.
+    poly1.NewOutline();
+    poly1.Append(new SHAPE_POLY_SET(upper));
+
+    poly2.NewOutline();
+    poly2.Append(new SHAPE_POLY_SET(lower));
+
+    if (isCopperOutside(footprint, poly1)) {
+      aOutlines.assign(poly2);
+    } else {
+      aOutlines.assign(poly1);
+    }
+
+    // Add all closed polys as holes to the main outline
+    for (const closedChain of closedChains) {
+      aOutlines.AddHole(closedChain, -1);
+    }
+
+    return true;
   } finally {
     cleaner.dispose();
   }

@@ -1,0 +1,49 @@
+{
+ "source": "kicad-cli pcb drc --severity-all on qa/data/pcbnew/resave/ecc83-pp.kicad_pcb with every third track (index % 3 == 0, file order) removed by python pcbnew 10.0.5",
+ "unconnected_items": [
+  [
+   "32199045-7b83-44fa-a0ee-e9986ff68da8",
+   "808e4f1b-ce1e-4bfb-b9bd-15d1ce3526c9"
+  ],
+  [
+   "aeded7e3-b278-4188-a018-5517ed785333",
+   "32199045-7b83-44fa-a0ee-e9986ff68da8"
+  ],
+  [
+   "ab72afcc-896d-4a27-99b8-f0afcc85c497",
+   "1763dda4-5bc1-49f5-b62b-d2f2293118d7"
+  ],
+  [
+   "4e5e9938-57c9-4bb2-970b-cc43e5bd53e9",
+   "0a72f525-0d1b-4f34-ba8b-901e6ea242fc"
+  ],
+  [
+   "beb4c69f-bce5-4736-bb41-d9523aa79796",
+   "ec6f9db9-8766-4ee9-b242-67cc63ed2949"
+  ],
+  [
+   "be88cb55-7bbb-4725-92cb-340cac9671c5",
+   "beb4c69f-bce5-4736-bb41-d9523aa79796"
+  ],
+  [
+   "81d31795-db6a-4081-9936-04fde2386907",
+   "d7a2ea41-4fea-4c56-89ef-27fec710c0ad"
+  ],
+  [
+   "27c677f8-c961-4ca4-b0eb-0a5fd50f3b54",
+   "635b5e92-eb27-4e08-a95d-168b98661cc4"
+  ],
+  [
+   "ef7c3498-8917-4f90-a7ac-024f512d9637",
+   "14d8d88a-7f5a-4442-9306-7d36ecae1603"
+  ],
+  [
+   "1fbbe805-b3f8-4ea1-bf81-0d63bdf234ed",
+   "16b5f9b7-8f48-404c-82f4-861d94de7c41"
+  ],
+  [
+   "3a80fbe2-0d9d-477a-bd78-21fb6bee3a8f",
+   "61e9c53c-6235-4dad-a1fc-75828cb63335"
+  ]
+ ]
+}
