@@ -54,6 +54,7 @@ import { CLIPPER_Z_VALUE, type Point64Z, SHAPE_LINE_CHAIN } from './shape_line_c
 import { SHAPE_SEGMENT } from './shape_segment.js';
 import { getArcToSegmentCount } from './geometry_utils.js';
 import { POLYGON_TRIANGULATION } from './polygon_triangulation.js';
+import { RTree, RTreeIntReal } from '../thirdparty/rtree.js';
 import {
   ERROR_LOC,
   circleToEndSegmentDeltaRadius,
@@ -1998,51 +1999,52 @@ export class SHAPE_POLY_SET extends SHAPE {
         const outline = this.m_polys[polyIdx]![0]!;
         const count = outline.PointCount();
 
+        // RTree<intptr_t, intptr_t, 2, intptr_t>
+        const rtree = new RTreeIntReal<number>(2);
+
+        for (let i = 0; i < count; ++i) {
+          const a = outline.CPoint(i);
+          const b = outline.CPoint((i + 1) % count);
+          const min = [Math.min(a.x, b.x), Math.min(a.y, b.y)];
+          const max = [Math.max(a.x, b.x), Math.max(a.y, b.y)];
+          rtree.Insert(min, max, i);
+        }
+
         let found = false;
         let segA = -1;
         let segB = -1;
 
-        // Upstream searches an RTree of the segment boxes; the visitor sees
-        // only segments whose box overlaps and stops at the first waist.
         for (let i = 0; i < count && !found; ++i) {
           const a = outline.CPoint(i);
           const b = outline.CPoint((i + 1) % count);
           const seg = new SEG(a, b);
+          const min = [Math.min(a.x, b.x), Math.min(a.y, b.y)];
+          const max = [Math.max(a.x, b.x), Math.max(a.y, b.y)];
 
-          const minX = Math.min(a.x, b.x);
-          const minY = Math.min(a.y, b.y);
-          const maxX = Math.max(a.x, b.x);
-          const maxY = Math.max(a.y, b.y);
-
-          for (let j = 0; j < count; ++j) {
-            if (j === i || j === (i + 1) % count || j === (i + count - 1) % count) continue;
+          const visitor = (j: number): boolean => {
+            if (j === i || j === (i + 1) % count || j === (i + count - 1) % count) return true;
 
             const oa = outline.CPoint(j);
             const ob = outline.CPoint((j + 1) % count);
-
-            if (
-              Math.max(oa.x, ob.x) < minX ||
-              Math.min(oa.x, ob.x) > maxX ||
-              Math.max(oa.y, ob.y) < minY ||
-              Math.min(oa.y, ob.y) > maxY
-            )
-              continue;
-
             const other = new SEG(oa, ob);
 
             // Skip segments that share start/end points.  This is the case for
             // fractured segments
-            if (samePoint(oa, a) && samePoint(ob, b)) continue;
+            if (samePoint(oa, a) && samePoint(ob, b)) return true;
 
-            if (samePoint(oa, b) && samePoint(ob, a)) continue;
+            if (samePoint(oa, b) && samePoint(ob, a)) return true;
 
             if (seg.ApproxCollinear(other, 10) && this.isExteriorWaist(seg, other)) {
               segA = i;
               segB = j;
               found = true;
-              break;
+              return false;
             }
-          }
+
+            return true;
+          };
+
+          rtree.Search(min, max, visitor);
         }
 
         if (!found) break;
@@ -2098,29 +2100,75 @@ export class SHAPE_POLY_SET extends SHAPE {
         let insertSegIdx = -1;
         let insertVertIdx = -1;
 
-        // The C++ takes an RTree above RTREE_THRESHOLD ( 32 ) points; both
-        // paths find the same first pinch point for a vertex, as the RTree
-        // search is a point query and the linear scan tests the same segments.
-        for (let vertIdx = 0; vertIdx < count && insertSegIdx < 0; ++vertIdx) {
-          const pt = outline.CPoint(vertIdx);
-          const prevSeg = (vertIdx + count - 1) % count;
+        // For small polygons, direct O(n²) search is faster than R-tree overhead
+        const RTREE_THRESHOLD = 32;
 
-          for (let segIdx = 0; segIdx < count; ++segIdx) {
-            // Skip adjacent segments
-            if (segIdx === prevSeg || segIdx === vertIdx) continue;
+        if (count < RTREE_THRESHOLD) {
+          for (let vertIdx = 0; vertIdx < count && insertSegIdx < 0; ++vertIdx) {
+            const pt = outline.CPoint(vertIdx);
+            const prevSeg = (vertIdx + count - 1) % count;
 
-            const a = outline.CPoint(segIdx);
-            const b = outline.CPoint((segIdx + 1) % count);
+            for (let segIdx = 0; segIdx < count; ++segIdx) {
+              // Skip adjacent segments
+              if (segIdx === prevSeg || segIdx === vertIdx) continue;
 
-            // SquaredDistance returns 0 only when pt lies exactly on the
-            // segment.  Clipper2 rounds corridor-cut vertices to integer
-            // coordinates; they can land within 1nm of an endpoint but are
-            // not true pinch points.
-            if (!samePoint(pt, a) && !samePoint(pt, b) && new SEG(a, b).SquaredDistance(pt) === 0) {
-              insertSegIdx = segIdx;
-              insertVertIdx = vertIdx;
-              break;
+              const a = outline.CPoint(segIdx);
+              const b = outline.CPoint((segIdx + 1) % count);
+
+              // SquaredDistance returns 0 only when pt lies exactly on the
+              // segment.  Clipper2 rounds corridor-cut vertices to integer
+              // coordinates; they can land within 1nm of an endpoint but are
+              // not true pinch points.
+              if (
+                !samePoint(pt, a) &&
+                !samePoint(pt, b) &&
+                new SEG(a, b).SquaredDistance(pt) === 0
+              ) {
+                insertSegIdx = segIdx;
+                insertVertIdx = vertIdx;
+                break;
+              }
             }
+          }
+        } else {
+          const rtree = new RTree<number>(2);
+
+          for (let i = 0; i < count; ++i) {
+            const a = outline.CPoint(i);
+            const b = outline.CPoint((i + 1) % count);
+            const bmin = [Math.min(a.x, b.x), Math.min(a.y, b.y)];
+            const bmax = [Math.max(a.x, b.x), Math.max(a.y, b.y)];
+            rtree.Insert(bmin, bmax, i);
+          }
+
+          for (let vertIdx = 0; vertIdx < count && insertSegIdx < 0; ++vertIdx) {
+            const pt = outline.CPoint(vertIdx);
+            const prevSeg = (vertIdx + count - 1) % count;
+            const bmin = [pt.x, pt.y];
+            const bmax = [pt.x, pt.y];
+
+            rtree.Search(bmin, bmax, (segIdx: number): boolean => {
+              if (segIdx === prevSeg || segIdx === vertIdx) return true;
+
+              const a = outline.CPoint(segIdx);
+              const b = outline.CPoint((segIdx + 1) % count);
+
+              // SquaredDistance returns 0 only when pt lies exactly on the
+              // segment.  Clipper2 rounds corridor-cut vertices to integer
+              // coordinates; they can land within 1nm of an endpoint but
+              // are not true pinch points.
+              if (
+                !samePoint(pt, a) &&
+                !samePoint(pt, b) &&
+                new SEG(a, b).SquaredDistance(pt) === 0
+              ) {
+                insertSegIdx = segIdx;
+                insertVertIdx = vertIdx;
+                return false;
+              }
+
+              return true;
+            });
           }
         }
 

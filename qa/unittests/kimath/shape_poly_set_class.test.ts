@@ -786,3 +786,37 @@ describe('CurvedPolys', () => {
     }
   });
 });
+
+describe('SHAPE_POLY_SET::splitCollinearOutlines', () => {
+  // Two squares joined by a zero-width waist (the outline runs along y = 0
+  // from x = 10 to 20 and back). `CacheTriangulation` simplifies first, and
+  // `splitCollinearOutlines` finds the waist through its segment R-tree and
+  // cuts the outline in two. KiCad's python 10.0.5 reports
+  // `TriangulatedPolyCount() == 2` for these points.
+  it('splits a waisted outline into two polygons before triangulating', () => {
+    const ps = new SHAPE_POLY_SET();
+    ps.NewOutline();
+    const pts: [number, number][] = [
+      [0, 0],
+      [10, 0],
+      [20, 0],
+      [30, 0],
+      [30, 10],
+      [20, 10],
+      [20, 0],
+      [10, 0],
+      [10, 10],
+      [0, 10],
+    ];
+    for (const [x, y] of pts) ps.Append(x * 1000, y * 1000);
+
+    ps.CacheTriangulation();
+
+    expect(ps.TriangulatedPolyCount()).toBe(2);
+    // Each half is a square: two triangles apiece.
+    let triangles = 0;
+    for (let i = 0; i < ps.TriangulatedPolyCount(); i++)
+      triangles += ps.TriangulatedPolygon(i)!.GetTriangleCount();
+    expect(triangles).toBe(4);
+  });
+});

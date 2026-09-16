@@ -1066,3 +1066,227 @@ export class RTree<DATATYPE> {
     return Math.round(Math.sqrt(minDist)); // std::lround
   }
 }
+
+/**
+ * `RTree<DATATYPE, intptr_t, NUMDIMS, intptr_t>`: the instantiation whose
+ * ELEMTYPEREAL is a 64-bit integer (`SHAPE_POLY_SET::splitCollinearOutlines`).
+ * Every volume, growth and waste is then integer arithmetic — `halfExtent`
+ * is `int64 * 0.5f` truncated back to int64, the unit sphere constant is
+ * `(intptr_t) 3.141593f == 3` — and the split heuristics tie differently
+ * from the double tree. The arithmetic is done in BigInt so that values past
+ * 2^53 compare as the C++ does.
+ */
+export class RTreeIntReal<DATATYPE> extends RTree<DATATYPE> {
+  private readonly m_unitSphereVolumeInt: bigint;
+  private m_areaInt: [bigint, bigint] = [0n, 0n];
+  private m_coverSplitAreaInt = 0n;
+
+  constructor(aNumDims = 2, aMaxNodes = 8, aMinNodes = aMaxNodes / 2) {
+    super(aNumDims, aMaxNodes, aMinNodes);
+    // m_unitSphereVolume = (ELEMTYPEREAL) UNIT_SPHERE_VOLUMES[NUMDIMS]
+    this.m_unitSphereVolumeInt = BigInt(Math.trunc(UNIT_SPHERE_VOLUMES[this.NUMDIMS]!));
+  }
+
+  protected RectVolumeInt(a_rect: Rect): bigint {
+    let volume = 1n;
+
+    for (let index = 0; index < this.NUMDIMS; ++index) {
+      volume *= BigInt(a_rect.m_max[index]! - a_rect.m_min[index]!);
+    }
+    return volume;
+  }
+
+  protected RectSphericalVolumeInt(a_rect: Rect): bigint {
+    let sumOfSquares = 0n;
+
+    for (let index = 0; index < this.NUMDIMS; ++index) {
+      // ( (int64) max - (int64) min ) * 0.5f: the int64 difference converts to
+      // float, the float product converts back to int64 by truncation.
+      const halfExtent = BigInt(
+        Math.trunc(Math.fround(a_rect.m_max[index]! - a_rect.m_min[index]!) * 0.5),
+      );
+      sumOfSquares += halfExtent * halfExtent;
+    }
+
+    if (this.NUMDIMS === 2) {
+      return sumOfSquares * this.m_unitSphereVolumeInt;
+    }
+    // (ELEMTYPEREAL) std::sqrt( sumOfSquares ): the root truncated to int64
+    const radius = BigInt(Math.trunc(Math.sqrt(Number(sumOfSquares))));
+    if (this.NUMDIMS === 3) {
+      return radius * radius * radius * this.m_unitSphereVolumeInt;
+    }
+    return radius ** BigInt(this.NUMDIMS) * this.m_unitSphereVolumeInt;
+  }
+
+  protected CalcRectVolumeInt(a_rect: Rect): bigint {
+    // RTREE_USE_SPHERICAL_VOLUME
+    return this.RectSphericalVolumeInt(a_rect);
+  }
+
+  protected override PickBranch(a_rect: Rect, a_node: Node<DATATYPE>): number {
+    let firstTime = true;
+    let increase: bigint;
+    let bestIncr = -1n;
+    let area: bigint;
+    let bestArea = 0n;
+    let best = 0;
+    let tempRect: Rect;
+
+    for (let index = 0; index < a_node.m_count; ++index) {
+      const curRect = a_node.m_branch[index]!.m_rect;
+      area = this.CalcRectVolumeInt(curRect);
+      tempRect = this.CombineRect(a_rect, curRect);
+      increase = this.CalcRectVolumeInt(tempRect) - area;
+
+      if (increase < bestIncr || firstTime) {
+        best = index;
+        bestArea = area;
+        bestIncr = increase;
+        firstTime = false;
+      } else if (increase === bestIncr && area < bestArea) {
+        best = index;
+        bestArea = area;
+        bestIncr = increase;
+      }
+    }
+
+    return best;
+  }
+
+  protected override GetBranches(
+    a_node: Node<DATATYPE>,
+    a_branch: Branch<DATATYPE>,
+    a_parVars: PartitionVars<DATATYPE>,
+  ): void {
+    super.GetBranches(a_node, a_branch, a_parVars);
+    this.m_coverSplitAreaInt = this.CalcRectVolumeInt(a_parVars.m_coverSplit);
+  }
+
+  protected override ChoosePartition(a_parVars: PartitionVars<DATATYPE>, a_minFill: number): void {
+    let biggestDiff: bigint;
+    let group: number;
+    let chosen = 0;
+    let betterGroup = 0;
+
+    this.InitParVars(a_parVars, a_parVars.m_branchCount, a_minFill);
+    this.PickSeeds(a_parVars);
+
+    while (
+      a_parVars.m_count[0] + a_parVars.m_count[1] < a_parVars.m_total &&
+      a_parVars.m_count[0] < a_parVars.m_total - a_parVars.m_minFill &&
+      a_parVars.m_count[1] < a_parVars.m_total - a_parVars.m_minFill
+    ) {
+      biggestDiff = -1n;
+
+      for (let index = 0; index < a_parVars.m_total; ++index) {
+        if (!a_parVars.m_taken[index]) {
+          const curRect = a_parVars.m_branchBuf[index]!.m_rect;
+          const rect0 = this.CombineRect(curRect, a_parVars.m_cover[0]);
+          const rect1 = this.CombineRect(curRect, a_parVars.m_cover[1]);
+          const growth0 = this.CalcRectVolumeInt(rect0) - this.m_areaInt[0];
+          const growth1 = this.CalcRectVolumeInt(rect1) - this.m_areaInt[1];
+          let diff = growth1 - growth0;
+
+          if (diff >= 0n) {
+            group = 0;
+          } else {
+            group = 1;
+            diff = -diff;
+          }
+
+          if (diff > biggestDiff) {
+            biggestDiff = diff;
+            chosen = index;
+            betterGroup = group;
+          } else if (
+            diff === biggestDiff &&
+            a_parVars.m_count[group]! < a_parVars.m_count[betterGroup]!
+          ) {
+            chosen = index;
+            betterGroup = group;
+          }
+        }
+      }
+
+      this.Classify(chosen, betterGroup, a_parVars);
+    }
+
+    // If one group too full, put remaining rects in the other
+    if (a_parVars.m_count[0] + a_parVars.m_count[1] < a_parVars.m_total) {
+      if (a_parVars.m_count[0] >= a_parVars.m_total - a_parVars.m_minFill) {
+        group = 1;
+      } else {
+        group = 0;
+      }
+      for (let index = 0; index < a_parVars.m_total; ++index) {
+        if (!a_parVars.m_taken[index]) {
+          this.Classify(index, group, a_parVars);
+        }
+      }
+    }
+  }
+
+  protected override InitParVars(
+    a_parVars: PartitionVars<DATATYPE>,
+    a_maxRects: number,
+    a_minFill: number,
+  ): void {
+    super.InitParVars(a_parVars, a_maxRects, a_minFill);
+    this.m_areaInt = [0n, 0n];
+  }
+
+  protected override PickSeeds(a_parVars: PartitionVars<DATATYPE>): void {
+    let seed0 = 0;
+    let seed1 = 0;
+    let worst: bigint;
+    let waste: bigint;
+    const area: bigint[] = [];
+
+    for (let index = 0; index < a_parVars.m_total; ++index) {
+      area[index] = this.CalcRectVolumeInt(a_parVars.m_branchBuf[index]!.m_rect);
+    }
+
+    worst = -this.m_coverSplitAreaInt - 1n;
+
+    for (let indexA = 0; indexA < a_parVars.m_total - 1; ++indexA) {
+      for (let indexB = indexA + 1; indexB < a_parVars.m_total; ++indexB) {
+        const oneRect = this.CombineRect(
+          a_parVars.m_branchBuf[indexA]!.m_rect,
+          a_parVars.m_branchBuf[indexB]!.m_rect,
+        );
+        waste = this.CalcRectVolumeInt(oneRect) - area[indexA]! - area[indexB]!;
+
+        if (waste >= worst) {
+          worst = waste;
+          seed0 = indexA;
+          seed1 = indexB;
+        }
+      }
+    }
+
+    this.Classify(seed0, 0, a_parVars);
+    this.Classify(seed1, 1, a_parVars);
+  }
+
+  protected override Classify(
+    a_index: number,
+    a_group: number,
+    a_parVars: PartitionVars<DATATYPE>,
+  ): void {
+    a_parVars.m_partition[a_index] = a_group;
+    a_parVars.m_taken[a_index] = true;
+
+    if (a_parVars.m_count[a_group] === 0) {
+      a_parVars.m_cover[a_group] = copyRect(a_parVars.m_branchBuf[a_index]!.m_rect);
+    } else {
+      a_parVars.m_cover[a_group] = this.CombineRect(
+        a_parVars.m_branchBuf[a_index]!.m_rect,
+        a_parVars.m_cover[a_group]!,
+      );
+    }
+
+    this.m_areaInt[a_group] = this.CalcRectVolumeInt(a_parVars.m_cover[a_group]!);
+    a_parVars.m_count[a_group] = a_parVars.m_count[a_group]! + 1;
+  }
+}

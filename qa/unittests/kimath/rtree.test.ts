@@ -3,7 +3,9 @@
 // removals, and the nearest-neighbour walk must come out in distance order.
 // The expectations are brute force over the same rectangles, not the tree.
 import { describe, expect, it } from 'vitest';
-import { RTree } from '@ziroeda/kimath/src/thirdparty/rtree.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { RTree, RTreeIntReal } from '@ziroeda/kimath/src/thirdparty/rtree.js';
 
 type R = [number, number, number, number];
 
@@ -122,5 +124,48 @@ describe('RTree', () => {
     expect(nn.length).toBe(5);
     const brute = rects.map((_, i) => [dist(p, i), i] as const).sort((a, b) => a[0] - b[0]);
     expect(nn.map(([d]) => d)).toEqual(brute.slice(0, 5).map(([d]) => d));
+  });
+});
+
+describe("RTree visit order against KiCad's rtree.h", () => {
+  // qa/probes/rtree_order_oracle/rtree_order_oracle.cpp: KiCad's own header
+  // over a fixed rectangle set, once as `RTree<intptr_t, int, 2, double>`
+  // (every spatial index) and once as `RTree<intptr_t, intptr_t, 2, intptr_t>`
+  // (splitCollinearOutlines). The order the callback sees the ids in is the
+  // tree's structure — the quadratic split and PickBranch tie-breaks — so
+  // the port must reproduce it, not only the set.
+  type ORACLE = { rects: R[]; queries: R[]; double: number[][]; intptr: number[][] };
+  const load = (name: string): ORACLE =>
+    JSON.parse(
+      readFileSync(fileURLToPath(new URL(`../../fixtures/${name}.json`, import.meta.url)), 'utf8'),
+    ) as ORACLE;
+
+  const orders = (tree: RTree<number>, o: ORACLE): number[][] => {
+    o.rects.forEach((r, i) => tree.Insert([r[0], r[1]], [r[2], r[3]], i));
+    return o.queries.map((q) => {
+      const order: number[] = [];
+      tree.Search([q[0], q[1]], [q[2], q[3]], (id) => {
+        order.push(id);
+        return true;
+      });
+      return order;
+    });
+  };
+
+  for (const name of ['rtree_order_oracle_nm', 'rtree_order_oracle_unit']) {
+    it(`${name}: the double tree visits in the C++ order`, () => {
+      const o = load(name);
+      expect(orders(new RTree<number>(2), o)).toEqual(o.double);
+    });
+
+    it(`${name}: the intptr_t tree visits in the C++ order`, () => {
+      const o = load(name);
+      expect(orders(new RTreeIntReal<number>(2), o)).toEqual(o.intptr);
+    });
+  }
+
+  it('the unit fixture tells the two instantiations apart', () => {
+    const o = load('rtree_order_oracle_unit');
+    expect(o.double).not.toEqual(o.intptr);
   });
 });

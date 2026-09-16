@@ -570,5 +570,21 @@ function squaredNorm(dx: number, dy: number): number {
  * division - the same arithmetic as the int64 arm, so `rescale64` is it.
  */
 function rescaleInt(numerator: number, value: number, denominator: number): number {
+  const product = numerator * value;
+
+  // A product below 2^53 (less the half-denominator headroom) is an exact
+  // double, and a truncating division of exact integers below 2^53 rounds
+  // to the C++ quotient: `Math.trunc` is the int64 `/`. Only a larger product
+  // needs BigInt to be the int64 arithmetic.
+  if (product > -RESCALE_EXACT_LIMIT && product < RESCALE_EXACT_LIMIT) {
+    const half = Math.trunc(denominator / 2);
+    return Math.trunc(
+      (product < 0 !== denominator < 0 ? product - half : product + half) / denominator,
+    );
+  }
+
   return Number(rescale64(BigInt(numerator), BigInt(value), BigInt(denominator)));
 }
+
+// 2^53 less the largest |denominator / 2| an int can add.
+const RESCALE_EXACT_LIMIT = 2 ** 53 - 2 ** 31;
