@@ -17,6 +17,20 @@ really two pull requests sharing a name.
   transport seam is clean. There are two concrete bugs, one security gap, and
   one design disagreement to settle before it lands.
 
+## What is ours, and a heads-up
+
+- The `realtime.messages` policy and binding `from` into the AEAD (§3) are
+  server side and `sync_crypto.ts` - ours. You set `private: true`; we do the
+  rest.
+- §2's open decision is decided: only the author of an edit pushes it; a
+  remote apply never marks the project dirty.
+- The rebase against main is ours to carry, not yours - leave "allow edits
+  from maintainers" on and we will push the fixups to the PR branch.
+- pcbnew is moving onto KiCad's own `BOARD` (#636): `FOOTPRINT.source` is
+  already gone and undo becomes `BOARD_COMMIT` next. Land the schematic half
+  of multiplayer first; do not rebase `pcb_diff.ts` onto today's main - we
+  will port it onto the new model when stage 2 lands.
+
 ## The multiplayer arc - what is good
 
 - `ProjectSyncTransport` is the right seam. `createProjectSyncTransport` picks
