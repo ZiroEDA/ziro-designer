@@ -84,6 +84,8 @@ import type { SHAPE } from '@ziroeda/kimath/src/geometry/shape.js';
 import { MARKER_T } from '@ziroeda/common/src/marker_base.js';
 import { PCB_BOARD_OUTLINE } from './pcb_board_outline.js';
 import { CONNECTIVITY_DATA } from './connectivity/connectivity_data.js';
+import { COMPONENT_CLASS_MANAGER } from './component_classes/component_class_manager.js';
+import type { COMPONENT_CLASS_SETTINGS } from '@ziroeda/common/src/project/component_class_settings.js';
 import type { CN_EDGE, PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
 
 export { BOARD_USE, LAYER, LAYER_T } from './board_types.js';
@@ -194,6 +196,8 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
   private m_connectivity: CONNECTIVITY_DATA;
 
+  private m_componentClassManager: COMPONENT_CLASS_MANAGER;
+
   constructor() {
     super(null, KICAD_T.PCB_T);
     this.m_LegacyDesignSettingsLoaded = false;
@@ -204,6 +208,7 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
     this.m_paper = new PAGE_INFO(PAGE_SIZE_TYPE.A4);
     this.m_designSettings = new BOARD_DESIGN_SETTINGS();
     this.m_NetInfo = new NETINFO_LIST(this);
+    this.m_componentClassManager = new COMPONENT_CLASS_MANAGER(this);
     this.initEmbeddedFiles();
     this.m_embeddedFilesDelegate = null;
 
@@ -544,6 +549,28 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
     aOutlines.Simplify();
 
     return success;
+  }
+
+  GetComponentClassManager(): COMPONENT_CLASS_MANAGER {
+    return this.m_componentClassManager;
+  }
+
+  /**
+   * Synchronise component classes with the project's assignment rules.
+   *
+   * `GetProject()->GetProjectFile().ComponentClassSettings()` is the C++'s
+   * source; the project lands at stage 6, so the settings come in as an
+   * argument until then.
+   */
+  SynchronizeComponentClasses(
+    aSettings: COMPONENT_CLASS_SETTINGS,
+    aNewSheetPaths: ReadonlySet<string>,
+  ): boolean {
+    return this.m_componentClassManager.SyncDynamicComponentClassAssignments(
+      aSettings.GetComponentClassAssignments(),
+      aSettings.GetEnableSheetComponentClasses(),
+      aNewSheetPaths,
+    );
   }
 
   GetFirstFootprint(): FOOTPRINT | null {

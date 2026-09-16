@@ -83,6 +83,8 @@ import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { type VECTOR2I, add, equal, sub } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import type { BOARD } from './board.js';
+import type { COMPONENT_CLASS } from './component_classes/component_class.js';
+import { COMPONENT_CLASS_CACHE_PROXY } from './component_classes/component_class_cache_proxy.js';
 import { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
 import { type BOARD_COMMIT_LIKE, BOARD_ITEM } from './board_item.js';
 import { ADD_MODE, BOARD_ITEM_CONTAINER, REMOVE_MODE } from './board_item_container.js';
@@ -453,7 +455,7 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
   private m_courtyard_cache: FOOTPRINT_COURTYARD_CACHE_DATA | null = null;
 
   private m_transientComponentClassNames: Set<string>;
-  // std::unique_ptr<COMPONENT_CLASS_CACHE_PROXY> m_componentClassCacheProxy;   -- COMPONENT_CLASS pending (#636)
+  private m_componentClassCacheProxy: COMPONENT_CLASS_CACHE_PROXY;
 
   // Optional unit mapping information for multi-unit symbols
   private m_unitInfo: FP_UNIT_INFO[];
@@ -497,6 +499,7 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
     this.m_3D_Drawings = [];
     this.m_initial_comments = null;
     this.m_transientComponentClassNames = new Set();
+    this.m_componentClassCacheProxy = new COMPONENT_CLASS_CACHE_PROXY(this);
     this.m_unitInfo = [];
     this.m_searchTerms = [];
 
@@ -561,7 +564,9 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
       : null;
     copy.m_variants = new Map([...aFootprint.m_variants].map(([k, v]) => [k, v.clone()]));
 
-    // m_componentClassCacheProxy->SetStaticComponentClass( ... )   -- COMPONENT_CLASS pending (#636)
+    copy.m_componentClassCacheProxy.SetStaticComponentClass(
+      aFootprint.m_componentClassCacheProxy.GetStaticComponentClass(),
+    );
 
     const ptrMap = new Map<EDA_ITEM, EDA_ITEM>();
 
@@ -752,7 +757,10 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
     this.m_privateLayers = new LSET(aOther.m_privateLayers);
     this.m_initial_comments = aOther.m_initial_comments ? [...aOther.m_initial_comments] : null;
 
-    // m_componentClassCacheProxy->SetStaticComponentClass( ... )   -- COMPONENT_CLASS pending (#636)
+    this.m_componentClassCacheProxy.SetStaticComponentClass(
+      aOther.m_componentClassCacheProxy.GetStaticComponentClass(),
+    );
+
     this.assignEmbeddedFiles(aOther);
 
     return this;
@@ -2621,8 +2629,14 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
 
     aList.push(new MSG_PANEL_ITEM(`Status: ${status}`, `Attributes: ${attrs}`));
 
-    // if( !m_componentClassCacheProxy->GetComponentClass()->IsEmpty() )
-    //     aList.emplace_back( _( "Component Class" ), ...GetHumanReadableName() );   -- COMPONENT_CLASS pending (#636)
+    if (!this.m_componentClassCacheProxy.GetComponentClass()!.IsEmpty()) {
+      aList.push(
+        new MSG_PANEL_ITEM(
+          'Component Class',
+          this.m_componentClassCacheProxy.GetComponentClass()!.GetHumanReadableName(),
+        ),
+      );
+    }
 
     msg = `Footprint: ${this.m_fpid.GetUniStringLibId()}`;
     msg2 = `3D-Shape: ${this.m_3D_Drawings.length === 0 ? '<none>' : this.m_3D_Drawings[0]!.m_Filename}`;
@@ -4503,30 +4517,37 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
   }
 
   /// Sets the component class object pointer for this footprint
-  SetStaticComponentClass(aClass: unknown): void {
-    // m_componentClassCacheProxy->SetStaticComponentClass( aClass );   -- COMPONENT_CLASS pending (#636)
+  SetStaticComponentClass(aClass: COMPONENT_CLASS | null): void {
+    this.m_componentClassCacheProxy.SetStaticComponentClass(aClass);
   }
 
   /// Returns the component class for this footprint
-  GetStaticComponentClass(): null {
-    return null; // COMPONENT_CLASS pending (#636)
+  GetStaticComponentClass(): COMPONENT_CLASS | null {
+    return this.m_componentClassCacheProxy.GetStaticComponentClass();
   }
 
   /// Returns the component class for this footprint
-  GetComponentClass(): null {
-    return null; // COMPONENT_CLASS pending (#636)
+  GetComponentClass(): COMPONENT_CLASS | null {
+    return this.m_componentClassCacheProxy.GetComponentClass();
   }
 
   /// Used for display in the properties panel
   GetComponentClassAsString(): string {
-    return ''; // COMPONENT_CLASS pending (#636): the class is empty
+    if (!this.m_componentClassCacheProxy.GetComponentClass()!.IsEmpty())
+      return this.m_componentClassCacheProxy.GetComponentClass()!.GetName();
+
+    return '';
   }
 
   /// Forces immediate recalculation of the component class for this footprint
-  RecomputeComponentClass(): void {}
+  RecomputeComponentClass(): void {
+    this.m_componentClassCacheProxy.RecomputeComponentClass();
+  }
 
   /// Forces deferred (on next access) recalculation of the component class for this footprint
-  InvalidateComponentClassCache(): void {}
+  InvalidateComponentClassCache(): void {
+    this.m_componentClassCacheProxy.InvalidateCache();
+  }
 
   /**
    * @brief Sets the transient component class names
@@ -4550,8 +4571,10 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
 
   /// Resolves a set of component class names to this footprint's actual component class
   ResolveComponentClassNames(aBoard: BOARD, aComponentClassNames: ReadonlySet<string>): void {
-    // aBoard->GetComponentClassManager().GetEffectiveStaticComponentClass( aComponentClassNames )
-    //                                                     -- COMPONENT_CLASS pending (#636)
+    const componentClass = aBoard
+      .GetComponentClassManager()
+      .GetEffectiveStaticComponentClass(aComponentClassNames);
+    this.SetStaticComponentClass(componentClass);
   }
 
   /// Used post-loading of a footprint to adjust the layers on pads to match board inner layers

@@ -1726,10 +1726,8 @@ function parseFOOTPRINT_unchecked(
 
   footprint.SetInitialComments(aInitialComments);
 
-  if (p.m_board) {
-    // footprint->SetStaticComponentClass( m_board->GetComponentClassManager().GetNoneComponentClass() )
-    //                                                     -- COMPONENT_CLASS_MANAGER pending (#636)
-  }
+  if (p.m_board)
+    footprint.SetStaticComponentClass(p.m_board.GetComponentClassManager().GetNoneComponentClass());
 
   token = p.NextTok();
 

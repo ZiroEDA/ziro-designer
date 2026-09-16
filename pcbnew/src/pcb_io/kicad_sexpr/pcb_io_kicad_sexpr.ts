@@ -1001,17 +1001,14 @@ export class PCB_IO_KICAD_SEXPR {
       this.m_out.Print(')');
     }
 
-    // if( const COMPONENT_CLASS* compClass = aFootprint->GetStaticComponentClass() ) …
-    //                                                     -- COMPONENT_CLASS pending (#636)
-    {
-      const classNames = aFootprint.GetTransientComponentClassNames();
+    const compClass = aFootprint.GetStaticComponentClass();
 
-      if (classNames.size > 0) {
+    if (compClass) {
+      if (!compClass.IsEmpty()) {
         this.m_out.Print('(component_classes');
 
-        // COMPONENT_CLASS_MANAGER sorts constituent names; a std::set is name order
-        for (const name of [...classNames].sort())
-          this.m_out.Print(`(class ${this.m_out.Quotew(name)})`);
+        for (const constituent of compClass.GetConstituentClasses())
+          this.m_out.Print(`(class ${this.m_out.Quotew(constituent.GetName())})`);
 
         this.m_out.Print(')');
       }

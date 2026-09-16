@@ -133,7 +133,7 @@ describe('CONNECTIVITY_DATA', () => {
       expect(unexplained).toEqual([]);
       // ... and most of them are exact.
       expect(missing.length).toBeLessThan(unconnected / 5);
-    });
+    }, 60_000); // ~2 s alone; the suite runs it under load
   }
 
   it('GetConnectedItems walks the cluster and the pad queries see through it', () => {
