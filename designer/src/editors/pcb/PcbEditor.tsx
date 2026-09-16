@@ -455,12 +455,16 @@ import {
   type GlobalTeardropEditOptions,
 } from '@ziroeda/pcbnew/src/teardrop_global_edit.js';
 import {
-  applyTeardrops,
-  boardHasTeardrops,
   defaultTeardropParametersList,
-  teardropInputsChanged,
   type TeardropParametersList,
 } from '@ziroeda/pcbnew/src/teardrop.js';
+import { SKIP_TEARDROPS } from '@ziroeda/pcbnew/src/board_commit.js';
+import { boardFromBOARD } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/board_view.js';
+import {
+  applyTeardropParametersList,
+  commitViewToBoard,
+} from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/board_view_commit.js';
+import { PCB_EDIT_FRAME, REACT_BOARD_LISTENER, pcbnewSettingsOf } from './pcb_edit_frame.js';
 import { fetchNetlistFromSchematic } from './netlist_from_schematic.js';
 import { loadFootprint } from '../../widgets/footprint_list.js';
 import { FootprintChooserFrame } from './dialogs/footprint_chooser_frame.js';
@@ -1708,9 +1712,26 @@ export function PcbEditor({
   // over the raster, KiCad's selection is the item's colour Brightened(0.8),
   // not a bounding box (pcb_painter.cpp getColor).
   const selSceneRef = useRef<BoardScene | null>(null);
-  // Whole-board snapshot undo/redo (EDIT_TOOL's SaveCopyInUndoList).
-  const undoRef = useRef<Board[]>([]);
-  const redoRef = useRef<Board[]>([]);
+  /**
+   * The frame's non-window half: the BOARD, the tool manager and the
+   * undo/redo stacks (`PCB_BASE_EDIT_FRAME`). Every edit is a BOARD_COMMIT on
+   * the live BOARD; undo and redo are `RestoreCopyFromUndoList/RedoList`.
+   * The settings and the dirty flag are reached through refs, so the frame is
+   * built once.
+   */
+  const pcbCfgRef = useRef(pcbCfg);
+  pcbCfgRef.current = pcbCfg;
+  const setDirtyRef = useRef(setDirty);
+  setDirtyRef.current = setDirty;
+  const frameRef = useRef<PCB_EDIT_FRAME | null>(null);
+  if (!frameRef.current) {
+    frameRef.current = new PCB_EDIT_FRAME({
+      settings: () => pcbnewSettingsOf(pcbCfgRef.current),
+      onModify: () => setDirtyRef.current(true),
+      onUndoRedoIncomplete: () =>
+        console.warn('Incomplete undo/redo operation: some items not found'),
+    });
+  }
   // The rows the disambiguation menu is pointing at, and their geometry.
   //
   // `doSelectionMenu` answers TA_CHOICE_MENU_UPDATE with
@@ -4220,6 +4241,32 @@ export function PcbEditor({
   );
 
   /**
+   * The BOARD_LISTENER that drives React: whatever a commit, an undo or a
+   * redo did to the BOARD, the view is re-derived from it once, after the
+   * operation has finished.
+   */
+  const fileNameRef = useRef(fileName);
+  fileNameRef.current = fileName;
+  const listenerRef = useRef<REACT_BOARD_LISTENER | null>(null);
+  if (!listenerRef.current) {
+    listenerRef.current = new REACT_BOARD_LISTENER(() => {
+      const kb = frameRef.current?.GetBoard();
+      if (!kb || boardRef.current?.k !== kb) return;
+      setBoardModel({ ...boardFromBOARD(kb, fileNameRef.current), fileName: fileNameRef.current });
+    });
+  }
+  const boardK = board?.k ?? null;
+  useEffect(() => {
+    const frame = frameRef.current;
+    const listener = listenerRef.current;
+    if (!boardK || !frame || !listener) return;
+    // PCB_EDIT_FRAME::SetBoard: a new board, a new history
+    frame.SetBoard(boardK);
+    boardK.AddListener(listener);
+    return () => boardK.RemoveListener(listener);
+  }, [boardK]);
+
+  /**
    * Does anything on the board ask for teardrops?
    *
    * The refresh below is a full rebuild, so it is worth one cheap scan to skip
@@ -4239,30 +4286,55 @@ export function PcbEditor({
     b.zones.some((z) => z.teardropType !== undefined);
 
   /**
-   * Commit an edit: snapshot the current board for undo, then swap in the next.
-   *
-   * BOARD_COMMIT::Push refreshes teardrops on every commit that touched a
-   * track, pad, via or footprint — teardrops in pcbnew are live, they follow
-   * your routing rather than waiting for you to re-run a command. We rebuild
-   * the whole set rather than tracking dirty items; that is the same answer,
-   * and the scan above keeps boards without teardrops from paying for it.
+   * Commit an edit: the view the tool produced becomes one BOARD_COMMIT on
+   * the live BOARD (`commitViewToBoard`), which files the undo entry, keeps
+   * the connectivity, and — as `BOARD_COMMIT::Push` does on every commit that
+   * touched a track, pad, via or footprint — rebuilds the teardrops around
+   * them with TEARDROP_MANAGER. The view is then re-derived from the BOARD by
+   * the listener, so whatever Push added (a teardrop, a propagated net) is
+   * what the editor shows.
    *
    * `skipTeardrops` is upstream's SKIP_TEARDROPS flag: the teardrop commands
-   * have already built the zones they want, and re-running here would be
-   * redundant work on a board that just did it.
+   * have already built the zones they want.
    */
   const commitBoard = useCallback(
-    (next: Board, opts: { skipTeardrops?: boolean } = {}) => {
+    (next: Board, opts: { skipTeardrops?: boolean; message?: string } = {}) => {
       const prev = boardRef.current;
-      if (prev) undoRef.current.push(prev);
-      redoRef.current = [];
-      setDirty(true);
-      const refresh =
-        !opts.skipTeardrops &&
-        boardHasTeardrops(next) &&
-        (!prev || teardropInputsChanged(prev, next));
+      const frame = frameRef.current!;
+      const kb = next.k ?? prev?.k;
 
-      setBoardModel(refresh ? applyTeardrops(next, { list: teardropListRef.current() }) : next);
+      if (!kb) {
+        setDirty(true);
+        setBoardModel(next);
+        return;
+      }
+
+      // The project's teardrop settings, onto the BOARD_DESIGN_SETTINGS the manager reads.
+      applyTeardropParametersList(
+        kb.GetDesignSettings().GetTeadropParamsList(),
+        teardropListRef.current(),
+      );
+
+      const listener = listenerRef.current!;
+      commitViewToBoard(
+        frame,
+        prev,
+        next,
+        opts.message ?? 'Edit',
+        opts.skipTeardrops ? SKIP_TEARDROPS : 0,
+      );
+
+      // Until the listener's re-derivation lands, a same-tick reader of the
+      // board sees the view the tool produced, not the one before it.
+      boardRef.current = next;
+
+      // A commit with no item change (a title block, a layer name) raises no
+      // listener call; the view is re-derived here instead.
+      if (!listener.IsPending())
+        setBoardModel({
+          ...boardFromBOARD(kb, fileNameRef.current),
+          fileName: fileNameRef.current,
+        });
     },
     [setBoardModel],
   );
@@ -4400,23 +4472,22 @@ export function PcbEditor({
     [updatePcb, commitBoard],
   );
 
+  // PCB_BASE_EDIT_FRAME::RestoreCopyFromUndoList / RestoreCopyFromRedoList; the
+  // listener re-derives the view, and the selection is rebuilt as
+  // PCB_SELECTION_TOOL::RebuildSelection does — empty, until the tool lands.
   const undo = useCallback(() => {
-    const prev = undoRef.current.pop();
-    if (!prev || !boardRef.current) return;
-    redoRef.current.push(boardRef.current);
-    setDirty(true);
-    setBoardModel(prev);
+    const frame = frameRef.current!;
+    if (frame.GetUndoCommandCount() <= 0) return;
+    frame.RestoreCopyFromUndoList();
     setSelection(new Set());
-  }, [setBoardModel]);
+  }, []);
 
   const redo = useCallback(() => {
-    const next = redoRef.current.pop();
-    if (!next || !boardRef.current) return;
-    undoRef.current.push(boardRef.current);
-    setDirty(true);
-    setBoardModel(next);
+    const frame = frameRef.current!;
+    if (frame.GetRedoCommandCount() <= 0) return;
+    frame.RestoreCopyFromRedoList();
     setSelection(new Set());
-  }, [setBoardModel]);
+  }, []);
 
   // Selection-filter predicate ref (assigned once passesFilter is defined), so
   // the stable Select All callback can honour the live filter.
