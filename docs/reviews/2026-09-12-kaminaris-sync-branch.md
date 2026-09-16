@@ -105,10 +105,6 @@ On the branch tip against its own tree:
 - One `tsc -p designer` error at `dialog_import_gfx.tsx:127` - a main-side
   type moved under you (`GRAPHICS_IMPORTER_SCH`), rebase clears it.
 
-The `plot_*`, `pad`, `field_face` failures I saw are my worktree's module
-resolution, not your code - ignore if they do not reproduce after
-`pnpm install`.
-
 ## Should fix, not blocking
 
 - `PcbEditor.tsx` +1069 lines. It is already 11k lines on main; the sync
