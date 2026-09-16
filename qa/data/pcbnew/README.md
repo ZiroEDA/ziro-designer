@@ -10,3 +10,4 @@ to read.
 | --- | --- | --- |
 | `issue10906.kicad_pcb` | `20220211` | two `fp_text` items whose `hide` is a **bare positional token**, the pre-v7 spelling `parseMaybeAbsentBool` exists for |
 | `connection_width_rules.kicad_pcb` | `20220621` | six `(font (size …) (thickness …) bold)` — `bold` as a bare token inside `(font …)` |
+| `teardrop_spike.kicad_pcb` | `20260206` | three teardrop zones pcbnew 10.0 generated (its `RegressionTeardropSpike` fixture); two are what TEARDROP_MANAGER builds vertex for vertex, the third carries the spike the fixture exists for |

@@ -185,3 +185,40 @@ export type KIID = string;
 
 /** `niluuid`: the nil identifier, `KIID( 0 )`. */
 export const niluuid: KIID = '00000000-0000-0000-0000-000000000000';
+
+function bytesToUuid(b: Uint8Array): string {
+  const s = [...b].map(hex2).join('');
+  return `${s.slice(0, 8)}-${s.slice(8, 12)}-${s.slice(12, 16)}-${s.slice(16, 20)}-${s.slice(20)}`;
+}
+
+/**
+ * `KIID::Combine`: the byte-wise XOR of two ids, a deterministic id for an
+ * item derived from two others (a teardrop from its track and pad).
+ */
+export function kiidCombine(aFirst: KIID, aSecond: KIID): KIID {
+  const a = uuidToBytes(aFirst);
+  const b = uuidToBytes(aSecond);
+  const result = new Uint8Array(16);
+
+  for (let i = 0; i < 16; ++i) result[i] = a[i]! ^ b[i]!;
+
+  return bytesToUuid(result);
+}
+
+/**
+ * `KIID::Increment`: the id plus one, as a 128-bit big-endian number.
+ *
+ * This obviously destroys uniform distribution, but it can be useful when a
+ * deterministic replacement for a duplicate ID is required.
+ */
+export function kiidIncrement(aId: KIID): KIID {
+  const b = uuidToBytes(aId);
+
+  for (let i = 15; i >= 0; --i) {
+    b[i] = (b[i]! + 1) & 0xff;
+
+    if (b[i] !== 0) break;
+  }
+
+  return bytesToUuid(b);
+}

@@ -80,9 +80,10 @@ import { ZONE } from './zone.js';
 import { ZONE_BORDER_DISPLAY_STYLE } from './zone_settings.js';
 import type { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
 import type { PAD } from './pad.js';
-import type { SHAPE } from '@ziroeda/kimath/src/geometry/shape.js';
 import { MARKER_T } from '@ziroeda/common/src/marker_base.js';
 import { PCB_BOARD_OUTLINE } from './pcb_board_outline.js';
+import type { DRC_RTREE } from './drc/drc_rtree.js';
+import type { COMMIT } from '@ziroeda/common/src/commit.js';
 import { CONNECTIVITY_DATA } from './connectivity/connectivity_data.js';
 import { COMPONENT_CLASS_MANAGER } from './component_classes/component_class_manager.js';
 import type { COMPONENT_CLASS_SETTINGS } from '@ziroeda/common/src/project/component_class_settings.js';
@@ -185,9 +186,9 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
   /**
    * `std::unordered_map<ZONE*, std::unique_ptr<DRC_RTREE>> m_CopperZoneRTreeCache`:
-   * filled by DRC_CACHE_GENERATOR; empty until the DRC engine lands (#636 stage 4).
+   * filled by DRC_CACHE_GENERATOR, which lands with the DRC engine (#636 stage 4).
    */
-  m_CopperZoneRTreeCache = new Map<ZONE, DRC_RTREE_LIKE>();
+  m_CopperZoneRTreeCache = new Map<ZONE, DRC_RTREE>();
 
   /** Zone to show sloder mask bridges created by a min web value. */
   m_SolderMaskBridges: ZONE;
@@ -1903,6 +1904,22 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
   }
 
   /**
+   * Remove every teardrop zone flagged STRUCT_DELETED, telling the commit.
+   */
+  BulkRemoveStaleTeardrops(aCommit: COMMIT): void {
+    for (let ii = this.m_zones.length - 1; ii >= 0; --ii) {
+      const zone = this.m_zones[ii]!;
+
+      if (zone.IsTeardropArea() && zone.HasFlag(STRUCT_DELETED)) {
+        this.m_itemByIdCache.delete(zone.m_Uuid);
+        this.m_zones.splice(ii, 1);
+        this.m_connectivity.Remove(zone);
+        aCommit.Removed(zone);
+      }
+    }
+  }
+
+  /**
    * Removes an item from the container.
    */
   Remove(aBoardItem: BOARD_ITEM, aRemoveMode: REMOVE_MODE = REMOVE_MODE.NORMAL): void {
@@ -2186,12 +2203,3 @@ function wxAfterFirst(aStr: string, ch: string): string {
 }
 
 applyMixins(BOARD, [EMBEDDED_FILES]);
-
-/**
- * The slice of `DRC_RTREE` the board holds per copper zone
- * (`m_CopperZoneRTreeCache`); the class lands with the DRC engine (#636
- * stage 4).
- */
-export interface DRC_RTREE_LIKE {
-  QueryColliding(aBox: BOX2I, aRefShape: SHAPE, aLayer: PCB_LAYER_ID): boolean;
-}

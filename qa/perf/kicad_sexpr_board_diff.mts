@@ -13,10 +13,7 @@ import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
 import type { BOARD } from '@ziroeda/pcbnew/src/board.js';
 import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 import { FormatBoard } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import {
-  boardFromBOARD,
-  boardToBOARD,
-} from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/board_view.js';
+import { boardFromBOARD, boardToBOARD } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/board_view.js';
 import { installNodeOutlineFaces } from './node_outline_faces.mjs';
 
 async function main(): Promise<void> {

@@ -47,7 +47,10 @@ describe('reading the board as back-annotation data', () => {
     // `(path "/sheet/symbol")` on a sub-sheet; the engine matches the symbol,
     // which is the last element.
     expect(boardFootprintData(board(FP))[0]!.path).toBe('/aaaaaaaa-0000-4000-8000-0000000000a1');
-    const root = FP.replace('(path "/bbbbbbbb-0000-4000-8000-0000000000b1/aaaaaaaa-0000-4000-8000-0000000000a1")', '(path "/aaaaaaaa-0000-4000-8000-0000000000a1")');
+    const root = FP.replace(
+      '(path "/bbbbbbbb-0000-4000-8000-0000000000b1/aaaaaaaa-0000-4000-8000-0000000000a1")',
+      '(path "/aaaaaaaa-0000-4000-8000-0000000000a1")',
+    );
     expect(boardFootprintData(board(root))[0]!.path).toBe('/aaaaaaaa-0000-4000-8000-0000000000a1');
   });
 
@@ -61,7 +64,10 @@ describe('reading the board as back-annotation data', () => {
   it('skips a footprint with no path rather than guessing at one', () => {
     // A footprint placed on the board by hand never had a symbol. Matching it
     // by reference is what the "re-link footprints" option asks permission for.
-    const orphan = FP.replace('(path "/bbbbbbbb-0000-4000-8000-0000000000b1/aaaaaaaa-0000-4000-8000-0000000000a1")', '');
+    const orphan = FP.replace(
+      '(path "/bbbbbbbb-0000-4000-8000-0000000000b1/aaaaaaaa-0000-4000-8000-0000000000a1")',
+      '',
+    );
     expect(boardFootprintData(board(orphan))).toEqual([]);
   });
 

@@ -17,7 +17,9 @@ async function main() {
   const mb = (): string => (process.memoryUsage().heapUsed / 1e6).toFixed(0);
   let t = performance.now();
   const board = new PCB_IO_KICAD_SEXPR_PARSER(text, f).Parse() as BOARD;
-  console.log(`parse   ${(performance.now() - t).toFixed(0)} ms  heap ${mb()} MB  items: fp ${board.Footprints().length} tracks ${board.Tracks().length} drawings ${board.Drawings().length} zones ${board.Zones().length}`);
+  console.log(
+    `parse   ${(performance.now() - t).toFixed(0)} ms  heap ${mb()} MB  items: fp ${board.Footprints().length} tracks ${board.Tracks().length} drawings ${board.Drawings().length} zones ${board.Zones().length}`,
+  );
   t = performance.now();
   const view = boardFromBOARD(board, f);
   console.log(`view    ${(performance.now() - t).toFixed(0)} ms  heap ${mb()} MB`);
@@ -26,6 +28,8 @@ async function main() {
   console.log(`unview  ${(performance.now() - t).toFixed(0)} ms  heap ${mb()} MB`);
   t = performance.now();
   const out = FormatBoard(back, 'pcbnew');
-  console.log(`format  ${(performance.now() - t).toFixed(0)} ms  heap ${mb()} MB  ${(out.length / 1e6).toFixed(1)} MB written`);
+  console.log(
+    `format  ${(performance.now() - t).toFixed(0)} ms  heap ${mb()} MB  ${(out.length / 1e6).toFixed(1)} MB written`,
+  );
 }
 main();

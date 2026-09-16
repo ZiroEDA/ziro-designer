@@ -66,24 +66,34 @@ const ids = (...list: string[]): Set<string> => new Set(list);
 
 describe('the parts a schematic selection sends', () => {
   it('names a symbol by its reference', () => {
-    expect(syncSelectionParts(doc, ids('aaaaaaaa-0000-4000-8000-0000000000a1'), '/')).toEqual(['FR1']);
+    expect(syncSelectionParts(doc, ids('aaaaaaaa-0000-4000-8000-0000000000a1'), '/')).toEqual([
+      'FR1',
+    ]);
   });
 
   it('escapes a reference that would break the packet', () => {
     // The parts are joined with commas, so a comma inside one has to go.
-    expect(syncSelectionParts(doc, ids('aaaaaaaa-0000-4000-8000-0000000000a2'), '/')).toEqual(['FR{comma}2']);
+    expect(syncSelectionParts(doc, ids('aaaaaaaa-0000-4000-8000-0000000000a2'), '/')).toEqual([
+      'FR{comma}2',
+    ]);
     expect(escapeIpc('R,2')).toBe('R{comma}2');
   });
 
   it('names a sheet by the path of the sheet it sits on, plus its own uuid', () => {
-    expect(syncSelectionParts(doc, ids('bbbbbbbb-0000-4000-8000-0000000000b1'), '/')).toEqual(['S/bbbbbbbb-0000-4000-8000-0000000000b1']);
+    expect(syncSelectionParts(doc, ids('bbbbbbbb-0000-4000-8000-0000000000b1'), '/')).toEqual([
+      'S/bbbbbbbb-0000-4000-8000-0000000000b1',
+    ]);
     // Two instances of the same sheet differ only by where they hang, which is
     // exactly what the prefix carries.
-    expect(syncSelectionParts(doc, ids('bbbbbbbb-0000-4000-8000-0000000000b1'), '/top/')).toEqual(['S/top/bbbbbbbb-0000-4000-8000-0000000000b1']);
+    expect(syncSelectionParts(doc, ids('bbbbbbbb-0000-4000-8000-0000000000b1'), '/top/')).toEqual([
+      'S/top/bbbbbbbb-0000-4000-8000-0000000000b1',
+    ]);
   });
 
   it('names a pin down to its pad', () => {
-    expect(syncSelectionParts(doc, ids('aaaaaaaa-0000-4000-8000-0000000000a1:pin1'), '/', libById)).toEqual(['PR1/2']);
+    expect(
+      syncSelectionParts(doc, ids('aaaaaaaa-0000-4000-8000-0000000000a1:pin1'), '/', libById),
+    ).toEqual(['PR1/2']);
   });
 
   it('sends nothing for a wire — there is no board item to name', () => {
@@ -102,7 +112,9 @@ describe('the parts a schematic selection sends', () => {
   it('sends nothing for a pin whose library is not loaded', () => {
     // Without the library there is no pin number, and a guessed one would
     // select the wrong pad.
-    expect(syncSelectionParts(doc, ids('aaaaaaaa-0000-4000-8000-0000000000a1:pin0'), '/')).toEqual([]);
+    expect(syncSelectionParts(doc, ids('aaaaaaaa-0000-4000-8000-0000000000a1:pin0'), '/')).toEqual(
+      [],
+    );
   });
 });
 
@@ -147,7 +159,9 @@ describe('the board items those parts name', () => {
   });
 
   it('leaves a footprint on another sheet alone', () => {
-    expect(findItemsFromSyncSelection(board, ['S/bbbbbbbb-0000-4000-8000-0000000000b1'])).not.toContain('footprint:1');
+    expect(
+      findItemsFromSyncSelection(board, ['S/bbbbbbbb-0000-4000-8000-0000000000b1']),
+    ).not.toContain('footprint:1');
   });
 
   it('selects the pad, not its footprint', () => {
@@ -168,10 +182,9 @@ describe('the board items those parts name', () => {
   });
 
   it('returns each item once when two parts name it', () => {
-    expect(findItemsFromSyncSelection(board, ['FR1', 'S/bbbbbbbb-0000-4000-8000-0000000000b1'])).toEqual([
-      'footprint:0',
-      'footprint:2',
-    ]);
+    expect(
+      findItemsFromSyncSelection(board, ['FR1', 'S/bbbbbbbb-0000-4000-8000-0000000000b1']),
+    ).toEqual(['footprint:0', 'footprint:2']);
   });
 });
 
@@ -272,12 +285,16 @@ describe('the parts a board selection sends', () => {
 
 describe('the schematic items those parts name', () => {
   it('matches a symbol by reference', () => {
-    expect(findSymbolsFromSyncSelection(doc, ['FR1'], '/', libById)).toEqual(['aaaaaaaa-0000-4000-8000-0000000000a1']);
+    expect(findSymbolsFromSyncSelection(doc, ['FR1'], '/', libById)).toEqual([
+      'aaaaaaaa-0000-4000-8000-0000000000a1',
+    ]);
   });
 
   it('matches the escaped reference, so a comma survives the round trip', () => {
     const parts = boardSyncSelectionParts(board, new Set(['footprint:1']));
-    expect(findSymbolsFromSyncSelection(doc, parts, '/', libById)).toEqual(['aaaaaaaa-0000-4000-8000-0000000000a2']);
+    expect(findSymbolsFromSyncSelection(doc, parts, '/', libById)).toEqual([
+      'aaaaaaaa-0000-4000-8000-0000000000a2',
+    ]);
   });
 
   it('matches a pad down to the symbol that owns the pin', () => {
@@ -285,11 +302,15 @@ describe('the schematic items those parts name', () => {
     // SYMBOL — `select( item )`'s parent fallback (`sch_selection_tool.cpp:
     // 3506-3512`).
     const parts = boardSyncSelectionParts(board, new Set(['pad:1:0']));
-    expect(findSymbolsFromSyncSelection(doc, parts, '/', libById)).toEqual(['aaaaaaaa-0000-4000-8000-0000000000a2']);
+    expect(findSymbolsFromSyncSelection(doc, parts, '/', libById)).toEqual([
+      'aaaaaaaa-0000-4000-8000-0000000000a2',
+    ]);
   });
 
   it('matches a sheet as a PREFIX, which is what reaches its subsheets', () => {
-    expect(findSymbolsFromSyncSelection(doc, ['S/'], '/', libById)).toEqual(['bbbbbbbb-0000-4000-8000-0000000000b1']);
+    expect(findSymbolsFromSyncSelection(doc, ['S/'], '/', libById)).toEqual([
+      'bbbbbbbb-0000-4000-8000-0000000000b1',
+    ]);
   });
 
   it('ignores a letter it does not know rather than failing the packet', () => {
@@ -301,7 +322,9 @@ describe('the schematic items those parts name', () => {
 
   it('returns each id once even when two parts name the same symbol', () => {
     const parts = boardSyncSelectionParts(board, new Set(['footprint:1', 'pad:1:0', 'pad:1:1']));
-    expect(findSymbolsFromSyncSelection(doc, parts, '/', libById)).toEqual(['aaaaaaaa-0000-4000-8000-0000000000a2']);
+    expect(findSymbolsFromSyncSelection(doc, parts, '/', libById)).toEqual([
+      'aaaaaaaa-0000-4000-8000-0000000000a2',
+    ]);
   });
 
   it('round-trips a schematic selection through the board and back', () => {
@@ -311,7 +334,9 @@ describe('the schematic items those parts name', () => {
     const onBoard = findItemsFromSyncSelection(board, out);
     expect(onBoard).toEqual(['footprint:0']);
     const back = boardSyncSelectionParts(board, new Set(onBoard));
-    expect(findSymbolsFromSyncSelection(doc, back, '/', libById)).toEqual(['aaaaaaaa-0000-4000-8000-0000000000a1']);
+    expect(findSymbolsFromSyncSelection(doc, back, '/', libById)).toEqual([
+      'aaaaaaaa-0000-4000-8000-0000000000a1',
+    ]);
   });
 });
 

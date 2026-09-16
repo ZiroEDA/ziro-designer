@@ -200,6 +200,10 @@ export class BOARD_DESIGN_SETTINGS {
    */
   m_TeardropParamsList = new TEARDROP_PARAMETERS_LIST();
 
+  GetTeadropParamsList(): TEARDROP_PARAMETERS_LIST {
+    return this.m_TeardropParamsList;
+  }
+
   private m_defaultZoneSettings = new ZONE_SETTINGS();
 
   m_UseConnectedTrackWidth: boolean; // use width of existing track when creating a new,

@@ -377,21 +377,37 @@ export class RTree<DATATYPE> {
   }
 
   /**
-   * `begin()` / `end()`: the iterator over every leaf, which is a search of
-   * the full extent in the same order.
+   * `begin( aRect )` .. `end()`: the Iterator over the leaves overlapping a
+   * rectangle. Its depth-first walk in branch order is the order `Search`
+   * visits them, so this is that search collected first (the iterator is
+   * not remove safe there either).
    */
-  *[Symbol.iterator](): IterableIterator<DATATYPE> {
-    const out: DATATYPE[] = [];
-    const full: Rect = { m_min: [], m_max: [] };
-    for (let i = 0; i < this.NUMDIMS; ++i) {
-      full.m_min[i] = Number.NEGATIVE_INFINITY;
-      full.m_max[i] = Number.POSITIVE_INFINITY;
+  *Iterate(a_min: readonly number[], a_max: readonly number[]): IterableIterator<DATATYPE> {
+    const rect: Rect = { m_min: [], m_max: [] };
+    for (let axis = 0; axis < this.NUMDIMS; ++axis) {
+      rect.m_min[axis] = a_min[axis]!;
+      rect.m_max[axis] = a_max[axis]!;
     }
-    this.searchRec(this.m_root, full, { value: 0 }, (d) => {
+    const out: DATATYPE[] = [];
+    this.searchRec(this.m_root, rect, { value: 0 }, (d) => {
       out.push(d);
       return true;
     });
     yield* out;
+  }
+
+  /**
+   * `begin()` / `end()`: the iterator over every leaf, a search of the full
+   * extent (INT_MIN..INT_MAX in the C++; the number line here).
+   */
+  [Symbol.iterator](): IterableIterator<DATATYPE> {
+    const min: number[] = [];
+    const max: number[] = [];
+    for (let i = 0; i < this.NUMDIMS; ++i) {
+      min[i] = Number.NEGATIVE_INFINITY;
+      max[i] = Number.POSITIVE_INFINITY;
+    }
+    return this.Iterate(min, max);
   }
 
   protected CountRec(a_node: Node<DATATYPE>, a_count: { value: number }): void {
