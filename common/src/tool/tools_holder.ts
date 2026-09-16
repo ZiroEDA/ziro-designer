@@ -1,0 +1,248 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * `TOOLS_HOLDER` (include/tool/tools_holder.h, common/tool/tools_holder.cpp):
+ * the base of anything that owns a TOOL_MANAGER — a frame — with the stack
+ * of user-level "tools" (the actions whose buttons stay pressed).
+ */
+import { MOUSE_DRAG_ACTION } from '../mouse_drag_action.js';
+import { ACTIONS } from './actions.js';
+import type { ACTION_CONDITIONS } from './action_manager.js';
+import { SELECTION } from './selection.js';
+import type { TOOL_ACTION } from './tool_action.js';
+import type { TOOL_EVENT } from './tool_event.js';
+import type { TOOL_MANAGER } from './tool_manager.js';
+
+/** `COMMON_SETTINGS::INPUT`'s three fields `CommonSettingsChanged` reads. */
+export interface TOOLS_HOLDER_INPUT_SETTINGS {
+  warp_mouse_on_move: boolean;
+  drag_left: MOUSE_DRAG_ACTION;
+  immediate_actions: boolean;
+}
+
+/** `COMMON_SETTINGS_CHANGED` flag: hotkeys were changed. */
+export const HOTKEYS_CHANGED = 0x02;
+
+export abstract class TOOLS_HOLDER {
+  protected m_toolManager: TOOL_MANAGER | null;
+  protected m_actions: ACTIONS | null;
+  protected m_toolDispatcher: unknown; // TOOL_DISPATCHER (#636 stage 3)
+
+  protected m_dummySelection = new SELECTION(); // Empty dummy selection
+
+  protected m_toolStack: string[] = []; // Stack of user-level "tools".  This is NOT a
+  // stack of TOOL instances, because somewhat
+  // confusingly most TOOLs implement more than one
+  // user-level tool.  A user-level tool actually
+  // equates to an ACTION handler, so this stack
+  // stores ACTION names.
+
+  protected m_immediateActions: boolean; // Preference for immediate actions.  If false,
+  // the first invocation of a hotkey will just
+  // select the relevant tool rather than executing
+  // the tool's action.
+
+  protected m_dragAction: MOUSE_DRAG_ACTION; // DRAG_ANY/DRAG_SELECTED/SELECT.
+
+  protected m_moveWarpsCursor: boolean; // cursor is warped to move/drag origin
+
+  constructor() {
+    this.m_toolManager = null;
+    this.m_actions = null;
+    this.m_toolDispatcher = null;
+    this.m_immediateActions = true;
+    this.m_dragAction = MOUSE_DRAG_ACTION.SELECT;
+    this.m_moveWarpsCursor = true;
+  }
+
+  GetToolManager(): TOOL_MANAGER | null {
+    return this.m_toolManager;
+  }
+
+  GetToolDispatcher(): unknown {
+    return this.m_toolDispatcher;
+  }
+
+  /**
+   * Register an action's update conditions with the UI layer to allow the UI to appropriately
+   * display the state of its controls.
+   *
+   * @param aAction is the action to register.
+   * @param aConditions are the UI conditions to use for the control states.
+   */
+  RegisterUIUpdateHandler(aAction: TOOL_ACTION, aConditions: ACTION_CONDITIONS): void;
+  RegisterUIUpdateHandler(aID: number, aConditions: ACTION_CONDITIONS): void;
+  RegisterUIUpdateHandler(a: TOOL_ACTION | number, aConditions: ACTION_CONDITIONS): void {
+    if (typeof a !== 'number') this.RegisterUIUpdateHandler(a.GetUIId(), aConditions);
+    else this.registerUIUpdateHandler(a, aConditions);
+  }
+
+  /** `RegisterUIUpdateHandler( int aID, … )`: the frame's own; nothing here. */
+  protected registerUIUpdateHandler(_aID: number, _aConditions: ACTION_CONDITIONS): void {}
+
+  /**
+   * Unregister a UI handler for an action that was registered using @c RegisterUIUpdateHandler.
+   *
+   * @param aAction is the action to unregister the handler for.
+   */
+  UnregisterUIUpdateHandler(aAction: TOOL_ACTION): void;
+  UnregisterUIUpdateHandler(aID: number): void;
+  UnregisterUIUpdateHandler(a: TOOL_ACTION | number): void {
+    if (typeof a !== 'number') this.UnregisterUIUpdateHandler(a.GetUIId());
+    else this.unregisterUIUpdateHandler(a);
+  }
+
+  protected unregisterUIUpdateHandler(_aID: number): void {}
+
+  /**
+   * Get the current selection from the canvas area.
+   *
+   * @return the current selection.
+   */
+  GetCurrentSelection(): SELECTION {
+    return this.m_dummySelection;
+  }
+
+  /**
+   * NB: the definition of "tool" is different at the user level.
+   *
+   * The implementation uses a single TOOL_BASE derived class to implement several user
+   * "tools", such as rectangle and circle, or wire and bus.  So each user-level tool is
+   * actually a #TOOL_ACTION.
+   */
+  PushTool(aEvent: TOOL_EVENT): void {
+    const actionName = aEvent.getCommandStr();
+
+    console.assert(actionName !== '', 'Pushed Empty Tool Name!');
+
+    m_toolStackPush(this.m_toolStack, actionName);
+
+    const action = this.m_toolManager!.GetActionManager()!.FindAction(actionName);
+
+    if (action) this.DisplayToolMsg(action.GetFriendlyName());
+    else this.DisplayToolMsg(actionName);
+  }
+
+  PopTool(aEvent: TOOL_EVENT): void {
+    const actionName = aEvent.getCommandStr();
+
+    console.assert(aEvent.getCommandStr() !== '', 'Popped Empty Tool Name!');
+
+    // Push/pop events can get out of order (such as when they're generated by the Simulator
+    // frame but not processed until the mouse is back in the Schematic frame), so make sure
+    // we're popping the right stack frame.
+
+    for (let i = this.m_toolStack.length - 1; i >= 0; --i) {
+      if (this.m_toolStack[i] === actionName) {
+        this.m_toolStack.splice(i, 1);
+
+        // If there's something underneath us, and it's now the top of the stack, then
+        // re-activate it
+        if (--i >= 0 && i === this.m_toolStack.length - 1) {
+          const back = this.m_toolStack[i]!;
+          const action = this.m_toolManager!.GetActionManager()!.FindAction(back);
+
+          if (action) {
+            // Pop the action as running it will push it back onto the stack
+            this.m_toolStack.pop();
+
+            const evt = action.MakeEvent();
+            evt.SetHasPosition(false);
+            evt.SetReactivate(true);
+            this.GetToolManager()!.PostEvent(evt);
+          }
+        } else this.DisplayToolMsg(ACTIONS.selectionTool.GetFriendlyName());
+
+        return;
+      }
+    }
+  }
+
+  ToolStackIsEmpty(): boolean {
+    return this.m_toolStack.length === 0;
+  }
+
+  CurrentToolName(): string {
+    if (this.m_toolStack.length === 0) return ACTIONS.selectionTool.GetName();
+    else return this.m_toolStack[this.m_toolStack.length - 1]!;
+  }
+
+  IsCurrentTool(aAction: TOOL_ACTION): boolean {
+    if (this.m_toolStack.length === 0) return aAction === ACTIONS.selectionTool;
+    else return this.m_toolStack[this.m_toolStack.length - 1] === aAction.GetName();
+  }
+
+  DisplayToolMsg(_msg: string): void {}
+
+  ShowChangedLanguage(): void {
+    if (!this.GetToolManager()) return;
+
+    const actionName = this.CurrentToolName();
+    const action = this.GetToolManager()!.GetActionManager()!.FindAction(actionName);
+
+    if (action) this.DisplayToolMsg(action.GetFriendlyName());
+  }
+
+  /**
+   * Indicate that hotkeys should take immediate action even if another tool is currently
+   * active.  If false, the first hotkey should select the relevant tool.
+   */
+  GetDoImmediateActions(): boolean {
+    return this.m_immediateActions;
+  }
+
+  /**
+   * Indicates whether a drag should draw a selection rectangle or drag selected (or unselected)
+   * objects.
+   */
+  GetDragAction(): MOUSE_DRAG_ACTION {
+    return this.m_dragAction;
+  }
+
+  /**
+   * Indicate that a move operation should warp the mouse pointer to the origin of the
+   * move object.  This improves snapping, but some users are allergic to mouse warping.
+   */
+  GetMoveWarpsCursor(): boolean {
+    return this.m_moveWarpsCursor;
+  }
+
+  /**
+   * Notification event that some of the common (suite-wide) settings have changed.
+   * Update hotkeys, preferences, etc.
+   *
+   * The C++ reads `Pgm().GetCommonSettings()->m_Input`; the frame hands its
+   * input settings over.
+   */
+  CommonSettingsChanged(aFlags = 0, aInput?: TOOLS_HOLDER_INPUT_SETTINGS): void {
+    if (this.GetToolManager())
+      this.GetToolManager()!
+        .GetActionManager()!
+        .UpdateHotKeys((aFlags & HOTKEYS_CHANGED) !== 0);
+
+    if (aInput) {
+      this.m_moveWarpsCursor = aInput.warp_mouse_on_move;
+      this.m_dragAction = aInput.drag_left;
+      this.m_immediateActions = aInput.immediate_actions;
+    }
+  }
+
+  /**
+   * Canvas access.
+   */
+  abstract GetToolCanvas(): unknown;
+  RefreshCanvas(): void {}
+
+  ConfigBaseName(): string {
+    return '';
+  }
+}
+
+/** `m_toolStack.push_back( actionName )` with the depth cap. */
+function m_toolStackPush(aStack: string[], aActionName: string): void {
+  aStack.push(aActionName);
+
+  // Human cognitive stacking is very shallow; deeper tool stacks just get annoying
+  if (aStack.length > 3) aStack.shift();
+}
