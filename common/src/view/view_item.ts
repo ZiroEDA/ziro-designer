@@ -7,6 +7,8 @@
  */
 
 import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+// `class VIEW_ITEM_DATA;` is forward-declared in the header; view.cpp defines it.
+import type { VIEW, VIEW_ITEM_DATA } from './view.js';
 
 /** Define the how severely the appearance of the item has been changed. */
 export enum VIEW_UPDATE_FLAGS {
@@ -29,13 +31,6 @@ export enum VIEW_VISIBILITY_FLAGS {
   HIDDEN = 0x02,
   OVERLAY_HIDDEN = 0x04, ///< Item is temporarily hidden from being drawn on an overlay.
 }
-
-/**
- * `class VIEW_ITEM_DATA;` is forward-declared in the header; `VIEW` (view.cpp)
- * defines it. Until that lands the slot is typed by this declaration.
- */
-// biome-ignore lint/suspicious/noEmptyInterface: a forward declaration, as the header's
-export interface VIEW_ITEM_DATA {}
 
 /** The part of `KIGFX::VIEW` that `lodScaleForThreshold` consults. */
 export interface VIEW_FOR_LOD {
@@ -97,7 +92,7 @@ export abstract class VIEW_ITEM {
    * @param aLayer is the current drawing layer.
    * @param aView is a pointer to the #VIEW device we are drawing on.
    */
-  ViewDraw(aLayer: number, aView: unknown): void {}
+  ViewDraw(aLayer: number, aView: VIEW): void {}
 
   /**
    * Return the all the layers within the VIEW the object is painted on.

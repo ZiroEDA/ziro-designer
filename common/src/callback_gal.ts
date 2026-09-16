@@ -16,6 +16,7 @@ import {
 import { type VECTOR2I, toVECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { type GLYPH_LIKE, OUTLINE_GLYPH, type STROKE_GLYPH } from './font/glyph.js';
 import { GAL } from './gal/graphics_abstraction_layer.js';
+import { GAL_DISPLAY_OPTIONS } from './gal/gal_display_options.js';
 
 export type StrokeCallback = (aPt1: VECTOR2I, aPt2: VECTOR2I) => void;
 export type TriangleCallback = (aPt1: VECTOR2I, aPt2: VECTOR2I, aPt3: VECTOR2I) => void;
@@ -36,7 +37,9 @@ export class CALLBACK_GAL extends GAL {
   /** Outlines only. */
   constructor(aOutlineCallback: OutlineCallback);
   constructor(a: StrokeCallback | OutlineCallback, b?: TriangleCallback | OutlineCallback) {
-    super();
+    // The callers construct an empty `GAL_DISPLAY_OPTIONS` to hand the C++ ctor;
+    // here it is made in one place.
+    super(new GAL_DISPLAY_OPTIONS());
 
     if (b === undefined) {
       this.m_strokeCallback = () => {};
@@ -59,7 +62,7 @@ export class CALLBACK_GAL extends GAL {
     }
   }
 
-  DrawGlyph(aGlyph: GLYPH_LIKE, aNth: number, aTotal: number): void {
+  override DrawGlyph(aGlyph: GLYPH_LIKE, aNth: number, aTotal: number): void {
     if (aGlyph.IsStroke()) {
       const glyph = aGlyph as STROKE_GLYPH;
 
