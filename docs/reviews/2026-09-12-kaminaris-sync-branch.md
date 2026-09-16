@@ -7,7 +7,7 @@ really two pull requests sharing a name.
 ## Short version
 
 - **Commits `95de3ec9..8dbd0736` (12 commits, 706 lines: the ten cloud-sync
-  bugs from Discord) - please open this as its own PR first.** It cherry-picks
+  bug fixes) - please open this as its own PR first.** It cherry-picks
   onto today's main with zero conflicts, `biome ci` is clean, `tsc -p designer`
   is clean, and the five test files it touches pass 78/78 against current main.
   The commit messages are exactly what we want: symptom, cause, why no test
@@ -127,23 +127,6 @@ resolution, not your code - ignore if they do not reproduce after
 - `MAX_PENDING = 200` drops the *oldest* queued patch when the key is slow.
   A dropped `board-patch` is a peer permanently behind (your comment says
   so). Prefer: drop cursors/live-move deltas first, never drop a patch.
-
-## Answers to the Discord thread
-
-- **URL routing**: `/p/<uid>/<editor>` (with `?f=` per frame) has been on
-  main since Sep 6 and is in your fork point (`47d4c0c6`, Sep 11). If the
-  address still does not change for you after the rebase, that is a bug we
-  want: say which page you were on and what the bar showed.
-- **Theme**: chrome is dark-only by decision; that will not change. What
-  exists is canvas colour themes - the seven stock KiCad schemes are on main
-  (`2b9177e0`) under Preferences ▸ Colors. If light *chrome* is what you
-  need to work, that is a personal branch, not something we would merge.
-- **Aw, Snap on a ~200-file project from the project page**: your fix arc
-  covers the cause (tooling dirs + unbounded fan-out). The separate
-  in-editor memory issue (symbol preload, 1.5 GB → 0.65 GB) landed as
-  `bbb0d4f6`, also after your fork.
-- **Rule area's last segment not rendered**: not part of your branch; I have
-  not reproduced it yet - a board that shows it would help.
 
 ## The two you left open
 
