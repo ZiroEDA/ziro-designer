@@ -9,13 +9,13 @@
  */
 
 export class ADVANCED_CFG {
-  /**
-   * Set the bevel height of layer items in 3D viewer when ray tracing.
-   * Controls the start of the bevel and the extent, as a proportion of the
-   * layer thickness.
-   */
   /** The DPI of the screen; `wxDC::GetPPI()` reports 96 but 91 is the closest match to the legacy renderer. */
   m_ScreenDPI = 91;
+
+  /**
+   * When true, strokes the triangulations in OpenGL
+   */
+  m_DrawTriangulationOutlines = false;
 
   private static s_cfg: ADVANCED_CFG | null = null;
 

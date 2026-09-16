@@ -14,6 +14,7 @@
       "!**/dist",
       "!common/src/font/newstroke_glyphs.ts",
       "!designer/src/render/gl/vendor",
+      "!libs/kimath/src/thirdparty/vendor",
       "!docs/email-templates"
     ]
   },
