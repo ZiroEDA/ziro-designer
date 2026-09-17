@@ -211,7 +211,7 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
     expect(inlineSized()).toHaveLength(3);
   });
 
-  it('7 shell.css variants still name their own size', () => {
+  it('6 shell.css variants still name their own size', () => {
     // 15 until `.ze-pgs` stopped restating what `.ze-modal` now gets right, and
     // 14 until Open Project became the shared file chooser: `.ze-open-project`
     // named a 920x620 and the window that replaced it is sized by the chooser,
@@ -335,7 +335,13 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
     // [px] 720 x 840, measured by `qa/probes/stc_bestsize_probe.cpp`, because
     // dialog units are a font measurement and the two axes do not convert
     // alike.
-    expect(cssSized()).toHaveLength(7);
+    //
+    // 7 -> 6: `.ze-modal.ze-msgdlg`'s 614px is gone. It was the X window of a
+    // three-button GtkMessageDialog INCLUDING its 10 px CSD shadow margin, and
+    // in any case the box has no stated width: GtkMessageDialog is as wide as
+    // its label, which wraps at `max-width-chars 60`, so `max-content` over a
+    // `max-width` on the label is the same rule (qa/probes/msgdlg_probe.py).
+    expect(cssSized()).toHaveLength(6);
   });
 
   it('and every one of them is a dialog, so the scan is really finding them', () => {

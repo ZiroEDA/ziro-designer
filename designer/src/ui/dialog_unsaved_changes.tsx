@@ -29,6 +29,7 @@ import {
   UNSAVED_CHANGES_TITLE,
   type UnsavedChangesResult,
 } from './confirm.js';
+import { DialogIcon } from './dialog_message.js';
 import { useModalEscape } from './useModalEscape.js';
 
 export function UnsavedChangesDialog({
@@ -56,25 +57,9 @@ export function UnsavedChangesDialog({
     // away: the point of asking is that one of the three answers is given.
     <div className="ze-modal-backdrop">
       <div className="ze-modal ze-msgdlg" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">{UNSAVED_CHANGES_TITLE}</div>
+        <div className="ze-msgdlg-title">{UNSAVED_CHANGES_TITLE}</div>
         <div className="ze-msgdlg-body">
-          <svg className="ze-msgdlg-icon" viewBox="0 0 48 48" aria-hidden="true">
-            <path
-              d="M24 5 45 43H3Z"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M24 18v11"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-              strokeLinecap="round"
-            />
-            <circle cx="24" cy="36" r="1.9" fill="currentColor" />
-          </svg>
+          <DialogIcon icon="warning" />
           <div className="ze-msgdlg-text">
             <div className="ze-msgdlg-message">{message}</div>
             <div className="ze-msgdlg-extended">{UNSAVED_CHANGES_EXTENDED}</div>

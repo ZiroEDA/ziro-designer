@@ -125,7 +125,10 @@ export function HtmlMessageBox({
             </ul>
           )}
         </div>
-        <div className="ze-msgdlg-buttons">
+        {/* `m_sdbSizer1`, a wxStdDialogButtonSizer holding the one wxID_OK
+            (dialog_display_html_text_base.cpp:23-28): the shared right-aligned
+            footer, not the native message box's full-width row. */}
+        <div className="ze-modal-footer">
           <button ref={okRef} type="button" className="ze-btn default" onClick={onClose}>
             OK
           </button>

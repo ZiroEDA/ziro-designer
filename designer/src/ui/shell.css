@@ -12896,61 +12896,184 @@ textarea.ze-ds-textedit {
   vertical-align: top;
 }
 
+/* ---------------------------------------------------------------------------
+   KICAD_MESSAGE_DIALOG (include/confirm.h:50) is wxMessageDialog, and on GTK
+   that is not a wxDialog at all: `wxMessageDialog::GTKCreateMsgDialog`
+   (src/gtk/msgdlg.cpp) calls `gtk_message_dialog_new` and hands the result to
+   `gtk_dialog_run`. So everything below is GtkMessageDialog's own layout under
+   Yaru — a CLIENT-SIDE-DECORATED window with no WM title bar, one full-width
+   button row, and a label that wraps at 60 characters — and none of it is
+   `.ze-modal`'s. That is why this block restates the frame: the shared modal
+   is a mutter-framed wxDialog, and this dialog never gets that frame.
+
+   [px] every number here is read off the built widget by
+   `qa/probes/msgdlg_probe.py`, which builds the same GtkMessageDialog wx does
+   (same buttons, same title, same secondary text) on this machine's theme and
+   prints every child's allocation; its screenshot of the load-repair message
+   differs from a running eeschema's by 83 anti-aliasing pixels out of 661x179.
+   [css] cites ~/yaru_dark_gtk.css. Window coordinates below have the 10 px
+   CSD shadow margin already subtracted; the "614x199" an earlier reading of
+   this dialog recorded was the X window INCLUDING that margin.
+
+     plain message, OK      client 641 x 159
+       titlebar (0,0 641x30)   title label 18 tall, margin 6/6, bold
+       image    (47,35 48x48)  margin 12 each side
+       label    (137,35 469x54) 3 lines of 18, max-width-chars 60
+       button   (0,114 641x45) padding 10/14, border-top 1, label 24
+     with secondary text    primary label gets weight bold + scale 1.2
+                            (22 px lines); secondary 10 below it, 2 under
+     three buttons          594 wide; each button 198, the 2nd and 3rd
+                            carry a 1 px border-left */
 .ze-modal.ze-msgdlg {
-  width: 614px;
+  /* `width: max-content` from .ze-modal: the width is the label's, which is
+     its text up to 60 chars — a short message makes a narrow box, exactly as
+     GTK's does (pcb_calculator's one-liners come out ~440 wide). */
   height: auto;
   max-width: 92vw;
+  /* [css] `messagedialog.csd decoration { border-radius: 12px; box-shadow:
+     0 1px 2px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.65) }` (:4534). All
+     four corners, unlike the SSD frame's top two; and no border of its own —
+     the 1 px ring is the shadow's. */
+  border: none;
+  border-radius: 12px; /* [css] messagedialog.csd decoration */
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.2) /* [css] the same rule */,
+    0 0 0 1px rgba(0, 0, 0, 0.65) /* [css] the same rule */;
+  overflow: hidden;
 }
+/* The CSD title bar: not `.ze-modal-header` (mutter's 37 px #222 bar), but
+   GTK's own `.titlebar` inside the window. [css] `messagedialog .titlebar {
+   min-height: 20px; background-color: #2c2c2c; border-style: none }` (:4077)
+   over `.titlebar:not(headerbar) { padding: 0 6px; box-shadow: inset 0 1px
+   rgba(247,247,247,0.07) }` (:1662) and `.title { padding: 0 12px;
+   font-weight: bold }`. [px] the label is 18 tall with a 6 px margin above and
+   below, so the bar is 30. */
+.ze-msgdlg-title {
+  box-sizing: border-box;
+  height: 30px; /* [px] title label 18 + 6 + 6 */
+  padding: 6px 18px; /* [px] label margin 6; [css] .titlebar 6 + .title 12 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--ui-font-size);
+  font-weight: 700;
+  line-height: var(--ui-line-height);
+  background: var(--chrome-bg);
+  box-shadow: inset 0 1px rgba(247, 247, 247, 0.07); /* [css] .titlebar:not(headerbar) */
+}
+/* [px] the message box sits at (35,35): 30 of `margin-start/end` plus the
+   dialog vbox's 5 px border, 5 under the 30 px title bar; and the button row
+   starts 25 px under it. */
 .ze-msgdlg-body {
   display: flex;
   align-items: flex-start;
-  gap: 16px;
-  padding: 20px 24px 22px;
+  padding: 5px 35px 25px; /* [px] box at (35,35), buttons 25 under it */
 }
+/* [px] GtkMessageDialog's image: 48 square (GTK_ICON_SIZE_DIALOG) with a 12 px
+   margin either side, and the label column 30 px further on — 137 from the
+   client edge. The artwork is the icon theme's `dialog-*-symbolic`, painted in
+   the dialog's foreground. */
 .ze-msgdlg-icon {
   flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
+  width: 48px; /* [px] image 48x48 */
+  height: 48px; /* [px] the same */
+  margin: 0 42px 0 12px; /* [px] image at 47, label at 137 */
   color: var(--chrome-fg);
 }
+/* The message area: a vertical box whose labels are `xalign 0.5` and
+   `justify left` — each label is as wide as its own text (up to the 60-char
+   limit), centred in the column, with its lines ragged-left inside that. A
+   short secondary line therefore sits centred under a wide primary, as in
+   the "Save Changes?" box. */
 .ze-msgdlg-text {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* [px] the vbox's spacing between primary and secondary. */
+  gap: 10px;
 }
-/* The main message is the dialog font, bold and a size up; the extended
-   message is the plain face, dimmed. */
-.ze-msgdlg-message {
-  font-size: calc(var(--ui-font-size) * 1.15);
+.ze-msgdlg-message,
+.ze-msgdlg-extended {
+  /* [px] `max-width-chars: 60` in Ubuntu Sans 11 — 60 approximate character
+     widths — is 469, measured on the label itself. Stated in px because CSS's
+     `ch` is the width of "0", which is not Pango's approximate char width. */
+  max-width: 469px;
+  width: fit-content;
+  text-align: left;
+  /* A GtkLabel keeps every space it is given: `_( "...fixed.  Please..." )`
+     shows both. */
+  white-space: pre-wrap;
+  font-size: var(--ui-font-size);
+  line-height: var(--ui-line-height);
+}
+/* [gtk] `gtk_message_dialog_format_secondary_text`: "setting a secondary
+   text makes the primary text become bold" — PANGO_WEIGHT_BOLD plus
+   PANGO_SCALE_LARGE (1.2), read off the label's attribute list by the probe.
+   Without a secondary text the message is the plain dialog face; ours used to
+   be bold in both cases. [px] a bold 13.2 pt line is 22. */
+.ze-msgdlg-text:has(.ze-msgdlg-extended) .ze-msgdlg-message {
+  font-size: calc(var(--ui-font-size) * 1.2);
   font-weight: 700;
-  line-height: 1.35;
+  line-height: 22px; /* [px] 88 tall over 4 lines */
 }
 .ze-msgdlg-extended {
-  margin-top: 10px;
-  font-size: var(--ui-font-size);
-  color: #c8c9cb;
-  line-height: 1.35;
+  /* [px] `margin-bottom: 2` on the secondary label. No `color`: the probe
+     reads the same #f7f7f7 on both labels, so the grey this used to carry was
+     an invention. */
+  margin-bottom: 2px;
 }
+/* [css] `messagedialog.csd .dialog-action-area button { padding: 10px 14px;
+   border-right-style: none; border-bottom-style: none; border-radius: 0 }`
+   (:4089), `button:first-child { border-left-style: none }`, over `button {
+   min-height: 24px; border: 1px solid #181818; background-image:
+   image(#373737); text-shadow: 0 -1px rgba(0,0,0,0.86) }` (:485). The box is
+   homogeneous: every button the same width. [px] 45 tall. */
 .ze-msgdlg-buttons {
   display: flex;
-  border-top: 1px solid var(--chrome-border);
 }
 .ze-msgdlg-buttons .ze-btn {
   flex: 1 1 0;
+  height: 45px; /* [px] button 45 tall */
+  min-width: 0;
+  padding: 10px 14px; /* [css] messagedialog.csd .dialog-action-area button */
   border: none;
+  border-top: 1px solid var(--ctl-border);
   border-radius: 0;
-  padding: 12px 8px;
-  background: transparent;
+  background: var(--ctl-face);
+  text-shadow: 0 -1px rgba(0, 0, 0, 0.86); /* [css] button */
+  line-height: 24px; /* [px] the button's label is 24 tall */
 }
 .ze-msgdlg-buttons .ze-btn + .ze-btn {
-  border-left: 1px solid var(--chrome-border);
+  border-left: 1px solid var(--ctl-border);
 }
+/* [css] `button:hover { background-image: image(#3c3c3c) }` (:515). */
+.ze-msgdlg-buttons .ze-btn:hover:not(:disabled) {
+  background: #3c3c3c; /* [css] button:hover */
+}
+/* `SetDefault()` is not a restyle on GTK (see .ze-btn.primary above), and
+   here it is not even a class: `gtk_dialog_set_default_response` only says
+   which button Enter presses. */
 .ze-msgdlg-buttons .ze-btn.primary {
-  background: transparent;
+  background: var(--ctl-face);
 }
-.ze-msgdlg-buttons .ze-btn:focus-visible,
-.ze-msgdlg-buttons .ze-btn.primary:focus {
-  outline: 2px solid var(--chrome-active-border);
-  outline-offset: -3px;
+.ze-msgdlg-buttons .ze-btn.primary:hover:not(:disabled) {
+  background: #3c3c3c; /* [css] button:hover */
+}
+/* [css] `button { outline: 2px solid rgba(239,134,97,0.7); outline-offset:
+   -2px }` (:5816) — drawn only while GTK's focus is VISIBLE, which under
+   `gtk-visible-focus = automatic` means after keyboard input. A dialog that
+   opens with the OK focused shows no ring (the probe reads
+   `has_visible_focus() == False`, and a running eeschema's box has none);
+   :focus-visible is the web's same rule. The `.primary:focus` that forced the
+   ring on every open was the visible difference from KiCad's box. */
+.ze-msgdlg-buttons .ze-btn:focus {
+  outline: none;
+}
+.ze-msgdlg-buttons .ze-btn:focus-visible {
+  outline: 2px solid var(--field-focus-border); /* [css] button, :5816 */
+  outline-offset: -2px; /* [css] the same rule */
 }
 
 /* ---------------------------------------------------------------------------
@@ -13007,7 +13130,8 @@ textarea.ze-ds-textedit {
 }
 .ze-kidialog-icon {
   flex: 0 0 auto;
-  /* [px] 48 square, against the native message box's 44. */
+  /* [px] 48 square — wxArtProvider's wxART_MESSAGE_BOX size, the same 48 the
+     native message box's GTK_ICON_SIZE_DIALOG comes to. */
   width: 48px;
   /* [px] the same reading — `icon(10,10 48x48)`. */
   height: 48px;

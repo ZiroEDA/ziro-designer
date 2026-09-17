@@ -35,11 +35,13 @@
  *
  * **It does NOT look like `MessageDialogYesNo`, and that was the surprise.**
  * `KICAD_MESSAGE_DIALOG` is `wxMessageDialog`, which on GTK is the platform's
- * own message box: one full-width button row, no separator, a 44 px icon.
- * `KIDIALOG` is `wxRichMessageDialog`, and `wx/richmsgdlg.h` makes that
+ * own message box: a client-side-decorated window with its own 30 px title
+ * strip, one full-width button row, no separator. `KIDIALOG` is
+ * `wxRichMessageDialog`, and `wx/richmsgdlg.h` makes that
  * `wxGenericRichMessageDialog` on every platform but MSW — a plain wxDialog
- * that wx lays out itself, with a 48 px icon, a `wxStaticLine`, and buttons
- * right-aligned in a `wxStdDialogButtonSizer`. So it takes its own chrome
+ * under the window manager's title bar, laid out by wx itself: a
+ * `wxStaticLine`, and buttons right-aligned in a `wxStdDialogButtonSizer`. So
+ * it takes its own chrome
  * (`.ze-kidialog`), measured by `qa/probes/kidialog_probe.cpp`, rather than
  * borrowing `.ze-msgdlg`'s.
  */

@@ -639,7 +639,12 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // card added 15 chrome px literals and took 7 away, +8, and those still
   // stand — see the `[data]`/`[css]`/`[px]`/`[art]` rule above.
   // colours 190 -> 187, metrics 707 -> 704: HIERARCHY_TREE, see the totals.
-  ui: { colours: 187, metrics: 704 },
+  // colours 187 -> 186, metrics 704 -> 695: the native message box rebuilt as
+  // GtkMessageDialog (qa/probes/msgdlg_probe.py). The secondary text's grey
+  // and the box's 614px, 44px icon, 16px gap, 20/24/22 padding, 10px margin
+  // and 12/8 button padding were uncited; every number in what replaced them
+  // carries [px] or [css] on its own line.
+  ui: { colours: 186, metrics: 695 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -1062,7 +1067,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // RESCANNED from this tree, and derived a second time from the per-area
     // table -- `editors/schematic` 32 -> 30 is the only row that moved, and
     // 334 - 2 agrees.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(332);
+    // 332 -> 331: `.ze-msgdlg-extended`'s #c8c9cb, an invented grey (the probe
+    // reads one foreground on both labels). `ui` 187 -> 186; 332 - 1 agrees.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(331);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1234,7 +1241,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // the label's padding, the 11px dot and the caption's 3px padding left
     // (6), and every number of the wx layout that replaced them carries its
     // marker; the three that did not are gone with the rewrite. 1296 - 3.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1293);
+    // 1293 -> 1284: the message box, `ui` 704 -> 695 — see that row. 1293 - 9
+    // agrees, and a rescan of this tree reads 1284.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1284);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

@@ -8,9 +8,10 @@
  * `KICAD_MESSAGE_DIALOG` is `wxMessageDialog`, the platform's own message box.
  * `KIDIALOG` derives from `wxRichMessageDialog`, which `wx/richmsgdlg.h`
  * resolves to `wxGenericRichMessageDialog` on every platform but MSW — a plain
- * wxDialog that wx lays out itself. They are different widgets: a 48 px icon
- * against 44, a `wxStaticLine` the message box has not got, and buttons
- * right-aligned in a `wxStdDialogButtonSizer` rather than GTK's full-width row.
+ * wxDialog that wx lays out itself. They are different widgets: the window
+ * manager's title bar against GTK's own CSD strip, a `wxStaticLine` the
+ * message box has not got, and buttons right-aligned in a
+ * `wxStdDialogButtonSizer` rather than GTK's full-width row.
  *
  * All of the geometry asserted here is read off the built widget by
  * `qa/probes/kidialog_probe.cpp` — four variants of the same dialog, so each
@@ -112,12 +113,13 @@ describe('it is the generic dialog, not the message box', () => {
     expect(modal?.classList.contains('ze-msgdlg')).toBe(false);
   });
 
-  it('has a 48 px icon where the message box has 44', () => {
-    // [px] `icon(10,10 48x48)` against `.ze-msgdlg-icon`'s measured 44.
+  it('has a 48 px icon — wxArtProvider’s wxART_MESSAGE_BOX size', () => {
+    // [px] `icon(10,10 48x48)`. The native message box's GTK_ICON_SIZE_DIALOG
+    // image is also 48 (qa/probes/msgdlg_probe.py), so the size no longer
+    // tells the two apart — the box around it does, and that is `.ze-kidialog`.
     render(<KiDialog request={PIN_CLASH} onResult={() => {}} />);
     expect(document.querySelector('.ze-kidialog-icon')).not.toBeNull();
     expect(rule('.ze-kidialog-icon')).toMatch(/width:\s*48px;/);
-    expect(rule('.ze-msgdlg-icon')).toMatch(/width:\s*44px;/);
   });
 });
 
@@ -151,11 +153,10 @@ describe('the measured borders', () => {
 
   it('do not dim the extended message — the probe reads one foreground', () => {
     // Message, extended message, checkbox and both buttons all come back with
-    // the same fg. `.ze-msgdlg-extended` greys its own because GTK's NATIVE
-    // message box greys secondary text; carrying that across would be an
-    // invention, and it is the shape of invention that looks like consistency.
+    // the same fg. (The native message box's secondary label reads the same
+    // #f7f7f7 in qa/probes/msgdlg_probe.py, so neither dialog greys it; the
+    // grey `.ze-msgdlg-extended` used to carry was an invention.)
     expect(rule('.ze-kidialog-extended')).not.toMatch(/\bcolor\b/);
-    expect(rule('.ze-msgdlg-extended')).toMatch(/\bcolor\b/);
   });
 
   it('scale the primary line off the font token, not off a px', () => {
