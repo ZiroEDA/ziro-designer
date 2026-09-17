@@ -39,8 +39,11 @@ export abstract class TOOL_INTERACTIVE extends TOOL_BASE {
    */
   constructor(aName: string);
   constructor(a: TOOL_ID | string, b?: string) {
-    if (typeof a === 'string') super(TOOL_TYPE.INTERACTIVE, TOOL_MANAGER.MakeToolId(a), a);
-    else super(TOOL_TYPE.INTERACTIVE, a, b!);
+    super(
+      TOOL_TYPE.INTERACTIVE,
+      typeof a === 'string' ? TOOL_MANAGER.MakeToolId(a) : a,
+      typeof a === 'string' ? a : b!,
+    );
     // if( Pgm().IsGUI() ) m_menu.reset( new TOOL_MENU( *this ) )   -- TOOL_MENU pending (#636 stage 3)
   }
 

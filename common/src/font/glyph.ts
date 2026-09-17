@@ -56,8 +56,7 @@ export class OUTLINE_GLYPH extends SHAPE_POLY_SET implements GLYPH_LIKE {
   constructor(aGlyph: OUTLINE_GLYPH);
   constructor(aPoly: SHAPE_POLY_SET);
   constructor(a?: SHAPE_POLY_SET) {
-    if (a) super(a);
-    else super();
+    super(a as SHAPE_POLY_SET);
   }
 
   IsOutline(): boolean {
