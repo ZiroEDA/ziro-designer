@@ -76,7 +76,10 @@ describe('the board fires it from its load path', () => {
     const parse = at(src, 'readBoard(parse(textRef.current))');
     const call = calls[0] ?? -1;
     expect(call).toBeGreaterThan(parse);
-    expect(call - parse).toBeLessThan(800);
+    // ... and before that effect closes: the same open path, not a later one.
+    const effectEnd = src.indexOf('}, [openNonce, fileName, emptyBoard, shown]);', parse);
+    expect(effectEnd).toBeGreaterThan(parse);
+    expect(call).toBeLessThan(effectEnd);
   });
 });
 

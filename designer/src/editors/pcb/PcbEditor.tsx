@@ -26,6 +26,8 @@ import { PolygonGeomManager } from '@ziroeda/common/src/preview_items/polygon_ge
 import { COLOR4D_WHITE, brightness, cssWithAlpha, toCss } from '@ziroeda/common/src/color4d.js';
 import { drawPolygonItem } from '../../ui/polygon_item.js';
 import { DialogRuleAreaProperties } from './dialogs/dialog_rule_area_properties.js';
+import type { PROGRESS_REPORTER_LIKE } from '@ziroeda/pcbnew/src/connectivity/connectivity_algo.js';
+import { PROF_TIMER, traceAllegroPerf, wxLogTrace } from '@ziroeda/common/src/trace_helpers.js';
 import { placeVia } from '@ziroeda/pcbnew/src/via_placer.js';
 import { DEFAULT_RULE_AREA_KEEPOUT } from '@ziroeda/pcbnew/src/convert_shapes.js';
 import {
@@ -328,7 +330,7 @@ import {
 import { DialogPcbFind, DEFAULT_PCB_FIND, type PcbFindOptions } from './dialogs/dialog_find.js';
 import { DialogPageSettings } from '../../dialogs/dialog_page_settings.js';
 import { pageSettingsValue, toPaperToken } from '../../dialogs/page_settings_model.js';
-import { pcbZoomFitBox } from './document_extents.js';
+import { type ExtentsBox, pcbZoomFitBox } from './document_extents.js';
 import { DialogPcbPrint } from './dialogs/dialog_print_pcb.js';
 import { DialogPcbPlot } from './dialogs/dialog_plot_pcb.js';
 import {
@@ -2320,7 +2322,34 @@ export function PcbEditor({
   const buildBoardScene = (b: Board, filter: SceneFilter = {}): BoardScene => {
     if (!filter.clearanceForNet) filter = { ...filter, clearanceForNet };
     if (!filter.resolveTextVar) filter = { ...filter, resolveTextVar };
+    // With the KiCad canvas up, the VIEW draws the board and nothing reads a
+    // raster scene of it: the shell alone (the paper, the setup) is kept for
+    // the parts of the 2D path that still ask a scene for them. The whole-board
+    // compile — 7.3 s and a Path2D per item on the jetson demo — is what the
+    // raster fallback pays, and only it.
+    if (glOkRef.current) return buildScene(emptyBoardLike(b), filter, sceneFactory());
     return buildScene(b, filter, sceneFactory());
+  };
+
+  /**
+   * `PCB_BASE_FRAME::GetBoardBoundingBox( false )`'s `m_pcb->GetBoundingBox()`:
+   * the box over every item, null for `ComputeBoundingBox`'s empty BOX2I.
+   */
+  const boardItemsBox = (): ExtentsBox | null => {
+    const kb = boardRef.current?.k;
+
+    if (!kb) return sceneRef.current?.bbox ?? null;
+
+    const area = kb.GetBoundingBox();
+
+    if (area.GetWidth() === 0 && area.GetHeight() === 0) return null;
+
+    return {
+      minX: area.GetLeft(),
+      minY: area.GetTop(),
+      maxX: area.GetRight(),
+      maxY: area.GetBottom(),
+    };
   };
   const rafRef = useRef(0);
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
@@ -2501,15 +2530,52 @@ export function PcbEditor({
     // Report(); the gauge stays at 0 because the parse is one call with no
     // checkpoint() to move it.
     setLoading({ message: `Loading ${fileName}...`, value: 0 });
-    const id = setTimeout(() => {
+    const id = setTimeout(async () => {
       // Claimed only once the read actually starts: a frame hidden again
       // inside these 30 ms cancels the timer, and must read when next shown.
       parsedOpen.current = open;
       try {
+        // `PROF_TIMER` + `wxLogTrace( traceAllegroPerf, ... )` in
+        // OpenProjectFiles: the open's phases, under `WXTRACE=KICAD_ALLEGRO_PERF`.
+        const postLoadTimer = new PROF_TIMER();
         const b = { ...readBoard(parse(textRef.current)), fileName };
+        wxLogTrace(traceAllegroPerf, () => `Load: ${postLoadTimer.msecs(true).toFixed(3)} ms`);
         if (cancelled) return;
+        // `BOARD::BuildConnectivity`'s first step, `CacheTriangulation`, runs
+        // on the thread pool in the C++ while the progress dialog pumps
+        // (`Tessellating copper zones...`). Ours pumps the same way — the
+        // zones on the pool's workers, this thread free to paint the gauge —
+        // and the synchronous build below then finds every zone cached.
+        if (b.k && b.k.Zones().length > 0) {
+          const zones = b.k.Zones().length;
+          let done = 0;
+          const reporter: PROGRESS_REPORTER_LIKE = {
+            SetMaxProgress: () => {},
+            SetCurrentProgress: () => {},
+            AdvanceProgress: () => {
+              done++;
+              if (!cancelled)
+                setLoading({ message: 'Tessellating copper zones...', value: done / zones });
+            },
+            KeepRefreshing: () => true,
+            IsCancelled: () => cancelled,
+            Report: (message) => {
+              if (!cancelled) setLoading({ message, value: done / zones });
+            },
+          };
+          await b.k.CacheTriangulationAsync(reporter);
+          wxLogTrace(
+            traceAllegroPerf,
+            () => `Post-load CacheTriangulation: ${postLoadTimer.msecs(true).toFixed(3)} ms`,
+          );
+          if (cancelled) return;
+        }
         boardRef.current = b;
         sceneRef.current = buildBoardScene(b);
+        wxLogTrace(
+          traceAllegroPerf,
+          () => `Post-load scene: ${postLoadTimer.msecs(true).toFixed(3)} ms`,
+        );
         // The first fit went to the blank sheet; the loaded board gets its own.
         fittedRef.current = false;
         setBoard(b);
@@ -4125,6 +4191,9 @@ export function PcbEditor({
     frame.ActivateGalCanvas();
     displayStateRef.current = null;
     setPanelReady(true);
+    // A restored context: the whole-board scene the raster path built in the
+    // meantime is no longer read; the shell replaces it.
+    if (kb && boardRef.current) rebuildSceneRef.current(boardRef.current);
     // A lost context: the panel's GAL is gone with it; the raster path draws
     // until the context is restored and the panel rebuilt.
     const onLost = (e: Event): void => {
@@ -4134,7 +4203,10 @@ export function PcbEditor({
       frame.SetCanvas(null);
       glOkRef.current = false;
       setPanelReady(false);
-      requestDrawRef.current();
+      // The raster path draws from a scene of the whole board; under the GL
+      // panel only the shell was kept.
+      if (boardRef.current) rebuildSceneRef.current(boardRef.current);
+      else requestDrawRef.current();
     };
     const onRestored = (): void => {
       setPanelGeneration((g) => g + 1);
@@ -4183,8 +4255,17 @@ export function PcbEditor({
     // PCB_EDIT_FRAME::OpenProjectFiles: Clear_Pcb, SetBoard( loadedBoard, false ),
     // then "Rebuild list of nets (full ratsnest rebuild)".
     frame.Clear_Pcb();
+    const postLoadTimer = new PROF_TIMER();
     frame.SetBoard(boardK, false);
+    wxLogTrace(
+      traceAllegroPerf,
+      () => `Post-load SetBoard: ${postLoadTimer.msecs(true).toFixed(3)} ms`,
+    );
     boardK.BuildConnectivity();
+    wxLogTrace(
+      traceAllegroPerf,
+      () => `Post-load BuildConnectivity: ${postLoadTimer.msecs(true).toFixed(3)} ms`,
+    );
     boardK.AddListener(listener);
     // The canvas, when it is up: the screen's page size and the drawing
     // sheet follow the board (`SetBoard` displayed it through the canvas),
@@ -4911,7 +4992,7 @@ export function PcbEditor({
   // scene box returned here and the button did nothing.
   const zoomToFitImpl = useCallback(
     (includeSheet: boolean) => {
-      const box = pcbZoomFitBox(sceneRef.current?.bbox ?? null, {
+      const box = pcbZoomFitBox(boardItemsBox(), {
         paper: boardRef.current?.paper,
         drawingSheetVisible: objects.drawingSheet,
         includeSheet,
@@ -7810,6 +7891,7 @@ export function PcbEditor({
     setTimeout(() => {
       if (token !== baseRebuildRef.current) return;
       if (movingSelRef.current.size === 0) return; // the drag already finished
+      if (panelRef.current) return; // the VIEW hides the moving items itself
       sceneRef.current = buildBoardScene(deleteBoardItems(brd, affected), sceneFilter());
       sceneDirtyRef.current = true;
       requestDraw();
@@ -8759,7 +8841,13 @@ export function PcbEditor({
             // by the raster path, or a `Path2D` scene handed to the recorder,
             // both come out as an empty board with no error at all. Neither of
             // the two changes that met here shows it on its own.
-            sceneRef.current = buildBoardScene(deleteBoardItems(brd, only), sceneFilter());
+            if (panelRef.current) {
+              const items = kItemsForIds(brd, only);
+              hiddenItemsRef.current = items;
+              setItemsHidden(panelRef.current, items, true);
+            } else {
+              sceneRef.current = buildBoardScene(deleteBoardItems(brd, only), sceneFilter());
+            }
             moveSceneRef.current = buildScene(subsetBoardItems(brd, only), sceneFilter());
             // The overlay is drawn at absolute coords: a reshape moves points,
             // not the item, so it carries no drag delta.
@@ -9011,6 +9099,8 @@ export function PcbEditor({
       // Drop the reshape overlay: both paths below rebuild a full base scene
       // that contains the item again, so leaving it up would double-draw it.
       moveSceneRef.current = null;
+      // The VIEW's hidden item draws again; a commit re-derives the view anyway.
+      unhideMovingItems();
       if (preview) commitBoard(preview);
       else if (boardRef.current) rebuildScene(boardRef.current);
       requestDraw();
