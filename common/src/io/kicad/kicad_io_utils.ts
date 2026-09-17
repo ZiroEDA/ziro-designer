@@ -111,7 +111,12 @@ export function* prettifySteps(
   const libSpecialCase = mode === FORMAT_MODE.LIBRARY_TABLE;
 
   const n = source.length;
-  const formatted: string[] = [];
+  // The output: `formatted` holds the current slice's pieces, joined into one
+  // string per slice (`chunks`), so the final join is over ~1300 chunks and
+  // not over the ten million pieces an 85 MB board produces -- that join was
+  // a second on its own, in one task, after every slice had yielded.
+  const chunks: string[] = [];
+  let formatted: string[] = [];
   let formattedEmpty = true;
 
   let listDepth = 0;
@@ -215,7 +220,12 @@ export function* prettifySteps(
   };
 
   for (let cursor = 0; cursor < n; ++cursor) {
-    if ((cursor & (PRETTIFY_SLICE - 1)) === 0 && cursor > 0) yield;
+    if ((cursor & (PRETTIFY_SLICE - 1)) === 0 && cursor > 0) {
+      flushRun(cursor);
+      chunks.push(formatted.join(''));
+      formatted = [];
+      yield;
+    }
 
     const ch = source.charCodeAt(cursor);
 
@@ -326,5 +336,6 @@ export function* prettifySteps(
   // newline required at end of line / file for POSIX compliance. Keeps git diffs clean.
   push('\n', n);
 
-  return formatted.join('');
+  chunks.push(formatted.join(''));
+  return chunks.join('');
 }
