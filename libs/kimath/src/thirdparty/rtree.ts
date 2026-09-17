@@ -1122,6 +1122,7 @@ export class RTree<DATATYPE> {
     a_callback: ((id: DATATYPE) => boolean) | null,
   ): boolean {
     if (this.NUMDIMS === 2) return this.searchRec2(a_node, a_rect, a_foundCount, a_callback);
+    if (this.NUMDIMS === 3) return this.searchRec3(a_node, a_rect, a_foundCount, a_callback);
     const rects = a_node.m_rect;
     if (IsInternalNode(a_node)) {
       // This is an internal node in the tree
@@ -1180,6 +1181,64 @@ export class RTree<DATATYPE> {
         const off = index * 4;
         if (
           !(x0 > rects[off + 2]! || rects[off]! > x1 || y0 > rects[off + 3]! || rects[off + 1]! > y1)
+        ) {
+          const id = a_node.m_data[index] as DATATYPE;
+          ++a_foundCount.value;
+
+          if (a_callback && !a_callback(id)) {
+            return false; // Don't continue searching
+          }
+        }
+      }
+    }
+
+    return true; // Continue searching
+  }
+
+  // searchRec with NUMDIMS == 3 (CN_RTREE, the layer span its third axis).
+  private searchRec3(
+    a_node: Node<DATATYPE>,
+    a_rect: Rect,
+    a_foundCount: { value: number },
+    a_callback: ((id: DATATYPE) => boolean) | null,
+  ): boolean {
+    const rects = a_node.m_rect;
+    const x0 = a_rect[0]!;
+    const y0 = a_rect[1]!;
+    const z0 = a_rect[2]!;
+    const x1 = a_rect[3]!;
+    const y1 = a_rect[4]!;
+    const z1 = a_rect[5]!;
+    if (IsInternalNode(a_node)) {
+      for (let index = 0; index < a_node.m_count; ++index) {
+        const off = index * 6;
+        if (
+          !(
+            x0 > rects[off + 3]! ||
+            rects[off]! > x1 ||
+            y0 > rects[off + 4]! ||
+            rects[off + 1]! > y1 ||
+            z0 > rects[off + 5]! ||
+            rects[off + 2]! > z1
+          )
+        ) {
+          if (!this.searchRec3(a_node.m_child[index]!, a_rect, a_foundCount, a_callback)) {
+            return false; // Don't continue searching
+          }
+        }
+      }
+    } else {
+      for (let index = 0; index < a_node.m_count; ++index) {
+        const off = index * 6;
+        if (
+          !(
+            x0 > rects[off + 3]! ||
+            rects[off]! > x1 ||
+            y0 > rects[off + 4]! ||
+            rects[off + 1]! > y1 ||
+            z0 > rects[off + 5]! ||
+            rects[off + 2]! > z1
+          )
         ) {
           const id = a_node.m_data[index] as DATATYPE;
           ++a_foundCount.value;
