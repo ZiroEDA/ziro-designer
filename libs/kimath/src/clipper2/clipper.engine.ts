@@ -68,8 +68,11 @@ export interface OutPt {
   horz: HorzSegment | null;
 }
 
+// Points are never written once made (`setZ` replaces an OutPt's point
+// rather than writing its Z), so an OutPt shares the point it was given
+// where the C++ copies a 24-byte struct: millions fewer objects per union.
 function newOutPt(pt: Point64, outrec: OutRec): OutPt {
-  const op = { pt: { x: pt.x, y: pt.y, z: pt.z }, outrec, horz: null } as OutPt;
+  const op = { pt, outrec, horz: null } as OutPt;
   op.next = op;
   op.prev = op;
   return op;
@@ -635,9 +638,17 @@ export class ClipperBase {
     this.zCallback_ = cb;
   }
 
-  /** `ClipperBase::SetZ` (`USINGZ`). */
-  private setZ(e1: Active, e2: Active, ip: Point64): void {
+  /**
+   * `ClipperBase::SetZ` (`USINGZ`), on an OutPt: the C++ writes the Z into
+   * the OutPt's own copy of the point. Points are shared here (an OutPt, an
+   * Active's bot/top and a Vertex hold the same object, never written), so
+   * the OutPt gets a copy of its own for the Z, and the callback sees that.
+   */
+  private setZ(e1: Active, e2: Active, op: OutPt): void {
     if (!this.zCallback_) return;
+
+    const ip: Point64 = { x: op.pt.x, y: op.pt.y, z: op.pt.z };
+    op.pt = ip;
 
     // prioritize subject over clip vertices by passing
     // subject vertices before clip vertices in the callback
@@ -940,11 +951,11 @@ export class ClipperBase {
         leftBound = null;
       } else {
         leftBound = newActive(localMinima);
-        leftBound.bot = { ...localMinima.vertex.pt };
+        leftBound.bot = localMinima.vertex.pt;
         leftBound.curr_x = leftBound.bot.x;
         leftBound.wind_dx = -1;
         leftBound.vertex_top = localMinima.vertex.prev; // ie descending
-        leftBound.top = { ...leftBound.vertex_top!.pt };
+        leftBound.top = leftBound.vertex_top!.pt;
         setDx(leftBound);
       }
 
@@ -952,11 +963,11 @@ export class ClipperBase {
         rightBound = null;
       } else {
         rightBound = newActive(localMinima);
-        rightBound.bot = { ...localMinima.vertex.pt };
+        rightBound.bot = localMinima.vertex.pt;
         rightBound.curr_x = rightBound.bot.x;
         rightBound.wind_dx = 1;
         rightBound.vertex_top = localMinima.vertex.next; // ie ascending
-        rightBound.top = { ...rightBound.vertex_top!.pt };
+        rightBound.top = rightBound.vertex_top!.pt;
         setDx(rightBound);
       }
 
@@ -1276,9 +1287,9 @@ export class ClipperBase {
   }
 
   private updateEdgeIntoAEL(e: Active): void {
-    e.bot = { ...e.top };
+    e.bot = e.top;
     e.vertex_top = nextVertex(e);
-    e.top = { ...e.vertex_top.pt };
+    e.top = e.vertex_top.pt;
     e.curr_x = e.bot.x;
     setDx(e);
 
@@ -1345,7 +1356,7 @@ export class ClipperBase {
         }
         resultOp = this.startOpenPath(edge_o, pt);
       } else resultOp = this.startOpenPath(edge_o, pt);
-      if (this.zCallback_) this.setZ(edge_o, edge_c, resultOp.pt);
+      if (this.zCallback_) this.setZ(edge_o, edge_c, resultOp);
       return resultOp;
     }
 
@@ -1408,31 +1419,31 @@ export class ClipperBase {
         (e1.local_min.polytype !== e2.local_min.polytype && this.cliptype_ !== ClipType.Xor)
       ) {
         resultOp = this.addLocalMaxPoly(e1, e2, pt);
-        if (this.zCallback_ && resultOp) this.setZ(e1, e2, resultOp.pt);
+        if (this.zCallback_ && resultOp) this.setZ(e1, e2, resultOp);
       } else if (isFront(e1) || e1.outrec === e2.outrec) {
         //this 'else if' condition isn't strictly needed but
         //it's sensible to split polygons that ony touch at
         //a common vertex (not at common edges).
         resultOp = this.addLocalMaxPoly(e1, e2, pt);
         const op2 = this.addLocalMinPoly(e1, e2, pt);
-        if (this.zCallback_ && resultOp) this.setZ(e1, e2, resultOp.pt);
-        if (this.zCallback_) this.setZ(e1, e2, op2.pt);
+        if (this.zCallback_ && resultOp) this.setZ(e1, e2, resultOp);
+        if (this.zCallback_) this.setZ(e1, e2, op2);
       } else {
         resultOp = this.addOutPt(e1, pt);
         const op2 = this.addOutPt(e2, pt);
         if (this.zCallback_) {
-          this.setZ(e1, e2, resultOp.pt);
-          this.setZ(e1, e2, op2.pt);
+          this.setZ(e1, e2, resultOp);
+          this.setZ(e1, e2, op2);
         }
         swapOutrecs(e1, e2);
       }
     } else if (isHotEdge(e1)) {
       resultOp = this.addOutPt(e1, pt);
-      if (this.zCallback_) this.setZ(e1, e2, resultOp.pt);
+      if (this.zCallback_) this.setZ(e1, e2, resultOp);
       swapOutrecs(e1, e2);
     } else if (isHotEdge(e2)) {
       resultOp = this.addOutPt(e2, pt);
-      if (this.zCallback_) this.setZ(e1, e2, resultOp.pt);
+      if (this.zCallback_) this.setZ(e1, e2, resultOp);
       swapOutrecs(e1, e2);
     } else {
       let e1Wc2: number;
@@ -1456,7 +1467,7 @@ export class ClipperBase {
 
       if (!isSamePolyType(e1, e2)) {
         resultOp = this.addLocalMinPoly(e1, e2, pt, false);
-        if (this.zCallback_) this.setZ(e1, e2, resultOp.pt);
+        if (this.zCallback_) this.setZ(e1, e2, resultOp);
       } else if (old_e1_windcnt === 1 && old_e2_windcnt === 1) {
         resultOp = null;
         switch (this.cliptype_) {
@@ -1477,7 +1488,7 @@ export class ClipperBase {
             if (e1Wc2 > 0 && e2Wc2 > 0) resultOp = this.addLocalMinPoly(e1, e2, pt, false);
             break;
         }
-        if (resultOp && this.zCallback_) this.setZ(e1, e2, resultOp.pt);
+        if (resultOp && this.zCallback_) this.setZ(e1, e2, resultOp);
       }
     }
     return resultOp;
@@ -2053,7 +2064,7 @@ function trimHorz(horzEdge: Active, preserveCollinear: boolean): void {
   while (pt.y === horzEdge.top.y) {
     if (preserveCollinear && pt.x < horzEdge.top.x !== horzEdge.bot.x < horzEdge.top.x) break;
     horzEdge.vertex_top = nextVertex(horzEdge);
-    horzEdge.top = { ...pt };
+    horzEdge.top = pt;
     wasTrimmed = true;
     if (isMaxima(horzEdge)) break;
     pt = nextVertex(horzEdge).pt;
