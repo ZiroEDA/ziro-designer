@@ -22,6 +22,7 @@
 
 import { cos, sin } from '@ziroeda/kimath/src/math/libm.js';
 import type { MATRIX3x3D } from '@ziroeda/kimath/src/math/matrix3x3.js';
+import { wxASSERT } from '@ziroeda/core/src/wx_assert.js';
 
 export enum GL_MATRIX_MODE {
   GL_MODELVIEW = 0x1700,
@@ -162,7 +163,7 @@ export class GL_FIXED_FUNCTION {
 
   glPopMatrix(): void {
     const stack = this.m_stacks.get(this.m_mode)!;
-    console.assert(stack.length > 0, 'GL_STACK_UNDERFLOW');
+    wxASSERT(stack.length > 0, 'GL_STACK_UNDERFLOW');
     this.m_matrices.set(this.m_mode, stack.pop()!);
   }
 
@@ -264,7 +265,7 @@ export class GL_FIXED_FUNCTION {
   // ---- immediate mode ----
 
   glBegin(aMode: GL_BEGIN_MODE): void {
-    console.assert(this.m_beginMode === null);
+    wxASSERT(this.m_beginMode === null);
     this.m_beginMode = aMode;
     this.m_immediate = [];
   }
@@ -294,7 +295,7 @@ export class GL_FIXED_FUNCTION {
   glEnd(): void {
     const gl = this.gl;
     const mode = this.m_beginMode;
-    console.assert(mode !== null);
+    wxASSERT(mode !== null);
     this.m_beginMode = null;
 
     let data = this.m_immediate;

@@ -13,6 +13,7 @@
 import { checkGlError } from './utils.js';
 import { VERTEX_SIZE, VERTEX_STORAGE } from './vertex_common.js';
 import type { VERTEX_ITEM } from './vertex_item.js';
+import { wxASSERT } from '@ziroeda/core/src/wx_assert.js';
 
 export abstract class VERTEX_CONTAINER {
   ///< Free space left in the container, expressed in vertices
@@ -30,6 +31,29 @@ export abstract class VERTEX_CONTAINER {
   // Status flags
   protected m_failed: boolean;
   protected m_dirty: boolean;
+
+  /**
+   * The vertices written since the last Unmap, as the range a mapped GPU
+   * buffer would flush: what `CACHED_CONTAINER_GPU`'s `glUnmapBuffer` sends
+   * is the pages touched, and the RAM container here sends the same range
+   * with `bufferSubData` rather than the whole buffer.
+   */
+  protected m_dirtyMin = Number.POSITIVE_INFINITY;
+  protected m_dirtyMax = 0;
+
+  protected markDirtyRange(aOffset: number, aSize: number): void {
+    if (aOffset < this.m_dirtyMin) this.m_dirtyMin = aOffset;
+    if (aOffset + aSize > this.m_dirtyMax) this.m_dirtyMax = aOffset + aSize;
+  }
+
+  /**
+   * `SetDirty()` for one item's vertices: what a mapped buffer would flush
+   * for a rewrite in place (`ChangeItemColor` / `ChangeItemDepth`).
+   */
+  SetDirtyRange(aOffset: number, aSize: number): void {
+    this.m_dirty = true;
+    this.markDirtyRange(aOffset, aSize);
+  }
 
   ///< Default initial size of a container (expressed in vertices)
   static readonly DEFAULT_SIZE = 1048576;
@@ -290,7 +314,7 @@ export abstract class CACHED_CONTAINER extends VERTEX_CONTAINER {
   }
 
   SetItem(aItem: VERTEX_ITEM | null): void {
-    console.assert(aItem !== null);
+    wxASSERT(aItem !== null);
 
     const itemSize = aItem!.GetSize();
     this.m_item = aItem;
@@ -302,7 +326,7 @@ export abstract class CACHED_CONTAINER extends VERTEX_CONTAINER {
 
   ///< @copydoc VERTEX_CONTAINER::FinishItem()
   override FinishItem(): void {
-    console.assert(this.m_item !== null);
+    wxASSERT(this.m_item !== null);
 
     const itemSize = this.m_item!.GetSize();
 
@@ -326,8 +350,8 @@ export abstract class CACHED_CONTAINER extends VERTEX_CONTAINER {
   }
 
   Allocate(aSize: number): number {
-    console.assert(this.m_item !== null);
-    console.assert(this.IsMapped());
+    wxASSERT(this.m_item !== null);
+    wxASSERT(this.IsMapped());
 
     if (this.m_failed) return -1;
 
@@ -356,13 +380,14 @@ export abstract class CACHED_CONTAINER extends VERTEX_CONTAINER {
 
     // The content has to be updated
     this.m_dirty = true;
+    this.markDirtyRange(reserved, aSize);
 
     return reserved;
   }
 
   ///< @copydoc VERTEX_CONTAINER::Delete()
   Delete(aItem: VERTEX_ITEM): void {
-    console.assert(this.m_items.has(aItem) || aItem.GetSize() === 0);
+    wxASSERT(this.m_items.has(aItem) || aItem.GetSize() === 0);
 
     const size = aItem.GetSize();
 
@@ -431,8 +456,8 @@ export abstract class CACHED_CONTAINER extends VERTEX_CONTAINER {
    * @return true in case of success, false otherwise
    */
   protected reallocate(aSize: number): boolean {
-    console.assert(aSize > 0);
-    console.assert(this.IsMapped());
+    wxASSERT(aSize > 0);
+    wxASSERT(this.IsMapped());
 
     const itemSize = this.m_item!.GetSize();
 
@@ -455,15 +480,15 @@ export abstract class CACHED_CONTAINER extends VERTEX_CONTAINER {
       if (!result) return false;
 
       newChunk = this.lowerBound(aSize);
-      console.assert(newChunk !== -1);
+      wxASSERT(newChunk !== -1);
     }
 
     // Parameters of the allocated chunk
     const newChunkSize = this.getChunkSize(this.m_freeChunks[newChunk]!);
     const newChunkOffset = this.getChunkOffset(this.m_freeChunks[newChunk]!);
 
-    console.assert(newChunkSize >= aSize);
-    console.assert(newChunkOffset < this.m_currentSize);
+    wxASSERT(newChunkSize >= aSize);
+    wxASSERT(newChunkOffset < this.m_currentSize);
 
     // Check if the item was previously stored in the container
     if (itemSize > 0) {
@@ -481,6 +506,7 @@ export abstract class CACHED_CONTAINER extends VERTEX_CONTAINER {
         newChunkOffset,
         itemSize,
       );
+      this.markDirtyRange(newChunkOffset, itemSize);
 
       // Free the space used by the previous chunk
       this.addFreeChunk(this.m_chunkOffset, this.m_chunkSize);
@@ -613,8 +639,8 @@ export abstract class CACHED_CONTAINER extends VERTEX_CONTAINER {
    * Add a chunk marked as free.
    */
   protected addFreeChunk(aOffset: number, aSize: number): void {
-    console.assert(aOffset + aSize <= this.m_currentSize);
-    console.assert(aSize > 0);
+    wxASSERT(aOffset + aSize <= this.m_currentSize);
+    wxASSERT(aSize > 0);
 
     this.insertFreeChunk(aSize, aOffset);
     this.m_freeSpace += aSize;
@@ -664,20 +690,41 @@ export class CACHED_CONTAINER_RAM extends CACHED_CONTAINER {
   ///< @copydoc VERTEX_CONTAINER::Unmap()
   Map(): void {}
 
+  /// The size of the GL buffer as last allocated, in vertices; 0 before the first upload.
+  private m_glBufferSize = 0;
+
   ///< @copydoc VERTEX_CONTAINER::Unmap()
   Unmap(): void {
     if (!this.m_dirty) return;
 
     const gl = this.gl;
 
-    // Upload vertices coordinates and shader types to GPU memory
+    // Upload vertices coordinates and shader types to GPU memory: the whole
+    // buffer when it has to be (re)allocated, else only the vertices written
+    // since the last upload, as the unmapping of a mapped buffer flushes.
     gl.bindBuffer(gl.ARRAY_BUFFER, this.m_verticesBuffer);
     checkGlError(gl, 'binding vertices buffer');
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      this.m_vertices!.u8.subarray(0, this.m_maxIndex * VERTEX_SIZE),
-      gl.STREAM_DRAW,
-    );
+
+    if (this.m_glBufferSize !== this.m_currentSize) {
+      gl.bufferData(gl.ARRAY_BUFFER, this.m_currentSize * VERTEX_SIZE, gl.DYNAMIC_DRAW);
+      gl.bufferSubData(
+        gl.ARRAY_BUFFER,
+        0,
+        this.m_vertices!.u8.subarray(0, this.m_maxIndex * VERTEX_SIZE),
+      );
+      this.m_glBufferSize = this.m_currentSize;
+    } else if (this.m_dirtyMax > this.m_dirtyMin) {
+      const first = Math.max(0, this.m_dirtyMin);
+      const last = Math.min(this.m_dirtyMax, this.m_currentSize);
+      gl.bufferSubData(
+        gl.ARRAY_BUFFER,
+        first * VERTEX_SIZE,
+        this.m_vertices!.u8.subarray(first * VERTEX_SIZE, last * VERTEX_SIZE),
+      );
+    }
+
+    this.m_dirtyMin = Number.POSITIVE_INFINITY;
+    this.m_dirtyMax = 0;
     checkGlError(gl, 'transferring vertices');
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     checkGlError(gl, 'unbinding vertices buffer');
@@ -710,6 +757,7 @@ export class CACHED_CONTAINER_RAM extends CACHED_CONTAINER {
     this.insertFreeChunk(this.m_freeSpace, this.m_currentSize - this.m_freeSpace);
 
     this.m_dirty = true;
+    this.markDirtyRange(0, this.m_currentSize);
 
     return true;
   }

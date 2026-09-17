@@ -3559,28 +3559,34 @@ export class SHAPE_POLY_SET extends SHAPE {
 
   private checksum(): HASH_128 {
     // MMH3_HASH hash( 0x68AF835D ), fed int32 by int32: little-endian words
-    const words: number[] = [];
-    words.push(this.m_polys.length);
+    let count = 1;
 
     for (const outline of this.m_polys) {
-      words.push(outline.length);
+      count += 1;
+
+      for (const lc of outline) count += 1 + 2 * lc.PointCount();
+    }
+
+    const words = new Int32Array(count);
+    let n = 0;
+    words[n++] = this.m_polys.length;
+
+    for (const outline of this.m_polys) {
+      words[n++] = outline.length;
 
       for (const lc of outline) {
-        words.push(lc.PointCount());
+        const pc = lc.PointCount();
+        words[n++] = pc;
 
-        for (let i = 0; i < lc.PointCount(); i++) {
+        for (let i = 0; i < pc; i++) {
           const pt = lc.CPoint(i);
-          words.push(pt.x);
-          words.push(pt.y);
+          words[n++] = pt.x;
+          words[n++] = pt.y;
         }
       }
     }
 
-    const bytes = new Uint8Array(words.length * 4);
-    const view = new DataView(bytes.buffer);
-    for (let i = 0; i < words.length; i++) view.setInt32(i * 4, words[i]!, true);
-
-    return mmh3HashToString(bytes, 0x68af835d);
+    return mmh3HashToString(littleEndianBytes(words), 0x68af835d);
   }
 
   /**
@@ -4252,3 +4258,17 @@ export function TransformArcToPolygon(
 }
 
 export { circleToEndSegmentDeltaRadius };
+
+/** The platform is little-endian (every browser and node we run on); the words' bytes as the hash reads them. */
+const IS_LITTLE_ENDIAN = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
+
+function littleEndianBytes(aWords: Int32Array): Uint8Array {
+  if (IS_LITTLE_ENDIAN) return new Uint8Array(aWords.buffer, aWords.byteOffset, aWords.byteLength);
+
+  const bytes = new Uint8Array(aWords.length * 4);
+  const view = new DataView(bytes.buffer);
+
+  for (let i = 0; i < aWords.length; i++) view.setInt32(i * 4, aWords[i]!, true);
+
+  return bytes;
+}

@@ -437,8 +437,8 @@ export function applyDisplayState(
   // Layer visibility: BOARD::SetVisibleLayers + PCB_DRAW_PANEL_GAL::SyncLayersVisibility
   if (
     !aPrev ||
-    aPrev.visibleLayers !== aState.visibleLayers ||
-    aPrev.visibleElements !== aState.visibleElements
+    !setsEqual(aPrev.visibleLayers, aState.visibleLayers) ||
+    !mapsEqual(aPrev.visibleElements, aState.visibleElements)
   ) {
     const visible = new LSET();
 
@@ -464,18 +464,37 @@ export function applyDisplayState(
 
   if (aFrame.GetActiveLayer() !== aState.activeLayer) aFrame.SetActiveLayer(aState.activeLayer);
 
-  // Display options: PCB_BASE_FRAME::SetDisplayOptions (no refresh: the frame's own repaint)
-  if (!aPrev || !displayOptionsEqual(aPrev.displayOptions, aState.displayOptions)) {
+  // Display options: PCB_BASE_FRAME::SetDisplayOptions (no refresh: the frame's own repaint).
+  // It recaches every item, so only when they differ from what the frame holds.
+  const held = aPrev ? aPrev.displayOptions : aFrame.GetDisplayOptions();
+
+  if (!displayOptionsEqual(held, aState.displayOptions)) {
     aFrame.SetDisplayOptions(aState.displayOptions, false);
   } else if (layerChanged) {
     aPanel.SetHighContrastLayer(aState.activeLayer);
   }
 
   // Net highlight: BOARD_INSPECTION_TOOL::HighlightNet -> SetHighlight + UpdateAllLayersColor
-  if (!aPrev || aPrev.highlightNets !== aState.highlightNets) {
+  if (!aPrev || !setsEqual(aPrev.highlightNets, aState.highlightNets)) {
     settings.SetHighlight(new Set(aState.highlightNets), aState.highlightNets.size > 0);
     view.UpdateAllLayersColor();
   }
+}
+
+function setsEqual<T>(a: ReadonlySet<T>, b: ReadonlySet<T>): boolean {
+  if (a.size !== b.size) return false;
+
+  for (const v of a) if (!b.has(v)) return false;
+
+  return true;
+}
+
+function mapsEqual<K, V>(a: ReadonlyMap<K, V>, b: ReadonlyMap<K, V>): boolean {
+  if (a.size !== b.size) return false;
+
+  for (const [k, v] of a) if (b.get(k) !== v) return false;
+
+  return true;
 }
 
 function displayOptionsEqual(a: PCB_DISPLAY_OPTIONS, b: PCB_DISPLAY_OPTIONS): boolean {

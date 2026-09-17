@@ -2845,7 +2845,9 @@ export function PcbEditor({
     // here; the overlay canvas above it keeps the editor's own chrome.
     if (useGl) {
       syncViewTransform(panel, v, dpr);
-      panel.ForceRefresh();
+      // `Refresh()`, as a canvas event does: a repaint only when the view is
+      // dirty or the cursor moved, throttled to the GAL's swap interval.
+      panel.Refresh();
     }
     // Grid sits behind the board (GAL GRID_DEPTH), painted crisply at the live
     // view every frame so it stays sharp during pan/zoom. The raster is drawn on

@@ -14,6 +14,19 @@
  * @param aThrow decides whether the function should throw an exception or return an error.
  * @return GL_NO_ERROR in case of success or one of GL error codes.
  */
+/**
+ * Whether `checkGlError` asks the context at all. Native `glGetError` is
+ * cheap; a WebGL `getError()` is a synchronous round trip to the GPU process
+ * that stalls the command stream, so the per-call checks the C++ makes are
+ * skipped unless the application turns them on (a debug switch, as
+ * `KICAD_GAL_PROFILE`-style tracing is).
+ */
+export let g_checkGlErrors = false;
+
+export function SetCheckGlErrors(aEnable: boolean): void {
+  g_checkGlErrors = aEnable;
+}
+
 export function checkGlError(
   gl: WebGL2RenderingContext,
   aInfo: string,
@@ -21,6 +34,8 @@ export function checkGlError(
   aFile = '',
   aLine = 0,
 ): number {
+  if (!g_checkGlErrors) return 0;
+
   const result = gl.getError();
   let errorMsg = '';
 

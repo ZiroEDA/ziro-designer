@@ -148,15 +148,28 @@ class MockGL {
   bindBuffer(target: number, b: object | null): void {
     this.bound[target] = b;
   }
+  /** Every payload handed to bufferData / bufferSubData, in order. */
+  uploads: Uint8Array[] = [];
   bufferData(target: number, data: ArrayBufferView | number, _usage: number): void {
     const b = this.bound[target];
     if (!b) return;
     if (typeof data === 'number') this.buffers.set(b, new Uint8Array(data));
-    else
-      this.buffers.set(
-        b,
-        new Uint8Array(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)),
+    else {
+      const copy = new Uint8Array(
+        data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength),
       );
+      this.buffers.set(b, copy);
+      this.uploads.push(copy);
+    }
+  }
+  bufferSubData(target: number, offset: number, data: ArrayBufferView): void {
+    const b = this.bound[target];
+    if (!b) return;
+    const copy = new Uint8Array(
+      data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength),
+    );
+    this.buffers.get(b)!.set(copy, offset);
+    this.uploads.push(copy);
   }
   drawArrays(mode: number, first: number, count: number): void {
     this.draws.push({ kind: 'arrays', mode, first, count, indices: null });
@@ -332,7 +345,7 @@ describe('OPENGL_GAL vertex pipeline', () => {
 
     // The cached container's upload is exactly the six VERTEX structs (the compositor's
     // full-screen quads go through the fixed-function shim's own, wider, buffer).
-    const uploads = [...gl.buffers.values()].filter((b) => b.byteLength === 6 * VERTEX_SIZE);
+    const uploads = gl.uploads.filter((b) => b.byteLength === 6 * VERTEX_SIZE);
     expect(uploads.length).toBe(1);
     const verts = decode(uploads[0]!);
 
@@ -382,7 +395,7 @@ describe('OPENGL_GAL vertex pipeline', () => {
     const arrays = gl.draws.filter((d) => d.kind === 'arrays' && d.count === 3);
     expect(arrays.length).toBe(1);
 
-    const upload = [...gl.buffers.values()].find((b) => b.byteLength === 3 * VERTEX_SIZE)!;
+    const upload = gl.uploads.find((b) => b.byteLength === 3 * VERTEX_SIZE)!;
     const verts = decode(upload);
     expect(verts.map((v) => v.shader)).toEqual([
       [SHADER_MODE.SHADER_FILLED_CIRCLE, 1, 500, 0],
@@ -416,8 +429,11 @@ describe('OPENGL_GAL vertex pipeline', () => {
       gal.DrawGroup(group);
     });
 
-    const upload = [...gl.buffers.values()].find((b) => b.byteLength === 6 * VERTEX_SIZE)!;
-    const verts = decode(upload);
+    // The first update's Unmap uploaded the six vertices; the rewrite marks their
+    // range dirty and the second Unmap uploads exactly those six again
+    const uploads = gl.uploads.filter((b) => b.byteLength === 6 * VERTEX_SIZE);
+    expect(uploads.length).toBe(2);
+    const verts = decode(uploads[1]!);
     for (const v of verts) {
       expect(v.rgba).toEqual([51, 102, 153, 204]);
       expect(v.z).toBe(42);
@@ -440,7 +456,7 @@ describe('OPENGL_GAL vertex pipeline', () => {
       gal.BitmapText('AB', { x: 0, y: 0 }, { AsRadians: () => 0 } as never);
     });
 
-    const upload = [...gl.buffers.values()].find((b) => b.byteLength === 12 * VERTEX_SIZE)!;
+    const upload = gl.uploads.find((b) => b.byteLength === 12 * VERTEX_SIZE)!;
     expect(upload).toBeDefined();
     const verts = decode(upload);
     for (const v of verts) expect(v.shader[0]).toBe(SHADER_MODE.SHADER_FONT);

@@ -4,8 +4,9 @@
 /**
  * `include/base_set.h`: `BASE_SET`, a growable bitset (`sul::dynamic_bitset`
  * underneath) that `LSET` and the other layer sets derive from. The bits are
- * one bigint; the size is what the C++ `size()` is, and a `set`/`reset`/`flip`
- * past it grows the set as the C++ does.
+ * a block vector of 32-bit words, as the dynamic_bitset's; the size is what
+ * the C++ `size()` is, and a `set`/`reset`/`flip` past it grows the set as
+ * the C++ does.
  *
  * The C++ operators are methods: `~` is `not()`, `&=`/`|=`/`^=` are
  * `andAssign`/`orAssign`/`xorAssign`, and the free `&`/`|`/`^` are
@@ -15,17 +16,19 @@
  */
 
 export class BASE_SET {
-  protected m_bits = 0n;
+  /** `sul::dynamic_bitset`'s block vector: 32-bit words, low word first; bits past `m_size` are zero. */
+  protected m_words: number[];
   protected m_size: number;
 
   constructor(size?: number);
   constructor(aOther: BASE_SET);
   constructor(a: number | BASE_SET = 64) {
     if (a instanceof BASE_SET) {
-      this.m_bits = a.m_bits;
+      this.m_words = a.m_words.slice();
       this.m_size = a.m_size;
     } else {
       this.m_size = a;
+      this.m_words = new Array<number>((a + 31) >>> 5).fill(0);
     }
   }
 
@@ -34,36 +37,57 @@ export class BASE_SET {
     return this.m_size;
   }
 
+  /** The bits past `m_size` in the last word are kept zero. */
+  private sanitize(): void {
+    const rem = this.m_size & 31;
+    const last = this.m_words.length - 1;
+
+    if (rem !== 0 && last >= 0) this.m_words[last] = (this.m_words[last]! & ((1 << rem) - 1)) >>> 0;
+  }
+
   /** `sul::dynamic_bitset::resize`: grow keeps the bits; shrink drops the high ones. */
   resize(aSize: number): void {
+    const words = (aSize + 31) >>> 5;
+
+    if (words > this.m_words.length) {
+      while (this.m_words.length < words) this.m_words.push(0);
+    } else if (words < this.m_words.length) {
+      this.m_words.length = words;
+    }
+
     this.m_size = aSize;
-    this.m_bits &= (1n << BigInt(aSize)) - 1n;
+    this.sanitize();
   }
 
   /** `sul::dynamic_bitset::test`. */
   test(pos: number): boolean {
     if (pos < 0 || pos >= this.m_size) throw new RangeError('out_of_range');
 
-    return ((this.m_bits >> BigInt(pos)) & 1n) === 1n;
+    return ((this.m_words[pos >>> 5]! >>> (pos & 31)) & 1) === 1;
   }
 
   /** `operator[]`: the bit, without the range check `test` makes. */
   at(pos: number): boolean {
-    return ((this.m_bits >> BigInt(pos)) & 1n) === 1n;
+    const w = this.m_words[pos >>> 5];
+
+    return w !== undefined && ((w >>> (pos & 31)) & 1) === 1;
   }
 
   set(): this;
   set(pos: number, value?: boolean): this;
   set(pos?: number, value = true): this {
     if (pos === undefined) {
-      this.m_bits = (1n << BigInt(this.m_size)) - 1n;
+      this.m_words.fill(0xffffffff);
+      this.sanitize();
       return this;
     }
 
     if (pos >= this.m_size) this.resize(pos + 1);
 
-    if (value) this.m_bits |= 1n << BigInt(pos);
-    else this.m_bits &= ~(1n << BigInt(pos));
+    const i = pos >>> 5;
+
+    if (value) this.m_words[i] = (this.m_words[i]! | (1 << (pos & 31))) >>> 0;
+    else this.m_words[i] = (this.m_words[i]! & ~(1 << (pos & 31))) >>> 0;
 
     return this;
   }
@@ -72,13 +96,14 @@ export class BASE_SET {
   reset(pos: number): this;
   reset(pos?: number): this {
     if (pos === undefined) {
-      this.m_bits = 0n;
+      this.m_words.fill(0);
       return this;
     }
 
     if (pos >= this.m_size) this.resize(pos + 1);
 
-    this.m_bits &= ~(1n << BigInt(pos));
+    const i = pos >>> 5;
+    this.m_words[i] = (this.m_words[i]! & ~(1 << (pos & 31))) >>> 0;
     return this;
   }
 
@@ -86,39 +111,54 @@ export class BASE_SET {
   flip(pos: number): this;
   flip(pos?: number): this {
     if (pos === undefined) {
-      this.m_bits ^= (1n << BigInt(this.m_size)) - 1n;
+      for (let i = 0; i < this.m_words.length; ++i) this.m_words[i] = ~this.m_words[i]! >>> 0;
+      this.sanitize();
       return this;
     }
 
     if (pos >= this.m_size) this.resize(pos + 1);
 
-    this.m_bits ^= 1n << BigInt(pos);
+    const i = pos >>> 5;
+    this.m_words[i] = (this.m_words[i]! ^ (1 << (pos & 31))) >>> 0;
     return this;
   }
 
   /** `sul::dynamic_bitset::any`. */
   any(): boolean {
-    return this.m_bits !== 0n;
+    for (let i = 0; i < this.m_words.length; ++i) if (this.m_words[i] !== 0) return true;
+
+    return false;
   }
 
   /** `sul::dynamic_bitset::none`. */
   none(): boolean {
-    return this.m_bits === 0n;
+    return !this.any();
   }
 
   /** `sul::dynamic_bitset::all`. */
   all(): boolean {
-    return this.m_bits === (1n << BigInt(this.m_size)) - 1n;
+    const full = this.m_size >>> 5;
+
+    for (let i = 0; i < full; ++i) if (this.m_words[i] !== 0xffffffff) return false;
+
+    const rem = this.m_size & 31;
+
+    if (rem !== 0) return this.m_words[full] === ((1 << rem) - 1) >>> 0;
+
+    return true;
   }
 
   /** `sul::dynamic_bitset::count`: the number of set bits. */
   count(): number {
     let n = 0;
-    let b = this.m_bits;
 
-    while (b !== 0n) {
-      b &= b - 1n;
-      ++n;
+    for (let i = 0; i < this.m_words.length; ++i) {
+      let w = this.m_words[i]!;
+
+      while (w !== 0) {
+        w = (w & (w - 1)) >>> 0;
+        ++n;
+      }
     }
 
     return n;
@@ -126,12 +166,23 @@ export class BASE_SET {
 
   /** `sul::dynamic_bitset::is_subset_of`: every set bit here is set in `other`. */
   is_subset_of(other: BASE_SET): boolean {
-    return (this.m_bits & ~other.m_bits) === 0n;
+    for (let i = 0; i < this.m_words.length; ++i) {
+      const o = i < other.m_words.length ? other.m_words[i]! : 0;
+
+      if ((this.m_words[i]! & ~o) !== 0) return false;
+    }
+
+    return true;
   }
 
   /** `sul::dynamic_bitset::operator==`. */
   equals(other: BASE_SET): boolean {
-    return this.m_size === other.m_size && this.m_bits === other.m_bits;
+    if (this.m_size !== other.m_size) return false;
+
+    for (let i = 0; i < this.m_words.length; ++i)
+      if (this.m_words[i] !== other.m_words[i]) return false;
+
+    return true;
   }
 
   /** `operator~`. */
@@ -148,7 +199,11 @@ export class BASE_SET {
 
     if (my_size < other_size) this.resize(other_size);
 
-    this.m_bits &= other.m_bits;
+    for (let i = 0; i < this.m_words.length; ++i) {
+      const o = i < other.m_words.length ? other.m_words[i]! : 0;
+      this.m_words[i] = (this.m_words[i]! & o) >>> 0;
+    }
+
     return this;
   }
 
@@ -159,7 +214,9 @@ export class BASE_SET {
 
     if (my_size < other_size) this.resize(other_size);
 
-    this.m_bits |= other.m_bits;
+    for (let i = 0; i < other.m_words.length; ++i)
+      this.m_words[i] = (this.m_words[i]! | other.m_words[i]!) >>> 0;
+
     return this;
   }
 
@@ -170,7 +227,9 @@ export class BASE_SET {
 
     if (my_size < other_size) this.resize(other_size);
 
-    this.m_bits ^= other.m_bits;
+    for (let i = 0; i < other.m_words.length; ++i)
+      this.m_words[i] = (this.m_words[i]! ^ other.m_words[i]!) >>> 0;
+
     return this;
   }
 
@@ -323,7 +382,7 @@ export class BASE_SET {
     const byte_count = aCount - 1 - rstart;
 
     if (byte_count > 0) {
-      this.m_bits = tmp.m_bits;
+      this.m_words = tmp.m_words;
       this.m_size = tmp.m_size;
     }
 

@@ -52,6 +52,7 @@ import { checkGlError } from './utils.js';
 import { SHADER_MODE } from './vertex_common.js';
 import { VERTEX_ITEM } from './vertex_item.js';
 import { VERTEX_MANAGER } from './vertex_manager.js';
+import { wxASSERT } from '@ziroeda/core/src/wx_assert.js';
 
 const { SHADER_NONE, SHADER_FILLED_CIRCLE, SHADER_STROKED_CIRCLE, SHADER_FONT, SHADER_HOLE_WALL } =
   SHADER_MODE;
@@ -280,7 +281,7 @@ function VertexCallback(aVertexPtr: number[], aData: TessParams): void {
   const vertex = aVertexPtr;
   const vboManager = aData.vboManager;
 
-  console.assert(vboManager !== undefined);
+  wxASSERT(vboManager !== undefined);
   vboManager.Vertex(vertex[0]!, vertex[1]!, vertex[2]!);
 }
 
@@ -575,13 +576,13 @@ export class OPENGL_GAL extends GAL {
 
   /// @copydoc GAL::BeginDrawing()
   override BeginDrawing(): void {
-    console.assert(
+    wxASSERT(
       this.m_isContextLocked,
       'GAL_DRAWING_CONTEXT RAII object should have locked context. ' +
         'Calling GAL::beginDrawing() directly is not allowed.',
     );
 
-    console.assert(
+    wxASSERT(
       this.IsVisible(),
       'GAL::beginDrawing() must not be entered when GAL is not visible. ' +
         'Other drawing routines will expect everything to be initialized ' +
@@ -742,7 +743,7 @@ export class OPENGL_GAL extends GAL {
 
   /// @copydoc GAL::EndDrawing()
   override EndDrawing(): void {
-    console.assert(this.m_isContextLocked, 'What happened to the context lock?');
+    wxASSERT(this.m_isContextLocked, 'What happened to the context lock?');
 
     // Cached & non-cached containers are rendered to the same buffer
     this.m_compositor.SetBuffer(this.m_mainBuffer);
@@ -799,7 +800,7 @@ export class OPENGL_GAL extends GAL {
   }
 
   override LockContext(aClientCookie: number): void {
-    console.assert(!this.m_isContextLocked, 'Context already locked.');
+    wxASSERT(!this.m_isContextLocked, 'Context already locked.');
     this.m_isContextLocked = true;
     this.m_lockClientCookie = aClientCookie;
 
@@ -807,11 +808,11 @@ export class OPENGL_GAL extends GAL {
   }
 
   override UnlockContext(aClientCookie: number): void {
-    console.assert(
+    wxASSERT(
       this.m_isContextLocked,
       'Context not locked.  A GAL_CONTEXT_LOCKER RAII object must be stacked rather than making separate lock/unlock calls.',
     );
-    console.assert(
+    wxASSERT(
       this.m_lockClientCookie === aClientCookie,
       'Context was locked by a different client. Should not be possible with RAII objects.',
     );
@@ -825,12 +826,12 @@ export class OPENGL_GAL extends GAL {
 
   /// @copydoc GAL::BeginUpdate()
   override beginUpdate(): void {
-    console.assert(
+    wxASSERT(
       this.m_isContextLocked,
       'GAL_UPDATE_CONTEXT RAII object should have locked context. Calling this from anywhere else is not allowed.',
     );
 
-    console.assert(
+    wxASSERT(
       this.IsVisible(),
       'GAL::beginUpdate() must not be entered when GAL is not visible. Other update routines will expect everything to be initialized which will not be the case.',
     );
@@ -1699,7 +1700,7 @@ export class OPENGL_GAL extends GAL {
 
       for (let i = 0; i < codepoints.length; ++i) {
         const ch = codepoints[i]!;
-        console.assert(ch !== 0x0a && ch !== 0x0d, 'No support for multiline bitmap text yet');
+        wxASSERT(ch !== 0x0a && ch !== 0x0d, 'No support for multiline bitmap text yet');
 
         if (ch === 0x7e /* ~ */ && overbarDepth === -1) {
           if (i + 1 < codepoints.length && codepoints[i + 1] === 0x7b /* { */) {
@@ -2836,7 +2837,7 @@ export class OPENGL_GAL extends GAL {
   }
 
   private getNewGroupNumber(): number {
-    console.assert(this.m_groups.size < 0xffffffff, 'There are no free slots to store a group');
+    wxASSERT(this.m_groups.size < 0xffffffff, 'There are no free slots to store a group');
 
     while (this.m_groups.has(this.m_groupCounter)) this.m_groupCounter++;
 
@@ -2849,10 +2850,7 @@ export class OPENGL_GAL extends GAL {
   }
 
   private init(): void {
-    console.assert(
-      this.m_isContextLocked,
-      'This should only be called from within a locked context.',
-    );
+    wxASSERT(this.m_isContextLocked, 'This should only be called from within a locked context.');
 
     // Check correct initialization from the constructor
     if (this.m_tesselator === null) throw new Error('Could not create the tesselator');

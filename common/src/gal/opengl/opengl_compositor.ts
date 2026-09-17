@@ -20,6 +20,7 @@ import {
 import { GL_BEGIN_MODE, GL_FIXED_FUNCTION, GL_MATRIX_MODE } from './gl_fixed_function.js';
 import { glsl_xor_diff_frag, glsl_xor_diff_vert } from './shaders/xor_diff.js';
 import { checkGlError } from './utils.js';
+import { wxASSERT } from '@ziroeda/core/src/wx_assert.js';
 
 const COLOR4D_BLACK: Color4d = { r: 0, g: 0, b: 0, a: 1 };
 
@@ -186,7 +187,7 @@ export class OPENGL_COMPOSITOR extends COMPOSITOR {
     }
 
     const dims = this.m_antialiasing.GetInternalBufferSize();
-    console.assert(dims.x !== 0 && dims.y !== 0);
+    wxASSERT(dims.x !== 0 && dims.y !== 0);
 
     const maxBufSize = gl.getParameter(gl.MAX_RENDERBUFFER_SIZE) as number;
 
@@ -240,7 +241,7 @@ export class OPENGL_COMPOSITOR extends COMPOSITOR {
   CreateBuffer(aDimensions?: VECTOR2I): number {
     if (aDimensions === undefined) return this.m_antialiasing.CreateBuffer();
 
-    console.assert(this.m_initialized);
+    wxASSERT(this.m_initialized);
     const gl = this.gl;
 
     // Get the maximum number of buffers
@@ -443,7 +444,7 @@ export class OPENGL_COMPOSITOR extends COMPOSITOR {
   /// Binds a specific Framebuffer Object.
   protected bindFb(aFb: WebGLFramebuffer | number): void {
     // Currently there are only 2 valid FBOs
-    console.assert(aFb === OPENGL_COMPOSITOR.DIRECT_RENDERING || aFb === this.m_mainFbo);
+    wxASSERT(aFb === OPENGL_COMPOSITOR.DIRECT_RENDERING || aFb === this.m_mainFbo);
 
     if (this.m_curFbo !== aFb) {
       this.gl.bindFramebuffer(

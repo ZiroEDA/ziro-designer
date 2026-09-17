@@ -23,6 +23,7 @@ import {
 } from './vertex_common.js';
 import { VERTEX_CONTAINER } from './vertex_container.js';
 import type { VERTEX_ITEM } from './vertex_item.js';
+import { wxASSERT } from '@ziroeda/core/src/wx_assert.js';
 
 /** `glm::mat4`, column-major. */
 export type MAT4 = Float32Array;
@@ -380,7 +381,7 @@ export class VERTEX_MANAGER {
    * Pop the current transformation matrix stack.
    */
   PopMatrix(): void {
-    console.assert(this.m_transformStack.length > 0);
+    wxASSERT(this.m_transformStack.length > 0);
 
     this.m_transform = this.m_transformStack.pop()!;
 
@@ -442,7 +443,7 @@ export class VERTEX_MANAGER {
       vertex += VERTEX_STRIDE * 4;
     }
 
-    this.m_container.SetDirty();
+    this.m_container.SetDirtyRange(offset, size);
   }
 
   /**
@@ -463,7 +464,7 @@ export class VERTEX_MANAGER {
       vertex += VERTEX_STRIDE;
     }
 
-    this.m_container.SetDirty();
+    this.m_container.SetDirtyRange(offset, size);
   }
 
   /**

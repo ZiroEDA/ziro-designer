@@ -7,6 +7,7 @@
  */
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { wxASSERT } from '@ziroeda/core/src/wx_assert.js';
 
 /// Type definition for the shader
 export enum SHADER_TYPE {
@@ -183,7 +184,7 @@ export class SHADER {
     f2?: number,
     f3?: number,
   ): void {
-    console.assert(aParameterNumber < this.parameterLocation.length);
+    wxASSERT(aParameterNumber < this.parameterLocation.length);
     const gl = this.gl;
 
     if (typeof a !== 'number') {
@@ -204,13 +205,13 @@ export class SHADER {
    * the fixed pipeline used to supply (`gl_ModelViewProjectionMatrix`).
    */
   Location(aParameterNumber: number): WebGLUniformLocation {
-    console.assert(aParameterNumber < this.parameterLocation.length);
+    wxASSERT(aParameterNumber < this.parameterLocation.length);
     return this.parameterLocation[aParameterNumber]!;
   }
 
   /** `SetParameter( int aParameterNumber, int aValue )`: the integer overload. */
   SetParameterInt(aParameterNumber: number, aValue: number): void {
-    console.assert(aParameterNumber < this.parameterLocation.length);
+    wxASSERT(aParameterNumber < this.parameterLocation.length);
     this.gl.uniform1i(this.parameterLocation[aParameterNumber]!, aValue);
   }
 
@@ -228,7 +229,7 @@ export class SHADER {
    * Compile vertex of fragment shader source code into the program.
    */
   private loadShaderFromStringArray(aShaderType: SHADER_TYPE, aArray: string[]): boolean {
-    console.assert(!this.isShaderLinked);
+    wxASSERT(!this.isShaderLinked);
     const gl = this.gl;
 
     // Create the program

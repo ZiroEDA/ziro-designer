@@ -27,6 +27,7 @@ import {
   VERTEX_SIZE,
 } from './vertex_common.js';
 import type { VERTEX_ITEM } from './vertex_item.js';
+import { wxASSERT } from '@ziroeda/core/src/wx_assert.js';
 
 /**
  * Class to handle uploading vertices and indices to GPU in drawing purposes.
@@ -199,7 +200,7 @@ export class GPU_CACHED_MANAGER extends GPU_MANAGER {
 
   ///< @copydoc GPU_MANAGER::BeginDrawing()
   BeginDrawing(): void {
-    console.assert(!this.m_isDrawing);
+    wxASSERT(!this.m_isDrawing);
 
     this.m_curVrangeSize = 0;
     this.m_indexBufMaxSize = 0;
@@ -231,7 +232,7 @@ export class GPU_CACHED_MANAGER extends GPU_MANAGER {
 
   ///< @copydoc GPU_MANAGER::EndDrawing()
   EndDrawing(): void {
-    console.assert(this.m_isDrawing);
+    wxASSERT(this.m_isDrawing);
     const gl = this.gl;
 
     const cached = this.m_container as CACHED_CONTAINER;
@@ -347,7 +348,7 @@ export class GPU_NONCACHED_MANAGER extends GPU_MANAGER {
 
   ///< @copydoc GPU_MANAGER::DrawIndices()
   DrawIndices(aItem: VERTEX_ITEM): void {
-    console.assert(false, 'Not implemented yet');
+    wxASSERT(false, 'Not implemented yet');
   }
 
   ///< @copydoc GPU_MANAGER::EndDrawing()

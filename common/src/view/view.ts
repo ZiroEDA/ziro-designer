@@ -21,6 +21,7 @@ import { VIEW_GROUP } from './view_group.js';
 import { type VIEW_ITEM, VIEW_UPDATE_FLAGS, VIEW_VISIBILITY_FLAGS } from './view_item.js';
 import { VIEW_OVERLAY } from './view_overlay.js';
 import { VIEW_RTREE } from './view_rtree.js';
+import { wxASSERT } from '@ziroeda/core/src/wx_assert.js';
 
 const { NONE, APPEARANCE, COLOR, GEOMETRY, LAYERS, INITIAL_ADD, REPAINT, ALL } = VIEW_UPDATE_FLAGS;
 const { VISIBLE, HIDDEN, OVERLAY_HIDDEN } = VIEW_VISIBILITY_FLAGS;
@@ -343,7 +344,7 @@ export class VIEW {
 
     if (!aItem.m_viewPrivData) aItem.m_viewPrivData = new VIEW_ITEM_DATA();
 
-    console.assert(
+    wxASSERT(
       aItem.m_viewPrivData.m_view === null || aItem.m_viewPrivData.m_view === this,
       'Already in a different view!',
     );
@@ -579,7 +580,7 @@ export class VIEW {
 
     if (!viewData) return;
 
-    console.assert(aUpdateFlags !== NONE);
+    wxASSERT(aUpdateFlags !== NONE);
 
     viewData.m_requiredUpdate |= aUpdateFlags;
     this.m_hasPendingItemUpdates = true;
@@ -610,7 +611,7 @@ export class VIEW {
    * @param aOtherView: view from which settings will be copied.
    */
   CopySettings(aOtherView: VIEW): void {
-    console.assert(false, 'This is not implemented');
+    wxASSERT(false, 'This is not implemented');
   }
 
   /*
@@ -706,7 +707,7 @@ export class VIEW {
    * @param aMirrorY: when true, the Y axis is mirrored.
    */
   SetMirror(aMirrorX: boolean, aMirrorY: boolean): void {
-    console.assert(!aMirrorY, 'Mirroring for Y axis is not supported yet');
+    wxASSERT(!aMirrorY, 'Mirroring for Y axis is not supported yet');
 
     this.m_mirrorX = aMirrorX;
     this.m_mirrorY = aMirrorY;
@@ -794,7 +795,7 @@ export class VIEW {
    * @param aMinimum is the minimum value for scale.
    */
   SetScaleLimits(aMaximum: number, aMinimum: number): void {
-    console.assert(aMaximum > aMinimum, 'I guess you passed parameters in wrong order');
+    wxASSERT(aMaximum > aMinimum, 'I guess you passed parameters in wrong order');
 
     this.m_minScale = aMinimum;
     this.m_maxScale = aMaximum;
@@ -1884,7 +1885,7 @@ export class VIEW {
   protected updateBbox(aItem: VIEW_ITEM): void {
     const layers = aItem.ViewGetLayers();
 
-    console.assert(aItem.m_viewPrivData !== null); //must have a viewPrivData
+    wxASSERT(aItem.m_viewPrivData !== null); //must have a viewPrivData
 
     const new_bbox = aItem.ViewBBox();
 
