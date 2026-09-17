@@ -1092,23 +1092,79 @@ export class RTree<DATATYPE> {
 }
 
 /**
+ * An int64 of the integer R-tree: a double while it is an exact integer,
+ * a BigInt from 2^53 on. Every intermediate the tree forms is checked
+ * against `INT64_EXACT_LIMIT` before it is kept as a double.
+ */
+type INT64 = number | bigint;
+
+/** 2^53: every integer below it is one double; from it on, not. */
+const INT64_EXACT_LIMIT = 9007199254740992;
+
+/**
+ * floor( sqrt( 2^53 ) ): a half-extent no larger than this squares exactly
+ * in a double. Belt and braces: a half-extent is `trunc( float * 0.5f )`, so
+ * it never has more than 24 significant bits and its square never more than
+ * 48, exact at any magnitude. What does round is the sum of two squares of
+ * different magnitude, and the product by 3 -- `addSquare` and
+ * `sphericalVolumeInt` check those.
+ */
+const HALF_EXTENT_EXACT_LIMIT = 94906265;
+
+/**
+ * `sumOfSquares += halfExtent * halfExtent` in int64: exact in a double while
+ * the square and the running sum stay below 2^53, a BigInt past that. Strict
+ * comparisons, because a true sum of 2^53 + 1 rounds down to 2^53.
+ */
+function addSquare(sum: INT64, halfExtent: number): INT64 {
+  if (
+    typeof sum === 'number' &&
+    halfExtent <= HALF_EXTENT_EXACT_LIMIT &&
+    halfExtent >= -HALF_EXTENT_EXACT_LIMIT
+  ) {
+    const s = sum + halfExtent * halfExtent;
+    if (s < INT64_EXACT_LIMIT) return s;
+  }
+  return BigInt(sum) + BigInt(halfExtent) * BigInt(halfExtent);
+}
+
+/**
+ * `a - b` in int64. Two doubles here are non-negative volumes or their
+ * differences, all below 2^53 in magnitude, so their difference is exact.
+ */
+function int64Sub(a: INT64, b: INT64): INT64 {
+  return typeof a === 'number' && typeof b === 'number' ? a - b : BigInt(a) - BigInt(b);
+}
+
+/** `a == b` in int64 (`===` between a number and a BigInt is always false). */
+function int64Eq(a: INT64, b: INT64): boolean {
+  return typeof a === typeof b ? a === b : BigInt(a) === BigInt(b);
+}
+
+/**
  * `RTree<DATATYPE, intptr_t, NUMDIMS, intptr_t>`: the instantiation whose
  * ELEMTYPEREAL is a 64-bit integer (`SHAPE_POLY_SET::splitCollinearOutlines`).
  * Every volume, growth and waste is then integer arithmetic — `halfExtent`
  * is `int64 * 0.5f` truncated back to int64, the unit sphere constant is
  * `(intptr_t) 3.141593f == 3` — and the split heuristics tie differently
- * from the double tree. The arithmetic is done in BigInt so that values past
- * 2^53 compare as the C++ does.
+ * from the double tree. Every value is a non-negative integer, so it is held
+ * in a double while it is below 2^53 -- where a double IS an int64 -- and
+ * promoted to a BigInt only past that, so a board-sized node compares as the
+ * C++ does without every leaf paying for an allocation. Mixed `<` and `>=`
+ * compare a number and a BigInt mathematically in JS; subtraction and
+ * equality go through `int64Sub` / `int64Eq`.
  */
 export class RTreeIntReal<DATATYPE> extends RTree<DATATYPE> {
   private readonly m_unitSphereVolumeInt: bigint;
-  private m_areaInt: [bigint, bigint] = [0n, 0n];
-  private m_coverSplitAreaInt = 0n;
+  private readonly m_unitSphereVolumeIntNum: number;
+  private m_areaInt: [INT64, INT64] = [0, 0];
+  private m_coverSplitAreaInt: INT64 = 0;
 
   constructor(aNumDims = 2, aMaxNodes = 8, aMinNodes = aMaxNodes / 2) {
     super(aNumDims, aMaxNodes, aMinNodes);
     // m_unitSphereVolume = (ELEMTYPEREAL) UNIT_SPHERE_VOLUMES[NUMDIMS]
-    this.m_unitSphereVolumeInt = BigInt(Math.trunc(UNIT_SPHERE_VOLUMES[this.NUMDIMS]!));
+    this.m_unitSphereVolumeIntNum = Math.trunc(UNIT_SPHERE_VOLUMES[this.NUMDIMS]!);
+    this.m_unitSphereVolumeInt = BigInt(this.m_unitSphereVolumeIntNum);
   }
 
   protected RectVolumeInt(a_rect: Rect): bigint {
@@ -1120,43 +1176,45 @@ export class RTreeIntReal<DATATYPE> extends RTree<DATATYPE> {
     return volume;
   }
 
-  protected RectSphericalVolumeInt(a_rect: Rect): bigint {
-    let sumOfSquares = 0n;
+  protected RectSphericalVolumeInt(a_rect: Rect): INT64 {
+    let sumOfSquares: INT64 = 0;
 
     for (let index = 0; index < this.NUMDIMS; ++index) {
       // ( (int64) max - (int64) min ) * 0.5f: the int64 difference converts to
       // float, the float product converts back to int64 by truncation.
-      const halfExtent = BigInt(
-        Math.trunc(Math.fround(a_rect.m_max[index]! - a_rect.m_min[index]!) * 0.5),
+      const halfExtent = Math.trunc(
+        Math.fround(a_rect.m_max[index]! - a_rect.m_min[index]!) * 0.5,
       );
-      sumOfSquares += halfExtent * halfExtent;
+      sumOfSquares = addSquare(sumOfSquares, halfExtent);
     }
 
     return this.sphericalVolumeInt(sumOfSquares);
   }
 
   // CalcRectVolumeInt( CombineRect( a_rectA, a_rectB ) ) without the rectangle
-  protected CombinedRectVolumeInt(a_rectA: Rect, a_rectB: Rect): bigint {
-    let sumOfSquares = 0n;
+  protected CombinedRectVolumeInt(a_rectA: Rect, a_rectB: Rect): INT64 {
+    let sumOfSquares: INT64 = 0;
 
     for (let index = 0; index < this.NUMDIMS; ++index) {
-      const halfExtent = BigInt(
-        Math.trunc(
-          Math.fround(
-            Math.max(a_rectA.m_max[index]!, a_rectB.m_max[index]!) -
-              Math.min(a_rectA.m_min[index]!, a_rectB.m_min[index]!),
-          ) * 0.5,
-        ),
+      const halfExtent = Math.trunc(
+        Math.fround(
+          Math.max(a_rectA.m_max[index]!, a_rectB.m_max[index]!) -
+            Math.min(a_rectA.m_min[index]!, a_rectB.m_min[index]!),
+        ) * 0.5,
       );
-      sumOfSquares += halfExtent * halfExtent;
+      sumOfSquares = addSquare(sumOfSquares, halfExtent);
     }
 
     return this.sphericalVolumeInt(sumOfSquares);
   }
 
-  private sphericalVolumeInt(sumOfSquares: bigint): bigint {
+  private sphericalVolumeInt(sumOfSquares: INT64): INT64 {
     if (this.NUMDIMS === 2) {
-      return sumOfSquares * this.m_unitSphereVolumeInt;
+      if (typeof sumOfSquares === 'number') {
+        const v = sumOfSquares * this.m_unitSphereVolumeIntNum;
+        if (v < INT64_EXACT_LIMIT) return v;
+      }
+      return BigInt(sumOfSquares) * this.m_unitSphereVolumeInt;
     }
     // (ELEMTYPEREAL) std::sqrt( sumOfSquares ): the root truncated to int64
     const radius = BigInt(Math.trunc(Math.sqrt(Number(sumOfSquares))));
@@ -1166,30 +1224,30 @@ export class RTreeIntReal<DATATYPE> extends RTree<DATATYPE> {
     return radius ** BigInt(this.NUMDIMS) * this.m_unitSphereVolumeInt;
   }
 
-  protected CalcRectVolumeInt(a_rect: Rect): bigint {
+  protected CalcRectVolumeInt(a_rect: Rect): INT64 {
     // RTREE_USE_SPHERICAL_VOLUME
     return this.RectSphericalVolumeInt(a_rect);
   }
 
   protected override PickBranch(a_rect: Rect, a_node: Node<DATATYPE>): number {
     let firstTime = true;
-    let increase: bigint;
-    let bestIncr = -1n;
-    let area: bigint;
-    let bestArea = 0n;
+    let increase: INT64;
+    let bestIncr: INT64 = -1;
+    let area: INT64;
+    let bestArea: INT64 = 0;
     let best = 0;
 
     for (let index = 0; index < a_node.m_count; ++index) {
       const curRect = a_node.m_branch[index]!.m_rect;
       area = this.CalcRectVolumeInt(curRect);
-      increase = this.CombinedRectVolumeInt(a_rect, curRect) - area;
+      increase = int64Sub(this.CombinedRectVolumeInt(a_rect, curRect), area);
 
       if (increase < bestIncr || firstTime) {
         best = index;
         bestArea = area;
         bestIncr = increase;
         firstTime = false;
-      } else if (increase === bestIncr && area < bestArea) {
+      } else if (int64Eq(increase, bestIncr) && area < bestArea) {
         best = index;
         bestArea = area;
         bestIncr = increase;
@@ -1209,7 +1267,7 @@ export class RTreeIntReal<DATATYPE> extends RTree<DATATYPE> {
   }
 
   protected override ChoosePartition(a_parVars: PartitionVars<DATATYPE>, a_minFill: number): void {
-    let biggestDiff: bigint;
+    let biggestDiff: INT64;
     let group: number;
     let chosen = 0;
     let betterGroup = 0;
@@ -1222,18 +1280,22 @@ export class RTreeIntReal<DATATYPE> extends RTree<DATATYPE> {
       a_parVars.m_count[0] < a_parVars.m_total - a_parVars.m_minFill &&
       a_parVars.m_count[1] < a_parVars.m_total - a_parVars.m_minFill
     ) {
-      biggestDiff = -1n;
+      biggestDiff = -1;
 
       for (let index = 0; index < a_parVars.m_total; ++index) {
         if (!a_parVars.m_taken[index]) {
           const curRect = a_parVars.m_branchBuf[index]!.m_rect;
-          const growth0 =
-            this.CombinedRectVolumeInt(curRect, a_parVars.m_cover[0]) - this.m_areaInt[0];
-          const growth1 =
-            this.CombinedRectVolumeInt(curRect, a_parVars.m_cover[1]) - this.m_areaInt[1];
-          let diff = growth1 - growth0;
+          const growth0 = int64Sub(
+            this.CombinedRectVolumeInt(curRect, a_parVars.m_cover[0]),
+            this.m_areaInt[0],
+          );
+          const growth1 = int64Sub(
+            this.CombinedRectVolumeInt(curRect, a_parVars.m_cover[1]),
+            this.m_areaInt[1],
+          );
+          let diff = int64Sub(growth1, growth0);
 
-          if (diff >= 0n) {
+          if (diff >= 0) {
             group = 0;
           } else {
             group = 1;
@@ -1245,7 +1307,7 @@ export class RTreeIntReal<DATATYPE> extends RTree<DATATYPE> {
             chosen = index;
             betterGroup = group;
           } else if (
-            diff === biggestDiff &&
+            int64Eq(diff, biggestDiff) &&
             a_parVars.m_count[group]! < a_parVars.m_count[betterGroup]!
           ) {
             chosen = index;
@@ -1278,31 +1340,34 @@ export class RTreeIntReal<DATATYPE> extends RTree<DATATYPE> {
     a_minFill: number,
   ): void {
     super.InitParVars(a_parVars, a_maxRects, a_minFill);
-    this.m_areaInt = [0n, 0n];
+    this.m_areaInt = [0, 0];
   }
 
   protected override PickSeeds(a_parVars: PartitionVars<DATATYPE>): void {
     let seed0 = 0;
     let seed1 = 0;
-    let worst: bigint;
-    let waste: bigint;
-    const area: bigint[] = [];
+    let worst: INT64;
+    let waste: INT64;
+    const area: INT64[] = [];
 
     for (let index = 0; index < a_parVars.m_total; ++index) {
       area[index] = this.CalcRectVolumeInt(a_parVars.m_branchBuf[index]!.m_rect);
     }
 
-    worst = -this.m_coverSplitAreaInt - 1n;
+    worst = int64Sub(-this.m_coverSplitAreaInt, 1);
 
     for (let indexA = 0; indexA < a_parVars.m_total - 1; ++indexA) {
       for (let indexB = indexA + 1; indexB < a_parVars.m_total; ++indexB) {
-        waste =
-          this.CombinedRectVolumeInt(
-            a_parVars.m_branchBuf[indexA]!.m_rect,
-            a_parVars.m_branchBuf[indexB]!.m_rect,
-          ) -
-          area[indexA]! -
-          area[indexB]!;
+        waste = int64Sub(
+          int64Sub(
+            this.CombinedRectVolumeInt(
+              a_parVars.m_branchBuf[indexA]!.m_rect,
+              a_parVars.m_branchBuf[indexB]!.m_rect,
+            ),
+            area[indexA]!,
+          ),
+          area[indexB]!,
+        );
 
         if (waste >= worst) {
           worst = waste;

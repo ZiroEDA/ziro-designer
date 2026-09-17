@@ -230,3 +230,70 @@ describe('RTree visit order', () => {
     expect(run(2, new RTreeIntReal<number>(2), 5000)).toBe('d1448273');
   });
 });
+
+/**
+ * The intptr_t tree's volumes are int64 in the C++. The port holds one in a
+ * double while it is below 2^53 and in a BigInt from there on, so the value
+ * must equal the int64 formula either side of that line: with a half-extent
+ * of 2^27 the sum of squares passes 2^54, where a double keeps only every
+ * fourth integer, and a port that stayed in doubles would hand the split
+ * heuristics a rounded volume.
+ */
+describe('RTreeIntReal volume arithmetic', () => {
+  class Probe extends RTreeIntReal<number> {
+    volume(mn: number[], mx: number[]): number | bigint {
+      return this.CalcRectVolumeInt({ m_min: mn, m_max: mx });
+    }
+    combined(a: [number[], number[]], b: [number[], number[]]): number | bigint {
+      return this.CombinedRectVolumeInt({ m_min: a[0], m_max: a[1] }, { m_min: b[0], m_max: b[1] });
+    }
+  }
+  // ( (int64) max - (int64) min ) * 0.5f truncated, squared and summed in
+  // int64, times (intptr_t) 3.141593f == 3: the C++ arithmetic, in BigInt.
+  const int64Volume = (mn: number[], mx: number[]): bigint => {
+    let s = 0n;
+    for (let d = 0; d < 2; d++) {
+      const h = BigInt(Math.trunc(Math.fround(mx[d]! - mn[d]!) * 0.5));
+      s += h * h;
+    }
+    return s * 3n;
+  };
+
+  it('equals the int64 formula below, at and past 2^53', () => {
+    const probe = new Probe(2);
+    const cases: [number[], number[]][] = [
+      [[0, 0], [10, 10]], // tiny: stays a double
+      [[0, 0], [2 ** 28 - 2, 2]], // half-extents 2^27 - 1 and 1: just under
+      [[0, 0], [2 ** 28, 2]], // 2^54 + 1: a double would round it to 2^54
+      [[0, 0], [2 ** 28, 6]], // 2^54 + 9 -> a double gives 2^54 + 8
+      [[-(2 ** 30), -(2 ** 30)], [2 ** 30 - 1, 2 ** 30 - 1]], // a whole int32 board
+      // A width converts to float first, so a half-extent has at most 24
+      // significant bits and its square is always exact; what rounds is the
+      // SUM of two squares of different magnitude, and the product by 3.
+      // Half-extents 94906264 and 17559: each square exact, the sum
+      // 9007199254756177 is past 2^53 and odd -- a double cannot hold it.
+      [[0, 0], [189812528, 35118]],
+      // Half-extents 60000000 and 1: the sum 3600000000000001 is below 2^53,
+      // three times it is past and odd.
+      [[0, 0], [120000000, 2]],
+      // Half-extents 94906264 and 17321: the sum is just under 2^53 and exact,
+      // times 3 is not.
+      [[0, 0], [189812528, 34642]],
+    ];
+    for (const [mn, mx] of cases) {
+      const v = probe.volume(mn, mx);
+      expect(BigInt(v), `${mn} .. ${mx}`).toBe(int64Volume(mn, mx));
+    }
+  });
+
+  it('combines two rectangles to the int64 volume of their union rectangle', () => {
+    const probe = new Probe(2);
+    const a: [number[], number[]] = [[0, 0], [2 ** 28, 4]];
+    const b: [number[], number[]] = [[2 ** 28, 2], [2 ** 29, 8]];
+    const v = probe.combined(a, b);
+    expect(BigInt(v)).toBe(int64Volume([0, 0], [2 ** 29, 8]));
+    // and the difference the heuristics take is exact: 3 * ((2^28)^2 - (2^27)^2 + 4^2 - 2^2)
+    const area = probe.volume(a[0], a[1]);
+    expect(BigInt(v) - BigInt(area)).toBe(3n * ((1n << 56n) - (1n << 54n) + 16n - 4n));
+  });
+});
