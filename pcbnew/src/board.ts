@@ -641,6 +641,43 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
     });
   }
 
+  /**
+   * `BOARD::CacheTriangulation` as the C++ runs it: every zone is a task of
+   * `GetKiCadThreadPool()`, submitted at once, and this waits for the lot —
+   * asynchronously, since a browser's main thread cannot block on a future
+   * the way `wait_for( 250ms )` + `KeepRefreshing()` does. The synchronous
+   * `CacheTriangulation` below then finds nothing left to do.
+   */
+  async CacheTriangulationAsync(
+    aReporter: PROGRESS_REPORTER_LIKE | null = null,
+    aZones: readonly ZONE[] = [],
+  ): Promise<void> {
+    let zones: readonly ZONE[] = aZones;
+
+    if (zones.length === 0) zones = this.m_zones;
+
+    if (zones.length === 0) return;
+
+    if (aReporter) aReporter.Report('Tessellating copper zones...');
+
+    const cache_zones = async (aZone: ZONE): Promise<number> => {
+      if (aReporter?.IsCancelled()) return 0;
+
+      await aZone.CacheTriangulationAsync();
+
+      if (aReporter) aReporter.AdvanceProgress();
+
+      return 1;
+    };
+
+    const returns: Promise<number>[] = [];
+
+    for (const zone of zones) returns.push(cache_zones(zone));
+
+    // Finalize the triangulation threads
+    await Promise.all(returns);
+  }
+
   CacheTriangulation(
     aReporter: PROGRESS_REPORTER_LIKE | null = null,
     aZones: readonly ZONE[] = [],

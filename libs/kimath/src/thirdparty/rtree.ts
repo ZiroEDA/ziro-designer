@@ -600,13 +600,11 @@ export class RTree<DATATYPE> {
     let area: number;
     let bestArea = 0;
     let best = 0;
-    let tempRect: Rect;
 
     for (let index = 0; index < a_node.m_count; ++index) {
       const curRect = a_node.m_branch[index]!.m_rect;
       area = this.CalcRectVolume(curRect);
-      tempRect = this.CombineRect(a_rect, curRect);
-      increase = this.CalcRectVolume(tempRect) - area;
+      increase = this.CombinedRectVolume(a_rect, curRect) - area;
 
       if (increase < bestIncr || firstTime) {
         best = index;
@@ -691,6 +689,30 @@ export class RTree<DATATYPE> {
       sumOfSquares += halfExtent * halfExtent;
     }
 
+    return this.sphericalVolume(sumOfSquares);
+  }
+
+  // CalcRectVolume( CombineRect( a_rectA, a_rectB ) ) without building the
+  // rectangle: the same arithmetic over the combined extents. The C++ builds
+  // the temporary on the stack for free; here every one was a heap object,
+  // and PickBranch makes MAXNODES of them per level of every insert.
+  protected CombinedRectVolume(a_rectA: Rect, a_rectB: Rect): number {
+    let sumOfSquares = 0;
+
+    for (let index = 0; index < this.NUMDIMS; ++index) {
+      const halfExtent =
+        (Math.max(a_rectA.m_max[index]!, a_rectB.m_max[index]!) -
+          Math.min(a_rectA.m_min[index]!, a_rectB.m_min[index]!)) *
+        0.5;
+      sumOfSquares += halfExtent * halfExtent;
+    }
+
+    return this.sphericalVolume(sumOfSquares);
+  }
+
+  // The tail of RectSphericalVolume: the sphere's volume from the sum of the
+  // squared half extents.
+  private sphericalVolume(sumOfSquares: number): number {
     // Pow maybe slow, so test for common dims like 2,3 and just use x*x, x*x*x.
     if (this.NUMDIMS === 2) {
       return sumOfSquares * this.m_unitSphereVolume;
@@ -769,10 +791,10 @@ export class RTree<DATATYPE> {
       for (let index = 0; index < a_parVars.m_total; ++index) {
         if (!a_parVars.m_taken[index]) {
           const curRect = a_parVars.m_branchBuf[index]!.m_rect;
-          const rect0 = this.CombineRect(curRect, a_parVars.m_cover[0]);
-          const rect1 = this.CombineRect(curRect, a_parVars.m_cover[1]);
-          const growth0 = this.CalcRectVolume(rect0) - a_parVars.m_area[0];
-          const growth1 = this.CalcRectVolume(rect1) - a_parVars.m_area[1];
+          const growth0 =
+            this.CombinedRectVolume(curRect, a_parVars.m_cover[0]) - a_parVars.m_area[0];
+          const growth1 =
+            this.CombinedRectVolume(curRect, a_parVars.m_cover[1]) - a_parVars.m_area[1];
           let diff = growth1 - growth0;
 
           if (diff >= 0) {
@@ -862,11 +884,13 @@ export class RTree<DATATYPE> {
 
     for (let indexA = 0; indexA < a_parVars.m_total - 1; ++indexA) {
       for (let indexB = indexA + 1; indexB < a_parVars.m_total; ++indexB) {
-        const oneRect = this.CombineRect(
-          a_parVars.m_branchBuf[indexA]!.m_rect,
-          a_parVars.m_branchBuf[indexB]!.m_rect,
-        );
-        waste = this.CalcRectVolume(oneRect) - area[indexA]! - area[indexB]!;
+        waste =
+          this.CombinedRectVolume(
+            a_parVars.m_branchBuf[indexA]!.m_rect,
+            a_parVars.m_branchBuf[indexB]!.m_rect,
+          ) -
+          area[indexA]! -
+          area[indexB]!;
 
         if (waste >= worst) {
           worst = waste;
@@ -1108,6 +1132,29 @@ export class RTreeIntReal<DATATYPE> extends RTree<DATATYPE> {
       sumOfSquares += halfExtent * halfExtent;
     }
 
+    return this.sphericalVolumeInt(sumOfSquares);
+  }
+
+  // CalcRectVolumeInt( CombineRect( a_rectA, a_rectB ) ) without the rectangle
+  protected CombinedRectVolumeInt(a_rectA: Rect, a_rectB: Rect): bigint {
+    let sumOfSquares = 0n;
+
+    for (let index = 0; index < this.NUMDIMS; ++index) {
+      const halfExtent = BigInt(
+        Math.trunc(
+          Math.fround(
+            Math.max(a_rectA.m_max[index]!, a_rectB.m_max[index]!) -
+              Math.min(a_rectA.m_min[index]!, a_rectB.m_min[index]!),
+          ) * 0.5,
+        ),
+      );
+      sumOfSquares += halfExtent * halfExtent;
+    }
+
+    return this.sphericalVolumeInt(sumOfSquares);
+  }
+
+  private sphericalVolumeInt(sumOfSquares: bigint): bigint {
     if (this.NUMDIMS === 2) {
       return sumOfSquares * this.m_unitSphereVolumeInt;
     }
@@ -1131,13 +1178,11 @@ export class RTreeIntReal<DATATYPE> extends RTree<DATATYPE> {
     let area: bigint;
     let bestArea = 0n;
     let best = 0;
-    let tempRect: Rect;
 
     for (let index = 0; index < a_node.m_count; ++index) {
       const curRect = a_node.m_branch[index]!.m_rect;
       area = this.CalcRectVolumeInt(curRect);
-      tempRect = this.CombineRect(a_rect, curRect);
-      increase = this.CalcRectVolumeInt(tempRect) - area;
+      increase = this.CombinedRectVolumeInt(a_rect, curRect) - area;
 
       if (increase < bestIncr || firstTime) {
         best = index;
@@ -1182,10 +1227,10 @@ export class RTreeIntReal<DATATYPE> extends RTree<DATATYPE> {
       for (let index = 0; index < a_parVars.m_total; ++index) {
         if (!a_parVars.m_taken[index]) {
           const curRect = a_parVars.m_branchBuf[index]!.m_rect;
-          const rect0 = this.CombineRect(curRect, a_parVars.m_cover[0]);
-          const rect1 = this.CombineRect(curRect, a_parVars.m_cover[1]);
-          const growth0 = this.CalcRectVolumeInt(rect0) - this.m_areaInt[0];
-          const growth1 = this.CalcRectVolumeInt(rect1) - this.m_areaInt[1];
+          const growth0 =
+            this.CombinedRectVolumeInt(curRect, a_parVars.m_cover[0]) - this.m_areaInt[0];
+          const growth1 =
+            this.CombinedRectVolumeInt(curRect, a_parVars.m_cover[1]) - this.m_areaInt[1];
           let diff = growth1 - growth0;
 
           if (diff >= 0n) {
@@ -1251,11 +1296,13 @@ export class RTreeIntReal<DATATYPE> extends RTree<DATATYPE> {
 
     for (let indexA = 0; indexA < a_parVars.m_total - 1; ++indexA) {
       for (let indexB = indexA + 1; indexB < a_parVars.m_total; ++indexB) {
-        const oneRect = this.CombineRect(
-          a_parVars.m_branchBuf[indexA]!.m_rect,
-          a_parVars.m_branchBuf[indexB]!.m_rect,
-        );
-        waste = this.CalcRectVolumeInt(oneRect) - area[indexA]! - area[indexB]!;
+        waste =
+          this.CombinedRectVolumeInt(
+            a_parVars.m_branchBuf[indexA]!.m_rect,
+            a_parVars.m_branchBuf[indexB]!.m_rect,
+          ) -
+          area[indexA]! -
+          area[indexB]!;
 
         if (waste >= worst) {
           worst = waste;

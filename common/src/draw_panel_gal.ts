@@ -24,6 +24,7 @@ import { OPENGL_GAL, type OPENGL_GAL_CANVAS } from './gal/opengl/opengl_gal.js';
 import type { PAINTER } from './gal/painter.js';
 import * as KIPLATFORM_UI from './kiplatform/ui.js';
 import { Pgm } from './pgm_base.js';
+import { KI_TRACE, traceDrawPanel, traceGalProfile, wxLogTrace } from './trace_helpers.js';
 import { VIEW } from './view/view.js';
 import { VC_SETTINGS } from './view/view_controls.js';
 import { VIEW_OVERLAY } from './view/view_overlay.js';
@@ -74,6 +75,7 @@ import {
   wxTimer,
   type wxTimerEvent,
 } from './wx/wx_event.js';
+import { PROF_TIMER } from '@ziroeda/core/src/profile.js';
 import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { Vec2 as VECTOR2D, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 
@@ -891,7 +893,13 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS {
 
       const settings = this.m_painter!.GetSettings();
 
+      const cntUpd = new PROF_TIMER('view-upd-items');
+      const cntTotal = new PROF_TIMER('view-total');
+      const cntRedraw = new PROF_TIMER('view-redraw-rects');
+
       let isDirty = false;
+
+      cntTotal.Start();
 
       try {
         const cursorPos = this.m_viewControls!.GetCursorPosition();
@@ -911,17 +919,22 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS {
 
         if (hasPendingItemUpdates) {
           try {
+            cntUpd.Start();
             this.m_view!.UpdateItems();
+            cntUpd.Stop();
           } catch (err) {
             if (err instanceof RangeError) {
               // Don't do anything here but don't fail
               // This can happen when we don't catch `at()` calls
-              console.debug(`Out of Range error: ${err.message}`);
+              wxLogTrace(traceDrawPanel, () => `Out of Range error: ${(err as Error).message}`);
             } else {
               // Handle GL errors (e.g. glMapBuffer failure) that surface during UpdateItems().
               // These can occur on macOS under memory pressure when embedding large 3D models.
               // Log and continue so the outer handler can decide whether to switch backends.
-              console.debug(`Runtime error during UpdateItems: ${(err as Error).message}`);
+              wxLogTrace(
+                traceDrawPanel,
+                () => `Runtime error during UpdateItems: ${(err as Error).message}`,
+              );
               throw err;
             }
           }
@@ -970,7 +983,9 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS {
             // Grid has to be redrawn only when the NONCACHED target is redrawn
             if (this.m_view!.IsTargetDirty(RENDER_TARGET.TARGET_NONCACHED)) this.m_gal!.DrawGrid();
 
+            cntRedraw.Start();
             this.m_view!.Redraw();
+            cntRedraw.Stop();
             isDirty = true;
           }
 
@@ -980,14 +995,21 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS {
         // OpenGL frame completed successfully, allow future recovery attempts
         this.m_glRecoveryAttempted = false;
       } catch (err) {
-        console.debug(`DoRePaint exception: ${(err as Error).message}`);
+        wxLogTrace(traceDrawPanel, () => `DoRePaint exception: ${(err as Error).message}`);
 
         if (this.recoverFromGalError(err as Error)) return true;
 
         this.StopDrawing();
       }
 
-      void isDirty;
+      if (isDirty) {
+        cntTotal.Stop();
+        KI_TRACE(
+          traceGalProfile,
+          () =>
+            `View timing: ${cntTotal.to_string()} ${cntUpd.to_string()} ${cntRedraw.to_string()}`,
+        );
+      }
     } finally {
       this.m_drawing = false;
     }

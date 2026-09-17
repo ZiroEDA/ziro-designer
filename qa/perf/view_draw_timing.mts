@@ -178,12 +178,37 @@ SetPgm(pgm);
 const f = process.argv[2]!;
 const text = readFileSync(f, 'utf8');
 
+const profiling = process.argv.includes('--profile');
+const { Session } = await import('node:inspector');
+const { writeFileSync } = await import('node:fs');
+const profile = async (name: string, fn: () => void): Promise<void> => {
+  if (!profiling) {
+    fn();
+    return;
+  }
+  const s = new Session();
+  s.connect();
+  await new Promise<void>((r) => s.post('Profiler.enable', () => r()));
+  await new Promise<void>((r) => s.post('Profiler.start', () => r()));
+  fn();
+  await new Promise<void>((r) =>
+    s.post('Profiler.stop', (_e, res) => {
+      writeFileSync(`${name}.cpuprofile`, JSON.stringify(res.profile));
+      out(`profile: ${name}.cpuprofile`);
+      r();
+    }),
+  );
+  s.disconnect();
+};
 let t = performance.now();
-const board = new PCB_IO_KICAD_SEXPR_PARSER(text, f).Parse() as BOARD;
+let board!: BOARD;
+await profile('open_parse', () => {
+  board = new PCB_IO_KICAD_SEXPR_PARSER(text, f).Parse() as BOARD;
+});
 out(`parse ${ms(t)}`);
 
 t = performance.now();
-board.BuildConnectivity();
+await profile('open_connectivity', () => board.BuildConnectivity());
 out(`BuildConnectivity ${ms(t)}`);
 
 // PCB_DRAW_PANEL_GAL's construction, without the panel
@@ -230,10 +255,12 @@ board.CacheTriangulation(null);
 out(`CacheTriangulation ${ms(t)}`);
 
 t = performance.now();
-for (const item of board.GetItemSet()) view.Add(item);
-board.UpdateBoardOutline();
-view.Add(board.BoardOutline());
-view.Add(new RATSNEST_VIEW_ITEM(board.GetConnectivity()));
+await profile('open_view_add', () => {
+  for (const item of board.GetItemSet()) view.Add(item);
+  board.UpdateBoardOutline();
+  view.Add(board.BoardOutline());
+  view.Add(new RATSNEST_VIEW_ITEM(board.GetConnectivity()));
+});
 out(`VIEW::Add x ${board.GetItemSet().length} ${ms(t)}`);
 
 const bbox = board.GetBoardEdgesBoundingBox();
@@ -280,28 +307,6 @@ const frame = (name: string, allowSkip = false): void => {
   void allowSkip;
 };
 
-const profiling = process.argv.includes('--profile');
-const { Session } = await import('node:inspector');
-const { writeFileSync } = await import('node:fs');
-const profile = async (name: string, fn: () => void): Promise<void> => {
-  if (!profiling) {
-    fn();
-    return;
-  }
-  const s = new Session();
-  s.connect();
-  await new Promise<void>((r) => s.post('Profiler.enable', () => r()));
-  await new Promise<void>((r) => s.post('Profiler.start', () => r()));
-  fn();
-  await new Promise<void>((r) =>
-    s.post('Profiler.stop', (_e, res) => {
-      writeFileSync(`${name}.cpuprofile`, JSON.stringify(res.profile));
-      out(`profile: ${name}.cpuprofile`);
-      r();
-    }),
-  );
-  s.disconnect();
-};
 await profile('view_first_frame', () => frame('first frame (cache everything)'));
 frame('second frame (nothing changed)');
 const c = view.GetCenter();
@@ -325,6 +330,8 @@ if (item) {
   view.Update(item);
   frame('one track updated');
 }
-view.RecacheAllItems();
-frame('RecacheAllItems (SetDisplayOptions)');
+await profile('view_recache', () => {
+  view.RecacheAllItems();
+  frame('RecacheAllItems (SetDisplayOptions)');
+});
 out(`heap ${(process.memoryUsage().heapUsed / 1048576).toFixed(0)} MB`);

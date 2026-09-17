@@ -12,6 +12,7 @@
  * no counterpart: the filler runs on one thread here.
  */
 
+import { GetKiCadThreadPool } from '@ziroeda/common/src/thread_pool.js';
 import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/src/eda_draw_frame.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/src/eda_item.js';
 import type { EDA_SEARCH_DATA } from '@ziroeda/common/src/eda_search_data.js';
@@ -1556,6 +1557,32 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     if (!it) return null;
 
     return it;
+  }
+
+  /**
+   * `CacheTriangulation( UNDEFINED_LAYER )` as `BOARD::CacheTriangulation`'s
+   * thread-pool task: every fill and the outline are submitted to
+   * `GetKiCadThreadPool()` and installed as the answers come back. A polygon
+   * whose triangulation is up to date is skipped, as `cacheTriangulation`
+   * itself skips it.
+   */
+  async CacheTriangulationAsync(): Promise<void> {
+    const tp = GetKiCadThreadPool();
+    const jobs: Promise<void>[] = [];
+    const submit = (poly: SHAPE_POLY_SET, aPartition: boolean): void => {
+      if (poly.IsTriangulationUpToDate()) return;
+
+      jobs.push(
+        tp
+          .submit_task('triangulate', poly.TriangulationJob(aPartition))
+          .then((result) => poly.SetTriangulation(result)),
+      );
+    };
+
+    for (const [, poly] of this.m_FilledPolysList) submit(poly, true);
+
+    submit(this.m_Poly, false);
+    await Promise.all(jobs);
   }
 
   /**

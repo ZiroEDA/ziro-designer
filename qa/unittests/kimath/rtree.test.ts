@@ -169,3 +169,64 @@ describe("RTree visit order against KiCad's rtree.h", () => {
     expect(o.double).not.toEqual(o.intptr);
   });
 });
+
+/**
+ * The tree's SHAPE, not just its answers: which branch an insert descends and
+ * how a full node splits are `PickBranch` / `ChoosePartition` / `PickSeeds`,
+ * volume arithmetic over combined rectangles. The port computes those volumes
+ * without building the temporaries the C++ keeps on the stack, and this pins
+ * that the arithmetic — hence the tree, hence the visit order every query
+ * reports items in — did not move: the checksums were recorded from the port
+ * as it was before that change, over 20 000 random inserts and 50 queries.
+ */
+describe('RTree visit order', () => {
+  let seed = 777;
+  const rnd = (): number => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed / 0x7fffffff;
+  };
+  const fnv = (s: string): string => {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return h.toString(16).padStart(8, '0');
+  };
+  const run = (dims: number, t: RTree<number>, n: number): string => {
+    for (let i = 0; i < n; i++) {
+      const mn: number[] = [];
+      const mx: number[] = [];
+      for (let d = 0; d < dims; d++) {
+        const lo = Math.floor(rnd() * 2e8 - 1e8);
+        mn.push(lo);
+        mx.push(lo + Math.floor(rnd() * 5e6));
+      }
+      t.Insert(mn, mx, i);
+    }
+    const orders: string[] = [];
+    for (let q = 0; q < 50; q++) {
+      const mn: number[] = [];
+      const mx: number[] = [];
+      for (let d = 0; d < dims; d++) {
+        const lo = Math.floor(rnd() * 2e8 - 1e8);
+        mn.push(lo);
+        mx.push(lo + Math.floor(rnd() * 4e7));
+      }
+      const o: number[] = [];
+      t.Search(mn, mx, (id) => {
+        o.push(id);
+        return true;
+      });
+      orders.push(o.join(','));
+    }
+    return fnv(orders.join('|'));
+  };
+
+  it('is the order the tree reported before the volume temporaries went', () => {
+    // The three run in sequence on one generator, as they were recorded.
+    expect(run(2, new RTree<number>(2), 20000)).toBe('275de6c6');
+    expect(run(3, new RTree<number>(3), 20000)).toBe('e103cf00');
+    expect(run(2, new RTreeIntReal<number>(2), 5000)).toBe('d1448273');
+  });
+});

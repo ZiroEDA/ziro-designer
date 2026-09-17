@@ -509,6 +509,28 @@ const EMPTY_HASH: HASH_128 = '00000000000000000000000000000000';
 const samePoint = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
 
 /**
+ * `CacheTriangulation` as a job for the thread pool (common/thread_pool.ts):
+ * the polygon set's points, and the two arguments. A worker rebuilds the set
+ * from it, runs the very same `CacheTriangulation`, and answers with a
+ * TRIANGULATION_RESULT. Only the points travel: `cacheTriangulation` works on
+ * copies that `ClearArcs()` first, so the arc metadata never reaches the
+ * triangles.
+ */
+export interface TRIANGULATION_JOB {
+  /** Per polygon: the outline then its holes, each `x0 y0 x1 y1 ...`. */
+  polys: { pts: Int32Array; closed: boolean }[][];
+  partition: boolean;
+  simplify: boolean;
+}
+
+/** What a TRIANGULATION_JOB produces: the triangulated polygons and the flag. */
+export interface TRIANGULATION_RESULT {
+  polys: { sourceOutline: number; vertices: Int32Array; triangles: Uint32Array }[];
+  /** `m_triangulationValid` as `cacheTriangulation` left it. */
+  valid: boolean;
+}
+
+/**
  * A thread-local table to avoid repetitive calculations of the coefficient
  * 1.0 - cos( M_PI / aCircleSegCount )
  * aCircleSegCount is most of time <= 64 and usually 8, 12, 16, 32
@@ -616,6 +638,104 @@ export class SHAPE_POLY_SET extends SHAPE {
    */
   CacheTriangulation(aPartition = true, aSimplify = false): void {
     this.cacheTriangulation(aPartition, aSimplify, null);
+  }
+
+  /**
+   * `CacheTriangulation( aPartition, aSimplify )` as a job for another thread.
+   * The typed arrays are the job's transfer list.
+   */
+  TriangulationJob(aPartition = true, aSimplify = false): TRIANGULATION_JOB {
+    const polys = this.m_polys.map((poly) =>
+      poly.map((chain) => {
+        const pc = chain.PointCount();
+        const pts = new Int32Array(2 * pc);
+
+        for (let i = 0; i < pc; i++) {
+          const pt = chain.CPoint(i);
+          pts[2 * i] = pt.x;
+          pts[2 * i + 1] = pt.y;
+        }
+
+        return { pts, closed: chain.IsClosed() };
+      }),
+    );
+
+    return { polys, partition: aPartition, simplify: aSimplify };
+  }
+
+  /** Run a TRIANGULATION_JOB: the set it describes, triangulated the one way there is. */
+  static RunTriangulationJob(aJob: TRIANGULATION_JOB): TRIANGULATION_RESULT {
+    const set = new SHAPE_POLY_SET();
+
+    for (const poly of aJob.polys) {
+      const chains = poly.map(({ pts, closed }) => {
+        const v: Vec2[] = [];
+
+        for (let i = 0; i + 1 < pts.length; i += 2) v.push({ x: pts[i]!, y: pts[i + 1]! });
+
+        return new SHAPE_LINE_CHAIN(v, closed);
+      });
+
+      set.m_polys.push(chains);
+    }
+
+    set.CacheTriangulation(aJob.partition, aJob.simplify);
+
+    return set.TriangulationResult();
+  }
+
+  /** The triangulation this set holds, as a TRIANGULATION_RESULT. */
+  TriangulationResult(): TRIANGULATION_RESULT {
+    const polys = this.m_triangulatedPolys.map((tp) => {
+      const vertices = new Int32Array(2 * tp.m_vertices.length);
+
+      for (let i = 0; i < tp.m_vertices.length; i++) {
+        vertices[2 * i] = tp.m_vertices[i]!.x;
+        vertices[2 * i + 1] = tp.m_vertices[i]!.y;
+      }
+
+      const tris = tp.Triangles();
+      const triangles = new Uint32Array(3 * tris.length);
+
+      for (let i = 0; i < tris.length; i++) {
+        triangles[3 * i] = tris[i]!.a;
+        triangles[3 * i + 1] = tris[i]!.b;
+        triangles[3 * i + 2] = tris[i]!.c;
+      }
+
+      return { sourceOutline: tp.GetSourceOutlineIndex(), vertices, triangles };
+    });
+
+    return { polys, valid: this.m_triangulationValid };
+  }
+
+  /**
+   * Install a TRIANGULATION_RESULT computed elsewhere for this very set: the
+   * state `cacheTriangulation` would have left, the hash from this set's own
+   * points.
+   */
+  SetTriangulation(aResult: TRIANGULATION_RESULT): void {
+    this.m_triangulatedPolys = aResult.polys.map(({ sourceOutline, vertices, triangles }) => {
+      const tp = new TRIANGULATED_POLYGON(sourceOutline);
+
+      for (let i = 0; i + 1 < vertices.length; i += 2)
+        tp.AddVertex({ x: vertices[i]!, y: vertices[i + 1]! });
+
+      for (let i = 0; i + 2 < triangles.length; i += 3)
+        tp.AddTriangle(triangles[i]!, triangles[i + 1]!, triangles[i + 2]!);
+
+      return tp;
+    });
+
+    if (aResult.valid) {
+      this.m_hash = this.checksum();
+      this.m_hashValid = true;
+      this.m_triangulationValid = true;
+    } else {
+      this.m_hash = EMPTY_HASH;
+      this.m_hashValid = false;
+      this.m_triangulationValid = false;
+    }
   }
 
   IsTriangulationUpToDate(): boolean {

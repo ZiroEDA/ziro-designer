@@ -29,6 +29,14 @@ export class ADVANCED_CFG {
   // 0.020 for a Class 2 board and at least 0.025
   // for Class 3.
 
+  /**
+   * The maximum number of threads to use in the thread pool.
+   * Setting name: "MaximumThreads"
+   * Valid values: 0 to 500
+   * Default: 0 (auto-detect), i.e. `std::thread::hardware_concurrency()`
+   */
+  m_MaximumThreads = 0;
+
   private static s_cfg: ADVANCED_CFG | null = null;
 
   /** Get the singleton instance's config, which is shared by all consumers. */
