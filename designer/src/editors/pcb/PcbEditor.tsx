@@ -139,6 +139,7 @@ import {
   isCopperLayerName,
   setBoardPageSettings,
   serializeBoard,
+  serializeBoardAsync,
   beginCourtyardConflicts,
   airwireShown,
   buildRatsnest,
@@ -555,7 +556,8 @@ import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 import { EMPTY_PCB } from '../../home/new_project.js';
-import { ProgressDialog } from '../../ui/ProgressDialog.js';
+import { ProgressDialog, nextPaint } from '../../ui/ProgressDialog.js';
+import { yieldToEventLoop } from '@ziroeda/common/src/yield_to_event_loop.js';
 import type { ProgressSnapshot } from '../../ui/progress_reporter.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { standardHelpMenu } from '../../ui/help_menu.js';
@@ -2357,16 +2359,28 @@ export function PcbEditor({
   // Auto-sync: a moment after any edit, serialize into the app's coalesced
   // autosave. The title's '*' shows while the write is pending and clears once
   // handed off, every change reaches the project storage without Ctrl+S.
+  //
+  // The text is built in time slices (`serializeBoardAsync`): pcbnew formats
+  // a board only on a save, a modal wait, and KiCad's own SaveBoard of the
+  // jetson demo is 2.1 s natively -- one synchronous serialization after
+  // every drop froze the editor for that long. An edit landing while the
+  // text is being built aborts it (the effect's cleanup); the next quiet
+  // second starts over.
   useEffect(() => {
     if (!dirty || !onBoardChange) return;
-    const id = setTimeout(() => {
+    let cancelled = false;
+    const id = setTimeout(async () => {
       const brd = boardRef.current;
-      if (brd) {
-        onBoardChange(serializeBoard(brd));
-        setDirty(false);
-      }
+      if (!brd) return;
+      const text = await serializeBoardAsync(brd, yieldToEventLoop, () => cancelled);
+      if (cancelled || text === null) return;
+      onBoardChange(text);
+      setDirty(false);
     }, 1000);
-    return () => clearTimeout(id);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
   }, [dirty, board, onBoardChange]);
 
   // The same 1 s debounce, forced out. `SCH_EDIT_FRAME`'s equivalent has been
@@ -2508,6 +2522,8 @@ export function PcbEditor({
 
   /** The open this frame has read: `openNonce` + file, set as the parse begins. */
   const parsedOpen = useRef<string | null>(null);
+  /** The board whose first paint closes the Load PCB dialog, while one is pending. */
+  const firstPaintPendingRef = useRef<Board | null>(null);
   // Parse after the first paint, so the frame — and the progress dialog over
   // it — is on screen before the (synchronous) read blocks the thread.
   useEffect(() => {
@@ -2534,36 +2550,52 @@ export function PcbEditor({
       // Claimed only once the read actually starts: a frame hidden again
       // inside these 30 ms cancels the timer, and must read when next shown.
       parsedOpen.current = open;
+      // `WX_PROGRESS_REPORTER progressReporter( this, _( "Load PCB" ), 1,
+      // PR_CAN_ABORT )` (files.cpp:561): one reporter for the whole open, its
+      // phases the messages the C++ reports, and `KeepRefreshing()` a paint,
+      // so each message is on screen before the phase it names blocks.
+      let value = 0;
+      /** `KeepRefreshing()`: the dialog painted, which here means a frame yielded. */
+      const keepRefreshing = (): Promise<void> => (cancelled ? Promise.resolve() : nextPaint());
+      const reporter: PROGRESS_REPORTER_LIKE = {
+        SetMaxProgress: () => {},
+        SetCurrentProgress: (aProgress) => {
+          value = aProgress;
+        },
+        AdvanceProgress: () => {},
+        KeepRefreshing: () => !cancelled,
+        IsCancelled: () => cancelled,
+        Report: (message) => {
+          if (!cancelled) setLoading({ message, value });
+        },
+      };
       try {
+        // The frame — and the dialog over it — painted before the read blocks.
+        await keepRefreshing();
+        if (cancelled) return;
         // `PROF_TIMER` + `wxLogTrace( traceAllegroPerf, ... )` in
         // OpenProjectFiles: the open's phases, under `WXTRACE=KICAD_ALLEGRO_PERF`.
         const postLoadTimer = new PROF_TIMER();
         const b = { ...readBoard(parse(textRef.current)), fileName };
         wxLogTrace(traceAllegroPerf, () => `Load: ${postLoadTimer.msecs(true).toFixed(3)} ms`);
         if (cancelled) return;
+        const kb = b.k;
         // `BOARD::BuildConnectivity`'s first step, `CacheTriangulation`, runs
         // on the thread pool in the C++ while the progress dialog pumps
         // (`Tessellating copper zones...`). Ours pumps the same way — the
         // zones on the pool's workers, this thread free to paint the gauge —
         // and the synchronous build below then finds every zone cached.
-        if (b.k && b.k.Zones().length > 0) {
-          const zones = b.k.Zones().length;
+        if (kb && kb.Zones().length > 0) {
+          const zones = kb.Zones().length;
           let done = 0;
-          const reporter: PROGRESS_REPORTER_LIKE = {
-            SetMaxProgress: () => {},
-            SetCurrentProgress: () => {},
+          await kb.CacheTriangulationAsync({
+            ...reporter,
             AdvanceProgress: () => {
               done++;
-              if (!cancelled)
-                setLoading({ message: 'Tessellating copper zones...', value: done / zones });
+              reporter.SetCurrentProgress(done / zones);
+              reporter.Report('Tessellating copper zones...');
             },
-            KeepRefreshing: () => true,
-            IsCancelled: () => cancelled,
-            Report: (message) => {
-              if (!cancelled) setLoading({ message, value: done / zones });
-            },
-          };
-          await b.k.CacheTriangulationAsync(reporter);
+          });
           wxLogTrace(
             traceAllegroPerf,
             () => `Post-load CacheTriangulation: ${postLoadTimer.msecs(true).toFixed(3)} ms`,
@@ -2576,8 +2608,39 @@ export function PcbEditor({
           traceAllegroPerf,
           () => `Post-load scene: ${postLoadTimer.msecs(true).toFixed(3)} ms`,
         );
+        // OpenProjectFiles, the board loaded: `AdvancePhase( _( "Finalizing
+        // board" ) )`, `SetBoard( loadedBoard, false )` — through the canvas,
+        // so the VIEW takes every item here — then "Rebuild list of nets
+        // (full ratsnest rebuild)". Done here rather than in the effect on
+        // `board` so the dialog can say which phase is blocking; the effect
+        // then finds the frame already on this board.
+        const frame = frameRef.current;
+        if (frame && kb) {
+          reporter.SetCurrentProgress(1);
+          reporter.Report('Finalizing board');
+          await keepRefreshing();
+          if (cancelled) return;
+          frame.Clear_Pcb();
+          frame.SetBoard(kb, false);
+          wxLogTrace(
+            traceAllegroPerf,
+            () => `Post-load SetBoard: ${postLoadTimer.msecs(true).toFixed(3)} ms`,
+          );
+          reporter.Report('Updating nets...');
+          await keepRefreshing();
+          if (cancelled) return;
+          kb.BuildConnectivity();
+          wxLogTrace(
+            traceAllegroPerf,
+            () => `Post-load BuildConnectivity: ${postLoadTimer.msecs(true).toFixed(3)} ms`,
+          );
+        }
         // The first fit went to the blank sheet; the loaded board gets its own.
         fittedRef.current = false;
+        // The dialog stays up until this board has been painted (see `draw`):
+        // the first frame caches every item, and an empty sheet under a
+        // vanished dialog reads as "no board".
+        firstPaintPendingRef.current = b;
         setBoard(b);
         setVisible(new Set(b.layers.map((l) => l.name)));
         // `PCB_EDIT_FRAME::OpenProjectFiles`' preload (pcbnew/files.cpp:610):
@@ -2585,14 +2648,17 @@ export function PcbEditor({
         // ./preload.ts.
         preloadBoardLibraries(b);
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
-      } finally {
-        if (!cancelled) setLoading(null);
+        firstPaintPendingRef.current = null;
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : String(e));
+          setLoading(null);
+        }
       }
     }, 30);
     return () => {
       cancelled = true;
       clearTimeout(id);
+      firstPaintPendingRef.current = null;
       setLoading(null);
     };
   }, [openNonce, fileName, emptyBoard, shown]);
@@ -2909,11 +2975,22 @@ export function PcbEditor({
     // ratsnest, each on its GAL layer in `GAL_LAYER_ORDER`. Its canvas is
     // opaque and sits over this one, so nothing below the board is painted
     // here; the overlay canvas above it keeps the editor's own chrome.
-    if (useGl) {
+    // A board just opened, not yet fitted: its first frame caches every item
+    // (seconds on a big board), so it is drawn once, at the fitted view,
+    // rather than first at the blank sheet's.
+    const awaitingFit =
+      useGl && firstPaintPendingRef.current === boardRef.current && !fittedRef.current;
+    if (useGl && !awaitingFit) {
       syncViewTransform(panel, v, dpr);
       // `Refresh()`, as a canvas event does: a repaint only when the view is
       // dirty or the cursor moved, throttled to the GAL's swap interval.
       panel.Refresh();
+    }
+    // The open's last phase: the loaded board is on screen, so the Load PCB
+    // dialog goes.
+    if (firstPaintPendingRef.current === boardRef.current && !awaitingFit) {
+      firstPaintPendingRef.current = null;
+      setLoading(null);
     }
     // Grid sits behind the board (GAL GRID_DEPTH), painted crisply at the live
     // view every frame so it stays sharp during pan/zoom. The raster is drawn on
@@ -4180,6 +4257,9 @@ export function PcbEditor({
       return;
     }
     panelRef.current = panel;
+    // `?perf=1`: the panel beside the counters, so a probe can ask the VIEW
+    // where a board point is on screen and drive a gesture there.
+    if (PERF) (pcbPerf as PcbPerfCounters & { panel?: PCB_DRAW_PANEL_GAL }).panel = panel;
     // A board already open: `SetBoard` ran without a canvas, so what it would
     // have done through the canvas is done now.
     const kb = frame.GetBoard();
@@ -4241,10 +4321,13 @@ export function PcbEditor({
   fileNameRef.current = fileName;
   const listenerRef = useRef<REACT_BOARD_LISTENER | null>(null);
   if (!listenerRef.current) {
-    listenerRef.current = new REACT_BOARD_LISTENER(() => {
+    listenerRef.current = new REACT_BOARD_LISTENER((unchanged) => {
       const kb = frameRef.current?.GetBoard();
       if (!kb || boardRef.current?.k !== kb) return;
-      setBoardModel({ ...boardFromBOARD(kb, fileNameRef.current), fileName: fileNameRef.current });
+      setBoardModel({
+        ...boardFromBOARD(kb, fileNameRef.current, unchanged ?? undefined),
+        fileName: fileNameRef.current,
+      });
     });
   }
   const boardK = board?.k ?? null;
@@ -4253,19 +4336,15 @@ export function PcbEditor({
     const listener = listenerRef.current;
     if (!boardK || !frame || !listener) return;
     // PCB_EDIT_FRAME::OpenProjectFiles: Clear_Pcb, SetBoard( loadedBoard, false ),
-    // then "Rebuild list of nets (full ratsnest rebuild)".
-    frame.Clear_Pcb();
-    const postLoadTimer = new PROF_TIMER();
-    frame.SetBoard(boardK, false);
-    wxLogTrace(
-      traceAllegroPerf,
-      () => `Post-load SetBoard: ${postLoadTimer.msecs(true).toFixed(3)} ms`,
-    );
-    boardK.BuildConnectivity();
-    wxLogTrace(
-      traceAllegroPerf,
-      () => `Post-load BuildConnectivity: ${postLoadTimer.msecs(true).toFixed(3)} ms`,
-    );
+    // then "Rebuild list of nets (full ratsnest rebuild)". The open itself
+    // has done these under its progress dialog (the load effect above); a
+    // board that arrives any other way — Board Setup's re-parse — gets them
+    // here.
+    if (frame.GetBoard() !== boardK) {
+      frame.Clear_Pcb();
+      frame.SetBoard(boardK, false);
+      boardK.BuildConnectivity();
+    }
     boardK.AddListener(listener);
     // The canvas, when it is up: the screen's page size and the drawing
     // sheet follow the board (`SetBoard` displayed it through the canvas),

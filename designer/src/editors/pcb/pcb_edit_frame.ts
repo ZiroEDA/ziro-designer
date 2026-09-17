@@ -157,8 +157,15 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
  */
 export class REACT_BOARD_LISTENER extends BOARD_LISTENER {
   private pending = false;
+  /**
+   * The items the notifications since the last re-derivation named, so the
+   * view keeps every other item's object (`boardFromBOARD`'s `aUnchanged`);
+   * null once a notification named no items (net settings), which means
+   * every item's view is re-derived.
+   */
+  private touched: Set<BOARD_ITEM> | null = new Set();
 
-  constructor(private readonly refresh: () => void) {
+  constructor(private readonly refresh: (aUnchanged: ((k: BOARD_ITEM) => boolean) | null) => void) {
     super();
   }
 
@@ -167,42 +174,64 @@ export class REACT_BOARD_LISTENER extends BOARD_LISTENER {
     return this.pending;
   }
 
+  private note(aItems: readonly BOARD_ITEM[]): void {
+    if (!this.touched) return;
+    for (const item of aItems) {
+      this.touched.add(item);
+      // A footprint's children are viewed through the footprint.
+      const fp = item.GetParentFootprint();
+      if (fp) this.touched.add(fp);
+    }
+  }
+
   private schedule(): void {
     if (this.pending) return;
     this.pending = true;
     queueMicrotask(() => {
       this.pending = false;
-      this.refresh();
+      const touched = this.touched;
+      this.touched = new Set();
+      this.refresh(touched ? (k) => !touched.has(k) : null);
     });
   }
 
-  override OnBoardItemAdded(_aBoard: BOARD, _aBoardItem: BOARD_ITEM): void {
+  override OnBoardItemAdded(_aBoard: BOARD, aBoardItem: BOARD_ITEM): void {
+    this.note([aBoardItem]);
     this.schedule();
   }
-  override OnBoardItemsAdded(_aBoard: BOARD, _aBoardItems: BOARD_ITEM[]): void {
+  override OnBoardItemsAdded(_aBoard: BOARD, aBoardItems: BOARD_ITEM[]): void {
+    this.note(aBoardItems);
     this.schedule();
   }
-  override OnBoardItemRemoved(_aBoard: BOARD, _aBoardItem: BOARD_ITEM): void {
+  override OnBoardItemRemoved(_aBoard: BOARD, aBoardItem: BOARD_ITEM): void {
+    this.note([aBoardItem]);
     this.schedule();
   }
-  override OnBoardItemsRemoved(_aBoard: BOARD, _aBoardItems: BOARD_ITEM[]): void {
+  override OnBoardItemsRemoved(_aBoard: BOARD, aBoardItems: BOARD_ITEM[]): void {
+    this.note(aBoardItems);
     this.schedule();
   }
-  override OnBoardItemChanged(_aBoard: BOARD, _aBoardItem: BOARD_ITEM): void {
+  override OnBoardItemChanged(_aBoard: BOARD, aBoardItem: BOARD_ITEM): void {
+    this.note([aBoardItem]);
     this.schedule();
   }
-  override OnBoardItemsChanged(_aBoard: BOARD, _aBoardItems: BOARD_ITEM[]): void {
+  override OnBoardItemsChanged(_aBoard: BOARD, aBoardItems: BOARD_ITEM[]): void {
+    this.note(aBoardItems);
     this.schedule();
   }
   override OnBoardCompositeUpdate(
     _aBoard: BOARD,
-    _aAddedItems: BOARD_ITEM[],
-    _aRemovedItems: BOARD_ITEM[],
-    _aChangedItems: BOARD_ITEM[],
+    aAddedItems: BOARD_ITEM[],
+    aRemovedItems: BOARD_ITEM[],
+    aChangedItems: BOARD_ITEM[],
   ): void {
+    this.note(aAddedItems);
+    this.note(aRemovedItems);
+    this.note(aChangedItems);
     this.schedule();
   }
   override OnBoardNetSettingsChanged(_aBoard: BOARD): void {
+    this.touched = null;
     this.schedule();
   }
 }

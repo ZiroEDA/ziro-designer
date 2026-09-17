@@ -70,7 +70,29 @@ export function FormatStreamData(out: OUTPUTFORMATTER, bytes: Uint8Array): void 
  *  )
  * )
  */
+/** Characters walked between two yields of `prettifySteps`: a power of two, ~1 ms of work. */
+const PRETTIFY_SLICE = 1 << 16;
+
 export function Prettify(source: string, mode: FORMAT_MODE = FORMAT_MODE.NORMAL): string {
+  const steps = prettifySteps(source, mode);
+
+  for (;;) {
+    const r = steps.next();
+
+    if (r.done) return r.value;
+  }
+}
+
+/**
+ * `Prettify`, yielding every `PRETTIFY_SLICE` characters so a live editor can
+ * hand the thread back between them (`PRETTIFIED_STRING_FORMATTER::FinishAsync`).
+ * The walk reads ahead into the source as it likes; only the time is sliced,
+ * so the text is `Prettify`'s to the byte.
+ */
+export function* prettifySteps(
+  source: string,
+  mode: FORMAT_MODE = FORMAT_MODE.NORMAL,
+): Generator<void, string> {
   // Configuration
   const quoteChar = '"';
   const indentChar = '\t';
@@ -193,6 +215,8 @@ export function Prettify(source: string, mode: FORMAT_MODE = FORMAT_MODE.NORMAL)
   };
 
   for (let cursor = 0; cursor < n; ++cursor) {
+    if ((cursor & (PRETTIFY_SLICE - 1)) === 0 && cursor > 0) yield;
+
     const ch = source.charCodeAt(cursor);
 
     if (isWhitespace(ch) && !inQuote) {

@@ -12,7 +12,7 @@
  * over the whole buffer (kicad_io_utils.ts), which is where the tabs and the
  * line breaks come from.
  */
-import { FORMAT_MODE, Prettify } from './io/kicad/kicad_io_utils.js';
+import { FORMAT_MODE, Prettify, prettifySteps } from './io/kicad/kicad_io_utils.js';
 
 /** How many spaces per nestLevel (richio.cpp:424). */
 const NESTWIDTH = 2;
@@ -104,5 +104,27 @@ export class PRETTIFIED_STRING_FORMATTER extends STRING_FORMATTER {
 
   Finish(): string {
     return Prettify(this.GetString(), this.mode);
+  }
+
+  /** `Finish`, the prettifier walked in time slices (see `prettifySteps`). */
+  async FinishAsync(
+    aYield: () => Promise<void>,
+    aAbort: () => boolean,
+    aBudgetMs: number,
+  ): Promise<string | null> {
+    const steps = prettifySteps(this.GetString(), this.mode);
+    let sliceStart = performance.now();
+
+    for (;;) {
+      const r = steps.next();
+
+      if (r.done) return r.value;
+
+      if (performance.now() - sliceStart >= aBudgetMs) {
+        await aYield();
+        if (aAbort()) return null;
+        sliceStart = performance.now();
+      }
+    }
   }
 }

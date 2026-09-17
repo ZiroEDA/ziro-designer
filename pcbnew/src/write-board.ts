@@ -9,7 +9,7 @@
  * nodes it patched.
  */
 import { boardToBOARD } from './pcb_io/kicad_sexpr/board_view.js';
-import { FormatBoard } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { FormatBoard, FormatBoardAsync } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import type { Board } from './types.js';
 
 /**
@@ -18,4 +18,18 @@ import type { Board } from './types.js';
  */
 export function serializeBoard(board: Board): string {
   return FormatBoard(boardToBOARD(board));
+}
+
+/**
+ * `serializeBoard` without holding the thread (`FormatBoardAsync`): the
+ * editor's autosave, which runs a moment after every edit on a board the
+ * user is still working on. Null when `aAbort` said the board moved
+ * underneath it.
+ */
+export function serializeBoardAsync(
+  board: Board,
+  aYield: () => Promise<void>,
+  aAbort: () => boolean = () => false,
+): Promise<string | null> {
+  return FormatBoardAsync(boardToBOARD(board), aYield, aAbort);
 }

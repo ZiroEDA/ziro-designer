@@ -231,6 +231,18 @@ export class PCB_IO_KICAD_SEXPR {
 
   /** `FormatBoardToFormatter( aOut, aBoard )` (:322). */
   FormatBoardToFormatter(aOut: OUTPUTFORMATTER, aBoard: BOARD): void {
+    for (const _ of this.FormatBoardToFormatterSteps(aOut, aBoard)) {
+      // drained synchronously
+    }
+  }
+
+  /**
+   * `FormatBoardToFormatter`, as steps: the same text, yielded to the caller
+   * between items so a save that runs while the editor is live can hand the
+   * thread back between them (`FormatBoardAsync`). Draining it without a
+   * pause is `FormatBoardToFormatter`.
+   */
+  *FormatBoardToFormatterSteps(aOut: OUTPUTFORMATTER, aBoard: BOARD): Generator<void, void> {
     this.m_board = aBoard; // after init()
 
     // If the user wants fonts embedded, make sure that they are added to the board.  Otherwise,
@@ -244,7 +256,7 @@ export class PCB_IO_KICAD_SEXPR {
       `(kicad_pcb (version ${SEXPR_BOARD_FILE_VERSION}) (generator ${this.m_out.Quotew(this.m_generator)}) (generator_version ${this.m_out.Quotew(MAJOR_MINOR_VERSION)})`,
     );
 
-    this.Format(aBoard);
+    yield* this.formatBoardSteps(aBoard);
 
     this.m_out.Print(')');
   }
@@ -617,6 +629,13 @@ export class PCB_IO_KICAD_SEXPR {
   // -------------------------------------------------------------------------
 
   private formatBoard(aBoard: BOARD): void {
+    for (const _ of this.formatBoardSteps(aBoard)) {
+      // drained synchronously
+    }
+  }
+
+  /** `formatBoard`, yielding after every item (see FormatBoardToFormatterSteps). */
+  private *formatBoardSteps(aBoard: BOARD): Generator<void, void> {
     // Rebuild once per board-level save rather than lazily on first use, so a caller that
     // reuses this plugin instance to save the same board pointer more than once (e.g. after
     // items were added to or removed from a group) never formats groups against a stale cache.
@@ -633,28 +652,51 @@ export class PCB_IO_KICAD_SEXPR {
     const sorted_generators = sortedSet<BOARD_ITEM>(aBoard.Generators(), BOARD_ITEM.ptr_cmp);
     this.formatHeader(aBoard);
 
+    yield;
+
     // Save the footprints.
-    for (const footprint of sorted_footprints) this.Format(footprint);
+    for (const footprint of sorted_footprints) {
+      this.Format(footprint);
+      yield;
+    }
 
     // Save the graphical items on the board (not owned by a footprint)
-    for (const item of sorted_drawings) this.Format(item);
+    for (const item of sorted_drawings) {
+      this.Format(item);
+      yield;
+    }
 
     // Save the points
-    for (const point of sorted_points) this.Format(point);
+    for (const point of sorted_points) {
+      this.Format(point);
+      yield;
+    }
 
     // Do not save PCB_MARKERs, they can be regenerated easily.
 
     // Save the tracks and vias.
-    for (const track of sorted_tracks) this.Format(track);
+    for (const track of sorted_tracks) {
+      this.Format(track);
+      yield;
+    }
 
     // Save the polygon (which are the newer technology) zones.
-    for (const zone of sorted_zones) this.Format(zone);
+    for (const zone of sorted_zones) {
+      this.Format(zone);
+      yield;
+    }
 
     // Save the groups
-    for (const group of sorted_groups) this.Format(group);
+    for (const group of sorted_groups) {
+      this.Format(group);
+      yield;
+    }
 
     // Save the generators
-    for (const gen of sorted_generators) this.Format(gen);
+    for (const gen of sorted_generators) {
+      this.Format(gen);
+      yield;
+    }
 
     // Save any embedded files
     // Consolidate the embedded models in footprints into a single map
@@ -2671,6 +2713,45 @@ export function FormatBoard(aBoard: BOARD, aGenerator: string = GENERATOR): stri
   const pcb_io = new PCB_IO_KICAD_SEXPR(formatter, CTL_FOR_BOARD, aGenerator);
   pcb_io.FormatBoardToFormatter(formatter, aBoard);
   return formatter.Finish();
+}
+
+/**
+ * `FormatBoard`, byte for byte, without holding the thread: the formatter's
+ * items and the prettifier's characters are walked in slices of `aBudgetMs`,
+ * and `aYield` (a macrotask, so input and frames get through) is awaited
+ * between slices. `aAbort` read true between slices ends it with null: a
+ * board edited while its text is being built would come out inconsistent,
+ * so the caller starts over instead.
+ *
+ * pcbnew has no such thing because it never formats a board except on save
+ * (`SavePcbFile`) or on the autosave timer, a modal wait either way; the
+ * editor here hands every edit to the project's storage a moment after it,
+ * and a board this size formats for seconds (KiCad's own SaveBoard of the
+ * jetson demo is 2.1 s natively).
+ */
+export async function FormatBoardAsync(
+  aBoard: BOARD,
+  aYield: () => Promise<void>,
+  aAbort: () => boolean = () => false,
+  aBudgetMs = 8,
+  aGenerator: string = GENERATOR,
+): Promise<string | null> {
+  const formatter = new PRETTIFIED_STRING_FORMATTER();
+  const pcb_io = new PCB_IO_KICAD_SEXPR(formatter, CTL_FOR_BOARD, aGenerator);
+  const steps = pcb_io.FormatBoardToFormatterSteps(formatter, aBoard);
+  let sliceStart = performance.now();
+
+  for (;;) {
+    if (steps.next().done) break;
+
+    if (performance.now() - sliceStart >= aBudgetMs) {
+      await aYield();
+      if (aAbort()) return null;
+      sliceStart = performance.now();
+    }
+  }
+
+  return formatter.FinishAsync(aYield, aAbort, aBudgetMs);
 }
 
 /**

@@ -2467,10 +2467,69 @@ class Seen {
 // The board
 // ---------------------------------------------------------------------------
 
-/** `Board` as a view of the BOARD; `board.k` is the model itself. */
-export function boardFromBOARD(kb: BOARD, fileName?: string): Board {
+/**
+ * The view object each model item was last in step with: the one
+ * `boardFromBOARD` made from it, or the one `boardToBOARD` last applied to
+ * it. The view is immutable -- an edit replaces the item's object and every
+ * container above it -- so an item whose view object is still the registered
+ * one has nothing to write back, and the write-back walks only what an edit
+ * touched. Without this every commit and every autosave re-applied all
+ * 100k items of a large board (0.5 s of `applyFootprint` for one moved part).
+ */
+const synced = new WeakMap<BOARD_ITEM, object>();
+
+/** Note that `v` is the view `k` is in step with. */
+function noteSynced<K extends BOARD_ITEM>(k: K, v: object): K {
+  synced.set(k, v);
+  return k;
+}
+
+/** Every item view of a board just derived, registered as in step. */
+function noteBoardSynced(board: Board): void {
+  for (const fp of board.footprints) if (fp.k) synced.set(fp.k, fp);
+  for (const list of [
+    board.tracks,
+    board.arcs,
+    board.vias,
+    board.zones,
+    board.shapes,
+    board.texts,
+    board.textBoxes,
+    board.tables,
+    board.images,
+    board.dimensions,
+    board.points,
+    board.barcodes,
+    board.groups,
+  ] as { k?: BOARD_ITEM }[][])
+    for (const it of list) if (it.k) synced.set(it.k, it);
+}
+
+/**
+ * The copper layer count the registered views were derived against. A pad's
+ * layer set is written back against the board's count (`*.Cu` is that many
+ * layers), so a board whose count moved re-applies every item.
+ */
+const syncedCu = new WeakMap<BOARD, number>();
+
+/**
+ * `Board` as a view of the BOARD; `board.k` is the model itself.
+ *
+ * `aUnchanged`, when the caller knows which items a commit or an undo
+ * touched (the BOARD_LISTENER's lists), says which did NOT move: those keep
+ * the view object they are in step with (`synced`), so re-deriving the view
+ * after an edit costs the edit's items, not the board's. A footprint's
+ * children ride with it: the caller names the footprint when a pad moved.
+ */
+export function boardFromBOARD(
+  kb: BOARD,
+  fileName?: string,
+  aUnchanged?: (k: BOARD_ITEM) => boolean,
+): Board {
   const cu = kb.GetCopperLayerCount();
   const bds = kb.GetDesignSettings();
+  const kept = <V extends object>(k: BOARD_ITEM): V | undefined =>
+    aUnchanged?.(k) && syncedCu.get(kb) === cu ? (synced.get(k) as V | undefined) : undefined;
   const board: Board = {
     version: kb.GetFileFormatVersionAtLoad(),
     thickness: bds.GetBoardThickness(),
@@ -2481,60 +2540,62 @@ export function boardFromBOARD(kb: BOARD, fileName?: string): Board {
     nets: netsView(kb),
     gridOrigin: copyVec(bds.GetGridOrigin()),
     auxOrigin: copyVec(bds.GetAuxOrigin()),
-    footprints: kb.Footprints().map((fp) => footprintView(fp, cu)),
+    footprints: kb.Footprints().map((fp) => kept<PcbFootprint>(fp) ?? footprintView(fp, cu)),
     tracks: [],
     arcs: [],
     vias: [],
-    zones: kb.Zones().map((z) => zoneView(z, cu)),
+    zones: kb.Zones().map((z) => kept<PcbZone>(z) ?? zoneView(z, cu)),
     shapes: [],
     texts: [],
     textBoxes: [],
     tables: [],
     images: [],
     dimensions: [],
-    points: kb.Points().map(pointView),
+    points: kb.Points().map((p) => kept<PcbPoint>(p) ?? pointView(p)),
     barcodes: [],
-    groups: kb.Groups().map(groupView),
+    groups: kb.Groups().map((g) => kept<PcbGroup>(g) ?? groupView(g)),
     fileName,
     k: kb,
   };
   for (const t of kb.Tracks()) {
-    if (t instanceof PCB_VIA) board.vias.push(viaView(t));
-    else if (t instanceof PCB_ARC) board.arcs.push(arcView(t));
-    else board.tracks.push(trackView(t));
+    if (t instanceof PCB_VIA) board.vias.push(kept<PcbVia>(t) ?? viaView(t));
+    else if (t instanceof PCB_ARC) board.arcs.push(kept<PcbArcTrack>(t) ?? arcView(t));
+    else board.tracks.push(kept<PcbTrack>(t) ?? trackView(t));
   }
   for (const d of kb.Drawings()) {
     switch (d.Type()) {
       case KICAD_T.PCB_SHAPE_T:
-        board.shapes.push(shapeView(d as PCB_SHAPE));
+        board.shapes.push(kept<PcbShape>(d) ?? shapeView(d as PCB_SHAPE));
         break;
       case KICAD_T.PCB_TEXT_T:
-        board.texts.push(textView(d as PCB_TEXT, 'user'));
+        board.texts.push(kept<PcbTextItem>(d) ?? textView(d as PCB_TEXT, 'user'));
         break;
       case KICAD_T.PCB_TEXTBOX_T:
-        board.textBoxes.push(textBoxView(d as PCB_TEXTBOX));
+        board.textBoxes.push(kept<PcbTextBox>(d) ?? textBoxView(d as PCB_TEXTBOX));
         break;
       case KICAD_T.PCB_TABLE_T:
-        board.tables.push(tableView(d as PCB_TABLE));
+        board.tables.push(kept<PcbTable>(d) ?? tableView(d as PCB_TABLE));
         break;
       case KICAD_T.PCB_REFERENCE_IMAGE_T:
-        board.images.push(imageView(d as PCB_REFERENCE_IMAGE));
+        board.images.push(kept<PcbImage>(d) ?? imageView(d as PCB_REFERENCE_IMAGE));
         break;
       case KICAD_T.PCB_BARCODE_T:
-        board.barcodes.push(barcodeView(d as PCB_BARCODE));
+        board.barcodes.push(kept<PcbBarcode>(d) ?? barcodeView(d as PCB_BARCODE));
         break;
       case KICAD_T.PCB_DIM_ALIGNED_T:
       case KICAD_T.PCB_DIM_ORTHOGONAL_T:
       case KICAD_T.PCB_DIM_LEADER_T:
       case KICAD_T.PCB_DIM_CENTER_T:
       case KICAD_T.PCB_DIM_RADIAL_T:
-        board.dimensions.push(dimensionView(d as PCB_DIMENSION_BASE));
+        board.dimensions.push(kept<PcbDimension>(d) ?? dimensionView(d as PCB_DIMENSION_BASE));
         break;
       default:
         // PCB_TARGET: not modelled, stays on the board.
         break;
     }
   }
+  noteBoardSynced(board);
+  syncedCu.set(kb, cu);
   return board;
 }
 
@@ -2587,64 +2648,103 @@ export function boardToBOARD(board: Board): BOARD {
 
   // Footprints. A footprint's children are written after the footprint is a
   // member of the board, so a child's net lookup sees the board's table.
+  // A borrowed model (`seen` of a board without one) is cloned, so the clone
+  // is what gets written and the registry says nothing about it.
+  const fastPath = !!board.k && syncedCu.get(kb) === cu;
+  const inStep = (v: { k?: BOARD_ITEM }): boolean =>
+    fastPath && v.k !== undefined && synced.get(v.k) === v;
   const footprints = board.footprints.map((fp) => seen.take(fp.k ?? new FOOTPRINT(kb), kb));
   syncChildren(kb, kb.Footprints(), footprints);
-  board.footprints.forEach((fp, i) => applyFootprint(footprints[i]!, fp, kb, codes, cu, seen));
+  board.footprints.forEach((fp, i) => {
+    if (inStep(fp)) return;
+    applyFootprint(footprints[i]!, fp, kb, codes, cu, seen);
+    synced.set(footprints[i]!, fp);
+  });
 
   const drawings: BOARD_ITEM[] = [];
-  for (const s of board.shapes) drawings.push(seen.take(shapeOfView(s, kb, kb, codes), kb));
-  for (const tx of board.texts) drawings.push(seen.take(textOfView(tx, kb), kb));
-  for (const tb of board.textBoxes) drawings.push(seen.take(textBoxOfView(tb, kb), kb));
+  for (const s of board.shapes)
+    drawings.push(seen.take(inStep(s) ? s.k! : noteSynced(shapeOfView(s, kb, kb, codes), s), kb));
+  for (const tx of board.texts)
+    drawings.push(seen.take(inStep(tx) ? tx.k! : noteSynced(textOfView(tx, kb), tx), kb));
+  for (const tb of board.textBoxes)
+    drawings.push(seen.take(inStep(tb) ? tb.k! : noteSynced(textBoxOfView(tb, kb), tb), kb));
   for (const tb of board.tables) {
     const k = seen.take(tb.k ?? new PCB_TABLE(kb, -1), kb);
-    applyTable(k, tb);
+    if (!inStep(tb)) {
+      applyTable(k, tb);
+      synced.set(k, tb);
+    }
     drawings.push(k);
   }
   for (const img of board.images) {
     const k = seen.take(img.k ?? new PCB_REFERENCE_IMAGE(kb), kb);
-    applyImage(k, img);
+    if (!inStep(img)) {
+      applyImage(k, img);
+      synced.set(k, img);
+    }
     drawings.push(k);
   }
   for (const b of board.barcodes) {
     const k = seen.take(b.k ?? new PCB_BARCODE(kb), kb);
-    applyBarcode(k, b);
+    if (!inStep(b)) {
+      applyBarcode(k, b);
+      synced.set(k, b);
+    }
     drawings.push(k);
   }
-  for (const d of board.dimensions) drawings.push(seen.take(dimensionOfView(d, kb), kb));
+  for (const d of board.dimensions)
+    drawings.push(seen.take(inStep(d) ? d.k! : noteSynced(dimensionOfView(d, kb), d), kb));
   for (const d of kb.Drawings()) if (d.Type() === KICAD_T.PCB_TARGET_T) drawings.push(d);
   syncChildren(kb, kb.Drawings(), drawings);
 
   const tracks: PCB_TRACK[] = [];
   for (const t of board.tracks) {
     const k = seen.take(t.k ?? new PCB_TRACK(kb), kb);
-    applyTrack(k, t, kb, codes);
+    if (!inStep(t)) {
+      applyTrack(k, t, kb, codes);
+      synced.set(k, t);
+    }
     tracks.push(k);
   }
   for (const a of board.arcs) {
     const k = seen.take(a.k ?? new PCB_ARC(kb), kb);
-    applyTrack(k, a, kb, codes);
+    if (!inStep(a)) {
+      applyTrack(k, a, kb, codes);
+      synced.set(k, a);
+    }
     tracks.push(k);
   }
   for (const v of board.vias) {
     const k = seen.take(v.k ?? new PCB_VIA(kb), kb);
-    applyVia(k, v, kb, codes);
+    if (!inStep(v)) {
+      applyVia(k, v, kb, codes);
+      synced.set(k, v);
+    }
     tracks.push(k);
   }
   syncChildren(kb, kb.Tracks(), tracks);
 
   const points = board.points.map((p) => {
     const k = seen.take(p.k ?? new PCB_POINT(kb), kb);
-    applyPoint(k, p);
+    if (!inStep(p)) {
+      applyPoint(k, p);
+      synced.set(k, p);
+    }
     return k;
   });
   syncChildren(kb, kb.Points(), points);
 
-  const zones = board.zones.map((z) => seen.take(zoneOfView(z, kb, kb, codes, cu), kb));
+  const zones = board.zones.map((z) =>
+    seen.take(inStep(z) ? z.k! : noteSynced(zoneOfView(z, kb, kb, codes, cu), z), kb),
+  );
   syncChildren(kb, kb.Zones(), zones);
 
   const groups = board.groups.map((g) => {
     const k = seen.take(g.k ?? new PCB_GROUP(kb), kb);
-    applyGroup(k, g);
+    if (!inStep(g)) {
+      applyGroup(k, g);
+      synced.set(k, g);
+    }
     return k;
   });
   syncChildren(kb, kb.Groups(), groups);
@@ -2655,6 +2755,7 @@ export function boardToBOARD(board: Board): BOARD {
 
   kb.FinalizeBulkAdd([]);
   kb.FinalizeBulkRemove([]);
+  if (board.k) syncedCu.set(kb, cu);
   return kb;
 }
 

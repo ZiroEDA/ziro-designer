@@ -239,7 +239,7 @@ export {
   type PsFont,
   type PsTextAttributes,
 } from './plot_ps.js';
-export { serializeBoard } from './write-board.js';
+export { serializeBoard, serializeBoardAsync } from './write-board.js';
 export {
   runDrc,
   type DrcOptions,
