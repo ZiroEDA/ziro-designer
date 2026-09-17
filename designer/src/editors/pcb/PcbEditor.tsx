@@ -10184,10 +10184,19 @@ export function PcbEditor({
     [viewports],
   );
 
-  // The airwires (CONNECTIVITY_DATA::GetRatsnest), recomputed on every edit.
-  const ratsnestEdges = useMemo(() => (board ? buildRatsnest(board) : []), [board]);
+  // The airwires of the raster path (the VIEW draws its own from
+  // CONNECTIVITY_DATA through RATSNEST_VIEW_ITEM, so under the GL panel they
+  // are not built: the MST of every net was 200 ms of every edit on a big
+  // board, for lines nothing drew).
+  const ratsnestEdges = useMemo(
+    () => (board && !panelReady ? buildRatsnest(board) : []),
+    [board, panelReady],
+  );
   const ratsnestEdgesRef = useRef<RatsnestEdge[]>(ratsnestEdges);
   ratsnestEdgesRef.current = ratsnestEdges;
+  // `BOARD::GetMsgPanelInfo`'s "Unrouted": `GetConnectivity()->GetUnconnectedCount( true )`.
+  const unconnectedCount =
+    board?.k && panelReady ? board.k.GetConnectivity().GetUnconnectedCount(true) : ratsnestEdges.length;
 
   // Nets of the current selection, their airwires are always shown (even when
   // the global ratsnest is off), so clicking a pad/footprint/track reveals the
@@ -10831,11 +10840,11 @@ export function PcbEditor({
         units: unitLabel,
         frame: 'pcb_edit',
         netClassOf,
-        unconnectedCount: ratsnestEdges.length,
+        unconnectedCount,
       },
       { ids: [...selection], describe: (id) => describeBoardItem(board, id) },
     );
-  }, [board, ratsnestEdges.length, selection, netClassOf, unitLabel]);
+  }, [board, unconnectedCount, selection, netClassOf, unitLabel]);
 
   // Top-toolbar enablement. Save follows the dirty flag; the toolbar's Group /
   // Ungroup grey out per GROUP_TOOL::update, Group needs >= 2 selected items,
