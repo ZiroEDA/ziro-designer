@@ -160,7 +160,8 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS {
   protected m_lastRepaintEnd: number;
 
   /// Timer to prevent too-frequent refreshing
-  protected m_refreshTimer: wxTimer;
+  /// A wx member exists before the constructor body runs: SwitchBackend stops it.
+  protected m_refreshTimer: wxTimer = new wxTimer((e) => this.onRefreshTimer(e));
 
   /// Blocks multiple calls to the draw
   protected m_refreshMutex = false;
@@ -330,8 +331,7 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS {
 
     for (const eventType of events) this.Connect(eventType, (e) => this.OnEvent(e));
 
-    // Set up timer to detect when drawing starts
-    this.m_refreshTimer = new wxTimer((e) => this.onRefreshTimer(e));
+    // Set up timer to detect when drawing starts: m_refreshTimer.SetOwner( this ), above
 
     this.Connect(wxEVT_SHOW, (e) => this.onShowEvent(e as wxShowEvent));
 

@@ -137,7 +137,7 @@ void computeCircleCoords( float mode, float vertexIndex, float radius, float lin
     else if( vertexIndex == 3.0 )
     {
         v_circleCoords = vec2( 0.0, 2.0 );
-        delta = vec4( 0, 2 * pixelR, 0, 0 );
+        delta = vec4( 0, 2.0 * pixelR, 0, 0 ); // ES: no int * float
     }
     else if( vertexIndex == 4.0 )
     {
@@ -190,7 +190,7 @@ void computeHoleWallCoords( float vertexIndex, float radius, float lineWidth )
     else if( vertexIndex == 3.0 )
     {
         v_circleCoords = vec2( 0.0, 2.0 );
-        delta = vec4( 0, 2 * pixelR, 0, 0 );
+        delta = vec4( 0, 2.0 * pixelR, 0, 0 ); // ES: no int * float
     }
     else if( vertexIndex == 4.0 )
     {
