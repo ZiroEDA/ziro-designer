@@ -5,14 +5,11 @@
  * `TOOL_BASE` (include/tool/tool_base.h, common/tool/tool_base.cpp): the
  * base of every tool a TOOL_MANAGER registers.
  */
+import type { VIEW } from '../view/view.js';
 import type { EDA_ITEM } from '../eda_item.js';
 import type { COROUTINE_BODY } from './coroutine.js';
 import type { TOOL_EVENT } from './tool_event.js';
-import type {
-  TOOL_MANAGER,
-  TOOL_MANAGER_VIEW,
-  TOOL_MANAGER_VIEW_CONTROLS,
-} from './tool_manager.js';
+import type { TOOL_MANAGER, TOOL_MANAGER_VIEW_CONTROLS } from './tool_manager.js';
 import type { TOOLS_HOLDER } from './tools_holder.js';
 
 export enum TOOL_TYPE {
@@ -128,7 +125,7 @@ export abstract class TOOL_BASE {
    *
    * @return The instance of VIEW.
    */
-  protected getView(): TOOL_MANAGER_VIEW | null {
+  protected getView(): VIEW | null {
     return this.m_toolMgr!.GetView();
   }
 

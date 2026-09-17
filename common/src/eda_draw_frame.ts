@@ -6,9 +6,9 @@
  * base of every frame with a drawing canvas. Between it and EDA_BASE_FRAME the
  * C++ has KIWAY_PLAYER, the window-to-window messaging base, which has no
  * browser counterpart and is skipped. What is here is the part the model
- * layer reaches: the canvas accessor (the GAL panel is stage 5's, so it is
- * an interface the designer's canvas implements), the message panel hooks
- * and the item resolver — and, first, the grid snapping the frame owns.
+ * layer reaches: the canvas accessor, the colour settings, the message
+ * panel hooks and the item resolver — and, first, the grid snapping the
+ * frame owns.
  *
  * Grid snapping, `EDA_DRAW_FRAME::GetNearestGridPosition` /
  * `::GetNearestHalfGridPosition` (`common/eda_draw_frame.cpp:1073/1098`).
@@ -31,6 +31,11 @@ import type { FRAME_T } from './frame_type.js';
 import type { KIID } from './kiid.js';
 import type { EDA_ITEM } from './eda_item.js';
 import type { ORIGIN_TRANSFORMS } from './origin_transforms.js';
+import type { BASE_SCREEN } from './base_screen.js';
+import { type EDA_DRAW_PANEL_GAL, GAL_TYPE } from './draw_panel_gal.js';
+import { GAL_DISPLAY_OPTIONS } from './gal/gal_display_options.js';
+import { DEFAULT_THEME, GetColorSettings } from './pgm_base.js';
+import type { COLOR_SETTINGS } from './settings/color_settings.js';
 import type { MSG_PANEL_ITEM } from './widgets/msgpanel.js';
 
 /** `KiROUND`: round half *away from zero*, not half up as `Math.round` does. */
@@ -79,32 +84,12 @@ export const FOOTPRINT_EDIT_FRAME_NAME = 'ModEditFrame';
 export const FOOTPRINT_VIEWER_FRAME_NAME = 'ModViewFrame';
 export const PCB_EDIT_FRAME_NAME = 'PcbFrame';
 
-/**
- * `EDA_DRAW_PANEL_GAL` as the frame reaches it: the view it draws and the
- * two refresh calls. The panel is stage 5's; the designer's canvas provides
- * this until then.
- */
-export interface EDA_DRAW_PANEL_GAL_LIKE {
-  GetView(): DRAW_FRAME_VIEW_LIKE | null;
-  Refresh(): void;
-  ForceRefresh(): void;
-}
-
-/**
- * `KIGFX::VIEW` as the frames call it: add/remove/update/hide of items and
- * the colliding-items refresh. KIGFX::VIEW is stage 5's.
- */
-export interface DRAW_FRAME_VIEW_LIKE {
-  Add(aItem: EDA_ITEM, aDrawPriority?: number): void;
-  Remove(aItem: EDA_ITEM): void;
-  Update(aItem: EDA_ITEM, aUpdateFlags?: number): void;
-  Hide(aItem: EDA_ITEM, aHide?: boolean, aHideOverlay?: boolean): void;
-  HasItem(aItem: EDA_ITEM): boolean;
-  IsDirty(): boolean;
-}
-
 export abstract class EDA_DRAW_FRAME extends EDA_BASE_FRAME {
-  protected m_canvas: EDA_DRAW_PANEL_GAL_LIKE | null = null;
+  protected m_canvas: EDA_DRAW_PANEL_GAL | null = null;
+  protected m_currentScreen: BASE_SCREEN | null = null; ///< current used SCREEN
+  protected m_colorSettings: COLOR_SETTINGS | null = null;
+  protected m_galDisplayOptions: GAL_DISPLAY_OPTIONS = new GAL_DISPLAY_OPTIONS();
+  protected m_canvasType: GAL_TYPE = GAL_TYPE.GAL_TYPE_OPENGL;
 
   constructor(aFrameType: FRAME_T, aIuScale: EdaIuScale, aUnits: EdaUnits) {
     super(aFrameType, aIuScale, aUnits);
@@ -113,12 +98,66 @@ export abstract class EDA_DRAW_FRAME extends EDA_BASE_FRAME {
   /**
    * Return a pointer to GAL-based canvas of given EDA draw frame.
    */
-  GetCanvas(): EDA_DRAW_PANEL_GAL_LIKE | null {
+  GetCanvas(): EDA_DRAW_PANEL_GAL | null {
     return this.m_canvas;
   }
 
-  SetCanvas(aPanel: EDA_DRAW_PANEL_GAL_LIKE | null): void {
+  SetCanvas(aPanel: EDA_DRAW_PANEL_GAL | null): void {
     this.m_canvas = aPanel;
+  }
+
+  GetGalDisplayOptions(): GAL_DISPLAY_OPTIONS {
+    return this.m_galDisplayOptions;
+  }
+
+  /**
+   * `Kiway().Player( aFrameType, false )`: the sibling frame if it is open.
+   * KIWAY is the desktop's window broker; the designer's frames answer with
+   * theirs, and the base has no siblings.
+   */
+  KiwayPlayer(_aFrameType: FRAME_T): unknown {
+    return null;
+  }
+
+  /** `wxWindow::Raise()`: bring the frame to the front. */
+  Raise(): void {}
+
+  /**
+   * Use to start up the GAL drawing canvas.
+   */
+  ActivateGalCanvas(): void {
+    // GetCanvas()->SetEvtHandlerEnabled( true );
+    this.GetCanvas()!.StartDrawing();
+  }
+
+  /**
+   * Change the current rendering backend.
+   */
+  SwitchCanvas(aCanvasType: GAL_TYPE): void {
+    this.GetCanvas()!.SwitchBackend(aCanvasType);
+    this.m_canvasType = this.GetCanvas()!.GetBackend();
+
+    this.ActivateGalCanvas();
+  }
+
+  /**
+   * Return a pointer to the active color theme settings.
+   */
+  GetColorSettings(aForceRefresh = false): COLOR_SETTINGS {
+    if (!this.m_colorSettings || aForceRefresh) {
+      const colorSettings = GetColorSettings(DEFAULT_THEME);
+      this.m_colorSettings = colorSettings;
+    }
+
+    return this.m_colorSettings;
+  }
+
+  GetScreen(): BASE_SCREEN | null {
+    return this.m_currentScreen;
+  }
+
+  SetScreen(aScreen: BASE_SCREEN | null): void {
+    this.m_currentScreen = aScreen;
   }
 
   override GetToolCanvas(): unknown {

@@ -31,6 +31,14 @@ export enum UNDO_REDO_LIST {
 }
 export const { UNDO_LIST, REDO_LIST } = UNDO_REDO_LIST;
 
+/**
+ * `WX_INFOBAR`, as the frames and the draw panel read it: whether the bar is
+ * locked open (the canvas keeps its bottom edge fixed under it).
+ */
+export interface WX_INFOBAR {
+  IsLocked(): boolean;
+}
+
 export abstract class EDA_BASE_FRAME
   extends TOOLS_HOLDER
   implements TOOL_MANAGER_FRAME_WITH_STATUS_BAR
@@ -48,6 +56,8 @@ export abstract class EDA_BASE_FRAME
   protected m_isClosing = false; // Set by the close window event handler after frames are asked if they can close
   // Allows other functions when called to know our state is cleanup
 
+  protected m_infoBar: WX_INFOBAR | null = null; // Infobar for the frame
+
   constructor(aFrameType: FRAME_T, aIuScale: EdaIuScale, aUnits: EdaUnits) {
     super();
 
@@ -58,6 +68,11 @@ export abstract class EDA_BASE_FRAME
 
   IsType(aType: FRAME_T): boolean {
     return this.m_ident === aType;
+  }
+
+  /** `WX_INFOBAR* GetInfoBar()`: the frame's infobar; the designer's frames hold one when shown. */
+  GetInfoBar(): WX_INFOBAR | null {
+    return this.m_infoBar;
   }
 
   GetFrameType(): FRAME_T {

@@ -17,6 +17,7 @@
 import type { Vec2 as VECTOR2D } from '@ziroeda/kimath/src/math/vector2.js';
 import type { COMMIT } from '../commit.js';
 import type { EDA_ITEM } from '../eda_item.js';
+import type { VIEW } from '../view/view.js';
 import type { VC_SETTINGS, VIEW_CONTROLS } from '../view/view_controls.js';
 import { ACTION_MANAGER } from './action_manager.js';
 import { COROUTINE } from './coroutine.js';
@@ -50,11 +51,6 @@ import {
   TOOL_EVENT_LIST,
 } from './tool_event.js';
 import type { TOOLS_HOLDER } from './tools_holder.js';
-
-/** `KIGFX::VIEW` as the manager holds it (the class is stage 5's). */
-export interface TOOL_MANAGER_VIEW {
-  IsDirty(): boolean;
-}
 
 /** `KIGFX::VIEW_CONTROLS` as the manager drives it. */
 export type TOOL_MANAGER_VIEW_CONTROLS = Pick<
@@ -246,7 +242,7 @@ export class TOOL_MANAGER {
   private m_cursorSettings = new Map<TOOL_ID, VECTOR2D | undefined>();
 
   private m_model: EDA_ITEM | null;
-  private m_view: TOOL_MANAGER_VIEW | null;
+  private m_view: VIEW | null;
   private m_viewControls: TOOL_MANAGER_VIEW_CONTROLS | null;
   private m_frame: TOOLS_HOLDER | null;
   private m_settings: APP_SETTINGS_BASE_LIKE | null;
@@ -674,7 +670,7 @@ export class TOOL_MANAGER {
    */
   SetEnvironment(
     aModel: EDA_ITEM | null,
-    aView: TOOL_MANAGER_VIEW | null,
+    aView: VIEW | null,
     aViewControls: TOOL_MANAGER_VIEW_CONTROLS | null,
     aSettings: APP_SETTINGS_BASE_LIKE | null,
     aFrame: TOOLS_HOLDER | null,
@@ -687,7 +683,7 @@ export class TOOL_MANAGER {
   }
 
   /* Accessors for the environment objects (view, model, etc.) */
-  GetView(): TOOL_MANAGER_VIEW | null {
+  GetView(): VIEW | null {
     return this.m_view;
   }
 

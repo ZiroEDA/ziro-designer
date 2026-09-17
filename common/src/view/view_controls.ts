@@ -5,12 +5,12 @@
  * `KIGFX::VC_SETTINGS` and `KIGFX::VIEW_CONTROLS` (include/view/view_controls.h,
  * common/view/view_controls.cpp): the abstract interface for the controls of
  * a view (cursor, panning, zooming), which a tool's state saves and restores
- * through the TOOL_MANAGER. The canvas-bound `WX_VIEW_CONTROLS` is the
- * designer's (stage 5 seats it on this).
+ * through the TOOL_MANAGER. The canvas-bound `WX_VIEW_CONTROLS` sits on it.
  */
 import { WXK } from '@ziroeda/core/src/wx_keycodes.js';
 import type { Vec2 as VECTOR2D } from '@ziroeda/kimath/src/math/vector2.js';
 import { MOUSE_DRAG_ACTION } from '../mouse_drag_action.js';
+import type { VIEW } from './view.js';
 
 /** `ACTIONS::CURSOR_NONE`: the cursor command a fresh VC_SETTINGS remembers. */
 const CURSOR_NONE = 0;
@@ -153,17 +153,12 @@ export class VC_SETTINGS {
   }
 }
 
-/** The view a VIEW_CONTROLS drives, as far as the base class asks it. */
-export interface VIEW_CONTROLS_VIEW {
-  GetGAL(): { SetCursorEnabled(aEnabled: boolean): void };
-}
-
 /**
  * An interface for classes handling user events controlling the view behavior
  * (such as zooming, panning, mouse grab, etc.)
  */
 export abstract class VIEW_CONTROLS {
-  protected m_view: VIEW_CONTROLS_VIEW;
+  protected m_view: VIEW;
 
   /// Application warped the cursor, not the user (keyboard).
   protected m_cursorWarped: boolean;
@@ -171,7 +166,7 @@ export abstract class VIEW_CONTROLS {
   /// Current VIEW_CONTROLS settings.
   protected m_settings = new VC_SETTINGS();
 
-  constructor(aView: VIEW_CONTROLS_VIEW) {
+  constructor(aView: VIEW) {
     this.m_view = aView;
     this.m_cursorWarped = false;
   }

@@ -18,7 +18,18 @@ import type { PAGE_INFO } from '@ziroeda/common/src/page_info.js';
 import type { TITLE_BLOCK } from '@ziroeda/common/src/title_block.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { APP_SETTINGS_BASE } from '@ziroeda/common/src/settings/app_settings.js';
+import type { COLOR_SETTINGS } from '@ziroeda/common/src/settings/color_settings.js';
+import type { TOOL_DISPATCHER } from '@ziroeda/common/src/draw_panel_gal.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { RESET_REASON } from '@ziroeda/common/src/tool/tool_base.js';
+import { type VIEW_ITEM, VIEW_UPDATE_FLAGS } from '@ziroeda/common/src/view/view_item.js';
 import type { BOARD } from './board.js';
+import { HIGH_CONTRAST_MODE } from './board_project_settings.js';
+import { PAD } from './pad.js';
+import { PCB_DISPLAY_OPTIONS, type PCB_PAINTER } from './pcb_painter.js';
+import type { PCB_DRAW_PANEL_GAL } from './pcb_draw_panel_gal.js';
+import type { PCB_SCREEN } from './pcb_screen.js';
+import { PCB_VIA, VIATYPE } from './pcb_track.js';
 import type { PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
 import type { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
 import type { BOARD_ITEM } from './board_item.js';
@@ -38,6 +49,7 @@ export interface FOOTPRINT_EDITOR_SETTINGS_LIKE {
 export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
   protected m_pcb: BOARD | null = null;
   protected m_originTransforms: PCB_ORIGIN_TRANSFORMS;
+  protected m_displayOptions = new PCB_DISPLAY_OPTIONS();
 
   constructor(aFrameType: FRAME_T, aUnits: EdaUnits = 'mm') {
     super(aFrameType, pcbIUScale, aUnits);
@@ -54,10 +66,138 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
 
       if (this.GetBoard()) this.GetBoard()!.SetUserUnits(this.GetUserUnits());
 
-      // RENDER_SETTINGS dash/gap ratios from the plot options: with the view (#636 stage 5)
+      if (this.GetBoard() && this.GetCanvas()) {
+        const rs = this.GetCanvas()!.GetView().GetPainter().GetSettings();
+
+        if (rs) {
+          rs.SetDashLengthRatio(this.GetBoard()!.GetPlotOptions().GetDashedLineDashRatio());
+          rs.SetGapLengthRatio(this.GetBoard()!.GetPlotOptions().GetDashedLineGapRatio());
+        }
+      }
 
       this.OnBoardChanged();
     }
+  }
+
+  /** `PCB_DRAW_PANEL_GAL* GetCanvas() const override`. */
+  override GetCanvas(): PCB_DRAW_PANEL_GAL | null {
+    return this.m_canvas as PCB_DRAW_PANEL_GAL | null;
+  }
+
+  override GetScreen(): PCB_SCREEN | null {
+    return this.m_currentScreen as PCB_SCREEN | null;
+  }
+
+  /**
+   * Helper to retrieve the current color settings.
+   */
+  override GetColorSettings(_aForceRefresh = false): COLOR_SETTINGS {
+    throw new Error('Color settings requested for a PCB_BASE_FRAME that does not override!');
+  }
+
+  /**
+   * Display options control the way tracks, vias, outlines and other things are shown
+   * (for instance solid or sketch mode).
+   */
+  GetDisplayOptions(): PCB_DISPLAY_OPTIONS {
+    return this.m_displayOptions;
+  }
+
+  /**
+   * Update the display options and refresh the canvas.
+   */
+  SetDisplayOptions(aOptions: PCB_DISPLAY_OPTIONS, aRefresh = true): void {
+    const hcChanged =
+      this.m_displayOptions.m_ContrastModeDisplay !== aOptions.m_ContrastModeDisplay;
+    const hcVisChanged =
+      this.m_displayOptions.m_ContrastModeDisplay === HIGH_CONTRAST_MODE.HIDDEN ||
+      aOptions.m_ContrastModeDisplay === HIGH_CONTRAST_MODE.HIDDEN;
+    this.m_displayOptions = aOptions;
+
+    const canvas = this.GetCanvas()!;
+    const view = canvas.GetView();
+
+    view.UpdateDisplayOptions(aOptions);
+    view.SetMirror(aOptions.m_FlipBoardView, view.IsMirroredY());
+    view.RecacheAllItems();
+
+    canvas.SetHighContrastLayer(this.GetActiveLayer());
+    this.OnDisplayOptionsChanged();
+
+    // Vias on a restricted layer set must be redrawn when high contrast mode is changed
+    if (hcChanged) {
+      let showNetNames = false;
+
+      const config = this.config() as PCBNEW_SETTINGS;
+
+      if (config?.m_Display) showNetNames = config.m_Display.m_NetNames > 0;
+
+      // Note: KIGFX::REPAINT isn't enough for things that go from invisible to visible as
+      // they won't be found in the view layer's itemset for re-painting.
+      this.GetCanvas()!
+        .GetView()
+        .UpdateAllItemsConditionally((aItem: VIEW_ITEM): number => {
+          if (aItem instanceof PCB_VIA) {
+            if (
+              aItem.GetViaType() !== VIATYPE.THROUGH ||
+              aItem.GetRemoveUnconnected() ||
+              showNetNames
+            ) {
+              return hcVisChanged ? VIEW_UPDATE_FLAGS.ALL : VIEW_UPDATE_FLAGS.REPAINT;
+            }
+          } else if (aItem instanceof PAD) {
+            if (aItem.GetRemoveUnconnected() || showNetNames) {
+              return hcVisChanged ? VIEW_UPDATE_FLAGS.ALL : VIEW_UPDATE_FLAGS.REPAINT;
+            }
+          }
+
+          return 0;
+        });
+    }
+
+    if (aRefresh) canvas.Refresh();
+  }
+
+  OnDisplayOptionsChanged(): void {}
+
+  SetActiveLayer(aLayer: PCB_LAYER_ID): void {
+    this.GetScreen()!.m_Active_Layer = aLayer;
+  }
+
+  GetActiveLayer(): PCB_LAYER_ID {
+    return this.GetScreen()!.m_Active_Layer;
+  }
+
+  override ActivateGalCanvas(): void {
+    super.ActivateGalCanvas();
+
+    const canvas = this.GetCanvas()!;
+    const view = canvas.GetView();
+
+    if (this.m_toolManager) {
+      this.m_toolManager.SetEnvironment(
+        this.m_pcb,
+        view,
+        canvas.GetViewControls(),
+        this.config(),
+        this,
+      );
+
+      this.m_toolManager.ResetTools(RESET_REASON.GAL_SWITCH);
+    }
+
+    const painter = view.GetPainter() as PCB_PAINTER;
+    const settings = painter.GetSettings();
+    const displ_opts = this.GetDisplayOptions();
+
+    settings.LoadDisplayOptions(displ_opts);
+    settings.LoadColors(this.GetColorSettings());
+    settings.m_ForceShowFieldsWhenFPSelected =
+      this.GetPcbNewSettings().m_Display.m_ForceShowFieldsWhenFPSelected;
+
+    view.RecacheAllItems();
+    canvas.SetEventDispatcher(this.m_toolDispatcher as TOOL_DISPATCHER | null);
+    canvas.StartDrawing();
   }
 
   /** `EDA_EVT_BOARD_CHANGED`, the event `SetBoard` raises. */

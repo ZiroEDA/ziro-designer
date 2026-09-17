@@ -39,16 +39,13 @@ import type { BASE_SCREEN_LIKE } from '@ziroeda/common/src/undo_redo_container.j
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { BOARD } from './board.js';
+import type { PCB_VIEW } from './pcb_view.js';
 import type { BOARD_ITEM } from './board_item.js';
 import { ADD_MODE, REMOVE_MODE } from './board_item_container.js';
 import type { FOOTPRINT } from './footprint.js';
 import type { PAD } from './pad.js';
 import { PCB_BASE_FRAME } from './pcb_base_frame.js';
-import {
-  PCB_BASE_EDIT_FRAME,
-  PCB_SELECTION_TOOL_NAME,
-  type PCB_VIEW_LIKE,
-} from './pcb_base_edit_frame.js';
+import { PCB_BASE_EDIT_FRAME, PCB_SELECTION_TOOL_NAME } from './pcb_base_edit_frame.js';
 import type { PCB_FIELD } from './pcb_field.js';
 import type { PCB_GROUP } from './pcb_group.js';
 import type { PCB_TRACK, PCB_VIA } from './pcb_track.js';
@@ -153,8 +150,8 @@ export class BOARD_COMMIT extends COMMIT {
     return this.m_toolMgr.GetModel() as unknown as BOARD;
   }
 
-  private view(): PCB_VIEW_LIKE | null {
-    return (this.m_toolMgr.GetView() as PCB_VIEW_LIKE | null) ?? null;
+  private view(): PCB_VIEW | null {
+    return (this.m_toolMgr.GetView() as PCB_VIEW | null) ?? null;
   }
 
   private frame(): PCB_BASE_FRAME | null {

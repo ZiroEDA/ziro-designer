@@ -397,3 +397,29 @@ export function IsVec2SafeXY(aVec: Vec2): boolean {
 
   return aVec.x > min && aVec.x < max && aVec.y > min && aVec.y < max;
 }
+
+/**
+ * Clamps a vector to values that can be negated, respecting numeric limits
+ * of coordinates data type with specified padding.
+ *
+ * Numeric limits are (-2^31 + 1) to (2^31 - 1).
+ *
+ * Takes care of rounding in case of floating point to integer conversion.
+ *
+ * The C++ is a template over the input and return types; `aInteger` picks
+ * the `VECTOR2I` return (`KiROUND`, saturating), the default keeps doubles.
+ *
+ * @param aCoords - vector to clamp.
+ * @param aPadding - padding from the limits. Must not be negative.
+ * @return clamped vector.
+ */
+export function GetClampedCoords(aCoords: Vec2, aPadding = 1, aInteger = false): Vec2 {
+  const max = INT_MAX - aPadding;
+  const min = -max;
+  const x = Math.min(Math.max(aCoords.x, min), max);
+  const y = Math.min(Math.max(aCoords.y, min), max);
+
+  if (aInteger) return { x: KiROUND(x), y: KiROUND(y) };
+
+  return { x, y };
+}

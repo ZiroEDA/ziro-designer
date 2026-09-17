@@ -15,7 +15,6 @@
  * PCB_CONTROL and DS_PROXY_UNDO_ITEM (stage 3/6) and are pending.
  */
 import { UNDO_REDO_LIST } from '@ziroeda/common/src/eda_base_frame.js';
-import type { DRAW_FRAME_VIEW_LIKE } from '@ziroeda/common/src/eda_draw_frame.js';
 import type { EDA_ITEM } from '@ziroeda/common/src/eda_item.js';
 import { UR_TRANSIENT } from '@ziroeda/common/src/eda_item_flags.js';
 import { FRAME_T } from '@ziroeda/common/src/frame_type.js';
@@ -37,6 +36,7 @@ import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { BOARD_COMMIT } from './board_commit.js';
 import type { BOARD } from './board.js';
+import type { PCB_VIEW } from './pcb_view.js';
 import type { BOARD_ITEM } from './board_item.js';
 import { ADD_MODE, type BOARD_ITEM_CONTAINER, REMOVE_MODE } from './board_item_container.js';
 import type { FOOTPRINT } from './footprint.js';
@@ -53,11 +53,6 @@ export const PCB_SELECTION_TOOL_NAME = 'pcbnew.InteractiveSelection';
 
 export interface PCB_SELECTION_TOOL_LIKE {
   RebuildSelection(): void;
-}
-
-/** `KIGFX::PCB_VIEW::UpdateCollidingItems`, on top of the common view calls. */
-export interface PCB_VIEW_LIKE extends DRAW_FRAME_VIEW_LIKE {
-  UpdateCollidingItems(aStaleAreas: readonly BOX2I[], aTypes: readonly KICAD_T[]): void;
 }
 
 // Enum to track the modification type of items. Used to enable bulk BOARD_LISTENER
@@ -94,8 +89,8 @@ export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {
   protected m_undoRedoBlocked = false;
 
   /** The canvas's view, as the undo code needs it (`KIGFX::PCB_VIEW`). */
-  protected pcbView(): PCB_VIEW_LIKE | null {
-    return (this.GetCanvas()?.GetView() as PCB_VIEW_LIKE | null | undefined) ?? null;
+  protected pcbView(): PCB_VIEW | null {
+    return this.GetCanvas()?.GetView() ?? null;
   }
 
   override SetBoard(aBoard: BOARD | null, aReporter: PROGRESS_REPORTER_LIKE | null = null): void {
@@ -104,12 +99,16 @@ export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {
     if (is_new_board) {
       if (this.m_toolManager) this.m_toolManager.ResetTools(RESET_REASON.MODEL_RELOAD);
 
-      // EDA_EVT_BOARD_CHANGING, the view's Clear and InitPreview: with the canvas (#636 stage 5)
+      this.OnBoardChanging();
+
+      this.GetCanvas()?.GetView().Clear();
+      this.GetCanvas()?.GetView().InitPreview();
     }
 
     super.SetBoard(aBoard, aReporter);
 
-    // GetCanvas()->GetGAL()->SetGridOrigin( bds.GetGridOrigin() ): with the canvas (#636 stage 5)
+    if (aBoard)
+      this.GetCanvas()?.GetGAL().SetGridOrigin(aBoard.GetDesignSettings().GetGridOrigin());
 
     if (is_new_board) {
       // bds.m_DRCEngine = std::make_shared<DRC_ENGINE>( aBoard, &bds ): with the DRC engine (#636 stage 4)
@@ -117,12 +116,28 @@ export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {
 
     // update the tool manager with the new board and its view.
     if (this.m_toolManager) {
-      // GetCanvas()->DisplayBoard( aBoard, aReporter ) and UpdateColors(): with the canvas (#636 stage 5)
-      this.m_toolManager.SetEnvironment(aBoard, null, null, this.config(), this);
+      const canvas = this.GetCanvas();
+
+      if (canvas && aBoard) {
+        canvas.DisplayBoard(aBoard, aReporter);
+
+        canvas.UpdateColors();
+      }
+
+      this.m_toolManager.SetEnvironment(
+        aBoard,
+        canvas?.GetView() ?? null,
+        canvas?.GetViewControls() ?? null,
+        this.config(),
+        this,
+      );
 
       if (is_new_board) this.m_toolManager.ResetTools(RESET_REASON.MODEL_RELOAD);
     }
   }
+
+  /** `EDA_EVT_BOARD_CHANGING`, the event `SetBoard` raises before the swap. */
+  protected OnBoardChanging(): void {}
 
   /**
    * Put \a aItemsList into the undo list.

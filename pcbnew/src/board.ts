@@ -18,6 +18,7 @@
  */
 
 import {
+  CompareByUuid,
   EDA_ITEM,
   INSPECT_RESULT,
   type INSPECTOR,
@@ -956,6 +957,27 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
   }
   Points(): PCB_POINT[] {
     return this.m_points;
+  }
+
+  /**
+   * `GetItemSet()`: `BOARD_ITEM_SET`, a `std::set<BOARD_ITEM*, CompareByUuid>`
+   * of every top-level item, so the order is the UUIDs'.
+   */
+  GetItemSet(): BOARD_ITEM[] {
+    const items: BOARD_ITEM[] = [];
+
+    items.push(...this.m_tracks);
+    items.push(...this.m_zones);
+    items.push(...this.m_generators);
+    items.push(...this.m_footprints);
+    items.push(...this.m_drawings);
+    items.push(...this.m_markers);
+    items.push(...this.m_groups);
+    items.push(...this.m_points);
+
+    items.sort((a, b) => (CompareByUuid(a, b) ? -1 : CompareByUuid(b, a) ? 1 : 0));
+
+    return items;
   }
 
   /** `EMBEDDED_FILES::GetFontFiles`: the fontconfig cache is not ported (no disk). */
