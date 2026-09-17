@@ -32,13 +32,24 @@
  * the C++ does (`MinDist`). The file I/O helper (RTFileStream, Load, Save)
  * and the std::iterator wrapper are not ported: nothing in KiCad saves a tree
  * to disk, and the iterator is `Search` with a full-extent rectangle.
+ *
+ * Storage is the C++'s too: a `Node` holds `Branch m_branch[MAXNODES]` with
+ * each branch's `Rect` inline, so a search reads a node's rectangles from one
+ * contiguous block. Here that block is one `Float64Array` per node
+ * (`m_rect`, branch `i`'s rectangle at `i * 2 * NUMDIMS`, its `m_min` first
+ * and its `m_max` after) beside the children and the data. A standalone
+ * rectangle (the one being inserted or searched for, a partition cover) is
+ * a `Float64Array` of `2 * NUMDIMS` in the same order. An earlier port kept
+ * every rectangle as an object of two arrays: five heap objects per branch,
+ * and a search that spent its time in cache misses rather than comparisons.
  */
 
-/// Minimal bounding rectangle (n-dimensional)
-export interface Rect {
-  m_min: number[]; ///< Min dimensions of bounding box
-  m_max: number[]; ///< Max dimensions of bounding box
-}
+/**
+ * Minimal bounding rectangle (n-dimensional): `2 * NUMDIMS` numbers, the
+ * minimums then the maximums. Either a standalone array or a node's block,
+ * always addressed with an offset.
+ */
+export type Rect = Float64Array;
 
 export interface Statistics {
   maxDepth: number;
@@ -46,22 +57,17 @@ export interface Statistics {
   maxNodeLoad: number;
   avgNodeLoad: number;
   totalItems: number;
+  totalNodes: number;
 }
 
-/// May be data or may be another subtree
-/// The parents level determines this.
-/// If the parents level is 0, then this is data
-interface Branch<DATATYPE> {
-  m_rect: Rect; ///< Bounds
-  m_child: Node<DATATYPE> | null; ///< Child node
-  m_data: DATATYPE | undefined; ///< Data Id or Ptr
-}
-
-/// Node for each branch level
+/// Node for each branch level: `Branch m_branch[MAXNODES]`, each branch's
+/// rectangle in `m_rect`, its child in `m_child`, its data in `m_data`.
 interface Node<DATATYPE> {
   m_count: number; ///< Count
   m_level: number; ///< Leaf is zero, others positive
-  m_branch: Branch<DATATYPE>[]; ///< Branch
+  m_rect: Float64Array; ///< MAXNODES rectangles, `2 * NUMDIMS` numbers each
+  m_child: (Node<DATATYPE> | null)[]; ///< Child node
+  m_data: (DATATYPE | undefined)[]; ///< Data Id
 }
 
 function IsInternalNode<D>(node: Node<D>): boolean {
@@ -77,7 +83,8 @@ interface ListNode<DATATYPE> {
   m_node: Node<DATATYPE>; ///< Node
 }
 
-/// Variables for finding a split partition
+/// Variables for finding a split partition: `Branch m_branchBuf[MAXNODES + 1]`
+/// is the same three-way storage a node has.
 interface PartitionVars<DATATYPE> {
   m_partition: number[];
   m_total: number;
@@ -86,15 +93,19 @@ interface PartitionVars<DATATYPE> {
   m_count: [number, number];
   m_cover: [Rect, Rect];
   m_area: [number, number];
-  m_branchBuf: Branch<DATATYPE>[];
+  m_bufRect: Float64Array;
+  m_bufChild: (Node<DATATYPE> | null)[];
+  m_bufData: (DATATYPE | undefined)[];
   m_branchCount: number;
   m_coverSplit: Rect;
   m_coverSplitArea: number;
 }
 
-/// Data structure used for Nearest Neighbor search implementation
+/// Data structure used for Nearest Neighbor search implementation: a branch
+/// is (node, index) here, the C++'s `Branch*` into the node.
 interface NNNode<DATATYPE> {
-  m_branch: Branch<DATATYPE>;
+  m_node: Node<DATATYPE>;
+  m_index: number;
   minDist: number;
   isLeaf: boolean;
 }
@@ -123,14 +134,6 @@ const UNIT_SPHERE_VOLUMES: readonly number[] = [
   0.046622,
   0.025807, // Dimension  18,19,20
 ].map(Math.fround); // a `const float[]`, widened to ELEMTYPEREAL on read
-
-function copyRect(r: Rect): Rect {
-  return { m_min: r.m_min.slice(), m_max: r.m_max.slice() };
-}
-
-function copyBranch<D>(b: Branch<D>): Branch<D> {
-  return { m_rect: copyRect(b.m_rect), m_child: b.m_child, m_data: b.m_data };
-}
 
 /**
  * `std::priority_queue<NNNode>` with `NNNode::operator<` reversed on purpose:
@@ -218,18 +221,50 @@ export class RTree<DATATYPE> {
   readonly NUMDIMS: number;
   readonly MAXNODES: number; ///< Max elements in node
   readonly MINNODES: number; ///< Min elements in node
+  /** `2 * NUMDIMS`: the numbers one rectangle takes. */
+  protected readonly RECT: number;
 
   protected m_root: Node<DATATYPE>; ///< Root of tree
   protected m_unitSphereVolume: number; ///< Unit sphere constant for required number of dimensions
+  /** The partition variables, a member reused by every split (see SplitNode). */
+  private m_parVars: PartitionVars<DATATYPE>;
 
   constructor(aNumDims = 2, aMaxNodes = 8, aMinNodes = aMaxNodes / 2) {
     this.NUMDIMS = aNumDims;
     this.MAXNODES = aMaxNodes;
     this.MINNODES = aMinNodes;
+    this.RECT = 2 * aNumDims;
 
     this.m_root = this.AllocNode();
     this.m_root.m_level = 0;
     this.m_unitSphereVolume = UNIT_SPHERE_VOLUMES[this.NUMDIMS]!;
+    this.m_parVars = {
+      m_partition: [],
+      m_total: 0,
+      m_minFill: 0,
+      m_taken: [],
+      m_count: [0, 0],
+      m_cover: [this.InitRect(), this.InitRect()],
+      m_area: [0, 0],
+      m_bufRect: new Float64Array((this.MAXNODES + 1) * this.RECT),
+      m_bufChild: new Array(this.MAXNODES + 1).fill(null),
+      m_bufData: new Array(this.MAXNODES + 1).fill(undefined),
+      m_branchCount: 0,
+      m_coverSplit: this.InitRect(),
+      m_coverSplitArea: 0,
+    };
+  }
+
+  /** A standalone rectangle from the caller's min and max arrays. */
+  protected makeRect(a_min: readonly number[], a_max: readonly number[]): Rect {
+    const rect = new Float64Array(this.RECT);
+
+    for (let axis = 0; axis < this.NUMDIMS; ++axis) {
+      rect[axis] = a_min[axis]!;
+      rect[this.NUMDIMS + axis] = a_max[axis]!;
+    }
+
+    return rect;
   }
 
   /// Insert entry
@@ -237,14 +272,9 @@ export class RTree<DATATYPE> {
   /// \param a_max Max of bounding rect
   /// \param a_dataId Positive Id of data.  Maybe zero, but negative numbers not allowed.
   Insert(a_min: readonly number[], a_max: readonly number[], a_dataId: DATATYPE): void {
-    const rect: Rect = { m_min: [], m_max: [] };
+    const rect = this.makeRect(a_min, a_max);
 
-    for (let axis = 0; axis < this.NUMDIMS; ++axis) {
-      rect.m_min[axis] = a_min[axis]!;
-      rect.m_max[axis] = a_max[axis]!;
-    }
-
-    this.InsertRect(rect, a_dataId, 0);
+    this.InsertRect(rect, null, a_dataId, 0);
   }
 
   /// Remove entry
@@ -253,12 +283,7 @@ export class RTree<DATATYPE> {
   /// \param a_dataId Positive Id of data.  Maybe zero, but negative numbers not allowed.
   /// \return  1 if record not found, 0 if success.
   Remove(a_min: readonly number[], a_max: readonly number[], a_dataId: DATATYPE): boolean {
-    const rect: Rect = { m_min: [], m_max: [] };
-
-    for (let axis = 0; axis < this.NUMDIMS; ++axis) {
-      rect.m_min[axis] = a_min[axis]!;
-      rect.m_max[axis] = a_max[axis]!;
-    }
+    const rect = this.makeRect(a_min, a_max);
 
     return this.RemoveRect(rect, a_dataId);
   }
@@ -275,12 +300,7 @@ export class RTree<DATATYPE> {
     a_callback: ((id: DATATYPE) => boolean) | null,
     aFinished?: { value: boolean },
   ): number {
-    const rect: Rect = { m_min: [], m_max: [] };
-
-    for (let axis = 0; axis < this.NUMDIMS; ++axis) {
-      rect.m_min[axis] = a_min[axis]!;
-      rect.m_max[axis] = a_max[axis]!;
-    }
+    const rect = this.makeRect(a_min, a_max);
 
     // NOTE: May want to return search result another way, perhaps returning the number of found elements here.
     const foundCount = { value: 0 };
@@ -331,14 +351,16 @@ export class RTree<DATATYPE> {
     for (let i = 0; i < this.m_root.m_count; ++i) {
       if (IsLeaf(this.m_root)) {
         search_q.push({
-          m_branch: this.m_root.m_branch[i]!,
-          minDist: aSquaredDist(a_point, this.m_root.m_branch[i]!.m_data as DATATYPE),
+          m_node: this.m_root,
+          m_index: i,
+          minDist: aSquaredDist(a_point, this.m_root.m_data[i] as DATATYPE),
           isLeaf: IsLeaf(this.m_root),
         });
       } else {
         search_q.push({
-          m_branch: this.m_root.m_branch[i]!,
-          minDist: this.MinDist(a_point, this.m_root.m_branch[i]!.m_rect),
+          m_node: this.m_root,
+          m_index: i,
+          minDist: this.MinDist(a_point, this.m_root.m_rect, i * this.RECT),
           isLeaf: IsLeaf(this.m_root),
         });
       }
@@ -352,21 +374,21 @@ export class RTree<DATATYPE> {
       search_q.pop();
 
       if (curNode.isLeaf) {
-        if (aFilter(curNode.m_branch.m_data as DATATYPE))
-          result.push([curNode.minDist, curNode.m_branch.m_data as DATATYPE]);
+        const data = curNode.m_node.m_data[curNode.m_index] as DATATYPE;
+        if (aFilter(data)) result.push([curNode.minDist, data]);
       } else {
-        const node = curNode.m_branch.m_child!;
+        const node = curNode.m_node.m_child[curNode.m_index]!;
 
         for (let i = 0; i < node.m_count; ++i) {
           const newNode: NNNode<DATATYPE> = {
             isLeaf: IsLeaf(node),
-            m_branch: node.m_branch[i]!,
+            m_node: node,
+            m_index: i,
             minDist: 0,
           };
 
-          if (newNode.isLeaf)
-            newNode.minDist = aSquaredDist(a_point, newNode.m_branch.m_data as DATATYPE);
-          else newNode.minDist = this.MinDist(a_point, node.m_branch[i]!.m_rect);
+          if (newNode.isLeaf) newNode.minDist = aSquaredDist(a_point, node.m_data[i] as DATATYPE);
+          else newNode.minDist = this.MinDist(a_point, node.m_rect, i * this.RECT);
 
           search_q.push(newNode);
         }
@@ -383,11 +405,7 @@ export class RTree<DATATYPE> {
    * not remove safe there either).
    */
   *Iterate(a_min: readonly number[], a_max: readonly number[]): IterableIterator<DATATYPE> {
-    const rect: Rect = { m_min: [], m_max: [] };
-    for (let axis = 0; axis < this.NUMDIMS; ++axis) {
-      rect.m_min[axis] = a_min[axis]!;
-      rect.m_max[axis] = a_max[axis]!;
-    }
+    const rect = this.makeRect(a_min, a_max);
     const out: DATATYPE[] = [];
     this.searchRec(this.m_root, rect, { value: 0 }, (d) => {
       out.push(d);
@@ -414,7 +432,7 @@ export class RTree<DATATYPE> {
     if (IsInternalNode(a_node)) {
       // not a leaf node
       for (let index = 0; index < a_node.m_count; ++index) {
-        this.CountRec(a_node.m_branch[index]!.m_child!, a_count);
+        this.CountRec(a_node.m_child[index]!, a_count);
       }
     } // A leaf node
     else {
@@ -431,7 +449,7 @@ export class RTree<DATATYPE> {
     if (IsInternalNode(a_node)) {
       // This is an internal node in the tree
       for (let index = 0; index < a_node.m_count; ++index) {
-        this.RemoveAllRec(a_node.m_branch[index]!.m_child!);
+        this.RemoveAllRec(a_node.m_child[index]!);
       }
     }
 
@@ -439,13 +457,21 @@ export class RTree<DATATYPE> {
   }
 
   protected AllocNode(): Node<DATATYPE> {
-    const newNode: Node<DATATYPE> = { m_count: 0, m_level: -1, m_branch: [] };
+    const newNode: Node<DATATYPE> = {
+      m_count: 0,
+      m_level: -1,
+      m_rect: new Float64Array(this.MAXNODES * this.RECT),
+      m_child: new Array(this.MAXNODES).fill(null),
+      m_data: new Array(this.MAXNODES).fill(undefined),
+    };
     this.InitNode(newNode);
     return newNode;
   }
 
   protected FreeNode(a_node: Node<DATATYPE>): void {
-    a_node.m_branch.length = 0;
+    a_node.m_child.fill(null);
+    a_node.m_data.fill(undefined);
+    a_node.m_count = 0;
   }
 
   protected InitNode(a_node: Node<DATATYPE>): void {
@@ -454,12 +480,17 @@ export class RTree<DATATYPE> {
   }
 
   protected InitRect(): Rect {
-    const a_rect: Rect = { m_min: [], m_max: [] };
-    for (let index = 0; index < this.NUMDIMS; ++index) {
-      a_rect.m_min[index] = 0;
-      a_rect.m_max[index] = 0;
-    }
-    return a_rect;
+    return new Float64Array(this.RECT);
+  }
+
+  /** Copy the rectangle at `a_srcOff` of `a_src` to `a_dstOff` of `a_dst`. */
+  protected copyRect(
+    a_src: Float64Array,
+    a_srcOff: number,
+    a_dst: Float64Array,
+    a_dstOff: number,
+  ): void {
+    for (let i = 0; i < this.RECT; ++i) a_dst[a_dstOff + i] = a_src[a_srcOff + i]!;
   }
 
   // Inserts a new data rectangle into the index structure.
@@ -471,7 +502,8 @@ export class RTree<DATATYPE> {
   // level to insert; e.g. a data rectangle goes in at level = 0.
   protected InsertRectRec(
     a_rect: Rect,
-    a_id: DATATYPE,
+    a_child: Node<DATATYPE> | null,
+    a_id: DATATYPE | undefined,
     a_node: Node<DATATYPE>,
     a_newNode: { value: Node<DATATYPE> | null },
     a_level: number,
@@ -481,31 +513,32 @@ export class RTree<DATATYPE> {
       const index = this.PickBranch(a_rect, a_node);
       const otherNode: { value: Node<DATATYPE> | null } = { value: null };
 
-      if (!this.InsertRectRec(a_rect, a_id, a_node.m_branch[index]!.m_child!, otherNode, a_level)) {
+      if (
+        !this.InsertRectRec(a_rect, a_child, a_id, a_node.m_child[index]!, otherNode, a_level)
+      ) {
         // Child was not split
-        a_node.m_branch[index]!.m_rect = this.CombineRect(a_rect, a_node.m_branch[index]!.m_rect);
+        this.CombineRect(
+          a_rect,
+          0,
+          a_node.m_rect,
+          index * this.RECT,
+          a_node.m_rect,
+          index * this.RECT,
+        );
         return false;
       }
       // Child was split
-      a_node.m_branch[index]!.m_rect = this.NodeCover(a_node.m_branch[index]!.m_child!);
-      const branch: Branch<DATATYPE> = {
-        m_child: otherNode.value,
-        m_rect: this.NodeCover(otherNode.value!),
-        m_data: undefined,
-      };
-      return this.AddBranch(branch, a_node, a_newNode);
+      this.NodeCover(a_node.m_child[index]!, a_node.m_rect, index * this.RECT);
+      const cover = this.InitRect();
+      this.NodeCover(otherNode.value!, cover, 0);
+      return this.AddBranch(cover, 0, otherNode.value, undefined, a_node, a_newNode);
     }
     if (a_node.m_level === a_level) {
       // Have reached level for insertion. Add rect, split if necessary
       // Child field of leaves contains id of data record; the union is one
       // field in the C++, so a reinserted subtree (level > 0) arrives here as
       // its node.
-      const branch: Branch<DATATYPE> = {
-        m_rect: copyRect(a_rect),
-        m_child: a_level > 0 ? (a_id as unknown as Node<DATATYPE>) : null,
-        m_data: a_level > 0 ? undefined : a_id,
-      };
-      return this.AddBranch(branch, a_node, a_newNode);
+      return this.AddBranch(a_rect, 0, a_child, a_id, a_node, a_newNode);
     }
     // Should never occur
     return false;
@@ -518,25 +551,23 @@ export class RTree<DATATYPE> {
   // level to insert; e.g. a data rectangle goes in at level = 0.
   // InsertRect2 does the recursion.
   //
-  protected InsertRect(a_rect: Rect, a_id: DATATYPE, a_level: number): boolean {
+  protected InsertRect(
+    a_rect: Rect,
+    a_child: Node<DATATYPE> | null,
+    a_id: DATATYPE | undefined,
+    a_level: number,
+  ): boolean {
     const newNode: { value: Node<DATATYPE> | null } = { value: null };
 
-    if (this.InsertRectRec(a_rect, a_id, this.m_root, newNode, a_level)) {
+    if (this.InsertRectRec(a_rect, a_child, a_id, this.m_root, newNode, a_level)) {
       // Root split
       const newRoot = this.AllocNode(); // Grow tree taller and new root
       newRoot.m_level = this.m_root.m_level + 1;
-      let branch: Branch<DATATYPE> = {
-        m_rect: this.NodeCover(this.m_root),
-        m_child: this.m_root,
-        m_data: undefined,
-      };
-      this.AddBranch(branch, newRoot, null);
-      branch = {
-        m_rect: this.NodeCover(newNode.value!),
-        m_child: newNode.value,
-        m_data: undefined,
-      };
-      this.AddBranch(branch, newRoot, null);
+      const cover = this.InitRect();
+      this.NodeCover(this.m_root, cover, 0);
+      this.AddBranch(cover, 0, this.m_root, undefined, newRoot, null);
+      this.NodeCover(newNode.value!, cover, 0);
+      this.AddBranch(cover, 0, newNode.value, undefined, newRoot, null);
       this.m_root = newRoot;
       return true;
     }
@@ -545,20 +576,19 @@ export class RTree<DATATYPE> {
   }
 
   // Find the smallest rectangle that includes all rectangles in branches of a node.
-  protected NodeCover(a_node: Node<DATATYPE>): Rect {
+  protected NodeCover(a_node: Node<DATATYPE>, a_out: Float64Array, a_outOff: number): void {
     let firstTime = true;
-    let rect = this.InitRect();
 
     for (let index = 0; index < a_node.m_count; ++index) {
       if (firstTime) {
-        rect = copyRect(a_node.m_branch[index]!.m_rect);
+        this.copyRect(a_node.m_rect, index * this.RECT, a_out, a_outOff);
         firstTime = false;
       } else {
-        rect = this.CombineRect(rect, a_node.m_branch[index]!.m_rect);
+        this.CombineRect(a_out, a_outOff, a_node.m_rect, index * this.RECT, a_out, a_outOff);
       }
     }
 
-    return rect;
+    if (firstTime) a_out.fill(0, a_outOff, a_outOff + this.RECT); // InitRect()
   }
 
   // Add a branch to a node.  Split the node if necessary.
@@ -566,17 +596,22 @@ export class RTree<DATATYPE> {
   // Returns 1 if node split, sets *new_node to address of new node.
   // Old node updated, becomes one of two.
   protected AddBranch(
-    a_branch: Branch<DATATYPE>,
+    a_rect: Float64Array,
+    a_rectOff: number,
+    a_child: Node<DATATYPE> | null,
+    a_data: DATATYPE | undefined,
     a_node: Node<DATATYPE>,
     a_newNode: { value: Node<DATATYPE> | null } | null,
   ): boolean {
     if (a_node.m_count < this.MAXNODES) {
       // Split won't be necessary
-      a_node.m_branch[a_node.m_count] = copyBranch(a_branch);
+      this.copyRect(a_rect, a_rectOff, a_node.m_rect, a_node.m_count * this.RECT);
+      a_node.m_child[a_node.m_count] = a_child;
+      a_node.m_data[a_node.m_count] = a_data;
       ++a_node.m_count;
       return false;
     }
-    this.SplitNode(a_node, a_branch, a_newNode!);
+    this.SplitNode(a_node, a_rect, a_rectOff, a_child, a_data, a_newNode!);
     return true;
   }
 
@@ -584,7 +619,10 @@ export class RTree<DATATYPE> {
   // Caller must return (or stop using iteration index) after this as count has changed
   protected DisconnectBranch(a_node: Node<DATATYPE>, a_index: number): void {
     // Remove element by swapping with the last element to prevent gaps in array
-    a_node.m_branch[a_index] = a_node.m_branch[a_node.m_count - 1]!;
+    const last = a_node.m_count - 1;
+    this.copyRect(a_node.m_rect, last * this.RECT, a_node.m_rect, a_index * this.RECT);
+    a_node.m_child[a_index] = a_node.m_child[last]!;
+    a_node.m_data[a_index] = a_node.m_data[last];
     --a_node.m_count;
   }
 
@@ -602,9 +640,9 @@ export class RTree<DATATYPE> {
     let best = 0;
 
     for (let index = 0; index < a_node.m_count; ++index) {
-      const curRect = a_node.m_branch[index]!.m_rect;
-      area = this.CalcRectVolume(curRect);
-      increase = this.CombinedRectVolume(a_rect, curRect) - area;
+      const off = index * this.RECT;
+      area = this.CalcRectVolume(a_node.m_rect, off);
+      increase = this.CombinedRectVolume(a_rect, 0, a_node.m_rect, off) - area;
 
       if (increase < bestIncr || firstTime) {
         best = index;
@@ -621,16 +659,26 @@ export class RTree<DATATYPE> {
     return best;
   }
 
-  // Combine two rectangles into larger one containing both
-  protected CombineRect(a_rectA: Rect, a_rectB: Rect): Rect {
-    const newRect: Rect = { m_min: [], m_max: [] };
-
-    for (let index = 0; index < this.NUMDIMS; ++index) {
-      newRect.m_min[index] = Math.min(a_rectA.m_min[index]!, a_rectB.m_min[index]!);
-      newRect.m_max[index] = Math.max(a_rectA.m_max[index]!, a_rectB.m_max[index]!);
+  // Combine two rectangles into larger one containing both. The result goes
+  // to `a_out` at `a_outOff`, which may be either input: the C++ assigns the
+  // returned value over one of them, and each element is read before it is
+  // written.
+  protected CombineRect(
+    a_rectA: Float64Array,
+    a_offA: number,
+    a_rectB: Float64Array,
+    a_offB: number,
+    a_out: Float64Array,
+    a_outOff: number,
+  ): void {
+    const N = this.NUMDIMS;
+    for (let index = 0; index < N; ++index) {
+      a_out[a_outOff + index] = Math.min(a_rectA[a_offA + index]!, a_rectB[a_offB + index]!);
+      a_out[a_outOff + N + index] = Math.max(
+        a_rectA[a_offA + N + index]!,
+        a_rectB[a_offB + N + index]!,
+      );
     }
-
-    return newRect;
   }
 
   // Split a node.
@@ -639,27 +687,18 @@ export class RTree<DATATYPE> {
   // Tries more than one method for choosing a partition, uses best result.
   protected SplitNode(
     a_node: Node<DATATYPE>,
-    a_branch: Branch<DATATYPE>,
+    a_rect: Float64Array,
+    a_rectOff: number,
+    a_child: Node<DATATYPE> | null,
+    a_data: DATATYPE | undefined,
     a_newNode: { value: Node<DATATYPE> | null },
   ): void {
     // Could just use local here, but member or external is faster since it is reused
-    const parVars: PartitionVars<DATATYPE> = {
-      m_partition: [],
-      m_total: 0,
-      m_minFill: 0,
-      m_taken: [],
-      m_count: [0, 0],
-      m_cover: [this.InitRect(), this.InitRect()],
-      m_area: [0, 0],
-      m_branchBuf: [],
-      m_branchCount: 0,
-      m_coverSplit: this.InitRect(),
-      m_coverSplitArea: 0,
-    };
+    const parVars = this.m_parVars;
 
     // Load all the branches into a buffer, initialize old node
     const level = a_node.m_level;
-    this.GetBranches(a_node, a_branch, parVars);
+    this.GetBranches(a_node, a_rect, a_rectOff, a_child, a_data, parVars);
 
     // Find partition
     this.ChoosePartition(parVars, this.MINNODES);
@@ -671,21 +710,21 @@ export class RTree<DATATYPE> {
   }
 
   // Calculate the n-dimensional volume of a rectangle
-  protected RectVolume(a_rect: Rect): number {
+  protected RectVolume(a_rect: Float64Array, a_off: number): number {
     let volume = 1;
 
     for (let index = 0; index < this.NUMDIMS; ++index) {
-      volume *= a_rect.m_max[index]! - a_rect.m_min[index]!;
+      volume *= a_rect[a_off + this.NUMDIMS + index]! - a_rect[a_off + index]!;
     }
     return volume;
   }
 
   // The exact volume of the bounding sphere for the given Rect
-  protected RectSphericalVolume(a_rect: Rect): number {
+  protected RectSphericalVolume(a_rect: Float64Array, a_off: number): number {
     let sumOfSquares = 0;
 
     for (let index = 0; index < this.NUMDIMS; ++index) {
-      const halfExtent = (a_rect.m_max[index]! - a_rect.m_min[index]!) * 0.5;
+      const halfExtent = (a_rect[a_off + this.NUMDIMS + index]! - a_rect[a_off + index]!) * 0.5;
       sumOfSquares += halfExtent * halfExtent;
     }
 
@@ -696,13 +735,19 @@ export class RTree<DATATYPE> {
   // rectangle: the same arithmetic over the combined extents. The C++ builds
   // the temporary on the stack for free; here every one was a heap object,
   // and PickBranch makes MAXNODES of them per level of every insert.
-  protected CombinedRectVolume(a_rectA: Rect, a_rectB: Rect): number {
+  protected CombinedRectVolume(
+    a_rectA: Float64Array,
+    a_offA: number,
+    a_rectB: Float64Array,
+    a_offB: number,
+  ): number {
+    const N = this.NUMDIMS;
     let sumOfSquares = 0;
 
-    for (let index = 0; index < this.NUMDIMS; ++index) {
+    for (let index = 0; index < N; ++index) {
       const halfExtent =
-        (Math.max(a_rectA.m_max[index]!, a_rectB.m_max[index]!) -
-          Math.min(a_rectA.m_min[index]!, a_rectB.m_min[index]!)) *
+        (Math.max(a_rectA[a_offA + N + index]!, a_rectB[a_offB + N + index]!) -
+          Math.min(a_rectA[a_offA + index]!, a_rectB[a_offB + index]!)) *
         0.5;
       sumOfSquares += halfExtent * halfExtent;
     }
@@ -726,39 +771,51 @@ export class RTree<DATATYPE> {
   }
 
   // Use one of the methods to calculate retangle volume
-  protected CalcRectVolume(a_rect: Rect): number {
+  protected CalcRectVolume(a_rect: Float64Array, a_off: number): number {
     // RTREE_USE_SPHERICAL_VOLUME
-    return this.RectSphericalVolume(a_rect); // Slower but helps certain merge cases
+    return this.RectSphericalVolume(a_rect, a_off); // Slower but helps certain merge cases
   }
 
   // Load branch buffer with branches from full node plus the extra branch.
   protected GetBranches(
     a_node: Node<DATATYPE>,
-    a_branch: Branch<DATATYPE>,
+    a_rect: Float64Array,
+    a_rectOff: number,
+    a_child: Node<DATATYPE> | null,
+    a_data: DATATYPE | undefined,
     a_parVars: PartitionVars<DATATYPE>,
   ): void {
     // Load the branch buffer
+    a_parVars.m_bufRect.set(a_node.m_rect, 0);
     for (let index = 0; index < this.MAXNODES; ++index) {
-      a_parVars.m_branchBuf[index] = a_node.m_branch[index]!;
+      a_parVars.m_bufChild[index] = a_node.m_child[index]!;
+      a_parVars.m_bufData[index] = a_node.m_data[index];
     }
 
-    a_parVars.m_branchBuf[this.MAXNODES] = copyBranch(a_branch);
+    this.copyRect(a_rect, a_rectOff, a_parVars.m_bufRect, this.MAXNODES * this.RECT);
+    a_parVars.m_bufChild[this.MAXNODES] = a_child;
+    a_parVars.m_bufData[this.MAXNODES] = a_data;
     a_parVars.m_branchCount = this.MAXNODES + 1;
 
     // Calculate rect containing all in the set
-    a_parVars.m_coverSplit = copyRect(a_parVars.m_branchBuf[0]!.m_rect);
+    this.copyRect(a_parVars.m_bufRect, 0, a_parVars.m_coverSplit, 0);
 
     for (let index = 1; index < this.MAXNODES + 1; ++index) {
-      a_parVars.m_coverSplit = this.CombineRect(
+      this.CombineRect(
         a_parVars.m_coverSplit,
-        a_parVars.m_branchBuf[index]!.m_rect,
+        0,
+        a_parVars.m_bufRect,
+        index * this.RECT,
+        a_parVars.m_coverSplit,
+        0,
       );
     }
 
-    a_parVars.m_coverSplitArea = this.CalcRectVolume(a_parVars.m_coverSplit);
+    a_parVars.m_coverSplitArea = this.CalcRectVolume(a_parVars.m_coverSplit, 0);
 
     this.InitNode(a_node);
-    a_node.m_branch = [];
+    a_node.m_child.fill(null);
+    a_node.m_data.fill(undefined);
   }
 
   // Method #0 for choosing a partition:
@@ -790,11 +847,13 @@ export class RTree<DATATYPE> {
 
       for (let index = 0; index < a_parVars.m_total; ++index) {
         if (!a_parVars.m_taken[index]) {
-          const curRect = a_parVars.m_branchBuf[index]!.m_rect;
+          const off = index * this.RECT;
           const growth0 =
-            this.CombinedRectVolume(curRect, a_parVars.m_cover[0]) - a_parVars.m_area[0];
+            this.CombinedRectVolume(a_parVars.m_bufRect, off, a_parVars.m_cover[0], 0) -
+            a_parVars.m_area[0];
           const growth1 =
-            this.CombinedRectVolume(curRect, a_parVars.m_cover[1]) - a_parVars.m_area[1];
+            this.CombinedRectVolume(a_parVars.m_bufRect, off, a_parVars.m_cover[1], 0) -
+            a_parVars.m_area[1];
           let diff = growth1 - growth0;
 
           if (diff >= 0) {
@@ -844,10 +903,25 @@ export class RTree<DATATYPE> {
     a_parVars: PartitionVars<DATATYPE>,
   ): void {
     for (let index = 0; index < a_parVars.m_total; ++index) {
+      const off = index * this.RECT;
       if (a_parVars.m_partition[index] === 0) {
-        this.AddBranch(a_parVars.m_branchBuf[index]!, a_nodeA, null);
+        this.AddBranch(
+          a_parVars.m_bufRect,
+          off,
+          a_parVars.m_bufChild[index]!,
+          a_parVars.m_bufData[index],
+          a_nodeA,
+          null,
+        );
       } else if (a_parVars.m_partition[index] === 1) {
-        this.AddBranch(a_parVars.m_branchBuf[index]!, a_nodeB, null);
+        this.AddBranch(
+          a_parVars.m_bufRect,
+          off,
+          a_parVars.m_bufChild[index]!,
+          a_parVars.m_bufData[index],
+          a_nodeB,
+          null,
+        );
       }
     }
   }
@@ -877,7 +951,7 @@ export class RTree<DATATYPE> {
     const area: number[] = [];
 
     for (let index = 0; index < a_parVars.m_total; ++index) {
-      area[index] = this.CalcRectVolume(a_parVars.m_branchBuf[index]!.m_rect);
+      area[index] = this.CalcRectVolume(a_parVars.m_bufRect, index * this.RECT);
     }
 
     worst = -a_parVars.m_coverSplitArea - 1;
@@ -886,8 +960,10 @@ export class RTree<DATATYPE> {
       for (let indexB = indexA + 1; indexB < a_parVars.m_total; ++indexB) {
         waste =
           this.CombinedRectVolume(
-            a_parVars.m_branchBuf[indexA]!.m_rect,
-            a_parVars.m_branchBuf[indexB]!.m_rect,
+            a_parVars.m_bufRect,
+            indexA * this.RECT,
+            a_parVars.m_bufRect,
+            indexB * this.RECT,
           ) -
           area[indexA]! -
           area[indexB]!;
@@ -909,16 +985,14 @@ export class RTree<DATATYPE> {
     a_parVars.m_partition[a_index] = a_group;
     a_parVars.m_taken[a_index] = true;
 
+    const cover = a_parVars.m_cover[a_group]!;
     if (a_parVars.m_count[a_group] === 0) {
-      a_parVars.m_cover[a_group] = copyRect(a_parVars.m_branchBuf[a_index]!.m_rect);
+      this.copyRect(a_parVars.m_bufRect, a_index * this.RECT, cover, 0);
     } else {
-      a_parVars.m_cover[a_group] = this.CombineRect(
-        a_parVars.m_branchBuf[a_index]!.m_rect,
-        a_parVars.m_cover[a_group]!,
-      );
+      this.CombineRect(a_parVars.m_bufRect, a_index * this.RECT, cover, 0, cover, 0);
     }
 
-    a_parVars.m_area[a_group] = this.CalcRectVolume(a_parVars.m_cover[a_group]!);
+    a_parVars.m_area[a_group] = this.CalcRectVolume(cover, 0);
     a_parVars.m_count[a_group] = a_parVars.m_count[a_group]! + 1;
   }
 
@@ -939,10 +1013,12 @@ export class RTree<DATATYPE> {
         for (let index = 0; index < tempNode.m_count; ++index) {
           // The C++ reinserts `m_data` of the union, which for an internal
           // node is the child pointer: the branch goes back in whole.
-          const b = tempNode.m_branch[index]!;
+          const rect = this.InitRect();
+          this.copyRect(tempNode.m_rect, index * this.RECT, rect, 0);
           this.InsertRect(
-            b.m_rect,
-            (IsLeaf(tempNode) ? b.m_data : b.m_child) as DATATYPE,
+            rect,
+            IsLeaf(tempNode) ? null : tempNode.m_child[index]!,
+            IsLeaf(tempNode) ? tempNode.m_data[index] : undefined,
             tempNode.m_level,
           );
         }
@@ -955,7 +1031,7 @@ export class RTree<DATATYPE> {
 
       // Check for redundant root (not leaf, 1 child) and eliminate
       if (this.m_root.m_count === 1 && IsInternalNode(this.m_root)) {
-        const tempNode = this.m_root.m_branch[0]!.m_child!;
+        const tempNode = this.m_root.m_child[0]!;
         this.FreeNode(this.m_root);
         this.m_root = tempNode;
       }
@@ -978,14 +1054,15 @@ export class RTree<DATATYPE> {
     if (IsInternalNode(a_node)) {
       // not a leaf node
       for (let index = 0; index < a_node.m_count; ++index) {
-        if (RTree.Overlap(a_rect, a_node.m_branch[index]!.m_rect)) {
-          if (!this.RemoveRectRec(a_rect, a_id, a_node.m_branch[index]!.m_child!, a_listNode)) {
-            if (a_node.m_branch[index]!.m_child!.m_count >= this.MINNODES) {
+        const off = index * this.RECT;
+        if (this.Overlap(a_rect, 0, a_node.m_rect, off)) {
+          if (!this.RemoveRectRec(a_rect, a_id, a_node.m_child[index]!, a_listNode)) {
+            if (a_node.m_child[index]!.m_count >= this.MINNODES) {
               // child removed, just resize parent rect
-              a_node.m_branch[index]!.m_rect = this.NodeCover(a_node.m_branch[index]!.m_child!);
+              this.NodeCover(a_node.m_child[index]!, a_node.m_rect, off);
             } else {
               // child removed, not enough entries in node, eliminate node
-              this.ReInsert(a_node.m_branch[index]!.m_child!, a_listNode);
+              this.ReInsert(a_node.m_child[index]!, a_listNode);
               this.DisconnectBranch(a_node, index); // Must return after this call as count has changed
             }
 
@@ -998,7 +1075,7 @@ export class RTree<DATATYPE> {
     }
     // A leaf node
     for (let index = 0; index < a_node.m_count; ++index) {
-      if (a_node.m_branch[index]!.m_data === a_id) {
+      if (a_node.m_data[index] === a_id) {
         this.DisconnectBranch(a_node, index); // Must return after this call as count has changed
         return false;
       }
@@ -1008,12 +1085,17 @@ export class RTree<DATATYPE> {
   }
 
   // Decide whether two rectangles overlap.
-  static Overlap(a_rectA: Rect, a_rectB: Rect): boolean {
-    const n = a_rectA.m_min.length;
-    for (let index = 0; index < n; ++index) {
+  protected Overlap(
+    a_rectA: Float64Array,
+    a_offA: number,
+    a_rectB: Float64Array,
+    a_offB: number,
+  ): boolean {
+    const N = this.NUMDIMS;
+    for (let index = 0; index < N; ++index) {
       if (
-        a_rectA.m_min[index]! > a_rectB.m_max[index]! ||
-        a_rectB.m_min[index]! > a_rectA.m_max[index]!
+        a_rectA[a_offA + index]! > a_rectB[a_offB + N + index]! ||
+        a_rectB[a_offB + index]! > a_rectA[a_offA + N + index]!
       ) {
         return false;
       }
@@ -1039,11 +1121,13 @@ export class RTree<DATATYPE> {
     a_foundCount: { value: number },
     a_callback: ((id: DATATYPE) => boolean) | null,
   ): boolean {
+    if (this.NUMDIMS === 2) return this.searchRec2(a_node, a_rect, a_foundCount, a_callback);
+    const rects = a_node.m_rect;
     if (IsInternalNode(a_node)) {
       // This is an internal node in the tree
       for (let index = 0; index < a_node.m_count; ++index) {
-        if (RTree.Overlap(a_rect, a_node.m_branch[index]!.m_rect)) {
-          if (!this.searchRec(a_node.m_branch[index]!.m_child!, a_rect, a_foundCount, a_callback)) {
+        if (this.Overlap(a_rect, 0, rects, index * this.RECT)) {
+          if (!this.searchRec(a_node.m_child[index]!, a_rect, a_foundCount, a_callback)) {
             return false; // Don't continue searching
           }
         }
@@ -1051,8 +1135,53 @@ export class RTree<DATATYPE> {
     } // This is a leaf node
     else {
       for (let index = 0; index < a_node.m_count; ++index) {
-        if (RTree.Overlap(a_rect, a_node.m_branch[index]!.m_rect)) {
-          const id = a_node.m_branch[index]!.m_data as DATATYPE;
+        if (this.Overlap(a_rect, 0, rects, index * this.RECT)) {
+          const id = a_node.m_data[index] as DATATYPE;
+          ++a_foundCount.value;
+
+          if (a_callback && !a_callback(id)) {
+            return false; // Don't continue searching
+          }
+        }
+      }
+    }
+
+    return true; // Continue searching
+  }
+
+  // searchRec with NUMDIMS == 2: the same walk with Overlap unrolled over the
+  // two axes, which the C++ template does at compile time for every NUMDIMS.
+  private searchRec2(
+    a_node: Node<DATATYPE>,
+    a_rect: Rect,
+    a_foundCount: { value: number },
+    a_callback: ((id: DATATYPE) => boolean) | null,
+  ): boolean {
+    const rects = a_node.m_rect;
+    const x0 = a_rect[0]!;
+    const y0 = a_rect[1]!;
+    const x1 = a_rect[2]!;
+    const y1 = a_rect[3]!;
+    if (IsInternalNode(a_node)) {
+      // This is an internal node in the tree
+      for (let index = 0; index < a_node.m_count; ++index) {
+        const off = index * 4;
+        if (
+          !(x0 > rects[off + 2]! || rects[off]! > x1 || y0 > rects[off + 3]! || rects[off + 1]! > y1)
+        ) {
+          if (!this.searchRec2(a_node.m_child[index]!, a_rect, a_foundCount, a_callback)) {
+            return false; // Don't continue searching
+          }
+        }
+      }
+    } // This is a leaf node
+    else {
+      for (let index = 0; index < a_node.m_count; ++index) {
+        const off = index * 4;
+        if (
+          !(x0 > rects[off + 2]! || rects[off]! > x1 || y0 > rects[off + 3]! || rects[off + 1]! > y1)
+        ) {
+          const id = a_node.m_data[index] as DATATYPE;
           ++a_foundCount.value;
 
           if (a_callback && !a_callback(id)) {
@@ -1067,20 +1196,21 @@ export class RTree<DATATYPE> {
 
   //calculate the minimum distance between a point and a rectangle as defined by Manolopoulos et al.
   // returns Euclidean norm to ensure value fits in ELEMTYPE
-  protected MinDist(a_point: readonly number[], a_rect: Rect): number {
+  protected MinDist(a_point: readonly number[], a_rect: Float64Array, a_off: number): number {
     const q = a_point;
-    const s = a_rect.m_min;
-    const t = a_rect.m_max;
+    const N = this.NUMDIMS;
 
     let minDist = 0.0;
 
-    for (let index = 0; index < this.NUMDIMS; index++) {
+    for (let index = 0; index < N; index++) {
       let r = Math.trunc(q[index]!); // `int r`
+      const s = a_rect[a_off + index]!;
+      const t = a_rect[a_off + N + index]!;
 
-      if (q[index]! < s[index]!) {
-        r = s[index]!;
-      } else if (q[index]! > t[index]!) {
-        r = t[index]!;
+      if (q[index]! < s) {
+        r = s;
+      } else if (q[index]! > t) {
+        r = t;
       }
 
       const addend = q[index]! - r;
@@ -1167,23 +1297,23 @@ export class RTreeIntReal<DATATYPE> extends RTree<DATATYPE> {
     this.m_unitSphereVolumeInt = BigInt(this.m_unitSphereVolumeIntNum);
   }
 
-  protected RectVolumeInt(a_rect: Rect): bigint {
+  protected RectVolumeInt(a_rect: Float64Array, a_off: number): bigint {
     let volume = 1n;
 
     for (let index = 0; index < this.NUMDIMS; ++index) {
-      volume *= BigInt(a_rect.m_max[index]! - a_rect.m_min[index]!);
+      volume *= BigInt(a_rect[a_off + this.NUMDIMS + index]! - a_rect[a_off + index]!);
     }
     return volume;
   }
 
-  protected RectSphericalVolumeInt(a_rect: Rect): INT64 {
+  protected RectSphericalVolumeInt(a_rect: Float64Array, a_off: number): INT64 {
     let sumOfSquares: INT64 = 0;
 
     for (let index = 0; index < this.NUMDIMS; ++index) {
       // ( (int64) max - (int64) min ) * 0.5f: the int64 difference converts to
       // float, the float product converts back to int64 by truncation.
       const halfExtent = Math.trunc(
-        Math.fround(a_rect.m_max[index]! - a_rect.m_min[index]!) * 0.5,
+        Math.fround(a_rect[a_off + this.NUMDIMS + index]! - a_rect[a_off + index]!) * 0.5,
       );
       sumOfSquares = addSquare(sumOfSquares, halfExtent);
     }
@@ -1192,14 +1322,20 @@ export class RTreeIntReal<DATATYPE> extends RTree<DATATYPE> {
   }
 
   // CalcRectVolumeInt( CombineRect( a_rectA, a_rectB ) ) without the rectangle
-  protected CombinedRectVolumeInt(a_rectA: Rect, a_rectB: Rect): INT64 {
+  protected CombinedRectVolumeInt(
+    a_rectA: Float64Array,
+    a_offA: number,
+    a_rectB: Float64Array,
+    a_offB: number,
+  ): INT64 {
+    const N = this.NUMDIMS;
     let sumOfSquares: INT64 = 0;
 
-    for (let index = 0; index < this.NUMDIMS; ++index) {
+    for (let index = 0; index < N; ++index) {
       const halfExtent = Math.trunc(
         Math.fround(
-          Math.max(a_rectA.m_max[index]!, a_rectB.m_max[index]!) -
-            Math.min(a_rectA.m_min[index]!, a_rectB.m_min[index]!),
+          Math.max(a_rectA[a_offA + N + index]!, a_rectB[a_offB + N + index]!) -
+            Math.min(a_rectA[a_offA + index]!, a_rectB[a_offB + index]!),
         ) * 0.5,
       );
       sumOfSquares = addSquare(sumOfSquares, halfExtent);
@@ -1224,9 +1360,9 @@ export class RTreeIntReal<DATATYPE> extends RTree<DATATYPE> {
     return radius ** BigInt(this.NUMDIMS) * this.m_unitSphereVolumeInt;
   }
 
-  protected CalcRectVolumeInt(a_rect: Rect): INT64 {
+  protected CalcRectVolumeInt(a_rect: Float64Array, a_off: number): INT64 {
     // RTREE_USE_SPHERICAL_VOLUME
-    return this.RectSphericalVolumeInt(a_rect);
+    return this.RectSphericalVolumeInt(a_rect, a_off);
   }
 
   protected override PickBranch(a_rect: Rect, a_node: Node<DATATYPE>): number {
@@ -1238,9 +1374,9 @@ export class RTreeIntReal<DATATYPE> extends RTree<DATATYPE> {
     let best = 0;
 
     for (let index = 0; index < a_node.m_count; ++index) {
-      const curRect = a_node.m_branch[index]!.m_rect;
-      area = this.CalcRectVolumeInt(curRect);
-      increase = int64Sub(this.CombinedRectVolumeInt(a_rect, curRect), area);
+      const off = index * this.RECT;
+      area = this.CalcRectVolumeInt(a_node.m_rect, off);
+      increase = int64Sub(this.CombinedRectVolumeInt(a_rect, 0, a_node.m_rect, off), area);
 
       if (increase < bestIncr || firstTime) {
         best = index;
@@ -1259,11 +1395,14 @@ export class RTreeIntReal<DATATYPE> extends RTree<DATATYPE> {
 
   protected override GetBranches(
     a_node: Node<DATATYPE>,
-    a_branch: Branch<DATATYPE>,
+    a_rect: Float64Array,
+    a_rectOff: number,
+    a_child: Node<DATATYPE> | null,
+    a_data: DATATYPE | undefined,
     a_parVars: PartitionVars<DATATYPE>,
   ): void {
-    super.GetBranches(a_node, a_branch, a_parVars);
-    this.m_coverSplitAreaInt = this.CalcRectVolumeInt(a_parVars.m_coverSplit);
+    super.GetBranches(a_node, a_rect, a_rectOff, a_child, a_data, a_parVars);
+    this.m_coverSplitAreaInt = this.CalcRectVolumeInt(a_parVars.m_coverSplit, 0);
   }
 
   protected override ChoosePartition(a_parVars: PartitionVars<DATATYPE>, a_minFill: number): void {
@@ -1284,13 +1423,13 @@ export class RTreeIntReal<DATATYPE> extends RTree<DATATYPE> {
 
       for (let index = 0; index < a_parVars.m_total; ++index) {
         if (!a_parVars.m_taken[index]) {
-          const curRect = a_parVars.m_branchBuf[index]!.m_rect;
+          const off = index * this.RECT;
           const growth0 = int64Sub(
-            this.CombinedRectVolumeInt(curRect, a_parVars.m_cover[0]),
+            this.CombinedRectVolumeInt(a_parVars.m_bufRect, off, a_parVars.m_cover[0], 0),
             this.m_areaInt[0],
           );
           const growth1 = int64Sub(
-            this.CombinedRectVolumeInt(curRect, a_parVars.m_cover[1]),
+            this.CombinedRectVolumeInt(a_parVars.m_bufRect, off, a_parVars.m_cover[1], 0),
             this.m_areaInt[1],
           );
           let diff = int64Sub(growth1, growth0);
@@ -1351,7 +1490,7 @@ export class RTreeIntReal<DATATYPE> extends RTree<DATATYPE> {
     const area: INT64[] = [];
 
     for (let index = 0; index < a_parVars.m_total; ++index) {
-      area[index] = this.CalcRectVolumeInt(a_parVars.m_branchBuf[index]!.m_rect);
+      area[index] = this.CalcRectVolumeInt(a_parVars.m_bufRect, index * this.RECT);
     }
 
     worst = int64Sub(-this.m_coverSplitAreaInt, 1);
@@ -1361,8 +1500,10 @@ export class RTreeIntReal<DATATYPE> extends RTree<DATATYPE> {
         waste = int64Sub(
           int64Sub(
             this.CombinedRectVolumeInt(
-              a_parVars.m_branchBuf[indexA]!.m_rect,
-              a_parVars.m_branchBuf[indexB]!.m_rect,
+              a_parVars.m_bufRect,
+              indexA * this.RECT,
+              a_parVars.m_bufRect,
+              indexB * this.RECT,
             ),
             area[indexA]!,
           ),
@@ -1389,16 +1530,14 @@ export class RTreeIntReal<DATATYPE> extends RTree<DATATYPE> {
     a_parVars.m_partition[a_index] = a_group;
     a_parVars.m_taken[a_index] = true;
 
+    const cover = a_parVars.m_cover[a_group]!;
     if (a_parVars.m_count[a_group] === 0) {
-      a_parVars.m_cover[a_group] = copyRect(a_parVars.m_branchBuf[a_index]!.m_rect);
+      this.copyRect(a_parVars.m_bufRect, a_index * this.RECT, cover, 0);
     } else {
-      a_parVars.m_cover[a_group] = this.CombineRect(
-        a_parVars.m_branchBuf[a_index]!.m_rect,
-        a_parVars.m_cover[a_group]!,
-      );
+      this.CombineRect(a_parVars.m_bufRect, a_index * this.RECT, cover, 0, cover, 0);
     }
 
-    this.m_areaInt[a_group] = this.CalcRectVolumeInt(a_parVars.m_cover[a_group]!);
+    this.m_areaInt[a_group] = this.CalcRectVolumeInt(cover, 0);
     a_parVars.m_count[a_group] = a_parVars.m_count[a_group]! + 1;
   }
 }

@@ -242,10 +242,15 @@ describe('RTree visit order', () => {
 describe('RTreeIntReal volume arithmetic', () => {
   class Probe extends RTreeIntReal<number> {
     volume(mn: number[], mx: number[]): number | bigint {
-      return this.CalcRectVolumeInt({ m_min: mn, m_max: mx });
+      return this.CalcRectVolumeInt(new Float64Array([...mn, ...mx]), 0);
     }
     combined(a: [number[], number[]], b: [number[], number[]]): number | bigint {
-      return this.CombinedRectVolumeInt({ m_min: a[0], m_max: a[1] }, { m_min: b[0], m_max: b[1] });
+      return this.CombinedRectVolumeInt(
+        new Float64Array([...a[0], ...a[1]]),
+        0,
+        new Float64Array([...b[0], ...b[1]]),
+        0,
+      );
     }
   }
   // ( (int64) max - (int64) min ) * 0.5f truncated, squared and summed in
