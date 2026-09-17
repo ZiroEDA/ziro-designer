@@ -35,6 +35,8 @@ import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { BOARD_COMMIT } from './board_commit.js';
+import { DEFAULT_THEME, GetColorSettings } from '@ziroeda/common/src/pgm_base.js';
+import type { COLOR_SETTINGS } from '@ziroeda/common/src/settings/color_settings.js';
 import type { BOARD } from './board.js';
 import type { PCB_VIEW } from './pcb_view.js';
 import type { BOARD_ITEM } from './board_item.js';
@@ -138,6 +140,11 @@ export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {
 
   /** `EDA_EVT_BOARD_CHANGING`, the event `SetBoard` raises before the swap. */
   protected OnBoardChanging(): void {}
+
+  override GetColorSettings(_aForceRefresh = false): COLOR_SETTINGS {
+    const cfg = this.GetPcbNewSettings();
+    return GetColorSettings(cfg ? cfg.m_ColorTheme : DEFAULT_THEME);
+  }
 
   /**
    * Put \a aItemsList into the undo list.

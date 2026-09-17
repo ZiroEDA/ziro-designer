@@ -49,6 +49,7 @@ export function pcbnewSettingsOf(json: PcbnewSettings): PCBNEW_SETTINGS {
   s.m_Display.m_DisplayRatsnestLinesCurved = d.ratsnest_curved;
   s.m_Display.m_RatsnestThickness = d.ratsnest_thickness;
   s.m_ShowPageLimits = d.show_page_borders;
+  s.m_ColorTheme = json.appearance.color_theme;
 
   s.m_AngleSnapMode = e.pcb_angle_snap_mode;
   s.m_RotationAngle = new EDA_ANGLE(e.rotation_angle, EDA_ANGLE_T.TENTHS_OF_A_DEGREE_T);

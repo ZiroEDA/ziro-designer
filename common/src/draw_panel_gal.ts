@@ -432,9 +432,13 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS {
     return this.m_parent;
   }
 
-  /** `wxWindow::GetClientSize()`, in logical pixels. */
+  /**
+   * `wxWindow::GetClientSize()`, in logical pixels: the panel is the element
+   * the canvas sits in (the wxScrolledCanvas), the canvas its wxGLCanvas
+   * child, which `ResizeScreen` sizes one pixel larger.
+   */
   GetClientSize(): VECTOR2I {
-    const c = this.window.canvas;
+    const c = this.window.canvas.parentElement ?? this.window.canvas;
     return { x: Math.trunc(c.clientWidth), y: Math.trunc(c.clientHeight) };
   }
 
@@ -1170,12 +1174,20 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS {
   // The DOM side of the wxScrolledCanvas
   // ------------------------------------------------------------------
 
-  /** `wxGLCanvas::SetSize`: the element's backing store, at the display's scale. */
+  /**
+   * `wxGLCanvas::SetSize`: the element's size, and its backing store at the
+   * display's scale.
+   */
   private resizeBackingStore(aWidth: number, aHeight: number): void {
     const c = this.window.canvas;
     const sf = this.GetScaleFactor();
     const w = Math.round(aWidth * sf);
     const h = Math.round(aHeight * sf);
+
+    if (c.style) {
+      c.style.width = `${aWidth}px`;
+      c.style.height = `${aHeight}px`;
+    }
 
     if (c.width !== w) c.width = w;
     if (c.height !== h) c.height = h;
@@ -1264,7 +1276,7 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS {
       this.m_resizeObserver = new ResizeObserver(() => {
         this.ProcessEvent(new wxSizeEvent(this.GetClientSize()));
       });
-      this.m_resizeObserver.observe(canvas);
+      this.m_resizeObserver.observe(canvas.parentElement ?? canvas);
     }
 
     if (typeof IntersectionObserver !== 'undefined') {

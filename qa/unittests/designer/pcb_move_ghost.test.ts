@@ -6,10 +6,10 @@
  *
  * Upstream this cannot go wrong, because there is only one mechanism:
  * `VIEW::Update` re-caches the item that moved and everything it draws goes
- * with it, anchor cross included. We have two — a GPU path that translates the
- * item's recorded vertices in place, and an overlay path that takes the item
- * out of the board and draws a copy at the cursor — and each of them had a way
- * to leave the original sitting where it was.
+ * with it, anchor cross included. With the KiCad canvas the moving items are
+ * hidden in the VIEW and the overlay draws their copy; the raster fallback
+ * still takes the item out of the board scene and draws a copy at the cursor,
+ * and had a way to leave the original sitting where it was.
  *
  * The LAYER_ANCHOR cross is the one this file can measure directly. It is
  * screen-space (`draw(FOOTPRINT)`: "size and width constant, not related to the
@@ -142,41 +142,39 @@ describe('an in-place GPU drag takes the anchor with it', () => {
   });
 });
 
-describe('the overlay fallback is wired for a drag that started in place', () => {
-  // The other half, which only the source can show: `updateMove`'s in-place
-  // branch used to clear `inPlaceMoveRef` when `gl.moveItems` refused and do
-  // nothing else. The gesture then had no overlay (beginMove's in-place branch
-  // returns before building one) AND the originals still in the retained scene
-  // (it returns before scheduling the rebuild too), so the part sat still while
-  // the selection copy followed the cursor.
-  it('both entries into the slow path call the one function', () => {
-    // Declared once...
+describe('the VIEW hides what the overlay is dragging', () => {
+  // With the KiCad canvas drawing the board there is one mechanism again:
+  // the items in flight are hidden in the VIEW (`VIEW::Hide`) and the overlay
+  // draws their copy at the cursor; the drop or the Escape shows them again
+  // before the commit re-derives the view. The in-place GPU shift is gone
+  // with the buffer it shifted.
+  it('the one entry into the overlay move hides the items in the VIEW', () => {
     expect(text).toContain('const startOverlayMove = (');
-    // ...and called from exactly two places: beginMove, and the moveItems
-    // failure. Two is the point of the test: before this there was one.
-    expect(text.match(/startOverlayMove\(/g)).toHaveLength(2);
+    expect(text.match(/startOverlayMove\(/g)).toHaveLength(1);
+    const i = text.indexOf('const startOverlayMove = (');
+    const body = text.slice(i, i + 1600);
+    expect(body).toContain('kItemsForIds(brd, affected)');
+    expect(body).toContain('setItemsHidden(panel, items, true)');
   });
 
-  it('the failure branch does more than clear the flag', () => {
-    const i = text.indexOf('The GPU could not take it after all');
+  it('a router drag hides the line it re-cuts, too', () => {
+    const i = text.indexOf('const beginTrackDrag = (');
     expect(i).toBeGreaterThan(-1);
-    const after = text.slice(i, i + 700);
-    expect(after).toContain('inPlaceMoveRef.current = null;');
-    expect(after).toContain('startOverlayMove(');
+    const body = text.slice(i, i + 4000);
+    expect(body).toContain('setItemsHidden(panelRef.current, items, true)');
   });
 
-  it('the frame builds the shift from the delta the GPU applied', () => {
-    // The unit tests above exercise the passes; this is the wiring that decides
-    // whether they are ever told anything.
-    const i = text.indexOf('const inPlaceShift = inPlaceMoveRef.current');
-    expect(i).toBeGreaterThan(-1);
-    const decl = text.slice(i, i + 320);
-    expect(decl).toContain('ids: dragAffectedRef.current');
-    expect(decl).toContain('dx: inPlaceMoveRef.current.x');
-    expect(decl).toContain('dy: inPlaceMoveRef.current.y');
-    // `inPlaceMoveRef`, not `moveDeltaRef`: the buffer may be a frame behind
-    // the cursor, and the passes must agree with the buffer, not the pointer.
-    expect(decl).not.toContain('moveDeltaRef');
+  it('both ends of the gesture show the items again', () => {
+    expect(text.match(/unhideMovingItems\(\);/g)).toHaveLength(2);
+    const commit = text.indexOf('const commitMove = (): void => {');
+    const cancel = text.indexOf('const cancelMove = (): void => {');
+    expect(text.slice(commit, cancel)).toContain('unhideMovingItems();');
+    expect(text.slice(cancel, cancel + 2500)).toContain('unhideMovingItems();');
+  });
+
+  it('nothing is shifted in place any more', () => {
+    expect(text).not.toContain('gl.moveItems(');
+    expect(text).not.toContain('The GPU could not take it after all');
   });
 });
 
@@ -262,8 +260,9 @@ describe('pad numbers and net names travel too', () => {
     expect(textAt({ ids: new Set(['footprint:9']), dx: 20 * MM, dy: 0 })).toEqual(textAt(null));
   });
 
-  it('all three drawNetNames call sites are handed the shift', () => {
-    // Two GPU passes (under and over) and the Canvas2D fallback.
-    expect(text.match(/^\s*inPlaceShift,$/gm)).toHaveLength(4); // + drawAnchors
+  it('the raster path hands the shift to its net-name pass and the anchors', () => {
+    // The VIEW draws its own net names and anchors, hidden with the item; the
+    // Canvas2D fallback still has the one pass of each.
+    expect(text.match(/^\s*inPlaceShift,$/gm)).toHaveLength(2);
   });
 });

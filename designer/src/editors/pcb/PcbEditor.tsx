@@ -495,8 +495,28 @@ import {
   type ScenePathFactory,
   type SceneFilter,
 } from './renderBoard.js';
-import { PcbGl } from '../../render/gl/pcb_gl.js';
-import { GL_PATH_FACTORY } from '../../render/gl/gl_path.js';
+import {
+  applyDisplayState,
+  attachBoardToPanel,
+  createPcbDrawPanel,
+  type EditorDisplayState,
+  installPgm,
+  kItemsForIds,
+  loadBitmapFontImage,
+  reloadUserColorSettings,
+  setItemsHidden,
+  syncViewTransform,
+} from './pcb_canvas.js';
+import type { PCB_DRAW_PANEL_GAL } from '@ziroeda/pcbnew/src/pcb_draw_panel_gal.js';
+import type { BOARD_ITEM } from '@ziroeda/pcbnew/src/board_item.js';
+import { PCB_DISPLAY_OPTIONS, type PCB_PAINTER } from '@ziroeda/pcbnew/src/pcb_painter.js';
+import {
+  HIGH_CONTRAST_MODE,
+  NET_COLOR_MODE,
+  ZONE_DISPLAY_MODE,
+} from '@ziroeda/pcbnew/src/board_project_settings.js';
+import { GAL_LAYER_ID, type PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { GRID_STYLE } from '@ziroeda/common/src/gal/gal_display_options.js';
 import {
   applyToggle,
   crosshairToggleId,
@@ -2216,7 +2236,19 @@ export function PcbEditor({
    * most able to hide.
    */
   const glCanvasRef = useRef<HTMLCanvasElement>(null);
-  const glRef = useRef<PcbGl | null>(null);
+  /**
+   * `PCB_DRAW_PANEL_GAL`, the KiCad canvas over `glCanvasRef`: its VIEW draws
+   * the board through `PCB_PAINTER` on `OPENGL_GAL`. Null until the bitmap
+   * font atlas is decoded and WebGL2 has answered; null for good when it has
+   * not, in which case the raster path below draws the board.
+   */
+  const panelRef = useRef<PCB_DRAW_PANEL_GAL | null>(null);
+  const [fontImage, setFontImage] = useState<ImageBitmap | null>(null);
+  const [panelReady, setPanelReady] = useState(false);
+  /** Bumped when a lost WebGL context is restored, so the panel is rebuilt. */
+  const [panelGeneration, setPanelGeneration] = useState(0);
+  /** What `applyDisplayState` last pushed into the frame, for its diffs. */
+  const displayStateRef = useRef<EditorDisplayState | null>(null);
   const glOkRef = useRef(false);
   /**
    * Everything drawn *above* the board: selection, ratsnest, previews, markers,
@@ -2242,8 +2274,7 @@ export function PcbEditor({
   const glBlockedRef = useRef(false);
   /** Whether the scene on hand was compiled with GL paths (drawn by the GPU). */
   const sceneIsGlRef = useRef(false);
-  const sceneFactory = (): ScenePathFactory =>
-    glOkRef.current && !glBlockedRef.current ? GL_PATH_FACTORY : DOM_PATH_FACTORY;
+  const sceneFactory = (): ScenePathFactory => DOM_PATH_FACTORY;
   /**
    * Compile the board for whichever backend is drawing it.
    *
@@ -2289,15 +2320,7 @@ export function PcbEditor({
   const buildBoardScene = (b: Board, filter: SceneFilter = {}): BoardScene => {
     if (!filter.clearanceForNet) filter = { ...filter, clearanceForNet };
     if (!filter.resolveTextVar) filter = { ...filter, resolveTextVar };
-    const scene = buildScene(b, filter, sceneFactory());
-    sceneIsGlRef.current = sceneFactory() === GL_PATH_FACTORY;
-    if (scene.images.length === 0 || !glOkRef.current || glBlockedRef.current) return scene;
-    // Handing this scene to the raster path instead would be the worst of the
-    // three outcomes: GL paths draw as nothing on a 2D canvas, so the board
-    // would come up empty with no error at all. Recompile it for real.
-    glBlockedRef.current = true;
-    sceneIsGlRef.current = false;
-    return buildScene(b, filter, DOM_PATH_FACTORY);
+    return buildScene(b, filter, sceneFactory());
   };
   const rafRef = useRef(0);
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
@@ -2798,62 +2821,9 @@ export function PcbEditor({
     const v = viewRef.current;
     // Signed X scale for the flipped (mirrored) view; world→screen X uses this.
     const sx = v.flipX ? -v.scale : v.scale;
-    /** Whether the GPU draws the board this frame. */
-    const gl = glRef.current;
-    const useGl =
-      gl !== null &&
-      !gl.isLost &&
-      glOkRef.current &&
-      !glBlockedRef.current &&
-      // Belt and braces with `glBlockedRef`, and the invariant that actually
-      // matters: a scene holding images was compiled through `Path2D` and has
-      // no vertices for the recorder to find.
-      scene.images.length === 0;
-    // A device that dies *between* events — evicted by a starved Chrome, or
-    // flagged unhealthy by its own first-frames probe — never fires
-    // `webglcontextlost`, so the fallback in that listener never runs and the
-    // 2D path would be handed a scene full of GL paths it draws as nothing
-    // (that shipped once as a board with strokes but no fills). Do the same
-    // recovery here, keyed on what the scene was actually compiled with.
-    if (!useGl && sceneIsGlRef.current) {
-      glRef.current?.dispose();
-      glRef.current = null;
-      glOkRef.current = false;
-      sceneIsGlRef.current = false;
-      console.warn('WebGL device unhealthy; drawing the board with Canvas2D');
-      // A dead context cannot clear its canvas; resizing it can.
-      const gcv = glCanvasRef.current;
-      if (gcv) {
-        const w = gcv.width;
-        gcv.width = 0;
-        gcv.width = w;
-      }
-      const brd = boardRef.current;
-      if (brd) {
-        rebuildSceneRef.current(brd);
-        requestDrawRef.current();
-        return;
-      }
-    }
-    // The mirror image: a GPU on hand and a scene compiled for the 2D canvas.
-    // The recorder skips a `Path2D` (it has no vertices to adopt), so this
-    // draws every pad, track and pour as nothing while the per-frame text and
-    // the overlays still paint — a board that has "vanished" down to its net
-    // names, and Refresh cannot bring it back because nothing recompiles. It
-    // happens whenever the scene is built in the window where `glOkRef` is
-    // down but the device comes back: React re-running every effect in order
-    // on a Fast Refresh (the mount effect's cleanup drops the device, the
-    // Footprints Front/Back effect rebuilds before the mount effect recreates
-    // it), and StrictMode's double mount does the same. Recompile for the
-    // backend that is actually drawing, exactly as the branch above does.
-    if (useGl && !sceneIsGlRef.current) {
-      const brd = boardRef.current;
-      if (brd) {
-        rebuildSceneRef.current(brd);
-        requestDrawRef.current();
-        return;
-      }
-    }
+    /** Whether the KiCad VIEW draws the board this frame. */
+    const panel = panelRef.current;
+    const useGl = panel !== null;
     // The retained buffer is keyed on the content, not on the view, so a pan or
     // a zoom is a uniform update and there is nothing to chase.
     if (!useGl && (!viewMatchesCache() || sceneDirtyRef.current)) {
@@ -2867,31 +2837,42 @@ export function PcbEditor({
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
+    // The KiCad canvas: `EDA_DRAW_PANEL_GAL::DoRePaint` clears to the theme's
+    // background, draws the grid (`GAL::DrawGrid`), then the VIEW — the
+    // drawing sheet, every board layer, the net names, the anchors and the
+    // ratsnest, each on its GAL layer in `GAL_LAYER_ORDER`. Its canvas is
+    // opaque and sits over this one, so nothing below the board is painted
+    // here; the overlay canvas above it keeps the editor's own chrome.
+    if (useGl) {
+      syncViewTransform(panel, v, dpr);
+      panel.ForceRefresh();
+    }
     // Grid sits behind the board (GAL GRID_DEPTH), painted crisply at the live
     // view every frame so it stays sharp during pan/zoom. The raster is drawn on
     // top with a transparent background so the grid shows through empty areas.
-    drawGrid(
-      bctx,
-      v,
-      canvas.width,
-      canvas.height,
-      pcbGridOptions({
-        show: objects.grid && toggles.has('toggleGrid'),
-        sizeIU: gridIURef.current,
-        origin: gridOriginRef.current,
-        color: drawOpts.theme?.grid,
-        devicePixelRatio: dpr,
-        // `PANEL_GAL_OPTIONS`' Grid Display group, through `window.grid`.
-        style: galRef.current.style,
-        lineWidthPx: galRef.current.line_width,
-        minSpacingPx: galRef.current.min_spacing,
-      }),
-    );
+    if (!useGl)
+      drawGrid(
+        bctx,
+        v,
+        canvas.width,
+        canvas.height,
+        pcbGridOptions({
+          show: objects.grid && toggles.has('toggleGrid'),
+          sizeIU: gridIURef.current,
+          origin: gridOriginRef.current,
+          color: drawOpts.theme?.grid,
+          devicePixelRatio: dpr,
+          // `PANEL_GAL_OPTIONS`' Grid Display group, through `window.grid`.
+          style: galRef.current.style,
+          lineWidthPx: galRef.current.line_width,
+          minSpacingPx: galRef.current.min_spacing,
+        }),
+      );
     // Drawing sheet, drawn behind the board with the UN-flipped transform so the
     // page frame and title block stay in place and readable when the board is
     // flipped (KiCad's DS_PROXY_VIEW_ITEM un-mirrors itself). tx is recovered by
     // mirroring back about the viewport centre.
-    if (drawOpts.drawingSheet && boardRef.current) {
+    if (!useGl && drawOpts.drawingSheet && boardRef.current) {
       const sheetColor = drawOpts.theme?.special.drawingSheet ?? PCB_SPECIAL.drawingSheet;
       const sheetTx = v.flipX ? canvas.width - v.tx : v.tx;
       bctx.setTransform(v.scale, 0, 0, v.scale, sheetTx, v.ty);
@@ -2953,7 +2934,7 @@ export function PcbEditor({
           dy: inPlaceMoveRef.current.y,
         }
       : null;
-    if (objects.anchors) {
+    if (!useGl && objects.anchors) {
       drawAnchors(
         bctx,
         scene,
@@ -3018,86 +2999,8 @@ export function PcbEditor({
         if (outline) fill([outline]);
       }
     };
-    // The board itself: one uniform and three draw calls on the GPU, or the
-    // raster blit it replaces.
-    //
-    // Every field of the content key is compared by *reference*, so each one has
-    // to be identity-stable across frames or the whole board re-records on every
-    // pointer move and shows up only as "it is still slow". `scene` is replaced
-    // on an edit and not otherwise; `visible` is state; `drawOpts` is memoised;
-    // the emphasis is a string. Do not inline an object or a `new Set` here.
-    if (useGl) {
-      // The back-side names are laid out for this frame and handed to the GPU
-      // as geometry, so they can be drawn *between* the board's layers rather
-      // than over them. Only labels past their zoom gate and inside the
-      // viewport contribute, so this is a few hundred segments a frame.
-      gl.recordInner((rec) => {
-        drawNetNames(
-          rec,
-          scene,
-          v,
-          visible,
-          canvas.width,
-          canvas.height,
-          { ...drawOpts, minPenWidth: 0 },
-          dimmedRef.current ? 'dimmed' : 'none',
-          dpr,
-          'under',
-          inPlaceShift,
-        );
-      }, v.scale);
-      // And the pass drawn over it — track and via names and through-hole pad
-      // text. On the GPU rather than on the 2D overlay because these are the
-      // labels KiCad draws with `BitmapText`, and a distance-field atlas needs
-      // a shader to decode: Canvas2D has nowhere to put one.
-      gl.recordText((rec) => {
-        drawNetNames(
-          rec,
-          scene,
-          v,
-          visible,
-          canvas.width,
-          canvas.height,
-          { ...drawOpts, minPenWidth: 0 },
-          dimmedRef.current ? 'dimmed' : 'none',
-          dpr,
-          'over',
-          inPlaceShift,
-        );
-      }, v.scale);
-      // …and the pass composited over the finished board. Its own GL layer
-      // because `TARGET_OVERLAY` is its own BLEND: KiCad's overlay buffer plus
-      // `OPENGL_COMPOSITOR::DrawBuffer` produce `a·C + (1 − a²)·dst`, which no
-      // Canvas2D fill can express and which is why this moved off the overlay
-      // canvas above.
-      gl.recordOverlay((rec) => {
-        paintConflictShadows(rec, overlayTargetColor);
-      }, v.scale);
-      gl.render(
-        {
-          scene,
-          visible,
-          opts: drawOpts,
-          // A net highlight darkens everything that is not on it
-          // (pcb_painter.cpp GetColor: Darkened(1 - m_highlightFactor)); the
-          // highlighted copper is repainted brightened on the overlay below.
-          emphasis: dimmedRef.current ? 'dimmed' : 'none',
-        },
-        v,
-      );
-      if (PERF) {
-        pcbPerf.records = gl.recordCount;
-        pcbPerf.lastRecordMs = gl.lastRecordMs;
-      }
-      // The health probe inside upload/draw may have just condemned the
-      // device; come straight back for the Canvas2D recovery frame rather
-      // than leaving this half-drawn one up until the next interaction.
-      if (gl.isLost) requestDrawRef.current();
-    } else {
-      // The GL layer sits *above* the background and below everything else, so
-      // a buffer left on it from an earlier frame keeps showing through: a
-      // stale second copy of the board under the live one.
-      gl?.clear();
+    // The board itself, when the VIEW is not drawing it: the raster blit.
+    if (!useGl) {
       const c = cacheRef.current;
       if (c) {
         const k = v.scale / c.view.scale;
@@ -3145,8 +3048,9 @@ export function PcbEditor({
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
     // Net-color overlay (net colors mode "All"): copper items of colored nets
-    // repainted in their net color over the raster.
-    for (const cs of coloredScenesRef.current) {
+    // repainted in their net color over the raster. The VIEW paints net colours
+    // itself (PCB_RENDER_SETTINGS::GetColor, NET_COLOR_MODE::ALL).
+    for (const cs of useGl ? [] : coloredScenesRef.current) {
       ctx.save();
       drawBoard(
         ctx,
@@ -3163,10 +3067,11 @@ export function PcbEditor({
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
     // Ratsnest airwires (RATSNEST_VIEW_ITEM): thin lines over the copper,
-    // curved when the left toolbar's curved-ratsnest mode is on.
+    // curved when the left toolbar's curved-ratsnest mode is on. On the VIEW
+    // it is the RATSNEST_VIEW_ITEM itself, on LAYER_RATSNEST.
     {
       const rats = ratsDrawRef.current;
-      if (rats.length > 0) {
+      if (!useGl && rats.length > 0) {
         const curved = toggles.has('ratsnestLineMode');
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         // `gal->SetLineWidth( cfg->m_Display.m_RatsnestThickness / gal->GetWorldScale() )`
@@ -3343,7 +3248,8 @@ export function PcbEditor({
       const hs = highlightSceneRef.current;
       // A router drag keeps the highlight up (that is the whole point of
       // highlightNets during performDragging); any other gesture drops it.
-      if (hs && (!moveDeltaRef.current || trackDragRef.current)) {
+      // On the VIEW the render settings' highlight does both halves.
+      if (!useGl && hs && (!moveDeltaRef.current || trackDragRef.current)) {
         // The rest of the board is already dimmed in the raster, so this pass
         // only repaints the highlighted copper Brightened(m_highlightFactor).
         ctx.save();
@@ -4167,69 +4073,81 @@ export function PcbEditor({
   );
 
   /**
-   * Bring the GL device up once its layer is mounted.
-   *
-   * A null device means this browser or this moment cannot give us WebGL2, and
-   * every frame then takes the raster path exactly as before: an editor that
-   * renders is worth more than one that renders quickly.
-   *
-   * `glOkRef` is set *before* anything compiles a scene — the board is parsed
-   * on a 30 ms timer and mount effects run well ahead of that — so the first
-   * scene is already built through the right factory.
+   * The bitmap font atlas the GAL draws BitmapText with, decoded once. The
+   * panel is not built until it has landed: `OPENGL_GAL::BeginDrawing`
+   * uploads it on the first frame.
    */
   useEffect(() => {
+    let cancelled = false;
+    loadBitmapFontImage().then(
+      (img) => {
+        if (!cancelled) setFontImage(img);
+      },
+      (err: unknown) => console.warn(`Could not use OpenGL: ${(err as Error).message}`),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /**
+   * `PCB_EDIT_FRAME::PCB_EDIT_FRAME`: the canvas. Built once the font atlas is
+   * here, on the element React mounted; a browser without WebGL2 leaves
+   * `panelRef` null and every frame takes the raster path exactly as before.
+   *
+   * `installPgm` first: the painter reads `pcbconfig()`, the view controls
+   * `Pgm().GetCommonSettings()`, and the colours come through the settings
+   * manager's theme loader.
+   */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fontImage and panelGeneration (a restored context) are the triggers; the rest are refs
+  useEffect(() => {
     const canvas = glCanvasRef.current;
-    if (!canvas || glRef.current) return;
-    glRef.current = PcbGl.create(canvas);
-    glOkRef.current = glRef.current !== null;
-    if (!glOkRef.current) console.warn('WebGL2 unavailable; drawing the board with Canvas2D');
-    // The bitmap-font sheet is fetched and decoded asynchronously, and the
-    // board is normally on screen before it lands. Glyph runs are skipped until
-    // it does, so the frame that finally shows the net names has to be asked
-    // for; without this they wait for the next pan or zoom.
-    if (glRef.current) glRef.current.onAtlasLoaded = () => requestDrawRef.current();
-    // A lost context is not something we can prevent, only something we can
-    // survive. Dropping the device is not enough: the scene on hand is full of
-    // GL paths that a 2D canvas draws as nothing, so it has to be recompiled
-    // through Path2D before the fallback can paint anything at all.
+    const frame = frameRef.current;
+    if (!canvas || !frame || !fontImage || panelRef.current) return;
+    installPgm();
+    const panel = createPcbDrawPanel(frame, canvas, fontImage);
+    glOkRef.current = panel !== null;
+    if (!panel) {
+      console.warn('WebGL2 unavailable; drawing the board with Canvas2D');
+      return;
+    }
+    panelRef.current = panel;
+    // A board already open: `SetBoard` ran without a canvas, so what it would
+    // have done through the canvas is done now.
+    const kb = frame.GetBoard();
+    if (kb) {
+      attachBoardToPanel(frame, panel, kb);
+      panel.DisplayBoard(kb);
+      panel.UpdateColors();
+    }
+    frame.ActivateGalCanvas();
+    displayStateRef.current = null;
+    setPanelReady(true);
+    // A lost context: the panel's GAL is gone with it; the raster path draws
+    // until the context is restored and the panel rebuilt.
     const onLost = (e: Event): void => {
       e.preventDefault();
-      glRef.current?.dispose();
-      glRef.current = null;
+      panelRef.current?.Destroy();
+      panelRef.current = null;
+      frame.SetCanvas(null);
       glOkRef.current = false;
-      const brd = boardRef.current;
-      if (brd) rebuildSceneRef.current(brd);
+      setPanelReady(false);
       requestDrawRef.current();
     };
-    /**
-     * ...and then come back. `preventDefault()` above asks the browser to
-     * restore the context; with no listener for it, that request was made and
-     * ignored, so a transient loss - a GPU reset, a driver update, the tab
-     * reclaimed while backgrounded - left this editor on the raster path
-     * permanently, until a reload. GerberCanvas and DrawingSheetCanvas have
-     * restored theirs all along.
-     *
-     * The new device's buffers are empty, so the scene is rebuilt rather than
-     * merely redrawn, and `glOkRef` goes back up - it is what the scene
-     * compiler keys off, not `glRef.current`.
-     */
     const onRestored = (): void => {
-      glRef.current = PcbGl.create(canvas);
-      glOkRef.current = !!glRef.current;
-      const brd = boardRef.current;
-      if (brd) rebuildSceneRef.current(brd);
-      requestDrawRef.current();
+      setPanelGeneration((g) => g + 1);
     };
     canvas.addEventListener('webglcontextlost', onLost);
     canvas.addEventListener('webglcontextrestored', onRestored);
     return () => {
       canvas.removeEventListener('webglcontextlost', onLost);
       canvas.removeEventListener('webglcontextrestored', onRestored);
-      glRef.current?.dispose();
-      glRef.current = null;
+      panelRef.current?.Destroy();
+      panelRef.current = null;
+      frame.SetCanvas(null);
       glOkRef.current = false;
     };
-  }, []);
+  }, [fontImage, panelGeneration]);
 
   const setBoardModel = useCallback(
     (b: Board) => {
@@ -4266,6 +4184,14 @@ export function PcbEditor({
     frame.SetBoard(boardK, false);
     boardK.BuildConnectivity();
     boardK.AddListener(listener);
+    // The canvas, when it is up: the screen's page size and the drawing
+    // sheet follow the board (`SetBoard` displayed it through the canvas),
+    // and the Appearance state is pushed afresh into the new board.
+    const panel = panelRef.current;
+    if (panel) {
+      attachBoardToPanel(frame, panel, boardK);
+      displayStateRef.current = null;
+    }
     return () => boardK.RemoveListener(listener);
   }, [boardK]);
 
@@ -5327,7 +5253,8 @@ export function PcbEditor({
       // size shows up as a board drawn at the wrong scale rather than as
       // nothing at all.
       const size = canvasBackingSize(wrap, dpr);
-      const changed = applyCanvasSize([canvas, glCanvasRef.current, overCanvasRef.current], size);
+      // The KiCad canvas sizes its own element (EDA_DRAW_PANEL_GAL::onSize).
+      const changed = applyCanvasSize([canvas, overCanvasRef.current], size);
       // Only a fit against a viewport that exists counts.
       //
       // The frames stay mounted and are toggled with CSS, so this observer also
@@ -7937,41 +7864,12 @@ export function PcbEditor({
         ? beginCourtyardConflicts(brd, fpIdx)
         : null;
     conflictsRef.current = null;
-    // The fast path, and what KiCad does: the items keep their place in the
-    // retained buffer and their vertices are shifted there each frame, so
-    // nothing is rebuilt, re-recorded or drawn twice. Only when the GPU cannot
-    // address every moving item — a router drag re-cuts geometry rather than
-    // translating it, and the Canvas2D fallback has no buffer at all — does
-    // the old rebuild-and-preview path run.
-    const gl = glRef.current;
-    const inPlace =
-      !dragModeRef.current &&
-      gl !== null &&
-      !gl.isLost &&
-      glOkRef.current &&
-      !glBlockedRef.current &&
-      sceneIsGlRef.current &&
-      gl.canMoveItems(affected);
-    inPlaceMoveRef.current = inPlace ? { x: 0, y: 0 } : null;
-    if (inPlace && liveRatsRef.current) {
-      // Bucket once here and only translate afterwards, which is what
-      // `calculateSelectionRatsnest` does: build the moving items' connectivity
-      // on the first frame, block them out of the board's own graph, then only
-      // `Move( aDelta )` for the rest of the gesture.
-      const local = prepareLocalRatsnest(
-        deleteBoardItems(brd, affected),
-        subsetBoardItems(brd, affected),
-      );
-      localRatsRef.current = local;
-      ratsOtherRef.current = ratsnestEdgesRef.current.filter((e) => !local.nets.has(e.net));
-    } else {
-      localRatsRef.current = null;
-    }
-    if (inPlace) {
-      moveSceneRef.current = null;
-      requestDraw();
-      return;
-    }
+    // The moving items leave the board's own drawing for the gesture: hidden
+    // in the VIEW (`VIEW::Hide`, as the move tool takes them out of the
+    // layer's drawing until `EDIT_TOOL::Move` puts them back) and drawn by
+    // the overlay at the drag offset.
+    inPlaceMoveRef.current = null;
+    localRatsRef.current = null;
     startOverlayMove(brd, sel, affected);
   };
 
@@ -8004,6 +7902,16 @@ export function PcbEditor({
       : buildScene(subsetBoardItems(brd, sel), sceneFilter());
     sceneDirtyRef.current = true;
     requestDraw();
+    const panel = panelRef.current;
+    if (panel) {
+      // The VIEW draws the board: the moving items are hidden in it for the
+      // gesture, nothing is rebuilt.
+      const items = kItemsForIds(brd, affected);
+      hiddenItemsRef.current = items;
+      setItemsHidden(panel, items, true);
+      panel.Refresh();
+      return;
+    }
     // The expensive half — the whole board again, minus what is moving — is
     // what made grabbing a part freeze the editor: measured at 589 ms on the
     // coldfire demo (160 footprints, 2935 tracks) before the GPU re-record on
@@ -8011,6 +7919,20 @@ export function PcbEditor({
     // needed to *start* the drag, only to stop the original showing under the
     // preview, so it runs off the critical path and swaps in when ready.
     scheduleBaseWithout(brd, affected);
+  };
+
+  /** The BOARD_ITEMs hidden in the VIEW for the gesture in flight. */
+  const hiddenItemsRef = useRef<readonly BOARD_ITEM[]>([]);
+
+  /** The gesture is over: the hidden items draw again (`VIEW::Hide( item, false )`). */
+  const unhideMovingItems = (): void => {
+    const panel = panelRef.current;
+    const items = hiddenItemsRef.current;
+    hiddenItemsRef.current = [];
+    if (panel && items.length > 0) {
+      setItemsHidden(panel, items, false);
+      panel.Refresh();
+    }
   };
 
   /**
@@ -8063,7 +7985,13 @@ export function PcbEditor({
     const affected = new Set(drag.line.tracks.map((i) => boardItemId('track', i)));
     movingSelRef.current = affected;
     dragAffectedRef.current = affected;
-    sceneRef.current = buildBoardScene(deleteBoardItems(brd, affected), sceneFilter());
+    if (panelRef.current) {
+      const items = kItemsForIds(brd, affected);
+      hiddenItemsRef.current = items;
+      setItemsHidden(panelRef.current, items, true);
+    } else {
+      sceneRef.current = buildBoardScene(deleteBoardItems(brd, affected), sceneFilter());
+    }
     moveSceneRef.current = buildScene(subsetBoardItems(brd, affected), sceneFilter());
     moveDeltaRef.current = { x: 0, y: 0 };
     sceneDirtyRef.current = true;
@@ -8472,35 +8400,6 @@ export function PcbEditor({
     // frame of the same move, and the fast one is the one a footprint takes.
     const session = courtyardSessionRef.current;
     conflictsRef.current = session ? courtyardConflictsAt(session, delta) : null;
-    const applied = inPlaceMoveRef.current;
-    if (applied) {
-      // Only the change since the last frame: the buffer already holds the rest.
-      const gl = glRef.current;
-      if (gl && gl.moveItems(dragAffectedRef.current, delta.x - applied.x, delta.y - applied.y)) {
-        inPlaceMoveRef.current = delta;
-        // The airwires follow the part, as they do in pcbnew — the shortcut
-        // past the rebuild must not skip this, or the ratsnest stays pinned to
-        // where the footprint used to be.
-        const local = localRatsRef.current;
-        if (local) {
-          ratsDrawRef.current = filterRatsRef.current(
-            [...ratsOtherRef.current, ...local.at(delta)],
-            local.nets,
-          );
-        }
-        requestDraw();
-        return;
-      }
-      // The GPU could not take it after all; fall back for the rest of the drag.
-      //
-      // Falling back is not just clearing the flag. The gesture started in
-      // place, so it has no overlay and the board still holds the originals —
-      // set both up now, exactly as `beginMove` would have. Whatever the GPU
-      // did manage before it refused goes away with the rebuild, which is why
-      // the base has to be rebuilt rather than merely left alone.
-      inPlaceMoveRef.current = null;
-      startOverlayMove(brd, movingSelRef.current, dragAffectedRef.current);
-    }
     if (trackDragRef.current) {
       // The line is re-cut from scratch against the cursor each frame: a router
       // drag is not a translation, so the overlay carries the new absolute
@@ -8571,6 +8470,7 @@ export function PcbEditor({
     forcedCursorRef.current = null;
     // The gesture is over: `SetAuxAxes( false )`.
     auxAxisRef.current = null;
+    unhideMovingItems();
     if (trackDrag) {
       const cur = cursorRef.current;
       const seed = dragSeedIdRef.current;
@@ -8608,9 +8508,7 @@ export function PcbEditor({
     localRatsRef.current = null;
     courtyardSessionRef.current = null;
     conflictsRef.current = null;
-    if (applied && (applied.x !== 0 || applied.y !== 0)) {
-      glRef.current?.moveItems(dragAffectedRef.current, -applied.x, -applied.y);
-    }
+    unhideMovingItems();
     dragModeRef.current = false;
     moveDeltaRef.current = null;
     moveSceneRef.current = null;
@@ -9915,6 +9813,139 @@ export function PcbEditor({
     }
     return byCode;
   }, [board, boardSetup.netClasses.netColors]);
+
+  /**
+   * The editor's Appearance state into the frame, the VIEW and the render
+   * settings — what the layer widget, the Objects tab, the toolbar toggles
+   * and the net inspector do upstream when the user works them: layer
+   * visibility (`BOARD::SetVisibleLayers` + `SyncLayersVisibility`), the
+   * display options (`PCB_BASE_FRAME::SetDisplayOptions`), the active layer
+   * (`SetHighContrastLayer`), the highlighted nets, the theme
+   * (`UpdateColors`) and the grid (`GAL::SetGridSize` / `SetGridVisibility`).
+   */
+  const lastThemeRef = useRef<unknown>(null);
+  const lastPcbCfgRef = useRef<unknown>(null);
+  useEffect(() => {
+    const panel = panelRef.current;
+    const frame = frameRef.current;
+    const kb = boardK;
+    if (!panelReady || !panel || !frame || !kb) return;
+    // A changed preference: the PCBNEW_SETTINGS the painter reads is re-registered,
+    // and every item repaints (PCB_EDIT_FRAME::CommonSettingsChanged -> RecacheAllItems)
+    if (lastPcbCfgRef.current !== pcbCfg) {
+      lastPcbCfgRef.current = pcbCfg;
+      installPgm();
+      panel.GetView().RecacheAllItems();
+    }
+    if (lastThemeRef.current !== theme) {
+      lastThemeRef.current = theme;
+      reloadUserColorSettings();
+    }
+    const opts = new PCB_DISPLAY_OPTIONS();
+    opts.m_ZoneDisplayMode = toggles.has('zoneDisplayOutline')
+      ? ZONE_DISPLAY_MODE.SHOW_ZONE_OUTLINE
+      : ZONE_DISPLAY_MODE.SHOW_FILLED;
+    opts.m_ContrastModeDisplay =
+      contrast === 'hide'
+        ? HIGH_CONTRAST_MODE.HIDDEN
+        : contrast === 'dim'
+          ? HIGH_CONTRAST_MODE.DIMMED
+          : HIGH_CONTRAST_MODE.NORMAL;
+    opts.m_NetColorMode =
+      netColorMode === 'all'
+        ? NET_COLOR_MODE.ALL
+        : netColorMode === 'off'
+          ? NET_COLOR_MODE.OFF
+          : NET_COLOR_MODE.RATSNEST;
+    opts.m_TrackOpacity = opacity.tracks;
+    opts.m_ViaOpacity = opacity.vias;
+    opts.m_PadOpacity = opacity.pads;
+    opts.m_ZoneOpacity = opacity.zones;
+    opts.m_ImageOpacity = opacity.images;
+    opts.m_FilledShapeOpacity = opacity.filledShapes;
+    opts.m_FlipBoardView = viewRef.current.flipX;
+    const visibleLayers = new Set<PCB_LAYER_ID>();
+    for (const name of visible) {
+      const id = kb.GetLayerID(name);
+      if (id >= 0) visibleLayers.add(id);
+    }
+    const G = GAL_LAYER_ID;
+    const visibleElements = new Map<GAL_LAYER_ID, boolean>([
+      [G.LAYER_TRACKS, objects.tracks],
+      [G.LAYER_VIAS, objects.vias],
+      [G.LAYER_PADS, objects.pads],
+      [G.LAYER_ZONES, objects.zones],
+      [G.LAYER_FILLED_SHAPES, objects.filledShapes],
+      [G.LAYER_DRAW_BITMAPS, objects.images],
+      [G.LAYER_FOOTPRINTS_FR, objects.footprintsFront],
+      [G.LAYER_FOOTPRINTS_BK, objects.footprintsBack],
+      [G.LAYER_FP_VALUES, objects.fpValues],
+      [G.LAYER_FP_REFERENCES, objects.fpReferences],
+      [G.LAYER_FP_TEXT, objects.fpText],
+      [G.LAYER_RATSNEST, objects.ratsnest],
+      [G.LAYER_DRC_WARNING, objects.drcWarnings],
+      [G.LAYER_DRC_ERROR, objects.drcErrors],
+      [G.LAYER_DRC_EXCLUSION, objects.drcExclusions],
+      [G.LAYER_ANCHOR, objects.anchors],
+      [G.LAYER_POINTS, objects.points],
+      [G.LAYER_LOCKED_ITEM_SHADOW, objects.lockedShadow],
+      [G.LAYER_CONFLICTS_SHADOW, objects.collidingCourtyards],
+      [G.LAYER_BOARD_OUTLINE_AREA, objects.boardAreaShadow],
+      [G.LAYER_DRAWINGSHEET, objects.drawingSheet],
+      [G.LAYER_GRID, objects.grid],
+    ]);
+    const state: EditorDisplayState = {
+      visibleLayers,
+      visibleElements,
+      displayOptions: opts,
+      activeLayer: kb.GetLayerID(activeLayer),
+      highlightNets,
+      colorTheme: theme.filename,
+    };
+    // The net colour assignments the painter's NET_COLOR_MODE reads
+    // (`m_netColors`, keyed by netcode as the ratsnest needs).
+    const netColorMap = (panel.GetView().GetPainter() as PCB_PAINTER)
+      .GetSettings()
+      .GetNetColorMap();
+    netColorMap.clear();
+    for (const [code, css] of netColors) netColorMap.set(code, parseColor4d(css));
+    applyDisplayState(frame, panel, kb, state, displayStateRef.current);
+    displayStateRef.current = state;
+    // The grid: `GAL::SetGridSize` / `SetGridOrigin` / `SetGridVisibility`, and
+    // the GAL_DISPLAY_OPTIONS the Preferences' grid page writes.
+    const gal = panel.GetGAL();
+    gal.SetGridSize({ x: gridIU, y: gridIU });
+    gal.SetGridOrigin(gridOriginRef.current);
+    gal.SetGridVisibility(objects.grid && toggles.has('toggleGrid'));
+    const galOpts = frame.GetGalDisplayOptions();
+    const g = galRef.current;
+    galOpts.m_gridStyle =
+      g.style === 'lines'
+        ? GRID_STYLE.LINES
+        : g.style === 'crosses'
+          ? GRID_STYLE.SMALL_CROSS
+          : GRID_STYLE.DOTS;
+    galOpts.m_gridLineWidth = g.line_width;
+    galOpts.m_gridMinSpacing = g.min_spacing;
+    galOpts.NotifyChanged();
+    requestDraw();
+  }, [
+    panelReady,
+    boardK,
+    visible,
+    objects,
+    opacity,
+    toggles,
+    contrast,
+    netColorMode,
+    netColors,
+    activeLayer,
+    highlightNets,
+    theme,
+    pcbCfg,
+    gridIU,
+    requestDraw,
+  ]);
 
   /**
    * The picker's write, straight back into the project slice it came from.

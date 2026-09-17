@@ -9,6 +9,9 @@
  * them exactly as the C++ does.
  */
 
+/** The `WXK_*` key codes, for the users of these events. */
+export { WXK } from '@ziroeda/core/src/wx_keycodes.js';
+
 /** `wxEventType`: an integer per event kind, `wxNewEventType()` allocates. */
 export type wxEventType = number;
 

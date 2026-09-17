@@ -256,6 +256,19 @@ export class COLOR_SETTINGS {
     }
   }
 
+  /**
+   * `JSON_SETTINGS::Load` over a flat `{ "<param path>": "<css>" }` table —
+   * the theme file as the params see it: every registered `COLOR_MAP_PARAM`
+   * takes the row at its path, and one without a row is reset to its
+   * default (`aResetIfMissing`).
+   */
+  LoadFromJsonPaths(aColors: Readonly<Record<string, string>>): void {
+    for (const p of this.m_params) {
+      const css = aColors[p.m_path];
+      this.m_colors.set(p.m_key, css !== undefined ? parseColor4d(css) : p.m_default);
+    }
+  }
+
   static CreateBuiltinColorSettings(): COLOR_SETTINGS[] {
     const defaultTheme = new COLOR_SETTINGS(COLOR_SETTINGS.COLOR_BUILTIN_DEFAULT);
     defaultTheme.SetName('KiCad Default');
