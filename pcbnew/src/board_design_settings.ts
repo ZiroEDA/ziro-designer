@@ -16,6 +16,7 @@
  * the fields directly).
  */
 
+import { ADVANCED_CFG } from '@ziroeda/common/src/advanced_config.js';
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import {
   DIM_PRECISION,
@@ -681,6 +682,10 @@ export class BOARD_DESIGN_SETTINGS {
 
     if (aNewLayerCount > 0)
       this.m_enabledLayers.orAssign(LSET.UserDefinedLayersMask(aNewLayerCount));
+  }
+
+  GetHolePlatingThickness(): number {
+    return pcbIUScale.mmToIU(ADVANCED_CFG.GetCfg().m_HoleWallThickness);
   }
 
   /**

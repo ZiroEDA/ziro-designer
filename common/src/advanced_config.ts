@@ -17,6 +17,18 @@ export class ADVANCED_CFG {
    */
   m_DrawTriangulationOutlines = false;
 
+  /**
+   * Multiplier for the hole wall plating thickness when painting hole walls.
+   */
+  m_HoleWallPaintingMultiplier = 1.5;
+
+  /**
+   * Hole wall plating thickness.  Used to determine actual hole size from finish hole size.
+   */
+  m_HoleWallThickness = 0.02; // IPC-6012 says 15-18um; Cadence says at least
+  // 0.020 for a Class 2 board and at least 0.025
+  // for Class 3.
+
   private static s_cfg: ADVANCED_CFG | null = null;
 
   /** Get the singleton instance's config, which is shared by all consumers. */

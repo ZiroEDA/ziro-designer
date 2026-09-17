@@ -13,7 +13,17 @@
  * line-width sentinels, at the level of sharing upstream gives them.
  */
 
-import { type Color4d, COLOR4D_BLACK, mix } from './color4d.js';
+import { brightened, brightness, type Color4d, COLOR4D_BLACK, darkened, mix } from './color4d.js';
+import {
+  GAL_LAYER_ID,
+  IsNetnameLayer,
+  LAYER_ID_COUNT,
+  PCB_LAYER_ID,
+  PCBNEW_LAYER_ID_START,
+  SCH_LAYER_ID,
+} from './layer_ids.js';
+import { LSET } from './lset.js';
+import type { COLOR_SETTINGS } from './settings/color_settings.js';
 import type { VIEW_ITEM } from './view/view_item.js';
 
 /**
@@ -39,18 +49,22 @@ export const DEFAULT_DASH_LENGTH_RATIO = 12;
 export const DEFAULT_GAP_LENGTH_RATIO = 3;
 
 /**
- * `KIGFX::RENDER_SETTINGS` (`include/render_settings.h`): the drawing
- * parameters a PAINTER reads. Every member that is not keyed by a layer id is
- * here; the layer-keyed ones — `m_activeLayer`, `m_printLayers`,
- * `GetPrimaryHighContrastLayer`, `GetLayerColor`/`SetLayerColor` with their
- * shade maps and `update()` — come with `layer_ids.h`/`lset.h` when those
- * move into `common` for the PAINTER port (#636 stage 5). `m_printDC` is
- * wxDC-only and has no browser form.
+ * `KIGFX::RENDER_SETTINGS` (`include/render_settings.h` +
+ * `common/render_settings.cpp`): the drawing parameters a PAINTER reads,
+ * whole. `m_printDC` is wxDC-only and has no browser form.
  */
 export abstract class RENDER_SETTINGS {
+  protected m_activeLayer: PCB_LAYER_ID; // The active layer (as shown by appearance mgr)
   protected m_layerName = '';
   protected m_highContrastLayers = new Set<number>(); // High-contrast layers (both board layers and
   //   synthetic GAL layers)
+
+  protected m_layerColors = new Map<number, Color4d>(); // Layer colors
+  protected m_layerColorsHi = new Map<number, Color4d>(); // Layer colors for highlighted objects
+  protected m_layerColorsSel = new Map<number, Color4d>(); // Layer colors for selected objects
+  protected m_hiContrastColor = new Map<number, Color4d>(); // High-contrast mode layer colors
+  protected m_layerColorsDark = new Map<number, Color4d>(); // Darkened layer colors (for high-contrast mode)
+  protected m_backgroundColor: Color4d = COLOR4D_BLACK; // The background color
 
   /// Parameters for display modes
   protected m_hiContrastEnabled: boolean; // High contrast display mode on/off
@@ -71,8 +85,11 @@ export abstract class RENDER_SETTINGS {
   protected m_isPrinting: boolean; // true when draw to a printer
   protected m_printBlackAndWite: boolean; // true if black and white printing is requested: some
   // backgrounds are not printed to avoid not visible items
+  protected m_printLayers: LSET = new LSET();
 
   constructor() {
+    // Set the default initial values
+    this.m_activeLayer = PCB_LAYER_ID.F_Cu;
     this.m_drawBoundingBoxes = false;
     this.m_dashLengthRatio = 12; // From ISO 128-2
     this.m_gapLengthRatio = 3; // From ISO 128-2
@@ -117,6 +134,41 @@ export abstract class RENDER_SETTINGS {
   GetHighContrastLayers(): Set<number> {
     return new Set(this.m_highContrastLayers);
   }
+
+  /**
+   * Return the board layer which is in high-contrast mode.
+   *
+   * There should only be one board layer which is high-contrast at any given time, although
+   * there might be many high-contrast synthetic (GAL) layers.
+   */
+  GetPrimaryHighContrastLayer(): PCB_LAYER_ID {
+    // A std::set<int> iterates in ascending order
+    for (const layer of [...this.m_highContrastLayers].sort((a, b) => a - b)) {
+      if (layer >= PCBNEW_LAYER_ID_START && layer < PCB_LAYER_ID.PCB_LAYER_ID_COUNT)
+        return layer as PCB_LAYER_ID;
+    }
+
+    return PCB_LAYER_ID.UNDEFINED_LAYER;
+  }
+
+  GetActiveLayer(): PCB_LAYER_ID {
+    return this.m_activeLayer;
+  }
+  SetActiveLayer(aLayer: PCB_LAYER_ID): void {
+    this.m_activeLayer = aLayer;
+  }
+
+  GetPrintLayers(): LSET {
+    return this.m_printLayers;
+  }
+  SetPrintLayers(aLayerSet: LSET): void {
+    this.m_printLayers = aLayerSet;
+  }
+
+  /**
+   * Load a given set of colors, from a settings object.
+   */
+  LoadColors(aSettings: COLOR_SETTINGS | null): void {}
 
   GetLayerName(): string {
     return this.m_layerName;
@@ -293,6 +345,30 @@ export abstract class RENDER_SETTINGS {
    */
   abstract GetCursorColor(): Color4d;
 
+  /**
+   * Return the color used to draw a layer.
+   *
+   * @param aLayer is the layer number.
+   */
+  GetLayerColor(aLayer: number): Color4d {
+    // We don't (yet?) have a separate color for intersheet refs
+    if (aLayer === SCH_LAYER_ID.LAYER_INTERSHEET_REFS) aLayer = SCH_LAYER_ID.LAYER_GLOBLABEL;
+
+    return this.m_layerColors.get(aLayer) ?? COLOR4D_BLACK;
+  }
+
+  /**
+   * Change the color used to draw a layer.
+   *
+   * @param aLayer is the layer number.
+   * @param aColor is the new color.
+   */
+  SetLayerColor(aLayer: number, aColor: Color4d): void {
+    this.m_layerColors.set(aLayer, aColor);
+
+    this.update(); // recompute other shades of the color
+  }
+
   IsBackgroundDark(): boolean {
     return false;
   }
@@ -322,12 +398,55 @@ export abstract class RENDER_SETTINGS {
   GetDefaultFont(): string {
     return this.m_defaultFont;
   }
+
+  /**
+   * Precalculates extra colors for layers (e.g. highlighted, darkened and any needed version
+   * of base colors).
+   */
+  protected update(): void {
+    // `m_layerColors[i]` on a std::map creates a black entry where none was set
+    const layerColor = (i: number): Color4d => {
+      let c = this.m_layerColors.get(i);
+      if (c === undefined) {
+        c = { r: 0, g: 0, b: 0, a: 1 };
+        this.m_layerColors.set(i, c);
+      }
+      return c;
+    };
+    const background = layerColor(GAL_LAYER_ID.LAYER_PCB_BACKGROUND);
+
+    // Calculate darkened/highlighted variants of layer colors
+    for (let i = 0; i < LAYER_ID_COUNT; i++) {
+      const base = layerColor(i);
+      this.m_hiContrastColor.set(i, mix(base, background, this.m_hiContrastFactor));
+      this.m_layerColorsHi.set(i, brightened(base, this.m_highlightFactor));
+      this.m_layerColorsDark.set(i, darkened(base, 1.0 - this.m_highlightFactor));
+
+      // Skip selection brightening for things close to black, and netname text
+      if (IsNetnameLayer(i) || brightness(base) < 0.05) {
+        this.m_layerColorsSel.set(i, base);
+        continue;
+      }
+
+      // Linear brightening doesn't work well for colors near white
+      let factor = this.m_selectFactor * 0.5 + brightness(base) ** 3;
+      factor = Math.min(1.0, factor);
+      let sel = brightened(base, factor);
+
+      // If we are maxed out on brightening as a highlight, fallback to darkening but keep
+      // the blue that acts as a "glowing" color
+      if (Math.abs(brightness(sel) - brightness(base)) < 0.05) {
+        sel = darkened(base, this.m_selectFactor * 0.4);
+        sel = { ...sel, b: base.b * (1.0 - factor) + factor };
+      }
+
+      this.m_layerColorsSel.set(i, sel);
+    }
+  }
 }
 
 /** The concrete stub `plotterRenderSettings` hands out. */
 class PLOTTER_RENDER_SETTINGS_STUB extends RENDER_SETTINGS {
-  private m_backgroundColor: Color4d = COLOR4D_BLACK;
-
   GetColor(): Color4d {
     return COLOR4D_BLACK;
   }
