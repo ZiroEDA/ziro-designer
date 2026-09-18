@@ -30,6 +30,13 @@ export class ADVANCED_CFG {
   // for Class 3.
 
   /**
+   * Epsilon used in DRC to check for overlapping shapes and edges (mm).
+   * Setting name: "DRCEpsilon"
+   */
+  m_DRCEpsilon = 0.0005; // 0.5um is small enough not to materially violate
+  // any constraints.
+
+  /**
    * The maximum number of threads to use in the thread pool.
    * Setting name: "MaximumThreads"
    * Valid values: 0 to 500

@@ -14,7 +14,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
+import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine_view.js';
 import { COMPONENT, NETLIST } from '@ziroeda/pcbnew/src/netlist_reader/pcb_netlist.js';
 import type { Board, PcbFootprint, PcbPad } from '@ziroeda/pcbnew/src/types.js';
 

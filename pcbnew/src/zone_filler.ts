@@ -51,7 +51,7 @@ import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { hypot } from '@ziroeda/kimath/src/math/libm.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { defaultThermalSpokeAngle } from './padstack.js';
-import { padShapes } from './drc/drc_engine.js';
+import { padShapes } from './drc/drc_engine_view.js';
 import {
   arcCentralAngle,
   arcRadius,

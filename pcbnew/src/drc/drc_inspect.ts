@@ -14,7 +14,7 @@
  */
 
 import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
-import type { DrcConstraintType, DrcRuleSet } from './drc_rule.js';
+import type { DrcConstraintType, DrcRuleSet } from './drc_rule_view.js';
 import {
   buildDrcRuleEngine,
   type DrcEvalItem,

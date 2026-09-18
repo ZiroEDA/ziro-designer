@@ -61,7 +61,7 @@ import { segDistanceToPoint } from '@ziroeda/kimath/src/geometry/seg.js';
 import { intersectSegs } from './pns_line.js';
 import { arcLength, convertArcToPolyline, reversedArc } from './pns_arc.js';
 import { Direction45 } from '@ziroeda/kimath/src/geometry/direction45.js';
-import { arcShape } from '../drc/drc_engine.js';
+import { arcShape } from '../drc/drc_engine_view.js';
 import { arcIsClockwise, constructArcFromStartEndCenter, shapeArcCenter } from './shape_arc_ops.js';
 import { ARC_HIGH_DEF } from '../graphics_cleaner.js';
 import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';

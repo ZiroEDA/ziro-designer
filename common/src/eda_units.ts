@@ -579,3 +579,222 @@ export function FormatInternalUnitsPoint(
 ): string {
   return `${FormatInternalUnits(iuScale, point.x)} ${FormatInternalUnits(iuScale, point.y)}`;
 }
+
+/**
+ * `EDA_UNIT_UTILS::UI::FromUserUnit( aIuScale, aUnits, aValue )`
+ * (common/eda_units.cpp:544): a value in aUnits to internal units.
+ */
+export function FromUserUnit(aIuScale: EdaIuScale, aUnits: EdaUnits, aValue: number): number {
+  switch (aUnits) {
+    case 'um':
+      return (aValue / 1000.0) * aIuScale.IU_PER_MM; // MM_TO_IU
+    case 'mm':
+      return aValue * aIuScale.IU_PER_MM;
+    case 'cm':
+      return aValue * 10 * aIuScale.IU_PER_MM;
+    case 'mils':
+      return aValue * aIuScale.IU_PER_MILS; // MILS_TO_IU
+    case 'in':
+      return aValue * aIuScale.IU_PER_MILS * 1000; // IN_TO_IU
+    case 'fs':
+      return (aValue / 1000.0) * aIuScale.IU_PER_PS; // PS_TO_IU
+    case 'ps':
+      return aValue * aIuScale.IU_PER_PS;
+    case 'ps/in':
+      return (aValue / 25.4) * aIuScale.IU_PER_PS_PER_MM; // PS_PER_MM_TO_IU
+    case 'ps/cm':
+      return (aValue / 10) * aIuScale.IU_PER_PS_PER_MM;
+    case 'ps/mm':
+      return aValue * aIuScale.IU_PER_PS_PER_MM;
+    default:
+      // case EDA_UNITS::DEGREES: case EDA_UNITS::UNSCALED: case EDA_UNITS::PERCENT:
+      return aValue;
+  }
+}
+
+/**
+ * The numeric part of a text: `buf.Left( brk_point ).ToDouble( &dtmp )` after
+ * the C++'s decimal-separator normalisation (both `.` and `,` become the
+ * locale's point, which is `.` here). `ToDouble` fails on an empty or
+ * malformed prefix and leaves 0.
+ */
+function numericPrefix(aTextValue: string): { value: number; brk_point: number; buf: string } {
+  const decimal_point = '.';
+  let buf = aTextValue.trim();
+
+  // Convert any entered decimal point separators to the 'right' one
+  buf = buf.replaceAll('.', decimal_point).replaceAll(',', decimal_point);
+
+  // Find the end of the numeric part
+  let brk_point = 0;
+
+  while (brk_point < buf.length) {
+    const ch = buf[brk_point]!;
+
+    if (!((ch >= '0' && ch <= '9') || ch === decimal_point || ch === '-' || ch === '+')) break;
+
+    ++brk_point;
+  }
+
+  // Extract the numeric part: wxString::ToDouble is strtod over the WHOLE
+  // string, so "1.5.3" or "+-3" fails and leaves 0
+  const numeric = buf.slice(0, brk_point);
+  const value = /^[+-]?(\d+(\.\d*)?|\.\d+)$/.test(numeric) ? Number.parseFloat(numeric) : 0;
+
+  return { value, brk_point, buf };
+}
+
+/**
+ * `EDA_UNIT_UTILS::UI::DoubleValueFromString( const wxString& aTextValue )`
+ * (common/eda_units.cpp:567): the leading number of a text, no units.
+ */
+export function DoubleValueFromString(aTextValue: string): number {
+  return numericPrefix(aTextValue).value;
+}
+
+/**
+ * `EDA_UNIT_UTILS::UI::DoubleValueFromString( aIuScale, aUnits, aTextValue, aType )`
+ * (common/eda_units.cpp:604): the text in aUnits, unless it carries its own
+ * unit designator, to internal units.
+ */
+export function DoubleValueFromStringIn(
+  aIuScale: EdaIuScale,
+  aUnitsIn: EdaUnits,
+  aTextValue: string,
+  aType: EdaDataType | 'time' | 'length_delay' = 'distance',
+): number {
+  let aUnits = aUnitsIn;
+  const { value, brk_point, buf } = numericPrefix(aTextValue);
+  let dtmp = value;
+
+  // Check the optional unit designator (2 ch significant)
+  const unit = buf.slice(brk_point).trimStart().slice(0, 2).toLowerCase();
+
+  if (
+    aUnits === 'um' ||
+    aUnits === 'mm' ||
+    aUnits === 'cm' ||
+    aUnits === 'mils' ||
+    aUnits === 'in'
+  ) {
+    //check for um, μm (µ is MICRO SIGN) and µm (µ is GREEK SMALL LETTER MU) for micrometre
+    if (unit === 'um' || unit === 'µm' || unit === 'μm') {
+      aUnits = 'um';
+    } else if (unit === 'mm') {
+      aUnits = 'mm';
+    } else if (unit === 'cm') {
+      aUnits = 'cm';
+    } else if (unit === 'mi' || unit === 'th') {
+      aUnits = 'mils';
+    } else if (unit === 'in' || unit === '"') {
+      aUnits = 'in';
+    } else if (unit === 'oz') {
+      // 1 oz = 1.37 mils
+      aUnits = 'mils';
+      dtmp *= 1.37;
+    }
+  } else if (aUnits === 'degrees') {
+    if (unit === 'ra')
+      // Radians
+      dtmp *= 180.0 / Math.PI;
+  } else if (
+    aUnits === 'fs' ||
+    aUnits === 'ps' ||
+    aUnits === 'ps/in' ||
+    aUnits === 'ps/cm' ||
+    aUnits === 'ps/mm'
+  ) {
+    const timeUnit = buf.slice(brk_point).trimStart().slice(0, 5).toLowerCase();
+
+    if (timeUnit === 'fs') aUnits = 'fs';
+    if (timeUnit === 'ps') aUnits = 'ps';
+    else if (timeUnit === 'ps/in') aUnits = 'ps/in';
+    else if (timeUnit === 'ps/cm') aUnits = 'ps/cm';
+    else if (timeUnit === 'ps/mm') aUnits = 'ps/mm';
+  }
+
+  switch (aType) {
+    case 'volume':
+      dtmp = FromUserUnit(aIuScale, aUnits, dtmp);
+      dtmp = FromUserUnit(aIuScale, aUnits, dtmp);
+      dtmp = FromUserUnit(aIuScale, aUnits, dtmp);
+      break;
+
+    case 'area':
+      dtmp = FromUserUnit(aIuScale, aUnits, dtmp);
+      dtmp = FromUserUnit(aIuScale, aUnits, dtmp);
+      break;
+
+    case 'distance':
+      dtmp = FromUserUnit(aIuScale, aUnits, dtmp);
+      break;
+
+    case 'unitless':
+      break;
+
+    case 'time':
+      dtmp = FromUserUnit(aIuScale, aUnits, dtmp);
+      break;
+
+    case 'length_delay':
+      dtmp = FromUserUnit(aIuScale, aUnits, dtmp);
+      break;
+  }
+
+  return dtmp;
+}
+
+/**
+ * `bool EDA_UNIT_UTILS::UI::DoubleValueFromString( aIuScale, aTextValue, aDoubleValue )`
+ * (common/eda_units.cpp:724): a text WITH a unit designator to internal units;
+ * null (false) when there is no number or the designator is not one of ours.
+ * "If it quacks like a duck, it is a duck": PCBEXPR reads a string property
+ * through this to see whether it is really a dimension.
+ */
+export function DoubleValueFromStringWithUnits(
+  aIuScale: EdaIuScale,
+  aTextValue: string,
+): number | null {
+  const { value, brk_point, buf } = numericPrefix(aTextValue);
+  let dtmp = value;
+
+  if (brk_point === 0) return null;
+
+  // Check the unit designator
+  const unit = buf.slice(brk_point).trim().toLowerCase();
+  let units: EdaUnits = 'mm'; // Make gcc quiet
+
+  //check for um, μm (µ is MICRO SIGN) and µm (µ is GREEK SMALL LETTER MU) for micrometre
+  if (unit === 'um' || unit === 'µm' || unit === 'μm') {
+    units = 'um';
+  } else if (unit === 'mm') {
+    units = 'mm';
+  } else if (unit === 'cm') {
+    units = 'cm';
+  } else if (unit === 'mil' || unit === 'mils' || unit === 'thou') {
+    units = 'mils';
+  } else if (unit === 'in' || unit === '"') {
+    units = 'in';
+  } else if (unit === 'oz') {
+    // 1 oz = 1.37 mils
+    units = 'mils';
+    dtmp *= 1.37;
+  } else if (unit === 'ra') {
+    // Radians
+    dtmp *= 180.0 / Math.PI;
+  } else if (unit === 'fs') {
+    units = 'fs';
+  } else if (unit === 'ps') {
+    units = 'ps';
+  } else if (unit === 'ps/in') {
+    units = 'ps/in';
+  } else if (unit === 'ps/cm') {
+    units = 'ps/cm';
+  } else if (unit === 'ps/mm') {
+    units = 'ps/mm';
+  } else {
+    return null;
+  }
+
+  return FromUserUnit(aIuScale, units, dtmp);
+}

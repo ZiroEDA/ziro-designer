@@ -61,7 +61,7 @@ import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
 import { BOARD_ITEM, DELETED_BOARD_ITEM } from './board_item.js';
 import { ADD_MODE, BOARD_ITEM_CONTAINER, REMOVE_MODE } from './board_item_container.js';
-import { BOARD_LISTENER, HIGH_LIGHT_INFO } from './board_listener.js';
+import { type BOARD_LISTENER, HIGH_LIGHT_INFO } from './board_listener.js';
 import { BOARD_USE, LAYER, LAYER_T } from './board_types.js';
 import { type NETINFO_ITEM, NETINFO_LIST } from './netinfo.js';
 import type { FOOTPRINT } from './footprint.js';
@@ -182,8 +182,30 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
   protected m_outlinesChainingEpsilon: number;
 
+  // ------------ Run-time caches -------------
+  // (`m_CachesMutex` guards them in the C++; there is one thread here.) The
+  // PTR_PTR keys are nested Maps: outer by the first pointer, inner by the second.
+  m_IntersectsCourtyardCache = new Map<BOARD_ITEM, Map<BOARD_ITEM, boolean>>();
+  m_IntersectsFCourtyardCache = new Map<BOARD_ITEM, Map<BOARD_ITEM, boolean>>();
+  m_IntersectsBCourtyardCache = new Map<BOARD_ITEM, Map<BOARD_ITEM, boolean>>();
+  /** `PTR_PTR_LAYER_CACHE_KEY`: area -> item -> layer -> result. */
+  m_IntersectsAreaCache = new Map<BOARD_ITEM, Map<BOARD_ITEM, Map<PCB_LAYER_ID, boolean>>>();
+  m_EnclosedByAreaCache = new Map<BOARD_ITEM, Map<BOARD_ITEM, Map<PCB_LAYER_ID, boolean>>>();
+  m_LayerExpressionCache = new Map<string, LSET>();
+
   /** `m_ZoneBBoxCache`: the zone bounding boxes, written by `ZONE::GetBoundingBox` (`friend class ZONE`). */
   m_ZoneBBoxCache = new Map<ZONE, BOX2I>();
+  m_maxClearanceValue: number | undefined = undefined;
+
+  m_ItemNetclassCache = new Map<BOARD_ITEM, string>();
+
+  // Zone name lookup cache for DRC rule area functions like enclosedByArea/intersectsArea.
+  // Maps zone names to vectors of matching zones to avoid O(n) zone iteration per lookup.
+  m_ZonesByNameCache = new Map<string, ZONE[]>();
+
+  // Deflated zone outline cache for DRC area checks. Caches the deflated outline for each zone
+  // to avoid repeated expensive deflation operations during collidesWithArea calls.
+  m_DeflatedZoneOutlineCache = new Map<ZONE, SHAPE_POLY_SET>();
 
   /**
    * `std::unordered_map<ZONE*, std::unique_ptr<DRC_RTREE>> m_CopperZoneRTreeCache`:
@@ -781,6 +803,65 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
   IncrementTimeStamp(): void {
     this.m_timeStamp++;
+
+    if (
+      this.m_IntersectsAreaCache.size > 0 ||
+      this.m_EnclosedByAreaCache.size > 0 ||
+      this.m_IntersectsCourtyardCache.size > 0 ||
+      this.m_IntersectsFCourtyardCache.size > 0 ||
+      this.m_IntersectsBCourtyardCache.size > 0 ||
+      this.m_LayerExpressionCache.size > 0 ||
+      this.m_ZoneBBoxCache.size > 0 ||
+      this.m_maxClearanceValue !== undefined ||
+      this.m_ItemNetclassCache.size > 0 ||
+      this.m_ZonesByNameCache.size > 0 ||
+      this.m_DeflatedZoneOutlineCache.size > 0
+    ) {
+      this.m_IntersectsAreaCache.clear();
+      this.m_EnclosedByAreaCache.clear();
+      this.m_IntersectsCourtyardCache.clear();
+      this.m_IntersectsFCourtyardCache.clear();
+      this.m_IntersectsBCourtyardCache.clear();
+      this.m_LayerExpressionCache.clear();
+      this.m_ItemNetclassCache.clear();
+      this.m_ZonesByNameCache.clear();
+      this.m_DeflatedZoneOutlineCache.clear();
+
+      this.m_ZoneBBoxCache.clear();
+
+      // m_CopperItemRTreeCache = nullptr: with the DRC cache generator (stage 4)
+
+      // These are always regenerated before use, but still probably safer to clear them
+      // while we're here.
+      this.m_CopperZoneRTreeCache.clear();
+
+      this.m_maxClearanceValue = undefined;
+    }
+  }
+
+  /** `BOARD::GetMaxClearanceValue` (board.cpp:1119). */
+  GetMaxClearanceValue(): number {
+    if (this.m_maxClearanceValue === undefined) {
+      let worstClearance = this.m_designSettings.GetBiggestClearanceValue();
+
+      for (const zone of this.m_zones)
+        worstClearance = Math.max(worstClearance, zone.GetLocalClearance() ?? 0);
+
+      for (const footprint of this.m_footprints) {
+        for (const pad of footprint.Pads()) {
+          const override = pad.GetClearanceOverrides(null);
+
+          if (override !== undefined) worstClearance = Math.max(worstClearance, override);
+        }
+
+        for (const zone of footprint.Zones())
+          worstClearance = Math.max(worstClearance, zone.GetLocalClearance() ?? 0);
+      }
+
+      this.m_maxClearanceValue = worstClearance;
+    }
+
+    return this.m_maxClearanceValue ?? 0;
   }
 
   GetTimeStamp(): number {

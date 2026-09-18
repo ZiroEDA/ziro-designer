@@ -18,7 +18,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { runDrc, type DrcOptions } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
+import { runDrc, type DrcOptions } from '@ziroeda/pcbnew/src/drc/drc_engine_view.js';
 import { checkLibraryParity } from '@ziroeda/pcbnew/src/drc/drc_library_parity.js';
 import { loadFootprintLibraryTables } from '@ziroeda/pcbnew/src/footprint_library.js';
 import type { FootprintLibraryFs, LibraryDirEntry } from '@ziroeda/pcbnew/src/footprint_library.js';

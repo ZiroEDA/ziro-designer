@@ -31,7 +31,7 @@ import type {
   DrcRuleSet,
   DrcSeverity,
   MinOptMax,
-} from './drc_rule.js';
+} from './drc_rule_view.js';
 
 /** The item kinds `A.Type` can report, spelled as upstream spells them. */
 export type DrcItemType =

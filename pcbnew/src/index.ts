@@ -245,7 +245,7 @@ export {
   type DrcOptions,
   type DrcViolation,
   type DrcItemRef,
-} from './drc/drc_engine.js';
+} from './drc/drc_engine_view.js';
 export {
   checkLibraryParity,
   type LibraryParityOptions,
@@ -458,7 +458,7 @@ export {
   type DrcConstraintType,
   type DrcSeverity,
   type MinOptMax,
-} from './drc/drc_rule.js';
+} from './drc/drc_rule_view.js';
 export {
   parseDrcExpr,
   evalDrcExpr,

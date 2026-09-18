@@ -38,7 +38,7 @@ import {
   SLIVER_WIDTH_TOLERANCE,
   findSliverPoints,
 } from '@ziroeda/pcbnew/src/drc/drc_sliver.js';
-import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
+import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine_view.js';
 import type { Board, PcbZone } from '@ziroeda/pcbnew/src/types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

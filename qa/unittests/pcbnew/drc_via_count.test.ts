@@ -16,8 +16,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
-import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
+import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine_view.js';
+import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule_view.js';
 import type { Board, PcbVia } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);

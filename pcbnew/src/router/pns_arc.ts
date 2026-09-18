@@ -30,7 +30,7 @@ import {
 } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { segDistanceToPoint } from '@ziroeda/kimath/src/geometry/seg.js';
-import { arcShape } from '../drc/drc_engine.js';
+import { arcShape } from '../drc/drc_engine_view.js';
 import { ARC_HIGH_DEF } from '../graphics_cleaner.js';
 import { PnsKind, PnsLinkedItem, type PnsItem } from './pns_item.js';
 import type { PnsLine } from './pns_line_item.js';

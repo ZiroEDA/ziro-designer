@@ -16,7 +16,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
+import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine_view.js';
 import type { Board, PcbShape } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);

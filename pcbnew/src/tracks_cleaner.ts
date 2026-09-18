@@ -88,7 +88,7 @@ import {
   type CleanupConnectivity,
 } from './cleanup_connectivity.js';
 import { makeCleanupItem, type CleanupRcItem } from './cleanup_item.js';
-import { arcShape, viaLayers } from './drc/drc_engine.js';
+import { arcShape, viaLayers } from './drc/drc_engine_view.js';
 import { shapeDist, type Shape } from './drc/drc_geometry.js';
 import { boardItemId, deleteBoardItems } from './edit-board.js';
 import { groupLockedUuids } from './global_deletion.js';

@@ -89,7 +89,7 @@ import {
 } from './shape_arc_ops.js';
 import { segApproxParallel, segContains, segLength, segLineProject } from './pns_seg_ops.js';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
-import type { MinOptMax } from '../drc/drc_rule.js';
+import type { MinOptMax } from '../drc/drc_rule_view.js';
 import type { Seg } from './pns_line.js';
 import type { ShapeArc } from './pns_arc.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

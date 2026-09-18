@@ -17,7 +17,7 @@ import {
   formatInspectReport,
   type InspectItem,
 } from '@ziroeda/pcbnew/src/drc/drc_inspect.js';
-import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
+import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule_view.js';
 import type { DrcItemType } from '@ziroeda/pcbnew/src/drc/drc_rules_engine.js';
 
 const MM = (n: number): number => mmToIU(n);

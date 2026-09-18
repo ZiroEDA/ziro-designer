@@ -24,7 +24,7 @@
  * default unit.
  */
 
-import { parseRuleValue } from './drc_rule.js';
+import { parseRuleValue } from './drc_rule_view.js';
 
 /** A parsed condition. */
 export type DrcExpr =

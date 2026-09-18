@@ -222,3 +222,28 @@ export function kiidIncrement(aId: KIID): KIID {
 
   return bytesToUuid(b);
 }
+
+/**
+ * `KIID::SniffTest( const wxString& aCandidate )` (common/kiid.cpp:176):
+ * does the text have the shape of a uuid — the nil uuid's length, and only
+ * hex digits and dashes.
+ */
+export function kiidSniffTest(aCandidate: string): boolean {
+  const niluuidStr = niluuid;
+
+  if (aCandidate.length !== niluuidStr.length) return false;
+
+  for (const c of aCandidate) {
+    if (c >= '0' && c <= '9') continue;
+
+    if (c >= 'a' && c <= 'f') continue;
+
+    if (c >= 'A' && c <= 'F') continue;
+
+    if (c === '-') continue;
+
+    return false;
+  }
+
+  return true;
+}

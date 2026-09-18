@@ -635,6 +635,11 @@ export class BOARD_DESIGN_SETTINGS {
     this.m_defaultZoneSettings = aSettings.clone();
   }
 
+  /** `BOARD_DESIGN_SETTINGS::GetDRCEpsilon` (board_design_settings.cpp:1671). */
+  GetDRCEpsilon(): number {
+    return pcbIUScale.mmToIU(ADVANCED_CFG.GetCfg().m_DRCEpsilon);
+  }
+
   /**
    * Return the biggest clearance value found in NetClasses list.
    */

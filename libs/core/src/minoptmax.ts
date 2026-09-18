@@ -54,4 +54,17 @@ export class MINOPTMAX {
   IsNull(): boolean {
     return this.m_isNull;
   }
+
+  /** A copy, as the C++ struct copies by value. */
+  Clone(): MINOPTMAX {
+    const c = new MINOPTMAX();
+    c.m_isNull = this.m_isNull;
+    c.m_min = this.m_min;
+    c.m_opt = this.m_opt;
+    c.m_max = this.m_max;
+    c.m_hasMin = this.m_hasMin;
+    c.m_hasOpt = this.m_hasOpt;
+    c.m_hasMax = this.m_hasMax;
+    return c;
+  }
 }

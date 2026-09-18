@@ -37,7 +37,7 @@ import { PnsHole } from '@ziroeda/pcbnew/src/router/pns_hole.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/src/router/pns_layerset.js';
 import { PnsSegment } from '@ziroeda/pcbnew/src/router/pns_segment.js';
 import type { PnsResolverHost } from '@ziroeda/pcbnew/src/router/pns_rule_resolver.js';
-import type { DrcRule } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
+import type { DrcRule } from '@ziroeda/pcbnew/src/drc/drc_rule_view.js';
 import type { DrcEvalItem } from '@ziroeda/pcbnew/src/drc/drc_rules_engine.js';
 import type { PnsItem } from '@ziroeda/pcbnew/src/router/pns_item.js';
 import type { NetHandle } from '@ziroeda/pcbnew/src/router/pns_collision.js';

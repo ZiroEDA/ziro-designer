@@ -28,7 +28,7 @@ import {
   matchDpSuffix,
   type DpTrack,
 } from '@ziroeda/pcbnew/src/drc/drc_diff_pair.js';
-import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
+import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine_view.js';
 import type { Board, PcbTrack } from '@ziroeda/pcbnew/src/types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

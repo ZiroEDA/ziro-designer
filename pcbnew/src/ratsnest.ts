@@ -18,7 +18,7 @@
  * KiCad's GetEffectiveShape()->Collide() pair.
  */
 
-import { arcShape, padShapes } from './drc/drc_engine.js';
+import { arcShape, padShapes } from './drc/drc_engine_view.js';
 import { shapeBBox, shapeDist, type Shape } from './drc/drc_geometry.js';
 import type { Board, PcbPad } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath';

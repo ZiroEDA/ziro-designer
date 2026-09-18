@@ -35,7 +35,7 @@
  * reproduce: the collision *location*. See {@link defaultShapeCollider}.
  */
 import { shapeDist, type Shape } from '../drc/drc_geometry.js';
-import type { MinOptMax } from '../drc/drc_rule.js';
+import type { MinOptMax } from '../drc/drc_rule_view.js';
 import type { PnsItem } from './pns_item.js';
 import type { PnsLayerRange } from './pns_layerset.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

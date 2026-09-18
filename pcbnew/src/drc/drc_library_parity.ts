@@ -69,7 +69,7 @@ import {
 } from '../footprint_library.js';
 import { fpidItemName, fpidLibNickname } from '../netlist_reader/pcb_netlist.js';
 import type { Board } from '../types.js';
-import type { DrcViolation } from './drc_engine.js';
+import type { DrcViolation } from './drc_engine_view.js';
 
 /**
  * What the check needs to reach the libraries. Upstream takes this from the open

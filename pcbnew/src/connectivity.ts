@@ -14,7 +14,7 @@
  */
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { padShapes } from './drc/drc_engine.js';
+import { padShapes } from './drc/drc_engine_view.js';
 import { shapeDist, type Shape } from './drc/drc_geometry.js';
 import type { Board } from './types.js';
 

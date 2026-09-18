@@ -59,7 +59,7 @@ import {
   type TrackViaSizes,
 } from '../board_design_settings_sizes.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
-import { arcShape, padShapes } from '../drc/drc_engine.js';
+import { arcShape, padShapes } from '../drc/drc_engine_view.js';
 import { padShapePos } from '../padstack.js';
 import { matchDpSuffix } from '../drc/drc_diff_pair.js';
 import { padIsOnLayer } from '../pad_enumerate.js';

@@ -24,7 +24,7 @@ import { DEFAULT_ROUTER_SIZES } from '@ziroeda/pcbnew/src/router/pns_router.js';
 import { PnsSegment } from '@ziroeda/pcbnew/src/router/pns_segment.js';
 import { PnsNode } from '@ziroeda/pcbnew/src/router/pns_node.js';
 import { buildDrcRuleEngine } from '@ziroeda/pcbnew/src/drc/drc_rules_engine.js';
-import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
+import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule_view.js';
 import {
   defaultTrackViaSizeState,
   withNetclassEntry,
