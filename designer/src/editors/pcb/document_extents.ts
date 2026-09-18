@@ -119,8 +119,18 @@ export interface ZoomFitOptions {
   paper: string | undefined;
   /** `m_showBorderAndTitleBlock` — the drawing sheet's own visibility. */
   drawingSheetVisible: boolean;
-  /** True for `zoomFitScreen` (Home), false for `zoomFitObjects` (Ctrl+Home). */
-  includeSheet: boolean;
+  /**
+   * `ZOOM_FIT_ALL` for `zoomFitScreen` (Home, and the fit after a board
+   * loads), `ZOOM_FIT_OBJECTS` for `zoomFitObjects` (Ctrl+Home).
+   */
+  fitType: 'all' | 'objects';
+  /** `m_pcb->IsLayerVisible( Edge_Cuts )`. */
+  edgeCutsVisible: boolean;
+  /**
+   * `BOARD::GetBoardEdgesBoundingBox()`: the box over the Edge.Cuts items
+   * alone, null when the board is empty (`ComputeBoundingBox`'s empty box).
+   */
+  edgesBox: ExtentsBox | null;
 }
 
 /**
@@ -136,18 +146,16 @@ export function pcbZoomFitBox(
 ): ExtentsBox | null {
   const page = pcbPageBox(opts.paper || DEFAULT_BOARD_PAPER, opts.drawingSheetVisible);
 
+  // `COMMON_TOOLS::doZoomFit` (common/tool/common_tools.cpp:322-406): the box
+  // is `GetDocumentExtents()` -- every item -- and for ZOOM_FIT_ALL in the
+  // board editor `GetDocumentExtents( false )`: the board edges alone while
+  // Edge.Cuts is visible (`pcb_base_frame.cpp:619-637`), so Home frames the
+  // board and not the fabrication text around it. The drawing sheet is never
+  // part of it on a board with anything on it; it is only what the two
+  // fallbacks below land on.
   let box = itemsBox;
 
-  if (opts.includeSheet && opts.drawingSheetVisible) {
-    box = box
-      ? {
-          minX: Math.min(box.minX, page.minX),
-          minY: Math.min(box.minY, page.minY),
-          maxX: Math.max(box.maxX, page.maxX),
-          maxY: Math.max(box.maxY, page.maxY),
-        }
-      : page;
-  }
+  if (opts.fitType === 'all' && opts.edgeCutsVisible) box = opts.edgesBox;
 
   // GetBoardBoundingBox's fallback, then doZoomFit's. Both land on the page:
   // it is what PCB_DRAW_PANEL_GAL::GetDefaultViewBBox returns too, the drawing

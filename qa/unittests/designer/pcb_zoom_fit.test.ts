@@ -31,7 +31,8 @@ const A4_H = 8268 * 25400;
 const A3_W = 16535 * 25400;
 const A3_H = 11693 * 25400;
 
-const sheetShown = { drawingSheetVisible: true, includeSheet: true };
+/** Home on a board whose sheet and Edge.Cuts layer are shown. */
+const sheetShown = { drawingSheetVisible: true, fitType: 'all' as const, edgeCutsVisible: true };
 
 describe('PCB_BASE_FRAME::GetPageSizeIU', () => {
   it('reads the shared mils table rather than round millimetres', () => {
@@ -77,7 +78,7 @@ describe('PCB_BASE_FRAME::GetBoardBoundingBox page fallback', () => {
 describe('pcbZoomFitBox', () => {
   it('frames the sheet on a board with nothing in it', () => {
     // The bug: `scene.bbox` is null (renderBoard.ts:1489) and Home did nothing.
-    expect(pcbZoomFitBox(null, { paper: 'A4', ...sheetShown })).toStrictEqual({
+    expect(pcbZoomFitBox(null, { paper: 'A4', ...sheetShown, edgesBox: null })).toStrictEqual({
       minX: 0,
       minY: 0,
       maxX: A4_W,
@@ -89,25 +90,39 @@ describe('pcbZoomFitBox', () => {
     // GetBoardBoundingBox's fallback is inside the frame call both fit types
     // go through, so Ctrl+Home lands on the page as well.
     expect(
-      pcbZoomFitBox(null, { paper: 'A4', drawingSheetVisible: true, includeSheet: false }),
+      pcbZoomFitBox(null, {
+        paper: 'A4',
+        drawingSheetVisible: true,
+        fitType: 'objects',
+        edgeCutsVisible: true,
+        edgesBox: null,
+      }),
     ).toStrictEqual({ minX: 0, minY: 0, maxX: A4_W, maxY: A4_H });
   });
 
   it('still frames the sheet with the sheet hidden, centred on the origin', () => {
     expect(
-      pcbZoomFitBox(null, { paper: 'A4', drawingSheetVisible: false, includeSheet: true }),
+      pcbZoomFitBox(null, {
+        paper: 'A4',
+        drawingSheetVisible: false,
+        fitType: 'all',
+        edgeCutsVisible: true,
+        edgesBox: null,
+      }),
     ).toStrictEqual({ minX: -A4_W / 2, minY: -A4_H / 2, maxX: A4_W / 2, maxY: A4_H / 2 });
   });
 
   it('treats a board with no (paper …) token as A4', () => {
     // `BOARD::BOARD() : … m_paper( PAGE_SIZE_TYPE::A4 )` (board.cpp:98).
-    expect(pcbZoomFitBox(null, { paper: undefined, ...sheetShown })).toStrictEqual(
-      pcbZoomFitBox(null, { paper: 'A4', ...sheetShown }),
+    expect(pcbZoomFitBox(null, { paper: undefined, ...sheetShown, edgesBox: null })).toStrictEqual(
+      pcbZoomFitBox(null, { paper: 'A4', ...sheetShown, edgesBox: null }),
     );
   });
 
   it('honours the page orientation on an empty board', () => {
-    expect(pcbZoomFitBox(null, { paper: 'A4 portrait', ...sheetShown })).toStrictEqual({
+    expect(
+      pcbZoomFitBox(null, { paper: 'A4 portrait', ...sheetShown, edgesBox: null }),
+    ).toStrictEqual({
       minX: 0,
       minY: 0,
       maxX: A4_H,
@@ -125,7 +140,13 @@ describe('pcbZoomFitBox', () => {
       maxY: 5_000_000,
     };
     expect(
-      pcbZoomFitBox(flat, { paper: 'A4', drawingSheetVisible: true, includeSheet: false }),
+      pcbZoomFitBox(flat, {
+        paper: 'A4',
+        drawingSheetVisible: true,
+        fitType: 'objects',
+        edgeCutsVisible: true,
+        edgesBox: null,
+      }),
     ).toStrictEqual({ minX: 0, minY: 0, maxX: A4_W, maxY: A4_H });
   });
 
@@ -137,7 +158,13 @@ describe('pcbZoomFitBox', () => {
       maxY: 50_000_000,
     };
     expect(
-      pcbZoomFitBox(items, { paper: 'A4', drawingSheetVisible: true, includeSheet: false }),
+      pcbZoomFitBox(items, {
+        paper: 'A4',
+        drawingSheetVisible: true,
+        fitType: 'objects',
+        edgeCutsVisible: true,
+        edgesBox: null,
+      }),
     ).toStrictEqual(items);
   });
 
@@ -149,22 +176,74 @@ describe('pcbZoomFitBox', () => {
       maxY: 50_000_000,
     };
     expect(
-      pcbZoomFitBox(items, { paper: 'A4', drawingSheetVisible: false, includeSheet: true }),
+      pcbZoomFitBox(items, {
+        paper: 'A4',
+        drawingSheetVisible: false,
+        fitType: 'objects',
+        edgeCutsVisible: true,
+        edgesBox: null,
+      }),
     ).toStrictEqual(items);
   });
 
-  it('unions the items with the sheet for Zoom to Fit', () => {
+  it('frames the board edges alone for Zoom to Fit, never the sheet', () => {
+    // `GetDocumentExtents( false )` while Edge.Cuts is visible is
+    // `GetBoardBoundingBox( true )`, the Edge.Cuts items' box
+    // (pcb_base_frame.cpp:633-636): fabrication text outside the outline
+    // and the drawing sheet are both left out, which is why Home in pcbnew
+    // fills the canvas with the board.
     const items: ExtentsBox = {
       minX: -5_000_000,
       minY: 20_000_000,
       maxX: 40_000_000,
       maxY: 500_000_000,
     };
-    expect(pcbZoomFitBox(items, { paper: 'A4', ...sheetShown })).toStrictEqual({
+    const edges: ExtentsBox = {
+      minX: 0,
+      minY: 25_000_000,
+      maxX: 35_000_000,
+      maxY: 95_000_000,
+    };
+    expect(pcbZoomFitBox(items, { paper: 'A4', ...sheetShown, edgesBox: edges })).toStrictEqual(
+      edges,
+    );
+  });
+
+  it('falls back to every item for Zoom to Fit while Edge.Cuts is hidden', () => {
+    // `if( aIncludeAllVisible || !m_pcb->IsLayerVisible( Edge_Cuts ) )
+    //     return GetBoardBoundingBox( false );`
+    const items: ExtentsBox = {
       minX: -5_000_000,
+      minY: 20_000_000,
+      maxX: 40_000_000,
+      maxY: 500_000_000,
+    };
+    const edges: ExtentsBox = { minX: 0, minY: 25_000_000, maxX: 35_000_000, maxY: 95_000_000 };
+    expect(
+      pcbZoomFitBox(items, {
+        paper: 'A4',
+        drawingSheetVisible: true,
+        fitType: 'all',
+        edgeCutsVisible: false,
+        edgesBox: edges,
+      }),
+    ).toStrictEqual(items);
+  });
+
+  it('frames the page for Zoom to Fit on a board with items but no outline', () => {
+    // An outline-less board: GetBoardEdgesBoundingBox is empty, and
+    // GetBoardBoundingBox( true ) substitutes the page.
+    const items: ExtentsBox = {
+      minX: -5_000_000,
+      minY: 20_000_000,
+      maxX: 40_000_000,
+      maxY: 500_000_000,
+    };
+    expect(pcbZoomFitBox(items, { paper: 'A4', ...sheetShown, edgesBox: null })).toStrictEqual({
+      minX: 0,
       minY: 0,
       maxX: A4_W,
-      maxY: 500_000_000,
+      maxY: A4_H,
     });
   });
 });

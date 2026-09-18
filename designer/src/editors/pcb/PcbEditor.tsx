@@ -1120,6 +1120,9 @@ export function PcbEditor({
   const [visible, setVisible] = useState<ReadonlySet<string>>(
     () => new Set(emptyBoard.layers.map((l) => l.name)),
   );
+  // Read by callbacks that must not re-create on every layer toggle (the fit).
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
   const [activeLayer, setActiveLayer] = useState('F.Cu');
   // `getView()->GetTopLayer()`, which every snap reads to prefer items on the
   // layer being worked on. A ref because `draw` reads it without wanting to be
@@ -1755,6 +1758,12 @@ export function PcbEditor({
       onUndoRedoIncomplete: () =>
         console.warn('Incomplete undo/redo operation: some items not found'),
     });
+    // `PCB_EDIT_FRAME::PCB_EDIT_FRAME`: `SetBoard( new BOARD() )` (:250) --
+    // the frame never has no board, and the empty one's drawing sheet is on
+    // the VIEW from the first frame, fitted by the constructor's
+    // zoomFitScreen. Without it the canvas was bare until the load's own
+    // SetBoard, seconds later.
+    if (emptyBoard.k) frameRef.current.SetBoard(emptyBoard.k, false);
   }
   // The rows the disambiguation menu is pointing at, and their geometry.
   //
@@ -2343,6 +2352,26 @@ export function PcbEditor({
     if (!kb) return sceneRef.current?.bbox ?? null;
 
     const area = kb.GetBoundingBox();
+
+    if (area.GetWidth() === 0 && area.GetHeight() === 0) return null;
+
+    return {
+      minX: area.GetLeft(),
+      minY: area.GetTop(),
+      maxX: area.GetRight(),
+      maxY: area.GetBottom(),
+    };
+  };
+  /**
+   * `BOARD::GetBoardEdgesBoundingBox()`: the Edge.Cuts items' box, null for
+   * an empty one. The raster path has no model: its scene box stands in.
+   */
+  const boardEdgesBox = (): ExtentsBox | null => {
+    const kb = boardRef.current?.k;
+
+    if (!kb) return sceneRef.current?.bbox ?? null;
+
+    const area = kb.GetBoardEdgesBoundingBox();
 
     if (area.GetWidth() === 0 && area.GetHeight() === 0) return null;
 
@@ -4262,13 +4291,23 @@ export function PcbEditor({
     if (PERF) (pcbPerf as PcbPerfCounters & { panel?: PCB_DRAW_PANEL_GAL }).panel = panel;
     // A board already open: `SetBoard` ran without a canvas, so what it would
     // have done through the canvas is done now.
+    // In SetBoard's order: `DisplayBoard` first (it clears the VIEW), then
+    // `SetPageSettings`' drawing sheet onto it -- the other way round the
+    // sheet went into the VIEW and was cleared straight out again, and the
+    // empty board an open starts from had no sheet until the load's own
+    // SetBoard, seconds later.
     const kb = frame.GetBoard();
     if (kb) {
-      attachBoardToPanel(frame, panel, kb);
       panel.DisplayBoard(kb);
+      attachBoardToPanel(frame, panel, kb);
       panel.UpdateColors();
     }
     frame.ActivateGalCanvas();
+    // The VIEW starts where the editor's transform is -- the fit the sheet
+    // or the board already had -- rather than at the VIEW's own default
+    // until the next draw syncs it (which, with the parse about to block
+    // the thread, was the un-fitted sheet in the corner for the whole open).
+    syncViewTransform(panel, viewRef.current, dpr);
     displayStateRef.current = null;
     setPanelReady(true);
     // A restored context: the whole-board scene the raster path built in the
@@ -5070,19 +5109,21 @@ export function PcbEditor({
   // `GetBoardBoundingBox` fallback it ports. Before it, an empty board's null
   // scene box returned here and the button did nothing.
   const zoomToFitImpl = useCallback(
-    (includeSheet: boolean) => {
+    (fitType: 'all' | 'objects') => {
       const box = pcbZoomFitBox(boardItemsBox(), {
         paper: boardRef.current?.paper,
         drawingSheetVisible: objects.drawingSheet,
-        includeSheet,
+        fitType,
+        edgeCutsVisible: visibleRef.current.has('Edge.Cuts'),
+        edgesBox: boardEdgesBox(),
       });
       if (!box) return;
-      fitWorldBox(box.minX, box.minY, box.maxX, box.maxY, includeSheet ? 'all' : 'objects');
+      fitWorldBox(box.minX, box.minY, box.maxX, box.maxY, fitType);
     },
     [fitWorldBox, objects.drawingSheet],
   );
-  const zoomToFit = useCallback(() => zoomToFitImpl(true), [zoomToFitImpl]);
-  const zoomFitObjects = useCallback(() => zoomToFitImpl(false), [zoomToFitImpl]);
+  const zoomToFit = useCallback(() => zoomToFitImpl('all'), [zoomToFitImpl]);
+  const zoomFitObjects = useCallback(() => zoomToFitImpl('objects'), [zoomToFitImpl]);
 
   // Select on PCB, arriving from the schematic frame: pcbnew's "$SELECT:"
   // handler, `FindItemsFromSyncSelection` then `doSyncSelection` — replace the
@@ -5393,6 +5434,10 @@ export function PcbEditor({
 
   // Size the canvas to its container (device pixels) and fit on first layout.
   const fittedRef = useRef(false);
+  // `IsShownOnScreen()`, for the observer callback and the frame after a load.
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `board` and `shown` are triggers: re-observing fires the observer once more, which is the fit after a load and the fit when the frame is first shown
   useEffect(() => {
     const wrap = wrapRef.current;
     const canvas = canvasRef.current;
@@ -5426,7 +5471,13 @@ export function PcbEditor({
       // meant nothing, and recording it as done meant the real layout, when the
       // user finally switched over, never fitted at all: an empty sheet with the
       // origin marker sitting in it until they pressed Zoom to Fit themselves.
-      if (!fittedRef.current && sceneRef.current && isMeasured(size)) {
+      //
+      // And only while the frame is shown: a frame kept mounted behind the
+      // manager (`content-visibility: hidden` keeps its box) measures a real
+      // size too, and a fit taken there is to a viewport the user never sees.
+      // `PCB_EDIT_FRAME::onSize` runs its zoomFitScreen `if( IsShownOnScreen() )`
+      // and not before.
+      if (!fittedRef.current && sceneRef.current && isMeasured(size) && shownRef.current) {
         fittedRef.current = true;
         zoomToFit();
       } else if (changed) {
@@ -5436,7 +5487,7 @@ export function PcbEditor({
     });
     ro.observe(wrap);
     return () => ro.disconnect();
-  }, [dpr, requestDraw, zoomToFit, board]);
+  }, [dpr, requestDraw, zoomToFit, board, shown]);
 
   // The other half of the same race: a board can finish parsing after the last
   // resize the observer will ever see, and then nothing is left to trigger the
@@ -5449,7 +5500,7 @@ export function PcbEditor({
     const tryFit = (): void => {
       if (fittedRef.current || !sceneRef.current) return;
       const r = wrapRef.current?.getBoundingClientRect();
-      if (!r || r.width === 0 || r.height === 0) return;
+      if (!r || r.width === 0 || r.height === 0 || !shownRef.current) return;
       fittedRef.current = true;
       zoomToFit();
     };

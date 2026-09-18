@@ -117,8 +117,81 @@ await evalJs(
   `(() => { const el = [...document.querySelectorAll('*')].find(e => e.children.length === 0 && e.textContent.trim() === 'PCB Editor'); el.dispatchEvent(new MouseEvent('click', { bubbles: true })); return !!el; })()`,
 );
 console.log('open (launcher click):');
+const shot = async (name) => {
+  if (!process.env.SHOTS) return;
+  const r = await send('Page.captureScreenshot', { format: 'jpeg', quality: 55 });
+  writeFileSync(`${process.env.SHOTS}/${name}.jpg`, Buffer.from(r.result.data, 'base64'));
+};
+for (const at of [100, 400, 1000, 2500]) {
+  await sleep(
+    at === 100 ? 100 : at - [100, 400, 1000, 2500][[100, 400, 1000, 2500].indexOf(at) - 1],
+  );
+  console.log(
+    `  +${at} ms:`,
+    await evalJs(
+      `(() => { const p = window.__pcbPerf && window.__pcbPerf.panel; if (!p) return 'no panel'; const v = p.GetView(); const c = v.GetCenter(); return 'scale ' + v.GetScale().toFixed(3) + ' center ' + (c.x / 1e6).toFixed(1) + ',' + (c.y / 1e6).toFixed(1) + ' mm'; })()`,
+    ),
+    '| title:',
+    await evalJs('document.title'),
+  );
+}
+await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 900, y: 500 });
+await send('Input.dispatchKeyEvent', {
+  type: 'keyDown',
+  key: 'Home',
+  code: 'Home',
+  windowsVirtualKeyCode: 36,
+});
+await send('Input.dispatchKeyEvent', {
+  type: 'keyUp',
+  key: 'Home',
+  code: 'Home',
+  windowsVirtualKeyCode: 36,
+});
+await sleep(600);
+console.log(
+  '  after Home during load:',
+  await evalJs(
+    `(() => { const v = window.__pcbPerf.panel.GetView(); const c = v.GetCenter(); return 'scale ' + v.GetScale().toFixed(3) + ' center ' + (c.x / 1e6).toFixed(1) + ',' + (c.y / 1e6).toFixed(1) + ' mm; canvas ' + [...document.querySelectorAll('canvas')].filter(c => c.width > 500).map(c => c.width + 'x' + c.height).join('/'); })()`,
+  ),
+);
+console.log(
+  '  sheet item:',
+  await evalJs(
+    `(() => { const p = window.__pcbPerf.panel; const ds = p.GetDrawingSheet(); const v = p.GetView(); return (ds ? 'present, bbox ' + JSON.stringify(ds.ViewBBox()) : 'NONE') + '; view items ' + (v.m_allItems ? v.m_allItems.size ?? v.m_allItems.length : '?'); })()`,
+  ),
+);
+console.log(
+  '  sheet layer:',
+  await evalJs(
+    `(() => { const p = window.__pcbPerf.panel; const v = p.GetView(); const ds = p.GetDrawingSheet(); const layers = ds.ViewGetLayers(); const priv = ds.viewPrivData && ds.viewPrivData(); return 'layers ' + JSON.stringify(layers) + ' visible ' + layers.map(l => v.IsLayerVisible(l)) + ' groups ' + (priv ? priv.m_groupsSize : '?') + ' renderable ' + (priv && priv.isRenderable ? priv.isRenderable() : '?') + ' lod ' + ds.ViewGetLOD(layers[0], v) + ' scale ' + v.GetScale(); })()`,
+  ),
+);
+console.log(
+  '  sheet draw calls:',
+  await evalJs(
+    `(() => { const p = window.__pcbPerf.panel; const ds = p.GetDrawingSheet(); const g = p.GetGAL(); let vd = 0, lines = 0, rects = 0, texts = 0; const oVD = ds.ViewDraw; ds.ViewDraw = function(...a) { vd++; return oVD.apply(this, a); }; const oL = g.DrawLine, oR = g.DrawRectangle, oT = g.BitmapText; g.DrawLine = function(...a) { lines++; return oL.apply(this, a); }; g.DrawRectangle = function(...a) { rects++; return oR.apply(this, a); }; if (oT) g.BitmapText = function(...a) { texts++; return oT.apply(this, a); }; p.GetView().MarkDirty(); p.DoRePaint(false); ds.ViewDraw = oVD; g.DrawLine = oL; g.DrawRectangle = oR; if (oT) g.BitmapText = oT; return 'ViewDraw ' + vd + ' lines ' + lines + ' rects ' + rects + ' texts ' + texts + ' dirty ' + p.GetView().IsDirty(); })()`,
+  ),
+);
+console.log(
+  '  panel state:',
+  await evalJs(
+    `(() => { try { const p = window.__pcbPerf.panel; const g = p.GetGAL(); return 'drawingEnabled ' + p.m_drawingEnabled + ' galInit ' + g.IsInitialized() + ' galVisible ' + g.IsVisible() + ' locked ' + g.IsContextLocked() + ' drawing ' + p.m_drawing + ' repaint-> ' + p.DoRePaint(false); } catch (e) { return 'ERR ' + e.message; } })()`,
+  ),
+);
+await sleep(500);
+await shot('1_after_click');
 const built = await waitForLine('BuildConnectivity', /Post-load BuildConnectivity/, 300000);
+await shot('2_after_connectivity');
 const firstFrame = await waitForLine('first frame', /View timing/, 300000, built[0]);
+await sleep(1500);
+console.log(
+  '  sheet draw calls after load:',
+  await evalJs(
+    `(() => { const p = window.__pcbPerf.panel; const ds = p.GetDrawingSheet(); const g = p.GetGAL(); let vd = 0, lines = 0, rects = 0; const oVD = ds.ViewDraw; ds.ViewDraw = function(...a) { vd++; return oVD.apply(this, a); }; const oL = g.DrawLine, oR = g.DrawRectangle; g.DrawLine = function(...a) { lines++; return oL.apply(this, a); }; g.DrawRectangle = function(...a) { rects++; return oR.apply(this, a); }; p.GetView().MarkDirty(); p.DoRePaint(false); ds.ViewDraw = oVD; g.DrawLine = oL; g.DrawRectangle = oR; return 'ViewDraw ' + vd + ' lines ' + lines + ' rects ' + rects; })()`,
+  ),
+);
+await shot('3_first_frame');
 console.log(
   `  navigate -> BuildConnectivity ${((built[0] - tNav) / 1000).toFixed(1)} s, -> first frame ${((firstFrame[0] - tNav) / 1000).toFixed(1)} s (${/view-total: ([^ ]+)/.exec(firstFrame[1])?.[1]})`,
 );
