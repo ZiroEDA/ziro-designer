@@ -12,13 +12,22 @@
  */
 import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/src/eda_draw_frame.js';
 import { FRAME_T } from '@ziroeda/common/src/frame_type.js';
+import {
+  CLEARANCE_LAYER_FOR,
+  IsCopperLayer,
+  type PCB_LAYER_ID,
+} from '@ziroeda/common/src/layer_ids.js';
 import { TOOL_MANAGER } from '@ziroeda/common/src/tool/tool_manager.js';
+import { VIEW_UPDATE_FLAGS, type VIEW_ITEM } from '@ziroeda/common/src/view/view_item.js';
 import { FLIP_DIRECTION } from '@ziroeda/kimath/src/core/mirror.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { BOARD } from '@ziroeda/pcbnew/src/board.js';
 import type { BOARD_ITEM } from '@ziroeda/pcbnew/src/board_item.js';
 import type { BOARD_ITEM_CONTAINER } from '@ziroeda/pcbnew/src/board_item_container.js';
 import { BOARD_LISTENER } from '@ziroeda/pcbnew/src/board_listener.js';
+import { HIGH_CONTRAST_MODE } from '@ziroeda/pcbnew/src/board_project_settings.js';
+import { PAD } from '@ziroeda/pcbnew/src/pad.js';
+import { PCB_VIA, VIATYPE } from '@ziroeda/pcbnew/src/pcb_track.js';
 import type { PROGRESS_REPORTER_LIKE } from '@ziroeda/pcbnew/src/connectivity/connectivity_algo.js';
 import { PCB_BASE_EDIT_FRAME } from '@ziroeda/pcbnew/src/pcb_base_edit_frame.js';
 import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from '@ziroeda/pcbnew/src/pcb_base_frame.js';
@@ -122,6 +131,117 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   Clear_Pcb(): void {
     // Clear undo and redo lists because we want a full deletion
     this.ClearUndoRedoList();
+  }
+
+  /**
+   * `PCB_EDIT_FRAME::SetActiveLayer( aLayer, aForceRedraw )` (pcb_edit_frame.cpp:1823):
+   * the canvas half. The Appearance panel's `OnLayerChanged` is the React
+   * state's, and `PCB_ACTIONS::layerChanged` is stage 3's.
+   */
+  override SetActiveLayer(aLayer: PCB_LAYER_ID, aForceRedraw = false): void {
+    const oldLayer = this.GetActiveLayer();
+
+    if (oldLayer === aLayer && !aForceRedraw) return;
+
+    super.SetActiveLayer(aLayer);
+
+    const canvas = this.GetCanvas();
+
+    if (!canvas) return;
+
+    canvas.SetHighContrastLayer(aLayer);
+
+    /*
+     * Only show pad, via and track clearances when a copper layer is active
+     * and then only show the clearance layer for that copper layer. For
+     * front/back non-copper layers, show the clearance layer for the outer
+     * layer on that side.
+     *
+     * For pads/vias, this is to avoid clutter when there are pad/via layers
+     * that vary in flash (i.e. clearance from the hole or pad edge), padstack
+     * shape on each layer or clearances on each layer.
+     *
+     * For tracks, this follows the same logic as pads/vias, but in theory could
+     * have their own set of independent clearance layers to allow track clearance
+     * to be shown for more layers.
+     */
+    const getClearanceLayerForActive = (aActiveLayer: PCB_LAYER_ID): number | null => {
+      if (IsCopperLayer(aActiveLayer)) return CLEARANCE_LAYER_FOR(aActiveLayer);
+
+      return null;
+    };
+
+    const oldClearanceLayer = getClearanceLayerForActive(oldLayer);
+
+    if (oldClearanceLayer !== null) canvas.GetView().SetLayerVisible(oldClearanceLayer, false);
+
+    const newClearanceLayer = getClearanceLayerForActive(aLayer);
+
+    if (newClearanceLayer !== null) canvas.GetView().SetLayerVisible(newClearanceLayer, true);
+
+    const contrastMode = this.GetDisplayOptions().m_ContrastModeDisplay;
+
+    canvas.GetView().UpdateAllItemsConditionally((aItem: VIEW_ITEM): number => {
+      if (!aItem.IsBOARD_ITEM()) return 0;
+
+      return PCB_EDIT_FRAME.activeLayerUpdateFlags(
+        aItem as BOARD_ITEM,
+        oldLayer,
+        aLayer,
+        contrastMode,
+      );
+    });
+
+    canvas.Refresh();
+  }
+
+  /** `PCB_EDIT_FRAME::activeLayerUpdateFlags` (pcb_edit_frame.cpp:1881). */
+  static activeLayerUpdateFlags(
+    aItem: BOARD_ITEM,
+    aOldLayer: PCB_LAYER_ID,
+    aNewLayer: PCB_LAYER_ID,
+    aContrastMode: HIGH_CONTRAST_MODE,
+  ): number {
+    // Note: KIGFX::REPAINT isn't enough for things that go from invisible to visible as they
+    // won't be found in the view layer's itemset for re-painting.
+    if (aContrastMode === HIGH_CONTRAST_MODE.HIDDEN) {
+      if (aItem.IsOnLayer(aOldLayer) || aItem.IsOnLayer(aNewLayer)) return VIEW_UPDATE_FLAGS.ALL;
+    }
+
+    // High contrast dims by active layer so all flagged items repaint; without it only the flashed
+    // copper geometry depends on the active layer, so re-cache just the items whose flashing changes.
+    const highContrast = aContrastMode !== HIGH_CONTRAST_MODE.NORMAL;
+
+    if (aItem instanceof PCB_VIA) {
+      const via = aItem;
+
+      if (
+        via.GetViaType() === VIATYPE.BLIND ||
+        via.GetViaType() === VIATYPE.BURIED ||
+        via.GetViaType() === VIATYPE.MICROVIA
+      ) {
+        if (highContrast || via.GetLayerSet().test(aOldLayer) !== via.GetLayerSet().test(aNewLayer))
+          return VIEW_UPDATE_FLAGS.REPAINT;
+      }
+
+      if (
+        via.GetRemoveUnconnected() &&
+        (highContrast || via.FlashLayer(aOldLayer) !== via.FlashLayer(aNewLayer))
+      ) {
+        return VIEW_UPDATE_FLAGS.ALL;
+      }
+    } else if (aItem instanceof PAD) {
+      const pad = aItem;
+
+      if (
+        pad.GetRemoveUnconnected() &&
+        (highContrast || pad.FlashLayer(aOldLayer) !== pad.FlashLayer(aNewLayer))
+      ) {
+        return VIEW_UPDATE_FLAGS.ALL;
+      }
+    }
+
+    return 0;
   }
 
   GetName(): string {

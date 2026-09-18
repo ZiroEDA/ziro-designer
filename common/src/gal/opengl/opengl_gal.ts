@@ -73,7 +73,7 @@ const COLOR4D_BLUE = COLOR4D(0.0, 0.0, 0.52, 1.0);
  * element, its WebGL2 context, and the window services around it.
  */
 export interface OPENGL_GAL_CANVAS {
-  /** The context, with `depth`, `stencil` and `premultipliedAlpha: false`. */
+  /** The context: opaque (`alpha: false`), with `depth` and `stencil`. */
   readonly gl: WebGL2RenderingContext;
   /** `HIDPI_GL_CANVAS::GetScaleFactor()`: device pixels per logical pixel. */
   GetScaleFactor(): number;
@@ -789,7 +789,7 @@ export class OPENGL_GAL extends GAL {
         const rgba = new Uint8Array(w * h * 4);
         gl.finish();
         gl.pixelStorei(gl.PACK_ALIGNMENT, 1);
-        gl.readBuffer(gl.COLOR_ATTACHMENT0 + (this.m_mainBuffer - 1));
+        gl.readBuffer(gl.COLOR_ATTACHMENT0);
         gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, rgba);
         result = { width: w, height: h, rgba };
       }

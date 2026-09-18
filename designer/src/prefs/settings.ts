@@ -102,6 +102,17 @@ export interface CommonSettings {
     zoom_correction_factor: number;
   };
   /**
+   * `graphics.antialiasing_mode` — `PARAM<int>( …, 2, 0, 2 )`
+   * (`common_settings.cpp:329-330`): `GAL_ANTIALIASING_MODE`, 0 none, 1 fast,
+   * 2 high quality, which `GAL_DISPLAY_OPTIONS::ReadCommonConfig` copies into
+   * the GAL and `OPENGL_COMPOSITOR::Initialize` maps to a presentor — fast is
+   * SMAA, high quality is 2x supersampling (`opengl_compositor.cpp:104-115`).
+   * The board editor's OPENGL_GAL draws with it (#636 stage 5).
+   */
+  graphics: {
+    antialiasing_mode: 0 | 1 | 2;
+  };
+  /**
    * `git.*` — COMMON_SETTINGS `m_Git`
    * (`common/settings/common_settings.cpp:459-472`), the five parameters
    * `PANEL_GIT_REPOS` edits. `git.repositories`, the sixth, is a
@@ -354,6 +365,10 @@ export const COMMON_DEFAULTS: CommonSettings = {
     zoom_correction_factor: 1.0,
   },
   // `m_Git` — the five PARAM defaults.
+  // `PARAM<int>( "graphics.antialiasing_mode", …, 2, 0, 2 )`: high quality.
+  graphics: {
+    antialiasing_mode: 2,
+  },
   git: {
     authorName: '',
     authorEmail: '',

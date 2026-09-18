@@ -571,7 +571,12 @@ import { browserSafeKey } from '../../ui/browser_reserved.js';
 import { settings } from '../../prefs/settings.js';
 import { setLanguageMenuItem } from '../../ui/language_menu.js';
 import { hiContrastFactorFor } from '@ziroeda/common/src/render_settings.js';
-import { usePcbnewSettings, useUserColors, useUserThemes } from '../../prefs/useSettings.js';
+import {
+  useCommonSettings,
+  usePcbnewSettings,
+  useUserColors,
+  useUserThemes,
+} from '../../prefs/useSettings.js';
 import { ColorSwatch } from '../../ui/ColorSwatch.js';
 import {
   COLOR4D_UNSPECIFIED,
@@ -1139,6 +1144,7 @@ export function PcbEditor({
    * Clearance Outlines groups take effect without a reload.
    */
   const pcbCfg = usePcbnewSettings();
+  const commonCfg = useCommonSettings();
   /**
    * `PANEL_GAL_OPTIONS`' two groups, mirrored into a ref because `draw` is
    * memoised on `startCrispRender` alone and must not be rebuilt whenever a
@@ -4279,6 +4285,9 @@ export function PcbEditor({
     const frame = frameRef.current;
     if (!canvas || !frame || !fontImage || panelRef.current) return;
     installPgm();
+    // `EDA_DRAW_FRAME::EDA_DRAW_FRAME`: `m_galDisplayOptions.ReadCommonConfig(
+    // *Pgm().GetCommonSettings(), this )` before the canvas is built.
+    frame.GetGalDisplayOptions().ReadCommonConfig(settings.common);
     const panel = createPcbDrawPanel(frame, canvas, fontImage);
     glOkRef.current = panel !== null;
     if (!panel) {
@@ -4369,6 +4378,16 @@ export function PcbEditor({
       });
     });
   }
+  // `EDA_DRAW_FRAME::CommonSettingsChanged`: `m_galDisplayOptions.ReadCommonConfig(
+  // *settings, this )` (eda_draw_frame.cpp:400). The GAL observes the options:
+  // `OPENGL_GAL::updatedGalDisplayOptions` drops its framebuffers and refreshes,
+  // and the next frame rebuilds the compositor at the new antialiasing mode.
+  const antialiasingMode = commonCfg.graphics.antialiasing_mode;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the mode is the trigger; the body reads the settings store and refs
+  useEffect(() => {
+    if (!panelRef.current) return;
+    frameRef.current?.GetGalDisplayOptions().ReadCommonConfig(settings.common);
+  }, [antialiasingMode]);
   const boardK = board?.k ?? null;
   useEffect(() => {
     const frame = frameRef.current;

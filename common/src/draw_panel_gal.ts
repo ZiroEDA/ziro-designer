@@ -266,11 +266,14 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS {
     this.m_stealsFocus = true;
     this.m_statusPopup = null;
 
-    // wxGLCanvas: the context with depth, stencil and no premultiplied alpha
+    // wxGLCanvas with `getGLAttribs()`: `RGBA().DoubleBuffer().Depth( 8 )`, an
+    // opaque window. The antialiasing presentors write the screen with the
+    // alpha channel masked off (`glColorMask( TRUE, TRUE, TRUE, FALSE )`), which
+    // a canvas that composites its alpha would show as fully transparent.
     const gl = aWindow.canvas.getContext('webgl2', {
+      alpha: false,
       depth: true,
       stencil: true,
-      premultipliedAlpha: false,
       antialias: false,
       preserveDrawingBuffer: false,
     });

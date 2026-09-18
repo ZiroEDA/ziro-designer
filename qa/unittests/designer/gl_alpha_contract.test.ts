@@ -36,6 +36,35 @@ describe('WebGL context attributes', () => {
   });
 });
 
+/**
+ * The GAL's canvas is the other way round: opaque. `getGLAttribs()` is
+ * `RGBA().DoubleBuffer().Depth( 8 )` (`opengl_gal.cpp:80-84`), a window with
+ * no alpha to composite, and the antialiasing presentors write the screen
+ * with the alpha channel masked off (`glColorMask( TRUE, TRUE, TRUE, FALSE )`,
+ * `antialiasing.cpp:188`). A canvas that composites its alpha shows that as
+ * fully transparent: the board vanished the moment antialiasing was on.
+ */
+describe('the GAL canvas is an opaque window', () => {
+  const gal = readFileSync(
+    new URL('../../../common/src/draw_panel_gal.ts', import.meta.url),
+    'utf8',
+  );
+  const attrs = gal.slice(gal.indexOf("getContext('webgl2'"), gal.indexOf('if (!gl) throw'));
+
+  it('declares alpha false', () => {
+    expect(attrs).toMatch(/alpha:\s*false/);
+    expect(attrs).not.toMatch(/premultipliedAlpha/);
+  });
+
+  it('the presentors mask alpha off when they write the screen', () => {
+    const aa = readFileSync(
+      new URL('../../../common/src/gal/opengl/antialiasing.ts', import.meta.url),
+      'utf8',
+    );
+    expect(aa.match(/gl\.colorMask\(true, true, true, false\)/g)?.length).toBe(2);
+  });
+});
+
 describe('the arithmetic the bug came from', () => {
   const BG = [0, 16, 35];
   const BCU = [77, 127, 196];

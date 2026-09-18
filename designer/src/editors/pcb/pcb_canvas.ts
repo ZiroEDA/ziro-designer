@@ -435,11 +435,12 @@ export function applyDisplayState(
   const settings = view.GetPainter().GetSettings();
 
   // Layer visibility: BOARD::SetVisibleLayers + PCB_DRAW_PANEL_GAL::SyncLayersVisibility
-  if (
+  const visibilityChanged =
     !aPrev ||
     !setsEqual(aPrev.visibleLayers, aState.visibleLayers) ||
-    !mapsEqual(aPrev.visibleElements, aState.visibleElements)
-  ) {
+    !mapsEqual(aPrev.visibleElements, aState.visibleElements);
+
+  if (visibilityChanged) {
     const visible = new LSET();
 
     for (const layer of aState.visibleLayers) visible.set(layer);
@@ -457,22 +458,20 @@ export function applyDisplayState(
     view.UpdateAllLayersColor();
   }
 
-  // The active layer: PCB_EDIT_FRAME::SetActiveLayer, whose canvas half is
-  // SetHighContrastLayer; SetDisplayOptions does that itself for the layer
-  // the frame then holds.
-  const layerChanged = !aPrev || aPrev.activeLayer !== aState.activeLayer;
-
-  if (aFrame.GetActiveLayer() !== aState.activeLayer) aFrame.SetActiveLayer(aState.activeLayer);
+  // The active layer: PCB_EDIT_FRAME::SetActiveLayer -- SetHighContrastLayer,
+  // and the clearance layer of the active copper layer shown, every other
+  // hidden. Forced after a SyncLayersVisibility as the open does
+  // (`SetActiveLayer( ..., true )` follows it, pcb_edit_frame.cpp:2023-2037),
+  // because Sync hides every clearance layer, the active one's included.
+  if (visibilityChanged || aFrame.GetActiveLayer() !== aState.activeLayer)
+    aFrame.SetActiveLayer(aState.activeLayer, true);
 
   // Display options: PCB_BASE_FRAME::SetDisplayOptions (no refresh: the frame's own repaint).
   // It recaches every item, so only when they differ from what the frame holds.
   const held = aPrev ? aPrev.displayOptions : aFrame.GetDisplayOptions();
 
-  if (!displayOptionsEqual(held, aState.displayOptions)) {
+  if (!displayOptionsEqual(held, aState.displayOptions))
     aFrame.SetDisplayOptions(aState.displayOptions, false);
-  } else if (layerChanged) {
-    aPanel.SetHighContrastLayer(aState.activeLayer);
-  }
 
   // Net highlight: BOARD_INSPECTION_TOOL::HighlightNet -> SetHighlight + UpdateAllLayersColor
   if (!aPrev || !setsEqual(aPrev.highlightNets, aState.highlightNets)) {

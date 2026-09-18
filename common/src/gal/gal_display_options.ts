@@ -79,6 +79,16 @@ export class GAL_DISPLAY_OPTIONS extends OBSERVABLE<GAL_DISPLAY_OPTIONS_OBSERVER
     return this.m_crossHairMode;
   }
 
+  /**
+   * `GAL_DISPLAY_OPTIONS_IMPL::ReadCommonConfig` (gal_display_options_common.cpp:82-92):
+   * the antialiasing mode from COMMON_SETTINGS `graphics.antialiasing_mode`.
+   * The DPI half is the canvas's own devicePixelRatio here.
+   */
+  ReadCommonConfig(aSettings: { graphics: { antialiasing_mode: number } }): void {
+    this.antialiasing_mode = aSettings.graphics.antialiasing_mode as GAL_ANTIALIASING_MODE;
+    this.NotifyChanged();
+  }
+
   NotifyChanged(): void {
     this.Notify((o) => o.OnGalDisplayOptionsChanged(this));
   }

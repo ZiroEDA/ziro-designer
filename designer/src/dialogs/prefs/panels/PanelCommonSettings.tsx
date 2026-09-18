@@ -9,7 +9,7 @@
  * `bPanelSizer->Add( bLeftSizer, 0, wxRIGHT, 35 )` (`:325`) makes it two
  * columns, and which group sits in which is upstream's.
  *
- * **Four of KiCad's seven groups were REMOVED, on purpose, because every
+ * **Three of KiCad's seven groups were REMOVED, on purpose, because every
  * control in them is irrelevant in a browser** — not unfinished, not
  * unimplemented: there is no version of this app in which a page in a tab
  * answers them. A control that can never be answered is deleted outright
@@ -17,11 +17,14 @@
  * build, and a permanently dead row is only a promise the app cannot keep.
  * **Do not add them back.**
  *
- *   * **Rendering Engine** — `m_rbAccelerated` / `m_rbFallback` choose OpenGL
- *     against Cairo, and `m_antialiasing` picks the GAL's own sampling. A page
- *     does not get to choose either: the browser owns the canvas backend and
- *     antialiases it, and a WebGL context that cannot be created falls back on
- *     its own without asking anyone.
+ *   * **Rendering Engine's radios** — `m_rbAccelerated` / `m_rbFallback`
+ *     choose OpenGL against Cairo. There is no Cairo here, and a WebGL
+ *     context that cannot be created falls back on its own without asking
+ *     anyone. The group's `m_antialiasing` choice STAYS: it is
+ *     `graphics.antialiasing_mode`, which the board editor's own
+ *     OPENGL_COMPOSITOR reads for its presentor (none / SMAA / 2x
+ *     supersampling), exactly the sampling KiCad's does — the browser
+ *     antialiases nothing of a WebGL canvas created with `antialias: false`.
  *   * **Helper Applications** — `m_textEditorPath`, `m_textCtrlFileManager` and
  *     `m_PDFViewerPath` are paths to native programs, and a page cannot start a
  *     process. There is no text editor to point at, no file manager to open,
@@ -74,6 +77,27 @@ export function PanelCommonSettings({ ctx }: { ctx: PrefsContext }): JSX.Element
        (panel_common_settings_base.cpp:325) then the right column. */
     <div className="ze-pref-columns">
       <div className="ze-pref-col">
+        {/* `gbSizer11`'s one row, `wxGBPosition( 2, 0 )` / `( 2, 1 )`
+            (panel_common_settings_base.cpp:57-65): label `wxLEFT 5`, choice
+            `wxRIGHT 5`. The two radios above it are gone (header). Read by
+            `GAL_DISPLAY_OPTIONS::ReadCommonConfig` when the PCB editor builds
+            its canvas and again on every change (`CommonSettingsChanged`). */}
+        <Group title="Rendering Engine">
+          <Sel
+            label="Antialiasing:"
+            value={common.graphics.antialiasing_mode}
+            options={[
+              [0, 'No Antialiasing'],
+              [1, 'Fast Antialiasing'],
+              [2, 'High Quality Antialiasing'],
+            ]}
+            onChange={(v) =>
+              upC((s) => {
+                s.graphics.antialiasing_mode = v;
+              })
+            }
+          />
+        </Group>
         <Group title="User Interface">
           {/* No "Show icons in menus" row. `m_checkBoxIconsInMenus->Show(
               KIPLATFORM::UI::AllowIconsInMenus() )`

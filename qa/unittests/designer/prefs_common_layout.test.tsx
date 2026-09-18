@@ -98,12 +98,33 @@ describe('the page is two columns, as bPanelSizer makes it', () => {
   it('splits the groups the way upstream splits them', () => {
     const left = PANEL.slice(PANEL.indexOf('ze-pref-col'), PANEL.lastIndexOf('ze-pref-col'));
     const right = PANEL.slice(PANEL.lastIndexOf('ze-pref-col'));
-    // Of upstream's seven, three survive: Rendering Engine and Helper
-    // Applications describe a GAL backend and native program paths, and
-    // Session and Project Backup describe relaunching processes and writing
-    // archives into directories. None of the four has anything behind it here.
-    expect(left).toContain('User Interface');
+    // Of upstream's seven, four survive: Helper Applications describes native
+    // program paths, and Session and Project Backup describe relaunching
+    // processes and writing archives into directories. None of the three has
+    // anything behind it here. Rendering Engine keeps its one row that does.
+    for (const g of ['Rendering Engine', 'User Interface']) expect(left).toContain(g);
     for (const g of ['Scaling', 'Editing']) expect(right).toContain(g);
+  });
+
+  /**
+   * `m_antialiasing` (`panel_common_settings_base.cpp:62-65`) writes
+   * `m_Graphics.aa_mode` (`panel_common_settings.cpp:179`), which every
+   * EDA_DRAW_FRAME copies into its GAL display options on
+   * `CommonSettingsChanged` — and the board editor's OPENGL_COMPOSITOR picks
+   * its presentor by it. The radios beside it choose Cairo, and stay out.
+   */
+  it('draws the Rendering Engine antialiasing choice, and only that', () => {
+    const group = PANEL_CODE.slice(
+      PANEL_CODE.indexOf('title="Rendering Engine"'),
+      PANEL_CODE.indexOf('title="User Interface"'),
+    );
+    expect(group).toContain('label="Antialiasing:"');
+    expect(group).toContain('graphics.antialiasing_mode');
+    for (const s of ['No Antialiasing', 'Fast Antialiasing', 'High Quality Antialiasing'])
+      expect(group).toContain(s);
+    expect(group).not.toContain('Accelerated Graphics');
+    expect(group).not.toContain('Fallback Graphics');
+    expect(group).not.toContain('disabled');
   });
 
   /**
@@ -118,8 +139,8 @@ describe('the page is two columns, as bPanelSizer makes it', () => {
     expect(PANEL_CODE).not.toContain('Show icons in menus');
   });
 
-  it('does not draw the four groups that describe a desktop', () => {
-    for (const g of ['Rendering Engine', 'Helper Applications', 'Session', 'Project Backup']) {
+  it('does not draw the three groups that describe a desktop', () => {
+    for (const g of ['Helper Applications', 'Session', 'Project Backup']) {
       expect(PANEL, g).not.toContain(`title="${g}"`);
     }
     // Nor the Privacy group, which was ours rather than KiCad's.

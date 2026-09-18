@@ -100,7 +100,20 @@ export abstract class COMPOSITOR {
 interface OPENGL_BUFFER {
   dimensions: VECTOR2I;
   textureTarget: WebGLTexture; ///< Main texture handle
-  attachmentPoint: number; ///< Point to which an image from texture is attached
+  /**
+   * The framebuffer object the texture is the colour attachment of, at
+   * `GL_COLOR_ATTACHMENT0`, with the compositor's one depth buffer attached.
+   *
+   * The C++ attaches every buffer to ONE framebuffer object (`m_mainFbo`) at
+   * consecutive `attachmentPoint`s and picks the target with `glDrawBuffer`,
+   * sampling the others while it draws. WebGL raises `INVALID_OPERATION` on a
+   * draw that samples a texture attached to the bound framebuffer, whichever
+   * attachment is the draw buffer (the feedback-loop rule), so `DrawBuffer(
+   * main, ssaa )` and every SMAA pass would draw nothing. A framebuffer per
+   * buffer keeps the same textures and the same depth buffer, and a target
+   * that is bound never has a sampled texture attached.
+   */
+  fbo: WebGLFramebuffer;
 }
 
 export class OPENGL_COMPOSITOR extends COMPOSITOR {
@@ -109,7 +122,8 @@ export class OPENGL_COMPOSITOR extends COMPOSITOR {
 
   protected m_initialized: boolean; ///< Initialization status flag
   protected m_curBuffer: number; ///< Currently used buffer handle
-  protected m_mainFbo: WebGLFramebuffer | null; ///< Main FBO handle (storing all target textures)
+  /// The FBO that checks the depth buffer at `Initialize`; each buffer then has its own (`OPENGL_BUFFER::fbo`)
+  protected m_mainFbo: WebGLFramebuffer | null;
   protected m_depthBuffer: WebGLRenderbuffer | null; ///< Depth buffer handle
 
   /// Stores information about initialized buffers
@@ -244,24 +258,14 @@ export class OPENGL_COMPOSITOR extends COMPOSITOR {
     wxASSERT(this.m_initialized);
     const gl = this.gl;
 
-    // Get the maximum number of buffers
-    const maxBuffers = gl.getParameter(gl.MAX_COLOR_ATTACHMENTS) as number;
-
-    if (this.usedBuffers() >= maxBuffers) {
-      throw new Error(
-        'Cannot create more framebuffers. OpenGL rendering backend requires at ' +
-          'least 3 framebuffers. You may try to update/change your graphic drivers.',
-      );
-    }
+    // GL_MAX_COLOR_ATTACHMENTS bounds the C++ (every buffer is an attachment of
+    // the one FBO); a framebuffer per buffer has no such bound.
 
     const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
 
     if (maxTextureSize < aDimensions.x || maxTextureSize < aDimensions.y) {
       throw new Error('Requested texture size is not supported. Could not create a buffer.');
     }
-
-    // GL_COLOR_ATTACHMENTn are consecutive integers
-    const attachmentPoint = gl.COLOR_ATTACHMENT0 + this.usedBuffers();
 
     // Generate the texture for the pixel storage
     gl.activeTexture(gl.TEXTURE0);
@@ -287,9 +291,18 @@ export class OPENGL_COMPOSITOR extends COMPOSITOR {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
 
-    // Bind the texture to the specific attachment point, clear and rebind the screen
-    this.bindFb(this.m_mainFbo!);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, attachmentPoint, gl.TEXTURE_2D, textureTarget, 0);
+    // Bind the texture to the specific attachment point, clear and rebind the screen:
+    // its own framebuffer object, the texture at attachment 0 and the shared depth buffer
+    const fbo = gl.createFramebuffer()!;
+    checkGlError(gl, 'generating buffer framebuffer');
+    this.bindFb(fbo);
+    gl.framebufferRenderbuffer(
+      gl.FRAMEBUFFER,
+      gl.DEPTH_STENCIL_ATTACHMENT,
+      gl.RENDERBUFFER,
+      this.m_depthBuffer,
+    );
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textureTarget, 0);
 
     // Check the status, exit if the framebuffer can't be created
     const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
@@ -325,7 +338,7 @@ export class OPENGL_COMPOSITOR extends COMPOSITOR {
     this.bindFb(OPENGL_COMPOSITOR.DIRECT_RENDERING);
 
     // Store the new buffer
-    const buffer: OPENGL_BUFFER = { dimensions: aDimensions, textureTarget, attachmentPoint };
+    const buffer: OPENGL_BUFFER = { dimensions: aDimensions, textureTarget, fbo };
     this.m_buffers.push(buffer);
 
     return this.usedBuffers();
@@ -345,22 +358,16 @@ export class OPENGL_COMPOSITOR extends COMPOSITOR {
 
     const gl = this.gl;
 
-    // Either unbind the FBO for direct rendering, or bind the one with target textures
+    // Either unbind the FBO for direct rendering, or bind the one with the target texture
     this.bindFb(
       aBufferHandle === OPENGL_COMPOSITOR.DIRECT_RENDERING
         ? OPENGL_COMPOSITOR.DIRECT_RENDERING
-        : this.m_mainFbo!,
+        : this.m_buffers[aBufferHandle - 1]!.fbo,
     );
 
-    // Switch the target texture
+    // Switch the target texture: glDrawBuffer( attachmentPoint ) is the bound framebuffer
     if (this.m_curFbo !== OPENGL_COMPOSITOR.DIRECT_RENDERING) {
       this.m_curBuffer = aBufferHandle - 1;
-      // glDrawBuffer( attachmentPoint ): the one attachment, at its index
-      const drawBuffers: number[] = [];
-      for (let i = 0; i < this.m_curBuffer; i++) drawBuffers.push(gl.NONE);
-      drawBuffers.push(this.m_buffers[this.m_curBuffer]!.attachmentPoint);
-      gl.drawBuffers(drawBuffers);
-      checkGlError(gl, 'setting draw buffer');
 
       gl.viewport(
         0,
@@ -443,9 +450,6 @@ export class OPENGL_COMPOSITOR extends COMPOSITOR {
 
   /// Binds a specific Framebuffer Object.
   protected bindFb(aFb: WebGLFramebuffer | number): void {
-    // Currently there are only 2 valid FBOs
-    wxASSERT(aFb === OPENGL_COMPOSITOR.DIRECT_RENDERING || aFb === this.m_mainFbo);
-
     if (this.m_curFbo !== aFb) {
       this.gl.bindFramebuffer(
         this.gl.FRAMEBUFFER,
@@ -467,7 +471,10 @@ export class OPENGL_COMPOSITOR extends COMPOSITOR {
 
     this.bindFb(OPENGL_COMPOSITOR.DIRECT_RENDERING);
 
-    for (const buffer of this.m_buffers) gl.deleteTexture(buffer.textureTarget);
+    for (const buffer of this.m_buffers) {
+      gl.deleteFramebuffer(buffer.fbo);
+      gl.deleteTexture(buffer.textureTarget);
+    }
 
     this.m_buffers = [];
 
@@ -636,9 +643,8 @@ export class OPENGL_COMPOSITOR extends COMPOSITOR {
     checkGlError(gl, 'allocating dst temp texture');
 
     // Copy destination buffer to temp texture
-    this.bindFb(this.m_mainFbo!);
-    const destAttachment = this.m_buffers[aDestHandle - 1]!.attachmentPoint;
-    gl.readBuffer(destAttachment);
+    this.bindFb(this.m_buffers[aDestHandle - 1]!.fbo);
+    gl.readBuffer(gl.COLOR_ATTACHMENT0);
     checkGlError(gl, 'setting read buffer for dst copy');
     gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, dims.x, dims.y);
     checkGlError(gl, 'copying dest to temp texture');
