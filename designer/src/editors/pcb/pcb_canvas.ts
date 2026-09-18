@@ -247,6 +247,17 @@ export function createPcbDrawPanel(
 
   aFrame.SetCanvas(panel);
 
+  // `PCB_BASE_FRAME::LoadSettings` (pcb_base_frame.cpp:850): the painter's
+  // highlight and select factors come from the app settings' graphics
+  // section - select_factor is 0.75 there, not RENDER_SETTINGS' own 0.5.
+  {
+    const cfg = aFrame.GetPcbNewSettings();
+    const rs = panel.GetView().GetPainter().GetSettings();
+
+    rs.SetHighlightFactor(cfg.m_Graphics.highlight_factor);
+    rs.SetSelectFactor(cfg.m_Graphics.select_factor);
+  }
+
   // SetScreen( new PCB_SCREEN( GetPageSettings().GetSizeIU( pcbIUScale.IU_PER_MILS ) ) ):
   // the A4 the frame starts with; attachBoardToPanel re-sizes it for the board
   aFrame.SetScreen(new PCB_SCREEN({ x: pcbIUScale.milsToIU(11693), y: pcbIUScale.milsToIU(8268) }));
