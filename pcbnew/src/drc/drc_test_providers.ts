@@ -11,7 +11,7 @@
  */
 import './drc_test_provider_annular_width.js';
 import './drc_test_provider_disallow.js';
-// drc_test_provider_creepage
+import './drc_test_provider_creepage.js';
 import './drc_test_provider_connectivity.js';
 import './drc_test_provider_connection_width.js';
 import './drc_test_provider_copper_clearance.js';

@@ -1414,6 +1414,22 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
   Tracks(): PCB_TRACK[] {
     return this.m_tracks;
   }
+
+  /**
+   * Return a list of all the pads by value.
+   *
+   * The returned list is not sorted and contains pointers to PADS, but those pointers do not
+   * convey ownership of the respective PADs.
+   */
+  GetPads(): PAD[] {
+    const allPads: PAD[] = [];
+
+    for (const footprint of this.Footprints()) {
+      for (const pad of footprint.Pads()) allPads.push(pad);
+    }
+
+    return allPads;
+  }
   Zones(): ZONE[] {
     return this.m_zones;
   }
