@@ -73,7 +73,13 @@ import {
   shapesIntersectArea,
 } from './drc_areas.js';
 import { type Shape, segSeg as segSegDist, shapeBBox, shapeDist } from './drc_geometry.js';
-import type { DrcConstraintType, DrcDisallow, DrcRule, DrcRuleSet, MinOptMax } from './drc_rule_view.js';
+import type {
+  DrcConstraintType,
+  DrcDisallow,
+  DrcRule,
+  DrcRuleSet,
+  MinOptMax,
+} from './drc_rule_view.js';
 import {
   buildDrcRuleEngine,
   collectAssertions,

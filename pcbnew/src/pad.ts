@@ -98,6 +98,7 @@ import { DRCE_PAD_TH_WITH_NO_HOLE, DRCE_PADSTACK, DRCE_PADSTACK_INVALID } from '
 import { NETINFO_LIST } from './netinfo.js';
 import {
   BACKDRILL_MODE,
+  EnsurePadstackEnumChoices,
   type CUSTOM_SHAPE_ZONE_MODE,
   PAD_ATTRIB,
   PAD_DRILL_POST_MACHINING_MODE,
@@ -3868,31 +3869,8 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .Map(PAD_DRILL_SHAPE.OBLONG, 'Oblong');
 
   // Ensure post-machining mode enum choices are defined before properties use them
-  {
-    const pmMap = ENUM_MAP.Instance<PAD_DRILL_POST_MACHINING_MODE>('PAD_DRILL_POST_MACHINING_MODE');
-
-    if (pmMap.Choices().GetCount() === 0) {
-      pmMap
-        .Undefined(PAD_DRILL_POST_MACHINING_MODE.UNKNOWN)
-        .Map(PAD_DRILL_POST_MACHINING_MODE.NOT_POST_MACHINED, 'Not post-machined')
-        .Map(PAD_DRILL_POST_MACHINING_MODE.COUNTERBORE, 'Counterbore')
-        .Map(PAD_DRILL_POST_MACHINING_MODE.COUNTERSINK, 'Countersink');
-    }
-  }
-
   // Ensure backdrill mode enum choices are defined before properties use them
-  {
-    const bdMap = ENUM_MAP.Instance<BACKDRILL_MODE>('BACKDRILL_MODE');
-
-    if (bdMap.Choices().GetCount() === 0) {
-      bdMap
-        .Undefined(BACKDRILL_MODE.NO_BACKDRILL)
-        .Map(BACKDRILL_MODE.NO_BACKDRILL, 'No backdrill')
-        .Map(BACKDRILL_MODE.BACKDRILL_BOTTOM, 'Backdrill bottom')
-        .Map(BACKDRILL_MODE.BACKDRILL_TOP, 'Backdrill top')
-        .Map(BACKDRILL_MODE.BACKDRILL_BOTH, 'Backdrill both');
-    }
-  }
+  EnsurePadstackEnumChoices();
 
   const zcMap = ENUM_MAP.Instance<ZONE_CONNECTION>('ZONE_CONNECTION');
 

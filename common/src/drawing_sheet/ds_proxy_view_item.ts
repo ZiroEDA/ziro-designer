@@ -283,6 +283,10 @@ export class DS_DRAW_ITEM_TEXT extends DS_DRAW_ITEM_BASE {
     super(KICAD_T.WSG_TEXT_T);
   }
 
+  /** `EDA_TEXT::GetText`: the text as `DS_DRAW_ITEM_LIST::BuildFullText` built it. */
+  GetText(): string {
+    return this.m_text;
+  }
   GetShownText(_aAllowExtraText: boolean): string {
     return this.m_text;
   }
@@ -766,6 +770,61 @@ export class DS_PROXY_VIEW_ITEM extends EDA_ITEM {
           );
           break;
       }
+    }
+
+    return out;
+  }
+
+  /**
+   * The text items of `DS_DRAW_ITEM_LIST drawItems( iuScale, FOR_ERC_DRC )` built
+   * the way ERC and DRC build it: page "1" of 1, `dummyFilename`, `dummySheet`,
+   * `dummyLayer`, and `${DRC_ERROR ...}` / `${DRC_WARNING ...}` left in the text.
+   * There is no VIEW here, so the pen widths fall back to the layout's own.
+   */
+  BuildTextItemsForErcDrc(): DS_DRAW_ITEM_TEXT[] {
+    const pageInfo = this.m_pageInfo!;
+    const titleBlock = this.m_titleBlock;
+
+    const comments: string[] = [];
+
+    if (titleBlock) for (let i = 0; i < 9; ++i) comments.push(titleBlock.GetComment(i));
+
+    const sheet = this.m_project?.GetDrawingSheet?.() ?? defaultDrawingSheet();
+
+    const items = layoutDrawingSheet(
+      sheet,
+      {
+        widthMM: pageInfo.GetWidthMils() * 0.0254,
+        heightMM: pageInfo.GetHeightMils() * 0.0254,
+      },
+      {
+        pageNumber: 1,
+        pageName: '1',
+        sheetCount: 1,
+        title: titleBlock?.GetTitle() ?? '',
+        rev: titleBlock?.GetRevision() ?? '',
+        date: titleBlock?.GetDate() ?? '',
+        company: titleBlock?.GetCompany() ?? '',
+        comments,
+        paper: pageInfo.GetTypeAsString(),
+        layer: 'dummyLayer',
+        fileName: 'dummyFilename',
+        sheetName: 'dummySheet',
+        sheetPath: this.m_sheetPath,
+      },
+    );
+
+    // The layout is in schematic internal units; scale to the host's.
+    const k = this.m_iuScale.IU_PER_MM / SCH_IU_PER_MM;
+    const toIU = (p: { x: number; y: number }): VECTOR2I => ({
+      x: Math.trunc(p.x * k),
+      y: Math.trunc(p.y * k),
+    });
+
+    const out: DS_DRAW_ITEM_TEXT[] = [];
+
+    for (const item of items) {
+      if (item.kind === 'text') out.push(this.makeTextItem(item, toIU, k));
     }
 
     return out;

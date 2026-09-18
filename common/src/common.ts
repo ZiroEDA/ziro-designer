@@ -305,6 +305,294 @@ export function ResolveTextVars(
 }
 
 /**
+ * The process environment `KIwxExpandEnvVars` reads through `wxGetEnv`.
+ *
+ * A browser has no environment, so the default answers nothing; a host that
+ * does have one (a node harness, a test) installs its own lookup.
+ */
+export type EnvVarLookup = (aName: string) => string | undefined;
+
+let s_envVarLookup: EnvVarLookup = () => undefined;
+
+export function SetEnvVarLookup(aLookup: EnvVarLookup): void {
+  s_envVarLookup = aLookup;
+}
+
+/** `ENV_VAR::GetVersionedEnvVarName`: `KICAD<major>_<base>`. */
+export function GetVersionedEnvVarName(aBaseName: string): string {
+  // [data] the major version of the KiCad build we mirror.
+  return `KICAD10_${aBaseName}`;
+}
+
+/** `ENV_VAR::GetPredefinedEnvVars` (env_vars.cpp:38). */
+const predefinedEnvVars: readonly string[] = [
+  'KIPRJMOD',
+  GetVersionedEnvVarName('SYMBOL_DIR'),
+  GetVersionedEnvVarName('3DMODEL_DIR'),
+  GetVersionedEnvVarName('FOOTPRINT_DIR'),
+  GetVersionedEnvVarName('TEMPLATE_DIR'),
+  'KICAD_USER_TEMPLATE_DIR',
+  'KICAD_PTEMPLATES',
+  GetVersionedEnvVarName('3RD_PARTY'),
+];
+
+/** `ENV_VAR::IsVersionedEnvVar` (env_vars.cpp:87). */
+export function IsVersionedEnvVar(aName: string, aBaseName: string): boolean {
+  const prefix = 'KICAD';
+  const suffix = `_${aBaseName}`;
+
+  if (!aName.startsWith(prefix) || !aName.endsWith(suffix)) return false;
+
+  const version = aName.substring(prefix.length, aName.length - suffix.length);
+
+  return version !== '' && /^[0-9]+$/.test(version);
+}
+
+/** `wxString::Matches` for the one `KICAD*_X` wildcard this needs: `*` matches any run. */
+const wildcardMatches = (aPattern: string, aText: string): boolean => {
+  const re = new RegExp(
+    `^${aPattern
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+      .replace(/\*/g, '.*')
+      .replace(/\?/g, '.')}$`,
+  );
+  return re.test(aText);
+};
+
+enum Bracket {
+  Bracket_None,
+  Bracket_Normal = 41, // ')'
+  Bracket_Curly = 125, // '}'
+}
+
+const isAlnum = (c: string): boolean => /^[A-Za-z0-9]$/.test(c);
+
+/**
+ * `KIwxExpandEnvVars` (common.cpp:355).
+ *
+ * Stolen from wxExpandEnvVars and then heavily optimized
+ */
+function KIwxExpandEnvVars(
+  str: string,
+  aProject: TextVarResolverFn | null,
+  aSet: Set<string> | null = null,
+): string {
+  // If the same string is inserted twice, we have a loop
+  if (aSet) {
+    if (aSet.has(str)) return str;
+    aSet.add(str);
+  }
+
+  const strlen = str.length;
+
+  let strResult = '';
+
+  const getVersionedEnvVar = (aMatch: string): string | null => {
+    for (const v of predefinedEnvVars) {
+      if (wildcardMatches(aMatch, v)) {
+        const value = s_envVarLookup(v);
+
+        if (value === undefined) continue;
+
+        return value;
+      }
+    }
+
+    return null;
+  };
+
+  for (let n = 0; n < strlen; n++) {
+    let str_n = str[n]!;
+
+    switch (str_n) {
+      case '$': {
+        let bracket: Bracket;
+
+        if (n === strlen - 1) {
+          bracket = Bracket.Bracket_None;
+        } else {
+          switch (str[n + 1]) {
+            case '(':
+              bracket = Bracket.Bracket_Normal;
+              str_n = str[++n]!; // skip the bracket
+              break;
+
+            case '{':
+              bracket = Bracket.Bracket_Curly;
+              str_n = str[++n]!; // skip the bracket
+              break;
+
+            default:
+              bracket = Bracket.Bracket_None;
+          }
+        }
+
+        let m = n + 1;
+
+        if (m >= strlen) break;
+
+        let str_m: string = str[m]!;
+
+        while (isAlnum(str_m) || str_m === '_' || str_m === ':') {
+          if (++m === strlen) {
+            str_m = '\0';
+            break;
+          }
+
+          str_m = str[m]!;
+        }
+
+        const strVarName = str.substring(n + 1, m);
+
+        // NB: use wxGetEnv instead of wxGetenv as otherwise variables
+        //     set through wxSetEnv may not be read correctly!
+        let expanded = false;
+        const resolved = { value: strVarName };
+        const env = s_envVarLookup(strVarName);
+
+        if (aProject && aProject(resolved)) {
+          strResult += resolved.value;
+          expanded = true;
+        } else if (env !== undefined) {
+          strResult += env;
+          expanded = true;
+        }
+        // Replace unmatched older variables with current locations
+        // If the user has the older location defined, that will be matched
+        // first above.  But if they do not, this will ensure that their board still
+        // displays correctly
+        else if (
+          strVarName.includes('KISYS3DMOD') ||
+          IsVersionedEnvVar(strVarName, '3DMODEL_DIR')
+        ) {
+          const v = getVersionedEnvVar('KICAD*_3DMODEL_DIR');
+
+          if (v !== null) {
+            strResult += v;
+            expanded = true;
+          }
+        } else if (
+          strVarName === 'KICAD_SYMBOL_DIR' ||
+          IsVersionedEnvVar(strVarName, 'SYMBOL_DIR')
+        ) {
+          const v = getVersionedEnvVar('KICAD*_SYMBOL_DIR');
+
+          if (v !== null) {
+            strResult += v;
+            expanded = true;
+          }
+        } else if (IsVersionedEnvVar(strVarName, 'FOOTPRINT_DIR')) {
+          const v = getVersionedEnvVar('KICAD*_FOOTPRINT_DIR');
+
+          if (v !== null) {
+            strResult += v;
+            expanded = true;
+          }
+        } else if (IsVersionedEnvVar(strVarName, '3RD_PARTY')) {
+          const v = getVersionedEnvVar('KICAD*_3RD_PARTY');
+
+          if (v !== null) {
+            strResult += v;
+            expanded = true;
+          }
+        } else {
+          // variable doesn't exist => don't change anything
+          if (bracket !== Bracket.Bracket_None) strResult += str[n - 1];
+
+          strResult += str_n + strVarName;
+        }
+
+        // When a versioned-wildcard branch matched but no env var was found, emit
+        // the original ${VARNAME} text so the closing-bracket handler can append the
+        // closing bracket.  Without this, the handler emits only '}', producing a
+        // garbage path like "}/Device.kicad_sym" instead of the full unexpanded var.
+        if (!expanded && bracket !== Bracket.Bracket_None) {
+          const isVersionedWildcard =
+            strVarName.includes('KISYS3DMOD') ||
+            strVarName === 'KICAD_SYMBOL_DIR' ||
+            IsVersionedEnvVar(strVarName, '3DMODEL_DIR') ||
+            IsVersionedEnvVar(strVarName, 'SYMBOL_DIR') ||
+            IsVersionedEnvVar(strVarName, 'FOOTPRINT_DIR') ||
+            IsVersionedEnvVar(strVarName, '3RD_PARTY');
+
+          if (isVersionedWildcard) {
+            strResult += str[n - 1];
+
+            strResult += str_n + strVarName;
+          }
+        }
+
+        // check the closing bracket
+        if (bracket !== Bracket.Bracket_None) {
+          if (m === strlen || str_m !== String.fromCharCode(bracket)) {
+            // under MSW it's common to have '%' characters in the registry
+            // and it's annoying to have warnings about them each time, so
+            // ignore them silently if they are not used for env vars
+            //
+            // under Unix, OTOH, this warning could be useful for the user to
+            // understand why isn't the variable expanded as intended
+            // wxLogWarning( _( "Environment variables expansion failed: missing '%c' at position %u in '%s'." ) )
+          } else {
+            // skip closing bracket unless the variables wasn't expanded
+            if (!expanded) strResult += String.fromCharCode(bracket);
+
+            m++;
+          }
+        }
+
+        n = m - 1; // skip variable name
+        str_n = str[n]!;
+        break;
+      }
+
+      case '\\':
+        // backslash can be used to suppress special meaning of % and $
+        if (n < strlen - 1 && (str[n + 1] === '%' || str[n + 1] === '$')) {
+          str_n = str[++n]!;
+          strResult += str_n;
+
+          break;
+        }
+
+        strResult += str_n; // KI_FALLTHROUGH: default
+        break;
+
+      default:
+        strResult += str_n;
+    }
+  }
+
+  const loop_check = new Set<string>();
+  const first_pos = strResult.search(/[{(%]/);
+  const last_pos = Math.max(
+    strResult.lastIndexOf('}'),
+    strResult.lastIndexOf(')'),
+    strResult.lastIndexOf('%'),
+  );
+
+  if (first_pos !== -1 && last_pos !== -1 && first_pos !== last_pos) {
+    strResult = KIwxExpandEnvVars(strResult, aProject, aSet ? aSet : loop_check);
+  }
+
+  return strResult;
+}
+
+/**
+ * `ExpandEnvVarSubstitutions` (common.cpp:591): replace any environment variable
+ * & text variable references with their values.
+ *
+ * `aProject` is the project's `TextVarResolver`, or null when text variables were
+ * already resolved.
+ */
+export function ExpandEnvVarSubstitutions(
+  aString: string,
+  aProject: TextVarResolverFn | null,
+): string {
+  // We reserve the right to do this another way, by providing our own member function.
+  return KIwxExpandEnvVars(aString, aProject);
+}
+
+/**
  * Returns any variables unexpanded, e.g. ${VAR} -> VAR
  */
 export function GetGeneratedFieldDisplayName(aSource: string): string {

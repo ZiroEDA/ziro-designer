@@ -99,6 +99,38 @@ import type { BOARD_ITEM } from './board_item.js';
 import type { EDA_SHAPE } from '@ziroeda/common/src/eda_shape.js';
 import type { PCB_SHAPE } from './pcb_shape.js';
 import { ZONE_CONNECTION } from './zones.js';
+import { ENUM_MAP } from '@ziroeda/common/src/properties/property.js';
+
+/**
+ * `IMPLEMENT_ENUM_TO_WXANY( PAD_DRILL_POST_MACHINING_MODE )` and
+ * `( BACKDRILL_MODE )` (padstack.cpp:39): the two enum maps, filled the way
+ * `PAD_DESC` fills them ("Ensure ... enum choices are defined before
+ * properties use them"). The C++ relies on pad.cpp's static initialiser
+ * running before pcb_track.cpp's; a module here has no such order, so both
+ * `_DESC`s call this before registering a property on either enum.
+ */
+export function EnsurePadstackEnumChoices(): void {
+  const pmMap = ENUM_MAP.Instance<PAD_DRILL_POST_MACHINING_MODE>('PAD_DRILL_POST_MACHINING_MODE');
+
+  if (pmMap.Choices().GetCount() === 0) {
+    pmMap
+      .Undefined(PAD_DRILL_POST_MACHINING_MODE.UNKNOWN)
+      .Map(PAD_DRILL_POST_MACHINING_MODE.NOT_POST_MACHINED, 'Not post-machined')
+      .Map(PAD_DRILL_POST_MACHINING_MODE.COUNTERBORE, 'Counterbore')
+      .Map(PAD_DRILL_POST_MACHINING_MODE.COUNTERSINK, 'Countersink');
+  }
+
+  const bdMap = ENUM_MAP.Instance<BACKDRILL_MODE>('BACKDRILL_MODE');
+
+  if (bdMap.Choices().GetCount() === 0) {
+    bdMap
+      .Undefined(BACKDRILL_MODE.NO_BACKDRILL)
+      .Map(BACKDRILL_MODE.NO_BACKDRILL, 'No backdrill')
+      .Map(BACKDRILL_MODE.BACKDRILL_BOTTOM, 'Backdrill bottom')
+      .Map(BACKDRILL_MODE.BACKDRILL_TOP, 'Backdrill top')
+      .Map(BACKDRILL_MODE.BACKDRILL_BOTH, 'Backdrill both');
+  }
+}
 
 export enum PAD_SHAPE {
   CIRCLE = 0,

@@ -13,6 +13,7 @@
  * `InitializeClearanceCache` collapse to plain Maps and a loop: one thread.
  * The view-based engine the dialog still runs is `drc_engine_view.ts`.
  */
+import type { DS_PROXY_VIEW_ITEM } from '@ziroeda/common/src/drawing_sheet/ds_proxy_view_item.js';
 import { DescribeRef } from '@ziroeda/common/src/common.js';
 import { PARSE_ERROR } from '@ziroeda/common/src/dsnlexer.js';
 import { type EdaUnits, pcbIUScale } from '@ziroeda/common/src/eda_units.js';
@@ -34,6 +35,7 @@ import { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
 import { BaseType, KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+import type { NETLIST } from '../netlist_reader/pcb_netlist.js';
 import type { BOARD } from '../board.js';
 import type { BOARD_CONNECTED_ITEM } from '../board_connected_item.js';
 import type { BOARD_DESIGN_SETTINGS } from '../board_design_settings.js';
@@ -169,8 +171,8 @@ function asTrack(aItem: BOARD_ITEM): PCB_TRACK | null {
 export class DRC_ENGINE extends UNITS_PROVIDER {
   protected m_designSettings: BOARD_DESIGN_SETTINGS | null;
   protected m_board: BOARD | null;
-  protected m_drawingSheet: unknown | null;
-  protected m_schematicNetlist: unknown | null;
+  protected m_drawingSheet: DS_PROXY_VIEW_ITEM | null;
+  protected m_schematicNetlist: NETLIST | null;
 
   protected m_rules: DRC_RULE[] = [];
   protected m_rulesValid: boolean;
@@ -231,17 +233,17 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
     return this.m_designSettings;
   }
 
-  SetSchematicNetlist(aNetlist: unknown | null): void {
+  SetSchematicNetlist(aNetlist: NETLIST | null): void {
     this.m_schematicNetlist = aNetlist;
   }
-  GetSchematicNetlist(): unknown | null {
+  GetSchematicNetlist(): NETLIST | null {
     return this.m_schematicNetlist;
   }
 
-  SetDrawingSheet(aDrawingSheet: unknown | null): void {
+  SetDrawingSheet(aDrawingSheet: DS_PROXY_VIEW_ITEM | null): void {
     this.m_drawingSheet = aDrawingSheet;
   }
-  GetDrawingSheet(): unknown | null {
+  GetDrawingSheet(): DS_PROXY_VIEW_ITEM | null {
     return this.m_drawingSheet;
   }
 

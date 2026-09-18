@@ -37,6 +37,59 @@ export class ADVANCED_CFG {
   // any constraints.
 
   /**
+   * Sliver width tolerance for DRC.
+   *
+   * Units are mm.
+   *
+   * Setting name: "DRCSliverWidthTolerance"
+   * Valid values: 0.01 to 0.25
+   * Default value: 0.08
+   */
+  m_SliverWidthTolerance = 0.08;
+
+  /**
+   * Sliver length tolerance for DRC.
+   *
+   * Units are mm.
+   *
+   * Setting name: "DRCSliverMinimumLength"
+   * Valid values: 1e-9 to 10
+   * Default value: 0.0008
+   */
+  m_SliverMinimumLength = 0.0008;
+
+  /**
+   * Sliver angle to tolerance for DRC.
+   *
+   * Units are mm.
+   *
+   * Setting name: "DRCSliverAngleTolerance"
+   * Valid values: 1 to 90
+   * Default value: 20
+   */
+  m_SliverAngleTolerance = 20.0;
+
+  /**
+   * When filling zones, we add an extra amount of clearance to each zone to ensure that
+   * rounding errors do not overrun minimum clearance distances.
+   *
+   * This is the extra clearance in mm.
+   *
+   * Setting name: "ExtraFillMargin"
+   * Valid values: 0 to 1
+   * Default value: 0.0005
+   */
+  m_ExtraClearance = 0.0005;
+
+  /**
+   * Enable the minimum slot width check for creepage
+   *
+   * Setting name: "EnableCreepageSlot"
+   * Default value: false
+   */
+  m_EnableCreepageSlot = false;
+
+  /**
    * The maximum number of threads to use in the thread pool.
    * Setting name: "MaximumThreads"
    * Valid values: 0 to 500

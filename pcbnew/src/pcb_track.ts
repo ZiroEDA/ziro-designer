@@ -99,6 +99,7 @@ import { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
 import { BOARD_ITEM, ZONE_LAYER_OVERRIDE } from './board_item.js';
 import {
   BACKDRILL_MODE,
+  EnsurePadstackEnumChoices,
   PAD_DRILL_POST_MACHINING_MODE,
   type PAD_DRILL_SHAPE,
   PAD_SHAPE,
@@ -3562,6 +3563,9 @@ export class PCB_VIA extends PCB_TRACK {
 
     return false;
   };
+
+  // pad.cpp's PAD_DESC fills these two maps; its static initialiser runs first there.
+  EnsurePadstackEnumChoices();
 
   propMgr
     .AddProperty(

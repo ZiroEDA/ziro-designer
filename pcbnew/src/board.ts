@@ -1203,6 +1203,27 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
   Footprints(): FOOTPRINT[] {
     return this.m_footprints;
   }
+
+  /** `BOARD::FindFootprintByReference` (board.cpp:2556). */
+  FindFootprintByReference(aReference: string): FOOTPRINT | null {
+    for (const footprint of this.m_footprints) {
+      if (aReference === footprint.GetReference()) return footprint;
+    }
+
+    return null;
+  }
+
+  /** `BOARD::FindFootprintByPath` (board.cpp:2568). */
+  FindFootprintByPath(aPath: readonly KIID[]): FOOTPRINT | null {
+    for (const footprint of this.m_footprints) {
+      const path = footprint.GetPath();
+
+      if (path.length === aPath.length && path.every((id, i) => id === aPath[i])) return footprint;
+    }
+
+    return null;
+  }
+
   Tracks(): PCB_TRACK[] {
     return this.m_tracks;
   }

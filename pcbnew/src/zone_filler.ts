@@ -26,6 +26,7 @@
  */
 
 import type { Geom, MultiPolygon, Ring } from 'polygon-clipping';
+import { ADVANCED_CFG } from '@ziroeda/common/src/advanced_config.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import {
   chainPointInside,
@@ -124,11 +125,10 @@ const DEFAULT_MAX_ERROR = mmToIU(0.005);
  * every knockout edge sat exactly 500 units inside upstream's, and the
  * slivers along thousands of them added up to the last 0.02–0.15 %.
  */
-// [data] 0.0005 mm, ADVANCED_CFG's default; the user can change it in kicad_advanced.
 /** The implicit "barcode visual separation default" rule: 1 mm (drc_engine.cpp:261). */
 const BARCODE_VISUAL_SEPARATION_DEFAULT = mmToIU(1.0);
 
-const EXTRA_CLEARANCE = mmToIU(0.0005);
+const EXTRA_CLEARANCE = mmToIU(ADVANCED_CFG.GetCfg().m_ExtraClearance);
 
 /** `DEFAULT_COPPEREDGECLEARANCE` (`include/board_design_settings.h:89`). */
 // [data] 0.5 mm, "clearance between copper items and edge cuts".
