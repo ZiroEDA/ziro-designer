@@ -63,7 +63,8 @@ import { BOARD_ITEM, DELETED_BOARD_ITEM } from './board_item.js';
 import { ADD_MODE, BOARD_ITEM_CONTAINER, REMOVE_MODE } from './board_item_container.js';
 import { type BOARD_LISTENER, HIGH_LIGHT_INFO } from './board_listener.js';
 import { BOARD_USE, LAYER, LAYER_T } from './board_types.js';
-import { type NETINFO_ITEM, NETINFO_LIST } from './netinfo.js';
+import type { FOOTPRINT_LIBRARY_ADAPTER } from './footprint_library_adapter.js';
+import { type NETINFO_ITEM, NETINFO_LIST, UNCONNECTED_NET } from './netinfo.js';
 import type { FOOTPRINT } from './footprint.js';
 import type { PCB_GENERATOR } from './pcb_generator.js';
 import type { PCB_GROUP } from './pcb_group.js';
@@ -624,6 +625,59 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
    * the project file's; ours is the board's own, filled by
    * `NET_SETTINGS.LoadFromJson`, so there is no guard.
    */
+  /**
+   * `PROJECT_PCB::FootprintLibAdapter( GetProject() )`: the project's footprint
+   * libraries, as the host installed them. PROJECT is not ported, so the
+   * adapter hangs off the board; null when no project is loaded.
+   */
+  private m_footprintLibAdapter: FOOTPRINT_LIBRARY_ADAPTER | null = null;
+
+  GetFootprintLibAdapter(): FOOTPRINT_LIBRARY_ADAPTER | null {
+    return this.m_footprintLibAdapter;
+  }
+
+  SetFootprintLibAdapter(aAdapter: FOOTPRINT_LIBRARY_ADAPTER | null): void {
+    this.m_footprintLibAdapter = aAdapter;
+  }
+
+  /** `BOARD::BuildListOfNets` (board.h:967). */
+  BuildListOfNets(): void {
+    this.m_NetInfo.buildListOfNets();
+  }
+
+  /**
+   * `BOARD::SetAreasNetCodesFromNetNames` (board.cpp:2819): set the .m_NetCode
+   * member of all copper areas, according to the area Net Name.
+   *
+   * @return the error count (areas with a net name that no longer exists).
+   */
+  SetAreasNetCodesFromNetNames(): number {
+    let error_count = 0;
+
+    for (const zone of this.Zones()) {
+      if (!zone.IsOnCopperLayer()) {
+        zone.SetNetCode(UNCONNECTED_NET);
+        continue;
+      }
+
+      if (zone.GetNetCode() !== 0) {
+        // i.e. if this zone is connected to a net
+        const net = zone.GetNet();
+
+        if (net) {
+          zone.SetNetCode(net.GetNetCode());
+        } else {
+          error_count++;
+
+          // keep Net Name and set m_NetCode to -1 : error flag.
+          zone.SetNetCode(-1);
+        }
+      }
+    }
+
+    return error_count;
+  }
+
   SynchronizeNetsAndNetClasses(aResetTrackAndViaSizes: boolean): void {
     const bds = this.GetDesignSettings();
     const defaultNetClass = bds.m_NetSettings.GetDefaultNetclass();
@@ -912,6 +966,12 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
       this.m_maxClearanceValue = undefined;
     }
+  }
+
+  /** `BOARD::InvalidateClearanceCache` (board.cpp:1105). */
+  InvalidateClearanceCache(aUuid: KIID): void {
+    if (this.m_designSettings?.m_DRCEngine)
+      this.m_designSettings.m_DRCEngine.InvalidateClearanceCache(aUuid);
   }
 
   InitializeClearanceCache(): void {
@@ -1640,6 +1700,39 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
   SetElementVisibility(aLayer: GAL_LAYER_ID, isEnabled: boolean): void {
     // if( m_project ) m_project->GetLocalSettings().m_VisibleItems.set( ... );   -- PROJECT not ported
     // switch( aLayer ) { case LAYER_RATSNEST: ... }                                -- connectivity pending (#636)
+  }
+
+  /** `BOARD::FillItemMap( std::map<KIID, EDA_ITEM*>& )` (board.cpp:2004). */
+  FillItemMap(): Map<KIID, EDA_ITEM> {
+    const aMap = new Map<KIID, EDA_ITEM>();
+
+    // the board itself
+    aMap.set(this.m_Uuid, this);
+
+    for (const track of this.Tracks()) aMap.set(track.m_Uuid, track);
+
+    for (const footprint of this.Footprints()) {
+      aMap.set(footprint.m_Uuid, footprint);
+
+      for (const pad of footprint.Pads()) aMap.set(pad.m_Uuid, pad);
+
+      aMap.set(footprint.Reference().m_Uuid, footprint.Reference());
+      aMap.set(footprint.Value().m_Uuid, footprint.Value());
+
+      for (const drawing of footprint.GraphicalItems()) aMap.set(drawing.m_Uuid, drawing);
+    }
+
+    for (const zone of this.Zones()) aMap.set(zone.m_Uuid, zone);
+
+    for (const drawing of this.Drawings()) aMap.set(drawing.m_Uuid, drawing);
+
+    for (const marker of this.Markers()) aMap.set(marker.m_Uuid, marker);
+
+    for (const group of this.Groups()) aMap.set(group.m_Uuid, group);
+
+    for (const point of this.m_points) aMap.set(point.m_Uuid, point);
+
+    return aMap;
   }
 
   /** `CacheItemById`: add an item (and a group's children) to the item-by-id cache. */

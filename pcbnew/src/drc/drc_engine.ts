@@ -396,7 +396,9 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
     const courtyardClearanceConstraint = new DRC_CONSTRAINT(
       DRC_CONSTRAINT_T.COURTYARD_CLEARANCE_CONSTRAINT,
     );
-    holeToHoleConstraint.Value().SetMin(0);
+    // holeToHoleConstraint.Value().SetMin( 0 ): the C++ writes this to its
+    // local, which AddConstraint copied; the rule's copy keeps m_HoleToHoleMin.
+    // Here the rule holds the object itself, so the write is not repeated.
     rule.AddConstraint(courtyardClearanceConstraint);
 
     // 2a) micro-via specific defaults (new DRC doesn't treat microvias in any special way)

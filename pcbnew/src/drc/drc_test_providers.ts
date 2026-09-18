@@ -21,7 +21,7 @@ import './drc_test_provider_edge_clearance.js';
 import './drc_test_provider_footprint_checks.js';
 import './drc_test_provider_hole_to_hole.js';
 import './drc_test_provider_hole_size.js';
-// drc_test_provider_library_parity
+import './drc_test_provider_library_parity.js';
 import './drc_test_provider_schematic_parity.js';
 import './drc_test_provider_misc.js';
 import './drc_test_provider_text_dims.js';
@@ -33,6 +33,6 @@ import './drc_test_provider_via_diameter.js';
 import './drc_test_provider_solder_mask.js';
 import './drc_test_provider_silk_clearance.js';
 // drc_test_provider_matched_length
-// drc_test_provider_diff_pair_coupling
-// drc_test_provider_sliver_checker
+import './drc_test_provider_diff_pair_coupling.js';
+import './drc_test_provider_sliver_checker.js';
 import './drc_test_provider_text_mirroring.js';

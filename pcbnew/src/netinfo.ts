@@ -591,8 +591,8 @@ export class NETINFO_LIST {
     // Restore the initial state of NETINFO_ITEMs
     for (const net of this) net.Clear();
 
-    // m_parent->SynchronizeNetsAndNetClasses( false );
-    // m_parent->SetAreasNetCodesFromNetNames();          -- with BOARD's net sync (#636)
+    this.m_parent!.SynchronizeNetsAndNetClasses(false);
+    this.m_parent!.SetAreasNetCodesFromNetNames();
   }
 
   RebuildDisplayNetnames(): void {

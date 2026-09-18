@@ -59,7 +59,9 @@ import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/src/stroke_params.js'
 import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/src/widgets/msgpanel.js';
 import { FLIP_DIRECTION, MIRROR } from '@ziroeda/core/src/mirror.js';
+import { PgmOrNull } from '@ziroeda/common/src/pgm_base.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import type { PCBNEW_SETTINGS } from './pcbnew_settings.js';
 import {
   ERROR_LOC,
   RECT_CHAMFER_BOTTOM_LEFT,
@@ -132,6 +134,14 @@ class PAD_DRAW_CACHE_DATA {
 }
 
 export type PAD_ERROR_HANDLER = (aErrorCode: number, aMsg: string) => void;
+
+// Must be static to keep from raising its ugly head in performance profiles
+const nonZoneTypes: readonly KICAD_T[] = [
+  KICAD_T.PCB_TRACE_T,
+  KICAD_T.PCB_ARC_T,
+  KICAD_T.PCB_VIA_T,
+  KICAD_T.PCB_PAD_T,
+];
 
 export class PAD extends BOARD_CONNECTED_ITEM {
   private m_number: string; // Pad name (pin number in schematic)
@@ -1220,9 +1230,88 @@ export class PAD extends BOARD_CONNECTED_ITEM {
 
     if (!board) return 0;
 
-    // const BOARD_STACKUP& stackup = board->GetDesignSettings().GetStackupDescriptor();
-    //                                                   -- BOARD_STACKUP pending (#636): no layer distance,
-    //                                                      so no layer is inside a post-machining depth
+    const stackup = board.GetDesignSettings().GetStackupDescriptor();
+
+    // Check front post-machining (counterbore/countersink from top)
+    const frontPM = this.m_padStack.FrontPostMachining();
+
+    if (
+      frontPM.mode !== undefined &&
+      frontPM.mode !== PAD_DRILL_POST_MACHINING_MODE.NOT_POST_MACHINED &&
+      frontPM.mode !== PAD_DRILL_POST_MACHINING_MODE.UNKNOWN &&
+      frontPM.size > 0
+    ) {
+      let pmDepth = frontPM.depth;
+
+      // For countersink without explicit depth, calculate from diameter and angle
+      if (
+        pmDepth <= 0 &&
+        frontPM.mode === PAD_DRILL_POST_MACHINING_MODE.COUNTERSINK &&
+        frontPM.angle > 0
+      ) {
+        const halfAngleRad = ((frontPM.angle / 10.0) * Math.PI) / 180.0 / 2.0;
+        pmDepth = Math.trunc(frontPM.size / 2.0 / Math.tan(halfAngleRad));
+      }
+
+      if (pmDepth > 0) {
+        // Calculate distance from F_Cu to aLayer
+        const layerDist = stackup.GetLayerDistance(PCB_LAYER_ID.F_Cu, aLayer);
+
+        if (layerDist < pmDepth) {
+          // For countersink, diameter decreases with depth
+          if (frontPM.mode === PAD_DRILL_POST_MACHINING_MODE.COUNTERSINK && frontPM.angle > 0) {
+            const halfAngleRad = ((frontPM.angle / 10.0) * Math.PI) / 180.0 / 2.0;
+            const diameterAtLayer =
+              frontPM.size - Math.trunc(2.0 * layerDist * Math.tan(halfAngleRad));
+            return Math.max(0, diameterAtLayer);
+          } else {
+            // Counterbore - constant diameter
+            return frontPM.size;
+          }
+        }
+      }
+    }
+
+    // Check back post-machining (counterbore/countersink from bottom)
+    const backPM = this.m_padStack.BackPostMachining();
+
+    if (
+      backPM.mode !== undefined &&
+      backPM.mode !== PAD_DRILL_POST_MACHINING_MODE.NOT_POST_MACHINED &&
+      backPM.mode !== PAD_DRILL_POST_MACHINING_MODE.UNKNOWN &&
+      backPM.size > 0
+    ) {
+      let pmDepth = backPM.depth;
+
+      // For countersink without explicit depth, calculate from diameter and angle
+      if (
+        pmDepth <= 0 &&
+        backPM.mode === PAD_DRILL_POST_MACHINING_MODE.COUNTERSINK &&
+        backPM.angle > 0
+      ) {
+        const halfAngleRad = ((backPM.angle / 10.0) * Math.PI) / 180.0 / 2.0;
+        pmDepth = Math.trunc(backPM.size / 2.0 / Math.tan(halfAngleRad));
+      }
+
+      if (pmDepth > 0) {
+        // Calculate distance from B_Cu to aLayer
+        const layerDist = stackup.GetLayerDistance(PCB_LAYER_ID.B_Cu, aLayer);
+
+        if (layerDist < pmDepth) {
+          // For countersink, diameter decreases with depth
+          if (backPM.mode === PAD_DRILL_POST_MACHINING_MODE.COUNTERSINK && backPM.angle > 0) {
+            const halfAngleRad = ((backPM.angle / 10.0) * Math.PI) / 180.0 / 2.0;
+            const diameterAtLayer =
+              backPM.size - Math.trunc(2.0 * layerDist * Math.tan(halfAngleRad));
+            return Math.max(0, diameterAtLayer);
+          } else {
+            // Counterbore - constant diameter
+            return backPM.size;
+          }
+        }
+      }
+    }
+
     return 0;
   }
 
@@ -1377,8 +1466,9 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     this.SetDirty();
 
     if (!(this.GetFlags() & ROUTER_TRANSIENT)) {
-      // if( BOARD* board = GetBoard() ) board->InvalidateClearanceCache( m_Uuid );
-      //                                                   -- BOARD's DRC caches pending (#636)
+      const board = this.GetBoard();
+
+      if (board) board.InvalidateClearanceCache(this.m_Uuid);
     }
   }
 
@@ -1423,8 +1513,9 @@ export class PAD extends BOARD_CONNECTED_ITEM {
       }
 
       if (!(this.GetFlags() & ROUTER_TRANSIENT)) {
-        // if( BOARD* board = GetBoard() ) board->InvalidateClearanceCache( m_Uuid );
-        //                                                   -- BOARD's DRC caches pending (#636)
+        const board = this.GetBoard();
+
+        if (board) board.InvalidateClearanceCache(this.m_Uuid);
       }
     }
 
@@ -2557,10 +2648,8 @@ export class PAD extends BOARD_CONNECTED_ITEM {
         } else if (aOnlyCheckIfPermitted) {
           return true;
         } else {
-          // static std::initializer_list<KICAD_T> nonZoneTypes = { PCB_TRACE_T, PCB_ARC_T, PCB_VIA_T, PCB_PAD_T };
-          // return board->GetConnectivity()->IsConnectedOnLayer( this, aLayer, nonZoneTypes );
-          //                                                   -- CONNECTIVITY_DATA pending (#636 stage 2): flashed
-          return true;
+          // Must be static to keep from raising its ugly head in performance profiles
+          return board.GetConnectivity().IsConnectedOnLayer(this, aLayer, nonZoneTypes);
         }
       }
     }
@@ -3427,12 +3516,14 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     });
 
     const bbox = this.GetBoundingBox();
-    const clearance = 0;
+    let clearance = 0;
 
     // If we're drawing clearance lines then get the biggest possible clearance
-    // if( PCBNEW_SETTINGS* cfg = ... Kiface().KifaceSettings() )
-    //     if( cfg->m_Display.m_PadClearance && GetBoard() ) clearance = GetBoard()->GetMaxClearanceValue();
-    //                                                   -- PCBNEW_SETTINGS / BOARD::GetMaxClearanceValue pending (#636)
+    // Kiface().KifaceSettings(): pcbnew's PCBNEW_SETTINGS.
+    const cfg = PgmOrNull()?.GetSettingsManager().GetAppSettings<PCBNEW_SETTINGS>('pcbnew') ?? null;
+
+    if (cfg?.m_Display.m_PadClearance && this.GetBoard())
+      clearance = this.GetBoard()!.GetMaxClearanceValue();
 
     // Look for the biggest possible bounding box
     const xMargin = Math.max(solderMaskMargin, solderPasteMargin.x) + clearance;

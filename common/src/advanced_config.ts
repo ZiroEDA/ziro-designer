@@ -90,6 +90,15 @@ export class ADVANCED_CFG {
   m_EnableCreepageSlot = false;
 
   /**
+   * Minimum overlapping angle for which an arc is considered to be parallel
+   * to its paired arc.
+   *
+   * Setting name: "MinParallelAngle"
+   * Default value: 0.001
+   */
+  m_MinParallelAngle = 0.001;
+
+  /**
    * The maximum number of threads to use in the thread pool.
    * Setting name: "MaximumThreads"
    * Valid values: 0 to 500

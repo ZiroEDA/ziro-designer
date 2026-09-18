@@ -131,6 +131,14 @@ const INT_MAX = 2147483647;
 /** The message-panel frame's units, as `PCB_SHAPE` reads them. */
 type MSG_PANEL_FRAME = EDA_DRAW_FRAME_LIKE & UNITS_PROVIDER;
 
+// Must be static to keep from raising its ugly head in performance profiles
+const nonZoneTypes: readonly KICAD_T[] = [
+  KICAD_T.PCB_TRACE_T,
+  KICAD_T.PCB_ARC_T,
+  KICAD_T.PCB_VIA_T,
+  KICAD_T.PCB_PAD_T,
+];
+
 export class PCB_TRACK extends BOARD_CONNECTED_ITEM {
   static override ClassOf(aItem: { Type(): KICAD_T } | null): boolean {
     return !!aItem && KICAD_T.PCB_TRACE_T === aItem.Type();
@@ -1977,8 +1985,9 @@ export class PCB_VIA extends PCB_TRACK {
     this.SanitizeLayers();
 
     if (!(this.GetFlags() & ROUTER_TRANSIENT)) {
-      // if( BOARD* board = GetBoard() ) board->InvalidateClearanceCache( m_Uuid );
-      //                                                   -- BOARD's DRC caches pending (#636)
+      const board = this.GetBoard();
+
+      if (board) board.InvalidateClearanceCache(this.m_Uuid);
     }
   }
 
@@ -1990,8 +1999,9 @@ export class PCB_VIA extends PCB_TRACK {
     this.SanitizeLayers();
 
     if (!(this.GetFlags() & ROUTER_TRANSIENT)) {
-      // if( BOARD* board = GetBoard() ) board->InvalidateClearanceCache( m_Uuid );
-      //                                                   -- BOARD's DRC caches pending (#636)
+      const board = this.GetBoard();
+
+      if (board) board.InvalidateClearanceCache(this.m_Uuid);
     }
   }
 
@@ -2003,8 +2013,9 @@ export class PCB_VIA extends PCB_TRACK {
     this.SanitizeLayers();
 
     if (!(this.GetFlags() & ROUTER_TRANSIENT)) {
-      // if( BOARD* board = GetBoard() ) board->InvalidateClearanceCache( m_Uuid );
-      //                                                   -- BOARD's DRC caches pending (#636)
+      const board = this.GetBoard();
+
+      if (board) board.InvalidateClearanceCache(this.m_Uuid);
     }
   }
 
@@ -2487,10 +2498,8 @@ export class PCB_VIA extends PCB_TRACK {
     if (this.GetZoneLayerOverride(layer) === ZONE_LAYER_OVERRIDE.ZLO_FORCE_FLASHED) {
       return true;
     } else {
-      // static std::initializer_list<KICAD_T> nonZoneTypes = { PCB_TRACE_T, PCB_ARC_T, PCB_VIA_T, PCB_PAD_T };
-      // return board->GetConnectivity()->IsConnectedOnLayer( this, layer, nonZoneTypes );
-      //                                                   -- CONNECTIVITY_DATA pending (#636 stage 2): flashed
-      return true;
+      // Must be static to keep from raising its ugly head in performance profiles
+      return board.GetConnectivity().IsConnectedOnLayer(this, layer, nonZoneTypes);
     }
   }
 
@@ -2502,8 +2511,6 @@ export class PCB_VIA extends PCB_TRACK {
     let aTopmost = PCB_LAYER_ID.UNDEFINED_LAYER;
     let aBottommost = PCB_LAYER_ID.UNDEFINED_LAYER;
 
-    // static std::initializer_list<KICAD_T> nonZoneTypes = { PCB_TRACE_T, PCB_ARC_T, PCB_VIA_T, PCB_PAD_T };
-
     for (let layer = this.TopLayer(); layer <= this.BottomLayer(); ++layer) {
       let connected = false;
 
@@ -2511,9 +2518,7 @@ export class PCB_VIA extends PCB_TRACK {
         this.GetZoneLayerOverride(layer as PCB_LAYER_ID) === ZONE_LAYER_OVERRIDE.ZLO_FORCE_FLASHED
       ) {
         connected = true;
-      } else {
-        // else if( GetBoard()->GetConnectivity()->IsConnectedOnLayer( this, layer, nonZoneTypes ) )
-        //                                                   -- CONNECTIVITY_DATA pending (#636 stage 2): connected
+      } else if (this.GetBoard()!.GetConnectivity().IsConnectedOnLayer(this, layer, nonZoneTypes)) {
         connected = true;
       }
 
