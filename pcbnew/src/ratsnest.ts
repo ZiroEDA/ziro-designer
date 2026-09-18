@@ -232,8 +232,8 @@ function solveNets(nets: Map<number, NetGeometry>, onlyNets?: ReadonlySet<number
     };
 
     // Sorting by left edge lets the sweep stop as soon as a candidate starts to
-    // the right of the current shape (the broad phase runDrc uses; upstream has
-    // an R-tree, CN_RTREE).
+    // the right of the current shape (a sorted sweep; upstream has an R-tree,
+    // CN_RTREE).
     const pieces = [...g.pieces].sort((p, q) => p.box.minX - q.box.minX);
     for (let i = 0; i < pieces.length; i++) {
       const A = pieces[i]!;

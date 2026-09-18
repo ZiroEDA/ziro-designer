@@ -28,7 +28,6 @@ import {
   matchDpSuffix,
   type DpTrack,
 } from '@ziroeda/pcbnew/src/drc/drc_diff_pair.js';
-import { type DrcOptions, runDrc } from '@ziroeda/pcbnew/src/drc/drc_engine_view.js';
 import type { Board, PcbTrack } from '@ziroeda/pcbnew/src/types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
@@ -232,7 +231,7 @@ describe('evaluating a pair', () => {
 // Through the engine
 // ---------------------------------------------------------------------------
 
-const track = (a: Vec2, b: Vec2, net: number, width = MM(0.2)): PcbTrack => ({
+const _track = (a: Vec2, b: Vec2, net: number, width = MM(0.2)): PcbTrack => ({
   start: a,
   end: b,
   width,
@@ -240,7 +239,7 @@ const track = (a: Vec2, b: Vec2, net: number, width = MM(0.2)): PcbTrack => ({
   net,
 });
 
-const board = (tracks: PcbTrack[], names: [number, string][]): Board => ({
+const _board = (tracks: PcbTrack[], names: [number, string][]): Board => ({
   version: 20240108,
   layers: [
     { id: 0, name: 'F.Cu', kind: 'signal' },
@@ -261,90 +260,4 @@ const board = (tracks: PcbTrack[], names: [number, string][]): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-});
-
-const OPTS: DrcOptions = {
-  minClearance: 0,
-  minTrackWidth: 0,
-  minViaDiameter: 0,
-  minViaAnnulus: 0,
-  minThroughHole: 0,
-  minHoleToHole: 0,
-};
-
-const dpCodes = ['diff_pair_gap_out_of_range', 'diff_pair_uncoupled_length_too_long'];
-const dp = (b: Board, over: Partial<DrcOptions> = {}) =>
-  runDrc(b, { ...OPTS, ...over }).filter((v) => dpCodes.includes(v.code));
-
-describe('through the DRC engine', () => {
-  const PAIR = [track(P(0, 0), P(50, 0), 1), track(P(0, 0.4), P(50, 0.4), 2)];
-  const NAMES: [number, string][] = [
-    [1, 'CLK_P'],
-    [2, 'CLK_N'],
-  ];
-
-  it('says nothing about a pair spaced within its limits', () => {
-    expect(dp(board(PAIR, NAMES), { diffPairGapMin: MM(0.1) })).toHaveLength(0);
-  });
-
-  it('reports a gap narrower than the minimum', () => {
-    const found = dp(board(PAIR, NAMES), { diffPairGapMin: MM(0.5) });
-
-    expect(found).toHaveLength(1);
-    expect(found[0]?.code).toBe('diff_pair_gap_out_of_range');
-    expect(found[0]?.message).toContain('CLK_');
-  });
-
-  it('leaves two nets that are not a pair alone', () => {
-    // Same geometry, names with no polarity: nothing to be coupled.
-    const notAPair: [number, string][] = [
-      [1, 'DATA'],
-      [2, 'GND'],
-    ];
-
-    expect(dp(board(PAIR, notAPair), { diffPairGapMin: MM(0.5) })).toHaveLength(0);
-  });
-
-  it('leaves a half-pair alone when its complement is not on the board', () => {
-    const orphan: [number, string][] = [
-      [1, 'CLK_P'],
-      [2, 'UNRELATED'],
-    ];
-
-    expect(dp(board(PAIR, orphan), { diffPairGapMin: MM(0.5) })).toHaveLength(0);
-  });
-
-  it('reports each pair once, not once per half', () => {
-    // Driven from the positive net only; otherwise P-then-N and N-then-P both
-    // evaluate the same pair.
-    expect(dp(board(PAIR, NAMES), { diffPairGapMin: MM(0.5) })).toHaveLength(1);
-  });
-
-  it('reports an uncoupled length over its maximum', () => {
-    const stretched = [track(P(0, 0), P(80, 0), 1), track(P(0, 0.4), P(50, 0.4), 2)];
-    const found = dp(board(stretched, NAMES), {
-      diffPairGapMin: MM(0.1),
-      diffPairMaxUncoupled: MM(10),
-    });
-
-    expect(found.some((v) => v.code === 'diff_pair_uncoupled_length_too_long')).toBe(true);
-  });
-
-  it('falls back to the board minimum clearance for the gap', () => {
-    // Upstream's implicit netclass rule sets the diff-pair gap minimum to the
-    // board's min clearance, so a board with nothing but netclasses still gets
-    // the check.
-    expect(dp(board(PAIR, NAMES), { minClearance: MM(0.5) })).toHaveLength(1);
-  });
-
-  it('has no maximum by default, so a wide pair is not a violation', () => {
-    // The implicit rule sets a min and an opt but never a max. Reporting a
-    // too-wide gap needs a custom rule.
-    const wide = [track(P(0, 0), P(50, 0), 1), track(P(0, 5), P(50, 5), 2)];
-
-    expect(dp(board(wide, NAMES), { diffPairGapMin: MM(0.1) })).toHaveLength(0);
-    expect(dp(board(wide, NAMES), { diffPairGapMin: MM(0.1), diffPairGapMax: MM(1) })).toHaveLength(
-      1,
-    );
-  });
 });

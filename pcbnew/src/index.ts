@@ -240,17 +240,7 @@ export {
   type PsTextAttributes,
 } from './plot_ps.js';
 export { serializeBoard, serializeBoardAsync } from './write-board.js';
-export {
-  runDrc,
-  type DrcOptions,
-  type DrcViolation,
-  type DrcItemRef,
-} from './drc/drc_engine_view.js';
-export {
-  checkLibraryParity,
-  type LibraryParityOptions,
-} from './drc/drc_library_parity.js';
-
+export type { DrcViolation, DrcItemRef } from './drc/drc_engine_view.js';
 // --- Netlist (eeschema -> pcbnew) --------------------------------------------
 export {
   COMPONENT,
@@ -732,35 +722,6 @@ export {
   sizeForScale,
   type ImageValues,
 } from './image_properties.js';
-
-export {
-  findSliverPoints,
-  SLIVER_WIDTH_TOLERANCE,
-  SLIVER_ANGLE_TOLERANCE_DEG,
-  SLIVER_MINIMUM_LENGTH,
-  type SliverOptions,
-} from './drc/drc_sliver.js';
-
-export {
-  CreepageGraph,
-  pathsBetween,
-  isValidPath,
-  closestPointOnSegment,
-  isConductive,
-  type PathConnection,
-  type CreepShape,
-  type BePoint,
-  type BeCircle,
-  type CuSegment,
-  type CuCircle,
-  type BeArc,
-  type CuArc,
-  angleBetweenStartAndEnd,
-  segmentIntersectsArc,
-  type BoardSurface,
-} from './drc/creepage_graph.js';
-
-export { creepageDistance, type CreepageShapes, type CreepageResult } from './drc/drc_creepage.js';
 
 export {
   octagonalHull,

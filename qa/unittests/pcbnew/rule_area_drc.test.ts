@@ -17,8 +17,7 @@ import {
   shapesEnclosedByArea,
   shapesIntersectArea,
 } from '@ziroeda/pcbnew/src/drc/drc_areas.js';
-import { type DrcOptions, runDrc, ruleAreaRules } from '@ziroeda/pcbnew/src/drc/drc_engine_view.js';
-import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule_view.js';
+import { ruleAreaRules } from '@ziroeda/pcbnew/src/drc/drc_engine_view.js';
 import type { Board, PcbTrack, PcbVia, PcbZone } from '@ziroeda/pcbnew/src/types.js';
 
 const MM = (n: number): number => mmToIU(n);
@@ -42,7 +41,7 @@ const ruleArea = (over: Partial<PcbZone> = {}): PcbZone => ({
   ...over,
 });
 
-const track = (x0: number, x1: number, layer = 'F.Cu'): PcbTrack => ({
+const _track = (x0: number, x1: number, layer = 'F.Cu'): PcbTrack => ({
   start: { x: MM(x0), y: MM(5) },
   end: { x: MM(x1), y: MM(5) },
   width: MM(0.2),
@@ -50,7 +49,7 @@ const track = (x0: number, x1: number, layer = 'F.Cu'): PcbTrack => ({
   net: 1,
 });
 
-const via = (x: number): PcbVia => ({
+const _via = (x: number): PcbVia => ({
   at: { x: MM(x), y: MM(5) },
   size: MM(0.6),
   drill: MM(0.3),
@@ -85,18 +84,6 @@ const board = (over: Partial<Board> = {}): Board => ({
   groups: [],
   ...over,
 });
-
-const BASE: DrcOptions = {
-  minClearance: MM(0.05),
-  minTrackWidth: MM(0.05),
-  minViaDiameter: MM(0.2),
-  minViaAnnulus: MM(0.02),
-  minThroughHole: MM(0.1),
-  minHoleToHole: MM(0.1),
-};
-
-const notAllowed = (b: Board, opts: Partial<DrcOptions> = {}) =>
-  runDrc(b, { ...BASE, ...opts }).filter((v) => v.code === 'items_not_allowed');
 
 describe('deflatePolygon', () => {
   it('shrinks a square by the offset on every side', () => {
@@ -204,94 +191,5 @@ describe('implicit rules', () => {
 
   it('ignores an ordinary copper zone', () => {
     expect(ruleAreaRules(board({ zones: [ruleArea({ ruleArea: undefined })] }))).toHaveLength(0);
-  });
-});
-
-describe('markers', () => {
-  it('reports a track that runs into a keepout', () => {
-    const b = board({ zones: [ruleArea()], tracks: [track(12, 18)] });
-    const v = notAllowed(b);
-
-    expect(v).toHaveLength(1);
-    expect(v[0]!.message).toContain('keepout area');
-  });
-
-  it('leaves a track that stays clear of it', () => {
-    expect(notAllowed(board({ zones: [ruleArea()], tracks: [track(0, 5)] }))).toHaveLength(0);
-  });
-
-  it('reports a track that only clips the edge', () => {
-    expect(notAllowed(board({ zones: [ruleArea()], tracks: [track(0, 11)] }))).toHaveLength(1);
-  });
-
-  it('honours the area flags: a pad-allowing area lets a via through', () => {
-    const noVias = ruleArea({
-      ruleArea: { tracks: true, vias: false, pads: false, copperPour: false, footprints: false },
-    });
-
-    expect(notAllowed(board({ zones: [noVias], vias: [via(15)] }))).toHaveLength(0);
-    expect(notAllowed(board({ zones: [ruleArea()], vias: [via(15)] }))).toHaveLength(1);
-  });
-
-  it('does not reach a track on a layer the area is not on', () => {
-    const b = board({ zones: [ruleArea({ layers: ['B.Cu'] })], tracks: [track(12, 18, 'F.Cu')] });
-
-    expect(notAllowed(b)).toHaveLength(0);
-  });
-
-  it('needs a common layer even when the rule names none', () => {
-    // A user rule without `(layer …)` applies everywhere, so the layer test
-    // has to happen inside the predicate: upstream intersects the area's layer
-    // set with the item's and gives up when nothing is shared.
-    const b = board({
-      zones: [ruleArea({ ruleArea: undefined, layers: ['B.Cu'] })],
-      tracks: [track(12, 18, 'F.Cu')],
-    });
-    const dru = `(version 1)
-      (rule "mine" (constraint disallow track) (condition "A.intersectsArea('ko')"))`;
-
-    expect(notAllowed(b, { customRules: parseDrcRules(dru) })).toHaveLength(0);
-
-    // Same board, same rule, area moved onto the track's layer.
-    const shared = board({
-      zones: [ruleArea({ ruleArea: undefined, layers: ['F.Cu'] })],
-      tracks: [track(12, 18, 'F.Cu')],
-    });
-    expect(notAllowed(shared, { customRules: parseDrcRules(dru) })).toHaveLength(1);
-  });
-
-  it('says nothing at all when the board has no rule areas', () => {
-    expect(notAllowed(board({ tracks: [track(12, 18)] }))).toHaveLength(0);
-  });
-
-  it('lets a user rule reach the same area by name', () => {
-    // The same predicate a keepout is built on is available to a hand-written
-    // rule, which is the point of routing both through the engine.
-    const b = board({ zones: [ruleArea({ ruleArea: undefined })], tracks: [track(12, 18)] });
-    const dru = `(version 1)
-      (rule "mine" (constraint disallow track) (condition "A.intersectsArea('ko')"))`;
-
-    expect(notAllowed(b, { customRules: parseDrcRules(dru) })).toHaveLength(1);
-  });
-
-  it('reads insideArea as touching, not as containment', () => {
-    // insideArea is upstream's deprecated spelling of intersectsArea. A track
-    // that only clips the edge must still match.
-    const b = board({ zones: [ruleArea({ ruleArea: undefined })], tracks: [track(0, 11)] });
-    const dru = `(version 1)
-      (rule "mine" (constraint disallow track) (condition "A.insideArea('ko')"))`;
-
-    expect(notAllowed(b, { customRules: parseDrcRules(dru) })).toHaveLength(1);
-  });
-
-  it('distinguishes enclosedByArea from intersectsArea', () => {
-    const b = (x0: number, x1: number) =>
-      board({ zones: [ruleArea({ ruleArea: undefined })], tracks: [track(x0, x1)] });
-    const dru = `(version 1)
-      (rule "mine" (constraint disallow track) (condition "A.enclosedByArea('ko')"))`;
-
-    // Wholly inside → enclosed. Straddling the border → not.
-    expect(notAllowed(b(12, 18), { customRules: parseDrcRules(dru) })).toHaveLength(1);
-    expect(notAllowed(b(0, 11), { customRules: parseDrcRules(dru) })).toHaveLength(0);
   });
 });

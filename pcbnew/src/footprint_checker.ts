@@ -7,15 +7,15 @@
  * (pcbnew/dialogs/dialog_footprint_checker.cpp:82) and the `FOOTPRINT::Check*`
  * / `PAD::CheckPad` family it drives (pcbnew/footprint.cpp, pcbnew/pad.cpp).
  *
- * ## Why this is not part of `runDrc`
+ * ## Why this is not part of board DRC (DRC_ENGINE)
  *
  * It looks like a subset of board DRC and is not one. It is a *different entry
  * point* with a deliberately different rule set: no clearance, no annular ring,
  * no connectivity, no courtyard *overlap* (that one is board DRC's
  * `drc_test_provider_courtyard_clearance`). Everything it does test, it tests
  * at **clearance 0** — there is no rule engine, no netclass and no Board Setup
- * value anywhere in the upstream code path. A `DrcOptions` reaching this module
- * would be a sign something had gone wrong.
+ * value anywhere in the upstream code path. A board-setup constraint reaching
+ * this module would be a sign something had gone wrong.
  *
  * The other half of the reason is that it runs in the *footprint editor*, on a
  * board holding exactly one footprint at the origin. Upstream therefore writes
