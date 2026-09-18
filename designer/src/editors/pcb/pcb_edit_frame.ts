@@ -10,13 +10,12 @@
  * The listener is `BOARD_LISTENER` as the React side subscribes to it: every
  * notification schedules one re-derivation of the view from the BOARD.
  */
+import { PARSE_ERROR } from '@ziroeda/common/src/dsnlexer.js';
 import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/src/eda_draw_frame.js';
+import { LSET } from '@ziroeda/common/src/lset.js';
+import { ENUM_MAP } from '@ziroeda/common/src/properties/property.js';
 import { FRAME_T } from '@ziroeda/common/src/frame_type.js';
-import {
-  CLEARANCE_LAYER_FOR,
-  IsCopperLayer,
-  type PCB_LAYER_ID,
-} from '@ziroeda/common/src/layer_ids.js';
+import { CLEARANCE_LAYER_FOR, IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { TOOL_MANAGER } from '@ziroeda/common/src/tool/tool_manager.js';
 import { VIEW_UPDATE_FLAGS, type VIEW_ITEM } from '@ziroeda/common/src/view/view_item.js';
 import { FLIP_DIRECTION } from '@ziroeda/kimath/src/core/mirror.js';
@@ -122,6 +121,41 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
     // reload the drawing-sheet: SetPageSettings( aBoard->GetPageSettings() ) is the window's
     // UpdateVariantSelectionCtrl(): the toolbar's
+  }
+
+  /**
+   * `PCB_EDIT_FRAME::OnBoardLoaded` (pcb_edit_frame.cpp:1933): the layer
+   * names into the PCB_LAYER_ID enum map (canonical and user), the DRC engine
+   * initialised on the project's rules, the clearance cache filled. The rules
+   * file arrives as its text (`GetDesignRulesPath()` is the caller's), null
+   * when the project has none; a PARSE_ERROR stays quiet, as upstream's does.
+   * The WRL-to-STEP migration below it is the 3D viewer's.
+   */
+  OnBoardLoaded(aRulesText: string | null, aRulesPath = ''): void {
+    const layerEnum = ENUM_MAP.Instance<PCB_LAYER_ID>('PCB_LAYER_ID');
+
+    layerEnum.Choices().Clear();
+    layerEnum.Undefined(PCB_LAYER_ID.UNDEFINED_LAYER);
+
+    for (const layer of LSET.AllLayersMask()) {
+      // Canonical name
+      layerEnum.Map(layer, LSET.Name(layer));
+
+      // User name
+      layerEnum.Map(layer, this.GetBoard()!.GetLayerName(layer));
+    }
+
+    const drcEngine = this.GetBoard()!.GetDesignSettings().m_DRCEngine;
+
+    try {
+      drcEngine?.InitEngine(aRulesText, aRulesPath);
+    } catch (e) {
+      // Not sure this is the best place to tell the user their rules are buggy, so
+      // we'll stay quiet for now.  Feel free to revisit this decision....
+      if (!(e instanceof PARSE_ERROR)) throw e;
+    }
+
+    this.GetBoard()!.InitializeClearanceCache();
   }
 
   /**

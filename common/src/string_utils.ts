@@ -973,3 +973,19 @@ export function AccumulateDescription(aDesc: string, aItem: string): string {
   aDesc += aItem;
   return aDesc;
 }
+
+/** `EscapeHTML( aString )` (common/string_utils.cpp:573). */
+export function EscapeHTML(aString: string): string {
+  let converted = '';
+
+  for (const c of aString) {
+    if (c === '"') converted += '&quot;';
+    else if (c === "'") converted += '&apos;';
+    else if (c === '&') converted += '&amp;';
+    else if (c === '<') converted += '&lt;';
+    else if (c === '>') converted += '&gt;';
+    else converted += c;
+  }
+
+  return converted;
+}

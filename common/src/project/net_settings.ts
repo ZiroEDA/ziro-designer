@@ -334,12 +334,70 @@ export function resolveEffectiveNetClass(
 // helpers — is here. The plain-object `NetClass`/`NetClassesData` forms above
 // are the older surface the designer still reads and go with stage 2.
 
-import { type Color4d, COLOR4D_UNSPECIFIED } from '../color4d.js';
+import { type Color4d, COLOR4D_UNSPECIFIED, parseColor4d } from '../color4d.js';
+import { pcbIUScale, schIUScale } from '../eda_units.js';
 import { CombinedMatcherContext, EdaCombinedMatcher } from '../eda_pattern_match.js';
 import { NETCLASS } from '../netclass.js';
 import type { OutStr } from '../font/font.js';
 
 const isSuperSubOverbar = (c: string | undefined): boolean => c === '^' || c === '_' || c === '~';
+
+/** `getInPcbUnits( aObj, aKey )`: a number in mm, to IU; absent otherwise. */
+function getInPcbUnits(aObj: Record<string, unknown>, aKey: string): number | undefined {
+  const v = aObj[aKey];
+
+  if (typeof v === 'number') return pcbIUScale.mmToIU(v);
+
+  return undefined;
+}
+
+/** `getInSchUnits( aObj, aKey )`: a number in mils, to IU; absent otherwise. */
+function getInSchUnits(aObj: Record<string, unknown>, aKey: string): number | undefined {
+  const v = aObj[aKey];
+
+  if (typeof v === 'number') return schIUScale.milsToIU(v);
+
+  return undefined;
+}
+
+/** The constructor's `readNetClass` lambda. */
+function readNetClass(entry: Record<string, unknown>): NETCLASS {
+  const name = String(entry.name);
+
+  const nc = new NETCLASS(name, false);
+
+  if (typeof entry.priority === 'number') nc.SetPriority(Math.trunc(entry.priority));
+
+  if (typeof entry.tuning_profile === 'string') nc.SetTuningProfile(entry.tuning_profile);
+
+  // `if( auto value = getInPcbUnits( entry, "..." ) ) nc->Set...( *value );`
+  const setIU = (aKey: string, aSetter: (v: number) => void, aGet = getInPcbUnits): void => {
+    const value = aGet(entry, aKey);
+
+    if (value !== undefined) aSetter(value);
+  };
+
+  setIU('clearance', (v) => nc.SetClearance(v));
+  setIU('track_width', (v) => nc.SetTrackWidth(v));
+  setIU('via_diameter', (v) => nc.SetViaDiameter(v));
+  setIU('via_drill', (v) => nc.SetViaDrill(v));
+  setIU('microvia_diameter', (v) => nc.SetuViaDiameter(v));
+  setIU('microvia_drill', (v) => nc.SetuViaDrill(v));
+  setIU('diff_pair_width', (v) => nc.SetDiffPairWidth(v));
+  setIU('diff_pair_gap', (v) => nc.SetDiffPairGap(v));
+  setIU('diff_pair_via_gap', (v) => nc.SetDiffPairViaGap(v));
+  setIU('wire_width', (v) => nc.SetWireWidth(v), getInSchUnits);
+  setIU('bus_width', (v) => nc.SetBusWidth(v), getInSchUnits);
+
+  if (typeof entry.line_style === 'number') nc.SetLineStyle(Math.trunc(entry.line_style));
+
+  if (typeof entry.pcb_color === 'string') nc.SetPcbColor(parseColor4d(entry.pcb_color));
+
+  if (typeof entry.schematic_color === 'string')
+    nc.SetSchematicColor(parseColor4d(entry.schematic_color));
+
+  return nc;
+}
 
 const isDigit = (c: string | undefined): boolean => c !== undefined && c >= '0' && c <= '9';
 
@@ -636,6 +694,98 @@ export class NET_SETTINGS {
   // this, otherwise resolved netclasses may be missing
   GetCompositeNetclasses(): Map<string, NETCLASS> {
     return this.m_compositeNetClasses;
+  }
+
+  /**
+   * The `PARAM_LAMBDA` loaders of the C++ constructor - `classes`,
+   * `net_colors`, `netclass_assignments`, `netclass_patterns` - over the
+   * `net_settings` object of a `.kicad_pro`. `NESTED_SETTINGS::LoadFromFile`
+   * runs them one by one; the schema migrations (0-5) are not ported.
+   */
+  LoadFromJson(aJson: unknown): void {
+    const obj =
+      aJson !== null && typeof aJson === 'object' ? (aJson as Record<string, unknown>) : {};
+
+    // "classes"
+    {
+      const classes = obj.classes;
+
+      if (Array.isArray(classes)) {
+        this.m_netClasses.clear();
+
+        for (const entry of classes) {
+          if (entry === null || typeof entry !== 'object' || !('name' in entry)) continue;
+
+          const nc = readNetClass(entry as Record<string, unknown>);
+
+          if (nc.IsDefault()) this.m_defaultNetClass = nc;
+          else this.m_netClasses.set(nc.GetName(), nc);
+        }
+      }
+    }
+
+    // "net_colors"
+    {
+      const colors = obj.net_colors;
+
+      if (colors !== null && typeof colors === 'object' && !Array.isArray(colors)) {
+        this.m_netColorAssignments.clear();
+
+        for (const [key, value] of Object.entries(colors as Record<string, unknown>)) {
+          if (typeof value === 'string') this.m_netColorAssignments.set(key, parseColor4d(value));
+        }
+      }
+    }
+
+    // "netclass_assignments"
+    {
+      const assignments = obj.netclass_assignments;
+
+      if (assignments !== null && typeof assignments === 'object' && !Array.isArray(assignments)) {
+        this.m_netClassLabelAssignments.clear();
+
+        for (const [key, value] of Object.entries(assignments as Record<string, unknown>)) {
+          if (!Array.isArray(value)) continue;
+
+          let set = this.m_netClassLabelAssignments.get(key);
+
+          if (!set) {
+            set = new Set();
+            this.m_netClassLabelAssignments.set(key, set);
+          }
+
+          for (const netclassName of value)
+            if (typeof netclassName === 'string') set.add(netclassName);
+        }
+      }
+    }
+
+    // "netclass_patterns"
+    {
+      const patterns = obj.netclass_patterns;
+
+      if (Array.isArray(patterns)) {
+        this.m_netClassPatternAssignments = [];
+
+        for (const entry of patterns) {
+          if (entry === null || typeof entry !== 'object') continue;
+
+          const e = entry as Record<string, unknown>;
+
+          if (typeof e.pattern === 'string' && typeof e.netclass === 'string') {
+            const pattern = e.pattern;
+            const netclass = e.netclass;
+
+            // Expand bus patterns so individual bus member nets can be matched
+            NET_SETTINGS.ForEachBusMember(pattern, (memberPattern) => {
+              this.addSinglePatternAssignment(memberPattern, netclass);
+            });
+          }
+        }
+      }
+    }
+
+    this.ClearAllCaches();
   }
 
   /// @brief Clears all netclasses

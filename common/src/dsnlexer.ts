@@ -109,6 +109,8 @@ export class DSNLEXER {
   private curTok: Tok = T.NONE;
   private prevTok: Tok = T.NONE;
   private curText = '';
+  /** `curSeparator`: the whitespace skipped between the previous token and this one. */
+  private curSeparator = '';
   private commentsAreTokens = false;
   /** `m_knowsBar`: whether `|` is a token of its own (files from 20240706 on). */
   private knowsBar = false;
@@ -148,6 +150,19 @@ export class DSNLEXER {
     for (let i = 0; i < this.curStart && i < this.limit; i++)
       if (this.src.charCodeAt(i) === 10) n++;
     return n;
+  }
+
+  /** `CurSeparator()`: the whitespace that preceded the current token. */
+  CurSeparator(): string {
+    return this.curSeparator;
+  }
+
+  /**
+   * `GetCurStrAsToken()`: used to support "loose" matches (quoted tokens). A
+   * keyword is its text here, so the current text is the token.
+   */
+  GetCurStrAsToken(): Tok {
+    return this.curText;
   }
 
   /** `CurLine()`: the text of the line the current token is on. */
@@ -279,6 +294,7 @@ export class DSNLEXER {
     const limit = this.limit;
     let cur = this.next;
     this.prevTok = this.curTok;
+    this.curSeparator = '';
 
     if (this.curTok === T.EOF) return T.EOF;
 
@@ -286,7 +302,9 @@ export class DSNLEXER {
     // character of a line is a comment to its end (comments cannot follow
     // another token on the same line).
     for (;;) {
+      const wsStart = cur;
       while (cur < limit && isSpace(src.charCodeAt(cur))) ++cur;
+      if (cur > wsStart) this.curSeparator += src.slice(wsStart, cur);
       if (cur >= limit) {
         this.curStart = cur;
         this.next = cur;

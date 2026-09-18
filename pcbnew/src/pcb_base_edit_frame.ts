@@ -15,6 +15,7 @@
  * PCB_CONTROL and DS_PROXY_UNDO_ITEM (stage 3/6) and are pending.
  */
 import { UNDO_REDO_LIST } from '@ziroeda/common/src/eda_base_frame.js';
+import { DRC_ENGINE } from './drc/drc_engine.js';
 import type { EDA_ITEM } from '@ziroeda/common/src/eda_item.js';
 import { UR_TRANSIENT } from '@ziroeda/common/src/eda_item_flags.js';
 import { FRAME_T } from '@ziroeda/common/src/frame_type.js';
@@ -112,8 +113,9 @@ export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {
     if (aBoard)
       this.GetCanvas()?.GetGAL().SetGridOrigin(aBoard.GetDesignSettings().GetGridOrigin());
 
-    if (is_new_board) {
-      // bds.m_DRCEngine = std::make_shared<DRC_ENGINE>( aBoard, &bds ): with the DRC engine (#636 stage 4)
+    if (is_new_board && aBoard) {
+      const bds = aBoard.GetDesignSettings();
+      bds.m_DRCEngine = new DRC_ENGINE(aBoard, bds);
     }
 
     // update the tool manager with the new board and its view.

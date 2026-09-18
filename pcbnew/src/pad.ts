@@ -98,7 +98,7 @@ import { DRCE_PAD_TH_WITH_NO_HOLE, DRCE_PADSTACK, DRCE_PADSTACK_INVALID } from '
 import { NETINFO_LIST } from './netinfo.js';
 import {
   BACKDRILL_MODE,
-  CUSTOM_SHAPE_ZONE_MODE,
+  type CUSTOM_SHAPE_ZONE_MODE,
   PAD_ATTRIB,
   PAD_DRILL_POST_MACHINING_MODE,
   PAD_DRILL_SHAPE,
@@ -110,6 +110,8 @@ import {
 } from './padstack.js';
 import { GetDefaultIpcRoundingRatio, PadHasMeaningfulRoundingRadius } from './pad_utils.js';
 import { PCB_SHAPE, type PCB_VIEW_FOR_LOD } from './pcb_shape.js';
+import type { DRC_ENGINE } from './drc/drc_engine.js';
+import { type DRC_CONSTRAINT, DRC_CONSTRAINT_T } from './drc/drc_rule.js';
 import { ZONE_CONNECTION, ZONE_THICKNESS_MIN_VALUE_MM } from './zones.js';
 import type { FOOTPRINT } from './footprint.js';
 
@@ -1897,13 +1899,24 @@ export class PAD extends BOARD_CONNECTED_ITEM {
 
     let margin: number | undefined;
 
-    // if( GetBoard() && m_DRCEngine && m_DRCEngine->HasRulesForConstraintType( SOLDER_MASK_EXPANSION_CONSTRAINT ) )
-    // {
-    //     constraint = drcEngine->EvalRules( SOLDER_MASK_EXPANSION_CONSTRAINT, this, nullptr, aLayer );
-    //     if( constraint.m_Value.HasOpt() ) margin = constraint.m_Value.Opt();
-    // }
-    // else                                                     -- DRC_ENGINE pending (#636)
-    {
+    if (
+      this.GetBoard() &&
+      this.GetBoard()!.GetDesignSettings().m_DRCEngine &&
+      this.GetBoard()!
+        .GetDesignSettings()
+        .m_DRCEngine!.HasRulesForConstraintType(DRC_CONSTRAINT_T.SOLDER_MASK_EXPANSION_CONSTRAINT)
+    ) {
+      const drcEngine = this.GetBoard()!.GetDesignSettings().m_DRCEngine!;
+
+      const constraint = drcEngine.EvalRules(
+        DRC_CONSTRAINT_T.SOLDER_MASK_EXPANSION_CONSTRAINT,
+        this,
+        null,
+        aLayer,
+      );
+
+      if (constraint.m_Value.HasOpt()) margin = constraint.m_Value.Opt();
+    } else {
       margin = this.m_padStack.SolderMaskMargin(aLayer);
 
       if (margin === undefined) {
@@ -1959,8 +1972,42 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     let margin: number | undefined;
     let mratio: number | undefined;
 
-    // std::shared_ptr<DRC_ENGINE> drcEngine; hasAbsRules/hasRelRules ...
-    //                                                          -- DRC_ENGINE pending (#636)
+    let drcEngine: DRC_ENGINE | null = null;
+
+    if (this.GetBoard()) drcEngine = this.GetBoard()!.GetDesignSettings().m_DRCEngine;
+
+    const hasAbsRules =
+      drcEngine !== null &&
+      drcEngine.HasRulesForConstraintType(DRC_CONSTRAINT_T.SOLDER_PASTE_ABS_MARGIN_CONSTRAINT);
+    const hasRelRules =
+      drcEngine !== null &&
+      drcEngine.HasRulesForConstraintType(DRC_CONSTRAINT_T.SOLDER_PASTE_REL_MARGIN_CONSTRAINT);
+
+    if (hasAbsRules || hasRelRules) {
+      let constraint: DRC_CONSTRAINT;
+
+      if (hasAbsRules) {
+        constraint = drcEngine!.EvalRules(
+          DRC_CONSTRAINT_T.SOLDER_PASTE_ABS_MARGIN_CONSTRAINT,
+          this,
+          null,
+          aLayer,
+        );
+
+        if (constraint.m_Value.HasOpt()) margin = constraint.m_Value.Opt();
+      }
+
+      if (hasRelRules) {
+        constraint = drcEngine!.EvalRules(
+          DRC_CONSTRAINT_T.SOLDER_PASTE_REL_MARGIN_CONSTRAINT,
+          this,
+          null,
+          aLayer,
+        );
+
+        if (constraint.m_Value.HasOpt()) mratio = constraint.m_Value.Opt() / 1000.0;
+      }
+    }
 
     if (margin === undefined) {
       margin = this.m_padStack.SolderPasteMargin(aLayer);

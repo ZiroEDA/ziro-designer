@@ -72,6 +72,7 @@ import { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
 import type { HIGH_CONTRAST_MODE } from './board_project_settings.js';
 import { BOARD_ITEM } from './board_item.js';
 import type { BOARD } from './board.js';
+import { DRC_CONSTRAINT_T } from './drc/drc_rule.js';
 import { BOARD_USE } from './board_types.js';
 import { ZONE_THERMAL_RELIEF_COPPER_WIDTH_MM } from './zones.js';
 
@@ -812,11 +813,24 @@ export class PCB_SHAPE extends BOARD_CONNECTED_ITEM {
   GetSolderMaskExpansion(): number {
     let margin = 0;
 
-    // if( GetBoard() && GetBoard()->GetDesignSettings().m_DRCEngine
-    //     && m_DRCEngine->HasRulesForConstraintType( SOLDER_MASK_EXPANSION_CONSTRAINT ) )
-    //     margin = EvalRules( SOLDER_MASK_EXPANSION_CONSTRAINT, ... ).m_Value.Opt();
-    //                                                    -- DRC_ENGINE pending (#636)
-    if (this.m_solderMaskMargin !== undefined) {
+    if (
+      this.GetBoard() &&
+      this.GetBoard()!.GetDesignSettings().m_DRCEngine &&
+      this.GetBoard()!
+        .GetDesignSettings()
+        .m_DRCEngine!.HasRulesForConstraintType(DRC_CONSTRAINT_T.SOLDER_MASK_EXPANSION_CONSTRAINT)
+    ) {
+      const drcEngine = this.GetBoard()!.GetDesignSettings().m_DRCEngine!;
+
+      const constraint = drcEngine.EvalRules(
+        DRC_CONSTRAINT_T.SOLDER_MASK_EXPANSION_CONSTRAINT,
+        this,
+        null,
+        this.m_layer,
+      );
+
+      if (constraint.m_Value.HasOpt()) margin = constraint.m_Value.Opt();
+    } else if (this.m_solderMaskMargin !== undefined) {
       margin = this.m_solderMaskMargin;
     } else {
       const board = this.GetBoard();

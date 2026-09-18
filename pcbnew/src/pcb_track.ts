@@ -66,7 +66,7 @@ import { LSET } from '@ziroeda/common/src/lset.js';
 import { unescapeString } from '@ziroeda/common/src/string_utils.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/src/widgets/msgpanel.js';
-import { MINOPTMAX } from '@ziroeda/core/src/minoptmax.js';
+import type { MINOPTMAX } from '@ziroeda/core/src/minoptmax.js';
 import { FLIP_DIRECTION, MIRROR } from '@ziroeda/core/src/mirror.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { ARC_LOW_DEF } from '@ziroeda/kimath/src/base_units.js';
@@ -100,12 +100,13 @@ import { BOARD_ITEM, ZONE_LAYER_OVERRIDE } from './board_item.js';
 import {
   BACKDRILL_MODE,
   PAD_DRILL_POST_MACHINING_MODE,
-  PAD_DRILL_SHAPE,
+  type PAD_DRILL_SHAPE,
   PAD_SHAPE,
   PADSTACK,
   type PADSTACK_DRILL_PROPS,
   UNCONNECTED_LAYER_MODE,
 } from './padstack.js';
+import { DRC_CONSTRAINT, DRC_CONSTRAINT_T } from './drc/drc_rule.js';
 import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
 import {
   CAPPING_MODE,
@@ -291,13 +292,24 @@ export class PCB_TRACK extends BOARD_CONNECTED_ITEM {
   GetSolderMaskExpansion(): number {
     let margin = 0;
 
-    // if( GetBoard() && GetBoard()->GetDesignSettings().m_DRCEngine
-    //     && m_DRCEngine->HasRulesForConstraintType( SOLDER_MASK_EXPANSION_CONSTRAINT ) )
-    // {
-    //     constraint = drcEngine->EvalRules( SOLDER_MASK_EXPANSION_CONSTRAINT, this, nullptr, m_layer );
-    //     if( constraint.m_Value.HasOpt() ) margin = constraint.m_Value.Opt();
-    // }                                                      -- DRC_ENGINE pending (#636)
-    if (this.m_solderMaskMargin !== undefined) {
+    if (
+      this.GetBoard() &&
+      this.GetBoard()!.GetDesignSettings().m_DRCEngine &&
+      this.GetBoard()!
+        .GetDesignSettings()
+        .m_DRCEngine!.HasRulesForConstraintType(DRC_CONSTRAINT_T.SOLDER_MASK_EXPANSION_CONSTRAINT)
+    ) {
+      const drcEngine = this.GetBoard()!.GetDesignSettings().m_DRCEngine!;
+
+      const constraint = drcEngine.EvalRules(
+        DRC_CONSTRAINT_T.SOLDER_MASK_EXPANSION_CONSTRAINT,
+        this,
+        null,
+        this.m_layer,
+      );
+
+      if (constraint.m_Value.HasOpt()) margin = constraint.m_Value.Opt();
+    } else if (this.m_solderMaskMargin !== undefined) {
       margin = this.m_solderMaskMargin;
     } else {
       const board = this.GetBoard();
@@ -656,15 +668,22 @@ export class PCB_TRACK extends BOARD_CONNECTED_ITEM {
   }
 
   GetWidthConstraint(aSource: OutStr | null = null): MINOPTMAX {
-    const constraint = new MINOPTMAX();
+    let constraint = new DRC_CONSTRAINT();
 
-    // if( GetBoard() && GetBoard()->GetDesignSettings().m_DRCEngine )
-    //     constraint = bds.m_DRCEngine->EvalRules( TRACK_WIDTH_CONSTRAINT, this, nullptr, m_layer );
-    //                                                       -- DRC_ENGINE pending (#636)
+    if (this.GetBoard() && this.GetBoard()!.GetDesignSettings().m_DRCEngine) {
+      const bds = this.GetBoard()!.GetDesignSettings();
 
-    if (aSource) aSource.value = ''; // constraint.GetName()
+      constraint = bds.m_DRCEngine!.EvalRules(
+        DRC_CONSTRAINT_T.TRACK_WIDTH_CONSTRAINT,
+        this,
+        null,
+        this.m_layer,
+      );
+    }
 
-    return constraint; // constraint.Value()
+    if (aSource) aSource.value = constraint.GetName();
+
+    return constraint.Value();
   }
 
   override GetItemDescription(aUnitsProvider: UNITS_PROVIDER | null, aFull: boolean): string {
@@ -1583,27 +1602,41 @@ export class PCB_VIA extends PCB_TRACK {
   }
 
   override GetWidthConstraint(aSource: OutStr | null = null): MINOPTMAX {
-    const constraint = new MINOPTMAX();
+    let constraint = new DRC_CONSTRAINT();
 
-    // if( GetBoard() && GetBoard()->GetDesignSettings().m_DRCEngine )
-    //     constraint = bds.m_DRCEngine->EvalRules( VIA_DIAMETER_CONSTRAINT, this, nullptr, m_layer );
-    //                                                       -- DRC_ENGINE pending (#636)
+    if (this.GetBoard() && this.GetBoard()!.GetDesignSettings().m_DRCEngine) {
+      const bds = this.GetBoard()!.GetDesignSettings();
 
-    if (aSource) aSource.value = ''; // constraint.GetName()
+      constraint = bds.m_DRCEngine!.EvalRules(
+        DRC_CONSTRAINT_T.VIA_DIAMETER_CONSTRAINT,
+        this,
+        null,
+        this.m_layer,
+      );
+    }
 
-    return constraint; // constraint.Value()
+    if (aSource) aSource.value = constraint.GetName();
+
+    return constraint.Value();
   }
 
   GetDrillConstraint(aSource: OutStr | null = null): MINOPTMAX {
-    const constraint = new MINOPTMAX();
+    let constraint = new DRC_CONSTRAINT();
 
-    // if( GetBoard() && GetBoard()->GetDesignSettings().m_DRCEngine )
-    //     constraint = bds.m_DRCEngine->EvalRules( HOLE_SIZE_CONSTRAINT, this, nullptr, m_layer );
-    //                                                       -- DRC_ENGINE pending (#636)
+    if (this.GetBoard() && this.GetBoard()!.GetDesignSettings().m_DRCEngine) {
+      const bds = this.GetBoard()!.GetDesignSettings();
 
-    if (aSource) aSource.value = ''; // constraint.GetName()
+      constraint = bds.m_DRCEngine!.EvalRules(
+        DRC_CONSTRAINT_T.HOLE_SIZE_CONSTRAINT,
+        this,
+        null,
+        this.m_layer,
+      );
+    }
 
-    return constraint; // constraint.Value()
+    if (aSource) aSource.value = constraint.GetName();
+
+    return constraint.Value();
   }
 
   // clang-format off: the suggestion is slightly less readable
@@ -2324,11 +2357,24 @@ export class PCB_VIA extends PCB_TRACK {
       return 0;
     }
 
-    // DRC_CONSTRAINT constraint;
-    // if( GetBoard() && GetBoard()->GetDesignSettings().m_DRCEngine )
-    //     constraint = bds.m_DRCEngine->EvalRules( ANNULAR_WIDTH_CONSTRAINT, this, nullptr, aLayer );
-    // if( constraint.Value().HasMin() ) { *aSource = constraint.GetName(); return constraint.Value().Min(); }
-    //                                                       -- DRC_ENGINE pending (#636)
+    let constraint = new DRC_CONSTRAINT();
+
+    if (this.GetBoard() && this.GetBoard()!.GetDesignSettings().m_DRCEngine) {
+      const bds = this.GetBoard()!.GetDesignSettings();
+
+      constraint = bds.m_DRCEngine!.EvalRules(
+        DRC_CONSTRAINT_T.ANNULAR_WIDTH_CONSTRAINT,
+        this,
+        null,
+        aLayer,
+      );
+    }
+
+    if (constraint.Value().HasMin()) {
+      if (aSource) aSource.value = constraint.GetName();
+
+      return constraint.Value().Min();
+    }
 
     return 0;
   }

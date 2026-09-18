@@ -11,7 +11,7 @@
  * tenting/covering/plugging flags, the custom track/via/diff-pair values,
  * the origins, `m_NetSettings`, `m_TeardropParamsList`, `m_Pad_Master`,
  * `m_stackup` and `m_ZoneLayerProperties`. Still to land with their own
- * classes: the three `MEANDER_SETTINGS` and `m_DRCEngine`; and the
+ * classes: the three `MEANDER_SETTINGS`; and the
  * `NESTED_SETTINGS` JSON registration is not ported (the file parser sets
  * the fields directly).
  */
@@ -40,6 +40,8 @@ import { TEARDROP_PARAMETERS_LIST } from './teardrop/teardrop_parameters.js';
 import { ZONE_SETTINGS, type ZONE_LAYER_PROPERTIES } from './zone_settings.js';
 import { BOARD_STACKUP } from './board_stackup_manager/board_stackup.js';
 import { PAD } from './pad.js';
+import type { DRC_ENGINE } from './drc/drc_engine.js';
+import { DRC_CONSTRAINT_T } from './drc/drc_rule.js';
 import { PAD_DRILL_SHAPE, PAD_SHAPE, PADSTACK } from './padstack.js';
 import { ANGLE_45, ANGLE_90 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import {
@@ -262,6 +264,9 @@ export class BOARD_DESIGN_SETTINGS {
   // individual via
 
   m_NetSettings: NET_SETTINGS;
+
+  /** `std::shared_ptr<DRC_ENGINE> m_DRCEngine`: installed by the edit frame at board load. */
+  m_DRCEngine: DRC_ENGINE | null = null;
 
   // Variables used in footprint editing (default value in item/footprint creation)
   m_DefaultFPTextItems: TEXT_ITEM_INFO[] = [];
@@ -649,8 +654,36 @@ export class BOARD_DESIGN_SETTINGS {
     biggest = Math.max(biggest, this.m_HoleToHoleMin);
     biggest = Math.max(biggest, this.m_CopperEdgeClearance);
 
-    // if( m_DRCEngine ) { QueryWorstConstraint( CLEARANCE_CONSTRAINT ... HOLE_TO_HOLE_CONSTRAINT ) }
-    //                                                         -- DRC_ENGINE pending (#636)
+    if (this.m_DRCEngine) {
+      // The C++ reuses one `constraint` across the six queries, so a type with
+      // no rule leaves the previous minimum in it - which the max has already
+      // taken. A null result is that.
+      let constraint = this.m_DRCEngine.QueryWorstConstraint(DRC_CONSTRAINT_T.CLEARANCE_CONSTRAINT);
+      if (constraint) biggest = Math.max(biggest, constraint.Value().Min());
+
+      constraint = this.m_DRCEngine.QueryWorstConstraint(
+        DRC_CONSTRAINT_T.PHYSICAL_CLEARANCE_CONSTRAINT,
+      );
+      if (constraint) biggest = Math.max(biggest, constraint.Value().Min());
+
+      constraint = this.m_DRCEngine.QueryWorstConstraint(
+        DRC_CONSTRAINT_T.PHYSICAL_HOLE_CLEARANCE_CONSTRAINT,
+      );
+      if (constraint) biggest = Math.max(biggest, constraint.Value().Min());
+
+      constraint = this.m_DRCEngine.QueryWorstConstraint(
+        DRC_CONSTRAINT_T.HOLE_CLEARANCE_CONSTRAINT,
+      );
+      if (constraint) biggest = Math.max(biggest, constraint.Value().Min());
+
+      constraint = this.m_DRCEngine.QueryWorstConstraint(
+        DRC_CONSTRAINT_T.EDGE_CLEARANCE_CONSTRAINT,
+      );
+      if (constraint) biggest = Math.max(biggest, constraint.Value().Min());
+
+      constraint = this.m_DRCEngine.QueryWorstConstraint(DRC_CONSTRAINT_T.HOLE_TO_HOLE_CONSTRAINT);
+      if (constraint) biggest = Math.max(biggest, constraint.Value().Min());
+    }
 
     // Clip to avoid integer overflows in subsequent calculations
     return Math.min(biggest, MAXIMUM_CLEARANCE);

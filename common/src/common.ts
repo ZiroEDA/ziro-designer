@@ -47,6 +47,7 @@ export const DRAWING_SHEET_FILE_EXTENSION = 'kicad_wks';
 // ---------------------------------------------------------------------------
 // ExpandTextVars / ResolveTextVars (common/common.cpp)
 
+import { EscapeHTML } from './string_utils.js';
 import type { OutStr } from './font/font.js';
 import { EXPRESSION_EVALUATOR } from './text_eval/text_eval_wrapper.js';
 
@@ -317,4 +318,10 @@ export function GetGeneratedFieldDisplayName(aSource: string): string {
 
 export function IsGeneratedField(aSource: string): boolean {
   return /^\$\{\w*\}$/.test(aSource);
+}
+
+/** `DescribeRef( aRef )` (common/common.cpp:348): a reference for a message, or the unannotated placeholder. */
+export function DescribeRef(aRef: string): string {
+  if (aRef.length === 0) return '<i>unannotated footprint </i>';
+  else return EscapeHTML(aRef);
 }

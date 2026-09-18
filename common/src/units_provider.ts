@@ -19,6 +19,7 @@ import {
   messageTextFromMinOptMax,
   messageTextFromValue,
   stringFromValue,
+  unityScale,
 } from './eda_units.js';
 
 /** `EDA_UNIT_UTILS::IsImperialUnit`. */
@@ -90,6 +91,19 @@ export class UNITS_PROVIDER {
     );
   }
 
+  /** `StringFromValue( const EDA_ANGLE& aValue, bool aAddUnitLabel )` */
+  StringFromAngle(aValue: EDA_ANGLE, aAddUnitLabel = false): string {
+    return stringFromValue(unityScale, 'degrees', aValue.AsDegrees(), aAddUnitLabel, 'distance');
+  }
+
+  MessageTextFromUnscaledValue(
+    aValue: number,
+    aAddUnitLabel = true,
+    aType: EdaDataType = 'distance',
+  ): string {
+    return messageTextFromValue(unityScale, 'unscaled', aValue, aAddUnitLabel, aType);
+  }
+
   MessageTextFromMinOptMax(aValue: MINOPTMAX, aType: EdaDataType = 'distance'): string {
     return messageTextFromMinOptMax(this.GetIuScale(), this.GetUnitsFromType(aType), aValue);
   }
@@ -101,6 +115,32 @@ export class UNITS_PROVIDER {
   GetUnitsFromType(aType: EdaDataType): EdaUnits {
     // TIME and LENGTH_DELAY are EDA_DATA_TYPEs the UI port does not carry yet
     return this.GetUserUnits();
+  }
+
+  /**
+   * Gets the inferred type from the given units. Note: will always return the most simple
+   * type (e.g. a DISTANCE rather than AREA or VOLUME for a measurement unit).
+   */
+  static GetTypeFromUnits(aUnits: EdaUnits): EdaDataType | 'time' | 'length_delay' {
+    switch (aUnits) {
+      case 'in':
+      case 'mm':
+      case 'um':
+      case 'cm':
+      case 'mils':
+        return 'distance';
+      case 'degrees':
+      case 'percent':
+      case 'unscaled':
+        return 'unitless';
+      case 'fs':
+      case 'ps':
+        return 'time';
+      case 'ps/in':
+      case 'ps/cm':
+      case 'ps/mm':
+        return 'length_delay';
+    }
   }
 
   static readonly NullUiString = '';

@@ -518,7 +518,12 @@ import {
   NET_COLOR_MODE,
   ZONE_DISPLAY_MODE,
 } from '@ziroeda/pcbnew/src/board_project_settings.js';
-import { GAL_LAYER_ID, type PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { LSET } from '@ziroeda/common/src/lset.js';
+import { VIEW_UPDATE_FLAGS, type VIEW_ITEM } from '@ziroeda/common/src/view/view_item.js';
+import { PAD } from '@ziroeda/pcbnew/src/pad.js';
+import { PCB_TRACK, PCB_VIA } from '@ziroeda/pcbnew/src/pcb_track.js';
+import { TRACK_CLEARANCE_MODE } from '@ziroeda/pcbnew/src/pcbnew_settings.js';
 import { GRID_STYLE } from '@ziroeda/common/src/gal/gal_display_options.js';
 import {
   applyToggle,
@@ -959,6 +964,84 @@ function promotePadsForCommand(
   const items = filterSelectionForFreePads(expandGroupIds(board, sel));
   const hadPad = [...sel].some((id) => parseBoardItemId(id)?.kind === 'pad');
   return { items, selection: hadPad ? filterSelectionForFreePads(sel) : null };
+}
+
+/**
+ * The project's slices into the live BOARD, as `BOARD::SetProject` binds
+ * `bds.m_NetSettings` to the project file's NET_SETTINGS and
+ * `PCB_EDIT_FRAME::OnBoardLoaded` initialises the DRC engine on the
+ * project's `.kicad_dru`: the `.kicad_pro`'s `net_settings` object is loaded
+ * into the board's own NET_SETTINGS, the nets take their classes
+ * (`SynchronizeNetsAndNetClasses`), the engine compiles the implicit rules
+ * plus the custom ones and fills the clearance cache. PROJECT itself is not
+ * ported, so the files come from the editor's project file list.
+ *
+ * On a later change of those files (Board Setup's OK persists them) the
+ * pads and tracks repaint with the new clearances, as
+ * `ShowBoardSetupDialog`'s `UpdateAllItemsConditionally` has them do.
+ */
+function syncProjectSettingsIntoBoard(
+  frame: PCB_EDIT_FRAME,
+  panel: PCB_DRAW_PANEL_GAL | null,
+  files: readonly { name: string; text: string }[],
+  rootPro: string | undefined,
+  repaint: boolean,
+): void {
+  const kb = frame.GetBoard();
+  if (!kb) return;
+  const pro = findProjectPro(files, rootPro);
+  if (pro) {
+    let json: unknown = null;
+    try {
+      json = JSON.parse(pro.text);
+    } catch {
+      json = null;
+    }
+    const netSettings =
+      json !== null && typeof json === 'object'
+        ? (json as Record<string, unknown>).net_settings
+        : undefined;
+    if (netSettings !== undefined) kb.GetDesignSettings().m_NetSettings.LoadFromJson(netSettings);
+  }
+  kb.SynchronizeNetsAndNetClasses(repaint);
+  const dru = findProjectDru(files, rootPro);
+  frame.OnBoardLoaded(dru?.text ?? null, dru?.name ?? '');
+  if (!repaint || !panel) return;
+  const settings = frame.GetPcbNewSettings();
+  const maskAndPasteLayers = new LSET([
+    PCB_LAYER_ID.F_Mask,
+    PCB_LAYER_ID.F_Paste,
+    PCB_LAYER_ID.B_Mask,
+    PCB_LAYER_ID.B_Paste,
+  ]);
+  panel.GetView().UpdateAllItemsConditionally((aItem: VIEW_ITEM): number => {
+    let flags = 0;
+
+    if (!aItem.IsBOARD_ITEM()) return flags;
+
+    const item = aItem as BOARD_ITEM;
+
+    // PCB_VIA_T || PCB_PAD_T
+    if (item instanceof PCB_VIA || item instanceof PAD) {
+      // Note: KIGFX::REPAINT isn't enough for things that go from invisible
+      // to visible as they won't be found in the view layer's itemset for
+      // re-painting.
+      if (kb.GetVisibleLayers().and(maskAndPasteLayers).any()) flags |= VIEW_UPDATE_FLAGS.ALL;
+    }
+
+    // PCB_TRACE_T || PCB_ARC_T || PCB_VIA_T
+    if (item instanceof PCB_TRACK) {
+      if (settings.m_Display.m_TrackClearance === TRACK_CLEARANCE_MODE.SHOW_WITH_VIA_ALWAYS)
+        flags |= VIEW_UPDATE_FLAGS.REPAINT;
+    }
+
+    if (item instanceof PAD) {
+      if (settings.m_Display.m_PadClearance) flags |= VIEW_UPDATE_FLAGS.REPAINT;
+    }
+
+    return flags;
+  });
+  panel.ForceRefresh();
 }
 
 export function PcbEditor({
@@ -2669,6 +2752,13 @@ export function PcbEditor({
             traceAllegroPerf,
             () => `Post-load BuildConnectivity: ${postLoadTimer.msecs(true).toFixed(3)} ms`,
           );
+          // `OnBoardLoaded()`: the project's netclasses and rules into the
+          // DRC engine, before the first paint asks for a clearance.
+          syncProjectSettingsIntoBoard(frame, panelRef.current, projectFilesNow(), rootPro, false);
+          wxLogTrace(
+            traceAllegroPerf,
+            () => `Post-load DRC engine: ${postLoadTimer.msecs(true).toFixed(3)} ms`,
+          );
         }
         // The first fit went to the blank sheet; the loaded board gets its own.
         fittedRef.current = false;
@@ -2726,6 +2816,12 @@ export function PcbEditor({
     const dru = findProjectDru(files, rootPro);
     if (dru) s.customRules.text = dru.text;
     setBoardSetup(s);
+    // The live board's netclasses and rules follow the files: KiCad's
+    // ShowBoardSetupDialog OK path (SynchronizeNetsAndNetClasses( true ),
+    // the netclasses ticker, CommonSettingsChanged's InitEngine).
+    const frame = frameRef.current;
+    if (frame && frame.GetBoard() && parsedOpen.current !== null)
+      syncProjectSettingsIntoBoard(frame, panelRef.current, files, rootPro, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setupSourceKey, rootPro, openNonce]);
 

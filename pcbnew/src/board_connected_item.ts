@@ -223,9 +223,11 @@ export abstract class BOARD_CONNECTED_ITEM extends BOARD_ITEM {
    * @return the clearance in internal units.
    */
   GetOwnClearance(aLayer: PCB_LAYER_ID, aSource: OutStr | null = null): number {
-    // if( GetBoard() && GetBoard()->GetDesignSettings().m_DRCEngine )
-    //     return bds.m_DRCEngine->GetCachedOwnClearance( this, aLayer, aSource );
-    //                                                    -- DRC_ENGINE pending (#636)
+    if (this.GetBoard() && this.GetBoard()!.GetDesignSettings().m_DRCEngine) {
+      const bds = this.GetBoard()!.GetDesignSettings();
+      return bds.m_DRCEngine!.GetCachedOwnClearance(this, aLayer, aSource);
+    }
+
     return 0;
   }
 

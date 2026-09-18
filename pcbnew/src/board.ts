@@ -77,7 +77,7 @@ import type { PCB_TEXTBOX } from './pcb_textbox.js';
 import { EDA_SHAPE } from '@ziroeda/common/src/eda_shape.js';
 import { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
 import type { PCB_TRACK } from './pcb_track.js';
-import { ZONE } from './zone.js';
+import { type ISOLATED_ISLANDS, ZONE } from './zone.js';
 import { ZONE_BORDER_DISPLAY_STYLE } from './zone_settings.js';
 import type { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
 import type { PAD } from './pad.js';
@@ -207,11 +207,18 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
   // to avoid repeated expensive deflation operations during collidesWithArea calls.
   m_DeflatedZoneOutlineCache = new Map<ZONE, SHAPE_POLY_SET>();
 
-  /**
-   * `std::unordered_map<ZONE*, std::unique_ptr<DRC_RTREE>> m_CopperZoneRTreeCache`:
-   * filled by DRC_CACHE_GENERATOR, which lands with the DRC engine (#636 stage 4).
-   */
+  /** `std::shared_ptr<DRC_RTREE> m_CopperItemRTreeCache`, filled by DRC_CACHE_GENERATOR. */
+  m_CopperItemRTreeCache: DRC_RTREE | null = null;
+
+  /** `std::unordered_map<ZONE*, std::unique_ptr<DRC_RTREE>> m_CopperZoneRTreeCache`, filled by DRC_CACHE_GENERATOR. */
   m_CopperZoneRTreeCache = new Map<ZONE, DRC_RTREE>();
+
+  // ------------ DRC caches -------------
+  m_DRCZones: ZONE[] = [];
+  m_DRCCopperZones: ZONE[] = [];
+  m_DRCMaxClearance = 0;
+  m_DRCMaxPhysicalClearance = 0;
+  m_ZoneIsolatedIslandsMap = new Map<ZONE, Map<PCB_LAYER_ID, ISOLATED_ISLANDS>>();
 
   /** Zone to show sloder mask bridges created by a min web value. */
   m_SolderMaskBridges: ZONE;
@@ -580,6 +587,37 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
   }
 
   /**
+   * Copy NETCLASS info to each NET, based on NET membership in a NETCLASS.
+   *
+   * The C++ returns early without a PROJECT, because `bds.m_NetSettings` is
+   * the project file's; ours is the board's own, filled by
+   * `NET_SETTINGS.LoadFromJson`, so there is no guard.
+   */
+  SynchronizeNetsAndNetClasses(aResetTrackAndViaSizes: boolean): void {
+    const bds = this.GetDesignSettings();
+    const defaultNetClass = bds.m_NetSettings.GetDefaultNetclass();
+
+    bds.m_NetSettings.ClearAllCaches();
+
+    for (const net of this.m_NetInfo)
+      net.SetNetClass(bds.m_NetSettings.GetEffectiveNetClass(net.GetNetname()));
+
+    if (aResetTrackAndViaSizes) {
+      // Set initial values for custom track width & via size to match the default
+      // netclass settings
+      bds.UseCustomTrackViaSize(false);
+      bds.SetCustomTrackWidth(defaultNetClass.GetTrackWidth());
+      bds.SetCustomViaSize(defaultNetClass.GetViaDiameter());
+      bds.SetCustomViaDrill(defaultNetClass.GetViaDrill());
+      bds.SetCustomDiffPairWidth(defaultNetClass.GetDiffPairWidth());
+      bds.SetCustomDiffPairGap(defaultNetClass.GetDiffPairGap());
+      bds.SetCustomDiffPairViaGap(defaultNetClass.GetDiffPairViaGap());
+    }
+
+    this.InvokeListeners((l) => l.OnBoardNetSettingsChanged(this));
+  }
+
+  /**
    * Synchronise component classes with the project's assignment rules.
    *
    * `GetProject()->GetProjectFile().ComponentClassSettings()` is the C++'s
@@ -812,6 +850,7 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
       this.m_IntersectsBCourtyardCache.size > 0 ||
       this.m_LayerExpressionCache.size > 0 ||
       this.m_ZoneBBoxCache.size > 0 ||
+      this.m_CopperItemRTreeCache !== null ||
       this.m_maxClearanceValue !== undefined ||
       this.m_ItemNetclassCache.size > 0 ||
       this.m_ZonesByNameCache.size > 0 ||
@@ -829,14 +868,24 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
       this.m_ZoneBBoxCache.clear();
 
-      // m_CopperItemRTreeCache = nullptr: with the DRC cache generator (stage 4)
+      this.m_CopperItemRTreeCache = null;
 
       // These are always regenerated before use, but still probably safer to clear them
       // while we're here.
+      this.m_DRCMaxClearance = 0;
+      this.m_DRCMaxPhysicalClearance = 0;
+      this.m_DRCZones.length = 0;
+      this.m_DRCCopperZones.length = 0;
+      this.m_ZoneIsolatedIslandsMap.clear();
       this.m_CopperZoneRTreeCache.clear();
 
       this.m_maxClearanceValue = undefined;
     }
+  }
+
+  InitializeClearanceCache(): void {
+    if (this.m_designSettings && this.m_designSettings.m_DRCEngine)
+      this.m_designSettings.m_DRCEngine.InitializeClearanceCache();
   }
 
   /** `BOARD::GetMaxClearanceValue` (board.cpp:1119). */
@@ -978,6 +1027,74 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
    * name tokens, the variant tokens, the board properties and the title block.
    * `PROJECTNAME` and the project's own variables come with `PROJECT` (not ported).
    */
+  ConvertCrossReferencesToKIIDs(aSource: string): string {
+    let newbuf = '';
+    const sourceLen = aSource.length;
+
+    for (let i = 0; i < sourceLen; ++i) {
+      // Check for escaped expressions: \${ or \@{
+      // These should be copied verbatim without any ref→KIID conversion
+      if (
+        aSource[i] === '\\' &&
+        i + 2 < sourceLen &&
+        aSource[i + 2] === '{' &&
+        (aSource[i + 1] === '$' || aSource[i + 1] === '@')
+      ) {
+        // Copy the escape sequence and the entire escaped expression
+        newbuf += aSource[i]; // backslash
+        newbuf += aSource[i + 1]; // $ or @
+        newbuf += aSource[i + 2]; // {
+        i += 2;
+
+        // Find and copy everything until the matching closing brace
+        let braceDepth = 1;
+        for (i = i + 1; i < sourceLen && braceDepth > 0; ++i) {
+          if (aSource[i] === '{') braceDepth++;
+          else if (aSource[i] === '}') braceDepth--;
+
+          newbuf += aSource[i];
+        }
+        i--; // Back up one since the for loop will increment
+        continue;
+      }
+
+      if (aSource[i] === '$' && i + 1 < sourceLen && aSource[i + 1] === '{') {
+        let token = '';
+        let isCrossRef = false;
+
+        for (i = i + 2; i < sourceLen; ++i) {
+          if (aSource[i] === '}') break;
+
+          if (aSource[i] === ':') isCrossRef = true;
+
+          token += aSource[i];
+        }
+
+        if (isCrossRef) {
+          const colon = token.indexOf(':');
+          const ref = token.slice(0, colon);
+          const remainder = token.slice(colon + 1);
+
+          for (const footprint of this.Footprints()) {
+            if (footprint.GetReference().toLowerCase() === ref.toLowerCase()) {
+              const test: OutStr = { value: remainder };
+
+              if (footprint.ResolveTextVar(test)) token = `${footprint.m_Uuid}:${remainder}`;
+
+              break;
+            }
+          }
+        }
+
+        newbuf += `\${${token}}`;
+      } else {
+        newbuf += aSource[i];
+      }
+    }
+
+    return newbuf;
+  }
+
   ResolveTextVar(token: OutStr, aDepth: number): boolean {
     if (token.value.includes(':')) {
       const colon = token.value.indexOf(':');
