@@ -42,7 +42,8 @@ import {
 } from '@ziroeda/common/src/layer_ids.js';
 
 const out = (s: string) => writeSync(1, `${s}\n`);
-const ms = (t: number) => `${(performance.now() - t).toFixed(0)} ms`;
+const ms = (t: number) =>
+  `${(performance.now() - t).toFixed(0)} ms  (heap ${(process.memoryUsage().heapUsed / 1048576).toFixed(0)} MB)`;
 
 /** The GL calls, counted. */
 const GL = {
