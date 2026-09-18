@@ -77,6 +77,7 @@ import type { PCB_TEXTBOX } from './pcb_textbox.js';
 import { EDA_SHAPE } from '@ziroeda/common/src/eda_shape.js';
 import { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
 import type { PCB_TRACK } from './pcb_track.js';
+import type { ENDPOINT_T } from './pcb_track_types.js';
 import { type ISOLATED_ISLANDS, ZONE } from './zone.js';
 import { ZONE_BORDER_DISPLAY_STYLE } from './zone_settings.js';
 import type { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
@@ -580,6 +581,36 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
     aOutlines.Simplify();
 
     return success;
+  }
+
+  /**
+   * Find a #PAD at \a aPosition on the given layers (`GetPad( const VECTOR2I&, const LSET& )`),
+   * or the pad a track ends on (`GetPad( const PCB_TRACK*, ENDPOINT_T )`).
+   */
+  GetPad(aPosition: VECTOR2I, aLayerSet: LSET): PAD | null;
+  GetPad(aTrace: PCB_TRACK, aEndPoint: ENDPOINT_T): PAD | null;
+  GetPad(a: VECTOR2I | PCB_TRACK, b: LSET | ENDPOINT_T): PAD | null {
+    if (!('x' in a)) {
+      const aPosition = a.GetEndPoint(b as ENDPOINT_T);
+
+      const lset = new LSET([a.GetLayer()]);
+
+      return this.GetPad(aPosition, lset);
+    }
+
+    const aPosition = a;
+    const aLayerSet = b as LSET;
+
+    for (const footprint of this.m_footprints) {
+      let pad: PAD | null = null;
+
+      if (footprint.HitTest(aPosition))
+        pad = footprint.GetPad(aPosition, aLayerSet.any() ? aLayerSet : LSET.AllCuMask());
+
+      if (pad) return pad;
+    }
+
+    return null;
   }
 
   GetComponentClassManager(): COMPONENT_CLASS_MANAGER {
