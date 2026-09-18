@@ -267,23 +267,47 @@ describe('RTreeIntReal volume arithmetic', () => {
   it('equals the int64 formula below, at and past 2^53', () => {
     const probe = new Probe(2);
     const cases: [number[], number[]][] = [
-      [[0, 0], [10, 10]], // tiny: stays a double
-      [[0, 0], [2 ** 28 - 2, 2]], // half-extents 2^27 - 1 and 1: just under
-      [[0, 0], [2 ** 28, 2]], // 2^54 + 1: a double would round it to 2^54
-      [[0, 0], [2 ** 28, 6]], // 2^54 + 9 -> a double gives 2^54 + 8
-      [[-(2 ** 30), -(2 ** 30)], [2 ** 30 - 1, 2 ** 30 - 1]], // a whole int32 board
+      [
+        [0, 0],
+        [10, 10],
+      ], // tiny: stays a double
+      [
+        [0, 0],
+        [2 ** 28 - 2, 2],
+      ], // half-extents 2^27 - 1 and 1: just under
+      [
+        [0, 0],
+        [2 ** 28, 2],
+      ], // 2^54 + 1: a double would round it to 2^54
+      [
+        [0, 0],
+        [2 ** 28, 6],
+      ], // 2^54 + 9 -> a double gives 2^54 + 8
+      [
+        [-(2 ** 30), -(2 ** 30)],
+        [2 ** 30 - 1, 2 ** 30 - 1],
+      ], // a whole int32 board
       // A width converts to float first, so a half-extent has at most 24
       // significant bits and its square is always exact; what rounds is the
       // SUM of two squares of different magnitude, and the product by 3.
       // Half-extents 94906264 and 17559: each square exact, the sum
       // 9007199254756177 is past 2^53 and odd -- a double cannot hold it.
-      [[0, 0], [189812528, 35118]],
+      [
+        [0, 0],
+        [189812528, 35118],
+      ],
       // Half-extents 60000000 and 1: the sum 3600000000000001 is below 2^53,
       // three times it is past and odd.
-      [[0, 0], [120000000, 2]],
+      [
+        [0, 0],
+        [120000000, 2],
+      ],
       // Half-extents 94906264 and 17321: the sum is just under 2^53 and exact,
       // times 3 is not.
-      [[0, 0], [189812528, 34642]],
+      [
+        [0, 0],
+        [189812528, 34642],
+      ],
     ];
     for (const [mn, mx] of cases) {
       const v = probe.volume(mn, mx);
@@ -293,8 +317,14 @@ describe('RTreeIntReal volume arithmetic', () => {
 
   it('combines two rectangles to the int64 volume of their union rectangle', () => {
     const probe = new Probe(2);
-    const a: [number[], number[]] = [[0, 0], [2 ** 28, 4]];
-    const b: [number[], number[]] = [[2 ** 28, 2], [2 ** 29, 8]];
+    const a: [number[], number[]] = [
+      [0, 0],
+      [2 ** 28, 4],
+    ];
+    const b: [number[], number[]] = [
+      [2 ** 28, 2],
+      [2 ** 29, 8],
+    ];
     const v = probe.combined(a, b);
     expect(BigInt(v)).toBe(int64Volume([0, 0], [2 ** 29, 8]));
     // and the difference the heuristics take is exact: 3 * ((2^28)^2 - (2^27)^2 + 4^2 - 2^2)

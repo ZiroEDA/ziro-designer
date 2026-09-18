@@ -12,19 +12,28 @@ const run = (name: string, tree: RTree<number>, n: number): void => {
   g_s = 12345;
   const rects: number[][] = [];
   for (let i = 0; i < n; ++i) {
-    const x = next() % 300000000, y = next() % 300000000;
-    const w = next() % 2000000, h = next() % 2000000;
+    const x = next() % 300000000,
+      y = next() % 300000000;
+    const w = next() % 2000000,
+      h = next() % 2000000;
     rects.push([x, y, x + w, y + h]);
   }
   const t0 = performance.now();
-  for (let i = 0; i < n; ++i) tree.Insert([rects[i]![0]!, rects[i]![1]!], [rects[i]![2]!, rects[i]![3]!], i);
+  for (let i = 0; i < n; ++i)
+    tree.Insert([rects[i]![0]!, rects[i]![1]!], [rects[i]![2]!, rects[i]![3]!], i);
   const t1 = performance.now();
   let hits = 0;
-  for (let i = 0; i < n; ++i) tree.Search([rects[i]![0]!, rects[i]![1]!], [rects[i]![2]!, rects[i]![3]!], () => { hits++; return true; });
+  for (let i = 0; i < n; ++i)
+    tree.Search([rects[i]![0]!, rects[i]![1]!], [rects[i]![2]!, rects[i]![3]!], () => {
+      hits++;
+      return true;
+    });
   const t2 = performance.now();
-  console.log(`${name} n=${n} insert ${(t1 - t0).toFixed(0)} ms search ${(t2 - t1).toFixed(0)} ms hits ${hits}`);
+  console.log(
+    `${name} n=${n} insert ${(t1 - t0).toFixed(0)} ms search ${(t2 - t1).toFixed(0)} ms hits ${hits}`,
+  );
 };
 for (let rep = 0; rep < 1; rep++) {
-  run("double  ", new RTree<number>(2), 82000);
-  run("intptr_t", new RTreeIntReal<number>(2), 82000);
+  run('double  ', new RTree<number>(2), 82000);
+  run('intptr_t', new RTreeIntReal<number>(2), 82000);
 }

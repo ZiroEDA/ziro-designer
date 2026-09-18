@@ -12,13 +12,22 @@ let gnd = b.Zones()[0]!;
 let best = 0;
 for (const z of b.Zones()) {
   const n = z.GetFilledPolysList(z.GetFirstLayer())?.FullPointCount() ?? 0;
-  if (n > best) { best = n; gnd = z; }
+  if (n > best) {
+    best = n;
+    gnd = z;
+  }
 }
 const fill = gnd.GetFilledPolysList(gnd.GetFirstLayer())!;
 let holes = 0;
 for (let i = 0; i < fill.OutlineCount(); i++) holes += fill.HoleCount(i);
-console.log(`GND fill: outlines ${fill.OutlineCount()} holes ${holes} points ${fill.FullPointCount()}`);
-const T = (label: string, fn: () => void) => { const t = performance.now(); fn(); console.log(`  ${label.padEnd(40)} ${(performance.now() - t).toFixed(0).padStart(8)} ms`); };
+console.log(
+  `GND fill: outlines ${fill.OutlineCount()} holes ${holes} points ${fill.FullPointCount()}`,
+);
+const T = (label: string, fn: () => void) => {
+  const t = performance.now();
+  fn();
+  console.log(`  ${label.padEnd(40)} ${(performance.now() - t).toFixed(0).padStart(8)} ms`);
+};
 const s = new SHAPE_POLY_SET(fill);
 T('splitCollinearOutlines', () => (s as any).splitCollinearOutlines());
 const s0 = new SHAPE_POLY_SET(fill);

@@ -20,4 +20,5 @@ for (const z of b.Zones()) {
 }
 rows.sort((a, c) => c[0] - a[0]);
 console.log(`ZONE::CacheTriangulation, all ${b.Zones().length} zones serial: ${tot.toFixed(0)} ms`);
-for (const [dt, n, l] of rows.slice(0, 8)) console.log(`  ${dt.toFixed(0).padStart(7)} ms  ${n} ${l}`);
+for (const [dt, n, l] of rows.slice(0, 8))
+  console.log(`  ${dt.toFixed(0).padStart(7)} ms  ${n} ${l}`);

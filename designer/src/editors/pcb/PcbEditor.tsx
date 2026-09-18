@@ -10196,7 +10196,9 @@ export function PcbEditor({
   ratsnestEdgesRef.current = ratsnestEdges;
   // `BOARD::GetMsgPanelInfo`'s "Unrouted": `GetConnectivity()->GetUnconnectedCount( true )`.
   const unconnectedCount =
-    board?.k && panelReady ? board.k.GetConnectivity().GetUnconnectedCount(true) : ratsnestEdges.length;
+    board?.k && panelReady
+      ? board.k.GetConnectivity().GetUnconnectedCount(true)
+      : ratsnestEdges.length;
 
   // Nets of the current selection, their airwires are always shown (even when
   // the global ratsnest is off), so clicking a pad/footprint/track reveals the

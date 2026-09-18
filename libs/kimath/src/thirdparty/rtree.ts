@@ -513,9 +513,7 @@ export class RTree<DATATYPE> {
       const index = this.PickBranch(a_rect, a_node);
       const otherNode: { value: Node<DATATYPE> | null } = { value: null };
 
-      if (
-        !this.InsertRectRec(a_rect, a_child, a_id, a_node.m_child[index]!, otherNode, a_level)
-      ) {
+      if (!this.InsertRectRec(a_rect, a_child, a_id, a_node.m_child[index]!, otherNode, a_level)) {
         // Child was not split
         this.CombineRect(
           a_rect,
@@ -1168,7 +1166,12 @@ export class RTree<DATATYPE> {
       for (let index = 0; index < a_node.m_count; ++index) {
         const off = index * 4;
         if (
-          !(x0 > rects[off + 2]! || rects[off]! > x1 || y0 > rects[off + 3]! || rects[off + 1]! > y1)
+          !(
+            x0 > rects[off + 2]! ||
+            rects[off]! > x1 ||
+            y0 > rects[off + 3]! ||
+            rects[off + 1]! > y1
+          )
         ) {
           if (!this.searchRec2(a_node.m_child[index]!, a_rect, a_foundCount, a_callback)) {
             return false; // Don't continue searching
@@ -1180,7 +1183,12 @@ export class RTree<DATATYPE> {
       for (let index = 0; index < a_node.m_count; ++index) {
         const off = index * 4;
         if (
-          !(x0 > rects[off + 2]! || rects[off]! > x1 || y0 > rects[off + 3]! || rects[off + 1]! > y1)
+          !(
+            x0 > rects[off + 2]! ||
+            rects[off]! > x1 ||
+            y0 > rects[off + 3]! ||
+            rects[off + 1]! > y1
+          )
         ) {
           const id = a_node.m_data[index] as DATATYPE;
           ++a_foundCount.value;
