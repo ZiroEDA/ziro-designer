@@ -503,6 +503,7 @@ import {
   attachBoardToPanel,
   createPcbDrawPanel,
   type EditorDisplayState,
+  GL_SELECTION,
   installPgm,
   kItemsForIds,
   loadBitmapFontImage,
@@ -1839,6 +1840,8 @@ export function PcbEditor({
   // over the raster, KiCad's selection is the item's colour Brightened(0.8),
   // not a bounding box (pcb_painter.cpp getColor).
   const selSceneRef = useRef<BoardScene | null>(null);
+  /** PCB_SELECTION_TOOL's `m_selection` on the VIEW: the selected items drawn brightened on LAYER_SELECT_OVERLAY. */
+  const glSelectionRef = useRef(new GL_SELECTION());
   /**
    * The frame's non-window half: the BOARD, the tool manager and the
    * undo/redo stacks (`PCB_BASE_EDIT_FRAME`). Every edit is a BOARD_COMMIT on
@@ -3560,7 +3563,10 @@ export function PcbEditor({
     }
     {
       const md = moveDeltaRef.current;
-      const os = moveSceneRef.current ?? selSceneRef.current;
+      // The VIEW draws the selection itself (the selection tool's overlay
+      // group); the raster copy is only for a gesture in flight.
+      const gestureInFlight = md !== null || dragModeRef.current || trackDragRef.current !== null;
+      const os = moveSceneRef.current ?? (useGl && !gestureInFlight ? null : selSceneRef.current);
       if (os) {
         // A drag overlay, a stretched footprint drag or a re-cut router drag ,
         // is already at its absolute coords; only a move overlay is the static
@@ -4282,6 +4288,15 @@ export function PcbEditor({
   // selection scene and repaint.
   useEffect(() => {
     rebuildSelScene();
+    // On the VIEW the selection tool's group draws the selection: the items
+    // hidden from the cached layers, flagged SELECTED, painted brightened on
+    // the overlay (`PCB_SELECTION_TOOL::highlight`).
+    const panel = panelRef.current;
+    const brd = boardRef.current;
+    if (panel && brd) {
+      glSelectionRef.current.Set(kItemsForIds(brd, expandGroupIds(brd, selection)));
+      panel.Refresh();
+    }
     requestDraw();
   }, [selection, disambig, requestDraw, rebuildSelScene]);
 
@@ -4425,6 +4440,7 @@ export function PcbEditor({
     if (kb) {
       panel.DisplayBoard(kb);
       attachBoardToPanel(frame, panel, kb);
+      glSelectionRef.current.Reset(panel.GetView());
       panel.UpdateColors();
     }
     frame.ActivateGalCanvas();
@@ -4526,6 +4542,7 @@ export function PcbEditor({
     const panel = panelRef.current;
     if (panel) {
       attachBoardToPanel(frame, panel, boardK);
+      glSelectionRef.current.Reset(panel.GetView());
       displayStateRef.current = null;
     }
     return () => boardK.RemoveListener(listener);
@@ -8258,6 +8275,7 @@ export function PcbEditor({
       const items = kItemsForIds(brd, affected);
       hiddenItemsRef.current = items;
       setItemsHidden(panel, items, true);
+      glSelectionRef.current.SetGroupHidden(true);
       panel.Refresh();
       return;
     }
@@ -8280,6 +8298,7 @@ export function PcbEditor({
     hiddenItemsRef.current = [];
     if (panel && items.length > 0) {
       setItemsHidden(panel, items, false);
+      glSelectionRef.current.SetGroupHidden(false);
       panel.Refresh();
     }
   };
@@ -8338,6 +8357,7 @@ export function PcbEditor({
       const items = kItemsForIds(brd, affected);
       hiddenItemsRef.current = items;
       setItemsHidden(panelRef.current, items, true);
+      glSelectionRef.current.SetGroupHidden(true);
     } else {
       sceneRef.current = buildBoardScene(deleteBoardItems(brd, affected), sceneFilter());
     }
@@ -9110,6 +9130,7 @@ export function PcbEditor({
               const items = kItemsForIds(brd, only);
               hiddenItemsRef.current = items;
               setItemsHidden(panelRef.current, items, true);
+              glSelectionRef.current.SetGroupHidden(true);
             } else {
               sceneRef.current = buildBoardScene(deleteBoardItems(brd, only), sceneFilter());
             }

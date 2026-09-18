@@ -36,6 +36,9 @@ import type { BOARD } from '@ziroeda/pcbnew/src/board.js';
 import { parseBoardItemId } from '@ziroeda/pcbnew/src/edit-board.js';
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
 import type { BOARD_ITEM } from '@ziroeda/pcbnew/src/board_item.js';
+import { PCB_SELECTION } from '@ziroeda/pcbnew/src/tools/pcb_selection.js';
+import { RECURSE_MODE } from '@ziroeda/common/src/eda_item.js';
+import type { VIEW } from '@ziroeda/common/src/view/view.js';
 import { PCB_DRAW_PANEL_GAL } from '@ziroeda/pcbnew/src/pcb_draw_panel_gal.js';
 import type { PCB_DISPLAY_OPTIONS } from '@ziroeda/pcbnew/src/pcb_painter.js';
 import { PCB_SCREEN } from '@ziroeda/pcbnew/src/pcb_screen.js';
@@ -545,6 +548,103 @@ export function setItemsHidden(
   const view = aPanel.GetView();
 
   for (const item of aItems) {
+    // A selected item is hidden by the selection itself (drawn on its
+    // overlay group), so the end of a move leaves it hidden.
+    if (!aHide && item.IsSelected()) continue;
+
     if (view.HasItem(item)) view.Hide(item, aHide);
+  }
+}
+
+/**
+ * The selection tool's half that draws: `PCB_SELECTION_TOOL`'s `m_selection`
+ * on the VIEW (pcb_selection_tool.cpp:3961-4028). `highlight( item, SELECTED,
+ * &m_selection )` adds the item to the group, flags it and its children
+ * SELECTED, hides the original ("so it is shown only on overlay") and
+ * repaints; the group, on LAYER_SELECT_OVERLAY, then draws the items in their
+ * brightened colours through the painter. `unhighlight` undoes it. `Reset()`
+ * puts the group in the view.
+ *
+ * The editor's selection state is the source; `Set` diffs it against the
+ * group, so a click that keeps an item selected does not re-record it.
+ */
+export class GL_SELECTION {
+  readonly m_selection = new PCB_SELECTION();
+  private m_view: VIEW | null = null;
+
+  /** `PCB_SELECTION_TOOL::Reset`: `getView()->Remove( &m_selection ); getView()->Add( &m_selection );` */
+  Reset(aView: VIEW): void {
+    if (this.m_view) this.m_view.Remove(this.m_selection);
+
+    this.m_view = aView;
+    aView.Add(this.m_selection);
+  }
+
+  Items(): readonly BOARD_ITEM[] {
+    return this.m_selection.Items() as BOARD_ITEM[];
+  }
+
+  /** The selection becomes exactly `aItems`. */
+  Set(aItems: Iterable<BOARD_ITEM>): void {
+    const view = this.m_view;
+
+    if (!view) return;
+
+    const wanted = new Set(aItems);
+    const current = new Set(this.Items());
+
+    for (const item of current) {
+      if (!wanted.has(item)) this.unhighlight(item);
+    }
+
+    for (const item of wanted) {
+      if (!current.has(item) && view.HasItem(item)) this.highlight(item);
+    }
+  }
+
+  Clear(): void {
+    for (const item of [...this.Items()]) this.unhighlight(item);
+  }
+
+  /** The group itself hidden or shown: a move in flight draws its own copies. */
+  SetGroupHidden(aHide: boolean): void {
+    if (this.m_view) this.m_view.Hide(this.m_selection, aHide);
+  }
+
+  private highlight(aItem: BOARD_ITEM): void {
+    this.m_selection.Add(aItem);
+
+    this.highlightInternal(aItem);
+    this.m_view!.Update(aItem, VIEW_UPDATE_FLAGS.REPAINT);
+  }
+
+  private highlightInternal(aItem: BOARD_ITEM): void {
+    aItem.SetSelected();
+
+    this.m_view!.Hide(aItem, true); // Hide the original item, so it is shown only on overlay
+
+    aItem.RunOnChildren(
+      (aChild: BOARD_ITEM) => this.highlightInternal(aChild),
+      RECURSE_MODE.RECURSE,
+    );
+  }
+
+  private unhighlight(aItem: BOARD_ITEM): void {
+    this.m_selection.Remove(aItem);
+
+    this.unhighlightInternal(aItem);
+    this.m_view!.Update(aItem, VIEW_UPDATE_FLAGS.REPAINT);
+  }
+
+  private unhighlightInternal(aItem: BOARD_ITEM): void {
+    aItem.ClearSelected();
+
+    this.m_view!.Hide(aItem, false); // Restore original item visibility...
+    this.m_view!.Update(aItem); // ... and make sure it's redrawn un-selected
+
+    aItem.RunOnChildren(
+      (aChild: BOARD_ITEM) => this.unhighlightInternal(aChild),
+      RECURSE_MODE.RECURSE,
+    );
   }
 }
