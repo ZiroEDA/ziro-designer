@@ -96,6 +96,10 @@ const waitForLine = async (label, re, timeoutMs, after = 0) => {
 await send('Page.enable');
 await send('Runtime.enable');
 await send('Profiler.enable');
+// Long tasks from the first script on, for the open's phases.
+await send('Page.addScriptToEvaluateOnNewDocument', {
+  source: `window.__ltOpen = []; new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__ltOpen.push([Math.round(e.startTime), Math.round(e.duration)]); }).observe({ type: 'longtask' });`,
+});
 
 // The trace flags, then the board.
 const origin = new URL(url).origin;
@@ -115,9 +119,20 @@ console.log('open (launcher click):');
 const built = await waitForLine('BuildConnectivity', /Post-load BuildConnectivity/, 300000);
 const firstFrame = await waitForLine('first frame', /View timing/, 300000, built[0]);
 console.log(
-  `  navigate -> BuildConnectivity ${((built[0] - tNav) / 1000).toFixed(1)} s, -> first frame ${((firstFrame[0] - tNav) / 1000).toFixed(1)} s`,
+  `  navigate -> BuildConnectivity ${((built[0] - tNav) / 1000).toFixed(1)} s, -> first frame ${((firstFrame[0] - tNav) / 1000).toFixed(1)} s (${/view-total: ([^ ]+)/.exec(firstFrame[1])?.[1]})`,
 );
+const frameMs = (line) => {
+  const m = /view-total: ([\d.]+)(ms|s|µs)/.exec(line);
+  return m ? (m[2] === 's' ? Number(m[1]) * 1000 : m[2] === 'µs' ? Number(m[1]) / 1000 : Number(m[1])) : NaN;
+};
+const stats = (lines) => {
+  const v = lines.map(frameMs).filter((x) => !Number.isNaN(x)).sort((a, b) => a - b);
+  if (v.length === 0) return 'no frames';
+  return `${v.length} frames, median ${v[v.length >> 1].toFixed(0)} ms, p90 ${v[Math.floor(v.length * 0.9)].toFixed(0)} ms, max ${v[v.length - 1].toFixed(0)} ms`;
+};
 await waitFor('the panel', `!!(window.__pcbPerf && window.__pcbPerf.panel)`, 30000);
+console.log('  long tasks of the open (>200 ms, s+ms):', await evalJs(`window.__ltOpen.filter(([, d]) => d > 200).map(([s, d]) => (s / 1000).toFixed(1) + '+' + d).join(' ')`));
+console.log('  main thread busy in long tasks during the open:', await evalJs(`(window.__ltOpen.reduce((a, [, d]) => a + d, 0) / 1000).toFixed(1) + ' s'`));
 await sleep(3000);
 
 // Zoom to fit (Home), then the footprint's screen position from the VIEW.
@@ -140,6 +155,7 @@ const toScreen = async () => {
 };
 // Wheel in on the footprint until it is a target, the zoom the user makes.
 let { x: gx, y: gy } = await toScreen();
+const tZoom = performance.now();
 for (let i = 0; i < 14; i++) {
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: gx, y: gy });
   await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: gx, y: gy, deltaX: 0, deltaY: -120 });
@@ -148,6 +164,7 @@ for (let i = 0; i < 14; i++) {
 }
 const scale = await evalJs(`window.__pcbPerf.panel.GetView().GetScale()`);
 console.log(`footprint at screen (${gx.toFixed(0)}, ${gy.toFixed(0)}), view scale ${scale}`);
+console.log(`zoom (14 wheel ticks in): ${stats(consoleLines.filter(([t, l]) => t > tZoom && /View timing/.test(l)).map(([, l]) => l))}`);
 
 const frames = () => consoleLines.filter(([, s]) => /View timing/.test(s)).length;
 // Select it (hover first: the editor tracks the pointer), then profile the move.

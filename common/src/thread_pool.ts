@@ -33,16 +33,24 @@ interface POOL_THREAD {
   pending: Map<number, { resolve: (r: unknown) => void; reject: (e: Error) => void }>;
 }
 
+/** A submitted task no thread has taken yet. */
+interface QUEUED_TASK {
+  request: POOL_REQUEST;
+  transfer: Transferable[];
+  task: { resolve: (r: unknown) => void; reject: (e: Error) => void };
+}
+
 // biome-ignore lint/style/useNamingConvention: the C++ type is `thread_pool`
 export class thread_pool {
   private m_threads: POOL_THREAD[] | null = null;
   private readonly m_threadCount: number;
   private m_nextId = 1;
-  private m_nextThread = 0;
   /** Set once `new Worker` has failed, so the session stops trying. */
   private m_workersUnavailable = false;
   /** Every task not yet settled, for `wait()`. */
   private m_running = new Set<Promise<unknown>>();
+  /** The task queue: what no thread has taken yet, in submission order. */
+  private m_queue: QUEUED_TASK[] = [];
 
   /** `BS::thread_pool( num_threads )`: 0 is the hardware's own count. */
   constructor(num_threads = 0) {
@@ -75,6 +83,8 @@ export class thread_pool {
         worker.onmessage = (e: MessageEvent<POOL_RESPONSE>) => {
           const task = thread.pending.get(e.data.id);
           thread.pending.delete(e.data.id);
+          // The thread is free: the next queued task is its.
+          this.pump();
 
           if (!task) return;
 
@@ -99,9 +109,13 @@ export class thread_pool {
   }
 
   /**
-   * `submit_task`: queue the job and get its future. Round-robin over the
-   * threads; every task of a batch is queued at once, as `BOARD::CacheTriangulation`
-   * queues its zones, so the depth per thread stays even without tracking it.
+   * `submit_task`: queue the job and get its future. One queue for the pool,
+   * as `BS::thread_pool` has: a thread takes the next task when it finishes
+   * its own, so a batch of unequal jobs (a board's zone fills: one plane and
+   * a hundred small pours) spreads by load. Dealing them round-robin put
+   * the planes on whichever threads their positions fell on and left the
+   * others idle - the jetson demo's fills took 13.9 s of wall time on seven
+   * threads for 18 s of work.
    */
   submit_task<K extends POOL_JOB_KIND>(
     kind: K,
@@ -123,13 +137,14 @@ export class thread_pool {
         }, 0);
       });
     } else {
-      const thread = threads[this.m_nextThread % threads.length]!;
-      this.m_nextThread++;
       const id = this.m_nextId++;
       promise = new Promise<R>((resolve, reject) => {
-        thread.pending.set(id, { resolve: resolve as (r: unknown) => void, reject });
-        const request: POOL_REQUEST = { id, kind, args };
-        thread.worker.postMessage(request, poolJobTransferables(kind, args));
+        this.m_queue.push({
+          request: { id, kind, args },
+          transfer: poolJobTransferables(kind, args),
+          task: { resolve: resolve as (r: unknown) => void, reject },
+        });
+        this.pump();
       });
     }
 
@@ -140,6 +155,19 @@ export class thread_pool {
     this.m_running.add(tracked);
 
     return promise;
+  }
+
+  /** Hand queued tasks to idle threads, one each, until neither is left. */
+  private pump(): void {
+    const threads = this.m_threads;
+    if (!threads) return;
+    for (const thread of threads) {
+      if (this.m_queue.length === 0) return;
+      if (thread.pending.size > 0) continue;
+      const next = this.m_queue.shift()!;
+      thread.pending.set(next.request.id, next.task);
+      thread.worker.postMessage(next.request, next.transfer);
+    }
   }
 
   /** `wait()`: until every submitted task has settled. */
