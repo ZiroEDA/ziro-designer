@@ -26,7 +26,25 @@ import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { type VECTOR2I, add } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import type { BOARD } from './board.js';
-import type { BOARD_COMMIT_LIKE, BOARD_ITEM } from './board_item.js';
+import { type BOARD_COMMIT_LIKE, BOARD_ITEM } from './board_item.js';
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  NO_SETTER,
+  PG_CHOICES,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_CAST,
+  TYPE_COLOR4D,
+  TYPE_DOUBLE,
+  TYPE_INT,
+  TYPE_OPT_INT,
+  TYPE_STRING,
+} from '@ziroeda/common/src/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+
 import { PCB_GROUP } from './pcb_group.js';
 
 /** The `GENERATOR_TOOL` the hooks take. -- GENERATOR_TOOL pending (#636 stage 3) */
@@ -194,3 +212,26 @@ export abstract class PCB_GENERATOR extends PCB_GROUP {
     this.m_updateOrder = aValue;
   }
 }
+
+/**
+ * `static struct PCB_GENERATOR_DESC` (pcbnew/pcb_generator.cpp).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(PCB_GENERATOR);
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_GENERATOR, BOARD_ITEM));
+  propMgr.InheritsAfter(PCB_GENERATOR, BOARD_ITEM);
+
+  const groupTab = 'Generator Properties';
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_GENERATOR, number>(
+      PCB_GENERATOR,
+      'Update Order',
+      'SetUpdateOrder',
+      'GetUpdateOrder',
+      TYPE_INT,
+    ),
+    groupTab,
+  );
+})();

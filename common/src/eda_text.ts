@@ -19,7 +19,7 @@
  * …>`), and a mapped type carries only public members.
  */
 
-import { IsEeschemaType, type KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { IsEeschemaType, KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { ANGLE_0, EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { SHAPE_COMPOUND } from '@ziroeda/kimath/src/geometry/shape_compound.js';
 import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
@@ -53,6 +53,21 @@ import { EXPRESSION_EVALUATOR } from './text_eval/text_eval_wrapper.js';
 // item can resolve its font the moment this module is loaded.
 import './font/stroke_font.js';
 import './font/outline_font.js';
+import { BUNDLED_FONTS } from './font/fontconfig.js';
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  PG_CHOICES,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_COLOR4D,
+  TYPE_DOUBLE,
+  TYPE_INT,
+  TYPE_STRING,
+} from './properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from './properties/property_mgr.js';
 
 // `eda_text.h` includes `font/text_attributes.h`; an importer of this module sees the enums too.
 export { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from './font/text_attributes.js';
@@ -104,6 +119,20 @@ function recursiveDescent(aNode: NODE): boolean {
  * in the combined derived classes.
  */
 export class EDA_TEXT {
+  /**
+   * `dynamic_cast<EDA_TEXT*>( x )`: EDA_TEXT is a mixin here, so `instanceof`
+   * asks for its state rather than its prototype.
+   */
+  static [Symbol.hasInstance](aObject: unknown): boolean {
+    return (
+      typeof aObject === 'object' &&
+      aObject !== null &&
+      'm_text' in aObject &&
+      'm_attributes' in aObject &&
+      typeof (aObject as EDA_TEXT).GetTextAngle === 'function'
+    );
+  }
+
   /**
    * A hyperlink URL.  If empty, this text object is not a hyperlink.
    */
@@ -1445,3 +1474,184 @@ function wxCmp(a: string, b: string): number {
 export function edaTextToString(aText: EDA_TEXT): string {
   return aText.GetText();
 }
+
+/**
+ * `static struct EDA_TEXT_DESC` (common/eda_text.cpp): the justification enums
+ * and the text properties.
+ */
+(() => {
+  // These are defined in SCH_FIELD as well but initialization order is
+  // not defined, so this needs to be conditional.  Defining in both
+  // places leads to duplicate symbols.
+  const h_inst = ENUM_MAP.Instance<GR_TEXT_H_ALIGN_T>('GR_TEXT_H_ALIGN_T');
+
+  if (h_inst.Choices().GetCount() === 0) {
+    h_inst.Map(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT, 'Left');
+    h_inst.Map(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER, 'Center');
+    h_inst.Map(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT, 'Right');
+  }
+
+  const v_inst = ENUM_MAP.Instance<GR_TEXT_V_ALIGN_T>('GR_TEXT_V_ALIGN_T');
+
+  if (v_inst.Choices().GetCount() === 0) {
+    v_inst.Map(GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP, 'Top');
+    v_inst.Map(GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER, 'Center');
+    v_inst.Map(GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM, 'Bottom');
+  }
+
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(EDA_TEXT);
+
+  propMgr.AddProperty(
+    new PROPERTY<EDA_TEXT, number>(
+      EDA_TEXT,
+      'Orientation',
+      'SetTextAngleDegrees',
+      'GetTextAngleDegrees',
+      TYPE_DOUBLE,
+      PROPERTY_DISPLAY.PT_DEGREE,
+    ),
+  );
+
+  const textProps = 'Text Properties';
+
+  propMgr.AddProperty(
+    new PROPERTY<EDA_TEXT, string>(EDA_TEXT, 'Text', 'SetText', 'GetText', TYPE_STRING),
+    textProps,
+  );
+  propMgr
+    .AddProperty(
+      new PROPERTY<EDA_TEXT, string>(EDA_TEXT, 'Font', 'SetFontProp', 'GetFontProp', TYPE_STRING),
+      textProps,
+    )
+    .SetIsHiddenFromRulesEditor()
+    .SetChoicesFunc((aItem: INSPECTABLE_ITEM): PG_CHOICES => {
+      const eda_item = aItem as { Type?: () => KICAD_T };
+      const fonts = new PG_CHOICES();
+      // Fontconfig()->ListFonts( fontNames, language, eda_item->GetEmbeddedFonts() ):
+      // the families the bundled faces provide, each once
+      const fontNames: string[] = [];
+
+      for (const f of BUNDLED_FONTS) if (!fontNames.includes(f.family)) fontNames.push(f.family);
+
+      if (typeof eda_item.Type === 'function' && IsEeschemaType(eda_item.Type()))
+        fonts.Add('Default Font');
+
+      fonts.Add(KICAD_FONT_NAME);
+
+      for (const fontName of fontNames) fonts.Add(fontName);
+
+      return fonts;
+    });
+  propMgr.AddProperty(
+    new PROPERTY<EDA_TEXT, boolean>(
+      EDA_TEXT,
+      'Auto Thickness',
+      'SetAutoThickness',
+      'GetAutoThickness',
+      TYPE_BOOL,
+    ),
+    textProps,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<EDA_TEXT, number>(
+      EDA_TEXT,
+      'Thickness',
+      'SetTextThickness',
+      'GetTextThicknessProperty',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    textProps,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<EDA_TEXT, boolean>(EDA_TEXT, 'Italic', 'SetItalic', 'IsItalic', TYPE_BOOL),
+    textProps,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<EDA_TEXT, boolean>(EDA_TEXT, 'Bold', 'SetBold', 'IsBold', TYPE_BOOL),
+    textProps,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<EDA_TEXT, boolean>(EDA_TEXT, 'Mirrored', 'SetMirrored', 'IsMirrored', TYPE_BOOL),
+    textProps,
+  );
+
+  const isField = (aItem: INSPECTABLE_ITEM): boolean => {
+    const item = aItem as { Type?: () => KICAD_T };
+
+    if (typeof item.Type === 'function')
+      return item.Type() === KICAD_T.SCH_FIELD_T || item.Type() === KICAD_T.PCB_FIELD_T;
+
+    return false;
+  };
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<EDA_TEXT, boolean>(EDA_TEXT, 'Visible', 'SetVisible', 'IsVisible', TYPE_BOOL),
+      textProps,
+    )
+    .SetAvailableFunc(isField);
+  propMgr.AddProperty(
+    new PROPERTY<EDA_TEXT, number>(
+      EDA_TEXT,
+      'Width',
+      'SetTextWidth',
+      'GetTextWidth',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    textProps,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<EDA_TEXT, number>(
+      EDA_TEXT,
+      'Height',
+      'SetTextHeight',
+      'GetTextHeight',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    textProps,
+  );
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<EDA_TEXT, GR_TEXT_H_ALIGN_T>(
+      EDA_TEXT,
+      'Horizontal Justification',
+      'SetHorizJustify',
+      'GetHorizJustify',
+      h_inst,
+    ),
+    textProps,
+  );
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<EDA_TEXT, GR_TEXT_V_ALIGN_T>(
+      EDA_TEXT,
+      'Vertical Justification',
+      'SetVertJustify',
+      'GetVertJustify',
+      v_inst,
+    ),
+    textProps,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<EDA_TEXT, Color4d>(
+      EDA_TEXT,
+      'Color',
+      'SetTextColor',
+      'GetTextColor',
+      TYPE_COLOR4D,
+    ),
+    textProps,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<EDA_TEXT, string>(
+      EDA_TEXT,
+      'Hyperlink',
+      'SetHyperlink',
+      'GetHyperlink',
+      TYPE_STRING,
+    ),
+    textProps,
+  );
+})();

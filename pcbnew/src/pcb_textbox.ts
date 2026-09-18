@@ -19,6 +19,26 @@ import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/src/eda_item.js';
 import type { EDA_SEARCH_DATA } from '@ziroeda/common/src/eda_search_data.js';
 import { EDA_SHAPE, SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
 import { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
+import { LINE_STYLE } from '@ziroeda/common/src/stroke_params.js';
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  NO_SETTER,
+  PG_CHOICES,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_CAST,
+  TYPE_COLOR4D,
+  TYPE_DOUBLE,
+  TYPE_INT,
+  TYPE_OPT_INT,
+  TYPE_STRING,
+} from '@ziroeda/common/src/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+import { COORD_TYPES_T } from '@ziroeda/common/src/origin_transforms.js';
+
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import type { OutStr } from '@ziroeda/common/src/font/font.js';
 import type { METRICS } from '@ziroeda/common/src/font/font_metrics.js';
@@ -66,6 +86,7 @@ import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import type { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
 import { BOARD_ITEM } from './board_item.js';
 import { PCB_SHAPE, type PCB_VIEW_FOR_LOD } from './pcb_shape.js';
+import { PCB_TEXT } from './pcb_text.js';
 
 // `Replace`, `Similarity` and `Compare` are overloaded across the bases in C++; the class
 // carries its own forms, so the merged interface leaves the EDA_TEXT ones out.
@@ -848,3 +869,148 @@ function isBox(a: unknown): a is BOX2I {
 function isPoint(a: unknown): a is VECTOR2I {
   return typeof (a as VECTOR2I).x === 'number' && !isBox(a);
 }
+
+/**
+ * `static struct PCB_TEXTBOX_DESC` (pcbnew/pcb_textbox.cpp).
+ */
+(() => {
+  const lineStyleEnum = ENUM_MAP.Instance<LINE_STYLE>('LINE_STYLE');
+
+  if (lineStyleEnum.Choices().GetCount() === 0) {
+    lineStyleEnum
+      .Map(LINE_STYLE.SOLID, 'Solid')
+      .Map(LINE_STYLE.DASH, 'Dashed')
+      .Map(LINE_STYLE.DOT, 'Dotted')
+      .Map(LINE_STYLE.DASHDOT, 'Dash-Dot')
+      .Map(LINE_STYLE.DASHDOTDOT, 'Dash-Dot-Dot');
+  }
+
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(PCB_TEXTBOX);
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_TEXTBOX, PCB_SHAPE));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_TEXTBOX, EDA_SHAPE));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_TEXTBOX, EDA_TEXT));
+  propMgr.InheritsAfter(PCB_TEXTBOX, PCB_SHAPE);
+  propMgr.InheritsAfter(PCB_TEXTBOX, EDA_SHAPE);
+  propMgr.InheritsAfter(PCB_TEXTBOX, EDA_TEXT);
+
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'Shape');
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'Start X');
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'Start Y');
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'End X');
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'End Y');
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'Width');
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'Height');
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'Line Width');
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'Line Style');
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'Filled');
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'Line Color');
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'Corner Radius');
+
+  propMgr.Mask(PCB_TEXTBOX, EDA_TEXT, 'Color');
+
+  propMgr.Mask(PCB_TEXTBOX, PCB_SHAPE, 'Soldermask');
+  propMgr.Mask(PCB_TEXTBOX, PCB_SHAPE, 'Soldermask Margin Override');
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TEXTBOX, boolean, BOARD_ITEM>(
+      PCB_TEXTBOX,
+      'Knockout',
+      'SetIsKnockout',
+      'IsKnockout',
+      TYPE_BOOL,
+      PROPERTY_DISPLAY.PT_DEFAULT,
+      COORD_TYPES_T.NOT_A_COORD,
+      BOARD_ITEM,
+    ),
+    'Text Properties',
+  );
+
+  const borderProps = 'Border Properties';
+
+  const lineStyleSetter = 'SetLineStyle' as const;
+  const lineStyleGetter = 'GetLineStyle' as const;
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TEXTBOX, boolean>(
+      PCB_TEXTBOX,
+      'Border',
+      'SetBorderEnabled',
+      'IsBorderEnabled',
+      TYPE_BOOL,
+    ),
+    borderProps,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PCB_TEXTBOX, LINE_STYLE>(
+      PCB_TEXTBOX,
+      'Border Style',
+      lineStyleSetter,
+      lineStyleGetter,
+      lineStyleEnum,
+    ),
+    borderProps,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TEXTBOX, number>(
+      PCB_TEXTBOX,
+      'Border Width',
+      'SetBorderWidth',
+      'GetBorderWidth',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    borderProps,
+  );
+
+  const marginProps = 'Margins';
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TEXTBOX, number>(
+      PCB_TEXTBOX,
+      'Margin Left',
+      'SetMarginLeft',
+      'GetMarginLeft',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    marginProps,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TEXTBOX, number>(
+      PCB_TEXTBOX,
+      'Margin Top',
+      'SetMarginTop',
+      'GetMarginTop',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    marginProps,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TEXTBOX, number>(
+      PCB_TEXTBOX,
+      'Margin Right',
+      'SetMarginRight',
+      'GetMarginRight',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    marginProps,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TEXTBOX, number>(
+      PCB_TEXTBOX,
+      'Margin Bottom',
+      'SetMarginBottom',
+      'GetMarginBottom',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    marginProps,
+  );
+
+  propMgr.Mask(PCB_TEXT, EDA_TEXT, 'Hyperlink');
+})();

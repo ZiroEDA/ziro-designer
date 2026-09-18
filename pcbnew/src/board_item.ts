@@ -23,6 +23,19 @@ import {
   PCB_LAYER_ID,
 } from '@ziroeda/common/src/layer_ids.js';
 import { LSET } from '@ziroeda/common/src/lset.js';
+import { COORD_TYPES_T } from '@ziroeda/common/src/origin_transforms.js';
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  NO_SETTER,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_INT,
+  TYPE_STRING,
+} from '@ziroeda/common/src/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
 import type { RENDER_SETTINGS } from '@ziroeda/common/src/render_settings.js';
 import { STROKE_PARAMS } from '@ziroeda/common/src/stroke_params.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
@@ -759,3 +772,75 @@ export class DELETED_BOARD_ITEM extends BOARD_ITEM {
     return this === aBoardItem;
   }
 }
+
+/**
+ * `static struct BOARD_ITEM_DESC` (pcbnew/board_item.cpp).
+ */
+(() => {
+  const layerEnum = ENUM_MAP.Instance<PCB_LAYER_ID>('PCB_LAYER_ID');
+
+  if (layerEnum.Choices().GetCount() === 0) {
+    layerEnum.Undefined(PCB_LAYER_ID.UNDEFINED_LAYER);
+
+    for (const layer of LSET.AllLayersMask().Seq()) layerEnum.Map(layer, LSET.Name(layer));
+  }
+
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(BOARD_ITEM);
+  propMgr.InheritsAfter(BOARD_ITEM, EDA_ITEM);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<BOARD_ITEM, string>(
+        BOARD_ITEM,
+        'Parent',
+        NO_SETTER,
+        'GetParentAsString',
+        TYPE_STRING,
+      ),
+    )
+    .SetIsHiddenFromLibraryEditors()
+    .SetIsHiddenFromPropertiesManager();
+
+  const isNotFootprintHolder = (aItem: INSPECTABLE_ITEM): boolean => {
+    const item = aItem instanceof BOARD_ITEM ? aItem : null;
+    return !!item && !!item.GetBoard() && !item.GetBoard()!.IsFootprintHolder();
+  };
+
+  propMgr.AddProperty(
+    new PROPERTY<BOARD_ITEM, number>(
+      BOARD_ITEM,
+      'Position X',
+      'SetX',
+      'GetX',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_COORD,
+      COORD_TYPES_T.ABS_X_COORD,
+    ),
+  );
+  propMgr.AddProperty(
+    new PROPERTY<BOARD_ITEM, number>(
+      BOARD_ITEM,
+      'Position Y',
+      'SetY',
+      'GetY',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_COORD,
+      COORD_TYPES_T.ABS_Y_COORD,
+    ),
+  );
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<BOARD_ITEM, PCB_LAYER_ID>(
+      BOARD_ITEM,
+      'Layer',
+      'SetLayer',
+      'GetLayer',
+      layerEnum,
+    ),
+  );
+  propMgr
+    .AddProperty(
+      new PROPERTY<BOARD_ITEM, boolean>(BOARD_ITEM, 'Locked', 'SetLocked', 'IsLocked', TYPE_BOOL),
+    )
+    .SetAvailableFunc(isNotFootprintHolder);
+})();

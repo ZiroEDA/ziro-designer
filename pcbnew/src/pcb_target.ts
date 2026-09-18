@@ -28,6 +28,24 @@ import { type VECTOR2I, equal } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { DEFAULT_COPPER_LINE_WIDTH } from './board_design_settings_defaults.js';
 import { BOARD_ITEM } from './board_item.js';
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  NO_SETTER,
+  PG_CHOICES,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_CAST,
+  TYPE_COLOR4D,
+  TYPE_DOUBLE,
+  TYPE_INT,
+  TYPE_OPT_INT,
+  TYPE_STRING,
+} from '@ziroeda/common/src/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+
 import { PCB_SHAPE } from './pcb_shape.js';
 
 export class PCB_TARGET extends BOARD_ITEM {
@@ -308,3 +326,43 @@ export class PCB_TARGET extends BOARD_ITEM {
     return similarity;
   }
 }
+
+/**
+ * `static struct PCB_TARGET_DESC` (pcbnew/pcb_target.cpp).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(PCB_TARGET);
+  propMgr.InheritsAfter(PCB_TARGET, BOARD_ITEM);
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TARGET, number>(
+      PCB_TARGET,
+      'Size',
+      'SetSize',
+      'GetSize',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+  );
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TARGET, number>(
+      PCB_TARGET,
+      'Width',
+      'SetWidth',
+      'GetWidth',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+  );
+
+  const shape = new PROPERTY<PCB_TARGET, number>(
+    PCB_TARGET,
+    'Shape',
+    'SetShape',
+    'GetShape',
+    TYPE_INT,
+  );
+  // TODO change the integer to an enum?
+  //shape->SetValues( { { 0, _HKI( "Cross" ) }, { 1, ( "Plus" ) } } );
+  propMgr.AddProperty(shape);
+})();

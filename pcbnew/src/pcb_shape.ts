@@ -23,10 +23,29 @@ import {
   GetNetnameLayer,
   IsBackLayer,
   IsCopperLayer,
+  IsExternalCopperLayer,
   IsFrontLayer,
   IsSolderMaskLayer,
   PCB_LAYER_ID,
 } from '@ziroeda/common/src/layer_ids.js';
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  NO_SETTER,
+  PG_CHOICES,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_CAST,
+  TYPE_COLOR4D,
+  TYPE_DOUBLE,
+  TYPE_INT,
+  TYPE_OPT_INT,
+  TYPE_STRING,
+} from '@ziroeda/common/src/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+
 import { LSET } from '@ziroeda/common/src/lset.js';
 import type { RENDER_SETTINGS } from '@ziroeda/common/src/render_settings.js';
 import type { STROKE_PARAMS } from '@ziroeda/common/src/stroke_params.js';
@@ -52,6 +71,7 @@ import { DEFAULT_LINE_WIDTH } from './board_design_settings_defaults.js';
 import { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
 import type { HIGH_CONTRAST_MODE } from './board_project_settings.js';
 import { BOARD_ITEM } from './board_item.js';
+import type { BOARD } from './board.js';
 import { BOARD_USE } from './board_types.js';
 import { ZONE_THERMAL_RELIEF_COPPER_WIDTH_MM } from './zones.js';
 
@@ -933,3 +953,183 @@ export interface PCB_RENDER_SETTINGS_FOR_LOD {
   GetLayerIsHighContrast(aLayerId: number): boolean;
   m_ContrastModeDisplay: HIGH_CONTRAST_MODE;
 }
+
+/**
+ * `static struct PCB_SHAPE_DESC` (pcbnew/pcb_shape.cpp).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(PCB_SHAPE);
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_SHAPE, BOARD_CONNECTED_ITEM));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_SHAPE, EDA_SHAPE));
+  propMgr.InheritsAfter(PCB_SHAPE, BOARD_CONNECTED_ITEM);
+  propMgr.InheritsAfter(PCB_SHAPE, EDA_SHAPE);
+
+  // Need to initialise enum_map before we can use a Property enum for it
+  const layerEnum = ENUM_MAP.Instance<PCB_LAYER_ID>('PCB_LAYER_ID');
+
+  if (layerEnum.Choices().GetCount() === 0) {
+    layerEnum.Undefined(PCB_LAYER_ID.UNDEFINED_LAYER);
+
+    for (const layer of LSET.AllLayersMask().Seq()) layerEnum.Map(layer, LSET.Name(layer));
+  }
+
+  const shapeLayerSetter = 'SetLayer' as const;
+  const shapeLayerGetter = 'GetLayer' as const;
+
+  const layerProperty = new PROPERTY_ENUM<PCB_SHAPE, PCB_LAYER_ID>(
+    PCB_SHAPE,
+    'Layer',
+    shapeLayerSetter,
+    shapeLayerGetter,
+    layerEnum,
+  );
+
+  propMgr.ReplaceProperty(BOARD_CONNECTED_ITEM, 'Layer', layerProperty);
+
+  // Only polygons have meaningful Position properties.
+  // On other shapes, these are duplicates of the Start properties.
+  const isPolygon = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof PCB_SHAPE) return aItem.GetShape() === SHAPE_T.POLY;
+
+    return false;
+  };
+
+  propMgr.OverrideAvailability(PCB_SHAPE, BOARD_ITEM, 'Position X', isPolygon);
+  propMgr.OverrideAvailability(PCB_SHAPE, BOARD_ITEM, 'Position Y', isPolygon);
+
+  propMgr.Mask(PCB_SHAPE, EDA_SHAPE, 'Line Color');
+  propMgr.Mask(PCB_SHAPE, EDA_SHAPE, 'Fill Color');
+
+  // BEZIER curves are not closed shapes, and fill is not supported in board editor,
+  // only in schematic editor.
+  // So disable Fill option for Bezier curves
+  const isNotBezier = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof PCB_SHAPE) return aItem.GetShape() !== SHAPE_T.BEZIER;
+
+    return true;
+  };
+
+  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, 'Fill', isNotBezier);
+
+  const isCircle = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof PCB_SHAPE) return aItem.GetShape() === SHAPE_T.CIRCLE;
+
+    return false;
+  };
+
+  const isNotCircle = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof PCB_SHAPE) return aItem.GetShape() !== SHAPE_T.CIRCLE;
+
+    return true;
+  };
+
+  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, 'Start X', isNotCircle);
+  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, 'Start Y', isNotCircle);
+  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, 'End X', isNotCircle);
+  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, 'End Y', isNotCircle);
+  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, 'Center X', isCircle);
+  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, 'Center Y', isCircle);
+  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, 'Radius', isCircle);
+
+  const isCopper = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof PCB_SHAPE) return aItem.IsOnCopperLayer();
+
+    return false;
+  };
+
+  propMgr.OverrideAvailability(PCB_SHAPE, BOARD_CONNECTED_ITEM, 'Net', isCopper);
+
+  const isPadEditMode = (aBoard: BOARD | null): boolean => {
+    if (aBoard && aBoard.IsFootprintHolder()) {
+      for (const fp of aBoard.Footprints()) {
+        for (const pad of fp.Pads()) {
+          if (pad.IsEntered()) return true;
+        }
+      }
+    }
+
+    return false;
+  };
+
+  const showNumberBoxProperty = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof PCB_SHAPE) {
+      if (aItem.GetShape() === SHAPE_T.RECTANGLE) return isPadEditMode(aItem.GetBoard());
+    }
+
+    return false;
+  };
+
+  const showSpokeTemplateProperty = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof PCB_SHAPE) {
+      if (aItem.GetShape() === SHAPE_T.SEGMENT) return isPadEditMode(aItem.GetBoard());
+    }
+
+    return false;
+  };
+
+  const groupPadPrimitives = 'Pad Primitives';
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_SHAPE, boolean>(
+        PCB_SHAPE,
+        'Number Box',
+        'SetIsProxyItem',
+        'IsProxyItem',
+        TYPE_BOOL,
+      ),
+      groupPadPrimitives,
+    )
+    .SetAvailableFunc(showNumberBoxProperty)
+    .SetIsHiddenFromRulesEditor();
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_SHAPE, boolean>(
+        PCB_SHAPE,
+        'Thermal Spoke Template',
+        'SetIsProxyItem',
+        'IsProxyItem',
+        TYPE_BOOL,
+      ),
+      groupPadPrimitives,
+    )
+    .SetAvailableFunc(showSpokeTemplateProperty)
+    .SetIsHiddenFromRulesEditor();
+
+  const groupTechLayers = 'Technical Layers';
+
+  const isExternalCuLayer = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof PCB_SHAPE) return IsExternalCopperLayer(aItem.GetLayer());
+
+    return false;
+  };
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_SHAPE, boolean>(
+        PCB_SHAPE,
+        'Soldermask',
+        'SetHasSolderMask',
+        'HasSolderMask',
+        TYPE_BOOL,
+      ),
+      groupTechLayers,
+    )
+    .SetAvailableFunc(isExternalCuLayer);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_SHAPE, number | undefined>(
+        PCB_SHAPE,
+        'Soldermask Margin Override',
+        'SetLocalSolderMaskMargin',
+        'GetLocalSolderMaskMargin',
+        TYPE_OPT_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupTechLayers,
+    )
+    .SetAvailableFunc(isExternalCuLayer);
+})();

@@ -35,6 +35,24 @@ import {
   PCB_LAYER_ID,
 } from '@ziroeda/common/src/layer_ids.js';
 import { LAYER_RANGE } from '@ziroeda/common/src/layer_range.js';
+import { ELECTRICAL_PINTYPES } from '@ziroeda/common/src/pin_type.js';
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  PG_CHOICES,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_DOUBLE,
+  TYPE_INT,
+  TYPE_OPT_DOUBLE,
+  TYPE_OPT_INT,
+  TYPE_STRING,
+  TYPE_CAST,
+} from '@ziroeda/common/src/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+import { PROPERTY_VALIDATORS } from '@ziroeda/common/src/properties/property_validators.js';
+import { INT_MAX } from '@ziroeda/kimath/src/math/util.js';
 import { LSET } from '@ziroeda/common/src/lset.js';
 import { formatG, unescapeString } from '@ziroeda/common/src/string_utils.js';
 import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/src/stroke_params.js';
@@ -92,7 +110,7 @@ import {
 } from './padstack.js';
 import { GetDefaultIpcRoundingRatio, PadHasMeaningfulRoundingRadius } from './pad_utils.js';
 import { PCB_SHAPE, type PCB_VIEW_FOR_LOD } from './pcb_shape.js';
-import { ZONE_CONNECTION } from './zones.js';
+import { ZONE_CONNECTION, ZONE_THICKNESS_MIN_VALUE_MM } from './zones.js';
 import type { FOOTPRINT } from './footprint.js';
 
 export { PAD_ATTRIB, PAD_PROP, PAD_SHAPE } from './padstack.js';
@@ -3766,3 +3784,757 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     return this.m_drawCache;
   }
 }
+
+/**
+ * `static struct PAD_DESC` (pcbnew/pad.cpp).
+ */
+(() => {
+  ENUM_MAP.Instance<PAD_ATTRIB>('PAD_ATTRIB')
+    .Map(PAD_ATTRIB.PTH, 'Through-hole')
+    .Map(PAD_ATTRIB.SMD, 'SMD')
+    .Map(PAD_ATTRIB.CONN, 'Edge connector')
+    .Map(PAD_ATTRIB.NPTH, 'NPTH, mechanical');
+
+  ENUM_MAP.Instance<PAD_SHAPE>('PAD_SHAPE')
+    .Map(PAD_SHAPE.CIRCLE, 'Circle')
+    .Map(PAD_SHAPE.RECTANGLE, 'Rectangle')
+    .Map(PAD_SHAPE.OVAL, 'Oval')
+    .Map(PAD_SHAPE.TRAPEZOID, 'Trapezoid')
+    .Map(PAD_SHAPE.ROUNDRECT, 'Rounded rectangle')
+    .Map(PAD_SHAPE.CHAMFERED_RECT, 'Chamfered rectangle')
+    .Map(PAD_SHAPE.CUSTOM, 'Custom');
+
+  ENUM_MAP.Instance<PAD_PROP>('PAD_PROP')
+    .Map(PAD_PROP.NONE, 'None')
+    .Map(PAD_PROP.BGA, 'BGA pad')
+    .Map(PAD_PROP.FIDUCIAL_GLBL, 'Fiducial, global to board')
+    .Map(PAD_PROP.FIDUCIAL_LOCAL, 'Fiducial, local to footprint')
+    .Map(PAD_PROP.TESTPOINT, 'Test point pad')
+    .Map(PAD_PROP.HEATSINK, 'Heatsink pad')
+    .Map(PAD_PROP.CASTELLATED, 'Castellated pad')
+    .Map(PAD_PROP.MECHANICAL, 'Mechanical pad')
+    .Map(PAD_PROP.PRESSFIT, 'Press-fit pad');
+
+  ENUM_MAP.Instance<PAD_DRILL_SHAPE>('PAD_DRILL_SHAPE')
+    .Map(PAD_DRILL_SHAPE.UNDEFINED, 'Undefined')
+    .Map(PAD_DRILL_SHAPE.CIRCLE, 'Round')
+    .Map(PAD_DRILL_SHAPE.OBLONG, 'Oblong');
+
+  // Ensure post-machining mode enum choices are defined before properties use them
+  {
+    const pmMap = ENUM_MAP.Instance<PAD_DRILL_POST_MACHINING_MODE>('PAD_DRILL_POST_MACHINING_MODE');
+
+    if (pmMap.Choices().GetCount() === 0) {
+      pmMap
+        .Undefined(PAD_DRILL_POST_MACHINING_MODE.UNKNOWN)
+        .Map(PAD_DRILL_POST_MACHINING_MODE.NOT_POST_MACHINED, 'Not post-machined')
+        .Map(PAD_DRILL_POST_MACHINING_MODE.COUNTERBORE, 'Counterbore')
+        .Map(PAD_DRILL_POST_MACHINING_MODE.COUNTERSINK, 'Countersink');
+    }
+  }
+
+  // Ensure backdrill mode enum choices are defined before properties use them
+  {
+    const bdMap = ENUM_MAP.Instance<BACKDRILL_MODE>('BACKDRILL_MODE');
+
+    if (bdMap.Choices().GetCount() === 0) {
+      bdMap
+        .Undefined(BACKDRILL_MODE.NO_BACKDRILL)
+        .Map(BACKDRILL_MODE.NO_BACKDRILL, 'No backdrill')
+        .Map(BACKDRILL_MODE.BACKDRILL_BOTTOM, 'Backdrill bottom')
+        .Map(BACKDRILL_MODE.BACKDRILL_TOP, 'Backdrill top')
+        .Map(BACKDRILL_MODE.BACKDRILL_BOTH, 'Backdrill both');
+    }
+  }
+
+  const zcMap = ENUM_MAP.Instance<ZONE_CONNECTION>('ZONE_CONNECTION');
+
+  if (zcMap.Choices().GetCount() === 0) {
+    zcMap.Undefined(ZONE_CONNECTION.INHERITED);
+    zcMap
+      .Map(ZONE_CONNECTION.INHERITED, 'Inherited')
+      .Map(ZONE_CONNECTION.NONE, 'None')
+      .Map(ZONE_CONNECTION.THERMAL, 'Thermal reliefs')
+      .Map(ZONE_CONNECTION.FULL, 'Solid')
+      .Map(ZONE_CONNECTION.THT_THERMAL, 'Thermal reliefs for PTH');
+  }
+
+  ENUM_MAP.Instance<UNCONNECTED_LAYER_MODE>('UNCONNECTED_LAYER_MODE')
+    .Map(UNCONNECTED_LAYER_MODE.KEEP_ALL, 'All copper layers')
+    .Map(UNCONNECTED_LAYER_MODE.REMOVE_ALL, 'Connected layers only')
+    .Map(UNCONNECTED_LAYER_MODE.REMOVE_EXCEPT_START_AND_END, 'Front, back and connected layers')
+    .Map(UNCONNECTED_LAYER_MODE.START_END_ONLY, 'Start and end layers only');
+
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(PAD);
+  propMgr.AddTypeCast(new TYPE_CAST(PAD, BOARD_ITEM));
+  propMgr.AddTypeCast(new TYPE_CAST(PAD, BOARD_CONNECTED_ITEM));
+  propMgr.InheritsAfter(PAD, BOARD_ITEM);
+  propMgr.InheritsAfter(PAD, BOARD_CONNECTED_ITEM);
+
+  propMgr.Mask(PAD, BOARD_CONNECTED_ITEM, 'Layer');
+  propMgr.Mask(PAD, BOARD_ITEM, 'Locked');
+
+  const layerEnum = ENUM_MAP.Instance<PCB_LAYER_ID>('PCB_LAYER_ID');
+
+  propMgr.AddProperty(
+    new PROPERTY<PAD, number>(
+      PAD,
+      'Orientation',
+      'SetOrientationDegrees',
+      'GetOrientationDegrees',
+      TYPE_DOUBLE,
+      PROPERTY_DISPLAY.PT_DEGREE,
+    ),
+  );
+
+  const isCopperPad = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof PAD) return aItem.GetAttribute() !== PAD_ATTRIB.NPTH;
+
+    return false;
+  };
+
+  const padCanHaveHole = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof PAD)
+      return aItem.GetAttribute() === PAD_ATTRIB.PTH || aItem.GetAttribute() === PAD_ATTRIB.NPTH;
+
+    return false;
+  };
+
+  const hasNormalPadstack = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof PAD) return aItem.Padstack().Mode() === PADSTACK_MODE.NORMAL;
+
+    return true;
+  };
+
+  propMgr.OverrideAvailability(PAD, BOARD_CONNECTED_ITEM, 'Net', isCopperPad);
+  propMgr.OverrideAvailability(PAD, BOARD_CONNECTED_ITEM, 'Net Class', isCopperPad);
+
+  const groupPad = 'Pad Properties';
+  const groupPostMachining = 'Post-machining Properties';
+  const groupBackdrill = 'Backdrill Properties';
+
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PAD, PAD_ATTRIB>(
+      PAD,
+      'Pad Type',
+      'SetAttribute',
+      'GetAttribute',
+      ENUM_MAP.Instance<PAD_ATTRIB>('PAD_ATTRIB'),
+    ),
+    groupPad,
+  );
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<PAD, PAD_SHAPE>(
+        PAD,
+        'Pad Shape',
+        'SetFrontShape',
+        'GetFrontShape',
+        ENUM_MAP.Instance<PAD_SHAPE>('PAD_SHAPE'),
+      ),
+      groupPad,
+    )
+    .SetAvailableFunc(hasNormalPadstack);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PAD, string>(PAD, 'Pad Number', 'SetNumber', 'GetNumber', TYPE_STRING),
+      groupPad,
+    )
+    .SetAvailableFunc(isCopperPad);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PAD, string>(PAD, 'Pin Name', 'SetPinFunction', 'GetPinFunction', TYPE_STRING),
+      groupPad,
+    )
+    .SetIsHiddenFromLibraryEditors();
+  propMgr
+    .AddProperty(
+      new PROPERTY<PAD, string>(PAD, 'Pin Type', 'SetPinType', 'GetPinType', TYPE_STRING),
+      groupPad,
+    )
+    .SetIsHiddenFromLibraryEditors()
+    .SetChoicesFunc((_aItem: INSPECTABLE_ITEM): PG_CHOICES => {
+      const choices = new PG_CHOICES();
+
+      // for( int ii = 0; ii < ELECTRICAL_PINTYPES_TOTAL; ii++ ) GetCanonicalElectricalTypeName( ii )
+      for (const name of ELECTRICAL_PINTYPES) choices.Add(name);
+
+      return choices;
+    });
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PAD, number>(
+        PAD,
+        'Size X',
+        'SetSizeX',
+        'GetSizeX',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupPad,
+    )
+    .SetAvailableFunc(hasNormalPadstack);
+  propMgr
+    .AddProperty(
+      new PROPERTY<PAD, number>(
+        PAD,
+        'Size Y',
+        'SetSizeY',
+        'GetSizeY',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupPad,
+    )
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM): boolean => {
+      if (aItem instanceof PAD) {
+        // Custom padstacks can't have size modified through panel
+        if (aItem.Padstack().Mode() !== PADSTACK_MODE.NORMAL) return false;
+
+        // Circle pads have no usable y-size
+        return aItem.GetShape(PADSTACK.ALL_LAYERS) !== PAD_SHAPE.CIRCLE;
+      }
+
+      return true;
+    });
+
+  const hasRoundRadius = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof PAD) {
+      // Custom padstacks can't have this property modified through panel
+      if (aItem.Padstack().Mode() !== PADSTACK_MODE.NORMAL) return false;
+
+      return PadHasMeaningfulRoundingRadius(aItem, PCB_LAYER_ID.F_Cu);
+    }
+
+    return false;
+  };
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PAD, number>(
+        PAD,
+        'Corner Radius Ratio',
+        'SetFrontRoundRectRadiusRatio',
+        'GetFrontRoundRectRadiusRatio',
+        TYPE_DOUBLE,
+      ),
+      groupPad,
+    )
+    .SetAvailableFunc(hasRoundRadius);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PAD, number>(
+        PAD,
+        'Corner Radius Size',
+        'SetFrontRoundRectRadiusSize',
+        'GetFrontRoundRectRadiusSize',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupPad,
+    )
+    .SetAvailableFunc(hasRoundRadius);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<PAD, PAD_DRILL_SHAPE>(
+        PAD,
+        'Hole Shape',
+        'SetDrillShape',
+        'GetDrillShape',
+        ENUM_MAP.Instance<PAD_DRILL_SHAPE>('PAD_DRILL_SHAPE'),
+      ),
+      groupPad,
+    )
+    .SetWriteableFunc(padCanHaveHole);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PAD, number>(
+        PAD,
+        'Hole Size X',
+        'SetDrillSizeX',
+        'GetDrillSizeX',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupPad,
+    )
+    .SetWriteableFunc(padCanHaveHole)
+    .SetValidator(PROPERTY_VALIDATORS.PositiveIntValidator);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PAD, number>(
+        PAD,
+        'Hole Size Y',
+        'SetDrillSizeY',
+        'GetDrillSizeY',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupPad,
+    )
+    .SetWriteableFunc(padCanHaveHole)
+    .SetValidator(PROPERTY_VALIDATORS.PositiveIntValidator)
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM): boolean => {
+      // Circle holes have no usable y-size
+      if (aItem instanceof PAD) return aItem.GetDrillShape() !== PAD_DRILL_SHAPE.CIRCLE;
+
+      return true;
+    });
+
+  const pmEnum = ENUM_MAP.Instance<PAD_DRILL_POST_MACHINING_MODE>('PAD_DRILL_POST_MACHINING_MODE');
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<PAD, PAD_DRILL_POST_MACHINING_MODE>(
+        PAD,
+        'Top Post-machining',
+        'SetFrontPostMachiningMode',
+        'GetFrontPostMachiningMode',
+        pmEnum,
+      ),
+      groupPostMachining,
+    )
+    .SetWriteableFunc(padCanHaveHole)
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM) => {
+      if (aItem instanceof PAD) {
+        return aItem.GetDrillShape() === PAD_DRILL_SHAPE.CIRCLE;
+      }
+
+      return false;
+    });
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PAD, number>(
+        PAD,
+        'Top Post-machining Size',
+        'SetFrontPostMachiningSize',
+        'GetFrontPostMachiningSize',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupPostMachining,
+    )
+    .SetWriteableFunc(padCanHaveHole)
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM) => {
+      if (aItem instanceof PAD) {
+        if (aItem.GetDrillShape() !== PAD_DRILL_SHAPE.CIRCLE) return false;
+
+        const mode = aItem.GetFrontPostMachining();
+        return (
+          mode === PAD_DRILL_POST_MACHINING_MODE.COUNTERBORE ||
+          mode === PAD_DRILL_POST_MACHINING_MODE.COUNTERSINK
+        );
+      }
+
+      return false;
+    });
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PAD, number>(
+        PAD,
+        'Top Counterbore Depth',
+        'SetFrontPostMachiningDepth',
+        'GetFrontPostMachiningDepth',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupPostMachining,
+    )
+    .SetWriteableFunc(padCanHaveHole)
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM) => {
+      if (aItem instanceof PAD) {
+        if (aItem.GetDrillShape() !== PAD_DRILL_SHAPE.CIRCLE) return false;
+
+        const mode = aItem.GetFrontPostMachining();
+        return mode === PAD_DRILL_POST_MACHINING_MODE.COUNTERBORE;
+      }
+
+      return false;
+    });
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PAD, number>(
+        PAD,
+        'Top Countersink Angle',
+        'SetFrontPostMachiningAngle',
+        'GetFrontPostMachiningAngle',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_DECIDEGREE,
+      ),
+      groupPostMachining,
+    )
+    .SetWriteableFunc(padCanHaveHole)
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM) => {
+      if (aItem instanceof PAD) {
+        if (aItem.GetDrillShape() !== PAD_DRILL_SHAPE.CIRCLE) return false;
+
+        const mode = aItem.GetFrontPostMachining();
+        return mode === PAD_DRILL_POST_MACHINING_MODE.COUNTERSINK;
+      }
+
+      return false;
+    });
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<PAD, PAD_DRILL_POST_MACHINING_MODE>(
+        PAD,
+        'Bottom Post-machining',
+        'SetBackPostMachiningMode',
+        'GetBackPostMachiningMode',
+        pmEnum,
+      ),
+      groupPostMachining,
+    )
+    .SetWriteableFunc(padCanHaveHole)
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM) => {
+      if (aItem instanceof PAD) {
+        return aItem.GetDrillShape() === PAD_DRILL_SHAPE.CIRCLE;
+      }
+
+      return false;
+    });
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PAD, number>(
+        PAD,
+        'Bottom Post-machining Size',
+        'SetBackPostMachiningSize',
+        'GetBackPostMachiningSize',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupPostMachining,
+    )
+    .SetWriteableFunc(padCanHaveHole)
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM) => {
+      if (aItem instanceof PAD) {
+        if (aItem.GetDrillShape() !== PAD_DRILL_SHAPE.CIRCLE) return false;
+
+        const mode = aItem.GetBackPostMachining();
+        return (
+          mode === PAD_DRILL_POST_MACHINING_MODE.COUNTERBORE ||
+          mode === PAD_DRILL_POST_MACHINING_MODE.COUNTERSINK
+        );
+      }
+
+      return false;
+    });
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PAD, number>(
+        PAD,
+        'Bottom Counterbore Depth',
+        'SetBackPostMachiningDepth',
+        'GetBackPostMachiningDepth',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupPostMachining,
+    )
+    .SetWriteableFunc(padCanHaveHole)
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM) => {
+      if (aItem instanceof PAD) {
+        if (aItem.GetDrillShape() !== PAD_DRILL_SHAPE.CIRCLE) return false;
+
+        const mode = aItem.GetBackPostMachining();
+        return mode === PAD_DRILL_POST_MACHINING_MODE.COUNTERBORE;
+      }
+
+      return false;
+    });
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PAD, number>(
+        PAD,
+        'Bottom Countersink Angle',
+        'SetBackPostMachiningAngle',
+        'GetBackPostMachiningAngle',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_DECIDEGREE,
+      ),
+      groupPostMachining,
+    )
+    .SetWriteableFunc(padCanHaveHole)
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM) => {
+      if (aItem instanceof PAD) {
+        if (aItem.GetDrillShape() !== PAD_DRILL_SHAPE.CIRCLE) return false;
+
+        const mode = aItem.GetBackPostMachining();
+        return mode === PAD_DRILL_POST_MACHINING_MODE.COUNTERSINK;
+      }
+
+      return false;
+    });
+
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PAD, BACKDRILL_MODE>(
+      PAD,
+      'Backdrill Mode',
+      'SetBackdrillMode',
+      'GetBackdrillMode',
+      ENUM_MAP.Instance<BACKDRILL_MODE>('BACKDRILL_MODE'),
+    ),
+    groupBackdrill,
+  );
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PAD, number | undefined>(
+        PAD,
+        'Bottom Backdrill Size',
+        'SetBottomBackdrillSize',
+        'GetBottomBackdrillSize',
+        TYPE_OPT_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupBackdrill,
+    )
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM): boolean => {
+      if (aItem instanceof PAD) {
+        if (aItem.GetDrillShape() !== PAD_DRILL_SHAPE.CIRCLE) return false;
+
+        const mode = aItem.GetBackdrillMode();
+        return mode === BACKDRILL_MODE.BACKDRILL_BOTTOM || mode === BACKDRILL_MODE.BACKDRILL_BOTH;
+      }
+
+      return false;
+    });
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<PAD, PCB_LAYER_ID>(
+        PAD,
+        'Bottom Backdrill Must-Cut',
+        'SetBottomBackdrillLayer',
+        'GetBottomBackdrillLayer',
+        layerEnum,
+      ),
+      groupBackdrill,
+    )
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM): boolean => {
+      if (aItem instanceof PAD) {
+        if (aItem.GetDrillShape() !== PAD_DRILL_SHAPE.CIRCLE) return false;
+
+        const mode = aItem.GetBackdrillMode();
+        return mode === BACKDRILL_MODE.BACKDRILL_BOTTOM || mode === BACKDRILL_MODE.BACKDRILL_BOTH;
+      }
+
+      return false;
+    });
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PAD, number | undefined>(
+        PAD,
+        'Top Backdrill Size',
+        'SetTopBackdrillSize',
+        'GetTopBackdrillSize',
+        TYPE_OPT_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupBackdrill,
+    )
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM): boolean => {
+      if (aItem instanceof PAD) {
+        if (aItem.GetDrillShape() !== PAD_DRILL_SHAPE.CIRCLE) return false;
+
+        const mode = aItem.GetBackdrillMode();
+        return mode === BACKDRILL_MODE.BACKDRILL_TOP || mode === BACKDRILL_MODE.BACKDRILL_BOTH;
+      }
+
+      return false;
+    });
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<PAD, PCB_LAYER_ID>(
+        PAD,
+        'Top Backdrill Must-Cut',
+        'SetTopBackdrillLayer',
+        'GetTopBackdrillLayer',
+        layerEnum,
+      ),
+      groupBackdrill,
+    )
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM): boolean => {
+      if (aItem instanceof PAD) {
+        if (aItem.GetDrillShape() !== PAD_DRILL_SHAPE.CIRCLE) return false;
+
+        const mode = aItem.GetBackdrillMode();
+        return mode === BACKDRILL_MODE.BACKDRILL_TOP || mode === BACKDRILL_MODE.BACKDRILL_BOTH;
+      }
+
+      return false;
+    });
+
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PAD, PAD_PROP>(
+      PAD,
+      'Fabrication Property',
+      'SetProperty',
+      'GetProperty',
+      ENUM_MAP.Instance<PAD_PROP>('PAD_PROP'),
+    ),
+    groupPad,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PAD, UNCONNECTED_LAYER_MODE>(
+      PAD,
+      'Copper Layers',
+      'SetUnconnectedLayerMode',
+      'GetUnconnectedLayerMode',
+      ENUM_MAP.Instance<UNCONNECTED_LAYER_MODE>('UNCONNECTED_LAYER_MODE'),
+    ),
+    groupPad,
+  );
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PAD, number>(
+        PAD,
+        'Pad To Die Length',
+        'SetPadToDieLength',
+        'GetPadToDieLength',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupPad,
+    )
+    .SetAvailableFunc(isCopperPad);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PAD, number>(
+        PAD,
+        'Pad To Die Delay',
+        'SetPadToDieDelay',
+        'GetPadToDieDelay',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_TIME,
+      ),
+      groupPad,
+    )
+    .SetAvailableFunc(isCopperPad);
+
+  const groupOverrides = 'Overrides';
+
+  propMgr.AddProperty(
+    new PROPERTY<PAD, number | undefined>(
+      PAD,
+      'Clearance Override',
+      'SetLocalClearance',
+      'GetLocalClearance',
+      TYPE_OPT_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    groupOverrides,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PAD, number | undefined>(
+      PAD,
+      'Soldermask Margin Override',
+      'SetLocalSolderMaskMargin',
+      'GetLocalSolderMaskMargin',
+      TYPE_OPT_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    groupOverrides,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PAD, number | undefined>(
+      PAD,
+      'Solderpaste Margin Override',
+      'SetLocalSolderPasteMargin',
+      'GetLocalSolderPasteMargin',
+      TYPE_OPT_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    groupOverrides,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PAD, number | undefined>(
+      PAD,
+      'Solderpaste Margin Ratio Override',
+      'SetLocalSolderPasteMarginRatio',
+      'GetLocalSolderPasteMarginRatio',
+      TYPE_OPT_DOUBLE,
+      PROPERTY_DISPLAY.PT_RATIO,
+    ),
+    groupOverrides,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PAD, ZONE_CONNECTION>(
+      PAD,
+      'Zone Connection Style',
+      'SetLocalZoneConnection',
+      'GetLocalZoneConnection',
+      zcMap,
+    ),
+    groupOverrides,
+  );
+
+  const minZoneWidth = pcbIUScale.mmToIU(ZONE_THICKNESS_MIN_VALUE_MM);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PAD, number | undefined>(
+        PAD,
+        'Thermal Relief Spoke Width',
+        'SetLocalThermalSpokeWidthOverride',
+        'GetLocalThermalSpokeWidthOverride',
+        TYPE_OPT_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupOverrides,
+    )
+    .SetValidator(PROPERTY_VALIDATORS.RangeIntValidator(minZoneWidth, INT_MAX));
+
+  propMgr.AddProperty(
+    new PROPERTY<PAD, number>(
+      PAD,
+      'Thermal Relief Spoke Angle',
+      'SetThermalSpokeAngleDegrees',
+      'GetThermalSpokeAngleDegrees',
+      TYPE_DOUBLE,
+      PROPERTY_DISPLAY.PT_DEGREE,
+    ),
+    groupOverrides,
+  );
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PAD, number | undefined>(
+        PAD,
+        'Thermal Relief Gap',
+        'SetLocalThermalGapOverride',
+        'GetLocalThermalGapOverride',
+        TYPE_OPT_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupOverrides,
+    )
+    .SetValidator(PROPERTY_VALIDATORS.PositiveIntValidator);
+
+  // TODO delta, drill shape offset, layer set
+})();

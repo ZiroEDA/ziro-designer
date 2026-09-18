@@ -38,6 +38,25 @@ import {
   plotterRenderSettings,
 } from '@ziroeda/common/src/render_settings.js';
 import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/src/stroke_params.js';
+import { COORD_TYPES_T } from '@ziroeda/common/src/origin_transforms.js';
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  NO_SETTER,
+  PG_CHOICES,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_CAST,
+  TYPE_COLOR4D,
+  TYPE_DOUBLE,
+  TYPE_INT,
+  TYPE_OPT_INT,
+  TYPE_STRING,
+} from '@ziroeda/common/src/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+
 import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/src/widgets/msgpanel.js';
 import { KIUI_EllipsizeStatusText } from '@ziroeda/common/src/widgets/ui_common.js';
@@ -68,7 +87,8 @@ import {
   sub,
 } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
-import type { BOARD_ITEM } from './board_item.js';
+import { BOARD_ITEM } from './board_item.js';
+import { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
 import { ADD_MODE, BOARD_ITEM_CONTAINER, REMOVE_MODE } from './board_item_container.js';
 import { PCB_SHAPE, type PCB_VIEW_FOR_LOD } from './pcb_shape.js';
 import { PCB_TEXTBOX } from './pcb_textbox.js';
@@ -1299,3 +1319,240 @@ function isBoardItem(a: unknown): a is BOARD_ITEM {
     typeof (a as BOARD_ITEM).Type === 'function' && typeof (a as BOARD_ITEM).GetLayer === 'function'
   );
 }
+
+/**
+ * `static struct PCB_TABLE_DESC` (pcbnew/pcb_table.cpp).
+ */
+(() => {
+  const lineStyleEnum = ENUM_MAP.Instance<LINE_STYLE>('LINE_STYLE');
+
+  if (lineStyleEnum.Choices().GetCount() === 0) {
+    lineStyleEnum
+      .Map(LINE_STYLE.SOLID, 'Solid')
+      .Map(LINE_STYLE.DASH, 'Dashed')
+      .Map(LINE_STYLE.DOT, 'Dotted')
+      .Map(LINE_STYLE.DASHDOT, 'Dash-Dot')
+      .Map(LINE_STYLE.DASHDOTDOT, 'Dash-Dot-Dot');
+  }
+
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(PCB_TABLE);
+
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_TABLE, BOARD_ITEM));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_TABLE, BOARD_ITEM_CONTAINER));
+  propMgr.InheritsAfter(PCB_TABLE, BOARD_ITEM);
+  propMgr.InheritsAfter(PCB_TABLE, BOARD_ITEM_CONTAINER);
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TABLE, number>(
+      PCB_TABLE,
+      'Start X',
+      'SetPositionX',
+      'GetPositionX',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_COORD,
+      COORD_TYPES_T.ABS_X_COORD,
+    ),
+  );
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TABLE, number>(
+      PCB_TABLE,
+      'Start Y',
+      'SetPositionY',
+      'GetPositionY',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_COORD,
+      COORD_TYPES_T.ABS_Y_COORD,
+    ),
+  );
+
+  const tableProps = 'Table Properties';
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TABLE, boolean>(
+      PCB_TABLE,
+      'External Border',
+      'SetStrokeExternal',
+      'StrokeExternal',
+      TYPE_BOOL,
+    ),
+    tableProps,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TABLE, boolean>(
+      PCB_TABLE,
+      'Header Border',
+      'SetStrokeHeaderSeparator',
+      'StrokeHeaderSeparator',
+      TYPE_BOOL,
+    ),
+    tableProps,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TABLE, number>(
+      PCB_TABLE,
+      'Border Width',
+      'SetBorderWidth',
+      'GetBorderWidth',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    tableProps,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PCB_TABLE, LINE_STYLE>(
+      PCB_TABLE,
+      'Border Style',
+      'SetBorderStyle',
+      'GetBorderStyle',
+      lineStyleEnum,
+    ),
+    tableProps,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TABLE, Color4d>(
+      PCB_TABLE,
+      'Border Color',
+      'SetBorderColor',
+      'GetBorderColor',
+      TYPE_COLOR4D,
+    ),
+    tableProps,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TABLE, boolean>(
+      PCB_TABLE,
+      'Row Separators',
+      'SetStrokeRows',
+      'StrokeRows',
+      TYPE_BOOL,
+    ),
+    tableProps,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TABLE, boolean>(
+      PCB_TABLE,
+      'Cell Separators',
+      'SetStrokeColumns',
+      'StrokeColumns',
+      TYPE_BOOL,
+    ),
+    tableProps,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TABLE, number>(
+      PCB_TABLE,
+      'Separators Width',
+      'SetSeparatorsWidth',
+      'GetSeparatorsWidth',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    tableProps,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PCB_TABLE, LINE_STYLE>(
+      PCB_TABLE,
+      'Separators Style',
+      'SetSeparatorsStyle',
+      'GetSeparatorsStyle',
+      lineStyleEnum,
+    ),
+    tableProps,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TABLE, Color4d>(
+      PCB_TABLE,
+      'Separators Color',
+      'SetSeparatorsColor',
+      'GetSeparatorsColor',
+      TYPE_COLOR4D,
+    ),
+    tableProps,
+  );
+})();
+
+/**
+ * `static struct PCB_TABLECELL_DESC` (pcbnew/pcb_tablecell.cpp).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(PCB_TABLECELL);
+
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_TABLECELL, BOARD_ITEM));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_TABLECELL, BOARD_CONNECTED_ITEM));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_TABLECELL, PCB_TEXTBOX));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_TABLECELL, PCB_SHAPE));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_TABLECELL, EDA_SHAPE));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_TABLECELL, EDA_TEXT));
+  propMgr.InheritsAfter(PCB_TABLECELL, BOARD_ITEM);
+  propMgr.InheritsAfter(PCB_TABLECELL, BOARD_CONNECTED_ITEM);
+  propMgr.InheritsAfter(PCB_TABLECELL, PCB_TEXTBOX);
+  propMgr.InheritsAfter(PCB_TABLECELL, PCB_SHAPE);
+  propMgr.InheritsAfter(PCB_TABLECELL, EDA_SHAPE);
+  propMgr.InheritsAfter(PCB_TABLECELL, EDA_TEXT);
+
+  propMgr.Mask(PCB_TABLECELL, BOARD_ITEM, 'Position X');
+  propMgr.Mask(PCB_TABLECELL, BOARD_ITEM, 'Position Y');
+  propMgr.Mask(PCB_TABLECELL, PCB_SHAPE, 'Layer');
+  propMgr.Mask(PCB_TABLECELL, PCB_SHAPE, 'Soldermask');
+  propMgr.Mask(PCB_TABLECELL, PCB_SHAPE, 'Soldermask Margin Override');
+  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, 'Corner Radius');
+
+  propMgr.Mask(PCB_TABLECELL, BOARD_CONNECTED_ITEM, 'Net');
+
+  propMgr.Mask(PCB_TABLECELL, PCB_TEXTBOX, 'Knockout');
+  propMgr.Mask(PCB_TABLECELL, PCB_TEXTBOX, 'Border');
+  propMgr.Mask(PCB_TABLECELL, PCB_TEXTBOX, 'Border Style');
+  propMgr.Mask(PCB_TABLECELL, PCB_TEXTBOX, 'Border Width');
+
+  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, 'Start X');
+  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, 'Start Y');
+  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, 'End X');
+  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, 'End Y');
+  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, 'Shape');
+  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, 'Width');
+  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, 'Height');
+  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, 'Line Width');
+  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, 'Line Style');
+  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, 'Line Color');
+
+  propMgr.Mask(PCB_TABLECELL, EDA_TEXT, 'Orientation');
+  propMgr.Mask(PCB_TABLECELL, EDA_TEXT, 'Hyperlink');
+  propMgr.Mask(PCB_TABLECELL, EDA_TEXT, 'Color');
+
+  const tableProps = 'Table';
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TABLECELL, number>(
+      PCB_TABLECELL,
+      'Column Width',
+      'SetColumnWidth',
+      'GetColumnWidth',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    tableProps,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TABLECELL, number>(
+      PCB_TABLECELL,
+      'Row Height',
+      'SetRowHeight',
+      'GetRowHeight',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    tableProps,
+  );
+})();

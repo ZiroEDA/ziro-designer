@@ -5,9 +5,9 @@
  * `pcbnew/footprint.h` / `footprint.cpp`: `FOOTPRINT`, over
  * `BOARD_ITEM_CONTAINER`, with the `LIB_TREE_ITEM` interface in place.
  *
- * Not here: `Serialize`/`Deserialize` (the protobuf API), the
- * `FOOTPRINT_DESC` property registration, and `FootprintNeedsUpdate` (which
- * lives in `footprint_needs_update.cpp`).
+ * Not here: `Serialize`/`Deserialize` (the protobuf API) and
+ * `FootprintNeedsUpdate` (which lives in `footprint_needs_update.cpp`).
+ * `FOOTPRINT_DESC` is at the bottom of this file.
  *
  * `EMBEDDED_FILES` is the second base, mixed in with `applyMixins`.
  *
@@ -52,6 +52,22 @@ import {
 } from '@ziroeda/common/src/layer_ids.js';
 import { LIB_ID } from '@ziroeda/common/src/lib_id.js';
 import { LSET } from '@ziroeda/common/src/lset.js';
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  NO_SETTER,
+  PG_CHOICES,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_CAST,
+  TYPE_DOUBLE,
+  TYPE_OPT_DOUBLE,
+  TYPE_OPT_INT,
+  TYPE_STRING,
+} from '@ziroeda/common/src/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
 import { type SearchTerm, searchTerm } from '@ziroeda/common/src/eda_pattern_match.js';
 import { GetRefDesPrefix } from '@ziroeda/common/src/refdes_utils.js';
 import {
@@ -4837,3 +4853,219 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
 const emptySet: ReadonlySet<number> = new Set();
 
 applyMixins(FOOTPRINT, [EMBEDDED_FILES]);
+
+/**
+ * `static struct FOOTPRINT_DESC` (pcbnew/footprint.cpp).
+ */
+(() => {
+  const zcMap = ENUM_MAP.Instance<ZONE_CONNECTION>('ZONE_CONNECTION');
+
+  if (zcMap.Choices().GetCount() === 0) {
+    zcMap.Undefined(ZONE_CONNECTION.INHERITED);
+    zcMap
+      .Map(ZONE_CONNECTION.INHERITED, 'Inherited')
+      .Map(ZONE_CONNECTION.NONE, 'None')
+      .Map(ZONE_CONNECTION.THERMAL, 'Thermal reliefs')
+      .Map(ZONE_CONNECTION.FULL, 'Solid')
+      .Map(ZONE_CONNECTION.THT_THERMAL, 'Thermal reliefs for PTH');
+  }
+
+  const layerEnum = ENUM_MAP.Instance<PCB_LAYER_ID>('PCB_LAYER_ID');
+
+  if (layerEnum.Choices().GetCount() === 0) {
+    layerEnum.Undefined(PCB_LAYER_ID.UNDEFINED_LAYER);
+
+    for (const layer of LSET.AllLayersMask().Seq()) layerEnum.Map(layer, LSET.Name(layer));
+  }
+
+  const fpLayers = new PG_CHOICES(); // footprints might be placed only on F.Cu & B.Cu
+  fpLayers.Add(LSET.Name(PCB_LAYER_ID.F_Cu), PCB_LAYER_ID.F_Cu);
+  fpLayers.Add(LSET.Name(PCB_LAYER_ID.B_Cu), PCB_LAYER_ID.B_Cu);
+
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(FOOTPRINT);
+  propMgr.AddTypeCast(new TYPE_CAST(FOOTPRINT, BOARD_ITEM));
+  propMgr.AddTypeCast(new TYPE_CAST(FOOTPRINT, BOARD_ITEM_CONTAINER));
+  propMgr.InheritsAfter(FOOTPRINT, BOARD_ITEM);
+  propMgr.InheritsAfter(FOOTPRINT, BOARD_ITEM_CONTAINER);
+
+  const isNotFootprintHolder = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof FOOTPRINT) {
+      const board = aItem.GetBoard();
+
+      if (board) return !board.IsFootprintHolder();
+    }
+    return true;
+  };
+
+  const layer = new PROPERTY_ENUM<FOOTPRINT, PCB_LAYER_ID>(
+    FOOTPRINT,
+    'Layer',
+    'SetLayerAndFlip',
+    'GetLayer',
+    layerEnum,
+  );
+  layer.SetChoices(fpLayers);
+  layer.SetAvailableFunc(isNotFootprintHolder);
+  propMgr.ReplaceProperty(BOARD_ITEM, 'Layer', layer);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<FOOTPRINT, number>(
+        FOOTPRINT,
+        'Orientation',
+        'SetOrientationDegrees',
+        'GetOrientationDegrees',
+        TYPE_DOUBLE,
+        PROPERTY_DISPLAY.PT_DEGREE,
+      ),
+    )
+    .SetAvailableFunc(isNotFootprintHolder);
+
+  const groupFields = 'Fields';
+
+  propMgr.AddProperty(
+    new PROPERTY<FOOTPRINT, string>(
+      FOOTPRINT,
+      'Reference',
+      'SetReference',
+      'GetReferenceAsString',
+      TYPE_STRING,
+    ),
+    groupFields,
+  );
+
+  const propertyFields = 'Footprint Properties';
+
+  propMgr.AddProperty(
+    new PROPERTY<FOOTPRINT, string>(
+      FOOTPRINT,
+      'Library Link',
+      NO_SETTER,
+      'GetFPIDAsString',
+      TYPE_STRING,
+    ),
+    propertyFields,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<FOOTPRINT, string>(
+      FOOTPRINT,
+      'Library Description',
+      NO_SETTER,
+      'GetLibDescription',
+      TYPE_STRING,
+    ),
+    propertyFields,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<FOOTPRINT, string>(FOOTPRINT, 'Keywords', NO_SETTER, 'GetKeywords', TYPE_STRING),
+    propertyFields,
+  );
+
+  // Note: Also used by DRC engine
+  propMgr
+    .AddProperty(
+      new PROPERTY<FOOTPRINT, string>(
+        FOOTPRINT,
+        'Component Class',
+        NO_SETTER,
+        'GetComponentClassAsString',
+        TYPE_STRING,
+      ),
+      propertyFields,
+    )
+    .SetIsHiddenFromLibraryEditors();
+
+  const groupAttributes = 'Attributes';
+
+  propMgr.AddProperty(
+    new PROPERTY<FOOTPRINT, boolean>(
+      FOOTPRINT,
+      'Not in Schematic',
+      'SetBoardOnly',
+      'IsBoardOnly',
+      TYPE_BOOL,
+    ),
+    groupAttributes,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<FOOTPRINT, boolean>(
+      FOOTPRINT,
+      'Exclude From Position Files',
+      'SetExcludedFromPosFiles',
+      'IsExcludedFromPosFiles',
+      TYPE_BOOL,
+    ),
+    groupAttributes,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<FOOTPRINT, boolean>(
+      FOOTPRINT,
+      'Exclude From Bill of Materials',
+      'SetExcludedFromBOM',
+      'IsExcludedFromBOM',
+      TYPE_BOOL,
+    ),
+    groupAttributes,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<FOOTPRINT, boolean>(FOOTPRINT, 'Do not Populate', 'SetDNP', 'IsDNP', TYPE_BOOL),
+    groupAttributes,
+  );
+
+  const groupOverrides = 'Overrides';
+
+  propMgr.AddProperty(
+    new PROPERTY<FOOTPRINT, boolean>(
+      FOOTPRINT,
+      'Exempt From Courtyard Requirement',
+      'SetAllowMissingCourtyard',
+      'AllowMissingCourtyard',
+      TYPE_BOOL,
+    ),
+    groupOverrides,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<FOOTPRINT, number | undefined>(
+      FOOTPRINT,
+      'Clearance Override',
+      'SetLocalClearance',
+      'GetLocalClearance',
+      TYPE_OPT_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    groupOverrides,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<FOOTPRINT, number | undefined>(
+      FOOTPRINT,
+      'Solderpaste Margin Override',
+      'SetLocalSolderPasteMargin',
+      'GetLocalSolderPasteMargin',
+      TYPE_OPT_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    groupOverrides,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<FOOTPRINT, number | undefined>(
+      FOOTPRINT,
+      'Solderpaste Margin Ratio Override',
+      'SetLocalSolderPasteMarginRatio',
+      'GetLocalSolderPasteMarginRatio',
+      TYPE_OPT_DOUBLE,
+      PROPERTY_DISPLAY.PT_RATIO,
+    ),
+    groupOverrides,
+  );
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<FOOTPRINT, ZONE_CONNECTION>(
+      FOOTPRINT,
+      'Zone Connection Style',
+      'SetLocalZoneConnection',
+      'GetLocalZoneConnection',
+      zcMap,
+    ),
+    groupOverrides,
+  );
+})();

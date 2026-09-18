@@ -9,6 +9,7 @@
 import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 // `class VIEW_ITEM_DATA;` is forward-declared in the header; view.cpp defines it.
 import type { VIEW, VIEW_ITEM_DATA } from './view.js';
+import { INSPECTABLE } from '../inspectable.js';
 
 /** Define the how severely the appearance of the item has been changed. */
 export enum VIEW_UPDATE_FLAGS {
@@ -48,7 +49,7 @@ export interface VIEW_FOR_LOD {
  * VIEW_ITEM objects are never owned by a #VIEW. A single VIEW_ITEM can belong to any number of
  * static VIEWs, but only one dynamic VIEW due to storage of only one VIEW reference.
  */
-export abstract class VIEW_ITEM {
+export abstract class VIEW_ITEM extends INSPECTABLE {
   private m_isSCH_ITEM: boolean;
   private m_isBOARD_ITEM: boolean;
   /** `friend class VIEW`: the view writes this slot. */
@@ -56,6 +57,7 @@ export abstract class VIEW_ITEM {
   private m_forcedTransparency: number; ///< Additional transparency for diff'ing items.
 
   constructor(isSCH_ITEM = false, isBOARD_ITEM = false) {
+    super();
     this.m_isSCH_ITEM = isSCH_ITEM;
     this.m_isBOARD_ITEM = isBOARD_ITEM;
     this.m_viewPrivData = null;

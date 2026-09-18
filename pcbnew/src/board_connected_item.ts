@@ -13,8 +13,23 @@
  */
 
 import { ROUTER_TRANSIENT } from '@ziroeda/common/src/eda_item_flags.js';
-import type { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { LSET } from '@ziroeda/common/src/lset.js';
 import { NETCLASS } from '@ziroeda/common/src/netclass.js';
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  NO_SETTER,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_DOUBLE,
+  TYPE_INT,
+  TYPE_STRING,
+} from '@ziroeda/common/src/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+import { PROPERTY_VALIDATORS } from '@ziroeda/common/src/properties/property_validators.js';
 import type { OutStr } from '@ziroeda/common/src/font/font.js';
 import { unescapeString } from '@ziroeda/common/src/string_utils.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
@@ -334,3 +349,211 @@ export abstract class BOARD_CONNECTED_ITEM extends BOARD_ITEM {
     return this.m_teardropParams.m_WidthtoSizeFilterRatio;
   }
 }
+
+/**
+ * `static struct BOARD_CONNECTED_ITEM_DESC` (pcbnew/board_connected_item.cpp).
+ */
+(() => {
+  const layerEnum = ENUM_MAP.Instance<PCB_LAYER_ID>('PCB_LAYER_ID');
+
+  if (layerEnum.Choices().GetCount() === 0) {
+    layerEnum.Undefined(PCB_LAYER_ID.UNDEFINED_LAYER);
+
+    for (const layer of LSET.AllLayersMask().Seq()) layerEnum.Map(layer, LSET.Name(layer));
+  }
+
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(BOARD_CONNECTED_ITEM);
+  propMgr.InheritsAfter(BOARD_CONNECTED_ITEM, BOARD_ITEM);
+
+  // Replace layer property as the properties panel will set a restriction for copper layers
+  // only for BOARD_CONNECTED_ITEM that we don't want to apply to BOARD_ITEM
+  const layer = new PROPERTY_ENUM<BOARD_CONNECTED_ITEM, PCB_LAYER_ID>(
+    BOARD_CONNECTED_ITEM,
+    'Layer',
+    'SetLayer',
+    'GetLayer',
+    layerEnum,
+  );
+  layer.SetChoices(layerEnum.Choices());
+  propMgr.ReplaceProperty(BOARD_ITEM, 'Layer', layer);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<BOARD_CONNECTED_ITEM, number>(
+        BOARD_CONNECTED_ITEM,
+        'Net',
+        'SetNetCode',
+        'GetNetCode',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_NET,
+      ),
+    )
+    .SetIsHiddenFromRulesEditor()
+    .SetIsHiddenFromLibraryEditors();
+
+  /**
+   * This property should just be an alias for the one below, it only exists so that we
+   * maintain compatibility with both `NetClass` and `Net_Class` in custom rules.
+   * It has the name we would show in the GUI if we wanted to show this in the GUI, but we
+   * don't at the moment because there is no way to edit the netclass of a net from a selected
+   * connected item, and showing it makes users think they can change it.
+   */
+  propMgr
+    .AddProperty(
+      new PROPERTY<BOARD_CONNECTED_ITEM, string>(
+        BOARD_CONNECTED_ITEM,
+        'Net Class',
+        NO_SETTER,
+        'GetNetClassName',
+        TYPE_STRING,
+      ),
+    )
+    .SetIsHiddenFromRulesEditor()
+    .SetIsHiddenFromPropertiesManager()
+    .SetIsHiddenFromLibraryEditors();
+
+  // Compatibility alias for DRC engine
+  propMgr
+    .AddProperty(
+      new PROPERTY<BOARD_CONNECTED_ITEM, string>(
+        BOARD_CONNECTED_ITEM,
+        'NetClass',
+        NO_SETTER,
+        'GetNetClassName',
+        TYPE_STRING,
+      ),
+    )
+    .SetIsHiddenFromPropertiesManager()
+    .SetIsHiddenFromLibraryEditors();
+
+  // Used only in DRC engine
+  propMgr
+    .AddProperty(
+      new PROPERTY<BOARD_CONNECTED_ITEM, string>(
+        BOARD_CONNECTED_ITEM,
+        'NetName',
+        NO_SETTER,
+        'GetNetname',
+        TYPE_STRING,
+      ),
+    )
+    .SetIsHiddenFromPropertiesManager()
+    .SetIsHiddenFromLibraryEditors();
+
+  const supportsTeardrops = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof BOARD_CONNECTED_ITEM) {
+      if (!aItem.GetBoard() || aItem.GetBoard()!.LegacyTeardrops()) return false;
+
+      return aItem.Type() === KICAD_T.PCB_PAD_T || aItem.Type() === KICAD_T.PCB_VIA_T;
+    }
+
+    return false;
+  };
+
+  const supportsTeardropPreferZoneSetting = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof BOARD_CONNECTED_ITEM) {
+      if (!aItem.GetBoard() || aItem.GetBoard()!.LegacyTeardrops()) return false;
+
+      return aItem.Type() === KICAD_T.PCB_PAD_T;
+    }
+
+    return false;
+  };
+
+  const groupTeardrops = 'Teardrops';
+
+  const enableTeardrops = new PROPERTY<BOARD_CONNECTED_ITEM, boolean>(
+    BOARD_CONNECTED_ITEM,
+    'Enable Teardrops',
+    'SetTeardropsEnabled',
+    'GetTeardropsEnabled',
+    TYPE_BOOL,
+  );
+  enableTeardrops.SetAvailableFunc(supportsTeardrops);
+  propMgr.AddProperty(enableTeardrops, groupTeardrops);
+
+  const bestLength = new PROPERTY<BOARD_CONNECTED_ITEM, number>(
+    BOARD_CONNECTED_ITEM,
+    'Best Length Ratio',
+    'SetTeardropBestLengthRatio',
+    'GetTeardropBestLengthRatio',
+    TYPE_DOUBLE,
+  );
+  bestLength.SetAvailableFunc(supportsTeardrops);
+  bestLength.SetValidator(PROPERTY_VALIDATORS.PositiveRatioValidator);
+  propMgr.AddProperty(bestLength, groupTeardrops);
+
+  const maxLength = new PROPERTY<BOARD_CONNECTED_ITEM, number>(
+    BOARD_CONNECTED_ITEM,
+    'Max Length',
+    'SetTeardropMaxLength',
+    'GetTeardropMaxLength',
+    TYPE_INT,
+    PROPERTY_DISPLAY.PT_SIZE,
+  );
+  maxLength.SetAvailableFunc(supportsTeardrops);
+  propMgr.AddProperty(maxLength, groupTeardrops);
+
+  const bestWidth = new PROPERTY<BOARD_CONNECTED_ITEM, number>(
+    BOARD_CONNECTED_ITEM,
+    'Best Width Ratio',
+    'SetTeardropBestWidthRatio',
+    'GetTeardropBestWidthRatio',
+    TYPE_DOUBLE,
+  );
+  bestWidth.SetAvailableFunc(supportsTeardrops);
+  bestWidth.SetValidator(PROPERTY_VALIDATORS.PositiveRatioValidator);
+  propMgr.AddProperty(bestWidth, groupTeardrops);
+
+  const maxWidth = new PROPERTY<BOARD_CONNECTED_ITEM, number>(
+    BOARD_CONNECTED_ITEM,
+    'Max Width',
+    'SetTeardropMaxWidth',
+    'GetTeardropMaxWidth',
+    TYPE_INT,
+    PROPERTY_DISPLAY.PT_SIZE,
+  );
+  maxWidth.SetAvailableFunc(supportsTeardrops);
+  propMgr.AddProperty(maxWidth, groupTeardrops);
+
+  const curvePts = new PROPERTY<BOARD_CONNECTED_ITEM, boolean>(
+    BOARD_CONNECTED_ITEM,
+    'Curved Teardrops',
+    'SetTeardropCurved',
+    'GetTeardropCurved',
+    TYPE_BOOL,
+  );
+  curvePts.SetAvailableFunc(supportsTeardrops);
+  propMgr.AddProperty(curvePts, groupTeardrops);
+
+  const preferZones = new PROPERTY<BOARD_CONNECTED_ITEM, boolean>(
+    BOARD_CONNECTED_ITEM,
+    'Prefer Zone Connections',
+    'SetTeardropPreferZoneConnections',
+    'GetTeardropPreferZoneConnections',
+    TYPE_BOOL,
+  );
+  preferZones.SetAvailableFunc(supportsTeardropPreferZoneSetting);
+  propMgr.AddProperty(preferZones, groupTeardrops);
+
+  const twoTracks = new PROPERTY<BOARD_CONNECTED_ITEM, boolean>(
+    BOARD_CONNECTED_ITEM,
+    'Allow Teardrops To Span Two Tracks',
+    'SetTeardropAllowSpanTwoTracks',
+    'GetTeardropAllowSpanTwoTracks',
+    TYPE_BOOL,
+  );
+  twoTracks.SetAvailableFunc(supportsTeardrops);
+  propMgr.AddProperty(twoTracks, groupTeardrops);
+
+  const maxTrackWidth = new PROPERTY<BOARD_CONNECTED_ITEM, number>(
+    BOARD_CONNECTED_ITEM,
+    'Max Width Ratio',
+    'SetTeardropMaxTrackWidth',
+    'GetTeardropMaxTrackWidth',
+    TYPE_DOUBLE,
+  );
+  maxTrackWidth.SetAvailableFunc(supportsTeardrops);
+  propMgr.AddProperty(maxTrackWidth, groupTeardrops);
+})();

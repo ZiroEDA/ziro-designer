@@ -33,6 +33,24 @@ import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { type VECTOR2I, add, equal, sub } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { BOARD_ITEM } from './board_item.js';
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  NO_SETTER,
+  PG_CHOICES,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_CAST,
+  TYPE_COLOR4D,
+  TYPE_DOUBLE,
+  TYPE_INT,
+  TYPE_OPT_INT,
+  TYPE_STRING,
+} from '@ziroeda/common/src/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+
 import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
 
 const DEFAULT_PT_SIZE_MM = 1.0;
@@ -277,3 +295,23 @@ export class PCB_POINT extends BOARD_ITEM {
     return similarity;
   }
 }
+
+/**
+ * `static struct PCB_POINT_DESC` (pcbnew/pcb_point.cpp).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(PCB_POINT);
+  propMgr.InheritsAfter(PCB_POINT, BOARD_ITEM);
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_POINT, number>(
+      PCB_POINT,
+      'Size',
+      'SetSize',
+      'GetSize',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+  );
+})();

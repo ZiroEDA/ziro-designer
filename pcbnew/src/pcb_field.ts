@@ -11,6 +11,24 @@
 import { ResolveTextVars, type TextVarResolverFn } from '@ziroeda/common/src/common.js';
 import type { EDA_SEARCH_DATA } from '@ziroeda/common/src/eda_search_data.js';
 import { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  NO_SETTER,
+  PG_CHOICES,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_CAST,
+  TYPE_COLOR4D,
+  TYPE_DOUBLE,
+  TYPE_INT,
+  TYPE_OPT_INT,
+  TYPE_STRING,
+} from '@ziroeda/common/src/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+
 import { GAL_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { GetDefaultVariantName, IsURL, unescapeString } from '@ziroeda/common/src/string_utils.js';
 import {
@@ -22,7 +40,7 @@ import {
 import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
 import { KIUI_EllipsizeMenuText } from '@ziroeda/common/src/widgets/ui_common.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
-import type { BOARD_ITEM } from './board_item.js';
+import { BOARD_ITEM } from './board_item.js';
 import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
 import type { FOOTPRINT } from './footprint.js';
 import { PCB_TEXT } from './pcb_text.js';
@@ -352,3 +370,34 @@ export class PCB_FIELD extends PCB_TEXT {
     this.m_id = aId;
   }
 }
+
+/**
+ * `static struct PCB_FIELD_DESC` (pcbnew/pcb_field.cpp).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(PCB_FIELD);
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_FIELD, PCB_TEXT));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_FIELD, BOARD_ITEM));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_FIELD, EDA_TEXT));
+  propMgr.InheritsAfter(PCB_FIELD, BOARD_ITEM);
+  propMgr.InheritsAfter(PCB_FIELD, PCB_TEXT);
+  propMgr.InheritsAfter(PCB_FIELD, EDA_TEXT);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_FIELD, string>(
+        PCB_FIELD,
+        'Name',
+        NO_SETTER,
+        'GetCanonicalName',
+        TYPE_STRING,
+      ),
+    )
+    .SetIsHiddenFromLibraryEditors()
+    .SetIsHiddenFromPropertiesManager();
+
+  // These properties, inherited from EDA_TEXT, have no sense for the board editor
+  propMgr.Mask(PCB_FIELD, EDA_TEXT, 'Hyperlink');
+  propMgr.Mask(PCB_FIELD, EDA_TEXT, 'Color');
+})();

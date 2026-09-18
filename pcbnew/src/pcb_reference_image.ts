@@ -38,6 +38,25 @@ import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { type VECTOR2I, add } from '@ziroeda/kimath/src/math/vector2.js';
 import { HIGH_CONTRAST_MODE } from './board_project_settings.js';
 import { BOARD_ITEM } from './board_item.js';
+import { COORD_TYPES_T } from '@ziroeda/common/src/origin_transforms.js';
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  NO_SETTER,
+  PG_CHOICES,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_CAST,
+  TYPE_COLOR4D,
+  TYPE_DOUBLE,
+  TYPE_INT,
+  TYPE_OPT_INT,
+  TYPE_STRING,
+} from '@ziroeda/common/src/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+
 import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
 
 /**
@@ -300,3 +319,94 @@ export class PCB_REFERENCE_IMAGE extends BOARD_ITEM {
     this.m_referenceImage.SetHeight(aHeight);
   }
 }
+
+/**
+ * `static struct PCB_REFERENCE_IMAGE_DESC` (pcbnew/pcb_reference_image.cpp).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(PCB_REFERENCE_IMAGE);
+  propMgr.InheritsAfter(PCB_REFERENCE_IMAGE, BOARD_ITEM);
+
+  propMgr.ReplaceProperty(
+    BOARD_ITEM,
+    'Layer',
+    new PROPERTY_ENUM<PCB_REFERENCE_IMAGE, PCB_LAYER_ID, BOARD_ITEM>(
+      PCB_REFERENCE_IMAGE,
+      'Associated Layer',
+      'SetLayer',
+      'GetLayer',
+      ENUM_MAP.Instance<PCB_LAYER_ID>('PCB_LAYER_ID'),
+      PROPERTY_DISPLAY.PT_DEFAULT,
+      COORD_TYPES_T.NOT_A_COORD,
+      BOARD_ITEM,
+    ),
+  );
+
+  const groupImage = 'Image Properties';
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_REFERENCE_IMAGE, number>(
+      PCB_REFERENCE_IMAGE,
+      'Scale',
+      'SetImageScale',
+      'GetImageScale',
+      TYPE_DOUBLE,
+    ),
+    groupImage,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_REFERENCE_IMAGE, number>(
+      PCB_REFERENCE_IMAGE,
+      'Transform Offset X',
+      'SetTransformOriginOffsetX',
+      'GetTransformOriginOffsetX',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_COORD,
+      COORD_TYPES_T.ABS_X_COORD,
+    ),
+    groupImage,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_REFERENCE_IMAGE, number>(
+      PCB_REFERENCE_IMAGE,
+      'Transform Offset Y',
+      'SetTransformOriginOffsetY',
+      'GetTransformOriginOffsetY',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_COORD,
+      COORD_TYPES_T.ABS_Y_COORD,
+    ),
+    groupImage,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_REFERENCE_IMAGE, number>(
+      PCB_REFERENCE_IMAGE,
+      'Width',
+      'SetWidth',
+      'GetWidth',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_COORD,
+    ),
+    groupImage,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_REFERENCE_IMAGE, number>(
+      PCB_REFERENCE_IMAGE,
+      'Height',
+      'SetHeight',
+      'GetHeight',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_COORD,
+    ),
+    groupImage,
+  );
+
+  // For future use
+  const greyscale = 'Greyscale';
+  void greyscale;
+})();

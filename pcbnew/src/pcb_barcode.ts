@@ -38,6 +38,24 @@ import { moduleIsSet, type ZintSymbol } from './barcode/common.js';
 import { encodeBarcode } from './barcode/zint.js';
 import type { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
 import { BOARD_ITEM } from './board_item.js';
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  NO_SETTER,
+  PG_CHOICES,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_CAST,
+  TYPE_COLOR4D,
+  TYPE_DOUBLE,
+  TYPE_INT,
+  TYPE_OPT_INT,
+  TYPE_STRING,
+} from '@ziroeda/common/src/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+
 import { PCB_TEXT } from './pcb_text.js';
 import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
 import type { BarcodeEcc, BarcodeKind } from './types.js';
@@ -986,3 +1004,192 @@ export class PCB_BARCODE extends BOARD_ITEM {
     );
   }
 }
+
+/**
+ * `static struct PCB_BARCODE_DESC` (pcbnew/pcb_barcode.cpp).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(PCB_BARCODE);
+  propMgr.InheritsAfter(PCB_BARCODE, BOARD_ITEM);
+
+  const groupBarcode = 'Barcode Properties';
+
+  const kindMap = ENUM_MAP.Instance<BARCODE_T>('BARCODE_T');
+  if (kindMap.Choices().GetCount() === 0) {
+    kindMap.Undefined(BARCODE_T.QR_CODE);
+    kindMap
+      .Map(BARCODE_T.CODE_39, 'CODE_39')
+      .Map(BARCODE_T.CODE_128, 'CODE_128')
+      .Map(BARCODE_T.DATA_MATRIX, 'DATA_MATRIX')
+      .Map(BARCODE_T.QR_CODE, 'QR_CODE')
+      .Map(BARCODE_T.MICRO_QR_CODE, 'MICRO_QR_CODE');
+  }
+
+  const eccMap = ENUM_MAP.Instance<BARCODE_ECC_T>('BARCODE_ECC_T');
+  if (eccMap.Choices().GetCount() === 0) {
+    eccMap.Undefined(BARCODE_ECC_T.L);
+    eccMap
+      .Map(BARCODE_ECC_T.L, 'L (Low)')
+      .Map(BARCODE_ECC_T.M, 'M (Medium)')
+      .Map(BARCODE_ECC_T.Q, 'Q (Quartile)')
+      .Map(BARCODE_ECC_T.H, 'H (High)');
+  }
+
+  const hasKnockout = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof PCB_BARCODE) return aItem.IsKnockout();
+    return false;
+  };
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_BARCODE, string>(
+      PCB_BARCODE,
+      'Text',
+      'SetBarcodeText',
+      'GetText',
+      TYPE_STRING,
+    ),
+    groupBarcode,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_BARCODE, boolean>(
+      PCB_BARCODE,
+      'Show Text',
+      'SetShowText',
+      'GetShowText',
+      TYPE_BOOL,
+    ),
+    groupBarcode,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_BARCODE, number>(
+      PCB_BARCODE,
+      'Text Size',
+      'SetTextSize',
+      'GetTextSize',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_COORD,
+    ),
+    groupBarcode,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_BARCODE, number>(
+      PCB_BARCODE,
+      'Width',
+      'SetBarcodeWidth',
+      'GetWidth',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_COORD,
+    ),
+    groupBarcode,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_BARCODE, number>(
+      PCB_BARCODE,
+      'Height',
+      'SetBarcodeHeight',
+      'GetHeight',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_COORD,
+    ),
+    groupBarcode,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_BARCODE, number>(
+      PCB_BARCODE,
+      'Orientation',
+      'SetOrientation',
+      'GetOrientation',
+      TYPE_DOUBLE,
+    ),
+    groupBarcode,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PCB_BARCODE, BARCODE_T>(
+      PCB_BARCODE,
+      'Barcode Type',
+      'SetBarcodeKind',
+      'GetKind',
+      kindMap,
+    ),
+    groupBarcode,
+  );
+
+  const isQRCode = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof PCB_BARCODE)
+      return aItem.GetKind() === BARCODE_T.QR_CODE || aItem.GetKind() === BARCODE_T.MICRO_QR_CODE;
+
+    return false;
+  };
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<PCB_BARCODE, BARCODE_ECC_T>(
+        PCB_BARCODE,
+        'Error Correction',
+        'SetBarcodeErrorCorrection',
+        'GetErrorCorrection',
+        eccMap,
+      ),
+      groupBarcode,
+    )
+    .SetAvailableFunc(isQRCode)
+    .SetChoicesFunc((aItem: INSPECTABLE_ITEM): PG_CHOICES => {
+      const barcode = aItem as PCB_BARCODE;
+      const choices = new PG_CHOICES();
+
+      choices.Add('L (Low)', BARCODE_ECC_T.L);
+      choices.Add('M (Medium)', BARCODE_ECC_T.M);
+      choices.Add('Q (Quartile)', BARCODE_ECC_T.Q);
+
+      // Only QR_CODE has High
+      if (barcode.GetKind() === BARCODE_T.QR_CODE) choices.Add('H (High)', BARCODE_ECC_T.H);
+
+      return choices;
+    });
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_BARCODE, boolean>(
+      PCB_BARCODE,
+      'Knockout',
+      'SetIsKnockout',
+      'IsKnockout',
+      TYPE_BOOL,
+    ),
+    groupBarcode,
+  );
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_BARCODE, number>(
+        PCB_BARCODE,
+        'Margin X',
+        'SetMarginX',
+        'GetMarginX',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_COORD,
+      ),
+      groupBarcode,
+    )
+    .SetAvailableFunc(hasKnockout);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_BARCODE, number>(
+        PCB_BARCODE,
+        'Margin Y',
+        'SetMarginY',
+        'GetMarginY',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_COORD,
+      ),
+      groupBarcode,
+    )
+    .SetAvailableFunc(hasKnockout);
+})();

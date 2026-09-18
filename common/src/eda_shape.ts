@@ -16,6 +16,7 @@
  */
 
 import { longest_common_subset } from '@ziroeda/core/src/kicad_algo.js';
+import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { type FLIP_DIRECTION, MIRROR } from '@ziroeda/core/src/mirror.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
@@ -64,6 +65,24 @@ import { messageTextFromAngle } from './eda_units.js';
 import { LINE_STYLE, STROKE_PARAMS } from './stroke_params.js';
 import type { UNITS_PROVIDER } from './units_provider.js';
 import { MSG_PANEL_ITEM } from './widgets/msgpanel.js';
+import { COORD_TYPES_T } from './origin_transforms.js';
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  NO_SETTER,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_COLOR4D,
+  TYPE_EDA_ANGLE,
+  TYPE_INT,
+  type VALIDATOR_RESULT,
+} from './properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from './properties/property_mgr.js';
+import {
+  VALIDATION_ERROR_TOO_LARGE,
+  VALIDATION_ERROR_TOO_SMALL,
+} from './properties/property_validators.js';
 
 export enum SHAPE_T {
   UNDEFINED = -1,
@@ -160,6 +179,20 @@ export function GetArcAngle(start: Vec2, end: Vec2, center: Vec2): EDA_ANGLE {
 }
 
 export abstract class EDA_SHAPE {
+  /**
+   * `dynamic_cast<EDA_SHAPE*>( x )`: EDA_SHAPE is a mixin here, so
+   * `instanceof` asks for its state rather than its prototype.
+   */
+  static [Symbol.hasInstance](aObject: unknown): boolean {
+    return (
+      typeof aObject === 'object' &&
+      aObject !== null &&
+      'm_shape' in aObject &&
+      'm_stroke' in aObject &&
+      typeof (aObject as EDA_SHAPE).GetShape === 'function'
+    );
+  }
+
   m_endsSwapped!: boolean; // true if start/end were swapped e.g. SetArcAngleAndEnd
   m_shape!: SHAPE_T; // Shape: line, Circle, Arc
   m_stroke!: STROKE_PARAMS; // Line style, width, etc.
@@ -2868,3 +2901,330 @@ export abstract class EDA_SHAPE {
     return this.m_hatchingCache.hatchLines;
   }
 }
+
+/**
+ * `static struct EDA_SHAPE_DESC` (common/eda_shape.cpp): the enums and the
+ * shape properties.
+ */
+(() => {
+  ENUM_MAP.Instance<SHAPE_T>('SHAPE_T')
+    .Map(SHAPE_T.SEGMENT, 'Segment')
+    .Map(SHAPE_T.RECTANGLE, 'Rectangle')
+    .Map(SHAPE_T.ARC, 'Arc')
+    .Map(SHAPE_T.CIRCLE, 'Circle')
+    .Map(SHAPE_T.POLY, 'Polygon')
+    .Map(SHAPE_T.BEZIER, 'Bezier');
+
+  const lineStyleEnum = ENUM_MAP.Instance<LINE_STYLE>('LINE_STYLE');
+
+  if (lineStyleEnum.Choices().GetCount() === 0) {
+    lineStyleEnum
+      .Map(LINE_STYLE.SOLID, 'Solid')
+      .Map(LINE_STYLE.DASH, 'Dashed')
+      .Map(LINE_STYLE.DOT, 'Dotted')
+      .Map(LINE_STYLE.DASHDOT, 'Dash-Dot')
+      .Map(LINE_STYLE.DASHDOTDOT, 'Dash-Dot-Dot');
+  }
+
+  const hatchModeEnum = ENUM_MAP.Instance<UI_FILL_MODE>('UI_FILL_MODE');
+
+  if (hatchModeEnum.Choices().GetCount() === 0) {
+    hatchModeEnum.Map(UI_FILL_MODE.NONE, 'None');
+    hatchModeEnum.Map(UI_FILL_MODE.SOLID, 'Solid');
+    hatchModeEnum.Map(UI_FILL_MODE.HATCH, 'Hatch');
+    hatchModeEnum.Map(UI_FILL_MODE.REVERSE_HATCH, 'Reverse Hatch');
+    hatchModeEnum.Map(UI_FILL_MODE.CROSS_HATCH, 'Cross-hatch');
+  }
+
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(EDA_SHAPE);
+
+  const isNotPolygonOrCircle = (aItem: INSPECTABLE_ITEM): boolean => {
+    // Polygons, unlike other shapes, have no meaningful start or end coordinates
+    if (aItem instanceof EDA_SHAPE)
+      return aItem.GetShape() !== SHAPE_T.POLY && aItem.GetShape() !== SHAPE_T.CIRCLE;
+
+    return false;
+  };
+
+  const isCircle = (aItem: INSPECTABLE_ITEM): boolean => {
+    // Polygons, unlike other shapes, have no meaningful start or end coordinates
+    if (aItem instanceof EDA_SHAPE) return aItem.GetShape() === SHAPE_T.CIRCLE;
+
+    return false;
+  };
+
+  const isRectangle = (aItem: INSPECTABLE_ITEM): boolean => {
+    // Polygons, unlike other shapes, have no meaningful start or end coordinates
+    if (aItem instanceof EDA_SHAPE) return aItem.GetShape() === SHAPE_T.RECTANGLE;
+
+    return false;
+  };
+
+  const shapeProps = 'Shape Properties';
+
+  const shape = new PROPERTY_ENUM<EDA_SHAPE, SHAPE_T>(
+    EDA_SHAPE,
+    'Shape',
+    NO_SETTER,
+    'GetShape',
+    ENUM_MAP.Instance<SHAPE_T>('SHAPE_T'),
+  );
+  propMgr.AddProperty(shape, shapeProps);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<EDA_SHAPE, number>(
+        EDA_SHAPE,
+        'Start X',
+        'SetStartX',
+        'GetStartX',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_COORD,
+        COORD_TYPES_T.ABS_X_COORD,
+      ),
+      shapeProps,
+    )
+    .SetAvailableFunc(isNotPolygonOrCircle);
+  propMgr
+    .AddProperty(
+      new PROPERTY<EDA_SHAPE, number>(
+        EDA_SHAPE,
+        'Start Y',
+        'SetStartY',
+        'GetStartY',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_COORD,
+        COORD_TYPES_T.ABS_Y_COORD,
+      ),
+      shapeProps,
+    )
+    .SetAvailableFunc(isNotPolygonOrCircle);
+  propMgr
+    .AddProperty(
+      new PROPERTY<EDA_SHAPE, number>(
+        EDA_SHAPE,
+        'Center X',
+        'SetCenterX',
+        'GetStartX',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_COORD,
+        COORD_TYPES_T.ABS_X_COORD,
+      ),
+      shapeProps,
+    )
+    .SetAvailableFunc(isCircle);
+  propMgr
+    .AddProperty(
+      new PROPERTY<EDA_SHAPE, number>(
+        EDA_SHAPE,
+        'Center Y',
+        'SetCenterY',
+        'GetStartY',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_COORD,
+        COORD_TYPES_T.ABS_Y_COORD,
+      ),
+      shapeProps,
+    )
+    .SetAvailableFunc(isCircle);
+  propMgr
+    .AddProperty(
+      new PROPERTY<EDA_SHAPE, number>(
+        EDA_SHAPE,
+        'Radius',
+        'SetRadius',
+        'GetRadius',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+        COORD_TYPES_T.NOT_A_COORD,
+      ),
+      shapeProps,
+    )
+    .SetAvailableFunc(isCircle);
+  propMgr
+    .AddProperty(
+      new PROPERTY<EDA_SHAPE, number>(
+        EDA_SHAPE,
+        'End X',
+        'SetEndX',
+        'GetEndX',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_COORD,
+        COORD_TYPES_T.ABS_X_COORD,
+      ),
+      shapeProps,
+    )
+    .SetAvailableFunc(isNotPolygonOrCircle);
+  propMgr
+    .AddProperty(
+      new PROPERTY<EDA_SHAPE, number>(
+        EDA_SHAPE,
+        'End Y',
+        'SetEndY',
+        'GetEndY',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_COORD,
+        COORD_TYPES_T.ABS_Y_COORD,
+      ),
+      shapeProps,
+    )
+    .SetAvailableFunc(isNotPolygonOrCircle);
+  propMgr
+    .AddProperty(
+      new PROPERTY<EDA_SHAPE, number>(
+        EDA_SHAPE,
+        'Width',
+        'SetRectangleWidth',
+        'GetRectangleWidth',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+        COORD_TYPES_T.NOT_A_COORD,
+      ),
+      shapeProps,
+    )
+    .SetAvailableFunc(isRectangle);
+  propMgr
+    .AddProperty(
+      new PROPERTY<EDA_SHAPE, number>(
+        EDA_SHAPE,
+        'Height',
+        'SetRectangleHeight',
+        'GetRectangleHeight',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+        COORD_TYPES_T.NOT_A_COORD,
+      ),
+      shapeProps,
+    )
+    .SetAvailableFunc(isRectangle);
+  propMgr
+    .AddProperty(
+      new PROPERTY<EDA_SHAPE, number>(
+        EDA_SHAPE,
+        'Corner Radius',
+        'SetCornerRadius',
+        'GetCornerRadius',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+        COORD_TYPES_T.NOT_A_COORD,
+      ),
+      shapeProps,
+    )
+    .SetAvailableFunc(isRectangle)
+    .SetValidator((aValue: unknown, aItem: INSPECTABLE_ITEM | null): VALIDATOR_RESULT => {
+      console.assert(typeof aValue === 'number', 'Expecting int-containing value');
+      const radius = aValue as number;
+
+      if (!(aItem instanceof EDA_SHAPE)) return null;
+
+      const prop_shape = aItem;
+      const maxRadius = Math.trunc(
+        Math.min(prop_shape.GetRectangleWidth(), prop_shape.GetRectangleHeight()) / 2,
+      );
+
+      if (radius > maxRadius) return new VALIDATION_ERROR_TOO_LARGE(radius, maxRadius);
+      else if (radius < 0) return new VALIDATION_ERROR_TOO_SMALL(radius, 0);
+
+      return null;
+    });
+  propMgr.AddProperty(
+    new PROPERTY<EDA_SHAPE, number>(
+      EDA_SHAPE,
+      'Line Width',
+      'SetWidth',
+      'GetWidth',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    shapeProps,
+  );
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<EDA_SHAPE, LINE_STYLE>(
+      EDA_SHAPE,
+      'Line Style',
+      'SetLineStyle',
+      'GetLineStyle',
+      lineStyleEnum,
+    ),
+    shapeProps,
+  );
+  propMgr
+    .AddProperty(
+      new PROPERTY<EDA_SHAPE, Color4d>(
+        EDA_SHAPE,
+        'Line Color',
+        'SetLineColor',
+        'GetLineColor',
+        TYPE_COLOR4D,
+      ),
+      shapeProps,
+    )
+    .SetIsHiddenFromRulesEditor();
+
+  const angle = new PROPERTY<EDA_SHAPE, EDA_ANGLE>(
+    EDA_SHAPE,
+    'Angle',
+    NO_SETTER,
+    'GetArcAngle',
+    TYPE_EDA_ANGLE,
+    PROPERTY_DISPLAY.PT_DECIDEGREE,
+  );
+  angle.SetAvailableFunc((aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof EDA_SHAPE) return aItem.GetShape() === SHAPE_T.ARC;
+
+    return false;
+  });
+  propMgr.AddProperty(angle, shapeProps);
+
+  const fillAvailable = (aItem: INSPECTABLE_ITEM): boolean => {
+    // For some reason masking "Filled" and "Fill Color" at the
+    // PCB_TABLECELL level doesn't work.
+    const edaItem = aItem as { Type?: () => KICAD_T };
+
+    if (typeof edaItem.Type === 'function') {
+      if (edaItem.Type() === KICAD_T.PCB_TABLECELL_T || edaItem.Type() === KICAD_T.PCB_TEXTBOX_T)
+        return false;
+    }
+
+    if (aItem instanceof EDA_SHAPE) {
+      switch (aItem.GetShape()) {
+        case SHAPE_T.POLY:
+        case SHAPE_T.RECTANGLE:
+        case SHAPE_T.CIRCLE:
+        case SHAPE_T.BEZIER:
+          return true;
+        default:
+          return false;
+      }
+    }
+
+    return false;
+  };
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<EDA_SHAPE, UI_FILL_MODE>(
+        EDA_SHAPE,
+        'Fill',
+        'SetFillModeProp',
+        'GetFillModeProp',
+        hatchModeEnum,
+      ),
+      shapeProps,
+    )
+    .SetAvailableFunc(fillAvailable);
+  propMgr
+    .AddProperty(
+      new PROPERTY<EDA_SHAPE, Color4d>(
+        EDA_SHAPE,
+        'Fill Color',
+        'SetFillColor',
+        'GetFillColor',
+        TYPE_COLOR4D,
+      ),
+      shapeProps,
+    )
+    .SetAvailableFunc(fillAvailable)
+    .SetIsHiddenFromRulesEditor();
+})();

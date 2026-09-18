@@ -15,6 +15,25 @@ import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/src/eda_draw_frame.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/src/eda_item.js';
 import type { EDA_SEARCH_DATA } from '@ziroeda/common/src/eda_search_data.js';
 import { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  NO_SETTER,
+  PG_CHOICES,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_CAST,
+  TYPE_COLOR4D,
+  TYPE_DOUBLE,
+  TYPE_INT,
+  TYPE_OPT_INT,
+  TYPE_STRING,
+} from '@ziroeda/common/src/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+import { COORD_TYPES_T } from '@ziroeda/common/src/origin_transforms.js';
+
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import type { OutStr } from '@ziroeda/common/src/font/font.js';
 import type { FONT } from '@ziroeda/common/src/font/font.js';
@@ -738,3 +757,55 @@ export class PCB_TEXT extends BOARD_ITEM {
 }
 
 applyMixins(PCB_TEXT, [EDA_TEXT]);
+
+/**
+ * `static struct PCB_TEXT_DESC` (pcbnew/pcb_text.cpp).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(PCB_TEXT);
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_TEXT, BOARD_ITEM));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_TEXT, EDA_TEXT));
+  propMgr.InheritsAfter(PCB_TEXT, BOARD_ITEM);
+  propMgr.InheritsAfter(PCB_TEXT, EDA_TEXT);
+
+  propMgr.Mask(PCB_TEXT, EDA_TEXT, 'Color');
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TEXT, boolean, BOARD_ITEM>(
+      PCB_TEXT,
+      'Knockout',
+      'SetIsKnockout',
+      'IsKnockout',
+      TYPE_BOOL,
+      PROPERTY_DISPLAY.PT_DEFAULT,
+      COORD_TYPES_T.NOT_A_COORD,
+      BOARD_ITEM,
+    ),
+    'Text Properties',
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TEXT, boolean, EDA_TEXT>(
+      PCB_TEXT,
+      'Keep Upright',
+      'SetKeepUpright',
+      'IsKeepUpright',
+      TYPE_BOOL,
+      PROPERTY_DISPLAY.PT_DEFAULT,
+      COORD_TYPES_T.NOT_A_COORD,
+      EDA_TEXT,
+    ),
+    'Text Properties',
+  );
+
+  const isFootprintText = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof PCB_TEXT) return !!aItem.GetParentFootprint();
+
+    return false;
+  };
+
+  propMgr.OverrideAvailability(PCB_TEXT, EDA_TEXT, 'Keep Upright', isFootprintText);
+
+  propMgr.Mask(PCB_TEXT, EDA_TEXT, 'Hyperlink');
+})();

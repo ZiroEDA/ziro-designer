@@ -38,6 +38,8 @@ import { type EDA_SEARCH_DATA, EDA_SEARCH_MATCH_MODE, compileRegex } from './eda
 import { type KIID, newKiid, niluuid } from './kiid.js';
 import { wildCompareString } from './string_utils.js';
 import type { UNITS_PROVIDER } from './units_provider.js';
+import { ENUM_MAP, NO_SETTER, PROPERTY_ENUM } from './properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from './properties/property_mgr.js';
 import { VIEW_ITEM } from './view/view_item.js';
 import type { MSG_PANEL_ITEM } from './widgets/msgpanel.js';
 
@@ -509,7 +511,7 @@ export abstract class EDA_ITEM extends VIEW_ITEM {
    */
   GetTypeDesc(): string {
     //@see EDA_ITEM_DESC for definition of ENUM_MAP<KICAD_T>
-    const typeDescr = EDA_ITEM_DESC.get(this.Type()) ?? '';
+    const typeDescr = ENUM_MAP.Instance<KICAD_T>('KICAD_T').ToString(this.Type());
 
     return typeDescr;
   }
@@ -866,73 +868,82 @@ export function CompareByUuid(item1: EDA_ITEM, item2: EDA_ITEM): boolean {
  */
 export type EDA_ITEMS = EDA_ITEM[];
 
-/** `EDA_ITEM_DESC`'s `ENUM_MAP<KICAD_T>`: the user-facing type names. */
-export const EDA_ITEM_DESC: ReadonlyMap<KICAD_T, string> = new Map<KICAD_T, string>([
-  [KICAD_T.NOT_USED, '<not used>'],
-  [KICAD_T.SCREEN_T, 'Screen'],
-  [KICAD_T.SCHEMATIC_T, 'Schematic'],
+/**
+ * `static struct EDA_ITEM_DESC` (common/eda_item.cpp): `ENUM_MAP<KICAD_T>` and
+ * the one property every item has, `Type`.
+ */
+(() => {
+  ENUM_MAP.Instance<KICAD_T>('KICAD_T')
+    .Undefined(KICAD_T.TYPE_NOT_INIT)
+    .Map(KICAD_T.NOT_USED, '<not used>')
+    .Map(KICAD_T.SCREEN_T, 'Screen')
+    .Map(KICAD_T.SCHEMATIC_T, 'Schematic')
+    .Map(KICAD_T.PCB_FOOTPRINT_T, 'Footprint')
+    .Map(KICAD_T.PCB_PAD_T, 'Pad')
+    .Map(KICAD_T.PCB_SHAPE_T, 'Graphic')
+    .Map(KICAD_T.PCB_REFERENCE_IMAGE_T, 'Reference Image')
+    .Map(KICAD_T.PCB_GENERATOR_T, 'Generator')
+    .Map(KICAD_T.PCB_FIELD_T, 'Text')
+    .Map(KICAD_T.PCB_TEXT_T, 'Text')
+    .Map(KICAD_T.PCB_TEXTBOX_T, 'Text Box')
+    .Map(KICAD_T.PCB_TABLE_T, 'Table')
+    .Map(KICAD_T.PCB_TABLECELL_T, 'Table Cell')
+    .Map(KICAD_T.PCB_TRACE_T, 'Track')
+    .Map(KICAD_T.PCB_ARC_T, 'Track')
+    .Map(KICAD_T.PCB_VIA_T, 'Via')
+    .Map(KICAD_T.PCB_MARKER_T, 'Marker')
+    .Map(KICAD_T.PCB_DIM_ALIGNED_T, 'Dimension')
+    .Map(KICAD_T.PCB_DIM_ORTHOGONAL_T, 'Dimension')
+    .Map(KICAD_T.PCB_DIM_CENTER_T, 'Dimension')
+    .Map(KICAD_T.PCB_DIM_RADIAL_T, 'Dimension')
+    .Map(KICAD_T.PCB_DIM_LEADER_T, 'Leader')
+    .Map(KICAD_T.PCB_TARGET_T, 'Target')
+    .Map(KICAD_T.PCB_POINT_T, 'Point')
+    .Map(KICAD_T.PCB_ZONE_T, 'Zone')
+    .Map(KICAD_T.PCB_ITEM_LIST_T, 'ItemList')
+    .Map(KICAD_T.PCB_NETINFO_T, 'NetInfo')
+    .Map(KICAD_T.PCB_GROUP_T, 'Group')
+    .Map(KICAD_T.PCB_BARCODE_T, 'Barcode')
+    .Map(KICAD_T.SCH_MARKER_T, 'Marker')
+    .Map(KICAD_T.SCH_JUNCTION_T, 'Junction')
+    .Map(KICAD_T.SCH_NO_CONNECT_T, 'No-Connect Flag')
+    .Map(KICAD_T.SCH_BUS_WIRE_ENTRY_T, 'Wire Entry')
+    .Map(KICAD_T.SCH_BUS_BUS_ENTRY_T, 'Bus Entry')
+    .Map(KICAD_T.SCH_LINE_T, 'Line')
+    .Map(KICAD_T.SCH_BITMAP_T, 'Bitmap')
+    .Map(KICAD_T.SCH_SHAPE_T, 'Graphic')
+    .Map(KICAD_T.SCH_RULE_AREA_T, 'Rule Area')
+    .Map(KICAD_T.SCH_TEXT_T, 'Text')
+    .Map(KICAD_T.SCH_TEXTBOX_T, 'Text Box')
+    .Map(KICAD_T.SCH_TABLE_T, 'Table')
+    .Map(KICAD_T.SCH_TABLECELL_T, 'Table Cell')
+    .Map(KICAD_T.SCH_LABEL_T, 'Net Label')
+    .Map(KICAD_T.SCH_DIRECTIVE_LABEL_T, 'Directive Label')
+    .Map(KICAD_T.SCH_GLOBAL_LABEL_T, 'Global Label')
+    .Map(KICAD_T.SCH_HIER_LABEL_T, 'Hierarchical Label')
+    .Map(KICAD_T.SCH_FIELD_T, 'Field')
+    .Map(KICAD_T.SCH_SYMBOL_T, 'Symbol')
+    .Map(KICAD_T.SCH_PIN_T, 'Pin')
+    .Map(KICAD_T.SCH_SHEET_PIN_T, 'Sheet Pin')
+    .Map(KICAD_T.SCH_SHEET_T, 'Sheet')
+    .Map(KICAD_T.SCH_GROUP_T, 'Group')
+    .Map(KICAD_T.SCH_SCREEN_T, 'SCH Screen')
+    .Map(KICAD_T.LIB_SYMBOL_T, 'Symbol')
+    .Map(KICAD_T.GERBER_LAYOUT_T, 'Gerber Layout')
+    .Map(KICAD_T.GERBER_DRAW_ITEM_T, 'Draw Item')
+    .Map(KICAD_T.GERBER_IMAGE_T, 'Image');
 
-  [KICAD_T.PCB_FOOTPRINT_T, 'Footprint'],
-  [KICAD_T.PCB_PAD_T, 'Pad'],
-  [KICAD_T.PCB_SHAPE_T, 'Graphic'],
-  [KICAD_T.PCB_REFERENCE_IMAGE_T, 'Reference Image'],
-  [KICAD_T.PCB_GENERATOR_T, 'Generator'],
-  [KICAD_T.PCB_FIELD_T, 'Text'],
-  [KICAD_T.PCB_TEXT_T, 'Text'],
-  [KICAD_T.PCB_TEXTBOX_T, 'Text Box'],
-  [KICAD_T.PCB_TABLE_T, 'Table'],
-  [KICAD_T.PCB_TABLECELL_T, 'Table Cell'],
-  [KICAD_T.PCB_TRACE_T, 'Track'],
-  [KICAD_T.PCB_ARC_T, 'Track'],
-  [KICAD_T.PCB_VIA_T, 'Via'],
-  [KICAD_T.PCB_MARKER_T, 'Marker'],
-  [KICAD_T.PCB_DIM_ALIGNED_T, 'Dimension'],
-  [KICAD_T.PCB_DIM_ORTHOGONAL_T, 'Dimension'],
-  [KICAD_T.PCB_DIM_CENTER_T, 'Dimension'],
-  [KICAD_T.PCB_DIM_RADIAL_T, 'Dimension'],
-  [KICAD_T.PCB_DIM_LEADER_T, 'Leader'],
-  [KICAD_T.PCB_TARGET_T, 'Target'],
-  [KICAD_T.PCB_POINT_T, 'Point'],
-  [KICAD_T.PCB_ZONE_T, 'Zone'],
-  [KICAD_T.PCB_ITEM_LIST_T, 'ItemList'],
-  [KICAD_T.PCB_NETINFO_T, 'NetInfo'],
-  [KICAD_T.PCB_GROUP_T, 'Group'],
-  [KICAD_T.PCB_BARCODE_T, 'Barcode'],
-
-  [KICAD_T.SCH_MARKER_T, 'Marker'],
-  [KICAD_T.SCH_JUNCTION_T, 'Junction'],
-  [KICAD_T.SCH_NO_CONNECT_T, 'No-Connect Flag'],
-  [KICAD_T.SCH_BUS_WIRE_ENTRY_T, 'Wire Entry'],
-  [KICAD_T.SCH_BUS_BUS_ENTRY_T, 'Bus Entry'],
-  [KICAD_T.SCH_LINE_T, 'Line'],
-  [KICAD_T.SCH_BITMAP_T, 'Bitmap'],
-  [KICAD_T.SCH_SHAPE_T, 'Graphic'],
-  [KICAD_T.SCH_RULE_AREA_T, 'Rule Area'],
-  [KICAD_T.SCH_TEXT_T, 'Text'],
-  [KICAD_T.SCH_TEXTBOX_T, 'Text Box'],
-  [KICAD_T.SCH_TABLE_T, 'Table'],
-  [KICAD_T.SCH_TABLECELL_T, 'Table Cell'],
-  [KICAD_T.SCH_LABEL_T, 'Net Label'],
-  [KICAD_T.SCH_DIRECTIVE_LABEL_T, 'Directive Label'],
-  [KICAD_T.SCH_GLOBAL_LABEL_T, 'Global Label'],
-  [KICAD_T.SCH_HIER_LABEL_T, 'Hierarchical Label'],
-  [KICAD_T.SCH_FIELD_T, 'Field'],
-  [KICAD_T.SCH_SYMBOL_T, 'Symbol'],
-  [KICAD_T.SCH_PIN_T, 'Pin'],
-  [KICAD_T.SCH_SHEET_PIN_T, 'Sheet Pin'],
-  [KICAD_T.SCH_SHEET_T, 'Sheet'],
-  [KICAD_T.SCH_GROUP_T, 'Group'],
-
-  // Synthetic search tokens don't need to be included...
-  //[ KICAD_T.SCH_FIELD_LOCATE_REFERENCE_T, "Field Locate Reference" ],
-  //[ KICAD_T.SCH_FIELD_LOCATE_VALUE_T,     "Field Locate Value" ],
-  //[ KICAD_T.SCH_FIELD_LOCATE_FOOTPRINT_T, "Field Locate Footprint" ],
-
-  [KICAD_T.SCH_SCREEN_T, 'SCH Screen'],
-
-  [KICAD_T.LIB_SYMBOL_T, 'Symbol'],
-
-  [KICAD_T.GERBER_LAYOUT_T, 'Gerber Layout'],
-  [KICAD_T.GERBER_DRAW_ITEM_T, 'Draw Item'],
-  [KICAD_T.GERBER_IMAGE_T, 'Image'],
-]);
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(EDA_ITEM);
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<EDA_ITEM, KICAD_T>(
+        EDA_ITEM,
+        'Type',
+        NO_SETTER,
+        'Type',
+        ENUM_MAP.Instance<KICAD_T>('KICAD_T'),
+      ),
+    )
+    .SetIsHiddenFromPropertiesManager();
+})();

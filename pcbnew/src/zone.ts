@@ -19,7 +19,35 @@ import type { EDA_SEARCH_DATA } from '@ziroeda/common/src/eda_search_data.js';
 import { COURTYARD_CONFLICT } from '@ziroeda/common/src/eda_item_flags.js';
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import type { OutStr } from '@ziroeda/common/src/font/font.js';
-import { FLASHING, GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import {
+  FLASHING,
+  GAL_LAYER_ID,
+  IsCopperLayer,
+  PCB_LAYER_ID,
+} from '@ziroeda/common/src/layer_ids.js';
+import { COORD_TYPES_T } from '@ziroeda/common/src/origin_transforms.js';
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  NO_SETTER,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_DOUBLE,
+  TYPE_EDA_ANGLE,
+  TYPE_INT,
+  TYPE_OPT_INT,
+  TYPE_STRING,
+  TYPE_UNSIGNED,
+  type VALIDATOR_RESULT,
+} from '@ziroeda/common/src/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+import {
+  PROPERTY_VALIDATORS,
+  VALIDATION_ERROR_MSG,
+} from '@ziroeda/common/src/properties/property_validators.js';
+import { INT_MAX } from '@ziroeda/kimath/src/math/util.js';
 import { LSET } from '@ziroeda/common/src/lset.js';
 import { AccumulateDescription, unescapeString } from '@ziroeda/common/src/string_utils.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
@@ -61,7 +89,9 @@ import {
   ZONE_BORDER_HATCH_DIST_MM,
   ZONE_BORDER_HATCH_MAXDIST_MM,
   ZONE_BORDER_HATCH_MINDIST_MM,
+  ZONE_CLEARANCE_MAX_VALUE_MM,
   ZONE_CONNECTION,
+  ZONE_THICKNESS_MIN_VALUE_MM,
 } from './zones.js';
 
 export {
@@ -2276,3 +2306,460 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     this.m_localFlgs = aOther.m_localFlgs;
   }
 }
+
+/**
+ * `static struct ZONE_DESC` (pcbnew/zone.cpp).
+ */
+(() => {
+  const layerEnum = ENUM_MAP.Instance<PCB_LAYER_ID>('PCB_LAYER_ID');
+
+  if (layerEnum.Choices().GetCount() === 0) {
+    layerEnum.Undefined(PCB_LAYER_ID.UNDEFINED_LAYER);
+
+    for (const layer of LSET.AllLayersMask().Seq()) layerEnum.Map(layer, LSET.Name(layer));
+  }
+
+  const zcMap = ENUM_MAP.Instance<ZONE_CONNECTION>('ZONE_CONNECTION');
+
+  if (zcMap.Choices().GetCount() === 0) {
+    zcMap.Undefined(ZONE_CONNECTION.INHERITED);
+    zcMap
+      .Map(ZONE_CONNECTION.INHERITED, 'Inherited')
+      .Map(ZONE_CONNECTION.NONE, 'None')
+      .Map(ZONE_CONNECTION.THERMAL, 'Thermal reliefs')
+      .Map(ZONE_CONNECTION.FULL, 'Solid')
+      .Map(ZONE_CONNECTION.THT_THERMAL, 'Thermal reliefs for PTH');
+  }
+
+  const zfmMap = ENUM_MAP.Instance<ZONE_FILL_MODE>('ZONE_FILL_MODE');
+
+  if (zfmMap.Choices().GetCount() === 0) {
+    zfmMap.Undefined(ZONE_FILL_MODE.POLYGONS);
+    zfmMap
+      .Map(ZONE_FILL_MODE.POLYGONS, 'Solid fill')
+      .Map(ZONE_FILL_MODE.HATCH_PATTERN, 'Hatch pattern');
+  }
+
+  const irmMap = ENUM_MAP.Instance<ISLAND_REMOVAL_MODE>('ISLAND_REMOVAL_MODE');
+
+  if (irmMap.Choices().GetCount() === 0) {
+    irmMap.Undefined(ISLAND_REMOVAL_MODE.ALWAYS);
+    irmMap
+      .Map(ISLAND_REMOVAL_MODE.ALWAYS, 'Always')
+      .Map(ISLAND_REMOVAL_MODE.NEVER, 'Never')
+      .Map(ISLAND_REMOVAL_MODE.AREA, 'Below area limit');
+  }
+
+  const rapstMap = ENUM_MAP.Instance<PLACEMENT_SOURCE_T>('PLACEMENT_SOURCE_T');
+
+  if (rapstMap.Choices().GetCount() === 0) {
+    rapstMap.Undefined(PLACEMENT_SOURCE_T.SHEETNAME);
+    rapstMap
+      .Map(PLACEMENT_SOURCE_T.SHEETNAME, 'Sheet Name')
+      .Map(PLACEMENT_SOURCE_T.COMPONENT_CLASS, 'Component Class')
+      .Map(PLACEMENT_SOURCE_T.GROUP_PLACEMENT, 'Group');
+  }
+
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(ZONE);
+  propMgr.InheritsAfter(ZONE, BOARD_CONNECTED_ITEM);
+
+  // Mask layer and position properties; they aren't useful in current form
+  const posX = new PROPERTY<ZONE, number>(
+    ZONE,
+    'Position X',
+    NO_SETTER,
+    'GetX',
+    TYPE_INT,
+    PROPERTY_DISPLAY.PT_COORD,
+    COORD_TYPES_T.ABS_X_COORD,
+  );
+  posX.SetIsHiddenFromPropertiesManager();
+
+  const posY = new PROPERTY<ZONE, number>(
+    ZONE,
+    'Position Y',
+    NO_SETTER,
+    'GetY',
+    TYPE_INT,
+    PROPERTY_DISPLAY.PT_COORD,
+    COORD_TYPES_T.ABS_Y_COORD,
+  );
+  posY.SetIsHiddenFromPropertiesManager();
+
+  propMgr.ReplaceProperty(BOARD_ITEM, 'Position X', posX);
+  propMgr.ReplaceProperty(BOARD_ITEM, 'Position Y', posY);
+
+  const isCopperZone = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof ZONE)
+      return !aItem.GetIsRuleArea() && IsCopperLayer(aItem.GetFirstLayer());
+
+    return false;
+  };
+
+  const isRuleArea = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof ZONE) return aItem.GetIsRuleArea();
+
+    return false;
+  };
+
+  const isHatchedFill = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof ZONE) return aItem.GetFillMode() === ZONE_FILL_MODE.HATCH_PATTERN;
+
+    return false;
+  };
+
+  const isAreaBasedIslandRemoval = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof ZONE) return aItem.GetIslandRemovalMode() === ISLAND_REMOVAL_MODE.AREA;
+
+    return false;
+  };
+
+  // Layer property is hidden because it only holds a single layer and zones actually use
+  // a layer set
+  propMgr
+    .ReplaceProperty(
+      BOARD_CONNECTED_ITEM,
+      'Layer',
+      new PROPERTY_ENUM<ZONE, PCB_LAYER_ID>(ZONE, 'Layer', 'SetLayer', 'GetLayer', layerEnum),
+    )
+    .SetIsHiddenFromPropertiesManager();
+
+  propMgr.OverrideAvailability(ZONE, BOARD_CONNECTED_ITEM, 'Net', isCopperZone);
+  propMgr.OverrideAvailability(ZONE, BOARD_CONNECTED_ITEM, 'Net Class', isCopperZone);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<ZONE, number>(
+        ZONE,
+        'Priority',
+        'SetAssignedPriority',
+        'GetAssignedPriority',
+        TYPE_UNSIGNED,
+      ),
+    )
+    .SetAvailableFunc(isCopperZone);
+
+  propMgr.AddProperty(
+    new PROPERTY<ZONE, string>(ZONE, 'Name', 'SetZoneName', 'GetZoneName', TYPE_STRING),
+  );
+
+  const groupKeepout = 'Keepout';
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<ZONE, boolean>(
+        ZONE,
+        'Keep Out Tracks',
+        'SetDoNotAllowTracks',
+        'GetDoNotAllowTracks',
+        TYPE_BOOL,
+      ),
+      groupKeepout,
+    )
+    .SetAvailableFunc(isRuleArea);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<ZONE, boolean>(
+        ZONE,
+        'Keep Out Vias',
+        'SetDoNotAllowVias',
+        'GetDoNotAllowVias',
+        TYPE_BOOL,
+      ),
+      groupKeepout,
+    )
+    .SetAvailableFunc(isRuleArea);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<ZONE, boolean>(
+        ZONE,
+        'Keep Out Pads',
+        'SetDoNotAllowPads',
+        'GetDoNotAllowPads',
+        TYPE_BOOL,
+      ),
+      groupKeepout,
+    )
+    .SetAvailableFunc(isRuleArea);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<ZONE, boolean>(
+        ZONE,
+        'Keep Out Zone Fills',
+        'SetDoNotAllowZoneFills',
+        'GetDoNotAllowZoneFills',
+        TYPE_BOOL,
+      ),
+      groupKeepout,
+    )
+    .SetAvailableFunc(isRuleArea);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<ZONE, boolean>(
+        ZONE,
+        'Keep Out Footprints',
+        'SetDoNotAllowFootprints',
+        'GetDoNotAllowFootprints',
+        TYPE_BOOL,
+      ),
+      groupKeepout,
+    )
+    .SetAvailableFunc(isRuleArea);
+
+  const groupPlacement = 'Placement';
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<ZONE, boolean>(
+        ZONE,
+        'Enable',
+        'SetPlacementAreaEnabled',
+        'GetPlacementAreaEnabled',
+        TYPE_BOOL,
+      ),
+      groupPlacement,
+    )
+    .SetAvailableFunc(isRuleArea);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<ZONE, PLACEMENT_SOURCE_T>(
+        ZONE,
+        'Source Type',
+        'SetPlacementAreaSourceType',
+        'GetPlacementAreaSourceType',
+        rapstMap,
+      ),
+      groupPlacement,
+    )
+    .SetAvailableFunc(isRuleArea);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<ZONE, string>(
+        ZONE,
+        'Source Name',
+        'SetPlacementAreaSource',
+        'GetPlacementAreaSource',
+        TYPE_STRING,
+      ),
+      groupPlacement,
+    )
+    .SetAvailableFunc(isRuleArea);
+
+  const groupFill = 'Fill Style';
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<ZONE, ZONE_FILL_MODE>(
+        ZONE,
+        'Fill Mode',
+        'SetFillMode',
+        'GetFillMode',
+        zfmMap,
+      ),
+      groupFill,
+    )
+    .SetAvailableFunc(isCopperZone);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<ZONE, EDA_ANGLE>(
+        ZONE,
+        'Hatch Orientation',
+        'SetHatchOrientation',
+        'GetHatchOrientation',
+        TYPE_EDA_ANGLE,
+        PROPERTY_DISPLAY.PT_DEGREE,
+      ),
+      groupFill,
+    )
+    .SetAvailableFunc(isCopperZone)
+    .SetWriteableFunc(isHatchedFill);
+
+  const atLeastMinWidthValidator = (
+    aValue: unknown,
+    aZone: INSPECTABLE_ITEM | null,
+  ): VALIDATOR_RESULT => {
+    const val = aValue as number;
+
+    if (!(aZone instanceof ZONE)) return null;
+
+    if (val < aZone.GetMinThickness())
+      return new VALIDATION_ERROR_MSG('Cannot be less than zone minimum width');
+
+    return null;
+  };
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<ZONE, number>(
+        ZONE,
+        'Hatch Width',
+        'SetHatchThickness',
+        'GetHatchThickness',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupFill,
+    )
+    .SetAvailableFunc(isCopperZone)
+    .SetWriteableFunc(isHatchedFill)
+    .SetValidator(atLeastMinWidthValidator);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<ZONE, number>(
+        ZONE,
+        'Hatch Gap',
+        'SetHatchGap',
+        'GetHatchGap',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupFill,
+    )
+    .SetAvailableFunc(isCopperZone)
+    .SetWriteableFunc(isHatchedFill)
+    .SetValidator(atLeastMinWidthValidator);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<ZONE, number>(
+        ZONE,
+        'Hatch Minimum Hole Ratio',
+        'SetHatchHoleMinArea',
+        'GetHatchHoleMinArea',
+        TYPE_DOUBLE,
+      ),
+      groupFill,
+    )
+    .SetAvailableFunc(isCopperZone)
+    .SetWriteableFunc(isHatchedFill)
+    .SetValidator(PROPERTY_VALIDATORS.PositiveRatioValidator);
+
+  // TODO: Smoothing effort needs to change to enum (in dialog too)
+  propMgr
+    .AddProperty(
+      new PROPERTY<ZONE, number>(
+        ZONE,
+        'Smoothing Effort',
+        'SetHatchSmoothingLevel',
+        'GetHatchSmoothingLevel',
+        TYPE_INT,
+      ),
+      groupFill,
+    )
+    .SetAvailableFunc(isCopperZone)
+    .SetWriteableFunc(isHatchedFill);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<ZONE, number>(
+        ZONE,
+        'Smoothing Amount',
+        'SetHatchSmoothingValue',
+        'GetHatchSmoothingValue',
+        TYPE_DOUBLE,
+      ),
+      groupFill,
+    )
+    .SetAvailableFunc(isCopperZone)
+    .SetWriteableFunc(isHatchedFill);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<ZONE, ISLAND_REMOVAL_MODE>(
+        ZONE,
+        'Remove Islands',
+        'SetIslandRemovalMode',
+        'GetIslandRemovalMode',
+        irmMap,
+      ),
+      groupFill,
+    )
+    .SetAvailableFunc(isCopperZone);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<ZONE, number>(
+        ZONE,
+        'Minimum Island Area',
+        'SetMinIslandArea',
+        'GetMinIslandArea',
+        TYPE_INT, // long long int
+        PROPERTY_DISPLAY.PT_AREA,
+      ),
+      groupFill,
+    )
+    .SetAvailableFunc(isCopperZone)
+    .SetWriteableFunc(isAreaBasedIslandRemoval);
+
+  const groupElectrical = 'Electrical';
+
+  const clearance = new PROPERTY<ZONE, number | undefined>(
+    ZONE,
+    'Clearance',
+    'SetLocalClearance',
+    'GetLocalClearance',
+    TYPE_OPT_INT,
+    PROPERTY_DISPLAY.PT_SIZE,
+  );
+  clearance.SetAvailableFunc(isCopperZone);
+  const maxClearance = pcbIUScale.mmToIU(ZONE_CLEARANCE_MAX_VALUE_MM);
+  clearance.SetValidator(PROPERTY_VALIDATORS.RangeIntValidator(0, maxClearance));
+
+  const minWidth = new PROPERTY<ZONE, number>(
+    ZONE,
+    'Minimum Width',
+    'SetMinThickness',
+    'GetMinThickness',
+    TYPE_INT,
+    PROPERTY_DISPLAY.PT_SIZE,
+  );
+  minWidth.SetAvailableFunc(isCopperZone);
+  const minMinWidth = pcbIUScale.mmToIU(ZONE_THICKNESS_MIN_VALUE_MM);
+  minWidth.SetValidator(PROPERTY_VALIDATORS.RangeIntValidator(minMinWidth, INT_MAX));
+
+  const padConnections = new PROPERTY_ENUM<ZONE, ZONE_CONNECTION>(
+    ZONE,
+    'Pad Connections',
+    'SetPadConnection',
+    'GetPadConnection',
+    zcMap,
+  );
+  padConnections.SetAvailableFunc(isCopperZone);
+
+  const thermalGap = new PROPERTY<ZONE, number>(
+    ZONE,
+    'Thermal Relief Gap',
+    'SetThermalReliefGap',
+    'GetThermalReliefGap',
+    TYPE_INT,
+    PROPERTY_DISPLAY.PT_SIZE,
+  );
+  thermalGap.SetAvailableFunc(isCopperZone);
+  thermalGap.SetValidator(PROPERTY_VALIDATORS.PositiveIntValidator);
+
+  const thermalSpokeWidth = new PROPERTY<ZONE, number>(
+    ZONE,
+    'Thermal Relief Spoke Width',
+    'SetThermalReliefSpokeWidth',
+    'GetThermalReliefSpokeWidth',
+    TYPE_INT,
+    PROPERTY_DISPLAY.PT_SIZE,
+  );
+  thermalSpokeWidth.SetAvailableFunc(isCopperZone);
+  thermalSpokeWidth.SetValidator(atLeastMinWidthValidator);
+
+  propMgr.AddProperty(clearance, groupElectrical);
+  propMgr.AddProperty(minWidth, groupElectrical);
+  propMgr.AddProperty(padConnections, groupElectrical);
+  propMgr.AddProperty(thermalGap, groupElectrical);
+  propMgr.AddProperty(thermalSpokeWidth, groupElectrical);
+})();

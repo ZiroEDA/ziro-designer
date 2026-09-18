@@ -19,6 +19,24 @@
 
 import { EDA_GROUP } from '@ziroeda/common/src/eda_group.js';
 import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  NO_SETTER,
+  PG_CHOICES,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_CAST,
+  TYPE_COLOR4D,
+  TYPE_DOUBLE,
+  TYPE_INT,
+  TYPE_OPT_INT,
+  TYPE_STRING,
+} from '@ziroeda/common/src/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+
+import {
   CompareByUuid,
   type EDA_DRAW_FRAME_LIKE,
   type EDA_ITEM,
@@ -469,3 +487,26 @@ function getNestedGroup(
 function edaItemSet(aItems: Set<EDA_ITEM>): EDA_ITEM[] {
   return [...aItems].sort((a, b) => (CompareByUuid(a, b) ? -1 : CompareByUuid(b, a) ? 1 : 0));
 }
+
+/**
+ * `static struct PCB_GROUP_DESC` (pcbnew/pcb_group.cpp).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(PCB_GROUP);
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_GROUP, BOARD_ITEM));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_GROUP, EDA_GROUP));
+  propMgr.InheritsAfter(PCB_GROUP, BOARD_ITEM);
+  propMgr.InheritsAfter(PCB_GROUP, EDA_GROUP);
+
+  propMgr.Mask(PCB_GROUP, BOARD_ITEM, 'Position X');
+  propMgr.Mask(PCB_GROUP, BOARD_ITEM, 'Position Y');
+  propMgr.Mask(PCB_GROUP, BOARD_ITEM, 'Layer');
+
+  const groupTab = 'Group Properties';
+
+  propMgr.AddProperty(
+    new PROPERTY<EDA_GROUP, string>(EDA_GROUP, 'Name', 'SetName', 'GetName', TYPE_STRING),
+    groupTab,
+  );
+})();

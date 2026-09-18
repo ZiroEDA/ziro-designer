@@ -17,6 +17,24 @@
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/src/eda_item.js';
 import { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
 import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  NO_SETTER,
+  PG_CHOICES,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_CAST,
+  TYPE_COLOR4D,
+  TYPE_DOUBLE,
+  TYPE_INT,
+  TYPE_OPT_INT,
+  TYPE_STRING,
+} from '@ziroeda/common/src/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+
+import {
   type EdaUnits,
   pcbIUScale,
   toUserUnit,
@@ -74,7 +92,7 @@ import {
 } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import type { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
-import type { BOARD_ITEM } from './board_item.js';
+import { BOARD_ITEM } from './board_item.js';
 import {
   DIM_ARROW_DIRECTION,
   DIM_PRECISION,
@@ -2080,3 +2098,361 @@ function isBoardItem(a: unknown): a is BOARD_ITEM {
     typeof (a as BOARD_ITEM).Type === 'function' && typeof (a as BOARD_ITEM).GetLayer === 'function'
   );
 }
+
+/**
+ * `static struct DIMENSION_DESC` (pcbnew/pcb_dimension.cpp).
+ */
+(() => {
+  ENUM_MAP.Instance<DIM_PRECISION>('DIM_PRECISION')
+    .Map(DIM_PRECISION.X, '0')
+    .Map(DIM_PRECISION.X_X, '0.0')
+    .Map(DIM_PRECISION.X_XX, '0.00')
+    .Map(DIM_PRECISION.X_XXX, '0.000')
+    .Map(DIM_PRECISION.X_XXXX, '0.0000')
+    .Map(DIM_PRECISION.X_XXXXX, '0.00000')
+    .Map(DIM_PRECISION.V_VV, '0.00 in / 0 mils / 0.0 mm')
+    .Map(DIM_PRECISION.V_VVV, '0.000 / 0 / 0.00')
+    .Map(DIM_PRECISION.V_VVVV, '0.0000 / 0.0 / 0.000')
+    .Map(DIM_PRECISION.V_VVVVV, '0.00000 / 0.00 / 0.0000');
+
+  ENUM_MAP.Instance<DIM_UNITS_FORMAT>('DIM_UNITS_FORMAT')
+    .Map(DIM_UNITS_FORMAT.NO_SUFFIX, '1234.0')
+    .Map(DIM_UNITS_FORMAT.BARE_SUFFIX, '1234.0 mm')
+    .Map(DIM_UNITS_FORMAT.PAREN_SUFFIX, '1234.0 (mm)');
+
+  ENUM_MAP.Instance<DIM_UNITS_MODE>('DIM_UNITS_MODE')
+    .Map(DIM_UNITS_MODE.INCH, 'Inches')
+    .Map(DIM_UNITS_MODE.MILS, 'Mils')
+    .Map(DIM_UNITS_MODE.MM, 'Millimeters')
+    .Map(DIM_UNITS_MODE.AUTOMATIC, 'Automatic');
+
+  ENUM_MAP.Instance<DIM_ARROW_DIRECTION>('DIM_ARROW_DIRECTION')
+    .Map(DIM_ARROW_DIRECTION.INWARD, 'Inward')
+    .Map(DIM_ARROW_DIRECTION.OUTWARD, 'Outward');
+
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(PCB_DIMENSION_BASE);
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIMENSION_BASE, PCB_TEXT));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIMENSION_BASE, BOARD_ITEM));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIMENSION_BASE, EDA_TEXT));
+  propMgr.InheritsAfter(PCB_DIMENSION_BASE, PCB_TEXT);
+  propMgr.InheritsAfter(PCB_DIMENSION_BASE, BOARD_ITEM);
+  propMgr.InheritsAfter(PCB_DIMENSION_BASE, EDA_TEXT);
+
+  propMgr.Mask(PCB_DIMENSION_BASE, EDA_TEXT, 'Orientation');
+
+  const groupDimension = 'Dimension Properties';
+
+  const isLeader = (aItem: INSPECTABLE_ITEM): boolean => aItem instanceof PCB_DIM_LEADER;
+
+  const isNotLeader = (aItem: INSPECTABLE_ITEM): boolean => !(aItem instanceof PCB_DIM_LEADER);
+
+  const isMultiArrowDirection = (aItem: INSPECTABLE_ITEM): boolean =>
+    aItem instanceof PCB_DIM_ALIGNED;
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_DIMENSION_BASE, string>(
+        PCB_DIMENSION_BASE,
+        'Prefix',
+        'ChangePrefix',
+        'GetPrefix',
+        TYPE_STRING,
+      ),
+      groupDimension,
+    )
+    .SetAvailableFunc(isNotLeader);
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_DIMENSION_BASE, string>(
+        PCB_DIMENSION_BASE,
+        'Suffix',
+        'ChangeSuffix',
+        'GetSuffix',
+        TYPE_STRING,
+      ),
+      groupDimension,
+    )
+    .SetAvailableFunc(isNotLeader);
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_DIMENSION_BASE, string>(
+        PCB_DIMENSION_BASE,
+        'Override Text',
+        'ChangeOverrideText',
+        'GetOverrideText',
+        TYPE_STRING,
+      ),
+      groupDimension,
+    )
+    .SetAvailableFunc(isNotLeader);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_DIMENSION_BASE, string>(
+        PCB_DIMENSION_BASE,
+        'Text',
+        'ChangeOverrideText',
+        'GetOverrideText',
+        TYPE_STRING,
+      ),
+      groupDimension,
+    )
+    .SetAvailableFunc(isLeader);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<PCB_DIMENSION_BASE, DIM_UNITS_MODE>(
+        PCB_DIMENSION_BASE,
+        'Units',
+        'ChangeUnitsMode',
+        'GetUnitsMode',
+        ENUM_MAP.Instance<DIM_UNITS_MODE>('DIM_UNITS_MODE'),
+      ),
+      groupDimension,
+    )
+    .SetAvailableFunc(isNotLeader);
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<PCB_DIMENSION_BASE, DIM_UNITS_FORMAT>(
+        PCB_DIMENSION_BASE,
+        'Units Format',
+        'ChangeUnitsFormat',
+        'GetUnitsFormat',
+        ENUM_MAP.Instance<DIM_UNITS_FORMAT>('DIM_UNITS_FORMAT'),
+      ),
+      groupDimension,
+    )
+    .SetAvailableFunc(isNotLeader);
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<PCB_DIMENSION_BASE, DIM_PRECISION>(
+        PCB_DIMENSION_BASE,
+        'Precision',
+        'ChangePrecision',
+        'GetPrecision',
+        ENUM_MAP.Instance<DIM_PRECISION>('DIM_PRECISION'),
+      ),
+      groupDimension,
+    )
+    .SetAvailableFunc(isNotLeader);
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_DIMENSION_BASE, boolean>(
+        PCB_DIMENSION_BASE,
+        'Suppress Trailing Zeroes',
+        'ChangeSuppressZeroes',
+        'GetSuppressZeroes',
+        TYPE_BOOL,
+      ),
+      groupDimension,
+    )
+    .SetAvailableFunc(isNotLeader);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<PCB_DIMENSION_BASE, DIM_ARROW_DIRECTION>(
+        PCB_DIMENSION_BASE,
+        'Arrow Direction',
+        'ChangeArrowDirection',
+        'GetArrowDirection',
+        ENUM_MAP.Instance<DIM_ARROW_DIRECTION>('DIM_ARROW_DIRECTION'),
+      ),
+      groupDimension,
+    )
+    .SetAvailableFunc(isMultiArrowDirection);
+
+  const groupText = 'Text Properties';
+
+  const isTextOrientationWriteable = (aItem: INSPECTABLE_ITEM): boolean =>
+    !(aItem as PCB_DIMENSION_BASE).GetKeepTextAligned();
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_DIMENSION_BASE, boolean>(
+      PCB_DIMENSION_BASE,
+      'Keep Aligned with Dimension',
+      'ChangeKeepTextAligned',
+      'GetKeepTextAligned',
+      TYPE_BOOL,
+    ),
+    groupText,
+  );
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_DIMENSION_BASE, number>(
+        PCB_DIMENSION_BASE,
+        'Orientation',
+        'ChangeTextAngleDegrees',
+        'GetTextAngleDegreesProp',
+        TYPE_DOUBLE,
+        PROPERTY_DISPLAY.PT_DEGREE,
+      ),
+      groupText,
+    )
+    .SetWriteableFunc(isTextOrientationWriteable);
+})();
+
+/**
+ * `static struct ALIGNED_DIMENSION_DESC` (pcbnew/pcb_dimension.cpp).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(PCB_DIM_ALIGNED);
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIM_ALIGNED, BOARD_ITEM));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIM_ALIGNED, EDA_TEXT));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIM_ALIGNED, PCB_TEXT));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIM_ALIGNED, PCB_DIMENSION_BASE));
+  propMgr.InheritsAfter(PCB_DIM_ALIGNED, BOARD_ITEM);
+  propMgr.InheritsAfter(PCB_DIM_ALIGNED, EDA_TEXT);
+  propMgr.InheritsAfter(PCB_DIM_ALIGNED, PCB_TEXT);
+  propMgr.InheritsAfter(PCB_DIM_ALIGNED, PCB_DIMENSION_BASE);
+
+  const groupDimension = 'Dimension Properties';
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_DIM_ALIGNED, number>(
+      PCB_DIM_ALIGNED,
+      'Crossbar Height',
+      'ChangeHeight',
+      'GetHeight',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    groupDimension,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<PCB_DIM_ALIGNED, number>(
+      PCB_DIM_ALIGNED,
+      'Extension Line Overshoot',
+      'ChangeExtensionHeight',
+      'GetExtensionHeight',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    groupDimension,
+  );
+
+  propMgr.OverrideAvailability(PCB_DIM_ALIGNED, EDA_TEXT, 'Text', () => false);
+  propMgr.OverrideAvailability(PCB_DIM_ALIGNED, EDA_TEXT, 'Vertical Justification', () => false);
+  propMgr.OverrideAvailability(PCB_DIM_ALIGNED, EDA_TEXT, 'Hyperlink', () => false);
+  propMgr.OverrideAvailability(PCB_DIM_ALIGNED, BOARD_ITEM, 'Knockout', () => false);
+})();
+
+/**
+ * `static struct ORTHOGONAL_DIMENSION_DESC` (pcbnew/pcb_dimension.cpp).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(PCB_DIM_ORTHOGONAL);
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIM_ORTHOGONAL, BOARD_ITEM));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIM_ORTHOGONAL, EDA_TEXT));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIM_ORTHOGONAL, PCB_TEXT));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIM_ORTHOGONAL, PCB_DIMENSION_BASE));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIM_ORTHOGONAL, PCB_DIM_ALIGNED));
+  propMgr.InheritsAfter(PCB_DIM_ORTHOGONAL, BOARD_ITEM);
+  propMgr.InheritsAfter(PCB_DIM_ORTHOGONAL, EDA_TEXT);
+  propMgr.InheritsAfter(PCB_DIM_ORTHOGONAL, PCB_TEXT);
+  propMgr.InheritsAfter(PCB_DIM_ORTHOGONAL, PCB_DIMENSION_BASE);
+  propMgr.InheritsAfter(PCB_DIM_ORTHOGONAL, PCB_DIM_ALIGNED);
+
+  propMgr.OverrideAvailability(PCB_DIM_ORTHOGONAL, EDA_TEXT, 'Text', () => false);
+  propMgr.OverrideAvailability(PCB_DIM_ORTHOGONAL, EDA_TEXT, 'Vertical Justification', () => false);
+  propMgr.OverrideAvailability(PCB_DIM_ORTHOGONAL, EDA_TEXT, 'Hyperlink', () => false);
+  propMgr.OverrideAvailability(PCB_DIM_ORTHOGONAL, BOARD_ITEM, 'Knockout', () => false);
+})();
+
+/**
+ * `static struct RADIAL_DIMENSION_DESC` (pcbnew/pcb_dimension.cpp).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(PCB_DIM_RADIAL);
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIM_RADIAL, BOARD_ITEM));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIM_RADIAL, EDA_TEXT));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIM_RADIAL, PCB_TEXT));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIM_RADIAL, PCB_DIMENSION_BASE));
+  propMgr.InheritsAfter(PCB_DIM_RADIAL, BOARD_ITEM);
+  propMgr.InheritsAfter(PCB_DIM_RADIAL, EDA_TEXT);
+  propMgr.InheritsAfter(PCB_DIM_RADIAL, PCB_TEXT);
+  propMgr.InheritsAfter(PCB_DIM_RADIAL, PCB_DIMENSION_BASE);
+
+  const groupDimension = 'Dimension Properties';
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_DIM_RADIAL, number>(
+      PCB_DIM_RADIAL,
+      'Leader Length',
+      'ChangeLeaderLength',
+      'GetLeaderLength',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    groupDimension,
+  );
+
+  propMgr.OverrideAvailability(PCB_DIM_RADIAL, EDA_TEXT, 'Text', () => false);
+  propMgr.OverrideAvailability(PCB_DIM_RADIAL, EDA_TEXT, 'Vertical Justification', () => false);
+  propMgr.OverrideAvailability(PCB_DIM_RADIAL, EDA_TEXT, 'Hyperlink', () => false);
+  propMgr.OverrideAvailability(PCB_DIM_RADIAL, BOARD_ITEM, 'Knockout', () => false);
+})();
+
+/**
+ * `static struct LEADER_DIMENSION_DESC` (pcbnew/pcb_dimension.cpp).
+ */
+(() => {
+  ENUM_MAP.Instance<DIM_TEXT_BORDER>('DIM_TEXT_BORDER')
+    .Map(DIM_TEXT_BORDER.NONE, 'None')
+    .Map(DIM_TEXT_BORDER.RECTANGLE, 'Rectangle')
+    .Map(DIM_TEXT_BORDER.CIRCLE, 'Circle');
+
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(PCB_DIM_LEADER);
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIM_LEADER, BOARD_ITEM));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIM_LEADER, EDA_TEXT));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIM_LEADER, PCB_TEXT));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIM_LEADER, PCB_DIMENSION_BASE));
+  propMgr.InheritsAfter(PCB_DIM_LEADER, BOARD_ITEM);
+  propMgr.InheritsAfter(PCB_DIM_LEADER, EDA_TEXT);
+  propMgr.InheritsAfter(PCB_DIM_LEADER, PCB_TEXT);
+  propMgr.InheritsAfter(PCB_DIM_LEADER, PCB_DIMENSION_BASE);
+
+  const groupDimension = 'Dimension Properties';
+
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PCB_DIM_LEADER, DIM_TEXT_BORDER>(
+      PCB_DIM_LEADER,
+      'Text Frame',
+      'ChangeTextBorder',
+      'GetTextBorder',
+      ENUM_MAP.Instance<DIM_TEXT_BORDER>('DIM_TEXT_BORDER'),
+    ),
+    groupDimension,
+  );
+
+  propMgr.OverrideAvailability(PCB_DIM_LEADER, EDA_TEXT, 'Text', () => false);
+  propMgr.OverrideAvailability(PCB_DIM_LEADER, EDA_TEXT, 'Vertical Justification', () => false);
+  propMgr.OverrideAvailability(PCB_DIM_LEADER, EDA_TEXT, 'Hyperlink', () => false);
+  propMgr.OverrideAvailability(PCB_DIM_LEADER, BOARD_ITEM, 'Knockout', () => false);
+})();
+
+/**
+ * `static struct CENTER_DIMENSION_DESC` (pcbnew/pcb_dimension.cpp).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(PCB_DIM_CENTER);
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIM_CENTER, BOARD_ITEM));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIM_CENTER, EDA_TEXT));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIM_CENTER, PCB_TEXT));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_DIM_CENTER, PCB_DIMENSION_BASE));
+  propMgr.InheritsAfter(PCB_DIM_CENTER, BOARD_ITEM);
+  propMgr.InheritsAfter(PCB_DIM_CENTER, EDA_TEXT);
+  propMgr.InheritsAfter(PCB_DIM_CENTER, PCB_TEXT);
+  propMgr.InheritsAfter(PCB_DIM_CENTER, PCB_DIMENSION_BASE);
+
+  propMgr.OverrideAvailability(PCB_DIM_CENTER, EDA_TEXT, 'Text', () => false);
+  propMgr.OverrideAvailability(PCB_DIM_CENTER, EDA_TEXT, 'Vertical Justification', () => false);
+  propMgr.OverrideAvailability(PCB_DIM_CENTER, EDA_TEXT, 'Hyperlink', () => false);
+  propMgr.OverrideAvailability(PCB_DIM_CENTER, BOARD_ITEM, 'Knockout', () => false);
+})();

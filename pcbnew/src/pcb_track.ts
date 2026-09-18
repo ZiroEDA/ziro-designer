@@ -37,6 +37,7 @@ import {
   IsCopperLayer,
   IsCopperLayerLowerThan,
   IsFrontLayer,
+  IsExternalCopperLayer,
   IsHoleLayer,
   IsNetnameLayer,
   IsSolderMaskLayer,
@@ -47,6 +48,20 @@ import {
   ToLAYER_ID,
 } from '@ziroeda/common/src/layer_ids.js';
 import { LAYER_RANGE } from '@ziroeda/common/src/layer_range.js';
+import { COORD_TYPES_T } from '@ziroeda/common/src/origin_transforms.js';
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_INT,
+  TYPE_OPT_INT,
+  type VALIDATOR_RESULT,
+} from '@ziroeda/common/src/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+import { VALIDATION_ERROR_MSG } from '@ziroeda/common/src/properties/property_validators.js';
 import { LSET } from '@ziroeda/common/src/lset.js';
 import { unescapeString } from '@ziroeda/common/src/string_utils.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
@@ -83,6 +98,7 @@ import { CalcArcCenterI, RotatePoint, TestSegmentHit } from '@ziroeda/kimath/src
 import { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
 import { BOARD_ITEM, ZONE_LAYER_OVERRIDE } from './board_item.js';
 import {
+  BACKDRILL_MODE,
   PAD_DRILL_POST_MACHINING_MODE,
   PAD_DRILL_SHAPE,
   PAD_SHAPE,
@@ -2964,3 +2980,782 @@ export class PCB_VIA extends PCB_TRACK {
     PCB_TRACK.prototype.SetWidth.call(this, PCB_TRACK.prototype.GetWidth.call(aOther));
   }
 }
+
+/**
+ * `static struct TRACK_VIA_DESC` (pcbnew/pcb_track.cpp).
+ */
+(() => {
+  // clang-format off: the suggestion is less readable
+  ENUM_MAP.Instance<VIATYPE>('VIATYPE')
+    .Undefined(VIATYPE.NOT_DEFINED)
+    .Map(VIATYPE.THROUGH, 'Through')
+    .Map(VIATYPE.BLIND, 'Blind')
+    .Map(VIATYPE.BURIED, 'Buried')
+    .Map(VIATYPE.MICROVIA, 'Micro');
+
+  ENUM_MAP.Instance<TENTING_MODE>('TENTING_MODE')
+    .Undefined(TENTING_MODE.FROM_BOARD)
+    .Map(TENTING_MODE.FROM_BOARD, 'From board stackup')
+    .Map(TENTING_MODE.TENTED, 'Tented')
+    .Map(TENTING_MODE.NOT_TENTED, 'Not tented');
+
+  ENUM_MAP.Instance<COVERING_MODE>('COVERING_MODE')
+    .Undefined(COVERING_MODE.FROM_BOARD)
+    .Map(COVERING_MODE.FROM_BOARD, 'From board stackup')
+    .Map(COVERING_MODE.COVERED, 'Covered')
+    .Map(COVERING_MODE.NOT_COVERED, 'Not covered');
+
+  ENUM_MAP.Instance<PLUGGING_MODE>('PLUGGING_MODE')
+    .Undefined(PLUGGING_MODE.FROM_BOARD)
+    .Map(PLUGGING_MODE.FROM_BOARD, 'From board stackup')
+    .Map(PLUGGING_MODE.PLUGGED, 'Plugged')
+    .Map(PLUGGING_MODE.NOT_PLUGGED, 'Not plugged');
+
+  ENUM_MAP.Instance<CAPPING_MODE>('CAPPING_MODE')
+    .Undefined(CAPPING_MODE.FROM_BOARD)
+    .Map(CAPPING_MODE.FROM_BOARD, 'From board stackup')
+    .Map(CAPPING_MODE.CAPPED, 'Capped')
+    .Map(CAPPING_MODE.NOT_CAPPED, 'Not capped');
+
+  ENUM_MAP.Instance<FILLING_MODE>('FILLING_MODE')
+    .Undefined(FILLING_MODE.FROM_BOARD)
+    .Map(FILLING_MODE.FROM_BOARD, 'From board stackup')
+    .Map(FILLING_MODE.FILLED, 'Filled')
+    .Map(FILLING_MODE.NOT_FILLED, 'Not filled');
+
+  // clang-format on: the suggestion is less readable
+
+  const layerEnum = ENUM_MAP.Instance<PCB_LAYER_ID>('PCB_LAYER_ID');
+
+  if (layerEnum.Choices().GetCount() === 0) {
+    layerEnum.Undefined(PCB_LAYER_ID.UNDEFINED_LAYER);
+
+    for (const layer of LSET.AllLayersMask().Seq()) layerEnum.Map(layer, LSET.Name(layer));
+  }
+
+  const viaDiameterPropertyValidator = (
+    aValue: unknown,
+    aItem: INSPECTABLE_ITEM | null,
+  ): VALIDATOR_RESULT => {
+    if (!(aItem instanceof PCB_VIA)) return null;
+
+    if (typeof aValue !== 'number') return null;
+
+    const via = aItem;
+
+    const diameter: number | undefined = aValue;
+    const drill: number | undefined = via.GetDrillValue();
+
+    let startLayer: PCB_LAYER_ID | undefined;
+
+    if (via.Padstack().Drill().start !== PCB_LAYER_ID.UNDEFINED_LAYER)
+      startLayer = via.Padstack().Drill().start;
+
+    let endLayer: PCB_LAYER_ID | undefined;
+
+    if (via.Padstack().Drill().end !== PCB_LAYER_ID.UNDEFINED_LAYER)
+      endLayer = via.Padstack().Drill().end;
+
+    const copperLayerCount = via.BoardCopperLayerCount();
+
+    const error = PCB_VIA.ValidateViaParameters(
+      diameter,
+      drill,
+      startLayer,
+      endLayer,
+      undefined,
+      undefined,
+      undefined, // secondary drill
+      undefined,
+      undefined,
+      undefined, // tertiary drill
+      copperLayerCount,
+    );
+
+    if (error) return new VALIDATION_ERROR_MSG(error.m_Message);
+
+    return null;
+  };
+
+  const viaDrillPropertyValidator = (
+    aValue: unknown,
+    aItem: INSPECTABLE_ITEM | null,
+  ): VALIDATOR_RESULT => {
+    if (!(aItem instanceof PCB_VIA)) return null;
+
+    if (typeof aValue !== 'number') return null;
+
+    const via = aItem;
+
+    const diameter: number | undefined = via.GetFrontWidth();
+    const drill: number | undefined = aValue;
+
+    let startLayer: PCB_LAYER_ID | undefined;
+
+    if (via.Padstack().Drill().start !== PCB_LAYER_ID.UNDEFINED_LAYER)
+      startLayer = via.Padstack().Drill().start;
+
+    let endLayer: PCB_LAYER_ID | undefined;
+
+    if (via.Padstack().Drill().end !== PCB_LAYER_ID.UNDEFINED_LAYER)
+      endLayer = via.Padstack().Drill().end;
+
+    const secondaryDrill: number | undefined = via.GetSecondaryDrillSize();
+
+    let secondaryStart: PCB_LAYER_ID | undefined;
+
+    if (via.GetSecondaryDrillStartLayer() !== PCB_LAYER_ID.UNDEFINED_LAYER)
+      secondaryStart = via.GetSecondaryDrillStartLayer();
+
+    let secondaryEnd: PCB_LAYER_ID | undefined;
+
+    if (via.GetSecondaryDrillEndLayer() !== PCB_LAYER_ID.UNDEFINED_LAYER)
+      secondaryEnd = via.GetSecondaryDrillEndLayer();
+
+    const tertiaryDrill: number | undefined = via.GetTertiaryDrillSize();
+
+    let tertiaryStart: PCB_LAYER_ID | undefined;
+
+    if (via.GetTertiaryDrillStartLayer() !== PCB_LAYER_ID.UNDEFINED_LAYER)
+      tertiaryStart = via.GetTertiaryDrillStartLayer();
+
+    let tertiaryEnd: PCB_LAYER_ID | undefined;
+
+    if (via.GetTertiaryDrillEndLayer() !== PCB_LAYER_ID.UNDEFINED_LAYER)
+      tertiaryEnd = via.GetTertiaryDrillEndLayer();
+
+    const copperLayerCount = via.BoardCopperLayerCount();
+
+    const error = PCB_VIA.ValidateViaParameters(
+      diameter,
+      drill,
+      startLayer,
+      endLayer,
+      secondaryDrill,
+      secondaryStart,
+      secondaryEnd,
+      tertiaryDrill,
+      tertiaryStart,
+      tertiaryEnd,
+      copperLayerCount,
+    );
+
+    if (error) return new VALIDATION_ERROR_MSG(error.m_Message);
+
+    return null;
+  };
+
+  const viaStartLayerPropertyValidator = (
+    aValue: unknown,
+    aItem: INSPECTABLE_ITEM | null,
+  ): VALIDATOR_RESULT => {
+    if (!(aItem instanceof PCB_VIA)) return null;
+
+    let layer: PCB_LAYER_ID;
+
+    if (typeof aValue === 'number') layer = aValue as PCB_LAYER_ID;
+    else return null;
+
+    const via = aItem;
+
+    const diameter: number | undefined = via.GetFrontWidth();
+    const drill: number | undefined = via.GetDrillValue();
+
+    let endLayer: PCB_LAYER_ID | undefined;
+
+    if (via.BottomLayer() !== PCB_LAYER_ID.UNDEFINED_LAYER) endLayer = via.BottomLayer();
+
+    const secondaryDrill: number | undefined = via.GetSecondaryDrillSize();
+
+    let secondaryStart: PCB_LAYER_ID | undefined;
+
+    if (via.GetSecondaryDrillStartLayer() !== PCB_LAYER_ID.UNDEFINED_LAYER)
+      secondaryStart = via.GetSecondaryDrillStartLayer();
+
+    let secondaryEnd: PCB_LAYER_ID | undefined;
+
+    if (via.GetSecondaryDrillEndLayer() !== PCB_LAYER_ID.UNDEFINED_LAYER)
+      secondaryEnd = via.GetSecondaryDrillEndLayer();
+
+    const copperLayerCount = via.BoardCopperLayerCount();
+
+    const error = PCB_VIA.ValidateViaParameters(
+      diameter,
+      drill,
+      layer,
+      endLayer,
+      secondaryDrill,
+      secondaryStart,
+      secondaryEnd,
+      undefined,
+      undefined,
+      undefined, // tertiary drill
+      copperLayerCount,
+    );
+
+    if (error) return new VALIDATION_ERROR_MSG(error.m_Message);
+
+    return null;
+  };
+
+  const viaEndLayerPropertyValidator = (
+    aValue: unknown,
+    aItem: INSPECTABLE_ITEM | null,
+  ): VALIDATOR_RESULT => {
+    if (!(aItem instanceof PCB_VIA)) return null;
+
+    let layer: PCB_LAYER_ID;
+
+    if (typeof aValue === 'number') layer = aValue as PCB_LAYER_ID;
+    else return null;
+
+    const via = aItem;
+
+    const diameter: number | undefined = via.GetFrontWidth();
+    const drill: number | undefined = via.GetDrillValue();
+
+    let startLayer: PCB_LAYER_ID | undefined;
+
+    if (via.TopLayer() !== PCB_LAYER_ID.UNDEFINED_LAYER) startLayer = via.TopLayer();
+
+    const secondaryDrill: number | undefined = via.GetSecondaryDrillSize();
+
+    let secondaryStart: PCB_LAYER_ID | undefined;
+
+    if (via.GetSecondaryDrillStartLayer() !== PCB_LAYER_ID.UNDEFINED_LAYER)
+      secondaryStart = via.GetSecondaryDrillStartLayer();
+
+    let secondaryEnd: PCB_LAYER_ID | undefined;
+
+    if (via.GetSecondaryDrillEndLayer() !== PCB_LAYER_ID.UNDEFINED_LAYER)
+      secondaryEnd = via.GetSecondaryDrillEndLayer();
+
+    const copperLayerCount = via.BoardCopperLayerCount();
+
+    const error = PCB_VIA.ValidateViaParameters(
+      diameter,
+      drill,
+      startLayer,
+      layer,
+      secondaryDrill,
+      secondaryStart,
+      secondaryEnd,
+      undefined,
+      undefined,
+      undefined, // tertiary drill
+      copperLayerCount,
+    );
+
+    if (error) return new VALIDATION_ERROR_MSG(error.m_Message);
+
+    return null;
+  };
+
+  const propMgr = PROPERTY_MANAGER.Instance();
+
+  // Track
+  REGISTER_TYPE(PCB_TRACK);
+  propMgr.InheritsAfter(PCB_TRACK, BOARD_CONNECTED_ITEM);
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TRACK, number>(
+      PCB_TRACK,
+      'Width',
+      'SetWidth',
+      'GetWidth',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+  );
+  propMgr.ReplaceProperty(
+    BOARD_ITEM,
+    'Position X',
+    new PROPERTY<PCB_TRACK, number>(
+      PCB_TRACK,
+      'Start X',
+      'SetStartX',
+      'GetStartX',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_COORD,
+      COORD_TYPES_T.ABS_X_COORD,
+    ),
+  );
+  propMgr.ReplaceProperty(
+    BOARD_ITEM,
+    'Position Y',
+    new PROPERTY<PCB_TRACK, number>(
+      PCB_TRACK,
+      'Start Y',
+      'SetStartY',
+      'GetStartY',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_COORD,
+      COORD_TYPES_T.ABS_Y_COORD,
+    ),
+  );
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TRACK, number>(
+      PCB_TRACK,
+      'End X',
+      'SetEndX',
+      'GetEndX',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_COORD,
+      COORD_TYPES_T.ABS_X_COORD,
+    ),
+  );
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TRACK, number>(
+      PCB_TRACK,
+      'End Y',
+      'SetEndY',
+      'GetEndY',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_COORD,
+      COORD_TYPES_T.ABS_Y_COORD,
+    ),
+  );
+
+  const groupTechLayers = 'Technical Layers';
+
+  const isExternalLayerTrack = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof PCB_TRACK) return IsExternalCopperLayer(aItem.GetLayer());
+
+    return false;
+  };
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_TRACK, boolean>(
+        PCB_TRACK,
+        'Soldermask',
+        'SetHasSolderMask',
+        'HasSolderMask',
+        TYPE_BOOL,
+      ),
+      groupTechLayers,
+    )
+    .SetAvailableFunc(isExternalLayerTrack);
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_TRACK, number | undefined>(
+        PCB_TRACK,
+        'Soldermask Margin Override',
+        'SetLocalSolderMaskMargin',
+        'GetLocalSolderMaskMargin',
+        TYPE_OPT_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupTechLayers,
+    )
+    .SetAvailableFunc(isExternalLayerTrack);
+
+  // Arc
+  REGISTER_TYPE(PCB_ARC);
+  propMgr.InheritsAfter(PCB_ARC, PCB_TRACK);
+
+  // Via
+  REGISTER_TYPE(PCB_VIA);
+  propMgr.InheritsAfter(PCB_VIA, BOARD_CONNECTED_ITEM);
+
+  // TODO test drill, use getdrillvalue?
+  const groupVia = 'Via Properties';
+  const groupBackdrill = 'Backdrill';
+  const groupPostMachining = 'Post-machining';
+
+  propMgr.Mask(PCB_VIA, BOARD_CONNECTED_ITEM, 'Layer');
+
+  // clang-format off: the suggestion is less readable
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_VIA, number>(
+        PCB_VIA,
+        'Diameter',
+        'SetFrontWidth',
+        'GetFrontWidth',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupVia,
+    )
+    .SetValidator(viaDiameterPropertyValidator);
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_VIA, number>(
+        PCB_VIA,
+        'Hole',
+        'SetDrill',
+        'GetDrillValue',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupVia,
+    )
+    .SetValidator(viaDrillPropertyValidator);
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<PCB_VIA, PCB_LAYER_ID>(
+        PCB_VIA,
+        'Layer Top',
+        'SetTopLayer',
+        'GetLayer',
+        layerEnum,
+      ),
+      groupVia,
+    )
+    .SetValidator(viaStartLayerPropertyValidator);
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<PCB_VIA, PCB_LAYER_ID>(
+        PCB_VIA,
+        'Layer Bottom',
+        'SetBottomLayer',
+        'BottomLayer',
+        layerEnum,
+      ),
+      groupVia,
+    )
+    .SetValidator(viaEndLayerPropertyValidator);
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PCB_VIA, VIATYPE>(
+      PCB_VIA,
+      'Via Type',
+      'SetViaType',
+      'GetViaType',
+      ENUM_MAP.Instance<VIATYPE>('VIATYPE'),
+    ),
+    groupVia,
+  );
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PCB_VIA, TENTING_MODE>(
+      PCB_VIA,
+      'Front tenting',
+      'SetFrontTentingMode',
+      'GetFrontTentingMode',
+      ENUM_MAP.Instance<TENTING_MODE>('TENTING_MODE'),
+    ),
+    groupVia,
+  );
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PCB_VIA, TENTING_MODE>(
+      PCB_VIA,
+      'Back tenting',
+      'SetBackTentingMode',
+      'GetBackTentingMode',
+      ENUM_MAP.Instance<TENTING_MODE>('TENTING_MODE'),
+    ),
+    groupVia,
+  );
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PCB_VIA, COVERING_MODE>(
+      PCB_VIA,
+      'Front covering',
+      'SetFrontCoveringMode',
+      'GetFrontCoveringMode',
+      ENUM_MAP.Instance<COVERING_MODE>('COVERING_MODE'),
+    ),
+    groupVia,
+  );
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PCB_VIA, COVERING_MODE>(
+      PCB_VIA,
+      'Back covering',
+      'SetBackCoveringMode',
+      'GetBackCoveringMode',
+      ENUM_MAP.Instance<COVERING_MODE>('COVERING_MODE'),
+    ),
+    groupVia,
+  );
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PCB_VIA, PLUGGING_MODE>(
+      PCB_VIA,
+      'Front plugging',
+      'SetFrontPluggingMode',
+      'GetFrontPluggingMode',
+      ENUM_MAP.Instance<PLUGGING_MODE>('PLUGGING_MODE'),
+    ),
+    groupVia,
+  );
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PCB_VIA, PLUGGING_MODE>(
+      PCB_VIA,
+      'Back plugging',
+      'SetBackPluggingMode',
+      'GetBackPluggingMode',
+      ENUM_MAP.Instance<PLUGGING_MODE>('PLUGGING_MODE'),
+    ),
+    groupVia,
+  );
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PCB_VIA, CAPPING_MODE>(
+      PCB_VIA,
+      'Capping',
+      'SetCappingMode',
+      'GetCappingMode',
+      ENUM_MAP.Instance<CAPPING_MODE>('CAPPING_MODE'),
+    ),
+    groupVia,
+  );
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PCB_VIA, FILLING_MODE>(
+      PCB_VIA,
+      'Filling',
+      'SetFillingMode',
+      'GetFillingMode',
+      ENUM_MAP.Instance<FILLING_MODE>('FILLING_MODE'),
+    ),
+    groupVia,
+  );
+
+  const canHaveBackdrill = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof PCB_VIA) {
+      if (aItem.GetViaType() === VIATYPE.THROUGH) return true;
+
+      if (aItem.Padstack().GetBackdrillMode() !== BACKDRILL_MODE.NO_BACKDRILL) return true;
+    }
+
+    return false;
+  };
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<PCB_VIA, BACKDRILL_MODE>(
+        PCB_VIA,
+        'Backdrill Mode',
+        'SetBackdrillMode',
+        'GetBackdrillMode',
+        ENUM_MAP.Instance<BACKDRILL_MODE>('BACKDRILL_MODE'),
+      ),
+      groupBackdrill,
+    )
+    .SetAvailableFunc(canHaveBackdrill);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_VIA, number | undefined>(
+        PCB_VIA,
+        'Bottom Backdrill Size',
+        'SetBottomBackdrillSize',
+        'GetBottomBackdrillSize',
+        TYPE_OPT_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupBackdrill,
+    )
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM): boolean => {
+      if (aItem instanceof PCB_VIA) {
+        const mode = aItem.GetBackdrillMode();
+        return mode === BACKDRILL_MODE.BACKDRILL_BOTTOM || mode === BACKDRILL_MODE.BACKDRILL_BOTH;
+      }
+      return false;
+    });
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<PCB_VIA, PCB_LAYER_ID>(
+        PCB_VIA,
+        'Bottom Backdrill Must-Cut',
+        'SetBottomBackdrillLayer',
+        'GetBottomBackdrillLayer',
+        layerEnum,
+      ),
+      groupBackdrill,
+    )
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM): boolean => {
+      if (aItem instanceof PCB_VIA) {
+        const mode = aItem.GetBackdrillMode();
+        return mode === BACKDRILL_MODE.BACKDRILL_BOTTOM || mode === BACKDRILL_MODE.BACKDRILL_BOTH;
+      }
+      return false;
+    });
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_VIA, number | undefined>(
+        PCB_VIA,
+        'Top Backdrill Size',
+        'SetTopBackdrillSize',
+        'GetTopBackdrillSize',
+        TYPE_OPT_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupBackdrill,
+    )
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM): boolean => {
+      if (aItem instanceof PCB_VIA) {
+        const mode = aItem.GetBackdrillMode();
+        return mode === BACKDRILL_MODE.BACKDRILL_TOP || mode === BACKDRILL_MODE.BACKDRILL_BOTH;
+      }
+      return false;
+    });
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<PCB_VIA, PCB_LAYER_ID>(
+        PCB_VIA,
+        'Top Backdrill Must-Cut',
+        'SetTopBackdrillLayer',
+        'GetTopBackdrillLayer',
+        layerEnum,
+      ),
+      groupBackdrill,
+    )
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM): boolean => {
+      if (aItem instanceof PCB_VIA) {
+        const mode = aItem.GetBackdrillMode();
+        return mode === BACKDRILL_MODE.BACKDRILL_TOP || mode === BACKDRILL_MODE.BACKDRILL_BOTH;
+      }
+      return false;
+    });
+
+  const pmEnum = ENUM_MAP.Instance<PAD_DRILL_POST_MACHINING_MODE>('PAD_DRILL_POST_MACHINING_MODE');
+
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PCB_VIA, PAD_DRILL_POST_MACHINING_MODE>(
+      PCB_VIA,
+      'Front Post-machining',
+      'SetFrontPostMachiningMode',
+      'GetFrontPostMachiningMode',
+      pmEnum,
+    ),
+    groupPostMachining,
+  );
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_VIA, number>(
+        PCB_VIA,
+        'Front Post-machining Size',
+        'SetFrontPostMachiningSize',
+        'GetFrontPostMachiningSize',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupPostMachining,
+    )
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM) => {
+      if (aItem instanceof PCB_VIA) {
+        const mode = aItem.GetFrontPostMachining();
+        return (
+          mode === PAD_DRILL_POST_MACHINING_MODE.COUNTERBORE ||
+          mode === PAD_DRILL_POST_MACHINING_MODE.COUNTERSINK
+        );
+      }
+      return false;
+    });
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_VIA, number>(
+        PCB_VIA,
+        'Front Post-machining Depth',
+        'SetFrontPostMachiningDepth',
+        'GetFrontPostMachiningDepth',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupPostMachining,
+    )
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM) => {
+      if (aItem instanceof PCB_VIA) {
+        const mode = aItem.GetFrontPostMachining();
+        return mode === PAD_DRILL_POST_MACHINING_MODE.COUNTERBORE;
+      }
+      return false;
+    });
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_VIA, number>(
+        PCB_VIA,
+        'Front Post-machining Angle',
+        'SetFrontPostMachiningAngle',
+        'GetFrontPostMachiningAngle',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_DECIDEGREE,
+      ),
+      groupPostMachining,
+    )
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM) => {
+      if (aItem instanceof PCB_VIA) {
+        const mode = aItem.GetFrontPostMachining();
+        return mode === PAD_DRILL_POST_MACHINING_MODE.COUNTERSINK;
+      }
+      return false;
+    });
+
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PCB_VIA, PAD_DRILL_POST_MACHINING_MODE>(
+      PCB_VIA,
+      'Back Post-machining',
+      'SetBackPostMachiningMode',
+      'GetBackPostMachiningMode',
+      pmEnum,
+    ),
+    groupPostMachining,
+  );
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_VIA, number>(
+        PCB_VIA,
+        'Back Post-machining Size',
+        'SetBackPostMachiningSize',
+        'GetBackPostMachiningSize',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupPostMachining,
+    )
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM) => {
+      if (aItem instanceof PCB_VIA) {
+        const mode = aItem.GetBackPostMachining();
+        return (
+          mode === PAD_DRILL_POST_MACHINING_MODE.COUNTERBORE ||
+          mode === PAD_DRILL_POST_MACHINING_MODE.COUNTERSINK
+        );
+      }
+      return false;
+    });
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_VIA, number>(
+        PCB_VIA,
+        'Back Post-machining Depth',
+        'SetBackPostMachiningDepth',
+        'GetBackPostMachiningDepth',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+      groupPostMachining,
+    )
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM) => {
+      if (aItem instanceof PCB_VIA) {
+        const mode = aItem.GetBackPostMachining();
+        return mode === PAD_DRILL_POST_MACHINING_MODE.COUNTERBORE;
+      }
+      return false;
+    });
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_VIA, number>(
+        PCB_VIA,
+        'Back Post-machining Angle',
+        'SetBackPostMachiningAngle',
+        'GetBackPostMachiningAngle',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_DECIDEGREE,
+      ),
+      groupPostMachining,
+    )
+    .SetAvailableFunc((aItem: INSPECTABLE_ITEM) => {
+      if (aItem instanceof PCB_VIA) {
+        const mode = aItem.GetBackPostMachining();
+        return mode === PAD_DRILL_POST_MACHINING_MODE.COUNTERSINK;
+      }
+      return false;
+    });
+  // clang-format on: the suggestion is less readable
+})();

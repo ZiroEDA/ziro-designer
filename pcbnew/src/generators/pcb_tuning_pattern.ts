@@ -21,7 +21,27 @@
 import { type EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/src/eda_item.js';
 import { IN_EDIT } from '@ziroeda/common/src/eda_item_flags.js';
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { GAL_LAYER_ID, type PCB_LAYER_ID, F_Cu } from '@ziroeda/common/src/layer_ids.js';
+import { GAL_LAYER_ID, PCB_LAYER_ID, F_Cu } from '@ziroeda/common/src/layer_ids.js';
+import { LSET } from '@ziroeda/common/src/lset.js';
+import { COORD_TYPES_T } from '@ziroeda/common/src/origin_transforms.js';
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  NO_SETTER,
+  PG_CHOICES,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_CAST,
+  TYPE_COLOR4D,
+  TYPE_DOUBLE,
+  TYPE_INT,
+  TYPE_OPT_INT,
+  TYPE_STRING,
+} from '@ziroeda/common/src/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+
 import type { STRING_ANY_MAP } from '@ziroeda/common/src/string_any_map.js';
 import { unescapeString } from '@ziroeda/common/src/string_utils.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
@@ -39,7 +59,7 @@ import { type VECTOR2I, add } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import type { BOARD } from '../board.js';
 import type { BOARD_CONNECTED_ITEM } from '../board_connected_item.js';
-import type { BOARD_ITEM } from '../board_item.js';
+import { BOARD_ITEM } from '../board_item.js';
 import { GENERATORS_MGR } from '../generators_mgr.js';
 import type { NETCLASS } from '@ziroeda/common/src/netclass.js';
 import type { NETINFO_ITEM } from '../netinfo.js';
@@ -1109,3 +1129,308 @@ GENERATORS_MGR.Instance().Register(
 );
 
 void KICAD_T;
+
+/**
+ * `static struct PCB_TUNING_PATTERN_DESC` (pcbnew/generators/pcb_tuning_pattern.cpp).
+ */
+(() => {
+  ENUM_MAP.Instance<LENGTH_TUNING_MODE>('LENGTH_TUNING_MODE')
+    .Map(LENGTH_TUNING_MODE.SINGLE, 'Single track')
+    .Map(LENGTH_TUNING_MODE.DIFF_PAIR, 'Differential pair')
+    .Map(LENGTH_TUNING_MODE.DIFF_PAIR_SKEW, 'Diff pair skew');
+
+  // ENUM_MAP<PNS::MEANDER_SIDE> is filled beside the enum, in pns_meander.ts:
+  // this module and the router's are an import cycle, and the enum is not
+  // yet initialised when this registration runs from the router's side.
+
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(PCB_TUNING_PATTERN);
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_TUNING_PATTERN, PCB_GENERATOR));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_TUNING_PATTERN, BOARD_ITEM));
+  propMgr.InheritsAfter(PCB_TUNING_PATTERN, PCB_GENERATOR);
+  propMgr.InheritsAfter(PCB_TUNING_PATTERN, BOARD_ITEM);
+
+  const layerEnum = ENUM_MAP.Instance<PCB_LAYER_ID>('PCB_LAYER_ID');
+
+  if (layerEnum.Choices().GetCount() === 0) {
+    layerEnum.Undefined(PCB_LAYER_ID.UNDEFINED_LAYER);
+
+    for (const layer of LSET.AllLayersMask().Seq()) layerEnum.Map(layer, LSET.Name(layer));
+  }
+
+  const layer = new PROPERTY_ENUM<PCB_TUNING_PATTERN, PCB_LAYER_ID>(
+    PCB_TUNING_PATTERN,
+    'Layer',
+    'SetLayer',
+    'GetLayer',
+    layerEnum,
+  );
+  layer.SetChoices(layerEnum.Choices());
+  propMgr.ReplaceProperty(BOARD_ITEM, 'Layer', layer);
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TUNING_PATTERN, number>(
+      PCB_TUNING_PATTERN,
+      'Width',
+      'SetWidth',
+      'GetWidth',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PCB_TUNING_PATTERN, number>(
+      PCB_TUNING_PATTERN,
+      'Net',
+      'SetNetCode',
+      'GetNetCode',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_NET,
+    ),
+  );
+
+  const groupTechLayers = 'Technical Layers';
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TUNING_PATTERN, boolean>(
+      PCB_TUNING_PATTERN,
+      'Soldermask',
+      'SetHasSolderMask',
+      'HasSolderMask',
+      TYPE_BOOL,
+    ),
+    groupTechLayers,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TUNING_PATTERN, number | undefined>(
+      PCB_TUNING_PATTERN,
+      'Soldermask Margin Override',
+      'SetLocalSolderMaskMargin',
+      'GetLocalSolderMaskMargin',
+      TYPE_OPT_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    groupTechLayers,
+  );
+
+  const groupTab = 'Pattern Properties';
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TUNING_PATTERN, number>(
+      PCB_TUNING_PATTERN,
+      'End X',
+      'SetEndX',
+      'GetEndX',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+      COORD_TYPES_T.ABS_X_COORD,
+    ),
+    groupTab,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TUNING_PATTERN, number>(
+      PCB_TUNING_PATTERN,
+      'End Y',
+      'SetEndY',
+      'GetEndY',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+      COORD_TYPES_T.ABS_Y_COORD,
+    ),
+    groupTab,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PCB_TUNING_PATTERN, LENGTH_TUNING_MODE>(
+      PCB_TUNING_PATTERN,
+      'Tuning Mode',
+      NO_SETTER,
+      'GetTuningMode',
+      ENUM_MAP.Instance<LENGTH_TUNING_MODE>('LENGTH_TUNING_MODE'),
+    ),
+    groupTab,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TUNING_PATTERN, number>(
+      PCB_TUNING_PATTERN,
+      'Min Amplitude',
+      'SetMinAmplitude',
+      'GetMinAmplitude',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+      COORD_TYPES_T.ABS_X_COORD,
+    ),
+    groupTab,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TUNING_PATTERN, number>(
+      PCB_TUNING_PATTERN,
+      'Max Amplitude',
+      'SetMaxAmplitude',
+      'GetMaxAmplitude',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+      COORD_TYPES_T.ABS_X_COORD,
+    ),
+    groupTab,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<PCB_TUNING_PATTERN, MeanderSide>(
+      PCB_TUNING_PATTERN,
+      'Initial Side',
+      'SetInitialSide',
+      'GetInitialSide',
+      ENUM_MAP.Instance<MeanderSide>('PNS::MEANDER_SIDE'),
+    ),
+    groupTab,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TUNING_PATTERN, number>(
+      PCB_TUNING_PATTERN,
+      'Min Spacing',
+      'SetSpacing',
+      'GetSpacing',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+      COORD_TYPES_T.ABS_X_COORD,
+    ),
+    groupTab,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TUNING_PATTERN, number>(
+      PCB_TUNING_PATTERN,
+      'Corner Radius %',
+      'SetCornerRadiusPercentage',
+      'GetCornerRadiusPercentage',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_DEFAULT,
+      COORD_TYPES_T.NOT_A_COORD,
+    ),
+    groupTab,
+  );
+
+  const isSkew = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof PCB_TUNING_PATTERN) return aItem.GetTuningMode() === DIFF_PAIR_SKEW;
+
+    return false;
+  };
+
+  const isTimeDomain = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof PCB_TUNING_PATTERN) return aItem.GetSettings().isTimeDomain;
+
+    return false;
+  };
+
+  const isLengthIsSpaceDomain = (aItem: INSPECTABLE_ITEM): boolean =>
+    !isSkew(aItem) && !isTimeDomain(aItem);
+
+  const isLengthIsTimeDomain = (aItem: INSPECTABLE_ITEM): boolean =>
+    !isSkew(aItem) && isTimeDomain(aItem);
+
+  const isSkewIsSpaceDomain = (aItem: INSPECTABLE_ITEM): boolean =>
+    isSkew(aItem) && !isTimeDomain(aItem);
+
+  const isSkewIsTimeDomain = (aItem: INSPECTABLE_ITEM): boolean =>
+    isSkew(aItem) && isTimeDomain(aItem);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_TUNING_PATTERN, number | undefined>(
+        PCB_TUNING_PATTERN,
+        'Target Length',
+        'SetTargetLength',
+        'GetTargetLength',
+        TYPE_OPT_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+        COORD_TYPES_T.ABS_X_COORD,
+      ),
+      groupTab,
+    )
+    .SetAvailableFunc(isLengthIsSpaceDomain);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_TUNING_PATTERN, number | undefined>(
+        PCB_TUNING_PATTERN,
+        'Target Delay',
+        'SetTargetDelay',
+        'GetTargetDelay',
+        TYPE_OPT_INT,
+        PROPERTY_DISPLAY.PT_TIME,
+        COORD_TYPES_T.NOT_A_COORD,
+      ),
+      groupTab,
+    )
+    .SetAvailableFunc(isLengthIsTimeDomain);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_TUNING_PATTERN, number>(
+        PCB_TUNING_PATTERN,
+        'Target Skew',
+        'SetTargetSkew',
+        'GetTargetSkew',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+        COORD_TYPES_T.ABS_X_COORD,
+      ),
+      groupTab,
+    )
+    .SetAvailableFunc(isSkewIsSpaceDomain);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<PCB_TUNING_PATTERN, number>(
+        PCB_TUNING_PATTERN,
+        'Target Skew Delay',
+        'SetTargetSkewDelay',
+        'GetTargetSkewDelay',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_TIME,
+        COORD_TYPES_T.NOT_A_COORD,
+      ),
+      groupTab,
+    )
+    .SetAvailableFunc(isSkewIsTimeDomain);
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TUNING_PATTERN, boolean>(
+      PCB_TUNING_PATTERN,
+      'Override Custom Rules',
+      'SetOverrideCustomRules',
+      'GetOverrideCustomRules',
+      TYPE_BOOL,
+    ),
+    groupTab,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TUNING_PATTERN, boolean>(
+      PCB_TUNING_PATTERN,
+      'Single-sided',
+      'SetSingleSided',
+      'IsSingleSided',
+      TYPE_BOOL,
+    ),
+    groupTab,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<PCB_TUNING_PATTERN, boolean>(
+      PCB_TUNING_PATTERN,
+      'Rounded',
+      'SetRounded',
+      'IsRounded',
+      TYPE_BOOL,
+    ),
+    groupTab,
+  );
+})();

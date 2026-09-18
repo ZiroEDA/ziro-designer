@@ -72,6 +72,7 @@
  *  6. the `MT_TURN` / `MT_FINISH` re-fits inside the turning branch ignore
  *     their return value and add the shape regardless.
  */
+import { ENUM_MAP } from '@ziroeda/common/src/properties/property.js';
 import { ANGLE_90 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import { PnsLineChain } from './pns_line_item.js';
@@ -132,6 +133,14 @@ export enum MeanderSide {
   MEANDER_SIDE_DEFAULT = 0,
   MEANDER_SIDE_RIGHT = 1,
 }
+
+// `ENUM_MAP<PNS::MEANDER_SIDE>` of PCB_TUNING_PATTERN_DESC
+// (generators/pcb_tuning_pattern.cpp), filled here beside the enum because
+// that module and this one are an import cycle.
+ENUM_MAP.Instance<MeanderSide>('PNS::MEANDER_SIDE')
+  .Map(MeanderSide.MEANDER_SIDE_LEFT, 'Left')
+  .Map(MeanderSide.MEANDER_SIDE_RIGHT, 'Right')
+  .Map(MeanderSide.MEANDER_SIDE_DEFAULT, 'Default');
 
 // ---------------------------------------------------------------------------
 // MEANDER_SETTINGS (pns_meander.h:69, pns_meander.cpp:31-237)

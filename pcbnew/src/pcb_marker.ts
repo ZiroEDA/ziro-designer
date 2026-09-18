@@ -55,6 +55,24 @@ import {
   sub,
 } from '@ziroeda/kimath/src/math/vector2.js';
 import { BOARD_ITEM } from './board_item.js';
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  NO_SETTER,
+  PG_CHOICES,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_CAST,
+  TYPE_COLOR4D,
+  TYPE_DOUBLE,
+  TYPE_INT,
+  TYPE_OPT_INT,
+  TYPE_STRING,
+} from '@ziroeda/common/src/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+
 import { DRC_ITEM, PCB_DRC_CODE } from './drc/drc_item.js';
 import { PCB_SHAPE } from './pcb_shape.js';
 
@@ -475,3 +493,19 @@ export class PCB_MARKER extends BOARD_ITEM {
 }
 
 applyMixins(PCB_MARKER, [MARKER_BASE]);
+
+/**
+ * `static struct PCB_MARKER_DESC` (pcbnew/pcb_marker.cpp).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(PCB_MARKER);
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_MARKER, BOARD_ITEM));
+  propMgr.AddTypeCast(new TYPE_CAST(PCB_MARKER, MARKER_BASE));
+  propMgr.InheritsAfter(PCB_MARKER, BOARD_ITEM);
+  propMgr.InheritsAfter(PCB_MARKER, MARKER_BASE);
+
+  // Markers cannot be locked and have no user-accessible layer control
+  propMgr.Mask(PCB_MARKER, BOARD_ITEM, 'Layer');
+  propMgr.Mask(PCB_MARKER, BOARD_ITEM, 'Locked');
+})();
