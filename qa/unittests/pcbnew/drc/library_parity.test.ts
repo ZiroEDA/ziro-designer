@@ -15,7 +15,10 @@ import type { DRC_ITEM } from '@ziroeda/pcbnew/src/drc/drc_item.js';
 import { PCB_DRC_CODE } from '@ziroeda/pcbnew/src/drc/drc_item.js';
 import '@ziroeda/pcbnew/src/drc/drc_test_providers.js';
 import type { FOOTPRINT } from '@ziroeda/pcbnew/src/footprint.js';
-import type { FOOTPRINT_LIBRARY_ADAPTER, LIBRARY_TABLE_ROW } from '@ziroeda/pcbnew/src/footprint_library_adapter.js';
+import type {
+  FOOTPRINT_LIBRARY_ADAPTER,
+  LIBRARY_TABLE_ROW,
+} from '@ziroeda/pcbnew/src/footprint_library_adapter.js';
 import { ParseBoard, ParseFootprintFile } from '@ziroeda/pcbnew/src/read-board.js';
 
 const DEMO = new URL('../../../../designer/public/demos/ecc83/', import.meta.url);
@@ -88,8 +91,10 @@ function runParity(adapter: FOOTPRINT_LIBRARY_ADAPTER): { issues: string[]; mism
   const mismatches: string[] = [];
 
   board.GetDesignSettings().m_DRCEngine!.SetViolationHandler((aItem: DRC_ITEM) => {
-    if (aItem.GetErrorCode() === PCB_DRC_CODE.DRCE_LIB_FOOTPRINT_ISSUES) issues.push(aItem.GetErrorMessage(false));
-    if (aItem.GetErrorCode() === PCB_DRC_CODE.DRCE_LIB_FOOTPRINT_MISMATCH) mismatches.push(aItem.GetErrorMessage(false));
+    if (aItem.GetErrorCode() === PCB_DRC_CODE.DRCE_LIB_FOOTPRINT_ISSUES)
+      issues.push(aItem.GetErrorMessage(false));
+    if (aItem.GetErrorCode() === PCB_DRC_CODE.DRCE_LIB_FOOTPRINT_MISMATCH)
+      mismatches.push(aItem.GetErrorMessage(false));
   });
 
   board.GetDesignSettings().m_DRCEngine!.RunTests('mm', true, false);
@@ -111,7 +116,10 @@ describe('library parity on ecc83', () => {
     const text = readFileSync(new URL(`footprints.pretty/${name}.kicad_mod`, DEMO), 'utf8');
 
     // Widen the first pad's drill.
-    const edited = text.replace(/\(drill ([0-9.]+)\)/, (_m, d: string) => `(drill ${Number(d) + 0.2})`);
+    const edited = text.replace(
+      /\(drill ([0-9.]+)\)/,
+      (_m, d: string) => `(drill ${Number(d) + 0.2})`,
+    );
     expect(edited).not.toBe(text);
     adapter.override.set(name, edited);
 
@@ -119,7 +127,9 @@ describe('library parity on ecc83', () => {
 
     expect(issues).toEqual([]);
     // Four resistors on the board share that footprint.
-    expect(mismatches).toEqual(new Array(4).fill(`Footprint '${name}' does not match copy in library 'Footprints'`));
+    expect(mismatches).toEqual(
+      new Array(4).fill(`Footprint '${name}' does not match copy in library 'Footprints'`),
+    );
   });
 
   it('a nickname the table does not have is an issue, not a mismatch', () => {
@@ -130,6 +140,8 @@ describe('library parity on ecc83', () => {
 
     expect(mismatches).toEqual([]);
     expect(issues.length).toBe(15);
-    expect(issues[0]).toBe(`The current configuration does not include the footprint library 'Footprints'`);
+    expect(issues[0]).toBe(
+      `The current configuration does not include the footprint library 'Footprints'`,
+    );
   });
 });
