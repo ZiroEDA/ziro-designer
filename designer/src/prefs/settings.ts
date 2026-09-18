@@ -963,6 +963,16 @@ export interface PcbnewPrinting {
 }
 
 export interface PcbnewSettings {
+  /**
+   * `PCBNEW_SETTINGS::m_DRCDialog` -> `DRC.*` (pcbnew_settings.cpp:350-357):
+   * the three settings DIALOG_DRC reads on open and writes back on close (its
+   * config menu's check items). KiCad's key is the capital `DRC`.
+   */
+  DRC: {
+    report_all_track_errors: boolean;
+    crossprobe: boolean;
+    scroll_on_crossprobe: boolean;
+  };
   appearance: {
     /** The editor's active color theme (APP_SETTINGS_BASE m_ColorTheme). */
     color_theme: string;
@@ -1235,6 +1245,11 @@ export const PCB_DISPLAY_DEFAULTS: PcbDisplayOptions = {
 };
 
 export const PCBNEW_DEFAULTS: PcbnewSettings = {
+  DRC: {
+    report_all_track_errors: false,
+    crossprobe: true,
+    scroll_on_crossprobe: true,
+  },
   appearance: {
     color_theme: '_builtin_default',
     custom_toolbars: false,

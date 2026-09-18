@@ -25,7 +25,7 @@ import { FILL_T, SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
 import type { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/font/text_attributes.js';
 import { kiidPathAsString, kiidFromString, newKiid, type KIID } from '@ziroeda/common/src/kiid.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { LIB_ID } from '@ziroeda/common/src/lib_id.js';
 import {
   MAX_PAGE_SIZE_PCBNEW_MM,
@@ -116,6 +116,7 @@ import { PCB_TEXTBOX } from '../../pcb_textbox.js';
 import { PCB_ARC, PCB_TRACK, PCB_VIA, UNDEFINED_DRILL_DIAMETER, VIATYPE } from '../../pcb_track.js';
 import { TEARDROP_PARAMETERS } from '../../teardrop/teardrop_parameters.js';
 import { TEARDROP_TYPE } from '../../teardrop/teardrop_types.js';
+import { type BoardItemKind, boardItemId } from '../../edit-board.js';
 import type {
   BarcodeEcc,
   BarcodeKind,
@@ -2781,4 +2782,49 @@ export function emptyBOARD(): BOARD {
     '(kicad_pcb (version 20260206) (generator "ziroeda") (layers (0 "F.Cu" signal) (31 "B.Cu" signal)))',
     'empty board',
   ).Parse() as BOARD;
+}
+
+/**
+ * The view id (`<kind>:<index>[:<sub>]`, `boardItemId`) of the view item that
+ * wraps a BOARD_ITEM, or null when the item has no view row (a marker, a
+ * footprint's field, a group's member reached by the group). The frame's
+ * `OnEditItemRequest( BOARD_ITEM* )` arrives with the class instance; the
+ * editor's selection speaks ids.
+ */
+export function viewIdOfBoardItem(board: Board, item: BOARD_ITEM): string | null {
+  const scan = (kind: BoardItemKind, list: readonly { k?: BOARD_ITEM }[]): string | null => {
+    const i = list.findIndex((v) => v.k === item);
+
+    return i >= 0 ? boardItemId(kind, i) : null;
+  };
+
+  for (let i = 0; i < board.footprints.length; i++) {
+    const fp = board.footprints[i]!;
+
+    if (fp.k === item) return boardItemId('footprint', i);
+
+    const pad = fp.pads.findIndex((p) => p.k === item);
+
+    if (pad >= 0) return boardItemId('pad', i, pad);
+
+    const text = fp.texts.findIndex((t) => t.k === item);
+
+    if (text >= 0) return boardItemId('fptext', i, text);
+  }
+
+  return (
+    scan('track', board.tracks) ??
+    scan('arc', board.arcs) ??
+    scan('via', board.vias) ??
+    scan('zone', board.zones) ??
+    scan('shape', board.shapes) ??
+    scan('text', board.texts) ??
+    scan('textbox', board.textBoxes) ??
+    scan('table', board.tables) ??
+    scan('image', board.images) ??
+    scan('dimension', board.dimensions) ??
+    scan('point', board.points) ??
+    scan('barcode', board.barcodes) ??
+    scan('group', board.groups)
+  );
 }

@@ -18,6 +18,8 @@ import type { TOOL_MANAGER_FRAME_WITH_STATUS_BAR } from './tool/tool_manager.js'
 import { TOOLS_HOLDER } from './tool/tools_holder.js';
 import { type PICKED_ITEMS_LIST, UNDO_REDO_CONTAINER } from './undo_redo_container.js';
 import { UNITS_PROVIDER } from './units_provider.js';
+import { RPT_SEVERITY_UNDEFINED, type Severity } from './reporter.js';
+import type { TOOL_ACTION } from './tool/tool_action.js';
 
 export const DEFAULT_MAX_UNDO_ITEMS = 0;
 export const ABS_MAX_UNDO_ITEMS = 65536;
@@ -37,6 +39,13 @@ export const { UNDO_LIST, REDO_LIST } = UNDO_REDO_LIST;
  */
 export interface WX_INFOBAR {
   IsLocked(): boolean;
+}
+
+/** `wxMenuBar` as `GetRunMenuCommandDescription` reads it. */
+export interface MENU_BAR_LIKE {
+  GetMenuCount(): number;
+  GetMenuLabelText(aIndex: number): string;
+  GetMenuItems(aIndex: number): readonly { GetItemLabelText(): string }[];
 }
 
 export abstract class EDA_BASE_FRAME
@@ -90,6 +99,41 @@ export abstract class EDA_BASE_FRAME
 
   GetUnitsProvider(): UNITS_PROVIDER {
     return this.m_unitsProvider;
+  }
+
+  GetSeverity(_aErrorCode: number): Severity {
+    return RPT_SEVERITY_UNDEFINED;
+  }
+
+  /** `wxMenuBar* GetMenuBar()`: the window's menu bar as a label model, or null. */
+  GetMenuBar(): MENU_BAR_LIKE | null {
+    return null;
+  }
+
+  /**
+   * Get the description of the menu command for the given action, to be used in a tooltip or
+   * message box, e.g. "Run: File > Import > Netlist"
+   */
+  GetRunMenuCommandDescription(aAction: TOOL_ACTION): string {
+    let menuItemLabel = aAction.GetMenuLabel();
+    const menuBar = this.GetMenuBar();
+
+    if (menuBar) {
+      for (let ii = 0; ii < menuBar.GetMenuCount(); ++ii) {
+        for (const menuItem of menuBar.GetMenuItems(ii)) {
+          if (menuItem.GetItemLabelText() === menuItemLabel) {
+            let menuTitleLabel = menuBar.GetMenuLabelText(ii);
+
+            menuTitleLabel = menuTitleLabel.replaceAll('&', '&&');
+            menuItemLabel = menuItemLabel.replaceAll('&', '&&');
+
+            return `Run: ${menuTitleLabel} > ${menuItemLabel}`;
+          }
+        }
+      }
+    }
+
+    return `Run: ${aAction.GetFriendlyName()}`;
   }
 
   /**

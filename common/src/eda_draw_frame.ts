@@ -25,6 +25,7 @@
  */
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import type { EdaIuScale, EdaUnits } from './eda_units.js';
 import { EDA_BASE_FRAME } from './eda_base_frame.js';
 import type { FRAME_T } from './frame_type.js';
@@ -104,6 +105,75 @@ export abstract class EDA_DRAW_FRAME extends EDA_BASE_FRAME {
 
   SetCanvas(aPanel: EDA_DRAW_PANEL_GAL | null): void {
     this.m_canvas = aPanel;
+  }
+
+  /**
+   * `findDialogs()`: the DIALOG_SHIM children of the frame, as the screen
+   * rectangles FocusOnLocation and FocusOnItems steer clear of. A window
+   * without children answers none; the designer's frames list their open
+   * modeless dialogs.
+   */
+  findDialogRects(): BOX2D[] {
+    return [];
+  }
+
+  /**
+   * `KIGFX::VIEW::SetCenter( aPos, dialogScreenRects )` as the window applies it.
+   * The designer's editor still owns the view transform (its VIEW is synced
+   * from it), so the frame lets it perform the centre; the base uses the VIEW.
+   */
+  protected setViewCenter(aPos: Vec2, aObscuringScreenRects: readonly BOX2D[]): void {
+    this.GetCanvas()!.GetView().SetCenter(aPos, aObscuringScreenRects);
+  }
+
+  /**
+   * Focus on a particular canvas location.
+   *
+   * The view will be centred on the location if it is not already in view, or
+   * behind an obscuring dialog.
+   */
+  FocusOnLocation(aPos: Vec2, aAllowScroll = true): void {
+    let centerView = false;
+    const dialogScreenRects: BOX2D[] = [];
+
+    if (aAllowScroll) {
+      const r = this.GetCanvas()!.GetView().GetViewport();
+
+      // Center if we're off the current view, or within 10% of its edge
+      r.Inflate(-r.GetWidth() / 10.0);
+
+      if (!r.Contains(aPos)) centerView = true;
+
+      for (const dialog of this.findDialogRects()) dialogScreenRects.push(dialog);
+
+      // Center if we're behind an obscuring dialog, or within 10% of its edge
+      for (const rect of dialogScreenRects) {
+        const inflated = new BOX2D(rect.GetOrigin(), rect.GetSize());
+        inflated.Inflate(inflated.GetWidth() / 10);
+
+        if (inflated.Contains(this.GetCanvas()!.GetView().ToScreen(aPos))) centerView = true;
+      }
+    }
+
+    if (centerView) {
+      try {
+        this.setViewCenter(aPos, dialogScreenRects);
+      } catch (e) {
+        // wxFAIL_MSG( "Clipper2 exception occurred centering object" )
+        console.error('Clipper2 exception occurred centering object:', e);
+      }
+    }
+
+    this.GetCanvas()!.GetViewControls().SetCrossHairCursorPosition(aPos);
+  }
+
+  /**
+   * Focus on a particular item.
+   */
+  FocusOnItem(_aItem: EDA_ITEM | null, _aAllowScroll = true): void {}
+
+  ClearFocus(): void {
+    this.FocusOnItem(null);
   }
 
   GetGalDisplayOptions(): GAL_DISPLAY_OPTIONS {

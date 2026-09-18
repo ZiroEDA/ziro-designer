@@ -237,7 +237,7 @@ export {
   type ViaSize,
 } from '../board_settings.js';
 
-type PageId =
+export type PageId =
   | 'layers'
   | 'physicalStackup'
   | 'boardFinish'

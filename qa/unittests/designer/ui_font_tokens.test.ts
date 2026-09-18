@@ -271,7 +271,9 @@ const BASELINE: Record<string, number> = {
   // 62 -> 61: the Draw Filled Zone tool's hand-rolled dialog, the same defect
   // one dialog later — it stated `fontSize: 13` on its box. The tool opens the
   // board's real `DialogCopperZones` now, which states no size at all.
-  'editors/pcb': 61,
+  // 61 -> 54: the DRC dialog rebuilt over the ERC dialog's chrome; its
+  // predecessor's seven inline sizes (12 / 10.5 / 11.5 / 12.5 px) went with it.
+  'editors/pcb': 54,
   // 55 -> 50: the COLOR_SWATCH sweep's second half. Seven Clear buttons and
   // one `(using Schematic Editor colors)` hint each carried an inline
   // `fontSize: 11`, and none of them exists upstream - the swatch clears
@@ -645,7 +647,9 @@ describe('hardcoded font sizes do not grow', () => {
     // 204 -> 201: the loading card's `13px` and `10pt` and the canvas
     // spinner's `13px`, gone with them; `ui` 68 -> 65 is the only row that
     // moves and 204 - 3 agrees with it.
-    expect(sites.length).toBe(201);
+    // 201 -> 194: the DRC dialog's seven; `editors/pcb` 61 -> 54 is the only
+    // row that moves and 201 - 7 agrees with it.
+    expect(sites.length).toBe(194);
   });
 });
 

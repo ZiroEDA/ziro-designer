@@ -36,6 +36,14 @@
  */
 
 /** `CLEANUP_RC_CODE`, in enum order. */
+import { PCB_DRC_CODE } from './drc/drc_item.js';
+
+/**
+ * `CLEANUP_FIRST = DRCE_LAST + 1` (cleanup_item.h:29): where the cleanup codes
+ * start; `PCB_BASE_FRAME::GetSeverity` reads it to answer RPT_SEVERITY_ACTION.
+ */
+export const CLEANUP_FIRST = PCB_DRC_CODE.DRCE_LAST + 1;
+
 export type CleanupRcCode =
   | 'shorting_track'
   | 'shorting_via'

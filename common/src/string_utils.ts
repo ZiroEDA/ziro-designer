@@ -989,3 +989,11 @@ export function EscapeHTML(aString: string): string {
 
   return converted;
 }
+
+/** `wxDateTime::Now().FormatISOCombined( 'T' )`: local time, "YYYY-MM-DDTHH:MM:SS". */
+export function GetISO8601CurrentDateTime(): string {
+  const d = new Date();
+  const p2 = (n: number): string => String(n).padStart(2, '0');
+
+  return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}T${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`;
+}

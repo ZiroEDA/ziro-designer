@@ -167,7 +167,6 @@ import {
   type PcbFootprint,
   type PcbShape,
   type PcbPad,
-  runDrc,
   DEFAULT_SELECTION_FILTER,
   filterSelection,
   distributeBoardItems,
@@ -190,7 +189,6 @@ import {
   createArray,
   convertToLines,
   segmentToArc,
-  type DrcViolation,
   type SelectionFilter,
   BOARD_NETLIST_UPDATER,
   spreadBoardFootprints,
@@ -338,6 +336,7 @@ import {
   DialogBoardSetup,
   defaultBoardSetup,
   type BoardSetupValues,
+  type PageId as BoardSetupPageId,
 } from './dialogs/dialog_board_setup.js';
 import {
   druFileName,
@@ -462,7 +461,16 @@ import {
   type TeardropParametersList,
 } from '@ziroeda/pcbnew/src/teardrop.js';
 import { SKIP_TEARDROPS } from '@ziroeda/pcbnew/src/board_commit.js';
-import { boardFromBOARD } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/board_view.js';
+import {
+  boardFromBOARD,
+  viewIdOfBoardItem,
+} from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/board_view.js';
+import { PCB_ACTIONS } from '@ziroeda/pcbnew/src/tools/pcb_actions.js';
+import type { DRC_TOOL } from '@ziroeda/pcbnew/src/tools/drc_tool.js';
+import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
+import type { Vec2 as KVec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { DIALOG_DRC, type DIALOG_DRC_WINDOW } from './dialogs/dialog_drc_model.js';
+import { MessageDialogYesNoCancel } from '../../ui/dialog_message.js';
 import {
   applyTeardropParametersList,
   commitViewToBoard,
@@ -484,7 +492,6 @@ import {
   drawPageLimits,
   drawNetNames,
   drawOriginMarkers,
-  drawDrcMarkers,
   boardTextPath,
   PCB_DEFAULT_GRID_IU,
   PCB_DEFAULT_GRID_ORIGIN,
@@ -494,7 +501,6 @@ import {
   selectedColor,
   type BoardScene,
   type PcbDrawOptions,
-  type DrcMarkerDraw,
   type ScenePathFactory,
   type SceneFilter,
 } from './renderBoard.js';
@@ -519,7 +525,7 @@ import {
   NET_COLOR_MODE,
   ZONE_DISPLAY_MODE,
 } from '@ziroeda/pcbnew/src/board_project_settings.js';
-import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { GAL_LAYER_ID, LayerName, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { LSET } from '@ziroeda/common/src/lset.js';
 import { VIEW_UPDATE_FLAGS, type VIEW_ITEM } from '@ziroeda/common/src/view/view_item.js';
 import { PAD } from '@ziroeda/pcbnew/src/pad.js';
@@ -1854,12 +1860,33 @@ export function PcbEditor({
   const setDirtyRef = useRef(setDirty);
   setDirtyRef.current = setDirty;
   const frameRef = useRef<PCB_EDIT_FRAME | null>(null);
+  const drcWindowRef = useRef<{
+    createDrcDialog: (aTool: DRC_TOOL, aParent: unknown) => DIALOG_DRC;
+    isSingle: () => boolean;
+    fetchNetlistFromSchematic: (aNetlist: NETLIST, aMessage: string) => boolean;
+    onEditItemRequest: (aItem: BOARD_ITEM | null) => void;
+    findDialogRects: () => BOX2D[];
+    setViewCenter: (aPos: KVec2, aRects: readonly BOX2D[]) => void;
+  } | null>(null);
   if (!frameRef.current) {
     frameRef.current = new PCB_EDIT_FRAME({
       settings: () => pcbnewSettingsOf(pcbCfgRef.current),
       onModify: () => setDirtyRef.current(true),
       onUndoRedoIncomplete: () =>
         console.warn('Incomplete undo/redo operation: some items not found'),
+      // The window half of DRC_TOOL / DIALOG_DRC: filled in below, once the
+      // editor's state and callbacks exist (`drcWindowRef`).
+      createDrcDialog: (aTool, aParent) => drcWindowRef.current!.createDrcDialog(aTool, aParent),
+      isSingle: () => drcWindowRef.current!.isSingle(),
+      fetchNetlistFromSchematic: (aNetlist, aMessage) =>
+        drcWindowRef.current!.fetchNetlistFromSchematic(aNetlist, aMessage),
+      onEditItemRequest: (aItem) => drcWindowRef.current!.onEditItemRequest(aItem),
+      showExchangeFootprintsDialog: () => {
+        // DIALOG_EXCHANGE_FOOTPRINTS is not built (Edit > Change Footprints... is
+        // greyed in the menu for the same reason).
+      },
+      findDialogRects: () => drcWindowRef.current!.findDialogRects(),
+      setViewCenter: (aPos, aRects) => drcWindowRef.current!.setViewCenter(aPos, aRects),
     });
     // `PCB_EDIT_FRAME::PCB_EDIT_FRAME`: `SetBoard( new BOARD() )` (:250) --
     // the frame never has no board, and the empty one's drawing sheet is on
@@ -2007,12 +2034,19 @@ export function PcbEditor({
   const [boardSetupOpen, setBoardSetupOpen] = useState(false);
   // ShowBoardSetupDialog( _( "Net Classes" ) ) — the Appearance panel's wrench
   // opens Board Setup already on that page, not on its first one.
-  const [boardSetupPage, setBoardSetupPage] = useState<'netclasses' | undefined>(undefined);
+  const [boardSetupPage, setBoardSetupPage] = useState<BoardSetupPageId | undefined>(undefined);
   // DRC dialog (DIALOG_DRC), the engine runs in-browser over the live board.
   // The dialog is modeless like upstream; the violations become PCB_MARKERs
   // that stay on the board until the next run / Delete All Markers, and the
   // active violation is the brightened (highlighted) marker.
-  const [drcOpen, setDrcOpen] = useState(false);
+  // `DRC_TOOL::m_drcDialog`: the DIALOG_DRC the tool created through the
+  // frame's CreateDrcDialog, and whether it is shown (Show( false ) on a
+  // double-clicked row hides it without destroying it).
+  const [drcDialog, setDrcDialog] = useState<{ dialog: DIALOG_DRC; shown: boolean } | null>(null);
+  // The modal sub-dialogs DIALOG_DRC raises: "Delete exclusions too?"
+  const [drcYesNoCancel, setDrcYesNoCancel] = useState<{
+    resolve: (r: 'yes' | 'no' | 'cancel') => void;
+  } | null>(null);
   // Edit Teardrops (DIALOG_GLOBAL_EDIT_TEARDROPS).
   const [teardropsOpen, setTeardropsOpen] = useState(false);
   // Track & Via Properties (DIALOG_TRACK_VIA_PROPERTIES), opened by E or a
@@ -2081,9 +2115,6 @@ export function PcbEditor({
   // ui/modal_escape.ts. An OK-only message box still cancels on Esc: wx sends
   // wxID_CANCEL whether or not a Cancel button exists.
   useModalEscape(() => setUpdatePcbError(null), updatePcbError !== null);
-  const [drcResults, setDrcResults] = useState<DrcViolation[] | null>(null);
-  const [drcSelected, setDrcSelected] = useState<number | null>(null);
-  const drcMarkersRef = useRef<DrcMarkerDraw[]>([]);
   const drcDialogRef = useRef<HTMLDivElement | null>(null);
   const [boardSetup, setBoardSetup] = useState<BoardSetupValues>(defaultBoardSetup);
   // Latest texts this editor wrote for project-side files: the projectFiles
@@ -4158,14 +4189,9 @@ export function PcbEditor({
       ctx.restore();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
-    // DRC markers (PCB_MARKER, GAL overlay target): painted above the board
-    // and every editing overlay, under the cursor. The ref holds the already
-    // severity-filtered set (the Objects tab's DRC visibility rows gate them
-    // like BOARD::IsElementVisible in pcb_painter.cpp draw(PCB_MARKER)).
-    drawDrcMarkers(ctx, drcMarkersRef.current, v, dpr, {
-      background: PCB_BACKGROUND,
-      ...PCB_SPECIAL,
-    });
+    // DRC markers are PCB_MARKERs in the BOARD since #636 stage 4d: the VIEW's
+    // PCB_PAINTER draws them (LAYER_DRC_ERROR / _WARNING / _EXCLUSION, gated by
+    // BOARD::IsElementVisible from the Objects tab); nothing on this overlay.
     // `GRID_HELPER::m_viewAxis` (pcb_grid_helper.cpp:167-172): the auxiliary
     // axis, drawn at the origin of the gesture in progress as a CROSS in the
     // aux-items colour at 40% alpha. `SetSize( 20000 )` is in *screen* pixels
@@ -4240,28 +4266,6 @@ export function PcbEditor({
     sceneDirtyRef.current = true;
     requestDraw();
   }, [visible, drawOpts, requestDraw]);
-
-  // Rebuild the DRC marker overlay when the results, the active violation,
-  // the severity settings, or the Objects-tab DRC visibility rows change.
-  // Severity resolves like PCB_MARKER::GetSeverity via the Board Setup
-  // severities (error unless set to warning; ignored ones never get markers).
-  useEffect(() => {
-    const sev = boardSetup.drcSeverities;
-    drcMarkersRef.current = (drcResults ?? []).flatMap((vio, i) => {
-      const severity: DrcMarkerDraw['severity'] = sev[vio.code] === 'warning' ? 'warning' : 'error';
-      const shown = severity === 'warning' ? objects.drcWarnings : objects.drcErrors;
-      if (!shown) return [];
-      return [{ pos: vio.pos, severity, active: i === drcSelected }];
-    });
-    requestDraw();
-  }, [
-    drcResults,
-    drcSelected,
-    boardSetup.drcSeverities,
-    objects.drcErrors,
-    objects.drcWarnings,
-    requestDraw,
-  ]);
 
   // Recompile the selected items into their own scene, so the overlay can paint
   // them brightened over the raster (KiCad's selection look).
@@ -5509,41 +5513,133 @@ export function PcbEditor({
     findDirtyRef.current = true;
   }, [findQuery, findOpts, board]);
 
-  // EDA_DRAW_FRAME::FocusOnLocation for the DRC dialog's click-to-locate:
-  // centre the view only when the position is off the current view or within
-  // 10% of its edge (the viewport deflated by width/10 on every side), or
-  // when it sits behind, or within 10% of, the modeless DRC dialog.
-  const drcFocusOn = useCallback(
-    (pos: { x: number; y: number }) => {
+  // `Kiface().IsSingle()`: a project with no schematic runs pcbnew "single".
+  const projectHasSchematic = (projectFiles ?? []).some((f) => /\.kicad_sch$/i.test(f.name));
+
+  /**
+   * The window half of DRC_TOOL / DIALOG_DRC (`PCB_EDIT_FRAME_HOOKS` above):
+   * the dialog's creation and its modal sub-dialogs, the frame's dialog rects
+   * and view centring for `FocusOnLocation` / `FocusOnItems`, the item-edit
+   * request and the netlist fetch.
+   */
+  drcWindowRef.current = {
+    createDrcDialog: (_aTool: DRC_TOOL): DIALOG_DRC => {
+      const frame = frameRef.current!;
+      let dialog: DIALOG_DRC;
+
+      const window: DIALOG_DRC_WINDOW = {
+        // WX_TEXT_ENTRY_DIALOG( _( "Exclusion Comment" ) ) - the ERC dialog asks the same way.
+        textEntry: async (title, initial) => globalThis.prompt(title, initial),
+        askDeleteExclusions: () =>
+          new Promise<'yes' | 'no' | 'cancel'>((resolve) => setDrcYesNoCancel({ resolve })),
+        saveReport: async (defaultName, write) => {
+          // wxFileDialog( _( "Save Report File" ), Prj().GetProjectPath(), ... ): the report
+          // goes to the project's files, as the plots do; a report or the JSON schema.
+          const name = globalThis.prompt('Save Report File', defaultName);
+          if (name === null) return null;
+          const text = write(name);
+          if (text === null) return name;
+          if (onOutputFile) onOutputFile(name, new TextEncoder().encode(text), 'text/plain');
+          else {
+            const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = name;
+            a.click();
+            URL.revokeObjectURL(url);
+          }
+          return name;
+        },
+        displayError: (message) => setUpdatePcbError({ message }),
+        showBoardSetupDialog: (page) => {
+          setBoardSetupPage(page === 'Custom Rules' ? 'customRules' : 'severities');
+          setBoardSetupOpen(true);
+        },
+        setLayerVisible: (layer, on) =>
+          setVisible((prev) => {
+            const next = new Set(prev);
+            if (on) next.add(LayerName(layer));
+            else next.delete(LayerName(layer));
+            return next;
+          }),
+        show: (aShow) => setDrcDialog({ dialog, shown: aShow }),
+        raise: () => {},
+        isShownOnScreen: () => drcDialogRef.current !== null,
+        destroy: () => setDrcDialog(null),
+        saveDrcDialogSettings: (values) =>
+          settings.updatePcbnew((c) => {
+            c.DRC.report_all_track_errors = values.report_all_track_errors;
+            c.DRC.crossprobe = values.crossprobe;
+            c.DRC.scroll_on_crossprobe = values.scroll_on_crossprobe;
+          }),
+      };
+
+      dialog = new DIALOG_DRC(frame, window);
+      return dialog;
+    },
+    isSingle: () => !projectHasSchematic,
+    fetchNetlistFromSchematic: (aNetlist: NETLIST, aMessage: string): boolean => {
+      const fetched = fetchNetlistFromSchematic(projectFilesNow(), aMessage, rootPro);
+
+      if (!fetched.ok) {
+        // DisplayErrorMessage( this, msg, details )
+        setUpdatePcbError({
+          message: fetched.error,
+          ...(fetched.details ? { details: fetched.details } : {}),
+        });
+        return false;
+      }
+
+      // The fetch built its own NETLIST; the caller's is filled from it.
+      for (const component of fetched.netlist.Components()) aNetlist.AddComponent(component);
+      for (const group of fetched.netlist.Groups()) aNetlist.AddGroup(group);
+
+      return true;
+    },
+    onEditItemRequest: (aItem: BOARD_ITEM | null): void => {
+      const brd = boardRef.current;
+      if (!brd || !aItem) return;
+      const id = viewIdOfBoardItem(brd, aItem);
+      if (!id) return;
+      const sel = new Set([id]);
+      setSelection(sel);
+      // The Properties... row's dispatch, over this one item.
+      if (hasTrackOrVia(trackViaSelection(brd, sel))) setTrackViaOpen(true);
+      else if (zoneAt(brd, sel) !== null) setZonePropsIndex(zoneAt(brd, sel));
+      else if (selectedPadAt(brd, sel) !== null) setPadPropsRef(selectedPadAt(brd, sel));
+      else if (textAt(brd, sel) !== null) setTextPropsIndex(textAt(brd, sel));
+      else if (shapeAt(brd, sel) !== null) setShapePropsIndex(shapeAt(brd, sel));
+      else if (footprintAt(brd, sel) !== null) setFpPropsIndex(footprintAt(brd, sel));
+    },
+    // findDialogs(): the DRC dialog is the one modeless dialog of this frame; its
+    // rect in canvas client pixels, as ScreenToClient( dialog->GetScreenPosition() ).
+    findDialogRects: (): BOX2D[] => {
+      const dlg = drcDialogRef.current;
+      const canvas = canvasRef.current;
+      if (!dlg || !canvas) return [];
+      const dr = dlg.getBoundingClientRect();
+      const cr = canvas.getBoundingClientRect();
+      const k = cr.width > 0 ? canvas.width / cr.width : 1; // device px per CSS px
+      return [
+        new BOX2D(
+          { x: (dr.left - cr.left) * k, y: (dr.top - cr.top) * k },
+          { x: dr.width * k, y: dr.height * k },
+        ),
+      ];
+    },
+    // VIEW::SetCenter( aPos, aObscuringScreenRects ): the editor's own view transform
+    // (the VIEW is synced from it); the obscuring rects are already accounted for by
+    // FocusOnLocation's decision to centre.
+    setViewCenter: (aPos: KVec2): void => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const v = viewRef.current;
       const sx = v.flipX ? -v.scale : v.scale;
-      const px = pos.x * sx + v.tx;
-      const py = pos.y * v.scale + v.ty;
-      const margin = canvas.width / 10;
-      let center =
-        px < margin || px > canvas.width - margin || py < margin || py > canvas.height - margin;
-      const dlg = drcDialogRef.current;
-      if (!center && dlg) {
-        const dr = dlg.getBoundingClientRect();
-        const cr = canvas.getBoundingClientRect();
-        const k = cr.width > 0 ? canvas.width / cr.width : 1; // device px per CSS px
-        const inflate = (dr.width * k) / 10;
-        center =
-          px >= (dr.left - cr.left) * k - inflate &&
-          px <= (dr.right - cr.left) * k + inflate &&
-          py >= (dr.top - cr.top) * k - inflate &&
-          py <= (dr.bottom - cr.top) * k + inflate;
-      }
-      if (center) {
-        v.tx = canvas.width / 2 - pos.x * sx;
-        v.ty = canvas.height / 2 - pos.y * v.scale;
-      }
+      v.tx = canvas.width / 2 - aPos.x * sx;
+      v.ty = canvas.height / 2 - aPos.y * v.scale;
       requestDraw();
     },
-    [requestDraw],
-  );
+  };
 
   // The TOP_AUX zoom selector: set an absolute zoom about the viewport centre,
   // as COMMON_TOOLS::doZoomToPreset does with VIEW::SetScale.
@@ -10713,7 +10809,8 @@ export function PcbEditor({
         setPageDlgOpen(true);
         break;
       case 'runDRC':
-        setDrcOpen(true);
+        // PCB_ACTIONS::runDRC -> DRC_TOOL::ShowDRCDialog
+        frameRef.current?.GetToolManager()?.RunAction(PCB_ACTIONS.runDRC);
         break;
       case 'boardSetup':
         setBoardSetupPage(undefined);
@@ -11958,7 +12055,7 @@ export function PcbEditor({
           onRunDrc={() => {
             // DIALOG_PLOT's Run DRC... hands off to the DRC dialog.
             setPlotDlgOpen(false);
-            setDrcOpen(true);
+            frameRef.current?.GetToolManager()?.RunAction(PCB_ACTIONS.runDRC);
           }}
           onClose={() => setPlotDlgOpen(false)}
         />
@@ -12320,65 +12417,25 @@ export function PcbEditor({
           onClose={() => setTeardropsOpen(false)}
         />
       )}
-      {drcOpen && (
+      {drcDialog?.shown && (
         <DialogDrc
+          dialog={drcDialog.dialog}
+          isSingle={!projectHasSchematic}
+          canRefillZones={false}
           rootRef={drcDialogRef}
-          results={drcResults}
-          severities={boardSetup.drcSeverities}
-          selected={drcSelected}
-          run={() => {
-            const brd = boardRef.current;
-            if (!brd) {
-              setDrcResults([]);
-              setDrcSelected(null);
-              return;
-            }
-            const c = boardSetup.constraints;
-            const all = runDrc(brd, {
-              minClearance: Math.round(c.minClearanceMM * MM),
-              minTrackWidth: Math.round(c.minTrackMM * MM),
-              minViaDiameter: Math.round(c.minViaMM * MM),
-              minViaAnnulus: Math.round(c.minAnnularMM * MM),
-              minThroughHole: Math.round(c.minThroughHoleMM * MM),
-              minHoleToHole: Math.round(c.minHoleToHoleMM * MM),
-              minCopperToEdge: Math.round(c.copperToEdgeMM * MM),
-              minResolvedSpokes: c.minThermalSpokes,
-              minSilkClearance: Math.round(c.silkClearanceMM * MM),
-              minConnectionWidth: Math.round(c.minConnectionMM * MM),
-              // The rest of `loadImplicitRules`' board-setup constraints. Every
-              // one of these was editable on Board Setup > Constraints and read
-              // by nothing: `board setup constraints hole`, `… silk text
-              // height`, `… silk text thickness` and `… micro-via`.
-              minHoleClearance: Math.round(c.copperToHoleMM * MM),
-              minSilkTextHeight: Math.round(c.minTextHeightMM * MM),
-              minSilkTextThickness: Math.round(c.minTextThicknessMM * MM),
-              minMicroViaDiameter: Math.round(c.minUViaMM * MM),
-              minMicroViaDrill: Math.round(c.minUViaHoleMM * MM),
-              clearanceOf: (net) =>
-                netclassInfo.classClearance.get(netClassOf.get(net) ?? 'Default') ?? 0,
-              // Board Setup's Custom Rules page finally reaches DRC: a matching
-              // .kicad_dru rule overrides the board default and the netclass.
-              customRules: parseDrcRules(boardSetup.customRules.text),
-              netClassesOf: (net) =>
-                netclassesForNet(brd.nets.get(net) ?? '', boardSetup.netClasses.assignments),
-            });
-            // Ignored severities never make markers (RunDRC's severity gate).
-            setDrcResults(all.filter((vio) => boardSetup.drcSeverities[vio.code] !== 'ignore'));
-            setDrcSelected(null);
+        />
+      )}
+      {drcYesNoCancel && (
+        <MessageDialogYesNoCancel
+          caption="Delete All Markers"
+          message="Delete exclusions too?"
+          icon="question"
+          defaultButton="yes"
+          labels={{ yes: 'Errors and Warnings Only', no: 'Errors, Warnings and Exclusions' }}
+          onResult={(r) => {
+            drcYesNoCancel.resolve(r);
+            setDrcYesNoCancel(null);
           }}
-          onSelect={(i, pos) => {
-            setDrcSelected(i);
-            drcFocusOn(pos);
-          }}
-          onDeleteMarker={(i) => {
-            setDrcResults((r) => (r ? r.filter((_, j) => j !== i) : r));
-            setDrcSelected(null);
-          }}
-          onDeleteAll={() => {
-            setDrcResults([]);
-            setDrcSelected(null);
-          }}
-          onClose={() => setDrcOpen(false)}
         />
       )}
       {boardSetupOpen && (

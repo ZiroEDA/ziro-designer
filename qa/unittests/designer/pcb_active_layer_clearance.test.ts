@@ -22,6 +22,16 @@ function makeFrame() {
     settings: () => new PCBNEW_SETTINGS(),
     onModify: () => {},
     onUndoRedoIncomplete: () => {},
+    // The DRC dialog's window half; this test never opens it.
+    createDrcDialog: () => {
+      throw new Error('no DRC dialog here');
+    },
+    isSingle: () => true,
+    fetchNetlistFromSchematic: () => false,
+    onEditItemRequest: () => {},
+    showExchangeFootprintsDialog: () => {},
+    findDialogRects: () => [],
+    setViewCenter: () => {},
   });
   // `createPcbDrawPanel`'s screen, whose m_Active_Layer the frame reads.
   frame.SetScreen(new PCB_SCREEN({ x: 297000000, y: 210000000 }));

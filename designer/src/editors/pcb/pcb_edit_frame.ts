@@ -19,6 +19,7 @@ import { CLEARANCE_LAYER_FOR, IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/commo
 import { TOOL_MANAGER } from '@ziroeda/common/src/tool/tool_manager.js';
 import { VIEW_UPDATE_FLAGS, type VIEW_ITEM } from '@ziroeda/common/src/view/view_item.js';
 import { FLIP_DIRECTION } from '@ziroeda/kimath/src/core/mirror.js';
+import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { BOARD } from '@ziroeda/pcbnew/src/board.js';
 import type { BOARD_ITEM } from '@ziroeda/pcbnew/src/board_item.js';
@@ -31,6 +32,15 @@ import type { PROGRESS_REPORTER_LIKE } from '@ziroeda/pcbnew/src/connectivity/co
 import { PCB_BASE_EDIT_FRAME } from '@ziroeda/pcbnew/src/pcb_base_edit_frame.js';
 import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from '@ziroeda/pcbnew/src/pcb_base_frame.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/src/pcbnew_settings.js';
+import { BOARD_COMMIT, SKIP_SET_DIRTY, SKIP_UNDO } from '@ziroeda/pcbnew/src/board_commit.js';
+import type { FOOTPRINT } from '@ziroeda/pcbnew/src/footprint.js';
+import type { NETLIST } from '@ziroeda/pcbnew/src/netlist_reader/pcb_netlist.js';
+import { type DIALOG_DRC_LIKE, DRC_TOOL } from '@ziroeda/pcbnew/src/tools/drc_tool.js';
+import { PCB_TOOL_BASE } from '@ziroeda/pcbnew/src/tools/pcb_tool_base.js';
+import { MARKER_T } from '@ziroeda/common/src/marker_base.js';
+import { RPT_SEVERITY_EXCLUSION } from '@ziroeda/common/src/reporter.js';
+import type { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
+import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { PcbnewSettings } from '../../prefs/settings.js';
 
 /**
@@ -59,6 +69,10 @@ export function pcbnewSettingsOf(json: PcbnewSettings): PCBNEW_SETTINGS {
   s.m_ShowPageLimits = d.show_page_borders;
   s.m_ColorTheme = json.appearance.color_theme;
 
+  s.m_DRCDialog.report_all_track_errors = json.DRC.report_all_track_errors;
+  s.m_DRCDialog.crossprobe = json.DRC.crossprobe;
+  s.m_DRCDialog.scroll_on_crossprobe = json.DRC.scroll_on_crossprobe;
+
   s.m_AngleSnapMode = e.pcb_angle_snap_mode;
   s.m_RotationAngle = new EDA_ANGLE(e.rotation_angle, EDA_ANGLE_T.TENTHS_OF_A_DEGREE_T);
   s.m_ArcEditMode = e.arc_edit_mode;
@@ -82,12 +96,32 @@ export interface PCB_EDIT_FRAME_HOOKS {
   settings(): PCBNEW_SETTINGS;
   /** `PCB_BASE_FRAME::OnModify`'s effect on the window: the dirty flag. */
   onModify(): void;
+  /** `new DIALOG_DRC( m_editFrame, aParent )`: the window's DRC dialog. */
+  createDrcDialog(aTool: DRC_TOOL, aParent: unknown): DIALOG_DRC_LIKE;
+  /** `Kiface().IsSingle()`: no schematic to test parity against. */
+  isSingle(): boolean;
+  /** `PCB_EDIT_FRAME::FetchNetlistFromSchematic`: fills aNetlist, false on failure. */
+  fetchNetlistFromSchematic(aNetlist: NETLIST, aAnnotateMessage: string): boolean;
+  /** `PCB_EDIT_FRAME::OnEditItemRequest`: the item's properties dialog. */
+  onEditItemRequest(aItem: BOARD_ITEM | null): void;
+  /** `DIALOG_EXCHANGE_FOOTPRINTS( frame, footprint, updateMode, true ).ShowQuasiModal()`. */
+  showExchangeFootprintsDialog(aFootprint: FOOTPRINT, aUpdateMode: boolean): void;
+  /** `findDialogs()`: the open modeless dialogs' rectangles, in canvas client pixels. */
+  findDialogRects(): BOX2D[];
+  /**
+   * `VIEW::SetCenter( aPos, aObscuringScreenRects )` as the editor applies it: the
+   * editor still owns the view transform, so it performs the centre.
+   */
+  setViewCenter(aPos: Vec2, aObscuringScreenRects: readonly BOX2D[]): void;
   /** `wxMessageBox( _( "Incomplete undo/redo operation: some items not found" ) )`. */
   onUndoRedoIncomplete(): void;
 }
 
 export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   private readonly hooks: PCB_EDIT_FRAME_HOOKS;
+  /** The project's .kicad_dru as last given to OnBoardLoaded: `GetDesignRulesPath()` and its text. */
+  private m_designRulesText: string | null = null;
+  private m_designRulesPath = '';
 
   constructor(hooks: PCB_EDIT_FRAME_HOOKS) {
     super(FRAME_T.FRAME_PCB_EDITOR);
@@ -95,11 +129,88 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.setupTools();
   }
 
-  /** `PCB_EDIT_FRAME::setupTools`: the manager, its environment; the tools are stage 3's. */
+  /**
+   * `PCB_EDIT_FRAME::setupTools` (pcb_edit_frame.cpp:940): the manager, its
+   * environment, the tools registered in the C++ order - DRC_TOOL is the one
+   * ported so far (#636 stage 4d); the rest are stage 3's.
+   */
   private setupTools(): void {
     // Create the manager and dispatcher & route draw panel events to the dispatcher
     this.m_toolManager = new TOOL_MANAGER();
     this.m_toolManager.SetEnvironment(this.m_pcb, null, null, this.hooks.settings(), this);
+
+    // Register tools
+    this.m_toolManager.RegisterTool(new DRC_TOOL());
+    this.m_toolManager.InitTools();
+
+    for (const tool of this.m_toolManager.Tools()) {
+      if (tool instanceof PCB_TOOL_BASE) tool.SetIsBoardEditor(true);
+    }
+
+    // Run the selection tool, it is supposed to be always active
+    // m_toolManager->InvokeTool( "common.InteractiveSelection" ): stage 3's
+  }
+
+  /** `PCB_EDIT_FRAME::GetDesignRulesPath()`: the project's rules file. */
+  GetDesignRulesPath(): string {
+    return this.m_designRulesPath;
+  }
+
+  /** The rules file's text, which `DRC_ENGINE::InitEngine` reads here in place of the path. */
+  GetDesignRulesText(): string | null {
+    return this.m_designRulesText;
+  }
+
+  CreateDrcDialog(aTool: DRC_TOOL, aParent: unknown): DIALOG_DRC_LIKE {
+    return this.hooks.createDrcDialog(aTool, aParent);
+  }
+
+  IsSingle(): boolean {
+    return this.hooks.isSingle();
+  }
+
+  FetchNetlistFromSchematic(aNetlist: NETLIST, aAnnotateMessage: string): boolean {
+    return this.hooks.fetchNetlistFromSchematic(aNetlist, aAnnotateMessage);
+  }
+
+  OnEditItemRequest(aItem: BOARD_ITEM | null): void {
+    this.hooks.onEditItemRequest(aItem);
+  }
+
+  ShowExchangeFootprintsDialog(aFootprint: FOOTPRINT, aUpdateMode: boolean): void {
+    this.hooks.showExchangeFootprintsDialog(aFootprint, aUpdateMode);
+  }
+
+  override findDialogRects(): BOX2D[] {
+    return this.hooks.findDialogRects();
+  }
+
+  protected override setViewCenter(aPos: Vec2, aObscuringScreenRects: readonly BOX2D[]): void {
+    this.hooks.setViewCenter(aPos, aObscuringScreenRects);
+  }
+
+  /** `PCB_EDIT_FRAME::ResolveDRCExclusions` (pcb_edit_frame.cpp:1378). */
+  ResolveDRCExclusions(aCreateMarkers: boolean): void {
+    const commit = new BOARD_COMMIT(this);
+
+    for (const marker of this.GetBoard()!.ResolveDRCExclusions(aCreateMarkers)) {
+      if (marker.GetMarkerType() === MARKER_T.MARKER_DRAWING_SHEET) {
+        const sheet = this.GetCanvas()?.GetDrawingSheet();
+
+        if (sheet) marker.GetRCItem()!.SetItems(sheet);
+      }
+
+      commit.Add(marker);
+    }
+
+    commit.Push('', SKIP_UNDO | SKIP_SET_DIRTY);
+
+    for (const marker of this.GetBoard()!.Markers()) {
+      if (marker.GetSeverity() === RPT_SEVERITY_EXCLUSION)
+        this.GetCanvas()?.GetView().Update(marker);
+    }
+
+    this.GetBoard()!.UpdateRatsnestExclusions();
   }
 
   override SetBoard(
@@ -132,6 +243,9 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
    * The WRL-to-STEP migration below it is the 3D viewer's.
    */
   OnBoardLoaded(aRulesText: string | null, aRulesPath = ''): void {
+    this.m_designRulesText = aRulesText;
+    this.m_designRulesPath = aRulesPath;
+
     const layerEnum = ENUM_MAP.Instance<PCB_LAYER_ID>('PCB_LAYER_ID');
 
     layerEnum.Choices().Clear();
@@ -291,7 +405,11 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   }
 
   GetFootprintEditorSettings(): FOOTPRINT_EDITOR_SETTINGS_LIKE {
-    return { m_DisplayInvertXAxis: false, m_DisplayInvertYAxis: false };
+    return {
+      m_DisplayInvertXAxis: false,
+      m_DisplayInvertYAxis: false,
+      m_AngleSnapMode: LEADER_MODE.DIRECT,
+    };
   }
 
   override OnModify(): void {

@@ -108,3 +108,25 @@ export function okCancelButtons(labels?: { ok?: string; cancel?: string }): {
     { id: 'ok', label: labels?.ok ?? OK_LABEL, isDefault: true },
   ];
 }
+
+export type YesNoCancelResult = 'yes' | 'no' | 'cancel';
+
+/**
+ * `wxYES_NO | wxCANCEL`: wxGTK adds the buttons No, Cancel, Yes in that order
+ * and `wxYES_DEFAULT` focuses Yes - measured on the very dialog
+ * DIALOG_DRC::OnDeleteAllClick raises (`qa/probes/msgdlg_yesnocancel`).
+ */
+export function yesNoCancelButtons(
+  defaultButton: 'yes' | 'no',
+  labels?: { yes?: string; no?: string },
+): {
+  id: YesNoCancelResult;
+  label: string;
+  isDefault: boolean;
+}[] {
+  return [
+    { id: 'no', label: labels?.no ?? NO_LABEL, isDefault: defaultButton === 'no' },
+    { id: 'cancel', label: CANCEL_LABEL, isDefault: false },
+    { id: 'yes', label: labels?.yes ?? YES_LABEL, isDefault: defaultButton === 'yes' },
+  ];
+}

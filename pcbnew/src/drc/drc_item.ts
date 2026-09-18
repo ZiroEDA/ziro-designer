@@ -100,6 +100,7 @@ export const DRCE_PAD_TH_WITH_NO_HOLE = PCB_DRC_CODE.DRCE_PAD_TH_WITH_NO_HOLE;
 export interface DRC_RULE_FOR_ITEM {
   m_Name: string;
   m_Severity: number;
+  IsImplicit(): boolean;
 }
 
 /** A `DRC_TEST_PROVIDER` reference. -- DRC_TEST_PROVIDER pending (#636 stage 4) */

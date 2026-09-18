@@ -14,13 +14,24 @@ import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import type { FRAME_T } from '@ziroeda/common/src/frame_type.js';
 import type { KIID } from '@ziroeda/common/src/kiid.js';
+import { RPT_SEVERITY_ACTION, type Severity } from '@ziroeda/common/src/reporter.js';
+import type { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
+import { CLEANUP_FIRST } from './cleanup_item.js';
 import type { PAGE_INFO } from '@ziroeda/common/src/page_info.js';
 import type { TITLE_BLOCK } from '@ziroeda/common/src/title_block.js';
-import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { add, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { type EDA_ITEM, RECURSE_MODE } from '@ziroeda/common/src/eda_item.js';
+import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { ARC_LOW_DEF } from '@ziroeda/kimath/src/base_units.js';
+import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import { CornerStrategy, SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
+import type { FOOTPRINT } from './footprint.js';
+import type { ZONE } from './zone.js';
 import type { APP_SETTINGS_BASE } from '@ziroeda/common/src/settings/app_settings.js';
 import type { COLOR_SETTINGS } from '@ziroeda/common/src/settings/color_settings.js';
 import type { TOOL_DISPATCHER } from '@ziroeda/common/src/draw_panel_gal.js';
-import type { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { RESET_REASON } from '@ziroeda/common/src/tool/tool_base.js';
 import { type VIEW_ITEM, VIEW_UPDATE_FLAGS } from '@ziroeda/common/src/view/view_item.js';
 import type { BOARD } from './board.js';
@@ -32,7 +43,7 @@ import type { PCB_SCREEN } from './pcb_screen.js';
 import { PCB_VIA, VIATYPE } from './pcb_track.js';
 import type { PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
 import type { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
-import type { BOARD_ITEM } from './board_item.js';
+import { type BOARD_ITEM, DELETED_BOARD_ITEM } from './board_item.js';
 import type { BOARD_ITEM_CONTAINER } from './board_item_container.js';
 import { PCB_ORIGIN_TRANSFORMS } from './pcb_origin_transforms.js';
 import { PCB_DISPLAY_ORIGIN, type PCBNEW_SETTINGS } from './pcbnew_settings.js';
@@ -44,6 +55,7 @@ import { PCB_DISPLAY_ORIGIN, type PCBNEW_SETTINGS } from './pcbnew_settings.js';
 export interface FOOTPRINT_EDITOR_SETTINGS_LIKE {
   m_DisplayInvertXAxis: boolean;
   m_DisplayInvertYAxis: boolean;
+  m_AngleSnapMode: LEADER_MODE;
 }
 
 export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
@@ -284,6 +296,14 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
     return this.GetBoard()!.ResolveItem(aId, aAllowNullptrReturn);
   }
 
+  override GetSeverity(aErrorCode: number): Severity {
+    if (aErrorCode >= CLEANUP_FIRST) return RPT_SEVERITY_ACTION;
+
+    const bds = this.GetBoard()!.GetDesignSettings();
+
+    return bds.m_DRCSeverities.get(aErrorCode)!;
+  }
+
   /**
    * `Pgm().GetSettingsManager().GetAppSettings<PCBNEW_SETTINGS>( "pcbnew" )`:
    * the designer's settings store supplies the object.
@@ -303,8 +323,218 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
    */
   abstract GetFootprintEditorSettings(): FOOTPRINT_EDITOR_SETTINGS_LIKE;
 
+  /** `static std::vector<KIID> lastBrightenedItemIDs` of FocusOnItems. */
+  private static lastBrightenedItemIDs: KIID[] = [];
+
+  override FocusOnItem(aItem: EDA_ITEM | null, aAllowScroll?: boolean): void;
+  override FocusOnItem(
+    aItem: BOARD_ITEM | null,
+    aLayer?: PCB_LAYER_ID,
+    aAllowScroll?: boolean,
+  ): void;
+  override FocusOnItem(
+    aItem: EDA_ITEM | BOARD_ITEM | null,
+    b?: boolean | PCB_LAYER_ID,
+    c?: boolean,
+  ): void {
+    if (typeof b === 'boolean' || b === undefined) {
+      // FocusOnItem( EDA_ITEM* aItem, bool aAllowScroll )
+      // nullptr will clear the current focus
+      if (aItem !== null && !aItem.IsBOARD_ITEM()) return;
+
+      this.FocusOnItem(aItem as BOARD_ITEM | null, PCB_LAYER_ID.UNDEFINED_LAYER, b ?? true);
+      return;
+    }
+
+    const items: BOARD_ITEM[] = [];
+
+    if (aItem) items.push(aItem as BOARD_ITEM);
+
+    this.FocusOnItems(items, b, c ?? true);
+  }
+
+  FocusOnItems(
+    aItems: BOARD_ITEM[],
+    aLayer: PCB_LAYER_ID = PCB_LAYER_ID.UNDEFINED_LAYER,
+    aAllowScroll = true,
+  ): void {
+    let itemsUnbrightened = false;
+
+    for (const lastBrightenedItemID of PCB_BASE_FRAME.lastBrightenedItemIDs) {
+      const lastItem = this.GetBoard()!.ResolveItem(lastBrightenedItemID, true);
+
+      if (lastItem) {
+        lastItem.ClearBrightened();
+        this.GetCanvas()!.GetView().Update(lastItem);
+        itemsUnbrightened = true;
+      }
+    }
+
+    if (itemsUnbrightened) this.GetCanvas()!.Refresh();
+
+    PCB_BASE_FRAME.lastBrightenedItemIDs = [];
+
+    if (aItems.length === 0) return;
+
+    let focusPt: VECTOR2I = { x: 0, y: 0 };
+    const view = this.GetCanvas()!.GetView();
+    const viewportPoly = new SHAPE_POLY_SET(view.GetViewport());
+
+    for (const dialog of this.findDialogRects()) {
+      // ScreenToClient( dialog->GetScreenPosition() ) / dialog->GetSize(): the rects are
+      // already client-relative
+      const dialogPoly = new SHAPE_POLY_SET(
+        new BOX2D(view.ToWorld(dialog.GetOrigin(), true), view.ToWorld(dialog.GetSize(), false)),
+      );
+
+      try {
+        viewportPoly.BooleanSubtract(dialogPoly);
+      } catch (e) {
+        console.error('Clipper exception occurred:', e);
+      }
+    }
+
+    let itemPoly = new SHAPE_POLY_SET();
+    const clippedPoly = new SHAPE_POLY_SET();
+
+    for (const item of aItems) {
+      if (item && item !== DELETED_BOARD_ITEM.GetInstance()) {
+        item.SetBrightened();
+        PCB_BASE_FRAME.lastBrightenedItemIDs.push(item.m_Uuid);
+
+        item.RunOnChildren((child: BOARD_ITEM) => {
+          child.SetBrightened();
+          PCB_BASE_FRAME.lastBrightenedItemIDs.push(child.m_Uuid);
+        }, RECURSE_MODE.RECURSE);
+
+        this.GetCanvas()!.GetView().Update(item);
+
+        // Focus on the object's location.  Prefer a visible part of the object to its anchor
+        // in order to keep from scrolling around.
+
+        focusPt = item.GetPosition();
+
+        if (aLayer === PCB_LAYER_ID.UNDEFINED_LAYER && item.GetLayerSet().any())
+          aLayer = item.GetLayerSet().Seq()[0]!;
+
+        switch (item.Type()) {
+          case KICAD_T.PCB_FOOTPRINT_T:
+            try {
+              itemPoly = (item as FOOTPRINT).GetBoundingHull();
+            } catch (e) {
+              console.error('Clipper exception occurred:', e);
+            }
+
+            break;
+
+          case KICAD_T.PCB_PAD_T:
+          case KICAD_T.PCB_MARKER_T:
+          case KICAD_T.PCB_VIA_T:
+            this.FocusOnLocation(item.GetFocusPosition(), aAllowScroll);
+            this.GetCanvas()!.Refresh();
+            return;
+
+          case KICAD_T.PCB_SHAPE_T:
+          case KICAD_T.PCB_FIELD_T:
+          case KICAD_T.PCB_TEXT_T:
+          case KICAD_T.PCB_TEXTBOX_T:
+          case KICAD_T.PCB_BARCODE_T:
+          case KICAD_T.PCB_TRACE_T:
+          case KICAD_T.PCB_ARC_T:
+          case KICAD_T.PCB_DIM_ALIGNED_T:
+          case KICAD_T.PCB_DIM_LEADER_T:
+          case KICAD_T.PCB_DIM_CENTER_T:
+          case KICAD_T.PCB_DIM_RADIAL_T:
+          case KICAD_T.PCB_DIM_ORTHOGONAL_T:
+            item.TransformShapeToPolygon(
+              itemPoly,
+              aLayer,
+              0,
+              pcbIUScale.mmToIU(0.1),
+              ERROR_LOC.ERROR_INSIDE,
+            );
+            break;
+
+          case KICAD_T.PCB_ZONE_T: {
+            const zone = item as ZONE;
+            // much faster calculation time when using only the zone outlines
+            itemPoly = new SHAPE_POLY_SET(zone.Outline());
+
+            break;
+          }
+
+          default: {
+            const item_bbox = item.GetBoundingBox();
+            itemPoly.NewOutline();
+            itemPoly.Append(item_bbox.GetOrigin());
+            itemPoly.Append(add(item_bbox.GetOrigin(), { x: item_bbox.GetWidth(), y: 0 }));
+            itemPoly.Append(add(item_bbox.GetOrigin(), { x: 0, y: item_bbox.GetHeight() }));
+            itemPoly.Append(
+              add(item_bbox.GetOrigin(), { x: item_bbox.GetWidth(), y: item_bbox.GetHeight() }),
+            );
+            break;
+          }
+        }
+
+        try {
+          itemPoly.ClearArcs();
+          viewportPoly.ClearArcs();
+          clippedPoly.BooleanIntersection(itemPoly, viewportPoly);
+        } catch (e) {
+          console.error('Clipper exception occurred:', e);
+        }
+
+        if (!clippedPoly.IsEmpty()) itemPoly = clippedPoly;
+      }
+    }
+
+    /*
+     * Perform a step-wise deflate to find the visual-center-of-mass
+     */
+
+    if (itemPoly.IsEmpty()) {
+      this.FocusOnLocation(focusPt, aAllowScroll);
+      this.GetCanvas()!.Refresh();
+      return;
+    }
+
+    const bbox = itemPoly.BBox();
+    const step = Math.trunc(Math.min(bbox.GetWidth(), bbox.GetHeight()) / 10);
+
+    // Tiny shapes can quantize to a zero deflate step
+    if (step <= 0) {
+      this.FocusOnLocation(bbox.Centre(), aAllowScroll);
+      this.GetCanvas()!.Refresh();
+      return;
+    }
+
+    while (!itemPoly.IsEmpty()) {
+      focusPt = itemPoly.BBox().Centre();
+
+      try {
+        itemPoly.Deflate(step, CornerStrategy.ALLOW_ACUTE_CORNERS, ARC_LOW_DEF);
+      } catch (e) {
+        console.error('Clipper exception occurred:', e);
+      }
+    }
+
+    this.FocusOnLocation(focusPt, aAllowScroll);
+    this.GetCanvas()!.Refresh();
+  }
+
+  ShowSolderMask(): void {
+    const view = this.GetCanvas()?.GetView() ?? null;
+
+    if (view && this.GetBoard()?.m_SolderMaskBridges) {
+      if (view.HasItem(this.GetBoard()!.m_SolderMaskBridges))
+        view.Remove(this.GetBoard()!.m_SolderMaskBridges);
+
+      view.Add(this.GetBoard()!.m_SolderMaskBridges);
+    }
+  }
+
   /**
-   * Remove the solder-mask bridges zone from the view. The view is stage 5's.
+   * Remove the solder-mask bridges zone from the view.
    */
   HideSolderMask(): void {
     const view = this.GetCanvas()?.GetView() ?? null;

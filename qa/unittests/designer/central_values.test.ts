@@ -238,7 +238,14 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // margins. Four colours and six metrics went with the div, and nothing
   // replaced them: `DialogCopperZones` was already there.
   // 38 -> 37 with 8fc7620e (the 3D viewer's Appearance pane); rescanned.
-  'editors/pcb': { colours: 37, metrics: 200 },
+  // 37 -> 32 and 200 -> 187: the DRC dialog rebuilt on DIALOG_DRC_BASE over
+  // the ERC dialog's chrome (#636 stage 4d). Its second-slice predecessor drew
+  // its own severity pills - `#d75b6b` twice, `#c9a132`, `#111` and an
+  // `rgba(90,140,255,0.18)` row highlight - with thirteen inline sizes
+  // (10.5 / 12 / 11.5 px fonts, `padding: '0 6px'` and the like). All of it is
+  // `.ze-erc-*` now, which is what upstream does: the two dialogs are the same
+  // wx widgets on the same DIALOG_SHIM. RESCANNED from this tree.
+  'editors/pcb': { colours: 32, metrics: 187 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -1069,7 +1076,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 334 - 2 agrees.
     // 332 -> 331: `.ze-msgdlg-extended`'s #c8c9cb, an invented grey (the probe
     // reads one foreground on both labels). `ui` 187 -> 186; 332 - 1 agrees.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(331);
+    // 331 -> 326: the DRC dialog's five, see the `editors/pcb` row; 331 - 5.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(326);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1243,7 +1251,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // marker; the three that did not are gone with the rewrite. 1296 - 3.
     // 1293 -> 1284: the message box, `ui` 704 -> 695 — see that row. 1293 - 9
     // agrees, and a rescan of this tree reads 1284.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1284);
+    // 1284 -> 1271: the DRC dialog's thirteen, see the `editors/pcb` row.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1271);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

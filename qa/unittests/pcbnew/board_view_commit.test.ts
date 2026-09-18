@@ -18,6 +18,7 @@ import { FormatBoard } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/src/pcbnew_settings.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 
 const RESAVE = fileURLToPath(new URL('../../data/pcbnew/resave/', import.meta.url));
 
@@ -42,7 +43,11 @@ class TEST_FRAME extends PCB_BASE_EDIT_FRAME {
     return this.settings;
   }
   GetFootprintEditorSettings(): FOOTPRINT_EDITOR_SETTINGS_LIKE {
-    return { m_DisplayInvertXAxis: false, m_DisplayInvertYAxis: false };
+    return {
+      m_DisplayInvertXAxis: false,
+      m_DisplayInvertYAxis: false,
+      m_AngleSnapMode: LEADER_MODE.DIRECT,
+    };
   }
 }
 

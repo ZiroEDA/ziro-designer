@@ -48,6 +48,8 @@ import {
   ToLAYER_ID,
 } from '@ziroeda/common/src/layer_ids.js';
 import { LSET } from '@ziroeda/common/src/lset.js';
+import { VIEW } from '@ziroeda/common/src/view/view.js';
+import { RPT_SEVERITY_EXCLUSION } from '@ziroeda/common/src/reporter.js';
 import type { OutStr } from '@ziroeda/common/src/font/font.js';
 import { GetDefaultVariantName } from '@ziroeda/common/src/string_utils.js';
 import { TITLE_BLOCK } from '@ziroeda/common/src/title_block.js';
@@ -80,7 +82,7 @@ import type { FOOTPRINT } from './footprint.js';
 import type { PCB_GENERATOR } from './pcb_generator.js';
 import type { PCB_GROUP } from './pcb_group.js';
 import type { PCB_POINT } from './pcb_point.js';
-import type { PCB_MARKER } from './pcb_marker.js';
+import { PCB_MARKER } from './pcb_marker.js';
 import { PCB_TABLE } from './pcb_table.js';
 import { PCB_BARCODE } from './pcb_barcode.js';
 import type { PCB_SHAPE } from './pcb_shape.js';
@@ -114,6 +116,36 @@ export const LEGACY_BOARD_FILE_VERSION = 2;
 // `class BOARD : public BOARD_ITEM_CONTAINER, public EMBEDDED_FILES`
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (EMBEDDED_FILES mixin)
 export interface BOARD extends EMBEDDED_FILES {}
+
+/** `std::set<wxString>` order: `wxString::operator<` is a code-unit compare. */
+const strLess = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+
+function FindByFirstNFields(
+  strSet: Set<string>,
+  searchStr: string,
+  delimiter: string,
+  n: number,
+): string | undefined {
+  let searchPrefix = searchStr;
+
+  // Extract first n fields from the search string
+  let delimiterCount = 0;
+  let pos = 0;
+
+  while (pos < searchPrefix.length && delimiterCount < n) {
+    if (searchPrefix[pos] === delimiter) delimiterCount++;
+
+    pos++;
+  }
+
+  if (delimiterCount === n) searchPrefix = searchPrefix.slice(0, pos - 1); // Exclude the nth delimiter
+
+  for (const it of strSet) {
+    if (it.startsWith(searchPrefix + delimiter) || it === searchPrefix) return it;
+  }
+
+  return undefined;
+}
 
 /**
  * Information pertinent to a Pcbnew printed circuit board.
@@ -833,6 +865,104 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
     if (has_outline) this.m_boardOutline.GetOutline().Fracture();
   }
 
+  RecordDRCExclusions(): void {
+    this.m_designSettings.m_DrcExclusions.clear();
+    this.m_designSettings.m_DrcExclusionComments.clear();
+
+    for (const marker of this.m_markers) {
+      // SerializeToString() dereferences the RC_ITEM, so a marker carrying none would fault
+      // while persisting exclusions during a save or window close.
+      if (!marker.GetRCItem()) continue;
+
+      if (marker.IsExcluded()) {
+        const serialized = marker.SerializeToString();
+        this.m_designSettings.m_DrcExclusions.add(serialized);
+        this.m_designSettings.m_DrcExclusionComments.set(serialized, marker.GetComment());
+      }
+    }
+
+    // if( m_project ) { projectFile->m_BoardSettings->m_DrcExclusions = ... }: PROJECT_FILE
+    // is the caller's (the designer writes the .kicad_pro from these settings).
+  }
+
+  ResolveDRCExclusions(aCreateMarkers: boolean): PCB_MARKER[] {
+    // std::set<wxString>: iterated in string order
+    const exclusions = new Set<string>([...this.m_designSettings.m_DrcExclusions].sort(strLess));
+    const comments = new Map<string, string>(this.m_designSettings.m_DrcExclusionComments);
+
+    this.m_designSettings.m_DrcExclusions.clear();
+    this.m_designSettings.m_DrcExclusionComments.clear();
+
+    for (const marker of this.GetBoard()!.Markers()) {
+      let it: string | undefined;
+      const serialized = marker.SerializeToString();
+      let matchedExclusion = '';
+
+      if (!serialized.includes('unconnected_items')) {
+        it = exclusions.has(serialized) ? serialized : undefined;
+
+        if (it !== undefined) matchedExclusion = it;
+      } else {
+        const numberOfFieldsExcludingIds = 3;
+        const delimiter = '|';
+        it = FindByFirstNFields(exclusions, serialized, delimiter, numberOfFieldsExcludingIds);
+
+        if (it !== undefined) matchedExclusion = it;
+      }
+
+      if (it !== undefined) {
+        marker.SetExcluded(true, comments.get(matchedExclusion) ?? '');
+
+        // Exclusion still valid; store back to BOARD_DESIGN_SETTINGS
+        this.m_designSettings.m_DrcExclusions.add(matchedExclusion);
+        this.m_designSettings.m_DrcExclusionComments.set(
+          matchedExclusion,
+          comments.get(matchedExclusion) ?? '',
+        );
+
+        exclusions.delete(it);
+      }
+    }
+
+    const newMarkers: PCB_MARKER[] = [];
+
+    if (aCreateMarkers) {
+      for (const serialized of exclusions) {
+        let marker = PCB_MARKER.DeserializeFromString(serialized);
+
+        if (!marker) continue;
+
+        const ids = marker.GetRCItem()!.GetIDs();
+
+        let uuidCount = 0;
+
+        for (const uuid of ids) {
+          if (uuidCount < 1 || uuid !== niluuid) {
+            if (!this.ResolveItem(uuid, true)) {
+              marker = null;
+              break;
+            }
+          }
+          uuidCount++;
+        }
+
+        if (marker) {
+          marker.SetExcluded(true, comments.get(serialized) ?? '');
+          newMarkers.push(marker);
+
+          // Exclusion still valid; store back to BOARD_DESIGN_SETTINGS
+          this.m_designSettings.m_DrcExclusions.add(serialized);
+          this.m_designSettings.m_DrcExclusionComments.set(
+            serialized,
+            comments.get(serialized) ?? '',
+          );
+        }
+      }
+    }
+
+    return newMarkers;
+  }
+
   UpdateRatsnestExclusions(): void {
     const m_ratsnestExclusions = new Set<string>();
 
@@ -1436,6 +1566,39 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
   Generators(): PCB_GENERATOR[] {
     return this.m_generators;
   }
+  DeleteMARKERs(): void;
+  DeleteMARKERs(aWarningsAndErrors: boolean, aExclusions: boolean): void;
+  DeleteMARKERs(aWarningsAndErrors?: boolean, aExclusions?: boolean): void {
+    if (aWarningsAndErrors === undefined) {
+      for (const marker of this.m_markers) this.m_itemByIdCache.delete(marker.m_Uuid);
+
+      // delete marker: ~VIEW_ITEM takes it out of the VIEW that holds it
+      for (const marker of this.m_markers) VIEW.OnDestroy(marker);
+
+      this.m_markers = [];
+      this.IncrementTimeStamp();
+      return;
+    }
+
+    // Deleting lots of items from a vector can be very slow.  Copy remaining items instead.
+    const remaining: PCB_MARKER[] = [];
+
+    for (const marker of this.m_markers) {
+      if (
+        (marker.GetSeverity() === RPT_SEVERITY_EXCLUSION && aExclusions) ||
+        (marker.GetSeverity() !== RPT_SEVERITY_EXCLUSION && aWarningsAndErrors)
+      ) {
+        this.m_itemByIdCache.delete(marker.m_Uuid);
+        VIEW.OnDestroy(marker); // delete marker
+      } else {
+        remaining.push(marker);
+      }
+    }
+
+    this.m_markers = remaining;
+    this.IncrementTimeStamp();
+  }
+
   Markers(): PCB_MARKER[] {
     return this.m_markers;
   }

@@ -40,8 +40,10 @@ import {
   ERROR_CAPTION,
   type MessageDialogIcon,
   OK_LABEL,
+  type YesNoCancelResult,
   type YesNoResult,
   yesNoButtons,
+  yesNoCancelButtons,
 } from './message_dialog.js';
 import { useModalEscape } from './useModalEscape.js';
 
@@ -217,6 +219,60 @@ export function MessageDialogYesNo({
  * With no `wxCANCEL` in the style word Esc maps to the only button there is, so
  * Esc dismisses it.
  */
+/**
+ * `wxMessageDialog( …, wxYES_NO | wxCANCEL | wxICON_* )` with `SetYesNoLabels`:
+ * three buttons, and Esc is `wxID_CANCEL` because the style has one.
+ */
+export function MessageDialogYesNoCancel({
+  caption,
+  message,
+  icon,
+  defaultButton,
+  labels,
+  onResult,
+}: {
+  caption: string;
+  message: string;
+  icon: MessageDialogIcon;
+  defaultButton: 'yes' | 'no';
+  labels?: { yes?: string; no?: string };
+  onResult: (result: YesNoCancelResult) => void;
+}): JSX.Element {
+  useModalEscape(() => onResult('cancel'));
+
+  const defaultRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    defaultRef.current?.focus();
+  }, []);
+
+  return (
+    <div className="ze-modal-backdrop">
+      <div className="ze-modal ze-msgdlg" role="dialog" aria-modal="true">
+        <div className="ze-msgdlg-title">{caption}</div>
+        <div className="ze-msgdlg-body">
+          <DialogIcon icon={icon} />
+          <div className="ze-msgdlg-text">
+            <div className="ze-msgdlg-message">{message}</div>
+          </div>
+        </div>
+        <div className="ze-msgdlg-buttons">
+          {yesNoCancelButtons(defaultButton, labels).map((b) => (
+            <button
+              key={b.id}
+              type="button"
+              className={`ze-btn${b.isDefault ? ' primary' : ''}`}
+              ref={b.isDefault ? defaultRef : undefined}
+              onClick={() => onResult(b.id)}
+            >
+              {b.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function MessageDialogOk({
   caption = 'Message',
   message,

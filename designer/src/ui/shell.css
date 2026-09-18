@@ -4780,40 +4780,51 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   box-shadow: var(--popup-shadow);
   z-index: 60;
 }
-/* The DRC dialog reuses the modeless find-dialog chrome (DIALOG_DRC is
-   modeless too, the canvas stays interactive for click-to-locate). */
-.ze-drc-dialog {
-  top: 48px;
-}
-/* The two stated numbers in `dialog_drc_base.cpp`, and the whole reason the DRC
-   window is wider and taller than the Find window it shares chrome with:
-
-     m_Notebook->SetMinSize( wxSize( 640,-1 ) );        (:104)
-     bSizerViolationsBox->SetMinSize( wxSize( -1,320 ) ); (:109)
-
-   Ours stated `width: 520px` on the dialog instead — 120 px short, and on the
-   wrong object. */
-.ze-drc-dialog .ze-drc-body {
-  min-width: 640px;
-  display: block;
-  /* [data] `bSizer13->Add( m_Notebook, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 )`
-     (`dialog_drc_base.cpp:170`) — ten on three sides and nothing at the bottom,
-     which is what the flags say. This read `10px 12px`: the 10 was right and
-     the 12 was in no sizer in that file. */
-  padding: 10px 10px 0;
-}
-.ze-drc-dialog .ze-drc-violations {
-  /* [data] `bSizerViolationsBox->SetMinSize( wxSize( -1,320 ) )`
-     (`dialog_drc_base.cpp:109`). */
+/* DRC Control (dialog_drc_base.cpp): the same DIALOG_SHIM chrome as the ERC
+   dialog (`.ze-erc-panel`), which is what the two share upstream. The stated
+   numbers of the base: `m_Notebook->SetMinSize( wxSize( 640,-1 ) )` (:104) and
+   `bSizerViolationsBox->SetMinSize( wxSize( -1,320 ) )` (:109) - the list
+   carries the 640 from the ERC rule; the 320 is here. */
+.ze-drc-panel .ze-erc-list {
+  /* [data] bSizerViolationsBox's 320, against the ERC tree's 260. */
   min-height: 320px;
-  /* Ours also caps it, because the window is modeless and floats over the
-     canvas rather than being resized by the user as KiCad's is. Stated against
-     the VIEWPORT rather than in pixels: how much of the screen a floating
-     window may take is a browser question, and 340 was a number picked here to
-     answer it. `.ze-zone-dialog` caps itself the same way. */
-  max-height: 40vh;
-  overflow: auto;
-  padding: 0;
+}
+/* gbSizerOptions (:53-66): the two option boxes in a two-column growable row,
+   the config button spanning both rows at the right. Each box has 5 on
+   top/right/left; the button 10 on the right. */
+.ze-drc-options {
+  display: flex;
+  align-items: center;
+  /* [data] the boxes' wxLEFT|wxRIGHT 5 either side, 10 between them. */
+  gap: 10px;
+  /* [data] gbSizerOptions' wxTOP|wxLEFT 10 on the sizer plus the box's 5. */
+  padding: 5px 10px 0 15px;
+}
+.ze-drc-options .grow {
+  flex: 1;
+}
+/* m_drcStatusBar (dialog_drc.cpp:148-158): a wxStatusBar with two fields, the
+   first FromDIP( 12 ) wide and the second taking the rest. */
+.ze-drc-statusbar {
+  display: flex;
+  align-items: center;
+  /* [px] a GtkStatusbar row on the dialog font: 22 device px, as the frame's own
+     status bar (`.ze-statusbar`) measures. */
+  height: 22px;
+  border-top: 1px solid var(--chrome-border);
+  color: var(--chrome-fg);
+}
+.ze-drc-statusbar .field0 {
+  /* [data] statusBarWidths[0] = FromDIP( 12 ) */
+  width: 12px;
+  flex: 0 0 auto;
+}
+.ze-drc-statusbar .field1 {
+  flex: 1;
+}
+/* RC_TREE_NODE::COMMENT rows are plain text under the excluded marker. */
+.ze-erc-subrow.comment {
+  font-style: italic;
 }
 .ze-find-body {
   padding: 10px;
@@ -8937,7 +8948,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-erc-footer .grow {
   flex: 1;
 }
-.ze-erc-footer .chk {
+/* The DRC dialog's two option boxes are the same wxCheckBox. */
+.ze-erc-footer .chk,
+.ze-drc-options .chk {
   display: flex;
   align-items: center;
   gap: 4px;
