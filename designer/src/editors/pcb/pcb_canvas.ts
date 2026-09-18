@@ -11,15 +11,16 @@
  * make upstream.
  */
 
-import {
-  type DRAW_PANEL_GAL_WINDOW,
+import type {
+  DRAW_PANEL_GAL_WINDOW,
   EDA_DRAW_PANEL_GAL,
 } from '@ziroeda/common/src/draw_panel_gal.js';
 import { DS_PROXY_VIEW_ITEM } from '@ziroeda/common/src/drawing_sheet/ds_proxy_view_item.js';
+import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/src/view/view_item.js';
 import type { WksSheet } from '@ziroeda/common/src/drawing_sheet/types.js';
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import { KICURSOR } from '@ziroeda/common/src/gal/cursors.js';
-import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import type { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { LSET } from '@ziroeda/common/src/lset.js';
 import { MOUSE_DRAG_ACTION } from '@ziroeda/common/src/mouse_drag_action.js';
 import {
@@ -36,7 +37,7 @@ import { parseBoardItemId } from '@ziroeda/pcbnew/src/edit-board.js';
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
 import type { BOARD_ITEM } from '@ziroeda/pcbnew/src/board_item.js';
 import { PCB_DRAW_PANEL_GAL } from '@ziroeda/pcbnew/src/pcb_draw_panel_gal.js';
-import { PCB_DISPLAY_OPTIONS } from '@ziroeda/pcbnew/src/pcb_painter.js';
+import type { PCB_DISPLAY_OPTIONS } from '@ziroeda/pcbnew/src/pcb_painter.js';
 import { PCB_SCREEN } from '@ziroeda/pcbnew/src/pcb_screen.js';
 import { pcbnewSettingsOf, type PCB_EDIT_FRAME } from './pcb_edit_frame.js';
 import { type KiCursor, kiCursor } from '../../ui/kicursors.js';
@@ -478,6 +479,15 @@ export function applyDisplayState(
     settings.SetHighlight(new Set(aState.highlightNets), aState.highlightNets.size > 0);
     view.UpdateAllLayersColor();
   }
+
+  // The first sync of a board is the tail of PCB_EDIT_FRAME::OnBoardLoaded
+  // (pcb_edit_frame.cpp:2035-2055): after `SetActiveLayer( ..., true )`,
+  // "Invalidate painting as loading the DRC engine will cause clearances to
+  // become valid" - every item is re-recorded, so a pad or track cached by a
+  // frame that slipped in before the engine had its rules draws its clearance
+  // ring, and in the colour the painter gives it rather than the one
+  // UpdateAllLayersColor just wrote over the cache.
+  if (!aPrev) view.UpdateAllItems(VIEW_UPDATE_FLAGS.ALL);
 }
 
 function setsEqual<T>(a: ReadonlySet<T>, b: ReadonlySet<T>): boolean {

@@ -14,9 +14,16 @@ import { PARSE_ERROR } from '@ziroeda/common/src/dsnlexer.js';
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import type { OutStr } from '@ziroeda/common/src/font/font.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/src/reporter.js';
+import {
+  Reporter,
+  RPT_SEVERITY_ERROR,
+  RPT_SEVERITY_IGNORE,
+  RPT_SEVERITY_WARNING,
+} from '@ziroeda/common/src/reporter.js';
 import { BOARD } from '@ziroeda/pcbnew/src/board.js';
+import { DEFAULT_MINCLEARANCE } from '@ziroeda/pcbnew/src/board_design_settings_defaults.js';
 import { DRC_ENGINE } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
+import { PCB_DRC_CODE } from '@ziroeda/pcbnew/src/drc/drc_item.js';
 import {
   DRC_CONSTRAINT_T,
   DRC_DISALLOW_T,
@@ -26,6 +33,7 @@ import { DRC_RULES_PARSER } from '@ziroeda/pcbnew/src/drc/drc_rule_parser.js';
 import { FOOTPRINT } from '@ziroeda/pcbnew/src/footprint.js';
 import { NETINFO_ITEM } from '@ziroeda/pcbnew/src/netinfo.js';
 import { PAD } from '@ziroeda/pcbnew/src/pad.js';
+import { PAD_ATTRIB } from '@ziroeda/pcbnew/src/padstack.js';
 import { PCB_TRACK } from '@ziroeda/pcbnew/src/pcb_track.js';
 import { ZONE } from '@ziroeda/pcbnew/src/zone.js';
 
@@ -346,5 +354,59 @@ describe('DRC_ENGINE core', () => {
     engine.InitEngine(null);
 
     expect(hvTrack.GetOwnClearance(F_Cu)).toBe(mm(0.7));
+  });
+});
+
+describe('BOARD_DESIGN_SETTINGS.LoadFromJson', () => {
+  it('reads the rules.* PARAM_SCALED values in mm, defaulting what is missing or out of range', () => {
+    const bds = new BOARD().GetDesignSettings();
+    bds.m_HoleClearance = mm(0.25);
+    bds.m_MinClearance = mm(0.1);
+
+    bds.LoadFromJson({
+      rules: {
+        min_hole_clearance: 0.2,
+        min_copper_edge_clearance: 0.372,
+        min_clearance: 99, // over the 25 mm max: the default
+        min_resolved_spokes: 3,
+      },
+      rule_severities: { hole_clearance: 'warning', clearance: 'ignore', bogus_key: 'error' },
+      track_widths: [0.0, 0.25, 0.5],
+      via_dimensions: [
+        { diameter: 0.0, drill: 0.0 },
+        { diameter: 0.6, drill: 0.3 },
+        { diameter: 1 },
+      ],
+      diff_pair_dimensions: [{ width: 0.2, gap: 0.15, via_gap: 0.0 }],
+      drc_exclusions: ['a|b', ['c|d', 'a comment']],
+    });
+
+    expect(bds.m_HoleClearance).toBe(mm(0.2));
+    expect(bds.m_CopperEdgeClearance).toBe(mm(0.372));
+    expect(bds.m_MinClearance).toBe(mm(DEFAULT_MINCLEARANCE));
+    // missing: the default, not the previous value
+    expect(bds.m_HoleToHoleMin).toBe(mm(0.25));
+    expect(bds.m_MinResolvedSpokes).toBe(3);
+    expect(bds.GetSeverity(PCB_DRC_CODE.DRCE_HOLE_CLEARANCE)).toBe(RPT_SEVERITY_WARNING);
+    expect(bds.GetSeverity(PCB_DRC_CODE.DRCE_CLEARANCE)).toBe(RPT_SEVERITY_IGNORE);
+    expect(bds.m_TrackWidthList).toEqual([0, mm(0.25), mm(0.5)]);
+    expect(bds.m_ViasDimensionsList.map((v) => [v.m_Diameter, v.m_Drill])).toEqual([
+      [0, 0],
+      [mm(0.6), mm(0.3)],
+    ]);
+    expect(bds.m_DiffPairDimensionsList.map((d) => [d.m_Width, d.m_Gap, d.m_ViaGap])).toEqual([
+      [mm(0.2), mm(0.15), 0],
+    ]);
+    expect([...bds.m_DrcExclusions]).toEqual(['a|b', 'c|d']);
+  });
+
+  it('the NPTH ring is the project hole clearance once the .kicad_pro is loaded', () => {
+    const { board, engine, pad } = makeBoard();
+    pad.SetAttribute(PAD_ATTRIB.NPTH);
+    pad.SetDrillSize({ x: mm(3), y: mm(3) });
+    board.GetDesignSettings().LoadFromJson({ rules: { min_hole_clearance: 0.2 } });
+    engine.InitEngine(null);
+
+    expect(pad.GetOwnClearance(F_Cu)).toBe(mm(0.2));
   });
 });

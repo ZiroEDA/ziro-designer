@@ -17,7 +17,7 @@
  */
 
 import { ADVANCED_CFG } from '@ziroeda/common/src/advanced_config.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
+import { PCB_IU_PER_MM, pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import {
   DIM_PRECISION,
   DIM_TEXT_POSITION,
@@ -31,8 +31,10 @@ import {
   RPT_SEVERITY_IGNORE,
   RPT_SEVERITY_WARNING,
   type Severity,
+  SeverityFromString,
 } from '@ziroeda/common/src/reporter.js';
-import { PCB_DRC_CODE } from './drc/drc_item.js';
+import { DRC_ITEM, PCB_DRC_CODE } from './drc/drc_item.js';
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { ARC_HIGH_DEF } from '@ziroeda/kimath/src/base_units.js';
 import { NET_SETTINGS } from '@ziroeda/common/src/project/net_settings.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
@@ -739,6 +741,200 @@ export class BOARD_DESIGN_SETTINGS {
   /**
    * Return the default graphic segment thickness from the layer class for the given layer.
    */
+  /**
+   * `NESTED_SETTINGS::LoadFromFile` over the `.kicad_pro`'s
+   * `board.design_settings` object: the `rules.*` PARAM_SCALED entries (a
+   * missing or out-of-range value is the default, as `PARAM::Load` with
+   * `aResetIfMissing` gives), `rule_severities`, `drc_exclusions`,
+   * `track_widths`, `via_dimensions`, `diff_pair_dimensions`. The
+   * `defaults.*` drawing defaults, the teardrop and tuning-pattern blocks and
+   * the schema migrations are not here yet.
+   */
+  LoadFromJson(aJson: unknown): void {
+    const obj =
+      aJson !== null && typeof aJson === 'object' ? (aJson as Record<string, unknown>) : {};
+    const rules =
+      obj.rules !== null && typeof obj.rules === 'object'
+        ? (obj.rules as Record<string, unknown>)
+        : {};
+
+    // `PARAM_SCALED<int>( path, &member, default, min, max, MM_PER_IU )::Load`
+    const scaled = (aKey: string, aDefaultMM: number, aMinMM: number, aMaxMM: number): number => {
+      let dval = aDefaultMM;
+      const v = rules[aKey];
+
+      if (typeof v === 'number') dval = v;
+
+      let val = KiROUND(dval * PCB_IU_PER_MM);
+
+      if (val > pcbIUScale.mmToIU(aMaxMM) || val < pcbIUScale.mmToIU(aMinMM))
+        val = pcbIUScale.mmToIU(aDefaultMM);
+
+      return val;
+    };
+
+    this.m_UseHeightForLengthCalcs =
+      typeof rules.use_height_for_length_calcs === 'boolean'
+        ? rules.use_height_for_length_calcs
+        : true;
+
+    this.m_MinClearance = scaled('min_clearance', DEFAULT_MINCLEARANCE, 0.0, 25.0);
+    this.m_MinConn = scaled('min_connection', DEFAULT_MINCONNECTION, 0.0, 100.0);
+    this.m_TrackMinWidth = scaled('min_track_width', DEFAULT_TRACKMINWIDTH, 0.0, 25.0);
+    this.m_ViasMinAnnularWidth = scaled('min_via_annular_width', DEFAULT_VIASMINSIZE, 0.0, 25.0);
+    this.m_ViasMinSize = scaled('min_via_diameter', DEFAULT_VIASMINSIZE, 0.0, 25.0);
+    this.m_MinThroughDrill = scaled(
+      'min_through_hole_diameter',
+      DEFAULT_MINTHROUGHDRILL,
+      0.0,
+      25.0,
+    );
+    this.m_MicroViasMinSize = scaled('min_microvia_diameter', DEFAULT_MICROVIASMINSIZE, 0.0, 10.0);
+    this.m_MicroViasMinDrill = scaled('min_microvia_drill', DEFAULT_MICROVIASMINDRILL, 0.0, 10.0);
+    this.m_HoleToHoleMin = scaled('min_hole_to_hole', DEFAULT_HOLETOHOLEMIN, 0.0, 10.0);
+    this.m_HoleClearance = scaled('min_hole_clearance', DEFAULT_HOLECLEARANCE, 0.0, 100.0);
+    this.m_SilkClearance = scaled('min_silk_clearance', DEFAULT_SILKCLEARANCE, -10.0, 100.0);
+    this.m_MinGrooveWidth = scaled('min_groove_width', DEFAULT_MINGROOVEWIDTH, 0.0, 25.0);
+
+    // While the maximum *effective* value is 4, we've had users interpret this as the count on
+    // all layers, and enter something like 10.  They'll figure it out soon enough *unless* we
+    // enforce a max of 4 (and therefore reset it back to the default of 2), at which point it
+    // just looks buggy.
+    {
+      const v = rules.min_resolved_spokes;
+      this.m_MinResolvedSpokes =
+        typeof v === 'number' && v >= 0 && v <= 99 ? Math.trunc(v) : DEFAULT_MINRESOLVEDSPOKES;
+    }
+
+    this.m_MinSilkTextHeight = scaled('min_text_height', DEFAULT_SILK_TEXT_SIZE * 0.8, 0.0, 100.0);
+    this.m_MinSilkTextThickness = scaled(
+      'min_text_thickness',
+      DEFAULT_SILK_TEXT_WIDTH * 0.8,
+      0.0,
+      25.0,
+    );
+
+    // Note: a clearance of -0.01 is a flag indicating we should use the legacy (pre-6.0) method
+    // based on the edge cut thicknesses.
+    this.m_CopperEdgeClearance = scaled(
+      'min_copper_edge_clearance',
+      DEFAULT_COPPEREDGECLEARANCE,
+      -0.01,
+      25.0,
+    );
+
+    // "rule_severities"
+    {
+      const sev = obj.rule_severities;
+
+      if (sev !== null && typeof sev === 'object' && !Array.isArray(sev)) {
+        const sevObj = sev as Record<string, unknown>;
+
+        // Load V8 'hole_near_hole' token first (if present).  Any current 'hole_to_hole' token
+        // found will then overwrite it.
+        if (typeof sevObj.hole_near_hole === 'string')
+          this.m_DRCSeverities.set(
+            PCB_DRC_CODE.DRCE_DRILLED_HOLES_TOO_CLOSE,
+            SeverityFromString(sevObj.hole_near_hole),
+          );
+
+        for (const item of DRC_ITEM.GetItemsWithSeverities()) {
+          const key = item.GetSettingsKey();
+
+          if (typeof sevObj[key] === 'string')
+            this.m_DRCSeverities.set(
+              item.GetErrorCode(),
+              SeverityFromString(sevObj[key] as string),
+            );
+        }
+      }
+    }
+
+    // "drc_exclusions"
+    {
+      const ex = obj.drc_exclusions;
+
+      if (Array.isArray(ex)) {
+        this.m_DrcExclusions.clear();
+
+        for (const entry of ex) {
+          if (Array.isArray(entry)) {
+            // [ serialized, comment ]: the comment is kept beside it in the C++'s
+            // m_DrcExclusionComments, which is not ported yet
+            if (typeof entry[0] === 'string') this.m_DrcExclusions.add(entry[0]);
+          } else if (typeof entry === 'string') {
+            this.m_DrcExclusions.add(entry);
+          }
+        }
+      }
+    }
+
+    // "track_widths"
+    {
+      const tw = obj.track_widths;
+
+      if (Array.isArray(tw)) {
+        this.m_TrackWidthList = [];
+
+        for (const entry of tw) {
+          if (typeof entry !== 'number') continue;
+
+          this.m_TrackWidthList.push(pcbIUScale.mmToIU(entry));
+        }
+      }
+    }
+
+    // "via_dimensions"
+    {
+      const vd = obj.via_dimensions;
+
+      if (Array.isArray(vd)) {
+        this.m_ViasDimensionsList = [];
+
+        for (const entry of vd) {
+          if (entry === null || typeof entry !== 'object') continue;
+
+          const e = entry as Record<string, unknown>;
+
+          if (typeof e.diameter !== 'number' || typeof e.drill !== 'number') continue;
+
+          const diameter = pcbIUScale.mmToIU(e.diameter);
+          const drill = pcbIUScale.mmToIU(e.drill);
+
+          this.m_ViasDimensionsList.push(new VIA_DIMENSION(diameter, drill));
+        }
+      }
+    }
+
+    // "diff_pair_dimensions"
+    {
+      const dp = obj.diff_pair_dimensions;
+
+      if (Array.isArray(dp)) {
+        this.m_DiffPairDimensionsList = [];
+
+        for (const entry of dp) {
+          if (entry === null || typeof entry !== 'object') continue;
+
+          const e = entry as Record<string, unknown>;
+
+          if (
+            typeof e.width !== 'number' ||
+            typeof e.gap !== 'number' ||
+            typeof e.via_gap !== 'number'
+          )
+            continue;
+
+          const width = pcbIUScale.mmToIU(e.width);
+          const gap = pcbIUScale.mmToIU(e.gap);
+          const via_gap = pcbIUScale.mmToIU(e.via_gap);
+
+          this.m_DiffPairDimensionsList.push(new DIFF_PAIR_DIMENSION(width, gap, via_gap));
+        }
+      }
+    }
+  }
+
   /**
    * Return the severity of the DRC error code.
    */

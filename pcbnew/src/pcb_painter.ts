@@ -133,7 +133,7 @@ import { HIGH_CONTRAST_MODE, NET_COLOR_MODE, ZONE_DISPLAY_MODE } from './board_p
 import type { FOOTPRINT } from './footprint.js';
 import { NETINFO_LIST } from './netinfo.js';
 import { PAD } from './pad.js';
-import { PAD_ATTRIB, PAD_DRILL_SHAPE, PAD_SHAPE, PADSTACK_MODE } from './padstack.js';
+import { PAD_ATTRIB, type PAD_DRILL_SHAPE, PAD_SHAPE, PADSTACK_MODE } from './padstack.js';
 import type { PCB_BARCODE } from './pcb_barcode.js';
 import type { PCB_BOARD_OUTLINE } from './pcb_board_outline.js';
 import type { PCB_DIMENSION_BASE } from './pcb_dimension.js';
@@ -142,20 +142,20 @@ import type { PCB_GROUP } from './pcb_group.js';
 import type { PCB_MARKER } from './pcb_marker.js';
 import type { PCB_POINT } from './pcb_point.js';
 import type { PCB_REFERENCE_IMAGE } from './pcb_reference_image.js';
-import { PCB_SHAPE } from './pcb_shape.js';
+import type { PCB_SHAPE } from './pcb_shape.js';
 import type { PCB_TABLE } from './pcb_table.js';
 import type { PCB_TABLECELL } from './pcb_table.js';
 import type { PCB_TARGET } from './pcb_target.js';
 import { PCB_TEXT } from './pcb_text.js';
 import type { PCB_TEXTBOX } from './pcb_textbox.js';
-import { PCB_ARC, PCB_TRACK, PCB_VIA, VIATYPE } from './pcb_track.js';
+import { type PCB_ARC, type PCB_TRACK, PCB_VIA, VIATYPE } from './pcb_track.js';
 import {
   type PCB_VIEWERS_SETTINGS_BASE,
   PCBNEW_SETTINGS,
   SHOW_WITH_VIA_ALWAYS,
 } from './pcbnew_settings.js';
 import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
-import { ZONE } from './zone.js';
+import type { ZONE } from './zone.js';
 import { ZONE_BORDER_DISPLAY_STYLE } from './zone_settings.js';
 
 const COLOR4D = (r: number, g: number, b: number, a: number): Color4d => ({ r, g, b, a });
@@ -1221,7 +1221,7 @@ export class PCB_PAINTER extends PAINTER {
   protected drawVia(aVia: PCB_VIA, aLayer: number): void {
     const gal = this.m_gal!;
     const board = aVia.GetBoard()!;
-    let color = this.m_pcbSettings.GetColorForBoardItem(aVia, aLayer);
+    const color = this.m_pcbSettings.GetColorForBoardItem(aVia, aLayer);
     const center: Vec2 = aVia.GetStart();
 
     if (colorEquals(color, COLOR4D_CLEAR)) return;

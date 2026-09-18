@@ -970,8 +970,9 @@ function promotePadsForCommand(
  * The project's slices into the live BOARD, as `BOARD::SetProject` binds
  * `bds.m_NetSettings` to the project file's NET_SETTINGS and
  * `PCB_EDIT_FRAME::OnBoardLoaded` initialises the DRC engine on the
- * project's `.kicad_dru`: the `.kicad_pro`'s `net_settings` object is loaded
- * into the board's own NET_SETTINGS, the nets take their classes
+ * project's `.kicad_dru`: the `.kicad_pro`'s `board.design_settings` is
+ * loaded into the board's BOARD_DESIGN_SETTINGS and its `net_settings` into
+ * the board's own NET_SETTINGS, the nets take their classes
  * (`SynchronizeNetsAndNetClasses`), the engine compiles the implicit rules
  * plus the custom ones and fills the clearance cache. PROJECT itself is not
  * ported, so the files come from the editor's project file list.
@@ -985,7 +986,7 @@ function syncProjectSettingsIntoBoard(
   panel: PCB_DRAW_PANEL_GAL | null,
   files: readonly { name: string; text: string }[],
   rootPro: string | undefined,
-  repaint: boolean,
+  aFromBoardSetup: boolean,
 ): void {
   const kb = frame.GetBoard();
   if (!kb) return;
@@ -997,16 +998,26 @@ function syncProjectSettingsIntoBoard(
     } catch {
       json = null;
     }
-    const netSettings =
-      json !== null && typeof json === 'object'
-        ? (json as Record<string, unknown>).net_settings
-        : undefined;
-    if (netSettings !== undefined) kb.GetDesignSettings().m_NetSettings.LoadFromJson(netSettings);
+    const j = json !== null && typeof json === 'object' ? (json as Record<string, unknown>) : {};
+    // `board.design_settings`: the BOARD_DESIGN_SETTINGS nested settings - the
+    // constraints (min clearance, copper-to-hole, ...) live only here, never
+    // in the board file, so without this every board ran on the defaults.
+    const boardJ =
+      j.board !== null && typeof j.board === 'object' ? (j.board as Record<string, unknown>) : {};
+    if (boardJ.design_settings !== undefined)
+      kb.GetDesignSettings().LoadFromJson(boardJ.design_settings);
+    if (j.net_settings !== undefined)
+      kb.GetDesignSettings().m_NetSettings.LoadFromJson(j.net_settings);
   }
-  kb.SynchronizeNetsAndNetClasses(repaint);
+  // `SynchronizeNetsAndNetClasses( true )` after the dialog resets the custom
+  // track/via sizes to the Default class; the load's own call (inside
+  // InitEngine's loadImplicitRules) passes false.
+  kb.SynchronizeNetsAndNetClasses(aFromBoardSetup);
   const dru = findProjectDru(files, rootPro);
   frame.OnBoardLoaded(dru?.text ?? null, dru?.name ?? '');
-  if (!repaint || !panel) return;
+  // The load stops here: OnBoardLoaded's own tail (SetActiveLayer + a full
+  // UpdateAllItems) is the first display sync of the board, in pcb_canvas.
+  if (!aFromBoardSetup || !panel) return;
   const settings = frame.GetPcbNewSettings();
   const maskAndPasteLayers = new LSET([
     PCB_LAYER_ID.F_Mask,
@@ -2752,8 +2763,10 @@ export function PcbEditor({
             traceAllegroPerf,
             () => `Post-load BuildConnectivity: ${postLoadTimer.msecs(true).toFixed(3)} ms`,
           );
-          // `OnBoardLoaded()`: the project's netclasses and rules into the
-          // DRC engine, before the first paint asks for a clearance.
+          // `OnBoardLoaded()`: the project's constraints, netclasses and
+          // rules into the DRC engine. Its tail - SetActiveLayer( ..., true )
+          // and the UpdateAllItems( ALL ) that re-records what a frame drew
+          // before the rules existed - is the board's first display sync.
           syncProjectSettingsIntoBoard(frame, panelRef.current, projectFilesNow(), rootPro, false);
           wxLogTrace(
             traceAllegroPerf,
@@ -4393,7 +4406,14 @@ export function PcbEditor({
     panelRef.current = panel;
     // `?perf=1`: the panel beside the counters, so a probe can ask the VIEW
     // where a board point is on screen and drive a gesture there.
-    if (PERF) (pcbPerf as PcbPerfCounters & { panel?: PCB_DRAW_PANEL_GAL }).panel = panel;
+    if (PERF) {
+      const perf = pcbPerf as PcbPerfCounters & {
+        panel?: PCB_DRAW_PANEL_GAL;
+        frame?: PCB_EDIT_FRAME;
+      };
+      perf.panel = panel;
+      perf.frame = frame;
+    }
     // A board already open: `SetBoard` ran without a canvas, so what it would
     // have done through the canvas is done now.
     // In SetBoard's order: `DisplayBoard` first (it clears the VIEW), then

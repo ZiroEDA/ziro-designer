@@ -91,3 +91,17 @@ export function reportLineToPlainText(line: ReportLine): string {
       return `${line.message}\n`;
   }
 }
+
+/** `SeverityFromString( aSeverity )` (common/widgets/ui_common.cpp:56). */
+export function SeverityFromString(aSeverity: string): Severity {
+  if (aSeverity === 'warning') return RPT_SEVERITY_WARNING;
+  else if (aSeverity === 'ignore') return RPT_SEVERITY_IGNORE;
+  else return RPT_SEVERITY_ERROR;
+}
+
+/** `SeverityToString( aSeverity )` (common/widgets/ui_common.cpp:67). */
+export function SeverityToString(aSeverity: Severity): string {
+  if (aSeverity === RPT_SEVERITY_IGNORE) return 'ignore';
+  else if (aSeverity === RPT_SEVERITY_WARNING) return 'warning';
+  else return 'error';
+}

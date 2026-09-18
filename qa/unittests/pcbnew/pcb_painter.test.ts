@@ -11,7 +11,7 @@
  * a net name takes.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
-import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { Vec2, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
@@ -27,6 +27,7 @@ import {
   F_Mask,
   GetNetnameLayer,
   LAYER_ANCHOR,
+  LAYER_NON_PLATEDHOLES,
   LAYER_PAD_FR_NETNAMES,
   LAYER_PADS,
   LAYER_VIA_HOLES,
@@ -43,6 +44,7 @@ import { PGM_BASE, SetPgm } from '@ziroeda/common/src/pgm_base.js';
 import { COLOR_SETTINGS } from '@ziroeda/common/src/settings/color_settings.js';
 import { BOARD } from '@ziroeda/pcbnew/src/board.js';
 import { HIGH_CONTRAST_MODE, NET_COLOR_MODE } from '@ziroeda/pcbnew/src/board_project_settings.js';
+import { DRC_ENGINE } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
 import { FOOTPRINT } from '@ziroeda/pcbnew/src/footprint.js';
 import { NETINFO_ITEM } from '@ziroeda/pcbnew/src/netinfo.js';
 import { PAD } from '@ziroeda/pcbnew/src/pad.js';
@@ -419,6 +421,37 @@ describe('PCB_PAINTER::draw( PAD )', () => {
     const polys = gal.of('DrawPolygon');
     expect(rects.length + polys.length).toBeGreaterThan(0);
     expect(gal.fill).toBe(true);
+  });
+
+  it('an NPTH pad strokes its clearance ring in the non-plated-hole colour, around the hole', () => {
+    const { gal, painter, settings } = makePainter();
+    const { board } = padBoard();
+    const fp = board.Footprints()[0]!;
+    const npth = new PAD(fp);
+    npth.SetAttribute(PAD_ATTRIB.NPTH);
+    npth.SetShape(PCB_LAYER_ID.F_Cu, PAD_SHAPE.CIRCLE);
+    npth.SetSize(PCB_LAYER_ID.F_Cu, { x: mm(3), y: mm(3) });
+    npth.SetDrillSize({ x: mm(3), y: mm(3) });
+    npth.SetLayerSet(LSET.AllCuMask().or(new LSET([F_Mask, PCB_LAYER_ID.B_Mask])));
+    fp.Add(npth);
+    // The engine's HOLE_CLEARANCE_CONSTRAINT: the board's copper-to-hole minimum
+    const bds = board.GetDesignSettings();
+    bds.m_HoleClearance = mm(0.25);
+    bds.m_DRCEngine = new DRC_ENGINE(board, bds);
+    bds.m_DRCEngine.InitEngine(null);
+    expect(npth.GetOwnClearance(F_Cu)).toBe(mm(0.25));
+
+    painter.Draw(npth, CLEARANCE_LAYER_FOR(F_Cu));
+
+    // `if( aPad->GetAttribute() == PAD_ATTRIB::NPTH ) color = GetLayerColor( LAYER_NON_PLATEDHOLES )`;
+    // not flashed on F_Cu, so the ring is the hole's segment at width + 2 * clearance
+    const segs = gal.of('DrawSegment');
+    expect(segs).toHaveLength(1);
+    expect(segs[0]!.args[2]).toBe(mm(3) + 2 * mm(0.25));
+    expect(gal.stroke).toBe(true);
+    expect(gal.fill).toBe(false);
+    expect(gal.strokeColor).toEqual(settings.GetLayerColor(LAYER_NON_PLATEDHOLES));
+    expect(gal.strokeColor).not.toEqual(settings.GetLayerColor(F_Cu));
   });
 
   it('the pad name layer draws the number and the net name, bold, in two lines', () => {
