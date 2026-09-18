@@ -427,10 +427,15 @@ export class PCB_TRACK extends BOARD_CONNECTED_ITEM {
 
     if (!board) return 0.0;
 
-    // const LENGTH_DELAY_CALCULATION* calc = board->GetLengthCalculation();
-    // items{ calc->GetLengthCalculationItem( this ) };
-    // return (double) calc->CalculateDelay( items, opts );   -- LENGTH_DELAY_CALCULATION pending (#636)
-    return 0.0;
+    const calc = board.GetLengthCalculation();
+    const items = [calc.GetLengthCalculationItem(this)];
+    const opts = {
+      OptimiseVias: false,
+      MergeTracks: false,
+      OptimiseTracesInPads: false,
+      InferViaInPad: false,
+    };
+    return calc.CalculateDelay(items, opts);
   }
 
   /**

@@ -483,11 +483,32 @@ export class DRC_TEST_PROVIDER_MISC extends DRC_TEST_PROVIDER {
 
   private testMissingTuningProfiles(): void {
     // if( !m_board->GetProject() ) return;
-    //
-    // PROJECT, and with it PROJECT_FILE::TuningProfileParameters(), is not
-    // ported: a board has no project here, so the C++ returns before the
-    // netclass walk every time.
-    return;
+    // The board carries the project file's net settings and tuning profiles
+    // itself; a board with no project has both empty, and the walk finds nothing.
+
+    const netSettings = this.m_board!.GetDesignSettings().m_NetSettings;
+    const tuningProfiles = this.m_board!.GetTuningProfiles();
+
+    const profileNames = new Set<string>();
+
+    for (const tuningProfile of tuningProfiles.GetTuningProfiles()) {
+      const name = tuningProfile.m_ProfileName;
+
+      if (name !== '') profileNames.add(name);
+    }
+
+    for (const [name, netclass] of netSettings.GetNetclasses()) {
+      if (this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_MISSING_TUNING_PROFILE)) return;
+
+      const profileName = netclass.GetTuningProfile();
+
+      if (netclass.HasTuningProfile() && !profileNames.has(profileName)) {
+        const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_MISSING_TUNING_PROFILE)!;
+        drcItem.SetErrorDetail(`(Net Class: ${name}, Tuning Profile: ${profileName})`);
+
+        this.reportViolation(drcItem, { x: 0, y: 0 }, UNDEFINED_LAYER);
+      }
+    }
   }
 
   Run(): boolean {

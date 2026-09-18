@@ -197,8 +197,8 @@ export function FetchUnitsFromString(aTextValue: string): EdaUnits | null {
   return aUnits;
 }
 
-/** `EDA_DATA_TYPE` (include/eda_units.h:44-53). */
-export type EdaDataType = 'distance' | 'area' | 'volume' | 'unitless';
+/** `EDA_DATA_TYPE` (include/eda_units.h:37-45): DISTANCE, AREA, VOLUME, UNITLESS, TIME, LENGTH_DELAY. */
+export type EdaDataType = 'distance' | 'area' | 'volume' | 'unitless' | 'time' | 'length_delay';
 
 /**
  * `EDA_UNIT_UTILS::GetText` (common/eda_units.cpp:143-176) — the unit suffix

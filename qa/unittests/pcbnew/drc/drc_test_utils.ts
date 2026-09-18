@@ -42,6 +42,8 @@ export function LoadBoard(aRelPath: string): BOARD {
       board.GetDesignSettings().LoadFromJson(boardJ.design_settings);
     if (pro.net_settings !== undefined)
       board.GetDesignSettings().m_NetSettings.LoadFromJson(pro.net_settings);
+    if (pro.tuning_profiles !== undefined)
+      board.GetTuningProfiles().LoadFromJson(pro.tuning_profiles);
   }
 
   // PCB_EDIT_FRAME::OnBoardLoaded's layer enum, which the rule language reads.
@@ -64,7 +66,7 @@ export function LoadBoard(aRelPath: string): BOARD {
   board.BuildListOfNets();
   board.BuildConnectivity();
 
-  // aBoard->GetLengthCalculation()->SynchronizeTuningProfileProperties(): not ported.
+  board.GetLengthCalculation().SynchronizeTuningProfileProperties();
 
   return board;
 }

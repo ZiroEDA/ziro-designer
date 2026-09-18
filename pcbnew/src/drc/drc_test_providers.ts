@@ -32,7 +32,7 @@ import './drc_test_provider_zone_connections.js';
 import './drc_test_provider_via_diameter.js';
 import './drc_test_provider_solder_mask.js';
 import './drc_test_provider_silk_clearance.js';
-// drc_test_provider_matched_length
+import './drc_test_provider_matched_length.js';
 import './drc_test_provider_diff_pair_coupling.js';
 import './drc_test_provider_sliver_checker.js';
 import './drc_test_provider_text_mirroring.js';

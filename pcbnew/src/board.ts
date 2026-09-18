@@ -63,7 +63,18 @@ import { BOARD_ITEM, DELETED_BOARD_ITEM } from './board_item.js';
 import { ADD_MODE, BOARD_ITEM_CONTAINER, REMOVE_MODE } from './board_item_container.js';
 import { type BOARD_LISTENER, HIGH_LIGHT_INFO } from './board_listener.js';
 import { BOARD_USE, LAYER, LAYER_T } from './board_types.js';
+import { TUNING_PROFILES } from '@ziroeda/common/src/project/tuning_profiles.js';
 import type { FOOTPRINT_LIBRARY_ADAPTER } from './footprint_library_adapter.js';
+import {
+  LENGTH_DELAY_CALCULATION,
+  LENGTH_DELAY_DOMAIN_OPT,
+  LENGTH_DELAY_LAYER_OPT,
+  type PATH_OPTIMISATIONS,
+} from './length_delay_calculation/length_delay_calculation.js';
+import {
+  type LENGTH_DELAY_CALCULATION_ITEM,
+  LENGTH_DELAY_CALCULATION_ITEM_TYPE,
+} from './length_delay_calculation/length_delay_calculation_item.js';
 import { type NETINFO_ITEM, NETINFO_LIST, UNCONNECTED_NET } from './netinfo.js';
 import type { FOOTPRINT } from './footprint.js';
 import type { PCB_GENERATOR } from './pcb_generator.js';
@@ -87,7 +98,7 @@ import { MARKER_T } from '@ziroeda/common/src/marker_base.js';
 import { PCB_BOARD_OUTLINE } from './pcb_board_outline.js';
 import type { DRC_RTREE } from './drc/drc_rtree.js';
 import type { COMMIT } from '@ziroeda/common/src/commit.js';
-import { CONNECTIVITY_DATA } from './connectivity/connectivity_data.js';
+import { CONNECTIVITY_DATA, EXCLUDE_ZONES } from './connectivity/connectivity_data.js';
 import { COMPONENT_CLASS_MANAGER } from './component_classes/component_class_manager.js';
 import type { COMPONENT_CLASS_SETTINGS } from '@ziroeda/common/src/project/component_class_settings.js';
 import type { CN_EDGE, PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
@@ -631,6 +642,69 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
    * adapter hangs off the board; null when no project is loaded.
    */
   private m_footprintLibAdapter: FOOTPRINT_LIBRARY_ADAPTER | null = null;
+
+  /**
+   * `GetProject()->GetProjectFile().TuningProfileParameters()`: the project
+   * file's tuning profiles, carried by the board the way m_NetSettings is.
+   */
+  private readonly m_tuningProfiles = new TUNING_PROFILES();
+
+  GetTuningProfiles(): TUNING_PROFILES {
+    return this.m_tuningProfiles;
+  }
+
+  /** `std::unique_ptr<LENGTH_DELAY_CALCULATION> m_lengthDelayCalc`, made with the board. */
+  private m_lengthDelayCalc: LENGTH_DELAY_CALCULATION | null = null;
+
+  GetLengthCalculation(): LENGTH_DELAY_CALCULATION {
+    if (!this.m_lengthDelayCalc) this.m_lengthDelayCalc = new LENGTH_DELAY_CALCULATION(this);
+
+    return this.m_lengthDelayCalc;
+  }
+
+  /** `BOARD::SynchronizeTuningProfileProperties` (board.cpp:2774). */
+  SynchronizeTuningProfileProperties(): void {
+    this.GetLengthCalculation().SynchronizeTuningProfileProperties();
+  }
+
+  /**
+   * `BOARD::GetTrackLength( aTrack )` (board.cpp:3014).
+   *
+   * @return [count, length, package length, delay, package delay]
+   */
+  GetTrackLength(aTrack: PCB_TRACK): [number, number, number, number, number] {
+    const connectivity = this.GetConnectivity();
+    const items: LENGTH_DELAY_CALCULATION_ITEM[] = [];
+
+    for (const boardItem of connectivity.GetConnectedItems(aTrack, EXCLUDE_ZONES)) {
+      const item = this.GetLengthCalculation().GetLengthCalculationItem(boardItem);
+
+      if (item.Type() !== LENGTH_DELAY_CALCULATION_ITEM_TYPE.UNKNOWN) items.push(item);
+    }
+
+    const opts: PATH_OPTIMISATIONS = {
+      OptimiseVias: true,
+      MergeTracks: true,
+      OptimiseTracesInPads: true,
+      InferViaInPad: false,
+    };
+    const details = this.GetLengthCalculation().CalculateLengthDetails(
+      items,
+      opts,
+      null,
+      null,
+      LENGTH_DELAY_LAYER_OPT.NO_LAYER_DETAIL,
+      LENGTH_DELAY_DOMAIN_OPT.WITH_DELAY_DETAIL,
+    );
+
+    return [
+      items.length,
+      details.TrackLength + details.ViaLength,
+      details.PadToDieLength,
+      details.TrackDelay + details.ViaDelay,
+      details.PadToDieDelay,
+    ];
+  }
 
   GetFootprintLibAdapter(): FOOTPRINT_LIBRARY_ADAPTER | null {
     return this.m_footprintLibAdapter;
@@ -1262,6 +1336,59 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
   Footprints(): FOOTPRINT[] {
     return this.m_footprints;
+  }
+
+  /**
+   * `BOARD::MatchDpSuffix( aNetName, aComplementNet )` (board.cpp:2493).
+   *
+   * @return the polarity (1 for +/P, -1 for -/N, 0 for no match) and the complement net name.
+   */
+  static MatchDpSuffix(aNetName: string): { polarity: number; complementNet: string } {
+    let rv = 0;
+    let count = 0;
+    let aComplementNet = '';
+
+    for (let i = aNetName.length - 1; i >= 0 && rv === 0; --i, ++count) {
+      const ch = aNetName[i]!;
+
+      if ((ch >= '0' && ch <= '9') || ch === '_') {
+      } else if (ch === '+') {
+        aComplementNet = '-';
+        rv = 1;
+      } else if (ch === '-') {
+        aComplementNet = '+';
+        rv = -1;
+      } else if (ch === 'N') {
+        aComplementNet = 'P';
+        rv = -1;
+      } else if (ch === 'P') {
+        aComplementNet = 'N';
+        rv = 1;
+      } else {
+        break;
+      }
+    }
+
+    if (rv !== 0 && count >= 1) {
+      aComplementNet =
+        aNetName.substring(0, aNetName.length - count) +
+        aComplementNet +
+        aNetName.substring(aNetName.length - (count - 1));
+    }
+
+    return { polarity: rv, complementNet: aComplementNet };
+  }
+
+  /** `BOARD::DpCoupledNet( aNet )` (board.cpp:2541). */
+  DpCoupledNet(aNet: NETINFO_ITEM | null): NETINFO_ITEM | null {
+    if (aNet) {
+      const refName = aNet.GetNetname();
+      const dp = BOARD.MatchDpSuffix(refName);
+
+      if (dp.polarity !== 0) return this.FindNet(dp.complementNet);
+    }
+
+    return null;
   }
 
   /** `BOARD::FindFootprintByReference` (board.cpp:2556). */
