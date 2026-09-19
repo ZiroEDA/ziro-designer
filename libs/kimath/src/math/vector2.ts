@@ -112,8 +112,18 @@ const sgn = (v: number): number => (v > 0 ? 1 : v < 0 ? -1 : 0);
  * `sign( aNewLength )` is a *factor*, so resizing to length 0 gives `(0, 0)`
  * and resizing to a negative length flips the direction.
  */
-export const ResizeI = (v: VECTOR2I, aNewLength: number): VECTOR2I => {
+export const ResizeI = (v: VECTOR2I, aNewLengthIn: number): VECTOR2I => {
   if (v.x === 0 && v.y === 0) return { x: 0, y: 0 };
+
+  // `Resize( T aNewLength )` with `T = int32_t`: a caller passing a double -
+  // `PCB_MARKER` passes `2.5 * MarkerScale()` (pcb_marker.cpp:410) - has it
+  // narrowed by the language, before any of the arithmetic below. Here the
+  // parameter is a `number` and nothing narrows it, so the fraction survived
+  // as far as `BigInt( aNewLength )`, which THROWS on one: "The number
+  // 216617.9301680271 cannot be converted to a BigInt". That exception came
+  // out of `EDA_DRAW_PANEL_GAL::DoRePaint` and left the whole board unpainted
+  // for as long as the marker stayed selected.
+  const aNewLength = toInt(aNewLengthIn);
 
   let newX: number;
   let newY: number;
