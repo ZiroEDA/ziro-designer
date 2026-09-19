@@ -67,3 +67,21 @@ pipeline was matched stage by stage.
   eight of eight single-threaded runs gave this (a six-zone version of the
   board showed the worker can start popping before every task is queued,
   which prunes N2 and N4 instead), and multi-threaded runs vary further.
+
+- `flashing_kicad_cli.kicad_pcb` + `make_flashing_board.py`: the conditional
+  via/pad flashing fixture. The script builds the board through KiCad's own
+  `pcbnew` Python module and the refill is `kicad-cli pcb drc --refill-zones
+  --save-board`, so every `(zone_layer_connections …)` in the result was
+  written by `ZONE_FILLER::Fill` itself. One item per branch of the
+  determination — the hole-radius arm of the via's outline test, the
+  "matching netcode" arm and the priority floor of `findHighestPriorityZone`,
+  the START_END_ONLY drill-span arm, a zone-fill keepout and a rule area that
+  is not one, and a pad whose start/end layers are kept. `qa/unittests/pcbnew/
+  zone_flashing.test.ts` compares against it; `qa/perf/zone_flashing_oracle.mts`
+  runs the same comparison over a board given on the command line, which is how
+  vme-wren (4370 items) and jetson-agx-thor (466) were checked.
+
+  Two traps the script hit, both silent: `ZONE::SetOutline( SHAPE_POLY_SET* )`
+  is `m_Poly = aOutline`, so the Python object must be disowned or the save
+  segfaults; and `BOARD::Add` takes ownership of every item, so anything built
+  inside a helper needs `thisown = 0` before the helper returns.

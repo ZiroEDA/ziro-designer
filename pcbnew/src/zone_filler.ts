@@ -11,18 +11,16 @@
  *        + thermal spokes back to those same-net pads
  *   then islands that reach nothing on the net are dropped.
  *
- * Where upstream deflates and inflates SHAPE_POLY_SETs with Clipper, this
- * inflates a shape by unioning it with a stadium along each of its edges, which
- * needs booleans only. That covers every knockout; it does not give a general
- * polygon offsetter, so the parts of ZONE_FILLER that need one are not here:
+ * The pour reaches every board in `qa/data/zone_fill/` vertex for vertex
+ * against `kicad-cli pcb drc --refill-zones` - the min-thickness prune, the
+ * outline smoothing, the hatch pattern, copper thieving, the custom-pad spoke
+ * templates and the via thermals are all here, through the Clipper2 port in
+ * `libs/kimath/src/clipper2`. (This header used to list all of those as
+ * missing; they were added and it was not.)
  *
- *  - the min-thickness prune (postKnockoutMinWidthPrune deflates then inflates
- *    by half the min width to drop slivers), so thin necks upstream would remove
- *    survive here;
- *  - outline smoothing (chamfer/fillet corners);
- *  - hatch-pattern fill, copper thieving and teardrops;
- *  - custom-pad spoke templates, and via thermal connections (upstream only
- *    does those for hatched zones anyway).
+ * What is NOT yet KiCad's is the object it works on. Everything below
+ * `ZONE_FILLER` reads the plain-object `Board` view rather than the BOARD,
+ * which is #636 stage 4; the class at the top is that port, method by method.
  */
 
 import type { Geom, MultiPolygon, Ring } from 'polygon-clipping';
@@ -106,6 +104,243 @@ import type {
   PcbZoneFill,
 } from './types.js';
 import type { ZoneConnection } from './zone_connection.js';
+import type { BOARD } from './board.js';
+import type { ZONE } from './zone.js';
+import type { PCB_VIA } from './pcb_track.js';
+import { ZONE_LAYER_OVERRIDE } from './board_item.js';
+import { UNCONNECTED_LAYER_MODE } from './padstack.js';
+import { LSET } from '@ziroeda/common/src/lset.js';
+import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+
+/**
+ * `ZONE_FILLER` (`pcbnew/zone_filler.cpp`), on KiCad's own BOARD.
+ *
+ * The pour itself is still the view-based `fillZones` below this — that is the
+ * rest of #636 stage 4, and it is ported into this class one method at a time.
+ * What is here is `Fill()`'s prologue: everything the C++ does to the BOARD
+ * *before* the first zone is poured, which is not geometry at all but the
+ * caches and the per-layer flashing decisions every later step reads.
+ *
+ * That prologue was missing entirely, and one part of it is a behaviour we did
+ * not have: `ZLO_FORCE_FLASHED` / `ZLO_FORCE_NO_ZONE_CONNECTION`. The file
+ * carries those per-layer overrides (`(zone_layer_connections …)`) and the
+ * parser reads them, `CN_CONNECTIVITY_ALGO` and the formatter both read them
+ * back — but nothing in this tree ever *computed* them. KiCad recomputes every
+ * one of them at the top of every `Fill()`, deterministically, for exactly the
+ * reason its comment gives (issue 12964: the answer must not depend on the
+ * order zones happen to be poured in). So a via or pad with "remove unconnected
+ * layers" kept whatever the last KiCad to touch the file had decided, and after
+ * any edit that moved a zone under it, that was the wrong answer — in the
+ * render, in the connectivity, and in what we saved.
+ */
+export class ZONE_FILLER {
+  private m_board: BOARD;
+
+  /**
+   * Upstream also takes a `COMMIT*` and holds `m_boardOutline`,
+   * `m_worstClearance`, `m_maxError` and the progress reporter. None of them
+   * is read by the prologue, so none of them is here: each arrives with the
+   * method that reads it, rather than sitting write-only in the meantime.
+   */
+  constructor(aBoard: BOARD) {
+    this.m_board = aBoard;
+  }
+
+  /**
+   * `ZONE_FILLER::Fill`'s prologue (zone_filler.cpp:481-676): the board state
+   * every pour reads, brought up to date before any of them runs.
+   *
+   * Public only while `Fill` itself is still the view's; it is private
+   * upstream, and becomes private here when the pour moves into this class.
+   */
+  PrepareBoardForFill(): void {
+    const board = this.m_board;
+
+    // `m_worstClearance` (:466) and `m_boardOutline` (:478-479) are read by
+    // the pour, which is still the view's; they arrive with it.
+    //
+    // "Update and cache zone bounding boxes and pad effective shapes so that
+    // we don't have to make them thread-safe." (:481-483)
+    for (const zone of board.Zones()) zone.CacheBoundingBox();
+
+    for (const footprint of board.Footprints()) {
+      for (const pad of footprint.Pads()) {
+        if (pad.IsDirty()) {
+          pad.BuildEffectiveShapes();
+          pad.BuildEffectivePolygon(ERROR_LOC.ERROR_OUTSIDE);
+        }
+      }
+
+      for (const zone of footprint.Zones()) zone.CacheBoundingBox();
+
+      // "Rules may depend on insideCourtyard() or other expressions" (:500).
+      footprint.BuildCourtyardCaches();
+      footprint.BuildNetTieCache();
+    }
+
+    this.determineConditionalFlashing();
+  }
+
+  /**
+   * "Determine state of conditional via flashing" and "…pad flashing"
+   * (zone_filler.cpp:576-676).
+   *
+   * A via or pad with "remove unconnected layers" is drawn — and connected —
+   * on a given layer only where it actually meets a zone of its own net. The
+   * C++ settles every one of those before the first pour, and its comment says
+   * why: "This is now done completely deterministically prior to filling due to
+   * the pathological case presented in …/issues/12964". Deciding it while
+   * pouring would make the answer depend on the order the zones ran in.
+   */
+  private determineConditionalFlashing(): void {
+    const board = this.m_board;
+    const boardCuMask = LSET.AllCuMask(board.GetCopperLayerCount());
+
+    for (const track of board.Tracks()) {
+      if (track.Type() !== KICAD_T.PCB_VIA_T) continue;
+
+      const via = track as PCB_VIA;
+      const padstack = via.Padstack();
+
+      via.ClearZoneLayerOverrides();
+
+      if (!via.GetRemoveUnconnected()) continue;
+
+      const bbox = via.GetBoundingBox();
+      const center = via.GetPosition();
+      const holeRadius = Math.trunc(via.GetDrillValue() / 2) + 1;
+      const netcode = via.GetNetCode();
+      const layers = new LSET(via.GetLayerSet()).andAssign(boardCuMask) as LSET;
+
+      // "Checking if the via hole touches the zone outline": the hole, not the
+      // centre — `Contains( center, -1, holeRadius )` accepts a point that is
+      // outside the outline by less than the hole's radius.
+      const viaTestFn = (aZone: ZONE): boolean => aZone.Outline().Contains(center, -1, holeRadius);
+
+      layers.RunOnLayers((layer) => {
+        if (!via.ConditionallyFlashed(layer)) return;
+
+        if (this.isInPourKeepoutArea(bbox, layer, center)) {
+          via.SetZoneLayerOverride(layer, ZONE_LAYER_OVERRIDE.ZLO_FORCE_NO_ZONE_CONNECTION);
+          return;
+        }
+
+        const zone = this.findHighestPriorityZone(bbox, layer, netcode, viaTestFn);
+
+        if (
+          zone &&
+          zone.GetNetCode() === via.GetNetCode() &&
+          (padstack.UnconnectedLayerMode() !== UNCONNECTED_LAYER_MODE.START_END_ONLY ||
+            layer === padstack.Drill().start ||
+            layer === padstack.Drill().end)
+        ) {
+          via.SetZoneLayerOverride(layer, ZONE_LAYER_OVERRIDE.ZLO_FORCE_FLASHED);
+        } else {
+          via.SetZoneLayerOverride(layer, ZONE_LAYER_OVERRIDE.ZLO_FORCE_NO_ZONE_CONNECTION);
+        }
+      });
+    }
+
+    for (const footprint of board.Footprints()) {
+      for (const pad of footprint.Pads()) {
+        pad.ClearZoneLayerOverrides();
+
+        if (!pad.GetRemoveUnconnected()) continue;
+
+        const bbox = pad.GetBoundingBox();
+        const center = pad.GetPosition();
+        const netcode = pad.GetNetCode();
+        const layers = new LSET(pad.GetLayerSet()).andAssign(boardCuMask) as LSET;
+
+        // The pad's test is the centre alone; only the via's gets the hole
+        // radius. (zone_filler.cpp:648-652 against :598-602.)
+        const padTestFn = (aZone: ZONE): boolean => aZone.Outline().Contains(center);
+
+        layers.RunOnLayers((layer) => {
+          if (!pad.ConditionallyFlashed(layer)) return;
+
+          if (this.isInPourKeepoutArea(bbox, layer, center)) {
+            pad.SetZoneLayerOverride(layer, ZONE_LAYER_OVERRIDE.ZLO_FORCE_NO_ZONE_CONNECTION);
+            return;
+          }
+
+          const zone = this.findHighestPriorityZone(bbox, layer, netcode, padTestFn);
+
+          if (zone && zone.GetNetCode() === pad.GetNetCode())
+            pad.SetZoneLayerOverride(layer, ZONE_LAYER_OVERRIDE.ZLO_FORCE_FLASHED);
+          else pad.SetZoneLayerOverride(layer, ZONE_LAYER_OVERRIDE.ZLO_FORCE_NO_ZONE_CONNECTION);
+        });
+      }
+    }
+  }
+
+  /** The `findHighestPriorityZone` lambda (zone_filler.cpp:507-545). */
+  private findHighestPriorityZone(
+    aBBox: BOX2I,
+    aItemLayer: PCB_LAYER_ID,
+    aNetcode: number,
+    aTestFn: (aZone: ZONE) => boolean,
+  ): ZONE | null {
+    let highestPriority = 0;
+    let highestPriorityZone: ZONE | null = null;
+
+    for (const zone of this.m_board.Zones()) {
+      // Rule areas are not filled
+      if (zone.GetIsRuleArea()) continue;
+
+      if (zone.GetAssignedPriority() < highestPriority) continue;
+
+      if (!zone.IsOnLayer(aItemLayer)) continue;
+
+      // Degenerate zones will cause trouble; skip them
+      if (zone.GetNumCorners() <= 2) continue;
+
+      if (!zone.GetBoundingBox().Intersects(aBBox)) continue;
+
+      if (!aTestFn(zone)) continue;
+
+      // "Prefer highest priority and matching netcode". Note the OR: a
+      // same-net zone wins at EQUAL priority, which is what makes the
+      // netcode test below meaningful.
+      if (zone.GetAssignedPriority() > highestPriority || zone.GetNetCode() === aNetcode) {
+        highestPriority = zone.GetAssignedPriority();
+        highestPriorityZone = zone;
+      }
+    }
+
+    return highestPriorityZone;
+  }
+
+  /** The `isInPourKeepoutArea` lambda (zone_filler.cpp:547-574). */
+  private isInPourKeepoutArea(
+    aBBox: BOX2I,
+    aItemLayer: PCB_LAYER_ID,
+    aTestPoint: VECTOR2I,
+  ): boolean {
+    for (const zone of this.m_board.Zones()) {
+      if (!zone.GetIsRuleArea()) continue;
+
+      if (!zone.HasKeepoutParametersSet()) continue;
+
+      if (!zone.GetDoNotAllowZoneFills()) continue;
+
+      if (!zone.IsOnLayer(aItemLayer)) continue;
+
+      // Degenerate zones will cause trouble; skip them
+      if (zone.GetNumCorners() <= 2) continue;
+
+      if (!zone.GetBoundingBox().Intersects(aBBox)) continue;
+
+      if (zone.Outline().Contains(aTestPoint)) return true;
+    }
+
+    return false;
+  }
+}
 
 /** BOARD_DESIGN_SETTINGS::m_MaxError, the arc approximation limit (0.005 mm). */
 const DEFAULT_MAX_ERROR = mmToIU(0.005);
@@ -2210,6 +2445,7 @@ export function fillZone(
 ): PcbZoneFill[] {
   const zone = board.zones[zoneIndex];
   if (!zone) return [];
+  if (board.k) new ZONE_FILLER(board.k).PrepareBoardForFill();
   const parts = fillZoneParts(board, zoneIndex, opts);
   const fills = parts.map((part) => ({ layer: part.layer, polys: part.polys }));
   const zones = [...board.zones];
@@ -2310,6 +2546,12 @@ const zoneBox = (z: PcbZone): Box => boxOf(z.outline ?? []);
  *     outside the board outline are dropped.
  */
 export function fillZones(board: Board, opts: ZoneFillOptions = {}): Board {
+  // `ZONE_FILLER::Fill` begins on the BOARD, not on the geometry: the caches
+  // every later step reads, and the per-layer flashing decisions. Those are
+  // ported (`ZONE_FILLER` above) and run here so a refill settles them the
+  // way upstream does; the pour below is still the view's.
+  if (board.k) new ZONE_FILLER(board.k).PrepareBoardForFill();
+
   const maxError = opts.maxError ?? DEFAULT_MAX_ERROR;
   const clearanceOf = opts.clearanceOf ?? ((z: PcbZone) => z.clearance ?? mmToIU(0.5));
 
