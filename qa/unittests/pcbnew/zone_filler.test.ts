@@ -6,6 +6,7 @@
  * thermal relief around its own pads and bridges back to them with spokes, and
  * drops islands that reach nothing.
  */
+import { boardFromBOARD, boardToBOARD } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/board_view.js';
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import { describe, it, expect } from 'vitest';
 import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
@@ -73,7 +74,38 @@ const zone = (over: Partial<PcbZone> = {}): PcbZone => ({
   ...over,
 });
 
-const board = (over: Partial<Board>): Board => ({
+/**
+ * A fixture board, with KiCad's own model under it.
+ *
+ * The literals below describe a VIEW, and a view on its own has no BOARD_ITEMs
+ * for the filler to ask about - no PAD to put to `DRC_ENGINE::EvalRules`, no
+ * ZONE to hand `EvalZoneConnection`. Every fixture therefore goes out through
+ * `boardToBOARD` and back through `boardFromBOARD`, so each item arrives
+ * carrying its model in `.k`, exactly as a parsed board's does (#636).
+ *
+ * The round trip resolves what the literal left unsaid, which is the right
+ * thing and occasionally a visible one: a rect pad with no stated
+ * `thermalSpokeAngle` comes back with the PADSTACK constructor's 45 degrees
+ * rather than the 90 that `defaultThermalSpokeAngle` gives a shape with no
+ * model. KiCad is the same - `padstack.cpp:54` seeds `ANGLE_45` and its
+ * parser then writes the shape's own default over it
+ * (`pcb_io_kicad_sexpr_parser.cpp:6442-6469`), so a pad that has been through
+ * a file always states one. The fixtures that care state one too.
+ */
+const board = (over: Partial<Board>): Board =>
+  boardFromBOARD(
+    boardToBOARD({
+      ...bareBoard(over),
+      // `applyLayerTable` wipes the table when the view names no layers, and
+      // then `F.Cu` resolves to nothing.
+      layers: [
+        { id: 0, name: 'F.Cu', kind: 'signal' },
+        { id: 2, name: 'B.Cu', kind: 'signal' },
+      ],
+    }),
+  );
+
+const bareBoard = (over: Partial<Board>): Board => ({
   version: 20241229,
   layers: [],
   nets: new Map([
@@ -1238,7 +1270,6 @@ describe('zone filler', () => {
       );
     expect(fill(MM(3))).toBeLessThan(fill(MM(1.5)));
   });
-
 
   describe('a spoke is kept only if it reaches copper', () => {
     /**

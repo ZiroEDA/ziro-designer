@@ -77,6 +77,7 @@ import { NETINFO_ITEM, NETINFO_LIST } from '../../netinfo.js';
 import { PAD } from '../../pad.js';
 import type { PcbDrillSlot, PcbPostMachining } from '../../padstack_drill.js';
 import {
+  defaultThermalSpokeAngle,
   PAD_ATTRIB,
   PAD_DRILL_POST_MACHINING_MODE,
   PAD_DRILL_SHAPE,
@@ -1220,11 +1221,17 @@ function applyPad(
   );
   k.SetLocalThermalSpokeWidthOverride(v.thermalBridgeWidth);
   k.SetLocalThermalGapOverride(v.thermalGap);
-  if (
-    v.thermalSpokeAngle !== undefined &&
-    k.GetThermalSpokeAngle().AsDegrees() !== v.thermalSpokeAngle
-  )
-    k.SetThermalSpokeAngle(new EDA_ANGLE(v.thermalSpokeAngle));
+  // `thermalSpokeAngle` undefined is the view saying "the file stated none",
+  // and `types.ts` says what that resolves to: `defaultThermalSpokeAngle`,
+  // which is the rule the PARSER applies
+  // (`pcb_io_kicad_sexpr_parser.cpp:6442-6469`) - 90 degrees for anything but
+  // a circle. Leaving the padstack alone instead hands the pad the PADSTACK
+  // constructor's seed of 45 (`padstack.cpp:54`), so a rect pad built from a
+  // view got an X where a rect pad read from a file gets a +.
+  const spokeAngle = v.thermalSpokeAngle ?? defaultThermalSpokeAngle(v.shape, v.anchorShape);
+
+  if (k.GetThermalSpokeAngle().AsDegrees() !== spokeAngle)
+    k.SetThermalSpokeAngle(new EDA_ANGLE(spokeAngle));
   k.SetPadToDieLength(v.padToDieLength ?? 0);
   applyDrillSlot(ps.SecondaryDrill(), v.backdrill);
   applyDrillSlot(ps.TertiaryDrill(), v.tertiaryDrill);
