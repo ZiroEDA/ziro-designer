@@ -2985,7 +2985,6 @@ export function PcbEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [objects.footprintsFront, objects.footprintsBack]);
 
-
   /**
    * The board's drill/place file origin, cached per board object.
    *
