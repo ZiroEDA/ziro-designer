@@ -47,6 +47,58 @@ const noNegZero = (v: number): number => (v === 0 ? 0 : v);
 /** A number back out of BigInt. Board coordinates fit a double exactly. */
 const num = (v: bigint): number => noNegZero(Number(v));
 
+/**
+ * ## The exact-double fast path
+ *
+ * `BigInt()` allocates. A DRC run on a mid-sized board calls `big()` tens of
+ * millions of times, and a profile of CM5_MINIMA_3 put 51 s of a 144 s run in
+ * that one conversion, with another 8 s of GC behind it - more than a third of
+ * the whole check, spent turning int32s into heap objects.
+ *
+ * A double holds every integer below 2^53 exactly, so the products these
+ * routines form need BigInt only when they are big. `exact( v )` is the test,
+ * and it is sound *after* the arithmetic rather than before it: every operand
+ * here is an exact integer, so the true result is an integer too, and IEEE
+ * round-to-nearest never moves a value of magnitude >= 2^53 below 2^53.
+ * A computed `|v| < 2^53` therefore proves `v` IS the exact result - there was
+ * nothing to round. When a check fails the caller falls back to the BigInt
+ * body, which is still the only implementation of the hard cases.
+ *
+ * What this must never become is "the numbers are usually small enough": a
+ * difference of two int32 coordinates is exact by construction, but their
+ * PRODUCT reaches 1e18 at board scale, and a rounded one would judge two
+ * metre-long segments collinear or not essentially at random (see the header).
+ * Every product and every sum of products below is checked.
+ *
+ * The second precondition is `whole()`. `big()` is `BigInt( KiROUND( v ) )`,
+ * not `BigInt( v )`, because a `Vec2` that has been through a floating-point
+ * transform can carry a fraction - and rounding each coordinate first is not
+ * the same as subtracting and rounding after (0.6 and 0.4 round to 1 and 0,
+ * their difference to 0). A fast path that subtracts raw would answer a
+ * different question, so a fractional coordinate falls back too.
+ */
+const EXACT_MAX = 9007199254740992; // 2^53
+
+const exact = (v: number): boolean => v > -EXACT_MAX && v < EXACT_MAX;
+
+/** Both coordinates are already what `KiROUND` would make of them. */
+const whole = (p: Vec2): boolean => Number.isInteger(p.x) && Number.isInteger(p.y);
+
+/**
+ * `isqrt64` for a squared distance already known to fit a double exactly.
+ * `Math.sqrt` is correctly rounded, but the correction loops are upstream's
+ * and are what make the answer the floor rather than the nearest: `r * r`
+ * stays exact because `r < 2^27`.
+ */
+const isqrtNum = (x: number): number => {
+  let r = Math.floor(Math.sqrt(x));
+
+  while (r > 0 && r * r > x) r--;
+  while ((r + 1) * (r + 1) <= x) r++;
+
+  return r;
+};
+
 const absB = (v: bigint): bigint => (v < 0n ? -v : v);
 
 /** `sgn` (`seg.cpp:31`): `( T( 0 ) < aVal ) - ( aVal < T( 0 ) )`. */
@@ -231,6 +283,30 @@ export class SEG {
   NearestPoint(aSeg: SEG): VECTOR2I;
   NearestPoint(a: Vec2 | SEG): VECTOR2I {
     if (a instanceof SEG) return this.nearestPointToSeg(a);
+
+    // The three answers that are one of the two endpoints need only the SIGN
+    // of t and its size against l_squared, so an exact double settles them -
+    // and they are the common case, because the callers project one segment's
+    // ends onto another. The interior answer falls through to `rescale64`,
+    // whose round-half-away-from-zero division is not a double's to do.
+    const fdx = this.B.x - this.A.x;
+    const fdy = this.B.y - this.A.y;
+    const fx2 = fdx * fdx;
+    const fy2 = fdy * fdy;
+    const fl = fx2 + fy2;
+
+    if (whole(this.A) && whole(this.B) && whole(a) && exact(fx2) && exact(fy2) && exact(fl)) {
+      if (fl === 0) return { x: this.A.x, y: this.A.y };
+
+      const ftx = fdx * (a.x - this.A.x);
+      const fty = fdy * (a.y - this.A.y);
+      const ft = ftx + fty;
+
+      if (exact(ftx) && exact(fty) && exact(ft)) {
+        if (ft < 0) return { x: this.A.x, y: this.A.y };
+        if (ft > fl) return { x: this.B.x, y: this.B.y };
+      }
+    }
 
     // Inlined for performance reasons
     const dx = big(this.B.x) - big(this.A.x);
@@ -505,6 +581,27 @@ export class SEG {
       return true;
     }
 
+    // The same four distances and the same comparison, in doubles when every
+    // one of them came back exact.
+    const f0 = this.sqDistToPointFast(aSeg.A);
+    const f1 = this.sqDistToPointFast(aSeg.B);
+    const f2 = aSeg.sqDistToPointFast(this.A);
+    const f3 = aSeg.sqDistToPointFast(this.B);
+    const c_sq = aClearance * aClearance;
+
+    if (f0 >= 0 && f1 >= 0 && f2 >= 0 && f3 >= 0 && exact(c_sq)) {
+      const min = Math.min(f0, f1, f2, f3);
+
+      if (min === 0) {
+        if (aActual) aActual.value = 0;
+        return true;
+      }
+
+      if (aActual) aActual.value = isqrtNum(min);
+
+      return min < c_sq;
+    }
+
     const clearance_sq = big(aClearance) * big(aClearance);
     let min_dist_sq = ECOORD_MAX;
 
@@ -541,7 +638,10 @@ export class SEG {
   SquaredDistance(aP: Vec2): number;
   SquaredDistance(a: SEG | Vec2): number {
     if (a instanceof SEG) return num(this.squaredDistanceToSeg(a));
-    return num(this.squaredDistanceToPoint(a));
+
+    const fast = this.sqDistToPointFast(a);
+
+    return fast >= 0 ? fast : num(this.squaredDistanceToPoint(a));
   }
 
   private squaredDistanceToSeg(aSeg: SEG): bigint {
@@ -571,7 +671,83 @@ export class SEG {
     return m;
   }
 
+  /**
+   * `squaredDistanceToPoint` in doubles, or -1 when a product or a sum could
+   * have been rounded and only the BigInt body can answer. A squared distance
+   * is never negative, so -1 is a safe "ask upstairs".
+   *
+   * The three arms are the same three, in the same order, and the last one is
+   * bit-identical because it is already double arithmetic below.
+   */
+  private sqDistToPointFast(aP: Vec2): number {
+    if (!whole(this.A) || !whole(this.B) || !whole(aP)) return -1;
+
+    // Differences of int32 coordinates are exact in a double; their products
+    // are what need checking.
+    const abx = this.B.x - this.A.x;
+    const aby = this.B.y - this.A.y;
+    const apx = aP.x - this.A.x;
+    const apy = aP.y - this.A.y;
+
+    // `e1` and `e2` are checked for form's sake and as cheap early-outs: by
+    // Cauchy-Schwarz |apy·aby| <= sqrt( ap2 · f ), so once `ap2` and `f` below
+    // have passed neither term can have been rounded. A mutant that deletes
+    // this line therefore survives, and is meant to - it is equivalent.
+    const e1 = apx * abx;
+    const e2 = apy * aby;
+
+    if (!exact(e1) || !exact(e2)) return -1;
+
+    const e = e1 + e2;
+
+    if (!exact(e)) return -1;
+
+    const ax2 = apx * apx;
+    const ay2 = apy * apy;
+
+    if (!exact(ax2) || !exact(ay2)) return -1;
+
+    const ap2 = ax2 + ay2;
+
+    if (!exact(ap2)) return -1;
+
+    if (e <= 0) return ap2;
+
+    const fx = abx * abx;
+    const fy = aby * aby;
+
+    if (!exact(fx) || !exact(fy)) return -1;
+
+    const f = fx + fy;
+
+    if (!exact(f)) return -1;
+
+    if (e >= f) {
+      const bpx = aP.x - this.B.x;
+      const bpy = aP.y - this.B.y;
+      const bx2 = bpx * bpx;
+      const by2 = bpy * bpy;
+
+      if (!exact(bx2) || !exact(by2)) return -1;
+
+      const bp2 = bx2 + by2;
+
+      return exact(bp2) ? bp2 : -1;
+    }
+
+    const g = ap2 - (e * e) / f;
+
+    // As below: only a rounding error can make g negative.
+    if (g < 0 || g > 2 ** 63) return 0;
+
+    return KiROUND(g);
+  }
+
   private squaredDistanceToPoint(aP: Vec2): bigint {
+    const fast = this.sqDistToPointFast(aP);
+
+    if (fast >= 0) return BigInt(fast);
+
     const abx = big(this.B.x) - big(this.A.x);
     const aby = big(this.B.y) - big(this.A.y);
     const apx = big(aP.x) - big(this.A.x);
@@ -605,7 +781,10 @@ export class SEG {
   Distance(aP: Vec2): number;
   Distance(a: SEG | Vec2): number {
     if (a instanceof SEG) return num(isqrt64(this.squaredDistanceToSeg(a)));
-    return num(isqrt64(this.squaredDistanceToPoint(a)));
+
+    const fast = this.sqDistToPointFast(a);
+
+    return fast >= 0 ? isqrtNum(fast) : num(isqrt64(this.squaredDistanceToPoint(a)));
   }
 
   /** `CanonicalCoefs`: `qA * x + qB * y + qC = 0` for the segment's line. */
@@ -1039,6 +1218,15 @@ const lessPoint = (p: Vec2, q: Vec2): boolean => (p.x === q.x ? p.y < q.y : p.x 
 
 /** `( p - q ).SquaredEuclideanNorm()` in `ecoord`, back as a number. */
 function squaredDistance(p: Vec2, q: Vec2): number {
+  if (whole(p) && whole(q)) {
+    const fdx = p.x - q.x;
+    const fdy = p.y - q.y;
+    const fx = fdx * fdx;
+    const fy = fdy * fdy;
+
+    if (exact(fx) && exact(fy) && exact(fx + fy)) return fx + fy;
+  }
+
   const dx = big(p.x) - big(q.x);
   const dy = big(p.y) - big(q.y);
   return num(dx * dx + dy * dy);

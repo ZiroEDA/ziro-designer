@@ -27,3 +27,24 @@ pnpm exec vitest run --config perf/vitest.bench.config.ts                       
 
 `--max-old-space-size` is not optional. Keeping every parsed library resident
 needs more heap than this machine has, which is itself finding A2.
+
+## DRC
+
+`drc_timing.mts` runs a whole DRC over a board and prints where the time went,
+phase by phase - the phases being the very strings `DIALOG_DRC` shows - plus
+the longest gap between two `updateUI()` calls, which is how long the tab would
+be frozen at that point.
+
+```sh
+cd qa
+V=../node_modules/.pnpm/vite-node@*/node_modules/vite-node/vite-node.mjs
+node --max-old-space-size=4000 $V perf/drc_timing.mts \
+    ~/kicad-reference/demos/cm5_minima/CM5_MINIMA_3.kicad_pcb
+```
+
+Add `--cpu-prof --cpu-prof-dir=<dir>` for a `.cpuprofile`; that is what found
+`BigInt()` taking a third of the run (see the exact-double fast path in
+`libs/kimath/src/geometry/seg.ts`).
+
+The board is the oracle too: `kicad-cli pcb drc --severity-all --format json`
+beside it gives KiCad's own count for the same file.
