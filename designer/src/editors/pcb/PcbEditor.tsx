@@ -479,7 +479,6 @@ import { preloadBoardLibraries } from './preload.js';
 import { parseFootprint } from '../footprint/footprintBoard.js';
 import {
   buildScene,
-  buildDrawSteps,
   drawBoard,
   hitTestBoardDrawingSheet,
   drawOriginMarkers,
@@ -1245,8 +1244,8 @@ export function PcbEditor({
   const commonCfg = useCommonSettings();
   /**
    * `PANEL_GAL_OPTIONS`' two groups, mirrored into a ref because `draw` is
-   * memoised on `startCrispRender` alone and must not be rebuilt whenever a
-   * setting moves — the same shape `FootprintCanvas` uses for the same reason.
+   * memoised on the layer set alone and must not be rebuilt whenever a setting
+   * moves — the same shape `FootprintCanvas` uses for the same reason.
    */
   const galRef = useRef({
     ...pcbCfg.window.grid,
@@ -2975,10 +2974,6 @@ export function PcbEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selection, board]);
 
-  // Whether the board raster is painted dimmed (a net highlight is active).
-  // Read by the raster job; toggling it re-renders the raster.
-  const dimmedRef = useRef(false);
-
   // "Footprints Front/Back" hide whole footprints: rebuild the scene.
   useEffect(() => {
     if (!boardRef.current) return;
@@ -2986,128 +2981,10 @@ export function PcbEditor({
       hideFrontFootprints: !objects.footprintsFront,
       hideBackFootprints: !objects.footprintsBack,
     });
-    sceneDirtyRef.current = true;
     requestDraw();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [objects.footprintsFront, objects.footprintsBack]);
 
-  // pcbnew rasterises into a backing store; the same here. A crisp raster is
-  // built off-screen (time-sliced so a 20k-track board never blocks the UI),
-  // and every frame the current view blits that raster with a delta transform.
-  // Crucially the crisp render is NOT cancelled or debounced while the user is
-  // interacting: it runs to completion, promotes itself, and, if the view has
-  // moved on, immediately starts another. So the picture continuously
-  // re-sharpens *during* a zoom/pan instead of only after it stops.
-  const cacheRef = useRef<{
-    canvas: HTMLCanvasElement;
-    view: { scale: number; tx: number; ty: number; flipX?: boolean };
-  } | null>(null);
-  const renderingRef = useRef(false);
-  const viewChangedRef = useRef(true);
-  // The scene/board changed since the cached raster was built, so it needs a
-  // fresh render even though the view matches. We keep the (stale) raster on
-  // screen and re-render into a new canvas in the background, swapping when
-  // ready, so an edit/undo/toggle never blanks the board for a frame.
-  const sceneDirtyRef = useRef(true);
-
-  const viewMatchesCache = (): boolean => {
-    const c = cacheRef.current;
-    const v = viewRef.current;
-    const canvas = canvasRef.current;
-    return (
-      !!c &&
-      !!canvas &&
-      c.view.scale === v.scale &&
-      c.view.tx === v.tx &&
-      c.view.ty === v.ty &&
-      c.view.flipX === v.flipX &&
-      c.canvas.width === canvas.width &&
-      c.canvas.height === canvas.height
-    );
-  };
-
-  const startCrispRender = useCallback(() => {
-    if (renderingRef.current) return; // in flight, it re-checks the view on completion
-    const canvas = canvasRef.current;
-    const scene = sceneRef.current;
-    if (!canvas || !scene || canvas.width < 2) return;
-    if (viewMatchesCache() && !sceneDirtyRef.current) {
-      viewChangedRef.current = false;
-      return;
-    }
-    renderingRef.current = true;
-    viewChangedRef.current = false;
-    // Capture the current scene into this render; further edits re-dirty it.
-    sceneDirtyRef.current = false;
-    const work = document.createElement('canvas');
-    work.width = canvas.width;
-    work.height = canvas.height;
-    const cctx = work.getContext('2d');
-    if (!cctx) {
-      renderingRef.current = false;
-      return;
-    }
-    const jobView = { ...viewRef.current };
-    // The drawing sheet is drawn separately (unflipped) in draw(), like KiCad's
-    // DS_PROXY_VIEW_ITEM which un-mirrors itself, so it stays readable and the
-    // title block keeps its corner under a flipped view. So the raster omits it.
-    // Decode any reference image we have not seen; each decode asks for one
-    // more frame, so the picture appears as soon as it is ready rather than at
-    // the next unrelated redraw.
-    for (const img of scene.images)
-      imageCacheRef.current.ensure(img.data, () => {
-        // The decode has to dirty the RASTER, not just ask for a blit.
-        //
-        // This pass draws into an offscreen canvas that `draw()` then blits,
-        // and the pass that is running right now is drawing the fallback
-        // OUTLINE, because the bitmap is exactly what it has not got yet. A
-        // bare `requestDraw` re-blits that same outline for ever: the guard in
-        // `startCrispRender` is `viewMatchesCache() && !sceneDirtyRef.current`,
-        // and after a load neither the view nor the scene has changed, so
-        // nothing ever re-renders it.
-        //
-        // That is why a freshly loaded board showed a red rectangle where its
-        // reference image should be, and why nudging the image made the picture
-        // appear — the nudge dirtied the scene, which is the only thing that
-        // was doing this.
-        sceneDirtyRef.current = true;
-        requestDraw();
-      });
-
-    const steps = buildDrawSteps(
-      cctx,
-      scene,
-      jobView,
-      visible,
-      work.width,
-      work.height,
-      drawOpts,
-      undefined,
-      false,
-      // A net highlight darkens everything that is not on it (pcb_painter.cpp
-      // GetColor: Darkened(1 - m_highlightFactor)); the highlighted copper is
-      // repainted brightened over this raster in draw().
-      dimmedRef.current ? 'dimmed' : 'none',
-    );
-    let i = 0;
-    const run = (): void => {
-      const t0 = performance.now();
-      while (i < steps.length && performance.now() - t0 < 12) steps[i++]!();
-      if (i < steps.length) {
-        requestAnimationFrame(run);
-      } else {
-        cacheRef.current = { canvas: work, view: jobView };
-        renderingRef.current = false;
-        requestDraw();
-        // The view moved or the scene changed while we were rendering: keep
-        // chasing it so the image keeps sharpening / catches the latest edit.
-        if (viewChangedRef.current || sceneDirtyRef.current || !viewMatchesCache())
-          startCrispRender();
-      }
-    };
-    run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, drawOpts]);
 
   /**
    * The board's drill/place file origin, cached per board object.
@@ -3129,8 +3006,9 @@ export function PcbEditor({
   const draw = useCallback(() => {
     const __t0 = PERF ? performance.now() : 0;
     const canvas = canvasRef.current;
-    const scene = sceneRef.current;
-    if (!canvas || !scene) return;
+    // Not gated on a compiled scene any more: the VIEW draws the board, and
+    // `sceneRef` holds the shell alone under it (`buildBoardScene`).
+    if (!canvas) return;
     // The background, the grid and the drawing sheet: everything the board is
     // drawn *over*. With the GL renderer the board itself lands on a layer
     // between this and `ctx`; without one the raster blits here, exactly where
@@ -4006,7 +3884,7 @@ export function PcbEditor({
     notePcbPaint('gl', __t0);
     setScale(v.scale);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startCrispRender]);
+  }, [visible, drawOpts]);
 
   const requestDraw = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
@@ -4016,9 +3894,10 @@ export function PcbEditor({
   const requestDrawRef = useRef(requestDraw);
   requestDrawRef.current = requestDraw;
 
-  // Layer/object changes invalidate the raster.
+  // Layer/object changes repaint. What they change *in* the picture is the
+  // VIEW's — `PCB_DRAW_PANEL_GAL` is told the new layer set by
+  // `applyDisplayState` — so this only asks for the frame.
   useEffect(() => {
-    sceneDirtyRef.current = true;
     requestDraw();
   }, [visible, drawOpts, requestDraw]);
 
@@ -4110,7 +3989,6 @@ export function PcbEditor({
         hideBackFootprints: !objects.footprintsBack,
       });
       rebuildSelScene();
-      sceneDirtyRef.current = true;
       requestDraw();
     },
     [objects.footprintsFront, objects.footprintsBack, requestDraw, rebuildSelScene],
@@ -5487,7 +5365,6 @@ export function PcbEditor({
         fittedRef.current = true;
         zoomToFit();
       } else if (changed) {
-        sceneDirtyRef.current = true;
         requestDraw();
       }
     });
@@ -5515,8 +5392,8 @@ export function PcbEditor({
   }, [board, zoomToFit]);
 
   // Flip board view (PCB_ACTIONS::flipBoard → VIEW::SetMirror on X): toggle the
-  // view's horizontal mirror, re-centring so the board stays put, and rebuild
-  // the raster (which bakes in the mirror).
+  // view's horizontal mirror, re-centring so the board stays put. The mirror
+  // itself is the VIEW's matrix, pushed by `syncViewTransform`.
   const toggleFlip = useCallback(() => {
     const v = viewRef.current;
     const canvas = canvasRef.current;
@@ -5524,7 +5401,6 @@ export function PcbEditor({
     // Mirror tx about the viewport centre so the visible board doesn't jump.
     if (canvas) v.tx = canvas.width - v.tx;
     setFlipView(v.flipX);
-    sceneDirtyRef.current = true;
     requestDraw();
   }, [requestDraw]);
 
@@ -8029,7 +7905,6 @@ export function PcbEditor({
       if (movingSelRef.current.size === 0) return; // the drag already finished
       if (panelRef.current) return; // the VIEW hides the moving items itself
       sceneRef.current = buildBoardScene(deleteBoardItems(brd, affected), sceneFilter());
-      sceneDirtyRef.current = true;
       requestDraw();
     }, 0);
   };
@@ -8119,7 +7994,6 @@ export function PcbEditor({
     moveSceneRef.current = dragModeRef.current
       ? null
       : buildScene(subsetBoardItems(brd, sel), sceneFilter());
-    sceneDirtyRef.current = true;
     requestDraw();
     const panel = panelRef.current;
     if (panel) {
@@ -8216,7 +8090,6 @@ export function PcbEditor({
     }
     moveSceneRef.current = buildScene(subsetBoardItems(brd, affected), sceneFilter());
     moveDeltaRef.current = { x: 0, y: 0 };
-    sceneDirtyRef.current = true;
     return true;
   };
 
@@ -8979,7 +8852,6 @@ export function PcbEditor({
             // The overlay is drawn at absolute coords: a reshape moves points,
             // not the item, so it carries no drag delta.
             moveDeltaRef.current = { x: 0, y: 0 };
-            sceneDirtyRef.current = true;
           }
           (e.target as HTMLElement).setPointerCapture(e.pointerId);
           return;
@@ -10298,10 +10170,6 @@ export function PcbEditor({
     const brd = boardRef.current;
     if (!brd || highlightNets.size === 0) {
       highlightSceneRef.current = null;
-      if (dimmedRef.current) {
-        dimmedRef.current = false;
-        sceneDirtyRef.current = true; // repaint the board at full brightness
-      }
       requestDraw();
       return;
     }
@@ -10327,12 +10195,10 @@ export function PcbEditor({
     // must not also appear here at its old position (upstream HideItem()s it).
     if (trackDragRef.current) for (const id of dragAffectedRef.current) ids.delete(id);
     highlightSceneRef.current = ids.size > 0 ? buildScene(subsetBoardItems(brd, ids)) : null;
-    // The raster carries the dimming, so it has to be re-rendered when the
-    // highlight comes and goes.
-    if (dimmedRef.current !== (highlightSceneRef.current !== null)) {
-      dimmedRef.current = highlightSceneRef.current !== null;
-      sceneDirtyRef.current = true;
-    }
+    // The dimming of everything NOT on the net is the VIEW's:
+    // `PCB_RENDER_SETTINGS::GetColor` darkens by `1 - m_highlightFactor` for
+    // any item the highlight set does not name, so there is no second picture
+    // to re-render when the highlight comes and goes.
     requestDraw();
   }, [highlightNets, requestDraw]);
 
@@ -10502,7 +10368,6 @@ export function PcbEditor({
         setFindOpen(true);
         break;
       case 'zoomRedraw':
-        sceneDirtyRef.current = true;
         requestDraw();
         break;
       case 'zoomIn':
