@@ -352,3 +352,82 @@ suite('DRC_TOOL: Cancel while the run is going', () => {
     expect(dialog.m_messages.length).toBeLessThan(wholeDialog.m_messages.length);
   });
 });
+
+/**
+ * The job the worker is handed must BE the board the editor has.
+ *
+ * `runJob` serialises the live board to cross the thread boundary, and
+ * `formatLayers` collapses a pad on the outer two copper layers to `*.Cu`,
+ * which the parser reads back as EVERY copper layer (see
+ * `drc_job_transport_layers.test.ts`). On CM5_MINIMA_3 that put J101's NPTH
+ * pads on the inner layers and produced 24 hole-clearance errors against
+ * inner-layer zones - errors KiCad does not report, because KiCad checks the
+ * board in memory and never round-trips it.
+ *
+ * So this is not about the flag's existence. It is about the DRC job actually
+ * using it, which is the link a unit test of the writer cannot reach: deleting
+ * `CTL_ENUMERATE_LAYERS` from `runJob` leaves every writer test green.
+ */
+describe('DRC_TOOL: the board the worker gets', () => {
+  const FIXTURE = `(kicad_pcb
+\t(version 20260206)
+\t(generator "pcbnew")
+\t(generator_version "10.0")
+\t(general (thickness 1.6))
+\t(paper "A4")
+\t(layers
+\t\t(0 "F.Cu" signal)
+\t\t(4 "In1.Cu" signal)
+\t\t(6 "In2.Cu" signal)
+\t\t(2 "B.Cu" signal)
+\t\t(1 "F.Mask" user)
+\t\t(3 "B.Mask" user)
+\t\t(25 "Edge.Cuts" user)
+\t)
+\t(footprint "TEST:MountingHole"
+\t\t(layer "F.Cu")
+\t\t(uuid "7c2b91aa-0000-4000-8000-000000000001")
+\t\t(at 20 20)
+\t\t(pad "" np_thru_hole circle
+\t\t\t(at 0 0)
+\t\t\t(size 1.5 1.5)
+\t\t\t(drill 1.5)
+\t\t\t(layers "F&B.Cu" "*.Mask")
+\t\t\t(uuid "7c2b91aa-0000-4000-8000-000000000002")
+\t\t)
+\t)
+)
+`;
+
+  it('carries every pad on the layers the live board has it on', async () => {
+    const { ParseBoard } = await import('@ziroeda/pcbnew/src/read-board.js');
+    const h = makeHarness();
+    const board = ParseBoard(FIXTURE, 'transport.kicad_pcb');
+
+    h.frame.SetBoard(board, false);
+    h.frame.OnBoardLoaded(null, '');
+
+    // The frame is what runs the job, so it is where the request can be read.
+    let requestText: string | null = null;
+    const realRun = h.frame.RunDrcJob.bind(h.frame);
+
+    h.frame.RunDrcJob = (request, hooks) => {
+      requestText = request.boardText;
+      return realRun(request, hooks);
+    };
+
+    expect(h.frame.GetToolManager()!.RunAction(PCB_ACTIONS.runDRC)).toBe(true);
+
+    const dialog = h.dialogs[0]!;
+
+    await runDialog(dialog);
+
+    expect(requestText).not.toBeNull();
+
+    const sent = ParseBoard(requestText!, 'transport.kicad_pcb');
+    const layersOf = (b: ReturnType<typeof ParseBoard>): number[][] =>
+      [...b.Footprints()].flatMap((fp) => [...fp.Pads()].map((p) => [...p.GetLayerSet()]));
+
+    expect(layersOf(sent)).toEqual(layersOf(board));
+  });
+});

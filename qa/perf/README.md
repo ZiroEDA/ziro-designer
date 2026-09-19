@@ -48,3 +48,12 @@ Add `--cpu-prof --cpu-prof-dir=<dir>` for a `.cpuprofile`; that is what found
 
 The board is the oracle too: `kicad-cli pcb drc --severity-all --format json`
 beside it gives KiCad's own count for the same file.
+
+## Board round trip
+
+`roundtrip_board.mts` reads a board, writes it back and reports whether the
+bytes survived. What it is really for is the step after: `kicad-cli pcb drc` on
+the output is KiCad's own verdict on what our writer produced, and comparing it
+with its verdict on the input catches a lossy write that a byte diff would
+excuse as formatting. That is how the DRC job's `*.Cu` round trip was found -
+24 hole-clearance violations on a board that has none.

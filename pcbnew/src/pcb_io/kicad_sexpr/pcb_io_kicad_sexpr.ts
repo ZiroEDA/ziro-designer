@@ -141,6 +141,27 @@ export const CTL_FOR_LIBRARY =
   CTL_OMIT_PAD_NETS | CTL_OMIT_UUIDS | CTL_OMIT_PATH | CTL_OMIT_AT | CTL_OMIT_LIBNAME;
 /** The zero arg constructor when PCB_PLUGIN is used for PLUGIN::Load() and PLUGIN::Save()ing a BOARD file. */
 export const CTL_FOR_BOARD = CTL_OMIT_INITIAL_COMMENTS | CTL_OMIT_FOOTPRINT_VERSION;
+/**
+ * Write every layer of a layer set out, rather than the `*.Cu` / `*.Mask`
+ * wildcards `formatLayers` collapses them to. NOT upstream: the C++ decides it
+ * per call site (`aEnumerateLayers`), and every board-file call site passes
+ * false.
+ *
+ * It exists because `*.Cu` is **lossy for a pad**. `formatLayers` writes it
+ * both for a pad on every copper layer AND for one on just the outer two
+ * (:1332-1335, transcribed from pcb_io_kicad_sexpr.cpp:1576-1584), and the
+ * parser reads it back as every copper layer. KiCad wears that because it
+ * only bites on save; ours cannot, because the DRC job SERIALISES the live
+ * board to hand it to the worker (`drc_job.ts`), so a lossy round trip is a
+ * board the check disagrees with the editor about.
+ *
+ * It was not theoretical: CM5_MINIMA_3 was written by a 9.99 build with J101's
+ * NPTH pads on `F&B.Cu`, the round trip put them on all six copper layers, and
+ * the DRC reported 24 hole-clearance errors against inner-layer zones whose
+ * fills were poured when the pad was not there. Transport only - what
+ * `SaveBoard` writes is unchanged, and KiCad reads either form.
+ */
+export const CTL_ENUMERATE_LAYERS = 1 << 7;
 
 /** `formatInternalUnits( int, aDataType )` (:454). */
 export function formatInternalUnits(aValue: number, aDataType: FileDataType = 'distance'): string {
@@ -907,7 +928,7 @@ export class PCB_IO_KICAD_SEXPR {
     if (aShape.IsLocked()) FormatBool(this.m_out, 'locked', true);
 
     if (aShape.GetLayerSet().count() > 1)
-      this.formatLayers(aShape.GetLayerSet(), false /* enumerate layers */);
+      this.formatLayers(aShape.GetLayerSet(), this.enumerateLayers());
     else this.formatLayer(aShape.GetLayer());
 
     if (
@@ -1303,6 +1324,11 @@ export class PCB_IO_KICAD_SEXPR {
   // formatLayers (:1549)
   // -------------------------------------------------------------------------
 
+  /** `aEnumerateLayers` for the board items whose layer set a wildcard can lose. */
+  private enumerateLayers(): boolean {
+    return (this.m_ctl & CTL_ENUMERATE_LAYERS) !== 0;
+  }
+
   private formatLayers(aLayerMask: LSET, aEnumerateLayers: boolean, aIsZone = false): void {
     const cu_all = LSET.AllCuMask();
     const fr_bk = new LSET([B_Cu, F_Cu]);
@@ -1527,7 +1553,7 @@ export class PCB_IO_KICAD_SEXPR {
     // Add pad property, if exists.
     if (property) this.m_out.Print(`(property ${property})`);
 
-    this.formatLayers(aPad.GetLayerSet(), false /* enumerate layers */);
+    this.formatLayers(aPad.GetLayerSet(), this.enumerateLayers());
 
     if (aPad.GetAttribute() === PAD_ATTRIB.PTH) {
       FormatBool(this.m_out, 'remove_unused_layers', aPad.GetRemoveUnconnected());
@@ -2436,7 +2462,7 @@ export class PCB_IO_KICAD_SEXPR {
       if (aTrack.IsLocked()) FormatBool(this.m_out, 'locked', true);
 
       if (aTrack.GetLayerSet().count() > 1)
-        this.formatLayers(aTrack.GetLayerSet(), false /* enumerate layers */);
+        this.formatLayers(aTrack.GetLayerSet(), this.enumerateLayers());
       else this.formatLayer(aTrack.GetLayer());
 
       if (
@@ -2706,11 +2732,15 @@ function isVector2(aValue: unknown): aValue is VECTOR2I {
  * `PCB_IO_KICAD_SEXPR::SaveBoard` to a string: `FormatBoardToFormatter` on a
  * `PRETTIFIED_FILE_OUTPUTFORMATTER`, `Finish()`ed.
  */
-export function FormatBoard(aBoard: BOARD, aGenerator: string = GENERATOR): string {
+export function FormatBoard(
+  aBoard: BOARD,
+  aGenerator: string = GENERATOR,
+  aControlFlags: number = CTL_FOR_BOARD,
+): string {
   // wxString sanityResult = aBoard->GroupsSanityCheck(): the "Internal Group Data Error" query
   // is not ported; a cycle is repaired at load.
   const formatter = new PRETTIFIED_STRING_FORMATTER();
-  const pcb_io = new PCB_IO_KICAD_SEXPR(formatter, CTL_FOR_BOARD, aGenerator);
+  const pcb_io = new PCB_IO_KICAD_SEXPR(formatter, aControlFlags, aGenerator);
   pcb_io.FormatBoardToFormatter(formatter, aBoard);
   return formatter.Finish();
 }
@@ -2735,9 +2765,10 @@ export async function FormatBoardAsync(
   aAbort: () => boolean = () => false,
   aBudgetMs = 8,
   aGenerator: string = GENERATOR,
+  aControlFlags: number = CTL_FOR_BOARD,
 ): Promise<string | null> {
   const formatter = new PRETTIFIED_STRING_FORMATTER();
-  const pcb_io = new PCB_IO_KICAD_SEXPR(formatter, CTL_FOR_BOARD, aGenerator);
+  const pcb_io = new PCB_IO_KICAD_SEXPR(formatter, aControlFlags, aGenerator);
   const steps = pcb_io.FormatBoardToFormatterSteps(formatter, aBoard);
   let sliceStart = performance.now();
 

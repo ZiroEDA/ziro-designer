@@ -31,7 +31,11 @@ import {
   drcJobPathShapes,
 } from '../drc/drc_job.js';
 import { DRC_ITEM, PCB_DRC_CODE } from '../drc/drc_item.js';
-import { FormatBoardAsync } from '../pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import {
+  CTL_ENUMERATE_LAYERS,
+  CTL_FOR_BOARD,
+  FormatBoardAsync,
+} from '../pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { FOOTPRINT } from '../footprint.js';
 import { NETLIST } from '../netlist_reader/pcb_netlist.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
@@ -284,8 +288,16 @@ export class DRC_TOOL extends PCB_TOOL_BASE {
     aProgressReporter.KeepRefreshing(false);
 
     const yieldToUI = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
-    const boardText = await FormatBoardAsync(board, yieldToUI, () =>
-      aProgressReporter.IsCancelled(),
+    // `CTL_ENUMERATE_LAYERS`: this is a TRANSPORT, not a save, and `*.Cu` is
+    // lossy for a pad - see the flag. Without it the worker checks a board the
+    // editor does not have.
+    const boardText = await FormatBoardAsync(
+      board,
+      yieldToUI,
+      () => aProgressReporter.IsCancelled(),
+      undefined,
+      undefined,
+      CTL_FOR_BOARD | CTL_ENUMERATE_LAYERS,
     );
 
     if (boardText === null) return; // cancelled while the text was being built
