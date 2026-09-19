@@ -218,19 +218,29 @@ describe('the two ways a picture failed to appear at all', () => {
     'utf8',
   );
 
-  it('a finished decode dirties the raster, not just the blit', () => {
-    // The image pass draws into an offscreen canvas that `draw()` blits, and
-    // the pass running while a payload is still decoding draws the fallback
-    // OUTLINE. `startCrispRender`'s guard is
-    // `viewMatchesCache() && !sceneDirtyRef.current`, so on a freshly loaded
-    // board — view unmoved, scene clean — a bare `requestDraw` re-blits that
-    // outline for ever. A red rectangle where the picture should be, until you
-    // nudged the item and dirtied the scene by accident.
-    const cb = EDITOR.slice(
-      EDITOR.indexOf('imageCacheRef.current.ensure(img.data'),
-      EDITOR.indexOf('const steps = buildDrawSteps'),
-    );
-    expect(cb).toContain('sceneDirtyRef.current = true;');
+  it('the one image the editor still decodes is the one riding the cursor', () => {
+    // A picture failing to appear used to be a raster problem: the offscreen
+    // pass drew the fallback OUTLINE while the payload decoded, and its guard
+    // was `viewMatchesCache() && !sceneDirtyRef.current`, so on a freshly
+    // loaded board a bare `requestDraw` re-blitted that outline for ever. The
+    // decode callback had to dirty the scene, not just ask for a frame.
+    //
+    // There is no raster now. A reference image ON the board is decoded by
+    // `WX_IMAGE::LoadFile` as the file is parsed - synchronously, before the
+    // item exists - and drawn by `PCB_PAINTER::drawReferenceImage` through
+    // `GAL::DrawBitmap` and `GL_BITMAP_CACHE`. Nothing is pending, so nothing
+    // has to re-trigger a render.
+    //
+    // The image being PLACED is the exception, and the comment in the editor
+    // says why: it is not on the board, so no painter has been asked for it.
+    // It is drawn on the 2D overlay, which is redrawn whole every frame, so a
+    // bare `requestDraw` is the right callback there - the thing the old raster
+    // could not do with one.
+    expect(EDITOR).toContain('imageCacheRef.current.ensure(live.data, requestDraw)');
+
+    // ...and it is the only one left.
+    expect(EDITOR.match(/imageCacheRef\.current\.ensure\(/g)).toHaveLength(1);
+    expect(EDITOR).not.toContain('sceneDirtyRef');
   });
 
   it('the handles effect reads the board it depends on, not the ref', () => {
