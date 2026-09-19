@@ -129,6 +129,18 @@ const bareBoard = (over: Partial<Board>): Board => ({
   ...over,
 });
 
+/**
+ * The same board with its zone changed - through `board()`, so the BOARD
+ * under it is rebuilt too.
+ *
+ * Spreading the view alone (`{ ...b, zones: [{ ...b.zones[0], … }] }`) leaves
+ * `.k` pointing at the ZONE that was there before, and the pour asks the model
+ * for the zone connection now, not the view. Four tests here quietly compared
+ * a board against itself before this existed.
+ */
+const withZone = (b: Board, over: Partial<PcbZone>): Board =>
+  board({ ...b, zones: [{ ...b.zones[0]!, ...over }, ...b.zones.slice(1)] });
+
 /** Total filled area in mm², holes (wound the other way) subtracting. */
 const area = (polys: { x: number; y: number }[][]): number => {
   let total = 0;
@@ -1299,9 +1311,7 @@ describe('zone filler', () => {
       const withSpokes = area(fillZone(b, 0)[0]!.polys);
       // The same board with thermals off: pads solidly connected leave no
       // relief at all, so compare against a NO-connection pour instead.
-      const noSpokes = area(
-        fillZone({ ...b, zones: [{ ...b.zones[0]!, padConnection: 'none' }] }, 0)[0]!.polys,
-      );
+      const noSpokes = area(fillZone(withZone(b, { padConnection: 'none' }), 0)[0]!.polys);
       return withSpokes - noSpokes;
     };
 
@@ -1356,10 +1366,7 @@ describe('zone filler', () => {
         ],
       });
       const withThermals = area(fillZone(walled, 0)[0]!.polys);
-      const noConnection = area(
-        fillZone({ ...walled, zones: [{ ...walled.zones[0]!, padConnection: 'none' }] }, 0)[0]!
-          .polys,
-      );
+      const noConnection = area(fillZone(withZone(walled, { padConnection: 'none' }), 0)[0]!.polys);
       // Not one spoke of copper added back.
       expect(withThermals).toBeCloseTo(noConnection, 3);
     });
@@ -1561,7 +1568,7 @@ describe("a thermally connected pad's own hole", () => {
     // A FULL connection is not in thermalConnectionPads, so nothing knocks its
     // hole out and the pour runs straight over it.
     const b = relieved({ shape: 'circle', drill: { oblong: false, w: MM(1.5), h: MM(1.5) } });
-    const solid = { ...b, zones: [{ ...b.zones[0]!, padConnection: 'full' as const }] };
+    const solid = withZone(b, { padConnection: 'full' });
     expect(filled(fillZone(solid, 0)[0]!.polys, { x: MM(20), y: MM(20) })).toBe(true);
   });
 });
@@ -1608,7 +1615,9 @@ describe('which pads get a relief', () => {
   it("lets a pad's own (zone_connect …) override the zone", () => {
     // ZONE_CONNECTION_CONSTRAINT resolves pad, then footprint, then zone.
     const b = twoPads('thermal');
-    const solidPad = {
+    // Through `board()`, so the PAD the constraint is resolved on carries the
+    // override too - a view spread alone leaves `.k` as it was.
+    const solidPad = board({
       ...b,
       footprints: [
         {
@@ -1619,7 +1628,7 @@ describe('which pads get a relief', () => {
           ],
         },
       ],
-    };
+    });
     expect(hasRelief(solidPad, MM(12))).toBe(false);
     expect(hasRelief(solidPad, MM(28))).toBe(true);
   });

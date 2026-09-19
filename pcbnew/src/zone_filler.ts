@@ -105,6 +105,11 @@ import type {
 } from './types.js';
 import type { ZoneConnection } from './zone_connection.js';
 import type { BOARD } from './board.js';
+import type { BOARD_ITEM } from './board_item.js';
+import { LSET_NameToLayer, type PCB_LAYER_NAME } from './layer_ids.js';
+import { DRC_ENGINE } from './drc/drc_engine.js';
+import { DRC_CONSTRAINT_T } from './drc/drc_rule.js';
+import { ZONE_CONNECTION } from './zones.js';
 import type { ZONE } from './zone.js';
 import type { PCB_VIA } from './pcb_track.js';
 import { ZONE_LAYER_OVERRIDE } from './board_item.js';
@@ -160,6 +165,8 @@ export class ZONE_FILLER {
   PrepareBoardForFill(): void {
     const board = this.m_board;
 
+    this.ensureDrcEngine();
+
     // `m_worstClearance` (:466) and `m_boardOutline` (:478-479) are read by
     // the pour, which is still the view's; they arrive with it.
     //
@@ -183,6 +190,77 @@ export class ZONE_FILLER {
     }
 
     this.determineConditionalFlashing();
+  }
+
+  /**
+   * `Fill`'s first act (zone_filler.cpp:421-455).
+   *
+   * "The fill evaluates thermal-relief and clearance rules through the board's
+   * DRC engine on worker threads. Interactive callers always supply an
+   * initialized engine, but headless consumers … can reach here with none,
+   * which would crash on the first EvalRules() call."
+   *
+   * Upstream then loads the board's `.kicad_dru` into the new engine and, if
+   * that throws, keeps the engine anyway — "Rules failing to compile only
+   * matters when the user runs DRC; the fill falls back to the implicit
+   * constraints". We have no file to reach for here, so the engine is built on
+   * the implicit constraints alone, which is that same fallback.
+   */
+  private ensureDrcEngine(): DRC_ENGINE {
+    const bds = this.m_board.GetDesignSettings();
+
+    if (!bds.m_DRCEngine) {
+      const engine = new DRC_ENGINE(this.m_board, bds);
+
+      try {
+        engine.InitEngine(null);
+      } catch {
+        /* see above: an engine on the implicit rules is still an engine */
+      }
+
+      // "Publish only after InitEngine() has fully populated the engine so a
+      // concurrent reader never observes a non-null but half-initialized one."
+      bds.m_DRCEngine = engine;
+    }
+
+    return bds.m_DRCEngine;
+  }
+
+  /**
+   * `DRC_ENGINE::EvalRules( THERMAL_RELIEF_GAP_CONSTRAINT, aPad, aZone, aLayer )`
+   * (zone_filler.cpp:1901, 1947), the gap `knockoutThermalReliefs` opens
+   * around a thermally connected pad.
+   */
+  ThermalReliefGap(aPad: BOARD_ITEM, aZone: ZONE, aLayer: PCB_LAYER_ID): number {
+    return this.ensureDrcEngine()
+      .EvalRules(DRC_CONSTRAINT_T.THERMAL_RELIEF_GAP_CONSTRAINT, aPad, aZone, aLayer)
+      .GetValue()
+      .Min();
+  }
+
+  /**
+   * `EvalRules( THERMAL_SPOKE_WIDTH_CONSTRAINT, … )` (zone_filler.cpp:3396).
+   *
+   * `buildThermalSpokes` reads `Opt()`, not `Min()`
+   * (`zone_filler.cpp:3397-3400`): the two differ for a pad whose own
+   * `(thermal_bridge_width …)` is below the zone's minimum thickness, where
+   * the constraint's Min is raised to that minimum and its Opt is not.
+   */
+  ThermalSpokeWidth(aPad: BOARD_ITEM, aZone: ZONE, aLayer: PCB_LAYER_ID): number {
+    return this.ensureDrcEngine()
+      .EvalRules(DRC_CONSTRAINT_T.THERMAL_SPOKE_WIDTH_CONSTRAINT, aPad, aZone, aLayer)
+      .GetValue()
+      .Opt();
+  }
+
+  /**
+   * `DRC_ENGINE::EvalZoneConnection( aPad, aZone, aLayer )`
+   * (zone_filler.cpp:1886, 1933) — the ZONE_CONNECTION_CONSTRAINT, plus the
+   * THT_THERMAL rewrite that turns it into THERMAL on a plated through-hole
+   * pad and FULL on everything else.
+   */
+  ZoneConnection(aPad: BOARD_ITEM, aZone: ZONE, aLayer: PCB_LAYER_ID): ZONE_CONNECTION {
+    return this.ensureDrcEngine().EvalZoneConnection(aPad, aZone, aLayer).m_ZoneConnection;
   }
 
   /**
@@ -370,6 +448,12 @@ const EXTRA_CLEARANCE = mmToIU(ADVANCED_CFG.GetCfg().m_ExtraClearance);
 const DEFAULT_EDGE_CLEARANCE = mmToIU(0.5);
 
 export interface ZoneFillOptions {
+  /**
+   * The DRC engine's answers for the thermal and zone-connection constraints.
+   * Defaults to a `ZONE_FILLER` on the board's own model, which is what the
+   * editor gets; a caller supplies one only to observe what was asked.
+   */
+  rules?: ZONE_RULE_RESOLVER;
   /**
    * Clearance in IU required between this zone and another net's copper. The
    * board's DRC clearance; defaults to the zone's own `(connect_pads
@@ -828,26 +912,26 @@ function padHoleShape(pad: PcbPad, gap: number): Shape | null {
  * the relief around it is 0.1 mm wider on every side than the zone's, and
  * this read the zone's for every pad.
  */
-function thermalReliefGap(pad: PcbPad, zone: PcbZone): number {
-  if (pad.thermalGap !== undefined && pad.thermalGap > 0) return pad.thermalGap;
-  return zone.thermalGap ?? mmToIU(0.5);
+/**
+ * What the fill asks the DRC engine, for a pour that is still working on the
+ * view: `ZONE_FILLER` implements it (`EvalRules` / `EvalZoneConnection`), and
+ * the view items hand over the `BOARD_ITEM`s in their `.k`.
+ *
+ * This exists because the pour below still takes a `Board`. When it takes a
+ * `BOARD` the resolver goes with it and these become plain method calls
+ * (#636 stage 4).
+ */
+export interface ZONE_RULE_RESOLVER {
+  ThermalReliefGap(aPad: BOARD_ITEM, aZone: ZONE, aLayer: PCB_LAYER_ID): number;
+  ThermalSpokeWidth(aPad: BOARD_ITEM, aZone: ZONE, aLayer: PCB_LAYER_ID): number;
+  ZoneConnection(aPad: BOARD_ITEM, aZone: ZONE, aLayer: PCB_LAYER_ID): ZONE_CONNECTION;
 }
 
-/**
- * `DRC_ENGINE::EvalRules( THERMAL_SPOKE_WIDTH_CONSTRAINT, pad, zone )`
- * (drc_engine.cpp:1240-1265, 2044-2059): the pad's own
- * `(thermal_bridge_width …)` when it states one above zero, RAISED to the
- * zone's minimum thickness — "%s min thickness" — otherwise the zone's.
- *
- * The override sets only `Min`, and `buildThermalSpokes` reads `Opt()` and
- * then clamps to [Min, Max], so the value that comes out is the override.
- * The same StickHub pad says `(thermal_bridge_width 0.5)` over a 0.15 mm
- * zone: its four spokes are 0.5 wide, and this drew them 0.15.
- */
-function thermalSpokeWidth(pad: PcbPad, zone: PcbZone): number {
-  if (pad.thermalBridgeWidth !== undefined && pad.thermalBridgeWidth > 0)
-    return Math.max(pad.thermalBridgeWidth, zone.minThickness ?? 0);
-  return zone.thermalBridgeWidth ?? mmToIU(0.5);
+/** A view item's model, which every item carries once it has been through a BOARD. */
+function modelOf<T>(aItem: { k?: T }, aWhat: string): T {
+  if (!aItem.k) throw new Error(`zone fill: this ${aWhat} has no BOARD_ITEM to resolve rules on`);
+
+  return aItem.k;
 }
 
 /**
@@ -879,29 +963,37 @@ function padClearanceOverride(pad: PcbPad, fp: PcbFootprint): number | undefined
 }
 
 /**
- * `ZONE_CONNECTION_CONSTRAINT` for one pad, then `DRC_ENGINE::EvalZoneConnection`'s
- * rewrite of it.
- *
- * The constraint resolves pad → footprint → zone, `inherited` meaning "ask the
- * next one out". THT_THERMAL is not a fill mode of its own: it becomes THERMAL
- * on a plated through-hole pad and FULL on everything else, which is why an SMD
- * pad in a "thermal reliefs for PTH" zone is poured solid.
+ * `EvalZoneConnection` resolves THT_THERMAL and never returns INHERITED
+ * (`drc_engine.cpp`: the constraint walks pad, footprint and zone, and the
+ * rewrite turns THT_THERMAL into THERMAL or FULL), so the pour sees three.
  */
-function padZoneConnection(
-  pad: PcbPad,
-  fp: PcbFootprint,
-  zone: PcbZone,
-): 'none' | 'thermal' | 'full' {
-  const inherited = (c: ZoneConnection | undefined): ZoneConnection | undefined =>
-    c === undefined || c === 'inherited' ? undefined : c;
+const ZONE_CONNECTION_VIEW: Readonly<Record<ZONE_CONNECTION, 'none' | 'thermal' | 'full'>> = {
+  [ZONE_CONNECTION.NONE]: 'none',
+  [ZONE_CONNECTION.THERMAL]: 'thermal',
+  [ZONE_CONNECTION.FULL]: 'full',
+  // Defensive: a rule that resolved to neither leaves the pad thermally
+  // relieved, which is `ZONE_SETTINGS`' own default.
+  [ZONE_CONNECTION.INHERITED]: 'thermal',
+  [ZONE_CONNECTION.THT_THERMAL]: 'thermal',
+};
 
-  const resolved: ZoneConnection =
-    inherited(pad.zoneConnection) ??
-    inherited(fp.zoneConnection) ??
-    (zone.padConnection === 'thru_hole_only' ? 'tht_thermal' : (zone.padConnection ?? 'thermal'));
+/** The rules a zone fill resolves for one pad on one layer. */
+interface PadRules {
+  gap: number;
+  spokeWidth: number;
+  connection: ZONE_CONNECTION;
+}
 
-  if (resolved === 'tht_thermal') return pad.type === 'thru_hole' ? 'thermal' : 'full';
-  return resolved === 'inherited' ? 'thermal' : resolved;
+function padRules(pad: PcbPad, zone: PcbZone, rules: ZONE_RULE_RESOLVER, layer: string): PadRules {
+  const k = modelOf(pad, 'pad');
+  const z = modelOf(zone, 'zone');
+  const id = LSET_NameToLayer(layer as PCB_LAYER_NAME) as PCB_LAYER_ID;
+
+  return {
+    gap: rules.ThermalReliefGap(k, z, id),
+    spokeWidth: rules.ThermalSpokeWidth(k, z, id),
+    connection: rules.ZoneConnection(k, z, id),
+  };
 }
 
 // ----- thermal spokes ---------------------------------------------------------
@@ -1011,12 +1103,19 @@ function placeSpoke(spoke: ThermalSpoke, deg: number, to: Vec2): ThermalSpoke {
   return { geom: [ringOf(ring)], ring, tip: put(spoke.tip) };
 }
 
-function thermalSpokes(pad: PcbPad, zone: PcbZone, maxError: number): ThermalSpoke[] {
-  const gap = thermalReliefGap(pad, zone);
+function thermalSpokes(
+  pad: PcbPad,
+  zone: PcbZone,
+  maxError: number,
+  rules: ZONE_RULE_RESOLVER,
+  layer: string,
+): ThermalSpoke[] {
+  const resolved = padRules(pad, zone, rules, layer);
+  const gap = resolved.gap;
   const minor = Math.min(pad.size.x, pad.size.y);
   // "ensure the spoke width is smaller than the pad minor size", then "Cannot
   // create stubs having a width < zone min thickness".
-  const width = Math.min(thermalSpokeWidth(pad, zone), minor);
+  const width = Math.min(resolved.spokeWidth, minor);
   if (width < (zone.minThickness ?? 0)) return [];
 
   // A custom pad can declare where its spokes attach, as `gr_vector` proxy
@@ -1025,7 +1124,7 @@ function thermalSpokes(pad: PcbPad, zone: PcbZone, maxError: number): ThermalSpo
     (prim) => prim.kind === 'gr_vector' && prim.start && prim.end,
   );
 
-  if (templates.length > 0) return customThermalSpokes(pad, zone, templates, width, maxError);
+  if (templates.length > 0) return customThermalSpokes(pad, zone, templates, width, maxError, gap);
 
   // `PADSTACK::ThermalSpokeAngle`: 45° puts an X on a round pad, 90° a + on
   // everything else. Reading only the pad's ORIENTATION, as this did, gave a
@@ -1221,6 +1320,8 @@ function hatchThermalRing(
   zone: PcbZone,
   smoothedOutline: Polygon[],
   maxError: number,
+  rules: ZONE_RULE_RESOLVER,
+  layer: string,
 ): Polygon[] {
   const minThk = zone.minThickness ?? 0;
   let ring: Polygon[];
@@ -1244,8 +1345,9 @@ function hatchThermalRing(
     ];
   } else {
     const pad = item.pad;
-    const thermalGap = thermalReliefGap(pad, zone);
-    const spokeWidth = Math.min(thermalSpokeWidth(pad, zone), Math.min(pad.size.x, pad.size.y));
+    const resolved = padRules(pad, zone, rules, layer);
+    const thermalGap = resolved.gap;
+    const spokeWidth = Math.min(resolved.spokeWidth, Math.min(pad.size.x, pad.size.y));
     if (spokeWidth < minThk) return [];
     const circular = pad.shape === 'circle' || (pad.shape === 'oval' && pad.size.x === pad.size.y);
     if (circular) {
@@ -1364,8 +1466,8 @@ function customThermalSpokes(
   templates: PadPrimitive[],
   width: number,
   maxError: number,
+  gap: number,
 ): ThermalSpoke[] {
-  const gap = thermalReliefGap(pad, zone);
   const spokeHalfW = Math.trunc(width / 2);
   const orientation = new EDA_ANGLE(pad.angle ?? 0);
   const shapePos = padShapePos(pad);
@@ -1590,6 +1692,11 @@ function fillZoneParts(
 
   const maxError = opts.maxError ?? DEFAULT_MAX_ERROR;
   const clearanceOf = opts.clearanceOf ?? ((z: PcbZone) => z.clearance ?? mmToIU(0.5));
+  // The thermal gap, the spoke width and the zone connection are the DRC
+  // engine's answers, as they are upstream - so a `.kicad_dru` that names a
+  // pad, a footprint or a net reaches the pour, which is what three local
+  // re-implementations of `EvalRules` could not do.
+  const rules: ZONE_RULE_RESOLVER = opts.rules ?? new ZONE_FILLER(modelOf(board, 'board'));
   const fills: ZoneFillParts[] = [];
 
   // `ZONE_FILLER::Fill`'s `m_brdOutlinesValid = GetBoardPolygonOutlines( … )`,
@@ -1718,7 +1825,14 @@ function fillZoneParts(
         // `noConnection`: a different net, or any pad at all on a zone with no
         // net of its own.
         const sameNet = (pad.net ?? 0) === zone.net && zone.net > 0;
-        const mode = sameNet ? padZoneConnection(pad, fp, zone) : 'none';
+        // `EvalZoneConnection( pad, aZone, aLayer )` - the pad's own
+        // `(zone_connect …)`, else its footprint's, else the zone's, and any
+        // `.kicad_dru` rule that names either of them, with THT_THERMAL
+        // resolved. `noConnection`: a different net, or any pad at all on a
+        // zone with no net of its own, never asks.
+        const mode: ZoneConnection = sameNet
+          ? ZONE_CONNECTION_VIEW[padRules(pad, zone, rules, layer).connection]
+          : 'none';
 
         if (mode === 'full') {
           // A solid connection knocks out nothing — not the pad, and not its
@@ -1731,13 +1845,13 @@ function fillZoneParts(
           // A thermally-relieved pad's own copper sits INSIDE the relief hole;
           // what touches the pour is its spokes, so its anchors are added with
           // them below.
-          const reliefGap = thermalReliefGap(pad, zone);
+          const reliefGap = padRules(pad, zone, rules, layer).gap;
           reliefHoles.push(
             ...asGeoms(
               padTransformShapeToPolygon(pad, reliefGap, maxError, ErrorLoc.ERROR_OUTSIDE),
             ),
           );
-          spokes.push(...thermalSpokes(pad, zone, maxError));
+          spokes.push(...thermalSpokes(pad, zone, maxError, rules, layer));
           if (hatch) ringItems.push({ pad });
           // The pad is in the cluster whether or not a spoke survives, so any
           // copper left standing on it is connected copper.
@@ -1879,7 +1993,7 @@ function fillZoneParts(
     let thermalRings: Polygon[] = [];
     if (hatch) {
       for (const item of ringItems) {
-        const ring = hatchThermalRing(item, zone, smoothed.smoothed, maxError);
+        const ring = hatchThermalRing(item, zone, smoothed.smoothed, maxError, rules, layer);
         fill = booleanAdd(fill, ring);
         thermalRings = booleanAdd(thermalRings, ring);
       }

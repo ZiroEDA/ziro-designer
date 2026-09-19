@@ -18,6 +18,7 @@ import {
   type ZoneValues,
 } from '@ziroeda/pcbnew/src/zone_properties.js';
 import { fillZone } from '@ziroeda/pcbnew/src/zone_filler.js';
+import { boardFromBOARD, boardToBOARD } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/board_view.js';
 import type { Board, PcbZone } from '@ziroeda/pcbnew/src/types.js';
 import { U } from './support/written_node.js';
 
@@ -255,9 +256,22 @@ describe('island removal reaches the filler', () => {
    * anchors the left square; a foreign pad on the neck is knocked out with
    * enough clearance to sever it, so the right square becomes a real island.
    */
-  const dumbbell = (mode: PcbZone['islandRemovalMode'], areaMin?: number): Board => ({
+  /**
+   * Out through `boardToBOARD` and back: the pour resolves its thermal gaps
+   * and zone connections on the BOARD_ITEMs now (`DRC_ENGINE::EvalRules`), so
+   * a fixture has to carry them. The layer table is stated for the same
+   * reason `zone_filler.test.ts` states one - `applyLayerTable` wipes it
+   * otherwise and `F.Cu` resolves to nothing.
+   */
+  const dumbbell = (mode: PcbZone['islandRemovalMode'], areaMin?: number): Board =>
+    boardFromBOARD(boardToBOARD(dumbbellView(mode, areaMin)));
+
+  const dumbbellView = (mode: PcbZone['islandRemovalMode'], areaMin?: number): Board => ({
     version: 20240108,
-    layers: [],
+    layers: [
+      { id: 0, name: 'F.Cu', kind: 'signal' },
+      { id: 2, name: 'B.Cu', kind: 'signal' },
+    ],
     nets: new Map([
       [0, ''],
       [1, 'GND'],
