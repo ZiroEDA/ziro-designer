@@ -15,7 +15,8 @@
  * bar and resized from its corner. The chrome is the ERC dialog's - the two
  * are the same wx widgets on the same DIALOG_SHIM.
  */
-import { useEffect, useRef, useState, type JSX } from 'react';
+import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
+import { rcTreeRowStyle, rcTreeTextColour } from '../../../ui/rc_tree_style.js';
 import type {
   RC_TREE_MODEL,
   RC_TREE_NODE,
@@ -101,19 +102,10 @@ function MarkerTree({
     selectedRowRef.current?.scrollIntoView({ block: 'nearest' });
   }, [selection]);
 
-  const textColour = { r: 0.8, g: 0.8, b: 0.8, a: 1 }; // wxSYS_COLOUR_LISTBOXTEXT on the dark theme
+  const textColour = useMemo(rcTreeTextColour, []);
 
-  const rowStyle = (node: RC_TREE_NODE): React.CSSProperties => {
-    const attr = model.GetAttr(node, textColour);
-
-    if (!attr) return {};
-
-    return {
-      fontWeight: attr.bold ? 600 : undefined,
-      fontStyle: attr.italic ? 'italic' : undefined,
-      opacity: attr.lightness !== null ? 0.55 : undefined,
-    };
-  };
+  const rowStyle = (node: RC_TREE_NODE): React.CSSProperties =>
+    rcTreeRowStyle(model.GetAttr(node, textColour), textColour);
 
   return (
     <div className="ze-erc-list" data-testid="drc-violation-list">

@@ -8825,16 +8825,36 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   width: 16px;
   height: 16px;
 }
-/* RC_TREE_MODEL rows: a bold marker heading with its item children under it. */
+/* RC_TREE_MODEL rows: a bold marker heading with its item children under it.
+
+   `RC_TREE_MODEL::Update` puts them in ONE wxDATAVIEW_CELL_INERT text column
+   as wide as the view's client area (common/rc_item.cpp:400-406), and every
+   metric below was read off that very control (qa/probes/rc_tree_dataview):
+
+     - the renderer reports wxELLIPSIZE_NONE, and the GtkCellRendererText
+       under it PANGO_ELLIPSIZE_NONE with wrap-width -1. A row longer than the
+       column is CLIPPED - it does not wrap onto a second line, and it does not
+       get an ellipsis. This list used to wrap, which doubled the height of
+       every clearance violation and broke the row rhythm outright.
+     - a row's cell is 22 px and rows are pitched 24 px apart: GtkTreeView's
+       vertical-separator is 2.
+
+   No colour of its own, either. `GetAttr` (common/rc_item.cpp:555-596) is the
+   only thing that styles a row and it touches colour ONLY for an excluded
+   one, so a child is wxSYS_COLOUR_LISTBOXTEXT exactly like its heading - the
+   #b6b8bb this used to dim children with was ours, the same invention the
+   library tree had. */
 .ze-erc-item {
-  padding: 1px 0;
+  padding: 0;
 }
 .ze-erc-subrow {
-  padding: 1px 12px 1px 34px;
-  color: #b6b8bb;
+  /* [px] the row pitch: the 22 px cell plus GtkTreeView's 2 px vertical-separator. */
+  height: 24px;
+  /* [px] the cell the text sits in, which GetItemRect reports as 22. */
+  line-height: 22px;
+  padding: 0 12px 0 34px;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
   cursor: default;
 }
 .ze-erc-subrow:hover {
@@ -8844,8 +8864,10 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--chrome-active);
   color: var(--selection-fg);
 }
+/* `aAttr.SetItalic( true )` and a colour, never a transparency - and never a
+   strikethrough, which the C++ says outright it would use "if wxWidgets
+   supported it". Both come from GetAttr through `rowStyle`. */
 .ze-erc-subrow.excluded {
-  opacity: 0.55;
   font-style: italic;
 }
 /* The "Tests Running..." page: phase messages over the progress gauge
@@ -8868,11 +8890,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   transition: width 80ms linear;
 }
 .ze-erc-row .msg {
-  font-weight: 600;
+  /* `aAttr.SetBold( true )` is wxFONTWEIGHT_BOLD; `rowStyle` sets the weight
+     from GetAttr, and this is the fallback for the rows it does not style. */
+  font-weight: 700;
 }
-.ze-erc-row.excluded .msg {
-  font-weight: 500;
-}
+/* No weight of its own: `GetAttr` sets bold on every MARKER row and then ADDS
+   the italic and the colour for an excluded one - it never takes the bold
+   away, so an excluded heading is bold italic. */
 /* bSeveritySizer's fixed spacers: 35 px after All, 25 px after each badge. */
 .ze-erc-footer .gap-35 {
   width: 35px;
@@ -8915,10 +8939,15 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-erc-row {
   display: flex;
   gap: 8px;
-  align-items: baseline;
-  padding: 4px 12px;
+  align-items: center;
+  /* [px] the row pitch, as .ze-erc-subrow. */
+  height: 24px;
+  /* [px] the cell, as .ze-erc-subrow. */
+  line-height: 22px;
+  padding: 0 12px;
   cursor: default;
-  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
 }
 .ze-erc-row:hover {
   background: var(--chrome-hover);
@@ -8931,6 +8960,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-erc-row .msg {
   flex: 1;
+  /* The cell clips (see above), and a flex item will not shrink below its
+     content without this. It is the measured behaviour of the control, not a
+     shrink-to-fit of a sized widget. */
+  min-width: 0;
+  overflow: hidden;
 }
 .ze-erc-footer {
   display: flex;
@@ -9044,8 +9078,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   color: var(--selection-fg);
 }
 .ze-erc-row.excluded .msg {
-  opacity: 0.55;
-  text-decoration: line-through;
+  font-style: italic;
 }
 .ze-erc-row .ze-erc-exclude {
   flex: 0 0 auto;

@@ -651,7 +651,15 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // and the box's 614px, 44px icon, 16px gap, 20/24/22 padding, 10px margin
   // and 12/8 button padding were uncited; every number in what replaced them
   // carries [px] or [css] on its own line.
-  ui: { colours: 186, metrics: 695 },
+  // colours 186 -> 185, metrics 695 -> 694: the RC_TREE_MODEL rows. The
+  // `#b6b8bb` that dimmed a violation's child rows was ours - `GetAttr`
+  // (common/rc_item.cpp:555-596) styles a row only when it is a heading or
+  // excluded, so a child is wxSYS_COLOUR_LISTBOXTEXT like its heading - and
+  // the 1px vertical paddings that used to space the rows went with the row
+  // height the control actually has. The 24 and the 22 that replaced them are
+  // measurements (`qa/probes/rc_tree_dataview`) and carry [px] each on its
+  // own line.
+  ui: { colours: 185, metrics: 694 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -1077,7 +1085,7 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 332 -> 331: `.ze-msgdlg-extended`'s #c8c9cb, an invented grey (the probe
     // reads one foreground on both labels). `ui` 187 -> 186; 332 - 1 agrees.
     // 331 -> 326: the DRC dialog's five, see the `editors/pcb` row; 331 - 5.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(326);
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(325);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1252,7 +1260,7 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1293 -> 1284: the message box, `ui` 704 -> 695 — see that row. 1293 - 9
     // agrees, and a rescan of this tree reads 1284.
     // 1284 -> 1271: the DRC dialog's thirteen, see the `editors/pcb` row.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1271);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1270);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {
