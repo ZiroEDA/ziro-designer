@@ -601,7 +601,9 @@ const CANVAS_KEYS: Readonly<
       ['H contrast cycle', /e\.key === 'h' \|\| e\.key === 'H'/],
       // ROUTER_TOOL's place-a-via-and-switch-layer, and the clearest context
       // action in the app: it claims V only while a route is in progress.
-      ['V while routing', /e\.key === 'v' \|\| e\.key === 'V'\) && routeRef\.current/],
+      // `routeRef` until 8b83d6b3 retired route_tool.ts; the session the key
+      // asks about is the PNS one now, and the branch is otherwise the same.
+      ['V while routing', /e\.key === 'v' \|\| e\.key === 'V'\) && pnsSessionRef\.current/],
       ['R rotate', /rotateSel\(!e\.shiftKey\)/],
       ['M grab move', /grabStartRef\.current\('move'\)/],
       ['G grab drag', /grabStartRef\.current\('drag'\)/],

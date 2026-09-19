@@ -141,17 +141,13 @@ import {
   serializeBoard,
   serializeBoardAsync,
   beginCourtyardConflicts,
-  airwireShown,
-  buildRatsnest,
   placeFootprint as placeLibraryFootprint,
   toggleLocalRatsnest,
   type LocalRatsnestHit,
-  conflictShadowRings,
   courtyardConflictsAt,
   prepareLocalRatsnest,
   type CourtyardConflicts,
   type CourtyardConflictSession,
-  type LocalRatsnest,
   addBoardShape,
   addBoardTrack,
   addBoardVia,
@@ -160,7 +156,6 @@ import {
   addBoardZone,
   setBoardOrigin,
   DEFAULT_POINT_SIZE,
-  type RatsnestEdge,
   type Board,
   type BoardBBox,
   type BoardItemKind,
@@ -485,20 +480,14 @@ import { parseFootprint } from '../footprint/footprintBoard.js';
 import {
   buildScene,
   buildDrawSteps,
-  drawAnchors,
   drawBoard,
-  drawDrawingSheet,
   hitTestBoardDrawingSheet,
-  drawPageLimits,
-  drawNetNames,
   drawOriginMarkers,
   boardTextPath,
   PCB_DEFAULT_GRID_IU,
   PCB_DEFAULT_GRID_ORIGIN,
-  pcbGridOptions,
   DEFAULT_DRAW_OPTIONS,
   DOM_PATH_FACTORY,
-  selectedColor,
   type BoardScene,
   type PcbDrawOptions,
   type ScenePathFactory,
@@ -1421,7 +1410,13 @@ export function PcbEditor({
   // Pads whose local ratsnest is forced on, keyed `fp:pad`, the tool works at
   // PAD level (BOARD_INSPECTION_TOOL::LocalRatsnestTool toggles
   // PAD::SetLocalRatsnestVisible; a footprint click sets all its pads).
-  const [localRats, setLocalRats] = useState<ReadonlySet<string>>(new Set());
+  //
+  // Write-only on purpose: the picker's own semantics are ported and pinned
+  // (`local_ratsnest.ts`), but the airwires it asks for are drawn by
+  // `RATSNEST_VIEW_ITEM` out of `CONNECTIVITY_DATA::ComputeLocalRatsnest`, and
+  // the tool that calls that is stage 3's (#636). Until then the set
+  // accumulates and nothing reads it back.
+  const [, setLocalRats] = useState<ReadonlySet<string>>(new Set());
   // PROJECT_LOCAL_SETTINGS' `board.selection_filter` defaults, which are the
   // shared table's: everything but "Locked items"
   // (common/project/project_local_settings.cpp:160-172). Ours ticked all
@@ -4103,9 +4098,6 @@ export function PcbEditor({
    * the rebuild path (Canvas2D, a router drag, or items with no ranges).
    */
   const inPlaceMoveRef = useRef<{ x: number; y: number } | null>(null);
-  /** The moving items' airwires, bucketed once at grab and only moved after. */
-  const localRatsRef = useRef<LocalRatsnest | null>(null);
-  const ratsOtherRef = useRef<RatsnestEdge[]>([]);
 
   // Recompile the render scene for a new board and repaint (edits change geometry).
   const rebuildScene = useCallback(
@@ -8097,7 +8089,6 @@ export function PcbEditor({
     // layer's drawing until `EDIT_TOOL::Move` puts them back) and drawn by
     // the overlay at the drag offset.
     inPlaceMoveRef.current = null;
-    localRatsRef.current = null;
     startOverlayMove(brd, sel, affected);
   };
 
@@ -8648,12 +8639,6 @@ export function PcbEditor({
       const chain = updateTrackDrag(drag, at);
       const line = trackDragSegments(brd, drag, chain);
       moveSceneRef.current = buildScene({ ...emptyBoardLike(brd), tracks: line }, sceneFilter());
-      if (liveRatsRef.current) {
-        ratsDrawRef.current = filterRatsRef.current(
-          buildRatsnest(applyTrackDrag(brd, drag, chain)),
-          selectedNetsRef.current,
-        );
-      }
       requestDraw();
       return;
     }
@@ -8664,15 +8649,14 @@ export function PcbEditor({
         sceneFilter(),
       );
     }
-    // Live ratsnest (KiCad recomputes airwires while dragging): recompute from
-    // the moved geometry so the airwires follow the part. Skipped on very large
-    // boards where a per-frame recompute would stall.
-    if (liveRatsRef.current) {
-      const preview = dragModeRef.current
-        ? dragBoardItems(brd, movingSelRef.current, delta)
-        : moveBoardItems(brd, movingSelRef.current, delta);
-      ratsDrawRef.current = filterRatsRef.current(buildRatsnest(preview), selectedNetsRef.current);
-    }
+    // The airwires that follow a moving part are `CONNECTIVITY_DATA::
+    // ComputeLocalRatsnest( movedItems, dynamicData )`, and
+    // `RATSNEST_VIEW_ITEM::ViewDraw` already draws what it produces
+    // (`ratsnest_view_item.ts:111`). Nothing calls it yet: it wants the moved
+    // BOARD_ITEMs, the way EDIT_TOOL moves them, and this gesture previews an
+    // immutable copy of the view instead. That is stage 3's to connect (#636).
+    // What stood here was a per-frame `buildRatsnest` over a rebuilt view
+    // board, drawn only by the Canvas2D path that has gone.
     requestDraw();
   };
 
@@ -8685,7 +8669,6 @@ export function PcbEditor({
     const hadOverlay =
       moveSceneRef.current !== null || dragModeRef.current || inPlaceMoveRef.current !== null;
     inPlaceMoveRef.current = null;
-    localRatsRef.current = null;
     // `drc_on_move->ClearConflicts( view )` (:1493): the gesture is over, so
     // the shadow goes with it whether or not the move was committed.
     courtyardSessionRef.current = null;
@@ -8736,7 +8719,6 @@ export function PcbEditor({
     // shift back — far cheaper than rebuilding a board that never changed.
     const applied = inPlaceMoveRef.current;
     inPlaceMoveRef.current = null;
-    localRatsRef.current = null;
     courtyardSessionRef.current = null;
     conflictsRef.current = null;
     unhideMovingItems();
@@ -8749,9 +8731,6 @@ export function PcbEditor({
     forcedCursorRef.current = null;
     // The gesture is over: `SetAuxAxes( false )`.
     auxAxisRef.current = null;
-    // Undo the live-ratsnest preview (the board didn't change). Back at rest,
-    // so the moving items' airwires go away with the gesture.
-    if (liveRatsRef.current) ratsDrawRef.current = filterRatsRef.current(ratsnestEdgesRef.current);
     if (applied) {
       moveSceneRef.current = null;
       moveOriginRef.current = null;
@@ -10253,21 +10232,10 @@ export function PcbEditor({
     [viewports],
   );
 
-  // The airwires of the raster path (the VIEW draws its own from
-  // CONNECTIVITY_DATA through RATSNEST_VIEW_ITEM, so under the GL panel they
-  // are not built: the MST of every net was 200 ms of every edit on a big
-  // board, for lines nothing drew).
-  const ratsnestEdges = useMemo(
-    () => (board && !panelReady ? buildRatsnest(board) : []),
-    [board, panelReady],
-  );
-  const ratsnestEdgesRef = useRef<RatsnestEdge[]>(ratsnestEdges);
-  ratsnestEdgesRef.current = ratsnestEdges;
   // `BOARD::GetMsgPanelInfo`'s "Unrouted": `GetConnectivity()->GetUnconnectedCount( true )`.
-  const unconnectedCount =
-    board?.k && panelReady
-      ? board.k.GetConnectivity().GetUnconnectedCount(true)
-      : ratsnestEdges.length;
+  // Asked of the BOARD, not of a count of drawn airwires: connectivity is
+  // built by the load, so this answers before the panel does.
+  const unconnectedCount = board?.k ? board.k.GetConnectivity().GetUnconnectedCount(true) : 0;
 
   // Nets of the current selection, their airwires are always shown (even when
   // the global ratsnest is off), so clicking a pad/footprint/track reveals the
@@ -10368,107 +10336,22 @@ export function PcbEditor({
     requestDraw();
   }, [highlightNets, requestDraw]);
 
-  // Only recompute the ratsnest live during a drag on boards small enough that
-  // a per-frame buildRatsnest stays smooth (bigger boards update on drop).
-  const liveRatsRef = useRef(false);
-  liveRatsRef.current = board
-    ? board.footprints.reduce((n, f) => n + f.pads.length, 0) + board.vias.length <= 1500
-    : false;
+  // Which airwires are shown, and in what colour, is the VIEW's answer now:
+  // `RATSNEST_VIEW_ITEM::ViewDraw` walks CONNECTIVITY_DATA's RN_NETs and reads
+  // the hidden nets, the ratsnest mode and the net colours off
+  // PCB_RENDER_SETTINGS itself. What stood here was a second copy of that rule
+  // over a list of airwires the raster path had built, and only the raster
+  // path drew it.
+  //
+  // `localRats` - the set the Local Ratsnest picker accumulates
+  // (`local_ratsnest.ts`, and it is pinned there) - is what still has no
+  // reader: it wants `CONNECTIVITY_DATA::ComputeLocalRatsnest`, which
+  // BOARD_INSPECTION_TOOL calls and we do not have yet (#636 stage 3).
 
-  // Filter + color a raw airwire list for display (the Nets-tab visibility, the
-  // Net Display Options modes, and the Local Ratsnest set). Shared by the
-  // steady-state effect and the live recompute during a move.
-  const filterRats = useCallback(
-    (
-      edges: RatsnestEdge[],
-      forcedLocalNets?: ReadonlySet<number>,
-    ): { e: RatsnestEdge; color: string }[] => {
-      const brd = boardRef.current;
-      if (!brd) return [];
-      const anyCuVisible = [...visible].some((l) => /\.Cu$/.test(l));
-      const layerOn = (l: string): boolean => (l === 'through' ? anyCuVisible : visible.has(l));
-      const globalOn = objects.ratsnest && ratsnestMode !== 'off';
-      const list: { e: RatsnestEdge; color: string }[] = [];
-      for (const e of edges) {
-        // The move tool's dynamic ratsnest (`forcedLocalNets`) is a whole
-        // net; the Local Ratsnest tool's is per airwire, one hop from the
-        // clicked pads — `airwireShown` is `RATSNEST_VIEW_ITEM::ViewDraw`'s
-        // rule, and the reason clicking an LED no longer lights all of GND.
-        if (!forcedLocalNets?.has(e.net) && !airwireShown(e, globalOn, localRats)) continue;
-        // Hidden nets (`ratsnest_view_item.cpp:177`) and the visible-layers
-        // mode (`:248-257`) gate every airwire alike, local or not. The
-        // layer test is EITHER end on no visible layer, not both.
-        const cls = netClassOf.get(e.net) ?? 'Default';
-        if (hiddenNets.has(e.net) || hiddenClasses.has(cls)) continue;
-        if (ratsnestMode === 'visible' && (!layerOn(e.aLayer) || !layerOn(e.bLayer))) continue;
-        let color: string = PCB_SPECIAL.ratsnest;
-        if (netColorMode !== 'off') color = netColors.get(e.net) ?? classColorOf(cls) ?? color;
-        list.push({ e, color });
-      }
-      return list;
-    },
-    [
-      objects.ratsnest,
-      ratsnestMode,
-      hiddenNets,
-      hiddenClasses,
-      netColors,
-      netColorMode,
-      classColorOf,
-      netClassOf,
-      visible,
-      localRats,
-    ],
-  );
-  const filterRatsRef = useRef(filterRats);
-  filterRatsRef.current = filterRats;
-
-  // Airwires filtered/colored for display, kept in a ref for the draw pass.
-  const ratsDrawRef = useRef<{ e: RatsnestEdge; color: string }[]>([]);
-  useEffect(() => {
-    // No forced nets at rest. KiCad's local ratsnest is *dynamic* — its own
-    // comment calls it "the ratsnest for objects that may be currently being
-    // moved" — and `updateLocalRatsnest` is posted only by the move tool and by
-    // the Local Ratsnest tool, never by a selection change. Passing the
-    // selection here made simply clicking a footprint light up its airwires
-    // with the ratsnest switched off, which pcbnew does not do.
-    ratsDrawRef.current = filterRats(ratsnestEdges);
-    requestDraw();
-  }, [ratsnestEdges, filterRats, requestDraw]);
-
-  // Net colors mode "All": copper items of explicitly-colored nets get an
-  // overlay tint (tracks/arcs/vias/zones; pads keep their layer color for now).
-  const coloredScenesRef = useRef<{ color: string; scene: BoardScene }[]>([]);
-  useEffect(() => {
-    const brd = boardRef.current;
-    const list: { color: string; scene: BoardScene }[] = [];
-    if (brd && netColorMode === 'all') {
-      const colorFor = new Map<number, string>();
-      for (const [code] of brd.nets) {
-        if (code === 0) continue;
-        const c = netColors.get(code) ?? classColorOf(netClassOf.get(code) ?? 'Default');
-        if (c) colorFor.set(code, c);
-      }
-      for (const [net, color] of colorFor) {
-        const ids = new Set<string>();
-        brd.tracks.forEach((t, i) => {
-          if (t.net === net) ids.add(boardItemId('track', i));
-        });
-        brd.arcs.forEach((a, i) => {
-          if (a.net === net) ids.add(boardItemId('arc', i));
-        });
-        brd.vias.forEach((vv, i) => {
-          if (vv.net === net) ids.add(boardItemId('via', i));
-        });
-        brd.zones.forEach((z, i) => {
-          if (z.net === net) ids.add(boardItemId('zone', i));
-        });
-        if (ids.size > 0) list.push({ color, scene: buildScene(subsetBoardItems(brd, ids)) });
-      }
-    }
-    coloredScenesRef.current = list;
-    requestDraw();
-  }, [board, netColorMode, netColors, classColorOf, netClassOf, requestDraw]);
+  // Net colours in mode "All" are the VIEW's: `PCB_RENDER_SETTINGS::GetColor`
+  // takes them from NET_SETTINGS when `NET_COLOR_MODE::ALL` is set
+  // (`applyEditorDisplayState`). The overlay scenes that used to tint the
+  // raster copy went with the raster path.
 
   // ----- toolbar handlers -----------------------------------------------------
 
