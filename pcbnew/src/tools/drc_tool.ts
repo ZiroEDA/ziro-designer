@@ -22,8 +22,16 @@ import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD } from '../board.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import { BOARD_COMMIT, SKIP_SET_DIRTY, SKIP_UNDO } from '../board_commit.js';
+import { kiidFromString } from '@ziroeda/common/src/kiid.js';
 import type { DRC_ENGINE } from '../drc/drc_engine.js';
-import { type DRC_ITEM, PCB_DRC_CODE } from '../drc/drc_item.js';
+import {
+  type DRC_JOB_HOOKS,
+  type DRC_JOB_REQUEST,
+  type DRC_JOB_VIOLATION,
+  drcJobPathShapes,
+} from '../drc/drc_job.js';
+import { DRC_ITEM, PCB_DRC_CODE } from '../drc/drc_item.js';
+import { FormatBoardAsync } from '../pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { FOOTPRINT } from '../footprint.js';
 import { NETLIST } from '../netlist_reader/pcb_netlist.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
@@ -60,6 +68,20 @@ export interface ZONE_FILLER_TOOL_LIKE {
 export interface DRC_TOOL_FRAME extends PCB_BASE_EDIT_FRAME {
   /** `new DIALOG_DRC( m_editFrame, aParent )`: the window is the frame's to make. */
   CreateDrcDialog(aTool: DRC_TOOL, aParent: unknown): DIALOG_DRC_LIKE;
+  /** `PROJECT`'s file, whose `board.design_settings` carry the constraints the board file does not. */
+  GetProjectText(): string | null;
+  /** The project's `.kicad_dru`, as text (`GetDesignRulesPath()` is the name). */
+  GetDesignRulesText(): string | null;
+  GetDesignRulesPath(): string;
+  /** The netlist `FetchNetlistFromSchematic` last built, in KiCad's netlist format. */
+  GetSchematicNetlistText(): string | null;
+  /**
+   * Run a DRC job and stream what it finds back.
+   *
+   * The frame's, because a worker is the designer's business and not
+   * `pcbnew`'s: see `designer/src/editors/pcb/drc_runner.ts`.
+   */
+  RunDrcJob(aRequest: DRC_JOB_REQUEST, aHooks: DRC_JOB_HOOKS): Promise<void>;
   /** `Kiface().IsSingle()`: true when no schematic accompanies the board. */
   IsSingle(): boolean;
   FetchNetlistFromSchematic(aNetlist: NETLIST, aAnnotateMessage: string): boolean;
@@ -169,13 +191,20 @@ export class DRC_TOOL extends PCB_TOOL_BASE {
 
   /**
    * Run the DRC tests.
+   *
+   * Upstream runs the engine right here and leans on `SafeYieldFor` and the
+   * thread pool to keep the window alive through it (see `drc_job.ts`); a
+   * browser has neither, so the engine runs on a worker and this awaits it.
+   * What crosses is `DRC_JOB_REQUEST` in and `DRC_JOB_VIOLATION`s out, and
+   * each of those becomes the same `PCB_MARKER` in the same `BOARD_COMMIT`
+   * the C++ builds.
    */
-  RunTests(
+  async RunTests(
     aProgressReporter: PROGRESS_REPORTER,
     aRefillZones: boolean,
     aReportAllTrackErrors: boolean,
     aTestFootprints: boolean,
-  ): void {
+  ): Promise<void> {
     // One at a time, please.
     // Note that the main GUI entry points to get here are blocked, so this is really an
     // insurance policy and as such we make no attempts to queue up the DRC run or anything.
@@ -199,8 +228,6 @@ export class DRC_TOOL extends PCB_TOOL_BASE {
         zoneFiller?.FillAllZones(this.m_drcDialog, aProgressReporter);
       }
 
-      this.m_drcEngine!.SetDrawingSheet(this.m_editFrame!.GetCanvas()?.GetDrawingSheet() ?? null);
-
       if (aTestFootprints && !this.m_editFrame!.IsSingle()) {
         if (
           this.m_editFrame!.FetchNetlistFromSchematic(
@@ -212,35 +239,14 @@ export class DRC_TOOL extends PCB_TOOL_BASE {
         }
 
         if (this.m_drcDialog) this.m_drcDialog.Raise();
-
-        this.m_drcEngine!.SetSchematicNetlist(netlist);
       }
     }
 
-    this.m_drcEngine!.SetProgressReporter(aProgressReporter);
-
-    this.m_drcEngine!.SetViolationHandler(
-      (
-        aItem: DRC_ITEM,
-        aPos: VECTOR2I,
-        aLayer: number,
-        aPathGenerator: (aMarker: PCB_MARKER) => void,
-      ) => {
-        const marker = new PCB_MARKER(aItem, aPos, aLayer);
-        aPathGenerator(marker);
-        commit.Add(marker);
-      },
-    );
-
-    this.m_drcEngine!.RunTests(
-      this.m_editFrame!.GetUserUnits(),
-      aReportAllTrackErrors,
-      aTestFootprints,
-      commit,
-    );
-
-    this.m_drcEngine!.SetProgressReporter(null);
-    this.m_drcEngine!.ClearViolationHandler();
+    try {
+      await this.runJob(commit, aProgressReporter, aReportAllTrackErrors, aTestFootprints);
+    } finally {
+      this.m_drcRunning = false;
+    }
 
     if (this.m_drcDialog) {
       this.m_drcDialog.SetDrcRun();
@@ -250,12 +256,86 @@ export class DRC_TOOL extends PCB_TOOL_BASE {
 
     commit.Push('DRC', SKIP_UNDO | SKIP_SET_DIRTY);
 
-    this.m_drcRunning = false;
-
     this.m_editFrame!.ShowSolderMask();
 
     // update the m_drcDialog listboxes
     this.updatePointers(aProgressReporter.IsCancelled());
+  }
+
+  /**
+   * The run itself: the board as text, the job, and each violation back as a
+   * `PCB_MARKER` in `aCommit`.
+   *
+   * `FormatBoardAsync` rather than `FormatBoard` because this is still the
+   * window's thread: a board of any size takes seconds to write, and freezing
+   * for those seconds would undo the point of the worker. The frame supplies
+   * the runner, so `pcbnew` knows nothing about workers.
+   */
+  private async runJob(
+    aCommit: BOARD_COMMIT,
+    aProgressReporter: PROGRESS_REPORTER,
+    aReportAllTrackErrors: boolean,
+    aTestFootprints: boolean,
+  ): Promise<void> {
+    const frame = this.m_editFrame!;
+    const board = this.m_pcb!;
+
+    aProgressReporter.AdvancePhase('Preparing the board...');
+    aProgressReporter.KeepRefreshing(false);
+
+    const yieldToUI = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+    const boardText = await FormatBoardAsync(board, yieldToUI, () =>
+      aProgressReporter.IsCancelled(),
+    );
+
+    if (boardText === null) return; // cancelled while the text was being built
+
+    const request: DRC_JOB_REQUEST = {
+      boardText,
+      boardPath: board.GetFileName(),
+      projectText: frame.GetProjectText(),
+      rulesText: frame.GetDesignRulesText(),
+      rulesPath: frame.GetDesignRulesPath(),
+      netlistText: aTestFootprints ? frame.GetSchematicNetlistText() : null,
+      units: frame.GetUserUnits(),
+      reportAllTrackErrors: aReportAllTrackErrors,
+      testFootprints: aTestFootprints,
+    };
+
+    await frame.RunDrcJob(request, {
+      onPhase: (aMessage: string) => {
+        aProgressReporter.AdvancePhase(aMessage);
+        aProgressReporter.KeepRefreshing(false);
+      },
+      onProgress: (aValue: number) => {
+        aProgressReporter.SetCurrentProgress(aValue);
+        aProgressReporter.KeepRefreshing(false);
+      },
+      onViolation: (aViolation: DRC_JOB_VIOLATION) => {
+        const item = DRC_ITEM.Create(aViolation.errorCode);
+
+        if (!item) return;
+
+        item.SetErrorMessage(aViolation.errorMessage);
+        item.SetItems(aViolation.ids.map((id) => kiidFromString(id)));
+
+        if (aViolation.ruleName !== null)
+          item.SetViolatingRule(this.m_drcEngine?.RuleByName(aViolation.ruleName) ?? null);
+
+        const marker = new PCB_MARKER(item, aViolation.pos, aViolation.layer);
+
+        if (aViolation.path !== null) {
+          marker.SetPath(
+            drcJobPathShapes(aViolation.path),
+            aViolation.path.start,
+            aViolation.path.end,
+          );
+        }
+
+        aCommit.Add(marker);
+      },
+      isCancelled: () => aProgressReporter.IsCancelled(),
+    });
   }
 
   /**

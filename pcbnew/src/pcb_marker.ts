@@ -484,6 +484,15 @@ export class PCB_MARKER extends BOARD_ITEM {
     return this.m_pathShapes;
   }
 
+  /** `m_pathStart` / `m_pathEnd`, the two ends `SetPath` was given. */
+  GetPathStart(): VECTOR2I {
+    return { x: this.m_pathStart.x, y: this.m_pathStart.y };
+  }
+
+  GetPathEnd(): VECTOR2I {
+    return { x: this.m_pathEnd.x, y: this.m_pathEnd.y };
+  }
+
   protected getColor(): Color4d {
     // ::GetColorSettings( DEFAULT_THEME )->GetColor( GetColorLayer() )
     return BUILTIN_DEFAULT_THEME[

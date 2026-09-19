@@ -21,7 +21,7 @@ import {
 } from '@ziroeda/designer/src/editors/pcb/dialogs/dialog_drc_model.js';
 import { PCB_EDIT_FRAME } from '@ziroeda/designer/src/editors/pcb/pcb_edit_frame.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/src/pcbnew_settings.js';
-import { PCB_DRC_CODE } from '@ziroeda/pcbnew/src/drc/drc_item.js';
+import { DRC_ITEM, PCB_DRC_CODE } from '@ziroeda/pcbnew/src/drc/drc_item.js';
 import { PCB_ACTIONS } from '@ziroeda/pcbnew/src/tools/pcb_actions.js';
 import { DRC_TOOL } from '@ziroeda/pcbnew/src/tools/drc_tool.js';
 import { readFileSync } from 'node:fs';
@@ -35,6 +35,43 @@ interface Harness {
   shown: boolean[];
   saved: { name: string; text: string }[];
   window: DIALOG_DRC_WINDOW;
+  /** What `GetProjectText()` answers: the run rebuilds the board from it. */
+  projectText: string | null;
+}
+
+/**
+ * A `.kicad_pro` with every DRC severity ignored but one.
+ *
+ * The run happens over a job (`drc_job.ts`), and a job is built from the
+ * project's FILES - so a severity poked into the live `BOARD_DESIGN_SETTINGS`
+ * is not a severity the run sees. That is how the editor works too: Board
+ * Setup writes the project file and the board is reloaded from it, and
+ * nothing else edits those settings behind the file's back.
+ */
+function projectWithOnly(aRelPath: string, aCode: number): string {
+  const path = `${PCBNEW_TEST_DATA_DIR}${aRelPath}.kicad_pro`;
+  let pro: Record<string, unknown> = {};
+
+  try {
+    pro = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+  } catch {
+    pro = {};
+  }
+
+  const severities: Record<string, string> = {};
+
+  for (const item of DRC_ITEM.GetItemsWithSeverities()) {
+    severities[item.GetSettingsKey()] = item.GetErrorCode() === aCode ? 'error' : 'ignore';
+  }
+
+  const boardJ = (pro.board ?? {}) as Record<string, unknown>;
+  const settings = (boardJ.design_settings ?? {}) as Record<string, unknown>;
+
+  settings.rule_severities = severities;
+  boardJ.design_settings = settings;
+  pro.board = boardJ;
+
+  return JSON.stringify(pro);
 }
 
 function makeHarness(): Harness {
@@ -76,6 +113,8 @@ function makeHarness(): Harness {
     },
     isSingle: () => true,
     fetchNetlistFromSchematic: () => false,
+    schematicNetlistText: () => null,
+    projectText: () => h.projectText ?? null,
     onEditItemRequest: () => {},
     showExchangeFootprintsDialog: () => {},
     findDialogRects: (): BOX2D[] => [],
@@ -84,6 +123,7 @@ function makeHarness(): Harness {
 
   h.frame = frame;
   h.window = window;
+  h.projectText = null;
   return h as Harness;
 }
 
@@ -110,6 +150,11 @@ suite('DRC_TOOL + DIALOG_DRC on the live engine', () => {
     // OnRunDRCClick re-reads the project's rules: the frame must know them
     const dru = `${PCBNEW_TEST_DATA_DIR}creepage/creepage.kicad_dru`;
     h.frame.OnBoardLoaded(readFileSync(dru, 'utf8'), dru);
+
+    // Everything but creepage ignored, through the project file the job is
+    // built from - and through the live board too, so the dialog's Ignored
+    // Tests page (which reads the board) says the same thing.
+    h.projectText = projectWithOnly('creepage/creepage', PCB_DRC_CODE.DRCE_CREEPAGE);
 
     const bds = board.GetDesignSettings();
 
@@ -221,5 +266,89 @@ suite('DRC_TOOL + DIALOG_DRC on the live engine', () => {
     dialog.OnCancelClick();
     expect(tool.GetDRCDialog()).toBe(null);
     expect(h.shown.at(-1)).toBe(false);
+  });
+});
+
+suite('DRC_TOOL: Cancel while the run is going', () => {
+  beforeAll(async () => {
+    await EMBEDDED_FILES.InitCodec();
+  });
+
+  /**
+   * `DIALOG_DRC::OnCancelClick` while running sets `m_cancelled`, and
+   * `updateUI` returning false is how the engine learns of it. With the run on
+   * a worker the answer travels the other way - the runner polls the reporter
+   * and terminates - but what the user sees has to be the same: the run stops,
+   * the status bar says so, and the markers found before the stop are kept.
+   */
+  it('stops the run and keeps what it found', async () => {
+    const h = makeHarness();
+    const board = LoadBoard('creepage/creepage');
+
+    h.frame.SetBoard(board, false);
+
+    const dru = `${PCBNEW_TEST_DATA_DIR}creepage/creepage.kicad_dru`;
+
+    h.frame.OnBoardLoaded(readFileSync(dru, 'utf8'), dru);
+    h.projectText = projectWithOnly('creepage/creepage', PCB_DRC_CODE.DRCE_CREEPAGE);
+
+    expect(h.frame.GetToolManager()!.RunAction(PCB_ACTIONS.runDRC)).toBe(true);
+
+    const dialog = h.dialogs[0]!;
+
+    // Cancel from INSIDE the run, which is the case that matters: a timer
+    // cannot interleave with the in-process fallback, because that whole run
+    // is one synchronous block. `subscribe` is called from `updateUI`, which
+    // is the engine's own progress path.
+    let repaints = 0;
+    const stop = dialog.subscribe(() => {
+      repaints += 1;
+
+      if (repaints === 2) dialog.OnCancelClick();
+    });
+
+    dialog.OnRunDRCClick();
+
+    await new Promise<void>((resolve) => {
+      const poll = (): void => {
+        if (!dialog.IsRunning()) resolve();
+        else setTimeout(poll, 10);
+      };
+
+      setTimeout(poll, 10);
+    });
+
+    stop();
+
+    expect(repaints).toBeGreaterThanOrEqual(2);
+    expect(dialog.m_messages.at(-1)).toBe('-------- DRC canceled by user.<br><br>');
+    expect(dialog.m_statusText).toMatch(/^Canceled after /);
+    // Cancel is not a crash: the dialog is usable again.
+    expect(dialog.m_cancelLabel).toBe('Close');
+
+    // And it stopped short: a run to the end walks every provider, and the
+    // phase each one announces is a line in the message pane.
+    const whole = makeHarness();
+    const wholeBoard = LoadBoard('creepage/creepage');
+
+    whole.frame.SetBoard(wholeBoard, false);
+    whole.frame.OnBoardLoaded(readFileSync(dru, 'utf8'), dru);
+    whole.projectText = h.projectText;
+    whole.frame.GetToolManager()!.RunAction(PCB_ACTIONS.runDRC);
+
+    const wholeDialog = whole.dialogs[0]!;
+
+    wholeDialog.OnRunDRCClick();
+
+    await new Promise<void>((resolve) => {
+      const poll = (): void => {
+        if (!wholeDialog.IsRunning()) resolve();
+        else setTimeout(poll, 10);
+      };
+
+      setTimeout(poll, 10);
+    });
+
+    expect(dialog.m_messages.length).toBeLessThan(wholeDialog.m_messages.length);
   });
 });

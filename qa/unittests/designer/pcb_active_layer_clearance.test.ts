@@ -28,6 +28,8 @@ function makeFrame() {
     },
     isSingle: () => true,
     fetchNetlistFromSchematic: () => false,
+    schematicNetlistText: () => null,
+    projectText: () => null,
     onEditItemRequest: () => {},
     showExchangeFootprintsDialog: () => {},
     findDialogRects: () => [],

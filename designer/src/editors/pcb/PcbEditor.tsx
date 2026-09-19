@@ -1871,6 +1871,8 @@ export function PcbEditor({
     createDrcDialog: (aTool: DRC_TOOL, aParent: unknown) => DIALOG_DRC;
     isSingle: () => boolean;
     fetchNetlistFromSchematic: (aNetlist: NETLIST, aMessage: string) => boolean;
+    schematicNetlistText: () => string | null;
+    projectText: () => string | null;
     onEditItemRequest: (aItem: BOARD_ITEM | null) => void;
     findDialogRects: () => BOX2D[];
     setViewCenter: (aPos: KVec2, aRects: readonly BOX2D[]) => void;
@@ -1887,6 +1889,8 @@ export function PcbEditor({
       isSingle: () => drcWindowRef.current!.isSingle(),
       fetchNetlistFromSchematic: (aNetlist, aMessage) =>
         drcWindowRef.current!.fetchNetlistFromSchematic(aNetlist, aMessage),
+      schematicNetlistText: () => drcWindowRef.current!.schematicNetlistText(),
+      projectText: () => drcWindowRef.current!.projectText(),
       onEditItemRequest: (aItem) => drcWindowRef.current!.onEditItemRequest(aItem),
       showExchangeFootprintsDialog: () => {
         // DIALOG_EXCHANGE_FOOTPRINTS is not built (Edit > Change Footprints... is
@@ -2123,6 +2127,13 @@ export function PcbEditor({
   // wxID_CANCEL whether or not a Cancel button exists.
   useModalEscape(() => setUpdatePcbError(null), updatePcbError !== null);
   const drcDialogRef = useRef<HTMLDivElement | null>(null);
+  /**
+   * The netlist text of the last `FetchNetlistFromSchematic`, which is what
+   * the DRC worker is handed for the parity tests - a NETLIST is a graph of
+   * class instances and does not cross `postMessage`, but the text it was
+   * read from does (`drc_job.ts`).
+   */
+  const drcNetlistTextRef = useRef<string | null>(null);
   const [boardSetup, setBoardSetup] = useState<BoardSetupValues>(defaultBoardSetup);
   // Latest texts this editor wrote for project-side files: the projectFiles
   // prop is a load-time snapshot (App persists to storage without refreshing
@@ -5601,8 +5612,14 @@ export function PcbEditor({
       for (const component of fetched.netlist.Components()) aNetlist.AddComponent(component);
       for (const group of fetched.netlist.Groups()) aNetlist.AddGroup(group);
 
+      // The DRC worker takes the netlist as the text it was read from
+      // (`loadKicadNetlist` on the far side) rather than as the object.
+      drcNetlistTextRef.current = fetched.netlistText;
+
       return true;
     },
+    schematicNetlistText: (): string | null => drcNetlistTextRef.current,
+    projectText: (): string | null => findProjectPro(projectFilesNow(), rootPro)?.text ?? null,
     onEditItemRequest: (aItem: BOARD_ITEM | null): void => {
       const brd = boardRef.current;
       if (!brd || !aItem) return;

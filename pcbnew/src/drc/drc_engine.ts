@@ -287,6 +287,20 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
     this.m_rules.push(rule);
   }
 
+  /**
+   * The compiled rule of that name, or null.
+   *
+   * `DRC_ITEM::m_violatingRule` is a pointer in the C++ and cannot be one
+   * across a worker boundary, so a violation carries the rule's NAME and the
+   * engine on this side hands back its own rule (see `drc_job.ts`). Two rules
+   * can share a name - a `.kicad_dru` may redefine one - and the first match
+   * is the one `EvalRules` would have reported, because it walks them in the
+   * same order.
+   */
+  RuleByName(aName: string): DRC_RULE | null {
+    return this.m_rules.find((rule) => rule.m_Name === aName) ?? null;
+  }
+
   private createImplicitRule(name: string, aImplicitSource: DRC_IMPLICIT_SOURCE): DRC_RULE {
     const rule = new DRC_RULE();
 

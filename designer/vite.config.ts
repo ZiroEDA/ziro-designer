@@ -147,6 +147,12 @@ export default defineConfig({
         // 7.4 MB OCCT kernel is cached the first time a 3D view asks for it,
         // below, not up front.
         globPatterns: ['index.html', 'favicon.svg', 'icons/*.png', 'assets/**/*.{js,css,png,svg}'],
+        // ...with one exception, for the same reason: the DRC worker carries
+        // the whole engine, every test provider and the board parser, and at
+        // 2.3 MB it is the largest asset in the build - larger than the app.
+        // It is fetched the first time someone runs a DRC, and cached then
+        // (runtimeCaching below), rather than by everyone who opens the site.
+        globIgnores: ['assets/drc_worker-*.js'],
         // index.js alone is 1.7 MB; workbox's default 2 MiB cap would otherwise
         // quietly skip the one file that matters most.
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
@@ -162,6 +168,15 @@ export default defineConfig({
               url.pathname.startsWith('/assets/') && url.pathname.endsWith('.wasm'),
             handler: 'CacheFirst',
             options: { cacheName: 'wasm', expiration: { maxEntries: 8 } },
+          },
+          {
+            // The DRC worker, kept out of the precache above. Hashed like
+            // every other asset, so cache-first is exact, and a second DRC -
+            // or a DRC offline - has it in hand.
+            urlPattern: ({ url }: { url: URL }) =>
+              /\/assets\/drc_worker-.*\.js$/.test(url.pathname),
+            handler: 'CacheFirst',
+            options: { cacheName: 'drc-worker', expiration: { maxEntries: 4 } },
           },
         ],
       },

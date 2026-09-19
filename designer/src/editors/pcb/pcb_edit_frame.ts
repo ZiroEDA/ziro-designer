@@ -36,6 +36,8 @@ import { BOARD_COMMIT, SKIP_SET_DIRTY, SKIP_UNDO } from '@ziroeda/pcbnew/src/boa
 import type { FOOTPRINT } from '@ziroeda/pcbnew/src/footprint.js';
 import type { NETLIST } from '@ziroeda/pcbnew/src/netlist_reader/pcb_netlist.js';
 import { type DIALOG_DRC_LIKE, DRC_TOOL } from '@ziroeda/pcbnew/src/tools/drc_tool.js';
+import type { DRC_JOB_HOOKS, DRC_JOB_REQUEST } from '@ziroeda/pcbnew/src/drc/drc_job.js';
+import { runDrcJobOffThread } from './drc_runner.js';
 import { PCB_TOOL_BASE } from '@ziroeda/pcbnew/src/tools/pcb_tool_base.js';
 import { MARKER_T } from '@ziroeda/common/src/marker_base.js';
 import { RPT_SEVERITY_EXCLUSION } from '@ziroeda/common/src/reporter.js';
@@ -102,6 +104,13 @@ export interface PCB_EDIT_FRAME_HOOKS {
   isSingle(): boolean;
   /** `PCB_EDIT_FRAME::FetchNetlistFromSchematic`: fills aNetlist, false on failure. */
   fetchNetlistFromSchematic(aNetlist: NETLIST, aAnnotateMessage: string): boolean;
+  /**
+   * The netlist text behind the last `fetchNetlistFromSchematic`, which is
+   * what the DRC worker is given in place of the NETLIST object.
+   */
+  schematicNetlistText(): string | null;
+  /** The project's `.kicad_pro` text, PROJECT not being ported. */
+  projectText(): string | null;
   /** `PCB_EDIT_FRAME::OnEditItemRequest`: the item's properties dialog. */
   onEditItemRequest(aItem: BOARD_ITEM | null): void;
   /** `DIALOG_EXCHANGE_FOOTPRINTS( frame, footprint, updateMode, true ).ShowQuasiModal()`. */
@@ -163,6 +172,27 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
   CreateDrcDialog(aTool: DRC_TOOL, aParent: unknown): DIALOG_DRC_LIKE {
     return this.hooks.createDrcDialog(aTool, aParent);
+  }
+
+  /** The project file whose `board.design_settings` the DRC job reloads. */
+  GetProjectText(): string | null {
+    return this.hooks.projectText();
+  }
+
+  GetSchematicNetlistText(): string | null {
+    return this.hooks.schematicNetlistText();
+  }
+
+  /**
+   * `DRC_TOOL::RunTests`' engine run, on a worker.
+   *
+   * The frame owns this because a `Worker` is the designer's business; the
+   * tool only knows it hands over a request and gets violations back. The
+   * runner falls back to running the same job in-process where there is no
+   * worker (the test runner), so the two paths cannot drift.
+   */
+  RunDrcJob(aRequest: DRC_JOB_REQUEST, aHooks: DRC_JOB_HOOKS): Promise<void> {
+    return runDrcJobOffThread(aRequest, aHooks);
   }
 
   IsSingle(): boolean {

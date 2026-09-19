@@ -115,6 +115,13 @@ export interface IgnoredRow {
 /** DIALOG_DRC_WINDOW_NAME */
 export const DIALOG_DRC_WINDOW_NAME = 'DialogDrcWindowName';
 
+/**
+ * `m_updateThrottle`'s interval: `DIALOG_DRC::updateUI` repaints "at ~10Hz"
+ * (dialog_drc.cpp:266) while a run is going, and no faster - a repaint per
+ * progress report would be thousands of them.
+ */
+const REPAINT_INTERVAL_MS = 100;
+
 // wxWidgets spends *far* too long calcuating column widths (most of it, believe it or
 // not, in repeatedly creating/destroying a wxDC to do the measurement in).
 // Use default column widths instead.
@@ -173,6 +180,8 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
   readonly m_window: DIALOG_DRC_WINDOW;
   private m_currentBoard: BOARD;
   private m_running: boolean;
+  /** `m_updateThrottle`: when the running dialog last repainted. */
+  private m_lastRepaint = 0;
   private m_drcRun: boolean;
   private m_footprintTestsRun: boolean;
   private m_report_all_track_errors: boolean;
@@ -374,7 +383,18 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
       }
     }
 
-    // Update() / SafeYieldFor(): the run is synchronous here; the window repaints after it.
+    // `if( m_updateThrottle.Ready() ) Update();` - repaint the dialog at ~10 Hz
+    // while the run goes on. Upstream follows it with a throttled
+    // `SafeYieldFor` to keep Cancel alive; there is no yielding a browser's
+    // only thread, so the run itself is on a worker (see `drc_job.ts`) and
+    // this notify is all that is left to do here.
+    const now = performance.now();
+
+    if (now - this.m_lastRepaint >= REPAINT_INTERVAL_MS) {
+      this.m_lastRepaint = now;
+      this.notify();
+    }
+
     return !this.m_cancelled;
   }
 
@@ -525,13 +545,12 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
     // Update(): the window paints the running page before the (synchronous) run. NOTE:
     // setTimeout, not requestAnimationFrame - rAF never fires in a hidden tab.
     setTimeout(() => {
-      try {
-        drcTool.RunTests(this, refillZones, this.m_report_all_track_errors, testFootprints);
-      } catch (e) {
-        this.m_messages.push(`<b>${String(e instanceof Error ? (e.stack ?? e.message) : e)}</b>`);
-      }
-
-      this.finishRun();
+      drcTool
+        .RunTests(this, refillZones, this.m_report_all_track_errors, testFootprints)
+        .catch((e: unknown) => {
+          this.m_messages.push(`<b>${String(e instanceof Error ? (e.stack ?? e.message) : e)}</b>`);
+        })
+        .finally(() => this.finishRun());
     });
   }
 
