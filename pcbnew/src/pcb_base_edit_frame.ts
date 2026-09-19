@@ -16,6 +16,16 @@
  */
 import { UNDO_REDO_LIST } from '@ziroeda/common/src/eda_base_frame.js';
 import { DRC_ENGINE } from './drc/drc_engine.js';
+/**
+ * Each `drc_test_provider_*.cpp` registers itself with a file-scope
+ * `DRC_REGISTER_TEST_PROVIDER<...>`, so linking pcbnew is what fills
+ * `DRC_TEST_PROVIDER_REGISTRY`. A module's initialiser runs only when
+ * something imports it, and nothing outside `qa` did: the app built the
+ * engine below over an EMPTY registry, and `Run DRC` reported zero
+ * violations on a board KiCad finds 176 in. The engine is constructed here,
+ * so the providers are pulled in here.
+ */
+import './drc/drc_test_providers.js';
 import type { EDA_ITEM } from '@ziroeda/common/src/eda_item.js';
 import { UR_TRANSIENT } from '@ziroeda/common/src/eda_item_flags.js';
 import { FRAME_T } from '@ziroeda/common/src/frame_type.js';

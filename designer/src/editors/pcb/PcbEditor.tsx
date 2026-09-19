@@ -1015,11 +1015,18 @@ function syncProjectSettingsIntoBoard(
       kb.GetDesignSettings().LoadFromJson(boardJ.design_settings);
     if (j.net_settings !== undefined)
       kb.GetDesignSettings().m_NetSettings.LoadFromJson(j.net_settings);
+    // `PROJECT_FILE::m_tuningProfileParameters`: the time-domain profiles the
+    // matched-length and skew DRC providers query. Without them every delay
+    // falls back to the defaults.
+    if (j.tuning_profiles !== undefined) kb.GetTuningProfiles().LoadFromJson(j.tuning_profiles);
   }
   // `SynchronizeNetsAndNetClasses( true )` after the dialog resets the custom
   // track/via sizes to the Default class; the load's own call (inside
   // InitEngine's loadImplicitRules) passes false.
   kb.SynchronizeNetsAndNetClasses(aFromBoardSetup);
+  // "Initialise time domain tuning caches" (files.cpp:986), after the project's
+  // profiles are in and before anything asks for a length.
+  kb.SynchronizeTuningProfileProperties();
   const dru = findProjectDru(files, rootPro);
   frame.OnBoardLoaded(dru?.text ?? null, dru?.name ?? '');
   // The load stops here: OnBoardLoaded's own tail (SetActiveLayer + a full
