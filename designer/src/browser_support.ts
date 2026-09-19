@@ -18,6 +18,14 @@
  * saves serialise through it; the code falls back without it, but the fallback
  * does not protect a second tab, and a user who cannot be protected from
  * losing work is better told than surprised.
+ *
+ * **WebGL2 is on the list for the same reason, only more so.** The board and
+ * the schematic are drawn by `OPENGL_GAL` through KiCad's own `VIEW` and
+ * `PCB_PAINTER`; there is no second renderer behind it. There used to be — a
+ * Canvas2D path that drew its own approximation of the board — and a renderer
+ * nobody can see is a renderer nobody keeps at parity: it silently drew a
+ * different board for exactly the users least able to say so. Telling a
+ * browser it cannot run this is honest; drawing it something else is not.
  */
 
 export interface Missing {
@@ -41,6 +49,21 @@ const PROBES: Probe[] = [
   {
     feature: 'cross-tab locking',
     ok: () => typeof navigator === 'object' && 'locks' in navigator,
+  },
+  {
+    feature: 'hardware-accelerated graphics (WebGL2)',
+    ok: () => {
+      // A probe, not a renderer: the context is released immediately. A
+      // browser that has WebGL2 disabled rather than absent answers null here
+      // too, which is the right answer - the app cannot draw either way.
+      if (typeof document !== 'object' || document === null) return false;
+
+      const probe = document.createElement('canvas').getContext('webgl2');
+
+      probe?.getExtension('WEBGL_lose_context')?.loseContext();
+
+      return probe !== null;
+    },
   },
 ];
 

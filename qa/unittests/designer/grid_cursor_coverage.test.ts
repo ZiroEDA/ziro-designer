@@ -32,14 +32,18 @@ const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
 const count = (src: string, re: RegExp): number => (src.match(re) ?? []).length;
 
 /**
- * The six canvases, and the file that owns each one's grid pass. Two of them
- * keep the grid in a renderer module rather than in the component, which is
- * where their scene painter lives; the other four paint it inline.
+ * The canvases that paint a grid in 2D, and the file that owns each one's
+ * pass. Two of them keep it in a renderer module rather than in the component,
+ * which is where their scene painter lives; the others paint it inline.
+ *
+ * **The board editor is not among them.** Its grid is `GAL::DrawGrid`, drawn
+ * inside `EDA_DRAW_PANEL_GAL::DoRePaint` like KiCad's, and it has no 2D path
+ * left to fall back to - see the case below, which is the assertion that
+ * replaces its row here.
  */
 const GRID_OWNERS: [canvas: string, file: string][] = [
   ['schematic', 'editors/schematic/render/renderer.ts'],
   ['symbol editor', 'editors/symbol/render/symbolRenderer.ts'],
-  ['pcb', 'editors/pcb/PcbEditor.tsx'],
   ['footprint editor', 'editors/footprint/FootprintCanvas.tsx'],
   ['gerbview', 'editors/gerbview/GerberCanvas.tsx'],
   ['pl_editor', 'editors/drawingsheet/DrawingSheetCanvas.tsx'],
@@ -73,6 +77,13 @@ describe('shared grid + crosshair', () => {
     const src = read(rel);
     expect(src).toMatch(/from '[./]+ui\/grid_cursor\.js'/);
     expect(src).toMatch(/\bdrawCrosshair\(/);
+  });
+
+  it('the board editor draws no grid of its own: the GAL draws it', () => {
+    // WebGL2 is on the browser-support gate, so there is one renderer and the
+    // grid comes from `GAL::DrawGrid` through the VIEW. A `drawGrid(` back in
+    // this file is the 2D fallback growing back.
+    expect(read('editors/pcb/PcbEditor.tsx')).not.toMatch(/\bdrawGrid\(/);
   });
 
   it('nobody keeps a local grid or crosshair painter any more', () => {

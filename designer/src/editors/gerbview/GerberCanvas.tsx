@@ -61,12 +61,11 @@ import { zoomAreaTarget, type ZoomArea } from '../../ui/zoom_tool.js';
 import { drawSelectionArea, selectionAreaColors } from '@ziroeda/common';
 
 /**
- * On by default, with `?renderer=canvas` to opt out - the same shape
- * `PcbEditor` uses, and for the reasons written there: the schematic's flag was
- * left opt-in past the point of decision and rounds of "improvements" were
- * measured against a renderer that was not running. A browser without WebGL2
- * keeps working regardless, because `GerbviewGl.create` returns null and every
- * frame falls through to the raster path.
+ * The only renderer a browser can select: `?renderer=canvas` was deleted when
+ * the editors went all-GL, for the reason the schematic's flag taught - rounds
+ * of "improvements" measured against a renderer that was not running. The
+ * raster path below still runs when `GerbviewGl.create` returns null, but
+ * WebGL2 is on the browser-support gate now, so nothing reaches it.
  */
 
 /** `?perf=1` publishes per-frame cost and which path drew it, on window. */

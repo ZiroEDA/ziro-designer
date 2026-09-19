@@ -192,7 +192,8 @@ export interface DrawingSheetCanvasProps {
 }
 
 /**
- * `?renderer=canvas` forces the 2D path, as it does in the other three canvases.
+ * The GL path, and the only one a browser can select - `?renderer=canvas` was
+ * deleted from all four canvases.
  *
  * The GL layer is an addition, never a requirement: `DrawingSheetGl.create`
  * returns null when WebGL is unavailable, and every frame then falls through to

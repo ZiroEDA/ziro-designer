@@ -275,9 +275,11 @@ describe('pad numbers and net names travel too', () => {
     expect(textAt({ ids: new Set(['footprint:9']), dx: 20 * MM, dy: 0 })).toEqual(textAt(null));
   });
 
-  it('the raster path hands the shift to its net-name pass and the anchors', () => {
-    // The VIEW draws its own net names and anchors, hidden with the item; the
-    // Canvas2D fallback still has the one pass of each.
-    expect(text.match(/^\s*inPlaceShift,$/gm)).toHaveLength(2);
+  it('leaves the net names and the anchors to the VIEW', () => {
+    // There used to be a Canvas2D fallback with one net-name pass and one
+    // anchor pass of its own, each handed the in-place shift. It is gone:
+    // WebGL2 is on the browser-support gate and the VIEW draws both, hidden
+    // with the item. `inPlaceShift` went with the passes that read it.
+    expect(text).not.toContain('inPlaceShift');
   });
 });

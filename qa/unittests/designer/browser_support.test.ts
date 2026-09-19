@@ -27,6 +27,10 @@ describe('the probe', () => {
     vi.stubGlobal('ResizeObserver', class {});
     vi.stubGlobal('indexedDB', {});
     vi.stubGlobal('navigator', { locks: { request: () => Promise.resolve() } });
+    // WebGL2 is the one probe that needs a canvas rather than a global.
+    vi.stubGlobal('document', {
+      createElement: () => ({ getContext: () => ({ getExtension: () => null }) }),
+    });
     expect(missingFeatures()).toEqual([]);
   });
 
@@ -35,9 +39,51 @@ describe('the probe', () => {
     // what a 2021 Safari looks like to the app.
     vi.stubGlobal('indexedDB', undefined);
     vi.stubGlobal('navigator', {});
+    vi.stubGlobal('document', { createElement: () => ({ getContext: () => null }) });
     const names = missingFeatures().map((m) => m.feature);
     expect(names).toContain('local storage of projects');
     expect(names).toContain('cross-tab locking');
+    expect(names).toContain('hardware-accelerated graphics (WebGL2)');
+  });
+
+  it('turns away a browser with no WebGL2 rather than drawing it something else', () => {
+    // There is no second renderer any more. `getContext('webgl2')` answering
+    // null is the whole of the question - a browser that lacks it and one that
+    // has it switched off are the same case here.
+    vi.stubGlobal('ResizeObserver', class {});
+    vi.stubGlobal('indexedDB', {});
+    vi.stubGlobal('navigator', { locks: { request: () => Promise.resolve() } });
+    vi.stubGlobal('document', { createElement: () => ({ getContext: () => null }) });
+
+    expect(missingFeatures().map((m) => m.feature)).toEqual([
+      'hardware-accelerated graphics (WebGL2)',
+    ]);
+  });
+
+  it('releases the context it probed with', () => {
+    // A probe that leaves a live WebGL2 context behind costs a real one: a
+    // browser gives out a small number of them.
+    let lost = 0;
+    vi.stubGlobal('ResizeObserver', class {});
+    vi.stubGlobal('indexedDB', {});
+    vi.stubGlobal('navigator', { locks: { request: () => Promise.resolve() } });
+    vi.stubGlobal('document', {
+      createElement: () => ({
+        getContext: () => ({
+          getExtension: (n: string) =>
+            n === 'WEBGL_lose_context'
+              ? {
+                  loseContext: () => {
+                    lost += 1;
+                  },
+                }
+              : null,
+        }),
+      }),
+    });
+
+    expect(missingFeatures()).toEqual([]);
+    expect(lost).toBe(1);
   });
 
   it('reports every missing feature, not just the first', () => {

@@ -624,15 +624,16 @@ const NEW_BARCODE = {
 };
 
 /**
- * The WebGL board renderer, on by default; `?renderer=canvas` opts out.
+ * The board is drawn by `OPENGL_GAL` through KiCad's `VIEW` and `PCB_PAINTER`,
+ * and by nothing else.
  *
- * The schematic's flag was left opt-in past the point of decision and the
- * result was that improvements got reported against a renderer that was not
- * running (`SchematicCanvas.tsx`). So this one is on from the start, and the
- * opt-out is kept for the two reasons that flag is still worth having: a
- * renderer swap should be reversible without a deploy, and a browser with no
- * WebGL2 has to keep working anyway — `PcbGl.create` returns null and every
- * frame falls back to the raster path below.
+ * There was a `?renderer=canvas` opt-out and a Canvas2D path behind it. Both
+ * are gone: the flag was deleted when the schematic went all-GL, and the path
+ * followed once WebGL2 joined the browser-support gate
+ * (`browser_support.ts`). The reason is the one the schematic's opt-in flag
+ * taught — a renderer that is not the one running is a renderer nobody keeps
+ * at parity, and this one silently drew a different board for whoever had no
+ * WebGL2 rather than telling them.
  */
 
 /**
@@ -3149,15 +3150,14 @@ export function PcbEditor({
     const v = viewRef.current;
     // Signed X scale for the flipped (mirrored) view; world→screen X uses this.
     const sx = v.flipX ? -v.scale : v.scale;
-    /** Whether the KiCad VIEW draws the board this frame. */
+    // The KiCad VIEW draws the board. There is no second renderer: WebGL2 is
+    // on the browser-support gate (`browser_support.ts`), so a browser that
+    // cannot have this one is told so instead of being shown a different
+    // board. `panel` is null only between a lost context and its restoration,
+    // and then the frame simply has no board in it.
     const panel = panelRef.current;
-    const useGl = panel !== null;
     // The retained buffer is keyed on the content, not on the view, so a pan or
     // a zoom is a uniform update and there is nothing to chase.
-    if (!useGl && (!viewMatchesCache() || sceneDirtyRef.current)) {
-      viewChangedRef.current = true;
-      startCrispRender();
-    }
     bctx.setTransform(1, 0, 0, 1, 0, 0);
     bctx.fillStyle = 'rgb(0,16,35)';
     bctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -3175,8 +3175,8 @@ export function PcbEditor({
     // (seconds on a big board), so it is drawn once, at the fitted view,
     // rather than first at the blank sheet's.
     const awaitingFit =
-      useGl && firstPaintPendingRef.current === boardRef.current && !fittedRef.current;
-    if (useGl && !awaitingFit) {
+      panel !== null && firstPaintPendingRef.current === boardRef.current && !fittedRef.current;
+    if (panel && !awaitingFit) {
       syncViewTransform(panel, v, dpr);
       // `Refresh()`, as a canvas event does: a repaint only when the view is
       // dirty or the cursor moved, throttled to the GAL's swap interval.
@@ -3191,170 +3191,17 @@ export function PcbEditor({
     // Grid sits behind the board (GAL GRID_DEPTH), painted crisply at the live
     // view every frame so it stays sharp during pan/zoom. The raster is drawn on
     // top with a transparent background so the grid shows through empty areas.
-    if (!useGl)
-      drawGrid(
-        bctx,
-        v,
-        canvas.width,
-        canvas.height,
-        pcbGridOptions({
-          show: objects.grid && toggles.has('toggleGrid'),
-          sizeIU: gridIURef.current,
-          origin: gridOriginRef.current,
-          color: drawOpts.theme?.grid,
-          devicePixelRatio: dpr,
-          // `PANEL_GAL_OPTIONS`' Grid Display group, through `window.grid`.
-          style: galRef.current.style,
-          lineWidthPx: galRef.current.line_width,
-          minSpacingPx: galRef.current.min_spacing,
-        }),
-      );
     // Drawing sheet, drawn behind the board with the UN-flipped transform so the
     // page frame and title block stay in place and readable when the board is
     // flipped (KiCad's DS_PROXY_VIEW_ITEM un-mirrors itself). tx is recovered by
     // mirroring back about the viewport centre.
-    if (!useGl && drawOpts.drawingSheet && boardRef.current) {
-      const sheetColor = drawOpts.theme?.special.drawingSheet ?? PCB_SPECIAL.drawingSheet;
-      const sheetTx = v.flipX ? canvas.width - v.tx : v.tx;
-      bctx.setTransform(v.scale, 0, 0, v.scale, sheetTx, v.ty);
-      bctx.lineCap = 'round';
-      bctx.lineJoin = 'round';
-      // The sheet keeps its colour under a net highlight: DS_PROXY_VIEW_ITEM
-      // reads GetLayerColor(LAYER_DRAWINGSHEET), the raw layer colour, not the
-      // item-aware GetColor that does the brighten/darken.
-      const sheetInfo = sheetInfoOf(boardRef.current);
-      // The paper edge first, in its own colour, the way DrawBorder runs after
-      // the sheet's items in DS_PROXY_VIEW_ITEM::ViewDraw. This is the call the
-      // board actually makes: the GL recorder disables the sheet
-      // (`drawingSheet: false`) because it stays on this 2D layer, so anything
-      // added to `buildDrawSteps` alone never reaches the screen.
-      // One device pixel, as the world width that is one pixel at this zoom.
-      //
-      // CAIRO_GAL_BASE::syncLineWidth floors every stroke at a pixel:
-      //
-      //   double w = floor( xform( m_lineWidth ) + 0.5 );
-      //   if( w <= 1.0 ) { w = 1.0; ... }
-      //
-      // The sheet's own pen is 0.15 mm and pcbnew's on-screen default pen is 0,
-      // so at any normal board zoom the frame is well under a pixel wide. KiCad
-      // draws it as a crisp one-pixel line; we drew it at its true 0.6 px and
-      // got a dim half-transparent grey, which is the whole of why the frame
-      // looked washed out next to KiCad's.
-      const hairline = v.scale > 0 ? 1 / v.scale : 0;
-      // `m_ShowPageLimits` — Editing Options' "Show page limits", "Draw an
-      // outline to show the sheet size". `LAYER_PAGE_LIMITS` is drawn only when
-      // it is set (`pcb_draw_panel_gal.cpp`), and this drew it always.
-      if (galRef.current.show_page_borders)
-        drawPageLimits(
-          bctx,
-          sheetInfo,
-          drawOpts.theme?.special.pageLimits ?? PCB_SPECIAL.pageLimits,
-          hairline,
-        );
-      drawDrawingSheet(bctx, sheetInfo, sheetColor, undefined, hairline);
-      bctx.setTransform(1, 0, 0, 1, 0, 0);
-    }
     // Footprint anchors (LAYER_ANCHOR), *under* the board rather than over it.
     //
     // They belong here rather than on the overlay because that is where pcbnew
     // puts them in practice: with the copper pours switched on its anchors all
     // but disappear — a translucent zone fill washes the magenta out to a faint
     // grey tick you only find by zooming right in — and they come back cleanly
-    // the moment the pours are hidden. Drawn on the overlay they sat above the
-    // pours, the silkscreen and the footprint text, so a whole-board view was
-    // covered in crosses that pcbnew does not show.
-    // What an in-place GPU drag has shifted so far, for the passes drawn per
-    // frame from `scene` rather than from the buffer the GPU translated: the
-    // anchor crosses and the pad numbers / net names. Null unless such a drag
-    // is in flight — the overlay path takes the moving items out of `scene`
-    // altogether and draws their own copy, so it needs no offset here.
-    const inPlaceShift = inPlaceMoveRef.current
-      ? {
-          ids: dragAffectedRef.current,
-          dx: inPlaceMoveRef.current.x,
-          dy: inPlaceMoveRef.current.y,
-        }
-      : null;
-    if (!useGl && objects.anchors) {
-      drawAnchors(
-        bctx,
-        scene,
-        v,
-        visible,
-        canvas.width,
-        canvas.height,
-        drawOpts,
-        dimmedRef.current ? 'dimmed' : 'none',
-        dpr,
-        inPlaceShift,
-      );
-      bctx.setTransform(1, 0, 0, 1, 0, 0);
-    }
-    /**
-     * `LAYER_CONFLICTS_SHADOW` — the Objects tab's "Colliding Courtyards".
-     *
-     * `PCB_PAINTER::draw` fills the courtyard polygons of every footprint
-     * carrying COURTYARD_CONFLICT (`pcb_painter.cpp:2846`) and the outline of
-     * every rule area carrying it (`:2947`), in one flat colour with no stroke.
-     * The moving footprint is a SELECTED one, and `GetColor` gives a selected
-     * item `m_layerColorsSel` instead of the layer colour (`:337-343`), so the
-     * part under the cursor washes pale and the part it landed on stays red.
-     *
-     * Written once and called twice because the two backends differ only in
-     * where the geometry goes and how the colour is prepared: on the GPU it is
-     * a `TARGET_OVERLAY` pass whose colours are premultiplied for KiCad's
-     * overlay blend, on the 2D canvas it is a plain fill, which is the closest
-     * that canvas can get (see `overlayTargetColor`).
-     */
-    const paintConflictShadows = (
-      target: CanvasRenderingContext2D,
-      toSource: (css: string) => string,
-    ): void => {
-      const conflicts = conflictsRef.current;
-      const session = courtyardSessionRef.current;
-      const brd = boardRef.current;
-      const md = moveDeltaRef.current;
-      if (!conflicts || !session || !brd || !md || !objects.collidingCourtyards) return;
-      const base = drawOpts.theme?.special.conflictsShadow ?? PCB_SPECIAL.conflictsShadow;
-      const staticFill = toSource(base);
-      const movingFill = toSource(selectedColor(base));
-      const fill = (rings: readonly (readonly { x: number; y: number }[])[]): void => {
-        for (const ring of rings) {
-          if (ring.length < 3) continue;
-          target.beginPath();
-          target.moveTo(ring[0]!.x, ring[0]!.y);
-          for (let i = 1; i < ring.length; i++) target.lineTo(ring[i]!.x, ring[i]!.y);
-          target.closePath();
-          target.fill();
-        }
-      };
-      for (const idx of conflicts.footprints) {
-        target.fillStyle = session.movingFootprints.has(idx) ? movingFill : staticFill;
-        fill(conflictShadowRings(session, idx, md));
-      }
-      // A rule area is never the thing being dragged, so it never takes the
-      // selected colour.
-      target.fillStyle = staticFill;
-      for (const idx of conflicts.zones) {
-        const outline = brd.zones[idx]?.outline;
-        if (outline) fill([outline]);
-      }
-    };
     // The board itself, when the VIEW is not drawing it: the raster blit.
-    if (!useGl) {
-      const c = cacheRef.current;
-      if (c) {
-        const k = v.scale / c.view.scale;
-        bctx.setTransform(k, 0, 0, k, v.tx - c.view.tx * k, v.ty - c.view.ty * k);
-        // While the crisp cache catches up: keep upscale (zoom-in) sharp with
-        // nearest-neighbour, but let downscale (zoom-out) stay smooth to avoid
-        // aliasing shimmer on thin traces.
-        bctx.imageSmoothingEnabled = k < 1;
-        bctx.drawImage(c.canvas, 0, 0);
-        bctx.imageSmoothingEnabled = true;
-        bctx.setTransform(1, 0, 0, 1, 0, 0);
-      }
-    }
     // The drill/place file origin marker, screen-space like the anchors and,
     // like them, drawn above the board (LAYER_GP_OVERLAY).
     drawOriginMarkers(
@@ -3372,89 +3219,15 @@ export function PcbEditor({
     // above), so nothing is drawn here. The Canvas2D path has no such depth to
     // draw into, so it keeps the attenuated stand-in — dimmed by what pcbnew
     // stacks over them, which is the best a single flat raster can do.
-    if (!useGl) {
-      drawNetNames(
-        ctx,
-        scene,
-        v,
-        visible,
-        canvas.width,
-        canvas.height,
-        drawOpts,
-        dimmedRef.current ? 'dimmed' : 'none',
-        dpr,
-        'under',
-        inPlaceShift,
-      );
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-    }
     // Net-color overlay (net colors mode "All"): copper items of colored nets
     // repainted in their net color over the raster. The VIEW paints net colours
     // itself (PCB_RENDER_SETTINGS::GetColor, NET_COLOR_MODE::ALL).
-    for (const cs of useGl ? [] : coloredScenesRef.current) {
-      ctx.save();
-      drawBoard(
-        ctx,
-        cs.scene,
-        v,
-        visible,
-        canvas.width,
-        canvas.height,
-        { ...drawOpts, colorOverride: cs.color },
-        undefined,
-        true,
-      );
-      ctx.restore();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-    }
-    // Ratsnest airwires (RATSNEST_VIEW_ITEM): thin lines over the copper,
-    // curved when the left toolbar's curved-ratsnest mode is on. On the VIEW
-    // it is the RATSNEST_VIEW_ITEM itself, on LAYER_RATSNEST.
-    {
-      const rats = ratsDrawRef.current;
-      if (!useGl && rats.length > 0) {
-        const curved = toggles.has('ratsnestLineMode');
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        // `gal->SetLineWidth( cfg->m_Display.m_RatsnestThickness / gal->GetWorldScale() )`
-        // (`ratsnest_view_item.cpp:82`): the thickness is screen pixels, not a
-        // distance, so it reaches the shader as exactly that many DEVICE pixels
-        // — and there it goes through GAL's pixel grid like every other stroke.
-        // The default is 0.5 (`pcbnew_settings.cpp:262`), which rounds to a
-        // whole 1 px; multiplying it out raw drew a half-covered line, which is
-        // the entire difference between our airwires and KiCad's.
-        ctx.lineWidth = galPenWidth(galRef.current.ratsnest_thickness * dpr);
-        for (const { e, color } of rats) {
-          const x1 = e.ax * sx + v.tx;
-          const y1 = e.ay * v.scale + v.ty;
-          const x2 = e.bx * sx + v.tx;
-          const y2 = e.by * v.scale + v.ty;
-          ctx.strokeStyle = color;
-          ctx.beginPath();
-          ctx.moveTo(x1, y1);
-          if (curved) {
-            // Bow the line ~15% of its length to the side, like the curved
-            // ratsnest render.
-            const mx = (x1 + x2) / 2 - (y2 - y1) * 0.15;
-            const my = (y1 + y2) / 2 + (x2 - x1) * 0.15;
-            ctx.quadraticCurveTo(mx, my, x2, y2);
-          } else {
-            ctx.lineTo(x2, y2);
-          }
-          ctx.stroke();
-        }
-      }
-    }
     // Courtyard conflicts, when there is no GPU to composite them on. Ordered
     // after the ratsnest and before the selection chrome because that is where
     // GAL_LAYER_ORDER puts LAYER_CONFLICTS_SHADOW: directly under
     // LAYER_SELECT_OVERLAY and 130 entries above LAYER_RATSNEST
     // (`pcb_draw_panel_gal.cpp:81`). The GL path draws it in its own layer, in
     // the same position, with KiCad's overlay blend that this one cannot do.
-    if (!useGl) {
-      ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
-      paintConflictShadows(ctx, (css) => css);
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-    }
     // Umbilical lines (pcb_painter.cpp draw(PCB_TEXT): "Draw the umbilical
     // line for texts in footprints"): every SELECTED footprint text draws a
     // solid line in the LAYER_ANCHOR color (the theme's pink) back to its
@@ -3579,43 +3352,12 @@ export function PcbEditor({
     // cursor at the drag offset (EDIT_TOOL::Move's GAL overlay); otherwise it
     // sits exactly over the raster so the selection just lights up in place.
     // Net highlight (BOARD_INSPECTION_TOOL::HighlightNet): the whole board dims
-    // and the highlighted net's copper pops. pcb_painter.cpp getColor darkens
-    // every non-highlighted item by (1−highlightFactor)=0.5 and brightens the
-    // highlighted ones by highlightFactor=0.5. We reproduce the darken with a
-    // 50%-black wash over the raster (source-over: dst·0.5, exactly Darkened
-    // (0.5)), then repaint the highlighted net Brightened(0.5) on top. Skipped
-    // while dragging (the move overlay owns the frame).
-    {
-      const hs = highlightSceneRef.current;
-      // A router drag keeps the highlight up (that is the whole point of
-      // highlightNets during performDragging); any other gesture drops it.
-      // On the VIEW the render settings' highlight does both halves.
-      if (!useGl && hs && (!moveDeltaRef.current || trackDragRef.current)) {
-        // The rest of the board is already dimmed in the raster, so this pass
-        // only repaints the highlighted copper Brightened(m_highlightFactor).
-        ctx.save();
-        drawBoard(
-          ctx,
-          hs,
-          v,
-          visible,
-          canvas.width,
-          canvas.height,
-          drawOpts,
-          undefined,
-          true,
-          'highlighted',
-        );
-        ctx.restore();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-      }
-    }
     {
       const md = moveDeltaRef.current;
       // The VIEW draws the selection itself (the selection tool's overlay
       // group); the raster copy is only for a gesture in flight.
       const gestureInFlight = md !== null || dragModeRef.current || trackDragRef.current !== null;
-      const os = moveSceneRef.current ?? (useGl && !gestureInFlight ? null : selSceneRef.current);
+      const os = moveSceneRef.current ?? (gestureInFlight ? selSceneRef.current : null);
       if (os) {
         // A drag overlay, a stretched footprint drag or a re-cut router drag ,
         // is already at its absolute coords; only a move overlay is the static
@@ -4266,7 +4008,7 @@ export function PcbEditor({
         },
       );
     }
-    notePcbPaint(useGl ? 'gl' : 'raster', __t0);
+    notePcbPaint('gl', __t0);
     setScale(v.scale);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startCrispRender]);

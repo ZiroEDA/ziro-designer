@@ -213,7 +213,7 @@ function notePaint(branch: 'preview' | 'ghostFull' | 'blit' | 'full' | 'gl', t0:
 }
 
 /**
- * The WebGL renderer, on by default; `?renderer=canvas` opts out.
+ * The WebGL renderer, and the only one a browser can select.
  *
  * It was opt-in while it was being compared against the Canvas2D path, and
  * leaving it that way past the point of decision was a mistake: the two paths
@@ -221,10 +221,11 @@ function notePaint(branch: 'preview' | 'ghostFull' | 'blit' | 'full' | 'gl', t0:
  * URL quietly exercised the old one. Improvements were reported against a
  * renderer that was not running.
  *
- * `?renderer=canvas` is kept because a renderer swap should stay reversible
- * without a deploy, and because a browser with no WebGL2 falls back to Canvas2D
- * anyway (`SchematicGl.create` returns null and `drawScene` takes the old
- * path). An editor that renders beats one that renders quickly.
+ * `?renderer=canvas` was deleted when this editor went all-GL. The Canvas2D
+ * path below it still exists and still runs when `SchematicGl.create` returns
+ * null - but WebGL2 is on the browser-support gate now
+ * (`browser_support.ts`), so nothing reaches it any more and it is dead code
+ * awaiting the same deletion the board editor's has had.
  */
 
 /**
