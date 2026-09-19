@@ -63,7 +63,7 @@ import {
   listUserTemplates,
   userTemplateFiles,
 } from './user_templates.js';
-import { demoAt, loadDemos, openDemo, type DemoMeta } from './demos.js';
+import { demoAt, launchDemoFrame, loadDemos, openDemo, type DemoMeta } from './demos.js';
 import '../ui/shell.css';
 import type { PickedHomeFile } from './files.js';
 import {
@@ -224,8 +224,18 @@ export function HomePage({
    * handler, so App can name a demo but cannot open one. The nonce is the shape
    * the symbol and footprint editors' open requests use -- leaving and coming
    * back to the same demo is a fresh request, not an unchanged prop.
+   *
+   * `view` is the frame the address named, and it has to come with the
+   * request: a demo's files live in THIS frame and reach the app only when a
+   * launcher hands them over, so raising an editor without running one leaves
+   * it on the empty board it was warmed with. `/demo/<id>/pcb` opened an
+   * untitled read-only board for exactly that reason.
    */
-  openDemoRequest?: { id: string; nonce: number } | null;
+  openDemoRequest?: {
+    id: string;
+    nonce: number;
+    view?: 'schematic' | 'pcb' | 'symbols' | 'footprints';
+  } | null;
   /** A project already open in the app: keep it in the tree on return to home. */
   initialFiles?: PickedHomeFile[] | null;
   /** The active project's .kicad_pro (full name) when a folder holds several. */
@@ -617,7 +627,10 @@ export function HomePage({
     );
   };
 
-  const openDemoProject = async (id: string): Promise<void> => {
+  const openDemoProject = async (
+    id: string,
+    view?: 'schematic' | 'pcb' | 'symbols' | 'footprints',
+  ): Promise<void> => {
     const d = demos.find((x) => x.id === id);
     if (!d) return;
     // Demos open as themselves and are not persisted — see the `ingest(…, false)`
@@ -668,6 +681,21 @@ export function HomePage({
     // same waste as downloading them up front, just less visible. They are
     // fetched when the user keeps the project, in `saveDemoCopy`.
     setDemoSource(d);
+
+    // The frame the address named, launched over the demo now open. The files
+    // are the ones just downloaded, not `picked`: `ingest` has only set that
+    // state, and this render still sees the old value.
+    if (view) {
+      launchDemoFrame(files, d, view, {
+        openPcb: (board, all) =>
+          board
+            ? onOpenPcb?.(board, all)
+            : onOpenPcb?.({ name: 'untitled.kicad_pcb', text: EMPTY_PCB }),
+        openSchematic: (all, demo) => onOpenProject?.(all, undefined, demo),
+        openSymbolEditor: (all) => onOpenSymbolEditor?.(all),
+        openFootprintEditor: (all) => onOpenFootprintEditor?.(all),
+      });
+    }
   };
 
   /**
@@ -686,7 +714,7 @@ export function HomePage({
     const id = openDemoRequest?.id;
     if (!id || demos.length === 0) return;
     if (demoSource?.id === id) return;
-    void openDemoProject(id);
+    void openDemoProject(id, openDemoRequest?.view);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openDemoRequest?.id, openDemoRequest?.nonce, demos]);
   /**

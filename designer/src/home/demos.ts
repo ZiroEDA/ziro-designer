@@ -234,3 +234,57 @@ export async function openDemo(
   }
   return fetchDemoFiles(d, d.files, onProgress);
 }
+
+/** The frames a `/demo/<id>/<frame>` address can name. */
+export type DemoFrame = 'schematic' | 'pcb' | 'symbols' | 'footprints';
+
+/** The manager's launchers, as the one that opens a demo needs them. */
+export interface DemoLaunchers {
+  /** `launchPcb`: the project's board, or the empty one when it has none. */
+  openPcb?: (aBoard: PickedHomeFile | null, aFiles: PickedHomeFile[]) => void;
+  /** `launchSchematic`: the whole project, marked as the demo it is. */
+  openSchematic?: (aFiles: PickedHomeFile[], aDemo: DemoMeta) => void;
+  openSymbolEditor?: (aFiles: PickedHomeFile[]) => void;
+  openFootprintEditor?: (aFiles: PickedHomeFile[]) => void;
+}
+
+/**
+ * Open a demo's frame, as its address named it.
+ *
+ * A demo's files live in the project manager and reach an editor **only when
+ * one of the manager's launchers hands them over** - opening a demo is not
+ * itself an open of a project, by design (`openDemoProject` ingests and
+ * persists nothing). So an address that names a frame has to run the launcher
+ * for it; raising the frame on its own shows whatever that frame was warmed
+ * with, which is an untitled empty board. That is precisely what
+ * `/demo/<id>/pcb` did.
+ *
+ * Here rather than inside `HomePage` so the choice can be tested without a
+ * manager around it: the decision you cannot name is the decision no test can
+ * check.
+ */
+export function launchDemoFrame(
+  aFiles: PickedHomeFile[],
+  aDemo: DemoMeta,
+  aView: DemoFrame,
+  aLaunchers: DemoLaunchers,
+): void {
+  switch (aView) {
+    case 'pcb':
+      // `launchPcb`'s own choice: the project's board if it has one.
+      aLaunchers.openPcb?.(
+        aFiles.find((f) => /\.kicad_pcb$/i.test(f.name.split('/').pop() ?? '')) ?? null,
+        aFiles,
+      );
+      break;
+    case 'symbols':
+      aLaunchers.openSymbolEditor?.(aFiles);
+      break;
+    case 'footprints':
+      aLaunchers.openFootprintEditor?.(aFiles);
+      break;
+    default:
+      aLaunchers.openSchematic?.(aFiles, aDemo);
+      break;
+  }
+}

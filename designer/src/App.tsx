@@ -539,7 +539,12 @@ export function App(): JSX.Element {
    * (Back, then Forward) re-opens it rather than being swallowed as an
    * unchanged prop.
    */
-  const [demoRequest, setDemoRequest] = useState<{ id: string; nonce: number } | null>(null);
+  const [demoRequest, setDemoRequest] = useState<{
+    id: string;
+    nonce: number;
+    /** The frame the address named, for the manager's launcher to open. */
+    view?: 'schematic' | 'pcb' | 'symbols' | 'footprints';
+  } | null>(null);
   /** The frame a `/demo/<id>/<frame>` address named, until its files arrive. */
   const pendingDemoFrame = useRef<{
     id: string;
@@ -826,7 +831,16 @@ export function App(): JSX.Element {
             setView('home');
             pendingDemoFrame.current = { id: route.id, ...frame };
             openProjectFiles(null);
-            setDemoRequest((prev) => ({ id: route.id, nonce: (prev?.nonce ?? 0) + 1 }));
+            // The frame goes WITH the request. A demo's files live in the
+            // manager and reach the editors only when one of its launchers
+            // hands them over, so raising a frame here and leaving the manager
+            // to fetch could only ever show the empty board the frame was
+            // warmed with - which is what `/demo/<id>/pcb` used to do.
+            setDemoRequest((prev) => ({
+              id: route.id,
+              nonce: (prev?.nonce ?? 0) + 1,
+              ...(route.view ? { view: route.view } : {}),
+            }));
           } else {
             applyDemoFrame(frame.view, frame.child);
           }
