@@ -13,8 +13,8 @@
  *
  * The pour reaches every board in `qa/data/zone_fill/` vertex for vertex
  * against `kicad-cli pcb drc --refill-zones` - the min-thickness prune, the
- * outline smoothing, the hatch pattern, copper thieving, the custom-pad spoke
- * templates and the via thermals are all here, through the Clipper2 port in
+ * outline smoothing, the hatch pattern, the custom-pad spoke templates and the
+ * via thermals are all here, through the Clipper2 port in
  * `libs/kimath/src/clipper2`. (This header used to list all of those as
  * missing; they were added and it was not.)
  *
@@ -2407,8 +2407,6 @@ function fillZoneParts(
     }
     stage('after-post-knockout-min-width', fill);
 
-    if (zone.fillMode === 'thieving') fill = addCopperThievingPattern(fill, zone, maxError);
-
     // "Lastly give any same-net but higher-priority zones control over their
     // own area" — `ZONE_FILLER::subtractHigherPriorityZones`, the last thing
     // `fillCopperZone` does before it fractures.
@@ -2958,159 +2956,6 @@ function polysArea(polys: Polygon[]): number {
       a += (i === 0 ? 1 : -1) * Math.abs(ringArea(ring));
     });
   return a;
-}
-
-/**
- * ZONE_FILLER::addCopperThievingPattern: replace the fill with a field of small
- * stamps, the copper added to even out plating density.
- *
- * Dots and squares are stamped on a grid of `elementSize + gap`, but only where
- * a whole stamp fits: the fill is deflated by the stamp's half-extent first, and
- * a centre outside that inset region is skipped, so no stamp is ever clipped by
- * an obstacle or the zone edge. Rows stagger by half a stride when asked.
- *
- * The crosshatch pattern is the inverse: square voids on a `lineWidth + gap`
- * grid, clipped to the fill deflated by the line width so the border survives,
- * then subtracted, leaving a connected mesh.
- *
- * Not ported: the per-layer `hatching_offset` phase, which needs board design
- * settings this layer has no access to.
- */
-function addCopperThievingPattern(fill: Polygon[], zone: PcbZone, maxError: number): Polygon[] {
-  const settings = zone.thieving;
-  if (!settings || fill.length === 0) return fill;
-
-  const needsElementSize = settings.pattern !== 'hatch';
-  const needsLineWidth = settings.pattern === 'hatch';
-  // A zero gap would spin the grid loop forever; a malformed file gets no fill.
-  if (
-    settings.gap <= 0 ||
-    (needsElementSize && settings.elementSize <= 0) ||
-    (needsLineWidth && settings.lineWidth <= 0)
-  )
-    return [];
-
-  const orientation = (settings.orientation * Math.PI) / 180;
-  const rot = (p: Vec2, a: number): Vec2 => ({
-    x: p.x * Math.cos(a) - p.y * Math.sin(a),
-    y: p.x * Math.sin(a) + p.y * Math.cos(a),
-  });
-  const multi = (ps: Polygon[]): MultiPolygon =>
-    ps.map((poly) => poly.map((ring) => ring.map((p) => [p.x, p.y] as [number, number])));
-
-  // The grid iterates axis-aligned in the pattern's own frame; stamps rotate back.
-  const unrotated = fill.map((poly) => poly.map((ring) => ring.map((p) => rot(p, -orientation))));
-  let minX = Number.POSITIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
-  for (const poly of unrotated) {
-    for (const p of poly[0] ?? []) {
-      minX = Math.min(minX, p.x);
-      minY = Math.min(minY, p.y);
-      maxX = Math.max(maxX, p.x);
-      maxY = Math.max(maxY, p.y);
-    }
-  }
-  if (!Number.isFinite(minX)) return fill;
-
-  const minThickness = zone.minThickness ?? 0;
-
-  if (settings.pattern === 'hatch') {
-    const lineStride = settings.lineWidth + settings.gap;
-    const voidSize = settings.gap;
-    // Deflating by the line width keeps a border, and stops a narrow fragment
-    // being eaten whole by the voids.
-    const interior = inflate(fill, -settings.lineWidth, CornerStrategy.CHAMFER_ALL_CORNERS);
-    if (interior.length === 0) return fill;
-
-    let xVoid = minX - (minX % lineStride) + lineStride / 2;
-    let yVoid = minY - (minY % lineStride) + lineStride / 2;
-    while (xVoid - voidSize / 2 > minX) xVoid -= lineStride;
-    while (yVoid - voidSize / 2 > minY) yVoid -= lineStride;
-
-    const voids: Geom[] = [];
-    for (let yy = yVoid; yy <= maxY + voidSize; yy += lineStride) {
-      for (let xx = xVoid; xx <= maxX + voidSize; xx += lineStride) {
-        const rect = [
-          { x: xx - voidSize / 2, y: yy - voidSize / 2 },
-          { x: xx + voidSize / 2, y: yy - voidSize / 2 },
-          { x: xx + voidSize / 2, y: yy + voidSize / 2 },
-          { x: xx - voidSize / 2, y: yy + voidSize / 2 },
-        ].map((p) => rot(p, orientation));
-        voids.push([rect.map((p) => [p.x, p.y] as [number, number])]);
-      }
-    }
-    if (voids.length === 0) return fill;
-
-    const clipped = clip.intersection(
-      clip.union(voids[0]!, ...voids.slice(1)) as Geom,
-      multi(interior) as Geom,
-    ) as MultiPolygon;
-    if (clipped.length === 0) return fill;
-
-    const out = clip.difference(multi(fill) as Geom, clipped as Geom) as MultiPolygon;
-    return out.map((poly) => poly.map(ptsOf));
-  }
-
-  // Dots and squares. The radius is pre-compensated for the min-width prune's
-  // re-inflate, so the finished stamp measures elementSize.
-  const dotStride = settings.elementSize + settings.gap;
-  const halfMinWidth = Math.floor(minThickness / 2);
-  const dotRadius = Math.max(Math.floor(settings.elementSize / 2) - halfMinWidth, 1);
-  const sideLen = Math.max(settings.elementSize - minThickness, 1);
-  const containmentInset =
-    (settings.pattern === 'squares' ? Math.floor(sideLen / 2) : dotRadius) + 1;
-
-  // Centres where a whole stamp fits without touching the boundary.
-  const region = inflate(fill, -containmentInset, CornerStrategy.CHAMFER_ALL_CORNERS);
-  if (region.length === 0) return [];
-  const regionUnrotated = region.map((poly) =>
-    poly.map((ring) => ring.map((p) => rot(p, -orientation))),
-  );
-
-  const inRegion = (p: Vec2): boolean => {
-    for (const poly of regionUnrotated) {
-      const outer = poly[0];
-      if (!outer || !pointInRing(p, outer)) continue;
-      // Inside the outline: only counts if it is not inside one of its holes.
-      if (poly.slice(1).some((hole) => pointInRing(p, hole))) continue;
-      return true;
-    }
-    return false;
-  };
-
-  const xStart = minX - (minX % dotStride);
-  const yStart = minY - (minY % dotStride);
-  const stamps: Geom[] = [];
-  let rowIndex = 0;
-
-  for (let yy = yStart; yy <= maxY + dotRadius; yy += dotStride) {
-    const rowOffset = settings.stagger && rowIndex % 2 === 1 ? dotStride / 2 : 0;
-    for (let xx = xStart + rowOffset; xx <= maxX + dotRadius; xx += dotStride) {
-      const centre = { x: xx, y: yy };
-      if (!inRegion(centre)) continue;
-
-      const ring =
-        settings.pattern === 'squares'
-          ? [
-              { x: centre.x - sideLen / 2, y: centre.y - sideLen / 2 },
-              { x: centre.x + sideLen / 2, y: centre.y - sideLen / 2 },
-              { x: centre.x + sideLen / 2, y: centre.y + sideLen / 2 },
-              { x: centre.x - sideLen / 2, y: centre.y + sideLen / 2 },
-            ]
-          : ptsOf(circlePoly(centre, dotRadius, maxError));
-
-      stamps.push([
-        ring.map((p) => rot(p, orientation)).map((p) => [p.x, p.y] as [number, number]),
-      ]);
-    }
-    rowIndex++;
-  }
-
-  if (stamps.length === 0) return [];
-  const merged = clip.union(stamps[0]!, ...stamps.slice(1)) as MultiPolygon;
-  return merged.map((poly) => poly.map(ptsOf));
 }
 
 /**

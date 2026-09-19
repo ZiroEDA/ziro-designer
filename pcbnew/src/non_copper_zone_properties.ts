@@ -17,13 +17,9 @@
  * mean anything. What is left is the outline (border style, pitch, corner
  * smoothing), the minimum fill width and the hatch pattern.
  *
- * Two consequences of that omission are load-bearing here. Because the form
- * has no name field, `collect`/`apply` never touch the zone's name, so a
- * non-copper zone can keep a name that collides with another. And because the
- * fill-style choice offers only solid and hatched, opening this dialog on a
- * copper-thieving zone and pressing OK silently demotes it to solid — upstream
- * guards the *copper* path against that (`IsCopperThieving` bails out early)
- * but a thieving zone that somehow reached a technical layer is not guarded.
+ * One consequence of that omission is load-bearing here: because the form has
+ * no name field, `collect`/`apply` never touch the zone's name, so a
+ * non-copper zone can keep a name that collides with another.
  */
 
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
@@ -49,7 +45,7 @@ export interface NonCopperZoneValues {
   cornerRadius: number;
   /** `(min_thickness …)`, labelled "Minimum width" on this form. */
   minThickness: number;
-  /** The fill-style choice: solid or hatched. There is no thieving option. */
+  /** `ZONE_FILL_MODE`: POLYGONS or HATCH_PATTERN, the only two there are. */
   fillMode: 'solid' | 'hatch';
   hatchThickness: number;
   hatchGap: number;

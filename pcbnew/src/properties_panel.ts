@@ -1506,7 +1506,6 @@ function zoneRows(board: Board, index: number): PcbPropRow[] {
         'Fill Mode',
         v.fillMode,
         // `ENUM_MAP<ZONE_FILL_MODE>` (zone.cpp:1949-1951) has exactly two.
-        // `thieving`, which this model can carry, is not one of them in 10.0.5.
         [
           ['solid', 'Solid fill'],
           ['hatch', 'Hatch pattern'],
