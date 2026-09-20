@@ -36,7 +36,7 @@ import type { Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set_algori
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Board } from '@ziroeda/pcbnew';
 import { B_Cu, B_Mask, F_Cu, F_Mask, GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
-import { viaIsTented } from '@ziroeda/pcbnew/src/export_d356.js';
+import { viaIsTented } from '@ziroeda/pcbnew/src/exporters/export_d356.js';
 import { BOARD_STACKUP_ITEM_TYPE } from '@ziroeda/pcbnew/src/board_stackup_manager/board_stackup.js';
 import {
   clickSelectionParts,

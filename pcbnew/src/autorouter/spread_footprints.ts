@@ -24,9 +24,9 @@
 import { getTrailingInt } from '@ziroeda/common/src/string_utils.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { findBestPacking, type RectWH } from '@ziroeda/rectpack2d';
-import { boardItemId, moveBoardItems } from './edit-board.js';
-import { footprintBBox } from './edit-footprint.js';
-import type { Board, PcbFootprint } from './types.js';
+import { boardItemId, moveBoardItems } from '../edit-board.js';
+import { footprintBBox } from '../edit-footprint.js';
+import type { Board, PcbFootprint } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** Placement is calculated in 0.01 mm units, to keep the search cheap. */

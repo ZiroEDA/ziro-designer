@@ -34,7 +34,7 @@
  * the port notes.
  */
 
-import { ARC_HIGH_DEF } from './graphics_cleaner.js';
+import { ARC_HIGH_DEF } from '../graphics_cleaner.js';
 import {
   GRAPHICS_IMPORTER,
   type IMPORTED_STROKE,
@@ -42,9 +42,9 @@ import {
   setupSplineOrLine,
 } from '@ziroeda/common/src/import_gfx/graphics_importer.js';
 import { LINE_STYLE } from '@ziroeda/common/src/stroke_params.js';
-import type { PCB_LAYER_NAME } from './layer_ids.js';
-import { joinJustify } from './textbox_properties.js';
-import type { PcbShape, PcbTextItem, StrokeType } from './types.js';
+import type { PCB_LAYER_NAME } from '../layer_ids.js';
+import { joinJustify } from '../textbox_properties.js';
+import type { PcbShape, PcbTextItem, StrokeType } from '../types.js';
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/eda_text.js';
 import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
@@ -53,7 +53,7 @@ import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { EuclideanNormI, type Vec2, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePointD } from '@ziroeda/kimath/src/trigo.js';
-import type { Color4d } from './plot_dxf.js';
+import type { Color4d } from '../plot_dxf.js';
 
 /**
  * `LINE_STYLE` as the **board** file spells it.

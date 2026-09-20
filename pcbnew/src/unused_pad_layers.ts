@@ -53,7 +53,7 @@
  * so the two coincide here; the divergence is documented rather than removed.
  */
 
-import { layerNameToId, viaIsTented } from './export_d356.js';
+import { layerNameToId, viaIsTented } from './exporters/export_d356.js';
 import { enabledCopperLayers, isCopperLayerName } from './swap_layers.js';
 import type { Board, PcbFootprint, PcbPad, PcbVia, UnconnectedLayerMode } from './types.js';
 

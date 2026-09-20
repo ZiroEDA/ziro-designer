@@ -51,10 +51,10 @@
 import { segIntersectLines, segSquaredDistanceToPoint } from '@ziroeda/kimath/src/geometry/seg.js';
 import { circleIntersectLine } from '@ziroeda/kimath/src/geometry/circle.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { arcSliceContainsPoint } from './drc/shape_collisions.js';
-import { arcCenterI } from './router/shape_arc_ops.js';
-import type { Shape } from './drc/drc_geometry.js';
-import { PnsGridHelperGrid, type PnsSnapGridHelper } from './router/pns_tool_base.js';
+import { arcSliceContainsPoint } from '../drc/shape_collisions.js';
+import { arcCenterI } from '../router/shape_arc_ops.js';
+import type { Shape } from '../drc/drc_geometry.js';
+import { PnsGridHelperGrid, type PnsSnapGridHelper } from '../router/pns_tool_base.js';
 
 /** `SEG`, and the shape every segment type in this tree already has. */
 export interface GridSeg {

@@ -10,8 +10,8 @@
  * toolbar reads on every selection change — plus `BOARD::IsEmpty()`, which is
  * what `EDIT_TOOL::Init`'s `noItemsCondition` asks.
  */
-import { parseBoardItemId } from './edit-board.js';
-import type { Board } from './types.js';
+import { parseBoardItemId } from '../edit-board.js';
+import type { Board } from '../types.js';
 
 /**
  * `BOARD_ITEM::IsLocked()` (`board_item.cpp:106`) with its two overrides.

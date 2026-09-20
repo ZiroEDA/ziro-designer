@@ -246,7 +246,7 @@ import {
   boardIsEmpty,
   hasLockedItems,
   hasUnlockedItems,
-} from '@ziroeda/pcbnew/src/pcb_selection_conditions.js';
+} from '@ziroeda/pcbnew/src/tools/pcb_selection_conditions.js';
 import { Icon } from '../../ui/icons.js';
 import { applyPnsChanges, PnsSession } from '@ziroeda/pcbnew/src/router/pns_session.js';
 import { PnsRouterMode } from '@ziroeda/pcbnew/src/router/pns_router.js';
@@ -391,7 +391,7 @@ import {
   SelectionFilterPanel,
   type SelectionFilterItem,
 } from '../../widgets/panel_selection_filter.js';
-import { align, type PcbGridState } from '@ziroeda/pcbnew/src/pcb_grid_helper.js';
+import { align, type PcbGridState } from '@ziroeda/pcbnew/src/tools/pcb_grid_helper.js';
 import {
   bestDragOrigin,
   bestSnapAnchor,

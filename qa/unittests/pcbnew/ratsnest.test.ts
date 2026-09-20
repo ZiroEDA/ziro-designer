@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, it, expect } from 'vitest';
-import { buildRatsnest } from '@ziroeda/pcbnew/src/ratsnest.js';
+import { buildRatsnest } from '@ziroeda/pcbnew/src/ratsnest/ratsnest.js';
 import type {
   Board,
   PcbPad,

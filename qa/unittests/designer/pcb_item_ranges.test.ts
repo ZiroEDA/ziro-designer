@@ -22,7 +22,7 @@ import {
   buildRatsnest,
   prepareLocalRatsnest,
   type RatsnestEdge,
-} from '@ziroeda/pcbnew/src/ratsnest.js';
+} from '@ziroeda/pcbnew/src/ratsnest/ratsnest.js';
 import {
   deleteBoardItems,
   moveBoardItems,

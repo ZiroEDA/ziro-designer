@@ -37,7 +37,7 @@ import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { boardItemId, moveBoardItems } from './edit-board.js';
 import { chainOutlines, shapePoints } from './courtyard.js';
-import { buildRatsnest } from './ratsnest.js';
+import { buildRatsnest } from './ratsnest/ratsnest.js';
 import type { Board, PcbFootprint, PcbPad, PcbShape, PcbTextItem } from './types.js';
 import {
   AR_SIDE_BOTTOM,

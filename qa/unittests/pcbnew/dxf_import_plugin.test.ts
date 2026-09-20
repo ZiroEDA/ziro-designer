@@ -38,7 +38,7 @@ import {
   IMPORTED_TEXT,
   type IMPORTED_SHAPE,
 } from '@ziroeda/common/src/import_gfx/graphics_importer.js';
-import { GRAPHICS_IMPORTER_PCBNEW } from '@ziroeda/pcbnew/src/graphics_importer_pcbnew.js';
+import { GRAPHICS_IMPORTER_PCBNEW } from '@ziroeda/pcbnew/src/import_gfx/graphics_importer_pcbnew.js';
 
 /** Build DXF text from group couplets. */
 const dxf = (pairs: (readonly [number, string])[]): string =>

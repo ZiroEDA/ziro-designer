@@ -33,7 +33,7 @@ import {
   alignToSegment,
   gridArcFromPoints,
   type PcbGridState,
-} from './pcb_grid_helper.js';
+} from './tools/pcb_grid_helper.js';
 
 /** What the cursor found: the net to route, and the point to route from. */
 export interface BoardCursorSnap {

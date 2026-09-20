@@ -32,8 +32,8 @@ import {
   GENERATOR_VERSION,
 } from '@ziroeda/common/src/generator.js';
 import { strNumCmp, unescapeString } from '@ziroeda/common/src/string_utils.js';
-import { boardAuxOrigin } from './plot_gerber.js';
-import type { Board, PcbFootprint } from './types.js';
+import { boardAuxOrigin } from '../plot_gerber.js';
+import type { Board, PcbFootprint } from '../types.js';
 
 /**
  * Spelled as upstream spells them, for traceability rather than for arithmetic.

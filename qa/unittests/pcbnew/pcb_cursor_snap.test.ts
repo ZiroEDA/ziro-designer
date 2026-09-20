@@ -19,7 +19,7 @@ import {
   computeDragAnchors,
   snapToBoardCopper,
 } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
-import { align, computeNearest, type PcbGridState } from '@ziroeda/pcbnew/src/pcb_grid_helper.js';
+import { align, computeNearest, type PcbGridState } from '@ziroeda/pcbnew/src/tools/pcb_grid_helper.js';
 
 const MM = 1e6;
 

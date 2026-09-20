@@ -10,7 +10,7 @@ export {
   prepareLocalRatsnest,
   type LocalRatsnest,
   type RatsnestEdge,
-} from './ratsnest.js';
+} from './ratsnest/ratsnest.js';
 export {
   airwireShown,
   localRatsnestKey,
@@ -302,7 +302,7 @@ export {
   spreadBoardFootprints,
   getRefDesPrefix,
   type SpreadFootprintsOptions,
-} from './spread_footprints.js';
+} from './autorouter/spread_footprints.js';
 
 // Footprint autoplacement (pcbnew/autorouter: AR_AUTOPLACER + AR_MATRIX).
 export {
@@ -800,7 +800,7 @@ export {
   boardTentVias,
   viaIsTented,
   type D356Record,
-} from './export_d356.js';
+} from './exporters/export_d356.js';
 
 export {
   genPositionData,
@@ -810,7 +810,7 @@ export {
   sortPlaceFileList,
   formatFixed,
   type PlaceFileOptions,
-} from './place_file_exporter.js';
+} from './exporters/place_file_exporter.js';
 
 export {
   cleanupGraphics,
@@ -1018,7 +1018,7 @@ export {
 // Graphics import (DXF/SVG into board graphics). Only the import-specific
 // names travel: MATRIX3x3D, the IMPORTED_* shape classes and
 // setupSplineOrLine are KiCad names another port will want and stay importable
-// from '@ziroeda/common/src/import_gfx/graphics_importer.js' / './graphics_importer_pcbnew.js' alone.
+// from '@ziroeda/common/src/import_gfx/graphics_importer.js' / './import_gfx/graphics_importer_pcbnew.js' alone.
 export {
   GRAPHICS_IMPORTER_BUFFER,
   IMPORTED_STROKE,
@@ -1031,7 +1031,7 @@ export {
   lineStyleToStrokeType,
   type IMPORTED_ITEM,
   type LayerMapTarget,
-} from './graphics_importer_pcbnew.js';
+} from './import_gfx/graphics_importer_pcbnew.js';
 export { PnsLayerRange } from './router/pns_layerset.js';
 
 export {

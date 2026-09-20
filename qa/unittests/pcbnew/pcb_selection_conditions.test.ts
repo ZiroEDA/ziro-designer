@@ -12,7 +12,7 @@ import {
   hasLockedItems,
   hasUnlockedItems,
   itemIsLocked,
-} from '@ziroeda/pcbnew/src/pcb_selection_conditions.js';
+} from '@ziroeda/pcbnew/src/tools/pcb_selection_conditions.js';
 import type { Board } from '@ziroeda/pcbnew';
 
 const board = (over: Partial<Board>): Board =>

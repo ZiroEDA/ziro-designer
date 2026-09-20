@@ -18,8 +18,8 @@ import {
   type MATRIX3x3D,
 } from '@ziroeda/common/src/import_gfx/graphics_importer.js';
 import { setupSplineOrLine } from '@ziroeda/common/src/import_gfx/graphics_importer.js';
-import type { IMPORTED_ITEM } from '@ziroeda/pcbnew/src/graphics_importer_pcbnew.js';
-import { GRAPHICS_IMPORTER_PCBNEW } from '@ziroeda/pcbnew/src/graphics_importer_pcbnew.js';
+import type { IMPORTED_ITEM } from '@ziroeda/pcbnew/src/import_gfx/graphics_importer_pcbnew.js';
+import { GRAPHICS_IMPORTER_PCBNEW } from '@ziroeda/pcbnew/src/import_gfx/graphics_importer_pcbnew.js';
 
 /** A stroke the parsers would build: width in mm, plus a line style. */
 const stroke = (width: number, style = LINE_STYLE.SOLID): IMPORTED_STROKE =>

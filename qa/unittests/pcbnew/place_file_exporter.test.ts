@@ -21,7 +21,7 @@ import {
   genPositionData,
   hasThroughHolePads,
   placeFileName,
-} from '@ziroeda/pcbnew/src/place_file_exporter.js';
+} from '@ziroeda/pcbnew/src/exporters/place_file_exporter.js';
 import type { Board, PcbFootprint } from '@ziroeda/pcbnew/src/types.js';
 
 const EMPTY = { kind: 'list' as const, items: [] };

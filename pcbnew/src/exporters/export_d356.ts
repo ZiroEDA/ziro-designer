@@ -30,8 +30,8 @@
  * silently changes the net names on any board with long or colliding names.
  */
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import { boardAuxOrigin } from './plot_gerber.js';
-import type { Board, PcbPad, PcbVia } from './types.js';
+import { boardAuxOrigin } from '../plot_gerber.js';
+import type { Board, PcbPad, PcbVia } from '../types.js';
 
 /** `PCB_LAYER_ID` for the layers this exporter cares about (layer_ids.h). */
 const F_CU = 0;

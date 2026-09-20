@@ -21,7 +21,7 @@
  * them off — which is what the C++ comment in `ViewDraw` means by "easy to
  * turn on" / "easy to turn off".
  */
-import type { RatsnestEdge } from './ratsnest.js';
+import type { RatsnestEdge } from './ratsnest/ratsnest.js';
 
 /** Pads whose `m_localRatsnestVisible` differs from the global flag. */
 export type LocalRatsnestOverrides = ReadonlySet<string>;

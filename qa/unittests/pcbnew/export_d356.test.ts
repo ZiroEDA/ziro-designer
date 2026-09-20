@@ -27,7 +27,7 @@ import {
   layerNameToId,
   viaAccessCode,
   viaLayerPair,
-} from '@ziroeda/pcbnew/src/export_d356.js';
+} from '@ziroeda/pcbnew/src/exporters/export_d356.js';
 import type { Board, PcbPad, PcbVia } from '@ziroeda/pcbnew/src/types.js';
 
 const P = (x: number, y: number) => ({ x, y });

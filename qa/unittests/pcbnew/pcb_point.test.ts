@@ -53,7 +53,7 @@ import { isBoardItemLocked, setBoardItemsLocked } from '@ziroeda/pcbnew/src/edit
 import { pcbPropertiesFor } from '@ziroeda/pcbnew/src/properties_panel.js';
 import { bestSnapAnchor } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
 import { pcbPointMsgPanelInfo } from '@ziroeda/pcbnew/src/msg_panel.js';
-import { boardIsEmpty } from '@ziroeda/pcbnew/src/pcb_selection_conditions.js';
+import { boardIsEmpty } from '@ziroeda/pcbnew/src/tools/pcb_selection_conditions.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
