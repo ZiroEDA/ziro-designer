@@ -19,6 +19,7 @@
  *   - `GetCurrentDiffPairViaGap()`'s last fallback is the RESOLVED
  *     `GetCurrentDiffPairGap()`, so a selected row's gap can supply it.
  */
+import { BOARD_DESIGN_SETTINGS, VIA_DIMENSION } from '@ziroeda/pcbnew/board_design_settings.js';
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import {
@@ -304,5 +305,73 @@ describe('GetCurrentDiffPair* and its netclass fallbacks', () => {
     // `m_diffPairIndex <= 0` catches the reserved entry before anything
     // dereferences it, which is why the dummy can be zeros.
     expect(getCurrentDiffPairWidth(at(sizes(), { diffPairIndex: 0 }))).toBe(MM(0.25));
+  });
+});
+
+/**
+ * The same twelve, now as BOARD_DESIGN_SETTINGS methods reading its own
+ * fields. These are the ones KiCad declares; the free functions above stand
+ * over a shim that duplicates the same state and is on its way out.
+ */
+describe('BOARD_DESIGN_SETTINGS size selection', () => {
+  const bds = (): BOARD_DESIGN_SETTINGS => {
+    const d = new BOARD_DESIGN_SETTINGS();
+    d.m_TrackWidthList = [0, 100, 200, 300];
+    d.m_ViasDimensionsList = [
+      new VIA_DIMENSION(0, 0),
+      new VIA_DIMENSION(600, 300),
+      new VIA_DIMENSION(800, 400),
+    ];
+    return d;
+  };
+
+  it('index 0 means "use the netclass", and a set clears the custom flag', () => {
+    const d = bds();
+    d.UseCustomTrackViaSize(true);
+    expect(d.UseNetClassTrack()).toBe(false);
+
+    d.SetTrackWidthIndex(2);
+    expect(d.UseCustomTrackViaSize()).toBe(false);
+    expect(d.UseNetClassTrack()).toBe(false);
+    expect(d.GetCurrentTrackWidth()).toBe(200);
+
+    d.SetTrackWidthIndex(0);
+    expect(d.UseNetClassTrack()).toBe(true);
+  });
+
+  it('clamps an index past the end of its list', () => {
+    const d = bds();
+    d.SetTrackWidthIndex(99);
+    expect(d.GetTrackWidthIndex()).toBe(3);
+    d.SetViaSizeIndex(99);
+    expect(d.GetViaSizeIndex()).toBe(2);
+  });
+
+  it('leaves the diff-pair index alone when that list is empty, but still clears the flag', () => {
+    // The two size setters have no such guard and would clamp to -1.
+    const d = bds();
+    d.m_DiffPairDimensionsList = [];
+    d.UseCustomDiffPairDimensions(true);
+
+    d.SetDiffPairIndex(5);
+
+    expect(d.GetDiffPairIndex()).toBe(0);
+    expect(d.UseCustomDiffPairDimensions()).toBe(false);
+  });
+
+  it('UseNetClassDiffPair tests == 0, not <= 0', () => {
+    const d = bds();
+    expect(d.UseNetClassDiffPair()).toBe(true);
+  });
+
+  it('returns -1, not 0, when the resolved via drill is not positive', () => {
+    // A pre-defined row may name a diameter and leave the drill at zero; the
+    // callers test for a negative, and a zero would read as a zero-width hole.
+    const d = bds();
+    d.m_ViasDimensionsList = [new VIA_DIMENSION(0, 0), new VIA_DIMENSION(600, 0)];
+    d.SetViaSizeIndex(1);
+
+    expect(d.GetCurrentViaSize()).toBe(600);
+    expect(d.GetCurrentViaDrill()).toBe(-1);
   });
 });

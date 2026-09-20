@@ -1045,6 +1045,151 @@ export class BOARD_DESIGN_SETTINGS {
     this.m_useCustomDiffPair = aEnabled;
   }
 
+  /**
+   * `SetTrackWidthIndex( aIndex )` (`board_design_settings.cpp:1518`).
+   *
+   * Clears the custom flag: choosing a preset is how a user turns "custom"
+   * back off, and that is the part easiest to drop on a re-read.
+   */
+  SetTrackWidthIndex(aIndex: number): void {
+    this.m_trackWidthIndex = Math.min(aIndex, this.m_TrackWidthList.length - 1);
+    this.m_useCustomTrackVia = false;
+  }
+
+  /** `SetViaSizeIndex( aIndex )` (`board_design_settings.cpp:1489`). */
+  SetViaSizeIndex(aIndex: number): void {
+    this.m_viaSizeIndex = Math.min(aIndex, this.m_ViasDimensionsList.length - 1);
+    this.m_useCustomTrackVia = false;
+  }
+
+  /**
+   * `SetDiffPairIndex( aIndex )` (`board_design_settings.cpp:1537`).
+   *
+   *     if( !m_DiffPairDimensionsList.empty() )
+   *         m_diffPairIndex = std::min( aIndex, (int) ...size() - 1 );
+   *     m_useCustomDiffPair = false;
+   *
+   * The guard means an EMPTY list leaves the index alone — the two setters
+   * above have no such guard and would clamp to -1 — while the flag is
+   * cleared either way, outside the `if`.
+   */
+  SetDiffPairIndex(aIndex: number): void {
+    if (this.m_DiffPairDimensionsList.length > 0)
+      this.m_diffPairIndex = Math.min(aIndex, this.m_DiffPairDimensionsList.length - 1);
+
+    this.m_useCustomDiffPair = false;
+  }
+
+  /** `UseNetClassTrack()` (`board_design_settings.h:304`). */
+  UseNetClassTrack(): boolean {
+    return this.m_trackWidthIndex <= 0 && !this.m_useCustomTrackVia;
+  }
+
+  /** `UseNetClassVia()` (`board_design_settings.h:309`). */
+  UseNetClassVia(): boolean {
+    return this.m_viaSizeIndex <= 0 && !this.m_useCustomTrackVia;
+  }
+
+  /** `UseNetClassDiffPair()` (`board_design_settings.h:314`) — `== 0`, not `<= 0`. */
+  UseNetClassDiffPair(): boolean {
+    return this.m_diffPairIndex === 0 && !this.m_useCustomDiffPair;
+  }
+
+  /** `GetCurrentTrackWidth()` (`board_design_settings.cpp:1477`). */
+  GetCurrentTrackWidth(): number {
+    if (this.m_useCustomTrackVia) return this.m_customTrackWidth;
+
+    if (this.m_trackWidthIndex <= 0 || this.m_trackWidthIndex >= this.m_TrackWidthList.length)
+      return this.m_NetSettings.GetDefaultNetclass().GetTrackWidth();
+
+    return this.m_TrackWidthList[this.m_trackWidthIndex]!;
+  }
+
+  /** `GetCurrentViaSize()` (`board_design_settings.cpp:1496`). */
+  GetCurrentViaSize(): number {
+    if (this.m_useCustomTrackVia) return this.m_customViaSize.m_Diameter;
+
+    if (this.m_viaSizeIndex <= 0 || this.m_viaSizeIndex >= this.m_ViasDimensionsList.length)
+      return this.m_NetSettings.GetDefaultNetclass().GetViaDiameter();
+
+    return this.m_ViasDimensionsList[this.m_viaSizeIndex]!.m_Diameter;
+  }
+
+  /**
+   * `GetCurrentViaDrill()` (`board_design_settings.cpp:1507`).
+   *
+   * Returns -1, not 0, for "no drill": the callers test for a negative, and a
+   * zero would read as a via with a zero-width hole.
+   */
+  GetCurrentViaDrill(): number {
+    let drill: number;
+
+    if (this.m_useCustomTrackVia) drill = this.m_customViaSize.m_Drill;
+    else if (this.m_viaSizeIndex <= 0 || this.m_viaSizeIndex >= this.m_ViasDimensionsList.length)
+      drill = this.m_NetSettings.GetDefaultNetclass().GetViaDrill();
+    else drill = this.m_ViasDimensionsList[this.m_viaSizeIndex]!.m_Drill;
+
+    return drill > 0 ? drill : -1;
+  }
+
+  /**
+   * `GetCurrentDiffPairWidth()` (`board_design_settings.cpp:1546`).
+   *
+   * The netclass branch is not the obvious one: a class with no
+   * differential-pair width falls back to its ORDINARY track width, not to
+   * zero and not to the board minimum.
+   */
+  GetCurrentDiffPairWidth(): number {
+    if (this.m_useCustomDiffPair) return this.m_customDiffPair.m_Width;
+
+    if (this.m_diffPairIndex <= 0 || this.m_diffPairIndex >= this.m_DiffPairDimensionsList.length) {
+      const nc = this.m_NetSettings.GetDefaultNetclass();
+
+      return nc.HasDiffPairWidth() ? nc.GetDiffPairWidth() : nc.GetTrackWidth();
+    }
+
+    return this.m_DiffPairDimensionsList[this.m_diffPairIndex]!.m_Width;
+  }
+
+  /**
+   * `GetCurrentDiffPairGap()` (`board_design_settings.cpp:1565`).
+   *
+   * A class with no differential-pair gap falls back to its CLEARANCE, the
+   * same reasoning as the width falling back to the track width: the pair is
+   * two ordinary tracks at the ordinary spacing until something says
+   * otherwise.
+   */
+  GetCurrentDiffPairGap(): number {
+    if (this.m_useCustomDiffPair) return this.m_customDiffPair.m_Gap;
+
+    if (this.m_diffPairIndex <= 0 || this.m_diffPairIndex >= this.m_DiffPairDimensionsList.length) {
+      const nc = this.m_NetSettings.GetDefaultNetclass();
+
+      return nc.HasDiffPairGap() ? nc.GetDiffPairGap() : nc.GetClearance();
+    }
+
+    return this.m_DiffPairDimensionsList[this.m_diffPairIndex]!.m_Gap;
+  }
+
+  /**
+   * `GetCurrentDiffPairViaGap()` (`board_design_settings.cpp:1584`).
+   *
+   * Its last fallback is `GetCurrentDiffPairGap()` — the RESOLVED gap, not the
+   * netclass's raw one — so a board with a selected pre-defined row and a
+   * netclass that names no via gap takes the via gap from that row's gap.
+   */
+  GetCurrentDiffPairViaGap(): number {
+    if (this.m_useCustomDiffPair) return this.m_customDiffPair.m_ViaGap;
+
+    if (this.m_diffPairIndex <= 0 || this.m_diffPairIndex >= this.m_DiffPairDimensionsList.length) {
+      const nc = this.m_NetSettings.GetDefaultNetclass();
+
+      return nc.HasDiffPairViaGap() ? nc.GetDiffPairViaGap() : this.GetCurrentDiffPairGap();
+    }
+
+    return this.m_DiffPairDimensionsList[this.m_diffPairIndex]!.m_ViaGap;
+  }
+
   GetTrackWidthIndex(): number {
     return this.m_trackWidthIndex;
   }
