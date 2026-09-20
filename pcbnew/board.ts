@@ -86,6 +86,8 @@ import { PCB_MARKER } from './pcb_marker.js';
 import { PCB_TABLE } from './pcb_table.js';
 import { PCB_BARCODE } from './pcb_barcode.js';
 import type { PCB_SHAPE } from './pcb_shape.js';
+import type { RENDER_SETTINGS } from '@ziroeda/common/src/render_settings.js';
+import type { PCB_DIMENSION_BASE } from './pcb_dimension.js';
 import type { PCB_TEXT } from './pcb_text.js';
 import type { PCB_TEXTBOX } from './pcb_textbox.js';
 import { EDA_SHAPE } from '@ziroeda/common/src/eda_shape.js';
@@ -96,6 +98,12 @@ import { type ISOLATED_ISLANDS, ZONE } from './zone.js';
 import { ZONE_BORDER_DISPLAY_STYLE } from './zone_settings.js';
 import type { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
 import { BOARD_STACKUP } from './board_stackup_manager/board_stackup.js';
+import {
+  ITEM_PICKER,
+  type PICKED_ITEMS_LIST,
+  UNDO_REDO,
+} from '@ziroeda/common/src/undo_redo_container.js';
+import type { BOARD_COMMIT } from './board_commit.js';
 import { GENERAL_COLLECTOR } from './collectors.js';
 import type { PAD } from './pad.js';
 import { PAD_PROP } from './padstack.js';
@@ -1794,6 +1802,452 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
     }
 
     return names;
+  }
+
+  /** `RemoveUnusedNets( aCommit )`: delegates to the net list. */
+  RemoveUnusedNets(aCommit: BOARD_COMMIT | null): void {
+    this.m_NetInfo.RemoveUnusedNets(aCommit);
+  }
+
+  /**
+   * `BeginNets()` / `EndNets()`: the net list's iterators.
+   *
+   * A pair of C++ iterators is one iterable here, so both return the same
+   * thing; they exist under KiCad's names because callers ported from upstream
+   * ask for them by name.
+   */
+  BeginNets(): IterableIterator<NETINFO_ITEM> {
+    return this.m_NetInfo[Symbol.iterator]();
+  }
+
+  /** @see BeginNets */
+  EndNets(): IterableIterator<NETINFO_ITEM> {
+    return this.m_NetInfo[Symbol.iterator]();
+  }
+
+  /**
+   * `AddArea`: start a new zone at one corner.
+   *
+   * The zone is pushed straight onto `m_zones` rather than through `Add()`, so
+   * the connectivity is not told about a zone that has a single corner and no
+   * area yet — the caller completes it and commits.
+   */
+  AddArea(
+    aNewZonesList: PICKED_ITEMS_LIST | null,
+    aNetcode: number,
+    aLayer: PCB_LAYER_ID,
+    aStartPointPosition: VECTOR2I,
+    aHatch: ZONE_BORDER_DISPLAY_STYLE,
+  ): ZONE {
+    const new_area = new ZONE(this);
+
+    new_area.SetNetCode(aNetcode);
+    new_area.SetLayer(aLayer);
+
+    this.m_zones.push(new_area);
+
+    new_area.SetHatchStyle(aHatch);
+
+    // Add the first corner to the new zone
+    new_area.AppendCorner(aStartPointPosition, -1);
+
+    if (aNewZonesList) {
+      aNewZonesList.PushItem(new ITEM_PICKER(null, new_area, UNDO_REDO.NEWITEM));
+    }
+
+    return new_area;
+  }
+
+  /**
+   * `TestZoneIntersection` (`edit_zone_helpers.cpp:91`): can these two zones be
+   * combined?
+   *
+   * Three tests in widening cost order — a shared layer, overlapping bounding
+   * boxes, then crossing segments. The last one is the subtle one: two zones
+   * where one sits wholly *inside* the other cross no segments at all, so a
+   * segment test alone says no. The corner-containment pass after it catches
+   * that, and one corner is enough.
+   */
+  TestZoneIntersection(aZone1: ZONE, aZone2: ZONE): boolean {
+    // see if areas are on same layer
+    if (!aZone1.GetLayerSet().and(aZone2.GetLayerSet()).any()) return false;
+
+    const poly1 = aZone1.Outline();
+    const poly2 = aZone2.Outline();
+
+    // test bounding rects
+    if (!poly1.BBox().Intersects(poly2.BBox())) return false;
+
+    // Now test for intersecting segments
+    for (const firstSegment of poly1.IterateSegmentsWithHoles()) {
+      for (const secondSegment of poly2.IterateSegmentsWithHoles()) {
+        // Check whether the two segments built collide
+        if (firstSegment.Collide(secondSegment, 0)) return true;
+      }
+    }
+
+    // If a contour is inside another contour, no segments intersects, but the
+    // zones can be combined if a corner is inside an outline (only one corner
+    // is enough)
+    for (const pt of poly2.IterateWithHoles()) {
+      if (poly1.Contains(pt)) return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * `RemoveAll( aTypes )`: empty whole collections at once.
+   *
+   * Per type, because each lives in its own container and two of the
+   * requests are refused by design: `PCB_ARC_T`/`PCB_VIA_T` share `m_tracks`
+   * with `PCB_TRACE_T`, and every graphic and text shares `m_drawings` with
+   * `PCB_SHAPE_T`, so asking for one of those alone would either clear more
+   * than was asked or leave the container half-emptied. Upstream fails the
+   * assertion; here the request is ignored, which is what a release build of
+   * upstream does too.
+   *
+   * `PCB_NETINFO_T` is deferred to the end: `m_NetInfo.clear()` frees the nets,
+   * so it has to come after the cache purge and `FinalizeBulkRemove`, or those
+   * would dereference a freed net.
+   */
+  RemoveAll(
+    aTypes: readonly KICAD_T[] = [
+      KICAD_T.PCB_NETINFO_T,
+      KICAD_T.PCB_MARKER_T,
+      KICAD_T.PCB_GROUP_T,
+      KICAD_T.PCB_ZONE_T,
+      KICAD_T.PCB_GENERATOR_T,
+      KICAD_T.PCB_FOOTPRINT_T,
+      KICAD_T.PCB_TRACE_T,
+      KICAD_T.PCB_SHAPE_T,
+      KICAD_T.PCB_POINT_T,
+    ],
+  ): void {
+    const removed: BOARD_ITEM[] = [];
+    let clearNets = false;
+
+    for (const type of aTypes) {
+      switch (type) {
+        case KICAD_T.PCB_NETINFO_T:
+          for (const item of this.m_NetInfo) removed.push(item);
+
+          // m_NetInfo.clear() deletes its nets, so defer it past the cache purge and
+          // FinalizeBulkRemove() to keep those from dereferencing a freed net.
+          clearNets = true;
+          break;
+
+        case KICAD_T.PCB_MARKER_T:
+          removed.push(...this.m_markers);
+          this.m_markers = [];
+          break;
+
+        case KICAD_T.PCB_GROUP_T:
+          removed.push(...this.m_groups);
+          this.m_groups = [];
+          break;
+
+        case KICAD_T.PCB_POINT_T:
+          removed.push(...this.m_points);
+          this.m_points = [];
+          break;
+
+        case KICAD_T.PCB_ZONE_T:
+          removed.push(...this.m_zones);
+          this.m_zones = [];
+          break;
+
+        case KICAD_T.PCB_GENERATOR_T:
+          removed.push(...this.m_generators);
+          this.m_generators = [];
+          break;
+
+        case KICAD_T.PCB_FOOTPRINT_T:
+          removed.push(...this.m_footprints);
+          this.m_footprints = [];
+          break;
+
+        case KICAD_T.PCB_TRACE_T:
+          removed.push(...this.m_tracks);
+          this.m_tracks = [];
+          break;
+
+        case KICAD_T.PCB_ARC_T:
+        case KICAD_T.PCB_VIA_T:
+          // wxFAIL_MSG( "Use PCB_TRACE_T to remove all tracks, arcs, and vias" )
+          break;
+
+        case KICAD_T.PCB_SHAPE_T:
+          removed.push(...this.m_drawings);
+          this.m_drawings = [];
+          break;
+
+        case KICAD_T.PCB_DIM_ALIGNED_T:
+        case KICAD_T.PCB_DIM_CENTER_T:
+        case KICAD_T.PCB_DIM_RADIAL_T:
+        case KICAD_T.PCB_DIM_ORTHOGONAL_T:
+        case KICAD_T.PCB_DIM_LEADER_T:
+        case KICAD_T.PCB_REFERENCE_IMAGE_T:
+        case KICAD_T.PCB_FIELD_T:
+        case KICAD_T.PCB_TEXT_T:
+        case KICAD_T.PCB_TEXTBOX_T:
+        case KICAD_T.PCB_TABLE_T:
+        case KICAD_T.PCB_TARGET_T:
+        case KICAD_T.PCB_BARCODE_T:
+          // wxFAIL_MSG( "Use PCB_SHAPE_T to remove all graphics and text" )
+          break;
+
+        default:
+          // wxFAIL_MSG( "BOARD::RemoveAll() needs more ::Type() support" )
+          break;
+      }
+    }
+
+    // Drop the removed items and their footprint/table children from m_itemByIdCache as
+    // BOARD::Remove() does; otherwise DeleteAllFootprints() frees them and ResolveItem() hands a
+    // dangling pointer to consumers like the DRC results panel.
+    const uncacheChild = (aChild: BOARD_ITEM): void => {
+      this.m_itemByIdCache.delete(aChild.m_Uuid);
+    };
+
+    for (const item of removed) {
+      this.m_itemByIdCache.delete(item.m_Uuid);
+
+      if (item.Type() === KICAD_T.PCB_FOOTPRINT_T)
+        (item as FOOTPRINT).RunOnChildren(uncacheChild, RECURSE_MODE.NO_RECURSE);
+      else if (item.Type() === KICAD_T.PCB_TABLE_T)
+        (item as PCB_TABLE).RunOnChildren(uncacheChild, RECURSE_MODE.NO_RECURSE);
+    }
+
+    this.IncrementTimeStamp();
+
+    this.FinalizeBulkRemove(removed);
+
+    if (clearNets) this.m_NetInfo.clear();
+  }
+
+  /**
+   * `DeleteAllFootprints()`: remove every footprint and free them.
+   *
+   * The copy before `RemoveAll` is what makes this safe: `RemoveAll` hands the
+   * listeners the list it emptied, and a listener may still be holding a
+   * footprint when the C++ deletes it. There is no `delete` here, but the
+   * shape is kept so the two read alike.
+   */
+  DeleteAllFootprints(): void {
+    this.RemoveAll([KICAD_T.PCB_FOOTPRINT_T]);
+  }
+
+  /**
+   * `DetachAllFootprints()`: remove every footprint but keep them alive,
+   * parentless, for the caller to re-home.
+   */
+  DetachAllFootprints(): void {
+    const footprints = [...this.m_footprints];
+
+    this.RemoveAll([KICAD_T.PCB_FOOTPRINT_T]);
+
+    for (const footprint of footprints) footprint.SetParent(null);
+  }
+
+  /**
+   * `GetContextualTextVars`: the variable names a text on this board may use.
+   *
+   * The `DRC_ERROR`/`DRC_WARNING` pair carry a placeholder in their name
+   * because that is what the completion popup shows; they are not resolved
+   * from this list. The project's own variables are appended in KiCad; there
+   * is no PROJECT here, so that loop is absent.
+   */
+  GetContextualTextVars(aVars: string[]): void {
+    const add = (aVar: string): void => {
+      if (!aVars.includes(aVar)) aVars.push(aVar);
+    };
+
+    add('LAYER');
+    add('FILENAME');
+    add('FILEPATH');
+    add('PROJECTNAME');
+    add('DRC_ERROR <message_text>');
+    add('DRC_WARNING <message_text>');
+    add('VARIANT');
+    add('VARIANT_DESC');
+
+    TITLE_BLOCK.GetContextualTextVars(aVars);
+
+    // if( GetProject() ) for( entry : GetProject()->GetTextVars() ) add( entry.first );
+    // — PROJECT not ported.
+  }
+
+  /**
+   * `ConvertKIIDsToCrossReferences`: rewrite `${<kiid>:FIELD}` as
+   * `${<REF>:FIELD}` so a text that refers to another footprint by identity
+   * reads by reference designator.
+   *
+   * Two things are deliberately left alone. An escaped expression, `\${...}`
+   * or `\@{...}`, is copied verbatim to its matching brace, depth counted, so
+   * a literal dollar-brace in a text survives. And a token with no colon is
+   * not a cross-reference at all — `${LAYER}` — and is copied unchanged even
+   * though it looks like one.
+   */
+  ConvertKIIDsToCrossReferences(aSource: string): string {
+    let newbuf = '';
+    const sourceLen = aSource.length;
+
+    for (let i = 0; i < sourceLen; ++i) {
+      // Check for escaped expressions: \${ or \@{
+      // These should be copied verbatim without any KIID->ref conversion
+      if (
+        aSource[i] === '\\' &&
+        i + 2 < sourceLen &&
+        aSource[i + 2] === '{' &&
+        (aSource[i + 1] === '$' || aSource[i + 1] === '@')
+      ) {
+        // Copy the escape sequence and the entire escaped expression
+        newbuf += aSource[i]; // backslash
+        newbuf += aSource[i + 1]; // $ or @
+        newbuf += aSource[i + 2]; // {
+        i += 2;
+
+        // Find and copy everything until the matching closing brace
+        let braceDepth = 1;
+        for (i = i + 1; i < sourceLen && braceDepth > 0; ++i) {
+          if (aSource[i] === '{') braceDepth++;
+          else if (aSource[i] === '}') braceDepth--;
+
+          newbuf += aSource[i];
+        }
+        i--; // Back up one since the for loop will increment
+        continue;
+      }
+
+      if (aSource[i] === '$' && i + 1 < sourceLen && aSource[i + 1] === '{') {
+        let token = '';
+        let isCrossRef = false;
+
+        for (i = i + 2; i < sourceLen; ++i) {
+          if (aSource[i] === '}') break;
+
+          if (aSource[i] === ':') isCrossRef = true;
+
+          token += aSource[i];
+        }
+
+        if (isCrossRef) {
+          const colon = token.indexOf(':');
+          const ref = token.slice(0, colon);
+          const remainder = token.slice(colon + 1);
+          const refItem = this.ResolveItem(ref, true);
+
+          if (refItem && refItem.Type() === KICAD_T.PCB_FOOTPRINT_T) {
+            token = `${(refItem as FOOTPRINT).GetReference()}:${remainder}`;
+          }
+        }
+
+        newbuf += `\${${token}}`;
+      } else {
+        newbuf += aSource[i];
+      }
+    }
+
+    return newbuf;
+  }
+
+  /**
+   * `ConvertBrdLayerToPolygonalContours`: every copper feature on one layer as
+   * polygons — tracks, pads, footprint graphics, zones, board-level graphics
+   * and text. What the 3D viewer and the plotters build a layer from.
+   *
+   * `aRenderSettings` reaches only the table cells, which need it to know
+   * which cell borders are drawn; nothing else here looks at it.
+   */
+  ConvertBrdLayerToPolygonalContours(
+    aLayer: PCB_LAYER_ID,
+    aOutlines: SHAPE_POLY_SET,
+    aRenderSettings: RENDER_SETTINGS | null = null,
+  ): void {
+    const maxError = this.GetDesignSettings().m_MaxError;
+
+    // convert tracks and vias:
+    for (const track of this.m_tracks) {
+      if (!track.IsOnLayer(aLayer)) continue;
+
+      track.TransformShapeToPolygon(aOutlines, aLayer, 0, maxError, ERROR_LOC.ERROR_INSIDE);
+    }
+
+    // convert pads and other copper items in footprints
+    for (const footprint of this.m_footprints) {
+      footprint.TransformPadsToPolySet(aOutlines, aLayer, 0, maxError, ERROR_LOC.ERROR_INSIDE);
+
+      footprint.TransformFPShapesToPolySet(
+        aOutlines,
+        aLayer,
+        0,
+        maxError,
+        ERROR_LOC.ERROR_INSIDE,
+        true /* include text */,
+        true /* include shapes */,
+        false /* include private items */,
+      );
+
+      for (const zone of footprint.Zones()) {
+        if (zone.GetLayerSet().test(aLayer))
+          zone.TransformSolidAreasShapesToPolygon(aLayer, aOutlines);
+      }
+    }
+
+    // convert copper zones
+    for (const zone of this.Zones()) {
+      if (zone.GetLayerSet().test(aLayer)) zone.TransformSolidAreasShapesToPolygon(aLayer, aOutlines);
+    }
+
+    // convert graphic items on copper layers (texts)
+    for (const item of this.m_drawings) {
+      if (!item.IsOnLayer(aLayer)) continue;
+
+      switch (item.Type()) {
+        case KICAD_T.PCB_SHAPE_T:
+        case KICAD_T.PCB_BARCODE_T:
+          item.TransformShapeToPolygon(aOutlines, aLayer, 0, maxError, ERROR_LOC.ERROR_INSIDE);
+          break;
+
+        case KICAD_T.PCB_FIELD_T:
+        case KICAD_T.PCB_TEXT_T:
+          (item as PCB_TEXT).TransformTextToPolySet(aOutlines, 0, maxError, ERROR_LOC.ERROR_INSIDE);
+          break;
+
+        case KICAD_T.PCB_TEXTBOX_T: {
+          const textbox = item as PCB_TEXTBOX;
+          // border
+          textbox.TransformShapeToPolygon(aOutlines, aLayer, 0, maxError, ERROR_LOC.ERROR_INSIDE);
+          // text
+          textbox.TransformTextToPolySet(aOutlines, 0, maxError, ERROR_LOC.ERROR_INSIDE);
+          break;
+        }
+
+        case KICAD_T.PCB_TABLE_T:
+          (item as PCB_TABLE).TransformGraphicItemsToPolySet(
+            aOutlines,
+            maxError,
+            ERROR_LOC.ERROR_INSIDE,
+            aRenderSettings,
+          );
+          break;
+
+        case KICAD_T.PCB_DIM_ALIGNED_T:
+        case KICAD_T.PCB_DIM_CENTER_T:
+        case KICAD_T.PCB_DIM_RADIAL_T:
+        case KICAD_T.PCB_DIM_ORTHOGONAL_T:
+        case KICAD_T.PCB_DIM_LEADER_T: {
+          const dim = item as PCB_DIMENSION_BASE;
+          dim.TransformShapeToPolygon(aOutlines, aLayer, 0, maxError, ERROR_LOC.ERROR_INSIDE);
+          dim.TransformTextToPolySet(aOutlines, 0, maxError, ERROR_LOC.ERROR_INSIDE);
+          break;
+        }
+
+        default:
+          break;
+      }
+    }
   }
 
   /** `board.cpp:1234` — no drawings, footprints, tracks, zones or points. */

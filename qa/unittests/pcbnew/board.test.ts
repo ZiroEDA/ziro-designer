@@ -14,6 +14,8 @@ import { GAL_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { LSET } from '@ziroeda/common/src/lset.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
 import { PAD } from '@ziroeda/pcbnew/pad.js';
+import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 import { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
 import { NETINFO_ITEM } from '@ziroeda/pcbnew/netinfo.js';
@@ -338,5 +340,173 @@ describe('BOARD lookups and visibility', () => {
 
     expect(dst.FindNet('SIG')).not.toBeNull();
     expect(t.GetNetname()).toBe('SIG');
+  });
+});
+
+describe('BOARD bulk removal', () => {
+  const populated = (): BOARD => {
+    const b = new BOARD();
+    b.Add(new NETINFO_ITEM(b, 'GND', 1));
+    b.Add(new PCB_TRACK(b), ADD_MODE.APPEND);
+    b.Add(new PCB_VIA(b), ADD_MODE.APPEND);
+    b.Add(new FOOTPRINT(b), ADD_MODE.APPEND);
+    b.Add(new ZONE(b), ADD_MODE.APPEND);
+    const edge = new PCB_SHAPE(b, SHAPE_T.SEGMENT);
+    edge.SetLayer(PCB_LAYER_ID.Edge_Cuts);
+    b.Add(edge, ADD_MODE.APPEND);
+    return b;
+  };
+
+  it('RemoveAll with no argument empties every collection, nets included', () => {
+    const b = populated();
+    b.RemoveAll();
+
+    expect(b.Tracks()).toHaveLength(0);
+    expect(b.Footprints()).toHaveLength(0);
+    expect(b.Zones()).toHaveLength(0);
+    expect(b.Drawings()).toHaveLength(0);
+    expect(b.FindNet('GND')).toBeNull();
+  });
+
+  it('RemoveAll of one type leaves the others', () => {
+    const b = populated();
+    b.RemoveAll([KICAD_T.PCB_ZONE_T]);
+
+    expect(b.Zones()).toHaveLength(0);
+    expect(b.Tracks()).toHaveLength(2);
+    expect(b.Footprints()).toHaveLength(1);
+  });
+
+  it('refuses PCB_VIA_T: tracks, arcs and vias share one container', () => {
+    // Upstream fails an assertion; asking for the vias alone would leave
+    // m_tracks half-emptied, so nothing happens.
+    const b = populated();
+    b.RemoveAll([KICAD_T.PCB_VIA_T]);
+
+    expect(b.Tracks()).toHaveLength(2);
+  });
+
+  it('tells the listeners once, with every removed item', () => {
+    const b = populated();
+    const seen: number[] = [];
+    b.AddListener({
+      OnBoardItemsRemoved: (_board: BOARD, items: readonly BOARD_ITEM[]) => {
+        seen.push(items.length);
+      },
+    } as never);
+
+    b.RemoveAll([KICAD_T.PCB_TRACE_T, KICAD_T.PCB_ZONE_T]);
+
+    expect(seen).toEqual([3]); // track + via + zone, in one call
+  });
+
+  it('drops removed items and their children from the id cache', () => {
+    // Otherwise ResolveItem hands back a footprint the board no longer holds.
+    const b = populated();
+    const fp = b.Footprints()[0]!;
+    const pad = new PAD(fp);
+    fp.Add(pad, ADD_MODE.APPEND);
+
+    expect(b.ResolveItem(fp.m_Uuid, true)).toBe(fp);
+
+    b.DeleteAllFootprints();
+
+    expect(b.ResolveItem(fp.m_Uuid, true)).toBeNull();
+    expect(b.ResolveItem(pad.m_Uuid, true)).toBeNull();
+  });
+
+  it('DetachAllFootprints keeps them alive and parentless', () => {
+    const b = populated();
+    const fp = b.Footprints()[0]!;
+
+    b.DetachAllFootprints();
+
+    expect(b.Footprints()).toHaveLength(0);
+    expect(fp.GetParent()).toBeNull();
+  });
+});
+
+describe('BOARD zones and cross-references', () => {
+  const square = (b: BOARD, x: number, size: number, y = 0): ZONE => {
+    const z = new ZONE(b);
+    z.SetLayer(PCB_LAYER_ID.F_Cu);
+    const o = z.Outline();
+    o.NewOutline();
+    o.Append(x, y);
+    o.Append(x + size, y);
+    o.Append(x + size, y + size);
+    o.Append(x, y + size);
+    return z;
+  };
+
+  it('TestZoneIntersection: crossing outlines intersect', () => {
+    const b = new BOARD();
+    expect(b.TestZoneIntersection(square(b, 0, 100), square(b, 50, 100))).toBe(true);
+  });
+
+  it('TestZoneIntersection: a zone wholly inside another crosses no segment but still intersects', () => {
+    // The corner-containment pass after the segment test; one corner is enough.
+    // Wholly inside means off every edge -- a square at y=0 would sit ON the
+    // outer's bottom edge and the segment test would catch it instead.
+    const b = new BOARD();
+    expect(b.TestZoneIntersection(square(b, 0, 100), square(b, 25, 10, 25))).toBe(true);
+  });
+
+  it('TestZoneIntersection: different layers never intersect, whatever the geometry', () => {
+    const b = new BOARD();
+    const other = square(b, 0, 100);
+    other.SetLayer(PCB_LAYER_ID.B_Cu);
+    expect(b.TestZoneIntersection(square(b, 0, 100), other)).toBe(false);
+  });
+
+  it('TestZoneIntersection: disjoint boxes short-circuit to false', () => {
+    const b = new BOARD();
+    expect(b.TestZoneIntersection(square(b, 0, 100), square(b, 500, 100))).toBe(false);
+  });
+
+  it('AddArea starts a zone with one corner on the given layer -- and loses the net', () => {
+    // Upstream calls SetNetCode BEFORE SetLayer, and a fresh ZONE has no layer
+    // (ExportSetting's non-full export skips the layer set), so SetNetCode's
+    // "not on copper" guard zeroes the net. Faithful, and harmless: nothing in
+    // KiCad calls AddArea any more. Pinned so a fix here is a decision, not
+    // a drift.
+    const b = new BOARD();
+    b.Add(new NETINFO_ITEM(b, 'GND', 1));
+    const z = b.AddArea(null, 1, PCB_LAYER_ID.B_Cu, { x: 10, y: 20 }, 0 as never);
+
+    expect(b.Zones()).toContain(z);
+    expect(z.GetLayer()).toBe(PCB_LAYER_ID.B_Cu);
+    expect(z.GetNetCode()).toBe(0);
+    expect(z.Outline().Outline(0).PointCount()).toBe(1);
+  });
+
+  it('ConvertKIIDsToCrossReferences rewrites a footprint KIID to its reference', () => {
+    const b = new BOARD();
+    const fp = new FOOTPRINT(b);
+    fp.SetReference('U7');
+    b.Add(fp, ADD_MODE.APPEND);
+
+    expect(b.ConvertKIIDsToCrossReferences(`see \${${fp.m_Uuid}:VALUE}`)).toBe(
+      'see ${U7:VALUE}',
+    );
+  });
+
+  it('ConvertKIIDsToCrossReferences leaves a plain variable and an escaped one alone', () => {
+    const b = new BOARD();
+
+    // No colon: not a cross-reference, even though it looks like one.
+    expect(b.ConvertKIIDsToCrossReferences('${LAYER}')).toBe('${LAYER}');
+    // Escaped: copied to the matching brace, depth counted.
+    expect(b.ConvertKIIDsToCrossReferences('\\${a:{b}}')).toBe('\\${a:{b}}');
+  });
+
+  it('GetContextualTextVars adds each name once', () => {
+    const b = new BOARD();
+    const vars = ['LAYER'];
+    b.GetContextualTextVars(vars);
+
+    expect(vars.filter((v) => v === 'LAYER')).toHaveLength(1);
+    expect(vars).toContain('PROJECTNAME');
+    expect(vars).toContain('DRC_ERROR <message_text>');
   });
 });
