@@ -122,7 +122,27 @@ export function axisNumberingOffset(axis: ArrayAxis, str: string): number | null
 
 // ----- grid arrays (ARRAY_GRID_OPTIONS) --------------------------------------
 
-export interface ArrayGridOptions {
+/**
+ * The numbering flags `ARRAY_OPTIONS` keeps on its base
+ * (`include/array_options.h:144-161`), shared by the grid and circular kinds
+ * the way the C++ shares them through inheritance.
+ */
+export interface ArrayNumberingOptions {
+  /** True if this array numbers the new items. */
+  shouldNumber?: boolean;
+  /**
+   * True if this array's number starts from the preset point, false if the
+   * array numbering starts from some externally provided point.
+   */
+  numberingStartIsSpecified?: boolean;
+}
+
+/** `ARRAY_OPTIONS::GetNumberingStartIsSpecified`: both flags, not just the second. */
+export function numberingStartIsSpecified(o: ArrayNumberingOptions): boolean {
+  return Boolean(o.shouldNumber) && Boolean(o.numberingStartIsSpecified);
+}
+
+export interface ArrayGridOptions extends ArrayNumberingOptions {
   nx: number;
   ny: number;
   /** Pitch along each axis. */
@@ -224,7 +244,7 @@ export function gridItemNumber(o: ArrayGridOptions, n: number): string {
 
 // ----- circular arrays (ARRAY_CIRCULAR_OPTIONS) ------------------------------
 
-export interface ArrayCircularOptions {
+export interface ArrayCircularOptions extends ArrayNumberingOptions {
   nPts: number;
   /** Degrees between copies, or 0 to divide a full turn evenly. */
   angle?: number;
