@@ -2,136 +2,265 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Board statistics.
+ * Board statistics over the live BOARD.
  * Counterparts: `pcbnew/board_statistics.cpp` and
  * `pcbnew/board_statistics_report.cpp`.
  *
- * The arithmetic here is trivial and the classification is not, so the tests
- * are about what gets counted and what does not: which footprints have a side,
- * which holes are the same hole, and what a board whose Edge.Cuts does not
- * close is allowed to report. Expected areas are computed from the rectangle
- * dimensions by hand rather than by re-running the code.
+ * Expected areas are computed from the rectangle dimensions by hand rather
+ * than by re-running the code.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  collectDrillLineItems,
-  getBoardPolygonOutlines,
-  sameDrillLineItem,
-} from '@ziroeda/pcbnew/board_statistics.js';
+import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
+import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
+import { LSET } from '@ziroeda/common/src/lset.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
+import { ADD_MODE } from '@ziroeda/pcbnew/board_item_container.js';
+import { collectDrillLineItems, sameDrillLineItem } from '@ziroeda/pcbnew/board_statistics.js';
+import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import {
   computeBoardStatistics,
+  formatBoardStatisticsJson,
+  formatBoardStatisticsReport,
   initialiseBoardStatisticsData,
   STATISTICS_INT_MAX,
 } from '@ziroeda/pcbnew/board_statistics_report.js';
-import type {
-  Board,
-  PcbFootprint,
-  PcbPad,
-  PcbShape,
-  PcbTextItem,
-  PcbTrack,
-  PcbVia,
-} from '@ziroeda/pcbnew/types.js';
+import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
+import { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
+import { FOOTPRINT, FOOTPRINT_ATTR_T } from '@ziroeda/pcbnew/footprint.js';
+import { PAD } from '@ziroeda/pcbnew/pad.js';
+import { PAD_ATTRIB, PAD_DRILL_SHAPE, PAD_PROP, PAD_SHAPE } from '@ziroeda/pcbnew/padstack.js';
+import { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
+import { PCB_ARC, PCB_TRACK, PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
+import { VIATYPE } from '@ziroeda/pcbnew/pcb_track_types.js';
+import { PCB_TEXT } from '@ziroeda/pcbnew/pcb_text.js';
+import { FIELD_T } from '@ziroeda/common/src/template_fieldnames.js';
 
 const P = (x: number, y: number) => ({ x, y });
 
 /** 1 mm in internal units. */
 const MM = 1_000_000;
 
-const pad = (over: Partial<PcbPad> = {}): PcbPad => ({
-  number: '1',
-  type: 'smd',
-  shape: 'rect',
-  at: P(0, 0),
-  angle: 0,
-  size: P(MM, MM),
-  layers: ['F.Cu', 'F.Mask', 'F.Paste'],
-  ...over,
-});
+// The builders below return plain specs; `board()` materialises them onto a
+// real BOARD. Keeping the spec shape lets each test read as a description of a
+// board rather than as a construction sequence.
 
-const thtPad = (over: Partial<PcbPad> = {}): PcbPad =>
+interface PadSpec {
+  type?: 'smd' | 'thru_hole' | 'connect' | 'np_thru_hole';
+  padProperty?: 'pad_prop_castellated' | 'pad_prop_pressfit' | 'pad_prop_heatsink';
+  layers?: string[];
+  drill?: { oblong: boolean; w: number; h: number };
+}
+interface ShapeSpec {
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+  layer?: string;
+  kind?: 'line' | 'rect';
+  width?: number;
+  /** Accepted and ignored: the fill never affects an Edge.Cuts outline. */
+  fillMode?: string;
+}
+interface TextSpec {
+  kind?: 'reference' | 'value' | 'user';
+  layer?: string;
+  text?: string;
+  at?: { x: number; y: number };
+  angle?: number;
+  size?: { x: number; y: number };
+}
+interface FpSpec {
+  layer?: string;
+  attributes?: ('through_hole' | 'smd')[];
+  pads?: PadSpec[];
+  shapes?: ShapeSpec[];
+  texts?: TextSpec[];
+}
+interface ViaSpec {
+  kind?: 'through' | 'blind' | 'buried' | 'micro';
+  drill?: number;
+  layers?: string[];
+}
+interface TrackSpec {
+  width?: number;
+}
+interface ArcSpec {
+  start?: { x: number; y: number };
+  mid?: { x: number; y: number };
+  end?: { x: number; y: number };
+  width?: number;
+  layer?: string;
+  net?: number;
+}
+interface BoardSpec {
+  layers?: { id: number; name: string; kind: string }[];
+  footprints?: FpSpec[];
+  vias?: ViaSpec[];
+  tracks?: TrackSpec[];
+  arcs?: ArcSpec[];
+  shapes?: ShapeSpec[];
+}
+
+const pad = (o: PadSpec = {}): PadSpec => ({ type: 'smd', layers: ['F.Cu'], ...o });
+
+const thtPad = (o: PadSpec = {}): PadSpec =>
   pad({
     type: 'thru_hole',
-    shape: 'circle',
-    layers: ['*.Cu', '*.Mask'],
+    layers: ['*.Cu'],
     drill: { oblong: false, w: 800_000, h: 800_000 },
-    ...over,
+    ...o,
   });
 
-const via = (over: Partial<PcbVia> = {}): PcbVia => ({
-  at: P(0, 0),
-  size: 600_000,
+const via = (o: ViaSpec = {}): ViaSpec => ({
+  kind: 'through',
   drill: 300_000,
   layers: ['F.Cu', 'B.Cu'],
-  kind: 'through',
-  net: 1,
-  ...over,
+  ...o,
 });
 
-const track = (over: Partial<PcbTrack> = {}): PcbTrack => ({
-  start: P(0, 0),
-  end: P(MM, 0),
-  width: 250_000,
-  layer: 'F.Cu',
-  net: 1,
-  ...over,
-});
+const track = (o: TrackSpec = {}): TrackSpec => ({ width: 250_000, ...o });
+const fp = (o: FpSpec = {}): FpSpec => ({ layer: 'F.Cu', ...o });
 
-const fp = (over: Partial<PcbFootprint> = {}): PcbFootprint => ({
-  lib: 'Lib:Part',
-  at: P(0, 0),
-  angle: 0,
-  layer: 'F.Cu',
-  reference: 'R1',
-  pads: [],
-  shapes: [],
-  texts: [],
-  points: [],
-  barcodes: [],
-  models: [],
-  ...over,
-});
-
-const line = (a: { x: number; y: number }, b: { x: number; y: number }): PcbShape => ({
+const line = (a: { x: number; y: number }, b: { x: number; y: number }): ShapeSpec => ({
   kind: 'line',
   start: a,
   end: b,
-  width: 100_000,
-  fillMode: 'none',
   layer: 'Edge.Cuts',
 });
 
 /** A closed Edge.Cuts rectangle, drawn as four separate lines. */
-const outlineLines = (x0: number, y0: number, x1: number, y1: number): PcbShape[] => [
+const outlineLines = (x0: number, y0: number, x1: number, y1: number): ShapeSpec[] => [
   line(P(x0, y0), P(x1, y0)),
   line(P(x1, y0), P(x1, y1)),
   line(P(x1, y1), P(x0, y1)),
   line(P(x0, y1), P(x0, y0)),
 ];
 
-const board = (over: Partial<Board> = {}): Board => ({
-  version: 20240108,
-  layers: [
-    { id: 0, name: 'F.Cu', kind: 'signal' },
-    { id: 2, name: 'B.Cu', kind: 'signal' },
-  ],
-  nets: new Map([[0, '']]),
-  footprints: [],
-  tracks: [],
-  arcs: [],
-  vias: [],
-  zones: [],
-  shapes: [],
-  texts: [],
-  dimensions: [],
-  textBoxes: [],
-  tables: [],
-  images: [],
-  points: [],
-  barcodes: [],
-  groups: [],
-  ...over,
-});
+const PAD_ATTR: Record<string, PAD_ATTRIB> = {
+  smd: PAD_ATTRIB.SMD,
+  thru_hole: PAD_ATTRIB.PTH,
+  connect: PAD_ATTRIB.CONN,
+  np_thru_hole: PAD_ATTRIB.NPTH,
+};
+const PAD_PROPS: Record<string, PAD_PROP> = {
+  pad_prop_castellated: PAD_PROP.CASTELLATED,
+  pad_prop_pressfit: PAD_PROP.PRESSFIT,
+};
+const VIA_KIND: Record<string, VIATYPE> = {
+  through: VIATYPE.THROUGH,
+  blind: VIATYPE.BLIND,
+  buried: VIATYPE.BURIED,
+  micro: VIATYPE.MICROVIA,
+};
+
+const lset = (b: BOARD, names: readonly string[]): LSET => {
+  const s = new LSET();
+  for (const n of names) {
+    if (n === '*.Cu') {
+      for (const l of b.GetEnabledLayers().CuStack()) s.set(l);
+    } else {
+      s.set(b.GetLayerID(n));
+    }
+  }
+  return s;
+};
+
+const addShape = (b: BOARD, parent: BOARD | FOOTPRINT, spec: ShapeSpec): PCB_SHAPE => {
+  const s = new PCB_SHAPE(parent, spec.kind === 'rect' ? SHAPE_T.RECTANGLE : SHAPE_T.SEGMENT);
+  s.SetStart(spec.start);
+  s.SetEnd(spec.end);
+  s.SetLayer(b.GetLayerID(spec.layer ?? 'Edge.Cuts'));
+  s.SetWidth(spec.width ?? 100_000);
+  return s;
+};
+
+const board = (spec: BoardSpec = {}): BOARD => {
+  const b = new BOARD();
+  b.SetCopperLayerCount(spec.layers ? Math.max(2, spec.layers.length) : 2);
+
+  for (const f of spec.footprints ?? []) {
+    const footprint = new FOOTPRINT(b);
+    footprint.SetPosition(P(0, 0));
+    footprint.SetReference('R1');
+
+    let attrs = 0;
+    for (const a of f.attributes ?? [])
+      attrs |= a === 'smd' ? FOOTPRINT_ATTR_T.FP_SMD : FOOTPRINT_ATTR_T.FP_THROUGH_HOLE;
+    footprint.SetAttributes(attrs);
+
+    if (f.layer === 'B.Cu') footprint.Flip(P(0, 0), FLIP_DIRECTION.TOP_BOTTOM);
+
+    for (const ps of f.pads ?? []) {
+      const p = new PAD(footprint);
+      p.SetNumber('1');
+      p.SetAttribute(PAD_ATTR[ps.type ?? 'smd']!);
+      if (ps.padProperty) p.SetProperty(PAD_PROPS[ps.padProperty]!);
+      p.SetShape(undefined as unknown as PCB_LAYER_ID, PAD_SHAPE.RECTANGLE);
+      p.SetSize(undefined as unknown as PCB_LAYER_ID, P(MM, MM));
+      p.SetPosition(P(0, 0));
+      p.SetLayerSet(lset(b, ps.layers ?? ['F.Cu']));
+      if (ps.drill) {
+        p.SetDrillShape(ps.drill.oblong ? PAD_DRILL_SHAPE.OBLONG : PAD_DRILL_SHAPE.CIRCLE);
+        p.SetDrillSize(P(ps.drill.w, ps.drill.h));
+      }
+      footprint.Add(p, ADD_MODE.APPEND);
+    }
+
+    for (const sp of f.shapes ?? []) footprint.Add(addShape(b, footprint, sp), ADD_MODE.APPEND);
+
+    for (const t of f.texts ?? []) {
+      // Reference and Value are PCB_FIELDs and live in m_fields; only a user
+      // PCB_TEXT lands in m_drawings, which is the list GetSide walks.
+      if (t.kind === 'reference' || t.kind === 'value') {
+        const field = footprint.GetField(
+          t.kind === 'reference' ? FIELD_T.REFERENCE : FIELD_T.VALUE,
+        );
+        field.SetLayer(b.GetLayerID(t.layer ?? 'F.Silkscreen'));
+        if (t.text) field.SetText(t.text);
+        continue;
+      }
+
+      const txt = new PCB_TEXT(footprint);
+      txt.SetLayer(b.GetLayerID(t.layer ?? 'F.Silkscreen'));
+      footprint.Add(txt, ADD_MODE.APPEND);
+    }
+
+    b.Add(footprint, ADD_MODE.APPEND);
+  }
+
+  for (const v of spec.vias ?? []) {
+    const pv = new PCB_VIA(b);
+    pv.SetViaType(VIA_KIND[v.kind ?? 'through']!);
+    pv.SetDrill(v.drill ?? 300_000);
+    pv.SetWidth(600_000);
+    pv.SetPosition(P(0, 0));
+    const [top, bottom] = v.layers ?? ['F.Cu', 'B.Cu'];
+    pv.SetLayerPair(b.GetLayerID(top!), b.GetLayerID(bottom!));
+    b.Add(pv, ADD_MODE.APPEND);
+  }
+
+  for (const t of spec.tracks ?? []) {
+    const pt = new PCB_TRACK(b);
+    pt.SetStart(P(0, 0));
+    pt.SetEnd(P(MM, 0));
+    pt.SetWidth(t.width ?? 250_000);
+    pt.SetLayer(b.GetLayerID('F.Cu'));
+    b.Add(pt, ADD_MODE.APPEND);
+  }
+
+  for (const a of spec.arcs ?? []) {
+    const pa = new PCB_ARC(b);
+    pa.SetStart(a.start ?? P(0, 0));
+    pa.SetMid(a.mid ?? P(MM / 2, MM / 4));
+    pa.SetEnd(a.end ?? P(MM, 0));
+    pa.SetWidth(a.width ?? 250_000);
+    pa.SetLayer(b.GetLayerID(a.layer ?? 'F.Cu'));
+    b.Add(pa, ADD_MODE.APPEND);
+  }
+
+  for (const sp of spec.shapes ?? []) b.Add(addShape(b, b, sp), ADD_MODE.APPEND);
+
+  return b;
+};
 
 // ---------------------------------------------------------------------------
 
@@ -224,12 +353,12 @@ describe('counting footprints', () => {
     // Reference and Value are PCB_FIELDs, held in m_fields; GetSide walks
     // m_drawings. Counting them would give a side to footprints KiCad leaves
     // in neither column.
-    const ref: PcbTextItem = {
+    const ref: TextSpec = {
       kind: 'reference',
       text: 'R1',
       at: P(0, 0),
       angle: 0,
-      layer: 'F.SilkS',
+      layer: 'F.Silkscreen',
       size: P(MM, MM),
     };
 
@@ -261,7 +390,10 @@ describe('counting footprints', () => {
     const b = board({
       footprints: [
         fp({ attributes: ['smd'], pads: [pad()] }),
-        fp({ attributes: ['smd'], shapes: [{ ...line(P(0, 0), P(MM, 0)), layer: 'F.SilkS' }] }),
+        fp({
+          attributes: ['smd'],
+          shapes: [{ ...line(P(0, 0), P(MM, 0)), layer: 'F.Silkscreen' }],
+        }),
       ],
     });
 
@@ -357,10 +489,10 @@ describe('grouping drill holes', () => {
 
     const drills = collectDrillLineItems(b);
     expect(drills.map((d) => [d.xSize, d.shape, d.isPlated, d.isPad, d.qty])).toEqual([
-      [800_000, 'circle', true, true, 2],
-      [800_000, 'circle', false, true, 1],
-      [800_000, 'oblong', true, true, 1],
-      [800_000, 'circle', true, false, 1],
+      [800_000, PAD_DRILL_SHAPE.CIRCLE, true, true, 2],
+      [800_000, PAD_DRILL_SHAPE.CIRCLE, false, true, 1],
+      [800_000, PAD_DRILL_SHAPE.OBLONG, true, true, 1],
+      [800_000, PAD_DRILL_SHAPE.CIRCLE, true, false, 1],
     ]);
   });
 
@@ -384,9 +516,9 @@ describe('grouping drill holes', () => {
 
     const drills = collectDrillLineItems(b);
     expect(drills.map((d) => [d.startLayer, d.stopLayer, d.qty])).toEqual([
-      ['F.Cu', 'B.Cu', 2],
+      [PCB_LAYER_ID.F_Cu, PCB_LAYER_ID.B_Cu, 2],
       // The blind pair is reordered by depth, not left in file order.
-      ['F.Cu', 'In1.Cu', 1],
+      [PCB_LAYER_ID.F_Cu, PCB_LAYER_ID.In1_Cu, 1],
     ]);
   });
 
@@ -398,17 +530,27 @@ describe('grouping drill holes', () => {
     });
 
     const [drill] = collectDrillLineItems(b);
-    expect(drill!.startLayer).toBeUndefined();
-    expect(drill!.stopLayer).toBeUndefined();
+    expect(drill!.startLayer).toBe(PCB_LAYER_ID.UNDEFINED_LAYER);
+    expect(drill!.stopLayer).toBe(PCB_LAYER_ID.UNDEFINED_LAYER);
   });
 
-  it('ignores pads with no hole and vias with no drill', () => {
+  it('ignores a pad with no hole and one whose drill is zero-sized', () => {
     const b = board({
       footprints: [fp({ pads: [pad(), thtPad({ drill: { oblong: false, w: 0, h: 800_000 } })] })],
-      vias: [via({ drill: 0 })],
     });
 
     expect(collectDrillLineItems(b)).toEqual([]);
+  });
+
+  it('gives a via with no drill of its own the netclass drill, and counts it', () => {
+    // `PCB_VIA::GetDrillValue` falls back to the netclass when the via stores
+    // no drill, so a zero is never seen here and the via is a real hole. Our
+    // view model stored the raw zero and dropped the via, which was wrong.
+    const b = board({ vias: [via({ drill: 0 })] });
+    const [drill] = collectDrillLineItems(b);
+
+    expect(drill!.xSize).toBeGreaterThan(0);
+    expect(drill!.isPad).toBe(false);
   });
 
   it('sorts the rows by descending count and takes the min drill from round holes', () => {
@@ -437,7 +579,7 @@ describe('grouping drill holes', () => {
 
     expect(sameDrillLineItem(base, { ...base, qty: 99 })).toBe(true);
     expect(sameDrillLineItem(base, { ...base, ySize: 1 })).toBe(false);
-    expect(sameDrillLineItem(base, { ...base, stopLayer: 'In1.Cu' })).toBe(false);
+    expect(sameDrillLineItem(base, { ...base, stopLayer: PCB_LAYER_ID.In1_Cu })).toBe(false);
   });
 });
 
@@ -599,25 +741,10 @@ describe('the board outline', () => {
       ],
     });
 
-    const outlines = getBoardPolygonOutlines(b);
-    expect(outlines.success).toBe(true);
-    expect(outlines.polygons.length).toBe(2);
-    expect(outlines.polygons.map((p) => p.holes.length).sort()).toEqual([0, 1]);
-  });
-
-  it('refuses the whole build when a graphic is malformed', () => {
-    // A line with no end point still becomes a contour upstream, and a contour
-    // that cannot close fails the build rather than being quietly dropped.
-    const shapes = outlineLines(0, 0, 10 * MM, 10 * MM);
-    shapes.push({
-      kind: 'line',
-      start: P(0, 0),
-      width: 100_000,
-      fillMode: 'none',
-      layer: 'Edge.Cuts',
-    });
-
-    expect(getBoardPolygonOutlines(board({ shapes })).success).toBe(false);
+    const polySet = new SHAPE_POLY_SET();
+    expect(b.GetBoardPolygonOutlines(polySet, false)).toBe(true);
+    expect(polySet.OutlineCount()).toBe(2);
+    expect([polySet.HoleCount(0), polySet.HoleCount(1)].sort()).toEqual([0, 1]);
   });
 
   it('measures an outline drawn as one closed rectangle graphic', () => {
@@ -643,10 +770,105 @@ describe('the board outline', () => {
     const b = board({
       shapes: [
         ...outlineLines(0, 0, 10 * MM, 10 * MM),
-        { ...line(P(0, 0), P(50 * MM, 0)), layer: 'F.SilkS' },
+        { ...line(P(0, 0), P(50 * MM, 0)), layer: 'F.Silkscreen' },
       ],
     });
 
     expect(computeBoardStatistics(b).boardWidth).toBe(10 * MM);
+  });
+});
+
+describe('the saved report', () => {
+  const units = new UNITS_PROVIDER(pcbIUScale, 'mm');
+
+  const twoByOne = (): BOARD =>
+    board({
+      shapes: outlineLines(0, 0, 40 * MM, 25 * MM),
+      footprints: [fp({ attributes: ['smd'], pads: [pad()] })],
+      vias: [via()],
+    });
+
+  it('pads every table column to its widest cell and rules it with dashes', () => {
+    const b = twoByOne();
+    const text = formatBoardStatisticsReport(
+      computeBoardStatistics(b),
+      b,
+      units,
+      'proj',
+      'board.kicad_pcb',
+    );
+
+    const lines = text.split('\n');
+    const header = lines.findIndex((l) => l.startsWith('|') && l.includes('Front Side'));
+    expect(header).toBeGreaterThan(-1);
+
+    // The rule under the header is all dashes and pipes, and every row of the
+    // table is exactly as wide as the header.
+    expect(lines[header + 1]).toMatch(/^\|[-|]+\|$/);
+    expect(lines[header + 1]!.length).toBe(lines[header]!.length);
+    expect(lines[header + 2]!.length).toBe(lines[header]!.length);
+  });
+
+  it('prints unknown for the dimensions when the board has no outline', () => {
+    const b = board({ footprints: [fp({ attributes: ['smd'], pads: [pad()] })] });
+    const text = formatBoardStatisticsReport(computeBoardStatistics(b), b, units, '', '');
+
+    expect(text).toContain('- Dimensions: unknown');
+    expect(text).toContain('- Area: unknown');
+    expect(text).toContain('- Front component density: unknown');
+  });
+
+  it('names a drill row layer, or N/A where it has none', () => {
+    const b = board({ footprints: [fp({ pads: [thtPad({ layers: ['F.Mask'] })] })] });
+    const text = formatBoardStatisticsReport(computeBoardStatistics(b), b, units, '', '');
+
+    expect(text).toContain('N/A');
+  });
+});
+
+describe('the JSON report', () => {
+  const units = new UNITS_PROVIDER(pcbIUScale, 'mm');
+
+  it('snake-cases the UI titles, dropping the via suffix but not the pad one', () => {
+    const b = board({ vias: [via()], footprints: [fp({ pads: [pad(), thtPad()] })] });
+    const json = JSON.parse(
+      formatBoardStatisticsJson(computeBoardStatistics(b), b, units, 'p', 'n'),
+    );
+
+    // "Through vias:" loses the suffix; "Through hole:" keeps both words.
+    expect(Object.keys(json.vias)).toEqual(['through', 'blind', 'buried', 'micro']);
+    expect(Object.keys(json.pads)).toEqual([
+      'through_hole',
+      'smd',
+      'connector',
+      'npth',
+      'castellated',
+      'press_fit',
+    ]);
+  });
+
+  it('nulls the outline-dependent fields when there is no outline', () => {
+    const b = board({ footprints: [fp({ pads: [pad()] })] });
+    const json = JSON.parse(formatBoardStatisticsJson(computeBoardStatistics(b), b, units, '', ''));
+
+    expect(json.board.has_outline).toBe(false);
+    expect(json.board.width).toBeNull();
+    expect(json.board.area).toBeNull();
+    expect(json.board.front_component_density).toBeNull();
+    // Copper area is not outline-dependent and is still a string.
+    expect(typeof json.board.front_copper_area).toBe('string');
+  });
+
+  it('totals the component table', () => {
+    const b = board({
+      footprints: [
+        fp({ attributes: ['smd'], pads: [pad()] }),
+        fp({ attributes: ['smd'], pads: [pad()] }),
+      ],
+    });
+    const json = JSON.parse(formatBoardStatisticsJson(computeBoardStatistics(b), b, units, '', ''));
+
+    expect(json.components.smd).toEqual({ front: 2, back: 0, total: 2 });
+    expect(json.components.total).toEqual({ front: 2, back: 0, total: 2 });
   });
 });

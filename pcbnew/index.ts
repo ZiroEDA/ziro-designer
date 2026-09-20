@@ -914,15 +914,13 @@ export {
 export {
   collectDrillLineItems,
   sameDrillLineItem,
-  getBoardPolygonOutlines,
-  type BoardPolygonOutlines,
-  type BoardOutlinePolygon,
   type DrillLineItem,
-  type PadDrillShape,
 } from './board_statistics.js';
 
 export {
   computeBoardStatistics,
+  formatBoardStatisticsJson,
+  formatBoardStatisticsReport,
   initialiseBoardStatisticsData,
   DEFAULT_BOARD_STATISTICS_OPTIONS,
   STATISTICS_INT_MAX,
@@ -930,9 +928,6 @@ export {
   type BoardStatisticsOptions,
   type FootprintStatisticsEntry,
   type StatisticsCountEntry,
-  type PadAttribute,
-  type CountedPadProperty,
-  type ViaTypeName,
 } from './board_statistics_report.js';
 
 export {

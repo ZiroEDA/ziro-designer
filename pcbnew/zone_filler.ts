@@ -23,6 +23,7 @@
  * which is #636 stage 4; the class at the top is that port, method by method.
  */
 
+import { buildBoardPolygonOutlines } from './convert_shape_list_to_polygon_legacy.js';
 import type { Geom, MultiPolygon, Ring } from 'polygon-clipping';
 import { ADVANCED_CFG } from '@ziroeda/common/src/advanced_config.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
@@ -42,7 +43,6 @@ import {
   type Polygon,
 } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { getBoardPolygonOutlines } from './board_statistics.js';
 import { type Vertex, VertexSet } from '@ziroeda/kimath/src/geometry/vertex_set.js';
 import { EuclideanNormI, Perpendicular, ResizeI } from '@ziroeda/kimath/src/math/vector2.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
@@ -3743,4 +3743,82 @@ function postKnockoutMinWidthPrune(
   );
   stage?.('prune:inflated', polys);
   return booleanIntersection(polys, preDeflate);
+}
+
+// ---------------------------------------------------------------------------
+// `BOARD::GetBoardPolygonOutlines` over the plain-object view.
+//
+// The BOARD-side method is `board.ts`'s; this is the view twin, and it lives
+// here because the view-side filler is its only caller left. It goes when
+// `fillZones` moves onto the live BOARD (#636 stage 4) and the class path
+// becomes the only one.
+/** `BOARD_DESIGN_SETTINGS::m_MaxError`, ARC_HIGH_DEF — arc tessellation error. */
+const BOARD_MAX_ERROR = mmToIU(0.005);
+
+/** `DEFAULT_CHAINING_EPSILON_MM`, how far two Edge.Cuts ends may miss and still join. */
+const BOARD_CHAINING_EPSILON = mmToIU(0.01);
+// The board outline.
+
+/** One top-level outline of the board polygon set, with its cutouts. */
+export interface BoardOutlinePolygon {
+  outline: Vec2[];
+  holes: Vec2[][];
+}
+
+export interface BoardPolygonOutlines {
+  /**
+   * `GetBoardPolygonOutlines`' return value. False whenever a contour did not
+   * close, and false when there is nothing on Edge.Cuts at all — in both cases
+   * `polygons` is empty, because upstream bails before populating the set.
+   */
+  success: boolean;
+  polygons: BoardOutlinePolygon[];
+}
+
+/**
+ * `BOARD::GetBoardPolygonOutlines( polySet, false )` — `BuildBoardPolygonOutlines`
+ * in `pcbnew/convert_shape_list_to_polygon.ts`, with the board's
+ * `m_MaxError` (the design-settings value the caller has; ARC_HIGH_DEF when
+ * none is given) and the default chaining epsilon.
+ *
+ * `success` starts false and only `doConvertOutlineToPolygon` sets it, so a
+ * board with nothing on Edge.Cuts answers false and no polygons.
+ */
+export function getBoardPolygonOutlines(
+  board: Board,
+  maxError: number = BOARD_MAX_ERROR,
+): BoardPolygonOutlines {
+  // `isCopperOutside`: a pad whose effective polygon has no intersection
+  // with the footprint's own closed outline.
+  const copperOutside = (fp: PcbFootprint) => (outline: Polygon[]) => {
+    for (const pad of fp.pads) {
+      const padPoly = padTransformShapeToPolygon(pad, 0, maxError, ErrorLoc.ERROR_INSIDE);
+      if (padPoly.length === 0) continue;
+      if (booleanIntersection(outline, padPoly).length === 0) return true;
+    }
+    return false;
+  };
+  const r = buildBoardPolygonOutlines(
+    board.shapes,
+    board.footprints.map((fp) => ({ shapes: fp.shapes ?? [], copperOutside: copperOutside(fp) })),
+    maxError,
+    BOARD_CHAINING_EPSILON,
+  );
+  return {
+    success: r.success,
+    polygons: r.polygons.map((rings) => ({ outline: rings[0]!, holes: rings.slice(1) })),
+  };
+}
+
+/**
+ * `SHAPE_LINE_CHAIN::Area( true )`, upstream's formula verbatim including the
+ * absolute value that hides the winding direction — which is why a cutout drawn
+ * the same way round as its outline still subtracts.
+ */
+export function contourArea(pts: readonly Vec2[]): number {
+  let area = 0;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++)
+    area += (pts[j]!.x + pts[i]!.x) * (pts[j]!.y - pts[i]!.y);
+
+  return Math.abs(area * 0.5);
 }
