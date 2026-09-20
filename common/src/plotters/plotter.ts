@@ -12,7 +12,7 @@
  * reason KiCad puts them on the base — a backend that disagreed about which
  * of -1/-2 means "skip" would silently plot a different line width.
  *
- * The backends themselves still sit in `pcbnew/src/`, where the first one was
+ * The backends themselves still sit in `pcbnew/`, where the first one was
  * written; upstream keeps all of them in `common/plotters/`, because eeschema
  * plots through the same classes. Moving them is a separate job.
  */
