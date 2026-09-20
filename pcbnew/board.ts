@@ -95,6 +95,7 @@ import type { ENDPOINT_T } from './pcb_track_types.js';
 import { type ISOLATED_ISLANDS, ZONE } from './zone.js';
 import { ZONE_BORDER_DISPLAY_STYLE } from './zone_settings.js';
 import type { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
+import { BOARD_STACKUP } from './board_stackup_manager/board_stackup.js';
 import { GENERAL_COLLECTOR } from './collectors.js';
 import type { PAD } from './pad.js';
 import { PAD_PROP } from './padstack.js';
@@ -2086,6 +2087,24 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
   /**
    * @return The number of copper layers in the BOARD.
    */
+  /**
+   * The board's stackup, or a default one built for its copper layer count.
+   *
+   * `m_HasStackup` is false until the Board Setup stackup page has been
+   * visited, and a board saved before that carries no `(stackup ...)` at all —
+   * so the caller that wants a thickness or a layer list must not be handed
+   * an empty descriptor. Upstream builds a throwaway default instead, and it
+   * is a *copy*, not the board's own: mutating the result changes nothing.
+   */
+  GetStackupOrDefault(): BOARD_STACKUP {
+    if (this.GetDesignSettings().m_HasStackup)
+      return this.GetDesignSettings().GetStackupDescriptor();
+
+    const stackup = new BOARD_STACKUP();
+    stackup.BuildDefaultStackupList(this.GetDesignSettings(), this.GetCopperLayerCount());
+    return stackup;
+  }
+
   GetCopperLayerCount(): number {
     return this.GetDesignSettings().GetCopperLayerCount();
   }

@@ -186,3 +186,27 @@ describe('BOARD queries', () => {
     expect(inner.GetStart()).toEqual({ x: 1005, y: 2005 });
   });
 });
+
+describe('BOARD::GetStackupOrDefault', () => {
+  it('builds a default stackup when the board has none, and does not adopt it', () => {
+    const b = new BOARD();
+    b.SetCopperLayerCount(2);
+    expect(b.GetDesignSettings().m_HasStackup).toBe(false);
+
+    const stackup = b.GetStackupOrDefault();
+    expect(stackup.GetCount()).toBeGreaterThan(0);
+    // The default is a throwaway: the board still reports no stackup, so a
+    // caller cannot mutate the board by mutating what it was handed.
+    expect(b.GetDesignSettings().m_HasStackup).toBe(false);
+  });
+
+  it('returns the board its own descriptor once it has one', () => {
+    const b = new BOARD();
+    b.SetCopperLayerCount(2);
+    const own = b.GetDesignSettings().GetStackupDescriptor();
+    own.BuildDefaultStackupList(b.GetDesignSettings(), 2);
+    b.GetDesignSettings().m_HasStackup = true;
+
+    expect(b.GetStackupOrDefault()).toBe(own);
+  });
+});
