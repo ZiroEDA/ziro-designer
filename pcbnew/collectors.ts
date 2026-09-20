@@ -13,7 +13,7 @@ import { COLLECTOR } from '@ziroeda/common/src/collector.js';
 import type { EDA_ITEM } from '@ziroeda/common/src/eda_item.js';
 import { INSPECT_RESULT } from '@ziroeda/common/src/eda_item.js';
 import type { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import type { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { BOARD_ITEM } from './board_item.js';
 
 /**
@@ -107,3 +107,119 @@ export class PCB_LAYER_COLLECTOR extends PCB_COLLECTOR {
     aBoard.Visit(this.m_inspector, null, aTypes);
   }
 }
+
+/**
+ * `GENERAL_COLLECTOR`'s scan-type lists (`collectors.cpp:41-150`).
+ *
+ * The collector proper — `Inspect()` and its `COLLECTORS_GUIDE` — is the
+ * selection tool's hit-tester and lands with `PCB_SELECTION_TOOL` (#636
+ * stage 3). These eight lists are data, not behaviour, and `BOARD::Visit()`
+ * needs them now: they say which `KICAD_T`s a given traversal is asking for,
+ * and the order is KiCad's own, so a `Visit` here reaches items in the order
+ * upstream reaches them.
+ */
+export const GENERAL_COLLECTOR = {
+  /** Used to identify:  all items except zones. */
+  AllBoardItems: [
+    KICAD_T.PCB_MARKER_T, // in m_markers
+    KICAD_T.PCB_TEXT_T, // in m_drawings
+    KICAD_T.PCB_REFERENCE_IMAGE_T, // in m_drawings
+    KICAD_T.PCB_TEXTBOX_T, // in m_drawings
+    KICAD_T.PCB_TABLE_T, // in m_drawings
+    KICAD_T.PCB_TABLECELL_T, // in tables
+    KICAD_T.PCB_SHAPE_T, // in m_drawings
+    KICAD_T.PCB_DIM_ALIGNED_T, // in m_drawings
+    KICAD_T.PCB_DIM_CENTER_T, // in m_drawings
+    KICAD_T.PCB_DIM_RADIAL_T, // in m_drawings
+    KICAD_T.PCB_DIM_ORTHOGONAL_T, // in m_drawings
+    KICAD_T.PCB_DIM_LEADER_T, // in m_drawings
+    KICAD_T.PCB_TARGET_T, // in m_drawings
+    KICAD_T.PCB_VIA_T, // in m_tracks
+    KICAD_T.PCB_TRACE_T, // in m_tracks
+    KICAD_T.PCB_ARC_T, // in m_tracks
+    KICAD_T.PCB_PAD_T, // in footprints
+    KICAD_T.PCB_FIELD_T, // in footprints
+    KICAD_T.PCB_FOOTPRINT_T, // in m_footprints
+    KICAD_T.PCB_GROUP_T, // in m_groups
+    KICAD_T.PCB_ZONE_T, // in m_zones
+    KICAD_T.PCB_POINT_T, // in m_points
+    KICAD_T.PCB_GENERATOR_T, // in m_generators
+    KICAD_T.PCB_BARCODE_T, // in m_drawings
+  ] as const satisfies readonly KICAD_T[],
+
+  /** Used to identify board items at the board level, i.e. not inside a footprint. */
+  BoardLevelItems: [
+    KICAD_T.PCB_MARKER_T,
+    KICAD_T.PCB_REFERENCE_IMAGE_T,
+    KICAD_T.PCB_TEXT_T,
+    KICAD_T.PCB_TEXTBOX_T,
+    KICAD_T.PCB_TABLE_T,
+    KICAD_T.PCB_SHAPE_T,
+    KICAD_T.PCB_DIM_ALIGNED_T,
+    KICAD_T.PCB_DIM_ORTHOGONAL_T,
+    KICAD_T.PCB_DIM_CENTER_T,
+    KICAD_T.PCB_DIM_RADIAL_T,
+    KICAD_T.PCB_DIM_LEADER_T,
+    KICAD_T.PCB_TARGET_T,
+    KICAD_T.PCB_POINT_T,
+    KICAD_T.PCB_VIA_T,
+    KICAD_T.PCB_ARC_T,
+    KICAD_T.PCB_TRACE_T,
+    KICAD_T.PCB_FOOTPRINT_T,
+    KICAD_T.PCB_GROUP_T,
+    KICAD_T.PCB_ZONE_T,
+    KICAD_T.PCB_GENERATOR_T,
+    KICAD_T.PCB_BARCODE_T,
+  ] as const satisfies readonly KICAD_T[],
+
+  Footprints: [KICAD_T.PCB_FOOTPRINT_T] as const satisfies readonly KICAD_T[],
+
+  PadsOrTracks: [
+    KICAD_T.PCB_PAD_T,
+    KICAD_T.PCB_VIA_T,
+    KICAD_T.PCB_TRACE_T,
+    KICAD_T.PCB_ARC_T,
+  ] as const satisfies readonly KICAD_T[],
+
+  FootprintItems: [
+    KICAD_T.PCB_MARKER_T,
+    KICAD_T.PCB_FIELD_T,
+    KICAD_T.PCB_TEXT_T,
+    KICAD_T.PCB_TEXTBOX_T,
+    KICAD_T.PCB_TABLE_T,
+    KICAD_T.PCB_TABLECELL_T,
+    KICAD_T.PCB_SHAPE_T,
+    KICAD_T.PCB_DIM_ALIGNED_T,
+    KICAD_T.PCB_DIM_ORTHOGONAL_T,
+    KICAD_T.PCB_DIM_CENTER_T,
+    KICAD_T.PCB_DIM_RADIAL_T,
+    KICAD_T.PCB_DIM_LEADER_T,
+    KICAD_T.PCB_PAD_T,
+    KICAD_T.PCB_ZONE_T,
+    KICAD_T.PCB_GROUP_T,
+    KICAD_T.PCB_POINT_T,
+    KICAD_T.PCB_REFERENCE_IMAGE_T,
+    KICAD_T.PCB_BARCODE_T,
+  ] as const satisfies readonly KICAD_T[],
+
+  Tracks: [
+    KICAD_T.PCB_TRACE_T,
+    KICAD_T.PCB_ARC_T,
+    KICAD_T.PCB_VIA_T,
+  ] as const satisfies readonly KICAD_T[],
+
+  Dimensions: [
+    KICAD_T.PCB_DIM_ALIGNED_T,
+    KICAD_T.PCB_DIM_LEADER_T,
+    KICAD_T.PCB_DIM_ORTHOGONAL_T,
+    KICAD_T.PCB_DIM_CENTER_T,
+    KICAD_T.PCB_DIM_RADIAL_T,
+  ] as const satisfies readonly KICAD_T[],
+
+  DraggableItems: [
+    KICAD_T.PCB_TRACE_T,
+    KICAD_T.PCB_VIA_T,
+    KICAD_T.PCB_FOOTPRINT_T,
+    KICAD_T.PCB_ARC_T,
+  ] as const satisfies readonly KICAD_T[],
+} as const;

@@ -95,7 +95,9 @@ import type { ENDPOINT_T } from './pcb_track_types.js';
 import { type ISOLATED_ISLANDS, ZONE } from './zone.js';
 import { ZONE_BORDER_DISPLAY_STYLE } from './zone_settings.js';
 import type { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
+import { GENERAL_COLLECTOR } from './collectors.js';
 import type { PAD } from './pad.js';
+import { PAD_PROP } from './padstack.js';
 import { MARKER_T } from '@ziroeda/common/src/marker_base.js';
 import { PCB_BOARD_OUTLINE } from './pcb_board_outline.js';
 import type { DRC_RTREE } from './drc/drc_rtree.js';
@@ -112,6 +114,19 @@ export const DEFAULT_CHAINING_EPSILON_MM = 0.01;
 
 /** `LEGACY_BOARD_FILE_VERSION` (cmake/config.h.cmake:76). */
 export const LEGACY_BOARD_FILE_VERSION = 2;
+
+/**
+ * `sortPadsByXthenYCoord` (board.cpp): X first, Y as the tie-break.
+ *
+ * A comparator here returns a number, not a bool, so the `<` becomes the sign
+ * of the difference — same ordering, and no branch on equality needed for Y
+ * because a zero difference already means "keep going".
+ */
+function sortPadsByXthenYCoord(aLH: PAD, aRH: PAD): number {
+  if (aLH.GetPosition().x === aRH.GetPosition().x) return aLH.GetPosition().y - aRH.GetPosition().y;
+
+  return aLH.GetPosition().x - aRH.GetPosition().x;
+}
 
 // `class BOARD : public BOARD_ITEM_CONTAINER, public EMBEDDED_FILES`
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (EMBEDDED_FILES mixin)
@@ -1610,6 +1625,150 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
   }
   Points(): PCB_POINT[] {
     return this.m_points;
+  }
+
+  /** `board.cpp:1234` — no drawings, footprints, tracks, zones or points. */
+  IsEmpty(): boolean {
+    return (
+      this.m_drawings.length === 0 &&
+      this.m_footprints.length === 0 &&
+      this.m_tracks.length === 0 &&
+      this.m_zones.length === 0 &&
+      this.m_points.length === 0
+    );
+  }
+
+  /**
+   * Move every *top-level* item by `aMoveVector`.
+   *
+   * The guard is KiCad's: an item inside a group or a footprint is skipped,
+   * because its parent is in the same traversal and moving both would move the
+   * child twice.
+   */
+  override Move(aMoveVector: VECTOR2I): void {
+    const inspector: INSPECTOR = (item: EDA_ITEM): INSPECT_RESULT => {
+      if (item.IsBOARD_ITEM()) {
+        const boardItem = item as BOARD_ITEM;
+
+        // aMoveVector was snapshotted, don't need "data".
+        // Only move the top level group
+        if (!boardItem.GetParentGroup() && !boardItem.GetParentFootprint())
+          boardItem.Move(aMoveVector);
+      }
+
+      return INSPECT_RESULT.CONTINUE;
+    };
+
+    this.Visit(inspector, null, GENERAL_COLLECTOR.BoardLevelItems);
+  }
+
+  /**
+   * The number of *pads* connected to a net — KiCad's "nodes" in the status
+   * bar. `aNet` of -1 counts every pad on any net at all.
+   */
+  GetNodesCount(aNet = -1): number {
+    let retval = 0;
+
+    for (const footprint of this.Footprints()) {
+      for (const pad of footprint.Pads()) {
+        if ((aNet === -1 && pad.GetNetCode() > 0) || aNet === pad.GetNetCode()) retval++;
+      }
+    }
+
+    return retval;
+  }
+
+  /** Every track, arc and via carrying `aNetCode`. */
+  TracksInNet(aNetCode: number): PCB_TRACK[] {
+    const ret: PCB_TRACK[] = [];
+
+    const inspector: INSPECTOR = (item: EDA_ITEM): INSPECT_RESULT => {
+      const t = item as PCB_TRACK;
+
+      if (t.GetNetCode() === aNetCode) ret.push(t);
+
+      return INSPECT_RESULT.CONTINUE;
+    };
+
+    // visit this BOARD's PCB_TRACKs and PCB_VIAs with above TRACK INSPECTOR which
+    // appends all in aNetCode to ret.
+    this.Visit(inspector, null, GENERAL_COLLECTOR.Tracks);
+
+    return ret;
+  }
+
+  /**
+   * The zones, optionally including those owned by footprints.
+   *
+   * `Zones()` hands back the board's own container; this copies, because the
+   * footprint zones are appended to the result and must not land in it.
+   */
+  GetZoneList(aIncludeZonesInFootprints = false): ZONE[] {
+    const zones: ZONE[] = [];
+
+    for (const zone of this.Zones()) zones.push(zone);
+
+    if (aIncludeZonesInFootprints) {
+      for (const footprint of this.m_footprints) {
+        for (const zone of footprint.Zones()) zones.push(zone);
+      }
+    }
+
+    return zones;
+  }
+
+  /** `GetAreaCount()`: zones are "areas" in the legacy API. */
+  GetAreaCount(): number {
+    return this.m_zones.length;
+  }
+
+  /** `GetArea( index )`: the zone at `index`, or null past the end. */
+  GetArea(index: number): ZONE | null {
+    if (index >= 0 && index < this.m_zones.length) return this.m_zones[index]!;
+
+    return null;
+  }
+
+  /**
+   * Every pad, sorted by X then Y, optionally filtered to one net.
+   *
+   * Appends to `aVector` rather than returning, as upstream does, because the
+   * callers reuse one buffer across nets.
+   */
+  GetSortedPadListByXthenYCoord(aVector: PAD[], aNetCode = -1): void {
+    for (const footprint of this.Footprints()) {
+      for (const pad of footprint.Pads()) {
+        if (aNetCode < 0 || pad.GetNetCode() === aNetCode) aVector.push(pad);
+      }
+    }
+
+    aVector.sort(sortPadsByXthenYCoord);
+  }
+
+  /** The number of PTH with the Castellated fabrication property. */
+  GetPadWithCastellatedAttrCount(): number {
+    let count = 0;
+
+    for (const footprint of this.Footprints()) {
+      for (const pad of footprint.Pads()) {
+        if (pad.GetProperty() === PAD_PROP.CASTELLATED) count++;
+      }
+    }
+
+    return count;
+  }
+
+  /** The number of PTH with the Press-Fit fabrication property. */
+  GetPadWithPressFitAttrCount(): number {
+    let count = 0;
+
+    for (const footprint of this.Footprints()) {
+      for (const pad of footprint.Pads()) {
+        if (pad.GetProperty() === PAD_PROP.PRESSFIT) count++;
+      }
+    }
+
+    return count;
   }
 
   /**
