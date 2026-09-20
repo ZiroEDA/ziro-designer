@@ -346,6 +346,7 @@ import { applyBoardFileSetup, writeBoardFileSetup } from './board_file_settings.
 import { DialogDrc } from './dialogs/dialog_drc.js';
 import { DialogUpdatePcb, type UpdatePcbOptions } from './dialogs/dialog_update_pcb.js';
 import { DialogGlobalEditTeardrops } from './dialogs/dialog_global_edit_teardrops.js';
+import { DialogBoardStatistics } from './dialogs/dialog_board_statistics.js';
 import { DialogFilterSelection } from './dialogs/dialog_filter_selection.js';
 import { DialogMoveExact, type MoveExactValues } from './dialogs/dialog_move_exact.js';
 import { DialogLineModification } from './dialogs/dialog_line_modification.js';
@@ -564,6 +565,7 @@ import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
+import { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
 import { addQuitOrClose } from '../../ui/action_menu.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
 import { isTypingTarget, wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
@@ -1525,6 +1527,29 @@ export function PcbEditor({
   /** DIALOG_PASTE_SPECIAL, opened only by `ACTIONS::pasteSpecial`. */
   const [pasteSpecialOpen, setPasteSpecialOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
+
+  /**
+   * `DIALOG_BOARD_STATISTICS::saveReportClicked`: the report is a generated
+   * output, so it takes the same route as a plot - the file manager when the
+   * host offers one, a download when it does not.
+   */
+  const saveReportFile = useCallback(
+    (text: string, name: string) => {
+      if (onOutputFile) {
+        onOutputFile(name, new TextEncoder().encode(text), 'text/plain');
+        return;
+      }
+
+      const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+    [onOutputFile],
+  );
   const [moveExactOpen, setMoveExactOpen] = useState(false);
   const [posRelOpen, setPosRelOpen] = useState(false);
   // Fillet / chamfer prompts. Upstream keeps the last value in a
@@ -10464,6 +10489,9 @@ export function PcbEditor({
       case 'filterSelection':
         setFilterOpen(true);
         break;
+      case 'boardStatistics':
+        setStatsOpen(true);
+        break;
       case 'zoomInCenter':
         zoomStep(1.3);
         break;
@@ -11882,6 +11910,16 @@ export function PcbEditor({
           }}
           onApply={applyPositionRelative}
           onClose={() => setPosRelOpen(false)}
+        />
+      )}
+      {statsOpen && frameRef.current?.GetBoard() && (
+        <DialogBoardStatistics
+          board={frameRef.current.GetBoard()!}
+          unitsProvider={new UNITS_PROVIDER(pcbIUScale, unitsRef.current)}
+          projectName={projectName ?? ''}
+          boardName={fileName}
+          onGenerateReport={saveReportFile}
+          onClose={() => setStatsOpen(false)}
         />
       )}
       {filterOpen && board && (
