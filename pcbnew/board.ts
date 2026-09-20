@@ -92,8 +92,8 @@ import type { PCB_TEXT } from './pcb_text.js';
 import type { PCB_TEXTBOX } from './pcb_textbox.js';
 import { EDA_SHAPE } from '@ziroeda/common/src/eda_shape.js';
 import { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
-import type { PCB_TRACK } from './pcb_track.js';
-import type { ENDPOINT_T } from './pcb_track_types.js';
+import type { PCB_TRACK, PCB_VIA } from './pcb_track.js';
+import { type ENDPOINT_T, VIATYPE } from './pcb_track_types.js';
 import { type ISOLATED_ISLANDS, ZONE } from './zone.js';
 import { ZONE_BORDER_DISPLAY_STYLE } from './zone_settings.js';
 import type { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
@@ -104,7 +104,10 @@ import {
   UNDO_REDO,
 } from '@ziroeda/common/src/undo_redo_container.js';
 import type { BOARD_COMMIT } from './board_commit.js';
-import { GENERAL_COLLECTOR } from './collectors.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/src/eda_item.js';
+import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/src/widgets/msgpanel.js';
+import { GENERAL_COLLECTOR, PCB_LAYER_COLLECTOR } from './collectors.js';
 import type { PAD } from './pad.js';
 import { PAD_PROP } from './padstack.js';
 import { MARKER_T } from '@ziroeda/common/src/marker_base.js';
@@ -2197,7 +2200,8 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
     // convert copper zones
     for (const zone of this.Zones()) {
-      if (zone.GetLayerSet().test(aLayer)) zone.TransformSolidAreasShapesToPolygon(aLayer, aOutlines);
+      if (zone.GetLayerSet().test(aLayer))
+        zone.TransformSolidAreasShapesToPolygon(aLayer, aOutlines);
     }
 
     // convert graphic items on copper layers (texts)
@@ -2248,6 +2252,162 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
           break;
       }
     }
+  }
+
+  /**
+   * `HasItemsOnLayer`: is anything the user placed on this layer?
+   *
+   * Asked before a layer is removed in Board Setup. Footprints and their
+   * children are skipped — they are not removed with a layer — and a through
+   * via is skipped because it is on every copper layer and none in
+   * particular; only a blind/buried via whose top or bottom IS this layer
+   * counts.
+   */
+  HasItemsOnLayer(aLayer: PCB_LAYER_ID): boolean {
+    const collector = new PCB_LAYER_COLLECTOR(aLayer);
+
+    collector.Collect(this, GENERAL_COLLECTOR.BoardLevelItems);
+
+    if (collector.GetCount() !== 0) {
+      // Skip items owned by footprints and footprints when building
+      // the actual list of removed layers: these items are not removed
+      for (let i = 0; i < collector.GetCount(); i++) {
+        const item = collector.at(i)!;
+
+        if (item.Type() === KICAD_T.PCB_FOOTPRINT_T || item.GetParentFootprint()) continue;
+
+        // Vias are on multiple adjacent layers, but only the top and
+        // the bottom layers are stored. So there are issues only if one
+        // is on a removed layer
+        if (item.Type() === KICAD_T.PCB_VIA_T) {
+          const via = item as PCB_VIA;
+
+          if (via.GetViaType() === VIATYPE.THROUGH) continue;
+
+          const [top_layer, bottom_layer] = via.LayerPair();
+
+          if (top_layer !== aLayer && bottom_layer !== aLayer) continue;
+        }
+
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * `RemoveAllItemsOnLayer`: take a layer away from everything on it.
+   *
+   * An item on several layers keeps the others; one on this layer alone is
+   * removed. A through via is left as it is — it has no layer set to edit —
+   * and a blind/buried via whose top or bottom is this layer is removed
+   * rather than re-spanned, because guessing the new span is worse than
+   * asking. Connectivity is rebuilt only when something actually changed.
+   *
+   * @returns whether any item was removed (not merely re-layered).
+   */
+  RemoveAllItemsOnLayer(aLayer: PCB_LAYER_ID): boolean {
+    let modified = false;
+    let removedItemLayers = false;
+    const collector = new PCB_LAYER_COLLECTOR(aLayer);
+
+    collector.Collect(this, GENERAL_COLLECTOR.BoardLevelItems);
+
+    for (let i = 0; i < collector.GetCount(); i++) {
+      const item = collector.at(i)!;
+
+      // Do not remove/change an item owned by a footprint
+      if (item.GetParentFootprint()) continue;
+
+      // Do not remove footprints
+      if (item.Type() === KICAD_T.PCB_FOOTPRINT_T) continue;
+
+      // Note: vias are specific. They are only on copper layers,  and
+      // do not use a layer set, only store the copper top and the copper bottom.
+      // So reinit the layer set does not work with vias
+      if (item.Type() === KICAD_T.PCB_VIA_T) {
+        const via = item as PCB_VIA;
+
+        if (via.GetViaType() === VIATYPE.THROUGH) {
+          removedItemLayers = true;
+          continue;
+        }
+
+        if (via.IsOnLayer(aLayer)) {
+          const [top_layer, bottom_layer] = via.LayerPair();
+
+          if (top_layer === aLayer || bottom_layer === aLayer) {
+            // blind/buried vias with a top or bottom layer on a removed layer
+            // are removed. Perhaps one could just modify the top/bottom layer,
+            // but I am not sure this is better.
+            this.Remove(item);
+            modified = true;
+          }
+
+          removedItemLayers = true;
+        }
+      } else if (item.IsOnLayer(aLayer)) {
+        const layers = item.GetLayerSet();
+
+        layers.reset(aLayer);
+
+        if (layers.any()) {
+          item.SetLayerSet(layers);
+        } else {
+          this.Remove(item);
+          modified = true;
+        }
+
+        removedItemLayers = true;
+      }
+    }
+
+    if (removedItemLayers) this.BuildConnectivity();
+
+    return modified;
+  }
+
+  /**
+   * `GetMsgPanelInfo`: the five counts in the message panel when nothing is
+   * selected — pads, vias, track segments, nets, unrouted.
+   *
+   * "Nets" is the count of nets that something is actually ON, not the count
+   * in the net list: a net declared by the schematic but with no pad or track
+   * yet does not appear. The unrouted count comes from the connectivity and
+   * counts only visible items.
+   */
+  override GetMsgPanelInfo(_aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
+    let padCount = 0;
+    let viaCount = 0;
+    let trackSegmentCount = 0;
+    const netCodes = new Set<number>();
+    const unconnected = this.GetConnectivity().GetUnconnectedCount(true);
+
+    for (const item of this.m_tracks) {
+      if (item.Type() === KICAD_T.PCB_VIA_T) viaCount++;
+      else trackSegmentCount++;
+
+      if (item.GetNetCode() > 0) netCodes.add(item.GetNetCode());
+    }
+
+    for (const footprint of this.Footprints()) {
+      for (const pad of footprint.Pads()) {
+        padCount++;
+
+        if (pad.GetNetCode() > 0) netCodes.add(pad.GetNetCode());
+      }
+    }
+
+    aList.push(new MSG_PANEL_ITEM('Pads', `${padCount}`));
+    aList.push(new MSG_PANEL_ITEM('Vias', `${viaCount}`));
+    aList.push(new MSG_PANEL_ITEM('Track Segments', `${trackSegmentCount}`));
+    aList.push(new MSG_PANEL_ITEM('Nets', `${netCodes.size}`));
+    aList.push(new MSG_PANEL_ITEM('Unrouted', `${unconnected}`));
+  }
+
+  override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, _aFull: boolean): string {
+    return 'PCB';
   }
 
   /** `board.cpp:1234` — no drawings, footprints, tracks, zones or points. */

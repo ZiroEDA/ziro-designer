@@ -16,6 +16,8 @@ import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
 import { PAD } from '@ziroeda/pcbnew/pad.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
+import { VIATYPE } from '@ziroeda/pcbnew/pcb_track_types.js';
+import type { MSG_PANEL_ITEM } from '@ziroeda/common/src/widgets/msgpanel.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 import { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
 import { NETINFO_ITEM } from '@ziroeda/pcbnew/netinfo.js';
@@ -486,9 +488,7 @@ describe('BOARD zones and cross-references', () => {
     fp.SetReference('U7');
     b.Add(fp, ADD_MODE.APPEND);
 
-    expect(b.ConvertKIIDsToCrossReferences(`see \${${fp.m_Uuid}:VALUE}`)).toBe(
-      'see ${U7:VALUE}',
-    );
+    expect(b.ConvertKIIDsToCrossReferences(`see \${${fp.m_Uuid}:VALUE}`)).toBe('see ${U7:VALUE}');
   });
 
   it('ConvertKIIDsToCrossReferences leaves a plain variable and an escaped one alone', () => {
@@ -508,5 +508,131 @@ describe('BOARD zones and cross-references', () => {
     expect(vars.filter((v) => v === 'LAYER')).toHaveLength(1);
     expect(vars).toContain('PROJECTNAME');
     expect(vars).toContain('DRC_ERROR <message_text>');
+  });
+});
+
+describe('BOARD layer removal', () => {
+  // A ZONE is the board-level item that genuinely spans layers; a PCB_SHAPE is
+  // single-layer and SetLayerSet with two would fail upstream as well.
+  const twoLayerItem = (b: BOARD): ZONE => {
+    const z = new ZONE(b);
+    z.SetLayerSet(new LSET().set(PCB_LAYER_ID.F_Cu).set(PCB_LAYER_ID.B_Cu));
+    b.Add(z, ADD_MODE.APPEND);
+    return z;
+  };
+
+  it('HasItemsOnLayer ignores footprints and their children', () => {
+    // A PCB_SHAPE inside the footprint, not a PAD: BoardLevelItems has no
+    // PCB_PAD_T, so a pad is never reached and the guard would go untested.
+    // Visit does descend into footprints for PCB_SHAPE_T, so this one IS
+    // reached, and only the GetParentFootprint check keeps it out.
+    const b = new BOARD();
+    const fp = new FOOTPRINT(b);
+    const inner = new PCB_SHAPE(fp, SHAPE_T.SEGMENT);
+    inner.SetLayer(PCB_LAYER_ID.F_Cu);
+    fp.Add(inner, ADD_MODE.APPEND);
+    b.Add(fp, ADD_MODE.APPEND);
+
+    // On F.Cu, but owned by a footprint and not removed with a layer, so the
+    // layer reads as empty.
+    expect(b.HasItemsOnLayer(PCB_LAYER_ID.F_Cu)).toBe(false);
+
+    const t = new PCB_TRACK(b);
+    t.SetLayer(PCB_LAYER_ID.F_Cu);
+    b.Add(t, ADD_MODE.APPEND);
+    expect(b.HasItemsOnLayer(PCB_LAYER_ID.F_Cu)).toBe(true);
+  });
+
+  it('HasItemsOnLayer: a through via is on no layer in particular', () => {
+    const b = new BOARD();
+    b.SetCopperLayerCount(4);
+    const v = new PCB_VIA(b);
+    v.SetViaType(VIATYPE.THROUGH);
+    b.Add(v, ADD_MODE.APPEND);
+
+    // Ask about F.Cu -- the through via's LayerPair top. Only the THROUGH guard
+    // keeps it out; for an inner layer the pair test would reject it anyway
+    // and the guard would be untested.
+    expect(b.HasItemsOnLayer(PCB_LAYER_ID.F_Cu)).toBe(false);
+    expect(b.HasItemsOnLayer(PCB_LAYER_ID.In1_Cu)).toBe(false);
+
+    // A blind via whose bottom IS the layer counts.
+    const blind = new PCB_VIA(b);
+    blind.SetViaType(VIATYPE.BLIND);
+    blind.SetLayerPair(PCB_LAYER_ID.F_Cu, PCB_LAYER_ID.In1_Cu);
+    b.Add(blind, ADD_MODE.APPEND);
+    expect(b.HasItemsOnLayer(PCB_LAYER_ID.In1_Cu)).toBe(true);
+  });
+
+  it('RemoveAllItemsOnLayer strips the layer from a multi-layer item and keeps it', () => {
+    const b = new BOARD();
+    const s = twoLayerItem(b);
+
+    expect(b.RemoveAllItemsOnLayer(PCB_LAYER_ID.F_Cu)).toBe(false); // nothing removed
+    expect(b.Zones()).toContain(s);
+    expect(s.GetLayerSet().test(PCB_LAYER_ID.F_Cu)).toBe(false);
+    expect(s.GetLayerSet().test(PCB_LAYER_ID.B_Cu)).toBe(true);
+  });
+
+  it('RemoveAllItemsOnLayer removes an item that was on that layer alone', () => {
+    const b = new BOARD();
+    const t = new PCB_TRACK(b);
+    t.SetLayer(PCB_LAYER_ID.F_Cu);
+    b.Add(t, ADD_MODE.APPEND);
+
+    expect(b.RemoveAllItemsOnLayer(PCB_LAYER_ID.F_Cu)).toBe(true);
+    expect(b.Tracks()).toHaveLength(0);
+  });
+
+  it('RemoveAllItemsOnLayer leaves a through via alone, removes a blind one ending there', () => {
+    const b = new BOARD();
+    b.SetCopperLayerCount(4);
+    const thru = new PCB_VIA(b);
+    thru.SetViaType(VIATYPE.THROUGH);
+    b.Add(thru, ADD_MODE.APPEND);
+    const blind = new PCB_VIA(b);
+    blind.SetViaType(VIATYPE.BLIND);
+    blind.SetLayerPair(PCB_LAYER_ID.F_Cu, PCB_LAYER_ID.In1_Cu);
+    b.Add(blind, ADD_MODE.APPEND);
+
+    expect(b.RemoveAllItemsOnLayer(PCB_LAYER_ID.In1_Cu)).toBe(true);
+    expect(b.Tracks()).toEqual([thru]);
+
+    // And removing the through via's own top layer still leaves it: it has no
+    // layer set to edit, so it is skipped outright rather than re-spanned.
+    expect(b.RemoveAllItemsOnLayer(PCB_LAYER_ID.F_Cu)).toBe(false);
+    expect(b.Tracks()).toEqual([thru]);
+  });
+});
+
+describe('BOARD message panel', () => {
+  it('counts pads, vias, segments and the nets something is ON', () => {
+    const b = new BOARD();
+    b.Add(new NETINFO_ITEM(b, 'GND', 1));
+    b.Add(new NETINFO_ITEM(b, 'UNUSED', 2)); // declared, nothing on it
+    const fp = new FOOTPRINT(b);
+    const pad = new PAD(fp);
+    pad.SetNetCode(1);
+    fp.Add(pad, ADD_MODE.APPEND);
+    b.Add(fp, ADD_MODE.APPEND);
+    const t = new PCB_TRACK(b);
+    t.SetNetCode(1);
+    b.Add(t, ADD_MODE.APPEND);
+    b.Add(new PCB_VIA(b), ADD_MODE.APPEND);
+    b.BuildConnectivity();
+
+    const list: MSG_PANEL_ITEM[] = [];
+    b.GetMsgPanelInfo(null as never, list);
+    const byName = Object.fromEntries(list.map((i) => [i.GetUpperText(), i.GetLowerText()]));
+
+    expect(byName.Pads).toBe('1');
+    expect(byName.Vias).toBe('1');
+    expect(byName['Track Segments']).toBe('1');
+    // UNUSED is in the net list but on nothing, so it is not counted.
+    expect(byName.Nets).toBe('1');
+  });
+
+  it('describes itself as PCB', () => {
+    expect(new BOARD().GetItemDescription(null, true)).toBe('PCB');
   });
 });
