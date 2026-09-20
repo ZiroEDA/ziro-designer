@@ -80,8 +80,11 @@ describe('PROJECT_FILE on a KiCad-written project', () => {
   it('bus aliases: members trimmed, empties dropped, the first of a name wins', () => {
     const f = new PROJECT_FILE('p');
     f.LoadFromJson({
-      schematic: { bus_aliases: { ' A ': [' x ', '', 'y'], B: 'not-a-list', '': ['z'] } },
+      schematic: {
+        bus_aliases: { ' A ': [' x ', '', 'y'], A: ['later'], B: 'not-a-list', '': ['z'] },
+      },
     });
+    // std::map::emplace: `' A '` trims to `A` first, so `A: ['later']` loses.
     expect([...f.m_BusAliases]).toEqual([['A', ['x', 'y']]]);
     expect((f.SaveToJson().schematic as JsonObject).bus_aliases).toEqual({ A: ['x', 'y'] });
   });
