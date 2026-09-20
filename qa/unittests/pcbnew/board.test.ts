@@ -143,13 +143,18 @@ describe('BOARD queries', () => {
       fp.Add(p);
       return p;
     };
-    const far = at(200, 0);
-    const lowY = at(100, 50);
-    const highY = at(100, 10);
+    // FOOTPRINT::Add unshifts, so Pads() is the reverse of this order. Both
+    // pairs are therefore backwards in the container: one pair needs the X
+    // compare to fix it, the other needs the Y tie-break. A comparator that
+    // gets either wrong leaves that pair as the container had it.
+    const x200 = at(200, 0);
+    const x300 = at(300, 0);
+    const y10 = at(100, 10);
+    const y50 = at(100, 50);
 
     const out: PAD[] = [];
     b.GetSortedPadListByXthenYCoord(out);
-    expect(out).toEqual([highY, lowY, far]);
+    expect(out).toEqual([y10, y50, x200, x300]);
   });
 
   it('Move shifts a board-level item but not one owned by a footprint', () => {
@@ -162,15 +167,22 @@ describe('BOARD queries', () => {
     const fp = new FOOTPRINT(b);
     fp.SetPosition({ x: 0, y: 0 });
     b.Add(fp);
-    const pad = new PAD(fp);
-    pad.SetPosition({ x: 5, y: 5 });
-    fp.Add(pad);
+
+    // A PCB_SHAPE, not a PAD: BoardLevelItems has no PCB_PAD_T, so Move never
+    // reaches a pad and the guard would be untested. It does list PCB_SHAPE_T,
+    // and BOARD::Visit descends into footprints for that type -- so this shape
+    // is reached twice over, once as the footprint's child and once as the
+    // footprint itself, which is exactly what the guard is there to stop.
+    const inner = new PCB_SHAPE(fp, SHAPE_T.SEGMENT);
+    inner.SetStart({ x: 5, y: 5 });
+    inner.SetEnd({ x: 6, y: 6 });
+    fp.Add(inner);
 
     b.Move({ x: 1000, y: 2000 });
 
     expect(track.GetStart()).toEqual({ x: 1000, y: 2000 });
     expect(fp.GetPosition()).toEqual({ x: 1000, y: 2000 });
-    // The pad moved because its FOOTPRINT moved, once -- not again on its own.
-    expect(pad.GetPosition()).toEqual({ x: 1005, y: 2005 });
+    // Displaced once, by its parent -- not a second time on its own account.
+    expect(inner.GetStart()).toEqual({ x: 1005, y: 2005 });
   });
 });

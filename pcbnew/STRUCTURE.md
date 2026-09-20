@@ -36,6 +36,7 @@ you find one; keep the reason to a line.
 | `autorouter/ar_autoplacer.ts` | omits `buildFpAreas`, `addFpBody`, `addPad`, `m_topFreeArea`, `m_bottomFreeArea`. That whole subtree feeds only `drawPlacementRoutingMatrix()`, a translucent debug overlay — **no placement decision reads it.** Deliberate. |
 | `board_connected_item.ts` 561 | `board_connected_item.h` 249 + `.cpp` 359 | 39/41. Absent: `PackNet`/`UnpackNet`, which take `kiapi::board::types::Net` — the `api/` protobuf. **Complete.** |
 | `board_item_container.ts` 51 | `board_item_container.h` 83 | 3/3. **Complete.** |
+| the BOARD_ITEM hierarchy | `footprint` 224/229 · `pad` 287/291 · `pcb_track` 203/207 · `zone` 155/160 · `pcb_shape` 52/56 · `pcb_text` 36/41 · `pcb_group` 33/37 · `padstack` 76/78 · `netinfo` 34/35 | **effectively complete.** Every absence is `Serialize`/`Deserialize` (the `api/` protobuf), `Show`/`ShowDummy` (debug dumps), `ZONE::SetFillPoly` (inside `#if defined(DEBUG)`) or `PCB_TEXT::ShowSyntaxHelp` (a wx `HTML_MESSAGE_BOX`). `FOOTPRINT::FootprintNeedsUpdate` is ours as `footprint_needs_update.ts` — a structural split, not a gap. |
 | `board.ts` 2913 | `board.h` 1603 + `.cpp` 3853 | **161/210 — the first real gap.** 49 absent, mostly: assembly variants (#136, deferred), the legacy `AddArea`/`GetArea`/`GetAreaCount` zone API, `SetProject`/`ClearProject`, visibility (`Get`/`SetVisibleElements`), `GetMsgPanelInfo`, and basics — `Move`, `GetCenter`, `IsEmpty`, `GetFootprint`, `TracksInNet`, `RemoveAll`. |
 | `autorouter/ar_matrix.ts` | `AddCell`/`AndCell`/`OrCell`/`XorCell`/`SetCellOperation` are folded into `opCell`/`writeCell`. Same behaviour. |
 
@@ -64,6 +65,14 @@ one that wires the rest up. Check who calls a file before calling it covered.
 | missing | consequence |
 |---|---|
 | `autorouter/autoplace_tool.cpp` | `AUTOPLACE_TOOL::setTransitions()` is what binds `autoplaceSelectedComponents` / `autoplaceOffboardComponents` to handlers. Without it `autoplaceFootprints()` is called by nothing but its own test, both `TOOL_ACTION`s are bound to nothing, and the whole autoplacer — `ar_matrix` + `ar_autoplacer`, 1 885 lines — is unreachable. Lands with stage 3 of #636 (`PCB_TOOL_BASE` already exists). |
+
+## Root files, alphabetically
+
+Walking `pcbnew/*` one letter at a time. Only gaps are noted.
+
+| | |
+|---|---|
+| `a` | KiCad 2, ours 2. `action_plugin.cpp` **n/a** — Python action-plugin registry. `array_pad_number_provider.cpp` **ported** (f934e550). |
 
 ## Files in the wrong place
 
