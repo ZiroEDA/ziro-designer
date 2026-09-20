@@ -38,7 +38,7 @@ import { type EdaUnits, pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import { type KIID, niluuid } from '@ziroeda/common/src/kiid.js';
 import {
   FlipLayer as flipLayerId,
-  type GAL_LAYER_ID,
+  GAL_LAYER_ID,
   GAL_SET,
   IsBackLayer as isBackLayerId,
   IsCopperLayer,
@@ -77,7 +77,7 @@ import {
   type LENGTH_DELAY_CALCULATION_ITEM,
   LENGTH_DELAY_CALCULATION_ITEM_TYPE,
 } from './length_delay_calculation/length_delay_calculation_item.js';
-import { type NETINFO_ITEM, NETINFO_LIST, UNCONNECTED_NET } from './netinfo.js';
+import { NETINFO_ITEM, NETINFO_LIST, UNCONNECTED_NET } from './netinfo.js';
 import type { FOOTPRINT } from './footprint.js';
 import type { PCB_GENERATOR } from './pcb_generator.js';
 import type { PCB_GROUP } from './pcb_group.js';
@@ -1626,6 +1626,174 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
   }
   Points(): PCB_POINT[] {
     return this.m_points;
+  }
+
+  /**
+   * `SetDesignSettings`: assigns *into* the existing object rather than
+   * replacing the pointer, so everything already holding a reference — the
+   * zone filler, the DRC engine — sees the new values.
+   */
+  SetDesignSettings(aSettings: BOARD_DESIGN_SETTINGS): void {
+    Object.assign(this.m_designSettings, aSettings);
+  }
+
+  /** `GetCenter()`/`GetFocusPosition()`: the bounding box's middle. */
+  override GetCenter(): VECTOR2I {
+    return this.GetBoundingBox().GetCenter();
+  }
+
+  /** @copydoc EDA_ITEM::GetFocusPosition */
+  override GetFocusPosition(): VECTOR2I {
+    return this.GetCenter();
+  }
+
+  /**
+   * The footprint whose bounding-box centre is nearest `aPosition`.
+   *
+   * Two candidates are kept, not one: the best on the *active* side and the
+   * best on the other. A footprint on the side you are working on wins even
+   * when one on the far side is nearer, and the far-side one is only
+   * considered at all when `aVisibleOnly` is set — which reads backwards until
+   * you notice the alternate is a fallback, not a competitor.
+   */
+  GetFootprint(
+    aPosition: VECTOR2I,
+    aActiveLayer: PCB_LAYER_ID,
+    aVisibleOnly: boolean,
+    aIgnoreLocked = false,
+  ): FOOTPRINT | null {
+    let footprint: FOOTPRINT | null = null;
+    let alt_footprint: FOOTPRINT | null = null;
+    let min_dim = 0x7fffffff;
+    let alt_min_dim = 0x7fffffff;
+    const current_layer_back = isBackLayerId(aActiveLayer);
+
+    for (const candidate of this.m_footprints) {
+      // is the ref point within the footprint's bounds?
+      if (!candidate.HitTest(aPosition)) continue;
+
+      // if caller wants to ignore locked footprints, and this one is locked, skip it.
+      if (aIgnoreLocked && candidate.IsLocked()) continue;
+
+      const layer = candidate.GetLayer();
+
+      // Filter non visible footprints if requested
+      if (!aVisibleOnly || this.IsFootprintLayerVisible(layer)) {
+        const bb = candidate.GetBoundingBox(false);
+
+        // off x & offy point to the middle of the box.
+        const offx = bb.GetX() + Math.trunc(bb.GetWidth() / 2);
+        const offy = bb.GetY() + Math.trunc(bb.GetHeight() / 2);
+
+        // `int dist = dx*dx + dy*dy` — and it is a 32-bit int upstream, which
+        // at nanometre IU overflows for anything further than ~0.046 mm from
+        // the point. C++ wraps; JavaScript would not, and an unwrapped square
+        // is larger than the 0x7FFFFFFF sentinel, so every candidate would
+        // lose and the function would always return null. Math.imul and `| 0`
+        // reproduce the wrap exactly.
+        const dx = aPosition.x - offx;
+        const dy = aPosition.y - offy;
+        const dist = (Math.imul(dx, dx) + Math.imul(dy, dy)) | 0;
+
+        if (current_layer_back === isBackLayerId(layer)) {
+          if (dist <= min_dim) {
+            // better footprint shown on the active side
+            footprint = candidate;
+            min_dim = dist;
+          }
+        } else if (aVisibleOnly && this.IsFootprintLayerVisible(layer)) {
+          if (dist <= alt_min_dim) {
+            // better footprint shown on the other side
+            alt_footprint = candidate;
+            alt_min_dim = dist;
+          }
+        }
+      }
+    }
+
+    if (footprint) return footprint;
+
+    return alt_footprint;
+  }
+
+  /**
+   * `IsFootprintLayerVisible`: the two *footprint* visibility flags, which are
+   * not the copper layers' own. A footprint on F.Cu can be hidden while F.Cu
+   * is shown.
+   */
+  IsFootprintLayerVisible(aLayer: PCB_LAYER_ID): boolean {
+    switch (aLayer) {
+      case PCB_LAYER_ID.F_Cu:
+        return this.IsElementVisible(GAL_LAYER_ID.LAYER_FOOTPRINTS_FR);
+      case PCB_LAYER_ID.B_Cu:
+        return this.IsElementVisible(GAL_LAYER_ID.LAYER_FOOTPRINTS_BK);
+      default:
+        // `wxFAIL_MSG( "BOARD::IsModuleLayerVisible(): bad layer" ); return true;`
+        return true;
+    }
+  }
+
+  /**
+   * `GetVisibleElements()`: the project's set, or the built-in default.
+   *
+   * `return m_project ? m_project->GetLocalSettings().m_VisibleItems
+   *                   : GAL_SET::DefaultVisible();` — PROJECT is not ported,
+   * so this is always the second branch, as elsewhere in this file.
+   */
+  GetVisibleElements(): GAL_SET {
+    return GAL_SET.DefaultVisible();
+  }
+
+  /**
+   * `SetVisibleElements( aSet )`.
+   *
+   * Goes through `SetElementVisibility` per element rather than assigning the
+   * set, because some elements do more than flip a flag.
+   */
+  SetVisibleElements(aSet: GAL_SET): void {
+    for (let i = 0; i < aSet.size(); i++)
+      this.SetElementVisibility(GAL_LAYER_ID.GAL_LAYER_ID_START + i, aSet.at(i));
+  }
+
+  /** `SetVisibleAlls()`: every layer and every element on. */
+  SetVisibleAlls(): void {
+    this.SetVisibleLayers(new LSET().set());
+
+    // Call SetElementVisibility for each item, to ensure specific calculations
+    // that can be needed by some items
+    for (let ii = GAL_LAYER_ID.GAL_LAYER_ID_START; ii < GAL_LAYER_ID.GAL_LAYER_ID_BITMASK_END; ++ii)
+      this.SetElementVisibility(ii, true);
+  }
+
+  /**
+   * `MapNets( aDestBoard )`: re-point every connected item at the destination
+   * board's net of the same NAME, creating one there when it has none.
+   *
+   * Net *codes* are not carried over — two boards number their nets
+   * independently, so the name is the only stable identity.
+   */
+  MapNets(aDestBoard: BOARD): void {
+    for (const item of this.AllConnectedItems()) {
+      const netInfo = aDestBoard.FindNet(item.GetNetname());
+
+      if (netInfo) item.SetNet(netInfo);
+      else {
+        const newNet = new NETINFO_ITEM(aDestBoard, item.GetNetname());
+        aDestBoard.Add(newNet);
+        item.SetNet(newNet);
+      }
+    }
+  }
+
+  /** `GetNetClassAssignmentCandidates()`: every non-empty net name. */
+  GetNetClassAssignmentCandidates(): Set<string> {
+    const names = new Set<string>();
+
+    for (const net of this.m_NetInfo) {
+      if (net.GetNetname() !== '') names.add(net.GetNetname());
+    }
+
+    return names;
   }
 
   /** `board.cpp:1234` — no drawings, footprints, tracks, zones or points. */

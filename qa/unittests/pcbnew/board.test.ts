@@ -9,10 +9,14 @@
 import { describe, expect, it } from 'vitest';
 import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { ADD_MODE } from '@ziroeda/pcbnew/board_item_container.js';
+import { GAL_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { LSET } from '@ziroeda/common/src/lset.js';
+import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
+import { PAD } from '@ziroeda/pcbnew/pad.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 import { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
 import { NETINFO_ITEM } from '@ziroeda/pcbnew/netinfo.js';
-import { PAD } from '@ziroeda/pcbnew/pad.js';
 import { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
 import { PCB_TRACK, PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
 import { ZONE } from '@ziroeda/pcbnew/zone.js';
@@ -208,5 +212,131 @@ describe('BOARD::GetStackupOrDefault', () => {
     b.GetDesignSettings().m_HasStackup = true;
 
     expect(b.GetStackupOrDefault()).toBe(own);
+  });
+});
+
+describe('BOARD lookups and visibility', () => {
+  it('GetCenter is the bounding box middle, and GetFocusPosition follows it', () => {
+    const b = new BOARD();
+    const t = new PCB_TRACK(b);
+    t.SetStart({ x: 0, y: 0 });
+    t.SetEnd({ x: 1000, y: 500 });
+    t.SetWidth(0);
+    b.Add(t);
+
+    expect(b.GetCenter()).toEqual(b.GetBoundingBox().GetCenter());
+    expect(b.GetFocusPosition()).toEqual(b.GetCenter());
+  });
+
+  it('GetFootprint prefers the active side even when the far side is nearer', () => {
+    // Two candidates are kept: the best on the active side and the best on the
+    // other. The active-side one wins outright — the alternate is a fallback,
+    // not a competitor.
+    const b = new BOARD();
+
+    const front = new FOOTPRINT(b);
+    front.SetPosition({ x: 0, y: 0 });
+    const fpad = new PAD(front);
+    fpad.SetSize(undefined as unknown as PCB_LAYER_ID, { x: 2_000_000, y: 2_000_000 });
+    fpad.SetLayerSet(new LSET().set(PCB_LAYER_ID.F_Cu));
+    front.Add(fpad, ADD_MODE.APPEND);
+    b.Add(front, ADD_MODE.APPEND);
+
+    // Nearer the probe point, but on the back.
+    const back = new FOOTPRINT(b);
+    back.SetPosition({ x: 100_000, y: 0 });
+    const bpad = new PAD(back);
+    bpad.SetSize(undefined as unknown as PCB_LAYER_ID, { x: 2_000_000, y: 2_000_000 });
+    bpad.SetLayerSet(new LSET().set(PCB_LAYER_ID.B_Cu));
+    back.Add(bpad, ADD_MODE.APPEND);
+    back.Flip({ x: 100_000, y: 0 }, FLIP_DIRECTION.TOP_BOTTOM);
+    b.Add(back, ADD_MODE.APPEND);
+
+    expect(b.GetFootprint({ x: 100_000, y: 0 }, PCB_LAYER_ID.F_Cu, false)).toBe(front);
+    // Ask from the back and the back one wins.
+    expect(b.GetFootprint({ x: 100_000, y: 0 }, PCB_LAYER_ID.B_Cu, false)).toBe(back);
+  });
+
+  it('GetFootprint skips a locked footprint only when asked', () => {
+    const b = new BOARD();
+    const fp = new FOOTPRINT(b);
+    fp.SetPosition({ x: 0, y: 0 });
+    const pad = new PAD(fp);
+    pad.SetSize(undefined as unknown as PCB_LAYER_ID, { x: 2_000_000, y: 2_000_000 });
+    pad.SetLayerSet(new LSET().set(PCB_LAYER_ID.F_Cu));
+    fp.Add(pad, ADD_MODE.APPEND);
+    fp.SetLocked(true);
+    b.Add(fp, ADD_MODE.APPEND);
+
+    expect(b.GetFootprint({ x: 0, y: 0 }, PCB_LAYER_ID.F_Cu, false)).toBe(fp);
+    expect(b.GetFootprint({ x: 0, y: 0 }, PCB_LAYER_ID.F_Cu, false, true)).toBeNull();
+  });
+
+  it('IsFootprintLayerVisible asks the two FOOTPRINT flags, not the copper layer', () => {
+    // A footprint on F.Cu can be hidden while F.Cu itself is shown, so the
+    // question is which GAL element is consulted. `IsElementVisible` is a stub
+    // returning true until PROJECT is ported, so the answer is not observable
+    // -- the routing is, and that is what breaks if the cases are swapped.
+    const b = new BOARD();
+    const asked: GAL_LAYER_ID[] = [];
+    b.IsElementVisible = (aLayer: GAL_LAYER_ID): boolean => {
+      asked.push(aLayer);
+      return true;
+    };
+
+    b.IsFootprintLayerVisible(PCB_LAYER_ID.F_Cu);
+    b.IsFootprintLayerVisible(PCB_LAYER_ID.B_Cu);
+
+    expect(asked).toEqual([GAL_LAYER_ID.LAYER_FOOTPRINTS_FR, GAL_LAYER_ID.LAYER_FOOTPRINTS_BK]);
+
+    // A layer that is neither asks nothing and reports visible.
+    expect(b.IsFootprintLayerVisible(PCB_LAYER_ID.Edge_Cuts)).toBe(true);
+    expect(asked).toHaveLength(2);
+  });
+
+  it('GetNetClassAssignmentCandidates drops the unnamed net', () => {
+    const b = new BOARD();
+    b.Add(new NETINFO_ITEM(b, 'GND', 1));
+    b.Add(new NETINFO_ITEM(b, 'VCC', 2));
+
+    // NETINFO_LIST always carries the unconnected net, whose name is empty.
+    expect([...b.GetNetClassAssignmentCandidates()].sort()).toEqual(['GND', 'VCC']);
+  });
+
+  it('MapNets re-points items at the destination net of the same NAME', () => {
+    // Net codes are not carried: two boards number independently, so the name
+    // is the only stable identity.
+    const src = new BOARD();
+    const gndSrc = new NETINFO_ITEM(src, 'GND', 7);
+    src.Add(gndSrc);
+    const t = new PCB_TRACK(src);
+    t.SetNet(gndSrc);
+    src.Add(t);
+
+    const dst = new BOARD();
+    const gndDst = new NETINFO_ITEM(dst, 'GND', 3);
+    dst.Add(gndDst);
+
+    src.MapNets(dst);
+
+    // The identity is what carries, not the number: the destination numbers
+    // its nets independently.
+    expect(t.GetNet()).toBe(gndDst);
+    expect(t.GetNetname()).toBe('GND');
+  });
+
+  it('MapNets creates a net on the destination when it has none of that name', () => {
+    const src = new BOARD();
+    const sig = new NETINFO_ITEM(src, 'SIG', 4);
+    src.Add(sig);
+    const t = new PCB_TRACK(src);
+    t.SetNet(sig);
+    src.Add(t);
+
+    const dst = new BOARD();
+    src.MapNets(dst);
+
+    expect(dst.FindNet('SIG')).not.toBeNull();
+    expect(t.GetNetname()).toBe('SIG');
   });
 });
