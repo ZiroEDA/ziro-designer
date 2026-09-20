@@ -8,30 +8,47 @@ import { SETTINGS_MANAGER } from '@ziroeda/common/src/pgm_base.js';
 import type { JsonObject } from '@ziroeda/common/src/settings/json_settings.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 
-const DEMO = new URL('../../../designer/public/demos/ecc83/', import.meta.url);
+// A project KiCad 10 wrote (schema 2, 66 severities, every defaults.zones key).
+const PRO = '/home/akshay/kicad-reference/qa/data/pcbnew/diff_pair_uncoupled_tuning_drc.kicad_pro';
 
-function ecc83(): JsonObject {
-  return JSON.parse(readFileSync(new URL('ecc83-pp.kicad_pro', DEMO), 'utf8')) as JsonObject;
+function proJson(): JsonObject {
+  return JSON.parse(readFileSync(PRO, 'utf8')) as JsonObject;
 }
 
 describe('BOARD_DESIGN_SETTINGS as a NESTED_SETTINGS', () => {
   it('round-trips the whole board.design_settings block of a KiCad-written project', () => {
-    const src = ecc83();
+    const src = proJson();
     const m = new SETTINGS_MANAGER();
-    m.LoadProject('/p/ecc83-pp.kicad_pro', src);
+    m.LoadProject(PRO, src);
     const b = new BOARD();
     b.SetProject(m.Prj());
 
     // the file's values are the board's
     const bds = b.GetDesignSettings();
-    expect(bds.m_MinClearance).toBe(0);
-    expect(bds.m_TrackWidthList).toEqual([0]);
-    expect(bds.GetDefaultZoneSettings().m_ZoneClearance).toBe(508_000);
-
-    const out = m.SaveProject()!.pro;
-    expect((out.board as JsonObject).design_settings).toEqual(
-      (src.board as JsonObject).design_settings,
+    const rules = (src.board as JsonObject).design_settings as JsonObject;
+    expect(bds.m_MinClearance).toBe(((rules.rules as JsonObject).min_clearance as number) * 1e6);
+    expect(bds.GetDefaultZoneSettings().m_ZoneClearance).toBe(
+      (((rules.defaults as JsonObject).zones as JsonObject).min_clearance as number) * 1e6,
     );
+
+    // Against a fresh read: the store must not have rewritten the tree it was given.
+    const out = m.SaveProject()!.pro;
+    const expected = (proJson().board as JsonObject).design_settings as JsonObject;
+
+    // The fixture was written by a KiCad newer than 10.0.5. Four severity keys
+    // it carries are not in 10.0.5's `DRC_ITEM::allItemTypes` (drc_item.cpp:320):
+    // `net_chain_*` do not exist there, and `via_diameter` / `assertion_failure`
+    // are declared but not listed - so a 10.0.5 save drops them, as ours does.
+    for (const k of [
+      'assertion_failure',
+      'net_chain_return_path',
+      'net_chain_stub_length',
+      'via_diameter',
+    ])
+      delete (expected.rule_severities as JsonObject)[k];
+
+    expect((out.board as JsonObject).design_settings).toEqual(expected);
+    expect(src).toEqual(proJson());
   });
 
   it('a key the file lacks leaves the value the board parser set (m_resetParamsIfMissing off)', () => {

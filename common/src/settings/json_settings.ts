@@ -691,7 +691,10 @@ export class JSON_SETTINGS {
    */
   LoadFromJson(aJson: JsonValue): void {
     this.m_internals =
-      aJson !== null && typeof aJson === 'object' && !Array.isArray(aJson) ? { ...aJson } : {};
+      aJson !== null && typeof aJson === 'object' && !Array.isArray(aJson)
+        ? // `*m_internals = json::parse( ... )`: the document is ours, not the caller's.
+          (structuredClone(aJson) as JsonObject)
+        : {};
 
     // If parse succeeds, check if schema migration is required
     const filever = this.Get<number>('meta.version') ?? -1;
@@ -878,7 +881,8 @@ export class NESTED_SETTINGS extends JSON_SETTINGS {
       const js = this.m_parent.GetJson(this.m_filename);
 
       if (js !== undefined && js !== null && typeof js === 'object' && !Array.isArray(js)) {
-        this.m_internals = { ...js };
+        // `*m_internals = *optval`: a copy, so a store here never rewrites the parent's tree.
+        this.m_internals = structuredClone(js) as JsonObject;
 
         const filever = this.Get<number>('meta.version') ?? -1;
 
@@ -902,7 +906,7 @@ export class NESTED_SETTINGS extends JSON_SETTINGS {
 
     const modified = this.Store();
 
-    this.m_parent.Set<JsonValue>(this.m_filename, this.m_internals);
+    this.m_parent.Set<JsonValue>(this.m_filename, structuredClone(this.m_internals));
     this.m_modified = false;
 
     return modified;
