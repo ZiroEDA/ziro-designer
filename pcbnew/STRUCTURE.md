@@ -36,6 +36,21 @@ you find one; keep the reason to a line.
 | `autorouter/ar_autoplacer.ts` | omits `buildFpAreas`, `addFpBody`, `addPad`, `m_topFreeArea`, `m_bottomFreeArea`. That whole subtree feeds only `drawPlacementRoutingMatrix()`, a translucent debug overlay — **no placement decision reads it.** Deliberate. |
 | `autorouter/ar_matrix.ts` | `AddCell`/`AndCell`/`OrCell`/`XorCell`/`SetCellOperation` are folded into `opCell`/`writeCell`. Same behaviour. |
 
+## Verified 1:1
+
+Compared method-by-method against the C++. Everything not listed is unverified.
+
+**Size is not a signal.** C++ splits a class across `include/<x>.h` and
+`<x>.cpp`; one `.ts` carries both. `board_item.ts` looks 2x `board_item.cpp`
+and is in fact *smaller* than the pair.
+
+| ours | KiCad | result |
+|---|---|---|
+| `board_item.ts` 846 | `include/board_item.h` 523 + `board_item.cpp` 463 | 65/67. Absent: `DECLARE_ENUM_TO_WXANY` (wx macro), `Show()` (empty body). **Complete.** |
+| `autorouter/ar_matrix.ts` | `ar_matrix.cpp` | names covered; `AddCell`/`AndCell`/`OrCell`/`XorCell`/`SetCellOperation` folded into `opCell`/`writeCell`. Behaviour not line-compared. |
+| `autorouter/ar_autoplacer.ts` | `ar_autoplacer.cpp` | see Content divergences |
+| `autorouter/spread_footprints.ts` | `spread_footprints.cpp` | **unverified.** KiCad has 2 functions in 328 lines; ours exports 10, with two entry points where KiCad has one. |
+
 ## Ported but not reachable
 
 KiCad splits a feature across files for a reason; the one we skip is often the
