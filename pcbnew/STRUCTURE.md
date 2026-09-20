@@ -73,7 +73,7 @@ Walking `pcbnew/*` one letter at a time. Only gaps are noted.
 | | |
 |---|---|
 | `a` | KiCad 2, ours 2. `action_plugin.cpp` **n/a** — Python action-plugin registry. `array_pad_number_provider.cpp` **ported** (f934e550). |
-| `b` | KiCad 10, ours 9. `board_bounding_box.cpp` **n/a** — dead in KiCad, nothing in their tree references it. All others present; `build_BOM_from_board.cpp` ported (87f7d7ba). Coverage: `board` 172/210, `board_design_settings` 48/62, rest complete. |
+| `b` | KiCad 10, ours 9. `board_bounding_box.cpp` **n/a** — dead in KiCad, nothing in their tree references it. `board_design_settings_sizes.ts` **deleted** — a copy of BDS's own fields; the twelve methods are on the class now, the cycling helpers in `tools/board_editor_control.ts`. Coverage: `board` **193/210** (the 17 absent are variants, wx PROJECT, ostream dumps, wx MSG_PANEL, the collector's `Inspect()`, `KIGFX::VIEW` — none buildable), `board_design_settings` 60/62 (the 2 are false positives), rest complete. |
 
 ## Files in the wrong place
 
