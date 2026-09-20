@@ -952,6 +952,17 @@ export function GetDefaultVariantName(): string {
   return '< Default >';
 }
 
+/** `SortVariantNames`: the default variant first, then natural order. */
+export function SortVariantNames(aLhs: string, aRhs: string): number {
+  const defaultVariantName = GetDefaultVariantName();
+
+  if (aLhs === defaultVariantName && aRhs !== defaultVariantName) return -1;
+
+  if (aLhs !== defaultVariantName && aRhs === defaultVariantName) return 1;
+
+  return strNumCmp(aLhs, aRhs);
+}
+
 /**
  * `IsURL( wxString )`: whether the string holds an http(s)/ftp/file URL.
  */

@@ -51,7 +51,12 @@ import { LSET } from '@ziroeda/common/src/lset.js';
 import { VIEW } from '@ziroeda/common/src/view/view.js';
 import { RPT_SEVERITY_EXCLUSION } from '@ziroeda/common/src/reporter.js';
 import type { OutStr } from '@ziroeda/common/src/font/font.js';
-import { GetDefaultVariantName } from '@ziroeda/common/src/string_utils.js';
+import { GetDefaultVariantName, SortVariantNames } from '@ziroeda/common/src/string_utils.js';
+import type { HISTORY_FILE_DATA } from '@ziroeda/common/src/local_history.js';
+import { FORMAT_MODE } from '@ziroeda/common/src/io/kicad/kicad_io_utils.js';
+import { STRING_FORMATTER } from '@ziroeda/common/src/richio.js';
+import { PCB_IO_KICAD_SEXPR } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { DIM_UNITS_MODE } from './pcb_dimension_types.js';
 import { TITLE_BLOCK } from '@ziroeda/common/src/title_block.js';
 import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
 import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/src/page_info.js';
@@ -65,7 +70,7 @@ import { BOARD_ITEM, DELETED_BOARD_ITEM } from './board_item.js';
 import { ADD_MODE, BOARD_ITEM_CONTAINER, REMOVE_MODE } from './board_item_container.js';
 import { type BOARD_LISTENER, HIGH_LIGHT_INFO } from './board_listener.js';
 import { BOARD_USE, LAYER, LAYER_T } from './board_types.js';
-import { PROJECT, PROJECT_ELEM } from '@ziroeda/common/src/project.js';
+import { type PROJECT, PROJECT_ELEM } from '@ziroeda/common/src/project.js';
 import { NET_SETTINGS } from '@ziroeda/common/src/project/net_settings.js';
 import { TUNING_PROFILES } from '@ziroeda/common/src/project/tuning_profiles.js';
 import type { FOOTPRINT_LIBRARY_ADAPTER } from './footprint_library_adapter.js';
@@ -1220,6 +1225,80 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
       this.SetProperties(this.m_project.GetTextVars());
   }
 
+  /**
+   * Update the automatic-units dimensions under `aItem` after a user-units
+   * change, and repaint them through `aView` if there is one.
+   */
+  UpdateUserUnits(aItem: BOARD_ITEM, aView: VIEW | null): void {
+    const inspector = (descendant: EDA_ITEM): INSPECT_RESULT => {
+      const dimension = descendant as PCB_DIMENSION_BASE;
+
+      if (dimension.GetUnitsMode() === DIM_UNITS_MODE.AUTOMATIC) {
+        dimension.UpdateUnits();
+
+        if (aView) aView.Update(dimension);
+      }
+
+      return INSPECT_RESULT.CONTINUE;
+    };
+
+    aItem.Visit(inspector, null, [
+      KICAD_T.PCB_DIM_ALIGNED_T,
+      KICAD_T.PCB_DIM_LEADER_T,
+      KICAD_T.PCB_DIM_ORTHOGONAL_T,
+      KICAD_T.PCB_DIM_CENTER_T,
+      KICAD_T.PCB_DIM_RADIAL_T,
+    ]);
+  }
+
+  /**
+   * The local-history saver: the board serialised for a snapshot of
+   * `aProjectPath`, appended to `aFileData`. The trace lines upstream logs
+   * for each skip are the reasons the early returns spell out.
+   */
+  SaveToHistory(aProjectPath: string, aFileData: HISTORY_FILE_DATA[]): void {
+    // The board can transiently have no project (e.g. during a non-KiCad import while the old
+    // project is being unloaded and the new one has not yet been linked). The autosave timer can
+    // fire in that window, so guard against a null project here rather than dereferencing it.
+    const project = this.GetProject();
+
+    if (!project) return;
+
+    const projPath = project.GetProjectPath();
+
+    if (projPath === '') return;
+
+    // Verify we're saving for the correct project
+    if (projPath !== aProjectPath) return;
+
+    const boardPath = this.GetFileName();
+
+    if (boardPath === '') return; // unsaved board
+
+    // Derive relative path from project root.
+    if (!boardPath.startsWith(projPath)) return; // not under project
+
+    const rel = boardPath.slice(projPath.length);
+
+    try {
+      const formatter = new STRING_FORMATTER();
+      const pi = new PCB_IO_KICAD_SEXPR(formatter);
+
+      pi.FormatBoardToFormatter(formatter, this);
+
+      // ADVANCED_CFG::GetCfg().m_CompactSave is off: FORMAT_MODE::NORMAL.
+      aFileData.push({
+        relativePath: rel,
+        content: formatter.GetString(),
+        sourcePath: '',
+        prettify: true,
+        formatMode: FORMAT_MODE.NORMAL,
+      });
+    } catch {
+      // IO_ERROR: the snapshot goes without the board, as upstream's does.
+    }
+  }
+
   IncrementTimeStamp(): void {
     this.m_timeStamp++;
 
@@ -1375,6 +1454,81 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
       return;
 
     this.m_variantNames.push(aVariantName);
+  }
+
+  /**
+   * Delete a variant from the board.
+   * @param aVariantName The name of the variant to delete.
+   */
+  DeleteVariant(aVariantName: string): void {
+    if (aVariantName === '' || cmpNoCase(aVariantName, GetDefaultVariantName()) === 0) return;
+
+    const idx = this.m_variantNames.findIndex((name) => cmpNoCase(name, aVariantName) === 0);
+
+    if (idx >= 0) {
+      const actualName = this.m_variantNames[idx]!;
+      this.m_variantNames.splice(idx, 1);
+      this.m_variantDescriptions.delete(actualName);
+
+      // Clear current variant if it was the deleted one
+      if (cmpNoCase(this.m_currentVariant, aVariantName) === 0) this.m_currentVariant = '';
+
+      // Remove variant from all footprints
+      for (const fp of this.m_footprints) fp.DeleteVariant(actualName);
+    }
+  }
+
+  /**
+   * Rename a variant.
+   * @param aOldName The current name of the variant.
+   * @param aNewName The new name for the variant.
+   */
+  RenameVariant(aOldName: string, aNewName: string): void {
+    if (aNewName === '' || cmpNoCase(aNewName, GetDefaultVariantName()) === 0) return;
+
+    const idx = this.m_variantNames.findIndex((name) => cmpNoCase(name, aOldName) === 0);
+
+    if (idx >= 0) {
+      const actualOldName = this.m_variantNames[idx]!;
+
+      // Check if new name already exists (case-insensitive) and isn't the same variant
+      const existingName = FindVariantNameCaseInsensitive(this.m_variantNames, aNewName);
+
+      if (existingName !== '' && cmpNoCase(existingName, actualOldName) !== 0) return;
+
+      if (actualOldName === aNewName) return;
+
+      this.m_variantNames[idx] = aNewName;
+
+      // Transfer description
+      const desc = this.m_variantDescriptions.get(actualOldName);
+
+      if (desc !== undefined) {
+        if (desc !== '') this.m_variantDescriptions.set(aNewName, desc);
+
+        this.m_variantDescriptions.delete(actualOldName);
+      }
+
+      // Update current variant if it was the renamed one
+      if (cmpNoCase(this.m_currentVariant, aOldName) === 0) this.m_currentVariant = aNewName;
+
+      // Rename variant in all footprints
+      for (const fp of this.m_footprints) fp.RenameVariant(actualOldName, aNewName);
+    }
+  }
+
+  /**
+   * Get the list of variant names for the UI: the default variant first,
+   * then the board's, in natural order.
+   */
+  GetVariantNamesForUI(): string[] {
+    const names: string[] = [GetDefaultVariantName()];
+
+    for (const name of this.m_variantNames) names.push(name);
+
+    names.sort(SortVariantNames);
+
+    return names;
   }
 
   GetVariantDescription(aVariantName: string): string {

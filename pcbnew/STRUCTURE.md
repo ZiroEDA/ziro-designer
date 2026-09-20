@@ -37,7 +37,7 @@ you find one; keep the reason to a line.
 | `board_connected_item.ts` 561 | `board_connected_item.h` 249 + `.cpp` 359 | 39/41. Absent: `PackNet`/`UnpackNet`, which take `kiapi::board::types::Net` — the `api/` protobuf. **Complete.** |
 | `board_item_container.ts` 51 | `board_item_container.h` 83 | 3/3. **Complete.** |
 | the BOARD_ITEM hierarchy | `footprint` 224/229 · `pad` 287/291 · `pcb_track` 203/207 · `zone` 155/160 · `pcb_shape` 52/56 · `pcb_text` 36/41 · `pcb_group` 33/37 · `padstack` 76/78 · `netinfo` 34/35 | **effectively complete.** Every absence is `Serialize`/`Deserialize` (the `api/` protobuf), `Show`/`ShowDummy` (debug dumps), `ZONE::SetFillPoly` (inside `#if defined(DEBUG)`) or `PCB_TEXT::ShowSyntaxHelp` (a wx `HTML_MESSAGE_BOX`). `FOOTPRINT::FootprintNeedsUpdate` is ours as `footprint_needs_update.ts` — a structural split, not a gap. |
-| `board.ts` | `board.h` + `.cpp` | **201/210.** Absent: assembly variants ×4 (#136), `Show`/`ShowDummy` (debug dumps), `UpdateUserUnits` (`KIGFX::VIEW`). PROJECT is real since 09-20: `common/src/project.ts`, `project/project_file.ts`, `SETTINGS_MANAGER` in `pgm_base.ts`. `ClearProject` gives BDS a fresh `NET_SETTINGS` where upstream leaves null. `GetTuningProfiles()` is ours - the two upstream callers read `GetProject()->GetProjectFile()` inline. |
+| `board.ts` | `board.h` + `.cpp` | **206/210 — done.** The 4: `Show`/`ShowDummy` (`#if DEBUG` ostream dumps), `ParseType`/`ShowType` (`LAYER`'s, ported there). `SaveToHistory` fills `HISTORY_FILE_DATA`; the snapshot store is the app's. PROJECT is real since 09-20: `common/src/project.ts`, `project/project_file.ts`, `SETTINGS_MANAGER` in `pgm_base.ts`. `ClearProject` gives BDS a fresh `NET_SETTINGS` where upstream leaves null. `GetTuningProfiles()` is ours - the two upstream callers read `GetProject()->GetProjectFile()` inline. |
 | `autorouter/ar_matrix.ts` | `AddCell`/`AndCell`/`OrCell`/`XorCell`/`SetCellOperation` are folded into `opCell`/`writeCell`. Same behaviour. |
 
 ## Verified 1:1
@@ -73,7 +73,7 @@ Walking `pcbnew/*` one letter at a time. Only gaps are noted.
 | | |
 |---|---|
 | `a` | KiCad 2, ours 2. `action_plugin.cpp` **n/a** — Python action-plugin registry. `array_pad_number_provider.cpp` **ported** (f934e550). |
-| `b` | KiCad 10, ours 9. `board_bounding_box.cpp` **n/a** — dead in KiCad, nothing in their tree references it. `board_design_settings_sizes.ts` **deleted** — a copy of BDS's own fields; the twelve methods are on the class now, the cycling helpers in `tools/board_editor_control.ts`. Coverage: `board` **201/210** (variants ×4, `Show`/`ShowDummy`, `UpdateUserUnits`; `ParseType`/`ShowType` are `LAYER`'s and already ported). `GENERAL_COLLECTOR` + its guides landed in `collectors.ts`, `board_design_settings` 60/62 (the 2 are false positives), rest complete. |
+| `b` | KiCad 10, ours 9. `board_bounding_box.cpp` **n/a** — dead in KiCad, nothing in their tree references it. `board_design_settings_sizes.ts` **deleted** — a copy of BDS's own fields; the twelve methods are on the class now, the cycling helpers in `tools/board_editor_control.ts`. Coverage: `board` **206/210** (`Show`/`ShowDummy`; `ParseType`/`ShowType` are `LAYER`'s and already ported). `GENERAL_COLLECTOR` + its guides landed in `collectors.ts`, `board_design_settings` 60/62 (the 2 are false positives), rest complete. |
 
 ## Files in the wrong place
 

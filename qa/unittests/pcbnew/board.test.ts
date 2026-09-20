@@ -19,6 +19,10 @@ import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
 import { VIATYPE } from '@ziroeda/pcbnew/pcb_track_types.js';
 import type { MSG_PANEL_ITEM } from '@ziroeda/common/src/widgets/msgpanel.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
+import type { HISTORY_FILE_DATA } from '@ziroeda/common/src/local_history.js';
+import { GetDefaultVariantName } from '@ziroeda/common/src/string_utils.js';
+import { PCB_DIM_ALIGNED } from '@ziroeda/pcbnew/pcb_dimension.js';
+import { DIM_UNITS_MODE } from '@ziroeda/pcbnew/pcb_dimension_types.js';
 import { NETCLASS } from '@ziroeda/common/src/netclass.js';
 import { SETTINGS_MANAGER } from '@ziroeda/common/src/pgm_base.js';
 import { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
@@ -779,5 +783,86 @@ describe('BOARD message panel', () => {
 
   it('describes itself as PCB', () => {
     expect(new BOARD().GetItemDescription(null, true)).toBe('PCB');
+  });
+
+  it('variants: delete and rename touch the board list, the descriptions and every footprint', () => {
+    const b = new BOARD();
+    const fp = new FOOTPRINT(b);
+    b.Add(fp);
+    b.AddVariant('Lite');
+    b.AddVariant('Pro');
+    b.SetVariantDescription('Pro', 'all parts');
+    fp.AddVariant('Pro');
+    b.SetCurrentVariant('pro');
+    expect(b.GetCurrentVariant()).toBe('Pro');
+
+    // case-insensitive lookup, exact name kept
+    b.RenameVariant('PRO', 'Max');
+    expect(b.GetVariantNames()).toEqual(['Lite', 'Max']);
+    expect(b.GetVariantDescription('Max')).toBe('all parts');
+    expect(b.GetVariantDescription('Pro')).toBe('');
+    expect(b.GetCurrentVariant()).toBe('Max');
+    expect(fp.HasVariant('Max')).toBe(true);
+    expect(fp.HasVariant('Pro')).toBe(false);
+
+    // a rename onto another existing name, or onto the default, is refused
+    b.RenameVariant('Max', 'lite');
+    b.RenameVariant('Max', GetDefaultVariantName());
+    expect(b.GetVariantNames()).toEqual(['Lite', 'Max']);
+
+    // the UI list: default first, then natural order
+    b.AddVariant('V10');
+    b.AddVariant('V2');
+    expect(b.GetVariantNamesForUI()).toEqual([GetDefaultVariantName(), 'Lite', 'Max', 'V2', 'V10']);
+
+    b.DeleteVariant('max');
+    expect(b.GetVariantNames()).toEqual(['Lite', 'V10', 'V2']);
+    expect(b.GetCurrentVariant()).toBe('');
+    expect(fp.HasVariant('Max')).toBe(false);
+    b.DeleteVariant(GetDefaultVariantName());
+    expect(b.GetVariantNames()).toEqual(['Lite', 'V10', 'V2']);
+  });
+
+  it('UpdateUserUnits re-derives only the AUTOMATIC dimensions, and repaints them', () => {
+    const b = new BOARD();
+    const auto = new PCB_DIM_ALIGNED(b);
+    auto.SetUnitsMode(DIM_UNITS_MODE.AUTOMATIC);
+    const fixed = new PCB_DIM_ALIGNED(b);
+    fixed.SetUnitsMode(DIM_UNITS_MODE.MILS);
+    b.Add(auto);
+    b.Add(fixed);
+    expect(auto.GetUnits()).toBe('mm');
+
+    b.SetUserUnits('in');
+    const updated: unknown[] = [];
+    b.UpdateUserUnits(b, { Update: (aItem: unknown) => updated.push(aItem) } as never);
+
+    expect(auto.GetUnits()).toBe('in');
+    expect(fixed.GetUnits()).toBe('mils');
+    expect(updated).toEqual([auto]);
+  });
+
+  it('SaveToHistory serialises the board under its project-relative path', () => {
+    const b = new BOARD();
+    const out: HISTORY_FILE_DATA[] = [];
+
+    b.SaveToHistory('/p/', out); // no project
+    expect(out).toEqual([]);
+
+    const manager = new SETTINGS_MANAGER();
+    manager.LoadProject('/p/a.kicad_pro');
+    b.SetProject(manager.Prj());
+    b.SaveToHistory('/p/', out); // unsaved board
+    b.SetFileName('/elsewhere/a.kicad_pcb');
+    b.SaveToHistory('/p/', out); // not under the project
+    b.SetFileName('/p/sub/a.kicad_pcb');
+    b.SaveToHistory('/other/', out); // another project's snapshot
+    expect(out).toEqual([]);
+
+    b.SaveToHistory('/p/', out);
+    expect(out).toHaveLength(1);
+    expect(out[0]!.relativePath).toBe('sub/a.kicad_pcb');
+    expect(out[0]!.prettify).toBe(true);
+    expect(out[0]!.content.startsWith('(kicad_pcb')).toBe(true);
   });
 });
