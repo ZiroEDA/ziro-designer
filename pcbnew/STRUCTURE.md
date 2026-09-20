@@ -36,11 +36,14 @@ you find one; keep the reason to a line.
 | `autorouter/ar_autoplacer.ts` | omits `buildFpAreas`, `addFpBody`, `addPad`, `m_topFreeArea`, `m_bottomFreeArea`. That whole subtree feeds only `drawPlacementRoutingMatrix()`, a translucent debug overlay — **no placement decision reads it.** Deliberate. |
 | `board_connected_item.ts` 561 | `board_connected_item.h` 249 + `.cpp` 359 | 39/41. Absent: `PackNet`/`UnpackNet`, which take `kiapi::board::types::Net` — the `api/` protobuf. **Complete.** |
 | `board_item_container.ts` 51 | `board_item_container.h` 83 | 3/3. **Complete.** |
+| `board.ts` 2913 | `board.h` 1603 + `.cpp` 3853 | **161/210 — the first real gap.** 49 absent, mostly: assembly variants (#136, deferred), the legacy `AddArea`/`GetArea`/`GetAreaCount` zone API, `SetProject`/`ClearProject`, visibility (`Get`/`SetVisibleElements`), `GetMsgPanelInfo`, and basics — `Move`, `GetCenter`, `IsEmpty`, `GetFootprint`, `TracksInNet`, `RemoveAll`. |
 | `autorouter/ar_matrix.ts` | `AddCell`/`AndCell`/`OrCell`/`XorCell`/`SetCellOperation` are folded into `opCell`/`writeCell`. Same behaviour. |
 
 ## Verified 1:1
 
-Compared method-by-method against the C++. Everything not listed is unverified.
+Compared method-by-method against the C++ with
+`qa/probes/method_coverage.py <ours.ts> <kicad.h>`. Everything not listed is
+unverified. Names only — it cannot see a body that is wrong.
 
 **Size is not a signal.** C++ splits a class across `include/<x>.h` and
 `<x>.cpp`; one `.ts` carries both. `board_item.ts` looks 2x `board_item.cpp`
