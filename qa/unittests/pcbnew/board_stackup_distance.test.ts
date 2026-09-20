@@ -20,7 +20,11 @@ import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { stackupLayerDistanceMM } from '@ziroeda/pcbnew/board_stackup_distance.js';
 import { PnsBoardIface } from '@ziroeda/pcbnew/router/pns_board_iface.js';
-import { defaultTrackViaSizeState } from '@ziroeda/pcbnew/board_design_settings_sizes.js';
+import {
+  BOARD_DESIGN_SETTINGS,
+  DIFF_PAIR_DIMENSION,
+  VIA_DIMENSION,
+} from '@ziroeda/pcbnew/board_design_settings.js';
 import type { StackupDistanceItem } from '@ziroeda/pcbnew/board_stackup_distance.js';
 import type { PnsDesignSettings } from '@ziroeda/pcbnew/router/pns_board_iface.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
@@ -133,18 +137,21 @@ function designSettings(over: Partial<PnsDesignSettings> = {}): PnsDesignSetting
     holeToHoleMin: MM(0.25),
     useConnectedTrackWidth: false,
     tempOverrideTrackWidth: false,
-    sizes: {
-      trackWidthList: [0],
-      viasDimensionsList: [{ diameter: 0, drill: 0 }],
-      diffPairDimensionsList: [{ width: 0, gap: 0, viaGap: 0 }],
-      defaultNetclass: {
-        trackWidth: MM(0.25),
-        clearance: MM(0.2),
-        viaDiameter: MM(0.8),
-        viaDrill: MM(0.4),
-      },
-      selection: defaultTrackViaSizeState(),
-    },
+    sizes: (() => {
+      const bds = new BOARD_DESIGN_SETTINGS();
+
+      bds.m_TrackWidthList = [0];
+      bds.m_ViasDimensionsList = [new VIA_DIMENSION(0, 0)];
+      bds.m_DiffPairDimensionsList = [new DIFF_PAIR_DIMENSION(0, 0, 0)];
+
+      const nc = bds.m_NetSettings.GetDefaultNetclass();
+      nc.SetTrackWidth(MM(0.25));
+      nc.SetClearance(MM(0.2));
+      nc.SetViaDiameter(MM(0.8));
+      nc.SetViaDrill(MM(0.4));
+
+      return bds;
+    })(),
     ...over,
   };
 }

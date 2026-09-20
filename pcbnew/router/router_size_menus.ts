@@ -28,10 +28,10 @@
  */
 
 import type {
-  DiffPairDimension,
-  TrackViaSizeState,
-  ViaDimension,
-} from '../board_design_settings_sizes.js';
+  BOARD_DESIGN_SETTINGS,
+  DIFF_PAIR_DIMENSION,
+  VIA_DIMENSION,
+} from '../board_design_settings.js';
 
 /** One row of either menu. */
 export interface RouterSizeMenuItem {
@@ -67,28 +67,28 @@ export type MessageText = (aValue: number) => string;
  */
 export function trackWidthMenuItems(
   aTrackWidthList: readonly number[],
-  aViasDimensionsList: readonly ViaDimension[],
-  aSelection: TrackViaSizeState,
+  aViasDimensionsList: readonly VIA_DIMENSION[],
+  aBds: BOARD_DESIGN_SETTINGS,
   aUseConnectedTrackWidth: boolean,
   aText: MessageText,
 ): RouterSizeMenuItem[] {
   // `bool useIndex = !bds.m_UseConnectedTrackWidth && !bds.UseCustomTrackViaSize();`
-  const useIndex = !aUseConnectedTrackWidth && !aSelection.useCustomTrackVia;
+  const useIndex = !aUseConnectedTrackWidth && !aBds.UseCustomTrackViaSize();
   const items: RouterSizeMenuItem[] = [
     {
       label: 'Use Starting Track Width',
-      checked: aUseConnectedTrackWidth && !aSelection.useCustomTrackVia,
+      checked: aUseConnectedTrackWidth && !aBds.UseCustomTrackViaSize(),
       action: { kind: 'useStartingWidth' },
     },
     {
       label: 'Use Net Class Values',
       // Both indices, not one: the row covers the track AND the via.
-      checked: useIndex && aSelection.trackWidthIndex === 0 && aSelection.viaSizeIndex === 0,
+      checked: useIndex && aBds.GetTrackWidthIndex() === 0 && aBds.GetViaSizeIndex() === 0,
       action: { kind: 'useNetclass' },
     },
     {
       label: 'Use Custom Values...',
-      checked: aSelection.useCustomTrackVia,
+      checked: aBds.UseCustomTrackViaSize(),
       action: { kind: 'useCustom' },
       separatorAfter: true,
     },
@@ -97,7 +97,7 @@ export function trackWidthMenuItems(
   aTrackWidthList.forEach((width, i) => {
     items.push({
       label: i === 0 ? 'Track netclass width' : `Track ${aText(width)}`,
-      checked: useIndex && aSelection.trackWidthIndex === i,
+      checked: useIndex && aBds.GetTrackWidthIndex() === i,
       action: { kind: 'index', index: i },
       separatorAfter: i === aTrackWidthList.length - 1,
     });
@@ -107,12 +107,12 @@ export function trackWidthMenuItems(
     let label: string;
 
     if (i === 0) label = 'Via netclass values';
-    else if (via.drill > 0) label = `Via ${aText(via.diameter)}, hole ${aText(via.drill)}`;
-    else label = `Via ${aText(via.diameter)}`;
+    else if (via.m_Drill > 0) label = `Via ${aText(via.m_Diameter)}, hole ${aText(via.m_Drill)}`;
+    else label = `Via ${aText(via.m_Diameter)}`;
 
     items.push({
       label,
-      checked: useIndex && aSelection.viaSizeIndex === i,
+      checked: useIndex && aBds.GetViaSizeIndex() === i,
       action: { kind: 'index', index: i },
     });
   });
@@ -131,20 +131,20 @@ export function trackWidthMenuItems(
  * names only a width reads "Width 0.2 mm".
  */
 export function diffPairMenuItems(
-  aDiffPairDimensionsList: readonly DiffPairDimension[],
-  aSelection: TrackViaSizeState,
+  aDiffPairDimensionsList: readonly DIFF_PAIR_DIMENSION[],
+  aBds: BOARD_DESIGN_SETTINGS,
   aText: MessageText,
 ): RouterSizeMenuItem[] {
   const items: RouterSizeMenuItem[] = [
     {
       label: 'Use Net Class Values',
       // `!UseCustomDiffPairDimensions() && GetDiffPairIndex() == 0`.
-      checked: !aSelection.useCustomDiffPair && aSelection.diffPairIndex === 0,
+      checked: !aBds.UseCustomDiffPairDimensions() && aBds.GetDiffPairIndex() === 0,
       action: { kind: 'useNetclass' },
     },
     {
       label: 'Use Custom Values...',
-      checked: aSelection.useCustomDiffPair,
+      checked: aBds.UseCustomDiffPairDimensions(),
       action: { kind: 'useCustom' },
       separatorAfter: true,
     },
@@ -154,21 +154,21 @@ export function diffPairMenuItems(
     const dp = aDiffPairDimensionsList[i]!;
     let label: string;
 
-    if (dp.gap <= 0) {
+    if (dp.m_Gap <= 0) {
       label =
-        dp.viaGap <= 0
-          ? `Width ${aText(dp.width)}`
-          : `Width ${aText(dp.width)}, via gap ${aText(dp.viaGap)}`;
+        dp.m_ViaGap <= 0
+          ? `Width ${aText(dp.m_Width)}`
+          : `Width ${aText(dp.m_Width)}, via gap ${aText(dp.m_ViaGap)}`;
     } else {
       label =
-        dp.viaGap <= 0
-          ? `Width ${aText(dp.width)}, gap ${aText(dp.gap)}`
-          : `Width ${aText(dp.width)}, gap ${aText(dp.gap)}, via gap ${aText(dp.viaGap)}`;
+        dp.m_ViaGap <= 0
+          ? `Width ${aText(dp.m_Width)}, gap ${aText(dp.m_Gap)}`
+          : `Width ${aText(dp.m_Width)}, gap ${aText(dp.m_Gap)}, via gap ${aText(dp.m_ViaGap)}`;
     }
 
     items.push({
       label,
-      checked: !aSelection.useCustomDiffPair && aSelection.diffPairIndex === i,
+      checked: !aBds.UseCustomDiffPairDimensions() && aBds.GetDiffPairIndex() === i,
       action: { kind: 'index', index: i },
     });
   }

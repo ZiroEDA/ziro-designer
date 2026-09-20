@@ -20,6 +20,7 @@
  *     of zero, and accepts a width of zero;
  *   - the diff-pair one's checkbox GREYS the via-gap row and starts TICKED.
  */
+import { VIA_DIMENSION } from '@ziroeda/pcbnew/board_design_settings.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import {
@@ -48,7 +49,7 @@ const ok = (): void => {
 function openTrackVia(
   value: CustomTrackViaSize = {
     trackWidth: MM(0.25),
-    via: { diameter: MM(0.8), drill: MM(0.4) },
+    via: new VIA_DIMENSION(MM(0.8), MM(0.4)),
   },
 ): { out: () => CustomTrackViaSize | null } {
   let out: CustomTrackViaSize | null = null;
@@ -82,7 +83,7 @@ describe('DIALOG_TRACK_VIA_SIZE', () => {
     type('ze-ctv-drill', '0.5');
     ok();
 
-    expect(out()).toEqual({ trackWidth: MM(0.3), via: { diameter: MM(1), drill: MM(0.5) } });
+    expect(out()).toEqual({ trackWidth: MM(0.3), via: new VIA_DIMENSION(MM(1), MM(0.5)) });
   });
 
   it('floors every field at the binder’s minSize', () => {
@@ -125,7 +126,7 @@ describe('DIALOG_TRACK_VIA_SIZE', () => {
     let out: CustomTrackViaSize | null = null;
     render(
       <DialogTrackViaSize
-        value={{ trackWidth: MM(0.508), via: { diameter: MM(0.8), drill: MM(0.4) } }}
+        value={{ trackWidth: MM(0.508), via: new VIA_DIMENSION(MM(0.8), MM(0.4)) }}
         units="mils"
         onOk={(next) => {
           out = next;

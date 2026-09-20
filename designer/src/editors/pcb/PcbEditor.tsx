@@ -251,10 +251,6 @@ import { Icon } from '../../ui/icons.js';
 import { applyPnsChanges, PnsSession } from '@ziroeda/pcbnew/router/pns_session.js';
 import { PnsRouterMode } from '@ziroeda/pcbnew/router/pns_router.js';
 import type { PnsDesignSettings } from '@ziroeda/pcbnew/router/pns_board_iface.js';
-import {
-  defaultTrackViaSizeState,
-  withNetclassEntry,
-} from '@ziroeda/pcbnew/board_design_settings_sizes.js';
 import { Infobar } from '../../ui/ReadOnlyNotice.js';
 import { ReferenceImageCache } from './image_cache.js';
 import { cleanup3dCache } from './model_cache.js';
@@ -346,6 +342,11 @@ import { applyBoardFileSetup, writeBoardFileSetup } from './board_file_settings.
 import { DialogDrc } from './dialogs/dialog_drc.js';
 import { DialogUpdatePcb, type UpdatePcbOptions } from './dialogs/dialog_update_pcb.js';
 import { DialogGlobalEditTeardrops } from './dialogs/dialog_global_edit_teardrops.js';
+import {
+  BOARD_DESIGN_SETTINGS,
+  DIFF_PAIR_DIMENSION,
+  VIA_DIMENSION,
+} from '@ziroeda/pcbnew/board_design_settings.js';
 import { BuildBomTextFromBoard } from '@ziroeda/pcbnew/build_BOM_from_board.js';
 import { DialogBoardStatistics } from './dialogs/dialog_board_statistics.js';
 import { DialogFilterSelection } from './dialogs/dialog_filter_selection.js';
@@ -7526,30 +7527,38 @@ export function PcbEditor({
       holeToHoleMin: mm(c.minHoleToHoleMM),
       useConnectedTrackWidth: autoTrackWidthRef.current,
       tempOverrideTrackWidth: false,
-      sizes: {
-        trackWidthList: withNetclassEntry(trackWidthListRef.current, 0),
-        viasDimensionsList: withNetclassEntry(viaSizeListRef.current, { diameter: 0, drill: 0 }),
-        diffPairDimensionsList: withNetclassEntry(
-          boardSetup.diffPairsMM
+      sizes: (() => {
+        // A real BOARD_DESIGN_SETTINGS, not a copy of one. The three lists
+        // keep their reserved `[0]` "use netclass" row, which is why the
+        // indices the toolbar holds line up with `m_TrackWidthList` directly.
+        const bds = new BOARD_DESIGN_SETTINGS();
+
+        bds.m_TrackWidthList = [0, ...trackWidthListRef.current];
+        bds.m_ViasDimensionsList = [
+          new VIA_DIMENSION(0, 0),
+          ...viaSizeListRef.current.map((v) => new VIA_DIMENSION(v.diameter, v.drill)),
+        ];
+        bds.m_DiffPairDimensionsList = [
+          new DIFF_PAIR_DIMENSION(0, 0, 0),
+          ...boardSetup.diffPairsMM
             .filter((d) => d.width > 0)
-            .map((d) => ({ width: mm(d.width), gap: mm(d.gap), viaGap: mm(d.viaGap) })),
-          { width: 0, gap: 0, viaGap: 0 },
-        ),
-        defaultNetclass: {
-          trackWidth: dims.trackWidth,
-          clearance: netclassInfo.classClearance.get('Default') ?? 0,
-          viaDiameter: dims.viaDiameter,
-          viaDrill: dims.viaDrill,
-          ...(mmOpt(dflt?.dpWidth) !== undefined ? { diffPairWidth: mmOpt(dflt?.dpWidth) } : {}),
-          ...(mmOpt(dflt?.dpGap) !== undefined ? { diffPairGap: mmOpt(dflt?.dpGap) } : {}),
-          ...(mmOpt(dflt?.dpViaGap) !== undefined ? { diffPairViaGap: mmOpt(dflt?.dpViaGap) } : {}),
-        },
-        selection: {
-          ...defaultTrackViaSizeState(),
-          trackWidthIndex: trackSelRef.current,
-          viaSizeIndex: viaSelRef.current,
-        },
-      },
+            .map((d) => new DIFF_PAIR_DIMENSION(mm(d.width), mm(d.gap), mm(d.viaGap))),
+        ];
+
+        const nc = bds.m_NetSettings.GetDefaultNetclass();
+        nc.SetTrackWidth(dims.trackWidth);
+        nc.SetClearance(netclassInfo.classClearance.get('Default') ?? 0);
+        nc.SetViaDiameter(dims.viaDiameter);
+        nc.SetViaDrill(dims.viaDrill);
+        if (mmOpt(dflt?.dpWidth) !== undefined) nc.SetDiffPairWidth(mmOpt(dflt?.dpWidth)!);
+        if (mmOpt(dflt?.dpGap) !== undefined) nc.SetDiffPairGap(mmOpt(dflt?.dpGap)!);
+        if (mmOpt(dflt?.dpViaGap) !== undefined) nc.SetDiffPairViaGap(mmOpt(dflt?.dpViaGap)!);
+
+        bds.SetTrackWidthIndex(trackSelRef.current);
+        bds.SetViaSizeIndex(viaSelRef.current);
+
+        return bds;
+      })(),
     };
   };
 

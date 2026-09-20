@@ -39,9 +39,10 @@ import {
 import { CornerMode } from '@ziroeda/kimath/src/geometry/direction45.js';
 import { PnsRouterMode } from '@ziroeda/pcbnew/router/pns_router.js';
 import {
-  defaultTrackViaSizeState,
-  withNetclassEntry,
-} from '@ziroeda/pcbnew/board_design_settings_sizes.js';
+  BOARD_DESIGN_SETTINGS,
+  DIFF_PAIR_DIMENSION,
+  VIA_DIMENSION,
+} from '@ziroeda/pcbnew/board_design_settings.js';
 import type { PnsDesignSettings } from '@ziroeda/pcbnew/router/pns_board_iface.js';
 
 const MM = 1e6;
@@ -211,28 +212,24 @@ describe('the session takes its sizes from BOARD_DESIGN_SETTINGS', () => {
     holeToHoleMin: 250_000,
     useConnectedTrackWidth: false,
     tempOverrideTrackWidth: false,
-    sizes: {
-      trackWidthList: withNetclassEntry([400_000], 0),
-      viasDimensionsList: withNetclassEntry([{ diameter: 700_000, drill: 350_000 }], {
-        diameter: 0,
-        drill: 0,
-      }),
-      diffPairDimensionsList: withNetclassEntry(
-        [{ width: 180_000, gap: 250_000, viaGap: 500_000 }],
-        {
-          width: 0,
-          gap: 0,
-          viaGap: 0,
-        },
-      ),
-      defaultNetclass: {
-        trackWidth: 250_000,
-        clearance: 200_000,
-        viaDiameter: 800_000,
-        viaDrill: 400_000,
-      },
-      selection: defaultTrackViaSizeState(),
-    },
+    sizes: (() => {
+      const bds = new BOARD_DESIGN_SETTINGS();
+
+      bds.m_TrackWidthList = [0, 400_000];
+      bds.m_ViasDimensionsList = [new VIA_DIMENSION(0, 0), new VIA_DIMENSION(700_000, 350_000)];
+      bds.m_DiffPairDimensionsList = [
+        new DIFF_PAIR_DIMENSION(0, 0, 0),
+        new DIFF_PAIR_DIMENSION(180_000, 250_000, 500_000),
+      ];
+
+      const nc = bds.m_NetSettings.GetDefaultNetclass();
+      nc.SetTrackWidth(250_000);
+      nc.SetClearance(200_000);
+      nc.SetViaDiameter(800_000);
+      nc.SetViaDrill(400_000);
+
+      return bds;
+    })(),
     ...over,
   });
 
@@ -250,7 +247,11 @@ describe('the session takes its sizes from BOARD_DESIGN_SETTINGS', () => {
     const s = new PnsSession(twoPads(), {
       designSettings: {
         ...ds,
-        sizes: { ...ds.sizes, selection: { ...ds.sizes.selection, trackWidthIndex: 1 } },
+        sizes: (() => {
+          const b = designSettings().sizes;
+          b.SetTrackWidthIndex(1);
+          return b;
+        })(),
       },
     });
 
@@ -262,7 +263,11 @@ describe('the session takes its sizes from BOARD_DESIGN_SETTINGS', () => {
     const s = new PnsSession(twoPads(), {
       designSettings: {
         ...ds,
-        sizes: { ...ds.sizes, selection: { ...ds.sizes.selection, diffPairIndex: 1 } },
+        sizes: (() => {
+          const b = designSettings().sizes;
+          b.SetDiffPairIndex(1);
+          return b;
+        })(),
       },
     });
 

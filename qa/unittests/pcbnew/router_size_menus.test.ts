@@ -16,14 +16,15 @@
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import {
-  defaultTrackViaSizeState,
-  nextDiffPairIndex,
-  nextTrackWidthIndex,
-  useNetclassTrackAndVia,
-  withNetclassEntry,
-  type TrackViaSizeState,
-  type TrackViaSizes,
-} from '@ziroeda/pcbnew/board_design_settings_sizes.js';
+  BOARD_DESIGN_SETTINGS,
+  DIFF_PAIR_DIMENSION,
+  VIA_DIMENSION,
+} from '@ziroeda/pcbnew/board_design_settings.js';
+import {
+  NextDiffPairIndex,
+  NextTrackWidthIndex,
+  UseNetclassTrackAndVia,
+} from '@ziroeda/pcbnew/tools/board_editor_control.js';
 import {
   diffPairMenuItems,
   trackWidthMenuItems,
@@ -34,37 +35,50 @@ const MM = (n: number): number => mmToIU(n);
 /** `MessageTextFromValue` at a millimetre frame, near enough for a label. */
 const text = (iu: number): string => `${(iu / 1e6).toFixed(2)} mm`;
 
-const TRACKS = withNetclassEntry([MM(0.25), MM(0.5)], 0);
-const VIAS = withNetclassEntry(
-  [
-    { diameter: MM(0.6), drill: MM(0.3) },
-    { diameter: MM(0.8), drill: 0 },
-  ],
-  { diameter: 0, drill: 0 },
-);
-const PAIRS = withNetclassEntry(
-  [
-    { width: MM(0.2), gap: MM(0.25), viaGap: MM(0.5) },
-    { width: MM(0.2), gap: MM(0.25), viaGap: 0 },
-    { width: MM(0.3), gap: 0, viaGap: 0 },
-    { width: MM(0.3), gap: 0, viaGap: MM(0.4) },
-  ],
-  { width: 0, gap: 0, viaGap: 0 },
-);
+const TRACKS = [0, MM(0.25), MM(0.5)];
+const VIAS = [
+  new VIA_DIMENSION(0, 0),
+  new VIA_DIMENSION(MM(0.6), MM(0.3)),
+  new VIA_DIMENSION(MM(0.8), 0),
+];
+const PAIRS = [
+  new DIFF_PAIR_DIMENSION(0, 0, 0),
+  new DIFF_PAIR_DIMENSION(MM(0.2), MM(0.25), MM(0.5)),
+  new DIFF_PAIR_DIMENSION(MM(0.2), MM(0.25), 0),
+  new DIFF_PAIR_DIMENSION(MM(0.3), 0, 0),
+  new DIFF_PAIR_DIMENSION(MM(0.3), 0, MM(0.4)),
+];
 
-function sizes(over: Partial<TrackViaSizeState> = {}): TrackViaSizes {
-  return {
-    trackWidthList: TRACKS,
-    viasDimensionsList: VIAS,
-    diffPairDimensionsList: PAIRS,
-    defaultNetclass: {
-      trackWidth: MM(0.25),
-      clearance: MM(0.2),
-      viaDiameter: MM(0.8),
-      viaDrill: MM(0.4),
-    },
-    selection: { ...defaultTrackViaSizeState(), ...over },
-  };
+/** A BOARD_DESIGN_SETTINGS carrying the three lists and a chosen selection. */
+function sizes(
+  over: {
+    trackWidthIndex?: number;
+    viaSizeIndex?: number;
+    diffPairIndex?: number;
+    useCustomTrackVia?: boolean;
+    useCustomDiffPair?: boolean;
+  } = {},
+): BOARD_DESIGN_SETTINGS {
+  const bds = new BOARD_DESIGN_SETTINGS();
+
+  bds.m_TrackWidthList = TRACKS;
+  bds.m_ViasDimensionsList = VIAS;
+  bds.m_DiffPairDimensionsList = PAIRS;
+
+  const nc = bds.m_NetSettings.GetDefaultNetclass();
+  nc.SetTrackWidth(MM(0.25));
+  nc.SetClearance(MM(0.2));
+  nc.SetViaDiameter(MM(0.8));
+  nc.SetViaDrill(MM(0.4));
+
+  // The setters clear the custom flags, so they run before the flags are set.
+  if (over.trackWidthIndex !== undefined) bds.SetTrackWidthIndex(over.trackWidthIndex);
+  if (over.viaSizeIndex !== undefined) bds.SetViaSizeIndex(over.viaSizeIndex);
+  if (over.diffPairIndex !== undefined) bds.SetDiffPairIndex(over.diffPairIndex);
+  if (over.useCustomTrackVia) bds.UseCustomTrackViaSize(true);
+  if (over.useCustomDiffPair) bds.UseCustomDiffPairDimensions(true);
+
+  return bds;
 }
 
 const labels = (items: { label: string }[]): string[] => items.map((i) => i.label);
@@ -72,8 +86,8 @@ const checkedLabel = (items: { label: string; checked: boolean }[]): string[] =>
   items.filter((i) => i.checked).map((i) => i.label);
 
 describe('TRACK_WIDTH_MENU', () => {
-  const menu = (over: Partial<TrackViaSizeState> = {}, connected = false) =>
-    trackWidthMenuItems(TRACKS, VIAS, sizes(over).selection, connected, text);
+  const menu = (over: Parameters<typeof sizes>[0] = {}, connected = false) =>
+    trackWidthMenuItems(TRACKS, VIAS, sizes(over), connected, text);
 
   it('lists both lists, index 0 included and labelled', () => {
     expect(labels(menu())).toEqual([
@@ -132,8 +146,8 @@ describe('TRACK_WIDTH_MENU', () => {
 });
 
 describe('DIFF_PAIR_MENU', () => {
-  const menu = (over: Partial<TrackViaSizeState> = {}) =>
-    diffPairMenuItems(PAIRS, sizes(over).selection, text);
+  const menu = (over: Parameters<typeof sizes>[0] = {}) =>
+    diffPairMenuItems(PAIRS, sizes(over), text);
 
   it('starts at index 1 — the reserved entry is the header, not a row', () => {
     expect(labels(menu())).toEqual([
@@ -171,22 +185,48 @@ describe('DIFF_PAIR_MENU', () => {
 describe('cycling the diff-pair index', () => {
   it('wraps off the end to 0, which is the netclass', () => {
     // `if( widthIndex >= (int) size ) widthIndex = 0` — index 0 IS a stop.
-    expect(nextDiffPairIndex(sizes({ diffPairIndex: 4 }), 1).diffPairIndex).toBe(0);
+    expect(
+      (() => {
+        const b = sizes({ diffPairIndex: 4 });
+        NextDiffPairIndex(b, 1);
+        return b.GetDiffPairIndex();
+      })(),
+    ).toBe(0);
   });
 
   it('wraps off the front to the last entry', () => {
     // `if( widthIndex < 0 ) widthIndex = size - 1`.
-    expect(nextDiffPairIndex(sizes({ diffPairIndex: 0 }), -1).diffPairIndex).toBe(4);
+    expect(
+      (() => {
+        const b = sizes({ diffPairIndex: 0 });
+        NextDiffPairIndex(b, -1);
+        return b.GetDiffPairIndex();
+      })(),
+    ).toBe(4);
   });
 
   it('steps one at a time in between', () => {
-    expect(nextDiffPairIndex(sizes({ diffPairIndex: 1 }), 1).diffPairIndex).toBe(2);
-    expect(nextDiffPairIndex(sizes({ diffPairIndex: 2 }), -1).diffPairIndex).toBe(1);
+    expect(
+      (() => {
+        const b = sizes({ diffPairIndex: 1 });
+        NextDiffPairIndex(b, 1);
+        return b.GetDiffPairIndex();
+      })(),
+    ).toBe(2);
+    expect(
+      (() => {
+        const b = sizes({ diffPairIndex: 2 });
+        NextDiffPairIndex(b, -1);
+        return b.GetDiffPairIndex();
+      })(),
+    ).toBe(1);
   });
 
   it('clears the custom override on the way', () => {
     // `bds.UseCustomDiffPairDimensions( false )` follows every SetDiffPairIndex.
-    expect(nextDiffPairIndex(sizes({ useCustomDiffPair: true }), 1).useCustomDiffPair).toBe(false);
+    const b = sizes({ useCustomDiffPair: true });
+    NextDiffPairIndex(b, 1);
+    expect(b.UseCustomDiffPairDimensions()).toBe(false);
   });
 });
 
@@ -198,12 +238,13 @@ describe('cycling the track width index', () => {
   };
 
   it('wraps both ways', () => {
-    expect(
-      nextTrackWidthIndex(sizes({ trackWidthIndex: 2 }), 1, routing).selection.trackWidthIndex,
-    ).toBe(0);
-    expect(
-      nextTrackWidthIndex(sizes({ trackWidthIndex: 0 }), -1, routing).selection.trackWidthIndex,
-    ).toBe(2);
+    const up = sizes({ trackWidthIndex: 2 });
+    NextTrackWidthIndex(up, 1, routing);
+    expect(up.GetTrackWidthIndex()).toBe(0);
+
+    const down = sizes({ trackWidthIndex: 0 });
+    NextTrackWidthIndex(down, -1, routing);
+    expect(down.GetTrackWidthIndex()).toBe(2);
   });
 
   it('does NOT move the index on the first press while inheriting the width', () => {
@@ -211,47 +252,49 @@ describe('cycling the track width index', () => {
     //      m_TempOverrideTrackWidth = true; else widthIndex++;`
     // The press turns the override on and leaves the index where it was, so the
     // next press continues from there rather than from 0.
-    const next = nextTrackWidthIndex(sizes({ trackWidthIndex: 1 }), 1, {
+    const b = sizes({ trackWidthIndex: 1 });
+    const override = NextTrackWidthIndex(b, 1, {
       routingTrack: true,
       useConnectedTrackWidth: true,
       tempOverrideTrackWidth: false,
     });
 
-    expect(next.selection.trackWidthIndex).toBe(1);
-    expect(next.tempOverrideTrackWidth).toBe(true);
+    expect(b.GetTrackWidthIndex()).toBe(1);
+    expect(override).toBe(true);
   });
 
   it('moves it on the second press, once the override is on', () => {
-    const next = nextTrackWidthIndex(sizes({ trackWidthIndex: 1 }), 1, {
+    const b = sizes({ trackWidthIndex: 1 });
+    const override = NextTrackWidthIndex(b, 1, {
       routingTrack: true,
       useConnectedTrackWidth: true,
       tempOverrideTrackWidth: true,
     });
 
-    expect(next.selection.trackWidthIndex).toBe(2);
+    expect(b.GetTrackWidthIndex()).toBe(2);
   });
 
   it('moves it straight away when the router is not placing a track', () => {
     // The `routerTool->IsToolActive() && … == ROUTE_TRACK` half of the guard.
-    const next = nextTrackWidthIndex(sizes({ trackWidthIndex: 1 }), 1, {
+    const b = sizes({ trackWidthIndex: 1 });
+    NextTrackWidthIndex(b, 1, {
       routingTrack: false,
       useConnectedTrackWidth: true,
       tempOverrideTrackWidth: false,
     });
 
-    expect(next.selection.trackWidthIndex).toBe(2);
+    expect(b.GetTrackWidthIndex()).toBe(2);
   });
 });
 
 describe('the "Use Net Class Values" row', () => {
   it('resets four things, including the starting-width toggle no other row touches', () => {
-    const next = useNetclassTrackAndVia(
-      sizes({ trackWidthIndex: 2, viaSizeIndex: 1, useCustomTrackVia: true }),
-    );
+    const b = sizes({ trackWidthIndex: 2, viaSizeIndex: 1, useCustomTrackVia: true });
+    const useConnected = UseNetclassTrackAndVia(b);
 
-    expect(next.selection.trackWidthIndex).toBe(0);
-    expect(next.selection.viaSizeIndex).toBe(0);
-    expect(next.selection.useCustomTrackVia).toBe(false);
-    expect(next.useConnectedTrackWidth).toBe(false);
+    expect(b.GetTrackWidthIndex()).toBe(0);
+    expect(b.GetViaSizeIndex()).toBe(0);
+    expect(b.UseCustomTrackViaSize()).toBe(false);
+    expect(useConnected).toBe(false);
   });
 });

@@ -46,18 +46,7 @@ import { Distance } from '@ziroeda/kimath/src/math/vector2.js';
 import { pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
 import { stackupLayerDistanceMM } from '../board_stackup_distance.js';
 import type { StackupDistanceItem } from '../board_stackup_distance.js';
-import {
-  getCurrentDiffPairGap,
-  getCurrentDiffPairViaGap,
-  getCurrentDiffPairWidth,
-  getCurrentTrackWidth,
-  getCurrentViaDrill,
-  getCurrentViaSize,
-  useNetClassDiffPair,
-  useNetClassTrack,
-  useNetClassVia,
-  type TrackViaSizes,
-} from '../board_design_settings_sizes.js';
+import type { BOARD_DESIGN_SETTINGS } from '../board_design_settings.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { arcShape, padShapes } from '../drc/drc_engine_view.js';
 import { padShapePos } from '../padstack.js';
@@ -373,8 +362,8 @@ export interface PnsDesignSettings {
    * (`board_editor_control.cpp:1108-1112`).
    */
   tempOverrideTrackWidth: boolean;
-  /** The indices, the custom overrides and the three lists. */
-  sizes: TrackViaSizes;
+  /** The real BOARD_DESIGN_SETTINGS: the indices, the overrides and the lists. */
+  sizes: BOARD_DESIGN_SETTINGS;
   /**
    * `PNS_KICAD_IFACE_BASE::inheritTrackWidth` — the width of the track the
    * route starts on, or null when the start item carries none. A hook because
@@ -1014,7 +1003,6 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
 
     if (!ds) return false;
 
-    const sel = ds.sizes.selection;
     const resolver = this.mRuleResolver;
 
     aSizes.minClearance = ds.minClearance;
@@ -1069,7 +1057,7 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
       }
     }
 
-    if (!found && useNetClassTrack(sel) && aStartItem) {
+    if (!found && ds.sizes.UseNetClassTrack() && aStartItem) {
       const c = resolver?.queryConstraint(
         PnsConstraintType.CT_WIDTH,
         dummyTrack(aStartItem.net()),
@@ -1088,10 +1076,10 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
     }
 
     if (!found) {
-      const current = getCurrentTrackWidth(ds.sizes);
+      const current = ds.sizes.GetCurrentTrackWidth();
       trackWidth = Math.max(trackWidth, current);
 
-      if (useNetClassTrack(sel)) aSizes.widthSource = "netclass 'Default'";
+      if (ds.sizes.UseNetClassTrack()) aSizes.widthSource = "netclass 'Default'";
       else if (trackWidth === current) aSizes.widthSource = 'user choice';
     }
 
@@ -1114,7 +1102,7 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
       return via;
     };
 
-    if (useNetClassVia(sel) && aStartItem) {
+    if (ds.sizes.UseNetClassVia() && aStartItem) {
       const dia = optOf(PnsConstraintType.CT_VIA_DIAMETER, dummyVia(), null, startLayer);
       if (dia !== null) viaDiameter = Math.max(viaDiameter, dia);
 
@@ -1123,8 +1111,8 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
     } else {
       // Not `std::max` — upstream assigns, so a preset SMALLER than the board
       // minimum reaches the router and DRC is what complains about it.
-      viaDiameter = getCurrentViaSize(ds.sizes);
-      viaDrill = getCurrentViaDrill(ds.sizes);
+      viaDiameter = ds.sizes.GetCurrentViaSize();
+      viaDrill = ds.sizes.GetCurrentViaDrill();
     }
 
     aSizes.viaDiameter = viaDiameter;
@@ -1151,7 +1139,7 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
       }
     }
 
-    if (useNetClassDiffPair(sel) && aStartItem) {
+    if (ds.sizes.UseNetClassDiffPair() && aStartItem) {
       const net = aStartItem.net();
       const coupled = resolver?.dpCoupledNet(net) ?? null;
       const a = dummyTrack(net, 0);
@@ -1174,9 +1162,9 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
         if (diffPairGap === gap.value.opt) aSizes.diffPairGapSource = gap.ruleName;
       }
     } else {
-      diffPairWidth = getCurrentDiffPairWidth(ds.sizes);
-      diffPairGap = getCurrentDiffPairGap(ds.sizes);
-      diffPairViaGap = getCurrentDiffPairViaGap(ds.sizes);
+      diffPairWidth = ds.sizes.GetCurrentDiffPairWidth();
+      diffPairGap = ds.sizes.GetCurrentDiffPairGap();
+      diffPairViaGap = ds.sizes.GetCurrentDiffPairViaGap();
 
       aSizes.diffPairWidthSource = 'user choice';
       aSizes.diffPairGapSource = 'user choice';

@@ -26,10 +26,10 @@ import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
 import { buildDrcRuleEngine } from '@ziroeda/pcbnew/drc/drc_rules_engine.js';
 import { parseDrcRules } from '@ziroeda/pcbnew/drc/drc_rule_view.js';
 import {
-  defaultTrackViaSizeState,
-  withNetclassEntry,
-  type TrackViaSizes,
-} from '@ziroeda/pcbnew/board_design_settings_sizes.js';
+  BOARD_DESIGN_SETTINGS,
+  DIFF_PAIR_DIMENSION,
+  VIA_DIMENSION,
+} from '@ziroeda/pcbnew/board_design_settings.js';
 import type { PnsDesignSettings } from '@ziroeda/pcbnew/router/pns_board_iface.js';
 import type { PnsRouterSizes } from '@ziroeda/pcbnew/router/pns_router.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
@@ -62,30 +62,34 @@ const BOARD: Board = {
   groups: [],
 };
 
-function sizesModel(over: Partial<TrackViaSizes> = {}): TrackViaSizes {
-  return {
-    trackWidthList: withNetclassEntry([MM(0.3), MM(0.5)], 0),
-    viasDimensionsList: withNetclassEntry([{ diameter: MM(0.6), drill: MM(0.3) }], {
-      diameter: 0,
-      drill: 0,
-    }),
-    diffPairDimensionsList: withNetclassEntry(
-      [{ width: MM(0.2), gap: MM(0.25), viaGap: MM(0.5) }],
-      {
-        width: 0,
-        gap: 0,
-        viaGap: 0,
-      },
-    ),
-    defaultNetclass: {
-      trackWidth: MM(0.25),
-      clearance: MM(0.2),
-      viaDiameter: MM(0.8),
-      viaDrill: MM(0.4),
-    },
-    selection: defaultTrackViaSizeState(),
-    ...over,
-  };
+/** A BOARD_DESIGN_SETTINGS with the three lists behind their reserved [0] row. */
+function sizesModel(
+  mutate: (bds: BOARD_DESIGN_SETTINGS) => void = () => {},
+): BOARD_DESIGN_SETTINGS {
+  const bds = new BOARD_DESIGN_SETTINGS();
+
+  bds.m_TrackWidthList = [0, MM(0.3), MM(0.5)];
+  bds.m_ViasDimensionsList = [new VIA_DIMENSION(0, 0), new VIA_DIMENSION(MM(0.6), MM(0.3))];
+  bds.m_DiffPairDimensionsList = [
+    new DIFF_PAIR_DIMENSION(0, 0, 0),
+    new DIFF_PAIR_DIMENSION(MM(0.2), MM(0.25), MM(0.5)),
+  ];
+
+  const nc = bds.m_NetSettings.GetDefaultNetclass();
+  nc.SetTrackWidth(MM(0.25));
+  nc.SetClearance(MM(0.2));
+  nc.SetViaDiameter(MM(0.8));
+  nc.SetViaDrill(MM(0.4));
+
+  // NETCLASS's constructor fills in DEFAULT_DIFF_PAIR_*, so the fallbacks —
+  // width to the track width, gap to the clearance — are unreachable until
+  // they are cleared. A class that names none is what those branches are for.
+  nc.SetDiffPairWidth(undefined);
+  nc.SetDiffPairGap(undefined);
+  nc.SetDiffPairViaGap(undefined);
+
+  mutate(bds);
+  return bds;
 }
 
 /** Board Setup's minimums, which are the seed every dimension starts from. */
@@ -143,7 +147,7 @@ describe('the track width', () => {
   it('is the chosen preset', () => {
     const sizes = sizesModel();
     const ds = designSettings({
-      sizes: { ...sizes, selection: { ...sizes.selection, trackWidthIndex: 2 } },
+      sizes: sizesModel((b) => b.SetTrackWidthIndex(2)),
     });
 
     expect(imported(ds).sizes.trackWidth).toBe(MM(0.5));
@@ -181,7 +185,7 @@ describe('the via', () => {
     const ds = designSettings({
       viasMinSize: MM(2),
       minThroughDrill: MM(1),
-      sizes: { ...model, selection: { ...model.selection, viaSizeIndex: 1 } },
+      sizes: sizesModel((b) => b.SetViaSizeIndex(1)),
     });
 
     expect(imported(ds).sizes.viaDiameter).toBe(MM(0.6));
@@ -205,7 +209,7 @@ describe('the differential pair', () => {
   it('takes the chosen row', () => {
     const model = sizesModel();
     const ds = designSettings({
-      sizes: { ...model, selection: { ...model.selection, diffPairIndex: 1 } },
+      sizes: sizesModel((b) => b.SetDiffPairIndex(1)),
     });
     const { sizes } = imported(ds);
 
@@ -310,7 +314,7 @@ describe('where each number came from', () => {
     // `else if( trackWidth == bds.GetCurrentTrackWidth() ) … "user choice"`.
     const model = sizesModel();
     const ds = designSettings({
-      sizes: { ...model, selection: { ...model.selection, trackWidthIndex: 2 } },
+      sizes: sizesModel((b) => b.SetTrackWidthIndex(2)),
     });
 
     expect(imported(ds).sizes.widthSource).toBe('user choice');
@@ -322,7 +326,7 @@ describe('where each number came from', () => {
     const model = sizesModel();
     const ds = designSettings({
       trackMinWidth: MM(1),
-      sizes: { ...model, selection: { ...model.selection, trackWidthIndex: 1 } },
+      sizes: sizesModel((b) => b.SetTrackWidthIndex(1)),
     });
 
     expect(imported(ds).sizes.trackWidth).toBe(MM(1));
