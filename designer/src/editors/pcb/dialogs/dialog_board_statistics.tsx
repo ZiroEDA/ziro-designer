@@ -8,7 +8,7 @@
  * Every number here is computed in pcbnew (`board_statistics_report.ts`) where
  * it is tested; this is the notebook over it. The dialog formats and nothing
  * else, which is why the "Generate Report File..." button hands the same
- * `BoardStatisticsData` to `formatBoardStatisticsReport` rather than
+ * `BoardStatisticsData` to `FormatBoardStatisticsReport` rather than
  * re-deriving anything from the grids.
  *
  * The three checkboxes re-run the computation rather than filtering a cached
@@ -23,9 +23,9 @@ import { type JSX, type Ref, useMemo, useState } from 'react';
 import {
   type BoardStatisticsData,
   type BoardStatisticsOptions,
-  computeBoardStatistics,
+  ComputeBoardStatistics,
   DEFAULT_BOARD_STATISTICS_OPTIONS,
-  formatBoardStatisticsReport,
+  FormatBoardStatisticsReport,
 } from '@ziroeda/pcbnew';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { PAD_DRILL_SHAPE } from '@ziroeda/pcbnew/padstack.js';
@@ -46,18 +46,18 @@ interface Props {
 
 type Tab = 'general' | 'drills';
 
-const CELL: React.CSSProperties = { padding: '2px 8px', whiteSpace: 'nowrap' };
-const LABEL_CELL: React.CSSProperties = { ...CELL, textAlign: 'left' };
-const VALUE_CELL: React.CSSProperties = { ...CELL, textAlign: 'right' };
+// No metrics here: `.ze-grid` is the shared wxGrid port and carries the
+// padding, the font and the rules. Only the alignment is this dialog's, and
+// it is a class too.
 
 function Grid({ rows }: { rows: [string, string][] }): JSX.Element {
   return (
-    <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+    <table className="ze-grid">
       <tbody>
         {rows.map(([label, value]) => (
           <tr key={label}>
-            <td style={LABEL_CELL}>{label}</td>
-            <td style={VALUE_CELL}>{value}</td>
+            <td className="ze-stats-label">{label}</td>
+            <td className="ze-stats-value">{value}</td>
           </tr>
         ))}
       </tbody>
@@ -81,7 +81,7 @@ export function DialogBoardStatistics({
 
   // Each checkbox changes what is counted, so the whole computation re-runs.
   const data: BoardStatisticsData = useMemo(
-    () => computeBoardStatistics(board, options),
+    () => ComputeBoardStatistics(board, options),
     [board, options],
   );
 
@@ -127,7 +127,7 @@ export function DialogBoardStatistics({
   const backTotal = data.footprintEntries.reduce((n, e) => n + e.backCount, 0);
 
   const checkbox = (key: keyof BoardStatisticsOptions, label: string): JSX.Element => (
-    <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+    <label className="ze-check">
       <input
         type="checkbox"
         checked={options[key]}
@@ -156,29 +156,29 @@ export function DialogBoardStatistics({
           <div className="ze-stats-general">
             <fieldset>
               <legend>Components</legend>
-              <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+              <table className="ze-grid">
                 <thead>
                   <tr>
-                    <th style={LABEL_CELL} />
-                    <th style={VALUE_CELL}>Front Side</th>
-                    <th style={VALUE_CELL}>Back Side</th>
-                    <th style={VALUE_CELL}>Total</th>
+                    <th className="ze-stats-label" />
+                    <th className="ze-stats-value">Front Side</th>
+                    <th className="ze-stats-value">Back Side</th>
+                    <th className="ze-stats-value">Total</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.footprintEntries.map((e) => (
                     <tr key={e.title}>
-                      <td style={LABEL_CELL}>{e.title}</td>
-                      <td style={VALUE_CELL}>{e.frontCount}</td>
-                      <td style={VALUE_CELL}>{e.backCount}</td>
-                      <td style={VALUE_CELL}>{e.frontCount + e.backCount}</td>
+                      <td className="ze-stats-label">{e.title}</td>
+                      <td className="ze-stats-value">{e.frontCount}</td>
+                      <td className="ze-stats-value">{e.backCount}</td>
+                      <td className="ze-stats-value">{e.frontCount + e.backCount}</td>
                     </tr>
                   ))}
                   <tr>
-                    <td style={LABEL_CELL}>Total:</td>
-                    <td style={VALUE_CELL}>{frontTotal}</td>
-                    <td style={VALUE_CELL}>{backTotal}</td>
-                    <td style={VALUE_CELL}>{frontTotal + backTotal}</td>
+                    <td className="ze-stats-label">Total:</td>
+                    <td className="ze-stats-value">{frontTotal}</td>
+                    <td className="ze-stats-value">{backTotal}</td>
+                    <td className="ze-stats-value">{frontTotal + backTotal}</td>
                   </tr>
                 </tbody>
               </table>
@@ -200,17 +200,17 @@ export function DialogBoardStatistics({
             </fieldset>
           </div>
         ) : (
-          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+          <table className="ze-grid">
             <thead>
               <tr>
-                <th style={VALUE_CELL}>Count</th>
-                <th style={LABEL_CELL}>Shape</th>
-                <th style={VALUE_CELL}>X Size</th>
-                <th style={VALUE_CELL}>Y Size</th>
-                <th style={LABEL_CELL}>Plated</th>
-                <th style={LABEL_CELL}>Via/Pad</th>
-                <th style={LABEL_CELL}>Start Layer</th>
-                <th style={LABEL_CELL}>Stop Layer</th>
+                <th className="ze-stats-value">Count</th>
+                <th className="ze-stats-label">Shape</th>
+                <th className="ze-stats-value">X Size</th>
+                <th className="ze-stats-value">Y Size</th>
+                <th className="ze-stats-label">Plated</th>
+                <th className="ze-stats-label">Via/Pad</th>
+                <th className="ze-stats-label">Start Layer</th>
+                <th className="ze-stats-label">Stop Layer</th>
               </tr>
             </thead>
             <tbody>
@@ -220,20 +220,20 @@ export function DialogBoardStatistics({
                 // fold already compared.
                 // biome-ignore lint/suspicious/noArrayIndexKey: folded rows have no id
                 <tr key={i}>
-                  <td style={VALUE_CELL}>{d.qty}</td>
-                  <td style={LABEL_CELL}>
+                  <td className="ze-stats-value">{d.qty}</td>
+                  <td className="ze-stats-label">
                     {d.shape === PAD_DRILL_SHAPE.CIRCLE
                       ? 'Round'
                       : d.shape === PAD_DRILL_SHAPE.OBLONG
                         ? 'Slot'
                         : '???'}
                   </td>
-                  <td style={VALUE_CELL}>{unitsProvider.MessageTextFromValue(d.xSize)}</td>
-                  <td style={VALUE_CELL}>{unitsProvider.MessageTextFromValue(d.ySize)}</td>
-                  <td style={LABEL_CELL}>{d.isPlated ? 'PTH' : 'NPTH'}</td>
-                  <td style={LABEL_CELL}>{d.isPad ? 'Pad' : 'Via'}</td>
-                  <td style={LABEL_CELL}>{layerName(d.startLayer)}</td>
-                  <td style={LABEL_CELL}>{layerName(d.stopLayer)}</td>
+                  <td className="ze-stats-value">{unitsProvider.MessageTextFromValue(d.xSize)}</td>
+                  <td className="ze-stats-value">{unitsProvider.MessageTextFromValue(d.ySize)}</td>
+                  <td className="ze-stats-label">{d.isPlated ? 'PTH' : 'NPTH'}</td>
+                  <td className="ze-stats-label">{d.isPad ? 'Pad' : 'Via'}</td>
+                  <td className="ze-stats-label">{layerName(d.startLayer)}</td>
+                  <td className="ze-stats-label">{layerName(d.stopLayer)}</td>
                 </tr>
               ))}
             </tbody>
@@ -252,7 +252,7 @@ export function DialogBoardStatistics({
           type="button"
           onClick={() =>
             onGenerateReport(
-              formatBoardStatisticsReport(data, board, unitsProvider, projectName, boardName),
+              FormatBoardStatisticsReport(data, board, unitsProvider, projectName, boardName),
               `${boardName || 'board'}-statistics.txt`,
             )
           }

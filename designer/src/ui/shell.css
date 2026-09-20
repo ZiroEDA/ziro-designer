@@ -16808,3 +16808,17 @@ td.ze-grid-bool {
 .ze-chat-handle:active {
   cursor: grabbing;
 }
+
+/* ---------------------------------------------------------------------------
+   DIALOG_BOARD_STATISTICS. The grids are `.ze-grid`, the shared WX_GRID port,
+   so nothing here restates a metric wx decides. What is left is alignment —
+   wxGrid sets it per column through SetColFormatNumber, which has no CSS
+   equivalent. The checkbox rows are `.ze-check`, the shared wxCheckBox row. */
+.ze-stats-label {
+  text-align: left;
+  white-space: nowrap;
+}
+.ze-stats-value {
+  text-align: right;
+  white-space: nowrap;
+}

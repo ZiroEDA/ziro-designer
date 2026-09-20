@@ -179,7 +179,7 @@ export function buildPcbMenus(
             { label: 'Component Placement (.pos, .gbr)...', disabled: dis },
             { label: 'Footprint Report (.rpt)...', disabled: dis },
             { label: 'IPC-D-356 Netlist File...', disabled: dis },
-            { label: 'Bill of Materials...', disabled: dis },
+            { label: 'Bill of Materials...', action: () => h.action('generateBOM') },
           ],
         },
         { sep: true },
@@ -717,7 +717,7 @@ export function buildPcbMenus(
       // ellipsis on the two resolution rows, and Board Statistics is "Show
       // Board Statistics".
       items: [
-        { label: 'Show Board Statistics', disabled: dis },
+        { label: 'Show Board Statistics', action: () => h.action('boardStatistics') },
         {
           label: 'Measure Tool',
           icon: 'measureTool',

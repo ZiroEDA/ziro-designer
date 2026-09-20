@@ -346,6 +346,7 @@ import { applyBoardFileSetup, writeBoardFileSetup } from './board_file_settings.
 import { DialogDrc } from './dialogs/dialog_drc.js';
 import { DialogUpdatePcb, type UpdatePcbOptions } from './dialogs/dialog_update_pcb.js';
 import { DialogGlobalEditTeardrops } from './dialogs/dialog_global_edit_teardrops.js';
+import { BuildBomTextFromBoard } from '@ziroeda/pcbnew/build_BOM_from_board.js';
 import { DialogBoardStatistics } from './dialogs/dialog_board_statistics.js';
 import { DialogFilterSelection } from './dialogs/dialog_filter_selection.js';
 import { DialogMoveExact, type MoveExactValues } from './dialogs/dialog_move_exact.js';
@@ -2374,7 +2375,12 @@ export function PcbEditor({
    * (router_tool.cpp:1436, :1600) — why the router refused, in the infobar
    * above the canvas, with its close button.
    */
-  const [routerError, setRouterError] = useState<string | null>(null);
+  /**
+   * The frame's info bar, `EDA_BASE_FRAME::ShowInfoBarError`. One bar per
+   * frame upstream, so one state here: the router was its first user, not its
+   * owner.
+   */
+  const [infoBarError, setInfoBarError] = useState<string | null>(null);
   /**
    * Decoded reference-image pixels. A ref, not state: the map is mutated in
    * place and the redraw is what publishes it, so making it state would rebuild
@@ -7606,11 +7612,11 @@ export function PcbEditor({
         isLayerVisible: (l) => visible.has(l),
       });
       if (!next.start(at, layer)) {
-        setRouterError(next.failureReason || 'The routing start point violates DRC.');
+        setInfoBarError(next.failureReason || 'The routing start point violates DRC.');
         next.abort();
         return;
       }
-      setRouterError(null);
+      setInfoBarError(null);
       pnsSessionRef.current = next;
       next.move(at);
       updatePnsPreview();
@@ -7624,7 +7630,7 @@ export function PcbEditor({
       pnsSessionRef.current = null;
       pnsPreviewSceneRef.current = null;
       if (result.ok) commitBoard(applyPnsChanges(brd, result.changes));
-      else if (result.reason) setRouterError(result.reason);
+      else if (result.reason) setInfoBarError(result.reason);
     } else {
       // `syncRouterAndFrameLayer()` after every fix: the frame's active layer
       // follows the router's, which a fixed via has just changed.
@@ -10492,6 +10498,19 @@ export function PcbEditor({
       case 'boardStatistics':
         setStatsOpen(true);
         break;
+      case 'generateBOM': {
+        // `GenBOMFileFromBoard` opens a save dialog first and bails on an empty
+        // board with an info-bar error; ours reports the same refusal.
+        const kb = frameRef.current?.GetBoard();
+
+        if (!kb || kb.Footprints().length === 0) {
+          setInfoBarError('Cannot export BOM: there are no footprints on the PCB.');
+          break;
+        }
+
+        saveReportFile(BuildBomTextFromBoard(kb), `${fileName.replace(/\.kicad_pcb$/, '')}.csv`);
+        break;
+      }
       case 'zoomInCenter':
         zoomStep(1.3);
         break;
@@ -11006,12 +11025,12 @@ export function PcbEditor({
           style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
         >
           {readOnlyNotice}
-          {routerError !== null && (
+          {infoBarError !== null && (
             <Infobar
-              message={routerError}
+              message={infoBarError}
               closable
               className="ze-router-infobar"
-              key={routerError}
+              key={infoBarError}
             />
           )}
           <div
