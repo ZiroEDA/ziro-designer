@@ -35,7 +35,7 @@ import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { RESET_REASON } from '@ziroeda/common/src/tool/tool_base.js';
 import { type VIEW_ITEM, VIEW_UPDATE_FLAGS } from '@ziroeda/common/src/view/view_item.js';
 import type { BOARD } from './board.js';
-import { HIGH_CONTRAST_MODE } from './board_project_settings.js';
+import { HIGH_CONTRAST_MODE } from '@ziroeda/common/src/project/board_project_settings.js';
 import { PAD } from './pad.js';
 import { PCB_DISPLAY_OPTIONS, type PCB_PAINTER } from './pcb_painter.js';
 import type { PCB_DRAW_PANEL_GAL } from './pcb_draw_panel_gal.js';

@@ -515,7 +515,7 @@ import {
   HIGH_CONTRAST_MODE,
   NET_COLOR_MODE,
   ZONE_DISPLAY_MODE,
-} from '@ziroeda/pcbnew/board_project_settings.js';
+} from '@ziroeda/common/src/project/board_project_settings.js';
 import { GAL_LAYER_ID, LayerName, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { LSET } from '@ziroeda/common/src/lset.js';
 import { VIEW_UPDATE_FLAGS, type VIEW_ITEM } from '@ziroeda/common/src/view/view_item.js';

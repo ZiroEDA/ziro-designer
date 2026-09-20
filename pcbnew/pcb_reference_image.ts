@@ -36,7 +36,7 @@ import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.
 import { SHAPE_RECT } from '@ziroeda/kimath/src/geometry/shape_rect.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { type VECTOR2I, add } from '@ziroeda/kimath/src/math/vector2.js';
-import { HIGH_CONTRAST_MODE } from './board_project_settings.js';
+import { HIGH_CONTRAST_MODE } from '@ziroeda/common/src/project/board_project_settings.js';
 import { BOARD_ITEM } from './board_item.js';
 import { COORD_TYPES_T } from '@ziroeda/common/src/origin_transforms.js';
 import {

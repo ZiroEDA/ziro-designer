@@ -12,7 +12,7 @@ import { ARC_EDIT_MODE } from '@ziroeda/common/src/frame_type.js';
 import { APP_SETTINGS_BASE, WINDOW_SETTINGS } from '@ziroeda/common/src/settings/app_settings.js';
 import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import { FLIP_DIRECTION } from '@ziroeda/kimath/src/core/mirror.js';
-import { RATSNEST_MODE } from './board_project_settings.js';
+import { RATSNEST_MODE } from '@ziroeda/common/src/project/board_project_settings.js';
 
 // Settings for the CONVERT_TOOL.
 export enum CONVERT_STRATEGY {

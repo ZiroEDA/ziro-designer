@@ -69,7 +69,7 @@ import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
 import { DEFAULT_LINE_WIDTH } from './board_design_settings_defaults.js';
 import { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
-import type { HIGH_CONTRAST_MODE } from './board_project_settings.js';
+import type { HIGH_CONTRAST_MODE } from '@ziroeda/common/src/project/board_project_settings.js';
 import { BOARD_ITEM } from './board_item.js';
 import type { BOARD } from './board.js';
 import { DRC_CONSTRAINT_T } from './drc/drc_rule.js';
