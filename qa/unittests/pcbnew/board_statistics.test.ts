@@ -15,12 +15,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   collectDrillLineItems,
-  computeBoardStatistics,
   getBoardPolygonOutlines,
-  initialiseBoardStatisticsData,
   sameDrillLineItem,
-  STATISTICS_INT_MAX,
 } from '@ziroeda/pcbnew/board_statistics.js';
+import {
+  computeBoardStatistics,
+  initialiseBoardStatisticsData,
+  STATISTICS_INT_MAX,
+} from '@ziroeda/pcbnew/board_statistics_report.js';
 import type {
   Board,
   PcbFootprint,

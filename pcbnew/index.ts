@@ -912,25 +912,28 @@ export {
 } from './unused_pad_layers.js';
 
 export {
-  computeBoardStatistics,
-  initialiseBoardStatisticsData,
   collectDrillLineItems,
   sameDrillLineItem,
   getBoardPolygonOutlines,
-  DEFAULT_BOARD_STATISTICS_OPTIONS,
-  STATISTICS_INT_MAX,
-  type BoardStatisticsData,
-  type BoardStatisticsOptions,
   type BoardPolygonOutlines,
   type BoardOutlinePolygon,
   type DrillLineItem,
   type PadDrillShape,
+} from './board_statistics.js';
+
+export {
+  computeBoardStatistics,
+  initialiseBoardStatisticsData,
+  DEFAULT_BOARD_STATISTICS_OPTIONS,
+  STATISTICS_INT_MAX,
+  type BoardStatisticsData,
+  type BoardStatisticsOptions,
   type FootprintStatisticsEntry,
   type StatisticsCountEntry,
   type PadAttribute,
   type CountedPadProperty,
   type ViaTypeName,
-} from './board_statistics.js';
+} from './board_statistics_report.js';
 
 export {
   planBoardReannotate,
