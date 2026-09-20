@@ -89,4 +89,36 @@ describe('BOARD_DESIGN_SETTINGS as a NESTED_SETTINGS', () => {
       { version: 2 },
     );
   });
+
+  it('tuning_pattern_settings: each of the three blocks reads all six fields', () => {
+    const b = new BOARD();
+    const m = new SETTINGS_MANAGER();
+    m.LoadProject('/p/x.kicad_pro', {
+      board: {
+        design_settings: {
+          tuning_pattern_settings: {
+            diff_pair_skew_defaults: {
+              min_amplitude: 0.3,
+              max_amplitude: 2.5,
+              spacing: 0.7,
+              corner_style: 0,
+              corner_radius_percentage: 40,
+              single_sided: true,
+            },
+          },
+        },
+      },
+    });
+    b.SetProject(m.Prj());
+    const s = b.GetDesignSettings().m_SkewMeanderSettings;
+    expect(s.minAmplitude).toBe(300_000);
+    expect(s.maxAmplitude).toBe(2_500_000);
+    expect(s.spacing).toBe(700_000);
+    expect(s.cornerStyle).toBe(2); // MEANDER_STYLE_CHAMFER
+    expect(s.cornerRadiusPercentage).toBe(40);
+    expect(s.singleSided).toBe(true);
+    // the other two keep the constructor's spacing
+    expect(b.GetDesignSettings().m_SingleTrackMeanderSettings.spacing).toBe(600_000);
+    expect(b.GetDesignSettings().m_DiffPairMeanderSettings.spacing).toBe(1_000_000);
+  });
 });

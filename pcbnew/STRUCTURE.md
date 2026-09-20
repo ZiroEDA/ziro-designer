@@ -73,7 +73,7 @@ Walking `pcbnew/*` one letter at a time. Only gaps are noted.
 | | |
 |---|---|
 | `a` | KiCad 2, ours 2. `action_plugin.cpp` **n/a** — Python action-plugin registry. `array_pad_number_provider.cpp` **ported** (f934e550). |
-| `b` | KiCad 10, ours 9. `board_bounding_box.cpp` **n/a** — dead in KiCad, nothing in their tree references it. `board_design_settings_sizes.ts` **deleted** — a copy of BDS's own fields; the twelve methods are on the class now, the cycling helpers in `tools/board_editor_control.ts`. Coverage: `board` **206/210** (`Show`/`ShowDummy`; `ParseType`/`ShowType` are `LAYER`'s and already ported). `GENERAL_COLLECTOR` + its guides landed in `collectors.ts`, `board_design_settings` 60/62 (the 2 are false positives), rest complete. |
+| `b` | KiCad 10, ours 9. `board_bounding_box.cpp` **n/a** — dead in KiCad, nothing in their tree references it. `board_design_settings_sizes.ts` **deleted** — a copy of BDS's own fields; the twelve methods are on the class now, the cycling helpers in `tools/board_editor_control.ts`. Coverage: `board` **206/210** (`Show`/`ShowDummy`; `ParseType`/`ShowType` are `LAYER`'s and already ported). `GENERAL_COLLECTOR` + its guides landed in `collectors.ts`; `board_design_settings` 60/62 (the 2 are false positives) and, since 09-20, a real `NESTED_SETTINGS` with all 85 params - `board.design_settings` round-trips a KiCad-10 file deep-equal. Still ours, not KiCad's: the Board Setup dialog edits a `BoardSetupValues` copy and merge-writes the `.kicad_pro` text (`designer/.../project_settings.ts`) instead of the live BDS + `SaveProject()`; that goes with the `dialogs/` rebuild. Rest complete. |
 
 ## Files in the wrong place
 
