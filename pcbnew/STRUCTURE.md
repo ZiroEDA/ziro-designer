@@ -73,6 +73,7 @@ Walking `pcbnew/*` one letter at a time. Only gaps are noted.
 | | |
 |---|---|
 | `a` | KiCad 2, ours 2. `action_plugin.cpp` **n/a** — Python action-plugin registry. `array_pad_number_provider.cpp` **ported** (f934e550). |
+| `b` | KiCad 10, ours 9. `board_bounding_box.cpp` **n/a** — dead in KiCad, nothing in their tree references it. All others present; `build_BOM_from_board.cpp` ported (87f7d7ba). Coverage: `board` 172/210, `board_design_settings` 48/62, rest complete. |
 
 ## Files in the wrong place
 
