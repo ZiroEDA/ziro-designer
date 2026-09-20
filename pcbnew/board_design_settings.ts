@@ -5,15 +5,10 @@
  * `include/board_design_settings.h` / `pcbnew/board_design_settings.cpp`:
  * `BOARD_DESIGN_SETTINGS`, the settings a board carries with it.
  *
- * IN PROGRESS (#636 stage 1): every member whose type exists is here with
- * its constructor default — the layer counts and enabled set, the per-class
- * line/text defaults, the minimums, the mask and paste margins, the via
- * tenting/covering/plugging flags, the custom track/via/diff-pair values,
- * the origins, `m_NetSettings`, `m_TeardropParamsList`, `m_Pad_Master`,
- * `m_stackup` and `m_ZoneLayerProperties`. Still to land with their own
- * classes: the three `MEANDER_SETTINGS`; and the
- * `NESTED_SETTINGS` JSON registration is not ported (the file parser sets
- * the fields directly).
+ * A `NESTED_SETTINGS` at `board.design_settings` of the project file, with
+ * the 85 params of the constructor and its two schema migrations. As
+ * upstream, `m_resetParamsIfMissing` is off: a key the file lacks leaves the
+ * value the board file parser set.
  */
 
 import { ADVANCED_CFG } from '@ziroeda/common/src/advanced_config.js';
@@ -32,11 +27,47 @@ import {
   RPT_SEVERITY_WARNING,
   type Severity,
   SeverityFromString,
+  SeverityToString,
 } from '@ziroeda/common/src/reporter.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc/drc_item.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { ARC_HIGH_DEF } from '@ziroeda/kimath/src/base_units.js';
 import { NET_SETTINGS } from '@ziroeda/common/src/project/net_settings.js';
+import {
+  type JSON_SETTINGS,
+  type JsonObject,
+  type JsonValue,
+  NESTED_SETTINGS,
+  PARAM,
+  PARAM_ENUM,
+  PARAM_LAMBDA,
+  PARAM_SCALED,
+  ref,
+} from '@ziroeda/common/src/settings/json_settings.js';
+import { TEXT_MAX_SIZE_MM, TEXT_MIN_SIZE_MM } from '@ziroeda/common/src/eda_text.js';
+import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import {
+  ZONE_BORDER_HATCH_DIST_MM,
+  ZONE_BORDER_HATCH_MAXDIST_MM,
+  ZONE_BORDER_HATCH_MINDIST_MM,
+  ZONE_CLEARANCE_MM,
+  ZONE_CONNECTION,
+  ZONE_THERMAL_RELIEF_COPPER_WIDTH_MM,
+  ZONE_THERMAL_RELIEF_GAP_MM,
+  ZONE_THICKNESS_MIN_VALUE_MM,
+  ZONE_THICKNESS_MM,
+} from './zones.js';
+import { ISLAND_REMOVAL_MODE, ZONE_BORDER_DISPLAY_STYLE, ZONE_FILL_MODE } from './zone_settings.js';
+import {
+  GetTeardropTargetCanonicalName,
+  GetTeardropTargetTypeFromCanonicalName,
+  type TARGET_TD,
+} from './teardrop/teardrop_parameters.js';
+import {
+  defaultMeanderSettings,
+  type MeanderSettings,
+  MeanderStyle,
+} from './router/pns_meander.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { TEARDROP_PARAMETERS_LIST } from './teardrop/teardrop_parameters.js';
 import { ZONE_SETTINGS, type ZONE_LAYER_PROPERTIES } from './zone_settings.js';
@@ -54,6 +85,8 @@ import {
   DEFAULT_COURTYARD_WIDTH,
   DEFAULT_DIMENSION_ARROW_LENGTH,
   DEFAULT_DIMENSION_EXTENSION_OFFSET,
+  DEFAULT_DP_MEANDER_SPACING,
+  DEFAULT_MEANDER_SPACING,
   DEFAULT_CUSTOMDPAIRGAP,
   DEFAULT_CUSTOMDPAIRVIAGAP,
   DEFAULT_CUSTOMDPAIRWIDTH,
@@ -192,7 +225,9 @@ export class TEXT_ITEM_INFO {
 /**
  * Container for design settings for a #BOARD object.
  */
-export class BOARD_DESIGN_SETTINGS {
+const bdsSchemaVersion = 2;
+
+export class BOARD_DESIGN_SETTINGS extends NESTED_SETTINGS {
   // Note: the first value in each dimensions list is the current netclass value
   m_TrackWidthList: number[] = [];
   m_ViasDimensionsList: VIA_DIMENSION[] = [];
@@ -210,6 +245,11 @@ export class BOARD_DESIGN_SETTINGS {
   }
 
   private m_defaultZoneSettings = new ZONE_SETTINGS();
+
+  // Default settings for tuning patterns (PNS::MEANDER_SETTINGS)
+  m_SingleTrackMeanderSettings: MeanderSettings = defaultMeanderSettings();
+  m_SkewMeanderSettings: MeanderSettings = defaultMeanderSettings();
+  m_DiffPairMeanderSettings: MeanderSettings = defaultMeanderSettings();
 
   m_UseConnectedTrackWidth: boolean; // use width of existing track when creating a new,
   // connected track
@@ -348,7 +388,13 @@ export class BOARD_DESIGN_SETTINGS {
   /// Stack-up settings
   private m_stackup = new BOARD_STACKUP();
 
-  constructor() {
+  constructor(aParent: JSON_SETTINGS | null = null, aPath = 'board.design_settings') {
+    super('board_design_settings', bdsSchemaVersion, aParent, aPath, false);
+
+    // We want to leave alone parameters that aren't found in the project JSON as they may be
+    // initialized by the board file parser before NESTED_SETTINGS::LoadFromFile is called.
+    this.m_resetParamsIfMissing = false;
+
     // Create a default NET_SETTINGS so that things don't break horribly if there's no project
     // loaded.  This also is used during file load for legacy boards that have netclasses stored
     // in the file.  After load, this information will be moved to the project and the pointer
@@ -554,6 +600,1048 @@ export class BOARD_DESIGN_SETTINGS {
 
     // Layer thickness for 3D viewer
     this.m_boardThickness = pcbIUScale.mmToIU(DEFAULT_BOARD_THICKNESS_MM);
+
+    // Default spacing for meanders
+    this.m_SingleTrackMeanderSettings.spacing = pcbIUScale.mmToIU(DEFAULT_MEANDER_SPACING);
+    this.m_SkewMeanderSettings.spacing = pcbIUScale.mmToIU(DEFAULT_MEANDER_SPACING);
+    this.m_DiffPairMeanderSettings.spacing = pcbIUScale.mmToIU(DEFAULT_DP_MEANDER_SPACING);
+
+    this.m_viaSizeIndex = 0;
+    this.m_trackWidthIndex = 0;
+    this.m_diffPairIndex = 0;
+
+    // Parameters stored in JSON in the project file
+
+    // NOTE: Previously, BOARD_DESIGN_SETTINGS stored the basic board layer information (layer
+    // names and enable/disable state) in the project file even though this information is also
+    // stored in the board file.  This was implemented for importing these settings from another
+    // project.  Going forward, the import feature will just import from other board files (since
+    // we could have multi-board projects in the future anyway) so this functionality is dropped.
+
+    this.registerParams();
+
+    this.registerMigration(0, 1, () => this.migrateSchema0to1());
+    this.registerMigration(1, 2, () => {
+      // Schema 1 to 2: move mask and paste margin settings back to board.
+      // The parameters are removed, so we just have to manually load them here and
+      // they will get saved with the board
+      let optval = this.Get<number>('rules.solder_mask_clearance');
+      if (optval !== undefined)
+        this.m_SolderMaskExpansion = Math.trunc(optval * pcbIUScale.IU_PER_MM);
+
+      optval = this.Get<number>('rules.solder_mask_min_width');
+      if (optval !== undefined)
+        this.m_SolderMaskMinWidth = Math.trunc(optval * pcbIUScale.IU_PER_MM);
+
+      optval = this.Get<number>('rules.solder_paste_clearance');
+      if (optval !== undefined)
+        this.m_SolderPasteMargin = Math.trunc(optval * pcbIUScale.IU_PER_MM);
+
+      optval = this.Get<number>('rules.solder_paste_margin_ratio');
+      if (optval !== undefined) this.m_SolderPasteMarginRatio = optval;
+
+      this.Erase('rules.solder_mask_clearance');
+      this.Erase('rules.solder_mask_min_width');
+      this.Erase('rules.solder_paste_clearance');
+      this.Erase('rules.solder_paste_margin_ratio');
+
+      return true;
+    });
+
+    if (aParent) this.LoadFromFile();
+  }
+
+  /** The 85 `m_params.emplace_back` of the constructor, in its order. */
+  private registerParams(): void {
+    const mm = (v: number): number => pcbIUScale.mmToIU(v);
+    const MM_PER_IU = pcbIUScale.MM_PER_IU;
+    const scaled = (
+      aPath: string,
+      aPtr: { get: () => number; set: (v: number) => void },
+      aDefault: number,
+      aMinMM: number,
+      aMaxMM: number,
+    ): void => {
+      this.m_params.push(
+        new PARAM_SCALED(aPath, aPtr, aDefault, mm(aMinMM), mm(aMaxMM), MM_PER_IU),
+      );
+    };
+
+    this.m_params.push(
+      new PARAM<boolean>(
+        'rules.use_height_for_length_calcs',
+        ref(this, 'm_UseHeightForLengthCalcs'),
+        true,
+      ),
+    );
+
+    scaled('rules.min_clearance', ref(this, 'm_MinClearance'), mm(DEFAULT_MINCLEARANCE), 0.0, 25.0);
+    scaled('rules.min_connection', ref(this, 'm_MinConn'), mm(DEFAULT_MINCONNECTION), 0.0, 100.0);
+    scaled(
+      'rules.min_track_width',
+      ref(this, 'm_TrackMinWidth'),
+      mm(DEFAULT_TRACKMINWIDTH),
+      0.0,
+      25.0,
+    );
+    scaled(
+      'rules.min_via_annular_width',
+      ref(this, 'm_ViasMinAnnularWidth'),
+      mm(DEFAULT_VIASMINSIZE),
+      0.0,
+      25.0,
+    );
+    scaled(
+      'rules.min_via_diameter',
+      ref(this, 'm_ViasMinSize'),
+      mm(DEFAULT_VIASMINSIZE),
+      0.0,
+      25.0,
+    );
+    scaled(
+      'rules.min_through_hole_diameter',
+      ref(this, 'm_MinThroughDrill'),
+      mm(DEFAULT_MINTHROUGHDRILL),
+      0.0,
+      25.0,
+    );
+    scaled(
+      'rules.min_microvia_diameter',
+      ref(this, 'm_MicroViasMinSize'),
+      mm(DEFAULT_MICROVIASMINSIZE),
+      0.0,
+      10.0,
+    );
+    scaled(
+      'rules.min_microvia_drill',
+      ref(this, 'm_MicroViasMinDrill'),
+      mm(DEFAULT_MICROVIASMINDRILL),
+      0.0,
+      10.0,
+    );
+    scaled(
+      'rules.min_hole_to_hole',
+      ref(this, 'm_HoleToHoleMin'),
+      mm(DEFAULT_HOLETOHOLEMIN),
+      0.0,
+      10.0,
+    );
+    scaled(
+      'rules.min_hole_clearance',
+      ref(this, 'm_HoleClearance'),
+      mm(DEFAULT_HOLECLEARANCE),
+      0.0,
+      100.0,
+    );
+    scaled(
+      'rules.min_silk_clearance',
+      ref(this, 'm_SilkClearance'),
+      mm(DEFAULT_SILKCLEARANCE),
+      -10.0,
+      100.0,
+    );
+    scaled(
+      'rules.min_groove_width',
+      ref(this, 'm_MinGrooveWidth'),
+      mm(DEFAULT_MINGROOVEWIDTH),
+      0.0,
+      25.0,
+    );
+
+    // While the maximum *effective* value is 4, we've had users interpret this as the count on
+    // all layers, and enter something like 10.  They'll figure it out soon enough *unless* we
+    // enforce a max of 4 (and therefore reset it back to the default of 2), at which point it
+    // just looks buggy.
+    this.m_params.push(
+      new PARAM<number>(
+        'rules.min_resolved_spokes',
+        ref(this, 'm_MinResolvedSpokes'),
+        DEFAULT_MINRESOLVEDSPOKES,
+        0,
+        99,
+      ),
+    );
+
+    scaled(
+      'rules.min_text_height',
+      ref(this, 'm_MinSilkTextHeight'),
+      mm(DEFAULT_SILK_TEXT_SIZE * 0.8),
+      0.0,
+      100.0,
+    );
+    scaled(
+      'rules.min_text_thickness',
+      ref(this, 'm_MinSilkTextThickness'),
+      mm(DEFAULT_SILK_TEXT_WIDTH * 0.8),
+      0.0,
+      25.0,
+    );
+
+    // Note: a clearance of -0.01 is a flag indicating we should use the legacy (pre-6.0) method
+    // based on the edge cut thicknesses.
+    scaled(
+      'rules.min_copper_edge_clearance',
+      ref(this, 'm_CopperEdgeClearance'),
+      mm(DEFAULT_COPPEREDGECLEARANCE),
+      -0.01,
+      25.0,
+    );
+
+    this.m_params.push(
+      new PARAM_LAMBDA<JsonValue>(
+        'rule_severities',
+        () => {
+          const ret: JsonObject = {};
+
+          for (const item of DRC_ITEM.GetItemsWithSeverities()) {
+            const name = item.GetSettingsKey();
+            const code = item.GetErrorCode();
+
+            if (name === '' || !this.m_DRCSeverities.has(code)) continue;
+
+            ret[name] = SeverityToString(this.m_DRCSeverities.get(code)!);
+          }
+
+          return ret;
+        },
+        (aJson) => {
+          if (aJson === null || typeof aJson !== 'object' || Array.isArray(aJson)) return;
+
+          // Load V8 'hole_near_hole' token first (if present).  Any current 'hole_to_hole' token
+          // found will then overwrite it.
+          // We can't use the migration architecture because we forgot to bump the version number
+          // when the change was made.  But this is a one-off as any future deprecations should
+          // bump the version number and use registerMigration().
+          if ('hole_near_hole' in aJson) {
+            this.m_DRCSeverities.set(
+              PCB_DRC_CODE.DRCE_DRILLED_HOLES_TOO_CLOSE,
+              SeverityFromString(String(aJson.hole_near_hole)),
+            );
+          }
+
+          for (const item of DRC_ITEM.GetItemsWithSeverities()) {
+            const key = item.GetSettingsKey();
+
+            if (key in aJson)
+              this.m_DRCSeverities.set(item.GetErrorCode(), SeverityFromString(String(aJson[key])));
+          }
+        },
+        {},
+      ),
+    );
+
+    this.m_params.push(
+      new PARAM_LAMBDA<JsonValue>(
+        'drc_exclusions',
+        () => {
+          const js: JsonValue[] = [];
+
+          for (const entry of this.m_DrcExclusions)
+            js.push([entry, this.m_DrcExclusionComments.get(entry) ?? '']);
+
+          return js;
+        },
+        (aObj) => {
+          this.m_DrcExclusions.clear();
+
+          if (!Array.isArray(aObj)) return;
+
+          for (const entry of aObj) {
+            if (Array.isArray(entry)) {
+              const serialized = String(entry[0]);
+              this.m_DrcExclusions.add(serialized);
+              this.m_DrcExclusionComments.set(serialized, String(entry[1] ?? ''));
+            } else if (typeof entry === 'string') {
+              this.m_DrcExclusions.add(entry);
+            }
+          }
+        },
+        {},
+      ),
+    );
+
+    this.m_params.push(
+      new PARAM_LAMBDA<JsonValue>(
+        'track_widths',
+        () => this.m_TrackWidthList.map((width) => pcbIUScale.iuToMM(width)),
+        (aJson) => {
+          if (!Array.isArray(aJson)) return;
+
+          this.m_TrackWidthList = [];
+
+          for (const entry of aJson) {
+            // `entry.empty()`: a null, an empty string, array or object.
+            if (
+              entry === null ||
+              entry === '' ||
+              (typeof entry === 'object' && Object.keys(entry).length === 0)
+            )
+              continue;
+
+            this.m_TrackWidthList.push(pcbIUScale.mmToIU(Number(entry)));
+          }
+        },
+        {},
+      ),
+    );
+
+    this.m_params.push(
+      new PARAM_LAMBDA<JsonValue>(
+        'via_dimensions',
+        () =>
+          this.m_ViasDimensionsList.map((via) => ({
+            diameter: pcbIUScale.iuToMM(via.m_Diameter),
+            drill: pcbIUScale.iuToMM(via.m_Drill),
+          })),
+        (aObj) => {
+          if (!Array.isArray(aObj)) return;
+
+          this.m_ViasDimensionsList = [];
+
+          for (const entry of aObj) {
+            if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) continue;
+            if (Object.keys(entry).length === 0) continue;
+
+            if (!('diameter' in entry) || !('drill' in entry)) continue;
+
+            const diameter = pcbIUScale.mmToIU(Number(entry.diameter));
+            const drill = pcbIUScale.mmToIU(Number(entry.drill));
+
+            this.m_ViasDimensionsList.push(new VIA_DIMENSION(diameter, drill));
+          }
+        },
+        {},
+      ),
+    );
+
+    this.m_params.push(
+      new PARAM_LAMBDA<JsonValue>(
+        'diff_pair_dimensions',
+        () =>
+          this.m_DiffPairDimensionsList.map((pair) => ({
+            width: pcbIUScale.iuToMM(pair.m_Width),
+            gap: pcbIUScale.iuToMM(pair.m_Gap),
+            via_gap: pcbIUScale.iuToMM(pair.m_ViaGap),
+          })),
+        (aObj) => {
+          if (!Array.isArray(aObj)) return;
+
+          this.m_DiffPairDimensionsList = [];
+
+          for (const entry of aObj) {
+            if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) continue;
+            if (Object.keys(entry).length === 0) continue;
+
+            if (!('width' in entry) || !('gap' in entry) || !('via_gap' in entry)) continue;
+
+            const width = pcbIUScale.mmToIU(Number(entry.width));
+            const gap = pcbIUScale.mmToIU(Number(entry.gap));
+            const via_gap = pcbIUScale.mmToIU(Number(entry.via_gap));
+
+            this.m_DiffPairDimensionsList.push(new DIFF_PAIR_DIMENSION(width, gap, via_gap));
+          }
+        },
+        {},
+      ),
+    );
+
+    // Handle options for teardrops (targets and some others):
+    this.m_params.push(
+      new PARAM_LAMBDA<JsonValue>(
+        'teardrop_options',
+        () => [
+          {
+            td_onvia: this.m_TeardropParamsList.m_TargetVias,
+            td_onpthpad: this.m_TeardropParamsList.m_TargetPTHPads,
+            td_onsmdpad: this.m_TeardropParamsList.m_TargetSMDPads,
+            td_ontrackend: this.m_TeardropParamsList.m_TargetTrack2Track,
+            td_onroundshapesonly: this.m_TeardropParamsList.m_UseRoundShapesOnly,
+          },
+        ],
+        (aObj) => {
+          if (!Array.isArray(aObj)) return;
+
+          for (const entry of aObj) {
+            if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) continue;
+            if (Object.keys(entry).length === 0) continue;
+
+            if ('td_onvia' in entry)
+              this.m_TeardropParamsList.m_TargetVias = Boolean(entry.td_onvia);
+
+            if ('td_onpthpad' in entry)
+              this.m_TeardropParamsList.m_TargetPTHPads = Boolean(entry.td_onpthpad);
+
+            if ('td_onsmdpad' in entry)
+              this.m_TeardropParamsList.m_TargetSMDPads = Boolean(entry.td_onsmdpad);
+
+            if ('td_ontrackend' in entry)
+              this.m_TeardropParamsList.m_TargetTrack2Track = Boolean(entry.td_ontrackend);
+
+            if ('td_onroundshapesonly' in entry)
+              this.m_TeardropParamsList.m_UseRoundShapesOnly = Boolean(entry.td_onroundshapesonly);
+
+            // Legacy settings
+            for (let ii = 0; ii < 3; ++ii) {
+              const td_prm = this.m_TeardropParamsList.GetParameters(ii as TARGET_TD);
+
+              if ('td_allow_use_two_tracks' in entry)
+                td_prm.m_AllowUseTwoTracks = Boolean(entry.td_allow_use_two_tracks);
+
+              if ('td_curve_segcount' in entry) {
+                if (Number(entry.td_curve_segcount) > 0) td_prm.m_CurvedEdges = true;
+              }
+
+              if ('td_on_pad_in_zone' in entry)
+                td_prm.m_TdOnPadsInZones = Boolean(entry.td_on_pad_in_zone);
+            }
+          }
+        },
+        {},
+      ),
+    );
+
+    // Handle parameters (sizes, shape) for each type of teardrop:
+    this.m_params.push(
+      new PARAM_LAMBDA<JsonValue>(
+        'teardrop_parameters',
+        () => {
+          const js: JsonValue[] = [];
+
+          for (let ii = 0; ii < this.m_TeardropParamsList.GetParametersCount(); ii++) {
+            const td_prm = this.m_TeardropParamsList.GetParameters(ii as TARGET_TD);
+
+            js.push({
+              td_target_name: GetTeardropTargetCanonicalName(ii as TARGET_TD),
+              td_maxlen: pcbIUScale.iuToMM(td_prm.m_TdMaxLen),
+              td_maxheight: pcbIUScale.iuToMM(td_prm.m_TdMaxWidth),
+              td_length_ratio: td_prm.m_BestLengthRatio,
+              td_height_ratio: td_prm.m_BestWidthRatio,
+              td_curve_segcount: td_prm.m_CurvedEdges ? 1 : 0,
+              td_width_to_size_filter_ratio: td_prm.m_WidthtoSizeFilterRatio,
+              td_allow_use_two_tracks: td_prm.m_AllowUseTwoTracks,
+              td_on_pad_in_zone: td_prm.m_TdOnPadsInZones,
+            });
+          }
+
+          return js;
+        },
+        (aObj) => {
+          if (!Array.isArray(aObj)) return;
+
+          for (const entry of aObj) {
+            if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) continue;
+            if (Object.keys(entry).length === 0) continue;
+
+            if (!('td_target_name' in entry)) continue;
+
+            const idx = GetTeardropTargetTypeFromCanonicalName(String(entry.td_target_name));
+
+            if (idx >= 0 && idx < 3) {
+              const td_prm = this.m_TeardropParamsList.GetParameters(idx);
+
+              if ('td_maxlen' in entry)
+                td_prm.m_TdMaxLen = pcbIUScale.mmToIU(Number(entry.td_maxlen));
+
+              if ('td_maxheight' in entry)
+                td_prm.m_TdMaxWidth = pcbIUScale.mmToIU(Number(entry.td_maxheight));
+
+              if ('td_length_ratio' in entry)
+                td_prm.m_BestLengthRatio = Number(entry.td_length_ratio);
+
+              if ('td_height_ratio' in entry)
+                td_prm.m_BestWidthRatio = Number(entry.td_height_ratio);
+
+              if ('td_curve_segcount' in entry) {
+                if (Number(entry.td_curve_segcount) > 0) td_prm.m_CurvedEdges = true;
+              }
+
+              if ('td_width_to_size_filter_ratio' in entry)
+                td_prm.m_WidthtoSizeFilterRatio = Number(entry.td_width_to_size_filter_ratio);
+
+              if ('td_allow_use_two_tracks' in entry)
+                td_prm.m_AllowUseTwoTracks = Boolean(entry.td_allow_use_two_tracks);
+
+              if ('td_on_pad_in_zone' in entry)
+                td_prm.m_TdOnPadsInZones = Boolean(entry.td_on_pad_in_zone);
+            }
+          }
+        },
+        {},
+      ),
+    );
+
+    this.m_params.push(
+      new PARAM_LAMBDA<JsonValue>(
+        'tuning_pattern_settings',
+        () => {
+          const make_settings = (aSettings: MeanderSettings): JsonObject => ({
+            min_amplitude: pcbIUScale.iuToMM(aSettings.minAmplitude),
+            max_amplitude: pcbIUScale.iuToMM(aSettings.maxAmplitude),
+            spacing: pcbIUScale.iuToMM(aSettings.spacing),
+            corner_style: aSettings.cornerStyle === MeanderStyle.MEANDER_STYLE_CHAMFER ? 0 : 1,
+            corner_radius_percentage: aSettings.cornerRadiusPercentage,
+            single_sided: aSettings.singleSided,
+          });
+
+          return {
+            single_track_defaults: make_settings(this.m_SingleTrackMeanderSettings),
+            diff_pair_defaults: make_settings(this.m_DiffPairMeanderSettings),
+            diff_pair_skew_defaults: make_settings(this.m_SkewMeanderSettings),
+          };
+        },
+        (aObj) => {
+          const read_settings = (entry: JsonValue): MeanderSettings => {
+            const settings = defaultMeanderSettings();
+
+            if (entry === null || typeof entry !== 'object' || Array.isArray(entry))
+              return settings;
+
+            if ('min_amplitude' in entry)
+              settings.minAmplitude = pcbIUScale.mmToIU(Number(entry.min_amplitude));
+
+            if ('max_amplitude' in entry)
+              settings.maxAmplitude = pcbIUScale.mmToIU(Number(entry.max_amplitude));
+
+            if ('spacing' in entry) settings.spacing = pcbIUScale.mmToIU(Number(entry.spacing));
+
+            if ('corner_style' in entry) {
+              settings.cornerStyle =
+                entry.corner_style === 0
+                  ? MeanderStyle.MEANDER_STYLE_CHAMFER
+                  : MeanderStyle.MEANDER_STYLE_ROUND;
+            }
+
+            if ('corner_radius_percentage' in entry)
+              settings.cornerRadiusPercentage = Math.trunc(Number(entry.corner_radius_percentage));
+
+            if ('single_sided' in entry) settings.singleSided = Boolean(entry.single_sided);
+
+            return settings;
+          };
+
+          if (aObj === null || typeof aObj !== 'object' || Array.isArray(aObj)) return;
+
+          if ('single_track_defaults' in aObj)
+            this.m_SingleTrackMeanderSettings = read_settings(aObj.single_track_defaults);
+
+          if ('diff_pair_defaults' in aObj)
+            this.m_DiffPairMeanderSettings = read_settings(aObj.diff_pair_defaults);
+
+          if ('diff_pair_skew_defaults' in aObj)
+            this.m_SkewMeanderSettings = read_settings(aObj.diff_pair_skew_defaults);
+        },
+        {},
+      ),
+    );
+
+    const minTextSize = mm(TEXT_MIN_SIZE_MM);
+    const maxTextSize = mm(TEXT_MAX_SIZE_MM);
+    const minStroke = 1;
+    const maxStroke = mm(100);
+
+    // `&m_LineThickness[cls]` and `&m_TextSize[cls].x`: the element, by index,
+    // so a later assignment of the whole entry is still what the param reads.
+    const lineRef = (cls: number) => ({
+      get: () => this.m_LineThickness[cls]!,
+      set: (v: number) => {
+        this.m_LineThickness[cls] = v;
+      },
+    });
+    const textThickRef = (cls: number) => ({
+      get: () => this.m_TextThickness[cls]!,
+      set: (v: number) => {
+        this.m_TextThickness[cls] = v;
+      },
+    });
+    const textSizeRef = (cls: number, axis: 'x' | 'y') => ({
+      get: () => this.m_TextSize[cls]![axis],
+      set: (v: number) => {
+        this.m_TextSize[cls]![axis] = v;
+      },
+    });
+    const boolRef = (arr: boolean[], cls: number) => ({
+      get: () => arr[cls]!,
+      set: (v: boolean) => {
+        arr[cls] = v;
+      },
+    });
+    const layerClass = (
+      aPrefix: string,
+      aLineDefault: number,
+      aTextSize: number,
+      aTextWidth: number,
+      cls: number,
+      aWithText: boolean,
+    ): void => {
+      this.m_params.push(
+        new PARAM_SCALED(
+          `defaults.${aPrefix}_line_width`,
+          lineRef(cls),
+          mm(aLineDefault),
+          minStroke,
+          maxStroke,
+          MM_PER_IU,
+        ),
+      );
+
+      if (!aWithText) return;
+
+      this.m_params.push(
+        new PARAM_SCALED(
+          `defaults.${aPrefix}_text_size_v`,
+          textSizeRef(cls, 'y'),
+          mm(aTextSize),
+          minTextSize,
+          maxTextSize,
+          MM_PER_IU,
+        ),
+      );
+      this.m_params.push(
+        new PARAM_SCALED(
+          `defaults.${aPrefix}_text_size_h`,
+          textSizeRef(cls, 'x'),
+          mm(aTextSize),
+          minTextSize,
+          maxTextSize,
+          MM_PER_IU,
+        ),
+      );
+      this.m_params.push(
+        new PARAM_SCALED(
+          `defaults.${aPrefix}_text_thickness`,
+          textThickRef(cls),
+          mm(aTextWidth),
+          minStroke,
+          maxStroke,
+          MM_PER_IU,
+        ),
+      );
+      this.m_params.push(
+        new PARAM<boolean>(
+          `defaults.${aPrefix}_text_italic`,
+          boolRef(this.m_TextItalic, cls),
+          false,
+        ),
+      );
+      this.m_params.push(
+        new PARAM<boolean>(
+          `defaults.${aPrefix}_text_upright`,
+          boolRef(this.m_TextUpright, cls),
+          true,
+        ),
+      );
+    };
+
+    layerClass(
+      'silk',
+      DEFAULT_SILK_LINE_WIDTH,
+      DEFAULT_SILK_TEXT_SIZE,
+      DEFAULT_SILK_TEXT_WIDTH,
+      LAYER_CLASS_SILK,
+      true,
+    );
+    layerClass(
+      'copper',
+      DEFAULT_COPPER_LINE_WIDTH,
+      DEFAULT_COPPER_TEXT_SIZE,
+      DEFAULT_COPPER_TEXT_WIDTH,
+      LAYER_CLASS_COPPER,
+      true,
+    );
+    layerClass('board_outline', DEFAULT_EDGE_WIDTH, 0, 0, LAYER_CLASS_EDGES, false);
+    layerClass('courtyard', DEFAULT_COURTYARD_WIDTH, 0, 0, LAYER_CLASS_COURTYARD, false);
+    layerClass(
+      'fab',
+      DEFAULT_LINE_WIDTH,
+      DEFAULT_TEXT_SIZE,
+      DEFAULT_TEXT_WIDTH,
+      LAYER_CLASS_FAB,
+      true,
+    );
+    layerClass(
+      'other',
+      DEFAULT_LINE_WIDTH,
+      DEFAULT_TEXT_SIZE,
+      DEFAULT_TEXT_WIDTH,
+      LAYER_CLASS_OTHERS,
+      true,
+    );
+
+    this.m_params.push(
+      new PARAM_ENUM<DIM_UNITS_MODE>(
+        'defaults.dimension_units',
+        ref(this, 'm_DimensionUnitsMode'),
+        DIM_UNITS_MODE.AUTOMATIC,
+        DIM_UNITS_MODE.INCH,
+        DIM_UNITS_MODE.AUTOMATIC,
+      ),
+    );
+
+    this.m_params.push(
+      new PARAM_ENUM<DIM_PRECISION>(
+        'defaults.dimension_precision',
+        ref(this, 'm_DimensionPrecision'),
+        DIM_PRECISION.X_XXXX,
+        DIM_PRECISION.X,
+        DIM_PRECISION.V_VVVVV,
+      ),
+    );
+
+    this.m_params.push(
+      new PARAM_ENUM<DIM_UNITS_FORMAT>(
+        'defaults.dimensions.units_format',
+        ref(this, 'm_DimensionUnitsFormat'),
+        DIM_UNITS_FORMAT.NO_SUFFIX,
+        DIM_UNITS_FORMAT.NO_SUFFIX,
+        DIM_UNITS_FORMAT.PAREN_SUFFIX,
+      ),
+    );
+
+    this.m_params.push(
+      new PARAM<boolean>(
+        'defaults.dimensions.suppress_zeroes',
+        ref(this, 'm_DimensionSuppressZeroes'),
+        true,
+      ),
+    );
+
+    // NOTE: excluding DIM_TEXT_POSITION::MANUAL from the valid range here
+    this.m_params.push(
+      new PARAM_ENUM<DIM_TEXT_POSITION>(
+        'defaults.dimensions.text_position',
+        ref(this, 'm_DimensionTextPosition'),
+        DIM_TEXT_POSITION.OUTSIDE,
+        DIM_TEXT_POSITION.OUTSIDE,
+        DIM_TEXT_POSITION.INLINE,
+      ),
+    );
+
+    this.m_params.push(
+      new PARAM<boolean>(
+        'defaults.dimensions.keep_text_aligned',
+        ref(this, 'm_DimensionKeepTextAligned'),
+        true,
+      ),
+    );
+
+    this.m_params.push(
+      new PARAM<number>(
+        'defaults.dimensions.arrow_length',
+        ref(this, 'm_DimensionArrowLength'),
+        pcbIUScale.milsToIU(DEFAULT_DIMENSION_ARROW_LENGTH),
+      ),
+    );
+
+    this.m_params.push(
+      new PARAM<number>(
+        'defaults.dimensions.extension_offset',
+        ref(this, 'm_DimensionExtensionOffset'),
+        mm(DEFAULT_DIMENSION_EXTENSION_OFFSET),
+      ),
+    );
+
+    this.m_params.push(
+      new PARAM<boolean>(
+        'defaults.apply_defaults_to_fp_fields',
+        ref(this, 'm_StyleFPFields'),
+        false,
+      ),
+    );
+    this.m_params.push(
+      new PARAM<boolean>('defaults.apply_defaults_to_fp_text', ref(this, 'm_StyleFPText'), false),
+    );
+    this.m_params.push(
+      new PARAM<boolean>(
+        'defaults.apply_defaults_to_fp_shapes',
+        ref(this, 'm_StyleFPShapes'),
+        false,
+      ),
+    );
+    this.m_params.push(
+      new PARAM<boolean>(
+        'defaults.apply_defaults_to_fp_dimensions',
+        ref(this, 'm_StyleFPDimensions'),
+        false,
+      ),
+    );
+    this.m_params.push(
+      new PARAM<boolean>(
+        'defaults.apply_defaults_to_fp_barcodes',
+        ref(this, 'm_StyleFPBarcodes'),
+        false,
+      ),
+    );
+
+    // `&m_defaultZoneSettings.<field>`: through the current object, which
+    // SetDefaultZoneSettings replaces.
+    const zoneRef = <K extends keyof ZONE_SETTINGS>(key: K) => ({
+      get: () => this.m_defaultZoneSettings[key] as number,
+      set: (v: number) => {
+        (this.m_defaultZoneSettings as unknown as Record<K, number>)[key] = v;
+      },
+    });
+
+    scaled(
+      'defaults.zones.min_clearance',
+      zoneRef('m_ZoneClearance'),
+      mm(ZONE_CLEARANCE_MM),
+      0.0,
+      25.0,
+    );
+    scaled(
+      'defaults.zones.min_thickness',
+      zoneRef('m_ZoneMinThickness'),
+      mm(ZONE_THICKNESS_MM),
+      ZONE_THICKNESS_MIN_VALUE_MM,
+      25.0,
+    );
+
+    this.m_params.push(
+      new PARAM_ENUM<ZONE_FILL_MODE>(
+        'defaults.zones.fill_mode',
+        zoneRef('m_FillMode') as { get: () => ZONE_FILL_MODE; set: (v: ZONE_FILL_MODE) => void },
+        ZONE_FILL_MODE.POLYGONS,
+        ZONE_FILL_MODE.POLYGONS,
+        ZONE_FILL_MODE.HATCH_PATTERN,
+      ),
+    );
+
+    scaled(
+      'defaults.zones.hatch_thickness',
+      zoneRef('m_HatchThickness'),
+      Math.max(mm(ZONE_THICKNESS_MM) * 4, mm(1.0)),
+      0.0,
+      25.0,
+    );
+    scaled(
+      'defaults.zones.hatch_gap',
+      zoneRef('m_HatchGap'),
+      Math.max(mm(ZONE_THICKNESS_MM) * 6, mm(1.5)),
+      0.0,
+      25.0,
+    );
+
+    this.m_params.push(
+      new PARAM_LAMBDA<number>(
+        'defaults.zones.hatch_orientation',
+        () => this.m_defaultZoneSettings.m_HatchOrientation.AsDegrees(),
+        (aVal) => {
+          this.m_defaultZoneSettings.m_HatchOrientation = new EDA_ANGLE(aVal);
+        },
+        0.0,
+      ),
+    );
+
+    this.m_params.push(
+      new PARAM<number>(
+        'defaults.zones.hatch_smoothing_level',
+        zoneRef('m_HatchSmoothingLevel'),
+        0,
+        0,
+        2,
+      ),
+    );
+    this.m_params.push(
+      new PARAM<number>(
+        'defaults.zones.hatch_smoothing_value',
+        zoneRef('m_HatchSmoothingValue'),
+        0.1,
+        0.0,
+        1.0,
+      ),
+    );
+
+    this.m_params.push(
+      new PARAM_ENUM<ZONE_BORDER_DISPLAY_STYLE>(
+        'defaults.zones.border_display_style',
+        zoneRef('m_ZoneBorderDisplayStyle') as {
+          get: () => ZONE_BORDER_DISPLAY_STYLE;
+          set: (v: ZONE_BORDER_DISPLAY_STYLE) => void;
+        },
+        ZONE_BORDER_DISPLAY_STYLE.DIAGONAL_EDGE,
+        ZONE_BORDER_DISPLAY_STYLE.NO_HATCH,
+        ZONE_BORDER_DISPLAY_STYLE.INVISIBLE_BORDER,
+      ),
+    );
+
+    scaled(
+      'defaults.zones.border_hatch_pitch',
+      zoneRef('m_BorderHatchPitch'),
+      mm(ZONE_BORDER_HATCH_DIST_MM),
+      ZONE_BORDER_HATCH_MINDIST_MM,
+      ZONE_BORDER_HATCH_MAXDIST_MM,
+    );
+    scaled(
+      'defaults.zones.thermal_relief_gap',
+      zoneRef('m_ThermalReliefGap'),
+      mm(ZONE_THERMAL_RELIEF_GAP_MM),
+      0.0,
+      25.0,
+    );
+    scaled(
+      'defaults.zones.thermal_relief_spoke_width',
+      zoneRef('m_ThermalReliefSpokeWidth'),
+      mm(ZONE_THERMAL_RELIEF_COPPER_WIDTH_MM),
+      0.0,
+      25.0,
+    );
+
+    this.m_params.push(
+      new PARAM_LAMBDA<number>(
+        'defaults.zones.pad_connection',
+        () => this.m_defaultZoneSettings.GetPadConnection() as number,
+        (aVal) => {
+          this.m_defaultZoneSettings.SetPadConnection(aVal as ZONE_CONNECTION);
+        },
+        ZONE_CONNECTION.THERMAL as number,
+      ),
+    );
+
+    this.m_params.push(
+      new PARAM_LAMBDA<number>(
+        'defaults.zones.corner_smoothing',
+        () => this.m_defaultZoneSettings.GetCornerSmoothingType(),
+        (aVal) => {
+          this.m_defaultZoneSettings.SetCornerSmoothingType(aVal);
+        },
+        ZONE_SETTINGS.SMOOTHING_NONE,
+      ),
+    );
+
+    this.m_params.push(
+      new PARAM_LAMBDA<number>(
+        'defaults.zones.corner_radius',
+        () => pcbIUScale.iuToMM(this.m_defaultZoneSettings.GetCornerRadius()),
+        (aVal) => {
+          this.m_defaultZoneSettings.SetCornerRadius(pcbIUScale.mmToIU(aVal));
+        },
+        0.0,
+      ),
+    );
+
+    this.m_params.push(
+      new PARAM_LAMBDA<number>(
+        'defaults.zones.remove_islands',
+        () => this.m_defaultZoneSettings.GetIslandRemovalMode() as number,
+        (aVal) => {
+          this.m_defaultZoneSettings.SetIslandRemovalMode(aVal as ISLAND_REMOVAL_MODE);
+        },
+        ISLAND_REMOVAL_MODE.ALWAYS as number,
+      ),
+    );
+
+    this.m_params.push(
+      new PARAM_LAMBDA<number>(
+        'defaults.zones.min_island_area',
+        () => {
+          const iuPerMm2 = pcbIUScale.IU_PER_MM * pcbIUScale.IU_PER_MM;
+          return this.m_defaultZoneSettings.GetMinIslandArea() / iuPerMm2;
+        },
+        (aVal) => {
+          const iuPerMm2 = pcbIUScale.IU_PER_MM * pcbIUScale.IU_PER_MM;
+          this.m_defaultZoneSettings.SetMinIslandArea(Math.trunc(aVal * iuPerMm2));
+        },
+        10.0,
+      ),
+    );
+
+    this.m_params.push(
+      new PARAM_LAMBDA<JsonValue>(
+        'defaults.pads',
+        () => ({
+          width: pcbIUScale.iuToMM(this.m_Pad_Master.GetSize(PADSTACK.ALL_LAYERS).x),
+          height: pcbIUScale.iuToMM(this.m_Pad_Master.GetSize(PADSTACK.ALL_LAYERS).y),
+          drill: pcbIUScale.iuToMM(this.m_Pad_Master.GetDrillSize().x),
+        }),
+        (aJson) => {
+          if (aJson === null || typeof aJson !== 'object' || Array.isArray(aJson)) return;
+
+          if ('width' in aJson && 'height' in aJson && 'drill' in aJson) {
+            const sz = {
+              x: pcbIUScale.mmToIU(Number(aJson.width)),
+              y: pcbIUScale.mmToIU(Number(aJson.height)),
+            };
+            this.m_Pad_Master.SetSize(PADSTACK.ALL_LAYERS, sz);
+            const drill = pcbIUScale.mmToIU(Number(aJson.drill));
+            this.m_Pad_Master.SetDrillSize({ x: drill, y: drill });
+          }
+        },
+        {},
+      ),
+    );
+
+    scaled('rules.max_error', ref(this, 'm_MaxError'), ARC_HIGH_DEF, 0.0001, 1.0);
+
+    scaled(
+      'rules.solder_mask_to_copper_clearance',
+      ref(this, 'm_SolderMaskToCopperClearance'),
+      mm(DEFAULT_SOLDERMASK_TO_COPPER_CLEARANCE),
+      0.0,
+      25.0,
+    );
+
+    this.m_params.push(
+      new PARAM<boolean>(
+        'zones_allow_external_fillets',
+        ref(this, 'm_ZoneKeepExternalFillets'),
+        false,
+      ),
+    );
+  }
+
+  /**
+   * Schema 0 to 1: default dimension precision changed in meaning.
+   * Previously it was an enum with the following meaning:
+   *
+   * 0: 0.01mm / 1 mil / 0.001 in
+   * 1: 0.001mm / 0.1 mil / 0.0001 in
+   * 2: 0.0001mm / 0.01 mil / 0.00001 in
+   *
+   * Now it is independent of display units and is an integer meaning the number of digits
+   * displayed after the decimal point, so we have to migrate based on the default units.
+   *
+   * The units is an integer with the following mapping:
+   *
+   * 0: Inches
+   * 1: Mils
+   * 2: Millimeters
+   */
+  private migrateSchema0to1(): boolean {
+    const units_ptr = 'defaults.dimension_units';
+    const precision_ptr = 'defaults.dimension_precision';
+
+    const units = this.Get<number>(units_ptr);
+    let precision = this.Get<number>(precision_ptr);
+
+    if (
+      units === undefined ||
+      precision === undefined ||
+      !Number.isInteger(units) ||
+      !Number.isInteger(precision)
+    ) {
+      // if either is missing or invalid, migration doesn't make sense
+      return true;
+    }
+
+    // The enum maps directly to precision if the units is mils
+    let extraDigits = 0;
+
+    switch (units) {
+      case 0:
+        extraDigits = 3;
+        break;
+      case 2:
+        extraDigits = 2;
+        break;
+      default:
+        break;
+    }
+
+    precision += extraDigits;
+
+    this.Set<number>(precision_ptr, precision);
+
+    return true;
   }
 
   /**
@@ -741,200 +1829,6 @@ export class BOARD_DESIGN_SETTINGS {
   /**
    * Return the default graphic segment thickness from the layer class for the given layer.
    */
-  /**
-   * `NESTED_SETTINGS::LoadFromFile` over the `.kicad_pro`'s
-   * `board.design_settings` object: the `rules.*` PARAM_SCALED entries (a
-   * missing or out-of-range value is the default, as `PARAM::Load` with
-   * `aResetIfMissing` gives), `rule_severities`, `drc_exclusions`,
-   * `track_widths`, `via_dimensions`, `diff_pair_dimensions`. The
-   * `defaults.*` drawing defaults, the teardrop and tuning-pattern blocks and
-   * the schema migrations are not here yet.
-   */
-  LoadFromJson(aJson: unknown): void {
-    const obj =
-      aJson !== null && typeof aJson === 'object' ? (aJson as Record<string, unknown>) : {};
-    const rules =
-      obj.rules !== null && typeof obj.rules === 'object'
-        ? (obj.rules as Record<string, unknown>)
-        : {};
-
-    // `PARAM_SCALED<int>( path, &member, default, min, max, MM_PER_IU )::Load`
-    const scaled = (aKey: string, aDefaultMM: number, aMinMM: number, aMaxMM: number): number => {
-      let dval = aDefaultMM;
-      const v = rules[aKey];
-
-      if (typeof v === 'number') dval = v;
-
-      let val = KiROUND(dval * PCB_IU_PER_MM);
-
-      if (val > pcbIUScale.mmToIU(aMaxMM) || val < pcbIUScale.mmToIU(aMinMM))
-        val = pcbIUScale.mmToIU(aDefaultMM);
-
-      return val;
-    };
-
-    this.m_UseHeightForLengthCalcs =
-      typeof rules.use_height_for_length_calcs === 'boolean'
-        ? rules.use_height_for_length_calcs
-        : true;
-
-    this.m_MinClearance = scaled('min_clearance', DEFAULT_MINCLEARANCE, 0.0, 25.0);
-    this.m_MinConn = scaled('min_connection', DEFAULT_MINCONNECTION, 0.0, 100.0);
-    this.m_TrackMinWidth = scaled('min_track_width', DEFAULT_TRACKMINWIDTH, 0.0, 25.0);
-    this.m_ViasMinAnnularWidth = scaled('min_via_annular_width', DEFAULT_VIASMINSIZE, 0.0, 25.0);
-    this.m_ViasMinSize = scaled('min_via_diameter', DEFAULT_VIASMINSIZE, 0.0, 25.0);
-    this.m_MinThroughDrill = scaled(
-      'min_through_hole_diameter',
-      DEFAULT_MINTHROUGHDRILL,
-      0.0,
-      25.0,
-    );
-    this.m_MicroViasMinSize = scaled('min_microvia_diameter', DEFAULT_MICROVIASMINSIZE, 0.0, 10.0);
-    this.m_MicroViasMinDrill = scaled('min_microvia_drill', DEFAULT_MICROVIASMINDRILL, 0.0, 10.0);
-    this.m_HoleToHoleMin = scaled('min_hole_to_hole', DEFAULT_HOLETOHOLEMIN, 0.0, 10.0);
-    this.m_HoleClearance = scaled('min_hole_clearance', DEFAULT_HOLECLEARANCE, 0.0, 100.0);
-    this.m_SilkClearance = scaled('min_silk_clearance', DEFAULT_SILKCLEARANCE, -10.0, 100.0);
-    this.m_MinGrooveWidth = scaled('min_groove_width', DEFAULT_MINGROOVEWIDTH, 0.0, 25.0);
-
-    // While the maximum *effective* value is 4, we've had users interpret this as the count on
-    // all layers, and enter something like 10.  They'll figure it out soon enough *unless* we
-    // enforce a max of 4 (and therefore reset it back to the default of 2), at which point it
-    // just looks buggy.
-    {
-      const v = rules.min_resolved_spokes;
-      this.m_MinResolvedSpokes =
-        typeof v === 'number' && v >= 0 && v <= 99 ? Math.trunc(v) : DEFAULT_MINRESOLVEDSPOKES;
-    }
-
-    this.m_MinSilkTextHeight = scaled('min_text_height', DEFAULT_SILK_TEXT_SIZE * 0.8, 0.0, 100.0);
-    this.m_MinSilkTextThickness = scaled(
-      'min_text_thickness',
-      DEFAULT_SILK_TEXT_WIDTH * 0.8,
-      0.0,
-      25.0,
-    );
-
-    // Note: a clearance of -0.01 is a flag indicating we should use the legacy (pre-6.0) method
-    // based on the edge cut thicknesses.
-    this.m_CopperEdgeClearance = scaled(
-      'min_copper_edge_clearance',
-      DEFAULT_COPPEREDGECLEARANCE,
-      -0.01,
-      25.0,
-    );
-
-    // "rule_severities"
-    {
-      const sev = obj.rule_severities;
-
-      if (sev !== null && typeof sev === 'object' && !Array.isArray(sev)) {
-        const sevObj = sev as Record<string, unknown>;
-
-        // Load V8 'hole_near_hole' token first (if present).  Any current 'hole_to_hole' token
-        // found will then overwrite it.
-        if (typeof sevObj.hole_near_hole === 'string')
-          this.m_DRCSeverities.set(
-            PCB_DRC_CODE.DRCE_DRILLED_HOLES_TOO_CLOSE,
-            SeverityFromString(sevObj.hole_near_hole),
-          );
-
-        for (const item of DRC_ITEM.GetItemsWithSeverities()) {
-          const key = item.GetSettingsKey();
-
-          if (typeof sevObj[key] === 'string')
-            this.m_DRCSeverities.set(
-              item.GetErrorCode(),
-              SeverityFromString(sevObj[key] as string),
-            );
-        }
-      }
-    }
-
-    // "drc_exclusions"
-    {
-      const ex = obj.drc_exclusions;
-
-      if (Array.isArray(ex)) {
-        this.m_DrcExclusions.clear();
-
-        for (const entry of ex) {
-          if (Array.isArray(entry)) {
-            // [ serialized, comment ]: the comment is kept beside it in the C++'s
-            // m_DrcExclusionComments, which is not ported yet
-            if (typeof entry[0] === 'string') this.m_DrcExclusions.add(entry[0]);
-          } else if (typeof entry === 'string') {
-            this.m_DrcExclusions.add(entry);
-          }
-        }
-      }
-    }
-
-    // "track_widths"
-    {
-      const tw = obj.track_widths;
-
-      if (Array.isArray(tw)) {
-        this.m_TrackWidthList = [];
-
-        for (const entry of tw) {
-          if (typeof entry !== 'number') continue;
-
-          this.m_TrackWidthList.push(pcbIUScale.mmToIU(entry));
-        }
-      }
-    }
-
-    // "via_dimensions"
-    {
-      const vd = obj.via_dimensions;
-
-      if (Array.isArray(vd)) {
-        this.m_ViasDimensionsList = [];
-
-        for (const entry of vd) {
-          if (entry === null || typeof entry !== 'object') continue;
-
-          const e = entry as Record<string, unknown>;
-
-          if (typeof e.diameter !== 'number' || typeof e.drill !== 'number') continue;
-
-          const diameter = pcbIUScale.mmToIU(e.diameter);
-          const drill = pcbIUScale.mmToIU(e.drill);
-
-          this.m_ViasDimensionsList.push(new VIA_DIMENSION(diameter, drill));
-        }
-      }
-    }
-
-    // "diff_pair_dimensions"
-    {
-      const dp = obj.diff_pair_dimensions;
-
-      if (Array.isArray(dp)) {
-        this.m_DiffPairDimensionsList = [];
-
-        for (const entry of dp) {
-          if (entry === null || typeof entry !== 'object') continue;
-
-          const e = entry as Record<string, unknown>;
-
-          if (
-            typeof e.width !== 'number' ||
-            typeof e.gap !== 'number' ||
-            typeof e.via_gap !== 'number'
-          )
-            continue;
-
-          const width = pcbIUScale.mmToIU(e.width);
-          const gap = pcbIUScale.mmToIU(e.gap);
-          const via_gap = pcbIUScale.mmToIU(e.via_gap);
-
-          this.m_DiffPairDimensionsList.push(new DIFF_PAIR_DIMENSION(width, gap, via_gap));
-        }
-      }
-    }
-  }
-
   /**
    * Return the severity of the DRC error code.
    */

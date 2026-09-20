@@ -24,6 +24,8 @@
  */
 
 /** A JSON value as `nlohmann::json` would hold it. */
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+
 export type JsonValue =
   | null
   | boolean
@@ -340,6 +342,8 @@ export class PARAM_SCALED extends PARAM_BASE {
     this.m_min = ranged ? a4 : undefined;
     this.m_max = ranged ? (a5 as number) : undefined;
     this.m_use_minmax = ranged;
+    // `aScale` is the file unit per IU (`pcbIUScale.MM_PER_IU`), as upstream:
+    // a load multiplies by the inverse, a store divides by it.
     this.m_scale = ranged ? a6 : a4;
     this.m_invScale = 1 / this.m_scale;
   }
@@ -347,23 +351,24 @@ export class PARAM_SCALED extends PARAM_BASE {
   override Load(aSettings: JSON_SETTINGS, aResetIfMissing = true): void {
     if (this.m_readOnly) return;
 
-    const dval = aSettings.Get<number>(this.m_path);
+    let dval = this.m_default / this.m_invScale;
 
-    if (dval !== undefined) {
-      let val = Math.round(dval * this.m_scale);
+    const optval = aSettings.Get<number>(this.m_path);
 
-      if (this.m_use_minmax) {
-        if (this.m_max! < val || val < this.m_min!) val = this.m_default;
-      }
+    if (optval !== undefined) dval = optval;
+    else if (!aResetIfMissing) return;
 
-      this.m_ptr.set(val);
-    } else if (aResetIfMissing) {
-      this.m_ptr.set(this.m_default);
+    let val = KiROUND(dval * this.m_invScale);
+
+    if (this.m_use_minmax) {
+      if (val > this.m_max! || val < this.m_min!) val = this.m_default;
     }
+
+    this.m_ptr.set(val);
   }
 
   override Store(aSettings: JSON_SETTINGS): void {
-    aSettings.Set<number>(this.m_path, this.m_ptr.get() * this.m_invScale);
+    aSettings.Set<number>(this.m_path, this.m_ptr.get() / this.m_invScale);
   }
 
   GetDefault(): number {
@@ -375,8 +380,11 @@ export class PARAM_SCALED extends PARAM_BASE {
   }
 
   override MatchesFile(aSettings: JSON_SETTINGS): boolean {
-    const dval = aSettings.Get<number>(this.m_path);
-    return dval !== undefined && Math.round(dval * this.m_scale) === this.m_ptr.get();
+    const optval = aSettings.Get<number>(this.m_path);
+
+    if (optval !== undefined) return optval === this.m_ptr.get() / this.m_invScale;
+
+    return false;
   }
 }
 
@@ -828,7 +836,10 @@ export class JSON_SETTINGS {
   ReleaseNestedSettings(aSettings: NESTED_SETTINGS): void {
     const i = this.m_nested_settings.indexOf(aSettings);
 
-    if (i >= 0) this.m_nested_settings.splice(i, 1);
+    if (i >= 0) {
+      aSettings.SaveToFile();
+      this.m_nested_settings.splice(i, 1);
+    }
   }
 
   SetManager(_aManager: unknown): void {
@@ -869,9 +880,10 @@ export class NESTED_SETTINGS extends JSON_SETTINGS {
       if (js !== undefined && js !== null && typeof js === 'object' && !Array.isArray(js)) {
         this.m_internals = { ...js };
 
-        const version = this.Get<number>('meta.version');
+        const filever = this.Get<number>('meta.version') ?? -1;
 
-        if (version !== undefined && version > this.m_schemaVersion) this.m_isFutureFormat = true;
+        if (filever >= 0 && filever < this.m_schemaVersion) this.Migrate();
+        else if (filever > this.m_schemaVersion) this.m_isFutureFormat = true;
 
         this.Load();
         this.m_modified = false;

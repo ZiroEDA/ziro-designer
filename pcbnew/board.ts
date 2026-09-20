@@ -320,7 +320,7 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
     this.m_boardUse = BOARD_USE.NORMAL;
     this.m_timeStamp = 1;
     this.m_paper = new PAGE_INFO(PAGE_SIZE_TYPE.A4);
-    this.m_designSettings = new BOARD_DESIGN_SETTINGS();
+    this.m_designSettings = new BOARD_DESIGN_SETTINGS(null, 'board.design_settings');
     this.m_NetInfo = new NETINFO_LIST(this);
     this.m_componentClassManager = new COMPONENT_CLASS_MANAGER(this);
     this.initEmbeddedFiles();
@@ -1177,7 +1177,7 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
       // Set parent, which also will load the values from JSON stored in the project if we don't
       // have legacy design settings loaded already
-      if (!this.m_LegacyDesignSettingsLoaded) project.loadBoardSettings();
+      project.m_BoardSettings.SetParent(project, !this.m_LegacyDesignSettingsLoaded);
 
       // The DesignSettings' netclasses pointer will be pointing to its internal netclasses
       // list at this point. If we loaded anything into it from a legacy board file then we
@@ -1209,9 +1209,13 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
     const project = this.m_project.GetProjectFile();
 
     // Owned by the BOARD
-    if (project.m_BoardSettings) project.m_BoardSettings = null;
+    if (project.m_BoardSettings) {
+      project.ReleaseNestedSettings(project.m_BoardSettings);
+      project.m_BoardSettings = null;
+    }
 
     this.GetDesignSettings().m_NetSettings = new NET_SETTINGS();
+    this.GetDesignSettings().SetParent(null);
     this.m_project = null;
   }
 

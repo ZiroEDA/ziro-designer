@@ -14,6 +14,7 @@ import {
   JSON_SETTINGS,
   type JsonObject,
   type JsonValue,
+  type NESTED_SETTINGS,
   PARAM,
   PARAM_LAMBDA,
   PARAM_LIST,
@@ -76,16 +77,6 @@ export enum LAST_PATH_TYPE {
   LAST_PATH_SIZE,
 }
 
-/**
- * The `BOARD_DESIGN_SETTINGS` slot: the board owns the object and hands it to
- * the file in `BOARD::SetProject`; the file only needs to load and save it at
- * `board.design_settings`. Kept structural so `common/` does not import
- * `pcbnew/`.
- */
-export interface BOARD_SETTINGS_SLOT {
-  LoadFromJson(aJson: unknown): void;
-}
-
 const projectFileSchemaVersion = 3;
 
 function isObject(v: JsonValue | undefined): v is JsonObject {
@@ -113,8 +104,13 @@ export class PROJECT_FILE extends JSON_SETTINGS {
 
   m_TextVars = new Map<string, string>();
 
-  /** Board settings: the `board.design_settings` nested block, owned by the BOARD. */
-  m_BoardSettings: BOARD_SETTINGS_SLOT | null = null;
+  /**
+   * Board settings: the `BOARD_DESIGN_SETTINGS` nested at
+   * `board.design_settings`, owned by the BOARD and parented here by
+   * `BOARD::SetProject`. `common/` does not import `pcbnew/`, so the type is
+   * the base.
+   */
+  m_BoardSettings: NESTED_SETTINGS | null = null;
 
   /** Legacy schematic settings */
   m_LegacyLibDir = '';
@@ -393,26 +389,6 @@ export class PROJECT_FILE extends JSON_SETTINGS {
     this.m_wasMigrated = true;
 
     return true;
-  }
-
-  /**
-   * `LoadFromFile`, minus the file: the parsed `.kicad_pro`. The board
-   * settings block is the BOARD's, loaded here only once `SetProject` has
-   * handed it over.
-   */
-  override LoadFromJson(aJson: JsonValue): void {
-    super.LoadFromJson(aJson);
-
-    this.loadBoardSettings();
-  }
-
-  /** The `board.design_settings` subtree into the BOARD's settings, if attached. */
-  loadBoardSettings(): void {
-    if (!this.m_BoardSettings) return;
-
-    const js = this.GetJson('board.design_settings');
-
-    if (isObject(js)) this.m_BoardSettings.LoadFromJson(js);
   }
 
   /**

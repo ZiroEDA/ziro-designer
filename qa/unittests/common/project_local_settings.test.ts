@@ -26,7 +26,7 @@ describe('JSON_SETTINGS', () => {
       super('t', SETTINGS_LOC.NONE, 1);
       this.addParam(new PARAM<number>('deep.a', ref(this, 'm_a'), 1, 0, 10));
       this.addParam(new PARAM<string>('b', ref(this, 'm_b'), 'x'));
-      this.addParam(new PARAM_SCALED('deep.mm', ref(this, 'm_nm'), 0, 1_000_000));
+      this.addParam(new PARAM_SCALED('deep.mm', ref(this, 'm_nm'), 0, 1 / 1_000_000));
     }
   }
 
@@ -46,7 +46,7 @@ describe('JSON_SETTINGS', () => {
     expect(t.m_a).toBe(1);
   });
 
-  it('PARAM_SCALED multiplies in and divides out', () => {
+  it('PARAM_SCALED: the scale is the file unit per IU; a load divides by it, a store multiplies', () => {
     const t = new T();
     t.LoadFromJson({ deep: { mm: 0.25 } });
     expect(t.m_nm).toBe(250_000);
