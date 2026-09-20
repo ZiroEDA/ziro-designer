@@ -32,13 +32,13 @@
  */
 
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { textItemBBox } from './text_metrics.js';
+import { textItemBBox } from '../text_metrics.js';
 import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { boardItemId, moveBoardItems } from './edit-board.js';
-import { chainOutlines, shapePoints } from './courtyard.js';
-import { buildRatsnest } from './ratsnest/ratsnest.js';
-import type { Board, PcbFootprint, PcbPad, PcbShape, PcbTextItem } from './types.js';
+import { boardItemId, moveBoardItems } from '../edit-board.js';
+import { chainOutlines, shapePoints } from '../courtyard.js';
+import { buildRatsnest } from '../ratsnest/ratsnest.js';
+import type { Board, PcbFootprint, PcbPad, PcbShape, PcbTextItem } from '../types.js';
 import {
   AR_SIDE_BOTTOM,
   AR_SIDE_TOP,
@@ -55,7 +55,7 @@ import {
   idiv,
   sideMask,
   type Box2,
-} from './autoplace_matrix.js';
+} from './ar_matrix.js';
 
 /** `AR_GAIN`: divides the grid-times-pad-count keep-out margin. */
 const AR_GAIN = 16;

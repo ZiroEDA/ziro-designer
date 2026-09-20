@@ -17,7 +17,7 @@ import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
 import { kiRound } from '@ziroeda/common/src/font/text_box.js';
 import { fpItemBBox, fpItemId, hitTestFootprint } from '@ziroeda/pcbnew/edit-footprint.js';
 import { boardItemBBox, boardItemId } from '@ziroeda/pcbnew/edit-board.js';
-import { footprintExtent } from '@ziroeda/pcbnew/autoplace_footprints.js';
+import { footprintExtent } from '@ziroeda/pcbnew/autorouter/ar_autoplacer.js';
 import type { Board, PcbFootprint, PcbPad, PcbTextItem } from '@ziroeda/pcbnew/types.js';
 
 /** A 1 mm pad at the origin, so a footprint has drawable geometry. */

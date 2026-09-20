@@ -28,8 +28,8 @@ import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.j
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
-import type { PcbPad, PcbShape } from './types.js';
-import { arcCenter } from './read-board.js';
+import type { PcbPad, PcbShape } from '../types.js';
+import { arcCenter } from '../read-board.js';
 
 /** C++ integer division: truncate towards zero, not `Math.floor`. */
 export const idiv = (a: number, b: number): number => Math.trunc(a / b);

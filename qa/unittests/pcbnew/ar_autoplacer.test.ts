@@ -21,14 +21,14 @@ import {
   boardOutlineRings,
   footprintArea,
   footprintExtent,
-} from '@ziroeda/pcbnew/autoplace_footprints.js';
+} from '@ziroeda/pcbnew/autorouter/ar_autoplacer.js';
 import {
   AR_SIDE_BOTTOM,
   AR_SIDE_TOP,
   ArMatrix,
   CELL_IS_MODULE,
   CELL_IS_ZONE,
-} from '@ziroeda/pcbnew/autoplace_matrix.js';
+} from '@ziroeda/pcbnew/autorouter/ar_matrix.js';
 import type { Board, PcbFootprint, PcbPad, PcbShape } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);

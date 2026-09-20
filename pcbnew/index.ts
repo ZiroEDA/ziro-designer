@@ -33,7 +33,7 @@ export {
   arcCenter,
   DEFAULT_POINT_SIZE,
 } from './read-board.js';
-export { arcSweepDegrees } from './autoplace_matrix.js';
+export { arcSweepDegrees } from './autorouter/ar_matrix.js';
 export {
   serializeFootprint,
   FLIP_DIRECTION,
@@ -310,7 +310,7 @@ export {
   AR_STEP_MM,
   type AutoplaceOptions,
   type AutoplaceResult,
-} from './autoplace_footprints.js';
+} from './autorouter/ar_autoplacer.js';
 
 // Zone filling (pcbnew/zone_filler.cpp: ZONE_FILLER).
 export {
