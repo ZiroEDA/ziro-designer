@@ -22,7 +22,7 @@ import {
   ReferenceImageCache,
   base64ToBytes,
 } from '@ziroeda/designer/src/editors/pcb/image_cache.js';
-import type { Board, PcbImage } from '@ziroeda/pcbnew/src/types.js';
+import type { Board, PcbImage } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

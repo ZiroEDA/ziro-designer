@@ -27,14 +27,14 @@
  *   around the locked segment.
  */
 import { describe, expect, it } from 'vitest';
-import { LineMarker } from '@ziroeda/pcbnew/src/router/pns_item.js';
-import { jointTagsEqual, PnsJoint } from '@ziroeda/pcbnew/src/router/pns_joint.js';
-import { PnsLayerRange } from '@ziroeda/pcbnew/src/router/pns_layerset.js';
-import { PnsArc } from '@ziroeda/pcbnew/src/router/pns_arc.js';
-import { PnsSegment } from '@ziroeda/pcbnew/src/router/pns_segment.js';
-import { PnsSolid } from '@ziroeda/pcbnew/src/router/pns_solid.js';
-import { PnsVia, PnsVVia } from '@ziroeda/pcbnew/src/router/pns_via.js';
-import type { NetHandle } from '@ziroeda/pcbnew/src/router/pns_collision.js';
+import { LineMarker } from '@ziroeda/pcbnew/router/pns_item.js';
+import { jointTagsEqual, PnsJoint } from '@ziroeda/pcbnew/router/pns_joint.js';
+import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
+import { PnsArc } from '@ziroeda/pcbnew/router/pns_arc.js';
+import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
+import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
+import { PnsVia, PnsVVia } from '@ziroeda/pcbnew/router/pns_via.js';
+import type { NetHandle } from '@ziroeda/pcbnew/router/pns_collision.js';
 
 const L0 = (): PnsLayerRange => new PnsLayerRange(0);
 

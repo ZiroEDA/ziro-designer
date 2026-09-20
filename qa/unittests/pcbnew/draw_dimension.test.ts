@@ -20,9 +20,9 @@
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
-import { addBoardDimension } from '@ziroeda/pcbnew/src/edit-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
+import { addBoardDimension } from '@ziroeda/pcbnew/edit-board.js';
 import {
   DEFAULT_ARROW_LENGTH,
   DEFAULT_DIMENSION_DEFAULTS,
@@ -34,8 +34,8 @@ import {
   setHeightFromCursor,
   startDimension,
   type DimensionDraw,
-} from '@ziroeda/pcbnew/src/draw_dimension.js';
-import type { DimensionKind } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/draw_dimension.js';
+import type { DimensionKind } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 const P = (x: number, y: number): { x: number; y: number } => ({ x: MM(x), y: MM(y) });

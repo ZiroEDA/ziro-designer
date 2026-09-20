@@ -23,7 +23,7 @@ import {
   type DxfLayerExport,
   type DxfRenderSettings,
   type DxfTextAttributes,
-} from '@ziroeda/pcbnew/src/plot_dxf.js';
+} from '@ziroeda/pcbnew/plot_dxf.js';
 
 /** A colour from 0..255 components, the way a render-settings theme would supply it. */
 const rgb = (r: number, g: number, b: number): Color4d => ({

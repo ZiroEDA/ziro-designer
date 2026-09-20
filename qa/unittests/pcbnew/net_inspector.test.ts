@@ -12,8 +12,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { netInspectorRows, netInspectorSummary } from '@ziroeda/pcbnew/src/net_inspector.js';
-import type { Board, PcbPad } from '@ziroeda/pcbnew/src/types.js';
+import { netInspectorRows, netInspectorSummary } from '@ziroeda/pcbnew/net_inspector.js';
+import type { Board, PcbPad } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

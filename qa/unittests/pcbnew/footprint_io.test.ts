@@ -5,10 +5,10 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard, readFootprintFile } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeFootprint } from '@ziroeda/pcbnew/src/write-footprint.js';
+import { readBoard, readFootprintFile } from '@ziroeda/pcbnew/read-board.js';
+import { serializeFootprint } from '@ziroeda/pcbnew/write-footprint.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import type { PcbFootprint } from '@ziroeda/pcbnew/src/types.js';
+import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';
 
 // A minimal but real-shaped KiCad 9 `.kicad_mod`: a two-pad SMD resistor with a
 // reference/value property and silkscreen + courtyard graphics. Children are in

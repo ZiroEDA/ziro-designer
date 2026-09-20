@@ -15,7 +15,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import {
   GERBER_FORMAT,
   parseExcellon,
@@ -30,13 +30,8 @@ import {
   findKnownGerberLayer,
   mapGerberLayersToPcb,
 } from '@ziroeda/designer/src/editors/gerbview/mapGerberLayersToPcb.js';
-import {
-  F_Cu,
-  LSET_Name,
-  UNDEFINED_LAYER,
-  UNSELECTED_LAYER,
-} from '@ziroeda/pcbnew/src/layer_ids.js';
-import { isSolidFill } from '@ziroeda/pcbnew/src/shape_fill.js';
+import { F_Cu, LSET_Name, UNDEFINED_LAYER, UNSELECTED_LAYER } from '@ziroeda/pcbnew/layer_ids.js';
+import { isSolidFill } from '@ziroeda/pcbnew/shape_fill.js';
 
 // ---------------------------------------------------------------------------
 // helpers

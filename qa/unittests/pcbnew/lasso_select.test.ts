@@ -13,8 +13,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { boardItemsInBox, boardItemsInLasso } from '@ziroeda/pcbnew/src/edit-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { boardItemsInBox, boardItemsInLasso } from '@ziroeda/pcbnew/edit-board.js';
 import { lassoIsInside } from '@ziroeda/common/src/preview_items/selection_area.js';
 import {
   polyHitsBox,

@@ -14,8 +14,8 @@
  * doubled.
  */
 import { describe, expect, it } from 'vitest';
-import { PnsLineChain } from '@ziroeda/pcbnew/src/router/pns_line_item.js';
-import { constructArcFromStartEndAngle } from '@ziroeda/pcbnew/src/router/shape_arc_ops.js';
+import { PnsLineChain } from '@ziroeda/pcbnew/router/pns_line_item.js';
+import { constructArcFromStartEndAngle } from '@ziroeda/pcbnew/router/shape_arc_ops.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

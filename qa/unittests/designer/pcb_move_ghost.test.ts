@@ -23,7 +23,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import {
   buildScene,
   drawAnchors,

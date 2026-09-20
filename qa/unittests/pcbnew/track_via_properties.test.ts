@@ -9,16 +9,16 @@
 import { describe, it, expect } from 'vitest';
 import { head, parse, serialize } from '@ziroeda/sexpr/src/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import {
   applyTrackViaValues,
   collectTrackViaValues,
   hasTrackOrVia,
   trackViaSelection,
   type TrackViaValues,
-} from '@ziroeda/pcbnew/src/track_via_properties.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/track_via_properties.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 const load = (text: string): Board => readBoard(parse(text));

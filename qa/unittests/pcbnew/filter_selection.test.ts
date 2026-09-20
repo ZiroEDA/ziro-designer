@@ -19,8 +19,8 @@ import {
   itemPassesFilter,
   setAllFilterItems,
   type SelectionFilter,
-} from '@ziroeda/pcbnew/src/filter_selection.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/filter_selection.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

@@ -4,8 +4,8 @@
   "description": "Board engine mirroring KiCad's pcbnew/: BOARD/FOOTPRINT/PAD object model, pcb_io (kicad_sexpr), board editing.",
   "license": "GPL-3.0-or-later",
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./index.ts",
+  "types": "./index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit"
   },

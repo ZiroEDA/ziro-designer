@@ -12,8 +12,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 import { buildScene, DEFAULT_DRAW_OPTIONS } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 import { GL_PATH_FACTORY } from '@ziroeda/designer/src/render/gl/gl_path.js';
 import { Scene, SEGMENT_STRIDE } from '@ziroeda/designer/src/render/gl/scene.js';
@@ -22,12 +22,8 @@ import {
   buildRatsnest,
   prepareLocalRatsnest,
   type RatsnestEdge,
-} from '@ziroeda/pcbnew/src/ratsnest/ratsnest.js';
-import {
-  deleteBoardItems,
-  moveBoardItems,
-  subsetBoardItems,
-} from '@ziroeda/pcbnew/src/edit-board.js';
+} from '@ziroeda/pcbnew/ratsnest/ratsnest.js';
+import { deleteBoardItems, moveBoardItems, subsetBoardItems } from '@ziroeda/pcbnew/edit-board.js';
 
 const MM = 1e6;
 const board = (): Board =>

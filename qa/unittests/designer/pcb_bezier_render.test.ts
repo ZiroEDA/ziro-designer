@@ -19,14 +19,14 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { boardHitCandidates, boardItemId } from '@ziroeda/pcbnew/src/edit-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { boardHitCandidates, boardItemId } from '@ziroeda/pcbnew/edit-board.js';
 import {
   boardEditHandles,
   boardIndicatorLines,
   dragBoardHandle,
-} from '@ziroeda/pcbnew/src/point_editor.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/point_editor.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 import {
   buildScene,
   buildDrawSteps,

@@ -18,12 +18,12 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { PnsBoardIface } from '@ziroeda/pcbnew/src/router/pns_board_iface.js';
-import { PnsSession } from '@ziroeda/pcbnew/src/router/pns_session.js';
-import { PnsRouterMode } from '@ziroeda/pcbnew/src/router/pns_router.js';
-import { PnsSegment } from '@ziroeda/pcbnew/src/router/pns_segment.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { PnsBoardIface } from '@ziroeda/pcbnew/router/pns_board_iface.js';
+import { PnsSession } from '@ziroeda/pcbnew/router/pns_session.js';
+import { PnsRouterMode } from '@ziroeda/pcbnew/router/pns_router.js';
+import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = 1_000_000;
 

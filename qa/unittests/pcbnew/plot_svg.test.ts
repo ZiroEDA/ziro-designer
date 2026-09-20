@@ -22,7 +22,7 @@ import {
   type SvgTextAttributes,
   USE_DEFAULT_LINE_WIDTH,
   XmlEsc,
-} from '@ziroeda/pcbnew/src/plot_svg.js';
+} from '@ziroeda/pcbnew/plot_svg.js';
 
 /** A4 landscape in mils, i.e. what PAGE_INFO::GetSizeMils() hands SetViewport. */
 const A4_MILS = { x: 11693, y: 8268 };

@@ -21,11 +21,11 @@ import {
   selectionAnchorId,
   selectionAnchorPosition,
   topLeftItem,
-} from '@ziroeda/pcbnew/src/position_relative.js';
-import { boardAuxOrigin, boardGridOrigin } from '@ziroeda/pcbnew/src/plot_gerber.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+} from '@ziroeda/pcbnew/position_relative.js';
+import { boardAuxOrigin, boardGridOrigin } from '@ziroeda/pcbnew/plot_gerber.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import type { Board, PcbFootprint, PcbPad, PcbTrack } from '@ziroeda/pcbnew/src/types.js';
+import type { Board, PcbFootprint, PcbPad, PcbTrack } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

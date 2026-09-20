@@ -16,7 +16,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import type { PcbDimension, PcbTextItem } from '@ziroeda/pcbnew/src/types.js';
+import type { PcbDimension, PcbTextItem } from '@ziroeda/pcbnew/types.js';
 import {
   ARROW_ANGLE_DEG,
   INWARD_ARROW_LENGTH_TO_HEAD_RATIO,
@@ -29,7 +29,7 @@ import {
   resize,
   textKnockoutPoly,
   type DimSegment,
-} from '@ziroeda/pcbnew/src/dimension_geometry.js';
+} from '@ziroeda/pcbnew/dimension_geometry.js';
 
 const MM = (n: number): number => mmToIU(n);
 const P = (x: number, y: number): { x: number; y: number } => ({ x: MM(x), y: MM(y) });

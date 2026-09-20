@@ -17,9 +17,9 @@ import {
   RPT_SEVERITY_WARNING,
 } from '@ziroeda/common/src/reporter.js';
 import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
-import { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import { DRC_ITEM, PCB_DRC_CODE } from '@ziroeda/pcbnew/src/drc/drc_item.js';
-import { PCB_MARKER } from '@ziroeda/pcbnew/src/pcb_marker.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
+import { DRC_ITEM, PCB_DRC_CODE } from '@ziroeda/pcbnew/drc/drc_item.js';
+import { PCB_MARKER } from '@ziroeda/pcbnew/pcb_marker.js';
 
 const A = '11111111-2222-3333-4444-555555555555';
 const B = '66666666-7777-8888-9999-aaaaaaaaaaaa';

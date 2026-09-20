@@ -24,7 +24,7 @@ import {
   USE_DEFAULT_LINE_WIDTH,
   WriteImageSMaskStream,
   WriteImageStream,
-} from '@ziroeda/pcbnew/src/plot_pdf.js';
+} from '@ziroeda/pcbnew/plot_pdf.js';
 
 /** A4 landscape in mils, i.e. what PAGE_INFO::GetSizeMils() hands SetPageSettings. */
 const A4_MILS = { x: 11693, y: 8268 };

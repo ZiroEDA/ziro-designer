@@ -24,11 +24,11 @@ import {
   reannotateDuplicates,
   reannotateSortCodes,
   roundToReannotateGrid,
-} from '@ziroeda/pcbnew/src/board_reannotate.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+} from '@ziroeda/pcbnew/board_reannotate.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import type { Board, PcbFootprint, PcbTextItem } from '@ziroeda/pcbnew/src/types.js';
+import type { Board, PcbFootprint, PcbTextItem } from '@ziroeda/pcbnew/types.js';
 import type { SList, SNode } from '@ziroeda/sexpr/src/types.js';
 
 /** 1 mm in board IU (nanometres). */

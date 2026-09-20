@@ -4,7 +4,7 @@
 /**
  * The whole router, assembled and driven over a real board.
  *
- * Every piece of KiCad's push-and-shove router is ported in `pcbnew/src/router/`
+ * Every piece of KiCad's push-and-shove router is ported in `pcbnew/router/`
  * and every piece has a suite of its own, but until `PnsSession` there was
  * nothing that put them together — so `LINE_PLACER` had never once been driven
  * *through* `ROUTER` against a `Board`, and the editor's Route tool used a
@@ -25,24 +25,24 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 import {
   applyPnsChanges,
   PnsSession,
   shoveSettingsFrom,
-} from '@ziroeda/pcbnew/src/router/pns_session.js';
+} from '@ziroeda/pcbnew/router/pns_session.js';
 import {
   DEFAULT_ROUTING_SETTINGS,
   type RoutingSettings,
-} from '@ziroeda/pcbnew/src/router/pns_routing_settings.js';
+} from '@ziroeda/pcbnew/router/pns_routing_settings.js';
 import { CornerMode } from '@ziroeda/kimath/src/geometry/direction45.js';
-import { PnsRouterMode } from '@ziroeda/pcbnew/src/router/pns_router.js';
+import { PnsRouterMode } from '@ziroeda/pcbnew/router/pns_router.js';
 import {
   defaultTrackViaSizeState,
   withNetclassEntry,
-} from '@ziroeda/pcbnew/src/board_design_settings_sizes.js';
-import type { PnsDesignSettings } from '@ziroeda/pcbnew/src/router/pns_board_iface.js';
+} from '@ziroeda/pcbnew/board_design_settings_sizes.js';
+import type { PnsDesignSettings } from '@ziroeda/pcbnew/router/pns_board_iface.js';
 
 const MM = 1e6;
 const W = 0.25 * MM;

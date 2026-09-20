@@ -5,8 +5,8 @@
 //   NODE_OPTIONS=--max-old-space-size=12000 npx tsx qa/perf/board_connectivity_timing.mts <board.kicad_pcb>
 import { readFileSync, writeSync } from 'node:fs';
 import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
-import type { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 
 const out = (s: string) => writeSync(1, `${s}\n`);
 const ms = (t: number) => `${(performance.now() - t).toFixed(0)} ms`;

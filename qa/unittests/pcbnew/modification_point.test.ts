@@ -23,13 +23,13 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import {
   boardItemPosition,
   boardSelectionBBox,
   modificationPoint,
   rotateBoardItems,
-} from '@ziroeda/pcbnew/src/edit-board.js';
+} from '@ziroeda/pcbnew/edit-board.js';
 
 const MM = 1e6;
 

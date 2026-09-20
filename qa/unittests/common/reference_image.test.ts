@@ -14,7 +14,7 @@
 import { describe, expect, it } from 'vitest';
 import { pcbIUScale, pixelSizeIu, schIUScale } from '@ziroeda/common';
 import { iuPerPixel as schIuPerPixel } from '@ziroeda/eeschema/src/tools/image_size.js';
-import { iuPerPixel as pcbIuPerPixel } from '@ziroeda/pcbnew/src/image_geometry.js';
+import { iuPerPixel as pcbIuPerPixel } from '@ziroeda/pcbnew/image_geometry.js';
 
 describe('pixelSizeIu', () => {
   it('is an inch of the given scale over the resolution', () => {

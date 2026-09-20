@@ -24,8 +24,8 @@
  */
 import { useState, type JSX } from 'react';
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { PCB_VIA, VIA_PARAMETER_ERROR_FIELD } from '@ziroeda/pcbnew/src/pcb_track.js';
-import type { ViaDimension } from '@ziroeda/pcbnew/src/board_design_settings_sizes.js';
+import { PCB_VIA, VIA_PARAMETER_ERROR_FIELD } from '@ziroeda/pcbnew/pcb_track.js';
+import type { ViaDimension } from '@ziroeda/pcbnew/board_design_settings_sizes.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '../../../ui/status_format.js';

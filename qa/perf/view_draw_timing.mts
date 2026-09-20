@@ -14,13 +14,13 @@ import { RENDER_TARGET } from '@ziroeda/common/src/gal/definitions.js';
 import { OPENGL_GAL, type OPENGL_GAL_CANVAS } from '@ziroeda/common/src/gal/opengl/opengl_gal.js';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/src/pgm_base.js';
 import { COLOR_SETTINGS } from '@ziroeda/common/src/settings/color_settings.js';
-import type { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
-import { GAL_LAYER_ORDER } from '@ziroeda/pcbnew/src/pcb_draw_panel_gal.js';
-import { PCB_DISPLAY_OPTIONS, PCB_PAINTER } from '@ziroeda/pcbnew/src/pcb_painter.js';
-import { PCB_VIEW } from '@ziroeda/pcbnew/src/pcb_view.js';
-import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/src/pcbnew_settings.js';
-import { RATSNEST_VIEW_ITEM } from '@ziroeda/pcbnew/src/ratsnest/ratsnest_view_item.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
+import { GAL_LAYER_ORDER } from '@ziroeda/pcbnew/pcb_draw_panel_gal.js';
+import { PCB_DISPLAY_OPTIONS, PCB_PAINTER } from '@ziroeda/pcbnew/pcb_painter.js';
+import { PCB_VIEW } from '@ziroeda/pcbnew/pcb_view.js';
+import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
+import { RATSNEST_VIEW_ITEM } from '@ziroeda/pcbnew/ratsnest/ratsnest_view_item.js';
 import { VIEW } from '@ziroeda/common/src/view/view.js';
 import {
   BITMAP_LAYER_FOR,

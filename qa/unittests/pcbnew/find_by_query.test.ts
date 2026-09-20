@@ -11,12 +11,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import {
-  boardQueryItems,
-  findByQuery,
-  usesPairwiseSyntax,
-} from '@ziroeda/pcbnew/src/find_by_query.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import { boardQueryItems, findByQuery, usesPairwiseSyntax } from '@ziroeda/pcbnew/find_by_query.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

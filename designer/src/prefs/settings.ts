@@ -42,7 +42,7 @@ import {
   DEFAULT_ROUTING_SETTINGS,
   writeRoutingSettings,
   type RoutingSettingsJson,
-} from '@ziroeda/pcbnew/src/router/pns_routing_settings.js';
+} from '@ziroeda/pcbnew/router/pns_routing_settings.js';
 
 // ----- COMMON_SETTINGS ---------------------------------------------------------
 
@@ -1002,7 +1002,7 @@ export interface PcbnewSettings {
    * which upstream builds as a NESTED_SETTINGS at exactly this path
    * (pns_tool_base.cpp:103), so the sub-keys are KiCad's own spellings; the
    * model, its defaults and the round-trip live in
-   * `@ziroeda/pcbnew/src/router/pns_routing_settings.ts`.
+   * `@ziroeda/pcbnew/router/pns_routing_settings.ts`.
    */
   tools: {
     pns: RoutingSettingsJson;

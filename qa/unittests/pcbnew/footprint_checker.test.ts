@@ -19,10 +19,10 @@ import {
   getNetTiePads,
   isNetTie,
   mapPadNumbersToNetTieGroups,
-} from '@ziroeda/pcbnew/src/footprint_checker.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+} from '@ziroeda/pcbnew/footprint_checker.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import type { PcbFootprint, PcbPad, PcbShape } from '@ziroeda/pcbnew/src/types.js';
+import type { PcbFootprint, PcbPad, PcbShape } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

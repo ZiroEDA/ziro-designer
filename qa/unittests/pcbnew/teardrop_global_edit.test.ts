@@ -12,13 +12,13 @@ import {
   countGlobalTeardropTargets,
   DEFAULT_GLOBAL_TEARDROP_EDIT,
   type GlobalTeardropEditOptions,
-} from '@ziroeda/pcbnew/src/teardrop_global_edit.js';
+} from '@ziroeda/pcbnew/teardrop_global_edit.js';
 import {
   defaultTeardropParameters,
   defaultTeardropParametersList,
-} from '@ziroeda/pcbnew/src/teardrop.js';
-import { fillZones } from '@ziroeda/pcbnew/src/zone_filler.js';
-import type { Board, PcbFootprint, PcbPad, PcbVia } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/teardrop.js';
+import { fillZones } from '@ziroeda/pcbnew/zone_filler.js';
+import type { Board, PcbFootprint, PcbPad, PcbVia } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

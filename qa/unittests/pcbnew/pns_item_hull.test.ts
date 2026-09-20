@@ -15,16 +15,16 @@
  * makes an obstacle look nearest rather than furthest.
  */
 import { describe, expect, it } from 'vitest';
-import { PnsLayerRange } from '@ziroeda/pcbnew/src/router/pns_layerset.js';
-import { PnsLineChain } from '@ziroeda/pcbnew/src/router/pns_line_item.js';
-import { PnsSegment } from '@ziroeda/pcbnew/src/router/pns_segment.js';
-import { PnsSolid } from '@ziroeda/pcbnew/src/router/pns_solid.js';
-import { PnsVia } from '@ziroeda/pcbnew/src/router/pns_via.js';
-import { PnsArc } from '@ziroeda/pcbnew/src/router/pns_arc.js';
-import { PnsHole } from '@ziroeda/pcbnew/src/router/pns_hole.js';
-import { PnsLine } from '@ziroeda/pcbnew/src/router/pns_line_item.js';
-import { arcHull, convexHull, itemHull } from '@ziroeda/pcbnew/src/router/pns_item_hull.js';
-import { segmentHull } from '@ziroeda/pcbnew/src/router/pns_hull.js';
+import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
+import { PnsLineChain } from '@ziroeda/pcbnew/router/pns_line_item.js';
+import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
+import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
+import { PnsVia } from '@ziroeda/pcbnew/router/pns_via.js';
+import { PnsArc } from '@ziroeda/pcbnew/router/pns_arc.js';
+import { PnsHole } from '@ziroeda/pcbnew/router/pns_hole.js';
+import { PnsLine } from '@ziroeda/pcbnew/router/pns_line_item.js';
+import { arcHull, convexHull, itemHull } from '@ziroeda/pcbnew/router/pns_item_hull.js';
+import { segmentHull } from '@ziroeda/pcbnew/router/pns_hull.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const V = (x: number, y: number): Vec2 => ({ x, y });

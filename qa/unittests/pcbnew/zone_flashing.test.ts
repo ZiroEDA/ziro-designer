@@ -59,14 +59,14 @@ import { LSET } from '@ziroeda/common/src/lset.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
-import { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import { ZONE_LAYER_OVERRIDE } from '@ziroeda/pcbnew/src/board_item.js';
-import { NETINFO_ITEM } from '@ziroeda/pcbnew/src/netinfo.js';
-import type { PAD } from '@ziroeda/pcbnew/src/pad.js';
-import { PCB_VIA } from '@ziroeda/pcbnew/src/pcb_track.js';
-import { ParseBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { ZONE } from '@ziroeda/pcbnew/src/zone.js';
-import { ZONE_FILLER } from '@ziroeda/pcbnew/src/zone_filler.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
+import { ZONE_LAYER_OVERRIDE } from '@ziroeda/pcbnew/board_item.js';
+import { NETINFO_ITEM } from '@ziroeda/pcbnew/netinfo.js';
+import type { PAD } from '@ziroeda/pcbnew/pad.js';
+import { PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
+import { ParseBoard } from '@ziroeda/pcbnew/read-board.js';
+import { ZONE } from '@ziroeda/pcbnew/zone.js';
+import { ZONE_FILLER } from '@ziroeda/pcbnew/zone_filler.js';
 
 const BOARD_PATH = resolve(
   import.meta.dirname,

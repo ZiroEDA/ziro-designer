@@ -27,7 +27,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { buildScene } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 import { GL_PATH_FACTORY, GlPath, asGlPath } from '@ziroeda/designer/src/render/gl/gl_path.js';
 
@@ -46,7 +46,7 @@ const SHAPES: Readonly<Record<string, string>> = {
 };
 
 const VIEW = readFileSync(
-  fileURLToPath(new URL('../../../pcbnew/src/pcb_io/kicad_sexpr/board_view.ts', import.meta.url)),
+  fileURLToPath(new URL('../../../pcbnew/pcb_io/kicad_sexpr/board_view.ts', import.meta.url)),
   'utf8',
 );
 

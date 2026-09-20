@@ -41,7 +41,7 @@ import {
   symbolBodyBBox,
   type BBox,
 } from '@ziroeda/eeschema/src/tools/bbox.js';
-import type { PdfBox2, PdfPlotter } from '@ziroeda/pcbnew/src/plot_pdf.js';
+import type { PdfBox2, PdfPlotter } from '@ziroeda/pcbnew/plot_pdf.js';
 
 /** What the sheet's connectivity knows about a wire, bus or label. */
 export interface PdfNetInfo {

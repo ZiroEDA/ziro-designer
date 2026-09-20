@@ -56,7 +56,7 @@ import {
   LSET_Name,
   UNDEFINED_LAYER,
   UserMask,
-} from '@ziroeda/pcbnew/src/layer_ids.js';
+} from '@ziroeda/pcbnew/layer_ids.js';
 import { mapGerberLayersToPcb } from './mapGerberLayersToPcb.js';
 
 interface ExportLayer {

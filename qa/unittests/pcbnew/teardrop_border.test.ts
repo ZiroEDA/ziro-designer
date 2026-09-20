@@ -7,10 +7,10 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
-import { applyTeardrops } from '@ziroeda/pcbnew/src/teardrop.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
+import { applyTeardrops } from '@ziroeda/pcbnew/teardrop.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const load = (text: string): Board => readBoard(parse(text));
 

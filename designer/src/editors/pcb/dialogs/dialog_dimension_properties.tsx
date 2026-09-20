@@ -7,7 +7,7 @@
  *
  * Which groups appear depends on the kind — `dimensionDialogFields` holds those
  * rules and the reasoning behind them, and this file only reads them. The
- * collect/apply decisions live in `pcbnew/src/dimension_properties.ts`.
+ * collect/apply decisions live in `pcbnew/dimension_properties.ts`.
  *
  * Two controls are worth explaining here:
  *
@@ -26,8 +26,8 @@
 
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
-import type { DimensionValues } from '@ziroeda/pcbnew/src/dimension_properties.js';
-import type { DimensionKind } from '@ziroeda/pcbnew/src/types.js';
+import type { DimensionValues } from '@ziroeda/pcbnew/dimension_properties.js';
+import type { DimensionKind } from '@ziroeda/pcbnew/types.js';
 import { dimensionDialogFields } from '../dimension_tools.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';

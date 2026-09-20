@@ -11,9 +11,9 @@
  */
 import { parse, serialize } from '@ziroeda/sexpr/src/index.js';
 import { head, isList, type SList } from '@ziroeda/sexpr/src/types.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 /** A two-layer board with nothing on it. */
 export const emptyBoard = (): Board =>

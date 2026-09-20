@@ -14,9 +14,9 @@ import { describe, expect, it } from 'vitest';
 import { U } from './support/written_node.js';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { placeVia, trackUnderVia } from '@ziroeda/pcbnew/src/via_placer.js';
-import type { Board, PcbVia } from '@ziroeda/pcbnew/src/types.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { placeVia, trackUnderVia } from '@ziroeda/pcbnew/via_placer.js';
+import type { Board, PcbVia } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

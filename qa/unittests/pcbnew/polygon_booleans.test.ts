@@ -20,13 +20,13 @@ import {
   booleanableShapeCount,
   polygonBoolean,
   shapeAsPolygon,
-} from '@ziroeda/pcbnew/src/polygon_booleans.js';
+} from '@ziroeda/pcbnew/polygon_booleans.js';
 import {
   booleanAdd,
   booleanIntersection,
   booleanSubtract,
 } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
-import type { Board, PcbShape } from '@ziroeda/pcbnew/src/types.js';
+import type { Board, PcbShape } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

@@ -19,13 +19,13 @@ import { describe, expect, it } from 'vitest';
 import { U } from './support/written_node.js';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { segApproxCollinear } from '@ziroeda/kimath/src/geometry/seg.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
-import { cleanupErrorText } from '@ziroeda/pcbnew/src/cleanup_item.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
+import { cleanupErrorText } from '@ziroeda/pcbnew/cleanup_item.js';
 import {
   cleanupTrackGeometry,
   type TrackGeometryCleanupOptions,
-} from '@ziroeda/pcbnew/src/tracks_cleaner.js';
+} from '@ziroeda/pcbnew/tracks_cleaner.js';
 import { Reporter } from '@ziroeda/common/src/reporter.js';
 import type {
   Board,
@@ -34,7 +34,7 @@ import type {
   PcbPad,
   PcbTrack,
   PcbVia,
-} from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/types.js';
 
 const P = (x: number, y: number) => ({ x, y });
 

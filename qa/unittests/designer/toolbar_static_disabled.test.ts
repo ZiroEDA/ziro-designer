@@ -118,7 +118,7 @@ const UNBUILT: Readonly<Record<string, readonly string[]>> = {
   'pcb top': [],
   // `autoTrackWidth` came off this list when it was built: the toggle is
   // `BOARD_DESIGN_SETTINGS::m_UseConnectedTrackWidth` and the width rule behind
-  // it is `pcbnew/src/inherit_track_width.ts`. `selectLayerPair` still needs
+  // it is `pcbnew/inherit_track_width.ts`. `selectLayerPair` still needs
   // DIALOG_SET_LAYER_PAIR, so it stays.
   'pcb aux': ['selectLayerPair'],
   'pcb left': [],
@@ -144,7 +144,7 @@ const UNBUILT: Readonly<Record<string, readonly string[]>> = {
     // `DIALOG_RULE_AREA_PROPERTIES`, which `InvokeRuleAreaEditor` opens from
     // `ZONE_CREATE_HELPER::createNewZone`.
     // `drawBezier` came off with `DRAWING_TOOL::DrawBezier`: the four-click
-    // gesture is `pcbnew/src/bezier_tool.ts` over `BEZIER_GEOM_MANAGER`, and
+    // gesture is `pcbnew/bezier_tool.ts` over `BEZIER_GEOM_MANAGER`, and
     // the shape it commits is the `gr_curve` the reader and writer already
     // understood.
     // The whole "PCB origins and points" group came off this list together:

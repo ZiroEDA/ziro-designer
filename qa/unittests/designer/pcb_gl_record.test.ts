@@ -23,8 +23,8 @@
 import { describe, expect, it } from 'vitest';
 import { WX_IMAGE } from '@ziroeda/common/src/wx_image.js';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 import { buildScene, DEFAULT_DRAW_OPTIONS } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 import { GL_PATH_FACTORY } from '@ziroeda/designer/src/render/gl/gl_path.js';
 import {

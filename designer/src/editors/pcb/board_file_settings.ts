@@ -18,7 +18,7 @@
  * `applyBoardFileSetup` hydrates those slices into a BoardSetupValues;
  * `writeBoardFileSetup` patches them back into the board text, leaving every
  * other node untouched (the same patch-in-place philosophy as
- * pcbnew/src/write-board.ts). Gotchas mirrored from the KiCad writer:
+ * pcbnew/write-board.ts). Gotchas mirrored from the KiCad writer:
  * `solder_mask_min_width` / `pad_to_paste_clearance*` are omitted when 0,
  * `edge_plating` is only ever written as `yes`, tech layers carry the literal
  * `user` qualifier, dielectric stackup rows are named `"dielectric N"`, and
@@ -44,7 +44,7 @@ import {
   LSET_NameToLayer,
   TECH_AND_USER_UI_ORDER,
   UNDEFINED_LAYER,
-} from '@ziroeda/pcbnew/src/layer_ids.js';
+} from '@ziroeda/pcbnew/layer_ids.js';
 import {
   buildStackup,
   copperStackNames,
@@ -64,7 +64,7 @@ import {
  * Canonical name -> ordinal for the fixed non-copper layers. Derived from
  * `TECH_AND_USER_UI_ORDER`, which is the same eighteen layers: the ordinal IS
  * the `PCB_LAYER_ID`, so re-typing the numbers here only created a second
- * place for them to drift from `pcbnew/src/layer_ids.ts`.
+ * place for them to drift from `pcbnew/layer_ids.ts`.
  */
 const TECH_ORDINALS: Record<string, number> = Object.fromEntries(
   TECH_AND_USER_UI_ORDER.map((id) => [LSET_Name(id), id]),
@@ -93,7 +93,7 @@ function copperOrdinal(id: string): number | undefined {
 /**
  * Canonical layer name -> ordinal. This is `LSET::NameToLayer` with upstream's
  * -1 turned into `undefined`, which is the shape this file's callers want; the
- * table itself lives in `pcbnew/src/layer_ids.ts` beside `LSET_Name`, so the
+ * table itself lives in `pcbnew/layer_ids.ts` beside `LSET_Name`, so the
  * two directions are one table read each way. Three private copies of the
  * `User.N` / `In%d.Cu` arithmetic used to live here and in the widgets.
  */

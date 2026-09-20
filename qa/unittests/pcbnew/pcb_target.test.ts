@@ -13,8 +13,8 @@ import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
-import { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import { PCB_TARGET } from '@ziroeda/pcbnew/src/pcb_target.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
+import { PCB_TARGET } from '@ziroeda/pcbnew/pcb_target.js';
 
 const polyOf = (t: PCB_TARGET) => {
   const ps = new SHAPE_POLY_SET();

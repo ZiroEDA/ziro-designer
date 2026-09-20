@@ -3,14 +3,14 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import {
   boardItemId,
   parseBoardItemId,
   boardHitCandidates,
   moveBoardItems,
-} from '@ziroeda/pcbnew/src/edit-board.js';
+} from '@ziroeda/pcbnew/edit-board.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 
 // A footprint at (100,100) rotated 0°, with a reference "R1" at local (0,-2).

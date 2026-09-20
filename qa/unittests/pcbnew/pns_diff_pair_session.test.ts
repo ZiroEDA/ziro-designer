@@ -16,10 +16,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { applyPnsChanges, PnsSession } from '@ziroeda/pcbnew/src/router/pns_session.js';
-import { DEFAULT_ROUTER_SIZES, PnsRouterMode } from '@ziroeda/pcbnew/src/router/pns_router.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { applyPnsChanges, PnsSession } from '@ziroeda/pcbnew/router/pns_session.js';
+import { DEFAULT_ROUTER_SIZES, PnsRouterMode } from '@ziroeda/pcbnew/router/pns_router.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = 1_000_000;
 

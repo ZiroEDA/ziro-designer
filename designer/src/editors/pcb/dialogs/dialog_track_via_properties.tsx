@@ -12,17 +12,14 @@
  * leave each item's own value alone", which is the only way one dialog can edit
  * a mixed selection without flattening it. Typing into a blank box arms it.
  *
- * The decision logic lives in `pcbnew/src/track_via_properties.ts`; this file is
+ * The decision logic lives in `pcbnew/track_via_properties.ts`; this file is
  * only the controls.
  */
 
 import { useMemo, useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
-import type {
-  TrackViaSelection,
-  TrackViaValues,
-} from '@ziroeda/pcbnew/src/track_via_properties.js';
-import { collectTrackViaValues } from '@ziroeda/pcbnew/src/track_via_properties.js';
+import type { TrackViaSelection, TrackViaValues } from '@ziroeda/pcbnew/track_via_properties.js';
+import { collectTrackViaValues } from '@ziroeda/pcbnew/track_via_properties.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {

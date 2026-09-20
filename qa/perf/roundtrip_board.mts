@@ -15,13 +15,13 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
-import { ParseBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { ParseBoard } from '@ziroeda/pcbnew/read-board.js';
 import { GENERATOR } from '@ziroeda/common/src/generator.js';
 import {
   CTL_ENUMERATE_LAYERS,
   CTL_FOR_BOARD,
   FormatBoard,
-} from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
 await EMBEDDED_FILES.InitCodec();
 const src = process.argv[2]!;

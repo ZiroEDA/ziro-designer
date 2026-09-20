@@ -25,7 +25,7 @@
  * exact-integer port of `libs/kimath/src/geometry/seg.cpp`, and not from a copy
  * in doubles. There is no third implementation: `SEG::SquaredDistance` and
  * `SEG::Distance` are the same routines `SHAPE::Collide` measures with, so
- * `shapeDist` and `pcbnew/src/drc/shape_collisions.ts` now agree by
+ * `shapeDist` and `pcbnew/drc/shape_collisions.ts` now agree by
  * construction rather than by coincidence.
  *
  * Three consequences, all of them upstream's:

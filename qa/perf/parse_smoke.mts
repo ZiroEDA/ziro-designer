@@ -2,8 +2,8 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
-import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
-import { BOARD } from '@ziroeda/pcbnew/src/board.js';
+import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
 
 async function main() {
   await EMBEDDED_FILES.InitCodec();

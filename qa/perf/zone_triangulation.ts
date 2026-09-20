@@ -4,7 +4,7 @@
 // earcut. See README.md for the vite-node invocation.
 import { readFileSync } from 'node:fs';
 import { parse } from '@ziroeda/sexpr';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { triangulateRings } from '@ziroeda/designer/src/render/gl/holes.js';
 
 const file = process.argv[2]!;

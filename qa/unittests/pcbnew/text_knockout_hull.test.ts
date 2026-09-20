@@ -24,9 +24,9 @@
  * printed.
  */
 import { describe, it, expect } from 'vitest';
-import { textShapes } from '@ziroeda/pcbnew/src/text_geometry.js';
+import { textShapes } from '@ziroeda/pcbnew/text_geometry.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import type { PcbTextItem } from '@ziroeda/pcbnew/src/types.js';
+import type { PcbTextItem } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 const TOL = MM(0.0005);

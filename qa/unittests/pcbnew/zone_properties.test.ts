@@ -8,18 +8,18 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import {
   applyZoneValues,
   collectZoneValues,
   uniqueZonePriority,
   zoneAt,
   type ZoneValues,
-} from '@ziroeda/pcbnew/src/zone_properties.js';
-import { fillZone } from '@ziroeda/pcbnew/src/zone_filler.js';
-import { boardFromBOARD, boardToBOARD } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/board_view.js';
-import type { Board, PcbZone } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/zone_properties.js';
+import { fillZone } from '@ziroeda/pcbnew/zone_filler.js';
+import { boardFromBOARD, boardToBOARD } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
+import type { Board, PcbZone } from '@ziroeda/pcbnew/types.js';
 import { U } from './support/written_node.js';
 
 const MM = (n: number): number => mmToIU(n);

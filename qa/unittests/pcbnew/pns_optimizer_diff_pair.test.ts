@@ -53,16 +53,16 @@ import {
   mergeDpStep,
   optimizeDiffPair,
   verifyDpBypass,
-} from '@ziroeda/pcbnew/src/router/pns_optimizer_diff_pair.js';
-import { DiffPair } from '@ziroeda/pcbnew/src/router/pns_diff_pair.js';
-import { PnsLayerRange } from '@ziroeda/pcbnew/src/router/pns_layerset.js';
-import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/src/router/pns_line_item.js';
-import { PnsNode } from '@ziroeda/pcbnew/src/router/pns_node.js';
-import { PnsSegment } from '@ziroeda/pcbnew/src/router/pns_segment.js';
-import { PnsSolid } from '@ziroeda/pcbnew/src/router/pns_solid.js';
-import { itemHull } from '@ziroeda/pcbnew/src/router/pns_item_hull.js';
-import type { NetHandle, PnsRuleResolver } from '@ziroeda/pcbnew/src/router/pns_collision.js';
-import type { PnsItem } from '@ziroeda/pcbnew/src/router/pns_item.js';
+} from '@ziroeda/pcbnew/router/pns_optimizer_diff_pair.js';
+import { DiffPair } from '@ziroeda/pcbnew/router/pns_diff_pair.js';
+import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
+import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line_item.js';
+import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
+import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
+import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
+import { itemHull } from '@ziroeda/pcbnew/router/pns_item_hull.js';
+import type { NetHandle, PnsRuleResolver } from '@ziroeda/pcbnew/router/pns_collision.js';
+import type { PnsItem } from '@ziroeda/pcbnew/router/pns_item.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const V = (x: number, y: number): Vec2 => ({ x, y });

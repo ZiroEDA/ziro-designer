@@ -44,13 +44,13 @@ import {
   segCollinear,
   segIntersect,
   segIntersectLines,
-} from '@ziroeda/pcbnew/src/router/pns_diff_pair.js';
-import { segApproxParallel, segLineProject } from '@ziroeda/pcbnew/src/router/pns_seg_ops.js';
-import { RangedNum } from '@ziroeda/pcbnew/src/router/ranged_num.js';
-import { PnsSegment } from '@ziroeda/pcbnew/src/router/pns_segment.js';
-import { PnsSolid } from '@ziroeda/pcbnew/src/router/pns_solid.js';
-import { PnsVia } from '@ziroeda/pcbnew/src/router/pns_via.js';
-import { PnsLayerRange } from '@ziroeda/pcbnew/src/router/pns_layerset.js';
+} from '@ziroeda/pcbnew/router/pns_diff_pair.js';
+import { segApproxParallel, segLineProject } from '@ziroeda/pcbnew/router/pns_seg_ops.js';
+import { RangedNum } from '@ziroeda/pcbnew/router/ranged_num.js';
+import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
+import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
+import { PnsVia } from '@ziroeda/pcbnew/router/pns_via.js';
+import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
 import { AngleType, Direction45 } from '@ziroeda/kimath/src/geometry/direction45.js';
 import { Perpendicular, ResizeI } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

@@ -11,7 +11,7 @@
  * is the only way to change one property across a board without flattening the
  * rest. A plain two-state checkbox would silently rewrite every other field.
  *
- * The decision logic lives in `pcbnew/src/teardrop_global_edit.ts`; this file is
+ * The decision logic lives in `pcbnew/teardrop_global_edit.ts`; this file is
  * only the controls.
  */
 
@@ -19,8 +19,8 @@ import { useState, type JSX } from 'react';
 import type {
   GlobalTeardropEditOptions,
   TeardropEditAction,
-} from '@ziroeda/pcbnew/src/teardrop_global_edit.js';
-import { DEFAULT_GLOBAL_TEARDROP_EDIT } from '@ziroeda/pcbnew/src/teardrop_global_edit.js';
+} from '@ziroeda/pcbnew/teardrop_global_edit.js';
+import { DEFAULT_GLOBAL_TEARDROP_EDIT } from '@ziroeda/pcbnew/teardrop_global_edit.js';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 

@@ -1726,7 +1726,7 @@ export function SchematicEditor({
     }
 
     // `flash_selection` — "visual attention aid" (`app_settings.h:37`). The
-    // phases and the interval are `pcbnew/src/cross_probe.ts`', because the
+    // phases and the interval are `pcbnew/cross_probe.ts`', because the
     // blink is one behaviour and only the items differ.
     if (cfg.flash_selection) setFlashPhase(0);
   }, [syncSelectionFromPcb, currentPath]);

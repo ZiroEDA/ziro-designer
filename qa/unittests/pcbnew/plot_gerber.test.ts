@@ -4,15 +4,15 @@
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
-import { setBoardPageSettings } from '@ziroeda/pcbnew/src/edit-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
+import { setBoardPageSettings } from '@ziroeda/pcbnew/edit-board.js';
 import {
   plotGerberLayer,
   plotExcellonDrill,
   gerberProtelExtension,
   boardAuxOrigin,
-} from '@ziroeda/pcbnew/src/plot_gerber.js';
+} from '@ziroeda/pcbnew/plot_gerber.js';
 
 const BOARD = `(kicad_pcb (version 20241229) (generator x)
   (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (25 "Edge.Cuts" user))

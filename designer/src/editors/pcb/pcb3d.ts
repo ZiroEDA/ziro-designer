@@ -29,15 +29,15 @@
 import { ARC_HIGH_DEF, PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import { transformCircleToPolygonSet } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { getArcToSegmentCount } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
-import { ErrorLoc } from '@ziroeda/pcbnew/src/transform_shape_to_polygon.js';
+import { ErrorLoc } from '@ziroeda/pcbnew/transform_shape_to_polygon.js';
 import type { Color4d } from '@ziroeda/common/src/color4d.js';
 import { LEGACY_COLORS } from '@ziroeda/common/src/color4d.js';
 import type { Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Board } from '@ziroeda/pcbnew';
-import { B_Cu, B_Mask, F_Cu, F_Mask, GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
-import { viaIsTented } from '@ziroeda/pcbnew/src/exporters/export_d356.js';
-import { BOARD_STACKUP_ITEM_TYPE } from '@ziroeda/pcbnew/src/board_stackup_manager/board_stackup.js';
+import { B_Cu, B_Mask, F_Cu, F_Mask, GetLayerName } from '@ziroeda/pcbnew/layer_ids.js';
+import { viaIsTented } from '@ziroeda/pcbnew/exporters/export_d356.js';
+import { BOARD_STACKUP_ITEM_TYPE } from '@ziroeda/pcbnew/board_stackup_manager/board_stackup.js';
 import {
   clickSelectionParts,
   hoveredItemMessage,
@@ -88,7 +88,7 @@ import {
   type SMaterial,
 } from './gl_fixed_function.js';
 import { MODELS3D_HOST } from '../../libraryHosts.js';
-import { allBoardItemIds, boardItemBBox } from '@ziroeda/pcbnew/src/edit-board.js';
+import { allBoardItemIds, boardItemBBox } from '@ziroeda/pcbnew/edit-board.js';
 import type {
   Grid3D,
   Move3DDir,

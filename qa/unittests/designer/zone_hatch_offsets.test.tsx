@@ -34,7 +34,7 @@ import {
   applyBoardFileSetup,
   writeBoardFileSetup,
 } from '@ziroeda/designer/src/editors/pcb/board_file_settings.js';
-import { LSET_Name, LSET_NameToLayer } from '@ziroeda/pcbnew/src/layer_ids.js';
+import { LSET_Name, LSET_NameToLayer } from '@ziroeda/pcbnew/layer_ids.js';
 
 afterEach(cleanup);
 

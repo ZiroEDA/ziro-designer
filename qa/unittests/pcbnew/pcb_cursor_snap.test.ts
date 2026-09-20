@@ -12,14 +12,14 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import {
   bestDragOrigin,
   bestSnapAnchor,
   computeDragAnchors,
   snapToBoardCopper,
-} from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
-import { align, computeNearest, type PcbGridState } from '@ziroeda/pcbnew/src/tools/pcb_grid_helper.js';
+} from '@ziroeda/pcbnew/pcb_cursor_snap.js';
+import { align, computeNearest, type PcbGridState } from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
 
 const MM = 1e6;
 

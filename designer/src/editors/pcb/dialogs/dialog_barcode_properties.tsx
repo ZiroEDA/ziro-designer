@@ -5,7 +5,7 @@
  * Barcode properties.
  * Counterpart: `pcbnew/dialogs/dialog_barcode_properties.cpp` and its `_base`.
  *
- * The decisions live in `pcbnew/src/barcode_properties.ts`; this is layout,
+ * The decisions live in `pcbnew/barcode_properties.ts`; this is layout,
  * plus the live preview — which is not decoration. A barcode is the one item
  * whose appearance the user cannot predict from the fields: the symbology and
  * the text together decide the version, and a string one character too long
@@ -29,9 +29,9 @@ import {
   barcodeUiState,
   correctEccForKind,
   type BarcodeValues,
-} from '@ziroeda/pcbnew/src/barcode_properties.js';
-import { barcodeGeometry } from '@ziroeda/pcbnew/src/barcode_geometry.js';
-import type { PcbBarcode } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/barcode_properties.js';
+import { barcodeGeometry } from '@ziroeda/pcbnew/barcode_geometry.js';
+import type { PcbBarcode } from '@ziroeda/pcbnew/types.js';
 import { Combo } from '../../../ui/Combo.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';

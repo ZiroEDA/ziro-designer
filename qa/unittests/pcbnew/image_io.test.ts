@@ -26,12 +26,12 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { WX_IMAGE } from '@ziroeda/common/src/wx_image.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import type { SList } from '@ziroeda/sexpr/src/types.js';
 import { childNode, emptyBoard, flatText, writtenNode } from './support/written_node.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import type { Board, PcbImage } from '@ziroeda/pcbnew/src/types.js';
+import type { Board, PcbImage } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

@@ -19,7 +19,7 @@
  * it does, to the unit.
  */
 import { describe, it, expect } from 'vitest';
-import { arcToPolygon } from '@ziroeda/pcbnew/src/convert_basic_shapes_to_polygon.js';
+import { arcToPolygon } from '@ziroeda/pcbnew/convert_basic_shapes_to_polygon.js';
 
 const START = { x: 76016039, y: 25598601 };
 const MID = { x: 76117273, y: 21009482 };

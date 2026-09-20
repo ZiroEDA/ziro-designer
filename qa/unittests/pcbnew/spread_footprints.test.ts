@@ -21,11 +21,11 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readFootprintFile } from '@ziroeda/pcbnew/src/read-board.js';
-import { footprintBBox } from '@ziroeda/pcbnew/src/edit-footprint.js';
-import { spreadFootprints } from '@ziroeda/pcbnew/src/autorouter/spread_footprints.js';
+import { readFootprintFile } from '@ziroeda/pcbnew/read-board.js';
+import { footprintBBox } from '@ziroeda/pcbnew/edit-footprint.js';
+import { spreadFootprints } from '@ziroeda/pcbnew/autorouter/spread_footprints.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import type { PcbFootprint } from '@ziroeda/pcbnew/src/types.js';
+import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';
 
 /**
  * Two pads 1 mm square at x = ±5, so the copper box is 11 x 1 mm; the reference

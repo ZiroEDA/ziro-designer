@@ -11,10 +11,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
-import { fillZones } from '@ziroeda/pcbnew/src/zone_filler.js';
-import type { Board, PcbZone } from '@ziroeda/pcbnew/src/types.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
+import { fillZones } from '@ziroeda/pcbnew/zone_filler.js';
+import type { Board, PcbZone } from '@ziroeda/pcbnew/types.js';
 
 /** A board with one copper pour and, optionally, a rule area biting into it. */
 const src = (

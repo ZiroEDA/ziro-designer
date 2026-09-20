@@ -21,11 +21,11 @@ import {
 } from '@ziroeda/common/src/render_settings.js';
 import { fixed } from '@ziroeda/common/src/plotters/fmt.js';
 
-import * as ps from '@ziroeda/pcbnew/src/plot_ps.js';
-import * as svg from '@ziroeda/pcbnew/src/plot_svg.js';
-import * as pdf from '@ziroeda/pcbnew/src/plot_pdf.js';
-import * as png from '@ziroeda/pcbnew/src/plot_png.js';
-import * as dxf from '@ziroeda/pcbnew/src/plot_dxf.js';
+import * as ps from '@ziroeda/pcbnew/plot_ps.js';
+import * as svg from '@ziroeda/pcbnew/plot_svg.js';
+import * as pdf from '@ziroeda/pcbnew/plot_pdf.js';
+import * as png from '@ziroeda/pcbnew/plot_png.js';
+import * as dxf from '@ziroeda/pcbnew/plot_dxf.js';
 
 const BACKENDS = { ps, svg, pdf, png, dxf };
 

@@ -14,11 +14,11 @@ import {
   CONDITION_TYPE,
   CONDITIONS_OPERATOR,
 } from '@ziroeda/common/src/project/component_class_settings.js';
-import type { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import { COMPONENT_CLASS, USAGE } from '@ziroeda/pcbnew/src/component_classes/component_class.js';
-import { COMPONENT_CLASS_MANAGER } from '@ziroeda/pcbnew/src/component_classes/component_class_manager.js';
-import { FormatBoard } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import { COMPONENT_CLASS, USAGE } from '@ziroeda/pcbnew/component_classes/component_class.js';
+import { COMPONENT_CLASS_MANAGER } from '@ziroeda/pcbnew/component_classes/component_class_manager.js';
+import { FormatBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 
 const DATA = fileURLToPath(new URL('../../data/pcbnew/', import.meta.url));
 

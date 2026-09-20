@@ -39,7 +39,7 @@
  */
 
 import { useState, type JSX } from 'react';
-import type { ZoneValues } from '@ziroeda/pcbnew/src/zone_properties.js';
+import type { ZoneValues } from '@ziroeda/pcbnew/zone_properties.js';
 import { Combo } from '../../../ui/Combo.js';
 import { Infobar } from '../../../ui/ReadOnlyNotice.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';

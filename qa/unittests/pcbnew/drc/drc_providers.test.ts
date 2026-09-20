@@ -17,11 +17,11 @@ import {
 import { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
 import { BaseType, KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-import { BOARD_ITEM } from '@ziroeda/pcbnew/src/board_item.js';
-import type { DRC_ITEM } from '@ziroeda/pcbnew/src/drc/drc_item.js';
-import { PCB_DRC_CODE } from '@ziroeda/pcbnew/src/drc/drc_item.js';
-import { PAD_ATTRIB } from '@ziroeda/pcbnew/src/padstack.js';
-import { PCB_MARKER } from '@ziroeda/pcbnew/src/pcb_marker.js';
+import { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
+import type { DRC_ITEM } from '@ziroeda/pcbnew/drc/drc_item.js';
+import { PCB_DRC_CODE } from '@ziroeda/pcbnew/drc/drc_item.js';
+import { PAD_ATTRIB } from '@ziroeda/pcbnew/padstack.js';
+import { PCB_MARKER } from '@ziroeda/pcbnew/pcb_marker.js';
 import { HAVE_TEST_DATA, LoadBoard } from './drc_test_utils.js';
 
 const suite = HAVE_TEST_DATA ? describe : describe.skip;

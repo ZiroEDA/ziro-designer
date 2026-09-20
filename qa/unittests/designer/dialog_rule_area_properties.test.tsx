@@ -6,7 +6,7 @@
  * Rule Area Properties — `DIALOG_RULE_AREA_PROPERTIES` over its two notebook
  * panels.
  *
- * The decision logic is `pcbnew/src/rule_area_properties.ts` and is pinned by
+ * The decision logic is `pcbnew/rule_area_properties.ts` and is pinned by
  * `unittests/pcbnew/rule_area_properties.test.ts`; what this file asserts is
  * the wiring, which is where a dialog that "looks right" usually differs:
  * which page opens, which controls sit OUTSIDE the notebook, when a placement
@@ -15,7 +15,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { DialogRuleAreaProperties } from '@ziroeda/designer/src/editors/pcb/dialogs/dialog_rule_area_properties.js';
-import type { PlacementSources, RuleAreaValues } from '@ziroeda/pcbnew/src/rule_area_properties.js';
+import type { PlacementSources, RuleAreaValues } from '@ziroeda/pcbnew/rule_area_properties.js';
 
 afterEach(cleanup);
 

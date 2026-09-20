@@ -20,7 +20,7 @@ import {
   DEFAULT_ROUTING_SETTINGS,
   PnsMode,
   readRoutingSettings,
-} from '@ziroeda/pcbnew/src/router/pns_routing_settings.js';
+} from '@ziroeda/pcbnew/router/pns_routing_settings.js';
 
 describe('what a stored value is allowed to override', () => {
   it('takes a stored value of the same type', () => {

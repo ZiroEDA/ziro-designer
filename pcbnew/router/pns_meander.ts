@@ -167,7 +167,7 @@ export const MEANDER_SKEW_UNCONSTRAINED = 2147483647;
  * `MEANDER_SETTINGS`: the dimensions the meandering algorithm works to.
  *
  * `MINOPTMAX<T>` maps onto the repo's existing {@link MinOptMax}
- * (`pcbnew/src/drc/drc_rule.ts`), which is isomorphic: upstream pairs each
+ * (`pcbnew/drc/drc_rule.ts`), which is isomorphic: upstream pairs each
  * value with an `m_hasX` flag, and an absent optional field says the same
  * thing. The accessors below follow `core/minoptmax.h` exactly, including that
  * an absent `Opt` falls back to `Min` rather than to zero.

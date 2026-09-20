@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/src/settings/builtin_color_themes.js';
-import { F_Cu, F_Mask, F_SilkS, User_1 } from '@ziroeda/pcbnew/src/layer_ids.js';
+import { F_Cu, F_Mask, F_SilkS, User_1 } from '@ziroeda/pcbnew/layer_ids.js';
 import { pcbLayerIdOf } from '@ziroeda/designer/src/editors/pcb/board_3d_layers.js';
 import {
   APPEARANCE_ROWS_3D,

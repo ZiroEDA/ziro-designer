@@ -42,21 +42,21 @@ import {
 import { LSET } from '@ziroeda/common/src/lset.js';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/src/pgm_base.js';
 import { COLOR_SETTINGS } from '@ziroeda/common/src/settings/color_settings.js';
-import { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import { HIGH_CONTRAST_MODE, NET_COLOR_MODE } from '@ziroeda/pcbnew/src/board_project_settings.js';
-import { DRC_ENGINE } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
-import { FOOTPRINT } from '@ziroeda/pcbnew/src/footprint.js';
-import { NETINFO_ITEM } from '@ziroeda/pcbnew/src/netinfo.js';
-import { PAD } from '@ziroeda/pcbnew/src/pad.js';
-import { PAD_ATTRIB, PAD_SHAPE } from '@ziroeda/pcbnew/src/padstack.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
+import { HIGH_CONTRAST_MODE, NET_COLOR_MODE } from '@ziroeda/pcbnew/board_project_settings.js';
+import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
+import { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
+import { NETINFO_ITEM } from '@ziroeda/pcbnew/netinfo.js';
+import { PAD } from '@ziroeda/pcbnew/pad.js';
+import { PAD_ATTRIB, PAD_SHAPE } from '@ziroeda/pcbnew/padstack.js';
 import {
   PCB_DISPLAY_OPTIONS,
   PCB_PAINTER,
   PCB_RENDER_SETTINGS,
-} from '@ziroeda/pcbnew/src/pcb_painter.js';
-import { PCB_TRACK, PCB_VIA } from '@ziroeda/pcbnew/src/pcb_track.js';
-import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/src/pcbnew_settings.js';
-import { ZONE } from '@ziroeda/pcbnew/src/zone.js';
+} from '@ziroeda/pcbnew/pcb_painter.js';
+import { PCB_TRACK, PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
+import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
+import { ZONE } from '@ziroeda/pcbnew/zone.js';
 import { SELECTED, BRIGHTENED } from '@ziroeda/common/src/eda_item_flags.js';
 
 /** A GAL that records the drawing calls the painter makes. */

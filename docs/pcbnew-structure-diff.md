@@ -13,13 +13,13 @@ Generated 2026-09-20 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 
 ## MOVED
 
-| ours (`pcbnew/src/`) | KiCad (`pcbnew/` unless noted) |
+| ours (`pcbnew/`) | KiCad (`pcbnew/` unless noted) |
 |---|---|
 | `teardrop.ts` | `teardrop/teardrop.cpp` |
 
 ## DIALOG
 
-| ours (`pcbnew/src/`) | KiCad (`pcbnew/` unless noted) |
+| ours (`pcbnew/`) | KiCad (`pcbnew/` unless noted) |
 |---|---|
 | `barcode_properties.ts` | `dialogs/dialog_barcode_properties_base.cpp` |
 | `board_reannotate.ts` | `dialogs/dialog_board_reannotate_base.cpp` |
@@ -44,7 +44,7 @@ Generated 2026-09-20 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 
 ## ELSEWHERE
 
-| ours (`pcbnew/src/`) | KiCad (`pcbnew/` unless noted) |
+| ours (`pcbnew/`) | KiCad (`pcbnew/` unless noted) |
 |---|---|
 | `barcode/common.ts` | `common/common.cpp` |
 | `board_project_settings.ts` | `common/project/board_project_settings.cpp` |
@@ -56,7 +56,7 @@ Generated 2026-09-20 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 
 ## HEADER
 
-| ours (`pcbnew/src/`) | KiCad (`pcbnew/` unless noted) |
+| ours (`pcbnew/`) | KiCad (`pcbnew/` unless noted) |
 |---|---|
 | `board_item_container.ts` | `board_item_container.h` |
 | `connectivity/connectivity_rtree.ts` | `connectivity/connectivity_rtree.h` |
@@ -75,7 +75,7 @@ Generated 2026-09-20 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 
 ## OURS
 
-| ours (`pcbnew/src/`) | KiCad (`pcbnew/` unless noted) |
+| ours (`pcbnew/`) | KiCad (`pcbnew/` unless noted) |
 |---|---|
 | `autoplace_footprints.ts` | `-` |
 | `autoplace_matrix.ts` | `-` |

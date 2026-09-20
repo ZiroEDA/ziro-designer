@@ -21,9 +21,9 @@ import {
   loadLibraryTable,
   type FootprintLibraryFs,
   type LibraryDirEntry,
-} from '@ziroeda/pcbnew/src/footprint_library.js';
-import { flattenLibraryRows } from '@ziroeda/pcbnew/src/fp_lib_table.js';
-import { serializeFootprint } from '@ziroeda/pcbnew/src/write-footprint.js';
+} from '@ziroeda/pcbnew/footprint_library.js';
+import { flattenLibraryRows } from '@ziroeda/pcbnew/fp_lib_table.js';
+import { serializeFootprint } from '@ziroeda/pcbnew/write-footprint.js';
 
 /** mtime seconds and size for a path, when a test cares about the timestamp. */
 type Meta = Record<string, [number, number]>;

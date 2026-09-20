@@ -5,8 +5,8 @@ import { execSync } from 'node:child_process';
 import { basename, join } from 'node:path';
 import { homedir } from 'node:os';
 import { parse } from '@ziroeda/sexpr';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 const ORACLE = join(homedir(), 'kicad-oracle/resave');
 for (const file of process.argv.slice(2)) {
   const ours = serializeBoard(readBoard(parse(readFileSync(file, 'utf8'))));

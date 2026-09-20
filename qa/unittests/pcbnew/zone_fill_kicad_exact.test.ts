@@ -16,12 +16,8 @@ import {
   netClassClearanceMM,
   type NetClassesData,
 } from '@ziroeda/common/src/project/net_settings.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import {
-  fillZones,
-  zoneClearanceOf,
-  type ZoneFillOptions,
-} from '@ziroeda/pcbnew/src/zone_filler.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { fillZones, zoneClearanceOf, type ZoneFillOptions } from '@ziroeda/pcbnew/zone_filler.js';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 
 const DATA = resolve(__dirname, '../../data/zone_fill');

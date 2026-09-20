@@ -19,7 +19,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { GF_DATAMATRIX, GF_QR, ReedSolomon } from '@ziroeda/pcbnew/src/barcode/reedsol.js';
+import { GF_DATAMATRIX, GF_QR, ReedSolomon } from '@ziroeda/pcbnew/barcode/reedsol.js';
 
 const LOGS: Record<string, number[]> = JSON.parse(
   readFileSync(resolve(process.cwd(), 'data/zint_reedsol_logs.json'), 'utf8'),

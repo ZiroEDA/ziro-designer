@@ -50,7 +50,7 @@
  * {@link DpPlacerHost} — and reproduces `PLACEMENT_ALGO`'s pure-virtual list as
  * ordinary public methods. `SIZES_SETTINGS` likewise becomes
  * {@link DpPlacerSizes}, a plain-data subset. None of the three is re-exported
- * from `pcbnew/src/index.ts`, because `LINE_PLACER` needs the same three and the
+ * from `pcbnew/index.ts`, because `LINE_PLACER` needs the same three and the
  * two ports must not race for the names.
  *
  * ## Reductions, named

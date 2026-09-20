@@ -141,7 +141,7 @@ export function footprintLayers(cfg: FpEditSettings = settings.fpEdit): PcbLayer
   return out;
 }
 
-/** [data] `User_1` (`include/layer_ids.h:124`), which `pcbnew/src/layer_ids.ts` also names. */
+/** [data] `User_1` (`include/layer_ids.h:124`), which `pcbnew/layer_ids.ts` also names. */
 const USER_1_LAYER_ID = 39;
 
 /** How many `User.n` rows {@link FOOTPRINT_LAYERS} spells out — the default count. */

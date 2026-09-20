@@ -56,7 +56,7 @@ import {
 import { PCB_BACKGROUND, PCB_CURSOR, PCB_GRID_AXES, PCB_SPECIAL } from '../pcb/pcbTheme.js';
 import { drawSelectionArea, isBackgroundDark, selectionAreaColors } from '@ziroeda/common';
 import { FOOTPRINT_LAYERS, footprintToBoard } from './footprintBoard.js';
-import type { PcbLayerDef } from '@ziroeda/pcbnew/src/types.js';
+import type { PcbLayerDef } from '@ziroeda/pcbnew/types.js';
 import { pcbGridOptions, PCB_DEFAULT_GRID_IU } from '../pcb/renderBoard.js';
 import { snapToGridSize } from '../pcb/pcb_grid.js';
 

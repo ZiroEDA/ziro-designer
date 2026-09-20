@@ -31,7 +31,7 @@ import type { JSX } from 'react';
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import type { ZoneLayerPropertiesMap } from '../editors/pcb/board_settings.js';
 import { PCB_BACKGROUND } from '../editors/pcb/pcbTheme.js';
-import { LSET_NameToLayer } from '@ziroeda/pcbnew/src/layer_ids.js';
+import { LSET_NameToLayer } from '@ziroeda/pcbnew/layer_ids.js';
 import { layerChoice } from './layer_presentation.js';
 import { parseUnitValueDouble, stringFromValue } from '../ui/unit_binder.js';
 

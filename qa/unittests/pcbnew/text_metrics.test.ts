@@ -12,13 +12,13 @@ import {
   textItemBox,
   textItemHitTest,
   textPenWidth,
-} from '@ziroeda/pcbnew/src/text_metrics.js';
+} from '@ziroeda/pcbnew/text_metrics.js';
 import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
 import { kiRound } from '@ziroeda/common/src/font/text_box.js';
-import { fpItemBBox, fpItemId, hitTestFootprint } from '@ziroeda/pcbnew/src/edit-footprint.js';
-import { boardItemBBox, boardItemId } from '@ziroeda/pcbnew/src/edit-board.js';
-import { footprintExtent } from '@ziroeda/pcbnew/src/autoplace_footprints.js';
-import type { Board, PcbFootprint, PcbPad, PcbTextItem } from '@ziroeda/pcbnew/src/types.js';
+import { fpItemBBox, fpItemId, hitTestFootprint } from '@ziroeda/pcbnew/edit-footprint.js';
+import { boardItemBBox, boardItemId } from '@ziroeda/pcbnew/edit-board.js';
+import { footprintExtent } from '@ziroeda/pcbnew/autoplace_footprints.js';
+import type { Board, PcbFootprint, PcbPad, PcbTextItem } from '@ziroeda/pcbnew/types.js';
 
 /** A 1 mm pad at the origin, so a footprint has drawable geometry. */
 const padAt = (): PcbPad => ({

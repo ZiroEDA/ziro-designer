@@ -8,15 +8,15 @@ import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
 import { FRAME_T } from '@ziroeda/common/src/frame_type.js';
 import { TOOL_MANAGER } from '@ziroeda/common/src/tool/tool_manager.js';
 import { parse } from '@ziroeda/sexpr';
-import type { BOARD_ITEM_CONTAINER } from '@ziroeda/pcbnew/src/board_item_container.js';
-import { boardItemId, moveBoardItems } from '@ziroeda/pcbnew/src/edit-board.js';
-import { PCB_BASE_EDIT_FRAME } from '@ziroeda/pcbnew/src/pcb_base_edit_frame.js';
-import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from '@ziroeda/pcbnew/src/pcb_base_frame.js';
-import { boardFromBOARD } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/board_view.js';
-import { commitViewToBoard } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/board_view_commit.js';
-import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/src/pcbnew_settings.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import type { BOARD_ITEM_CONTAINER } from '@ziroeda/pcbnew/board_item_container.js';
+import { boardItemId, moveBoardItems } from '@ziroeda/pcbnew/edit-board.js';
+import { PCB_BASE_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_base_edit_frame.js';
+import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from '@ziroeda/pcbnew/pcb_base_frame.js';
+import { boardFromBOARD } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
+import { commitViewToBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view_commit.js';
+import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 class TEST_FRAME extends PCB_BASE_EDIT_FRAME {
   readonly settings = new PCBNEW_SETTINGS();

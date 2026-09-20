@@ -22,8 +22,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import {
   allBoardItemIds,
   boardHitCandidates,
@@ -34,15 +34,12 @@ import {
   hitTestBoard,
   isBoardItemLocked,
   moveBoardItems,
-} from '@ziroeda/pcbnew/src/edit-board.js';
-import { itemAnchorPoint } from '@ziroeda/pcbnew/src/move_exact.js';
-import {
-  DEFAULT_SELECTION_FILTER,
-  itemPassesFilter,
-} from '@ziroeda/pcbnew/src/filter_selection.js';
-import { textBoxCorners } from '@ziroeda/pcbnew/src/textbox_geometry.js';
+} from '@ziroeda/pcbnew/edit-board.js';
+import { itemAnchorPoint } from '@ziroeda/pcbnew/move_exact.js';
+import { DEFAULT_SELECTION_FILTER, itemPassesFilter } from '@ziroeda/pcbnew/filter_selection.js';
+import { textBoxCorners } from '@ziroeda/pcbnew/textbox_geometry.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 const TB = 'textbox:0';

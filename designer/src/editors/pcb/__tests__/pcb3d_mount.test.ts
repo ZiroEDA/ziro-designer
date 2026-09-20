@@ -47,7 +47,7 @@ vi.mock('three', async (importOriginal) => {
 });
 
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { mount3DViewer } from '../pcb3d.js';
 
 const BOARD = resolve(__dirname, '../../../../public/demos/ecc83/ecc83-pp.kicad_pcb');

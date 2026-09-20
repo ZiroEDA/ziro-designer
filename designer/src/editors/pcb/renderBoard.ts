@@ -79,8 +79,8 @@ import {
   type PcbShape,
   type PcbTextItem,
 } from '@ziroeda/pcbnew';
-import { barcodeBBox, barcodeGeometry } from '@ziroeda/pcbnew/src/barcode_geometry.js';
-import { textPenWidth } from '@ziroeda/pcbnew/src/text_metrics.js';
+import { barcodeBBox, barcodeGeometry } from '@ziroeda/pcbnew/barcode_geometry.js';
+import { textPenWidth } from '@ziroeda/pcbnew/text_metrics.js';
 import { effectiveTextPenWidth, ITALIC_TILT } from '@ziroeda/common/src/font/text_box.js';
 import {
   PCB_PAINT_ORDER,
@@ -96,7 +96,7 @@ import { metricsInterline } from '@ziroeda/common/src/font/font_metrics.js';
 import type { OutlineFont } from '@ziroeda/common/src/font/outline_font.js';
 import { getOutlineFont } from '../../font/outline_fonts.js';
 import { outlineLayout } from '../../font/draw_outline_text.js';
-import { padShapePos } from '@ziroeda/pcbnew/src/padstack.js';
+import { padShapePos } from '@ziroeda/pcbnew/padstack.js';
 import type { BitmapTextPlacement } from '../../render/gl/bitmap_text.js';
 import { expandTextVars, type TextVarResolver } from '@ziroeda/common/src/text_vars.js';
 
@@ -113,7 +113,7 @@ const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
  */
 import { GAL_SCREEN_DPI } from '../../ui/status_format.js';
 import { DEFAULT_GRID_APPEARANCE, type GridOptions, type GridStyle } from '../../ui/grid_cursor.js';
-import { isHatchedFill, isSolidFill, shapeHatchLines } from '@ziroeda/pcbnew/src/shape_fill.js';
+import { isHatchedFill, isSolidFill, shapeHatchLines } from '@ziroeda/pcbnew/shape_fill.js';
 
 export { GAL_SCREEN_DPI };
 

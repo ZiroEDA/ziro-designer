@@ -27,7 +27,7 @@
  *    `qa/probes/wxsplit_probe.cpp` rather than read off the documentation.
  */
 import { describe, expect, it } from 'vitest';
-import { displayNetnames, displayNetname } from '@ziroeda/pcbnew/src/netinfo.js';
+import { displayNetnames, displayNetname } from '@ziroeda/pcbnew/netinfo.js';
 import { wxSplit } from '@ziroeda/common/src/string_utils.js';
 
 const names = (entries: [number, string][]): Map<number, string> =>

@@ -38,7 +38,7 @@ import {
   withNetclassEntry,
   type DefaultNetclassDims,
   type TrackViaSizes,
-} from '@ziroeda/pcbnew/src/board_design_settings_sizes.js';
+} from '@ziroeda/pcbnew/board_design_settings_sizes.js';
 
 const MM = (n: number): number => mmToIU(n);
 

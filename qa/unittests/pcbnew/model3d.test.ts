@@ -7,7 +7,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 
 const BOARD = `(kicad_pcb (version 20241229) (generator "test")
   (layers (0 "F.Cu" signal) (2 "B.Cu" signal))

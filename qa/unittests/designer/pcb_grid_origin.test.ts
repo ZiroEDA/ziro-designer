@@ -19,8 +19,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { boardGridOrigin } from '@ziroeda/pcbnew/src/plot_gerber.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { boardGridOrigin } from '@ziroeda/pcbnew/plot_gerber.js';
 import { snapToGridSize } from '@ziroeda/designer/src/editors/pcb/pcb_grid.js';
 import { pcbGridOptions } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 import { drawGrid, visibleGridStep } from '@ziroeda/designer/src/ui/grid_cursor.js';

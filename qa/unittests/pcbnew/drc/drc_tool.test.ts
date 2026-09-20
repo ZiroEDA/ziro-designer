@@ -20,10 +20,10 @@ import {
   type DIALOG_DRC_WINDOW,
 } from '@ziroeda/designer/src/editors/pcb/dialogs/dialog_drc_model.js';
 import { PCB_EDIT_FRAME } from '@ziroeda/designer/src/editors/pcb/pcb_edit_frame.js';
-import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/src/pcbnew_settings.js';
-import { DRC_ITEM, PCB_DRC_CODE } from '@ziroeda/pcbnew/src/drc/drc_item.js';
-import { PCB_ACTIONS } from '@ziroeda/pcbnew/src/tools/pcb_actions.js';
-import { DRC_TOOL } from '@ziroeda/pcbnew/src/tools/drc_tool.js';
+import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
+import { DRC_ITEM, PCB_DRC_CODE } from '@ziroeda/pcbnew/drc/drc_item.js';
+import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
+import { DRC_TOOL } from '@ziroeda/pcbnew/tools/drc_tool.js';
 import { readFileSync } from 'node:fs';
 import { HAVE_TEST_DATA, LoadBoard, PCBNEW_TEST_DATA_DIR } from './drc_test_utils.js';
 
@@ -400,7 +400,7 @@ describe('DRC_TOOL: the board the worker gets', () => {
 `;
 
   it('carries every pad on the layers the live board has it on', async () => {
-    const { ParseBoard } = await import('@ziroeda/pcbnew/src/read-board.js');
+    const { ParseBoard } = await import('@ziroeda/pcbnew/read-board.js');
     const h = makeHarness();
     const board = ParseBoard(FIXTURE, 'transport.kicad_pcb');
 

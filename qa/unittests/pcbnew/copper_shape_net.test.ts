@@ -22,7 +22,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard, readFootprintFile } from '@ziroeda/pcbnew/src/read-board.js';
+import { readBoard, readFootprintFile } from '@ziroeda/pcbnew/read-board.js';
 import { flatText, writtenNode } from './support/written_node.js';
 
 const board = (body: string) =>

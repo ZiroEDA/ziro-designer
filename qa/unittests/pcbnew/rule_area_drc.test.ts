@@ -16,9 +16,9 @@ import {
   deflatePolygon,
   shapesEnclosedByArea,
   shapesIntersectArea,
-} from '@ziroeda/pcbnew/src/drc/drc_areas.js';
-import { ruleAreaRules } from '@ziroeda/pcbnew/src/drc/drc_engine_view.js';
-import type { Board, PcbTrack, PcbVia, PcbZone } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/drc/drc_areas.js';
+import { ruleAreaRules } from '@ziroeda/pcbnew/drc/drc_engine_view.js';
+import type { Board, PcbTrack, PcbVia, PcbZone } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

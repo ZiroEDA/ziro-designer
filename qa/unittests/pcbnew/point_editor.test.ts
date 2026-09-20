@@ -22,9 +22,9 @@ import {
   dragBoardHandle,
   editablePointItems,
   hasEditPoints,
-} from '@ziroeda/pcbnew/src/point_editor.js';
-import type { Board, PcbShape, PcbTrack } from '@ziroeda/pcbnew/src/types.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+} from '@ziroeda/pcbnew/point_editor.js';
+import type { Board, PcbShape, PcbTrack } from '@ziroeda/pcbnew/types.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { flatText, writtenNode } from './support/written_node.js';
 
 const MM = (n: number): number => mmToIU(n);

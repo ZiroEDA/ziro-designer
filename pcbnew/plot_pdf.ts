@@ -26,7 +26,7 @@
  * 3. Page content is compressed. Upstream accumulates it in a temporary file
  *    and DEFLATEs the lot at ClosePage; here the temporary file is an in-memory
  *    byte buffer and the compressor is injected (`PdfDeflate`), because
- *    pcbnew/src may not reach for a filesystem or a zlib binding.
+ *    pcbnew may not reach for a filesystem or a zlib binding.
  * 4. Every xref offset is `ftell` on the *output* file. Anything that changes
  *    the byte count — a stray newline, a UTF-8 expansion — moves every later
  *    object and silently breaks the file. Nothing that reaches the file here is

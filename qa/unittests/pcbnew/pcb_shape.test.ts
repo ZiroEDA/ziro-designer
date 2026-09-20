@@ -15,8 +15,8 @@ import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { ANGLE_90 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
-import { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import { PCB_SHAPE } from '@ziroeda/pcbnew/src/pcb_shape.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
+import { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
 
 const bbox = (s: PCB_SHAPE): [number, number, number, number] => {
   const r = s.GetBoundingBox();

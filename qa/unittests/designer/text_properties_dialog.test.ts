@@ -247,7 +247,7 @@ describe('the Draw Text tool opens this dialog, and opens it on activation', () 
 
 describe('Syntax Help, which the link used to not open', () => {
   const HELP = readFileSync(
-    fileURLToPath(new URL('../../../pcbnew/src/pcb_text_help.ts', import.meta.url)),
+    fileURLToPath(new URL('../../../pcbnew/pcb_text_help.ts', import.meta.url)),
     'utf8',
   );
 

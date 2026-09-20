@@ -15,8 +15,8 @@ import { ANGLE_90 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { SHAPE_CIRCLE } from '@ziroeda/kimath/src/geometry/shape_circle.js';
 import { SHAPE_COMPOUND } from '@ziroeda/kimath/src/geometry/shape_compound.js';
 import { SHAPE_SEGMENT } from '@ziroeda/kimath/src/geometry/shape_segment.js';
-import { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import { PAD, PAD_ATTRIB, PAD_SHAPE } from '@ziroeda/pcbnew/src/pad.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
+import { PAD, PAD_ATTRIB, PAD_SHAPE } from '@ziroeda/pcbnew/pad.js';
 
 const bbox = (p: PAD): [number, number, number, number] => {
   const r = p.GetBoundingBox();

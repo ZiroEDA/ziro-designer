@@ -35,15 +35,15 @@ import {
 } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Board } from '@ziroeda/pcbnew';
-import { barcodeGeometry } from '@ziroeda/pcbnew/src/barcode_geometry.js';
-import { viaIsTented } from '@ziroeda/pcbnew/src/exporters/export_d356.js';
-import { padIsOnLayer } from '@ziroeda/pcbnew/src/pad_enumerate.js';
+import { barcodeGeometry } from '@ziroeda/pcbnew/barcode_geometry.js';
+import { viaIsTented } from '@ziroeda/pcbnew/exporters/export_d356.js';
+import { padIsOnLayer } from '@ziroeda/pcbnew/pad_enumerate.js';
 import {
   solderMaskExpansionFor,
   solderPasteMarginFor,
   type BoardMaskPasteDefaults,
-} from '@ziroeda/pcbnew/src/pad_margins.js';
-import { textTransformTextToPolySet } from '@ziroeda/pcbnew/src/text_to_polyset.js';
+} from '@ziroeda/pcbnew/pad_margins.js';
+import { textTransformTextToPolySet } from '@ziroeda/pcbnew/text_to_polyset.js';
 import {
   ErrorLoc,
   arcTrackTransformShapeToPolygon,
@@ -52,8 +52,8 @@ import {
   padTransformShapeToPolygon,
   trackTransformShapeToPolygon,
   viaTransformShapeToPolygon,
-} from '@ziroeda/pcbnew/src/transform_shape_to_polygon.js';
-import type { PcbFootprint, PcbPad, PcbShape, PcbTextItem } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/transform_shape_to_polygon.js';
+import type { PcbFootprint, PcbPad, PcbShape, PcbTextItem } from '@ziroeda/pcbnew/types.js';
 import {
   B_Adhes,
   B_Cu,
@@ -80,7 +80,7 @@ import {
   PCB_LAYER_ID_COUNT,
   Rescue,
   User_1,
-} from '@ziroeda/pcbnew/src/layer_ids.js';
+} from '@ziroeda/pcbnew/layer_ids.js';
 import { boardOutlineLoops, type Box } from './boardOutline.js';
 
 /** The PCB_LAYER_IDs the 3D viewer builds (`techLayerList`). */

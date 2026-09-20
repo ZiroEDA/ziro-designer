@@ -92,7 +92,7 @@ describe('the controls upstream draws are all here', () => {
 /**
  * The cross-probing settings are read on ONE side. `pcbnew.cross_probing` feeds
  * `crossProbeSelection` and `crossProbeNetHighlight`
- * (`editors/pcb/PcbEditor.tsx:3302`, `pcbnew/src/cross_probe.ts:205`, `:287`);
+ * (`editors/pcb/PcbEditor.tsx:3302`, `pcbnew/cross_probe.ts:205`, `:287`);
  * `eeschema.cross_probing` — probes arriving in the SCHEMATIC from the board —
  * has no reader at all.
  */

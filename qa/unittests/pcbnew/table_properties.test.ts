@@ -19,8 +19,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import {
   applyTableValues,
   collectTableValues,
@@ -28,9 +28,9 @@ import {
   isBackLayer,
   tableAt,
   type TableValues,
-} from '@ziroeda/pcbnew/src/table_properties.js';
+} from '@ziroeda/pcbnew/table_properties.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

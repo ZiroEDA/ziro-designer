@@ -15,7 +15,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { buildScene } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 import {
   GlMatrix,

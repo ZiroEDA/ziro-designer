@@ -9,7 +9,7 @@ import { footprintGridForTool, footprintGridIU, footprintSnappingEnabled } from 
 import { newFootprint } from './new_footprint.js';
 import { fpLineThicknessMM } from './graphics_defaults.js';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
-import { applyBarcodeValues, barcodeValues } from '@ziroeda/pcbnew/src/barcode_properties.js';
+import { applyBarcodeValues, barcodeValues } from '@ziroeda/pcbnew/barcode_properties.js';
 import { DialogBarcodeProperties } from '../pcb/dialogs/dialog_barcode_properties.js';
 import {
   readFootprintFile,
@@ -105,7 +105,7 @@ import {
   SelectionFilterPanel,
   type SelectionFilterItem,
 } from '../../widgets/panel_selection_filter.js';
-import { GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
+import { GetLayerName } from '@ziroeda/pcbnew/layer_ids.js';
 import { DEFAULT_DRAW_OPTIONS, type PcbDrawOptions } from '../pcb/renderBoard.js';
 import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';

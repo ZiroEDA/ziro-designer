@@ -22,9 +22,9 @@ import {
   footprintDifferences,
   footprintLocalPos,
   footprintNeedsUpdate,
-} from '@ziroeda/pcbnew/src/footprint_diff.js';
-import { rotatePcb } from '@ziroeda/pcbnew/src/read-board.js';
-import type { PcbFootprint, PcbPad, PcbShape, PcbTextItem } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/footprint_diff.js';
+import { rotatePcb } from '@ziroeda/pcbnew/read-board.js';
+import type { PcbFootprint, PcbPad, PcbShape, PcbTextItem } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

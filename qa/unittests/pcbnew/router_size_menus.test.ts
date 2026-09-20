@@ -23,11 +23,11 @@ import {
   withNetclassEntry,
   type TrackViaSizeState,
   type TrackViaSizes,
-} from '@ziroeda/pcbnew/src/board_design_settings_sizes.js';
+} from '@ziroeda/pcbnew/board_design_settings_sizes.js';
 import {
   diffPairMenuItems,
   trackWidthMenuItems,
-} from '@ziroeda/pcbnew/src/router/router_size_menus.js';
+} from '@ziroeda/pcbnew/router/router_size_menus.js';
 
 const MM = (n: number): number => mmToIU(n);
 

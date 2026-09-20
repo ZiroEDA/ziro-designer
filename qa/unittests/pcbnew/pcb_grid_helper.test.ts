@@ -23,7 +23,7 @@ import {
   gridArcFromPoints,
   PcbGridHelper,
   type PcbGridState,
-} from '@ziroeda/pcbnew/src/tools/pcb_grid_helper.js';
+} from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
 
 const MM = 1e6;
 

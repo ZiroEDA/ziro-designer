@@ -9,12 +9,12 @@
 import { describe, expect, it } from 'vitest';
 import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import { FOOTPRINT } from '@ziroeda/pcbnew/src/footprint.js';
-import { NETINFO_ITEM } from '@ziroeda/pcbnew/src/netinfo.js';
-import { PCB_SHAPE } from '@ziroeda/pcbnew/src/pcb_shape.js';
-import { PCB_TRACK, PCB_VIA } from '@ziroeda/pcbnew/src/pcb_track.js';
-import { ZONE } from '@ziroeda/pcbnew/src/zone.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
+import { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
+import { NETINFO_ITEM } from '@ziroeda/pcbnew/netinfo.js';
+import { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
+import { PCB_TRACK, PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
+import { ZONE } from '@ziroeda/pcbnew/zone.js';
 
 describe('BOARD', () => {
   it('Add files items into the right collection by class', () => {

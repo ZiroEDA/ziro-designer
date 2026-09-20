@@ -45,7 +45,7 @@ describe('EDIT_TOOL::Rotate and ::Mirror both take the modification point', () =
 
   it('and it comes from the ported function, snapped for the multi-item branch', () => {
     expect(text).toContain(
-      "import { flipBoardItems, modificationPoint } from '@ziroeda/pcbnew/src/edit-board.js';",
+      "import { flipBoardItems, modificationPoint } from '@ziroeda/pcbnew/edit-board.js';",
     );
     expect(text).toContain('modificationPoint(brd, items, (p) =>');
   });

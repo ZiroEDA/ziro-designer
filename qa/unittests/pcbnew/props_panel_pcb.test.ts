@@ -17,14 +17,14 @@
 import { describe, expect, it } from 'vitest';
 import { head, isList, parse, serialize } from '@ziroeda/sexpr/src/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import {
   pcbItemFriendlyName,
   pcbPropertiesFor,
   type PcbPropRow,
-} from '@ziroeda/pcbnew/src/properties_panel.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/properties_panel.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 const load = (text: string): Board => readBoard(parse(text));

@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, it, expect } from 'vitest';
-import { buildRatsnest } from '@ziroeda/pcbnew/src/ratsnest/ratsnest.js';
+import { buildRatsnest } from '@ziroeda/pcbnew/ratsnest/ratsnest.js';
 import type {
   Board,
   PcbPad,
@@ -10,7 +10,7 @@ import type {
   PcbTrack,
   PcbVia,
   PcbZone,
-} from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/types.js';
 
 const pad = (at: { x: number; y: number }, net: number, type: PcbPad['type'] = 'smd'): PcbPad => ({
   number: '1',

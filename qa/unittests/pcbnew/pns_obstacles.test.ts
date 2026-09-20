@@ -20,10 +20,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { boardObstacleHulls } from '@ziroeda/pcbnew/src/router/pns_obstacles.js';
-import { routeShortest } from '@ziroeda/pcbnew/src/router/pns_walkaround.js';
-import { pointInside, pointOnEdge } from '@ziroeda/pcbnew/src/router/pns_chain.js';
-import type { Board, PcbFootprint, PcbTrack, PcbVia } from '@ziroeda/pcbnew/src/types.js';
+import { boardObstacleHulls } from '@ziroeda/pcbnew/router/pns_obstacles.js';
+import { routeShortest } from '@ziroeda/pcbnew/router/pns_walkaround.js';
+import { pointInside, pointOnEdge } from '@ziroeda/pcbnew/router/pns_chain.js';
+import type { Board, PcbFootprint, PcbTrack, PcbVia } from '@ziroeda/pcbnew/types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const MM = (n: number): number => mmToIU(n);

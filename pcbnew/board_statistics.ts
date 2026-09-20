@@ -258,7 +258,7 @@ export interface BoardPolygonOutlines {
 
 /**
  * `BOARD::GetBoardPolygonOutlines( polySet, false )` — `BuildBoardPolygonOutlines`
- * in `pcbnew/src/convert_shape_list_to_polygon.ts`, with the board's
+ * in `pcbnew/convert_shape_list_to_polygon.ts`, with the board's
  * `m_MaxError` (the design-settings value the caller has; ARC_HIGH_DEF when
  * none is given) and the default chaining epsilon.
  *

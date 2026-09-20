@@ -24,15 +24,15 @@
  *   `FindLineEnds` call carries a live crash.
  */
 import { describe, expect, it } from 'vitest';
-import { PnsArc } from '@ziroeda/pcbnew/src/router/pns_arc.js';
-import { PnsLayerRange } from '@ziroeda/pcbnew/src/router/pns_layerset.js';
-import { PnsNode } from '@ziroeda/pcbnew/src/router/pns_node.js';
-import { PnsSegment } from '@ziroeda/pcbnew/src/router/pns_segment.js';
-import { PnsSolid } from '@ziroeda/pcbnew/src/router/pns_solid.js';
-import { PnsVia } from '@ziroeda/pcbnew/src/router/pns_via.js';
-import { LineMarker } from '@ziroeda/pcbnew/src/router/pns_item.js';
-import type { PnsLine } from '@ziroeda/pcbnew/src/router/pns_line_item.js';
-import type { NetHandle } from '@ziroeda/pcbnew/src/router/pns_collision.js';
+import { PnsArc } from '@ziroeda/pcbnew/router/pns_arc.js';
+import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
+import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
+import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
+import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
+import { PnsVia } from '@ziroeda/pcbnew/router/pns_via.js';
+import { LineMarker } from '@ziroeda/pcbnew/router/pns_item.js';
+import type { PnsLine } from '@ziroeda/pcbnew/router/pns_line_item.js';
+import type { NetHandle } from '@ziroeda/pcbnew/router/pns_collision.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const V = (x: number, y: number): Vec2 => ({ x, y });

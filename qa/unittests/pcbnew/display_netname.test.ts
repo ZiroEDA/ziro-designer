@@ -23,11 +23,11 @@
  * this bug turns into a worse one.
  */
 import { describe, expect, it } from 'vitest';
-import { displayNetname, shortNetname } from '@ziroeda/pcbnew/src/netinfo.js';
-import { netnameMsg } from '@ziroeda/pcbnew/src/item_description.js';
-import { netInspectorRows } from '@ziroeda/pcbnew/src/net_inspector.js';
+import { displayNetname, shortNetname } from '@ziroeda/pcbnew/netinfo.js';
+import { netnameMsg } from '@ziroeda/pcbnew/item_description.js';
+import { netInspectorRows } from '@ziroeda/pcbnew/net_inspector.js';
 import { escapeNetName, unescapeString } from '@ziroeda/common/src/string_utils.js';
-import type { Board, PcbPad } from '@ziroeda/pcbnew/src/types.js';
+import type { Board, PcbPad } from '@ziroeda/pcbnew/types.js';
 
 const EMPTY = { kind: 'list' as const, items: [] };
 

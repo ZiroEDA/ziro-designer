@@ -34,11 +34,11 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readFootprintFile } from '@ziroeda/pcbnew/src/read-board.js';
-import { placeFootprint } from '@ziroeda/pcbnew/src/board_exchange_footprint.js';
-import { footprintBBox } from '@ziroeda/pcbnew/src/edit-footprint.js';
+import { readFootprintFile } from '@ziroeda/pcbnew/read-board.js';
+import { placeFootprint } from '@ziroeda/pcbnew/board_exchange_footprint.js';
+import { footprintBBox } from '@ziroeda/pcbnew/edit-footprint.js';
 import { pcbMmToIU as MM } from '@ziroeda/common/src/eda_units.js';
-import type { PcbFootprint } from '@ziroeda/pcbnew/src/types.js';
+import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';
 
 /**
  * A part with one pad and one point, shaped like `LED_D5.0mm`'s: the point at

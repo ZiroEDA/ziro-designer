@@ -19,8 +19,8 @@ import {
   cleanupGraphics,
   equivalentPt,
   isNullShape,
-} from '@ziroeda/pcbnew/src/graphics_cleaner.js';
-import type { Board, PcbShape } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/graphics_cleaner.js';
+import type { Board, PcbShape } from '@ziroeda/pcbnew/types.js';
 
 const P = (x: number, y: number) => ({ x, y });
 

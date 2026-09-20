@@ -19,20 +19,20 @@
  */
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { PnsBoardIface } from '@ziroeda/pcbnew/src/router/pns_board_iface.js';
-import { DEFAULT_ROUTER_SIZES } from '@ziroeda/pcbnew/src/router/pns_router.js';
-import { PnsSegment } from '@ziroeda/pcbnew/src/router/pns_segment.js';
-import { PnsNode } from '@ziroeda/pcbnew/src/router/pns_node.js';
-import { buildDrcRuleEngine } from '@ziroeda/pcbnew/src/drc/drc_rules_engine.js';
-import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule_view.js';
+import { PnsBoardIface } from '@ziroeda/pcbnew/router/pns_board_iface.js';
+import { DEFAULT_ROUTER_SIZES } from '@ziroeda/pcbnew/router/pns_router.js';
+import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
+import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
+import { buildDrcRuleEngine } from '@ziroeda/pcbnew/drc/drc_rules_engine.js';
+import { parseDrcRules } from '@ziroeda/pcbnew/drc/drc_rule_view.js';
 import {
   defaultTrackViaSizeState,
   withNetclassEntry,
   type TrackViaSizes,
-} from '@ziroeda/pcbnew/src/board_design_settings_sizes.js';
-import type { PnsDesignSettings } from '@ziroeda/pcbnew/src/router/pns_board_iface.js';
-import type { PnsRouterSizes } from '@ziroeda/pcbnew/src/router/pns_router.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/board_design_settings_sizes.js';
+import type { PnsDesignSettings } from '@ziroeda/pcbnew/router/pns_board_iface.js';
+import type { PnsRouterSizes } from '@ziroeda/pcbnew/router/pns_router.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

@@ -18,7 +18,7 @@
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { head, isList } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { writtenNode, writtenNodes } from './support/written_node.js';
 import {
   defaultRotationAnchor,
@@ -27,8 +27,8 @@ import {
   moveExact,
   moveKeepsSelectionInBounds,
   polarTranslation,
-} from '@ziroeda/pcbnew/src/move_exact.js';
-import type { Board, PcbShape, PcbTrack } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/move_exact.js';
+import type { Board, PcbShape, PcbTrack } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

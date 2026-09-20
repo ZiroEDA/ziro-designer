@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import {
   B_Cu,
   B_Mask,
@@ -21,7 +21,7 @@ import {
   F_Paste,
   F_SilkS,
   In_Cu,
-} from '@ziroeda/pcbnew/src/layer_ids.js';
+} from '@ziroeda/pcbnew/layer_ids.js';
 import type { Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import {
   DEFAULT_HOLE_PLATING_THICKNESS,

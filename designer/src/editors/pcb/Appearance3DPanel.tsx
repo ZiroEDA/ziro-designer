@@ -36,7 +36,7 @@
 import type { JSX } from 'react';
 import type { Color4d } from '@ziroeda/common/src/color4d.js';
 import type { Board } from '@ziroeda/pcbnew';
-import { GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
+import { GetLayerName } from '@ziroeda/pcbnew/layer_ids.js';
 import { Check } from '../../dialogs/prefs/widgets.js';
 import { ColorSwatch } from '../../ui/ColorSwatch.js';
 import { Combo } from '../../ui/Combo.js';

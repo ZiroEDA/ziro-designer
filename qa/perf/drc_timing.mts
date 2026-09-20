@@ -17,10 +17,10 @@ import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { LSET } from '@ziroeda/common/src/lset.js';
 import { ENUM_MAP } from '@ziroeda/common/src/properties/property.js';
 import { PROGRESS_REPORTER_BASE } from '@ziroeda/common/src/widgets/progress_reporter_base.js';
-import { DRC_ENGINE } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
-import '@ziroeda/pcbnew/src/drc/drc_test_providers.js';
-import type { DRC_ITEM } from '@ziroeda/pcbnew/src/drc/drc_item.js';
-import { ParseBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
+import '@ziroeda/pcbnew/drc/drc_test_providers.js';
+import type { DRC_ITEM } from '@ziroeda/pcbnew/drc/drc_item.js';
+import { ParseBoard } from '@ziroeda/pcbnew/read-board.js';
 
 const boardPath = process.argv[2]!;
 const base = boardPath.replace(/\.kicad_pcb$/, '');

@@ -32,32 +32,32 @@
  * in the item set — so the numbers below are real geometry, not fixtures.
  */
 import { describe, expect, it } from 'vitest';
-import { DiffPair } from '@ziroeda/pcbnew/src/router/pns_diff_pair.js';
+import { DiffPair } from '@ziroeda/pcbnew/router/pns_diff_pair.js';
 import {
   MeanderType,
   defaultMeanderSettings,
   setTargetLength,
   setTargetSkew,
-} from '@ziroeda/pcbnew/src/router/pns_meander.js';
-import type { MeanderShape, MeanderSettings } from '@ziroeda/pcbnew/src/router/pns_meander.js';
-import { PnsDpMeanderPlacer } from '@ziroeda/pcbnew/src/router/pns_dp_meander_placer.js';
-import { PnsItemSet } from '@ziroeda/pcbnew/src/router/pns_itemset.js';
-import { PnsKind } from '@ziroeda/pcbnew/src/router/pns_item.js';
-import { PnsLayerRange } from '@ziroeda/pcbnew/src/router/pns_layerset.js';
-import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/src/router/pns_line_item.js';
-import { PnsMeanderPlacer } from '@ziroeda/pcbnew/src/router/pns_meander_placer.js';
-import { PnsMeanderSkewPlacer } from '@ziroeda/pcbnew/src/router/pns_meander_skew_placer.js';
-import { PnsNode } from '@ziroeda/pcbnew/src/router/pns_node.js';
-import { PnsSegment } from '@ziroeda/pcbnew/src/router/pns_segment.js';
-import { PnsSolid } from '@ziroeda/pcbnew/src/router/pns_solid.js';
-import { PnsTuningStatus } from '@ziroeda/pcbnew/src/router/pns_meander_placer_base.js';
+} from '@ziroeda/pcbnew/router/pns_meander.js';
+import type { MeanderShape, MeanderSettings } from '@ziroeda/pcbnew/router/pns_meander.js';
+import { PnsDpMeanderPlacer } from '@ziroeda/pcbnew/router/pns_dp_meander_placer.js';
+import { PnsItemSet } from '@ziroeda/pcbnew/router/pns_itemset.js';
+import { PnsKind } from '@ziroeda/pcbnew/router/pns_item.js';
+import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
+import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line_item.js';
+import { PnsMeanderPlacer } from '@ziroeda/pcbnew/router/pns_meander_placer.js';
+import { PnsMeanderSkewPlacer } from '@ziroeda/pcbnew/router/pns_meander_skew_placer.js';
+import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
+import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
+import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
+import { PnsTuningStatus } from '@ziroeda/pcbnew/router/pns_meander_placer_base.js';
 import type {
   MeanderPlacerHost,
   MeanderRouterIface,
-} from '@ziroeda/pcbnew/src/router/pns_meander_placer_base.js';
-import type { NetHandle } from '@ziroeda/pcbnew/src/router/pns_collision.js';
-import type { PnsItem, PnsLinkedItem } from '@ziroeda/pcbnew/src/router/pns_item.js';
-import type { PnsNode as PnsNodeT } from '@ziroeda/pcbnew/src/router/pns_node.js';
+} from '@ziroeda/pcbnew/router/pns_meander_placer_base.js';
+import type { NetHandle } from '@ziroeda/pcbnew/router/pns_collision.js';
+import type { PnsItem, PnsLinkedItem } from '@ziroeda/pcbnew/router/pns_item.js';
+import type { PnsNode as PnsNodeT } from '@ziroeda/pcbnew/router/pns_node.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const V = (x: number, y: number): Vec2 => ({ x, y });

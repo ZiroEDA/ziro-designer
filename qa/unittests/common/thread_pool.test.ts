@@ -17,8 +17,8 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
 import { GetKiCadThreadPool, thread_pool } from '@ziroeda/common/src/thread_pool.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
-import type { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 
 const RESAVE = fileURLToPath(new URL('../../data/pcbnew/resave/', import.meta.url));
 

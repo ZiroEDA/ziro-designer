@@ -16,7 +16,7 @@
  * code.
  */
 import { describe, expect, it } from 'vitest';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import {
   boardTentVias,
   computePadAccessCode,
@@ -27,8 +27,8 @@ import {
   layerNameToId,
   viaAccessCode,
   viaLayerPair,
-} from '@ziroeda/pcbnew/src/exporters/export_d356.js';
-import type { Board, PcbPad, PcbVia } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/exporters/export_d356.js';
+import type { Board, PcbPad, PcbVia } from '@ziroeda/pcbnew/types.js';
 
 const P = (x: number, y: number) => ({ x, y });
 

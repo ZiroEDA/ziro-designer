@@ -12,7 +12,7 @@
  * sizers add the controls in, label for label.
  *
  * The interlock (`onModeChange`) is the part of this dialog that carries a
- * decision, so it lives in the model, in `pcbnew/src/router/
+ * decision, so it lives in the model, in `pcbnew/router/
  * pns_routing_settings.ts`, where the tests can reach it: free angle mode and
  * Allow DRC violations belong to Highlight collisions, Shove vias and Jump over
  * obstacles to Shove, and Walk around enables none of the four. Greying a box
@@ -35,7 +35,7 @@ import {
   readRoutingSettings,
   writeRoutingSettings,
   type RoutingSettings,
-} from '@ziroeda/pcbnew/src/router/pns_routing_settings.js';
+} from '@ziroeda/pcbnew/router/pns_routing_settings.js';
 import { settings } from '../../../prefs/settings.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 

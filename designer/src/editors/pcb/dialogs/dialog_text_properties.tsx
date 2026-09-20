@@ -5,7 +5,7 @@
  * Text properties.
  * Counterpart: `pcbnew/dialogs/dialog_text_properties.cpp` and its `_base.cpp`.
  *
- * The decisions live in `pcbnew/src/graphic_properties.ts`; this is layout.
+ * The decisions live in `pcbnew/graphic_properties.ts`; this is layout.
  *
  * ## The shape is one gridbag, and its placements are data
  *
@@ -48,7 +48,7 @@
 
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbIUScale, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
-import type { TextValues } from '@ziroeda/pcbnew/src/graphic_properties.js';
+import type { TextValues } from '@ziroeda/pcbnew/graphic_properties.js';
 import { Combo } from '../../../ui/Combo.js';
 import { StdDialogButtons } from '../../../ui/StdDialogButtons.js';
 import { FontChoice, TextFormatBar, type HAlign, type VAlign } from '../../../ui/TextFormatBar.js';
@@ -56,7 +56,7 @@ import { parseUnitValue, stringFromValue, unitLabel } from '../../../ui/unit_bin
 import type { StatusUnits } from '../../../ui/status_format.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 import { HtmlMessageBox } from '../../../ui/dialog_html_message_box.js';
-import { PCB_TEXT_SYNTAX_HELP } from '@ziroeda/pcbnew/src/pcb_text_help.js';
+import { PCB_TEXT_SYNTAX_HELP } from '@ziroeda/pcbnew/pcb_text_help.js';
 
 /** The IU-valued fields, each a `UNIT_BINDER` upstream. */
 type MmKey = 'width' | 'height' | 'thickness' | 'x' | 'y';

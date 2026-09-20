@@ -19,7 +19,7 @@ import {
   inflate,
   type Polygon,
 } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
-import { segmentsForRadius } from '@ziroeda/pcbnew/src/convert_basic_shapes_to_polygon.js';
+import { segmentsForRadius } from '@ziroeda/pcbnew/convert_basic_shapes_to_polygon.js';
 
 interface Case {
   a: number[][][][];

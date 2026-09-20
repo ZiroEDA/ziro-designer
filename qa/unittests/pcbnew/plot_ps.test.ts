@@ -25,7 +25,7 @@ import {
   psPageInfo,
   psRenderSettings,
   USE_DEFAULT_LINE_WIDTH,
-} from '@ziroeda/pcbnew/src/plot_ps.js';
+} from '@ziroeda/pcbnew/plot_ps.js';
 
 /** A4 portrait and landscape in mils, as PAGE_INFO stores them for each orientation. */
 const A4_PORTRAIT_MILS = { x: 8268, y: 11693 };

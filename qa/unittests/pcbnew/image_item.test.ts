@@ -22,8 +22,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import {
   allBoardItemIds,
   boardItemBBox,
@@ -32,23 +32,20 @@ import {
   hitTestBoard,
   isBoardItemLocked,
   moveBoardItems,
-} from '@ziroeda/pcbnew/src/edit-board.js';
-import { itemAnchorPoint } from '@ziroeda/pcbnew/src/move_exact.js';
-import {
-  DEFAULT_SELECTION_FILTER,
-  itemPassesFilter,
-} from '@ziroeda/pcbnew/src/filter_selection.js';
+} from '@ziroeda/pcbnew/edit-board.js';
+import { itemAnchorPoint } from '@ziroeda/pcbnew/move_exact.js';
+import { DEFAULT_SELECTION_FILTER, itemPassesFilter } from '@ziroeda/pcbnew/filter_selection.js';
 import {
   FALLBACK_PIXELS,
   imageBBox,
   imageSizeIU,
   iuPerPixel,
-} from '@ziroeda/pcbnew/src/image_geometry.js';
+} from '@ziroeda/pcbnew/image_geometry.js';
 import { DEFAULT_PPI, pngPPI, pngPixelSize } from '@ziroeda/common/src/png_meta.js';
 import { pngCrc32 } from '@ziroeda/common/src/png_encoder.js';
 import { WX_IMAGE } from '@ziroeda/common/src/wx_image.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 const IMG = 'image:0';

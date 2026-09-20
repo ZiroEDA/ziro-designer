@@ -21,8 +21,8 @@
  * found, so a cancelled run has already delivered everything up to the stop,
  * which is what upstream's handler-per-violation gives it too.
  */
-import type { DRC_JOB_REQUEST, DRC_JOB_VIOLATION } from '@ziroeda/pcbnew/src/drc/drc_job.js';
-import { runDrcJob } from '@ziroeda/pcbnew/src/drc/drc_job.js';
+import type { DRC_JOB_REQUEST, DRC_JOB_VIOLATION } from '@ziroeda/pcbnew/drc/drc_job.js';
+import { runDrcJob } from '@ziroeda/pcbnew/drc/drc_job.js';
 
 /** What the worker posts back, in the order `DIALOG_DRC` consumes it. */
 export type DRC_WORKER_MESSAGE =

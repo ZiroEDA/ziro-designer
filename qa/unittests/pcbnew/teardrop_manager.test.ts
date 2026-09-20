@@ -14,11 +14,11 @@ import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import { TOOL_MANAGER } from '@ziroeda/common/src/tool/tool_manager.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { CornerStrategy, SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
-import type { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import { BOARD_COMMIT, SKIP_SET_DIRTY, SKIP_UNDO } from '@ziroeda/pcbnew/src/board_commit.js';
-import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
-import { TEARDROP_MANAGER } from '@ziroeda/pcbnew/src/teardrop/teardrop.js';
-import type { ZONE } from '@ziroeda/pcbnew/src/zone.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import { BOARD_COMMIT, SKIP_SET_DIRTY, SKIP_UNDO } from '@ziroeda/pcbnew/board_commit.js';
+import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
+import { TEARDROP_MANAGER } from '@ziroeda/pcbnew/teardrop/teardrop.js';
+import type { ZONE } from '@ziroeda/pcbnew/zone.js';
 
 const DATA = fileURLToPath(new URL('../../data/pcbnew/', import.meta.url));
 

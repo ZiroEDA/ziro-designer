@@ -28,7 +28,7 @@ const SOURCE_DIRS = [
   'designer/src',
   'common/src',
   'eeschema/src',
-  'pcbnew/src',
+  'pcbnew',
   'gerbview/src',
   'pcb_calculator/src',
 ];
@@ -54,6 +54,8 @@ const ALLOWED = new Map<string, string>([
 function* codeLines(): Generator<{ where: string; line: string }> {
   const walk = function* (dir: string): Generator<string> {
     for (const name of readdirSync(dir)) {
+      // node_modules sits beside the sources now that pcbnew has no src/.
+      if (name === 'node_modules' || name === 'dist') continue;
       const full = `${dir}/${name}`;
       if (statSync(full).isDirectory()) yield* walk(full);
       else if (/\.(ts|tsx|css)$/.test(name)) yield full;

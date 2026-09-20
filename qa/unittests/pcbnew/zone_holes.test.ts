@@ -15,10 +15,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
-import { fillZone } from '@ziroeda/pcbnew/src/zone_filler.js';
-import { moveBoardItems, moveZoneCorner } from '@ziroeda/pcbnew/src/edit-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
+import { fillZone } from '@ziroeda/pcbnew/zone_filler.js';
+import { moveBoardItems, moveZoneCorner } from '@ziroeda/pcbnew/edit-board.js';
 import { PCB_IU_PER_MM as MM } from '@ziroeda/common/src/eda_units.js';
 
 const BOARD = `(kicad_pcb (version 20241229) (generator "t")

@@ -20,7 +20,7 @@ import {
   initialiseBoardStatisticsData,
   sameDrillLineItem,
   STATISTICS_INT_MAX,
-} from '@ziroeda/pcbnew/src/board_statistics.js';
+} from '@ziroeda/pcbnew/board_statistics.js';
 import type {
   Board,
   PcbFootprint,
@@ -29,7 +29,7 @@ import type {
   PcbTextItem,
   PcbTrack,
   PcbVia,
-} from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/types.js';
 
 const P = (x: number, y: number) => ({ x, y });
 

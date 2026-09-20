@@ -25,12 +25,12 @@
  *   item count are already complete.
  */
 import { describe, expect, it } from 'vitest';
-import { PnsIndex, type IndexVisitor } from '@ziroeda/pcbnew/src/router/pns_index.js';
-import { PnsItem, PnsKind } from '@ziroeda/pcbnew/src/router/pns_item.js';
-import { PnsLayerRange } from '@ziroeda/pcbnew/src/router/pns_layerset.js';
-import { PnsSegment } from '@ziroeda/pcbnew/src/router/pns_segment.js';
-import type { NetHandle } from '@ziroeda/pcbnew/src/router/pns_collision.js';
-import type { Shape } from '@ziroeda/pcbnew/src/drc/drc_geometry.js';
+import { PnsIndex, type IndexVisitor } from '@ziroeda/pcbnew/router/pns_index.js';
+import { PnsItem, PnsKind } from '@ziroeda/pcbnew/router/pns_item.js';
+import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
+import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
+import type { NetHandle } from '@ziroeda/pcbnew/router/pns_collision.js';
+import type { Shape } from '@ziroeda/pcbnew/drc/drc_geometry.js';
 
 /** A horizontal zero-width segment from (x0,y) to (x1,y). */
 const seg = (

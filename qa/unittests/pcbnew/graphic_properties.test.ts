@@ -8,8 +8,8 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import {
   applyShapeValues,
   applyTextValues,
@@ -20,8 +20,8 @@ import {
   textAt,
   type ShapeValues,
   type TextValues,
-} from '@ziroeda/pcbnew/src/graphic_properties.js';
-import type { Board, PcbShape } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/graphic_properties.js';
+import type { Board, PcbShape } from '@ziroeda/pcbnew/types.js';
 import { U, emptyBoard, flatText, writtenItems, writtenNodes } from './support/written_node.js';
 
 const MM = (n: number): number => mmToIU(n);

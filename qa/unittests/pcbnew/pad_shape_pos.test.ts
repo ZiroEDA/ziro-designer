@@ -23,11 +23,11 @@
  * read back through `pad.ShapePos( pcbnew.F_Cu )`.
  */
 import { describe, it, expect } from 'vitest';
-import { padShapePos } from '@ziroeda/pcbnew/src/padstack.js';
-import { padShapes } from '@ziroeda/pcbnew/src/drc/drc_engine_view.js';
-import { padHoleSegment } from '@ziroeda/pcbnew/src/footprint_checker.js';
+import { padShapePos } from '@ziroeda/pcbnew/padstack.js';
+import { padShapes } from '@ziroeda/pcbnew/drc/drc_engine_view.js';
+import { padHoleSegment } from '@ziroeda/pcbnew/footprint_checker.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import type { PcbPad } from '@ziroeda/pcbnew/src/types.js';
+import type { PcbPad } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

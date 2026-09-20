@@ -22,8 +22,8 @@ import {
   convertToLines,
   itemRings,
   segmentToArc,
-} from '@ziroeda/pcbnew/src/convert_lines.js';
-import type { Board, PcbShape, PcbTrack } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/convert_lines.js';
+import type { Board, PcbShape, PcbTrack } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

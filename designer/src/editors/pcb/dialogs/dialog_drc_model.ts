@@ -39,20 +39,20 @@ import {
 import { ACTIONS } from '@ziroeda/common/src/tool/actions.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-import type { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import type { BOARD_ITEM } from '@ziroeda/pcbnew/src/board_item.js';
-import type { BOARD_CONNECTED_ITEM } from '@ziroeda/pcbnew/src/board_connected_item.js';
-import type { BOARD_DESIGN_SETTINGS } from '@ziroeda/pcbnew/src/board_design_settings.js';
-import { REMOVE_MODE } from '@ziroeda/pcbnew/src/board_item_container.js';
-import type { CN_EDGE } from '@ziroeda/pcbnew/src/connectivity/connectivity_algo.js';
-import { DRC_ITEM, DRC_ITEMS_PROVIDER, PCB_DRC_CODE } from '@ziroeda/pcbnew/src/drc/drc_item.js';
-import { DRC_REPORT } from '@ziroeda/pcbnew/src/drc/drc_report.js';
-import { PAD } from '@ziroeda/pcbnew/src/pad.js';
-import { PCB_MARKER } from '@ziroeda/pcbnew/src/pcb_marker.js';
-import { PCB_TRACK } from '@ziroeda/pcbnew/src/pcb_track.js';
-import { ZONE } from '@ziroeda/pcbnew/src/zone.js';
-import { PCB_ACTIONS } from '@ziroeda/pcbnew/src/tools/pcb_actions.js';
-import { DRC_TOOL, type ZONE_FILLER_TOOL_LIKE } from '@ziroeda/pcbnew/src/tools/drc_tool.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
+import type { BOARD_CONNECTED_ITEM } from '@ziroeda/pcbnew/board_connected_item.js';
+import type { BOARD_DESIGN_SETTINGS } from '@ziroeda/pcbnew/board_design_settings.js';
+import { REMOVE_MODE } from '@ziroeda/pcbnew/board_item_container.js';
+import type { CN_EDGE } from '@ziroeda/pcbnew/connectivity/connectivity_algo.js';
+import { DRC_ITEM, DRC_ITEMS_PROVIDER, PCB_DRC_CODE } from '@ziroeda/pcbnew/drc/drc_item.js';
+import { DRC_REPORT } from '@ziroeda/pcbnew/drc/drc_report.js';
+import { PAD } from '@ziroeda/pcbnew/pad.js';
+import { PCB_MARKER } from '@ziroeda/pcbnew/pcb_marker.js';
+import { PCB_TRACK } from '@ziroeda/pcbnew/pcb_track.js';
+import { ZONE } from '@ziroeda/pcbnew/zone.js';
+import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
+import { DRC_TOOL, type ZONE_FILLER_TOOL_LIKE } from '@ziroeda/pcbnew/tools/drc_tool.js';
 import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
 
 /** `BOARD_INSPECTION_TOOL` as the row menu asks it; found by name until stage 3. */

@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/eda_text.js';
-import { LINE_STYLE } from '@ziroeda/pcbnew/src/plot_dxf.js';
+import { LINE_STYLE } from '@ziroeda/pcbnew/plot_dxf.js';
 import {
   COLOR4D_UNSPECIFIED,
   GRAPHICS_IMPORTER_BUFFER,
@@ -18,8 +18,8 @@ import {
   type MATRIX3x3D,
 } from '@ziroeda/common/src/import_gfx/graphics_importer.js';
 import { setupSplineOrLine } from '@ziroeda/common/src/import_gfx/graphics_importer.js';
-import type { IMPORTED_ITEM } from '@ziroeda/pcbnew/src/import_gfx/graphics_importer_pcbnew.js';
-import { GRAPHICS_IMPORTER_PCBNEW } from '@ziroeda/pcbnew/src/import_gfx/graphics_importer_pcbnew.js';
+import type { IMPORTED_ITEM } from '@ziroeda/pcbnew/import_gfx/graphics_importer_pcbnew.js';
+import { GRAPHICS_IMPORTER_PCBNEW } from '@ziroeda/pcbnew/import_gfx/graphics_importer_pcbnew.js';
 
 /** A stroke the parsers would build: width in mm, plus a line style. */
 const stroke = (width: number, style = LINE_STYLE.SOLID): IMPORTED_STROKE =>

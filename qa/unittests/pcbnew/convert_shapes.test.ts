@@ -24,8 +24,8 @@ import {
   convertToZone,
   DEFAULT_RULE_AREA_KEEPOUT,
   resolvedLineWidth,
-} from '@ziroeda/pcbnew/src/convert_shapes.js';
-import type { Board, PcbShape, PcbTrack } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/convert_shapes.js';
+import type { Board, PcbShape, PcbTrack } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

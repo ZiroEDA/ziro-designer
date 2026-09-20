@@ -50,7 +50,7 @@ import {
   setTargetSkewDelay,
   type MeanderPlacer,
   type MeanderSettings,
-} from '@ziroeda/pcbnew/src/router/pns_meander.js';
+} from '@ziroeda/pcbnew/router/pns_meander.js';
 import {
   arcConvertToPolyline,
   arcCentralAngle,
@@ -59,16 +59,16 @@ import {
   constructArcFromStartEndAngle,
   resizeD,
   shapeArcCenter,
-} from '@ziroeda/pcbnew/src/router/shape_arc_ops.js';
+} from '@ziroeda/pcbnew/router/shape_arc_ops.js';
 import {
   segApproxParallel,
   segContains,
   segLength,
   segLineProject,
   segReflectPoint,
-} from '@ziroeda/pcbnew/src/router/pns_seg_ops.js';
+} from '@ziroeda/pcbnew/router/pns_seg_ops.js';
 import { ANGLE_90 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
-import type { Seg } from '@ziroeda/pcbnew/src/router/pns_line.js';
+import type { Seg } from '@ziroeda/pcbnew/router/pns_line.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** A 20 mm horizontal base segment, comfortably longer than any meander. */

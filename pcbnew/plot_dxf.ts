@@ -121,7 +121,7 @@ const colorEquals = (a: Color4d, b: Color4d): boolean =>
 
 /**
  * The slice of `RENDER_SETTINGS` the plotter uses. Injected rather than
- * imported because pcbnew/src must not reach into designer/'s theme.
+ * imported because pcbnew must not reach into designer/'s theme.
  */
 export interface DxfRenderSettings {
   GetLayerColor(aLayer: PCB_LAYER_NAME): Color4d;

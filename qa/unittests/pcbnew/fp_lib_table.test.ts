@@ -25,7 +25,7 @@ import {
   parseLibraryTableOptions,
   type LibraryTable,
   type LibraryTableRow,
-} from '@ziroeda/pcbnew/src/fp_lib_table.js';
+} from '@ziroeda/pcbnew/fp_lib_table.js';
 
 const REAL_TABLE = `(fp_lib_table
   (version 7)

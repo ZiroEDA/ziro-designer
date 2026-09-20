@@ -39,7 +39,7 @@ import {
   pngRecordingBackend,
   type PngRecordingBackend,
   USE_DEFAULT_LINE_WIDTH,
-} from '@ziroeda/pcbnew/src/plot_png.js';
+} from '@ziroeda/pcbnew/plot_png.js';
 
 /**
  * One IU per decimil and 100 dpi, so `m_iuPerDeviceUnit` is 1 * 10000 / 100 =

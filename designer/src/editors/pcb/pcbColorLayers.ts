@@ -31,7 +31,7 @@
  */
 import { toCssColor, type Color4d } from '@ziroeda/common';
 import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common';
-import { LayerName, LayerSelectorUIOrder, LSET_Name } from '@ziroeda/pcbnew/src/layer_ids.js';
+import { LayerName, LayerSelectorUIOrder, LSET_Name } from '@ziroeda/pcbnew/layer_ids.js';
 import { GAL_COLOR_ROWS, type FpColorLayer } from '../footprint/fpColorLayers.js';
 
 export type PcbColorLayer = FpColorLayer;

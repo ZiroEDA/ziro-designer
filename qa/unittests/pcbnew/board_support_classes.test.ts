@@ -30,9 +30,9 @@ import {
   PLOT_FORMAT,
   PLOT_TEXT_MODE,
 } from '@ziroeda/common/src/plotters/plotter.js';
-import { BOARD_DESIGN_SETTINGS } from '@ziroeda/pcbnew/src/board_design_settings.js';
-import { BOARD_STACKUP } from '@ziroeda/pcbnew/src/board_stackup_manager/board_stackup.js';
-import { PCB_PLOT_PARAMS, PCB_PLOT_PARAMS_PARSER } from '@ziroeda/pcbnew/src/pcb_plot_params.js';
+import { BOARD_DESIGN_SETTINGS } from '@ziroeda/pcbnew/board_design_settings.js';
+import { BOARD_STACKUP } from '@ziroeda/pcbnew/board_stackup_manager/board_stackup.js';
+import { PCB_PLOT_PARAMS, PCB_PLOT_PARAMS_PARSER } from '@ziroeda/pcbnew/pcb_plot_params.js';
 
 const oracle = JSON.parse(
   readFileSync(

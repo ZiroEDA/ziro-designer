@@ -19,19 +19,19 @@ import { SHAPE_ARC } from '@ziroeda/kimath/src/geometry/shape_arc.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { add, EuclideanNorm, equal, sub, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-import { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import type { BOARD_ITEM } from '@ziroeda/pcbnew/src/board_item.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
+import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
 import {
   CREEP_SHAPE_TYPE,
   CREEPAGE_GRAPH,
   SegmentIntersectsBoard,
-} from '@ziroeda/pcbnew/src/drc/drc_creepage_utils.js';
-import type { DRC_ITEM } from '@ziroeda/pcbnew/src/drc/drc_item.js';
-import { PCB_DRC_CODE } from '@ziroeda/pcbnew/src/drc/drc_item.js';
-import type { PAD } from '@ziroeda/pcbnew/src/pad.js';
-import { PAD_ATTRIB } from '@ziroeda/pcbnew/src/padstack.js';
-import { PCB_MARKER } from '@ziroeda/pcbnew/src/pcb_marker.js';
-import { PCB_SHAPE } from '@ziroeda/pcbnew/src/pcb_shape.js';
+} from '@ziroeda/pcbnew/drc/drc_creepage_utils.js';
+import type { DRC_ITEM } from '@ziroeda/pcbnew/drc/drc_item.js';
+import { PCB_DRC_CODE } from '@ziroeda/pcbnew/drc/drc_item.js';
+import type { PAD } from '@ziroeda/pcbnew/pad.js';
+import { PAD_ATTRIB } from '@ziroeda/pcbnew/padstack.js';
+import { PCB_MARKER } from '@ziroeda/pcbnew/pcb_marker.js';
+import { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
 import { HAVE_TEST_DATA, LoadBoard } from './drc_test_utils.js';
 
 const suite = HAVE_TEST_DATA ? describe : describe.skip;

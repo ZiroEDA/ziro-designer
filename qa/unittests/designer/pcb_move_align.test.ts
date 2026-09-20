@@ -34,9 +34,9 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { bestDragOrigin, bestSnapAnchor } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
-import { align, type PcbGridState } from '@ziroeda/pcbnew/src/tools/pcb_grid_helper.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { bestDragOrigin, bestSnapAnchor } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
+import { align, type PcbGridState } from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
 import { moveDelta, snapToGridSize } from '@ziroeda/designer/src/editors/pcb/pcb_grid.js';
 
 const MM = 1e6;

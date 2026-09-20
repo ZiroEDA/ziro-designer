@@ -9,10 +9,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { LSET } from '@ziroeda/common/src/lset.js';
 import { ENUM_MAP } from '@ziroeda/common/src/properties/property.js';
-import type { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import { DRC_ENGINE } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
-import '@ziroeda/pcbnew/src/drc/drc_test_providers.js';
-import { ParseBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
+import '@ziroeda/pcbnew/drc/drc_test_providers.js';
+import { ParseBoard } from '@ziroeda/pcbnew/read-board.js';
 
 /** `GetPcbnewTestDataDir()`: the reference tree's `qa/data/pcbnew/`. */
 export const PCBNEW_TEST_DATA_DIR = '/home/akshay/kicad-reference/qa/data/pcbnew/';

@@ -16,16 +16,16 @@
  * others are alternative ways to type the same two points, and the point editor
  * already covers dragging them.
  *
- * The decision logic lives in `pcbnew/src/graphic_properties.ts`.
+ * The decision logic lives in `pcbnew/graphic_properties.ts`.
  */
 
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
-import type { ShapeValues, TextValues } from '@ziroeda/pcbnew/src/graphic_properties.js';
-import { shapePointsUsed } from '@ziroeda/pcbnew/src/graphic_properties.js';
-import type { PcbShape } from '@ziroeda/pcbnew/src/types.js';
+import type { ShapeValues, TextValues } from '@ziroeda/pcbnew/graphic_properties.js';
+import { shapePointsUsed } from '@ziroeda/pcbnew/graphic_properties.js';
+import type { PcbShape } from '@ziroeda/pcbnew/types.js';
 import { LINE_STYLE_NAMES, lineStyleComboValue } from '@ziroeda/common/src/stroke_params.js';
-import { UI_FILL_MODE_CHOICES } from '@ziroeda/pcbnew/src/shape_fill.js';
+import { UI_FILL_MODE_CHOICES } from '@ziroeda/pcbnew/shape_fill.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '../../../ui/status_format.js';

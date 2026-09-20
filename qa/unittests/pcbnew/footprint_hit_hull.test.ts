@@ -18,16 +18,10 @@
  * slop, the fallback square, and the same rule for a rubber-band.
  */
 import { describe, expect, it } from 'vitest';
-import { boardHitCandidates, boardItemsInBox } from '@ziroeda/pcbnew/src/edit-board.js';
-import { footprintBBox, footprintHull } from '@ziroeda/pcbnew/src/edit-footprint.js';
+import { boardHitCandidates, boardItemsInBox } from '@ziroeda/pcbnew/edit-board.js';
+import { footprintBBox, footprintHull } from '@ziroeda/pcbnew/edit-footprint.js';
 import { pcbMmToIU as mm } from '@ziroeda/common/src/eda_units.js';
-import type {
-  Board,
-  PcbFootprint,
-  PcbPad,
-  PcbShape,
-  PcbTextItem,
-} from '@ziroeda/pcbnew/src/types.js';
+import type { Board, PcbFootprint, PcbPad, PcbShape, PcbTextItem } from '@ziroeda/pcbnew/types.js';
 import type { SList } from '@ziroeda/sexpr/src/index.js';
 
 const pad = (at: { x: number; y: number }, s: number): PcbPad => ({

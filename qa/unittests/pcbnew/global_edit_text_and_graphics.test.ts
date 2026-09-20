@@ -20,8 +20,8 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import {
   DEFAULT_GLOBAL_TEXT_GFX_OPTIONS as DEFAULTS,
   applyGlobalTextAndGraphicsEdit,
@@ -38,8 +38,8 @@ import {
   type GlobalTextGfxContext,
   type GlobalTextGfxOptions,
   type TextGfxDefaultsIU,
-} from '@ziroeda/pcbnew/src/global_edit_text_and_graphics.js';
-import type { Board, PcbTextItem } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/global_edit_text_and_graphics.js';
+import type { Board, PcbTextItem } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

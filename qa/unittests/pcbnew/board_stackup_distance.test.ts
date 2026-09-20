@@ -18,12 +18,12 @@
  */
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { stackupLayerDistanceMM } from '@ziroeda/pcbnew/src/board_stackup_distance.js';
-import { PnsBoardIface } from '@ziroeda/pcbnew/src/router/pns_board_iface.js';
-import { defaultTrackViaSizeState } from '@ziroeda/pcbnew/src/board_design_settings_sizes.js';
-import type { StackupDistanceItem } from '@ziroeda/pcbnew/src/board_stackup_distance.js';
-import type { PnsDesignSettings } from '@ziroeda/pcbnew/src/router/pns_board_iface.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import { stackupLayerDistanceMM } from '@ziroeda/pcbnew/board_stackup_distance.js';
+import { PnsBoardIface } from '@ziroeda/pcbnew/router/pns_board_iface.js';
+import { defaultTrackViaSizeState } from '@ziroeda/pcbnew/board_design_settings_sizes.js';
+import type { StackupDistanceItem } from '@ziroeda/pcbnew/board_stackup_distance.js';
+import type { PnsDesignSettings } from '@ziroeda/pcbnew/router/pns_board_iface.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

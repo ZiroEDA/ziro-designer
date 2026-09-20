@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Classify every pcbnew/src/*.ts against KiCad 10.0.5's own file layout.
+# Classify every pcbnew/*.ts against KiCad 10.0.5's own file layout.
 #
 # KiCad parity is a structural claim as well as a behavioural one: a module we
 # put somewhere KiCad does not is a module nobody can find by reading the C++
@@ -12,11 +12,11 @@ K=${KICAD_REFERENCE:-/home/akshay/kicad-reference}
 KP=$K/pcbnew
 [ -d "$KP" ] || { echo "no KiCad reference at $KP (set KICAD_REFERENCE)" >&2; exit 1; }
 
-cd "$ROOT/pcbnew/src"
+cd "$ROOT/pcbnew"
 tsv=$(mktemp)
 trap 'rm -f "$tsv"' EXIT
 
-for f in $(find . -name '*.ts' ! -name '*.test.ts' | sed 's|^\./||' | sort); do
+for f in $(find . -path ./node_modules -prune -o -name '*.ts' ! -name '*.test.ts' -print | sed 's|^\./||' | sort); do
   rel=${f%.ts}; base=$(basename "$rel")
   if   [ -f "$KP/$rel.cpp" ];                         then printf 'SAME\t%s\t%s\n'      "$f" "$rel.cpp"
   elif hit=$(find "$KP" -name "$base.cpp" | head -1); [ -n "$hit" ];
@@ -50,7 +50,7 @@ count () { grep -c "^$1" "$tsv" || true; }
   echo
   for k in MOVED DIALOG ELSEWHERE HEADER OURS; do
     echo "## $k"; echo
-    echo "| ours (\`pcbnew/src/\`) | KiCad (\`pcbnew/\` unless noted) |"
+    echo "| ours (\`pcbnew/\`) | KiCad (\`pcbnew/\` unless noted) |"
     echo "|---|---|"
     awk -F'\t' -v k="$k" '$1==k {print "| `"$2"` | `"$3"` |"}' "$tsv"
     echo

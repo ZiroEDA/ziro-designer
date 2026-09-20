@@ -29,7 +29,7 @@ import {
   pointOnEdge,
   rawIntersections,
   splitAt,
-} from '@ziroeda/pcbnew/src/router/pns_chain.js';
+} from '@ziroeda/pcbnew/router/pns_chain.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const P = (x: number, y: number): Vec2 => ({ x, y });

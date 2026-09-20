@@ -15,13 +15,13 @@
  */
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule_view.js';
+import { parseDrcRules } from '@ziroeda/pcbnew/drc/drc_rule_view.js';
 import {
   boardSetupRules,
   buildDrcRuleEngine,
   type DrcEvalItem,
   reportDrcConstraint,
-} from '@ziroeda/pcbnew/src/drc/drc_rules_engine.js';
+} from '@ziroeda/pcbnew/drc/drc_rules_engine.js';
 
 const MM = (n: number): number => mmToIU(n);
 

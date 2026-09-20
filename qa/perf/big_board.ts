@@ -4,7 +4,7 @@
 //   node --max-old-space-size=6000 --expose-gc $V perf/big_board.ts \
 //       ~/kicad-reference/demos/jetson-agx-thor-baseboard/jetson-agx-thor-baseboard.kicad_pcb
 import { readFileSync } from 'node:fs';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { buildScene, DEFAULT_DRAW_OPTIONS } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 import { GL_PATH_FACTORY } from '@ziroeda/designer/src/render/gl/gl_path.js';
 import { Scene } from '@ziroeda/designer/src/render/gl/scene.js';

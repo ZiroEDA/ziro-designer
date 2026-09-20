@@ -19,10 +19,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { buildBoard3dLayers } from '@ziroeda/designer/src/editors/pcb/board_3d_layers.js';
 import type { Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = 1e6;
 const BOX = { minX: 0, minY: 0, maxX: 40 * MM, maxY: 40 * MM };

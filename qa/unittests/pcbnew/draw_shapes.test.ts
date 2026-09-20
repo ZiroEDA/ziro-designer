@@ -3,17 +3,17 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import {
   addBoardShape,
   addBoardTrack,
   addBoardVia,
   addBoardText,
   addBoardZone,
-} from '@ziroeda/pcbnew/src/edit-board.js';
+} from '@ziroeda/pcbnew/edit-board.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MIN_BOARD = `(kicad_pcb (version 20241229) (generator "test")
   (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (44 "Edge.Cuts" user) (39 "F.SilkS" user "F.Silkscreen"))

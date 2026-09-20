@@ -9,8 +9,8 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import {
   applyRuleAreaValues,
   collectPlacementPage,
@@ -25,9 +25,9 @@ import {
   withPlacementSelection,
   type PlacementSources,
   type RuleAreaValues,
-} from '@ziroeda/pcbnew/src/rule_area_properties.js';
-import { convertToZone } from '@ziroeda/pcbnew/src/convert_shapes.js';
-import type { Board, PcbZone } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/rule_area_properties.js';
+import { convertToZone } from '@ziroeda/pcbnew/convert_shapes.js';
+import type { Board, PcbZone } from '@ziroeda/pcbnew/types.js';
 import { writtenItems } from './support/written_node.js';
 
 const MM = (n: number): number => mmToIU(n);

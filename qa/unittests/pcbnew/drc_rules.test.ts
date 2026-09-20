@@ -7,14 +7,14 @@
  */
 import { describe, it, expect } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { parseDrcRules, parseRuleValue } from '@ziroeda/pcbnew/src/drc/drc_rule_view.js';
+import { parseDrcRules, parseRuleValue } from '@ziroeda/pcbnew/drc/drc_rule_view.js';
 import {
   DrcExprError,
   evalDrcExpr,
   parseDrcExpr,
   testDrcCondition,
   type DrcExprContext,
-} from '@ziroeda/pcbnew/src/drc/drc_expr.js';
+} from '@ziroeda/pcbnew/drc/drc_expr.js';
 
 const MM = (n: number): number => mmToIU(n);
 

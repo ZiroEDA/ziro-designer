@@ -25,13 +25,13 @@ import { ARC_HIGH_DEF } from '@ziroeda/common/src/eda_units.js';
 import { escapeIpc } from '@ziroeda/common/src/string_utils.js';
 import { chainPointInside } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { padIsOnLayer } from '@ziroeda/pcbnew/src/pad_enumerate.js';
+import { padIsOnLayer } from '@ziroeda/pcbnew/pad_enumerate.js';
 import {
   ErrorLoc,
   arcTrackTransformShapeToPolygon,
   padTransformHoleToPolygon,
   padTransformShapeToPolygon,
-} from '@ziroeda/pcbnew/src/transform_shape_to_polygon.js';
+} from '@ziroeda/pcbnew/transform_shape_to_polygon.js';
 import type { Vec3 } from './camera3d.js';
 
 export type PickedItem =

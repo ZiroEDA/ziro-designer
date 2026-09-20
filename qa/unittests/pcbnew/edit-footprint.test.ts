@@ -3,8 +3,8 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readFootprintFile } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeFootprint } from '@ziroeda/pcbnew/src/write-footprint.js';
+import { readFootprintFile } from '@ziroeda/pcbnew/read-board.js';
+import { serializeFootprint } from '@ziroeda/pcbnew/write-footprint.js';
 import {
   fpItemId,
   hitTestFootprint,
@@ -22,12 +22,12 @@ import {
   addPad,
   patchPad,
   addShape,
-} from '@ziroeda/pcbnew/src/edit-footprint.js';
-import type { PcbPad, PcbShape } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/edit-footprint.js';
+import type { PcbPad, PcbShape } from '@ziroeda/pcbnew/types.js';
 
 import { pcbMmToIU as mmToIU, pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
 import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
-import type { PcbFootprint } from '@ziroeda/pcbnew/src/types.js';
+import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';
 
 /** `KiROUND`: half away from zero. */
 const kiRound = (v: number): number => (v < 0 ? Math.ceil(v - 0.5) : Math.floor(v + 0.5));

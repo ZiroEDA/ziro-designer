@@ -29,7 +29,7 @@ import {
 } from '../../../ui/PagedDialog.js';
 import { validateUnitValue, type UnitRange } from '../../../ui/unit_binder.js';
 import { pcbIUScale, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
-import { PCB_VIA, VIA_PARAMETER_ERROR_FIELD } from '@ziroeda/pcbnew/src/pcb_track.js';
+import { PCB_VIA, VIA_PARAMETER_ERROR_FIELD } from '@ziroeda/pcbnew/pcb_track.js';
 import { Icon } from '../../../ui/icons.js';
 import { SpinCtrl } from '../../../ui/SpinCtrl.js';
 

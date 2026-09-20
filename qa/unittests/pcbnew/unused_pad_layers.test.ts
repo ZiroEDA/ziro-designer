@@ -12,8 +12,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import {
   DEFAULT_UNUSED_PAD_LAYERS_OPTIONS,
   boardLayerDepth,
@@ -30,8 +30,8 @@ import {
   withPadUnconnectedLayerMode,
   withViaUnconnectedLayerMode,
   type UnusedPadLayersOptions,
-} from '@ziroeda/pcbnew/src/unused_pad_layers.js';
-import type { Board, PcbFootprint, PcbPad, PcbVia } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/unused_pad_layers.js';
+import type { Board, PcbFootprint, PcbPad, PcbVia } from '@ziroeda/pcbnew/types.js';
 
 const P = (x: number, y: number) => ({ x, y });
 

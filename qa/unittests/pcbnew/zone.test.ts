@@ -13,14 +13,14 @@ import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
-import { BOARD } from '@ziroeda/pcbnew/src/board.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
 import {
   ISLAND_REMOVAL_MODE,
   ZONE,
   ZONE_BORDER_DISPLAY_STYLE,
   ZONE_SETTINGS,
-} from '@ziroeda/pcbnew/src/zone.js';
-import { ZONE_CONNECTION } from '@ziroeda/pcbnew/src/zones.js';
+} from '@ziroeda/pcbnew/zone.js';
+import { ZONE_CONNECTION } from '@ziroeda/pcbnew/zones.js';
 
 const units = new UNITS_PROVIDER(pcbIUScale, 'mm');
 

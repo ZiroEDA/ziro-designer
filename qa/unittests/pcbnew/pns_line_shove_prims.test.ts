@@ -21,14 +21,14 @@
  * - `CompareGeometry` runs `Simplify` first, so re-vertexing is not a change.
  */
 import { describe, expect, it } from 'vitest';
-import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/src/router/pns_line_item.js';
-import { PnsSegment } from '@ziroeda/pcbnew/src/router/pns_segment.js';
-import { PnsVia } from '@ziroeda/pcbnew/src/router/pns_via.js';
-import { PnsLayerRange } from '@ziroeda/pcbnew/src/router/pns_layerset.js';
-import { LineMarker } from '@ziroeda/pcbnew/src/router/pns_item.js';
-import { constructArcFromStartEndAngle } from '@ziroeda/pcbnew/src/router/shape_arc_ops.js';
+import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line_item.js';
+import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
+import { PnsVia } from '@ziroeda/pcbnew/router/pns_via.js';
+import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
+import { LineMarker } from '@ziroeda/pcbnew/router/pns_item.js';
+import { constructArcFromStartEndAngle } from '@ziroeda/pcbnew/router/shape_arc_ops.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
-import type { NetHandle } from '@ziroeda/pcbnew/src/router/pns_collision.js';
+import type { NetHandle } from '@ziroeda/pcbnew/router/pns_collision.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const NET: NetHandle = { id: 1 } as unknown as NetHandle;

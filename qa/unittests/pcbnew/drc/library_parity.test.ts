@@ -10,16 +10,16 @@ import { describe, expect, it } from 'vitest';
 import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { LSET } from '@ziroeda/common/src/lset.js';
 import { ENUM_MAP } from '@ziroeda/common/src/properties/property.js';
-import { DRC_ENGINE } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
-import type { DRC_ITEM } from '@ziroeda/pcbnew/src/drc/drc_item.js';
-import { PCB_DRC_CODE } from '@ziroeda/pcbnew/src/drc/drc_item.js';
-import '@ziroeda/pcbnew/src/drc/drc_test_providers.js';
-import type { FOOTPRINT } from '@ziroeda/pcbnew/src/footprint.js';
+import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
+import type { DRC_ITEM } from '@ziroeda/pcbnew/drc/drc_item.js';
+import { PCB_DRC_CODE } from '@ziroeda/pcbnew/drc/drc_item.js';
+import '@ziroeda/pcbnew/drc/drc_test_providers.js';
+import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
 import type {
   FOOTPRINT_LIBRARY_ADAPTER,
   LIBRARY_TABLE_ROW,
-} from '@ziroeda/pcbnew/src/footprint_library_adapter.js';
-import { ParseBoard, ParseFootprintFile } from '@ziroeda/pcbnew/src/read-board.js';
+} from '@ziroeda/pcbnew/footprint_library_adapter.js';
+import { ParseBoard, ParseFootprintFile } from '@ziroeda/pcbnew/read-board.js';
 
 const DEMO = new URL('../../../../designer/public/demos/ecc83/', import.meta.url);
 

@@ -20,8 +20,8 @@ import {
   swapBoardLayers,
   swapItemLayers,
   swapViaLayerPair,
-} from '@ziroeda/pcbnew/src/swap_layers.js';
-import type { Board, PcbVia } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/swap_layers.js';
+import type { Board, PcbVia } from '@ziroeda/pcbnew/types.js';
 
 const P = (x: number, y: number) => ({ x, y });
 

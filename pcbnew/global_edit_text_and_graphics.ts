@@ -156,7 +156,7 @@ export interface TextGfxClassDefaultsIU {
 
 /**
  * The `BOARD_DESIGN_SETTINGS` slice this engine reads, in IU, passed in rather
- * than imported — `pcbnew/src` must not depend on `designer`.
+ * than imported — `pcbnew` must not depend on `designer`.
  *
  * All six classes carry text values even though the dialog's grid shows text
  * size, thickness, italic and upright for only four rows (Edge Cuts and

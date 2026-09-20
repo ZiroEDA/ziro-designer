@@ -17,13 +17,13 @@ import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-import type { DRC_ITEM } from '@ziroeda/pcbnew/src/drc/drc_item.js';
+import type { DRC_ITEM } from '@ziroeda/pcbnew/drc/drc_item.js';
 import {
   type DRC_JOB_REQUEST,
   type DRC_JOB_VIOLATION,
   runDrcJob,
-} from '@ziroeda/pcbnew/src/drc/drc_job.js';
-import type { PCB_MARKER } from '@ziroeda/pcbnew/src/pcb_marker.js';
+} from '@ziroeda/pcbnew/drc/drc_job.js';
+import type { PCB_MARKER } from '@ziroeda/pcbnew/pcb_marker.js';
 import { HAVE_TEST_DATA, LoadBoard, PCBNEW_TEST_DATA_DIR } from './drc_test_utils.js';
 
 const suite = HAVE_TEST_DATA ? describe : describe.skip;
@@ -178,9 +178,9 @@ suite('runDrcJob: the DRC across a worker boundary', () => {
   });
 
   it('reads the marker back out of the wire data', { timeout: 120_000 }, async () => {
-    const { PCB_MARKER: MARKER } = await import('@ziroeda/pcbnew/src/pcb_marker.js');
-    const { DRC_ITEM: ITEM } = await import('@ziroeda/pcbnew/src/drc/drc_item.js');
-    const { drcJobPathShapes } = await import('@ziroeda/pcbnew/src/drc/drc_job.js');
+    const { PCB_MARKER: MARKER } = await import('@ziroeda/pcbnew/pcb_marker.js');
+    const { DRC_ITEM: ITEM } = await import('@ziroeda/pcbnew/drc/drc_item.js');
+    const { drcJobPathShapes } = await import('@ziroeda/pcbnew/drc/drc_job.js');
 
     const got = await jobViolations('creepage/creepage');
     const wire = got[0]!;

@@ -12,8 +12,8 @@ import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
-import { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import { BARCODE_T, PCB_BARCODE } from '@ziroeda/pcbnew/src/pcb_barcode.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
+import { BARCODE_T, PCB_BARCODE } from '@ziroeda/pcbnew/pcb_barcode.js';
 
 const box = (
   p:

@@ -222,7 +222,7 @@ export const DEFAULT_ROUTER_SIZES: PnsRouterSizes = {
  * installed as the singleton with no adapter — and there is one
  * `isFlashedOnLayer` signature in the tree, not two.
  *
- * Because the two share a name, `pcbnew/src/index.ts` re-exports only the
+ * Because the two share a name, `pcbnew/index.ts` re-exports only the
  * collision slice; import the full interface from
  * `./router/pns_router.js` directly. Same call, same reason, as
  * `pns_diff_pair_placer.ts`'s `DpPlacerHost`.

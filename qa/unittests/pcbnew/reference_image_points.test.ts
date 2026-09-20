@@ -29,10 +29,10 @@ import {
   boardEditHandles,
   dragBoardHandle,
   editablePointItems,
-} from '@ziroeda/pcbnew/src/point_editor.js';
-import { imageBBox } from '@ziroeda/pcbnew/src/image_geometry.js';
-import { boardItemId } from '@ziroeda/pcbnew/src/edit-board.js';
-import type { Board, PcbImage } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/point_editor.js';
+import { imageBBox } from '@ziroeda/pcbnew/image_geometry.js';
+import { boardItemId } from '@ziroeda/pcbnew/edit-board.js';
+import type { Board, PcbImage } from '@ziroeda/pcbnew/types.js';
 
 /**
  * A 2x2 red PNG, so `pngPixelSize` has something real to read.

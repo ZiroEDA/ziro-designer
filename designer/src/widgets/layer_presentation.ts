@@ -26,7 +26,7 @@
  * to copy that file or to hoist it. KiCad hoisted; so do we.
  */
 
-import { LayerName, LSET_Name } from '@ziroeda/pcbnew/src/layer_ids.js';
+import { LayerName, LSET_Name } from '@ziroeda/pcbnew/layer_ids.js';
 import { parseColor4d, swatchOverBackground, toCssColor } from '@ziroeda/common/src/color4d.js';
 import { layerColor } from '../editors/pcb/pcbTheme.js';
 

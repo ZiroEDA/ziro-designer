@@ -21,7 +21,7 @@ import {
   MAGIC_TEARDROP_ZONE_ID,
   type Teardrop,
   type TeardropParameters,
-} from '@ziroeda/pcbnew/src/teardrop.js';
+} from '@ziroeda/pcbnew/teardrop.js';
 import type {
   Board,
   PcbFootprint,
@@ -29,7 +29,7 @@ import type {
   PcbTrack,
   PcbVia,
   PcbZone,
-} from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

@@ -20,13 +20,13 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoardFootprint, readFootprintFile } from '@ziroeda/pcbnew/src/read-board.js';
+import { readBoardFootprint, readFootprintFile } from '@ziroeda/pcbnew/read-board.js';
 import {
   footprintTextRaw,
   resolveFootprintTextVars,
   setFootprintReference,
   setFootprintValue,
-} from '@ziroeda/pcbnew/src/edit-footprint.js';
+} from '@ziroeda/pcbnew/edit-footprint.js';
 
 /** A library footprint the way KiCad ships one: REF** plus a `${REFERENCE}`. */
 const SRC = `(footprint "D_DO-41"

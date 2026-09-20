@@ -76,7 +76,7 @@ const CALL_SITES: Record<string, string> = {
   // property grid when pcbnew stopped keeping a private copy of
   // PROPERTIES_PANEL: the rows are built in the pcbnew package now, so that is
   // where the list is consumed and that is where this rule has to hold.
-  'pcbnew/src/properties_panel.ts': read('../../../pcbnew/src/properties_panel.ts'),
+  'pcbnew/properties_panel.ts': read('../../../pcbnew/properties_panel.ts'),
   'symbol/components/dialogs.tsx': read(`${D}symbol/components/dialogs.tsx`),
 };
 

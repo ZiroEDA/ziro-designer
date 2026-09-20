@@ -19,9 +19,9 @@
  * answer without changing which way round it went would be worse than useless.
  */
 import { describe, expect, it } from 'vitest';
-import { walkaround } from '@ziroeda/pcbnew/src/router/pns_walkaround.js';
-import { pointInside, pointOnEdge } from '@ziroeda/pcbnew/src/router/pns_chain.js';
-import { segmentHull, viaHull } from '@ziroeda/pcbnew/src/router/pns_hull.js';
+import { walkaround } from '@ziroeda/pcbnew/router/pns_walkaround.js';
+import { pointInside, pointOnEdge } from '@ziroeda/pcbnew/router/pns_chain.js';
+import { segmentHull, viaHull } from '@ziroeda/pcbnew/router/pns_hull.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const P = (x: number, y: number): Vec2 => ({ x, y });

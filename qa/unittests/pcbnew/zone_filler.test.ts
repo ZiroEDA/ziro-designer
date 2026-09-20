@@ -6,11 +6,11 @@
  * thermal relief around its own pads and bridges back to them with spokes, and
  * drops islands that reach nothing.
  */
-import { boardFromBOARD, boardToBOARD } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/board_view.js';
+import { boardFromBOARD, boardToBOARD } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import { describe, it, expect } from 'vitest';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
-import { fillZone, fillZones, zoneClearanceOf } from '@ziroeda/pcbnew/src/zone_filler.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
+import { fillZone, fillZones, zoneClearanceOf } from '@ziroeda/pcbnew/zone_filler.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type {
   Board,
@@ -19,7 +19,7 @@ import type {
   PcbPad,
   PcbTextItem,
   PcbZone,
-} from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 /**

@@ -38,7 +38,7 @@ import { footprintToolMsg } from '@ziroeda/designer/src/editors/footprint/footpr
 // radio groups and the reducer that were still stranded in `FootprintEditor.tsx`.
 import { DEFAULT_TOGGLES as FP_DEFAULT_TOGGLES } from '@ziroeda/designer/src/editors/footprint/toggles.js';
 import { angleSnapModeOf, constraintsMsg } from '@ziroeda/designer/src/ui/status_format.js';
-import { GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
+import { GetLayerName } from '@ziroeda/pcbnew/layer_ids.js';
 
 const NAMES = FOOTPRINT_LAYERS.map((l) => l.name);
 const shown = (name: string): string => GetLayerName(FOOTPRINT_LAYERS, name);

@@ -49,7 +49,7 @@ import {
   Margin,
   UNDEFINED_LAYER,
   UNSELECTED_LAYER,
-} from '@ziroeda/pcbnew/src/layer_ids.js';
+} from '@ziroeda/pcbnew/layer_ids.js';
 
 /**
  * `X2_ATTRIBUTE_FILEFUNCTION`'s three accessors, off the comma-separated

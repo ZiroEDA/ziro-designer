@@ -13,8 +13,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { inheritTrackWidth } from '@ziroeda/pcbnew/src/inherit_track_width.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { inheritTrackWidth } from '@ziroeda/pcbnew/inherit_track_width.js';
 
 const MM = 1e6;
 

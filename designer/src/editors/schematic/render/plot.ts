@@ -28,12 +28,7 @@ import { schIUScale } from '@ziroeda/common/src/eda_units.js';
 import { fracture, type Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import {
-  FILL_T,
-  PdfPlotter,
-  pdfRenderSettings,
-  type Color4d,
-} from '@ziroeda/pcbnew/src/plot_pdf.js';
+import { FILL_T, PdfPlotter, pdfRenderSettings, type Color4d } from '@ziroeda/pcbnew/plot_pdf.js';
 
 const MM = 10000; // IU per mm (matches the renderer)
 
@@ -353,7 +348,7 @@ export interface PdfPlotSheet {
  * `SCH_PLOTTER::createPDFFile`, over the ported `PDF_PLOTTER`: one document,
  * one page per sheet, every page a compressed content stream of the same
  * paths the screen draws — `PDF_PLOTTER` is the one KiCad class both editors
- * plot PDF through, which is why this reaches for `pcbnew/src/plot_pdf.ts`
+ * plot PDF through, which is why this reaches for `pcbnew/plot_pdf.ts`
  * rather than writing a second file format.
  *
  * `setupPlotPagePDF` (:276-310) sizes the page and sets the viewport in

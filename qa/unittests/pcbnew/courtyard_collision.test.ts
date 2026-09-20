@@ -17,8 +17,8 @@ import {
   beginCourtyardConflicts,
   conflictShadowRings,
   courtyardConflictsAt,
-} from '@ziroeda/pcbnew/src/courtyard_collision.js';
-import type { Board, PcbFootprint, PcbPad, PcbShape, PcbZone } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/courtyard_collision.js';
+import type { Board, PcbFootprint, PcbPad, PcbShape, PcbZone } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

@@ -13,13 +13,13 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import {
   barcodeGeometry,
   barcodeHullBoxes,
   symbolRects,
-} from '@ziroeda/pcbnew/src/barcode_geometry.js';
+} from '@ziroeda/pcbnew/barcode_geometry.js';
 import {
   addBoardBarcode,
   boardHitCandidates,
@@ -31,21 +31,21 @@ import {
   moveBoardItems,
   rotateBoardItemsBy,
   setBoardItemsLocked,
-} from '@ziroeda/pcbnew/src/edit-board.js';
+} from '@ziroeda/pcbnew/edit-board.js';
 import {
   barcodeAt,
   barcodeCommitError,
   barcodeUiState,
   barcodeValues,
   correctEccForKind,
-} from '@ziroeda/pcbnew/src/barcode_properties.js';
-import { encodeBarcode } from '@ziroeda/pcbnew/src/barcode/zint.js';
-import { bestSnapAnchor } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
-import { boardEditHandles, dragBoardHandle } from '@ziroeda/pcbnew/src/point_editor.js';
-import { pcbBarcodeMsgPanelInfo } from '@ziroeda/pcbnew/src/msg_panel.js';
-import { pcbPropertiesFor } from '@ziroeda/pcbnew/src/properties_panel.js';
+} from '@ziroeda/pcbnew/barcode_properties.js';
+import { encodeBarcode } from '@ziroeda/pcbnew/barcode/zint.js';
+import { bestSnapAnchor } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
+import { boardEditHandles, dragBoardHandle } from '@ziroeda/pcbnew/point_editor.js';
+import { pcbBarcodeMsgPanelInfo } from '@ziroeda/pcbnew/msg_panel.js';
+import { pcbPropertiesFor } from '@ziroeda/pcbnew/properties_panel.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import type { Board, PcbBarcode } from '@ziroeda/pcbnew/src/types.js';
+import type { Board, PcbBarcode } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

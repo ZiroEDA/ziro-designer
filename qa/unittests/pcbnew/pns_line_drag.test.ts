@@ -19,15 +19,15 @@
  *   only reason `GetTrailLeadVector` stays a *lead* rather than drifting.
  */
 import { describe, expect, it } from 'vitest';
-import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/src/router/pns_line_item.js';
+import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line_item.js';
 import {
   chainSplit,
   lineDragArc,
   lineDragCorner,
   lineDragSegment,
-} from '@ziroeda/pcbnew/src/router/pns_line_drag.js';
-import { PnsMouseTrailTracer } from '@ziroeda/pcbnew/src/router/pns_mouse_trail_tracer.js';
-import { dragCorner, dragCornerInternal } from '@ziroeda/pcbnew/src/router/pns_line.js';
+} from '@ziroeda/pcbnew/router/pns_line_drag.js';
+import { PnsMouseTrailTracer } from '@ziroeda/pcbnew/router/pns_mouse_trail_tracer.js';
+import { dragCorner, dragCornerInternal } from '@ziroeda/pcbnew/router/pns_line.js';
 import { Direction45, Directions } from '@ziroeda/kimath/src/geometry/direction45.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

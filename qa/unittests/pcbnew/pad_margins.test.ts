@@ -20,12 +20,12 @@ import {
   padApertureSize,
   solderMaskExpansionFor,
   solderPasteMarginFor,
-} from '@ziroeda/pcbnew/src/pad_margins.js';
-import type { PcbFootprint, PcbPad } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/pad_margins.js';
+import type { PcbFootprint, PcbPad } from '@ziroeda/pcbnew/types.js';
 import { pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
 import { parse } from '@ziroeda/sexpr';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { plotGerberLayer } from '@ziroeda/pcbnew/src/plot_gerber.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { plotGerberLayer } from '@ziroeda/pcbnew/plot_gerber.js';
 
 const pad = (over: Partial<PcbPad> = {}): PcbPad =>
   ({

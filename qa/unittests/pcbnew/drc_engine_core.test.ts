@@ -20,22 +20,18 @@ import {
   RPT_SEVERITY_IGNORE,
   RPT_SEVERITY_WARNING,
 } from '@ziroeda/common/src/reporter.js';
-import { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import { DEFAULT_MINCLEARANCE } from '@ziroeda/pcbnew/src/board_design_settings_defaults.js';
-import { DRC_ENGINE } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
-import { PCB_DRC_CODE } from '@ziroeda/pcbnew/src/drc/drc_item.js';
-import {
-  DRC_CONSTRAINT_T,
-  DRC_DISALLOW_T,
-  type DRC_RULE,
-} from '@ziroeda/pcbnew/src/drc/drc_rule.js';
-import { DRC_RULES_PARSER } from '@ziroeda/pcbnew/src/drc/drc_rule_parser.js';
-import { FOOTPRINT } from '@ziroeda/pcbnew/src/footprint.js';
-import { NETINFO_ITEM } from '@ziroeda/pcbnew/src/netinfo.js';
-import { PAD } from '@ziroeda/pcbnew/src/pad.js';
-import { PAD_ATTRIB } from '@ziroeda/pcbnew/src/padstack.js';
-import { PCB_TRACK } from '@ziroeda/pcbnew/src/pcb_track.js';
-import { ZONE } from '@ziroeda/pcbnew/src/zone.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
+import { DEFAULT_MINCLEARANCE } from '@ziroeda/pcbnew/board_design_settings_defaults.js';
+import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
+import { PCB_DRC_CODE } from '@ziroeda/pcbnew/drc/drc_item.js';
+import { DRC_CONSTRAINT_T, DRC_DISALLOW_T, type DRC_RULE } from '@ziroeda/pcbnew/drc/drc_rule.js';
+import { DRC_RULES_PARSER } from '@ziroeda/pcbnew/drc/drc_rule_parser.js';
+import { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
+import { NETINFO_ITEM } from '@ziroeda/pcbnew/netinfo.js';
+import { PAD } from '@ziroeda/pcbnew/pad.js';
+import { PAD_ATTRIB } from '@ziroeda/pcbnew/padstack.js';
+import { PCB_TRACK } from '@ziroeda/pcbnew/pcb_track.js';
+import { ZONE } from '@ziroeda/pcbnew/zone.js';
 
 const mm = (v: number): number => pcbIUScale.mmToIU(v);
 

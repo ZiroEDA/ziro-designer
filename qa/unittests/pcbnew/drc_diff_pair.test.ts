@@ -27,8 +27,8 @@ import {
   evaluateDiffPair,
   matchDpSuffix,
   type DpTrack,
-} from '@ziroeda/pcbnew/src/drc/drc_diff_pair.js';
-import type { Board, PcbTrack } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/drc/drc_diff_pair.js';
+import type { Board, PcbTrack } from '@ziroeda/pcbnew/types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const MM = (n: number): number => mmToIU(n);

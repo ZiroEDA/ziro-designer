@@ -35,7 +35,7 @@
  * endpoints differ are not connected either — they merely collide, which is a
  * different question asked of a different function.
  *
- * That is the exact opposite of `pcbnew/src/cleanup_connectivity.ts`, which
+ * That is the exact opposite of `pcbnew/cleanup_connectivity.ts`, which
  * clusters by shape collision. The two answer different questions and neither
  * should be expressed in terms of the other.
  *

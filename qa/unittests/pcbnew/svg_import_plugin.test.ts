@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/eda_text.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { LINE_STYLE, COLOR4D_BLACK, type Color4d } from '@ziroeda/pcbnew/src/plot_dxf.js';
+import { LINE_STYLE, COLOR4D_BLACK, type Color4d } from '@ziroeda/pcbnew/plot_dxf.js';
 import {
   COLOR4D_UNSPECIFIED,
   GRAPHICS_IMPORTER,

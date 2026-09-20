@@ -7,7 +7,7 @@
  * the `PANEL_IMAGE_EDITOR` it embeds (`common/dialogs/panel_image_editor.cpp`),
  * which is where the preview, the Scale field and the PPI readout live.
  *
- * The decisions live in `pcbnew/src/image_properties.ts`; this is layout.
+ * The decisions live in `pcbnew/image_properties.ts`; this is layout.
  *
  * ## The shape
  *
@@ -60,9 +60,9 @@ import {
   scaleForWidth,
   sizeForScale,
   type ImageValues,
-} from '@ziroeda/pcbnew/src/image_properties.js';
+} from '@ziroeda/pcbnew/image_properties.js';
 import { pngPPI } from '@ziroeda/common/src/png_meta.js';
-import type { PcbImage } from '@ziroeda/pcbnew/src/types.js';
+import type { PcbImage } from '@ziroeda/pcbnew/types.js';
 import { Combo } from '../../../ui/Combo.js';
 import { StdDialogButtons } from '../../../ui/StdDialogButtons.js';
 import { parseUnitValue, stringFromValue, unitLabel } from '../../../ui/unit_binder.js';

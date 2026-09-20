@@ -31,13 +31,13 @@
 import { describe, expect, it } from 'vitest';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { lineDragArc } from '@ziroeda/pcbnew/src/router/pns_line_drag.js';
-import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/src/router/pns_line_item.js';
+import { lineDragArc } from '@ziroeda/pcbnew/router/pns_line_drag.js';
+import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line_item.js';
 import {
   arcRadius,
   constructArcFromStartEndAngle,
   shapeArcCenter,
-} from '@ziroeda/pcbnew/src/router/shape_arc_ops.js';
+} from '@ziroeda/pcbnew/router/shape_arc_ops.js';
 
 const V = (x: number, y: number): Vec2 => ({ x, y });
 

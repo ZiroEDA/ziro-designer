@@ -30,11 +30,11 @@ import {
   setBoardItemsLocked,
   allBoardItemIds,
   isBoardItemLocked,
-} from '@ziroeda/pcbnew/src/edit-board.js';
+} from '@ziroeda/pcbnew/edit-board.js';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { U } from './support/written_node.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type {
   Board,
@@ -46,7 +46,7 @@ import type {
   PcbTextItem,
   PcbZone,
   PcbPad,
-} from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/types.js';
 
 // Minimal typed-model builders (geometry is unit-agnostic; coords in internal units).
 const track = (

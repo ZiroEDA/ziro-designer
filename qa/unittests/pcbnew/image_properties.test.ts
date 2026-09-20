@@ -23,10 +23,10 @@ import {
   scaleForHeight,
   scaleForWidth,
   sizeForScale,
-} from '@ziroeda/pcbnew/src/image_properties.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
-import type { Board, PcbImage } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/image_properties.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
+import type { Board, PcbImage } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

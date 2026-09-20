@@ -11,15 +11,15 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
-import { SEXPR_BOARD_FILE_VERSION } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
+import { SEXPR_BOARD_FILE_VERSION } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 import {
   boardItemId,
   deleteBoardItems,
   groupBoardItems,
   setBoardItemsLocked,
-} from '@ziroeda/pcbnew/src/edit-board.js';
+} from '@ziroeda/pcbnew/edit-board.js';
 import {
   PASTE_DEFAULT_REFERENCE,
   PASTE_MODES,
@@ -27,7 +27,7 @@ import {
   cutSelectionToClipboardText,
   parseClipboardText,
   pasteIntoBoard,
-} from '@ziroeda/pcbnew/src/pcb_clipboard.js';
+} from '@ziroeda/pcbnew/pcb_clipboard.js';
 import type {
   Board,
   PcbFootprint,
@@ -37,7 +37,7 @@ import type {
   PcbTrack,
   PcbVia,
   PcbZone,
-} from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/types.js';
 
 const DEMO = new URL('../../../designer/public/demos/ecc83/ecc83-pp_v2.kicad_pcb', import.meta.url);
 const demoBoard = (): Board => readBoard(parse(readFileSync(DEMO, 'utf8')));

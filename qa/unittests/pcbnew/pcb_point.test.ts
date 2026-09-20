@@ -28,13 +28,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import { head, parse, serialize, type SList } from '@ziroeda/sexpr/src/index.js';
-import {
-  readBoard,
-  readFootprintFile,
-  DEFAULT_POINT_SIZE,
-} from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
-import { serializeFootprint } from '@ziroeda/pcbnew/src/write-footprint.js';
+import { readBoard, readFootprintFile, DEFAULT_POINT_SIZE } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
+import { serializeFootprint } from '@ziroeda/pcbnew/write-footprint.js';
 import {
   addBoardPoint,
   boardItemBBox,
@@ -47,16 +43,16 @@ import {
   mirrorBoardItems,
   duplicateBoardItems,
   flipBoardItems,
-} from '@ziroeda/pcbnew/src/edit-board.js';
-import { footprintBBox } from '@ziroeda/pcbnew/src/edit-footprint.js';
-import { isBoardItemLocked, setBoardItemsLocked } from '@ziroeda/pcbnew/src/edit-board.js';
-import { pcbPropertiesFor } from '@ziroeda/pcbnew/src/properties_panel.js';
-import { bestSnapAnchor } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
-import { pcbPointMsgPanelInfo } from '@ziroeda/pcbnew/src/msg_panel.js';
-import { boardIsEmpty } from '@ziroeda/pcbnew/src/tools/pcb_selection_conditions.js';
+} from '@ziroeda/pcbnew/edit-board.js';
+import { footprintBBox } from '@ziroeda/pcbnew/edit-footprint.js';
+import { isBoardItemLocked, setBoardItemsLocked } from '@ziroeda/pcbnew/edit-board.js';
+import { pcbPropertiesFor } from '@ziroeda/pcbnew/properties_panel.js';
+import { bestSnapAnchor } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
+import { pcbPointMsgPanelInfo } from '@ziroeda/pcbnew/msg_panel.js';
+import { boardIsEmpty } from '@ziroeda/pcbnew/tools/pcb_selection_conditions.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

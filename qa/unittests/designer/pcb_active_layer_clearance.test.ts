@@ -12,9 +12,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import { CLEARANCE_LAYER_FOR, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import type { PCB_DRAW_PANEL_GAL } from '@ziroeda/pcbnew/src/pcb_draw_panel_gal.js';
-import { PCB_SCREEN } from '@ziroeda/pcbnew/src/pcb_screen.js';
-import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/src/pcbnew_settings.js';
+import type { PCB_DRAW_PANEL_GAL } from '@ziroeda/pcbnew/pcb_draw_panel_gal.js';
+import { PCB_SCREEN } from '@ziroeda/pcbnew/pcb_screen.js';
+import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 import { PCB_EDIT_FRAME } from '@ziroeda/designer/src/editors/pcb/pcb_edit_frame.js';
 
 function makeFrame() {

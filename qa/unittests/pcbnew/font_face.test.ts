@@ -20,15 +20,12 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
-import { fontNode } from '@ziroeda/pcbnew/src/eda_text_format.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
+import { fontNode } from '@ziroeda/pcbnew/eda_text_format.js';
 import { flatText, writtenNodes } from './support/written_node.js';
-import { applyTextValues, collectTextValues } from '@ziroeda/pcbnew/src/graphic_properties.js';
-import {
-  applyTextBoxValues,
-  collectTextBoxValues,
-} from '@ziroeda/pcbnew/src/textbox_properties.js';
+import { applyTextValues, collectTextValues } from '@ziroeda/pcbnew/graphic_properties.js';
+import { applyTextBoxValues, collectTextBoxValues } from '@ziroeda/pcbnew/textbox_properties.js';
 
 const BOARD = `(kicad_pcb (version 20241229) (generator "pcbnew")
   (gr_text "faced" (at 10 10) (layer "F.SilkS")
@@ -131,10 +128,12 @@ describe('one (font …) builder, as upstream has one EDA_TEXT::Format', () => {
   it('and nothing else in pcbnew builds a (font …) of its own', () => {
     // The guard against the six copies coming back. A file that spells
     // `atom('font')` is building the node by hand; only the shared one may.
-    const SRC = fileURLToPath(new URL('../../../pcbnew/src', import.meta.url));
+    const SRC = fileURLToPath(new URL('../../../pcbnew', import.meta.url));
     const offenders: string[] = [];
     (function walk(dir: string): void {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        // node_modules sits beside the sources now that pcbnew has no src/.
+        if (entry.name === 'node_modules' || entry.name === 'dist') continue;
         const p = join(dir, entry.name);
         if (entry.isDirectory()) walk(p);
         else if (entry.name.endsWith('.ts') && entry.name !== 'eda_text_format.ts') {

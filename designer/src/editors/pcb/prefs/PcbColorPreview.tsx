@@ -29,8 +29,8 @@
  */
 import { type JSX, useCallback, useEffect, useRef } from 'react';
 import { parse } from '@ziroeda/sexpr';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 import {
   buildScene,
   drawAnchors,
