@@ -8,7 +8,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { LSET } from '@ziroeda/common/src/lset.js';
+import { PgmOrNull, SETTINGS_MANAGER } from '@ziroeda/common/src/pgm_base.js';
 import { ENUM_MAP } from '@ziroeda/common/src/properties/property.js';
+import type { JsonValue } from '@ziroeda/common/src/settings/json_settings.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
 import '@ziroeda/pcbnew/drc/drc_test_providers.js';
@@ -24,27 +26,29 @@ export const HAVE_TEST_DATA = existsSync(PCBNEW_TEST_DATA_DIR);
  * settings into the board, the DRC engine on the `.kicad_dru` beside it, the
  * net list and the connectivity built.
  */
-export function LoadBoard(aRelPath: string): BOARD {
+export function LoadBoard(
+  aRelPath: string,
+  aSettingsManager: SETTINGS_MANAGER = PgmOrNull()?.GetSettingsManager() ?? new SETTINGS_MANAGER(),
+): BOARD {
   const absPath = PCBNEW_TEST_DATA_DIR + aRelPath;
   const projectFile = `${absPath}.kicad_pro`;
   const boardPath = `${absPath}.kicad_pcb`;
   const rulesFile = `${absPath}.kicad_dru`;
 
+  // `qa/pcbnew_utils/board_test_utils.cpp` LoadBoard: the project through the
+  // manager first, then the board, then `SetProject( &aSettingsManager.Prj() )`
+  // - only when there IS a project file. The legacy `.pro` branch is not here.
+  const hasProject = existsSync(projectFile);
+
+  if (hasProject)
+    aSettingsManager.LoadProject(
+      projectFile,
+      JSON.parse(readFileSync(projectFile, 'utf8')) as JsonValue,
+    );
+
   const board = ParseBoard(readFileSync(boardPath, 'utf8'), boardPath);
 
-  // SETTINGS_MANAGER::LoadProject + BOARD::SetProject: the project file's
-  // board.design_settings and net_settings become the board's.
-  if (existsSync(projectFile)) {
-    const pro = JSON.parse(readFileSync(projectFile, 'utf8')) as Record<string, unknown>;
-    const boardJ = (pro.board ?? {}) as Record<string, unknown>;
-
-    if (boardJ.design_settings !== undefined)
-      board.GetDesignSettings().LoadFromJson(boardJ.design_settings);
-    if (pro.net_settings !== undefined)
-      board.GetDesignSettings().m_NetSettings.LoadFromJson(pro.net_settings);
-    if (pro.tuning_profiles !== undefined)
-      board.GetTuningProfiles().LoadFromJson(pro.tuning_profiles);
-  }
+  if (hasProject) board.SetProject(aSettingsManager.Prj());
 
   // PCB_EDIT_FRAME::OnBoardLoaded's layer enum, which the rule language reads.
   const layerEnum = ENUM_MAP.Instance<PCB_LAYER_ID>('PCB_LAYER_ID');

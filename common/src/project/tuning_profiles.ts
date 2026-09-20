@@ -8,6 +8,15 @@
  */
 import { IsCopperLayerLowerThan, type PCB_LAYER_ID, UNDEFINED_LAYER } from '../layer_ids.js';
 import { LSET } from '../lset.js';
+import {
+  type JSON_SETTINGS,
+  type JsonObject,
+  type JsonValue,
+  NESTED_SETTINGS,
+  PARAM_LAMBDA,
+} from '../settings/json_settings.js';
+
+const tuningParametersSchemaVersion = 0;
 
 export class DELAY_PROFILE_VIA_OVERRIDE_ENTRY {
   constructor(
@@ -242,15 +251,94 @@ const readUserDefinedProfileConfigurationLine = (
   return item;
 };
 
+const saveViaOverrideConfigurationLine = (
+  json_array: JsonValue[],
+  item: DELAY_PROFILE_VIA_OVERRIDE_ENTRY,
+): void => {
+  json_array.push({
+    signal_layer_from: LSET.Name(item.m_SignalLayerFrom),
+    signal_layer_to: LSET.Name(item.m_SignalLayerTo),
+    via_layer_from: LSET.Name(item.m_ViaLayerFrom),
+    via_layer_to: LSET.Name(item.m_ViaLayerTo),
+    delay: item.m_Delay,
+  });
+};
+
+const saveUserDefinedProfileConfigurationLine = (
+  json_array: JsonValue[],
+  item: TUNING_PROFILE,
+): void => {
+  const layer_entries: JsonValue[] = [];
+
+  for (const trackEntry of item.m_TrackPropagationEntries) {
+    const layer_json: JsonObject = {};
+
+    layer_json.signal_layer = LSET.Name(trackEntry.m_signalLayer);
+    layer_json.top_reference_layer = LSET.Name(trackEntry.m_topReferenceLayer);
+    layer_json.bottom_reference_layer = LSET.Name(trackEntry.m_bottomReferenceLayer);
+    layer_json.width = trackEntry.m_width;
+    layer_json.diff_pair_gap = trackEntry.m_diffPairGap;
+    layer_json.delay = trackEntry.m_delay;
+
+    layer_entries.push(layer_json);
+  }
+
+  const via_overrides: JsonValue[] = [];
+
+  for (const viaOverride of item.m_ViaOverrides)
+    saveViaOverrideConfigurationLine(via_overrides, viaOverride);
+
+  json_array.push({
+    profile_name: item.m_ProfileName,
+    type: item.m_Type as number,
+    target_impedance: item.m_TargetImpedance,
+    enable_time_domain_tuning: item.m_EnableTimeDomainTuning,
+    layer_entries,
+    via_prop_delay: item.m_ViaPropagationDelay,
+    via_overrides,
+  });
+};
+
 /**
  * `TUNING_PROFILES`, the `tuning_profiles` nested settings of the project
- * file. `LoadFromJson` takes that object (its one parameter is
- * `tuning_profiles_impedance_geometric`), the way `NET_SETTINGS.LoadFromJson`
- * takes `net_settings`.
+ * file: one param, `tuning_profiles_impedance_geometric`.
  */
-export class TUNING_PROFILES {
+export class TUNING_PROFILES extends NESTED_SETTINGS {
   private m_tuningProfiles: TUNING_PROFILE[] = [];
   private readonly m_nullDelayProfile = new TUNING_PROFILE();
+
+  constructor(aParent: JSON_SETTINGS | null = null, aPath = 'tuning_profiles') {
+    super('tuning_profiles', tuningParametersSchemaVersion, aParent, aPath, false);
+
+    this.m_params.push(
+      new PARAM_LAMBDA<JsonValue>(
+        'tuning_profiles_impedance_geometric',
+        () => {
+          const ret: JsonValue[] = [];
+
+          for (const entry of this.m_tuningProfiles)
+            saveUserDefinedProfileConfigurationLine(ret, entry);
+
+          return ret;
+        },
+        (aJson) => {
+          if (!Array.isArray(aJson)) return;
+
+          this.ClearTuningProfiles();
+
+          for (const entry of aJson) {
+            if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) continue;
+            if (!('profile_name' in entry)) continue;
+
+            this.m_tuningProfiles.push(readUserDefinedProfileConfigurationLine(entry));
+          }
+        },
+        {},
+      ),
+    );
+
+    if (aParent) this.LoadFromFile();
+  }
 
   equals(aOther: TUNING_PROFILES): boolean {
     return (
@@ -277,24 +365,5 @@ export class TUNING_PROFILES {
     if (itr === undefined) return this.m_nullDelayProfile;
 
     return itr;
-  }
-
-  /** The `tuning_profiles_impedance_geometric` PARAM_LAMBDA's loader. */
-  LoadFromJson(aJson: unknown): void {
-    const obj =
-      aJson !== null && typeof aJson === 'object' ? (aJson as Record<string, unknown>) : {};
-    const list = obj.tuning_profiles_impedance_geometric;
-
-    if (!Array.isArray(list)) return;
-
-    this.ClearTuningProfiles();
-
-    for (const entry of list as unknown[]) {
-      if (entry === null || typeof entry !== 'object' || !('profile_name' in entry)) continue;
-
-      this.m_tuningProfiles.push(
-        readUserDefinedProfileConfigurationLine(entry as Record<string, unknown>),
-      );
-    }
   }
 }

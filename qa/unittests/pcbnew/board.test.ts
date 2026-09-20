@@ -19,6 +19,8 @@ import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
 import { VIATYPE } from '@ziroeda/pcbnew/pcb_track_types.js';
 import type { MSG_PANEL_ITEM } from '@ziroeda/common/src/widgets/msgpanel.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
+import { NETCLASS } from '@ziroeda/common/src/netclass.js';
+import { SETTINGS_MANAGER } from '@ziroeda/common/src/pgm_base.js';
 import { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
 import { NETINFO_ITEM } from '@ziroeda/pcbnew/netinfo.js';
 import { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
@@ -277,25 +279,168 @@ describe('BOARD lookups and visibility', () => {
   });
 
   it('IsFootprintLayerVisible asks the two FOOTPRINT flags, not the copper layer', () => {
-    // A footprint on F.Cu can be hidden while F.Cu itself is shown, so the
-    // question is which GAL element is consulted. `IsElementVisible` is a stub
-    // returning true until PROJECT is ported, so the answer is not observable
-    // -- the routing is, and that is what breaks if the cases are swapped.
+    // A footprint on F.Cu can be hidden while F.Cu itself is shown: the
+    // answer comes from the project's visible items, not the layer.
     const b = new BOARD();
-    const asked: GAL_LAYER_ID[] = [];
-    b.IsElementVisible = (aLayer: GAL_LAYER_ID): boolean => {
-      asked.push(aLayer);
-      return true;
-    };
+    const manager = new SETTINGS_MANAGER();
+    manager.LoadProject('/p/a.kicad_pro');
+    b.SetProject(manager.Prj());
 
-    b.IsFootprintLayerVisible(PCB_LAYER_ID.F_Cu);
-    b.IsFootprintLayerVisible(PCB_LAYER_ID.B_Cu);
+    b.SetElementVisibility(GAL_LAYER_ID.LAYER_FOOTPRINTS_FR, false);
 
-    expect(asked).toEqual([GAL_LAYER_ID.LAYER_FOOTPRINTS_FR, GAL_LAYER_ID.LAYER_FOOTPRINTS_BK]);
+    expect(b.IsLayerVisible(PCB_LAYER_ID.F_Cu)).toBe(true);
+    expect(b.IsFootprintLayerVisible(PCB_LAYER_ID.F_Cu)).toBe(false);
+    expect(b.IsFootprintLayerVisible(PCB_LAYER_ID.B_Cu)).toBe(true);
 
-    // A layer that is neither asks nothing and reports visible.
+    // A layer that is neither reports visible.
+    b.SetElementVisibility(GAL_LAYER_ID.LAYER_FOOTPRINTS_BK, false);
     expect(b.IsFootprintLayerVisible(PCB_LAYER_ID.Edge_Cuts)).toBe(true);
-    expect(asked).toHaveLength(2);
+  });
+
+  it('visibility lives in the project local settings; a board without one shows everything', () => {
+    const alone = new BOARD();
+    expect(alone.IsElementVisible(GAL_LAYER_ID.LAYER_RATSNEST)).toBe(true);
+    expect(alone.IsLayerVisible(PCB_LAYER_ID.B_Cu)).toBe(true);
+    alone.SetVisibleLayers(new LSET([PCB_LAYER_ID.F_Cu]));
+    expect(alone.GetVisibleLayers().count()).toBe(LSET.AllLayersMask().count());
+
+    const b = new BOARD();
+    const manager = new SETTINGS_MANAGER();
+    manager.LoadProject('/p/a.kicad_pro', null, {
+      board: { visible_items: ['tracks'], visible_layers: new LSET([PCB_LAYER_ID.B_Cu]).FmtHex() },
+    });
+    b.SetProject(manager.Prj());
+
+    // What the .kicad_prl said
+    expect(b.IsElementVisible(GAL_LAYER_ID.LAYER_TRACKS)).toBe(true);
+    expect(b.IsElementVisible(GAL_LAYER_ID.LAYER_VIAS)).toBe(false);
+    expect(b.GetVisibleElements().Contains(GAL_LAYER_ID.LAYER_PADS)).toBe(false);
+    expect(b.GetVisibleElements().Contains(GAL_LAYER_ID.LAYER_TRACKS)).toBe(true);
+    expect(b.IsLayerVisible(PCB_LAYER_ID.B_Cu)).toBe(true);
+    expect(b.IsLayerVisible(PCB_LAYER_ID.F_Cu)).toBe(false);
+    // ... but an enabled-layer gate still applies
+    expect(b.IsLayerVisible(PCB_LAYER_ID.In1_Cu)).toBe(false);
+
+    // Writes go to the same place the file is saved from
+    b.SetVisibleLayers(new LSET([PCB_LAYER_ID.F_Cu, PCB_LAYER_ID.B_Cu]));
+    b.SetElementVisibility(GAL_LAYER_ID.LAYER_VIAS, true);
+    const prl = manager.Prj().GetLocalSettings().SaveToJson().board as Record<string, unknown>;
+    expect(prl.visible_layers).toBe(new LSET([PCB_LAYER_ID.F_Cu, PCB_LAYER_ID.B_Cu]).FmtHex());
+    expect(prl.visible_items).toEqual(['vias', 'tracks']); // GAL id order
+
+    // SetVisibleAlls turns every layer on, and the items up to
+    // GAL_LAYER_ID_BITMASK_END (+31): LAYER_DRAW_BITMAPS is +30, LAYER_PADS is +32 and stays.
+    b.SetElementVisibility(GAL_LAYER_ID.LAYER_DRAW_BITMAPS, false);
+    b.SetElementVisibility(GAL_LAYER_ID.LAYER_PADS, false);
+    b.SetVisibleAlls();
+    expect(b.GetVisibleLayers().all()).toBe(true);
+    expect(b.IsElementVisible(GAL_LAYER_ID.LAYER_DRAW_BITMAPS)).toBe(true);
+    expect(b.IsElementVisible(GAL_LAYER_ID.LAYER_PADS)).toBe(false);
+  });
+
+  it('SetElementVisibility( LAYER_RATSNEST ) writes the per-item flag on every net item', () => {
+    const b = new BOARD();
+    const t = new PCB_TRACK(b);
+    b.Add(t);
+    const fp = new FOOTPRINT(b);
+    const pad = new PAD(fp);
+    fp.Add(pad);
+    b.Add(fp);
+    const z = new ZONE(b);
+    b.Add(z);
+
+    b.SetElementVisibility(GAL_LAYER_ID.LAYER_RATSNEST, false);
+    expect(t.GetLocalRatsnestVisible()).toBe(false);
+    expect(pad.GetLocalRatsnestVisible()).toBe(false);
+    expect(z.GetLocalRatsnestVisible()).toBe(false);
+
+    // Any other element leaves them alone
+    b.SetElementVisibility(GAL_LAYER_ID.LAYER_VIAS, true);
+    expect(t.GetLocalRatsnestVisible()).toBe(false);
+  });
+
+  it('SetProject hands the file the design settings and the board the net settings', () => {
+    const b = new BOARD();
+    const manager = new SETTINGS_MANAGER();
+    manager.LoadProject('/p/a.kicad_pro', {
+      board: { design_settings: { rules: { min_clearance: 0.123 } } },
+      net_settings: { classes: [{ name: 'Default', clearance: 0.45 }] },
+      text_variables: { REV: '7' },
+    });
+    b.SetProject(manager.Prj());
+
+    expect(b.GetProject()).toBe(manager.Prj());
+    expect(b.GetDesignSettings().m_MinClearance).toBe(123_000);
+    expect(b.GetDesignSettings().m_NetSettings).toBe(manager.Prj().GetProjectFile().NetSettings());
+    expect(b.GetDesignSettings().m_NetSettings.GetDefaultNetclass().GetClearance()).toBe(450_000);
+    expect(manager.Prj().GetProjectFile().m_BoardSettings).toBe(b.GetDesignSettings());
+
+    // The text variables reach the board through the project
+    const token = { value: 'REV' };
+    expect(b.ResolveTextVar(token, 0)).toBe(true);
+    expect(token.value).toBe('7');
+    const name = { value: 'PROJECTNAME' };
+    expect(b.ResolveTextVar(name, 0)).toBe(true);
+    expect(name.value).toBe('a');
+    const vars: string[] = [];
+    b.GetContextualTextVars(vars);
+    expect(vars).toContain('REV');
+    b.SynchronizeProperties();
+    expect(b.GetProperties().get('REV')).toBe('7');
+
+    // aReferenceOnly: the pointer, none of the ownership
+    const ref = new BOARD();
+    ref.SetProject(manager.Prj(), true);
+    expect(ref.GetProject()).toBe(manager.Prj());
+    expect(ref.GetDesignSettings().m_NetSettings).not.toBe(b.GetDesignSettings().m_NetSettings);
+
+    // ClearProject releases both
+    b.ClearProject();
+    expect(b.GetProject()).toBeNull();
+    expect(manager.Prj().GetProjectFile().m_BoardSettings).toBeNull();
+    expect(b.GetDesignSettings().m_NetSettings).not.toBe(
+      manager.Prj().GetProjectFile().NetSettings(),
+    );
+    expect(b.ResolveTextVar({ value: 'PROJECTNAME' }, 0)).toBe(false);
+  });
+
+  it('legacy netclasses in the board file move into the project on SetProject', () => {
+    const b = new BOARD();
+    b.m_LegacyNetclassesLoaded = true;
+    const legacy = new NETCLASS('OLD', false);
+    legacy.SetClearance(777);
+    b.GetDesignSettings().m_NetSettings.SetNetclass('OLD', legacy);
+
+    const manager = new SETTINGS_MANAGER();
+    manager.LoadProject('/p/a.kicad_pro');
+    b.SetProject(manager.Prj());
+
+    expect(manager.Prj().GetProjectFile().NetSettings().GetNetclasses().get('OLD')).toBe(legacy);
+  });
+
+  it('SynchronizeNetsAndNetClasses is a no-op without a project', () => {
+    const b = new BOARD();
+    const net = new NETINFO_ITEM(b, 'HV1');
+    b.Add(net);
+    b.GetDesignSettings().m_NetSettings.LoadFromJson({
+      classes: [{ name: 'HV', clearance: 0.5 }],
+      netclass_patterns: [{ pattern: 'HV*', netclass: 'HV' }],
+    });
+
+    b.SynchronizeNetsAndNetClasses(false);
+    expect(net.GetNetClass().GetName()).toBe('Default');
+
+    const manager = new SETTINGS_MANAGER();
+    manager.LoadProject('/p/a.kicad_pro', {
+      net_settings: {
+        classes: [{ name: 'HV', clearance: 0.5 }],
+        netclass_patterns: [{ pattern: 'HV*', netclass: 'HV' }],
+      },
+    });
+    b.SetProject(manager.Prj());
+    b.SynchronizeNetsAndNetClasses(false);
+    // HV leaves most params unset, so the effective class is the composite with Default
+    expect(net.GetNetClass().GetName()).toBe('HV,Default');
   });
 
   it('GetNetClassAssignmentCandidates drops the unnamed net', () => {

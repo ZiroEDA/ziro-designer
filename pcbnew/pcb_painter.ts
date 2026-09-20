@@ -129,7 +129,11 @@ import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
 import { BOARD_ITEM } from './board_item.js';
 import { BOARD_USE } from './board.js';
-import { HIGH_CONTRAST_MODE, NET_COLOR_MODE, ZONE_DISPLAY_MODE } from '@ziroeda/common/src/project/board_project_settings.js';
+import {
+  HIGH_CONTRAST_MODE,
+  NET_COLOR_MODE,
+  ZONE_DISPLAY_MODE,
+} from '@ziroeda/common/src/project/board_project_settings.js';
 import type { FOOTPRINT } from './footprint.js';
 import { NETINFO_LIST } from './netinfo.js';
 import { PAD } from './pad.js';

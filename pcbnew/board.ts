@@ -65,6 +65,8 @@ import { BOARD_ITEM, DELETED_BOARD_ITEM } from './board_item.js';
 import { ADD_MODE, BOARD_ITEM_CONTAINER, REMOVE_MODE } from './board_item_container.js';
 import { type BOARD_LISTENER, HIGH_LIGHT_INFO } from './board_listener.js';
 import { BOARD_USE, LAYER, LAYER_T } from './board_types.js';
+import { PROJECT, PROJECT_ELEM } from '@ziroeda/common/src/project.js';
+import { NET_SETTINGS } from '@ziroeda/common/src/project/net_settings.js';
 import { TUNING_PROFILES } from '@ziroeda/common/src/project/tuning_profiles.js';
 import type { FOOTPRINT_LIBRARY_ADAPTER } from './footprint_library_adapter.js';
 import {
@@ -116,7 +118,6 @@ import type { DRC_RTREE } from './drc/drc_rtree.js';
 import type { COMMIT } from '@ziroeda/common/src/commit.js';
 import { CONNECTIVITY_DATA, EXCLUDE_ZONES } from './connectivity/connectivity_data.js';
 import { COMPONENT_CLASS_MANAGER } from './component_classes/component_class_manager.js';
-import type { COMPONENT_CLASS_SETTINGS } from '@ziroeda/common/src/project/component_class_settings.js';
 import type { CN_EDGE, PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
 
 export { BOARD_USE, LAYER, LAYER_T } from './board_types.js';
@@ -174,6 +175,9 @@ function FindByFirstNFields(
   return undefined;
 }
 
+/** What a board without a project answers for its tuning profiles. */
+const EMPTY_TUNING_PROFILES = new TUNING_PROFILES();
+
 /**
  * Information pertinent to a Pcbnew printed circuit board.
  */
@@ -195,6 +199,8 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
    * True if netclasses were loaded from the file
    */
   m_LegacyNetclassesLoaded: boolean;
+
+  private m_project: PROJECT | null = null; // project this board is a part of
 
   static ClassOf(aItem: { Type(): KICAD_T } | null): boolean {
     return !!aItem && KICAD_T.PCB_T === aItem.Type();
@@ -689,13 +695,6 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
   }
 
   /**
-   * Copy NETCLASS info to each NET, based on NET membership in a NETCLASS.
-   *
-   * The C++ returns early without a PROJECT, because `bds.m_NetSettings` is
-   * the project file's; ours is the board's own, filled by
-   * `NET_SETTINGS.LoadFromJson`, so there is no guard.
-   */
-  /**
    * `PROJECT_PCB::FootprintLibAdapter( GetProject() )`: the project's footprint
    * libraries, as the host installed them. PROJECT is not ported, so the
    * adapter hangs off the board; null when no project is loaded.
@@ -703,13 +702,11 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
   private m_footprintLibAdapter: FOOTPRINT_LIBRARY_ADAPTER | null = null;
 
   /**
-   * `GetProject()->GetProjectFile().TuningProfileParameters()`: the project
-   * file's tuning profiles, carried by the board the way m_NetSettings is.
+   * `GetProject()->GetProjectFile().TuningProfileParameters()`, where the two
+   * callers upstream read the profiles from; empty when there is no project.
    */
-  private readonly m_tuningProfiles = new TUNING_PROFILES();
-
   GetTuningProfiles(): TUNING_PROFILES {
-    return this.m_tuningProfiles;
+    return this.m_project?.GetProjectFile().TuningProfileParameters() ?? EMPTY_TUNING_PROFILES;
   }
 
   /** `std::unique_ptr<LENGTH_DELAY_CALCULATION> m_lengthDelayCalc`, made with the board. */
@@ -812,6 +809,8 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
   }
 
   SynchronizeNetsAndNetClasses(aResetTrackAndViaSizes: boolean): void {
+    if (!this.m_project) return;
+
     const bds = this.GetDesignSettings();
     const defaultNetClass = bds.m_NetSettings.GetDefaultNetclass();
 
@@ -835,20 +834,13 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
     this.InvokeListeners((l) => l.OnBoardNetSettingsChanged(this));
   }
 
-  /**
-   * Synchronise component classes with the project's assignment rules.
-   *
-   * `GetProject()->GetProjectFile().ComponentClassSettings()` is the C++'s
-   * source; the project lands at stage 6, so the settings come in as an
-   * argument until then.
-   */
-  SynchronizeComponentClasses(
-    aSettings: COMPONENT_CLASS_SETTINGS,
-    aNewSheetPaths: ReadonlySet<string>,
-  ): boolean {
+  /** Synchronise component classes with the project's assignment rules. */
+  SynchronizeComponentClasses(aNewSheetPaths: ReadonlySet<string>): boolean {
+    const settings = this.GetProject()!.GetProjectFile().ComponentClassSettings();
+
     return this.m_componentClassManager.SyncDynamicComponentClassAssignments(
-      aSettings.GetComponentClassAssignments(),
-      aSettings.GetEnableSheetComponentClasses(),
+      settings.GetComponentClassAssignments(),
+      settings.GetEnableSheetComponentClasses(),
       aNewSheetPaths,
     );
   }
@@ -1153,6 +1145,79 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
    */
   GetBoardUse(): BOARD_USE {
     return this.m_boardUse;
+  }
+
+  GetProject(): PROJECT | null {
+    return this.m_project;
+  }
+
+  /**
+   * Link a board to a given project.
+   *
+   * Calling this also loads the PROJECT's board design settings, and the
+   * project's net settings become the board's.
+   *
+   * @param aReferenceOnly avoids taking ownership of settings stored in the project
+   */
+  SetProject(aProject: PROJECT | null, aReferenceOnly = false): void {
+    if (this.m_project) this.ClearProject();
+
+    this.m_project = aProject;
+
+    if (aProject && !aReferenceOnly) {
+      const project = aProject.GetProjectFile();
+
+      // Link the design settings object to the project file
+      project.m_BoardSettings = this.GetDesignSettings();
+
+      // Set parent, which also will load the values from JSON stored in the project if we don't
+      // have legacy design settings loaded already
+      if (!this.m_LegacyDesignSettingsLoaded) project.loadBoardSettings();
+
+      // The DesignSettings' netclasses pointer will be pointing to its internal netclasses
+      // list at this point. If we loaded anything into it from a legacy board file then we
+      // want to transfer it over to the project netclasses list.
+      if (this.m_LegacyNetclassesLoaded) {
+        const legacySettings = this.GetDesignSettings().m_NetSettings;
+        const projectSettings = project.NetSettings();
+
+        projectSettings.SetDefaultNetclass(legacySettings.GetDefaultNetclass());
+        projectSettings.SetNetclasses(legacySettings.GetNetclasses());
+        projectSettings.SetNetclassPatternAssignments(
+          legacySettings.GetNetclassPatternAssignments(),
+        );
+      }
+
+      // Now update the DesignSettings' netclass pointer to point into the project.
+      this.GetDesignSettings().m_NetSettings = project.NetSettings();
+    }
+  }
+
+  /**
+   * `ClearProject`: the design settings stop being the file's, and the net
+   * settings go back to a fresh set of their own (upstream leaves a null
+   * behind; nothing reads it before the next `SetProject`).
+   */
+  ClearProject(): void {
+    if (!this.m_project) return;
+
+    const project = this.m_project.GetProjectFile();
+
+    // Owned by the BOARD
+    if (project.m_BoardSettings) project.m_BoardSettings = null;
+
+    this.GetDesignSettings().m_NetSettings = new NET_SETTINGS();
+    this.m_project = null;
+  }
+
+  ProjectElementType(): PROJECT_ELEM {
+    return PROJECT_ELEM.BOARD;
+  }
+
+  /** Copy the project's text variables into the board's properties. */
+  SynchronizeProperties(): void {
+    if (this.m_project && !this.m_project.IsNullProject())
+      this.SetProperties(this.m_project.GetTextVars());
   }
 
   IncrementTimeStamp(): void {
@@ -1474,19 +1539,21 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
     } else if (token.value === 'VARIANT_DESC') {
       token.value = this.GetVariantDescription(this.GetCurrentVariant());
       return true;
+    } else if (token.value === 'PROJECTNAME' && this.GetProject()) {
+      token.value = this.GetProject()!.GetProjectName();
+      return true;
     }
-    // else if( token->IsSameAs( wxT( "PROJECTNAME" ) ) && GetProject() )    -- PROJECT not ported
 
     const v = token.value;
 
     if (this.m_properties.has(v)) {
       token.value = this.m_properties.get(v)!;
       return true;
-    } else if (this.GetTitleBlock().TextVarResolver(token, null)) {
+    } else if (this.GetTitleBlock().TextVarResolver(token, this.m_project)) {
       return true;
     }
 
-    // if( GetProject() && GetProject()->TextVarResolver( token ) ) return true;   -- PROJECT not ported
+    if (this.GetProject()?.TextVarResolver(token)) return true;
 
     return false;
   }
@@ -1744,15 +1811,11 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
     }
   }
 
-  /**
-   * `GetVisibleElements()`: the project's set, or the built-in default.
-   *
-   * `return m_project ? m_project->GetLocalSettings().m_VisibleItems
-   *                   : GAL_SET::DefaultVisible();` — PROJECT is not ported,
-   * so this is always the second branch, as elsewhere in this file.
-   */
+  /** `GetVisibleElements()`: the project's set, or the built-in default. */
   GetVisibleElements(): GAL_SET {
-    return GAL_SET.DefaultVisible();
+    return this.m_project
+      ? this.m_project.GetLocalSettings().m_VisibleItems
+      : GAL_SET.DefaultVisible();
   }
 
   /**
@@ -2077,8 +2140,9 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
     TITLE_BLOCK.GetContextualTextVars(aVars);
 
-    // if( GetProject() ) for( entry : GetProject()->GetTextVars() ) add( entry.first );
-    // — PROJECT not ported.
+    if (this.GetProject()) {
+      for (const [name] of this.GetProject()!.GetTextVars()) add(name);
+    }
   }
 
   /**
@@ -2953,7 +3017,12 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
    * @see enum GAL_LAYER_ID
    */
   IsElementVisible(aLayer: GAL_LAYER_ID): boolean {
-    return true; // !m_project || m_project->GetLocalSettings().m_VisibleItems[aLayer - GAL_LAYER_ID_START] -- PROJECT not ported
+    return (
+      !this.m_project ||
+      this.m_project
+        .GetLocalSettings()
+        .m_VisibleItems.test(aLayer - GAL_LAYER_ID.GAL_LAYER_ID_START)
+    );
   }
 
   /**
@@ -2964,8 +3033,30 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
    * @see enum GAL_LAYER_ID
    */
   SetElementVisibility(aLayer: GAL_LAYER_ID, isEnabled: boolean): void {
-    // if( m_project ) m_project->GetLocalSettings().m_VisibleItems.set( ... );   -- PROJECT not ported
-    // switch( aLayer ) { case LAYER_RATSNEST: ... }                                -- connectivity pending (#636)
+    if (this.m_project) {
+      this.m_project
+        .GetLocalSettings()
+        .m_VisibleItems.set(aLayer - GAL_LAYER_ID.GAL_LAYER_ID_START, isEnabled);
+    }
+
+    switch (aLayer) {
+      case GAL_LAYER_ID.LAYER_RATSNEST: {
+        // because we have a tool to show/hide ratsnest relative to a pad or a footprint
+        // so the hide/show option is a per item selection
+
+        for (const track of this.Tracks()) track.SetLocalRatsnestVisible(isEnabled);
+
+        for (const footprint of this.Footprints()) {
+          for (const pad of footprint.Pads()) pad.SetLocalRatsnestVisible(isEnabled);
+        }
+
+        for (const zone of this.Zones()) zone.SetLocalRatsnestVisible(isEnabled);
+
+        break;
+      }
+
+      default:
+    }
   }
 
   /** `BOARD::FillItemMap( std::map<KIID, EDA_ITEM*>& )` (board.cpp:2004). */
@@ -3319,7 +3410,10 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
    */
   IsLayerVisible(aLayer: PCB_LAYER_ID): boolean {
     // If there is no project, assume layer is visible always
-    return this.GetDesignSettings().IsLayerEnabled(aLayer); // && ( !m_project || ...m_VisibleLayers[aLayer] ) -- PROJECT not ported
+    return (
+      this.GetDesignSettings().IsLayerEnabled(aLayer) &&
+      (!this.m_project || this.m_project.GetLocalSettings().m_VisibleLayers.test(aLayer))
+    );
   }
 
   /**
@@ -3328,7 +3422,9 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
    * @return the visible layers in bit-mapped form.
    */
   GetVisibleLayers(): LSET {
-    return LSET.AllLayersMask(); // m_project ? m_project->GetLocalSettings().m_VisibleLayers : ... -- PROJECT not ported
+    return this.m_project
+      ? this.m_project.GetLocalSettings().m_VisibleLayers
+      : LSET.AllLayersMask();
   }
 
   /**
@@ -3338,7 +3434,7 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
    * @param aLayerMask = The new bit-mask of visible layers.
    */
   SetVisibleLayers(aLayerSet: LSET): void {
-    // if( m_project ) m_project->GetLocalSettings().m_VisibleLayers = aLayerSet;   -- PROJECT not ported
+    if (this.m_project) this.m_project.GetLocalSettings().m_VisibleLayers = aLayerSet;
   }
 
   /**

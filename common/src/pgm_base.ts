@@ -10,7 +10,11 @@
  */
 
 import type { MOUSE_DRAG_ACTION } from './mouse_drag_action.js';
+import { PROJECT } from './project.js';
+import { PROJECT_FILE, PROJECT_FILE_EXTENSION } from './project/project_file.js';
+import { PROJECT_LOCAL_SETTINGS } from './project/project_local_settings.js';
 import { COLOR_SETTINGS } from './settings/color_settings.js';
+import type { JsonObject, JsonValue } from './settings/json_settings.js';
 
 /** `COMMON_SETTINGS`, the slice the GAL, the panel and the view controls read. */
 export interface COMMON_SETTINGS_LIKE {
@@ -55,12 +59,22 @@ export interface COMMON_SETTINGS_INPUT {
 }
 
 /**
- * `SETTINGS_MANAGER`, the part `GetAppSettings<T>( "pcbnew" )` needs: the
- * application registers each editor's settings object under its name
- * (`"pcbnew"`, `"fpedit"`, `"cvpcb"`), and the readers fetch it.
+ * `SETTINGS_MANAGER`: the application registers each editor's settings
+ * object under its name (`"pcbnew"`, `"fpedit"`, `"cvpcb"`) and the readers
+ * fetch it; and it owns the open PROJECTs. The project half takes and returns
+ * parsed JSON — the file system is the app's — and has no lock file.
  */
 export class SETTINGS_MANAGER {
   private m_app_settings = new Map<string, object>();
+
+  /// Loaded projects (ownership here)
+  private m_projects_list: PROJECT[] = [];
+
+  /// Loaded projects, mapped according to project full name
+  private m_projects = new Map<string, PROJECT>();
+
+  /// Loaded project files, mapped according to project full name
+  private m_project_files = new Map<string, PROJECT_FILE>();
 
   /// Loaded color settings map (filename, settings). Filename may be a full path.
   private m_color_settings = new Map<string, COLOR_SETTINGS>();
@@ -74,6 +88,170 @@ export class SETTINGS_MANAGER {
 
   constructor() {
     this.registerBuiltinColorSettings();
+  }
+
+  /**
+   * Loads a project or sets up a new project with a specified path.
+   *
+   * @param aFullPath is the full path to the project; a `.kicad_sch` or
+   *                  `.kicad_pcb` is normalised to the `.kicad_pro`.
+   * @param aProJson is the parsed `.kicad_pro`, or null when the file does not exist.
+   * @param aPrlJson is the parsed `.kicad_prl`, or null when the file does not exist.
+   * @param aSetActive if true will set the new project as the active project.
+   * @return true if the PROJECT_FILE was loaded, false when it was created from defaults.
+   */
+  LoadProject(
+    aFullPath: string,
+    aProJson: JsonValue | null = null,
+    aPrlJson: JsonValue | null = null,
+    aSetActive = true,
+  ): boolean {
+    // Normalize path to current project extension. Users may open legacy .pro files,
+    // or the OS may hand us a .kicad_sch/.kicad_pcb via file association or drag-and-drop.
+    const fullPath = normalizeProjectPath(aFullPath);
+
+    // If already loaded, we are all set.  This might be called more than once over a project's
+    // lifetime in case the project is first loaded by the KiCad manager and then Eeschema or
+    // Pcbnew try to load it again when they are launched.
+    if (this.m_projects.has(fullPath)) return true;
+
+    // No MDI yet
+    if (aSetActive && this.m_projects_list.length > 0) {
+      const oldProject = this.m_projects_list[0]!;
+      this.unloadProjectFile(oldProject);
+      this.m_projects.delete(oldProject.GetProjectFullName());
+      this.m_projects_list.splice(0, 1);
+    }
+
+    const project = new PROJECT();
+
+    project.setProjectFullName(fullPath);
+
+    const success = this.loadProjectFile(project, aProJson);
+
+    if (success) project.SetReadOnly(project.GetProjectFile().IsReadOnly());
+
+    this.m_projects_list.push(project);
+    this.m_projects.set(fullPath, project);
+
+    const settings = new PROJECT_LOCAL_SETTINGS(project.GetProjectName());
+
+    if (aPrlJson !== null) settings.LoadFromJson(aPrlJson);
+
+    project.setLocalSettings(settings);
+
+    return success;
+  }
+
+  /**
+   * Saves, unloads and unregisters the given PROJECT.
+   *
+   * @return true if the project was removed from the manager.
+   */
+  UnloadProject(aProject: PROJECT | null): boolean {
+    if (!aProject || !this.m_projects.has(aProject.GetProjectFullName())) return false;
+
+    const projectPath = aProject.GetProjectFullName();
+    const toRemove = this.m_projects.get(projectPath)!;
+    const wasActiveProject = this.m_projects_list[0] === toRemove;
+
+    if (!this.unloadProjectFile(aProject)) return false;
+
+    this.m_projects_list.splice(this.m_projects_list.indexOf(toRemove), 1);
+    this.m_projects.delete(projectPath);
+
+    if (wasActiveProject) {
+      // Immediately reload a null project; this is required until the rest of the application
+      // is refactored to not assume that Prj() always works
+      if (this.m_projects_list.length === 0) this.LoadProject('');
+    }
+
+    return true;
+  }
+
+  /** A helper while we are not MDI-capable -- return the one and only project. */
+  Prj(): PROJECT {
+    // No MDI yet:  First project in the list is the active project
+    if (this.m_projects_list.length === 0) return SETTINGS_MANAGER.s_emptyProject;
+
+    return this.m_projects_list[0]!;
+  }
+
+  private static readonly s_emptyProject = new PROJECT();
+
+  /** Checks if a given path is probably a valid KiCad project loaded here. */
+  IsProjectOpen(): boolean {
+    return this.m_projects.size > 0;
+  }
+
+  IsProjectOpenNotDummy(): boolean {
+    return (
+      this.m_projects.size > 1 ||
+      (this.m_projects.size === 1 && this.m_projects_list[0]!.GetProjectFullName() !== '')
+    );
+  }
+
+  /** Retrieves a loaded project by full path. */
+  GetProject(aFullPath: string): PROJECT | null {
+    return this.m_projects.get(aFullPath) ?? null;
+  }
+
+  /** Returns a list of open projects; not the empty default project. */
+  GetOpenProjects(): string[] {
+    const ret: string[] = [];
+
+    for (const [path] of this.m_projects) {
+      // Don't save empty projects (these are the default project settings)
+      if (path !== '') ret.push(path);
+    }
+
+    return ret;
+  }
+
+  /**
+   * `SaveProject`: the two files' JSON, for the app to write. The project
+   * file is what `PROJECT_FILE::SaveToFile` produces (`meta.filename` set),
+   * the local settings what `PROJECT_LOCAL_SETTINGS::SaveToFile` does.
+   */
+  SaveProject(aProject: PROJECT | null = null): { pro: JsonObject; prl: JsonObject } | null {
+    const project = aProject ?? this.Prj();
+
+    if (!this.m_projects.has(project.GetProjectFullName())) return null;
+
+    return {
+      pro: project.GetProjectFile().SaveToJson(),
+      prl: project.GetLocalSettings().SaveToJson(),
+    };
+  }
+
+  private loadProjectFile(aProject: PROJECT, aProJson: JsonValue | null): boolean {
+    const file = new PROJECT_FILE(aProject.GetProjectName());
+
+    this.m_project_files.set(aProject.GetProjectFullName(), file);
+
+    aProject.setProjectFile(file);
+    file.SetProject(aProject);
+
+    if (aProJson === null) {
+      // JSON_SETTINGS::LoadFromFile on a missing file: the defaults.
+      file.LoadFromJson({});
+      return false;
+    }
+
+    file.LoadFromJson(aProJson);
+    return true;
+  }
+
+  private unloadProjectFile(aProject: PROJECT | null): boolean {
+    if (!aProject) return false;
+
+    const name = aProject.GetProjectFullName();
+
+    if (!this.m_project_files.has(name)) return false;
+
+    this.m_project_files.delete(name);
+
+    return true;
   }
 
   /** `RegisterSettings( aSettings )`: the app settings under their filename. */
@@ -176,6 +354,19 @@ export class SETTINGS_MANAGER {
 /** `DEFAULT_THEME`. */
 export const DEFAULT_THEME = 'user';
 
+/** `wxFileName::SetExt( ProjectFileExtension )` when the name has another. */
+function normalizeProjectPath(aFullPath: string): string {
+  const slash = aFullPath.lastIndexOf('/');
+  const file = aFullPath.slice(slash + 1);
+  const dot = file.lastIndexOf('.');
+
+  if (file === '' || dot <= 0) return aFullPath;
+
+  if (file.slice(dot + 1) === PROJECT_FILE_EXTENSION) return aFullPath;
+
+  return `${aFullPath.slice(0, slash + 1)}${file.slice(0, dot)}.${PROJECT_FILE_EXTENSION}`;
+}
+
 /** `::GetColorSettings( aName )`: `Pgm().GetSettingsManager().GetColorSettings( aName )`. */
 export function GetColorSettings(aName: string): COLOR_SETTINGS {
   return Pgm().GetSettingsManager().GetColorSettings(aName);
@@ -187,6 +378,10 @@ export class PGM_BASE {
 
   constructor(aCommonSettings: COMMON_SETTINGS_LIKE | null = null) {
     this.m_settings = aCommonSettings;
+
+    // `InitPgm`: "Need to create a project early for now (it can have an
+    // empty path for the moment)", so that Prj() always works.
+    this.m_settings_manager.LoadProject('');
   }
 
   GetCommonSettings(): COMMON_SETTINGS_LIKE | null {

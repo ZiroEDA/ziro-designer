@@ -97,7 +97,7 @@ export class PROJECT_LOCAL_SETTINGS extends JSON_SETTINGS {
   m_OpenJobSets: string[] = [];
 
   /** The set of currently visible layers */
-  m_VisibleLayers: LSET = LSET.AllLayersMask();
+  m_VisibleLayers: LSET = new LSET(LSET.AllLayersMask());
 
   /** The GAL layers (aka items) that are turned on for viewing (@see GAL_LAYER_ID) */
   m_VisibleItems: GAL_SET = GAL_SET.DefaultVisible();

@@ -3,10 +3,18 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * `include/project/component_class_settings.h` + `common/project/component_class_settings.cpp`:
- * a dynamic component class assignment and the project's list of them. The
- * JSON side (NESTED_SETTINGS under the project file) lands with the project
- * (#636 stage 6).
+ * a dynamic component class assignment and the project's list of them, a
+ * `NESTED_SETTINGS` at `component_class_settings` of the project file.
  */
+import {
+  type JSON_SETTINGS,
+  type JsonObject,
+  type JsonValue,
+  NESTED_SETTINGS,
+  PARAM_LAMBDA,
+} from '../settings/json_settings.js';
+
+const componentClassSettingsSchemaVersion = 0;
 
 /// A condition match type
 export enum CONDITION_TYPE {
@@ -246,9 +254,127 @@ export class COMPONENT_CLASS_ASSIGNMENT_DATA {
  * COMPONENT_CLASS_SETTINGS stores data for component classes, including rules for automatic
  * generation of component classes.
  */
-export class COMPONENT_CLASS_SETTINGS {
+export class COMPONENT_CLASS_SETTINGS extends NESTED_SETTINGS {
   private m_enableSheetComponentClasses = false;
   private m_componentClassAssignments: COMPONENT_CLASS_ASSIGNMENT_DATA[] = [];
+
+  constructor(aParent: JSON_SETTINGS | null = null, aPath = 'component_class_settings') {
+    // aLoadFromFile = false: the params are registered below, so the load
+    // runs after them (upstream's members exist before its ctor body; ours
+    // do not until the field initialisers have run).
+    super('component_class_settings', componentClassSettingsSchemaVersion, aParent, aPath, false);
+
+    this.m_params.push(
+      new PARAM_LAMBDA<JsonValue>(
+        'sheet_component_classes',
+        () => ({ enabled: this.m_enableSheetComponentClasses }),
+        (aJson) => {
+          if (aJson === null || typeof aJson !== 'object' || Array.isArray(aJson)) return;
+
+          if (!('enabled' in aJson)) return;
+
+          this.m_enableSheetComponentClasses = Boolean(aJson.enabled);
+        },
+        {},
+      ),
+    );
+
+    this.m_params.push(
+      new PARAM_LAMBDA<JsonValue>(
+        'assignments',
+        () =>
+          this.m_componentClassAssignments.map((a) => COMPONENT_CLASS_SETTINGS.saveAssignment(a)),
+        (aJson) => {
+          if (!Array.isArray(aJson)) return;
+
+          this.ClearComponentClassAssignments();
+
+          for (const assignmentJson of aJson) {
+            if (assignmentJson === null || typeof assignmentJson !== 'object') continue;
+            if (Array.isArray(assignmentJson)) continue;
+
+            this.m_componentClassAssignments.push(
+              COMPONENT_CLASS_SETTINGS.loadAssignment(assignmentJson),
+            );
+          }
+        },
+        {},
+      ),
+    );
+
+    if (aParent) this.LoadFromFile();
+  }
+
+  private static saveAssignment(aAssignment: COMPONENT_CLASS_ASSIGNMENT_DATA): JsonObject {
+    const ret: JsonObject = {};
+
+    const matchOperator =
+      aAssignment.GetConditionsOperator() === CONDITIONS_OPERATOR.ALL ? 'ALL' : 'ANY';
+
+    ret.component_class = aAssignment.GetComponentClass();
+    ret.conditions_operator = matchOperator;
+
+    const conditionsJson: JsonObject = {};
+
+    for (const [conditionType, primaryData, secondaryData] of aAssignment.GetConditions()) {
+      const conditionJson: JsonObject = {};
+
+      if (primaryData !== '') conditionJson.primary = primaryData;
+
+      if (secondaryData !== '') conditionJson.secondary = secondaryData;
+
+      const conditionName = COMPONENT_CLASS_ASSIGNMENT_DATA.GetConditionName(conditionType);
+      let suffix = 1;
+      let uniqueName = conditionName;
+
+      while (uniqueName in conditionsJson) uniqueName = `${conditionName}-${suffix++}`;
+
+      conditionsJson[uniqueName] = conditionJson;
+    }
+
+    ret.conditions = conditionsJson;
+
+    return ret;
+  }
+
+  private static loadAssignment(aJson: JsonObject): COMPONENT_CLASS_ASSIGNMENT_DATA {
+    const assignment = new COMPONENT_CLASS_ASSIGNMENT_DATA();
+
+    assignment.SetComponentClass(String(aJson.component_class ?? ''));
+
+    const matchOperator = String(aJson.conditions_operator ?? '');
+
+    if (matchOperator === 'ALL') assignment.SetConditionsOperation(CONDITIONS_OPERATOR.ALL);
+    else assignment.SetConditionsOperation(CONDITIONS_OPERATOR.ANY);
+
+    const conditions = aJson.conditions;
+
+    if (conditions !== null && typeof conditions === 'object' && !Array.isArray(conditions)) {
+      for (const [conditionTypeStr, conditionData] of Object.entries(conditions)) {
+        let primary = '';
+        let secondary = '';
+
+        // wxString::BeforeFirst( '-' ): the whole string when there is no '-'.
+        const typeStr = conditionTypeStr.split('-')[0] ?? '';
+
+        const conditionType = COMPONENT_CLASS_ASSIGNMENT_DATA.GetConditionType(typeStr);
+
+        if (
+          conditionData !== null &&
+          typeof conditionData === 'object' &&
+          !Array.isArray(conditionData)
+        ) {
+          if ('primary' in conditionData) primary = String(conditionData.primary);
+
+          if ('secondary' in conditionData) secondary = String(conditionData.secondary);
+        }
+
+        assignment.AddCondition(conditionType, primary, secondary);
+      }
+    }
+
+    return assignment;
+  }
 
   /// Sets whether component classes should be generated for components in hierarchical sheets
   SetEnableSheetComponentClasses(aEnabled: boolean): void {

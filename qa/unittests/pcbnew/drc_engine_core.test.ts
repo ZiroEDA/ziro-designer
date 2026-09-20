@@ -14,6 +14,7 @@ import { PARSE_ERROR } from '@ziroeda/common/src/dsnlexer.js';
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import type { OutStr } from '@ziroeda/common/src/font/font.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { SETTINGS_MANAGER } from '@ziroeda/common/src/pgm_base.js';
 import {
   Reporter,
   RPT_SEVERITY_ERROR,
@@ -73,13 +74,21 @@ interface Fixture {
  */
 function makeBoard(): Fixture {
   const board = new BOARD();
+
+  // SETTINGS_MANAGER::LoadProject + BOARD::SetProject: the netclasses are the
+  // project file's, and a board without a project never syncs them.
+  const manager = new SETTINGS_MANAGER();
+  manager.LoadProject('/qa/core.kicad_pro', {
+    net_settings: {
+      classes: [DEFAULT_CLASS_JSON, { name: 'HV', clearance: 0.5, priority: 0 }],
+      netclass_patterns: [{ pattern: 'HV*', netclass: 'HV' }],
+    },
+  });
+  board.SetProject(manager.Prj());
+
   const bds = board.GetDesignSettings();
 
   bds.m_MinClearance = mm(0.3);
-  bds.m_NetSettings.LoadFromJson({
-    classes: [DEFAULT_CLASS_JSON, { name: 'HV', clearance: 0.5, priority: 0 }],
-    netclass_patterns: [{ pattern: 'HV*', netclass: 'HV' }],
-  });
 
   const hv = new NETINFO_ITEM(board, 'HV1');
   const sig = new NETINFO_ITEM(board, 'SIG');

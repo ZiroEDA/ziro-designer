@@ -33,7 +33,9 @@ import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
 import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { LSET } from '@ziroeda/common/src/lset.js';
+import { SETTINGS_MANAGER } from '@ziroeda/common/src/pgm_base.js';
 import { ENUM_MAP } from '@ziroeda/common/src/properties/property.js';
+import type { JsonValue } from '@ziroeda/common/src/settings/json_settings.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD } from '../board.js';
 import { loadKicadNetlist } from '../netlist_reader/kicad_netlist_reader.js';
@@ -177,28 +179,22 @@ export function loadBoardForDrc(aRequest: DRC_JOB_REQUEST): BOARD {
   board.BuildListOfNets();
   board.BuildConnectivity();
 
+  // SETTINGS_MANAGER::LoadProject + BOARD::SetProject: the project file's
+  // board.design_settings and net_settings become the board's.
+  let pro: JsonValue | null = null;
+
   if (aRequest.projectText !== null) {
-    let json: unknown = null;
-
     try {
-      json = JSON.parse(aRequest.projectText);
+      pro = JSON.parse(aRequest.projectText) as JsonValue;
     } catch {
-      json = null;
+      pro = null;
     }
-
-    const pro = json !== null && typeof json === 'object' ? (json as Record<string, unknown>) : {};
-    const boardJ =
-      pro.board !== null && typeof pro.board === 'object'
-        ? (pro.board as Record<string, unknown>)
-        : {};
-
-    if (boardJ.design_settings !== undefined)
-      board.GetDesignSettings().LoadFromJson(boardJ.design_settings);
-    if (pro.net_settings !== undefined)
-      board.GetDesignSettings().m_NetSettings.LoadFromJson(pro.net_settings);
-    if (pro.tuning_profiles !== undefined)
-      board.GetTuningProfiles().LoadFromJson(pro.tuning_profiles);
   }
+
+  const manager = new SETTINGS_MANAGER();
+
+  manager.LoadProject(aRequest.boardPath, pro);
+  board.SetProject(manager.Prj());
 
   board.SynchronizeNetsAndNetClasses(false);
   board.SynchronizeTuningProfileProperties();

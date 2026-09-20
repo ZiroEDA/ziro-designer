@@ -28,7 +28,11 @@ import { LSET } from '@ziroeda/common/src/lset.js';
 import { PgmOrNull } from '@ziroeda/common/src/pgm_base.js';
 import type { NETCLASS } from '@ziroeda/common/src/netclass.js';
 import type { VIEW } from '@ziroeda/common/src/view/view.js';
-import { HIGH_CONTRAST_MODE, NET_COLOR_MODE, RATSNEST_MODE } from '@ziroeda/common/src/project/board_project_settings.js';
+import {
+  HIGH_CONTRAST_MODE,
+  NET_COLOR_MODE,
+  RATSNEST_MODE,
+} from '@ziroeda/common/src/project/board_project_settings.js';
 import type { CONNECTIVITY_DATA } from '../connectivity/connectivity_data.js';
 import type { PCB_RENDER_SETTINGS } from '../pcb_painter.js';
 import type { PCBNEW_SETTINGS } from '../pcbnew_settings.js';

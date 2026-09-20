@@ -590,6 +590,9 @@ export class JSON_SETTINGS {
   /** The list of params (owned by this object) */
   protected m_params: PARAM_BASE[] = [];
 
+  /** A map of starting schema version to a pair of <ending version, migrator function> */
+  protected m_migrators = new Map<number, [number, () => boolean]>();
+
   constructor(
     aFilename: string,
     aLocation: SETTINGS_LOC,
@@ -682,15 +685,57 @@ export class JSON_SETTINGS {
     this.m_internals =
       aJson !== null && typeof aJson === 'object' && !Array.isArray(aJson) ? { ...aJson } : {};
 
-    const version = this.Get<number>('meta.version');
+    // If parse succeeds, check if schema migration is required
+    const filever = this.Get<number>('meta.version') ?? -1;
 
-    if (version !== undefined && version > this.m_schemaVersion) this.m_isFutureFormat = true;
+    if (filever >= 0 && filever < this.m_schemaVersion) {
+      this.Migrate();
+    } else if (filever > this.m_schemaVersion) {
+      this.m_isFutureFormat = true;
+    }
 
     this.Load();
 
     for (const settings of this.m_nested_settings) settings.LoadFromFile();
 
     this.m_modified = false;
+  }
+
+  /**
+   * Register a migration from one schema version to another.
+   *
+   * If the schema version in the file loaded from disk is less than the schema version of the
+   * JSON_SETTINGS class, migration functions will be called in order until the data is at the
+   * current schema version.
+   */
+  protected registerMigration(
+    aOldSchemaVersion: number,
+    aNewSchemaVersion: number,
+    aMigrator: () => boolean,
+  ): void {
+    console.assert(aNewSchemaVersion > aOldSchemaVersion);
+    this.m_migrators.set(aOldSchemaVersion, [aNewSchemaVersion, aMigrator]);
+  }
+
+  /** Migrate the schema of this settings from the version in the file to the latest version. */
+  Migrate(): boolean {
+    let filever = this.Get<number>('meta.version') ?? 0;
+
+    while (filever < this.m_schemaVersion) {
+      const pair = this.m_migrators.get(filever);
+
+      // Migrator missing for this version
+      if (!pair) return false;
+
+      if (pair[1]()) {
+        filever = pair[0];
+        this.Set<number>('meta.version', filever);
+      } else {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   /** `SaveToJson`: `Store()` and hand back the tree, for the caller to write. */

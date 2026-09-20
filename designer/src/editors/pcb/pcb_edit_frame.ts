@@ -254,9 +254,11 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
       aBuildConnectivity = true;
     }
 
-    // m_pcb->ClearProject() / aBoard->SetProject( &Prj() ): with PROJECT (#636 stage 6)
+    if (this.m_pcb) this.m_pcb.ClearProject();
 
     super.SetBoard(aBoard, aReporter);
+
+    aBoard!.SetProject(this.Prj());
 
     if (aBuildConnectivity) aBoard!.BuildConnectivity();
 

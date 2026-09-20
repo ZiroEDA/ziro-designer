@@ -10,6 +10,8 @@
  * viewer pipeline, layer/object controls and presets are fully functional.
  */
 
+import { Pgm } from '@ziroeda/common/src/pgm_base.js';
+import type { JsonValue } from '@ziroeda/common/src/settings/json_settings.js';
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import { editPointColors } from '@ziroeda/common/src/color4d.js';
 import { galPenWidth, galSnapPx } from '@ziroeda/common/src/gal_pixel_grid.js';
@@ -332,6 +334,7 @@ import {
 import {
   druFileName,
   findProjectDru,
+  findProjectPrl,
   findProjectPro,
   readBoardSetupPro,
   writeBoardSetupProText,
@@ -974,8 +977,8 @@ function promotePadsForCommand(
  * loaded into the board's BOARD_DESIGN_SETTINGS and its `net_settings` into
  * the board's own NET_SETTINGS, the nets take their classes
  * (`SynchronizeNetsAndNetClasses`), the engine compiles the implicit rules
- * plus the custom ones and fills the clearance cache. PROJECT itself is not
- * ported, so the files come from the editor's project file list.
+ * plus the custom ones and fills the clearance cache. The files come from
+ * the editor's project file list, the way SETTINGS_MANAGER reads them off disk.
  *
  * On a later change of those files (Board Setup's OK persists them) the
  * pads and tracks repaint with the new clearances, as
@@ -990,29 +993,33 @@ function syncProjectSettingsIntoBoard(
 ): void {
   const kb = frame.GetBoard();
   if (!kb) return;
+  // SETTINGS_MANAGER::LoadProject + BOARD::SetProject: the `.kicad_pro` is
+  // the PROJECT_FILE, and its `board.design_settings`, `net_settings` and
+  // `tuning_profiles` become the board's. A changed file (Board Setup's OK
+  // persists one) is a fresh load: the manager drops the old project first.
   const pro = findProjectPro(files, rootPro);
+  const manager = Pgm().GetSettingsManager();
+  const proPath = pro?.name ?? `${rootPro ?? 'untitled'}.kicad_pro`;
+  let proJson: JsonValue | null = null;
   if (pro) {
-    let json: unknown = null;
     try {
-      json = JSON.parse(pro.text);
+      proJson = JSON.parse(pro.text) as JsonValue;
     } catch {
-      json = null;
+      proJson = null;
     }
-    const j = json !== null && typeof json === 'object' ? (json as Record<string, unknown>) : {};
-    // `board.design_settings`: the BOARD_DESIGN_SETTINGS nested settings - the
-    // constraints (min clearance, copper-to-hole, ...) live only here, never
-    // in the board file, so without this every board ran on the defaults.
-    const boardJ =
-      j.board !== null && typeof j.board === 'object' ? (j.board as Record<string, unknown>) : {};
-    if (boardJ.design_settings !== undefined)
-      kb.GetDesignSettings().LoadFromJson(boardJ.design_settings);
-    if (j.net_settings !== undefined)
-      kb.GetDesignSettings().m_NetSettings.LoadFromJson(j.net_settings);
-    // `PROJECT_FILE::m_tuningProfileParameters`: the time-domain profiles the
-    // matched-length and skew DRC providers query. Without them every delay
-    // falls back to the defaults.
-    if (j.tuning_profiles !== undefined) kb.GetTuningProfiles().LoadFromJson(j.tuning_profiles);
   }
+  const prl = findProjectPrl(files, rootPro);
+  let prlJson: JsonValue | null = null;
+  if (prl) {
+    try {
+      prlJson = JSON.parse(prl.text) as JsonValue;
+    } catch {
+      prlJson = null;
+    }
+  }
+  if (manager.GetProject(proPath)) manager.UnloadProject(manager.GetProject(proPath));
+  manager.LoadProject(proPath, proJson, prlJson);
+  kb.SetProject(manager.Prj());
   // `SynchronizeNetsAndNetClasses( true )` after the dialog resets the custom
   // track/via sizes to the Default class; the load's own call (inside
   // InitEngine's loadImplicitRules) passes false.

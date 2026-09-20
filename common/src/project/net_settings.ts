@@ -334,7 +334,14 @@ export function resolveEffectiveNetClass(
 // helpers — is here. The plain-object `NetClass`/`NetClassesData` forms above
 // are the older surface the designer still reads and go with stage 2.
 
-import { type Color4d, COLOR4D_UNSPECIFIED, parseColor4d } from '../color4d.js';
+import { type Color4d, COLOR4D_UNSPECIFIED, parseColor4d, toCssString } from '../color4d.js';
+import {
+  type JSON_SETTINGS,
+  type JsonObject,
+  type JsonValue,
+  NESTED_SETTINGS,
+  PARAM_LAMBDA,
+} from '../settings/json_settings.js';
 import { pcbIUScale, schIUScale } from '../eda_units.js';
 import { CombinedMatcherContext, EdaCombinedMatcher } from '../eda_pattern_match.js';
 import { NETCLASS } from '../netclass.js';
@@ -358,6 +365,56 @@ function getInSchUnits(aObj: Record<string, unknown>, aKey: string): number | un
   if (typeof v === 'number') return schIUScale.milsToIU(v);
 
   return undefined;
+}
+
+// const int netSettingsSchemaVersion = 0;
+// const int netSettingsSchemaVersion = 1;     // new overbar syntax
+// const int netSettingsSchemaVersion = 2;     // exclude buses from netclass members
+// const int netSettingsSchemaVersion = 3;     // netclass assignment patterns
+// const int netSettingsSchemaVersion = 4;     // netclass ordering
+const netSettingsSchemaVersion = 5; // Tuning profile names
+
+/** The constructor's `saveNetclass` lambda. */
+function saveNetclass(json_array: JsonValue[], nc: NETCLASS): void {
+  // Note: we're in common/, but we do happen to know which of these
+  // fields are used in which units system.
+  const nc_json: JsonObject = {
+    name: nc.GetName(),
+    priority: nc.GetPriority(),
+    schematic_color: toCssString(nc.GetSchematicColor(true)),
+    pcb_color: toCssString(nc.GetPcbColor(true)),
+    tuning_profile: nc.GetTuningProfile(),
+  };
+
+  const saveInPcbUnits = (json: JsonObject, aKey: string, aValue: number): void => {
+    json[aKey] = pcbIUScale.iuToMM(aValue);
+  };
+
+  if (nc.HasWireWidth()) nc_json.wire_width = schIUScale.iuToMils(nc.GetWireWidth());
+
+  if (nc.HasBusWidth()) nc_json.bus_width = schIUScale.iuToMils(nc.GetBusWidth());
+
+  if (nc.HasLineStyle()) nc_json.line_style = nc.GetLineStyle();
+
+  if (nc.HasClearance()) saveInPcbUnits(nc_json, 'clearance', nc.GetClearance());
+
+  if (nc.HasTrackWidth()) saveInPcbUnits(nc_json, 'track_width', nc.GetTrackWidth());
+
+  if (nc.HasViaDiameter()) saveInPcbUnits(nc_json, 'via_diameter', nc.GetViaDiameter());
+
+  if (nc.HasViaDrill()) saveInPcbUnits(nc_json, 'via_drill', nc.GetViaDrill());
+
+  if (nc.HasuViaDiameter()) saveInPcbUnits(nc_json, 'microvia_diameter', nc.GetuViaDiameter());
+
+  if (nc.HasuViaDrill()) saveInPcbUnits(nc_json, 'microvia_drill', nc.GetuViaDrill());
+
+  if (nc.HasDiffPairWidth()) saveInPcbUnits(nc_json, 'diff_pair_width', nc.GetDiffPairWidth());
+
+  if (nc.HasDiffPairGap()) saveInPcbUnits(nc_json, 'diff_pair_gap', nc.GetDiffPairGap());
+
+  if (nc.HasDiffPairViaGap()) saveInPcbUnits(nc_json, 'diff_pair_via_gap', nc.GetDiffPairViaGap());
+
+  json_array.push(nc_json);
 }
 
 /** The constructor's `readNetClass` lambda. */
@@ -619,7 +676,7 @@ function parseBusGroupImpl(group: string): { name: string; members: string[] } |
  */
 const wxLess = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
-export class NET_SETTINGS {
+export class NET_SETTINGS extends NESTED_SETTINGS {
   /// @brief The default netclass
   private m_defaultNetClass: NETCLASS;
 
@@ -649,10 +706,140 @@ export class NET_SETTINGS {
 
   private m_netColorAssignments = new Map<string, Color4d>();
 
-  constructor() {
+  constructor(aParent: JSON_SETTINGS | null = null, aPath = 'net_settings') {
+    super('net_settings', netSettingsSchemaVersion, aParent, aPath, false);
+
     this.m_defaultNetClass = new NETCLASS(NETCLASS.Default, true);
     this.m_defaultNetClass.SetDescription('This is the default net class.');
     this.m_defaultNetClass.SetPriority(2147483647);
+
+    this.m_params.push(
+      new PARAM_LAMBDA<JsonValue>(
+        'classes',
+        () => {
+          const ret: JsonValue[] = [];
+
+          if (this.m_defaultNetClass) saveNetclass(ret, this.m_defaultNetClass);
+
+          for (const [, netclass] of this.m_netClasses) saveNetclass(ret, netclass);
+
+          return ret;
+        },
+        (aJson) => {
+          if (!Array.isArray(aJson)) return;
+
+          this.m_netClasses.clear();
+
+          for (const entry of aJson) {
+            if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) continue;
+            if (!('name' in entry)) continue;
+
+            const nc = readNetClass(entry);
+
+            if (nc.IsDefault()) this.m_defaultNetClass = nc;
+            else this.m_netClasses.set(nc.GetName(), nc);
+          }
+        },
+        {},
+      ),
+    );
+
+    this.m_params.push(
+      new PARAM_LAMBDA<JsonValue>(
+        'net_colors',
+        () => {
+          const ret: JsonObject = {};
+
+          for (const [netname, color] of this.m_netColorAssignments)
+            ret[netname] = toCssString(color);
+
+          return ret;
+        },
+        (aJson) => {
+          if (aJson === null || typeof aJson !== 'object' || Array.isArray(aJson)) return;
+
+          this.m_netColorAssignments.clear();
+
+          for (const [key, value] of Object.entries(aJson)) {
+            if (typeof value === 'string') this.m_netColorAssignments.set(key, parseColor4d(value));
+          }
+        },
+        {},
+      ),
+    );
+
+    // Let the save drop removed colors instead of merging them back in
+    this.m_params[this.m_params.length - 1]!.SetClearUnknownKeys();
+
+    this.m_params.push(
+      new PARAM_LAMBDA<JsonValue>(
+        'netclass_assignments',
+        () => {
+          const ret: JsonObject = {};
+
+          for (const [netname, netclassNames] of this.m_netClassLabelAssignments)
+            ret[netname] = [...netclassNames];
+
+          return ret;
+        },
+        (aJson) => {
+          if (aJson === null || typeof aJson !== 'object' || Array.isArray(aJson)) return;
+
+          this.m_netClassLabelAssignments.clear();
+
+          for (const [key, value] of Object.entries(aJson)) {
+            if (!Array.isArray(value)) continue;
+
+            let set = this.m_netClassLabelAssignments.get(key);
+
+            if (!set) {
+              set = new Set();
+              this.m_netClassLabelAssignments.set(key, set);
+            }
+
+            for (const netclassName of value)
+              if (typeof netclassName === 'string') set.add(netclassName);
+          }
+        },
+        {},
+      ),
+    );
+
+    this.m_params.push(
+      new PARAM_LAMBDA<JsonValue>(
+        'netclass_patterns',
+        () => {
+          const ret: JsonValue[] = [];
+
+          for (const [matcher, netclassName] of this.m_netClassPatternAssignments)
+            ret.push({ pattern: matcher.GetPattern(), netclass: netclassName });
+
+          return ret;
+        },
+        (aJson) => {
+          if (!Array.isArray(aJson)) return;
+
+          this.m_netClassPatternAssignments = [];
+
+          for (const entry of aJson) {
+            if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) continue;
+
+            if (typeof entry.pattern === 'string' && typeof entry.netclass === 'string') {
+              const pattern = entry.pattern;
+              const netclass = entry.netclass;
+
+              // Expand bus patterns so individual bus member nets can be matched
+              NET_SETTINGS.ForEachBusMember(pattern, (memberPattern) => {
+                this.addSinglePatternAssignment(memberPattern, netclass);
+              });
+            }
+          }
+        },
+        {},
+      ),
+    );
+
+    if (aParent) this.LoadFromFile();
   }
 
   /// @brief Sets the default netclass for the project
@@ -696,95 +883,9 @@ export class NET_SETTINGS {
     return this.m_compositeNetClasses;
   }
 
-  /**
-   * The `PARAM_LAMBDA` loaders of the C++ constructor - `classes`,
-   * `net_colors`, `netclass_assignments`, `netclass_patterns` - over the
-   * `net_settings` object of a `.kicad_pro`. `NESTED_SETTINGS::LoadFromFile`
-   * runs them one by one; the schema migrations (0-5) are not ported.
-   */
-  LoadFromJson(aJson: unknown): void {
-    const obj =
-      aJson !== null && typeof aJson === 'object' ? (aJson as Record<string, unknown>) : {};
-
-    // "classes"
-    {
-      const classes = obj.classes;
-
-      if (Array.isArray(classes)) {
-        this.m_netClasses.clear();
-
-        for (const entry of classes) {
-          if (entry === null || typeof entry !== 'object' || !('name' in entry)) continue;
-
-          const nc = readNetClass(entry as Record<string, unknown>);
-
-          if (nc.IsDefault()) this.m_defaultNetClass = nc;
-          else this.m_netClasses.set(nc.GetName(), nc);
-        }
-      }
-    }
-
-    // "net_colors"
-    {
-      const colors = obj.net_colors;
-
-      if (colors !== null && typeof colors === 'object' && !Array.isArray(colors)) {
-        this.m_netColorAssignments.clear();
-
-        for (const [key, value] of Object.entries(colors as Record<string, unknown>)) {
-          if (typeof value === 'string') this.m_netColorAssignments.set(key, parseColor4d(value));
-        }
-      }
-    }
-
-    // "netclass_assignments"
-    {
-      const assignments = obj.netclass_assignments;
-
-      if (assignments !== null && typeof assignments === 'object' && !Array.isArray(assignments)) {
-        this.m_netClassLabelAssignments.clear();
-
-        for (const [key, value] of Object.entries(assignments as Record<string, unknown>)) {
-          if (!Array.isArray(value)) continue;
-
-          let set = this.m_netClassLabelAssignments.get(key);
-
-          if (!set) {
-            set = new Set();
-            this.m_netClassLabelAssignments.set(key, set);
-          }
-
-          for (const netclassName of value)
-            if (typeof netclassName === 'string') set.add(netclassName);
-        }
-      }
-    }
-
-    // "netclass_patterns"
-    {
-      const patterns = obj.netclass_patterns;
-
-      if (Array.isArray(patterns)) {
-        this.m_netClassPatternAssignments = [];
-
-        for (const entry of patterns) {
-          if (entry === null || typeof entry !== 'object') continue;
-
-          const e = entry as Record<string, unknown>;
-
-          if (typeof e.pattern === 'string' && typeof e.netclass === 'string') {
-            const pattern = e.pattern;
-            const netclass = e.netclass;
-
-            // Expand bus patterns so individual bus member nets can be matched
-            NET_SETTINGS.ForEachBusMember(pattern, (memberPattern) => {
-              this.addSinglePatternAssignment(memberPattern, netclass);
-            });
-          }
-        }
-      }
-    }
-
+  /** `Load()`, then the caches the loaded assignments invalidate. */
+  override Load(): void {
+    super.Load();
     this.ClearAllCaches();
   }
 

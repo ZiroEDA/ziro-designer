@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { it } from 'vitest';
 import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { LSET } from '@ziroeda/common/src/lset.js';
+import { SETTINGS_MANAGER } from '@ziroeda/common/src/pgm_base.js';
 import { ENUM_MAP } from '@ziroeda/common/src/properties/property.js';
 import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
 import type { DRC_ITEM } from '@ziroeda/pcbnew/drc/drc_item.js';
@@ -18,8 +19,9 @@ it('runs every provider on ecc83', () => {
   const pro = JSON.parse(readFileSync(new URL('ecc83-pp.kicad_pro', DEMO), 'utf8'));
   const board = ParseBoard(text);
 
-  board.GetDesignSettings().LoadFromJson(pro.board.design_settings);
-  board.GetDesignSettings().m_NetSettings.LoadFromJson(pro.net_settings);
+  const manager = new SETTINGS_MANAGER();
+  manager.LoadProject(new URL('ecc83-pp.kicad_pcb', DEMO).pathname, pro);
+  board.SetProject(manager.Prj());
   board.SynchronizeNetsAndNetClasses(false);
 
   const layerEnum = ENUM_MAP.Instance<PCB_LAYER_ID>('PCB_LAYER_ID');

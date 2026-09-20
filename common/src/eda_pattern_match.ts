@@ -209,6 +209,11 @@ export class EdaCombinedMatcher {
   private readonly pattern: string;
   private readonly matchers: PatternMatcher[] = [];
 
+  /** `EDA_COMBINED_MATCHER::GetPattern`. */
+  GetPattern(): string {
+    return this.pattern;
+  }
+
   constructor(pattern: string, context = CombinedMatcherContext.LIBITEM) {
     this.pattern = pattern;
 

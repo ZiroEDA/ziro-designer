@@ -43,7 +43,10 @@ import { LSET } from '@ziroeda/common/src/lset.js';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/src/pgm_base.js';
 import { COLOR_SETTINGS } from '@ziroeda/common/src/settings/color_settings.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
-import { HIGH_CONTRAST_MODE, NET_COLOR_MODE } from '@ziroeda/pcbnew/board_project_settings.js';
+import {
+  HIGH_CONTRAST_MODE,
+  NET_COLOR_MODE,
+} from '@ziroeda/common/src/project/board_project_settings.js';
 import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
 import { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
 import { NETINFO_ITEM } from '@ziroeda/pcbnew/netinfo.js';

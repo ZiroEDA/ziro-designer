@@ -20,6 +20,7 @@ import {
   type DIALOG_DRC_WINDOW,
 } from '@ziroeda/designer/src/editors/pcb/dialogs/dialog_drc_model.js';
 import { PCB_EDIT_FRAME } from '@ziroeda/designer/src/editors/pcb/pcb_edit_frame.js';
+import { PGM_BASE, SetPgm } from '@ziroeda/common/src/pgm_base.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 import { DRC_ITEM, PCB_DRC_CODE } from '@ziroeda/pcbnew/drc/drc_item.js';
 import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
@@ -137,6 +138,10 @@ const runDialog = (dialog: DIALOG_DRC): Promise<void> =>
     };
     setTimeout(poll, 20);
   });
+
+// `Prj()` on the frame is `Pgm().GetSettingsManager().Prj()`: the project
+// LoadBoard loads is the one SetBoard hands the board.
+SetPgm(new PGM_BASE());
 
 suite('DRC_TOOL + DIALOG_DRC on the live engine', () => {
   beforeAll(async () => {

@@ -103,7 +103,7 @@ export class DRC_RULE {
     this.m_ImplicitItem = null;
     this.m_Name = aName;
     this.m_LayerSource = '';
-    this.m_LayerCondition = LSET.AllLayersMask();
+    this.m_LayerCondition = new LSET(LSET.AllLayersMask());
     this.m_Condition = null;
     this.m_Constraints = [];
     this.m_Severity = RPT_SEVERITY_UNDEFINED;

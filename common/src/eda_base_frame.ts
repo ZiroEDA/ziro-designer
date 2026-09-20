@@ -14,6 +14,8 @@
  */
 import type { EdaIuScale, EdaUnits } from './eda_units.js';
 import { FRAME_T } from './frame_type.js';
+import { Pgm } from './pgm_base.js';
+import type { PROJECT } from './project.js';
 import type { TOOL_MANAGER_FRAME_WITH_STATUS_BAR } from './tool/tool_manager.js';
 import { TOOLS_HOLDER } from './tool/tools_holder.js';
 import { type PICKED_ITEMS_LIST, UNDO_REDO_CONTAINER } from './undo_redo_container.js';
@@ -66,6 +68,15 @@ export abstract class EDA_BASE_FRAME
   // Allows other functions when called to know our state is cleanup
 
   protected m_infoBar: WX_INFOBAR | null = null; // Infobar for the frame
+
+  /**
+   * `KIWAY_HOLDER::Prj()`: the active project, through `KIWAY::Prj()` which is
+   * `Pgm().GetSettingsManager().Prj()`. KIWAY_HOLDER is not a class here; a
+   * frame is the only holder ported.
+   */
+  Prj(): PROJECT {
+    return Pgm().GetSettingsManager().Prj();
+  }
 
   constructor(aFrameType: FRAME_T, aIuScale: EdaIuScale, aUnits: EdaUnits) {
     super();
