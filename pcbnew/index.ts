@@ -912,16 +912,16 @@ export {
 } from './unused_pad_layers.js';
 
 export {
-  collectDrillLineItems,
+  CollectDrillLineItems,
   sameDrillLineItem,
   type DrillLineItem,
 } from './board_statistics.js';
 
 export {
-  computeBoardStatistics,
-  formatBoardStatisticsJson,
-  formatBoardStatisticsReport,
-  initialiseBoardStatisticsData,
+  ComputeBoardStatistics,
+  FormatBoardStatisticsJson,
+  FormatBoardStatisticsReport,
+  InitializeBoardStatisticsData,
   DEFAULT_BOARD_STATISTICS_OPTIONS,
   STATISTICS_INT_MAX,
   type BoardStatisticsData,

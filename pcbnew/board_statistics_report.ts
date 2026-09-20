@@ -48,7 +48,7 @@ import {
 } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { BOARD } from './board.js';
-import { type DrillLineItem, collectDrillLineItems } from './board_statistics.js';
+import { type DrillLineItem, CollectDrillLineItems } from './board_statistics.js';
 import { FP_SMD, FP_THROUGH_HOLE } from './footprint.js';
 import { PAD_ATTRIB, PAD_DRILL_SHAPE, PAD_PROP } from './padstack.js';
 import type { PCB_VIA } from './pcb_track.js';
@@ -130,7 +130,7 @@ export const STATISTICS_INT_MAX = 2147483647;
  * footprint that somehow claims both THT and SMD is counted as THT — the first
  * entry whose test passes wins and the loop breaks.
  */
-export function initialiseBoardStatisticsData(): BoardStatisticsData {
+export function InitializeBoardStatisticsData(): BoardStatisticsData {
   return {
     hasOutline: false,
     boardWidth: 0,
@@ -194,11 +194,11 @@ function padHoleArea(aPad: {
 }
 
 /** `ComputeBoardStatistics`. */
-export function computeBoardStatistics(
+export function ComputeBoardStatistics(
   aBoard: BOARD,
   aOptions: BoardStatisticsOptions = DEFAULT_BOARD_STATISTICS_OPTIONS,
 ): BoardStatisticsData {
-  const data = initialiseBoardStatisticsData();
+  const data = InitializeBoardStatisticsData();
 
   for (const footprint of aBoard.Footprints()) {
     if (aOptions.excludeFootprintsWithoutPads && footprint.Pads().length === 0) continue;
@@ -259,7 +259,7 @@ export function computeBoardStatistics(
     }
   }
 
-  data.drillEntries = collectDrillLineItems(aBoard);
+  data.drillEntries = CollectDrillLineItems(aBoard);
 
   // `DRILL_LINE_ITEM::COMPARE( COL_COUNT, false )` — descending by quantity.
   data.drillEntries.sort((a, b) => b.qty - a.qty);
@@ -524,7 +524,7 @@ function drillLayerName(aBoard: BOARD | null, aLayer: PCB_LAYER_ID): string {
 }
 
 /** `FormatBoardStatisticsReport`: the plain-text report the dialog saves. */
-export function formatBoardStatisticsReport(
+export function FormatBoardStatisticsReport(
   aData: BoardStatisticsData,
   aBoard: BOARD | null,
   aUnitsProvider: UNITS_PROVIDER,
@@ -644,7 +644,7 @@ export function formatBoardStatisticsReport(
  * upstream's and it is what makes "Through vias:" into `through` while
  * "Through hole:" stays `through_hole`.
  */
-export function formatBoardStatisticsJson(
+export function FormatBoardStatisticsJson(
   aData: BoardStatisticsData,
   aBoard: BOARD | null,
   aUnitsProvider: UNITS_PROVIDER,

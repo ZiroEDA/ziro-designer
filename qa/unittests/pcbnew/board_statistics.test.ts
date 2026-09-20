@@ -16,13 +16,13 @@ import { LSET } from '@ziroeda/common/src/lset.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 import { ADD_MODE } from '@ziroeda/pcbnew/board_item_container.js';
-import { collectDrillLineItems, sameDrillLineItem } from '@ziroeda/pcbnew/board_statistics.js';
+import { CollectDrillLineItems, sameDrillLineItem } from '@ziroeda/pcbnew/board_statistics.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import {
-  computeBoardStatistics,
-  formatBoardStatisticsJson,
-  formatBoardStatisticsReport,
-  initialiseBoardStatisticsData,
+  ComputeBoardStatistics,
+  FormatBoardStatisticsJson,
+  FormatBoardStatisticsReport,
+  InitializeBoardStatisticsData,
   STATISTICS_INT_MAX,
 } from '@ziroeda/pcbnew/board_statistics_report.js';
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
@@ -268,7 +268,7 @@ describe('the entry tables', () => {
   it('lists rows in the order the dialog and the saved report print them', () => {
     // The order is output, not an implementation detail: it is the row order of
     // four grids and of the text report. Reordering silently rewrites both.
-    const data = initialiseBoardStatisticsData();
+    const data = InitializeBoardStatisticsData();
 
     expect(data.footprintEntries.map((e) => e.title)).toEqual(['THT:', 'SMD:', 'Unspecified:']);
     expect(data.padEntries.map((e) => e.title)).toEqual([
@@ -289,7 +289,7 @@ describe('the entry tables', () => {
   it('starts the minima at INT_MAX, not at zero', () => {
     // A board with no tracks must report "unknown"-sized minima, and the dialog
     // tells that from the sentinel. Zero would read as a 0 nm track.
-    const data = computeBoardStatistics(board());
+    const data = ComputeBoardStatistics(board());
 
     expect(data.minTrackWidth).toBe(STATISTICS_INT_MAX);
     expect(data.minDrillSize).toBe(STATISTICS_INT_MAX);
@@ -309,7 +309,7 @@ describe('counting footprints', () => {
       ],
     });
 
-    const counts = computeBoardStatistics(b).footprintEntries.map((e) => e.frontCount);
+    const counts = ComputeBoardStatistics(b).footprintEntries.map((e) => e.frontCount);
     expect(counts).toEqual([2, 1, 1]);
   });
 
@@ -318,7 +318,7 @@ describe('counting footprints', () => {
       footprints: [fp({ layer: 'B.Cu', attributes: ['smd'], pads: [pad({ layers: ['B.Cu'] })] })],
     });
 
-    const smd = computeBoardStatistics(b).footprintEntries[1]!;
+    const smd = ComputeBoardStatistics(b).footprintEntries[1]!;
     expect([smd.frontCount, smd.backCount]).toEqual([0, 1]);
   });
 
@@ -345,7 +345,7 @@ describe('counting footprints', () => {
       ],
     });
 
-    const tht = computeBoardStatistics(b).footprintEntries[0]!;
+    const tht = ComputeBoardStatistics(b).footprintEntries[0]!;
     expect([tht.frontCount, tht.backCount]).toEqual([0, 0]);
   });
 
@@ -367,7 +367,7 @@ describe('counting footprints', () => {
         fp({ attributes: ['smd'], pads: [pad({ layers: ['Edge.Cuts'] })], texts: [ref] }),
       ],
     });
-    expect(computeBoardStatistics(withField).footprintEntries[1]!.frontCount).toBe(0);
+    expect(ComputeBoardStatistics(withField).footprintEntries[1]!.frontCount).toBe(0);
 
     // The same text as a user PCB_TEXT *is* in m_drawings and does give a side.
     const withText = board({
@@ -379,7 +379,7 @@ describe('counting footprints', () => {
         }),
       ],
     });
-    expect(computeBoardStatistics(withText).footprintEntries[1]!.frontCount).toBe(1);
+    expect(ComputeBoardStatistics(withText).footprintEntries[1]!.frontCount).toBe(1);
   });
 
   it('drops pinless footprints from the component counts when asked', () => {
@@ -397,9 +397,9 @@ describe('counting footprints', () => {
       ],
     });
 
-    expect(computeBoardStatistics(b).footprintEntries[1]!.frontCount).toBe(2);
+    expect(ComputeBoardStatistics(b).footprintEntries[1]!.frontCount).toBe(2);
 
-    const excluded = computeBoardStatistics(b, {
+    const excluded = ComputeBoardStatistics(b, {
       excludeFootprintsWithoutPads: true,
       subtractHolesFromBoardArea: false,
       subtractHolesFromCopperAreas: false,
@@ -427,7 +427,7 @@ describe('counting pads and vias', () => {
       ],
     });
 
-    const data = computeBoardStatistics(b);
+    const data = ComputeBoardStatistics(b);
     expect(data.padEntries.map((e) => e.quantity)).toEqual([1, 2, 1, 1]);
     // A heatsink pad matches neither counted property and is in no row.
     expect(data.padPropertyEntries.map((e) => e.quantity)).toEqual([1, 1]);
@@ -445,7 +445,7 @@ describe('counting pads and vias', () => {
 
     // Buried stays zero: our board model reads `(via buried …)` as a through
     // via, so the row exists but can never be reached.
-    expect(computeBoardStatistics(b).viaEntries.map((e) => e.quantity)).toEqual([2, 1, 0, 1]);
+    expect(ComputeBoardStatistics(b).viaEntries.map((e) => e.quantity)).toEqual([2, 1, 0, 1]);
   });
 
   it('takes the minimum track width from straight tracks only', () => {
@@ -465,7 +465,7 @@ describe('counting pads and vias', () => {
       ],
     });
 
-    expect(computeBoardStatistics(b).minTrackWidth).toBe(150_000);
+    expect(ComputeBoardStatistics(b).minTrackWidth).toBe(150_000);
   });
 });
 
@@ -487,7 +487,7 @@ describe('grouping drill holes', () => {
       vias: [via({ drill: 800_000 })],
     });
 
-    const drills = collectDrillLineItems(b);
+    const drills = CollectDrillLineItems(b);
     expect(drills.map((d) => [d.xSize, d.shape, d.isPlated, d.isPad, d.qty])).toEqual([
       [800_000, PAD_DRILL_SHAPE.CIRCLE, true, true, 2],
       [800_000, PAD_DRILL_SHAPE.CIRCLE, false, true, 1],
@@ -514,7 +514,7 @@ describe('grouping drill holes', () => {
       ],
     });
 
-    const drills = collectDrillLineItems(b);
+    const drills = CollectDrillLineItems(b);
     expect(drills.map((d) => [d.startLayer, d.stopLayer, d.qty])).toEqual([
       [PCB_LAYER_ID.F_Cu, PCB_LAYER_ID.B_Cu, 2],
       // The blind pair is reordered by depth, not left in file order.
@@ -529,7 +529,7 @@ describe('grouping drill holes', () => {
       footprints: [fp({ pads: [thtPad({ layers: ['F.Mask'] })] })],
     });
 
-    const [drill] = collectDrillLineItems(b);
+    const [drill] = CollectDrillLineItems(b);
     expect(drill!.startLayer).toBe(PCB_LAYER_ID.UNDEFINED_LAYER);
     expect(drill!.stopLayer).toBe(PCB_LAYER_ID.UNDEFINED_LAYER);
   });
@@ -539,7 +539,7 @@ describe('grouping drill holes', () => {
       footprints: [fp({ pads: [pad(), thtPad({ drill: { oblong: false, w: 0, h: 800_000 } })] })],
     });
 
-    expect(collectDrillLineItems(b)).toEqual([]);
+    expect(CollectDrillLineItems(b)).toEqual([]);
   });
 
   it('gives a via with no drill of its own the netclass drill, and counts it', () => {
@@ -547,7 +547,7 @@ describe('grouping drill holes', () => {
     // no drill, so a zero is never seen here and the via is a real hole. Our
     // view model stored the raw zero and dropped the via, which was wrong.
     const b = board({ vias: [via({ drill: 0 })] });
-    const [drill] = collectDrillLineItems(b);
+    const [drill] = CollectDrillLineItems(b);
 
     expect(drill!.xSize).toBeGreaterThan(0);
     expect(drill!.isPad).toBe(false);
@@ -569,13 +569,13 @@ describe('grouping drill holes', () => {
       ],
     });
 
-    const data = computeBoardStatistics(b);
+    const data = ComputeBoardStatistics(b);
     expect(data.drillEntries.map((d) => d.qty)).toEqual([3, 1]);
     expect(data.minDrillSize).toBe(800_000);
   });
 
   it('compares every identity field', () => {
-    const base = collectDrillLineItems(board({ footprints: [fp({ pads: [thtPad()] })] }))[0]!;
+    const base = CollectDrillLineItems(board({ footprints: [fp({ pads: [thtPad()] })] }))[0]!;
 
     expect(sameDrillLineItem(base, { ...base, qty: 99 })).toBe(true);
     expect(sameDrillLineItem(base, { ...base, ySize: 1 })).toBe(false);
@@ -586,7 +586,7 @@ describe('grouping drill holes', () => {
 describe('the board outline', () => {
   it('measures a rectangle drawn as four separate lines', () => {
     const b = board({ shapes: outlineLines(0, 0, 100 * MM, 50 * MM) });
-    const data = computeBoardStatistics(b);
+    const data = ComputeBoardStatistics(b);
 
     expect(data.hasOutline).toBe(true);
     expect(data.boardWidth).toBe(100 * MM);
@@ -595,7 +595,7 @@ describe('the board outline', () => {
   });
 
   it('reports nothing at all when Edge.Cuts is empty', () => {
-    const data = computeBoardStatistics(board({ shapes: [] }));
+    const data = ComputeBoardStatistics(board({ shapes: [] }));
 
     expect(data.hasOutline).toBe(false);
     expect([data.boardWidth, data.boardHeight, data.boardArea]).toEqual([0, 0, 0]);
@@ -606,7 +606,7 @@ describe('the board outline', () => {
     // one is open, before adding a single contour to the polygon set. Measuring
     // the three sides that did chain would invent a board.
     const sides = outlineLines(0, 0, 100 * MM, 50 * MM);
-    const data = computeBoardStatistics(board({ shapes: sides.slice(0, 3) }));
+    const data = ComputeBoardStatistics(board({ shapes: sides.slice(0, 3) }));
 
     expect(data.hasOutline).toBe(false);
     expect([data.boardWidth, data.boardHeight, data.boardArea]).toEqual([0, 0, 0]);
@@ -618,11 +618,11 @@ describe('the board outline', () => {
     const sides = outlineLines(0, 0, 100 * MM, 50 * MM);
     sides[3] = line(P(0, 50 * MM), P(0, 5_000));
 
-    expect(computeBoardStatistics(board({ shapes: sides })).hasOutline).toBe(true);
+    expect(ComputeBoardStatistics(board({ shapes: sides })).hasOutline).toBe(true);
 
     // Twice the epsilon does not close.
     sides[3] = line(P(0, 50 * MM), P(0, 20_000));
-    expect(computeBoardStatistics(board({ shapes: sides })).hasOutline).toBe(false);
+    expect(ComputeBoardStatistics(board({ shapes: sides })).hasOutline).toBe(false);
   });
 
   it('counts a cutout as board area unless asked to subtract it', () => {
@@ -635,9 +635,9 @@ describe('the board outline', () => {
       ],
     });
 
-    expect(computeBoardStatistics(b).boardArea).toBe(100 * MM * (50 * MM));
+    expect(ComputeBoardStatistics(b).boardArea).toBe(100 * MM * (50 * MM));
 
-    const subtracted = computeBoardStatistics(b, {
+    const subtracted = ComputeBoardStatistics(b, {
       excludeFootprintsWithoutPads: false,
       subtractHolesFromBoardArea: true,
       subtractHolesFromCopperAreas: false,
@@ -654,7 +654,7 @@ describe('the board outline', () => {
         ...outlineLines(20 * MM, 0, 30 * MM, 10 * MM),
       ],
     });
-    const data = computeBoardStatistics(b);
+    const data = ComputeBoardStatistics(b);
 
     expect(data.boardArea).toBe(2 * (10 * MM * (10 * MM)));
     expect(data.boardWidth).toBe(30 * MM);
@@ -668,7 +668,7 @@ describe('the board outline', () => {
     const holes = [fp({ pads: [thtPad({ drill: { oblong: false, w: 1 * MM, h: 1 * MM } })] })];
     const holeArea = Math.PI * 0.25 * MM * MM;
 
-    const one = computeBoardStatistics(
+    const one = ComputeBoardStatistics(
       board({ shapes: outlineLines(0, 0, 10 * MM, 10 * MM), footprints: holes }),
       {
         excludeFootprintsWithoutPads: false,
@@ -678,7 +678,7 @@ describe('the board outline', () => {
     );
     expect(one.boardArea).toBeCloseTo(10 * MM * (10 * MM) - holeArea, 0);
 
-    const two = computeBoardStatistics(
+    const two = ComputeBoardStatistics(
       board({
         shapes: [
           ...outlineLines(0, 0, 10 * MM, 10 * MM),
@@ -703,7 +703,7 @@ describe('the board outline', () => {
       footprints: [fp({ pads: [thtPad({ drill: { oblong: true, w: 1 * MM, h: 3 * MM } })] })],
     });
 
-    const data = computeBoardStatistics(b, {
+    const data = ComputeBoardStatistics(b, {
       excludeFootprintsWithoutPads: false,
       subtractHolesFromBoardArea: true,
       subtractHolesFromCopperAreas: false,
@@ -722,7 +722,7 @@ describe('the board outline', () => {
       footprints: [fp({ shapes: outlineLines(10 * MM, 10 * MM, 20 * MM, 20 * MM) })],
     });
 
-    const data = computeBoardStatistics(b, {
+    const data = ComputeBoardStatistics(b, {
       excludeFootprintsWithoutPads: false,
       subtractHolesFromBoardArea: true,
       subtractHolesFromCopperAreas: false,
@@ -760,7 +760,7 @@ describe('the board outline', () => {
         },
       ],
     });
-    const data = computeBoardStatistics(b);
+    const data = ComputeBoardStatistics(b);
 
     expect(data.hasOutline).toBe(true);
     expect(data.boardArea).toBe(40 * MM * (25 * MM));
@@ -774,7 +774,7 @@ describe('the board outline', () => {
       ],
     });
 
-    expect(computeBoardStatistics(b).boardWidth).toBe(10 * MM);
+    expect(ComputeBoardStatistics(b).boardWidth).toBe(10 * MM);
   });
 });
 
@@ -790,8 +790,8 @@ describe('the saved report', () => {
 
   it('pads every table column to its widest cell and rules it with dashes', () => {
     const b = twoByOne();
-    const text = formatBoardStatisticsReport(
-      computeBoardStatistics(b),
+    const text = FormatBoardStatisticsReport(
+      ComputeBoardStatistics(b),
       b,
       units,
       'proj',
@@ -811,7 +811,7 @@ describe('the saved report', () => {
 
   it('prints unknown for the dimensions when the board has no outline', () => {
     const b = board({ footprints: [fp({ attributes: ['smd'], pads: [pad()] })] });
-    const text = formatBoardStatisticsReport(computeBoardStatistics(b), b, units, '', '');
+    const text = FormatBoardStatisticsReport(ComputeBoardStatistics(b), b, units, '', '');
 
     expect(text).toContain('- Dimensions: unknown');
     expect(text).toContain('- Area: unknown');
@@ -820,7 +820,7 @@ describe('the saved report', () => {
 
   it('names a drill row layer, or N/A where it has none', () => {
     const b = board({ footprints: [fp({ pads: [thtPad({ layers: ['F.Mask'] })] })] });
-    const text = formatBoardStatisticsReport(computeBoardStatistics(b), b, units, '', '');
+    const text = FormatBoardStatisticsReport(ComputeBoardStatistics(b), b, units, '', '');
 
     expect(text).toContain('N/A');
   });
@@ -832,7 +832,7 @@ describe('the JSON report', () => {
   it('snake-cases the UI titles, dropping the via suffix but not the pad one', () => {
     const b = board({ vias: [via()], footprints: [fp({ pads: [pad(), thtPad()] })] });
     const json = JSON.parse(
-      formatBoardStatisticsJson(computeBoardStatistics(b), b, units, 'p', 'n'),
+      FormatBoardStatisticsJson(ComputeBoardStatistics(b), b, units, 'p', 'n'),
     );
 
     // "Through vias:" loses the suffix; "Through hole:" keeps both words.
@@ -849,7 +849,7 @@ describe('the JSON report', () => {
 
   it('nulls the outline-dependent fields when there is no outline', () => {
     const b = board({ footprints: [fp({ pads: [pad()] })] });
-    const json = JSON.parse(formatBoardStatisticsJson(computeBoardStatistics(b), b, units, '', ''));
+    const json = JSON.parse(FormatBoardStatisticsJson(ComputeBoardStatistics(b), b, units, '', ''));
 
     expect(json.board.has_outline).toBe(false);
     expect(json.board.width).toBeNull();
@@ -866,7 +866,7 @@ describe('the JSON report', () => {
         fp({ attributes: ['smd'], pads: [pad()] }),
       ],
     });
-    const json = JSON.parse(formatBoardStatisticsJson(computeBoardStatistics(b), b, units, '', ''));
+    const json = JSON.parse(FormatBoardStatisticsJson(ComputeBoardStatistics(b), b, units, '', ''));
 
     expect(json.components.smd).toEqual({ front: 2, back: 0, total: 2 });
     expect(json.components.total).toEqual({ front: 2, back: 0, total: 2 });

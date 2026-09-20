@@ -38,7 +38,12 @@ export interface DrillLineItem {
   qty: number;
 }
 
-/** `DRILL_LINE_ITEM::operator==`: every field but the count. */
+/**
+ * `DRILL_LINE_ITEM::operator==`: every field but the count.
+ *
+ * Lower-cased because it is ours: upstream compares with an operator, so there
+ * is no KiCad name for this to carry.
+ */
 export function sameDrillLineItem(a: DrillLineItem, b: DrillLineItem): boolean {
   return (
     a.xSize === b.xSize &&
@@ -52,7 +57,7 @@ export function sameDrillLineItem(a: DrillLineItem, b: DrillLineItem): boolean {
 }
 
 /** `CollectDrillLineItems`: fold every drilled hole on the board into rows. */
-export function collectDrillLineItems(aBoard: BOARD | null): DrillLineItem[] {
+export function CollectDrillLineItems(aBoard: BOARD | null): DrillLineItem[] {
   const out: DrillLineItem[] = [];
 
   const addOrIncrement = (d: DrillLineItem): void => {
