@@ -16808,3 +16808,87 @@ td.ze-grid-bool {
 .ze-chat-handle:active {
   cursor: grabbing;
 }
+
+/* Cross-tab presence badge (designer/src/sync/) — no upstream KiCad
+   counterpart, KiCad has no notion of another viewer on the same document.
+   Clickable: opens .ze-presence-panel below, listing who that is. */
+.ze-presence-badge {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 999;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: var(--selection-bg);
+  color: var(--selection-fg);
+  font: inherit;
+  /* The info size, not a literal. This file's own rule: a number the theme
+     decides is never restated here, and 12px is the GTK info size on one
+     machine at one scale rather than a value anybody chose. */
+  font-size: var(--ui-font-size-info);
+  border: none;
+  cursor: pointer;
+}
+
+/* PresencePanel.tsx: the presence badge's own popup, same dismiss-on-outside-
+   click/blur behaviour as .ze-bgjob-list right above (no upstream KiCad
+   counterpart to match either, so no fixed size is dictated the way that
+   one's is — this sizes to its rows). Opens directly under the badge, which
+   is itself pinned to the same corner (top: 8px; right: 8px), so this needs
+   no dynamically-computed anchor the way BackgroundJobList's does.
+   Deliberately states no font-size of its own, unlike the badge above:
+   .ze-bgjob-list doesn't either, and ui_font_tokens.test.ts tracks every
+   literal one against a baseline that only ever goes down. */
+.ze-presence-panel {
+  position: fixed;
+  top: 36px;
+  right: 8px;
+  z-index: 999;
+  min-width: 180px;
+  border: 1px solid var(--chrome-border);
+  background: var(--chrome-bg);
+  color: var(--chrome-fg);
+  border-radius: 6px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ze-presence-panel:focus {
+  outline: none;
+}
+.ze-presence-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+.ze-presence-row:hover {
+  background: var(--chrome-hover);
+}
+.ze-presence-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  /* Set inline per row, from peerColor.ts — this is only the fallback if
+     that's ever omitted. */
+  background: var(--selection-bg);
+  flex: 0 0 auto;
+}
+.ze-presence-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ze-presence-role {
+  color: var(--ctl-fg-disabled);
+}
+.ze-presence-role-select {
+  font: inherit;
+  background: var(--chrome-bg2);
+  color: var(--chrome-fg);
+  border: 1px solid var(--chrome-border);
+  border-radius: 3px;
+}
