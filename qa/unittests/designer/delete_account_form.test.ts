@@ -13,13 +13,15 @@ import {
 
 describe('validateDeleteAccountForm', () => {
   it('needs a reason from the list', () => {
-    expect(validateDeleteAccountForm({ reason: '', feedback: 'x' })).toEqual({ reason: 'Required' });
+    expect(validateDeleteAccountForm({ reason: '', feedback: 'x' })).toEqual({
+      reason: 'Required',
+    });
     expect(validateDeleteAccountForm({ reason: 'bored', feedback: 'x' })).toEqual({
       reason: 'Required',
     });
   });
 
-  it('needs feedback that is not blank, and asks for it in ente\'s words', () => {
+  it("needs feedback that is not blank, and asks for it in ente's words", () => {
     expect(validateDeleteAccountForm({ reason: 'missing_feature', feedback: '  ' })).toEqual({
       feedback: 'Kindly help us with this information',
     });
@@ -35,7 +37,7 @@ describe('validateDeleteAccountForm', () => {
     }
   });
 
-  it('carries ente\'s four reasons in its order', () => {
+  it("carries ente's four reasons in its order", () => {
     expect(DELETE_REASONS.map((r) => r.value)).toEqual([
       'missing_feature',
       'behaviour',

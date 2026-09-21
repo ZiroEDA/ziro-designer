@@ -406,7 +406,7 @@ describe('a peer holding a different key is ignored, not trusted', () => {
     expect(hub.sent[0]!.from).toBe(a.peerId);
   });
 
-  it('drops a captured message re-sent under another peer\'s name', async () => {
+  it("drops a captured message re-sent under another peer's name", async () => {
     // Everyone in a private channel is a member, and members hold the key --
     // so the channel policy cannot stop one of them capturing A's frame and
     // re-sending it as C. The sender is sealed into the body for exactly this:

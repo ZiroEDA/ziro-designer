@@ -27,10 +27,10 @@ export const isDeleteReason = (v: string): v is DeleteReason =>
   DELETE_REASONS.some((r) => r.value === v);
 
 /** `validate` in ente's `useFormik`: the field errors, or none. */
-export function validateDeleteAccountForm(values: {
-  reason: string;
-  feedback: string;
-}): { reason?: string; feedback?: string } {
+export function validateDeleteAccountForm(values: { reason: string; feedback: string }): {
+  reason?: string;
+  feedback?: string;
+} {
   if (!isDeleteReason(values.reason)) return { reason: 'Required' };
   if (!values.feedback.trim().length) {
     return {

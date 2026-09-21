@@ -13,7 +13,7 @@ import {
 } from '@ziroeda/designer/src/auth/avatar_color.js';
 
 describe('avatarColorFor', () => {
-  it('carries ente\'s 23-colour palette in its order', () => {
+  it("carries ente's 23-colour palette in its order", () => {
     expect(AVATAR_COLORS).toHaveLength(23);
     expect(AVATAR_COLORS[0]).toBe('#76549A');
     expect(AVATAR_COLORS[22]).toBe('#78B5A7');

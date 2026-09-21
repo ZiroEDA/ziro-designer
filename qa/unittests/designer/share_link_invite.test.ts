@@ -212,11 +212,7 @@ describe('a share link followed through a sign-in', () => {
     // capture has to happen where `rememberProjectLink()` does: at the moment
     // the Supabase client module is evaluated, before there is a React tree.
     const key = new Uint8Array(32).fill(7);
-    window.history.replaceState(
-      null,
-      '',
-      withKeyFragment(`${BASE}p/${UID}?join=${TOKEN}`, key),
-    );
+    window.history.replaceState(null, '', withKeyFragment(`${BASE}p/${UID}?join=${TOKEN}`, key));
     vi.resetModules();
     await import('@ziroeda/designer/src/auth/supabaseClient.js');
 

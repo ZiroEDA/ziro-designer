@@ -35,7 +35,10 @@ import { DELETE_REASONS, validateDeleteAccountForm } from './delete_account_form
 
 type Step = 'reason' | 'confirmation' | 'password';
 type Summary = { projects: number; people: number };
-type SummaryPhase = { state: 'loading' } | { state: 'ready'; summary: Summary } | { state: 'failed' };
+type SummaryPhase =
+  | { state: 'loading' }
+  | { state: 'ready'; summary: Summary }
+  | { state: 'failed' };
 
 export function DeleteAccountDialog({
   email,
@@ -47,7 +50,11 @@ export function DeleteAccountDialog({
   email: string;
   onClose: () => void;
   /** `AuthContextValue.deleteAccount`. Resolves with the error to show, or null. */
-  onDelete: (password: string, reason: string, feedback: string) => Promise<{ error: string | null }>;
+  onDelete: (
+    password: string,
+    reason: string,
+    feedback: string,
+  ) => Promise<{ error: string | null }>;
   /** `/users/deletion-summary`; injectable so a test needs no backend. */
   loadSummary?: () => Promise<Summary>;
 }): JSX.Element {
@@ -130,7 +137,11 @@ export function DeleteAccountDialog({
         : null;
 
   const okLabel =
-    step === 'reason' ? 'Continue' : step === 'confirmation' ? 'Delete ZiroEDA account' : 'Authenticate';
+    step === 'reason'
+      ? 'Continue'
+      : step === 'confirmation'
+        ? 'Delete ZiroEDA account'
+        : 'Authenticate';
   const okDisabled =
     busy || (step === 'confirmation' && !canConfirm) || (step === 'password' && !password);
 

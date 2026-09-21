@@ -158,7 +158,10 @@ describe('AuthProvider: the server never gets the password', () => {
   });
 
   it('deleting the account authenticates again, removes the blobs first, and ends in sign-out', () => {
-    const del = SRC.slice(SRC.indexOf('async deleteAccount('), SRC.indexOf('async resendSignupCode('));
+    const del = SRC.slice(
+      SRC.indexOf('async deleteAccount('),
+      SRC.indexOf('async resendSignupCode('),
+    );
     // A fresh password sign-in is what mints the token delete_my_account() accepts.
     expect(del).toContain('supabase.auth.signInWithPassword({');
     expect(del.indexOf('signInWithPassword')).toBeLessThan(del.indexOf('be.listObjects('));

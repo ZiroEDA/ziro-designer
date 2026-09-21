@@ -111,7 +111,7 @@ describe('DeleteAccountDialog', () => {
     expect(onDelete).toHaveBeenCalledWith('hunter22', 'found_another_service', 'no rigid-flex');
   });
 
-  it('shows the provider\'s error (a wrong password) and stays open', async () => {
+  it("shows the provider's error (a wrong password) and stays open", async () => {
     const onDelete = vi.fn(async () => ({ error: 'Incorrect password or email not registered' }));
     render(
       <DeleteAccountDialog

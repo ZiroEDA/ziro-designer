@@ -314,11 +314,15 @@ export class SupabaseRealtimeTransport implements ProjectSyncTransport {
     const key = this.key;
     const channel = this.channel;
     if (!key || !channel) return;
-    const enc = await sealPresence(key, {
-      view: this.selfView,
-      sheetPath: this.selfSheetPath,
-      displayName: this.selfDisplayName,
-    }, this.peerId);
+    const enc = await sealPresence(
+      key,
+      {
+        view: this.selfView,
+        sheetPath: this.selfSheetPath,
+        displayName: this.selfDisplayName,
+      },
+      this.peerId,
+    );
     if (this.channel !== channel) return; // disconnected while we were sealing
     const meta: WireMeta = { peerId: this.peerId, userId: this.userId, enc };
     await channel.track(meta);

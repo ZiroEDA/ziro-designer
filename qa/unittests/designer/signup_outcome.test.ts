@@ -27,8 +27,8 @@ describe('signUpOutcome', () => {
   });
 
   it('confirmation off is "signed-in" - user and session together', () => {
-    expect(signUpOutcome({ user: { identities: [identity] }, session: { access_token: 't' } })).toBe(
-      'signed-in',
-    );
+    expect(
+      signUpOutcome({ user: { identities: [identity] }, session: { access_token: 't' } }),
+    ).toBe('signed-in');
   });
 });
