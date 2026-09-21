@@ -36,6 +36,7 @@ import {
 } from './account_keys.js';
 import { askSiblingsForMasterKey, serveMasterKey } from './tab_keys.js';
 import { setSessionKeys } from '../cloud/session_keys.js';
+import { ACCOUNT_EXISTS_MESSAGE, signUpOutcome } from './signup_outcome.js';
 import { setLocalVaultFromMasterKey } from '../home/local_vault.js';
 import { sealLocalStore } from '../home/projectStore.js';
 
@@ -316,6 +317,8 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
         const secret = await loginSecret(email, password);
         const { data, error } = await supabase.auth.signUp({ email, password: secret });
         if (error) return { error: error.message, needsConfirm: false };
+        const outcome = signUpOutcome(data);
+        if (outcome === 'exists') return { error: ACCOUNT_EXISTS_MESSAGE, needsConfirm: false };
         // Start on the keys now; the code is going to take a while to arrive.
         const made = createAccount(password).catch((err: unknown) => {
           throw new Error(
@@ -325,7 +328,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
           );
         });
         pendingSetup.current = { email, made };
-        const needsConfirm = !!data.user && !data.session;
+        const needsConfirm = outcome === 'confirm';
         if (!needsConfirm && data.user) {
           // Confirmation is off on this server: the session is here already.
           try {
