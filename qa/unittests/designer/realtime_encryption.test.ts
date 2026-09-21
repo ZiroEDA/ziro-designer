@@ -17,6 +17,7 @@
  * transports genuinely talk to each other.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ProjectSyncPayload } from '@ziroeda/designer/src/sync/ProjectSyncTransport.js';
 
 /** The project key both peers hold, unless a test says otherwise. */
 const KEY = new Uint8Array(32).fill(7);
@@ -37,7 +38,7 @@ vi.mock('../../../designer/src/cloud/cloudStore.js', () => ({
 }));
 
 const { SupabaseRealtimeTransport } = await import(
-  '../../../designer/src/sync/SupabaseRealtimeTransport.js'
+  '@ziroeda/designer/src/sync/SupabaseRealtimeTransport.js'
 );
 
 type Payload = { from?: string; enc?: string };
@@ -177,7 +178,7 @@ describe('nothing legible reaches the server', () => {
     await settle();
 
     expect(hub.sent).toHaveLength(1);
-    const payload = hub.sent[0].payload;
+    const payload = hub.sent[0]!.payload;
     expect(typeof payload.enc).toBe('string');
     // The whole point: the body is not beside the ciphertext.
     expect(payload).not.toHaveProperty('body');
@@ -192,7 +193,7 @@ describe('nothing legible reaches the server', () => {
     await settle();
 
     expect(hub.tracked).toHaveLength(1);
-    const meta = hub.tracked[0];
+    const meta = hub.tracked[0]!;
     // `peerId` routes and `userId` joins against the roster; both are facts the
     // server holds anyway. Nothing else may be readable.
     expect(Object.keys(meta).sort()).toEqual(['enc', 'peerId', 'userId']);
@@ -261,7 +262,7 @@ describe('a peer with no key is silent, not cleartext', () => {
     await settle();
     expect(hub.tracked).toHaveLength(1);
     expect(hub.sent).toHaveLength(1);
-    expect(hub.sent[0].from).toBe(withKey.peerId);
+    expect(hub.sent[0]!.from).toBe(withKey.peerId);
   });
 
   it('sends nothing when the account is locked', async () => {
@@ -305,13 +306,13 @@ describe('two peers holding the same key still see each other', () => {
       if (payload.kind !== 'presence') got.push({ payload, from });
     });
 
-    const sent = { kind: 'selection', refs: [SECRET_REF] } as const;
+    const sent: ProjectSyncPayload = { kind: 'selection', refs: [SECRET_REF] };
     a.publish(sent);
     await settle();
 
     expect(got).toHaveLength(1);
-    expect(got[0].payload).toEqual(sent);
-    expect(got[0].from).toBe(a.peerId);
+    expect(got[0]!.payload).toEqual(sent);
+    expect(got[0]!.from).toBe(a.peerId);
   });
 
   it('round-trips the presence secrets', async () => {
@@ -397,7 +398,7 @@ describe('a peer holding a different key is ignored, not trusted', () => {
     // so the empty list above is B refusing to open it rather than nothing
     // having happened.
     expect(hub.sent).toHaveLength(1);
-    expect(hub.sent[0].from).toBe(a.peerId);
+    expect(hub.sent[0]!.from).toBe(a.peerId);
   });
 
   it('leaves a peer whose presence will not open out of the list', async () => {

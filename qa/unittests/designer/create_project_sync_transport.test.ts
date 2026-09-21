@@ -28,13 +28,13 @@ vi.mock('../../../designer/src/auth/supabaseClient.js', () => ({
 }));
 
 const { createProjectSyncTransport } = await import(
-  '../../../designer/src/sync/createProjectSyncTransport.js'
+  '@ziroeda/designer/src/sync/createProjectSyncTransport.js'
 );
 const { BroadcastChannelTransport } = await import(
-  '../../../designer/src/sync/BroadcastChannelTransport.js'
+  '@ziroeda/designer/src/sync/BroadcastChannelTransport.js'
 );
 const { SupabaseRealtimeTransport } = await import(
-  '../../../designer/src/sync/SupabaseRealtimeTransport.js'
+  '@ziroeda/designer/src/sync/SupabaseRealtimeTransport.js'
 );
 
 /** Enough of a client for the factory, which only ever checks it for null. */

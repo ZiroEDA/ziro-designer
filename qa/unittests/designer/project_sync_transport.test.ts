@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 import { describe, expect, it } from 'vitest';
-import { BroadcastChannelTransport } from '../../../designer/src/sync/BroadcastChannelTransport.js';
-import type { ProjectSyncPayload } from '../../../designer/src/sync/ProjectSyncTransport.js';
+import { BroadcastChannelTransport } from '@ziroeda/designer/src/sync/BroadcastChannelTransport.js';
+import type { ProjectSyncPayload } from '@ziroeda/designer/src/sync/ProjectSyncTransport.js';
 
 /** Wait for a condition to become true, polling on the microtask/macrotask queue. */
 async function waitFor(check: () => boolean, timeoutMs = 500): Promise<void> {
