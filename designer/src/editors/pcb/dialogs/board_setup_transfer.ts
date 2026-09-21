@@ -17,7 +17,11 @@ import { LINE_STYLES, type NetClass, type NetClassesData } from '@ziroeda/common
 import { COLOR4D_UNSPECIFIED, parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
 import { pcbIUScale, schIUScale } from '@ziroeda/common/src/eda_units.js';
 import { EMBEDDED_FILE, EMBEDDED_FILES, FILE_TYPE } from '@ziroeda/common/src/embedded_files.js';
-import { IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import {
+  IsCopperLayer,
+  IsCopperLayerLowerThan,
+  PCB_LAYER_ID,
+} from '@ziroeda/common/src/layer_ids.js';
 import { LSET } from '@ziroeda/common/src/lset.js';
 import { NETCLASS } from '@ziroeda/common/src/netclass.js';
 import type { PROJECT } from '@ziroeda/common/src/project.js';
@@ -27,6 +31,8 @@ import {
   CONDITIONS_OPERATOR,
 } from '@ziroeda/common/src/project/component_class_settings.js';
 import {
+  DELAY_PROFILE_TRACK_PROPAGATION_ENTRY,
+  DELAY_PROFILE_VIA_OVERRIDE_ENTRY,
   TUNING_PROFILE,
   TUNING_PROFILE_TYPE,
 } from '@ziroeda/common/src/project/tuning_profiles.js';
@@ -329,7 +335,9 @@ export function BoardSetupToWindow(
     diffPairSkew: pattern(bds.m_SkewMeanderSettings),
   };
 
-  // ----- PANEL_SETUP_TUNING_PROFILES: the project file's TUNING_PROFILES
+  // ----- PANEL_SETUP_TUNING_PROFILES: a page per profile, LoadProfile on each
+  const layerNameOf = (l: PCB_LAYER_ID): string =>
+    l === PCB_LAYER_ID.UNDEFINED_LAYER ? '' : LSET.Name(l);
   v.tuningProfiles = {
     profiles: file
       .TuningProfileParameters()
@@ -338,12 +346,23 @@ export function BoardSetupToWindow(
         name: p.m_ProfileName,
         type: p.m_Type === TUNING_PROFILE_TYPE.DIFFERENTIAL ? 'Differential' : 'Single',
         targetImpedance: p.m_TargetImpedance,
-        // Not a TUNING_PROFILE field in 10.0.5; the panel shows it, nothing stores it.
-        frequency: 1,
-        frequencyUnit: 'GHz',
         enableTimeDomain: p.m_EnableTimeDomainTuning,
-        modelSolderMask: true,
-        globalUnitDelay: p.m_ViaPropagationDelay,
+        viaPropDelay: p.m_ViaPropagationDelay,
+        trackEntries: p.m_TrackPropagationEntries.map((e) => ({
+          signalLayer: layerNameOf(e.GetSignalLayer()),
+          topReference: layerNameOf(e.GetTopReferenceLayer()),
+          bottomReference: layerNameOf(e.GetBottomReferenceLayer()),
+          widthMM: mmOf(e.GetWidth()),
+          diffPairGapMM: mmOf(e.GetDiffPairGap()),
+          delay: e.GetDelay(true),
+        })),
+        viaOverrides: p.m_ViaOverrides.map((o) => ({
+          signalLayerFrom: layerNameOf(o.m_SignalLayerFrom),
+          signalLayerTo: layerNameOf(o.m_SignalLayerTo),
+          viaLayerFrom: layerNameOf(o.m_ViaLayerFrom),
+          viaLayerTo: layerNameOf(o.m_ViaLayerTo),
+          delay: o.m_Delay,
+        })),
       })),
   };
 
@@ -744,19 +763,50 @@ export function BoardSetupFromWindow(
     apply(bds.m_SkewMeanderSettings, v.tuning.diffPairSkew);
   }
 
-  // ----- PANEL_SETUP_TUNING_PROFILES: the rows' fields over the existing profiles
+  // ----- PANEL_SETUP_TUNING_PROFILES: ClearTuningProfiles, then each page's GetProfile
   {
     const tp = file.TuningProfileParameters();
-    const existing = new Map(tp.GetTuningProfiles().map((p) => [p.m_ProfileName, p]));
+    const layerOf = (name: string): PCB_LAYER_ID =>
+      name === '' ? PCB_LAYER_ID.UNDEFINED_LAYER : (LSET.NameToLayer(name) as PCB_LAYER_ID);
     tp.ClearTuningProfiles();
     for (const row of v.tuningProfiles.profiles) {
-      const p = existing.get(row.name) ?? new TUNING_PROFILE();
+      const p = new TUNING_PROFILE();
       p.m_ProfileName = row.name;
       p.m_Type =
         row.type === 'Differential' ? TUNING_PROFILE_TYPE.DIFFERENTIAL : TUNING_PROFILE_TYPE.SINGLE;
-      p.m_TargetImpedance = row.targetImpedance;
       p.m_EnableTimeDomainTuning = row.enableTimeDomain;
-      p.m_ViaPropagationDelay = row.globalUnitDelay;
+      p.m_ViaPropagationDelay = row.viaPropDelay;
+      p.m_TargetImpedance = Number.isFinite(row.targetImpedance) ? row.targetImpedance : 0.0;
+
+      for (const t of row.trackEntries) {
+        const entry = new DELAY_PROFILE_TRACK_PROPAGATION_ENTRY();
+        entry.SetSignalLayer(layerOf(t.signalLayer));
+        entry.SetTopReferenceLayer(layerOf(t.topReference));
+        entry.SetBottomReferenceLayer(layerOf(t.bottomReference));
+        entry.SetWidth(iuOf(t.widthMM));
+        entry.SetDiffPairGap(iuOf(t.diffPairGapMM));
+        entry.SetDelay(t.delay);
+        entry.SetEnableTimeDomainTuning(p.m_EnableTimeDomainTuning);
+        p.m_TrackPropagationEntries.push(entry);
+        p.m_TrackPropagationEntriesMap.set(entry.GetSignalLayer(), entry);
+      }
+
+      for (const o of row.viaOverrides) {
+        let signalFrom = layerOf(o.signalLayerFrom);
+        let signalTo = layerOf(o.signalLayerTo);
+        let viaFrom = layerOf(o.viaLayerFrom);
+        let viaTo = layerOf(o.viaLayerTo);
+
+        // Order layers in stackup order (from F_Cu first)
+        if (IsCopperLayerLowerThan(signalFrom, signalTo))
+          [signalFrom, signalTo] = [signalTo, signalFrom];
+        if (IsCopperLayerLowerThan(viaFrom, viaTo)) [viaFrom, viaTo] = [viaTo, viaFrom];
+
+        p.m_ViaOverrides.push(
+          new DELAY_PROFILE_VIA_OVERRIDE_ENTRY(signalFrom, signalTo, viaFrom, viaTo, o.delay),
+        );
+      }
+
       tp.AddTuningProfile(p);
     }
   }

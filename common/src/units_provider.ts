@@ -113,7 +113,11 @@ export class UNITS_PROVIDER {
   }
 
   GetUnitsFromType(aType: EdaDataType): EdaUnits {
-    // TIME and LENGTH_DELAY are EDA_DATA_TYPEs the UI port does not carry yet
+    // Get the unit type depending on the requested unit type and the underlying user setting
+    if (aType === 'time') return 'ps';
+
+    if (aType === 'length_delay') return IsMetricUnit(this.GetUserUnits()) ? 'ps/cm' : 'ps/in';
+
     return this.GetUserUnits();
   }
 

@@ -36,6 +36,13 @@ import { parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
 interface Props {
   value: NetClassesData;
   onChange: (next: NetClassesData) => void;
+  /**
+   * `UpdateDelayProfileNames( aNames )` (panel_setup_netclasses.cpp:1002):
+   * the Board Setup dialog hands over its Tuning Profiles page's names and the
+   * Tuning Profile column becomes a `wxGridCellChoiceEditor` over a blank
+   * entry plus them. Absent (the schematic dialog), the column stays text.
+   */
+  delayProfileNames?: readonly string[];
 }
 
 // The editable text columns (label -> key), in KiCad's order after Name.
@@ -53,7 +60,7 @@ const NUM_COLS: { label: string; key: keyof NetClass }[] = [
   { label: 'Bus Thickness', key: 'busThickness' },
 ];
 
-export function PanelSetupNetclasses({ value, onChange }: Props): JSX.Element {
+export function PanelSetupNetclasses({ value, onChange, delayProfileNames }: Props): JSX.Element {
   const [sel, setSel] = useState<number>(0);
 
   const setClasses = (classes: NetClass[]): void => onChange({ ...value, classes });
@@ -114,15 +121,27 @@ export function PanelSetupNetclasses({ value, onChange }: Props): JSX.Element {
                     onChange={(e) => setAt(i, { name: e.target.value })}
                   />
                 </td>
-                {NUM_COLS.map((col) => (
-                  <td key={col.key} style={{ minWidth: 74 }}>
-                    <input
-                      type="text"
-                      value={c[col.key]}
-                      onChange={(e) => setAt(i, { [col.key]: e.target.value })}
-                    />
-                  </td>
-                ))}
+                {NUM_COLS.map((col) =>
+                  col.key === 'tuningProfile' && delayProfileNames ? (
+                    <td key={col.key} style={{ minWidth: 74 }}>
+                      <Combo
+                        className="ze-grid-combo"
+                        value={c.tuningProfile}
+                        ariaLabel={`${c.name} tuning profile`}
+                        options={['', ...delayProfileNames].map((n) => ({ value: n, label: n }))}
+                        onChange={(n) => setAt(i, { tuningProfile: n })}
+                      />
+                    </td>
+                  ) : (
+                    <td key={col.key} style={{ minWidth: 74 }}>
+                      <input
+                        type="text"
+                        value={c[col.key]}
+                        onChange={(e) => setAt(i, { [col.key]: e.target.value })}
+                      />
+                    </td>
+                  ),
+                )}
                 <td style={{ textAlign: 'center' }}>
                   {/* COLOR_SWATCH (color_swatch.cpp:301-328), where an
                       <input type="color"> handed the job to the desktop's own

@@ -222,6 +222,10 @@ import type {
   ViaSize,
 } from '../board_settings.js';
 import { BoardSetupToWindow } from './board_setup_transfer.js';
+import { delayProfileNames, validateTuningProfiles } from './panels/panel_pcb_tuning_profiles.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import { LSET } from '@ziroeda/common/src/lset.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { SETTINGS_MANAGER } from '@ziroeda/common/src/pgm_base.js';
 import type { JsonValue } from '@ziroeda/common/src/settings/json_settings.js';
 import { ParseBoard } from '@ziroeda/pcbnew/read-board.js';
@@ -267,12 +271,25 @@ interface Props {
    * said so on the page.
    */
   units: StatusUnits;
+  /**
+   * `m_frame->GetBoard()`: what the Tuning Profiles page reads its layer names
+   * and stackup from (`SyncCopperLayers`, `GetStackupOrDefault()`); absent in
+   * tests, where the page falls back to the rows' own names and no calculator.
+   */
+  board?: BOARD | null;
   initialPage?: PageId;
   onOk: (next: BoardSetupValues) => void;
   onClose: () => void;
 }
 
-export function DialogBoardSetup({ value, units, initialPage, onOk, onClose }: Props): JSX.Element {
+export function DialogBoardSetup({
+  value,
+  units,
+  board = null,
+  initialPage,
+  onOk,
+  onClose,
+}: Props): JSX.Element {
   const [v, setV] = useState<BoardSetupValues>(() => structuredClone(value));
   const [importOpen, setImportOpen] = useState(false);
   // `SetSelectionMode( wxGridSelectRows )` on the three Pre-defined Sizes
@@ -852,6 +869,15 @@ export function DialogBoardSetup({ value, units, initialPage, onOk, onClose }: P
             <PanelPcbTuningProfiles
               value={v.tuningProfiles}
               onChange={(tuningProfiles) => setV({ ...v, tuningProfiles })}
+              units={units}
+              // `SyncCopperLayers( m_physicalStackup->GetCopperLayerCount() )`:
+              // the stack the Physical Stackup page says, named by the board.
+              layers={copperStackNames(v.physicalStackup.copperCount).map((id) => ({
+                id,
+                name: board ? board.GetLayerName(LSET.NameToLayer(id) as PCB_LAYER_ID) : id,
+              }))}
+              stackup={board ? board.GetStackupOrDefault() : null}
+              onError={(message) => window.alert(message)}
             />
           ),
         },
@@ -862,6 +888,7 @@ export function DialogBoardSetup({ value, units, initialPage, onOk, onClose }: P
             <PanelSetupNetclasses
               value={v.netClasses}
               onChange={(netClasses) => setV({ ...v, netClasses })}
+              delayProfileNames={delayProfileNames(v.tuningProfiles)}
             />
           ),
         },
@@ -970,6 +997,10 @@ export function DialogBoardSetup({ value, units, initialPage, onOk, onClose }: P
               page: 'sizes',
               focusId: sizeCellId(badSize.grid, badSize.row, badSize.col),
             };
+
+          // PANEL_SETUP_TUNING_PROFILES::Validate, each page's ValidateProfile.
+          const badProfile = validateTuningProfiles(v.tuningProfiles);
+          if (badProfile) return { message: badProfile.message, page: 'tuningProfiles' };
           // `TransferDataFromWindow` clamps m_MaxError on the way out
           // (`panel_setup_constraints.cpp:161-165`); it is the one value on
           // Constraints that is not stored as typed.

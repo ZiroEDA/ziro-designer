@@ -12039,6 +12039,7 @@ export function PcbEditor({
       {boardSetupOpen && (
         <DialogBoardSetup
           units={unitLabel}
+          board={frameRef.current?.GetBoard() ?? null}
           value={boardSetup}
           initialPage={boardSetupPage}
           onOk={(next) => {

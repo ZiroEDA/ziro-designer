@@ -697,23 +697,46 @@ export function defaultTuning(): TuningSetup {
 // Tuning Profiles (PANEL_SETUP_TUNING_PROFILES / DELAY_PROFILE).
 
 export type ProfileType = 'Single' | 'Differential';
-export type FreqUnit = 'Hz' | 'kHz' | 'MHz' | 'GHz';
 
+/**
+ * One row of PANEL_SETUP_TUNING_PROFILE_INFO's Track Propagation grid — a
+ * `DELAY_PROFILE_TRACK_PROPAGATION_ENTRY`. Layers are canonical names
+ * (`LSET::Name`), shown through the board's user names; a reference of `''`
+ * is `UNDEFINED_LAYER` (the grid's `<None>`). `delay` is in internal
+ * length-delay units, as `GetUnitValue( row, TRACK_GRID_DELAY )` returns.
+ */
+export interface TuningProfileTrackEntry {
+  signalLayer: string;
+  topReference: string;
+  bottomReference: string;
+  widthMM: number;
+  diffPairGapMM: number;
+  delay: number;
+}
+
+/** One row of the Via delay overrides grid — a `DELAY_PROFILE_VIA_OVERRIDE_ENTRY`; `delay` in IU time. */
+export interface TuningProfileViaOverride {
+  signalLayerFrom: string;
+  signalLayerTo: string;
+  viaLayerFrom: string;
+  viaLayerTo: string;
+  delay: number;
+}
+
+/** `TUNING_PROFILE`, as one notebook page of PANEL_SETUP_TUNING_PROFILES holds it. */
 export interface TuningProfile {
   name: string;
   type: ProfileType;
   targetImpedance: number;
-  frequency: number;
-  frequencyUnit: FreqUnit;
   enableTimeDomain: boolean;
-  modelSolderMask: boolean;
-  globalUnitDelay: number;
+  /** `m_ViaPropagationDelay`, IU length-delay ("Global unit delay"). */
+  viaPropDelay: number;
+  trackEntries: TuningProfileTrackEntry[];
+  viaOverrides: TuningProfileViaOverride[];
 }
-
 export interface TuningProfilesData {
   profiles: TuningProfile[];
 }
-
 export function defaultTuningProfiles(): TuningProfilesData {
   return { profiles: [] };
 }

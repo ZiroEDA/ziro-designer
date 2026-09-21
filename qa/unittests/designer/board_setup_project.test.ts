@@ -126,11 +126,10 @@ function customSetup(): BoardSetupValues {
       name: 'DDR',
       type: 'Differential',
       targetImpedance: 90,
-      frequency: 2,
-      frequencyUnit: 'GHz',
       enableTimeDomain: true,
-      modelSolderMask: false,
-      globalUnitDelay: 7,
+      viaPropDelay: 7,
+      trackEntries: [],
+      viaOverrides: [],
     },
   ];
   s.netClasses.classes[0] = { ...s.netClasses.classes[0]!, clearance: '0.3', trackWidth: '0.35' };
@@ -172,12 +171,6 @@ describe('Board Setup, the .kicad_pro side', () => {
     const written = writePro(TEMPLATE, customSetup());
     const back = readPro(written);
     const want = customSetup();
-    // Not TUNING_PROFILE fields in 10.0.5: the panel shows them, nothing stores them.
-    for (const p of want.tuningProfiles.profiles) {
-      p.frequency = 1;
-      p.frequencyUnit = 'GHz';
-      p.modelSolderMask = true;
-    }
     // Edge Cuts and Courtyards have no text params (only `*_line_width` is
     // registered), so their text cells are whatever a fresh BDS holds.
     const fresh = readPro(TEMPLATE).textGraphics.rows;
@@ -436,6 +429,81 @@ describe('Board Setup, the .kicad_pro side', () => {
       td_onsmdpad: false,
       td_ontrackend: true,
       td_onroundshapesonly: true,
+    });
+  });
+
+  it('a tuning profile round-trips with its layer entries and via overrides', () => {
+    const s = readPro(TEMPLATE);
+    s.tuningProfiles.profiles = [
+      {
+        name: 'DDR4',
+        type: 'Differential',
+        targetImpedance: 90,
+        enableTimeDomain: true,
+        viaPropDelay: 12,
+        trackEntries: [
+          {
+            signalLayer: 'F.Cu',
+            topReference: '',
+            bottomReference: 'B.Cu',
+            widthMM: 0.2,
+            diffPairGapMM: 0.15,
+            delay: 7000,
+          },
+        ],
+        // Entered bottom-first: GetProfile orders them F_Cu first.
+        viaOverrides: [
+          {
+            signalLayerFrom: 'B.Cu',
+            signalLayerTo: 'F.Cu',
+            viaLayerFrom: 'B.Cu',
+            viaLayerTo: 'F.Cu',
+            delay: 3,
+          },
+        ],
+      },
+    ];
+    const written = writePro(TEMPLATE, s);
+    const j = JSON.parse(written);
+    expect(j.tuning_profiles.tuning_profiles_impedance_geometric[0]).toEqual({
+      profile_name: 'DDR4',
+      type: 1,
+      target_impedance: 90,
+      enable_time_domain_tuning: true,
+      layer_entries: [
+        {
+          signal_layer: 'F.Cu',
+          top_reference_layer: 'UNDEFINED',
+          bottom_reference_layer: 'B.Cu',
+          width: 200000,
+          diff_pair_gap: 150000,
+          delay: 7000,
+        },
+      ],
+      via_prop_delay: 12,
+      via_overrides: [
+        {
+          signal_layer_from: 'F.Cu',
+          signal_layer_to: 'B.Cu',
+          via_layer_from: 'F.Cu',
+          via_layer_to: 'B.Cu',
+          delay: 3,
+        },
+      ],
+    });
+
+    const back = readPro(written).tuningProfiles.profiles[0]!;
+    expect(back).toEqual({
+      ...s.tuningProfiles.profiles[0]!,
+      viaOverrides: [
+        {
+          signalLayerFrom: 'F.Cu',
+          signalLayerTo: 'B.Cu',
+          viaLayerFrom: 'F.Cu',
+          viaLayerTo: 'B.Cu',
+          delay: 3,
+        },
+      ],
     });
   });
 });

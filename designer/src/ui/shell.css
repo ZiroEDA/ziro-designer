@@ -16051,22 +16051,114 @@ td.ze-grid-bool {
   min-height: 0;
   overflow: auto;
   padding: 5px; /* [data] `fgSizer1->Add( m_tuningProfiles, 1, wxEXPAND|wxALL, 5 )`. */
-}
-/* The time-domain block is enabled under its checkbox, so it is indented by
-   the checkbox's own indicator width — GTK's check plus its 8 px gap. */
-.ze-tuneprof-timedomain {
-  padding-left: 22px; /* [css] GTK's check indicator plus its label gap, which is what indents an enabled-by block. */
+  display: flex;
+  flex-direction: column;
 }
 .ze-tuneprof-empty {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ctl-fg-disabled);
+  flex: 1;
+}
+.ze-tuneprof-btns {
+  margin-top: 5px; /* [data] `fgSizer1->Add( bSizer91, 1, wxTOP, 5 )` (`_base.cpp:38`). */
 }
 /* [data] `bSizer91->Add( 20, 0, 1, wxEXPAND )` between Add and Remove. */
 .ze-tuneprof-btngap {
   width: 20px; /* [data] the 20 of `bSizer91->Add( 20, 0, 1, wxEXPAND )`. */
+}
+
+/* PANEL_SETUP_TUNING_PROFILE_INFO (`panel_setup_tuning_profile_info_base.cpp`):
+   fgSizer1 of three rows, the third (the splitter) growable. */
+.ze-tuneprof-info {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* fgSizer2: one row of nine cells, columns 2 and 5 (the spacers) growable;
+   every control has its wxALL/wxTOP|wxBOTTOM|wxLEFT of 5 (`:24-58`). */
+.ze-tuneprof-head {
+  display: flex;
+  align-items: center;
+  gap: 5px; /* [data] the 5 px sizer borders between neighbours (`_base.cpp:24-58`). */
+  padding: 5px; /* [data] the outer 5 of the first and last cells (`_base.cpp:24-58`). */
+}
+.ze-tuneprof-spacer {
+  flex: 1;
+}
+.ze-tuneprof-spacer50 {
+  min-width: 50px; /* [data] `bSizer8->Add( 50, 0, 1, wxEXPAND )` (`_base.cpp:143`). */
+}
+/* `initPanel()`'s `GetTextExtent( "XXXXXXXXXXXXXXXXXXXXX" )` and `"XXXXXXXXX"`:
+   the two fields' minimum widths, in the field's own characters. */
+.ze-tuneprof-name {
+  width: 21ch; /* [data] 21 X's (`panel_setup_tuning_profile_info.cpp:60`). */
+}
+.ze-tuneprof-impedance {
+  width: 9ch; /* [data] 9 X's (`panel_setup_tuning_profile_info.cpp:62`). */
+}
+/* gbSizer1: the checkbox with wxALL 5, the wxStaticLine spanning two columns. */
+.ze-tuneprof-enable {
+  padding: 5px; /* [data] `gbSizer1->Add( m_enableDelayTuning, …, wxALL, 5 )`. */
+}
+.ze-tuneprof-rule {
+  margin: 5px; /* [data] `gbSizer1->Add( m_staticline1, …, wxEXPAND | wxALL, 5 )`. */
+}
+/* m_splitter1, `SplitHorizontally( m_panelTrackPropagation, m_panelViaPropagation, 200 )`:
+   the top pane is the sash position, the bottom pane the rest. */
+.ze-tuneprof-split {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ze-tuneprof-track {
+  flex: 0 0 200px; /* [data] the sash position of `SplitHorizontally( …, 200 )`. */
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ze-tuneprof-via {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ze-tuneprof-title {
+  /* [data] `Add( m_trackPropagationLabel, 0, wxTOP|wxRIGHT|wxLEFT, 5 )` (`_base.cpp:72`). */
+  padding: 5px 5px 0;
+}
+.ze-tuneprof-viahead {
+  display: flex;
+  align-items: center;
+  gap: 5px; /* [data] the 5 px sizer borders of bSizer8's cells. */
+}
+.ze-tuneprof-viahead .ze-tuneprof-title {
+  padding: 5px; /* [data] `bSizer8->Add( m_viaPropagationLabel, 0, wxALL|wxALIGN_CENTER_VERTICAL, 5 )`. */
+}
+.ze-tuneprof-sublabel {
+  /* [data] `Add( m_viaDelayOverridesLabel, 0, wxLEFT|wxRIGHT, 5 )` (`_base.cpp:147`). */
+  padding: 0 5px;
+}
+.ze-tuneprof-grid {
+  flex: 1;
+  min-height: 0;
+  /* [data] `Add( m_trackPropagationGrid, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5 )` (`_base.cpp:99`). */
+  margin: 5px 5px 0;
+}
+.ze-tuneprof-via .ze-tuneprof-grid {
+  margin: 5px; /* [data] `Add( m_viaOverrides, 1, wxALL|wxEXPAND, 5 )` (`_base.cpp:178`). */
+}
+/* A GRID_CELL_RUN_FUNCTION_EDITOR cell: the text and its button side by side. */
+.ze-tuneprof-calc {
+  display: flex;
+  align-items: stretch;
+}
+.ze-tuneprof-calc .ze-grid-input {
+  flex: 1;
+  min-width: 0;
+}
+.ze-tuneprof-calc .ze-grid-cellbtn img {
+  width: 16px; /* [art] small_refresh.svg, KiCad's 16 px small_* bitmap. */
+  height: 16px; /* [art] small_refresh.svg, KiCad's 16 px small_* bitmap. */
 }
 
 /* PANEL_ASSIGN_COMPONENT_CLASSES + PANEL_COMPONENT_CLASS_ASSIGNMENT
