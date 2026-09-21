@@ -4,6 +4,7 @@
 import { useEffect, useState, type FormEvent, type JSX } from 'react';
 import { RecoveryKeyContents } from './RecoveryKeyContents.js';
 import { useAuth } from './AuthProvider.js';
+import { ACCOUNT_EXISTS_MESSAGE } from './signup_outcome.js';
 import { useModalEscape } from '../ui/useModalEscape.js';
 import { ZiroLogo } from '../ui/ZiroLogo.js';
 import type { AuthStep } from '../nav/route.js';
@@ -126,6 +127,13 @@ export function SignInDialog({
   const [confirm, setConfirm] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
+  /**
+   * An error that belongs to the email field rather than to the form: the
+   * reference sets "Email already registered" on the field itself
+   * (SignUpContents.tsx `setFieldError("email", ...)`), under the entry, not
+   * in the banner above the button.
+   */
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const strength = usePasswordStrength(password);
@@ -156,10 +164,12 @@ export function SignInDialog({
       return;
     }
     setError(null);
+    setEmailError(null);
     setBusy(true);
     try {
       const { error, needsConfirm } = await signUp(email, password);
-      if (error) setError(error);
+      if (error === ACCOUNT_EXISTS_MESSAGE) setEmailError(error);
+      else if (error) setError(error);
       else if (needsConfirm) {
         try {
           sessionStorage.setItem(PENDING_EMAIL_KEY, email);
@@ -230,8 +240,13 @@ export function SignInDialog({
         required
         autoFocus
         value={email}
-        onChange={(e) => setEmail(e.target.value)}
+        aria-invalid={emailError ? true : undefined}
+        onChange={(e) => {
+          setEmail(e.target.value);
+          setEmailError(null);
+        }}
       />
+      {emailError && <div className="ze-auth-error">{emailError}</div>}
     </label>
   );
 

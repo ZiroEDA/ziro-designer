@@ -30,5 +30,8 @@ export function signUpOutcome(data: {
   return (data.user.identities?.length ?? 0) === 0 ? 'exists' : 'confirm';
 }
 
-/** The sign-up form's message for {@link SignUpOutcome} `exists`. */
-export const ACCOUNT_EXISTS_MESSAGE = 'An account with this email already exists. Sign in instead.';
+/**
+ * The sign-up form's message for {@link SignUpOutcome} `exists`: the
+ * reference's `email_already_registered`, set on the email field.
+ */
+export const ACCOUNT_EXISTS_MESSAGE = 'Email already registered';
