@@ -2341,9 +2341,13 @@ export function HomePage({
           {'conflicts' in syncState ? (
             <>
               <span>
-                {syncState.conflicts.length === 1
-                  ? `"${syncState.conflicts[0]!.name}" changed here and on another device.`
-                  : `${syncState.conflicts.length} projects changed here and on another device.`}{' '}
+                {syncState.conflicts.every((c) => c.reason === 'unreadable')
+                  ? syncState.conflicts.length === 1
+                    ? `The cloud copy of "${syncState.conflicts[0]!.name}" cannot be opened with your key.`
+                    : `The cloud copies of ${syncState.conflicts.length} projects cannot be opened with your key.`
+                  : syncState.conflicts.length === 1
+                    ? `"${syncState.conflicts[0]!.name}" changed here and on another device.`
+                    : `${syncState.conflicts.length} projects changed here and on another device.`}{' '}
                 Nothing has been changed or copied.
               </span>
               {/* Two choices, and neither destroys anything. There is
@@ -2357,13 +2361,17 @@ export function HomePage({
               >
                 Keep mine
               </button>
-              <button
-                type="button"
-                className="ze-sync-dismiss"
-                onClick={() => void resolveConflicts(syncState.conflicts, 'both')}
-              >
-                Keep both
-              </button>
+              {/* "Keep both" takes the cloud copy as well, which an unreadable
+                  one cannot be. */}
+              {syncState.conflicts.some((c) => c.reason !== 'unreadable') && (
+                <button
+                  type="button"
+                  className="ze-sync-dismiss"
+                  onClick={() => void resolveConflicts(syncState.conflicts, 'both')}
+                >
+                  Keep both
+                </button>
+              )}
             </>
           ) : 'healed' in syncState ? (
             <>

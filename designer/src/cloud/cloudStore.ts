@@ -445,6 +445,11 @@ export async function cloudGetRow(id: string, uid?: string): Promise<ProjectRow 
   return withPlain(be, await be.getProject(id, uid));
 }
 
+/** The row as stored, with no attempt to open it: for a caller that only needs its version. */
+export async function cloudGetRowRaw(id: string, uid?: string): Promise<ProjectRow | null> {
+  return need().getProject(id, uid);
+}
+
 /**
  * How much of a cloud copy is not actually in the object store.
  *

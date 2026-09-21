@@ -67,6 +67,7 @@ import {
   cloudStoreListing,
   cloudGet,
   cloudGetRow,
+  cloudGetRowRaw,
   cloudListMeta,
   cloudMemberships,
   assertStoreAnswers,
@@ -119,6 +120,16 @@ export interface SyncConflict {
   localId: string;
   /** For the sentence shown to the user. */
   name: string;
+  /**
+   * Why a person is being asked. `diverged` (the default): both sides changed
+   * since they last agreed. `unreadable`: the cloud copy will not open with
+   * the key this account holds - a row sealed under a key nobody has any
+   * more (2026-09-21: a member's stale tab wrote it back under a key the
+   * owner had rotated away) - so there is nothing to compare, only the local
+   * copy to offer in its place. "Keep both" is not a choice for it: the
+   * cloud copy cannot be taken.
+   */
+  reason?: 'diverged' | 'unreadable';
 }
 
 /**
@@ -581,9 +592,25 @@ async function pullOne(
     }
     return await takeCloudCopy(userId, ref);
   } catch (e) {
+    // A row this account's key will not open. Not damage the app can prove
+    // (somebody could hold that key), so not repaired on its own; but with a
+    // usable copy on this device it is a choice a person can make, and the
+    // alternative is the same red failure on every sync for the life of the
+    // account. A viewer's local copy is not theirs to put over the owner's.
+    if (isDecryptFailure(e) && ref.role !== 'viewer' && conflicts) {
+      const local = await exportProject(ref.localId);
+      if (local?.files.some((f) => (f.gzB64?.length ?? 0) > 0)) {
+        conflicts.push({ localId: ref.localId, name: local.name, reason: 'unreadable' });
+        return 'conflict';
+      }
+    }
     return await repairUnreadable(userId, ref, e);
   }
 }
+
+/** WebCrypto's answer to the wrong key or a tampered ciphertext. */
+const isDecryptFailure = (e: unknown): boolean =>
+  typeof e === 'object' && e !== null && (e as { name?: string }).name === 'OperationError';
 
 /**
  * Whether a cloud row and a local copy hold the same files.
@@ -692,7 +719,9 @@ export async function resolveKeepMine(userId: string, localId: string): Promise<
   if (!cloudBackendInstalled()) return;
   const ref = await refFor(localId);
   if (!ref) return;
-  const row = await cloudGetRow(ref.remoteId, ref.uid);
+  // The raw row: only its version is wanted, and an `unreadable` conflict is
+  // one whose contents cannot be opened - the push below replaces them.
+  const row = await cloudGetRowRaw(ref.remoteId, ref.uid);
   await pushOne(userId, localId, row ? Number(row.version ?? 1) : 0);
 }
 

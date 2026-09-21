@@ -25,7 +25,7 @@ import {
 } from '@ziroeda/designer/src/cloud/cloudStore.js';
 import { sha256Hex } from '@ziroeda/designer/src/cloud/blobStore.js';
 import { createAccount, decryptBlob } from '@ziroeda/designer/src/cloud/crypto.js';
-import { openMeta, unwrapFileKey } from '@ziroeda/designer/src/cloud/enc_meta.js';
+import { openMeta, sealMeta, unwrapFileKey } from '@ziroeda/designer/src/cloud/enc_meta.js';
 import {
   createProjectKeyFor,
   forgetCachedProjectKey,
@@ -34,7 +34,13 @@ import {
   setSessionKeys,
   shareProjectKeyWith,
 } from '@ziroeda/designer/src/cloud/session_keys.js';
-import { sweepPlaintextBlobs } from '@ziroeda/designer/src/cloud/sync.js';
+import {
+  resolveKeepMine,
+  sweepPlaintextBlobs,
+  syncAllProjects,
+} from '@ziroeda/designer/src/cloud/sync.js';
+import 'fake-indexeddb/auto';
+import { saveProject, setProjectOwner } from '@ziroeda/designer/src/home/projectStore.js';
 
 const FAST = { opsLimit: 1, memLimitKiB: 1024 };
 const OWNER = 'user-owner';
@@ -488,6 +494,45 @@ describe('a member whose cached key is stale, after the owner rotated', () => {
     expect(text(back!.files.find((x) => x.name === 'b')!.gzB64!)).toBe('from member');
     // And the old key opens nothing any more.
     await expect(openMeta(key, f.rows.get('p1')!.enc_meta!)).rejects.toThrow();
+  });
+});
+
+describe("a cloud row that will not open with this account's key", () => {
+  it('is offered as a choice - keep mine - and keeping mine replaces it', async () => {
+    // The state 2026-09-21 left behind: a row sealed under a key nobody holds
+    // (see the stale-cache test above). Before this, every sync ended in a
+    // red "did not sync: OperationError" with nothing to click; the local
+    // copy was fine the whole time.
+    setProjectOwner(OWNER);
+    const localId = await saveProject('Amp', [
+      { name: 'a.txt', bytes: new TextEncoder().encode('AAA') },
+    ]);
+    const first = await syncAllProjects(OWNER);
+    expect(first.pushed).toBe(1);
+    const row = [...f.rows.values()][0]!;
+    const uid = row.uid!;
+
+    // Re-seal the row under a key that exists nowhere, as the stale tab did.
+    const mine = (await projectKeyFor(f, OWNER, uid))!;
+    const meta = await openMeta(mine, row.enc_meta!);
+    const nobodys = crypto.getRandomValues(new Uint8Array(32));
+    f.rows.set(row.id, {
+      ...row,
+      enc_meta: await sealMeta(nobodys, meta),
+      version: row.version! + 1,
+    });
+
+    const second = await syncAllProjects(OWNER);
+    expect(second.failures).toEqual([]);
+    expect(second.conflicts).toEqual([{ localId, name: 'Amp', reason: 'unreadable' }]);
+
+    await resolveKeepMine(OWNER, localId);
+    // Opened with this account's key again, and holding this device's copy.
+    const back = await cloudGet(row.id, uid);
+    expect(back?.files.map((x) => x.name)).toEqual(['a.txt']);
+    const third = await syncAllProjects(OWNER);
+    expect(third.conflicts).toEqual([]);
+    expect(third.failures).toEqual([]);
   });
 });
 
