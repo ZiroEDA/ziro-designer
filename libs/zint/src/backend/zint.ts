@@ -22,7 +22,20 @@ import { newSymbol, type ZintSymbol } from './common.js';
 import { datamatrix } from './dmatrix.js';
 import { microqr } from './microqr.js';
 import { qrcode } from './qr.js';
-import type { BarcodeEcc, BarcodeKind } from '../types.js';
+
+/**
+ * `BARCODE_T` (`pcb_barcode.h:41-48`) by name: the five symbologies, in the
+ * enum's own order. The strings are what the board file and the property grid
+ * carry; `pcbnew/types.ts` re-exports the type.
+ */
+export type BarcodeKind = 'code39' | 'code128' | 'datamatrix' | 'qr' | 'microqr';
+
+/**
+ * `BARCODE_ECC_T` (`pcb_barcode.h:50-56`) by name. Only QR and Micro QR have
+ * one; the values are Zint's `option_1`, which is why the enum starts at 1
+ * (`pcb_barcode.cpp:583` passes it straight through).
+ */
+export type BarcodeEcc = 'L' | 'M' | 'Q' | 'H';
 
 /** `BARCODE_ECC_T` -> Zint's `option_1` — the enum values ARE the option. */
 export const ECC_OPTION: Readonly<Record<BarcodeEcc, number>> = { L: 1, M: 2, Q: 3, H: 4 };

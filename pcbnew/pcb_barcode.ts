@@ -7,7 +7,7 @@
  * cached polygon sets (the symbol, the text, the assembled result with the
  * knockout, mirror and rotation applied).
  *
- * The Zint encoders are the port in `barcode/`; `ZBarcode_Buffer_Vector`'s
+ * The Zint encoders are `@ziroeda/zint` (KiCad's `thirdparty/zint/backend`); `ZBarcode_Buffer_Vector`'s
  * rectangle output is `vectorRectangles` here.
  *
  * Not here: `Serialize`/`Deserialize` (the kiapi protobuf surface) and
@@ -34,8 +34,7 @@ import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { type VECTOR2I, add, divideI, equal, sub } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
-import { moduleIsSet, type ZintSymbol } from './barcode/common.js';
-import { encodeBarcode } from './barcode/zint.js';
+import { encodeBarcode, moduleIsSet, type ZintSymbol } from '@ziroeda/zint';
 import type { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
 import { BOARD_ITEM } from './board_item.js';
 import {
@@ -536,7 +535,7 @@ export class PCB_BARCODE extends BOARD_ITEM {
     if (text.length === 0) return;
 
     // The kind/ECC options, the ECI for non-ASCII QR / Data Matrix text and the error
-    // messages are encodeBarcode's (barcode/zint.ts: ZBarcode_Encode's surface).
+    // messages are encodeBarcode's (zint's ZBarcode_Encode surface).
     const result = encodeBarcode(KIND_NAMES[this.m_kind], ECC_NAMES[this.m_errorCorrection], text);
 
     if (!result.symbol) {

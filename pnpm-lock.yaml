@@ -171,6 +171,8 @@ importers:
 
   libs/sexpr: {}
 
+  libs/zint: {}
+
   pcb_calculator:
     dependencies:
       '@ziroeda/common':
@@ -194,6 +196,9 @@ importers:
       '@ziroeda/sexpr':
         specifier: workspace:*
         version: link:../libs/sexpr
+      '@ziroeda/zint':
+        specifier: workspace:*
+        version: link:../libs/zint
       clipper-lib:
         specifier: ^6.4.2
         version: 6.4.2
@@ -230,6 +235,9 @@ importers:
       '@ziroeda/sexpr':
         specifier: workspace:*
         version: link:../libs/sexpr
+      '@ziroeda/zint':
+        specifier: workspace:*
+        version: link:../libs/zint
     devDependencies:
       '@testing-library/dom':
         specifier: ^10.4.1

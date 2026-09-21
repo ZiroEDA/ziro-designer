@@ -19,7 +19,8 @@
     "@ziroeda/kimath": "workspace:*",
     "@ziroeda/pcb_calculator": "workspace:*",
     "@ziroeda/pcbnew": "workspace:*",
-    "@ziroeda/sexpr": "workspace:*"
+    "@ziroeda/sexpr": "workspace:*",
+    "@ziroeda/zint": "workspace:*"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.1",

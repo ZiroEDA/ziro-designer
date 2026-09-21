@@ -921,14 +921,15 @@ export interface PcbPoint {
  * the enum's own order — the order is the file's, the property grid's and the
  * dialog dropdown's, and the integers are what the protobuf carries.
  */
-export type BarcodeKind = 'code39' | 'code128' | 'datamatrix' | 'qr' | 'microqr';
+export type { BarcodeKind } from '@ziroeda/zint';
+import type { BarcodeEcc, BarcodeKind } from '@ziroeda/zint';
 
 /**
  * `BARCODE_ECC_T` (`pcb_barcode.h:50-56`). Only QR and Micro QR have one; the
  * values are Zint's `option_1`, which is why they start at 1 rather than 0
  * (`pcb_barcode.cpp:583` passes the enum straight through as `option_1`).
  */
-export type BarcodeEcc = 'L' | 'M' | 'Q' | 'H';
+export type { BarcodeEcc } from '@ziroeda/zint';
 
 /**
  * `PCB_BARCODE` (`pcbnew/pcb_barcode.h:63`) — a machine-readable symbol drawn

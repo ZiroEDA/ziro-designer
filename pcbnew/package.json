@@ -14,6 +14,7 @@
     "@ziroeda/core": "workspace:*",
     "@ziroeda/kimath": "workspace:*",
     "@ziroeda/rectpack2d": "workspace:*",
+    "@ziroeda/zint": "workspace:*",
     "@ziroeda/sexpr": "workspace:*",
     "clipper-lib": "^6.4.2",
     "polygon-clipping": "^0.15.7"

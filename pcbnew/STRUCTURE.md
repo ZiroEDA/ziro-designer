@@ -25,9 +25,9 @@ you find one; keep the reason to a line.
 
 ## Directories we have that KiCad doesn't
 
-| | why |
-|---|---|
-| `barcode/` | KiCad links Zint externally; we vendored a port. |
+None since 09-21. `barcode/` (the Zint port) is `libs/zint` now — KiCad's
+`thirdparty/zint/backend`, placed as `thirdparty/rectpack2d` was
+(`libs/rectpack2d`).
 
 ## Content divergences
 
