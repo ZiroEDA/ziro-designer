@@ -748,6 +748,9 @@ export class NET_SETTINGS extends NESTED_SETTINGS {
       new PARAM_LAMBDA<JsonValue>(
         'net_colors',
         () => {
+          // `nlohmann::json ret = {}` is null until the first key is added.
+          if (this.m_netColorAssignments.size === 0) return null;
+
           const ret: JsonObject = {};
 
           for (const [netname, color] of this.m_netColorAssignments)
@@ -775,6 +778,9 @@ export class NET_SETTINGS extends NESTED_SETTINGS {
       new PARAM_LAMBDA<JsonValue>(
         'netclass_assignments',
         () => {
+          // `nlohmann::json ret = {}` is null until the first key is added.
+          if (this.m_netClassLabelAssignments.size === 0) return null;
+
           const ret: JsonObject = {};
 
           for (const [netname, netclassNames] of this.m_netClassLabelAssignments)
