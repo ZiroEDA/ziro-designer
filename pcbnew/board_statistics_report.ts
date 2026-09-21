@@ -122,7 +122,26 @@ export interface BoardStatisticsData {
 export const STATISTICS_INT_MAX = 2147483647;
 
 /**
- * `InitializeBoardStatisticsData` followed by `ResetCounts`.
+ * `BOARD_STATISTICS_DATA::ResetCounts`: the scalars back to their starting
+ * values. The per-entry counts are NOT touched — upstream's isn't either.
+ */
+export function ResetCounts(aData: BoardStatisticsData): void {
+  aData.hasOutline = false;
+  aData.boardWidth = 0;
+  aData.boardHeight = 0;
+  aData.boardArea = 0.0;
+  aData.frontCopperArea = 0.0;
+  aData.backCopperArea = 0.0;
+  aData.frontFootprintCourtyardArea = 0.0;
+  aData.backFootprintCourtyardArea = 0.0;
+  aData.minClearanceTrackToTrack = STATISTICS_INT_MAX;
+  aData.minTrackWidth = STATISTICS_INT_MAX;
+  aData.minDrillSize = STATISTICS_INT_MAX;
+  aData.boardThickness = 0;
+}
+
+/**
+ * `InitializeBoardStatisticsData`: the entry lists, then `ResetCounts`.
  *
  * The order of every list is the order of the dialog's rows and of the saved
  * report, so it is part of the output rather than an implementation detail.
@@ -197,8 +216,10 @@ function padHoleArea(aPad: {
 export function ComputeBoardStatistics(
   aBoard: BOARD,
   aOptions: BoardStatisticsOptions = DEFAULT_BOARD_STATISTICS_OPTIONS,
+  aData: BoardStatisticsData = InitializeBoardStatisticsData(),
 ): BoardStatisticsData {
-  const data = InitializeBoardStatisticsData();
+  ResetCounts(aData);
+  const data = aData;
 
   for (const footprint of aBoard.Footprints()) {
     if (aOptions.excludeFootprintsWithoutPads && footprint.Pads().length === 0) continue;

@@ -1433,6 +1433,46 @@ export class NET_SETTINGS extends NESTED_SETTINGS {
   }
 
   /**
+   * `operator==`. Upstream's `std::equal` runs over `shared_ptr` pairs for the
+   * netclasses and the pattern matchers, so those two compare by IDENTITY (the
+   * same object), not by content; the label and colour assignments by value.
+   * It also walks only the first range's length, as `std::equal` does.
+   */
+  equals(aOther: NET_SETTINGS): boolean {
+    const a1 = [...this.m_netClasses];
+    const b1 = [...aOther.m_netClasses];
+    for (let i = 0; i < a1.length; i++)
+      if (b1[i] === undefined || a1[i]![0] !== b1[i]![0] || a1[i]![1] !== b1[i]![1]) return false;
+
+    for (let i = 0; i < this.m_netClassPatternAssignments.length; i++) {
+      const b = aOther.m_netClassPatternAssignments[i];
+      const a = this.m_netClassPatternAssignments[i]!;
+      if (b === undefined || a[0] !== b[0] || a[1] !== b[1]) return false;
+    }
+
+    const a3 = [...this.m_netClassLabelAssignments];
+    const b3 = [...aOther.m_netClassLabelAssignments];
+    for (let i = 0; i < a3.length; i++) {
+      const b = b3[i];
+      if (b === undefined || a3[i]![0] !== b[0]) return false;
+      const sa = a3[i]![1];
+      if (sa.size !== b[1].size) return false;
+      for (const v of sa) if (!b[1].has(v)) return false;
+    }
+
+    const a4 = [...this.m_netColorAssignments];
+    const b4 = [...aOther.m_netColorAssignments];
+    for (let i = 0; i < a4.length; i++) {
+      const b = b4[i];
+      if (b === undefined || a4[i]![0] !== b[0]) return false;
+      const ca = a4[i]![1];
+      if (ca.r !== b[1].r || ca.g !== b[1].g || ca.b !== b[1].b || ca.a !== b[1].a) return false;
+    }
+
+    return true;
+  }
+
+  /**
    * Parse a bus vector (e.g. A[7..0]) into name and members.
    *
    * @param aBus is a bus vector label string

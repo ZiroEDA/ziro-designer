@@ -21,6 +21,7 @@ import {
 } from './pcb_dimension_types.js';
 import { IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { LSET } from '@ziroeda/common/src/lset.js';
+import { VIATYPE } from './pcb_track_types.js';
 import {
   RPT_SEVERITY_ERROR,
   RPT_SEVERITY_IGNORE,
@@ -251,6 +252,8 @@ export class BOARD_DESIGN_SETTINGS extends NESTED_SETTINGS {
   m_SkewMeanderSettings: MeanderSettings = defaultMeanderSettings();
   m_DiffPairMeanderSettings: MeanderSettings = defaultMeanderSettings();
 
+  m_CurrentViaType: VIATYPE; ///< (VIA_BLIND_BURIED, VIA_THROUGH, VIA_MICROVIA)
+
   m_UseConnectedTrackWidth: boolean; // use width of existing track when creating a new,
   // connected track
   m_TempOverrideTrackWidth: boolean; // use selected track width temporarily even when
@@ -412,6 +415,8 @@ export class BOARD_DESIGN_SETTINGS extends NESTED_SETTINGS {
     // Default design is a double layer board with 4 user defined layers
     this.SetCopperLayerCount(2);
     this.SetUserDefinedLayerCount(4);
+
+    this.m_CurrentViaType = VIATYPE.THROUGH;
 
     // if true, when creating a new track starting on an existing track, use this track width
     this.m_UseConnectedTrackWidth = false;
@@ -2131,5 +2136,242 @@ export class BOARD_DESIGN_SETTINGS extends NESTED_SETTINGS {
   }
   SetCustomDiffPairViaGap(aGap: number): void {
     this.m_customDiffPair.m_ViaGap = aGap;
+  }
+  /** The copy constructor: the same parent and path, then `initFromOther`. */
+  static copyOf(aOther: BOARD_DESIGN_SETTINGS): BOARD_DESIGN_SETTINGS {
+    const copy = new BOARD_DESIGN_SETTINGS(aOther.m_parent, aOther.GetFilename());
+    copy.initFromOther(aOther);
+    return copy;
+  }
+
+  /** `operator=`. */
+  assign(aOther: BOARD_DESIGN_SETTINGS): this {
+    this.initFromOther(aOther);
+    return this;
+  }
+
+  /**
+   * `initFromOther`: every value member copied, the `NET_SETTINGS` pointer
+   * SHARED (`shared_ptr` assignment), the pad master, stackup and zone settings
+   * deep-copied (`make_unique<PAD>( *aOther.m_Pad_Master )`, value members).
+   */
+  private initFromOther(aOther: BOARD_DESIGN_SETTINGS): void {
+    // Copy of NESTED_SETTINGS around is not allowed, so let's just update the params.
+    this.m_TrackWidthList = [...aOther.m_TrackWidthList];
+    this.m_ViasDimensionsList = aOther.m_ViasDimensionsList.map(
+      (v) => new VIA_DIMENSION(v.m_Diameter, v.m_Drill),
+    );
+    this.m_DiffPairDimensionsList = aOther.m_DiffPairDimensionsList.map(
+      (d) => new DIFF_PAIR_DIMENSION(d.m_Width, d.m_Gap, d.m_ViaGap),
+    );
+    this.m_CurrentViaType = aOther.m_CurrentViaType;
+    this.m_UseConnectedTrackWidth = aOther.m_UseConnectedTrackWidth;
+    this.m_TempOverrideTrackWidth = aOther.m_TempOverrideTrackWidth;
+    this.m_MinClearance = aOther.m_MinClearance;
+    this.m_MinGrooveWidth = aOther.m_MinGrooveWidth;
+    this.m_MinConn = aOther.m_MinConn;
+    this.m_TrackMinWidth = aOther.m_TrackMinWidth;
+    this.m_ViasMinAnnularWidth = aOther.m_ViasMinAnnularWidth;
+    this.m_ViasMinSize = aOther.m_ViasMinSize;
+    this.m_MinThroughDrill = aOther.m_MinThroughDrill;
+    this.m_MicroViasMinSize = aOther.m_MicroViasMinSize;
+    this.m_MicroViasMinDrill = aOther.m_MicroViasMinDrill;
+    this.m_CopperEdgeClearance = aOther.m_CopperEdgeClearance;
+    this.m_HoleClearance = aOther.m_HoleClearance;
+    this.m_HoleToHoleMin = aOther.m_HoleToHoleMin;
+    this.m_SilkClearance = aOther.m_SilkClearance;
+    this.m_MinResolvedSpokes = aOther.m_MinResolvedSpokes;
+    this.m_MinSilkTextHeight = aOther.m_MinSilkTextHeight;
+    this.m_MinSilkTextThickness = aOther.m_MinSilkTextThickness;
+    this.m_DRCSeverities = new Map(aOther.m_DRCSeverities);
+    this.m_DrcExclusions = new Set(aOther.m_DrcExclusions);
+    this.m_DrcExclusionComments = new Map(aOther.m_DrcExclusionComments);
+    this.m_ZoneKeepExternalFillets = aOther.m_ZoneKeepExternalFillets;
+    this.m_MaxError = aOther.m_MaxError;
+    this.m_SolderMaskExpansion = aOther.m_SolderMaskExpansion;
+    this.m_SolderMaskMinWidth = aOther.m_SolderMaskMinWidth;
+    this.m_SolderMaskToCopperClearance = aOther.m_SolderMaskToCopperClearance;
+    this.m_SolderPasteMargin = aOther.m_SolderPasteMargin;
+    this.m_SolderPasteMarginRatio = aOther.m_SolderPasteMarginRatio;
+    this.m_AllowSoldermaskBridgesInFPs = aOther.m_AllowSoldermaskBridgesInFPs;
+    this.m_TentViasFront = aOther.m_TentViasFront;
+    this.m_TentViasBack = aOther.m_TentViasBack;
+    this.m_CoverViasFront = aOther.m_CoverViasFront;
+    this.m_CoverViasBack = aOther.m_CoverViasBack;
+    this.m_PlugViasFront = aOther.m_PlugViasFront;
+    this.m_PlugViasBack = aOther.m_PlugViasBack;
+    this.m_CapVias = aOther.m_CapVias;
+    this.m_FillVias = aOther.m_FillVias;
+    this.m_DefaultFPTextItems = aOther.m_DefaultFPTextItems.map(
+      (t) => new TEXT_ITEM_INFO(t.m_Text, t.m_Visible, t.m_Layer),
+    );
+    this.m_UserLayerNames = new Map(aOther.m_UserLayerNames);
+
+    this.m_LineThickness = [...aOther.m_LineThickness];
+    this.m_TextSize = aOther.m_TextSize.map((v) => ({ x: v.x, y: v.y }));
+    this.m_TextThickness = [...aOther.m_TextThickness];
+    this.m_TextItalic = [...aOther.m_TextItalic];
+    this.m_TextUpright = [...aOther.m_TextUpright];
+
+    this.m_DimensionUnitsMode = aOther.m_DimensionUnitsMode;
+    this.m_DimensionPrecision = aOther.m_DimensionPrecision;
+    this.m_DimensionUnitsFormat = aOther.m_DimensionUnitsFormat;
+    this.m_DimensionSuppressZeroes = aOther.m_DimensionSuppressZeroes;
+    this.m_DimensionTextPosition = aOther.m_DimensionTextPosition;
+    this.m_DimensionKeepTextAligned = aOther.m_DimensionKeepTextAligned;
+    this.m_DimensionArrowLength = aOther.m_DimensionArrowLength;
+    this.m_DimensionExtensionOffset = aOther.m_DimensionExtensionOffset;
+    this.m_auxOrigin = { x: aOther.m_auxOrigin.x, y: aOther.m_auxOrigin.y };
+    this.m_gridOrigin = { x: aOther.m_gridOrigin.x, y: aOther.m_gridOrigin.y };
+    this.m_HasStackup = aOther.m_HasStackup;
+    this.m_UseHeightForLengthCalcs = aOther.m_UseHeightForLengthCalcs;
+
+    this.m_trackWidthIndex = aOther.m_trackWidthIndex;
+    this.m_viaSizeIndex = aOther.m_viaSizeIndex;
+    this.m_diffPairIndex = aOther.m_diffPairIndex;
+    this.m_useCustomTrackVia = aOther.m_useCustomTrackVia;
+    this.m_customTrackWidth = aOther.m_customTrackWidth;
+    this.m_customViaSize = new VIA_DIMENSION(
+      aOther.m_customViaSize.m_Diameter,
+      aOther.m_customViaSize.m_Drill,
+    );
+    this.m_useCustomDiffPair = aOther.m_useCustomDiffPair;
+    this.m_customDiffPair = new DIFF_PAIR_DIMENSION(
+      aOther.m_customDiffPair.m_Width,
+      aOther.m_customDiffPair.m_Gap,
+      aOther.m_customDiffPair.m_ViaGap,
+    );
+    this.m_copperLayerCount = aOther.m_copperLayerCount;
+    this.m_userDefinedLayerCount = aOther.m_userDefinedLayerCount;
+    this.m_enabledLayers = new LSET(aOther.m_enabledLayers);
+    this.m_boardThickness = aOther.m_boardThickness;
+    this.m_currentNetClassName = aOther.m_currentNetClassName;
+    this.m_stackup = BOARD_STACKUP.copyOf(aOther.m_stackup);
+    this.m_NetSettings = aOther.m_NetSettings;
+    this.m_Pad_Master = PAD.copyOfPad(aOther.m_Pad_Master);
+    this.m_defaultZoneSettings = aOther.m_defaultZoneSettings.clone();
+
+    this.m_StyleFPFields = aOther.m_StyleFPFields;
+    this.m_StyleFPText = aOther.m_StyleFPText;
+    this.m_StyleFPShapes = aOther.m_StyleFPShapes;
+    this.m_StyleFPDimensions = aOther.m_StyleFPDimensions;
+    this.m_StyleFPBarcodes = aOther.m_StyleFPBarcodes;
+  }
+
+  /**
+   * `operator==`. Maps and sets compare as `std::map`/`std::set` do — same
+   * size, every key present with an equal value — and the per-class arrays
+   * element by element.
+   */
+  equals(aOther: BOARD_DESIGN_SETTINGS): boolean {
+    const sameList = <T>(a: readonly T[], b: readonly T[], eq: (x: T, y: T) => boolean): boolean =>
+      a.length === b.length && a.every((x, i) => eq(x, b[i]!));
+    const sameMap = <K, V>(a: Map<K, V>, b: Map<K, V>, eq: (x: V, y: V) => boolean): boolean => {
+      if (a.size !== b.size) return false;
+      for (const [k, v] of a) {
+        if (!b.has(k)) return false;
+        if (!eq(v, b.get(k) as V)) return false;
+      }
+      return true;
+    };
+    const sameSet = (a: Set<string>, b: Set<string>): boolean =>
+      a.size === b.size && [...a].every((v) => b.has(v));
+    const same = <T>(x: T, y: T): boolean => x === y;
+    const sameVec = (a: VECTOR2I, b: VECTOR2I): boolean => a.x === b.x && a.y === b.y;
+
+    if (!sameList(this.m_TrackWidthList, aOther.m_TrackWidthList, same)) return false;
+    if (!sameList(this.m_ViasDimensionsList, aOther.m_ViasDimensionsList, (a, b) => a.equals(b)))
+      return false;
+    if (
+      !sameList(this.m_DiffPairDimensionsList, aOther.m_DiffPairDimensionsList, (a, b) =>
+        a.equals(b),
+      )
+    )
+      return false;
+    if (this.m_CurrentViaType !== aOther.m_CurrentViaType) return false;
+    if (this.m_UseConnectedTrackWidth !== aOther.m_UseConnectedTrackWidth) return false;
+    if (this.m_TempOverrideTrackWidth !== aOther.m_TempOverrideTrackWidth) return false;
+    if (this.m_MinClearance !== aOther.m_MinClearance) return false;
+    if (this.m_MinGrooveWidth !== aOther.m_MinGrooveWidth) return false;
+    if (this.m_MinConn !== aOther.m_MinConn) return false;
+    if (this.m_TrackMinWidth !== aOther.m_TrackMinWidth) return false;
+    if (this.m_ViasMinAnnularWidth !== aOther.m_ViasMinAnnularWidth) return false;
+    if (this.m_ViasMinSize !== aOther.m_ViasMinSize) return false;
+    if (this.m_MinThroughDrill !== aOther.m_MinThroughDrill) return false;
+    if (this.m_MicroViasMinSize !== aOther.m_MicroViasMinSize) return false;
+    if (this.m_MicroViasMinDrill !== aOther.m_MicroViasMinDrill) return false;
+    if (this.m_CopperEdgeClearance !== aOther.m_CopperEdgeClearance) return false;
+    if (this.m_HoleClearance !== aOther.m_HoleClearance) return false;
+    if (this.m_HoleToHoleMin !== aOther.m_HoleToHoleMin) return false;
+    if (this.m_SilkClearance !== aOther.m_SilkClearance) return false;
+    if (this.m_MinResolvedSpokes !== aOther.m_MinResolvedSpokes) return false;
+    if (this.m_MinSilkTextHeight !== aOther.m_MinSilkTextHeight) return false;
+    if (this.m_MinSilkTextThickness !== aOther.m_MinSilkTextThickness) return false;
+    if (!sameMap(this.m_DRCSeverities, aOther.m_DRCSeverities, same)) return false;
+    if (!sameSet(this.m_DrcExclusions, aOther.m_DrcExclusions)) return false;
+    if (!sameMap(this.m_DrcExclusionComments, aOther.m_DrcExclusionComments, same)) return false;
+    if (this.m_ZoneKeepExternalFillets !== aOther.m_ZoneKeepExternalFillets) return false;
+    if (this.m_MaxError !== aOther.m_MaxError) return false;
+    if (this.m_SolderMaskExpansion !== aOther.m_SolderMaskExpansion) return false;
+    if (this.m_SolderMaskMinWidth !== aOther.m_SolderMaskMinWidth) return false;
+    if (this.m_SolderMaskToCopperClearance !== aOther.m_SolderMaskToCopperClearance) return false;
+    if (this.m_SolderPasteMargin !== aOther.m_SolderPasteMargin) return false;
+    if (this.m_SolderPasteMarginRatio !== aOther.m_SolderPasteMarginRatio) return false;
+    if (this.m_AllowSoldermaskBridgesInFPs !== aOther.m_AllowSoldermaskBridgesInFPs) return false;
+    if (this.m_TentViasFront !== aOther.m_TentViasFront) return false;
+    if (this.m_TentViasBack !== aOther.m_TentViasBack) return false;
+    if (this.m_CoverViasFront !== aOther.m_CoverViasFront) return false;
+    if (this.m_CoverViasBack !== aOther.m_CoverViasBack) return false;
+    if (this.m_PlugViasFront !== aOther.m_PlugViasFront) return false;
+    if (this.m_PlugViasBack !== aOther.m_PlugViasBack) return false;
+    if (this.m_CapVias !== aOther.m_CapVias) return false;
+    if (this.m_FillVias !== aOther.m_FillVias) return false;
+    if (!sameList(this.m_DefaultFPTextItems, aOther.m_DefaultFPTextItems, (a, b) => a.equals(b)))
+      return false;
+    if (!sameMap(this.m_UserLayerNames, aOther.m_UserLayerNames, same)) return false;
+
+    if (!sameList(this.m_LineThickness, aOther.m_LineThickness, same)) return false;
+    if (!sameList(this.m_TextSize, aOther.m_TextSize, sameVec)) return false;
+    if (!sameList(this.m_TextThickness, aOther.m_TextThickness, same)) return false;
+    if (!sameList(this.m_TextItalic, aOther.m_TextItalic, same)) return false;
+    if (!sameList(this.m_TextUpright, aOther.m_TextUpright, same)) return false;
+
+    if (this.m_DimensionUnitsMode !== aOther.m_DimensionUnitsMode) return false;
+    if (this.m_DimensionPrecision !== aOther.m_DimensionPrecision) return false;
+    if (this.m_DimensionUnitsFormat !== aOther.m_DimensionUnitsFormat) return false;
+    if (this.m_DimensionSuppressZeroes !== aOther.m_DimensionSuppressZeroes) return false;
+    if (this.m_DimensionTextPosition !== aOther.m_DimensionTextPosition) return false;
+    if (this.m_DimensionKeepTextAligned !== aOther.m_DimensionKeepTextAligned) return false;
+    if (this.m_DimensionArrowLength !== aOther.m_DimensionArrowLength) return false;
+    if (this.m_DimensionExtensionOffset !== aOther.m_DimensionExtensionOffset) return false;
+    if (!sameVec(this.m_auxOrigin, aOther.m_auxOrigin)) return false;
+    if (!sameVec(this.m_gridOrigin, aOther.m_gridOrigin)) return false;
+    if (this.m_HasStackup !== aOther.m_HasStackup) return false;
+    if (this.m_UseHeightForLengthCalcs !== aOther.m_UseHeightForLengthCalcs) return false;
+    if (this.m_trackWidthIndex !== aOther.m_trackWidthIndex) return false;
+    if (this.m_viaSizeIndex !== aOther.m_viaSizeIndex) return false;
+    if (this.m_diffPairIndex !== aOther.m_diffPairIndex) return false;
+    if (this.m_useCustomTrackVia !== aOther.m_useCustomTrackVia) return false;
+    if (this.m_customTrackWidth !== aOther.m_customTrackWidth) return false;
+    if (!this.m_customViaSize.equals(aOther.m_customViaSize)) return false;
+    if (this.m_useCustomDiffPair !== aOther.m_useCustomDiffPair) return false;
+    if (!this.m_customDiffPair.equals(aOther.m_customDiffPair)) return false;
+    if (this.m_copperLayerCount !== aOther.m_copperLayerCount) return false;
+    if (this.m_userDefinedLayerCount !== aOther.m_userDefinedLayerCount) return false;
+    if (!this.m_enabledLayers.equals(aOther.m_enabledLayers)) return false;
+    if (this.m_boardThickness !== aOther.m_boardThickness) return false;
+    if (this.m_currentNetClassName !== aOther.m_currentNetClassName) return false;
+    if (!this.m_stackup.equals(aOther.m_stackup)) return false;
+    if (!this.m_NetSettings.equals(aOther.m_NetSettings)) return false;
+    if (!this.m_Pad_Master.equalsPad(aOther.m_Pad_Master)) return false;
+    if (!this.m_defaultZoneSettings.equals(aOther.m_defaultZoneSettings)) return false;
+
+    if (this.m_StyleFPFields !== aOther.m_StyleFPFields) return false;
+    if (this.m_StyleFPText !== aOther.m_StyleFPText) return false;
+    if (this.m_StyleFPShapes !== aOther.m_StyleFPShapes) return false;
+    if (this.m_StyleFPDimensions !== aOther.m_StyleFPDimensions) return false;
+    if (this.m_StyleFPBarcodes !== aOther.m_StyleFPBarcodes) return false;
+
+    return true;
   }
 }

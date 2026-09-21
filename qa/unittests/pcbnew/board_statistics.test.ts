@@ -23,6 +23,7 @@ import {
   FormatBoardStatisticsJson,
   FormatBoardStatisticsReport,
   InitializeBoardStatisticsData,
+  ResetCounts,
   STATISTICS_INT_MAX,
 } from '@ziroeda/pcbnew/board_statistics_report.js';
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
@@ -870,5 +871,36 @@ describe('the JSON report', () => {
 
     expect(json.components.smd).toEqual({ front: 2, back: 0, total: 2 });
     expect(json.components.total).toEqual({ front: 2, back: 0, total: 2 });
+  });
+});
+
+describe('BOARD_STATISTICS_DATA::ResetCounts', () => {
+  it('puts the scalars back and leaves the entry counts alone, as upstream does', () => {
+    const data = InitializeBoardStatisticsData();
+    data.hasOutline = true;
+    data.boardArea = 12.5;
+    data.minTrackWidth = 7;
+    data.boardThickness = 1_600_000;
+    data.footprintEntries[0]!.frontCount = 3;
+
+    ResetCounts(data);
+
+    expect(data.hasOutline).toBe(false);
+    expect(data.boardArea).toBe(0);
+    expect(data.minTrackWidth).toBe(STATISTICS_INT_MAX);
+    expect(data.minDrillSize).toBe(STATISTICS_INT_MAX);
+    expect(data.boardThickness).toBe(0);
+    // NOT reset: `ResetCounts` never touches the per-entry counters.
+    expect(data.footprintEntries[0]!.frontCount).toBe(3);
+  });
+
+  it('ComputeBoardStatistics resets the data it is handed before counting into it', () => {
+    const data = InitializeBoardStatisticsData();
+    data.boardArea = 99;
+    data.minTrackWidth = 1;
+    const out = ComputeBoardStatistics(new BOARD(), undefined, data);
+    expect(out).toBe(data);
+    expect(data.boardArea).toBe(0);
+    expect(data.minTrackWidth).toBe(STATISTICS_INT_MAX);
   });
 });

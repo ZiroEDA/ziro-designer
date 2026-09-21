@@ -6,7 +6,14 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { SETTINGS_MANAGER } from '@ziroeda/common/src/pgm_base.js';
 import type { JsonObject } from '@ziroeda/common/src/settings/json_settings.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
+import {
+  BOARD_DESIGN_SETTINGS,
+  TEXT_ITEM_INFO,
+  VIA_DIMENSION,
+} from '@ziroeda/pcbnew/board_design_settings.js';
+import { VIATYPE } from '@ziroeda/pcbnew/pcb_track_types.js';
 
 // A project KiCad 10 wrote (schema 2, 66 severities, every defaults.zones key).
 const PRO = '/home/akshay/kicad-reference/qa/data/pcbnew/diff_pair_uncoupled_tuning_drc.kicad_pro';
@@ -120,5 +127,92 @@ describe('BOARD_DESIGN_SETTINGS as a NESTED_SETTINGS', () => {
     // the other two keep the constructor's spacing
     expect(b.GetDesignSettings().m_SingleTrackMeanderSettings.spacing).toBe(600_000);
     expect(b.GetDesignSettings().m_DiffPairMeanderSettings.spacing).toBe(1_000_000);
+  });
+});
+
+describe('BOARD_DESIGN_SETTINGS copy and equality (initFromOther / operator= / operator==)', () => {
+  it('a copy is equal, and a change to any one member on either side is seen', () => {
+    const b = new BOARD();
+    b.SetCopperLayerCount(4);
+    const a = b.GetDesignSettings();
+    a.m_TrackWidthList = [0, 250_000, 500_000];
+    a.m_DRCSeverities.set(7, 3 as never);
+    a.m_DrcExclusions.add('x');
+    a.m_UserLayerNames.set('User.1', 'Notes');
+    a.m_DefaultFPTextItems = [new TEXT_ITEM_INFO('REF**', true, PCB_LAYER_ID.F_SilkS)];
+    a.m_CurrentViaType = VIATYPE.MICROVIA;
+    // A fresh board describes no stackup; give it the default one so the
+    // stackup branch has something to compare.
+    a.GetStackupDescriptor().BuildDefaultStackupList(a, 4);
+
+    const c = BOARD_DESIGN_SETTINGS.copyOf(a);
+    expect(c.equals(a)).toBe(true);
+    expect(a.equals(c)).toBe(true);
+    expect(c).not.toBe(a);
+
+    // Each of these is a different branch of operator==.
+    const flips: ((d: BOARD_DESIGN_SETTINGS) => void)[] = [
+      (d) => d.m_TrackWidthList.push(1),
+      (d) => d.m_ViasDimensionsList.push(new VIA_DIMENSION(1, 1)),
+      (d) => (d.m_CurrentViaType = VIATYPE.THROUGH),
+      (d) => (d.m_MinClearance += 1),
+      (d) => d.m_DRCSeverities.set(7, 1 as never),
+      (d) => d.m_DrcExclusions.delete('x'),
+      (d) => (d.m_TentViasBack = !d.m_TentViasBack),
+      (d) => (d.m_DefaultFPTextItems[0]!.m_Visible = false),
+      (d) => d.m_UserLayerNames.set('User.1', 'Other'),
+      (d) => (d.m_LineThickness[2] = (d.m_LineThickness[2] ?? 0) + 1),
+      (d) => (d.m_TextSize[1]!.y += 1),
+      (d) => (d.m_TextItalic[0] = !d.m_TextItalic[0]),
+      (d) => (d.m_DimensionPrecision += 1),
+      (d) => d.SetAuxOrigin({ x: 5, y: 0 }),
+      (d) => (d.m_UseHeightForLengthCalcs = !d.m_UseHeightForLengthCalcs),
+      (d) => d.SetCustomTrackWidth(d.GetCustomTrackWidth() + 1),
+      (d) => d.SetCustomDiffPairGap(d.GetCustomDiffPairGap() + 1),
+      (d) => d.SetCopperLayerCount(6),
+      (d) => d.SetBoardThickness(d.GetBoardThickness() + 1),
+      (d) => (d.m_StyleFPBarcodes = !d.m_StyleFPBarcodes),
+      // (an emptied copy would still read equal from ITS side: std::equal walks
+      // the first range only, so change an item rather than the count)
+      (d) => d.GetStackupDescriptor().GetList()[0]!.SetThickness(1),
+      (d) => (d.GetDefaultZoneSettings().m_ZoneClearance = 999),
+    ];
+
+    for (const [i, flip] of flips.entries()) {
+      const d = BOARD_DESIGN_SETTINGS.copyOf(a);
+      flip(d);
+      expect(d.equals(a), `flip ${i} must make the copy unequal`).toBe(false);
+      expect(a.equals(d), `flip ${i} must be seen from either side`).toBe(false);
+    }
+  });
+
+  it('the copy is deep for the value members and shared for NET_SETTINGS, as shared_ptr is', () => {
+    const a = new BOARD().GetDesignSettings();
+    a.GetStackupDescriptor().BuildDefaultStackupList(a, 2);
+    const c = BOARD_DESIGN_SETTINGS.copyOf(a);
+
+    // Value members: a later edit of the copy leaves the original alone.
+    c.m_TrackWidthList.push(1);
+    c.m_DRCSeverities.set(99, 1 as never);
+    c.GetStackupDescriptor().RemoveAll();
+    c.m_TextSize[0]!.x = 12345;
+    expect(a.m_TrackWidthList).not.toContain(1);
+    expect(a.m_DRCSeverities.has(99)).toBe(false);
+    expect(a.GetStackupDescriptor().GetCount()).toBeGreaterThan(0);
+    expect(a.m_TextSize[0]!.x).not.toBe(12345);
+    expect(c.m_Pad_Master).not.toBe(a.m_Pad_Master);
+
+    // `m_NetSettings = aOther.m_NetSettings` copies the shared_ptr: the same object.
+    expect(c.m_NetSettings).toBe(a.m_NetSettings);
+  });
+
+  it('assign() is operator=: it overwrites in place and keeps the object identity', () => {
+    const a = new BOARD().GetDesignSettings();
+    a.m_MinClearance = 4242;
+    const b = new BOARD().GetDesignSettings();
+    const same = b.assign(a);
+    expect(same).toBe(b);
+    expect(b.m_MinClearance).toBe(4242);
+    expect(b.equals(a)).toBe(true);
   });
 });
