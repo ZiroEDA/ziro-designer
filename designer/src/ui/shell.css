@@ -6,6 +6,9 @@
      surfaces paint a destructive action in. The account UI follows ente, not
      KiCad, which has no account. */
   --critical: #ea3f3f;
+  /* Data likewise: ente's `avatarTextColor` (avatar.ts), the initial on an
+     avatar disc. */
+  --avatar-fg: #fff;
   /* GTK dark chrome greys, sampled off a live KiCad 10 project-manager window
      on this machine (Ubuntu/Yaru dark). KiCad paints none of these itself -
      they come from wxSystemSettings / the GTK theme - so a screenshot of the
@@ -1746,7 +1749,10 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--content-bg);
 }
 /* The same monogram the account button draws, at text size: a person in a list
-   is identified the way a person in the corner is. */
+   is identified the way a person in the corner is. The disc's colour is set
+   inline from the address (auth/avatar_color.ts, the reference's palette);
+   the initial on it is the reference's white, bold - and at the text size,
+   which on a 2em disc is the reference's half. */
 .ze-share-monogram {
   flex: none;
   width: 2em;
@@ -1755,8 +1761,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--content-bg);
-  border: 1px solid var(--chrome-border);
+  color: var(--avatar-fg);
+  font-weight: bold;
 }
 .ze-share-person .lbl {
   flex: 1;
@@ -5435,7 +5441,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   /* A button takes the user-agent font unless something says otherwise, which
      is how the drawing sheet's tabs ended up in Arial. */
   font: inherit;
-  color: var(--chrome-fg);
+  /* The reference's avatar text: white and bold on a disc whose colour
+     arrives inline from the address (auth/avatar_color.ts). Its size is the
+     bar's own font, as every other glyph in the bar. */
+  color: var(--avatar-fg);
+  font-weight: bold;
   cursor: pointer;
 }
 /* Fills the button, whatever the provider's picture happens to measure --
@@ -9302,40 +9312,33 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   position: relative;
 }
 
-/* Delete account (auth/DeleteAccountDialog.tsx): the auth card, with the
-   reference's head row - a back arrow beside the title from the second step
-   on - and its summary rows. Everything else on it is the card's own. */
-.ze-delete-account {
-  /* The card is 340 wide because the sign-in copy fits it. The reason list
-     does not - its longest entry is 65 characters, and a Combo never wraps
-     its label (it is as wide as its widest entry, like a wxChoice) - so this
-     card takes its width from its content, the way a sizer would. */
-  width: auto;
+/* Delete account (auth/DeleteAccountDialog.tsx): the shared dialog, its body a
+   wxFormBuilder column - every item bordered `wxALL 5`, which is --wx-border,
+   so two stacked items sit 10 px apart and the first is 5 px in from the
+   frame. Nothing else is stated: the width is the sizer's over the widest
+   control (the reason list), the fonts and faces are the controls' own. */
+.ze-delete-account-body {
+  flex-direction: column;
+  padding: var(--wx-border);
 }
-.ze-delete-account-head {
-  display: flex;
-  align-items: flex-start;
-  /* The gap between the arrow button and the title is the button's own
-     horizontal padding: what a button keeps between its edge and content. */
-  gap: var(--ctl-pad-x);
+.ze-delete-account-body > * {
+  margin: var(--wx-border);
 }
-.ze-delete-account-head .ze-auth-title {
-  max-width: none;
+.ze-delete-account-sub {
+  color: var(--chrome-fg-muted);
 }
-.ze-delete-account-back {
-  /* A square button the height of a text line, so the arrow sits on the
-     title's first line rather than centred on a two-line title. */
-  min-width: var(--ctl-height);
-  padding: 0;
-  flex: none;
+.ze-delete-account-label {
+  display: block;
 }
 .ze-delete-account textarea {
   resize: vertical;
 }
+.ze-delete-account-error {
+  color: var(--critical);
+}
 .ze-delete-account-summary {
   display: flex;
   flex-direction: column;
-  font-size: var(--ui-font-size);
 }
 .ze-delete-account-row b {
   font-weight: 600;

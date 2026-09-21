@@ -29,6 +29,7 @@
  */
 
 import { useCallback, useRef, useState, type JSX } from 'react';
+import { avatarColorFor } from '../auth/avatar_color.js';
 import { profileInitial } from '../auth/profile.js';
 import { useDismissOnOutside } from './useDismissOnOutside.js';
 
@@ -132,6 +133,9 @@ export function AccountButton({
         className="ze-account-avatar"
         title={email}
         aria-label={`Account: ${email}`}
+        // The reference's avatar: a disc in a colour picked from the address,
+        // the initial in white on it. Only when there is no picture to show.
+        style={photo ? undefined : { background: avatarColorFor(email) }}
         onClick={() => setOpen((v) => !v)}
       >
         {photo ? (

@@ -37,6 +37,7 @@ import { cloudBackend } from '../cloud/cloudStore.js';
 import { inviteUrlFor, shareUrlFor } from '../cloud/invites.js';
 import { cloudBackend as backendFor, rotateProjectKey } from '../cloud/cloudStore.js';
 import { projectKeyFor, sessionUnlocked, sessionUserId } from '../cloud/session_keys.js';
+import { avatarColorFor } from '../auth/avatar_color.js';
 import { profileInitial } from '../auth/profile.js';
 import { invitationsStillWaiting } from './share_rows.js';
 import { cloudIdentityOf } from './projectStore.js';
@@ -250,7 +251,9 @@ export function ShareButton({
               <div className="ze-share-people">
                 {people.map((p) => (
                   <div className="ze-share-person" key={p.user_id}>
-                    <span className="ze-share-monogram">{profileInitial(p.email)}</span>
+                    <span className="ze-share-monogram" style={{ background: avatarColorFor(p.email) }}>
+                    {profileInitial(p.email)}
+                  </span>
                     <span className="lbl">{p.email}</span>
                     {p.role === 'owner' || !isOwner ? (
                       <span className="ze-auth-note">{p.role === 'owner' ? 'Owner' : p.role}</span>
@@ -280,7 +283,9 @@ export function ShareButton({
 
                 {pending.map((i) => (
                   <div className="ze-share-person" key={i.token}>
-                    <span className="ze-share-monogram">{profileInitial(i.email)}</span>
+                    <span className="ze-share-monogram" style={{ background: avatarColorFor(i.email) }}>
+                    {profileInitial(i.email)}
+                  </span>
                     <span className="lbl">{i.email}</span>
                     {/* Said plainly. Nothing has been emailed, so an invitation
                         shown as sent would be a claim this app cannot keep. */}

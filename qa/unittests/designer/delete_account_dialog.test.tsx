@@ -100,7 +100,10 @@ describe('DeleteAccountDialog', () => {
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: 'Delete ZiroEDA account' }));
 
-    expect(screen.getByRole('dialog', { name: 'Delete account' }).querySelector('.ze-auth-title')?.textContent).toBe('Password');
+    expect(
+      screen.getByRole('dialog', { name: 'Delete account' }).querySelector('.ze-modal-header')
+        ?.textContent,
+    ).toContain('Password');
     expect(onDelete).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'hunter22' } });
     fireEvent.click(screen.getByRole('button', { name: 'Authenticate' }));

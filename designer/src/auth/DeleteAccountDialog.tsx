@@ -17,13 +17,19 @@
  * Then the provider does what ente's `onSubmit` does after authentication:
  * proves it to the server, deletes, logs out.
  *
- * Every surface here is the auth card's own: the same `.ze-auth-*` rules the
- * sign-in wall uses, the shared Combo, the shared checkbox row, the shared
- * button. The one colour is `--critical`, which is ente's.
+ * The surface is the shared dialog every ported KiCad dialog is made of:
+ * `.ze-modal` with its header, a body laid out as a wxFormBuilder column
+ * (each item bordered `--wx-border`), and `StdDialogButtons` for the footer
+ * with the step's affirmative in the OK slot and ente's Back on the left.
+ * The controls are the shared ones - Combo, entry, textarea, `.ze-check` - so
+ * nothing here states a font, a colour or a size; the dialog's width is its
+ * sizer's over the widest control, which is the reason list. The one colour
+ * is `--critical`, which is ente's.
  */
 import { useCallback, useEffect, useState, type FormEvent, type JSX } from 'react';
 import { cloudBackend } from '../cloud/cloudStore.js';
 import { Combo } from '../ui/Combo.js';
+import { StdDialogButtons } from '../ui/StdDialogButtons.js';
 import { useModalEscape } from '../ui/useModalEscape.js';
 import { DELETE_REASONS, validateDeleteAccountForm } from './delete_account_form.js';
 
@@ -73,8 +79,8 @@ export function DeleteAccountDialog({
   const errors = validateDeleteAccountForm({ reason, feedback });
   const canConfirm = summary.state === 'ready' && accepted;
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
+  const submit = async (e?: FormEvent) => {
+    e?.preventDefault();
     setError(null);
     if (step === 'reason') {
       setTouched(true);
@@ -123,121 +129,119 @@ export function DeleteAccountDialog({
         ? 'Your projects, and the access you have given others, go with it.'
         : null;
 
+  const okLabel =
+    step === 'reason' ? 'Continue' : step === 'confirmation' ? 'Delete ZiroEDA account' : 'Authenticate';
+  const okDisabled =
+    busy || (step === 'confirmation' && !canConfirm) || (step === 'password' && !password);
+
   return (
     <div className="ze-modal-backdrop" onMouseDown={busy ? undefined : onClose}>
       <form
-        className="ze-auth-card ze-auth-modal ze-delete-account"
+        className="ze-modal ze-delete-account"
         onMouseDown={(e) => e.stopPropagation()}
         onSubmit={(e) => void submit(e)}
         role="dialog"
+        aria-modal="true"
         aria-label="Delete account"
       >
-        {!busy && (
-          <span className="ze-auth-close" title="Close" onClick={onClose}>
-            ✕
-          </span>
-        )}
-        <div className="ze-delete-account-head">
-          {step !== 'reason' && (
-            <button
-              type="button"
-              className="ze-btn ze-delete-account-back"
-              aria-label="Back"
-              disabled={busy}
-              onClick={back}
-            >
-              ←
-            </button>
+        <div className="ze-modal-header">
+          {title}
+          {!busy && (
+            <span className="x" title="Close" onClick={onClose}>
+              ✕
+            </span>
           )}
-          <div>
-            <div className="ze-auth-title">{title}</div>
-            {subtitle && <div className="ze-auth-sub">{subtitle}</div>}
-          </div>
         </div>
 
-        {step === 'reason' && (
-          <>
-            <label className="ze-auth-field" htmlFor="ze-delete-reason">
-              <span>
+        <div className="ze-modal-body ze-delete-account-body">
+          {subtitle && <div className="ze-delete-account-sub">{subtitle}</div>}
+
+          {step === 'reason' && (
+            <>
+              <label className="ze-delete-account-label" htmlFor="ze-delete-reason">
                 Reason for leaving <b className="ze-required">*</b>
-              </span>
+              </label>
               <Combo
                 id="ze-delete-reason"
                 ariaLabel="Reason for leaving"
                 value={reason}
                 onChange={setReason}
-                options={[{ value: '', label: 'Select a reason', disabled: true }, ...DELETE_REASONS]}
+                options={[
+                  { value: '', label: 'Select a reason', disabled: true },
+                  ...DELETE_REASONS,
+                ]}
               />
-              {touched && errors.reason && <div className="ze-auth-error">{errors.reason}</div>}
-            </label>
-            <label className="ze-auth-field">
-              <span>
+              {touched && errors.reason && (
+                <div className="ze-delete-account-error">{errors.reason}</div>
+              )}
+              <label className="ze-delete-account-label" htmlFor="ze-delete-feedback">
                 Anything else? <b className="ze-required">*</b>
-              </span>
+              </label>
               <textarea
+                id="ze-delete-feedback"
                 rows={5}
                 value={feedback}
                 placeholder="Share your feedback here"
                 onChange={(e) => setFeedback(e.target.value)}
               />
-              {touched && errors.feedback && <div className="ze-auth-error">{errors.feedback}</div>}
-            </label>
-            <button type="submit" className="ze-btn primary ze-auth-submit">
-              Continue
-            </button>
-          </>
-        )}
+              {touched && errors.feedback && (
+                <div className="ze-delete-account-error">{errors.feedback}</div>
+              )}
+            </>
+          )}
 
-        {step === 'confirmation' && (
-          <>
-            <div className="ze-delete-account-summary" aria-live="polite">
-              {summary.state === 'loading' && <div className="ze-auth-note">Loading...</div>}
-              {summary.state === 'failed' && (
-                <>
-                  <div className="ze-auth-error">
-                    Couldn't load your data counts. Try again to review what will be deleted.
-                  </div>
-                  <button type="button" className="ze-btn" onClick={() => void load()}>
-                    Try again
-                  </button>
-                </>
-              )}
-              {summary.state === 'ready' && (
-                <>
-                  <SummaryRow count={summary.summary.projects} one="project" other="projects" />
-                  <SummaryRow
-                    count={summary.summary.people}
-                    one="person loses access"
-                    other="people lose access"
-                  />
-                </>
-              )}
-            </div>
-            <label className="ze-check">
+          {step === 'confirmation' && (
+            <>
+              <div className="ze-delete-account-summary" aria-live="polite">
+                {summary.state === 'loading' && <div>Loading...</div>}
+                {summary.state === 'failed' && (
+                  <>
+                    <div className="ze-delete-account-error">
+                      Couldn't load your data counts. Try again to review what will be deleted.
+                    </div>
+                    <button type="button" className="ze-btn" onClick={() => void load()}>
+                      Try again
+                    </button>
+                  </>
+                )}
+                {summary.state === 'ready' && (
+                  <>
+                    <SummaryRow count={summary.summary.projects} one="project" other="projects" />
+                    <SummaryRow
+                      count={summary.summary.people}
+                      one="person loses access"
+                      other="people lose access"
+                    />
+                  </>
+                )}
+              </div>
+              <label className="ze-check">
+                <input
+                  type="checkbox"
+                  checked={accepted}
+                  disabled={summary.state !== 'ready'}
+                  onChange={(e) => setAccepted(e.target.checked)}
+                />
+                <span>I understand this deletes my account and all its data.</span>
+              </label>
+            </>
+          )}
+
+          {step === 'password' && (
+            <>
               <input
-                type="checkbox"
-                checked={accepted}
-                disabled={summary.state !== 'ready'}
-                onChange={(e) => setAccepted(e.target.checked)}
+                type="email"
+                name="email"
+                autoComplete="username"
+                value={email}
+                readOnly
+                hidden
               />
-              <span>I understand this deletes my account and all its data.</span>
-            </label>
-            <button
-              type="submit"
-              className="ze-btn ze-auth-submit ze-critical"
-              disabled={!canConfirm}
-            >
-              Delete ZiroEDA account
-            </button>
-          </>
-        )}
-
-        {step === 'password' && (
-          <>
-            <input type="email" name="email" autoComplete="username" value={email} readOnly hidden />
-            <label className="ze-auth-field">
-              <span>Password</span>
+              <label className="ze-delete-account-label" htmlFor="ze-delete-password">
+                Password
+              </label>
               <input
+                id="ze-delete-password"
                 type="password"
                 autoComplete="current-password"
                 autoFocus
@@ -245,17 +249,23 @@ export function DeleteAccountDialog({
                 disabled={busy}
                 onChange={(e) => setPassword(e.target.value)}
               />
-            </label>
-            {error && <div className="ze-auth-error">{error}</div>}
-            <button
-              type="submit"
-              className="ze-btn primary ze-auth-submit"
-              disabled={busy || !password}
-            >
-              {busy ? 'Deleting...' : 'Authenticate'}
+              {error && <div className="ze-delete-account-error">{error}</div>}
+            </>
+          )}
+        </div>
+
+        <StdDialogButtons
+          onCancel={onClose}
+          onOk={() => void submit()}
+          okLabel={busy ? 'Deleting...' : okLabel}
+          okDisabled={okDisabled}
+        >
+          {step !== 'reason' && (
+            <button type="button" className="ze-btn" disabled={busy} onClick={back}>
+              Back
             </button>
-          </>
-        )}
+          )}
+        </StdDialogButtons>
       </form>
     </div>
   );
