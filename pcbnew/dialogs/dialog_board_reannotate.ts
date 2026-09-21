@@ -73,10 +73,10 @@
  * does not reserve 3 under `F_R`.
  */
 import { strNumCmp, wildCompareString } from '@ziroeda/common/src/string_utils.js';
-import { getRefDesPrefix } from './autorouter/spread_footprints.js';
-import { setFootprintReference } from './edit-footprint.js';
+import { getRefDesPrefix } from '../autorouter/spread_footprints.js';
+import { setFootprintReference } from '../edit-footprint.js';
 import type { SList, SNode } from '@ziroeda/sexpr/src/types.js';
-import type { Board, PcbFootprint } from './types.js';
+import type { Board, PcbFootprint } from '../types.js';
 
 /** `MINGRID`, the grid `RoundToGrid` falls back to when it is handed 0. */
 export const REANNOTATE_MIN_GRID = 1000;

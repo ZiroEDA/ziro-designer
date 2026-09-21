@@ -79,7 +79,7 @@ import {
   type PcbShape,
   type PcbTextItem,
 } from '@ziroeda/pcbnew';
-import { barcodeBBox, barcodeGeometry } from '@ziroeda/pcbnew/barcode_geometry.js';
+import { barcodeBBox, barcodeGeometry } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import { textPenWidth } from '@ziroeda/pcbnew/text_metrics.js';
 import { effectiveTextPenWidth, ITALIC_TILT } from '@ziroeda/common/src/font/text_box.js';
 import {

@@ -39,6 +39,9 @@ import { TITLE_BLOCK } from '@ziroeda/common/src/title_block.js';
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import { ANGLE_0, EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
+import type { Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
+import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { Vec2, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
@@ -2835,3 +2838,132 @@ export function viewIdOfBoardItem(board: Board, item: BOARD_ITEM): string | null
     scan('group', board.groups)
   );
 }
+
+// ---------------------------------------------------------------------------
+// The barcode's geometry as the view-side callers read it — the Canvas2D
+// renderer, the Gerber plotter, snapping, hit-testing, the zone filler and the
+// properties dialog. It is `PCB_BARCODE`'s own `AssembleBarcode` on a fresh
+// item; nothing is computed here. The plain-object copy of that maths
+// (`barcode_geometry.ts`) went 09-21.
+
+/**
+ * `SHAPE_POLY_SET`: a list of polygons, each an outline followed by its holes.
+ * `Polygon` alone is one of those, so the set is `Polygon[]`.
+ */
+export type PolySet = Polygon[];
+
+/** An axis-aligned box in IU, `BOX2I`. */
+export interface BarcodeBox {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+export interface BarcodeGeometry {
+  /**
+   * `m_poly` — everything the painter fills, in board coordinates. Already
+   * scaled, knocked out, mirrored and rotated.
+   */
+  poly: PolySet;
+  /** `m_symbolPoly`, the modules alone, for the bounding hull. */
+  symbolPoly: PolySet;
+  /** `m_textPoly`, the human-readable line alone. */
+  textPoly: PolySet;
+  /** `m_bbox` — `m_poly`'s, which is what `GetBoundingBox` returns. */
+  bbox: BarcodeBox;
+  /** `m_lastError`; empty when the symbol encoded. */
+  error: string;
+}
+
+function chainPoints(aChain: SHAPE_LINE_CHAIN): Vec2[] {
+  const pts: Vec2[] = [];
+  for (let i = 0; i < aChain.PointCount(); i++) {
+    const p = aChain.CPoint(i);
+    pts.push({ x: p.x, y: p.y });
+  }
+  return pts;
+}
+
+function polySetView(aSet: SHAPE_POLY_SET): PolySet {
+  const out: PolySet = [];
+  for (let i = 0; i < aSet.OutlineCount(); i++) {
+    const rings: Vec2[][] = [chainPoints(aSet.COutline(i))];
+    for (let h = 0; h < aSet.HoleCount(i); h++) rings.push(chainPoints(aSet.CHole(i, h)));
+    out.push(rings);
+  }
+  return out;
+}
+
+function boxView(aBox: BOX2I): BarcodeBox {
+  return { x1: aBox.GetLeft(), y1: aBox.GetTop(), x2: aBox.GetRight(), y2: aBox.GetBottom() };
+}
+
+const boxOfPolys = (aPolys: PolySet): BarcodeBox => {
+  let x1 = Number.POSITIVE_INFINITY;
+  let y1 = Number.POSITIVE_INFINITY;
+  let x2 = Number.NEGATIVE_INFINITY;
+  let y2 = Number.NEGATIVE_INFINITY;
+  for (const rings of aPolys)
+    for (const ring of rings)
+      for (const p of ring) {
+        if (p.x < x1) x1 = p.x;
+        if (p.y < y1) y1 = p.y;
+        if (p.x > x2) x2 = p.x;
+        if (p.y > y2) y2 = p.y;
+      }
+  return { x1, y1, x2, y2 };
+};
+
+/**
+ * `AssembleBarcode` on a `PCB_BARCODE` built from the view. A fresh item every
+ * time: the view may be the dialog's draft over a live item, or a test's
+ * literal, and neither may be written back to `k`. The board is what
+ * `IsBackLayer` needs for the mirror step; a view off `boardFromBOARD` carries
+ * it through `k`.
+ */
+export function barcodeGeometry(
+  v: PcbBarcode,
+  aBoard: BOARD | null = v.k?.GetBoard() ?? null,
+): BarcodeGeometry {
+  const k = new PCB_BARCODE(aBoard);
+  applyBarcode(k, v);
+  k.AssembleBarcode();
+
+  return {
+    poly: polySetView(k.GetPolyShape()),
+    symbolPoly: polySetView(k.GetSymbolPoly()),
+    textPoly: polySetView(k.GetTextPoly()),
+    bbox: boxView(k.GetBoundingBox()),
+    error: k.GetLastError(),
+  };
+}
+
+/**
+ * `GetBoundingHull` (`pcb_barcode.cpp:690-723`): two rectangles, one round the
+ * symbol and one round the text, rather than the modules themselves — which is
+ * what `HitTest` collides against, so clicking a light module inside a QR code
+ * selects it.
+ */
+export function barcodeHullBoxes(g: BarcodeGeometry, b: PcbBarcode): BarcodeBox[] {
+  const boxes: BarcodeBox[] = [];
+  const angle = new EDA_ANGLE(b.angle);
+  const hull = (poly: PolySet): void => {
+    if (!poly.length) return;
+    const box = boxOfPolys(poly);
+    const corners: Vec2[] = [
+      { x: box.x1, y: box.y1 },
+      { x: box.x2, y: box.y1 },
+      { x: box.x2, y: box.y2 },
+      { x: box.x1, y: box.y2 },
+    ].map((p) => RotatePoint(p, b.at, angle));
+    boxes.push(boxOfPolys([[corners]]));
+  };
+
+  hull(g.symbolPoly);
+  hull(g.textPoly);
+  return boxes;
+}
+
+/** Convenience for callers that only want the item's extent. */
+export const barcodeBBox = (b: PcbBarcode): BarcodeBox => barcodeGeometry(b).bbox;

@@ -241,7 +241,7 @@ import {
   applyBarcodeValues,
   barcodeAt,
   barcodeValues,
-} from '@ziroeda/pcbnew/barcode_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties.js';
 import { DialogBarcodeProperties } from './dialogs/dialog_barcode_properties.js';
 import { GetLayerName } from '@ziroeda/pcbnew/layer_ids.js';
 import {
@@ -7546,6 +7546,9 @@ export function PcbEditor({
       holeToHoleMin: mm(c.minHoleToHoleMM),
       useConnectedTrackWidth: autoTrackWidthRef.current,
       tempOverrideTrackWidth: false,
+      // `StackupHeight` reads both off the live BOARD; Board Setup edits them in place.
+      useHeightForLengthCalcs: boardRef.current?.k?.GetDesignSettings().m_UseHeightForLengthCalcs,
+      stackup: boardRef.current?.k?.GetDesignSettings().GetStackupDescriptor(),
       sizes: (() => {
         // A real BOARD_DESIGN_SETTINGS, not a copy of one. The three lists
         // keep their reserved `[0]` "use netclass" row, which is why the

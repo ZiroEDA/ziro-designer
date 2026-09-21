@@ -4,8 +4,9 @@
 /**
  * Placing a library footprint on a board, and swapping one for another.
  * Counterparts: `pcbnew/netlist_reader/pcb_netlist_utils.cpp`
- * (LoadFootprintFromProject) and `pcbnew/board_exchange_footprint.cpp`
- * (BOARD::ExchangeFootprint).
+ * (LoadFootprintFromProject) and `PCB_EDIT_FRAME::ExchangeFootprint`
+ * (`pcbnew/pcb_edit_frame.cpp`), which lives here until
+ * `BOARD_NETLIST_UPDATER` takes a frame the way upstream's does.
  *
  * A library `.kicad_mod` footprint and a board footprint are the same node with a
  * different envelope: the library form has no placement, no UUID, no symbol link
@@ -25,11 +26,11 @@ import { kiidFromString, newKiid } from '@ziroeda/common/src/kiid.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
 import { ANGLE_0, EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-import { computeFootprintShift } from './footprint_utils.js';
-import { fpidItemName } from './netlist_reader/pcb_netlist.js';
-import { footprintViewOfBoard } from './pcb_io/kicad_sexpr/board_view.js';
-import { LSET_NameToLayer } from './layer_ids.js';
-import type { PcbFootprint } from './types.js';
+import { computeFootprintShift } from '../footprint_utils.js';
+import { fpidItemName } from './pcb_netlist.js';
+import { footprintViewOfBoard } from '../pcb_io/kicad_sexpr/board_view.js';
+import { LSET_NameToLayer } from '../layer_ids.js';
+import type { PcbFootprint } from '../types.js';
 
 export interface PlaceFootprintOptions {
   /** The full LIB_ID the board footprint should carry ("Library:Footprint"). */

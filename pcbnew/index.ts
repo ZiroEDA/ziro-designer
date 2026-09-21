@@ -287,7 +287,7 @@ export {
   exchangeFootprint,
   placeFootprint,
   type PlaceFootprintOptions,
-} from './board_exchange_footprint.js';
+} from './netlist_reader/pcb_netlist_utils.js';
 // A new board item's UUID is `KIID::KIID()`, which upstream has once for the
 // whole application; re-exported from common so the board barrel still offers it.
 export { newKiid as newBoardUuid } from '@ziroeda/common/src/kiid.js';
@@ -479,7 +479,7 @@ export {
   type BezierInFlight,
   type BezierClick,
   type BezierPoints,
-} from './bezier_tool.js';
+} from './tools/drawing_tool.js';
 
 export {
   boardEditHandles,
@@ -952,7 +952,7 @@ export {
   type ReannotateRefDesInfo,
   type ReannotatePrefixInfo,
   type ReannotateSortCodes,
-} from './board_reannotate.js';
+} from './dialogs/dialog_board_reannotate.js';
 
 export { cleanupErrorText, type CleanupRcCode, type CleanupRcItem } from './cleanup_item.js';
 

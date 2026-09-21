@@ -35,7 +35,7 @@ import {
 } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Board } from '@ziroeda/pcbnew';
-import { barcodeGeometry } from '@ziroeda/pcbnew/barcode_geometry.js';
+import { barcodeGeometry } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import { viaIsTented } from '@ziroeda/pcbnew/exporters/export_d356.js';
 import { padIsOnLayer } from '@ziroeda/pcbnew/pad_enumerate.js';
 import {

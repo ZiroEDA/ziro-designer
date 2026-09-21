@@ -24,7 +24,7 @@ import {
   reannotateDuplicates,
   reannotateSortCodes,
   roundToReannotateGrid,
-} from '@ziroeda/pcbnew/board_reannotate.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_board_reannotate.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import { parse } from '@ziroeda/sexpr/src/index.js';

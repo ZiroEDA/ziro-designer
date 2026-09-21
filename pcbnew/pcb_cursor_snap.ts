@@ -24,7 +24,7 @@ import type { Board, PcbBarcode } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { boardHitCandidates, parseBoardItemId } from './edit-board.js';
 import { footprintBBox, padBBox } from './edit-footprint.js';
-import { barcodeGeometry, type BarcodeGeometry } from './barcode_geometry.js';
+import { barcodeGeometry, type BarcodeGeometry } from './pcb_io/kicad_sexpr/board_view.js';
 import { rotatePcb } from './read-board.js';
 import { segNearestPoint } from '@ziroeda/kimath/src/geometry/seg.js';
 import {

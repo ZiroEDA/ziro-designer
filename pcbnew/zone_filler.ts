@@ -72,7 +72,7 @@ import {
 } from './convert_basic_shapes_to_polygon.js';
 
 export { segmentsForRadius };
-import { barcodeGeometry, barcodeHullBoxes } from './barcode_geometry.js';
+import { barcodeGeometry, barcodeHullBoxes } from './pcb_io/kicad_sexpr/board_view.js';
 import {
   arcTrackTransformShapeToPolygon,
   edaShapeTransformShapeToPolygon,

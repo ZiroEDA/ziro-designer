@@ -15,11 +15,11 @@ import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
+import { BOARD as KICAD_BOARD } from '@ziroeda/pcbnew/board.js';
 import {
   barcodeGeometry,
   barcodeHullBoxes,
-  symbolRects,
-} from '@ziroeda/pcbnew/barcode_geometry.js';
+} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import {
   addBoardBarcode,
   boardHitCandidates,
@@ -38,7 +38,7 @@ import {
   barcodeUiState,
   barcodeValues,
   correctEccForKind,
-} from '@ziroeda/pcbnew/barcode_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties.js';
 import { encodeBarcode } from '@ziroeda/pcbnew/barcode/zint.js';
 import { bestSnapAnchor } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
 import { boardEditHandles, dragBoardHandle } from '@ziroeda/pcbnew/point_editor.js';
@@ -118,7 +118,8 @@ describe('the encoder’s units never reach the board', () => {
     // per-module version would fill identically; this pins that we take the
     // rectangles rather than re-deriving them.
     const { symbol } = encodeBarcode('code39', 'L', 'ZIRO');
-    const rects = symbolRects(symbol!);
+    // `m_symbolPoly` holds one outline per rectangle Zint's vector stage made.
+    const rects = barcodeGeometry(bc({ kind: 'code39' })).symbolPoly;
     let darkModules = 0;
     for (let i = 0; i < symbol!.width; i++) if (symbol!.encoded[0]?.[i]) darkModules++;
 
@@ -226,8 +227,10 @@ describe('orientation and side', () => {
     //      m_poly.Mirror( m_pos, LEFT_RIGHT )` (`pcb_barcode.cpp:371-372`).
     // Without it a barcode on B.SilkS is a mirror image and no reader will
     // decode it from the back of the board.
-    const front = barcodeGeometry(bc({ layer: 'F.SilkS' }));
-    const back = barcodeGeometry(bc({ layer: 'B.SilkS' }));
+    // `GetBoard()->IsBackLayer` needs a board; a view off `boardFromBOARD`
+    // brings its own through `k`, a literal is given one here.
+    const front = barcodeGeometry(bc({ layer: 'F.SilkS' }), new KICAD_BOARD());
+    const back = barcodeGeometry(bc({ layer: 'B.SilkS' }), new KICAD_BOARD());
 
     expect(front.poly).not.toEqual(back.poly);
     // The bounding box is unchanged — a mirror about the centre.

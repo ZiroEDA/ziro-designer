@@ -9,7 +9,10 @@ import { footprintGridForTool, footprintGridIU, footprintSnappingEnabled } from 
 import { newFootprint } from './new_footprint.js';
 import { fpLineThicknessMM } from './graphics_defaults.js';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
-import { applyBarcodeValues, barcodeValues } from '@ziroeda/pcbnew/barcode_properties.js';
+import {
+  applyBarcodeValues,
+  barcodeValues,
+} from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties.js';
 import { DialogBarcodeProperties } from '../pcb/dialogs/dialog_barcode_properties.js';
 import {
   readFootprintFile,

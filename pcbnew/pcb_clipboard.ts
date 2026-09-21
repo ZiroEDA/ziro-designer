@@ -87,7 +87,7 @@ import {
 import { readBoard, readFootprintFile } from './read-board.js';
 import { uniqueZoneName } from './rule_area_properties.js';
 import { expandLayerWildcards } from './swap_layers.js';
-import { reannotateDuplicates } from './board_reannotate.js';
+import { reannotateDuplicates } from './dialogs/dialog_board_reannotate.js';
 import type { Board, PcbFootprint, PcbGroup, PcbPad, PcbTextItem, PcbZone } from './types.js';
 import type { FOOTPRINT } from './footprint.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

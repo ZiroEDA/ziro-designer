@@ -30,7 +30,7 @@ import {
   bezierInFlight,
   bezierPreviewCurve,
   type BezierPoints,
-} from '@ziroeda/pcbnew/bezier_tool.js';
+} from '@ziroeda/pcbnew/tools/drawing_tool.js';
 
 const P = (x: number, y: number): { x: number; y: number } => ({ x, y });
 

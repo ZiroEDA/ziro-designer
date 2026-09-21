@@ -23,7 +23,7 @@ import {
   GENERATOR_VERSION,
 } from '@ziroeda/common/src/generator.js';
 import { tessellateArc, rotatePcb } from './read-board.js';
-import { barcodeGeometry } from './barcode_geometry.js';
+import { barcodeGeometry } from './pcb_io/kicad_sexpr/board_view.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { isSolidFill } from './shape_fill.js';
 import { padApertureSize, type BoardMaskPasteDefaults } from './pad_margins.js';

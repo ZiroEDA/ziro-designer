@@ -38,7 +38,7 @@ import {
 } from '@ziroeda/common/src/reporter.js';
 import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { unescapeString } from '@ziroeda/common/src/string_utils.js';
-import { exchangeFootprint, placeFootprint } from '../board_exchange_footprint.js';
+import { exchangeFootprint, placeFootprint } from './pcb_netlist_utils.js';
 import { newKiid } from '@ziroeda/common/src/kiid.js';
 import { boardItemBBox } from '../edit-board.js';
 import { setFootprintReference, setFootprintValue } from '../edit-footprint.js';

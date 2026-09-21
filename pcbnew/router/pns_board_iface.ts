@@ -43,9 +43,8 @@
  */
 import { buildConvexHull } from '@ziroeda/kimath/src/geometry/convex_hull.js';
 import { Distance } from '@ziroeda/kimath/src/math/vector2.js';
-import { pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
-import { stackupLayerDistanceMM } from '../board_stackup_distance.js';
-import type { StackupDistanceItem } from '../board_stackup_distance.js';
+import { LSET } from '@ziroeda/common/src/lset.js';
+import type { BOARD_STACKUP } from '../board_stackup_manager/board_stackup.js';
 import type { BOARD_DESIGN_SETTINGS } from '../board_design_settings.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { arcShape, padShapes } from '../drc/drc_engine_view.js';
@@ -377,12 +376,8 @@ export interface PnsDesignSettings {
    * from `StackupHeight`, not a stub.
    */
   useHeightForLengthCalcs?: boolean;
-  /**
-   * `GetStackupDescriptor().GetList()` as {@link stackupLayerDistanceMM} wants
-   * it, front to back. Absent means no stackup is described, which is
-   * upstream's other early return.
-   */
-  stackup?: readonly StackupDistanceItem[];
+  /** `GetDesignSettings().GetStackupDescriptor()`, the live one. */
+  stackup?: BOARD_STACKUP;
 }
 
 /** One board mutation the router asked for, held rather than applied. */
@@ -940,9 +935,8 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
    * "Include stackup height in track length calculations" unticked really does
    * answer 0 — that is the setting doing its job, not the port giving up.
    *
-   * The stackup itself arrives through {@link PnsBoardIfaceDeps.stackup}
-   * because `Board` carries one overall thickness and not the per-layer list;
-   * the Physical Stackup page is where that list lives.
+   * The stackup is the live `BOARD_STACKUP`, passed in with the design
+   * settings because the interface still sees the board through `Board`.
    */
   stackupHeight(aFirstLayer: number, aSecondLayer: number): number {
     const ds = this.mDeps.designSettings;
@@ -955,7 +949,7 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
 
     if (!first || !second) return 0;
 
-    return pcbMmToIU(stackupLayerDistanceMM(ds.stackup, first, second));
+    return ds.stackup.GetLayerDistance(LSET.NameToLayer(first), LSET.NameToLayer(second));
   }
 
   /**

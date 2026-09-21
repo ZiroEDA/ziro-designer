@@ -29,8 +29,8 @@ import {
   barcodeUiState,
   correctEccForKind,
   type BarcodeValues,
-} from '@ziroeda/pcbnew/barcode_properties.js';
-import { barcodeGeometry } from '@ziroeda/pcbnew/barcode_geometry.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties.js';
+import { barcodeGeometry } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import type { PcbBarcode } from '@ziroeda/pcbnew/types.js';
 import { Combo } from '../../../ui/Combo.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';

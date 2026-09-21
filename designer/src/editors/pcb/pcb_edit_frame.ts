@@ -24,7 +24,7 @@ import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.j
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
 import type { BOARD_ITEM_CONTAINER } from '@ziroeda/pcbnew/board_item_container.js';
-import { BOARD_LISTENER } from '@ziroeda/pcbnew/board_listener.js';
+import { BOARD_LISTENER } from '@ziroeda/pcbnew/board.js';
 import { HIGH_CONTRAST_MODE } from '@ziroeda/common/src/project/board_project_settings.js';
 import { PAD } from '@ziroeda/pcbnew/pad.js';
 import { PCB_VIA, VIATYPE } from '@ziroeda/pcbnew/pcb_track.js';

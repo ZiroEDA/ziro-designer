@@ -21,9 +21,9 @@
  * not encode is refused with `m_lastError` in a message box, rather than being
  * committed as an empty symbol.
  */
-import { barcodeGeometry } from './barcode_geometry.js';
-import { parseBoardItemId } from './edit-board.js';
-import type { BarcodeEcc, BarcodeKind, Board, PcbBarcode } from './types.js';
+import { barcodeGeometry } from '../pcb_io/kicad_sexpr/board_view.js';
+import { parseBoardItemId } from '../edit-board.js';
+import type { BarcodeEcc, BarcodeKind, Board, PcbBarcode } from '../types.js';
 
 /**
  * The Code radio box, in `BARCODE_T` order — which is the order the file's
