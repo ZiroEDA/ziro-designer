@@ -324,6 +324,21 @@ export function supabaseBackend(): CloudBackend {
         .upsert({ project_uid: projectUid, user_id: userId, enc_key: encKey, how });
       if (error) throw new Error(`project key ${projectUid}: ${error.message}`);
     },
+    async accountDeletionSummary() {
+      const { data, error } = await db.rpc('account_deletion_summary');
+      if (error) throw new Error(`account deletion summary: ${error.message}`);
+      const row = (Array.isArray(data) ? data[0] : data) as
+        | { projects: number | string; people: number | string }
+        | undefined;
+      return { projects: Number(row?.projects ?? 0), people: Number(row?.people ?? 0) };
+    },
+    async deleteAccount(reason, feedback) {
+      const { error } = await db.rpc('delete_my_account', {
+        p_reason: reason,
+        p_feedback: feedback,
+      });
+      if (error) throw new Error(`delete account: ${error.message}`);
+    },
     async deleteProjectKey(projectUid, userId) {
       const { error } = await db
         .from('project_keys')

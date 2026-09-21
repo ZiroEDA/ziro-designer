@@ -149,9 +149,24 @@ describe('AuthProvider: the server never gets the password', () => {
   });
 
   it('signing out forgets the master key in the tab', () => {
-    const out = SRC.slice(SRC.indexOf('async signOut('), SRC.indexOf('async resendSignupCode('));
+    // `signOut` is a callback of its own since deleteAccount also ends there.
+    const start = SRC.indexOf('const signOut = useCallback(');
+    expect(start).toBeGreaterThan(-1);
+    const out = SRC.slice(start, SRC.indexOf('const value = useMemo', start));
     expect(out).toContain('forgetMasterKey();');
     expect(out.indexOf('forgetMasterKey')).toBeLessThan(out.indexOf('supabase.auth.signOut()'));
+  });
+
+  it('deleting the account authenticates again, removes the blobs first, and ends in sign-out', () => {
+    const del = SRC.slice(SRC.indexOf('async deleteAccount('), SRC.indexOf('async resendSignupCode('));
+    // A fresh password sign-in is what mints the token delete_my_account() accepts.
+    expect(del).toContain('supabase.auth.signInWithPassword({');
+    expect(del.indexOf('signInWithPassword')).toBeLessThan(del.indexOf('be.listObjects('));
+    // Bytes through the storage API before the row that names them is gone.
+    expect(del.indexOf('be.removeObjects(')).toBeLessThan(del.indexOf('be.deleteAccount('));
+    // And this browser's copies, then the session.
+    expect(del.indexOf('be.deleteAccount(')).toBeLessThan(del.indexOf('forgetLocalProjectsOf('));
+    expect(del.indexOf('forgetLocalProjectsOf(')).toBeLessThan(del.indexOf('await signOut();'));
   });
 });
 

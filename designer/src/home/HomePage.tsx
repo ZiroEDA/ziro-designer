@@ -9,6 +9,7 @@ import { HomeLink } from '../ui/HomeLink.js';
 import { AccountButton } from '../ui/AccountButton.js';
 import { adoptProjectKey, projectKeyFor } from '../cloud/session_keys.js';
 import { RecoveryKeyDialog } from '../auth/RecoveryKeyDialog.js';
+import { DeleteAccountDialog } from '../auth/DeleteAccountDialog.js';
 import { ShareButton } from './ShareButton.js';
 import { PRODUCT } from '../ui/about_titles.js';
 import { profilePhotoUrl } from '../auth/profile.js';
@@ -268,7 +269,8 @@ export function HomePage({
   /** Switch the active project (double-clicking another .kicad_pro in the tree). */
   onSwitchProject?: (proFullName: string) => void;
 }): JSX.Element {
-  const { session, signOut, recoveryKeyMnemonic, keyState } = useAuth();
+  const { session, signOut, recoveryKeyMnemonic, keyState, deleteAccount } = useAuth();
+  const [deletingAccount, setDeletingAccount] = useState(false);
   /** The recovery key, shown again from the account menu; null when closed. */
   const [shownRecoveryKey, setShownRecoveryKey] = useState<string | null>(null);
   // Guest-first: sign-in is offered, never forced. The dialog opens from the
@@ -1918,10 +1920,18 @@ export function HomePage({
                   if (words) setShownRecoveryKey(words);
                 });
               }}
+              onDeleteAccount={() => setDeletingAccount(true)}
             />
           )}
           {shownRecoveryKey && (
             <RecoveryKeyDialog words={shownRecoveryKey} onClose={() => setShownRecoveryKey(null)} />
+          )}
+          {deletingAccount && session && (
+            <DeleteAccountDialog
+              email={session.user.email ?? ''}
+              onClose={() => setDeletingAccount(false)}
+              onDelete={deleteAccount}
+            />
           )}
         </div>
 

@@ -1212,6 +1212,18 @@ export async function deleteProject(id: string): Promise<void> {
   await tx('readwrite', (s) => s.delete(id));
 }
 
+/**
+ * Drop every record this account owns from this browser, after the account
+ * itself has been deleted. Records of other accounts that have used this
+ * browser stay, as they do on sign-out; records with no owner (made before
+ * anyone signed in here) stay too - they were never the account's.
+ */
+export async function forgetLocalProjectsOf(userId: string): Promise<void> {
+  const all = await tx<StoredRecord[]>('readonly', (s) => s.getAll());
+  const mine = all.filter((r) => r.ownerId === userId).map((r) => r.id);
+  for (const id of mine) await tx('readwrite', (s) => s.delete(id));
+}
+
 export async function renameProject(id: string, name: string): Promise<void> {
   await withRecordLock(id, async () => {
     const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));

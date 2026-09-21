@@ -37,6 +37,7 @@ export function AccountButton({
   photoUrl,
   onSignOut,
   onRecoveryKey,
+  onDeleteAccount,
 }: {
   email: string;
   /** The provider's picture, when the person signed in with one. */
@@ -48,6 +49,11 @@ export function AccountButton({
    * absent (a build without auth) the row is not drawn.
    */
   onRecoveryKey?: () => void;
+  /**
+   * Delete the account. The reference's sidebar has it last, in a group of
+   * its own, in the critical colour; absent, the row is not drawn.
+   */
+  onDeleteAccount?: () => void;
 }): JSX.Element {
   const [open, setOpen] = useState(false);
   /**
@@ -104,6 +110,21 @@ export function AccountButton({
             <span className="mico" />
             <span className="lbl">Sign out</span>
           </div>
+          {onDeleteAccount && (
+            <>
+              <div className="ze-msep" />
+              <div
+                className="ze-mitem ze-critical"
+                onClick={() => {
+                  setOpen(false);
+                  onDeleteAccount();
+                }}
+              >
+                <span className="mico" />
+                <span className="lbl">Delete account</span>
+              </div>
+            </>
+          )}
         </div>
       )}
       <button
