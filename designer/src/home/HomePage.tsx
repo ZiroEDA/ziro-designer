@@ -46,6 +46,9 @@ import { cloudBackend, syncTemplates as syncUserTemplates } from '../cloud/cloud
 import {
   captureInviteFromUrl,
   openProjectLink,
+  pendingInvite,
+  pendingProjectLink,
+  projectLinkIn,
   redeemPendingInvite,
   type ProjectRole,
 } from '../cloud/invites.js';
@@ -886,6 +889,19 @@ export function HomePage({
     // exists for "invite this colleague as an editor" and for links meant to
     // expire — not for everyday sharing, which is why all the stashing and
     // stripping it needs lives in `invites.ts` and nowhere near this path.
+    // Somebody following a link is about to watch a manager that says "no
+    // project loaded" for as long as the join and the download take, which on
+    // a real project is seconds; that reads as the link having failed. The
+    // manager's own WX_PROGRESS_REPORTER says what is happening instead, from
+    // here until the project is on screen or the notice says why it is not.
+    const followingLink =
+      !!pendingInvite() || !!pendingProjectLink() || !!projectLinkIn(window.location.href);
+    if (followingLink) {
+      setLoading({ title: 'Open Project', label: 'Opening the shared project...' });
+    }
+    const doneFollowing = (): void => {
+      if (followingLink && !cancelled) setLoading(null);
+    };
     const joining = Promise.all([
       openProjectLink(cloudBackend()),
       redeemPendingInvite(cloudBackend()),
@@ -906,6 +922,7 @@ export function HomePage({
           if (!cancelled) {
             setJoinNotice({ kind: 'failed', message: e instanceof Error ? e.message : String(e) });
           }
+          doneFollowing();
           return null;
         },
       );
@@ -967,6 +984,7 @@ export function HomePage({
           const local = await localIdForCloudUid(landed);
           if (local && !cancelled) await openStored(local);
         }
+        doneFollowing();
         // Templates ride the same account, through the same blob store, but a
         // separate index object (templateSync.ts). Awaited after the projects
         // rather than beside them so a template failure cannot mask a project
@@ -1009,9 +1027,14 @@ export function HomePage({
         const message = e instanceof Error ? e.message : String(e);
         console.warn('Cloud sync failed:', message);
         setSyncState({ failures: [{ id: '', direction: 'pull', message }] });
+        doneFollowing();
       });
     return () => {
       cancelled = true;
+      // The dialog must not outlive the effect that put it up: a sign-out or
+      // an account change mid-download would otherwise leave it on screen
+      // with nothing behind it to take it down.
+      if (followingLink) setLoading(null);
     };
     // refreshTemplates is a useCallback with no dependencies of its own, so
     // naming it here is free: the effect still runs once per sign-in.
