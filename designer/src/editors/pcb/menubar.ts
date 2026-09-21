@@ -650,8 +650,12 @@ export function buildPcbMenus(
         },
         { sep: true },
         // `:322-324` — the two tables PCB_ACTIONS drops onto the board.
-        { label: 'Add Board Characteristics', disabled: dis },
-        { label: 'Add Stackup Table', disabled: dis },
+        // `pcb_actions.cpp`: neither action has an `.Icon()`.
+        {
+          label: 'Add Board Characteristics',
+          action: () => h.tool('placeCharacteristics'),
+        },
+        { label: 'Add Stackup Table', action: () => h.tool('placeStackup') },
         { sep: true },
         // `menubar_pcb_editor.cpp:333-336`, in this order: the two setters each
         // followed by their reset.

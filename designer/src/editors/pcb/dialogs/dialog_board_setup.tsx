@@ -744,6 +744,7 @@ export function DialogBoardSetup({
           render: () => (
             <PanelPcbStackup
               value={v.physicalStackup}
+              units={units}
               // `DIALOG_BOARD_SETUP::OnPageChange` fans `SyncCopperLayers( m_physicalStackup
               // ->GetCopperLayerCount() )` out to the Layers, Tuning Profiles and Zone Hatch
               // Offsets pages (`dialog_board_setup.cpp:306-330`). Our pages read their rows

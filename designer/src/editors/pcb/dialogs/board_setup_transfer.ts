@@ -50,6 +50,7 @@ import {
   VIA_DIMENSION,
 } from '@ziroeda/pcbnew/board_design_settings.js';
 import {
+  BOARD_STACKUP,
   BOARD_STACKUP_ITEM,
   BOARD_STACKUP_ITEM_TYPE,
   type BS_EDGE_CONNECTOR_CONSTRAINTS,
@@ -955,6 +956,36 @@ function layersFromWindow(v: BoardSetupValues, aBoard: BOARD): boolean {
   }
 
   return modified;
+}
+
+/**
+ * `transferDataFromUIToStackup()` + `PANEL_SETUP_BOARD_FINISH::TransferDataFromWindow`
+ * into a scratch `BOARD_STACKUP`: what "Export to Clipboard" hands to
+ * `BuildStackupReport` without touching the board.
+ */
+export function stackupFromView(
+  aPhysical: BoardSetupValues['physicalStackup'],
+  aFinish: BoardSetupValues['boardFinish'],
+): BOARD_STACKUP {
+  const st = new BOARD_STACKUP();
+  let dielectricId = 1;
+  for (const row of aPhysical.layers) {
+    const item = stackupItemFromWindow(row, dielectricId);
+    if (item.GetType() === BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_DIELECTRIC) {
+      item.SetDielectricLayerId(dielectricId);
+      dielectricId++;
+    }
+    st.Add(item);
+  }
+  st.m_HasDielectricConstrains = aPhysical.impedanceControlled;
+  st.m_FinishType = aFinish.copperFinish;
+  st.m_EdgeConnectorConstraints = indexOr(
+    EDGE_CONNECTORS,
+    aFinish.edgeCardConnectors as (typeof EDGE_CONNECTORS)[number],
+    0,
+  ) as BS_EDGE_CONNECTOR_CONSTRAINTS;
+  st.m_EdgePlating = aFinish.platedBoardEdge;
+  return st;
 }
 
 /** `PANEL_SETUP_BOARD_STACKUP::TransferDataFromWindow`: the rows into the descriptor. */

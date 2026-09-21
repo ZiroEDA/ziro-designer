@@ -1395,7 +1395,7 @@ const moveImage = (img: PcbImage, d: Vec2): PcbImage => ({ ...img, at: add(img.a
  * its position *is* its cells — so moving one is moving all of them. The
  * column widths and row heights are sizes, not positions, and stay put.
  */
-const moveTable = (t: PcbTable, d: Vec2): PcbTable => ({
+export const moveTable = (t: PcbTable, d: Vec2): PcbTable => ({
   ...t,
   cells: t.cells.map((c) => ({ ...moveTextBox(c, d), colSpan: c.colSpan, rowSpan: c.rowSpan })),
 });

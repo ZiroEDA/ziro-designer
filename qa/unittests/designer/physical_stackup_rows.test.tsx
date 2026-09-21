@@ -19,10 +19,8 @@
  * check that only counts columns — so these assert per row, by layer name.
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { useState, type JSX } from 'react';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import {
   PanelPcbStackup,
   defaultPhysicalStackup,
@@ -35,7 +33,7 @@ afterEach(cleanup);
 
 function Harness({ initial }: { initial: PhysicalStackup }): JSX.Element {
   const [v, setV] = useState(initial);
-  return <PanelPcbStackup value={v} onChange={setV} />;
+  return <PanelPcbStackup value={v} onChange={setV} units="mm" />;
 }
 
 /** The grid cells of the row whose Id cell reads `name`. */
@@ -245,5 +243,116 @@ describe('the Layer column swatch', () => {
     expect(swatchOf('F.Mask').style.background).toBe('rgb(128, 0, 0)');
     // Copper ignores its Color cell entirely.
     expect(swatchOf('F.Cu').style.background).toBe('rgb(220, 180, 30)');
+  });
+});
+
+/**
+ * DIALOG_DIELECTRIC_MATERIAL (`dialog_dielectric_list_manager.cpp`) on the
+ * panel's own DIELECTRIC_SUBSTRATE_LISTs (`onMaterialChange`,
+ * `panel_board_stackup.cpp:1417-1490`).
+ */
+describe('the material dialog', () => {
+  afterEach(cleanup);
+
+  const open = (row: string): void => {
+    const btn = cellsOf(row)[MATERIAL + 1]!.querySelector('button')!;
+    fireEvent.click(btn);
+  };
+  const listRows = (): HTMLTableRowElement[] => [
+    ...document.querySelectorAll<HTMLTableRowElement>('.ze-dielmat-list tbody tr'),
+  ];
+  const field = (label: string): HTMLInputElement => {
+    const spans = [...document.querySelectorAll('.ze-dielmat-grid span')];
+    const span = spans.find((s) => s.textContent === label)!;
+    return span.nextElementSibling as HTMLInputElement;
+  };
+
+  it('opens with Material empty, Epsilon R 1 and Loss Tan 0, on the type’s own list', () => {
+    render(<Harness initial={defaultBoardSetup().physicalStackup} />);
+    // The dielectric list starts with the ten predefined substrates…
+    open('Dielectric 1');
+    expect(field('Material:').value).toBe('');
+    expect(field('Epsilon R:').value).toBe('1');
+    expect(field('Loss Tan:').value).toBe('0');
+    const names = listRows().map((r) => r.cells[0]!.textContent);
+    expect(names.slice(0, 3)).toEqual(['Not specified', 'FR4', 'FR408-HR']);
+    expect(names).toContain('Ceramic');
+    // …and the mask list is the four mask materials, not the dielectrics.
+    fireEvent.click(screen.getByText('Cancel'));
+    open('F.Mask');
+    expect(listRows().map((r) => r.cells[0]!.textContent)).toEqual([
+      'Not specified',
+      'Epoxy',
+      'Liquid Ink',
+      'Dry Film',
+    ]);
+  });
+
+  it('a material the board already uses is appended to the list before it opens', () => {
+    const v = defaultBoardSetup().physicalStackup;
+    const diel = v.layers.findIndex((l) => l.type === 'Core' || l.type === 'Prepreg');
+    v.layers[diel] = {
+      ...v.layers[diel]!,
+      material: 'Rogers 4003C',
+      epsilonR: 3.38,
+      lossTan: 0.0027,
+    };
+    render(<Harness initial={v} />);
+    open('Dielectric 1');
+    const last = listRows().at(-1)!;
+    expect([...last.cells].map((c) => c.textContent)).toEqual(['Rogers 4003C', '3.38', '0.0027']);
+  });
+
+  it('selecting a row fills the fields; OK writes them to the row; an empty name changes nothing', () => {
+    render(<Harness initial={defaultBoardSetup().physicalStackup} />);
+    open('Dielectric 1');
+    fireEvent.click(listRows()[7]!); // PTFE
+    expect(field('Material:').value).toBe('PTFE');
+    expect(field('Epsilon R:').value).toBe('2.1');
+    expect(field('Loss Tan:').value).toBe('0.0002');
+    fireEvent.click(screen.getByText('OK'));
+    const mat = cellsOf('Dielectric 1')[MATERIAL]!.querySelector('input')!;
+    expect(mat.value).toBe('PTFE');
+
+    open('Dielectric 1');
+    fireEvent.click(screen.getByText('OK')); // "No substrate specified": the row keeps PTFE
+    expect(document.querySelector('.ze-dielmat-list')).toBeNull();
+    expect(cellsOf('Dielectric 1')[MATERIAL]!.querySelector('input')!.value).toBe('PTFE');
+  });
+
+  it('refuses a negative or non-numeric Epsilon R / Loss Tan with the wxMessageBox text', () => {
+    const alerts: string[] = [];
+    window.alert = (m: string): void => {
+      alerts.push(m);
+    };
+    render(<Harness initial={defaultBoardSetup().physicalStackup} />);
+    open('Dielectric 1');
+    fireEvent.click(listRows()[1]!); // FR4
+    const eps = field('Epsilon R:');
+    fireEvent.change(eps, { target: { value: '-1' } });
+    fireEvent.click(screen.getByText('OK'));
+    expect(alerts).toEqual(['Incorrect value for Epsilon R']);
+    // The dialog stays open.
+    expect(document.querySelector('.ze-dielmat-list')).not.toBeNull();
+  });
+
+  it('Delete on a selected row drops it from the panel’s list, but never row 0', () => {
+    render(<Harness initial={defaultBoardSetup().physicalStackup} />);
+    open('Dielectric 1');
+    const before = listRows().length;
+    fireEvent.click(listRows()[2]!); // FR408-HR
+    const pane = document.querySelector<HTMLElement>('.ze-dielmat-list')!;
+    fireEvent.keyDown(pane, { key: 'Delete' });
+    expect(listRows().length).toBe(before - 1);
+    expect(listRows().map((r) => r.cells[0]!.textContent)).not.toContain('FR408-HR');
+    // The next row is selected and its values are in the fields.
+    expect(field('Material:').value).toBe('Polyimide');
+    fireEvent.click(listRows()[0]!);
+    fireEvent.keyDown(pane, { key: 'Delete' });
+    expect(listRows().length).toBe(before - 1);
+    // The list is the panel's: closing and reopening keeps the deletion.
+    fireEvent.click(screen.getByText('Cancel'));
+    open('Dielectric 1');
+    expect(listRows().map((r) => r.cells[0]!.textContent)).not.toContain('FR408-HR');
   });
 });

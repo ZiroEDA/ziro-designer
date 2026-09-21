@@ -323,6 +323,9 @@ describe('a row runs the command it names', () => {
     ['View', 'Draw Zone Outlines', 'toggle:zoneDisplayOutline'],
     ['Place', 'Place Vias', 'tool:drawVia'],
     ['Place', 'Draw Leaders', 'tool:drawLeader'],
+    // `PCB_CONTROL::PlaceCharacteristics` / `PlaceStackup`; dead rows until 09-21.
+    ['Place', 'Add Board Characteristics', 'tool:placeCharacteristics'],
+    ['Place', 'Add Stackup Table', 'tool:placeStackup'],
     ['Route', 'Route Single Track', 'tool:routeSingleTrack'],
     ['Route', 'Interactive Router Settings...', 'action:routerSettingsDialog'],
     ['Inspect', 'Design Rules Checker', 'action:runDRC'],

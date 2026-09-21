@@ -32,7 +32,7 @@
  * solderMaskMaterial / silkscreenMaterial).
  */
 
-import { useState, type JSX } from 'react';
+import { useRef, useState, type JSX } from 'react';
 import {
   buildStackup,
   isThicknessEditable,
@@ -41,6 +41,17 @@ import {
   type StackupLayer,
 } from '../../board_settings.js';
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
+import type { Color4d } from '@ziroeda/common/src/color4d.js';
+import { BOARD_STACKUP_ITEM_TYPE } from '@ziroeda/pcbnew/board_stackup_manager/board_stackup.js';
+import {
+  DIELECTRIC_SUBSTRATE,
+  DIELECTRIC_SUBSTRATE_LIST,
+  DL_MATERIAL_LIST_TYPE,
+} from '@ziroeda/pcbnew/board_stackup_manager/dielectric_material.js';
+import { GetStandardColors } from '@ziroeda/pcbnew/board_stackup_manager/stackup_predefined_prms.js';
+import { BuildStackupReport } from '@ziroeda/pcbnew/board_stackup_manager/board_stackup_reporter.js';
+import type { StatusUnits } from '../../../../ui/status_format.js';
+import { stackupFromView } from '../board_setup_transfer.js';
 import { Combo } from '../../../../ui/Combo.js';
 import { stringFromValue } from '../../../../ui/unit_binder.js';
 import { EdaListDialog } from '../../../../ui/EdaListDialog.js';
@@ -112,29 +123,28 @@ const isDielectric = (l: StackupLayer): boolean => l.type === 'Core' || l.type =
  * dielectric. The alpha in the dielectric table is for the 3D view, so only the
  * RGB is carried here.
  */
-const GBRJOB_COLORS: [string, string][] = [
-  ['Not specified', 'rgb(80, 80, 80)'], // [data] wxColor(  80,  80,  80 )
-  ['Green', 'rgb(60, 150, 80)'], // [data] wxColor(  60, 150,  80 )
-  ['Red', 'rgb(128, 0, 0)'], // [data] wxColor( 128,   0,   0 )
-  ['Blue', 'rgb(0, 0, 128)'], // [data] wxColor(   0,   0, 128 )
-  ['Purple', 'rgb(80, 0, 80)'], // [data] wxColor(  80,   0,  80 )
-  ['Black', 'rgb(20, 20, 20)'], // [data] wxColor(  20,  20,  20 )
-  ['White', 'rgb(200, 200, 200)'], // [data] wxColor( 200, 200, 200 )
-  ['Yellow', 'rgb(128, 128, 0)'], // [data] wxColor( 128, 128,   0 )
-  ['User defined', 'rgb(128, 128, 128)'], // [data] wxColor( 128, 128, 128 )
-];
-const DIELECTRIC_COLORS: [string, string][] = [
-  ['Not specified', 'rgb(80, 80, 80)'], // [data] wxColor(  80,  80,  80, 255 )
-  ['FR4 natural', 'rgb(109, 116, 75)'], // [data] wxColor( 109, 116,  75, 212 )
-  ['PTFE natural', 'rgb(252, 252, 250)'], // [data] wxColor( 252, 252, 250, 230 )
-  ['Polyimide', 'rgb(205, 130, 0)'], // [data] wxColor( 205, 130,   0, 170 )
-  ['Phenolic natural', 'rgb(92, 17, 6)'], // [data] wxColor(  92,  17,   6, 230 )
-  ['Aluminum', 'rgb(213, 213, 213)'], // [data] wxColor( 213, 213, 213, 255 )
-  ['User defined', 'rgb(128, 128, 128)'], // [data] wxColor( 128, 128, 128, 212 )
-];
+/** The view's type string → `BOARD_STACKUP_ITEM_TYPE`, for the two lookups below. */
+const itemTypeOf = (type: string): BOARD_STACKUP_ITEM_TYPE => {
+  if (type === 'Core' || type === 'Prepreg') return BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_DIELECTRIC;
+  if (type.includes('Solder Mask')) return BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_SOLDERMASK;
+  if (type.includes('Silk Screen')) return BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_SILKSCREEN;
+  return BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_UNDEFINED;
+};
+
+/** A `COLOR4D` as the swatch's css, alpha dropped as the wxBitmapComboBox bitmap drops it. */
+const cssOf = (c: Color4d): string =>
+  `rgb(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(c.b * 255)})`;
+
 /** `GetStandardColors( aType )` — which of the two lists a row draws from. */
-const colorsFor = (type: string): [string, string][] =>
-  type === 'Core' || type === 'Prepreg' ? DIELECTRIC_COLORS : GBRJOB_COLORS;
+const colorsFor = (type: string): [string, string][] => {
+  const t = itemTypeOf(type);
+  // A mask/silk colour is asked for as the DIELECTRIC's would be: the swatch
+  // is the bitmap, not the 0.83-alpha `GetColor( SOLDERMASK )`.
+  return GetStandardColors(t).map((c) => [
+    c.GetName(),
+    cssOf(c.GetColor(BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_DIELECTRIC)),
+  ]);
+};
 const swatchOf = (type: string, name: string | undefined): string =>
   colorsFor(type).find(([n]) => n === (name || 'Not specified'))?.[1] ?? 'transparent';
 
@@ -168,45 +178,32 @@ const iconColorOf = (l: StackupLayer): string => {
   return swatchOf(l.type, l.color);
 };
 
-// Predefined substrates (dielectric_material.cpp, names are used in .gbrjob
-// files, so they are proper nouns and not translated).
-type Substrate = { name: string; epsilonR: number; lossTan: number };
-const SUBSTRATE_MATERIALS: Substrate[] = [
-  { name: 'Not specified', epsilonR: 0.0, lossTan: 0.0 },
-  { name: 'FR4', epsilonR: 4.5, lossTan: 0.02 },
-  { name: 'FR408-HR', epsilonR: 3.69, lossTan: 0.0091 },
-  { name: 'Polyimide', epsilonR: 3.2, lossTan: 0.004 },
-  { name: 'Kapton', epsilonR: 3.2, lossTan: 0.004 },
-  { name: 'Polyolefin', epsilonR: 1.0, lossTan: 0.0 },
-  { name: 'Al', epsilonR: 8.7, lossTan: 0.001 },
-  { name: 'PTFE', epsilonR: 2.1, lossTan: 0.0002 },
-  { name: 'Teflon', epsilonR: 2.1, lossTan: 0.0002 },
-  { name: 'Ceramic', epsilonR: 1.0, lossTan: 0.0 },
-];
-const SOLDERMASK_MATERIALS: Substrate[] = [
-  { name: 'Not specified', epsilonR: 3.3, lossTan: 0.0 },
-  { name: 'Epoxy', epsilonR: 3.3, lossTan: 0.0 },
-  { name: 'Liquid Ink', epsilonR: 3.3, lossTan: 0.0 },
-  { name: 'Dry Film', epsilonR: 3.3, lossTan: 0.0 },
-];
-const SILKSCREEN_MATERIALS: Substrate[] = [
-  { name: 'Not specified', epsilonR: 1.0, lossTan: 0.0 },
-  { name: 'Liquid Photo', epsilonR: 1.0, lossTan: 0.0 },
-  { name: 'Direct Printing', epsilonR: 1.0, lossTan: 0.0 },
-];
-const materialsFor = (type: string): Substrate[] => {
-  if (type.includes('Solder Mask')) return SOLDERMASK_MATERIALS;
-  if (type.includes('Silk Screen')) return SILKSCREEN_MATERIALS;
-  return SUBSTRATE_MATERIALS;
+/** One row of the material list, as `DIALOG_DIELECTRIC_MATERIAL`'s wxListCtrl shows it. */
+type Substrate = { name: string; epsilonR: string; lossTan: string };
+
+/** Which of the panel's three `DIELECTRIC_SUBSTRATE_LIST`s a row's type draws from. */
+const matListTypeOf = (type: string): DL_MATERIAL_LIST_TYPE | null => {
+  switch (itemTypeOf(type)) {
+    case BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_DIELECTRIC:
+      return DL_MATERIAL_LIST_TYPE.DL_MATERIAL_DIELECTRIC;
+    case BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_SOLDERMASK:
+      return DL_MATERIAL_LIST_TYPE.DL_MATERIAL_SOLDERMASK;
+    case BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_SILKSCREEN:
+      return DL_MATERIAL_LIST_TYPE.DL_MATERIAL_SILKSCREEN;
+    default:
+      return null;
+  }
 };
 
-/** Display stackup name -> canonical board layer name (report/file). */
-const CANONICAL: Record<string, string> = {
-  'F.Silkscreen': 'F.SilkS',
-  'B.Silkscreen': 'B.SilkS',
+/** `initMaterialList`: the list's rows, `FormatEpsilonR` / `FormatLossTangent` as the text. */
+const substrateRows = (list: DIELECTRIC_SUBSTRATE_LIST): Substrate[] => {
+  const out: Substrate[] = [];
+  for (let i = 0; i < list.GetCount(); i++) {
+    const m = list.GetSubstrateAt(i)!;
+    out.push({ name: m.m_Name, epsilonR: m.FormatEpsilonR(), lossTan: m.FormatLossTangent() });
+  }
+  return out;
 };
-/** Display type -> the file/report type string (GetTypeName). */
-const TYPE_NAME: Record<string, string> = { Copper: 'copper', Core: 'core', Prepreg: 'prepreg' };
 
 const trimNum = (v: number): string => {
   let s = v.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
@@ -214,57 +211,13 @@ const trimNum = (v: number): string => {
   return s;
 };
 
-/** BuildStackupReport (board_stackup_reporter.cpp): the clipboard text. */
-export function buildStackupReport(
-  stackup: PhysicalStackup,
-  finish: { copperFinish: string; platedBoardEdge: boolean; edgeCardConnectors: string },
-): string {
-  let report = '';
-  stackup.layers.forEach((l, i) => {
-    const typeName = TYPE_NAME[l.type] ?? l.type;
-    const subCount = 1 + (l.sublayers?.length ?? 0);
-    if (isDielectric(l)) {
-      // Dielectric ids restart at 1 in stackup order.
-      const dielId = stackup.layers.slice(0, i + 1).filter((x) => isDielectric(x)).length;
-      report += `layer "Dielectric ${dielId}" type "${typeName}"\n  sublayer "1/${subCount}"`;
-    } else {
-      report += `layer "${CANONICAL[l.name] ?? l.name}" type "${typeName}"`;
-    }
-    if (hasField(l.type, 'color')) report += ` Color "${l.color || 'Not specified'}"`;
-    const subs: {
-      thicknessMM: number;
-      locked?: boolean;
-      material: string;
-      epsilonR?: number;
-      lossTan?: number;
-    }[] = [l, ...(l.sublayers ?? [])];
-    subs.forEach((p, idx) => {
-      if (idx) report += `\n  sublayer "${idx + 1}/${subCount}"`;
-      if (hasField(l.type, 'thick')) {
-        report += ` Thickness ${trimNum(p.thicknessMM)} mm`;
-        if (isDielectric(l) && p.locked) report += ' Locked';
-      }
-      if (hasField(l.type, 'mat')) report += ` Material "${p.material}"`;
-      if (p.epsilonR !== undefined) report += ` EpsilonR ${trimNum(p.epsilonR)}`;
-      if (p.lossTan !== undefined) report += ` LossTg ${trimNum(p.lossTan)}`;
-    });
-    report += '\n';
-  });
-  report += `Finish "${finish.copperFinish}"`;
-  if (stackup.impedanceControlled) report += ' Option "Impedance Controlled"';
-  if (finish.platedBoardEdge) report += ' Option "Plated edges"';
-  if (finish.edgeCardConnectors !== 'None') {
-    report += ` EdgeConnector "${finish.edgeCardConnectors === 'Yes, bevelled' ? 'yes,bevelled' : 'yes'}"`;
-  }
-  report += '\n';
-  return report;
-}
-
 interface Props {
   value: PhysicalStackup;
   onChange: (next: PhysicalStackup) => void;
   /** Board finish values for the clipboard report (the sibling page's data). */
   finish?: { copperFinish: string; platedBoardEdge: boolean; edgeCardConnectors: string };
+  /** `m_frame->GetUserUnits()`, for the report's thicknesses. */
+  units: StatusUnits;
 }
 
 // KiCad's 12-column wxFlexGridSizer (borderless form; Material has a browse
@@ -288,7 +241,7 @@ const GRID_COLS = '40px 96px 138px 118px 26px 84px 26px 150px 64px 64px 80px 120
 type MaterialTarget = { layer: number; sub: number }; // sub 0 = main
 type ListPick = { title: string; label: string; items: string[]; onPick: (index: number) => void };
 
-export function PanelPcbStackup({ value, onChange, finish }: Props): JSX.Element {
+export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.Element {
   const num = (s: string): number => (Number.isFinite(Number(s)) ? Number(s) : 0);
   const setLayer = (i: number, patch: Partial<StackupLayer>): void =>
     onChange({ ...value, layers: value.layers.map((l, j) => (j === i ? { ...l, ...patch } : l)) });
@@ -324,7 +277,28 @@ export function PanelPcbStackup({ value, onChange, finish }: Props): JSX.Element
   // ----- list-picker + material dialogs ------------------------------------
   const [listPick, setListPick] = useState<ListPick | null>(null);
   const [matTarget, setMatTarget] = useState<MaterialTarget | null>(null);
-  const [matDraft, setMatDraft] = useState<Substrate>({ name: '', epsilonR: 0, lossTan: 0 });
+  const [matDraft, setMatDraft] = useState<Substrate>({ name: '', epsilonR: '1', lossTan: '0' });
+  const [matRows, setMatRows] = useState<Substrate[]>([]);
+  const [matSel, setMatSel] = useState(-1);
+  // `m_delectricMatList` / `m_solderMaskMatList` / `m_silkscreenMatList`: the
+  // panel's own lists, seeded from the predefined tables and grown by whatever
+  // the board uses or the user types; they live as long as the panel does.
+  const matListsRef = useRef<Record<DL_MATERIAL_LIST_TYPE, DIELECTRIC_SUBSTRATE_LIST> | null>(null);
+  const matLists = (): Record<DL_MATERIAL_LIST_TYPE, DIELECTRIC_SUBSTRATE_LIST> => {
+    if (!matListsRef.current)
+      matListsRef.current = {
+        [DL_MATERIAL_LIST_TYPE.DL_MATERIAL_DIELECTRIC]: new DIELECTRIC_SUBSTRATE_LIST(
+          DL_MATERIAL_LIST_TYPE.DL_MATERIAL_DIELECTRIC,
+        ),
+        [DL_MATERIAL_LIST_TYPE.DL_MATERIAL_SOLDERMASK]: new DIELECTRIC_SUBSTRATE_LIST(
+          DL_MATERIAL_LIST_TYPE.DL_MATERIAL_SOLDERMASK,
+        ),
+        [DL_MATERIAL_LIST_TYPE.DL_MATERIAL_SILKSCREEN]: new DIELECTRIC_SUBSTRATE_LIST(
+          DL_MATERIAL_LIST_TYPE.DL_MATERIAL_SILKSCREEN,
+        ),
+      };
+    return matListsRef.current;
+  };
 
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts. Registered only while the material dialog is up, so it
@@ -492,41 +466,94 @@ export function PanelPcbStackup({ value, onChange, finish }: Props): JSX.Element
     onChange({ ...value, layers });
   };
 
-  // onExportToClipboard: the ASCII stackup report.
+  // `onExportToClipboard`: the rows and the Board Finish page into a scratch
+  // BOARD_STACKUP, then `BuildStackupReport( m_stackup, m_frame->GetUserUnits() )`.
   const onExport = (): void => {
-    const report = buildStackupReport(
-      value,
-      finish ?? { copperFinish: 'None', platedBoardEdge: false, edgeCardConnectors: 'None' },
+    const report = BuildStackupReport(
+      stackupFromView(
+        value,
+        finish ?? { copperFinish: 'None', platedBoardEdge: false, edgeCardConnectors: 'None' },
+      ),
+      units,
     );
     void navigator.clipboard?.writeText(report);
   };
 
-  // Material browse (DIALOG_DIELECTRIC_MATERIAL).
+  // `onMaterialChange` (panel_board_stackup.cpp:1417-1490): first every material
+  // the stackup uses is appended to its list if missing, then
+  // DIALOG_DIELECTRIC_MATERIAL opens on that list — `TransferDataToWindow`
+  // leaves Material empty and puts 1 / 0 in the two numbers.
   const openMaterial = (layer: number, sub: number): void => {
-    const l = value.layers[layer]!;
-    const p = sub === 0 ? l : l.sublayers![sub - 1]!;
-    setMatDraft({
-      name: p.material || 'Not specified',
-      epsilonR: p.epsilonR ?? 0,
-      lossTan: p.lossTan ?? 0,
-    });
+    const lists = matLists();
+    for (const row of value.layers) {
+      const lt = matListTypeOf(row.type);
+      if (lt === null) continue;
+      const list = lists[lt];
+      for (const p of [row, ...(row.sublayers ?? [])]) {
+        const eps = p.epsilonR ?? 0;
+        const tan = p.lossTan ?? 0;
+        if (list.FindSubstrate(p.material, eps, tan) < 0 && row.material !== '')
+          list.AppendSubstrate(new DIELECTRIC_SUBSTRATE(p.material, eps, tan));
+      }
+    }
+    const lt = matListTypeOf(value.layers[layer]!.type);
+    if (lt === null) return;
+    setMatRows(substrateRows(lists[lt]));
+    setMatSel(-1);
+    setMatDraft({ name: '', epsilonR: '1', lossTan: '0' });
     setMatTarget({ layer, sub });
   };
+  // `onListItemSelected`: the row's values into the three text controls.
+  const selectMaterial = (idx: number): void => {
+    const row = matRows[idx];
+    if (!row) return;
+    setMatSel(idx);
+    setMatDraft({ ...row });
+  };
+  // `onListKeyDown( WXK_DELETE )`: drop the row from the panel's list and
+  // select the next (or last). `DeleteSubstrate` keeps index 0.
+  const deleteMaterial = (): void => {
+    if (!matTarget || matSel < 0) return;
+    const lt = matListTypeOf(value.layers[matTarget.layer]!.type);
+    if (lt === null) return;
+    const list = matLists()[lt];
+    list.DeleteSubstrate(matSel);
+    const rows = substrateRows(list);
+    setMatRows(rows);
+    const next = matSel < list.GetCount() ? matSel : matSel - 1;
+    setMatSel(next);
+    if (rows[next]) setMatDraft({ ...rows[next] });
+  };
+  // `TransferDataFromWindow` (the two `wxMessageBox`es), then the panel's
+  // "No substrate specified" early return, then SetMaterial/SetEpsilonR/SetLossTangent.
   const commitMaterial = (): void => {
     if (!matTarget) return;
-    const l = value.layers[matTarget.layer]!;
+    const eps = matDraft.epsilonR.trim() === '' ? Number.NaN : Number(matDraft.epsilonR);
+    if (!Number.isFinite(eps) || eps < 0.0) {
+      window.alert('Incorrect value for Epsilon R');
+      return;
+    }
+    const tan = matDraft.lossTan.trim() === '' ? Number.NaN : Number(matDraft.lossTan);
+    if (!Number.isFinite(tan) || tan < 0.0) {
+      window.alert('Incorrect value for Loss Tangent');
+      return;
+    }
+    if (matDraft.name === '') {
+      // No substrate specified
+      setMatTarget(null);
+      return;
+    }
     const patch = {
       material: matDraft.name,
       // Silk rows carry no epsilon field in the grid, but the value still
       // rides along in the model, like the C++ item.
-      epsilonR: matDraft.epsilonR,
-      lossTan: matDraft.lossTan,
+      epsilonR: eps,
+      lossTan: tan,
     };
     if (matTarget.sub === 0) setLayer(matTarget.layer, patch);
     else setSub(matTarget.layer, matTarget.sub - 1, patch);
     setMatTarget(null);
   };
-  const matType = matTarget ? value.layers[matTarget.layer]!.type : '';
 
   const txt = (
     v: string | number | undefined,
@@ -784,16 +811,25 @@ export function PanelPcbStackup({ value, onChange, finish }: Props): JSX.Element
                 <input
                   className="ze-search"
                   value={matDraft.epsilonR}
-                  onChange={(e) => setMatDraft({ ...matDraft, epsilonR: num(e.target.value) })}
+                  onChange={(e) => setMatDraft({ ...matDraft, epsilonR: e.target.value })}
                 />
                 <span>Loss Tan:</span>
                 <input
                   className="ze-search"
                   value={matDraft.lossTan}
-                  onChange={(e) => setMatDraft({ ...matDraft, lossTan: num(e.target.value) })}
+                  onChange={(e) => setMatDraft({ ...matDraft, lossTan: e.target.value })}
                 />
               </div>
-              <div className="ze-grid-pane ze-dielmat-list">
+              <div
+                className="ze-grid-pane ze-dielmat-list"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Delete') {
+                    e.preventDefault();
+                    deleteMaterial();
+                  }
+                }}
+              >
                 <table className="ze-grid">
                   <thead>
                     <tr>
@@ -803,19 +839,15 @@ export function PanelPcbStackup({ value, onChange, finish }: Props): JSX.Element
                     </tr>
                   </thead>
                   <tbody>
-                    {materialsFor(matType).map((m) => (
+                    {matRows.map((m, idx) => (
                       <tr
-                        key={m.name}
-                        className={m.name === matDraft.name ? 'selected' : undefined}
-                        onClick={() => setMatDraft({ ...m })}
-                        onDoubleClick={() => {
-                          setMatDraft({ ...m });
-                          commitMaterial();
-                        }}
+                        key={`${idx}:${m.name}`}
+                        className={idx === matSel ? 'selected' : undefined}
+                        onClick={() => selectMaterial(idx)}
                       >
                         <td>{m.name}</td>
-                        <td>{trimNum(m.epsilonR)}</td>
-                        <td>{trimNum(m.lossTan)}</td>
+                        <td>{m.epsilonR}</td>
+                        <td>{m.lossTan}</td>
                       </tr>
                     ))}
                   </tbody>

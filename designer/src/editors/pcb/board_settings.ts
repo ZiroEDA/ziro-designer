@@ -404,24 +404,6 @@ export interface BoardFinish {
   edgeCardConnectors: string;
 }
 
-// Predefined copper finishes (stackup_predefined_prms.cpp copperFinishType[]).
-export const COPPER_FINISHES = [
-  'Not specified',
-  'ENIG',
-  'ENEPIG',
-  'HAL SnPb',
-  'HAL lead-free',
-  'Hard gold',
-  'Immersion tin',
-  'Immersion nickel',
-  'Immersion silver',
-  'Immersion gold',
-  'HT_OSP',
-  'OSP',
-  'None',
-  'User defined',
-];
-
 export function defaultBoardFinish(): BoardFinish {
   // board_stackup.cpp: m_FinishType defaults to "None".
   return { platedBoardEdge: false, copperFinish: 'None', edgeCardConnectors: 'None' };

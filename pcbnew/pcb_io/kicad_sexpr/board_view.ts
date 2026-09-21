@@ -1770,7 +1770,7 @@ function textBoxOfView(v: PcbTextBox, parent: BOARD_ITEM | null): PCB_TEXTBOX {
   return k;
 }
 
-function tableView(k: PCB_TABLE): PcbTable {
+export function tableView(k: PCB_TABLE): PcbTable {
   const border = k.StrokeExternal() || k.StrokeHeaderSeparator();
   const seps = k.StrokeRows() || k.StrokeColumns();
   const columnWidths: number[] = [];

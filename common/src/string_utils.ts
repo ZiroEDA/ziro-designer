@@ -786,6 +786,21 @@ export function titleCaps(str: string): string {
 }
 
 /**
+ * `InitialCaps` (common/string_utils.cpp:418-436): the first word
+ * capitalized, every later word lower-cased, single spaces between.
+ */
+export function InitialCaps(aString: string): string {
+  let result = '';
+
+  for (const word of wxStringSplit(aString, ' ')) {
+    if (result === '') result += capitalize(word);
+    else result += ` ${word.toLowerCase()}`;
+  }
+
+  return result;
+}
+
+/**
  * `PrintableCharCount`: how many characters a string actually *prints*.
  *
  * Not `length`. KiCad's bitmap text understands three markup forms — `~{…}` for

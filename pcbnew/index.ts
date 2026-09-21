@@ -94,6 +94,7 @@ export {
   addBoardImage,
   addBoardTextBox,
   addBoardTable,
+  moveTable,
   addBoardBarcode,
   setBoardBarcode,
   addBoardPoint,

@@ -204,6 +204,7 @@ import {
   addBoardDimension,
   addBoardTextBox,
   addBoardTable,
+  moveTable,
   clickDimension,
   dimensionSegments,
   dimensionSnapsToGrid,
@@ -459,8 +460,11 @@ import {
 import { SKIP_TEARDROPS } from '@ziroeda/pcbnew/board_commit.js';
 import {
   boardFromBOARD,
+  tableView,
   viewIdOfBoardItem,
 } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
+import { Build_Board_Characteristics_Table } from '@ziroeda/pcbnew/board_tables/board_characteristics_table.js';
+import { Build_Board_Stackup_Table } from '@ziroeda/pcbnew/board_tables/board_stackup_table.js';
 import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
 import type { DRC_TOOL } from '@ziroeda/pcbnew/tools/drc_tool.js';
 import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
@@ -815,6 +819,10 @@ const isClickTool = (t: string): boolean =>
   // with `GRID_TEXT` (`drawing_tool.cpp:1478-1481`) before the click, exactly
   // as the text tool does.
   t === 'placeBarcode' ||
+  // `PCB_CONTROL::PlaceCharacteristics` / `PlaceStackup` build the table and
+  // hand it to `placeBoardItems`, an interactive move ending on a click.
+  t === 'placeCharacteristics' ||
+  t === 'placeStackup' ||
   // `PCB_PICKER_TOOL::Main` runs the cursor through `BestSnapAnchor` on every
   // motion (`pcb_picker_tool.cpp`), which is what lets an origin be dropped
   // exactly on a pad or a track end.
@@ -7891,6 +7899,41 @@ export function PcbEditor({
    * `activeTool`; `IPO_SINGLE_CLICK` is why one click both creates and commits
    * (the preview item exists before the first click, see `pointPreviewRef`).
    */
+  /**
+   * `PCB_CONTROL::PlaceCharacteristics` / `PlaceStackup`
+   * (`pcb_control.cpp:2907-2942`): build the table on the active layer and
+   * `placeBoardItems( …, isNew, anchorAtOrigin )` it — the table's origin lands
+   * on the cursor, and the commit is "Place Board Characteristics" / "Place
+   * Board Stackup Table". Upstream's interactive move runs before the click;
+   * here the click IS the drop, and the action is a one-shot.
+   */
+  const handlePlaceTableClick = (
+    which: 'placeCharacteristics' | 'placeStackup',
+    world: { x: number; y: number },
+  ): void => {
+    const brd = boardRef.current;
+    const kb = brd?.k;
+    if (!brd || !kb) return;
+    const table =
+      which === 'placeCharacteristics'
+        ? Build_Board_Characteristics_Table(kb, unitsRef.current)
+        : Build_Board_Stackup_Table(kb, unitsRef.current);
+    // The view carries no `k`: the built table is a template the view layer
+    // re-creates on the live BOARD through `applyTable`, like any new item.
+    const view = tableView(table);
+    const placed = moveTable(
+      {
+        ...view,
+        layer: activeLayerRef.current,
+        k: undefined,
+        cells: view.cells.map((c) => ({ ...c, k: undefined })),
+      },
+      cursorSnapRef.current(world),
+    );
+    commitBoard(addBoardTable(brd, placed).board);
+    setActiveTool(selectModeRef.current);
+  };
+
   const handlePointClick = (world: { x: number; y: number }): void => {
     const brd = boardRef.current;
     if (!brd) return;
@@ -9311,6 +9354,12 @@ export function PcbEditor({
         } else if (activeToolRef.current === 'placePoint') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handlePointClick(w);
+        } else if (
+          activeToolRef.current === 'placeCharacteristics' ||
+          activeToolRef.current === 'placeStackup'
+        ) {
+          const w = worldAt(e.clientX, e.clientY);
+          if (w) handlePlaceTableClick(activeToolRef.current, w);
         } else if (activeToolRef.current === 'measureTool') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleMeasureClick(w);

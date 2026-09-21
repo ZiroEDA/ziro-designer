@@ -19,11 +19,12 @@
 
 import type { JSX } from 'react';
 import { Check, Sel } from '../../../../dialogs/prefs/widgets.js';
-import { COPPER_FINISHES, type BoardFinish } from '../../board_settings.js';
+import { GetStandardCopperFinishes } from '@ziroeda/pcbnew/board_stackup_manager/stackup_predefined_prms.js';
+import type { BoardFinish } from '../../board_settings.js';
 
 // The data model lives in board_settings.ts (KiCad's data/UI split);
 // re-exported so panel users keep importing from the panel module.
-export { COPPER_FINISHES, defaultBoardFinish, type BoardFinish } from '../../board_settings.js';
+export { defaultBoardFinish, type BoardFinish } from '../../board_settings.js';
 
 // [data] `m_choiceEdgeConnChoices` (panel_board_finish_base.cpp:41).
 const EDGE_CARD = ['None', 'Yes', 'Yes, bevelled'];
@@ -49,7 +50,7 @@ export function PanelPcbBoardFinish({ value, onChange }: Props): JSX.Element {
         <Sel
           label="Copper finish:"
           value={value.copperFinish}
-          options={COPPER_FINISHES.map((f) => [f, f] as [string, string])}
+          options={GetStandardCopperFinishes().map((f) => [f, f] as [string, string])}
           onChange={(f) => set('copperFinish', f)}
         />
         <Sel
