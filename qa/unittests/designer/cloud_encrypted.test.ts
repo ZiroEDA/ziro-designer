@@ -30,6 +30,7 @@ import {
   createProjectKeyFor,
   forgetCachedProjectKey,
   projectKeyFor,
+  replaceCachedProjectKey,
   setSessionKeys,
   shareProjectKeyWith,
 } from '@ziroeda/designer/src/cloud/session_keys.js';
@@ -434,6 +435,59 @@ describe('rotation: whoever leaves keeps nothing, whoever stays keeps reading', 
     setSessionKeys(owner.keys, OWNER);
     f.asUser = OWNER;
     expect((await cloudGet('p1', UID))?.name).toBe('Amp');
+  });
+});
+
+describe('a member whose cached key is stale, after the owner rotated', () => {
+  it('pushes under the fresh key rather than replacing the row with the old one', async () => {
+    // 2026-09-21, for real. The owner narrowed a link (a rotation); an
+    // editor's open tab, still holding the previous key in memory, pushed
+    // next - could not open the re-sealed row - and 3ae8cb19's "replace a row
+    // whose key is gone" wrote the whole project back under the OLD key. From
+    // then on nobody could open it: the owner and the member both held the
+    // new one. "Cannot open" has two causes, and only one of them is a lost
+    // key; the other is a key the server has since replaced, which one fresh
+    // fetch resolves.
+    await cloudUpsert(OWNER, project({ a: 'AAA' }));
+    const key = (await projectKeyFor(f, OWNER, UID))!;
+    await shareProjectKeyWith(f, UID, key, { userId: MEMBER, publicKey: member.keys.publicKey });
+
+    // The member's tab opens the project once: the key is now cached there.
+    setSessionKeys(member.keys, MEMBER);
+    f.asUser = MEMBER;
+    expect(text((await cloudGet('p1', UID))!.files[0]!.gzB64!)).toBe('AAA');
+
+    // The owner rotates, re-sealing the new key to the member's public key.
+    setSessionKeys(owner.keys, OWNER);
+    f.asUser = OWNER;
+    await rotateProjectKey(UID, [{ userId: MEMBER, publicKey: member.keys.publicKey }]);
+    const rotatedVersion = f.rows.get('p1')!.version!;
+    const fresh = (await projectKeyFor(f, OWNER, UID))!;
+    expect(fresh).not.toEqual(key);
+
+    // The member's tab pushes with what it has cached: the old key. (The
+    // cache is per process here, so the rotation above refreshed it; the
+    // member's browser is another process and still holds `key`.)
+    setSessionKeys(member.keys, MEMBER);
+    f.asUser = MEMBER;
+    replaceCachedProjectKey(UID, key);
+    await cloudUpsert(
+      MEMBER,
+      {
+        ...project({ a: 'AAA', b: 'from member' }, { role: 'editor' }),
+        baseVersion: rotatedVersion,
+      },
+      new Set(),
+      rotatedVersion,
+    );
+
+    // The row is under the FRESH key: the owner still opens it.
+    setSessionKeys(owner.keys, OWNER);
+    f.asUser = OWNER;
+    const back = await cloudGet('p1', UID);
+    expect(text(back!.files.find((x) => x.name === 'b')!.gzB64!)).toBe('from member');
+    // And the old key opens nothing any more.
+    await expect(openMeta(key, f.rows.get('p1')!.enc_meta!)).rejects.toThrow();
   });
 });
 

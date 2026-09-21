@@ -844,7 +844,8 @@ async function commitEncrypted(
     p.cloudRole && p.cloudRole !== 'owner'
       ? { key: await projectKeyFor(be, me, uid), unsaved: false }
       : await ensureProjectKeyFor(be, me, uid);
-  const { key, unsaved: keyUnsaved } = mine;
+  let { key } = mine;
+  const keyUnsaved = mine.unsaved;
   if (!key) {
     throw new Error(
       `refusing to push "${p.name}": you have no key to this project; ask its owner to share it again`,
@@ -858,26 +859,56 @@ async function commitEncrypted(
       try {
         for (const e of (await openMeta(key, prev.enc_meta)).files) previous.set(e.hash, e);
       } catch (e) {
-        // The row will not open with the key this account holds. This is an
-        // optimisation being read -- which blobs are already up there, so an
-        // unchanged file need not be uploaded again -- so failing the push over
-        // it strands the project instead of costing it some bandwidth.
+        // The row will not open with the key this tab holds. Two things look
+        // like this, and only one of them is a lost key.
         //
-        // It is reachable. A crash between `commitProject` below and the
-        // `saveProjectKeyFor` after it leaves a row sealed under a key that was
-        // only ever in that tab's memory, and the next push mints a different
-        // one; a browser running out of memory mid-sync did exactly that to
-        // three projects. Every later push then failed here, forever, with no
-        // way out from the UI, because the condition repairs itself only by
-        // being written over.
-        //
-        // So: upload everything afresh and replace the row. Nothing readable is
-        // lost, by definition -- it could not be read.
-        console.warn(
-          `"${p.name}": the cloud copy will not open with this account's key, so it is being replaced rather than updated`,
-          e,
-        );
-        previous.clear();
+        // The other is a key the server has since REPLACED: the owner rotated
+        // (a member removed, a link narrowed) and sealed the new key for us,
+        // while this tab still holds the old one in memory. `openRow` on the
+        // pull side already fetches once more for exactly that; a push that
+        // did not, and went straight on to "replace", wrote a whole project
+        // back under the OLD key on 2026-09-21 and locked everyone out of it,
+        // owner included. So: one fresh fetch, and if the fresh key opens the
+        // row, that is the key this push is under.
+        // (Not for a key minted moments ago and not yet stored: the server
+        // has no row to fetch, and dropping it from the cache would lose it.)
+        let fresh: Uint8Array | null = null;
+        if (!keyUnsaved) {
+          forgetCachedProjectKey(uid);
+          fresh = await projectKeyFor(be, me, uid);
+        }
+        let reopened = false;
+        if (fresh) {
+          try {
+            for (const f of (await openMeta(fresh, prev.enc_meta)).files) previous.set(f.hash, f);
+            key = fresh;
+            reopened = true;
+          } catch {
+            // Not that either.
+          }
+        }
+        if (!reopened) {
+          // A row sealed under a key nothing holds. This is an optimisation
+          // being read -- which blobs are already up there, so an unchanged
+          // file need not be uploaded again -- so failing the push over it
+          // strands the project instead of costing it some bandwidth.
+          //
+          // It is reachable. A crash between `commitProject` below and the
+          // `saveProjectKeyFor` after it leaves a row sealed under a key that
+          // was only ever in that tab's memory, and the next push mints a
+          // different one; a browser running out of memory mid-sync did
+          // exactly that to three projects. Every later push then failed
+          // here, forever, with no way out from the UI, because the condition
+          // repairs itself only by being written over.
+          //
+          // So: upload everything afresh and replace the row. Nothing readable
+          // is lost, by definition -- it could not be read.
+          console.warn(
+            `"${p.name}": the cloud copy will not open with this account's key, so it is being replaced rather than updated`,
+            e,
+          );
+          previous.clear();
+        }
       }
     }
   }
