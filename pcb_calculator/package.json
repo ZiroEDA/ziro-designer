@@ -8,5 +8,8 @@
   "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ziroeda/common": "workspace:*"
   }
 }

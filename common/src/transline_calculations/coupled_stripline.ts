@@ -332,3 +332,155 @@ export function coupledStriplineSynthesize(
   if (!done) return null;
   return { ...phys, widthM: w, gapM: s };
 }
+
+// ---------------------------------------------------------------------------
+// `class COUPLED_STRIPLINE : public TRANSLINE_CALCULATION_BASE` (coupled_stripline.h)
+
+import {
+  SYNTHESIZE_OPTS,
+  TRANSLINE_CALCULATION_BASE,
+  TRANSLINE_PARAMETERS as TCP,
+  TRANSLINE_STATUS,
+} from './transline_calculation_base.js';
+
+export class COUPLED_STRIPLINE extends TRANSLINE_CALCULATION_BASE {
+  private e_eff_e = 0.0;
+  private e_eff_o = 0.0;
+  private unit_prop_delay_e = 0.0;
+  private unit_prop_delay_o = 0.0;
+  private ang_l = 0.0;
+
+  constructor() {
+    super([
+      TCP.Z0_E,
+      TCP.Z0_O,
+      TCP.Z_DIFF,
+      TCP.ANG_L,
+      TCP.PHYS_WIDTH,
+      TCP.PHYS_LEN,
+      TCP.PHYS_S,
+      TCP.H,
+      TCP.T,
+      TCP.FREQUENCY,
+      TCP.EPSILONR,
+      TCP.EPSILON_EFF_EVEN,
+      TCP.EPSILON_EFF_ODD,
+      TCP.SKIN_DEPTH,
+      TCP.SIGMA,
+      TCP.TAND,
+      TCP.MURC,
+    ]);
+  }
+
+  private electrical(): TcElectrical {
+    return {
+      frequencyHz: this.GetParameter(TCP.FREQUENCY),
+      epsilonR: this.GetParameter(TCP.EPSILONR),
+      tanD: this.GetParameter(TCP.TAND),
+      sigma: this.GetParameter(TCP.SIGMA),
+      mur: 1,
+      murC: this.GetParameter(TCP.MURC),
+    };
+  }
+
+  private physical(): CoupledStriplinePhysical {
+    return {
+      widthM: this.GetParameter(TCP.PHYS_WIDTH),
+      gapM: this.GetParameter(TCP.PHYS_S),
+      heightM: this.GetParameter(TCP.H),
+      thicknessM: this.GetParameter(TCP.T),
+      lengthM: this.GetParameter(TCP.PHYS_LEN),
+    };
+  }
+
+  override Analyse(): void {
+    const r = coupledStriplineAnalyze(this.physical(), this.electrical());
+    this.SetParameter(TCP.SKIN_DEPTH, r.skinDepthM);
+    this.SetParameter(TCP.Z0_E, r.z0Even);
+    this.SetParameter(TCP.Z0_O, r.z0Odd);
+    this.SetParameter(TCP.Z_DIFF, r.zDiff);
+    this.e_eff_e = r.epsEffEven;
+    this.e_eff_o = r.epsEffOdd;
+    this.unit_prop_delay_e = r.unitPropDelayEven;
+    this.unit_prop_delay_o = r.unitPropDelayOdd;
+    this.ang_l = (r.angleDeg * Math.PI) / 180.0;
+  }
+
+  override Synthesize(aOpts: SYNTHESIZE_OPTS): boolean {
+    if (aOpts === SYNTHESIZE_OPTS.FIX_WIDTH)
+      return this.MinimiseZ0Error1D(TCP.PHYS_S, TCP.Z0_O, false);
+
+    if (aOpts === SYNTHESIZE_OPTS.FIX_SPACING)
+      return this.MinimiseZ0Error1D(TCP.PHYS_WIDTH, TCP.Z0_O, false);
+
+    // The wcalc-derived even/odd synthesis, in the function beside this class.
+    const z0e_target = this.GetParameter(TCP.Z0_E);
+    const z0o_target = this.GetParameter(TCP.Z0_O);
+    const found = coupledStriplineSynthesize(
+      this.physical(),
+      this.electrical(),
+      z0e_target,
+      z0o_target,
+    );
+
+    if (!found) return false;
+
+    // Recompute with the final parameters
+    this.SetParameter(TCP.PHYS_WIDTH, found.widthM);
+    this.SetParameter(TCP.PHYS_S, found.gapM);
+    this.Analyse();
+
+    // Reset the impedances
+    this.SetParameter(TCP.Z0_E, z0e_target);
+    this.SetParameter(TCP.Z0_O, z0o_target);
+
+    return true;
+  }
+
+  private results(
+    aSet: (p: TCP, v: number, s?: TRANSLINE_STATUS) => void,
+    aSynthesis: boolean,
+  ): void {
+    const { OK, WARNING, TS_ERROR } = TRANSLINE_STATUS;
+    aSet(TCP.EPSILON_EFF_EVEN, this.e_eff_e);
+    aSet(TCP.EPSILON_EFF_ODD, this.e_eff_o);
+    aSet(TCP.UNIT_PROP_DELAY_EVEN, this.unit_prop_delay_e);
+    aSet(TCP.UNIT_PROP_DELAY_ODD, this.unit_prop_delay_o);
+    aSet(TCP.SKIN_DEPTH, this.GetParameter(TCP.SKIN_DEPTH));
+
+    const Z0_E = this.GetParameter(TCP.Z0_E);
+    const Z0_O = this.GetParameter(TCP.Z0_O);
+    const Z_DIFF = this.GetParameter(TCP.Z_DIFF);
+    const W = this.GetParameter(TCP.PHYS_WIDTH);
+    const L = this.GetParameter(TCP.PHYS_LEN);
+    const S = this.GetParameter(TCP.PHYS_S);
+    const Z0_E_invalid = !Number.isFinite(Z0_E) || Z0_E <= 0;
+    const Z0_O_invalid = !Number.isFinite(Z0_O) || Z0_O <= 0;
+    const Z_DIFF_invalid = !Number.isFinite(Z_DIFF) || Z_DIFF <= 0;
+    const ANG_L_invalid = !Number.isFinite(this.ang_l) || this.ang_l < 0;
+    const W_invalid = !Number.isFinite(W) || W <= 0;
+    const L_invalid = !Number.isFinite(L) || L < 0;
+    const S_invalid = !Number.isFinite(S) || S <= 0;
+
+    // The outputs are errors in analysis and warnings in synthesis; the
+    // inputs the other way round.
+    const out = aSynthesis ? WARNING : TS_ERROR;
+    const inp = aSynthesis ? TS_ERROR : WARNING;
+
+    aSet(TCP.Z0_E, Z0_E, Z0_E_invalid ? out : OK);
+    aSet(TCP.Z0_O, Z0_O, Z0_O_invalid ? out : OK);
+    aSet(TCP.Z_DIFF, Z_DIFF, Z_DIFF_invalid ? out : OK);
+    aSet(TCP.ANG_L, this.ang_l, ANG_L_invalid ? out : OK);
+    aSet(TCP.PHYS_WIDTH, W, W_invalid ? inp : OK);
+    aSet(TCP.PHYS_LEN, L, L_invalid ? inp : OK);
+    aSet(TCP.PHYS_S, S, S_invalid ? inp : OK);
+  }
+
+  protected override SetAnalysisResults(): void {
+    this.results((p, v, s) => this.SetAnalysisResult(p, v, s), false);
+  }
+
+  protected override SetSynthesisResults(): void {
+    this.results((p, v, s) => this.SetSynthesisResult(p, v, s), true);
+  }
+}

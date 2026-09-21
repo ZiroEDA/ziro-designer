@@ -9,7 +9,14 @@
  * Counterpart: KiCad `common/transline_calculations/rectwaveguide.cpp`.
  */
 
-import { C0, LOG2DB, MU0, type TcElectrical, ZF0, skinDepth } from './tc_common.js';
+import {
+  C0,
+  LOG2DB,
+  MU0,
+  type TcElectrical,
+  ZF0,
+  skinDepth,
+} from '@ziroeda/common/src/transline_calculations/tc_common.js';
 import type { TranslineAnalysis } from './transline.js';
 
 export interface RectWaveguidePhysical {

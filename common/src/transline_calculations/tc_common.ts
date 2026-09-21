@@ -24,6 +24,24 @@ export const LOG2DB = 20.0 / Math.log(10); // Nepers → dB (≈ 8.68589)
 export const UNIT_MICRON = 1e-6;
 
 /** Common electrical inputs shared by every line type. */
+/** What every line type's analysis reports (KiCad's TRANSLINE result set). */
+export interface TranslineAnalysis {
+  /** Characteristic impedance, Ω. */
+  z0: number;
+  /** Effective permittivity. */
+  epsEff: number;
+  /** Electrical length, degrees, for the given physical length. */
+  angleDeg: number;
+  /** Conductor loss, dB (over the physical length); NaN if not modelled. */
+  conductorLossDb: number;
+  /** Dielectric loss, dB (over the physical length); NaN if not modelled. */
+  dielectricLossDb: number;
+  /** Skin depth, m; NaN if not applicable. */
+  skinDepthM: number;
+  /** Extra per-line results, e.g. even/odd impedances or cutoff frequencies. */
+  extra?: Record<string, number>;
+}
+
 export interface TcElectrical {
   frequencyHz: number;
   /** Substrate/dielectric relative permittivity. */

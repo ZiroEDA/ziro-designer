@@ -9,11 +9,10 @@
  * its reference(s), and asks the transmission-line calculators for the width
  * (or gap) that meets the target impedance, or the delay of the width given.
  *
- * The calculators are pcb_calculator's port of `common/transline_calculations`
- * (the same code the Calculator Tools use). Upstream drives them as
- * `TRANSLINE_CALCULATION_BASE` objects through `SetParameter` / `Synthesize` /
- * `Analyse`; ours are functions, so the parameter plumbing below is theirs,
- * one table per line type.
+ * The calculators are `common/transline_calculations` (the same objects the
+ * Calculator Tools use), driven as `TRANSLINE_CALCULATION_BASE` through
+ * `SetParameter` / `Synthesize` / `Analyse` / `Get*Results` exactly as upstream
+ * does, one parameter table per line type.
  */
 import { FromUserUnit, pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import {
@@ -22,16 +21,16 @@ import {
   IsCopperLayerLowerThan,
   PCB_LAYER_ID,
 } from '@ziroeda/common/src/layer_ids.js';
+import { COUPLED_MICROSTRIP } from '@ziroeda/common/src/transline_calculations/coupled_microstrip.js';
+import { COUPLED_STRIPLINE } from '@ziroeda/common/src/transline_calculations/coupled_stripline.js';
+import { MICROSTRIP } from '@ziroeda/common/src/transline_calculations/microstrip.js';
+import { STRIPLINE } from '@ziroeda/common/src/transline_calculations/stripline.js';
 import {
-  coupledMicrostripAnalyze,
-  coupledStriplineAnalyze,
-  microstripAnalyze,
-  microstripSynthesize,
-  striplineAnalyze,
-  striplineSynthesize,
-  unitPropagationDelay,
-} from '@ziroeda/pcb_calculator';
-import type { TcElectrical } from '@ziroeda/pcb_calculator/src/transline/tc_common.js';
+  SYNTHESIZE_OPTS,
+  TRANSLINE_PARAMETERS,
+  type TRANSLINE_RESULT,
+  TRANSLINE_STATUS,
+} from '@ziroeda/common/src/transline_calculations/transline_calculation_base.js';
 import {
   type BOARD_STACKUP,
   type BOARD_STACKUP_ITEM,
@@ -315,22 +314,27 @@ export function getStriplineBoardParameters(
   ];
 }
 
-/** The `SetParameter` block every calculation shares: 1 GHz, copper, no roughness. */
-function electrical(aBoard: CalculationBoardParameters): TcElectrical {
-  return {
-    frequencyHz: 1000000000.0,
-    epsilonR: aBoard.DielectricConstant,
-    tanD: aBoard.LossTangent,
-    sigma: 1.0 / RHO,
-    mur: 1,
-    murC: 1,
-  };
+/**
+ * `results[param]` on upstream's `std::unordered_map`: a key never set reads
+ * as a default-constructed `{0.0, OK}`.
+ */
+function resultOf(
+  aResults: Map<TRANSLINE_PARAMETERS, TRANSLINE_RESULT>,
+  aParam: TRANSLINE_PARAMETERS,
+): TRANSLINE_RESULT {
+  return aResults.get(aParam) ?? [0.0, TRANSLINE_STATUS.OK];
 }
 
 const widthIU = (aWidthM: number): number =>
   Math.trunc(FromUserUnit(pcbIUScale, 'mm', aWidthM * 1000.0));
 const delayIU = (aPsPerCm: number): number =>
   Math.trunc(FromUserUnit(pcbIUScale, 'ps/cm', aPsPerCm));
+
+/** The four calculators are members of the panel upstream; one of each here. */
+const m_microstripCalc = new MICROSTRIP();
+const m_striplineCalc = new STRIPLINE();
+const m_coupledMicrostripCalc = new COUPLED_MICROSTRIP();
+const m_coupledStriplineCalc = new COUPLED_STRIPLINE();
 
 /** `calculateSingleMicrostrip`. */
 export function calculateSingleMicrostrip(
@@ -339,46 +343,66 @@ export function calculateSingleMicrostrip(
   aTargetZ: number,
   aCalculationType: CalculationType,
 ): CalculationResult {
-  if (!(aTargetZ > 0)) return fail('Target impedance must be greater than 0');
+  const targetZ = aTargetZ;
 
+  if (!(targetZ > 0)) return fail('Target impedance must be greater than 0');
+
+  // Get board parameters
   const [boardParameters, result] = getMicrostripBoardParameters(aStackup, aRow);
 
   if (!result.OK || !boardParameters) return result;
 
-  const el = electrical(boardParameters);
-  const phys = {
-    widthM: 0.001,
-    heightM: boardParameters.TopDielectricLayerThickness,
-    thicknessM: boardParameters.SignalLayerThickness,
-    lengthM: 10,
-  };
-
-  if (aCalculationType === CalculationType.DELAY)
-    phys.widthM = pcbIUScale.iuToMM(aRow.width ?? 0) / 1000.0;
-
-  let width: number;
-
+  // Set calculation parameters
   if (aCalculationType === CalculationType.WIDTH) {
-    const synth = microstripSynthesize(phys, el, aTargetZ, 1);
-
-    if (!synth || !Number.isFinite(synth.widthM)) return fail('Width calculation failed');
-
-    width = synth.widthM;
-  } else {
-    width = phys.widthM;
+    m_microstripCalc.SetParameter(TRANSLINE_PARAMETERS.PHYS_WIDTH, 0.001);
+  } else if (aCalculationType === CalculationType.DELAY) {
+    const widthInt = aRow.width ?? 0;
+    const width = pcbIUScale.iuToMM(widthInt) / 1000.0;
+    m_microstripCalc.SetParameter(TRANSLINE_PARAMETERS.PHYS_WIDTH, width);
   }
 
-  const analysis = microstripAnalyze({ ...phys, widthM: width }, el);
+  // Run the synthesis or analysis
+  m_microstripCalc.SetParameter(TRANSLINE_PARAMETERS.SIGMA, 1.0 / RHO);
+  m_microstripCalc.SetParameter(TRANSLINE_PARAMETERS.EPSILON_EFF, 1.0);
+  m_microstripCalc.SetParameter(
+    TRANSLINE_PARAMETERS.SKIN_DEPTH,
+    calculateSkinDepth(1.0, 1.0, 1.0 / RHO),
+  );
+  m_microstripCalc.SetParameter(TRANSLINE_PARAMETERS.EPSILONR, boardParameters.DielectricConstant);
+  m_microstripCalc.SetParameter(TRANSLINE_PARAMETERS.H_T, 1e20);
+  m_microstripCalc.SetParameter(
+    TRANSLINE_PARAMETERS.H,
+    boardParameters.TopDielectricLayerThickness,
+  );
+  m_microstripCalc.SetParameter(TRANSLINE_PARAMETERS.T, boardParameters.SignalLayerThickness);
+  m_microstripCalc.SetParameter(TRANSLINE_PARAMETERS.Z0, targetZ);
+  m_microstripCalc.SetParameter(TRANSLINE_PARAMETERS.FREQUENCY, 1000000000.0);
+  m_microstripCalc.SetParameter(TRANSLINE_PARAMETERS.ROUGH, 0);
+  m_microstripCalc.SetParameter(TRANSLINE_PARAMETERS.TAND, boardParameters.LossTangent);
+  m_microstripCalc.SetParameter(TRANSLINE_PARAMETERS.PHYS_LEN, 10);
+  m_microstripCalc.SetParameter(TRANSLINE_PARAMETERS.MUR, 1);
+  m_microstripCalc.SetParameter(TRANSLINE_PARAMETERS.MURC, 1);
+  m_microstripCalc.SetParameter(TRANSLINE_PARAMETERS.ANG_L, 1);
 
-  if (!Number.isFinite(analysis.epsEff)) return fail('Delay calculation failed');
+  if (aCalculationType === CalculationType.WIDTH)
+    m_microstripCalc.Synthesize(SYNTHESIZE_OPTS.DEFAULT);
+  else m_microstripCalc.Analyse();
 
-  return {
-    OK: true,
-    ErrorMsg: '',
-    Width: widthIU(width),
-    DiffPairGap: 0,
-    Delay: delayIU(unitPropagationDelay(analysis.epsEff)),
-  };
+  const results =
+    aCalculationType === CalculationType.WIDTH
+      ? m_microstripCalc.GetSynthesisResults()
+      : m_microstripCalc.GetAnalysisResults();
+
+  if (resultOf(results, TRANSLINE_PARAMETERS.PHYS_WIDTH)[1] !== TRANSLINE_STATUS.OK)
+    return fail('Width calculation failed');
+
+  if (resultOf(results, TRANSLINE_PARAMETERS.UNIT_PROP_DELAY)[1] !== TRANSLINE_STATUS.OK)
+    return fail('Delay calculation failed');
+
+  const width = widthIU(resultOf(results, TRANSLINE_PARAMETERS.PHYS_WIDTH)[0]);
+  const propDelay = delayIU(resultOf(results, TRANSLINE_PARAMETERS.UNIT_PROP_DELAY)[0]);
+
+  return { OK: true, ErrorMsg: '', Width: width, DiffPairGap: 0, Delay: propDelay };
 }
 
 /** `calculateSingleStripline`. */
@@ -388,83 +412,71 @@ export function calculateSingleStripline(
   aTargetZ: number,
   aCalculationType: CalculationType,
 ): CalculationResult {
-  if (!(aTargetZ > 0)) return fail('Target impedance must be greater than 0');
+  const targetZ = aTargetZ;
 
+  if (!(targetZ > 0)) return fail('Target impedance must be greater than 0');
+
+  // Get board parameters
   const [boardParameters, result] = getStriplineBoardParameters(aStackup, aRow);
 
   if (!result.OK || !boardParameters) return result;
 
-  const el = electrical(boardParameters);
-  const phys = {
-    widthM: 0.001,
-    heightM:
-      boardParameters.TopDielectricLayerThickness +
+  // Set calculation parameters
+  if (aCalculationType === CalculationType.WIDTH) {
+    m_striplineCalc.SetParameter(TRANSLINE_PARAMETERS.PHYS_WIDTH, 0.001);
+  } else if (aCalculationType === CalculationType.DELAY) {
+    const widthInt = aRow.width ?? 0;
+    const width = pcbIUScale.iuToMM(widthInt) / 1000.0;
+    m_striplineCalc.SetParameter(TRANSLINE_PARAMETERS.PHYS_WIDTH, width);
+  }
+
+  // Run the synthesis
+  m_striplineCalc.SetParameter(
+    TRANSLINE_PARAMETERS.SKIN_DEPTH,
+    calculateSkinDepth(1.0, 1.0, 1.0 / RHO),
+  );
+  m_striplineCalc.SetParameter(TRANSLINE_PARAMETERS.EPSILONR, boardParameters.DielectricConstant);
+  m_striplineCalc.SetParameter(TRANSLINE_PARAMETERS.T, boardParameters.SignalLayerThickness);
+  m_striplineCalc.SetParameter(
+    TRANSLINE_PARAMETERS.STRIPLINE_A,
+    boardParameters.TopDielectricLayerThickness,
+  );
+  m_striplineCalc.SetParameter(
+    TRANSLINE_PARAMETERS.H,
+    boardParameters.TopDielectricLayerThickness +
       boardParameters.SignalLayerThickness +
       boardParameters.BottomDielectricLayerThickness,
-    thicknessM: boardParameters.SignalLayerThickness,
-    lengthM: 1.0,
-    offsetM: boardParameters.TopDielectricLayerThickness,
-  };
+  );
+  m_striplineCalc.SetParameter(TRANSLINE_PARAMETERS.Z0, targetZ);
+  m_striplineCalc.SetParameter(TRANSLINE_PARAMETERS.PHYS_LEN, 1.0);
+  m_striplineCalc.SetParameter(TRANSLINE_PARAMETERS.FREQUENCY, 1000000000.0);
+  m_striplineCalc.SetParameter(TRANSLINE_PARAMETERS.TAND, boardParameters.LossTangent);
+  m_striplineCalc.SetParameter(TRANSLINE_PARAMETERS.ANG_L, 1.0);
+  m_striplineCalc.SetParameter(TRANSLINE_PARAMETERS.SIGMA, 1.0 / RHO);
+  m_striplineCalc.SetParameter(TRANSLINE_PARAMETERS.MURC, 1);
 
-  if (aCalculationType === CalculationType.DELAY)
-    phys.widthM = pcbIUScale.iuToMM(aRow.width ?? 0) / 1000.0;
+  if (aCalculationType === CalculationType.WIDTH)
+    m_striplineCalc.Synthesize(SYNTHESIZE_OPTS.DEFAULT);
+  else m_striplineCalc.Analyse();
 
-  let width: number;
+  const results =
+    aCalculationType === CalculationType.WIDTH
+      ? m_striplineCalc.GetSynthesisResults()
+      : m_striplineCalc.GetAnalysisResults();
 
-  if (aCalculationType === CalculationType.WIDTH) {
-    const synth = striplineSynthesize(phys, el, aTargetZ, 1.0);
+  if (resultOf(results, TRANSLINE_PARAMETERS.PHYS_WIDTH)[1] !== TRANSLINE_STATUS.OK)
+    return fail('Width calculation failed');
 
-    if (!synth || !Number.isFinite(synth.widthM)) return fail('Width calculation failed');
+  if (resultOf(results, TRANSLINE_PARAMETERS.UNIT_PROP_DELAY)[1] !== TRANSLINE_STATUS.OK)
+    return fail('Delay calculation failed');
 
-    width = synth.widthM;
-  } else {
-    width = phys.widthM;
-  }
+  const width = widthIU(resultOf(results, TRANSLINE_PARAMETERS.PHYS_WIDTH)[0]);
+  const propDelay = delayIU(resultOf(results, TRANSLINE_PARAMETERS.UNIT_PROP_DELAY)[0]);
 
-  const analysis = striplineAnalyze({ ...phys, widthM: width }, el);
-
-  if (!Number.isFinite(analysis.epsEff)) return fail('Delay calculation failed');
-
-  return {
-    OK: true,
-    ErrorMsg: '',
-    Width: widthIU(width),
-    DiffPairGap: 0,
-    Delay: delayIU(unitPropagationDelay(analysis.epsEff)),
-  };
+  return { OK: true, ErrorMsg: '', Width: width, DiffPairGap: 0, Delay: propDelay };
 }
 
-/**
- * The coupled synthesis with one dimension fixed (`SYNTHESIZE_OPTS::FIX_SPACING`
- * solves the width, `FIX_WIDTH` the gap): the differential impedance is
- * monotonic in either, so a bisection over the free one.
- */
-function solveCoupled(
-  aZDiffOf: (aFree: number) => number,
-  aTarget: number,
-  aLo: number,
-  aHi: number,
-  aRising: boolean,
-): number | null {
-  let lo = aLo;
-  let hi = aHi;
-  const zLo = aZDiffOf(lo);
-  const zHi = aZDiffOf(hi);
-
-  if (!Number.isFinite(zLo) || !Number.isFinite(zHi)) return null;
-  if ((zLo - aTarget) * (zHi - aTarget) > 0) return null;
-
-  for (let i = 0; i < 100; i++) {
-    const mid = (lo + hi) / 2;
-    const below = aZDiffOf(mid) < aTarget;
-    if (below === aRising) lo = mid;
-    else hi = mid;
-  }
-
-  return (lo + hi) / 2;
-}
-
-/** The three inputs of a coupled calculation, checked as upstream checks them. */
+/** The width/gap block both coupled calculations open with, checked as upstream checks it. */
 function coupledInputs(
   aRow: TrackRowInput,
   aCalculationType: CalculationType,
@@ -484,7 +496,7 @@ function coupledInputs(
       return fail('Width must be greater than 0 to calculate diff pair gap');
 
     width = pcbIUScale.iuToMM(widthOpt) / 1000.0;
-  } else {
+  } else if (aCalculationType === CalculationType.DELAY) {
     if (widthOpt === undefined || gapOpt === undefined || widthOpt <= 0 || gapOpt <= 0)
       return fail('Width and diff pair gap must be greater than 0 to calculate delay');
 
@@ -495,6 +507,44 @@ function coupledInputs(
   return [width, gap];
 }
 
+/** The run + result-reading tail both coupled calculations share verbatim. */
+function coupledResult(
+  aCalc: COUPLED_MICROSTRIP | COUPLED_STRIPLINE,
+  aCalculationType: CalculationType,
+): CalculationResult {
+  switch (aCalculationType) {
+    case CalculationType.WIDTH:
+      aCalc.Synthesize(SYNTHESIZE_OPTS.FIX_SPACING);
+      break;
+    case CalculationType.GAP:
+      aCalc.Synthesize(SYNTHESIZE_OPTS.FIX_WIDTH);
+      break;
+    case CalculationType.DELAY:
+      aCalc.Analyse();
+      break;
+  }
+
+  const results =
+    aCalculationType === CalculationType.WIDTH || aCalculationType === CalculationType.GAP
+      ? aCalc.GetSynthesisResults()
+      : aCalc.GetAnalysisResults();
+
+  if (resultOf(results, TRANSLINE_PARAMETERS.PHYS_WIDTH)[1] !== TRANSLINE_STATUS.OK)
+    return fail('Width calculation failed');
+
+  if (resultOf(results, TRANSLINE_PARAMETERS.PHYS_S)[1] !== TRANSLINE_STATUS.OK)
+    return fail('Diff pair gap calculation failed');
+
+  if (resultOf(results, TRANSLINE_PARAMETERS.UNIT_PROP_DELAY_ODD)[1] !== TRANSLINE_STATUS.OK)
+    return fail('Delay calculation failed');
+
+  const calcWidth = widthIU(resultOf(results, TRANSLINE_PARAMETERS.PHYS_WIDTH)[0]);
+  const calcGap = widthIU(resultOf(results, TRANSLINE_PARAMETERS.PHYS_S)[0]);
+  const propDelay = delayIU(resultOf(results, TRANSLINE_PARAMETERS.UNIT_PROP_DELAY_ODD)[0]);
+
+  return { OK: true, ErrorMsg: '', Width: calcWidth, DiffPairGap: calcGap, Delay: propDelay };
+}
+
 /** `calculateDifferentialMicrostrip`. */
 export function calculateDifferentialMicrostrip(
   aStackup: BOARD_STACKUP,
@@ -502,56 +552,54 @@ export function calculateDifferentialMicrostrip(
   aTargetZ: number,
   aCalculationType: CalculationType,
 ): CalculationResult {
-  if (!(aTargetZ > 0)) return fail('Target impedance must be greater than 0');
+  const targetZ = aTargetZ;
 
+  if (!(targetZ > 0)) return fail('Target impedance must be greater than 0');
+
+  // Get board parameters
   const [boardParameters, result] = getMicrostripBoardParameters(aStackup, aRow);
 
   if (!result.OK || !boardParameters) return result;
 
+  // Set calculation parameters
   const inputs = coupledInputs(aRow, aCalculationType);
 
   if (!Array.isArray(inputs)) return inputs;
 
-  let [width, gap] = inputs;
-  const el = electrical(boardParameters);
-  const h = boardParameters.TopDielectricLayerThickness;
-  const physOf = (w: number, s: number) => ({
-    widthM: w,
-    gapM: s,
-    heightM: h,
-    thicknessM: boardParameters.SignalLayerThickness,
-    lengthM: 10,
-  });
-  const zDiffOf = (w: number, s: number): number =>
-    coupledMicrostripAnalyze(physOf(w, s), el).extra.zDiff;
+  const [width, gap] = inputs;
 
-  if (aCalculationType === CalculationType.WIDTH) {
-    // Zdiff falls as the lines widen.
-    const w = solveCoupled((x) => zDiffOf(x, gap), aTargetZ, h * 1e-4, h * 100, false);
+  // Run the synthesis
+  m_coupledMicrostripCalc.SetParameter(TRANSLINE_PARAMETERS.Z0_E, targetZ / 2.0);
+  m_coupledMicrostripCalc.SetParameter(TRANSLINE_PARAMETERS.Z0_O, targetZ / 2.0);
+  m_coupledMicrostripCalc.SetParameter(TRANSLINE_PARAMETERS.Z_DIFF, targetZ);
+  m_coupledMicrostripCalc.SetParameter(TRANSLINE_PARAMETERS.PHYS_WIDTH, width);
+  m_coupledMicrostripCalc.SetParameter(TRANSLINE_PARAMETERS.PHYS_S, gap);
+  m_coupledMicrostripCalc.SetParameter(
+    TRANSLINE_PARAMETERS.EPSILONR,
+    boardParameters.DielectricConstant,
+  );
+  m_coupledMicrostripCalc.SetParameter(TRANSLINE_PARAMETERS.PHYS_LEN, 10);
+  m_coupledMicrostripCalc.SetParameter(
+    TRANSLINE_PARAMETERS.H,
+    boardParameters.TopDielectricLayerThickness,
+  );
+  m_coupledMicrostripCalc.SetParameter(
+    TRANSLINE_PARAMETERS.T,
+    boardParameters.SignalLayerThickness,
+  );
+  m_coupledMicrostripCalc.SetParameter(TRANSLINE_PARAMETERS.H_T, 1e20);
+  m_coupledMicrostripCalc.SetParameter(TRANSLINE_PARAMETERS.FREQUENCY, 1000000000.0);
+  m_coupledMicrostripCalc.SetParameter(TRANSLINE_PARAMETERS.MURC, 1);
+  m_coupledMicrostripCalc.SetParameter(
+    TRANSLINE_PARAMETERS.SKIN_DEPTH,
+    calculateSkinDepth(1.0, 1.0, 1.0 / RHO),
+  );
+  m_coupledMicrostripCalc.SetParameter(TRANSLINE_PARAMETERS.SIGMA, 1.0 / RHO);
+  m_coupledMicrostripCalc.SetParameter(TRANSLINE_PARAMETERS.ROUGH, 0);
+  m_coupledMicrostripCalc.SetParameter(TRANSLINE_PARAMETERS.TAND, boardParameters.LossTangent);
+  m_coupledMicrostripCalc.SetParameter(TRANSLINE_PARAMETERS.ANG_L, 1);
 
-    if (w === null) return fail('Width calculation failed');
-
-    width = w;
-  } else if (aCalculationType === CalculationType.GAP) {
-    // Zdiff rises with the gap.
-    const s = solveCoupled((x) => zDiffOf(width, x), aTargetZ, h * 1e-3, h * 50, true);
-
-    if (s === null) return fail('Diff pair gap calculation failed');
-
-    gap = s;
-  }
-
-  const analysis = coupledMicrostripAnalyze(physOf(width, gap), el);
-
-  if (!Number.isFinite(analysis.extra.epsEffOdd)) return fail('Delay calculation failed');
-
-  return {
-    OK: true,
-    ErrorMsg: '',
-    Width: widthIU(width),
-    DiffPairGap: widthIU(gap),
-    Delay: delayIU(unitPropagationDelay(analysis.extra.epsEffOdd)),
-  };
+  return coupledResult(m_coupledMicrostripCalc, aCalculationType);
 }
 
 /** `calculateDifferentialStripline`. */
@@ -561,56 +609,50 @@ export function calculateDifferentialStripline(
   aTargetZ: number,
   aCalculationType: CalculationType,
 ): CalculationResult {
-  if (!(aTargetZ > 0)) return fail('Target impedance must be greater than 0');
+  const targetZ = aTargetZ;
 
+  if (!(targetZ > 0)) return fail('Target impedance must be greater than 0');
+
+  // Get board parameters
   const [boardParameters, result] = getStriplineBoardParameters(aStackup, aRow);
 
   if (!result.OK || !boardParameters) return result;
 
+  // Set calculation parameters
   const inputs = coupledInputs(aRow, aCalculationType);
 
   if (!Array.isArray(inputs)) return inputs;
 
-  let [width, gap] = inputs;
-  const el = electrical(boardParameters);
-  const h =
+  const [width, gap] = inputs;
+
+  // Run the synthesis
+  m_coupledStriplineCalc.SetParameter(TRANSLINE_PARAMETERS.Z0_E, targetZ / 2.0);
+  m_coupledStriplineCalc.SetParameter(TRANSLINE_PARAMETERS.Z0_O, targetZ / 2.0);
+  m_coupledStriplineCalc.SetParameter(TRANSLINE_PARAMETERS.Z_DIFF, targetZ);
+  m_coupledStriplineCalc.SetParameter(TRANSLINE_PARAMETERS.PHYS_WIDTH, width);
+  m_coupledStriplineCalc.SetParameter(TRANSLINE_PARAMETERS.PHYS_S, gap);
+  m_coupledStriplineCalc.SetParameter(TRANSLINE_PARAMETERS.T, boardParameters.SignalLayerThickness);
+  m_coupledStriplineCalc.SetParameter(
+    TRANSLINE_PARAMETERS.H,
     boardParameters.TopDielectricLayerThickness +
-    boardParameters.SignalLayerThickness +
-    boardParameters.BottomDielectricLayerThickness;
-  const physOf = (w: number, s: number) => ({
-    widthM: w,
-    gapM: s,
-    heightM: h,
-    thicknessM: boardParameters.SignalLayerThickness,
-    lengthM: 1.0,
-  });
-  const zDiffOf = (w: number, s: number): number => coupledStriplineAnalyze(physOf(w, s), el).zDiff;
+      boardParameters.SignalLayerThickness +
+      boardParameters.BottomDielectricLayerThickness,
+  );
+  m_coupledStriplineCalc.SetParameter(
+    TRANSLINE_PARAMETERS.EPSILONR,
+    boardParameters.DielectricConstant,
+  );
+  m_coupledStriplineCalc.SetParameter(
+    TRANSLINE_PARAMETERS.SKIN_DEPTH,
+    calculateSkinDepth(1.0, 1.0, 1.0 / RHO),
+  );
+  m_coupledStriplineCalc.SetParameter(TRANSLINE_PARAMETERS.PHYS_LEN, 1.0);
+  m_coupledStriplineCalc.SetParameter(TRANSLINE_PARAMETERS.FREQUENCY, 1000000000.0);
+  m_coupledStriplineCalc.SetParameter(TRANSLINE_PARAMETERS.ANG_L, 1.0);
+  m_coupledStriplineCalc.SetParameter(TRANSLINE_PARAMETERS.SIGMA, 1.0 / RHO);
+  m_coupledStriplineCalc.SetParameter(TRANSLINE_PARAMETERS.MURC, 1);
 
-  if (aCalculationType === CalculationType.WIDTH) {
-    const w = solveCoupled((x) => zDiffOf(x, gap), aTargetZ, h * 1e-4, h * 50, false);
-
-    if (w === null) return fail('Width calculation failed');
-
-    width = w;
-  } else if (aCalculationType === CalculationType.GAP) {
-    const s = solveCoupled((x) => zDiffOf(width, x), aTargetZ, h * 1e-3, h * 50, true);
-
-    if (s === null) return fail('Diff pair gap calculation failed');
-
-    gap = s;
-  }
-
-  const analysis = coupledStriplineAnalyze(physOf(width, gap), el);
-
-  if (!Number.isFinite(analysis.unitPropDelayOdd)) return fail('Delay calculation failed');
-
-  return {
-    OK: true,
-    ErrorMsg: '',
-    Width: widthIU(width),
-    DiffPairGap: widthIU(gap),
-    Delay: delayIU(analysis.unitPropDelayOdd),
-  };
+  return coupledResult(m_coupledStriplineCalc, aCalculationType);
 }
 
 /** Whether a signal layer is a microstrip (outer) or a stripline (inner) geometry. */

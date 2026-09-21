@@ -24,22 +24,7 @@ export interface TranslineElectrical {
   murC: number;
 }
 
-export interface TranslineAnalysis {
-  /** Characteristic impedance, Ω. */
-  z0: number;
-  /** Effective permittivity. */
-  epsEff: number;
-  /** Electrical length, degrees, for the given physical length. */
-  angleDeg: number;
-  /** Conductor loss, dB (over the physical length); NaN if not modelled. */
-  conductorLossDb: number;
-  /** Dielectric loss, dB (over the physical length); NaN if not modelled. */
-  dielectricLossDb: number;
-  /** Skin depth, m; NaN if not applicable. */
-  skinDepthM: number;
-  /** Extra per-line results, e.g. even/odd impedances or cutoff frequencies. */
-  extra?: Record<string, number>;
-}
+export type { TranslineAnalysis } from '@ziroeda/common/src/transline_calculations/tc_common.js';
 
 /** Skin depth δ = sqrt(1/(π·f·µ·σ)). */
 export function skinDepth(frequencyHz: number, sigma: number, murC: number): number {

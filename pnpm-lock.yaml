@@ -171,7 +171,11 @@ importers:
 
   libs/sexpr: {}
 
-  pcb_calculator: {}
+  pcb_calculator:
+    dependencies:
+      '@ziroeda/common':
+        specifier: workspace:*
+        version: link:../common
 
   pcbnew:
     dependencies:

@@ -23,8 +23,8 @@ import {
   applySoldermaskCorrection,
   microstripSoldermaskDeltaQ,
   skinDepth,
+  type TranslineAnalysis,
 } from './tc_common.js';
-import type { TranslineAnalysis } from './transline.js';
 
 export interface CoupledMicrostripPhysical {
   /** Trace width (each line), m. */
@@ -51,6 +51,12 @@ export interface CoupledMicrostripResult extends TranslineAnalysis {
     zDiff: number;
     /** Common-mode impedance (Ze/2). */
     zComm: number;
+    attenCondEven: number;
+    attenCondOdd: number;
+    attenDielEven: number;
+    attenDielOdd: number;
+    angleEvenRad: number;
+    angleOddRad: number;
   };
 }
 
@@ -428,6 +434,14 @@ export function coupledMicrostripAnalyze(
       coupling,
       zDiff,
       zComm: fr.z0E / 2.0,
+      // The per-mode terms COUPLED_MICROSTRIP keeps as members
+      // (atten_cond_e/o, atten_dielectric_e/o, ang_l_e/o in radians).
+      attenCondEven: attenCondE,
+      attenCondOdd: attenCondO,
+      attenDielEven: attenDielE,
+      attenDielOdd: attenDielO,
+      angleEvenRad: angLe,
+      angleOddRad: angLo,
     },
   };
 }
@@ -460,4 +474,312 @@ export function coupledMicrostripSynthesize(
   const r = coupledMicrostripAnalyze({ ...phys, gapM: s }, el);
   const lambda = C0 / (el.frequencyHz * Math.sqrt(r.epsEff));
   return { ...phys, gapM: s, lengthM: (angleDeg / 360) * lambda };
+}
+
+// ---------------------------------------------------------------------------
+// `class COUPLED_MICROSTRIP : public TRANSLINE_CALCULATION_BASE` (coupled_microstrip.h)
+
+import {
+  SYNTHESIZE_OPTS,
+  TC_C0,
+  TRANSLINE_CALCULATION_BASE,
+  TRANSLINE_PARAMETERS as TCP,
+  TRANSLINE_STATUS,
+} from './transline_calculation_base.js';
+
+export class COUPLED_MICROSTRIP extends TRANSLINE_CALCULATION_BASE {
+  private er_eff_e = 0.0;
+  private er_eff_o = 0.0;
+  private prop_delay_e = 0.0;
+  private prop_delay_o = 0.0;
+  private atten_cond_e = 0.0;
+  private atten_cond_o = 0.0;
+  private atten_dielectric_e = 0.0;
+  private atten_dielectric_o = 0.0;
+  private ang_l_e = 0.0;
+  private ang_l_o = 0.0;
+  private Zdiff = 0.0;
+
+  constructor() {
+    super([
+      TCP.Z0_E,
+      TCP.Z0_O,
+      TCP.Z_DIFF,
+      TCP.ANG_L,
+      TCP.PHYS_WIDTH,
+      TCP.PHYS_LEN,
+      TCP.PHYS_S,
+      TCP.H,
+      TCP.T,
+      TCP.H_T,
+      TCP.FREQUENCY,
+      TCP.EPSILONR,
+      TCP.EPSILON_EFF_EVEN,
+      TCP.EPSILON_EFF_ODD,
+      TCP.SKIN_DEPTH,
+      TCP.SIGMA,
+      TCP.ROUGH,
+      TCP.TAND,
+      TCP.MURC,
+    ]);
+  }
+
+  private electrical(): TcElectrical {
+    return {
+      frequencyHz: this.GetParameter(TCP.FREQUENCY),
+      epsilonR: this.GetParameter(TCP.EPSILONR),
+      tanD: this.GetParameter(TCP.TAND),
+      sigma: this.GetParameter(TCP.SIGMA),
+      mur: 1,
+      murC: this.GetParameter(TCP.MURC),
+    };
+  }
+
+  private physical(): CoupledMicrostripPhysical {
+    return {
+      widthM: this.GetParameter(TCP.PHYS_WIDTH),
+      gapM: this.GetParameter(TCP.PHYS_S),
+      heightM: this.GetParameter(TCP.H),
+      thicknessM: this.GetParameter(TCP.T),
+      lengthM: this.GetParameter(TCP.PHYS_LEN),
+    };
+  }
+
+  override Analyse(): void {
+    const r = coupledMicrostripAnalyze(this.physical(), this.electrical());
+    this.SetParameter(TCP.SKIN_DEPTH, r.skinDepthM);
+    this.SetParameter(TCP.Z0_E, r.extra.z0Even);
+    this.SetParameter(TCP.Z0_O, r.extra.z0Odd);
+    this.er_eff_e = r.extra.epsEffEven;
+    this.er_eff_o = r.extra.epsEffOdd;
+    this.prop_delay_e = TRANSLINE_CALCULATION_BASE.UnitPropagationDelay(this.er_eff_e);
+    this.prop_delay_o = TRANSLINE_CALCULATION_BASE.UnitPropagationDelay(this.er_eff_o);
+    this.atten_cond_e = r.extra.attenCondEven;
+    this.atten_cond_o = r.extra.attenCondOdd;
+    this.atten_dielectric_e = r.extra.attenDielEven;
+    this.atten_dielectric_o = r.extra.attenDielOdd;
+    this.ang_l_e = r.extra.angleEvenRad;
+    this.ang_l_o = r.extra.angleOddRad;
+    this.Zdiff = r.extra.zDiff;
+  }
+
+  override Synthesize(aOpts: SYNTHESIZE_OPTS): boolean {
+    if (aOpts === SYNTHESIZE_OPTS.FIX_WIDTH)
+      return this.MinimiseZ0Error1D(TCP.PHYS_S, TCP.Z0_O, false);
+
+    if (aOpts === SYNTHESIZE_OPTS.FIX_SPACING)
+      return this.MinimiseZ0Error1D(TCP.PHYS_WIDTH, TCP.Z0_O, false);
+
+    const eps = 1e-4;
+
+    /* required value of Z0_e and Z0_o */
+    const Z0_e = this.GetParameter(TCP.Z0_E);
+    const Z0_o = this.GetParameter(TCP.Z0_O);
+    this.ang_l_e = this.GetParameter(TCP.ANG_L);
+    this.ang_l_o = this.GetParameter(TCP.ANG_L);
+    const ang_l_dest = this.GetParameter(TCP.ANG_L);
+
+    /* calculate width and use for initial value in Newton's method */
+    this.synth_width();
+    let w_h = this.GetParameter(TCP.PHYS_WIDTH) / this.GetParameter(TCP.H);
+    let s_h = this.GetParameter(TCP.PHYS_S) / this.GetParameter(TCP.H);
+    let f1 = 0;
+    let f2 = 0;
+    let err: number;
+    let iters = 0;
+
+    /* rather crude Newton-Rhapson */
+    do {
+      ++iters;
+      /* compute Jacobian */
+      let [ft1, ft2] = this.syn_fun(s_h + eps, w_h, Z0_e, Z0_o);
+      const j11 = (ft1 - f1) / eps;
+      const j21 = (ft2 - f2) / eps;
+      [ft1, ft2] = this.syn_fun(s_h, w_h + eps, Z0_e, Z0_o);
+      const j12 = (ft1 - f1) / eps;
+      const j22 = (ft2 - f2) / eps;
+
+      /* compute next step; increments of s_h and w_h */
+      const d_s_h = (-f1 * j22 + f2 * j12) / (j11 * j22 - j21 * j12);
+      const d_w_h = (-f2 * j11 + f1 * j21) / (j11 * j22 - j21 * j12);
+
+      s_h += d_s_h;
+      w_h += d_w_h;
+
+      /* compute the error with the new values of s_h and w_h */
+      [f1, f2] = this.syn_fun(s_h, w_h, Z0_e, Z0_o);
+      err = Math.sqrt(f1 * f1 + f2 * f2);
+
+      /* converged ? */
+    } while (err > 1e-4 && iters < 250);
+
+    if (err > 1e-4) return false;
+
+    /* denormalize computed width and spacing */
+    this.SetParameter(TCP.PHYS_S, s_h * this.GetParameter(TCP.H));
+    this.SetParameter(TCP.PHYS_WIDTH, w_h * this.GetParameter(TCP.H));
+
+    /* calculate physical length */
+    const le =
+      ((TC_C0 / this.GetParameter(TCP.FREQUENCY) / Math.sqrt(this.er_eff_e)) * ang_l_dest) /
+      2.0 /
+      Math.PI;
+    const lo =
+      ((TC_C0 / this.GetParameter(TCP.FREQUENCY) / Math.sqrt(this.er_eff_o)) * ang_l_dest) /
+      2.0 /
+      Math.PI;
+    this.SetParameter(TCP.PHYS_LEN, Math.sqrt(le * lo));
+
+    this.Analyse();
+
+    this.SetParameter(TCP.ANG_L, ang_l_dest);
+    this.SetParameter(TCP.Z0_E, Z0_e);
+    this.SetParameter(TCP.Z0_O, Z0_o);
+
+    return true;
+  }
+
+  /** `syn_fun`: the even/odd impedance error at a normalised (s/h, w/h). */
+  private syn_fun(s_h: number, w_h: number, Z0_e: number, Z0_o: number): [number, number] {
+    this.SetParameter(TCP.PHYS_S, s_h * this.GetParameter(TCP.H));
+    this.SetParameter(TCP.PHYS_WIDTH, w_h * this.GetParameter(TCP.H));
+
+    /* compute coupled microstrip parameters */
+    this.Analyse();
+
+    return [this.GetParameter(TCP.Z0_E) - Z0_e, this.GetParameter(TCP.Z0_O) - Z0_o];
+  }
+
+  /** `syn_err_fun`: the Akhtarzad width/spacing error terms. */
+  private static syn_err_fun(
+    s_h: number,
+    w_h: number,
+    e_r: number,
+    w_h_se: number,
+    w_h_so: number,
+  ): [number, number] {
+    const g = Math.cosh(0.5 * Math.PI * s_h);
+    const he = Math.cosh(Math.PI * w_h + 0.5 * Math.PI * s_h);
+
+    let f1 = (2.0 / Math.PI) * Math.acosh((2.0 * he - g + 1.0) / (g + 1.0));
+    let f2 = (2.0 / Math.PI) * Math.acosh((2.0 * he - g - 1.0) / (g - 1.0));
+
+    if (e_r <= 6.0)
+      f2 += (4.0 / (Math.PI * (1.0 + e_r / 2.0))) * Math.acosh(1.0 + (2.0 * w_h) / s_h);
+    else f2 += (1.0 / Math.PI) * Math.acosh(1.0 + (2.0 * w_h) / s_h);
+
+    f1 -= w_h_se;
+    f2 -= w_h_so;
+
+    return [f1, f2];
+  }
+
+  /** `synth_width`: the first guess at width and spacing from the even/odd Wheeler widths. */
+  private synth_width(): void {
+    const eps = 1e-4;
+    const e_r = this.GetParameter(TCP.EPSILONR);
+
+    let Z0 = this.GetParameter(TCP.Z0_E) / 2.0;
+    /* Wheeler formula for single microstrip synthesis */
+    let a = Math.exp((Z0 * Math.sqrt(e_r + 1.0)) / 42.4) - 1.0;
+    const w_h_se = (8.0 * Math.sqrt(a * ((7.0 + 4.0 / e_r) / 11.0) + (1.0 + 1.0 / e_r) / 0.81)) / a;
+
+    Z0 = this.GetParameter(TCP.Z0_O) / 2.0;
+    /* Wheeler formula for single microstrip synthesis */
+    a = Math.exp((Z0 * Math.sqrt(e_r + 1.0)) / 42.4) - 1.0;
+    const w_h_so = (8.0 * Math.sqrt(a * ((7.0 + 4.0 / e_r) / 11.0) + (1.0 + 1.0 / e_r) / 0.81)) / a;
+
+    const ce = Math.cosh(0.5 * Math.PI * w_h_se);
+    const co = Math.cosh(0.5 * Math.PI * w_h_so);
+    /* first guess at m_parameters[PHYS_S )/h */
+    let s_h = (2.0 / Math.PI) * Math.acosh((ce + co - 2.0) / (co - ce));
+    /* first guess at w/h */
+    let w_h = Math.acosh((ce * co - 1.0) / (co - ce)) / Math.PI - s_h / 2.0;
+
+    this.SetParameter(TCP.PHYS_S, s_h * this.GetParameter(TCP.H));
+    this.SetParameter(TCP.PHYS_WIDTH, w_h * this.GetParameter(TCP.H));
+
+    let [f1, f2] = COUPLED_MICROSTRIP.syn_err_fun(s_h, w_h, e_r, w_h_se, w_h_so);
+
+    /* rather crude Newton-Rhapson; we need this because the estimate of */
+    /* w_h is often quite far from the true value (see Akhtarzad S. et al.) */
+    let err: number;
+    let guard = 0;
+
+    do {
+      /* compute Jacobian */
+      let [ft1, ft2] = COUPLED_MICROSTRIP.syn_err_fun(s_h + eps, w_h, e_r, w_h_se, w_h_so);
+      const j11 = (ft1 - f1) / eps;
+      const j21 = (ft2 - f2) / eps;
+      [ft1, ft2] = COUPLED_MICROSTRIP.syn_err_fun(s_h, w_h + eps, e_r, w_h_se, w_h_so);
+      const j12 = (ft1 - f1) / eps;
+      const j22 = (ft2 - f2) / eps;
+
+      /* compute next step */
+      const d_s_h = (-f1 * j22 + f2 * j12) / (j11 * j22 - j21 * j12);
+      const d_w_h = (-f2 * j11 + f1 * j21) / (j11 * j22 - j21 * j12);
+
+      s_h += d_s_h;
+      w_h += d_w_h;
+
+      /* check the error */
+      [f1, f2] = COUPLED_MICROSTRIP.syn_err_fun(s_h, w_h, e_r, w_h_se, w_h_so);
+      err = Math.sqrt(f1 * f1 + f2 * f2);
+
+      /* converged ? */
+      // Upstream loops until convergence with no bound; a NaN error (a
+      // guess outside acosh's domain) would never converge, so it is bounded here.
+    } while (err > 1e-4 && ++guard < 1000);
+
+    this.SetParameter(TCP.PHYS_S, s_h * this.GetParameter(TCP.H));
+    this.SetParameter(TCP.PHYS_WIDTH, w_h * this.GetParameter(TCP.H));
+  }
+
+  private results(
+    aSet: (p: TCP, v: number, s?: TRANSLINE_STATUS) => void,
+    aSynthesis: boolean,
+  ): void {
+    const { OK, WARNING, TS_ERROR } = TRANSLINE_STATUS;
+    aSet(TCP.EPSILON_EFF_EVEN, this.er_eff_e);
+    aSet(TCP.EPSILON_EFF_ODD, this.er_eff_o);
+    aSet(TCP.UNIT_PROP_DELAY_EVEN, this.prop_delay_e);
+    aSet(TCP.UNIT_PROP_DELAY_ODD, this.prop_delay_o);
+    aSet(TCP.ATTEN_COND_EVEN, this.atten_cond_e);
+    aSet(TCP.ATTEN_COND_ODD, this.atten_cond_o);
+    aSet(TCP.ATTEN_DILECTRIC_EVEN, this.atten_dielectric_e);
+    aSet(TCP.ATTEN_DILECTRIC_ODD, this.atten_dielectric_o);
+    aSet(TCP.SKIN_DEPTH, this.GetParameter(TCP.SKIN_DEPTH));
+    aSet(TCP.Z_DIFF, this.Zdiff);
+
+    const Z0_E = this.GetParameter(TCP.Z0_E);
+    const Z0_O = this.GetParameter(TCP.Z0_O);
+    const ANG_L = Math.sqrt(this.ang_l_e * this.ang_l_o);
+    const W = this.GetParameter(TCP.PHYS_WIDTH);
+    const L = this.GetParameter(TCP.PHYS_LEN);
+    const S = this.GetParameter(TCP.PHYS_S);
+    const Z0_E_invalid = !Number.isFinite(Z0_E) || Z0_E <= 0;
+    const Z0_O_invalid = !Number.isFinite(Z0_O) || Z0_O <= 0;
+    const ANG_L_invalid = !Number.isFinite(ANG_L) || ANG_L < 0;
+    const W_invalid = !Number.isFinite(W) || W <= 0;
+    const L_invalid = !Number.isFinite(L) || L < 0;
+    const S_invalid = !Number.isFinite(S) || S <= 0;
+
+    const out = aSynthesis ? WARNING : TS_ERROR;
+    const inp = aSynthesis ? TS_ERROR : WARNING;
+
+    aSet(TCP.Z0_E, Z0_E, Z0_E_invalid ? out : OK);
+    aSet(TCP.Z0_O, Z0_O, Z0_O_invalid ? out : OK);
+    aSet(TCP.ANG_L, ANG_L, ANG_L_invalid ? out : OK);
+    aSet(TCP.PHYS_WIDTH, W, W_invalid ? inp : OK);
+    aSet(TCP.PHYS_LEN, L, L_invalid ? inp : OK);
+    aSet(TCP.PHYS_S, S, S_invalid ? inp : OK);
+  }
+
+  protected override SetAnalysisResults(): void {
+    this.results((p, v, s) => this.SetAnalysisResult(p, v, s), false);
+  }
+
+  protected override SetSynthesisResults(): void {
+    this.results((p, v, s) => this.SetSynthesisResult(p, v, s), true);
+  }
 }

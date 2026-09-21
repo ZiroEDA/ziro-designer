@@ -20,8 +20,8 @@ import {
   microstripSoldermaskDeltaQ,
   skinDepth,
   unitPropagationDelay,
+  type TranslineAnalysis,
 } from './tc_common.js';
-import type { TranslineAnalysis } from './transline.js';
 
 export interface MicrostripPhysical {
   /** Trace width, m. */
@@ -227,8 +227,13 @@ export function microstripAnalyze(
   };
 }
 
+/** `MICROSTRIP::mur_eff_ms()`: the effective permeability the length calculation divides by. */
+export function microstripMurEff(phys: MicrostripPhysical, el: TcElectrical): number {
+  return staticZ0(phys, el).murEff;
+}
+
 /** Initial width guess (KiCad SynthesizeWidth, Wheeler). */
-function synthesizeWidth(z0: number, er: number, h: number): number {
+export function synthesizeWidth(z0: number, er: number, h: number): number {
   const a =
     (z0 / ZF0 / 2 / Math.PI) * Math.sqrt((er + 1) / 2) + ((er - 1) / (er + 1)) * (0.23 + 0.11 / er);
   const b = ((ZF0 / 2) * Math.PI) / (z0 * Math.sqrt(er));
@@ -266,4 +271,199 @@ export function microstripSynthesize(
     ((C0 / el.frequencyHz / Math.sqrt(r.epsEff * murEff)) * ((angleDeg * Math.PI) / 180)) /
     (2 * Math.PI);
   return { ...phys, widthM: w, lengthM: len };
+}
+
+// ---------------------------------------------------------------------------
+// `class MICROSTRIP : public TRANSLINE_CALCULATION_BASE` (microstrip.h)
+
+import {
+  type SYNTHESIZE_OPTS,
+  TC_C0,
+  TRANSLINE_CALCULATION_BASE,
+  TRANSLINE_PARAMETERS as TCP,
+  TRANSLINE_STATUS,
+} from './transline_calculation_base.js';
+
+export class MICROSTRIP extends TRANSLINE_CALCULATION_BASE {
+  /** `mur_eff`, kept by `mur_eff_ms()` for the length calculation. */
+  private mur_eff = 1.0;
+
+  constructor() {
+    super([
+      TCP.EPSILONR,
+      TCP.H_T,
+      TCP.H,
+      TCP.PHYS_WIDTH,
+      TCP.T,
+      TCP.Z0,
+      TCP.FREQUENCY,
+      TCP.EPSILON_EFF,
+      TCP.SKIN_DEPTH,
+      TCP.SIGMA,
+      TCP.ROUGH,
+      TCP.TAND,
+      TCP.PHYS_LEN,
+      TCP.MUR,
+      TCP.MURC,
+      TCP.ANG_L,
+      TCP.UNIT_PROP_DELAY,
+      TCP.ATTEN_COND,
+      TCP.ATTEN_DILECTRIC,
+    ]);
+  }
+
+  private physical(): MicrostripPhysical {
+    return {
+      widthM: this.GetParameter(TCP.PHYS_WIDTH),
+      heightM: this.GetParameter(TCP.H),
+      thicknessM: this.GetParameter(TCP.T),
+      lengthM: this.GetParameter(TCP.PHYS_LEN),
+      coverHeightM: this.GetParameter(TCP.H_T),
+      roughM: this.GetParameter(TCP.ROUGH),
+    };
+  }
+
+  private electrical(): TcElectrical {
+    return {
+      frequencyHz: this.GetParameter(TCP.FREQUENCY),
+      epsilonR: this.GetParameter(TCP.EPSILONR),
+      tanD: this.GetParameter(TCP.TAND),
+      sigma: this.GetParameter(TCP.SIGMA),
+      mur: this.GetParameter(TCP.MUR),
+      murC: this.GetParameter(TCP.MURC),
+    };
+  }
+
+  /** `mur_eff_ms`, `microstrip_Z0`, `dispersion`, `line_angle`, `attenuation`. */
+  override Analyse(): void {
+    const phys = this.physical();
+    const el = this.electrical();
+    this.mur_eff = microstripMurEff(phys, el);
+    const r = microstripAnalyze(phys, el);
+    this.SetParameter(TCP.Z0, r.z0);
+    this.SetParameter(TCP.EPSILON_EFF, r.epsEff);
+    this.SetParameter(TCP.ANG_L, (r.angleDeg * Math.PI) / 180.0);
+    this.SetParameter(TCP.ATTEN_COND, r.conductorLossDb);
+    this.SetParameter(TCP.ATTEN_DILECTRIC, r.dielectricLossDb);
+    this.SetParameter(TCP.SKIN_DEPTH, r.skinDepthM);
+    this.SetParameter(
+      TCP.UNIT_PROP_DELAY,
+      TRANSLINE_CALCULATION_BASE.UnitPropagationDelay(r.epsEff),
+    );
+  }
+
+  override Synthesize(_aOpts: SYNTHESIZE_OPTS): boolean {
+    const z0_dest = this.GetParameter(TCP.Z0);
+    const angl_dest = this.GetParameter(TCP.ANG_L);
+
+    // Calculate width and use for initial value in Newton's method
+    this.SetParameter(TCP.PHYS_WIDTH, this.SynthesizeWidth());
+
+    // Optimise Z0, varying width
+    if (!this.MinimiseZ0Error1D(TCP.PHYS_WIDTH, TCP.Z0)) return false;
+
+    // Re-calculate with required output parameters
+    this.SetParameter(TCP.Z0, z0_dest);
+    this.SetParameter(TCP.ANG_L, angl_dest);
+    const er_eff = this.GetParameter(TCP.EPSILON_EFF);
+    const length = (): number =>
+      ((TC_C0 / this.GetParameter(TCP.FREQUENCY) / Math.sqrt(er_eff * this.mur_eff)) *
+        this.GetParameter(TCP.ANG_L)) /
+      2.0 /
+      Math.PI; /* in m */
+    this.SetParameter(TCP.PHYS_LEN, length());
+    this.Analyse();
+
+    // Set the output parameters
+    this.SetParameter(TCP.Z0, z0_dest);
+    this.SetParameter(TCP.ANG_L, angl_dest);
+    this.SetParameter(TCP.PHYS_LEN, length());
+
+    return true;
+  }
+
+  protected override SetAnalysisResults(): void {
+    this.SetAnalysisResult(TCP.EPSILON_EFF, this.GetParameter(TCP.EPSILON_EFF));
+    this.SetAnalysisResult(TCP.UNIT_PROP_DELAY, this.GetParameter(TCP.UNIT_PROP_DELAY));
+    this.SetAnalysisResult(TCP.ATTEN_COND, this.GetParameter(TCP.ATTEN_COND));
+    this.SetAnalysisResult(TCP.ATTEN_DILECTRIC, this.GetParameter(TCP.ATTEN_DILECTRIC));
+    this.SetAnalysisResult(TCP.SKIN_DEPTH, this.GetParameter(TCP.SKIN_DEPTH));
+
+    const Z0 = this.GetParameter(TCP.Z0);
+    const ANG_L = this.GetParameter(TCP.ANG_L);
+    const L = this.GetParameter(TCP.PHYS_LEN);
+    const W = this.GetParameter(TCP.PHYS_WIDTH);
+    const Z0_invalid = !Number.isFinite(Z0) || Z0 < 0;
+    const ANG_L_invalid = !Number.isFinite(ANG_L) || ANG_L < 0;
+    const L_invalid = !Number.isFinite(L) || L < 0;
+    const W_invalid = !Number.isFinite(W) || W <= 0;
+
+    this.SetAnalysisResult(
+      TCP.Z0,
+      Z0,
+      Z0_invalid ? TRANSLINE_STATUS.TS_ERROR : TRANSLINE_STATUS.OK,
+    );
+    this.SetAnalysisResult(
+      TCP.ANG_L,
+      ANG_L,
+      ANG_L_invalid ? TRANSLINE_STATUS.TS_ERROR : TRANSLINE_STATUS.OK,
+    );
+    this.SetAnalysisResult(
+      TCP.PHYS_LEN,
+      L,
+      L_invalid ? TRANSLINE_STATUS.WARNING : TRANSLINE_STATUS.OK,
+    );
+    this.SetAnalysisResult(
+      TCP.PHYS_WIDTH,
+      W,
+      W_invalid ? TRANSLINE_STATUS.WARNING : TRANSLINE_STATUS.OK,
+    );
+  }
+
+  protected override SetSynthesisResults(): void {
+    this.SetSynthesisResult(TCP.EPSILON_EFF, this.GetParameter(TCP.EPSILON_EFF));
+    this.SetSynthesisResult(TCP.UNIT_PROP_DELAY, this.GetParameter(TCP.UNIT_PROP_DELAY));
+    this.SetSynthesisResult(TCP.ATTEN_COND, this.GetParameter(TCP.ATTEN_COND));
+    this.SetSynthesisResult(TCP.ATTEN_DILECTRIC, this.GetParameter(TCP.ATTEN_DILECTRIC));
+    this.SetSynthesisResult(TCP.SKIN_DEPTH, this.GetParameter(TCP.SKIN_DEPTH));
+
+    const Z0 = this.GetParameter(TCP.Z0);
+    const ANG_L = this.GetParameter(TCP.ANG_L);
+    const L = this.GetParameter(TCP.PHYS_LEN);
+    const W = this.GetParameter(TCP.PHYS_WIDTH);
+    const Z0_invalid = !Number.isFinite(Z0) || Z0 < 0;
+    const ANG_L_invalid = !Number.isFinite(ANG_L) || ANG_L < 0;
+    const L_invalid = !Number.isFinite(L) || L < 0;
+    const W_invalid = !Number.isFinite(W) || W <= 0;
+
+    this.SetSynthesisResult(
+      TCP.Z0,
+      Z0,
+      Z0_invalid ? TRANSLINE_STATUS.WARNING : TRANSLINE_STATUS.OK,
+    );
+    this.SetSynthesisResult(
+      TCP.ANG_L,
+      ANG_L,
+      ANG_L_invalid ? TRANSLINE_STATUS.WARNING : TRANSLINE_STATUS.OK,
+    );
+    this.SetSynthesisResult(
+      TCP.PHYS_LEN,
+      L,
+      L_invalid ? TRANSLINE_STATUS.TS_ERROR : TRANSLINE_STATUS.OK,
+    );
+    this.SetSynthesisResult(
+      TCP.PHYS_WIDTH,
+      W,
+      W_invalid ? TRANSLINE_STATUS.TS_ERROR : TRANSLINE_STATUS.OK,
+    );
+  }
+
+  /** `SynthesizeWidth`: Wheeler's guess for Z0 (`microstrip.cpp:131`). */
+  private SynthesizeWidth(): number {
+    return synthesizeWidth(
+      this.GetParameter(TCP.Z0),
+      this.GetParameter(TCP.EPSILONR),
+      this.GetParameter(TCP.H),
+    );
+  }
 }

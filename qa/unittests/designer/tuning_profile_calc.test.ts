@@ -11,13 +11,20 @@ import { FromUserUnit, pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import {
   CalculationType,
+  RHO,
   calculateTrackParameters,
   getMicrostripBoardParameters,
   getStackupLayerId,
   getStriplineBoardParameters,
 } from '@ziroeda/designer/src/editors/pcb/dialogs/tuning_profile_calc.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
-import { microstripAnalyze, striplineAnalyze, unitPropagationDelay } from '@ziroeda/pcb_calculator';
+import {
+  coupledMicrostripAnalyze,
+  coupledStriplineAnalyze,
+  microstripAnalyze,
+  striplineAnalyze,
+  unitPropagationDelay,
+} from '@ziroeda/pcb_calculator';
 
 /** A 4-layer default stackup: 0.035 mm copper, FR4 dielectrics at εr 4.5, tanδ 0.02. */
 function fourLayer(): BOARD {
@@ -277,6 +284,114 @@ describe('the cell calculations', () => {
     );
     expect(strip.OK).toBe(true);
     expect(strip.Delay).toBeGreaterThan(0);
+  });
+
+  /**
+   * `COUPLED_*::Synthesize(FIX_SPACING | FIX_WIDTH)` is `MinimiseZ0Error1D`
+   * on the ODD-mode impedance, and the panel sets `Z0_O = targetZ / 2`: the
+   * width (or gap) it returns is the one whose odd-mode impedance is 45 Ω for
+   * a 90 Ω target, to the base class's `m_maxError` (1e-6 relative). Read the
+   * result back through the analyser to check that, rather than a number
+   * printed by the code under test.
+   */
+  it('differential WIDTH / GAP land Z0_O on targetZ/2, to MinimiseZ0Error1D’s tolerance', () => {
+    const stackup = fourLayer().GetStackupOrDefault();
+    const w = pcbIUScale.mmToIU(0.2);
+    const g = pcbIUScale.mmToIU(0.15);
+    const targetZ = 90;
+
+    const el = {
+      frequencyHz: 1e9,
+      epsilonR: 4.5,
+      tanD: 0.02,
+      sigma: 1 / RHO,
+      mur: 1,
+      murC: 1,
+    };
+
+    const [ms] = getMicrostripBoardParameters(stackup, row(F_Cu, undefined, In1_Cu));
+    const physMs = (aW: number, aS: number) => ({
+      widthM: aW,
+      gapM: aS,
+      heightM: ms!.TopDielectricLayerThickness,
+      thicknessM: ms!.SignalLayerThickness,
+      lengthM: 10,
+    });
+
+    const width = calculateTrackParameters(
+      stackup,
+      row(F_Cu, undefined, In1_Cu, undefined, g),
+      true,
+      targetZ,
+      CalculationType.WIDTH,
+    );
+    expect(width.OK).toBe(true);
+    const wM = pcbIUScale.iuToMM(width.Width) / 1000;
+    const gM = pcbIUScale.iuToMM(g) / 1000;
+    const zOddW = coupledMicrostripAnalyze(physMs(wM, gM), el).extra.z0Odd;
+    // The IU truncation of the width is ~1e-9 m; well inside 1e-6 relative on Z.
+    expect(Math.abs(zOddW - targetZ / 2) / (targetZ / 2)).toBeLessThan(1e-5);
+    // Upstream targets the ODD-mode impedance, not the differential one, and
+    // for a microstrip pair `Z_DIFF` is 2·Z0_O less a coupling term: the pair
+    // it returns is ~0.1 Ω off the 90 Ω typed in. A solver on Z_DIFF (what the
+    // bisection before this port did) lands 90.000 and so is not KiCad's.
+    const zDiff = coupledMicrostripAnalyze(physMs(wM, gM), el).extra.zDiff;
+    expect(zDiff).toBeGreaterThan(targetZ + 0.05);
+    expect(zDiff).toBeLessThan(targetZ + 0.2);
+
+    const gap = calculateTrackParameters(
+      stackup,
+      row(F_Cu, undefined, In1_Cu, w),
+      true,
+      targetZ,
+      CalculationType.GAP,
+    );
+    expect(gap.OK).toBe(true);
+    const wM2 = pcbIUScale.iuToMM(w) / 1000;
+    const gM2 = pcbIUScale.iuToMM(gap.DiffPairGap) / 1000;
+    const zOddG = coupledMicrostripAnalyze(physMs(wM2, gM2), el).extra.z0Odd;
+    expect(Math.abs(zOddG - targetZ / 2) / (targetZ / 2)).toBeLessThan(1e-5);
+    // The delay is the ODD mode's (`UNIT_PROP_DELAY_ODD`); on a microstrip the
+    // two modes differ, so this cannot pass with the even one.
+    const modes = coupledMicrostripAnalyze(physMs(wM2, gM2), el).extra;
+    expect(modes.epsEffEven).not.toBeCloseTo(modes.epsEffOdd, 4);
+    expect(gap.Delay).toBe(
+      Math.trunc(FromUserUnit(pcbIUScale, 'ps/cm', unitPropagationDelay(modes.epsEffOdd))),
+    );
+
+    // The stripline pair, the same way.
+    const [sl] = getStriplineBoardParameters(stackup, row(In1_Cu, F_Cu, In2_Cu));
+    const physSl = (aW: number, aS: number) => ({
+      widthM: aW,
+      gapM: aS,
+      heightM:
+        sl!.TopDielectricLayerThickness +
+        sl!.SignalLayerThickness +
+        sl!.BottomDielectricLayerThickness,
+      thicknessM: sl!.SignalLayerThickness,
+      lengthM: 1,
+    });
+    const sw = calculateTrackParameters(
+      stackup,
+      row(In1_Cu, F_Cu, In2_Cu, undefined, g),
+      true,
+      targetZ,
+      CalculationType.WIDTH,
+    );
+    expect(sw.OK).toBe(true);
+    const zOddS = coupledStriplineAnalyze(physSl(pcbIUScale.iuToMM(sw.Width) / 1000, gM), el).z0Odd;
+    expect(Math.abs(zOddS - targetZ / 2) / (targetZ / 2)).toBeLessThan(1e-5);
+    // And the delay is the odd-mode one, as `UNIT_PROP_DELAY_ODD` says.
+    expect(sw.Delay).toBe(
+      Math.trunc(
+        FromUserUnit(
+          pcbIUScale,
+          'ps/cm',
+          coupledStriplineAnalyze(physSl(pcbIUScale.iuToMM(sw.Width) / 1000, gM), el)
+            .unitPropDelayOdd,
+        ),
+      ),
+    );
   });
 
   it('a target impedance of 0 is refused before anything else', () => {
