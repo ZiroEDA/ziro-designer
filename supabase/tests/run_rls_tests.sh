@@ -55,6 +55,28 @@ grant all on all tables in schema storage to postgres;
 grant select on storage.objects to authenticated;
 SQL
 
+# `realtime.messages` and `realtime.topic()` are the Realtime service's, created
+# by it and not by the image. Realtime Authorization evaluates the policies on
+# that table with the topic in `realtime.topic()` and the extension in the row;
+# this is the shape it checks against, enough for the policies to attach and
+# for a test to ask the same question the service asks.
+docker exec -i "$NAME" psql -U supabase_admin -d postgres -q >/dev/null <<'SQL'
+create schema if not exists realtime;
+create table if not exists realtime.messages (
+  id uuid primary key default gen_random_uuid(),
+  topic text not null, extension text not null,
+  payload jsonb, event text, private boolean default true,
+  inserted_at timestamptz default now());
+alter table realtime.messages enable row level security;
+create or replace function realtime.topic() returns text
+ language sql stable as $$ select nullif(current_setting('realtime.topic', true), '') $$;
+grant all on schema realtime to postgres;
+grant all on all tables in schema realtime to postgres;
+grant usage on schema realtime to authenticated;
+grant select, insert on realtime.messages to authenticated;
+grant execute on function realtime.topic() to authenticated;
+SQL
+
 fail=0
 for f in supabase/migrations/*.sql; do
   if err=$(docker exec -i "$NAME" psql -U postgres -d postgres -q -v ON_ERROR_STOP=1 < "$f" 2>&1); then

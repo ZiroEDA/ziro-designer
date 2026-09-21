@@ -19,6 +19,14 @@
  * keeps the server from reading a message AND from editing one, which matters
  * more for sync than for a stored row, since a patch that has been altered in
  * flight would be applied to a live board.
+ *
+ * The sender is sealed in with the message. Realtime routes on a `from` that
+ * has to ride in the clear, and a private channel only says who may be in the
+ * room, not that a frame was sent by the peer it names: anyone in the room
+ * could capture a ciphertext and re-send it as somebody else. So the body
+ * carries the sender too, and opening a message checks the two agree; a
+ * replay under another name fails to open and is dropped like a wrong key.
+ * Presence is bound the same way to the `peerId` it is tracked under.
  */
 import { base64ToBytes, bytesToBase64, decryptSecret, encryptSecret } from '../cloud/crypto.js';
 import type { EditorKind, ProjectSyncPayload } from './ProjectSyncTransport.js';
@@ -41,52 +49,63 @@ export interface PresenceSecrets {
   displayName: string | null;
 }
 
-/** Encrypt one payload for the channel. */
+/** Encrypt one payload for the channel, bound to the peer sending it. */
 export async function sealPayload(
   projectKey: Uint8Array,
   payload: ProjectSyncPayload,
+  from: string,
 ): Promise<string> {
-  return sealJson(projectKey, payload);
+  return sealJson(projectKey, { from, body: payload });
 }
 
 /**
  * Open a payload from the channel.
  *
- * Throws on the wrong key, on a tampered message, and on anything that
- * decrypts to a shape this does not recognise. Every caller treats a throw as
- * "ignore this message": a peer that cannot be understood is not a reason to
- * take an editor down, and GCM having verified the tag means a garbled body is
- * a version skew rather than an attack.
+ * Throws on the wrong key, on a tampered message, on a message sealed by a
+ * peer other than the `from` it arrived under, and on anything that decrypts
+ * to a shape this does not recognise. Every caller treats a throw as "ignore
+ * this message": a peer that cannot be understood is not a reason to take an
+ * editor down, and GCM having verified the tag means a garbled body is a
+ * version skew rather than an attack.
  */
 export async function openPayload(
   projectKey: Uint8Array,
   enc: string,
+  from: string,
 ): Promise<ProjectSyncPayload> {
   const value = await openJson(projectKey, enc);
-  if (!isRecord(value) || typeof value.kind !== 'string') {
+  if (!isRecord(value) || !isRecord(value.body) || typeof value.body.kind !== 'string') {
     throw new Error('sync: decrypted payload is not a message');
   }
-  return value as unknown as ProjectSyncPayload;
+  if (value.from !== from) throw new Error('sync: message was not sealed by the peer it names');
+  return value.body as unknown as ProjectSyncPayload;
 }
 
-/** Encrypt this peer's presence secrets for `channel.track`. */
+/** Encrypt this peer's presence secrets for `channel.track`, bound to its `peerId`. */
 export async function sealPresence(
   projectKey: Uint8Array,
   secrets: PresenceSecrets,
+  peerId: string,
 ): Promise<string> {
-  return sealJson(projectKey, secrets);
+  return sealJson(projectKey, { from: peerId, body: secrets });
 }
 
 /** Open a peer's presence secrets. Throws on the same terms as `openPayload`. */
-export async function openPresence(projectKey: Uint8Array, enc: string): Promise<PresenceSecrets> {
+export async function openPresence(
+  projectKey: Uint8Array,
+  enc: string,
+  peerId: string,
+): Promise<PresenceSecrets> {
   const value = await openJson(projectKey, enc);
-  if (!isRecord(value) || typeof value.view !== 'string') {
+  if (!isRecord(value) || !isRecord(value.body) || typeof value.body.view !== 'string') {
     throw new Error('sync: decrypted presence is not a presence record');
   }
+  if (value.from !== peerId) throw new Error('sync: presence was not sealed by the peer it names');
+  const body = value.body;
   return {
-    view: value.view as EditorKind,
-    sheetPath: typeof value.sheetPath === 'string' ? value.sheetPath : null,
-    displayName: typeof value.displayName === 'string' ? value.displayName : null,
+    view: body.view as EditorKind,
+    sheetPath: typeof body.sheetPath === 'string' ? body.sheetPath : null,
+    displayName: typeof body.displayName === 'string' ? body.displayName : null,
   };
 }
 

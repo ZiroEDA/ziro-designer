@@ -84,6 +84,11 @@ class Hub {
     return this.state;
   }
 
+  /** Every open channel, for a test that plays the server rather than a peer. */
+  channels_for_test(): readonly FakeChannel[] {
+    return this.channels;
+  }
+
   /** Everything the server would have been able to read, as one string. */
   wire(): string {
     return JSON.stringify({ sent: this.sent, tracked: this.tracked });
@@ -399,6 +404,63 @@ describe('a peer holding a different key is ignored, not trusted', () => {
     // having happened.
     expect(hub.sent).toHaveLength(1);
     expect(hub.sent[0]!.from).toBe(a.peerId);
+  });
+
+  it('drops a captured message re-sent under another peer\'s name', async () => {
+    // Everyone in a private channel is a member, and members hold the key --
+    // so the channel policy cannot stop one of them capturing A's frame and
+    // re-sending it as C. The sender is sealed into the body for exactly this:
+    // a frame whose clear `from` disagrees with the sealed one does not open.
+    const hub = new Hub();
+    const a = makeTransport(hub, USER_A);
+    const b = makeTransport(hub, USER_B);
+    a.connect('schematic', '/a.kicad_sch', { displayName: 'a@example.com' });
+    b.connect('schematic', '/b.kicad_sch', { displayName: 'b@example.com' });
+    await settle();
+
+    const got: { payload: unknown; from: string }[] = [];
+    b.onMessage((payload, from) => {
+      if (payload.kind !== 'presence') got.push({ payload, from });
+    });
+
+    a.publish({ kind: 'selection', refs: [SECRET_REF] });
+    await settle();
+    expect(got).toHaveLength(1);
+    const captured = hub.sent[0]!.payload;
+
+    // The same ciphertext, claimed by a peer that never sent it.
+    const impostor = 'cccccccc-0000-0000-0000-000000000003';
+    hub.channels_for_test().forEach((c) => c.fireBroadcast({ from: impostor, enc: captured.enc }));
+    await settle();
+
+    expect(got).toHaveLength(1);
+    expect(got[0]!.from).toBe(a.peerId);
+  });
+
+  it('leaves out a peer whose presence record was tracked under another peerId', async () => {
+    // Presence is bound to the peerId it is tracked under, so one member's
+    // sealed record cannot be re-tracked to make a second peer appear to be
+    // on their sheet.
+    const hub = new Hub();
+    const a = makeTransport(hub, USER_A);
+    a.connect('schematic', SECRET_SHEET, { displayName: SECRET_NAME });
+    await settle();
+    const stolen = hub.tracked[0]!;
+
+    const b = makeTransport(hub, USER_B);
+    const lists: { peerId: string }[][] = [];
+    b.onMessage((payload) => {
+      if (payload.kind === 'presence') lists.push(payload.peers);
+    });
+    b.connect('schematic', '/b.kicad_sch', { displayName: 'b@example.com' });
+    await settle();
+    expect(lists.at(-1)?.map((p) => p.peerId)).toEqual([a.peerId]);
+
+    const ghost = 'dddddddd-0000-0000-0000-000000000004';
+    hub.track(ghost, { peerId: ghost, userId: USER_A, enc: stolen.enc });
+    await settle();
+
+    expect(lists.at(-1)?.map((p) => p.peerId)).toEqual([a.peerId]);
   });
 
   it('leaves a peer whose presence will not open out of the list', async () => {

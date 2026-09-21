@@ -198,6 +198,19 @@ it is for:
   rather than falling back to cleartext, since the traffic a fallback would
   leak is the traffic this item exists to hide. `BroadcastChannelTransport` is
   untouched on purpose: it never leaves the browser that opened it.
+- **The room itself (2026-09-21).** Encryption hides what is said; it does
+  not hide who is in the room, because `userId` has to be readable. The
+  channel is `project:<uid>` and the uid is in every share URL, so a public
+  channel let anyone with the anon key watch a project's roster, and let any
+  member replay a captured frame under another peer's name (`from` routes in
+  the clear). Two things close it. The channel is private and
+  `supabase/migrations/20260921120000_realtime_authz.sql` is the policy on
+  `realtime.messages`: members, as `project_role_of()` reports them, may join
+  and send; nobody else, and never `postgres_changes`. And the sender is
+  sealed into the body (`sealPayload(key, payload, from)`; presence likewise
+  under its `peerId`), so a frame whose clear `from` disagrees with the sealed
+  one does not open. `supabase/tests/rls_realtime.sql` asks the eight
+  questions the policy has to answer.
 
 ## Order and size
 

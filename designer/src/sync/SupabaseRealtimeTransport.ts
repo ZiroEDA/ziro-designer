@@ -177,13 +177,16 @@ export class SupabaseRealtimeTransport implements ProjectSyncTransport {
         // channel is named `project:<uid>`, and a uid is in every share URL,
         // so anyone holding the anon key who has seen one could subscribe.
         // The project key still stops them reading a message or forging one,
-        // but two things leak without this: the `userId` of everyone present,
-        // which presence carries in the clear so the roster can name them, and
-        // replay -- `from` rides outside the AEAD, so a captured frame can be
-        // re-sent under any sender.
+        // but the `userId` of everyone present would leak: presence carries
+        // it in the clear so the roster can name them.
         //
-        // The policy itself is server side (`project_members`), as is binding
-        // `from` into the sealed body; this flag is the client half.
+        // The policy is `supabase/migrations/20260921120000_realtime_authz.sql`:
+        // a project's members, and nobody else, may join and send on
+        // `project:<uid>`. This flag is the client half; without the policy
+        // the server refuses every join, which is the right way round.
+        // Replay -- a captured frame re-sent under another `from` -- is
+        // closed separately, by sealing the sender into the body
+        // (`sync_crypto.ts`).
         private: true,
         // Keyed by connection, not by account: two tabs are two cursors.
         presence: { key: this.peerId },
@@ -315,7 +318,7 @@ export class SupabaseRealtimeTransport implements ProjectSyncTransport {
       view: this.selfView,
       sheetPath: this.selfSheetPath,
       displayName: this.selfDisplayName,
-    });
+    }, this.peerId);
     if (this.channel !== channel) return; // disconnected while we were sealing
     const meta: WireMeta = { peerId: this.peerId, userId: this.userId, enc };
     await channel.track(meta);
@@ -325,7 +328,7 @@ export class SupabaseRealtimeTransport implements ProjectSyncTransport {
     this.outbound = this.outbound.then(async () => {
       const channel = this.channel;
       if (!channel) return;
-      const enc = await sealPayload(key, payload);
+      const enc = await sealPayload(key, payload, this.peerId);
       if (this.channel !== channel) return;
       await channel.send({
         type: 'broadcast',
@@ -341,11 +344,11 @@ export class SupabaseRealtimeTransport implements ProjectSyncTransport {
     if (!key || !this.channel) return;
     let body: ProjectSyncPayload;
     try {
-      body = await openPayload(key, enc);
+      body = await openPayload(key, enc, from);
     } catch {
-      // A peer holding a different key, or a message altered in flight. Either
-      // way there is nothing to apply and nothing worth taking an editor down
-      // for.
+      // A peer holding a different key, a message altered in flight, or one
+      // captured and re-sent under another peer's name. Either way there is
+      // nothing to apply and nothing worth taking an editor down for.
       this.warnOnce('sync: a message on this project could not be opened and was ignored');
       return;
     }
@@ -436,7 +439,7 @@ export class SupabaseRealtimeTransport implements ProjectSyncTransport {
     const peers: PresenceInfo[] = [];
     for (const m of this.peers()) {
       if (m.peerId === this.peerId) continue;
-      const secrets = await this.openMeta(key, m.enc);
+      const secrets = await this.openMeta(key, m.enc, m.peerId);
       if (!secrets) continue;
       const known = this.roster.get(m.userId);
       peers.push({
@@ -451,12 +454,19 @@ export class SupabaseRealtimeTransport implements ProjectSyncTransport {
     for (const h of this.handlers) h({ kind: 'presence', peers }, this.peerId);
   }
 
-  private async openMeta(key: Uint8Array, enc: string): Promise<PresenceSecrets | null> {
-    const hit = this.metaCache.get(enc);
+  private async openMeta(
+    key: Uint8Array,
+    enc: string,
+    peerId: string,
+  ): Promise<PresenceSecrets | null> {
+    // Keyed by the pair: the same ciphertext tracked under another peerId is
+    // a different question, and must not get the answer this one earned.
+    const cacheKey = `${peerId}\n${enc}`;
+    const hit = this.metaCache.get(cacheKey);
     if (hit !== undefined) return hit;
     let secrets: PresenceSecrets | null;
     try {
-      secrets = await openPresence(key, enc);
+      secrets = await openPresence(key, enc, peerId);
     } catch {
       secrets = null;
     }
@@ -464,7 +474,7 @@ export class SupabaseRealtimeTransport implements ProjectSyncTransport {
     // people move around, not by how many of them there are. Dropping the
     // whole map is fine: the cost of a miss is one decrypt.
     if (this.metaCache.size >= META_CACHE_LIMIT) this.metaCache.clear();
-    this.metaCache.set(enc, secrets);
+    this.metaCache.set(cacheKey, secrets);
     return secrets;
   }
 
