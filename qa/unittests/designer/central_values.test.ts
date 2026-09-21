@@ -326,6 +326,17 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `#000000` ring; it is GDK_TARGET, a stock cursor, so both went with the
   // drawing. RESCANNED from this tree.
   'editors/schematic': { colours: 30, metrics: 185 },
+  // designer/src/sync/, the multiplayer layer. Eight colours, all of them
+  // peerColor.ts's palette: one hue per person in a shared project, so two
+  // people's cursors and selection boxes are told apart at a glance.
+  //
+  // DATA, not chrome, and the distinction this file draws is exactly why. A
+  // chrome literal is one GTK already answered and we restated; there is no
+  // such answer here, because KiCad has no second person in a project and so
+  // no theme colour for one. The palette is ours to choose, like the resistor
+  // bands or the layer colours, and it is chosen in one place rather than at
+  // each call site. Zero metrics: every size in this layer is a token.
+  sync: { colours: 8, metrics: 0 },
   // colours 12 -> 7: the Symbol Editor parity pass. Four were
   // SYMBOL_EDITOR_COLORS, a private copy of LAYER_SCHEMATIC_ANCHOR /
   // LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS that matched the Default
@@ -659,7 +670,20 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // height the control actually has. The 24 and the 22 that replaced them are
   // measurements (`qa/probes/rc_tree_dataview`) and carry [px] each on its
   // own line.
-  ui: { colours: 185, metrics: 694 },
+  // metrics 694 -> 706: the presence badge and the panel under it
+  // (.ze-presence-*), twelve values, all geometry -- where the badge pins
+  // itself to the corner, the panel's padding and gaps, the dot's 8px square
+  // and its 50% radius, two 1px borders.
+  //
+  // No token was skipped here, and that is the argument for them: this file's
+  // rule is that a value GTK already decided must not be restated, and GTK
+  // decided none of these. KiCad has no badge saying who else is looking at
+  // your board, so there is no wxSYS metric, no Yaru rule and no upstream
+  // widget to source them from. Its font size IS a token
+  // (--ui-font-size-info), because a font size is a thing the theme answers.
+  //
+  // Colours unchanged: the per-peer palette lives in sync/, not here.
+  ui: { colours: 185, metrics: 706 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -1085,7 +1109,7 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 332 -> 331: `.ze-msgdlg-extended`'s #c8c9cb, an invented grey (the probe
     // reads one foreground on both labels). `ui` 187 -> 186; 332 - 1 agrees.
     // 331 -> 326: the DRC dialog's five, see the `editors/pcb` row; 331 - 5.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(325);
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(333);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1260,7 +1284,7 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1293 -> 1284: the message box, `ui` 704 -> 695 — see that row. 1293 - 9
     // agrees, and a rescan of this tree reads 1284.
     // 1284 -> 1271: the DRC dialog's thirteen, see the `editors/pcb` row.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1270);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1282);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {
