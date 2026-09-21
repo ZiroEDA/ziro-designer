@@ -55,7 +55,14 @@ function fake(): CloudBackend & {
     async commitProject(row: ProjectRow & { user_id: string }, base: number) {
       if (row.id === f.failCommitFor) throw new Error('commit refused');
       const cur = f.rows.get(row.id);
-      if (base <= 0 ? cur !== undefined : (cur?.version ?? 1) !== base) return null;
+      // Mirrors commit_project (20260904121000_project_membership.sql:416-439):
+      // base 0 INSERTs and is null when a row already exists; base > 0 UPDATEs
+      // `where version = p_base` and is null when nothing matches -- including
+      // when the row is GONE. The old `cur?.version ?? 1` treated a missing row
+      // as version 1, so "update at base 1" succeeded against an empty cloud,
+      // which is the one case that mattered: a local copy remembering a version
+      // whose row has been deleted.
+      if (base <= 0 ? cur !== undefined : cur === undefined || cur.version !== base) return null;
       const version = base <= 0 ? 1 : base + 1;
       f.rows.set(row.id, { ...row, version });
       return version;
@@ -136,6 +143,98 @@ describe('the incident, replayed', () => {
     // ...and the local copy still has its contents.
     const local = await loadProject(id);
     expect(new TextDecoder().decode(local!.files[0]!.bytes)).toBe('(kicad_sch (version 20250114))');
+  });
+
+  it('stops pushing a project that contains two identical files', async () => {
+    // Two files with the same bytes have the same hash. Comparing a file COUNT
+    // against a SET of hashes therefore could never be equal, and the project
+    // pushed itself on every load forever -- versions 6 through 15 on a real
+    // board with 32 files and 31 distinct contents, two identical .lck files.
+    const id = await saveProject('Amp', [
+      { name: 'amp.kicad_sch', bytes: text('(kicad_sch)') },
+      { name: '~amp.kicad_pro.lck', bytes: text('lock') },
+      { name: '~amp.kicad_sch.lck', bytes: text('lock') },
+    ]);
+
+    await syncAllProjects(USER);
+    const landed = backend.rows.get(id)!.version;
+
+    const second = await syncAllProjects(USER);
+    expect(second.failures.some((f) => f.id === id)).toBe(false);
+    expect(backend.rows.get(id)!.version).toBe(landed);
+  });
+
+  it('still notices a file copied to a second name', async () => {
+    // The multiset is what keeps this visible: a set would see the same
+    // contents and call it unchanged, but a new file is an edit.
+    const id = await saveProject('Amp', [
+      { name: 'a.txt', bytes: text('same') },
+      { name: 'b.txt', bytes: text('different') },
+    ]);
+    await syncAllProjects(USER);
+    const landed = backend.rows.get(id)!.version;
+
+    await saveProject(
+      'Amp',
+      [
+        { name: 'a.txt', bytes: text('same') },
+        { name: 'b.txt', bytes: text('different') },
+        { name: 'c.txt', bytes: text('same') },
+      ],
+      id,
+    );
+    await syncAllProjects(USER);
+    expect(backend.rows.get(id)!.version).toBeGreaterThan(landed);
+  });
+
+  it('stops pushing once a project with tooling files has synced', async () => {
+    // What a push sends and what counts as a local change must be the same
+    // set. They were not: the push filtered .git and .history out, the
+    // divergence check counted them in, so the record's file count never
+    // matched the hashes the push recorded. One real project pushed itself on
+    // every load, versions 6 through 11, with nothing edited.
+    const id = await saveProject('Amp', [
+      { name: 'amp.kicad_sch', bytes: text('(kicad_sch)') },
+      { name: '.git/HEAD', bytes: text('ref: refs/heads/main') },
+      { name: '.history/amp-20260101.kicad_sch', bytes: text('(old)') },
+    ]);
+
+    const first = await syncAllProjects(USER);
+    expect(first.failures.some((f) => f.id === id)).toBe(false);
+    expect(backend.rows.get(id)!.files).toHaveLength(1);
+    const landed = backend.rows.get(id)!.version;
+
+    // Nothing touched in between: the second pass must find nothing to do.
+    const second = await syncAllProjects(USER);
+    expect(second.failures.some((f) => f.id === id)).toBe(false);
+    expect(backend.rows.get(id)!.version).toBe(landed);
+  });
+
+  it('re-creates a row that has vanished, instead of reporting success for nothing', async () => {
+    // A local copy remembers the version it last agreed with, and nothing
+    // rewrites that when the cloud row goes away -- deleted from another
+    // device, or straight out of the database. The push then asked the
+    // compare-and-swap to update a row that is not there; it refused; and the
+    // refusal was read as staleness and answered by pulling, which found
+    // nothing and reported success.
+    //
+    // Observed against a real project: five of them "synced" in under a second
+    // on every reload, with an empty cloud and nothing ever committed.
+    const id = await saveProject('Amp', [{ name: 'amp.kicad_sch', bytes: text('(kicad_sch)') }]);
+    await cloudUpsert(USER, (await exportProject(id))!);
+    await markSynced(id, undefined, 1);
+    expect(backend.rows.has(id)).toBe(true);
+
+    // The row disappears; the local record still believes it is at version 1.
+    backend.rows.delete(id);
+
+    const result = await syncAllProjects(USER);
+
+    // Scoped to this project: earlier tests in this file leave records behind,
+    // and the question here is whether THIS row came back.
+    expect(result.failures.some((f) => f.id === id)).toBe(false);
+    expect(backend.rows.has(id)).toBe(true);
+    expect(backend.rows.get(id)!.files).toHaveLength(1);
   });
 
   it('one project failing does not abandon the others', async () => {

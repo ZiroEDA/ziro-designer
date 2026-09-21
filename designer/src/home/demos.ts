@@ -22,6 +22,7 @@
 import type { PickedHomeFile } from './files.js';
 import { DEMOS_HOST } from '../libraryHosts.js';
 import { expandArchive } from './project_archiver.js';
+import { mapLimit } from '../map_limit.js';
 
 export interface DemoMeta {
   id: string;
@@ -160,25 +161,6 @@ async function fetchDemoBundle(
   } catch {
     return null;
   }
-}
-
-/** Run `work` over `items`, at most `limit` in flight. */
-async function mapLimit<T, R>(
-  items: readonly T[],
-  limit: number,
-  work: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const out = new Array<R>(items.length);
-  let next = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    for (;;) {
-      const i = next++;
-      if (i >= items.length) return;
-      out[i] = await work(items[i]!);
-    }
-  });
-  await Promise.all(workers);
-  return out;
 }
 
 /**

@@ -56,9 +56,10 @@ import {
   wrapFileKey,
 } from './enc_meta.js';
 import {
-  createProjectKeyFor,
+  ensureProjectKeyFor,
   forgetCachedProjectKey,
   projectKeyFor,
+  saveProjectKeyFor,
   replaceCachedProjectKey,
   sessionAccount,
   sessionUnlocked,
@@ -67,6 +68,60 @@ import {
 } from './session_keys.js';
 import { bytesToBase64, createProjectKey, encryptSecret } from './crypto.js';
 import { syncUserTemplates, type TemplateSyncResult } from './templateSync.js';
+import { mapLimit } from '../map_limit.js';
+import { isToolingPath } from '../home/project_picker.js';
+
+/**
+ * How many of a project's files are encrypted and uploaded at once.
+ *
+ * Bounds memory, not round trips: see `map_limit.ts`. Four keeps several
+ * uploads overlapping -- the network is still the slow part -- while capping
+ * what is resident at four files rather than all of them.
+ */
+const ENCRYPT_CONCURRENCY = 4;
+
+/**
+ * How many storage requests -- stats, existence checks -- are in flight at once.
+ *
+ * Bounds REQUESTS, not memory, which is why it is separate from
+ * ENCRYPT_CONCURRENCY even though they currently agree. A project's blobs were
+ * all stat'ed in one `Promise.all` after upload, and against a small Postgres
+ * that burst came back as
+ *
+ *   stat <path>: The connection to the database timed out
+ *
+ * Storage metadata is a database like any other, and asking it a hundred
+ * questions at once is how it stops answering.
+ */
+const STORAGE_CONCURRENCY = 4;
+
+/**
+ * Retry one storage read that failed for a reason worth trying again.
+ *
+ * The commit-verify is the last thing standing between an upload and a row
+ * that names it, so a transient failure there throws away a whole push --
+ * including every byte just uploaded. Observed against a free-tier project as
+ *
+ *   stat <path>: The connection to the database timed out
+ *
+ * Everything is retried rather than only recognised messages: this wraps a
+ * read with no side effect, so the cost of retrying something permanent is two
+ * extra calls and a second of delay, while the cost of not retrying something
+ * transient is the entire push. The error that escapes is the last one, so a
+ * genuine failure still reports itself.
+ */
+async function retrying<T>(run: () => Promise<T>, attempts = 3): Promise<T> {
+  let last: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await run();
+    } catch (e) {
+      last = e;
+      if (i < attempts - 1) await new Promise((r) => setTimeout(r, 250 * 2 ** i));
+    }
+  }
+  throw last;
+}
 
 let backend: CloudBackend | null = null;
 
@@ -432,8 +487,12 @@ export async function cloudMissingObjects(
   // reported missing merely because it predates the sharded layout would be a
   // loss this app then "repairs" by overwriting the cloud, so both are checked.
   const present = isManifestEntry(files[0]!)
-    ? await Promise.all((files as ManifestEntry[]).map((f) => blobExists(be, userId, f.hash)))
-    : await Promise.all(files.map((f) => be.hasObject(legacyPath(userId, row.id, f.name))));
+    ? await mapLimit(files as ManifestEntry[], STORAGE_CONCURRENCY, (f) =>
+        blobExists(be, userId, f.hash),
+      )
+    : await mapLimit(files, STORAGE_CONCURRENCY, (f) =>
+        be.hasObject(legacyPath(userId, row.id, f.name)),
+      );
   // The row's own name, so a report can say which project rather than which
   // key — and its version, which a repair has to name as the thing it replaces.
   return {
@@ -518,7 +577,9 @@ export async function restoreFromHistory(
     // the account, so their surviving blobs are the most likely to be sitting
     // at the pre-split path; asking only about the new one would find nothing
     // and declare exactly those unrecoverable.
-    const present = await Promise.all(entries.map((f) => blobExists(be, userId, f.hash)));
+    const present = await mapLimit(entries, STORAGE_CONCURRENCY, (f) =>
+      blobExists(be, userId, f.hash),
+    );
     if (!present.every(Boolean)) continue;
 
     const row = await be.getProject(id, uid);
@@ -580,6 +641,8 @@ async function needBytes(p: SyncableProject, name: string): Promise<Uint8Array> 
  */
 export async function cloudUpsert(
   userId: string,
+  // Reassigned once below, to drop tooling paths from what is pushed.
+  // biome-ignore lint/style/noParameterAssign: see the filter below
   p: SyncableProject,
   knownPresent: ReadonlySet<string> = new Set(),
   base = 0,
@@ -595,6 +658,19 @@ export async function cloudUpsert(
   // read them, and commit a row naming objects that, for everyone else on the
   // project, are not there.
   const owner = p.cloudOwnerId ?? userId;
+
+  // A project imported before tooling directories were filtered still lists
+  // them, and a record is not rewritten by fixing the walker. One board's
+  // .git and .history came to 230 files; five such projects is thousands of
+  // uploads per push, none of them the design, and a push that cannot finish
+  // before the next reload never commits -- so every reload starts again and
+  // the abandoned blobs accumulate, because an encrypted blob is keyed by a
+  // random id and nothing collects the orphans.
+  //
+  // Filtered here rather than repaired in the local record: the bytes are the
+  // user's and are not this layer's to delete. Nothing local changes; they
+  // simply stop being part of what the cloud is told about.
+  p = { ...p, files: p.files.filter((f) => !isToolingPath(f.name)) };
 
   if (isHollow(p.files)) {
     throw new Error(
@@ -613,15 +689,27 @@ export async function cloudUpsert(
   const bytesFor = async (f: { name: string; gzB64?: string }): Promise<Uint8Array> =>
     f.gzB64 !== undefined ? b64ToBytes(f.gzB64) : await needBytes(p, f.name);
 
-  const manifest: ManifestEntry[] = await Promise.all(
-    p.files.map(async (f) => {
+  const manifest: ManifestEntry[] = (
+    await mapLimit(p.files, ENCRYPT_CONCURRENCY, async (f) => {
       if (f.hash !== undefined && f.size !== undefined) {
         return { name: f.name, hash: f.hash, size: f.size };
       }
-      const bytes = await bytesFor(f);
-      return { name: f.name, hash: f.hash ?? (await sha256Hex(bytes)), size: bytes.length };
-    }),
-  );
+      try {
+        const bytes = await bytesFor(f);
+        return { name: f.name, hash: f.hash ?? (await sha256Hex(bytes)), size: bytes.length };
+      } catch (e) {
+        // A file listed by the record whose bytes are not in the store. Same
+        // reasoning as the upload loop below, and the same consequence if it
+        // throws: sync rebuilds this manifest from the same record on every
+        // load, so one absent file fails every push for good. It cannot be
+        // hashed and it cannot be uploaded, so it is not part of this push.
+        console.warn(`"${p.name}": skipping "${f.name}", which is no longer in the local store`, e);
+        return null;
+      }
+    })
+  ).filter((m): m is ManifestEntry => m !== null);
+  // Bounded for the same reason the upload loop is: this materialises bytes
+  // for any file the store has no hash for.
 
   // 2. Store, and confirm, only the blobs not already known to be there.
   //
@@ -749,10 +837,14 @@ async function commitEncrypted(
     p.cloudUid ??
     (base > 0 ? (await be.getProject(p.cloudId ?? p.id))?.uid : undefined) ??
     crypto.randomUUID();
-  const key =
+  // A member opens the key the owner gave them; an owner mints their own. The
+  // owner's is held back rather than written now: see `ensureProjectKeyFor`,
+  // and the commit below that has to land before it can be stored.
+  const mine =
     p.cloudRole && p.cloudRole !== 'owner'
-      ? await projectKeyFor(be, me, uid)
-      : await createProjectKeyFor(be, me, uid);
+      ? { key: await projectKeyFor(be, me, uid), unsaved: false }
+      : await ensureProjectKeyFor(be, me, uid);
+  const { key, unsaved: keyUnsaved } = mine;
   if (!key) {
     throw new Error(
       `refusing to push "${p.name}": you have no key to this project; ask its owner to share it again`,
@@ -763,35 +855,99 @@ async function commitEncrypted(
   if (base > 0) {
     const prev = await be.getProject(p.cloudId ?? p.id, uid);
     if (prev?.enc_meta) {
-      for (const e of (await openMeta(key, prev.enc_meta)).files) previous.set(e.hash, e);
+      try {
+        for (const e of (await openMeta(key, prev.enc_meta)).files) previous.set(e.hash, e);
+      } catch (e) {
+        // The row will not open with the key this account holds. This is an
+        // optimisation being read -- which blobs are already up there, so an
+        // unchanged file need not be uploaded again -- so failing the push over
+        // it strands the project instead of costing it some bandwidth.
+        //
+        // It is reachable. A crash between `commitProject` below and the
+        // `saveProjectKeyFor` after it leaves a row sealed under a key that was
+        // only ever in that tab's memory, and the next push mints a different
+        // one; a browser running out of memory mid-sync did exactly that to
+        // three projects. Every later push then failed here, forever, with no
+        // way out from the UI, because the condition repairs itself only by
+        // being written over.
+        //
+        // So: upload everything afresh and replace the row. Nothing readable is
+        // lost, by definition -- it could not be read.
+        console.warn(
+          `"${p.name}": the cloud copy will not open with this account's key, so it is being replaced rather than updated`,
+          e,
+        );
+        previous.clear();
+      }
     }
   }
 
-  const uploaded: EncFileEntry[] = [];
-  const entries: EncFileEntry[] = await Promise.all(
-    manifest.map(async (m) => {
-      const had = previous.get(m.hash);
-      if (had) return { ...had, name: m.name };
-      const src = p.files.find((f) => f.name === m.name)!;
-      const put = await putEncryptedBlob(be, owner, await bytesFor(src));
-      const entry: EncFileEntry = {
-        name: m.name,
-        hash: m.hash,
-        size: m.size,
-        blobId: put.blobId,
-        encSize: put.encSize,
-        encFileKey: await wrapFileKey(key, put.fileKey),
-      };
-      uploaded.push(entry);
-      return entry;
-    }),
+  const step = (what: string): void => console.info(`push "${p.name}": ${what}`);
+  step(
+    `${manifest.length} file(s) in the manifest, base ${base}, ${keyUnsaved ? 'fresh key' : 'stored key'}`,
   );
+  const uploaded: EncFileEntry[] = [];
+  // Bounded, not `Promise.all`. Each file in flight is held three times over:
+  // the base64 the local store keeps, the bytes it decodes to, and the
+  // ciphertext beside them. Encrypting every file at once therefore makes peak
+  // memory a function of project size rather than of this limit, which is how
+  // a tab pushing several projects ran out of it. Measured on a 300 MB input,
+  // unbounded peaked at about four times the raw bytes.
+  const built = await mapLimit(manifest, ENCRYPT_CONCURRENCY, async (m) => {
+    const had = previous.get(m.hash);
+    if (had) return { ...had, name: m.name };
+    const src = p.files.find((f) => f.name === m.name);
+    let bytes: Uint8Array;
+    try {
+      if (!src) throw new Error(`"${m.name}" is no longer in project ${p.id}`);
+      bytes = await bytesFor(src);
+    } catch (e) {
+      // The manifest is built from a read of the local store, and the bytes are
+      // fetched from a later one -- deliberately, so a push racing autosave
+      // stores what is there now rather than what was there a moment ago. The
+      // gap means a file can be listed and then be gone, and that used to fail
+      // the whole push.
+      //
+      // Which made it permanent. Sync retries on every load, the manifest is
+      // rebuilt from the same record every time, and so the same file vanished
+      // every time: four projects retried this on every refresh and could never
+      // finish. Observed after tooling directories stopped being imported, when
+      // records still listed `.history/.git/...` paths whose bytes had gone.
+      //
+      // Dropping the file from THIS push is the honest outcome. It cannot be
+      // uploaded -- there are no bytes -- and the local copy stays the
+      // authority, so the next push carries whatever the store really holds.
+      console.warn(`"${p.name}": skipping "${m.name}", which is no longer in the local store`, e);
+      return null;
+    }
+    const put = await putEncryptedBlob(be, owner, bytes);
+    const entry: EncFileEntry = {
+      name: m.name,
+      hash: m.hash,
+      size: m.size,
+      blobId: put.blobId,
+      encSize: put.encSize,
+      encFileKey: await wrapFileKey(key, put.fileKey),
+    };
+    uploaded.push(entry);
+    return entry;
+  });
+  const entries: EncFileEntry[] = built.filter((e): e is EncFileEntry => e !== null);
+  if (entries.length === 0 && manifest.length > 0) {
+    // Every single file gone is not a push, it is a damaged record, and
+    // committing an empty row over a good cloud copy is how this app lost
+    // eleven projects once already.
+    throw new Error(
+      `refusing to push "${p.name}": none of its ${manifest.length} files are in the local store`,
+    );
+  }
 
+  step(`${uploaded.length} uploaded, ${entries.length - uploaded.length} reused; verifying`);
   // Commit-verify, as the plaintext path does: a store that accepted an
   // upload and dropped it must not be pointed at by a row.
   const missing = (
-    await Promise.all(
-      uploaded.map(async (e) => ((await be.hasObject(blobPath(owner, e.blobId))) ? null : e.name)),
+    await mapLimit(uploaded, STORAGE_CONCURRENCY, async (e) =>
+      (await retrying(() => be.hasObject(blobPath(owner, e.blobId)))) ? null : e.name,
     )
   ).filter((n): n is string => n !== null);
   if (missing.length > 0) {
@@ -812,13 +968,25 @@ async function commitEncrypted(
     files: entries.map((e) => ({ name: '', hash: e.blobId, size: e.encSize })),
     enc_meta: await sealMeta(key, { v: 1, name: p.name, files: entries }),
   };
+  step('verified; committing');
   const version = await be.commitProject(row, base);
   if (version === null) throw new StaleBaseError(p.id);
+
+  // Now, and not before: `project_keys.project_uid` references `projects.uid`,
+  // so this is the first moment the row it points at exists. This one is NOT
+  // best-effort like the history below -- a project whose key was never stored
+  // opens on this tab, where the key is still cached, and nowhere else ever
+  // again. Failing the push says so while the key can still be saved by a
+  // retry, which reuses the cached key rather than minting a second one.
+  step(`committed as version ${version}; saving key`);
+  if (keyUnsaved) await saveProjectKeyFor(be, me, uid);
+
   try {
     await be.recordVersion?.(me, { ...row, version });
   } catch (e) {
     console.warn(`project history not recorded for "${p.name}":`, e);
   }
+  step('done');
   return { manifest, version, uid };
 }
 
