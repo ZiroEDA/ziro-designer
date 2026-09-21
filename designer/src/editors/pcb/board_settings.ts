@@ -286,8 +286,6 @@ export interface StackupLayer {
   locked?: boolean;
   epsilonR?: number;
   lossTan?: number;
-  specFreq?: string;
-  dielectricModel?: string;
   /** Dielectric layers only: sublayers beyond the main one (sublayer 1). A
    *  new sublayer starts as DIELECTRIC_PRMS(): thickness 0, epsilon 1, loss 0. */
   sublayers?: DielectricSublayer[];
@@ -369,8 +367,6 @@ export function buildStackup(count: number): StackupLayer[] {
     locked: false,
     epsilonR: 4.5,
     lossTan: 0.02,
-    specFreq: '',
-    dielectricModel: 'Wideband',
   });
 
   const copper = copperStackNames(count);

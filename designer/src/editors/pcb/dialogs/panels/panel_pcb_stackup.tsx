@@ -5,9 +5,9 @@
  * Board Setup > Board Stackup > Physical Stackup. Counterpart:
  * `pcbnew/board_stackup_manager/panel_board_stackup.cpp`
  * (PANEL_SETUP_BOARD_STACKUP), the physical layer stack: a copper-layer
- * count + impedance-controlled option, a borderless 12-column grid (Layer /
- * Id / Type / Material+browse / Thickness+lock / Color / Epsilon R / Loss Tan
- * / Spec Freq / Dielectric Model) and the board thickness. All four actions
+ * count + impedance-controlled option, the borderless 9-column
+ * `m_fgGridSizer` (Layer / Id / Type / Material+browse / Thickness+lock /
+ * Color / Epsilon R / Loss Tan) and the board thickness. All four actions
  * are KiCad's:
  *
  *  - Add Dielectric Layer… (onAddDielectricLayer): an EDA_LIST_DIALOG of the
@@ -233,10 +233,8 @@ const HEADERS = [
   'Color',
   'Epsilon R',
   'Loss Tan',
-  'Spec Freq',
-  'Dielectric Model',
 ];
-const GRID_COLS = '40px 96px 138px 118px 26px 84px 26px 150px 64px 64px 80px 120px';
+const GRID_COLS = '40px 96px 138px 118px 26px 84px 26px 150px 64px 64px';
 /** A picked material-browse / add / remove target. */
 type MaterialTarget = { layer: number; sub: number }; // sub 0 = main
 type ListPick = { title: string; label: string; items: string[]; onPick: (index: number) => void };
@@ -571,7 +569,7 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
   );
   const blank = <span />;
 
-  // One grid row (12 cells) for a main layer or a dielectric sublayer.
+  // One grid row (10 cells: the 9 columns, Material split into field + browse).
   const renderRow = (l: StackupLayer, i: number, sub: number): JSX.Element[] => {
     const diel = isDielectric(l);
     const p = sub === 0 ? l : l.sublayers![sub - 1]!;
@@ -677,12 +675,6 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
       <div key={`${key}-lt`}>
         {hasField(l.type, 'eps') ? txt(p.lossTan, (s) => setP({ lossTan: num(s) }), true) : blank}
       </div>,
-      // Spec Freq (main dielectric rows only)
-      <div key={`${key}-sf`}>
-        {diel && sub === 0 ? txt(l.specFreq, (s) => setLayer(i, { specFreq: s }), false) : blank}
-      </div>,
-      // Dielectric Model (main dielectric rows only)
-      <div key={`${key}-dm`}>{diel && sub === 0 ? l.dielectricModel : blank}</div>,
     ];
   };
 
