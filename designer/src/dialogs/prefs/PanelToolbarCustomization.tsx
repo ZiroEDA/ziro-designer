@@ -36,13 +36,16 @@
  */
 import { useMemo, useState, type JSX } from 'react';
 import { Check } from './widgets.js';
-import { Combo } from '../../ui/Combo.js';
-import { SplitButton } from '../../ui/SplitButton.js';
-import { StdBitmapButton } from '../../ui/StdBitmapButton.js';
-import { bitmapUrl, toolbarIconUrl } from '../../ui/toolbarIcons.js';
-import { toolbarButtonLabel } from '../../ui/toolbar_actions.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
+import { SplitButton } from '@ziroeda/common/src/widgets/split_button.js';
+import { StdBitmapButton } from '@ziroeda/common/src/widgets/std_bitmap_button.js';
+import { bitmapUrl, toolbarIconUrl } from '@ziroeda/common/src/bitmap_store.js';
+import { toolbarButtonLabel } from '@ziroeda/common/src/tool/action_toolbar_actions.js';
 import { catalogueFor, ourToolbarId } from '../../ui/action_catalogue.js';
-import { toolbarControlDescription, toolbarControlUiName } from '../../ui/toolbar_controls.js';
+import {
+  toolbarControlDescription,
+  toolbarControlUiName,
+} from '@ziroeda/common/src/tool/action_toolbar_controls.js';
 import {
   TOOLBAR_LOC_NAMES,
   configFromEntries,
@@ -56,8 +59,8 @@ import {
   type ToolbarItemJson,
   type ToolbarLoc,
   type ToolbarSettings,
-} from '../../ui/toolbar_config.js';
-import type { MenuItem } from '../../ui/menu_types.js';
+} from '@ziroeda/common/src/tool/ui/toolbar_configuration.js';
+import type { MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
 
 /** A selected tree node: a top-level index, and a child index inside a group. */
 interface TreeSel {

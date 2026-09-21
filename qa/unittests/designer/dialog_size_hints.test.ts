@@ -12,7 +12,7 @@
  * decision that replaces it: `wxSize::IncTo`, a componentwise maximum.
  */
 import { describe, expect, it } from 'vitest';
-import { heldSize } from '@ziroeda/designer/src/ui/dialog_size_hints.js';
+import { heldSize } from '@ziroeda/common/src/dialogs/dialog_size_hints.js';
 
 describe('the size a dialog holds', () => {
   it('takes the larger of what it had and what it now needs', () => {

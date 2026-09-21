@@ -29,7 +29,7 @@ import {
   fromBoardSuffix,
   PCB_FILE_EXTENSION,
 } from '@ziroeda/designer/src/editors/footprint/frame_title.js';
-import { READ_ONLY_SUFFIX, UNSAVED_SUFFIX } from '@ziroeda/designer/src/ui/useDocumentTitle.js';
+import { READ_ONLY_SUFFIX, UNSAVED_SUFFIX } from '@ziroeda/common/src/use_document_title.js';
 
 /** The one call shape the symbol editor's own module needs. */
 const sym = (spec: Parameters<typeof symFrameTitle>[0]): string =>

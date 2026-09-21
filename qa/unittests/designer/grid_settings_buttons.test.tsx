@@ -28,8 +28,8 @@ import {
   type GridSettingsSlice,
 } from '@ziroeda/designer/src/dialogs/prefs/PanelGridSettings.js';
 import type { GridFrameType } from '@ziroeda/designer/src/dialogs/prefs/grid_settings_rows.js';
-import type { GridEntry } from '@ziroeda/designer/src/ui/grid_settings.js';
-import type { EdaUnits } from '@ziroeda/designer/src/ui/unit_binder.js';
+import type { GridEntry } from '@ziroeda/common/src/settings/grid_settings_ui.js';
+import type { EdaUnits } from '@ziroeda/common/src/widgets/unit_binder.js';
 
 afterEach(cleanup);
 

@@ -16,7 +16,7 @@
  * The file history is the exception, and deliberately still local — see
  * `recentImages` below.
  */
-import { FileHistory } from '../../ui/file_history.js';
+import { FileHistory } from '@ziroeda/common/src/file_history.js';
 import { BITMAP2CMP_DEFAULTS, settings, type Bitmap2CmpSettings } from '../../prefs/settings.js';
 
 export { BITMAP2CMP_DEFAULTS, type Bitmap2CmpSettings };

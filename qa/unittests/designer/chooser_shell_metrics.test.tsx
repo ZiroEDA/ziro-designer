@@ -43,7 +43,7 @@ afterEach(cleanup);
 
 // `import.meta.url` is not a file: URL under happy-dom, so the path is
 // resolved from vitest's root (`qa/`) instead.
-const SHELL = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+const SHELL = readFileSync(resolve(process.cwd(), '../common/src/widgets/shell.css'), 'utf8');
 
 /** A token's declared value, or undefined when it is not declared at all. */
 function token(name: string): string | undefined {

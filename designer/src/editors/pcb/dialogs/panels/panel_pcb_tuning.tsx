@@ -17,17 +17,12 @@
  */
 
 import type { JSX } from 'react';
-import { Combo } from '../../../../ui/Combo.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
 
-const TUNE_ICON = import.meta.glob('../../../../assets/tuning/*.svg', {
-  query: '?url',
-  import: 'default',
-  eager: true,
-}) as Record<string, string>;
-const icon = (name: string): string | undefined =>
-  TUNE_ICON[`../../../../assets/tuning/${name}.svg`];
+const icon = (name: string): string | undefined => svgUrl('tuning', name);
 
 import type { CornerStyle, TuningPattern, TuningSetup } from '../../board_settings.js';
+import { svgUrl } from '@ziroeda/bitmaps_png';
 
 // The data model lives in board_settings.ts (KiCad's data/UI split);
 // re-exported so panel users keep importing from the panel module.

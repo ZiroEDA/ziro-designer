@@ -54,8 +54,8 @@ import {
   unitPropagationDelay,
 } from '@ziroeda/pcb_calculator';
 import { type CSSProperties, type JSX, useState } from 'react';
-import { Combo } from '../../../ui/Combo.js';
-import { SingleChoiceDialog } from '../../../ui/dialog_single_choice.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
+import { SingleChoiceDialog } from '@ziroeda/common/src/dialogs/dialog_single_choice.js';
 import {
   ANGLE_UNITS,
   FREQ_UNITS,
@@ -83,21 +83,16 @@ import {
   type CalcTransLineName,
   type PcbCalculatorTransLine,
 } from '../../../prefs/settings.js';
+import { svgUrl } from '@ziroeda/bitmaps_png';
 
 // KiCad's own dark-theme artwork (GPL), vendored under assets/.
-const TL_ART = import.meta.glob('../../../assets/calculator/*.svg', {
-  query: '?url',
-  import: 'default',
-  eager: true,
-}) as Record<string, string>;
-
 /**
  * m_translineBitmap: `KiBitmapBundle( m_transline_list[type]->m_BitmapName )`
  * (transline_dlg_funct.cpp:108). Drawn 1:1 at the size the dark PNG has, which
  * is what the bundle picks at 100% scale — see `calculator/art_sizes.ts`.
  */
 function Art({ name }: { name: string }): JSX.Element | null {
-  const src = TL_ART[`../../../assets/calculator/${name}.svg`];
+  const src = svgUrl('calculator', name);
   const [w, h] = CALC_ART_SIZE[name] ?? [0, 0];
   if (!src) return null;
   return <img className="calc-art tl-art" src={src} alt="" width={w} height={h} />;
@@ -862,12 +857,7 @@ export function PanelTransline(): JSX.Element {
               aria-label="Analyze"
               onClick={() => analyze()}
             >
-              <img
-                src={TL_ART['../../../assets/calculator/small_down.svg']}
-                alt=""
-                width={16}
-                height={16}
-              />
+              <img src={svgUrl('calculator', 'small_down')} alt="" width={16} height={16} />
             </button>
             <span className="tl-buttons-gap" />
             <button type="button" className="calc-btn" onClick={synthesize}>
@@ -879,12 +869,7 @@ export function PanelTransline(): JSX.Element {
               aria-label="Synthesize"
               onClick={synthesize}
             >
-              <img
-                src={TL_ART['../../../assets/calculator/small_up.svg']}
-                alt=""
-                width={16}
-                height={16}
-              />
+              <img src={svgUrl('calculator', 'small_up')} alt="" width={16} height={16} />
             </button>
           </div>
 

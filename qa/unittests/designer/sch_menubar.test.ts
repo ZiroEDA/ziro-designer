@@ -18,7 +18,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { buildMenus, TOOL_HOTKEYS } from '@ziroeda/designer/src/editors/schematic/menubar.js';
-import type { Menu, MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
+import type { Menu, MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
 
 /** Every handler is a no-op; we are inspecting structure, not behaviour. */
 const handlers = new Proxy({}, { get: () => () => {} }) as Parameters<typeof buildMenus>[0];

@@ -14,9 +14,9 @@
  */
 import { useState, type JSX, type Ref } from 'react';
 import type { OutsetSettings } from '../outset_settings.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
-import type { StatusUnits } from '../../../ui/status_format.js';
+import type { StatusUnits } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
 
 interface Props {
   /**

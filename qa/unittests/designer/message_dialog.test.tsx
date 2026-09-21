@@ -28,14 +28,14 @@ import {
   MessageDialogError,
   MessageDialogOk,
   MessageDialogYesNo,
-} from '@ziroeda/designer/src/ui/dialog_message.js';
-import { UnsavedChangesDialog } from '@ziroeda/designer/src/ui/dialog_unsaved_changes.js';
+} from '@ziroeda/common/src/dialogs/dialog_message.js';
+import { UnsavedChangesDialog } from '@ziroeda/common/src/dialogs/dialog_unsaved_changes.js';
 import { LOAD_REPAIRED_MESSAGE } from '@ziroeda/designer/src/editors/schematic/files_io.js';
-import { INFO_CAPTION } from '@ziroeda/designer/src/ui/message_dialog.js';
+import { INFO_CAPTION } from '@ziroeda/common/src/confirm_types.js';
 
 afterEach(cleanup);
 
-const CSS = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+const CSS = readFileSync(resolve(process.cwd(), '../common/src/widgets/shell.css'), 'utf8');
 
 /**
  * Every rule body whose selector list names this exact selector, joined —

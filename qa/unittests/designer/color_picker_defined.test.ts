@@ -23,14 +23,17 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { LEGACY_COLOR_NAMES, colorRefs } from '@ziroeda/common/src/color4d.js';
-import { DEFINED_COLORS_ROWS, definedColorGrid } from '@ziroeda/designer/src/ui/defined_colors.js';
+import {
+  DEFINED_COLORS_ROWS,
+  definedColorGrid,
+} from '@ziroeda/common/src/dialogs/dialog_color_picker_colors.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const SHELL = read('../../../designer/src/ui/shell.css');
-const DIALOG = read('../../../designer/src/ui/DialogColorPicker.tsx');
-const SLIDER = read('../../../designer/src/ui/Slider.tsx');
+const SHELL = read('../../../common/src/widgets/shell.css');
+const DIALOG = read('../../../common/src/dialogs/dialog_color_picker.tsx');
+const SLIDER = read('../../../common/src/widgets/slider.tsx');
 
 /** The declarations of one rule in shell.css, as a property -> value map. */
 function shellRule(selector: string): Record<string, string> {

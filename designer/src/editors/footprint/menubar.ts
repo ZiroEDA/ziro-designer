@@ -40,11 +40,11 @@
  * action twice.
  */
 
-import type { Menu, MenuItem } from '../../ui/menu_types.js';
-import { addClose } from '../../ui/action_menu.js';
-import { browserSafeKey } from '../../ui/browser_reserved.js';
-import { standardHelpMenu } from '../../ui/help_menu.js';
-import { setLanguageMenuItem } from '../../ui/language_menu.js';
+import type { Menu, MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
+import { addClose } from '@ziroeda/common/src/tool/action_menu.js';
+import { browserSafeKey } from '@ziroeda/common/src/browser_reserved.js';
+import { standardHelpMenu } from '@ziroeda/common/src/eda_base_frame_help_menu.js';
+import { setLanguageMenuItem } from '@ziroeda/common/src/eda_base_frame_language_menu.js';
 
 const SEP: MenuItem = { sep: true };
 

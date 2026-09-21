@@ -17,7 +17,7 @@
 import type { JSX } from 'react';
 import { PanelGridSettings } from '../../../dialogs/prefs/PanelGridSettings.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { defaultUnits, toStatusUnits } from '../../../ui/app_settings_units.js';
+import { defaultUnits, toStatusUnits } from '@ziroeda/common/src/settings/app_settings_units.js';
 import { pcbIUScale } from '@ziroeda/common';
 
 export function PanelPcbGrids({ ctx }: { ctx: PrefsContext }): JSX.Element {

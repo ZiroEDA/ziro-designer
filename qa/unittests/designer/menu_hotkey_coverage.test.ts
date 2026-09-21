@@ -26,21 +26,24 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, relative } from 'node:path';
-import { dispatchMenuHotkey, type HotkeyEvent } from '@ziroeda/designer/src/ui/menu_hotkeys.js';
+import {
+  dispatchMenuHotkey,
+  type HotkeyEvent,
+} from '@ziroeda/common/src/tool/action_menu_hotkeys.js';
 import { buildManagerMenus } from '@ziroeda/designer/src/home/menubar.js';
 import { buildMenus } from '@ziroeda/designer/src/editors/schematic/menubar.js';
 import { symbolEditorMenus } from '@ziroeda/designer/src/editors/symbol/menubar.js';
 import { footprintEditorMenus } from '@ziroeda/designer/src/editors/footprint/menubar.js';
 import { buildPcbMenus as pcbMenus } from '@ziroeda/designer/src/editors/pcb/menubar.js';
-import { browserSafeKey } from '@ziroeda/designer/src/ui/browser_reserved.js';
+import { browserSafeKey } from '@ziroeda/common/src/browser_reserved.js';
 import {
   addClose,
   addQuit,
   UPSTREAM_CLOSE_KEY,
   UPSTREAM_QUIT_KEY,
-} from '@ziroeda/designer/src/ui/action_menu.js';
+} from '@ziroeda/common/src/tool/action_menu.js';
 import { eventFromCombo } from '@ziroeda/designer/src/editors/schematic/hotkey_bindings.js';
-import type { Menu, MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
+import type { Menu, MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 

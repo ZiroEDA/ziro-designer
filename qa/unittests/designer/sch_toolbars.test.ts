@@ -18,13 +18,17 @@ import {
   RIGHT_TOOLBAR_COMMANDS,
 } from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
 import { TOOL_HOTKEYS } from '@ziroeda/designer/src/editors/schematic/menubar.js';
-import { nextInGroup } from '@ziroeda/designer/src/ui/toolbar_types.js';
+import { nextInGroup } from '@ziroeda/common/src/tool/action_toolbar_types.js';
 import {
   EESCHEMA_TOOLBAR_ACTIONS,
   toolbarButtonTooltip,
   actionFor,
-} from '@ziroeda/designer/src/ui/toolbar_actions.js';
-import type { ToolButton, ToolEntry, ToolGroup } from '@ziroeda/designer/src/ui/toolbar_types.js';
+} from '@ziroeda/common/src/tool/action_toolbar_actions.js';
+import type {
+  ToolButton,
+  ToolEntry,
+  ToolGroup,
+} from '@ziroeda/common/src/tool/action_toolbar_types.js';
 
 /** Every button, groups flattened; controls and separators contribute none. */
 const buttons = (entries: readonly ToolEntry[]): ToolButton[] =>

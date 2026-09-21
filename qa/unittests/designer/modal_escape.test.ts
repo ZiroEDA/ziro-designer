@@ -16,7 +16,7 @@ import {
   openModalCount,
   pushModalCancel,
   resetModalStack,
-} from '@ziroeda/designer/src/ui/modal_escape.js';
+} from '@ziroeda/common/src/dialogs/modal_escape.js';
 
 afterEach(() => resetModalStack());
 

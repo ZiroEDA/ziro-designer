@@ -15,8 +15,12 @@
 
 import { unescapeString } from '@ziroeda/common';
 import { APERTURE_T, type D_CODE, type GERBER_FILE_IMAGE } from '@ziroeda/gerbview';
-import { messageTextFromValue, unitText, type StatusUnits } from '../../ui/status_format.js';
-import { frameTitle, type FrameTitleParts } from '../../ui/useDocumentTitle.js';
+import {
+  messageTextFromValue,
+  unitText,
+  type StatusUnits,
+} from '@ziroeda/common/src/widgets/kistatusbar_format.js';
+import { frameTitle, type FrameTitleParts } from '@ziroeda/common/src/use_document_title.js';
 
 /**
  * `#define NO_SELECTION_STRING _( "<No selection>" )`

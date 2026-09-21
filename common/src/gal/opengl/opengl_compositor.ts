@@ -17,7 +17,7 @@ import {
   ANTIALIASING_SUPERSAMPLING,
   type OPENGL_PRESENTOR,
 } from './antialiasing.js';
-import { GL_BEGIN_MODE, GL_FIXED_FUNCTION, GL_MATRIX_MODE } from './gl_fixed_function.js';
+import { GL_BEGIN_MODE, type GL_FIXED_FUNCTION, GL_MATRIX_MODE } from './gl_fixed_function.js';
 import { glsl_xor_diff_frag, glsl_xor_diff_vert } from './shaders/xor_diff.js';
 import { checkGlError } from './utils.js';
 import { wxASSERT } from '@ziroeda/core/src/wx_assert.js';

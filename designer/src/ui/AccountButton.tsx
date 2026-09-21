@@ -30,7 +30,7 @@
 
 import { useCallback, useRef, useState, type JSX } from 'react';
 import { profileInitial } from '../auth/profile.js';
-import { useDismissOnOutside } from './useDismissOnOutside.js';
+import { useDismissOnOutside } from '@ziroeda/common/src/widgets/use_dismiss_on_outside.js';
 
 export function AccountButton({
   email,

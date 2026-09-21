@@ -15,6 +15,7 @@
   "dependencies": {
     "@sentry/browser": "^10.68.0",
     "@supabase/supabase-js": "^2.110.0",
+    "@ziroeda/bitmaps_png": "workspace:*",
     "@ziroeda/common": "workspace:*",
     "@ziroeda/eeschema": "workspace:*",
     "@ziroeda/gerbview": "workspace:*",

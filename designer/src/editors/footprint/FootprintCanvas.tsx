@@ -37,11 +37,16 @@ import {
   drawCrosshair,
   drawGrid,
   type GridStyle,
-} from '../../ui/grid_cursor.js';
+} from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
 import { footprintToolCursor } from './cursors.js';
-import { clampViewScale } from '../../ui/zoom_settings.js';
-import { zoomAreaTarget, type ZoomArea } from '../../ui/zoom_tool.js';
-import { drawRulerItem, rulerEnd, type RulerPoint, type RulerUnits } from '../../ui/ruler_item.js';
+import { clampViewScale } from '@ziroeda/common/src/settings/zoom_settings.js';
+import { zoomAreaTarget, type ZoomArea } from '@ziroeda/common/src/tool/zoom_tool.js';
+import {
+  drawRulerItem,
+  rulerEnd,
+  type RulerPoint,
+  type RulerUnits,
+} from '@ziroeda/common/src/preview_items/ruler_item.js';
 import { hitTestFootprint } from '@ziroeda/pcbnew';
 import { itemsInBox, fpItemBBox, type PcbFootprint } from '@ziroeda/pcbnew';
 import {

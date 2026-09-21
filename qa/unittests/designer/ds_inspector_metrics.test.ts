@@ -18,7 +18,7 @@ const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
 const INSPECTOR = read('../../../designer/src/editors/drawingsheet/DesignInspector.tsx');
-const CSS = read('../../../designer/src/ui/shell.css');
+const CSS = read('../../../common/src/widgets/shell.css');
 
 /** The `.ze-grid { … }` block, which is where the shared grid metrics live. */
 function gridBlock(): string {

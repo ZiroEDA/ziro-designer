@@ -40,7 +40,7 @@ import {
   GAL_SCREEN_DPI,
   scaleForZoomFactor,
   zoomFactorForScale,
-} from '@ziroeda/designer/src/ui/status_format.js';
+} from '@ziroeda/common/src/widgets/kistatusbar_format.js';
 import { BASE_SCREEN_DPI } from '@ziroeda/designer/src/widgets/zoom_correction_ctrl.js';
 
 /** Enough of an element for `applyCommonAppearance`; no DOM needed. */
@@ -130,7 +130,7 @@ describe('appearance.grid_striping', () => {
     // `if( !( row % 2 ) ) return cellAttr.release();` — row 0 is left alone
     // "to allow for the header row" (`wx_grid.cpp:180-183`). Getting this
     // backwards is invisible until you compare against KiCad side by side.
-    const css = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+    const css = readFileSync(resolve(process.cwd(), '../common/src/widgets/shell.css'), 'utf8');
     const rule = css
       .split('[data-grid-striping="1"] .ze-grid tbody tr:nth-child(even) > td {')[1]
       ?.split('}')[0];

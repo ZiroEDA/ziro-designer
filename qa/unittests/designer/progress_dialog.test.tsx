@@ -23,7 +23,10 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render } from '@testing-library/react';
-import { ProgressDialog, formatElapsed } from '@ziroeda/designer/src/ui/ProgressDialog.js';
+import {
+  ProgressDialog,
+  formatElapsed,
+} from '@ziroeda/common/src/widgets/wx_progress_reporters.js';
 
 /** Width the fake layout reports for the next render. */
 let measured = 0;

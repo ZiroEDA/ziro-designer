@@ -23,8 +23,12 @@
  */
 import { settings, type ToolbarApp } from '../prefs/settings.js';
 import { useSettingsVersion } from '../prefs/useSettings.js';
-import { resolveToolbarConfig, type ToolbarDefaults, type ToolbarLoc } from './toolbar_config.js';
-import type { ToolEntry } from './toolbar_types.js';
+import {
+  resolveToolbarConfig,
+  type ToolbarDefaults,
+  type ToolbarLoc,
+} from '@ziroeda/common/src/tool/ui/toolbar_configuration.js';
+import type { ToolEntry } from '@ziroeda/common/src/tool/action_toolbar_types.js';
 
 /**
  * `config()->m_CustomToolbars` for one app — the `aAllowCustom` argument.

@@ -64,7 +64,7 @@ afterEach(() => {
 
 describe('browser suppression versus menu dispatch', () => {
   it('marks the events it suppresses, so a dispatcher can tell them apart', async () => {
-    const mod = await import('@ziroeda/designer/src/ui/browser_hotkeys.js');
+    const mod = await import('@ziroeda/common/src/browser_hotkeys.js');
     const { release } = mod.claimBrowserHotkeys(['Ctrl+Alt+Q']);
     const e = ev('q', { ctrlKey: true, altKey: true });
     listener?.(e);
@@ -74,14 +74,14 @@ describe('browser suppression versus menu dispatch', () => {
   });
 
   it('does not mark an event some other handler cancelled', async () => {
-    const mod = await import('@ziroeda/designer/src/ui/browser_hotkeys.js');
+    const mod = await import('@ziroeda/common/src/browser_hotkeys.js');
     const e = ev('q', { ctrlKey: true });
     e.preventDefault();
     expect(mod.wasBrowserSuppressed(e)).toBe(false);
   });
 
   it('does not mark a combo the app never claimed', async () => {
-    const mod = await import('@ziroeda/designer/src/ui/browser_hotkeys.js');
+    const mod = await import('@ziroeda/common/src/browser_hotkeys.js');
     const { release } = mod.claimBrowserHotkeys(['Ctrl+Alt+Q']);
     const e = ev('j', { ctrlKey: true });
     listener?.(e);
@@ -107,8 +107,8 @@ describe('browser suppression versus Esc closing a dialog', () => {
     // onto the stub window. Both modules are imported from the SAME fresh graph
     // so they share the WeakSet that carries the mark.
     vi.resetModules();
-    const browser = await import('@ziroeda/designer/src/ui/browser_hotkeys.js');
-    const modal = await import('@ziroeda/designer/src/ui/modal_escape.js');
+    const browser = await import('@ziroeda/common/src/browser_hotkeys.js');
+    const modal = await import('@ziroeda/common/src/dialogs/modal_escape.js');
 
     let cancelled = 0;
     const pop = modal.pushModalCancel(() => {
@@ -138,7 +138,7 @@ describe('browser suppression versus Esc closing a dialog', () => {
     // The behaviour the guard must not throw away: if something genuinely acted
     // on Esc, the dialog stays open.
     vi.resetModules();
-    const modal = await import('@ziroeda/designer/src/ui/modal_escape.js');
+    const modal = await import('@ziroeda/common/src/dialogs/modal_escape.js');
     let cancelled = 0;
     const pop = modal.pushModalCancel(() => {
       cancelled++;
@@ -187,7 +187,7 @@ describe('every reader of defaultPrevented knows about our own suppression', () 
         .replace(/^\s*\/\/.*$/gm, '');
       if (!src.includes('defaultPrevented')) continue;
       // `browser_hotkeys` is the suppressor itself; it does not read the flag.
-      if (f === 'ui/browser_hotkeys.ts') continue;
+      if (f === '../../common/src/browser_hotkeys.ts') continue;
       // PER OCCURRENCE, not per file. A file-level `includes` passes as long as
       // the import survives, so deleting one guard while keeping another use
       // read as "aware" — a test that cannot fail is worse than no test.

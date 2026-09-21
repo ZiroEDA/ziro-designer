@@ -72,9 +72,10 @@ describe('no launcher keeps its own colour control', () => {
     const users = walk(SRC).filter((f) =>
       codeLines(f).some(({ line }) => line.includes('<DialogColorPicker')),
     );
+    // The swatch itself is `common/src/widgets/color_swatch.tsx` now, outside
+    // this walk of `designer/src`; the one launcher user is the drawing sheet.
     expect(users.map((f) => f.slice(SRC.length + 1)).sort()).toEqual([
       'editors/drawingsheet/PropertiesFrame.tsx',
-      'ui/ColorSwatch.tsx',
     ]);
   });
 
@@ -91,7 +92,7 @@ describe('no launcher keeps its own colour control', () => {
 });
 
 describe('the swatch opens the picker the way COLOR_SWATCH does', () => {
-  const WIDGET = readFileSync(join(SRC, 'ui/ColorSwatch.tsx'), 'utf8');
+  const WIDGET = readFileSync(join(SRC, '../../common/src/widgets/color_swatch.tsx'), 'utf8');
 
   it('changes nothing on a cancel', () => {
     // `if( result == wxID_OK )` (color_swatch.cpp:322) - a cancel does not even

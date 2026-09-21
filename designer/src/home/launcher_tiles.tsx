@@ -11,14 +11,10 @@
  * and help lines, which is all the backdrop may show.
  */
 import type { JSX } from 'react';
+import { svgUrl } from '@ziroeda/bitmaps_png';
 
 // KiCad's own dark-theme icons (GPL), vendored under assets/.
-const TILE_ICONS = import.meta.glob('../assets/launcher/*.svg', {
-  query: '?url',
-  import: 'default',
-  eager: true,
-}) as Record<string, string>;
-const tileUrl = (id: string): string | undefined => TILE_ICONS[`../assets/launcher/${id}.svg`];
+const tileUrl = (id: string): string | undefined => svgUrl('launcher', id);
 
 export interface Tile {
   id: string;

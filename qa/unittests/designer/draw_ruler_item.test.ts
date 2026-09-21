@@ -28,7 +28,7 @@ import {
   rulerDimensionStrings,
   rulerLineWidthPx,
   type RulerDrawOptions,
-} from '@ziroeda/designer/src/ui/ruler_item.js';
+} from '@ziroeda/common/src/preview_items/ruler_item.js';
 
 interface Call {
   op: string;
@@ -231,7 +231,7 @@ describe('one ruler, three canvases', () => {
     // We had `measure`, `measureTool` and `gerbMeasure` in front of it, and
     // the alias is what let the footprint editor's button drift off the name
     // its own canvas listens for.
-    const bitmaps = read('ui/toolbar_bitmaps.ts');
+    const bitmaps = read('../../common/src/bitmap_store_actions.ts');
     const keys = [...bitmaps.matchAll(/^ {2}(\w+): 'measurement',/gm)].map((m) => m[1]);
     expect(keys).toEqual(['measureTool']);
   });

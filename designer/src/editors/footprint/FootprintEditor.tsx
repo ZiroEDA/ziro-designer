@@ -4,7 +4,11 @@
 import { parse } from '@ziroeda/sexpr';
 import type { Vec2 } from '@ziroeda/kimath';
 import { mmToIU, pcbIuToMM, PCB_IU_PER_MM, SCH_IU_PER_MM } from '@ziroeda/common';
-import { EDIT_GRIDS_LABEL, GRID_LIST_SEPARATOR, gridChoiceLabel } from '../../ui/grid_settings.js';
+import {
+  EDIT_GRIDS_LABEL,
+  GRID_LIST_SEPARATOR,
+  gridChoiceLabel,
+} from '@ziroeda/common/src/settings/grid_settings_ui.js';
 import { footprintGridForTool, footprintGridIU, footprintSnappingEnabled } from './grid.js';
 import { newFootprint } from './new_footprint.js';
 import { fpLineThicknessMM } from './graphics_defaults.js';
@@ -43,23 +47,23 @@ import {
   type PcbTextItem,
 } from '@ziroeda/pcbnew';
 import { FootprintPropertiesDialog, PadPropertiesDialog } from './dialogs.js';
-import { MenuBar, ContextMenu, type Menu } from '../../ui/MenuBar.js';
+import { MenuBar, ContextMenu, type Menu } from '@ziroeda/common/src/tool/action_menu_bar.js';
 import { footprintTreeContextMenu } from './tree_context_menu.js';
-import { Toolbar } from '../../ui/Toolbar.js';
-import { useStatusReadout } from '../../ui/useStatusReadout.js';
+import { Toolbar } from '@ziroeda/common/src/tool/action_toolbar.js';
+import { useStatusReadout } from '@ziroeda/common/src/use_status_readout.js';
 
 /** `BOARD::m_LocalOrigin`; a module constant so its identity is stable. */
 const FP_LOCAL_ORIGIN = { x: 0, y: 0 };
-import { ProgressDialog } from '../../ui/ProgressDialog.js';
-import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
+import { ProgressDialog } from '@ziroeda/common/src/widgets/wx_progress_reporters.js';
+import { formatTitle, useDocumentTitle } from '@ziroeda/common/src/use_document_title.js';
 import { FP_FRAME_NAME, fpFrameTitle } from './frame_title.js';
-import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
+import { useUnsavedGuard } from '@ziroeda/common/src/use_unsaved_guard.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { LibTree } from '../../widgets/lib_tree.js';
 import { LibTreeNode, LibTreeNodeType } from '../../widgets/lib_tree_model.js';
 import { FpTreeSynchronizingAdapter } from './fp_tree_synchronizing_adapter.js';
-import { KiStatusBar } from '../../ui/KiStatusBar.js';
-import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
+import { KiStatusBar } from '@ziroeda/common/src/widgets/kistatusbar.js';
+import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/src/widgets/msgpanel_ui.js';
 import {
   angleSnapModeOf,
   constraintsMsg,
@@ -69,7 +73,7 @@ import {
   unitsMsg,
   zoomFactorForScale,
   zoomMsg,
-} from '../../ui/status_format.js';
+} from '@ziroeda/common/src/widgets/kistatusbar_format.js';
 import { FP_DEFAULT_TOOLBARS, footprintToolMsg } from './footprintToolbars.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
@@ -110,11 +114,11 @@ import {
 } from '../../widgets/panel_selection_filter.js';
 import { GetLayerName } from '@ziroeda/pcbnew/layer_ids.js';
 import { DEFAULT_DRAW_OPTIONS, type PcbDrawOptions } from '../pcb/renderBoard.js';
-import '../../ui/shell.css';
+import '@ziroeda/common/src/widgets/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import type { PrefsPageId } from '../../dialogs/prefs/types.js';
-import { Combo } from '../../ui/Combo.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
 import {
   useCommonSettings,
   useFpEditSettings,
@@ -126,13 +130,16 @@ import { settings } from '../../prefs/settings.js';
 import { hiContrastFactorFor } from '@ziroeda/common/src/render_settings.js';
 import { footprintEditorMenus } from './menubar.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
-import { ABOUT_TITLES } from '../../ui/about_titles.js';
-import { useModalEscape } from '../../ui/useModalEscape.js';
-import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
-import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
+import { ABOUT_TITLES } from '@ziroeda/common/src/eda_base_frame_about_titles.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import {
+  dispatchMenuHotkey,
+  focusBlocksHotkey,
+} from '@ziroeda/common/src/tool/action_menu_hotkeys.js';
+import { wasBrowserSuppressed, type FocusLike } from '@ziroeda/common/src/browser_hotkeys.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { kicadFootprintLibWildcard } from '../../fs/wildcards.js';
-import { CONFIRM_REVERT_EXTENDED, confirmRevertMessage } from '../../ui/confirm.js';
+import { CONFIRM_REVERT_EXTENDED, confirmRevertMessage } from '@ziroeda/common/src/confirm.js';
 import { HomeLink } from '../../ui/HomeLink.js';
 
 /**

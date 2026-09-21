@@ -16,7 +16,10 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { GERBVIEW_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 import { OVERRIDE_ROWS } from '@ziroeda/designer/src/dialogs/prefs/grid_settings_rows.js';
-import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST } from '@ziroeda/designer/src/ui/grid_settings.js';
+import {
+  DEFAULT_GRID_INDEX,
+  GRID_SIZE_LIST,
+} from '@ziroeda/common/src/settings/grid_settings_ui.js';
 import { gerbIUScale, GERB_IU_PER_MM } from '@ziroeda/common';
 
 const read = (rel: string): string =>

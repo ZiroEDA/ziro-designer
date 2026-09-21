@@ -138,7 +138,9 @@ describe('a failed check is reported, not swallowed', () => {
     // UNIT_BINDER::delayedFocusHandler calls DisplayErrorMessage, which is one
     // shared KICAD_MESSAGE_DIALOG (common/confirm.cpp) — so ours is the shared
     // ui/ dialog, not a box hand-rolled in this panel.
-    expect(PANEL).toContain("import { MessageDialogError } from '../../ui/dialog_message.js'");
+    expect(PANEL).toContain(
+      "import { MessageDialogError } from '@ziroeda/common/src/dialogs/dialog_message.js'",
+    );
     expect(PANEL).toContain(
       '{error && <MessageDialogError message={error} onClose={() => setError(null)} />}',
     );
@@ -349,7 +351,7 @@ describe('DSP-21 — the panel takes its metrics from the theme', () => {
     // The standing rule (per-launcher tokenisation): a measured chrome metric
     // goes in the :root token layer, and the editor's own CSS consumes it by
     // name. Adding a ninth hardcoded font size is the defect this pins.
-    const CSS = read('../../../designer/src/ui/shell.css');
+    const CSS = read('../../../common/src/widgets/shell.css');
     const start = CSS.indexOf('---- Drawing Sheet Editor properties panel');
     const end = CSS.indexOf("---- UNIT_BINDER's unit static text", start);
     expect(start, 'the drawing sheet CSS block moved').toBeGreaterThan(-1);
@@ -367,7 +369,7 @@ describe('DSP-21 — the panel takes its metrics from the theme', () => {
   it('marks the selected tab in the desktop accent, not in a blue of our own', () => {
     // [px] sampled off ziro-dsp/shots/k_tab.png: rgb(238, 84, 31), which is
     // --chrome-active (#e95420). This block carries no hex colour of its own.
-    const CSS = read('../../../designer/src/ui/shell.css');
+    const CSS = read('../../../common/src/widgets/shell.css');
     const start = CSS.indexOf('---- Drawing Sheet Editor properties panel');
     const end = CSS.indexOf("---- UNIT_BINDER's unit static text", start);
     const block = CSS.slice(start, end);
@@ -382,7 +384,7 @@ describe('DSP-21 — the panel takes its metrics from the theme', () => {
   it('lets a distance field fill its column instead of pinning 62 px', () => {
     // Every wxTextCtrl in properties_frame_base.cpp is added wxEXPAND into a
     // sizer with a growable value column (AddGrowableCol( 1 )).
-    const FIELD = read('../../../designer/src/ui/UnitField.tsx');
+    const FIELD = read('../../../common/src/widgets/unit_binder_ui.tsx');
     expect(FIELD).not.toContain('width = 62');
     expect(FIELD).toContain("flex: '1 1 auto'");
   });
@@ -402,7 +404,7 @@ describe('DSP-23 — the pane has its AUI caption', () => {
   it('uses the shared caption, not a private one', () => {
     // .ze-panel-header is WX_AUI_DOCK_ART's caption measured off a real pane;
     // the PCB, schematic and symbol editors all already draw theirs with it.
-    const SHELL = read('../../../designer/src/ui/shell.css');
+    const SHELL = read('../../../common/src/widgets/shell.css');
     expect(SHELL).toContain('.ze-panel-header {');
     expect(PANEL).not.toMatch(/ze-ds-(pane)?caption/);
   });

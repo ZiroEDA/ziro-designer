@@ -25,13 +25,13 @@
  * A `.ts`, not part of `FootprintEditor.tsx`, so a test can read the rows.
  */
 
-import type { MenuItem } from '../../ui/menu_types.js';
+import type { MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
 import {
   type ConditionalEntry,
   evaluateConditionalMenu,
   menuEntry,
   menuSeparator,
-} from '../../ui/conditional_menu.js';
+} from '@ziroeda/common/src/tool/conditional_menu.js';
 
 /**
  * What the tree selection is, which is all four of `Init`'s conditions

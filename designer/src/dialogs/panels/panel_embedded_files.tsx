@@ -10,7 +10,7 @@
  */
 
 import { useRef, useState, type JSX } from 'react';
-import { Icon } from '../../ui/icons.js';
+import { Icon } from '@ziroeda/common/src/widgets/icons.js';
 import type {
   EmbeddedFile,
   EmbeddedFilesData,

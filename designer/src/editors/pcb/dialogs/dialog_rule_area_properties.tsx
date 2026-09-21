@@ -40,10 +40,10 @@ import {
   type RuleAreaValues,
 } from '@ziroeda/pcbnew/rule_area_properties.js';
 import type { PlacementSourceType } from '@ziroeda/pcbnew/types.js';
-import { Combo } from '../../../ui/Combo.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
-import type { StatusUnits } from '../../../ui/status_format.js';
+import type { StatusUnits } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
 
 interface Props {
   /** The frame's display units: the hatch pitch is a `UNIT_BINDER` upstream. */

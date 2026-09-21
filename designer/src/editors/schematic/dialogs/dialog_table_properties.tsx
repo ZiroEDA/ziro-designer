@@ -22,8 +22,8 @@ import {
   separatorControlsEnabled,
   type SchTableValues,
 } from '@ziroeda/eeschema/src/tools/sch_table_properties.js';
-import { ColorSwatch } from '../../../ui/ColorSwatch.js';
-import { DialogTableProperties as SharedTableDialog } from '../../../ui/DialogTableProperties.js';
+import { ColorSwatch } from '@ziroeda/common/src/widgets/color_swatch.js';
+import { DialogTableProperties as SharedTableDialog } from '@ziroeda/common/src/dialogs/dialog_table_properties.js';
 // A TableColor is the same [r, g, b, a] tuple an ItemColor is, so it takes
 // the same conversion rather than a second copy of it.
 import { color4dToItemColor, itemColorToColor4d } from './item_color.js';

@@ -26,9 +26,9 @@ import { shapePointsUsed } from '@ziroeda/pcbnew/graphic_properties.js';
 import type { PcbShape } from '@ziroeda/pcbnew/types.js';
 import { LINE_STYLE_NAMES, lineStyleComboValue } from '@ziroeda/common/src/stroke_params.js';
 import { UI_FILL_MODE_CHOICES } from '@ziroeda/pcbnew/shape_fill.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
-import type { StatusUnits } from '../../../ui/status_format.js';
+import type { StatusUnits } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
 
 /** A millimetre text box bound to an IU value. */
 function useMmText(): [Record<string, string>, (k: string, s: string) => void] {

@@ -27,7 +27,7 @@ import type { JSX } from 'react';
 // Yaru's own `dialog-warning.png`, vendored — `wxArtProvider::GetBitmap` asks
 // the desktop icon theme, not KiCad's bitmaps. See `ui/ReadOnlyNotice.tsx` for
 // the measurement that settled that.
-import warningIcon from '../../../../assets/theme/dialog-warning.png';
+import warningIcon from '@ziroeda/bitmaps_png/sources/theme/dialog-warning.png';
 import { Check, Group, Num } from '../../../../dialogs/prefs/widgets.js';
 import type { MaskPaste } from '../../board_settings.js';
 

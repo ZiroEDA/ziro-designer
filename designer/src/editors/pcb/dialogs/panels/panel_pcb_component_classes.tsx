@@ -18,8 +18,8 @@
  */
 
 import type { JSX } from 'react';
-import { Combo } from '../../../../ui/Combo.js';
-import { Icon } from '../../../../ui/icons.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
+import { Icon } from '@ziroeda/common/src/widgets/icons.js';
 import type {
   ClassCondition,
   ComponentClassAssignment,

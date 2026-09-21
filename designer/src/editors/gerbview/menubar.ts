@@ -43,10 +43,13 @@
  * `AddStandardHelpMenu` and `AddMenuLanguageList`.
  */
 
-import type { Menu, MenuItem } from '../../ui/menu_types.js';
-import { addQuitOrClose } from '../../ui/action_menu.js';
-import { standardHelpMenu, type HelpMenuHandlers } from '../../ui/help_menu.js';
-import { setLanguageMenuItem } from '../../ui/language_menu.js';
+import type { Menu, MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
+import { addQuitOrClose } from '@ziroeda/common/src/tool/action_menu.js';
+import {
+  standardHelpMenu,
+  type HelpMenuHandlers,
+} from '@ziroeda/common/src/eda_base_frame_help_menu.js';
+import { setLanguageMenuItem } from '@ziroeda/common/src/eda_base_frame_language_menu.js';
 
 const SEP: MenuItem = { sep: true };
 

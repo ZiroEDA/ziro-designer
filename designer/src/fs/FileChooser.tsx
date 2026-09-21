@@ -31,16 +31,16 @@
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TreeIcon } from '../home/project_tree_pane.js';
 import { treeIconFor } from '../home/project_tree.js';
-import { ContextMenu } from '../ui/MenuBar.js';
-import type { MenuItem } from '../ui/menu_types.js';
-import { useModalEscape } from '../ui/useModalEscape.js';
+import { ContextMenu } from '@ziroeda/common/src/tool/action_menu_bar.js';
+import type { MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
 import '../ui/file_chooser.css';
 import { fileExtension, fileTypeLabel } from './file_types.js';
 import type { ChooserFilter, ChooserPlace } from './chooser_types.js';
 import type { Entry, FileSystem } from './filesystem.js';
 import { formatModified, formatSize } from './format.js';
 import { ROOT, ancestors, basename, isValidName, join } from './path.js';
-import { MessageDialogYesNo } from '../ui/dialog_message.js';
+import { MessageDialogYesNo } from '@ziroeda/common/src/dialogs/dialog_message.js';
 import { extendSelection, selectionToAccept } from './chooser_selection.js';
 
 // ChooserFilter and ChooserPlace live in chooser_types.ts so the data modules

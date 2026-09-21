@@ -27,13 +27,8 @@
  * hotspot is always the 32x32 one, whichever file the browser picks. [data]
  */
 
+import { bitmapUrl as kicadBitmapUrl } from '@ziroeda/bitmaps_png';
 import { settings } from '../prefs/settings.js';
-
-const URLS = import.meta.glob('../assets/cursors/*.png', {
-  query: '?url',
-  import: 'default',
-  eager: true,
-}) as Record<string, string>;
 
 /**
  * `wxCURSOR_ARROW` in CSS — the platform's plain arrow.
@@ -180,7 +175,7 @@ export const KICURSOR_NAMES: readonly KiCursor[] = [
 function stockCursor(name: KiCursor): string | null {
   if (name === 'ARROW') return STOCK_CURSOR;
   if (name === 'BULLSEYE') {
-    const png = URLS['../assets/cursors/stock-target.png'];
+    const png = kicadBitmapUrl('cursors', 'stock-target.png');
     // The keyword behind it is the arrow for the reason STOCK_CURSOR gives:
     // a stock cursor that fails to load has no upstream counterpart, and a
     // crosshair here would be our invention. It is what this port showed for
@@ -271,8 +266,8 @@ export function kiCursor(name: KiCursor): string {
   // Everything past the two `GetStockCursor` calls is `storeGetBundle`, which
   // is only ever reached for a KICURSOR that HAS a `cursors_defs` entry.
   const spec: CursorSpec = STORE[name as keyof typeof STORE];
-  const one = URLS[`../assets/cursors/${spec.file}.png`];
-  const two = URLS[`../assets/cursors/${spec.file}64.png`];
+  const one = kicadBitmapUrl('cursors', `${spec.file}.png`);
+  const two = kicadBitmapUrl('cursors', `${spec.file}64.png`);
   if (!one) return STOCK_CURSOR;
   const hot = `${spec.x} ${spec.y}`;
   // `cursor` takes a LIST, and the browser uses the first candidate it can

@@ -56,8 +56,8 @@ import {
   type SymbolMenuConditions,
   type SymbolMenuHandlers,
 } from '@ziroeda/designer/src/editors/symbol/menubar.js';
-import type { Menu, MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
-import type { ToolEntry } from '@ziroeda/designer/src/ui/toolbar_types.js';
+import type { Menu, MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
+import type { ToolEntry } from '@ziroeda/common/src/tool/action_toolbar_types.js';
 
 // ---------------------------------------------------------------------------
 // 1. The table's membership

@@ -23,8 +23,8 @@
 
 import type { JSX } from 'react';
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { Combo } from '../../../../ui/Combo.js';
-import { parseUnitValueDouble, stringFromValue } from '../../../../ui/unit_binder.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
+import { parseUnitValueDouble, stringFromValue } from '@ziroeda/common/src/widgets/unit_binder.js';
 import type { DimensionDefaults, TextGfxDefaults, TextGfxRow } from '../../board_settings.js';
 
 // The data model lives in board_settings.ts (KiCad's data/UI split);

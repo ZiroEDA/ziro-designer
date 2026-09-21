@@ -34,8 +34,8 @@
  * Hotkey List spelling ("PgUp"), not the menu-accelerator one ("Page Up"), and
  * that distinction already has exactly one home.
  */
-import { hotkeyListKey } from '../../ui/key_names.js';
-import { NAMED_KEYS } from '../../ui/menu_hotkeys.js';
+import { hotkeyListKey } from '@ziroeda/common/src/tool/action_menu_key_names.js';
+import { NAMED_KEYS } from '@ziroeda/common/src/tool/action_menu_hotkeys.js';
 
 /**
  * The copper layers that carry a `DefaultHotkey`, written the way every other

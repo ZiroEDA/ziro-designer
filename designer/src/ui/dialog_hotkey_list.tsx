@@ -31,10 +31,13 @@
 import { useEffect, useState, type JSX } from 'react';
 import { PanelHotkeysEditor } from '../dialogs/prefs/panels/PanelHotkeysEditor.js';
 import { buildHotkeySections, type HotkeyOverrides } from './hotkeys_inventory.js';
-import { claimBrowserHotkeys, lockReservedKeysWhileFullscreen } from './browser_hotkeys.js';
+import {
+  claimBrowserHotkeys,
+  lockReservedKeysWhileFullscreen,
+} from '@ziroeda/common/src/browser_hotkeys.js';
 import { onShowHotkeyList } from './hotkey_list_action.js';
 import { settings } from '../prefs/settings.js';
-import { useModalEscape } from './useModalEscape.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
 
 /**
  * The host for ACTIONS::listHotKeys. One of these is mounted above the app, so

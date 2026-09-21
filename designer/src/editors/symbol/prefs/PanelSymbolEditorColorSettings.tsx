@@ -48,8 +48,8 @@
  * `GetSettingsDropdownName` and adds "(read-only)".
  */
 import { useEffect, useRef, useState, type JSX } from 'react';
-import { measureTextWidth } from '../../../ui/text_ctrl_width.js';
-import { Combo } from '../../../ui/Combo.js';
+import { measureTextWidth } from '@ziroeda/common/src/widgets/text_ctrl_width.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
 import { colorThemeOptions } from '../../../dialogs/prefs/ColorThemeChoice.js';
 import { usePcmVersion } from '../../../pcm/pcmStore.js';
 import { colorSettingsList } from '../../../prefs/color_settings_list.js';

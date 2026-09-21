@@ -61,10 +61,17 @@ import {
   wheelAction,
   zoomFitView,
 } from '../../ui/view_controls.js';
-import { clampViewScale } from '../../ui/zoom_settings.js';
-import { drawCrosshair, drawGrid, gridSnappingEnabled } from '../../ui/grid_cursor.js';
-import { scaleForZoomFactor, zoomFactorForScale } from '../../ui/status_format.js';
-import { ZOOM_LIST, nextZoomPreset } from '../../ui/zoom_settings.js';
+import { clampViewScale } from '@ziroeda/common/src/settings/zoom_settings.js';
+import {
+  drawCrosshair,
+  drawGrid,
+  gridSnappingEnabled,
+} from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
+import {
+  scaleForZoomFactor,
+  zoomFactorForScale,
+} from '@ziroeda/common/src/widgets/kistatusbar_format.js';
+import { ZOOM_LIST, nextZoomPreset } from '@ziroeda/common/src/settings/zoom_settings.js';
 import { drawingSheetToolCursor } from './cursors.js';
 import {
   DELETE_THRESHOLD_PX,

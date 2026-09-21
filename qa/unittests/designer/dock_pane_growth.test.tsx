@@ -55,7 +55,7 @@ const src = (rel: string): string => readFileSync(resolve(process.cwd(), '..', r
 
 beforeAll(() => {
   const style = document.createElement('style');
-  style.textContent = src('designer/src/ui/shell.css');
+  style.textContent = src('common/src/widgets/shell.css');
   document.head.appendChild(style);
 });
 

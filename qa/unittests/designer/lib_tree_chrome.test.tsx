@@ -43,7 +43,7 @@ import { makeItemNode } from '@ziroeda/designer/src/widgets/lib_tree_model.js';
 
 afterEach(cleanup);
 
-const SHELL = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+const SHELL = readFileSync(resolve(process.cwd(), '../common/src/widgets/shell.css'), 'utf8');
 
 /** One rule's body, by its exact selector text — per rule, never per file. */
 function rule(selector: string): string {

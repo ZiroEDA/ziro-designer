@@ -31,7 +31,7 @@ const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
 
 const DIALOG = read('editors/pcb/dialogs/dialog_text_properties.tsx');
-const CSS = read('ui/shell.css');
+const CSS = read('../../common/src/widgets/shell.css');
 const EDITOR = read('editors/pcb/PcbEditor.tsx');
 /**
  * The dialog with every comment stripped.

@@ -16,7 +16,7 @@
 
 import { useState, type JSX } from 'react';
 import { DEFAULT_PIN_MAP, DEFAULT_SEVERITIES, type ErcSettings } from '@ziroeda/eeschema';
-import { PagedDialog, type PagedDialogSection } from '../../../ui/PagedDialog.js';
+import { PagedDialog, type PagedDialogSection } from '@ziroeda/common/src/widgets/paged_dialog.js';
 import {
   defaultAnnotation,
   defaultBomPresets,

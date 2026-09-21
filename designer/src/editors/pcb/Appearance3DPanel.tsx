@@ -38,8 +38,8 @@ import type { Color4d } from '@ziroeda/common/src/color4d.js';
 import type { Board } from '@ziroeda/pcbnew';
 import { GetLayerName } from '@ziroeda/pcbnew/layer_ids.js';
 import { Check } from '../../dialogs/prefs/widgets.js';
-import { ColorSwatch } from '../../ui/ColorSwatch.js';
-import { Combo } from '../../ui/Combo.js';
+import { ColorSwatch } from '@ziroeda/common/src/widgets/color_swatch.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
 import { EyeIcon } from '../../widgets/appearance_controls.js';
 import {
   APPEARANCE_ROWS_3D,

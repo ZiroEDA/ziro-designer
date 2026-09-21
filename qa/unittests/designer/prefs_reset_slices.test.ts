@@ -60,7 +60,7 @@ import { TOOLBAR_APPS, type ToolbarApp } from '@ziroeda/designer/src/prefs/setti
 import {
   TOOLBAR_SETTINGS_DEFAULTS,
   type ToolbarSettings,
-} from '@ziroeda/designer/src/ui/toolbar_config.js';
+} from '@ziroeda/common/src/tool/ui/toolbar_configuration.js';
 import {
   resetCommonPanel,
   resetMaintenancePanel,

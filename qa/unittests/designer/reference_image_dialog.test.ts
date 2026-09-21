@@ -21,7 +21,7 @@ const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
 
 const DIALOG = read('editors/pcb/dialogs/dialog_reference_image_properties.tsx');
-const CSS = read('ui/shell.css');
+const CSS = read('../../common/src/widgets/shell.css');
 const EDITOR = read('editors/pcb/PcbEditor.tsx');
 const CURSORS = read('editors/pcb/cursors.ts');
 /** Comments are prose, and this file's name the controls it does NOT have. */

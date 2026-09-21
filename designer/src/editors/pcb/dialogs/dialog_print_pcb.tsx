@@ -39,7 +39,7 @@ import type { Board } from '@ziroeda/pcbnew';
 import { buildScene, drawBoard, type PcbDrawOptions } from '../renderBoard.js';
 import { PCB_BW_PRINT_THEME, PCB_THEMES, themeByFilename } from '../pcbTheme.js';
 import { settings } from '../../../prefs/settings.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 const DPI = 300;

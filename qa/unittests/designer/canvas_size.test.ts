@@ -28,7 +28,7 @@ import {
   backingSizeFor,
   isMeasured,
   type CanvasBackingSize,
-} from '@ziroeda/designer/src/ui/canvas_size.js';
+} from '@ziroeda/common/src/widgets/canvas_size.js';
 
 /** Does this size force the browser to rescale the bitmap when it paints? */
 const resamples = (s: CanvasBackingSize, dpr: number): boolean =>

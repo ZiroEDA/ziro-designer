@@ -16,24 +16,24 @@ import {
   type SchField,
 } from '@ziroeda/eeschema';
 import * as sexpr from '@ziroeda/sexpr';
-import { MenuBar, type Menu } from '../../ui/MenuBar.js';
-import { Toolbar } from '../../ui/Toolbar.js';
-import { useStatusReadout } from '../../ui/useStatusReadout.js';
-import { useKiDialog } from '../../ui/kidialog.js';
-import { DO_NOT_SHOW_KEYS } from '../../ui/do_not_show_again.js';
+import { MenuBar, type Menu } from '@ziroeda/common/src/tool/action_menu_bar.js';
+import { Toolbar } from '@ziroeda/common/src/tool/action_toolbar.js';
+import { useStatusReadout } from '@ziroeda/common/src/use_status_readout.js';
+import { useKiDialog } from '@ziroeda/common/src/kidialog.js';
+import { DO_NOT_SHOW_KEYS } from '@ziroeda/common/src/kidialog_do_not_show.js';
 
 /** `SCH_SCREEN::m_LocalOrigin`; a module constant so its identity is stable. */
 const SYM_LOCAL_ORIGIN = { x: 0, y: 0 };
-import { ProgressDialog } from '../../ui/ProgressDialog.js';
-import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
-import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
+import { ProgressDialog } from '@ziroeda/common/src/widgets/wx_progress_reporters.js';
+import { formatTitle, useDocumentTitle } from '@ziroeda/common/src/use_document_title.js';
+import { useUnsavedGuard } from '@ziroeda/common/src/use_unsaved_guard.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 // The ONE tree widget, as `SYMBOL_TREE_PANE` mounts the ONE `LIB_TREE`.
 import { LibTree } from '../../widgets/lib_tree.js';
 import { LibTreeNode, LibTreeNodeType } from '../../widgets/lib_tree_model.js';
 import { SymbolTreeSynchronizingAdapter } from './symbol_tree_synchronizing_adapter.js';
-import { KiStatusBar } from '../../ui/KiStatusBar.js';
-import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
+import { KiStatusBar } from '@ziroeda/common/src/widgets/kistatusbar.js';
+import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/src/widgets/msgpanel_ui.js';
 import {
   gridMsg,
   messageTextFromValue,
@@ -41,7 +41,7 @@ import {
   unitsMsg,
   zoomFactorForScale,
   zoomMsg,
-} from '../../ui/status_format.js';
+} from '@ziroeda/common/src/widgets/kistatusbar_format.js';
 import {
   LISTBOX_WIDTH,
   SYM_CONTROL,
@@ -93,7 +93,7 @@ import {
   fastGridActionForKey,
   fastGridIndex,
   type FastGridAction,
-} from '../../ui/grid_settings.js';
+} from '@ziroeda/common/src/settings/grid_settings_ui.js';
 import { settings } from '../../prefs/settings.js';
 import type { SymbolHit } from './edits.js';
 import {
@@ -108,8 +108,8 @@ import {
   type PinDialogResult,
 } from './components/dialogs.js';
 import { DialogImportGfx } from '../schematic/dialogs/dialog_import_gfx.js';
-import { MessageDialogOk } from '../../ui/dialog_message.js';
-import '../../ui/shell.css';
+import { MessageDialogOk } from '@ziroeda/common/src/dialogs/dialog_message.js';
+import '@ziroeda/common/src/widgets/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import type { PrefsPageId } from '../../dialogs/prefs/types.js';
@@ -125,10 +125,13 @@ import {
 } from '@ziroeda/eeschema/src/tools/sch_find_replace_tool.js';
 import { type SymbolConditions, symbolConditions, symbolToolbarDisabledIds } from './conditions.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
-import { ABOUT_TITLES } from '../../ui/about_titles.js';
-import { useModalEscape } from '../../ui/useModalEscape.js';
-import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
-import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
+import { ABOUT_TITLES } from '@ziroeda/common/src/eda_base_frame_about_titles.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import {
+  dispatchMenuHotkey,
+  focusBlocksHotkey,
+} from '@ziroeda/common/src/tool/action_menu_hotkeys.js';
+import { wasBrowserSuppressed, type FocusLike } from '@ziroeda/common/src/browser_hotkeys.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { kicadSymbolLibWildcard } from '../../fs/wildcards.js';
 import {

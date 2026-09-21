@@ -18,9 +18,13 @@
  * `.ts` can be called directly, so it is one here.
  */
 
-import { defaultUnitsToggle } from '../../ui/app_settings_units.js';
+import { defaultUnitsToggle } from '@ziroeda/common/src/settings/app_settings_units.js';
 import type { GerbviewSettings } from '../../prefs/settings.js';
-import { switchUnits, toggleIdUnits, unitsToggleId } from '../../ui/app_settings_units.js';
+import {
+  switchUnits,
+  toggleIdUnits,
+  unitsToggleId,
+} from '@ziroeda/common/src/settings/app_settings_units.js';
 
 /** `EDA_DRAW_FRAME`'s unit choice — one of three, never none and never two. */
 export const UNIT_GROUP = ['unitsMm', 'unitsInches', 'unitsMils'];

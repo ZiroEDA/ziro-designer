@@ -63,7 +63,7 @@ import {
   DS_RIGHT_TOOLBAR,
 } from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
 import { VIEWER3D_TOP_TOOLBAR } from '@ziroeda/designer/src/editors/pcb/viewer3dToolbars.js';
-import type { ToolButton, ToolEntry } from '@ziroeda/designer/src/ui/toolbar_types.js';
+import type { ToolButton, ToolEntry } from '@ziroeda/common/src/tool/action_toolbar_types.js';
 
 const buttons = (entries: readonly ToolEntry[]): ToolButton[] =>
   entries.flatMap((e) =>

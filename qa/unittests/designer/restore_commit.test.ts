@@ -39,7 +39,7 @@ import {
   restoreConfirmMessage,
   restoredFromTitle,
 } from '@ziroeda/designer/src/home/local_history.js';
-import { yesNoButtons } from '@ziroeda/designer/src/ui/message_dialog.js';
+import { yesNoButtons } from '@ziroeda/common/src/confirm_types.js';
 import {
   deleteProject,
   loadProject,

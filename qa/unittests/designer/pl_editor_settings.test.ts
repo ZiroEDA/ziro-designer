@@ -37,7 +37,7 @@ import {
   DEFAULT_TOGGLES,
   togglesFromSettings,
 } from '@ziroeda/designer/src/editors/drawingsheet/toggles.js';
-import { toggleIdUnits, unitsToggleId } from '@ziroeda/designer/src/ui/app_settings_units.js';
+import { toggleIdUnits, unitsToggleId } from '@ziroeda/common/src/settings/app_settings_units.js';
 import {
   previewSettingsFromConfig,
   writePageToConfig,

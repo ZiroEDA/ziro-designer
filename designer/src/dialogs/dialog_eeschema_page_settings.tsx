@@ -42,7 +42,7 @@ import {
   type PageExportFlags,
   type PageSettingsValue,
 } from './page_settings_model.js';
-import type { EdaUnits } from '../ui/unit_binder.js';
+import type { EdaUnits } from '@ziroeda/common/src/widgets/unit_binder.js';
 import type { WksSheet } from '@ziroeda/common';
 
 export interface DialogEeschemaPageSettingsProps {

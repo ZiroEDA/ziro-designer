@@ -63,11 +63,15 @@ import {
 } from '@ziroeda/pcbnew/image_properties.js';
 import { pngPPI } from '@ziroeda/common/src/png_meta.js';
 import type { PcbImage } from '@ziroeda/pcbnew/types.js';
-import { Combo } from '../../../ui/Combo.js';
-import { StdDialogButtons } from '../../../ui/StdDialogButtons.js';
-import { parseUnitValue, stringFromValue, unitLabel } from '../../../ui/unit_binder.js';
-import type { StatusUnits } from '../../../ui/status_format.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
+import { StdDialogButtons } from '@ziroeda/common/src/dialog_shim_buttons.js';
+import {
+  parseUnitValue,
+  stringFromValue,
+  unitLabel,
+} from '@ziroeda/common/src/widgets/unit_binder.js';
+import type { StatusUnits } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
 
 interface Props {
   image: PcbImage;

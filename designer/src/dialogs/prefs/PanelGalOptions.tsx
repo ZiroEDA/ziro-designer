@@ -38,7 +38,7 @@ import {
   ALWAYS_SHOW_CROSSHAIRS_LABEL,
   CROSSHAIR_MODE_CHOICES,
   type CrosshairMode,
-} from '../../ui/grid_cursor.js';
+} from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
 
 /**
  * `GRID_SETTINGS`' appearance half — what `PANEL_GAL_OPTIONS::

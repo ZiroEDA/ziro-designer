@@ -10,6 +10,7 @@
       "**",
       "!designer/public",
       "!designer/src/assets",
+      "!bitmaps_png/sources",
       "!qa/data",
       "!**/dist",
       "!common/src/font/newstroke_glyphs.ts",
@@ -57,5 +58,17 @@
       },
       "a11y": "off"
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["common/src/gal/opengl/**"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "useHookAtTopLevel": "off"
+          }
+        }
+      }
+    }
+  ]
 }

@@ -19,7 +19,7 @@ import {
   frameTitleName,
   READ_ONLY_SUFFIX,
   UNSAVED_SUFFIX,
-} from '@ziroeda/designer/src/ui/useDocumentTitle.js';
+} from '@ziroeda/common/src/use_document_title.js';
 import { gerbviewFrameTitle } from '@ziroeda/designer/src/editors/gerbview/gerberAuxControls.js';
 import type { GERBER_FILE_IMAGE } from '@ziroeda/gerbview';
 

@@ -26,7 +26,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { useState, type JSX } from 'react';
 import { act, cleanup, render } from '@testing-library/react';
-import { usePagedDialogSize } from '@ziroeda/designer/src/ui/paged_dialog_size.js';
+import { usePagedDialogSize } from '@ziroeda/common/src/widgets/paged_dialog_size.js';
 
 /** What each page would "need" if anything were measuring. */
 const PAGE_SIZE: Record<string, { w: number; h: number }> = {

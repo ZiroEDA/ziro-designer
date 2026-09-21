@@ -35,9 +35,9 @@
  * size of anything. So Detect is the best guess and the ruler is the answer.
  */
 import { useEffect, useId, useRef, useState, type JSX } from 'react';
-import { Combo } from '../ui/Combo.js';
-import { SpinCtrl } from '../ui/SpinCtrl.js';
-import { GAL_SCREEN_DPI } from '../ui/status_format.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
+import { SpinCtrl } from '@ziroeda/common/src/widgets/spin_ctrl.js';
+import { GAL_SCREEN_DPI } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
 
 /**
  * `ADVANCED_CFG::m_ScreenDPI`, whose default is 91

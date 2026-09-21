@@ -51,7 +51,9 @@ describe('the Properties palette has wxAUI’s sash', () => {
     // Every `.Palette()` pane upstream gets one for free, which is why no frame
     // writes one and why this one was missed: the pane was a fixed 150px.
     expect(EDITOR).toContain('<DockSash');
-    expect(EDITOR).toContain("import { DockSash } from '../../ui/DockSash.js';");
+    expect(EDITOR).toContain(
+      "import { DockSash } from '@ziroeda/common/src/widgets/wx_aui_sash.js';",
+    );
   });
 
   it('puts it on the pane’s LEFT edge, between the toolbar and the palette', () => {

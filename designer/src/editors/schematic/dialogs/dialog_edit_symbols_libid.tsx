@@ -14,7 +14,7 @@
  */
 import { useMemo, useState, type JSX } from 'react';
 import { isValidLibId, type LibIdRow } from '@ziroeda/eeschema';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
 
 interface Props {
   rows: readonly LibIdRow[];

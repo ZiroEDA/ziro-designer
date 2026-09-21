@@ -1,0 +1,110 @@
+# designer/src/ui/<file>	common/src/<dest>	KiCad counterpart (or "ours: <why>")
+ColorSwatch.tsx	widgets/color_swatch.tsx	common/widgets/color_swatch.cpp
+Combo.tsx	widgets/wx_combobox.tsx	common/widgets/wx_combobox.cpp (our wxChoice/wxComboBox)
+combo_popup.ts	widgets/wx_combobox_popup.ts	ours: the popup half of wx_combobox
+OwnerDrawnCombo.tsx	widgets/footprint_choice.tsx	common/widgets/footprint_choice.cpp (the owner-drawn combo)
+owner_drawn_combo_popup.ts	widgets/footprint_choice_popup.ts	ours: the popup half of footprint_choice
+GridUnitCell.tsx	widgets/wx_grid.tsx	common/widgets/wx_grid.cpp (the unit cell editor)
+KiStatusBar.tsx	widgets/kistatusbar.tsx	common/widgets/kistatusbar.cpp
+StatusField.tsx	widgets/kistatusbar_field.tsx	ours: one field of kistatusbar
+status_format.ts	widgets/kistatusbar_format.ts	ours: MessageTextFromValue for the status bar
+ellipsize.ts	widgets/wx_ellipsized_static_text.ts	common/widgets/wx_ellipsized_static_text.cpp (the algorithm)
+EllipsizedField.tsx	widgets/wx_ellipsized_static_text_ui.tsx	ours: the React drawing of wx_ellipsized_static_text
+MsgPanel.tsx	widgets/msgpanel_ui.tsx	ours: the React drawing of widgets/msgpanel.ts
+msgpanel_types.ts	widgets/msgpanel_types.ts	ours: part of msgpanel
+PagedDialog.tsx	widgets/paged_dialog.tsx	common/widgets/paged_dialog.cpp
+PagedDialogTree.tsx	widgets/paged_dialog_tree.tsx	ours: the tree half of paged_dialog
+paged_dialog_size.ts	widgets/paged_dialog_size.ts	ours: the Fit() half of paged_dialog
+ProgressDialog.tsx	widgets/wx_progress_reporters.tsx	common/widgets/wx_progress_reporters.cpp
+progress_reporter.ts	widgets/progress_reporter_snapshot.ts	ours: the snapshot PROGRESS_REPORTER_BASE publishes for React
+SpinCtrl.tsx	widgets/spin_ctrl.tsx	ours: wxSpinCtrl itself
+Slider.tsx	widgets/slider.tsx	ours: wxSlider itself
+SplitButton.tsx	widgets/split_button.tsx	common/widgets/split_button.cpp
+StdBitmapButton.tsx	widgets/std_bitmap_button.tsx	common/widgets/std_bitmap_button.cpp
+Tooltip.tsx	widgets/tooltip.tsx	ours: wxToolTip itself
+text_ctrl_width.ts	widgets/text_ctrl_width.ts	ours: part of ui_common
+unit_binder.ts	widgets/unit_binder.ts	common/widgets/unit_binder.cpp
+UnitField.tsx	widgets/unit_binder_ui.tsx	ours: the React drawing of unit_binder
+Sash.tsx	widgets/wx_splitter_window.tsx	common/widgets/wx_splitter_window.cpp
+DockSash.tsx	widgets/wx_aui_sash.tsx	ours: the wxAUI dock sash
+dock_sash.ts	widgets/wx_aui_sash_geometry.ts	ours: part of wx_aui_sash
+rc_tree_style.ts	widgets/rc_tree_style.ts	ours: RC_TREE_MODEL::GetAttr as CSS (wx_dataviewctrl)
+overlay_scrollbars.ts	widgets/overlay_scrollbars.ts	ours: GTK3 overlay scrollbars
+canvas_size.ts	widgets/canvas_size.ts	ours: the canvas backing-store size
+shell.css	widgets/shell.css	ours: the GTK theme (Yaru) as CSS tokens
+StdDialogButtons.tsx	dialog_shim_buttons.tsx	ours: DIALOG_SHIM::SetupStandardButtons drawn
+kidialog.tsx	kidialog.tsx	common/kidialog.cpp
+do_not_show_again.ts	kidialog_do_not_show.ts	ours: KIDIALOG's DoNotShowAgain store
+confirm.ts	confirm.ts	common/confirm.cpp
+message_dialog.ts	confirm_types.ts	ours: include/confirm.h's types
+dialog_message.tsx	dialogs/dialog_message.tsx	ours: the wxMessageDialog confirm.cpp shows
+dialog_unsaved_changes.tsx	dialogs/dialog_unsaved_changes.tsx	ours: HandleUnsavedChanges' dialog
+dialog_html_message_box.tsx	dialogs/html_message_box.tsx	common/dialogs/html_message_box.cpp
+dialog_single_choice.tsx	dialogs/dialog_single_choice.tsx	ours: wxGetSingleChoice
+EdaListDialog.tsx	dialogs/eda_list_dialog.tsx	common/dialogs/eda_list_dialog.cpp
+DialogTableProperties.tsx	dialogs/dialog_table_properties.tsx	ours: one dialog for eeschema/dialogs/ and pcbnew/dialogs/ dialog_table_properties.cpp
+dialog_size_hints.ts	dialogs/dialog_size_hints.ts	ours: wxDialog size hints
+modal_escape.ts	dialogs/modal_escape.ts	ours: wxDialog Esc = wxID_CANCEL
+useModalEscape.ts	dialogs/use_modal_escape.ts	ours: React hook for modal_escape
+action_menu.ts	tool/action_menu.ts	common/tool/action_menu.cpp
+conditional_menu.ts	tool/conditional_menu.ts	common/tool/conditional_menu.cpp
+key_names.ts	tool/action_menu_key_names.ts	ours: part of action_menu
+menu_hotkeys.ts	tool/action_menu_hotkeys.ts	ours: part of action_menu
+menu_types.ts	tool/action_menu_types.ts	ours: part of action_menu
+menu_rank.ts	tool/action_menu_rank.ts	ours: part of action_menu
+menu_scroll.ts	tool/action_menu_scroll.ts	ours: part of action_menu
+MenuBar.tsx	tool/action_menu_bar.tsx	ours: wxMenuBar drawn
+useMenuHotkeys.ts	tool/use_menu_hotkeys.ts	ours: React hook for action_menu_hotkeys
+Toolbar.tsx	tool/action_toolbar.tsx	common/tool/action_toolbar.cpp
+toolbar_actions.ts	tool/action_toolbar_actions.ts	ours: part of action_toolbar
+toolbar_controls.ts	tool/action_toolbar_controls.ts	ours: part of action_toolbar
+toolbar_overflow.ts	tool/action_toolbar_overflow.ts	ours: part of action_toolbar
+toolbar_types.ts	tool/action_toolbar_types.ts	ours: part of action_toolbar
+toolbar_action_state.ts	tool/actions_state.ts	ours: part of actions
+toolbar_config.ts	tool/ui/toolbar_configuration.ts	common/tool/ui/toolbar_configuration.cpp
+toolbar_context_menu_registry.ts	tool/ui/toolbar_context_menu_registry.ts	ours: part of toolbar_configuration
+tooltip_text.ts	tool/tool_action_tooltip.ts	ours: part of tool_action
+zoom_tool.ts	tool/zoom_tool.ts	common/tool/zoom_tool.cpp
+arc_assistant.ts	preview_items/arc_assistant.ts	common/preview_items/arc_assistant.cpp
+draw_context.ts	preview_items/draw_context.ts	common/preview_items/draw_context.cpp
+polygon_item.ts	preview_items/polygon_item.ts	common/preview_items/polygon_item.cpp
+preview_utils.ts	preview_items/preview_utils.ts	common/preview_items/preview_utils.cpp
+two_point_assistant.ts	preview_items/two_point_assistant.ts	common/preview_items/two_point_assistant.cpp
+ruler_item.ts	preview_items/ruler_item.ts	common/preview_items/ruler_item.cpp
+grid_cursor.ts	draw_panel_gal_grid_cursor.ts	ours: part of draw_panel_gal
+app_settings_units.ts	settings/app_settings_units.ts	ours: part of app_settings
+grid_settings.ts	settings/grid_settings_ui.ts	ours: the grid choice as the toolbar holds it
+zoom_settings.ts	settings/zoom_settings.ts	include/zoom_defines.h
+file_history.ts	file_history.ts	common/file_history.cpp
+useFileHistory.ts	use_file_history.ts	ours: React hook for file_history
+frame_size.ts	eda_base_frame_size.ts	ours: part of eda_base_frame
+help_menu.ts	eda_base_frame_help_menu.ts	ours: part of eda_base_frame
+language_menu.ts	eda_base_frame_language_menu.ts	ours: part of eda_base_frame
+standard_submenus.ts	eda_draw_frame_submenus.ts	ours: part of eda_draw_frame
+hotkeys_file.ts	hotkeys_basic_file.ts	ours: part of hotkeys_basic
+save_enablement.ts	save_enablement.ts	ours: the frame's save-button state
+useStatusReadout.ts	use_status_readout.ts	ours: React hook for the frame's status bar fields
+useLiveState.ts	use_live_state.ts	ours: useState with an undo stack behind it
+useDismissOnOutside.ts	widgets/use_dismiss_on_outside.ts	ours: popover dismissal
+useUnsavedGuard.ts	use_unsaved_guard.ts	ours: beforeunload for unsaved work
+useDocumentTitle.ts	use_document_title.ts	ours: the frame title
+progress_reporter_base	-	already common/widgets/progress_reporter_base.ts
+# stay in designer until common/settings (they read designer/src/prefs) or eeschema's filter type moves:
+# tool_cursors SelectionFilterPanel selection_filter_panel
+# stay in designer (the app, KiCad's kicad/; or import designer's prefs/home/editors):
+# about_titles AccountButton action_catalogue browser_hotkeys browser_reserved HomeLink hotkey_apps
+# hotkey_list_action hotkeys_inventory StorageBanner SaveIndicator saveIndicator.css ZiroLogo
+# toolbar_bitmaps toolbarIcons icons.tsx ErrorBoundary errorBoundary.css file_chooser.css
+# common_appearance dialog_hotkey_list kicursors TextFormatBar useToolbarEntries view_controls
+# ReadOnlyNotice dialog_control_state useDialogControl
+toolbarIcons.ts	bitmap_store.ts	common/bitmap_store.cpp (name → bitmap, over @ziroeda/bitmaps_png)
+toolbar_bitmaps.ts	bitmap_store_actions.ts	ours: tool id → BITMAPS name (each TOOL_ACTION's .Icon())
+browser_reserved.ts	browser_reserved.ts	ours: the combos the browser keeps
+browser_hotkeys.ts	browser_hotkeys.ts	ours: the browser's own key handling
+DialogColorPicker.tsx	dialogs/dialog_color_picker.tsx	common/dialogs/dialog_color_picker.cpp
+defined_colors.ts	dialogs/dialog_color_picker_colors.ts	ours: the defined-colours table of dialog_color_picker
+color_picker_tab.ts	dialogs/dialog_color_picker_tab.ts	ours: m_ColorPicker.default_tab through a Pgm()-style store the app installs
+about_titles.ts	eda_base_frame_about_titles.ts	ours: EDA_BASE_FRAME::m_aboutTitle per frame
+background_jobs_monitor.ts	background_jobs_monitor.ts	common/background_jobs_monitor.cpp
+BackgroundJobList.tsx	background_jobs_monitor_ui.tsx	ours: BACKGROUND_JOB_LIST drawn
+icons.tsx	widgets/icons.tsx	ours: stand-in glyphs where no KiCad bitmap is vendored

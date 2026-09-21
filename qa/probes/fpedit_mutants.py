@@ -21,7 +21,7 @@ MENUBAR = "designer/src/editors/footprint/menubar.ts"
 APPEAR = "designer/src/widgets/appearance_layers.ts"
 BOARD = "designer/src/editors/footprint/footprintBoard.ts"
 TOOLBARS = "designer/src/editors/footprint/footprintToolbars.ts"
-STATUS = "designer/src/ui/status_format.ts"
+STATUS = "common/src/widgets/kistatusbar_format.ts"
 CTX = "designer/src/editors/footprint/tree_context_menu.ts"
 
 TESTS = [

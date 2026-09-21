@@ -77,12 +77,12 @@ import {
   toolbarEnabledIds,
   type ToolButton,
   type ToolEntry,
-} from '@ziroeda/designer/src/ui/toolbar_types.js';
+} from '@ziroeda/common/src/tool/action_toolbar_types.js';
 import {
   symbolEditorMenus,
   type SymbolMenuHandlers,
 } from '@ziroeda/designer/src/editors/symbol/menubar.js';
-import type { Menu, MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
+import type { Menu, MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
 
 /** A SYMBOL_EDIT_FRAME the moment it opens: no symbol, no library row, empty
  *  undo/redo stacks, the selection tool running. */

@@ -6,5 +6,6 @@ packages:
   - "pcb_calculator"
   - "designer"
   - "libs/*"
+  - "bitmaps_png"
   - "qa"
   - "docs"

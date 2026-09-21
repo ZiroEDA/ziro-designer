@@ -30,7 +30,7 @@ import {
   type AppSettingsName,
   defaultUnits,
   defaultUnitsToggle,
-} from '@ziroeda/designer/src/ui/app_settings_units.js';
+} from '@ziroeda/common/src/settings/app_settings_units.js';
 import { DEFAULT_TOGGLES as SCH_TOGGLES } from '@ziroeda/designer/src/editors/schematic/toggles.js';
 import { DEFAULT_TOGGLES as SYM_TOGGLES } from '@ziroeda/designer/src/editors/symbol/toggles.js';
 import { DEFAULT_TOGGLES as GBR_TOGGLES } from '@ziroeda/designer/src/editors/gerbview/toggles.js';

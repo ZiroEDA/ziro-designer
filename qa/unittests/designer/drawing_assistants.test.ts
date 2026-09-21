@@ -16,16 +16,19 @@ import {
   arcCursorStrings,
   arcMidPoint,
   drawArcAssistant,
-} from '@ziroeda/designer/src/ui/arc_assistant.js';
+} from '@ziroeda/common/src/preview_items/arc_assistant.js';
 import {
   drawTwoPointAssistant,
   twoPointCursorStrings,
-} from '@ziroeda/designer/src/ui/two_point_assistant.js';
-import { angleIsSpecial, specialAngleColour } from '@ziroeda/designer/src/ui/draw_context.js';
+} from '@ziroeda/common/src/preview_items/two_point_assistant.js';
+import {
+  angleIsSpecial,
+  specialAngleColour,
+} from '@ziroeda/common/src/preview_items/draw_context.js';
 import {
   constantLinePitchPx,
   drawTextNextToCursor,
-} from '@ziroeda/designer/src/ui/preview_utils.js';
+} from '@ziroeda/common/src/preview_items/preview_utils.js';
 
 /** pcbnew's internal units per millimetre. */
 const IU = 1e6;

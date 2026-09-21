@@ -64,10 +64,10 @@ import {
 } from 'react';
 import { Check } from './widgets.js';
 import { ColorThemeChoice } from './ColorThemeChoice.js';
-import { ColorSwatch } from '../../ui/ColorSwatch.js';
+import { ColorSwatch } from '@ziroeda/common/src/widgets/color_swatch.js';
 import { ThemeFolderDialog, type FolderFile, type ThemeFile } from './dialog_theme_folder.js';
 import { AddColorThemeDialog } from './dialog_add_color_theme.js';
-import { MessageDialogOk } from '../../ui/dialog_message.js';
+import { MessageDialogOk } from '@ziroeda/common/src/dialogs/dialog_message.js';
 import {
   PICK_CANCELLED,
   pickThemeFolder,

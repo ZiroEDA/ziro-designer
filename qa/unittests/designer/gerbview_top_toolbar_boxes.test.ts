@@ -27,8 +27,8 @@ import { describe, expect, it } from 'vitest';
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const SHELL = read('../../../designer/src/ui/shell.css');
-const COMBO = read('../../../designer/src/ui/Combo.tsx');
+const SHELL = read('../../../common/src/widgets/shell.css');
+const COMBO = read('../../../common/src/widgets/wx_combobox.tsx');
 const VIEWER = read('../../../designer/src/editors/gerbview/GerberViewer.tsx');
 
 /**

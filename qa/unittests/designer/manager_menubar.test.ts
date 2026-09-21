@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { buildManagerMenus } from '@ziroeda/designer/src/home/menubar.js';
-import type { MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
+import type { MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
 
 const noop = (): void => undefined;
 const handlers = {

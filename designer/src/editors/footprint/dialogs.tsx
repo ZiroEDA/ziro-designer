@@ -6,7 +6,7 @@ import type { PadEdit } from '@ziroeda/pcbnew';
 import type { PcbFootprint, PcbPad } from '@ziroeda/pcbnew';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import { footprintStringChild } from '@ziroeda/pcbnew';
-import { useModalEscape } from '../../ui/useModalEscape.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
 
 /**
  * Footprint properties, the working subset of KiCad's

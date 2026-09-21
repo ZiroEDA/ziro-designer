@@ -91,8 +91,8 @@ describe('every cursor we point with', () => {
     });
 
     it(`${name}'s art is vendored at both sizes`, () => {
-      const one = path(`../../../designer/src/assets/cursors/${want.file}.png`);
-      const two = path(`../../../designer/src/assets/cursors/${want.file}64.png`);
+      const one = path(`../../../bitmaps_png/sources/cursors/${want.file}.png`);
+      const two = path(`../../../bitmaps_png/sources/cursors/${want.file}64.png`);
       expect(existsSync(one), `${want.file}.png not vendored`).toBe(true);
       expect(existsSync(two), `${want.file}64.png not vendored`).toBe(true);
       // A PNG, not an SVG someone drew: the first eight bytes are the signature.
@@ -255,7 +255,7 @@ describe('one CURSOR_STORE, like KiCad', () => {
  * moved zero expectations.
  */
 describe('KICURSOR::BULLSEYE is a stock cursor', () => {
-  const TARGET = path('../../../designer/src/assets/cursors/stock-target.png');
+  const TARGET = path('../../../bitmaps_png/sources/cursors/stock-target.png');
 
   afterEach(() => {
     settings.common.appearance.use_custom_cursors = true;

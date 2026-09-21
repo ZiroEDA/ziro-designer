@@ -52,9 +52,9 @@
 import { type JSX, useState } from 'react';
 import { PanelSetupDimensions } from '../../../dialogs/prefs/PanelSetupDimensions.js';
 import { PCB_IU_PER_MM, pcbIUScale } from '@ziroeda/common';
-import { GridUnitCell } from '../../../ui/GridUnitCell.js';
-import { stringFromValue } from '../../../ui/unit_binder.js';
-import { toStatusUnits } from '../../../ui/app_settings_units.js';
+import { GridUnitCell } from '@ziroeda/common/src/widgets/wx_grid.js';
+import { stringFromValue } from '@ziroeda/common/src/widgets/unit_binder.js';
+import { toStatusUnits } from '@ziroeda/common/src/settings/app_settings_units.js';
 import { GRAPHICS_ROWS, checkFpGraphicsRow, type FpGraphicsRowKey } from '../graphics_defaults.js';
 import type { FpGraphicsTextClass } from '../../../prefs/settings.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';

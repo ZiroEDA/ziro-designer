@@ -44,7 +44,7 @@ import type { TemplateMeta } from '../templates.js';
 // SetTemplate's fallback when the template has no meta/icon.png:
 //   bundle = KiBitmapBundleDef( BITMAPS::icon_kicad, c_bitmapSizes[0] );  // 48
 // `default` and STM32H7_DevEBox ship without one, so they wear this.
-import kicadIcon from '../../assets/icon_kicad.png';
+import { kicadIconUrl as kicadIcon } from '@ziroeda/bitmaps_png';
 import { styleTemplatePreview } from './template_preview_styles.js';
 import {
   FILTERS,
@@ -53,7 +53,7 @@ import {
   sortTemplates,
   truncateDescription,
 } from './template_selector.js';
-import { useModalEscape } from '../../ui/useModalEscape.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
 
 export type { TemplateCategory } from './template_selector.js';
 export { applyFilter, sortTemplates, truncateDescription } from './template_selector.js';

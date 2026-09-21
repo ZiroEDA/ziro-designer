@@ -44,7 +44,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const SHELL = readFileSync(join(__dirname, '../../../designer/src/ui/shell.css'), 'utf8');
+const SHELL = readFileSync(join(__dirname, '../../../common/src/widgets/shell.css'), 'utf8');
 
 /** The declarations of one rule, by exact selector, comments stripped. */
 function rule(selector: string): string {

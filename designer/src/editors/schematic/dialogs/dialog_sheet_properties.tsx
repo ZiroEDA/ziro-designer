@@ -21,9 +21,9 @@
 import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import type { SchField, TextEffects } from '@ziroeda/eeschema';
-import { ColorSwatch } from '../../../ui/ColorSwatch.js';
+import { ColorSwatch } from '@ziroeda/common/src/widgets/color_swatch.js';
 import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
 
 /** The two rows that always exist and cannot be renamed, deleted or reordered
  *  (SCH_SHEET's mandatory fields). */

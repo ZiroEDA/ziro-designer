@@ -21,9 +21,9 @@ import { fileURLToPath } from 'node:url';
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
 
-const SHARED = read('ui/DialogTableProperties.tsx');
+const SHARED = read('../../common/src/dialogs/dialog_table_properties.tsx');
 const SCH = read('editors/schematic/dialogs/dialog_table_properties.tsx');
-const CSS = read('ui/shell.css');
+const CSS = read('../../common/src/widgets/shell.css');
 
 describe('there is one dialog', () => {
   it('the board editor no longer has a copy of its own', () => {
@@ -132,12 +132,12 @@ describe('the standard button row', () => {
   it('puts Cancel before OK, which is what GTK Realize() does', () => {
     // `wxStdDialogButtonSizer::Realize` applies the platform convention: the
     // GNOME HIG puts the affirmative last. Settled in the component, once.
-    const comp = read('ui/StdDialogButtons.tsx');
+    const comp = read('../../common/src/dialog_shim_buttons.tsx');
     expect(comp.indexOf('{cancelLabel}')).toBeLessThan(comp.indexOf('{okLabel}'));
   });
 
   it('gives both buttons the shared class and never lets one be a submit', () => {
-    const comp = read('ui/StdDialogButtons.tsx');
+    const comp = read('../../common/src/dialog_shim_buttons.tsx');
     const tags = comp.match(/<button[^>]*>/g) ?? [];
     expect(tags).toHaveLength(2);
     for (const tag of tags) expect(tag).toContain('type="button"');

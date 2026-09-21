@@ -44,9 +44,9 @@ import {
   type SymbolMatchMode,
 } from '@ziroeda/eeschema';
 import { RPT_SEVERITY_ACTION, RPT_SEVERITY_ERROR, type ReportLine } from '@ziroeda/common';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '../../../widgets/wx_html_report_panel.js';
-import { Icon } from '../../../ui/icons.js';
+import { Icon } from '@ziroeda/common/src/widgets/icons.js';
 import { SymbolChooserFrame } from './symbol_chooser_frame.js';
 import type { PickedSymbol } from '../widgets/panel_symbol_chooser.js';
 

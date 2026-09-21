@@ -28,7 +28,7 @@ const PANEL = readFileSync(
   resolve(process.cwd(), '../designer/src/dialogs/prefs/panels/PanelMouseSettings.tsx'),
   'utf8',
 );
-const CSS = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+const CSS = readFileSync(resolve(process.cwd(), '../common/src/widgets/shell.css'), 'utf8');
 /** The panel with its comments stripped: prose ABOUT a row is not that row. */
 const CODE = PANEL.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
 

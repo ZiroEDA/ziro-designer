@@ -37,7 +37,7 @@ import {
   type RoutingSettings,
 } from '@ziroeda/pcbnew/router/pns_routing_settings.js';
 import { settings } from '../../../prefs/settings.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
 
 interface Props {
   onClose: () => void;

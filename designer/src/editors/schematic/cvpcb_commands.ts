@@ -33,7 +33,7 @@
  */
 
 import { nextUnassociated, type CvpcbComponent } from './cvpcb_components.js';
-import { handleUnsavedChanges, type UnsavedChangesResult } from '../../ui/confirm.js';
+import { handleUnsavedChanges, type UnsavedChangesResult } from '@ziroeda/common/src/confirm.js';
 // LIB_ID's own rules, from the one module that holds its character table. See
 // `copyAssoc` / `pasteAssoc` below for which of Parse and IsValid each asks.
 import { isValidLibId, libIdParseOffset, libItemName, libNickname } from '@ziroeda/eeschema';

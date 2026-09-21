@@ -17,17 +17,21 @@
  */
 import { useState, type JSX } from 'react';
 import { FILL_MODE_NAMES, FILL_MODE_TOKENS, iuToMM, mmToIU } from '@ziroeda/common';
-import { ColorSwatch } from '../../../ui/ColorSwatch.js';
+import { ColorSwatch } from '@ziroeda/common/src/widgets/color_swatch.js';
 import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
 import {
   LINE_STYLE_NAMES,
   lineStyleComboValue,
   type LineStyleToken,
 } from '@ziroeda/common/src/stroke_params.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
-import type { StatusUnits } from '../../../ui/status_format.js';
-import { parseUnitValueDouble, stringFromValue, unitLabel } from '../../../ui/unit_binder.js';
-import { Combo } from '../../../ui/Combo.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import type { StatusUnits } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
+import {
+  parseUnitValueDouble,
+  stringFromValue,
+  unitLabel,
+} from '@ziroeda/common/src/widgets/unit_binder.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
 
 /**
  * UI_FILL_MODE (include/eda_shape.h) in its declared order, which is the

@@ -59,7 +59,7 @@
  *    symbol open reads `[no symbol loaded]`, never `*[no symbol loaded]`.
  */
 
-import { frameTitle, type FrameTitleParts } from '../../ui/useDocumentTitle.js';
+import { frameTitle, type FrameTitleParts } from '@ziroeda/common/src/use_document_title.js';
 
 /** `_( "Symbol Editor" )`, the half after the dash. */
 export const SYM_FRAME_NAME = 'Symbol Editor';

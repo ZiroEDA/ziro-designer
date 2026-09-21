@@ -38,7 +38,11 @@
  *    sheet would be wrong in the one place the title is seen most.
  */
 
-import { frameTitle, type FrameTitleParts, READ_ONLY_SUFFIX } from '../../ui/useDocumentTitle.js';
+import {
+  frameTitle,
+  type FrameTitleParts,
+  READ_ONLY_SUFFIX,
+} from '@ziroeda/common/src/use_document_title.js';
 
 /** `_( "Schematic Editor" )`, the half after the dash. */
 export const SCH_FRAME_NAME = 'Schematic Editor';

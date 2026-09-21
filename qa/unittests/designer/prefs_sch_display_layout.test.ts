@@ -29,7 +29,7 @@ const read = (rel: string): string => readFileSync(resolve(SRC, rel), 'utf8');
 const PANEL = read('editors/schematic/prefs/PanelEeschemaDisplayOptions.tsx');
 const GROUP = read('dialogs/prefs/CrossProbingGroup.tsx');
 const PCB = read('editors/pcb/prefs/PanelPcbDisplayOptions.tsx');
-const CSS = read('ui/shell.css');
+const CSS = read('../../common/src/widgets/shell.css');
 /** Comments stripped: prose ABOUT a row is not that row. */
 const strip = (t: string): string =>
   t.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '');

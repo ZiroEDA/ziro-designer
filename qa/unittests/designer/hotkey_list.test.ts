@@ -24,7 +24,7 @@ import {
 } from '@ziroeda/designer/src/editors/schematic/hotkey_list.js';
 import { HOTKEYS, HOTKEY_SECTIONS } from '@ziroeda/designer/src/editors/schematic/hotkeys.js';
 import { buildMenus, TOOL_HOTKEYS } from '@ziroeda/designer/src/editors/schematic/menubar.js';
-import type { Menu } from '@ziroeda/designer/src/ui/menu_types.js';
+import type { Menu } from '@ziroeda/common/src/tool/action_menu_types.js';
 
 const handlers = new Proxy({}, { get: () => () => {} }) as Parameters<typeof buildMenus>[0];
 const menus = (): Menu[] => buildMenus(handlers);

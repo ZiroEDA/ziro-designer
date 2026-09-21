@@ -24,17 +24,12 @@
  */
 
 import type { JSX } from 'react';
-import { SpinCtrl } from '../../../../ui/SpinCtrl.js';
+import { SpinCtrl } from '@ziroeda/common/src/widgets/spin_ctrl.js';
 
-const TD_ICON = import.meta.glob('../../../../assets/teardrops/*.svg', {
-  query: '?url',
-  import: 'default',
-  eager: true,
-}) as Record<string, string>;
-const icon = (name: string): string | undefined =>
-  TD_ICON[`../../../../assets/teardrops/${name}.svg`];
+const icon = (name: string): string | undefined => svgUrl('teardrops', name);
 
 import type { TeardropsSetup, TeardropShape, TeardropShapeKey } from '../../board_settings.js';
+import { svgUrl } from '@ziroeda/bitmaps_png';
 
 // The data model lives in board_settings.ts (KiCad's data/UI split);
 // re-exported so panel users keep importing from the panel module.

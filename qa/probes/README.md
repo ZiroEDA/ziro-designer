@@ -16,7 +16,7 @@ four ways to get it, and they are not equally good:
 
 Only the fourth answers the question we are usually asking. The probes here do
 that. They are small programs, not part of CI, and they exist so a number in
-`designer/src/ui/shell.css` can carry a measurement instead of a guess.
+`common/src/widgets/shell.css` can carry a measurement instead of a guess.
 
 ## Building and running
 

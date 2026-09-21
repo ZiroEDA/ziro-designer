@@ -71,7 +71,9 @@ const CALL_SITES: Record<string, string> = {
   // dialog upstream, opened by both editors, so the two copies became
   // `ui/DialogTableProperties.tsx` and the Line Style combo with them — one
   // call site now, which is what this rule is for.
-  'ui/DialogTableProperties.tsx': read('../../../designer/src/ui/DialogTableProperties.tsx'),
+  'common/dialogs/dialog_table_properties.tsx': read(
+    '../../../common/src/dialogs/dialog_table_properties.tsx',
+  ),
   // Was `pcb/PcbEditor.tsx`. The Line Style row moved with the rest of the PCB
   // property grid when pcbnew stopped keeping a private copy of
   // PROPERTIES_PANEL: the rows are built in the pcbnew package now, so that is
@@ -156,7 +158,8 @@ describe('the properties manager choices', () => {
 describe('every dialog that lists line styles', () => {
   it('takes them from the shared table', () => {
     for (const [name, src] of Object.entries(CALL_SITES)) {
-      expect(src, name).toMatch(/from '@ziroeda\/common\/src\/stroke_params\.js'/);
+      // The shared dialog lives in common and imports the table relatively.
+      expect(src, name).toMatch(/from '(?:@ziroeda\/common\/src\/|\.\.\/)stroke_params\.js'/);
       expect(src, name).toMatch(/LINE_STYLE_NAMES|WIRE_STYLE_NAMES|LINE_STYLE_CHOICES/);
     }
   });

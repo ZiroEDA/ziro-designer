@@ -26,24 +26,18 @@ import {
   PagedDialog,
   type PagedDialogError,
   type PagedDialogSection,
-} from '../../../ui/PagedDialog.js';
-import { validateUnitValue, type UnitRange } from '../../../ui/unit_binder.js';
+} from '@ziroeda/common/src/widgets/paged_dialog.js';
+import { validateUnitValue, type UnitRange } from '@ziroeda/common/src/widgets/unit_binder.js';
 import { pcbIUScale, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
 import { PCB_VIA, VIA_PARAMETER_ERROR_FIELD } from '@ziroeda/pcbnew/pcb_track.js';
-import { Icon } from '../../../ui/icons.js';
-import { SpinCtrl } from '../../../ui/SpinCtrl.js';
+import { Icon } from '@ziroeda/common/src/widgets/icons.js';
+import { SpinCtrl } from '@ziroeda/common/src/widgets/spin_ctrl.js';
 
 /**
  * KiCad's own dark-theme constraint icons, vendored under assets/constraints
  * (GPL like this project, same pattern as assets/toolbar). Filenames are the
  * KiCad BITMAPS enum names assigned in panel_setup_constraints.cpp.
  */
-const CON_ICON_URLS = import.meta.glob('../../../assets/constraints/*.svg', {
-  query: '?url',
-  import: 'default',
-  eager: true,
-}) as Record<string, string>;
-
 // Constraint row -> KiCad bitmap file (SetBitmap(KiBitmapBundle(BITMAPS::…))).
 const CON_ICON_FILE: Record<string, string> = {
   clearance: 'ps_diff_pair_gap',
@@ -192,7 +186,7 @@ function validateConstraints(c: BoardConstraints): PagedDialogError | null {
 
 function ConIcon({ name }: { name: string }): JSX.Element | null {
   const file = CON_ICON_FILE[name];
-  const url = file ? CON_ICON_URLS[`../../../assets/constraints/${file}.svg`] : undefined;
+  const url = file ? svgUrl('constraints', file) : undefined;
   // [data] `KiBitmapBundle( BITMAPS::…, 24 )` — every bitmap on this page is
   // asked for at 24 (`panel_setup_constraints.cpp:61-73`). This drew them at 20.
   return url ? <img src={url} width={24} height={24} alt="" aria-hidden="true" /> : null;
@@ -231,7 +225,8 @@ import type { JsonValue } from '@ziroeda/common/src/settings/json_settings.js';
 import { ParseBoard } from '@ziroeda/pcbnew/read-board.js';
 import { DialogImportSettings, type ImportSettingsOpts } from './dialog_import_settings.js';
 import { pcbUnitTextMM, pcbUnitValueMM, unitLabel } from '../pcb_unit_binder.js';
-import type { StatusUnits } from '../../../ui/status_format.js';
+import type { StatusUnits } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
+import { svgUrl } from '@ziroeda/bitmaps_png';
 
 // The aggregate model lives in board_settings.ts (KiCad's data/UI split);
 // re-exported so dialog users keep importing from the dialog module.

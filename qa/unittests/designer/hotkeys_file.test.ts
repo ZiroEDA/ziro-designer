@@ -10,7 +10,7 @@
  * what that tokenizer does rather than what the format looks like.
  */
 import { describe, expect, it } from 'vitest';
-import { importOntoNames, parseHotkeyFile } from '@ziroeda/designer/src/ui/hotkeys_file.js';
+import { importOntoNames, parseHotkeyFile } from '@ziroeda/common/src/hotkeys_basic_file.js';
 import {
   buildHotkeySections,
   type HotkeySection,

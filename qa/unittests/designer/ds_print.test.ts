@@ -117,7 +117,7 @@ describe('Print with popups blocked', () => {
   it('uses the shared message dialog rather than a private one', () => {
     // common/confirm.cpp's DisplayErrorMessage is one dialog for every frame;
     // ui/dialog_message.tsx is that one component here.
-    expect(EDITOR).toContain("from '../../ui/dialog_message.js'");
+    expect(EDITOR).toContain("from '@ziroeda/common/src/dialogs/dialog_message.js'");
   });
 
   it('does not borrow upstream’s printer-error sentence for a browser refusal', () => {

@@ -25,7 +25,7 @@ import type { PAINTER } from './gal/painter.js';
 import * as KIPLATFORM_UI from './kiplatform/ui.js';
 import { Pgm } from './pgm_base.js';
 import { KI_TRACE, traceDrawPanel, traceGalProfile, wxLogTrace } from './trace_helpers.js';
-import { VIEW } from './view/view.js';
+import type { VIEW } from './view/view.js';
 import { VC_SETTINGS } from './view/view_controls.js';
 import { VIEW_OVERLAY } from './view/view_overlay.js';
 import { WX_VIEW_CONTROLS, type WX_VIEW_CONTROLS_FRAME } from './view/wx_view_controls.js';

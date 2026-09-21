@@ -46,7 +46,11 @@
  * on `[Unsaved]` instead. Ours printed `No project`, which is neither.
  */
 
-import { frameTitle, type FrameTitleParts, READ_ONLY_SUFFIX } from '../../ui/useDocumentTitle.js';
+import {
+  frameTitle,
+  type FrameTitleParts,
+  READ_ONLY_SUFFIX,
+} from '@ziroeda/common/src/use_document_title.js';
 
 /** `_( "PCB Editor" )`, the half after the dash. */
 export const PCB_FRAME_NAME = 'PCB Editor';

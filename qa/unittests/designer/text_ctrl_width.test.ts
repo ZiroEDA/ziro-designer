@@ -11,7 +11,7 @@
  * whatever text is there now.
  */
 import { describe, expect, it } from 'vitest';
-import { ensureTextCtrlWidth } from '@ziroeda/designer/src/ui/text_ctrl_width.js';
+import { ensureTextCtrlWidth } from '@ziroeda/common/src/widgets/text_ctrl_width.js';
 
 describe('the control grows to fit', () => {
   it('takes the text plus ten when the text does not fit', () => {

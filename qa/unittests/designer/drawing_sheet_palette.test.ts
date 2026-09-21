@@ -36,20 +36,20 @@ import {
   DS_SELECTED_COLOR,
 } from '@ziroeda/common';
 import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
-import {
-  FRAME_TITLE_SEPARATOR,
-  frameTitleName,
-} from '@ziroeda/designer/src/ui/useDocumentTitle.js';
+import { FRAME_TITLE_SEPARATOR, frameTitleName } from '@ziroeda/common/src/use_document_title.js';
 import { PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 import { togglesFromSettings } from '@ziroeda/designer/src/editors/drawingsheet/toggles.js';
-import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST } from '@ziroeda/designer/src/ui/grid_settings.js';
+import {
+  DEFAULT_GRID_INDEX,
+  GRID_SIZE_LIST,
+} from '@ziroeda/common/src/settings/grid_settings_ui.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
 const CANVAS = read('../../../designer/src/editors/drawingsheet/DrawingSheetCanvas.tsx');
 const EDITOR = read('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx');
-const SHELL = read('../../../designer/src/ui/shell.css');
+const SHELL = read('../../../common/src/widgets/shell.css');
 
 /** The stylesheet with its comments taken out, so they cannot read as values. */
 const CSS_CODE = SHELL.replace(/\/\*[\s\S]*?\*\//g, '');

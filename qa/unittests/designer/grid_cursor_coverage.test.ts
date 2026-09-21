@@ -69,13 +69,13 @@ const ALL = [...new Set([...GRID_OWNERS, ...CROSSHAIR_OWNERS].map(([, f]) => f))
 describe('shared grid + crosshair', () => {
   it.each(GRID_OWNERS)('%s draws its grid through the shared module', (_name, rel) => {
     const src = read(rel);
-    expect(src).toMatch(/from '[./]+ui\/grid_cursor\.js'/);
+    expect(src).toMatch(/from '@ziroeda\/common\/src\/draw_panel_gal_grid_cursor\.js'/);
     expect(src).toMatch(/\bdrawGrid\(/);
   });
 
   it.each(CROSSHAIR_OWNERS)('%s draws its crosshair through the shared module', (_name, rel) => {
     const src = read(rel);
-    expect(src).toMatch(/from '[./]+ui\/grid_cursor\.js'/);
+    expect(src).toMatch(/from '@ziroeda\/common\/src\/draw_panel_gal_grid_cursor\.js'/);
     expect(src).toMatch(/\bdrawCrosshair\(/);
   });
 
@@ -184,7 +184,7 @@ describe('shared grid + crosshair', () => {
     expect(src).not.toMatch(/gridSizesIU\(/);
     expect(src).toMatch(/fpCfg\.window\.grid\.sizes/);
     // ...and it is a `Combo`, never the browser's `<select>`.
-    expect(src).toMatch(/from '[./]+ui\/Combo\.js'/);
+    expect(src).toMatch(/from '@ziroeda\/common\/src\/widgets\/wx_combobox\.js'/);
   });
 
   it('nobody keeps a private copy of DefaultGridSizeList', () => {

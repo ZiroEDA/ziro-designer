@@ -25,7 +25,7 @@ const read = (rel: string): string =>
 
 const PANEL = read('../../../designer/src/editors/schematic/components/NetNavigatorPanel.tsx');
 const EDITOR = read('../../../designer/src/editors/schematic/SchematicEditor.tsx');
-const CSS = read('../../../designer/src/ui/shell.css');
+const CSS = read('../../../common/src/widgets/shell.css');
 
 describe('the Net Navigator matches upstream', () => {
   it('roots the tree at "Nets" when no net is highlighted', () => {

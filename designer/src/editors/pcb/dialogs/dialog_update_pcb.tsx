@@ -17,7 +17,7 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import type { ReportLine, Severity } from '@ziroeda/common';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '../../../widgets/wx_html_report_panel.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
 
 /** The option set BOARD_NETLIST_UPDATER is driven with (the dialog's checkboxes). */
 export interface UpdatePcbOptions {

@@ -42,7 +42,7 @@ import {
   type SyncTemplate,
 } from '@ziroeda/eeschema';
 import type { Schematic } from '@ziroeda/eeschema';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
 
 /** One sheet in the dialog: the parent's sheet symbol and the sheet's document. */
 export interface SyncSheetEntry {

@@ -27,7 +27,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VENDORED = fileURLToPath(new URL('../../../designer/src/assets/toolbar', import.meta.url));
+const VENDORED = fileURLToPath(new URL('../../../bitmaps_png/sources/toolbar', import.meta.url));
 const KICAD = '/home/akshay/kicad-reference/resources/bitmaps_png/sources';
 
 const haveReference = existsSync(join(KICAD, 'dark'));

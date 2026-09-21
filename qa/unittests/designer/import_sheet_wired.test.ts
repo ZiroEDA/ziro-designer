@@ -18,7 +18,7 @@ import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
 import { parsePastedText } from '@ziroeda/eeschema/src/tools/clipboard.js';
 import { buildMenus } from '@ziroeda/designer/src/editors/schematic/menubar.js';
-import type { Menu, MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
+import type { Menu, MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
 
 /** Every handler is a no-op; we are inspecting structure, not behaviour. */
 const handlers = new Proxy({}, { get: () => () => {} }) as Parameters<typeof buildMenus>[0];

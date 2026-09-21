@@ -29,7 +29,7 @@
  */
 import type { JSX } from 'react';
 import { Check, Group } from '../widgets.js';
-import { SpinCtrl } from '../../../ui/SpinCtrl.js';
+import { SpinCtrl } from '@ziroeda/common/src/widgets/spin_ctrl.js';
 import type { PrefsContext } from '../types.js';
 
 export function PanelGitRepos({ ctx }: { ctx: PrefsContext }): JSX.Element {

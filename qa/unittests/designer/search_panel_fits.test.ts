@@ -27,7 +27,7 @@ const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
 const PANEL = read('../../../designer/src/editors/schematic/components/SearchPanel.tsx');
-const CSS = read('../../../designer/src/ui/shell.css');
+const CSS = read('../../../common/src/widgets/shell.css');
 
 describe('the Search pane fits the left dock', () => {
   it('the dock is still the fixed width this is sized against', () => {

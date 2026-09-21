@@ -16,8 +16,8 @@
 import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import { WIRE_STYLE_NAMES } from '@ziroeda/common/src/stroke_params.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
-import { ColorSwatch } from '../../../ui/ColorSwatch.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { ColorSwatch } from '@ziroeda/common/src/widgets/color_swatch.js';
 import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
 
 // `ItemColor` and its COLOR4D conversion moved to `item_color.ts` when the six

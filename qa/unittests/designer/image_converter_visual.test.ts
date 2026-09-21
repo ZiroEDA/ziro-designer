@@ -28,7 +28,7 @@ const read = (rel: string): string =>
 
 const CSS = read('../../../designer/src/editors/image/imageConverter.css');
 const TSX = read('../../../designer/src/editors/image/ImageConverter.tsx');
-const SHELL = read('../../../designer/src/ui/shell.css');
+const SHELL = read('../../../common/src/widgets/shell.css');
 
 /** The shared GTK control-theme tokens, as a name -> value map. */
 const TOKENS: Record<string, string> = (() => {
@@ -172,7 +172,7 @@ describe('D1: the column packs to the bottom', () => {
 });
 
 describe('B2: the threshold slider carries wxSL_LABELS', () => {
-  // The control itself is the SHARED wxSlider (designer/src/ui/Slider.tsx, and
+  // The control itself is the SHARED wxSlider (common/src/widgets/slider.tsx, and
   // the `.ze-slider` rules in shell.css). It used to be a block scoped to
   // `.imgc-frame` in this panel's own stylesheet, which is a per-launcher copy
   // of a control wx has exactly one of - and the colour picker proved the cost
@@ -191,7 +191,7 @@ describe('B2: the threshold slider carries wxSL_LABELS', () => {
     // Comments blanked, or the doc comment's own mention of a bare
     // `<input type="range">` is found before the element and the order reads
     // backwards.
-    const SLIDER = read('../../../designer/src/ui/Slider.tsx')
+    const SLIDER = read('../../../common/src/widgets/slider.tsx')
       .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/\/\/[^\n]*/g, '');
@@ -223,7 +223,7 @@ describe('B2: the threshold slider carries wxSL_LABELS', () => {
     }
     // The fraction is computed from the value and the RANGE, not from a 100
     // this one caller happens to use.
-    expect(read('../../../designer/src/ui/Slider.tsx')).toContain(
+    expect(read('../../../common/src/widgets/slider.tsx')).toContain(
       'const frac = max > min ? (value - min) / (max - min) : 0;',
     );
   });

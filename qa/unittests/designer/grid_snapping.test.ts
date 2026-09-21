@@ -34,7 +34,10 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
-import { gridSnappingEnabled, type GridSnapping } from '@ziroeda/designer/src/ui/grid_cursor.js';
+import {
+  gridSnappingEnabled,
+  type GridSnapping,
+} from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
 import { GRID_SNAP_CHOICES } from '@ziroeda/designer/src/dialogs/prefs/gal_options.js';
 import {
   EESCHEMA_DEFAULTS,

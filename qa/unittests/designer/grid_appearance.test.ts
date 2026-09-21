@@ -45,7 +45,7 @@ import {
   PL_EDITOR_DEFAULTS,
   SYMBOL_EDITOR_DEFAULTS,
 } from '@ziroeda/designer/src/prefs/settings.js';
-import { DEFAULT_GRID_APPEARANCE } from '@ziroeda/designer/src/ui/grid_cursor.js';
+import { DEFAULT_GRID_APPEARANCE } from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');

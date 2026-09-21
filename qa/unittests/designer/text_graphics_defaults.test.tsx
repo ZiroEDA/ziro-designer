@@ -108,7 +108,7 @@ describe('the cells carry the unit', () => {
 });
 
 describe('a WX_GRID never dictates the dialog width', () => {
-  const css = readFileSync(join(__dirname, '../../../designer/src/ui/shell.css'), 'utf8');
+  const css = readFileSync(join(__dirname, '../../../common/src/widgets/shell.css'), 'utf8');
   const ruleFor = (selector: string): string => {
     const at = css.indexOf(`\n${selector} {`);
     if (at === -1) throw new Error(`no rule for ${selector}`);

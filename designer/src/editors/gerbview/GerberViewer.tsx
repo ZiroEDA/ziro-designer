@@ -45,19 +45,22 @@ import { compareByFileExtension, compareByZOrder } from '@ziroeda/gerbview';
 import { parseColor4d, toCss } from '@ziroeda/common/src/color4d.js';
 import { hiContrastColor, hiContrastFactorFor } from '@ziroeda/common/src/render_settings.js';
 import { decideLoad, ERRORS_CAPTION, plotBatchSelfSorts } from './gerber_load_report.js';
-import { HtmlMessageBox } from '../../ui/dialog_html_message_box.js';
+import { HtmlMessageBox } from '@ziroeda/common/src/dialogs/html_message_box.js';
 import { PAPER_MM } from '@ziroeda/common';
-import { MenuBar, type Menu } from '../../ui/MenuBar.js';
-import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
-import { Toolbar } from '../../ui/Toolbar.js';
-import { useStatusReadout } from '../../ui/useStatusReadout.js';
+import { MenuBar, type Menu } from '@ziroeda/common/src/tool/action_menu_bar.js';
+import { formatTitle, useDocumentTitle } from '@ziroeda/common/src/use_document_title.js';
+import { Toolbar } from '@ziroeda/common/src/tool/action_toolbar.js';
+import { useStatusReadout } from '@ziroeda/common/src/use_status_readout.js';
 
 /** `BASE_SCREEN::m_LocalOrigin`; a module constant so its identity is stable. */
 const GBR_LOCAL_ORIGIN = { x: 0, y: 0 };
-import { ensureTextCtrlWidth, measureTextWidth } from '../../ui/text_ctrl_width.js';
+import {
+  ensureTextCtrlWidth,
+  measureTextWidth,
+} from '@ziroeda/common/src/widgets/text_ctrl_width.js';
 import { GBR_CONTROL, GBR_DEFAULT_TOOLBARS } from './gerberToolbars.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
-import { Combo, type ComboOption } from '../../ui/Combo.js';
+import { Combo, type ComboOption } from '@ziroeda/common/src/widgets/wx_combobox.js';
 import {
   apertureAttributeChoices,
   componentChoices,
@@ -82,14 +85,14 @@ import {
   gridChoiceLabel,
   gridSizeToIU,
   type FastGridAction,
-} from '../../ui/grid_settings.js';
-import { ZOOM_LIST, zoomChoices } from '../../ui/zoom_settings.js';
+} from '@ziroeda/common/src/settings/grid_settings_ui.js';
+import { ZOOM_LIST, zoomChoices } from '@ziroeda/common/src/settings/zoom_settings.js';
 import { GerberCanvas, type GerberCanvasController } from './GerberCanvas.js';
 import { LayerManager, renderRows, type LayerInfo } from './LayerManager.js';
-import { DockSash } from '../../ui/DockSash.js';
+import { DockSash } from '@ziroeda/common/src/widgets/wx_aui_sash.js';
 import { itemInfoRows } from './dialogs.js';
-import { SingleChoiceDialog } from '../../ui/dialog_single_choice.js';
-import { KiStatusBar } from '../../ui/KiStatusBar.js';
+import { SingleChoiceDialog } from '@ziroeda/common/src/dialogs/dialog_single_choice.js';
+import { KiStatusBar } from '@ziroeda/common/src/widgets/kistatusbar.js';
 import { openFileDialog, acceptAttribute } from '../../fs/open_file_dialog.js';
 import type { ChooserFilter } from '../../fs/chooser_types.js';
 import {
@@ -99,14 +102,14 @@ import {
   GERBVIEW_JOB_FILTERS,
   GERBVIEW_ZIP_FILTERS,
 } from '../../fs/wildcards.js';
-import { MsgPanel } from '../../ui/MsgPanel.js';
-import { useMenuHotkeys } from '../../ui/useMenuHotkeys.js';
+import { MsgPanel } from '@ziroeda/common/src/widgets/msgpanel_ui.js';
+import { useMenuHotkeys } from '@ziroeda/common/src/tool/use_menu_hotkeys.js';
 import {
   scaleForZoomFactor,
   zoomFactorForScale,
   unitsMsg,
   zoomMsg,
-} from '../../ui/status_format.js';
+} from '@ziroeda/common/src/widgets/kistatusbar_format.js';
 import {
   layerColorAt,
   GERBER_BG_COLOR,
@@ -121,13 +124,13 @@ import type { GerberLayerView, GerberRenderOptions } from './gerberRender.js';
 import { gerbviewMenus } from './menubar.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
-import { ABOUT_TITLES } from '../../ui/about_titles.js';
+import { ABOUT_TITLES } from '@ziroeda/common/src/eda_base_frame_about_titles.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import type { PrefsPageId } from '../../dialogs/prefs/types.js';
 import { settings } from '../../prefs/settings.js';
 import { useCommonSettings, useGerbviewSettings, useUserColors } from '../../prefs/useSettings.js';
 import './gerbview.css';
-import '../../ui/shell.css';
+import '@ziroeda/common/src/widgets/shell.css';
 import {
   GERBVIEW_FIXED_LAYERS,
   gerbviewColor,

@@ -18,8 +18,8 @@
  * so both are greyed rather than dropped.
  */
 
-import type { ToolEntry } from '../../ui/toolbar_types.js';
-import type { ToolbarDefaults } from '../../ui/toolbar_config.js';
+import type { ToolEntry } from '@ziroeda/common/src/tool/action_toolbar_types.js';
+import type { ToolbarDefaults } from '@ziroeda/common/src/tool/ui/toolbar_configuration.js';
 
 const sep: ToolEntry = 'sep';
 

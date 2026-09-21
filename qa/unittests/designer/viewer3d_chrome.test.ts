@@ -22,15 +22,15 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readdirSync } from 'node:fs';
-import { BITMAP } from '@ziroeda/designer/src/ui/toolbar_bitmaps.js';
+import { BITMAP } from '@ziroeda/common/src/bitmap_store_actions.js';
 import { VIEWER3D_TOP_TOOLBAR } from '@ziroeda/designer/src/editors/pcb/viewer3dToolbars.js';
 import {
   buildViewer3DMenus,
   type Viewer3DMenuActions,
   type Viewer3DMenuState,
 } from '@ziroeda/designer/src/editors/pcb/viewer3dMenus.js';
-import type { ToolButton, ToolEntry } from '@ziroeda/designer/src/ui/toolbar_types.js';
-import type { MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
+import type { ToolButton, ToolEntry } from '@ziroeda/common/src/tool/action_toolbar_types.js';
+import type { MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
 
 const buttons = (entries: readonly ToolEntry[]): ToolButton[] =>
   entries.flatMap((e) =>
@@ -38,7 +38,7 @@ const buttons = (entries: readonly ToolEntry[]): ToolButton[] =>
   );
 
 const VENDORED = new Set(
-  readdirSync(new URL('../../../designer/src/assets/toolbar', import.meta.url))
+  readdirSync(new URL('../../../bitmaps_png/sources/toolbar', import.meta.url))
     .filter((f) => f.endsWith('.svg'))
     .map((f) => f.slice(0, -4)),
 );

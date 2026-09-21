@@ -30,14 +30,9 @@ import { Group } from '../fields.js';
 import { useCalcSaveSettings } from '../calc_settings.js';
 import { CALC_ART_SIZE } from '../art_sizes.js';
 import { settings } from '../../../prefs/settings.js';
+import { svgUrl } from '@ziroeda/bitmaps_png';
 
 /** KiCad's own dark-theme artwork (GPL), vendored under assets/. */
-const CC_ART = import.meta.glob('../../../assets/calculator/color_code_*.svg', {
-  query: '?url',
-  import: 'default',
-  eager: true,
-}) as Record<string, string>;
-
 /**
  * `KiBitmapBundle` at 100 % scale hands back the bitmap's own size, and these
  * four are 91 px wide: 305 tall for the twelve-row columns and 256 for the
@@ -51,7 +46,7 @@ function Band({ title, art, edge }: { title: string; art: string; edge: boolean 
       <div className="cc-colhead">{title}</div>
       <img
         className="calc-art cc-art"
-        src={CC_ART[`../../../assets/calculator/${art}.svg`]}
+        src={svgUrl('calculator', art)}
         alt=""
         width={w}
         height={h}

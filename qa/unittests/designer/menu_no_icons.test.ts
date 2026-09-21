@@ -25,7 +25,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const MENUBAR = readFileSync(
-  fileURLToPath(new URL('../../../designer/src/ui/MenuBar.tsx', import.meta.url)),
+  fileURLToPath(new URL('../../../common/src/tool/action_menu_bar.tsx', import.meta.url)),
   'utf8',
 );
 /** Comments stripped — prose about the rule must not read as the rule. */

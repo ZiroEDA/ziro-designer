@@ -9,8 +9,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { CalculatorTools } from './editors/calculator/CalculatorTools.js';
-import { installOverlayScrollbars } from './ui/overlay_scrollbars.js';
-import './ui/shell.css';
+import { installOverlayScrollbars } from '@ziroeda/common/src/widgets/overlay_scrollbars.js';
+import '@ziroeda/common/src/widgets/shell.css';
 
 // shell.css switches the native scrollbars off app-wide, so every entry that
 // loads it has to install the overlay indicators that replace them.

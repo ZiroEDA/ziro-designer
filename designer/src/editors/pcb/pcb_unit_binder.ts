@@ -23,10 +23,10 @@
  */
 
 import { pcbIuToMM, pcbIUScale, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
-import { parseUnitValue, stringFromValue } from '../../ui/unit_binder.js';
-import type { StatusUnits } from '../../ui/status_format.js';
+import { parseUnitValue, stringFromValue } from '@ziroeda/common/src/widgets/unit_binder.js';
+import type { StatusUnits } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
 
-export { unitLabel } from '../../ui/unit_binder.js';
+export { unitLabel } from '@ziroeda/common/src/widgets/unit_binder.js';
 
 /** `UNIT_BINDER::SetValue`: board IU out, in the frame's units. */
 export function pcbUnitText(iu: number, units: StatusUnits): string {

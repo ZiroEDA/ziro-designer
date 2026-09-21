@@ -34,9 +34,9 @@ ROOT = Path(__file__).resolve().parents[2]
 TSBUILDINFO = str(Path.home() / ".mutcache.tsbuildinfo")
 
 PRELOAD = "designer/src/libraryPreload.ts"
-MONITOR = "designer/src/ui/background_jobs_monitor.ts"
-LIST = "designer/src/ui/BackgroundJobList.tsx"
-STATUSBAR = "designer/src/ui/KiStatusBar.tsx"
+MONITOR = "common/src/background_jobs_monitor.ts"
+LIST = "common/src/background_jobs_monitor_ui.tsx"
+STATUSBAR = "common/src/widgets/kistatusbar.tsx"
 TREE = "designer/src/widgets/lib_tree.tsx"
 SYMPREV = "designer/src/editors/schematic/widgets/symbol_preview_widget.tsx"
 FPPREV = "designer/src/widgets/footprint_preview_widget.tsx"

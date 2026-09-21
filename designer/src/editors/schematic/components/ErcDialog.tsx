@@ -11,10 +11,10 @@ import {
   type ErcSeverityLevel,
   type ErcViolation,
 } from '@ziroeda/eeschema';
-import { ContextMenu, type MenuItem } from '../../../ui/MenuBar.js';
+import { ContextMenu, type MenuItem } from '@ziroeda/common/src/tool/action_menu_bar.js';
 import { ERC_PHASES } from '@ziroeda/eeschema';
-import { bitmapUrl } from '../../../ui/toolbarIcons.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { bitmapUrl } from '@ziroeda/common/src/bitmap_store.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
 
 /**
  * Electrical Rules Checker. Counterpart: `eeschema/dialogs/dialog_erc.cpp`

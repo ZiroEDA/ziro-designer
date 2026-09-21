@@ -40,7 +40,7 @@ import {
   REPLACE_LOADED_FILE_ICON,
   REPLACE_LOADED_FILE_MESSAGE,
 } from '@ziroeda/designer/src/editors/image/dropFile.js';
-import { NO_LABEL, YES_LABEL, yesNoButtons } from '@ziroeda/designer/src/ui/message_dialog.js';
+import { NO_LABEL, YES_LABEL, yesNoButtons } from '@ziroeda/common/src/confirm_types.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');

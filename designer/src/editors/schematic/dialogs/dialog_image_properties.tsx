@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import { imageDataUrl } from '@ziroeda/eeschema/src/import_gfx/image_format.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
 
 export interface ImagePropsResult {
   at: { x: number; y: number };

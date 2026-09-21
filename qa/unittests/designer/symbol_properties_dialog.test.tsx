@@ -53,10 +53,10 @@ import {} from '@ziroeda/designer/src/editors/symbol/render/symbolRenderer.js';
  * slicing to the first `}` in the raw text lands inside that comment and returns
  * a body missing everything after it.
  */
-const SHELL = readFileSync(join(__dirname, '../../../designer/src/ui/shell.css'), 'utf8').replace(
-  /\/\*[\s\S]*?\*\//g,
-  '',
-);
+const SHELL = readFileSync(
+  join(__dirname, '../../../common/src/widgets/shell.css'),
+  'utf8',
+).replace(/\/\*[\s\S]*?\*\//g, '');
 
 const decl = (selector: string, prop: string): string | undefined => {
   // A selector may be one of several in a comma group — `.ze-grid
@@ -1434,7 +1434,7 @@ describe('a pin row draws its type and shape icon, not just the name', () => {
     // silently draws nothing.
     const all = [...Object.values(PIN_TYPE_BITMAPS), ...Object.values(PIN_SHAPE_BITMAPS)];
     expect(new Set(all).size).toBe(all.length);
-    const dir = join(__dirname, '../../../designer/src/assets/toolbar');
+    const dir = join(__dirname, '../../../bitmaps_png/sources/toolbar');
     for (const name of all) {
       expect(existsSync(join(dir, `${name}.svg`)), `${name}.svg is not vendored`).toBe(true);
     }

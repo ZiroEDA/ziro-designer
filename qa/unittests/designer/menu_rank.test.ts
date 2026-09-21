@@ -12,8 +12,8 @@
  * built by pushing items in source order rather than by rank.
  */
 import { describe, it, expect } from 'vitest';
-import { assembleMenu, type RankedItem } from '@ziroeda/designer/src/ui/menu_rank.js';
-import type { MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
+import { assembleMenu, type RankedItem } from '@ziroeda/common/src/tool/action_menu_rank.js';
+import type { MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
 
 /** The separators the schematic canvas menu declares. */
 const SEPS = [100, 101, 200, 300, 400, 401, 1000];

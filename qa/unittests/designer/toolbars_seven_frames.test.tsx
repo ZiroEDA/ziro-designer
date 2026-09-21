@@ -40,9 +40,12 @@ import {
   VIEWER3D_DEFAULTS,
   settings,
 } from '@ziroeda/designer/src/prefs/settings.js';
-import { setStoredToolbarConfig } from '@ziroeda/designer/src/ui/toolbar_config.js';
-import type { ToolbarDefaults, ToolbarItemJson } from '@ziroeda/designer/src/ui/toolbar_config.js';
-import type { ToolButton } from '@ziroeda/designer/src/ui/toolbar_types.js';
+import { setStoredToolbarConfig } from '@ziroeda/common/src/tool/ui/toolbar_configuration.js';
+import type {
+  ToolbarDefaults,
+  ToolbarItemJson,
+} from '@ziroeda/common/src/tool/ui/toolbar_configuration.js';
+import type { ToolButton } from '@ziroeda/common/src/tool/action_toolbar_types.js';
 import { PAGES } from '@ziroeda/designer/src/dialogs/prefs/registry.js';
 import { toolbarEntries } from '@ziroeda/designer/src/ui/useToolbarEntries.js';
 import { FP_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/footprint/footprintToolbars.js';

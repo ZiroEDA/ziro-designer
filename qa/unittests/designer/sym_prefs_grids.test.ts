@@ -34,7 +34,10 @@ import {
   type SymbolEditorSettings,
 } from '@ziroeda/designer/src/prefs/settings.js';
 import { symbolGridForTool, symbolGridIU } from '@ziroeda/designer/src/editors/symbol/grid.js';
-import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST } from '@ziroeda/designer/src/ui/grid_settings.js';
+import {
+  DEFAULT_GRID_INDEX,
+  GRID_SIZE_LIST,
+} from '@ziroeda/common/src/settings/grid_settings_ui.js';
 import { OVERRIDE_ROWS } from '@ziroeda/designer/src/dialogs/prefs/grid_settings_rows.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));

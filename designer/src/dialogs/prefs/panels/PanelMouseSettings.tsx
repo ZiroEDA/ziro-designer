@@ -35,9 +35,9 @@
  */
 import type { JSX } from 'react';
 import { Check, Group } from '../widgets.js';
-import { Combo } from '../../../ui/Combo.js';
-import { Slider } from '../../../ui/Slider.js';
-import { bitmapUrl } from '../../../ui/toolbarIcons.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
+import { Slider } from '@ziroeda/common/src/widgets/slider.js';
+import { bitmapUrl } from '@ziroeda/common/src/bitmap_store.js';
 import type { PrefsContext } from '../types.js';
 import type { MouseDragAction, ScrollModifier } from '../../../prefs/settings.js';
 

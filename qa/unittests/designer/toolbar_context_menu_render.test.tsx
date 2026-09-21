@@ -21,7 +21,7 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { Toolbar } from '@ziroeda/designer/src/ui/Toolbar.js';
+import { Toolbar } from '@ziroeda/common/src/tool/action_toolbar.js';
 import {
   DS_LEFT_TOOLBAR,
   DS_RIGHT_TOOLBAR,

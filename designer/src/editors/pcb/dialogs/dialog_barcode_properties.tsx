@@ -32,10 +32,10 @@ import {
 } from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties.js';
 import { barcodeGeometry } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import type { PcbBarcode } from '@ziroeda/pcbnew/types.js';
-import { Combo } from '../../../ui/Combo.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
-import type { StatusUnits } from '../../../ui/status_format.js';
+import type { StatusUnits } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
 
 interface Props {
   /**

@@ -30,7 +30,7 @@
  * reader is the stylesheet come through here.
  */
 import { settings } from '../prefs/settings.js';
-import { setZoomCorrection } from './status_format.js';
+import { setZoomCorrection } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
 
 /**
  * `appearance.toolbar_icon_size`'s range, `PARAM<int>( …, 24, 16, 64 )`

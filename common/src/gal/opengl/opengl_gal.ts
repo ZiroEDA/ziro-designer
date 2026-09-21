@@ -28,7 +28,7 @@ import libtess from '@ziroeda/kimath/src/thirdparty/vendor/libtess.js';
 import { ADVANCED_CFG } from '../../advanced_config.js';
 import type { BITMAP_BASE } from '../../bitmap_base.js';
 import type { Color4d } from '../../color4d.js';
-import { type GLYPH_LIKE, OUTLINE_GLYPH, STROKE_GLYPH } from '../../font/glyph.js';
+import type { GLYPH_LIKE, OUTLINE_GLYPH, STROKE_GLYPH } from '../../font/glyph.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '../../font/text_attributes.js';
 import type { KIID } from '../../kiid.js';
 import { niluuid } from '../../kiid.js';

@@ -16,7 +16,7 @@
  * KiCad writes none of those. wxWidgets asks GTK once, GTK answers out of the
  * desktop theme, and that single answer is why its eight launchers look like
  * one program without anybody maintaining eight themes. Ours is the `:root`
- * block in `designer/src/ui/shell.css`.
+ * block in `common/src/widgets/shell.css`.
  *
  * ---------------------------------------------------------------------------
  * WHAT COUNTS, AND HOW TO MAKE A LITERAL STOP COUNTING
@@ -91,6 +91,7 @@ import { fileURLToPath } from 'node:url';
 import { join, relative } from 'node:path';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
+const COMMON = fileURLToPath(new URL('../../../common/src', import.meta.url));
 
 /**
  * Seeded 2026-08-20 from the tree, per area, AFTER the central-values pass took
@@ -338,7 +339,12 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // over. None was re-sourced from a token; there is simply no local row to
   // size any more, which is what the shared-widget rule is for.
   'editors/symbol': { colours: 2, metrics: 15 },
-  home: { colours: 7, metrics: 7 },
+  // metrics 7 -> 8 on 09-21: not a new literal. `project_tree_pane.tsx`'s
+  // `height: 18` was always there, hidden from this scanner because the file's
+  // `import.meta.glob('../assets/manager/*.svg')` read as an unterminated
+  // block comment (`/*.svg`) and blanked the rest of the file. The glob is
+  // gone (`@ziroeda/bitmaps_png`), so the literal is visible.
+  home: { colours: 7, metrics: 8 },
   mobile: { colours: 15, metrics: 23 },
   // 33 colours, down from 193: 160 were `defaultRepo.ts`' invented colour
   // themes, gone with the real ones (see `prefs/color_settings_list.ts`). What is
@@ -659,7 +665,13 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // height the control actually has. The 24 and the 22 that replaced them are
   // measurements (`qa/probes/rc_tree_dataview`) and carry [px] each on its
   // own line.
-  ui: { colours: 185, metrics: 694 },
+  // 185/694 -> 41/35 on 09-21: the shared widgets moved to `common/widgets`
+  // (KiCad's directory) and took 144/658 with them, plus 0/1 to `common/tool`.
+  // Nothing was added or removed: 41+144 = 185, 35+658+1 = 694.
+  ui: { colours: 41, metrics: 35 },
+  'common/widgets': { colours: 144, metrics: 658 },
+  'common/tool': { colours: 0, metrics: 1 },
+  'common/dialogs': { colours: 0, metrics: 0 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -816,13 +828,26 @@ function scan(): Site[] {
       else if (/\.(css|tsx|ts)$/.test(p)) files.push(p);
     }
   })(SRC);
+  // The shared widgets and dialogs are `common/` since 09-21 (KiCad's
+  // `common/widgets`, `common/dialogs`); the ratchet follows them there.
+  (function walk(dir: string) {
+    for (const entry of readdirSync(dir)) {
+      const p = join(dir, entry);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.(css|tsx)$/.test(p)) files.push(p);
+    }
+  })(COMMON);
   files.sort();
 
   const sites: Site[] = [];
   for (const file of files) {
-    const rel = relative(SRC, file);
+    const inCommon = !relative(COMMON, file).startsWith('..');
+    const rel = inCommon ? `common/${relative(COMMON, file)}` : relative(SRC, file);
     const parts = rel.split('/');
-    const area = parts[0] === 'editors' ? `editors/${parts[1]}` : (parts[0] ?? '');
+    const area =
+      parts[0] === 'editors' || parts[0] === 'common'
+        ? `${parts[0]}/${parts[1]?.includes('.') ? '' : parts[1]}`.replace(/\/$/, '')
+        : (parts[0] ?? '');
     const isCss = file.endsWith('.css');
     const raw = readFileSync(file, 'utf8').split('\n');
     const code = blankComments(raw.join('\n')).split('\n');
@@ -871,7 +896,7 @@ const examples = (area: string, kind: Site['kind']): string =>
     .join('\n');
 
 const HOWTO =
-  'Either consume the token from designer/src/ui/shell.css (adding it there if ' +
+  'Either consume the token from common/src/widgets/shell.css (adding it there if ' +
   'it is missing), or mark the literal on its own line with [data] and the C++ ' +
   'that hardcodes it, [css] and the Yaru rule, [px] and the measurement, or ' +
   '[art] and the bitmap KiCad ships instead. Restating the token value locally ' +
@@ -1260,7 +1285,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1293 -> 1284: the message box, `ui` 704 -> 695 — see that row. 1293 - 9
     // agrees, and a rescan of this tree reads 1284.
     // 1284 -> 1271: the DRC dialog's thirteen, see the `editors/pcb` row.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1270);
+    // 1270 -> 1271: the `home` row's hidden literal, see there.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1271);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {
@@ -1361,7 +1387,7 @@ describe('the three launchers this pass took are actually on the tokens', () => 
     );
     const css = readFileSync(join(SRC, 'editors/image/imageConverter.css'), 'utf8');
     expect(css).not.toContain('NOT PROVEN');
-    const shell = readFileSync(join(SRC, 'ui/shell.css'), 'utf8');
+    const shell = readFileSync(join(COMMON, 'widgets/shell.css'), 'utf8');
     const at = shell.indexOf('NOT PROVEN');
     expect(at, 'the shared slider still admits its fudge').toBeGreaterThan(-1);
     expect(shell.slice(at, at + 400)).toContain('height: calc(var(--slider-thumb-size) + 7px)');
@@ -1417,16 +1443,16 @@ describe('the scanner itself sees what it claims to', () => {
   });
 
   it('ignores a token declaration, and ignores it only there', () => {
-    const shell = readFileSync(join(SRC, 'ui/shell.css'), 'utf8').split('\n');
+    const shell = readFileSync(join(COMMON, 'widgets/shell.css'), 'utf8').split('\n');
     const decl = shell.findIndex((l) => /^\s*--ctl-height:\s*34px/.test(l));
     expect(decl, 'ui/shell.css no longer declares --ctl-height: 34px').toBeGreaterThan(0);
-    expect(SITES.some((s) => s.where === `ui/shell.css:${decl + 1}`)).toBe(false);
+    expect(SITES.some((s) => s.where === `common/widgets/shell.css:${decl + 1}`)).toBe(false);
 
     // ...and ONLY there. shell.css also RESTATES 34px in ordinary rules instead
     // of consuming its own token, and every one of those is still reported -
     // which is what makes the exemption narrow rather than a hole.
     const restated = SITES.filter(
-      (s) => s.what === 'height: 34px' && s.where.startsWith('ui/shell.css'),
+      (s) => s.what === 'height: 34px' && s.where.startsWith('common/widgets/shell.css'),
     );
     expect(restated.length).toBeGreaterThan(0);
     expect(TOKEN_DECL.test('  height: 34px;')).toBe(false);

@@ -25,9 +25,13 @@ import {
   gerbviewMenus,
   type GerbviewMenuHandlers,
 } from '@ziroeda/designer/src/editors/gerbview/menubar.js';
-import { standardHelpMenu } from '@ziroeda/designer/src/ui/help_menu.js';
-import type { Menu, MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
-import type { ToolButton, ToolEntry, ToolGroup } from '@ziroeda/designer/src/ui/toolbar_types.js';
+import { standardHelpMenu } from '@ziroeda/common/src/eda_base_frame_help_menu.js';
+import type { Menu, MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
+import type {
+  ToolButton,
+  ToolEntry,
+  ToolGroup,
+} from '@ziroeda/common/src/tool/action_toolbar_types.js';
 
 const noop = (): void => {};
 

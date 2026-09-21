@@ -28,9 +28,9 @@
  * still stored, so a file that names a face keeps it.
  */
 import type { JSX } from 'react';
-import { toolbarIconUrl } from './toolbarIcons.js';
+import { toolbarIconUrl } from '@ziroeda/common/src/bitmap_store.js';
 import { BUNDLED_FAMILIES, FONT_SAMPLE } from '../font/outline_fonts.js';
-import { Combo, type ComboOption } from './Combo.js';
+import { Combo, type ComboOption } from '@ziroeda/common/src/widgets/wx_combobox.js';
 
 /** `GR_TEXT_H_ALIGN_T` minus INDETERMINATE, which no button stands for. */
 export type HAlign = 'left' | 'center' | 'right';

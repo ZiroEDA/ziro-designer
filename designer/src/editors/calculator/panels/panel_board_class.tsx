@@ -17,7 +17,7 @@
 
 import { BOARD_CLASS_COUNT, BOARD_CLASS_ROWS, printfG } from '@ziroeda/pcb_calculator';
 import { type JSX, useState } from 'react';
-import { Combo } from '../../../ui/Combo.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
 import { LEN_UNITS } from '../fields.js';
 import { useCalcSaveSettings } from '../calc_settings.js';
 import { settings } from '../../../prefs/settings.js';

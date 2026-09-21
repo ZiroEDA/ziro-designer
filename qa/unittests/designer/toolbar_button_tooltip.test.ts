@@ -17,14 +17,14 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { buttonTooltipFor, tooltipFor } from '@ziroeda/designer/src/ui/tooltip_text.js';
+import { buttonTooltipFor, tooltipFor } from '@ziroeda/common/src/tool/tool_action_tooltip.js';
 import {
   actionFor,
   EESCHEMA_TOOLBAR_ACTIONS,
   TOOLBAR_ACTIONS,
   toolbarButtonLabel,
   toolbarButtonTooltip,
-} from '@ziroeda/designer/src/ui/toolbar_actions.js';
+} from '@ziroeda/common/src/tool/action_toolbar_actions.js';
 
 describe('buttonTooltipFor', () => {
   it('is name, tab and hotkey, newline, tooltip', () => {
@@ -177,7 +177,9 @@ describe('toolbarButtonLabel', () => {
  * text — the same way `sch_panes.test.ts` pins the dock order.
  */
 describe('Toolbar renders through the shared rule', () => {
-  const SRC = fileURLToPath(new URL('../../../designer/src/ui/Toolbar.tsx', import.meta.url));
+  const SRC = fileURLToPath(
+    new URL('../../../common/src/tool/action_toolbar.tsx', import.meta.url),
+  );
   const text = (): string => readFileSync(SRC, 'utf8');
 
   it('builds the button title with toolbarButtonTooltip, passing the app', () => {

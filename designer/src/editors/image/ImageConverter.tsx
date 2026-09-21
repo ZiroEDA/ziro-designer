@@ -20,11 +20,11 @@ import {
   type CSSProperties,
   type JSX,
 } from 'react';
-import { Combo } from '../../ui/Combo.js';
-import { Slider } from '../../ui/Slider.js';
-import { MenuBar, type Menu, type MenuItem } from '../../ui/MenuBar.js';
-import { MessageDialogYesNo } from '../../ui/dialog_message.js';
-import type { YesNoResult } from '../../ui/message_dialog.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
+import { Slider } from '@ziroeda/common/src/widgets/slider.js';
+import { MenuBar, type Menu, type MenuItem } from '@ziroeda/common/src/tool/action_menu_bar.js';
+import { MessageDialogYesNo } from '@ziroeda/common/src/dialogs/dialog_message.js';
+import type { YesNoResult } from '@ziroeda/common/src/confirm_types.js';
 import {
   acceptDrop,
   askBeforeReplace,
@@ -46,9 +46,9 @@ import {
   MISSING_FILE_EXTENDED,
   missingFileMessage,
   openRecentMenuItem,
-} from '../../ui/file_history.js';
-import { useFileHistory } from '../../ui/useFileHistory.js';
-import { setLanguageMenuItem } from '../../ui/language_menu.js';
+} from '@ziroeda/common/src/file_history.js';
+import { useFileHistory } from '@ziroeda/common/src/use_file_history.js';
+import { setLanguageMenuItem } from '@ziroeda/common/src/eda_base_frame_language_menu.js';
 import { settings } from '../../prefs/settings.js';
 import { useCommonSettings } from '../../prefs/useSettings.js';
 import {
@@ -71,13 +71,13 @@ import {
   type SizeUnit,
 } from './imageSize.js';
 import './imageConverter.css';
-import { standardHelpMenu } from '../../ui/help_menu.js';
+import { standardHelpMenu } from '@ziroeda/common/src/eda_base_frame_help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
-import { ABOUT_TITLES, aboutWindowTitle } from '../../ui/about_titles.js';
-import { useModalEscape } from '../../ui/useModalEscape.js';
-import { KiStatusBar } from '../../ui/KiStatusBar.js';
-import { useMenuHotkeys } from '../../ui/useMenuHotkeys.js';
-import { addQuit } from '../../ui/action_menu.js';
+import { ABOUT_TITLES, aboutWindowTitle } from '@ziroeda/common/src/eda_base_frame_about_titles.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { KiStatusBar } from '@ziroeda/common/src/widgets/kistatusbar.js';
+import { useMenuHotkeys } from '@ziroeda/common/src/tool/use_menu_hotkeys.js';
+import { addQuit } from '@ziroeda/common/src/tool/action_menu.js';
 import { HomeLink } from '../../ui/HomeLink.js';
 
 type Tab = 'original' | 'greyscale' | 'bw';

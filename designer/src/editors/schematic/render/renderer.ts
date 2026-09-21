@@ -13,7 +13,11 @@
 
 import { CalcArcCenter, type Vec2 } from '@ziroeda/kimath';
 import { zoomFitView } from '../../../ui/view_controls.js';
-import { drawGrid, viewFromOffsets, type GridOptions } from '../../../ui/grid_cursor.js';
+import {
+  drawGrid,
+  viewFromOffsets,
+  type GridOptions,
+} from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
 import { pageSizeMM } from '@ziroeda/common/src/page_info.js';
 import {
   symbolTransform,

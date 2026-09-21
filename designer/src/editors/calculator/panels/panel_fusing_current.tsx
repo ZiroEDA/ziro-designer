@@ -9,7 +9,7 @@
 
 import { useState, type JSX } from 'react';
 import { type FusingSolveFor, fusingCurrent, printfF } from '@ziroeda/pcb_calculator';
-import { Combo } from '../../../ui/Combo.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
 import { Field, LEN_UNITS, THICK_UNITS, type UnitOpt, parseNum } from '../fields.js';
 
 /** Radio + numeric input + length-unit dropdown (value held in metres). */

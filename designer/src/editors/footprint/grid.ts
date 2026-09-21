@@ -25,8 +25,8 @@
  */
 import { settings, type FpEditSettings } from '../../prefs/settings.js';
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
-import { gridSizeToIU } from '../../ui/grid_settings.js';
-import { gridSnappingEnabled } from '../../ui/grid_cursor.js';
+import { gridSizeToIU } from '@ziroeda/common/src/settings/grid_settings_ui.js';
+import { gridSnappingEnabled } from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
 
 /**
  * A grid string in **pcbnew's** internal units.

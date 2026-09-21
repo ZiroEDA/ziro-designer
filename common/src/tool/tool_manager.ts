@@ -28,7 +28,7 @@ import {
   type TOOL_STATE_FUNC,
   TOOL_TYPE,
 } from './tool_base.js';
-import { TOOL_INTERACTIVE, type ACTION_MENU } from './tool_interactive.js';
+import type { TOOL_INTERACTIVE, ACTION_MENU } from './tool_interactive.js';
 import type { TOOL_ACTION } from './tool_action.js';
 import {
   BUT_LEFT,

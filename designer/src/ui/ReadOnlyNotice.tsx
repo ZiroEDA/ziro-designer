@@ -4,8 +4,8 @@
 import { type JSX, useState } from 'react';
 // The desktop theme's own files, vendored — see the note below on why these
 // are not KiCad bitmaps.
-import warningIcon from '../assets/theme/dialog-warning.png';
-import closeIcon from '../assets/theme/window-close.png';
+import warningIcon from '@ziroeda/bitmaps_png/sources/theme/dialog-warning.png';
+import closeIcon from '@ziroeda/bitmaps_png/sources/theme/window-close.png';
 
 /**
  * `WX_INFOBAR` (common/widgets/wx_infobar.cpp), the strip above the canvas.

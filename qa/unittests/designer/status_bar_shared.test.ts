@@ -35,7 +35,7 @@ import {
   unitsMsg,
   zoomFactorForScale,
   zoomMsg,
-} from '@ziroeda/designer/src/ui/status_format.js';
+} from '@ziroeda/common/src/widgets/kistatusbar_format.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 
@@ -149,7 +149,7 @@ describe('GAL zoom factor', () => {
 // ---------------------------------------------------------------------------
 
 describe('KiStatusBar is updateStatusBarWidths', () => {
-  const src = read('ui/KiStatusBar.tsx');
+  const src = read('../../common/src/widgets/kistatusbar.tsx');
 
   it('declares the eight panes in EDA_DRAW_FRAME order', () => {
     // eda_draw_frame.cpp:792 fills `dims` in this order and nothing reorders
@@ -193,7 +193,7 @@ describe('KiStatusBar is updateStatusBarWidths', () => {
   it('sizes the fixed panes off KiCad\u2019s own widest-case strings', () => {
     // updateStatusBarWidths measures these literals; a value can only shift
     // its neighbours if one of them is dropped or shortened.
-    const field = read('ui/StatusField.tsx');
+    const field = read('../../common/src/widgets/kistatusbar_field.tsx');
     expect(field).toContain("zoom: 'Z 762000'");
     expect(field).toContain("coords: 'X 00000.0000  Y 00000.0000'");
     expect(field).toContain("deltas: 'dx 00000.0000  dy 00000.0000  dist 00000.0000'");
@@ -206,7 +206,7 @@ describe('KiStatusBar is updateStatusBarWidths', () => {
   });
 
   it('has the stretch weights in the stylesheet, not in a per-editor rule', () => {
-    const css = read('ui/shell.css');
+    const css = read('../../common/src/widgets/shell.css');
     expect(css).toMatch(/\.ze-statusbar \.cell\.stretch3 \{\s*flex: 3 1 0;/);
     expect(css).toMatch(/\.ze-statusbar \.cell\.stretch2 \{\s*flex: 2 1 0;/);
   });
@@ -217,7 +217,7 @@ describe('the bar height is a property of the frame', () => {
   // OnCreateStatusBar, so there are two kinds of status bar and they do not
   // measure the same. Both numbers below are measured off real KiCad windows
   // at 1920x1200; see --statusbar-height in ui/shell.css for the pixel runs.
-  const shell = read('ui/shell.css');
+  const shell = read('../../common/src/widgets/shell.css');
   const imgc = read('editors/image/imageConverter.css');
 
   it('defaults to KISTATUSBAR\u2019s measured 23px', () => {
@@ -264,7 +264,7 @@ describe('the bar height is a property of the frame', () => {
 });
 
 describe('MsgPanel is EDA_MSG_PANEL', () => {
-  const src = read('ui/MsgPanel.tsx');
+  const src = read('../../common/src/widgets/msgpanel_ui.tsx');
 
   it('renders an empty row as a non-breaking space, so it keeps its height', () => {
     // DoGetBestSize is 2 * m_fontSize.y whatever the items hold, and showItem
@@ -287,18 +287,25 @@ describe('MsgPanel is EDA_MSG_PANEL', () => {
 
 /** The one file allowed to render each piece of chrome. */
 const OWNER = {
-  'ze-statusbar': 'ui/KiStatusBar.tsx',
-  'ze-msgpanel': 'ui/MsgPanel.tsx',
+  'ze-statusbar': 'common/widgets/kistatusbar.tsx',
+  'ze-msgpanel': 'common/widgets/msgpanel_ui.tsx',
 } as const;
 
 describe('the status bar and the message panel exist once', () => {
-  const files = walk(SRC);
+  // The owners are `common/src/widgets` since 09-21; the launchers are walked
+  // for anything drawing the class name itself.
+  const COMMON = fileURLToPath(new URL('../../../common/src', import.meta.url));
+  const files = [...walk(SRC), ...walk(COMMON)];
 
   for (const [cls, owner] of Object.entries(OWNER)) {
     it(`only ${owner} renders className="${cls}"`, () => {
       const offenders = files
         .filter((f) => new RegExp(`className="${cls}"`).test(readFileSync(f, 'utf8')))
-        .map((f) => relative(SRC, f).split('\\').join('/'));
+        .map((f) =>
+          (f.startsWith(COMMON) ? `common/${relative(COMMON, f)}` : relative(SRC, f))
+            .split('\\')
+            .join('/'),
+        );
       expect(offenders).toEqual([owner]);
     });
   }
@@ -325,7 +332,10 @@ describe('the status bar and the message panel exist once', () => {
     it(`${file} consumes ${uses.join(' + ')}`, () => {
       const src = read(file);
       for (const use of uses) {
-        expect(src).toMatch(new RegExp(`import \\{[^}]*\\b${use}\\b[^}]*\\} from '[^']*ui/${use}`));
+        const module = { KiStatusBar: 'widgets/kistatusbar', MsgPanel: 'widgets/msgpanel_ui' }[use];
+        expect(src).toMatch(
+          new RegExp(`import \\{[^}]*\\b${use}\\b[^}]*\\} from '@ziroeda/common/src/${module}`),
+        );
         expect(src).toContain(`<${use}`);
       }
     });
@@ -338,7 +348,7 @@ describe('the status bar and the message panel exist once', () => {
     for (const f of collectCss(SRC)) {
       const text = readFileSync(f, 'utf8');
       const rel = relative(SRC, f).split('\\').join('/');
-      if (rel === 'ui/shell.css') continue;
+      if (rel === '../../common/src/widgets/shell.css') continue;
       expect(text, `${rel} styles a status bar of its own`).not.toMatch(/^\.[\w-]*statusbar\s*\{/m);
       expect(text, `${rel} styles a message panel of its own`).not.toMatch(
         /^\.[\w-]*msgpanel\s*\{/m,

@@ -14,7 +14,7 @@
  */
 import { useState, type JSX } from 'react';
 import { isSplitNeeded } from '@ziroeda/eeschema';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
 
 export interface IncrementAnnotationsResult {
   startRef: string;

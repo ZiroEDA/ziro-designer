@@ -40,8 +40,8 @@
 import { Fragment, type JSX, useState } from 'react';
 import { Group, Sel } from './widgets.js';
 import { Check } from './widgets.js';
-import { Combo } from '../../ui/Combo.js';
-import { StdBitmapButton } from '../../ui/StdBitmapButton.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
+import { StdBitmapButton } from '@ziroeda/common/src/widgets/std_bitmap_button.js';
 import {
   GRID_GROUP_TITLES,
   OVERRIDE_ROWS,
@@ -50,9 +50,13 @@ import {
 } from './grid_settings_rows.js';
 import { DialogGridSettings } from '../dialog_grid_settings.js';
 import { HOTKEYS } from '../../editors/schematic/hotkeys.js';
-import { MessageDialogError } from '../../ui/dialog_message.js';
-import { gridChoiceLabel, gridEquals, type GridEntry } from '../../ui/grid_settings.js';
-import type { EdaUnits } from '../../ui/unit_binder.js';
+import { MessageDialogError } from '@ziroeda/common/src/dialogs/dialog_message.js';
+import {
+  gridChoiceLabel,
+  gridEquals,
+  type GridEntry,
+} from '@ziroeda/common/src/settings/grid_settings_ui.js';
+import type { EdaUnits } from '@ziroeda/common/src/widgets/unit_binder.js';
 import type { EdaIuScale } from '@ziroeda/common';
 
 /** One `GRID_SETTINGS` override pair — `override_<x>` and `override_<x>_idx`. */

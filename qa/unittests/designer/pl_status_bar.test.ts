@@ -27,9 +27,9 @@ import {
   PL_EDITOR_STATUS_TEMPLATES,
   plCoordFields,
 } from '@ziroeda/designer/src/editors/drawingsheet/pl_status_bar.js';
-import { formatG } from '@ziroeda/designer/src/ui/status_format.js';
+import { formatG } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
 import { mmToIU } from '@ziroeda/common';
-import { STATUS_FIELD_TEMPLATES } from '@ziroeda/designer/src/ui/StatusField.js';
+import { STATUS_FIELD_TEMPLATES } from '@ziroeda/common/src/widgets/kistatusbar_field.js';
 
 describe('the pl_editor dims[] table', () => {
   it('sizes pane 5 for the longest coordinate origin, not for "Inches"', () => {

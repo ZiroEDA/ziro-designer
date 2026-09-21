@@ -38,11 +38,11 @@ import {
 import { VIEWER3D_DEFAULTS } from '../../prefs/settings.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
-import { ABOUT_TITLES } from '../../ui/about_titles.js';
+import { ABOUT_TITLES } from '@ziroeda/common/src/eda_base_frame_about_titles.js';
 import type { Board } from '@ziroeda/pcbnew';
-import { MenuBar } from '../../ui/MenuBar.js';
-import { Toolbar } from '../../ui/Toolbar.js';
-import { KiStatusBar } from '../../ui/KiStatusBar.js';
+import { MenuBar } from '@ziroeda/common/src/tool/action_menu_bar.js';
+import { Toolbar } from '@ziroeda/common/src/tool/action_toolbar.js';
+import { KiStatusBar } from '@ziroeda/common/src/widgets/kistatusbar.js';
 // From the types module, NOT from pcb3d.js: naming a type out of that file
 // makes tsc resolve its three.js / occt-import-js chain, which qa has no types
 // for. The runtime import below stays lazy, which is the point — three.js only
@@ -61,8 +61,8 @@ import { VIEWER_3D_FRAME_NAME } from './frame_title.js';
 import { stackupColors } from './board_adapter_colors.js';
 import type { BoardFinish, PhysicalStackup } from './board_settings.js';
 import { Appearance3DPanel } from './Appearance3DPanel.js';
-import { DockSash } from '../../ui/DockSash.js';
-import { EdaListDialog } from '../../ui/EdaListDialog.js';
+import { DockSash } from '@ziroeda/common/src/widgets/wx_aui_sash.js';
+import { EdaListDialog } from '@ziroeda/common/src/dialogs/eda_list_dialog.js';
 import { settings } from '../../prefs/settings.js';
 import { parseColor4d, toCssColor, type Color4d } from '@ziroeda/common/src/color4d.js';
 import { pcbLayerIdOf, plotLayerSelection } from './board_3d_layers.js';

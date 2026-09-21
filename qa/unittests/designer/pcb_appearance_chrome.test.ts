@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest';
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const SHELL = read('../../../designer/src/ui/shell.css');
+const SHELL = read('../../../common/src/widgets/shell.css');
 // The panel is now ONE widget both frames construct, so what used to be read
 // out of `PcbEditor.tsx` is read out of the widget — see
 // `appearance_controls_shared.test.tsx` for the per-frame assertions.

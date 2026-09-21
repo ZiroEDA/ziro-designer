@@ -46,7 +46,7 @@ import {
 } from '../symbols/index.js';
 import { libTreeItem, type LibTreeItem } from '../symbols/lib_tree_item.js';
 import { settings } from '../../../prefs/settings.js';
-import { Sash } from '../../../ui/Sash.js';
+import { Sash } from '@ziroeda/common/src/widgets/wx_splitter_window.js';
 
 /** Upstream PICKED_SYMBOL (sch_screen.h): LIB_ID + unit + edited fields. */
 export interface PickedSymbol {

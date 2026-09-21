@@ -8,7 +8,7 @@
  * hidden editor's placeholder can no longer own the tab.
  */
 import { describe, it, expect } from 'vitest';
-import { APP_NAME, formatTitle } from '@ziroeda/designer/src/ui/useDocumentTitle.js';
+import { APP_NAME, formatTitle } from '@ziroeda/common/src/use_document_title.js';
 
 describe('formatTitle', () => {
   it('names the document, then the editor', () => {

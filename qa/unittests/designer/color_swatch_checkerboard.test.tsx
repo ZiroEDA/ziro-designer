@@ -22,7 +22,7 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
-import { ColorSwatch } from '@ziroeda/designer/src/ui/ColorSwatch.js';
+import { ColorSwatch } from '@ziroeda/common/src/widgets/color_swatch.js';
 import { COLOR4D_UNSPECIFIED, type Color4d } from '@ziroeda/common/src/color4d.js';
 
 afterEach(cleanup);

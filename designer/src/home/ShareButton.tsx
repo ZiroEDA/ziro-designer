@@ -30,9 +30,9 @@
  */
 
 import { useCallback, useRef, useState, type JSX } from 'react';
-import { Combo } from '../ui/Combo.js';
-import { useDismissOnOutside } from '../ui/useDismissOnOutside.js';
-import { Icon } from '../ui/icons.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
+import { useDismissOnOutside } from '@ziroeda/common/src/widgets/use_dismiss_on_outside.js';
+import { Icon } from '@ziroeda/common/src/widgets/icons.js';
 import { cloudBackend } from '../cloud/cloudStore.js';
 import { inviteUrlFor, shareUrlFor } from '../cloud/invites.js';
 import { cloudBackend as backendFor, rotateProjectKey } from '../cloud/cloudStore.js';

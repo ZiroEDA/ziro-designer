@@ -23,11 +23,12 @@ import {
   printfG,
   ratedImpulseWithstandVoltageV,
 } from '@ziroeda/pcb_calculator';
-import { Combo } from '../../../ui/Combo.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
 import { Field, Group, LEN_UNITS, fmt, parseNum } from '../fields.js';
 import { useCalcSaveSettings } from '../calc_settings.js';
 import { CALC_ART_SIZE } from '../art_sizes.js';
 import { settings } from '../../../prefs/settings.js';
+import { svgUrl } from '@ziroeda/bitmaps_png';
 
 /** `DoubleFromString` on a field that will not parse yields 0, and that is what
  *  `SaveSettings` then stores (panel_electrical_spacing_iec60664.cpp). */
@@ -239,12 +240,6 @@ function Select<T>({
  * (panel_electrical_spacing_iec60664_base.cpp, BITMAPS::iec60664insulation).
  */
 // KiCad's own dark-theme artwork (GPL), vendored under assets/.
-const ES_ART = import.meta.glob('../../../assets/calculator/*.svg', {
-  query: '?url',
-  import: 'default',
-  eager: true,
-}) as Record<string, string>;
-
 /**
  * m_creepageclearanceBitmap plus its legend
  * (panel_electrical_spacing_iec60664_base.cpp:310-313). It is
@@ -256,7 +251,7 @@ function CreepageDrawing(): JSX.Element {
     <div className="es-iec-figure">
       <img
         className="calc-art"
-        src={ES_ART['../../../assets/calculator/creepage_clearance.svg']}
+        src={svgUrl('calculator', 'creepage_clearance')}
         alt=""
         width={CALC_ART_SIZE.creepage_clearance?.[0]}
         height={CALC_ART_SIZE.creepage_clearance?.[1]}

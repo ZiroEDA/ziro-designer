@@ -12,9 +12,9 @@
  * Moved verbatim out of `prefs/PreferencesDialog.tsx`; no behaviour change.
  */
 import type { JSX, ReactNode } from 'react';
-import { Combo } from '../../ui/Combo.js';
-import { ColorSwatch } from '../../ui/ColorSwatch.js';
-import { SpinCtrl } from '../../ui/SpinCtrl.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
+import { ColorSwatch } from '@ziroeda/common/src/widgets/color_swatch.js';
+import { SpinCtrl } from '@ziroeda/common/src/widgets/spin_ctrl.js';
 import { parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
 
 /**

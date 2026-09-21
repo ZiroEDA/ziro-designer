@@ -12,9 +12,9 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import {
   BackgroundJobsMonitor,
   backgroundJobsMonitor,
-} from '@ziroeda/designer/src/ui/background_jobs_monitor.js';
-import { BackgroundJobList } from '@ziroeda/designer/src/ui/BackgroundJobList.js';
-import { KiStatusBar } from '@ziroeda/designer/src/ui/KiStatusBar.js';
+} from '@ziroeda/common/src/background_jobs_monitor.js';
+import { BackgroundJobList } from '@ziroeda/common/src/background_jobs_monitor_ui.js';
+import { KiStatusBar } from '@ziroeda/common/src/widgets/kistatusbar.js';
 
 afterEach(() => {
   cleanup();

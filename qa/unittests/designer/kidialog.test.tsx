@@ -22,19 +22,15 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { JSX } from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import {
-  KiDialog,
-  DO_NOT_SHOW_AGAIN_LABEL,
-  useKiDialog,
-} from '@ziroeda/designer/src/ui/kidialog.js';
+import { KiDialog, DO_NOT_SHOW_AGAIN_LABEL, useKiDialog } from '@ziroeda/common/src/kidialog.js';
 import {
   clearDoNotShowAgainDialogs,
   rememberDoNotShowAgain,
-} from '@ziroeda/designer/src/ui/do_not_show_again.js';
+} from '@ziroeda/common/src/kidialog_do_not_show.js';
 
 afterEach(cleanup);
 
-const CSS = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+const CSS = readFileSync(resolve(process.cwd(), '../common/src/widgets/shell.css'), 'utf8');
 
 /** A rule body by exact selector, comments stripped. */
 function rule(selector: string): string {

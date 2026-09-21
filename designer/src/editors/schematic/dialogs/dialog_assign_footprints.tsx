@@ -102,8 +102,13 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type JSX } from 'react';
 import type { Schematic } from '@ziroeda/eeschema';
-import { ContextMenu, MenuBar, type Menu, type MenuItem } from '../../../ui/MenuBar.js';
-import { Toolbar, type ToolEntry } from '../../../ui/Toolbar.js';
+import {
+  ContextMenu,
+  MenuBar,
+  type Menu,
+  type MenuItem,
+} from '@ziroeda/common/src/tool/action_menu_bar.js';
+import { Toolbar, type ToolEntry } from '@ziroeda/common/src/tool/action_toolbar.js';
 import { DisplayFootprintsFrame } from './display_footprints_frame.js';
 import { LibraryLoadingPanel } from '../../../widgets/library_loading_panel.js';
 import type { PcbFootprint } from '@ziroeda/pcbnew';
@@ -165,21 +170,21 @@ import {
 } from '../cvpcb_commands.js';
 import { settings } from '../../../prefs/settings.js';
 import { useDialogControl } from '../../../ui/useDialogControl.js';
-import { DockSash } from '../../../ui/DockSash.js';
+import { DockSash } from '@ziroeda/common/src/widgets/wx_aui_sash.js';
 import type { FieldsEdits } from './dialog_symbol_fields_table.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
-import { dispatchMenuHotkey } from '../../../ui/menu_hotkeys.js';
-import type { FocusLike } from '../../../ui/browser_hotkeys.js';
-import { addClose } from '../../../ui/action_menu.js';
-import { UnsavedChangesDialog } from '../../../ui/dialog_unsaved_changes.js';
-import type { UnsavedChangesResult } from '../../../ui/confirm.js';
-import { standardHelpMenu } from '../../../ui/help_menu.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { dispatchMenuHotkey } from '@ziroeda/common/src/tool/action_menu_hotkeys.js';
+import type { FocusLike } from '@ziroeda/common/src/browser_hotkeys.js';
+import { addClose } from '@ziroeda/common/src/tool/action_menu.js';
+import { UnsavedChangesDialog } from '@ziroeda/common/src/dialogs/dialog_unsaved_changes.js';
+import type { UnsavedChangesResult } from '@ziroeda/common/src/confirm.js';
+import { standardHelpMenu } from '@ziroeda/common/src/eda_base_frame_help_menu.js';
 import { showHotkeyList } from '../../../ui/hotkey_list_action.js';
-import { setLanguageMenuItem } from '../../../ui/language_menu.js';
-import { ABOUT_TITLES } from '../../../ui/about_titles.js';
+import { setLanguageMenuItem } from '@ziroeda/common/src/eda_base_frame_language_menu.js';
+import { ABOUT_TITLES } from '@ziroeda/common/src/eda_base_frame_about_titles.js';
 import { AboutDialog } from '../../../home/dialogs/dialog_about.js';
 import { PreferencesDialog } from '../../../dialogs/PreferencesDialog.js';
-import { MessageDialogOk } from '../../../ui/dialog_message.js';
+import { MessageDialogOk } from '@ziroeda/common/src/dialogs/dialog_message.js';
 import {
   automaticFootprintMatching,
   buildEquivalenceList,

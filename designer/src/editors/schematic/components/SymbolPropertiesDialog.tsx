@@ -54,22 +54,26 @@ import {
   embeddedFilesIn,
 } from '@ziroeda/eeschema';
 import { PIN_SHAPE_BITMAPS, PIN_TYPE_BITMAPS } from '../pin_icons.js';
-import { bitmapUrl } from '../../../ui/toolbarIcons.js';
+import { bitmapUrl } from '@ziroeda/common/src/bitmap_store.js';
 import {
   DEFAULT_FONT_NAME,
   KICAD_FONT_NAME,
   measureText,
 } from '@ziroeda/common/src/font/stroke_font.js';
 import { BUNDLED_FAMILIES } from '../../../font/outline_fonts.js';
-import { parseUnitValueDouble, stringFromValue, type EdaUnits } from '../../../ui/unit_binder.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
-import { ColorSwatch } from '../../../ui/ColorSwatch.js';
-import { Icon } from '../../../ui/icons.js';
+import {
+  parseUnitValueDouble,
+  stringFromValue,
+  type EdaUnits,
+} from '@ziroeda/common/src/widgets/unit_binder.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { ColorSwatch } from '@ziroeda/common/src/widgets/color_swatch.js';
+import { Icon } from '@ziroeda/common/src/widgets/icons.js';
 // The wxChoice port. A native <select> draws its option list with the OS,
 // so its highlight is Chrome's blue rgb(153,200,255) where GTK paints
 // rgb(62,62,62) — see the header of ui/Combo.tsx for the measurements.
-import { Combo } from '../../../ui/Combo.js';
-import { StdBitmapButton } from '../../../ui/StdBitmapButton.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
+import { StdBitmapButton } from '@ziroeda/common/src/widgets/std_bitmap_button.js';
 import { color4dToItemColor, itemColorToColor4d } from '../dialogs/item_color.js';
 
 /**

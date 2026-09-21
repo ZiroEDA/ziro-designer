@@ -24,7 +24,7 @@
  */
 import { gridSizeToIU, settings, type SymbolEditorSettings } from '../../prefs/settings.js';
 import { SYM_SHAPE_TOOLS } from './symbolToolbars.js';
-import { gridSnappingEnabled } from '../../ui/grid_cursor.js';
+import { gridSnappingEnabled } from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
 
 /**
  * `gridCfg.grids[ safeGrid( gridCfg.last_size_idx ) ]`, in IU.

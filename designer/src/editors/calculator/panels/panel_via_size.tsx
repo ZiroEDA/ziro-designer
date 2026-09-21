@@ -13,7 +13,7 @@ import {
   STANDARD_RESISTIVITY_LIST,
   viaSize,
 } from '@ziroeda/pcb_calculator';
-import { SingleChoiceDialog } from '../../../ui/dialog_single_choice.js';
+import { SingleChoiceDialog } from '@ziroeda/common/src/dialogs/dialog_single_choice.js';
 import {
   Field,
   Group,
@@ -27,24 +27,19 @@ import {
 import { useCalcSaveSettings } from '../calc_settings.js';
 import { CALC_ART_SIZE } from '../art_sizes.js';
 import { settings, type PcbCalculatorViaSize } from '../../../prefs/settings.js';
+import { svgUrl } from '@ziroeda/bitmaps_png';
 
 /** Every result on this page is `wxString::Format( "%g", … )`. */
 const g = (v: number | undefined | false | null): string =>
   typeof v === 'number' && Number.isFinite(v) ? printfG(v) : '';
 
 // KiCad's own dark-theme artwork (GPL), vendored under assets/.
-const VIA_ART = import.meta.glob('../../../assets/calculator/*.svg', {
-  query: '?url',
-  import: 'default',
-  eager: true,
-}) as Record<string, string>;
-
 /** m_viaBitmap, BITMAPS::viacalc drawn 1:1 (panel_via_size.cpp:63). */
 function ViaDrawing(): JSX.Element {
   return (
     <img
       className="calc-art"
-      src={VIA_ART['../../../assets/calculator/viacalc.svg']}
+      src={svgUrl('calculator', 'viacalc')}
       alt=""
       width={CALC_ART_SIZE.viacalc?.[0]}
       height={CALC_ART_SIZE.viacalc?.[1]}

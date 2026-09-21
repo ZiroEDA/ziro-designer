@@ -4,7 +4,7 @@
 import { useEffect, useState, type FormEvent, type JSX } from 'react';
 import { RecoveryKeyContents } from './RecoveryKeyContents.js';
 import { useAuth } from './AuthProvider.js';
-import { useModalEscape } from '../ui/useModalEscape.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
 import { ZiroLogo } from '../ui/ZiroLogo.js';
 import type { AuthStep } from '../nav/route.js';
 

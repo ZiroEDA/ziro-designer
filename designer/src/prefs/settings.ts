@@ -29,15 +29,19 @@ import {
   type CrossProbingSettings,
 } from '@ziroeda/common/src/cross_probing_settings.js';
 import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
+import { setColorPickerTabStore } from '@ziroeda/common/src/dialogs/dialog_color_picker_tab.js';
 import type { RegulatorData } from '@ziroeda/pcb_calculator';
-import { defaultUnits } from '../ui/app_settings_units.js';
+import { defaultUnits } from '@ziroeda/common/src/settings/app_settings_units.js';
 import {
   DEFAULT_GRID_INDEX,
   GRID_SIZE_LIST,
   type GridEntry,
   gridEntryOf,
-} from '../ui/grid_settings.js';
-import { normalizeToolbarSettings, type ToolbarSettings } from '../ui/toolbar_config.js';
+} from '@ziroeda/common/src/settings/grid_settings_ui.js';
+import {
+  normalizeToolbarSettings,
+  type ToolbarSettings,
+} from '@ziroeda/common/src/tool/ui/toolbar_configuration.js';
 import {
   DEFAULT_ROUTING_SETTINGS,
   writeRoutingSettings,
@@ -4340,3 +4344,15 @@ export class SettingsManager {
 
 migrateStored();
 export const settings = new SettingsManager();
+
+// `PGM_BASE` owns `COMMON_SETTINGS` upstream and the common dialogs reach it
+// through `Pgm()`. Installing the store here, where the settings live, is that
+// hand-over: any dialog in `@ziroeda/common` reads the same file as the app.
+
+setColorPickerTabStore({
+  get: () => settings.common.color_picker.default_tab,
+  set: (i) =>
+    settings.updateCommon((s) => {
+      s.color_picker.default_tab = i;
+    }),
+});

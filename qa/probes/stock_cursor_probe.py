@@ -13,7 +13,7 @@ installed KiCad makes. This script makes that call and saves the answer.
     python3 qa/probes/stock_cursor_probe.py            # prints size, hotspot, ASCII
     python3 qa/probes/stock_cursor_probe.py out.png    # and writes the PNG
 
-`designer/src/assets/cursors/stock-target.png` is that output, verbatim,
+`bitmaps_png/sources/cursors/stock-target.png` is that output, verbatim,
 and `ui/kicursors.ts` states its hotspot. Re-run rather than redraw it.
 
 Measured 2026-09-11, Adwaita 24: 24x24, hotspot (11, 11). Adwaita has no

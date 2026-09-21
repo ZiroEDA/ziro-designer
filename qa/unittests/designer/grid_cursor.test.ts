@@ -29,7 +29,7 @@ import {
   visibleGridStep,
   worldToDeviceX,
   worldToDeviceY,
-} from '@ziroeda/designer/src/ui/grid_cursor.js';
+} from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
 
 /** eeschema IU: 100 nm, so a 50 mil grid is 12700 IU. */
 const MIL = 254;

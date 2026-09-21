@@ -40,7 +40,10 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const UI = fileURLToPath(new URL('../../../designer/src/ui/', import.meta.url));
-const SHELL = readFileSync(`${UI}shell.css`, 'utf8');
+const SHELL = readFileSync(
+  fileURLToPath(new URL('../../../common/src/widgets/shell.css', import.meta.url)),
+  'utf8',
+);
 const CHOOSER = readFileSync(`${UI}file_chooser.css`, 'utf8');
 
 /** A token's declared value, or undefined when it is not declared at all. */

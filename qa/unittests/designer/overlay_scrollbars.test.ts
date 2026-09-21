@@ -30,10 +30,10 @@ import {
   scrollPosForThumbOffset,
   nextOverState,
   fadeRuns,
-} from '@ziroeda/designer/src/ui/overlay_scrollbars.js';
+} from '@ziroeda/common/src/widgets/overlay_scrollbars.js';
 
 const CSS = readFileSync(
-  fileURLToPath(new URL('../../../designer/src/ui/shell.css', import.meta.url)),
+  fileURLToPath(new URL('../../../common/src/widgets/shell.css', import.meta.url)),
   'utf8',
 );
 const CSS_CODE = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -89,7 +89,7 @@ describe('the native scrollbars are off, which is the zero-layout-cost half', ()
     // GTK-style end arrows. Drawing an overlay indicator over it would be the
     // one place in the app where the port is wrong.
     const menubar = readFileSync(
-      fileURLToPath(new URL('../../../designer/src/ui/MenuBar.tsx', import.meta.url)),
+      fileURLToPath(new URL('../../../common/src/tool/action_menu_bar.tsx', import.meta.url)),
       'utf8',
     );
     expect(menubar).toMatch(/className="ze-submenu-scroll"[^>]*data-ze-no-overlay-scroll/);
@@ -268,7 +268,7 @@ describe('a pane that leaves the document takes its bars with it, now', () => {
   // this file: the drop happens on a DOM mutation, which node has no engine
   // to deliver.
   const SRC = readFileSync(
-    fileURLToPath(new URL('../../../designer/src/ui/overlay_scrollbars.ts', import.meta.url)),
+    fileURLToPath(new URL('../../../common/src/widgets/overlay_scrollbars.ts', import.meta.url)),
     'utf8',
   );
 

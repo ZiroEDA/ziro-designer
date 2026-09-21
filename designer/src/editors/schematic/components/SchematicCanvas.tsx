@@ -254,7 +254,7 @@ import {
   cssWithAlpha,
 } from '@ziroeda/common';
 import { toolCursor as kiToolCursor } from '../cursors.js';
-import { applyCanvasSize, backingSizeFor } from '../../../ui/canvas_size.js';
+import { applyCanvasSize, backingSizeFor } from '@ziroeda/common/src/widgets/canvas_size.js';
 import { kiCursor } from '../../../ui/kicursors.js';
 import { remapEvent } from '../hotkey_bindings.js';
 import { settings } from '../../../prefs/settings.js';
@@ -265,7 +265,7 @@ import {
   drawCrosshair,
   gridSnappingEnabled,
   viewFromOffsets,
-} from '../../../ui/grid_cursor.js';
+} from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
 import {
   DEFAULT_INPUT_PREFS,
   dragGesture,

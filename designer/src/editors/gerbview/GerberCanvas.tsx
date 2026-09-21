@@ -14,7 +14,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { Vec2 } from '@ziroeda/kimath';
 import { IU_PER_MM, type GERBER_DRAW_ITEM } from '@ziroeda/gerbview';
-import { drawRulerItem, type RulerUnits } from '../../ui/ruler_item.js';
+import { drawRulerItem, type RulerUnits } from '@ziroeda/common/src/preview_items/ruler_item.js';
 import { gerberToolCursor } from './cursors.js';
 import {
   renderGerberLayers,
@@ -53,11 +53,18 @@ import {
   drawCrosshair,
   drawGrid,
   gridSnappingEnabled,
-} from '../../ui/grid_cursor.js';
+} from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
 import { useGerbviewSettings } from '../../prefs/useSettings.js';
-import { clampViewScale, nextZoomPreset, ZOOM_LIST } from '../../ui/zoom_settings.js';
-import { scaleForZoomFactor, zoomFactorForScale } from '../../ui/status_format.js';
-import { zoomAreaTarget, type ZoomArea } from '../../ui/zoom_tool.js';
+import {
+  clampViewScale,
+  nextZoomPreset,
+  ZOOM_LIST,
+} from '@ziroeda/common/src/settings/zoom_settings.js';
+import {
+  scaleForZoomFactor,
+  zoomFactorForScale,
+} from '@ziroeda/common/src/widgets/kistatusbar_format.js';
+import { zoomAreaTarget, type ZoomArea } from '@ziroeda/common/src/tool/zoom_tool.js';
 import { drawSelectionArea, selectionAreaColors } from '@ziroeda/common';
 
 /**

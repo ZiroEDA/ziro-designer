@@ -50,12 +50,12 @@ import {
 } from '@ziroeda/pcbnew/board_stackup_manager/dielectric_material.js';
 import { GetStandardColors } from '@ziroeda/pcbnew/board_stackup_manager/stackup_predefined_prms.js';
 import { BuildStackupReport } from '@ziroeda/pcbnew/board_stackup_manager/board_stackup_reporter.js';
-import type { StatusUnits } from '../../../../ui/status_format.js';
+import type { StatusUnits } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
 import { stackupFromView } from '../board_setup_transfer.js';
-import { Combo } from '../../../../ui/Combo.js';
-import { stringFromValue } from '../../../../ui/unit_binder.js';
-import { EdaListDialog } from '../../../../ui/EdaListDialog.js';
-import { useModalEscape } from '../../../../ui/useModalEscape.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
+import { stringFromValue } from '@ziroeda/common/src/widgets/unit_binder.js';
+import { EdaListDialog } from '@ziroeda/common/src/dialogs/eda_list_dialog.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
 
 // The data model lives in board_settings.ts (KiCad's data/UI split);
 // re-exported so panel users keep importing from the panel module.

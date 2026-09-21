@@ -48,7 +48,7 @@ import {
   wksPickerEnabled,
   type PageSettingsFrame,
 } from '@ziroeda/designer/src/dialogs/page_settings_model.js';
-import { validateUnitValue } from '@ziroeda/designer/src/ui/unit_binder.js';
+import { validateUnitValue } from '@ziroeda/common/src/widgets/unit_binder.js';
 import { PAPER_MM } from '@ziroeda/common';
 
 const FRAMES: readonly PageSettingsFrame[] = ['eeschema', 'pcbnew', 'pl_editor'];

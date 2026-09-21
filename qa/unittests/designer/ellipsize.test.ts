@@ -9,7 +9,10 @@
  * measure of 1 unit per character makes every width below a character count.
  */
 import { describe, expect, it } from 'vitest';
-import { ellipsisMargin, ellipsizeMiddle } from '@ziroeda/designer/src/ui/ellipsize.js';
+import {
+  ellipsisMargin,
+  ellipsizeMiddle,
+} from '@ziroeda/common/src/widgets/wx_ellipsized_static_text.js';
 
 /** One unit per character, i.e. a monospace font of width 1. */
 const mono = (s: string): number => s.length;

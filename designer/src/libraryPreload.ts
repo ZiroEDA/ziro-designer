@@ -57,7 +57,10 @@
  * shows it from the name index, which is one 366 kB file.
  */
 
-import { backgroundJobsMonitor, type BackgroundJob } from './ui/background_jobs_monitor.js';
+import {
+  backgroundJobsMonitor,
+  type BackgroundJob,
+} from '@ziroeda/common/src/background_jobs_monitor.js';
 import { ensureBundle } from './libraryBundleStore.js';
 
 /** Which hosted library set a preload covers. */

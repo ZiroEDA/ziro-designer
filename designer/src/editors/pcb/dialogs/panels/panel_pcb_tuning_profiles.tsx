@@ -35,10 +35,10 @@ import type { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
 import { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { BOARD_STACKUP } from '@ziroeda/pcbnew/board_stackup_manager/board_stackup.js';
-import { Combo } from '../../../../ui/Combo.js';
-import { bitmapUrl } from '../../../../ui/toolbarIcons.js';
-import { StdBitmapButton } from '../../../../ui/StdBitmapButton.js';
-import type { StatusUnits } from '../../../../ui/status_format.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
+import { bitmapUrl } from '@ziroeda/common/src/bitmap_store.js';
+import { StdBitmapButton } from '@ziroeda/common/src/widgets/std_bitmap_button.js';
+import type { StatusUnits } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
 import type {
   ProfileType,
   TuningProfile,

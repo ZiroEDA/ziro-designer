@@ -16,7 +16,7 @@ import {
   evaluateConditionalMenu,
   menuEntry,
   menuSeparator,
-} from '@ziroeda/designer/src/ui/conditional_menu.js';
+} from '@ziroeda/common/src/tool/conditional_menu.js';
 
 const labels = (items: { sep?: boolean; label?: string }[]): string[] =>
   items.map((it) => (it.sep ? '—' : (it.label ?? '?')));

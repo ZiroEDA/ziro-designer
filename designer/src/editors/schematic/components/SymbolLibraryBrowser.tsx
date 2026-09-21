@@ -22,7 +22,7 @@ import {
   symbolSearchTerms,
   type LibIndexEntry,
 } from '../symbols/index.js';
-import { Toolbar, type ToolEntry } from '../../../ui/Toolbar.js';
+import { Toolbar, type ToolEntry } from '@ziroeda/common/src/tool/action_toolbar.js';
 import {
   fitSymbol,
   renderSymbolScene,
@@ -32,14 +32,14 @@ import {
 import { settings } from '../../../prefs/settings.js';
 import { useSchematicTheme } from '../../../prefs/useSettings.js';
 import { LibraryLoadingPanel } from '../../../widgets/library_loading_panel.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
-import { MsgPanel } from '../../../ui/MsgPanel.js';
-import { Sash } from '../../../ui/Sash.js';
-import { MenuBar } from '../../../ui/MenuBar.js';
-import type { Menu } from '../../../ui/menu_types.js';
-import { addClose } from '../../../ui/action_menu.js';
-import { dispatchMenuHotkey } from '../../../ui/menu_hotkeys.js';
-import type { FocusLike } from '../../../ui/browser_hotkeys.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { MsgPanel } from '@ziroeda/common/src/widgets/msgpanel_ui.js';
+import { Sash } from '@ziroeda/common/src/widgets/wx_splitter_window.js';
+import { MenuBar } from '@ziroeda/common/src/tool/action_menu_bar.js';
+import type { Menu } from '@ziroeda/common/src/tool/action_menu_types.js';
+import { addClose } from '@ziroeda/common/src/tool/action_menu.js';
+import { dispatchMenuHotkey } from '@ziroeda/common/src/tool/action_menu_hotkeys.js';
+import type { FocusLike } from '@ziroeda/common/src/browser_hotkeys.js';
 
 interface Props {
   onPick: (lib: LibSymbol) => void;

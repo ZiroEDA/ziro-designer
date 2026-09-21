@@ -24,11 +24,12 @@ import {
   printfG,
   solveRegulator,
 } from '@ziroeda/pcb_calculator';
-import { Combo } from '../../../ui/Combo.js';
+import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
 import { Field, Group, Modal, copyText, parseNum } from '../fields.js';
 import { useCalcSaveSettings } from '../calc_settings.js';
 import { CALC_ART_SIZE } from '../art_sizes.js';
 import { settings } from '../../../prefs/settings.js';
+import { svgUrl } from '@ziroeda/bitmaps_png';
 
 // The tooltips wxFormBuilder attaches, character for character
 // (panel_regulator_base.cpp:29, 88, 108, 113, 118, 236, 258 — note the double
@@ -68,13 +69,7 @@ interface Stored {
 // KiCad's own dark-theme artwork (GPL), vendored under assets/ — the panel
 // shows `BITMAPS::regul_3pins` or `BITMAPS::regul` at its natural 295x265 /
 // 295x220 size (panel_regulator.cpp:104-113, panel_regulator_base.cpp:44-49).
-const REGUL_ART = import.meta.glob('../../../assets/calculator/*.svg', {
-  query: '?url',
-  import: 'default',
-  eager: true,
-}) as Record<string, string>;
-const artUrl = (name: string): string | undefined =>
-  REGUL_ART[`../../../assets/calculator/${name}.svg`];
+const artUrl = (name: string): string | undefined => svgUrl('calculator', name);
 
 /** wxStaticBitmap m_bitmapRegul3pins / m_bitmapRegul4pins. */
 function RegulatorDrawing({ type }: { type: RegulatorType }): JSX.Element {

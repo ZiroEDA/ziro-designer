@@ -41,7 +41,7 @@ import type {
   UserColorTheme,
   Viewer3dSettings,
 } from '../../prefs/settings.js';
-import type { ToolbarSettings } from '../../ui/toolbar_config.js';
+import type { ToolbarSettings } from '@ziroeda/common/src/tool/ui/toolbar_configuration.js';
 
 /** One page in the book. The web mirror of KiCad's `PANEL_*` ids. */
 export type PrefsPageId =

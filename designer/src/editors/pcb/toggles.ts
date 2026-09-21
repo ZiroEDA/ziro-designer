@@ -19,8 +19,8 @@
  * upstream (`pcbnew/pcb_edit_frame.cpp:1182-1188`).
  */
 
-import { defaultUnitsToggle } from '../../ui/app_settings_units.js';
-import type { CrosshairMode } from '../../ui/grid_cursor.js';
+import { defaultUnitsToggle } from '@ziroeda/common/src/settings/app_settings_units.js';
+import type { CrosshairMode } from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
 import type { PcbnewSettings } from '../../prefs/settings.js';
 
 /**

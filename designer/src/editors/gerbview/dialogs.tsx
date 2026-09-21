@@ -22,8 +22,8 @@ import {
   type GERBER_FILE_IMAGE,
   IU_PER_MM,
 } from '@ziroeda/gerbview';
-import { useModalEscape } from '../../ui/useModalEscape.js';
-import type { MsgPanelItem } from '../../ui/MsgPanel.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import type { MsgPanelItem } from '@ziroeda/common/src/widgets/msgpanel_ui.js';
 
 export function itemInfoRows(
   item: GERBER_DRAW_ITEM | null,

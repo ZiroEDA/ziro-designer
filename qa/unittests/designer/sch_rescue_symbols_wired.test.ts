@@ -20,7 +20,7 @@ const EDITOR = read('../../../designer/src/editors/schematic/SchematicEditor.tsx
 const MENUBAR = read('../../../designer/src/editors/schematic/menubar.ts');
 const DIALOG = read('../../../designer/src/editors/schematic/dialogs/dialog_rescue_each.tsx');
 const PANEL = read('../../../designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx');
-const ICONS = read('../../../designer/src/ui/icons.tsx');
+const ICONS = read('../../../common/src/widgets/icons.tsx');
 
 describe('the menu entry', () => {
   it('is live, not a stub', () => {

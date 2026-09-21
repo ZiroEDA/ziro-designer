@@ -41,8 +41,9 @@ const DIALOGS = fileURLToPath(
  * would have reported the file "fixed" the moment it left the folder — the
  * exact way this list is supposed to be unable to rot.
  */
-const SHARED_DIALOGS = fileURLToPath(new URL('../../../designer/src/ui', import.meta.url));
-const SHARED_FILES = ['DialogTableProperties.tsx'];
+const SHARED_DIALOGS = fileURLToPath(new URL('../../../common/src/dialogs', import.meta.url));
+// Keyed as `common/<file>` since 09-21: eeschema's wrapper has the same name.
+const SHARED_FILES = ['common/dialog_table_properties.tsx'];
 
 /**
  * The board editor's dialogs, scanned by the same rule.
@@ -70,10 +71,9 @@ const files = [
 
 /** Where a scanned file lives — three roots, and no basename is in two of them. */
 const pathOf = (file: string): string =>
-  join(
-    SHARED_FILES.includes(file) ? SHARED_DIALOGS : PCB_FILES.includes(file) ? PCB_DIALOGS : DIALOGS,
-    file,
-  );
+  SHARED_FILES.includes(file)
+    ? join(SHARED_DIALOGS, file.slice('common/'.length))
+    : join(PCB_FILES.includes(file) ? PCB_DIALOGS : DIALOGS, file);
 
 /** Comments are prose: a `mm` in a header block is documentation, not a label. */
 const code = (text: string): string =>
@@ -110,11 +110,11 @@ const KNOWN_HARDCODED = new Set([
   'dialog_plot.tsx',
   'dialog_sheet_pin_properties.tsx',
   'dialog_sheet_properties.tsx',
-  // Table Properties, now `ui/DialogTableProperties.tsx` and shared with the
+  // Table Properties, now `common/src/dialogs/dialog_table_properties.tsx` and shared with the
   // board editor. The debt moved with the file rather than being paid: both
   // width fields still print a literal "mm" where `UNIT_BINDER` would print the
   // frame's unit. It is one fix for two editors now, which is the point.
-  'DialogTableProperties.tsx',
+  'common/dialog_table_properties.tsx',
   // ---- the board editor -----------------------------------------------------
   // Ten when this scan could first see the folder, and none left.
   //

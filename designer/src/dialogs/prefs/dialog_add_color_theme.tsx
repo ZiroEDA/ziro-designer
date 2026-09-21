@@ -24,8 +24,8 @@
  * the dialog has closed, so the name is lost and the user starts again.
  */
 import { useState, type JSX } from 'react';
-import { useModalEscape } from '../../ui/useModalEscape.js';
-import { OK_LABEL } from '../../ui/message_dialog.js';
+import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { OK_LABEL } from '@ziroeda/common/src/confirm_types.js';
 
 /**
  * `FOOTPRINT_NAME_VALIDATOR` (`common/validators.cpp:45-53`), a

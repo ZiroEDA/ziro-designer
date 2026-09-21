@@ -13,7 +13,7 @@
  * same class of problem as a test that cannot fail.
  */
 
-import type { MenuItem } from '../../ui/menu_types.js';
+import type { MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
 
 export interface LayerInfo {
   index: number;

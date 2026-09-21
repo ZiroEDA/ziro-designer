@@ -40,16 +40,16 @@ import {
   addQuitOrClose,
   UPSTREAM_CLOSE_KEY,
   UPSTREAM_QUIT_KEY,
-} from '@ziroeda/designer/src/ui/action_menu.js';
+} from '@ziroeda/common/src/tool/action_menu.js';
 import {
   BROWSER_REBINDS,
   browserSafeKey,
   isBrowserReserved,
-} from '@ziroeda/designer/src/ui/browser_reserved.js';
+} from '@ziroeda/common/src/browser_reserved.js';
 import { buildViewer3DMenus } from '@ziroeda/designer/src/editors/pcb/viewer3dMenus.js';
 import { buildMenus as buildSchMenus } from '@ziroeda/designer/src/editors/schematic/menubar.js';
 import { buildHotkeySections } from '@ziroeda/designer/src/ui/hotkeys_inventory.js';
-import type { Menu, MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
+import type { Menu, MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');

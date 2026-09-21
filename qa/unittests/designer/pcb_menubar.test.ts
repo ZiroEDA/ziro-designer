@@ -23,7 +23,7 @@ import {
   type PcbMenuChecks,
   type PcbMenuState,
 } from '@ziroeda/designer/src/editors/pcb/menubar.js';
-import type { Menu, MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
+import type { Menu, MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
 
 /** A board with nothing selected and both sibling editors reachable. */
 const STATE: PcbMenuState = {

@@ -20,7 +20,7 @@ import {
   type LauncherId,
   showPlayerRefusal,
 } from '@ziroeda/designer/src/home/show_player.js';
-import { INFO_CAPTION } from '@ziroeda/designer/src/ui/message_dialog.js';
+import { INFO_CAPTION } from '@ziroeda/common/src/confirm_types.js';
 
 const ALL: LauncherId[] = [
   'schematic',

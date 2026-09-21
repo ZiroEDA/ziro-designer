@@ -32,7 +32,7 @@ import type { JSX } from 'react';
 import type { Board } from '@ziroeda/pcbnew';
 import type { PcbPropRow } from '@ziroeda/pcbnew/properties_panel.js';
 import { pcbIUScale } from '@ziroeda/common';
-import type { StatusUnits } from '../../ui/status_format.js';
+import type { StatusUnits } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
 import { PropertiesPanel } from '../../widgets/properties_panel.js';
 import { distanceToString, stringToDistance } from '../../widgets/pg_properties.js';
 

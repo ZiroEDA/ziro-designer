@@ -22,7 +22,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useRef, useState, type JSX } from 'react';
 import { cleanup, render, screen } from '@testing-library/react';
-import { useDismissOnOutside } from '@ziroeda/designer/src/ui/useDismissOnOutside.js';
+import { useDismissOnOutside } from '@ziroeda/common/src/widgets/use_dismiss_on_outside.js';
 
 function Harness({ dismiss }: { dismiss: () => void }): JSX.Element {
   const ref = useRef<HTMLDivElement>(null);

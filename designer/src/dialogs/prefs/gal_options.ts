@@ -26,8 +26,8 @@ export type GridStyle = 'dots' | 'lines' | 'crosses';
  * the one function that acts on it — in `ui/grid_cursor.ts`, and this module
  * is only where the CHOICE that writes it is described.
  */
-export type { GridSnapping } from '../../ui/grid_cursor.js';
-import type { GridSnapping } from '../../ui/grid_cursor.js';
+export type { GridSnapping } from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
+import type { GridSnapping } from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
 
 /**
  * `m_staticText1` and `m_stGridLabel` (`panel_gal_options_base.cpp:17` and

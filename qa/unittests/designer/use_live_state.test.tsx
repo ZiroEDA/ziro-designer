@@ -17,7 +17,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { StrictMode, useState } from 'react';
 import { act, cleanup, render, screen } from '@testing-library/react';
-import { useLiveState } from '@ziroeda/designer/src/ui/useLiveState.js';
+import { useLiveState } from '@ziroeda/common/src/use_live_state.js';
 
 afterEach(cleanup);
 

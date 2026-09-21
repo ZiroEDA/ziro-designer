@@ -17,9 +17,9 @@
  */
 
 import type { HotkeyOverrides } from './hotkey_bindings.js';
-import type { Menu, MenuItem } from '../../ui/menu_types.js';
+import type { Menu, MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
 import { HOTKEYS, HOTKEY_SECTIONS, actionName } from './hotkeys.js';
-import { acceleratorName, hotkeyListName } from '../../ui/key_names.js';
+import { acceleratorName, hotkeyListName } from '@ziroeda/common/src/tool/action_menu_key_names.js';
 
 export interface HotkeyRow {
   /** `TOOL_ACTION::GetName()` - `eeschema.save` - for a row the user can rebind. */

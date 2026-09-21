@@ -111,8 +111,12 @@ const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
  * Declared with the shared status-bar formatters, which need the same number to
  * report a zoom factor, and re-exported here so board code keeps one import.
  */
-import { GAL_SCREEN_DPI } from '../../ui/status_format.js';
-import { DEFAULT_GRID_APPEARANCE, type GridOptions, type GridStyle } from '../../ui/grid_cursor.js';
+import { GAL_SCREEN_DPI } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
+import {
+  DEFAULT_GRID_APPEARANCE,
+  type GridOptions,
+  type GridStyle,
+} from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
 import { isHatchedFill, isSolidFill, shapeHatchLines } from '@ziroeda/pcbnew/shape_fill.js';
 
 export { GAL_SCREEN_DPI };

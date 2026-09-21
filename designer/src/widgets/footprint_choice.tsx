@@ -23,7 +23,11 @@
  * `wxOwnerDrawnComboBox` — and the function below is its `OnDrawItem`.
  */
 import type { JSX, ReactNode } from 'react';
-import { OwnerDrawnCombo, type DrawItemFlags, type OwnerDrawnItem } from '../ui/OwnerDrawnCombo.js';
+import {
+  OwnerDrawnCombo,
+  type DrawItemFlags,
+  type OwnerDrawnItem,
+} from '@ziroeda/common/src/widgets/footprint_choice.js';
 
 /**
  * The half of `FOOTPRINT_CHOICE::OnDrawItem` that decides *what* is greyed

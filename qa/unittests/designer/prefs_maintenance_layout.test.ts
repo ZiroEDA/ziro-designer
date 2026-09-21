@@ -31,7 +31,7 @@ import { COMMON_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 const src = (rel: string): string =>
   readFileSync(resolve(process.cwd(), '../designer/src', rel), 'utf8');
 
-const CSS = src('ui/shell.css');
+const CSS = src('../../common/src/widgets/shell.css');
 const PANEL = src('dialogs/prefs/panels/PanelMaintenance.tsx');
 const DIALOG = src('dialogs/PreferencesDialog.tsx');
 /** Comments stripped: prose ABOUT a control is not that control. */

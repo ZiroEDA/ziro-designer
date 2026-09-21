@@ -10,7 +10,7 @@
  */
 
 import { useState, type JSX } from 'react';
-import { Icon } from '../../../../ui/icons.js';
+import { Icon } from '@ziroeda/common/src/widgets/icons.js';
 import type { BusAlias } from '../../schematic_settings.js';
 
 // The data model lives in schematic_settings.ts (KiCad's data/UI split);

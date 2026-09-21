@@ -118,7 +118,7 @@ describe('the grid is content-sized, so it must not be contained', () => {
   // i.e. it takes its own size rather than stretching. A `contain: inline-size`
   // on such a box has nothing left to size it and it collapses: the page went
   // blank, caption and rule only, when that landed on the shared pane class.
-  const css = readFileSync(join(__dirname, '../../../designer/src/ui/shell.css'), 'utf8');
+  const css = readFileSync(join(__dirname, '../../../common/src/widgets/shell.css'), 'utf8');
   const ruleFor = (selector: string): string => {
     const at = css.indexOf(`\n${selector} {`);
     if (at === -1) throw new Error(`no rule for ${selector}`);

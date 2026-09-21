@@ -1,0 +1,15 @@
+{
+  "name": "@ziroeda/bitmaps_png",
+  "version": "0.0.0",
+  "description": "KiCad's bitmaps_png/: the vendored toolbar, cursor, calculator and dialog artwork, and the store that resolves a bitmap name to its URL.",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "vite": "^6.0.7"
+  }
+}

@@ -52,7 +52,7 @@ import { fileURLToPath } from 'node:url';
 import { join, relative } from 'node:path';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
-const SHELL_CSS = readFileSync(join(SRC, 'ui/shell.css'), 'utf8');
+const SHELL_CSS = readFileSync(join(SRC, '../../common/src/widgets/shell.css'), 'utf8');
 
 /** CSS defines `pt` against 96 dpi exactly, which is also this desktop's dpi. */
 const PT = 96 / 72;
@@ -386,7 +386,10 @@ const BASELINE: Record<string, number> = {
   // ×3, 13 ×4, 14 ×3, 16, 18 and 22 — replaced by `--ui-font-size`,
   // `--ui-font-size-info` and a `calc()` off the former when the card became
   // the docked sign-in panel.
-  ui: 65,
+  // 65 -> 5 on 09-21: the shared widgets moved to `common/src/widgets`
+  // (KiCad's directory) and took their 60 with them; this scan walks
+  // `designer/src` only, so those are ratcheted by `central_values` from now on.
+  ui: 5,
   widgets: 6,
 };
 
@@ -649,7 +652,8 @@ describe('hardcoded font sizes do not grow', () => {
     // moves and 204 - 3 agrees with it.
     // 201 -> 194: the DRC dialog's seven; `editors/pcb` 61 -> 54 is the only
     // row that moves and 201 - 7 agrees with it.
-    expect(sites.length).toBe(194);
+    // 194 -> 134: the 60 that left with `ui`, see that row.
+    expect(sites.length).toBe(134);
   });
 });
 
@@ -670,7 +674,7 @@ describe('hardcoded font sizes do not grow', () => {
  */
 describe('the shell root uses the font tokens, not a literal', () => {
   const shell = readFileSync(
-    fileURLToPath(new URL('../../../designer/src/ui/shell.css', import.meta.url)),
+    fileURLToPath(new URL('../../../common/src/widgets/shell.css', import.meta.url)),
     'utf8',
   );
 

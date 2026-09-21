@@ -30,10 +30,14 @@
  * Ours had no canvas context menu at all: a right-click added no element to the
  * DOM, and `PL_ACTIONS::move`'s M had no UI home anywhere in the editor.
  */
-import type { MenuItem } from '../../ui/menu_types.js';
-import { evaluateConditionalMenu, menuEntry, menuSeparator } from '../../ui/conditional_menu.js';
-import type { ZoomApp } from '../../ui/zoom_settings.js';
-import { standardSubMenuEntries } from '../../ui/standard_submenus.js';
+import type { MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
+import {
+  evaluateConditionalMenu,
+  menuEntry,
+  menuSeparator,
+} from '@ziroeda/common/src/tool/conditional_menu.js';
+import type { ZoomApp } from '@ziroeda/common/src/settings/zoom_settings.js';
+import { standardSubMenuEntries } from '@ziroeda/common/src/eda_draw_frame_submenus.js';
 import { PL_IU_PER_MM } from '@ziroeda/common';
 import {
   // One copy, in the shared module. This file had its own `secondaryUnits` and
@@ -45,8 +49,12 @@ import {
   secondaryUnits,
   type GridApp,
   type GridEntry,
-} from '../../ui/grid_settings.js';
-import { messageTextFromValue, unitText, type StatusUnits } from '../../ui/status_format.js';
+} from '@ziroeda/common/src/settings/grid_settings_ui.js';
+import {
+  messageTextFromValue,
+  unitText,
+  type StatusUnits,
+} from '@ziroeda/common/src/widgets/kistatusbar_format.js';
 
 /** The frame this menu belongs to. Both tables key on the same app name. */
 const APP: ZoomApp & GridApp = 'pl_editor';

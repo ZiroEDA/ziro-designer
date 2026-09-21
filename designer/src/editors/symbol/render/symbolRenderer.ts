@@ -30,7 +30,11 @@ import { getOutlineFont } from '../../../font/outline_fonts.js';
 import { drawOutlineText } from '../../../font/draw_outline_text.js';
 import { ITALIC_TILT } from '@ziroeda/eeschema';
 import type { Theme } from '../../schematic/theme.js';
-import { drawGrid, viewFromOffsets, type GridStyle } from '../../../ui/grid_cursor.js';
+import {
+  drawGrid,
+  viewFromOffsets,
+  type GridStyle,
+} from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
 
 export interface Viewport {
   scale: number;

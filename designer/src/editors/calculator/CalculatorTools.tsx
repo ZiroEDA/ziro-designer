@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useState, type JSX } from 'react';
-import { MenuBar, type Menu } from '../../ui/MenuBar.js';
+import { MenuBar, type Menu } from '@ziroeda/common/src/tool/action_menu_bar.js';
 import { Modal } from './fields.js';
 import { PanelRegulator } from './panels/panel_regulator.js';
 import { PanelRCalculator } from './panels/panel_r_calculator.js';
@@ -26,13 +26,13 @@ import { PanelColorCode } from './panels/panel_color_code.js';
 import { PanelBoardClass } from './panels/panel_board_class.js';
 import { PanelGalvanicCorrosion } from './panels/panel_galvanic_corrosion.js';
 import './calculator.css';
-import { standardHelpMenu } from '../../ui/help_menu.js';
-import { useMenuHotkeys } from '../../ui/useMenuHotkeys.js';
-import { addClose, addQuit } from '../../ui/action_menu.js';
+import { standardHelpMenu } from '@ziroeda/common/src/eda_base_frame_help_menu.js';
+import { useMenuHotkeys } from '@ziroeda/common/src/tool/use_menu_hotkeys.js';
+import { addClose, addQuit } from '@ziroeda/common/src/tool/action_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
-import { ABOUT_TITLES, aboutWindowTitle } from '../../ui/about_titles.js';
+import { ABOUT_TITLES, aboutWindowTitle } from '@ziroeda/common/src/eda_base_frame_about_titles.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
-import { setLanguageMenuItem } from '../../ui/language_menu.js';
+import { setLanguageMenuItem } from '@ziroeda/common/src/eda_base_frame_language_menu.js';
 import { settings } from '../../prefs/settings.js';
 import { useCommonSettings } from '../../prefs/useSettings.js';
 import {
