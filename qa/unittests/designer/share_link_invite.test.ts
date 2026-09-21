@@ -23,7 +23,7 @@
  * Those two pull in opposite directions — strip it early, but do not lose it —
  * and the stash is what satisfies both.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   captureInviteFromUrl,
   clearPendingInvite,
@@ -201,6 +201,30 @@ describe('a share link followed through a sign-in', () => {
     (be as unknown as { openByLink: (u: string) => Promise<string> }).openByLink = async () =>
       'viewer';
     expect(await openProjectLink(be)).toEqual({ uid: UID, role: 'viewer', key: null });
+  });
+
+  it('an invitation survives the router canonicalising the address before the manager mounts', async () => {
+    // The bug that shipped on 2026-09-21. `AuthGate` shows a splash while the
+    // session restores, so HomePage - whose effect captured `?join` - is not
+    // mounted when `useRoute` canonicalises the address on the first render.
+    // That replaceState writes an address with no query and no fragment, and
+    // the token and the project key are gone before anything read them. The
+    // capture has to happen where `rememberProjectLink()` does: at the moment
+    // the Supabase client module is evaluated, before there is a React tree.
+    const key = new Uint8Array(32).fill(7);
+    window.history.replaceState(
+      null,
+      '',
+      withKeyFragment(`${BASE}p/${UID}?join=${TOKEN}`, key),
+    );
+    vi.resetModules();
+    await import('@ziroeda/designer/src/auth/supabaseClient.js');
+
+    // What the router then does, whatever the token did or did not survive.
+    window.history.replaceState(null, '', `${BASE}p/${UID}`);
+
+    expect(pendingInvite()).toBe(TOKEN);
+    expect(takePendingProjectKey()).toEqual(key);
   });
 
   it('is acted on once, not on every later sign-in', async () => {

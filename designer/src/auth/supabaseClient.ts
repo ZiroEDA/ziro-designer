@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { rememberProjectLink } from '../cloud/invites.js';
+import { captureInviteFromUrl, rememberProjectLink } from '../cloud/invites.js';
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -19,6 +19,15 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 // import sorter can get between the two: this module *is* the thing that eats
 // the URL, and the line that saves it is directly above the line that does.
 rememberProjectLink();
+// The invitation the same way, and for one more reason. `AuthGate` shows a
+// splash while the session restores, so the manager - whose effect used to be
+// the first thing to read `?join` - is not mounted yet when the router
+// canonicalises the address on the very first render. That `replaceState`
+// drops `?join`, and, because the address it writes has no fragment, the
+// project key in `#k=` with it. A reader who followed an invitation then got
+// nothing: no join, no notice, a bare address. Stash both before there is a
+// React tree at all.
+captureInviteFromUrl();
 
 /** True when both Supabase env vars are present; auth is disabled (offline) otherwise. */
 export const authEnabled: boolean = !!(url && anonKey);
