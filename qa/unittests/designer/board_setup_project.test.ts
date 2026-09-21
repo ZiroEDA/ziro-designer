@@ -2,23 +2,26 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Board Setup persistence, the `.kicad_pro` side: read/write of
+ * Board Setup, the `.kicad_pro` side: the dialog's values against the live
  * BOARD_DESIGN_SETTINGS / NET_SETTINGS / COMPONENT_CLASS_SETTINGS /
- * TUNING_PROFILES / text_variables
- * (designer/src/editors/pcb/project_settings.ts).
+ * TUNING_PROFILES / text_variables, and the file SaveProject() writes.
  */
 import { describe, it, expect } from 'vitest';
-import {
-  findProjectPro,
-  readBoardSetupPro,
-  readBoardSetupProText,
-  writeBoardSetupProText,
-} from '@ziroeda/designer/src/editors/pcb/project_settings.js';
+import { findProjectPro } from '@ziroeda/designer/src/editors/pcb/project_settings.js';
 import {
   defaultBoardSetup,
   type BoardSetupValues,
 } from '@ziroeda/designer/src/editors/pcb/board_settings.js';
-import { projectJson } from '@ziroeda/designer/src/home/new_project.js';
+import { EMPTY_PCB, projectJson } from '@ziroeda/designer/src/home/new_project.js';
+import { readSetup, writeProject } from './board_setup_test_utils.js';
+
+/** The dialog's values for a `.kicad_pro`, over a fresh two-layer board. */
+const readPro = (aProText: string): BoardSetupValues =>
+  readSetup(EMPTY_PCB, JSON.parse(aProText)).values;
+
+/** The `.kicad_pro` SaveProject() writes after the dialog's OK on `aValues`. */
+const writePro = (aProText: string, aValues: BoardSetupValues): string =>
+  writeProject(readSetup(EMPTY_PCB, JSON.parse(aProText)), aValues);
 
 const TEMPLATE = projectJson('proj', '00000000-0000-0000-0000-000000000000');
 
@@ -157,19 +160,32 @@ function customSetup(): BoardSetupValues {
   return s;
 }
 
-describe('board project_settings (.kicad_pro)', () => {
+describe('Board Setup, the .kicad_pro side', () => {
   it('reads defaults from a fresh template project', () => {
-    const s = readBoardSetupProText(TEMPLATE);
+    const s = readPro(TEMPLATE);
     expect(s.constraints).toEqual(defaultBoardSetup().constraints);
     expect(s.trackWidthsMM).toEqual([]);
     expect(s.viaSizesMM).toEqual([]);
   });
 
   it('round-trips every persisted field through the template', () => {
-    const written = writeBoardSetupProText(TEMPLATE, customSetup());
-    expect(written).not.toBeNull();
-    const back = readBoardSetupProText(written!);
+    const written = writePro(TEMPLATE, customSetup());
+    const back = readPro(written);
     const want = customSetup();
+    // Not TUNING_PROFILE fields in 10.0.5: the panel shows them, nothing stores them.
+    for (const p of want.tuningProfiles.profiles) {
+      p.frequency = 1;
+      p.frequencyUnit = 'GHz';
+      p.modelSolderMask = true;
+    }
+    // Edge Cuts and Courtyards have no text params (only `*_line_width` is
+    // registered), so their text cells are whatever a fresh BDS holds.
+    const fresh = readPro(TEMPLATE).textGraphics.rows;
+    for (const i of [2, 3])
+      want.textGraphics.rows[i] = {
+        ...fresh[i]!,
+        lineThickness: want.textGraphics.rows[i]!.lineThickness,
+      };
     expect(back.constraints).toEqual(want.constraints);
     expect(back.maskPaste.maskToCopperMM).toBe(want.maskPaste.maskToCopperMM);
     expect(back.trackWidthsMM).toEqual(want.trackWidthsMM);
@@ -198,7 +214,7 @@ describe('board project_settings (.kicad_pro)', () => {
         net_colors: { '+3V3_PI': 'rgb(238, 138, 0)', '/CC1': 'rgba(0, 190, 220, 1.000)' },
       },
     });
-    const s = readBoardSetupProText(pro);
+    const s = readPro(pro);
     // Normalised to the `#rrggbb` every other colour in this slice takes.
     expect(s.netClasses.netColors['+3V3_PI']).toBe('#ee8a00');
     expect(s.netClasses.netColors['/CC1']).toBe('#00bedc');
@@ -251,7 +267,7 @@ describe('board project_settings (.kicad_pro)', () => {
         },
       },
     });
-    const s = readBoardSetupProText(pro);
+    const s = readPro(pro);
     expect(s.constraints.minClearanceMM).toBe(0.2);
     expect(s.constraints.minTrackMM).toBe(0.25);
     expect(s.constraints.minAnnularMM).toBe(0.13);
@@ -312,23 +328,41 @@ describe('board project_settings (.kicad_pro)', () => {
             model_solder_mask: true,
             enable_time_domain_tuning: false,
             via_prop_delay: 0,
-            layer_entries: [{ signal_layer: 'F.Cu', width: 42 }],
-            via_overrides: [{ delay: 9 }],
+            layer_entries: [
+              {
+                signal_layer: 'F.Cu',
+                top_reference_layer: 'In1.Cu',
+                bottom_reference_layer: 'B.Cu',
+                width: 42,
+                diff_pair_gap: 5,
+                delay: 3,
+              },
+            ],
+            via_overrides: [
+              {
+                signal_layer_from: 'F.Cu',
+                signal_layer_to: 'B.Cu',
+                via_layer_from: 'F.Cu',
+                via_layer_to: 'B.Cu',
+                delay: 9,
+              },
+            ],
           },
         ],
       },
     });
-    const s = readBoardSetupProText(pro);
-    const written = writeBoardSetupProText(pro, s)!;
+    const s = readPro(pro);
+    const written = writePro(pro, s);
     const j = JSON.parse(written);
     expect(j.some_other_tool).toEqual({ x: 1 });
-    expect(j.board.ipc2581).toEqual({ dist: 'X' });
+    expect(j.board.ipc2581.dist).toBe('X');
     expect(j.board.design_settings.drc_exclusions).toEqual([['marker|1|2', 'a comment']]);
-    expect(j.board.design_settings.rule_severities.some_future_rule).toBe('warning');
+    // rule_severities is rebuilt from DRC_ITEM::GetItemsWithSeverities: a key
+    // 10.0.5 does not know is not carried (board_design_settings.cpp:387).
+    expect(j.board.design_settings.rule_severities.some_future_rule).toBeUndefined();
     expect(j.board.design_settings.rule_severities.clearance).toBe('error');
     expect(j.board.design_settings.defaults.pads).toEqual({ width: 1.5, height: 2, drill: 0.7 });
-    // teardrop_options is modelled now (the Edit Teardrops scope), so it is
-    // rewritten in full rather than passed through: the two flags the input set
+    // teardrop_options is rewritten in full: the two flags the input set
     // survive, and the three it omitted come back as TEARDROP_PARAMETERS_LIST's
     // defaults.
     expect(j.board.design_settings.teardrop_options).toEqual([
@@ -342,25 +376,33 @@ describe('board project_settings (.kicad_pro)', () => {
     ]);
     const dflt = j.net_settings.classes.find((c: { name: string }) => c.name === 'Default');
     expect(dflt.diff_pair_via_gap).toBe(0.31);
-    expect(dflt.unknown_future_key).toBe(7);
-    // Tuning-profile deep fields our form does not model survive by name.
+    // saveNetclass writes the NETCLASS's fields; a key it never read is gone.
+    expect(dflt.unknown_future_key).toBeUndefined();
+    // Tuning-profile deep fields the dialog does not edit survive by name.
     const prof = j.tuning_profiles.tuning_profiles_impedance_geometric[0];
-    expect(prof.layer_entries).toEqual([{ signal_layer: 'F.Cu', width: 42 }]);
-    expect(prof.via_overrides).toEqual([{ delay: 9 }]);
+    expect(prof.layer_entries).toEqual([
+      {
+        signal_layer: 'F.Cu',
+        top_reference_layer: 'In1.Cu',
+        bottom_reference_layer: 'B.Cu',
+        width: 42,
+        diff_pair_gap: 5,
+        delay: 3,
+      },
+    ]);
+    expect(prof.via_overrides[0].delay).toBe(9);
     expect(j.board.design_settings.meta.version).toBe(2);
   });
 
-  it('falls back to defaults on malformed input and finds the pinned project', () => {
-    expect(readBoardSetupProText('not json')).toEqual(defaultBoardSetup());
-    expect(writeBoardSetupProText('not json', defaultBoardSetup())).toBeNull();
+  it('finds the pinned project among the files', () => {
     const files = [
       { name: 'a/other.kicad_pro', text: TEMPLATE },
-      { name: 'a/mine.kicad_pro', text: writeBoardSetupProText(TEMPLATE, customSetup())! },
+      { name: 'a/mine.kicad_pro', text: writePro(TEMPLATE, customSetup()) },
     ];
     expect(findProjectPro(files, 'mine')?.name).toBe('a/mine.kicad_pro');
-    expect(readBoardSetupPro(files, 'mine').constraints.minTrackMM).toBe(0.13);
-    expect(readBoardSetupPro([], 'mine')).toEqual(defaultBoardSetup());
+    expect(readPro(files[1]!.text).constraints.minTrackMM).toBe(0.13);
   });
+
   it('round-trips teardrop_options, the Edit Teardrops scope', () => {
     const pro = JSON.stringify({
       board: {
@@ -378,7 +420,7 @@ describe('board project_settings (.kicad_pro)', () => {
       },
     });
 
-    const s = readBoardSetupProText(pro);
+    const s = readPro(pro);
     expect(s.teardrops.targets).toEqual({
       vias: false,
       pthPads: true,
@@ -387,7 +429,7 @@ describe('board project_settings (.kicad_pro)', () => {
       roundShapesOnly: true,
     });
 
-    const j = JSON.parse(writeBoardSetupProText(pro, s)!);
+    const j = JSON.parse(writePro(pro, s));
     expect(j.board.design_settings.teardrop_options[0]).toEqual({
       td_onvia: false,
       td_onpthpad: true,

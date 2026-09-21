@@ -221,8 +221,10 @@ import type {
   DiffPairSize,
   ViaSize,
 } from '../board_settings.js';
-import { readBoardSetupProText } from '../project_settings.js';
-import { applyBoardFileSetup } from '../board_file_settings.js';
+import { BoardSetupToWindow } from './board_setup_transfer.js';
+import { SETTINGS_MANAGER } from '@ziroeda/common/src/pgm_base.js';
+import type { JsonValue } from '@ziroeda/common/src/settings/json_settings.js';
+import { ParseBoard } from '@ziroeda/pcbnew/read-board.js';
 import { DialogImportSettings, type ImportSettingsOpts } from './dialog_import_settings.js';
 import { pcbUnitTextMM, pcbUnitValueMM, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '../../../ui/status_format.js';
@@ -295,12 +297,21 @@ export function DialogBoardSetup({ value, units, initialPage, onOk, onClose }: P
       );
       return;
     }
-    const other = readBoardSetupProText(pro.text);
-    if (!applyBoardFileSetup(pcb.text, other)) {
+    // DIALOG_IMPORT_SETTINGS + onAuxiliaryAction: the other board through the
+    // parser, its project through a SETTINGS_MANAGER (not the active one), and
+    // every panel's ImportSettingsFrom reads the same objects ours read.
+    let other: BoardSetupValues;
+    try {
+      const otherBoard = ParseBoard(pcb.text, pcb.name);
+      const manager = new SETTINGS_MANAGER();
+      manager.LoadProject(pro.name, JSON.parse(pro.text) as JsonValue, null, false);
+      const otherProject = manager.GetProject(pro.name)!;
+      otherBoard.SetProject(otherProject);
+      other = BoardSetupToWindow(otherBoard, otherProject, dru?.text ?? '');
+    } catch {
       window.alert(`Error loading board file:\n${pcb.name}`);
       return;
     }
-    if (dru) other.customRules.text = dru.text;
 
     // PANEL_SETUP_LAYERS::CheckCopperLayerCount: warn when the import would
     // drop inner copper layers of the current board.

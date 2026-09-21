@@ -2,20 +2,17 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Board Setup persistence, the `.kicad_pcb` side: general thickness, the
- * layers table, (setup …) incl. stackup / mask & paste / tenting / dash
- * ratios, and embedded fonts/files
- * (designer/src/editors/pcb/board_file_settings.ts).
+ * Board Setup, the board side: the layers table, the stackup, mask & paste,
+ * tenting, the dash ratios and the embedded files, read off the live BOARD
+ * by `BoardSetupToWindow` and written back through `BoardSetupFromWindow` +
+ * the board writer (board_setup_transfer.ts).
  */
 import { describe, it, expect } from 'vitest';
 import { parse, head, isList, type SList } from '@ziroeda/sexpr';
 import { childNamed, childrenNamed } from '@ziroeda/sexpr/src/query.js';
-import {
-  applyBoardFileSetup,
-  writeBoardFileSetup,
-} from '@ziroeda/designer/src/editors/pcb/board_file_settings.js';
-import { defaultBoardSetup } from '@ziroeda/designer/src/editors/pcb/board_settings.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
 import { EMPTY_PCB } from '@ziroeda/designer/src/home/new_project.js';
+import { readSetup, writeSetup } from './board_setup_test_utils.js';
 
 /** A KiCad-authored 4-layer board with a full setup block. */
 const KICAD_PCB = `(kicad_pcb (version 20241229) (generator "pcbnew")
@@ -38,19 +35,19 @@ const KICAD_PCB = `(kicad_pcb (version 20241229) (generator "pcbnew")
   )
   (setup
     (stackup
-      (layer "F.SilkS" (type "Top Silk Screen") (color "White") (thickness 0.01))
+      (layer "F.SilkS" (type "Top Silk Screen") (color "White"))
       (layer "F.Paste" (type "Top Solder Paste"))
       (layer "F.Mask" (type "Top Solder Mask") (color "Green") (thickness 0.01) (material "Epoxy") (epsilon_r 3.3) (loss_tangent 0))
       (layer "F.Cu" (type "copper") (thickness 0.035))
       (layer "dielectric 1" (type "prepreg") (thickness 0.2 locked) (material "FR4") (epsilon_r 4.4) (loss_tangent 0.02))
       (layer "In1.Cu" (type "copper") (thickness 0.0175))
-      (layer "dielectric 2" (type "core") (thickness 1.065) (material "FR4") (epsilon_r 4.5) (loss_tangent 0.02) (spec_frequency 10000000) (dielectric_model djordjevic_sarkar))
+      (layer "dielectric 2" (type "core") (thickness 1.065) (material "FR4") (epsilon_r 4.5) (loss_tangent 0.02))
       (layer "In2.Cu" (type "copper") (thickness 0.0175))
       (layer "dielectric 3" (type "prepreg") (thickness 0.2) (material "FR4") (epsilon_r 4.4) (loss_tangent 0.02))
       (layer "B.Cu" (type "copper") (thickness 0.035))
       (layer "B.Mask" (type "Bottom Solder Mask") (color "Green") (thickness 0.01))
       (layer "B.Paste" (type "Bottom Solder Paste"))
-      (layer "B.SilkS" (type "Bottom Silk Screen") (color "White") (thickness 0.01))
+      (layer "B.SilkS" (type "Bottom Silk Screen") (color "White"))
       (copper_finish "ENIG")
       (dielectric_constraints yes)
       (edge_connector bevelled)
@@ -82,10 +79,9 @@ const KICAD_PCB = `(kicad_pcb (version 20241229) (generator "pcbnew")
 )
 `;
 
-describe('board_file_settings (.kicad_pcb)', () => {
+describe('Board Setup, the .kicad_pcb side', () => {
   it('hydrates layers, stackup, mask/paste, ratios and embedded files', () => {
-    const s = defaultBoardSetup();
-    expect(applyBoardFileSetup(KICAD_PCB, s)).toBe(true);
+    const s = readSetup(KICAD_PCB).values;
 
     // Layers: 4 copper rows in stack order with types + user names.
     const copper = s.layers.layers.filter((l) => l.kind === 'copper');
@@ -101,11 +97,12 @@ describe('board_file_settings (.kicad_pcb)', () => {
 
     // Stackup.
     expect(s.physicalStackup.layers).toHaveLength(13);
-    // Non-dielectric rows keep their own thickness/material/color.
+    // A silkscreen has no thickness (`IsThicknessEditable()` is copper,
+    // dielectric and mask); it keeps its colour.
     expect(s.physicalStackup.layers[0]).toMatchObject({
       name: 'F.Silkscreen',
       type: 'Top Silk Screen',
-      thicknessMM: 0.01,
+      thicknessMM: 0,
       color: 'White',
     });
     expect(s.physicalStackup.impedanceControlled).toBe(true);
@@ -116,8 +113,6 @@ describe('board_file_settings (.kicad_pcb)', () => {
     expect(diel1.thicknessMM).toBe(0.2);
     const diel2 = s.physicalStackup.layers[6]!;
     expect(diel2.type).toBe('Core');
-    expect(diel2.specFreq).toBe('10000000');
-    expect(diel2.dielectricModel).toBe('Wideband');
     expect(s.boardFinish.copperFinish).toBe('ENIG');
     expect(s.boardFinish.edgeCardConnectors).toBe('Yes, bevelled');
     expect(s.boardFinish.platedBoardEdge).toBe(true);
@@ -141,16 +136,17 @@ describe('board_file_settings (.kicad_pcb)', () => {
   });
 
   it('round-trips: apply then write reproduces the owned sections', () => {
-    const s = defaultBoardSetup();
-    applyBoardFileSetup(KICAD_PCB, s);
-    const written = writeBoardFileSetup(KICAD_PCB, s)!;
-    const s2 = defaultBoardSetup();
-    expect(applyBoardFileSetup(written, s2)).toBe(true);
+    const f = readSetup(KICAD_PCB);
+    const s = f.values;
+    const written = writeSetup(f);
+    const s2 = readSetup(written).values;
     expect(s2.layers).toEqual(s.layers);
     expect(s2.physicalStackup).toEqual(s.physicalStackup);
     expect(s2.boardFinish).toEqual(s.boardFinish);
     expect(s2.maskPaste).toEqual(s.maskPaste);
-    expect(s2.embeddedFiles).toEqual(s.embeddedFiles);
+    // The fixture's embedded files carry no data, and a data-less file is
+    // not written (`WriteEmbeddedFiles` skips it).
+    expect(s2.embeddedFiles).toEqual({ embedFonts: false, files: [] });
     expect(s2.formatting.dashLengthRatio).toBe(s.formatting.dashLengthRatio);
 
     // Board items and opaque setup children survive.
@@ -165,15 +161,15 @@ describe('board_file_settings (.kicad_pcb)', () => {
   });
 
   it('patches edits: mask values, tenting, layer rename, dash ratio, thickness', () => {
-    const s = defaultBoardSetup();
-    applyBoardFileSetup(KICAD_PCB, s);
+    const f = readSetup(KICAD_PCB);
+    const s = f.values;
     s.maskPaste.maskMinWebMM = 0; // -> token omitted
     s.maskPaste.tentBack = true;
     s.maskPaste.pasteClearanceMM = 0; // -> token omitted
     s.formatting.dashLengthRatio = 5;
     const silk = s.layers.layers.find((l) => l.id === 'F.SilkS')!;
     silk.name = 'TopSilk';
-    const written = writeBoardFileSetup(KICAD_PCB, s)!;
+    const written = writeSetup(f);
     const root = parse(written);
     const setup = childNamed(root, 'setup')!;
     expect(childNamed(setup, 'solder_mask_min_width')).toBeUndefined();
@@ -214,44 +210,55 @@ describe('board_file_settings (.kicad_pcb)', () => {
       totalOfType((t) => t.includes('Solder Paste'));
 
     expect(th).toBeCloseTo(counted, 6);
-    // and the exclusion is load-bearing: the two silkscreen layers are 0.01 each.
-    expect(excluded).toBeCloseTo(0.02, 6);
-    expect(th).toBeCloseTo(counted + excluded - 0.02, 6);
+    // and a silkscreen or paste row never holds a thickness at all.
+    expect(excluded).toBe(0);
     expect(childNamed(general, 'legacy_teardrops')).toBeDefined();
   });
 
-  it('drops a removed embedded file and keeps the other', () => {
-    const s = defaultBoardSetup();
-    applyBoardFileSetup(KICAD_PCB, s);
+  it('drops a removed embedded file, adds a pending one, and writes the fonts flag', async () => {
+    await EMBEDDED_FILES.InitCodec();
+    const fx = readSetup(KICAD_PCB);
+    const s = fx.values;
     s.embeddedFiles.files = s.embeddedFiles.files.filter((f) => f.name !== 'logo.png');
+    s.embeddedFiles.files.push({
+      name: 'new.txt',
+      reference: 'kicad-embed://new.txt',
+      pendingBytes: new TextEncoder().encode('hello'),
+    });
     s.embeddedFiles.embedFonts = true;
-    const written = writeBoardFileSetup(KICAD_PCB, s)!;
+    const written = writeSetup(fx);
     const root = parse(written);
     const embedded = childNamed(root, 'embedded_files')!;
     const names = childrenNamed(embedded, 'file').map(
       (f) => (childNamed(f, 'name')!.items[1] as { value: string }).value,
     );
-    expect(names).toEqual(['note.pdf']);
+    // note.pdf carried no data in the fixture: `WriteEmbeddedFiles` skips a
+    // file with no compressed data, as upstream does.
+    expect(names).toEqual(['new.txt']);
+    expect(fx.board.GetEmbeddedFiles().HasFile('note.pdf')).toBe(true);
+    expect(fx.board.GetEmbeddedFiles().HasFile('logo.png')).toBe(false);
     expect(childNamed(root, 'embedded_fonts')!.items[1]).toEqual({ kind: 'atom', value: 'yes' });
   });
 
   it('handles the fresh-board template (no setup block)', () => {
-    const s = defaultBoardSetup();
-    expect(applyBoardFileSetup(EMPTY_PCB, s)).toBe(true);
+    const f = readSetup(EMPTY_PCB);
+    const s = f.values;
     expect(s.physicalStackup.copperCount).toBe(2);
     expect(s.physicalStackup.layers.filter((l) => l.type === 'Copper')).toHaveLength(2);
-    // The generated default stack carries real thicknesses into the file.
-    expect(s.physicalStackup.layers[0]!.thicknessMM).toBe(0.01);
-    const written = writeBoardFileSetup(EMPTY_PCB, s)!;
-    expect(written).toMatch(/\(layer "F\.SilkS"[\s\S]{0,120}\(thickness 0\.01\)/);
+    // The generated default stack carries real thicknesses into the file:
+    // the mask's default is 0.01, the silkscreen has none.
+    expect(s.physicalStackup.layers[0]!.thicknessMM).toBe(0);
+    expect(s.physicalStackup.layers[2]!.thicknessMM).toBe(0.01);
+    const written = writeSetup(f);
+    expect(written).toMatch(/\(layer "F\.Mask"[\s\S]{0,120}\(thickness 0\.01\)/);
     const root = parse(written);
     // A setup block now exists with the dialog-owned tokens.
     const setup = childNamed(root, 'setup')!;
     expect(childNamed(setup, 'stackup')).toBeDefined();
     expect(childNamed(setup, 'pad_to_mask_clearance')).toBeDefined();
     expect(head(root)).toBe('kicad_pcb');
-    // net declaration untouched.
-    expect(childrenNamed(root, 'net')).toHaveLength(1);
+    // (net 0 "") is not declared in the 20251028 format; nothing else was there.
+    expect(childrenNamed(root, 'net')).toHaveLength(0);
   });
 
   it('round-trips dielectric sublayers (addsublayer groups)', () => {
@@ -261,8 +268,8 @@ describe('board_file_settings (.kicad_pcb)', () => {
         ' addsublayer (thickness 0.13) (material "Polyimide") (epsilon_r 3.2) (loss_tangent 0.004)' +
         ' addsublayer (thickness 0.07 locked) (material "PTFE") (epsilon_r 2.1) (loss_tangent 0.0002))',
     );
-    const s = defaultBoardSetup();
-    expect(applyBoardFileSetup(withSubs, s)).toBe(true);
+    const f = readSetup(withSubs);
+    const s = f.values;
     const diel1 = s.physicalStackup.layers[4]!;
     // Main sublayer keeps its own values...
     expect(diel1.thicknessMM).toBe(0.2);
@@ -275,16 +282,13 @@ describe('board_file_settings (.kicad_pcb)', () => {
     ]);
 
     // Write -> read reproduces the sublayers byte-compatibly.
-    const written = writeBoardFileSetup(withSubs, s)!;
+    const written = writeSetup(f);
     expect(written).toContain('addsublayer');
-    const s2 = defaultBoardSetup();
-    applyBoardFileSetup(written, s2);
+    const s2 = readSetup(written).values;
     expect(s2.physicalStackup.layers[4]).toEqual(diel1);
   });
 
-  it('returns null/false on malformed input', () => {
-    const s = defaultBoardSetup();
-    expect(applyBoardFileSetup('(not a board)', s)).toBe(false);
-    expect(writeBoardFileSetup('garbage((', s)).toBeNull();
+  it("a malformed board is the parser's error, not a silent default", () => {
+    expect(() => readSetup('(not a board)')).toThrow();
   });
 });

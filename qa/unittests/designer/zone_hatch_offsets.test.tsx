@@ -30,10 +30,8 @@ import {
   syncCopperLayers,
   type ZoneLayerPropertiesMap,
 } from '@ziroeda/designer/src/editors/pcb/board_settings.js';
-import {
-  applyBoardFileSetup,
-  writeBoardFileSetup,
-} from '@ziroeda/designer/src/editors/pcb/board_file_settings.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { readSetup, writeSetup } from './board_setup_test_utils.js';
 import { LSET_Name, LSET_NameToLayer } from '@ziroeda/pcbnew/layer_ids.js';
 
 afterEach(cleanup);
@@ -212,33 +210,41 @@ describe('SyncCopperLayers', () => {
   });
 });
 
-describe('(zone_defaults …) round-trips through the board file', () => {
-  it('writes nothing at all when no layer has an offset', () => {
-    // `format()` returns early on an unset optional, and the block itself is
-    // only opened when the map is non-empty (`pcb_io_kicad_sexpr.cpp:607`).
-    const s = defaultBoardSetup();
-    expect(writeBoardFileSetup(BOARD, s)).not.toContain('zone_defaults');
-    s.zoneLayerProperties = { 'F.Cu': {} }; // present but unset
-    expect(writeBoardFileSetup(BOARD, s)).not.toContain('zone_defaults');
+describe('(zone_defaults …) through the board file, as 10.0.5 does it', () => {
+  it('after the dialog every enabled copper layer has an entry; an unset one prints nothing', () => {
+    // `PANEL_SETUP_ZONE_HATCH_OFFSETS::TransferDataFromWindow` stores a
+    // ZONE_LAYER_PROPERTIES per row (`:116`), so the map is never empty after
+    // an OK and the writer opens the block (`pcb_io_kicad_sexpr.cpp:607`);
+    // `format()` returns early on an unset optional, so it holds nothing.
+    const f = readSetup(BOARD);
+    const out = writeSetup(f);
+    expect(out).toContain('(zone_defaults)');
+    expect(out).not.toContain('hatch_position');
   });
 
   it('writes a property per layer that has one', () => {
-    const s = defaultBoardSetup();
-    s.zoneLayerProperties = { 'F.Cu': { hatchingOffset: { x: 0.5, y: -0.25 } } };
-    const out = writeBoardFileSetup(BOARD, s)!;
+    const f = readSetup(BOARD);
+    f.values.zoneLayerProperties = { 'F.Cu': { hatchingOffset: { x: 0.5, y: -0.25 } } };
+    const out = writeSetup(f);
     expect(out).toContain('zone_defaults');
     expect(out).toContain('"F.Cu"');
     expect(out).toContain('hatch_position');
     expect(out).toMatch(/\(xy 0\.5 -0\.25\)/);
   });
 
-  it('reads them back', () => {
-    const s = defaultBoardSetup();
-    s.zoneLayerProperties = { 'B.Cu': { hatchingOffset: { x: 1.25, y: 2 } } };
-    const out = writeBoardFileSetup(BOARD, s)!;
+  it('a reload lands them in the default ZONE_SETTINGS, not the panel (upstream 10.0.5)', () => {
+    // The writer reads `BOARD_DESIGN_SETTINGS::m_ZoneLayerProperties`
+    // (`pcb_io_kicad_sexpr.cpp:611`) but the parser fills
+    // `GetDefaultZoneSettings().m_LayerProperties` (`..._parser.cpp:2891,2926`),
+    // so in 10.0.5 the page comes back empty after a save and reload. Pinned
+    // as upstream has it; a KiCad that fixes it changes this test.
+    const f = readSetup(BOARD);
+    f.values.zoneLayerProperties = { 'B.Cu': { hatchingOffset: { x: 1.25, y: 2 } } };
+    const out = writeSetup(f);
 
-    const back = defaultBoardSetup();
-    expect(applyBoardFileSetup(out, back)).toBe(true);
-    expect(back.zoneLayerProperties['B.Cu']).toEqual({ hatchingOffset: { x: 1.25, y: 2 } });
+    const back = readSetup(out);
+    expect(back.values.zoneLayerProperties['B.Cu']).toEqual({});
+    const loaded = back.board.GetDesignSettings().GetDefaultZoneSettings().m_LayerProperties;
+    expect(loaded.get(PCB_LAYER_ID.B_Cu)?.hatching_offset).toEqual({ x: 1_250_000, y: 2_000_000 });
   });
 });

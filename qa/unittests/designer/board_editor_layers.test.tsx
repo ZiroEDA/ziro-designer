@@ -25,10 +25,7 @@ import {
   layerNameInputId,
   type LayersSetup,
 } from '@ziroeda/designer/src/editors/pcb/dialogs/panels/panel_pcb_layers.js';
-import {
-  applyBoardFileSetup,
-  writeBoardFileSetup,
-} from '@ziroeda/designer/src/editors/pcb/board_file_settings.js';
+import { readSetup, writeSetup } from './board_setup_test_utils.js';
 import { defaultBoardSetup } from '@ziroeda/designer/src/editors/pcb/board_settings.js';
 import { EMPTY_PCB } from '@ziroeda/designer/src/home/new_project.js';
 
@@ -267,16 +264,15 @@ describe('user-defined layer type round-trips through the board file', () => {
   (layers
     (0 "F.Cu" signal)
     (2 "B.Cu" signal)
+    (25 "Edge.Cuts" user)
     (39 "User.1" front "Mech1")
     (41 "User.2" user "Aux2")
-    (25 "Edge.Cuts" user)
   )
   (setup)
 )`;
 
   it('reads front/back and treats every other qualifier as auxiliary', () => {
-    const s = defaultBoardSetup();
-    expect(applyBoardFileSetup(BOARD, s)).toBe(true);
+    const s = readSetup(BOARD).values;
     const u1 = s.layers.layers.find((l) => l.id === 'User.1');
     const u2 = s.layers.layers.find((l) => l.id === 'User.2');
     expect(u1).toMatchObject({ kind: 'user', userType: 'front', name: 'Mech1' });
@@ -286,21 +282,18 @@ describe('user-defined layer type round-trips through the board file', () => {
   it('writes front/back but spells auxiliary as "user"', () => {
     // `print_type` is only true for a User.N whose type is LT_FRONT or LT_BACK
     // (`pcb_io_kicad_sexpr.cpp:684-694`); LT_AUX falls through to "user".
-    const s = defaultBoardSetup();
-    applyBoardFileSetup(BOARD, s);
-    const out = writeBoardFileSetup(BOARD, s);
-    expect(out).not.toBeNull();
+    const f = readSetup(BOARD);
+    const out = writeSetup(f);
     expect(out).toContain('(39 "User.1" front "Mech1")');
     expect(out).toContain('(41 "User.2" user "Aux2")');
   });
 
   it('writes back for a layer switched to Off-board, back', () => {
-    const s = defaultBoardSetup();
-    applyBoardFileSetup(BOARD, s);
-    s.layers.layers = s.layers.layers.map((l) =>
+    const f = readSetup(BOARD);
+    f.values.layers.layers = f.values.layers.layers.map((l) =>
       l.id === 'User.1' ? { ...l, userType: 'back' as const } : l,
     );
-    expect(writeBoardFileSetup(BOARD, s)).toContain('(39 "User.1" back "Mech1")');
+    expect(writeSetup(f)).toContain('(39 "User.1" back "Mech1")');
   });
 });
 
@@ -345,11 +338,7 @@ describe('Add User Defined Layer...', () => {
   (setup)
 )`;
 
-  const demo = (): LayersSetup => {
-    const s = defaultBoardSetup();
-    applyBoardFileSetup(DEMO, s);
-    return s.layers;
-  };
+  const demo = (): LayersSetup => readSetup(DEMO).values.layers;
 
   it('reads User.1 out of a board file as a user row', () => {
     // `LSET::UserDefinedLayersMask()` — a User.N in `(layers …)` is a row on
@@ -367,11 +356,9 @@ describe('Add User Defined Layer...', () => {
     // A board may declare any of User.1-45. Only User.1-4 are in the default
     // set, so anything above them reaches the reader's *leftovers* branch —
     // the one that builds a row for an id the defaults never mentioned.
-    const s = defaultBoardSetup();
-    applyBoardFileSetup(
+    const s = readSetup(
       DEMO.replace('(39 "User.1" user)', '(39 "User.1" user)\n    (51 "User.7" back "Mech7")'),
-      s,
-    );
+    ).values;
     const u7 = s.layers.layers.find((l) => l.id === 'User.7');
     expect(u7).toMatchObject({ kind: 'user', userType: 'back', name: 'Mech7', enabled: true });
     // and it comes after the four the defaults carry.
@@ -408,9 +395,8 @@ describe('Add User Defined Layer...', () => {
   });
 
   it('writes the added layer into the board file', () => {
-    const s = defaultBoardSetup();
-    applyBoardFileSetup(DEMO, s);
-    s.layers.layers.push({
+    const f = readSetup(DEMO);
+    f.values.layers.layers.push({
       id: 'User.3',
       name: 'User.3',
       enabled: true,
@@ -418,7 +404,7 @@ describe('Add User Defined Layer...', () => {
       userType: 'aux',
     });
     // User_1 is 39 and the ids step by two, so User.3 is 43.
-    expect(writeBoardFileSetup(DEMO, s)).toContain('(43 "User.3" user)');
+    expect(writeSetup(f)).toContain('(43 "User.3" user)');
   });
 });
 
@@ -448,8 +434,7 @@ describe('a new board starts with four user-defined layers', () => {
     ])
       expect(EMPTY_PCB).toContain(row);
 
-    const s = defaultBoardSetup();
-    expect(applyBoardFileSetup(EMPTY_PCB, s)).toBe(true);
+    const s = readSetup(EMPTY_PCB).values;
     expect(s.layers.layers.filter((l) => l.kind === 'user').map((l) => l.id)).toEqual([
       'User.1',
       'User.2',
@@ -462,8 +447,7 @@ describe('a new board starts with four user-defined layers', () => {
     // `initialize_layers_controls()` only appends rows for the user layers in
     // m_enabledLayers, so the default four must not leak onto a board that has
     // none — that is what "Add User Defined Layer..." is for.
-    const s = defaultBoardSetup();
-    applyBoardFileSetup(DEMO_NO_USER, s);
+    const s = readSetup(DEMO_NO_USER).values;
     expect(s.layers.layers.filter((l) => l.kind === 'user')).toEqual([]);
   });
 });
@@ -474,8 +458,7 @@ describe('the mandatory layers survive a file that omits them', () => {
     // enabled regardless of board file configuration" (`:1632-1641`). Their
     // checkbox is disabled, so a row that came back unchecked could never be
     // put right from the UI.
-    const s = defaultBoardSetup();
-    applyBoardFileSetup(DEMO_NO_USER, s);
+    const s = readSetup(DEMO_NO_USER).values;
     for (const id of ['Margin', 'F.CrtYd', 'B.CrtYd', 'Edge.Cuts'])
       expect(
         s.layers.layers.find((l) => l.id === id),

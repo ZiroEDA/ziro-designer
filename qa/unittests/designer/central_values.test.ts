@@ -245,7 +245,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // (10.5 / 12 / 11.5 px fonts, `padding: '0 6px'` and the like). All of it is
   // `.ze-erc-*` now, which is what upstream does: the two dialogs are the same
   // wx widgets on the same DIALOG_SHIM. RESCANNED from this tree.
-  'editors/pcb': { colours: 32, metrics: 187 },
+  'editors/pcb': { colours: 31, metrics: 187 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -1085,7 +1085,7 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 332 -> 331: `.ze-msgdlg-extended`'s #c8c9cb, an invented grey (the probe
     // reads one foreground on both labels). `ui` 187 -> 186; 332 - 1 agrees.
     // 331 -> 326: the DRC dialog's five, see the `editors/pcb` row; 331 - 5.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(325);
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(324);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.

@@ -331,17 +331,12 @@ import {
   type BoardSetupValues,
   type PageId as BoardSetupPageId,
 } from './dialogs/dialog_board_setup.js';
-import {
-  druFileName,
-  findProjectDru,
-  findProjectPrl,
-  findProjectPro,
-  readBoardSetupPro,
-  writeBoardSetupProText,
-} from './project_settings.js';
+import { druFileName, findProjectDru, findProjectPrl, findProjectPro } from './project_settings.js';
 import { clampMaxErrorMM } from './board_settings.js';
 import type { TextGfxRow } from './board_settings.js';
-import { applyBoardFileSetup, writeBoardFileSetup } from './board_file_settings.js';
+import { BoardSetupFromWindow, BoardSetupToWindow } from './dialogs/board_setup_transfer.js';
+import { DumpJson } from '@ziroeda/common/src/settings/json_dump.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { DialogDrc } from './dialogs/dialog_drc.js';
 import { DialogUpdatePcb, type UpdatePcbOptions } from './dialogs/dialog_update_pcb.js';
 import { DialogGlobalEditTeardrops } from './dialogs/dialog_global_edit_teardrops.js';
@@ -1032,6 +1027,15 @@ function syncProjectSettingsIntoBoard(
   // The load stops here: OnBoardLoaded's own tail (SetActiveLayer + a full
   // UpdateAllItems) is the first display sync of the board, in pcb_canvas.
   if (!aFromBoardSetup || !panel) return;
+  boardSetupRepaint(frame, panel, kb);
+}
+
+/**
+ * `ShowBoardSetupDialog`'s `UpdateAllItemsConditionally`: what the dialog's
+ * OK repaints — pads and vias whose mask/paste layers may have appeared,
+ * tracks and pads drawn with their clearance.
+ */
+function boardSetupRepaint(frame: PCB_EDIT_FRAME, panel: PCB_DRAW_PANEL_GAL, kb: BOARD): void {
   const settings = frame.GetPcbNewSettings();
   const maskAndPasteLayers = new LSET([
     PCB_LAYER_ID.F_Mask,
@@ -2904,84 +2908,20 @@ export function PcbEditor({
     [projectFilesNow],
   );
 
-  // Hydrate Board Setup from the loaded project: the .kicad_pro slices
-  // (design settings, netclasses, component classes, tuning profiles, text
-  // variables), the board file's setup sections and the .kicad_dru rules,
-  // the same load KiCad does in BOARD::SetProject + LoadProjectSettings.
+  // The project's files changed under the editor (a save from Board Setup,
+  // another session, the schematic side): reload them into the BOARD, the way
+  // BOARD::SetProject + LoadProjectSettings do, and re-read the Board Setup
+  // snapshot from the live objects.
   useEffect(() => {
     const files = projectFilesNow();
-    const s = readBoardSetupPro(files, rootPro);
-    applyBoardFileSetup(textRef.current, s);
-    const dru = findProjectDru(files, rootPro);
-    if (dru) s.customRules.text = dru.text;
-    setBoardSetup(s);
-    // The live board's netclasses and rules follow the files: KiCad's
-    // ShowBoardSetupDialog OK path (SynchronizeNetsAndNetClasses( true ),
-    // the netclasses ticker, CommonSettingsChanged's InitEngine).
     const frame = frameRef.current;
-    if (frame && frame.GetBoard() && parsedOpen.current !== null)
+    if (frame && frame.GetBoard() && parsedOpen.current !== null) {
       syncProjectSettingsIntoBoard(frame, panelRef.current, files, rootPro, true);
+      const dru = findProjectDru(files, rootPro);
+      setBoardSetup(BoardSetupToWindow(frame.GetBoard()!, frame.Prj(), dru?.text ?? ''));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setupSourceKey, rootPro, openNonce]);
-
-  // Commit Board Setup on dialog OK, KiCad's DIALOG_BOARD_SETUP flow: the
-  // project-side slices merge into the .kicad_pro (+ .kicad_dru), persisted
-  // immediately; the board-side slices patch the current board text, which is
-  // reloaded into the editor and saved through the normal board-save path.
-  const commitBoardSetup = useCallback(
-    (next: BoardSetupValues) => {
-      setBoardSetup(next);
-
-      // .kicad_pro + .kicad_dru (merge-writes preserve unowned keys).
-      const files = projectFilesNow();
-      const baseOf = (name: string): string =>
-        (projectFiles ?? []).find((f) => f.name === name)?.text ?? '';
-      const persist: { name: string; text: string }[] = [];
-      const pro = findProjectPro(files, rootPro);
-      if (pro) {
-        const updated = writeBoardSetupProText(pro.text, next);
-        if (updated !== null && updated !== pro.text)
-          persist.push({ name: pro.name, text: updated });
-        const druName = druFileName(pro.name);
-        const dru = findProjectDru(files, rootPro);
-        if (dru ? next.customRules.text !== dru.text : next.customRules.text.trim() !== '') {
-          persist.push({ name: dru?.name ?? druName, text: next.customRules.text });
-        }
-      }
-      if (persist.length) {
-        for (const f of persist)
-          projectFileEditsRef.current.set(f.name, { base: baseOf(f.name), text: f.text });
-        onPersistFiles?.(persist);
-      }
-
-      // Board file: patch the *current* board serialization (not the original
-      // text, live edits must survive), then reload so the editor's board
-      // model, layer list and future saves all see the new setup.
-      const current = boardRef.current ? serializeBoard(boardRef.current) : text;
-      const patched = writeBoardFileSetup(current, next);
-      if (patched !== null && patched !== current) {
-        try {
-          const b = { ...readBoard(parse(patched)), fileName };
-          boardRef.current = b;
-          sceneRef.current = buildBoardScene(b);
-          setBoard(b);
-          // Newly enabled layers become visible; existing choices stay.
-          setVisible((prev) => {
-            const nextVisible = new Set(prev);
-            const before = new Set(board?.layers.map((l) => l.name) ?? []);
-            for (const l of b.layers) if (!before.has(l.name)) nextVisible.add(l.name);
-            return nextVisible;
-          });
-          if (onSaveBoard) onSaveBoard(patched);
-          else setDirty(true);
-        } catch {
-          // A patch that fails to re-parse would corrupt the session: keep the
-          // old board and skip the board-file write.
-        }
-      }
-    },
-    [projectFilesNow, projectFiles, rootPro, onPersistFiles, onSaveBoard, text, fileName, board],
-  );
 
   // PCB_POINT_EDITOR shows its points for a *single* selected item: a handle per
   // corner or vertex, plus one at each edge midpoint. Which items have any is
@@ -4162,6 +4102,78 @@ export function PcbEditor({
       rebuildScene(b);
     },
     [rebuildScene],
+  );
+
+  /**
+   * `PCB_EDIT_FRAME::ShowBoardSetupDialog`, the OK half: every panel's
+   * TransferDataFromWindow into the live BOARD / BOARD_DESIGN_SETTINGS /
+   * PROJECT_FILE, then the syncs, tickers and repaints upstream does after
+   * `ShowQuasiModal() == wxID_OK`. The `.kicad_pro` is then what
+   * `SETTINGS_MANAGER::SaveProject()` writes (upstream writes it on the next
+   * board save; here it is persisted at once, as every edit is), the `.kicad_dru`
+   * is the Custom Rules text, and the board goes out through the normal save
+   * when something board-side moved.
+   */
+  const commitBoardSetup = useCallback(
+    (next: BoardSetupValues) => {
+      const frame = frameRef.current;
+      const kb = frame?.GetBoard();
+      if (!frame || !kb) return;
+      const prj = frame.Prj();
+
+      const modified = BoardSetupFromWindow(next, kb, prj);
+
+      // Note: We must synchronise time domain properties before nets and classes, otherwise the
+      // updates called by the board listener events are using stale data
+      kb.SynchronizeTuningProfileProperties();
+      kb.SynchronizeNetsAndNetClasses(true);
+
+      if (!kb.SynchronizeComponentClasses(new Set()))
+        setInfoBarError('Could not load component class assignment rules');
+
+      prj.IncrementTextVarsTicker();
+      prj.IncrementNetclassesTicker();
+
+      // The rules file is the frame's (OnBoardLoaded reads it): the DRC engine
+      // is re-initialised on the new constraints, netclasses and custom rules.
+      frame.OnBoardLoaded(next.customRules.text, druFileName(rootPro ?? ''));
+
+      // The view over the BOARD: layers, stackup, plot options, embedded files.
+      setBoardModel({ ...boardFromBOARD(kb, fileNameRef.current), fileName: fileNameRef.current });
+      const panel = panelRef.current;
+      if (panel) boardSetupRepaint(frame, panel, kb);
+
+      // .kicad_pro + .kicad_dru, persisted now.
+      const files = projectFilesNow();
+      const baseOf = (name: string): string =>
+        (projectFiles ?? []).find((f) => f.name === name)?.text ?? '';
+      const persist: { name: string; text: string }[] = [];
+      const pro = findProjectPro(files, rootPro);
+      const saved = Pgm().GetSettingsManager().SaveProject(prj);
+      if (pro && saved) {
+        const updated = DumpJson(saved.pro);
+        if (updated !== pro.text) persist.push({ name: pro.name, text: updated });
+        const druName = druFileName(pro.name);
+        const dru = findProjectDru(files, rootPro);
+        if (dru ? next.customRules.text !== dru.text : next.customRules.text.trim() !== '') {
+          persist.push({ name: dru?.name ?? druName, text: next.customRules.text });
+        }
+      }
+      if (persist.length) {
+        for (const f of persist)
+          projectFileEditsRef.current.set(f.name, { base: baseOf(f.name), text: f.text });
+        onPersistFiles?.(persist);
+      }
+
+      setBoardSetup(BoardSetupToWindow(kb, prj, next.customRules.text));
+
+      // We don't know if anything was modified, so err on the side of requiring a save
+      if (modified) {
+        if (onSaveBoard) onSaveBoard(serializeBoard(boardRef.current!));
+        else setDirty(true);
+      }
+    },
+    [projectFilesNow, projectFiles, rootPro, onPersistFiles, onSaveBoard, setBoardModel],
   );
 
   /**

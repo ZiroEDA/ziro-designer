@@ -28,10 +28,7 @@ import {
   defaultPhysicalStackup,
   type PhysicalStackup,
 } from '@ziroeda/designer/src/editors/pcb/dialogs/panels/panel_pcb_stackup.js';
-import {
-  applyBoardFileSetup,
-  writeBoardFileSetup,
-} from '@ziroeda/designer/src/editors/pcb/board_file_settings.js';
+import { readSetup, writeSetup } from './board_setup_test_utils.js';
 import { defaultBoardSetup } from '@ziroeda/designer/src/editors/pcb/board_settings.js';
 
 afterEach(cleanup);
@@ -187,30 +184,30 @@ describe('the board thickness written to the file', () => {
     // `for( idx = 1; idx < GetSublayersCount(); idx++ ) thickness += GetThickness( idx )`
     // (`board_stackup.cpp:502-512`). A writer that summed only main layers
     // under-reported every board with an added dielectric sublayer.
-    const s = defaultBoardSetup();
-    applyBoardFileSetup(BOARD, s);
+    const f = readSetup(BOARD);
+    const s = f.values;
 
-    const plain = thicknessIn(writeBoardFileSetup(BOARD, s)!);
+    const plain = thicknessIn(writeSetup(f));
 
     s.physicalStackup.layers = s.physicalStackup.layers.map((l) =>
       l.type === 'Core' || l.type === 'Prepreg'
         ? { ...l, sublayers: [{ material: 'PTFE', thicknessMM: 0.25 }] }
         : l,
     );
-    const withSub = thicknessIn(writeBoardFileSetup(BOARD, s)!);
+    const withSub = thicknessIn(writeSetup(f));
 
     expect(withSub).toBeCloseTo(plain + 0.25, 6);
   });
 
   it('leaves a silkscreen thickness out of it', () => {
-    const s = defaultBoardSetup();
-    applyBoardFileSetup(BOARD, s);
-    const before = thicknessIn(writeBoardFileSetup(BOARD, s)!);
+    const f = readSetup(BOARD);
+    const s = f.values;
+    const before = thicknessIn(writeSetup(f));
 
     s.physicalStackup.layers = s.physicalStackup.layers.map((l) =>
       l.type.includes('Silk Screen') ? { ...l, thicknessMM: 1 } : l,
     );
-    expect(thicknessIn(writeBoardFileSetup(BOARD, s)!)).toBeCloseTo(before, 6);
+    expect(thicknessIn(writeSetup(f))).toBeCloseTo(before, 6);
   });
 });
 
