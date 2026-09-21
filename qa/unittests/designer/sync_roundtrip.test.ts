@@ -172,7 +172,7 @@ describe('the incident, replayed', () => {
       { name: 'b.txt', bytes: text('different') },
     ]);
     await syncAllProjects(USER);
-    const landed = backend.rows.get(id)!.version;
+    const landed = backend.rows.get(id)!.version!;
 
     await saveProject(
       'Amp',

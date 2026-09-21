@@ -342,7 +342,7 @@ describe('sharing, on keys', () => {
     // No inline bytes, so the push goes through bytesOf -- but a size, or
     // `isHollow` reads the whole project as damaged and refuses before it
     // reaches the part under test.
-    withGap.files = withGap.files.map((f) => ({ name: f.name, size: 3 }));
+    withGap.files = withGap.files.map((f) => ({ name: f.name, size: 3 })) as never;
 
     const { version } = await cloudUpsert(OWNER, withGap as never);
     expect(version).toBe(1);
