@@ -16,6 +16,8 @@ import { HomePage } from './home/HomePage.js';
 import type { PickedFile } from './editors/schematic/SchematicEditor.js';
 import { EMPTY_PCB } from './home/new_project.js';
 import { ProgressDialog } from '@ziroeda/common/src/widgets/wx_progress_reporters.js';
+import { ProjectSyncProvider } from './sync/ProjectSyncProvider.js';
+import type { EditorKind } from './sync/ProjectSyncTransport.js';
 import {
   storageAvailable,
   cloudIdentityOf,
@@ -975,6 +977,8 @@ export function App(): JSX.Element {
     [pushNow],
   );
 
+  /** Whether the queued local write contains anything this user authored. */
+  const needsCloudPush = useRef(false);
   const writePending = useCallback(() => {
     const cur = projectFilesRef.current;
     if (!cur || pendingWrite.current.size === 0 || !storageAvailable()) return;
@@ -991,7 +995,8 @@ export function App(): JSX.Element {
           // this existed, `pushProject` ran when a project was opened or renamed
           // and nowhere else, so an editing session reached the cloud only if
           // the user happened to sign in again afterwards.
-          scheduleCloudPush(rec.id);
+          if (needsCloudPush.current) scheduleCloudPush(rec.id);
+          needsCloudPush.current = false;
         } else {
           // No record to write to: an unsaved demo, or a project that has not
           // been persisted. Not a failure, but not saved either.
@@ -1006,7 +1011,7 @@ export function App(): JSX.Element {
     })();
   }, [scheduleCloudPush]);
   const onProjectChange = useCallback(
-    (changed: PickedFile[]) => {
+    (changed: PickedFile[], opts?: { push?: boolean }) => {
       const cur = projectFilesRef.current;
       if (!cur || !storageAvailable()) return;
       const fullByBase = new Map(cur.map((f) => [pcbBasename(f.name), f.name]));
@@ -1034,6 +1039,10 @@ export function App(): JSX.Element {
           return text === undefined || text === f.text ? f : { name: f.name, text };
         });
       });
+      // A batch that is only a peer's work is saved here and goes no further:
+      // see `pendingIsMine` in SchematicEditor. Sticky until the write runs, so
+      // a local edit queued alongside one still reaches the account.
+      if (opts?.push !== false) needsCloudPush.current = true;
       reportLocalPending(true);
       clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(writePending, LOCAL_WRITE_IDLE_MS);
@@ -1320,6 +1329,21 @@ export function App(): JSX.Element {
   // KiCad shows "<project>, <Editor>" in the window title; we put it in the
   // menu bar. With several projects in a folder, it names the active one.
   const projectName = activeBase || folderName;
+
+  /**
+   * Which editor to announce to other people on this project.
+   *
+   * `view` has more states than presence does — the calculator and the gerber
+   * viewer are not places you can be *in a project* with somebody — so those
+   * map to the schematic rather than inventing an `EditorKind` for a screen
+   * nobody can collaborate on. See designer/src/sync/ProjectSyncProvider.tsx.
+   */
+  const syncView: EditorKind = useMemo(() => {
+    if (view === 'pcb') return 'pcb';
+    if (view === 'symbols') return 'symbol';
+    if (view === 'footprints') return 'footprint';
+    return 'schematic';
+  }, [view]);
 
   // The crash screen's "download your project before reloading" is the whole
   // point of `recovery.ts`, and nothing had ever registered a provider — so it
@@ -1648,7 +1672,7 @@ export function App(): JSX.Element {
   }
 
   return (
-    <>
+    <ProjectSyncProvider projectName={projectName} projectUid={openUid} view={syncView}>
       {manager}
       {view !== 'home' && <SaveIndicator />}
       {schMounted && (
@@ -1868,6 +1892,6 @@ export function App(): JSX.Element {
           </Frozen>
         </div>
       )}
-    </>
+    </ProjectSyncProvider>
   );
 }

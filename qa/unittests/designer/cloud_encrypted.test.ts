@@ -25,14 +25,22 @@ import {
 } from '@ziroeda/designer/src/cloud/cloudStore.js';
 import { sha256Hex } from '@ziroeda/designer/src/cloud/blobStore.js';
 import { createAccount, decryptBlob } from '@ziroeda/designer/src/cloud/crypto.js';
-import { openMeta, unwrapFileKey } from '@ziroeda/designer/src/cloud/enc_meta.js';
+import { openMeta, sealMeta, unwrapFileKey } from '@ziroeda/designer/src/cloud/enc_meta.js';
 import {
   createProjectKeyFor,
+  forgetCachedProjectKey,
   projectKeyFor,
+  replaceCachedProjectKey,
   setSessionKeys,
   shareProjectKeyWith,
 } from '@ziroeda/designer/src/cloud/session_keys.js';
-import { sweepPlaintextBlobs } from '@ziroeda/designer/src/cloud/sync.js';
+import {
+  resolveKeepMine,
+  sweepPlaintextBlobs,
+  syncAllProjects,
+} from '@ziroeda/designer/src/cloud/sync.js';
+import 'fake-indexeddb/auto';
+import { saveProject, setProjectOwner } from '@ziroeda/designer/src/home/projectStore.js';
 
 const FAST = { opsLimit: 1, memLimitKiB: 1024 };
 const OWNER = 'user-owner';
@@ -88,7 +96,14 @@ function fake(): Fake {
     },
     async commitProject(row, base) {
       const cur = f.rows.get(row.id);
-      if (base <= 0 ? cur !== undefined : (cur?.version ?? 1) !== base) return null;
+      // Mirrors commit_project (20260904121000_project_membership.sql:416-439):
+      // base 0 INSERTs and is null when a row already exists; base > 0 UPDATEs
+      // `where version = p_base` and is null when nothing matches -- including
+      // when the row is GONE. The old `cur?.version ?? 1` treated a missing row
+      // as version 1, so "update at base 1" succeeded against an empty cloud,
+      // which is the one case that mattered: a local copy remembering a version
+      // whose row has been deleted.
+      if (base <= 0 ? cur !== undefined : cur === undefined || cur.version !== base) return null;
       const version = base <= 0 ? 1 : base + 1;
       f.rows.set(row.id, { ...row, version });
       return version;
@@ -116,6 +131,17 @@ function fake(): Fake {
       return r ? { enc_key: r.enc_key, how: r.how } : null;
     },
     async putProjectKey(projectUid, userId, encKey, how) {
+      // `project_keys.project_uid` references `projects.uid`, so the database
+      // refuses a key row for a project that does not exist yet. The fake used
+      // to accept anything, and that gap is the whole reason a first push of a
+      // new project passed every test here and failed against a real Postgres:
+      // the key was written before the row it points at was committed. Worded
+      // as Postgres words it, so a failure here is recognisable as that failure.
+      if (![...f.rows.values()].some((r) => r.uid === projectUid)) {
+        throw new Error(
+          'insert or update on table "project_keys" violates foreign key constraint "project_keys_project_uid_fkey"',
+        );
+      }
       f.keys.set(`${projectUid}:${userId}`, { user_id: userId, enc_key: encKey, how });
     },
     async deleteProjectKey(projectUid, userId) {
@@ -285,6 +311,80 @@ describe('sharing, on keys', () => {
     await expect(cloudGet('p1', UID)).rejects.toThrow(/no key to project/);
   });
 
+  it('never pushes a tooling directory, even from a record that still lists one', async () => {
+    // Fixing the folder walker does not rewrite records already imported, and
+    // five such projects meant thousands of uploads per push, none of it the
+    // design. A push that cannot finish before the next reload never commits,
+    // so every reload started again and orphaned what the last one wrote.
+    const withJunk = project({
+      'board.kicad_pcb': '(kicad_pcb)',
+      '.git/HEAD': 'ref: refs/heads/main',
+      '.history/.git/refs/tags/Save_pcb_4': 'junk',
+      '3d_shapes/part.wrl': 'wrl',
+    });
+    await cloudUpsert(OWNER, withJunk);
+    const back = await cloudGet('p1', UID);
+    expect(back!.files.map((f) => f.name).sort()).toEqual([
+      '3d_shapes/part.wrl',
+      'board.kicad_pcb',
+    ]);
+  });
+
+  it('skips a file whose bytes vanished, instead of failing every push forever', async () => {
+    // The manifest is read from the store, the bytes from a later read, so a
+    // file can be listed and then be gone. That used to fail the whole push --
+    // and sync retries on every load from the same record, so it failed the
+    // same way every time. Four real projects retried this on every refresh.
+    const p = project({ a: 'AAA', b: 'BBB' });
+    const vanishing = { ...p, files: [...p.files] };
+    let asked = 0;
+    const withGap = {
+      ...vanishing,
+      bytesOf: async (name: string) => {
+        asked++;
+        if (name === 'b') throw new Error(`"b" is no longer in project ${vanishing.id}`);
+        return new Uint8Array(Buffer.from('AAA', 'utf8'));
+      },
+    };
+    // No inline bytes, so the push goes through bytesOf -- but a size, or
+    // `isHollow` reads the whole project as damaged and refuses before it
+    // reaches the part under test.
+    withGap.files = withGap.files.map((f) => ({ name: f.name, size: 3 })) as never;
+
+    const { version } = await cloudUpsert(OWNER, withGap as never);
+    expect(version).toBe(1);
+    expect(asked).toBeGreaterThan(0);
+
+    // The push landed, carrying the file that still exists and not the one
+    // that does not.
+    const back = await cloudGet('p1', UID);
+    expect(back!.files.map((x) => x.name)).toEqual(['a']);
+  });
+
+  it('replaces a row whose key is gone instead of failing on it forever', async () => {
+    // The state a crash between commitProject and saveProjectKeyFor leaves: a
+    // row sealed under a key nothing holds any more. Observed for real, on
+    // three projects, when a browser ran out of memory mid-sync.
+    await cloudUpsert(OWNER, project({ a: 'AAA' }));
+    expect(f.rows.get('p1')?.enc_meta).toBeTruthy();
+
+    // Lose the key exactly as that crash did: the row stays, the key does not.
+    f.keys.delete(`${UID}:${OWNER}`);
+    forgetCachedProjectKey(UID);
+
+    // The next push mints a fresh key, which cannot open the old enc_meta. It
+    // must overwrite rather than strand the project: reading the old metadata
+    // is an upload optimisation, not something worth losing a project over.
+    await cloudUpsert(OWNER, { ...project({ a: 'AAA', b: 'BBB' }), baseVersion: 1 }, new Set(), 1);
+
+    const row = f.rows.get('p1')!;
+    expect(row.version).toBe(2);
+    // And the result is readable again, under the key that now exists.
+    const back = await cloudGet('p1', UID);
+    expect(back).not.toBeNull();
+    expect(text(back!.files.find((x) => x.name === 'b')!.gzB64!)).toBe('BBB');
+  });
+
   it("an editor pushes under the owner's key and into the owner's namespace", async () => {
     await cloudUpsert(OWNER, project({ a: 'AAA' }));
     const key = (await projectKeyFor(f, OWNER, UID))!;
@@ -341,6 +441,98 @@ describe('rotation: whoever leaves keeps nothing, whoever stays keeps reading', 
     setSessionKeys(owner.keys, OWNER);
     f.asUser = OWNER;
     expect((await cloudGet('p1', UID))?.name).toBe('Amp');
+  });
+});
+
+describe('a member whose cached key is stale, after the owner rotated', () => {
+  it('pushes under the fresh key rather than replacing the row with the old one', async () => {
+    // 2026-09-21, for real. The owner narrowed a link (a rotation); an
+    // editor's open tab, still holding the previous key in memory, pushed
+    // next - could not open the re-sealed row - and 3ae8cb19's "replace a row
+    // whose key is gone" wrote the whole project back under the OLD key. From
+    // then on nobody could open it: the owner and the member both held the
+    // new one. "Cannot open" has two causes, and only one of them is a lost
+    // key; the other is a key the server has since replaced, which one fresh
+    // fetch resolves.
+    await cloudUpsert(OWNER, project({ a: 'AAA' }));
+    const key = (await projectKeyFor(f, OWNER, UID))!;
+    await shareProjectKeyWith(f, UID, key, { userId: MEMBER, publicKey: member.keys.publicKey });
+
+    // The member's tab opens the project once: the key is now cached there.
+    setSessionKeys(member.keys, MEMBER);
+    f.asUser = MEMBER;
+    expect(text((await cloudGet('p1', UID))!.files[0]!.gzB64!)).toBe('AAA');
+
+    // The owner rotates, re-sealing the new key to the member's public key.
+    setSessionKeys(owner.keys, OWNER);
+    f.asUser = OWNER;
+    await rotateProjectKey(UID, [{ userId: MEMBER, publicKey: member.keys.publicKey }]);
+    const rotatedVersion = f.rows.get('p1')!.version!;
+    const fresh = (await projectKeyFor(f, OWNER, UID))!;
+    expect(fresh).not.toEqual(key);
+
+    // The member's tab pushes with what it has cached: the old key. (The
+    // cache is per process here, so the rotation above refreshed it; the
+    // member's browser is another process and still holds `key`.)
+    setSessionKeys(member.keys, MEMBER);
+    f.asUser = MEMBER;
+    replaceCachedProjectKey(UID, key);
+    await cloudUpsert(
+      MEMBER,
+      {
+        ...project({ a: 'AAA', b: 'from member' }, { role: 'editor' }),
+        baseVersion: rotatedVersion,
+      },
+      new Set(),
+      rotatedVersion,
+    );
+
+    // The row is under the FRESH key: the owner still opens it.
+    setSessionKeys(owner.keys, OWNER);
+    f.asUser = OWNER;
+    const back = await cloudGet('p1', UID);
+    expect(text(back!.files.find((x) => x.name === 'b')!.gzB64!)).toBe('from member');
+    // And the old key opens nothing any more.
+    await expect(openMeta(key, f.rows.get('p1')!.enc_meta!)).rejects.toThrow();
+  });
+});
+
+describe("a cloud row that will not open with this account's key", () => {
+  it('is offered as a choice - keep mine - and keeping mine replaces it', async () => {
+    // The state 2026-09-21 left behind: a row sealed under a key nobody holds
+    // (see the stale-cache test above). Before this, every sync ended in a
+    // red "did not sync: OperationError" with nothing to click; the local
+    // copy was fine the whole time.
+    setProjectOwner(OWNER);
+    const localId = await saveProject('Amp', [
+      { name: 'a.txt', bytes: new TextEncoder().encode('AAA') },
+    ]);
+    const first = await syncAllProjects(OWNER);
+    expect(first.pushed).toBe(1);
+    const row = [...f.rows.values()][0]!;
+    const uid = row.uid!;
+
+    // Re-seal the row under a key that exists nowhere, as the stale tab did.
+    const mine = (await projectKeyFor(f, OWNER, uid))!;
+    const meta = await openMeta(mine, row.enc_meta!);
+    const nobodys = crypto.getRandomValues(new Uint8Array(32));
+    f.rows.set(row.id, {
+      ...row,
+      enc_meta: await sealMeta(nobodys, meta),
+      version: row.version! + 1,
+    });
+
+    const second = await syncAllProjects(OWNER);
+    expect(second.failures).toEqual([]);
+    expect(second.conflicts).toEqual([{ localId, name: 'Amp', reason: 'unreadable' }]);
+
+    await resolveKeepMine(OWNER, localId);
+    // Opened with this account's key again, and holding this device's copy.
+    const back = await cloudGet(row.id, uid);
+    expect(back?.files.map((x) => x.name)).toEqual(['a.txt']);
+    const third = await syncAllProjects(OWNER);
+    expect(third.conflicts).toEqual([]);
+    expect(third.failures).toEqual([]);
   });
 });
 

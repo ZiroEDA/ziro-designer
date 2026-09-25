@@ -28,6 +28,7 @@ import {
 } from './storageHealth.js';
 import { withRecordLock } from './record_lock.js';
 import { sha256Hex } from '../cloud/blobStore.js';
+import { isToolingPath } from './project_picker.js';
 import { gunzip, gzip } from './gzip.js';
 import { idbHandle } from './idb_open.js';
 import { isSealed, openRecord, sealRecord, type SealedRecord } from './local_vault.js';
@@ -1211,6 +1212,18 @@ export async function deleteProject(id: string): Promise<void> {
   await tx('readwrite', (s) => s.delete(id));
 }
 
+/**
+ * Drop every record this account owns from this browser, after the account
+ * itself has been deleted. Records of other accounts that have used this
+ * browser stay, as they do on sign-out; records with no owner (made before
+ * anyone signed in here) stay too - they were never the account's.
+ */
+export async function forgetLocalProjectsOf(userId: string): Promise<void> {
+  const all = await tx<StoredRecord[]>('readonly', (s) => s.getAll());
+  const mine = all.filter((r) => r.ownerId === userId).map((r) => r.id);
+  for (const id of mine) await tx('readwrite', (s) => s.delete(id));
+}
+
 export async function renameProject(id: string, name: string): Promise<void> {
   await withRecordLock(id, async () => {
     const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
@@ -1499,14 +1512,33 @@ async function divergedFrom(r: StoredRecord): Promise<boolean> {
   // the meanings coincide.
   const agreed = r.syncedHashes ?? r.pushedHashes;
   if (!agreed) return false; // never synced: nothing to have diverged from
-  const then = new Set(agreed);
-  if (r.files.length !== then.size) return true;
+  // Compared against what a push actually sends, which excludes tooling
+  // directories (cloudUpsert, and `isToolingPath` for why). A record imported
+  // before those were filtered still lists them, so counting them here made
+  // every such project look edited on every load.
+  const mine = r.files.filter((f) => !isToolingPath(f.name));
+
+  // A MULTISET, not a set. `agreed` is one hash per file pushed, and two files
+  // with identical bytes have identical hashes -- a project with two empty
+  // files, or two lock files, is ordinary. Collapsing them into a Set made the
+  // count smaller than the file list by exactly the number of duplicates, so
+  // the comparison could never be equal and the project pushed itself forever.
+  // Observed on a real board: 32 files, 31 distinct contents, two identical
+  // .lck files.
+  //
+  // Counting also keeps a real change visible that a set would miss: copying a
+  // file to a second name, same bytes, is a new file and must read as edited.
+  if (mine.length !== agreed.length) return true;
+  const left = new Map<string, number>();
+  for (const h of agreed) left.set(h, (left.get(h) ?? 0) + 1);
   // A file written before hashes were recorded has none, so it is hashed here
   // rather than counted as a difference. Treating "unknown" as "changed" would
   // fork every legacy record once, which is the failure mode being removed.
-  for (const f of r.files) {
+  for (const f of mine) {
     const h = f.hash ?? (await sha256Hex(f.gz));
-    if (!then.has(h)) return true;
+    const n = left.get(h);
+    if (!n) return true;
+    left.set(h, n - 1);
   }
   return false;
 }

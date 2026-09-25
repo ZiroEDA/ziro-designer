@@ -143,6 +143,29 @@ export class ProjectHistory {
     return step.result;
   }
 
+  /**
+   * Apply an edit and record nothing -- what a change someone ELSE made has to
+   * do when it arrives.
+   *
+   * Undo is over my own operations. A peer's edit pushed onto this stack means
+   * my Ctrl+Z takes back their work, on my copy, as a local commit that is then
+   * broadcast back and reverts it for them too; and `execute` clearing the redo
+   * stack means anything I had to redo is gone every time somebody else types.
+   * Neither is a property of an undo stack anybody expects.
+   *
+   * KiCad has no counterpart because KiCad has no second person in the project.
+   * The rule here is the one every shared editor converges on: history holds
+   * what I did.
+   *
+   * Entries already on the stack are left as they are. An undo whose items a
+   * peer has since changed applies over the newer document, which can take
+   * their change back with mine -- the honest fix is to rebase or drop those
+   * entries, and that is the follow-up this method leaves room for.
+   */
+  applyUnrecorded(docs: ReadonlyMap<string, Schematic>, edit: ProjectEdit): ProjectStep {
+    return this.run(edit, docs, false).result;
+  }
+
   /** Take back the last edit made anywhere in the project. */
   undo(docs: ReadonlyMap<string, Schematic>): ProjectStep | null {
     const entry = this.undoStack.pop();

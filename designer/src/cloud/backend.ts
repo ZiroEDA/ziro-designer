@@ -332,6 +332,20 @@ export interface CloudBackend {
   publicKeysOf?(userIds: string[]): Promise<Map<string, Uint8Array>>;
 
   /**
+   * What deleting the account would delete, for the confirmation step of
+   * the delete-account dialog (the reference's `/users/deletion-summary`).
+   */
+  accountDeletionSummary?(): Promise<{ projects: number; people: number }>;
+  /**
+   * Delete the signed-in account and everything under it (the reference's
+   * `DELETE /users/delete`). The server refuses a token that was not minted
+   * by a password sign-in in the last few minutes, so the caller signs in
+   * again first; blobs are the caller's to remove before this, through the
+   * storage API. See `supabase/migrations/20260921150000_account_deletion.sql`.
+   */
+  deleteAccount?(reason: string, feedback: string): Promise<void>;
+
+  /**
    * Append a committed manifest to the project's history, if the database has
    * the table for it.
    *

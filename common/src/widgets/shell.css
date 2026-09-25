@@ -1,6 +1,14 @@
 /* KiCad-eeschema-like application chrome. Dark theme by default, matching
    KiCad's dark mode. */
 :root {
+  /* Data, not chrome: ente's `colors.fixed.danger.main`
+     (web/packages/base/components/utils/theme.ts), the one colour its account
+     surfaces paint a destructive action in. The account UI follows ente, not
+     KiCad, which has no account. */
+  --critical: #ea3f3f;
+  /* Data likewise: ente's `avatarTextColor` (avatar.ts), the initial on an
+     avatar disc. */
+  --avatar-fg: #fff;
   /* GTK dark chrome greys, sampled off a live KiCad 10 project-manager window
      on this machine (Ubuntu/Yaru dark). KiCad paints none of these itself -
      they come from wxSystemSettings / the GTK theme - so a screenshot of the
@@ -1741,7 +1749,10 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--content-bg);
 }
 /* The same monogram the account button draws, at text size: a person in a list
-   is identified the way a person in the corner is. */
+   is identified the way a person in the corner is. The disc's colour is set
+   inline from the address (auth/avatar_color.ts, the reference's palette);
+   the initial on it is the reference's white, bold - and at the text size,
+   which on a 2em disc is the reference's half. */
 .ze-share-monogram {
   flex: none;
   width: 2em;
@@ -1750,8 +1761,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--content-bg);
-  border: 1px solid var(--chrome-border);
+  color: var(--avatar-fg);
+  font-weight: bold;
 }
 .ze-share-person .lbl {
   flex: 1;
@@ -5430,7 +5441,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   /* A button takes the user-agent font unless something says otherwise, which
      is how the drawing sheet's tabs ended up in Arial. */
   font: inherit;
-  color: var(--chrome-fg);
+  /* The reference's avatar text: white and bold on a disc whose colour
+     arrives inline from the address (auth/avatar_color.ts). Its size is the
+     bar's own font, as every other glyph in the bar. */
+  color: var(--avatar-fg);
+  font-weight: bold;
   cursor: pointer;
 }
 /* Fills the button, whatever the provider's picture happens to measure --
@@ -9295,6 +9310,48 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    dismissed the wall isn't possible, kept for completeness / future reuse). */
 .ze-auth-modal {
   position: relative;
+}
+
+/* Delete account (auth/DeleteAccountDialog.tsx): the shared dialog, its body a
+   wxFormBuilder column - every item bordered `wxALL 5`, which is --wx-border,
+   so two stacked items sit 10 px apart and the first is 5 px in from the
+   frame. Nothing else is stated: the width is the sizer's over the widest
+   control (the reason list), the fonts and faces are the controls' own. */
+.ze-delete-account-body {
+  flex-direction: column;
+  padding: var(--wx-border);
+}
+.ze-delete-account-body > * {
+  margin: var(--wx-border);
+}
+.ze-delete-account-sub {
+  color: var(--chrome-fg-muted);
+}
+.ze-delete-account-label {
+  display: block;
+}
+.ze-delete-account textarea {
+  resize: vertical;
+}
+.ze-delete-account-error {
+  color: var(--critical);
+}
+.ze-delete-account-summary {
+  display: flex;
+  flex-direction: column;
+}
+.ze-delete-account-row b {
+  font-weight: 600;
+}
+.ze-required {
+  color: var(--critical);
+  font-weight: 400;
+}
+/* The critical colour on a menu row (the reference's sidebar row) and on the
+   deletion button. */
+.ze-mitem.ze-critical .lbl,
+.ze-btn.ze-critical:not(:disabled) {
+  color: var(--critical);
 }
 
 /* Required sign-in wall (AuthGate): the real editor renders blurred and inert
@@ -16913,4 +16970,88 @@ td.ze-grid-bool {
 .ze-stats-value {
   text-align: right;
   white-space: nowrap;
+}
+
+/* Cross-tab presence badge (designer/src/sync/) — no upstream KiCad
+   counterpart, KiCad has no notion of another viewer on the same document.
+   Clickable: opens .ze-presence-panel below, listing who that is. */
+.ze-presence-badge {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 999;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: var(--selection-bg);
+  color: var(--selection-fg);
+  font: inherit;
+  /* The info size, not a literal. This file's own rule: a number the theme
+     decides is never restated here, and 12px is the GTK info size on one
+     machine at one scale rather than a value anybody chose. */
+  font-size: var(--ui-font-size-info);
+  border: none;
+  cursor: pointer;
+}
+
+/* PresencePanel.tsx: the presence badge's own popup, same dismiss-on-outside-
+   click/blur behaviour as .ze-bgjob-list right above (no upstream KiCad
+   counterpart to match either, so no fixed size is dictated the way that
+   one's is — this sizes to its rows). Opens directly under the badge, which
+   is itself pinned to the same corner (top: 8px; right: 8px), so this needs
+   no dynamically-computed anchor the way BackgroundJobList's does.
+   Deliberately states no font-size of its own, unlike the badge above:
+   .ze-bgjob-list doesn't either, and ui_font_tokens.test.ts tracks every
+   literal one against a baseline that only ever goes down. */
+.ze-presence-panel {
+  position: fixed;
+  top: 36px;
+  right: 8px;
+  z-index: 999;
+  min-width: 180px;
+  border: 1px solid var(--chrome-border);
+  background: var(--chrome-bg);
+  color: var(--chrome-fg);
+  border-radius: 6px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ze-presence-panel:focus {
+  outline: none;
+}
+.ze-presence-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+.ze-presence-row:hover {
+  background: var(--chrome-hover);
+}
+.ze-presence-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  /* Set inline per row, from peerColor.ts — this is only the fallback if
+     that's ever omitted. */
+  background: var(--selection-bg);
+  flex: 0 0 auto;
+}
+.ze-presence-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ze-presence-role {
+  color: var(--ctl-fg-disabled);
+}
+.ze-presence-role-select {
+  font: inherit;
+  background: var(--chrome-bg2);
+  color: var(--chrome-fg);
+  border: 1px solid var(--chrome-border);
+  border-radius: 3px;
 }

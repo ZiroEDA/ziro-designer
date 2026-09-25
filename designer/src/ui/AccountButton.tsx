@@ -29,6 +29,7 @@
  */
 
 import { useCallback, useRef, useState, type JSX } from 'react';
+import { avatarColorFor } from '../auth/avatar_color.js';
 import { profileInitial } from '../auth/profile.js';
 import { useDismissOnOutside } from '@ziroeda/common/src/widgets/use_dismiss_on_outside.js';
 
@@ -37,6 +38,7 @@ export function AccountButton({
   photoUrl,
   onSignOut,
   onRecoveryKey,
+  onDeleteAccount,
 }: {
   email: string;
   /** The provider's picture, when the person signed in with one. */
@@ -48,6 +50,11 @@ export function AccountButton({
    * absent (a build without auth) the row is not drawn.
    */
   onRecoveryKey?: () => void;
+  /**
+   * Delete the account. The reference's sidebar has it last, in a group of
+   * its own, in the critical colour; absent, the row is not drawn.
+   */
+  onDeleteAccount?: () => void;
 }): JSX.Element {
   const [open, setOpen] = useState(false);
   /**
@@ -104,6 +111,21 @@ export function AccountButton({
             <span className="mico" />
             <span className="lbl">Sign out</span>
           </div>
+          {onDeleteAccount && (
+            <>
+              <div className="ze-msep" />
+              <div
+                className="ze-mitem ze-critical"
+                onClick={() => {
+                  setOpen(false);
+                  onDeleteAccount();
+                }}
+              >
+                <span className="mico" />
+                <span className="lbl">Delete account</span>
+              </div>
+            </>
+          )}
         </div>
       )}
       <button
@@ -111,6 +133,9 @@ export function AccountButton({
         className="ze-account-avatar"
         title={email}
         aria-label={`Account: ${email}`}
+        // The reference's avatar: a disc in a colour picked from the address,
+        // the initial in white on it. Only when there is no picture to show.
+        style={photo ? undefined : { background: avatarColorFor(email) }}
         onClick={() => setOpen((v) => !v)}
       >
         {photo ? (

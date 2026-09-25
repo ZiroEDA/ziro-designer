@@ -36,8 +36,11 @@ import {
 } from './account_keys.js';
 import { askSiblingsForMasterKey, serveMasterKey } from './tab_keys.js';
 import { setSessionKeys } from '../cloud/session_keys.js';
+import { ACCOUNT_EXISTS_MESSAGE, signUpOutcome } from './signup_outcome.js';
 import { setLocalVaultFromMasterKey } from '../home/local_vault.js';
-import { sealLocalStore } from '../home/projectStore.js';
+import { forgetLocalProjectsOf, sealLocalStore } from '../home/projectStore.js';
+import { cloudBackend } from '../cloud/cloudStore.js';
+import { mapLimit } from '../map_limit.js';
 
 export interface SignUpResult {
   error: string | null;
@@ -118,6 +121,21 @@ interface AuthContextValue {
   ) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   /**
+   * Delete this account and everything under it, then sign out.
+   *
+   * The reference's flow (ente `DeleteAccount.tsx`): the dialog has already
+   * collected the reason and feedback and had the checkbox ticked; this is
+   * what runs after "Delete account" - authenticate the user again, prove it
+   * to the server, delete, log out. `password` is that re-authentication: a
+   * fresh password sign-in mints the token the server insists on, and a
+   * wrong password stops here with the same wording sign-in uses.
+   */
+  deleteAccount: (
+    password: string,
+    reason: string,
+    feedback: string,
+  ) => Promise<{ error: string | null }>;
+  /**
    * Re-send the 6-digit code that confirms a new account's email address.
    *
    * There is no passwordless *sign-in*: a code only ever proves the address at
@@ -132,6 +150,15 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+/**
+ * Storage removes in one request per batch; this is the batch, and the
+ * concurrency is the one bound every other storage fan-out in the app uses
+ * (cloudStore.ts STORAGE_CONCURRENCY: a database, asked too much at once,
+ * stops answering).
+ */
+const REMOVE_BATCH = 100;
+const STORAGE_CONCURRENCY = 4;
 
 /** Supabase's wording for a refused password, with the fact it hides restored. */
 const describe = (message: string): string =>
@@ -276,6 +303,19 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     return serveMasterKey(userId, keys.masterKey);
   }, [keys, userId]);
 
+  const signOut = useCallback(async () => {
+    if (!supabase) return;
+    forgetMasterKey();
+    setSessionKeys(null);
+    void setLocalVaultFromMasterKey(null);
+    setKeys(null);
+    setKeyState('absent');
+    setPendingRecoveryKey(null);
+    setRecovering(false);
+    pendingSetup.current = null;
+    await supabase.auth.signOut();
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
@@ -316,6 +356,8 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
         const secret = await loginSecret(email, password);
         const { data, error } = await supabase.auth.signUp({ email, password: secret });
         if (error) return { error: error.message, needsConfirm: false };
+        const outcome = signUpOutcome(data);
+        if (outcome === 'exists') return { error: ACCOUNT_EXISTS_MESSAGE, needsConfirm: false };
         // Start on the keys now; the code is going to take a while to arrive.
         const made = createAccount(password).catch((err: unknown) => {
           throw new Error(
@@ -325,7 +367,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
           );
         });
         pendingSetup.current = { email, made };
-        const needsConfirm = !!data.user && !data.session;
+        const needsConfirm = outcome === 'confirm';
         if (!needsConfirm && data.user) {
           // Confirmation is off on this server: the session is here already.
           try {
@@ -400,17 +442,49 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
           return { error: err instanceof Error ? err.message : String(err) };
         }
       },
-      async signOut() {
-        if (!supabase) return;
-        forgetMasterKey();
-        setSessionKeys(null);
-        void setLocalVaultFromMasterKey(null);
-        setKeys(null);
-        setKeyState('absent');
-        setPendingRecoveryKey(null);
-        setRecovering(false);
-        pendingSetup.current = null;
-        await supabase.auth.signOut();
+      signOut,
+      async deleteAccount(password, reason, feedback) {
+        if (!supabase || !session) return { error: 'Not signed in.' };
+        const email = session.user.email ?? '';
+        const userId = session.user.id;
+        // Authenticate again. Not a check on a cached secret: the sign-in is
+        // what mints a token whose `amr` says "password, just now", which is
+        // the only token delete_my_account() accepts.
+        const secret = await loginSecret(email, password);
+        const { error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password: secret,
+        });
+        if (authError) return { error: describe(authError.message) };
+        const be = cloudBackend();
+        if (!be?.deleteAccount || !be.listObjects) {
+          return { error: 'This server cannot delete accounts.' };
+        }
+        try {
+          // The bytes first, through the storage API, in bounded batches: a
+          // row deleted from storage.objects by SQL would leave its object
+          // behind unreachable, and a failure here is a reason to stop, not
+          // to delete the account around it.
+          const paths = await be.listObjects(`${userId}/`);
+          const batches: string[][] = [];
+          for (let i = 0; i < paths.length; i += REMOVE_BATCH) {
+            batches.push(paths.slice(i, i + REMOVE_BATCH));
+          }
+          await mapLimit(batches, STORAGE_CONCURRENCY, (b) => be.removeObjects(b));
+          await be.deleteAccount(reason, feedback);
+        } catch (e) {
+          return { error: e instanceof Error ? e.message : String(e) };
+        }
+        // This browser's copies of the account's projects: the account no
+        // longer exists to own them, and the next sign-in with the same
+        // address is a different account.
+        try {
+          await forgetLocalProjectsOf(userId);
+        } catch (e) {
+          console.warn('local projects not removed after account deletion:', e);
+        }
+        await signOut();
+        return { error: null };
       },
       async resendSignupCode(email) {
         if (!supabase) return { error: 'Auth is not configured.' };
@@ -452,6 +526,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
       open,
       finishSetup,
       settleKeys,
+      signOut,
     ],
   );
 

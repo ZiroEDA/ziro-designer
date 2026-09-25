@@ -121,7 +121,7 @@ describe('mount3DViewer', () => {
     };
     const board = readBoard(
       parse(
-        `(kicad_pcb (version 20241229) (generator "pcbnew") (general (thickness 1.6))
+        `(kicad_pcb (version 20241229) (generator "ziroeda") (general (thickness 1.6))
            (paper "A4") (layers (0 "F.Cu" signal) (2 "B.Cu" signal)) (net 0 ""))`,
       ),
     );

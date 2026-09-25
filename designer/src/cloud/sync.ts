@@ -67,6 +67,7 @@ import {
   cloudStoreListing,
   cloudGet,
   cloudGetRow,
+  cloudGetRowRaw,
   cloudListMeta,
   cloudMemberships,
   assertStoreAnswers,
@@ -75,6 +76,19 @@ import {
   restoreFromHistory,
   StaleBaseError,
 } from './cloudStore.js';
+import { mapLimit } from '../map_limit.js';
+
+/**
+ * How many projects are transferred at once.
+ *
+ * One. Each project in flight holds its whole file set -- see
+ * ENCRYPT_CONCURRENCY in cloudStore.ts for what one file costs -- so this
+ * multiplies that by however many run together. Five at once peaked at 1205 MB
+ * on a 300 MB input, against 377 MB one at a time, and a browser tab dies long
+ * before the first number. Each project still overlaps its own uploads
+ * internally, so this costs latency only when there are many small projects.
+ */
+const PROJECT_CONCURRENCY = 1;
 
 /** Progress callback: `done` of `total` transfers finished so far. */
 export type SyncProgress = (done: number, total: number) => void;
@@ -106,6 +120,16 @@ export interface SyncConflict {
   localId: string;
   /** For the sentence shown to the user. */
   name: string;
+  /**
+   * Why a person is being asked. `diverged` (the default): both sides changed
+   * since they last agreed. `unreadable`: the cloud copy will not open with
+   * the key this account holds - a row sealed under a key nobody has any
+   * more (2026-09-21: a member's stale tab wrote it back under a key the
+   * owner had rotated away) - so there is nothing to compare, only the local
+   * copy to offer in its place. "Keep both" is not a choice for it: the
+   * cloud copy cannot be taken.
+   */
+  reason?: 'diverged' | 'unreadable';
 }
 
 /**
@@ -152,7 +176,29 @@ export interface SyncResult {
   }[];
 }
 
-const message = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+/**
+ * A failure, as a line a user can act on.
+ *
+ * The fallbacks are not defensive padding. `SyncResult.failures[0].message` is
+ * the entire text of the banner in HomePage, so an error that carries an empty
+ * message renders as "4 projects did not sync: " and tells nobody anything --
+ * observed, with four real projects, and it cost a diagnosis round trip.
+ * Plenty of things throw that way: a `new Error()` with no argument, a
+ * rejected fetch with an empty body, a non-Error value like ''. Anything at
+ * all beats a blank.
+ */
+const message = (e: unknown): string => {
+  const text = e instanceof Error ? e.message : String(e);
+  if (text.trim() !== '') return text;
+  if (e instanceof Error) return e.name?.trim() || e.constructor?.name || 'unknown error';
+  if (e === null || e === undefined) return `sync threw ${String(e)}`;
+  try {
+    const json = JSON.stringify(e);
+    return json && json !== '{}' ? json : `unknown error (${typeof e})`;
+  } catch {
+    return `unknown error (${typeof e})`;
+  }
+};
 
 /**
  * Which cloud project a local copy is a copy of, and what may be done to it.
@@ -210,7 +256,11 @@ export async function syncAllProjects(
     cloudMeta.filter((c) => (c.ownerId ?? userId) === userId).map((c) => [c.id, c]),
   );
 
-  const ops: Promise<void>[] = [];
+  // Thunks, not promises. A promise starts when it is made, so building them
+  // in the loops below and joining with `Promise.all` ran every transfer at
+  // once however the join behaved. Holding the work unstarted is what lets
+  // the limit below mean anything.
+  const ops: (() => Promise<void>)[] = [];
 
   // Count the transfers up front so the UI can show "n of m", ticking one as
   // each push/pull settles (order of completion, not of dispatch).
@@ -227,9 +277,9 @@ export async function syncAllProjects(
    * is a fact to report, not a reason to abandon the other nineteen. It reaches
    * the user through `SyncResult.failures`.
    */
-  const track = (id: string, direction: 'push' | 'pull', p: Promise<Outcome>): void => {
-    ops.push(
-      p.then(
+  const track = (id: string, direction: 'push' | 'pull', start: () => Promise<Outcome>): void => {
+    ops.push(() =>
+      start().then(
         // What happened, not what was planned: a pull whose cloud copy turns out
         // to be unreadable is completed by pushing the local one, and reporting
         // that as a pull would describe the opposite of what took place.
@@ -242,6 +292,11 @@ export async function syncAllProjects(
           tick();
         },
         (e) => {
+          // The banner has room for one line of the first failure only, so the
+          // whole error goes to the console: stack, cause, and any fields a
+          // backend hung on it. Without this, a project that will not sync is
+          // diagnosed by guesswork.
+          console.error(`sync: ${direction} failed for project ${id}:`, e);
           result.failures.push({
             id,
             direction,
@@ -283,7 +338,16 @@ export async function syncAllProjects(
     // Local only: a project made on this machine, or one the cloud has never
     // seen. Pushed as base 0, which asserts no such row exists.
     if (!there) {
-      track(here.id, 'push', pushFallingBackToPull(userId, ref));
+      // Base 0, and not the record's `baseVersion`: this branch IS the finding
+      // that the cloud has no such row, so the version this copy once came from
+      // describes a row that is gone. Passing it asks the compare-and-swap to
+      // update something absent, which refuses, and the refusal used to be read
+      // as staleness and answered with a pull of nothing.
+      //
+      // Rows do disappear: deleted from another device, or from the database
+      // directly. The local record still remembers the version it last agreed
+      // with, and nothing rewrites that when the row goes.
+      track(here.id, 'push', () => pushFallingBackToPull(userId, ref, 0));
     } else if (here.baseVersion === there.version) {
       // Up to date with the cloud. Push only if this side actually changed --
       // and "changed" is the file hashes, so opening a project does not qualify
@@ -302,12 +366,12 @@ export async function syncAllProjects(
       // the clear for good. The browser check found exactly that.
       const stillPlaintext = sessionUnlocked() && ref.role === 'owner' && there.encrypted === false;
       if ((here.diverged || stillPlaintext) && ref.role !== 'viewer') {
-        track(here.id, 'push', pushFallingBackToPull(userId, ref));
+        track(here.id, 'push', () => pushFallingBackToPull(userId, ref));
       }
     } else {
       // The cloud has moved since this copy last agreed with it. Pull;
       // `pullOne` forks the local copy aside if it also changed.
-      track(here.id, 'pull', pullOne(userId, ref, result.conflicts));
+      track(here.id, 'pull', () => pullOne(userId, ref, result.conflicts));
     }
   }
 
@@ -320,9 +384,7 @@ export async function syncAllProjects(
     // browser gave it: that id may already name a project of this user's, and
     // importing over it would replace their work with somebody else's.
     const localId = role === 'owner' ? there.id : (there.uid ?? there.id);
-    track(
-      localId,
-      'pull',
+    track(localId, 'pull', () =>
       pullOne(
         userId,
         {
@@ -337,8 +399,14 @@ export async function syncAllProjects(
     );
   }
 
+  // One line saying what this pass decided, because "it did nothing" and "it
+  // was never asked" look identical from outside and the difference is the
+  // whole diagnosis. Cheap: one log per sync, not per project.
+  console.info(
+    `sync: ${localMeta.length} local, ${cloudMeta.length} in the cloud, ${ops.length} transfer(s) queued`,
+  );
   if (ops.length > 0) onProgress?.(0, ops.length);
-  await Promise.all(ops);
+  await mapLimit(ops, PROJECT_CONCURRENCY, (run) => run());
   // The last plaintext goes only when every project of the owner's is
   // encrypted; until then this returns null and touches nothing.
   try {
@@ -360,11 +428,19 @@ export async function syncAllProjects(
  * has changed. Reporting it as a failed push would put a red banner in front of
  * the user for something the next line of code can settle correctly.
  */
-async function pushFallingBackToPull(userId: string, ref: ProjectRef): Promise<Outcome> {
+async function pushFallingBackToPull(
+  userId: string,
+  ref: ProjectRef,
+  base?: number,
+): Promise<Outcome> {
   try {
-    return await pushOne(userId, ref.localId);
+    return await pushOne(userId, ref.localId, base);
   } catch (e) {
     if (!(e instanceof StaleBaseError)) throw e;
+    // Base 0 is refused when a row of that id DOES exist, which is what it
+    // asserts against -- an imported copy carries the id of the row it came
+    // from, and must not overwrite it. So this stays a pull rather than a
+    // failure, which is the case it was written for.
     return pullOne(userId, ref);
   }
 }
@@ -516,9 +592,25 @@ async function pullOne(
     }
     return await takeCloudCopy(userId, ref);
   } catch (e) {
+    // A row this account's key will not open. Not damage the app can prove
+    // (somebody could hold that key), so not repaired on its own; but with a
+    // usable copy on this device it is a choice a person can make, and the
+    // alternative is the same red failure on every sync for the life of the
+    // account. A viewer's local copy is not theirs to put over the owner's.
+    if (isDecryptFailure(e) && ref.role !== 'viewer' && conflicts) {
+      const local = await exportProject(ref.localId);
+      if (local?.files.some((f) => (f.gzB64?.length ?? 0) > 0)) {
+        conflicts.push({ localId: ref.localId, name: local.name, reason: 'unreadable' });
+        return 'conflict';
+      }
+    }
     return await repairUnreadable(userId, ref, e);
   }
 }
+
+/** WebCrypto's answer to the wrong key or a tampered ciphertext. */
+const isDecryptFailure = (e: unknown): boolean =>
+  typeof e === 'object' && e !== null && (e as { name?: string }).name === 'OperationError';
 
 /**
  * Whether a cloud row and a local copy hold the same files.
@@ -627,7 +719,9 @@ export async function resolveKeepMine(userId: string, localId: string): Promise<
   if (!cloudBackendInstalled()) return;
   const ref = await refFor(localId);
   if (!ref) return;
-  const row = await cloudGetRow(ref.remoteId, ref.uid);
+  // The raw row: only its version is wanted, and an `unreadable` conflict is
+  // one whose contents cannot be opened - the push below replaces them.
+  const row = await cloudGetRowRaw(ref.remoteId, ref.uid);
   await pushOne(userId, localId, row ? Number(row.version ?? 1) : 0);
 }
 

@@ -17,6 +17,21 @@ import {
 import { resolveActiveSheet, readSheetRef, writeSheetRefText } from '@ziroeda/common';
 import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { parse } from '@ziroeda/sexpr';
+import { useProjectSync } from '../../sync/ProjectSyncProvider.js';
+import {
+  applySchematicPatch,
+  diffSchematic,
+  schematicPatchIsEmpty,
+  type SchematicPatch,
+} from '../../sync/sch_diff.js';
+import type {
+  PeerRole,
+  PresenceInfo,
+  ProjectSyncTransport,
+} from '../../sync/ProjectSyncTransport.js';
+import { PresencePanel } from '../../ui/PresencePanel.js';
+import { ReadOnlyNotice } from '../../ui/ReadOnlyNotice.js';
+import { useAuth } from '../../auth/AuthProvider.js';
 import {
   type ArcEditMode,
   incrementArcEditMode,
@@ -830,7 +845,15 @@ export function SchematicEditor({
   /** A symbol handed over by the Symbol Editor's "Add symbol to schematic": attach it to the cursor. */
   placeRequest?: { lib: LibSymbol; nonce: number } | null;
   /** Autosave hook: called (debounced) with the serialized sheets after edits. */
-  onProjectChange?: (files: PickedFile[]) => void;
+  /**
+   * Hand edited sheets to the app, which writes them locally and decides
+   * whether the account hears about them.
+   *
+   * `push` is false for a change that arrived from another peer: it is still
+   * saved on this machine, and still must not be committed to the cloud from
+   * here. Absent means true, so every existing caller keeps its behaviour.
+   */
+  onProjectChange?: (files: PickedFile[], opts?: { push?: boolean }) => void;
   /** Persist project files immediately (no debounce), used for the drawing-sheet
    *  reference in .kicad_pro so it survives a "go back and reopen". */
   onPersistFiles?: (files: PickedFile[]) => void;
@@ -937,6 +960,222 @@ export function SchematicEditor({
   // (a plain message, or a snapshot with the per-sheet parse gauge).
   const [loading, setLoading] = useState<string | ProgressSnapshot | null>(null);
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
+  // Live cross-tab presence/selection sync (designer/src/sync/). Broadcast-only
+  // for now — does not apply remote model changes yet.
+  const syncTransport = useRef<ProjectSyncTransport | null>(null);
+  const [syncPeers, setSyncPeers] = useState<PresenceInfo[]>([]);
+  // Real identity to announce (see PcbEditor.tsx's own copy of this comment
+  // and docs/proposals/multiplayer-architecture.md requirement 5).
+  const { session } = useAuth();
+  const myDisplayName = session?.user.email ?? null;
+  /** The tab's one connection, owned by ProjectSyncProvider rather than by
+   *  this editor — see the comment on the subscription effect below. */
+  const sharedSync = useProjectSync();
+  // This tab's own role in the live session — see PcbEditor.tsx's own copy
+  // of this comment and designer/src/sync/ProjectSyncTransport.ts's
+  // PeerRole. Read by runCommand/applySheetDocument to refuse a local edit
+  // from a viewer; mirrored into a ref for the same reason PcbEditor.tsx's
+  // is. No interactive-gesture-start guard here the way PcbEditor.tsx's
+  // beginMove has one: a schematic move isn't funnelled through one
+  // function the way a PCB drag is (SchematicCanvas.tsx sets `modeRef`
+  // directly at several call sites), so a viewer can still visually start
+  // dragging a symbol here — it just will not commit on drop, the same
+  // "reads fine without the extra polish" tradeoff PcbEditor.tsx's own
+  // nine non-drag guarded commands already accept.
+  const [myRole, setMyRole] = useState<PeerRole>('editor');
+  const myRoleRef = useRef<PeerRole>('editor');
+  myRoleRef.current = myRole;
+  // Marks this tab as applying a change that arrived from a peer rather
+  // than one it originated itself — checked (and always reset again
+  // immediately after, unlike PcbEditor.tsx's copy, since there is only
+  // one remote-apply call site here and no cross-render gap to bridge) so
+  // that call does not itself get refused by the viewer guard above.
+  const applyingRemoteRef = useRef(false);
+  const [presencePanelOpen, setPresencePanelOpen] = useState(false);
+  // Other peers' last-known cursor world position, keyed by peerId. Cleared
+  // per-peer on their next 'presence' drop (see the presence handler below).
+  const [remoteCursors, setRemoteCursors] = useState<Map<string, Vec2>>(new Map());
+  /**
+   * What each peer currently has selected, by item uuid.
+   *
+   * Stored unresolved, as uuids, exactly as they arrived. `refId` already
+   * makes a schematic id BE the item's uuid (`uuid ?? kind:idx:index`), so
+   * unlike the board -- whose ids are positional and have to be translated
+   * per peer -- nothing has to be mapped here. What still has to be checked
+   * is the sheet: a uuid selected on another sheet means nothing on this
+   * one, which is why every read of this filters through presence.
+   */
+  const [remoteSelections, setRemoteSelections] = useState<Map<string, ReadonlySet<string>>>(
+    new Map(),
+  );
+  // A remote sheet-text update waiting to be applied (see the effect near
+  // applySheetDocument below — it needs sheetInstanceRefs/applySheetDocument,
+  // both defined later in this component, hence the queue rather than
+  // applying inline here).
+  const [pendingRemoteChange, setPendingRemoteChange] = useState<
+    | { sheetPath: string; text: string; patch?: undefined }
+    | { sheetPath: string; patch: SchematicPatch; text?: undefined }
+    | null
+  >(null);
+  /**
+   * The sheet state this tab last broadcast, and which sheet it was — the
+   * base `diffSchematic` measures the next edit against.
+   *
+   * Keyed by path because switching sheets replaces `doc` wholesale: diffing
+   * sheet B against sheet A would describe every item on both as changed,
+   * which is not just wasteful but wrong. A switch therefore falls back to
+   * whole text once, and patches resume from there.
+   */
+  const prevSyncedDoc = useRef<{ path: string; doc: Schematic } | null>(null);
+  // Last text this tab is responsible for having produced on the active
+  // sheet — set both when broadcasting a local edit and when applying a
+  // remote one, so applying a remote change doesn't immediately echo it
+  // straight back out (see the broadcast effect below).
+  const lastKnownText = useRef<string | null>(null);
+  useEffect(() => {
+    // The connection belongs to the tab, not to this editor: both editors
+    // stay mounted, so owning one here made the tab its own peer. See
+    // designer/src/sync/ProjectSyncProvider.tsx.
+    const transport = sharedSync;
+    if (!transport) return undefined;
+    syncTransport.current = transport;
+    const unsubscribe = transport.onMessage((payload, fromPeerId) => {
+      if (payload.kind === 'presence') {
+        setSyncPeers(payload.peers);
+        const stillHere = new Set(payload.peers.map((p) => p.peerId));
+        setRemoteCursors((prev) => {
+          const next = new Map(prev);
+          for (const peerId of next.keys()) if (!stillHere.has(peerId)) next.delete(peerId);
+          return next;
+        });
+        setRemoteSelections((prev) => {
+          const next = new Map(prev);
+          for (const peerId of next.keys()) if (!stillHere.has(peerId)) next.delete(peerId);
+          return next;
+        });
+      } else if (payload.kind === 'selection') {
+        // A board tab on this project shares the channel (it is keyed on the
+        // project, not the editor) and sends its own uuids here too. Harmless:
+        // they are uuids of board items, which no sheet has, so they resolve
+        // to nothing when drawn or locked against.
+        setRemoteSelections((prev) => {
+          const next = new Map(prev);
+          if (payload.refs.length === 0) next.delete(fromPeerId);
+          else next.set(fromPeerId, new Set(payload.refs));
+          return next;
+        });
+      } else if (payload.kind === 'cursor') {
+        setRemoteCursors((prev) => new Map(prev).set(fromPeerId, { x: payload.x, y: payload.y }));
+      } else if (payload.kind === 'model-changed') {
+        setPendingRemoteChange({ sheetPath: payload.sheetPath, text: payload.text });
+      } else if (payload.kind === 'sheet-patch') {
+        setPendingRemoteChange({ sheetPath: payload.sheetPath, patch: payload.patch });
+      } else if (payload.kind === 'self-role') {
+        // Locally synthesized, not peer-authored — see PcbEditor.tsx's own
+        // copy of this branch and the payload's own doc comment.
+        setMyRole(payload.role);
+      } else if (payload.kind === 'role-assign') {
+        if (payload.toPeerId !== transport.peerId) return; // addressed to someone else
+        syncTransport.current?.setRole(payload.role);
+      }
+    });
+    return () => {
+      // Unsubscribe only. Disconnecting is the provider's job -- this editor
+      // stays mounted and hidden when the user switches to the board, and
+      // tearing the tab's connection down here would take presence with it.
+      unsubscribe();
+      syncTransport.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sharedSync]);
+  // This editor owns the sheet half of presence, because it is the only
+  // thing that knows which sheet is open. `shown` -- the prop the host
+  // already passes to say which editor is in front -- is in the deps, so
+  // arriving back from the board re-announces the sheet the provider could
+  // not name when it announced the view.
+  useEffect(() => {
+    if (!shown) return;
+    sharedSync?.updatePresence('schematic', currentPath);
+  }, [currentPath, shown, sharedSync]);
+  // Only show a peer's cursor while they're on the same sheet — a position
+  // from another sheet would land on unrelated geometry here.
+  const remoteCursorList = useMemo(
+    () =>
+      syncPeers
+        .filter((p) => p.sheetPath === currentPath && remoteCursors.has(p.peerId))
+        .map((p) => ({
+          peerId: p.peerId,
+          label: p.peerId.slice(0, 4),
+          world: remoteCursors.get(p.peerId)!,
+        })),
+    [syncPeers, remoteCursors, currentPath],
+  );
+  /** The same sheet filter, for what each peer has selected. */
+  const remoteSelectionList = useMemo(
+    () =>
+      syncPeers
+        .filter(
+          (p) => p.sheetPath === currentPath && (remoteSelections.get(p.peerId)?.size ?? 0) > 0,
+        )
+        .map((p) => ({ peerId: p.peerId, ids: remoteSelections.get(p.peerId)! })),
+    [syncPeers, remoteSelections, currentPath],
+  );
+  /**
+   * Everything a peer on this sheet has claimed by selecting it
+   * (designer/src/sync/) — the board editor's `remoteLockedIds`, which this
+   * mirrors, explains why a selection is a claim worth honouring.
+   *
+   * No translation step, unlike the board's: a schematic id already IS the
+   * uuid, so a peer's ids and this tab's ids are the same strings.
+   */
+  const remoteLockedIds = useMemo(() => {
+    const locked = new Set<string>();
+    for (const { ids } of remoteSelectionList) for (const id of ids) locked.add(id);
+    return locked;
+  }, [remoteSelectionList]);
+  useEffect(() => {
+    // Only ids that are really uuids. `refId` falls back to `kind:idx:index`
+    // for an item with no uuid of its own, and that names a position in THIS
+    // tab's arrays -- sent as-is it would land on whatever item happened to
+    // sit at that index on the receiver, which is worse than sending nothing.
+    const refs = [...selection].filter((id) => !id.includes(':idx:'));
+    syncTransport.current?.publish({ kind: 'selection', refs });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection]);
+  // Broadcast the active sheet's edits (designer/src/sync/), debounced so a
+  // run of small edits collapses into one message instead of one per commit.
+  // Skipped when the change we're seeing is one we just applied FROM a
+  // remote peer (lastKnownText already matches it) — otherwise applying a
+  // remote change would immediately echo it straight back out.
+  useEffect(() => {
+    if (!doc) return undefined;
+    const timer = setTimeout(() => {
+      let text: string;
+      try {
+        text = serializeSchematic(doc);
+      } catch {
+        return;
+      }
+      // Recorded even when this turns out to be our own echo, so the next
+      // real edit diffs against what the group actually has rather than
+      // against whatever this tab last sent.
+      const base = prevSyncedDoc.current?.path === currentPath ? prevSyncedDoc.current.doc : null;
+      prevSyncedDoc.current = { path: currentPath, doc };
+      if (text === lastKnownText.current) return;
+      lastKnownText.current = text;
+      // The fast path: a handful of changed items instead of the whole sheet,
+      // `lib_symbols` cache and title block. Null means this edit touched the
+      // retained AST (page settings, embedded files) and cannot be described
+      // as items — see sch_diff.ts.
+      const patch = base ? diffSchematic(base, doc) : null;
+      if (patch && !schematicPatchIsEmpty(patch)) {
+        syncTransport.current?.publish({ kind: 'sheet-patch', sheetPath: currentPath, patch });
+        return;
+      }
+      syncTransport.current?.publish({ kind: 'model-changed', sheetPath: currentPath, text });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [doc, currentPath]);
   /**
    * The selection a right-click made just to have something to aim the menu at
    * — `SELECTION::SetIsHover`.
@@ -1437,6 +1676,11 @@ export function SchematicEditor({
     devicePixelRatio: dpr,
     iuPerMM: SCH_IU_PER_MM,
   });
+  // Throttle cursor broadcasts (designer/src/sync/) — a raw pointermove rate
+  // would flood the channel; peers only need a position often enough to read
+  // as "live," not every frame.
+  const lastCursorBroadcast = useRef(0);
+  const CURSOR_BROADCAST_MS = 80;
   const onCursorMove = useCallback(
     (world: Vec2 | null, snapped: Vec2 | null) => {
       cursorRef.current = world;
@@ -1445,6 +1689,13 @@ export function SchematicEditor({
       // grid. Ours showed the raw pointer position, which is why the readout sat
       // on values like 110.0250 on a 1.27 mm grid.
       statusReadout.setCursor(snapped ?? world);
+      if (world) {
+        const now = Date.now();
+        if (now - lastCursorBroadcast.current >= CURSOR_BROADCAST_MS) {
+          lastCursorBroadcast.current = now;
+          syncTransport.current?.publish({ kind: 'cursor', x: world.x, y: world.y });
+        }
+      }
     },
     [statusReadout],
   );
@@ -2097,7 +2348,10 @@ export function SchematicEditor({
           /* skip a bad sheet */
         }
       }
-      if (changed.length) pendingProjectChange.current.push(...changed);
+      if (changed.length) {
+        pendingProjectChange.current.push(...changed);
+        if (!applyingRemoteRef.current) pendingIsMine.current = true;
+      }
       if (persist) pendingPersist.current = true;
       // The one status whose undo navigates; see `EditCommand.pageSettings`.
       if (step.showSheet && step.showSheet !== here) pendingShowSheet.current = step.showSheet;
@@ -2108,6 +2362,19 @@ export function SchematicEditor({
 
   /** Files an edit or undo folded back, flushed to the host after the render. */
   const pendingProjectChange = useRef<PickedFile[]>([]);
+  /**
+   * Whether anything in the queued batch is MY work.
+   *
+   * A peer's edit is written to this machine -- it has to be, or a reload shows
+   * a sheet older than the one on screen -- but it must not be pushed to the
+   * cloud from here. Every peer holding the same change would otherwise race
+   * the version compare-and-swap to commit bytes they did not author, N pushes
+   * for one edit. The author's own push is what puts it there.
+   *
+   * Sticky across a batch and cleared with it: one local keystroke in the same
+   * frame as a remote patch still has to reach the account.
+   */
+  const pendingIsMine = useRef(false);
   /** …and whether the caller wanted them written now rather than on the timer. */
   const pendingPersist = useRef(false);
   /**
@@ -2127,9 +2394,11 @@ export function SchematicEditor({
     if (pendingProjectChange.current.length === 0) return;
     const files = pendingProjectChange.current;
     const persist = pendingPersist.current;
+    const mine = pendingIsMine.current;
     pendingProjectChange.current = [];
     pendingPersist.current = false;
-    onProjectChange?.(files);
+    pendingIsMine.current = false;
+    onProjectChange?.(files, { push: mine });
     if (persist) onPersistFiles?.(files);
   });
 
@@ -2153,11 +2422,25 @@ export function SchematicEditor({
    */
   const runProject = useCallback(
     (edit: ProjectEdit, persist = false): void => {
+      // The one choke point every edit funnels through, whichever sheets it
+      // touches — see PcbEditor.tsx's own copy of this guard and
+      // designer/src/sync/ProjectSyncTransport.ts's PeerRole.
+      // applyingRemoteRef is what lets a remote update still land on a
+      // Viewer's own tab while refusing a local edit.
+      if (!applyingRemoteRef.current && myRoleRef.current === 'viewer') return;
       setDoc((d) => {
         if (!d) return d;
         const staged = new Map<string, EditCommand>();
         for (const [file, cmd] of edit) staged.set(file, withCleanup(cmd, libById));
-        return foldStep(history.current.execute(docsWith(d), staged), d, persist);
+        const docs = docsWith(d);
+        // Undo is over MY operations. A peer's edit still lands on the
+        // document -- that is the whole point of it arriving -- but it does not
+        // become an entry on my stack and does not clear my redo. See
+        // `ProjectHistory.applyUnrecorded`.
+        const step = applyingRemoteRef.current
+          ? history.current.applyUnrecorded(docs, staged)
+          : history.current.execute(docs, staged);
+        return foldStep(step, d, persist);
       });
     },
     [libById, foldStep],
@@ -3317,6 +3600,52 @@ export function SchematicEditor({
     },
     [applySheetCommand],
   );
+
+  // Apply a queued remote sheet-text update (designer/src/sync/). Reuses
+  // applySheetDocument, the same primitive Increment Annotations/Sync Sheet
+  // Pins use to replace a whole sheet document — so this rides the ordinary
+  // undo path when it lands on the open sheet (a bad remote update is a
+  // Ctrl+Z away) and gets its own history entry otherwise, exactly like any
+  // other cross-sheet edit. Not a merge: last update to arrive wins.
+  useEffect(() => {
+    if (!pendingRemoteChange) return;
+    const { sheetPath } = pendingRemoteChange;
+    setPendingRemoteChange(null);
+    const target = sheetInstanceRefs.find((r) => r.path === sheetPath);
+    if (!target) return; // not (yet) part of this tab's loaded hierarchy
+    let next: Schematic;
+    if (pendingRemoteChange.patch) {
+      // A patch is only meaningful against the sheet it was diffed from, so
+      // it needs this tab's current copy of that sheet to splice into.
+      const current =
+        target.file === currentFile ? docRef.current : project.current.docs.get(target.file);
+      if (!current) return; // the sheet is named but not loaded here
+      next = applySchematicPatch(current, pendingRemoteChange.patch);
+    } else {
+      try {
+        next = { ...readSchematic(parse(pendingRemoteChange.text)), fileName: target.file };
+      } catch {
+        return; // malformed text mid-broadcast; wait for the next update
+      }
+    }
+    if (target.file === currentFile) {
+      // Echo suppression works off text either way, so a patch has to be
+      // serialized here — the alternative is re-broadcasting what we just
+      // received. Cheaper than it looks: this runs once per received edit,
+      // not once per frame, and only for the sheet on screen.
+      try {
+        lastKnownText.current = serializeSchematic(next);
+      } catch {
+        lastKnownText.current = null; // unserializable: fall back to sending text next time
+      }
+    }
+    applyingRemoteRef.current = true;
+    try {
+      applySheetDocument(target.file, next, 'Remote update');
+    } finally {
+      applyingRemoteRef.current = false;
+    }
+  }, [pendingRemoteChange, sheetInstanceRefs, currentFile, applySheetDocument]);
 
   /** Open the fields table, unless its field names have to be resolved first. */
   const openFieldsTable = useCallback(
@@ -9186,6 +9515,30 @@ export function SchematicEditor({
     >
       {/* HOTKEY_CYCLE_POPUP: a wxSTAY_ON_TOP window over the whole frame. */}
       {hotkeyPopup.node}
+      {syncPeers.length > 0 && (
+        <button
+          type="button"
+          className="ze-presence-badge"
+          title={syncPeers.map((p) => `${p.view} · ${p.sheetPath ?? '/'}`).join('\n')}
+          onClick={() => setPresencePanelOpen((v) => !v)}
+        >
+          {syncPeers.length === 1 ? '1 other viewer' : `${syncPeers.length} other viewers`}
+        </button>
+      )}
+      {presencePanelOpen && (
+        <PresencePanel
+          me={{
+            peerId: syncTransport.current?.peerId ?? '',
+            role: myRole,
+            displayName: myDisplayName,
+          }}
+          peers={syncPeers}
+          onSetRole={(peerId, role) =>
+            syncTransport.current?.publish({ kind: 'role-assign', toPeerId: peerId, role })
+          }
+          onClose={() => setPresencePanelOpen(false)}
+        />
+      )}
       {copyAsOpen && (
         <SaveAsDialog
           title="Save Current Sheet Copy As"
@@ -9539,6 +9892,9 @@ export function SchematicEditor({
         <div className="ze-canvas-col">
           <div className="ze-canvas-wrap">
             {readOnlyNotice}
+            {myRole === 'viewer' && (
+              <ReadOnlyNotice message="You have view-only access to this project. Ask the owner for edit access to make changes." />
+            )}
             {/* WX_INFOBAR: the strip a tool posts an error into, dismissed with
               its ✕ or by the next successful action. */}
             {infoBar && (
@@ -9672,6 +10028,9 @@ export function SchematicEditor({
               onRequestChooser={() => setChooserDismissed(false)}
               onEditDrawingSheet={() => setPageSettingsOpen(true)}
               onCursorMove={onCursorMove}
+              remoteCursors={remoteCursorList}
+              remoteSelections={remoteSelectionList}
+              lockedIds={remoteLockedIds}
               onScaleChange={onScaleChange}
             />
             {ctxMenu && (

@@ -327,6 +327,17 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `#000000` ring; it is GDK_TARGET, a stock cursor, so both went with the
   // drawing. RESCANNED from this tree.
   'editors/schematic': { colours: 30, metrics: 185 },
+  // designer/src/sync/, the multiplayer layer. Eight colours, all of them
+  // peerColor.ts's palette: one hue per person in a shared project, so two
+  // people's cursors and selection boxes are told apart at a glance.
+  //
+  // DATA, not chrome, and the distinction this file draws is exactly why. A
+  // chrome literal is one GTK already answered and we restated; there is no
+  // such answer here, because KiCad has no second person in a project and so
+  // no theme colour for one. The palette is ours to choose, like the resistor
+  // bands or the layer colours, and it is chosen in one place rather than at
+  // each call site. Zero metrics: every size in this layer is a token.
+  sync: { colours: 8, metrics: 0 },
   // colours 12 -> 7: the Symbol Editor parity pass. Four were
   // SYMBOL_EDITOR_COLORS, a private copy of LAYER_SCHEMATIC_ANCHOR /
   // LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS that matched the Default
@@ -669,7 +680,11 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // (KiCad's directory) and took 144/658 with them, plus 0/1 to `common/tool`.
   // Nothing was added or removed: 41+144 = 185, 35+658+1 = 694.
   ui: { colours: 41, metrics: 35 },
-  'common/widgets': { colours: 144, metrics: 658 },
+  //
+  // common/widgets metrics 658 -> 670: main's presence badge and panel
+  // (.ze-presence-*) landed in shell.css after it moved here - twelve
+  // values, all geometry KiCad has no widget for (see main's 694 -> 706).
+  'common/widgets': { colours: 144, metrics: 670 },
   'common/tool': { colours: 0, metrics: 1 },
   'common/dialogs': { colours: 0, metrics: 0 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
@@ -1110,7 +1125,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 332 -> 331: `.ze-msgdlg-extended`'s #c8c9cb, an invented grey (the probe
     // reads one foreground on both labels). `ui` 187 -> 186; 332 - 1 agrees.
     // 331 -> 326: the DRC dialog's five, see the `editors/pcb` row; 331 - 5.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(324);
+    // 324 -> 332: main's eight (325 -> 333 there), merged 09-25.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(332);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1286,7 +1302,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // agrees, and a rescan of this tree reads 1284.
     // 1284 -> 1271: the DRC dialog's thirteen, see the `editors/pcb` row.
     // 1270 -> 1271: the `home` row's hidden literal, see there.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1271);
+    // 1271 -> 1283: main's twelve presence-badge values, merged 09-25.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1283);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

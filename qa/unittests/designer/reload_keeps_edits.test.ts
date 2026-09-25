@@ -233,7 +233,18 @@ describe('the manager raises an open project; it does not re-open it', () => {
     // trip home; that was the whole cost of the second open.
     expect(APP).not.toMatch(/if \(view === 'home'\) \{[\s\S]*?return \(\s*<HomePage/);
     expect(APP).toMatch(/manager = \(\s*<HomePage/);
-    expect(APP).toMatch(/<>\s*\{manager\}/);
+    // The manager is the FIRST child of whatever single root App returns, so
+    // it sits beside the frames rather than in place of them. The root used to
+    // be a bare fragment and this read `/<>\s*\{manager\}/`; it is now the
+    // provider that owns the tab's one live-sync connection, which has to
+    // wrap both the manager and the frames because either can be on screen
+    // when a peer's edit arrives. The property is unchanged, so the assertion
+    // is about position rather than about which element does the wrapping.
+    //
+    // Still fails on the regression it was written for: a `return <HomePage`
+    // in the home branch is caught by the two expectations above, and moving
+    // {manager} below the frames breaks this one.
+    expect(APP).toMatch(/<(?:>|[A-Z][\w.]*(?:\s[^>]*?)?>)\s*\{manager\}/);
   });
 
   it('a hidden frame keeps its layout: content-visibility, not display:none', () => {

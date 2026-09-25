@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent, type JSX } from 'react';
 import { RecoveryKeyContents } from './RecoveryKeyContents.js';
 import { useAuth } from './AuthProvider.js';
 import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { ACCOUNT_EXISTS_MESSAGE } from './signup_outcome.js';
 import { ZiroLogo } from '../ui/ZiroLogo.js';
 import type { AuthStep } from '../nav/route.js';
 
@@ -29,9 +30,10 @@ import type { AuthStep } from '../nav/route.js';
  * Not because the split is nice, but because a password makes it unavoidable:
  * the server cannot be asked "does this email exist" without handing anyone an
  * email-enumeration oracle, so it cannot decide for us. The answer comes from
- * the sign-up attempt itself — Supabase refuses an address that is already
- * registered, and that error is shown on the email field, which is exactly how
- * the reference implementation resolves it.
+ * the sign-up attempt itself: for an address that is already registered,
+ * Supabase answers with a placeholder user and no mail (`signup_outcome.ts`
+ * says how that is told apart), and that is shown as an error on the form,
+ * which is exactly how the reference implementation resolves it.
  *
  * `gate` mode (AuthGate) makes it a required wall: no close button, backdrop
  * clicks don't dismiss it, and it opens on **sign-up**, because a visitor who
@@ -125,6 +127,13 @@ export function SignInDialog({
   const [confirm, setConfirm] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
+  /**
+   * An error that belongs to the email field rather than to the form: the
+   * reference sets "Email already registered" on the field itself
+   * (SignUpContents.tsx `setFieldError("email", ...)`), under the entry, not
+   * in the banner above the button.
+   */
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const strength = usePasswordStrength(password);
@@ -155,10 +164,12 @@ export function SignInDialog({
       return;
     }
     setError(null);
+    setEmailError(null);
     setBusy(true);
     try {
       const { error, needsConfirm } = await signUp(email, password);
-      if (error) setError(error);
+      if (error === ACCOUNT_EXISTS_MESSAGE) setEmailError(error);
+      else if (error) setError(error);
       else if (needsConfirm) {
         try {
           sessionStorage.setItem(PENDING_EMAIL_KEY, email);
@@ -229,8 +240,13 @@ export function SignInDialog({
         required
         autoFocus
         value={email}
-        onChange={(e) => setEmail(e.target.value)}
+        aria-invalid={emailError ? true : undefined}
+        onChange={(e) => {
+          setEmail(e.target.value);
+          setEmailError(null);
+        }}
       />
+      {emailError && <div className="ze-auth-error">{emailError}</div>}
     </label>
   );
 
