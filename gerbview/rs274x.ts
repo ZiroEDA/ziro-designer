@@ -22,7 +22,8 @@ import { AM_PARAM } from './am_param.js';
 import { AM_PRIMITIVE, AM_PRIMITIVE_ID } from './am_primitive.js';
 import { APERTURE_MACRO } from './aperture_macro.js';
 import { APERTURE_DEF_HOLETYPE, APERTURE_T } from './dcode.js';
-import { FormatStringFromGerber, GBR_NETINFO_TYPE } from './gbr_netlist_metadata.js';
+import { FormatStringFromGerber } from '@ziroeda/common/gbr_metadata.js';
+import { GBR_NETINFO_TYPE } from '@ziroeda/common/gbr_netlist_metadata.js';
 import { GERBER_BUFZ, GERBER_FILE_IMAGE } from './gerber_file_image.js';
 import { Gerb_Analyse_Cmd, Gerb_Interpolation, gerbIUScale } from './gerbview.js';
 import {

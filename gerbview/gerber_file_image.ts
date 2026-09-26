@@ -28,7 +28,7 @@ import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { APERTURE_MACRO, APERTURE_MACRO_SET } from './aperture_macro.js';
 import { D_CODE } from './dcode.js';
-import { GBR_NETLIST_METADATA } from './gbr_netlist_metadata.js';
+import { GBR_NETLIST_METADATA } from '@ziroeda/common/gbr_netlist_metadata.js';
 import { GERBER_DRAW_ITEM } from './gerber_draw_item.js';
 import { Gerb_Interpolation, gerbIUScale } from './gerbview.js';
 import { type CHAR_PTR, type FILE, LINE_BUFFER } from './libc.js';

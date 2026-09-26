@@ -34,7 +34,7 @@ import { SYNC_HANDLER } from '@ziroeda/common/tool/tool_interactive.js';
 import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-import { GBR_NETINFO_TYPE } from '../gbr_netlist_metadata.js';
+import { GBR_NETINFO_TYPE } from '@ziroeda/common/gbr_netlist_metadata.js';
 import { GERBER_COLLECTOR } from '../gerber_collectors.js';
 import type { GERBER_DRAW_ITEM } from '../gerber_draw_item.js';
 import type { GERBVIEW_FRAME } from '../gerbview_frame.js';

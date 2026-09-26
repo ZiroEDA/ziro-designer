@@ -117,10 +117,6 @@ driver (`common/STRUCTURE.md` has `spacemouse` n/a for the same reason).
   (`CHAR_PTR`), `fgets` over text, `strtod` / `strtol` / `atoi` semantics,
   and `wxString::ToCDouble` as measured by `qa/probes/gerbview_tocdouble_probe.cpp`.
   A `common/` helper by nature; here until `common/` has one.
-- `gbr_netlist_metadata.ts` — `common/gbr_netlist_metadata.cpp` /
-  `include/gbr_netlist_metadata.h` (`GBR_NETLIST_METADATA`, `GBR_DATA_FIELD`)
-  and `FormatStringFromGerber` (`common/gbr_metadata.cpp`). Belongs in
-  `common/`; kept here because another session owns `common/` right now.
 - `index.ts` — the package barrel, kept.
 - `designer/.../gerberAuxControls.ts` — `layersPaneWidth` alone,
   `LAYER_WIDGET::GetBestSize` + `ReFillLayerWidget`'s arithmetic over widths

@@ -38,7 +38,7 @@ import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePoint, TestSegmentHit } from '@ziroeda/kimath/src/trigo.js';
 import { D_CODE, APERTURE_T } from './dcode.js';
-import { GBR_NETLIST_METADATA, GBR_NETINFO_TYPE } from './gbr_netlist_metadata.js';
+import { GBR_NETLIST_METADATA, GBR_NETINFO_TYPE } from '@ziroeda/common/gbr_netlist_metadata.js';
 import type { GERBER_FILE_IMAGE } from './gerber_file_image.js';
 import { GERBER_FILE_IMAGE_LIST } from './gerber_file_image_list.js';
 import { gerbIUScale } from './gerbview.js';

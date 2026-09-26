@@ -125,7 +125,8 @@ app, the unit does not), **16 waiting on their feature**, **28 n/a**, and `paths
 
 KiCad has an `include/` beside `common/`; we have none. A header-only
 `include/<x>.h` is `common/<x>.ts` (`base_set`, `collector`, `ctl_flags`,
-`eda_item_flags`, `eda_search_data`, `frame_type`, `layer_range`,
+`eda_item_flags`, `eda_search_data`, `frame_type`, `gbr_netlist_metadata`
+(moved from gerbview/ 09-27, the reading half), `layer_range`,
 `mouse_drag_action`, `progress_reporter`, `rc_json_schema`,
 `string_any_map`, `units_provider`, `zoom_defines`), and a unit split
 across `include/<x>.h` + `common/<y>.cpp` takes the `.cpp` name.
@@ -183,7 +184,9 @@ through `pcbTheme` / `renderBoard`), `printout` (here: PRINTOUT_SETTINGS),
 `clipboard` (`navigator.clipboard` at
 each call site), `eda_doc` (datasheet opening), `bitmap` (`KiBitmap` and
 friends, over `bitmap_store`), `gr_basic` (the page-settings preview),
-`gbr_metadata` (the X2 attributes `pcbnew/plot_gerber.ts` writes inline).
+`gbr_metadata` (`FormatStringFromGerber`, which GerbView reads with, is
+here - `gbr_metadata.ts`, moved from gerbview/ 09-27; the X2 attribute
+writers `pcbnew/plot_gerber.ts` still does inline).
 
 **Waiting on their feature (16):** `design_block`, `design_block_info`,
 `design_block_io`, `design_block_library_adapter`,
