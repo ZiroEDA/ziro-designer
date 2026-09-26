@@ -109,6 +109,28 @@ describe('netlistKicad', () => {
     expect(netlistText.startsWith('(export\n\t(version "E")\n\t(design\n')).toBe(true);
   });
 
+  it('names each unit by its display name, pins in position order', () => {
+    // LIB_SYMBOL::GetUnitPinInfo: the letter "A", not the sub-symbol "C_1_1".
+    // Byte for byte what kicad-cli wrote for this schematic's first comp (09-26).
+    const units = [
+      '\t\t\t(units',
+      '\t\t\t\t(unit',
+      '\t\t\t\t\t(name "A")',
+      '\t\t\t\t\t(pins',
+      '\t\t\t\t\t\t(pin',
+      '\t\t\t\t\t\t\t(num "1")',
+      '\t\t\t\t\t\t)',
+      '\t\t\t\t\t\t(pin',
+      '\t\t\t\t\t\t\t(num "2")',
+      '\t\t\t\t\t\t)',
+      '\t\t\t\t\t)',
+      '\t\t\t\t)',
+      '\t\t\t)',
+    ].join('\n');
+    expect(netlistText).toContain(units);
+    expect(netlistText).not.toContain('(name "C_1_1")');
+  });
+
   it('names the root sheet "Root" when no project names it', () => {
     // kicad-cli on this schematic (no .kicad_pro beside it, 09-26):
     //   (property (name "Sheetname") (value "Root"))

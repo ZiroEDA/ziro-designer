@@ -36,6 +36,7 @@ import { resolvePadNumbers } from '../sch_pin.js';
 import { refId } from '../tools/hittest.js';
 import type { LibSymbol, Schematic, SchSymbol } from '../types.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { GetUnitPinInfo } from '../lib_symbol.js';
 
 // ----- NETLIST_EXPORTER_XML::node --------------------------------------------
 
@@ -369,21 +370,22 @@ function makeSymbols(input: KicadNetlistInput, usedLibIds: Set<string>): XNODE {
       for (const extra of instance.extraUnits) addTstamp(extra.sym.uuid ?? '');
       addTstamp(sym.uuid ?? '');
 
-      // Per-unit name and pin numbers, for gate-swap metadata on the board side.
+      // Per-unit name and pin numbers, for gate-swap metadata on the board side:
+      // LIB_SYMBOL::GetUnitPinInfo, one slot per unit of the library symbol
+      // (netlist_exporter_xml.cpp:660-690).
       const xunitInfo = node('units');
       xcomp.AddChild(xunitInfo);
       if (lib) {
-        for (const unit of lib.units) {
-          if (unit.unit === 0) continue; // the shared "all units" body
+        for (const unitInfo of GetUnitPinInfo(lib)) {
           const xunit = node('unit');
           xunitInfo.AddChild(xunit);
-          xunit.AddAttribute('name', unit.name);
+          xunit.AddAttribute('name', unitInfo.m_unitName);
           const xpins = node('pins');
           xunit.AddChild(xpins);
-          for (const pin of unit.pins) {
+          for (const number of unitInfo.m_pinNumbers) {
             const xpin = node('pin');
             xpins.AddChild(xpin);
-            xpin.AddAttribute('num', pin.number);
+            xpin.AddAttribute('num', number);
           }
         }
       }

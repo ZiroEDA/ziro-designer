@@ -11,6 +11,8 @@ import { isList, head, str, atom, type SList } from '@ziroeda/sexpr/types.js';
 import type { LibSymbol, LibSymbolUnit, SchField } from './types.js';
 import { writeLibSymbolNode } from './sch_io/sexpr/write-symbol-lib.js';
 import { MANDATORY_FIELDS } from './tools/properties.js';
+import { symbolUnitCount, unitDisplayName } from './tools/symbol_unit.js';
+import { expandStackedPinNotation } from '@ziroeda/common/string_utils.js';
 
 /**
  * The two properties a `.kicad_sym` writes as fields but KiCad does not keep as
@@ -168,4 +170,68 @@ export function flattenLibSymbol(sym: LibSymbol, reporter?: Reporter): LibSymbol
   // verbatim (write-schematic.ts, `renameLibSymbol`). A symbol we just built out
   // of two others has no node yet, so give it the one it now serializes to.
   return { ...flat, source: writeLibSymbolNode(flat) };
+}
+
+/** `LIB_SYMBOL::UNIT_PIN_INFO`: a unit's display name and its pin numbers. */
+export interface UNIT_PIN_INFO {
+  m_unitName: string;
+  m_pinNumbers: string[];
+}
+
+/**
+ * `LIB_SYMBOL::GetUnitPinInfo` (lib_symbol.cpp:1184): for each unit 1..N, its
+ * display name (`GetUnitDisplayName( unit, false )` - the `unit_name`, else the
+ * letter) and the numbers of its graphical pins (the unit's own and the
+ * common ones, every body style), sorted by position - x, then y - with
+ * stacked-pin notation expanded and each number listed once.
+ */
+export function GetUnitPinInfo(sym: LibSymbol): UNIT_PIN_INFO[] {
+  const units: UNIT_PIN_INFO[] = [];
+
+  const unitCount = Math.max(symbolUnitCount(sym), 1);
+
+  for (let unitIdx = 1; unitIdx <= unitCount; ++unitIdx) {
+    const unitInfo: UNIT_PIN_INFO = {
+      m_unitName: unitDisplayName(sym, unitIdx),
+      m_pinNumbers: [],
+    };
+
+    // GetGraphicalPins( unitIdx, 0 ): m_unit 0 is common to all units; body
+    // style 0 filters nothing.
+    const pinList = sym.units
+      .filter((u) => u.unit === 0 || u.unit === unitIdx)
+      .flatMap((u) => u.pins);
+
+    pinList.sort((a, b) => (a.at.x !== b.at.x ? a.at.x - b.at.x : a.at.y - b.at.y));
+
+    const seenNumbers = new Set<string>();
+
+    for (const basePin of pinList) {
+      const { numbers: expandedNumbers, valid: stackedValid } = expandStackedPinNotation(
+        basePin.number,
+      );
+
+      if (stackedValid && expandedNumbers.length > 0) {
+        for (const number of expandedNumbers) {
+          if (!seenNumbers.has(number)) {
+            seenNumbers.add(number);
+            unitInfo.m_pinNumbers.push(number);
+          }
+        }
+
+        continue;
+      }
+
+      const number = basePin.number;
+
+      if (number !== '' && !seenNumbers.has(number)) {
+        seenNumbers.add(number);
+        unitInfo.m_pinNumbers.push(number);
+      }
+    }
+
+    units.push(unitInfo);
+  }
+
+  return units;
 }
