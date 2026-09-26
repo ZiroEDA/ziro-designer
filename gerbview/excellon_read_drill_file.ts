@@ -56,6 +56,8 @@ import {
 import { fillArcGBRITEM, fillFlashedGBRITEM, fillLineGBRITEM } from './rs274d.js';
 import { ReadDouble, ReadInt } from './rs274_read_XY_and_IJ_coordinates.js';
 import { X2_ATTRIBUTE, X2_ATTRIBUTE_FILEFUNCTION } from './X2_gerber_attributes.js';
+import { ReadFileText } from './files.js';
+import type { GERBVIEW_FRAME } from './gerbview_frame.js';
 
 /** `drill_M_code_t`. */
 export enum drill_M_code_t {
@@ -1147,4 +1149,66 @@ export class EXCELLON_IMAGE extends GERBER_FILE_IMAGE {
     this.m_RoutePositions = [];
     this.m_RouteModeOn = false;
   }
+}
+
+/**
+ * `GERBVIEW_FRAME::Read_EXCELLON_File` (excellon_read_drill_file.cpp:248-303):
+ * read a drill file into the active layer, replacing what it held, with the
+ * frame's Excellon defaults, and add its items to the view. Bound on the
+ * frame (`gerbview_frame.ts`).
+ */
+export async function Read_EXCELLON_File(
+  this: GERBVIEW_FRAME,
+  aFullFileName: string,
+): Promise<boolean> {
+  let msg: string;
+  let layerId = this.GetActiveLayer(); // current layer used in GerbView
+  const images = this.GetGerberLayout().GetImagesList();
+  const gerber_layer = images.GetGbrImage(layerId);
+
+  // If the active layer contains old gerber or nc drill data, remove it
+  if (gerber_layer) await this.Erase_Current_DrawLayer(false);
+
+  const drill_layer_uptr = new EXCELLON_IMAGE(layerId);
+
+  const nc_defaults = new EXCELLON_DEFAULTS();
+  const cfg = this.config();
+  cfg.GetExcellonDefaults(nc_defaults);
+
+  // Read the Excellon drill file:
+  const success = drill_layer_uptr.LoadFile(
+    aFullFileName,
+    nc_defaults,
+    ReadFileText(aFullFileName),
+  );
+
+  if (!success) {
+    msg = `File ${aFullFileName} not found.`;
+    this.Host().InfoBarError(msg);
+    return false;
+  }
+
+  const drill_layer = drill_layer_uptr;
+
+  layerId = images.AddGbrImage(drill_layer, layerId);
+
+  if (layerId < 0) {
+    this.Host().InfoBarError('No empty layers to load file into.');
+    return false;
+  }
+
+  // Display errors list
+  if (drill_layer.GetMessages().length > 0)
+    await this.Host().HtmlMessageBox(
+      'Error reading EXCELLON drill file',
+      drill_layer.GetMessages().join('\n'),
+    );
+
+  const canvas = this.GetCanvas();
+
+  if (canvas) {
+    for (const item of drill_layer.GetItems()) canvas.GetView().Add(item);
+  }
+
+  return success;
 }

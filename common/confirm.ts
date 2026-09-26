@@ -129,3 +129,25 @@ export function SetQuestionPresenter(aPresenter: QuestionPresenter): void {
 export function IsOK(aMessage: string): Promise<boolean> {
   return s_questionPresenter(aMessage);
 }
+
+/** What shows the information box: installed by the app at startup (`confirm_ui.tsx`). */
+type InfoPresenter = (aMessage: string, aExtraInfo: string) => Promise<void>;
+
+let s_infoPresenter: InfoPresenter = (aMessage, aExtraInfo) => {
+  // No window: `wxLogTrace( traceConfirm, "%s %s", aMessage, aExtraInfo )`.
+  console.info(aExtraInfo ? `${aMessage} ${aExtraInfo}` : aMessage);
+  return Promise.resolve();
+};
+
+/** Install the modal that `DisplayInfoMessage` shows. */
+export function SetInfoPresenter(aPresenter: InfoPresenter): void {
+  s_infoPresenter = aPresenter;
+}
+
+/**
+ * `DisplayInfoMessage( aParent, aMessage, aExtraInfo )` (common/confirm.cpp:249):
+ * the modal information box, caption "Information", one OK button.
+ */
+export function DisplayInfoMessage(aMessage: string, aExtraInfo = ''): Promise<void> {
+  return s_infoPresenter(aMessage, aExtraInfo);
+}

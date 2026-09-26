@@ -18,6 +18,20 @@
  * is why every function below returns pixels rather than internal units.
  */
 
+import { brightness, COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '../color4d.js';
+import { type EdaIuScale, type EdaUnits, toUserUnit, unitLabelText } from '../eda_units.js';
+import { FONT } from '../font/font.js';
+import { METRICS } from '../font/font_metrics.js';
+import { GR_TEXT_H_ALIGN_T, TEXT_ATTRIBUTES } from '../font/text_attributes.js';
+import {
+  type GAL,
+  GAL_SCOPED_ATTRS,
+  GAL_SCOPED_ATTRS_FLAGS,
+} from '../gal/graphics_abstraction_layer.js';
+import { GAL_LAYER_ID } from '../layer_id.js';
+import type { VIEW } from '../view/view.js';
+import type { Vec2, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+
 /** The units a preview label can be written in, as `EDA_UNITS` distinguishes them. */
 export type PreviewUnits = 'mm' | 'in' | 'mils';
 
@@ -236,4 +250,210 @@ export function drawTextNextToCursor(
   }
 
   ctx.restore();
+}
+
+// ---- the GAL half (preview_utils.cpp:27-202) ---------------------------------
+
+/** `struct TEXT_DIMS`. */
+export interface TEXT_DIMS {
+  GlyphSize: VECTOR2I;
+  StrokeWidth: number;
+  ShadowWidth: number;
+  LinePitch: number;
+}
+
+/**
+ * Get a formatted string showing a dimension to a sane precision with an
+ * optional prefix and unit suffix.
+ */
+export function DimensionLabel(
+  prefix: string,
+  aVal: number,
+  aIuScale: EdaIuScale,
+  aUnits: EdaUnits,
+  aIncludeUnits = true,
+): string {
+  let str = '';
+
+  if (prefix.length) str += `${prefix}: `;
+
+  // show a sane precision for the preview, which doesn't need to be accurate down to the
+  // nanometre
+  const v = toUserUnit(aIuScale, aUnits, aVal);
+
+  switch (aUnits) {
+    case 'um':
+      str += v.toFixed(0);
+      break; // 1um
+    case 'mm':
+      str += v.toFixed(3);
+      break; // 1um
+    case 'cm':
+      str += v.toFixed(4);
+      break; // 1um
+    case 'mils':
+      str += v.toFixed(1);
+      break; // 0.1mil
+    case 'in':
+      str += v.toFixed(4);
+      break; // 0.1mil
+    case 'degrees':
+      str += v.toFixed(1);
+      break; // 0.1deg
+    case 'percent':
+      str += v.toFixed(1);
+      break; // 0.1%
+    case 'fs':
+      str += v.toFixed(4);
+      break; // 0.0001ps
+    case 'ps':
+    case 'ps/in':
+    case 'ps/cm':
+    case 'ps/mm':
+      str += v.toFixed(3);
+      break;
+    case 'unscaled':
+      str += v.toFixed(6);
+      break;
+  }
+
+  if (aIncludeUnits) str += unitLabelText(aUnits);
+
+  return str;
+}
+
+/**
+ * Set the GAL glyph height to a constant scaled value, so that it always looks the same
+ * on screen.
+ *
+ * @param aGal the GAL to draw on.
+ * @param aRelativeSize similar to HTML font sizes; 0 will give a standard size while +1
+ *                      etc. will size up and -1 etc. will size down.
+ * @return the text widths for the resulting glyph size.
+ */
+export function GetConstantGlyphHeight(aGal: GAL, aRelativeSize = 0): TEXT_DIMS {
+  const aspectRatio = 1.0;
+  const hdpiSizes = [7, 8, 9, 11, 13, 14, 16];
+  const sizes = [8, 10, 12, 14, 15, 16, 18];
+
+  let height: number;
+  let thicknessFactor: number;
+  let shadowFactor: number;
+  let linePitchFactor: number;
+
+  // dynamic_cast<HIDPI_GL_CANVAS*>( aGal )
+  const canvas = aGal as unknown as { GetScaleFactor?: () => number };
+
+  if (typeof canvas.GetScaleFactor === 'function' && canvas.GetScaleFactor() > 1) {
+    height = hdpiSizes[3 + aRelativeSize]!;
+    thicknessFactor = 0.15;
+    shadowFactor = 0.1;
+    linePitchFactor = 1.7;
+  } else {
+    height = sizes[3 + aRelativeSize]!;
+    thicknessFactor = 0.2;
+    shadowFactor = 0.15;
+    linePitchFactor = 1.9;
+  }
+
+  height /= aGal.GetWorldScale();
+
+  return {
+    // VECTOR2I( height * aspectRatio, height ): the double truncates into the int.
+    GlyphSize: { x: Math.trunc(height * aspectRatio), y: Math.trunc(height) },
+    StrokeWidth: Math.trunc(height * thicknessFactor),
+    ShadowWidth: Math.trunc(height * shadowFactor),
+    LinePitch: height * linePitchFactor,
+  };
+}
+
+/**
+ * Get a contrasting colour for a shadow of the given colour.
+ */
+export function GetShadowColor(aColor: Color4d): Color4d {
+  if (brightness(aColor) > 0.5) return COLOR4D_BLACK;
+
+  return COLOR4D_WHITE;
+}
+
+/**
+ * Draw strings next to the cursor.
+ *
+ * @param aGal the GAL to draw on.
+ * @param aCursorPos the position of the cursor to draw next to.
+ * @param aTextQuadrant a vector pointing to the quadrant to draw the text in.
+ * @param aStrings list of strings to draw, top to bottom.
+ */
+export function DrawTextNextToCursor(
+  aView: VIEW,
+  aCursorPos: Vec2,
+  aTextQuadrant: Vec2,
+  aStrings: readonly string[],
+  aDrawingDropShadows: boolean,
+): void {
+  const gal = aView.GetGAL()!;
+
+  GAL_SCOPED_ATTRS(gal, GAL_SCOPED_ATTRS_FLAGS.STROKE_FILL, () => {
+    const font = FONT.GetFont();
+
+    // constant text size on screen
+    const textDims = GetConstantGlyphHeight(gal);
+    const textAttrs = new TEXT_ATTRIBUTES();
+
+    // radius string goes on the right of the cursor centre line with a small horizontal
+    // offset (enough to keep clear of a system cursor if present)
+    const textPos = { x: aCursorPos.x, y: aCursorPos.y };
+
+    const viewFlipped = gal.IsFlippedX();
+
+    // if the text goes above the cursor, shift it up
+    if (aTextQuadrant.y > 0) textPos.y -= textDims.LinePitch * (aStrings.length + 1);
+
+    if (aTextQuadrant.x < 0) {
+      if (viewFlipped) textAttrs.m_Halign = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT;
+      else textAttrs.m_Halign = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT;
+
+      textPos.x += 15.0 / gal.GetWorldScale();
+    } else {
+      if (viewFlipped) textAttrs.m_Halign = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT;
+      else textAttrs.m_Halign = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT;
+
+      textPos.x -= 15.0 / gal.GetWorldScale();
+    }
+
+    // text is left (or right) aligned, so a shadow text need a small offset to be draw
+    // around the basic text
+    let shadowXoffset = aDrawingDropShadows ? textDims.ShadowWidth : 0;
+
+    // Due to the fact a shadow text is drawn left or right aligned,
+    // it needs an offset = shadowWidth/2 to be drawn at the same place as normal text
+    // But for some reason we need to slightly modify this offset
+    // for a better look for KiCad font (better alignment of shadow shape)
+    const adjust = 1.2; // Value chosen after tests
+    shadowXoffset = Math.trunc(shadowXoffset * adjust);
+
+    if ((textAttrs.m_Halign === GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT) !== viewFlipped)
+      textPos.x -= shadowXoffset;
+    else textPos.x += shadowXoffset;
+
+    gal.SetStrokeColor(
+      aView.GetPainter().GetSettings().GetLayerColor(GAL_LAYER_ID.LAYER_AUX_ITEMS),
+    );
+    textAttrs.m_Mirrored = viewFlipped; // Prevent text flipping when view is flipped
+    textAttrs.m_Size = textDims.GlyphSize;
+    textAttrs.m_StrokeWidth = textDims.StrokeWidth;
+    gal.SetIsFill(false);
+    gal.SetIsStroke(true);
+
+    if (aDrawingDropShadows) {
+      textAttrs.m_StrokeWidth = textDims.StrokeWidth + 2 * textDims.ShadowWidth;
+      gal.SetStrokeColor(GetShadowColor(gal.GetStrokeColor()));
+    }
+
+    // write strings top-to-bottom
+    for (const str of aStrings) {
+      textPos.y += textDims.LinePitch;
+      font.Draw(gal, str, textPos, { x: 0, y: 0 }, textAttrs, METRICS.Default());
+    }
+  });
 }

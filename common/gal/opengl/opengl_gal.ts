@@ -335,6 +335,11 @@ export class OPENGL_GAL extends GAL {
   readonly ff: GL_FIXED_FUNCTION;
   private readonly m_canvas: OPENGL_GAL_CANVAS;
 
+  /** `HIDPI_GL_CANVAS::GetScaleFactor()`: OPENGL_GAL is one in the C++. */
+  GetScaleFactor(): number {
+    return this.m_canvas.GetScaleFactor();
+  }
+
   private m_swapInterval: number; ///< Used to store swap interval information
 
   ///< Bitmap font texture handle (shared in the C++; one per context here)

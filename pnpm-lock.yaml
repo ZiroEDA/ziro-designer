@@ -190,6 +190,9 @@ importers:
       '@ziroeda/pcbnew':
         specifier: workspace:*
         version: link:../pcbnew
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
       react:
         specifier: ^18.3.1
         version: 18.3.1

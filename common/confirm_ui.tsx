@@ -7,8 +7,12 @@
  * own root - as the wx dialog gets its own top-level window.
  */
 import { createRoot } from 'react-dom/client';
-import { SetErrorPresenter, SetQuestionPresenter } from './confirm.js';
-import { MessageDialogError, MessageDialogYesNo } from './dialogs/dialog_message.js';
+import { SetErrorPresenter, SetInfoPresenter, SetQuestionPresenter } from './confirm.js';
+import {
+  MessageDialogError,
+  MessageDialogOk,
+  MessageDialogYesNo,
+} from './dialogs/dialog_message.js';
 
 /** Route `DisplayErrorMessage` to the real error box. Called once, at startup. */
 export function InstallErrorPresenter(): void {
@@ -50,6 +54,29 @@ export function InstallQuestionPresenter(): void {
               root.unmount();
               host.remove();
               resolve(result === 'yes');
+            }}
+          />,
+        );
+      }),
+  );
+}
+
+/** Route `DisplayInfoMessage` to the real information box. Called once, at startup. */
+export function InstallInfoPresenter(): void {
+  SetInfoPresenter(
+    (aMessage, aExtraInfo) =>
+      new Promise<void>((resolve) => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const root = createRoot(host);
+        root.render(
+          <MessageDialogOk
+            caption="Information"
+            message={aExtraInfo ? `${aMessage}\n${aExtraInfo}` : aMessage}
+            onClose={() => {
+              root.unmount();
+              host.remove();
+              resolve();
             }}
           />,
         );

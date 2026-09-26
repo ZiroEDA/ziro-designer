@@ -153,6 +153,10 @@ export class MEMORY_FILESYSTEM implements wxFileSystemMount {
   Read(aRelPath: string): Uint8Array | null {
     return this.m_files.get(aRelPath) ?? null;
   }
+
+  Remove(aRelPath: string): boolean {
+    return this.m_files.delete(aRelPath);
+  }
 }
 
 /** `wxFileName::GetTempDir()`. */
@@ -171,4 +175,26 @@ export function wxReadFileSync(aPath: string): Uint8Array | null {
   if (!hit || !(hit.mount instanceof MEMORY_FILESYSTEM)) return null;
 
   return hit.mount.Read(hit.rel);
+}
+
+/**
+ * Write a file into whichever in-memory mount holds its directory.
+ * @return false when no writable mount covers the path.
+ */
+export function wxWriteFileSync(aPath: string, aData: Uint8Array): boolean {
+  const hit = wxFindMount(wxNormalizePath(aPath));
+
+  if (!hit || !(hit.mount instanceof MEMORY_FILESYSTEM)) return false;
+
+  hit.mount.Write(hit.rel, aData);
+  return true;
+}
+
+/** `wxRemoveFile( path )`: drop a file from its in-memory mount. */
+export function wxRemoveFile(aPath: string): boolean {
+  const hit = wxFindMount(wxNormalizePath(aPath));
+
+  if (!hit || !(hit.mount instanceof MEMORY_FILESYSTEM)) return false;
+
+  return hit.mount.Remove(hit.rel);
 }

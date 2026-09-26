@@ -111,6 +111,16 @@ export class wxChoice {
     return this.m_selection === wxNOT_FOUND ? '' : this.GetString(this.m_selection);
   }
 
+  /** `SetStringSelection( s )`: select the row with that text, if there is one. */
+  SetStringSelection(aString: string): boolean {
+    const n = this.FindString(aString);
+
+    if (n === wxNOT_FOUND) return false;
+
+    this.SetSelection(n);
+    return true;
+  }
+
   FindString(aString: string): number {
     return this.m_strings.indexOf(aString);
   }
