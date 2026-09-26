@@ -7,9 +7,9 @@
  *    (NETLIST_EXPORTER_KICAD, `Format( out, GNL_ALL | GNL_OPT_KICAD )`),
  *  - `eeschema/netlist_exporters/netlist_exporter_xml.cpp`
  *    (NETLIST_EXPORTER_XML::makeRoot and its section builders),
- *  - `common/xnode.cpp` (XNODE::Format, which prints the very same node tree as
- *    s-expressions: an element becomes `(name (attr "value") … children)` and a
- *    text node becomes a bare `"string"`).
+ *  - `common/xnode.cpp` (XNODE::Format, in `common/xnode.ts`, which prints the
+ *    node tree as s-expressions: an element becomes `(name (attr "value") …
+ *    children)` and a text node a bare `"string"`).
  *
  * This is the schematic side of "Update PCB from Schematic": pcbnew reads what
  * this writes with KICAD_NETLIST_PARSER. Because both ends of the handoff are a
@@ -26,10 +26,10 @@
  * sheet-level DNP / exclude-from-board attributes.
  */
 
+import { PRETTIFIED_STRING_FORMATTER } from '@ziroeda/common/richio.js';
 import { strNumCmp } from '@ziroeda/common/string_utils.js';
-import { atom, list, str, type SList, type SNode } from '@ziroeda/sexpr/types.js';
+import { XNODE, wxXmlNodeType } from '@ziroeda/common/xnode.js';
 import { arg, childrenNamed } from '@ziroeda/sexpr/query.js';
-import { serialize } from '@ziroeda/sexpr/serializer.js';
 import { computeHierarchyNetlist, type HierSheet } from '../connectivity/hierarchy.js';
 import { enumeratePins, type Netlist, type PinNode } from '../connectivity/nets.js';
 import { resolvePadNumbers } from '../sch_pin.js';
@@ -37,51 +37,22 @@ import { refId } from '../tools/hittest.js';
 import type { LibSymbol, Schematic, SchSymbol } from '../types.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
-// ----- XNODE (common/xnode.cpp), as an S-expression tree ----------------------
+// ----- NETLIST_EXPORTER_XML::node --------------------------------------------
 
 /**
- * One element of the netlist tree. `attrs` are XNODE attributes, which
- * XNODE::FormatContents prints first as `(name "value")` children; `text` is the
- * element's text content, printed as a bare quoted string.
+ * `NETLIST_EXPORTER_XML::node`: a new element, with a text child only when
+ * `aTextualContent` is not empty - so an empty title prints `(title)`, not
+ * `(title "")`.
  */
-class XNODE {
-  readonly attrs: [string, string][] = [];
-  readonly children: XNODE[] = [];
-  /** Bare text children, in order (`(tstamps "uuid" "uuid")`). */
-  readonly texts: string[] = [];
+function node(aName: string, aTextualContent = ''): XNODE {
+  const n = new XNODE(wxXmlNodeType.wxXML_ELEMENT_NODE, aName);
 
-  constructor(
-    readonly name: string,
-    text?: string,
-  ) {
-    if (text !== undefined) this.texts.push(text);
+  if (aTextualContent.length > 0) {
+    // excludes wxEmptyString, the parameter's default value
+    n.AddChild(new XNODE(wxXmlNodeType.wxXML_TEXT_NODE, '', aTextualContent));
   }
 
-  /** XNODE::AddAttribute. */
-  attr(name: string, value: string): this {
-    this.attrs.push([name, value]);
-    return this;
-  }
-
-  /** XNODE::AddChild, returning the child so it can be filled in. */
-  child(child: XNODE): XNODE {
-    this.children.push(child);
-    return child;
-  }
-
-  /** AddChild( node( name, text ) ), the common leaf case. */
-  leaf(name: string, text: string): XNODE {
-    return this.child(new XNODE(name, text));
-  }
-
-  /** XNODE::Format, attributes, then text, then element children. */
-  toSList(): SList {
-    const items: SNode[] = [atom(this.name)];
-    for (const [name, value] of this.attrs) items.push(list(atom(name), str(value)));
-    for (const text of this.texts) items.push(str(text));
-    for (const child of this.children) items.push(child.toSList());
-    return { kind: 'list', items };
-  }
+  return n;
 }
 
 // ----- inputs -----------------------------------------------------------------
@@ -179,37 +150,42 @@ function orderedSymbols(doc: Schematic): SymbolInstance[] {
 
 /** NETLIST_EXPORTER_XML::makeDesignHeader. */
 function makeDesignHeader(input: KicadNetlistInput): XNODE {
-  const xdesign = new XNODE('design');
-  xdesign.leaf('source', input.source);
-  xdesign.leaf('date', input.date ?? new Date().toISOString());
-  xdesign.leaf('tool', input.tool ?? 'Eeschema');
+  const xdesign = node('design');
+  xdesign.AddChild(node('source', input.source));
+  xdesign.AddChild(node('date', input.date ?? new Date().toISOString()));
+  xdesign.AddChild(node('tool', input.tool ?? 'Eeschema'));
 
-  for (const [name, value] of input.textVars ?? new Map())
-    xdesign.leaf('textvar', value).attr('name', name);
+  for (const [name, value] of input.textVars ?? new Map<string, string>()) {
+    const xtextvar = node('textvar', value);
+    xdesign.AddChild(xtextvar);
+    xtextvar.AddAttribute('name', name);
+  }
 
   let sheetIndex = 1; // Human readable index
   for (const sheet of input.sheets) {
-    const xsheet = xdesign.child(new XNODE('sheet'));
-    xsheet.attr('number', String(sheetIndex++));
-    xsheet.attr('name', sheet.namePath);
-    xsheet.attr('tstamps', sheet.path);
+    const xsheet = node('sheet');
+    xdesign.AddChild(xsheet);
+    xsheet.AddAttribute('number', String(sheetIndex++));
+    xsheet.AddAttribute('name', sheet.namePath);
+    xsheet.AddAttribute('tstamps', sheet.path);
 
     const tb = sheet.doc.titleBlock;
-    const xtitleBlock = xsheet.child(new XNODE('title_block'));
-    xtitleBlock.leaf('title', tb?.title ?? '');
-    xtitleBlock.leaf('company', tb?.company ?? '');
-    xtitleBlock.leaf('rev', tb?.rev ?? '');
-    xtitleBlock.leaf('date', tb?.date ?? '');
-    xtitleBlock.leaf('source', sheet.file);
+    const xtitleBlock = node('title_block');
+    xsheet.AddChild(xtitleBlock);
+    xtitleBlock.AddChild(node('title', tb?.title ?? ''));
+    xtitleBlock.AddChild(node('company', tb?.company ?? ''));
+    xtitleBlock.AddChild(node('rev', tb?.rev ?? ''));
+    xtitleBlock.AddChild(node('date', tb?.date ?? ''));
+    xtitleBlock.AddChild(node('source', sheet.file));
     // TITLE_BLOCK::GetComment( 0..8 ), the typed model does not carry the nine
     // comment lines, so they are read from the block's own `(comment N "…")`.
     const comments = tb ? childrenNamed(tb.source, 'comment') : [];
     for (let i = 0; i < 9; i++) {
       const comment = comments.find((c) => arg(c, 0) === String(i + 1));
-      xtitleBlock
-        .child(new XNODE('comment'))
-        .attr('number', String(i + 1))
-        .attr('value', comment ? (arg(comment, 1) ?? '') : '');
+      const xcomment = node('comment');
+      xtitleBlock.AddChild(xcomment);
+      xcomment.AddAttribute('number', String(i + 1));
+      xcomment.AddAttribute('value', comment ? (arg(comment, 1) ?? '') : '');
     }
   }
 
@@ -274,19 +250,23 @@ function addSymbolFields(
 
   // Do not output field values blank in netlist, except Value, which is always
   // written (as "~" when empty).
-  xcomp.leaf('value', value !== '' ? value : '~');
-  if (footprint !== '') xcomp.leaf('footprint', footprint);
-  if (datasheet !== '') xcomp.leaf('datasheet', datasheet);
-  if (description !== '') xcomp.leaf('description', description);
+  xcomp.AddChild(node('value', value !== '' ? value : '~'));
+  if (footprint !== '') xcomp.AddChild(node('footprint', footprint));
+  if (datasheet !== '') xcomp.AddChild(node('datasheet', datasheet));
+  if (description !== '') xcomp.AddChild(node('description', description));
 
-  const xfields = xcomp.child(new XNODE('fields'));
-  for (const [name, fieldValue] of fields)
-    xfields.child(new XNODE('field', fieldValue)).attr('name', name);
+  const xfields = node('fields');
+  xcomp.AddChild(xfields);
+  for (const [name, fieldValue] of fields) {
+    const xfield = node('field', fieldValue);
+    xfields.AddChild(xfield);
+    xfield.AddAttribute('name', name);
+  }
 }
 
 /** NETLIST_EXPORTER_XML::makeSymbols, restricted to GNL_OPT_KICAD (board) mode. */
 function makeSymbols(input: KicadNetlistInput, usedLibIds: Set<string>): XNODE {
-  const xcomps = new XNODE('components');
+  const xcomps = node('components');
 
   for (const sheet of input.sheets) {
     const libById = input.libsFor(sheet);
@@ -301,80 +281,103 @@ function makeSymbols(input: KicadNetlistInput, usedLibIds: Set<string>): XNODE {
       // forBoard: a symbol excluded from the board contributes nothing to the PCB.
       if (!sym.onBoard) continue;
 
-      const xcomp = xcomps.child(new XNODE('comp'));
-      xcomp.attr('ref', instance.ref);
+      const xcomp = node('comp');
+      xcomps.AddChild(xcomp);
+      xcomp.AddAttribute('ref', instance.ref);
       addSymbolFields(xcomp, instance, libById);
 
       const lib = libById.get(schSymbolLibraryName(sym));
       const { lib: libName, part: partName } = splitLibId(sym.libId);
       usedLibIds.add(sym.libId);
 
-      xcomp
-        .child(new XNODE('libsource'))
-        .attr('lib', libName)
-        .attr('part', partName)
-        .attr('description', lib?.properties.find((p) => p.key === 'Description')?.value ?? '');
+      const xlibsource = node('libsource');
+      xcomp.AddChild(xlibsource);
+      xlibsource.AddAttribute('lib', libName);
+      xlibsource.AddAttribute('part', partName);
+      xlibsource.AddAttribute(
+        'description',
+        lib?.properties.find((p) => p.key === 'Description')?.value ?? '',
+      );
+
+      /** `xcomp->AddChild( xproperty = node( "property" ) )` and its attributes. */
+      const addProperty = (aName: string, aValue?: string): void => {
+        const xproperty = node('property');
+        xcomp.AddChild(xproperty);
+        xproperty.AddAttribute('name', aName);
+        if (aValue !== undefined) xproperty.AddAttribute('value', aValue);
+      };
 
       // The symbol's own non-mandatory fields, as properties.
       for (const field of sym.fields) {
         if (MANDATORY_FIELDS.has(field.key)) continue;
-        xcomp.child(new XNODE('property')).attr('name', field.key).attr('value', field.value);
+        addProperty(field.key, field.value);
       }
 
       // The sheet symbol's fields (Sheetname / Sheetfile / user fields), how the
       // board learns which sheet a footprint belongs to.
       for (const sheetField of parentSheetFields(input, sheet)) {
-        xcomp
-          .child(new XNODE('property'))
-          .attr('name', sheetField.key)
-          .attr('value', sheetField.value);
+        addProperty(sheetField.key, sheetField.value);
       }
 
       // Valueless flag properties (a property with no value is the flag itself).
-      if (!sym.inBom) xcomp.child(new XNODE('property')).attr('name', 'exclude_from_bom');
-      if (!sym.onBoard) xcomp.child(new XNODE('property')).attr('name', 'exclude_from_board');
-      if (sym.excludedFromPosFiles)
-        xcomp.child(new XNODE('property')).attr('name', 'exclude_from_pos_files');
-      if (sym.dnp) xcomp.child(new XNODE('property')).attr('name', 'dnp');
+      if (!sym.inBom) addProperty('exclude_from_bom');
+      if (!sym.onBoard) addProperty('exclude_from_board');
+      if (sym.excludedFromPosFiles) addProperty('exclude_from_pos_files');
+      if (sym.dnp) addProperty('dnp');
 
       if (lib) {
         const keywords = lib.properties.find((p) => p.key === 'ki_keywords')?.value ?? '';
-        if (keywords !== '')
-          xcomp.child(new XNODE('property')).attr('name', 'ki_keywords').attr('value', keywords);
+        if (keywords !== '') addProperty('ki_keywords', keywords);
 
         const filters = lib.properties.find((p) => p.key === 'ki_fp_filters')?.value ?? '';
-        if (filters !== '')
-          xcomp.child(new XNODE('property')).attr('name', 'ki_fp_filters').attr('value', filters);
+        if (filters !== '') addProperty('ki_fp_filters', filters);
 
-        if (lib.duplicatePinNumbersAreJumpers) xcomp.leaf('duplicate_pin_numbers_are_jumpers', '1');
+        if (lib.duplicatePinNumbersAreJumpers)
+          xcomp.AddChild(node('duplicate_pin_numbers_are_jumpers', '1'));
 
         const jumperGroups = lib.jumperPinGroups ?? [];
         if (jumperGroups.length > 0) {
-          const xgroups = xcomp.child(new XNODE('jumper_pin_groups'));
+          const xgroups = node('jumper_pin_groups');
+          xcomp.AddChild(xgroups);
           for (const group of jumperGroups) {
-            const xgroup = xgroups.child(new XNODE('group'));
-            for (const pinName of group) xgroup.leaf('pin', pinName);
+            const xgroup = node('group');
+            xgroups.AddChild(xgroup);
+            for (const pinName of group) xgroup.AddChild(node('pin', pinName));
           }
         }
       }
 
-      xcomp.child(new XNODE('sheetpath')).attr('names', sheet.namePath).attr('tstamps', sheet.path);
+      const xsheetpath = node('sheetpath');
+      xcomp.AddChild(xsheetpath);
+      xsheetpath.AddAttribute('names', sheet.namePath);
+      xsheetpath.AddAttribute('tstamps', sheet.path);
 
       // Every UUID that shares this reference: the extra units first, the primary
       // last (BOARD_NETLIST_UPDATER links the footprint to the *first* one, so the
       // ordering matters, upstream emits extras then the primary).
-      const xunits = xcomp.child(new XNODE('tstamps'));
-      for (const extra of instance.extraUnits) xunits.texts.push(extra.sym.uuid ?? '');
-      xunits.texts.push(sym.uuid ?? '');
+      const xunits = node('tstamps');
+      xcomp.AddChild(xunits);
+      const addTstamp = (aUuid: string): void =>
+        xunits.AddChild(new XNODE(wxXmlNodeType.wxXML_TEXT_NODE, '', aUuid));
+      for (const extra of instance.extraUnits) addTstamp(extra.sym.uuid ?? '');
+      addTstamp(sym.uuid ?? '');
 
       // Per-unit name and pin numbers, for gate-swap metadata on the board side.
-      const xunitInfo = xcomp.child(new XNODE('units'));
+      const xunitInfo = node('units');
+      xcomp.AddChild(xunitInfo);
       if (lib) {
         for (const unit of lib.units) {
           if (unit.unit === 0) continue; // the shared "all units" body
-          const xunit = xunitInfo.child(new XNODE('unit')).attr('name', unit.name);
-          const xpins = xunit.child(new XNODE('pins'));
-          for (const pin of unit.pins) xpins.child(new XNODE('pin')).attr('num', pin.number);
+          const xunit = node('unit');
+          xunitInfo.AddChild(xunit);
+          xunit.AddAttribute('name', unit.name);
+          const xpins = node('pins');
+          xunit.AddChild(xpins);
+          for (const pin of unit.pins) {
+            const xpin = node('pin');
+            xpins.AddChild(xpin);
+            xpin.AddAttribute('num', pin.number);
+          }
         }
       }
     }
@@ -416,7 +419,7 @@ function parentSheetFields(
  * qualified with the instance path when its sheet is used more than once.
  */
 function makeGroups(input: KicadNetlistInput): XNODE {
-  const xgroups = new XNODE('groups');
+  const xgroups = node('groups');
 
   const screenVisits = new Map<string, number>();
   for (const sheet of input.sheets)
@@ -429,14 +432,19 @@ function makeGroups(input: KicadNetlistInput): XNODE {
       let groupName = group.name;
       if ((screenVisits.get(sheet.file) ?? 0) > 1) groupName = `${groupName} (${sheet.namePath})`;
 
-      const xgroup = xgroups.child(new XNODE('group'));
-      xgroup.attr('name', groupName);
-      xgroup.attr('uuid', instancePrefix + (group.uuid ?? ''));
-      xgroup.attr('lib_id', group.libId ?? '');
+      const xgroup = node('group');
+      xgroups.AddChild(xgroup);
+      xgroup.AddAttribute('name', groupName);
+      xgroup.AddAttribute('uuid', instancePrefix + (group.uuid ?? ''));
+      xgroup.AddAttribute('lib_id', group.libId ?? '');
 
-      const xmembers = xgroup.child(new XNODE('members'));
-      for (const member of group.members)
-        xmembers.child(new XNODE('member')).attr('uuid', instancePrefix + member);
+      const xmembers = node('members');
+      xgroup.AddChild(xmembers);
+      for (const member of group.members) {
+        const xmember = node('member');
+        xmembers.AddChild(xmember);
+        xmember.AddAttribute('uuid', instancePrefix + member);
+      }
     }
   }
 
@@ -449,7 +457,7 @@ function makeLibParts(
   usedLibIds: ReadonlySet<string>,
   libraries: Set<string>,
 ): XNODE {
-  const xlibparts = new XNODE('libparts');
+  const xlibparts = node('libparts');
 
   // One entry per distinct library symbol used anywhere in the hierarchy.
   const libSymbols = new Map<string, LibSymbol>();
@@ -466,27 +474,34 @@ function makeLibParts(
     const { lib: libNickname, part } = splitLibId(libId);
     if (libNickname !== '') libraries.add(libNickname);
 
-    const xlibpart = xlibparts.child(new XNODE('libpart'));
-    xlibpart.attr('lib', libNickname).attr('part', part);
+    const xlibpart = node('libpart');
+    xlibparts.AddChild(xlibpart);
+    xlibpart.AddAttribute('lib', libNickname);
+    xlibpart.AddAttribute('part', part);
 
     const property = (key: string): string =>
       lib.properties.find((p) => p.key === key)?.value ?? '';
 
     const description = property('Description');
-    if (description !== '') xlibpart.leaf('description', description);
+    if (description !== '') xlibpart.AddChild(node('description', description));
 
     const datasheet = property('Datasheet');
-    if (datasheet !== '') xlibpart.leaf('docs', datasheet);
+    if (datasheet !== '') xlibpart.AddChild(node('docs', datasheet));
 
     const filters = property('ki_fp_filters').split(/\s+/).filter(Boolean);
     if (filters.length > 0) {
-      const xfootprints = xlibpart.child(new XNODE('footprints'));
-      for (const filter of filters) xfootprints.leaf('fp', filter);
+      const xfootprints = node('footprints');
+      xlibpart.AddChild(xfootprints);
+      for (const filter of filters) xfootprints.AddChild(node('fp', filter));
     }
 
-    const xfields = xlibpart.child(new XNODE('fields'));
-    for (const field of lib.properties)
-      xfields.child(new XNODE('field', field.value)).attr('name', field.key);
+    const xfields = node('fields');
+    xlibpart.AddChild(xfields);
+    for (const field of lib.properties) {
+      const xfield = node('field', field.value);
+      xfields.AddChild(xfield);
+      xfield.AddAttribute('name', field.key);
+    }
 
     // Every pin of the symbol, de-duplicated by number (a multi-unit or DeMorgan
     // symbol repeats VCC/GND pins), sorted by number, and expanded through
@@ -497,13 +512,14 @@ function makeLibParts(
     const sorted = [...byNumber.values()].sort((a, b) => strNumCmp(a.number, b.number, true));
 
     if (sorted.length > 0) {
-      const xpins = xlibpart.child(new XNODE('pins'));
+      const xpins = node('pins');
+      xlibpart.AddChild(xpins);
       for (const pin of sorted) {
-        xpins
-          .child(new XNODE('pin'))
-          .attr('num', pin.number)
-          .attr('name', shownName(pin.name))
-          .attr('type', pin.electricalType);
+        const xpin = node('pin');
+        xpins.AddChild(xpin);
+        xpin.AddAttribute('num', pin.number);
+        xpin.AddAttribute('name', shownName(pin.name));
+        xpin.AddAttribute('type', pin.electricalType);
       }
     }
   }
@@ -513,9 +529,13 @@ function makeLibParts(
 
 /** NETLIST_EXPORTER_XML::makeLibraries. */
 function makeLibraries(libraries: ReadonlySet<string>): XNODE {
-  const xlibs = new XNODE('libraries');
-  for (const name of [...libraries].sort())
-    xlibs.child(new XNODE('library').attr('logical', name)).leaf('uri', '');
+  const xlibs = node('libraries');
+  for (const name of [...libraries].sort()) {
+    const xlibrary = node('library');
+    xlibs.AddChild(xlibrary);
+    xlibrary.AddAttribute('logical', name);
+    xlibrary.AddChild(node('uri', ''));
+  }
   return xlibs;
 }
 
@@ -529,7 +549,7 @@ interface NetNode {
 
 /** NETLIST_EXPORTER_XML::makeListOfNets. */
 function makeListOfNets(input: KicadNetlistInput): XNODE {
-  const xnets = new XNODE('nets');
+  const xnets = node('nets');
 
   // Build the net map the way CONNECTION_GRAPH::GetNetMap presents it: net name ->
   // every pin on it, across every sheet instance of the hierarchy.
@@ -589,11 +609,11 @@ function makeListOfNets(input: KicadNetlistInput): XNODE {
     // Some duplicates can exist, for example on multi-unit parts with duplicated
     // pins across units: alg::remove_duplicates over (ref, shown number).
     const deduped: NetNode[] = [];
-    for (const node of nodes) {
+    for (const netNode of nodes) {
       const last = deduped[deduped.length - 1];
-      if (last && refOf(last.sym) === refOf(node.sym) && last.pin.number === node.pin.number)
+      if (last && refOf(last.sym) === refOf(netNode.sym) && last.pin.number === netNode.pin.number)
         continue;
-      deduped.push(node);
+      deduped.push(netNode);
     }
 
     // Nets with only one pin are implicitly taken to be stacked.
@@ -614,17 +634,17 @@ function makeListOfNets(input: KicadNetlistInput): XNODE {
     const hasNoConnect = noConnectNets.has(netName);
     let xnet: XNODE | null = null;
 
-    for (const node of deduped) {
-      const refText = refOf(node.sym);
+    for (const netNode of deduped) {
+      const refText = refOf(netNode.sym);
 
       // Skip power symbols and virtual symbols.
       if (refText.startsWith('#')) continue;
 
-      const footprintLibId = fieldOf(node.sym, 'Footprint');
+      const footprintLibId = fieldOf(netNode.sym, 'Footprint');
       const nums = resolvePadNumbers(
-        node.pin.number,
-        node.sym,
-        node.lib,
+        netNode.pin.number,
+        netNode.sym,
+        netNode.lib,
         footprintLibId,
         input.footprintPads?.get(footprintLibId),
       );
@@ -633,28 +653,31 @@ function makeListOfNets(input: KicadNetlistInput): XNODE {
       // net for it.
       if (nums.length === 0) continue;
 
-      const baseName = shownName(node.pin.name);
-      const pinType = node.pin.electricalType;
+      const baseName = shownName(netNode.pin.name);
+      const pinType = netNode.pin.electricalType;
 
       if (!xnet) {
-        xnet = xnets.child(new XNODE('net'));
-        xnet.attr('code', String(i + 1));
-        xnet.attr('name', netName);
-        xnet.attr('class', input.netClassFor?.(netName) ?? '');
+        xnet = node('net');
+        xnets.AddChild(xnet);
+        xnet.AddAttribute('code', String(i + 1));
+        xnet.AddAttribute('name', netName);
+        xnet.AddAttribute('class', input.netClassFor?.(netName) ?? '');
       }
 
       for (const num of nums) {
-        const xnode = xnet.child(new XNODE('node'));
-        xnode.attr('ref', refText).attr('pin', num);
+        const xnode = node('node');
+        xnet.AddChild(xnode);
+        xnode.AddAttribute('ref', refText);
+        xnode.AddAttribute('pin', num);
 
         const fullName = baseName === '' ? num : `${baseName}_${num}`;
-        if (baseName !== '' || nums.length > 1) xnode.attr('pinfunction', fullName);
+        if (baseName !== '' || nums.length > 1) xnode.AddAttribute('pinfunction', fullName);
 
         const typeAttr =
           hasNoConnect && (deduped.length === 1 || allNetPinsStacked)
             ? `${pinType}+no_connect`
             : pinType;
-        xnode.attr('pintype', typeAttr);
+        xnode.AddAttribute('pintype', typeAttr);
       }
     }
   });
@@ -668,27 +691,32 @@ function makeListOfNets(input: KicadNetlistInput): XNODE {
  * NETLIST_EXPORTER_XML::makeRoot( GNL_ALL | GNL_OPT_KICAD ), the whole netlist as
  * one S-expression node, in the section order pcbnew's parser expects.
  */
-export function makeKicadNetlistNode(input: KicadNetlistInput): SList {
-  const xroot = new XNODE('export');
-  xroot.attr('version', 'E');
+export function makeKicadNetlistNode(input: KicadNetlistInput): XNODE {
+  const xroot = node('export');
+  xroot.AddAttribute('version', 'E');
 
-  xroot.child(makeDesignHeader(input));
+  xroot.AddChild(makeDesignHeader(input));
 
   const usedLibIds = new Set<string>();
-  xroot.child(makeSymbols(input, usedLibIds));
-  xroot.child(makeGroups(input));
+  xroot.AddChild(makeSymbols(input, usedLibIds));
+  xroot.AddChild(makeGroups(input));
 
   const libraries = new Set<string>();
-  xroot.child(makeLibParts(input, usedLibIds, libraries));
+  xroot.AddChild(makeLibParts(input, usedLibIds, libraries));
   // Must follow makeLibParts, which collects the library nicknames.
-  xroot.child(makeLibraries(libraries));
+  xroot.AddChild(makeLibraries(libraries));
 
-  xroot.child(makeListOfNets(input));
+  xroot.AddChild(makeListOfNets(input));
 
-  return xroot.toSList();
+  return xroot;
 }
 
-/** NETLIST_EXPORTER_KICAD::Format, the netlist as `.net` text. */
+/**
+ * NETLIST_EXPORTER_KICAD::WriteNetlist: `Format` into a
+ * PRETTIFIED_FILE_OUTPUTFORMATTER, which is `xroot->Format( aOut )` prettified.
+ */
 export function netlistKicad(input: KicadNetlistInput): string {
-  return serialize(makeKicadNetlistNode(input));
+  const formatter = new PRETTIFIED_STRING_FORMATTER();
+  makeKicadNetlistNode(input).Format(formatter);
+  return formatter.Finish();
 }

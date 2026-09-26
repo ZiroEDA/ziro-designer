@@ -84,6 +84,31 @@ describe('netlistKicad', () => {
     expect(netlistText).toContain('(value "first")');
   });
 
+  it('prints the design header byte for byte as kicad-cli does', () => {
+    // `kicad-cli sch export netlist --format kicadsexpr` on this very schematic
+    // (09-26), source/date/tool aside: NETLIST_EXPORTER_XML::node adds no text
+    // child for an empty value, so an empty company is `(company)`, not
+    // `(company "")`, and XNODE::Format + Prettify lays it out with tabs.
+    const titleBlock = [
+      '\t\t\t(title_block',
+      '\t\t\t\t(title "Divider")',
+      '\t\t\t\t(company)',
+      '\t\t\t\t(rev "A")',
+      '\t\t\t\t(date)',
+      '\t\t\t\t(source "divider.kicad_sch")',
+      '\t\t\t\t(comment',
+      '\t\t\t\t\t(number "1")',
+      '\t\t\t\t\t(value "first")',
+      '\t\t\t\t)',
+      '\t\t\t\t(comment',
+      '\t\t\t\t\t(number "2")',
+      '\t\t\t\t\t(value "")',
+      '\t\t\t\t)',
+    ].join('\n');
+    expect(netlistText).toContain(titleBlock);
+    expect(netlistText.startsWith('(export\n\t(version "E")\n\t(design\n')).toBe(true);
+  });
+
   it("emits every section pcbnew's parser looks for, in order", () => {
     const order = ['(design', '(components', '(groups', '(libparts', '(libraries', '(nets'].map(
       (section) => netlistText.indexOf(section),
