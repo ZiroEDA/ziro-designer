@@ -899,6 +899,88 @@ export const wxMOD_CMD = wxMOD_CONTROL;
 export const wxMOD_ALL = 0xffff;
 
 /** `wxSizeEvent`. */
+/** `wxEVT_UPDATE_UI`. */
+export const wxEVT_UPDATE_UI = wxNewEventType();
+
+/**
+ * `wxUpdateUIEvent`: what a control asks before it is drawn - whether it is
+ * enabled, shown and checked, and, for a menu row, its text. A handler answers
+ * through `Enable` / `Show` / `Check` / `SetText`; the control reads the
+ * answers back.
+ */
+export class wxUpdateUIEvent extends wxEvent {
+  private readonly m_id: number;
+  private readonly m_isCheckable: boolean;
+  private m_checked = false;
+  private m_enabled = true;
+  private m_shown = true;
+  private m_text: string | null = null;
+  private m_setChecked = false;
+  private m_setEnabled = false;
+  private m_setShown = false;
+
+  constructor(aId: number, aIsCheckable = true) {
+    super(wxEVT_UPDATE_UI);
+    this.m_id = aId;
+    this.m_isCheckable = aIsCheckable;
+  }
+
+  GetId(): number {
+    return this.m_id;
+  }
+
+  IsCheckable(): boolean {
+    return this.m_isCheckable;
+  }
+
+  Check(aCheck: boolean): void {
+    this.m_checked = aCheck;
+    this.m_setChecked = true;
+  }
+
+  Enable(aEnable: boolean): void {
+    this.m_enabled = aEnable;
+    this.m_setEnabled = true;
+  }
+
+  Show(aShow: boolean): void {
+    this.m_shown = aShow;
+    this.m_setShown = true;
+  }
+
+  SetText(aText: string): void {
+    this.m_text = aText;
+  }
+
+  GetChecked(): boolean {
+    return this.m_checked;
+  }
+
+  GetEnabled(): boolean {
+    return this.m_enabled;
+  }
+
+  GetShown(): boolean {
+    return this.m_shown;
+  }
+
+  GetText(): string | null {
+    return this.m_text;
+  }
+
+  GetSetChecked(): boolean {
+    return this.m_setChecked;
+  }
+
+  GetSetEnabled(): boolean {
+    return this.m_setEnabled;
+  }
+
+  GetSetShown(): boolean {
+    return this.m_setShown;
+  }
+}
+
 export class wxSizeEvent extends wxEvent {
   constructor(readonly m_size: { x: number; y: number }) {
     super(wxEVT_SIZE, false);

@@ -39,6 +39,9 @@ import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/page_info.js';
 import { DEFAULT_THEME, GetColorSettings } from '@ziroeda/common/pgm_base.js';
 import type { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
 import type { SELECTION } from '@ziroeda/common/tool/selection.js';
+import type { SELECTION_CONDITION } from '@ziroeda/common/tool/selection_conditions.js';
+import { ACTION_CONDITIONS } from '@ziroeda/common/tool/action_manager.js';
+import { EDITOR_CONDITIONS } from '@ziroeda/common/tool/editor_conditions.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { COMMON_TOOLS } from '@ziroeda/common/tool/common_tools.js';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
@@ -260,6 +263,7 @@ export class GERBVIEW_FRAME extends EDA_DRAW_FRAME {
     this.LoadSettings(this.config());
 
     this.setupTools();
+    this.setupUIConditions();
 
     this.ReFillLayerWidget(); // this is near end because contents establish size
 
@@ -1052,6 +1056,61 @@ export class GERBVIEW_FRAME extends EDA_DRAW_FRAME {
   /**
    * Allow Gerbview to install its preferences panels into the preferences dialog.
    */
+  protected override setupUIConditions(): void {
+    super.setupUIConditions();
+
+    const mgr = this.m_toolManager!.GetActionManager();
+    const cond = new EDITOR_CONDITIONS(this);
+
+    const CHECK = (x: SELECTION_CONDITION): ACTION_CONDITIONS => new ACTION_CONDITIONS().Check(x);
+
+    mgr.SetConditions(ACTIONS.zoomTool, CHECK(cond.CurrentTool(ACTIONS.zoomTool)));
+    mgr.SetConditions(ACTIONS.selectionTool, CHECK(cond.CurrentTool(ACTIONS.selectionTool)));
+    mgr.SetConditions(ACTIONS.measureTool, CHECK(cond.CurrentTool(ACTIONS.measureTool)));
+
+    mgr.SetConditions(ACTIONS.toggleGrid, CHECK(cond.GridVisible()));
+    mgr.SetConditions(ACTIONS.togglePolarCoords, CHECK(cond.PolarCoordinates()));
+    mgr.SetConditions(ACTIONS.cursorSmallCrosshairs, CHECK(cond.CursorSmallCrosshairs()));
+    mgr.SetConditions(ACTIONS.cursorFullCrosshairs, CHECK(cond.CursorFullCrosshairs()));
+    mgr.SetConditions(ACTIONS.cursor45Crosshairs, CHECK(cond.Cursor45Crosshairs()));
+
+    const flashedDisplayOutlinesCond = (_s: SELECTION): boolean =>
+      !this.gvconfig().m_Display.m_DisplayFlashedItemsFill;
+
+    const linesFillCond = (_s: SELECTION): boolean => !this.gvconfig().m_Display.m_DisplayLinesFill;
+
+    const polygonsFilledCond = (_s: SELECTION): boolean =>
+      !this.gvconfig().m_Display.m_DisplayPolygonsFill;
+
+    const negativeObjectsCond = (_s: SELECTION): boolean =>
+      this.gvconfig().m_Appearance.show_negative_objects;
+
+    const dcodeCond = (_s: SELECTION): boolean => this.gvconfig().m_Appearance.show_dcodes;
+
+    const forceOpacityModeCond = (_s: SELECTION): boolean =>
+      this.gvconfig().m_Display.m_ForceOpacityMode;
+
+    const xorModeCond = (_s: SELECTION): boolean => this.gvconfig().m_Display.m_XORMode;
+
+    const highContrastModeCond = (_s: SELECTION): boolean =>
+      this.gvconfig().m_Display.m_HighContrastMode;
+
+    const flipGerberCond = (_s: SELECTION): boolean => this.gvconfig().m_Display.m_FlipGerberView;
+
+    const layersManagerShownCondition = (_s: SELECTION): boolean => this.m_show_layer_manager_tools;
+
+    mgr.SetConditions(GERBVIEW_ACTIONS.flashedDisplayOutlines, CHECK(flashedDisplayOutlinesCond));
+    mgr.SetConditions(GERBVIEW_ACTIONS.linesDisplayOutlines, CHECK(linesFillCond));
+    mgr.SetConditions(GERBVIEW_ACTIONS.polygonsDisplayOutlines, CHECK(polygonsFilledCond));
+    mgr.SetConditions(GERBVIEW_ACTIONS.negativeObjectDisplay, CHECK(negativeObjectsCond));
+    mgr.SetConditions(GERBVIEW_ACTIONS.dcodeDisplay, CHECK(dcodeCond));
+    mgr.SetConditions(GERBVIEW_ACTIONS.toggleForceOpacityMode, CHECK(forceOpacityModeCond));
+    mgr.SetConditions(GERBVIEW_ACTIONS.toggleXORMode, CHECK(xorModeCond));
+    mgr.SetConditions(GERBVIEW_ACTIONS.flipGerberView, CHECK(flipGerberCond));
+    mgr.SetConditions(ACTIONS.highContrastMode, CHECK(highContrastModeCond));
+    mgr.SetConditions(GERBVIEW_ACTIONS.toggleLayerManager, CHECK(layersManagerShownCondition));
+  }
+
   private setupTools(): void {
     // Create the manager and dispatcher & route draw panel events to the dispatcher
     this.m_toolManager = new TOOL_MANAGER();

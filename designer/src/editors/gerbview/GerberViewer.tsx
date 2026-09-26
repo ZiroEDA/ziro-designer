@@ -84,6 +84,7 @@ import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { layersPaneWidth } from './gerberAuxControls.js';
 import {
+  ACTION_FOR_ID,
   checkedSet,
   loadGerbviewColors,
   loadGerbviewSettings,
@@ -101,40 +102,6 @@ const LAYERS_PANE_BEST_WIDTH = 240;
 
 /** The centre pane's floor, i.e. how much canvas the sash must leave behind. */
 const CANVAS_MIN_WIDTH = 200;
-
-/** Toolbar and menu ids -> the TOOL_ACTION each one is upstream. */
-const ACTION_FOR_ID: Readonly<Record<string, TOOL_ACTION>> = {
-  gerbClear: GERBVIEW_ACTIONS.clearAllLayers,
-  gerbReload: GERBVIEW_ACTIONS.reloadAllLayers,
-  gerbOpenAutodetected: GERBVIEW_ACTIONS.openAutodetected,
-  gerbOpen: GERBVIEW_ACTIONS.openGerber,
-  gerbOpenDrill: GERBVIEW_ACTIONS.openDrillFile,
-  zoomRedraw: ACTIONS.zoomRedraw,
-  zoomIn: ACTIONS.zoomInCenter,
-  zoomOut: ACTIONS.zoomOutCenter,
-  zoomFit: ACTIONS.zoomFitScreen,
-  zoomTool: ACTIONS.zoomTool,
-  select: ACTIONS.selectionTool,
-  measure: ACTIONS.measureTool,
-  toggleGrid: ACTIONS.toggleGrid,
-  togglePolar: ACTIONS.togglePolarCoords,
-  unitsMm: ACTIONS.millimetersUnits,
-  unitsInches: ACTIONS.inchesUnits,
-  unitsMils: ACTIONS.milsUnits,
-  crosshairSmall: ACTIONS.cursorSmallCrosshairs,
-  crosshairFull: ACTIONS.cursorFullCrosshairs,
-  crosshair45: ACTIONS.cursor45Crosshairs,
-  flashedSketch: GERBVIEW_ACTIONS.flashedDisplayOutlines,
-  linesSketch: GERBVIEW_ACTIONS.linesDisplayOutlines,
-  polygonsSketch: GERBVIEW_ACTIONS.polygonsDisplayOutlines,
-  showNegativeObjects: GERBVIEW_ACTIONS.negativeObjectDisplay,
-  showDcodes: GERBVIEW_ACTIONS.dcodeDisplay,
-  forceOpacityMode: GERBVIEW_ACTIONS.toggleForceOpacityMode,
-  xorMode: GERBVIEW_ACTIONS.toggleXORMode,
-  highContrast: ACTIONS.highContrastMode,
-  flipView: GERBVIEW_ACTIONS.flipGerberView,
-  showLayerManager: GERBVIEW_ACTIONS.toggleLayerManager,
-};
 
 /** Status bar fields, by the index `SetStatusText` writes. */
 const STATUS_FIELDS = ['message', 'zoom', 'coords', 'deltas', 'grid', 'units', 'tool'] as const;
@@ -456,9 +423,9 @@ export function GerberViewer({
   const gbrLeftBar = useToolbarEntries('gerbview', 'LEFT', GBR_DEFAULT_TOOLBARS);
 
   const checked = checkedSet(frame);
-  const activeTool = frame.IsCurrentTool(ACTIONS.measureTool)
+  const activeTool = checked.has('measure')
     ? 'measure'
-    : frame.IsCurrentTool(ACTIONS.zoomTool)
+    : checked.has('zoomTool')
       ? 'zoom'
       : 'select';
 

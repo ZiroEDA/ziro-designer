@@ -23,6 +23,10 @@ import {
 import { EdaUnitsFromInt, EdaUnitsToInt } from '@ziroeda/common/settings/app_settings.js';
 import { GRID } from '@ziroeda/common/settings/grid_settings.js';
 import { CROSS_HAIR_MODE } from '@ziroeda/common/gal/gal_display_options.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
+import { wxUpdateUIEvent } from '@ziroeda/common/wx/wx_event.js';
+import { GERBVIEW_ACTIONS } from '@ziroeda/gerbview/tools/gerbview_actions.js';
 import {
   GERBVIEW_FIXED_LAYERS,
   graphicLayerKey,
@@ -171,39 +175,54 @@ export function loadGerbviewColors(
   }
 }
 
+/** Toolbar and menu ids -> the TOOL_ACTION each one is upstream. */
+export const ACTION_FOR_ID: Readonly<Record<string, TOOL_ACTION>> = {
+  gerbClear: GERBVIEW_ACTIONS.clearAllLayers,
+  gerbReload: GERBVIEW_ACTIONS.reloadAllLayers,
+  gerbOpenAutodetected: GERBVIEW_ACTIONS.openAutodetected,
+  gerbOpen: GERBVIEW_ACTIONS.openGerber,
+  gerbOpenDrill: GERBVIEW_ACTIONS.openDrillFile,
+  zoomRedraw: ACTIONS.zoomRedraw,
+  zoomIn: ACTIONS.zoomInCenter,
+  zoomOut: ACTIONS.zoomOutCenter,
+  zoomFit: ACTIONS.zoomFitScreen,
+  zoomTool: ACTIONS.zoomTool,
+  select: ACTIONS.selectionTool,
+  measure: ACTIONS.measureTool,
+  toggleGrid: ACTIONS.toggleGrid,
+  togglePolar: ACTIONS.togglePolarCoords,
+  unitsMm: ACTIONS.millimetersUnits,
+  unitsInches: ACTIONS.inchesUnits,
+  unitsMils: ACTIONS.milsUnits,
+  crosshairSmall: ACTIONS.cursorSmallCrosshairs,
+  crosshairFull: ACTIONS.cursorFullCrosshairs,
+  crosshair45: ACTIONS.cursor45Crosshairs,
+  flashedSketch: GERBVIEW_ACTIONS.flashedDisplayOutlines,
+  linesSketch: GERBVIEW_ACTIONS.linesDisplayOutlines,
+  polygonsSketch: GERBVIEW_ACTIONS.polygonsDisplayOutlines,
+  showNegativeObjects: GERBVIEW_ACTIONS.negativeObjectDisplay,
+  showDcodes: GERBVIEW_ACTIONS.dcodeDisplay,
+  forceOpacityMode: GERBVIEW_ACTIONS.toggleForceOpacityMode,
+  xorMode: GERBVIEW_ACTIONS.toggleXORMode,
+  highContrast: ACTIONS.highContrastMode,
+  flipView: GERBVIEW_ACTIONS.flipGerberView,
+  showLayerManager: GERBVIEW_ACTIONS.toggleLayerManager,
+};
+
 /**
- * The check state of the toggle buttons and View menu rows:
- * `GERBVIEW_FRAME::setupUIConditions` (`gerbview_frame.cpp:1105-1165`), each
- * condition reading the frame or `gvconfig()` directly.
+ * The check state of the toggle buttons and View menu rows: each control's
+ * action asked through `wxEVT_UPDATE_UI`, which the frame answers from the
+ * conditions `GERBVIEW_FRAME::setupUIConditions` registered
+ * (`gerbview_frame.cpp:1105-1165`).
  */
 export function checkedSet(aFrame: GERBVIEW_FRAME): Set<string> {
-  const cfg = aFrame.gvconfig();
   const out = new Set<string>();
-  const on = (aId: string, aCond: boolean): void => {
-    if (aCond) out.add(aId);
-  };
 
-  on('toggleGrid', aFrame.IsGridVisible());
-  on('togglePolar', aFrame.GetShowPolarCoords());
-  on('unitsMm', aFrame.GetUserUnits() === 'mm');
-  on('unitsInches', aFrame.GetUserUnits() === 'in');
-  on('unitsMils', aFrame.GetUserUnits() === 'mils');
+  for (const [id, action] of Object.entries(ACTION_FOR_ID)) {
+    const event = new wxUpdateUIEvent(action.GetUIId());
 
-  const cursor = aFrame.GetGalDisplayOptions().GetCursorMode();
-  on('crosshairSmall', cursor === CROSS_HAIR_MODE.SMALL_CROSS);
-  on('crosshairFull', cursor === CROSS_HAIR_MODE.FULLSCREEN_CROSS);
-  on('crosshair45', cursor === CROSS_HAIR_MODE.FULLSCREEN_DIAGONAL);
-
-  on('flashedSketch', !cfg.m_Display.m_DisplayFlashedItemsFill);
-  on('linesSketch', !cfg.m_Display.m_DisplayLinesFill);
-  on('polygonsSketch', !cfg.m_Display.m_DisplayPolygonsFill);
-  on('showNegativeObjects', cfg.m_Appearance.show_negative_objects);
-  on('showDcodes', cfg.m_Appearance.show_dcodes);
-  on('forceOpacityMode', cfg.m_Display.m_ForceOpacityMode);
-  on('xorMode', cfg.m_Display.m_XORMode);
-  on('highContrast', cfg.m_Display.m_HighContrastMode);
-  on('flipView', cfg.m_Display.m_FlipGerberView);
-  on('showLayerManager', aFrame.m_show_layer_manager_tools);
+    if (aFrame.ProcessUpdateUI(event) && event.GetChecked()) out.add(id);
+  }
 
   return out;
 }

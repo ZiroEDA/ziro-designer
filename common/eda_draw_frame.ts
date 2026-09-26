@@ -24,6 +24,8 @@
  * `gridOrigin` defaults to zero, which makes both `fmod` offsets zero.
  */
 
+import { EDITOR_CONDITIONS } from './tool/editor_conditions.js';
+import { ACTION_CONDITIONS } from './tool/action_manager.js';
 import { GAL_DISPLAY_OPTIONS_IMPL } from './gal_display_options_common.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
@@ -436,6 +438,26 @@ export abstract class EDA_DRAW_FRAME extends EDA_BASE_FRAME {
 
       canvas.Refresh();
     }
+  }
+
+  /**
+   * `IsScriptingConsoleVisible()`: KiCad's Python console, which a browser
+   * build has none of.
+   */
+  IsScriptingConsoleVisible(): boolean {
+    return false;
+  }
+
+  /** `setupUIConditions()` (`eda_draw_frame.cpp`): the three units rows. */
+  protected override setupUIConditions(): void {
+    super.setupUIConditions();
+
+    const mgr = this.m_toolManager!.GetActionManager();
+    const cond = new EDITOR_CONDITIONS(this);
+
+    mgr.SetConditions(ACTIONS.millimetersUnits, new ACTION_CONDITIONS().Check(cond.Units('mm')));
+    mgr.SetConditions(ACTIONS.inchesUnits, new ACTION_CONDITIONS().Check(cond.Units('in')));
+    mgr.SetConditions(ACTIONS.milsUnits, new ACTION_CONDITIONS().Check(cond.Units('mils')));
   }
 
   IsGridOverridden(): boolean {

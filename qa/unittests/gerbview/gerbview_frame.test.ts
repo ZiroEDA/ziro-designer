@@ -37,7 +37,9 @@ import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { VIEW } from '@ziroeda/common/view/view.js';
 import { VC_SETTINGS } from '@ziroeda/common/view/view_controls.js';
+import { ACTION_CONDITIONS } from '@ziroeda/common/tool/action_manager.js';
 import { wxChoice } from '@ziroeda/common/wx/choice.js';
+import { wxUpdateUIEvent } from '@ziroeda/common/wx/wx_event.js';
 import { s_tempFileSystem } from '@ziroeda/common/wx/filefn.js';
 import { ZOOM_MAX_LIMIT_GERBVIEW, ZOOM_MIN_LIMIT_GERBVIEW } from '@ziroeda/common/zoom_defines.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
@@ -567,16 +569,18 @@ describe('the crosshair modes', () => {
 });
 
 /**
- * What the toolbar opens with, read off a fresh frame the way
- * setupUIConditions' conditions read it: grid on (`app_settings.cpp:555-556`),
+ * What the toolbar opens with, read off a fresh frame through the conditions
+ * setupUIConditions registers: grid on (`app_settings.cpp:555-556`),
  * millimetres (gerbview is on neither imperial name, the `else` arm), the
- * layer manager, and SMALL_CROSS (`gal_display_options.cpp:52`). Every
- * display toggle starts off.
+ * layer manager, SMALL_CROSS (`gal_display_options.cpp:52`), and the
+ * selection arrow - with an empty tool stack IsCurrentTool( selectionTool )
+ * is true (`tools_holder.cpp:129-135`). Every display toggle starts off.
  */
 describe('the toolbar a fresh frame opens with', () => {
-  it('checks exactly four buttons', () => {
+  it('checks exactly five buttons', () => {
     expect([...checkedSet(env.frame)].sort()).toEqual([
       'crosshairSmall',
+      'select',
       'showLayerManager',
       'toggleGrid',
       'unitsMm',
@@ -591,6 +595,14 @@ describe('the toolbar a fresh frame opens with', () => {
     expect(on.has('crosshair45')).toBe(true);
     expect(on.has('crosshairSmall')).toBe(false);
     expect(on.has('linesSketch')).toBe(true);
+  });
+
+  it('moves the tool check to the tool that is running', () => {
+    env.frame.GetToolManager()!.RunAction(ACTIONS.measureTool);
+
+    const on = checkedSet(env.frame);
+    expect(on.has('measure')).toBe(true);
+    expect(on.has('select')).toBe(false);
   });
 });
 
@@ -1050,5 +1062,43 @@ describe('GERBER_LAYER_WIDGET', () => {
       env.frame.GetGbrImage(i)?.m_FileName.split('/').pop();
     expect([name(0), name(1), name(2)]).toEqual(['a.gbr', 'c.gbr', undefined]);
     expect(env.boxes.length).toBe(asked);
+  });
+});
+
+/**
+ * EDA_BASE_FRAME::HandleUpdateUIEvent (`eda_base_frame.cpp:638-702`), which
+ * answers the page's wxEVT_UPDATE_UI for each control.
+ */
+describe('EDA_BASE_FRAME::HandleUpdateUIEvent', () => {
+  it('skips a control nobody registered conditions for', () => {
+    const event = new wxUpdateUIEvent(ACTIONS.undo.GetUIId());
+
+    expect(env.frame.ProcessUpdateUI(event)).toBe(false);
+    expect(event.GetSetChecked()).toBe(false);
+  });
+
+  it('checks only a checkable control', () => {
+    const checkable = new wxUpdateUIEvent(ACTIONS.toggleGrid.GetUIId(), true);
+    const plain = new wxUpdateUIEvent(ACTIONS.toggleGrid.GetUIId(), false);
+
+    env.frame.ProcessUpdateUI(checkable);
+    env.frame.ProcessUpdateUI(plain);
+
+    expect([checkable.GetSetChecked(), checkable.GetChecked()]).toEqual([true, true]);
+    expect(plain.GetSetChecked()).toBe(false);
+    expect([plain.GetEnabled(), plain.GetShown()]).toEqual([true, true]);
+  });
+
+  it('titles Undo "Undo", with the description only while enabled', () => {
+    env.frame.RegisterUIUpdateHandler(
+      ACTIONS.undo,
+      new ACTION_CONDITIONS().Enable((): boolean => env.frame.GetUndoCommandCount() > 0),
+    );
+    const event = new wxUpdateUIEvent(ACTIONS.undo.GetUIId());
+
+    env.frame.ProcessUpdateUI(event);
+
+    expect(event.GetText()).toBe('Undo');
+    expect(event.GetEnabled()).toBe(false);
   });
 });

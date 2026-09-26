@@ -22,6 +22,9 @@ import { type PICKED_ITEMS_LIST, UNDO_REDO_CONTAINER } from './undo_redo_contain
 import { UNITS_PROVIDER } from './units_provider.js';
 import { RPT_SEVERITY_UNDEFINED, type Severity } from './reporter.js';
 import type { TOOL_ACTION } from './tool/tool_action.js';
+import type { ACTION_CONDITIONS } from './tool/action_manager.js';
+import { ACTIONS } from './tool/actions.js';
+import type { wxUpdateUIEvent } from './wx/wx_event.js';
 import type { ACTION_MENU } from './tool/action_menu.js';
 import type { APP_SETTINGS_BASE, WINDOW_SETTINGS } from './settings/app_settings.js';
 
@@ -229,6 +232,16 @@ export abstract class EDA_BASE_FRAME
     return this.m_redoList.m_CommandsList.length;
   }
 
+  /**
+   * Get if the contents of the frame have been modified since the last save.
+   *
+   * @return true if the contents of the frame have not been saved
+   */
+  IsContentModified(): boolean {
+    // This function should be overridden in child classes
+    return false;
+  }
+
   GetUndoActionDescription(): string {
     if (this.GetUndoCommandCount() > 0)
       return this.m_undoList.m_CommandsList[
@@ -381,6 +394,108 @@ export abstract class EDA_BASE_FRAME
    * page. The dialog is the page's (`prefs/PreferencesDialog.tsx`), installed
    * with {@link SetPreferencesPresenter}.
    */
+  // ---- UI conditions -------------------------------------------------------
+
+  /** `m_uiUpdateMap`: the conditions each control id is updated from. */
+  private m_uiUpdateMap = new Map<number, ACTION_CONDITIONS>();
+
+  /** `RegisterUIUpdateHandler( int aID, ... )` (`eda_base_frame.cpp:602-617`). */
+  protected override registerUIUpdateHandler(aID: number, aConditions: ACTION_CONDITIONS): void {
+    this.m_uiUpdateMap.set(aID, aConditions);
+  }
+
+  protected override unregisterUIUpdateHandler(aID: number): void {
+    this.m_uiUpdateMap.delete(aID);
+  }
+
+  /**
+   * `onUpdateUI`: `wxEVT_UPDATE_UI` for the control `aEvent.GetId()`. wx
+   * sends one before it draws a control; the page asks here when it renders
+   * its toolbars and menus. Skipped when no handler is registered.
+   */
+  ProcessUpdateUI(aEvent: wxUpdateUIEvent): boolean {
+    const cond = this.m_uiUpdateMap.get(aEvent.GetId());
+
+    if (!cond) {
+      aEvent.Skip();
+      return false;
+    }
+
+    EDA_BASE_FRAME.HandleUpdateUIEvent(aEvent, this, cond);
+    return true;
+  }
+
+  /**
+   * Handle events generated when the UI is trying to figure out the current
+   * state of the UI controls related to TOOL_ACTIONs (`:638-702`).
+   */
+  static HandleUpdateUIEvent(
+    aEvent: wxUpdateUIEvent,
+    aFrame: EDA_BASE_FRAME,
+    aCond: ACTION_CONDITIONS,
+  ): void {
+    let checkRes = false;
+    let enableRes = true;
+    let showRes = true;
+    const isCut = aEvent.GetId() === ACTIONS.cut.GetUIId();
+    const isCopy = aEvent.GetId() === ACTIONS.copy.GetUIId();
+    const isPaste = aEvent.GetId() === ACTIONS.paste.GetUIId();
+    const selection = aFrame.GetCurrentSelection();
+
+    try {
+      checkRes = aCond.checkCondition(selection);
+      enableRes = aCond.enableCondition(selection);
+      showRes = aCond.showCondition(selection);
+    } catch {
+      // Something broke with the conditions, just skip the event.
+      aEvent.Skip();
+      return;
+    }
+
+    if (showRes && aEvent.GetId() === ACTIONS.undo.GetUIId()) {
+      let msg = 'Undo';
+
+      if (enableRes) msg += ` ${aFrame.GetUndoActionDescription()}`;
+
+      aEvent.SetText(msg);
+    } else if (showRes && aEvent.GetId() === ACTIONS.redo.GetUIId()) {
+      let msg = 'Redo';
+
+      if (enableRes) msg += ` ${aFrame.GetRedoActionDescription()}`;
+
+      aEvent.SetText(msg);
+    }
+
+    if (isCut || isCopy || isPaste) {
+      // wxWindow::FindFocus() as a wxTextEntry: a focused text field.
+      const focus = typeof document === 'undefined' ? null : document.activeElement;
+      const textEntry =
+        focus !== null &&
+        (focus instanceof HTMLInputElement || focus instanceof HTMLTextAreaElement)
+          ? focus
+          : null;
+      const hasSelection =
+        textEntry !== null && (textEntry.selectionStart ?? 0) !== (textEntry.selectionEnd ?? 0);
+      const editable = textEntry !== null && !textEntry.readOnly && !textEntry.disabled;
+
+      if (textEntry && isCut && hasSelection && editable) enableRes = true;
+      else if (textEntry && isCopy && hasSelection) enableRes = true;
+      else if (textEntry && isPaste && editable) enableRes = true;
+    }
+
+    aEvent.Enable(enableRes);
+    aEvent.Show(showRes);
+
+    if (aEvent.IsCheckable()) aEvent.Check(checkRes);
+  }
+
+  /**
+   * Set up the UI conditions for the various actions and their controls in
+   * this frame (`:704-718`): the language menu's checks, which a browser
+   * build with one language has no rows for.
+   */
+  protected setupUIConditions(): void {}
+
   ShowPreferences(aStartPage: string, aStartParentPage: string): void {
     this.m_preferencesPresenter?.(aStartPage, aStartParentPage);
   }

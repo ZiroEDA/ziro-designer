@@ -41,6 +41,7 @@ import type { PROJECT } from '@ziroeda/common/project.js';
 import { formatG } from '@ziroeda/common/string_utils.js';
 import type { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
 import { ACTION_CONDITIONS } from '@ziroeda/common/tool/action_manager.js';
+import { EDITOR_CONDITIONS } from '@ziroeda/common/tool/editor_conditions.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { COMMON_TOOLS } from '@ziroeda/common/tool/common_tools.js';
 import type { SELECTION } from '@ziroeda/common/tool/selection.js';
@@ -48,7 +49,6 @@ import {
   type SELECTION_CONDITION,
   SELECTION_CONDITIONS,
 } from '@ziroeda/common/tool/selection_conditions.js';
-import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import { TOOL_DISPATCHER } from '@ziroeda/common/tool/tool_dispatcher.js';
 import {
   TOOL_MANAGER,
@@ -349,7 +349,7 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
    *
    * @return true if the any changes have not been saved
    */
-  IsContentModified(): boolean {
+  override IsContentModified(): boolean {
     return this.GetScreen()?.IsContentModified() ?? false;
   }
 
@@ -384,26 +384,12 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
     this.m_toolManager.InvokeTool('common.InteractiveSelection');
   }
 
-  /**
-   * `setupUIConditions()`. `EDA_DRAW_FRAME::setupUIConditions` and
-   * `EDITOR_CONDITIONS` are not in common/ yet: the five conditions this
-   * frame asks `EDITOR_CONDITIONS` for are written out as
-   * editor_conditions.cpp:169-204 defines them.
-   */
-  protected setupUIConditions(): void {
-    const mgr = this.m_toolManager!.GetActionManager();
+  /** `setupUIConditions()` (`pl_editor_frame.cpp:305-368`). */
+  protected override setupUIConditions(): void {
+    super.setupUIConditions();
 
-    // EDITOR_CONDITIONS cond( this ): undoFunc, redoFunc, gridFunc, noToolFunc, toolFunc.
-    const cond = {
-      UndoAvailable: (): SELECTION_CONDITION => () => this.GetUndoCommandCount() > 0,
-      RedoAvailable: (): SELECTION_CONDITION => () => this.GetRedoCommandCount() > 0,
-      GridVisible: (): SELECTION_CONDITION => () => this.IsGridVisible(),
-      NoActiveTool: (): SELECTION_CONDITION => () => this.ToolStackIsEmpty(),
-      CurrentTool:
-        (aTool: TOOL_ACTION): SELECTION_CONDITION =>
-        () =>
-          this.IsCurrentTool(aTool),
-    };
+    const mgr = this.m_toolManager!.GetActionManager();
+    const cond = new EDITOR_CONDITIONS(this);
 
     const ENABLE = (x: SELECTION_CONDITION): ACTION_CONDITIONS => new ACTION_CONDITIONS().Enable(x);
     const CHECK = (x: SELECTION_CONDITION): ACTION_CONDITIONS => new ACTION_CONDITIONS().Check(x);
