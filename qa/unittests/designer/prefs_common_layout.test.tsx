@@ -35,14 +35,11 @@ import { cleanup } from '@testing-library/react';
 afterEach(cleanup);
 
 const PANEL = readFileSync(
-  resolve(process.cwd(), '../designer/src/dialogs/prefs/panels/PanelCommonSettings.tsx'),
+  resolve(process.cwd(), '../common/dialogs/panel_common_settings.tsx'),
   'utf8',
 );
 const CSS = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
-const WIDGETS = readFileSync(
-  resolve(process.cwd(), '../designer/src/dialogs/prefs/widgets.tsx'),
-  'utf8',
-);
+const WIDGETS = readFileSync(resolve(process.cwd(), '../common/wx/controls.tsx'), 'utf8');
 /** The panel with its comments stripped: prose ABOUT a row is not that row. */
 const PANEL_CODE = PANEL.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 

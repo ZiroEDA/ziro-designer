@@ -40,14 +40,7 @@ import { setZoomCorrection } from '@ziroeda/common/widgets/kistatusbar_format.js
 export const TOOLBAR_ICON_MIN = 16;
 export const TOOLBAR_ICON_MAX = 64;
 
-/**
- * The three sizes `PANEL_COMMON_SETTINGS`' radios write
- * (`panel_common_settings.cpp:206-211`, `:314-318`). [data]
- *
- * A value that is none of them is legal — the panel's switch has no default, so
- * all three radios come up unselected and the toolbars still use it.
- */
-export const TOOLBAR_ICON_SIZES = { small: 16, normal: 24, large: 32 } as const;
+export { TOOLBAR_ICON_SIZES } from '@ziroeda/common/dialogs/panel_common_settings.js';
 
 /**
  * Push the appearance settings the stylesheet reads onto `root`.

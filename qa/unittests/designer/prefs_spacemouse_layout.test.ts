@@ -30,7 +30,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const PANEL = readFileSync(
-  resolve(process.cwd(), '../designer/src/dialogs/prefs/panels/PanelSpacemouse.tsx'),
+  resolve(process.cwd(), '../common/dialogs/panel_spacemouse.tsx'),
   'utf8',
 );
 const CSS = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');

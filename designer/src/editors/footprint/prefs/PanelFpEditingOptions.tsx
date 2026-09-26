@@ -64,7 +64,7 @@
  * is `EDIT_TOOL`'s point editor.
  */
 import type { JSX } from 'react';
-import { Check, Group, Num, Sel } from '../../../dialogs/prefs/widgets.js';
+import { Check, Group, Num, Sel } from '@ziroeda/common/wx/controls.js';
 import { unitLabel } from '@ziroeda/common/eda_units.js';
 import { ARC_EDIT_MODE_CHOICES } from '../arc_edit_mode.js';
 import { setSessionArcEditMode, useSessionArcEditMode } from '../arc_edit_mode.js';

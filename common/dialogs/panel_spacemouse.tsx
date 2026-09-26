@@ -58,11 +58,11 @@
  * to reset.
  */
 import type { JSX } from 'react';
-import { Check, Group } from '../widgets.js';
-import { Slider } from '@ziroeda/common/widgets/slider.js';
-import type { PrefsContext } from '../types.js';
+import { Check, Group } from '../wx/controls.js';
+import { Slider } from '../widgets/slider.js';
+import type { COMMON_SETTINGS_DRAFT } from '../settings/common_settings.js';
 
-export function PanelSpacemouse({ ctx }: { ctx: PrefsContext }): JSX.Element {
+export function PanelSpacemouse({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.Element {
   const { common, upC } = ctx;
   const sm = common.spacemouse;
 

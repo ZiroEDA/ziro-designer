@@ -55,7 +55,7 @@
 import { useState, type JSX } from 'react';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
-import { Sel } from '../../../dialogs/prefs/widgets.js';
+import { Sel } from '@ziroeda/common/wx/controls.js';
 import { userLayerChoices } from '../fp_layer_choices.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 

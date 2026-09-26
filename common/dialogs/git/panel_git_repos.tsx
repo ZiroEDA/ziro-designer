@@ -28,11 +28,11 @@
  * reads "Reset Version Control to Defaults" and has to have something to reset.
  */
 import type { JSX } from 'react';
-import { Check, Group } from '../widgets.js';
-import { SpinCtrl } from '@ziroeda/common/widgets/spin_ctrl.js';
-import type { PrefsContext } from '../types.js';
+import { Check, Group } from '../../wx/controls.js';
+import { SpinCtrl } from '../../widgets/spin_ctrl.js';
+import type { COMMON_SETTINGS_DRAFT } from '../../settings/common_settings.js';
 
-export function PanelGitRepos({ ctx }: { ctx: PrefsContext }): JSX.Element {
+export function PanelGitRepos({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.Element {
   const { common, upC } = ctx;
   const git = common.git;
 

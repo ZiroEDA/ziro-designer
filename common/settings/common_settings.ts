@@ -501,3 +501,16 @@ export function mergeCommon(stored: unknown): CommonSettings {
   out.dialog = { controls: normalizeDialogControls(dialog?.controls) };
   return out;
 }
+
+/**
+ * The common.json draft a Preferences panel edits: the values the book opened
+ * with and the updater that writes one change into the draft. Upstream a panel
+ * reads `Pgm().GetCommonSettings()` in TransferDataToWindow and writes it back
+ * in TransferDataFromWindow; ours edits a draft the dialog commits on OK (see
+ * the Preferences dialog's TransferDataFromWindow), and this is the part of it
+ * a common panel needs. The app's full context satisfies it structurally.
+ */
+export interface COMMON_SETTINGS_DRAFT {
+  common: CommonSettings;
+  upC: (fn: (s: CommonSettings) => void) => void;
+}

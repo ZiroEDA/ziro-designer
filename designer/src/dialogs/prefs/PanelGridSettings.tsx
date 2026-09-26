@@ -38,8 +38,8 @@
  * evaluated every idle and are properties of the state, not of the last click.
  */
 import { Fragment, type JSX, useState } from 'react';
-import { Group, Sel } from './widgets.js';
-import { Check } from './widgets.js';
+import { Group, Sel } from '@ziroeda/common/wx/controls.js';
+import { Check } from '@ziroeda/common/wx/controls.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
 import {

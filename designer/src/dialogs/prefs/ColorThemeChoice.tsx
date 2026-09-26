@@ -21,7 +21,7 @@
  * above both consumers, rather than a second time inside each of them.
  */
 import type { JSX } from 'react';
-import { Sel } from './widgets.js';
+import { Sel } from '@ziroeda/common/wx/controls.js';
 import { BUILTIN_THEMES } from '../../editors/schematic/theme.js';
 import { usePcmVersion } from '../../pcm/pcmStore.js';
 import { colorSettingsList } from '../../prefs/color_settings_list.js';

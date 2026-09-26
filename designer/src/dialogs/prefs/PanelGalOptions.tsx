@@ -23,7 +23,7 @@
  * 2..50 against 5..200 by 5).
  */
 import type { JSX } from 'react';
-import { Check, Group, Num, Radio, Sel } from './widgets.js';
+import { Check, Group, Num, Radio, Sel } from '@ziroeda/common/wx/controls.js';
 import {
   GAL_GROUP_TITLES,
   GRID_DISPLAY_LABELS,

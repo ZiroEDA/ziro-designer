@@ -150,7 +150,9 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // took their eight with them; see that row.
   // 4/19 -> 2/15 on 09-26 (stage 2): dialog_page_settings and the three
   // Setup panels moved to `common/dialogs`, with two colours and four sizes.
-  dialogs: { colours: 2, metrics: 15 },
+  // colours 2 -> 1 on 09-26 (stage 3b): prefs/widgets.tsx, the wx controls
+  // every panel is built from, moved to `common/wx` with its one colour.
+  dialogs: { colours: 1, metrics: 15 },
   // metrics 18 -> 16 on 09-26: the calculator's own About box went, and its
   // `margin: '0 0 8px'` and `paddingLeft: 18` with it. Help > About opens
   // common/dialog_about's DIALOG_ABOUT now, as pcb_calculator's does.
@@ -703,6 +705,9 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `editors/schematic`. Nothing added or removed: 8 + 7 = 15.
   // 0/15 -> 2/19 on 09-26 (stage 2): what `dialogs` gave up, 2 + 4.
   'common/dialogs': { colours: 2, metrics: 19 },
+  // 09-26 (stage 3b): common/wx/controls.tsx, the wx controls the panels'
+  // `_base` files instantiate, with the one colour `dialogs` gave up.
+  'common/wx': { colours: 1, metrics: 0 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in

@@ -53,7 +53,7 @@
  *  - `<ESC> clears net highlighting` is the Escape handler's branch.
  */
 import type { JSX } from 'react';
-import { Check, Group, Num, Radio, Sel } from '../../../dialogs/prefs/widgets.js';
+import { Check, Group, Num, Radio, Sel } from '@ziroeda/common/wx/controls.js';
 import { unitLabel } from '@ziroeda/common/eda_units.js';
 import { ARC_EDIT_MODE_CHOICES } from '../../footprint/arc_edit_mode.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';

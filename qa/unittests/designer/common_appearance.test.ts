@@ -26,7 +26,7 @@ import {
 } from '@ziroeda/designer/src/prefs/settings.js';
 
 const PANEL_SRC = readFileSync(
-  resolve(process.cwd(), '../designer/src/dialogs/prefs/panels/PanelCommonSettings.tsx'),
+  resolve(process.cwd(), '../common/dialogs/panel_common_settings.tsx'),
   'utf8',
 );
 import {
@@ -41,7 +41,7 @@ import {
   scaleForZoomFactor,
   zoomFactorForScale,
 } from '@ziroeda/common/widgets/kistatusbar_format.js';
-import { BASE_SCREEN_DPI } from '@ziroeda/designer/src/widgets/zoom_correction_ctrl.js';
+import { BASE_SCREEN_DPI } from '@ziroeda/common/widgets/zoom_correction_ctrl.js';
 
 /** Enough of an element for `applyCommonAppearance`; no DOM needed. */
 function fakeRoot(): HTMLElement {

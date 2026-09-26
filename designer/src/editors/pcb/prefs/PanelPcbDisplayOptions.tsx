@@ -49,7 +49,7 @@
  *  - Refresh 3D view automatically is `Viewer3DFrame`'s live-reload gate.
  */
 import type { JSX } from 'react';
-import { Check, Group, Sel } from '../../../dialogs/prefs/widgets.js';
+import { Check, Group, Sel } from '@ziroeda/common/wx/controls.js';
 import {
   NET_NAMES_CHOICES,
   PadsAndClearanceGroups,

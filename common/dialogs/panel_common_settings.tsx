@@ -56,16 +56,21 @@
  * yet, not ones that cannot be built; each says which in its tooltip.
  */
 import type { JSX } from 'react';
-import { Check, Group, Num, Radio, Sel } from '../widgets.js';
-import {
-  ZoomCorrectionCtrl,
-  type ZoomCorrectionUnits,
-} from '../../../widgets/zoom_correction_ctrl.js';
+import { Check, Group, Num, Radio, Sel } from '../wx/controls.js';
+import { ZoomCorrectionCtrl, type ZoomCorrectionUnits } from '../widgets/zoom_correction_ctrl.js';
 import { useState } from 'react';
-import { TOOLBAR_ICON_SIZES } from '../../../ui/common_appearance.js';
-import type { PrefsContext } from '../types.js';
+import type { COMMON_SETTINGS_DRAFT } from '../settings/common_settings.js';
 
-export function PanelCommonSettings({ ctx }: { ctx: PrefsContext }): JSX.Element {
+/**
+ * The three sizes `PANEL_COMMON_SETTINGS`' radios write
+ * (`panel_common_settings.cpp:206-211`, `:314-318`). [data]
+ *
+ * A value that is none of them is legal — the panel's switch has no default, so
+ * all three radios come up unselected and the toolbars still use it.
+ */
+export const TOOLBAR_ICON_SIZES = { small: 16, normal: 24, large: 32 } as const;
+
+export function PanelCommonSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.Element {
   const { common, upC } = ctx;
   // ZOOM_CORRECTION_CTRL keeps its unit choice in the widget, not in the
   // settings: `m_unitsChoice` has no PARAM behind it and resets to MM each

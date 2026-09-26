@@ -62,7 +62,7 @@ import {
   type ReactNode,
   type SetStateAction,
 } from 'react';
-import { Check } from './widgets.js';
+import { Check } from '@ziroeda/common/wx/controls.js';
 import { ColorThemeChoice } from './ColorThemeChoice.js';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { ThemeFolderDialog, type FolderFile, type ThemeFile } from './dialog_theme_folder.js';

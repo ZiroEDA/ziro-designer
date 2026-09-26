@@ -35,7 +35,7 @@
  * there too. Restoring them here would be a divergence, not a fix.
  */
 import { useMemo, useState, type JSX } from 'react';
-import { Check } from './widgets.js';
+import { Check } from '@ziroeda/common/wx/controls.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { SplitButton } from '@ziroeda/common/widgets/split_button.js';
 import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';

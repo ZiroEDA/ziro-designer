@@ -51,7 +51,7 @@
  * defaults on the way out.
  */
 import { useState, type JSX } from 'react';
-import { Num } from '../widgets.js';
+import { Num } from '@ziroeda/common/wx/controls.js';
 import {
   clearDialogState,
   clearDoNotShowAgainSettings,

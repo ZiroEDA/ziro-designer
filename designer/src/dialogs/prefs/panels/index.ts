@@ -11,11 +11,11 @@
  * same factory shape so the shell has exactly one way to reach a page, and so
  * that adding a generic page and adding an editor page are the same edit.
  */
-import { PanelCommonSettings } from './PanelCommonSettings.js';
-import { PanelMouseSettings } from './PanelMouseSettings.js';
+import { PanelCommonSettings } from '@ziroeda/common/dialogs/panel_common_settings.js';
+import { PanelMouseSettings } from '@ziroeda/common/dialogs/panel_mouse_settings.js';
 import { PanelHotkeys } from './PanelHotkeys.js';
-import { PanelSpacemouse } from './PanelSpacemouse.js';
-import { PanelGitRepos } from './PanelGitRepos.js';
+import { PanelSpacemouse } from '@ziroeda/common/dialogs/panel_spacemouse.js';
+import { PanelGitRepos } from '@ziroeda/common/dialogs/git/panel_git_repos.js';
 import { PanelMaintenance } from './PanelMaintenance.js';
 import {
   resetCommonPanel,

@@ -46,7 +46,7 @@
  * as a component one.
  */
 import type { JSX } from 'react';
-import { Check, Num, Sel } from './widgets.js';
+import { Check, Num, Sel } from '@ziroeda/common/wx/controls.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 
 /**

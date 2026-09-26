@@ -28,7 +28,7 @@ import type { JSX } from 'react';
 // the desktop icon theme, not KiCad's bitmaps. See `ui/ReadOnlyNotice.tsx` for
 // the measurement that settled that.
 import warningIcon from '@ziroeda/bitmaps_png/sources/theme/dialog-warning.png';
-import { Check, Group, Num } from '../../../../dialogs/prefs/widgets.js';
+import { Check, Group, Num } from '@ziroeda/common/wx/controls.js';
 import type { MaskPaste } from '../../board_settings.js';
 
 // The data model lives in board_settings.ts (KiCad's data/UI split);

@@ -18,7 +18,7 @@
  */
 
 import type { JSX } from 'react';
-import { Check, Sel } from '../../../../dialogs/prefs/widgets.js';
+import { Check, Sel } from '@ziroeda/common/wx/controls.js';
 import { GetStandardCopperFinishes } from '@ziroeda/pcbnew/board_stackup_manager/stackup_predefined_prms.js';
 import type { BoardFinish } from '../../board_settings.js';
 

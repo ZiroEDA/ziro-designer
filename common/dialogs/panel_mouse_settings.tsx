@@ -34,12 +34,12 @@
  * on screen and the condition it warns about was never shown.
  */
 import type { JSX } from 'react';
-import { Check, Group } from '../widgets.js';
-import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { Slider } from '@ziroeda/common/widgets/slider.js';
-import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
-import type { PrefsContext } from '../types.js';
-import type { MouseDragAction, ScrollModifier } from '../../../prefs/settings.js';
+import { Check, Group } from '../wx/controls.js';
+import { Combo } from '../widgets/wx_combobox.js';
+import { Slider } from '../widgets/slider.js';
+import { bitmapUrl } from '../bitmap_store.js';
+import type { COMMON_SETTINGS_DRAFT } from '../settings/common_settings.js';
+import type { MouseDragAction, ScrollModifier } from '../settings/common_settings.js';
 
 const mouseActionOpts: [MouseDragAction, string][] = [
   ['select', 'Draw selection rectangle'],
@@ -109,7 +109,7 @@ function ScrollRow({
   );
 }
 
-export function PanelMouseSettings({ ctx }: { ctx: PrefsContext }): JSX.Element {
+export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.Element {
   const { common, upC } = ctx;
   const input = common.input;
   const warn = !isScrollModSetValid(

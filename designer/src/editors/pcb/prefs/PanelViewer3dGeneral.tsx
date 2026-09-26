@@ -37,7 +37,7 @@
  * for a reader to discover.
  */
 import type { JSX } from 'react';
-import { Check, Group, Num, Sel } from '../../../dialogs/prefs/widgets.js';
+import { Check, Group, Num, Sel } from '@ziroeda/common/wx/controls.js';
 import { Slider } from '@ziroeda/common/widgets/slider.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 

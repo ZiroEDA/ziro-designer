@@ -17,7 +17,7 @@
  * in the footprint editor.
  */
 import type { JSX } from 'react';
-import { Check, Group, Sel } from './widgets.js';
+import { Check, Group, Sel } from '@ziroeda/common/wx/controls.js';
 
 /**
  * `m_OptDisplayTracksClearanceChoices`

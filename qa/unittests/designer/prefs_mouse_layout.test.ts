@@ -22,10 +22,10 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { isScrollModSetValid } from '@ziroeda/designer/src/dialogs/prefs/panels/PanelMouseSettings.js';
+import { isScrollModSetValid } from '@ziroeda/common/dialogs/panel_mouse_settings.js';
 
 const PANEL = readFileSync(
-  resolve(process.cwd(), '../designer/src/dialogs/prefs/panels/PanelMouseSettings.tsx'),
+  resolve(process.cwd(), '../common/dialogs/panel_mouse_settings.tsx'),
   'utf8',
 );
 const CSS = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
