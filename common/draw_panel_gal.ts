@@ -38,7 +38,7 @@ import {
   wxWheelEventFromDom,
 } from './wx/dom_events.js';
 import {
-  type wxEvent,
+  wxEvent,
   wxEVT_AUX1_DCLICK,
   wxEVT_AUX1_DOWN,
   wxEVT_AUX1_UP,
@@ -1082,6 +1082,8 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS {
     // If we get a second wx update call before the first finishes, don't crash
     if (this.m_gal!.IsContextLocked()) return;
 
+    let erased = false;
+
     GAL_CONTEXT_LOCKER(this.m_gal!, () => {
       const clientSize = this.GetClientSize();
       const infobar = this.GetParentEDAFrame() ? this.GetParentEDAFrame()!.GetInfoBar() : null;
@@ -1098,7 +1100,7 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS {
 
       if (this.m_view) bottom = this.m_view.ToWorld(this.m_gal!.GetScreenPixelSize(), true);
 
-      this.resizeBackingStore(clientSize.x, clientSize.y);
+      erased = this.resizeBackingStore(clientSize.x, clientSize.y);
       this.m_gal!.ResizeScreen(clientSize.x, clientSize.y);
 
       if (this.m_view) {
@@ -1115,6 +1117,12 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS {
         this.m_view.MarkTargetDirty(RENDER_TARGET.TARGET_NONCACHED);
       }
     });
+
+    // GTK exposes a resized wxGLCanvas: the native wxEVT_PAINT that follows
+    // every resize upstream. The browser erased the buffer and sends nothing,
+    // so the expose is ours to raise - in this task, before the empty buffer
+    // can be composited.
+    if (erased) this.ProcessEvent(new wxEvent(wxEVT_PAINT));
   }
 
   protected onEnter(aEvent: wxEvent): void {
@@ -1203,7 +1211,7 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS {
    * `wxGLCanvas::SetSize`: the element's size, and its backing store at the
    * display's scale.
    */
-  private resizeBackingStore(aWidth: number, aHeight: number): void {
+  private resizeBackingStore(aWidth: number, aHeight: number): boolean {
     const c = this.window.canvas;
     const sf = this.GetScaleFactor();
     const w = Math.round(aWidth * sf);
@@ -1214,8 +1222,14 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS {
       c.style.height = `${aHeight}px`;
     }
 
+    // Assigning either dimension erases the backing store, even to its
+    // current value - so only on a real change, and the caller repaints.
+    const erased = c.width !== w || c.height !== h;
+
     if (c.width !== w) c.width = w;
     if (c.height !== h) c.height = h;
+
+    return erased;
   }
 
   /** `wxEVT_IDLE`: the next animation frame. */
