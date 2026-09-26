@@ -319,6 +319,12 @@ export abstract class EDA_DRAW_FRAME extends EDA_BASE_FRAME {
     this.msgPanelChanged();
   }
 
+  /** `EraseMsgBox()`: the message panel's EraseMsgBox. */
+  EraseMsgBox(): void {
+    this.m_msgPanelItems = [];
+    this.msgPanelChanged();
+  }
+
   /**
    * Clear all messages from the message panel.
    */

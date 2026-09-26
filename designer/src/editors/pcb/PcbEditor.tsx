@@ -46,7 +46,7 @@ import {
   type RuleAreaValues,
   type ZoneBorderStyle,
 } from '@ziroeda/pcbnew/rule_area_properties.js';
-import { TwoPointGeomManager } from '@ziroeda/common/preview_items/two_point_geom_manager.js';
+import { TWO_POINT_GEOMETRY_MANAGER } from '@ziroeda/common/preview_items/two_point_geom_manager.js';
 import { ArcGeomManager, ArcStep } from '@ziroeda/common/preview_items/arc_geom_manager.js';
 import { arcMidPoint, drawArcAssistant } from '@ziroeda/common/preview_items/arc_assistant.js';
 import {
@@ -2059,7 +2059,7 @@ export function PcbEditor({
    * of its own; what stays here is the per-shape *choice* of constraint, which
    * `drawShape` makes on every event and which is not the same for all three.
    */
-  const twoPtRef = useRef(new TwoPointGeomManager());
+  const twoPtRef = useRef(new TWO_POINT_GEOMETRY_MANAGER());
   const twoPtStartedRef = useRef(false);
   /** `ARC_GEOM_MANAGER` — centre, then start, then swept angle. */
   const arcMgrRef = useRef(new ArcGeomManager());
@@ -2495,7 +2495,7 @@ export function PcbEditor({
     // `cleanup()`'s `polyGeomMgr.Reset()` (drawing_tool.cpp:3494).
     polyMgrRef.current?.reset();
     zoneMgrRef.current?.reset();
-    twoPtRef.current.reset();
+    twoPtRef.current.Reset();
     twoPtStartedRef.current = false;
     arcMgrRef.current.reset();
     setRuleAreaDialog(null);
@@ -3754,9 +3754,9 @@ export function PcbEditor({
       };
       const geom = kind ? twoPointShape[kind] : undefined;
 
-      if (geom && twoPtStartedRef.current && !mgr.isReset()) {
-        const origin = mgr.getOrigin();
-        const end = mgr.getEnd();
+      if (geom && twoPtStartedRef.current && !mgr.IsReset()) {
+        const origin = mgr.GetOrigin();
+        const end = mgr.GetEnd();
         const toPx = (q: { x: number; y: number }): { x: number; y: number } => ({
           x: q.x * sx + v.tx,
           y: q.y * v.scale + v.ty,
@@ -6677,23 +6677,23 @@ export function PcbEditor({
     const snap = shapeAngleSnap(kind, ctrlDownRef.current);
 
     if (twoPtStartedRef.current && snap !== LeaderMode.DIRECT) {
-      const origin = mgr.getOrigin();
+      const origin = mgr.GetOrigin();
       const lineVector = { x: p.x - origin.x, y: p.y - origin.y };
       const newEnd =
         snap === LeaderMode.DEG90
           ? vectorSnapped90(lineVector)
           : vectorSnapped45(lineVector, kind === 'rect');
-      mgr.setEnd({ x: origin.x + newEnd.x, y: origin.y + newEnd.y });
-      mgr.setAngleSnap(snap);
+      mgr.SetEnd({ x: origin.x + newEnd.x, y: origin.y + newEnd.y });
+      mgr.SetAngleSnap(snap);
     } else {
-      mgr.setEnd(p);
-      mgr.setAngleSnap(LeaderMode.DIRECT);
+      mgr.SetEnd(p);
+      mgr.SetAngleSnap(LeaderMode.DIRECT);
     }
   };
 
   /** `cleanup()` — throw the in-flight shape away and leave the tool armed. */
   const cleanupShape = (): void => {
-    twoPtRef.current.reset();
+    twoPtRef.current.Reset();
     twoPtStartedRef.current = false;
     arcMgrRef.current.reset();
     drawingRef.current = [];
@@ -6771,9 +6771,9 @@ export function PcbEditor({
         if (!twoPtStartedRef.current) {
           // "Init the new item attributes", then origin and end both on the
           // cursor so a shape that is never dragged is empty rather than stale.
-          mgr.setAngleSnap(LeaderMode.DIRECT);
-          mgr.setOrigin(p);
-          mgr.setEnd(p);
+          mgr.SetAngleSnap(LeaderMode.DIRECT);
+          mgr.SetOrigin(p);
+          mgr.SetEnd(p);
           twoPtStartedRef.current = true;
           break;
         }
@@ -6781,20 +6781,20 @@ export function PcbEditor({
         updateTwoPointCursor(kind, p);
 
         // "User has clicked twice in the same spot, meaning we're finished."
-        if (mgr.isEmpty() || dbl) {
+        if (mgr.IsEmpty() || dbl) {
           cleanupShape();
           break;
         }
 
-        const origin = mgr.getOrigin();
-        const end = mgr.getEnd();
+        const origin = mgr.GetOrigin();
+        const end = mgr.GetEnd();
 
         if (kind === 'line') {
           commitShape({ kind: 'line', start: origin, end, ...base }, false);
           // `startingPoint = VECTOR2D( line->GetEnd() )` — the chain carries on
           // from this segment's end.
-          mgr.setOrigin(end);
-          mgr.setEnd(end);
+          mgr.SetOrigin(end);
+          mgr.SetEnd(end);
         } else if (kind === 'rect') {
           // `rect->Normalize()` before the commit: start is the top-left
           // corner and end the bottom-right, whichever way it was dragged.

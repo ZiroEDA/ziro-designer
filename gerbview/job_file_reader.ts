@@ -20,6 +20,9 @@
  */
 import { type Reporter as REPORTER, RPT_SEVERITY_WARNING } from '@ziroeda/common/reporter.js';
 import { FILE, LINE_BUFFER } from './libc.js';
+import { GERBVIEW_JOB_FILTERS } from '@ziroeda/common/wildcards_and_files_ext.js';
+import { ReadFileText, WX_STRING_REPORTER } from './files.js';
+import type { GERBVIEW_FRAME } from './gerbview_frame.js';
 
 export class GERBER_JOBFILE_READER {
   private m_reporter: REPORTER | null;
@@ -101,4 +104,62 @@ export class GERBER_JOBFILE_READER {
   private formatStringFromJSON(name: string): string {
     return name;
   }
+}
+
+/**
+ * `GERBVIEW_FRAME::LoadGerberJobFile` (job_file_reader.cpp:176-247): read a
+ * .gbrjob, clear the layers and load the gerber files it lists, then sort by
+ * the X2 attributes. Bound on the frame (`gerbview_frame.ts`).
+ */
+export async function LoadGerberJobFile(
+  this: GERBVIEW_FRAME,
+  aFullFileName: string,
+): Promise<boolean> {
+  let filename = aFullFileName;
+  let currentPath: string;
+  let success = true;
+
+  if (filename === '') {
+    const chosen = await this.Host().FileDialog(
+      'Open Gerber Job File',
+      GERBVIEW_JOB_FILTERS,
+      false,
+      0,
+    );
+
+    if (chosen === null || chosen.paths.length === 0) return false;
+
+    filename = chosen.paths[0]!;
+  }
+
+  currentPath = filename.slice(0, Math.max(0, filename.lastIndexOf('/')));
+  this.m_mruPath = currentPath;
+
+  const reporter = new WX_STRING_REPORTER();
+
+  if (filename !== '') {
+    const gbjReader = new GERBER_JOBFILE_READER(filename, reporter, ReadFileText(filename));
+
+    if (gbjReader.ReadGerberJobFile()) {
+      // Update the list of recent drill files.
+      this.Host().UpdateFileHistory(filename, 'job');
+
+      await this.Clear_DrawLayers(false);
+      this.ClearMsgPanel();
+
+      const gbrfiles = gbjReader.GetGerberFiles();
+
+      // 0 = Gerber file type
+      const fileTypesVec = new Array<number>(gbrfiles.length).fill(0);
+      success = await this.LoadListOfGerberAndDrillFiles(currentPath, gbrfiles, fileTypesVec);
+
+      this.Zoom_Automatique(false);
+    }
+  }
+
+  this.SortLayersByX2Attributes();
+
+  if (reporter.HasMessage()) await this.Host().HtmlMessageBox('Messages', reporter.GetMessages());
+
+  return success;
 }

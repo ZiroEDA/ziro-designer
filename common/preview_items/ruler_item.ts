@@ -39,6 +39,33 @@ import {
   type PreviewUnits,
 } from './preview_utils.js';
 
+import {
+  DimensionLabel,
+  DrawTextNextToCursor,
+  GetConstantGlyphHeight,
+  GetShadowColor,
+  type TEXT_DIMS,
+} from './preview_utils.js';
+import type { TWO_POINT_GEOMETRY_MANAGER } from './two_point_geom_manager.js';
+import type { Color4d } from '../color4d.js';
+import { EDA_ITEM } from '../eda_item.js';
+import type { EdaIuScale, EdaUnits } from '../eda_units.js';
+import { FONT } from '../font/font.js';
+import { METRICS } from '../font/font_metrics.js';
+import { GR_TEXT_H_ALIGN_T, TEXT_ATTRIBUTES } from '../font/text_attributes.js';
+import {
+  type GAL,
+  GAL_SCOPED_ATTRS,
+  GAL_SCOPED_ATTRS_FLAGS,
+} from '../gal/graphics_abstraction_layer.js';
+import { GAL_LAYER_ID } from '../layer_id.js';
+import type { VIEW } from '../view/view.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { ANGLE_90, ANGLE_180, EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { ResizeD, type Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { RotatePointD } from '@ziroeda/kimath/src/trigo.js';
+
 // `preview_utils.cpp`'s own functions now live in `preview_utils.ts`, where
 // `TWO_POINT_ASSISTANT` and `ARC_ASSISTANT` can reach them; they are
 // re-exported here because callers and tests already import them from the
@@ -385,4 +412,482 @@ export function drawRulerItem(ctx: CanvasRenderingContext2D, o: RulerDrawOptions
     color: o.color,
     devicePixelRatio: dpr,
   });
+}
+
+// ---- RULER_ITEM (ruler_item.cpp) ---------------------------------------------
+
+const maxTickDensity = 10.0; // min pixels between tick marks
+const midTickLengthFactor = 1.5;
+const majorTickLengthFactor = 2.5;
+
+/*
+ * It would be nice to know why Cairo seems to have an opposite layer order from GAL, but
+ * only when drawing RULER_ITEMs (the TWO_POINT_ASSISTANT and ARC_ASSISTANT are immune from
+ * this issue).
+ *
+ * Until then, this egregious hack...
+ */
+function getShadowLayer(aGal: GAL): number {
+  if (aGal.IsCairoEngine()) return GAL_LAYER_ID.LAYER_SELECT_OVERLAY;
+
+  return GAL_LAYER_ID.LAYER_GP_OVERLAY;
+}
+
+function getTickLineWidth(textDims: TEXT_DIMS, aDrawingDropShadows: boolean): number {
+  let width = textDims.StrokeWidth * 0.8;
+
+  if (aDrawingDropShadows) width += textDims.ShadowWidth;
+
+  return width;
+}
+
+/**
+ * Description of a "tick format" for a scale factor - how many ticks there are
+ * between medium/major ticks and how each scale relates to the last one
+ */
+interface TICK_FORMAT {
+  divisionBase: number; ///< multiple from the last scale
+  majorStep: number; ///< ticks between major ticks
+  midStep: number; ///< ticks between medium ticks (0 if no medium ticks)
+}
+
+// simple 1/2/5 scales per decade
+const tickFormats: readonly TICK_FORMAT[] = [
+  { divisionBase: 2, majorStep: 10, midStep: 5 }, // |....:....|
+  { divisionBase: 2, majorStep: 5, midStep: 0 }, // |....|
+  { divisionBase: 2.5, majorStep: 2, midStep: 0 }, // |.|.|
+];
+
+function getTickFormatForScale(
+  aScale: number,
+  aUnits: EdaUnits,
+): { format: TICK_FORMAT; tickSpace: number } {
+  // could start at a set number of MM, but that's not available in common
+  let aTickSpace = 1;
+
+  // Convert to a round (mod-10) number of mils for imperial units
+  if (aUnits === 'in' || aUnits === 'mils') aTickSpace *= 2.54;
+
+  let tickFormat = 0;
+
+  while (true) {
+    const pixelSpace = aTickSpace * aScale;
+
+    if (pixelSpace >= maxTickDensity) break;
+
+    tickFormat = (tickFormat + 1) % tickFormats.length;
+    aTickSpace *= tickFormats[tickFormat]!.divisionBase;
+  }
+
+  return { format: tickFormats[tickFormat]!, tickSpace: aTickSpace };
+}
+
+/**
+ * Draw labeled ticks on a line. Ticks are spaced according to a
+ * maximum density. Minor ticks are not labeled.
+ */
+function drawTicksAlongLine(
+  aView: VIEW,
+  aOrigin: Vec2,
+  aLine: Vec2,
+  aMinorTickLen: number,
+  aIuScale: EdaIuScale,
+  aUnits: EdaUnits,
+  aDrawingDropShadows: boolean,
+): void {
+  const gal = aView.GetGAL()!;
+  const font = FONT.GetFont();
+  const { format: tickFormat, tickSpace } = getTickFormatForScale(gal.GetWorldScale(), aUnits);
+  const majorTickLen = aMinorTickLen * (majorTickLengthFactor + 1);
+  const tickLine = RotatePointD(aLine, ANGLE_90);
+
+  // number of ticks in whole ruler
+  const numTicks = Math.ceil(Math.hypot(aLine.x, aLine.y) / tickSpace);
+
+  // work out which way up the tick labels go
+  const labelDims = GetConstantGlyphHeight(gal, -1);
+  const labelAngle = EDA_ANGLE.fromVector(tickLine).Invert();
+  const lo = ResizeD(tickLine, majorTickLen);
+  const labelOffset = { x: Math.round(lo.x), y: Math.round(lo.y) };
+
+  // text is left (or right) aligned, so shadow text need a small offset to be draw
+  // around the basic text
+  let shadowXoffset = 0;
+
+  if (aDrawingDropShadows) {
+    labelDims.StrokeWidth += 2 * labelDims.ShadowWidth;
+    shadowXoffset = labelDims.ShadowWidth;
+    // Due to the fact a shadow text is drawn left or right aligned,
+    // it needs an offset = shadowXoffset to be drawn at the same place as normal text
+    // But for some reason we need to slightly modify this offset
+    // for a better look for KiCad font (better alignment of shadow shape)
+    const adjust = 1.2; // Value chosen after tests
+    shadowXoffset = Math.trunc(shadowXoffset * adjust);
+  }
+
+  if (aView.IsMirroredX()) {
+    labelOffset.x = -labelOffset.x;
+    labelOffset.y = -labelOffset.y;
+    shadowXoffset = -shadowXoffset;
+  }
+
+  const labelAttrs = new TEXT_ATTRIBUTES();
+  labelAttrs.m_Size = labelDims.GlyphSize;
+  labelAttrs.m_StrokeWidth = labelDims.StrokeWidth;
+  labelAttrs.m_Mirrored = aView.IsMirroredX(); // Prevent text mirrored when view is mirrored
+
+  if (EDA_ANGLE.fromVector(aLine).AsDegrees() > 0) {
+    labelAttrs.m_Halign = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT;
+    labelAttrs.m_Angle = labelAngle;
+
+    // Adjust the text position of the shadow shape:
+    labelOffset.x -= Math.trunc(shadowXoffset * labelAttrs.m_Angle.Cos());
+    labelOffset.y += Math.trunc(shadowXoffset * labelAttrs.m_Angle.Sin());
+  } else {
+    labelAttrs.m_Halign = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT;
+    labelAttrs.m_Angle = labelAngle.add(ANGLE_180);
+
+    // Adjust the text position of the shadow shape:
+    labelOffset.x += Math.trunc(shadowXoffset * labelAttrs.m_Angle.Cos());
+    labelOffset.y -= Math.trunc(shadowXoffset * labelAttrs.m_Angle.Sin());
+  }
+
+  const viewportD = aView.GetViewport();
+  const viewport = new BOX2I(
+    { x: Math.trunc(viewportD.GetPosition().x), y: Math.trunc(viewportD.GetPosition().y) },
+    { x: Math.trunc(viewportD.GetSize().x), y: Math.trunc(viewportD.GetSize().y) },
+  );
+  viewport.Inflate(majorTickLen * 2); // Doesn't have to be accurate, just big enough not
+  // to exclude anything that should be partially drawn
+
+  const isign = aView.IsMirroredX() ? -1 : 1;
+
+  for (let i = 0; i < numTicks; ++i) {
+    const step = ResizeD(aLine, tickSpace * i);
+    const tickPos = { x: aOrigin.x + step.x, y: aOrigin.y + step.y };
+
+    if (!viewport.Contains(tickPos)) continue;
+
+    let length = aMinorTickLen;
+    let drawLabel = false;
+
+    if (i % tickFormat.majorStep === 0) {
+      drawLabel = true;
+      length *= majorTickLengthFactor;
+    } else if (tickFormat.midStep && i % tickFormat.midStep === 0) {
+      drawLabel = true;
+      length *= midTickLengthFactor;
+    }
+
+    gal.SetLineWidth(labelAttrs.m_StrokeWidth / 2);
+    const tick = ResizeD(tickLine, length * isign);
+    gal.DrawLine(tickPos, { x: tickPos.x + tick.x, y: tickPos.y + tick.y });
+
+    if (drawLabel) {
+      const label = DimensionLabel('', tickSpace * i, aIuScale, aUnits, false);
+      font.Draw(
+        gal,
+        label,
+        { x: tickPos.x + labelOffset.x, y: tickPos.y + labelOffset.y },
+        { x: 0, y: 0 },
+        labelAttrs,
+        METRICS.Default(),
+      );
+    }
+  }
+}
+
+/**
+ * Draw simple ticks on the back of a line such that the line is
+ * divided into n parts.
+ */
+function drawBacksideTicks(
+  aView: VIEW,
+  aOrigin: Vec2,
+  aLine: Vec2,
+  aTickLen: number,
+  aNumDivisions: number,
+  aDrawingDropShadows: boolean,
+): void {
+  const gal = aView.GetGAL()!;
+  const textDims = GetConstantGlyphHeight(gal, -1);
+  const backTickSpace = Math.hypot(aLine.x, aLine.y) / aNumDivisions;
+  const isign = aView.IsMirroredX() ? -1 : 1;
+
+  const backTickVec = ResizeD(RotatePointD(aLine, ANGLE_90.Invert()), aTickLen * isign);
+
+  const viewportD = aView.GetViewport();
+  const viewport = new BOX2I(
+    { x: Math.trunc(viewportD.GetPosition().x), y: Math.trunc(viewportD.GetPosition().y) },
+    { x: Math.trunc(viewportD.GetSize().x), y: Math.trunc(viewportD.GetSize().y) },
+  );
+  viewport.Inflate(aTickLen * 4); // Doesn't have to be accurate, just big enough not to
+  // exclude anything that should be partially drawn
+
+  for (let i = 0; i < aNumDivisions + 1; ++i) {
+    const step = ResizeD(aLine, backTickSpace * i);
+    const backTickPos = { x: aOrigin.x + step.x, y: aOrigin.y + step.y };
+
+    if (!viewport.Contains(backTickPos)) continue;
+
+    gal.SetLineWidth(getTickLineWidth(textDims, aDrawingDropShadows));
+    gal.DrawLine(backTickPos, {
+      x: backTickPos.x + backTickVec.x,
+      y: backTickPos.y + backTickVec.y,
+    });
+  }
+}
+
+/**
+ * A drawn ruler item for showing the distance between two points.
+ */
+export class RULER_ITEM extends EDA_ITEM {
+  private m_geomMgr: TWO_POINT_GEOMETRY_MANAGER;
+  private m_userUnits: EdaUnits;
+  private m_iuScale: EdaIuScale;
+  private m_flipX: boolean;
+  private m_flipY: boolean;
+  private m_color: Color4d | null = null;
+  private m_showTicks = true;
+  private m_showEndArrowHead = false;
+
+  /**
+   * Return a RULER_ITEM for a TWO_POINT_GEOMETRY_MANAGER, in the given units.
+   */
+  constructor(
+    aGeomMgr: TWO_POINT_GEOMETRY_MANAGER,
+    aIuScale: EdaIuScale,
+    userUnits: EdaUnits,
+    aFlipX: boolean,
+    aFlipY: boolean,
+  ) {
+    super(KICAD_T.NOT_USED); // Never added to anything - just a preview
+    this.m_geomMgr = aGeomMgr;
+    this.m_userUnits = userUnits;
+    this.m_iuScale = aIuScale;
+    this.m_flipX = aFlipX;
+    this.m_flipY = aFlipY;
+  }
+
+  ///< @copydoc EDA_ITEM::ViewBBox()
+  override ViewBBox(): BOX2I {
+    const tmp = new BOX2I();
+
+    const o = this.m_geomMgr.GetOrigin();
+    const e = this.m_geomMgr.GetEnd();
+
+    if (o.x === e.x && o.y === e.y) return tmp;
+
+    // this is an edit-time artefact; no reason to try and be smart with the bounding box
+    // (besides, we can't tell the text extents without a view to know what the scale is)
+    tmp.SetMaximum();
+    return tmp;
+  }
+
+  ///< @copydoc EDA_ITEM::ViewGetLayers()
+  override ViewGetLayers(): number[] {
+    return [GAL_LAYER_ID.LAYER_SELECT_OVERLAY, GAL_LAYER_ID.LAYER_GP_OVERLAY];
+  }
+
+  ///< @copydoc EDA_ITEM::ViewDraw();
+  override ViewDraw(aLayer: number, aView: VIEW): void {
+    const gal = aView.GetGAL()!;
+    const rs = aView.GetPainter().GetSettings();
+    const drawingDropShadows = aLayer === getShadowLayer(gal);
+
+    GAL_SCOPED_ATTRS(gal, GAL_SCOPED_ATTRS_FLAGS.ALL_ATTRS, () => {
+      gal.SetLayerDepth(gal.GetMinDepth());
+
+      const origin = this.m_geomMgr.GetOrigin();
+      const end = this.m_geomMgr.GetEnd();
+
+      gal.SetIsStroke(true);
+      gal.SetIsFill(false);
+
+      gal.SetTextMirrored(false);
+
+      if (this.m_color) gal.SetStrokeColor(this.m_color);
+      else gal.SetStrokeColor(rs.GetLayerColor(GAL_LAYER_ID.LAYER_AUX_ITEMS));
+
+      if (drawingDropShadows) gal.SetStrokeColor(GetShadowColor(gal.GetStrokeColor()));
+
+      gal.ResetTextAttributes();
+      const textDims = GetConstantGlyphHeight(gal);
+
+      // draw the main line from the origin to cursor
+      gal.SetLineWidth(getTickLineWidth(textDims, drawingDropShadows));
+      gal.DrawLine(origin, end);
+
+      const rulerVec = { x: end.x - origin.x, y: end.y - origin.y };
+
+      const cursorStrings = this.GetDimensionStrings();
+
+      // Choose a text quadrant that keeps the measurement text on-screen while avoiding
+      // overlapping the ruler geometry.  Start with the preferred direction (away from the
+      // origin) and fall back to other quadrants as needed to keep the label visible.
+      const prefX = rulerVec.y < 0.0 ? -1 : 1;
+      const prefY = rulerVec.x < 0.0 ? 1 : -1;
+
+      const scale = gal.GetWorldScale();
+      const dims = GetConstantGlyphHeight(gal);
+      const font = FONT.GetFont();
+      let width = 0.0;
+
+      for (const s of cursorStrings) {
+        const extents = font.StringBoundaryLimits(
+          s,
+          dims.GlyphSize,
+          dims.StrokeWidth,
+          false,
+          false,
+          METRICS.Default(),
+        );
+        width = Math.max(width, extents.x);
+      }
+
+      const height = dims.LinePitch * cursorStrings.length;
+
+      // Convert to screen coordinates for visibility checks
+      const cursorScreen = gal.ToScreen(end);
+      const screenSize = gal.GetScreenPixelSize();
+      const offsetX = 15.0; // same as DrawTextNextToCursor()
+      const offsetY = dims.LinePitch * scale; // vertical spacing from cursor
+
+      const fits = (sx: number, sy: number): boolean => {
+        let left: number;
+        let right: number;
+        let top: number;
+        let bottom: number;
+        const xStart = cursorScreen.x + (sx < 0 ? offsetX : -offsetX);
+
+        if (sx < 0) {
+          left = xStart;
+          right = left + width * scale;
+        } else {
+          right = xStart;
+          left = right - width * scale;
+        }
+
+        if (sy > 0) {
+          // above cursor
+          bottom = cursorScreen.y - offsetY;
+          top = bottom - height * scale;
+        } else {
+          // below cursor
+          top = cursorScreen.y + offsetY;
+          bottom = top + height * scale;
+        }
+
+        return left >= 0 && right <= screenSize.x && top >= 0 && bottom <= screenSize.y;
+      };
+
+      const candidates = [
+        { x: prefX, y: prefY },
+        { x: -prefX, y: prefY },
+        { x: prefX, y: -prefY },
+        { x: -prefX, y: -prefY },
+      ];
+      let chosen = candidates[0]!;
+      let bestDot = -1.0;
+
+      for (const c of candidates) {
+        const dot = c.x * prefX + c.y * prefY;
+
+        if (dot >= 0 && fits(c.x, c.y)) {
+          if (dot > bestDot) {
+            bestDot = dot;
+            chosen = c;
+          }
+        }
+      }
+
+      DrawTextNextToCursor(aView, end, chosen, cursorStrings, drawingDropShadows);
+
+      // basic tick size
+      let minorTickLen = 5.0 / gal.GetWorldScale();
+      let majorTickLen = minorTickLen * majorTickLengthFactor;
+      minorTickLen = Math.min(minorTickLen, 2147483647 / 2.0);
+      majorTickLen = Math.min(majorTickLen, 2147483647 / 2.0);
+
+      if (this.m_showTicks) {
+        drawTicksAlongLine(
+          aView,
+          origin,
+          rulerVec,
+          minorTickLen,
+          this.m_iuScale,
+          this.m_userUnits,
+          drawingDropShadows,
+        );
+        drawBacksideTicks(aView, origin, rulerVec, majorTickLen, 2, drawingDropShadows);
+      }
+
+      if (this.m_showEndArrowHead) {
+        const arrowAngle = new EDA_ANGLE(30.0);
+
+        let arrowHead = ResizeD(RotatePointD(rulerVec, arrowAngle), majorTickLen);
+        gal.DrawLine(end, { x: end.x - arrowHead.x, y: end.y - arrowHead.y });
+
+        arrowHead = ResizeD(RotatePointD(rulerVec, arrowAngle.Invert()), majorTickLen);
+        gal.DrawLine(end, { x: end.x - arrowHead.x, y: end.y - arrowHead.y });
+      } else {
+        // draw the back of the origin "crosshair"
+        const back = ResizeD(rulerVec, -minorTickLen * midTickLengthFactor);
+        gal.DrawLine(origin, { x: origin.x + back.x, y: origin.y + back.y });
+      }
+    });
+  }
+
+  SetColor(aColor: Color4d): void {
+    this.m_color = aColor;
+  }
+
+  SetShowTicks(aShow: boolean): void {
+    this.m_showTicks = aShow;
+  }
+
+  SetShowEndArrowHead(aShow: boolean): void {
+    this.m_showEndArrowHead = aShow;
+  }
+
+  GetDimensionStrings(): string[] {
+    const e = this.m_geomMgr.GetEnd();
+    const o = this.m_geomMgr.GetOrigin();
+    const rulerVec = { x: e.x - o.x, y: e.y - o.y };
+    const temp = { ...rulerVec };
+
+    if (this.m_flipX) temp.x = -temp.x;
+
+    if (this.m_flipY) temp.y = -temp.y;
+
+    const cursorStrings: string[] = [];
+
+    cursorStrings.push(DimensionLabel('x', temp.x, this.m_iuScale, this.m_userUnits));
+    cursorStrings.push(DimensionLabel('y', temp.y, this.m_iuScale, this.m_userUnits));
+
+    cursorStrings.push(
+      DimensionLabel('r', Math.hypot(rulerVec.x, rulerVec.y), this.m_iuScale, this.m_userUnits),
+    );
+
+    const angle = EDA_ANGLE.fromVector(rulerVec).Invert();
+    cursorStrings.push(DimensionLabel('θ', angle.AsDegrees(), this.m_iuScale, 'degrees'));
+
+    return cursorStrings;
+  }
+
+  override GetClass(): string {
+    return 'RULER_ITEM';
+  }
+
+  /**
+   * Switch the ruler units.
+   */
+  SwitchUnits(aUnits: EdaUnits): void {
+    this.m_userUnits = aUnits;
+  }
+
+  UpdateDir(aFlipX: boolean, aFlipY: boolean): void {
+    this.m_flipX = aFlipX;
+    this.m_flipY = aFlipY;
+  }
 }

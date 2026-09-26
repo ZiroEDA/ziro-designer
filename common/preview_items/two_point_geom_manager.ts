@@ -30,21 +30,21 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 export { LeaderMode };
 
 /** `TWO_POINT_GEOMETRY_MANAGER`. */
-export class TwoPointGeomManager {
-  private origin_: Vec2 = { x: 0, y: 0 };
-  private end_: Vec2 = { x: 0, y: 0 };
-  private angleSnap_: LeaderMode = LeaderMode.DIRECT;
-  private originSet_ = false;
+export class TWO_POINT_GEOMETRY_MANAGER {
+  private m_origin: Vec2 = { x: 0, y: 0 };
+  private m_end: Vec2 = { x: 0, y: 0 };
+  private m_angleSnap: LeaderMode = LeaderMode.DIRECT;
+  private m_originSet = false;
 
   /** `SetOrigin` — the fixed end. */
-  setOrigin(origin: Vec2): void {
-    this.origin_ = { x: origin.x, y: origin.y };
-    this.originSet_ = true;
+  SetOrigin(origin: Vec2): void {
+    this.m_origin = { x: origin.x, y: origin.y };
+    this.m_originSet = true;
   }
 
   /** `GetOrigin`. */
-  getOrigin(): Vec2 {
-    return this.origin_;
+  GetOrigin(): Vec2 {
+    return this.m_origin;
   }
 
   /**
@@ -57,48 +57,48 @@ export class TwoPointGeomManager {
    * functions are idempotent, so passing through this one again changes
    * nothing.
    */
-  setEnd(end: Vec2): void {
-    const vec = { x: end.x - this.origin_.x, y: end.y - this.origin_.y };
-    switch (this.angleSnap_) {
+  SetEnd(end: Vec2): void {
+    const vec = { x: end.x - this.m_origin.x, y: end.y - this.m_origin.y };
+    switch (this.m_angleSnap) {
       case LeaderMode.DEG45: {
         const s = vectorSnapped45(vec);
-        this.end_ = { x: this.origin_.x + s.x, y: this.origin_.y + s.y };
+        this.m_end = { x: this.m_origin.x + s.x, y: this.m_origin.y + s.y };
         break;
       }
       case LeaderMode.DEG90: {
         const s = vectorSnapped90(vec);
-        this.end_ = { x: this.origin_.x + s.x, y: this.origin_.y + s.y };
+        this.m_end = { x: this.m_origin.x + s.x, y: this.m_origin.y + s.y };
         break;
       }
       default:
-        this.end_ = { x: end.x, y: end.y };
+        this.m_end = { x: end.x, y: end.y };
         break;
     }
   }
 
   /** `GetEnd`. */
-  getEnd(): Vec2 {
-    return this.end_;
+  GetEnd(): Vec2 {
+    return this.m_end;
   }
 
   /** `SetAngleSnap`. */
-  setAngleSnap(snap: LeaderMode): void {
-    this.angleSnap_ = snap;
+  SetAngleSnap(snap: LeaderMode): void {
+    this.m_angleSnap = snap;
   }
 
   /** `GetAngleSnap`. */
-  getAngleSnap(): LeaderMode {
-    return this.angleSnap_;
+  GetAngleSnap(): LeaderMode {
+    return this.m_angleSnap;
   }
 
   /** `IsReset` — nothing has been placed, so there is nothing to draw. */
-  isReset(): boolean {
-    return !this.originSet_;
+  IsReset(): boolean {
+    return !this.m_originSet;
   }
 
   /** `Reset`. Note that it clears only the flag, as upstream does. */
-  reset(): void {
-    this.originSet_ = false;
+  Reset(): void {
+    this.m_originSet = false;
   }
 
   /**
@@ -108,7 +108,9 @@ export class TwoPointGeomManager {
    * spot means the user is finished, and the zero-sized shape is thrown away
    * rather than committed.
    */
-  isEmpty(): boolean {
-    return !this.originSet_ || (this.origin_.x === this.end_.x && this.origin_.y === this.end_.y);
+  IsEmpty(): boolean {
+    return (
+      !this.m_originSet || (this.m_origin.x === this.m_end.x && this.m_origin.y === this.m_end.y)
+    );
   }
 }

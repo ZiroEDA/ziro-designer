@@ -17,6 +17,8 @@ import { EscapeHTML } from '@ziroeda/common/string_utils.js';
 import { GERBER_BUFZ, GERBER_FILE_IMAGE } from './gerber_file_image.js';
 import { Gerb_Analyse_Cmd } from './gerbview.js';
 import { CHAR_PTR, FILE, LINE_BUFFER, NUL, StrPurge, isdigit } from './libc.js';
+import { ReadFileText } from './files.js';
+import type { GERBVIEW_FRAME } from './gerbview_frame.js';
 
 /**
  * `GERBER_FILE_IMAGE::TestFileIsRS274`: "Original function derived from
@@ -200,6 +202,74 @@ export function LoadGerberFile(
   self.m_Current_File = null; // fclose
 
   self.m_InUse = true;
+
+  return true;
+}
+
+/**
+ * `GERBVIEW_FRAME::Read_GERBER_File` (readgerb.cpp:41-110): read a gerber file
+ * into the active layer, replacing what it held, and add its items to the
+ * view. Bound on the frame (`gerbview_frame.ts`).
+ */
+export async function Read_GERBER_File(
+  this: GERBVIEW_FRAME,
+  GERBER_FullFileName: string,
+): Promise<boolean> {
+  let msg: string;
+
+  const layer = this.GetActiveLayer();
+  const images = this.GetImagesList();
+  let gerber = this.GetGbrImage(layer);
+
+  if (gerber !== null) await this.Erase_Current_DrawLayer(false);
+
+  // use an unique ptr while we load to free on exception properly
+  const gerber_uptr = new GERBER_FILE_IMAGE(layer);
+
+  // Read the gerber file. The image will be added only if it can be read
+  // to avoid broken data.
+  const success = gerber_uptr.LoadGerberFile(
+    GERBER_FullFileName,
+    ReadFileText(GERBER_FullFileName),
+  );
+
+  if (!success) {
+    msg = `File '${GERBER_FullFileName}' not found`;
+    this.Host().InfoBarError(msg);
+    return false;
+  }
+
+  gerber = gerber_uptr;
+  images.AddGbrImage(gerber, layer);
+
+  // Display errors list
+  if (gerber.GetMessages().length > 0)
+    await this.Host().HtmlMessageBox('Errors', gerber.GetMessages().join('\n'));
+
+  /* if the gerber file has items using D codes but missing D codes definitions,
+   * it can be a deprecated RS274D file (i.e. without any aperture information),
+   * or has missing definitions,
+   * warn the user:
+   */
+  if (gerber.GetItemsCount() && gerber.m_Has_MissingDCode) {
+    if (!gerber.m_Has_DCode)
+      msg =
+        'Warning: this file has no D-Code definition\n' +
+        'Therefore the size of some items is undefined';
+    else
+      msg =
+        'Warning: this file has some missing D-Code definitions\n' +
+        'Therefore the size of some items is undefined';
+
+    await this.Host().MessageBox(msg);
+  }
+
+  const canvas = this.GetCanvas();
+
+  if (canvas) {
+    // m_ImageNegative: "TODO: find a way to handle negative images" upstream.
+    for (const item of gerber.GetItems()) canvas.GetView().Add(item);
+  }
 
   return true;
 }

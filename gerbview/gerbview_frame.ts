@@ -56,6 +56,17 @@ import { messageTextFromValue } from '@ziroeda/common/eda_units.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { Clear_DrawLayers, Erase_Current_DrawLayer } from './clear_gbr_drawlayers.js';
+import type { ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
+import {
+  LoadAutodetectedFiles,
+  LoadExcellonFiles,
+  LoadGerberFiles,
+  LoadListOfGerberAndDrillFiles,
+  LoadZipArchiveFile,
+} from './files.js';
+import { Read_EXCELLON_File } from './excellon_read_drill_file.js';
+import { LoadGerberJobFile } from './job_file_reader.js';
+import { Read_GERBER_File } from './readgerb.js';
 import {
   OnSelectActiveDCode,
   OnSelectActiveLayer,
@@ -64,7 +75,12 @@ import {
 import { GBR_LAYOUT } from './gbr_layout.js';
 import { GERBER_DRAW_ITEM } from './gerber_draw_item.js';
 import type { GERBER_FILE_IMAGE } from './gerber_file_image.js';
-import type { GERBER_FILE_IMAGE_LIST } from './gerber_file_image_list.js';
+import {
+  GERBER_FILE_IMAGE_LIST as GERBER_FILE_IMAGE_LIST_CLASS,
+  type GERBER_FILE_IMAGE_LIST,
+  GERBER_ORDER_ENUM,
+} from './gerber_file_image_list.js';
+import { wxDirExists, wxFileExists } from '@ziroeda/common/wx/filefn.js';
 import { gerbIUScale } from './gerbview.js';
 import type { GERBVIEW_DRAW_PANEL_GAL } from './gerbview_draw_panel_gal.js';
 import type { GERBVIEW_PAINTER } from './gerbview_painter.js';
@@ -77,6 +93,9 @@ import {
   updateNetnameListSelectBox,
 } from './toolbars_gerber.js';
 import { GERBVIEW_ACTIONS } from './tools/gerbview_actions.js';
+import { GERBVIEW_CONTROL } from './tools/gerbview_control.js';
+import { GERBVIEW_INSPECTION_TOOL } from './tools/gerbview_inspection_tool.js';
+import { GERBVIEW_SELECTION_TOOL } from './tools/gerbview_selection_tool.js';
 import { DCODE_SELECTION_BOX } from './widgets/dcode_selection_box.js';
 import { GBR_LAYER_BOX_SELECTOR } from './widgets/gbr_layer_box_selector.js';
 
@@ -85,8 +104,57 @@ export const GERBVIEW_FRAME_NAME = 'GerberFrame';
 /// `#define NO_AVAILABLE_LAYERS UNDEFINED_LAYER`
 export const NO_AVAILABLE_LAYERS = UNDEFINED_LAYER;
 
-/** A tool the frame registers, as `setupTools` constructs it. */
-export type GERBVIEW_TOOL_FACTORY = () => import('@ziroeda/common/tool/tool_base.js').TOOL_BASE;
+/**
+ * What the frame asks of its window for the modal wx calls KiCad makes: the
+ * file dialog, the HTML message box, the info bar and wxMessageBox. The page
+ * implements it; files it returns are paths in the page's file systems
+ * (`common/wx/filefn.ts`).
+ */
+export interface GERBVIEW_FRAME_HOST {
+  /** `wxFileDialog( title, path, name, wildcards )`: the chosen paths, or null on Cancel. */
+  FileDialog(
+    aTitle: string,
+    aFilters: readonly ChooserFilter[],
+    aMultiple: boolean,
+    aFilterIndex: number,
+  ): Promise<{ paths: string[]; filterIndex: number } | null>;
+  /** `HTML_MESSAGE_BOX( this, caption ).ListSet( messages ).ShowModal()`. */
+  HtmlMessageBox(aCaption: string, aMessages: string): Promise<void>;
+  /** `ShowInfoBarError( msg )`. */
+  InfoBarError(aMessage: string): void;
+  /** `wxMessageBox( msg )`. */
+  MessageBox(aMessage: string): Promise<void>;
+  /** `UpdateFileHistory( path, &history )`. */
+  UpdateFileHistory(aPath: string, aHistory: 'gerber' | 'drill' | 'zip' | 'job'): void;
+  /** A `wxFD_SAVE | wxFD_OVERWRITE_PROMPT` dialog: the chosen path, or null. */
+  SaveFileDialog(
+    aTitle: string,
+    aDefaultName: string,
+    aFilters: readonly ChooserFilter[],
+  ): Promise<string | null>;
+  /**
+   * `DIALOG_MAP_GERBER_LAYERS_TO_PCB`: the layer look-up table and copper
+   * count on OK, null on Cancel.
+   */
+  MapGerberLayersToPcb(): Promise<{ lookUp: number[]; copperLayersCount: number } | null>;
+  /** Write a text file the user chose to save. */
+  SaveTextFile(aPath: string, aText: string): void;
+  /** `wxSingleChoiceDialog( this, message, caption, choices ).ShowModal()`, the result unread. */
+  SingleChoiceDialog(aCaption: string, aChoices: readonly string[]): Promise<void>;
+}
+
+/** No window: nothing chosen, nothing shown. */
+const NO_HOST: GERBVIEW_FRAME_HOST = {
+  FileDialog: () => Promise.resolve(null),
+  HtmlMessageBox: () => Promise.resolve(),
+  InfoBarError: () => {},
+  MessageBox: () => Promise.resolve(),
+  UpdateFileHistory: () => {},
+  SaveFileDialog: () => Promise.resolve(null),
+  MapGerberLayersToPcb: () => Promise.resolve(null),
+  SaveTextFile: () => {},
+  SingleChoiceDialog: () => Promise.resolve(),
+};
 
 export class GERBVIEW_FRAME extends EDA_DRAW_FRAME {
   /// The page's text control, `m_TextInfo`, as its value.
@@ -103,6 +171,13 @@ export class GERBVIEW_FRAME extends EDA_DRAW_FRAME {
   /// A list box to select the dcode Id to highlight.
   m_DCodeSelector: DCODE_SELECTION_BOX | null = null;
 
+  /// The last filename chosen to be proposed to the user.
+  m_lastFileName = '';
+  /// `EDA_BASE_FRAME::m_mruPath`: the directory the last dialog was in.
+  m_mruPath = '';
+
+  private m_host: GERBVIEW_FRAME_HOST = NO_HOST;
+
   /// The frame title `SetTitle` sets.
   private m_title = 'Gerber Viewer';
   private m_settings: GERBVIEW_SETTINGS;
@@ -114,9 +189,6 @@ export class GERBVIEW_FRAME extends EDA_DRAW_FRAME {
   /// used only to show paper limits to screen
   private m_paper: PAGE_INFO;
   private m_gridColor: Color4d | null = null;
-
-  /// The tools setupTools registers beyond the common ones, in order.
-  private m_gerbviewTools: GERBVIEW_TOOL_FACTORY[] = [];
 
   /// The page's repaint of the frame chrome (layer box, text info, title).
   private m_uiListener: (() => void) | null = null;
@@ -152,14 +224,6 @@ export class GERBVIEW_FRAME extends EDA_DRAW_FRAME {
 
   protected uiChanged(): void {
     this.m_uiListener?.();
-  }
-
-  /**
-   * The GerbView tools `setupTools` registers after COMMON_TOOLS, supplied by
-   * the package's tools (`tools/`), so the frame does not import them.
-   */
-  SetGerbviewTools(aTools: GERBVIEW_TOOL_FACTORY[]): void {
-    this.m_gerbviewTools = aTools;
   }
 
   /**
@@ -985,7 +1049,9 @@ export class GERBVIEW_FRAME extends EDA_DRAW_FRAME {
     // through ACTION_MENU; the page's menu handles those actions directly.
     this.m_toolManager.RegisterTool(new COMMON_TOOLS());
 
-    for (const factory of this.m_gerbviewTools) this.m_toolManager.RegisterTool(factory());
+    this.m_toolManager.RegisterTool(new GERBVIEW_SELECTION_TOOL());
+    this.m_toolManager.RegisterTool(new GERBVIEW_CONTROL());
+    this.m_toolManager.RegisterTool(new GERBVIEW_INSPECTION_TOOL());
 
     this.m_toolManager.RegisterTool(new ZOOM_TOOL());
     this.m_toolManager.InitTools();
@@ -1060,6 +1126,101 @@ export class GERBVIEW_FRAME extends EDA_DRAW_FRAME {
   }
 
   // ---- members defined in other files ---------------------------------------
+
+  SetHost(aHost: GERBVIEW_FRAME_HOST | null): void {
+    this.m_host = aHost ?? NO_HOST;
+  }
+
+  Host(): GERBVIEW_FRAME_HOST {
+    return this.m_host;
+  }
+
+  /**
+   * Open a project or set of files given by `aFileSet`: each file by its
+   * extension - a zip, a job file, a drill file, a gerber or autodetect -
+   * then zoom to fit. A directory rather than a file becomes the MRU path.
+   */
+  async OpenProjectFiles(aFileSet: readonly string[]): Promise<boolean> {
+    if (aFileSet.length > 0) {
+      let path = aFileSet[0]!;
+
+      if (path.endsWith('"')) path = path.slice(0, -1);
+
+      if (!wxFileExists(path) && wxDirExists(path)) {
+        this.m_mruPath = path;
+        return true;
+      }
+
+      const limit = Math.min(aFileSet.length, GERBER_DRAWLAYERS_COUNT);
+
+      for (let i = 0; i < limit; ++i) {
+        const file = aFileSet[i]!;
+        const dot = file.lastIndexOf('.');
+        const ext = dot > file.lastIndexOf('/') ? file.slice(dot + 1).toLowerCase() : '';
+
+        if (ext === 'zip') await this.LoadZipArchiveFile(file);
+        else if (ext === 'gbrjob') await this.LoadGerberJobFile(file);
+        else {
+          const { order } = GERBER_FILE_IMAGE_LIST_CLASS.GetGerberLayerFromFilename(file);
+
+          switch (order) {
+            case GERBER_ORDER_ENUM.GERBER_DRILL:
+              await this.LoadExcellonFiles(file);
+              break;
+            case GERBER_ORDER_ENUM.GERBER_LAYER_UNKNOWN:
+              await this.LoadAutodetectedFiles(file);
+              break;
+            default:
+              await this.LoadGerberFiles(file);
+          }
+        }
+      }
+    }
+
+    this.Zoom_Automatique(true); // Zoom fit in frame
+
+    return true;
+  }
+
+  /** files.cpp */
+  LoadAutodetectedFiles(aFileName = ''): Promise<boolean> {
+    return LoadAutodetectedFiles.call(this, aFileName);
+  }
+
+  LoadGerberFiles(aFileName = ''): Promise<boolean> {
+    return LoadGerberFiles.call(this, aFileName);
+  }
+
+  LoadExcellonFiles(aFileName = ''): Promise<boolean> {
+    return LoadExcellonFiles.call(this, aFileName);
+  }
+
+  LoadListOfGerberAndDrillFiles(
+    aPath: string,
+    aFilenameList: readonly string[],
+    aFileType: number[],
+  ): Promise<boolean> {
+    return LoadListOfGerberAndDrillFiles.call(this, aPath, aFilenameList, aFileType);
+  }
+
+  LoadZipArchiveFile(aFileName = ''): Promise<boolean> {
+    return LoadZipArchiveFile.call(this, aFileName);
+  }
+
+  /** readgerb.cpp */
+  Read_GERBER_File(aFullFileName: string): Promise<boolean> {
+    return Read_GERBER_File.call(this, aFullFileName);
+  }
+
+  /** excellon_read_drill_file.cpp */
+  Read_EXCELLON_File(aFullFileName: string): Promise<boolean> {
+    return Read_EXCELLON_File.call(this, aFullFileName);
+  }
+
+  /** job_file_reader.cpp */
+  LoadGerberJobFile(aFileName = ''): Promise<boolean> {
+    return LoadGerberJobFile.call(this, aFileName);
+  }
 
   /** clear_gbr_drawlayers.cpp */
   Clear_DrawLayers(query: boolean): Promise<boolean> {
