@@ -20,7 +20,7 @@ import { GERBVIEW_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 import {
   GBR_PAGE_SIZE_CHOICES,
   OPACITY_RANGE,
-} from '@ziroeda/designer/src/editors/gerbview/prefs/display_options.js';
+} from '@ziroeda/gerbview/dialogs/panel_gerbview_display_options.js';
 import {
   applyToggle,
   applyTogglesToSettings,

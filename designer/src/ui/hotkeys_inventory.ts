@@ -82,7 +82,7 @@ import {
   GBR_TOP_TOOLBAR,
   GBR_TOP_AUX_TOOLBAR,
   GBR_LEFT_TOOLBAR,
-} from '../editors/gerbview/gerberToolbars.js';
+} from '@ziroeda/gerbview/toolbars_gerber.js';
 import {
   DS_TOP_TOOLBAR,
   DS_LEFT_TOOLBAR,

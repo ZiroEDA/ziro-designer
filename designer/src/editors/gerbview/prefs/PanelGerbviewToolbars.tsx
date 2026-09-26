@@ -19,7 +19,7 @@ import { catalogueFor, ourToolbarId } from '../../../ui/action_catalogue.js';
 import type { JSX } from 'react';
 import { PanelToolbarCustomization } from '@ziroeda/common/dialogs/panel_toolbar_customization.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { GBR_DEFAULT_TOOLBARS } from '../gerberToolbars.js';
+import { GBR_DEFAULT_TOOLBARS } from '@ziroeda/gerbview/toolbars_gerber.js';
 
 export function PanelGerbviewToolbars({ ctx }: { ctx: PrefsContext }): JSX.Element {
   return (

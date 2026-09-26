@@ -17,33 +17,47 @@ import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import {
-  GERBER_FORMAT,
-  parseExcellon,
-  parseGerber,
-  type GERBER_FILE_IMAGE,
+  EXCELLON_IMAGE,
+  GERBER_FILE_IMAGE,
+  X2_ATTRIBUTE,
+  X2_ATTRIBUTE_FILEFUNCTION,
 } from '@ziroeda/gerbview';
-import {
-  exportLayersToPcb,
-  GbrToPcbExporter,
-} from '@ziroeda/designer/src/editors/gerbview/exportToPcbnew.js';
+import { CHAR_PTR, LINE_BUFFER } from '@ziroeda/gerbview/libc.js';
+import { exportLayersToPcb, GBR_TO_PCB_EXPORTER } from '@ziroeda/gerbview/export_to_pcbnew.js';
+import { parseExcellon, parseGerber } from './load_image.js';
 import {
   findKnownGerberLayer,
   mapGerberLayersToPcb,
-} from '@ziroeda/designer/src/editors/gerbview/mapGerberLayersToPcb.js';
+} from '@ziroeda/gerbview/dialogs/dialog_map_gerber_layers_to_pcb.js';
 import { F_Cu, LSET_Name, UNDEFINED_LAYER, UNSELECTED_LAYER } from '@ziroeda/pcbnew/layer_ids.js';
 import { isSolidFill } from '@ziroeda/pcbnew/shape_fill.js';
 
 // ---------------------------------------------------------------------------
 // helpers
 
-/** A loaded image with just the fields the mapping reads. */
-const image = (fileName: string, fileFunction: string | null = null): GERBER_FILE_IMAGE =>
-  ({
-    fileName,
-    fileFunction,
-    format: GERBER_FORMAT.RS274X,
-    items: [],
-  }) as unknown as GERBER_FILE_IMAGE;
+/**
+ * An in-use image with no items, named `fileName`, whose `%TF.FileFunction`
+ * (when given) parsed as `fileFunction` - which is also what sets
+ * `m_IsX2_file` (`rs274x.cpp:395-397`).
+ */
+const image = (
+  fileName: string,
+  fileFunction: string | null = null,
+  kind: typeof GERBER_FILE_IMAGE = GERBER_FILE_IMAGE,
+): GERBER_FILE_IMAGE => {
+  const img = new kind(0);
+  img.m_FileName = fileName;
+  img.m_InUse = true;
+  if (fileFunction !== null) {
+    const buf = new LINE_BUFFER();
+    buf.s = `.FileFunction,${fileFunction}*%`;
+    const attr = new X2_ATTRIBUTE();
+    attr.ParseAttribCmd(null, null, 0, new CHAR_PTR(buf), { value: 0 });
+    img.m_FileFunction = new X2_ATTRIBUTE_FILEFUNCTION(attr);
+    img.m_IsX2_file = true;
+  }
+  return img;
+};
 
 /** The board layer NAME a mapping produced, or `null` when nothing claimed it. */
 const mappedName = (img: GERBER_FILE_IMAGE): string | null => {
@@ -127,8 +141,7 @@ describe('the X2 file-function table (findNumX2GerbersLoaded)', () => {
   it('is not consulted for an Excellon image', () => {
     // `m_IsX2_file` is set only by a %TF command (`gerbview/rs274x.cpp:395-397`);
     // the file function an EXCELLON_IMAGE carries is synthesised, not parsed.
-    const drill = image('x.drl', 'Copper,L1,Top');
-    drill.format = GERBER_FORMAT.EXCELLON;
+    const drill = image('x.drl', 'Copper,L1,Top', EXCELLON_IMAGE);
     expect(mappedName(drill)).toBe(null);
   });
 });
@@ -503,8 +516,11 @@ const SLOT_FILE = ['M48', 'METRIC,TZ', 'T1C0.500', '%', 'G05', 'T1', 'X10Y10G85X
 describe('drill files become holes, not drawings', () => {
   it('exports an Excellon hole as a via and nothing else', () => {
     const img = parseExcellon(DRILL_FILE, 'board-PTH.drl');
-    // The value the mapping actually sees, so this test moves if it is retruncated.
-    expect(img.fileFunction).toBe('Other,Drill');
+    // The attribute EXCELLON_IMAGE::LoadFile gives itself:
+    // file_attribute[] = ".FileFunction,Other,Drill*"  (excellon_read_drill_file.cpp:192)
+    expect(img.m_FileFunction?.GetFileType()).toBe('Other');
+    expect(img.m_FileFunction?.GetPrm(2)).toBe('Drill');
+    expect(img.m_IsX2_file).toBe(false);
 
     const text = exportText([{ image: img, name: 'drill' }]);
     // collect_hole: `m_Size.x + 1` for the pad, `m_Size.x` for the drill.
@@ -767,18 +783,14 @@ describe('ExportPcb with a lookup table the automatic mapping would not produce'
     // BEFORE the layer is looked at: an EXCELLON_IMAGE always yields holes,
     // whatever the dialog mapped it to. Our mapping always answers
     // UNDEFINED_LAYER for one, so only an explicit table reaches this.
-    const exporter = new GbrToPcbExporter();
-    exporter.setCopperLayersCount(2);
-    const text = exporter.ExportPcb([drillImage()], [F_Cu]);
+    const text = new GBR_TO_PCB_EXPORTER([drillImage()]).ExportPcb([F_Cu], 2);
 
     expect(text).toContain('(via (at 0.01 -0.01) (size 0.800001) (drill 0.8) (layers F.Cu B.Cu))');
   });
 
   it('still collects it through the Hole Data row when the layer is UNDEFINED', () => {
     // The other arm, `else if( gerb && pcb_layer_number == UNDEFINED_LAYER )`.
-    const exporter = new GbrToPcbExporter();
-    exporter.setCopperLayersCount(2);
-    const text = exporter.ExportPcb([drillImage()], [UNDEFINED_LAYER]);
+    const text = new GBR_TO_PCB_EXPORTER([drillImage()]).ExportPcb([UNDEFINED_LAYER], 2);
 
     expect(text).toContain('(via (at 0.01 -0.01) (size 0.800001) (drill 0.8) (layers F.Cu B.Cu))');
   });
@@ -814,6 +826,9 @@ describe('the arc midpoint rule', () => {
     //
     // 2 mm radius at 225 degrees is (2·cos225, 2·sin225) = (-1.414214,
     // -1.414214) in Gerber coordinates, and Y negates on the way out.
+    //
+    // G03 is GERB_INTERPOL_ARC_POS, which fillArcGBRITEM takes as clockwise
+    // and so keeps start and end in file order (rs274d.cpp:285-294).
     const g = [
       '%FSLAX46Y46*%',
       '%MOMM*%',
@@ -823,7 +838,7 @@ describe('the arc midpoint rule', () => {
       'G75*',
       'G01*',
       'X0Y2000000D02*',
-      'G02*',
+      'G03*',
       'X2000000Y0I0J-2000000D01*',
       'M02*',
     ].join('\n');
@@ -833,9 +848,16 @@ describe('the arc midpoint rule', () => {
     expect(text).not.toContain('(mid 1.414214 -1.414214)');
   });
 
-  it('ignores the arc direction flag, as upstream does', () => {
-    // The same arc as G03. `export_non_copper_arc` reads only m_Start, m_End
-    // and m_ArcCentre, so both directions produce the same mid point.
+  it('sees the arc direction only through the reader swapping the ends', () => {
+    // `export_non_copper_arc` reads only m_Start, m_End and m_ArcCentre - but
+    // G02 is GERB_INTERPOL_ARC_NEG, which fillArcGBRITEM receives as NOT
+    // clockwise and stores end-for-start (rs274d.cpp:285-294, :703-706).
+    // So G02 has a = atan2( 0, 2 ) = 0 and b = atan2( 2, 0 ) = 90 degrees,
+    // no wrap, and (2, 0) rotated by -EDA_ANGLE( 45 ) - RotatePoint's
+    // x cos + y sin, y cos - x sin - is (1.414214, 1.414214): the short way,
+    // mid at 45 degrees, Y negated on the way out. G03 keeps the ends and
+    // goes the long way, as in the test above. Ours once exported both
+    // directions with the G03 mid, because the reader did not swap.
     const gerber = (dir: string) =>
       [
         '%FSLAX46Y46*%',
@@ -853,8 +875,8 @@ describe('the arc midpoint rule', () => {
     const cw = exportText([{ image: parseGerber(gerber('G02*'), 'a.gbr'), name: 'a' }]);
     const ccw = exportText([{ image: parseGerber(gerber('G03*'), 'a.gbr'), name: 'a' }]);
 
-    expect(cw).toContain('(mid -1.414214 1.414214)');
-    expect(ccw).toContain('(mid -1.414214 1.414214)');
+    expect(cw).toContain('(start 2 0) (mid 1.414214 -1.414214) (end 0 -2)');
+    expect(ccw).toContain('(start 0 -2) (mid -1.414214 1.414214) (end 2 0)');
   });
 });
 

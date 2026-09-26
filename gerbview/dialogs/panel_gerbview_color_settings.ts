@@ -32,7 +32,7 @@
  * `GERBER_DRAWLAYERS_COUNT` is `PCB_LAYER_ID_COUNT`, **128** (`:519`, `:171`),
  * so upstream really does draw 128 graphic-layer swatches, of which only the
  * first 64 have a default colour in `s_defaultTheme` — see
- * {@link GERBER_DEFAULT_THEME_LAYERS} in `gerberColors.ts`. The rest are
+ * `GERBER_DEFAULT_THEME_LAYERS` in `designer/.../gerberColors.ts`. The rest are
  * `COLOR4D::UNSPECIFIED`, which `COLOR_SWATCH::MakeBitmap` draws as the bare
  * checkerboard. Reproduced rather than tidied to 64: the bar is that a user
  * cannot tell which program they are in, and a list that stops at 64 is a
@@ -42,20 +42,34 @@
  * GERBVIEW_LAYER_ID_START` (`:103-104`), so the first row is "Graphic Layer 1"
  * and not 0.
  */
-import {
-  defaultLayerColor,
-  GERBER_AXES_COLOR,
-  GERBER_BG_COLOR,
-  GERBER_DCODE_COLOR,
-  GERBER_DEFAULT_THEME_LAYERS,
-  GERBER_DRAWINGSHEET_COLOR,
-  GERBER_GRID_COLOR,
-  GERBER_NEGATIVE_COLOR,
-  GERBER_PAGE_LIMITS_COLOR,
-} from './gerberColors.js';
+import { toCssColor } from '@ziroeda/common/color4d.js';
+import { GERBER_DRAWLAYERS_COUNT } from '@ziroeda/common/layer_id.js';
+import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/settings/builtin_color_themes.js';
+
+/**
+ * `s_defaultTheme`'s entry for `key`, as the `rgb( r, g, b )` string the
+ * swatches take. [data: common's copy of builtin_color_themes.h, read rather
+ * than restated]
+ */
+const theme = (key: string): string | null => {
+  const c = (BUILTIN_DEFAULT_THEME as Record<string, Parameters<typeof toCssColor>[0]>)[key];
+  return c ? toCssColor(c, ', ') : null;
+};
+
+const GERBER_DCODE_COLOR = theme('LAYER_DCODES') as string;
+const GERBER_NEGATIVE_COLOR = theme('LAYER_NEGATIVE_OBJECTS') as string;
+const GERBER_GRID_COLOR = theme('LAYER_GERBVIEW_GRID') as string;
+const GERBER_AXES_COLOR = theme('LAYER_GERBVIEW_AXES') as string;
+const GERBER_BG_COLOR = theme('LAYER_GERBVIEW_BACKGROUND') as string;
+const GERBER_DRAWINGSHEET_COLOR = theme('LAYER_GERBVIEW_DRAWINGSHEET') as string;
+const GERBER_PAGE_LIMITS_COLOR = theme('LAYER_GERBVIEW_PAGE_LIMITS') as string;
+
+/** `GERBVIEW_LAYER_ID_START + i`'s default, or null past the table's 64. */
+const defaultLayerColor = (i: number): string | null =>
+  theme(i === 0 ? 'GERBVIEW_LAYER_ID_START' : `GERBVIEW_LAYER_ID_START+${i}`);
 
 /** `GERBER_DRAWLAYERS_COUNT` — `PCB_LAYER_ID_COUNT` (`layer_ids.h:519`, `:171`). */
-export const GERBER_DRAWLAYERS_COUNT = 128;
+export { GERBER_DRAWLAYERS_COUNT };
 
 /**
  * The seven gerbview-specific layers, in the id order `m_validLayers`' second
@@ -150,7 +164,7 @@ export function graphicLayerRow(key: string): number | null {
  * draws as a bare checkerboard.
  */
 export function graphicLayerDefault(row: number): string | null {
-  return row < GERBER_DEFAULT_THEME_LAYERS ? defaultLayerColor(row) : null;
+  return defaultLayerColor(row);
 }
 
 /**

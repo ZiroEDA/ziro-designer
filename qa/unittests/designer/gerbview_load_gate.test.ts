@@ -15,7 +15,7 @@ import {
   MSG_NOT_LOADED,
   MSG_NO_MORE_LAYER,
   decideLoad,
-} from '@ziroeda/designer/src/editors/gerbview/gerber_load_report.js';
+} from '@ziroeda/gerbview/files.js';
 
 const GERBER = ['%FSLAX46Y46*%', '%ADD10C,0.5*%', 'D10*', 'X0Y0D03*', 'M02*'].join('\n');
 const DRILL = ['M48', 'FMAT,2', 'T1C0.800', 'T1', 'X10.0Y20.0', 'M30'].join('\n');

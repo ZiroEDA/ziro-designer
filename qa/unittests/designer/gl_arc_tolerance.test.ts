@@ -33,7 +33,7 @@ describe('the two tolerances are one length', () => {
     expect(PCB_ARC_TOLERANCE / SCH_ARC_TOLERANCE).toBe(PCB_IU_PER_MM / SCH_IU_PER_MM);
     // GerbView's is the same length again, in the units its geometry arrives
     // in. Those are the *engine's*, and the engine does not use upstream's
-    // gerbview scale: `gerbview/types.ts` declares IU_PER_MM = 1e6,
+    // gerbview scale: `gerbview/gerbview.ts` declares IU_PER_MM = 1e6,
     // "following KiCad's board IU", where KiCad's gerbIUScale is 1e5.
     expect(GBR_ARC_TOLERANCE / GBR_ENGINE_IU_PER_MM).toBeCloseTo(0.005, 9);
   });

@@ -215,7 +215,7 @@ describe('one ruler, three canvases', () => {
       ['editors/pcb/pcbToolbars.ts', 'PCB_RIGHT'],
       ['editors/footprint/footprintToolbars.ts', 'FP_RIGHT'],
       ['editors/schematic/display_footprints_toolbars.ts', 'viewer'],
-      ['editors/gerbview/gerberToolbars.ts', 'GBR_LEFT'],
+      ['../../gerbview/toolbars_gerber.ts', 'GBR_LEFT'],
     ];
     for (const [rel, what] of bars) {
       expect(read(rel), `${what} has no measure button`).toMatch(/measureTool|'measure'/);

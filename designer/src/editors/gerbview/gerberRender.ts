@@ -13,18 +13,14 @@
  */
 
 import {
-  GBR_BASIC_SHAPE,
+  GERBER_DRAW_ITEM,
+  GERBVIEW_PAINTER,
+  GERBVIEW_SETTINGS,
   IU_PER_MM,
+  gvconfig,
   type GERBER_FILE_IMAGE,
-  type GERBER_DRAW_ITEM,
-  type AmResolvedShape,
 } from '@ziroeda/gerbview';
-import {
-  GERBER_BG_COLOR,
-  GERBER_DCODE_COLOR,
-  GERBER_NEGATIVE_COLOR,
-  highlightedLayerColor,
-} from './gerberColors.js';
+import { GERBER_BG_COLOR } from './gerberColors.js';
 import {
   defaultDrawingSheet,
   layoutDrawingSheet,
@@ -33,6 +29,16 @@ import {
   type DsDrawItem,
 } from '@ziroeda/common';
 import { drawDrawingSheetItems } from '@ziroeda/common';
+import { parseColor4d } from '@ziroeda/common/color4d.js';
+import {
+  GERBER_DCODE_LAYER,
+  GERBER_DRAW_LAYER,
+  GERBVIEW_LAYER_ID,
+} from '@ziroeda/common/layer_id.js';
+import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
+import { zoomFactorForScale } from '@ziroeda/common/widgets/kistatusbar_format.js';
+import { SURFACE_GAL } from './gerber_surface_gal.js';
 import { settings } from '../../prefs/settings.js';
 
 /**
@@ -188,8 +194,19 @@ export interface GerberRenderOptions {
    * stored, correct, and invisible until something else redrew.
    */
   colors: GerbviewPalette;
-  /** Optional highlight (by net / component / attribute / DCode). */
-  highlightTest?: (item: GERBER_DRAW_ITEM) => boolean;
+  /**
+   * `GERBVIEW_RENDER_SETTINGS`' four highlight selections — what the TOP_AUX
+   * choices set (`gerbview_control.cpp:190-249`). Empty / -1 is none.
+   */
+  highlight?: GerberHighlight;
+}
+
+/** `m_netHighlightString`, `m_componentHighlightString`, `m_attributeHighlightString`, `m_dcodeHighlightValue`. */
+export interface GerberHighlight {
+  net: string;
+  component: string;
+  attribute: string;
+  dcode: number;
 }
 
 /** A shared offscreen buffer, grown to fit the target canvas. */
@@ -236,273 +253,132 @@ export function deviceToWorld(
 }
 
 /**
- * `GERBVIEW_RENDER_SETTINGS::GetColor( aItem, aLayer )`
- * (`gerbview/gerbview_painter.cpp:100-160`), for the cases this renderer
- * reaches, **in upstream's own branch order**:
+ * `GERBER_DRAW_ITEM::GetBoundingBox` over an image, in this canvas's world.
  *
- *     if( gbrItem && gbrItem->GetLayerPolarity() )      // :122
- *     {
- *         if( show_negative_objects ) return LAYER_NEGATIVE_OBJECTS;
- *         else                        return transparent;
- *     }
- *     if( !m_netHighlightString.IsEmpty() && ... )      // :135
- *         return m_layerColorsHi[aLayer];
- *
- * The order is load-bearing and easy to get backwards: **polarity is tested
- * before the highlight**, so a clear object that also matches the highlight is
- * drawn as a negative object - or not at all - rather than brightened. Written
- * the other way round it reads just as plausibly and is wrong.
- *
- * `GetLayerPolarity()` is `m_LayerNegative`, true meaning NEGATIVE
- * (`gerber_draw_item.h:77,266`), which is the complement of our reader's
- * `layerPolarity` ("true = dark (add)") - hence `negativePolarity` here.
- *
- * `null` is upstream's `transparent`, `COLOR4D( 0, 0, 0, 0 )` (`:103`): a clear
- * object with the toggle off contributes no ink of its own. The caller keeps
- * compositing it with `destination-out`, which is what makes it erase.
- *
- * A highlighted item takes `m_layerColorsHi[aLayer]` - `Brightened( 0.5 )` of
- * the LAYER's own colour (`:70`) - so it still reads as belonging to its layer.
- * Ours painted every highlight one flat white.
- *
- * Pure and exported, so the choice can be pinned without a canvas.
+ * The items answer in image (AB) coordinates, whose Y runs down; this canvas's
+ * world runs Y up (see `applyWorld`), so the box is mirrored.
  */
-export function itemColor(
-  layerColor: string,
-  highlighted: boolean,
-  negativePolarity: boolean,
-  showNegativeObjects: boolean,
-  /**
-   * LAYER_NEGATIVE_OBJECTS' colour, which Preferences > Gerber Viewer > Colors
-   * and the Layers manager both edit. Defaulted so the many call sites that
-   * only care about the add/erase decision need not name it — and so this
-   * stays callable from a test without a store.
-   */
-  negativeColor: string = GERBER_NEGATIVE_COLOR,
-): string | null {
-  if (negativePolarity) return showNegativeObjects ? negativeColor : null;
-  if (highlighted) return highlightedLayerColor(layerColor);
-  return layerColor;
-}
+export function imageWorldBBox(image: GERBER_FILE_IMAGE): {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+} {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
 
-/** Compute the effective add/erase op for a shape. */
-function shapeOp(itemAdd: boolean, exposure: boolean, negative: boolean): GlobalCompositeOperation {
-  const effectiveAdd = itemAdd === exposure;
-  const finalAdd = negative ? !effectiveAdd : effectiveAdd;
-  return finalAdd ? 'source-over' : 'destination-out';
-}
-
-function fillCircle(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
-  ctx.beginPath();
-  ctx.arc(cx, cy, Math.max(r, 0), 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function fillPolygon(ctx: CanvasRenderingContext2D, pts: { x: number; y: number }[]): void {
-  if (pts.length < 2) return;
-  ctx.beginPath();
-  ctx.moveTo(pts[0]!.x, pts[0]!.y);
-  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i]!.x, pts[i]!.y);
-  ctx.closePath();
-  ctx.fill();
-}
-
-function fillCapsule(
-  ctx: CanvasRenderingContext2D,
-  a: { x: number; y: number },
-  b: { x: number; y: number },
-  width: number,
-): void {
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.lineWidth = Math.max(width, 0);
-  ctx.beginPath();
-  ctx.moveTo(a.x, a.y);
-  ctx.lineTo(b.x, b.y);
-  ctx.stroke();
-}
-
-function drawResolvedShape(
-  ctx: CanvasRenderingContext2D,
-  sh: AmResolvedShape,
-  itemAdd: boolean,
-  negative: boolean,
-  color: string,
-  sketch: boolean,
-  worldPen: number,
-): void {
-  const op = shapeOp(itemAdd, sh.exposure, negative);
-  ctx.globalCompositeOperation = op;
-  ctx.fillStyle = color;
-  ctx.strokeStyle = color;
-  // Sketch (outline) mode: stroke only the exposure-on (added) shapes; the
-  // erase shapes still cut normally so holes read correctly.
-  if (sketch && op === 'source-over') {
-    ctx.lineWidth = worldPen;
-    if (sh.kind === 'circle') {
-      ctx.beginPath();
-      ctx.arc(sh.center.x, sh.center.y, Math.max(sh.radius, 0), 0, Math.PI * 2);
-      ctx.stroke();
-    } else if (sh.kind === 'segment') {
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(sh.a.x, sh.a.y);
-      ctx.lineTo(sh.b.x, sh.b.y);
-      ctx.stroke();
-    } else {
-      ctx.beginPath();
-      ctx.moveTo(sh.points[0]!.x, sh.points[0]!.y);
-      for (let i = 1; i < sh.points.length; i++) ctx.lineTo(sh.points[i]!.x, sh.points[i]!.y);
-      ctx.closePath();
-      ctx.stroke();
-    }
-    return;
+  for (const item of image.GetItems()) {
+    const b = item.GetBoundingBox();
+    minX = Math.min(minX, b.GetLeft());
+    maxX = Math.max(maxX, b.GetRight());
+    minY = Math.min(minY, -b.GetBottom());
+    maxY = Math.max(maxY, -b.GetTop());
   }
-  if (sh.kind === 'circle') fillCircle(ctx, sh.center.x, sh.center.y, sh.radius);
-  else if (sh.kind === 'segment') fillCapsule(ctx, sh.a, sh.b, sh.width);
-  else fillPolygon(ctx, sh.points);
+
+  if (minX === Infinity) return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+  return { minX, minY, maxX, maxY };
 }
 
-function drawItem(
-  ctx: CanvasRenderingContext2D,
-  item: GERBER_DRAW_ITEM,
-  layerColor: string,
-  negative: boolean,
-  opts: GerberRenderOptions,
-  worldPen: number,
-): void {
-  const itemAdd = item.layerPolarity;
-  const highlighted = !!opts.highlightTest?.(item);
-  // "Show negative objects": a clear (LPC) object is normally invisible (it
-  // erases). With the toggle on it is drawn as a ghost so it can be seen.
-  const showNeg = opts.showNegativeObjects && !itemAdd;
-  // m_layerColorsHi[aLayer] = baseColor.Brightened( 0.5 ) - the LAYER's colour
-  // lifted, which is what GERBVIEW_RENDER_SETTINGS::GetColor returns for a net,
-  // component or attribute match (`gerbview_painter.cpp:70,135-147`). It used to
-  // be a flat white for every layer.
-  const color =
-    itemColor(
-      layerColor,
-      highlighted,
-      !itemAdd,
-      opts.showNegativeObjects,
-      opts.colors.negativeObjects,
-    ) ?? layerColor;
-  // Highlighted and ghosted negative objects always add (source-over).
-  const op: GlobalCompositeOperation =
-    highlighted || showNeg
-      ? 'source-over'
-      : negative
-        ? itemAdd
-          ? 'destination-out'
-          : 'source-over'
-        : itemAdd
-          ? 'source-over'
-          : 'destination-out';
-  ctx.fillStyle = color;
-  ctx.strokeStyle = color;
+/**
+ * The GERBVIEW_SETTINGS the painter reads through `gvconfig()`, brought into
+ * line with the options this frame is drawn with — the toggles upstream write
+ * straight into `cfg->m_Display` / `m_Appearance`.
+ *
+ * `m_ForceOpacityMode` is left false: the opacity is the compositor's
+ * `layerOpacity` here, applied once per layer buffer, where `LoadColors`
+ * would put it into every colour a second time.
+ */
+export function syncGerbviewSettings(opts: {
+  flashedSketch: boolean;
+  linesSketch: boolean;
+  polygonsSketch: boolean;
+  showNegativeObjects: boolean;
+}): GERBVIEW_SETTINGS {
+  const mgr = PgmOrNull()?.GetSettingsManager();
 
-  switch (item.shape) {
-    case GBR_BASIC_SHAPE.GBR_SEGMENT: {
-      ctx.globalCompositeOperation = op;
-      if (opts.linesSketch) {
-        ctx.lineWidth = worldPen;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(item.start.x, item.start.y);
-        ctx.lineTo(item.end.x, item.end.y);
-        ctx.stroke();
-      } else {
-        fillCapsule(ctx, item.start, item.end, item.width);
-      }
-      break;
-    }
-    case GBR_BASIC_SHAPE.GBR_ARC:
-    case GBR_BASIC_SHAPE.GBR_CIRCLE: {
-      ctx.globalCompositeOperation = op;
-      const r = Math.hypot(item.start.x - item.arcCentre.x, item.start.y - item.arcCentre.y);
-      ctx.lineWidth = opts.linesSketch ? worldPen : Math.max(item.width, worldPen);
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      if (item.shape === GBR_BASIC_SHAPE.GBR_CIRCLE) {
-        ctx.arc(item.arcCentre.x, item.arcCentre.y, r, 0, Math.PI * 2);
-      } else {
-        const a0 = Math.atan2(item.start.y - item.arcCentre.y, item.start.x - item.arcCentre.x);
-        const a1 = Math.atan2(item.end.y - item.arcCentre.y, item.end.x - item.arcCentre.x);
-        ctx.arc(item.arcCentre.x, item.arcCentre.y, r, a0, a1, item.arcCcw);
-      }
-      ctx.stroke();
-      break;
-    }
-    case GBR_BASIC_SHAPE.GBR_POLYGON: {
-      ctx.globalCompositeOperation = op;
-      if (opts.polygonsSketch) {
-        ctx.lineWidth = worldPen;
-        ctx.beginPath();
-        if (item.polyPoints.length) {
-          ctx.moveTo(item.polyPoints[0]!.x, item.polyPoints[0]!.y);
-          for (let i = 1; i < item.polyPoints.length; i++)
-            ctx.lineTo(item.polyPoints[i]!.x, item.polyPoints[i]!.y);
-          ctx.closePath();
-        }
-        ctx.stroke();
-      } else {
-        fillPolygon(ctx, item.polyPoints);
-      }
-      break;
-    }
-    default: {
-      // Flashed spot: resolve to primitives and composite each.
-      const shapes = item.resolveFlashShapes();
-      if (showNeg) {
-        // Ghost the added primitives of a negative flash; skip the holes.
-        ctx.globalCompositeOperation = 'source-over';
-        for (const sh of shapes) {
-          if (!sh.exposure) continue;
-          if (sh.kind === 'circle') fillCircle(ctx, sh.center.x, sh.center.y, sh.radius);
-          else if (sh.kind === 'segment') fillCapsule(ctx, sh.a, sh.b, sh.width);
-          else fillPolygon(ctx, sh.points);
-        }
-      } else {
-        for (const sh of shapes) {
-          drawResolvedShape(ctx, sh, itemAdd, negative, color, opts.flashedSketch, worldPen);
-        }
-      }
-      break;
-    }
+  if (mgr && !mgr.GetAppSettings<GERBVIEW_SETTINGS>('gerbview'))
+    mgr.RegisterSettings('gerbview', new GERBVIEW_SETTINGS());
+
+  const cfg = gvconfig();
+  cfg.m_Display.m_DisplayFlashedItemsFill = !opts.flashedSketch;
+  cfg.m_Display.m_DisplayLinesFill = !opts.linesSketch;
+  cfg.m_Display.m_DisplayPolygonsFill = !opts.polygonsSketch;
+  cfg.m_Display.m_ForceOpacityMode = false;
+  cfg.m_Appearance.show_negative_objects = opts.showNegativeObjects;
+  return cfg;
+}
+
+/**
+ * A painter whose render settings hold these colours:
+ * `GERBVIEW_RENDER_SETTINGS::LoadColors` over a COLOR_SETTINGS carrying each
+ * drawn layer's colour at `GERBER_DRAW_LAYER( k )`, plus the negative-object
+ * and D-code colours, and the four highlight selections.
+ */
+export function gerberPainter(
+  layerColors: readonly string[],
+  negativeObjects: string,
+  dcodes: string,
+  highlight: GerberHighlight | undefined,
+): GERBVIEW_PAINTER {
+  const cs = new COLOR_SETTINGS('gerbview');
+
+  for (let k = 0; k < layerColors.length; k++)
+    cs.SetColor(GERBER_DRAW_LAYER(k), parseColor4d(layerColors[k] as string));
+
+  cs.SetColor(GERBVIEW_LAYER_ID.LAYER_NEGATIVE_OBJECTS, parseColor4d(negativeObjects));
+  cs.SetColor(GERBVIEW_LAYER_ID.LAYER_DCODES, parseColor4d(dcodes));
+
+  const painter = new GERBVIEW_PAINTER(null);
+  const rs = painter.GetSettings();
+  rs.LoadColors(cs);
+
+  if (highlight) {
+    rs.m_netHighlightString = highlight.net;
+    rs.m_componentHighlightString = highlight.component;
+    rs.m_attributeHighlightString = highlight.attribute;
+    rs.m_dcodeHighlightValue = highlight.dcode;
   }
+
+  return painter;
 }
 
-/** Draw one image's items into the (identity-transform) layer buffer. */
+/** `VIEW` as `ViewGetLOD` consults it: not printing. */
+const SCREEN_VIEW = { GetPainter: () => ({ GetSettings: () => ({ IsPrinting: () => false }) }) };
+
+/**
+ * Draw one image into the layer buffer: `VIEW::Redraw` over its items, each
+ * through GERBVIEW_PAINTER on the layer's drawing layer.
+ *
+ * The buffer is this image's alone, which is `CAIRO_GAL`'s negatives layer: a
+ * clear (%LPC) item erases what this image drew under it and nothing of the
+ * layers below. An IPNEG image is NOT pre-filled — upstream's own
+ * "TODO(JE) This doesn't actually work properly for ImageNegative", and what
+ * GerbView draws.
+ */
 function drawImageToBuffer(
   lctx: CanvasRenderingContext2D,
   layer: GerberLayerView,
+  layerIndex: number,
+  painter: GERBVIEW_PAINTER,
   v: ViewTransform,
   opts: GerberRenderOptions,
   canvasW: number,
   canvasH: number,
 ): void {
-  const negative = layer.image.imageNegative;
   lctx.setTransform(1, 0, 0, 1, 0, 0);
   lctx.clearRect(0, 0, canvasW, canvasH);
 
   applyWorld(lctx, v, opts.flipView);
-  const worldPen = 1 / v.scale;
+  painter.SetGAL(
+    new SURFACE_GAL(lctx as unknown as ConstructorParameters<typeof SURFACE_GAL>[0], 1 / v.scale),
+  );
 
-  if (negative) {
-    // Negative image: start from a filled field the dark objects erase.
-    lctx.globalCompositeOperation = 'source-over';
-    lctx.fillStyle = layer.color;
-    const b = layer.image.computeBoundingBox();
-    const pad = worldPen * 20;
-    lctx.fillRect(b.minX - pad, b.minY - pad, b.maxX - b.minX + pad * 2, b.maxY - b.minY + pad * 2);
-  }
+  const drawLayer = GERBER_DRAW_LAYER(layerIndex);
 
-  lctx.lineCap = 'round';
-  lctx.lineJoin = 'round';
-  for (const item of layer.image.items) {
-    drawItem(lctx, item, layer.color, negative, opts, worldPen);
-  }
+  for (const item of layer.image.GetItems()) painter.Draw(item, drawLayer);
+
   lctx.globalCompositeOperation = 'source-over';
   lctx.setTransform(1, 0, 0, 1, 0, 0);
 }
@@ -530,10 +406,18 @@ export function renderGerberLayers(
   const lctx = buf.getContext('2d');
   if (!lctx) return;
 
+  syncGerbviewSettings(opts);
+  const painter = gerberPainter(
+    layers.map((l) => l.color),
+    opts.colors.negativeObjects,
+    opts.colors.dcodes,
+    opts.highlight,
+  );
+
   for (let i = 0; i < layers.length; i++) {
     const layer = layers[i]!;
-    if (!layer.visible || layer.image.items.length === 0) continue;
-    drawImageToBuffer(lctx, layer, v, opts, canvasW, canvasH);
+    if (!layer.visible || layer.image.GetItemsCount() === 0) continue;
+    drawImageToBuffer(lctx, layer, i, painter, v, opts, canvasW, canvasH);
 
     // Compose onto the main canvas.
     if (opts.xorMode) {
@@ -541,26 +425,12 @@ export function renderGerberLayers(
       ctx.globalAlpha = 1;
     } else {
       ctx.globalCompositeOperation = 'source-over';
-      // Translucent layers (GerbView look) so overlaps blend; high-contrast
-      // dims layers other than the active one (drawn last).
       // A layer keeps the theme's own alpha, which is 1 for all 64 rows of
       // s_defaultTheme; only toggleForceOpacityMode lowers it, to
-      // m_OpacityModeAlphaValue (`gerbview_painter.cpp:65-66`). We used to
-      // composite everything at a permanent 0.8, a number with no upstream
-      // source, which made every layer translucent whether or not that mode
-      // was on.
-      // NOT dimmed here. "Inactive Layer View Mode" mixes the layer's colour
-      // toward the background (`common/render_settings.cpp:92-93`), which the
-      // frame does per layer before handing the colours over, so both this and
-      // the GL renderer get it. Doing it as alpha instead — which is what this
-      // line used to do, at a 0.3 with no upstream source — composites against
-      // whatever is underneath, so two dimmed layers overlapping came out
-      // brighter than either.
-      //
-      // `layerOpacity` is the ONE thing that does lower it: forced-opacity
-      // mode, which upstream pushes into each gerber layer's COLOR4D alpha
-      // rather than into a composite. A layer buffer is drawn in one colour,
-      // so the two are the same picture. See the note on the option.
+      // m_OpacityModeAlphaValue (`gerbview_painter.cpp:65-66`) — one colour
+      // per buffer, so the alpha of the buffer is that colour's alpha.
+      // "Inactive Layer View Mode" is NOT done here: the frame mixes the
+      // layer's colour toward the background before handing it over.
       ctx.globalAlpha = opts.layerOpacity;
     }
     ctx.drawImage(buf, 0, 0);
@@ -569,31 +439,50 @@ export function renderGerberLayers(
   ctx.globalCompositeOperation = 'source-over';
   ctx.globalAlpha = 1;
 
-  // DCode number annotations (drawn upright in device space).
-  if (opts.showDcodes) {
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = opts.colors.dcodes;
-    ctx.font = '11px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    for (const layer of layers) {
-      if (!layer.visible) continue;
-      for (const item of layer.image.items) {
-        if (!item.dcodeNum) continue;
-        if (
-          item.shape === GBR_BASIC_SHAPE.GBR_SEGMENT ||
-          item.shape === GBR_BASIC_SHAPE.GBR_ARC ||
-          item.shape === GBR_BASIC_SHAPE.GBR_POLYGON
-        )
-          continue;
-        const b = item.getBoundingBox();
-        const cx = (b.minX + b.maxX) / 2;
-        const cy = (b.minY + b.maxY) / 2;
-        const d = worldToDevice(v, opts.flipView, cx, cy);
-        ctx.fillText(`D${item.dcodeNum}`, d.x, d.y);
-      }
+  if (opts.showDcodes) drawGerberDcodes(ctx, v, layers, opts, painter);
+}
+
+/**
+ * The D code layers, over every drawing layer as GerbView orders them above
+ * their own layer: GERBVIEW_PAINTER's D-code text, shown only where
+ * `GERBER_DRAW_ITEM::ViewGetLOD` says it is readable at this zoom
+ * (`VIEW::draw` draws an item when `itemLOD < m_scale`).
+ */
+export function drawGerberDcodes(
+  ctx: CanvasRenderingContext2D,
+  v: ViewTransform,
+  layers: GerberLayerView[],
+  opts: GerberRenderOptions,
+  aPainter?: GERBVIEW_PAINTER,
+): void {
+  const painter =
+    aPainter ??
+    gerberPainter(
+      layers.map((l) => l.color),
+      opts.colors.negativeObjects,
+      opts.colors.dcodes,
+      opts.highlight,
+    );
+  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+  const zoom = zoomFactorForScale(v.scale, dpr, IU_PER_MM);
+
+  ctx.save();
+  applyWorld(ctx, v, opts.flipView);
+  painter.SetGAL(
+    new SURFACE_GAL(ctx as unknown as ConstructorParameters<typeof SURFACE_GAL>[0], 1 / v.scale),
+  );
+
+  for (let i = 0; i < layers.length; i++) {
+    const layer = layers[i]!;
+    if (!layer.visible) continue;
+    const dcodeLayer = GERBER_DCODE_LAYER(GERBER_DRAW_LAYER(i));
+
+    for (const item of layer.image.GetItems()) {
+      if (item.ViewGetLOD(dcodeLayer, SCREEN_VIEW) < zoom) painter.Draw(item, dcodeLayer);
     }
   }
+
+  ctx.restore();
 }
 
 /**

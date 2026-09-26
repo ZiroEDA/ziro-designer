@@ -17,7 +17,7 @@ import {
   layerContextMenu,
   renderRows,
   type RenderRow,
-} from '@ziroeda/designer/src/editors/gerbview/layer_widget.js';
+} from '@ziroeda/gerbview/widgets/gerbview_layer_widget.js';
 import {
   GERBER_BG_COLOR,
   GERBER_DCODE_COLOR,

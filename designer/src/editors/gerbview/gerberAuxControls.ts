@@ -14,7 +14,7 @@
  */
 
 import { unescapeString } from '@ziroeda/common';
-import { APERTURE_T, type D_CODE, type GERBER_FILE_IMAGE } from '@ziroeda/gerbview';
+import { APERTURE_T, D_CODE, type GERBER_FILE_IMAGE, SortedKeys } from '@ziroeda/gerbview';
 import {
   messageTextFromValue,
   unitText,
@@ -35,20 +35,7 @@ export const NO_SELECTION_STRING = '<No selection>';
  * "Polygon" — the long spelling appears nowhere upstream.
  */
 export function showApertureType(type: APERTURE_T): string {
-  switch (type) {
-    case APERTURE_T.APT_CIRCLE:
-      return 'Round';
-    case APERTURE_T.APT_RECT:
-      return 'Rect';
-    case APERTURE_T.APT_OVAL:
-      return 'Oval';
-    case APERTURE_T.APT_POLYGON:
-      return 'Poly';
-    case APERTURE_T.APT_MACRO:
-      return 'Macro';
-    default:
-      return '???';
-  }
+  return D_CODE.ShowApertureType(type);
 }
 
 /**
@@ -90,27 +77,31 @@ export function dcodeChoices(
   units: StatusUnits,
   iuPerMM: number,
 ): DCodeChoice[] {
-  if (!image) return [];
+  // `if( !gerber || gerber->GetDcodesCount() == 0 )` (`:287`)
+  if (!image || image.GetDcodesCount() === 0) return [];
   const unitWord = dcodeUnitLabel(units);
   // scale = IU per one displayed unit: gerbIUScale.IU_PER_MM, IU_PER_MILS*1000
   // or IU_PER_MILS for mm / in / mil respectively (`:297-313`).
   const scale =
     units === 'mm' ? iuPerMM : units === 'in' ? iuPerMM * 25.4 : (iuPerMM * 25.4) / 1000;
-  const used = image.usedDcodes();
 
   const out: DCodeChoice[] = [];
-  for (const [, dcode] of [...image.apertures.entries()].sort((a, b) => a[0] - b[0])) {
+  // `std::map<int, D_CODE*>`: walked in key order.
+  for (const [, dcode] of [...image.m_ApertureList.entries()].sort((a, b) => a[0] - b[0])) {
     // `if( !dcode->m_InUse && !dcode->m_Defined ) continue;` (`:319`)
-    if (!used.has(dcode.num_Dcode) && !dcode.defined) continue;
-    out.push({ dcode: dcode.num_Dcode, label: dcodeLabel(dcode, unitWord, scale) });
+    if (!dcode.m_InUse && !dcode.m_Defined) continue;
+    out.push({ dcode: dcode.m_Num_Dcode, label: dcodeLabel(dcode, unitWord, scale) });
   }
   return out;
 }
 
 function dcodeLabel(dcode: D_CODE, unitWord: string, scale: number): string {
-  const x = ((dcode.size.x * dcode.iuScale) / scale).toFixed(3);
-  const y = ((dcode.size.y * dcode.iuScale) / scale).toFixed(3);
-  return `tool ${dcode.num_Dcode} [${x}x${y} ${unitWord}] ${showApertureType(dcode.shape)}`;
+  const x = (dcode.m_Size.x / scale).toFixed(3);
+  const y = (dcode.m_Size.y / scale).toFixed(3);
+  let msg = `tool ${dcode.m_Num_Dcode} [${x}x${y} ${unitWord}] ${D_CODE.ShowApertureType(dcode.m_ApertType)}`;
+  // `if( !dcode->m_AperFunction.IsEmpty() ) msg << ", " << dcode->m_AperFunction;`
+  if (dcode.m_AperFunction !== '') msg += `, ${dcode.m_AperFunction}`;
+  return msg;
 }
 
 /**
@@ -132,27 +123,28 @@ function sortedUnique(values: Iterable<string>): string[] {
 }
 
 export function componentChoices(images: readonly GERBER_FILE_IMAGE[]): string[] {
-  const out: string[] = [];
-  for (const image of images)
-    for (const it of image.items)
-      if (it.netMetadata.componentRef) out.push(it.netMetadata.componentRef);
-  return sortedUnique(out);
+  const full = new Map<string, number>();
+  for (const image of images) for (const k of image.m_ComponentsList.keys()) full.set(k, 0);
+  return SortedKeys(full);
 }
 
 /** As above, but each name goes through `UnescapeString` first (`:381`). */
 export function netChoices(images: readonly GERBER_FILE_IMAGE[]): string[] {
-  const out: string[] = [];
-  for (const image of images)
-    for (const it of image.items) if (it.netMetadata.netName) out.push(it.netMetadata.netName);
-  return sortedUnique(out).map(unescapeString);
+  const full = new Map<string, number>();
+  for (const image of images) for (const k of image.m_NetnamesList.keys()) full.set(k, 0);
+  return SortedKeys(full).map(unescapeString);
 }
 
 export function apertureAttributeChoices(images: readonly GERBER_FILE_IMAGE[]): string[] {
-  const out: string[] = [];
-  for (const image of images)
-    for (const it of image.items)
-      for (const a of it.netMetadata.apertureAttributes ?? []) out.push(a);
-  return sortedUnique(out);
+  const full = new Map<string, number>();
+  for (const image of images) {
+    if (image.GetDcodesCount() === 0) continue;
+    for (const aperture of image.m_ApertureList.values()) {
+      if (!aperture.m_InUse && !aperture.m_Defined) continue;
+      if (aperture.m_AperFunction !== '') full.set(aperture.m_AperFunction, 0);
+    }
+  }
+  return SortedKeys(full);
 }
 
 /**
@@ -180,19 +172,12 @@ export function layerChoiceLabels(names: readonly string[]): string[] {
  */
 export function textInfoLine(image: GERBER_FILE_IMAGE | null): string {
   if (!image) return 'Drawing layer not in use';
-  const f = image.coordFormat;
-  // `m_FmtLen.x - m_FmtScale.x` is the integer-digit count and `m_FmtScale.x`
-  // the fractional one, which our reader already stores split as xInt / xFrac.
-  // `m_NoTrailingZeros` is the FS `T` mode, the complement of our
-  // `leadingZerosOmitted` (FS `L`).
   const line =
-    `fmt: ${image.unit === 'mm' ? 'mm' : 'in'}` +
-    ` X${f.xInt}.${f.xFrac}` +
-    ` Y${f.yInt}.${f.yFrac}` +
-    ` no ${f.leadingZerosOmitted ? 'L' : 'T'}Z`;
-  // `m_IsX2_file` is set only once a %TF file function has parsed, and upstream
-  // notes it "to mean that we have a valid m_FileFunction" (`rs274x.cpp:395-397`).
-  return image.fileFunction !== null ? `${line} X2 attr` : line;
+    `fmt: ${image.m_GerbMetric ? 'mm' : 'in'}` +
+    ` X${image.m_FmtLen.x - image.m_FmtScale.x}.${image.m_FmtScale.x}` +
+    ` Y${image.m_FmtLen.y - image.m_FmtScale.y}.${image.m_FmtScale.y}` +
+    ` no ${image.m_NoTrailingZeros ? 'T' : 'L'}Z`;
+  return image.m_IsX2_file ? `${line} X2 attr` : line;
 }
 
 /**
@@ -223,11 +208,14 @@ export function gerbviewFrameTitle(image: GERBER_FILE_IMAGE | null): FrameTitleP
     frameName: 'Gerber Viewer',
     // GetFullName(): base plus extension. GerbView and the Image Converter are
     // the only two of the thirteen frames that keep it.
-    document: image?.fileName ?? null,
-    // m_IsX2_file is set only once a %TF file function has parsed
-    // (`rs274x.cpp:390-397`), which is our `fileFunction != null`.
-    ...(image?.fileFunction != null ? { suffixes: ['(with X2 attributes)'] } : {}),
+    document: image ? fullName(image.m_FileName) : null,
+    ...(image?.m_IsX2_file ? { suffixes: ['(with X2 attributes)'] } : {}),
   });
+}
+
+/** `wxFileName( name ).GetFullName()`. */
+function fullName(path: string): string {
+  return path.slice(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1);
 }
 
 /**
@@ -264,41 +252,29 @@ export function dcodeListLines(
     const gerber = images[layer];
     if (!gerber) continue;
     // `if( gerber->GetDcodesCount() == 0 ) continue;` (`:106-107`)
-    if (gerber.apertures.size === 0) continue;
+    if (gerber.GetDcodesCount() === 0) continue;
 
     // `%2.2d` on `layer + 1`, so the number is 1-based and zero-padded to two.
     // The inactive form carries TWO spaces before its closing stars (`:112`).
     const n = String(layer + 1).padStart(2, '0');
     out.push(layer === activeLayer ? `*** Active layer (${n}) ***` : `*** layer ${n}  ***`);
 
-    const used = gerber.usedDcodes();
-    // The attribute upstream reads off the D_CODE (`m_AperFunction`). Our reader
-    // records %TA on the ITEM's net metadata instead, so it is gathered back per
-    // D-code here. An aperture whose attribute we cannot see falls to upstream's
-    // own empty-case string, "none", rather than to anything invented.
-    const attrOf = new Map<number, string>();
-    for (const it of gerber.items) {
-      const a = it.netMetadata.apertureAttributes?.[0];
-      if (it.dcodeNum && a && !attrOf.has(it.dcodeNum)) attrOf.set(it.dcodeNum, a);
-    }
-
     // `int ii = 1;` per layer, incremented only for rows actually listed (`:116-141`).
     let ii = 1;
-    for (const [, dcode] of [...gerber.apertures.entries()].sort((a, b) => a[0] - b[0])) {
-      const inUse = used.has(dcode.num_Dcode);
-      if (!inUse && !dcode.defined) continue;
+    for (const [, dcode] of [...gerber.m_ApertureList.entries()].sort((a, b) => a[0] - b[0])) {
+      if (!dcode.m_InUse && !dcode.m_Defined) continue;
 
-      const v = ((dcode.size.y * dcode.iuScale) / scale).toFixed(4);
-      const h = ((dcode.size.x * dcode.iuScale) / scale).toFixed(4);
-      const attr = attrOf.get(dcode.num_Dcode) || 'none';
+      const v = (dcode.m_Size.y / scale).toFixed(4);
+      const h = (dcode.m_Size.x / scale).toFixed(4);
+      const attr = dcode.m_AperFunction === '' ? 'none' : dcode.m_AperFunction;
 
       let line =
-        `tool ${ii}:   Dcode D${dcode.num_Dcode}   ` +
+        `tool ${ii}:   Dcode D${dcode.m_Num_Dcode}   ` +
         `V ${v} ${unitWord}  H ${h} ${unitWord}   ` +
-        `${showApertureType(dcode.shape)}  attribute '${attr}'`;
+        `${D_CODE.ShowApertureType(dcode.m_ApertType)}  attribute '${attr}'`;
 
-      if (!dcode.defined) line += ' (not defined)';
-      if (inUse) line += ' (in use)';
+      if (!dcode.m_Defined) line += ' (not defined)';
+      if (dcode.m_InUse) line += ' (in use)';
 
       out.push(line);
       ii++;
@@ -320,7 +296,7 @@ export const DCODE_DIALOG_CAPTION = 'D Codes';
  * can disagree with itself.
  */
 export function isX2File(image: GERBER_FILE_IMAGE | null): boolean {
-  return image?.fileFunction != null;
+  return image?.m_IsX2_file === true;
 }
 
 /**
@@ -345,7 +321,7 @@ export function isX2File(image: GERBER_FILE_IMAGE | null): boolean {
  */
 export function gerbviewStatusField0(image: GERBER_FILE_IMAGE | null): string {
   if (!image) return '';
-  return `Image name: '${image.imageName}'  Layer name: '${image.layerName}'`;
+  return `Image name: '${image.m_ImageName}'  Layer name: '${image.GetLayerParams().m_LayerName}'`;
 }
 
 /**
@@ -380,21 +356,24 @@ export function gerbviewImageInfoRows(
   image: GERBER_FILE_IMAGE | null,
   graphicLayer: number,
   units: StatusUnits,
+  iuPerMM: number,
 ): { upper: string; lower: string }[] {
   if (!image) return [];
-  const rows = [{ upper: 'Format', lower: isX2File(image) ? 'X2' : 'X1' }];
-  if (image.imageName !== '') rows.push({ upper: 'Image name', lower: image.imageName });
-  rows.push({ upper: 'Graphic layer', lower: String(graphicLayer + 1) });
-  rows.push({ upper: 'Img Rot.', lower: String(image.imageRotation) });
-  rows.push({ upper: 'Polarity', lower: image.imageNegative ? 'Negative' : 'Normal' });
-  rows.push({ upper: 'X Justify', lower: image.imageJustifyXCenter ? 'Center' : 'Normal' });
-  rows.push({ upper: 'Y Justify', lower: image.imageJustifyYCenter ? 'Center' : 'Normal' });
-  const at = (iu: number): string =>
-    messageTextFromValue((iu / image.iuScale) * (image.unit === 'mm' ? 1 : 25.4), units) +
-    unitText(units);
-  rows.push({
-    upper: 'Image Justify Offset',
-    lower: `X=${at(image.imageJustifyOffset.x)} Y=${at(image.imageJustifyOffset.y)}`,
+  // GERBER_FILE_IMAGE_LIST::GetLayerRemap keeps m_GraphicLayer equal to the
+  // image's row after every sort; the frame's rows are that list here.
+  image.m_GraphicLayer = graphicLayer;
+  const rows: { upper: string; lower: string }[] = [];
+  // `GERBER_FILE_IMAGE::DisplayImageInfo` itself, over a message panel that
+  // collects its rows. MessageTextFromValue's value is in IU.
+  image.DisplayImageInfo({
+    ClearMsgPanel: () => {
+      rows.length = 0;
+    },
+    AppendMsgPanel: (upper, lower) => {
+      rows.push({ upper, lower });
+    },
+    // messageTextFromValue takes millimetres and converts to the units itself.
+    MessageTextFromValue: (iu) => messageTextFromValue(iu / iuPerMM, units) + unitText(units),
   });
   return rows;
 }
@@ -529,21 +508,14 @@ export function gerbviewLayerDisplayName(
 
   const filename = opts.fullName === true ? fileName : shortenLayerFileName(fileName);
   let name = filename;
+  const ff = image.m_FileFunction;
 
-  if (image.fileFunction != null) {
-    const p = image.fileFunction.split(',');
-    const fileType = p[0] ?? '';
-    const brdLayerId = p[1] ?? '';
-    // IsDrillFile(): "Plated" or "NonPlated", case-insensitively
-    // (`X2_gerber_attributes.cpp:229-234`).
-    const isDrill = /^(plated|nonplated)$/i.test(fileType);
-
-    if (isDrill) {
-      // GetDrillLayerPair() / GetLPType() / GetRouteType() are the remaining
-      // fields of the same attribute, which our parser keeps verbatim.
-      name = `${filename} (${fileType},${p[1] ?? ''},${p[2] ?? ''},${p[3] ?? ''})`;
+  if (ff) {
+    // The copper branch is overwritten by the if/else below it, upstream too.
+    if (ff.IsDrillFile()) {
+      name = `${filename} (${ff.GetFileType()},${ff.GetDrillLayerPair()},${ff.GetLPType()},${ff.GetRouteType()})`;
     } else {
-      name = `${filename} (${fileType}, ${brdLayerId})`;
+      name = `${filename} (${ff.GetFileType()}, ${ff.GetBrdLayerId()})`;
     }
   }
 

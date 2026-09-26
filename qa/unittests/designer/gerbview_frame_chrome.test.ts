@@ -17,7 +17,7 @@ import {
   layersPaneWidth,
   shortenLayerFileName,
 } from '@ziroeda/designer/src/editors/gerbview/gerberAuxControls.js';
-import { parseGerber } from '@ziroeda/gerbview';
+import { parseGerber } from '../gerbview/load_image.js';
 
 const image = (extra = ''): ReturnType<typeof parseGerber> =>
   parseGerber(
@@ -36,8 +36,8 @@ describe('status bar field 0', () => {
   it('is the image and layer names, two spaces apart, each quoted', () => {
     // status.Printf( _( "Image name: '%s'  Layer name: '%s'" ), ... )  :696
     const img = image();
-    img.imageName = 'MyImage';
-    img.layerName = 'TopCopper';
+    img.m_ImageName = 'MyImage';
+    img.GetLayerParams().m_LayerName = 'TopCopper';
     expect(gerbviewStatusField0(img)).toBe("Image name: 'MyImage'  Layer name: 'TopCopper'");
   });
 
@@ -48,14 +48,14 @@ describe('status bar field 0', () => {
   // `Layer name: 'no name'` on every file. Ours defaulted it to the empty
   // string and then filled it from %LN, so the line read `Layer name: ''`.
   it("says 'no name' for a file with no %LN, which is every file", () => {
-    expect(image().layerName).toBe('no name');
+    expect(image().GetLayerParams().m_LayerName).toBe('no name');
     expect(gerbviewStatusField0(image())).toBe("Image name: ''  Layer name: 'no name'");
   });
 
   it('ignores %LN, which upstream skips as a comment', () => {
     // case LOAD_NAME: "%LN is a (deprecated) equivalentto G04: a comment",
     // rs274x.cpp:676-681 — it advances past the text and stores nothing.
-    expect(image('%LNTopCopper*%').layerName).toBe('no name');
+    expect(image('%LNTopCopper*%').GetLayerParams().m_LayerName).toBe('no name');
     expect(gerbviewStatusField0(image('%LNTopCopper*%'))).toBe(
       "Image name: ''  Layer name: 'no name'",
     );
@@ -65,7 +65,7 @@ describe('status bar field 0', () => {
     // case IMAGE_NAME: m_ImageName.Empty(); then append to '*'  rs274x.cpp:668
     // This is the control for the test above: if %LN stopped working because
     // the parameter parser broke, this would fail too.
-    expect(image('%INMyBoard*%').imageName).toBe('MyBoard');
+    expect(image('%INMyBoard*%').m_ImageName).toBe('MyBoard');
   });
 });
 
@@ -95,14 +95,20 @@ describe('GetDisplayName', () => {
     // row reads "(Copper, L1)" in KiCad, never "(Copper, L1, Top)". Reproduced
     // deliberately; "fixing" it would print something KiCad never shows.
     const img = image('%TF.FileFunction,Copper,L1,Top,Signal*%');
-    expect(img.fileFunction).not.toBeNull();
+    expect(img.m_FileFunction).not.toBeNull();
     expect(gerbviewLayerDisplayName(img, 'a.gbr', 0)).toBe('1 a.gbr (Copper, L1)');
   });
 
   it('gives a drill file its own four-field suffix', () => {
     // IsDrillFile() is "Plated" or "NonPlated"  X2_gerber_attributes.cpp:229
+    // "%s (%s,%s,%s,%s)" with GetFileType(), GetDrillLayerPair() ("1,4"),
+    // GetLPType() and GetRouteType(): the attribute has no route type, and the
+    // constructor pads the parameters to seven with empty strings, so the
+    // fourth field prints empty and the comma before it stays.
     const img = image('%TF.FileFunction,Plated,1,4,PTH*%');
-    expect(gerbviewLayerDisplayName(img, 'd.gbr', 0)).toBe('1 d.gbr (Plated,1,4,PTH)');
+    expect(gerbviewLayerDisplayName(img, 'd.gbr', 0)).toBe('1 d.gbr (Plated,1,4,PTH,)');
+    const routed = image('%TF.FileFunction,Plated,1,4,PTH,Drill*%');
+    expect(gerbviewLayerDisplayName(routed, 'd.gbr', 0)).toBe('1 d.gbr (Plated,1,4,PTH,Drill)');
   });
 
   it('caps the file name at 30 by default, and not at all for aFullName', () => {

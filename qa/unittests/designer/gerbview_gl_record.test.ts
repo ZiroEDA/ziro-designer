@@ -24,7 +24,7 @@ import {
   type GerberGlContent,
   type GerberGlLayer,
 } from '@ziroeda/designer/src/render/gl/gerbview_gl.js';
-import { parseGerber } from '@ziroeda/gerbview';
+import { parseGerber } from '../gerbview/load_image.js';
 
 /** A layer with one flashed pad (a disc) and one trace (a segment). */
 function image(clear = false): ReturnType<typeof parseGerber> {
@@ -48,7 +48,6 @@ const layer = (over: Partial<GerberGlLayer> = {}): GerberGlLayer => ({
   image: image(),
   color: 'rgb(200, 0, 0)',
   negativeColor: 'rgb(132, 132, 132)',
-  highlightColor: 'rgb(255, 128, 128)',
   visible: true,
   ...over,
 });
@@ -59,7 +58,7 @@ const content = (over: Partial<GerberGlContent> = {}): GerberGlContent => ({
   linesSketch: false,
   polygonsSketch: false,
   showNegativeObjects: false,
-  highlightTest: null,
+  highlight: { net: '', component: '', attribute: '', dcode: -1 },
   ...over,
 });
 
@@ -207,18 +206,19 @@ describe('run count', () => {
     const scene = createGerberScene();
     const c = content({ layers: [layer({ image: busy }), layer({ image: busy })] });
     recordGerberScene(scene, c, 1);
-    const items = c.layers.reduce((n, l) => n + l.image.items.length, 0);
+    const items = c.layers.reduce((n, l) => n + l.image.GetItemsCount(), 0);
     expect(items).toBeGreaterThan(300);
     // Two kinds per layer is the floor; a little slack for a layer whose
     // apertures genuinely mix. What must never happen is a run per item.
     expect(scene.runs.length).toBeLessThanOrEqual(c.layers.length * 4);
   });
 
-  it('keeps a mixed-kind flash from opening a run per item', () => {
-    // A macro aperture resolves to a polygon *and* a rounded arm, so it
-    // records triangles and segments from one item. Painted in one pass that
-    // is two runs per item - which is exactly what left 3201 runs on the real
-    // board. The recorder passes over the mixed bucket twice instead.
+  it('draws a macro flash as the one polygon GerbView fills', () => {
+    // GERBVIEW_PAINTER::drawApertureMacro (gerbview_painter.cpp:599-622)
+    // takes GetApertureMacroShape - every primitive, the vector line included,
+    // already converted to outlines and merged - and hands it to DrawPolygon.
+    // The old renderer stroked the line primitive as a segment on top of the
+    // body; KiCad records no segment at all for a filled macro flash.
     const macro = parseGerber(
       [
         '%FSLAX46Y46*%',
@@ -237,14 +237,12 @@ describe('run count', () => {
     );
     const scene = createGerberScene();
     recordGerberScene(scene, content({ layers: [layer({ image: macro })] }), 1);
-    expect(macro.items.length).toBe(4);
-    // Both halves of every flash must actually be recorded. Asserting only
-    // that the run list is short is not enough and two mutants proved it:
-    // dropping the mixed bucket entirely, and running only its fill pass, both
-    // leave a SHORTER run list. "Draws nothing" passes an upper bound.
-    expect(scene.segmentCount).toBe(4); // one vector-line primitive per flash
-    expect(scene.triangleVertexCount).toBeGreaterThan(0); // and one outline
-    // Four flashes, each emitting both kinds: one run per kind, not per item.
-    expect(scene.runs.length).toBeLessThanOrEqual(3);
+    expect(macro.GetItemsCount()).toBe(4);
+    // The flashes must actually be recorded: an upper bound on the run list
+    // alone is passed by a recorder that draws nothing.
+    expect(scene.segmentCount).toBe(0);
+    expect(scene.triangleVertexCount).toBeGreaterThan(0);
+    // Four flashes of one kind on one layer: one run, not one per item.
+    expect(scene.runs.length).toBe(1);
   });
 });

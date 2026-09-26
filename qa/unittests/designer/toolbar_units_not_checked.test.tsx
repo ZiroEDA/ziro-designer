@@ -41,7 +41,7 @@ import { SYM_LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/symbol/symbolToo
 import { DS_LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
 import { PCB_LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
 import { FP_LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/footprint/footprintToolbars.js';
-import { GBR_LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/gerbview/gerberToolbars.js';
+import { GBR_LEFT_TOOLBAR } from '@ziroeda/gerbview/toolbars_gerber.js';
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 
 // `qa` has no testing-library setup file, so the auto-cleanup that ships with

@@ -92,6 +92,7 @@ import { join, relative } from 'node:path';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const COMMON = fileURLToPath(new URL('../../../common', import.meta.url));
+const GERBVIEW = fileURLToPath(new URL('../../../gerbview', import.meta.url));
 
 /**
  * Seeded 2026-08-20 from the tree, per area, AFTER the central-values pass took
@@ -894,12 +895,27 @@ function scan(): Site[] {
       else if (/\.(css|tsx)$/.test(p)) files.push(p);
     }
   })(COMMON);
+  // gerbview/'s screens moved beside KiCad's (widgets/layer_widget.tsx, 09-27);
+  // the launcher's literals are counted wherever its files sit.
+  (function walk(dir: string) {
+    for (const entry of readdirSync(dir)) {
+      if (entry === 'node_modules') continue;
+      const p = join(dir, entry);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.(css|tsx)$/.test(p)) files.push(p);
+    }
+  })(GERBVIEW);
   files.sort();
 
   const sites: Site[] = [];
   for (const file of files) {
     const inCommon = !relative(COMMON, file).startsWith('..');
-    const rel = inCommon ? `common/${relative(COMMON, file)}` : relative(SRC, file);
+    const inGerbview = !relative(GERBVIEW, file).startsWith('..');
+    const rel = inCommon
+      ? `common/${relative(COMMON, file)}`
+      : inGerbview
+        ? `editors/gerbview/${relative(GERBVIEW, file)}`
+        : relative(SRC, file);
     const parts = rel.split('/');
     const area =
       parts[0] === 'editors' || parts[0] === 'common'

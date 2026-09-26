@@ -1,7 +1,7 @@
 {
   "name": "@ziroeda/gerbview",
   "version": "0.0.0",
-  "description": "Gerber/Excellon viewer engine mirroring KiCad's gerbview/: RS-274X + Excellon readers, D_CODE apertures, aperture macros, GERBER_DRAW_ITEM model, GBR_LAYOUT.",
+  "description": "Gerber viewer mirroring KiCad's gerbview/: the RS-274X and Excellon readers, the image model (GERBER_FILE_IMAGE, GERBER_DRAW_ITEM, D_CODE, APERTURE_MACRO), the image list and the layout.",
   "license": "GPL-3.0-or-later",
   "type": "module",
   "main": "./index.ts",
@@ -10,6 +10,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@ziroeda/kimath": "workspace:*"
+    "@ziroeda/common": "workspace:*",
+    "@ziroeda/core": "workspace:*",
+    "@ziroeda/kimath": "workspace:*",
+    "@ziroeda/pcbnew": "workspace:*",
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18"
   }
 }

@@ -11,7 +11,10 @@
  * GerbView refuses it and names it in an Errors box.
  */
 import { describe, expect, it } from 'vitest';
-import { detectFileType, testFileIsExcellon, testFileIsRS274 } from '@ziroeda/gerbview';
+import { detectFileType, EXCELLON_IMAGE, GERBER_FILE_IMAGE } from '@ziroeda/gerbview';
+
+const testFileIsRS274 = (t: string): boolean => GERBER_FILE_IMAGE.TestFileIsRS274(t);
+const testFileIsExcellon = (t: string): boolean => EXCELLON_IMAGE.TestFileIsExcellon(t);
 
 const GERBER = [
   'G04 test*',

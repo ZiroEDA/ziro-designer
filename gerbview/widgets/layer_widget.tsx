@@ -34,12 +34,12 @@
 
 import { useRef, useState, type JSX } from 'react';
 import { ContextMenu } from '@ziroeda/common/tool/action_menu_bar.js';
-import { layerContextMenu, type LayerInfo, type RenderRow } from './layer_widget.js';
+import { layerContextMenu, type LayerInfo, type RenderRow } from './gerbview_layer_widget.js';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { parseColor4d, toCssColor } from '@ziroeda/common/color4d.js';
 
-export type { LayerInfo, RenderRow } from './layer_widget.js';
-export { renderRows, layerContextMenu } from './layer_widget.js';
+export type { LayerInfo, RenderRow } from './gerbview_layer_widget.js';
+export { renderRows, layerContextMenu } from './gerbview_layer_widget.js';
 
 export function LayerManager({
   layers,

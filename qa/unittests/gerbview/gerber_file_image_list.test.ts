@@ -11,14 +11,53 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  GERBER_ORDER,
-  compareByFileExtension,
-  compareByZOrder,
-  gerberLayerFromFilename,
-  zOrderOf,
+  asComparator,
+  EXCELLON_DEFAULTS,
+  EXCELLON_IMAGE,
+  GERBER_FILE_IMAGE,
+  GERBER_FILE_IMAGE_LIST,
+  GERBER_ORDER_ENUM as GERBER_ORDER,
+  sortFileExtension,
+  sortZorder,
+  X2_ATTRIBUTE,
+  X2_ATTRIBUTE_FILEFUNCTION,
 } from '@ziroeda/gerbview';
-import { parseExcellon } from '@ziroeda/gerbview/excellon.js';
+import { CHAR_PTR, LINE_BUFFER } from '@ziroeda/gerbview/libc.js';
 import { gerbviewLayerDisplayName } from '@ziroeda/designer/src/editors/gerbview/gerberAuxControls.js';
+
+/** `X2_ATTRIBUTE_FILEFUNCTION` from the text after `%TF.FileFunction,`. */
+function fileFunction(ff: string): X2_ATTRIBUTE_FILEFUNCTION {
+  const buf = new LINE_BUFFER();
+  buf.s = `.FileFunction,${ff}*%`;
+  const attr = new X2_ATTRIBUTE();
+  attr.ParseAttribCmd(null, null, 0, new CHAR_PTR(buf), { value: 0 });
+  return new X2_ATTRIBUTE_FILEFUNCTION(attr);
+}
+
+/** An in-use image with this file name and (optional) file function. */
+function image(name: string, ff: string | null = null): GERBER_FILE_IMAGE {
+  const img = new GERBER_FILE_IMAGE(0);
+  img.m_FileName = name;
+  img.m_InUse = true;
+  img.m_FileFunction = ff === null ? null : fileFunction(ff);
+  return img;
+}
+
+const gerberLayerFromFilename = (n: string) => GERBER_FILE_IMAGE_LIST.GetGerberLayerFromFilename(n);
+const compareByFileExtension = (a: string, b: string): number =>
+  asComparator(sortFileExtension)(image(a), image(b));
+const compareByZOrder = (a: string | null, b: string | null): number =>
+  asComparator(sortZorder)(image('a', a), image('b', b));
+const zOrderOf = (ff: string | null): { z: number; zSub: number } | null => {
+  if (ff === null) return null;
+  const f = fileFunction(ff);
+  return { z: f.GetZOrder(), zSub: f.GetZSubOrder() };
+};
+const parseExcellon = (text: string, name: string): EXCELLON_IMAGE => {
+  const img = new EXCELLON_IMAGE(0);
+  img.LoadFile(name, new EXCELLON_DEFAULTS(), text);
+  return img;
+};
 
 const sortNames = (names: string[]): string[] => names.slice().sort(compareByFileExtension);
 
@@ -356,7 +395,15 @@ describe('a drill file carries the file function KiCad synthesises for it', () =
    */
   it('is the two-field attribute, not the bare word', () => {
     const img = parseExcellon('M30\n', 'board-PTH.drl');
-    expect(img.fileFunction).toBe('Other,Drill');
+    expect(img.m_FileFunction?.GetPrms()).toStrictEqual([
+      '.FileFunction',
+      'Other',
+      'Drill',
+      '',
+      '',
+      '',
+      '',
+    ]);
   });
 
   it('so the layers manager reads (Other, Drill)', () => {

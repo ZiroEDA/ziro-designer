@@ -15,12 +15,12 @@
  * there was no `Attr:` choice, and no grid or zoom selector anywhere.
  */
 import { describe, expect, it } from 'vitest';
-import { parseGerber } from '@ziroeda/gerbview';
+import { parseGerber } from '../gerbview/load_image.js';
 import {
   GBR_CONTROL,
   GBR_TOP_AUX_TOOLBAR,
   GBR_TOP_TOOLBAR,
-} from '@ziroeda/designer/src/editors/gerbview/gerberToolbars.js';
+} from '@ziroeda/gerbview/toolbars_gerber.js';
 import {
   apertureAttributeChoices,
   componentChoices,
