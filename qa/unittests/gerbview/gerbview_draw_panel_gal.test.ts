@@ -30,6 +30,7 @@ import {
   GERBVIEW_LAYER_ID,
 } from '@ziroeda/common/layer_id.js';
 import { VIEW } from '@ziroeda/common/view/view.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { GERBVIEW_DRAW_PANEL_GAL } from '@ziroeda/gerbview/gerbview_draw_panel_gal.js';
 
 class STUB_GAL extends GAL {}
@@ -54,6 +55,7 @@ function panelOn(aBackend: GAL_TYPE): { m_view: VIEW; m_backend: GAL_TYPE } {
 const proto = GERBVIEW_DRAW_PANEL_GAL.prototype as unknown as {
   SetTopLayer(this: unknown, aLayer: number): void;
   setDefaultLayerDeps(this: unknown): void;
+  GetDefaultViewBBox(this: unknown): BOX2I;
 };
 
 describe('GERBVIEW_DRAW_PANEL_GAL::SetTopLayer', () => {
@@ -146,5 +148,30 @@ describe('GERBVIEW_DRAW_PANEL_GAL::setDefaultLayerDeps', () => {
     expect(layersOf(panel.m_view).get(GERBER_DRAW_LAYER(0))?.target).toBe(
       RENDER_TARGET.TARGET_NONCACHED,
     );
+  });
+});
+
+/**
+ * `GetDefaultViewBBox` (`gerbview_draw_panel_gal.cpp:199-205`): the sheet's
+ * box only while LAYER_DRAWINGSHEET is visible - which is what
+ * COMMON_TOOLS::ZoomFitScreen falls back to with nothing loaded
+ * (`common/tool/common_tools.cpp:442-445`).
+ */
+describe('GERBVIEW_DRAW_PANEL_GAL::GetDefaultViewBBox', () => {
+  const sheetBox = new BOX2I({ x: 0, y: 0 }, { x: 812, y: 812 });
+  const panelWithSheet = (aVisible: boolean) => {
+    const panel = panelOn(GAL_TYPE.GAL_TYPE_OPENGL);
+    panel.m_view.SetLayerVisible(GAL_LAYER_ID.LAYER_DRAWINGSHEET, aVisible);
+    return { ...panel, m_drawingSheet: { ViewBBox: () => sheetBox } };
+  };
+
+  it("is the drawing sheet's box while the sheet is shown", () => {
+    expect(proto.GetDefaultViewBBox.call(panelWithSheet(true))).toBe(sheetBox);
+  });
+
+  it('is empty while the sheet is hidden', () => {
+    const bbox = proto.GetDefaultViewBBox.call(panelWithSheet(false));
+    expect(bbox).not.toBe(sheetBox);
+    expect([bbox.GetWidth(), bbox.GetHeight()]).toEqual([0, 0]);
   });
 });

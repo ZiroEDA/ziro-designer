@@ -20,7 +20,17 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { EDA_DRAW_PANEL_GAL } from '@ziroeda/common/draw_panel_gal.js';
 import { GAL_TYPE } from '@ziroeda/common/draw_panel_gal.js';
 import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
+import { DS_PROXY_VIEW_ITEM } from '@ziroeda/common/drawing_sheet/ds_proxy_view_item.js';
 import { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
+import { GERBVIEW_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import {
+  GERBVIEW_AUTODETECT_FILTERS,
+  GERBVIEW_DRILL_FILTERS,
+  GERBVIEW_GERBER_FILTERS,
+  GERBVIEW_JOB_FILTERS,
+  GERBVIEW_ZIP_FILTERS,
+} from '@ziroeda/common/wildcards_and_files_ext.js';
+import { PAGE_SIZE_TYPE } from '@ziroeda/common/page_info.js';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { VIEW } from '@ziroeda/common/view/view.js';
 import { VC_SETTINGS } from '@ziroeda/common/view/view_controls.js';
@@ -146,6 +156,12 @@ interface Env {
   frame: GERBVIEW_FRAME;
   view: VIEW;
   boxes: string[];
+  /** What the frame handed `GERBVIEW_DRAW_PANEL_GAL::SetDrawingSheet`, in order. */
+  sheets: DS_PROXY_VIEW_ITEM[];
+  /** Every `wxFileDialog` the frame opened, in order. */
+  dialogs: { title: string; filters: readonly unknown[]; multiple: boolean }[];
+  /** What the next dialogs answer, in order; Cancel once it runs out. */
+  answers: string[][];
 }
 
 function setup(): Env {
@@ -175,6 +191,7 @@ function setup(): Env {
     ShowCursor: () => {},
   };
 
+  const sheets: DS_PROXY_VIEW_ITEM[] = [];
   const canvas = {
     GetGAL: () => gal,
     GetView: () => view,
@@ -183,7 +200,7 @@ function setup(): Env {
     SwitchBackend: () => true,
     StartDrawing: () => {},
     SetEventDispatcher: () => {},
-    SetDrawingSheet: () => {},
+    SetDrawingSheet: (aSheet: DS_PROXY_VIEW_ITEM) => sheets.push(aSheet),
     SetFocus: () => {},
     Refresh: () => {},
     ForceRefresh: () => {},
@@ -195,8 +212,14 @@ function setup(): Env {
   };
 
   const boxes: string[] = [];
+  const dialogs: Env['dialogs'] = [];
+  const answers: Env['answers'] = [];
   const host: GERBVIEW_FRAME_HOST = {
-    FileDialog: () => Promise.resolve(null),
+    FileDialog: (aTitle, aFilters, aMultiple) => {
+      dialogs.push({ title: aTitle, filters: aFilters, multiple: aMultiple });
+      const paths = answers.shift();
+      return Promise.resolve(paths ? { paths, filterIndex: 0 } : null);
+    },
     HtmlMessageBox: (caption, messages) => {
       boxes.push(`${caption}: ${messages}`);
       return Promise.resolve();
@@ -221,7 +244,7 @@ function setup(): Env {
   frame.m_SelAperAttributesBox = new wxChoice();
   frame.AttachCanvas(canvas as unknown as EDA_DRAW_PANEL_GAL as never);
 
-  return { frame, view, boxes };
+  return { frame, view, boxes, sheets, dialogs, answers };
 }
 
 let env: Env;
@@ -355,5 +378,121 @@ describe('GERBVIEW_CONTROL layer actions', () => {
     mgr.RunAction(GERBVIEW_ACTIONS.moveLayerUp);
     expect(env.frame.GetActiveLayer()).toBe(0);
     expect(env.frame.GetGbrImage(0)!.m_FileName).toBe(second);
+  });
+});
+
+/**
+ * `GERBVIEW_FRAME::SetPageSettings` (`gerbview_frame.cpp:880-902`), which the
+ * frame runs when it gets its canvas: the proxy goes on a GERBER page
+ * (`:134`, 32000 x 32000 mils, page_info.cpp:61), sheet 1 of 1 (`:893-894`),
+ * coloured by the two gerbview layers (`:897-898`).
+ */
+describe('GERBVIEW_FRAME::SetPageSettings', () => {
+  const peek = (s: DS_PROXY_VIEW_ITEM) =>
+    s as unknown as {
+      m_pageNumber: string;
+      m_sheetCount: number;
+      m_colorLayer: number;
+      m_pageBorderColorLayer: number;
+    };
+
+  it('hands the panel a drawing sheet on the GERBER page, sheet 1 of 1', () => {
+    const sheet = env.sheets.at(-1)!;
+
+    expect(sheet).toBeInstanceOf(DS_PROXY_VIEW_ITEM);
+    expect(sheet.GetPageInfo().GetType()).toBe(PAGE_SIZE_TYPE.GERBER);
+    expect(sheet.GetPageInfo().GetWidthMils()).toBe(32000);
+    expect(sheet.GetPageInfo().GetHeightMils()).toBe(32000);
+    expect(peek(sheet).m_pageNumber).toBe('1');
+    expect(peek(sheet).m_sheetCount).toBe(1);
+  });
+
+  it('colours it by LAYER_GERBVIEW_DRAWINGSHEET and LAYER_GERBVIEW_PAGE_LIMITS', () => {
+    const sheet = peek(env.sheets.at(-1)!);
+
+    expect(sheet.m_colorLayer).toBe(GERBVIEW_LAYER_ID.LAYER_GERBVIEW_DRAWINGSHEET);
+    expect(sheet.m_pageBorderColorLayer).toBe(GERBVIEW_LAYER_ID.LAYER_GERBVIEW_PAGE_LIMITS);
+  });
+
+  it('spans the page in gerbview IU, which is what zoom-to-fit falls back to', () => {
+    // 32000 mils = 812.8 mm, at gerbview's gerbIUScale - 1 nm, where KiCad's
+    // is 10 nm (the open IU divergence; this moves with it).
+    const bbox = env.sheets.at(-1)!.ViewBBox();
+
+    expect(bbox.GetWidth()).toBe(Math.round(812.8 * 1e6));
+    expect(bbox.GetHeight()).toBe(Math.round(812.8 * 1e6));
+  });
+});
+
+/**
+ * GerbView opens five dialogs, each with its own filter list: the three of
+ * LoadFileOrShowDialog (`files.cpp:203,246,257`, all wxFD_MULTIPLE), the zip
+ * (`:661`, one file) and the job file (`job_file_reader.cpp:190`, one file,
+ * its own dialog - not the plot loader, which refuses a .gbrjob by name).
+ */
+describe('GERBVIEW_FRAME opens five dialogs, not two', () => {
+  it('names its own filter list for each entry', async () => {
+    await env.frame.LoadAutodetectedFiles('');
+    await env.frame.LoadGerberFiles('');
+    await env.frame.LoadExcellonFiles('');
+    await env.frame.LoadZipArchiveFile('');
+    await env.frame.LoadGerberJobFile('');
+
+    expect(env.dialogs.map((d) => [d.title, d.filters, d.multiple])).toEqual([
+      ['Open Autodetected File(s)', GERBVIEW_AUTODETECT_FILTERS, true],
+      ['Open Gerber File(s)', GERBVIEW_GERBER_FILTERS, true],
+      ['Open NC (Excellon) Drill File(s)', GERBVIEW_DRILL_FILTERS, true],
+      ['Open Zip File', GERBVIEW_ZIP_FILTERS, false],
+      ['Open Gerber Job File', GERBVIEW_JOB_FILTERS, false],
+    ]);
+  });
+});
+
+/**
+ * Where a load sorts the layers. LoadFileOrShowDialog sorts by extension only
+ * when nothing was loaded before the batch (`files.cpp:226,236-242`), and a
+ * job file always sorts by X2 attributes (`job_file_reader.cpp:167`). The zip
+ * case is above.
+ */
+describe('the automatic layer sorts', () => {
+  const names = (): string[] =>
+    [0, 1, 2]
+      .map((i) => env.frame.GetGbrImage(i)?.m_FileName)
+      .filter((n): n is string => n !== undefined)
+      .map((n) => n.slice(n.lastIndexOf('/') + 1));
+
+  it('a first Open sorts its batch by file extension: .gtl over .gbl', async () => {
+    env.answers.push([put('b.gbl', gerber('Copper,L2,Bot')), put('t.gtl', gerber('Copper,L1,Top'))]);
+
+    await env.frame.LoadGerberFiles('');
+
+    expect(names()).toEqual(['t.gtl', 'b.gbl']);
+  });
+
+  it('an Open onto loaded layers leaves the load order alone', async () => {
+    await env.frame.LoadGerberFiles(put('z.gbr', gerber('Other,Comment')));
+    env.answers.push([put('b.gbl', gerber('Copper,L2,Bot')), put('t.gtl', gerber('Copper,L1,Top'))]);
+
+    await env.frame.LoadGerberFiles('');
+
+    expect(names()).toEqual(['z.gbr', 'b.gbl', 't.gtl']);
+  });
+
+  it('a job file sorts by X2 attributes, which the extensions cannot tell apart', async () => {
+    put('job-a.gbr', gerber('Copper,L2,Bot'));
+    put('job-b.gbr', gerber('Copper,L1,Top'));
+    const job = put(
+      'board.gbrjob',
+      JSON.stringify({
+        FilesAttributes: [
+          { Path: 'job-a.gbr', FileFunction: 'Copper,L2,Bot' },
+          { Path: 'job-b.gbr', FileFunction: 'Copper,L1,Top' },
+        ],
+      }),
+    );
+
+    await env.frame.LoadGerberJobFile(job);
+
+    expect(names()).toEqual(['job-b.gbr', 'job-a.gbr']);
   });
 });
