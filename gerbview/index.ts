@@ -40,7 +40,11 @@ export {
 export { EXCELLON_IMAGE } from './excellon_read_drill_file.js';
 export { EXCELLON_DEFAULTS } from './excellon_defaults.js';
 export { X2_ATTRIBUTE, X2_ATTRIBUTE_FILEFUNCTION } from './X2_gerber_attributes.js';
-export { GBR_NETLIST_METADATA, GBR_NETINFO_TYPE, GBR_DATA_FIELD } from '@ziroeda/common/gbr_netlist_metadata.js';
+export {
+  GBR_NETLIST_METADATA,
+  GBR_NETINFO_TYPE,
+  GBR_DATA_FIELD,
+} from '@ziroeda/common/gbr_netlist_metadata.js';
 export { GBR_LAYOUT } from './gbr_layout.js';
 export { GERBER_JOBFILE_READER } from './job_file_reader.js';
 export { GBR_FILE_TYPE, type GbrFileType, detectFileType } from './files.js';
