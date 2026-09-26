@@ -18,6 +18,25 @@ importers:
         specifier: ^3.0.5
         version: 3.2.6(@types/node@22.20.0)(happy-dom@20.11.6)(terser@5.51.2)
 
+  bitmap2component:
+    dependencies:
+      '@ziroeda/common':
+        specifier: workspace:*
+        version: link:../common
+      '@ziroeda/kimath':
+        specifier: workspace:*
+        version: link:../libs/kimath
+      '@ziroeda/potrace':
+        specifier: workspace:*
+        version: link:../libs/potrace
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.18
+        version: 18.3.31
+
   bitmaps_png:
     devDependencies:
       vite:
@@ -72,6 +91,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.110.0
         version: 2.110.1
+      '@ziroeda/bitmap2component':
+        specifier: workspace:*
+        version: link:../bitmap2component
       '@ziroeda/bitmaps_png':
         specifier: workspace:*
         version: link:../bitmaps_png
@@ -253,6 +275,9 @@ importers:
 
   qa:
     dependencies:
+      '@ziroeda/bitmap2component':
+        specifier: workspace:*
+        version: link:../bitmap2component
       '@ziroeda/bitmaps_png':
         specifier: workspace:*
         version: link:../bitmaps_png

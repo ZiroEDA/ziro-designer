@@ -1,0 +1,21 @@
+{
+  "name": "@ziroeda/bitmap2component",
+  "version": "0.0.0",
+  "description": "Image Converter mirroring KiCad's bitmap2component/: BITMAPCONV_INFO (trace and write symbol, footprint, PostScript, drawing sheet), IMAGE_SIZE, BITMAP2CMP_PANEL, BITMAP2CMP_FRAME, BITMAP2CMP_CONTROL, BITMAP2CMP_SETTINGS.",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ziroeda/common": "workspace:*",
+    "@ziroeda/kimath": "workspace:*",
+    "@ziroeda/potrace": "workspace:*",
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18"
+  }
+}

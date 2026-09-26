@@ -2,6 +2,7 @@ packages:
   - "common"
   - "eeschema"
   - "gerbview"
+  - "bitmap2component"
   - "pcbnew"
   - "pcb_calculator"
   - "designer"

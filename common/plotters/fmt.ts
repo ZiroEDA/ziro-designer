@@ -199,3 +199,42 @@ export function formatDouble2Str(aValue: number): string {
 
   return formatG(aValue, 10);
 }
+
+/**
+ * fmt's `{}` for a double: the shortest digit string that reads back to the
+ * same double (Dragonbox), laid out fixed when the decimal exponent of the
+ * first digit is in `[-4, 16)` and in exponent form otherwise
+ * (`thirdparty/fmt/include/fmt/format.h`, `use_fixed`, `exp_upper<double>()`
+ * = 16). Fixed form has no point for a whole number (`1.0` prints `1`); the
+ * exponent has at least two digits (`1e-05`).
+ *
+ * `bitmap2component.cpp` writes a footprint's `(xy {} {})` with it.
+ * JavaScript's `String` picks the same shortest digits but switches to an
+ * exponent at 1e-7 and 1e21, and spells it `1e-5`.
+ */
+export function shortest(aValue: number): string {
+  if (Number.isNaN(aValue)) return 'nan';
+  if (!Number.isFinite(aValue)) return aValue > 0 ? 'inf' : '-inf';
+
+  const sign = aValue < 0 || Object.is(aValue, -0) ? '-' : '';
+
+  if (aValue === 0) return `${sign}0`;
+
+  // toExponential() without an argument: as many digits as uniquely needed.
+  const [mantissa, expText] = Math.abs(aValue).toExponential().split('e') as [string, string];
+  const digits = mantissa.replace('.', '');
+  const exp = Number(expText);
+
+  if (exp < -4 || exp >= 16) {
+    const expDigits = String(Math.abs(exp)).padStart(2, '0');
+    const frac = digits.length > 1 ? `.${digits.slice(1)}` : '';
+
+    return `${sign}${digits[0]}${frac}e${exp < 0 ? '-' : '+'}${expDigits}`;
+  }
+
+  if (exp < 0) return `${sign}0.${'0'.repeat(-exp - 1)}${digits}`;
+
+  if (digits.length <= exp + 1) return `${sign}${digits}${'0'.repeat(exp + 1 - digits.length)}`;
+
+  return `${sign}${digits.slice(0, exp + 1)}.${digits.slice(exp + 1)}`;
+}
