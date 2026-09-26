@@ -31,7 +31,13 @@ import {
   highlightedLayerColor,
   selectedLayerColor,
 } from '@ziroeda/designer/src/editors/gerbview/gerberColors.js';
-import { itemColor } from '@ziroeda/designer/src/editors/gerbview/gerberRender.js';
+import {
+  gerberPainter,
+  syncGerbviewSettings,
+} from '@ziroeda/designer/src/editors/gerbview/gerberRender.js';
+import { GERBER_DRAW_LAYER } from '@ziroeda/common/layer_id.js';
+import type { GERBER_DRAW_ITEM } from '@ziroeda/gerbview';
+import { parseGerber } from '../gerbview/load_image.js';
 
 /** `builtin_color_themes.h:91-104`, the fourteen distinct rows, in order. */
 const CYCLE = [
@@ -211,36 +217,82 @@ describe('the highlight and selection colours', () => {
 });
 
 describe('GERBVIEW_RENDER_SETTINGS::GetColor, as the renderer applies it', () => {
-  const layer = 'rgb(200, 52, 52)';
-  /** (layerColor, highlighted, negativePolarity, showNegativeObjects) */
+  const layer = 'rgb(79, 203, 203)';
+  const other = 'rgb(141, 203, 129)';
+  /** Graphic layer 0 drawn in `layer`, graphic layer 1 in `other`. */
+  const DRAW0 = GERBER_DRAW_LAYER(0);
+  const DRAW1 = GERBER_DRAW_LAYER(1);
+  const NONE = { net: '', component: '', attribute: '', dcode: -1 };
+
+  /** A dark item on net GND, and a clear (%LPC) one on the same net. */
+  const [dark, clear] = parseGerber(
+    [
+      '%FSLAX46Y46*%',
+      '%MOMM*%',
+      '%ADD10C,1*%',
+      '%TO.N,GND*%',
+      'D10*',
+      'X0Y0D03*',
+      '%LPC*%',
+      'X0Y0D03*',
+      'M02*',
+    ].join('\n'),
+    't.gbr',
+  ).GetItems() as [GERBER_DRAW_ITEM, GERBER_DRAW_ITEM];
+
+  /** GetColor under these options, as `rgb( r, g, b )` or null for transparent. */
+  function colorOf(
+    item: GERBER_DRAW_ITEM,
+    drawLayer: number,
+    highlightNet: string,
+    showNegativeObjects: boolean,
+  ): string | null {
+    syncGerbviewSettings({
+      flashedSketch: false,
+      linesSketch: false,
+      polygonsSketch: false,
+      showNegativeObjects,
+    });
+    const rs = gerberPainter([layer, other], GERBER_NEGATIVE_COLOR, GERBER_DCODE_COLOR, {
+      ...NONE,
+      net: highlightNet,
+    }).GetSettings();
+    const c = rs.GetColor(item, drawLayer);
+    if (c.a === 0) return null;
+    const ch = (v: number): number => Math.round(v * 255);
+    return `rgb(${ch(c.r)}, ${ch(c.g)}, ${ch(c.b)})`;
+  }
 
   /**
    * A highlighted item must take ITS OWN LAYER's colour brightened,
    * `m_layerColorsHi[aLayer]` (`gerbview_painter.cpp:70,135-147`), not a
-   * constant. A flat white here survived a mutation sweep of the colour module
-   * because nothing reached the renderer's choice - so the choice is a function
-   * now, and this is what pins it.
+   * constant. Brightened( 0.5 ) is c + ( 255 - c ) / 2 per channel; both
+   * layers here are odd on every channel, so no result lands on a half.
+   * rgb(79, 203, 203): 79 + 88, 203 + 26.
    */
   it('brightens the layer for a highlighted item, per layer', () => {
-    expect(itemColor(layer, true, false, false)).toBe(highlightedLayerColor(layer));
-    expect(itemColor(layer, true, false, false)).not.toBe('rgb(255, 255, 255)');
+    expect(colorOf(dark, DRAW0, 'GND', false)).toBe('rgb(167, 229, 229)');
+    expect(colorOf(dark, DRAW0, 'GND', false)).not.toBe('rgb(255, 255, 255)');
+    // rgb(141, 203, 129): 141 + 57, 203 + 26, 129 + 63.
+    expect(colorOf(dark, DRAW1, 'GND', false)).toBe('rgb(198, 229, 192)');
+  });
 
-    const other = 'rgb(40, 204, 217)';
-    expect(itemColor(other, true, false, false)).not.toBe(itemColor(layer, true, false, false));
+  it('highlights only the net it was asked for', () => {
+    expect(colorOf(dark, DRAW0, 'VCC', false)).toBe(layer);
   });
 
   it('leaves an ordinary item on its layer colour', () => {
-    expect(itemColor(layer, false, false, false)).toBe(layer);
+    expect(colorOf(dark, DRAW0, '', false)).toBe(layer);
   });
 
   /** LAYER_NEGATIVE_OBJECTS when show_negative_objects is on (`:124-127`). */
   it('gives a shown negative object the negative-objects colour', () => {
-    expect(itemColor(layer, false, true, true)).toBe(GERBER_NEGATIVE_COLOR);
+    expect(colorOf(clear, DRAW0, '', true)).toBe(GERBER_NEGATIVE_COLOR);
   });
 
-  /** `return transparent;` — COLOR4D( 0, 0, 0, 0 ) (`:130`). */
+  /** `return transparent;` - COLOR4D( 0, 0, 0, 0 ) (`:130`). */
   it('gives a hidden negative object no colour at all', () => {
-    expect(itemColor(layer, false, true, false)).toBe(null);
+    expect(colorOf(clear, DRAW0, '', false)).toBe(null);
   });
 
   /**
@@ -251,12 +303,10 @@ describe('GERBVIEW_RENDER_SETTINGS::GetColor, as the renderer applies it', () =>
    * against the line numbers rather than described.
    */
   it('tests polarity BEFORE the highlight, as upstream does', () => {
-    // Clear object, highlighted, toggle on -> negative colour, not brightened.
-    expect(itemColor(layer, true, true, true)).toBe(GERBER_NEGATIVE_COLOR);
-    expect(itemColor(layer, true, true, true)).not.toBe(highlightedLayerColor(layer));
-
-    // Clear object, highlighted, toggle off -> transparent, still not brightened.
-    expect(itemColor(layer, true, true, false)).toBe(null);
+    // Clear object on the highlighted net, toggle on -> negative colour.
+    expect(colorOf(clear, DRAW0, 'GND', true)).toBe(GERBER_NEGATIVE_COLOR);
+    // Clear object on the highlighted net, toggle off -> transparent.
+    expect(colorOf(clear, DRAW0, 'GND', false)).toBe(null);
   });
 });
 

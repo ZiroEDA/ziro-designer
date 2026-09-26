@@ -252,3 +252,12 @@ export function ToCDouble(text: string, prev: number): number {
   const r = strtodPrefix(text, 0);
   return r === null ? prev : r.value;
 }
+
+/**
+ * The return value of `wxString::ToCDouble`: true only when the whole text,
+ * after leading blanks, is one number (`"1.25 "` is false).
+ */
+export function ToCDoubleOk(text: string): boolean {
+  const r = strtodPrefix(text, 0);
+  return r !== null && r.end === text.length;
+}

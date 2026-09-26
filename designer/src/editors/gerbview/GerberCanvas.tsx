@@ -20,6 +20,7 @@ import {
   renderGerberLayers,
   worldToDevice,
   deviceToWorld,
+  drawGerberDcodes,
   drawGerberDrawingSheet,
   drawGerberPageLimits,
   type GerberLayerView,
@@ -35,7 +36,6 @@ import {
   GERBER_GRID_COLOR,
   GERBER_NEGATIVE_COLOR,
   GERBER_PAGE_LIMITS_COLOR,
-  highlightedLayerColor,
 } from './gerberColors.js';
 import { GerbviewGl, type GerberGlContent } from '../../render/gl/gerbview_gl.js';
 import {
@@ -75,6 +75,9 @@ import { drawSelectionArea, selectionAreaColors } from '@ziroeda/common';
  * WebGL2 is on the browser-support gate now, so nothing reaches it.
  */
 
+/** No highlight: `GERBVIEW_RENDER_SETTINGS::ClearHighlightSelections`' values. */
+const NO_HIGHLIGHT = { net: '', component: '', attribute: '', dcode: -1 } as const;
+
 /** `?perf=1` publishes per-frame cost and which path drew it, on window. */
 const PERF =
   typeof location !== 'undefined' && new URLSearchParams(location.search).get('perf') === '1';
@@ -92,18 +95,16 @@ function glContent(layers: readonly GerberLayerView[], opts: GerberRenderOptions
     layers: layers.map((l) => ({
       image: l.image,
       color: l.color,
-      // GetColor's negative and highlight branches, resolved per layer because
-      // m_layerColorsHi is Brightened( 0.5 ) of the LAYER's own colour
-      // (`gerbview_painter.cpp:70`) - not one flat highlight for all of them.
+      // LAYER_NEGATIVE_OBJECTS, which GetColor gives a clear item when the
+      // negative-objects toggle is on.
       negativeColor: opts.colors.negativeObjects,
-      highlightColor: highlightedLayerColor(l.color),
       visible: l.visible,
     })),
     flashedSketch: opts.flashedSketch,
     linesSketch: opts.linesSketch,
     polygonsSketch: opts.polygonsSketch,
     showNegativeObjects: opts.showNegativeObjects,
-    highlightTest: opts.highlightTest ?? null,
+    highlight: opts.highlight ?? NO_HIGHLIGHT,
   };
 }
 
@@ -375,6 +376,12 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       // LAYER_SELECT_OVERLAY and LAYER_GP_OVERLAY, made top layers at :191-193,
       // paint over the sheet. That is exactly this position: on the overlay
       // canvas, ahead of the rubber band, the measure line and the crosshair.
+      // The D code layers, which the GL scene does not carry: on the overlay,
+      // above the items and below the sheet, as their layer order puts them.
+      // (The raster path draws them itself.)
+      if (drewWithGl && opts.showDcodes) {
+        drawGerberDcodes(octx, v, layersRef.current, opts);
+      }
       if (opts.drawingSheet) {
         drawGerberDrawingSheet(octx, v, opts.flipView, opts.colors.drawingSheet, opts.paper);
       }
@@ -712,7 +719,7 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
     // Re-fit when the first content arrives.
     const hadContentRef = useRef(false);
     useEffect(() => {
-      const has = layers.some((l) => l.image.items.length > 0);
+      const has = layers.some((l) => l.image.GetItemsCount() > 0);
       if (has && !hadContentRef.current) {
         hadContentRef.current = true;
         zoomToFit();
@@ -806,15 +813,18 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
           }
           requestDraw();
         } else {
-          // Select: pick the topmost item under the cursor.
-          const tol = 3 / viewRef.current.scale;
+          // Select: pick the topmost item under the cursor. The items answer
+          // GERBER_DRAW_ITEM::HitTest in image (AB) coordinates, whose Y runs
+          // down where this canvas's world runs up.
+          const tol = Math.round(3 / viewRef.current.scale);
+          const ab = { x: Math.round(world.x), y: -Math.round(world.y) };
           let picked: GERBER_DRAW_ITEM | null = null;
           outer: for (let li = layersRef.current.length - 1; li >= 0; li--) {
             const layer = layersRef.current[li]!;
             if (!layer.visible) continue;
-            const items = layer.image.items;
+            const items = layer.image.GetItems();
             for (let k = items.length - 1; k >= 0; k--) {
-              if (items[k]!.hitTest(world, tol)) {
+              if (items[k]!.HitTest(ab, tol)) {
                 picked = items[k]!;
                 break outer;
               }

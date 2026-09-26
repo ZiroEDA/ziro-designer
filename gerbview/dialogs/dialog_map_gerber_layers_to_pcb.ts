@@ -21,7 +21,8 @@
  * spells them out because C++ has no better way to write a map literal.
  */
 
-import { GERBER_FORMAT, type GERBER_FILE_IMAGE } from '@ziroeda/gerbview';
+import { EXCELLON_IMAGE } from '../excellon_read_drill_file.js';
+import type { GERBER_FILE_IMAGE } from '../gerber_file_image.js';
 import {
   B_Adhes,
   B_Cu,
@@ -52,40 +53,11 @@ import {
 } from '@ziroeda/pcbnew/layer_ids.js';
 
 /**
- * `X2_ATTRIBUTE_FILEFUNCTION`'s three accessors, off the comma-separated
- * `%TF.FileFunction` value (`gerbview/X2_gerber_attributes.cpp:196-231`).
- *
- * `m_Prms.Item( 0 )` is the attribute name, which our parser has already
- * stripped (`gerbview/gerber_file_image_parse.ts:453`), so upstream's
- * `Item( 1 )` is our field 0 — the same offset `zOrderOf`
- * (`gerbview/layer_sort.ts:237`) reads. Upstream pads the parameter list to
- * seven entries in the constructor (`:139-141`) so a short attribute answers
- * the empty string rather than running off the end; `?? ''` is that padding.
+ * `X2_ATTRIBUTE_FILEFUNCTION::IsDrillFile()` of an image's file function — a
+ * `%TF.FileFunction,Plated,…` or `,NonPlated,…` gerber.
  */
-function x2Fields(fileFunction: string): { type: string; brdLayerId: string; side: string } {
-  const p = fileFunction.split(',');
-  const type = (p[0] ?? '').trim();
-  const brdLayerId = (p[1] ?? '').trim();
-  // `GetBrdLayerSide()`: Item( 3 ) for copper, Item( 2 ) otherwise — i.e. the
-  // same field as GetBrdLayerId() for a non-copper file.
-  const isCopper = type.toLowerCase() === 'copper';
-  const side = isCopper ? (p[2] ?? '').trim() : brdLayerId;
-  return { type, brdLayerId, side };
-}
-
-/** `X2_ATTRIBUTE_FILEFUNCTION::IsCopper()` (`X2_gerber_attributes.cpp:196`). */
-function isCopperFunction(fileFunction: string): boolean {
-  return x2Fields(fileFunction).type.toLowerCase() === 'copper';
-}
-
-/**
- * `X2_ATTRIBUTE_FILEFUNCTION::IsDrillFile()` (`X2_gerber_attributes.cpp:203`) —
- * a `%TF.FileFunction,Plated,…` or `,NonPlated,…` gerber.
- */
-export function isDrillFileFunction(fileFunction: string | null): boolean {
-  if (fileFunction === null) return false;
-  const t = x2Fields(fileFunction).type.toLowerCase();
-  return t === 'plated' || t === 'nonplated';
+export function isDrillFileFunction(image: GERBER_FILE_IMAGE): boolean {
+  return image.m_FileFunction?.IsDrillFile() === true;
 }
 
 /**
@@ -225,18 +197,17 @@ function stripDirs(path: string): string {
  * way, but the guard should say what upstream's says.
  */
 function findX2Layer(image: GERBER_FILE_IMAGE): number {
-  if (image.format === GERBER_FORMAT.EXCELLON) return UNSELECTED_LAYER;
-  if (image.fileFunction === null) return UNSELECTED_LAYER;
-
-  const f = x2Fields(image.fileFunction);
+  if (image instanceof EXCELLON_IMAGE) return UNSELECTED_LAYER;
+  const f = image.m_FileFunction;
+  if (!image.m_IsX2_file || f === null) return UNSELECTED_LAYER;
   let mapThis: string;
 
-  if (isCopperFunction(image.fileFunction)) {
+  if (f.IsCopper()) {
     // "Returns Top, Bot or Inr" — and an inner layer needs its number, so the
     // key falls back to the layer id ("L2", "L5", …).
-    mapThis = f.side.toLowerCase() === 'inr' ? f.brdLayerId : f.side;
+    mapThis = f.GetBrdLayerSide().toLowerCase() === 'inr' ? f.GetBrdLayerId() : f.GetBrdLayerSide();
   } else {
-    mapThis = f.brdLayerId + f.type;
+    mapThis = f.GetBrdLayerId() + f.GetFileType();
   }
 
   return X2_FILE_FUNCTION_LAYERS.get(mapThis) ?? UNSELECTED_LAYER;
@@ -250,7 +221,7 @@ function findX2Layer(image: GERBER_FILE_IMAGE): number {
  * `-` in the name, and the suffix keeps the dash.
  */
 function findKiCadSuffixLayer(image: GERBER_FILE_IMAGE): number {
-  const layerName = fileNameBase(image.fileName);
+  const layerName = fileNameBase(image.m_FileName);
   const dashPos = layerName.lastIndexOf('-');
   if (dashPos === -1) return UNSELECTED_LAYER;
   return KICAD_SUFFIX_LAYERS.get(layerName.slice(dashPos)) ?? UNSELECTED_LAYER;
@@ -258,7 +229,9 @@ function findKiCadSuffixLayer(image: GERBER_FILE_IMAGE): number {
 
 /** `findNumAltiumGerbersLoaded` (`:467-571`), for one image. */
 function findAltiumExtensionLayer(image: GERBER_FILE_IMAGE): number {
-  return ALTIUM_EXTENSION_LAYERS.get(fileNameExt(image.fileName).toUpperCase()) ?? UNSELECTED_LAYER;
+  return (
+    ALTIUM_EXTENSION_LAYERS.get(fileNameExt(image.m_FileName).toUpperCase()) ?? UNSELECTED_LAYER
+  );
 }
 
 /**
@@ -328,7 +301,10 @@ export interface GerberLayerMap {
 function normalizeBrdLayersCount(count: number): number {
   let n = count;
   if (n & 1) n++;
-  // GERBER_DRAWLAYERS_COUNT, which is 32 and equals MAX_CU_LAYERS.
+  // Upstream clamps at GERBER_DRAWLAYERS_COUNT (128) and its combo stops at
+  // "32 Layers", so no count over 32 can be chosen there. With no combo here,
+  // and the count grown to fit an inner layer, 32 is the clamp that keeps the
+  // board a valid one.
   if (n > 32) n = 32;
   if (n < 2) n = 2;
   return n;
@@ -366,7 +342,7 @@ export function mapGerberLayersToPcb(images: readonly GERBER_FILE_IMAGE[]): Gerb
   let fallbackUsed = 0;
 
   for (const image of images) {
-    if (image.format === GERBER_FORMAT.EXCELLON || isDrillFileFunction(image.fileFunction)) {
+    if (image instanceof EXCELLON_IMAGE || isDrillFileFunction(image)) {
       rows.push({ pcbLayer: UNDEFINED_LAYER, fallback: false });
       continue;
     }

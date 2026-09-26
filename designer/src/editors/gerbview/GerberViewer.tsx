@@ -28,23 +28,25 @@ import {
   type RefObject,
 } from 'react';
 import { unzipSync, strFromU8 } from 'fflate';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import {
-  readGerberOrDrill,
-  parseJobFile,
-  parseGerber,
-  parseExcellon,
+  EXCELLON_DEFAULTS,
+  EXCELLON_IMAGE,
+  GERBER_FILE_IMAGE,
+  GERBER_FILE_IMAGE_LIST,
+  asComparator,
+  sortFileExtension,
+  sortZorder,
   GERBER_DRAWLAYERS_COUNT,
   IU_PER_MM,
   GBR_FILE_TYPE,
   type GbrFileType,
-  type GERBER_FILE_IMAGE,
   type GERBER_DRAW_ITEM,
 } from '@ziroeda/gerbview';
-import { compareByFileExtension, compareByZOrder } from '@ziroeda/gerbview';
 import { parseColor4d, toCss } from '@ziroeda/common/color4d.js';
 import { hiContrastColor, hiContrastFactorFor } from '@ziroeda/common/render_settings.js';
-import { decideLoad, ERRORS_CAPTION, plotBatchSelfSorts } from './gerber_load_report.js';
+import { decideLoad, ERRORS_CAPTION, plotBatchSelfSorts } from '@ziroeda/gerbview/files.js';
 import { HtmlMessageBox } from '@ziroeda/common/dialogs/html_message_box.js';
 import { PAPER_MM } from '@ziroeda/common';
 import { MenuBar, type Menu } from '@ziroeda/common/tool/action_menu_bar.js';
@@ -87,7 +89,6 @@ import { ZOOM_LIST, zoomChoices } from '@ziroeda/common/settings/zoom_settings.j
 import { GerberCanvas, type GerberCanvasController } from './GerberCanvas.js';
 import { LayerManager, renderRows, type LayerInfo } from './LayerManager.js';
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
-import { itemInfoRows } from './dialogs.js';
 import { SingleChoiceDialog } from '@ziroeda/common/dialogs/dialog_single_choice.js';
 import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
 import { openFileDialog, acceptAttribute } from '../../fs/open_file_dialog.js';
@@ -116,8 +117,13 @@ import {
   GERBER_NEGATIVE_COLOR,
   GERBER_PAGE_LIMITS_COLOR,
 } from './gerberColors.js';
-import { exportLayersToPcb } from './exportToPcbnew.js';
-import type { GerberLayerView, GerberRenderOptions } from './gerberRender.js';
+import { exportLayersToPcb } from '@ziroeda/gerbview/export_to_pcbnew.js';
+import {
+  imageWorldBBox,
+  type GerberHighlight,
+  type GerberLayerView,
+  type GerberRenderOptions,
+} from './gerberRender.js';
 import { gerbviewMenus } from './menubar.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
@@ -161,6 +167,11 @@ import { HomeLink } from '../../ui/HomeLink.js';
 interface Layer {
   id: number;
   image: GERBER_FILE_IMAGE;
+  /**
+   * The file's text, which Reload reads again: upstream re-opens
+   * `m_FileName` on the disk, and a page has only what it was given.
+   */
+  text: string;
   visible: boolean;
   name: string;
   function?: string;
@@ -188,6 +199,71 @@ const LAYERS_PANE_BEST_WIDTH = 240;
 const CANVAS_MIN_WIDTH = 200;
 
 let layerIdSeq = 1;
+
+/**
+ * `Read_EXCELLON_File` / `Read_GERBER_File`'s reading half: the right image
+ * for `aType`, loaded from the file's text.
+ */
+function readImage(
+  aType: 0 | 1,
+  aName: string,
+  aText: string,
+  aSlot: number,
+  aDefaults: EXCELLON_DEFAULTS,
+): GERBER_FILE_IMAGE {
+  if (aType === GBR_FILE_TYPE.DRILL) {
+    const drill = new EXCELLON_IMAGE(aSlot);
+    drill.LoadFile(aName, aDefaults, aText);
+    return drill;
+  }
+
+  const gerber = new GERBER_FILE_IMAGE(aSlot);
+  gerber.LoadGerberFile(aName, aText);
+  return gerber;
+}
+
+/** The X2 file function's fields, as the layers manager's tooltip shows them. */
+function x2FunctionText(image: GERBER_FILE_IMAGE): string {
+  return (image.m_FileFunction?.GetPrms() ?? [])
+    .slice(1)
+    .filter((p) => p !== '')
+    .join(',');
+}
+
+/**
+ * The `Path` and `FileFunction` of each `FilesAttributes` entry of a
+ * `.gbrjob`.
+ *
+ * Ours, and invented: upstream's `LoadGerberJobFile` LOADS the files a job
+ * names (from the job's directory); this re-labels layers already loaded
+ * instead. It goes with the frame port (gerbview/STRUCTURE.md).
+ */
+function jobFileEntries(text: string): { path: string; fileFunction: string }[] {
+  try {
+    const json = JSON.parse(text) as {
+      FilesAttributes?: { Path?: string; FileFunction?: string }[];
+    };
+    return (json.FilesAttributes ?? []).map((f) => ({
+      path: f.Path ?? '',
+      fileFunction: f.FileFunction ?? '',
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * `GERBER_DRAW_ITEM::GetMsgPanelInfo`, as the message panel's rows.
+ */
+function itemInfoRows(
+  item: GERBER_DRAW_ITEM | null,
+  unit: 'mm' | 'in' | 'mils',
+): { upper: string; lower: string }[] {
+  if (!item) return [];
+  const list: MSG_PANEL_ITEM[] = [];
+  item.GetMsgPanelInfo({ GetUserUnits: () => unit }, list);
+  return list.map((i) => ({ upper: i.GetUpperText(), lower: i.GetLowerText() }));
+}
 
 export function GerberViewer({
   onExitToHome,
@@ -264,17 +340,16 @@ export function GerberViewer({
    * The parser held the struct's defaults as literals before this, so the page
    * would have edited a value nothing read.
    */
-  const excellonDefaults = useMemo(
-    () => ({
-      unit_mm: gbrCfg.excellon_defaults.unit_mm,
-      lz_format: gbrCfg.excellon_defaults.lz_format,
-      m_MmIntegerLen: gbrCfg.excellon_defaults.mm_integer_len,
-      m_MmMantissaLen: gbrCfg.excellon_defaults.mm_mantissa_len,
-      m_InchIntegerLen: gbrCfg.excellon_defaults.inch_integer_len,
-      m_InchMantissaLen: gbrCfg.excellon_defaults.inch_mantissa_len,
-    }),
-    [gbrCfg.excellon_defaults],
-  );
+  const excellonDefaults = useMemo(() => {
+    const d = new EXCELLON_DEFAULTS();
+    d.m_UnitsMM = gbrCfg.excellon_defaults.unit_mm;
+    d.m_LeadingZero = gbrCfg.excellon_defaults.lz_format;
+    d.m_MmIntegerLen = gbrCfg.excellon_defaults.mm_integer_len;
+    d.m_MmMantissaLen = gbrCfg.excellon_defaults.mm_mantissa_len;
+    d.m_InchIntegerLen = gbrCfg.excellon_defaults.inch_integer_len;
+    d.m_InchMantissaLen = gbrCfg.excellon_defaults.inch_mantissa_len;
+    return d;
+  }, [gbrCfg.excellon_defaults]);
   const [toggles, setToggles] = useState<Set<string>>(() =>
     togglesFromSettings(settings.gerbview, DEFAULT_TOGGLES),
   );
@@ -453,11 +528,11 @@ export function GerberViewer({
   }, []);
 
   const byFileExtension = useCallback(
-    (a: Layer, b: Layer) => compareByFileExtension(a.image.fileName, b.image.fileName),
+    (a: Layer, b: Layer) => asComparator(sortFileExtension)(a.image, b.image),
     [],
   );
   const byZOrder = useCallback(
-    (a: Layer, b: Layer) => compareByZOrder(a.image.fileFunction, b.image.fileFunction),
+    (a: Layer, b: Layer) => asComparator(sortZorder)(a.image, b.image),
     [],
   );
 
@@ -498,7 +573,7 @@ export function GerberViewer({
   }, []);
 
   /** The slot the image went into, or null when there was none left. */
-  const addImage = useCallback((image: GERBER_FILE_IMAGE, fileName: string): number | null => {
+  const addImage = useCallback((image: GERBER_FILE_IMAGE, text: string): number | null => {
     if (nextLayer.current >= GERBER_DRAWLAYERS_COUNT) return null;
     const at = nextLayer.current++;
     setLayers((prev) => {
@@ -506,9 +581,10 @@ export function GerberViewer({
       const next: Layer = {
         id,
         image,
+        text,
         visible: true,
         name: '',
-        ...(image.fileFunction ? { function: image.fileFunction } : {}),
+        ...(image.m_FileFunction ? { function: x2FunctionText(image) } : {}),
       };
       return [...prev, next];
     });
@@ -540,16 +616,17 @@ export function GerberViewer({
         return null;
       }
       try {
-        const image =
-          decision.type === GBR_FILE_TYPE.DRILL
-            ? parseExcellon(text, name, excellonDefaults)
-            : parseGerber(text, name);
-        if (image.items.length === 0) {
+        // `Read_EXCELLON_File` / `Read_GERBER_File`: an image for the next
+        // free slot, read, and its messages shown.
+        const slot = nextLayer.current;
+        const image = readImage(decision.type, name, text, slot, excellonDefaults);
+        reports.current.push(...image.GetMessages());
+        if (image.GetItemsCount() === 0) {
           setStatus(`No graphic items found in ${name}`);
         }
-        const at = addImage(image, name);
+        const at = addImage(image, text);
         setStatus(
-          `Loaded ${name}: ${image.items.length} item${image.items.length === 1 ? '' : 's'}` +
+          `Loaded ${name}: ${image.GetItemsCount()} item${image.GetItemsCount() === 1 ? '' : 's'}` +
             (decision.type === GBR_FILE_TYPE.DRILL ? ' (drill)' : ''),
         );
         return at;
@@ -558,16 +635,16 @@ export function GerberViewer({
         return null;
       }
     },
-    [addImage],
+    [addImage, excellonDefaults],
   );
 
   const applyJobFile = useCallback(
     (text: string): void => {
-      const entries = parseJobFile(text);
+      const entries = jobFileEntries(text);
       if (entries.length === 0) return;
       setLayers((prev) =>
         prev.map((l) => {
-          const base = l.image.fileName.split('/').pop() ?? l.image.fileName;
+          const base = l.image.m_FileName.split('/').pop() ?? l.image.m_FileName;
           const match = entries.find((e) => (e.path.split('/').pop() ?? e.path) === base);
           if (match)
             return {
@@ -843,23 +920,21 @@ export function GerberViewer({
     );
   }, [textInfoValue]);
 
-  const highlightTest = useMemo<((it: GERBER_DRAW_ITEM) => boolean) | undefined>(() => {
-    if (highlight.mode === 'none' || !highlight.value) return undefined;
+  /**
+   * `GERBVIEW_CONTROL::HighlightControl` (`gerbview_control.cpp:190-249`):
+   * the choice's text goes into the render settings' highlight string, and
+   * GERBVIEW_RENDER_SETTINGS::GetColor compares each item against it — the
+   * net name as the choice shows it (unescaped) against the item's raw one,
+   * the aperture attribute against the D code's `m_AperFunction`, exactly.
+   */
+  const gbrHighlight = useMemo<GerberHighlight>(() => {
     const v = highlight.value;
-    switch (highlight.mode) {
-      case 'net':
-        return (it) => it.netMetadata.netName === v;
-      case 'component':
-        return (it) => it.netMetadata.componentRef === v;
-      case 'attribute':
-        return (it) =>
-          (it.netMetadata.apertureAttributes ?? []).some((a) => a.includes(v)) ||
-          (it.netMetadata.objectAttributes ?? []).some((a) => a.includes(v));
-      case 'dcode':
-        return (it) => it.dcodeNum === Number(v);
-      default:
-        return undefined;
-    }
+    return {
+      net: highlight.mode === 'net' ? v : '',
+      component: highlight.mode === 'component' ? v : '',
+      attribute: highlight.mode === 'attribute' ? v : '',
+      dcode: highlight.mode === 'dcode' && v !== '' ? Number(v) : -1,
+    };
   }, [highlight]);
 
   /**
@@ -928,12 +1003,12 @@ export function GerberViewer({
       // item takes m_layerColorsHi[aLayer], its own layer's colour brightened
       // by 0.5 (`gerbview_painter.cpp:70`), so the renderer derives it per
       // layer. We used to hand it a flat white for every layer at once.
-      ...(highlightTest ? { highlightTest } : {}),
+      highlight: gbrHighlight,
     }),
     [
       toggles,
       activeLayer,
-      highlightTest,
+      gbrHighlight,
       showDrawingSheet,
       gbrCfg.appearance.mode_opacity_value,
       gbrCfg.appearance.page_type,
@@ -987,8 +1062,8 @@ export function GerberViewer({
       maxY = -Infinity;
     let any = false;
     for (const l of layers) {
-      if (!l.visible || l.image.items.length === 0) continue;
-      const b = l.image.computeBoundingBox();
+      if (!l.visible || l.image.GetItemsCount() === 0) continue;
+      const b = imageWorldBBox(l.image);
       minX = Math.min(minX, b.minX);
       minY = Math.min(minY, b.minY);
       maxX = Math.max(maxX, b.maxX);
@@ -1045,7 +1120,7 @@ export function GerberViewer({
     // would otherwise renumber them.
     const visible = layers
       .map((l, i) => ({ layer: l, index: i }))
-      .filter(({ layer }) => layer.visible && layer.image.items.length > 0);
+      .filter(({ layer }) => layer.visible && layer.image.GetItemsCount() > 0);
     if (visible.length === 0) {
       setStatus('Nothing to export, no visible layers with content');
       return;
@@ -1053,7 +1128,7 @@ export function GerberViewer({
     const { text, fallbackLayers } = exportLayersToPcb(
       visible.map(({ layer, index }) => ({
         image: layer.image,
-        name: gerbviewLayerDisplayName(layer.image, layer.image.fileName, index, {
+        name: gerbviewLayerDisplayName(layer.image, layer.image.m_FileName, index, {
           nameOnly: true,
         }),
       })),
@@ -1076,10 +1151,14 @@ export function GerberViewer({
   const reloadAll = useCallback(() => {
     setLayers((prev) => {
       if (prev.length === 0) return prev;
-      return prev.map((l) => {
-        if (!l.image.rawText) return l;
+      return prev.map((l, i) => {
+        if (!l.text) return l;
         try {
-          const image = readGerberOrDrill(l.image.rawText, l.image.fileName, excellonDefaults);
+          // `GERBVIEW_CONTROL::ReloadAllLayers` reads each file again with the
+          // reader that read it the first time.
+          const type =
+            l.image instanceof EXCELLON_IMAGE ? GBR_FILE_TYPE.DRILL : GBR_FILE_TYPE.GERBER;
+          const image = readImage(type, l.image.m_FileName, l.text, i, excellonDefaults);
           return { ...l, image };
         } catch {
           return l;
@@ -1370,10 +1449,10 @@ export function GerberViewer({
     // The layers manager passes aFullName=true, so these are NOT capped
     // (`gerbview_layer_widget.cpp:308`) - which is why a long file name widens
     // the pane without limit.
-    name: gerbviewLayerDisplayName(l.image, l.image.fileName, i, { fullName: true }),
+    name: gerbviewLayerDisplayName(l.image, l.image.m_FileName, i, { fullName: true }),
     color: colorAt(i),
     visible: l.visible,
-    hasContent: l.image.items.length > 0,
+    hasContent: l.image.GetItemsCount() > 0,
     ...(l.function ? { function: l.function } : {}),
   }));
 
@@ -1533,7 +1612,7 @@ export function GerberViewer({
         // the name alone.
         options={layers.map((l, i) => ({
           value: String(i),
-          label: gerbviewLayerDisplayName(l.image, l.image.fileName, i),
+          label: gerbviewLayerDisplayName(l.image, l.image.m_FileName, i),
           swatch: colorAt(i),
         }))}
         onChange={(v) => setActiveLayer(Number(v))}
@@ -1888,7 +1967,7 @@ export function GerberViewer({
           // layer has no image - upstream opens with ClearMsgPanel(). The
           // `Layers <count>` row that used to sit here permanently has no
           // upstream equivalent anywhere.
-          ...(picked ? [] : gerbviewImageInfoRows(activeImage, activeLayer, unit)),
+          ...(picked ? [] : gerbviewImageInfoRows(activeImage, activeLayer, unit, IU_PER_MM)),
           ...(highlight.mode !== 'none'
             ? [{ upper: 'Highlight', lower: `${highlight.mode} ${highlight.value}` }]
             : []),

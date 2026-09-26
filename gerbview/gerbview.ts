@@ -9,6 +9,8 @@
  * until `dialogs/prefs/types` leaves the app (see STRUCTURE.md).
  */
 
+import { EdaIuScale } from '@ziroeda/common/eda_units.js';
+
 /** `Gerb_Interpolation` (`gerbview.h:33-38`), the G01 / G02 / G03 modes. */
 export enum Gerb_Interpolation {
   GERB_INTERPOL_LINEAR_1X = 0,
@@ -56,3 +58,10 @@ export enum Gerb_Analyse_Cmd {
 export const IU_PER_MM = 1e6;
 /** Internal units per mil (0.001"), in our 1 nm unit. */
 export const IU_PER_MILS = 25400;
+
+/**
+ * `gerbIUScale`, at our 1 nm (see {@link IU_PER_MM}). `common/eda_units.ts`
+ * exports KiCad's 10 nm one under the same name; gerbview files import this
+ * one, so reconciling the unit is a change to this line.
+ */
+export const gerbIUScale = new EdaIuScale(IU_PER_MM);

@@ -2,8 +2,11 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * What `GERBVIEW_FRAME::LoadListOfGerberAndDrillFiles` refuses, and what it
- * says about it (`gerbview/files.cpp:278-422`).
+ * `gerbview/files.cpp`, the engine half: what
+ * `GERBVIEW_FRAME::LoadListOfGerberAndDrillFiles` refuses, and what it says
+ * about it (`:278-422`), and the autodetect it runs. The frame's own methods
+ * (the open dialogs, `LoadZipArchiveFile`, `unarchiveFiles`) are
+ * `GerberViewer.tsx`'s until the frame moves (STRUCTURE.md).
  *
  * Loading is not "try to parse and see": there are three gates before the
  * parser, and each one names the file in a report that is shown at the end as
@@ -27,7 +30,29 @@
  * would choose.
  */
 
-import { detectFileType, GBR_FILE_TYPE, type GbrFileType } from '@ziroeda/gerbview';
+import { EXCELLON_IMAGE } from './excellon_read_drill_file.js';
+import { GERBER_FILE_IMAGE } from './gerber_file_image.js';
+
+/**
+ * The file types `LoadListOfGerberAndDrillFiles` switches on (`aFileType`):
+ * 0 gerber, 1 drill, 2 autodetect. Open Gerber File(s) passes 0 for every
+ * file, Open NC Drill File(s) passes 1, and Open Autodetected File(s) passes
+ * 2 — so only the third one sniffs, and the first two parse whatever they are
+ * given.
+ */
+export const GBR_FILE_TYPE = { GERBER: 0, DRILL: 1, AUTODETECT: 2 } as const;
+export type GbrFileType = (typeof GBR_FILE_TYPE)[keyof typeof GBR_FILE_TYPE];
+
+/**
+ * Autodetect, resolved (`files.cpp:355-401`): the Excellon sniff first, then
+ * the RS-274 one; null when neither passes and the `default:` branch refuses
+ * the file.
+ */
+export function detectFileType(text: string): 0 | 1 | null {
+  if (EXCELLON_IMAGE.TestFileIsExcellon(text)) return GBR_FILE_TYPE.DRILL;
+  if (GERBER_FILE_IMAGE.TestFileIsRS274(text)) return GBR_FILE_TYPE.GERBER;
+  return null;
+}
 
 /** `MSG_NOT_LOADED` (`gerbview/files.cpp:46`). */
 export const MSG_NOT_LOADED = '<b>Not loaded:</b> <i>%s</i>';

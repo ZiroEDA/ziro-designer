@@ -49,15 +49,20 @@
  */
 
 import {
+  APERTURE_DEF_HOLETYPE,
+  APERTURE_T,
   GBR_BASIC_SHAPE_TYPE,
   type GERBER_DRAW_ITEM,
   type GERBER_FILE_IMAGE,
 } from '@ziroeda/gerbview';
+import { GERBER_DRAW_LAYER } from '@ziroeda/common/layer_id.js';
+import { SURFACE_GAL, type SURFACE } from '../../editors/gerbview/gerber_surface_gal.js';
+import { GERBER_DCODE_COLOR, GERBER_NEGATIVE_COLOR } from '../../editors/gerbview/gerberColors.js';
 import {
-  paintItemGeometry,
-  type GerberPaintOptions,
-  type SURFACE,
-} from '../../editors/gerbview/gerberPaint.js';
+  gerberPainter,
+  syncGerbviewSettings,
+  type GerberHighlight,
+} from '../../editors/gerbview/gerberRender.js';
 import { createGlDevice, type GlDevice, type GlView } from './device.js';
 import { GlRecorder } from './recorder.js';
 import { Scene } from './scene.js';
@@ -71,17 +76,21 @@ export interface GerberGlLayer {
   /** `LAYER_NEGATIVE_OBJECTS`, for the show-negative-objects ghost. */
   negativeColor: string;
   visible: boolean;
-  /** Brightened colour for a highlighted item, `Brightened( 0.5 )`. */
-  highlightColor: string;
 }
 
-export interface GerberGlContent extends GerberPaintOptions {
+export interface GerberGlContent {
   /** Bottom-to-top, active layer last, as the frame orders them. */
   layers: readonly GerberGlLayer[];
+  /** `!m_DisplayFlashedItemsFill`. */
+  flashedSketch: boolean;
+  /** `!m_DisplayLinesFill`. */
+  linesSketch: boolean;
+  /** `!m_DisplayPolygonsFill`. */
+  polygonsSketch: boolean;
   /** `gvconfig()->m_Appearance.show_negative_objects`. */
   showNegativeObjects: boolean;
-  /** Per-item highlight predicate, or null. */
-  highlightTest: ((item: GERBER_DRAW_ITEM) => boolean) | null;
+  /** GERBVIEW_RENDER_SETTINGS' highlight selections. */
+  highlight: GerberHighlight;
 }
 
 export interface GerberGlView {
@@ -108,59 +117,62 @@ export const createGerberScene = (): Scene => new Scene(true);
 export const layerMark = (i: number): string => `gbr:layer:${i}`;
 
 /**
- * Rank an item by the primitive kind its shape records as.
+ * Rank an item by the primitive kind it records as, so items recording the
+ * same kind end up adjacent and the run list stays short.
  *
- * Only the grouping matters, not the ranking's order: items that record the
- * same kind must end up adjacent so the run list stays short.
+ * Read off what GERBVIEW_PAINTER asks the GAL for: a filled circle, rectangle
+ * or polygon goes through `fill()`, which the recorder triangulates; a segment,
+ * an arc, an oval flash (`DrawSegment`) and every outline in sketch mode go
+ * through `stroke()`. Only the grouping matters, not the ranking's order.
  */
 const KIND_TRI = 0;
 const KIND_SEG = 1;
-const KIND_MIXED = 2;
 
-/**
- * Which primitive kind an aperture flashes as, cached per D-code.
- *
- * Not guessable from the aperture type, because it depends on how the painter
- * draws it rather than on what it is: `fillCircle` and `fillPolygon` go
- * through `fill()`, which the recorder triangulates, so a round pad records as
- * **triangles**; `fillCapsule` goes through `stroke()`, so an obround pad
- * records as segments. A macro can be both, and those go last.
- */
-const flashKindCache = new WeakMap<object, number>();
+function kindRank(item: GERBER_DRAW_ITEM, content: GerberGlContent): number {
+  switch (item.m_ShapeType) {
+    case GBR_BASIC_SHAPE_TYPE.GBR_POLYGON:
+      return content.polygonsSketch ? KIND_SEG : KIND_TRI;
 
-function flashKind(item: GERBER_DRAW_ITEM): number {
-  const code = item.dcode;
-  if (code) {
-    const hit = flashKindCache.get(code);
-    if (hit !== undefined) return hit;
+    case GBR_BASIC_SHAPE_TYPE.GBR_SEGMENT: {
+      const code = item.GetDcodeDescr();
+      if (code && code.m_ApertType === APERTURE_T.APT_RECT)
+        return content.linesSketch ? KIND_SEG : KIND_TRI;
+      return KIND_SEG;
+    }
+
+    case GBR_BASIC_SHAPE_TYPE.GBR_ARC:
+      return KIND_SEG;
+
+    case GBR_BASIC_SHAPE_TYPE.GBR_CIRCLE:
+      // The painter sets no fill mode for a circle: the GAL keeps its default.
+      return KIND_TRI;
+
+    case GBR_BASIC_SHAPE_TYPE.GBR_SPOT_OVAL: {
+      if (content.flashedSketch) return KIND_SEG;
+      const code = item.GetDcodeDescr();
+      return code && code.m_DrillShape !== APERTURE_DEF_HOLETYPE.APT_DEF_NO_HOLE
+        ? KIND_TRI
+        : KIND_SEG;
+    }
+
+    default:
+      return content.flashedSketch ? KIND_SEG : KIND_TRI;
   }
-  let seg = false;
-  let other = false;
-  for (const sh of item.resolveFlashShapes()) {
-    if (!sh.exposure) continue;
-    if (sh.kind === 'segment') seg = true;
-    else other = true;
-  }
-  const kind = seg && other ? KIND_MIXED : seg ? KIND_SEG : KIND_TRI;
-  if (code) flashKindCache.set(code, kind);
-  return kind;
 }
 
 /**
- * Rank an item by the primitive kind it records as, so items recording the
- * same kind end up adjacent and the run list stays short.
+ * Whether GERBVIEW_RENDER_SETTINGS::GetColor would give this item its layer's
+ * highlight colour — its four highlight branches, in its order.
  */
-function kindRank(item: GERBER_DRAW_ITEM): number {
-  switch (item.shape) {
-    case GBR_BASIC_SHAPE_TYPE.GBR_POLYGON:
-      return KIND_TRI;
-    case GBR_BASIC_SHAPE_TYPE.GBR_SEGMENT:
-    case GBR_BASIC_SHAPE_TYPE.GBR_ARC:
-    case GBR_BASIC_SHAPE_TYPE.GBR_CIRCLE:
-      return KIND_SEG;
-    default:
-      return flashKind(item);
-  }
+function isHighlighted(item: GERBER_DRAW_ITEM, hl: GerberHighlight): boolean {
+  const net = item.GetNetAttributes();
+  const code = item.GetDcodeDescr();
+
+  if (hl.net !== '' && hl.net === net.m_Netname) return true;
+  if (hl.component !== '' && hl.component === net.m_Cmpref) return true;
+  if (hl.attribute !== '' && code && hl.attribute === code.m_AperFunction) return true;
+  if (hl.dcode > 0 && code && hl.dcode === code.m_Num_Dcode) return true;
+  return false;
 }
 
 /**
@@ -186,16 +198,16 @@ function kindRank(item: GERBER_DRAW_ITEM): number {
  */
 function orderWithinLayer(
   items: readonly GERBER_DRAW_ITEM[],
-  highlightTest: ((item: GERBER_DRAW_ITEM) => boolean) | null,
-): { plain: readonly GERBER_DRAW_ITEM[]; mixed: readonly GERBER_DRAW_ITEM[] } {
+  content: GerberGlContent,
+): readonly GERBER_DRAW_ITEM[] {
   // Decorate-sort-undecorate on indices, so the sort is stable and the
   // predicate runs once per item rather than once per comparison.
   const keyed = items.map((item, index) => ({
     item,
     index,
-    hi: highlightTest?.(item) === true ? 1 : 0,
-    kind: kindRank(item),
-    dcode: item.dcodeNum,
+    hi: isHighlighted(item, content.highlight) ? 1 : 0,
+    kind: kindRank(item, content),
+    dcode: item.m_DCode,
   }));
   // Kind first. Sorting by D-code within the flash group was the first attempt
   // and it is what left ~85 runs a layer: consecutive apertures alternate
@@ -203,10 +215,7 @@ function orderWithinLayer(
   // so every D-code opened a run. The D-code is now only a tiebreak *inside*
   // one kind, where it costs nothing and keeps identical geometry together.
   keyed.sort((a, b) => a.hi - b.hi || a.kind - b.kind || a.dcode - b.dcode || a.index - b.index);
-  return {
-    plain: keyed.filter((k) => k.kind !== KIND_MIXED).map((k) => k.item),
-    mixed: keyed.filter((k) => k.kind === KIND_MIXED).map((k) => k.item),
-  };
+  return keyed.map((k) => k.item);
 }
 
 /**
@@ -251,62 +260,36 @@ export function recordGerberScene(scene: Scene, content: GerberGlContent, viewSc
   /**
    * `m_gerbviewSettings.m_outlineWidth`, which is **1 IU**
    * (`common/render_settings.cpp:43`) - a true world width, not a screen one.
-   *
-   * This was `1 / scale` first, copying what the 2D painter has to do because
-   * Canvas2D has no shader to clamp with. On the GL path that is the mistake
-   * this port was warned about before it started: a minimum line width belongs
-   * to the view, not to a vertex. Baking the zoom into a recorded width makes
-   * the buffer view-dependent, which forces a re-record on every zoom - and it
-   * showed up here as the same content recording two different segment widths
-   * at scale 1 and scale 8.
-   *
    * Stored true, clamped in the shader: `hairlines: 'solid'` above is KiCad's
    * `u_minLinePixelWidth` path, which floors a stroke at one device pixel and
-   * draws it solid rather than fading it. That clamp is why a KiCad hairline
-   * stays visible at every zoom.
+   * draws it solid rather than fading it. Baking the zoom into a recorded
+   * width would make the buffer view-dependent and force a re-record per zoom.
    */
   const worldPen = 1;
 
+  syncGerbviewSettings(content);
+  const painter = gerberPainter(
+    content.layers.map((l) => l.color),
+    content.layers[0]?.negativeColor ?? GERBER_NEGATIVE_COLOR,
+    GERBER_DCODE_COLOR,
+    content.highlight,
+  );
+  painter.SetGAL(new SURFACE_GAL(surface, worldPen));
+
   for (let i = 0; i < content.layers.length; i++) {
     const layer = content.layers[i]!;
-    if (!layer.visible || layer.image.items.length === 0) continue;
+    if (!layer.visible || layer.image.GetItemsCount() === 0) continue;
 
     // A run boundary per layer. `mark` also breaks the open run, so nothing
     // from the layer below can be folded into this one's range.
     scene.mark(layerMark(i));
 
-    const ordered = orderWithinLayer(layer.image.items, content.highlightTest);
-    // The mixed-kind flashes are painted twice, fills then strokes, so the
-    // whole bucket is two runs instead of two per item. `paint` is the same
-    // call in both cases; only the filter differs.
-    const passes: (undefined | 'fill' | 'stroke')[] =
-      ordered.mixed.length > 0 ? [undefined, 'fill', 'stroke'] : [undefined];
-
-    for (const only of passes) {
-      const list = only === undefined ? ordered.plain : ordered.mixed;
-      for (const item of list) {
-        // GERBVIEW_RENDER_SETTINGS::GetColor, in upstream's own branch order:
-        // polarity is tested BEFORE the highlight (`gerbview_painter.cpp:122`
-        // vs `:135`), so a clear object that also matches the highlight is
-        // drawn as a negative object, or not at all, rather than brightened.
-        const clear = !item.layerPolarity;
-        let color: string;
-        if (clear) {
-          // COLOR4D( 0, 0, 0, 0 ) with the toggle off: nothing is recorded at
-          // all, which is what the OpenGL GAL draws.
-          if (!content.showNegativeObjects) continue;
-          color = layer.negativeColor;
-        } else if (content.highlightTest?.(item) === true) {
-          color = layer.highlightColor;
-        } else {
-          color = layer.color;
-        }
-
-        surface.fillStyle = color;
-        surface.strokeStyle = color;
-        paintItemGeometry(surface, item, content, worldPen, only);
-      }
-    }
+    // GERBVIEW_RENDER_SETTINGS::GetColor decides each item's colour; a clear
+    // item with the negative toggle off is COLOR4D( 0, 0, 0, 0 ) and records
+    // nothing, which is what the OpenGL GAL draws.
+    const drawLayer = GERBER_DRAW_LAYER(i);
+    for (const item of orderWithinLayer(layer.image.GetItems(), content))
+      painter.Draw(item, drawLayer);
   }
   scene.closeItem();
 }
@@ -414,7 +397,10 @@ function sameContent(a: GerberGlContent, b: GerberGlContent): boolean {
     a.linesSketch !== b.linesSketch ||
     a.polygonsSketch !== b.polygonsSketch ||
     a.showNegativeObjects !== b.showNegativeObjects ||
-    a.highlightTest !== b.highlightTest ||
+    a.highlight.net !== b.highlight.net ||
+    a.highlight.component !== b.highlight.component ||
+    a.highlight.attribute !== b.highlight.attribute ||
+    a.highlight.dcode !== b.highlight.dcode ||
     a.layers.length !== b.layers.length
   ) {
     return false;
@@ -426,8 +412,7 @@ function sameContent(a: GerberGlContent, b: GerberGlContent): boolean {
       x.image !== y.image ||
       x.visible !== y.visible ||
       x.color !== y.color ||
-      x.negativeColor !== y.negativeColor ||
-      x.highlightColor !== y.highlightColor
+      x.negativeColor !== y.negativeColor
     ) {
       return false;
     }

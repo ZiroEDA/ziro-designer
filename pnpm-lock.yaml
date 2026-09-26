@@ -181,9 +181,15 @@ importers:
       '@ziroeda/common':
         specifier: workspace:*
         version: link:../common
+      '@ziroeda/core':
+        specifier: workspace:*
+        version: link:../libs/core
       '@ziroeda/kimath':
         specifier: workspace:*
         version: link:../libs/kimath
+      '@ziroeda/pcbnew':
+        specifier: workspace:*
+        version: link:../pcbnew
 
   libs/core:
     dependencies:

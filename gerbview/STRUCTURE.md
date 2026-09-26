@@ -42,45 +42,45 @@ which); **n/a** (a browser cannot have it).
 
 | KiCad unit | status | ours / note |
 |---|---|---|
-| `am_param` | port | `AM_PARAM` / `AM_PARAM_ITEM`; today a macro parameter is a string `aperture_macro.ts` hands to `evalMacroExpr` |
-| `am_primitive` | port | `AM_PRIMITIVE`; today `ApertureMacro.resolve`'s switch in `aperture_macro.ts` |
-| `aperture_macro` | here, not yet the class | `aperture_macro.ts`, but the class is `ApertureMacro` with `resolve()`; KiCad's is `APERTURE_MACRO` (`GetApertureMacroShape`, `GetParamValue`, `AddPrimitiveToList`, `GetLocalParams`) |
+| `am_param` | here | `am_param.ts`: `AM_PARAM`, `AM_PARAM_ITEM`, `AM_PARAM_EVAL` |
+| `am_primitive` | here | `am_primitive.ts`: `AM_PRIMITIVE` |
+| `aperture_macro` | here | `aperture_macro.ts`: `APERTURE_MACRO`; `APERTURE_MACRO_SET` (a `std::set` by name) is a `Map` |
 | `clear_gbr_drawlayers` | waiting | `GERBVIEW_FRAME::Clear_DrawLayers` / `Erase_Current_DrawLayer`: `clearAll` / `deleteLayer` in `designer/.../GerberViewer.tsx`, the frame |
-| `dcode` | here | `dcode.ts` (`D_CODE`); `ShowApertureType` sits in `designer/.../gerberAuxControls.ts` |
-| `evaluate` | port | `Evaluate( AM_PARAM_EVAL_STACK& )`; today `evalMacroExpr` in `aperture_macro.ts`, a string tokenizer |
+| `dcode` | here | `dcode.ts` (`D_CODE`, `ShowApertureType`) |
+| `evaluate` | here | `evaluate.ts` |
 | `events_called_functions` | waiting | `GERBVIEW_FRAME`'s event handlers, inline in `GerberViewer.tsx` |
-| `excellon_read_drill_file` (+ `excellon_image.h`) | rename | `excellon.ts` → `excellon_read_drill_file.ts`; `parseExcellon` is a free function where KiCad has `EXCELLON_IMAGE` (a `GERBER_FILE_IMAGE`) and `GERBVIEW_FRAME::Read_EXCELLON_File`. `TestFileIsExcellon` is in `file_detect.ts` |
-| `excellon_defaults.h` | rename | `EXCELLON_DEFAULTS`: `ExcellonDefaults` / `EXCELLON_STRUCT_DEFAULTS` in `excellon.ts` |
-| `export_to_pcbnew` | move | `designer/.../exportToPcbnew.ts` (`GbrToPcbExporter`) → `export_to_pcbnew.ts`, class `GBR_TO_PCB_EXPORTER` |
-| `files` | move, part waiting | the refusal gates and messages of `LoadListOfGerberAndDrillFiles` are `designer/.../gerber_load_report.ts`; the autodetect dispatch is `detectFileType` in `file_detect.ts`. The frame half (open dialogs, zip) is `GerberViewer.tsx` |
+| `excellon_read_drill_file` (+ `excellon_image.h`) | here | `excellon_read_drill_file.ts` (`EXCELLON_IMAGE`, `TestFileIsExcellon`); `LoadFile` takes the file's text, since the browser hands us bytes, not a path |
+| `excellon_defaults.h` | here | `excellon_defaults.ts` |
+| `export_to_pcbnew` | here | `export_to_pcbnew.ts` (`GBR_TO_PCB_EXPORTER`); `ExportPcb` returns the text instead of writing a file. `exportLayersToPcb` is `GERBVIEW_CONTROL::ExportToPcbnew`'s half, goes to `tools/gerbview_control` |
+| `files` | here, part waiting | `files.ts`: the refusal gates and messages of `LoadListOfGerberAndDrillFiles`, `GBR_FILE_TYPE` and the autodetect dispatch. The frame half (open dialogs, zip) is `GerberViewer.tsx` |
 | `gbr_layout` | here | `gbr_layout.ts` (`GBR_LAYOUT`); methods to align (`ComputeBoundingBox`, `GetImagesList`) |
-| `gbr_display_options.h` | waiting | `GBR_DISPLAY_OPTIONS`: the `display` block of `GerbviewSettings` in `designer/src/prefs/settings.ts` |
+| `gbr_display_options.h` | here | `gbr_display_options.ts` |
 | `gerber_collectors` | port | `GERBER_COLLECTOR`; picking is a hit-test loop in `GerberCanvas.tsx` |
-| `gerber_draw_item` | here | `gerber_draw_item.ts`; `GetMsgPanelInfo` is `itemInfoRows` in `designer/.../dialogs.tsx` |
-| `gerber_file_image` | here | `gerber_file_image.ts`; the RS-274 interpreter it owns is `gerber_file_image_parse.ts` (see `readgerb`, `rs274x`, `rs274d`, `rs274_read_XY_and_IJ_coordinates`) |
-| `gerber_file_image_list` | rename | `layer_sort.ts` (`SortImagesByFileExtension`, `SortImagesByZOrder`) |
-| `gerbview` (+ `gerbview.h`) | port / waiting | `gerbview.h`'s enums (`Gerb_Interpolation`, `Gerb_GCommand`, `Gerb_Analyse_Cmd`): `GERB_INTERPOL` in `types.ts`. `KIFACE::CreateKiWindow`'s panel switch is `designer/.../prefs/index.ts` (waiting on `dialogs/prefs/types`) |
+| `gerber_draw_item` | here | `gerber_draw_item.ts`, `GetMsgPanelInfo` included |
+| `gerber_file_image` | here | `gerber_file_image.ts`; the members defined in `readgerb`, `rs274x`, `rs274d` and `rs274_read_XY_and_IJ_coordinates` are functions in those files taking `self`, which the class delegates to |
+| `gerber_file_image_list` | here | `gerber_file_image_list.ts` (`GERBER_FILE_IMAGE_LIST`, `sortFileExtension`, `sortZorder`) |
+| `gerbview` (+ `gerbview.h`) | here / waiting | `gerbview.ts`: `gerbview.h`'s enums and units. `KIFACE::CreateKiWindow`'s panel switch is `designer/.../prefs/index.ts` (waiting on `dialogs/prefs/types`) |
 | `gerbview_draw_panel_gal` | waiting | `designer/.../GerberCanvas.tsx` (reads `prefs/useSettings`, `render/gl/gerbview_gl`, `ui/view_controls`) |
 | `gerbview_frame` | waiting | `designer/.../GerberViewer.tsx` (reads `prefs/*`, `fs/*`, `dialogs/*`, `ui/*`) |
 | `gerbview_id.h` | n/a | wx command ids; our menus and toolbars dispatch by action name |
-| `gerbview_painter` | move | `designer/.../gerberPaint.ts` (`GERBVIEW_PAINTER::draw`, backend-agnostic) → `gerbview_painter.ts`; the two backends (`gerberRender.ts` Canvas 2D, `render/gl/gerbview_gl.ts`) are the GAL's, see below |
+| `gerbview_painter` | here | `gerbview_painter.ts` (`GERBVIEW_RENDER_SETTINGS`, `GERBVIEW_PAINTER`); it draws through `designer/.../gerber_surface_gal.ts` until `gerbview_draw_panel_gal` lands (below) |
 | `gerbview_printout` | port, blocked | `GERBVIEW_PRINTOUT` derives `BOARD_PRINTOUT`, which is `common/STRUCTURE.md`'s "to port" row. Print today is a screenshot in a window (`printLayers` in `GerberViewer.tsx`) |
-| `gerbview_settings` | waiting | `GerbviewSettings` / `GERBVIEW_DEFAULTS` in `designer/src/prefs/settings.ts`; moves with that file's split into the per-app `JSON_SETTINGS` classes |
-| `job_file_reader` | rename | `parseJobFile` in `read_gerber.ts`; KiCad's is `GERBER_JOBFILE_READER` |
+| `gerbview_settings` | here | `gerbview_settings.ts` (`GERBVIEW_SETTINGS`); the frame's prefs still read `designer/src/prefs/settings.ts`' slice, and `syncGerbviewSettings` (`gerberRender.ts`) copies the display toggles across until the frame reads this class |
+| `job_file_reader` | here | `job_file_reader.ts` (`GERBER_JOBFILE_READER`) |
 | `menubar` | move | `designer/.../menubar.ts` → `menubar.ts` |
-| `readgerb` | rename | `read_gerber.ts` (`readGerberOrDrill`) + `testFileIsRS274` (`file_detect.ts`) + the read loop of `gerber_file_image_parse.ts` |
-| `rs274d` | rename (split) | the G / D command half of `gerber_file_image_parse.ts` |
-| `rs274_read_XY_and_IJ_coordinates` | rename (split) | the coordinate readers inside `gerber_file_image_parse.ts` |
-| `rs274x` | rename (split) | the `%…%` command half of `gerber_file_image_parse.ts` |
+| `readgerb` | here | `readgerb.ts` |
+| `rs274d` | here | `rs274d.ts` |
+| `rs274_read_XY_and_IJ_coordinates` | here | `rs274_read_XY_and_IJ_coordinates.ts` |
+| `rs274x` | here | `rs274x.ts` |
 | `toolbars_gerber` (+ `.h`) | move | `designer/.../gerberToolbars.ts` (`DefaultToolbarConfig`) and the `update*SelectBox` half of `gerberAuxControls.ts` → `toolbars_gerber.ts` |
-| `X2_gerber_attributes` | port | `X2_ATTRIBUTE`, `X2_ATTRIBUTE_FILEFUNCTION`; today `%TF.FileFunction` is kept as a string and split again by `x2Fields` (`mapGerberLayersToPcb.ts`) and `zOrderOf` (`layer_sort.ts`) |
+| `X2_gerber_attributes` | here | `X2_gerber_attributes.ts` |
 
 ### `dialogs/` — 7 units
 
 | KiCad unit | status | ours / note |
 |---|---|---|
 | `dialog_draw_layers_settings` | waiting | per-image display offset and rotation (`m_DisplayOffset`, `m_DisplayRotation`) are not built; the Layers context menu leaves the row out (`layer_widget.ts`) |
-| `dialog_map_gerber_layers_to_pcb` | move + port | the automatic half, `findKnownGerbersLoaded`'s three tables, is `designer/.../mapGerberLayersToPcb.ts`; the dialog itself is not built, so Export to PCB never asks |
+| `dialog_map_gerber_layers_to_pcb` | here (engine half) + port | `dialogs/dialog_map_gerber_layers_to_pcb.ts`: the automatic half, `findKnownGerbersLoaded`'s three tables. The dialog itself is not built, so Export to PCB never asks |
 | `dialog_print_gerbview` | port, blocked | derives `DIALOG_PRINT_GENERIC` (here, `common/dialogs`) and prints through `GERBVIEW_PRINTOUT` (above) |
 | `dialog_select_one_pcb_layer` | port | `LAYER_GRID_TABLE` picker the map dialog opens; lands with that dialog |
 | `panel_gerbview_color_settings` | move, `.tsx` waiting | `designer/.../gerbviewColorLayers.ts` (`m_validLayers`, `createSwatches`) → here; the panel `prefs/PanelGerbviewColorSettings.tsx` reads `dialogs/prefs/types`, `pcm/pcmStore`, `prefs/color_settings_list` |
@@ -113,27 +113,27 @@ driver (`common/STRUCTURE.md` has `spacemouse` n/a for the same reason).
 
 ## Ours with no KiCad unit — each to KiCad's file or stated here
 
-- `types.ts` — a grab-bag of other headers' contents: `IU_PER_MM`
-  (`base_units.h`), `GERBER_DRAWLAYERS_COUNT` (`layer_ids.h`, already in
-  `common/layer_id.ts`), `APERTURE_T` (`dcode.h`), `GBR_BASIC_SHAPE`
-  (`gerber_draw_item.h`), `GERB_INTERPOL` (`gerbview.h`),
-  `IMAGE_JUSTIFY`, `GERBER_FORMAT`. To be folded into the owners.
-- `file_detect.ts` — `TestFileIsRS274` is `readgerb.cpp`'s,
-  `TestFileIsExcellon` `excellon_read_drill_file.cpp`'s, the dispatch
-  `files.cpp`'s. To be folded.
+- `libc.ts` — the C library the readers stand on: a `char*` cursor
+  (`CHAR_PTR`), `fgets` over text, `strtod` / `strtol` / `atoi` semantics,
+  and `wxString::ToCDouble` as measured by `qa/probes/gerbview_tocdouble_probe.cpp`.
+  A `common/` helper by nature; here until `common/` has one.
+- `gbr_netlist_metadata.ts` — `common/gbr_netlist_metadata.cpp` /
+  `include/gbr_netlist_metadata.h` (`GBR_NETLIST_METADATA`, `GBR_DATA_FIELD`)
+  and `FormatStringFromGerber` (`common/gbr_metadata.cpp`). Belongs in
+  `common/`; kept here because another session owns `common/` right now.
 - `index.ts` — the package barrel, kept.
-- `designer/.../dialogs.tsx` — `GERBER_DRAW_ITEM::GetMsgPanelInfo`; fold into
-  `gerber_draw_item.ts`.
 - `designer/.../gerberAuxControls.ts` — nine functions from six KiCad files
   (`toolbars_gerber`, `dcode`, `dcode_selection_box`, `gbr_layer_box_selector`,
   `gerbview_frame`, `gerber_file_image`); split to them.
 - `designer/.../gerberColors.ts` — `s_defaultTheme`'s gerbview rows, which
   `common/settings/builtin_color_themes.ts` already holds, plus
   `COLOR4D::Brightened`; to read those instead of restating them.
-- `designer/.../gerberRender.ts`, `designer/src/render/gl/gerbview_gl.ts` —
-  the Canvas 2D and WebGL backends `GERBVIEW_PAINTER` draws through: KiCad's
-  `common/gal/cairo` and `common/gal/opengl`, not a gerbview file. They stay
-  with the renderer.
+- `designer/.../gerberRender.ts`, `designer/src/render/gl/gerbview_gl.ts`,
+  `designer/.../gerber_surface_gal.ts` — the Canvas 2D and WebGL backends
+  `GERBVIEW_PAINTER` draws through, and the interim GAL over them: KiCad's
+  `common/gal/cairo` and `common/gal/opengl`, not a gerbview file. They go
+  when the frame draws through `GERBVIEW_DRAW_PANEL_GAL` on common's `VIEW`,
+  as `pcb_canvas.ts` does.
 - `designer/.../cursors.ts`, `gerbview.css` — app glue (`ui/tool_cursors`,
   the frame's stylesheet); stay with the frame.
 - `designer/.../prefs/index.ts` (`KIFACE::CreateKiWindow`'s panel switch),
@@ -153,3 +153,29 @@ driver (`common/STRUCTURE.md` has `spacemouse` n/a for the same reason).
   more decimal than KiCad's `KiROUND` leaves them; `export_to_pcbnew`'s
   `MapToPcbUnits` divides by our own `IU_PER_MM`, so the exported millimetres
   agree except in that last digit. Not yet changed: every engine test pins nm.
+  One visible effect: a pathological file whose coordinates overflow an
+  `int` at 1 nm but not at 10 nm logs "Overflow converting value to int".
+
+## Divergences the engine port fixed
+
+Each was found by porting the C++ unit and re-deriving the expectation from
+it, never by re-baselining to what the new code prints.
+
+- **G02 arcs exported the long way round.** `fillArcGBRITEM` stores a
+  not-clockwise arc end-for-start (`rs274d.cpp:285-294`); ours never swapped,
+  so a G02 arc took G03's mid point in Export to PCB.
+- **A macro flash was drawn twice**: `drawApertureMacro`
+  (`gerbview_painter.cpp:599-622`) fills one polygon, the vector-line
+  primitive included; ours also stroked that primitive as a segment.
+- **Excellon `LZ` / `TZ` padding was backwards** against `EXCELLON_DEFAULTS`.
+- **D-codes were never drawn on the GL canvas.**
+- **Invented:** `%AB` aperture blocks (KiCad 10.0.5 has none: `%AB` is an
+  unknown command and loses the command after it, as `readgerb.test.ts`
+  pins for `%IC`); attribute highlight by substring (upstream compares equal);
+  relabelling layers from a job file (upstream loads the job's files, which
+  ours does too, still with its own `jobFileEntries` in `GerberViewer.tsx`).
+
+Reproduced deliberately, because they are what GerbView shows: an unknown
+`%` command swallows the next one; `%SF` scale truncates to `int`
+(`VECTOR2I m_Scale`); `Evaluate` has one level of precedence; a drill file's
+display name keeps an empty fourth field, `(Plated,1,4,PTH,)`.

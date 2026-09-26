@@ -21,7 +21,7 @@ import {
   UNSAVED_SUFFIX,
 } from '@ziroeda/common/use_document_title.js';
 import { gerbviewFrameTitle } from '@ziroeda/designer/src/editors/gerbview/gerberAuxControls.js';
-import type { GERBER_FILE_IMAGE } from '@ziroeda/gerbview';
+import { GERBER_FILE_IMAGE } from '@ziroeda/gerbview';
 
 describe('the separator', () => {
   /** `wxT( " — " )`, U+2014 with one ASCII space either side. */
@@ -146,8 +146,13 @@ describe('GerbView’s own two titles', () => {
    * dropped the X2 suffix both SURVIVED a sweep, with this very block claiming
    * to cover them.
    */
-  const image = (fileName: string, fileFunction: string | null = null) =>
-    ({ fileName, fileFunction }) as GERBER_FILE_IMAGE;
+  const image = (fileName: string, fileFunction: string | null = null): GERBER_FILE_IMAGE => {
+    const img = new GERBER_FILE_IMAGE(0);
+    img.m_FileName = fileName;
+    // m_IsX2_file is what a parsed %TF.FileFunction sets.
+    img.m_IsX2_file = fileFunction !== null;
+    return img;
+  };
 
   /**
    * `title = filename.GetFullName();` (`gerbview_frame.cpp:684`) — WITH the
