@@ -24,8 +24,16 @@
 import { compress, decompress, init as zstdInit } from '@bokuweb/zstd-wasm';
 import { mmh3HashToStringV1 as mmh3HashToString } from '@ziroeda/kimath/src/mmh3_hash.js';
 import { type DSNLEXER, DSNLEXER as DSNLEXER_CLASS, PARSE_ERROR, T, type Tok } from './dsnlexer.js';
+import { PATHS } from './paths.js';
 import { hash256_hex_string } from './picosha2.js';
 import type { OUTPUTFORMATTER } from './richio.js';
+import {
+  MEMORY_FILESYSTEM,
+  wxFileExists,
+  wxFindMount,
+  wxGetTempDir,
+  wxNormalizePath,
+} from './wx/filefn.js';
 
 /** `FILEEXT::KiCadUriPrefix`. */
 export const KiCadUriPrefix = 'kicad-embed';
@@ -420,6 +428,40 @@ export class EMBEDDED_FILES {
    */
   GetEmbeddedFile(aName: string): EMBEDDED_FILE | null {
     return this.m_files.get(aName) ?? null;
+  }
+
+  /**
+   * `GetTemporaryFileName`: write the file's data where other code can open it
+   * by path, and return that path ("" when there is no such file or it cannot
+   * be written). Named by the data hash, so projects sharing a file share one
+   * copy and two files with one name do not collide. The cache directory
+   * cannot be made in a page, so this lands in KiCad's own fallback, the
+   * temp directory.
+   */
+  GetTemporaryFileName(aName: string): string {
+    const file = this.m_files.get(aName);
+
+    if (!file) return '';
+
+    let dir = `${PATHS.GetUserCachePath()}embed/`;
+
+    if (!PATHS.EnsurePathExists(dir)) dir = `${wxGetTempDir()}/`;
+
+    const dot = aName.lastIndexOf('.');
+    const ext = dot > aName.lastIndexOf('/') && dot >= 0 ? aName.slice(dot + 1) : '';
+    const cacheFile = wxNormalizePath(
+      `${dir}kicad_embedded_${file.data_hash}${ext === '' ? '' : `.${ext}`}`,
+    );
+
+    if (wxFileExists(cacheFile)) return cacheFile;
+
+    const hit = wxFindMount(cacheFile);
+
+    if (!hit || !(hit.mount instanceof MEMORY_FILESYSTEM)) return '';
+
+    hit.mount.Write(hit.rel, file.decompressedData);
+
+    return cacheFile;
   }
 
   /**

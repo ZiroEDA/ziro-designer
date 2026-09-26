@@ -88,3 +88,23 @@ export function handleUnsavedChanges(result: UnsavedChangesResult, save: () => b
       return false;
   }
 }
+
+/** What shows the error box: installed by the app at startup (`confirm_ui.tsx`). */
+type ErrorPresenter = (aText: string, aExtraInfo: string) => void;
+
+let s_errorPresenter: ErrorPresenter = (aText, aExtraInfo) =>
+  // No window yet (a test, a worker): the message still goes somewhere.
+  console.error(aExtraInfo ? `${aText}\n${aExtraInfo}` : aText);
+
+/** Install the modal that `DisplayErrorMessage` shows. */
+export function SetErrorPresenter(aPresenter: ErrorPresenter): void {
+  s_errorPresenter = aPresenter;
+}
+
+/**
+ * `DisplayErrorMessage( aParent, aText, aExtraInfo )` (common/confirm.cpp):
+ * the modal error box, caption "Error", one OK button.
+ */
+export function DisplayErrorMessage(aText: string, aExtraInfo = ''): void {
+  s_errorPresenter(aText, aExtraInfo);
+}

@@ -11,11 +11,12 @@
  * location is the data this app mirrors: our hosted libraries are mounted at
  * the same paths, so a board that names `/usr/share/kicad/3dmodels/...`
  * resolves as it does on the machine that made it. The rest of paths.cpp
- * (settings, cache, plugin, scripting and log folders) is n/a: a page has
- * none of those directories.
+ * (settings, plugin, scripting and log folders) is n/a: a page has none of
+ * those directories.
  */
 import { GetMajorMinorVersion } from './build_version.js';
 import * as KIPLATFORM_ENV from './kiplatform/env.js';
+import { MEMORY_FILESYSTEM, wxDirExists, wxFindMount, wxNormalizePath } from './wx/filefn.js';
 import { wxGetEnv } from './wx/utils.js';
 
 /** `KICAD_PATH_STR`: lower case on Linux. */
@@ -50,6 +51,32 @@ export namespace PATHS {
   /** `GetDefault3rdPartyPath`: `GetAbsolutePath()`, also with the separator. */
   export function GetDefault3rdPartyPath(): string {
     return appendDir(getUserDocumentPath(), '3rdparty');
+  }
+
+  /** `GetUserCachePath`: `<cache>/kicad/<major.minor>/`, or `KICAD_CACHE_HOME`'s. */
+  export function GetUserCachePath(): string {
+    let base = KIPLATFORM_ENV.GetUserCachePath();
+
+    // Use KICAD_CACHE_HOME to allow the user to force a specific cache path.
+    const envPath = wxGetEnv('KICAD_CACHE_HOME');
+    if (envPath !== undefined && envPath !== '') base = envPath;
+
+    return appendDir(appendDir(base, KICAD_PATH_STR), GetMajorMinorVersion());
+  }
+
+  /**
+   * `EnsurePathExists`: the directory exists, or is made. Only a tree held in
+   * memory can be written, so a directory elsewhere (the unmounted home
+   * folders) exists only if it already does.
+   */
+  export function EnsurePathExists(aPath: string, aPathToFile = false): boolean {
+    let dir = wxNormalizePath(aPathToFile ? aPath : `${aPath}/`);
+    if (aPathToFile) dir = dir.slice(0, dir.lastIndexOf('/') + 1);
+
+    if (wxDirExists(dir)) return true;
+
+    // wxFileName::Mkdir( wxPATH_MKDIR_FULL ): a RAM disk makes directories implicitly.
+    return wxFindMount(dir.replace(/\/+$/, ''))?.mount instanceof MEMORY_FILESYSTEM;
   }
 
   /** `GetStockEDALibraryPath`: `$APPDIR/share/kicad`, else `KICAD_LIBRARY_DATA`. */

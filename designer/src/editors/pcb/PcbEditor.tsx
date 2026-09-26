@@ -1030,6 +1030,12 @@ function syncProjectSettingsIntoBoard(
   files: readonly { name: string; text: string }[],
   rootPro: string | undefined,
   aFromBoardSetup: boolean,
+  /**
+   * The project folder's absolute path, `/<projectName>` - where the file
+   * dialogs show it and where the 3D viewer mounts its files. KiCad's project
+   * is always an absolute path; KIPRJMOD and FILENAME_RESOLVER need one.
+   */
+  aProjectDir: string,
 ): void {
   const kb = frame.GetBoard();
   if (!kb) return;
@@ -1039,7 +1045,8 @@ function syncProjectSettingsIntoBoard(
   // persists one) is a fresh load: the manager drops the old project first.
   const pro = findProjectPro(files, rootPro);
   const manager = Pgm().GetSettingsManager();
-  const proPath = pro?.name ?? `${rootPro ?? 'untitled'}.kicad_pro`;
+  const proName = pro?.name ?? `${rootPro ?? 'untitled'}.kicad_pro`;
+  const proPath = aProjectDir === '' ? proName : `${aProjectDir}/${proName}`;
   let proJson: JsonValue | null = null;
   if (pro) {
     try {
@@ -2825,6 +2832,11 @@ export function PcbEditor({
   const parsedOpen = useRef<string | null>(null);
   /** The board whose first paint closes the Load PCB dialog, while one is pending. */
   const firstPaintPendingRef = useRef<Board | null>(null);
+  // The project folder, `/<projectName>`: read through a ref by the loads
+  // below, which run on their own triggers (opening a board, Board Setup).
+  const projectDirRef = useRef('');
+  projectDirRef.current = projectName ? `/${projectName}` : '';
+
   // Parse after the first paint, so the frame — and the progress dialog over
   // it — is on screen before the (synchronous) read blocks the thread.
   useEffect(() => {
@@ -2939,7 +2951,14 @@ export function PcbEditor({
           // rules into the DRC engine. Its tail - SetActiveLayer( ..., true )
           // and the UpdateAllItems( ALL ) that re-records what a frame drew
           // before the rules existed - is the board's first display sync.
-          syncProjectSettingsIntoBoard(frame, panelRef.current, projectFilesNow(), rootPro, false);
+          syncProjectSettingsIntoBoard(
+            frame,
+            panelRef.current,
+            projectFilesNow(),
+            rootPro,
+            false,
+            projectDirRef.current,
+          );
           wxLogTrace(
             traceAllegroPerf,
             () => `Post-load DRC engine: ${postLoadTimer.msecs(true).toFixed(3)} ms`,
@@ -2998,7 +3017,14 @@ export function PcbEditor({
     const files = projectFilesNow();
     const frame = frameRef.current;
     if (frame && frame.GetBoard() && parsedOpen.current !== null) {
-      syncProjectSettingsIntoBoard(frame, panelRef.current, files, rootPro, true);
+      syncProjectSettingsIntoBoard(
+        frame,
+        panelRef.current,
+        files,
+        rootPro,
+        true,
+        projectDirRef.current,
+      );
       const dru = findProjectDru(files, rootPro);
       setBoardSetup(BoardSetupToWindow(frame.GetBoard()!, frame.Prj(), dru?.text ?? ''));
     }

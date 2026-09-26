@@ -72,8 +72,10 @@ describe('COMMON_SETTINGS::InitializeEnvironment', () => {
     expect(model.GetDefinedExternally()).toBe(false);
     expect(env.vars.get('KICAD10_SYMBOL_DIR')!.GetValue()).toBe('/usr/share/kicad/symbols/');
     expect(env.vars.get('KICAD10_DESIGN_BLOCK_DIR')!.GetValue()).toBe('/usr/share/kicad/blocks/');
-    // <documents>/kicad/10.0/template/, and a page has no documents folder.
-    expect(env.vars.get('KICAD_USER_TEMPLATE_DIR')!.GetValue()).toBe('kicad/10.0/template/');
+    // <documents>/kicad/10.0/template/; with no home, GLib's documents are /.local/share.
+    expect(env.vars.get('KICAD_USER_TEMPLATE_DIR')!.GetValue()).toBe(
+      '/.local/share/kicad/10.0/template/',
+    );
   });
 
   it('lets the process environment override one, and says so', () => {

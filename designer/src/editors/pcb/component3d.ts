@@ -36,7 +36,16 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLLoader } from 'three/addons/loaders/VRMLLoader.js';
 import type { Board } from '@ziroeda/pcbnew';
-import { resolvePath } from '@ziroeda/common/filename_resolver.js';
+import { FILENAME_RESOLVER } from '@ziroeda/common/filename_resolver.js';
+import { PATHS } from '@ziroeda/common/paths.js';
+import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import {
+  type wxFileSystemMount,
+  wxFindMount,
+  wxGetTempDir,
+  wxMountFileSystem,
+  wxReadFileSync,
+} from '@ziroeda/common/wx/filefn.js';
 import { loadCadModel } from './loadmodel.js';
 import { stepFaceMaterial, type SMaterial, type Vec3 } from './gl_fixed_function.js';
 
@@ -112,6 +121,79 @@ function vrmlIntoMm(o: THREE.Object3D): THREE.Object3D {
 }
 
 const extOf = (name: string): string => name.split('.').pop()?.toLowerCase() ?? '';
+
+/** The model extensions KiCad's 3D plugins register (plugins/3d/vrml, oce). */
+const MODEL_FILE = /\.(wrl|wrz|x3d|step|stp|stpz|step\.gz|stp\.gz|iges|igs)$/i;
+
+/**
+ * The hosted 3D library, mounted where the Linux build installs it -
+ * `${KICAD10_3DMODEL_DIR}` (`PATHS::GetStock3dmodelsPath`) - so a model path
+ * resolves as it does on that machine. A bucket cannot be listed without a
+ * round trip, so any model-shaped name is taken to exist: a model that is not
+ * there fails its fetch, as a missing file fails its load upstream.
+ */
+class HOSTED_3D_LIBRARY implements wxFileSystemMount {
+  FileExists(aRelPath: string): boolean {
+    return MODEL_FILE.test(aRelPath);
+  }
+
+  DirExists(aRelPath: string): boolean {
+    return /^[^/]+\.3dshapes$/i.test(aRelPath);
+  }
+}
+
+const s_hostedLibrary = new HOSTED_3D_LIBRARY();
+let s_libraryMounted = false;
+
+function mountHostedLibrary(): void {
+  if (s_libraryMounted) return;
+  wxMountFileSystem(PATHS.GetStock3dmodelsPath(), s_hostedLibrary);
+  s_libraryMounted = true;
+}
+
+/** The open project's files, mounted at its directory (`Prj().GetProjectPath()`). */
+class PROJECT_FILES_MOUNT implements wxFileSystemMount {
+  constructor(private readonly m_names: ReadonlySet<string>) {}
+
+  FileExists(aRelPath: string): boolean {
+    return this.m_names.has(aRelPath);
+  }
+
+  DirExists(aRelPath: string): boolean {
+    const dir = `${aRelPath}/`;
+    for (const n of this.m_names) if (n.startsWith(dir)) return true;
+    return false;
+  }
+}
+
+/** Library files are hosted as `.glb`; the path keeps its KiCad name. */
+const hostedExt = (rel: string): string =>
+  rel.replace(/\.(wrl|wrz|step|stp|stpz|x3d|iges|igs)$/i, '.glb');
+
+/** Join base URL + relative path, percent-encoding each segment (library
+ *  models legitimately contain spaces, e.g. "M.2 M Key socket"). */
+const joinUrl = (base: string, rel: string): string =>
+  `${base.replace(/\/+$/, '')}/${rel
+    .replace(/^\/+/, '')
+    .split('/')
+    .map(encodeURIComponent)
+    .join('/')}`;
+
+/**
+ * `S3D_CACHE`'s resolver, set up as `PROJECT::Get3DCacheManager` does it:
+ * `Set3DConfigDir`, `SetProgramBase( &Pgm() )`, `SetProject( aProject )`.
+ * The config directory only has to exist (it is what builds the search-path
+ * list); the settings folder exists on every desktop, and the one directory
+ * a page always has is the temp directory.
+ */
+function make3dResolver(): FILENAME_RESOLVER {
+  const resolver = new FILENAME_RESOLVER();
+  const pgm = PgmOrNull();
+  resolver.Set3DConfigDir(wxGetTempDir());
+  resolver.SetProgramBase(pgm);
+  resolver.SetProject(pgm ? pgm.GetSettingsManager().Prj() : null);
+  return resolver;
+}
 
 /**
  * The `SMATERIAL` a loader's three.js material stands for.
@@ -222,7 +304,15 @@ export function mountComponents(
   const disposables: { dispose(): void }[] = [];
   let cancelled = false;
   const enc = new TextEncoder();
-  const fileNames = projectFiles?.map((f) => f.name);
+  // The project's files where KiCad would find them, for as long as this scene
+  // lives; the library where the install puts it.
+  mountHostedLibrary();
+  const prj = PgmOrNull()?.GetSettingsManager().Prj();
+  const projectDir = prj?.GetProjectPath() ?? '';
+  const projectMount = new PROJECT_FILES_MOUNT(new Set(projectFiles?.map((f) => f.name) ?? []));
+  const unmountProject =
+    projectFiles && projectDir.startsWith('/') ? wxMountFileSystem(projectDir, projectMount) : null;
+  const resolver = make3dResolver();
   // wxFileName( fp_model.m_Filename ).GetFullName(): the name and extension
   const inFlight = new Set<string>();
   const reportInFlight = (): void => {
@@ -267,20 +357,63 @@ export function mountComponents(
     }
   };
 
+  // A file read by path (an embedded model in the temp directory): the same
+  // plugin dispatch, from bytes.
+  const loadBytes = (path: string, bytes: Uint8Array): Promise<THREE.Object3D | null> => {
+    switch (extOf(path)) {
+      case 'wrl':
+        return Promise.resolve().then(() => {
+          try {
+            const text = new TextDecoder().decode(bytes);
+            return vrmlIntoMm(vrmlLoader.parse(text, path) as THREE.Object3D);
+          } catch {
+            return null;
+          }
+        });
+      case 'step':
+      case 'stp':
+        return loadCadModel(bytes, 'step');
+      case 'iges':
+      case 'igs':
+        return loadCadModel(bytes, 'iges');
+      default:
+        return Promise.resolve(null);
+    }
+  };
+
   board.footprints.forEach((fp, fpIndex) => {
     if (hooks && !hooks.showFootprint(fp)) return;
     for (const model of fp.models) {
       if (model.hide || !model.path) continue;
-      const res = resolvePath(model.path, { libBase, libExt: 'glb', projectFiles: fileNames });
-      if (res.kind === 'unresolved') continue;
-      const key =
-        res.kind === 'url'
-          ? res.url
-          : `project:${res.name}:${projectFiles?.find((f) => f.name === res.name)?.text.length ?? 0}`;
+      // S3D_CACHE::load -> ResolvePath( aModelFile, aBasePath, aEmbeddedFilesStack ).
+      // The footprint's library path is not known here; nor are embedded files
+      // (the plain board view does not carry them).
+      const full = resolver.ResolvePath(model.path, '', []);
+      if (full === '') continue;
+      const where = wxFindMount(full);
+      if (!where) continue;
+
+      let key: string;
+      let load: () => Promise<THREE.Object3D | null>;
+      if (where.mount === s_hostedLibrary) {
+        const url = joinUrl(libBase, hostedExt(where.rel));
+        key = url;
+        load = () => loadUrl(url);
+      } else if (where.mount === projectMount) {
+        const name = where.rel;
+        key = `project:${name}:${projectFiles?.find((f) => f.name === name)?.text.length ?? 0}`;
+        load = () => loadProjectFile(name);
+      } else {
+        // An embedded file written to the temp directory (GetTemporaryFileName).
+        const bytes = wxReadFileSync(full);
+        if (!bytes) continue;
+        key = `file:${full}`;
+        load = () => loadBytes(full, bytes);
+      }
 
       let p = cache.get(key);
       if (!p) {
-        p = res.kind === 'url' ? loadUrl(res.url) : loadProjectFile(res.name);
+        p = load();
         cache.set(key, p);
         const fullName = model.path.slice(model.path.lastIndexOf('/') + 1);
         inFlight.add(fullName);
@@ -352,6 +485,7 @@ export function mountComponents(
   return {
     dispose: () => {
       cancelled = true;
+      unmountProject?.();
       for (const o of added) parent.remove(o);
       for (const d of disposables) d.dispose();
     },

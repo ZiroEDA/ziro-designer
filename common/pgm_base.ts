@@ -15,6 +15,7 @@ import { PROJECT_FILE, PROJECT_FILE_EXTENSION } from './project/project_file.js'
 import { PROJECT_LOCAL_SETTINGS } from './project/project_local_settings.js';
 import type { COMMON_SETTINGS_ENVIRONMENT } from './settings/common_settings.js';
 import { ENV_VAR_MAP } from './settings/environment.js';
+import { wxSetWorkingDirectory } from './wx/filefn.js';
 import { wxGetEnv, wxSetEnv } from './wx/utils.js';
 import { COLOR_SETTINGS } from './settings/color_settings.js';
 import type { JsonObject, JsonValue } from './settings/json_settings.js';
@@ -137,6 +138,9 @@ export class SETTINGS_MANAGER {
       // the project pointer. (wxFileName::GetPath: the directory, no trailing separator.)
       const cut = fullPath.lastIndexOf('/');
       wxSetEnv(PROJECT_VAR_NAME, cut > 0 ? fullPath.slice(0, cut) : cut === 0 ? '/' : '');
+
+      // set the cwd but don't impact kicad-cli
+      if (cut > 0) wxSetWorkingDirectory(fullPath.slice(0, cut));
     }
 
     const success = this.loadProjectFile(project, aProJson);
