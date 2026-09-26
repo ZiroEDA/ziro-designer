@@ -85,6 +85,7 @@ import {
 } from './gerber_file_image_list.js';
 import { wxDirExists, wxFileExists } from '@ziroeda/common/wx/filefn.js';
 import { DIALOG_DRAW_LAYERS_SETTINGS } from './dialogs/dialog_draw_layers_settings.js';
+import type { DIALOG_PRINT_GERBVIEW } from './dialogs/dialog_print_gerbview.js';
 import { gerbIUScale } from './gerbview.js';
 import type { GERBVIEW_DRAW_PANEL_GAL } from './gerbview_draw_panel_gal.js';
 import type { GERBVIEW_PAINTER } from './gerbview_painter.js';
@@ -151,6 +152,8 @@ export interface GERBVIEW_FRAME_HOST {
    * TransferDataToWindow; true for wxID_OK, which runs TransferDataFromWindow.
    */
   DrawLayersSettingsDialog(aDlg: DIALOG_DRAW_LAYERS_SETTINGS): Promise<boolean>;
+  /** `DIALOG_PRINT_GERBVIEW::ShowModal()`: the dialog, already through TransferDataToWindow. */
+  PrintDialog(aDlg: DIALOG_PRINT_GERBVIEW): Promise<void>;
 }
 
 /** No window: nothing chosen, nothing shown. */
@@ -165,6 +168,7 @@ const NO_HOST: GERBVIEW_FRAME_HOST = {
   SaveTextFile: () => {},
   SingleChoiceDialog: () => Promise.resolve(),
   DrawLayersSettingsDialog: () => Promise.resolve(false),
+  PrintDialog: () => Promise.resolve(),
 };
 
 export class GERBVIEW_FRAME extends EDA_DRAW_FRAME {

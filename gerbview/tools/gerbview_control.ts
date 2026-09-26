@@ -21,6 +21,7 @@ import { SYNC_HANDLER, TOOL_INTERACTIVE } from '@ziroeda/common/tool/tool_intera
 import { VIEW_UPDATE_FLAGS, type VIEW_ITEM } from '@ziroeda/common/view/view_item.js';
 import { kicadPcbWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import type { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import { GERBVIEW_CONTROL_Print } from '../dialogs/dialog_print_gerbview.js';
 import { EXCELLON_IMAGE } from '../excellon_read_drill_file.js';
 import { GBR_TO_PCB_EXPORTER } from '../export_to_pcbnew.js';
 import { GBR_BASIC_SHAPE_TYPE, GERBER_DRAW_ITEM } from '../gerber_draw_item.js';
@@ -293,6 +294,12 @@ export class GERBVIEW_CONTROL extends TOOL_INTERACTIVE {
     return 0;
   }
 
+  /** `GERBVIEW_CONTROL::Print`, defined upstream in dialog_print_gerbview.cpp. */
+  Print(_aEvent: TOOL_EVENT): number {
+    void GERBVIEW_CONTROL_Print(this.m_frame!, this.m_toolMgr!);
+    return 0;
+  }
+
   ExportToPcbnew(_aEvent: TOOL_EVENT): number {
     void this.exportToPcbnew();
 
@@ -474,6 +481,7 @@ export class GERBVIEW_CONTROL extends TOOL_INTERACTIVE {
     this.Go(S(this.OpenZipFile), GERBVIEW_ACTIONS.openZipFile.MakeEvent());
     this.Go(S(this.ToggleLayerManager), GERBVIEW_ACTIONS.toggleLayerManager.MakeEvent());
     this.Go(S(this.ExportToPcbnew), GERBVIEW_ACTIONS.exportToPcbnew.MakeEvent());
+    this.Go(S(this.Print), ACTIONS.print.MakeEvent());
 
     this.Go(S(this.HighlightControl), GERBVIEW_ACTIONS.highlightClear.MakeEvent());
     this.Go(S(this.HighlightControl), GERBVIEW_ACTIONS.highlightNet.MakeEvent());

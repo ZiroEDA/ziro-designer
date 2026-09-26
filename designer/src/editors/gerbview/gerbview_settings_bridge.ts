@@ -182,6 +182,7 @@ export const ACTION_FOR_ID: Readonly<Record<string, TOOL_ACTION>> = {
   gerbOpenAutodetected: GERBVIEW_ACTIONS.openAutodetected,
   gerbOpen: GERBVIEW_ACTIONS.openGerber,
   gerbOpenDrill: GERBVIEW_ACTIONS.openDrillFile,
+  print: ACTIONS.print,
   zoomRedraw: ACTIONS.zoomRedraw,
   zoomIn: ACTIONS.zoomInCenter,
   zoomOut: ACTIONS.zoomOutCenter,

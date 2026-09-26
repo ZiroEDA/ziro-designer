@@ -8,12 +8,12 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  DIALOG_PRINT_GENERIC,
   getScaleValue,
   MAX_SCALE,
   MIN_SCALE,
   setScaleValue,
 } from '@ziroeda/common/dialogs/dialog_print_generic.js';
+import { DIALOG_PRINT_GENERIC } from '@ziroeda/common/dialogs/dialog_print_generic_ui.js';
 
 afterEach(cleanup);
 

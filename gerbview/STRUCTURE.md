@@ -64,7 +64,7 @@ which); **n/a** (a browser cannot have it).
 | `gerbview_frame` | here | `gerbview_frame.ts` (`GERBVIEW_FRAME`). The page, `designer/.../GerberViewer.tsx`, hosts it: the chrome, the dialogs behind `GERBVIEW_FRAME_HOST`, and `gerbview_settings_bridge.ts` between `gerbview.json` and `GERBVIEW_SETTINGS`. `setupUIConditions` is still `checkedSet` in that bridge rather than `EDITOR_CONDITIONS` |
 | `gerbview_id.h` | n/a | wx command ids; our menus and toolbars dispatch by action name |
 | `gerbview_painter` | here | `gerbview_painter.ts` (`GERBVIEW_RENDER_SETTINGS`, `GERBVIEW_PAINTER`), drawing on `OPENGL_GAL` |
-| `gerbview_printout` | port, blocked | `GERBVIEW_PRINTOUT` derives `BOARD_PRINTOUT`, which is `common/STRUCTURE.md`'s "to port" row. Print today is the browser's `window.print()` |
+| `gerbview_printout` | port, blocked | `GERBVIEW_PRINTOUT` derives `BOARD_PRINTOUT`, whose DrawPage draws through `CAIRO_PRINT_GAL` (`common/gal/cairo`, in progress). Until it lands the dialog's Print is the browser's `window.print()` |
 | `gerbview_settings` | here | `gerbview_settings.ts` (`GERBVIEW_SETTINGS`), which the frame reads. `JSON_SETTINGS::Load` / `Store` against the account-synced slice are `designer/.../gerbview_settings_bridge.ts` |
 | `job_file_reader` | here | `job_file_reader.ts` (`GERBER_JOBFILE_READER`) |
 | `menubar` | here | `menubar.ts` (`doReCreateMenuBar`'s tree); the frame renders it |
@@ -81,7 +81,7 @@ which); **n/a** (a browser cannot have it).
 |---|---|---|
 | `dialog_draw_layers_settings` | here | `dialogs/dialog_draw_layers_settings.ts` (`DIALOG_DRAW_LAYERS_SETTINGS`: the controls' state and both transfers) + `_ui.tsx`, shown through `GERBVIEW_FRAME_HOST::DrawLayersSettingsDialog`. The offset binders do not evaluate expressions: common has no `NUMERIC_EVALUATOR` |
 | `dialog_map_gerber_layers_to_pcb` | here (engine half) + port | `dialogs/dialog_map_gerber_layers_to_pcb.ts`: the automatic half, `findKnownGerbersLoaded`'s three tables. The dialog itself is not built, so Export to PCB never asks |
-| `dialog_print_gerbview` | port, blocked | derives `DIALOG_PRINT_GENERIC` (here, `common/dialogs`) and prints through `GERBVIEW_PRINTOUT` (above) |
+| `dialog_print_gerbview` | here | `dialogs/dialog_print_gerbview.ts` (`DIALOG_PRINT_GERBVIEW`: the generic state, the two layer lists, the transfers, and `GERBVIEW_CONTROL::Print`, which upstream defines in this file) + `_ui.tsx` over `DIALOG_PRINT_GENERIC`'s view. Its quirks are kept: checks by layer index, 32 layers at most, nothing persisted |
 | `dialog_select_one_pcb_layer` | port | `LAYER_GRID_TABLE` picker the map dialog opens; lands with that dialog |
 | `panel_gerbview_color_settings` | here (engine half), `.tsx` waiting | `dialogs/panel_gerbview_color_settings.ts` (`m_validLayers`, `createSwatches`), reading its defaults from `common/settings/builtin_color_themes.ts` rather than `designer/.../gerberColors.ts`. The panel `designer/.../prefs/PanelGerbviewColorSettings.tsx` reads `dialogs/prefs/types`, `pcm/pcmStore`, `prefs/color_settings_list` |
 | `panel_gerbview_display_options` | here (engine half), `.tsx` waiting | `dialogs/panel_gerbview_display_options.ts`; `designer/.../prefs/PanelGerbviewDisplayOptions.tsx` reads `dialogs/prefs/types` |
@@ -97,7 +97,7 @@ driver (`common/STRUCTURE.md` has `spacemouse` n/a for the same reason).
 | KiCad unit | status | ours / note |
 |---|---|---|
 | `gerbview_actions` | here | `tools/gerbview_actions.ts` (`GERBVIEW_ACTIONS`), generated from the `.cpp` as `pcbnew/tools/pcb_actions.ts` was. `menubar.ts` / `gerberToolbars.ts` still restate the strings; they read these once the frame dispatches `TOOL_ACTION`s |
-| `gerbview_control` | here | `tools/gerbview_control.ts` (`GERBVIEW_CONTROL`); `Print` waits on `gerbview_printout` |
+| `gerbview_control` | here | `tools/gerbview_control.ts` (`GERBVIEW_CONTROL`); `Print` is in `dialogs/dialog_print_gerbview.ts`, as upstream |
 | `gerbview_inspection_tool` | here | `tools/gerbview_inspection_tool.ts` (`GERBVIEW_INSPECTION_TOOL`: `ShowDCodes`, `ShowSource`, `MeasureTool` on common's `RULER_ITEM`) |
 | `gerbview_selection` | here | `tools/gerbview_selection.ts` (`GERBVIEW_SELECTION`) |
 | `gerbview_selection_tool` | here | `tools/gerbview_selection_tool.ts` (`GERBVIEW_SELECTION_TOOL` on common's `SELECTION_TOOL`) |

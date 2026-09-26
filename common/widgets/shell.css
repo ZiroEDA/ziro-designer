@@ -13339,6 +13339,24 @@ fieldset.ze-sbox > legend {
   margin: 5px 5px 5px 0; /* [data] wxTOP|wxBOTTOM|wxRIGHT|wxALIGN_CENTER_VERTICAL, 5 */
   white-space: nowrap;
 }
+/* DIALOG_PRINT_GERBVIEW::createLeftPanel (gerbview/dialogs/dialog_print_gerbview_ui.tsx):
+   bLayerListsSizer holds the two wxCheckListBoxes side by side, each Add()ed
+   proportion 1 wxEXPAND with no border; buttonSizer below it, each button
+   proportion 1 wxALL 5. */
+.ze-gbrprint-lists {
+  display: flex; /* [data] bLayerListsSizer, wxHORIZONTAL, proportion 1 wxEXPAND */
+  flex: 1 1 auto;
+}
+.ze-gbrprint-list {
+  flex: 1 1 0; /* [data] Add( m_layerLists[i], 1, wxEXPAND, 5 ): no border flag */
+}
+.ze-gbrprint-buttons {
+  display: flex; /* [data] buttonSizer, wxHORIZONTAL */
+}
+.ze-gbrprint-button {
+  flex: 1 1 0; /* [data] proportion 1 */
+  margin: 5px; /* [data] wxALL, 5 */
+}
 /* DIALOG_DRAW_LAYERS_SETTINGS (gerbview/dialogs/dialog_draw_layers_settings_ui.tsx),
    from its _base.cpp: every cell Add()ed wxALL 5, the flex grid's value column
    the growable one. */

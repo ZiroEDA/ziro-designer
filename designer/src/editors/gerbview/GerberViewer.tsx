@@ -27,7 +27,7 @@ import {
 } from 'react';
 import { parseColor4d, toCss } from '@ziroeda/common/color4d.js';
 import { HtmlMessageBox } from '@ziroeda/common/dialogs/html_message_box.js';
-import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
+import { MessageDialogError, MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import { SingleChoiceDialog } from '@ziroeda/common/dialogs/dialog_single_choice.js';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
@@ -55,6 +55,8 @@ import { s_tempFileSystem } from '@ziroeda/common/wx/filefn.js';
 import type { ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
 import { graphicLayerKey } from '@ziroeda/gerbview/dialogs/panel_gerbview_color_settings.js';
 import type { DIALOG_DRAW_LAYERS_SETTINGS } from '@ziroeda/gerbview/dialogs/dialog_draw_layers_settings.js';
+import type { DIALOG_PRINT_GERBVIEW } from '@ziroeda/gerbview/dialogs/dialog_print_gerbview.js';
+import { DialogPrintGerbview } from '@ziroeda/gerbview/dialogs/dialog_print_gerbview_ui.js';
 import { DialogDrawLayersSettings } from '@ziroeda/gerbview/dialogs/dialog_draw_layers_settings_ui.js';
 import { mapGerberLayersToPcb } from '@ziroeda/gerbview/dialogs/dialog_map_gerber_layers_to_pcb.js';
 import { GERBVIEW_DRAW_PANEL_GAL } from '@ziroeda/gerbview/gerbview_draw_panel_gal.js';
@@ -177,6 +179,13 @@ export function GerberViewer({
     done: () => void;
   } | null>(null);
   const [messageBox, setMessageBox] = useState<{ message: string; done: () => void } | null>(null);
+  const [printBox, setPrintBox] = useState<{
+    dlg: DIALOG_PRINT_GERBVIEW;
+    done: () => void;
+  } | null>(null);
+  const [printMessage, setPrintMessage] = useState<{ message: string; error: boolean } | null>(
+    null,
+  );
   const [drawLayersBox, setDrawLayersBox] = useState<{
     dlg: DIALOG_DRAW_LAYERS_SETTINGS;
     done: (aOk: boolean) => void;
@@ -260,6 +269,7 @@ export function GerberViewer({
         new Promise((resolve) =>
           setChoiceBox({ caption: aCaption, choices: aChoices, done: resolve }),
         ),
+      PrintDialog: (aDlg) => new Promise((resolve) => setPrintBox({ dlg: aDlg, done: resolve })),
       DrawLayersSettingsDialog: (aDlg) =>
         new Promise((resolve) => setDrawLayersBox({ dlg: aDlg, done: resolve })),
     }),
@@ -431,13 +441,6 @@ export function GerberViewer({
 
   const onToolbarAction = useCallback(
     (id: string) => {
-      if (id === 'print') {
-        // ACTIONS::print is GERBVIEW_CONTROL::Print, which lives with
-        // DIALOG_PRINT_GERBVIEW (not ported yet): the browser's print.
-        window.print();
-        return;
-      }
-
       const action = ACTION_FOR_ID[id];
 
       if (action) runAction(action);
@@ -785,6 +788,29 @@ export function GerberViewer({
           }}
         />
       )}
+      {printBox && (
+        <DialogPrintGerbview
+          dlg={printBox.dlg}
+          onMessage={(message, error) => setPrintMessage({ message, error })}
+          // GERBVIEW_PRINTOUT draws through CAIRO_PRINT_GAL, which is not in
+          // common yet: until it is, the pages are the browser's own print.
+          onPrint={() => window.print()}
+          onClose={() => {
+            const done = printBox.done;
+            setPrintBox(null);
+            done();
+          }}
+        />
+      )}
+      {printMessage &&
+        (printMessage.error ? (
+          <MessageDialogError
+            message={printMessage.message}
+            onClose={() => setPrintMessage(null)}
+          />
+        ) : (
+          <MessageDialogOk message={printMessage.message} onClose={() => setPrintMessage(null)} />
+        ))}
       {drawLayersBox && (
         <DialogDrawLayersSettings
           dlg={drawLayersBox.dlg}

@@ -32,7 +32,7 @@ import {
   GERBVIEW_JOB_FILTERS,
   GERBVIEW_ZIP_FILTERS,
 } from '@ziroeda/common/wildcards_and_files_ext.js';
-import { PAGE_SIZE_TYPE } from '@ziroeda/common/page_info.js';
+import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/page_info.js';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { VIEW } from '@ziroeda/common/view/view.js';
@@ -50,6 +50,8 @@ import { GERBVIEW_FRAME, type GERBVIEW_FRAME_HOST } from '@ziroeda/gerbview/gerb
 import { GERBVIEW_PAINTER } from '@ziroeda/gerbview/gerbview_painter.js';
 import { GERBVIEW_SETTINGS } from '@ziroeda/gerbview/gerbview_settings.js';
 import { GERBVIEW_ACTIONS } from '@ziroeda/gerbview/tools/gerbview_actions.js';
+import { DIALOG_PRINT_GERBVIEW } from '@ziroeda/gerbview/dialogs/dialog_print_gerbview.js';
+import { BOARD_PRINTOUT_SETTINGS } from '@ziroeda/common/board_printout.js';
 import type { DIALOG_DRAW_LAYERS_SETTINGS } from '@ziroeda/gerbview/dialogs/dialog_draw_layers_settings.js';
 import { GERBER_LAYER_WIDGET_ID } from '@ziroeda/gerbview/widgets/gerbview_layer_widget.js';
 import { checkedSet } from '@ziroeda/designer/src/editors/gerbview/gerbview_settings_bridge.js';
@@ -178,6 +180,8 @@ interface Env {
   drawLayers: DIALOG_DRAW_LAYERS_SETTINGS[];
   /** What the user does in the next ones before OK; Cancel once it runs out. */
   drawLayersEdits: ((aDlg: DIALOG_DRAW_LAYERS_SETTINGS) => void)[];
+  /** Every DIALOG_PRINT_GERBVIEW shown. */
+  prints: DIALOG_PRINT_GERBVIEW[];
 }
 
 function setup(): Env {
@@ -233,6 +237,7 @@ function setup(): Env {
   const answers: Env['answers'] = [];
   const choices: Env['choices'] = [];
   const drawLayers: Env['drawLayers'] = [];
+  const prints: Env['prints'] = [];
   const drawLayersEdits: Env['drawLayersEdits'] = [];
   const host: GERBVIEW_FRAME_HOST = {
     FileDialog: (aTitle, aFilters, aMultiple) => {
@@ -253,6 +258,10 @@ function setup(): Env {
     SaveFileDialog: () => Promise.resolve(null),
     MapGerberLayersToPcb: () => Promise.resolve(null),
     SaveTextFile: () => {},
+    PrintDialog: (aDlg) => {
+      prints.push(aDlg);
+      return Promise.resolve();
+    },
     DrawLayersSettingsDialog: (aDlg) => {
       drawLayers.push(aDlg);
       const edit = drawLayersEdits.shift();
@@ -285,6 +294,7 @@ function setup(): Env {
     choices,
     drawLayers,
     drawLayersEdits,
+    prints,
   };
 }
 
@@ -1100,5 +1110,123 @@ describe('EDA_BASE_FRAME::HandleUpdateUIEvent', () => {
 
     expect(event.GetText()).toBe('Undo');
     expect(event.GetEnabled()).toBe(false);
+  });
+});
+
+/**
+ * GERBVIEW_CONTROL::Print and DIALOG_PRINT_GERBVIEW
+ * (`gerbview/dialogs/dialog_print_gerbview.cpp`).
+ */
+describe('DIALOG_PRINT_GERBVIEW', () => {
+  const load3 = async (): Promise<void> => {
+    await env.frame.LoadGerberFiles(put('a.gbr', SAMPLE));
+    await env.frame.LoadGerberFiles(put('b.gbr', SECOND));
+    await env.frame.LoadGerberFiles(put('c.gbr', SECOND));
+  };
+  const open = async (): Promise<DIALOG_PRINT_GERBVIEW> => {
+    env.frame.GetToolManager()!.RunAction(ACTIONS.print);
+    await Promise.resolve();
+    return env.prints.at(-1)!;
+  };
+
+  it('Print opens it with the drawing sheet forced off and hidden (:283-286)', async () => {
+    await load3();
+    const dlg = await open();
+
+    expect(dlg.m_titleBlockShown).toBe(false);
+    expect(dlg.m_titleBlock).toBe(false);
+  });
+
+  it('lists each loaded file by its full name, and checks all of them at first', async () => {
+    await load3();
+    const dlg = await open();
+
+    // BOARD_PRINTOUT_SETTINGS starts with m_LayerSet.set(): every layer.
+    expect(dlg.m_layerLists[0]!.items).toEqual(['a.gbr', 'b.gbr', 'c.gbr']);
+    expect(dlg.m_layerLists[0]!.checked).toEqual([true, true, true]);
+    expect(dlg.m_layerLists[1]!.items).toEqual([]);
+  });
+
+  it('prints one page per checked layer', async () => {
+    await load3();
+    const dlg = await open();
+    dlg.m_layerLists[0]!.checked[1] = false;
+
+    expect(dlg.onPrintButtonClick()).toEqual({ info: null, error: null });
+    expect(dlg.settings().m_pageCount).toBe(2);
+    expect([0, 1, 2].map((l) => dlg.settings().m_LayerSet.test(l))).toEqual([true, false, true]);
+  });
+
+  it('refuses to print nothing (dialog_print_generic.cpp:283-287)', async () => {
+    await load3();
+    const dlg = await open();
+    dlg.onDeselectAllClick();
+
+    expect(dlg.onPrintButtonClick().error).toBe('Nothing to print');
+
+    dlg.onSelectAllClick();
+    expect(dlg.onPrintButtonClick().error).toBe(null);
+  });
+
+  it('carries the mirror, the output mode and the scale into the settings', async () => {
+    await load3();
+    const dlg = await open();
+    dlg.m_checkboxMirror = true;
+    dlg.m_outputMode = 0;
+    dlg.m_scaleMode = 'fit';
+
+    dlg.onPrintButtonClick();
+
+    expect(dlg.settings().m_Mirror).toBe(true);
+    expect(dlg.settings().m_blackWhite).toBe(false);
+    expect(dlg.settings().m_scale).toBe(0);
+  });
+
+  it('warns and clamps a custom scale out of range, and still prints', async () => {
+    await load3();
+    const dlg = await open();
+    dlg.m_scaleMode = 'custom';
+    dlg.m_customScale = '500';
+
+    const { info, error } = dlg.onPrintButtonClick();
+
+    expect(info).toContain('too large');
+    expect(error).toBe(null);
+    expect(dlg.settings().m_scale).toBe(100);
+  });
+
+  it('keeps nothing in gerbview.json: Print builds fresh settings each time', async () => {
+    await load3();
+    const before = JSON.stringify(env.frame.gvconfig().m_Printing);
+    const dlg = await open();
+    dlg.m_checkboxMirror = true;
+    dlg.onPrintButtonClick();
+
+    expect(JSON.stringify(env.frame.gvconfig().m_Printing)).toBe(before);
+    expect((await open()).m_checkboxMirror).toBe(false);
+  });
+});
+
+/**
+ * `listBox->Check( ii, true )` checks by LAYER index, not the file's row
+ * (`dialog_print_gerbview.cpp:136-137`): with slot 0 empty, the file in slot 1
+ * is row 0 but the check goes to row 1, past the list's end, and is lost.
+ * Reproduced, because it is what GerbView does.
+ */
+describe('DIALOG_PRINT_GERBVIEW::TransferDataToWindow across a gap', () => {
+  it('checks by layer index, so the file after the gap stays unchecked', () => {
+    const image = { m_FileName: '/tmp/x/b.gbr' };
+    const list = {
+      ImagesMaxCount: () => 3,
+      GetGbrImage: (i: number) => (i === 1 ? image : null),
+    };
+    const frame = { GetGerberLayout: () => ({ GetImagesList: () => list }) };
+    const settings = new BOARD_PRINTOUT_SETTINGS(new PAGE_INFO(PAGE_SIZE_TYPE.GERBER));
+    const dlg = new DIALOG_PRINT_GERBVIEW(frame as never, settings);
+
+    dlg.TransferDataToWindow();
+
+    expect(dlg.m_layerLists[0]!.items).toEqual(['b.gbr']);
+    expect(dlg.m_layerLists[0]!.checked).toEqual([false]);
   });
 });

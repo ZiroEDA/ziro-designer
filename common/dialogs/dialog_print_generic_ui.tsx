@@ -35,71 +35,14 @@ import type { JSX, ReactNode } from 'react';
 import { StdDialogButtons } from '../dialog_shim.js';
 import { Combo } from '../widgets/wx_combobox.js';
 import { useModalEscape } from '../dialog_shim.js';
-
-/** dialog_print_generic.cpp:34-35. */
-export const MIN_SCALE = 0.01;
-export const MAX_SCALE = 100.0;
-
-export type PrintScaleMode = '1:1' | 'fit' | 'custom';
-
-/**
- * `setScaleValue` (:172-196): 0 selects Fit to page, 1 selects 1:1, anything
- * else is clamped silently and written into Custom with `%f`.
- */
-export function setScaleValue(aValue: number): { mode: PrintScaleMode; text?: string } {
-  if (aValue === 0.0) return { mode: 'fit' };
-  if (aValue === 1.0) return { mode: '1:1' };
-  const v = Math.min(MAX_SCALE, Math.max(MIN_SCALE, aValue));
-  return { mode: 'custom', text: v.toFixed(6) };
-}
-
-/**
- * `getScaleValue` (:128-170): the scale, what the controls become when the
- * custom text had to be corrected, and the DisplayInfoMessage upstream shows
- * for it.
- */
-export function getScaleValue(
-  aMode: PrintScaleMode,
-  aCustomText: string,
-): { scale: number; reset?: { mode: PrintScaleMode; text?: string }; info?: string } {
-  if (aMode === '1:1') return { scale: 1.0 };
-  if (aMode === 'fit') return { scale: 0.0 };
-
-  const t = aCustomText.trim();
-  let scale = t === '' ? Number.NaN : Number(t);
-
-  if (!Number.isFinite(scale)) {
-    return {
-      scale: 1.0,
-      reset: setScaleValue(1.0),
-      info: 'Warning: custom scale is not a number.',
-    };
-  }
-
-  if (scale > MAX_SCALE) {
-    scale = MAX_SCALE;
-    return {
-      scale,
-      reset: setScaleValue(scale),
-      info: `Warning: custom scale is too large.\nIt will be clamped to ${scale.toFixed(6)}.`,
-    };
-  }
-  if (scale < MIN_SCALE) {
-    scale = MIN_SCALE;
-    return {
-      scale,
-      reset: setScaleValue(scale),
-      info: `Warning: custom scale is too small.\nIt will be clamped to ${scale.toFixed(6)}.`,
-    };
-  }
-  return { scale };
-}
+import type { PrintScaleMode } from './dialog_print_generic.js';
 
 export function DIALOG_PRINT_GENERIC({
   blackWhite,
   onBlackWhite,
   titleBlock,
   onTitleBlock,
+  titleBlockShown = true,
   scaleMode,
   onScaleMode,
   customScale,
@@ -116,6 +59,8 @@ export function DIALOG_PRINT_GENERIC({
   /** `m_titleBlock`, "Print drawing sheet". */
   titleBlock: boolean;
   onTitleBlock: (v: boolean) => void;
+  /** False after `ForcePrintBorder`, which hides the checkbox (`:113-117`). */
+  titleBlockShown?: boolean;
   scaleMode: PrintScaleMode;
   onScaleMode: (m: PrintScaleMode) => void;
   customScale: string;
@@ -153,14 +98,16 @@ export function DIALOG_PRINT_GENERIC({
                     { value: 'bw', label: 'Black and white' },
                   ]}
                 />
-                <label className="ze-check ze-printdlg-span" title="Print Frame references.">
-                  <input
-                    type="checkbox"
-                    checked={titleBlock}
-                    onChange={(e) => onTitleBlock(e.target.checked)}
-                  />
-                  Print drawing sheet
-                </label>
+                {titleBlockShown && (
+                  <label className="ze-check ze-printdlg-span" title="Print Frame references.">
+                    <input
+                      type="checkbox"
+                      checked={titleBlock}
+                      onChange={(e) => onTitleBlock(e.target.checked)}
+                    />
+                    Print drawing sheet
+                  </label>
+                )}
                 {extraOptions}
               </div>
             </fieldset>

@@ -34,11 +34,11 @@
  * browser's print flow on the composed pages.
  */
 import {
-  DIALOG_PRINT_GENERIC,
   getScaleValue as baseGetScaleValue,
   MAX_SCALE,
   MIN_SCALE,
 } from '@ziroeda/common/dialogs/dialog_print_generic.js';
+import { DIALOG_PRINT_GENERIC } from '@ziroeda/common/dialogs/dialog_print_generic_ui.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { ContextMenu } from '@ziroeda/common/tool/action_menu_bar.js';
 import { MessageDialogError, MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
