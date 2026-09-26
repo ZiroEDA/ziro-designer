@@ -14,11 +14,11 @@
  * 5; a checkbox spans the three at wxALL 5; the std buttons wxALL|wxEXPAND 5.
  */
 import { useState, type JSX } from 'react';
-import { StdDialogButtons } from '../dialog_shim_buttons.js';
+import { StdDialogButtons } from '../dialog_shim.js';
 import type { EdaIuScale } from '../eda_units.js';
 import { unitLabel, type EdaUnits } from '../widgets/unit_binder.js';
 import { unitEntryText, unitEntryValue } from './dialog_unit_entry.js';
-import { useModalEscape } from './use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 
 /** `ENTRY`: a label, a tooltip, and a UNIT_BOUND or CHECKBOX default. */
 export interface MULTI_ENTRY {

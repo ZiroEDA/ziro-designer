@@ -43,7 +43,7 @@ import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
 import { DialogColorPicker } from '@ziroeda/common/dialogs/dialog_color_picker.js';
 import { COLOR4D_UNSPECIFIED, type Color4d } from '@ziroeda/common/color4d.js';
 import { Combo, type ComboOption } from '@ziroeda/common/widgets/wx_combobox.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { UnitField } from '@ziroeda/common/widgets/unit_binder_ui.js';
 import type { EdaUnits, UnitRange } from '@ziroeda/common/widgets/unit_binder.js';
 import { MessageDialogError } from '@ziroeda/common/dialogs/dialog_message.js';

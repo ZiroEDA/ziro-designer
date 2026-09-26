@@ -95,7 +95,13 @@ def main(helper, target):
                 new = os.path.relpath(stem(target) + '.js', os.path.dirname(f))
                 return m.group(1) + (new if new.startswith('.') else './' + new) + m.group(3)
             if spec.startswith('@ziroeda/') and spec.endswith(h_js.split('/', 1)[-1]) and stem(spec).endswith(stem(helper).split('/', 1)[-1]):
-                return m.group(1) + spec.replace(os.path.basename(h_js), os.path.basename(stem(target)) + '.js') + m.group(3)
+                # Re-express the TARGET's path from the package root: a target
+                # in another directory of the package (dialogs/x -> ./x) must
+                # not keep the helper's directory (09-26: dialog_shim).
+                pkg = '/'.join(spec.split('/')[:2])
+                rest = stem(spec)[len(pkg) + 1:]
+                pkg_dir = stem(helper)[: -len(rest)].rstrip('/')
+                return m.group(1) + pkg + '/' + os.path.relpath(stem(target), pkg_dir) + '.js' + m.group(3)
             return m.group(0)
 
         out = re.sub(r"((?:from|import)\s*\(?\s*')([^']+)(')", fix, s)

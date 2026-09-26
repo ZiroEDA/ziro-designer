@@ -16,7 +16,7 @@
 import { useState, type JSX, type Ref } from 'react';
 import { moveKeepsSelectionInBounds, polarTranslation, type RotationAnchor } from '@ziroeda/pcbnew';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 export interface MoveExactValues {
   translation: { x: number; y: number };

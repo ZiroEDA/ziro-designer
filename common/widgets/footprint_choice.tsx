@@ -61,7 +61,7 @@ import {
   type ReactNode,
 } from 'react';
 import { placeComboPopup, type PopupBox } from './footprint_choice_popup.js';
-import { useModalEscape } from '../dialogs/use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 
 /**
  * One `wxItemContainer` entry: `Append( aLabel, new wxStringClientData( aValue ) )`.

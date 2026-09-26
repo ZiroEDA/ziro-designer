@@ -79,7 +79,7 @@ import {
   type StatusUnits,
 } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { EDA_FRAME_DEFAULT_SIZE, EDA_FRAME_MIN_SIZE } from '@ziroeda/common/eda_base_frame_size.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { Viewer3DFrame } from '../../pcb/Viewer3DFrame.js';
 import {
   DISPLAY_FP_CONTROL,

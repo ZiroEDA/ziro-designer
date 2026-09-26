@@ -27,7 +27,7 @@ import {
   rowPrettyDir,
   type FpLibRow,
 } from '../editors/footprint/fp_lib_table.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {
   /** The open project's files (footprints, the table, the `.kicad_pro`). */

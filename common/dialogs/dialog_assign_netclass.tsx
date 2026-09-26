@@ -23,12 +23,12 @@
  * report and the note are in the info font (KIUI::GetInfoFont).
  */
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
-import { StdDialogButtons } from '../dialog_shim_buttons.js';
+import { StdDialogButtons } from '../dialog_shim.js';
 import { netclassPatternMatches } from '../eda_pattern_match.js';
 import { strNumCmp } from '../string_utils.js';
 import { Combo } from '../widgets/wx_combobox.js';
 import { WX_HTML_REPORT_BOX } from '../widgets/wx_html_report_box.js';
-import { useModalEscape } from './use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 
 /** `NETCLASS::Default`. */
 const DEFAULT_NETCLASS = 'Default';

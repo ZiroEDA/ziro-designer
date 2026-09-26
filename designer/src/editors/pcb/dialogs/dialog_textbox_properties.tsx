@@ -69,9 +69,9 @@ import type { TextBoxValues } from '@ziroeda/pcbnew/textbox_properties.js';
 import type { StrokeType } from '@ziroeda/pcbnew/types.js';
 import { LINE_STYLE_NAMES } from '@ziroeda/common/stroke_params.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { StdDialogButtons } from '@ziroeda/common/dialog_shim_buttons.js';
+import { StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { FontChoice, TextFormatBar, type HAlign, type VAlign } from '../../../ui/TextFormatBar.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { HtmlMessageBox } from '@ziroeda/common/dialogs/html_message_box.js';
 import { PCB_TEXT_SYNTAX_HELP } from '@ziroeda/pcbnew/pcb_text_help.js';
 

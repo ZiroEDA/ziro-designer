@@ -16,7 +16,7 @@
  * - then a 100 px stretch spacer and the std buttons at wxALL 5.
  */
 import { useState, type JSX } from 'react';
-import { StdDialogButtons } from '../dialog_shim_buttons.js';
+import { StdDialogButtons } from '../dialog_shim.js';
 import type { EdaIuScale } from '../eda_units.js';
 import {
   parseUnitValue,
@@ -24,7 +24,7 @@ import {
   unitLabel,
   type EdaUnits,
 } from '../widgets/unit_binder.js';
-import { useModalEscape } from './use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 
 /** A UNIT_BINDER's text for a value in IU. */
 export function unitEntryText(aValueIU: number, aUnits: EdaUnits, aIuScale: EdaIuScale): string {

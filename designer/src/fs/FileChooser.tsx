@@ -33,7 +33,7 @@ import { TreeIcon } from '../home/project_tree_pane.js';
 import { treeIconFor } from '../home/project_tree.js';
 import { ContextMenu } from '@ziroeda/common/tool/action_menu_bar.js';
 import type { MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import '../ui/file_chooser.css';
 import { fileExtension, fileTypeLabel } from './file_types.js';
 import type { ChooserFilter, ChooserPlace } from './chooser_types.js';

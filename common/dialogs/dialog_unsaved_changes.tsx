@@ -30,7 +30,7 @@ import {
   type UnsavedChangesResult,
 } from '../confirm.js';
 import { DialogIcon } from './dialog_message.js';
-import { useModalEscape } from './use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 
 export function UnsavedChangesDialog({
   message,

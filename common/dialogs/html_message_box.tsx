@@ -39,7 +39,7 @@
  */
 
 import { useEffect, useRef, type JSX } from 'react';
-import { useModalEscape } from './use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 
 /**
  * One message's markup, as `<li>` content.

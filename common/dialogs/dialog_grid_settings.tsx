@@ -28,7 +28,7 @@
  * display unit while `GRID` itself is always stored in millimetres.
  */
 import { type JSX, useState } from 'react';
-import { useModalEscape } from './use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 import { MessageDialogError } from './dialog_message.js';
 import type { GridEntry } from '../settings/grid_settings_ui.js';
 import {

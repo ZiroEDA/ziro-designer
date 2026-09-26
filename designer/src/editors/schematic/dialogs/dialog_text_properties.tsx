@@ -45,7 +45,7 @@ import {
 } from '@ziroeda/common/stroke_params.js';
 import { FontChoice } from '../../../ui/TextFormatBar.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 export type HAlign = 'left' | 'center' | 'right';
 export type VAlign = 'top' | 'center' | 'bottom';

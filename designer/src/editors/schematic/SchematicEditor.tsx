@@ -584,7 +584,7 @@ import { useUnsavedGuard } from '@ziroeda/common/use_unsaved_guard.js';
 import '@ziroeda/common/widgets/shell.css';
 import { schSymbolLibraryName } from '@ziroeda/eeschema';
 import { busJunctionIds as busJunctionIdsOf } from '@ziroeda/eeschema/connectivity/bus.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
 import {
   CROSS_PROBE_FLASH_INTERVAL_MS,

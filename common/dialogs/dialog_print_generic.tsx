@@ -32,9 +32,9 @@
  * Page Setup... (the browser's print dialog is the page setup).
  */
 import type { JSX, ReactNode } from 'react';
-import { StdDialogButtons } from '../dialog_shim_buttons.js';
+import { StdDialogButtons } from '../dialog_shim.js';
 import { Combo } from '../widgets/wx_combobox.js';
-import { useModalEscape } from './use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 
 /** dialog_print_generic.cpp:34-35. */
 export const MIN_SCALE = 0.01;

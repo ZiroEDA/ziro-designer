@@ -26,7 +26,7 @@ import {
   PINNING_SYMBOL,
 } from './lib_tree_model_adapter.js';
 import { EDA_REORDERABLE_LIST_DIALOG } from '@ziroeda/common/dialogs/eda_reorderable_list_dialog.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
 
 /**

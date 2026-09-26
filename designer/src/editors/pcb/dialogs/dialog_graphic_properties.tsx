@@ -26,7 +26,7 @@ import { shapePointsUsed } from '@ziroeda/pcbnew/graphic_properties.js';
 import type { PcbShape } from '@ziroeda/pcbnew/types.js';
 import { LINE_STYLE_NAMES, lineStyleComboValue } from '@ziroeda/common/stroke_params.js';
 import { UI_FILL_MODE_CHOICES } from '@ziroeda/pcbnew/shape_fill.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 

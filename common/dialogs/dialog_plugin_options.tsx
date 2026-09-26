@@ -19,11 +19,11 @@
  * list is empty and only the grid matters - which is still upstream's dialog.
  */
 import { useState, type JSX } from 'react';
-import { StdDialogButtons } from '../dialog_shim_buttons.js';
+import { StdDialogButtons } from '../dialog_shim.js';
 import { formatLibraryTableOptions, parseLibraryTableOptions } from '../libraries/library_table.js';
 import { HtmlWindow } from '../widgets/html_window.js';
 import { Icon } from '../widgets/icons.js';
-import { useModalEscape } from './use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 
 /** INITIAL_HELP (dialog_plugin_options.cpp:35-37). */
 export const INITIAL_HELP =

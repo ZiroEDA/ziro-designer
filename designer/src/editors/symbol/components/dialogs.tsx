@@ -16,7 +16,7 @@ import { PIN_ORIENTATION_NAMES, drawPin, MM } from '../render/symbolRenderer.js'
 import { allPins, unitCount, hasAlternateBodyStyle } from '../edits.js';
 import { KICAD_CLASSIC } from '../../schematic/theme.js';
 import { LINE_STYLE_NAMES, lineStyleComboValue } from '@ziroeda/common/stroke_params.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 /**
  * The Symbol Editor's dialogs, ported from KiCad:

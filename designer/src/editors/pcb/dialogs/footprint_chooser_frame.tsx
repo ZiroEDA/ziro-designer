@@ -33,7 +33,7 @@ import { footprintHistory } from '../widgets/footprint_history.js';
 import { FootprintPreview3D, useFootprintHolderBoard } from '../widgets/footprint_preview_3d.js';
 import { Viewer3DFrame } from '../Viewer3DFrame.js';
 import { loadFootprintIndex, type FpIndexEntry } from '../../../widgets/footprint_list.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
 
 /**

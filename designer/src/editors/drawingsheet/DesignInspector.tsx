@@ -13,7 +13,7 @@
 
 import type { JSX } from 'react';
 import type { WksItem } from '@ziroeda/common';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { DS_INSPECTOR_COLUMNS, dsInspectorRows } from './design_inspector.js';
 import {
   DS_ICON_ROOT,

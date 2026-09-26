@@ -54,7 +54,7 @@ import {
   doNotShowAgainAnswer,
   rememberDoNotShowAgain,
 } from './kidialog_do_not_show.js';
-import { useModalEscape } from './dialogs/use_modal_escape.js';
+import { useModalEscape } from './dialog_shim.js';
 
 /** `ShowCheckBox( _( "Do not show again" ), false )` (`kidialog.cpp:57`). [data] */
 export const DO_NOT_SHOW_AGAIN_LABEL = 'Do not show again';

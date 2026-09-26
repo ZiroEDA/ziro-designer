@@ -50,11 +50,11 @@ import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbIUScale, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { TextValues } from '@ziroeda/pcbnew/graphic_properties.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { StdDialogButtons } from '@ziroeda/common/dialog_shim_buttons.js';
+import { StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { FontChoice, TextFormatBar, type HAlign, type VAlign } from '../../../ui/TextFormatBar.js';
 import { parseUnitValue, stringFromValue, unitLabel } from '@ziroeda/common/widgets/unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { HtmlMessageBox } from '@ziroeda/common/dialogs/html_message_box.js';
 import { PCB_TEXT_SYNTAX_HELP } from '@ziroeda/pcbnew/pcb_text_help.js';
 

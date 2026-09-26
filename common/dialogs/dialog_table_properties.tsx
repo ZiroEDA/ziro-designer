@@ -40,8 +40,8 @@ import { useState, type JSX, type ReactNode } from 'react';
 import type { EdaIuScale } from '../eda_units.js';
 import { LINE_STYLE_NAMES } from '../stroke_params.js';
 import { Combo } from '../widgets/wx_combobox.js';
-import { StdDialogButtons } from '../dialog_shim_buttons.js';
-import { useModalEscape } from './use_modal_escape.js';
+import { StdDialogButtons } from '../dialog_shim.js';
+import { useModalEscape } from '../dialog_shim.js';
 
 /**
  * The fields both editors' value objects carry, which is everything this dialog

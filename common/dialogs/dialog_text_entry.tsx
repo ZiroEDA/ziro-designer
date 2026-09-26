@@ -19,9 +19,9 @@
  * 300 px minimum, or 700 with `aExtraWidth`; the std buttons wxALL 5.
  */
 import { useState, type JSX } from 'react';
-import { StdDialogButtons } from '../dialog_shim_buttons.js';
+import { StdDialogButtons } from '../dialog_shim.js';
 import type { wxTextValidator } from '../validators.js';
-import { useModalEscape } from './use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 
 export function WX_TEXT_ENTRY_DIALOG({
   label,

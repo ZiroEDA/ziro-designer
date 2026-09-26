@@ -9,7 +9,7 @@
  * _( "Select Columns" ), ... )` (widgets/lib_tree.cpp:1105).
  */
 import { useState } from 'react';
-import { useModalEscape } from './use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 
 export interface EDA_REORDERABLE_LIST_DIALOG_PROPS {
   /** `aTitle`. */

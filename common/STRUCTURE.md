@@ -112,9 +112,9 @@ the code it ports:
 - `dialog_table_properties` — KiCad has two, `eeschema/dialogs/` and
   `pcbnew/dialogs/`; ours is one shared dialog. Settled with those folders.
 - `dialog_message`, `dialog_unsaved_changes` — the wxMessageDialogs
-  `common/confirm.cpp` shows; `dialog_single_choice` — `wxGetSingleChoice`;
-  `dialog_size_hints`, `modal_escape`, `use_modal_escape` — `DIALOG_SHIM`
-  (`common/dialog_shim.cpp`). All root-folder units, settled in that stage.
+  `common/confirm.cpp` shows; `dialog_single_choice` — `wxGetSingleChoice`.
+  (`dialog_size_hints`, `modal_escape`, `use_modal_escape` were `DIALOG_SHIM`
+  and folded into `common/dialog_shim.tsx` on 09-26.)
 
 ## Root — 131 KiCad units
 
@@ -146,9 +146,9 @@ wildcards_and_files_ext.
 
 | KiCad unit | ours now |
 |---|---|
-| `exceptions` | `ki_exception.ts` |
-| `layer_id` | `layer_ids.ts` |
-| `dialog_shim` | `dialog_shim_buttons.ts`, `dialogs/{dialog_size_hints, modal_escape, use_modal_escape}` |
+| `exceptions` | done 09-26 (was `ki_exception.ts`) |
+| `layer_id` | done 09-26 (was `layer_ids.ts`) |
+| `dialog_shim` | done 09-26: `dialog_shim.tsx` (was `dialog_shim_buttons` + three in `dialogs/`) |
 | `origin_viewitem` | `preview_items/origin_viewitem.ts` |
 | `newstroke_font` | `font/newstroke_glyphs.ts` |
 | `array_axis` | the `ArrayAxis` half of `array_options.ts` (a record, not the class) |

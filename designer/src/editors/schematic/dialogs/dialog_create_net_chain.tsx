@@ -21,7 +21,7 @@ import {
   type CommittedNetChain,
   type DetectedNetChain,
 } from '@ziroeda/eeschema';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 /** DIALOG_CREATE_NET_CHAIN::FOCUS_HINT. */
 export interface CreateChainFocusHint {

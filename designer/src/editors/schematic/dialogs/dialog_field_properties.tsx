@@ -45,7 +45,7 @@ import { FontChoice, TextFormatBar, type HAlign, type VAlign } from '../../../ui
 import { parseUnitValue, stringFromValue, unitLabel } from '@ziroeda/common/widgets/unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 /** DEFAULT_SIZE_TEXT, 50 mil, the size a field falls back to. */
 const DEFAULT_TEXT_SIZE = schIUScale.mmToIU(1.27);

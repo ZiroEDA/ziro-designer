@@ -17,7 +17,7 @@ import { CheckValues, PANEL_IMAGE_EDITOR } from '@ziroeda/common/dialogs/panel_i
 import { MessageDialogError, MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
 import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 export interface ImagePropsResult {
   at: { x: number; y: number };

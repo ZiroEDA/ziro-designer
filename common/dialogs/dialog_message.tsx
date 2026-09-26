@@ -45,7 +45,7 @@ import {
   yesNoButtons,
   yesNoCancelButtons,
 } from '../confirm_types.js';
-import { useModalEscape } from './use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 
 /**
  * The `wxICON_*` glyphs — the icon theme's, verbatim.

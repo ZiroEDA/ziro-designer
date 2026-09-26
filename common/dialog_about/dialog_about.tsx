@@ -28,7 +28,7 @@ import { svgUrl } from '@ziroeda/bitmaps_png';
 import { GetVersionInfoData } from '../build_version.js';
 import { PRODUCT, aboutWindowTitle } from '../eda_base_frame_about_titles.js';
 import { MessageDialogOk } from '../dialogs/dialog_message.js';
-import { useModalEscape } from '../dialogs/use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 import { HtmlWindow } from '../widgets/html_window.js';
 import type { ABOUT_APP_INFO, CONTRIBUTORS } from './aboutinfo.js';
 

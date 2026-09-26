@@ -23,7 +23,7 @@
  * imports is preserved-opaque board data this clone does not model yet.
  */
 import { useRef, useState, type JSX } from 'react';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 /** One checkbox per importable group (DIALOG_IMPORT_SETTINGS_BASE order). */
 export interface ImportSettingsOpts {

@@ -34,7 +34,7 @@ import {
 import type { HotkeyOverrides } from '../editors/schematic/hotkey_bindings.js';
 import { setReportingEnabled } from '../telemetry/reporter.js';
 import { sentrySink } from '../telemetry/sentrySink.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 /**
  * The Preferences dialog shell, the web mirror of KiCad's PAGED_DIALOG

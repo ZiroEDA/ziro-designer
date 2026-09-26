@@ -45,7 +45,7 @@ import {
 import { importOntoNames, parseHotkeyFile } from '../hotkeys_basic_file.js';
 import { isBrowserReserved } from '../browser_hotkeys.js';
 import { comboFromEvent, isReservedHotkey } from '../hotkeys_basic_keys.js';
-import { useModalEscape } from './use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 
 interface Props {
   /**

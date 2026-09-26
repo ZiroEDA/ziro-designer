@@ -49,7 +49,7 @@ import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
 import { FontChoice } from '../../../ui/TextFormatBar.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 /** A flag shape: a label's electrical one, or a directive label's outline. */
 export type AnyLabelShape = LabelShape | DirectiveShape;

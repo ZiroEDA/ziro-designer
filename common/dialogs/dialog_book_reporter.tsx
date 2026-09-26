@@ -16,7 +16,7 @@
  */
 import { useState, type JSX, type Ref } from 'react';
 import { WX_HTML_REPORT_BOX } from '../widgets/wx_html_report_box.js';
-import { useModalEscape } from './use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 
 export interface BOOK_REPORTER_PAGE {
   /** `AddHTMLPage( aTitle )`'s caption. */

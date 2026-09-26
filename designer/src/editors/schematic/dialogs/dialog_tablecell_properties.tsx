@@ -22,7 +22,7 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { applyCellProps, cellPropsFromSelection, type CellProps } from '@ziroeda/eeschema';
 import type { SchTableCell } from '@ziroeda/eeschema';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {
   cells: readonly SchTableCell[];

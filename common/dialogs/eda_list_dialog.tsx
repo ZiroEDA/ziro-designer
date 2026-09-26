@@ -21,7 +21,7 @@
  * dialog with no headers, no filter and no report columns.
  */
 import { useEffect, useRef, useState, type JSX } from 'react';
-import { useModalEscape } from './use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 
 export interface EdaListRow {
   /** Handed back to `onResult`; `GetTextSelection()` is the first column. */

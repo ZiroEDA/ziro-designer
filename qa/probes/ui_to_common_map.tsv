@@ -32,7 +32,7 @@ rc_tree_style.ts	widgets/rc_tree_style.ts	ours: RC_TREE_MODEL::GetAttr as CSS (w
 overlay_scrollbars.ts	widgets/overlay_scrollbars.ts	ours: GTK3 overlay scrollbars
 canvas_size.ts	widgets/canvas_size.ts	ours: the canvas backing-store size
 shell.css	widgets/shell.css	ours: the GTK theme (Yaru) as CSS tokens
-StdDialogButtons.tsx	dialog_shim_buttons.tsx	ours: DIALOG_SHIM::SetupStandardButtons drawn
+StdDialogButtons.tsx	dialog_shim.tsx	ours: DIALOG_SHIM::SetupStandardButtons drawn
 kidialog.tsx	kidialog.tsx	common/kidialog.cpp
 do_not_show_again.ts	kidialog_do_not_show.ts	ours: KIDIALOG's DoNotShowAgain store
 confirm.ts	confirm.ts	common/confirm.cpp
@@ -43,9 +43,9 @@ dialog_html_message_box.tsx	dialogs/html_message_box.tsx	common/dialogs/html_mes
 dialog_single_choice.tsx	dialogs/dialog_single_choice.tsx	ours: wxGetSingleChoice
 EdaListDialog.tsx	dialogs/eda_list_dialog.tsx	common/dialogs/eda_list_dialog.cpp
 DialogTableProperties.tsx	dialogs/dialog_table_properties.tsx	ours: one dialog for eeschema/dialogs/ and pcbnew/dialogs/ dialog_table_properties.cpp
-dialog_size_hints.ts	dialogs/dialog_size_hints.ts	ours: wxDialog size hints
-modal_escape.ts	dialogs/modal_escape.ts	ours: wxDialog Esc = wxID_CANCEL
-useModalEscape.ts	dialogs/use_modal_escape.ts	ours: React hook for modal_escape
+dialog_size_hints.ts	dialog_shim.tsx	ours: wxDialog size hints
+modal_escape.ts	dialog_shim.tsx	ours: wxDialog Esc = wxID_CANCEL
+useModalEscape.ts	dialog_shim.tsx	ours: React hook for modal_escape
 action_menu.ts	tool/action_menu.ts	common/tool/action_menu.cpp
 conditional_menu.ts	tool/conditional_menu.ts	common/tool/conditional_menu.cpp
 key_names.ts	tool/action_menu_key_names.ts	ours: part of action_menu

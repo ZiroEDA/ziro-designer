@@ -24,7 +24,7 @@ import {
   lineStyleComboValue,
   type LineStyleToken,
 } from '@ziroeda/common/stroke_params.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import {
   parseUnitValueDouble,

@@ -3,7 +3,7 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { type JSX, useEffect, useRef, useState } from 'react';
 import type { ProgressSnapshot } from './progress_reporter_snapshot.js';
-import { useModalEscape } from '../dialogs/use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 
 /**
  * WX_PROGRESS_REPORTER's dialog (common/widgets/wx_progress_reporters.cpp:37-48),

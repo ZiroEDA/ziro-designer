@@ -126,7 +126,7 @@ import {
 import { type SymbolConditions, symbolConditions, symbolToolbarDisabledIds } from './conditions.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import { wasBrowserSuppressed, type FocusLike } from '@ziroeda/common/browser_hotkeys.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';

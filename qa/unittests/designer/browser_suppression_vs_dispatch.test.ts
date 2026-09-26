@@ -108,7 +108,7 @@ describe('browser suppression versus Esc closing a dialog', () => {
     // so they share the WeakSet that carries the mark.
     vi.resetModules();
     const browser = await import('@ziroeda/common/browser_hotkeys.js');
-    const modal = await import('@ziroeda/common/dialogs/modal_escape.js');
+    const modal = await import('@ziroeda/common/dialog_shim.js');
 
     let cancelled = 0;
     const pop = modal.pushModalCancel(() => {
@@ -138,7 +138,7 @@ describe('browser suppression versus Esc closing a dialog', () => {
     // The behaviour the guard must not throw away: if something genuinely acted
     // on Esc, the dialog stays open.
     vi.resetModules();
-    const modal = await import('@ziroeda/common/dialogs/modal_escape.js');
+    const modal = await import('@ziroeda/common/dialog_shim.js');
     let cancelled = 0;
     const pop = modal.pushModalCancel(() => {
       cancelled++;

@@ -21,7 +21,7 @@ import type { RC_TREE_MODEL, RC_TREE_NODE, RC_TREE_VIEW_STATE } from '@ziroeda/c
 import { RC_TREE_NODE_TYPE } from '@ziroeda/common/rc_item.js';
 import { ContextMenu, type MenuItem } from '@ziroeda/common/tool/action_menu_bar.js';
 import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import type { DIALOG_DRC, DrcMenuRow, IgnoredRow } from './dialog_drc_model.js';
 
 /** What a NUMBER_BADGE paints for one count, or null when it paints nothing. */

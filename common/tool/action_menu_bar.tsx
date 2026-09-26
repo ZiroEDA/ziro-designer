@@ -8,7 +8,7 @@ import { NO_ARROWS, submenuEnds } from './action_menu_scroll.js';
 // reachable from qa's tsconfig, which compiles .ts only. Re-exported here so
 // every existing importer keeps working.
 import type { Menu, MenuItem } from './action_menu_types.js';
-import { useModalEscape } from '../dialogs/use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 export type { Menu, MenuItem };
 
 /** Case-insensitive single-character key match, as wx matches an accelerator. */

@@ -55,7 +55,7 @@ import { stackupFromView } from '../board_setup_transfer.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { stringFromValue } from '@ziroeda/common/widgets/unit_binder.js';
 import { EdaListDialog } from '@ziroeda/common/dialogs/eda_list_dialog.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 // The data model lives in board_settings.ts (KiCad's data/UI split);
 // re-exported so panel users keep importing from the panel module.

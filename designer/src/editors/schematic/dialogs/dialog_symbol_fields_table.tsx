@@ -45,7 +45,7 @@ import {
   type BomPreset,
   type BomPresets,
 } from '../schematic_settings.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 /** Changed cells, grouped by sheet file then symbol refId. */
 export type FieldsEdits = FieldsTableEdits['fields'];

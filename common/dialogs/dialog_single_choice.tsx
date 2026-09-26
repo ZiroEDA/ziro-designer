@@ -23,7 +23,7 @@
 import type { JSX } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { OK_LABEL } from '../confirm_types.js';
-import { useModalEscape } from './use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 
 export interface SingleChoiceRow {
   /** What the caller receives — KiCad's `BeforeFirst(' ')`. */

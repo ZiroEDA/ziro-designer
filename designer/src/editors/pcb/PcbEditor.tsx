@@ -601,7 +601,7 @@ import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { addQuitOrClose } from '@ziroeda/common/tool/action_menu.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';

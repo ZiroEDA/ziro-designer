@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type JSX, type ReactNode } from 'react';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { printfG } from '@ziroeda/pcb_calculator';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { type UnitOpt, unitIndex } from './unit_selector.js';
 
 /** Parse a user-typed number; returns NaN for empty/invalid text. */

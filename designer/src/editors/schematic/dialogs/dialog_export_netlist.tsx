@@ -27,7 +27,7 @@ import {
   type Schematic,
   type LibSymbol,
 } from '@ziroeda/eeschema';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {
   doc: Schematic;

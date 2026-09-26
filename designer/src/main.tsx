@@ -16,7 +16,7 @@ import { initTelemetry } from './telemetry/reporter.js';
 import { sentrySink } from './telemetry/sentrySink.js';
 import { installGlobalErrorHandlers } from './telemetry/global_handlers.js';
 import { installOverlayScrollbars } from '@ziroeda/common/widgets/overlay_scrollbars.js';
-import { installDialogSizeHints } from '@ziroeda/common/dialogs/dialog_size_hints.js';
+import { installDialogSizeHints } from '@ziroeda/common/dialog_shim.js';
 import { SetFileDialog } from '@ziroeda/common/wx/filedlg.js';
 import { InitPgm } from './pgm_app.js';
 import { OpenFileDialog } from './fs/OpenFileDialog.js';

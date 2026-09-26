@@ -143,7 +143,7 @@
  * fact here, and reusing it means a dialog gets this for free the moment it
  * registers its Esc.
  */
-import { openModalCount } from '../dialogs/modal_escape.js';
+import { openModalCount } from '../dialog_shim.js';
 import { isTypingTarget, type FocusLike } from '../browser_hotkeys.js';
 import type { Menu, MenuItem } from './action_menu_types.js';
 

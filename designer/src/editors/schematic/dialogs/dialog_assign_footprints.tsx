@@ -172,7 +172,7 @@ import { settings } from '../../../prefs/settings.js';
 import { useDialogControl } from '../../../ui/useDialogControl.js';
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
 import type { FieldsEdits } from './dialog_symbol_fields_table.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { dispatchMenuHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import type { FocusLike } from '@ziroeda/common/browser_hotkeys.js';
 import { addClose } from '@ziroeda/common/tool/action_menu.js';

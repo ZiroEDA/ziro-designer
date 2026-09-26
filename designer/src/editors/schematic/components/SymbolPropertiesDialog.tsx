@@ -66,7 +66,7 @@ import {
   stringFromValue,
   type EdaUnits,
 } from '@ziroeda/common/widgets/unit_binder.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
 // The wxChoice port. A native <select> draws its option list with the OS,

@@ -11,7 +11,7 @@
 import { useState, type JSX } from 'react';
 import { PanelHotkeysEditor } from './panel_hotkeys_editor.js';
 import type { HotkeyOverrides, HotkeySection } from '../hotkey_store.js';
-import { useModalEscape } from './use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 
 export function HotkeyListDialog({
   actions,

@@ -39,7 +39,7 @@ import {
   RPT_SEVERITY_WARNING,
   type ReportLine,
 } from '@ziroeda/common/reporter.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {
   doc: Schematic;

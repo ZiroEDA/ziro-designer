@@ -6,7 +6,7 @@
  * the OS text editor). Shows a project text file in a monospace modal. */
 
 import type { JSX } from 'react';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 export function TextViewerDialog({
   name,

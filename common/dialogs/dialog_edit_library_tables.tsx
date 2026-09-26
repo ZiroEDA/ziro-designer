@@ -15,8 +15,8 @@
  * The dialog is resizable (wxRESIZE_BORDER).
  */
 import type { JSX, ReactNode } from 'react';
-import { StdDialogButtons } from '../dialog_shim_buttons.js';
-import { useModalEscape } from './use_modal_escape.js';
+import { StdDialogButtons } from '../dialog_shim.js';
+import { useModalEscape } from '../dialog_shim.js';
 
 export function DIALOG_EDIT_LIBRARY_TABLES({
   title,

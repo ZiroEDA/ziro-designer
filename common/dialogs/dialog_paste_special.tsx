@@ -25,7 +25,7 @@
  */
 
 import { useState, type JSX } from 'react';
-import { useModalEscape } from './use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 
 /** `PASTE_MODE` (`include/dialogs/dialog_paste_special.h:33-38`), in order. */
 export const PASTE_MODES = [

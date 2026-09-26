@@ -16,7 +16,7 @@ import type { ReportLine, Severity } from '@ziroeda/common';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '../../../widgets/wx_html_report_panel.js';
 import { toolbarIconUrl } from '@ziroeda/common/bitmap_store.js';
 import { settings } from '../../../prefs/settings.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 /** The project-persisted slice of the dialog (SCHEMATIC_SETTINGS: sort order,
  *  numbering method, start number, DIALOG_ANNOTATE reads them on open and

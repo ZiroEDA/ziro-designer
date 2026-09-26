@@ -53,7 +53,7 @@ import {
 import { Combo, type ComboOption } from '../widgets/wx_combobox.js';
 import { UnitField } from '../widgets/unit_binder_ui.js';
 import type { EdaUnits } from '../widgets/unit_binder.js';
-import { useModalEscape } from './use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 import { MessageDialogError } from './dialog_message.js';
 import { WxFileDialog } from '../wx/filedlg.js';
 import { drawingSheetWildcard } from '../wildcards_and_files_ext.js';

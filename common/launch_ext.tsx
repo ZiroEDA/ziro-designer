@@ -41,7 +41,7 @@ import {
   colorThemeFromFile,
   type ColorThemeContents,
 } from './settings/color_theme_file.js';
-import { useModalEscape } from './dialogs/use_modal_escape.js';
+import { useModalEscape } from './dialog_shim.js';
 import { OK_LABEL } from './confirm_types.js';
 
 // ---------------------------------------------------------------------------

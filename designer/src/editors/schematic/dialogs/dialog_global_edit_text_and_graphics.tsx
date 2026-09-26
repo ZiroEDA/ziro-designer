@@ -16,7 +16,7 @@ import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import type { GlobalEditAction, GlobalEditScope } from '@ziroeda/eeschema';
 import { LINE_STYLE_NAMES } from '@ziroeda/common/stroke_params.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 export interface GlobalEditResult {
   scope: GlobalEditScope;

@@ -45,7 +45,7 @@ import {
   DXF_IMPORT_UNITS,
 } from '@ziroeda/common/import_gfx/dxf_import_plugin.js';
 import type { LibGraphic, SchLabel } from '@ziroeda/eeschema';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {
   /**

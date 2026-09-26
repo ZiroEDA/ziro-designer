@@ -8,7 +8,7 @@
  * already in, so the second button is Close rather than "Do this later".
  */
 import type { JSX } from 'react';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { ZiroLogo } from '../ui/ZiroLogo.js';
 import { RecoveryKeyContents } from './RecoveryKeyContents.js';
 

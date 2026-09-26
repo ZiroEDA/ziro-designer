@@ -132,12 +132,12 @@ describe('the standard button row', () => {
   it('puts Cancel before OK, which is what GTK Realize() does', () => {
     // `wxStdDialogButtonSizer::Realize` applies the platform convention: the
     // GNOME HIG puts the affirmative last. Settled in the component, once.
-    const comp = read('../../common/dialog_shim_buttons.tsx');
+    const comp = read('../../common/dialog_shim.tsx');
     expect(comp.indexOf('{cancelLabel}')).toBeLessThan(comp.indexOf('{okLabel}'));
   });
 
   it('gives both buttons the shared class and never lets one be a submit', () => {
-    const comp = read('../../common/dialog_shim_buttons.tsx');
+    const comp = read('../../common/dialog_shim.tsx');
     const tags = comp.match(/<button[^>]*>/g) ?? [];
     expect(tags).toHaveLength(2);
     for (const tag of tags) expect(tag).toContain('type="button"');

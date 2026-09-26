@@ -45,7 +45,7 @@ import {
   formatISOCombined,
   type Snapshot,
 } from '../local_history.js';
-import { useModalEscape } from './use_modal_escape.js';
+import { useModalEscape } from '../dialog_shim.js';
 
 export function RestoreLocalHistoryDialog({
   snapshots,

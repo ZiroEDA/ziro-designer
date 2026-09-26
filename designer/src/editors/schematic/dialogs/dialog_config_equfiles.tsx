@@ -55,7 +55,7 @@
 
 import { useMemo, useRef, useState, type JSX } from 'react';
 import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { MessageDialogError } from '@ziroeda/common/dialogs/dialog_message.js';
 import { OpenFileDialog } from '../../../fs/OpenFileDialog.js';
 import { equFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';

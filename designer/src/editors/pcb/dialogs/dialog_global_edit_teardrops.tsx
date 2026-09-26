@@ -22,7 +22,7 @@ import type {
 } from '@ziroeda/pcbnew/teardrop_global_edit.js';
 import { DEFAULT_GLOBAL_TEARDROP_EDIT } from '@ziroeda/pcbnew/teardrop_global_edit.js';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {
   /** Net codes and names for the "Filter items by net" choice. */
