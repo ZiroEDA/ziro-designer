@@ -721,11 +721,35 @@ function makeListOfNets(input: KicadNetlistInput): XNODE {
     });
   }
 
+  // CONNECTION_GRAPH::GetNetMap: every net of every sheet - one with no pin at
+  // all (a label-only bus member) included. Each takes a code, `i + 1` in name
+  // order, though only a net with a node is written (netlist_exporter_xml.cpp:
+  // 1162-1228, 1287).
+  const allNetNames = new Set<string>(nodesByNet.keys());
+  for (const netlist of hier.bySheet.values())
+    for (const net of netlist.nets) allNetNames.add(net.name);
+  // A bus subgraph is in the map too, under its driver's name - qualified with
+  // the sheet path unless a global label drives it (SCH_CONNECTION::recacheName).
+  for (const sheet of input.sheets) {
+    const netlist = hier.bySheet.get(sheet.path);
+    if (!netlist) continue;
+    const globalIds = new Set(
+      sheet.doc.labels.flatMap((l, i) =>
+        l.kind === 'global_label' ? [refId('label', l.uuid, i)] : [],
+      ),
+    );
+    for (const bus of netlist.buses) {
+      if (bus.name === '') continue;
+      const global = bus.labels.some((l) => globalIds.has(l.id));
+      allNetNames.add(global ? bus.name : `${sheet.namePath}${bus.name}`);
+    }
+  }
+
   // Netlist ordering: net name, then ref des, then pin name.
-  const netNames = [...nodesByNet.keys()].sort((a, b) => strNumCmp(a, b));
+  const netNames = [...allNetNames].sort((a, b) => strNumCmp(a, b));
 
   netNames.forEach((netName, i) => {
-    const nodes = nodesByNet.get(netName)!;
+    const nodes = nodesByNet.get(netName) ?? [];
 
     nodes.sort((a, b) => {
       const refA = refOf(a.sym);
