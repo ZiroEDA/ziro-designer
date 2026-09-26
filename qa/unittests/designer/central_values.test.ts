@@ -145,7 +145,10 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // hint restated (a wxStaticText upstream takes the dialog's ink) and the
   // inline width/gap of the button row; `panel_embedded_files` lost its
   // checkbox's own flex row for `.ze-pref-check`.
-  dialogs: { colours: 4, metrics: 27 },
+  // metrics 27 -> 19 on 09-26: dialog_grid_settings, dialog_paste_special and
+  // panel_setup_severities moved to `common/dialogs` (KiCad's directory) and
+  // took their eight with them; see that row.
+  dialogs: { colours: 4, metrics: 19 },
   // metrics 18 -> 16 on 09-26: the calculator's own About box went, and its
   // `margin: '0 0 8px'` and `paddingLeft: 18` with it. Help > About opens
   // common/dialog_about's DIALOG_ABOUT now, as pcb_calculator's does.
@@ -329,7 +332,9 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // hand-drawn SVG in SchematicCanvas.tsx with a `#ffffff` halo and a
   // `#000000` ring; it is GDK_TARGET, a stock cursor, so both went with the
   // drawing. RESCANNED from this tree.
-  'editors/schematic': { colours: 30, metrics: 185 },
+  // metrics 185 -> 178 on 09-26: dialog_assign_netclass moved to
+  // `common/dialogs` with its seven.
+  'editors/schematic': { colours: 30, metrics: 178 },
   // designer/src/sync/, the multiplayer layer. Eight colours, all of them
   // peerColor.ts's palette: one hue per person in a shared project, so two
   // people's cursors and selection boxes are told apart at a glance.
@@ -692,7 +697,9 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // values, all geometry KiCad has no widget for (see main's 694 -> 706).
   'common/widgets': { colours: 144, metrics: 670 },
   'common/tool': { colours: 0, metrics: 1 },
-  'common/dialogs': { colours: 0, metrics: 0 },
+  // metrics 0 -> 15 on 09-26: the stage-1 moves, 8 from `dialogs` and 7 from
+  // `editors/schematic`. Nothing added or removed: 8 + 7 = 15.
+  'common/dialogs': { colours: 0, metrics: 15 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in

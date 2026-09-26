@@ -221,7 +221,9 @@ const BASELINE: Record<string, number> = {
   // 12.5 on its checkbox; all four are Board Setup pages, and none of
   // `common/dialogs/panel_setup_netclasses.cpp` or `panel_embedded_files.cpp`
   // calls SetFont.
-  dialogs: 1,
+  // 1 -> 0 on 09-26: its one left for `common/dialogs` with the stage-1
+  // moves; this scan walks `designer/src` only, so `central_values` counts it.
+  dialogs: 0,
   // `editors/calculator` is absent because it is at ZERO: the calculator's
   // parity pass consumed the tokens and its own test pins the zero directly.
   // 14 before the unit-binder pass. MmField's literal "mm" span carried one
@@ -657,7 +659,8 @@ describe('hardcoded font sizes do not grow', () => {
     // 194 -> 134: the 60 that left with `ui`, see that row.
     // 134 -> 130: the About stub's four; `home` 5 -> 1 is the only row that
     // moves and 134 - 4 agrees with it.
-    expect(sites.length).toBe(130);
+    // 130 -> 129: the `dialogs` one that moved out of this scan's reach.
+    expect(sites.length).toBe(129);
   });
 });
 
