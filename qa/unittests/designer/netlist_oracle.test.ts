@@ -5,11 +5,13 @@
  * Our KiCad netlist against the one `kicad-cli sch export netlist` writes for
  * the same design, whole file, line for line (qa/data/eeschema/netlist_oracle).
  *
- * complex_hierarchy is KiCad's own qa design: one sub-sheet used twice, and a
- * 20200512 file - references and units in the root's symbol_instances, sheet
- * fields named "Sheet name" / "Sheet file". It exercises per-instance
- * references, UpdateSymbolInstanceData, the legacy sheet-field names, the
- * libpart order and fp-filter tokenising in one go.
+ * Every design is from KiCad's own qa/data/eeschema/netlists. complex_hierarchy
+ * (one sub-sheet used twice, a 20200512 file with the root's symbol_instances
+ * and "Sheet name" / "Sheet file" fields) exercises per-instance references,
+ * UpdateSymbolInstanceData, the legacy sheet-field names, the libpart order
+ * and fp-filter tokenising; the rest add the "~" rule, legacy descriptions,
+ * multi-unit parts and hierarchical pins. A design joins the folder when it
+ * matches.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { fetchNetlistFromSchematic } from '@ziroeda/designer/src/editors/pcb/netlist_from_schematic.js';
@@ -25,22 +27,25 @@ const normalise = (text: string): string =>
     .replace(/\(tool "[^"]*"\)/, '(tool X)');
 
 describe('the KiCad netlist, against kicad-cli', () => {
-  it('complex_hierarchy matches line for line', () => {
-    const dir = `${ORACLE}complex_hierarchy/`;
-    const files = readdirSync(dir)
-      .filter((n) => /\.(kicad_sch|kicad_pro)$|^sym-lib-table$/.test(n))
-      .map((name) => ({ name, text: readFileSync(dir + name, 'utf8') }));
-    const r = fetchNetlistFromSchematic(files, 'annotate', 'complex_hierarchy');
-    if (!r.ok) throw new Error(`${r.error}: ${r.details ?? ''}`);
+  // One folder per design; each passes whole or not at all.
+  for (const name of readdirSync(ORACLE).filter((n) => !n.includes('.'))) {
+    it(`${name} matches line for line`, () => {
+      const dir = `${ORACLE}${name}/`;
+      const files = readdirSync(dir)
+        .filter((n) => /\.(kicad_sch|kicad_pro)$|^sym-lib-table$/.test(n))
+        .map((n) => ({ name: n, text: readFileSync(dir + n, 'utf8') }));
+      const r = fetchNetlistFromSchematic(files, 'annotate', name);
+      if (!r.ok) throw new Error(`${r.error}: ${r.details ?? ''}`);
 
-    const want = normalise(readFileSync(`${dir}complex_hierarchy.kicad-cli.net`, 'utf8')).split(
-      '\n',
-    );
-    const got = normalise(r.netlistText).split('\n');
-    const firstDiff = want.findIndex((line, i) => line !== got[i]);
-    expect(
-      firstDiff === -1 ? null : { line: firstDiff + 1, want: want[firstDiff], got: got[firstDiff] },
-    ).toBeNull();
-    expect(got.length).toBe(want.length);
-  });
+      const want = normalise(readFileSync(`${dir}${name}.kicad-cli.net`, 'utf8')).split('\n');
+      const got = normalise(r.netlistText).split('\n');
+      const firstDiff = want.findIndex((line, i) => line !== got[i]);
+      expect(
+        firstDiff === -1
+          ? null
+          : { line: firstDiff + 1, want: want[firstDiff], got: got[firstDiff] },
+      ).toBeNull();
+      expect(got.length).toBe(want.length);
+    });
+  }
 });

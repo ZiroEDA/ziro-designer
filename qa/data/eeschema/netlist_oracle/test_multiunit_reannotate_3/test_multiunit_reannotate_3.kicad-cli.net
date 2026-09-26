@@ -1,0 +1,614 @@
+(export
+	(version "E")
+	(design
+		(source "/home/akshay/netlist-oracle/all/test_multiunit_reannotate_3/test_multiunit_reannotate_3.kicad_sch")
+		(date "2026-09-26T22:52:20")
+		(tool "Eeschema 10.0.6-10.0.6~ubuntu24.04.1")
+		(sheet
+			(number "1")
+			(name "/")
+			(tstamps "/")
+			(title_block
+				(title)
+				(company)
+				(rev)
+				(date)
+				(source "test_multiunit_reannotate_3.kicad_sch")
+				(comment
+					(number "1")
+					(value "")
+				)
+				(comment
+					(number "2")
+					(value "")
+				)
+				(comment
+					(number "3")
+					(value "")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "")
+				)
+				(comment
+					(number "6")
+					(value "")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+	)
+	(components
+		(comp
+			(ref "U1")
+			(value "LM2903")
+			(datasheet "http://www.ti.com/lit/ds/symlink/lm393.pdf")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet") "http://www.ti.com/lit/ds/symlink/lm393.pdf")
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "Comparator")
+				(part "LM2903")
+				(description "Low-Power, Low-Offset Voltage, Dual Comparators, DIP-8/SOIC-8/SOP-8/TSSOP-8/VSSOP-8")
+			)
+			(property
+				(name "Sheetname")
+				(value "test_multiunit_reannotate_3")
+			)
+			(property
+				(name "Sheetfile")
+				(value "test_multiunit_reannotate_3.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cmp open collector")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "SOIC*3.9x4.9mm*P1.27mm* DIP*W7.62mm* SOP*5.28x5.23mm*P1.27mm* VSSOP*3.0x3.0mm*P0.65mm* TSSOP*4.4x3mm*P0.65mm*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "e09508cd-85e8-48bb-9bcb-9bab32279ab6" "e0a3a04a-2f9e-4cce-bac0-1a7c08ef4522"
+				"4beb5b03-60d3-49da-ad35-51f275a031d5"
+			)
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "1")
+						)
+					)
+				)
+				(unit
+					(name "B")
+					(pins
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "6")
+						)
+						(pin
+							(num "7")
+						)
+					)
+				)
+				(unit
+					(name "C")
+					(pins
+						(pin
+							(num "8")
+						)
+						(pin
+							(num "4")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U2")
+			(value "SomeOtherValue")
+			(datasheet "http://www.ti.com/lit/ds/symlink/lm393.pdf")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet") "http://www.ti.com/lit/ds/symlink/lm393.pdf")
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "Comparator")
+				(part "LM2903")
+				(description "Low-Power, Low-Offset Voltage, Dual Comparators, DIP-8/SOIC-8/SOP-8/TSSOP-8/VSSOP-8")
+			)
+			(property
+				(name "Sheetname")
+				(value "test_multiunit_reannotate_3")
+			)
+			(property
+				(name "Sheetfile")
+				(value "test_multiunit_reannotate_3.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cmp open collector")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "SOIC*3.9x4.9mm*P1.27mm* DIP*W7.62mm* SOP*5.28x5.23mm*P1.27mm* VSSOP*3.0x3.0mm*P0.65mm* TSSOP*4.4x3mm*P0.65mm*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "d43a1d25-d37a-467a-8b09-10cf2e2ace09" "3f20a749-efe3-4804-8fef-435caaa8dacb")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "1")
+						)
+					)
+				)
+				(unit
+					(name "B")
+					(pins
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "6")
+						)
+						(pin
+							(num "7")
+						)
+					)
+				)
+				(unit
+					(name "C")
+					(pins
+						(pin
+							(num "8")
+						)
+						(pin
+							(num "4")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U99")
+			(value "LM2903")
+			(datasheet "http://www.ti.com/lit/ds/symlink/lm393.pdf")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet") "http://www.ti.com/lit/ds/symlink/lm393.pdf")
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "Comparator")
+				(part "LM2903")
+				(description "Low-Power, Low-Offset Voltage, Dual Comparators, DIP-8/SOIC-8/SOP-8/TSSOP-8/VSSOP-8")
+			)
+			(property
+				(name "Sheetname")
+				(value "test_multiunit_reannotate_3")
+			)
+			(property
+				(name "Sheetfile")
+				(value "test_multiunit_reannotate_3.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cmp open collector")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "SOIC*3.9x4.9mm*P1.27mm* DIP*W7.62mm* SOP*5.28x5.23mm*P1.27mm* VSSOP*3.0x3.0mm*P0.65mm* TSSOP*4.4x3mm*P0.65mm*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "db066797-b21c-4c1c-9591-8c7c549f8087" "e6c8127f-e282-4128-8744-05f7893bc3ec"
+				"cf058f25-2bad-4c49-a0c4-f059825c427f"
+			)
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "1")
+						)
+					)
+				)
+				(unit
+					(name "B")
+					(pins
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "6")
+						)
+						(pin
+							(num "7")
+						)
+					)
+				)
+				(unit
+					(name "C")
+					(pins
+						(pin
+							(num "8")
+						)
+						(pin
+							(num "4")
+						)
+					)
+				)
+			)
+		)
+	)
+	(groups)
+	(variants)
+	(libparts
+		(libpart
+			(lib "Comparator")
+			(part "LM2903")
+			(description "Low-Power, Low-Offset Voltage, Dual Comparators, DIP-8/SOIC-8/SOP-8/TSSOP-8/VSSOP-8")
+			(docs "http://www.ti.com/lit/ds/symlink/lm393.pdf")
+			(footprints
+				(fp "SOIC*3.9x4.9mm*P1.27mm*")
+				(fp "DIP*W7.62mm*")
+				(fp "SOP*5.28x5.23mm*P1.27mm*")
+				(fp "VSSOP*3.0x3.0mm*P0.65mm*")
+				(fp "TSSOP*4.4x3mm*P0.65mm*")
+			)
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "LM2903")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet") "http://www.ti.com/lit/ds/symlink/lm393.pdf")
+				(field
+					(name "Description") "Low-Power, Low-Offset Voltage, Dual Comparators, DIP-8/SOIC-8/SOP-8/TSSOP-8/VSSOP-8")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "")
+					(type "open_collector")
+				)
+				(pin
+					(num "2")
+					(name "-")
+					(type "input")
+				)
+				(pin
+					(num "3")
+					(name "+")
+					(type "input")
+				)
+				(pin
+					(num "4")
+					(name "V-")
+					(type "power_in")
+				)
+				(pin
+					(num "5")
+					(name "+")
+					(type "input")
+				)
+				(pin
+					(num "6")
+					(name "_")
+					(type "input")
+				)
+				(pin
+					(num "7")
+					(name "")
+					(type "open_collector")
+				)
+				(pin
+					(num "8")
+					(name "V+")
+					(type "power_in")
+				)
+			)
+		)
+	)
+	(libraries
+		(library
+			(logical "Comparator")
+			(uri "${KICAD10_SYMBOL_DIR}/Comparator.kicad_sym")
+		)
+	)
+	(nets
+		(net
+			(code "1")
+			(name "unconnected-(U1-Pad1)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "1")
+				(pintype "open_collector")
+			)
+		)
+		(net
+			(code "2")
+			(name "unconnected-(U1-Pad7)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "7")
+				(pintype "open_collector")
+			)
+		)
+		(net
+			(code "3")
+			(name "unconnected-(U1A-+-Pad3)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "3")
+				(pinfunction "+_3")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "4")
+			(name "unconnected-(U1A---Pad2)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "2")
+				(pinfunction "-_2")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "5")
+			(name "unconnected-(U1B-+-Pad5)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "5")
+				(pinfunction "+_5")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "6")
+			(name "unconnected-(U1B-_-Pad6)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "6")
+				(pinfunction "__6")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "7")
+			(name "unconnected-(U1C-V+-Pad8)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "8")
+				(pinfunction "V+_8")
+				(pintype "power_in")
+			)
+		)
+		(net
+			(code "8")
+			(name "unconnected-(U1C-V--Pad4)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "4")
+				(pinfunction "V-_4")
+				(pintype "power_in")
+			)
+		)
+		(net
+			(code "9")
+			(name "unconnected-(U2-Pad1)")
+			(class "Default")
+			(node
+				(ref "U2")
+				(pin "1")
+				(pintype "open_collector")
+			)
+		)
+		(net
+			(code "10")
+			(name "unconnected-(U2A-+-Pad3)")
+			(class "Default")
+			(node
+				(ref "U2")
+				(pin "3")
+				(pinfunction "+_3")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "11")
+			(name "unconnected-(U2A---Pad2)")
+			(class "Default")
+			(node
+				(ref "U2")
+				(pin "2")
+				(pinfunction "-_2")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "12")
+			(name "unconnected-(U2C-V+-Pad8)")
+			(class "Default")
+			(node
+				(ref "U2")
+				(pin "8")
+				(pinfunction "V+_8")
+				(pintype "power_in")
+			)
+		)
+		(net
+			(code "13")
+			(name "unconnected-(U2C-V--Pad4)")
+			(class "Default")
+			(node
+				(ref "U2")
+				(pin "4")
+				(pinfunction "V-_4")
+				(pintype "power_in")
+			)
+		)
+		(net
+			(code "14")
+			(name "unconnected-(U99-Pad1)")
+			(class "Default")
+			(node
+				(ref "U99")
+				(pin "1")
+				(pintype "open_collector")
+			)
+		)
+		(net
+			(code "15")
+			(name "unconnected-(U99-Pad7)")
+			(class "Default")
+			(node
+				(ref "U99")
+				(pin "7")
+				(pintype "open_collector")
+			)
+		)
+		(net
+			(code "16")
+			(name "unconnected-(U99A-+-Pad3)")
+			(class "Default")
+			(node
+				(ref "U99")
+				(pin "3")
+				(pinfunction "+_3")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "17")
+			(name "unconnected-(U99A---Pad2)")
+			(class "Default")
+			(node
+				(ref "U99")
+				(pin "2")
+				(pinfunction "-_2")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "18")
+			(name "unconnected-(U99B-+-Pad5)")
+			(class "Default")
+			(node
+				(ref "U99")
+				(pin "5")
+				(pinfunction "+_5")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "19")
+			(name "unconnected-(U99B-_-Pad6)")
+			(class "Default")
+			(node
+				(ref "U99")
+				(pin "6")
+				(pinfunction "__6")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "20")
+			(name "unconnected-(U99C-V+-Pad8)")
+			(class "Default")
+			(node
+				(ref "U99")
+				(pin "8")
+				(pinfunction "V+_8")
+				(pintype "power_in")
+			)
+		)
+		(net
+			(code "21")
+			(name "unconnected-(U99C-V--Pad4)")
+			(class "Default")
+			(node
+				(ref "U99")
+				(pin "4")
+				(pinfunction "V-_4")
+				(pintype "power_in")
+			)
+		)
+	)
+)

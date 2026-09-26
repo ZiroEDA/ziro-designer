@@ -130,6 +130,15 @@ function GetFPFilters(lib: LibSymbol): string[] {
     .map(unescapeString);
 }
 
+/**
+ * `LIB_SYMBOL::GetDescription`: the Description field, which the parser fills
+ * from a legacy `ki_description` property (sch_io_kicad_sexpr_parser.cpp:1177).
+ */
+function libDescription(lib: LibSymbol): string {
+  const prop = (key: string): string => lib.properties.find((p) => p.key === key)?.value ?? '';
+  return prop('Description') !== '' ? prop('Description') : prop('ki_description');
+}
+
 /** `LIB_ID::compare`: nickname, then item name, each by code unit. */
 function compareLibIds(a: string, b: string): number {
   const x = splitLibId(a);
@@ -344,7 +353,8 @@ function makeSymbols(input: KicadNetlistInput, usedLibIds: Set<string>): XNODE {
       xlibsource.AddAttribute('part', partName);
       xlibsource.AddAttribute(
         'description',
-        lib?.properties.find((p) => p.key === 'Description')?.value ?? '',
+        // symbol->GetDescription(): m_part->GetDescription().
+        lib ? libDescription(lib) : '',
       );
 
       /** `xcomp->AddChild( xproperty = node( "property" ) )` and its attributes. */
@@ -576,9 +586,7 @@ function makeLibParts(
     const property = (key: string): string =>
       lib.properties.find((p) => p.key === key)?.value ?? '';
 
-    // The parser folds a legacy `ki_description` into the Description field.
-    const description =
-      property('Description') !== '' ? property('Description') : property('ki_description');
+    const description = libDescription(lib);
     if (description !== '') xlibpart.AddChild(node('description', description));
 
     const datasheet = property('Datasheet');
