@@ -51,6 +51,8 @@ import { GERBVIEW_PAINTER } from '@ziroeda/gerbview/gerbview_painter.js';
 import { GERBVIEW_SETTINGS } from '@ziroeda/gerbview/gerbview_settings.js';
 import { GERBVIEW_ACTIONS } from '@ziroeda/gerbview/tools/gerbview_actions.js';
 import type { DIALOG_DRAW_LAYERS_SETTINGS } from '@ziroeda/gerbview/dialogs/dialog_draw_layers_settings.js';
+import { DIALOG_MAP_GERBER_LAYERS_TO_PCB } from '@ziroeda/gerbview/dialogs/dialog_map_gerber_layers_to_pcb.js';
+import type { SELECT_LAYER_DIALOG } from '@ziroeda/gerbview/dialogs/dialog_select_one_pcb_layer.js';
 import { GERBER_LAYER_WIDGET_ID } from '@ziroeda/gerbview/widgets/gerbview_layer_widget.js';
 import { checkedSet } from '@ziroeda/designer/src/editors/gerbview/gerbview_settings_bridge.js';
 import { DCODE_SELECTION_BOX } from '@ziroeda/gerbview/widgets/dcode_selection_box.js';
@@ -178,6 +180,24 @@ interface Env {
   drawLayers: DIALOG_DRAW_LAYERS_SETTINGS[];
   /** What the user does in the next ones before OK; Cancel once it runs out. */
   drawLayersEdits: ((aDlg: DIALOG_DRAW_LAYERS_SETTINGS) => void)[];
+  /** Every KICAD_MESSAGE_DIALOG( wxOK | wxCANCEL ) shown, and the answers (Cancel once they run out). */
+  okCancel: { message: string; caption: string }[];
+  okCancelAnswers: boolean[];
+  /** Every DIALOG_MAP_GERBER_LAYERS_TO_PCB shown. */
+  mapLayers: DIALOG_MAP_GERBER_LAYERS_TO_PCB[];
+  /**
+   * What the user does in the next ones before pressing OK; Cancel once it runs
+   * out. OK closes only if TransferDataFromWindow allows it, as wx does; a
+   * refusal is then Cancel, since nothing else will be pressed.
+   */
+  mapLayersEdits: ((aDlg: DIALOG_MAP_GERBER_LAYERS_TO_PCB) => void | Promise<void>)[];
+  /** Every SELECT_LAYER_DIALOG shown, and the radio row picked in each (Cancel once they run out). */
+  selectLayers: SELECT_LAYER_DIALOG[];
+  selectLayerPicks: number[];
+  /** The paths the next wxFileDialog( wxFD_SAVE )s answer; Cancel once they run out. */
+  savePaths: string[];
+  /** Every file written, in order. */
+  saved: { path: string; text: string }[];
 }
 
 function setup(): Env {
@@ -234,6 +254,14 @@ function setup(): Env {
   const choices: Env['choices'] = [];
   const drawLayers: Env['drawLayers'] = [];
   const drawLayersEdits: Env['drawLayersEdits'] = [];
+  const okCancel: Env['okCancel'] = [];
+  const okCancelAnswers: Env['okCancelAnswers'] = [];
+  const mapLayers: Env['mapLayers'] = [];
+  const mapLayersEdits: Env['mapLayersEdits'] = [];
+  const selectLayers: Env['selectLayers'] = [];
+  const selectLayerPicks: Env['selectLayerPicks'] = [];
+  const savePaths: Env['savePaths'] = [];
+  const saved: Env['saved'] = [];
   const host: GERBVIEW_FRAME_HOST = {
     FileDialog: (aTitle, aFilters, aMultiple) => {
       dialogs.push({ title: aTitle, filters: aFilters, multiple: aMultiple });
@@ -250,9 +278,26 @@ function setup(): Env {
       return Promise.resolve();
     },
     UpdateFileHistory: () => {},
-    SaveFileDialog: () => Promise.resolve(null),
-    MapGerberLayersToPcb: () => Promise.resolve(null),
-    SaveTextFile: () => {},
+    SaveFileDialog: () => Promise.resolve(savePaths.shift() ?? null),
+    MapGerberLayersToPcbDialog: async (aDlg) => {
+      mapLayers.push(aDlg);
+      const edit = mapLayersEdits.shift();
+      if (!edit) return false;
+      await edit(aDlg);
+      return aDlg.TransferDataFromWindow();
+    },
+    SelectLayerDialog: (aDlg) => {
+      selectLayers.push(aDlg);
+      const pick = selectLayerPicks.shift();
+      if (pick === undefined) return Promise.resolve(false);
+      aDlg.m_layerRadioBox = pick;
+      return Promise.resolve(aDlg.TransferDataFromWindow());
+    },
+    OkCancelMessageDialog: (aMessage, aCaption) => {
+      okCancel.push({ message: aMessage, caption: aCaption });
+      return Promise.resolve(okCancelAnswers.shift() ?? false);
+    },
+    SaveTextFile: (aPath, aText) => saved.push({ path: aPath, text: aText }),
     DrawLayersSettingsDialog: (aDlg) => {
       drawLayers.push(aDlg);
       const edit = drawLayersEdits.shift();
@@ -285,6 +330,14 @@ function setup(): Env {
     choices,
     drawLayers,
     drawLayersEdits,
+    okCancel,
+    okCancelAnswers,
+    mapLayers,
+    mapLayersEdits,
+    selectLayers,
+    selectLayerPicks,
+    savePaths,
+    saved,
   };
 }
 
@@ -292,6 +345,8 @@ let env: Env;
 
 beforeEach(() => {
   env = setup();
+  // A class static upstream, so it would carry from one test to the next.
+  DIALOG_MAP_GERBER_LAYERS_TO_PCB.m_exportBoardCopperLayersCount = 2;
 });
 
 describe('GERBVIEW_FRAME::LoadListOfGerberAndDrillFiles', () => {
@@ -1100,5 +1155,388 @@ describe('EDA_BASE_FRAME::HandleUpdateUIEvent', () => {
 
     expect(event.GetText()).toBe('Undo');
     expect(event.GetEnabled()).toBe(false);
+  });
+});
+
+/**
+ * DIALOG_MAP_GERBER_LAYERS_TO_PCB (`dialogs/dialog_map_gerber_layers_to_pcb.cpp`),
+ * SELECT_LAYER_DIALOG (`dialogs/dialog_select_one_pcb_layer.cpp`) and the
+ * command that opens them, GERBVIEW_CONTROL::ExportToPcbnew
+ * (`tools/gerbview_control.cpp:104-148`). Layer ids are KiCad 10's
+ * (`include/layer_ids.h:61-119`): F_Cu 0, B_Cu 2, In1_Cu 4, In2_Cu 6,
+ * UNDEFINED_LAYER -1, UNSELECTED_LAYER -2.
+ */
+describe('DIALOG_MAP_GERBER_LAYERS_TO_PCB', () => {
+  const PLAIN = ['%FSLAX46Y46*%', '%MOMM*%', 'M02*', ''].join('\n');
+
+  /** Three X2 copper files (Top, L2 inner, Bot) and one no table knows. */
+  const load4 = async (): Promise<void> => {
+    await env.frame.LoadGerberFiles(put('top.gbr', gerber('Copper,L1,Top')));
+    await env.frame.LoadGerberFiles(put('inner.gbr', gerber('Copper,L2,Inr')));
+    await env.frame.LoadGerberFiles(put('bot.gbr', gerber('Copper,L3,Bot')));
+    await env.frame.LoadGerberFiles(put('mystery.xyz', PLAIN));
+  };
+
+  const open = async (): Promise<DIALOG_MAP_GERBER_LAYERS_TO_PCB> => {
+    const dlg = new DIALOG_MAP_GERBER_LAYERS_TO_PCB(env.frame);
+    await dlg.initDialog();
+    return dlg;
+  };
+
+  const texts = (dlg: DIALOG_MAP_GERBER_LAYERS_TO_PCB): string[] =>
+    dlg.m_layersList.map((t) => `${t.label}/${t.colour}`);
+
+  const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+  it('one row per loaded file: "Layer N:", the file name, "Do not export" in blue (:143-172)', async () => {
+    await load4();
+
+    const dlg = await open();
+
+    expect(dlg.m_gerberActiveLayersCount).toBe(4);
+    expect(dlg.m_layerLabels).toEqual([
+      { layer: 'Layer 1:', fileName: 'top.gbr' },
+      { layer: 'Layer 2:', fileName: 'inner.gbr' },
+      { layer: 'Layer 3:', fileName: 'bot.gbr' },
+      { layer: 'Layer 4:', fileName: 'mystery.xyz' },
+    ]);
+    // The automatic assignment was declined (the fixture answers Cancel).
+    expect(texts(dlg)).toEqual([
+      'Do not export/blue',
+      'Do not export/blue',
+      'Do not export/blue',
+      'Do not export/blue',
+    ]);
+    expect(dlg.GetLayersLookUpTable().slice(0, 5)).toEqual([-2, -2, -2, -2, -2]);
+    // m_gerberActiveLayersCount <= GERBER_DRAWLAYERS_COUNT / 2 hides the separator (:108-109).
+    expect(dlg.m_staticlineSepShown).toBe(false);
+  });
+
+  it('asks before assigning the known layers, and counts them (:210-217)', async () => {
+    await load4();
+
+    await open();
+
+    expect(env.okCancel).toEqual([
+      {
+        message: 'Gerbers with known layers: 3\n\nAssign to matching PCB layers?',
+        caption: 'Automatic Layer Assignment',
+      },
+    ]);
+  });
+
+  it('does not ask when no file is known', async () => {
+    await env.frame.LoadGerberFiles(put('mystery.xyz', PLAIN));
+
+    await open();
+
+    expect(env.okCancel).toEqual([]);
+  });
+
+  it('OK on the question maps each known file, in fuchsia, and counts its copper (:219-251)', async () => {
+    await load4();
+    env.okCancelAnswers.push(true);
+
+    const dlg = await open();
+
+    expect(texts(dlg)).toEqual([
+      'F.Cu/fuchsia',
+      'In1.Cu/fuchsia',
+      'B.Cu/fuchsia',
+      'Do not export/blue',
+    ]);
+    expect(dlg.GetLayersLookUpTable().slice(0, 4)).toEqual([0, 4, 2, -2]);
+    // std::max( total_copper, 2 ), NOT normalised: 3, shown as "2 Layers".
+    expect(DIALOG_MAP_GERBER_LAYERS_TO_PCB.GetCopperLayersCount()).toBe(3);
+    expect(dlg.m_comboCopperLayersCount).toBe(0);
+  });
+
+  it('opens on the last count, made even and at least 2 (:91-94, :257-268)', async () => {
+    await load4();
+
+    DIALOG_MAP_GERBER_LAYERS_TO_PCB.m_exportBoardCopperLayersCount = 5;
+    expect((await open()).m_comboCopperLayersCount).toBe(2);
+    expect(DIALOG_MAP_GERBER_LAYERS_TO_PCB.GetCopperLayersCount()).toBe(6);
+
+    DIALOG_MAP_GERBER_LAYERS_TO_PCB.m_exportBoardCopperLayersCount = 0;
+    expect((await open()).m_comboCopperLayersCount).toBe(0);
+    expect(DIALOG_MAP_GERBER_LAYERS_TO_PCB.GetCopperLayersCount()).toBe(2);
+
+    // Clamped at GERBER_DRAWLAYERS_COUNT, not at the combo's 32.
+    DIALOG_MAP_GERBER_LAYERS_TO_PCB.m_exportBoardCopperLayersCount = 201;
+    await open();
+    expect(DIALOG_MAP_GERBER_LAYERS_TO_PCB.GetCopperLayersCount()).toBe(128);
+  });
+
+  it('the copper count combo: "2 Layers" … "32 Layers" is ( selection + 1 ) * 2 (:271-275)', async () => {
+    await load4();
+    const dlg = await open();
+
+    dlg.OnBrdLayersCountSelection(2);
+
+    expect(DIALOG_MAP_GERBER_LAYERS_TO_PCB.GetCopperLayersCount()).toBe(6);
+    // A class static: the next dialog opens on it.
+    expect((await open()).m_comboCopperLayersCount).toBe(2);
+  });
+
+  it('Reset puts every row back to "Do not export" (:278-291)', async () => {
+    await load4();
+    env.okCancelAnswers.push(true);
+    const dlg = await open();
+
+    dlg.OnResetClick();
+
+    expect(texts(dlg)).toEqual([
+      'Do not export/blue',
+      'Do not export/blue',
+      'Do not export/blue',
+      'Do not export/blue',
+    ]);
+    expect(dlg.GetLayersLookUpTable().slice(0, 4)).toEqual([-2, -2, -2, -2]);
+  });
+
+  it('Get Stored Choice is disabled until something is stored (:204-205, :306)', async () => {
+    await load4();
+    const dlg = await open();
+
+    expect(dlg.m_buttonRetrieveEnabled).toBe(false);
+
+    dlg.OnStoreSetup();
+
+    expect(dlg.m_buttonRetrieveEnabled).toBe(true);
+    expect((await open()).m_buttonRetrieveEnabled).toBe(true);
+  });
+
+  it('Store Choice writes the count and all GERBER_DRAWLAYERS_COUNT ids to the settings (:294-303)', async () => {
+    await load4();
+    env.okCancelAnswers.push(true);
+    const dlg = await open();
+
+    dlg.OnStoreSetup();
+
+    const cfg = env.frame.gvconfig();
+    // The raw static, 3, as initDialog left it.
+    expect(cfg.m_BoardLayersCount).toBe(3);
+    expect(cfg.m_GerberToPcbLayerMapping).toHaveLength(128);
+    expect(cfg.m_GerberToPcbLayerMapping.slice(0, 5)).toEqual([0, 4, 2, -2, -2]);
+  });
+
+  it('Get Stored Choice restores what was stored, normalising the count (:310-349)', async () => {
+    await load4();
+    env.okCancelAnswers.push(true);
+    const dlg = await open();
+    dlg.OnStoreSetup();
+    dlg.OnResetClick();
+    dlg.OnBrdLayersCountSelection(5);
+
+    dlg.OnGetSetup();
+
+    expect(texts(dlg)).toEqual([
+      'F.Cu/fuchsia',
+      'In1.Cu/fuchsia',
+      'B.Cu/fuchsia',
+      'Do not export/blue',
+    ]);
+    expect(dlg.GetLayersLookUpTable().slice(0, 4)).toEqual([0, 4, 2, -2]);
+    expect(DIALOG_MAP_GERBER_LAYERS_TO_PCB.GetCopperLayersCount()).toBe(4);
+    expect(dlg.m_comboCopperLayersCount).toBe(1);
+  });
+
+  it('a stored UNDEFINED_LAYER comes back as "Hole data", exported (:338-342)', async () => {
+    await load4();
+    env.frame.gvconfig().m_GerberToPcbLayerMapping = [-1, 0];
+    env.frame.gvconfig().m_BoardLayersCount = 2;
+    const dlg = await open();
+
+    dlg.OnGetSetup();
+
+    expect(texts(dlg)).toEqual([
+      'Hole data/fuchsia',
+      'F.Cu/fuchsia',
+      // Past the stored list's end the rows keep what they had (:323-324).
+      'Do not export/blue',
+      'Do not export/blue',
+    ]);
+  });
+
+  it('the "..." button opens SELECT_LAYER_DIALOG on the row, and keeps the pick (:352-406)', async () => {
+    await load4();
+    const dlg = await open();
+    env.selectLayerPicks.push(1); // B.Cu, second in a 2-layer list
+
+    await dlg.OnSelectLayer(2);
+
+    const sel = env.selectLayers[0]!;
+    expect(sel.m_title).toBe('Select Layer: "bot.gbr"');
+    expect(texts(dlg)[2]).toBe('B.Cu/fuchsia');
+    expect(dlg.GetLayersLookUpTable()[2]).toBe(2);
+  });
+
+  it('picking Hole data maps the row to UNDEFINED_LAYER (:391-397)', async () => {
+    await load4();
+    const dlg = await open();
+    env.selectLayerPicks.push(20); // "Hole data", after the 20 layers
+
+    await dlg.OnSelectLayer(0);
+
+    expect(texts(dlg)[0]).toBe('Hole data/fuchsia');
+    expect(dlg.GetLayersLookUpTable()[0]).toBe(-1);
+  });
+
+  it('Cancel in SELECT_LAYER_DIALOG leaves the row as it was', async () => {
+    await load4();
+    env.okCancelAnswers.push(true);
+    const dlg = await open();
+
+    await dlg.OnSelectLayer(0);
+
+    expect(env.selectLayers).toHaveLength(1);
+    expect(texts(dlg)[0]).toBe('F.Cu/fuchsia');
+    expect(dlg.GetLayersLookUpTable()[0]).toBe(0);
+  });
+
+  it('refuses OK when an inner layer does not fit the count (:420-441)', async () => {
+    await load4();
+    const dlg = await open();
+    dlg.OnBrdLayersCountSelection(1); // 4 layers: F.Cu, In1.Cu, In2.Cu, B.Cu
+    env.selectLayerPicks.push(2);
+    await dlg.OnSelectLayer(0);
+    expect(dlg.GetLayersLookUpTable()[0]).toBe(6);
+
+    // In2_Cu is ordinal 2; a 4-layer board has 4 - 2 = 2 inner layers.
+    expect(dlg.TransferDataFromWindow()).toBe(true);
+    expect(env.boxes).toEqual([]);
+
+    dlg.OnBrdLayersCountSelection(0);
+
+    expect(dlg.TransferDataFromWindow()).toBe(false);
+    expect(env.boxes).toEqual([
+      'msg: Exported board does not have enough copper layers to handle selected inner layers',
+    ]);
+  });
+
+  it('OK normalises an odd count before the export reads it (:421)', async () => {
+    await load4();
+    env.okCancelAnswers.push(true);
+    const dlg = await open();
+
+    expect(dlg.TransferDataFromWindow()).toBe(true);
+    expect(DIALOG_MAP_GERBER_LAYERS_TO_PCB.GetCopperLayersCount()).toBe(4);
+  });
+
+  it('Export to PCB asks for the mapping, then writes the board it chose', async () => {
+    await load4();
+    const mru = env.frame.m_mruPath;
+    env.savePaths.push('/boards/out');
+    env.okCancelAnswers.push(true);
+    env.mapLayersEdits.push(() => {});
+
+    env.frame.GetToolManager()!.RunAction(GERBVIEW_ACTIONS.exportToPcbnew);
+    await settle();
+
+    expect(env.mapLayers).toHaveLength(1);
+    expect(env.saved.map((s) => s.path)).toEqual(['/boards/out.kicad_pcb']);
+    const text = env.saved[0]!.text;
+    // 3 copper layers found, rounded up to 4 by TransferDataFromWindow.
+    expect(text).toContain('(6 In2.Cu signal)');
+    expect(text).not.toContain('In3.Cu');
+    // SetMruPath( fileName.GetPath() ) only once the dialog said OK.
+    expect(mru).not.toBe('/boards');
+    expect(env.frame.m_mruPath).toBe('/boards');
+  });
+
+  it('Cancel on the mapping exports nothing (gerbview_control.cpp:139-140)', async () => {
+    await load4();
+    const mru = env.frame.m_mruPath;
+    env.savePaths.push('/boards/out');
+
+    env.frame.GetToolManager()!.RunAction(GERBVIEW_ACTIONS.exportToPcbnew);
+    await settle();
+
+    expect(env.mapLayers).toHaveLength(1);
+    expect(env.saved).toEqual([]);
+    expect(env.frame.m_mruPath).toBe(mru);
+  });
+
+  it('a refused OK is not an export', async () => {
+    await load4();
+    env.savePaths.push('/tmp/out');
+    env.mapLayersEdits.push(async (aDlg) => {
+      aDlg.OnBrdLayersCountSelection(1);
+      env.selectLayerPicks.push(2);
+      await aDlg.OnSelectLayer(0); // In2.Cu
+      aDlg.OnBrdLayersCountSelection(0);
+    });
+
+    env.frame.GetToolManager()!.RunAction(GERBVIEW_ACTIONS.exportToPcbnew);
+    await settle();
+
+    expect(env.mapLayers).toHaveLength(1);
+    expect(env.saved).toEqual([]);
+  });
+});
+
+describe('SELECT_LAYER_DIALOG', () => {
+  const TWO_LAYER_LIST = [
+    'F.Cu',
+    'B.Cu',
+    'F.Mask',
+    'B.Mask',
+    'F.SilkS',
+    'B.SilkS',
+    'F.Adhes',
+    'B.Adhes',
+    'F.Paste',
+    'B.Paste',
+    'Dwgs.User',
+    'Cmts.User',
+    'Eco1.User',
+    'Eco2.User',
+    'Edge.Cuts',
+    'Margin',
+    'B.CrtYd',
+    'F.CrtYd',
+    'B.Fab',
+    'F.Fab',
+    'Hole data',
+    'Do not export',
+  ];
+
+  const make = async (aDefault: number, aCount: number): Promise<SELECT_LAYER_DIALOG> => {
+    await env.frame.SelectPCBLayer(aDefault, aCount, '"a.gbr"');
+    return env.selectLayers.at(-1)!;
+  };
+
+  it('lists the copper layers in stack order, then tech and user layers by id (:98-133)', async () => {
+    const dlg = await make(-2, 2);
+
+    expect(dlg.m_title).toBe('Select Layer: "a.gbr"');
+    expect(dlg.m_layerList).toEqual(TWO_LAYER_LIST);
+    expect(dlg.m_layerId.slice(0, 4)).toEqual([0, 2, 1, 3]);
+    expect(dlg.m_layerId.slice(-2)).toEqual([-1, -2]);
+    // std::min( 22, 12 ) rows (:144-146).
+    expect(dlg.GetMajorDimension()).toBe(12);
+  });
+
+  it('puts the inner layers between F.Cu and B.Cu', async () => {
+    const dlg = await make(-2, 4);
+
+    expect(dlg.m_layerList.slice(0, 5)).toEqual(['F.Cu', 'In1.Cu', 'In2.Cu', 'B.Cu', 'F.Mask']);
+  });
+
+  it('opens on the default layer, Hole data and Do not export included (:138-148)', async () => {
+    expect((await make(-2, 2)).m_layerRadioBox).toBe(21);
+    expect((await make(-1, 2)).m_layerRadioBox).toBe(20);
+    expect((await make(2, 2)).m_layerRadioBox).toBe(1);
+    expect((await make(25, 2)).m_layerRadioBox).toBe(14);
+    // In5.Cu is not on a 2-layer board: the radio box keeps its first button.
+    expect((await make(12, 2)).m_layerRadioBox).toBe(0);
+  });
+
+  it('returns the pick on OK, the default on Cancel (:77-82)', async () => {
+    env.selectLayerPicks.push(10);
+    expect(await env.frame.SelectPCBLayer(-2, 2, '"a.gbr"')).toBe(17);
+
+    expect(await env.frame.SelectPCBLayer(25, 2, '"a.gbr"')).toBe(25);
   });
 });

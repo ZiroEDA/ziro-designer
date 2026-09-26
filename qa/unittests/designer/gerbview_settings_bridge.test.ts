@@ -79,6 +79,41 @@ describe('storeGerbviewSettings', () => {
     expect(json).toEqual(slice());
   });
 
+  it("writes the Map Gerber Layers dialog's Store Choice, and reads it back", () => {
+    // `gerber_to_pcb_layers` / `gerber_to_pcb_copperlayers_count`
+    // (gerbview_settings.cpp:74-78), which OnStoreSetup fills.
+    const json = slice();
+    const cfg = new GERBVIEW_SETTINGS();
+    loadGerbviewSettings(cfg, json);
+
+    cfg.m_BoardLayersCount = 6;
+    cfg.m_GerberToPcbLayerMapping = [0, 4, -1, -2];
+
+    expect(storeGerbviewSettings(cfg, json)).toBe(true);
+    expect(json.gerber_to_pcb_copperlayers_count).toBe(6);
+    expect(json.gerber_to_pcb_layers).toEqual([0, 4, -1, -2]);
+    // A copy, not the frame's own array.
+    expect(json.gerber_to_pcb_layers).not.toBe(cfg.m_GerberToPcbLayerMapping);
+    expect(storeGerbviewSettings(cfg, json)).toBe(false);
+
+    const back = new GERBVIEW_SETTINGS();
+    loadGerbviewSettings(back, json);
+    expect(back.m_BoardLayersCount).toBe(6);
+    expect(back.m_GerberToPcbLayerMapping).toEqual([0, 4, -1, -2]);
+  });
+
+  it('notices a changed id in a stored mapping of the same length', () => {
+    const json = slice();
+    const cfg = new GERBVIEW_SETTINGS();
+    json.gerber_to_pcb_layers = [0, 2];
+    loadGerbviewSettings(cfg, json);
+
+    cfg.m_GerberToPcbLayerMapping = [0, 4];
+
+    expect(storeGerbviewSettings(cfg, json)).toBe(true);
+    expect(json.gerber_to_pcb_layers).toEqual([0, 4]);
+  });
+
   it('writes a grid change back to gerbview.json', () => {
     const json = slice();
     const cfg = new GERBVIEW_SETTINGS();
