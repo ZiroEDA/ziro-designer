@@ -37,12 +37,14 @@
  * overrides land in `colors/user.json` where `resolveThemeById` already reads
  * them for every editor.
  */
+import { usePcmVersion } from '../../../pcm/pcmStore.js';
+import { colorSettingsList } from '../../../prefs/color_settings_list.js';
 import { useMemo, type JSX } from 'react';
 import {
   PanelColorSettings,
   type ColorSwatchRow,
   type ColorThemeIo,
-} from '../../../dialogs/prefs/PanelColorSettings.js';
+} from '@ziroeda/common/dialogs/panel_color_settings.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 import { parseColor4d, toCssColor } from '@ziroeda/common/color4d.js';
 import { BOARD_COLOR_KEYS } from '@ziroeda/common/settings/color_theme_file.js';
@@ -55,6 +57,8 @@ import {
 } from '../fpColorLayers.js';
 
 export function PanelFpColorSettings({ ctx }: { ctx: PrefsContext }): JSX.Element {
+  // Re-render when a PCM theme is installed, as the choice used to itself.
+  usePcmVersion();
   const { fpEdit, upFp, eeschema, userColors, setUserColors, userThemes, setUserThemes } = ctx;
 
   const themeId = fpEdit.appearance.color_theme;
@@ -173,6 +177,7 @@ export function PanelFpColorSettings({ ctx }: { ctx: PrefsContext }): JSX.Elemen
 
   return (
     <PanelColorSettings
+      installedThemes={colorSettingsList()}
       themeId={themeId}
       onThemeChange={(v) =>
         upFp((s) => {

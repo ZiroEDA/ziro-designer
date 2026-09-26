@@ -27,11 +27,9 @@ import {
   colorThemeOptions,
   NEW_THEME,
   THEME_SEPARATOR,
-} from '@ziroeda/designer/src/dialogs/prefs/ColorThemeChoice.js';
-import {
-  filterThemeName,
-  THEME_NAME_ILLEGAL_CHARS,
-} from '@ziroeda/designer/src/dialogs/prefs/dialog_add_color_theme.js';
+} from '@ziroeda/common/dialogs/panel_color_settings.js';
+import { FOOTPRINT_NAME_VALIDATOR } from '@ziroeda/common/validators.js';
+
 import { PanelEeschemaColorSettings } from '@ziroeda/designer/src/editors/schematic/prefs/PanelEeschemaColorSettings.js';
 import { PanelFpColorSettings } from '@ziroeda/designer/src/editors/footprint/prefs/PanelFpColorSettings.js';
 import { pcbThemeWithOverrides } from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
@@ -46,6 +44,11 @@ import type {
   UserColorTheme,
 } from '@ziroeda/designer/src/prefs/settings.js';
 import type { PrefsContext } from '@ziroeda/designer/src/dialogs/prefs/types.js';
+
+// FOOTPRINT_NAME_VALIDATOR's excludes (validators.cpp:51), which the "New
+// Theme..." entry applies: the theme's name is also its file name.
+const THEME_NAME_ILLEGAL_CHARS = '%$<>\t\n\r"\\/:';
+const filterThemeName = (s: string): string => new FOOTPRINT_NAME_VALIDATOR().Filter(s);
 
 afterEach(cleanup);
 

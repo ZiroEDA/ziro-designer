@@ -323,7 +323,7 @@ describe('there is one implementation of each, and both consumers use it', () =>
   it('both PANEL_COLOR_SETTINGS subclasses render the shared panel', () => {
     for (const rel of COLOR_SUBCLASSES) {
       const src = read(rel);
-      expect(src, rel).toContain("from '../../../dialogs/prefs/PanelColorSettings.js'");
+      expect(src, rel).toContain("from '@ziroeda/common/dialogs/panel_color_settings.js'");
       expect(src, rel).toContain('<PanelColorSettings');
       // The tell that a copy has grown back: the swatch grid's own markup,
       // which belongs to the shared panel and to nothing else.

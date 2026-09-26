@@ -18,6 +18,8 @@
  * theme with no override applied at all, so this page had nothing behind it
  * even for the rows the footprint editor's page could already move.
  */
+import { usePcmVersion } from '../../../pcm/pcmStore.js';
+import { colorSettingsList } from '../../../prefs/color_settings_list.js';
 import { type JSX, useMemo } from 'react';
 import { parseColor4d, toCssColor } from '@ziroeda/common/color4d.js';
 import { BOARD_COLOR_KEYS } from '@ziroeda/common/settings/color_theme_file.js';
@@ -25,7 +27,7 @@ import {
   PanelColorSettings,
   type ColorSwatchRow,
   type ColorThemeIo,
-} from '../../../dialogs/prefs/PanelColorSettings.js';
+} from '@ziroeda/common/dialogs/panel_color_settings.js';
 import { themeFilesFor } from '../../../prefs/theme_files.js';
 import { pcbColorRows, pcbDefaultColor, PCB_COLOR_BACKGROUND_KEY } from '../pcbColorLayers.js';
 import { pcbThemeWithOverrides } from '../pcbTheme.js';
@@ -33,6 +35,8 @@ import { PcbColorPreview } from './PcbColorPreview.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 
 export function PanelPcbColorSettings({ ctx }: { ctx: PrefsContext }): JSX.Element {
+  // Re-render when a PCM theme is installed, as the choice used to itself.
+  usePcmVersion();
   const { pcbnew, upP, eeschema, userColors, setUserColors, userThemes, setUserThemes } = ctx;
 
   const themeId = pcbnew.appearance.color_theme;
@@ -129,6 +133,7 @@ export function PanelPcbColorSettings({ ctx }: { ctx: PrefsContext }): JSX.Eleme
 
   return (
     <PanelColorSettings
+      installedThemes={colorSettingsList()}
       themeId={themeId}
       /* `m_previewPanelSizer`, which only eeschema's and pcbnew's pages fill. */
       preview={<PcbColorPreview theme={previewTheme} />}

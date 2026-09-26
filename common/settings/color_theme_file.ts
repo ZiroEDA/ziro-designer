@@ -439,3 +439,20 @@ export function colorThemeFromFile(parsed: unknown): ColorThemeContents | null {
     override: sch[OVERRIDE_ITEM_COLORS_KEY] === true,
   };
 }
+
+/**
+ * One theme the user made with "New Theme..." — a `colors/<name>.json` that is
+ * not `user.json`.
+ *
+ * `AddNewColorSettings( themeName )` names the FILE after the theme
+ * (`panel_color_settings.cpp:147-158`), so the key of the map is both the file
+ * stem and the theme id, exactly as it is on disk.
+ */
+export interface UserColorTheme {
+  /** `meta.name`. */
+  name: string;
+  /** Our painter's `Theme` keys -> CSS, the same shape as `colors.user`. */
+  colors: Record<string, string>;
+  /** `schematic.override_item_colors`. */
+  override: boolean;
+}

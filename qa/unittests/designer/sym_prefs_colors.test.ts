@@ -27,7 +27,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { SYMBOL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
-import { colorThemeOptions } from '@ziroeda/designer/src/dialogs/prefs/ColorThemeChoice.js';
+import { colorThemeOptions } from '@ziroeda/common/dialogs/panel_color_settings.js';
 import { UPSTREAM_BOOK, shippedUnder } from '@ziroeda/designer/src/dialogs/prefs/registry.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));

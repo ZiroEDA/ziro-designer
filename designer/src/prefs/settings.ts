@@ -3233,22 +3233,9 @@ export function normalizeHotkeys(parsed: unknown): Record<string, string | null>
   return out;
 }
 
-/**
- * One theme the user made with "New Theme..." — a `colors/<name>.json` that is
- * not `user.json`.
- *
- * `AddNewColorSettings( themeName )` names the FILE after the theme
- * (`panel_color_settings.cpp:147-158`), so the key of the map is both the file
- * stem and the theme id, exactly as it is on disk.
- */
-export interface UserColorTheme {
-  /** `meta.name`. */
-  name: string;
-  /** Our painter's `Theme` keys -> CSS, the same shape as `colors.user`. */
-  colors: Record<string, string>;
-  /** `schematic.override_item_colors`. */
-  override: boolean;
-}
+// A user theme file's shape is COLOR_SETTINGS', so it lives in common/settings.
+export type { UserColorTheme } from '@ziroeda/common/settings/color_theme_file.js';
+import type { UserColorTheme } from '@ziroeda/common/settings/color_theme_file.js';
 
 /**
  * `colors.themes`. Free-form for the same reason `colors.user` is: `deepMerge`

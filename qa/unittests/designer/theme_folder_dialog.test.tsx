@@ -23,16 +23,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { ThemeFolderDialog } from '@ziroeda/designer/src/dialogs/prefs/dialog_theme_folder.js';
-import type { ThemeFile } from '@ziroeda/designer/src/dialogs/prefs/dialog_theme_folder.js';
+import { ThemeFolderDialog } from '@ziroeda/common/launch_ext.js';
+import type { ThemeFile } from '@ziroeda/common/launch_ext.js';
 import { PanelEeschemaColorSettings } from '@ziroeda/designer/src/editors/schematic/prefs/PanelEeschemaColorSettings.js';
 import {
   PICK_BLOCKED,
   PICK_CANCELLED,
   pickThemeFolder,
   readThemeFolder,
-} from '@ziroeda/designer/src/fs/theme_folder.js';
-import type { ThemeDirHandle } from '@ziroeda/designer/src/fs/theme_folder.js';
+} from '@ziroeda/common/launch_ext.js';
+import type { ThemeDirHandle } from '@ziroeda/common/launch_ext.js';
 import { EESCHEMA_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 import type { EeschemaSettings } from '@ziroeda/designer/src/prefs/settings.js';
 import type { PrefsContext } from '@ziroeda/designer/src/dialogs/prefs/types.js';

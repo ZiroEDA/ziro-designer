@@ -20,12 +20,13 @@
  * takes every remaining pixel. Ours had the swatches spread across the whole
  * page in a two-across grid, in an order of our own, with no preview at all.
  */
+import { colorSettingsList } from '../../../prefs/color_settings_list.js';
 import { useMemo, useState, type JSX } from 'react';
 import {
   PanelColorSettings,
   type ColorSwatchRow,
   type ColorThemeIo,
-} from '../../../dialogs/prefs/PanelColorSettings.js';
+} from '@ziroeda/common/dialogs/panel_color_settings.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 import { usePcmVersion } from '../../../pcm/pcmStore.js';
 import { colorSettingsById } from '../../../prefs/color_settings_list.js';
@@ -51,6 +52,8 @@ const rawTable = (themeId: string): Partial<Record<string, Color4d>> =>
   themeId === '_builtin_classic' ? BUILTIN_CLASSIC_THEME : BUILTIN_DEFAULT_THEME;
 
 export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.Element {
+  // Re-render when a PCM theme is installed, as the choice used to itself.
+  usePcmVersion();
   const { eeschema, upE, userColors, setUserColors, userThemes, setUserThemes } = ctx;
   // Colour themes installed via the Plugin and Content Manager are offered by
   // `ColorThemeChoice`, which subscribes to the store itself; this page still
@@ -220,6 +223,7 @@ export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.
 
   return (
     <PanelColorSettings
+      installedThemes={colorSettingsList()}
       themeId={themeId}
       onThemeChange={(v) => {
         // `OnThemeChanged`, in its order: the new theme's flag, then whether

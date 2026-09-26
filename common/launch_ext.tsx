@@ -2,6 +2,10 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
+ * `LaunchExternal` (common/launch_ext.cpp), as far as a page can do it: a page
+ * cannot start the desktop's file manager, so the one folder KiCad launches it
+ * on from a dialog - the colour themes folder - is shown here instead.
+ *
  * "Open Theme Folder" — `m_btnOpenFolder`
  * (`common/dialogs/panel_color_settings_base.cpp:43`), whose handler is two
  * lines:
@@ -36,9 +40,105 @@ import {
   colorThemeFileText,
   colorThemeFromFile,
   type ColorThemeContents,
-} from '@ziroeda/common/settings/color_theme_file.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
-import { OK_LABEL } from '@ziroeda/common/confirm_types.js';
+} from './settings/color_theme_file.js';
+import { useModalEscape } from './dialogs/use_modal_escape.js';
+import { OK_LABEL } from './confirm_types.js';
+
+// ---------------------------------------------------------------------------
+// The folder's I/O: what was designer/src/fs/theme_folder.ts (09-26). It is
+// the half of LaunchExternal( GetColorSettingsPath() ) a page can do - pick the
+// folder with the File System Access API, list its themes, write one back.
+
+/** The half of `FileSystemDirectoryHandle` this uses. */
+export interface ThemeDirHandle {
+  name: string;
+  values: () => AsyncIterable<ThemeFsEntry>;
+  getFileHandle: (name: string, options?: { create?: boolean }) => Promise<ThemeFileHandle>;
+}
+export interface ThemeFsEntry {
+  kind: string;
+  name: string;
+  getFile: () => Promise<File>;
+}
+export interface ThemeFileHandle {
+  createWritable: () => Promise<ThemeWritable>;
+}
+export interface ThemeWritable {
+  write: (data: string) => Promise<void>;
+  close: () => Promise<void>;
+}
+
+/** The user closed the chooser. Nothing to do — same as `AbortError` upstream. */
+export const PICK_CANCELLED = 'cancelled';
+/** No API, or the browser refused this folder. The caller offers files instead. */
+export const PICK_BLOCKED = 'blocked';
+
+export type PickedFolder = ThemeDirHandle | typeof PICK_CANCELLED | typeof PICK_BLOCKED;
+
+type Picker = (options?: { mode?: string; id?: string }) => Promise<ThemeDirHandle>;
+
+/**
+ * Open the desktop's folder chooser.
+ *
+ * `mode: 'readwrite'` asks for write permission in the same gesture, because
+ * the point of the folder is that a theme goes back into it; asking again on
+ * the first save would put a second prompt between the user and a button they
+ * already pressed. `id` makes Chrome reopen the chooser where it was last left,
+ * which is what a folder you return to should do.
+ */
+export async function pickThemeFolder(): Promise<PickedFolder> {
+  const picker = (globalThis as { showDirectoryPicker?: Picker }).showDirectoryPicker;
+  if (!picker) return PICK_BLOCKED;
+  try {
+    return await picker({ mode: 'readwrite', id: 'kicad-color-themes' });
+  } catch (e) {
+    // AbortError is the user closing the dialog; a blocked folder, a
+    // SecurityError or an unsupported call is not, and gets the fallback.
+    return (e as DOMException)?.name === 'AbortError' ? PICK_CANCELLED : PICK_BLOCKED;
+  }
+}
+
+/** One `.json` in the folder that parses as a colour theme. */
+export interface FolderTheme {
+  fileName: string;
+  contents: ColorThemeContents;
+}
+
+/**
+ * Every colour theme in the folder, in the order the platform lists it.
+ *
+ * A `.json` that is not a theme is skipped rather than reported: KiCad's own
+ * folder is not guaranteed to hold only themes, and a listing that refused to
+ * open because of a stray file would be worse than one that leaves it out.
+ * Subfolders are not walked — `GetColorSettingsPath()` is one flat directory.
+ */
+export async function readThemeFolder(dir: ThemeDirHandle): Promise<FolderTheme[]> {
+  const out: FolderTheme[] = [];
+  for await (const entry of dir.values()) {
+    if (entry.kind !== 'file' || !entry.name.toLowerCase().endsWith('.json')) continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(await (await entry.getFile()).text());
+    } catch {
+      continue;
+    }
+    const contents = colorThemeFromFile(parsed);
+    if (contents) out.push({ fileName: entry.name, contents });
+  }
+  return out;
+}
+
+/** Write one theme file into the folder, creating it if it is not there. */
+export async function writeThemeFile(
+  dir: ThemeDirHandle,
+  fileName: string,
+  text: string,
+): Promise<void> {
+  const handle = await dir.getFileHandle(fileName, { create: true });
+  const w = await handle.createWritable();
+  await w.write(text);
+  await w.close();
+}
 
 /** A theme this app holds, which can be written into the folder. */
 export interface ThemeFile {

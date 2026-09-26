@@ -20,7 +20,7 @@ import {
   colorSettingsList,
   stockThemeId,
 } from '@ziroeda/designer/src/prefs/color_settings_list.js';
-import { colorThemeOptions } from '@ziroeda/designer/src/dialogs/prefs/ColorThemeChoice.js';
+import { colorThemeOptions } from '@ziroeda/common/dialogs/panel_color_settings.js';
 import {
   overrideItemColorsFor,
   resolveThemeById,
