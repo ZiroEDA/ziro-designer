@@ -21,7 +21,7 @@ import { head, isList, list, atom, str, type SList, type SNode } from '@ziroeda/
 import { arg, childNamed, numArg, stringField } from '@ziroeda/sexpr/query.js';
 import { iuToMM, mmToIU } from '@ziroeda/common/eda_units.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
-import { fieldIsPrivate, readEffects, readField } from './read-schematic.js';
+import { fieldIsPrivate, readEffects, readField, withRequiredVersion } from './read-schematic.js';
 import { openOutline } from '../../tools/build-graphics.js';
 import { writeLibSymbolNode } from './write-symbol-lib.js';
 import type {
@@ -1568,7 +1568,15 @@ function renameLibSymbol(sym: LibSymbol): SNode {
   return writeLibSymbolNode(sym);
 }
 
+/**
+ * The schematic as an s-expression, keeping its own format version - so its
+ * nodes are re-read (to find what changed) at that version, as it was read.
+ */
 export function writeSchematic(sch: Schematic): SList {
+  return withRequiredVersion(sch.version, () => writeSchematicBody(sch));
+}
+
+function writeSchematicBody(sch: Schematic): SList {
   const out: SNode[] = [atom('kicad_sch')];
 
   for (const name of HEADER_ORDER) {

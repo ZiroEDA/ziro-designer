@@ -192,6 +192,26 @@ export function fieldIsPrivate(node: SList): boolean {
   return first?.kind === 'atom' && first.value === 'private';
 }
 
+/**
+ * `m_requiredVersion`: the version of the file being read. KiCad keeps it on
+ * the parser object; readSchematic / readSymbolLib set it for the duration of
+ * a read, and a writer that keeps a file's own version sets it while it
+ * re-reads that file's nodes (`withRequiredVersion`). Outside both it is the
+ * current format.
+ */
+let s_requiredVersion = Number.POSITIVE_INFINITY;
+
+/** Run `aFn` with `m_requiredVersion` set to `aVersion`, restoring it after. */
+export function withRequiredVersion<T>(aVersion: number, aFn: () => T): T {
+  const saved = s_requiredVersion;
+  s_requiredVersion = aVersion;
+  try {
+    return aFn();
+  } finally {
+    s_requiredVersion = saved;
+  }
+}
+
 /** Parse a `(property ...)` node. Exported so the writer can diff edits against the source. */
 export function readField(node: SList, invertY = false): SchField {
   const { at, angle } = readAt(node, invertY);
@@ -199,7 +219,9 @@ export function readField(node: SList, invertY = false): SchField {
   const slot = isPrivate ? 1 : 0; // the flag shifts name and value along one
   const field: { -readonly [K in keyof SchField]: SchField[K] } = {
     key: arg(node, slot) ?? '',
-    value: arg(node, slot + 1) ?? '',
+    // "Empty property values are valid": before 20250318 a lone "~" was how a
+    // file wrote one (sch_io_kicad_sexpr_parser.cpp:1105 lib, :2327 schematic).
+    value: ((v) => (s_requiredVersion < 20250318 && v === '~' ? '' : v))(arg(node, slot + 1) ?? ''),
     angle,
     source: node,
   };
@@ -1154,7 +1176,10 @@ const LINE_KINDS: Record<string, LineKind> = {
  * did (SCH_SCREEN::UpdateSymbolLinks' own `REPORTER*` is likewise optional).
  */
 export function readSymbolLib(root: SList, reporter?: Reporter): LibSymbol[] {
-  return resolveExtends(childrenNamed(root, 'symbol').map(readLibSymbol), reporter);
+  const version = numArg(childNamed(root, 'version') ?? root, 0) ?? 0;
+  return withRequiredVersion(version, () =>
+    resolveExtends(childrenNamed(root, 'symbol').map(readLibSymbol), reporter),
+  );
 }
 
 export function readSchematic(root: SList, reporter?: Reporter): Schematic {
@@ -1162,6 +1187,12 @@ export function readSchematic(root: SList, reporter?: Reporter): Schematic {
     throw new Error(`Expected a (kicad_sch ...) root, got (${head(root) ?? '?'} ...)`);
   }
 
+  return withRequiredVersion(numArg(childNamed(root, 'version') ?? root, 0) ?? 0, () =>
+    readSchematicBody(root, reporter),
+  );
+}
+
+function readSchematicBody(root: SList, reporter?: Reporter): Schematic {
   const fileVersion = numArg(childNamed(root, 'version') ?? root, 0) ?? 0;
   const libSymbols: LibSymbol[] = [];
   const symbols: SchSymbol[] = [];
