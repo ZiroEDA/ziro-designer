@@ -48,7 +48,7 @@ import {
   type GridFrameType,
   type GridOverrideKey,
 } from './grid_settings_rows.js';
-import { DialogGridSettings } from '../dialog_grid_settings.js';
+import { DialogGridSettings } from '@ziroeda/common/dialogs/dialog_grid_settings.js';
 import { HOTKEYS } from '../../editors/schematic/hotkeys.js';
 import { MessageDialogError } from '@ziroeda/common/dialogs/dialog_message.js';
 import {

@@ -19,11 +19,11 @@
 
 import { useMemo, type JSX } from 'react';
 import { ERC_ITEMS, type ErcSettings, type ErcSeverityLevel } from '@ziroeda/eeschema';
-import { PanelSetupSeverities as SharedPanelSetupSeverities } from '../../../../dialogs/panels/panel_setup_severities.js';
+import { PanelSetupSeverities as SharedPanelSetupSeverities } from '@ziroeda/common/dialogs/panel_setup_severities.js';
 import {
   groupSeverityItems,
   type SeverityGroup,
-} from '../../../../dialogs/panels/severity_items.js';
+} from '@ziroeda/common/dialogs/panel_setup_severities.js';
 
 interface Props {
   settings: ErcSettings;

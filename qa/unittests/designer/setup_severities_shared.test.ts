@@ -26,12 +26,12 @@ import { DRC_CATEGORIES } from '@ziroeda/designer/src/editors/pcb/board_settings
 import {
   groupSeverityItems,
   type SeverityGroup,
-} from '@ziroeda/designer/src/dialogs/panels/severity_items.js';
+} from '@ziroeda/common/dialogs/panel_setup_severities.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const SHARED = read('../../../designer/src/dialogs/panels/panel_setup_severities.tsx');
+const SHARED = read('../../../common/dialogs/panel_setup_severities.tsx');
 const SCH = read(
   '../../../designer/src/editors/schematic/dialogs/panels/panel_setup_severities.tsx',
 );
@@ -43,7 +43,7 @@ describe('the two Setup dialogs share one severities panel', () => {
       ['schematic', SCH],
       ['pcb', PCB],
     ] as const) {
-      expect(src, name).toContain('dialogs/panels/panel_setup_severities.js');
+      expect(src, name).toContain('@ziroeda/common/dialogs/panel_setup_severities.js');
       // Neither copy may grow its own radio buttons again.
       expect(src, name).not.toContain('type="radio"');
       expect(src, name).not.toContain("label: 'Warning'");

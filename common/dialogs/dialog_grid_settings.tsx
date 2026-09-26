@@ -28,17 +28,17 @@
  * display unit while `GRID` itself is always stored in millimetres.
  */
 import { type JSX, useState } from 'react';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
-import { MessageDialogError } from '@ziroeda/common/dialogs/dialog_message.js';
-import type { GridEntry } from '@ziroeda/common/settings/grid_settings_ui.js';
+import { useModalEscape } from './use_modal_escape.js';
+import { MessageDialogError } from './dialog_message.js';
+import type { GridEntry } from '../settings/grid_settings_ui.js';
 import {
   type EdaUnits,
   parseUnitValueDouble,
   stringFromValue,
   unitLabel,
   validateUnitValue,
-} from '@ziroeda/common/widgets/unit_binder.js';
-import type { EdaIuScale } from '@ziroeda/common';
+} from '../widgets/unit_binder.js';
+import type { EdaIuScale } from '../eda_units.js';
 
 /**
  * `m_gridSizeX.Validate( 0.001, 1000.0, EDA_UNITS::MM )`

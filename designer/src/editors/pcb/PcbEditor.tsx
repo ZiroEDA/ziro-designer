@@ -319,7 +319,10 @@ import {
   pasteIntoBoard,
   type PasteMode,
 } from '@ziroeda/pcbnew/pcb_clipboard.js';
-import { DialogPasteSpecial, type PasteSpecialMode } from '../../dialogs/dialog_paste_special.js';
+import {
+  DialogPasteSpecial,
+  type PasteSpecialMode,
+} from '@ziroeda/common/dialogs/dialog_paste_special.js';
 import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
 import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/widgets/msgpanel_ui.js';
 import {

@@ -394,7 +394,7 @@ import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/acti
 import { wasBrowserSuppressed, type FocusLike } from '@ziroeda/common/browser_hotkeys.js';
 import { remapEvent } from './hotkey_bindings.js';
 import { applyHotkeyOverrides } from './hotkey_list.js';
-import { DialogAssignNetclass } from './dialogs/dialog_assign_netclass.js';
+import { DialogAssignNetclass } from '@ziroeda/common/dialogs/dialog_assign_netclass.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { DialogTableCellProperties } from './dialogs/dialog_tablecell_properties.js';
 import {
@@ -428,7 +428,10 @@ import {
 // eeschema AND pcbnew, so it is one module here too rather than a copy under
 // this editor's own `dialogs/`. `SCH_EDITOR_CONTROL::Paste` supplies the two
 // things that differ: the mode it opens on, and no `aDefaultRef`.
-import { DialogPasteSpecial, type PasteSpecialMode } from '../../dialogs/dialog_paste_special.js';
+import {
+  DialogPasteSpecial,
+  type PasteSpecialMode,
+} from '@ziroeda/common/dialogs/dialog_paste_special.js';
 import { DialogSheetProperties, type SheetPropsResult } from './dialogs/dialog_sheet_properties.js';
 import { DialogShapeProperties, type ShapePropsResult } from './dialogs/dialog_shape_properties.js';
 import { DialogImageProperties, type ImagePropsResult } from './dialogs/dialog_image_properties.js';
@@ -525,7 +528,7 @@ import {
   gridFeedback,
   type FastGridAction,
 } from '@ziroeda/common/settings/grid_settings_ui.js';
-import { useHotkeyCyclePopup } from '../../widgets/HotkeyCyclePopup.js';
+import { useHotkeyCyclePopup } from '@ziroeda/common/dialogs/hotkey_cycle_popup_ui.js';
 import {
   useCommonSettings,
   useEeschemaSettings,

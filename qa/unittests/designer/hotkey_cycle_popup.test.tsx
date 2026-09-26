@@ -14,14 +14,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { schIUScale } from '@ziroeda/common';
-import {
-  HotkeyCyclePopup,
-  SHOW_TIME_MS,
-} from '@ziroeda/designer/src/widgets/hotkey_cycle_popup.js';
+import { HotkeyCyclePopup, SHOW_TIME_MS } from '@ziroeda/common/dialogs/hotkey_cycle_popup.js';
 import {
   HotkeyCyclePopupView,
   useHotkeyCyclePopup,
-} from '@ziroeda/designer/src/widgets/HotkeyCyclePopup.js';
+} from '@ziroeda/common/dialogs/hotkey_cycle_popup_ui.js';
 import {
   gridEntryOf,
   gridFeedback,

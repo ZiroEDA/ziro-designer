@@ -81,17 +81,29 @@ Layout measured by `qa/probes/dialog_about_probe.cpp`. Every frame's Help >
 About opens it (eleven; the schematic's menu item used to do nothing, and the
 calculator and image converter had invented boxes of their own).
 
-## `dialogs/` — 88 KiCad units
+## `dialogs/` — 52 KiCad units (46 + `git/` 6), IN PROGRESS
 
-Holds today: `dialog_color_picker` (+ `_colors`, `_tab` — the tab is
-`COMMON_SETTINGS::m_ColorPicker` reached through a `Pgm()`-style store the
-app installs, since `COMMON_SETTINGS` has not moved yet), `eda_list_dialog`,
-`html_message_box`, `dialog_table_properties` (one dialog for the eeschema
-and pcbnew `dialog_table_properties.cpp`), and ours: `dialog_message` +
-`dialog_unsaved_changes` (the wxMessageDialogs `confirm.cpp` shows),
-`dialog_single_choice` (`wxGetSingleChoice`), `dialog_size_hints`,
-`modal_escape` / `use_modal_escape` (wxDialog's Esc = wxID_CANCEL). The other
-~80 are the shared dialogs still under `designer/src/dialogs` — the next stage.
+A unit is a dialog and its `_base` (folded into one `.tsx`, as everywhere
+here). Status on 09-26, updated at each stage; the folder closes when every
+row is **here** or **n/a**.
+
+| status | units |
+|---|---|
+| **here** (8) | `dialog_assign_netclass`, `dialog_color_picker` (+ `_colors`, `_tab`), `dialog_grid_settings`, `dialog_paste_special`, `eda_list_dialog`, `hotkey_cycle_popup` (+ `_ui`: the model and the window, as `unit_binder` / `_ui`), `html_message_box`, `panel_setup_severities` |
+| **to move: blocked on `COMMON_SETTINGS`** (they read `designer/src/prefs`, which is KiCad's `common/settings/common_settings`) | the Preferences panels: `panel_color_settings`, `panel_common_settings`, `panel_gal_options`, `panel_grid_settings`, `panel_hotkeys_editor`, `panel_maintenance`, `panel_mouse_settings`, `panel_spacemouse`, `panel_toolbar_customization`, `git/panel_git_repos`; and `dialog_hotkey_list` |
+| **to move: blocked on another designer import** | `dialog_page_settings` (the file chooser, `fs/`), `panel_embedded_files`, `panel_setup_netclasses`, `panel_text_variables` (schematic settings types), `dialog_restore_local_history` (`home/local_history`) |
+| **ported inside another file** (to be split out under its own name) | `dialog_book_reporter` (in `dialog_inspect_constraints`), `dialog_print_generic` (in `dialog_print_pcb`), `eda_reorderable_list_dialog` (`select_columns_dialog`), `panel_image_editor` (the image properties dialogs), `dialog_text_entry`, `eda_view_switcher` (only its `_base` layout, inside `hotkey_cycle_popup`) |
+| **missing** (to port or mark n/a, one at a time) | `dialog_autosave_recovery`, `dialog_configure_paths`, `dialog_design_block_properties`, `dialog_edit_library_tables`, `dialog_generate_database_connection`, `dialog_group_properties`, `dialog_import_choose_project`, `dialog_multi_unit_entry`, `dialog_plugin_options`, `dialog_rc_job`, `dialog_unit_entry`, `panel_base_display_options`, `panel_data_collection`, `panel_design_block_lib_table`, `panel_packages_and_updates`, `panel_plugin_settings`, `panel_printer_list`, `git/dialog_git_commit`, `git/dialog_git_credentials`, `git/dialog_git_progress`, `git/dialog_git_repository`, `git/dialog_git_switch` |
+
+Files here with **no KiCad unit in this folder**, each to go where KiCad keeps
+the code it ports:
+
+- `dialog_table_properties` — KiCad has two, `eeschema/dialogs/` and
+  `pcbnew/dialogs/`; ours is one shared dialog. Settled with those folders.
+- `dialog_message`, `dialog_unsaved_changes` — the wxMessageDialogs
+  `common/confirm.cpp` shows; `dialog_single_choice` — `wxGetSingleChoice`;
+  `dialog_size_hints`, `modal_escape`, `use_modal_escape` — `DIALOG_SHIM`
+  (`common/dialog_shim.cpp`). All root-folder units, settled in that stage.
 
 ## Root — 131 KiCad units
 

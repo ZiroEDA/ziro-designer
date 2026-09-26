@@ -231,7 +231,7 @@ describe('a row is enabled exactly when something reads its setting', () => {
     [
       'Show popup indicator when toggling settings with hotkeys',
       'hotkey_feedback',
-      'designer/src/widgets/hotkey_cycle_popup.ts',
+      'common/dialogs/hotkey_cycle_popup.ts',
     ],
     ['Disable custom cursors', 'use_custom_cursors', 'designer/src/ui/kicursors.ts'],
     [

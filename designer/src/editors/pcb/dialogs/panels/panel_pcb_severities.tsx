@@ -21,7 +21,7 @@ import type { JSX } from 'react';
 
 import type { DrcSeverities, DrcSeverity } from '../../board_settings.js';
 import { DRC_CATEGORIES } from '../../board_settings.js';
-import { PanelSetupSeverities } from '../../../../dialogs/panels/panel_setup_severities.js';
+import { PanelSetupSeverities } from '@ziroeda/common/dialogs/panel_setup_severities.js';
 
 // Re-exported so panel users keep importing from the panel module.
 export {

@@ -359,7 +359,7 @@ reported as unknown rather than clean. Two of them are answers, not gaps:
     `m_currentGridCtrl`'s selection - which is a `wxListBox` whose selection is
     *also* the current grid (`:194`), so the radio-per-row and the per-row
     Remove went with it. `DIALOG_GRID_SETTINGS` is
-    `designer/src/dialogs/dialog_grid_settings.tsx`, in `dialogs/` rather than
+    `common/dialogs/dialog_grid_settings.tsx`, in `dialogs/` rather than
     `dialogs/prefs/` because upstream it is `common/dialogs/` and owned by no
     app. `Grid size '%s' already exists.` and `Grid size X out of range.` are
     both in.
