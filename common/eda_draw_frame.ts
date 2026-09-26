@@ -42,6 +42,7 @@ import { type APP_SETTINGS_BASE, EdaUnitsFromInt, EdaUnitsToInt } from './settin
 import type { SELECTION } from './tool/selection.js';
 import { ACTIONS } from './tool/actions.js';
 import { COMMON_TOOLS } from './tool/common_tools.js';
+import { TOOL_EVENT } from './tool/tool_event.js';
 import { GRID_MENU } from './tool/grid_menu.js';
 import { IsImperialUnit } from './units_provider.js';
 import { RENDER_TARGET } from './gal/definitions.js';
@@ -680,7 +681,8 @@ export abstract class EDA_DRAW_FRAME extends EDA_BASE_FRAME {
     const cmnTool = this.m_toolManager?.GetTool(COMMON_TOOLS) ?? null;
 
     if (cmnTool) {
-      cmnTool.ToggleUnits();
+      const dummy = new TOOL_EVENT();
+      cmnTool.ToggleUnits(dummy);
     } else {
       this.SetUserUnits(this.GetUserUnits() === 'in' ? 'mm' : 'in');
       this.unitsChangeRefresh();

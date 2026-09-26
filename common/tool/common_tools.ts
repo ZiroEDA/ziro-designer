@@ -6,11 +6,10 @@
  * `COMMON_TOOLS`, the actions every draw frame shares - zoom, pan, the
  * keyboard cursor, the grid, units and the crosshair modes.
  *
- * Every handler is a plain function upstream (none waits on an event), so
- * each is a generator that returns at once.
+ * Every handler is a plain function upstream (none waits on an event); each
+ * is registered through SYNC_HANDLER.
  */
 
-import type { COROUTINE_BODY } from './coroutine.js';
 import { FRAME_T } from '../frame_type.js';
 import type { EDA_DRAW_FRAME } from '../eda_draw_frame.js';
 import { DoubleValueFromStringIn, type EdaUnits } from '../eda_units.js';
@@ -40,7 +39,7 @@ import {
   TC_MOUSE,
   TOOL_EVENT,
 } from './tool_event.js';
-import { TOOL_INTERACTIVE } from './tool_interactive.js';
+import { SYNC_HANDLER, TOOL_INTERACTIVE } from './tool_interactive.js';
 
 /**
  * The set of "Zoom to Fit" types that can be performed.
@@ -128,7 +127,7 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
     return this.m_imperialUnit;
   }
 
-  *SelectionTool(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  SelectionTool(_aEvent: TOOL_EVENT): number {
     // Since selection tools are run permanently underneath the toolStack, this is really
     // just a cancel of whatever other tools might be running.
 
@@ -138,11 +137,7 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
 
   // Cursor control
 
-  *CursorControl(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
-    return this.cursorControl(aEvent);
-  }
-
-  private cursorControl(aEvent: TOOL_EVENT): number {
+  CursorControl(aEvent: TOOL_EVENT): number {
     const type = aEvent.Parameter<CURSOR_EVENT_TYPE>();
     const grid = this.frame().MakeGridHelper();
     let gridSize: VECTOR2D;
@@ -223,7 +218,7 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
     return 0;
   }
 
-  *PanControl(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  PanControl(aEvent: TOOL_EVENT): number {
     const type = aEvent.Parameter<CURSOR_EVENT_TYPE>();
     const view = this.getView()!;
     let center = view.GetCenter();
@@ -260,17 +255,17 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
 
   // View controls
 
-  *ZoomRedraw(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  ZoomRedraw(_aEvent: TOOL_EVENT): number {
     this.frame().HardRedraw();
     return 0;
   }
 
-  *ZoomInOut(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  ZoomInOut(aEvent: TOOL_EVENT): number {
     const direction = aEvent.IsAction(ACTIONS.zoomIn);
     return this.doZoomInOut(direction, true);
   }
 
-  *ZoomInOutCenter(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  ZoomInOutCenter(aEvent: TOOL_EVENT): number {
     const direction = aEvent.IsAction(ACTIONS.zoomInCenter);
     return this.doZoomInOut(direction, false);
   }
@@ -304,7 +299,7 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
     return this.doZoomToPreset(idx + 1, aCenterOnCursor);
   }
 
-  *ZoomCenter(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  ZoomCenter(_aEvent: TOOL_EVENT): number {
     const ctls = this.vc();
 
     ctls.CenterOnCursor();
@@ -312,15 +307,15 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
     return 0;
   }
 
-  *ZoomFitScreen(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  ZoomFitScreen(_aEvent: TOOL_EVENT): number {
     return this.doZoomFit(ZOOM_FIT_TYPE_T.ZOOM_FIT_ALL);
   }
 
-  *ZoomFitObjects(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  ZoomFitObjects(_aEvent: TOOL_EVENT): number {
     return this.doZoomFit(ZOOM_FIT_TYPE_T.ZOOM_FIT_OBJECTS);
   }
 
-  *ZoomFitSelection(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  ZoomFitSelection(_aEvent: TOOL_EVENT): number {
     return this.doZoomFit(ZOOM_FIT_TYPE_T.ZOOM_FIT_SELECTION);
   }
 
@@ -402,11 +397,11 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
     return 0;
   }
 
-  *CenterSelection(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  CenterSelection(_aEvent: TOOL_EVENT): number {
     return this.doCenter(CENTER_TYPE.CENTER_SELECTION);
   }
 
-  *CenterContents(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  CenterContents(_aEvent: TOOL_EVENT): number {
     return this.doCenter(CENTER_TYPE.CENTER_CONTENTS);
   }
 
@@ -438,7 +433,7 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
     return 0;
   }
 
-  *ZoomPreset(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  ZoomPreset(aEvent: TOOL_EVENT): number {
     const idx = aEvent.Parameter<number>();
     return this.doZoomToPreset(idx, false);
   }
@@ -450,7 +445,8 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
 
     if (idx === 0) {
       // Zoom Auto
-      return this.doZoomFit(ZOOM_FIT_TYPE_T.ZOOM_FIT_ALL);
+      const dummy = new TOOL_EVENT();
+      return this.ZoomFitScreen(dummy);
     }
 
     idx--;
@@ -472,7 +468,7 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
 
   // Grid control
 
-  *GridNext(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  GridNext(_aEvent: TOOL_EVENT): number {
     const grid = this.windowSettings().grid;
 
     grid.last_size_idx++;
@@ -482,7 +478,7 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
     return this.OnGridChanged(true);
   }
 
-  *GridPrev(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  GridPrev(_aEvent: TOOL_EVENT): number {
     const grid = this.windowSettings().grid;
 
     grid.last_size_idx--;
@@ -492,11 +488,12 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
     return this.OnGridChanged(true);
   }
 
-  *GridPresetEvent(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
-    return this.GridPreset(aEvent.Parameter<number>(), false);
-  }
+  GridPreset(aEvent: TOOL_EVENT): number;
+  GridPreset(idx: number, aFromHotkey: boolean): number;
+  GridPreset(a: TOOL_EVENT | number, aFromHotkey = false): number {
+    if (a instanceof TOOL_EVENT) return this.GridPreset(a.Parameter<number>(), false);
 
-  GridPreset(idx: number, aFromHotkey: boolean): number {
+    const idx = a;
     const grid = this.windowSettings().grid;
 
     grid.last_size_idx = Math.min(Math.max(idx, 0), this.m_grids.length - 1);
@@ -528,15 +525,15 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
     return 0;
   }
 
-  *GridFast1(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  GridFast1(_aEvent: TOOL_EVENT): number {
     return this.GridPreset(this.windowSettings().grid.fast_grid_1, true);
   }
 
-  *GridFast2(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  GridFast2(_aEvent: TOOL_EVENT): number {
     return this.GridPreset(this.windowSettings().grid.fast_grid_2, true);
   }
 
-  *GridFastCycle(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  GridFastCycle(_aEvent: TOOL_EVENT): number {
     const grid = this.windowSettings().grid;
 
     if (grid.last_size_idx === grid.fast_grid_1) return this.GridPreset(grid.fast_grid_2, true);
@@ -544,17 +541,17 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
     return this.GridPreset(grid.fast_grid_1, true);
   }
 
-  *ToggleGrid(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  ToggleGrid(_aEvent: TOOL_EVENT): number {
     this.frame().SetGridVisibility(!this.frame().IsGridVisible());
     return 0;
   }
 
-  *ToggleGridOverrides(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  ToggleGridOverrides(_aEvent: TOOL_EVENT): number {
     this.frame().SetGridOverrides(!this.frame().IsGridOverridden());
     return 0;
   }
 
-  *GridProperties(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  GridProperties(_aEvent: TOOL_EVENT): number {
     const showGridPrefs = (aParentName: string): void => {
       this.frame().CallAfter(() => {
         this.frame().ShowPreferences('Grids', aParentName);
@@ -591,7 +588,7 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
     return 0;
   }
 
-  *GridOrigin(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  GridOrigin(_aEvent: TOOL_EVENT): number {
     const origin = this.frame().GetGridOrigin();
 
     // WX_PT_ENTRY_DIALOG dlg( m_frame, _( "Grid Origin" ), _( "X:" ), _( "Y:" ), origin, true );
@@ -617,7 +614,7 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
 
   // Units control
 
-  *SwitchUnits(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  SwitchUnits(aEvent: TOOL_EVENT): number {
     const newUnit = aEvent.Parameter<EdaUnits>();
 
     if (IsMetricUnit(newUnit)) this.m_metricUnit = newUnit;
@@ -628,18 +625,14 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
     return 0;
   }
 
-  *ToggleUnitsEvent(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
-    return this.ToggleUnits();
-  }
-
-  ToggleUnits(): number {
+  ToggleUnits(_aEvent?: TOOL_EVENT): number {
     this.frame().ChangeUserUnits(
       IsImperialUnit(this.frame().GetUserUnits()) ? this.m_metricUnit : this.m_imperialUnit,
     );
     return 0;
   }
 
-  *TogglePolarCoords(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  TogglePolarCoords(_aEvent: TOOL_EVENT): number {
     this.frame().SetStatusText('');
     this.frame().SetShowPolarCoords(!this.frame().GetShowPolarCoords());
     this.frame().UpdateStatusBar();
@@ -647,7 +640,7 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
     return 0;
   }
 
-  *ResetLocalCoords(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  ResetLocalCoords(_aEvent: TOOL_EVENT): number {
     const screen = this.frame().GetScreen();
 
     if (!screen)
@@ -667,7 +660,7 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
 
   // Cursor control
 
-  *ToggleCursor(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  ToggleCursor(_aEvent: TOOL_EVENT): number {
     const galOpts = this.frame().GetGalDisplayOptions();
 
     galOpts.m_forceDisplayCursor = !galOpts.m_forceDisplayCursor;
@@ -687,19 +680,19 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
     return 0;
   }
 
-  *CursorSmallCrosshairs(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  CursorSmallCrosshairs(_aEvent: TOOL_EVENT): number {
     return this.setCursorMode(CROSS_HAIR_MODE.SMALL_CROSS);
   }
 
-  *CursorFullCrosshairs(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  CursorFullCrosshairs(_aEvent: TOOL_EVENT): number {
     return this.setCursorMode(CROSS_HAIR_MODE.FULLSCREEN_CROSS);
   }
 
-  *Cursor45Crosshairs(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  Cursor45Crosshairs(_aEvent: TOOL_EVENT): number {
     return this.setCursorMode(CROSS_HAIR_MODE.FULLSCREEN_DIAGONAL);
   }
 
-  *ToggleBoundingBoxes(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+  ToggleBoundingBoxes(_aEvent: TOOL_EVENT): number {
     const canvas = this.frame().GetCanvas();
 
     if (canvas) {
@@ -721,67 +714,70 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
 
   ///< Sets up handlers for various events.
   protected setTransitions(): void {
-    this.Go(this.SelectionTool, ACTIONS.selectionTool.MakeEvent());
+    this.Go(SYNC_HANDLER(this.SelectionTool), ACTIONS.selectionTool.MakeEvent());
 
     // Cursor control
-    this.Go(this.CursorControl, ACTIONS.cursorUp.MakeEvent());
-    this.Go(this.CursorControl, ACTIONS.cursorDown.MakeEvent());
-    this.Go(this.CursorControl, ACTIONS.cursorLeft.MakeEvent());
-    this.Go(this.CursorControl, ACTIONS.cursorRight.MakeEvent());
-    this.Go(this.CursorControl, ACTIONS.cursorUpFast.MakeEvent());
-    this.Go(this.CursorControl, ACTIONS.cursorDownFast.MakeEvent());
-    this.Go(this.CursorControl, ACTIONS.cursorLeftFast.MakeEvent());
-    this.Go(this.CursorControl, ACTIONS.cursorRightFast.MakeEvent());
+    this.Go(SYNC_HANDLER(this.CursorControl), ACTIONS.cursorUp.MakeEvent());
+    this.Go(SYNC_HANDLER(this.CursorControl), ACTIONS.cursorDown.MakeEvent());
+    this.Go(SYNC_HANDLER(this.CursorControl), ACTIONS.cursorLeft.MakeEvent());
+    this.Go(SYNC_HANDLER(this.CursorControl), ACTIONS.cursorRight.MakeEvent());
+    this.Go(SYNC_HANDLER(this.CursorControl), ACTIONS.cursorUpFast.MakeEvent());
+    this.Go(SYNC_HANDLER(this.CursorControl), ACTIONS.cursorDownFast.MakeEvent());
+    this.Go(SYNC_HANDLER(this.CursorControl), ACTIONS.cursorLeftFast.MakeEvent());
+    this.Go(SYNC_HANDLER(this.CursorControl), ACTIONS.cursorRightFast.MakeEvent());
 
-    this.Go(this.CursorControl, ACTIONS.cursorClick.MakeEvent());
-    this.Go(this.CursorControl, ACTIONS.cursorDblClick.MakeEvent());
-    this.Go(this.CursorControl, ACTIONS.showContextMenu.MakeEvent());
+    this.Go(SYNC_HANDLER(this.CursorControl), ACTIONS.cursorClick.MakeEvent());
+    this.Go(SYNC_HANDLER(this.CursorControl), ACTIONS.cursorDblClick.MakeEvent());
+    this.Go(SYNC_HANDLER(this.CursorControl), ACTIONS.showContextMenu.MakeEvent());
 
     // Pan control
-    this.Go(this.PanControl, ACTIONS.panUp.MakeEvent());
-    this.Go(this.PanControl, ACTIONS.panDown.MakeEvent());
-    this.Go(this.PanControl, ACTIONS.panLeft.MakeEvent());
-    this.Go(this.PanControl, ACTIONS.panRight.MakeEvent());
+    this.Go(SYNC_HANDLER(this.PanControl), ACTIONS.panUp.MakeEvent());
+    this.Go(SYNC_HANDLER(this.PanControl), ACTIONS.panDown.MakeEvent());
+    this.Go(SYNC_HANDLER(this.PanControl), ACTIONS.panLeft.MakeEvent());
+    this.Go(SYNC_HANDLER(this.PanControl), ACTIONS.panRight.MakeEvent());
 
     // Zoom control
-    this.Go(this.ZoomRedraw, ACTIONS.zoomRedraw.MakeEvent());
-    this.Go(this.ZoomInOut, ACTIONS.zoomIn.MakeEvent());
-    this.Go(this.ZoomInOut, ACTIONS.zoomOut.MakeEvent());
-    this.Go(this.ZoomInOutCenter, ACTIONS.zoomInCenter.MakeEvent());
-    this.Go(this.ZoomInOutCenter, ACTIONS.zoomOutCenter.MakeEvent());
-    this.Go(this.ZoomCenter, ACTIONS.zoomCenter.MakeEvent());
-    this.Go(this.ZoomFitScreen, ACTIONS.zoomFitScreen.MakeEvent());
-    this.Go(this.ZoomFitObjects, ACTIONS.zoomFitObjects.MakeEvent());
-    this.Go(this.ZoomFitSelection, ACTIONS.zoomFitSelection.MakeEvent());
-    this.Go(this.ZoomPreset, ACTIONS.zoomPreset.MakeEvent());
-    this.Go(this.CenterContents, ACTIONS.centerContents.MakeEvent());
-    this.Go(this.CenterSelection, ACTIONS.centerSelection.MakeEvent());
+    this.Go(SYNC_HANDLER(this.ZoomRedraw), ACTIONS.zoomRedraw.MakeEvent());
+    this.Go(SYNC_HANDLER(this.ZoomInOut), ACTIONS.zoomIn.MakeEvent());
+    this.Go(SYNC_HANDLER(this.ZoomInOut), ACTIONS.zoomOut.MakeEvent());
+    this.Go(SYNC_HANDLER(this.ZoomInOutCenter), ACTIONS.zoomInCenter.MakeEvent());
+    this.Go(SYNC_HANDLER(this.ZoomInOutCenter), ACTIONS.zoomOutCenter.MakeEvent());
+    this.Go(SYNC_HANDLER(this.ZoomCenter), ACTIONS.zoomCenter.MakeEvent());
+    this.Go(SYNC_HANDLER(this.ZoomFitScreen), ACTIONS.zoomFitScreen.MakeEvent());
+    this.Go(SYNC_HANDLER(this.ZoomFitObjects), ACTIONS.zoomFitObjects.MakeEvent());
+    this.Go(SYNC_HANDLER(this.ZoomFitSelection), ACTIONS.zoomFitSelection.MakeEvent());
+    this.Go(SYNC_HANDLER(this.ZoomPreset), ACTIONS.zoomPreset.MakeEvent());
+    this.Go(SYNC_HANDLER(this.CenterContents), ACTIONS.centerContents.MakeEvent());
+    this.Go(SYNC_HANDLER(this.CenterSelection), ACTIONS.centerSelection.MakeEvent());
 
     // Grid control
-    this.Go(this.GridNext, ACTIONS.gridNext.MakeEvent());
-    this.Go(this.GridPrev, ACTIONS.gridPrev.MakeEvent());
-    this.Go(this.GridPresetEvent, ACTIONS.gridPreset.MakeEvent());
-    this.Go(this.GridFast1, ACTIONS.gridFast1.MakeEvent());
-    this.Go(this.GridFast2, ACTIONS.gridFast2.MakeEvent());
-    this.Go(this.GridFastCycle, ACTIONS.gridFastCycle.MakeEvent());
-    this.Go(this.ToggleGrid, ACTIONS.toggleGrid.MakeEvent());
-    this.Go(this.ToggleGridOverrides, ACTIONS.toggleGridOverrides.MakeEvent());
-    this.Go(this.GridProperties, ACTIONS.gridProperties.MakeEvent());
-    this.Go(this.GridOrigin, ACTIONS.gridOrigin.MakeEvent());
+    this.Go(SYNC_HANDLER(this.GridNext), ACTIONS.gridNext.MakeEvent());
+    this.Go(SYNC_HANDLER(this.GridPrev), ACTIONS.gridPrev.MakeEvent());
+    this.Go(
+      SYNC_HANDLER(this.GridPreset as (aEvent: TOOL_EVENT) => number),
+      ACTIONS.gridPreset.MakeEvent(),
+    );
+    this.Go(SYNC_HANDLER(this.GridFast1), ACTIONS.gridFast1.MakeEvent());
+    this.Go(SYNC_HANDLER(this.GridFast2), ACTIONS.gridFast2.MakeEvent());
+    this.Go(SYNC_HANDLER(this.GridFastCycle), ACTIONS.gridFastCycle.MakeEvent());
+    this.Go(SYNC_HANDLER(this.ToggleGrid), ACTIONS.toggleGrid.MakeEvent());
+    this.Go(SYNC_HANDLER(this.ToggleGridOverrides), ACTIONS.toggleGridOverrides.MakeEvent());
+    this.Go(SYNC_HANDLER(this.GridProperties), ACTIONS.gridProperties.MakeEvent());
+    this.Go(SYNC_HANDLER(this.GridOrigin), ACTIONS.gridOrigin.MakeEvent());
 
     // Units and coordinates
-    this.Go(this.SwitchUnits, ACTIONS.inchesUnits.MakeEvent());
-    this.Go(this.SwitchUnits, ACTIONS.milsUnits.MakeEvent());
-    this.Go(this.SwitchUnits, ACTIONS.millimetersUnits.MakeEvent());
-    this.Go(this.ToggleUnitsEvent, ACTIONS.toggleUnits.MakeEvent());
-    this.Go(this.TogglePolarCoords, ACTIONS.togglePolarCoords.MakeEvent());
-    this.Go(this.ResetLocalCoords, ACTIONS.resetLocalCoords.MakeEvent());
+    this.Go(SYNC_HANDLER(this.SwitchUnits), ACTIONS.inchesUnits.MakeEvent());
+    this.Go(SYNC_HANDLER(this.SwitchUnits), ACTIONS.milsUnits.MakeEvent());
+    this.Go(SYNC_HANDLER(this.SwitchUnits), ACTIONS.millimetersUnits.MakeEvent());
+    this.Go(SYNC_HANDLER(this.ToggleUnits), ACTIONS.toggleUnits.MakeEvent());
+    this.Go(SYNC_HANDLER(this.TogglePolarCoords), ACTIONS.togglePolarCoords.MakeEvent());
+    this.Go(SYNC_HANDLER(this.ResetLocalCoords), ACTIONS.resetLocalCoords.MakeEvent());
 
     // Misc
-    this.Go(this.ToggleCursor, ACTIONS.toggleCursor.MakeEvent());
-    this.Go(this.CursorSmallCrosshairs, ACTIONS.cursorSmallCrosshairs.MakeEvent());
-    this.Go(this.CursorFullCrosshairs, ACTIONS.cursorFullCrosshairs.MakeEvent());
-    this.Go(this.Cursor45Crosshairs, ACTIONS.cursor45Crosshairs.MakeEvent());
-    this.Go(this.ToggleBoundingBoxes, ACTIONS.toggleBoundingBoxes.MakeEvent());
+    this.Go(SYNC_HANDLER(this.ToggleCursor), ACTIONS.toggleCursor.MakeEvent());
+    this.Go(SYNC_HANDLER(this.CursorSmallCrosshairs), ACTIONS.cursorSmallCrosshairs.MakeEvent());
+    this.Go(SYNC_HANDLER(this.CursorFullCrosshairs), ACTIONS.cursorFullCrosshairs.MakeEvent());
+    this.Go(SYNC_HANDLER(this.Cursor45Crosshairs), ACTIONS.cursor45Crosshairs.MakeEvent());
+    this.Go(SYNC_HANDLER(this.ToggleBoundingBoxes), ACTIONS.toggleBoundingBoxes.MakeEvent());
   }
 }

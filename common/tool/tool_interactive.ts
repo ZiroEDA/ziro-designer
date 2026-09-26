@@ -27,6 +27,20 @@ export interface TOOL_MENU {
   GetMenu(): ACTION_MENU;
 }
 
+/**
+ * A C++ handler is a plain `int f( const TOOL_EVENT& )`; a state function
+ * here is a coroutine body. A handler that never waits is wrapped in a
+ * generator that returns its result at once.
+ */
+export function SYNC_HANDLER<T extends TOOL_INTERACTIVE>(
+  f: (this: T, aEvent: TOOL_EVENT) => number,
+): TOOL_STATE_FUNC {
+  // biome-ignore lint/correctness/useYield: a plain handler, returned as a finished coroutine
+  return function* (this: T, aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    return f.call(this, aEvent);
+  } as TOOL_STATE_FUNC;
+}
+
 export abstract class TOOL_INTERACTIVE extends TOOL_BASE {
   protected m_menu: TOOL_MENU | null = null;
 

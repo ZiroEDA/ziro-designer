@@ -130,6 +130,11 @@ beforeEach(() => {
 
 describe('COMMON_TOOLS zoom in and out', () => {
   it('steps x1.3 then to the next GerbView preset at or past it', () => {
+    // 0.8 x 1.3 = 1.04, past the 1.0 preset: 2.2. (A x1.2 step would stop at 1.0.)
+    env.gal.SetZoomFactor(0.8);
+    env.mgr.RunAction(ACTIONS.zoomInCenter);
+    expect(env.gal.GetZoomFactor()).toBe(2.2);
+
     env.gal.SetZoomFactor(1.0);
     env.mgr.RunAction(ACTIONS.zoomInCenter);
     // 1.3 -> the first preset >= 1.3 in ZOOM_LIST_GERBVIEW is 2.2
@@ -164,6 +169,16 @@ describe('COMMON_TOOLS grid', () => {
     // gerbIUScale: 1e5 IU per mm, the grid's mm strings parsed as DoubleValueFromString does
     const expectedX = Math.round(Number.parseFloat(g0.x) * (g0.x.includes('mil') ? 2540 : 1e5));
     expect(env.gal.GetGridSize().x).toBe(expectedX);
+  });
+
+  it('a preset puts THAT grid on the GAL', () => {
+    const grid = env.frame.cfg.m_Window.grid;
+
+    env.mgr.RunAction(ACTIONS.gridPreset, 2);
+
+    expect(grid.last_size_idx).toBe(2);
+    expect(env.gal.GetGridSize()).toEqual(env.tools.Grids()[2]);
+    expect(env.tools.Grids()[2]).not.toEqual(env.tools.Grids()[0]);
   });
 
   it('prev wraps to the last grid', () => {

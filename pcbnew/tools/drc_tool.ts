@@ -13,7 +13,7 @@
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import type { PROGRESS_REPORTER } from '@ziroeda/common/progress_reporter.js';
 import type { RC_ITEM } from '@ziroeda/common/rc_item.js';
-import type { COROUTINE_BODY } from '@ziroeda/common/tool/coroutine.js';
+import { SYNC_HANDLER } from '@ziroeda/common/tool/tool_interactive.js';
 import type { RESET_REASON, TOOL_STATE_FUNC } from '@ziroeda/common/tool/tool_base.js';
 import { EVENTS, type TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
 import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
@@ -509,14 +509,8 @@ export class DRC_TOOL extends PCB_TOOL_BASE {
 
   ///< Set up handlers for various events.
   protected override setTransitions(): void {
-    // The C++ handlers are plain `int f( const TOOL_EVENT& )`; a state function
-    // here is a coroutine body, so each is wrapped in a generator that returns
-    // its result at once.
-    const sync = (f: (aEvent: TOOL_EVENT) => number): TOOL_STATE_FUNC =>
-      // biome-ignore lint/correctness/useYield: a plain handler, returned as a finished coroutine
-      function* (this: DRC_TOOL, aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
-        return f.call(this, aEvent);
-      };
+    // The C++ handlers are plain `int f( const TOOL_EVENT& )` (SYNC_HANDLER).
+    const sync = (f: (aEvent: TOOL_EVENT) => number): TOOL_STATE_FUNC => SYNC_HANDLER<DRC_TOOL>(f);
 
     this.Go(
       sync(this.ShowDRCDialog as (aEvent: TOOL_EVENT) => number),
