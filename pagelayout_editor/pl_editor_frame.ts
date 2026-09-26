@@ -2,7 +2,1016 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * pl_editor's own status-bar field widths.
+ * `pagelayout_editor/pl_editor_frame.h` + `pl_editor_frame.cpp`:
+ * `PL_EDITOR_FRAME`, the Drawing Sheet Editor's frame, on `EDA_DRAW_FRAME` —
+ * the page it previews on, the coordinate origin and page choices, the tools,
+ * the UI conditions, the status bar, and the item it adds for a drawing tool.
+ *
+ * Below the class, the parts of this file the React window
+ * (`designer/.../DrawingSheetEditor.tsx`) still calls directly while the frame
+ * is not hosted: the status bar's `dims[]`, the coordinate panes, the
+ * `setupUIConditions` rules over its React state, and the page half of
+ * `LoadSettings` / `SaveSettings`. STRUCTURE.md says why both exist.
+ */
+
+import { BASE_SCREEN } from '@ziroeda/common/base_screen.js';
+import { BITMAP_BASE } from '@ziroeda/common/bitmap_base.js';
+import { type Color4d, LEGACY_COLORS } from '@ziroeda/common/color4d.js';
+import { PAPER_MM } from '@ziroeda/common';
+import type { PageSettingsValue } from '@ziroeda/common/dialogs/dialog_page_settings.js';
+import {
+  CORNER_ANCHOR,
+  DS_DATA_ITEM,
+  DS_DATA_ITEM_BITMAP,
+  DS_DATA_ITEM_POLYGONS,
+  DS_DATA_ITEM_TEXT,
+  DS_ITEM_TYPE,
+} from '@ziroeda/common/drawing_sheet/ds_data_item.js';
+import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
+import type { DS_DRAW_ITEM_BASE } from '@ziroeda/common/drawing_sheet/ds_draw_item.js';
+import { UNDO_REDO_LIST } from '@ziroeda/common/eda_base_frame.js';
+import { EDA_DRAW_FRAME, PL_EDITOR_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
+import { drawSheetIUScale, toUserUnit } from '@ziroeda/common/eda_units.js';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import { LAYER_DRAWINGSHEET_PAGE1, LAYER_DRAWINGSHEET_PAGEn } from '@ziroeda/common/layer_id.js';
+import { ORIGIN_TRANSFORMS } from '@ziroeda/common/origin_transforms.js';
+import { PAGE_INFO } from '@ziroeda/common/page_info.js';
+import { DEFAULT_THEME, GetColorSettings, PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import type { PROJECT } from '@ziroeda/common/project.js';
+import { formatG } from '@ziroeda/common/string_utils.js';
+import type { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
+import { ACTION_CONDITIONS } from '@ziroeda/common/tool/action_manager.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { COMMON_TOOLS } from '@ziroeda/common/tool/common_tools.js';
+import type { SELECTION } from '@ziroeda/common/tool/selection.js';
+import {
+  type SELECTION_CONDITION,
+  SELECTION_CONDITIONS,
+} from '@ziroeda/common/tool/selection_conditions.js';
+import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
+import { TOOL_DISPATCHER } from '@ziroeda/common/tool/tool_dispatcher.js';
+import {
+  TOOL_MANAGER,
+  type TOOL_MANAGER_VIEW_CONTROLS,
+} from '@ziroeda/common/tool/tool_manager.js';
+import { ZOOM_TOOL } from '@ziroeda/common/tool/zoom_tool.js';
+import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import { wxChoice } from '@ziroeda/common/wx/choice.js';
+import type { WX_IMAGE } from '@ziroeda/common/wx_image.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { InsertDrawingSheetFile, LoadDrawingSheetFile, SaveDrawingSheetFile } from './files.js';
+import type { PL_DRAW_PANEL_GAL } from './pl_draw_panel_gal.js';
+import { PL_EDITOR_LAYOUT } from './pl_editor_layout.js';
+import type { PL_EDITOR_SETTINGS, PL_EDITOR_SETTINGS_JSON } from './pl_editor_settings.js';
+import {
+  GetLayoutFromRedoList,
+  GetLayoutFromUndoList,
+  RollbackFromUndo,
+  SaveCopyInUndoList,
+} from './pl_editor_undo_redo.js';
+import { PL_ACTIONS } from './tools/pl_actions.js';
+import { PL_DRAWING_TOOLS } from './tools/pl_drawing_tools.js';
+import { PL_EDIT_TOOL } from './tools/pl_edit_tool.js';
+import { PL_EDITOR_CONTROL } from './tools/pl_editor_control.js';
+import { PL_SELECTION_TOOL } from './tools/pl_selection_tool.js';
+
+/** `PL_EDITOR_FRAME_NAME`, the frame's wx name (common/eda_draw_frame.ts has it). [data] */
+export { PL_EDITOR_FRAME_NAME };
+
+/**
+ * The docked properties panel as the frame drives it: `PROPERTIES_FRAME`'s
+ * two calls (`dialogs/properties_frame.cpp`), which the page's
+ * `properties_frame_ui.tsx` answers.
+ */
+export interface PROPERTIES_FRAME_LIKE {
+  CopyPrmsFromItemToPanel(aItem: DS_DATA_ITEM | null): void;
+  CopyPrmsFromGeneralToPanel(): void;
+  /** `GetSize().x`, for `SaveSettings`' `m_propertiesFrameWidth`. */
+  GetWidth(): number;
+}
+
+/**
+ * What the frame asks of the page that hosts it, in place of the wx calls a
+ * browser answers differently: the title bar, the modal message box, and the
+ * file writes a desktop would make itself.
+ */
+export interface PL_EDITOR_FRAME_HOST {
+  /** `wxFrame::SetTitle`. */
+  SetTitle(aTitle: string): void;
+  /** `DisplayErrorMessage( this, aText, aExtraInfo )` / `wxMessageBox`. */
+  DisplayErrorMessage(aText: string, aExtraInfo?: string): void;
+  /**
+   * Write `aContents` to `aFullFileName` (the temp-file-and-rename of
+   * `SaveDrawingSheetFile`). False when the write failed.
+   */
+  WriteFile(aFullFileName: string, aContents: string): boolean;
+  /** `wxFileExists` and the file's text, or null when there is no such file. */
+  ReadFile(aFullFileName: string): string | null;
+  /** `UpdateFileHistory( aFullFileName )`. */
+  UpdateFileHistory(aFullFileName: string): void;
+  /** `m_infoBar->ShowMessage` / `Dismiss` for the "older version" warning. */
+  ShowOutdatedSaveInfoBar(aShow: boolean): void;
+  /** `Files_io( event )`: the file commands, whose dialogs are the page's. */
+  Files_io(aId: PL_FILES_IO_ID): void;
+  /** `ToPrinter( doPreview )`: the print dialog. */
+  ToPrinter(aDoPreview: boolean): void;
+  /** `ShowDesignInspector()`: the modal `DIALOG_INSPECTOR`. */
+  ShowDesignInspector(): void;
+  /** `DIALOG_PAGES_SETTINGS::ShowModal() == wxID_OK`. */
+  ShowPageSettingsDialog(): boolean;
+  /**
+   * The "Choose Image" `wxFileDialog` (`ImageFileWildcard()`, starting in
+   * `aDefaultDir`): the chosen file's path and bytes, or null on Cancel.
+   */
+  ChooseImageFile(aDefaultDir: string): { path: string; data: Uint8Array } | null;
+  /** `SaveClipboard( aTextUTF8 )` (common/clipboard.cpp). */
+  SaveClipboard(aText: string): boolean;
+  /** `GetClipboardUTF8()`: the text a paste carries. */
+  GetClipboardUTF8(): string;
+  /** `GetImageFromClipboard()`: the image a paste carries, or null. */
+  GetImageFromClipboard(): WX_IMAGE | null;
+  /** `ShowInfoBarMsg( aMsg )`. */
+  ShowInfoBarMsg(aMsg: string): void;
+  /** `GetInfoBar()->Dismiss()`. */
+  DismissInfoBar(): void;
+}
+
+/** The command ids `Files_io` dispatches on (`wxID_*`, `ID_APPEND_DESCR_FILE`). */
+export type PL_FILES_IO_ID =
+  | 'wxID_NEW'
+  | 'wxID_OPEN'
+  | 'wxID_SAVE'
+  | 'wxID_SAVEAS'
+  | 'ID_APPEND_DESCR_FILE';
+
+/**
+ * The main window used in the drawing sheet editor.
+ *
+ * The wx window construction (AUI panes, icons, the menu bar, the status
+ * bar's widths) is the page's (`designer/.../DrawingSheetEditor.tsx`), which
+ * builds the frame and hands it the canvas with
+ * {@link PL_EDITOR_FRAME.AttachCanvas}: the half of the C++ constructor that
+ * runs once the GAL panel exists. The members KiCad defines in other files
+ * keep their files — `files.ts` (`LoadDrawingSheetFile`,
+ * `InsertDrawingSheetFile`, `SaveDrawingSheetFile`) and
+ * `pl_editor_undo_redo.ts` (`SaveCopyInUndoList` and the three pops) — and are
+ * bound here.
+ */
+export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
+  protected m_propertiesPagelayout: PROPERTIES_FRAME_LIKE | null;
+
+  private m_pageLayout = new PL_EDITOR_LAYOUT();
+  private m_propertiesFrameWidth: number; // last width (in pixels) of m_propertiesPagelayout
+  private m_originSelectBox: wxChoice; // Corner origin choice for coordinates
+  private m_originSelectChoice: number; // the last choice for m_originSelectBox
+  // The page number sel'ector (page 1 or other pages useful when there are some items which
+  // are only on page 1, not on page 1
+  private m_pageSelectBox: wxChoice;
+  private m_mruImagePath: string; // Most recently used path for placing a new image
+  private m_grid_origin: VECTOR2I = { x: 0, y: 0 };
+
+  /// `EDA_DRAW_FRAME::m_drawBgColor`, which our base does not carry yet.
+  private m_drawBgColor: Color4d = LEGACY_COLORS.WHITE;
+  private m_settings: PL_EDITOR_SETTINGS;
+  private m_host: PL_EDITOR_FRAME_HOST | null = null;
+  private m_originTransforms = new ORIGIN_TRANSFORMS();
+  private m_aboutTitle: string;
+
+  private m_originChoiceList: readonly string[] = [
+    'Left Top paper corner',
+    'Right Bottom page corner',
+    'Left Bottom page corner',
+    'Right Top page corner',
+    'Left Top page corner',
+  ];
+
+  constructor(aSettings: PL_EDITOR_SETTINGS) {
+    super(FRAME_T.FRAME_PL_EDITOR, drawSheetIUScale, 'mm');
+
+    this.m_settings = aSettings;
+    this.m_propertiesPagelayout = null;
+    this.m_propertiesFrameWidth = 200;
+    this.m_originSelectChoice = 0;
+    this.m_mruImagePath = '';
+
+    this.SetUserUnits('mm');
+
+    this.m_showBorderAndTitleBlock = true; // true for reference drawings.
+    DS_DATA_MODEL.GetTheInstance().m_EditMode = true;
+    this.m_aboutTitle = 'KiCad Drawing Sheet Editor';
+
+    // The two toolbar choice boxes `configureToolbars` makes
+    // (toolbars_pl_editor.cpp:152-185).
+    this.m_originSelectBox = new wxChoice(this.m_originChoiceList);
+    this.m_originSelectBox.SetSelection(this.m_originSelectChoice);
+    this.m_pageSelectBox = new wxChoice(['Page 1', 'Other pages']);
+    this.m_pageSelectBox.SetSelection(0);
+  }
+
+  GetName(): string {
+    return PL_EDITOR_FRAME_NAME;
+  }
+
+  GetOriginTransforms(): ORIGIN_TRANSFORMS {
+    return this.m_originTransforms;
+  }
+
+  override config(): PL_EDITOR_SETTINGS {
+    return this.m_settings;
+  }
+
+  /** The page's answers to the frame's wx calls. */
+  SetHost(aHost: PL_EDITOR_FRAME_HOST | null): void {
+    this.m_host = aHost;
+  }
+
+  GetHost(): PL_EDITOR_FRAME_HOST | null {
+    return this.m_host;
+  }
+
+  /** `m_aboutTitle`. */
+  GetAboutTitle(): string {
+    return this.m_aboutTitle;
+  }
+
+  /**
+   * The rest of the constructor, once the page has made the canvas and the
+   * properties panel: settings, screen, tools, UI conditions, units, the
+   * grid origin and the default drawing sheet.
+   */
+  AttachCanvas(aCanvas: PL_DRAW_PANEL_GAL, aProperties: PROPERTIES_FRAME_LIKE | null): void {
+    this.SetCanvas(aCanvas);
+
+    this.LoadSettings(this.config());
+
+    const pageSizeIU = this.GetPageLayout()
+      .GetPageSettings()
+      .GetSizeIU(drawSheetIUScale.IU_PER_MILS);
+    this.SetScreen(new BASE_SCREEN(pageSizeIU));
+
+    this.setupTools();
+    this.setupUIConditions();
+
+    this.m_propertiesPagelayout = aProperties;
+
+    this.SwitchCanvas(this.m_canvasType);
+
+    // Add the exit key handler
+    this.setupUnits(this.config());
+
+    const originCoord = this.ReturnCoordOriginCorner();
+    this.SetGridOrigin(originCoord);
+
+    // Initialize the current drawing sheet
+    // start with the default KiCad layout
+    DS_DATA_MODEL.GetTheInstance().LoadDrawingSheet('', null);
+    this.OnNewDrawingSheet();
+  }
+
+  /** `~PL_EDITOR_FRAME()` / `doCloseWindow()`. */
+  Destroy(): void {
+    this.m_isClosing = true;
+
+    // Ensure m_canvasType is up to date, to save it in config
+    const canvas = this.GetCanvas();
+
+    if (canvas) this.m_canvasType = canvas.GetBackend();
+
+    // Shutdown all running tools
+    if (this.m_toolManager) this.m_toolManager.ShutdownAllTools();
+
+    // clean up the data before the view is destroyed
+    DS_DATA_MODEL.GetTheInstance().ClearList();
+
+    canvas?.Destroy();
+    this.SetCanvas(null);
+  }
+
+  GetPropertiesFrame(): PROPERTIES_FRAME_LIKE | null {
+    return this.m_propertiesPagelayout;
+  }
+
+  /** The toolbar's origin choice box (`ID_SELECT_COORDINATE_ORIGIN`). */
+  GetOriginSelectBox(): wxChoice {
+    return this.m_originSelectBox;
+  }
+
+  /** The toolbar's page choice box (`ID_SELECT_PAGE_NUMBER`). */
+  GetPageSelectBox(): wxChoice {
+    return this.m_pageSelectBox;
+  }
+
+  OpenProjectFiles(aFileSet: readonly string[], _aCtl = 0): boolean {
+    const fn = aFileSet[0]!;
+
+    if (!this.LoadDrawingSheetFile(fn)) {
+      this.m_host?.DisplayErrorMessage(`Error loading drawing sheet '${fn}'.`);
+      return false;
+    } else {
+      this.OnNewDrawingSheet();
+      return true;
+    }
+  }
+
+  // ---- files.cpp ------------------------------------------------------------
+
+  /**
+   * Load a .kicad_wks drawing sheet file.
+   *
+   * @param aFullFileName is the filename.
+   */
+  LoadDrawingSheetFile(aFullFileName: string): boolean {
+    return LoadDrawingSheetFile(this, aFullFileName);
+  }
+
+  /**
+   * Save the current layout in a .kicad_wks drawing sheet file.
+   *
+   * @param aFullFileName is the filename.
+   */
+  SaveDrawingSheetFile(aFullFileName: string): boolean {
+    return SaveDrawingSheetFile(this, aFullFileName);
+  }
+
+  /**
+   * Load a .kicad_wks drawing sheet file, and add items to the current layout list.
+   *
+   * @param aFullFileName is the filename.
+   */
+  InsertDrawingSheetFile(aFullFileName: string): boolean {
+    return InsertDrawingSheetFile(this, aFullFileName);
+  }
+
+  /**
+   * Get if the drawing sheet has been modified but not saved.
+   *
+   * @return true if the any changes have not been saved
+   */
+  IsContentModified(): boolean {
+    return this.GetScreen()?.IsContentModified() ?? false;
+  }
+
+  // The Tool Framework initialization
+  setupTools(): void {
+    // Create the manager and dispatcher & route draw panel events to the dispatcher
+    this.m_toolManager = new TOOL_MANAGER();
+    this.m_toolManager.SetEnvironment(
+      null,
+      this.GetCanvas()!.GetView(),
+      this.GetCanvas()!.GetViewControls() as unknown as TOOL_MANAGER_VIEW_CONTROLS,
+      this.config(),
+      this,
+    );
+    this.m_actions = new PL_ACTIONS();
+    this.m_toolDispatcher = new TOOL_DISPATCHER(this.m_toolManager);
+
+    this.GetCanvas()!.SetEventDispatcher(this.m_toolDispatcher);
+
+    // Register tools
+    // COMMON_CONTROL and PICKER_TOOL are not ported to common/tool yet
+    // (STRUCTURE.md); the page's menus answer COMMON_CONTROL's actions.
+    this.m_toolManager.RegisterTool(new COMMON_TOOLS());
+    this.m_toolManager.RegisterTool(new ZOOM_TOOL());
+    this.m_toolManager.RegisterTool(new PL_SELECTION_TOOL());
+    this.m_toolManager.RegisterTool(new PL_EDITOR_CONTROL());
+    this.m_toolManager.RegisterTool(new PL_DRAWING_TOOLS());
+    this.m_toolManager.RegisterTool(new PL_EDIT_TOOL());
+    this.m_toolManager.InitTools();
+
+    // Run the selection tool, it is supposed to be always active
+    this.m_toolManager.InvokeTool('common.InteractiveSelection');
+  }
+
+  /**
+   * `setupUIConditions()`. `EDA_DRAW_FRAME::setupUIConditions` and
+   * `EDITOR_CONDITIONS` are not in common/ yet: the five conditions this
+   * frame asks `EDITOR_CONDITIONS` for are written out as
+   * editor_conditions.cpp:169-204 defines them.
+   */
+  protected setupUIConditions(): void {
+    const mgr = this.m_toolManager!.GetActionManager();
+
+    // EDITOR_CONDITIONS cond( this ): undoFunc, redoFunc, gridFunc, noToolFunc, toolFunc.
+    const cond = {
+      UndoAvailable: (): SELECTION_CONDITION => () => this.GetUndoCommandCount() > 0,
+      RedoAvailable: (): SELECTION_CONDITION => () => this.GetRedoCommandCount() > 0,
+      GridVisible: (): SELECTION_CONDITION => () => this.IsGridVisible(),
+      NoActiveTool: (): SELECTION_CONDITION => () => this.ToolStackIsEmpty(),
+      CurrentTool:
+        (aTool: TOOL_ACTION): SELECTION_CONDITION =>
+        () =>
+          this.IsCurrentTool(aTool),
+    };
+
+    const ENABLE = (x: SELECTION_CONDITION): ACTION_CONDITIONS => new ACTION_CONDITIONS().Enable(x);
+    const CHECK = (x: SELECTION_CONDITION): ACTION_CONDITIONS => new ACTION_CONDITIONS().Check(x);
+
+    mgr.SetConditions(ACTIONS.save, ENABLE(SELECTION_CONDITIONS.ShowAlways));
+    mgr.SetConditions(ACTIONS.undo, ENABLE(cond.UndoAvailable()));
+    mgr.SetConditions(ACTIONS.redo, ENABLE(cond.RedoAvailable()));
+
+    mgr.SetConditions(ACTIONS.toggleGrid, CHECK(cond.GridVisible()));
+
+    mgr.SetConditions(ACTIONS.cut, ENABLE(SELECTION_CONDITIONS.NotEmpty));
+    mgr.SetConditions(ACTIONS.copy, ENABLE(SELECTION_CONDITIONS.NotEmpty));
+    mgr.SetConditions(
+      ACTIONS.paste,
+      ENABLE(SELECTION_CONDITIONS.And(SELECTION_CONDITIONS.Idle, cond.NoActiveTool())),
+    );
+    mgr.SetConditions(ACTIONS.doDelete, ENABLE(SELECTION_CONDITIONS.NotEmpty));
+
+    mgr.SetConditions(ACTIONS.zoomTool, CHECK(cond.CurrentTool(ACTIONS.zoomTool)));
+    mgr.SetConditions(ACTIONS.selectionTool, CHECK(cond.CurrentTool(ACTIONS.selectionTool)));
+    mgr.SetConditions(ACTIONS.deleteTool, CHECK(cond.CurrentTool(ACTIONS.deleteTool)));
+
+    mgr.SetConditions(PL_ACTIONS.drawLine, CHECK(cond.CurrentTool(PL_ACTIONS.drawLine)));
+    mgr.SetConditions(PL_ACTIONS.drawRectangle, CHECK(cond.CurrentTool(PL_ACTIONS.drawRectangle)));
+    mgr.SetConditions(PL_ACTIONS.placeText, CHECK(cond.CurrentTool(PL_ACTIONS.placeText)));
+    mgr.SetConditions(PL_ACTIONS.placeImage, CHECK(cond.CurrentTool(PL_ACTIONS.placeImage)));
+
+    // Not a tool, just a way to activate the action
+    mgr.SetConditions(PL_ACTIONS.appendImportedDrawingSheet, CHECK(SELECTION_CONDITIONS.ShowNever));
+
+    const titleBlockNormalMode = (_s: SELECTION): boolean =>
+      DS_DATA_MODEL.GetTheInstance().m_EditMode === false;
+
+    const titleBlockEditMode = (_s: SELECTION): boolean =>
+      DS_DATA_MODEL.GetTheInstance().m_EditMode === true;
+
+    mgr.SetConditions(PL_ACTIONS.layoutNormalMode, CHECK(titleBlockNormalMode));
+    mgr.SetConditions(PL_ACTIONS.layoutEditMode, CHECK(titleBlockEditMode));
+  }
+
+  SetPageSettings(aPageSettings: PAGE_INFO): void {
+    this.m_pageLayout.SetPageSettings(aPageSettings);
+
+    const screen = this.GetScreen();
+
+    if (screen) screen.InitDataPoints(aPageSettings.GetSizeIU(drawSheetIUScale.IU_PER_MILS));
+  }
+
+  GetPageSettings(): PAGE_INFO {
+    return this.m_pageLayout.GetPageSettings();
+  }
+
+  GetPageSizeIU(): VECTOR2I {
+    // this function is only needed because EDA_DRAW_FRAME is not compiled
+    // with either -DPCBNEW or -DEESCHEMA, so the virtual is used to route
+    // into an application specific source file.
+    return this.m_pageLayout.GetPageSettings().GetSizeIU(drawSheetIUScale.IU_PER_MILS);
+  }
+
+  override GetCanvas(): PL_DRAW_PANEL_GAL | null {
+    return super.GetCanvas() as PL_DRAW_PANEL_GAL | null;
+  }
+
+  override GetCurrentSelection(): SELECTION {
+    return this.m_toolManager!.GetTool(PL_SELECTION_TOOL)!.GetSelection();
+  }
+
+  GetGridOrigin(): VECTOR2I {
+    return this.m_grid_origin;
+  }
+
+  SetGridOrigin(aPoint: VECTOR2I): void {
+    this.m_grid_origin = aPoint;
+
+    const canvas = this.GetCanvas();
+
+    if (canvas) {
+      canvas.GetGAL().SetGridOrigin({ x: aPoint.x, y: aPoint.y });
+      canvas.GetView().MarkDirty();
+    }
+  }
+
+  /**
+   * Calculate the position (in page, in iu) of the corner used as coordinate origin
+   * of items.
+   */
+  ReturnCoordOriginCorner(): VECTOR2I {
+    // calculate the position (in page, in iu) of the corner used as coordinate origin
+    // coordinate origin can be the paper Top Left corner, or each of 4 page corners
+    let originCoord: VECTOR2I = { x: 0, y: 0 };
+
+    // To avoid duplicate code, we use a dummy segment starting at 0,0 in relative coord
+    const dummy = new DS_DATA_ITEM(DS_ITEM_TYPE.DS_SEGMENT);
+
+    switch (this.m_originSelectChoice) {
+      default:
+      case 0: // Origin = paper Left Top corner
+        break;
+
+      case 1: // Origin = page Right Bottom corner
+        dummy.SetStart(0, 0, CORNER_ANCHOR.RB_CORNER);
+        originCoord = dummy.GetStartPosIU();
+        break;
+
+      case 2: // Origin = page Left Bottom corner
+        dummy.SetStart(0, 0, CORNER_ANCHOR.LB_CORNER);
+        originCoord = dummy.GetStartPosIU();
+        break;
+
+      case 3: // Origin = page Right Top corner
+        dummy.SetStart(0, 0, CORNER_ANCHOR.RT_CORNER);
+        originCoord = dummy.GetStartPosIU();
+        break;
+
+      case 4: // Origin = page Left Top corner
+        dummy.SetStart(0, 0, CORNER_ANCHOR.LT_CORNER);
+        originCoord = dummy.GetStartPosIU();
+        break;
+    }
+
+    return originCoord;
+  }
+
+  GetTitleBlock(): TITLE_BLOCK {
+    return this.GetPageLayout().GetTitleBlock();
+  }
+
+  SetTitleBlock(aTitleBlock: TITLE_BLOCK): void {
+    this.m_pageLayout.SetTitleBlock(aTitleBlock);
+  }
+
+  /**
+   * `EDA_BASE_FRAME::Prj()`, or null where no program is running (a test).
+   * KiCad always has one; the drawing sheet list takes null for "no project".
+   */
+  PrjOrNull(): PROJECT | null {
+    return PgmOrNull()?.GetSettingsManager().Prj() ?? null;
+  }
+
+  override CommonSettingsChanged(aFlags = 0): void {
+    super.CommonSettingsChanged(aFlags);
+
+    const cfg = this.m_settings;
+    const colors = GetColorSettings(cfg ? cfg.m_ColorTheme : DEFAULT_THEME);
+
+    // Update gal display options like cursor shape, grid options:
+    this.GetGalDisplayOptions().ReadWindowSettings(cfg.m_Window);
+
+    const canvas = this.GetCanvas()!;
+    canvas.GetView().GetPainter().GetSettings().LoadColors(colors);
+
+    canvas.GetView().UpdateAllItems(VIEW_UPDATE_FLAGS.COLOR);
+    canvas.ForceRefresh();
+  }
+
+  override DisplayGridMsg(): void {
+    let gridformatter: (n: number) => string;
+
+    switch (this.GetUserUnits()) {
+      case 'in':
+        gridformatter = (n) => `grid ${n.toFixed(3)}`;
+        break;
+      case 'mm':
+        gridformatter = (n) => `grid ${n.toFixed(4)}`;
+        break;
+      default:
+        gridformatter = (n) => `grid ${n.toFixed(6)}`;
+        break;
+    }
+
+    const grid = toUserUnit(
+      drawSheetIUScale,
+      this.GetUserUnits(),
+      this.GetCanvas()!.GetGAL().GetGridSize().x,
+    );
+    const line = gridformatter(grid);
+
+    this.SetStatusText(line, 4);
+  }
+
+  override UpdateStatusBar(): void {
+    // Display Zoom level:
+    this.SetStatusText(this.GetZoomLevelIndicator(), 1);
+
+    // coordinate origin can be the paper Top Left corner, or each of 4 page corners
+    const originCoord = this.ReturnCoordOriginCorner();
+
+    // We need the orientation of axis (sign of coordinates)
+    let Xsign = 1;
+    let Ysign = 1;
+
+    switch (this.m_originSelectChoice) {
+      default:
+      case 0: // Origin = paper Left Top corner
+        break;
+
+      case 1: // Origin = page Right Bottom corner
+        Xsign = -1;
+        Ysign = -1;
+        break;
+
+      case 2: // Origin = page Left Bottom corner
+        Ysign = -1;
+        break;
+
+      case 3: // Origin = page Right Top corner
+        Xsign = -1;
+        break;
+
+      case 4: // Origin = page Left Top corner
+        break;
+    }
+
+    switch (this.GetUserUnits()) {
+      case 'in':
+        this.SetStatusText('inches', 6);
+        break;
+      case 'mils':
+        this.SetStatusText('mils', 6);
+        break;
+      case 'mm':
+        this.SetStatusText('mm', 6);
+        break;
+      case 'unscaled':
+        this.SetStatusText('', 6);
+        break;
+      default:
+        console.assert(false);
+        break;
+    }
+
+    // Display absolute and relative coordinates
+    const cursorPos = this.GetCanvas()!.GetViewControls().GetCursorPosition();
+    const screen = this.GetScreen();
+    const fields = plCoordFields(
+      cursorPos,
+      originCoord,
+      { xs: Xsign, ys: Ysign },
+      screen ? screen.m_LocalOrigin : { x: 0, y: 0 },
+      (iu) => toUserUnit(drawSheetIUScale, this.GetUserUnits(), iu),
+      (n) => formatG(n, 4),
+    );
+
+    this.SetStatusText(fields.coords, 2);
+
+    // Display relative coordinates:
+    if (screen) this.SetStatusText(fields.deltas, 3);
+
+    this.DisplayGridMsg();
+
+    // Display corner reference for coord origin
+    const line = `coord origin: ${this.m_originSelectBox.GetString(this.m_originSelectChoice)}`;
+    this.SetStatusText(line, 5);
+  }
+
+  /**
+   * Must be called to initialize parameters when a new drawing sheet is loaded
+   */
+  OnNewDrawingSheet(): void {
+    this.ClearUndoRedoList();
+    this.GetScreen()!.SetContentModified(false);
+    this.GetCanvas()!.DisplayDrawingSheet();
+
+    this.m_propertiesPagelayout?.CopyPrmsFromItemToPanel(null);
+    this.m_propertiesPagelayout?.CopyPrmsFromGeneralToPanel();
+
+    this.UpdateTitleAndInfo();
+
+    this.m_toolManager!.RunAction(ACTIONS.zoomFitScreen);
+
+    // KIPLATFORM::APP::SetShutdownBlockReason: n/a, a page cannot block a shutdown.
+  }
+
+  GetPageLayout(): PL_EDITOR_LAYOUT {
+    return this.m_pageLayout;
+  }
+
+  override GetDocumentExtents(_aIncludeAllVisible = true): BOX2I {
+    return new BOX2I(
+      { x: 0, y: 0 },
+      this.GetPageLayout().GetPageSettings().GetSizeIU(drawSheetIUScale.IU_PER_MILS),
+    );
+  }
+
+  /**
+   * Drawing sheet editor can show the title block using a page number 1 or another number.
+   *
+   * This is because some items can be shown (or not) only on page 1 (a feature  which
+   * looks like word processing option "page 1 differs from other pages").
+   *
+   * @return true if the page 1 is selected, and false if not.
+   */
+  GetPageNumberOption(): boolean {
+    return this.m_pageSelectBox.GetSelection() === 0;
+  }
+
+  /**
+   * Display the short filename (if exists) loaded file on the caption of the main window.
+   */
+  UpdateTitleAndInfo(): void {
+    let title = '';
+    const file = this.GetCurrentFileName();
+
+    if (this.IsContentModified()) title = '*';
+
+    // wxFileName::IsOk() && GetName(): the name without directory or extension.
+    if (file !== '') title += fileNameWithoutExt(file);
+    else title += '[no drawing sheet loaded]';
+
+    title += ' — Drawing Sheet Editor';
+
+    this.m_title = title;
+    this.m_host?.SetTitle(title);
+  }
+
+  /** The title `UpdateTitleAndInfo` last set. */
+  GetTitle(): string {
+    return this.m_title;
+  }
+  private m_title = '';
+
+  /**
+   * Display the size of the sheet to the message panel.
+   */
+  UpdateMsgPanelInfo(): void {
+    const size = this.GetPageSettings().GetSizeIU(drawSheetIUScale.IU_PER_MILS);
+
+    const msgItems = [
+      new MSG_PANEL_ITEM('Page Width', this.GetUnitsProvider().MessageTextFromValue(size.x)),
+      new MSG_PANEL_ITEM('Page Height', this.GetUnitsProvider().MessageTextFromValue(size.y)),
+    ];
+
+    this.SetMsgPanel(msgItems);
+  }
+
+  override LoadSettings(aCfg: PL_EDITOR_SETTINGS): void {
+    super.LoadSettings(aCfg);
+
+    const cfg = aCfg;
+
+    this.m_propertiesFrameWidth = cfg.m_PropertiesFrameWidth;
+    this.m_originSelectChoice = cfg.m_CornerOrigin;
+    this.m_originSelectBox.SetSelection(this.m_originSelectChoice);
+
+    this.SetDrawBgColor(cfg.m_BlackBackground ? LEGACY_COLORS.BLACK : LEGACY_COLORS.WHITE);
+
+    PAGE_INFO.SetCustomWidthMils(cfg.m_LastCustomWidth);
+    PAGE_INFO.SetCustomHeightMils(cfg.m_LastCustomHeight);
+
+    const pageInfo = new PAGE_INFO().assign(this.GetPageSettings());
+    pageInfo.SetType(cfg.m_LastPaperSize, cfg.m_LastWasPortrait);
+    this.SetPageSettings(pageInfo);
+  }
+
+  override SaveSettings(aCfg: PL_EDITOR_SETTINGS): void {
+    super.SaveSettings(aCfg);
+
+    const cfg = aCfg;
+
+    if (this.m_propertiesPagelayout)
+      this.m_propertiesFrameWidth = this.m_propertiesPagelayout.GetWidth();
+
+    cfg.m_PropertiesFrameWidth = this.m_propertiesFrameWidth;
+    cfg.m_CornerOrigin = this.m_originSelectChoice;
+    cfg.m_BlackBackground = colorEquals(this.GetDrawBgColor(), LEGACY_COLORS.BLACK);
+    cfg.m_LastPaperSize = this.GetPageSettings().GetTypeAsString();
+    cfg.m_LastWasPortrait = this.GetPageSettings().IsPortrait();
+    cfg.m_LastCustomWidth = Math.trunc(PAGE_INFO.GetCustomWidthMils());
+    cfg.m_LastCustomHeight = Math.trunc(PAGE_INFO.GetCustomHeightMils());
+  }
+
+  /** `EDA_DRAW_FRAME::SetDrawBgColor`. */
+  SetDrawBgColor(aColor: Color4d): void {
+    this.m_drawBgColor = aColor;
+  }
+
+  /** `EDA_DRAW_FRAME::GetDrawBgColor`. */
+  GetDrawBgColor(): Color4d {
+    return this.m_drawBgColor;
+  }
+
+  OnSelectPage(): void {
+    const view = this.GetCanvas()!.GetView();
+    view.SetLayerVisible(LAYER_DRAWINGSHEET_PAGE1, this.m_pageSelectBox.GetSelection() === 0);
+    view.SetLayerVisible(LAYER_DRAWINGSHEET_PAGEn, this.m_pageSelectBox.GetSelection() === 1);
+    this.GetCanvas()!.Refresh();
+  }
+
+  /**
+   * Called when the user select one of the 4 page corner as corner reference (or the
+   * left top paper corner).
+   */
+  OnSelectCoordOriginCorner(): void {
+    this.m_originSelectChoice = this.m_originSelectBox.GetSelection();
+    this.UpdateStatusBar(); // Update grid origin
+    this.GetCanvas()!.DisplayDrawingSheet();
+    this.GetCanvas()!.Refresh();
+  }
+
+  /**
+   * @return the filename of the current layout descr file
+   * If this is the default (no loaded file) returns a empty name
+   * or a new design.
+   */
+  GetCurrentFileName(): string {
+    return BASE_SCREEN.m_DrawingSheetFileName;
+  }
+
+  /**
+   * Store the current layout description file filename.
+   */
+  SetCurrentFileName(aName: string): void {
+    BASE_SCREEN.m_DrawingSheetFileName = aName;
+  }
+
+  /**
+   * Refresh the library tree and redraw the window.
+   */
+  override HardRedraw(): void {
+    this.GetCanvas()!.DisplayDrawingSheet();
+
+    const selTool = this.m_toolManager!.GetTool(PL_SELECTION_TOOL)!;
+    const selection = selTool.GetSelection();
+    let item: DS_DATA_ITEM | null = null;
+
+    if (selection.GetSize() === 1) item = (selection.Front() as DS_DRAW_ITEM_BASE).GetPeer();
+
+    this.m_propertiesPagelayout?.CopyPrmsFromItemToPanel(item);
+    this.m_propertiesPagelayout?.CopyPrmsFromGeneralToPanel();
+    this.UpdateMsgPanelInfo();
+    this.GetCanvas()!.Refresh();
+  }
+
+  /**
+   * Add a new item to the drawing sheet item list.
+   *
+   * @param aType is the type of item:
+   *  DS_TEXT, DS_SEGMENT, DS_RECT, DS_POLYPOLYGON
+   * @return a reference to the new item.
+   */
+  AddDrawingSheetItem(aType: DS_ITEM_TYPE): DS_DATA_ITEM | null {
+    let item: DS_DATA_ITEM | null = null;
+
+    switch (aType) {
+      case DS_ITEM_TYPE.DS_TEXT:
+        item = new DS_DATA_ITEM_TEXT('Text');
+        break;
+
+      case DS_ITEM_TYPE.DS_SEGMENT:
+        item = new DS_DATA_ITEM(DS_ITEM_TYPE.DS_SEGMENT);
+        break;
+
+      case DS_ITEM_TYPE.DS_RECT:
+        item = new DS_DATA_ITEM(DS_ITEM_TYPE.DS_RECT);
+        break;
+
+      case DS_ITEM_TYPE.DS_POLYPOLYGON:
+        item = new DS_DATA_ITEM_POLYGONS();
+        break;
+
+      case DS_ITEM_TYPE.DS_BITMAP: {
+        const aImageFile = this.m_host?.ChooseImageFile(this.m_mruImagePath) ?? null;
+
+        if (!aImageFile) return null;
+
+        const fullFilename = aImageFile.path;
+        this.m_mruImagePath = fullFilename.slice(0, Math.max(0, fullFilename.lastIndexOf('/')));
+
+        const image = new BITMAP_BASE();
+
+        if (!image.ReadImageFile(aImageFile.data)) {
+          this.m_host?.DisplayErrorMessage(`Could not load image from '${fullFilename}'.`);
+          break;
+        }
+
+        // Set the scale factor for pl_editor (it is set for Eeschema by default)
+        image.SetPixelSizeIu((drawSheetIUScale.IU_PER_MILS * 1000.0) / image.GetPPI());
+        item = new DS_DATA_ITEM_BITMAP(image);
+        break;
+      }
+    }
+
+    if (item === null) return null;
+
+    DS_DATA_MODEL.GetTheInstance().Append(item);
+    item.SyncDrawItems(null, this.GetCanvas()!.GetView());
+
+    return item;
+  }
+
+  /** `m_mruImagePath`: the directory the next "Choose Image" dialog opens in. */
+  GetMruImagePath(): string {
+    return this.m_mruImagePath;
+  }
+
+  /**
+   * Must be called after a change in order to set the "modify" flag.
+   */
+  override OnModify(): void {
+    // Must be called after a change in order to set the "modify" flag and update
+    // the frame title.
+    super.OnModify();
+
+    this.GetScreen()!.SetContentModified();
+
+    if (this.m_isClosing) return;
+
+    this.UpdateTitleAndInfo();
+  }
+
+  // ---- pl_editor_undo_redo.cpp ---------------------------------------------
+
+  /**
+   * Save a copy of the description (in a S expr string) for Undo/redo commands.
+   */
+  SaveCopyInUndoList(): void {
+    SaveCopyInUndoList(this);
+  }
+
+  /**
+   * Redo the last edit:
+   *  - Place the current edited layout in undo list.
+   *  - Get the previous version of the current edited layout.
+   */
+  GetLayoutFromRedoList(): void {
+    GetLayoutFromRedoList(this);
+  }
+
+  /**
+   * Undo the last edit:
+   *  - Place the current layout in Redo list.
+   *  - Get the previous version of the current edited layout.
+   */
+  GetLayoutFromUndoList(): void {
+    GetLayoutFromUndoList(this);
+  }
+
+  /**
+   * Apply the last command in Undo List without stacking a Redo. Used to clean the
+   * Undo stack after canceling a command.
+   */
+  RollbackFromUndo(): void {
+    RollbackFromUndo(this);
+  }
+
+  override ClearUndoORRedoList(aWhichList: UNDO_REDO_LIST, aItemCount = -1): void {
+    if (aItemCount === 0) return;
+
+    const list = aWhichList === UNDO_REDO_LIST.UNDO_LIST ? this.m_undoList : this.m_redoList;
+
+    if (aItemCount < 0) {
+      list.ClearCommandList();
+    } else {
+      for (let ii = 0; ii < aItemCount; ii++) {
+        if (list.m_CommandsList.length === 0) break;
+
+        list.m_CommandsList.shift();
+      }
+    }
+  }
+
+  /** `Files_io( event )`: the page's file dialogs (files.cpp:98-238). */
+  Files_io(aId: PL_FILES_IO_ID): void {
+    this.m_host?.Files_io(aId);
+  }
+
+  /**
+   * Open a dialog frame to print layers.
+   */
+  ToPrinter(aDoPreview: boolean): void {
+    this.m_host?.ToPrinter(aDoPreview);
+  }
+
+  /**
+   * Show the dialog displaying the list of DS_DATA_ITEM items in the page layout
+   */
+  ShowDesignInspector(): void {
+    this.m_host?.ShowDesignInspector();
+  }
+
+  /** `DIALOG_PAGES_SETTINGS dlg( … ); dlg.ShowModal() == wxID_OK`. */
+  ShowPageSettingsDialog(): boolean {
+    return this.m_host?.ShowPageSettingsDialog() ?? false;
+  }
+
+  /** `saveCurrentPageLayout()`: Save, and whether nothing is left unsaved. */
+  saveCurrentPageLayout(): boolean {
+    this.Files_io('wxID_SAVE');
+
+    return !this.IsContentModified();
+  }
+}
+
+/** `wxFileName( aPath ).GetName()`: the leaf without its extension. */
+function fileNameWithoutExt(aPath: string): string {
+  const leaf = aPath.slice(aPath.lastIndexOf('/') + 1);
+  const dot = leaf.lastIndexOf('.');
+
+  return dot > 0 ? leaf.slice(0, dot) : leaf;
+}
+
+const colorEquals = (a: Color4d, b: Color4d): boolean =>
+  a.r === b.r && a.g === b.g && a.b === b.b && a.a === b.a;
+
+// ---- the React window's half (see the file header) -------------------------
+
+/**
+ * pl_editor's own status-bar field widths: the constructor's `dims[]`.
  *
  * `EDA_DRAW_FRAME` sizes the eight KISTATUSBAR panes in its constructor
  * (`updateStatusBarWidths`, common/eda_draw_frame.cpp:792), and every other
@@ -51,10 +1060,6 @@
  * table above at ~7.1 px per character plus a 2 M spacer; none of them follows
  * from the shared table, whose deltas pane alone would want 42 characters.
  */
-
-import { PAPER_MM } from '@ziroeda/common';
-import type { PageSettingsValue } from '@ziroeda/common/dialogs/dialog_page_settings.js';
-import type { PL_EDITOR_SETTINGS_JSON } from './pl_editor_settings.js';
 
 /**
  * The `dims[]` of `pl_editor_frame.cpp:150-181`, as template strings.

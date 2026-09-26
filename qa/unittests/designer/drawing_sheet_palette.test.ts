@@ -331,16 +331,22 @@ describe('C9: the frame opens in mils, and the grid does not follow the unit', (
 const TOOLBARS = read('../../../pagelayout_editor/toolbars_pl_editor.ts');
 const CANVAS_TSX = CANVAS; // alias for readability below
 
-/** One menu's item block, sliced out of the `menus` memo. */
+/**
+ * The menu bar: `doReCreateMenuBar` in pagelayout_editor/menubar.ts
+ * (menubar.cpp), which the editor renders.
+ */
+const MENUBAR = read('../../../pagelayout_editor/menubar.ts');
+
+/** One menu's item block, sliced out of `doReCreateMenuBar`. */
 function menu(name: string): string {
   // A menu may carry a comment between its label and its items (Preferences
   // does), so anchor on the label and run to that menu's closing `],`.
-  const at = EDITOR.indexOf(`        label: '${name}',\n`);
+  const at = MENUBAR.indexOf(`      label: '${name}',\n`);
   expect(at, `no ${name} menu`).toBeGreaterThanOrEqual(0);
-  const items = EDITOR.indexOf('        items: [', at);
+  const items = MENUBAR.indexOf('      items: [', at);
   expect(items, `${name} has no items`).toBeGreaterThan(at);
-  const end = EDITOR.indexOf('\n        ],', items);
-  return EDITOR.slice(items, end);
+  const end = MENUBAR.indexOf('\n      ],', items);
+  return MENUBAR.slice(items, end);
 }
 
 describe('C2: Place ends with a separator and Reset Grid Origin', () => {
@@ -421,7 +427,9 @@ describe('C5: zoomTool is an armed rubber-band tool', () => {
     const view = menu('View');
     const at = view.indexOf("label: 'Zoom to Selection Area'");
     const row = view.slice(at, at + 260);
-    expect(row).toContain("setActiveTool('zoomTool')");
+    expect(row).toContain('action: h.zoomTool');
+    // ...and the editor's handler for it arms the tool.
+    expect(EDITOR).toContain("zoomTool: () => setActiveTool('zoomTool'),");
     // Upstream needs no selection, so the row has no `disabled` condition.
     expect(row).not.toContain('disabled:');
   });

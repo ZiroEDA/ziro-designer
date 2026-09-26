@@ -243,6 +243,8 @@ const MENU_MODULE: Readonly<Record<string, string>> = {
   'editors/symbol/SymbolEditor.tsx': 'editors/symbol/menubar.ts',
   'editors/footprint/FootprintEditor.tsx': 'editors/footprint/menubar.ts',
   'editors/pcb/PcbEditor.tsx': 'editors/pcb/menubar.ts',
+  // pl_editor's bar is its package's menubar.ts, beside KiCad's menubar.cpp.
+  'editors/drawingsheet/DrawingSheetEditor.tsx': '../../pagelayout_editor/menubar.ts',
 };
 
 /**

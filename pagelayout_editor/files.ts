@@ -37,7 +37,15 @@
  * has to see the same sentence.
  *
  * The argument is the **full path the dialog returned**, not the leaf.
+ *
+ * Below the strings, the three `PL_EDITOR_FRAME` members files.cpp defines,
+ * bound on the class. `Files_io`, `OnFileHistory` and `DoWithAcceptedFiles`
+ * open file dialogs, which are the page's: they stay in the window.
  */
+
+import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
+import { WKS_FILE_VERSION } from '@ziroeda/common/drawing_sheet/types.js';
+import type { PL_EDITOR_FRAME } from './pl_editor_frame.js';
 
 /** `_( "File '%s' loaded" )` — Open Recent only (files.cpp:82). */
 export function dsFileLoadedMsg(path: string): string {
@@ -121,4 +129,77 @@ export function dsSaveBecomesSaveAs(currentFileName: string): boolean {
  */
 export function dsNeedsUnsavedGuard(command: 'new' | 'open' | 'append'): boolean {
   return command === 'new' || command === 'open';
+}
+
+// ---- the PL_EDITOR_FRAME members files.cpp defines --------------------------
+
+/**
+ * `PL_EDITOR_FRAME::LoadDrawingSheetFile( aFullFileName )`.
+ *
+ * `wxFileExists` and the read are the host's `ReadFile`; the read-only
+ * infobar (`!fn.IsFileWritable()`) is n/a, a page cannot see permissions.
+ */
+export function LoadDrawingSheetFile(self: PL_EDITOR_FRAME, aFullFileName: string): boolean {
+  const host = self.GetHost();
+  const contents = host ? host.ReadFile(aFullFileName) : null;
+
+  if (host && contents !== null) {
+    const msg = { value: '' };
+
+    if (!DS_DATA_MODEL.GetTheInstance().LoadDrawingSheet(aFullFileName, msg, false, contents)) {
+      host.DisplayErrorMessage(dsErrorLoadingMsg(aFullFileName), msg.value);
+      return false;
+    }
+
+    self.SetCurrentFileName(aFullFileName);
+    host.UpdateFileHistory(aFullFileName);
+    self.GetScreen()!.SetContentModified(false);
+
+    host.ShowOutdatedSaveInfoBar(false);
+
+    if (DS_DATA_MODEL.GetTheInstance().GetFileFormatVersionAtLoad() < WKS_FILE_VERSION)
+      host.ShowOutdatedSaveInfoBar(true);
+
+    return true;
+  }
+
+  return false;
+}
+
+/** `PL_EDITOR_FRAME::InsertDrawingSheetFile( aFullFileName )`. */
+export function InsertDrawingSheetFile(self: PL_EDITOR_FRAME, aFullFileName: string): boolean {
+  const host = self.GetHost();
+  const contents = host ? host.ReadFile(aFullFileName) : null;
+
+  if (contents !== null) {
+    const append = true;
+    self.SaveCopyInUndoList();
+    DS_DATA_MODEL.GetTheInstance().LoadDrawingSheet(aFullFileName, null, append, contents);
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * `PL_EDITOR_FRAME::SaveDrawingSheetFile( aFullFileName )`: the model's
+ * text through the host's `WriteFile`, which stands for the temp file and
+ * the rename.
+ */
+export function SaveDrawingSheetFile(self: PL_EDITOR_FRAME, aFullFileName: string): boolean {
+  const host = self.GetHost();
+
+  if (aFullFileName !== '' && host) {
+    const text = DS_DATA_MODEL.GetTheInstance().Save(aFullFileName);
+
+    if (!host.WriteFile(aFullFileName, text)) return false;
+
+    host.ShowOutdatedSaveInfoBar(false);
+
+    self.GetScreen()!.SetContentModified(false);
+    self.UpdateTitleAndInfo();
+    return true;
+  }
+
+  return false;
 }

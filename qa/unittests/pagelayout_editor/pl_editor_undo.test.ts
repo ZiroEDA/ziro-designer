@@ -354,8 +354,10 @@ describe('the frame runs these rules and not its own', () => {
 
   /** Both rows carry an enable condition read from the depths. */
   it('greys Undo and Redo from the history depths', () => {
-    expect(src).toMatch(/disabled: !undoEnabled\(historyDepth\)/);
-    expect(src).toMatch(/disabled: !redoEnabled\(historyDepth\)/);
+    // The menu rows' state (menubar.ts' undoEnabled / redoEnabled) comes from
+    // the same two rules.
+    expect(src).toMatch(/undoEnabled: undoEnabled\(historyDepth\)/);
+    expect(src).toMatch(/redoEnabled: redoEnabled\(historyDepth\)/);
     expect(src).toMatch(/disabledIds=\{toolbarDisabledIds\(historyDepth\)\}/);
   });
 });
