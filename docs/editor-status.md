@@ -286,7 +286,7 @@ reported as unknown rather than clean. Two of them are answers, not gaps:
     produce a toolbar neither side asked for. Each editor's existing
     `…Toolbars.ts` gained a `DefaultToolbarConfig` map, so no toolbar is
     transcribed twice.
-  - `designer/src/dialogs/prefs/PanelToolbarCustomization.tsx` is the page,
+  - `common/dialogs/panel_toolbar_customization.tsx` is the page,
     **once**, the way `PANEL_GRID_SETTINGS` is - three ten-line wrappers pass
     their app's settings, store and defaults, which is all the seven KIFACEs
     pass upstream.

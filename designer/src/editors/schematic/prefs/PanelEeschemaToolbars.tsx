@@ -13,8 +13,9 @@
  * Ours passes the same things, with this editor's `DefaultToolbarConfig` map
  * standing in for the last three — see `ui/toolbar_config.ts`.
  */
+import { catalogueFor, ourToolbarId } from '../../../ui/action_catalogue.js';
 import type { JSX } from 'react';
-import { PanelToolbarCustomization } from '../../../dialogs/prefs/PanelToolbarCustomization.js';
+import { PanelToolbarCustomization } from '@ziroeda/common/dialogs/panel_toolbar_customization.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 import { SCH_DEFAULT_TOOLBARS } from '../toolbars_sch_editor.js';
 
@@ -22,6 +23,8 @@ export function PanelEeschemaToolbars({ ctx }: { ctx: PrefsContext }): JSX.Eleme
   return (
     <PanelToolbarCustomization
       app="eeschema"
+      availableTools={catalogueFor('eeschema')}
+      toolbarIdOf={ourToolbarId}
       defaults={SCH_DEFAULT_TOOLBARS}
       custom={ctx.eeschema.appearance.custom_toolbars}
       setCustom={(v) => {

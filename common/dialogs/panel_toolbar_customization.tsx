@@ -35,17 +35,17 @@
  * there too. Restoring them here would be a divergence, not a fix.
  */
 import { useMemo, useState, type JSX } from 'react';
-import { Check } from '@ziroeda/common/wx/controls.js';
-import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { SplitButton } from '@ziroeda/common/widgets/split_button.js';
-import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
-import { bitmapUrl, toolbarIconUrl } from '@ziroeda/common/bitmap_store.js';
-import { toolbarButtonLabel } from '@ziroeda/common/tool/action_toolbar_actions.js';
-import { catalogueFor, ourToolbarId } from '../../ui/action_catalogue.js';
+import { Check } from '../wx/controls.js';
+import { Combo } from '../widgets/wx_combobox.js';
+import { SplitButton } from '../widgets/split_button.js';
+import { StdBitmapButton } from '../widgets/std_bitmap_button.js';
+import { bitmapUrl, toolbarIconUrl } from '../bitmap_store.js';
+import { toolbarButtonLabel } from '../tool/action_toolbar_actions.js';
+import type { CatalogueAction } from '../tool/action_toolbar_types.js';
 import {
   toolbarControlDescription,
   toolbarControlUiName,
-} from '@ziroeda/common/tool/action_toolbar_controls.js';
+} from '../tool/action_toolbar_controls.js';
 import {
   TOOLBAR_LOC_NAMES,
   configFromEntries,
@@ -59,8 +59,8 @@ import {
   type ToolbarItemJson,
   type ToolbarLoc,
   type ToolbarSettings,
-} from '@ziroeda/common/tool/ui/toolbar_configuration.js';
-import type { MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
+} from '../tool/ui/toolbar_configuration.js';
+import type { MenuItem } from '../tool/action_menu_types.js';
 
 /** A selected tree node: a top-level index, and a child index inside a group. */
 interface TreeSel {
@@ -93,6 +93,8 @@ interface ActionEntry {
 
 export function PanelToolbarCustomization({
   app,
+  availableTools,
+  toolbarIdOf,
   defaults,
   custom,
   setCustom,
@@ -104,6 +106,16 @@ export function PanelToolbarCustomization({
    * `aActionContext`, minus the filtering job `defaults` now does.
    */
   app: string;
+  /**
+   * `aTools`: the frame's TOOL_ACTIONs, which upstream's constructor takes
+   * (`std::vector<TOOL_ACTION*> aTools`) rather than looking up itself.
+   */
+  availableTools: readonly CatalogueAction[];
+  /**
+   * Our toolbar id for an action this app implements; undefined stores the
+   * action's own name, as upstream stores every one (`m_ActionName`).
+   */
+  toolbarIdOf: (actionName: string) => string | undefined;
   /** That app's `DefaultToolbarConfig`, keyed by `TOOLBAR_LOC`. */
   defaults: ToolbarDefaults;
   /** `m_appSettings->m_CustomToolbars`. */
@@ -169,12 +181,12 @@ export function PanelToolbarCustomization({
    */
   const entries = useMemo<ActionEntry[]>(() => {
     const out: ActionEntry[] = [];
-    for (const a of catalogueFor(app)) {
+    for (const a of availableTools) {
       // Our own toolbar id where the action is one we implement, so adding it
       // stores an id the toolbars render and act on; the action's own name
       // otherwise, which is what upstream stores for every one of them
       // (`TOOLBAR_ITEM::m_ActionName`).
-      const id = ourToolbarId(a.name) ?? a.name;
+      const id = toolbarIdOf(a.name) ?? a.name;
       const tooltip = a.tip ?? '';
       out.push({
         label: a.label,

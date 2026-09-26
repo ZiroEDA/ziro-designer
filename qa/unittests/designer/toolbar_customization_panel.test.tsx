@@ -20,7 +20,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { useState, type JSX } from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { PanelToolbarCustomization } from '@ziroeda/designer/src/dialogs/prefs/PanelToolbarCustomization.js';
+import { PanelToolbarCustomization } from '@ziroeda/common/dialogs/panel_toolbar_customization.js';
 import { resetToolbarsPanel } from '@ziroeda/designer/src/dialogs/prefs/toolbar_reset.js';
 import {
   configFromEntries,
@@ -35,7 +35,11 @@ import {
   DS_TOP_TOOLBAR,
 } from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
 import { SYM_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/symbol/symbolToolbars.js';
-import { ACTION_CATALOGUE, ourToolbarId } from '@ziroeda/designer/src/ui/action_catalogue.js';
+import {
+  ACTION_CATALOGUE,
+  catalogueFor,
+  ourToolbarId,
+} from '@ziroeda/designer/src/ui/action_catalogue.js';
 import { PCB_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
 import { SCH_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
 
@@ -60,6 +64,8 @@ function Harness({
   return (
     <PanelToolbarCustomization
       app={app}
+      availableTools={catalogueFor(app)}
+      toolbarIdOf={ourToolbarId}
       defaults={defaults}
       custom={custom}
       setCustom={(v) => {
@@ -90,10 +96,7 @@ const isDisabled = (el: HTMLElement): boolean => el.hasAttribute('disabled');
 
 /** The panel's own source, for the one assertion a DOM test cannot make. */
 const panelSource = (): string =>
-  readFileSync(
-    resolve(process.cwd(), '../designer/src/dialogs/prefs/PanelToolbarCustomization.tsx'),
-    'utf8',
-  );
+  readFileSync(resolve(process.cwd(), '../common/dialogs/panel_toolbar_customization.tsx'), 'utf8');
 
 /**
  * `m_tbChoice` is a wxChoice, which is our `Combo`: a BUTTON with a popup, never

@@ -197,3 +197,20 @@ export function toolbarEnabledIds(
   }
   return out;
 }
+
+/**
+ * One TOOL_ACTION as the toolbar customization panel lists it (its `aTools`):
+ * the name, friendly name, tooltip, icon and whether it is ever offered.
+ */
+export interface CatalogueAction {
+  /** `.Name()` — `TOOLBAR_ITEM::m_ActionName`, and unique. */
+  readonly name: string;
+  /** `.FriendlyName()` — `GetFriendlyName()`, the row label. */
+  readonly label: string;
+  /** `.Tooltip()` — `entry.tooltip`, which the search text includes. */
+  readonly tip?: string;
+  /** `.Icon( BITMAPS::… )`, absent for an action with none. */
+  readonly icon?: string;
+  /** `.ToolbarState( TOOLBAR_STATE::HIDDEN )` — never offered. */
+  readonly hidden?: boolean;
+}

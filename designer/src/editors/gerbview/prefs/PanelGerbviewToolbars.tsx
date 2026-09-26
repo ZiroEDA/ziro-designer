@@ -15,8 +15,9 @@
  * Ours passes the same things, with `GBR_DEFAULT_TOOLBARS` standing in for the
  * last three — see `ui/toolbar_config.ts`.
  */
+import { catalogueFor, ourToolbarId } from '../../../ui/action_catalogue.js';
 import type { JSX } from 'react';
-import { PanelToolbarCustomization } from '../../../dialogs/prefs/PanelToolbarCustomization.js';
+import { PanelToolbarCustomization } from '@ziroeda/common/dialogs/panel_toolbar_customization.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 import { GBR_DEFAULT_TOOLBARS } from '../gerberToolbars.js';
 
@@ -24,6 +25,8 @@ export function PanelGerbviewToolbars({ ctx }: { ctx: PrefsContext }): JSX.Eleme
   return (
     <PanelToolbarCustomization
       app="gerbview"
+      availableTools={catalogueFor('gerbview')}
+      toolbarIdOf={ourToolbarId}
       defaults={GBR_DEFAULT_TOOLBARS}
       custom={ctx.gerbview.appearance.custom_toolbars}
       setCustom={(v) => {

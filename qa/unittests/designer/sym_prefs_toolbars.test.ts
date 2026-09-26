@@ -135,9 +135,9 @@ describe('the frame draws the stored configuration', () => {
 describe('the page is the shared panel, constructed for this app', () => {
   const PAGE = 'editors/symbol/prefs/PanelSymbolEditorToolbars.tsx';
 
-  it('calls dialogs/prefs/PanelToolbarCustomization rather than copying it', () => {
+  it('calls common/dialogs/panel_toolbar_customization rather than copying it', () => {
     const src = read(PAGE);
-    expect(src).toContain("from '../../../dialogs/prefs/PanelToolbarCustomization.js'");
+    expect(src).toContain("from '@ziroeda/common/dialogs/panel_toolbar_customization.js'");
     expect(src).toContain('app="symbol_editor"');
     expect(src).toContain('defaults={SYM_DEFAULT_TOOLBARS}');
     expect(src).toContain('store={ctx.toolbars.symbol_editor}');
