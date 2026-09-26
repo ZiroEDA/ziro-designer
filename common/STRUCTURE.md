@@ -152,7 +152,7 @@ wildcards_and_files_ext.
 | `origin_viewitem` | done 09-26 (was `preview_items/origin_viewitem.ts`) |
 | `newstroke_font` | done 09-26 (was `font/newstroke_glyphs.ts`). **Latin only** (U+0020..U+00FF): the CJK and other ranges are not ported, so such text draws no glyphs |
 | `array_axis` | done 09-26: `ARRAY_AXIS`, the class; `array_options` became `ARRAY_OPTIONS` / `ARRAY_GRID_OPTIONS` / `ARRAY_CIRCULAR_OPTIONS` in the same stage (they were records and free functions) |
-| `dpi_scaling`, `dpi_scaling_common`, `gal_display_options_common` | `DPI_SCALING_GetDefaultScaleFactor` in `gal/gal_display_options.ts` |
+| `dpi_scaling`, `dpi_scaling_common`, `gal_display_options_common` | done 09-27: `DPI_SCALING`, `DPI_SCALING_COMMON` (config > `GDK_SCALE` > the window's `devicePixelRatio` > 1.0), `GAL_DISPLAY_OPTIONS_IMPL` (the frame's options). Our default scale was 0, not 1.0, and nothing set it: GAL's grid pen was 0.25 + 0 where KiCad's is 1.25 |
 | `env_vars` | done 09-26: the whole `ENV_VAR` namespace (was three functions in `common.ts`); `wxGetEnv` is `wx/utils.ts` |
 | `increment` | done 09-26: `IncrementString`, `STRING_INCREMENTER`, `IndexFromAlphabetic`, `AlphabeticFromIndex` (were in `repeat_item.ts` and `array_options.ts`; the drawing sheet stepped only its last character) |
 | `xnode` | done 09-26: `XNODE` + `XATTR` over a `wxXmlNode`-shaped tree; the KiCad netlist prints through it and matches `kicad-cli` byte for byte in layout. **Still a second copy:** `class X` in `eeschema/exporters/netlist.ts` (the generic XML netlist), which KiCad builds from the SAME `makeRoot` tree and saves with `wxXmlDocument::Save` - settled with eeschema's exporters, see below |

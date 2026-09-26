@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
-/** `include/gal/gal_display_options.h` + `common/gal/gal_display_options.cpp`. */
+/**
+ * `include/gal/gal_display_options.h` + `common/gal/gal_display_options.cpp`.
+ * What a frame owns is `GAL_DISPLAY_OPTIONS_IMPL` (gal_display_options_common.ts),
+ * which reads the settings into these.
+ */
 import { OBSERVABLE } from '@ziroeda/core/observable.js';
+import { DPI_SCALING } from '../dpi_scaling.js';
 
 /**
  * Type definition of the grid style.
@@ -35,15 +40,6 @@ export interface GAL_DISPLAY_OPTIONS_OBSERVER {
   OnGalDisplayOptionsChanged(aOptions: GAL_DISPLAY_OPTIONS): void;
 }
 
-/**
- * `DPI_SCALING::GetDefaultScaleFactor()`: 0 means "read it from the system"
- * (`common/dpi_scaling.cpp`); the browser's devicePixelRatio is that system
- * answer, asked by the canvas.
- */
-export function DPI_SCALING_GetDefaultScaleFactor(): number {
-  return 0.0;
-}
-
 export class GAL_DISPLAY_OPTIONS extends OBSERVABLE<GAL_DISPLAY_OPTIONS_OBSERVER> {
   antialiasing_mode: GAL_ANTIALIASING_MODE = GAL_ANTIALIASING_MODE.AA_NONE;
 
@@ -69,7 +65,7 @@ export class GAL_DISPLAY_OPTIONS extends OBSERVABLE<GAL_DISPLAY_OPTIONS_OBSERVER
   m_forceDisplayCursor = false;
 
   ///< The pixel scale factor (>1 for hi-DPI scaled displays)
-  m_scaleFactor: number = DPI_SCALING_GetDefaultScaleFactor();
+  m_scaleFactor: number = DPI_SCALING.GetDefaultScaleFactor();
 
   SetCursorMode(aMode: CROSS_HAIR_MODE): void {
     this.m_crossHairMode = aMode;
@@ -77,16 +73,6 @@ export class GAL_DISPLAY_OPTIONS extends OBSERVABLE<GAL_DISPLAY_OPTIONS_OBSERVER
 
   GetCursorMode(): CROSS_HAIR_MODE {
     return this.m_crossHairMode;
-  }
-
-  /**
-   * `GAL_DISPLAY_OPTIONS_IMPL::ReadCommonConfig` (gal_display_options_common.cpp:82-92):
-   * the antialiasing mode from COMMON_SETTINGS `graphics.antialiasing_mode`.
-   * The DPI half is the canvas's own devicePixelRatio here.
-   */
-  ReadCommonConfig(aSettings: { graphics: { antialiasing_mode: number } }): void {
-    this.antialiasing_mode = aSettings.graphics.antialiasing_mode as GAL_ANTIALIASING_MODE;
-    this.NotifyChanged();
   }
 
   NotifyChanged(): void {

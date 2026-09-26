@@ -26,6 +26,8 @@ import {
 } from '@ziroeda/common/pgm_base.js';
 import { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
 import { WXK } from '@ziroeda/common/wx/wx_event.js';
+import { CROSS_HAIR_MODE } from '@ziroeda/common/gal/gal_display_options.js';
+import { WINDOW_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
 import { colorSettingsById } from './prefs/color_settings_list.js';
 import { type MouseDragAction, type ScrollModifier, settings } from './prefs/settings.js';
 
@@ -85,7 +87,9 @@ export function commonSettingsOf(): COMMON_SETTINGS_LIKE {
       show_scrollbars: c.appearance.show_scrollbars,
       zoom_correction_factor: c.appearance.zoom_correction_factor,
       hicontrast_dimming_factor: c.appearance.hicontrast_dimming_factor,
+      canvas_scale: 0.0,
     },
+    m_Graphics: { aa_mode: c.graphics.antialiasing_mode },
     m_Input,
     m_Env: s_env,
   };
@@ -134,4 +138,36 @@ export function InitPgm(): PGM_BASE {
     SetPgm(pgm);
   }
   return pgm;
+}
+
+/** The designer's grid and cursor preferences, the half of `m_Window` the GAL reads. */
+export interface WindowGridCursorPrefs {
+  style: 'dots' | 'lines' | 'crosses';
+  line_width: number;
+  min_spacing: number;
+  snap: 0 | 1 | 2;
+  crosshair: 'small' | 'full' | '45';
+  always_show_cursor: boolean;
+}
+
+/**
+ * `APP_SETTINGS_BASE::m_Window` from the designer's store: what
+ * `GAL_DISPLAY_OPTIONS_IMPL::ReadWindowSettings` reads. The store spells the
+ * grid style and crosshair as words; KiCad's file holds `CFG_MAP` integers
+ * (dots 0, lines 1, small cross 2) and the enum. `axes_enabled` is not stored
+ * by the designer and keeps GRID_SETTINGS' default.
+ */
+export function windowSettingsOf(aPrefs: WindowGridCursorPrefs): WINDOW_SETTINGS {
+  const w = new WINDOW_SETTINGS();
+  w.grid.style = { dots: 0, lines: 1, crosses: 2 }[aPrefs.style];
+  w.grid.snap = aPrefs.snap;
+  w.grid.line_width = aPrefs.line_width;
+  w.grid.min_spacing = aPrefs.min_spacing;
+  w.cursor.cross_hair_mode = {
+    small: CROSS_HAIR_MODE.SMALL_CROSS,
+    full: CROSS_HAIR_MODE.FULLSCREEN_CROSS,
+    '45': CROSS_HAIR_MODE.FULLSCREEN_DIAGONAL,
+  }[aPrefs.crosshair];
+  w.cursor.always_show_cursor = aPrefs.always_show_cursor;
+  return w;
 }

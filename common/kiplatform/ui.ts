@@ -104,3 +104,25 @@ export function SetOverlayScrolling(_aWindow: KIPLATFORM_WINDOW, _aOverlay: bool
 
 /** Cancels any IME composition in progress. */
 export function ImeNotifyCancelComposition(_aWindow: KIPLATFORM_WINDOW): void {}
+
+/** The window a platform scale query is about: a page has one, `window`. */
+export interface PlatformWindow {
+  devicePixelRatio?: number;
+}
+
+/**
+ * `KIPLATFORM::UI::GetPixelScaleFactor( aWindow )`: device pixels per logical
+ * pixel for the window - GTK's `gtk_widget_get_scale_factor`, the page's
+ * `devicePixelRatio`.
+ */
+export function GetPixelScaleFactor(aWindow: PlatformWindow): number {
+  return aWindow.devicePixelRatio || 1;
+}
+
+/**
+ * `KIPLATFORM::UI::GetContentScaleFactor( aWindow )`: on GTK it is the pixel
+ * scale ("TODO: Do we need something different here?", wxgtk/ui.cpp:277).
+ */
+export function GetContentScaleFactor(aWindow: PlatformWindow): number {
+  return GetPixelScaleFactor(aWindow);
+}

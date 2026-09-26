@@ -178,6 +178,7 @@ beforeAll(() => {
       show_scrollbars: true,
       zoom_correction_factor: 1,
       hicontrast_dimming_factor: 0.8,
+      canvas_scale: 0,
     },
     m_Input: {
       focus_follow_sch_pcb: false,
@@ -201,6 +202,7 @@ beforeAll(() => {
       reverse_scroll_zoom: false,
       reverse_scroll_pan_h: false,
     },
+    m_Graphics: { aa_mode: 0 },
     m_Env: { vars: new ENV_VAR_MAP() },
   });
   cfg = new PCBNEW_SETTINGS();

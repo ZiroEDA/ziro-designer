@@ -227,8 +227,10 @@ function setup(aInput: Partial<COMMON_SETTINGS_LIKE['m_Input']> = {}): {
         show_scrollbars: true,
         zoom_correction_factor: 1,
         hicontrast_dimming_factor: 0.8,
+        canvas_scale: 0,
       },
       m_Input: { ...INPUT, ...aInput },
+      m_Graphics: { aa_mode: 0 },
       m_Env: { vars: new ENV_VAR_MAP() },
     }),
   );

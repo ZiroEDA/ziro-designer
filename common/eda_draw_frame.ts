@@ -24,6 +24,7 @@
  * `gridOrigin` defaults to zero, which makes both `fmod` offsets zero.
  */
 
+import { GAL_DISPLAY_OPTIONS_IMPL } from './gal_display_options_common.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import type { EdaIuScale, EdaUnits } from './eda_units.js';
@@ -34,7 +35,6 @@ import type { EDA_ITEM } from './eda_item.js';
 import type { ORIGIN_TRANSFORMS } from './origin_transforms.js';
 import type { BASE_SCREEN } from './base_screen.js';
 import { type EDA_DRAW_PANEL_GAL, GAL_TYPE } from './draw_panel_gal.js';
-import { GAL_DISPLAY_OPTIONS } from './gal/gal_display_options.js';
 import { DEFAULT_THEME, GetColorSettings } from './pgm_base.js';
 import type { COLOR_SETTINGS } from './settings/color_settings.js';
 import type { MSG_PANEL_ITEM } from './widgets/msgpanel.js';
@@ -89,7 +89,7 @@ export abstract class EDA_DRAW_FRAME extends EDA_BASE_FRAME {
   protected m_canvas: EDA_DRAW_PANEL_GAL | null = null;
   protected m_currentScreen: BASE_SCREEN | null = null; ///< current used SCREEN
   protected m_colorSettings: COLOR_SETTINGS | null = null;
-  protected m_galDisplayOptions: GAL_DISPLAY_OPTIONS = new GAL_DISPLAY_OPTIONS();
+  protected m_galDisplayOptions: GAL_DISPLAY_OPTIONS_IMPL = new GAL_DISPLAY_OPTIONS_IMPL();
   protected m_canvasType: GAL_TYPE = GAL_TYPE.GAL_TYPE_OPENGL;
 
   constructor(aFrameType: FRAME_T, aIuScale: EdaIuScale, aUnits: EdaUnits) {
@@ -176,7 +176,7 @@ export abstract class EDA_DRAW_FRAME extends EDA_BASE_FRAME {
     this.FocusOnItem(null);
   }
 
-  GetGalDisplayOptions(): GAL_DISPLAY_OPTIONS {
+  GetGalDisplayOptions(): GAL_DISPLAY_OPTIONS_IMPL {
     return this.m_galDisplayOptions;
   }
 

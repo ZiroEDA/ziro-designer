@@ -548,7 +548,7 @@ import { VIEW_UPDATE_FLAGS, type VIEW_ITEM } from '@ziroeda/common/view/view_ite
 import { PAD } from '@ziroeda/pcbnew/pad.js';
 import { PCB_TRACK, PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
 import { TRACK_CLEARANCE_MODE } from '@ziroeda/pcbnew/pcbnew_settings.js';
-import { GRID_STYLE } from '@ziroeda/common/gal/gal_display_options.js';
+import { commonSettingsOf, windowSettingsOf } from '../../pgm_app.js';
 import {
   applyToggle,
   crosshairToggleId,
@@ -4131,7 +4131,7 @@ export function PcbEditor({
     installPgm();
     // `EDA_DRAW_FRAME::EDA_DRAW_FRAME`: `m_galDisplayOptions.ReadCommonConfig(
     // *Pgm().GetCommonSettings(), this )` before the canvas is built.
-    frame.GetGalDisplayOptions().ReadCommonConfig(settings.common);
+    frame.GetGalDisplayOptions().ReadCommonConfig(commonSettingsOf(), window);
     const panel = createPcbDrawPanel(frame, canvas, fontImage);
     glOkRef.current = panel !== null;
     if (!panel) {
@@ -4310,7 +4310,7 @@ export function PcbEditor({
   // biome-ignore lint/correctness/useExhaustiveDependencies: the mode is the trigger; the body reads the settings store and refs
   useEffect(() => {
     if (!panelRef.current) return;
-    frameRef.current?.GetGalDisplayOptions().ReadCommonConfig(settings.common);
+    frameRef.current?.GetGalDisplayOptions().ReadCommonConfig(commonSettingsOf(), window);
   }, [antialiasingMode]);
   const boardK = board?.k ?? null;
   useEffect(() => {
@@ -10293,17 +10293,8 @@ export function PcbEditor({
     gal.SetGridSize({ x: gridIU, y: gridIU });
     gal.SetGridOrigin(gridOriginRef.current);
     gal.SetGridVisibility(objects.grid && toggles.has('toggleGrid'));
-    const galOpts = frame.GetGalDisplayOptions();
-    const g = galRef.current;
-    galOpts.m_gridStyle =
-      g.style === 'lines'
-        ? GRID_STYLE.LINES
-        : g.style === 'crosses'
-          ? GRID_STYLE.SMALL_CROSS
-          : GRID_STYLE.DOTS;
-    galOpts.m_gridLineWidth = g.line_width;
-    galOpts.m_gridMinSpacing = g.min_spacing;
-    galOpts.NotifyChanged();
+    // EDA_DRAW_FRAME::LoadSettings: m_galDisplayOptions.ReadWindowSettings( m_Window ).
+    frame.GetGalDisplayOptions().ReadWindowSettings(windowSettingsOf(galRef.current));
     requestDraw();
   }, [
     panelReady,

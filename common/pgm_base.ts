@@ -28,7 +28,14 @@ export interface COMMON_SETTINGS_LIKE {
     zoom_correction_factor: number;
     /** `hicontrast_dimming_factor`, PARAM<double> default 0.8. */
     hicontrast_dimming_factor: number;
+    /**
+     * `canvas_scale`: a member, not a PARAM in 10.0 (only the legacy
+     * `CanvasScale` migrates into it), so 0.0 - "automatic" - unless set.
+     */
+    canvas_scale: number;
   };
+  /** `COMMON_SETTINGS::GRAPHICS`: `graphics.antialiasing_mode`. */
+  m_Graphics: { aa_mode: number };
   /** `COMMON_SETTINGS::INPUT`: the modifiers are `WXK_*` codes, 0 for none. */
   m_Input: COMMON_SETTINGS_INPUT;
   /** `COMMON_SETTINGS::m_Env`: the environment variables KiCad knows about. */
