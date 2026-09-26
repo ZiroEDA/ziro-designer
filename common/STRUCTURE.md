@@ -162,15 +162,16 @@ wildcards_and_files_ext.
 | `lib_tree_model`, `lib_tree_model_adapter` | `designer/src/widgets/` |
 | `app_monitor` | `designer/src/telemetry/reporter.ts` (Sentry, as KiCad's) |
 
-**Found by `kicad-cli sch export netlist` against ours (09-26)**, for the
-eeschema exporters stage - content, not layout; the oracle files are in
-`~/netlist-oracle`: the root sheet's `Sheetname` property is `"Root"` (ours
-`""`); a `(unit (name …))` is the unit's display name `"A"` (ours the symbol
-name `"C_1_1"`); the `(variants)` section is missing; a libpart's `(fields)`
-carries empty `Datasheet`/`Description` and not `ki_keywords`/`ki_fp_filters`;
-a library's `(uri …)` is the table's (ours empty); a one-pin net is
-`unconnected-(R1-Pad1)` (ours `Net-(R1-Pad1)`); `(date …)` is
-`GetISO8601CurrentDateTime`, no milliseconds or `Z`.
+**Found by `kicad-cli sch export netlist` against ours (09-26), all fixed the
+same day:** one-pin nets are `unconnected-(…)`; the root sheet is named from
+the project (`PROJECT_FILE::LoadFromFile` migration) or "Root"; units are
+`GetUnitPinInfo`; `(variants)` is written; libpart fields are
+`LIB_SYMBOL::GetFields`; `(libraries)` uses the table URI and omits an
+unknown library; `source` is the full path and `date` is
+`GetISO8601CurrentDateTime`. Every line of the oracle's netlist now matches
+(`~/netlist-oracle`). Still open: the per-component `(variants …)` blocks
+(the variants model does not exist yet) and the second XNODE copy in
+`eeschema/exporters/netlist.ts`.
 
 **To port (10)** — the behaviour exists, inline in a screen or plotter: `grid_tricks`
 and `lib_table_grid_tricks` (in `SymbolPropertiesDialog`,

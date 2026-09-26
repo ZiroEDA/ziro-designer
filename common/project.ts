@@ -204,6 +204,10 @@ export class PROJECT {
 
   /** Return the full path of the project, with a trailing separator. */
   GetProjectPath(): string {
+    // wxFileName::GetPathWithSep(): the separator only follows a path there is -
+    // a bare name ("" or "board.kicad_pro") has none, "/x.kicad_pro" has "/".
+    if (!this.m_project_name.includes('/')) return '';
+
     const { dir } = splitPath(this.m_project_name);
 
     return `${dir}/`;

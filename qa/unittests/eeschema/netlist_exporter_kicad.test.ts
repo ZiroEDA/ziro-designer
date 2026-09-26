@@ -69,6 +69,8 @@ const netlistText = netlistKicad({
   source: 'divider.kicad_sch',
   date: '2026-07-25T00:00:00.000Z',
   netClassFor: () => 'Default',
+  // kicad-cli ran with KiCad's global sym-lib-table, which has Device.
+  libraryUri: (nick) => `\${KICAD10_SYMBOL_DIR}/${nick}.kicad_sym`,
 });
 
 describe('netlistKicad', () => {
@@ -131,6 +133,62 @@ describe('netlistKicad', () => {
     expect(netlistText).not.toContain('(name "C_1_1")');
   });
 
+  it('writes (variants), the libpart fields and the library uri as kicad-cli does', () => {
+    // Byte for byte from `kicad-cli sch export netlist` on this schematic (09-26).
+    expect(netlistText).toContain('\n\t(variants)\n\t(libparts\n');
+    // LIB_SYMBOL::GetFields: the five mandatory fields, empty ones included;
+    // ki_keywords / ki_fp_filters are not fields.
+    const rFields = [
+      '\t\t\t(fields',
+      '\t\t\t\t(field',
+      '\t\t\t\t\t(name "Reference") "R")',
+      '\t\t\t\t(field',
+      '\t\t\t\t\t(name "Value") "R")',
+      '\t\t\t\t(field',
+      '\t\t\t\t\t(name "Footprint")',
+      '\t\t\t\t)',
+      '\t\t\t\t(field',
+      '\t\t\t\t\t(name "Datasheet")',
+      '\t\t\t\t)',
+      '\t\t\t\t(field',
+      '\t\t\t\t\t(name "Description")',
+      '\t\t\t\t)',
+      '\t\t\t)',
+      '\t\t\t(pins',
+    ].join('\n');
+    expect(netlistText).toContain(rFields);
+    // (A component still carries it as a (property …), as upstream writes it.)
+    expect(netlistText).not.toContain('(name "ki_keywords") "R res resistor")');
+    expect(netlistText).toContain(
+      '\t\t(library\n\t\t\t(logical "Device")\n\t\t\t(uri "${KICAD10_SYMBOL_DIR}/Device.kicad_sym")\n\t\t)',
+    );
+  });
+
+  it('leaves out a library no table knows, as makeLibraries does', () => {
+    const text = netlistKicad({
+      sheets: SHEETS,
+      libsFor: (s) => new Map(s.doc.libSymbols.map((l) => [l.libId, l])),
+      source: 'divider.kicad_sch',
+      libraryUri: () => undefined,
+    });
+    expect(text).not.toContain('(library\n');
+  });
+
+  it('lists variants by name in std::set order, with the project description', () => {
+    const text = netlistKicad({
+      sheets: SHEETS,
+      libsFor: (s) => new Map(s.doc.libSymbols.map((l) => [l.libId, l])),
+      source: 'divider.kicad_sch',
+      variantDescriptions: new Map([
+        ['Variant2', 'Test of variant 2 desc'],
+        ['Variant 1', ''],
+      ]),
+    });
+    expect(text).toContain(
+      '\t(variants\n\t\t(variant\n\t\t\t(name "Variant 1")\n\t\t)\n\t\t(variant\n\t\t\t(name "Variant2")\n\t\t\t(description "Test of variant 2 desc")\n\t\t)\n\t)',
+    );
+  });
+
   it('names the root sheet "Root" when no project names it', () => {
     // kicad-cli on this schematic (no .kicad_pro beside it, 09-26):
     //   (property (name "Sheetname") (value "Root"))
@@ -140,9 +198,15 @@ describe('netlistKicad', () => {
   });
 
   it("emits every section pcbnew's parser looks for, in order", () => {
-    const order = ['(design', '(components', '(groups', '(libparts', '(libraries', '(nets'].map(
-      (section) => netlistText.indexOf(section),
-    );
+    const order = [
+      '(design',
+      '(components',
+      '(groups',
+      '(variants',
+      '(libparts',
+      '(libraries',
+      '(nets',
+    ].map((section) => netlistText.indexOf(section));
     for (const index of order) expect(index).toBeGreaterThan(0);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
   });

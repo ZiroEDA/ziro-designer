@@ -35,7 +35,10 @@ import {
 import { loadKicadNetlist, type NETLIST } from '@ziroeda/pcbnew';
 import { parse } from '@ziroeda/sexpr';
 import { RPT_SEVERITY_ERROR } from '@ziroeda/common';
-import { SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
+import { ENV_VAR } from '@ziroeda/common/env_vars.js';
+import { PgmOrNull, SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
+import { globalSymLibNicknames } from '../schematic/symbols/index.js';
+import { projectSymLibTable } from '../schematic/symbols/project_sym_lib_table.js';
 import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import { findProjectPro, readSchematicSetup } from '../schematic/project_settings.js';
 
@@ -96,6 +99,48 @@ function rootSheetNameOf(files: readonly RawFile[], rootFile: string, rootPro?: 
     }
   }
   return 'Root';
+}
+
+/**
+ * `SCHEMATIC_SETTINGS::m_VariantDescriptions`: the project's
+ * `schematic.variants`, `[{ name, description }]` (schematic_settings.cpp:286-300).
+ */
+function variantDescriptionsOf(files: readonly RawFile[], rootPro?: string): Map<string, string> {
+  const out = new Map<string, string>();
+  const pro = findProjectPro(files, rootPro);
+  if (!pro) return out;
+  let variants: unknown;
+  try {
+    variants = (JSON.parse(pro.text) as { schematic?: { variants?: unknown } }).schematic?.variants;
+  } catch {
+    return out;
+  }
+  if (!Array.isArray(variants)) return out;
+  for (const v of variants as { name?: unknown; description?: unknown }[]) {
+    if (typeof v.name === 'string' && v.name !== '')
+      out.set(v.name, typeof v.description === 'string' ? v.description : '');
+  }
+  return out;
+}
+
+/**
+ * `LIBRARY_MANAGER::GetFullURI( SYMBOL, nickname )`: the project's
+ * `sym-lib-table` row first, then the global table - KiCad's
+ * `template/sym-lib-table`, every row of which is
+ * `${KICAD10_SYMBOL_DIR}/<nickname>.kicad_sym`, and which our hosted libraries
+ * mirror. A nickname in neither table has no URI. Before the hosted index has
+ * loaded the global table cannot be asked, so it is taken to hold the library.
+ */
+function symbolLibraryUri(files: readonly RawFile[]): (aNickname: string) => string | undefined {
+  const projectRows = projectSymLibTable(files);
+  const globalNicknames = globalSymLibNicknames();
+  const symbolDir = ENV_VAR.GetVersionedEnvVarName('SYMBOL_DIR');
+  return (aNickname) => {
+    const row = projectRows.find((r) => r.name === aNickname);
+    if (row) return row.uri;
+    if (globalNicknames && !globalNicknames.has(aNickname)) return undefined;
+    return `\${${symbolDir}}/${aNickname}.kicad_sym`;
+  };
 }
 
 export function fetchNetlistFromSchematic(
@@ -160,8 +205,11 @@ export function fetchNetlistFromSchematic(
   const netlistText = netlistKicad({
     sheets,
     libsFor,
-    source: rootFile,
+    // SCHEMATIC::GetFileName(): the full path, the project's directory before it.
+    source: `${PgmOrNull()?.GetSettingsManager().Prj().GetProjectPath() ?? ''}${rootFile}`,
     rootSheetName: rootSheetNameOf(files, rootFile, rootPro),
+    variantDescriptions: variantDescriptionsOf(files, rootPro),
+    libraryUri: symbolLibraryUri(files),
     busAliases,
     netClassFor: (netName) => netClassFor(netName, assignments),
   });

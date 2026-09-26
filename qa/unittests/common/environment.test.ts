@@ -147,3 +147,16 @@ describe('PGM_BASE environment', () => {
     expect(wxGetEnv('KIPRJMOD')).toBe('');
   });
 });
+
+describe('PROJECT::GetProjectPath', () => {
+  it('is the directory with its separator, and "" for a bare name (GetPathWithSep)', () => {
+    const mgr = pgmWith({ vars: new ENV_VAR_MAP() }).GetSettingsManager();
+    expect(mgr.Prj().GetProjectPath()).toBe(''); // the empty project PGM_BASE starts with
+    mgr.LoadProject('board.kicad_pro');
+    expect(mgr.Prj().GetProjectPath()).toBe('');
+    mgr.LoadProject('/work/board/board.kicad_pro');
+    expect(mgr.Prj().GetProjectPath()).toBe('/work/board/');
+    mgr.LoadProject('/top.kicad_pro');
+    expect(mgr.Prj().GetProjectPath()).toBe('/');
+  });
+});

@@ -149,15 +149,33 @@ export function powerSymbolTest(
 export const symbolsBase = (): string => libraryBase.symbols;
 
 let indexPromise: Promise<LibIndexEntry[]> | null = null;
+/** The index once it has arrived, for callers that must answer synchronously. */
+let loadedIndex: LibIndexEntry[] | null = null;
 /** Load the library index (library names + their symbol names) for search. */
 export function loadIndex(): Promise<LibIndexEntry[]> {
-  if (!indexPromise)
+  if (!indexPromise) {
     indexPromise = trackLibraryLoad(
       'symbols',
       'Loading symbol libraries...',
       fetchLibraryIndex<LibIndexEntry>('symbols'),
     );
+    void indexPromise.then(
+      (index) => {
+        loadedIndex = index;
+      },
+      () => undefined,
+    );
+  }
   return indexPromise;
+}
+
+/**
+ * The global symbol library table's nicknames - KiCad's
+ * `template/sym-lib-table`, which our hosted libraries mirror - once the
+ * index has loaded (it is preloaded when a project opens); null before.
+ */
+export function globalSymLibNicknames(): ReadonlySet<string> | null {
+  return loadedIndex ? new Set(loadedIndex.map((e) => e.name)) : null;
 }
 
 const libCache = new Map<string, Promise<Map<string, LibSymbol>>>();

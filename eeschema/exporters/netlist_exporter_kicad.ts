@@ -27,9 +27,9 @@
  */
 
 import { PRETTIFIED_STRING_FORMATTER } from '@ziroeda/common/richio.js';
-import { strNumCmp } from '@ziroeda/common/string_utils.js';
+import { GetISO8601CurrentDateTime, strNumCmp } from '@ziroeda/common/string_utils.js';
 import { XNODE, wxXmlNodeType } from '@ziroeda/common/xnode.js';
-import { arg, childrenNamed } from '@ziroeda/sexpr/query.js';
+import { arg, childNamed, childrenNamed } from '@ziroeda/sexpr/query.js';
 import { computeHierarchyNetlist, type HierSheet } from '../connectivity/hierarchy.js';
 import { enumeratePins, type Netlist, type PinNode } from '../connectivity/nets.js';
 import { resolvePadNumbers } from '../sch_pin.js';
@@ -69,7 +69,7 @@ export interface KicadNetlistInput {
   sheets: readonly NetlistSheet[];
   /** The lib_symbols cache of a sheet's document. */
   libsFor: (sheet: NetlistSheet) => Map<string, LibSymbol>;
-  /** The root schematic's file name, the `(design (source …))` header. */
+  /** The root schematic's full path (`SCHEMATIC::GetFileName`), the `(design (source …))` header. */
   source: string;
   /** Bus alias definitions, so bus members expand as the editor sees them. */
   busAliases?: ReadonlyMap<string, readonly string[]>;
@@ -94,12 +94,27 @@ export interface KicadNetlistInput {
    * (eeschema_helpers.cpp:131, files-io.cpp:359). Defaults to "Root".
    */
   rootSheetName?: string;
+  /**
+   * `SCHEMATIC_SETTINGS::m_VariantDescriptions`: the project's
+   * `schematic.variants` - name -> description. Variants named only here (no
+   * symbol differs in them yet) are still listed.
+   */
+  variantDescriptions?: ReadonlyMap<string, string>;
+  /**
+   * `LIBRARY_MANAGER::GetFullURI( SYMBOL, nickname )`: the library table row's
+   * URI, unexpanded, or undefined when no table has the nickname - and then
+   * the library is left out of `(libraries …)`, as upstream leaves it.
+   */
+  libraryUri?: (aNickname: string) => string | undefined;
 }
 
 // ----- small helpers ----------------------------------------------------------
 
 const fieldOf = (sym: SchSymbol, key: string): string =>
   sym.fields.find((f) => f.key === key)?.value ?? '';
+
+/** The `(property …)` names the symbol parser keeps as LIB_SYMBOL members, not fields. */
+const LIB_SYMBOL_MEMBERS = /^ki_(keywords|description|fp_filters|locked)$/;
 
 /** The mandatory symbol fields, which are emitted as their own elements. */
 const MANDATORY_FIELDS = new Set(['Reference', 'Value', 'Footprint', 'Datasheet', 'Description']);
@@ -160,7 +175,7 @@ function orderedSymbols(doc: Schematic): SymbolInstance[] {
 function makeDesignHeader(input: KicadNetlistInput): XNODE {
   const xdesign = node('design');
   xdesign.AddChild(node('source', input.source));
-  xdesign.AddChild(node('date', input.date ?? new Date().toISOString()));
+  xdesign.AddChild(node('date', input.date ?? GetISO8601CurrentDateTime()));
   xdesign.AddChild(node('tool', input.tool ?? 'Eeschema'));
 
   for (const [name, value] of input.textVars ?? new Map<string, string>()) {
@@ -428,6 +443,48 @@ function parentSheetFields(
  * a group on a shared sheet yields one group per instance; a group name is
  * qualified with the instance path when its sheet is used more than once.
  */
+/**
+ * `SCHEMATIC::GetVariantNames`: every variant a symbol instance on any sheet
+ * names (`(instances … (path … (variant (name "…") …)))`), plus the
+ * project's; a `std::set`, so sorted by code unit.
+ */
+function variantNamesOf(input: KicadNetlistInput): string[] {
+  const names = new Set<string>(input.variantDescriptions?.keys() ?? []);
+  for (const sheet of input.sheets) {
+    for (const sym of sheet.doc.symbols) {
+      for (const inst of sym.instances ?? []) {
+        for (const v of childrenNamed(inst.source, 'variant')) {
+          const name = arg(childNamed(v, 'name') ?? v, 0);
+          if (name) names.add(name);
+        }
+      }
+    }
+  }
+  return [...names].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+}
+
+/**
+ * `NETLIST_EXPORTER_XML::makeVariants` (netlist_exporter_xml.cpp:777): the
+ * design's variants by name, with the project's description when it has one.
+ * The per-component `(variants …)` blocks (:418-530) wait on the variants
+ * model (SCH_SYMBOL_VARIANT, ResolveDNP per variant, field overrides).
+ */
+function makeVariants(input: KicadNetlistInput): XNODE {
+  const xvariants = node('variants');
+
+  for (const variantName of variantNamesOf(input)) {
+    const xvariant = node('variant');
+    xvariants.AddChild(xvariant);
+    xvariant.AddAttribute('name', variantName);
+
+    const description = input.variantDescriptions?.get(variantName) ?? '';
+
+    if (description !== '') xvariant.AddAttribute('description', description);
+  }
+
+  return xvariants;
+}
+
 function makeGroups(input: KicadNetlistInput): XNODE {
   const xgroups = node('groups');
 
@@ -492,7 +549,9 @@ function makeLibParts(
     const property = (key: string): string =>
       lib.properties.find((p) => p.key === key)?.value ?? '';
 
-    const description = property('Description');
+    // The parser folds a legacy `ki_description` into the Description field.
+    const description =
+      property('Description') !== '' ? property('Description') : property('ki_description');
     if (description !== '') xlibpart.AddChild(node('description', description));
 
     const datasheet = property('Datasheet');
@@ -505,9 +564,24 @@ function makeLibParts(
       for (const filter of filters) xfootprints.AddChild(node('fp', filter));
     }
 
+    // LIB_SYMBOL::GetFields: the symbol's SCH_FIELDs by ordinal - the five
+    // mandatory ones always (a library that omits one still has it, empty),
+    // then the user fields in file order. ki_keywords / ki_description /
+    // ki_fp_filters / ki_locked are not fields: the parser takes them into
+    // LIB_SYMBOL members (sch_io_kicad_sexpr_parser.cpp:1170-1200).
     const xfields = node('fields');
     xlibpart.AddChild(xfields);
-    for (const field of lib.properties) {
+    const fieldList: { key: string; value: string }[] = [
+      { key: 'Reference', value: property('Reference') },
+      { key: 'Value', value: property('Value') },
+      { key: 'Footprint', value: property('Footprint') },
+      { key: 'Datasheet', value: datasheet },
+      { key: 'Description', value: description },
+      ...lib.properties.filter(
+        (p) => !MANDATORY_FIELDS.has(p.key) && !p.key.match(LIB_SYMBOL_MEMBERS),
+      ),
+    ];
+    for (const field of fieldList) {
       const xfield = node('field', field.value);
       xfields.AddChild(xfield);
       xfield.AddAttribute('name', field.key);
@@ -538,13 +612,23 @@ function makeLibParts(
 }
 
 /** NETLIST_EXPORTER_XML::makeLibraries. */
-function makeLibraries(libraries: ReadonlySet<string>): XNODE {
+function makeLibraries(
+  libraries: ReadonlySet<string>,
+  libraryUri: KicadNetlistInput['libraryUri'],
+): XNODE {
   const xlibs = node('libraries');
-  for (const name of [...libraries].sort()) {
-    const xlibrary = node('library');
-    xlibs.AddChild(xlibrary);
-    xlibrary.AddAttribute('logical', name);
-    xlibrary.AddChild(node('uri', ''));
+  // m_libraries is a std::set: code-unit order.
+  for (const libNickname of [...libraries].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))) {
+    const uri = libraryUri?.(libNickname);
+
+    if (uri !== undefined) {
+      const xlibrary = node('library');
+      xlibs.AddChild(xlibrary);
+      xlibrary.AddAttribute('logical', libNickname);
+      xlibrary.AddChild(node('uri', uri));
+    }
+
+    // @todo: add more fun stuff here
   }
   return xlibs;
 }
@@ -710,11 +794,12 @@ export function makeKicadNetlistNode(input: KicadNetlistInput): XNODE {
   const usedLibIds = new Set<string>();
   xroot.AddChild(makeSymbols(input, usedLibIds));
   xroot.AddChild(makeGroups(input));
+  xroot.AddChild(makeVariants(input));
 
   const libraries = new Set<string>();
   xroot.AddChild(makeLibParts(input, usedLibIds, libraries));
   // Must follow makeLibParts, which collects the library nicknames.
-  xroot.AddChild(makeLibraries(libraries));
+  xroot.AddChild(makeLibraries(libraries, input.libraryUri));
 
   xroot.AddChild(makeListOfNets(input));
 
