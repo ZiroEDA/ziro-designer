@@ -364,7 +364,7 @@ import {
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
-import { kicadSchematicWildcard } from '../../fs/wildcards.js';
+import { kicadSchematicWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import { RIGHT_TOOLBAR_COMMANDS, SCH_DEFAULT_TOOLBARS } from './toolbars_sch_editor.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import {
@@ -423,7 +423,7 @@ import {
   toPaperToken,
   type PageExportFlags,
   type PageSettingsValue,
-} from '../../dialogs/page_settings_model.js';
+} from '@ziroeda/common/dialogs/dialog_page_settings.js';
 // `DIALOG_PASTE_SPECIAL` is a `common/dialogs/` dialog upstream, built by
 // eeschema AND pcbnew, so it is one module here too rather than a copy under
 // this editor's own `dialogs/`. `SCH_EDITOR_CONTROL::Paste` supplies the two

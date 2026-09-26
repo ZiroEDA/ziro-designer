@@ -15,7 +15,7 @@
  * all.
  */
 import { PAPER_MM } from '@ziroeda/common';
-import type { PageSettingsValue } from '../../dialogs/page_settings_model.js';
+import type { PageSettingsValue } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import type { PlEditorSettings } from '../../prefs/settings.js';
 
 /**

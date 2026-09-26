@@ -30,14 +30,9 @@ import { type AssetKind, chooserPlacesFor, projectsOnlyFileSystem } from './choo
 import type { ChooserFilter } from './chooser_types.js';
 import type { FileSystem } from './filesystem.js';
 
-/** One file the dialog hands back, with the batch it came in. */
-export interface OpenedFile {
-  path: string;
-  text: string;
-  bytes: Uint8Array;
-  /** The rest of a multiple selection; empty for every single-select caller. */
-  rest: readonly { path: string; text: string; bytes: Uint8Array }[];
-}
+/** One file the dialog hands back: wxFileDialog's result, so common/wx's. */
+import type { OpenedFile } from '@ziroeda/common/wx/filedlg.js';
+export type { OpenedFile };
 
 export interface OpenFileDialogProps {
   /** The document's wildcard, e.g. `drawingSheetWildcard()`. */

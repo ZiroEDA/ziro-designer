@@ -187,10 +187,10 @@ export interface FieldTemplate {
 // ---------------------------------------------------------------------------
 // Text variables (PANEL_TEXT_VARIABLES / project text_variables).
 
-export interface TextVar {
-  name: string;
-  value: string;
-}
+// PROJECT_FILE::m_TextVars' rows; declared beside it in
+// common/project/project_file.ts and re-exported here.
+export type { TextVar } from '@ziroeda/common/project/project_file.js';
+import type { TextVar } from '@ziroeda/common/project/project_file.js';
 
 // ---------------------------------------------------------------------------
 // BOM presets (bom_settings.h BOM_PRESET / BOM_FMT_PRESET; PANEL_BOM_PRESETS
@@ -372,21 +372,14 @@ import {
 // ---------------------------------------------------------------------------
 // Embedded files (PANEL_EMBEDDED_FILES).
 
-export interface EmbeddedFile {
-  name: string;
-  reference: string;
-  /** Raw content of a file added in this dialog session, not yet compressed
-   *  into the document (EMBEDDED_FILES::AddFile happens on OK). */
-  pendingBytes?: Uint8Array;
-}
-export interface EmbeddedFilesData {
-  files: EmbeddedFile[];
-  embedFonts: boolean;
-}
-
-export function defaultEmbeddedFiles(): EmbeddedFilesData {
-  return { files: [], embedFonts: false };
-}
+// The panel's rows are EMBEDDED_FILES' data, so they live beside it in
+// common/embedded_files.ts; re-exported for this module's callers.
+export {
+  defaultEmbeddedFiles,
+  type EmbeddedFile,
+  type EmbeddedFilesData,
+} from '@ziroeda/common/embedded_files.js';
+import { defaultEmbeddedFiles, type EmbeddedFilesData } from '@ziroeda/common/embedded_files.js';
 
 // ---------------------------------------------------------------------------
 // Derived drawing defaults (SCHEMATIC_SETTINGS helpers).

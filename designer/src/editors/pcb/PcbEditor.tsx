@@ -336,8 +336,8 @@ import {
   zoomMsg,
 } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { DialogPcbFind, DEFAULT_PCB_FIND, type PcbFindOptions } from './dialogs/dialog_find.js';
-import { DialogPageSettings } from '../../dialogs/dialog_page_settings.js';
-import { pageSettingsValue, toPaperToken } from '../../dialogs/page_settings_model.js';
+import { DialogPageSettings } from '@ziroeda/common/dialogs/dialog_page_settings.js';
+import { pageSettingsValue, toPaperToken } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import { type ExtentsBox, pcbZoomFitBox } from './document_extents.js';
 import { DialogPcbPrint } from './dialogs/dialog_print_pcb.js';
 import { DialogPcbPlot } from './dialogs/dialog_plot_pcb.js';

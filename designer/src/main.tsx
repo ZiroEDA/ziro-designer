@@ -17,6 +17,8 @@ import { sentrySink } from './telemetry/sentrySink.js';
 import { installGlobalErrorHandlers } from './telemetry/global_handlers.js';
 import { installOverlayScrollbars } from '@ziroeda/common/widgets/overlay_scrollbars.js';
 import { installDialogSizeHints } from '@ziroeda/common/dialogs/dialog_size_hints.js';
+import { SetFileDialog } from '@ziroeda/common/wx/filedlg.js';
+import { OpenFileDialog } from './fs/OpenFileDialog.js';
 import { installOutlineFontProvider } from './font/outline_fonts.js';
 import { missingFeatures, unsupportedMessage } from './browser_support.js';
 import { checkStorageHealth, setTemplateSink } from './home/projectStore.js';
@@ -45,6 +47,11 @@ installOverlayScrollbars();
 // own text changed. Installed here rather than per dialog because in wx it
 // comes from the dialog base class, not from the dialog.
 installDialogSizeHints();
+// wxFileDialog, for the dialogs in common/ that open one (common/wx/filedlg.tsx).
+// The chooser's `kind` is its own set of shared folders; common passes a string.
+SetFileDialog((p) => (
+  <OpenFileDialog {...p} kind={p.kind as Parameters<typeof OpenFileDialog>[0]['kind']} />
+));
 // `textWidth` measures an outline face with the glyphs the renderer fills
 // (#154); until a face has loaded both sides fall back to the stroke font.
 installOutlineFontProvider();

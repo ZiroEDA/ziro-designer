@@ -57,7 +57,7 @@
  */
 
 import { pcbMmToIU as mmToIU } from '@ziroeda/common';
-import { fromPaperToken, pageSizeMM } from '../../dialogs/page_settings_model.js';
+import { fromPaperToken, pageSizeMM } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 
 /** A `BOX2I` in pcbnew internal units (1 nm). */
 export interface ExtentsBox {

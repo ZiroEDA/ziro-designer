@@ -111,7 +111,10 @@ import { TemplateSelectorDialog } from './dialogs/dialog_template_selector.js';
 import { type ChooserPlace, FileChooser } from '../fs/FileChooser.js';
 import { listFileSystem } from '../fs/list_fs.js';
 import { projectAt, projectStoreFileSystem } from '../fs/project_store_fs.js';
-import { NEW_PROJECT_FOLDER_FILTERS, OPEN_PROJECT_FILTERS } from '../fs/wildcards.js';
+import {
+  NEW_PROJECT_FOLDER_FILTERS,
+  OPEN_PROJECT_FILTERS,
+} from '@ziroeda/common/wildcards_and_files_ext.js';
 import { normalize as normalizePath, segments } from '../fs/path.js';
 import { EllipsizedField } from '@ziroeda/common/widgets/wx_ellipsized_static_text_ui.js';
 import { managerTitle, projectStatusText } from './manager_frame.js';
@@ -130,7 +133,7 @@ import {
   recordSnapshot,
   restoreSnapshot,
 } from './local_history_store.js';
-import { RestoreLocalHistoryDialog } from './dialog_restore_local_history.js';
+import { RestoreLocalHistoryDialog } from '@ziroeda/common/dialogs/dialog_restore_local_history.js';
 import {
   RESTORE_CAPTION,
   RESTORE_EXTENDED,
@@ -138,7 +141,7 @@ import {
   RESTORE_YES_LABEL,
   restoreConfirmMessage,
   type Snapshot,
-} from './local_history.js';
+} from '@ziroeda/common/local_history.js';
 import { MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
 
 import {

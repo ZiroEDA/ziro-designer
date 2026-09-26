@@ -191,9 +191,9 @@ function ConIcon({ name }: { name: string }): JSX.Element | null {
   // asked for at 24 (`panel_setup_constraints.cpp:61-73`). This drew them at 20.
   return url ? <img src={url} width={24} height={24} alt="" aria-hidden="true" /> : null;
 }
-import { PanelTextVariables } from '../../../dialogs/panels/panel_text_variables.js';
-import { PanelSetupNetclasses } from '../../../dialogs/panels/panel_setup_netclasses.js';
-import { PanelEmbeddedFiles } from '../../../dialogs/panels/panel_embedded_files.js';
+import { PanelTextVariables } from '@ziroeda/common/dialogs/panel_text_variables.js';
+import { PanelSetupNetclasses } from '@ziroeda/common/dialogs/panel_setup_netclasses.js';
+import { PanelEmbeddedFiles } from '@ziroeda/common/dialogs/panel_embedded_files.js';
 import { PanelPcbSeverities } from './panels/panel_pcb_severities.js';
 import { PanelPcbTextGraphics } from './panels/panel_pcb_text_graphics.js';
 import { PanelPcbFormatting } from './panels/panel_pcb_formatting.js';

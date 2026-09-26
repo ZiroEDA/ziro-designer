@@ -148,7 +148,9 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // metrics 27 -> 19 on 09-26: dialog_grid_settings, dialog_paste_special and
   // panel_setup_severities moved to `common/dialogs` (KiCad's directory) and
   // took their eight with them; see that row.
-  dialogs: { colours: 4, metrics: 19 },
+  // 4/19 -> 2/15 on 09-26 (stage 2): dialog_page_settings and the three
+  // Setup panels moved to `common/dialogs`, with two colours and four sizes.
+  dialogs: { colours: 2, metrics: 15 },
   // metrics 18 -> 16 on 09-26: the calculator's own About box went, and its
   // `margin: '0 0 8px'` and `paddingLeft: 18` with it. Help > About opens
   // common/dialog_about's DIALOG_ABOUT now, as pcb_calculator's does.
@@ -699,7 +701,8 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   'common/tool': { colours: 0, metrics: 1 },
   // metrics 0 -> 15 on 09-26: the stage-1 moves, 8 from `dialogs` and 7 from
   // `editors/schematic`. Nothing added or removed: 8 + 7 = 15.
-  'common/dialogs': { colours: 0, metrics: 15 },
+  // 0/15 -> 2/19 on 09-26 (stage 2): what `dialogs` gave up, 2 + 4.
+  'common/dialogs': { colours: 2, metrics: 19 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in

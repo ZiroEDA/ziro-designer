@@ -17,7 +17,7 @@ import {
   previewPageMM,
   defaultPreviewSettings,
 } from '@ziroeda/designer/src/editors/drawingsheet/preview_settings.js';
-import { pageSettingsLabels } from '@ziroeda/designer/src/dialogs/page_settings_model.js';
+import { pageSettingsLabels } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 
 describe('the paper-size combo', () => {
   it('is PAGE_INFO::standardPageSizes, row for row', () => {

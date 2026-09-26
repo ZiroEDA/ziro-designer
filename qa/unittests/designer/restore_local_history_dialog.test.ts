@@ -24,12 +24,12 @@ import {
   restoreCountText,
   restoreDetailText,
   type Snapshot,
-} from '@ziroeda/designer/src/home/local_history.js';
+} from '@ziroeda/common/local_history.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const DLG = read('../../../designer/src/home/dialog_restore_local_history.tsx');
+const DLG = read('../../../common/dialogs/dialog_restore_local_history.tsx');
 const MENU = read('../../../designer/src/home/menubar.ts');
 
 const snap = (over: Partial<Snapshot> = {}): Snapshot => ({

@@ -22,7 +22,7 @@ import {
   GERBVIEW_GERBER_FILTERS,
   GERBVIEW_JOB_FILTERS,
   GERBVIEW_ZIP_FILTERS,
-} from '@ziroeda/designer/src/fs/wildcards.js';
+} from '@ziroeda/common/wildcards_and_files_ext.js';
 import {
   acceptAttribute,
   pickerTypes,

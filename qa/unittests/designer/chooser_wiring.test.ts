@@ -19,6 +19,7 @@
  * picker is one launcher that cannot see the account.
  */
 import { describe, expect, it } from 'vitest';
+import { resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { extendSelection, selectionToAccept } from '@ziroeda/designer/src/fs/chooser_selection.js';
@@ -231,7 +232,10 @@ describe('the capabilities that used to block it', () => {
   it('and the open dialog hands back BYTES, not only text', () => {
     // A `.zip` is not text. Handing back only one of the two is what made the
     // dialog unusable for the binary callers.
-    expect(src('fs/OpenFileDialog.tsx')).toContain('bytes: Uint8Array;');
+    // The result type is wxFileDialog's, declared in common/wx since 09-26.
+    expect(readFileSync(resolve(process.cwd(), '../common/wx/filedlg.tsx'), 'utf8')).toContain(
+      'bytes: Uint8Array;',
+    );
     expect(src('fs/OpenFileDialog.tsx')).toContain(
       'onDone({ path, text: new TextDecoder().decode(bytes), bytes, rest: others });',
     );

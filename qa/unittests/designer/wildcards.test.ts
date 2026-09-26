@@ -18,7 +18,7 @@ import {
   OPEN_PROJECT_FILTERS,
   allFilesWildcard,
   fileFilter,
-} from '@ziroeda/designer/src/fs/wildcards.js';
+} from '@ziroeda/common/wildcards_and_files_ext.js';
 
 describe('AddFileExtListToFilter', () => {
   it('joins the extensions with "; ", each starred and dotted', () => {

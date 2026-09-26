@@ -135,7 +135,7 @@ import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import { wasBrowserSuppressed, type FocusLike } from '@ziroeda/common/browser_hotkeys.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
-import { kicadFootprintLibWildcard } from '../../fs/wildcards.js';
+import { kicadFootprintLibWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import { CONFIRM_REVERT_EXTENDED, confirmRevertMessage } from '@ziroeda/common/confirm.js';
 import { HomeLink } from '../../ui/HomeLink.js';
 

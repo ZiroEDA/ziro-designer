@@ -34,8 +34,6 @@ import {
   MIN_PAGE_SIZE_MILS,
   noPageExports,
   orientationEnabled,
-  pageExportsFromSettings,
-  pageExportsToSettings,
   orientationFromCustomSize,
   pageSettingsValue,
   pageSizeMM,
@@ -47,7 +45,11 @@ import {
   toPaperToken,
   wksPickerEnabled,
   type PageSettingsFrame,
-} from '@ziroeda/designer/src/dialogs/page_settings_model.js';
+} from '@ziroeda/common/dialogs/dialog_page_settings.js';
+import {
+  pageExportsFromSettings,
+  pageExportsToSettings,
+} from '@ziroeda/designer/src/dialogs/dialog_eeschema_page_settings.js';
 import { validateUnitValue } from '@ziroeda/common/widgets/unit_binder.js';
 import { PAPER_MM } from '@ziroeda/common';
 
@@ -445,7 +447,7 @@ describe('the "<<<" button', () => {
  * second offender cannot hide behind the first one being gone.
  */
 const SOURCE = readFileSync(
-  fileURLToPath(new URL('../../../designer/src/dialogs/dialog_page_settings.tsx', import.meta.url)),
+  fileURLToPath(new URL('../../../common/dialogs/dialog_page_settings.tsx', import.meta.url)),
   'utf8',
 );
 
@@ -518,10 +520,11 @@ describe('the base class and its one subclass', () => {
     // The two transforms are the constructor/destructor pair; nothing else in
     // the tree should be applying them, or the guard gets restated.
     const wrapper = EDITOR('dialogs/dialog_eeschema_page_settings.tsx');
-    expect([...wrapper.matchAll(/pageExportsFromSettings\(/g)]).toHaveLength(1);
-    expect([...wrapper.matchAll(/pageExportsToSettings\(/g)]).toHaveLength(1);
+    // Calls, not the definitions: the pair is declared in this file since 09-26.
+    expect([...wrapper.matchAll(/(?<!function )pageExportsFromSettings\(/g)]).toHaveLength(1);
+    expect([...wrapper.matchAll(/(?<!function )pageExportsToSettings\(/g)]).toHaveLength(1);
+    expect([...DIALOG.matchAll(/pageExports(From|To)Settings/g)]).toEqual([]);
     for (const rel of [
-      'dialogs/dialog_page_settings.tsx',
       'editors/pcb/PcbEditor.tsx',
       'editors/drawingsheet/DrawingSheetEditor.tsx',
     ]) {
@@ -571,7 +574,8 @@ describe('what the merged component must NOT draw', () => {
     // <select> of the project's .kicad_wks files, which is neither.
     expect([...DIALOG.matchAll(/<select\b/g)]).toEqual([]);
     expect(DIALOG).toContain('ze-btn-bitmap');
-    expect(DIALOG).toContain('OpenFileDialog');
+    // wxFileDialog: the app's chooser, reached through common/wx (09-26).
+    expect(DIALOG).toContain('<WxFileDialog');
   });
 });
 
@@ -628,9 +632,7 @@ describe('the preview takes both its colours from the parent frame', () => {
 
 describe('and the dialog actually draws with them', () => {
   const SRC = readFileSync(
-    fileURLToPath(
-      new URL('../../../designer/src/dialogs/dialog_page_settings.tsx', import.meta.url),
-    ),
+    fileURLToPath(new URL('../../../common/dialogs/dialog_page_settings.tsx', import.meta.url)),
     'utf8',
   );
 

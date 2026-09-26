@@ -11,16 +11,16 @@
  */
 
 import { useState, type JSX } from 'react';
-import { Icon } from '@ziroeda/common/widgets/icons.js';
+import { Icon } from '../widgets/icons.js';
 import {
   LINE_STYLES,
   blankNetClass as blankClass,
   type NetClass,
   type NetClassAssignment,
   type NetClassesData,
-} from '../../editors/schematic/schematic_settings.js';
+} from '../project/net_settings.js';
 
-// The data model lives in schematic_settings.ts (KiCad's data/UI split);
+// The data model lives beside the class it describes in common/;
 // re-exported here so the panel stays the import site for its slice.
 export {
   LINE_STYLES,
@@ -28,10 +28,10 @@ export {
   type NetClass,
   type NetClassAssignment,
   type NetClassesData,
-} from '../../editors/schematic/schematic_settings.js';
-import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
-import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { parseColor4d, toCssColor } from '@ziroeda/common/color4d.js';
+} from '../project/net_settings.js';
+import { ColorSwatch } from '../widgets/color_swatch.js';
+import { Combo } from '../widgets/wx_combobox.js';
+import { parseColor4d, toCssColor } from '../color4d.js';
 
 interface Props {
   value: NetClassesData;

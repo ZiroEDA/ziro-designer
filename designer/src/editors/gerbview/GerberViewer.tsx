@@ -98,7 +98,7 @@ import {
   GERBVIEW_GERBER_FILTERS,
   GERBVIEW_JOB_FILTERS,
   GERBVIEW_ZIP_FILTERS,
-} from '../../fs/wildcards.js';
+} from '@ziroeda/common/wildcards_and_files_ext.js';
 import { MsgPanel } from '@ziroeda/common/widgets/msgpanel_ui.js';
 import { useMenuHotkeys } from '@ziroeda/common/tool/use_menu_hotkeys.js';
 import {

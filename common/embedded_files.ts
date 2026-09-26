@@ -600,3 +600,25 @@ export function ParseEmbedded(aLexer: DSNLEXER, aFiles: EMBEDDED_FILES | null): 
     aFiles.AddFile(file);
   }
 }
+
+/**
+ * One row of PANEL_EMBEDDED_FILES' grid: the name and `kicad-embed://`
+ * reference of an EMBEDDED_FILE, plus the raw bytes of a file added in this
+ * dialog session and not yet compressed into the document (EMBEDDED_FILES::
+ * AddFile happens on OK).
+ */
+export interface EmbeddedFile {
+  name: string;
+  reference: string;
+  pendingBytes?: Uint8Array;
+}
+
+/** The panel's whole state: the rows and `GetAreFontsEmbedded()`. */
+export interface EmbeddedFilesData {
+  files: EmbeddedFile[];
+  embedFonts: boolean;
+}
+
+export function defaultEmbeddedFiles(): EmbeddedFilesData {
+  return { files: [], embedFonts: false };
+}

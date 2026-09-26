@@ -91,7 +91,7 @@ import { dockedPaneWidth } from '@ziroeda/common/widgets/wx_aui_sash_geometry.js
 import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
 import { leafOf, savePathWithExtension } from '../../fs/save_path.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
-import { drawingSheetWildcard } from '../../fs/wildcards.js';
+import { drawingSheetWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import { DesignInspector } from './DesignInspector.js';
 import { MessageDialogError, MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
@@ -113,7 +113,7 @@ import { DS_CANVAS_PAGE_NUMBERING, dsPrintPageNumbering } from './page_numbering
 import { UnsavedChangesDialog } from '@ziroeda/common/dialogs/dialog_unsaved_changes.js';
 import { handleUnsavedChanges, type UnsavedChangesResult } from '@ziroeda/common/confirm.js';
 import { dsInspectorTitle } from './design_inspector.js';
-import { DialogPageSettings } from '../../dialogs/dialog_page_settings.js';
+import { DialogPageSettings } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import {
   previewPageMM,
   paperDescription,

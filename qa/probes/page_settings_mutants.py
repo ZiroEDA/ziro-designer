@@ -29,8 +29,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-MODEL = "designer/src/dialogs/page_settings_model.ts"
-DIALOG = "designer/src/dialogs/dialog_page_settings.tsx"
+MODEL = "common/dialogs/dialog_page_settings.tsx"
+DIALOG = "common/dialogs/dialog_page_settings.tsx"
 
 SUITE = "unittests/designer/page_settings_dialog.test.ts"
 DS_SUITE = "unittests/designer/ds_page_settings.test.ts"

@@ -35,7 +35,7 @@
  * snapshot from this morning happened moments ago.
  */
 import { useEffect, useState, type JSX } from 'react';
-import { relativeTime, snapshotTooltip, type Snapshot } from './local_history.js';
+import { relativeTime, snapshotTooltip, type Snapshot } from '@ziroeda/common/local_history.js';
 import { listSnapshots, onHistoryChanged } from './local_history_store.js';
 
 interface Props {

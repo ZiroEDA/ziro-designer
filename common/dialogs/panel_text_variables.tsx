@@ -9,12 +9,12 @@
  */
 
 import { useState, type JSX } from 'react';
-import { Icon } from '@ziroeda/common/widgets/icons.js';
-import type { TextVar } from '../../editors/schematic/schematic_settings.js';
+import { Icon } from '../widgets/icons.js';
+import type { TextVar } from '../project/project_file.js';
 
-// The data model lives in schematic_settings.ts (KiCad's data/UI split);
+// The data model lives beside the class it describes in common/;
 // re-exported here so the panel stays the import site for its slice.
-export type { TextVar } from '../../editors/schematic/schematic_settings.js';
+export type { TextVar } from '../project/project_file.js';
 
 interface Props {
   vars: TextVar[];

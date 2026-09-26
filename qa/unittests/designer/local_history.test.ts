@@ -21,7 +21,7 @@ import {
   storedBytes,
   type Snapshot,
   type SnapshotFile,
-} from '@ziroeda/designer/src/home/local_history.js';
+} from '@ziroeda/common/local_history.js';
 
 const f = (name: string, hash: string, size = 100): SnapshotFile => ({ name, hash, size });
 

@@ -44,8 +44,8 @@ import {
   restoreDetailText,
   formatISOCombined,
   type Snapshot,
-} from './local_history.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+} from '../local_history.js';
+import { useModalEscape } from './use_modal_escape.js';
 
 export function RestoreLocalHistoryDialog({
   snapshots,

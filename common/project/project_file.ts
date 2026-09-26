@@ -454,3 +454,9 @@ export class PROJECT_FILE extends JSON_SETTINGS {
 export interface PROJECT_OWNER {
   GetProjectName(): string;
 }
+
+/** One row of `m_TextVars` as PANEL_TEXT_VARIABLES' grid edits it. */
+export interface TextVar {
+  name: string;
+  value: string;
+}

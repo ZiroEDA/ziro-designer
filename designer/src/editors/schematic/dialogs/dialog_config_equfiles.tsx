@@ -58,7 +58,7 @@ import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
 import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 import { MessageDialogError } from '@ziroeda/common/dialogs/dialog_message.js';
 import { OpenFileDialog } from '../../../fs/OpenFileDialog.js';
-import { equFileWildcard } from '../../../fs/wildcards.js';
+import { equFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import { projectRoot, type ProjectFile } from '../../../fs/project_paths.js';
 import {
   addEquFile,
