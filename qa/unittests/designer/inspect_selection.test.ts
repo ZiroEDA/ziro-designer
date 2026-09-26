@@ -166,9 +166,9 @@ describe('inspectSelection', () => {
     const s = inspectSelection(b, ['via:0'], RULES, noClasses);
 
     expect(s.map((x) => x.title)).toEqual([
-      'via_diameter resolution for:',
-      'hole_size resolution for:',
-      'annular_width resolution for:',
+      'Via diameter resolution for:',
+      'Hole size resolution for:',
+      'Via annular width resolution for:',
     ]);
   });
 
@@ -187,9 +187,9 @@ describe('inspectSelection', () => {
     const s = inspectSelection(b, ['track:0', 'shape:0'], RULES, noClasses);
 
     expect(s.map((x) => x.title)).toEqual([
-      'track_width resolution for:',
-      'track_segment_length resolution for:',
-      'track_angle resolution for:',
+      'Track width resolution for:',
+      'Track segment length resolution for:',
+      'Track Angle resolution for:',
     ]);
   });
 

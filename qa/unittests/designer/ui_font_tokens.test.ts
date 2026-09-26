@@ -275,7 +275,9 @@ const BASELINE: Record<string, number> = {
   // board's real `DialogCopperZones` now, which states no size at all.
   // 61 -> 54: the DRC dialog rebuilt over the ERC dialog's chrome; its
   // predecessor's seven inline sizes (12 / 10.5 / 11.5 / 12.5 px) went with it.
-  'editors/pcb': 54,
+  // 54 -> 49 on 09-26: dialog_inspect_constraints.tsx's five inline sizes,
+  // gone with it for common/dialogs' DIALOG_BOOK_REPORTER.
+  'editors/pcb': 49,
   // 55 -> 50: the COLOR_SWATCH sweep's second half. Seven Clear buttons and
   // one `(using Schematic Editor colors)` hint each carried an inline
   // `fontSize: 11`, and none of them exists upstream - the swatch clears
@@ -660,7 +662,8 @@ describe('hardcoded font sizes do not grow', () => {
     // 134 -> 130: the About stub's four; `home` 5 -> 1 is the only row that
     // moves and 134 - 4 agrees with it.
     // 130 -> 129: the `dialogs` one that moved out of this scan's reach.
-    expect(sites.length).toBe(129);
+    // 129 -> 124: the old inspect box's five, see `editors/pcb`.
+    expect(sites.length).toBe(124);
   });
 });
 

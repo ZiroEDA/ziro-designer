@@ -101,9 +101,9 @@ describe('constraints report', () => {
     const s = buildConstraintsReport(RULES, item('Via', 'Via [N1]'), 'F.Cu');
 
     expect(s.map((x) => x.title)).toEqual([
-      'via_diameter resolution for:',
-      'hole_size resolution for:',
-      'annular_width resolution for:',
+      'Via diameter resolution for:',
+      'Hole size resolution for:',
+      'Via annular width resolution for:',
     ]);
   });
 
@@ -111,9 +111,9 @@ describe('constraints report', () => {
     const s = buildConstraintsReport(RULES, item('Track', 'Track [N1]'), 'F.Cu');
 
     expect(s.map((x) => x.title)).toEqual([
-      'track_width resolution for:',
-      'track_segment_length resolution for:',
-      'track_angle resolution for:',
+      'Track width resolution for:',
+      'Track segment length resolution for:',
+      'Track Angle resolution for:',
     ]);
   });
 
@@ -121,8 +121,8 @@ describe('constraints report', () => {
     const s = buildConstraintsReport(RULES, item('Text', "Text 'REV'"), 'F.SilkS');
 
     expect(s.map((x) => x.title)).toEqual([
-      'text_height resolution for:',
-      'text_thickness resolution for:',
+      'Text height resolution for:',
+      'Text thickness resolution for:',
     ]);
   });
 

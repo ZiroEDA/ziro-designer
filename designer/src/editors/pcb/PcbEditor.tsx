@@ -381,8 +381,8 @@ import {
   DialogPositionRelative,
   type PositionRelativeValues,
 } from './dialogs/dialog_position_relative.js';
-import { DialogInspectConstraints } from './dialogs/dialog_inspect_constraints.js';
-import { inspectSelection, describeSelected } from './inspect_selection.js';
+import { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
+import { inspectReport, describeSelected } from './inspect_selection.js';
 import { netClassFor, netclassesForNet } from './netclass_resolve.js';
 // APPEARANCE_CONTROLS is ONE widget that PCB_EDIT_FRAME and
 // FOOTPRINT_EDIT_FRAME both construct, so the panel, its Objects table and its
@@ -9945,10 +9945,10 @@ export function PcbEditor({
    * Built from the same rule set DRC runs with, through the same walk, so the
    * explanation cannot disagree with the markers it exists to explain.
    */
-  const inspectSections = useMemo(() => {
-    if (!board || !inspectOpen) return [];
+  const inspectReportPages = useMemo(() => {
+    if (!board || !inspectOpen) return null;
 
-    return inspectSelection(board, selection, parseDrcRules(boardSetup.customRules.text), (net) =>
+    return inspectReport(board, selection, parseDrcRules(boardSetup.customRules.text), (net) =>
       netclassesForNet(net, boardSetup.netClasses.assignments),
     );
   }, [
@@ -12078,15 +12078,12 @@ export function PcbEditor({
           onClose={() => setFilterOpen(false)}
         />
       )}
-      {inspectOpen && board && (
-        <DialogInspectConstraints
-          title={selection.size === 2 ? 'Clearance Resolution' : 'Constraints Resolution'}
-          sections={inspectSections}
-          hint={
-            selection.size === 0
-              ? 'Select an item to see what constraints apply to it, or two items to see how their clearance resolves.'
-              : undefined
-          }
+      {inspectOpen && board && inspectReportPages && (
+        // DIALOG_BOOK_REPORTER, as BOARD_INSPECTION_TOOL::InspectClearance /
+        // InspectConstraints fill it (the frame's Get...Dialog()).
+        <DIALOG_BOOK_REPORTER
+          title={inspectReportPages.title}
+          pages={inspectReportPages.pages}
           onClose={() => setInspectOpen(false)}
         />
       )}

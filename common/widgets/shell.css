@@ -13136,6 +13136,45 @@ textarea.ze-ds-textedit {
   min-width: 700px; /* [data] aExtraWidth ? wxSize( 700, -1 ) */
 }
 
+/* WX_HTML_REPORT_BOX (common/widgets/wx_html_report_box.tsx): generateHtml's
+   invisible `<img align=texttop height=%d width=0>` before every line, the
+   height `KiROUND( font.GetPixelSize().y * 0.6 )`. */
+.ze-report-strut {
+  display: inline-block;
+  width: 0;
+  height: 0.6em; /* [data] font.GetPixelSize().y * 0.6 */
+  vertical-align: text-top;
+}
+.ze-html-report-box {
+  border: 1px solid var(--chrome-border); /* [css] wxBORDER_SIMPLE, as .ze-nb-frame */
+}
+
+/* DIALOG_BOOK_REPORTER (common/dialogs/dialog_book_reporter.tsx). Modeless,
+   so it floats over the frame rather than on a backdrop. */
+.ze-modal.ze-bookreporter {
+  position: absolute;
+  top: 60px; /* [px] where the board editor has always put its inspector */
+  left: 80px; /* [px] the same */
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+}
+.ze-bookreporter-notebook {
+  margin: 10px; /* [data] Add( m_notebook, 1, wxEXPAND|wxALL, 10 ) */
+  min-width: 550px; /* [data] m_notebook->SetMinSize( wxSize( 550,480 ) ) */
+  min-height: 480px; /* [data] the same line */
+}
+.ze-bookreporter-body {
+  flex: 1 1 auto;
+}
+.ze-bookreporter-page {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 5px; /* [data] sizer->Add( reporter, 1, wxEXPAND | wxALL, 5 ) */
+}
+
 /* Syntax Help states its own size where the Errors box takes the minimum:
 
      dlg->SetMinSize( dlg->ConvertDialogToPixels( wxSize( 320, 320 ) ) );

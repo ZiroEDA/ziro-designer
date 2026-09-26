@@ -258,7 +258,10 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // (10.5 / 12 / 11.5 px fonts, `padding: '0 6px'` and the like). All of it is
   // `.ze-erc-*` now, which is what upstream does: the two dialogs are the same
   // wx widgets on the same DIALOG_SHIM. RESCANNED from this tree.
-  'editors/pcb': { colours: 31, metrics: 187 },
+  // 31/187 -> 30/174 on 09-26: dialog_inspect_constraints.tsx is gone - an
+  // invented floating box of inline styles - for common/dialogs'
+  // DIALOG_BOOK_REPORTER, whose metrics are shell.css's and each marked.
+  'editors/pcb': { colours: 30, metrics: 174 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -1153,7 +1156,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 331 -> 326: the DRC dialog's five, see the `editors/pcb` row; 331 - 5.
     // 324 -> 332: main's eight (325 -> 333 there), merged 09-25.
     // 332 -> 331: the About stub's `#7fb4e6`, see the `home` row.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(331);
+    // 331 -> 330: the old inspect box's shadow colour, see `editors/pcb`.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(330);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1332,7 +1336,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1271 -> 1283: main's twelve presence-badge values, merged 09-25.
     // 1283 -> 1277: the About stub's four (`home`) and the calculator's own
     // About box's two (`editors/calculator`); DIALOG_ABOUT's are all marked.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1277);
+    // 1277 -> 1264: the old inspect box's thirteen, see `editors/pcb`.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1264);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

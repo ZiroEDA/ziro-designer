@@ -19,6 +19,8 @@ import {
   type DrcItemType,
   type DrcRuleSet,
   type InspectItem,
+  inspectPages,
+  type InspectPage,
   type InspectSection,
   parseBoardItemId,
 } from '@ziroeda/pcbnew';
@@ -131,4 +133,27 @@ export function inspectSelection(
     return buildConstraintsReport(rules, toItem(picked[0]!), picked[0]!.layer);
 
   return [];
+}
+
+/**
+ * The selection as the DIALOG_BOOK_REPORTER BOARD_INSPECTION_TOOL fills:
+ * PCB_EDIT_FRAME::GetInspectClearanceDialog is titled "Clearance Report" and
+ * GetInspectConstraintsDialog "Constraints Report" (pcb_edit_frame.cpp:3318,
+ * :3330), and each constraint goes on its upstream page (`inspectPages`).
+ * `null` when the selection is neither one item nor a pair.
+ */
+export function inspectReport(
+  board: Board,
+  selection: Iterable<string>,
+  rules: DrcRuleSet,
+  netClassesOf: (netName: string) => readonly string[],
+): { title: string; pages: InspectPage[] } | null {
+  const ids = [...selection];
+  const sections = inspectSelection(board, ids, rules, netClassesOf);
+  if (sections.length === 0) return null;
+  const pair = ids.filter((id) => describeSelected(board, id) !== null).length === 2;
+  const layer = describeSelected(board, ids.find((id) => describeSelected(board, id))!)!.layer;
+  return pair
+    ? { title: 'Clearance Report', pages: inspectPages(sections, 'clearance', layer) }
+    : { title: 'Constraints Report', pages: inspectPages(sections, 'constraints', layer) };
 }

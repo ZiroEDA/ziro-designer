@@ -14,6 +14,7 @@
  */
 
 import { pcbIuToMM as iuToMM } from '@ziroeda/common/eda_units.js';
+import { EscapeHTML } from '@ziroeda/common/string_utils.js';
 import type { DrcConstraintType, DrcRuleSet } from './drc_rule_view.js';
 import {
   buildDrcRuleEngine,
@@ -24,6 +25,8 @@ import {
 
 /** One headed block of the report, as a dialog renders one page. */
 export interface InspectSection {
+  /** The constraint this section reports, which names its notebook page. */
+  type: DrcConstraintType;
   /** "Clearance resolution for:" and the like. */
   title: string;
   /** The layer and the item descriptions the question was asked about. */
@@ -65,6 +68,19 @@ function constraintsFor(a: InspectItem, b: InspectItem): DrcConstraintType[] {
 }
 
 /** The human title for each constraint's section. */
+/** reportHeader's titles in InspectConstraints (board_inspection_tool.cpp:1701-1824). */
+const CONSTRAINT_TITLES: Partial<Record<DrcConstraintType, string>> = {
+  track_width: 'Track width resolution for:',
+  via_diameter: 'Via diameter resolution for:',
+  annular_width: 'Via annular width resolution for:',
+  hole_size: 'Hole size resolution for:',
+  text_height: 'Text height resolution for:',
+  text_thickness: 'Text thickness resolution for:',
+  track_angle: 'Track Angle resolution for:',
+  track_segment_length: 'Track segment length resolution for:',
+  clearance: 'Clearance resolution for:',
+};
+
 const TITLES: Partial<Record<DrcConstraintType, string>> = {
   clearance: 'Clearance resolution for:',
   zone_connection: 'Zone connection resolution for:',
@@ -103,7 +119,7 @@ export function buildClearanceReport(
       type === 'clearance' ? localOverride : undefined,
     );
 
-    return { title: TITLES[type] ?? `${type} resolution for:`, subjects, lines };
+    return { title: TITLES[type] ?? `${type} resolution for:`, subjects, lines, type };
   });
 }
 
@@ -134,7 +150,7 @@ export function buildConstraintsReport(
 
   return single.map((type) => {
     const { lines } = reportDrcConstraint(engine, type, item.eval, undefined, layer);
-    return { title: `${type} resolution for:`, subjects, lines };
+    return { title: CONSTRAINT_TITLES[type] ?? `${type} resolution for:`, subjects, lines, type };
   });
 }
 
@@ -148,3 +164,93 @@ export function formatInspectReport(sections: readonly InspectSection[]): string
 }
 
 export { mm as formatInspectValue };
+
+/** One DIALOG_BOOK_REPORTER page: its tab caption and what was Report()ed. */
+export interface InspectPage {
+  title: string;
+  messages: string[];
+}
+
+/**
+ * The notebook page each constraint is reported on, as
+ * BOARD_INSPECTION_TOOL::InspectClearance (board_inspection_tool.cpp:1035-1530)
+ * and InspectConstraints (:1686-1900) name them. A copper clearance goes on a
+ * page named for its layer (`AddHTMLPage( GetLayerName( layer ) )`), and the
+ * four zone checks share the one "Zone" page.
+ *
+ * `track_angle` and `track_segment_length` are not on upstream's constraints
+ * report; they are InspectDRCError's pages (:638, :653), whose captions they
+ * keep.
+ */
+function pageTitle(
+  type: DrcConstraintType,
+  report: 'clearance' | 'constraints',
+  layerName: string,
+): string {
+  switch (type) {
+    case 'clearance':
+      return layerName;
+    case 'zone_connection':
+    case 'thermal_relief_gap':
+    case 'thermal_spoke_width':
+    case 'min_resolved_spokes':
+      return 'Zone';
+    case 'hole_clearance':
+      return 'Hole';
+    case 'edge_clearance':
+      return `${layerName} Clearance`;
+    case 'physical_clearance':
+      return 'Physical Clearances';
+    case 'track_width':
+      return 'Track Width';
+    case 'via_diameter':
+      return 'Via Diameter';
+    case 'annular_width':
+      return report === 'constraints' ? 'Via Annular Width' : 'Via Annulus';
+    case 'hole_size':
+      return 'Hole Size';
+    case 'text_height':
+    case 'text_thickness':
+      return report === 'constraints'
+        ? 'Text Size'
+        : type === 'text_height'
+          ? 'Text Height'
+          : 'Text Thickness';
+    case 'track_angle':
+      return 'Track Angle';
+    case 'track_segment_length':
+      return 'Track Segment Length';
+    default:
+      return type;
+  }
+}
+
+/**
+ * The sections as BOARD_INSPECTION_TOOL writes them into the dialog: one
+ * page per caption (sections sharing a caption share its page, in order), each
+ * opened by `reportHeader` - `<h7>title</h7>` and the subjects as a `<ul>` -
+ * then a blank line and the engine's reasoning. Every piece of text is
+ * EscapeHTML()'d, as upstream escapes each item description: a net or
+ * reference name is the board's, not markup.
+ */
+export function inspectPages(
+  sections: readonly InspectSection[],
+  report: 'clearance' | 'constraints',
+  layerName: string,
+): InspectPage[] {
+  const pages: InspectPage[] = [];
+  for (const s of sections) {
+    const title = pageTitle(s.type, report, layerName);
+    let page = pages.find((p) => p.title === title);
+    if (!page) {
+      page = { title, messages: [] };
+      pages.push(page);
+    }
+    page.messages.push(`<h7>${EscapeHTML(s.title)}</h7>`);
+    page.messages.push(`<ul>${s.subjects.map((x) => `<li>${EscapeHTML(x)}</li>`).join('')}</ul>`);
+    page.messages.push('');
+    for (const line of s.lines) page.messages.push(EscapeHTML(line));
+    page.messages.push('');
+  }
+  return pages;
+}

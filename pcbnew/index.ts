@@ -591,7 +591,9 @@ export {
   buildClearanceReport,
   buildConstraintsReport,
   formatInspectReport,
+  inspectPages,
   type InspectItem,
+  type InspectPage,
   type InspectSection,
 } from './drc/drc_inspect.js';
 
