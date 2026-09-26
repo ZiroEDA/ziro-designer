@@ -927,3 +927,44 @@ export class NESTED_SETTINGS extends JSON_SETTINGS {
     return this.m_parent;
   }
 }
+
+/**
+ * Whether a stored value can stand in for a default of this shape.
+ *
+ * Only reached for a default that is an array, null, or a scalar — `deepMerge`
+ * recurses into plain objects instead. A scalar default already fails the
+ * `typeof` test against an array (`typeof [] === 'object'`), so no separate
+ * array guard is needed on that side; a null default accepts anything, since
+ * it carries no shape to compare.
+ */
+function sameShape(defaults: unknown, stored: unknown): boolean {
+  if (Array.isArray(defaults)) return Array.isArray(stored);
+  if (defaults === null) return true;
+  return typeof defaults === typeof stored;
+}
+
+// The load-merge every settings slice uses (JSON_SETTINGS::Load's fill-in of
+// missing keys from the defaults). Moved from designer/src/prefs/settings.ts.
+/**
+ * Exported for its own tests: it is the only thing standing between a stale or
+ * hand-edited localStorage and the renderer, and it has no other seam.
+ */
+export function deepMerge<T>(defaults: T, stored: unknown): T {
+  if (typeof defaults !== 'object' || defaults === null || Array.isArray(defaults)) {
+    // A stored value of the wrong *type* is not a setting, it is damage:
+    // localStorage is editable by hand, survives across versions, and a string
+    // where a number belongs reaches the renderer and throws before React
+    // mounts — a white screen, which is the failure the capability probe
+    // exists to avoid producing. Falling back to the default is always safe;
+    // the worst case is one preference reverting.
+    if (stored === undefined || !sameShape(defaults, stored)) return defaults;
+    return stored as T;
+  }
+  const out: Record<string, unknown> = { ...(defaults as Record<string, unknown>) };
+  if (typeof stored === 'object' && stored !== null) {
+    for (const [k, v] of Object.entries(stored as Record<string, unknown>)) {
+      if (k in out) out[k] = deepMerge(out[k], v);
+    }
+  }
+  return out as T;
+}
