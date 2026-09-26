@@ -272,7 +272,18 @@ function setup(): Env {
   frame.m_SelAperAttributesBox = new wxChoice();
   frame.AttachCanvas(canvas as unknown as EDA_DRAW_PANEL_GAL as never);
 
-  return { frame, view, boxes, sheets, dialogs, answers, cursors, choices, drawLayers, drawLayersEdits };
+  return {
+    frame,
+    view,
+    boxes,
+    sheets,
+    dialogs,
+    answers,
+    cursors,
+    choices,
+    drawLayers,
+    drawLayersEdits,
+  };
 }
 
 let env: Env;
@@ -641,7 +652,9 @@ describe('the fast grids', () => {
  * ACTIVE layer's image.
  */
 describe('GERBVIEW_FRAME::UpdateTitleAndInfo', () => {
-  const plain = ['%FSLAX24Y24*%', '%MOIN*%', '%ADD10C,0.01*%', 'D10*', 'X0Y0D03*', 'M02*'].join('\n');
+  const plain = ['%FSLAX24Y24*%', '%MOIN*%', '%ADD10C,0.01*%', 'D10*', 'X0Y0D03*', 'M02*'].join(
+    '\n',
+  );
   const x2 = [
     '%FSLAX36Y36*%',
     '%MOMM*%',
@@ -718,7 +731,15 @@ const SAMPLE = [
 ].join('\n');
 
 /** A second layer: one aperture, D20, and a component the first file lacks. */
-const SECOND = ['%FSLAX36Y36*%', '%MOMM*%', '%ADD20C,0.3*%', '%TO.C,U9*%', 'D20*', 'X0Y0D03*', 'M02*'].join('\n');
+const SECOND = [
+  '%FSLAX36Y36*%',
+  '%MOMM*%',
+  '%ADD20C,0.3*%',
+  '%TO.C,U9*%',
+  'D20*',
+  'X0Y0D03*',
+  'M02*',
+].join('\n');
 
 /**
  * The TOP_AUX boxes, read off the frame's own widgets after a load
@@ -880,7 +901,9 @@ describe('DIALOG_DRAW_LAYERS_SETTINGS', () => {
 
   it('opens on the active layer: its full name, its offset and rotation', async () => {
     await load3();
-    env.frame.GetGbrImage(1)!.SetDrawOffetAndRotation({ x: 1.5, y: -2 }, new EDA_ANGLE(12.34567, EDA_ANGLE_T.DEGREES_T));
+    env.frame
+      .GetGbrImage(1)!
+      .SetDrawOffetAndRotation({ x: 1.5, y: -2 }, new EDA_ANGLE(12.34567, EDA_ANGLE_T.DEGREES_T));
 
     await env.frame.SetLayerDrawPrms();
 
@@ -894,7 +917,9 @@ describe('DIALOG_DRAW_LAYERS_SETTINGS', () => {
 
   it('shows the offsets in the frame units', async () => {
     await load3();
-    env.frame.GetGbrImage(1)!.SetDrawOffetAndRotation({ x: 25.4, y: 0 }, new EDA_ANGLE(0, EDA_ANGLE_T.DEGREES_T));
+    env.frame
+      .GetGbrImage(1)!
+      .SetDrawOffetAndRotation({ x: 25.4, y: 0 }, new EDA_ANGLE(0, EDA_ANGLE_T.DEGREES_T));
     env.frame.GetToolManager()!.RunAction(ACTIONS.inchesUnits);
 
     await env.frame.SetLayerDrawPrms();
@@ -914,12 +939,14 @@ describe('DIALOG_DRAW_LAYERS_SETTINGS', () => {
       return `${img.m_DisplayOffset.x / 1e6},${img.m_DisplayOffset.y / 1e6}@${img.m_DisplayRotation.AsDegrees()}`;
     });
 
-  const apply = (aScope: number) => (aDlg: DIALOG_DRAW_LAYERS_SETTINGS): void => {
-    aDlg.m_tcOffsetX = '1';
-    aDlg.m_tcOffsetY = '2';
-    aDlg.m_tcRotation = '90';
-    aDlg.m_rbScope = aScope;
-  };
+  const apply =
+    (aScope: number) =>
+    (aDlg: DIALOG_DRAW_LAYERS_SETTINGS): void => {
+      aDlg.m_tcOffsetX = '1';
+      aDlg.m_tcOffsetY = '2';
+      aDlg.m_tcRotation = '90';
+      aDlg.m_rbScope = aScope;
+    };
 
   it('Active layer: only the active image moves', async () => {
     await load3();
@@ -1019,7 +1046,8 @@ describe('GERBER_LAYER_WIDGET', () => {
 
     // RemoveImage erases the slot and the rest move up (`RemapLayers`), so
     // the third file is the second layer now and the third is empty.
-    const name = (i: number): string | undefined => env.frame.GetGbrImage(i)?.m_FileName.split('/').pop();
+    const name = (i: number): string | undefined =>
+      env.frame.GetGbrImage(i)?.m_FileName.split('/').pop();
     expect([name(0), name(1), name(2)]).toEqual(['a.gbr', 'c.gbr', undefined]);
     expect(env.boxes.length).toBe(asked);
   });

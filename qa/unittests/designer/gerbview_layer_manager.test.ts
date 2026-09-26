@@ -157,7 +157,6 @@ describe('the right-click menu', () => {
     ]);
   });
 
-
   it('wires the rest', () => {
     for (const label of [
       'Show All Layers',

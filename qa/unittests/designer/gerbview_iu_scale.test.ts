@@ -125,7 +125,9 @@ describe('the GerbView / common IU mismatch', () => {
       for (const file of walk(root)) {
         if (SCANNED_OUT.some((dir) => file.startsWith(`${dir}/`))) continue;
         const src = strip(readFileSync(file, 'utf8'));
-        for (const m of src.matchAll(/import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*'@ziroeda\/common[^']*'/g)) {
+        for (const m of src.matchAll(
+          /import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*'@ziroeda\/common[^']*'/g,
+        )) {
           if (/\bgerbIUScale\b/.test(m[1] ?? '')) offending.push(file);
         }
       }

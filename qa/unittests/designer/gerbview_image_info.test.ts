@@ -61,7 +61,9 @@ function gerbviewImageInfoRows(
   aImage.m_GraphicLayer = aGraphicLayer;
   aImage.DisplayImageInfo(frame);
 
-  return frame.GetMsgPanelItems().map((i) => ({ upper: i.GetUpperText(), lower: i.GetLowerText() }));
+  return frame
+    .GetMsgPanelItems()
+    .map((i) => ({ upper: i.GetUpperText(), lower: i.GetLowerText() }));
 }
 
 /** A minimal metric gerber, with `extra` spliced in after the unit command. */

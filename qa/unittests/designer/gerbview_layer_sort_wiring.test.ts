@@ -35,5 +35,4 @@ describe('the layers manager right-click menu', () => {
       expect(typeof entry?.action).toBe('function');
     });
   }
-
 });
