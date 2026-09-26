@@ -118,13 +118,105 @@ the code it ports:
 
 ## Root — 131 KiCad units
 
-Not yet tabled. Moved in on 09-21 from `designer/src/ui`: `confirm`,
-`confirm_types`, `kidialog` (+ `kidialog_do_not_show`), `dialog_shim_buttons`,
-`file_history` (+ `use_file_history`), `background_jobs_monitor` (+ `_ui`),
-`bitmap_store` (+ `_actions`), `browser_hotkeys`, `browser_reserved`,
-`hotkeys_basic_keys` (+ `hotkeys_basic_file`), the `eda_base_frame_*` and
-`eda_draw_frame_submenus` menu helpers, `draw_panel_gal_grid_cursor`,
-`save_enablement`, and the React hooks `use_*` (our wx glue).
+Tabled 09-26. Of KiCad's 131 `common/*.cpp`: **57 here under KiCad's name**,
+**19 here or elsewhere in the tree under another name** (each a rename, a
+move or a split, one stage apiece), **10 to port** (the feature exists in the
+app, the unit does not), **16 waiting on their feature**, **29 n/a**.
+
+KiCad has an `include/` beside `common/`; we have none. A header-only
+`include/<x>.h` is `common/<x>.ts` (`base_set`, `collector`, `ctl_flags`,
+`eda_item_flags`, `eda_search_data`, `frame_type`, `layer_range`,
+`mouse_drag_action`, `progress_reporter`, `rc_json_schema`,
+`string_any_map`, `units_provider`, `zoom_defines`), and a unit split
+across `include/<x>.h` + `common/<y>.cpp` takes the `.cpp` name.
+
+**Here, KiCad's name (57):** advanced_config array_options
+background_jobs_monitor base_screen bitmap_base bitmap_store build_version
+callback_gal commit common confirm draw_panel_gal dsnlexer eda_base_frame
+eda_draw_frame eda_group eda_item eda_pattern_match eda_shape eda_text
+eda_units embedded_files file_history gr_text hotkeys_basic hotkey_store
+inspectable kidialog kiid launch_ext lib_id local_history lseq lset
+marker_base markup_parser netclass origin_transforms page_info pgm_base
+pin_numbers project rc_item refdes_utils reference_image render_settings
+reporter richio string_utils stroke_params template_fieldnames thread_pool
+title_block trace_helpers undo_redo_container validators
+wildcards_and_files_ext.
+
+**Here under another name — rename, move or split (19):**
+
+| KiCad unit | ours now |
+|---|---|
+| `exceptions` | `ki_exception.ts` |
+| `layer_id` | `layer_ids.ts` |
+| `dialog_shim` | `dialog_shim_buttons.ts`, `dialogs/{dialog_size_hints, modal_escape, use_modal_escape}` |
+| `origin_viewitem` | `preview_items/origin_viewitem.ts` |
+| `newstroke_font` | `font/newstroke_glyphs.ts` |
+| `array_axis` | the `ArrayAxis` half of `array_options.ts` (a record, not the class) |
+| `dpi_scaling`, `dpi_scaling_common`, `gal_display_options_common` | `DPI_SCALING_GetDefaultScaleFactor` in `gal/gal_display_options.ts` |
+| `env_vars` | `ENV_VAR` in `common.ts` |
+| `increment` | `IncrementString` in `eeschema/tools/repeat_item.ts` |
+| `xnode` | `class XNODE` in `eeschema/exporters/netlist_exporter_kicad.ts` |
+| `status_popup` | `STATUS_TEXT_POPUP` in `pcbnew/pad_enumerate.ts` |
+| `filename_resolver` | `designer/src/editors/pcb/filename_resolver.ts` |
+| `footprint_filter`, `footprint_info` | `designer/src/widgets/footprint_list.ts` |
+| `lib_tree_model`, `lib_tree_model_adapter` | `designer/src/widgets/` |
+| `app_monitor` | `designer/src/telemetry/reporter.ts` (Sentry, as KiCad's) |
+
+**To port (10)** — the behaviour exists, inline in a screen or plotter: `grid_tricks`
+and `lib_table_grid_tricks` (in `SymbolPropertiesDialog`,
+`symbol_props_rows`, `dialog_sym_lib_table`), `lib_table_notebook_panel`
+(`dialog_edit_library_tables`), `board_printout` + `printout`
+(`dialog_print_pcb`, `pcbTheme`), `clipboard` (`navigator.clipboard` at
+each call site), `eda_doc` (datasheet opening), `bitmap` (`KiBitmap` and
+friends, over `bitmap_store`), `gr_basic` (the page-settings preview),
+`gbr_metadata` (the X2 attributes `pcbnew/plot_gerber.ts` writes inline).
+
+**Waiting on their feature (16):** `design_block`, `design_block_info`,
+`design_block_io`, `design_block_library_adapter`,
+`design_block_tree_model_adapter` (design blocks); `remote_provider_client`,
+`remote_provider_metadata`, `remote_provider_models`,
+`remote_provider_settings`, `remote_provider_utils` (remote symbol providers);
+`hash_eda` (footprint-vs-library comparison); `notifications_manager`;
+`scintilla_tricks` (the Scintilla text editors); `ptree` (specctra DSN);
+`kiway_player` + `kiway_mail` (the frames and their mail live in
+`designer/src/App.tsx`; they come here when designer/ becomes `kicad/`).
+
+**n/a (29)** — a desktop process, a filesystem or a toolkit the page does not
+have: `asset_archive` (resources.zip; artwork is imported), `bitmap_info`
+(the per-size PNG index; we ship the SVGs and have no PNG sizes), `bin_mod`,
+`cli_progress_reporter`, `config_params` (legacy wxConfig), `eda_dde`
+(socket cross-probe; one tab), `env_paths`, `executable_names`, `gestfich`,
+`history_lock` (file locks), `json_conversions`, `json_schema_validator`
+(JSON is native), `kiface_base`, `kiway`, `kiway_holder`, `single_top`
+(DSO loading), `locale_io` (JS number text is locale-free),
+`navlib_safe_init`, `spacemouse` (3D mouse driver), `paths`,
+`systemdirsappend`, `searchhelpfilefullpath`, `search_stack` (no search
+path list; files resolve through the project), `singleton`, `streamwrapper`,
+`filter_reader`, `textentry_tricks` (a browser input does it), `ui_events`,
+`wx_filename`.
+
+**Ours with no root unit** — each to KiCad's file or stated here:
+
+- Helpers of a root unit (`<name>_<part>`): `background_jobs_monitor_ui`,
+  `bitmap_store_actions`, `confirm_types`, `draw_panel_gal_grid_cursor`,
+  `eda_base_frame_{about_titles,help_menu,language_menu,size}`,
+  `eda_draw_frame_submenus`, `hotkeys_basic_{file,keys}`,
+  `kidialog_do_not_show`, `thread_pool_{jobs,worker}`, `use_file_history`.
+- To move: `color4d` → `gal/color4d`; `transform` → `libs/kimath`;
+  `pin_type` → `eeschema/`; `bitmaps_list` → `bitmaps/`;
+  `cross_probing_settings` → `settings/app_settings`; `text_vars` → `common`;
+  `wx_image`, `inflate`, `png_meta` → `wx/` (the wxImage/libpng layer);
+  `picosha2` → `libs/picosha2` (KiCad's `thirdparty/`).
+- `item_realignment` cites `common/item_realignment.cpp`, which 10.0.5 does
+  not have — to be traced before anything else is done with it.
+- Ours, no KiCad file, kept and named here: `browser_hotkeys`,
+  `browser_reserved` (the tab's own keys), `generator` (our identity in
+  files), `gal_pixel_grid` (the `kicad_vert.glsl` rule, shared by two
+  renderers), `png_encoder` (Cairo's PNG writer), `table` (the arithmetic
+  `SCH_TABLE` and `PCB_TABLE` each restate), `save_enablement`,
+  `use_document_title`, `use_status_readout`, `use_live_state`,
+  `use_unsaved_guard`, `yield_to_event_loop` (the React/browser glue), and
+  `index` (the package barrel).
 
 ## `tool/`, `preview_items/`, `settings/`
 
