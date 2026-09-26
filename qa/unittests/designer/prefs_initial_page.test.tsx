@@ -28,7 +28,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
 import { PreferencesDialog } from '@ziroeda/designer/src/dialogs/PreferencesDialog.js';
-import { FIRST_PAGE, PAGES, labelOf } from '@ziroeda/designer/src/dialogs/prefs/registry.js';
+import { FIRST_PAGE, PAGES, labelOf, pageFor } from '@ziroeda/designer/src/dialogs/prefs/registry.js';
 
 afterEach(cleanup);
 
@@ -61,5 +61,31 @@ describe('PreferencesDialog initialPage', () => {
     // ours names a page by id where upstream names it by label and parent label.
     const labels = PAGES.map((p) => p.label);
     expect(labels.filter((l) => l === 'Display Options').length).toBeGreaterThan(1);
+  });
+});
+
+/**
+ * `ShowPreferences( aStartPage, aStartParentPage )` names a page by its tree
+ * title and its heading's; `PAGED_DIALOG::TransferDataToWindow` finds it
+ * (`common/widgets/paged_dialog.cpp:226-251`). "Grids" is six pages, one per
+ * editor, so the heading is what picks - which is how COMMON_TOOLS::
+ * GridProperties opens the right one (`common_tools.cpp:609-634`).
+ */
+describe('pageFor', () => {
+  it('picks the page under the named heading', () => {
+    expect(pageFor('Grids', 'Gerber Viewer')).toBe('gbr-grids');
+    expect(pageFor('Grids', 'Drawing Sheet Editor')).toBe('ds-grids');
+    expect(pageFor('Grids', 'PCB Editor')).toBe('pcb-grids');
+  });
+
+  it('takes the first page of that title when no heading is named', () => {
+    expect(pageFor('Grids', '')).toBe(PAGES.find((p) => p.label === 'Grids')!.id);
+  });
+
+  it('falls back to the first page when nothing matches (:250)', () => {
+    expect(pageFor('Grids', 'No Such Editor')).toBe(FIRST_PAGE);
+    expect(pageFor('No Such Page', '')).toBe(FIRST_PAGE);
+    // A heading is a row with no page of ours.
+    expect(pageFor('Gerber Viewer', '')).toBe(FIRST_PAGE);
   });
 });
