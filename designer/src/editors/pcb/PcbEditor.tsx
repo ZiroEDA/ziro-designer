@@ -9487,6 +9487,13 @@ export function PcbEditor({
       if (focusBlocksHotkey(target, e)) return;
       const mod = e.ctrlKey || e.metaKey;
 
+      // PCB_BASE_EDIT_FRAME::TryBefore: Tab with PRESET_SWITCH_KEY (Ctrl) or
+      // VIEWPORT_SWITCH_KEY (Shift) raises EDA_VIEW_SWITCHER.
+      if (e.key === 'Tab' && openViewSwitcherRef.current(mod, e.shiftKey)) {
+        e.preventDefault();
+        return;
+      }
+
       // --- context: what the live tool / selection owns ---------------------
       // ACTIONS::highContrastModeCycle (H): Normal -> Dim -> Hide -> Normal.
       if (!mod && (e.key === 'h' || e.key === 'H')) {
@@ -9964,26 +9971,21 @@ export function PcbEditor({
   // offer. A page is never given Ctrl+Tab by the browser outside fullscreen
   // (common/browser_reserved.ts), so in practice the preset switcher opens
   // only there; Shift+Tab always reaches it.
-  const viewSwitchRef = useRef({ presetMRU, viewportMRU, viewSwitcher });
-  viewSwitchRef.current = { presetMRU, viewportMRU, viewSwitcher };
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key !== 'Tab' || e.defaultPrevented) return;
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-      const { presetMRU: pm, viewportMRU: vm, viewSwitcher: up } = viewSwitchRef.current;
-      if (up) return;
-      if (e.ctrlKey && pm.length > 0) {
-        e.preventDefault();
-        setViewSwitcher('presets');
-      } else if (e.shiftKey && !e.ctrlKey && vm.length > 0) {
-        e.preventDefault();
-        setViewSwitcher('viewports');
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  // Read by the frame's one keydown chain (below): it raises the switcher when
+  // there is a list to offer, and says whether it did.
+  const openViewSwitcherRef = useRef<(ctrl: boolean, shift: boolean) => boolean>(() => false);
+  openViewSwitcherRef.current = (ctrl, shift) => {
+    if (viewSwitcher) return false;
+    if (ctrl && presetMRU.length > 0) {
+      setViewSwitcher('presets');
+      return true;
+    }
+    if (shift && !ctrl && viewportMRU.length > 0) {
+      setViewSwitcher('viewports');
+      return true;
+    }
+    return false;
+  };
 
   // `NET_GRID_TABLE::Rebuild`'s filter and sort, in a module qa can import;
   // see appearance_nets.ts for both decisions and what each one got wrong.
@@ -12193,7 +12195,7 @@ export function PcbEditor({
       {viewSwitcher && (
         <EDA_VIEW_SWITCHER
           items={viewSwitcher === 'presets' ? presetMRU : viewportMRU}
-          ctrlKey={viewSwitcher === 'presets' ? 'Control' : 'Shift'}
+          heldKey={viewSwitcher === 'presets' ? 'Control' : 'Shift'}
           onResult={(i) => {
             const list = viewSwitcher === 'presets' ? presetMRU : viewportMRU;
             const kind = viewSwitcher;

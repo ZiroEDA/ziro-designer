@@ -35,14 +35,14 @@ describe('TryBefore’s state machine', () => {
 
 describe('EDA_VIEW_SWITCHER', () => {
   it('keeps the base’s title and lists the MRU', () => {
-    render(<EDA_VIEW_SWITCHER items={['A', 'B', 'C']} ctrlKey="Control" onResult={() => {}} />);
+    render(<EDA_VIEW_SWITCHER items={['A', 'B', 'C']} heldKey="Control" onResult={() => {}} />);
     expect(screen.getByText('View Preset Switcher')).toBeTruthy();
     expect(screen.getByText('B').className).toContain('selected');
   });
 
   it('stays up while the held key is still down, whatever else is released', () => {
     const onResult = vi.fn();
-    render(<EDA_VIEW_SWITCHER items={['A', 'B']} ctrlKey="Control" onResult={onResult} />);
+    render(<EDA_VIEW_SWITCHER items={['A', 'B']} heldKey="Control" onResult={onResult} />);
     key('keyup', { key: 'Shift' });
     key('keyup', { key: 'a' });
     expect(onResult).not.toHaveBeenCalled();
@@ -50,7 +50,7 @@ describe('EDA_VIEW_SWITCHER', () => {
 
   it('accepts on the held key’s release and cancels on Escape', () => {
     const onResult = vi.fn();
-    render(<EDA_VIEW_SWITCHER items={['A', 'B', 'C']} ctrlKey="Control" onResult={onResult} />);
+    render(<EDA_VIEW_SWITCHER items={['A', 'B', 'C']} heldKey="Control" onResult={onResult} />);
     key('keydown', { key: 'Tab', ctrlKey: true });
     key('keyup', { key: 'Control' });
     expect(onResult).toHaveBeenLastCalledWith(2);
@@ -67,8 +67,10 @@ describe('the board editor', () => {
 
   it('raises the switcher on Ctrl+Tab and Shift+Tab, from the MRU lists', () => {
     expect(src).toContain('<EDA_VIEW_SWITCHER');
-    expect(src).toMatch(/e\.ctrlKey && pm\.length > 0/);
-    expect(src).toMatch(/e\.shiftKey && !e\.ctrlKey && vm\.length > 0/);
+    // In the frame's one keydown chain, after its input and suppression guards.
+    expect(src).toContain("if (e.key === 'Tab' && openViewSwitcherRef.current(mod, e.shiftKey)) {");
+    expect(src).toMatch(/if \(ctrl && presetMRU\.length > 0\)/);
+    expect(src).toMatch(/if \(shift && !ctrl && viewportMRU\.length > 0\)/);
   });
 
   it('names a saved preset or viewport with wxTextEntryDialog, not prompt()', () => {

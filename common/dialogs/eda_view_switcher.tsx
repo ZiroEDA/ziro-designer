@@ -43,12 +43,13 @@ export function stepSwitcherSelection(
 
 export function EDA_VIEW_SWITCHER({
   items,
-  ctrlKey,
+  heldKey,
   onResult,
 }: {
   /** The MRU list, most recent first. */
   items: readonly string[];
-  ctrlKey: VIEW_SWITCH_KEY;
+  /** `m_ctrlKey`: the key held while Tab cycles; releasing it accepts. */
+  heldKey: VIEW_SWITCH_KEY;
   /** `GetSelection()` on wxID_OK (the key released), `null` on Escape. */
   onResult: (index: number | null) => void;
 }): JSX.Element {
@@ -64,7 +65,7 @@ export function EDA_VIEW_SWITCHER({
       if (e.key === 'Tab') {
         e.preventDefault();
         e.stopPropagation();
-        setSel((s) => stepSwitcherSelection(s, items.length, e.shiftKey, ctrlKey));
+        setSel((s) => stepSwitcherSelection(s, items.length, e.shiftKey, heldKey));
       } else if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
@@ -72,7 +73,7 @@ export function EDA_VIEW_SWITCHER({
       }
     };
     const up = (e: KeyboardEvent): void => {
-      if (e.key === ctrlKey) resultRef.current(selRef.current);
+      if (e.key === heldKey) resultRef.current(selRef.current);
     };
     window.addEventListener('keydown', down, true);
     window.addEventListener('keyup', up, true);
