@@ -32,7 +32,7 @@ import {
   type SymItemKind,
 } from './render/symbolRenderer.js';
 import { symbolGridIU } from './grid.js';
-import { incrementString } from '@ziroeda/eeschema/tools/repeat_item.js';
+import { IncrementString } from '@ziroeda/common/increment.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
 import {
   type EditHandle,
@@ -731,7 +731,7 @@ function findGraphicById(
  *
  * `IncrementString` steps the last run of digits and is a no-op on a name with
  * none, so an unnumbered pin repeats with its name unchanged rather than
- * failing. It also refuses to go below zero, which `incrementString` reports as
+ * failing. It also refuses to go below zero, which `IncrementString` reports as
  * null and this treats the same way upstream's `false` return does: the string
  * is left as it was.
  *
@@ -769,8 +769,8 @@ export function repeatPin(
   const pin: LibPin = {
     ...found.pin,
     at,
-    name: incrementString(found.pin.name, opts.labelDelta) ?? found.pin.name,
-    number: incrementString(found.pin.number, opts.labelDelta) ?? found.pin.number,
+    name: IncrementString(found.pin.name, opts.labelDelta) ?? found.pin.name,
+    number: IncrementString(found.pin.number, opts.labelDelta) ?? found.pin.number,
     // A duplicate is a new item: it must not carry the source's file bytes, or
     // the writer would emit the original's text for both.
     source: EMPTY_SOURCE,

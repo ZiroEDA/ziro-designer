@@ -12,6 +12,7 @@
  */
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { AlphabeticFromIndex } from './increment.js';
 
 /** `ARRAY_OPTIONS::TRANSFORM`: an offset from the original, plus a rotation. */
 export interface ArrayTransform {
@@ -44,28 +45,6 @@ const ALPHABETS: Record<NumberingType, string> = {
 const nonUnitColsStartAt0 = (type: NumberingType): boolean =>
   type === 'alphaFull' || type === 'alphaNoIOSQXZ';
 
-/** `AlphabeticFromIndex`. */
-export function alphabeticFromIndex(
-  n: number,
-  alphabet: string,
-  zeroBasedNonUnitCols: boolean,
-): string {
-  const radix = alphabet.length;
-  let rest = n;
-  let out = '';
-  let firstRound = true;
-
-  do {
-    let modN = rest % radix;
-    if (zeroBasedNonUnitCols && !firstRound) modN--;
-    out = alphabet[modN]! + out;
-    rest = Math.floor(rest / radix);
-    firstRound = false;
-  } while (rest);
-
-  return out;
-}
-
 export interface ArrayAxis {
   type?: NumberingType;
   /** Where the numbering starts, as an index into the alphabet. */
@@ -80,7 +59,7 @@ export interface ArrayAxis {
 export function axisItemNumber(axis: ArrayAxis, n: number): string {
   const type = axis.type ?? 'numeric';
   const index = (axis.offset ?? 0) + (axis.step ?? 1) * n;
-  const s = alphabeticFromIndex(index, ALPHABETS[type], nonUnitColsStartAt0(type));
+  const s = AlphabeticFromIndex(index, ALPHABETS[type], nonUnitColsStartAt0(type));
   return axis.useLowercase ? s.toLowerCase() : s;
 }
 

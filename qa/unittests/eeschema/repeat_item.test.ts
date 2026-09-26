@@ -12,44 +12,45 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import { refId } from '@ziroeda/eeschema/tools/hittest.js';
-import { incrementString, repeatItems } from '@ziroeda/eeschema/tools/repeat_item.js';
+import { IncrementString } from '@ziroeda/common/increment.js';
+import { repeatItems } from '@ziroeda/eeschema/tools/repeat_item.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const mm = (v: number): number => mmToIU(v);
 
 describe('incrementing a name', () => {
   it('steps the last run of digits', () => {
-    expect(incrementString('NET0', 1)).toBe('NET1');
-    expect(incrementString('NET9', 1)).toBe('NET10');
-    expect(incrementString('D3', 5)).toBe('D8');
+    expect(IncrementString('NET0', 1)).toBe('NET1');
+    expect(IncrementString('NET9', 1)).toBe('NET10');
+    expect(IncrementString('D3', 5)).toBe('D8');
   });
 
   it('keeps the width the number had', () => {
     // D07 goes to D08, not D8: the field width is part of the name.
-    expect(incrementString('D07', 1)).toBe('D08');
-    expect(incrementString('D099', 1)).toBe('D100');
+    expect(IncrementString('D07', 1)).toBe('D08');
+    expect(IncrementString('D099', 1)).toBe('D100');
   });
 
   it('keeps whatever followed the digits', () => {
-    expect(incrementString('CLK0_P', 1)).toBe('CLK1_P');
-    expect(incrementString('A1B', 1)).toBe('A2B');
+    expect(IncrementString('CLK0_P', 1)).toBe('CLK1_P');
+    expect(IncrementString('A1B', 1)).toBe('A2B');
   });
 
   it('repeats a name with no digits unchanged, which is not a failure', () => {
-    expect(incrementString('RESET', 1)).toBe('RESET');
-    expect(incrementString('', 1)).toBe('');
+    expect(IncrementString('RESET', 1)).toBe('RESET');
+    expect(IncrementString('', 1)).toBe('');
   });
 
   it('refuses to go below zero rather than wrapping', () => {
     // Upstream reports "Label value cannot go below zero" and leaves the value.
-    expect(incrementString('NET0', -1)).toBeNull();
-    expect(incrementString('NET2', -5)).toBeNull();
-    expect(incrementString('NET5', -5)).toBe('NET0');
+    expect(IncrementString('NET0', -1)).toBeNull();
+    expect(IncrementString('NET2', -5)).toBeNull();
+    expect(IncrementString('NET5', -5)).toBe('NET0');
   });
 
   it('steps downward when the increment is negative', () => {
-    expect(incrementString('NET5', -1)).toBe('NET4');
-    expect(incrementString('D10', -1)).toBe('D09');
+    expect(IncrementString('NET5', -1)).toBe('NET4');
+    expect(IncrementString('D10', -1)).toBe('D09');
   });
 });
 

@@ -154,7 +154,7 @@ wildcards_and_files_ext.
 | `array_axis` | the `ArrayAxis` half of `array_options.ts` (a record, not the class) |
 | `dpi_scaling`, `dpi_scaling_common`, `gal_display_options_common` | `DPI_SCALING_GetDefaultScaleFactor` in `gal/gal_display_options.ts` |
 | `env_vars` | done 09-26: the whole `ENV_VAR` namespace (was three functions in `common.ts`); `wxGetEnv` is `wx/utils.ts` |
-| `increment` | `IncrementString` in `eeschema/tools/repeat_item.ts` |
+| `increment` | done 09-26: `IncrementString`, `STRING_INCREMENTER`, `IndexFromAlphabetic`, `AlphabeticFromIndex` (were in `repeat_item.ts` and `array_options.ts`; the drawing sheet stepped only its last character) |
 | `xnode` | `class XNODE` in `eeschema/exporters/netlist_exporter_kicad.ts` |
 | `status_popup` | `STATUS_TEXT_POPUP` in `pcbnew/pad_enumerate.ts` |
 | `filename_resolver` | `designer/src/editors/pcb/filename_resolver.ts` |

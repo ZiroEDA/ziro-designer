@@ -458,7 +458,7 @@ describe('layout parity', () => {
   });
 
   it('expands \\n escapes and never label-increments multiline text', () => {
-    expect(incrementLabel('A9', 1)).toBe('A10'); // last char only, digit → int
+    expect(incrementLabel('A9', 1)).toBe('A10'); // the rightmost number part (STRING_INCREMENTER)
     const sheet = defaultDrawingSheet();
     const multi: WksText = {
       type: 'text',

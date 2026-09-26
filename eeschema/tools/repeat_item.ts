@@ -20,39 +20,9 @@
 import type { Schematic, SchLabel, Vec2 } from '../types.js';
 import { refId } from './hittest.js';
 import { addItems } from './mutate.js';
+import { IncrementString } from '@ziroeda/common/increment.js';
 import { newKiid } from '@ziroeda/common/kiid.js';
 import type { EditCommand } from './command.js';
-
-/**
- * `IncrementString`. The last run of digits in the string is stepped, keeping
- * its width and whatever followed it.
- *
- * Returns null when the result would go below zero, which upstream reports as
- * "Label value cannot go below zero" rather than wrapping or clamping. A string
- * with no digits at all is *not* a failure: it repeats unchanged.
- */
-export function incrementString(name: string, increment: number): string | null {
-  if (name === '') return name;
-
-  let i = name.length - 1;
-  let suffix = '';
-  while (i >= 0 && !/[0-9]/.test(name[i]!)) {
-    suffix = name[i]! + suffix;
-    i--;
-  }
-  let digits = '';
-  while (i >= 0 && /[0-9]/.test(name[i]!)) {
-    digits = name[i]! + digits;
-    i--;
-  }
-  // No digits to step: the name repeats as it is.
-  if (digits === '') return name;
-
-  const next = Number.parseInt(digits, 10) + increment;
-  if (next < 0) return null;
-  // Keep the field width the original had, so D07 goes to D08, not D8.
-  return name.slice(0, i + 1) + String(next).padStart(digits.length, '0') + suffix;
-}
 
 /** What F1 repeats: the items placed by the last placement, by selection id. */
 export type RepeatItems = readonly string[];
@@ -95,7 +65,7 @@ export function repeatItems(
     const idx = doc.labels.findIndex((l, i) => refId('label', l.uuid, i) === id);
     if (idx === -1) continue;
     const src = doc.labels[idx]!;
-    const stepped = incrementString(src.text, opts.labelIncrement);
+    const stepped = IncrementString(src.text, opts.labelIncrement);
     if (stepped === null) clampedAtZero = true;
     const uuid = newKiid();
     labels.push({

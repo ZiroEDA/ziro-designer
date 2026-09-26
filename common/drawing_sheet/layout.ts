@@ -14,7 +14,7 @@
  *    by (incrx, incry) mm, but a repeat other than the first is dropped when it
  *    falls outside the margin box (DS_DATA_ITEM::IsInsidePage), which is what
  *    clips the `repeat 100` coordinate-band labels at the page edge;
- *  - per-repeat text labels increment via DS_DATA_ITEM_TEXT::IncrementLabel
+ *  - per-repeat text labels increment via DS_DATA_ITEM_TEXT::IncrementLabel (STRING_INCREMENTER)
  *    (last character only), never for multiline texts;
  *  - literal `\n` / `\\` sequences in text become newline / backslash
  *    (ReplaceAntiSlashSequence);
@@ -29,6 +29,7 @@ import { mmToIU, schIUScale } from '../eda_units.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import { bitmapSizeIu } from '../reference_image.js';
 import { interline, layoutText } from '../font/stroke_font.js';
+import { STRING_INCREMENTER } from '../increment.js';
 import type {
   WksSheet,
   WksItem,
@@ -204,17 +205,17 @@ export function resolveDrawingSheetText(text: string, ctx: WksResolveContext): s
 }
 
 /**
- * Increment a text label for a repeat, mirroring DS_DATA_ITEM_TEXT::
- * IncrementLabel: only the LAST character is considered, a digit is replaced
- * by the integer (digit + incr) (so "9" + 1 → "10"), any other character is
- * shifted by code point ("A" → "B").
+ * `DS_DATA_ITEM_TEXT::IncrementLabel` (ds_data_item.cpp:627): the rightmost
+ * letter or number of the RAW text stepped, carrying within its own type so a
+ * letter rolls z -> aa; every letter counts and there is no length bound. A
+ * text with nothing to step repeats unchanged.
  */
-export function incrementLabel(text: string, incr: number): string {
-  if (text === '') return text;
-  const last = text[text.length - 1]!;
-  const stem = text.slice(0, -1);
-  if (last >= '0' && last <= '9') return stem + String(incr + (last.charCodeAt(0) - 48));
-  return stem + String.fromCharCode(last.charCodeAt(0) + incr);
+export function incrementLabel(aTextBase: string, aIncr: number): string {
+  const incrementer = new STRING_INCREMENTER();
+  incrementer.SetSkipIOSQXZ(false); // step through every letter
+  incrementer.SetAlphabeticMaxIndex(-1); // no upper bound on label length
+
+  return incrementer.Increment(aTextBase, aIncr, 0) ?? aTextBase;
 }
 
 /**
@@ -315,6 +316,23 @@ export function layoutDrawingSheet(
 
   sheet.items.forEach((it, src) => {
     if (!visibleOnPage(it.option, pageNumber)) return;
+    // DS_DATA_ITEM_TEXT::SyncDrawItems (ds_data_item.cpp:536-613): m_FullText
+    // is built once - m_TextBase in edit mode, else its variables resolved and
+    // its escapes replaced - and the size is constrained on it. Each later
+    // repeat shows IncrementLabel of the RAW m_TextBase, stepped only after
+    // a repeat is drawn (so one skipped off the page does not advance it).
+    let fullText = '';
+    let multiline = false;
+    let size = { w: 0, h: 0 };
+    if (it.type === 'text') {
+      if (ctx.rawText) {
+        fullText = it.text;
+      } else {
+        fullText = expandTextEscapes(resolveDrawingSheetText(it.text, ctx));
+        multiline = fullText.includes('\n');
+      }
+      size = constrainedTextSize(it, fullText, s.textW, s.textH);
+    }
     for (let i = 0; i < it.repeat; i++) {
       const dx = it.incrx * i;
       const dy = it.incry * i;
@@ -337,11 +355,6 @@ export function layoutDrawingSheet(
         case 'text': {
           const at = resolveMM(it.pos, m, dx, dy);
           if (i > 0 && !insidePage(at, m)) continue;
-          const raw = expandTextEscapes(it.text);
-          const multiline = raw.includes('\n');
-          const label = i === 0 || multiline ? raw : incrementLabel(raw, it.incrlabel * i);
-          const fullText = ctx.rawText ? label : resolveDrawingSheetText(label, ctx);
-          const size = constrainedTextSize(it, fullText, s.textW, s.textH);
           const basePen = it.lineWidth > 0 ? it.lineWidth : s.textLineWidth;
           const pen = it.bold ? penSizeForBold(Math.min(size.w, size.h)) : basePen;
           out.push({
@@ -360,6 +373,9 @@ export function layoutDrawingSheet(
             rotate: it.rotate,
             src,
           });
+          // Increment label for the next text (has no meaning for multiline texts)
+          if (it.repeat > 1 && !multiline)
+            fullText = incrementLabel(it.text, (i + 1) * it.incrlabel);
           break;
         }
         case 'polygon': {

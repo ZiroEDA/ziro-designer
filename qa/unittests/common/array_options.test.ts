@@ -13,8 +13,8 @@
  * about it.
  */
 import { describe, expect, it } from 'vitest';
+import { AlphabeticFromIndex } from '@ziroeda/common/increment.js';
 import {
-  alphabeticFromIndex,
   axisItemNumber,
   axisNumberingOffset,
   circularItemNumber,
@@ -119,7 +119,7 @@ describe('numbering an axis', () => {
   });
 
   it('builds from an explicit alphabet too', () => {
-    expect(alphabeticFromIndex(3, '01', false)).toBe('11');
+    expect(AlphabeticFromIndex(3, '01', false)).toBe('11');
   });
 });
 
