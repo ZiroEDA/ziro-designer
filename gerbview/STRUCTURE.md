@@ -55,7 +55,7 @@ which); **n/a** (a browser cannot have it).
 | `files` | here, part waiting | `files.ts`: the refusal gates and messages of `LoadListOfGerberAndDrillFiles`, `GBR_FILE_TYPE` and the autodetect dispatch. The frame half (open dialogs, zip) is `GerberViewer.tsx` |
 | `gbr_layout` | here | `gbr_layout.ts` (`GBR_LAYOUT`); methods to align (`ComputeBoundingBox`, `GetImagesList`) |
 | `gbr_display_options.h` | here | `gbr_display_options.ts` |
-| `gerber_collectors` | port | `GERBER_COLLECTOR`; picking is a hit-test loop in `GerberCanvas.tsx` |
+| `gerber_collectors` | here | `gerber_collectors.ts` (`GERBER_COLLECTOR`). Picking in `GerberCanvas.tsx` still loops `HitTest` itself; it moves onto this with `gerbview_selection_tool` |
 | `gerber_draw_item` | here | `gerber_draw_item.ts`, `GetMsgPanelInfo` included |
 | `gerber_file_image` | here | `gerber_file_image.ts`; the members defined in `readgerb`, `rs274x`, `rs274d` and `rs274_read_XY_and_IJ_coordinates` are functions in those files taking `self`, which the class delegates to |
 | `gerber_file_image_list` | here | `gerber_file_image_list.ts` (`GERBER_FILE_IMAGE_LIST`, `sortFileExtension`, `sortZorder`) |
@@ -96,10 +96,10 @@ driver (`common/STRUCTURE.md` has `spacemouse` n/a for the same reason).
 
 | KiCad unit | status | ours / note |
 |---|---|---|
-| `gerbview_actions` | port | `GERBVIEW_ACTIONS` as `TOOL_ACTION`s, as `pcbnew/tools/pcb_actions.ts` is; today the strings live in the generated `designer/src/ui/action_catalogue.ts` and are restated in `menubar.ts` / `gerberToolbars.ts` |
+| `gerbview_actions` | here | `tools/gerbview_actions.ts` (`GERBVIEW_ACTIONS`), generated from the `.cpp` as `pcbnew/tools/pcb_actions.ts` was. `menubar.ts` / `gerberToolbars.ts` still restate the strings; they read these once the frame dispatches `TOOL_ACTION`s |
 | `gerbview_control` | waiting | the handlers are inline in `GerberViewer.tsx`; the toggle half is `designer/.../toggles.ts` (reads `prefs/settings`' `GerbviewSettings`) |
 | `gerbview_inspection_tool` | waiting | the measure tool is in `GerberCanvas.tsx`; `ShowDCodes`' list text is `dcodeListLines` in `gerberAuxControls.ts` |
-| `gerbview_selection` | port | `GERBVIEW_SELECTION`; lands with the selection tool |
+| `gerbview_selection` | here | `tools/gerbview_selection.ts` (`GERBVIEW_SELECTION`) |
 | `gerbview_selection_tool` | waiting | picking is in `GerberCanvas.tsx` |
 
 ### `widgets/` — 4 units
