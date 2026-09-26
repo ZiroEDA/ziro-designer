@@ -114,6 +114,7 @@ const square24 = (bytes = pngBytes()): IMAGE_FILE => ({
 class FakeUi implements BITMAP2CMP_FRAME_UI {
   messages: { message: string; caption?: string }[] = [];
   questions: string[] = [];
+  questionStyle: [string, MessageDialogIcon, YesNoResult][] = [];
   answer: YesNoResult = 'yes';
   clipboard: string | null = null;
   clipboardOpens = true;
@@ -130,11 +131,12 @@ class FakeUi implements BITMAP2CMP_FRAME_UI {
   }
   AskYesNo(
     aMessage: string,
-    _c: string,
-    _i: MessageDialogIcon,
-    _d: YesNoResult,
+    aCaption: string,
+    aIcon: MessageDialogIcon,
+    aDefault: YesNoResult,
   ): Promise<YesNoResult> {
     this.questions.push(aMessage);
+    this.questionStyle.push([aCaption, aIcon, aDefault]);
     return Promise.resolve(this.answer);
   }
   SetClipboardText(aText: string): Promise<boolean> {
@@ -608,6 +610,8 @@ describe('DROP_FILE', () => {
     const other = { ...square24(), rgba: rgba(10, 5, () => [0, 0, 0, 255]) };
     expect(await frame.GetDropTarget().OnDropFiles([other])).toBe(false);
     expect(ui.questions).toEqual(['There is already a file loaded. Do you want to replace it?']);
+    // KICAD_MESSAGE_DIALOG( ..., cap, wxYES_NO | wxICON_QUESTION | wxYES_DEFAULT )
+    expect(ui.questionStyle).toEqual([['Replace Loaded File?', 'question', 'yes']]);
     expect(frame.GetPanel().m_SizeXValue).toBe('24');
     ui.answer = 'yes';
     expect(await frame.GetDropTarget().OnDropFiles([other])).toBe(true);

@@ -13,21 +13,24 @@
  * strokes and drops thin ones, and the conversion reads as broken when the
  * traced geometry is in fact exact.
  *
- * jsdom does no layout and this repo has no DOM test environment, so the
- * layout half of this reads the source the way `search_panel_fits` does, with
- * the declarations pulled out of the rule block rather than matched loosely.
- * `bitmapDepth` is a real behavioural test.
+ * happy-dom does no layout, so this reads the stylesheet the way
+ * `search_panel_fits` does, with the declarations pulled out of the rule block
+ * rather than matched loosely. What the controls DO is rendered in
+ * bitmap2cmp_panel_ui.test.tsx.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { bitmapDepth } from '@ziroeda/designer/src/editors/image/imageMeta.js';
+import { BITMAP2CMP_PANEL } from '@ziroeda/bitmap2component';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const CSS = read('../../../designer/src/editors/image/imageConverter.css');
-const TSX = read('../../../designer/src/editors/image/ImageConverter.tsx');
+const CSS = read('../../../bitmap2component/bitmap2cmp_panel.css');
+const TSX = read('../../../bitmap2component/bitmap2cmp_panel_ui.tsx');
+/** The window around the panel: BITMAP2CMP_FRAME's half. */
+const FRAME_CSS = read('../../../designer/src/editors/image/imageConverter.css');
+const FRAME_TSX = read('../../../designer/src/editors/image/ImageConverter.tsx');
 const SHELL = read('../../../common/widgets/shell.css');
 
 /** The shared GTK control-theme tokens, as a name -> value map. */
@@ -62,10 +65,10 @@ function shellRule(selector: string): Record<string, string> {
   return out;
 }
 
-function rule(selector: string): Record<string, string> {
-  const at = CSS_CODE.indexOf(`\n${selector} {`);
+function rule(selector: string, code = CSS_CODE): Record<string, string> {
+  const at = code.indexOf(`\n${selector} {`);
   expect(at, `no rule for ${selector}`).toBeGreaterThanOrEqual(0);
-  const body = CSS_CODE.slice(at + selector.length + 4, CSS_CODE.indexOf('}', at));
+  const body = code.slice(at + selector.length + 4, code.indexOf('}', at));
   const out: Record<string, string> = {};
   for (const decl of body.split(';')) {
     const i = decl.indexOf(':');
@@ -78,10 +81,14 @@ function rule(selector: string): Record<string, string> {
   return out;
 }
 
+/** A rule of the frame's stylesheet. */
+const frameRule = (selector: string): Record<string, string> =>
+  rule(selector, FRAME_CSS.replace(/\/\*[\s\S]*?\*\//g, ''));
+
 /** Where a snippet sits in the JSX, so element order can be asserted. */
 const at = (needle: string): number => {
   const i = TSX.indexOf(needle);
-  expect(i, `not in ImageConverter.tsx: ${needle}`).toBeGreaterThanOrEqual(0);
+  expect(i, `not in bitmap2cmp_panel_ui.tsx: ${needle}`).toBeGreaterThanOrEqual(0);
   return i;
 };
 
@@ -118,9 +125,8 @@ describe('D8: the preview is drawn 1:1 and scrolls', () => {
     // AddPage() keeps three live wxScrolledWindows and three live bitmaps;
     // unmounting the inactive ones, or display:none, would drop their scroll
     // position on the next tab switch.
-    for (const ref of ['originalCanvasRef', 'greyscaleCanvasRef', 'bwCanvasRef']) {
-      expect(TSX).toContain(`ref={${ref}}`);
-    }
+    expect(TSX).toContain('const canvases = [originalCanvasRef, greyscaleCanvasRef, bwCanvasRef];');
+    expect(TSX).toContain('{loaded && <canvas ref={ref} className="imgc-canvas" />}');
     const pages = rule('.imgc-view');
     expect(pages.visibility).toBe('hidden');
     expect(pages.display).toBeUndefined();
@@ -131,11 +137,12 @@ describe('D8: the preview is drawn 1:1 and scrolls', () => {
   });
 
   it('rebuilds only the black & white page when the threshold moves', () => {
-    // OnThresholdChange re-binarizes; it does not touch the other two bitmaps.
+    // OnThresholdChange re-binarizes into a new m_BN_Bitmap; it does not
+    // touch the other two bitmaps.
     const bwEffect = /useEffect\(\(\) => \{\s*paintPage\(bwCanvasRef[^}]*\}, \[([^\]]*)\]\)/.exec(
       TSX,
     );
-    expect(bwEffect?.[1]).toBe('mono');
+    expect(bwEffect?.[1]).toBe('bw');
   });
 });
 
@@ -184,7 +191,8 @@ describe('B2: the threshold slider carries wxSL_LABELS', () => {
     const s = TSX.slice(at('<Slider'), TSX.indexOf('/>', at('<Slider')));
     expect(s).toContain('labels');
     expect(s).toContain('min={0}');
-    expect(s).toContain('max={100}');
+    expect(s).toContain('max={panel.m_sliderThresholdMax}');
+    expect(new BITMAP2CMP_PANEL(null as never, null as never).m_sliderThresholdMax).toBe(100);
   });
 
   it('puts the value above the track and the two ends below it', () => {
@@ -240,7 +248,7 @@ describe('D2/D3: the Image Information grid', () => {
     // Three cells then fgSizerInfo->Add( 0, 0, ... ).
     const bpp = TSX.slice(at('>BPP:<'), at('>BPP:<') + 400);
     expect(bpp).toMatch(
-      /className="v">\{loaded \? loaded\.bpp[^}]*\}<\/span>\s*<span className="u">bits<\/span>\s*<span \/>/,
+      /className="v">\{panel\.m_BPPValue\}<\/span>\s*<span className="u">bits<\/span>\s*<span \/>/,
     );
   });
 
@@ -251,7 +259,10 @@ describe('D2/D3: the Image Information grid', () => {
 
 describe('D4/D5/D7/C2: the rest of the chrome', () => {
   it('gives both export buttons the same plain styling', () => {
-    const exportBtn = TSX.slice(at('onClick={exportToFile}') - 200, at('onClick={exportToFile}'));
+    const exportBtn = TSX.slice(
+      at('onClick={() => panel.OnExportToFile()}') - 200,
+      at('onClick={() => panel.OnExportToFile()}'),
+    );
     expect(exportBtn).toContain('className="imgc-btn block"');
     expect(exportBtn).not.toContain('primary');
   });
@@ -260,8 +271,8 @@ describe('D4/D5/D7/C2: the rest of the chrome', () => {
     // The widget is shared - BM2CMP_FRAME gets the same panes, colours and
     // font as everything else, so .imgc-statusbar is gone and the frame
     // renders the shared KiStatusBar (.ze-statusbar, ui/shell.css).
-    expect(TSX).toContain('<KiStatusBar>');
-    expect(CSS_CODE).not.toMatch(/\n\.imgc-statusbar\s*\{/);
+    expect(FRAME_TSX).toContain('<KiStatusBar>');
+    expect(FRAME_CSS).not.toMatch(/\n\.imgc-statusbar\s*\{/);
 
     // The HEIGHT is not shared, and this is the one frame that proves it.
     // BITMAP2CMP_FRAME calls plain CreateStatusBar( 1, wxSTB_SIZEGRIP )
@@ -269,10 +280,10 @@ describe('D4/D5/D7/C2: the rest of the chrome', () => {
     // gets a plain wxStatusBar rather than a KISTATUSBAR. Measured off a real
     // window at 1920x1200, x=600: bar (44,44,44) y=1167..1199 -> 33px, against
     // the project manager's 23. The 24px this file used to assert was neither.
-    expect(rule('.imgc-frame')['--statusbar-height']).toBe('33px');
+    expect(frameRule('.imgc-frame')['--statusbar-height']).toBe('33px');
 
     // A native status bar never shrinks, and the frame is a flex column.
-    expect(rule('.imgc-frame > .ze-statusbar').flex).toBe('none');
+    expect(frameRule('.imgc-frame > .ze-statusbar').flex).toBe('none');
   });
 
   it('draws flat notebook tabs with an accent underline on the selected one', () => {
@@ -284,47 +295,6 @@ describe('D4/D5/D7/C2: the rest of the chrome', () => {
     const active = rule('.imgc-tab.active');
     expect(active['border-bottom-color']).toBe('var(--chrome-active)');
     expect(active.background).toBeUndefined();
-  });
-
-  it('separates the file name from the frame name with a spaced em dash', () => {
-    // BITMAP2CMP_FRAME::UpdateTitle, bitmap2cmp_frame.cpp:352-365.
-    expect(TSX).toContain('`${loaded.fullName} \\u2014 Image Converter`');
-    expect(TSX).not.toContain('fullName}, Image Converter');
-  });
-});
-
-describe('D9: BPP is wxBitmap::GetDepth(), not the canvas buffer depth', () => {
-  const rgba = (alphas: number[]): Uint8ClampedArray => {
-    const px = new Uint8ClampedArray(alphas.length * 4);
-    alphas.forEach((a, i) => {
-      px[i * 4] = 10;
-      px[i * 4 + 1] = 20;
-      px[i * 4 + 2] = 30;
-      px[i * 4 + 3] = a;
-    });
-    return px;
-  };
-
-  // Each expectation below was read off the installed wxGTK 3.2, the library
-  // KiCad 10.0.5 links: wx.Bitmap(wx.Image(f)).GetDepth() for the file.
-  it('calls a fully opaque image 24-bit even when its file is RGBA', () => {
-    expect(bitmapDepth(rgba([255, 255, 255, 255]))).toBe(24);
-  });
-
-  it('calls an image with a fully transparent pixel 32-bit', () => {
-    expect(bitmapDepth(rgba([255, 255, 0, 255]))).toBe(32);
-  });
-
-  it('calls an image with a partly transparent pixel 32-bit', () => {
-    expect(bitmapDepth(rgba([255, 128, 255, 255]))).toBe(32);
-  });
-
-  it('reads the whole buffer, not just the first pixel', () => {
-    expect(bitmapDepth(rgba([...Array(999).fill(255), 254]))).toBe(32);
-  });
-
-  it('is what the panel actually shows', () => {
-    expect(TSX).toContain('bpp: bitmapDepth(original.data),');
   });
 });
 
@@ -417,9 +387,9 @@ describe('the Image Converter reads its metrics from the tokens', () => {
   });
 
   it('states no font size of its own', () => {
-    expect(rule('.imgc-frame')['font-size']).toBe('var(--ui-font-size)');
-    expect(rule('.imgc-frame')['line-height']).toBe('var(--ui-line-height)');
-    expect(rule('.imgc-frame')['font-family']).toBe('var(--ui-font-family)');
+    expect(frameRule('.imgc-frame')['font-size']).toBe('var(--ui-font-size)');
+    expect(frameRule('.imgc-frame')['line-height']).toBe('var(--ui-line-height)');
+    expect(frameRule('.imgc-frame')['font-family']).toBe('var(--ui-font-family)');
     expect(CSS_CODE).not.toMatch(/font-size:\s*\d/);
   });
 
@@ -432,13 +402,13 @@ describe('the Image Converter reads its metrics from the tokens', () => {
   });
 
   it('gives the fields, the combos and the buttons the token height', () => {
-    const field = rule('.imgc-frame .imgc-input');
+    const field = rule('.imgc-panel .imgc-input');
     expect(field.height).toBe('var(--ctl-height)');
     expect(field.background).toBe('var(--field-bg)');
     expect(field.border).toBe('1px solid var(--ctl-border)');
     expect(field['border-radius']).toBe('var(--ctl-radius)');
     expect(field.padding).toBe('0 var(--field-pad-x)');
-    const btn = rule('.imgc-frame .imgc-btn');
+    const btn = rule('.imgc-panel .imgc-btn');
     expect(btn.height).toBe('var(--ctl-height)');
     expect(btn.background).toBe('var(--ctl-face)');
     expect(btn['border-radius']).toBe('var(--ctl-radius)');
@@ -457,13 +427,13 @@ describe('the Image Converter reads its metrics from the tokens', () => {
     expect(comboOff.color).toBe('var(--ctl-fg-disabled)');
     expect(comboOff.background).toBe('var(--ctl-face-disabled)');
     expect(CSS_CODE).not.toMatch(/\.imgc-select:disabled/);
-    expect(rule('.imgc-frame .imgc-btn:disabled').background).toBe('var(--ctl-face-disabled)');
-    expect(rule('.imgc-frame .imgc-btn:disabled').color).toBe('var(--ctl-fg-disabled)');
+    expect(rule('.imgc-panel .imgc-btn:disabled').background).toBe('var(--ctl-face-disabled)');
+    expect(rule('.imgc-panel .imgc-btn:disabled').color).toBe('var(--ctl-fg-disabled)');
     expect(CSS_CODE).not.toMatch(/opacity:\s*0/);
   });
 
   it('gives the check and radio indicators the token size', () => {
-    const box = rule('.imgc-frame .imgc-radio input');
+    const box = rule('.imgc-panel .imgc-radio input');
     expect(box.width).toBe('var(--check-size)');
     expect(box.height).toBe('var(--check-size)');
     expect(box.margin).toBe('0 var(--check-margin)');
@@ -527,9 +497,9 @@ describe('the arrangement bitmap2cmp_panel_base gives this panel alone', () => {
     // proportion 0, so the row packs left and the slack stays on the right.
     expect(rule('.imgc-sizerow .imgc-input').width).toBe('60px');
     expect(rule('.imgc-sizerow .imgc-select').width).toBe('80px');
-    expect(rule('.imgc-frame .imgc-select').flex).toBe('none');
+    expect(rule('.imgc-panel .imgc-select').flex).toBe('none');
     // m_layerCtrl is the one control here at proportion 1.
-    expect(rule('.imgc-frame .imgc-select.grow').flex).toBe('1');
+    expect(rule('.imgc-panel .imgc-select.grow').flex).toBe('1');
   });
 
   it('indents the Layer label 28 px, and greys it with its combo', () => {
@@ -537,7 +507,7 @@ describe('the arrangement bitmap2cmp_panel_base gives this panel alone', () => {
     expect(rule('.imgc-layerrow')['padding-left']).toBe('28px');
     // bitmap2cmp_panel.cpp:571, m_layerLabel->Enable( m_rbFootprint->GetValue() ).
     expect(rule('.imgc-layerrow.disabled .lbl').color).toBe('var(--ctl-fg-disabled)');
-    expect(TSX).toContain("`imgc-layerrow${footprint ? '' : ' disabled'}`");
+    expect(TSX).toContain("`imgc-layerrow${panel.m_layerEnabled ? '' : ' disabled'}`");
   });
 
   it('spaces the Output Format rows by the flexgrid vgap plus each wx border', () => {
@@ -558,6 +528,15 @@ describe('the arrangement bitmap2cmp_panel_base gives this panel alone', () => {
     expect(rule('.imgc-btn.block + .imgc-btn.block')['margin-top']).toBe(
       'calc(-1 * var(--wx-border))',
     );
+  });
+});
+
+describe("DROP_FILE's question is the shared message dialog", () => {
+  it('is MessageDialogYesNo in the frame, never window.confirm', () => {
+    // KICAD_MESSAGE_DIALOG is one shared wxMessageDialog (include/confirm.h), so
+    // ours is the one shared component in common/dialogs.
+    expect(FRAME_TSX).toContain('<MessageDialogYesNo');
+    expect(FRAME_TSX).not.toContain("window.confirm('There is already a file loaded");
   });
 });
 

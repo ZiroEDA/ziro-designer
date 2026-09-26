@@ -67,6 +67,10 @@ import {
 } from '@ziroeda/common/settings/common_settings.js';
 export { deepMerge } from '@ziroeda/common/settings/json_settings.js';
 import { deepMerge } from '@ziroeda/common/settings/json_settings.js';
+import {
+  BITMAP2CMP_SETTINGS,
+  type BITMAP2CMP_SETTINGS_JSON,
+} from '@ziroeda/bitmap2component/bitmap2cmp_settings.js';
 
 /** LINE_MODE (sch_line.h): 0 = free, 1 = 90°, 2 = 45°. */
 export type LineMode = 0 | 1 | 2;
@@ -2791,38 +2795,14 @@ function numberMap(v: unknown): Record<string, number> {
  * KiCad's schema version for this file is 1 and its one migration
  * (:51-68) renumbers `last_mod_layer` for the KiCad 6 layer-order change,
  * reading a KiCad 5 `bitmap2component.json` we have never written. Ours starts
- * at the post-migration numbering — `OUTLINE_LAYERS[0]` is `F.Cu`, matching
- * the comment at :55-56 — so there is nothing for `migrateSlice` to do.
+ * at the post-migration numbering — `LAYER_CHOICES[0]` is `F.Cu`, matching
+ * the comment at :55-56 — so there is nothing for `migrateSlice` to do. The
+ * migration itself is `migrateLastModLayer` in bitmap2cmp_settings.ts.
  */
-export interface Bitmap2CmpSettings {
-  /** `bitmap_file_name` (:42), "". */
-  bitmap_file_name: string;
-  /** `converted_file_name` (:43), "". */
-  converted_file_name: string;
-  /** `units` (:44), 0. Output-size unit choice: 0 mm, 1 inch, 2 DPI. */
-  units: number;
-  /** `threshold` (:45), 50. Black/white threshold, 0..100. */
-  threshold: number;
-  /** `negative` (:46), false. */
-  negative: boolean;
-  /**
-   * `last_format` (:47), 0. `OUTPUT_FMT_ID` (bitmap2component.h:32-39):
-   * 0 symbol, 1 symbol-paste, 2 footprint, 3 postscript, 4 drawing sheet.
-   */
-  last_format: number;
-  /** `last_mod_layer` (:48), 0. Footprint outline layer, PCBNew ordering. */
-  last_mod_layer: number;
-}
+export type Bitmap2CmpSettings = BITMAP2CMP_SETTINGS_JSON;
 
-export const BITMAP2CMP_DEFAULTS: Bitmap2CmpSettings = {
-  bitmap_file_name: '',
-  converted_file_name: '',
-  units: 0,
-  threshold: 50,
-  negative: false,
-  last_format: 0,
-  last_mod_layer: 0,
-};
+/** The seven PARAM defaults, from the settings class itself. */
+export const BITMAP2CMP_DEFAULTS: Bitmap2CmpSettings = new BITMAP2CMP_SETTINGS().ToJson();
 
 // ----- PRIVACY (ZiroEDA-specific) -------------------------------------------------
 

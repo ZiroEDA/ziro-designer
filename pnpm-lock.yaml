@@ -36,6 +36,9 @@ importers:
       '@types/react':
         specifier: ^18.3.18
         version: 18.3.31
+      vite:
+        specifier: ^6.0.7
+        version: 6.4.3(@types/node@22.20.0)(terser@5.51.2)
 
   bitmaps_png:
     devDependencies:

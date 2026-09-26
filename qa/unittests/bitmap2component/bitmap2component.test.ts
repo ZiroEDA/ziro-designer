@@ -14,6 +14,10 @@ import { describe, expect, it } from 'vitest';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
 import { Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/reporter.js';
 import { BM_PUT, bm_new, type potrace_bitmap_t } from '@ziroeda/potrace';
+import { parse } from '@ziroeda/sexpr';
+import { readFootprintFile } from '@ziroeda/pcbnew';
+import { readSymbolLib } from '@ziroeda/eeschema';
+import { readDrawingSheet } from '@ziroeda/common/drawing_sheet/read.js';
 import {
   BITMAPCONV_INFO,
   BezierToPolyline,
@@ -224,4 +228,42 @@ describe("createOutputData with curves and holes, against KiCad's SHAPE_POLY_SET
       expect(polys).toEqual(o.polygons);
     });
   }
+});
+
+describe("our own readers take KiCad's dialect as KiCad does", () => {
+  /*
+   * Writing bitmap2component's exact bytes means writing its legacy dialect:
+   * `(version 20221018)`, `fp_text`, and a bare `hide` atom. That was refused
+   * once because the footprint reader only took `(hide yes)`;
+   * parseMaybeAbsentBool has since landed there. These pin that every file the
+   * converter writes still opens in our editors with the meaning KiCad gives it.
+   */
+  it('footprint: one solid fp_poly on the chosen layer, and the Value text hidden', () => {
+    const fp = readFootprintFile(parse(convert(ring30(), FOOTPRINT_FMT, 300, 300, 'Dwgs.User')))!;
+    const polys = fp.shapes.filter((s) => s.kind === 'poly');
+    expect(polys).toHaveLength(1);
+    expect(polys[0]!.fillMode).toBe('solid');
+    expect(polys[0]!.layer).toBe('Dwgs.User');
+    expect(fp.texts.find((t) => t.kind === 'value')!.hide).toBe(true);
+    expect(fp.texts.find((t) => t.kind === 'reference')!.hide).toBe(false);
+  });
+
+  it('symbol library: one outline-filled polyline, all four properties hidden', () => {
+    const syms = readSymbolLib(parse(convert(square24(), SYMBOL_FMT, 300, 300)));
+    expect(syms).toHaveLength(1);
+    expect(syms[0]!.libId).toBe('LOGO');
+    const polylines = syms[0]!.units
+      .flatMap((u) => u.graphics)
+      .filter((g) => g.kind === 'polyline');
+    expect(polylines).toHaveLength(1);
+    expect(polylines[0]!.fill?.type).toBe('outline');
+    expect(syms[0]!.properties.map((p) => p.effects?.hidden)).toEqual([true, true, true, true]);
+  });
+
+  it('drawing sheet: one polygon item with a contour per blob', () => {
+    const sheet = readDrawingSheet(parse(convert(twoblob(), DRAWING_SHEET_FMT, 300, 300)));
+    const polys = sheet.items.filter((i) => i.type === 'polygon');
+    expect(polys).toHaveLength(1);
+    expect(polys[0]!.contours).toHaveLength(2);
+  });
 });

@@ -93,6 +93,7 @@ import { join, relative } from 'node:path';
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const COMMON = fileURLToPath(new URL('../../../common', import.meta.url));
 const GERBVIEW = fileURLToPath(new URL('../../../gerbview', import.meta.url));
+const BITMAP2COMPONENT = fileURLToPath(new URL('../../../bitmap2component', import.meta.url));
 
 /**
  * Seeded 2026-08-20 from the tree, per area, AFTER the central-values pass took
@@ -905,17 +906,30 @@ function scan(): Site[] {
       else if (/\.(css|tsx)$/.test(p)) files.push(p);
     }
   })(GERBVIEW);
+  // bitmap2component/'s panel moved beside KiCad's (bitmap2cmp_panel_ui.tsx +
+  // its stylesheet, 09-27); it is still the Image Converter's, editors/image.
+  (function walk(dir: string) {
+    for (const entry of readdirSync(dir)) {
+      if (entry === 'node_modules') continue;
+      const p = join(dir, entry);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.(css|tsx)$/.test(p)) files.push(p);
+    }
+  })(BITMAP2COMPONENT);
   files.sort();
 
   const sites: Site[] = [];
   for (const file of files) {
     const inCommon = !relative(COMMON, file).startsWith('..');
     const inGerbview = !relative(GERBVIEW, file).startsWith('..');
+    const inBitmap2component = !relative(BITMAP2COMPONENT, file).startsWith('..');
     const rel = inCommon
       ? `common/${relative(COMMON, file)}`
       : inGerbview
         ? `editors/gerbview/${relative(GERBVIEW, file)}`
-        : relative(SRC, file);
+        : inBitmap2component
+          ? `editors/image/${relative(BITMAP2COMPONENT, file)}`
+          : relative(SRC, file);
     const parts = rel.split('/');
     const area =
       parts[0] === 'editors' || parts[0] === 'common'

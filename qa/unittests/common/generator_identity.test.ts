@@ -44,7 +44,14 @@ const ROOT = new URL('../../../', import.meta.url).pathname;
  * check read no file from either and still passed. The guard below fails
  * that way now.
  */
-const SOURCE_ROOTS = ['common', 'eeschema', 'pcbnew', 'designer/src', 'gerbview'];
+const SOURCE_ROOTS = [
+  'common',
+  'eeschema',
+  'pcbnew',
+  'designer/src',
+  'gerbview',
+  'bitmap2component',
+];
 
 /**
  * Bundled library content that KiCad itself authored. The rule against wearing
@@ -108,7 +115,9 @@ describe('generator identity', () => {
 
   it('reads every package it names', () => {
     for (const pkg of SOURCE_ROOTS) {
-      expect(sourceFiles(join(ROOT, pkg)).length, pkg).toBeGreaterThan(10);
+      // bitmap2component is KiCad's smallest folder: seven units, nine files here.
+      const floor = pkg === 'bitmap2component' ? 8 : 10;
+      expect(sourceFiles(join(ROOT, pkg)).length, pkg).toBeGreaterThan(floor);
     }
   });
 
