@@ -27,7 +27,7 @@ import {
   unitOf,
   zeroFormatOf,
   zeroIsLeading,
-} from '@ziroeda/designer/src/editors/gerbview/prefs/excellon_options.js';
+} from '@ziroeda/gerbview/dialogs/panel_gerbview_excellon_settings.js';
 import { EXCELLON_DEFAULTS } from '@ziroeda/gerbview';
 import { parseExcellon } from '../gerbview/load_image.js';
 

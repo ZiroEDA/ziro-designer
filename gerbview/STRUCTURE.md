@@ -83,9 +83,9 @@ which); **n/a** (a browser cannot have it).
 | `dialog_map_gerber_layers_to_pcb` | here (engine half) + port | `dialogs/dialog_map_gerber_layers_to_pcb.ts`: the automatic half, `findKnownGerbersLoaded`'s three tables. The dialog itself is not built, so Export to PCB never asks |
 | `dialog_print_gerbview` | port, blocked | derives `DIALOG_PRINT_GENERIC` (here, `common/dialogs`) and prints through `GERBVIEW_PRINTOUT` (above) |
 | `dialog_select_one_pcb_layer` | port | `LAYER_GRID_TABLE` picker the map dialog opens; lands with that dialog |
-| `panel_gerbview_color_settings` | move, `.tsx` waiting | `designer/.../gerbviewColorLayers.ts` (`m_validLayers`, `createSwatches`) → here; the panel `prefs/PanelGerbviewColorSettings.tsx` reads `dialogs/prefs/types`, `pcm/pcmStore`, `prefs/color_settings_list` |
-| `panel_gerbview_display_options` | move, `.tsx` waiting | `designer/.../prefs/display_options.ts` → here; `PanelGerbviewDisplayOptions.tsx` reads `dialogs/prefs/types` |
-| `panel_gerbview_excellon_settings` | move, `.tsx` waiting | `designer/.../prefs/excellon_options.ts` → here; `PanelGerbviewExcellonSettings.tsx` reads `dialogs/prefs/types` |
+| `panel_gerbview_color_settings` | here (engine half), `.tsx` waiting | `dialogs/panel_gerbview_color_settings.ts` (`m_validLayers`, `createSwatches`), reading its defaults from `common/settings/builtin_color_themes.ts` rather than `designer/.../gerberColors.ts`. The panel `designer/.../prefs/PanelGerbviewColorSettings.tsx` reads `dialogs/prefs/types`, `pcm/pcmStore`, `prefs/color_settings_list` |
+| `panel_gerbview_display_options` | here (engine half), `.tsx` waiting | `dialogs/panel_gerbview_display_options.ts`; `designer/.../prefs/PanelGerbviewDisplayOptions.tsx` reads `dialogs/prefs/types` |
+| `panel_gerbview_excellon_settings` | here (engine half), `.tsx` waiting | `dialogs/panel_gerbview_excellon_settings.ts`; `designer/.../prefs/PanelGerbviewExcellonSettings.tsx` reads `dialogs/prefs/types` |
 
 ### `navlib/` — 2 units: n/a
 

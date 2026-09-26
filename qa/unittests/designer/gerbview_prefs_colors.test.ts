@@ -23,7 +23,7 @@ import {
   graphicLayerKey,
   graphicLayerName,
   graphicLayerRow,
-} from '@ziroeda/designer/src/editors/gerbview/gerbviewColorLayers.js';
+} from '@ziroeda/gerbview/dialogs/panel_gerbview_color_settings.js';
 import {
   defaultLayerColor,
   GERBER_BG_COLOR,

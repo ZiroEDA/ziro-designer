@@ -143,7 +143,7 @@ import {
   gerbviewColor,
   graphicLayerKey,
   graphicLayerRow,
-} from './gerbviewColorLayers.js';
+} from '@ziroeda/gerbview/dialogs/panel_gerbview_color_settings.js';
 import {
   applyToggle,
   applyTogglesToSettings,

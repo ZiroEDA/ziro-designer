@@ -58,7 +58,7 @@ import {
   unitOf,
   zeroFormatOf,
   zeroIsLeading,
-} from './excellon_options.js';
+} from '@ziroeda/gerbview/dialogs/panel_gerbview_excellon_settings.js';
 
 export function PanelGerbviewExcellonSettings({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { gerbview, upGbr } = ctx;

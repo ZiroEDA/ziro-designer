@@ -44,7 +44,7 @@ import {
   graphicLayerDefault,
   graphicLayerKey,
   graphicLayerName,
-} from '../gerbviewColorLayers.js';
+} from '@ziroeda/gerbview/dialogs/panel_gerbview_color_settings.js';
 import { GERBER_BG_COLOR } from '../gerberColors.js';
 
 export function PanelGerbviewColorSettings({ ctx }: { ctx: PrefsContext }): JSX.Element {
