@@ -17,7 +17,7 @@ import { EscapeHTML } from '@ziroeda/common/string_utils.js';
 import { GERBER_BUFZ, GERBER_FILE_IMAGE } from './gerber_file_image.js';
 import { Gerb_Analyse_Cmd } from './gerbview.js';
 import { CHAR_PTR, FILE, LINE_BUFFER, NUL, StrPurge, isdigit } from './libc.js';
-import { ReadFileText } from './files.js';
+import { ReadFileText } from './libc.js';
 import type { GERBVIEW_FRAME } from './gerbview_frame.js';
 
 /**

@@ -17,6 +17,8 @@
  * same string either way.
  */
 
+import { wxReadFileSync } from '@ziroeda/common/wx/filefn.js';
+
 /** The NUL a C string ends with, which `*aText` reads at the end of a line. */
 export const NUL = '\0';
 
@@ -260,4 +262,10 @@ export function ToCDouble(text: string, prev: number): number {
 export function ToCDoubleOk(text: string): boolean {
   const r = strtodPrefix(text, 0);
   return r !== null && r.end === text.length;
+}
+
+/** The file's text, as the readers' `wxFopen` + `fgets` see it; null when it cannot be opened. */
+export function ReadFileText(aPath: string): string | null {
+  const bytes = wxReadFileSync(aPath);
+  return bytes ? new TextDecoder().decode(bytes) : null;
 }

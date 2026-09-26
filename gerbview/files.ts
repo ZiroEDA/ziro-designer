@@ -34,11 +34,9 @@ import { EXCELLON_IMAGE } from './excellon_read_drill_file.js';
 import { GERBER_FILE_IMAGE } from './gerber_file_image.js';
 import { GERBER_DRAW_LAYER } from '@ziroeda/common/layer_id.js';
 import {
-  Reporter,
   RPT_SEVERITY_ERROR,
-  RPT_SEVERITY_UNDEFINED,
   RPT_SEVERITY_WARNING,
-  type Severity,
+  WX_STRING_REPORTER,
 } from '@ziroeda/common/reporter.js';
 import type { ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
 import {
@@ -54,6 +52,7 @@ import {
   wxWriteFileSync,
 } from '@ziroeda/common/wx/filefn.js';
 import { unzipSync } from 'fflate';
+import { ReadFileText } from './libc.js';
 import { GERBER_FILE_IMAGE_LIST, GERBER_ORDER_ENUM } from './gerber_file_image_list.js';
 import { type GERBVIEW_FRAME, NO_AVAILABLE_LAYERS } from './gerbview_frame.js';
 
@@ -185,40 +184,6 @@ function extOf(aPath: string): string {
   const name = fullNameOf(aPath);
   const i = name.lastIndexOf('.');
   return i <= 0 ? '' : name.slice(i + 1);
-}
-
-/** The file's text, as the readers' `wxFopen` + `fgets` see it; null when it cannot be opened. */
-export function ReadFileText(aPath: string): string | null {
-  const bytes = wxReadFileSync(aPath);
-  return bytes ? new TextDecoder().decode(bytes) : null;
-}
-
-/** `WX_STRING_REPORTER`: messages kept as one string, a line each. */
-export class WX_STRING_REPORTER extends Reporter {
-  private m_string = '';
-
-  Report(aText: string, aSeverity: Severity = RPT_SEVERITY_UNDEFINED): this {
-    super.report(aText, aSeverity);
-    this.m_string += `${aText}\n`;
-    return this;
-  }
-
-  override report(aText: string, aSeverity: Severity = RPT_SEVERITY_UNDEFINED): this {
-    return this.Report(aText, aSeverity);
-  }
-
-  HasMessage(): boolean {
-    return this.m_string !== '';
-  }
-
-  GetMessages(): string {
-    return this.m_string;
-  }
-
-  Clear(): void {
-    super.clear();
-    this.m_string = '';
-  }
 }
 
 /** `static int lastGerberFileWildcard`: the filter the last dialog ended on. */

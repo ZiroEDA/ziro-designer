@@ -18,10 +18,13 @@
  * frame's and waits with it (STRUCTURE.md). Browser divergence: the reader is
  * given the file's text beside its name.
  */
-import { type Reporter as REPORTER, RPT_SEVERITY_WARNING } from '@ziroeda/common/reporter.js';
-import { FILE, LINE_BUFFER } from './libc.js';
+import {
+  type Reporter as REPORTER,
+  RPT_SEVERITY_WARNING,
+  WX_STRING_REPORTER,
+} from '@ziroeda/common/reporter.js';
+import { FILE, LINE_BUFFER, ReadFileText } from './libc.js';
 import { GERBVIEW_JOB_FILTERS } from '@ziroeda/common/wildcards_and_files_ext.js';
-import { ReadFileText, WX_STRING_REPORTER } from './files.js';
 import type { GERBVIEW_FRAME } from './gerbview_frame.js';
 
 export class GERBER_JOBFILE_READER {

@@ -56,7 +56,7 @@ import {
 import { fillArcGBRITEM, fillFlashedGBRITEM, fillLineGBRITEM } from './rs274d.js';
 import { ReadDouble, ReadInt } from './rs274_read_XY_and_IJ_coordinates.js';
 import { X2_ATTRIBUTE, X2_ATTRIBUTE_FILEFUNCTION } from './X2_gerber_attributes.js';
-import { ReadFileText } from './files.js';
+import { ReadFileText } from './libc.js';
 import type { GERBVIEW_FRAME } from './gerbview_frame.js';
 
 /** `drill_M_code_t`. */

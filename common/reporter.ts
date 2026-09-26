@@ -105,3 +105,31 @@ export function SeverityToString(aSeverity: Severity): string {
   else if (aSeverity === RPT_SEVERITY_WARNING) return 'warning';
   else return 'error';
 }
+
+/** `WX_STRING_REPORTER`: messages kept as one string, a line each. */
+export class WX_STRING_REPORTER extends Reporter {
+  private m_string = '';
+
+  Report(aText: string, aSeverity: Severity = RPT_SEVERITY_UNDEFINED): this {
+    super.report(aText, aSeverity);
+    this.m_string += `${aText}\n`;
+    return this;
+  }
+
+  override report(aText: string, aSeverity: Severity = RPT_SEVERITY_UNDEFINED): this {
+    return this.Report(aText, aSeverity);
+  }
+
+  HasMessage(): boolean {
+    return this.m_string !== '';
+  }
+
+  GetMessages(): string {
+    return this.m_string;
+  }
+
+  Clear(): void {
+    super.clear();
+    this.m_string = '';
+  }
+}
