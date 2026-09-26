@@ -177,7 +177,8 @@ const FRAMES: FrameRow[] = [
     rows: ['close'],
   },
   {
-    file: 'editors/drawingsheet/DrawingSheetEditor.tsx',
+    // PL_EDITOR_FRAME::doReCreateMenuBar moved beside KiCad's (09-27).
+    file: '../../pagelayout_editor/menubar.ts',
     upstream: 'pagelayout_editor/menubar.cpp:88-89',
     app: 'Drawing Sheet Editor',
     rows: ['close', 'quit'],
@@ -367,9 +368,11 @@ describe('no menu declares a key the browser will not deliver', () => {
     };
     walk(SRC);
     // The editor packages that keep their frame's menubar beside KiCad's
-    // (gerbview/menubar.ts): a sweep of designer/ alone would stop seeing a
-    // menu the day it moved.
+    // (gerbview/menubar.ts, pagelayout_editor/menubar.ts): a sweep of
+    // designer/ alone would stop seeing a menu the day it moved.
     walk(join(SRC, '../../gerbview'));
+    walk(join(SRC, '../../pagelayout_editor'));
+    walk(join(SRC, '../../bitmap2component'));
     return { declared: out, visited: new Set(files) };
   })();
 

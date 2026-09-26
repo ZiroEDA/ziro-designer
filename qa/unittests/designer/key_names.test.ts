@@ -201,8 +201,9 @@ describe('the menu rows print the accelerator, character for character', () => {
     'editors/schematic/dialogs/dialog_assign_footprints.tsx',
     'editors/schematic/menubar.ts',
     // Already correct before this split, and pinned by
-    // drawing_sheet_palette.test.ts as well.
-    'editors/drawingsheet/DrawingSheetEditor.tsx',
+    // drawing_sheet_palette.test.ts as well. The menu bar moved beside
+    // KiCad's, pagelayout_editor/menubar.ts (09-27).
+    '../../pagelayout_editor/menubar.ts',
   ];
 
   it.each(DELETE_ROWS)('%s says Delete, never Del', (rel) => {
