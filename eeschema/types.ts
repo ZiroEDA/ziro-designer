@@ -509,6 +509,17 @@ export interface SchSymbolInstance {
   readonly source: SList;
 }
 
+/** One row of a root file's legacy `(symbol_instances …)` (SCH_SYMBOL_INSTANCE). */
+export interface LEGACY_SYMBOL_INSTANCE {
+  /** The KIID path WITHOUT the root: `/<sheet uuids…>/<symbol uuid>`, as the file has it. */
+  readonly path: string;
+  readonly reference: string;
+  readonly unit: number;
+  /** "" when absent, or "~" before 20250318. */
+  readonly value: string;
+  readonly footprint: string;
+}
+
 /** Electrical layer of a SCH_LINE: wire (net) | bus | notes (graphic). */
 export type LineKind = 'wire' | 'bus' | 'polyline';
 
@@ -820,6 +831,14 @@ export interface Schematic {
   /** Document-level `(sheet_instances (path "/" (page "1")))`, the root sheet's
    *  own page number(s), one per project path (no project wrapper). */
   readonly sheetInstances: readonly SheetInstance[];
+  /**
+   * The root file's `(symbol_instances (path "/sheet…/symbol" (reference …)
+   * (unit …) (value …) (footprint …)))`: where files before per-symbol
+   * `(instances …)` kept every symbol's per-sheet-path reference and unit
+   * (`SCH_SCREEN::m_symbolInstances`, parseSchSymbolInstances). Applied to the
+   * hierarchy by `UpdateSymbolInstanceData`.
+   */
+  readonly symbolInstances?: readonly LEGACY_SYMBOL_INSTANCE[];
   /** The root AST node, retained as the lossless source of truth. */
   readonly source: SList;
   /** Display filename (app metadata set on load; not part of the file format). */

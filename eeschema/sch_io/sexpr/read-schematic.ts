@@ -812,8 +812,23 @@ function readSheetInstances(node: SList): SheetInstance[] {
   return out;
 }
 
+/**
+ * A sheet's `(property …)` name as KiCad identifies it (parseSchField,
+ * sch_io_kicad_sexpr_parser.cpp:2350-2363): the mandatory names matched without
+ * case, and the old "Sheet name" / "Sheet file". Files up to 20200310 saved
+ * wrong ids and names for the two, always sheet name then file, so there the
+ * first property is the name and the second the file (:3767-3777).
+ */
+function sheetFieldKey(aName: string, aIndex: number, aVersion: number): string {
+  if (aVersion <= 20200310) return aIndex === 0 ? 'Sheetname' : aIndex === 1 ? 'Sheetfile' : aName;
+  const lower = aName.toLowerCase();
+  if (lower === 'sheetname' || lower === 'sheet name') return 'Sheetname';
+  if (lower === 'sheetfile' || lower === 'sheet file') return 'Sheetfile';
+  return aName;
+}
+
 /** Parse a `(sheet ...)`: rectangle + Sheetname/Sheetfile fields + hierarchical pins. */
-function readSheet(node: SList): SchSheet {
+function readSheet(node: SList, aVersion = Number.POSITIVE_INFINITY): SchSheet {
   const { at } = readAt(node);
   const sizeNode = childNamed(node, 'size');
   const sheet: { -readonly [K in keyof SchSheet]: SchSheet[K] } = {
@@ -822,7 +837,11 @@ function readSheet(node: SList): SchSheet {
       w: mmToIU(numArg(sizeNode ?? node, 0) ?? 0),
       h: mmToIU(numArg(sizeNode ?? node, 1) ?? 0),
     },
-    fields: childrenNamed(node, 'property').map((p) => readField(p)),
+    fields: childrenNamed(node, 'property').map((p, i) => {
+      const field = readField(p);
+      const key = sheetFieldKey(field.key, i, aVersion);
+      return key === field.key ? field : { ...field, key };
+    }),
     pins: childrenNamed(node, 'pin').map(readSheetPin),
     instances: readSheetInstances(node),
     // Stored inverted for the first two, and defaulting to "included" so a file
@@ -1143,6 +1162,7 @@ export function readSchematic(root: SList, reporter?: Reporter): Schematic {
     throw new Error(`Expected a (kicad_sch ...) root, got (${head(root) ?? '?'} ...)`);
   }
 
+  const fileVersion = numArg(childNamed(root, 'version') ?? root, 0) ?? 0;
   const libSymbols: LibSymbol[] = [];
   const symbols: SchSymbol[] = [];
   const lines: SchLine[] = [];
@@ -1176,7 +1196,7 @@ export function readSchematic(root: SList, reporter?: Reporter): Schematic {
     else if (LINE_KINDS[name]) lines.push(readLine(item, LINE_KINDS[name]!));
     else if (name === 'junction') junctions.push(readJunction(item));
     else if (name === 'no_connect') noConnects.push(readNoConnect(item));
-    else if (name === 'sheet') sheets.push(readSheet(item));
+    else if (name === 'sheet') sheets.push(readSheet(item, fileVersion));
     else if (name === 'bus_entry') busEntries.push(readBusEntry(item));
     else if (name === 'image') images.push(readImage(item));
     else if (
@@ -1236,6 +1256,21 @@ export function readSchematic(root: SList, reporter?: Reporter): Schematic {
     })(),
     source: root,
   };
+  // parseSchSymbolInstances: the root's legacy per-path symbol table.
+  const symbolInstancesNode = childNamed(root, 'symbol_instances');
+  if (symbolInstancesNode) {
+    const version = sch.version;
+    // Before 20250318 a "~" value or footprint means empty.
+    const tilde = (v: string | undefined): string =>
+      v === undefined || (version < 20250318 && v === '~') ? '' : v;
+    sch.symbolInstances = childrenNamed(symbolInstancesNode, 'path').map((p) => ({
+      path: arg(p, 0) ?? '',
+      reference: stringField(p, 'reference') ?? '',
+      unit: numArg(childNamed(p, 'unit') ?? p, 0) ?? 1,
+      value: tilde(stringField(p, 'value')),
+      footprint: tilde(stringField(p, 'footprint')),
+    }));
+  }
   const generator = stringField(root, 'generator');
   const generatorVersion = stringField(root, 'generator_version');
   const uuid = stringField(root, 'uuid');

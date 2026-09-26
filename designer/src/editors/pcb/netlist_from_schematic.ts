@@ -36,10 +36,16 @@ import { loadKicadNetlist, type NETLIST } from '@ziroeda/pcbnew';
 import { parse } from '@ziroeda/sexpr';
 import { RPT_SEVERITY_ERROR } from '@ziroeda/common';
 import { ENV_VAR } from '@ziroeda/common/env_vars.js';
+import { niluuid } from '@ziroeda/common/kiid.js';
 import { PgmOrNull, SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
 import { globalSymLibNicknames } from '../schematic/symbols/index.js';
 import { projectSymLibTable } from '../schematic/symbols/project_sym_lib_table.js';
 import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
+import {
+  SheetInstanceView,
+  UpdateSymbolInstanceData,
+  sheetKiidPath,
+} from '@ziroeda/eeschema/tools/sch_sheet_path.js';
 import { findProjectPro, readSchematicSetup } from '../schematic/project_settings.js';
 
 export interface RawFile {
@@ -174,7 +180,32 @@ export function fetchNetlistFromSchematic(
   }
 
   const rootFile = findRootFile(docs, rootPro);
-  const sheets = flattenSheets(buildSheetTree(docs, rootFile), docs);
+  const tree = buildSheetTree(docs, rootFile);
+  let loadedDocs: ReadonlyMap<string, Schematic> = docs;
+  const rootDoc = docs.get(rootFile);
+  // An older file has no (uuid): the parser gives the root a generated one
+  // (sch_io_kicad_sexpr_parser.cpp:3071) - any id does, it only has to be the
+  // same for the whole load.
+  const rootUuid = rootDoc ? (rootDoc.uuid ?? niluuid) : undefined;
+
+  // SCH_SHEET_LIST::UpdateSymbolInstanceData: a file from before per-symbol
+  // (instances …) keeps every reference and unit in the root's symbol_instances.
+  if (rootUuid && rootDoc?.symbolInstances?.length) {
+    loadedDocs = UpdateSymbolInstanceData(
+      flattenSheets(tree, docs),
+      docs,
+      rootUuid,
+      rootDoc.symbolInstances,
+    );
+  }
+
+  // Each sheet instance as the exporters see it: GetRef( &sheet ) and
+  // GetUnitSelection( &sheet ), so a sheet used twice has its own references.
+  const sheets = flattenSheets(tree, loadedDocs).map((sheet) =>
+    rootUuid
+      ? { ...sheet, doc: SheetInstanceView(sheet.doc, sheetKiidPath(rootUuid, sheet.path)) }
+      : sheet,
+  );
 
   const libsFor = (sheet: NetlistSheet): Map<string, LibSymbol> =>
     new Map(sheet.doc.libSymbols.map((l) => [l.libId, l]));

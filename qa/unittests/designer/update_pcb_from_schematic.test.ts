@@ -133,7 +133,15 @@ describe('fetchNetlistFromSchematic over the Arduino_Uno template', () => {
   it('reports the annotation errors when a symbol has no reference', () => {
     const files = FILES.map((f) =>
       f.name.endsWith('.kicad_sch')
-        ? { ...f, text: f.text.replace('"Reference" "J1"', '"Reference" "J?"') }
+        ? // Both places a file keeps it: the field and the (instances …) record -
+          // SCH_SYMBOL::GetRef reads the instance, so a field edit alone is not an
+          // unannotated symbol.
+          {
+            ...f,
+            text: f.text
+              .replace('"Reference" "J1"', '"Reference" "J?"')
+              .replace('(reference "J1")', '(reference "J?")'),
+          }
         : f,
     );
     const result = fetchNetlistFromSchematic(

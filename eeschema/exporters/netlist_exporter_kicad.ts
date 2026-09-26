@@ -27,7 +27,11 @@
  */
 
 import { PRETTIFIED_STRING_FORMATTER } from '@ziroeda/common/richio.js';
-import { GetISO8601CurrentDateTime, strNumCmp } from '@ziroeda/common/string_utils.js';
+import {
+  GetISO8601CurrentDateTime,
+  strNumCmp,
+  unescapeString,
+} from '@ziroeda/common/string_utils.js';
 import { XNODE, wxXmlNodeType } from '@ziroeda/common/xnode.js';
 import { arg, childNamed, childrenNamed } from '@ziroeda/sexpr/query.js';
 import { computeHierarchyNetlist, type HierSheet } from '../connectivity/hierarchy.js';
@@ -112,6 +116,27 @@ export interface KicadNetlistInput {
 
 const fieldOf = (sym: SchSymbol, key: string): string =>
   sym.fields.find((f) => f.key === key)?.value ?? '';
+
+/**
+ * `LIB_SYMBOL::GetFPFilters`: the parser tokenises `ki_fp_filters` on " \t\r\n"
+ * (wxTOKEN_STRTOK: no empty tokens) and unescapes each
+ * (sch_io_kicad_sexpr_parser.cpp:1182-1194).
+ */
+function GetFPFilters(lib: LibSymbol): string[] {
+  const value = lib.properties.find((p) => p.key === 'ki_fp_filters')?.value ?? '';
+  return value
+    .split(/[ \t\r\n]+/)
+    .filter(Boolean)
+    .map(unescapeString);
+}
+
+/** `LIB_ID::compare`: nickname, then item name, each by code unit. */
+function compareLibIds(a: string, b: string): number {
+  const x = splitLibId(a);
+  const y = splitLibId(b);
+  const cmp = (p: string, q: string): number => (p < q ? -1 : p > q ? 1 : 0);
+  return cmp(x.lib, y.lib) || cmp(x.part, y.part);
+}
 
 /** The `(property …)` names the symbol parser keeps as LIB_SYMBOL members, not fields. */
 const LIB_SYMBOL_MEMBERS = /^ki_(keywords|description|fp_filters|locked)$/;
@@ -352,7 +377,8 @@ function makeSymbols(input: KicadNetlistInput, usedLibIds: Set<string>): XNODE {
         const keywords = lib.properties.find((p) => p.key === 'ki_keywords')?.value ?? '';
         if (keywords !== '') addProperty('ki_keywords', keywords);
 
-        const filters = lib.properties.find((p) => p.key === 'ki_fp_filters')?.value ?? '';
+        // for( filter : part->GetFPFilters() ) filters += ' ' + filter; Trim( false )
+        const filters = GetFPFilters(lib).join(' ');
         if (filters !== '') addProperty('ki_fp_filters', filters);
 
         if (lib.duplicatePinNumbersAreJumpers)
@@ -537,7 +563,8 @@ function makeLibParts(
     }
   }
 
-  for (const [libId, lib] of libSymbols) {
+  // m_libParts: a std::set ordered by LIB_SYMBOL_LESS_THAN, i.e. LIB_ID.
+  for (const [libId, lib] of [...libSymbols].sort((a, b) => compareLibIds(a[0], b[0]))) {
     const { lib: libNickname, part } = splitLibId(libId);
     if (libNickname !== '') libraries.add(libNickname);
 
@@ -557,7 +584,7 @@ function makeLibParts(
     const datasheet = property('Datasheet');
     if (datasheet !== '') xlibpart.AddChild(node('docs', datasheet));
 
-    const filters = property('ki_fp_filters').split(/\s+/).filter(Boolean);
+    const filters = GetFPFilters(lib);
     if (filters.length > 0) {
       const xfootprints = node('footprints');
       xlibpart.AddChild(xfootprints);

@@ -16,7 +16,8 @@
  * key; its page lives in the document-level (sheet_instances (path "/" …)).
  */
 
-import type { SchSheet, SheetInstance, Schematic } from '../types.js';
+import type { LEGACY_SYMBOL_INSTANCE, SchSheet, SheetInstance, Schematic } from '../types.js';
+import { AddHierarchicalReference, GetRef, GetUnitSelection } from '../sch_symbol.js';
 import type { EditCommand } from './command.js';
 import { str } from '@ziroeda/sexpr';
 import type { SList } from '@ziroeda/sexpr';
@@ -145,4 +146,91 @@ export function setRootPageNumberCommand(page: string, path = '/'): EditCommand 
       return setRootPageNumberCommand(prev?.page ?? '', path);
     },
   };
+}
+
+/**
+ * `SCH_SHEET_PATH::Path()` for a sheet of the hierarchy: the root's uuid, then
+ * every sheet symbol's uuid down to this sheet. `aSheetPath` is the walk's
+ * `/<sheet uuids…>/` (`"/"` for the root).
+ */
+export function sheetKiidPath(aRootUuid: string, aSheetPath: string): string {
+  const inner = aSheetPath.replace(/^\/+|\/+$/g, '');
+  return inner === '' ? `/${aRootUuid}` : `/${aRootUuid}/${inner}`;
+}
+
+/**
+ * `SCH_SHEET_LIST::UpdateSymbolInstanceData` (sch_sheet_path.cpp:1539): the
+ * root file's legacy `symbol_instances` applied to the hierarchy. For every
+ * sheet path (in sheet-list order) and every symbol on it, the record whose
+ * path is that sheet path plus the symbol uuid becomes the symbol's
+ * hierarchical reference for the path, and its reference / value / footprint
+ * become the shared fields - so, as upstream, the last sheet path visited
+ * wins the fields.
+ *
+ * `aSheets` is the flattened hierarchy (path + file); the documents are
+ * returned updated, by file.
+ */
+export function UpdateSymbolInstanceData(
+  aSheets: readonly { path: string; file: string }[],
+  aDocs: ReadonlyMap<string, Schematic>,
+  aRootUuid: string,
+  aSymbolInstances: readonly LEGACY_SYMBOL_INSTANCE[],
+): Map<string, Schematic> {
+  const out = new Map(aDocs);
+
+  for (const sheet of aSheets) {
+    const doc = out.get(sheet.file);
+    if (!doc) continue;
+
+    const sheetKiid = sheetKiidPath(aRootUuid, sheet.path);
+    // The file's paths carry no root uuid; the parser prepends it (m_rootUuid).
+    const rootless = sheetKiid.slice(aRootUuid.length + 1);
+
+    let changed = false;
+    const symbols = doc.symbols.map((sym) => {
+      if (!sym.uuid) return sym;
+
+      const it = aSymbolInstances.find((r) => r.path === `${rootless}/${sym.uuid}`);
+      if (!it) return sym;
+
+      changed = true;
+      let next = AddHierarchicalReference(sym, sheetKiid, it.reference, it.unit);
+      const setField = (key: string, value: string): void => {
+        next = {
+          ...next,
+          fields: next.fields.map((f) => (f.key === key ? { ...f, value } : f)),
+        };
+      };
+      setField('Reference', it.reference);
+      if (it.value !== '') setField('Value', it.value);
+      if (it.footprint !== '') setField('Footprint', it.footprint);
+      return next;
+    });
+
+    if (changed) out.set(sheet.file, { ...doc, symbols });
+  }
+
+  return out;
+}
+
+/**
+ * One sheet instance as its consumers see it: each symbol's Reference field
+ * and unit are `GetRef( &sheet )` and `GetUnitSelection( &sheet )` for this
+ * sheet path. A sheet used twice gives two different documents.
+ */
+export function SheetInstanceView(doc: Schematic, aInstancePath: string): Schematic {
+  let changed = false;
+  const symbols = doc.symbols.map((sym) => {
+    const ref = GetRef(sym, aInstancePath);
+    const unit = GetUnitSelection(sym, aInstancePath);
+    const cur = sym.fields.find((f) => f.key === 'Reference')?.value ?? '';
+    if (ref === cur && unit === sym.unit) return sym;
+    changed = true;
+    return {
+      ...sym,
+      unit,
+      fields: sym.fields.map((f) => (f.key === 'Reference' ? { ...f, value: ref } : f)),
+    };
+  });
+  return changed ? { ...doc, symbols } : doc;
 }
