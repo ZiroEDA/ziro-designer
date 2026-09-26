@@ -42,6 +42,8 @@ describe('m_validLayers, and the names createSwatches gives them', () => {
     expect(GERBER_DRAWLAYERS_COUNT).toBe(128);
     expect(GERBER_DEFAULT_THEME_LAYERS).toBe(64);
     expect(graphicLayerDefault(63)).toBe(defaultLayerColor(63));
+    // s_defaultTheme's first gerbview row, CSS_COLOR( 200, 52, 52, 1 ) (builtin_color_themes.h, s_defaultTheme).
+    expect(graphicLayerDefault(0)).toBe('rgb(200, 52, 52)');
     expect(graphicLayerDefault(64)).toBeNull();
     expect(graphicLayerDefault(127)).toBeNull();
   });
@@ -92,6 +94,8 @@ describe('m_validLayers, and the names createSwatches gives them', () => {
     const by = (id: string) => GERBVIEW_FIXED_LAYERS.find((l) => l.id === id);
     expect(by('LAYER_GERBVIEW_GRID')?.fallback).toBe(GERBER_GRID_COLOR);
     expect(by('LAYER_GERBVIEW_BACKGROUND')?.fallback).toBe(GERBER_BG_COLOR);
+    // LAYER_DCODES is CSS_COLOR( 255, 255, 255, 1 ) in s_defaultTheme.
+    expect(by('LAYER_DCODES')?.fallback).toBe('rgb(255, 255, 255)');
     for (const l of GERBVIEW_FIXED_LAYERS) expect(l.fallback, l.id).toMatch(/^rgb\(/);
   });
 });
