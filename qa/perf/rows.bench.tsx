@@ -6,7 +6,7 @@
  */
 import { test } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
-import { LibTreeNode, LibTreeNodeType } from '@ziroeda/designer/src/widgets/lib_tree_model.js';
+import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
 
 interface Row {
   node: LibTreeNode;

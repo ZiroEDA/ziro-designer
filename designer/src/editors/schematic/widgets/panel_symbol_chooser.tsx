@@ -27,8 +27,8 @@ import { symbolLibraryDescription } from '../../../widgets/lib_table_description
 import { atom, list, str } from '@ziroeda/sexpr/types.js';
 import { searchTerm } from '@ziroeda/common';
 import { LibTree } from '../../../widgets/lib_tree.js';
-import { LibTreeModelAdapter, type SortMode } from '../../../widgets/lib_tree_model_adapter.js';
-import { LibTreeNode, LibTreeNodeType } from '../../../widgets/lib_tree_model.js';
+import { LibTreeModelAdapter, type SortMode } from '@ziroeda/common/lib_tree_model_adapter.js';
+import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
 import { FootprintPreviewWidget } from '../../../widgets/footprint_preview_widget.js';
 import { FootprintSelectWidget } from '../../../widgets/footprint_select_widget.js';
 import { loadFootprintIndex } from '../../../widgets/footprint_list.js';

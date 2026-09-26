@@ -46,13 +46,13 @@
  *     a library node's `m_LibId` has no item name.
  */
 
-import type { LibTreeNode } from '../../widgets/lib_tree_model.js';
-import { LibTreeNodeType } from '../../widgets/lib_tree_model.js';
+import type { LibTreeNode } from '@ziroeda/common/lib_tree_model.js';
+import { LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
 import {
   LIB_TREE_BASE_COLUMNS,
   LibTreeModelAdapter,
   type LibTreeNodeAttr,
-} from '../../widgets/lib_tree_model_adapter.js';
+} from '@ziroeda/common/lib_tree_model_adapter.js';
 
 /**
  * The `FOOTPRINT_EDIT_FRAME` questions this adapter asks. An interface rather

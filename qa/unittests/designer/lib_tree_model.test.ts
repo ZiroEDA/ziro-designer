@@ -14,11 +14,8 @@ import {
   LibTreeNodeType,
   makeItemNode,
   makeUnitNode,
-} from '@ziroeda/designer/src/widgets/lib_tree_model.js';
-import {
-  LibTreeModelAdapter,
-  SortMode,
-} from '@ziroeda/designer/src/widgets/lib_tree_model_adapter.js';
+} from '@ziroeda/common/lib_tree_model.js';
+import { LibTreeModelAdapter, SortMode } from '@ziroeda/common/lib_tree_model_adapter.js';
 
 function addItem(lib: LibTreeNode, name: string, keywords = '', desc = ''): LibTreeNode {
   const item = makeItemNode(lib, lib.name, name);

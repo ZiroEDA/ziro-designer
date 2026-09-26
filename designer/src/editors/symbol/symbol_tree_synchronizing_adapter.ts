@@ -39,9 +39,12 @@
  * hooks are methods here for the same reason.
  */
 
-import type { LibTreeNode } from '../../widgets/lib_tree_model.js';
-import { LibTreeNodeType } from '../../widgets/lib_tree_model.js';
-import { LibTreeModelAdapter, type LibTreeNodeAttr } from '../../widgets/lib_tree_model_adapter.js';
+import type { LibTreeNode } from '@ziroeda/common/lib_tree_model.js';
+import { LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
+import {
+  LibTreeModelAdapter,
+  type LibTreeNodeAttr,
+} from '@ziroeda/common/lib_tree_model_adapter.js';
 
 /**
  * The `LIB_SYMBOL_LIBRARY_MANAGER` and `SYMBOL_EDIT_FRAME` questions this

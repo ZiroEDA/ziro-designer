@@ -7,7 +7,7 @@
  * expanded" bookkeeping the wxDataViewCtrl does natively upstream. Mirrors
  * kicad/common/lib_tree_model_adapter.cpp (LIB_TREE_MODEL_ADAPTER).
  */
-import { EdaCombinedMatcher } from '@ziroeda/common';
+import { EdaCombinedMatcher } from './index.js';
 import {
   LibTreeNode,
   LibTreeNodeType,

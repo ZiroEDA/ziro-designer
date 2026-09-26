@@ -18,11 +18,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { FpTreeSynchronizingAdapter } from '@ziroeda/designer/src/editors/footprint/fp_tree_synchronizing_adapter.js';
-import {
-  LibTreeNode,
-  LibTreeNodeType,
-  makeItemNode,
-} from '@ziroeda/designer/src/widgets/lib_tree_model.js';
+import { LibTreeNode, LibTreeNodeType, makeItemNode } from '@ziroeda/common/lib_tree_model.js';
 
 interface FrameState {
   loaded: string;

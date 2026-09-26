@@ -17,14 +17,14 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
-import { type LibTreeNode, LibTreeNodeType } from './lib_tree_model.js';
+import { type LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
 import {
   type LibTreeModelAdapter,
   type LibTreeNodeAttr,
   SortMode,
   LIB_TREE_INDENT,
   PINNING_SYMBOL,
-} from './lib_tree_model_adapter.js';
+} from '@ziroeda/common/lib_tree_model_adapter.js';
 import { EDA_REORDERABLE_LIST_DIALOG } from '@ziroeda/common/dialogs/eda_reorderable_list_dialog.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';

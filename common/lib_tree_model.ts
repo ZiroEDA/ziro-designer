@@ -6,7 +6,7 @@
  * library nodes, holding item nodes, holding unit nodes. Mirrors
  * kicad/common/lib_tree_model.cpp (LIB_TREE_NODE and subclasses).
  */
-import { type EdaCombinedMatcher, type SearchTerm, strNumCmp } from '@ziroeda/common';
+import { type EdaCombinedMatcher, type SearchTerm, strNumCmp } from './index.js';
 
 /** Upstream LIB_TREE_NODE::TYPE, the numeric order matters for sorting. */
 export enum LibTreeNodeType {

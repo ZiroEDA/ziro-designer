@@ -38,8 +38,8 @@ import {
   LibTreeModelAdapter,
   LIB_TREE_DEFAULT_COL_WIDTHS,
   LIB_TREE_INDENT,
-} from '@ziroeda/designer/src/widgets/lib_tree_model_adapter.js';
-import { makeItemNode } from '@ziroeda/designer/src/widgets/lib_tree_model.js';
+} from '@ziroeda/common/lib_tree_model_adapter.js';
+import { makeItemNode } from '@ziroeda/common/lib_tree_model.js';
 
 afterEach(cleanup);
 

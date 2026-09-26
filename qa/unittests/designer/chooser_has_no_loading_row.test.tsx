@@ -27,7 +27,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { LibTree } from '@ziroeda/designer/src/widgets/lib_tree.js';
-import { LibTreeModelAdapter } from '@ziroeda/designer/src/widgets/lib_tree_model_adapter.js';
+import { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
 import { SymbolPreviewWidget } from '@ziroeda/designer/src/editors/schematic/widgets/symbol_preview_widget.js';
 import { FootprintPreviewWidget } from '@ziroeda/designer/src/widgets/footprint_preview_widget.js';
 

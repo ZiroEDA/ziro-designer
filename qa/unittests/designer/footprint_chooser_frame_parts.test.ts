@@ -22,7 +22,7 @@ import {
   footprintLibraryDescription,
   symbolLibraryDescription,
 } from '@ziroeda/designer/src/widgets/lib_table_descriptions.js';
-import { LibTreeModelAdapter } from '@ziroeda/designer/src/widgets/lib_tree_model_adapter.js';
+import { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
 import type { FootprintIndexLibrary } from '@ziroeda/pcbnew/footprint_info_impl.js';
 
 const INDEX: FootprintIndexLibrary[] = [

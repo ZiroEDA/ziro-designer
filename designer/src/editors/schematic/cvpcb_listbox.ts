@@ -18,7 +18,7 @@
  * class of thing that silently drifts.
  */
 
-import { PINNING_SYMBOL } from '../../widgets/lib_tree_model_adapter.js';
+import { PINNING_SYMBOL } from '@ziroeda/common/lib_tree_model_adapter.js';
 import { strNumCmp } from '@ziroeda/common/string_utils.js';
 
 /**

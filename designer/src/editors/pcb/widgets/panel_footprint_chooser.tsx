@@ -34,8 +34,8 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { JSX } from 'react';
 import { LibTree } from '../../../widgets/lib_tree.js';
-import { LibTreeModelAdapter } from '../../../widgets/lib_tree_model_adapter.js';
-import { LibTreeNodeType, type LibTreeNode } from '../../../widgets/lib_tree_model.js';
+import { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
+import { LibTreeNodeType, type LibTreeNode } from '@ziroeda/common/lib_tree_model.js';
 import { FootprintPreviewWidget } from '../../../widgets/footprint_preview_widget.js';
 import type { FootprintIndexLibrary } from '@ziroeda/pcbnew/footprint_info_impl.js';
 import {

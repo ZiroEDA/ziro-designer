@@ -17,8 +17,8 @@
  * carries the name, the pad count, the description and the tags per footprint,
  * which is what `FOOTPRINT_INFO` exposes to the tree.
  */
-import { LibTreeNode, LibTreeNodeType } from '../../../widgets/lib_tree_model.js';
-import type { LibTreeModelAdapter } from '../../../widgets/lib_tree_model_adapter.js';
+import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
+import type { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
 import { EDA_PATTERN_MATCH_WILDCARD_ANCHORED } from '@ziroeda/common/eda_pattern_match.js';
 import {
   FOOTPRINT_INFO_IMPL,

@@ -60,7 +60,7 @@ import { FP_FRAME_NAME, fpFrameTitle } from './frame_title.js';
 import { useUnsavedGuard } from '@ziroeda/common/use_unsaved_guard.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { LibTree } from '../../widgets/lib_tree.js';
-import { LibTreeNode, LibTreeNodeType } from '../../widgets/lib_tree_model.js';
+import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
 import { FpTreeSynchronizingAdapter } from './fp_tree_synchronizing_adapter.js';
 import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
 import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/widgets/msgpanel_ui.js';
