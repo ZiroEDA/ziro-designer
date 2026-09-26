@@ -28,21 +28,12 @@ import {
   moveBoardItems,
   rotateBoardItemsBy,
 } from './edit-board.js';
-import {
-  circularArraySize,
-  circularTransform,
-  gridArraySize,
-  gridTransform,
-  type ArrayCircularOptions,
-  type ArrayGridOptions,
-  type ArrayTransform,
-} from '@ziroeda/common/array_options.js';
+import type { ARRAY_OPTIONS } from '@ziroeda/common/array_options.js';
 import type { Board } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
-export type ArraySpec =
-  | { kind: 'grid'; options: ArrayGridOptions }
-  | { kind: 'circular'; options: ArrayCircularOptions };
+/** `const ARRAY_OPTIONS&`: a grid or a circular array. */
+export type ArraySpec = ARRAY_OPTIONS;
 
 export interface CreateArrayResult {
   board: Board;
@@ -52,14 +43,12 @@ export interface CreateArrayResult {
 
 /** How many items the array has in total, the original included. */
 export function arraySize(spec: ArraySpec): number {
-  return spec.kind === 'grid' ? gridArraySize(spec.options) : circularArraySize(spec.options);
+  return spec.GetArraySize();
 }
 
 /** The transform for copy `n`, given where the selection currently sits. */
-export function arrayTransform(spec: ArraySpec, n: number, pos: Vec2): ArrayTransform {
-  return spec.kind === 'grid'
-    ? gridTransform(spec.options, n)
-    : circularTransform(spec.options, n, pos);
+export function arrayTransform(spec: ArraySpec, n: number, pos: Vec2): ARRAY_OPTIONS.TRANSFORM {
+  return spec.GetTransform(n, pos);
 }
 
 /**
@@ -115,20 +104,20 @@ export function createArray(
 
     // Duplicate takes the offset directly, so the copy lands in place rather
     // than being made at the original's position and moved afterwards.
-    const dup = duplicateBoardItems(next, new Set(ids), t.offset);
+    const dup = duplicateBoardItems(next, new Set(ids), t.m_offset);
     if (dup.ids.length === 0) continue;
 
-    next = spin(dup.board, new Set(dup.ids), t.rotation);
+    next = spin(dup.board, new Set(dup.ids), t.m_rotation.AsDegrees());
     added++;
   }
 
   const first = arrayTransform(spec, 0, pos);
   const originals = new Set(ids);
 
-  if (first.offset.x !== 0 || first.offset.y !== 0) {
-    next = moveBoardItems(next, originals, first.offset);
+  if (first.m_offset.x !== 0 || first.m_offset.y !== 0) {
+    next = moveBoardItems(next, originals, first.m_offset);
   }
-  next = spin(next, originals, first.rotation);
+  next = spin(next, originals, first.m_rotation.AsDegrees());
 
   return { board: next, added };
 }

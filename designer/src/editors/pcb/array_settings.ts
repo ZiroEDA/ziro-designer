@@ -15,7 +15,9 @@
  * nothing would be worse than its absence.
  */
 import type { ArraySpec } from '@ziroeda/pcbnew';
+import { ARRAY_CIRCULAR_OPTIONS, ARRAY_GRID_OPTIONS } from '@ziroeda/common/array_options.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
+import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 
 export type ArrayMode = 'grid' | 'circular';
 
@@ -85,29 +87,23 @@ export function arraySettingsValid(s: ArraySettings): boolean {
 /** `TransferDataFromWindow`: the settings as the engine wants them. */
 export function arraySpecFrom(s: ArraySettings): ArraySpec {
   if (s.mode === 'grid') {
-    return {
-      kind: 'grid',
-      options: {
-        nx: s.nx,
-        ny: s.ny,
-        delta: { x: s.dxIU, y: s.dyIU },
-        offset: { x: s.offsetXIU, y: s.offsetYIU },
-        stagger: s.stagger,
-        staggerRows: s.staggerRows,
-        centred: s.centred,
-      },
-    };
+    const grid = new ARRAY_GRID_OPTIONS();
+    grid.m_nx = s.nx;
+    grid.m_ny = s.ny;
+    grid.m_delta = { x: s.dxIU, y: s.dyIU };
+    grid.m_offset = { x: s.offsetXIU, y: s.offsetYIU };
+    grid.m_stagger = s.stagger;
+    grid.m_stagger_rows = s.staggerRows;
+    grid.m_centred = s.centred;
+    return grid;
   }
 
-  return {
-    kind: 'circular',
-    options: {
-      nPts: s.count,
-      centre: { x: s.centreXIU, y: s.centreYIU },
-      angle: s.angle,
-      angleOffset: s.angleOffset,
-      clockwise: s.clockwise,
-      rotateItems: s.rotateItems,
-    },
-  };
+  const circ = new ARRAY_CIRCULAR_OPTIONS();
+  circ.m_nPts = s.count;
+  circ.m_centre = { x: s.centreXIU, y: s.centreYIU };
+  circ.m_angle = new EDA_ANGLE(s.angle);
+  circ.m_angleOffset = new EDA_ANGLE(s.angleOffset);
+  circ.m_clockwise = s.clockwise;
+  circ.m_rotateItems = s.rotateItems;
+  return circ;
 }

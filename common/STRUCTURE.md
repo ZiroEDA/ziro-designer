@@ -151,7 +151,7 @@ wildcards_and_files_ext.
 | `dialog_shim` | done 09-26: `dialog_shim.tsx` (was `dialog_shim_buttons` + three in `dialogs/`) |
 | `origin_viewitem` | done 09-26 (was `preview_items/origin_viewitem.ts`) |
 | `newstroke_font` | done 09-26 (was `font/newstroke_glyphs.ts`). **Latin only** (U+0020..U+00FF): the CJK and other ranges are not ported, so such text draws no glyphs |
-| `array_axis` | the `ArrayAxis` half of `array_options.ts` (a record, not the class) |
+| `array_axis` | done 09-26: `ARRAY_AXIS`, the class; `array_options` became `ARRAY_OPTIONS` / `ARRAY_GRID_OPTIONS` / `ARRAY_CIRCULAR_OPTIONS` in the same stage (they were records and free functions) |
 | `dpi_scaling`, `dpi_scaling_common`, `gal_display_options_common` | `DPI_SCALING_GetDefaultScaleFactor` in `gal/gal_display_options.ts` |
 | `env_vars` | done 09-26: the whole `ENV_VAR` namespace (was three functions in `common.ts`); `wxGetEnv` is `wx/utils.ts` |
 | `increment` | done 09-26: `IncrementString`, `STRING_INCREMENTER`, `IndexFromAlphabetic`, `AlphabeticFromIndex` (were in `repeat_item.ts` and `array_options.ts`; the drawing sheet stepped only its last character) |

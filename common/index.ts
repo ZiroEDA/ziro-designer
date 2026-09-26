@@ -109,6 +109,7 @@ export * from './color4d.js';
 export * from './settings/builtin_color_themes.js';
 export * from './settings/color_theme_file.js';
 
+export * from './array_axis.js';
 export * from './array_options.js';
 export * from './table.js';
 export * from './reference_image.js';

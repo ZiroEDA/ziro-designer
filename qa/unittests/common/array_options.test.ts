@@ -14,24 +14,106 @@
  */
 import { describe, expect, it } from 'vitest';
 import { AlphabeticFromIndex } from '@ziroeda/common/increment.js';
-import {
-  axisItemNumber,
-  axisNumberingOffset,
-  circularItemNumber,
-  circularTransform,
-  gridArraySize,
-  gridCoords,
-  gridItemNumber,
-  gridTransform,
-  type ArrayGridOptions,
-} from '@ziroeda/common/array_options.js';
+import { ARRAY_AXIS } from '@ziroeda/common/array_axis.js';
+import { ARRAY_CIRCULAR_OPTIONS, ARRAY_GRID_OPTIONS } from '@ziroeda/common/array_options.js';
+import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 
-const grid = (over: Partial<ArrayGridOptions> = {}): ArrayGridOptions => ({
-  nx: 3,
-  ny: 2,
-  delta: { x: 100, y: 50 },
-  ...over,
-});
+const T = ARRAY_AXIS.NUMBERING_TYPE;
+type NumberingName = 'numeric' | 'hex' | 'alphaFull' | 'alphaNoIOSQXZ';
+const TYPES = {
+  numeric: T.NUMBERING_NUMERIC,
+  hex: T.NUMBERING_HEX,
+  alphaFull: T.NUMBERING_ALPHA_FULL,
+  alphaNoIOSQXZ: T.NUMBERING_ALPHA_NO_IOSQXZ,
+};
+
+interface AxisSpec {
+  type?: NumberingName;
+  offset?: number;
+  step?: number;
+}
+
+/** An ARRAY_AXIS set up the way the dialog's TransferDataFromWindow does. */
+const makeAxis = (a: AxisSpec = {}): ARRAY_AXIS => {
+  const axis = new ARRAY_AXIS();
+  axis.SetAxisType(TYPES[a.type ?? 'numeric']);
+  if (a.offset !== undefined) axis.SetOffset(a.offset);
+  if (a.step !== undefined) axis.SetStep(a.step);
+  return axis;
+};
+const axisItemNumber = (a: AxisSpec, n: number): string => makeAxis(a).GetItemNumber(n);
+/** `getNumberingOffset` is private in the C++ too; read it the way SetOffset does. */
+const axisNumberingOffset = (a: AxisSpec, str: string): number | undefined =>
+  makeAxis(a)['getNumberingOffset'](str);
+
+interface GridSpec {
+  nx?: number;
+  ny?: number;
+  delta?: VECTOR2I;
+  offset?: VECTOR2I;
+  horizontalThenVertical?: boolean;
+  reverseNumberingAlternate?: boolean;
+  centred?: boolean;
+  stagger?: number;
+  staggerRows?: boolean;
+  twoDArrayNumbering?: boolean;
+  priAxis?: AxisSpec;
+  secAxis?: AxisSpec;
+}
+
+const grid = (over: GridSpec = {}): ARRAY_GRID_OPTIONS => {
+  const o = new ARRAY_GRID_OPTIONS();
+  o.m_nx = over.nx ?? 3;
+  o.m_ny = over.ny ?? 2;
+  o.m_delta = over.delta ?? { x: 100, y: 50 };
+  if (over.offset) o.m_offset = over.offset;
+  if (over.horizontalThenVertical !== undefined)
+    o.m_horizontalThenVertical = over.horizontalThenVertical;
+  if (over.reverseNumberingAlternate !== undefined)
+    o.m_reverseNumberingAlternate = over.reverseNumberingAlternate;
+  if (over.centred !== undefined) o.m_centred = over.centred;
+  if (over.stagger !== undefined) o.m_stagger = over.stagger;
+  if (over.staggerRows !== undefined) o.m_stagger_rows = over.staggerRows;
+  if (over.twoDArrayNumbering !== undefined) o.m_2dArrayNumbering = over.twoDArrayNumbering;
+  if (over.priAxis) o.m_pri_axis = makeAxis(over.priAxis);
+  if (over.secAxis) o.m_sec_axis = makeAxis(over.secAxis);
+  return o;
+};
+const gridArraySize = (o: ARRAY_GRID_OPTIONS): number => o.GetArraySize();
+const gridCoords = (o: ARRAY_GRID_OPTIONS, n: number): VECTOR2I => o['getGridCoords'](n);
+const gridItemNumber = (o: ARRAY_GRID_OPTIONS, n: number): string => o.GetItemNumber(n);
+/** The transform with its rotation in degrees, as the expectations were written. */
+const gridTransform = (o: ARRAY_GRID_OPTIONS, n: number) => {
+  const t = o.GetTransform(n, { x: 0, y: 0 });
+  return { offset: t.m_offset, rotation: t.m_rotation.AsDegrees() };
+};
+
+interface CircSpec {
+  nPts: number;
+  angle?: number;
+  angleOffset?: number;
+  clockwise?: boolean;
+  centre: VECTOR2I;
+  rotateItems?: boolean;
+  axis?: AxisSpec;
+}
+const circular = (c: CircSpec): ARRAY_CIRCULAR_OPTIONS => {
+  const o = new ARRAY_CIRCULAR_OPTIONS();
+  o.m_nPts = c.nPts;
+  o.m_centre = c.centre;
+  if (c.angle !== undefined) o.m_angle = new EDA_ANGLE(c.angle);
+  if (c.angleOffset !== undefined) o.m_angleOffset = new EDA_ANGLE(c.angleOffset);
+  if (c.clockwise !== undefined) o.m_clockwise = c.clockwise;
+  if (c.rotateItems !== undefined) o.m_rotateItems = c.rotateItems;
+  if (c.axis) o.m_axis = makeAxis(c.axis);
+  return o;
+};
+const circularTransform = (c: CircSpec, n: number, pos: VECTOR2I) => {
+  const t = circular(c).GetTransform(n, pos);
+  return { offset: t.m_offset, rotation: t.m_rotation.AsDegrees() };
+};
+const circularItemNumber = (c: CircSpec, n: number): string => circular(c).GetItemNumber(n);
 
 describe('numbering an axis', () => {
   it('counts numerically by default', () => {
@@ -87,7 +169,10 @@ describe('numbering an axis', () => {
   });
 
   it('lowercases when asked', () => {
-    expect(axisItemNumber({ type: 'alphaFull', useLowercase: true }, 26)).toBe('aa');
+    // m_useLowercase has no setter: it is what SetOffset( "a" ) infers.
+    const a = makeAxis({ type: 'alphaFull' });
+    expect(a.SetOffset('a')).toBe(true);
+    expect(a.GetItemNumber(26)).toBe('aa');
   });
 
   it('reads a starting designator back to an index', () => {
@@ -113,9 +198,9 @@ describe('numbering an axis', () => {
 
   it('refuses a designator the alphabet does not hold', () => {
     // How the dialog tells a typo from a valid start.
-    expect(axisNumberingOffset({ type: 'alphaNoIOSQXZ' }, 'I')).toBeNull();
-    expect(axisNumberingOffset({}, 'abc')).toBeNull();
-    expect(axisNumberingOffset({}, '')).toBeNull();
+    expect(axisNumberingOffset({ type: 'alphaNoIOSQXZ' }, 'I')).toBeUndefined();
+    expect(axisNumberingOffset({}, 'abc')).toBeUndefined();
+    expect(axisNumberingOffset({}, '')).toBeUndefined();
   });
 
   it('builds from an explicit alphabet too', () => {
@@ -185,6 +270,18 @@ describe('a grid array', () => {
 
     expect(gridTransform(o, 0).offset).toEqual({ x: -100, y: -25 });
     expect(gridTransform(o, 5).offset).toEqual({ x: 100, y: 25 });
+  });
+
+  it('centres an odd extent by KiROUND, not truncation', () => {
+    // VECTOR2I( extent ) / 2 is KiROUND( x / 2.0 ) for an integral vector
+    // (vector2d.h:539): an extent of 5 shifts back by 3 (2.5 rounds away from
+    // zero), and -5 by -3. Truncation gives 2 and -2.
+    expect(
+      gridTransform(grid({ nx: 2, ny: 1, delta: { x: 5, y: 0 }, centred: true }), 0).offset.x,
+    ).toBe(-3);
+    expect(
+      gridTransform(grid({ nx: 2, ny: 1, delta: { x: -5, y: 0 }, centred: true }), 0).offset.x,
+    ).toBe(3);
   });
 
   it('staggers every other row by half the pitch', () => {

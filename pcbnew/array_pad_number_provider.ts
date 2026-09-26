@@ -15,32 +15,14 @@
  * user asked for that. Only when the start is left open does the provider step
  * over what is already there.
  */
-import {
-  type ArrayCircularOptions,
-  type ArrayGridOptions,
-  circularItemNumber,
-  gridItemNumber,
-  numberingStartIsSpecified,
-} from '@ziroeda/common/array_options.js';
-
-/** `const ARRAY_OPTIONS&`: the two kinds, tagged as `create_array.ts` tags them. */
-export type ArrayNumberingSpec =
-  | { kind: 'grid'; options: ArrayGridOptions }
-  | { kind: 'circular'; options: ArrayCircularOptions };
-
-/** `ARRAY_OPTIONS::GetItemNumber( n )`, dispatched on the array kind. */
-function itemNumber(aSpec: ArrayNumberingSpec, n: number): string {
-  return aSpec.kind === 'grid'
-    ? gridItemNumber(aSpec.options, n)
-    : circularItemNumber(aSpec.options, n);
-}
+import type { ARRAY_OPTIONS } from '@ziroeda/common/array_options.js';
 
 /**
  * Sequentially provides numbers from an array options object, making sure that
  * they do not conflict with numbers already existing in a footprint.
  */
 export class ARRAY_PAD_NUMBER_PROVIDER {
-  private readonly m_arrayOpts: ArrayNumberingSpec;
+  private readonly m_arrayOpts: ARRAY_OPTIONS;
   private m_existing_pad_numbers: ReadonlySet<string>;
   /** Start by numbering the first new item. */
   private m_current_pad_index = 0;
@@ -49,11 +31,11 @@ export class ARRAY_PAD_NUMBER_PROVIDER {
    * @param aExistingPadNumbers the numbers to gather from the footprint (empty for no footprint)
    * @param aArrayOpts the array options that provide the candidate numbers
    */
-  constructor(aExistingPadNumbers: ReadonlySet<string>, aArrayOpts: ArrayNumberingSpec) {
+  constructor(aExistingPadNumbers: ReadonlySet<string>, aArrayOpts: ARRAY_OPTIONS) {
     this.m_arrayOpts = aArrayOpts;
 
     // construct the set of existing pad numbers
-    if (numberingStartIsSpecified(aArrayOpts.options)) {
+    if (aArrayOpts.GetNumberingStartIsSpecified()) {
       // if we start from a specified point, we don't look at existing
       // names, so it's just an empty "reserved" set
       this.m_existing_pad_numbers = new Set<string>();
@@ -77,7 +59,7 @@ export class ARRAY_PAD_NUMBER_PROVIDER {
     let next_number: string;
 
     do {
-      next_number = itemNumber(this.m_arrayOpts, this.m_current_pad_index);
+      next_number = this.m_arrayOpts.GetItemNumber(this.m_current_pad_index);
       this.m_current_pad_index++;
     } while (aExisting.has(next_number));
 

@@ -9,6 +9,7 @@
  * is that the *unused* half never leaks: a circular array must not carry grid
  * spacing, and a grid must not carry a rotation.
  */
+import { ARRAY_CIRCULAR_OPTIONS, ARRAY_GRID_OPTIONS } from '@ziroeda/common/array_options.js';
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import {
@@ -74,13 +75,12 @@ describe('turning the settings into a spec', () => {
       settings({ nx: 3, ny: 2, dxIU: MM(5), dyIU: MM(4), offsetXIU: MM(1), centred: true }),
     );
 
-    expect(spec.kind).toBe('grid');
-    if (spec.kind !== 'grid') throw new Error('expected a grid');
-    expect(spec.options.nx).toBe(3);
-    expect(spec.options.ny).toBe(2);
-    expect(spec.options.delta).toEqual({ x: MM(5), y: MM(4) });
-    expect(spec.options.offset).toEqual({ x: MM(1), y: 0 });
-    expect(spec.options.centred).toBe(true);
+    if (!(spec instanceof ARRAY_GRID_OPTIONS)) throw new Error('expected a grid');
+    expect(spec.m_nx).toBe(3);
+    expect(spec.m_ny).toBe(2);
+    expect(spec.m_delta).toEqual({ x: MM(5), y: MM(4) });
+    expect(spec.m_offset).toEqual({ x: MM(1), y: 0 });
+    expect(spec.m_centred).toBe(true);
   });
 
   it('builds a circular spec from the circular fields', () => {
@@ -97,14 +97,13 @@ describe('turning the settings into a spec', () => {
       }),
     );
 
-    expect(spec.kind).toBe('circular');
-    if (spec.kind !== 'circular') throw new Error('expected a circle');
-    expect(spec.options.nPts).toBe(6);
-    expect(spec.options.centre).toEqual({ x: MM(10), y: MM(20) });
-    expect(spec.options.angle).toBe(30);
-    expect(spec.options.angleOffset).toBe(15);
-    expect(spec.options.clockwise).toBe(true);
-    expect(spec.options.rotateItems).toBe(true);
+    if (!(spec instanceof ARRAY_CIRCULAR_OPTIONS)) throw new Error('expected a circle');
+    expect(spec.m_nPts).toBe(6);
+    expect(spec.m_centre).toEqual({ x: MM(10), y: MM(20) });
+    expect(spec.m_angle.AsDegrees()).toBe(30);
+    expect(spec.m_angleOffset.AsDegrees()).toBe(15);
+    expect(spec.m_clockwise).toBe(true);
+    expect(spec.m_rotateItems).toBe(true);
   });
 
   it('does not leak circular settings into a grid', () => {
@@ -112,7 +111,7 @@ describe('turning the settings into a spec', () => {
     // circular page must not reach a grid spec — grids never rotate.
     const spec = arraySpecFrom(settings({ mode: 'grid', rotateItems: true, angle: 90 }));
 
-    expect(spec.kind).toBe('grid');
+    expect(spec).toBeInstanceOf(ARRAY_GRID_OPTIONS);
     expect(JSON.stringify(spec)).not.toContain('rotateItems');
     expect(JSON.stringify(spec)).not.toContain('angle');
   });
@@ -120,7 +119,7 @@ describe('turning the settings into a spec', () => {
   it('does not leak grid settings into a circle', () => {
     const spec = arraySpecFrom(settings({ mode: 'circular', stagger: 3, centred: true }));
 
-    expect(spec.kind).toBe('circular');
+    expect(spec).toBeInstanceOf(ARRAY_CIRCULAR_OPTIONS);
     expect(JSON.stringify(spec)).not.toContain('stagger');
     expect(JSON.stringify(spec)).not.toContain('centred');
   });

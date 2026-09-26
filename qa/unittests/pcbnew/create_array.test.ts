@@ -13,6 +13,10 @@
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { arraySize, createArray } from '@ziroeda/pcbnew/create_array.js';
+import { ARRAY_CIRCULAR_OPTIONS, ARRAY_GRID_OPTIONS } from '@ziroeda/common/array_options.js';
+import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+
 import type { Board, PcbVia } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
@@ -52,21 +56,56 @@ const positions = (b: Board): string[] =>
     .map((v) => `${Math.round(v.at.x / 1000)},${Math.round(v.at.y / 1000)}`)
     .sort((a, z) => a.localeCompare(z));
 
+/** The dialog's fields onto ARRAY_GRID_OPTIONS, as TransferDataFromWindow sets them. */
+const gridOpts = (o: {
+  nx: number;
+  ny: number;
+  delta: VECTOR2I;
+  offset?: VECTOR2I;
+  stagger?: number;
+  centred?: boolean;
+}): ARRAY_GRID_OPTIONS => {
+  const g = new ARRAY_GRID_OPTIONS();
+  g.m_nx = o.nx;
+  g.m_ny = o.ny;
+  g.m_delta = o.delta;
+  if (o.offset) g.m_offset = o.offset;
+  if (o.stagger !== undefined) g.m_stagger = o.stagger;
+  if (o.centred !== undefined) g.m_centred = o.centred;
+  return g;
+};
+
+/** The same for ARRAY_CIRCULAR_OPTIONS; angles in degrees. */
+const circOpts = (o: {
+  nPts: number;
+  centre: VECTOR2I;
+  angle?: number;
+  angleOffset?: number;
+  clockwise?: boolean;
+  rotateItems?: boolean;
+}): ARRAY_CIRCULAR_OPTIONS => {
+  const c = new ARRAY_CIRCULAR_OPTIONS();
+  c.m_nPts = o.nPts;
+  c.m_centre = o.centre;
+  if (o.angle !== undefined) c.m_angle = new EDA_ANGLE(o.angle);
+  if (o.angleOffset !== undefined) c.m_angleOffset = new EDA_ANGLE(o.angleOffset);
+  if (o.clockwise !== undefined) c.m_clockwise = o.clockwise;
+  if (o.rotateItems !== undefined) c.m_rotateItems = o.rotateItems;
+  return c;
+};
+
 describe('array size', () => {
   it('is nx times ny for a grid', () => {
-    expect(arraySize({ kind: 'grid', options: { nx: 3, ny: 4, delta: { x: 1, y: 1 } } })).toBe(12);
+    expect(arraySize(gridOpts({ nx: 3, ny: 4, delta: { x: 1, y: 1 } }))).toBe(12);
   });
 
   it('is the point count for a circle', () => {
-    expect(arraySize({ kind: 'circular', options: { nPts: 6, centre: { x: 0, y: 0 } } })).toBe(6);
+    expect(arraySize(circOpts({ nPts: 6, centre: { x: 0, y: 0 } }))).toBe(6);
   });
 });
 
 describe('a grid array on the board', () => {
-  const spec = (over = {}) => ({
-    kind: 'grid' as const,
-    options: { nx: 3, ny: 2, delta: { x: MM(10), y: MM(5) }, ...over },
-  });
+  const spec = (over = {}) => gridOpts({ nx: 3, ny: 2, delta: { x: MM(10), y: MM(5) }, ...over });
 
   it('leaves nx*ny items in total', () => {
     const out = createArray(board([via(0, 0)]), ['via:0'], spec());
@@ -136,10 +175,11 @@ describe('a grid array on the board', () => {
 describe('a circular array on the board', () => {
   it('spaces the points evenly round the centre', () => {
     // Four vias at 10 mm radius, a quarter turn apart.
-    const out = createArray(board([via(10, 0)]), ['via:0'], {
-      kind: 'circular',
-      options: { nPts: 4, centre: { x: 0, y: 0 } },
-    });
+    const out = createArray(
+      board([via(10, 0)]),
+      ['via:0'],
+      circOpts({ nPts: 4, centre: { x: 0, y: 0 } }),
+    );
 
     expect(out.board.vias).toHaveLength(4);
     for (const v of out.board.vias) {
@@ -148,10 +188,11 @@ describe('a circular array on the board', () => {
   });
 
   it('puts them at the expected quarter-turn positions', () => {
-    const out = createArray(board([via(10, 0)]), ['via:0'], {
-      kind: 'circular',
-      options: { nPts: 4, centre: { x: 0, y: 0 } },
-    });
+    const out = createArray(
+      board([via(10, 0)]),
+      ['via:0'],
+      circOpts({ nPts: 4, centre: { x: 0, y: 0 } }),
+    );
 
     expect(positions(out.board)).toEqual(
       ['10000,0', '0,-10000', '-10000,0', '0,10000'].sort((a, z) => a.localeCompare(z)),
@@ -162,10 +203,11 @@ describe('a circular array on the board', () => {
     // Position 0 is no longer the identity, so nothing stays where it started.
     // The offset is 45°, not 90°: a square turned by a quarter is the same four
     // points, so a right angle here would prove nothing.
-    const out = createArray(board([via(10, 0)]), ['via:0'], {
-      kind: 'circular',
-      options: { nPts: 4, centre: { x: 0, y: 0 }, angleOffset: 45 },
-    });
+    const out = createArray(
+      board([via(10, 0)]),
+      ['via:0'],
+      circOpts({ nPts: 4, centre: { x: 0, y: 0 }, angleOffset: 45 }),
+    );
 
     expect(positions(out.board)).not.toContain('10000,0');
     for (const v of out.board.vias) {
@@ -177,14 +219,16 @@ describe('a circular array on the board', () => {
     // A fan, not a full ring: three points evenly round a circle land on the
     // same set whichever way they are walked, so only an incomplete sweep can
     // tell the two directions apart.
-    const ccw = createArray(board([via(10, 0)]), ['via:0'], {
-      kind: 'circular',
-      options: { nPts: 3, angle: 30, centre: { x: 0, y: 0 } },
-    });
-    const cw = createArray(board([via(10, 0)]), ['via:0'], {
-      kind: 'circular',
-      options: { nPts: 3, angle: 30, centre: { x: 0, y: 0 }, clockwise: true },
-    });
+    const ccw = createArray(
+      board([via(10, 0)]),
+      ['via:0'],
+      circOpts({ nPts: 3, angle: 30, centre: { x: 0, y: 0 } }),
+    );
+    const cw = createArray(
+      board([via(10, 0)]),
+      ['via:0'],
+      circOpts({ nPts: 3, angle: 30, centre: { x: 0, y: 0 }, clockwise: true }),
+    );
 
     expect(positions(ccw.board)).not.toEqual(positions(cw.board));
   });
@@ -192,10 +236,11 @@ describe('a circular array on the board', () => {
   it('still moves a single-point array that has an angle offset', () => {
     // An array of one is not a no-op: upstream applies position 0's transform
     // whatever the size, so the lone item swings round the centre.
-    const out = createArray(board([via(10, 0)]), ['via:0'], {
-      kind: 'circular',
-      options: { nPts: 1, centre: { x: 0, y: 0 }, angleOffset: 90 },
-    });
+    const out = createArray(
+      board([via(10, 0)]),
+      ['via:0'],
+      circOpts({ nPts: 1, centre: { x: 0, y: 0 }, angleOffset: 90 }),
+    );
 
     expect(out.added).toBe(0);
     expect(out.board.vias[0]!.at).toEqual({ x: 0, y: MM(-10) });
@@ -204,10 +249,7 @@ describe('a circular array on the board', () => {
   it('refuses a zero-point array rather than dividing by zero', () => {
     const b = board([via(10, 0)]);
 
-    expect(
-      createArray(b, ['via:0'], { kind: 'circular', options: { nPts: 0, centre: { x: 0, y: 0 } } })
-        .board,
-    ).toBe(b);
+    expect(createArray(b, ['via:0'], circOpts({ nPts: 0, centre: { x: 0, y: 0 } })).board).toBe(b);
   });
 
   it('turns each copy about its own place, not about the array centre', () => {
@@ -215,10 +257,11 @@ describe('a circular array on the board', () => {
     // turned, so it cannot tell the two rotation centres apart. Two vias 2 mm
     // apart, arrayed round a circle of radius 20 with each copy turned to
     // follow the sweep.
-    const out = createArray(board([via(20, -1), via(20, 1)]), ['via:0', 'via:1'], {
-      kind: 'circular',
-      options: { nPts: 4, centre: { x: 0, y: 0 }, rotateItems: true },
-    });
+    const out = createArray(
+      board([via(20, -1), via(20, 1)]),
+      ['via:0', 'via:1'],
+      circOpts({ nPts: 4, centre: { x: 0, y: 0 }, rotateItems: true }),
+    );
 
     expect(out.board.vias).toHaveLength(8);
 
@@ -256,10 +299,11 @@ describe('a circular array on the board', () => {
 
   it('steps by a given angle rather than dividing a full turn', () => {
     // Three points 30° apart is a fan, not a triangle: they do not close.
-    const out = createArray(board([via(10, 0)]), ['via:0'], {
-      kind: 'circular',
-      options: { nPts: 3, angle: 30, centre: { x: 0, y: 0 } },
-    });
+    const out = createArray(
+      board([via(10, 0)]),
+      ['via:0'],
+      circOpts({ nPts: 3, angle: 30, centre: { x: 0, y: 0 } }),
+    );
     const xs = out.board.vias.map((v) => v.at.x);
 
     // All three still on the same side, which an evenly-divided turn would not be.
