@@ -13,10 +13,20 @@
  * and `footprint_chooser_frame.cpp:225` all do
  * `m_toolManager->RegisterTool( new ZOOM_TOOL )` and get exactly this.
  *
- * Only the geometry lives here. Arming the tool, drawing the rubber band and
- * capturing the pointer are per-canvas, because each of ours owns its own
- * transform; the arithmetic below is the part that must not be re-derived.
+ * The class runs on the tool framework. The geometry functions above it are
+ * the same arithmetic for the canvases that still own their own transform.
  */
+import type { COROUTINE_BODY } from './coroutine.js';
+import type { EDA_DRAW_FRAME } from '../eda_draw_frame.js';
+import { KICURSOR } from '../gal/cursors.js';
+import { SELECTION_AREA } from '../preview_items/selection_area.js';
+import type { VIEW_CONTROLS } from '../view/view_controls.js';
+import { VIEW_UPDATE_FLAGS } from '../view/view_item.js';
+import type { Vec2 as VECTOR2D } from '@ziroeda/kimath/src/math/vector2.js';
+import { ACTIONS } from './actions.js';
+import { RESET_REASON } from './tool_base.js';
+import { BUT_LEFT, BUT_RIGHT, type TOOL_EVENT } from './tool_event.js';
+import { TOOL_INTERACTIVE } from './tool_interactive.js';
 
 /** A world-space point, matching the canvases' own `Vec2`. */
 export interface ZoomAreaPoint {
@@ -118,3 +128,121 @@ export function zoomAreaTarget(area: ZoomArea, view: ZoomViewport): ZoomAreaResu
 export const SELECTION_AREA_FILL = 'rgb(77 77 179 / 30%)';
 // [data] COLOR4D( 1.0, 1.0, 0.4, 1.0 ), selection_area.cpp:51.
 export const SELECTION_AREA_STROKE = 'rgb(255 255 102)';
+
+// ---- the tool --------------------------------------------------------------
+
+export class ZOOM_TOOL extends TOOL_INTERACTIVE {
+  ///< Pointer to the currently used edit frame.
+  private m_frame: EDA_DRAW_FRAME | null;
+
+  constructor() {
+    super('common.Control.zoomTool');
+    this.m_frame = null;
+  }
+
+  /// @copydoc TOOL_INTERACTIVE::Init
+  override Init(): boolean {
+    // The context menu - cancelInteractive, a separator, then
+    // AddStandardSubMenus - is a TOOL_MENU, which is not ported yet
+    // (tool_interactive.ts); a right click passes through below.
+    return true;
+  }
+
+  /// @copydoc TOOL_BASE::Reset
+  override Reset(_aReason: RESET_REASON): void {
+    this.m_frame = this.getEditFrame<EDA_DRAW_FRAME>();
+  }
+
+  /// Main loop
+  *Main(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    const frame = this.m_frame!;
+
+    frame.PushTool(aEvent);
+
+    const setCursor = (): void => {
+      frame.GetCanvas()!.SetCurrentCursor(KICURSOR.ZOOM_IN);
+    };
+
+    // Set initial cursor
+    setCursor();
+
+    for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
+      setCursor();
+
+      if (evt.IsCancelInteractive() || evt.IsActivate()) {
+        break;
+      } else if (evt.IsDrag(BUT_LEFT) || evt.IsDrag(BUT_RIGHT)) {
+        if (yield* this.selectRegion()) break;
+      } else if (evt.IsClick(BUT_RIGHT)) {
+        // m_menu->ShowContextMenu( dummy ): TOOL_MENU is not ported yet.
+      } else {
+        evt.SetPassEvent();
+      }
+    }
+
+    // Exit zoom tool
+    frame.GetCanvas()!.SetCurrentCursor(KICURSOR.ARROW);
+    frame.PopTool(aEvent);
+    return 0;
+  }
+
+  /// Sets up handlers for various events.
+  protected setTransitions(): void {
+    this.Go(this.Main, ACTIONS.zoomTool.MakeEvent());
+  }
+
+  private *selectRegion(): COROUTINE_BODY<boolean> {
+    let cancelled = false;
+    const view = this.getView()!;
+    const canvas = this.m_frame!.GetCanvas()!;
+    const controls = this.getViewControls() as unknown as VIEW_CONTROLS;
+
+    controls.SetAutoPan(true);
+
+    const area = new SELECTION_AREA();
+    view.Add(area);
+
+    for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
+      if (evt.IsCancelInteractive() || evt.IsActivate()) {
+        cancelled = true;
+        break;
+      }
+
+      if (evt.IsDrag(BUT_LEFT) || evt.IsDrag(BUT_RIGHT)) {
+        area.SetOrigin(evt.DragOrigin());
+        area.SetEnd(evt.Position());
+        view.SetVisible(area, true);
+        view.Update(area, VIEW_UPDATE_FLAGS.GEOMETRY);
+      }
+
+      if (evt.IsMouseUp(BUT_LEFT) || evt.IsMouseUp(BUT_RIGHT)) {
+        view.SetVisible(area, false);
+        const selectionBox = area.ViewBBox();
+
+        if (selectionBox.GetWidth() === 0 || selectionBox.GetHeight() === 0) {
+          break;
+        } else {
+          const client = canvas.GetClientSize();
+          const sSize = view.ToWorld({ x: client.x, y: client.y }, false) as VECTOR2D;
+          const vSize = selectionBox.GetSize();
+          let scale: number;
+          const ratio = Math.max(Math.abs(vSize.x / sSize.x), Math.abs(vSize.y / sSize.y));
+
+          if (evt.IsMouseUp(BUT_LEFT)) scale = view.GetScale() / ratio;
+          else scale = view.GetScale() * ratio;
+
+          view.SetScale(scale);
+          view.SetCenter(selectionBox.Centre());
+
+          break;
+        }
+      }
+    }
+
+    view.SetVisible(area, false);
+    view.Remove(area);
+    controls.SetAutoPan(false);
+
+    return cancelled;
+  }
+}

@@ -32,6 +32,16 @@ import type { ORIGIN_TRANSFORMS } from '@ziroeda/common/origin_transforms.js';
 import { GRID } from '@ziroeda/common/settings/grid_settings.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { COMMON_TOOLS } from '@ziroeda/common/tool/common_tools.js';
+import { ZOOM_TOOL } from '@ziroeda/common/tool/zoom_tool.js';
+import {
+  AS_GLOBAL,
+  BUT_LEFT,
+  BUT_RIGHT,
+  TA_MOUSE_DRAG,
+  TA_MOUSE_UP,
+  TC_MOUSE,
+  TOOL_EVENT,
+} from '@ziroeda/common/tool/tool_event.js';
 import {
   TOOL_MANAGER,
   type TOOL_MANAGER_VIEW_CONTROLS,
@@ -95,6 +105,7 @@ function setup(): { frame: TEST_FRAME; gal: STUB_GAL; mgr: TOOL_MANAGER; tools: 
     SetFocus: () => {},
     GetClientSize: () => ({ x: 1000, y: 800 }),
     GetDefaultViewBBox: () => new BOX2I(),
+    SetCurrentCursor: () => {},
   };
   frame.SetCanvas(canvas as unknown as EDA_DRAW_PANEL_GAL);
 
@@ -109,6 +120,7 @@ function setup(): { frame: TEST_FRAME; gal: STUB_GAL; mgr: TOOL_MANAGER; tools: 
     SetCrossHairCursorPosition: () => {},
     IsCursorWarpingEnabled: () => false,
     CenterOnCursor: () => {},
+    SetAutoPan: () => {},
   };
 
   const mgr = new TOOL_MANAGER();
@@ -117,6 +129,7 @@ function setup(): { frame: TEST_FRAME; gal: STUB_GAL; mgr: TOOL_MANAGER; tools: 
 
   const tools = new COMMON_TOOLS();
   mgr.RegisterTool(tools);
+  mgr.RegisterTool(new ZOOM_TOOL());
   mgr.InitTools();
 
   return { frame, gal, mgr, tools };
@@ -293,5 +306,48 @@ describe('GRID::MessageText', () => {
     expect(rect).toBe(
       `${half} x ${new GRID('', '1 mm', '1 mm').MessageText(gerbIUScale, 'mm', true)}`,
     );
+  });
+});
+
+/** A drag of `aButton` from `aFrom` to `aTo`, then its release, as TOOL_DISPATCHER issues them. */
+function drag(aMgr: TOOL_MANAGER, aButton: number, aFrom: VECTOR2I, aTo: VECTOR2I): void {
+  // The first drag only starts selectRegion (Main's IsDrag branch); the band
+  // is set by the drags that follow it (:118-124).
+  for (const p of [aFrom, aTo]) {
+    const d = new TOOL_EVENT(TC_MOUSE, TA_MOUSE_DRAG, aButton, AS_GLOBAL);
+    d.setMouseDragOrigin(aFrom);
+    d.SetMousePosition(p);
+    aMgr.ProcessEvent(d);
+  }
+
+  const up = new TOOL_EVENT(TC_MOUSE, TA_MOUSE_UP, aButton, AS_GLOBAL);
+  up.SetMousePosition(aTo);
+  aMgr.ProcessEvent(up);
+}
+
+describe('ZOOM_TOOL (zoom_tool.cpp:102-165)', () => {
+  it('a left drag zooms IN so the band fills the view, centred on it', () => {
+    const view = env.frame.GetCanvas()!.GetView();
+    view.SetScale(1.0);
+    const screen = view.ToWorld({ x: 1000, y: 800 }, false) as { x: number; y: number };
+
+    env.mgr.RunAction(ACTIONS.zoomTool);
+    // A band a quarter of the screen wide: ratio 0.25, scale 1 / 0.25.
+    drag(env.mgr, BUT_LEFT, { x: 0, y: 0 }, { x: screen.x / 4, y: screen.y / 8 });
+
+    expect(view.GetScale()).toBeCloseTo(4.0, 9);
+    // BOX2I is integer, so Centre() is to the unit.
+    expect(Math.abs(view.GetCenter().x - screen.x / 8)).toBeLessThanOrEqual(1);
+  });
+
+  it('a right drag zooms OUT by the same ratio', () => {
+    const view = env.frame.GetCanvas()!.GetView();
+    view.SetScale(1.0);
+    const screen = view.ToWorld({ x: 1000, y: 800 }, false) as { x: number; y: number };
+
+    env.mgr.RunAction(ACTIONS.zoomTool);
+    drag(env.mgr, BUT_RIGHT, { x: 0, y: 0 }, { x: screen.x / 4, y: screen.y / 8 });
+
+    expect(view.GetScale()).toBeCloseTo(0.25, 9);
   });
 });

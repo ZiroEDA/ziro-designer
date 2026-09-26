@@ -29,6 +29,13 @@
  */
 import type { Color4d } from '../color4d.js';
 import { brightness, parseColor4d, toCss } from '../color4d.js';
+import { GAL_LAYER_ID } from '../layer_id.js';
+import { SELECTION_MODE } from '../tool/selection_tool.js';
+import type { VIEW } from '../view/view.js';
+import { SIMPLE_OVERLAY_ITEM } from './simple_overlay_item.js';
+import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** `struct SELECTION_COLORS` (`selection_area.cpp:34-42`). */
 export interface SelectionColors {
@@ -40,32 +47,61 @@ export interface SelectionColors {
   outlineR2L: string;
 }
 
-const c = (r: number, g: number, b: number, a: number): string => toCss({ r, g, b, a } as Color4d);
+/** `struct SELECTION_COLORS`, as the COLOR4Ds `ViewDraw` hands the GAL. */
+interface SELECTION_COLORS {
+  normal: Color4d;
+  additive: Color4d;
+  subtract: Color4d;
+  exclusiveOr: Color4d;
+  outline_l2r: Color4d;
+  outline_r2l: Color4d;
+}
+
+const C = (r: number, g: number, b: number, a: number): Color4d => ({ r, g, b, a });
 
 /**
  * [data] `selectionColorScheme[2]` (`selection_area.cpp:44-62`), verbatim.
- * COLOR4D channels are 0..1 floats; `toCss` rounds each to 0..255 the one way
- * the rest of the codebase does, so no rounded literal is written here twice.
  */
-export const SELECTION_COLOR_SCHEME: readonly [SelectionColors, SelectionColors] = [
+const selectionColorScheme: readonly [SELECTION_COLORS, SELECTION_COLORS] = [
   {
     // dark background
-    normal: c(0.3, 0.3, 0.7, 0.3), // Slight blue
-    additive: c(0.3, 0.7, 0.3, 0.3), // Slight green
-    subtract: c(0.7, 0.3, 0.3, 0.3), // Slight red
-    exclusiveOr: c(0.7, 0.3, 0.3, 0.3), // Slight red
-    outlineL2R: c(1.0, 1.0, 0.4, 1.0), // yellow
-    outlineR2L: c(0.4, 0.4, 1.0, 1.0), // blue
+    normal: C(0.3, 0.3, 0.7, 0.3), // Slight blue
+    additive: C(0.3, 0.7, 0.3, 0.3), // Slight green
+    subtract: C(0.7, 0.3, 0.3, 0.3), // Slight red
+    exclusiveOr: C(0.7, 0.3, 0.3, 0.3), // Slight red
+
+    outline_l2r: C(1.0, 1.0, 0.4, 1.0), // yellow
+    outline_r2l: C(0.4, 0.4, 1.0, 1.0), // blue
   },
   {
     // bright background
-    normal: c(0.5, 0.3, 1.0, 0.5), // Slight blue
-    additive: c(0.5, 1.0, 0.5, 0.5), // Slight green
-    subtract: c(1.0, 0.5, 0.5, 0.5), // Slight red
-    exclusiveOr: c(1.0, 0.5, 0.5, 0.5), // Slight red
-    outlineL2R: c(0.7, 0.7, 0.0, 1.0), // yellow
-    outlineR2L: c(0.1, 0.1, 1.0, 1.0), // blue
+    normal: C(0.5, 0.3, 1.0, 0.5), // Slight blue
+    additive: C(0.5, 1.0, 0.5, 0.5), // Slight green
+    subtract: C(1.0, 0.5, 0.5, 0.5), // Slight red
+    exclusiveOr: C(1.0, 0.5, 0.5, 0.5), // Slight red
+
+    outline_l2r: C(0.7, 0.7, 0.0, 1.0), // yellow
+    outline_r2l: C(0.1, 0.1, 1.0, 1.0), // blue
   },
+];
+
+const cssScheme = (s: SELECTION_COLORS): SelectionColors => ({
+  normal: toCss(s.normal),
+  additive: toCss(s.additive),
+  subtract: toCss(s.subtract),
+  exclusiveOr: toCss(s.exclusiveOr),
+  outlineL2R: toCss(s.outline_l2r),
+  outlineR2L: toCss(s.outline_r2l),
+});
+
+/**
+ * The same table as CSS, for the canvases that still draw the band in
+ * Canvas 2D. `toCss` rounds each 0..1 channel to 0..255 the one way the rest
+ * of the codebase does.
+ */
+export const SELECTION_COLOR_SCHEME: readonly [SelectionColors, SelectionColors] = [
+  cssScheme(selectionColorScheme[0]),
+  cssScheme(selectionColorScheme[1]),
 ];
 
 /** `SELECTION_MODE` — only the INSIDE/TOUCHING distinction reaches the colour. */
@@ -267,4 +303,142 @@ export function lassoIsInside(
   }
   const clockwise = twiceArea > 0;
   return mirroredX && twiceArea !== 0 ? !clockwise : clockwise;
+}
+
+/**
+ * `KIGFX::PREVIEW::SELECTION_AREA` (`selection_area.cpp:64-151`): the
+ * selection rectangle or lasso, drawn on the GP overlay through the GAL.
+ */
+export class SELECTION_AREA extends SIMPLE_OVERLAY_ITEM {
+  static readonly SelectionLayer = GAL_LAYER_ID.LAYER_GP_OVERLAY;
+
+  private m_additive = false;
+  private m_subtractive = false;
+  private m_exclusiveOr = false;
+  private m_mode = SELECTION_MODE.INSIDE_RECTANGLE;
+  private m_origin: VECTOR2I = { x: 0, y: 0 }; // Used for box selection
+  private m_end: VECTOR2I = { x: 0, y: 0 };
+  private m_shape_poly = new SHAPE_LINE_CHAIN(); // Used for lasso selection
+
+  override ViewBBox(): BOX2I {
+    const tmp = new BOX2I();
+
+    switch (this.m_mode) {
+      default:
+      case SELECTION_MODE.INSIDE_RECTANGLE:
+      case SELECTION_MODE.TOUCHING_RECTANGLE:
+        tmp.SetOrigin(this.m_origin);
+        tmp.SetEnd(this.m_end);
+        break;
+      case SELECTION_MODE.INSIDE_LASSO:
+      case SELECTION_MODE.TOUCHING_LASSO: {
+        const b = this.m_shape_poly.BBox();
+        tmp.SetOrigin(b.GetOrigin());
+        tmp.SetSize(b.GetSize());
+        break;
+      }
+    }
+
+    tmp.Normalize();
+
+    return tmp;
+  }
+
+  ///< Set the origin of the rectangle (the fixed corner)
+  SetOrigin(aOrigin: VECTOR2I): void {
+    this.m_origin = { ...aOrigin };
+  }
+
+  /**
+   * Set the current end of the rectangle (the corner that moves with the
+   * cursor.
+   */
+  SetEnd(aEnd: VECTOR2I): void {
+    this.m_end = { ...aEnd };
+  }
+
+  override GetClass(): string {
+    return 'SELECTION_AREA';
+  }
+
+  GetOrigin(): VECTOR2I {
+    return this.m_origin;
+  }
+
+  GetEnd(): VECTOR2I {
+    return this.m_end;
+  }
+
+  SetAdditive(aAdditive: boolean): void {
+    this.m_additive = aAdditive;
+  }
+
+  SetSubtractive(aSubtractive: boolean): void {
+    this.m_subtractive = aSubtractive;
+  }
+
+  SetExclusiveOr(aExclusiveOr: boolean): void {
+    this.m_exclusiveOr = aExclusiveOr;
+  }
+
+  SetMode(aMode: SELECTION_MODE): void {
+    this.m_mode = aMode;
+  }
+
+  GetMode(): SELECTION_MODE {
+    return this.m_mode;
+  }
+
+  SetPoly(aPoly: SHAPE_LINE_CHAIN): void {
+    this.m_shape_poly = aPoly;
+  }
+
+  GetPoly(): SHAPE_LINE_CHAIN {
+    return this.m_shape_poly;
+  }
+
+  override ViewDraw(_aLayer: number, aView: VIEW): void {
+    const gal = aView.GetGAL()!;
+    const settings = aView.GetPainter().GetSettings();
+
+    const scheme = settings.IsBackgroundDark() ? selectionColorScheme[0] : selectionColorScheme[1];
+
+    // Set the colors of the selection shape based on the selection mode
+    if (this.m_additive) gal.SetFillColor(scheme.additive);
+    else if (this.m_subtractive) gal.SetFillColor(scheme.subtract);
+    else if (this.m_exclusiveOr) gal.SetFillColor(scheme.exclusiveOr);
+    else gal.SetFillColor(scheme.normal);
+
+    if (
+      this.m_mode === SELECTION_MODE.INSIDE_RECTANGLE ||
+      this.m_mode === SELECTION_MODE.INSIDE_LASSO
+    )
+      gal.SetStrokeColor(scheme.outline_l2r);
+    else gal.SetStrokeColor(scheme.outline_r2l);
+
+    const drawSelectionShape = (): void => {
+      switch (this.m_mode) {
+        default:
+        case SELECTION_MODE.INSIDE_RECTANGLE:
+        case SELECTION_MODE.TOUCHING_RECTANGLE:
+          gal.DrawRectangle(this.m_origin, this.m_end);
+          break;
+        case SELECTION_MODE.INSIDE_LASSO:
+        case SELECTION_MODE.TOUCHING_LASSO:
+          if (this.m_shape_poly.PointCount() > 1) gal.DrawPolygon(this.m_shape_poly);
+          break;
+      }
+    };
+
+    gal.SetIsStroke(true);
+    gal.SetIsFill(false);
+    // force 1-pixel-wide line
+    gal.SetLineWidth(0.0);
+    drawSelectionShape();
+
+    // draw the fill as the second object so that Z test will not clamp
+    // the single-pixel-wide rectangle sides
+    gal.SetIsFill(true);
+    drawSelectionShape();
+  }
 }
