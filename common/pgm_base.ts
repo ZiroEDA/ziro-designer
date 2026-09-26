@@ -257,8 +257,7 @@ export class SETTINGS_MANAGER {
       return false;
     }
 
-    file.LoadFromJson(aProJson);
-    return true;
+    return file.LoadFromFile(aProJson);
   }
 
   private unloadProjectFile(aProject: PROJECT | null): boolean {

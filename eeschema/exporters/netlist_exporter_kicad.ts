@@ -86,6 +86,13 @@ export interface KicadNetlistInput {
   date?: string;
   /** `(design (tool …))`. */
   tool?: string;
+  /**
+   * The top-level sheet's name, which its `Sheetname` property carries: the
+   * project's `schematic.top_level_sheets` entry for the root file, else
+   * `_( "Root" )` - the name KiCad gives a root sheet with none
+   * (eeschema_helpers.cpp:131, files-io.cpp:359). Defaults to "Root".
+   */
+  rootSheetName?: string;
 }
 
 // ----- small helpers ----------------------------------------------------------
@@ -396,10 +403,11 @@ function parentSheetFields(
   sheet: NetlistSheet,
 ): { key: string; value: string }[] {
   // The root has no parent sheet symbol, but `sheet.Last()` is still a SCH_SHEET with
-  // the two mandatory fields: an empty name, and the root schematic's own file.
+  // the two mandatory fields: its name (see rootSheetName), and the root schematic's
+  // own file.
   if (sheet.path === '/') {
     return [
-      { key: 'Sheetname', value: '' },
+      { key: 'Sheetname', value: input.rootSheetName ?? 'Root' },
       { key: 'Sheetfile', value: sheet.file },
     ];
   }

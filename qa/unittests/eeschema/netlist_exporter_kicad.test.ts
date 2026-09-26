@@ -109,6 +109,14 @@ describe('netlistKicad', () => {
     expect(netlistText.startsWith('(export\n\t(version "E")\n\t(design\n')).toBe(true);
   });
 
+  it('names the root sheet "Root" when no project names it', () => {
+    // kicad-cli on this schematic (no .kicad_pro beside it, 09-26):
+    //   (property (name "Sheetname") (value "Root"))
+    expect(netlistText).toContain(
+      '\t\t\t(property\n\t\t\t\t(name "Sheetname")\n\t\t\t\t(value "Root")\n\t\t\t)',
+    );
+  });
+
   it("emits every section pcbnew's parser looks for, in order", () => {
     const order = ['(design', '(components', '(groups', '(libparts', '(libraries', '(nets'].map(
       (section) => netlistText.indexOf(section),

@@ -6,6 +6,7 @@
  * three custom params of board_project_settings_params.
  */
 import { readFileSync } from 'node:fs';
+import { MEMORY_FILESYSTEM, wxMountFileSystem } from '@ziroeda/common/wx/filefn.js';
 import { describe, expect, it } from 'vitest';
 import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
@@ -97,7 +98,7 @@ describe('PROJECT_FILE on a KiCad-written project', () => {
 
   it('meta.filename is the owning project name on save', () => {
     const f = new PROJECT_FILE('p');
-    f.SetProject({ GetProjectName: () => 'demo' });
+    f.SetProject({ GetProjectName: () => 'demo', GetProjectPath: () => '' });
     expect((f.SaveToJson().meta as JsonObject).filename).toBe('demo.kicad_pro');
   });
 });
@@ -305,5 +306,67 @@ describe('TUNING_PROFILES as a NESTED_SETTINGS', () => {
       meta: { version: 0 },
       tuning_profiles_impedance_geometric: [entry],
     });
+  });
+});
+
+describe('PROJECT_FILE::LoadFromFile, the top-level-sheet repairs (project_file.cpp:689-752)', () => {
+  const owner = (name: string, path = '') => ({
+    GetProjectName: () => name,
+    GetProjectPath: () => path,
+  });
+
+  it('a project from before top_level_sheets gets one entry named after the project', () => {
+    const f = new PROJECT_FILE('Arduino_Uno');
+    f.SetProject(owner('Arduino_Uno'));
+    f.LoadFromFile({ meta: { version: 1 } });
+    const sheets = f.GetTopLevelSheets();
+    expect(sheets).toHaveLength(1);
+    expect(sheets[0]!.uuid).toBe('00000000-0000-0000-0000-000000000000');
+    expect(sheets[0]!.name).toBe('Arduino_Uno');
+    expect(sheets[0]!.filename).toBe('Arduino_Uno.kicad_sch');
+    // m_wasMigrated: it will be saved in the new format, so it is not auto-saved.
+    expect(f.ShouldAutoSave()).toBe(false);
+  });
+
+  it("repoints an entry whose file is gone at the project's own schematic", () => {
+    const disk = new MEMORY_FILESYSTEM();
+    disk.Write('mine.kicad_sch', new Uint8Array());
+    const unmount = wxMountFileSystem('/work', disk);
+    try {
+      const f = new PROJECT_FILE('mine');
+      f.SetProject(owner('mine', '/work/'));
+      f.LoadFromFile({
+        schematic: {
+          top_level_sheets: [
+            {
+              uuid: '00000000-0000-0000-0000-000000000000',
+              name: 'tmpl',
+              filename: 'template.kicad_sch',
+            },
+          ],
+        },
+      });
+      expect(f.GetTopLevelSheets()[0]!.filename).toBe('mine.kicad_sch');
+      expect(f.GetTopLevelSheets()[0]!.name).toBe('mine');
+
+      // An entry whose file IS there is left alone.
+      disk.Write('template.kicad_sch', new Uint8Array());
+      const g = new PROJECT_FILE('mine');
+      g.SetProject(owner('mine', '/work/'));
+      g.LoadFromFile({
+        schematic: {
+          top_level_sheets: [
+            {
+              uuid: '00000000-0000-0000-0000-000000000000',
+              name: 'tmpl',
+              filename: 'template.kicad_sch',
+            },
+          ],
+        },
+      });
+      expect(g.GetTopLevelSheets()[0]!.name).toBe('tmpl');
+    } finally {
+      unmount();
+    }
   });
 });

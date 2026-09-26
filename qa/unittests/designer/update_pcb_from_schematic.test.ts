@@ -104,9 +104,12 @@ describe('fetchNetlistFromSchematic over the Arduino_Uno template', () => {
     if (!fetched.ok) throw new Error(fetched.error);
     const j1 = fetched.netlist.GetComponentByReference('J1')!;
     expect(j1.GetFPID()).toBe('Connector_PinSocket_2.54mm:PinSocket_1x08_P2.54mm_Vertical');
-    // The root sheet's own Sheetname/Sheetfile: an empty name and the root file.
+    // The root sheet's own Sheetname/Sheetfile. The .kicad_pro predates
+    // top_level_sheets, so PROJECT_FILE::LoadFromFile names the root after the
+    // project: `kicad-cli sch export netlist` on this template (09-26) writes
+    // (property (name "Sheetname") (value "Arduino_Uno")) on every component.
     expect(j1.GetProperties().get('Sheetfile')).toBe('Arduino_Uno.kicad_sch');
-    expect(j1.GetProperties().get('Sheetname')).toBe('');
+    expect(j1.GetProperties().get('Sheetname')).toBe('Arduino_Uno');
   });
 
   it('connects the pins the schematic wires together', () => {

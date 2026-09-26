@@ -35,7 +35,9 @@ import {
 import { loadKicadNetlist, type NETLIST } from '@ziroeda/pcbnew';
 import { parse } from '@ziroeda/sexpr';
 import { RPT_SEVERITY_ERROR } from '@ziroeda/common';
-import { readSchematicSetup } from '../schematic/project_settings.js';
+import { SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
+import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
+import { findProjectPro, readSchematicSetup } from '../schematic/project_settings.js';
 
 export interface RawFile {
   name: string;
@@ -70,6 +72,32 @@ function flattenSheets(root: SheetTreeNode, docs: ReadonlyMap<string, Schematic>
  * `annotateMessage` is the message upstream passes for the "requires a fully
  * annotated schematic" case; it prefixes the annotation errors when the check fails.
  */
+/**
+ * The root sheet's name, as a load gives it: the loaded project's
+ * `schematic.top_level_sheets` entry for this file (PROJECT_FILE::LoadFromFile
+ * gives a project that predates the list one entry named after the project),
+ * else `_( "Root" )` (eeschema_helpers.cpp:131-147).
+ */
+function rootSheetNameOf(files: readonly RawFile[], rootFile: string, rootPro?: string): string {
+  const pro = findProjectPro(files, rootPro);
+  if (pro) {
+    let json: JsonValue | null = null;
+    try {
+      json = JSON.parse(pro.text) as JsonValue;
+    } catch {
+      json = null;
+    }
+    const manager = new SETTINGS_MANAGER();
+    manager.LoadProject(pro.name, json, null, false);
+    const base = rootFile.split('/').pop();
+    for (const info of manager.GetProject(pro.name)?.GetProjectFile().GetTopLevelSheets() ?? []) {
+      // candidate.SameAs( schFile ): the entry's file is relative to the project.
+      if (info.filename.split('/').pop() === base && info.name !== '') return info.name;
+    }
+  }
+  return 'Root';
+}
+
 export function fetchNetlistFromSchematic(
   files: readonly RawFile[],
   annotateMessage: string,
@@ -133,6 +161,7 @@ export function fetchNetlistFromSchematic(
     sheets,
     libsFor,
     source: rootFile,
+    rootSheetName: rootSheetNameOf(files, rootFile, rootPro),
     busAliases,
     netClassFor: (netName) => netClassFor(netName, assignments),
   });

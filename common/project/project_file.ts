@@ -5,11 +5,13 @@
  * `include/project/project_file.h` + `common/project/project_file.cpp`: the
  * backing store for a PROJECT, the `.kicad_pro`.
  *
- * `MigrateFromLegacy` (the `.pro` wxConfig import) and `LoadFromFile`'s
- * top-level-sheet repair (which needs the file system) are not here; the file
- * is handed in as parsed JSON and handed back the same way.
+ * `MigrateFromLegacy` (the `.pro` wxConfig import) is not here. The file is
+ * handed in as parsed JSON and handed back the same way; `LoadFromFile` is
+ * that load plus its two top-level-sheet repairs, which ask the file system
+ * through `wxFileExists`.
  */
-import type { KIID } from '../kiid.js';
+import { type KIID, niluuid } from '../kiid.js';
+import { wxFileExists } from '../wx/filefn.js';
 import {
   JSON_SETTINGS,
   type JsonObject,
@@ -409,6 +411,57 @@ export class PROJECT_FILE extends JSON_SETTINGS {
     return super.SaveToJson();
   }
 
+  /**
+   * `LoadFromFile`: the JSON, then - when the project predates
+   * `schematic.top_level_sheets` - one entry named after the project (the old
+   * single root), and any entry naming a file that is not there repointed at
+   * `<project>.kicad_sch` (a project made from a template keeps the
+   * template's names in its `.kicad_pro`).
+   */
+  LoadFromFile(aJson: JsonValue): boolean {
+    this.LoadFromJson(aJson);
+
+    // Migrate from old single-root format to top_level_sheets format
+    if (this.m_topLevelSheets.length === 0 && this.m_project) {
+      // Create a default top-level sheet entry based on the project name
+      const projectName = this.m_project.GetProjectName();
+
+      // Use niluuid for the first/default sheet
+      this.m_topLevelSheets.push(
+        new TOP_LEVEL_SHEET_INFO(niluuid, projectName, `${projectName}.kicad_sch`),
+      );
+
+      // Mark as migrated so it will be saved with the new format
+      this.m_wasMigrated = true;
+    }
+
+    // When a project is created from a template, the top_level_sheets entries may
+    // still reference the template's schematic filenames rather than the new project's.
+    // The template copy renames files on disk but doesn't update the .kicad_pro content.
+    // Detect this and fix the references so the schematic can be found.
+    if (this.m_topLevelSheets.length > 0 && this.m_project) {
+      const projectPath = this.m_project.GetProjectPath();
+      const projectName = this.m_project.GetProjectName();
+      const inProject = (aName: string): string =>
+        projectPath === '' ? aName : `${projectPath.replace(/\/?$/, '/')}${aName}`;
+
+      for (const sheetInfo of this.m_topLevelSheets) {
+        if (wxFileExists(inProject(sheetInfo.filename))) continue;
+
+        // Try the project-name-based filename
+        const expectedFile = `${projectName}.kicad_sch`;
+
+        if (wxFileExists(inProject(expectedFile))) {
+          sheetInfo.filename = expectedFile;
+          sheetInfo.name = projectName;
+          this.m_wasMigrated = true;
+        }
+      }
+    }
+
+    return true;
+  }
+
   SetProject(aProject: PROJECT_OWNER | null): void {
     this.m_project = aProject;
   }
@@ -453,6 +506,8 @@ export class PROJECT_FILE extends JSON_SETTINGS {
 /** The one thing the file asks of its owner: its name, for `meta.filename`. */
 export interface PROJECT_OWNER {
   GetProjectName(): string;
+  /** `GetProjectPath()`: the project's directory, with the separator. */
+  GetProjectPath(): string;
 }
 
 /** One row of `m_TextVars` as PANEL_TEXT_VARIABLES' grid edits it. */
