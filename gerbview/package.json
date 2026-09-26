@@ -13,6 +13,10 @@
     "@ziroeda/common": "workspace:*",
     "@ziroeda/core": "workspace:*",
     "@ziroeda/kimath": "workspace:*",
-    "@ziroeda/pcbnew": "workspace:*"
+    "@ziroeda/pcbnew": "workspace:*",
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18"
   }
 }

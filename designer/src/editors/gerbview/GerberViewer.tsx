@@ -87,7 +87,11 @@ import {
 } from '@ziroeda/common/settings/grid_settings_ui.js';
 import { ZOOM_LIST, zoomChoices } from '@ziroeda/common/settings/zoom_settings.js';
 import { GerberCanvas, type GerberCanvasController } from './GerberCanvas.js';
-import { LayerManager, renderRows, type LayerInfo } from './LayerManager.js';
+import {
+  LayerManager,
+  renderRows,
+  type LayerInfo,
+} from '@ziroeda/gerbview/widgets/layer_widget.js';
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
 import { SingleChoiceDialog } from '@ziroeda/common/dialogs/dialog_single_choice.js';
 import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';

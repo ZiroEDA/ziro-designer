@@ -109,7 +109,7 @@ driver (`common/STRUCTURE.md` has `spacemouse` n/a for the same reason).
 | `dcode_selection_box` | move | `dcodeChoices` / `dcodeUnitLabel` in `gerberAuxControls.ts` |
 | `gbr_layer_box_selector` | move | `layerChoiceLabels` in `gerberAuxControls.ts` |
 | `gerbview_layer_widget` | here | `widgets/gerbview_layer_widget.ts` (the Items rows and the layer context menu) |
-| `layer_widget` | move | `designer/.../LayerManager.tsx` (the notebook, rows, swatches) |
+| `layer_widget` | here | `widgets/layer_widget.tsx` (the notebook, rows, swatches). The package compiles JSX for it (`tsconfig.json` `jsx`, `react` dependency), as `common/` does |
 
 ## Ours with no KiCad unit — each to KiCad's file or stated here
 
