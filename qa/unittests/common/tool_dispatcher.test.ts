@@ -154,6 +154,8 @@ describe('TOOL_DISPATCHER mouse buttons', () => {
     dispatcher.DispatchWxEvent(mouse(wxEVT_MOTION));
 
     expect(events.at(-1)!.Action()).toBe(TA_MOUSE_CLICK);
+    // `isClick ? st->downPosition : m_lastMousePos`: where the press was.
+    expect(events.at(-1)!.Position()).toEqual({ x: 0, y: 0 });
   });
 
   it('plain motion is TA_MOUSE_MOTION with the modifiers, and nothing when nothing moved', () => {
