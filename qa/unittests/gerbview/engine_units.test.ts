@@ -50,6 +50,25 @@ describe('Evaluate, through AM_PARAM', () => {
     expect(evaluate('1+(2+3x4)')).toBe(21);
   });
 
+  it('reduces a - and a / as soon as they outrank the operator before', () => {
+    // 2 x ( 5 - 3 ): the - is priority 4 inside, x is 2: 5 - 3 = 2 when the
+    // 3 arrives, then 2 x 2. Operand order matters: op1 is the older value.
+    expect(evaluate('2x(5-3)')).toBe(4);
+    // 2 + ( 8 / 2 ): / is 5 inside, + is 1: 8 / 2 = 4, then 2 + 4.
+    expect(evaluate('2+(8/2)')).toBe(6);
+  });
+
+  it('subtracts in the final left-to-right pass', () => {
+    expect(evaluate('5-2')).toBe(3);
+  });
+
+  it('drops the 3 again at a closing parenthesis', () => {
+    // 2 x ( 3 ) + 4: after ')' the + is priority 1 again, below x's 2, so
+    // nothing reduces early and the pass is 2 * 3 + 4 = 10. Were the ')' to
+    // leave any lift behind, + would outrank x and give 2 * ( 3 + 4 ) = 14.
+    expect(evaluate('2x(3)+4')).toBe(10);
+  });
+
   it('reads a sign after an operator as part of the number', () => {
     // '-' after an operator is not SUB: "seems the sign of a value".
     expect(evaluate('2x-3')).toBe(-6);
