@@ -36,7 +36,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLLoader } from 'three/addons/loaders/VRMLLoader.js';
 import type { Board } from '@ziroeda/pcbnew';
-import { resolvePath } from './filename_resolver.js';
+import { resolvePath } from '@ziroeda/common/filename_resolver.js';
 import { loadCadModel } from './loadmodel.js';
 import { stepFaceMaterial, type SMaterial, type Vec3 } from './gl_fixed_function.js';
 

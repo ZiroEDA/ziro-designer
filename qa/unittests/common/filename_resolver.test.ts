@@ -7,7 +7,7 @@
  * play the project directory, the hosted library plays ${KICAD*_3DMODEL_DIR}.
  */
 import { describe, it, expect } from 'vitest';
-import { resolvePath } from '@ziroeda/designer/src/editors/pcb/filename_resolver.js';
+import { resolvePath } from '@ziroeda/common/filename_resolver.js';
 
 const LIB = 'https://models.example';
 
