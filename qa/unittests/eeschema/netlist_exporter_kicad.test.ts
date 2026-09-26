@@ -179,8 +179,10 @@ describe('netlistKicad -> loadKicadNetlist', () => {
 
   it('gives an unconnected pin its own auto-named net', () => {
     const r1 = netlist.GetComponentByReference('R1')!;
-    // R1 pin 1 is dangling: the connection graph auto-names it Net-(R1-Pad1).
-    expect(r1.GetNet('1').netName).toBe('Net-(R1-Pad1)');
+    // R1 pin 1 is dangling: its net's one driver is that pin, so the graph names
+    // it unconnected-(R1-Pad1) (connection_graph.cpp:2650) - what kicad-cli wrote
+    // for this very schematic (09-26).
+    expect(r1.GetNet('1').netName).toBe('unconnected-(R1-Pad1)');
   });
 
   it('leaves a symbol excluded from the board out of the netlist', () => {

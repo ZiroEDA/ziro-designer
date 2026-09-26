@@ -104,13 +104,17 @@ describe('SCH_PIN::GetDefaultNetName, the auto name', () => {
       (property "Reference" "${ref}" (at 0 0 0)) (property "Value" "V" (at 0 0 0))
       (uuid "${uuid}"))`;
 
+  // Two copies of a part at one spot join pin to pin, so every net has two
+  // pins and keeps the "Net-(" spelling; a net whose ONLY driver is one pin is
+  // "unconnected-(" (see the last case).
+
   it('uses the pad number when the pin has no name', () => {
-    const d = doc(`${LIB} ${place('T:R', 'R1', 'r1')}`);
+    const d = doc(`${LIB} ${place('T:R', 'R1', 'r1')} ${place('T:R', 'R2', 'r2')}`);
     expect(netNames(d)).toEqual(['Net-(R1-Pad1)', 'Net-(R1-Pad2)']);
   });
 
   it('uses the pin name when it differs from the number', () => {
-    const d = doc(`${LIB} ${place('T:U', 'U1', 'u1')}`);
+    const d = doc(`${LIB} ${place('T:U', 'U1', 'u1')} ${place('T:U', 'U2', 'u2')}`);
     // Pin 1 is named and connected-shaped: no pad suffix. Pin 2 is a no-connect
     // type, so it takes the "unconnected-" prefix and the pad number.
     expect(netNames(d)).toEqual(['Net-(U1-SDA{slash}A4)', 'unconnected-(U1-Pin_2-Pad2)']);
@@ -123,7 +127,15 @@ describe('SCH_PIN::GetDefaultNetName, the auto name', () => {
   });
 
   it('names an unannotated symbol after its UUID', () => {
-    const d = doc(`${LIB} ${place('T:R', 'R?', 'r-uuid-1')}`);
+    const d = doc(`${LIB} ${place('T:R', 'R?', 'r-uuid-1')} ${place('T:R', 'R?', 'r-uuid-2')}`);
     expect(netNames(d)).toEqual(['Net-(r-uuid-1-Pad1)', 'Net-(r-uuid-1-Pad2)']);
+  });
+
+  it('a net driven by one pin alone is "unconnected-(", no flag needed', () => {
+    // connection_graph.cpp:2650: no strong driver and exactly one driver, a pin
+    // -> GetDefaultNetName( sheet, true ). kicad-cli agrees: a lone R1 pin in
+    // `kicad-cli sch export netlist` (09-26) is "unconnected-(R1-Pad1)".
+    const d = doc(`${LIB} ${place('T:R', 'R1', 'r1')}`);
+    expect(netNames(d)).toEqual(['unconnected-(R1-Pad1)', 'unconnected-(R1-Pad2)']);
   });
 });

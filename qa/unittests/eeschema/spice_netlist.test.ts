@@ -137,15 +137,17 @@ describe('generateSpiceNetlist', () => {
       saveAllCurrents: true,
       saveAllDissipations: true,
     });
-    // Dangling pins carry their auto net names (Net-(R1-Pad1)), sanitised.
-    expect(text).toContain('R1 Net-_R1-Pad1_ Net-_R1-Pad2_ 1Meg');
+    // Dangling pins carry their auto net names, sanitised by ConvertToSpiceMarkup.
+    // A net whose only driver is one pin is unconnected-(R1-Pad1)
+    // (connection_graph.cpp:2650), so that is the name the exporter converts.
+    expect(text).toContain('R1 unconnected-_R1-Pad1_ unconnected-_R1-Pad2_ 1Meg');
     expect(text).toContain('.save all');
     expect(text).toContain('.probe alli');
     expect(text).toContain('.probe p(R1)');
     expect(text).toContain('.tran 1u 10m');
     expect(text).not.toContain('just a note');
     // Assembly order: save options and directives precede item lines.
-    expect(text.indexOf('.save all')).toBeLessThan(text.indexOf('R1 Net-'));
+    expect(text.indexOf('.save all')).toBeLessThan(text.indexOf('R1 unconnected-'));
   });
 
   it('reports and skips symbols it cannot infer', () => {

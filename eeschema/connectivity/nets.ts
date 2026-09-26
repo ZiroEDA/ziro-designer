@@ -856,8 +856,14 @@ export function computeNetlist(
       // only picked up once the winner is known.
       if (n.autoName && (!autoPin || compareNames(n.autoName, autoPin.autoName!) < 0)) autoPin = n;
     }
+    // connection_graph.cpp:2650 - "Make sure weakly-driven single-pin nets get
+    // the unconnected_ prefix": no strong driver, and the subgraph's ONE driver
+    // is a pin. Every pin is a driver candidate (m_drivers), so that is a net
+    // with no named driver and exactly one pin.
+    const pinDrivers = group.filter((n) => n.autoName).length;
+    const weakSinglePin = !best && pinDrivers === 1;
     const auto = autoPin
-      ? forceNoConnect
+      ? forceNoConnect || weakSinglePin
         ? autoPin.autoNameNoConnect
         : autoPin.autoName
       : undefined;
