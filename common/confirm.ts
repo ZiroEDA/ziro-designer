@@ -108,3 +108,24 @@ export function SetErrorPresenter(aPresenter: ErrorPresenter): void {
 export function DisplayErrorMessage(aText: string, aExtraInfo = ''): void {
   s_errorPresenter(aText, aExtraInfo);
 }
+
+/** What shows the Yes/No question: installed by the app at startup (`confirm_ui.tsx`). */
+type QuestionPresenter = (aMessage: string) => Promise<boolean>;
+
+// No window (a test, a worker): nothing can answer, and IsOK's default is
+// the destructive-safe one.
+let s_questionPresenter: QuestionPresenter = () => Promise.resolve(false);
+
+/** Install the modal that `IsOK` shows. */
+export function SetQuestionPresenter(aPresenter: QuestionPresenter): void {
+  s_questionPresenter = aPresenter;
+}
+
+/**
+ * `IsOK( aParent, aMessage )` (common/confirm.cpp:278-300): a modal "Confirmation"
+ * question with the question icon and Yes/No buttons - the OK/Cancel dialog
+ * relabelled, so Yes is the default and Esc is No. Resolves true on Yes.
+ */
+export function IsOK(aMessage: string): Promise<boolean> {
+  return s_questionPresenter(aMessage);
+}

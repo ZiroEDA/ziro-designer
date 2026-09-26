@@ -31,13 +31,13 @@ import type { EdaIuScale, EdaUnits } from './eda_units.js';
 import { EDA_BASE_FRAME } from './eda_base_frame.js';
 import type { FRAME_T } from './frame_type.js';
 import type { KIID } from './kiid.js';
-import type { EDA_ITEM } from './eda_item.js';
+import type { EDA_DRAW_FRAME_LIKE, EDA_ITEM } from './eda_item.js';
 import type { ORIGIN_TRANSFORMS } from './origin_transforms.js';
 import type { BASE_SCREEN } from './base_screen.js';
 import { type EDA_DRAW_PANEL_GAL, GAL_TYPE } from './draw_panel_gal.js';
 import { DEFAULT_THEME, GetColorSettings } from './pgm_base.js';
 import type { COLOR_SETTINGS } from './settings/color_settings.js';
-import type { MSG_PANEL_ITEM } from './widgets/msgpanel.js';
+import { MSG_PANEL_ITEM } from './widgets/msgpanel.js';
 import { type APP_SETTINGS_BASE, EdaUnitsFromInt, EdaUnitsToInt } from './settings/app_settings.js';
 import type { SELECTION } from './tool/selection.js';
 import { ACTIONS } from './tool/actions.js';
@@ -289,19 +289,92 @@ export abstract class EDA_DRAW_FRAME extends EDA_BASE_FRAME {
     return null;
   }
 
+  /// The message panel's rows, `EDA_MSG_PANEL::m_Items`.
+  private m_msgPanelItems: MSG_PANEL_ITEM[] = [];
+  private m_msgPanelSink: ((aItems: readonly MSG_PANEL_ITEM[]) => void) | null = null;
+
+  /** The page's message panel: where the rows go whenever they change. */
+  SetMsgPanelSink(aSink: ((aItems: readonly MSG_PANEL_ITEM[]) => void) | null): void {
+    this.m_msgPanelSink = aSink;
+  }
+
+  GetMsgPanelItems(): readonly MSG_PANEL_ITEM[] {
+    return this.m_msgPanelItems;
+  }
+
+  private msgPanelChanged(): void {
+    this.m_msgPanelSink?.(this.m_msgPanelItems);
+  }
+
+  /**
+   * Append a message to the message panel.
+   *
+   * This helper method checks to make sure the message panel exists in the frame and
+   * appends a message to it using the message panel AppendMessage() method.
+   */
+  AppendMsgPanel(aTextUpper: string, aTextLower: string, aPadding = 6): void {
+    if (this.m_isClosing) return;
+
+    this.m_msgPanelItems.push(new MSG_PANEL_ITEM(aTextUpper, aTextLower, aPadding));
+    this.msgPanelChanged();
+  }
+
   /**
    * Clear all messages from the message panel.
    */
-  ClearMsgPanel(): void {}
+  ClearMsgPanel(): void {
+    if (this.m_isClosing) return;
+
+    this.m_msgPanelItems = [];
+    this.msgPanelChanged();
+  }
 
   /**
    * Clear the message panel and populates it with the contents of \a aList.
    *
    * @param aList is the list of #MSG_PANEL_ITEM objects to fill the message panel.
    */
-  SetMsgPanel(_aList: readonly MSG_PANEL_ITEM[]): void;
-  SetMsgPanel(_aItem: EDA_ITEM): void;
-  SetMsgPanel(_a: readonly MSG_PANEL_ITEM[] | EDA_ITEM): void {}
+  SetMsgPanel(aList: readonly MSG_PANEL_ITEM[]): void;
+  SetMsgPanel(aTextUpper: string, aTextLower: string, aPadding?: number): void;
+  SetMsgPanel(aItem: EDA_ITEM): void;
+  SetMsgPanel(a: readonly MSG_PANEL_ITEM[] | EDA_ITEM | string, b = '', c = 6): void {
+    if (typeof a === 'string') {
+      if (this.m_isClosing) return;
+
+      this.m_msgPanelItems = [new MSG_PANEL_ITEM(a, b, c)];
+      this.msgPanelChanged();
+      return;
+    }
+
+    if (Array.isArray(a)) {
+      if (this.m_isClosing) return;
+
+      this.m_msgPanelItems = [...(a as readonly MSG_PANEL_ITEM[])];
+      this.msgPanelChanged();
+      return;
+    }
+
+    const items: MSG_PANEL_ITEM[] = [];
+    (a as EDA_ITEM).GetMsgPanelInfo(this.AsDrawFrameLike(), items);
+    this.SetMsgPanel(items);
+  }
+
+  /**
+   * The frame as an item's GetMsgPanelInfo takes it: the C++ frame IS a
+   * UNITS_PROVIDER, ours holds one, so this is the provider with the frame's
+   * three calls laid over it (units changes show through, as it is the same
+   * object underneath).
+   */
+  AsDrawFrameLike(): EDA_DRAW_FRAME_LIKE {
+    const frameLike = Object.create(this.GetUnitsProvider()) as EDA_DRAW_FRAME_LIKE;
+
+    frameLike.GetName = () => this.GetName();
+    frameLike.GetOriginTransforms = () => this.GetOriginTransforms();
+    frameLike.ResolveItem = (aId, aAllowNullptrReturn) =>
+      this.ResolveItem(aId, aAllowNullptrReturn);
+
+    return frameLike;
+  }
 
   /**
    * Redraw the message panel.

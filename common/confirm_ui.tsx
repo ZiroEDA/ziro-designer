@@ -7,8 +7,8 @@
  * own root - as the wx dialog gets its own top-level window.
  */
 import { createRoot } from 'react-dom/client';
-import { SetErrorPresenter } from './confirm.js';
-import { MessageDialogError } from './dialogs/dialog_message.js';
+import { SetErrorPresenter, SetQuestionPresenter } from './confirm.js';
+import { MessageDialogError, MessageDialogYesNo } from './dialogs/dialog_message.js';
 
 /** Route `DisplayErrorMessage` to the real error box. Called once, at startup. */
 export function InstallErrorPresenter(): void {
@@ -28,4 +28,31 @@ export function InstallErrorPresenter(): void {
       />,
     );
   });
+}
+
+/** Route `IsOK` to the real question box. Called once, at startup. */
+export function InstallQuestionPresenter(): void {
+  SetQuestionPresenter(
+    (aMessage) =>
+      new Promise<boolean>((resolve) => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const root = createRoot(host);
+        root.render(
+          <MessageDialogYesNo
+            caption="Confirmation"
+            message={aMessage}
+            icon="question"
+            // SetOKCancelLabels( _( "&Yes" ), _( "&No" ) ): the labels read Yes
+            // and No, the stock pair's spelling.
+            defaultButton="yes"
+            onResult={(result) => {
+              root.unmount();
+              host.remove();
+              resolve(result === 'yes');
+            }}
+          />,
+        );
+      }),
+  );
 }

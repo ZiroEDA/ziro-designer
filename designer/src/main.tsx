@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
-import { InstallErrorPresenter } from '@ziroeda/common/confirm_ui.js';
+import { InstallErrorPresenter, InstallQuestionPresenter } from '@ziroeda/common/confirm_ui.js';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.js';
@@ -53,6 +53,7 @@ installDialogSizeHints();
 InitPgm();
 // DisplayErrorMessage (common/confirm.cpp): the modal error box common/ code raises.
 InstallErrorPresenter();
+InstallQuestionPresenter();
 // wxFileDialog, for the dialogs in common/ that open one (common/wx/filedlg.tsx).
 // The chooser's `kind` is its own set of shared folders; common passes a string.
 SetFileDialog((p) => (

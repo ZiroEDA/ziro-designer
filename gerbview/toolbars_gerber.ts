@@ -20,6 +20,11 @@
 
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 import type { ToolbarDefaults } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
+import { unescapeString } from '@ziroeda/common/string_utils.js';
+import { D_CODE } from './dcode.js';
+import { SortedKeys } from './gerber_file_image.js';
+import { gerbIUScale } from './gerbview.js';
+import type { GERBVIEW_FRAME } from './gerbview_frame.js';
 
 const sep: ToolEntry = 'sep';
 
@@ -269,3 +274,184 @@ export const GBR_DEFAULT_TOOLBARS: ToolbarDefaults = {
   TOP_MAIN: GBR_TOP_TOOLBAR,
   TOP_AUX: GBR_TOP_AUX_TOOLBAR,
 };
+
+// ---- GERBVIEW_FRAME's select boxes (toolbars_gerber.cpp:320-520) -----------
+
+/// `#define NO_SELECTION_STRING _( "<No selection>" )`
+export const NO_SELECTION_STRING = '<No selection>';
+
+/** `GERBVIEW_FRAME::updateDCodeSelectBox`: the active layer's apertures. */
+export function updateDCodeSelectBox(this: GERBVIEW_FRAME): void {
+  const selector = this.m_DCodeSelector!;
+
+  selector.Clear();
+
+  // Add an empty string to deselect net highlight
+  selector.Append(NO_SELECTION_STRING);
+
+  const layer = this.GetActiveLayer();
+  const gerber = this.GetGbrImage(layer);
+
+  if (!gerber || gerber.GetDcodesCount() === 0) {
+    if (selector.GetSelection() !== 0) selector.SetSelection(0);
+
+    return;
+  }
+
+  // Build the aperture list of the current layer, and add it to the combo box:
+  const dcode_list: string[] = [];
+
+  let scale = 1.0;
+  let units = '';
+
+  switch (this.GetUserUnits()) {
+    case 'mm':
+      scale = gerbIUScale.IU_PER_MM;
+      units = 'mm';
+      break;
+
+    case 'in':
+      scale = gerbIUScale.IU_PER_MILS * 1000;
+      units = 'in';
+      break;
+
+    case 'mils':
+      scale = gerbIUScale.IU_PER_MILS;
+      units = 'mil';
+      break;
+
+    default:
+      console.assert(false, 'Invalid units');
+  }
+
+  // std::map<int, D_CODE*>: walked in key order.
+  for (const [, dcode] of [...gerber.m_ApertureList.entries()].sort((a, b) => a[0] - b[0])) {
+    if (!dcode) continue;
+
+    if (!dcode.m_InUse && !dcode.m_Defined) continue;
+
+    let msg =
+      `tool ${dcode.m_Num_Dcode} [${(dcode.m_Size.x / scale).toFixed(3)}x${(dcode.m_Size.y / scale).toFixed(3)} ${units}] ` +
+      D_CODE.ShowApertureType(dcode.m_ApertType);
+
+    if (dcode.m_AperFunction !== '') msg += `, ${dcode.m_AperFunction}`;
+
+    dcode_list.push(msg);
+  }
+
+  selector.AppendDCodeList(dcode_list);
+}
+
+/** `GERBVIEW_FRAME::updateComponentListSelectBox`: every image's components. */
+export function updateComponentListSelectBox(this: GERBVIEW_FRAME): void {
+  const box = this.m_SelComponentBox!;
+
+  box.Clear();
+
+  // Build the full list of component names from the partial lists stored in each file image
+  const full_list = new Map<string, number>();
+
+  for (let layer = 0; layer < this.GetImagesList().ImagesMaxCount(); ++layer) {
+    const gerber = this.GetImagesList().GetGbrImage(layer);
+
+    if (gerber === null)
+      // Graphic layer not yet used
+      continue;
+
+    for (const [k, v] of gerber.m_ComponentsList) if (!full_list.has(k)) full_list.set(k, v);
+  }
+
+  // Add an empty string to deselect net highlight
+  box.Append(NO_SELECTION_STRING);
+
+  // Now copy the list to the choice box
+  for (const entry of SortedKeys(full_list)) box.Append(entry);
+
+  box.SetSelection(0);
+}
+
+/** `GERBVIEW_FRAME::updateNetnameListSelectBox`: every image's nets, unescaped. */
+export function updateNetnameListSelectBox(this: GERBVIEW_FRAME): void {
+  const box = this.m_SelNetnameBox!;
+
+  box.Clear();
+
+  // Build the full list of netnames from the partial lists stored in each file image
+  const full_list = new Map<string, number>();
+
+  for (let layer = 0; layer < this.GetImagesList().ImagesMaxCount(); ++layer) {
+    const gerber = this.GetImagesList().GetGbrImage(layer);
+
+    if (gerber === null)
+      // Graphic layer not yet used
+      continue;
+
+    for (const [k, v] of gerber.m_NetnamesList) if (!full_list.has(k)) full_list.set(k, v);
+  }
+
+  // Add an empty string to deselect net highlight
+  box.Append(NO_SELECTION_STRING);
+
+  // Now copy the list to the choice box
+  for (const entry of SortedKeys(full_list)) box.Append(unescapeString(entry));
+
+  box.SetSelection(0);
+}
+
+/** `GERBVIEW_FRAME::updateAperAttributesSelectBox`: every used aperture function. */
+export function updateAperAttributesSelectBox(this: GERBVIEW_FRAME): void {
+  const box = this.m_SelAperAttributesBox!;
+
+  box.Clear();
+
+  // Build the full list of netnames from the partial lists stored in each file image
+  const full_list = new Map<string, number>();
+
+  for (let layer = 0; layer < this.GetImagesList().ImagesMaxCount(); ++layer) {
+    const gerber = this.GetImagesList().GetGbrImage(layer);
+
+    if (gerber === null)
+      // Graphic layer not yet used
+      continue;
+
+    if (gerber.GetDcodesCount() === 0) continue;
+
+    for (const aperture of gerber.m_ApertureList.values()) {
+      if (aperture === null) continue;
+
+      if (!aperture.m_InUse && !aperture.m_Defined) continue;
+
+      if (aperture.m_AperFunction !== '' && !full_list.has(aperture.m_AperFunction))
+        full_list.set(aperture.m_AperFunction, 0);
+    }
+  }
+
+  // Add an empty string to deselect net highlight
+  box.Append(NO_SELECTION_STRING);
+
+  // Now copy the list to the choice box
+  for (const entry of SortedKeys(full_list)) box.Append(entry);
+
+  box.SetSelection(0);
+}
+
+/**
+ * `GERBVIEW_FRAME::OnUpdateSelectDCode`: keep the D-code box on the active
+ * image's selected tool. Returns the `aEvent.Enable( gerber != nullptr )`.
+ */
+export function OnUpdateSelectDCode(this: GERBVIEW_FRAME): boolean {
+  if (!this.m_DCodeSelector) return false;
+
+  const layer = this.GetActiveLayer();
+  const gerber = this.GetGbrImage(layer);
+  const selected = gerber ? gerber.m_Selected_Tool : 0;
+
+  if (this.m_DCodeSelector.GetSelectedDCodeId() !== selected) {
+    this.m_DCodeSelector.SetDCodeSelection(selected);
+    // Be sure the selection can be made. If no, set to
+    // a correct value
+    if (gerber) gerber.m_Selected_Tool = this.m_DCodeSelector.GetSelectedDCodeId();
+  }
+
+  return gerber !== null;
+}

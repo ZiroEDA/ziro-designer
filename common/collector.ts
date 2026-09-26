@@ -42,6 +42,15 @@ export class COLLECTOR {
   /**
    * Return the number of objects in the list.
    */
+  /**
+   * `operator[]( int ndx )`: the item at `ndx`, or null when out of range.
+   */
+  At(ndx: number): EDA_ITEM | null {
+    if (ndx >= 0 && ndx < this.m_list.length) return this.m_list[ndx]!;
+
+    return null;
+  }
+
   GetCount(): number {
     return this.m_list.length;
   }
