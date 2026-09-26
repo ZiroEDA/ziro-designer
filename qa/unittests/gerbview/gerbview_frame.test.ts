@@ -315,13 +315,15 @@ describe('GERBVIEW_FRAME toolbar boxes', () => {
 });
 
 describe('GERBVIEW_FRAME::LoadZipArchiveFile', () => {
-  it('skips the job file with a warning and sorts the rest by extension', async () => {
+  it('skips the job file with a warning; X2 files are sorted by their attributes', async () => {
+    // Both .gbr, listed bottom first: an extension sort cannot tell them
+    // apart, so only SortLayersByX2Attributes puts the top copper first.
     const zip = put(
       'board.zip',
       storedZip([
-        ['board-B_Cu.gbl', gerber('Copper,L2,Bot')],
+        ['board-a.gbr', gerber('Copper,L2,Bot')],
         ['board-job.gbrjob', '{}'],
-        ['board-F_Cu.gtl', gerber('Copper,L1,Top')],
+        ['board-b.gbr', gerber('Copper,L1,Top')],
       ]),
     );
 
@@ -329,9 +331,8 @@ describe('GERBVIEW_FRAME::LoadZipArchiveFile', () => {
 
     expect(env.frame.GetImagesList().GetLoadedImageCount()).toBe(2);
     expect(env.boxes.join('\n')).toContain("Skipped file 'board-job.gbrjob' (gerber job file).");
-    // Sorted: foundX2Gerbers, so by X2 attributes - the top copper first.
-    expect(env.frame.GetGbrImage(0)!.m_FileName).toBe('board-F_Cu.gtl');
-    expect(env.frame.GetGbrImage(1)!.m_FileName).toBe('board-B_Cu.gbl');
+    expect(env.frame.GetGbrImage(0)!.m_FileName).toBe('board-b.gbr');
+    expect(env.frame.GetGbrImage(1)!.m_FileName).toBe('board-a.gbr');
   });
 });
 
