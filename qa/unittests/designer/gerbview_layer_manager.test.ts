@@ -14,6 +14,7 @@ import { describe, expect, it } from 'vitest';
 // only, and importing through the component fails `pnpm -r typecheck` with
 // "--jsx is not set" while vitest still runs green.
 import {
+  GERBER_LAYER_WIDGET_ID,
   layerContextMenu,
   renderRows,
   type RenderRow,
@@ -103,17 +104,8 @@ describe('the Items page', () => {
 });
 
 describe('the right-click menu', () => {
-  const noop = (): void => {};
-  const menu = layerContextMenu({
-    showAll: noop,
-    hideAllButActive: noop,
-    hideAll: noop,
-    sortByX2: noop,
-    sortByFileExtension: noop,
-    moveUp: noop,
-    moveDown: noop,
-    clearLayer: noop,
-  });
+  const picked: GERBER_LAYER_WIDGET_ID[] = [];
+  const menu = layerContextMenu((aId) => picked.push(aId));
 
   /**
    * `AddRightClickMenuItems` (`gerbview_layer_widget.cpp:155-197`), in order,
@@ -139,25 +131,32 @@ describe('the right-click menu', () => {
     ]);
   });
 
+  /** Upstream greys NONE of these, and neither do we now that all twelve are built. */
+  it('greys none of them', () => {
+    expect(menu.filter((i) => i.disabled).map((i) => i.label)).toEqual([]);
+  });
+
   /**
-   * Upstream greys NONE of these; ours greys what is not built yet, in its
-   * upstream position rather than dropping it. That leaves two:
-   * "Always Hide All Layers But Active" is a mode we do not hold
-   * (`m_alwaysShowActiveLayer`, `:52`), and "Layers Display Parameters" opens
-   * DIALOG_DRAW_LAYERS_SETTINGS, which we have not built.
-   *
-   * It used to leave four. The two sorts came off this list when the
-   * comparators landed (`gerbview/layer_sort.ts`) — re-derived from what is
-   * built, not read back off the new output: each of the two removed is
-   * separately asserted to run in `gerbview_layer_sort_wiring.test.ts`, and
-   * each of the two that stay is unbuilt for a reason named above.
+   * Every row lands in `GERBER_LAYER_WIDGET::onPopupSelection` with its own id
+   * (`gerbview_layer_widget.h:97-110`), in the menu's order.
    */
-  it('greys exactly the two that are not built', () => {
-    expect(menu.filter((i) => i.disabled).map((i) => i.label)).toEqual([
-      'Always Hide All Layers But Active',
-      'Layers Display Parameters: Offset and Rotation',
+  it('sends each row its own id', () => {
+    picked.length = 0;
+    for (const i of menu) if (!i.sep) i.action?.();
+    expect(picked).toEqual([
+      GERBER_LAYER_WIDGET_ID.ID_SHOW_ALL_LAYERS,
+      GERBER_LAYER_WIDGET_ID.ID_SHOW_NO_LAYERS_BUT_ACTIVE,
+      GERBER_LAYER_WIDGET_ID.ID_ALWAYS_SHOW_NO_LAYERS_BUT_ACTIVE,
+      GERBER_LAYER_WIDGET_ID.ID_SHOW_NO_LAYERS,
+      GERBER_LAYER_WIDGET_ID.ID_SORT_GBR_LAYERS_X2,
+      GERBER_LAYER_WIDGET_ID.ID_SORT_GBR_LAYERS_FILE_EXT,
+      GERBER_LAYER_WIDGET_ID.ID_SET_GBR_LAYERS_DRAW_PRMS,
+      GERBER_LAYER_WIDGET_ID.ID_LAYER_MOVE_UP,
+      GERBER_LAYER_WIDGET_ID.ID_LAYER_MOVE_DOWN,
+      GERBER_LAYER_WIDGET_ID.ID_LAYER_DELETE,
     ]);
   });
+
 
   it('wires the rest', () => {
     for (const label of [

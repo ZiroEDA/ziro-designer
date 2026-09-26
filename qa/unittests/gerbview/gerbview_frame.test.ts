@@ -19,6 +19,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { EDA_DRAW_PANEL_GAL } from '@ziroeda/common/draw_panel_gal.js';
 import { GAL_TYPE } from '@ziroeda/common/draw_panel_gal.js';
+import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { CROSS_HAIR_MODE, GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
 import { KICURSOR } from '@ziroeda/common/gal/cursors.js';
 import { DS_PROXY_VIEW_ITEM } from '@ziroeda/common/drawing_sheet/ds_proxy_view_item.js';
@@ -47,6 +48,8 @@ import { GERBVIEW_FRAME, type GERBVIEW_FRAME_HOST } from '@ziroeda/gerbview/gerb
 import { GERBVIEW_PAINTER } from '@ziroeda/gerbview/gerbview_painter.js';
 import { GERBVIEW_SETTINGS } from '@ziroeda/gerbview/gerbview_settings.js';
 import { GERBVIEW_ACTIONS } from '@ziroeda/gerbview/tools/gerbview_actions.js';
+import type { DIALOG_DRAW_LAYERS_SETTINGS } from '@ziroeda/gerbview/dialogs/dialog_draw_layers_settings.js';
+import { GERBER_LAYER_WIDGET_ID } from '@ziroeda/gerbview/widgets/gerbview_layer_widget.js';
 import { checkedSet } from '@ziroeda/designer/src/editors/gerbview/gerbview_settings_bridge.js';
 import { DCODE_SELECTION_BOX } from '@ziroeda/gerbview/widgets/dcode_selection_box.js';
 import { GBR_LAYER_BOX_SELECTOR } from '@ziroeda/gerbview/widgets/gbr_layer_box_selector.js';
@@ -169,6 +172,10 @@ interface Env {
   cursors: KICURSOR[];
   /** Every wxSingleChoiceDialog the frame showed. */
   choices: { caption: string; choices: string[] }[];
+  /** Every DIALOG_DRAW_LAYERS_SETTINGS shown, as it was when shown. */
+  drawLayers: DIALOG_DRAW_LAYERS_SETTINGS[];
+  /** What the user does in the next ones before OK; Cancel once it runs out. */
+  drawLayersEdits: ((aDlg: DIALOG_DRAW_LAYERS_SETTINGS) => void)[];
 }
 
 function setup(): Env {
@@ -223,6 +230,8 @@ function setup(): Env {
   const dialogs: Env['dialogs'] = [];
   const answers: Env['answers'] = [];
   const choices: Env['choices'] = [];
+  const drawLayers: Env['drawLayers'] = [];
+  const drawLayersEdits: Env['drawLayersEdits'] = [];
   const host: GERBVIEW_FRAME_HOST = {
     FileDialog: (aTitle, aFilters, aMultiple) => {
       dialogs.push({ title: aTitle, filters: aFilters, multiple: aMultiple });
@@ -242,6 +251,13 @@ function setup(): Env {
     SaveFileDialog: () => Promise.resolve(null),
     MapGerberLayersToPcb: () => Promise.resolve(null),
     SaveTextFile: () => {},
+    DrawLayersSettingsDialog: (aDlg) => {
+      drawLayers.push(aDlg);
+      const edit = drawLayersEdits.shift();
+      if (!edit) return Promise.resolve(false);
+      edit(aDlg);
+      return Promise.resolve(aDlg.TransferDataFromWindow());
+    },
     SingleChoiceDialog: (aCaption, aChoices) => {
       choices.push({ caption: aCaption, choices: [...aChoices] });
       return Promise.resolve();
@@ -256,7 +272,7 @@ function setup(): Env {
   frame.m_SelAperAttributesBox = new wxChoice();
   frame.AttachCanvas(canvas as unknown as EDA_DRAW_PANEL_GAL as never);
 
-  return { frame, view, boxes, sheets, dialogs, answers, cursors, choices };
+  return { frame, view, boxes, sheets, dialogs, answers, cursors, choices, drawLayers, drawLayersEdits };
 }
 
 let env: Env;
@@ -847,5 +863,164 @@ describe('GERBVIEW_INSPECTION_TOOL::ShowDCodes', () => {
 
     await env.frame.LoadGerberFiles(put('e.gbr', ['%FSLAX36Y36*%', '%MOMM*%', 'M02*'].join('\n')));
     expect(show()).toEqual([]);
+  });
+});
+
+/**
+ * GERBVIEW_FRAME::SetLayerDrawPrms (`gerbview_frame.cpp:586-605`) and
+ * DIALOG_DRAW_LAYERS_SETTINGS (`dialogs/dialog_draw_layers_settings.cpp`).
+ */
+describe('DIALOG_DRAW_LAYERS_SETTINGS', () => {
+  const load3 = async (): Promise<void> => {
+    await env.frame.LoadGerberFiles(put('a.gbr', SAMPLE));
+    await env.frame.LoadGerberFiles(put('b.gbr', SECOND));
+    await env.frame.LoadGerberFiles(put('c.gbr', SECOND));
+    env.frame.SetActiveLayer(1);
+  };
+
+  it('opens on the active layer: its full name, its offset and rotation', async () => {
+    await load3();
+    env.frame.GetGbrImage(1)!.SetDrawOffetAndRotation({ x: 1.5, y: -2 }, new EDA_ANGLE(12.34567, EDA_ANGLE_T.DEGREES_T));
+
+    await env.frame.SetLayerDrawPrms();
+
+    const dlg = env.drawLayers.at(-1)!;
+    expect(dlg.m_stLayerName).toBe('b.gbr');
+    expect([dlg.m_tcOffsetX, dlg.m_tcOffsetY]).toEqual(['1.5', '-2']);
+    // SetPrecision( 3 ) truncates, it does not round (unit_binder.cpp:583-600).
+    expect(dlg.m_tcRotation).toBe('12.345');
+    expect(dlg.m_rbScope).toBe(0);
+  });
+
+  it('shows the offsets in the frame units', async () => {
+    await load3();
+    env.frame.GetGbrImage(1)!.SetDrawOffetAndRotation({ x: 25.4, y: 0 }, new EDA_ANGLE(0, EDA_ANGLE_T.DEGREES_T));
+    env.frame.GetToolManager()!.RunAction(ACTIONS.inchesUnits);
+
+    await env.frame.SetLayerDrawPrms();
+
+    expect(env.drawLayers.at(-1)!.m_tcOffsetX).toBe('1');
+  });
+
+  it('does not open with no image on the active layer (:589-592)', async () => {
+    await env.frame.SetLayerDrawPrms();
+
+    expect(env.drawLayers).toHaveLength(0);
+  });
+
+  const offsetsOf = (): string[] =>
+    [0, 1, 2].map((i) => {
+      const img = env.frame.GetGbrImage(i)!;
+      return `${img.m_DisplayOffset.x / 1e6},${img.m_DisplayOffset.y / 1e6}@${img.m_DisplayRotation.AsDegrees()}`;
+    });
+
+  const apply = (aScope: number) => (aDlg: DIALOG_DRAW_LAYERS_SETTINGS): void => {
+    aDlg.m_tcOffsetX = '1';
+    aDlg.m_tcOffsetY = '2';
+    aDlg.m_tcRotation = '90';
+    aDlg.m_rbScope = aScope;
+  };
+
+  it('Active layer: only the active image moves', async () => {
+    await load3();
+    env.drawLayersEdits.push(apply(0));
+
+    await env.frame.SetLayerDrawPrms();
+
+    expect(offsetsOf()).toEqual(['0,0@0', '1,2@90', '0,0@0']);
+  });
+
+  it('All layers: every image moves', async () => {
+    await load3();
+    env.drawLayersEdits.push(apply(1));
+
+    await env.frame.SetLayerDrawPrms();
+
+    expect(offsetsOf()).toEqual(['1,2@90', '1,2@90', '1,2@90']);
+  });
+
+  it('All visible layers: a hidden image stays put', async () => {
+    await load3();
+    env.frame.m_LayersManager.onPopupSelection(GERBER_LAYER_WIDGET_ID.ID_SHOW_ALL_LAYERS);
+    const v = env.frame.GetVisibleLayers();
+    v.set(2, false);
+    env.frame.SetVisibleLayers(v);
+    env.drawLayersEdits.push(apply(2));
+
+    await env.frame.SetLayerDrawPrms();
+
+    expect(offsetsOf()).toEqual(['1,2@90', '1,2@90', '0,0@0']);
+  });
+
+  it('Cancel changes nothing', async () => {
+    await load3();
+
+    await env.frame.SetLayerDrawPrms();
+
+    expect(offsetsOf()).toEqual(['0,0@0', '0,0@0', '0,0@0']);
+  });
+});
+
+/**
+ * GERBER_LAYER_WIDGET::onPopupSelection / OnLayerSelected
+ * (`gerbview_layer_widget.cpp:212-290`).
+ */
+describe('GERBER_LAYER_WIDGET', () => {
+  const shown = (): boolean[] => [0, 1, 2].map((i) => env.frame.IsLayerVisible(i));
+  const load3 = async (): Promise<void> => {
+    await env.frame.LoadGerberFiles(put('a.gbr', SAMPLE));
+    await env.frame.LoadGerberFiles(put('b.gbr', SECOND));
+    await env.frame.LoadGerberFiles(put('c.gbr', SECOND));
+  };
+
+  it('hides all but the active layer, once', async () => {
+    await load3();
+    env.frame.SetActiveLayer(1);
+
+    env.frame.m_LayersManager.onPopupSelection(GERBER_LAYER_WIDGET_ID.ID_SHOW_NO_LAYERS_BUT_ACTIVE);
+    expect(shown()).toEqual([false, true, false]);
+
+    // Not the "always" mode: selecting another layer does not follow.
+    env.frame.SetActiveLayer(2);
+    expect(shown()).toEqual([false, true, false]);
+  });
+
+  it('in the "always" mode, the newly active layer is the one shown', async () => {
+    await load3();
+    env.frame.SetActiveLayer(1);
+
+    env.frame.m_LayersManager.onPopupSelection(
+      GERBER_LAYER_WIDGET_ID.ID_ALWAYS_SHOW_NO_LAYERS_BUT_ACTIVE,
+    );
+    env.frame.SetActiveLayer(2);
+    expect(shown()).toEqual([false, false, true]);
+
+    // Show All leaves the mode (:229).
+    env.frame.m_LayersManager.onPopupSelection(GERBER_LAYER_WIDGET_ID.ID_SHOW_ALL_LAYERS);
+    expect(shown()).toEqual([true, true, true]);
+    env.frame.SetActiveLayer(0);
+    expect(shown()).toEqual([true, true, true]);
+  });
+
+  it('Hide All hides every row', async () => {
+    await load3();
+
+    env.frame.m_LayersManager.onPopupSelection(GERBER_LAYER_WIDGET_ID.ID_SHOW_NO_LAYERS);
+    expect(shown()).toEqual([false, false, false]);
+  });
+
+  it('Clear Current Layer clears without asking (Erase_Current_DrawLayer( false ))', async () => {
+    await load3();
+    env.frame.SetActiveLayer(1);
+    const asked = env.boxes.length;
+
+    env.frame.m_LayersManager.onPopupSelection(GERBER_LAYER_WIDGET_ID.ID_LAYER_DELETE);
+    await Promise.resolve();
+
+    // RemoveImage erases the slot and the rest move up (`RemapLayers`), so
+    // the third file is the second layer now and the third is empty.
+    const name = (i: number): string | undefined => env.frame.GetGbrImage(i)?.m_FileName.split('/').pop();
+    expect([name(0), name(1), name(2)]).toEqual(['a.gbr', 'c.gbr', undefined]);
+    expect(env.boxes.length).toBe(asked);
   });
 });

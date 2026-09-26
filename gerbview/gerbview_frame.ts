@@ -81,6 +81,7 @@ import {
   GERBER_ORDER_ENUM,
 } from './gerber_file_image_list.js';
 import { wxDirExists, wxFileExists } from '@ziroeda/common/wx/filefn.js';
+import { DIALOG_DRAW_LAYERS_SETTINGS } from './dialogs/dialog_draw_layers_settings.js';
 import { gerbIUScale } from './gerbview.js';
 import type { GERBVIEW_DRAW_PANEL_GAL } from './gerbview_draw_panel_gal.js';
 import type { GERBVIEW_PAINTER } from './gerbview_painter.js';
@@ -97,6 +98,7 @@ import { GERBVIEW_CONTROL } from './tools/gerbview_control.js';
 import { GERBVIEW_INSPECTION_TOOL } from './tools/gerbview_inspection_tool.js';
 import { GERBVIEW_SELECTION_TOOL } from './tools/gerbview_selection_tool.js';
 import { DCODE_SELECTION_BOX } from './widgets/dcode_selection_box.js';
+import { GERBER_LAYER_WIDGET } from './widgets/gerbview_layer_widget.js';
 import { GBR_LAYER_BOX_SELECTOR } from './widgets/gbr_layer_box_selector.js';
 
 export const GERBVIEW_FRAME_NAME = 'GerberFrame';
@@ -141,6 +143,11 @@ export interface GERBVIEW_FRAME_HOST {
   SaveTextFile(aPath: string, aText: string): void;
   /** `wxSingleChoiceDialog( this, message, caption, choices ).ShowModal()`, the result unread. */
   SingleChoiceDialog(aCaption: string, aChoices: readonly string[]): Promise<void>;
+  /**
+   * `DIALOG_DRAW_LAYERS_SETTINGS::ShowModal()`: the dialog, already through
+   * TransferDataToWindow; true for wxID_OK, which runs TransferDataFromWindow.
+   */
+  DrawLayersSettingsDialog(aDlg: DIALOG_DRAW_LAYERS_SETTINGS): Promise<boolean>;
 }
 
 /** No window: nothing chosen, nothing shown. */
@@ -154,6 +161,7 @@ const NO_HOST: GERBVIEW_FRAME_HOST = {
   MapGerberLayersToPcb: () => Promise.resolve(null),
   SaveTextFile: () => {},
   SingleChoiceDialog: () => Promise.resolve(),
+  DrawLayersSettingsDialog: () => Promise.resolve(false),
 };
 
 export class GERBVIEW_FRAME extends EDA_DRAW_FRAME {
@@ -170,6 +178,9 @@ export class GERBVIEW_FRAME extends EDA_DRAW_FRAME {
   m_SelLayerBox: GBR_LAYER_BOX_SELECTOR | null = null;
   /// A list box to select the dcode Id to highlight.
   m_DCodeSelector: DCODE_SELECTION_BOX | null = null;
+  /// The Layers Manager's engine half: its popup menu and the
+  /// "always show the active layer" mode.
+  m_LayersManager: GERBER_LAYER_WIDGET;
 
   /// The last filename chosen to be proposed to the user.
   m_lastFileName = '';
@@ -202,6 +213,7 @@ export class GERBVIEW_FRAME extends EDA_DRAW_FRAME {
     this.m_gerberLayout = null;
     this.m_show_layer_manager_tools = true;
     this.m_showBorderAndTitleBlock = false; // true for reference drawings.
+    this.m_LayersManager = new GERBER_LAYER_WIDGET(this);
 
     // Be sure a page info is set. this default value will be overwritten later.
     this.m_paper = new PAGE_INFO(PAGE_SIZE_TYPE.GERBER);
@@ -633,9 +645,9 @@ export class GERBVIEW_FRAME extends EDA_DRAW_FRAME {
 
     if (this.gvconfig().m_Display.m_XORMode) this.UpdateXORLayers();
 
-    // doLayerWidgetUpdate: m_LayersManager->SelectLayer / OnLayerSelected -
-    // the page's layers pane follows GetActiveLayer.
-    void doLayerWidgetUpdate;
+    // m_LayersManager->SelectLayer is the page's: its rows follow
+    // GetActiveLayer.
+    if (doLayerWidgetUpdate) this.m_LayersManager.OnLayerSelected();
 
     this.UpdateTitleAndInfo();
 
@@ -846,11 +858,19 @@ export class GERBVIEW_FRAME extends EDA_DRAW_FRAME {
   }
 
   /**
-   * Update the draw params of the active layer: offset and rotation,
-   * `DIALOG_DRAW_LAYERS_SETTINGS`. The dialog is the page's, so this is the
-   * after-OK half: the view recached with the new transform.
+   * Adjust draw params: draw offset and draw rotation for a gerber file image,
+   * through `DIALOG_DRAW_LAYERS_SETTINGS`.
    */
-  SetLayerDrawPrms(): void {
+  async SetLayerDrawPrms(): Promise<void> {
+    const gerber = this.GetGbrImage(this.GetActiveLayer());
+
+    if (!gerber) return;
+
+    const dlg = new DIALOG_DRAW_LAYERS_SETTINGS(this);
+    dlg.TransferDataToWindow();
+
+    if (!(await this.Host().DrawLayersSettingsDialog(dlg))) return;
+
     const view = this.view();
 
     view.RecacheAllItems();

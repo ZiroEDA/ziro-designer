@@ -14,17 +14,7 @@
 import { describe, expect, it } from 'vitest';
 import { layerContextMenu } from '@ziroeda/gerbview/widgets/gerbview_layer_widget.js';
 
-const noop = (): void => {};
-const MENU = layerContextMenu({
-  showAll: noop,
-  hideAllButActive: noop,
-  hideAll: noop,
-  sortByX2: noop,
-  sortByFileExtension: noop,
-  moveUp: noop,
-  moveDown: noop,
-  clearLayer: noop,
-});
+const MENU = layerContextMenu(() => {});
 const item = (label: string): { disabled?: boolean; action?: () => void } | undefined =>
   MENU.find((m) => 'label' in m && m.label === label) as
     | { disabled?: boolean; action?: () => void }
@@ -46,8 +36,4 @@ describe('the layers manager right-click menu', () => {
     });
   }
 
-  it('and the one entry that IS greyed still is, so this is not "nothing is disabled"', () => {
-    // ID_ALWAYS_SHOW_NO_LAYERS_BUT_ACTIVE drives a mode we do not hold.
-    expect(item('Always Hide All Layers But Active')?.disabled).toBe(true);
-  });
 });

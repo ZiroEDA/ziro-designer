@@ -13,7 +13,10 @@
  * same class of problem as a test that cannot fail.
  */
 
+import { LSET } from '@ziroeda/common/lset.js';
 import type { MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
+import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
+import { GERBVIEW_ACTIONS } from '../tools/gerbview_actions.js';
 
 export interface LayerInfo {
   index: number;
@@ -109,50 +112,174 @@ export function renderRows(colors: {
 
 /**
  * `GERBER_LAYER_WIDGET::AddRightClickMenuItems`
- * (`gerbview_layer_widget.cpp:155-197`), in order, separators included.
+ * (`gerbview_layer_widget.cpp:155-197`), in order, separators included, each
+ * row carrying its id to {@link GERBER_LAYER_WIDGET.onPopupSelection}, as
+ * every row upstream lands in the one `onPopupSelection` handler.
  * "Remember: menu text is capitalized" is upstream's own comment on it.
  */
-export interface LayerMenuHandlers {
-  showAll: () => void;
-  hideAllButActive: () => void;
-  hideAll: () => void;
-  /** ID_SORT_GBR_LAYERS_X2 — `GERBVIEW_FRAME::SortLayersByX2Attributes`. */
-  sortByX2: () => void;
-  /** ID_SORT_GBR_LAYERS_FILE_EXT — `SortLayersByFileExtension`. */
-  sortByFileExtension: () => void;
-  moveUp: () => void;
-  moveDown: () => void;
-  clearLayer: () => void;
+export function layerContextMenu(aSelect: (aId: GERBER_LAYER_WIDGET_ID) => void): MenuItem[] {
+  const row = (aLabel: string, aId: GERBER_LAYER_WIDGET_ID): MenuItem => ({
+    label: aLabel,
+    action: () => aSelect(aId),
+  });
+
+  return [
+    row('Show All Layers', GERBER_LAYER_WIDGET_ID.ID_SHOW_ALL_LAYERS),
+    row('Hide All Layers But Active', GERBER_LAYER_WIDGET_ID.ID_SHOW_NO_LAYERS_BUT_ACTIVE),
+    row(
+      'Always Hide All Layers But Active',
+      GERBER_LAYER_WIDGET_ID.ID_ALWAYS_SHOW_NO_LAYERS_BUT_ACTIVE,
+    ),
+    row('Hide All Layers', GERBER_LAYER_WIDGET_ID.ID_SHOW_NO_LAYERS),
+    { sep: true },
+    row('Sort Layers if X2 Mode', GERBER_LAYER_WIDGET_ID.ID_SORT_GBR_LAYERS_X2),
+    row('Sort Layers by File Extension', GERBER_LAYER_WIDGET_ID.ID_SORT_GBR_LAYERS_FILE_EXT),
+    { sep: true },
+    row(
+      'Layers Display Parameters: Offset and Rotation',
+      GERBER_LAYER_WIDGET_ID.ID_SET_GBR_LAYERS_DRAW_PRMS,
+    ),
+    { sep: true },
+    row('Move Current Layer Up', GERBER_LAYER_WIDGET_ID.ID_LAYER_MOVE_UP),
+    row('Move Current Layer Down', GERBER_LAYER_WIDGET_ID.ID_LAYER_MOVE_DOWN),
+    row('Clear Current Layer...', GERBER_LAYER_WIDGET_ID.ID_LAYER_DELETE),
+  ];
 }
 
-export function layerContextMenu(h: LayerMenuHandlers): MenuItem[] {
-  return [
-    { label: 'Show All Layers', action: h.showAll },
-    { label: 'Hide All Layers But Active', action: h.hideAllButActive },
-    {
-      // ID_ALWAYS_SHOW_NO_LAYERS_BUT_ACTIVE drives m_alwaysShowActiveLayer,
-      // which GERBER_LAYER_WIDGET keeps as state and re-applies on every layer
-      // change (`gerbview_layer_widget.cpp:52`). We hold no such mode, so it is
-      // greyed in its upstream position rather than left out.
-      label: 'Always Hide All Layers But Active',
-      disabled: true,
-    },
-    { label: 'Hide All Layers', action: h.hideAll },
-    { sep: true },
-    // ID_SORT_GBR_LAYERS_X2 / ID_SORT_GBR_LAYERS_FILE_EXT
-    // (`gerbview_layer_widget.cpp:253-259`). Both reorder the image list and
-    // then renumber the graphic layers to match; the comparators are ported in
-    // `@ziroeda/gerbview`'s layer_sort.ts.
-    { label: 'Sort Layers if X2 Mode', action: h.sortByX2 },
-    { label: 'Sort Layers by File Extension', action: h.sortByFileExtension },
-    { sep: true },
-    // ID_SET_GBR_LAYERS_DRAW_PRMS opens DIALOG_DRAW_LAYERS_SETTINGS
-    // (`gerbview/dialogs/dialog_draw_layers_settings.cpp`), which we have not
-    // built.
-    { label: 'Layers Display Parameters: Offset and Rotation', disabled: true },
-    { sep: true },
-    { label: 'Move Current Layer Up', action: h.moveUp },
-    { label: 'Move Current Layer Down', action: h.moveDown },
-    { label: 'Clear Current Layer...', action: h.clearLayer },
-  ];
+/**
+ * `GERBER_LAYER_WIDGET`'s popup ids (`gerbview_layer_widget.h:97-110`).
+ * Their values are ours; only the identity matters.
+ */
+export enum GERBER_LAYER_WIDGET_ID {
+  ID_SHOW_ALL_LAYERS,
+  ID_SHOW_NO_LAYERS,
+  ID_SHOW_NO_LAYERS_BUT_ACTIVE,
+  ID_ALWAYS_SHOW_NO_LAYERS_BUT_ACTIVE,
+  ID_SORT_GBR_LAYERS_X2,
+  ID_SORT_GBR_LAYERS_FILE_EXT,
+  ID_SET_GBR_LAYERS_DRAW_PRMS,
+  ID_LAYER_MOVE_UP,
+  ID_LAYER_MOVE_DOWN,
+  ID_LAYER_DELETE,
+}
+
+/** What `GERBER_LAYER_WIDGET` asks of `GERBVIEW_FRAME`. */
+export interface GERBER_LAYER_WIDGET_FRAME {
+  GetActiveLayer(): number;
+  GetImagesList(): { ImagesMaxCount(): number; GetGbrImage(aIdx: number): unknown | null };
+  SetVisibleLayers(aLayerMask: LSET): void;
+  GetCanvas(): { Refresh(): void } | null;
+  SortLayersByX2Attributes(): void;
+  SortLayersByFileExtension(): void;
+  SetLayerDrawPrms(): unknown;
+  Erase_Current_DrawLayer(query: boolean): unknown;
+  GetToolManager(): { RunAction(aAction: TOOL_ACTION): unknown } | null;
+}
+
+/**
+ * `GERBER_LAYER_WIDGET` (`gerbview/widgets/gerbview_layer_widget.cpp`), the
+ * engine half: the "always show the active layer" mode and the popup menu's
+ * dispatch. The rows and their drawing are `layer_widget.tsx`'s.
+ */
+export class GERBER_LAYER_WIDGET {
+  private readonly m_frame: GERBER_LAYER_WIDGET_FRAME;
+  /** `m_alwaysShowActiveLayer`: ID_ALWAYS_SHOW_NO_LAYERS_BUT_ACTIVE's mode. */
+  private m_alwaysShowActiveLayer = false;
+
+  constructor(aParent: GERBER_LAYER_WIDGET_FRAME) {
+    this.m_frame = aParent;
+    this.m_alwaysShowActiveLayer = false;
+  }
+
+  /** Whether the "always" mode is on. */
+  IsAlwaysShowActiveLayer(): boolean {
+    return this.m_alwaysShowActiveLayer;
+  }
+
+  /**
+   * The layer ids of the rows, in row order: `ReFill` makes one per image in
+   * the list and skips an empty slot (`:299-303`).
+   */
+  GetLayerRows(): number[] {
+    const rows: number[] = [];
+    const images = this.m_frame.GetImagesList();
+
+    for (let layer = 0; layer < images.ImagesMaxCount(); ++layer) {
+      if (images.GetGbrImage(layer) !== null) rows.push(layer);
+    }
+
+    return rows;
+  }
+
+  onPopupSelection(menuId: GERBER_LAYER_WIDGET_ID): void {
+    const visible = menuId === GERBER_LAYER_WIDGET_ID.ID_SHOW_ALL_LAYERS;
+
+    switch (menuId) {
+      case GERBER_LAYER_WIDGET_ID.ID_SHOW_ALL_LAYERS:
+      case GERBER_LAYER_WIDGET_ID.ID_SHOW_NO_LAYERS:
+      case GERBER_LAYER_WIDGET_ID.ID_ALWAYS_SHOW_NO_LAYERS_BUT_ACTIVE:
+      case GERBER_LAYER_WIDGET_ID.ID_SHOW_NO_LAYERS_BUT_ACTIVE: {
+        // Set the display layers options. Sorting layers has no effect to these options
+        this.m_alwaysShowActiveLayer =
+          menuId === GERBER_LAYER_WIDGET_ID.ID_ALWAYS_SHOW_NO_LAYERS_BUT_ACTIVE;
+        const force_active_layer_visible =
+          menuId === GERBER_LAYER_WIDGET_ID.ID_SHOW_NO_LAYERS_BUT_ACTIVE ||
+          menuId === GERBER_LAYER_WIDGET_ID.ID_ALWAYS_SHOW_NO_LAYERS_BUT_ACTIVE;
+
+        // `LSET visibleLayers;`: every layer without a row stays false.
+        const visibleLayers = new LSET();
+
+        // Update icons and check boxes
+        for (const layer of this.GetLayerRows()) {
+          let loc_visible = visible;
+
+          if (force_active_layer_visible && layer === this.m_frame.GetActiveLayer())
+            loc_visible = true;
+
+          visibleLayers.set(layer, loc_visible);
+        }
+
+        this.m_frame.SetVisibleLayers(visibleLayers);
+        this.m_frame.GetCanvas()?.Refresh();
+        break;
+      }
+
+      case GERBER_LAYER_WIDGET_ID.ID_SORT_GBR_LAYERS_X2:
+        this.m_frame.SortLayersByX2Attributes();
+        break;
+
+      case GERBER_LAYER_WIDGET_ID.ID_SORT_GBR_LAYERS_FILE_EXT:
+        this.m_frame.SortLayersByFileExtension();
+        break;
+
+      case GERBER_LAYER_WIDGET_ID.ID_SET_GBR_LAYERS_DRAW_PRMS:
+        void this.m_frame.SetLayerDrawPrms();
+        break;
+
+      case GERBER_LAYER_WIDGET_ID.ID_LAYER_MOVE_UP:
+        this.m_frame.GetToolManager()?.RunAction(GERBVIEW_ACTIONS.moveLayerUp);
+        break;
+
+      case GERBER_LAYER_WIDGET_ID.ID_LAYER_MOVE_DOWN:
+        this.m_frame.GetToolManager()?.RunAction(GERBVIEW_ACTIONS.moveLayerDown);
+        break;
+
+      case GERBER_LAYER_WIDGET_ID.ID_LAYER_DELETE:
+        // No query: the menu row is its own confirmation (`:273-275`).
+        void this.m_frame.Erase_Current_DrawLayer(false);
+        break;
+    }
+  }
+
+  /**
+   * `OnLayerSelected` (`:280-290`): in the "always" mode, re-apply it so the
+   * newly active layer is the one shown.
+   */
+  OnLayerSelected(): boolean {
+    if (!this.m_alwaysShowActiveLayer) return false;
+
+    // postprocess after active layer selection ensure active layer visible
+    this.onPopupSelection(GERBER_LAYER_WIDGET_ID.ID_ALWAYS_SHOW_NO_LAYERS_BUT_ACTIVE);
+    return true;
+  }
 }

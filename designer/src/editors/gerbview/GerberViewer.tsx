@@ -31,7 +31,6 @@ import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import { SingleChoiceDialog } from '@ziroeda/common/dialogs/dialog_single_choice.js';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
-import { CROSS_HAIR_MODE } from '@ziroeda/common/gal/gal_display_options.js';
 import {
   GERBER_DRAW_LAYER,
   GERBER_DRAWLAYERS_COUNT,
@@ -55,6 +54,8 @@ import { wxChoice } from '@ziroeda/common/wx/choice.js';
 import { s_tempFileSystem } from '@ziroeda/common/wx/filefn.js';
 import type { ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
 import { graphicLayerKey } from '@ziroeda/gerbview/dialogs/panel_gerbview_color_settings.js';
+import type { DIALOG_DRAW_LAYERS_SETTINGS } from '@ziroeda/gerbview/dialogs/dialog_draw_layers_settings.js';
+import { DialogDrawLayersSettings } from '@ziroeda/gerbview/dialogs/dialog_draw_layers_settings_ui.js';
 import { mapGerberLayersToPcb } from '@ziroeda/gerbview/dialogs/dialog_map_gerber_layers_to_pcb.js';
 import { GERBVIEW_DRAW_PANEL_GAL } from '@ziroeda/gerbview/gerbview_draw_panel_gal.js';
 import { GERBVIEW_FRAME, type GERBVIEW_FRAME_HOST } from '@ziroeda/gerbview/gerbview_frame.js';
@@ -209,6 +210,10 @@ export function GerberViewer({
     done: () => void;
   } | null>(null);
   const [messageBox, setMessageBox] = useState<{ message: string; done: () => void } | null>(null);
+  const [drawLayersBox, setDrawLayersBox] = useState<{
+    dlg: DIALOG_DRAW_LAYERS_SETTINGS;
+    done: (aOk: boolean) => void;
+  } | null>(null);
   const [choiceBox, setChoiceBox] = useState<{
     caption: string;
     choices: readonly string[];
@@ -288,6 +293,8 @@ export function GerberViewer({
         new Promise((resolve) =>
           setChoiceBox({ caption: aCaption, choices: aChoices, done: resolve }),
         ),
+      DrawLayersSettingsDialog: (aDlg) =>
+        new Promise((resolve) => setDrawLayersBox({ dlg: aDlg, done: resolve })),
     }),
     [frame, projectName],
   );
@@ -695,13 +702,6 @@ export function GerberViewer({
     frame.GetCanvas()?.Refresh();
   };
 
-  const visibilityOf = (aOnly: (i: number) => boolean): void => {
-    const v = frame.GetVisibleLayers();
-    for (const l of layerInfos) v.set(l.index, aOnly(l.index));
-    frame.SetVisibleLayers(v);
-    frame.GetCanvas()?.Refresh();
-  };
-
   const renderToggles = {
     dcodes: frame.IsElementVisible(GERBVIEW_LAYER_ID.LAYER_DCODES),
     negativeObjects: frame.IsElementVisible(GERBVIEW_LAYER_ID.LAYER_NEGATIVE_OBJECTS),
@@ -818,6 +818,16 @@ export function GerberViewer({
           }}
         />
       )}
+      {drawLayersBox && (
+        <DialogDrawLayersSettings
+          dlg={drawLayersBox.dlg}
+          onClose={(aOk) => {
+            const done = drawLayersBox.done;
+            setDrawLayersBox(null);
+            done(aOk);
+          }}
+        />
+      )}
       {choiceBox && (
         <SingleChoiceDialog
           caption={choiceBox.caption}
@@ -902,12 +912,8 @@ export function GerberViewer({
                   frame.OnSelectActiveLayer(i);
                   repaint();
                 }}
-                onSortByX2={() => {
-                  frame.SortLayersByX2Attributes();
-                  repaint();
-                }}
-                onSortByFileExtension={() => {
-                  frame.SortLayersByFileExtension();
+                onPopupSelection={(aId) => {
+                  frame.m_LayersManager.onPopupSelection(aId);
                   repaint();
                 }}
                 onToggleVisible={(i) => {
@@ -921,31 +927,7 @@ export function GerberViewer({
                   frame.GetCanvas()?.GetView().UpdateLayerColor(GERBER_DRAW_LAYER(i));
                   settings.setUserColors({ ...settings.userColors, [graphicLayerKey(i)]: color });
                 }}
-                onShowAll={() => {
-                  visibilityOf(() => true);
-                  repaint();
-                }}
-                onHideAll={() => {
-                  visibilityOf(() => false);
-                  repaint();
-                }}
-                onHideAllButActive={() => {
-                  visibilityOf((i) => i === frame.GetActiveLayer());
-                  repaint();
-                }}
                 rows={itemRows}
-                onDelete={(i) => {
-                  frame.SetActiveLayer(i);
-                  runAction(GERBVIEW_ACTIONS.clearLayer);
-                }}
-                onMoveUp={(i) => {
-                  frame.SetActiveLayer(i);
-                  runAction(GERBVIEW_ACTIONS.moveLayerUp);
-                }}
-                onMoveDown={(i) => {
-                  frame.SetActiveLayer(i);
-                  runAction(GERBVIEW_ACTIONS.moveLayerDown);
-                }}
                 renderToggles={renderToggles}
                 onRenderToggle={(id) => {
                   const layer = RENDER_ID[id];

@@ -13339,6 +13339,31 @@ fieldset.ze-sbox > legend {
   margin: 5px 5px 5px 0; /* [data] wxTOP|wxBOTTOM|wxRIGHT|wxALIGN_CENTER_VERTICAL, 5 */
   white-space: nowrap;
 }
+/* DIALOG_DRAW_LAYERS_SETTINGS (gerbview/dialogs/dialog_draw_layers_settings_ui.tsx),
+   from its _base.cpp: every cell Add()ed wxALL 5, the flex grid's value column
+   the growable one. */
+.ze-drawlayers-name {
+  display: flex; /* [data] bSizer3, wxHORIZONTAL */
+}
+.ze-drawlayers-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr max-content; /* [data] AddGrowableCol( 1 ) */
+  align-items: center;
+}
+.ze-drawlayers-cell {
+  margin: 5px; /* [data] wxALL, 5 */
+  white-space: nowrap;
+}
+.ze-drawlayers-line {
+  height: 1px;
+  margin: 5px; /* [data] wxALL|wxEXPAND, 5 */
+  background: var(--gtk-separator);
+}
+.ze-drawlayers-scope {
+  flex: 0 0 auto; /* [data] proportion 0: .ze-props-group's flex: 1 is a panel's */
+  align-self: flex-start;
+  margin: 5px; /* [data] Add( m_rbScope, 0, wxALL, 5 ) */
+}
 .ze-multientry-grid {
   display: grid;
   grid-template-columns: max-content 1fr max-content; /* [data] AddGrowableCol( 1 ) */

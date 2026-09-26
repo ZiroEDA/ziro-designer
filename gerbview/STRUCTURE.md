@@ -79,7 +79,7 @@ which); **n/a** (a browser cannot have it).
 
 | KiCad unit | status | ours / note |
 |---|---|---|
-| `dialog_draw_layers_settings` | waiting | per-image display offset and rotation (`m_DisplayOffset`, `m_DisplayRotation`) are not built; the Layers context menu leaves the row out (`layer_widget.ts`) |
+| `dialog_draw_layers_settings` | here | `dialogs/dialog_draw_layers_settings.ts` (`DIALOG_DRAW_LAYERS_SETTINGS`: the controls' state and both transfers) + `_ui.tsx`, shown through `GERBVIEW_FRAME_HOST::DrawLayersSettingsDialog`. The offset binders do not evaluate expressions: common has no `NUMERIC_EVALUATOR` |
 | `dialog_map_gerber_layers_to_pcb` | here (engine half) + port | `dialogs/dialog_map_gerber_layers_to_pcb.ts`: the automatic half, `findKnownGerbersLoaded`'s three tables. The dialog itself is not built, so Export to PCB never asks |
 | `dialog_print_gerbview` | port, blocked | derives `DIALOG_PRINT_GENERIC` (here, `common/dialogs`) and prints through `GERBVIEW_PRINTOUT` (above) |
 | `dialog_select_one_pcb_layer` | port | `LAYER_GRID_TABLE` picker the map dialog opens; lands with that dialog |
@@ -108,7 +108,7 @@ driver (`common/STRUCTURE.md` has `spacemouse` n/a for the same reason).
 |---|---|---|
 | `dcode_selection_box` | here | `widgets/dcode_selection_box.ts` (`DCODE_SELECTION_BOX` on common's `wxChoice`) |
 | `gbr_layer_box_selector` | here | `widgets/gbr_layer_box_selector.ts` (`GBR_LAYER_BOX_SELECTOR`, `GBR_LAYER_PRESENTATION`) |
-| `gerbview_layer_widget` | here | `widgets/gerbview_layer_widget.ts` (the Items rows and the layer context menu) |
+| `gerbview_layer_widget` | here | `widgets/gerbview_layer_widget.ts`: `GERBER_LAYER_WIDGET` (`onPopupSelection`, `OnLayerSelected`, the "always show the active layer" mode) as the frame's `m_LayersManager`, the Items rows and the context menu |
 | `layer_widget` | here | `widgets/layer_widget.tsx` (the notebook, rows, swatches). The package compiles JSX for it (`tsconfig.json` `jsx`, `react` dependency), as `common/` does |
 
 ## Ours with no KiCad unit — each to KiCad's file or stated here

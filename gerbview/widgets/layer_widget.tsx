@@ -34,7 +34,12 @@
 
 import { useState, type JSX } from 'react';
 import { ContextMenu } from '@ziroeda/common/tool/action_menu_bar.js';
-import { layerContextMenu, type LayerInfo, type RenderRow } from './gerbview_layer_widget.js';
+import {
+  type GERBER_LAYER_WIDGET_ID,
+  layerContextMenu,
+  type LayerInfo,
+  type RenderRow,
+} from './gerbview_layer_widget.js';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { parseColor4d, toCssColor } from '@ziroeda/common/color4d.js';
 
@@ -47,16 +52,9 @@ export function LayerManager({
   onSetActive,
   onToggleVisible,
   onSetColor,
-  onShowAll,
-  onHideAll,
-  onHideAllButActive,
-  onDelete,
-  onMoveUp,
-  onMoveDown,
+  onPopupSelection,
   renderToggles,
   onRenderToggle,
-  onSortByX2,
-  onSortByFileExtension,
   rows,
 }: {
   layers: LayerInfo[];
@@ -64,31 +62,16 @@ export function LayerManager({
   onSetActive: (index: number) => void;
   onToggleVisible: (index: number) => void;
   onSetColor: (index: number, color: string) => void;
-  onShowAll: () => void;
-  onHideAll: () => void;
-  onHideAllButActive: () => void;
-  onDelete: (index: number) => void;
-  onMoveUp: (index: number) => void;
-  onMoveDown: (index: number) => void;
+  /** `GERBER_LAYER_WIDGET::onPopupSelection`, which every menu row lands in. */
+  onPopupSelection: (aId: GERBER_LAYER_WIDGET_ID) => void;
   renderToggles: Record<string, boolean>;
   onRenderToggle: (id: string) => void;
-  onSortByX2: () => void;
-  onSortByFileExtension: () => void;
   rows: RenderRow[];
 }): JSX.Element {
   const [page, setPage] = useState<'layers' | 'items'>('layers');
   const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
 
-  const menu = layerContextMenu({
-    showAll: onShowAll,
-    hideAllButActive: onHideAllButActive,
-    hideAll: onHideAll,
-    sortByX2: onSortByX2,
-    sortByFileExtension: onSortByFileExtension,
-    moveUp: () => onMoveUp(activeLayer),
-    moveDown: () => onMoveDown(activeLayer),
-    clearLayer: () => onDelete(activeLayer),
-  });
+  const menu = layerContextMenu(onPopupSelection);
 
   return (
     <div className="ze-gbr-layers">
