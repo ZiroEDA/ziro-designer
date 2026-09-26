@@ -12233,7 +12233,7 @@ textarea.ze-ds-textedit {
 }
 /* `m_imageSizer`, proportion 1, holding PANEL_IMAGE_EDITOR whose `bSizerLeft`
    is horizontal: the preview panel, then the panel's own gridbag. */
-.ze-refimg-editor {
+.ze-imgedit {
   display: flex;
   flex: 1 1 auto;
   min-height: 0;
@@ -12241,7 +12241,7 @@ textarea.ze-ds-textedit {
 /* `m_panelDraw->SetMinSize( wxSize( 300,300 ) )`
    (`panel_image_editor_base.cpp:24`), proportion 1, `wxBORDER_SIMPLE`.
    [data] its `wxEXPAND|wxALL, 5`. */
-.ze-refimg-preview {
+.ze-imgedit-preview {
   flex: 1 1 auto;
   min-width: 300px;
   /* [data] the same `SetMinSize( wxSize( 300,300 ) )`. */
@@ -12254,14 +12254,14 @@ textarea.ze-ds-textedit {
   justify-content: center;
   overflow: hidden;
 }
-.ze-refimg-preview > img {
+.ze-imgedit-preview > img {
   max-width: 100%;
   max-height: 100%;
 }
 /* `gbSizer1 = new wxGridBagSizer( 5, 5 )` in that panel, `AddGrowableCol( 1 )`,
    added proportion 0 so it takes its own width and the preview takes the rest.
    [data] its `wxEXPAND|wxALL, 10`. */
-.ze-refimg-editgrid {
+.ze-imgedit-grid {
   display: grid;
   grid-template-columns: max-content 1fr;
   align-items: center;
@@ -12270,14 +12270,21 @@ textarea.ze-ds-textedit {
   /* [data] that Add()'s `wxALL, 10`. */
   margin: 10px;
 }
-.ze-refimg-scale-ctl {
+.ze-imgedit-scale {
   height: var(--ctl-height);
   box-sizing: border-box;
   width: 100%;
 }
 /* A wxStaticText, not a field: `SetLabel` once at construction. */
-.ze-refimg-ppi {
+.ze-imgedit-ppi {
   white-space: nowrap;
+}
+/* `m_buttonGrey` at wxGBPosition( 4, 0 ), wxGBSpan( 1, 2 ), wxEXPAND: rows 2
+   and 3 are empty, and a wxGridBagSizer still puts its 5 px gap between them,
+   as the grid's implicit rows do here. */
+.ze-imgedit-grey {
+  grid-row: 5;
+  grid-column: 1 / span 2;
 }
 .ze-refimg-lbl {
   white-space: nowrap;

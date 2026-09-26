@@ -61,7 +61,9 @@ import {
   sizeForScale,
   type ImageValues,
 } from '@ziroeda/pcbnew/image_properties.js';
-import { pngPPI } from '@ziroeda/common/png_meta.js';
+import { pngPixelSize, pngPPI } from '@ziroeda/common/png_meta.js';
+import { CheckValues, PANEL_IMAGE_EDITOR } from '@ziroeda/common/dialogs/panel_image_editor.js';
+import { MessageDialogError, MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
 import type { PcbImage } from '@ziroeda/pcbnew/types.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { StdDialogButtons } from '@ziroeda/common/dialog_shim_buttons.js';
@@ -105,6 +107,16 @@ export function DialogReferenceImageProperties({
   // out from under the typist.
   const [typing, setTyping] = useState<{ key: string; text: string } | null>(null);
   const set = (patch: Partial<ImageValues>): void => setV((p) => ({ ...p, ...patch }));
+  // PANEL_IMAGE_EDITOR::CheckValues, run by TransferDataFromWindow on OK.
+  const [checkError, setCheckError] = useState<string | null>(null);
+  const [checkConfirm, setCheckConfirm] = useState<string | null>(null);
+  const onOk = (): void => {
+    const size = pngPixelSize(v.data ?? image.data);
+    const r = CheckValues(v.scale, { x: size?.w ?? 0, y: size?.h ?? 0 });
+    if (r && 'error' in r) setCheckError(r.error);
+    else if (r) setCheckConfirm(r.confirm);
+    else onApply(v);
+  };
 
   const shown = (key: string, value: string): string => (typing?.key === key ? typing.text : value);
   const asText = (iu: number): string => stringFromValue(pcbIuToMM(iu), units, false, pcbIUScale);
@@ -202,37 +214,39 @@ export function DialogReferenceImageProperties({
               </label>
             </div>
 
-            {/* `m_imageSizer`, holding PANEL_IMAGE_EDITOR: `bSizerLeft` is
-                horizontal — the 300 x 300 preview panel, then its own gridbag. */}
-            <div className="ze-refimg-editor">
-              <div className="ze-refimg-preview">
-                <img src={`data:image/png;base64,${image.data}`} alt="" />
-              </div>
-              <div className="ze-refimg-editgrid">
-                <span className="ze-refimg-lbl ze-refimg-scale-lbl">Scale:</span>
-                <input
-                  type="text"
-                  className="ze-input ze-refimg-scale-ctl"
-                  value={shown('scale', String(v.scale))}
-                  onChange={(e) => {
-                    setTyping({ key: 'scale', text: e.target.value });
-                    const n = Number(e.target.value);
-                    if (Number.isFinite(n)) setV((p) => sizeForScale(image, p, n));
-                  }}
-                  onBlur={() => setTyping(null)}
-                />
-                {/* `m_stPPI_Value->SetLabel( "%d", m_workingImage->GetPPI() )`
-                    (`panel_image_editor.cpp:50`) — the image's own PPI, as an
-                    integer, and a static text rather than a field: it does not
-                    move when the scale does. */}
-                <span className="ze-refimg-lbl ze-refimg-ppi-lbl">PPI:</span>
-                <span className="ze-refimg-ppi">{pngPPI(image.data)}</span>
-              </div>
-            </div>
+            {/* `m_imageSizer`, holding PANEL_IMAGE_EDITOR (common/dialogs). */}
+            <PANEL_IMAGE_EDITOR
+              data={v.data ?? image.data}
+              scaleText={shown('scale', String(v.scale))}
+              onScaleText={(text) => {
+                setTyping({ key: 'scale', text });
+                const n = Number(text);
+                if (Number.isFinite(n)) setV((p) => sizeForScale(image, p, n));
+              }}
+              ppi={pngPPI(v.data ?? image.data)}
+              onGreyscale={(data) => set({ data })}
+            />
           </div>
         </div>
 
-        <StdDialogButtons onCancel={onClose} onOk={() => onApply(v)} />
+        <StdDialogButtons onCancel={onClose} onOk={onOk} />
+        {checkError && (
+          <MessageDialogError message={checkError} onClose={() => setCheckError(null)} />
+        )}
+        {checkConfirm && (
+          // IsOK( host, msg ) (confirm.cpp:278-298): "Confirmation", the
+          // question icon, Yes as the default.
+          <MessageDialogYesNo
+            caption="Confirmation"
+            icon="question"
+            defaultButton="yes"
+            message={checkConfirm}
+            onResult={(r) => {
+              setCheckConfirm(null);
+              if (r === 'yes') onApply(v);
+            }}
+          />
+        )}
       </div>
     </div>
   );

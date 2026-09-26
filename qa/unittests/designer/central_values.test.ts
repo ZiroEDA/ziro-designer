@@ -343,7 +343,9 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // drawing. RESCANNED from this tree.
   // metrics 185 -> 178 on 09-26: dialog_assign_netclass moved to
   // `common/dialogs` with its seven.
-  'editors/schematic': { colours: 30, metrics: 178 },
+  // 30/178 -> 29/177 on 09-26: dialog_image_properties' inline preview canvas
+  // (`#fff`, a 4px radius) went for common/dialogs' PANEL_IMAGE_EDITOR.
+  'editors/schematic': { colours: 29, metrics: 177 },
   // designer/src/sync/, the multiplayer layer. Eight colours, all of them
   // peerColor.ts's palette: one hue per person in a shared project, so two
   // people's cursors and selection boxes are told apart at a glance.
@@ -1157,7 +1159,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 324 -> 332: main's eight (325 -> 333 there), merged 09-25.
     // 332 -> 331: the About stub's `#7fb4e6`, see the `home` row.
     // 331 -> 330: the old inspect box's shadow colour, see `editors/pcb`.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(330);
+    // 330 -> 329: the image dialog's `#fff`, see `editors/schematic`.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(329);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1337,7 +1340,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1283 -> 1277: the About stub's four (`home`) and the calculator's own
     // About box's two (`editors/calculator`); DIALOG_ABOUT's are all marked.
     // 1277 -> 1264: the old inspect box's thirteen, see `editors/pcb`.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1264);
+    // 1264 -> 1263: the image dialog's canvas radius, see `editors/schematic`.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1263);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

@@ -26,6 +26,9 @@ const EDITOR = read('editors/pcb/PcbEditor.tsx');
 const CURSORS = read('editors/pcb/cursors.ts');
 /** Comments are prose, and this file's name the controls it does NOT have. */
 const code = DIALOG.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+// PANEL_IMAGE_EDITOR is common/dialogs' since 09-26, shared with the schematic.
+const PANEL = read('../../common/dialogs/panel_image_editor.tsx');
+const panelCode = PANEL.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 /** Everything CSS says about one selector — see text_properties_dialog.test.ts. */
 const rule = (selector: string): string => {
@@ -101,18 +104,21 @@ describe('PANEL_IMAGE_EDITOR, which is half the dialog and was absent', () => {
     // `m_panelDraw->SetMinSize( wxSize( 300,300 ) )`
     // (`panel_image_editor_base.cpp:24`), proportion 1 beside a proportion-0
     // gridbag, so the preview takes the width and the fields take their own.
-    const preview = rule('.ze-refimg-preview');
+    const preview = rule('.ze-imgedit-preview');
     expect(preview).toMatch(/min-width:\s*300px/);
     expect(preview).toMatch(/min-height:\s*300px/);
-    expect(code).toContain('data:image/png;base64,');
+    expect(panelCode).toContain('data:image/png;base64,');
+    // And the board dialog embeds the shared panel rather than a copy.
+    expect(code).toContain('<PANEL_IMAGE_EDITOR');
   });
 
   it('shows the PPI as a static text, not a field', () => {
     // `m_stPPI_Value->SetLabel( wxString::Format( "%d", m_workingImage->GetPPI() ) )`
     // (`panel_image_editor.cpp:50`) — set once at construction, so it does not
     // move when the scale does.
-    expect(code).toContain('PPI:');
-    expect(code).toContain('{pngPPI(image.data)}');
+    expect(panelCode).toContain('PPI:');
+    expect(panelCode).toContain('<span className="ze-imgedit-ppi">{ppi}</span>');
+    expect(code).toContain('ppi={pngPPI(v.data ?? image.data)}');
     // Through the shared PNG reader, which is where the pHYs chunk is parsed.
     expect(DIALOG).toContain("from '@ziroeda/common/png_meta.js'");
   });
@@ -121,7 +127,7 @@ describe('PANEL_IMAGE_EDITOR, which is half the dialog and was absent', () => {
     // `m_scale( aUnitsProvider, aParent, m_staticTextScale, m_textCtrlScale,
     // nullptr )` (`panel_image_editor.cpp:39`) — a scale factor is unitless,
     // and it is the one field here that is not shown in the frame's units.
-    const scaleRow = code.slice(code.indexOf('Scale:'), code.indexOf('PPI:'));
+    const scaleRow = panelCode.slice(panelCode.indexOf('Scale:'), panelCode.indexOf('PPI:'));
     expect(scaleRow).not.toContain('unitLabel(units)');
   });
 });

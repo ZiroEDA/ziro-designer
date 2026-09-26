@@ -13,9 +13,10 @@
  * effectively impossible to find on the canvas, and one over 6000 pixels is
  * accepted only after a confirmation, since that is 20 inches of paper.
  */
-import { useEffect, useRef, useState, type JSX } from 'react';
+import { CheckValues, PANEL_IMAGE_EDITOR } from '@ziroeda/common/dialogs/panel_image_editor.js';
+import { MessageDialogError, MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
+import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
-import { imageDataUrl } from '@ziroeda/eeschema/import_gfx/image_format.js';
 import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 export interface ImagePropsResult {
@@ -37,10 +38,6 @@ interface Props {
   onCancel: () => void;
 }
 
-/** MIN_SIZE / MAX_SIZE from PANEL_IMAGE_EDITOR::CheckValues, in pixels. */
-const MIN_SIZE = 15;
-const MAX_SIZE = 6000;
-
 export function DialogImageProperties({
   at,
   scale: scale0,
@@ -59,82 +56,20 @@ export function DialogImageProperties({
   const [scale, setScale] = useState(String(scale0));
   const [data, setData] = useState(data0);
   const [error, setError] = useState<string | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  // The preview, which is also what greyscale reads back out of.
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const img = new Image();
-    img.onload = () => {
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      const k = Math.min(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight, 1);
-      const w = img.naturalWidth * k;
-      const h = img.naturalHeight * k;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
-    };
-    img.src = imageDataUrl(data);
-  }, [data]);
-
-  /**
-   * ConvertToGreyscale. Upstream converts the decoded bitmap in place; here the
-   * payload itself is re-encoded, since that is what the document stores.
-   */
-  const toGreyscale = (): void => {
-    const img = new Image();
-    img.onload = () => {
-      const work = document.createElement('canvas');
-      work.width = img.naturalWidth;
-      work.height = img.naturalHeight;
-      const ctx = work.getContext('2d');
-      if (!ctx) return;
-      ctx.drawImage(img, 0, 0);
-      const pixels = ctx.getImageData(0, 0, work.width, work.height);
-      const d = pixels.data;
-      for (let i = 0; i < d.length; i += 4) {
-        // wxImage::ConvertToGreyscale's default luminance weights.
-        const l = 0.299 * d[i]! + 0.587 * d[i + 1]! + 0.114 * d[i + 2]!;
-        d[i] = l;
-        d[i + 1] = l;
-        d[i + 2] = l;
-      }
-      ctx.putImageData(pixels, 0, 0);
-      setData(work.toDataURL('image/png').replace(/^data:image\/png;base64,/, ''));
-    };
-    img.src = imageDataUrl(data);
-  };
-
-  const submit = (): void => {
-    const s = Number(scale);
-    if (!Number.isFinite(s) || s < 0) {
-      setError('Scale must be a positive number.');
-      return;
-    }
-    const min = Math.min(pixelSize.w * s, pixelSize.h * s);
-    if (min < MIN_SIZE) {
-      const mm = ((25.4 / 300) * min).toFixed(2);
-      const mils = ((1000 / 300) * min).toFixed(1);
-      setError(`This scale results in an image which is too small (${mm} mm or ${mils} mil).`);
-      return;
-    }
-    const max = Math.max(pixelSize.w * s, pixelSize.h * s);
-    if (max > MAX_SIZE) {
-      const mm = ((25.4 / 300) * max).toFixed(1);
-      const inch = (max / 300).toFixed(2);
-      if (
-        !window.confirm(
-          `This scale results in an image which is very large (${mm} mm or ${inch} in). Are you sure?`,
-        )
-      )
-        return;
-    }
+  const [confirm, setConfirm] = useState<string | null>(null);
+  const accept = (sc: number): void =>
     onOk({
       at: { x: mmToIU(Number(x) || 0), y: mmToIU(Number(y) || 0) },
-      scale: s,
+      scale: sc,
       ...(data !== data0 ? { data } : {}),
     });
+  /** TransferDataFromWindow: PANEL_IMAGE_EDITOR::CheckValues first. */
+  const submit = (): void => {
+    const s = Number(scale);
+    const r = CheckValues(Number.isFinite(s) ? s : -1, { x: pixelSize.w, y: pixelSize.h });
+    if (r && 'error' in r) setError(r.error);
+    else if (r) setConfirm(r.confirm);
+    else accept(s);
   };
 
   return (
@@ -150,38 +85,14 @@ export function DialogImageProperties({
           className="ze-label-dialog-body"
           style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
         >
-          {error && (
-            <div className="ze-props-error" onClick={() => setError(null)}>
-              {error} Click to dismiss.
-            </div>
-          )}
-
-          <canvas
-            ref={canvasRef}
-            width={260}
-            height={180}
-            style={{
-              alignSelf: 'center',
-              border: '1px solid var(--chrome-border)',
-              borderRadius: 4,
-              background: '#fff',
-            }}
+          {/* PANEL_IMAGE_EDITOR (common/dialogs), as DIALOG_IMAGE_PROPERTIES embeds it. */}
+          <PANEL_IMAGE_EDITOR
+            data={data}
+            scaleText={scale}
+            onScaleText={setScale}
+            ppi={ppi}
+            onGreyscale={setData}
           />
-
-          <label className="row">
-            <span>Scale:</span>
-            <input
-              className="ze-search"
-              style={{ width: 90 }}
-              value={scale}
-              onChange={(e) => setScale(e.target.value)}
-              onKeyDown={(e) => e.stopPropagation()}
-            />
-          </label>
-          <label className="row">
-            <span>PPI:</span>
-            <span className="ze-cell-ro">{ppi}</span>
-          </label>
           <label className="row">
             <span>Position X:</span>
             <input
@@ -207,12 +118,21 @@ export function DialogImageProperties({
             />
             <span className="ze-muted">mm</span>
           </label>
-          <div className="row">
-            <button className="ze-btn" onClick={toGreyscale}>
-              Convert to Greyscale
-            </button>
-          </div>
         </div>
+        {error && <MessageDialogError message={error} onClose={() => setError(null)} />}
+        {confirm && (
+          // IsOK( host, msg ) (confirm.cpp:278-298).
+          <MessageDialogYesNo
+            caption="Confirmation"
+            icon="question"
+            defaultButton="yes"
+            message={confirm}
+            onResult={(r) => {
+              setConfirm(null);
+              if (r === 'yes') accept(Number(scale));
+            }}
+          />
+        )}
         <div className="ze-modal-footer">
           <button className="ze-btn" onClick={onCancel}>
             Cancel

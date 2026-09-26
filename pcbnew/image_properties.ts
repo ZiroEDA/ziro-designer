@@ -50,6 +50,11 @@ export interface ImageValues {
   /** Derived from the scale; shown so it can be typed into. */
   width: number;
   height: number;
+  /**
+   * PANEL_IMAGE_EDITOR's Convert to Greyscale replaced the image file
+   * (`TransferToImage` -> `aItem.ImportData( *m_workingImage )`).
+   */
+  data?: string;
 }
 
 /** The single selected reference image's index, or null. */
@@ -136,6 +141,7 @@ export function applyImageValues(board: Board, index: number, v: ImageValues): B
     // file says it: storing 1 would make an untouched image grow a token on
     // save. `dropChild` below removes it from the source node to match.
     scale: v.scale === 1 ? undefined : v.scale,
+    ...(v.data !== undefined ? { data: v.data } : {}),
   };
 
   return {
