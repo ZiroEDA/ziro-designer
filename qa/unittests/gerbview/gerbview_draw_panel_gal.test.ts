@@ -87,6 +87,9 @@ describe('GERBVIEW_DRAW_PANEL_GAL::SetTopLayer', () => {
     proto.SetTopLayer.call(panel, GERBER_DRAW_LAYER(2));
 
     expect(view.GetLayerOrder(active)).toBe(GERBER_DRAW_LAYER(11));
+    // SetLayerOrder overwrites the order either way; the top-layer SET is
+    // what ClearTopLayers empties, and its first member is the new layer.
+    expect(view.GetTopLayer()).toBe(GERBER_DRAW_LAYER(2));
     expect(view.GetLayerOrder(GERBER_DRAW_LAYER(2))).toBe(
       GERBER_DRAW_LAYER(5) + VIEW.TOP_LAYER_MODIFIER,
     );

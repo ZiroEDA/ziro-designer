@@ -8,7 +8,12 @@
  * its layer order and its world unit.
  */
 
-import { type DRAW_PANEL_GAL_PARENT, type DRAW_PANEL_GAL_WINDOW, EDA_DRAW_PANEL_GAL, GAL_TYPE } from '@ziroeda/common/draw_panel_gal.js';
+import {
+  type DRAW_PANEL_GAL_PARENT,
+  type DRAW_PANEL_GAL_WINDOW,
+  EDA_DRAW_PANEL_GAL,
+  GAL_TYPE,
+} from '@ziroeda/common/draw_panel_gal.js';
 import type { DS_PROXY_VIEW_ITEM } from '@ziroeda/common/drawing_sheet/ds_proxy_view_item.js';
 import type { EDA_DRAW_FRAME } from '@ziroeda/common/eda_draw_frame.js';
 import { RENDER_TARGET } from '@ziroeda/common/gal/definitions.js';
