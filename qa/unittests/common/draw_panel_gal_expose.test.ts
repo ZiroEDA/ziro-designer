@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest';
 import { EDA_DRAW_PANEL_GAL } from '@ziroeda/common/draw_panel_gal.js';
 import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
 import { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
-import { wxEVT_PAINT, type wxEvent, wxSizeEvent } from '@ziroeda/common/wx/wx_event.js';
+import { wxEVT_CHAR, wxEVT_PAINT, type wxEvent, wxSizeEvent } from '@ziroeda/common/wx/wx_event.js';
 
 /** A GAL whose ResizeScreen records the size, as OPENGL_GAL's does. */
 class SIZED_GAL extends GAL {
@@ -95,5 +95,79 @@ describe('EDA_DRAW_PANEL_GAL::onSize', () => {
 
     expect([canvas.width, canvas.height]).toEqual([800, 600]);
     expect(paints()).toBe(0);
+  });
+});
+
+/**
+ * A key the panel handles is consumed. In wx an event handler that does not
+ * Skip() ends the event there, so the frame's accelerators never see a key the
+ * TOOL_DISPATCHER took. On the page the menu accelerators listen on the window,
+ * so a handled keydown must not bubble to them - or a combo our browser
+ * suppressor already preventDefault()ed (which the menu listener deliberately
+ * still honours) runs its action twice.
+ */
+describe('EDA_DRAW_PANEL_GAL keydown', () => {
+  function panelWithCanvas(aHandles: (aEvent: wxEvent) => boolean) {
+    const handlers: Record<string, (e: unknown) => void> = {};
+    const canvas = {
+      addEventListener: (aType: string, aHandler: (e: unknown) => void) => {
+        handlers[aType] = aHandler;
+      },
+      removeEventListener: () => {},
+      hasAttribute: () => true,
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 100 }),
+      parentElement: null,
+    };
+    const panel = Object.create(EDA_DRAW_PANEL_GAL.prototype) as Record<string, unknown>;
+    Object.assign(panel, {
+      window: { canvas },
+      m_domListeners: [],
+      ProcessEvent: aHandles,
+    });
+    (panel as unknown as { bindDomEvents(): void }).bindDomEvents();
+
+    return handlers;
+  }
+
+  function keydown() {
+    const calls = { prevented: 0, stopped: 0 };
+    return {
+      calls,
+      event: {
+        key: 'o',
+        code: 'KeyO',
+        ctrlKey: true,
+        metaKey: false,
+        altKey: false,
+        shiftKey: false,
+        preventDefault: () => calls.prevented++,
+        stopPropagation: () => calls.stopped++,
+      },
+    };
+  }
+
+  it('stops a key the panel handled from reaching the window', () => {
+    const { calls, event } = keydown();
+
+    panelWithCanvas(() => true).keydown!(event);
+
+    expect(calls.prevented).toBeGreaterThan(0);
+    expect(calls.stopped).toBeGreaterThan(0);
+  });
+
+  it('stops it too when only the wxEVT_CHAR that follows the hook was handled', () => {
+    const { calls, event } = keydown();
+
+    panelWithCanvas((e) => e.GetEventType() === wxEVT_CHAR).keydown!(event);
+
+    expect(calls.stopped).toBeGreaterThan(0);
+  });
+
+  it('lets a key the panel did not handle bubble on to the accelerators', () => {
+    const { calls, event } = keydown();
+
+    panelWithCanvas(() => false).keydown!(event);
+
+    expect(calls).toEqual({ prevented: 0, stopped: 0 });
   });
 });

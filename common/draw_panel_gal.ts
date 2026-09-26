@@ -1300,14 +1300,22 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS {
       // wxEVT_CHAR_HOOK first, then wxEVT_CHAR, as wx sends them
       const hook = wxKeyEventFromDom(canvas, e, wxEVT_CHAR_HOOK, pos);
 
+      // A key the panel handled is consumed, as a wx event that is not
+      // Skip()ped goes no further: it must not also reach the frame's menu
+      // accelerators on the window, which would run the same action twice for
+      // any combo our browser suppressor has already preventDefault()ed.
       if (this.ProcessEvent(hook)) {
         e.preventDefault();
+        e.stopPropagation();
         return;
       }
 
       const ch = wxKeyEventFromDom(canvas, e, wxEVT_CHAR, pos);
 
-      if (this.ProcessEvent(ch)) e.preventDefault();
+      if (this.ProcessEvent(ch)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
     });
     on('blur', () => this.ProcessEvent(new wxFocusEvent(wxEVT_KILL_FOCUS)));
 
