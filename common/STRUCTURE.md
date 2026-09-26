@@ -149,8 +149,8 @@ wildcards_and_files_ext.
 | `exceptions` | done 09-26 (was `ki_exception.ts`) |
 | `layer_id` | done 09-26 (was `layer_ids.ts`) |
 | `dialog_shim` | done 09-26: `dialog_shim.tsx` (was `dialog_shim_buttons` + three in `dialogs/`) |
-| `origin_viewitem` | `preview_items/origin_viewitem.ts` |
-| `newstroke_font` | `font/newstroke_glyphs.ts` |
+| `origin_viewitem` | done 09-26 (was `preview_items/origin_viewitem.ts`) |
+| `newstroke_font` | done 09-26 (was `font/newstroke_glyphs.ts`). **Latin only** (U+0020..U+00FF): the CJK and other ranges are not ported, so such text draws no glyphs |
 | `array_axis` | the `ArrayAxis` half of `array_options.ts` (a record, not the class) |
 | `dpi_scaling`, `dpi_scaling_common`, `gal_display_options_common` | `DPI_SCALING_GetDefaultScaleFactor` in `gal/gal_display_options.ts` |
 | `env_vars` | `ENV_VAR` in `common.ts` |

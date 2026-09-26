@@ -11,7 +11,7 @@
  */
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { NEWSTROKE_GLYPHS } from './newstroke_glyphs.js';
+import { NEWSTROKE_GLYPHS } from '../newstroke_font.js';
 import { OVERBAR_HEIGHT, STROKE_LEGACY_FACTOR } from './font_metrics.js';
 
 /**

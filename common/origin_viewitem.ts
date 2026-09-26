@@ -32,7 +32,7 @@
  */
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { galSnapPx } from '../gal_pixel_grid.js';
+import { galSnapPx } from './gal_pixel_grid.js';
 
 /** `ORIGIN_VIEWITEM::MARKER_STYLE` (`include/origin_viewitem.h:44-47`). */
 export type OriginMarkerStyle = 'no_graphic' | 'cross' | 'circle_cross' | 'circle_x';

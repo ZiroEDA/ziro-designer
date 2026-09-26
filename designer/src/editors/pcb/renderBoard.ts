@@ -33,10 +33,7 @@ import {
   parseColor4d,
   toCssColor,
 } from '@ziroeda/common/color4d.js';
-import {
-  drawOriginViewItem,
-  ORIGIN_VIEWITEM_SIZE,
-} from '@ziroeda/common/preview_items/origin_viewitem.js';
+import { drawOriginViewItem, ORIGIN_VIEWITEM_SIZE } from '@ziroeda/common/origin_viewitem.js';
 import { printableCharCount, unescapeString } from '@ziroeda/common/string_utils.js';
 import {
   HI_CONTRAST_FACTOR,
