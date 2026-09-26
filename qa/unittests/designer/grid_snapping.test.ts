@@ -108,7 +108,6 @@ const CANVAS: Record<string, string> = {
   eeschema: 'editors/schematic/components/SchematicCanvas.tsx',
   symbol_editor: 'editors/symbol/grid.ts',
   pl_editor: 'editors/drawingsheet/DrawingSheetCanvas.tsx',
-  gerbview: 'editors/gerbview/GerberCanvas.tsx',
 };
 
 /** The settings-object expression each canvas must reach for. */
@@ -158,15 +157,6 @@ describe('each canvas asks GetGridSnapping, with its own settings', () => {
     const src = read(CANVAS.pl_editor as string);
     expect(src).toContain('snapping && gridIU > 0');
     expect(src).not.toContain('showGrid && gridIU > 0');
-  });
-
-  it('gerbview no longer ties its crosshair to Show Grid', () => {
-    // It was `sg && g > 0`, where `sg` was `showGrid` off the same ref.
-    const src = read(CANVAS.gerbview as string);
-    expect(src).toContain('sn && g > 0');
-    expect(src).not.toMatch(
-      /const \{ showGrid: sg[^}]*\} = gridRef\.current;\s*\n\s*const snapped/,
-    );
   });
 });
 

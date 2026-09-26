@@ -125,11 +125,6 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
     "if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'u') {",
   ],
   'editors/footprint/FootprintEditor.tsx': ['const plain = !e.ctrlKey && !e.metaKey && !e.altKey;'],
-  // ACTIONS::zoomIn / zoomOut are F1 / F2 off macOS (actions.cpp:747-764) and
-  // AS_GLOBAL, so they belong to the canvas rather than to a menu row: GerbView's
-  // View > Zoom In / Zoom Out are zoomInCenter / zoomOutCenter, which declare no
-  // hotkey at all. Same `plain` predicate as the two frames above.
-  'editors/gerbview/GerberViewer.tsx': ['const plain = !e.ctrlKey && !e.metaKey && !e.altKey;'],
   'editors/pcb/PcbEditor.tsx': [
     // The chain's own "no Ctrl/Cmd held" predicate - the same guard as the
     // other frames' `plain`, spelled the way this file already spelled it.
@@ -371,12 +366,13 @@ describe('a converted frame has no listener of its own', () => {
   });
 
   it('keeps only the keys that have no menu row', () => {
-    // What is left in the Gerber Viewer is the canvas: measure, cancel, zoom
-    // in, zoom out - GERBVIEW_ACTIONS / ACTIONS its View menu never lists.
+    // The Gerber Viewer keeps none: its canvas keys - measure, cancel, zoom
+    // in, zoom out, the ones its View menu never lists - are the
+    // TOOL_DISPATCHER's on GERBVIEW_DRAW_PANEL_GAL, as upstream, so the page
+    // has no key handler of its own left to hold them.
     const gerb = source('editors/gerbview/GerberViewer.tsx');
-    expect(gerb).toMatch(/setActiveTool\('measure'\)/);
-    // …and neither of the two that do have a row is re-stated beside it.
-    expect(gerb).not.toMatch(/e\.key === 'Home'/);
+    expect(gerb).not.toMatch(/\be\.key\b/);
+    expect(gerb).not.toMatch(/addEventListener\('keydown'/);
     // CVPCB keeps Enter, which is CVPCB_ACTIONS::associate and has no row.
     const cvpcb = source('editors/schematic/dialogs/dialog_assign_footprints.tsx');
     expect(cvpcb).toMatch(/e\.key === 'Enter'/);

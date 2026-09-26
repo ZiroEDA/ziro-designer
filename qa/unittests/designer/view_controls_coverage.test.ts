@@ -30,7 +30,6 @@ const CANVASES = [
   'editors/symbol/SymbolCanvas.tsx',
   'editors/pcb/PcbEditor.tsx',
   'editors/footprint/FootprintCanvas.tsx',
-  'editors/gerbview/GerberCanvas.tsx',
   'editors/drawingsheet/DrawingSheetCanvas.tsx',
   // The preview panes are EDA_DRAW_PANEL_GALs upstream too, so they get
   // WX_VIEW_CONTROLS on the same terms.
@@ -43,7 +42,6 @@ const FITTERS = [
   'editors/symbol/render/symbolRenderer.ts',
   'editors/pcb/PcbEditor.tsx',
   'editors/footprint/FootprintCanvas.tsx',
-  'editors/gerbview/GerberCanvas.tsx',
   'editors/drawingsheet/DrawingSheetCanvas.tsx',
 ];
 
@@ -82,7 +80,6 @@ describe('shared view controls', () => {
     ['editors/symbol/render/symbolRenderer.ts', "'symbol_editor'"],
     ['editors/pcb/PcbEditor.tsx', "'pcb'"],
     ['editors/footprint/FootprintCanvas.tsx', "'footprint_editor'"],
-    ['editors/gerbview/GerberCanvas.tsx', "'gerber'"],
     ['editors/drawingsheet/DrawingSheetCanvas.tsx', "'pl_editor'"],
   ];
 
@@ -188,9 +185,11 @@ describe('shared view controls', () => {
   const AUTOPAN_CANVASES = CANVASES.filter((c) => c !== 'widgets/preview_view_controls.ts');
 
   it('every editing canvas holds its own m_panTimer', () => {
-    // Six, and the preview panes are the seventh CANVAS. If that count moves,
-    // read the block comment above before changing the number.
-    expect(AUTOPAN_CANVASES).toHaveLength(6);
+    // Five, and the preview panes are the sixth CANVAS. If that count moves,
+    // read the block comment above before changing the number. GerbView left
+    // this list when it moved onto EDA_DRAW_PANEL_GAL: its autopan is
+    // WX_VIEW_CONTROLS' own, not a canvas's copy.
+    expect(AUTOPAN_CANVASES).toHaveLength(5);
   });
 
   it.each(AUTOPAN_CANVASES)('%s runs handleAutoPanning on motion', (rel) => {
@@ -224,7 +223,6 @@ describe('shared view controls', () => {
       ['editors/drawingsheet/DrawingSheetCanvas.tsx', /const margin = 12 \* MM/],
       ['editors/drawingsheet/DrawingSheetCanvas.tsx', /const margin = 6 \* MM/],
       ['editors/footprint/FootprintCanvas.tsx', /const margin = 2 \* MM/],
-      ['editors/gerbview/GerberCanvas.tsx', /const margin = 1\.1/],
       ['editors/pcb/PcbEditor.tsx', /fitWorldBox\([^)]*5 \* MM/],
       // fitToContent / fitToBBox / fitSymbol each inflated their box by 8 mm
       // before scaling. (renderer.ts keeps an unrelated `pad` for a draw-cull

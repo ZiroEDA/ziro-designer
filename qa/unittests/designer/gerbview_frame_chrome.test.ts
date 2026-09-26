@@ -11,13 +11,56 @@
  * each becomes a decision with a name, which is the only kind a test can check.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  gerbviewLayerDisplayName,
-  gerbviewStatusField0,
-  layersPaneWidth,
-  shortenLayerFileName,
-} from '@ziroeda/designer/src/editors/gerbview/gerberAuxControls.js';
+import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { layersPaneWidth } from '@ziroeda/designer/src/editors/gerbview/gerberAuxControls.js';
+import { GERBER_FILE_IMAGE } from '@ziroeda/gerbview/gerber_file_image.js';
+import { GERBER_FILE_IMAGE_LIST } from '@ziroeda/gerbview/gerber_file_image_list.js';
+import { GERBVIEW_FRAME } from '@ziroeda/gerbview/gerbview_frame.js';
+import { GERBVIEW_SETTINGS } from '@ziroeda/gerbview/gerbview_settings.js';
 import { parseGerber } from '../gerbview/load_image.js';
+
+/**
+ * Status field 0 as GERBVIEW_FRAME::UpdateTitleAndInfo writes it
+ * (`gerbview_frame.cpp:668,696`), for `aImage` on the active layer.
+ */
+function gerbviewStatusField0(aImage: GERBER_FILE_IMAGE | null): string {
+  SetPgm(new PGM_BASE());
+  const frame = new GERBVIEW_FRAME(new GERBVIEW_SETTINGS());
+  frame.GetImagesList().DeleteAllImages();
+
+  if (aImage) frame.GetImagesList().AddGbrImage(aImage, 0);
+
+  frame.SetActiveLayer(0);
+  frame.UpdateTitleAndInfo();
+
+  return frame.GetStatusText(0);
+}
+
+/**
+ * `GERBER_FILE_IMAGE_LIST::GetDisplayName( aIdx, aNameOnly, aFullName )`
+ * (`gerber_file_image_list.cpp:140-200`) on a list holding `aImage` at
+ * `aIndex` under `aFileName`.
+ */
+function gerbviewLayerDisplayName(
+  aImage: GERBER_FILE_IMAGE | null,
+  aFileName: string,
+  aIndex: number,
+  aOpts: { nameOnly?: boolean; fullName?: boolean } = {},
+): string {
+  const list = new GERBER_FILE_IMAGE_LIST();
+
+  if (aImage) {
+    aImage.m_FileName = aFileName;
+    list.AddGbrImage(aImage, aIndex);
+  }
+
+  return list.GetDisplayName(aIndex, aOpts.nameOnly === true, aOpts.fullName === true);
+}
+
+/** GetDisplayName's 30-character cap alone: a plain image, name only (:146-151). */
+function shortenLayerFileName(aFileName: string): string {
+  return gerbviewLayerDisplayName(new GERBER_FILE_IMAGE(0), aFileName, 0, { nameOnly: true });
+}
 
 const image = (extra = ''): ReturnType<typeof parseGerber> =>
   parseGerber(

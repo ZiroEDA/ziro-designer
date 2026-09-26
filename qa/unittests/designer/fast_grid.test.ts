@@ -125,7 +125,8 @@ const FRAME: Record<string, string> = {
   eeschema: 'editors/schematic/SchematicEditor.tsx',
   symbol_editor: 'editors/symbol/SymbolEditor.tsx',
   pl_editor: 'editors/drawingsheet/DrawingSheetEditor.tsx',
-  gerbview: 'editors/gerbview/GerberViewer.tsx',
+  // gerbview binds them as upstream does, COMMON_TOOLS on GERBVIEW_FRAME,
+  // pinned in unittests/gerbview/gerbview_frame.test.ts.
 };
 
 /** Which settings object each frame must write, and no other. */
@@ -133,7 +134,6 @@ const OWN_WRITE: Record<string, string> = {
   eeschema: 'settings.updateEeschema',
   symbol_editor: 'settings.updateSymbolEditor',
   pl_editor: 'settings.plEditor.window.grid',
-  gerbview: 'settings.gerbview.window.grid',
 };
 
 describe('each frame binds the three actions, through the shared implementation', () => {

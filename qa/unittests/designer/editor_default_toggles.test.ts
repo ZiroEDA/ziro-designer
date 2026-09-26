@@ -40,7 +40,6 @@ import {
   DEFAULT_TOGGLES as SCH_TOGGLES,
   RADIO_GROUPS as SCH_GROUPS,
 } from '@ziroeda/designer/src/editors/schematic/toggles.js';
-import { DEFAULT_TOGGLES as GBR_TOGGLES } from '@ziroeda/designer/src/editors/gerbview/toggles.js';
 import { DEFAULT_TOGGLES as DS_TOGGLES } from '@ziroeda/designer/src/editors/drawingsheet/toggles.js';
 import {
   persistSymbolToggle,
@@ -215,21 +214,11 @@ describe("SCH_EDIT_FRAME's opening toolbar state", () => {
   });
 });
 
-describe('the two frames that already had their defaults in a .ts', () => {
-  /**
-   * GerbView: grid on (`app_settings.cpp:555-556`), millimetres (the `else`
-   * arm), the layer manager, and SMALL_CROSS
-   * (`gal_display_options.cpp:52`).
-   */
-  it('opens GerbView with four buttons', () => {
-    expect(sorted(GBR_TOGGLES)).toEqual([
-      'crosshairSmall',
-      'showLayerManager',
-      'toggleGrid',
-      'unitsMm',
-    ]);
-  });
-
+/**
+ * GerbView's defaults are GERBVIEW_FRAME's own now, read off a fresh frame in
+ * unittests/gerbview/gerbview_frame.test.ts.
+ */
+describe('the frame that already had its defaults in a .ts', () => {
   /**
    * pl_editor: grid on, mils (the first imperial name), and EDIT mode —
    * `DS_DATA_MODEL::GetTheInstance().m_EditMode = true` runs unconditionally in
@@ -465,52 +454,5 @@ describe('editors/symbol/SymbolEditor.tsx seeds its toolbar from the settings fi
     const before = structuredClone(cfg);
     expect(persistSymbolToggle(cfg, 'showProperties')).toBe(false);
     expect(cfg).toEqual(before);
-  });
-});
-
-/**
- * `editors/gerbview/GerberViewer.tsx`, which is the same move the symbol
- * editor's block above describes and goes further: gerbview does not fold two
- * settings into its toggle set, it takes TWELVE plus the units and crosshair
- * groups out of `gerbview.json`, because upstream every one of those buttons
- * is a `gvconfig()` member and the frame's checked state is read straight back
- * off it (`gerbview/gerbview_frame.cpp:1126-1150`).
- *
- * `DEFAULT_TOGGLES` survives as the seed for the three ids that have no `PARAM`
- * behind them — the Layers manager pane, polar coordinates, the background row
- * — so the "no local literal" rule is satisfied one level down, exactly as it
- * is for the symbol editor.
- *
- * Source text again, and for the same reason the block at the top of this file
- * is: the seeding expression cannot be executed from `qa`.
- */
-describe('editors/gerbview/GerberViewer.tsx seeds its toolbar from the settings file', () => {
-  const GBR = 'editors/gerbview/GerberViewer.tsx';
-
-  it('seeds from togglesFromSettings, not from a constant set', () => {
-    const s = src(GBR);
-    expect(s).toContain('togglesFromSettings(settings.gerbview, DEFAULT_TOGGLES)');
-    // The bug this replaces: a `new Set(DEFAULT_TOGGLES)` seed opens the viewer
-    // with the stock toggles whatever Preferences > Gerber Viewer > Display
-    // Options was last set to, which is the page not working.
-    expect(s).not.toContain('useState<Set<string>>(new Set(DEFAULT_TOGGLES))');
-    expect(s).not.toMatch(/const DEFAULT_TOGGLES\s*(:|=)/);
-  });
-
-  it('takes DEFAULT_TOGGLES and the projection from ./toggles.js', () => {
-    const s = src(GBR);
-    expect(s).toMatch(/import \{[\s\S]*?\bDEFAULT_TOGGLES\b[\s\S]*?\} from '\.\/toggles\.js'/);
-    expect(s).toMatch(/import \{[\s\S]*?\btogglesFromSettings\b[\s\S]*?\} from '\.\/toggles\.js'/);
-    expect(s).toMatch(
-      /import \{[\s\S]*?\bapplyTogglesToSettings\b[\s\S]*?\} from '\.\/toggles\.js'/,
-    );
-  });
-
-  it('writes back through applyTogglesToSettings, guarded so a mount does not commit', () => {
-    const s = src(GBR);
-    // `updateGerbview` persists AND wakes the account sync, so an unguarded
-    // write-back would push `gerbview.json` every time the viewer is opened.
-    expect(s).toContain('if (!applyTogglesToSettings(probe, toggles)) return;');
-    expect(s).toContain('settings.updateGerbview(');
   });
 });

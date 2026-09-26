@@ -189,25 +189,15 @@ describe('Preferences > Grids asks the frame, not a constant', () => {
 
 describe('one copy of the unit actions', () => {
   it('no editor re-implements the family bookkeeping', () => {
-    // `drawingsheet/toggles.ts` had its own `isImperial` + `switchUnits`, and
-    // `gerbview/toggles.ts` inlined the mapping both ways — and dropped the
-    // `last_*_units` half, so Ctrl+U there came back to the default rather
-    // than to the unit actually used last.
-    for (const rel of [
-      'editors/drawingsheet/toggles.ts',
-      'editors/gerbview/toggles.ts',
-      'editors/symbol/toggles.ts',
-    ]) {
+    // `drawingsheet/toggles.ts` had its own `isImperial` + `switchUnits`.
+    // GerbView's units are EDA_DRAW_FRAME's now, pinned in
+    // unittests/gerbview/gerbview_frame.test.ts.
+    for (const rel of ['editors/drawingsheet/toggles.ts', 'editors/symbol/toggles.ts']) {
       const src = read(rel);
       expect(src, `${rel} declares its own isImperial`).not.toMatch(/function isImperial\b/);
       expect(src, `${rel} does not use the shared module`).toContain(
         "from '@ziroeda/common/settings/app_settings_units.js'",
       );
     }
-  });
-
-  it('gerbview goes through switchUnits, so its last_* fields move', () => {
-    const src = read('editors/gerbview/toggles.ts');
-    expect(src).toContain('switchUnits(cfg.system, unitsId)');
   });
 });

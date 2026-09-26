@@ -62,7 +62,6 @@ const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
 const OWNERS: [editor: string, file: string, cfg: string][] = [
   ['schematic', 'editors/schematic/SchematicEditor.tsx', 'es'],
   ['symbol editor', 'editors/symbol/SymbolEditor.tsx', 'symCfg'],
-  ['gerbview', 'editors/gerbview/GerberCanvas.tsx', 'gbrCfg'],
   ['pl_editor', 'editors/drawingsheet/DrawingSheetCanvas.tsx', 'plCfg'],
 ];
 
@@ -102,7 +101,6 @@ describe('the two canvases that pass the options straight to drawGrid', () => {
   // so their names are the renderer's; these two call `drawGrid` in the
   // component and are the pair that was omitting the fields entirely.
   const DIRECT: [editor: string, file: string][] = [
-    ['gerbview', 'editors/gerbview/GerberCanvas.tsx'],
     ['pl_editor', 'editors/drawingsheet/DrawingSheetCanvas.tsx'],
   ];
 

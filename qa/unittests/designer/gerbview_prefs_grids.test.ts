@@ -104,20 +104,14 @@ describe('what gerbview contributes to PANEL_GRID_SETTINGS', () => {
  * `.tsx`.
  */
 describe('the frame draws the grids the page edits', () => {
-  it('takes the list and the current row from gerbview.json', () => {
-    expect(FRAME).toContain('const gridSizes = gbrCfg.window.grid.sizes;');
-    expect(FRAME).toContain('const gridIdx = gbrCfg.window.grid.last_size_idx;');
-  });
+  // The list, the current row and the write-back are the settings bridge's
+  // now, run in gerbview_settings_bridge.test.ts.
 
   it('reaches for neither the module table nor a local useState', () => {
     // `GRID_SIZE_LIST.gerbview` was the list, and `useState(DEFAULT_GRID_INDEX
     // .gerbview)` the row. Either one back is the page doing nothing.
     expect(FRAME_CODE).not.toContain('GRID_SIZE_LIST.gerbview');
     expect(FRAME_CODE).not.toContain('useState(DEFAULT_GRID_INDEX');
-  });
-
-  it('writes a grid change back to the store rather than to component state', () => {
-    expect(FRAME).toContain('s.window.grid.last_size_idx = next;');
   });
 
   /**
@@ -127,7 +121,9 @@ describe('the frame draws the grids the page edits', () => {
    * row that swallowed the click.
    */
   it('the Edit Grids... row opens this page', () => {
-    expect(FRAME).toContain("setPrefsOpen('gbr-grids')");
+    // ShowPreferences( _( "Grids" ), _( "Gerber Viewer" ) ) arrives at the
+    // frame's presenter, which looks the page up (prefs_initial_page.test.tsx).
+    expect(FRAME).toContain("setPrefsOpen(aPage === '' ? true : pageFor(aPage, aParentPage))");
     expect(FRAME).toContain('frameOwner="gerbview"');
   });
 });

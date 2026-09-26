@@ -20,7 +20,6 @@ import { readFileSync } from 'node:fs';
 import { toolCursorCss } from '@ziroeda/designer/src/ui/tool_cursors.js';
 import { boardToolCursor } from '@ziroeda/designer/src/editors/pcb/cursors.js';
 import { footprintToolCursor } from '@ziroeda/designer/src/editors/footprint/cursors.js';
-import { gerberToolCursor } from '@ziroeda/designer/src/editors/gerbview/cursors.js';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
@@ -179,11 +178,7 @@ describe('drawRulerItem', () => {
 });
 
 describe('one ruler, three canvases', () => {
-  const CANVASES = [
-    'editors/pcb/PcbEditor.tsx',
-    'editors/footprint/FootprintCanvas.tsx',
-    'editors/gerbview/GerberCanvas.tsx',
-  ];
+  const CANVASES = ['editors/pcb/PcbEditor.tsx', 'editors/footprint/FootprintCanvas.tsx'];
 
   const read = (rel: string): string =>
     readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
@@ -243,7 +238,6 @@ describe('one ruler, three canvases', () => {
     for (const rel of [
       'editors/footprint/FootprintEditor.tsx',
       'editors/schematic/dialogs/display_footprints_frame.tsx',
-      'editors/gerbview/GerberViewer.tsx',
     ]) {
       expect(read(rel), `${rel} does not hand the canvas its units`).toContain('measureUnits=');
     }
@@ -267,7 +261,6 @@ describe('one ruler, three canvases', () => {
     for (const [name, cursorFor, tool] of [
       ['the board editor', boardToolCursor, 'measureTool'],
       ['the footprint editor', footprintToolCursor, 'measureTool'],
-      ['GerbView', gerberToolCursor, 'measure'],
     ] as const) {
       expect(cursorFor(tool), `${name} does not set the measure cursor`).toBe(MEASURE);
     }

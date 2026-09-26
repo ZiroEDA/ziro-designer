@@ -45,7 +45,6 @@ const GRID_OWNERS: [canvas: string, file: string][] = [
   ['schematic', 'editors/schematic/render/renderer.ts'],
   ['symbol editor', 'editors/symbol/render/symbolRenderer.ts'],
   ['footprint editor', 'editors/footprint/FootprintCanvas.tsx'],
-  ['gerbview', 'editors/gerbview/GerberCanvas.tsx'],
   ['pl_editor', 'editors/drawingsheet/DrawingSheetCanvas.tsx'],
 ];
 
@@ -55,7 +54,6 @@ const CROSSHAIR_OWNERS: [canvas: string, file: string][] = [
   ['symbol editor', 'editors/symbol/SymbolCanvas.tsx'],
   ['pcb', 'editors/pcb/PcbEditor.tsx'],
   ['footprint editor', 'editors/footprint/FootprintCanvas.tsx'],
-  ['gerbview', 'editors/gerbview/GerberCanvas.tsx'],
   ['pl_editor', 'editors/drawingsheet/DrawingSheetCanvas.tsx'],
 ];
 
@@ -201,7 +199,6 @@ describe('shared grid + crosshair', () => {
       ['editors/drawingsheet/DrawingSheetCanvas.tsx', /rgba\(0,0,0,0\.32\)/],
       ['editors/drawingsheet/DrawingSheetCanvas.tsx', /rgba\(90,160,255,0\.55\)/],
       ['editors/gerbview/gerberColors.ts', /GERBER_GRID_COLOR = '#5A5A5A'/],
-      ['editors/gerbview/GerberCanvas.tsx', /rgba\(120,180,255,0\.5\)/],
     ];
     for (const [rel, re] of OLD) expect(read(rel), `${rel} ${re}`).not.toMatch(re);
   });

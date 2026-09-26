@@ -30,9 +30,39 @@
  * too, not just the three that were missing.
  */
 import { describe, expect, it } from 'vitest';
-import { gerbviewImageInfoRows } from '@ziroeda/designer/src/editors/gerbview/gerberAuxControls.js';
+import type { EdaUnits } from '@ziroeda/common/eda_units.js';
+import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
+import type { GERBER_FILE_IMAGE } from '@ziroeda/gerbview/gerber_file_image.js';
+import { GERBVIEW_FRAME } from '@ziroeda/gerbview/gerbview_frame.js';
+import { GERBVIEW_SETTINGS } from '@ziroeda/gerbview/gerbview_settings.js';
 import { parseGerber } from '../gerbview/load_image.js';
 import { IU_PER_MM } from '@ziroeda/gerbview';
+
+/**
+ * The rows `GERBER_FILE_IMAGE::DisplayImageInfo` writes to a real
+ * GERBVIEW_FRAME's message panel, in the frame's units - what
+ * `GERBVIEW_FRAME::UpdateTitleAndInfo` shows. The last argument is the IU
+ * scale the old page helper took; the frame knows its own.
+ */
+function gerbviewImageInfoRows(
+  aImage: GERBER_FILE_IMAGE | null,
+  aGraphicLayer: number,
+  aUnits: EdaUnits,
+  _aIuPerMM: number,
+): { upper: string; lower: string }[] {
+  SetPgm(new PGM_BASE());
+  const frame = new GERBVIEW_FRAME(new GERBVIEW_SETTINGS());
+  frame.ChangeUserUnits(aUnits);
+
+  if (!aImage) return [];
+
+  // GERBER_FILE_IMAGE_LIST::GetLayerRemap keeps m_GraphicLayer equal to the
+  // image's row after every sort.
+  aImage.m_GraphicLayer = aGraphicLayer;
+  aImage.DisplayImageInfo(frame);
+
+  return frame.GetMsgPanelItems().map((i) => ({ upper: i.GetUpperText(), lower: i.GetLowerText() }));
+}
 
 /** A minimal metric gerber, with `extra` spliced in after the unit command. */
 const image = (extra = ''): ReturnType<typeof parseGerber> =>

@@ -202,20 +202,6 @@ describe('IsBackgroundDark, and the three overrides', () => {
     expect(isBackgroundDark('rgb(0, 255, 0)')).toBe(false);
     expect(isBackgroundDark('rgb(0, 0, 255)')).toBe(true);
   });
-
-  it('the Gerber Viewer asks for the BRIGHT scheme on its black canvas', () => {
-    // Not a mistake here: `GERBVIEW_RENDER_SETTINGS` derives straight from
-    // `RENDER_SETTINGS` (`gerbview_painter.h:46`) and never overrides
-    // `IsBackgroundDark`, whose base returns a flat `false`
-    // (`render_settings.h:288-291`). Reasoning from the visible background
-    // instead — which is what our dark-scheme constants did — is the more
-    // sensible answer and the wrong one.
-    const src = read('editors/gerbview/GerberCanvas.tsx');
-    expect(src).toMatch(/selectionAreaColors\(\{\s*backgroundDark:\s*false/);
-    expect(src, 'gerbview must not derive it from its own background').not.toMatch(
-      /isBackgroundDark\(/,
-    );
-  });
 });
 
 describe('the lasso mode follows its winding', () => {
@@ -254,7 +240,6 @@ describe('the lasso mode follows its winding', () => {
 
 describe('there is one copy of the table', () => {
   const CANVASES = [
-    'editors/gerbview/GerberCanvas.tsx',
     'editors/drawingsheet/DrawingSheetCanvas.tsx',
     'editors/symbol/SymbolCanvas.tsx',
     'editors/footprint/FootprintCanvas.tsx',

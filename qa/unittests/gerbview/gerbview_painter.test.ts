@@ -23,7 +23,12 @@ import type { GERBER_DRAW_ITEM } from '@ziroeda/gerbview';
 import { GERBVIEW_RENDER_SETTINGS, gvconfig } from '@ziroeda/gerbview/gerbview_painter.js';
 import { parseGerber } from './load_image.js';
 
-const rgb = (r: number, g: number, b: number): Color4d => ({ r: r / 255, g: g / 255, b: b / 255, a: 1 });
+const rgb = (r: number, g: number, b: number): Color4d => ({
+  r: r / 255,
+  g: g / 255,
+  b: b / 255,
+  a: 1,
+});
 
 /** `rgb( r, g, b )` in 0-255, or null for COLOR4D( 0, 0, 0, 0 ). */
 function css(c: Color4d): string | null {
@@ -161,5 +166,17 @@ describe('GERBVIEW_RENDER_SETTINGS::GetColor', () => {
     expect(dim.g).toBeCloseTo((203 / 255) * 0.2, 6);
     expect(dim.a).toBe(1);
     expect(css(rs.GetColor(dark, DRAW1))).toBe('rgb(141, 203, 129)');
+  });
+});
+
+/**
+ * GERBVIEW_RENDER_SETTINGS never overrides IsBackgroundDark, whose base
+ * returns a flat false (`render_settings.h:288-291`), so the selection box
+ * takes the BRIGHT scheme on GerbView's black canvas. Reasoning from the
+ * visible background instead is the more sensible answer and the wrong one.
+ */
+describe('GERBVIEW_RENDER_SETTINGS::IsBackgroundDark', () => {
+  it('is false, whatever the background is', () => {
+    expect(settings().IsBackgroundDark()).toBe(false);
   });
 });

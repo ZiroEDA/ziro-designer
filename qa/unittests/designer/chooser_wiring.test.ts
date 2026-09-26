@@ -119,49 +119,65 @@ describe('GerbView opens from the account and from the machine', () => {
    * Project has had all along.
    */
   const GV = src('editors/gerbview/GerberViewer.tsx');
+  /** The dialogs are GERBVIEW_FRAME's now, asked for through its host. */
+  const FILES = readFileSync(
+    fileURLToPath(new URL('../../../gerbview/files.ts', import.meta.url)),
+    'utf8',
+  );
+  const JOB = readFileSync(
+    fileURLToPath(new URL('../../../gerbview/job_file_reader.ts', import.meta.url)),
+    'utf8',
+  );
 
   it('opens the chooser, multi-select, for gerbers and drill files', () => {
     expect(GV).toContain('<OpenFileDialog');
-    expect(GV).toContain('multiple={gbrOpen.multiple}');
+    expect(GV).toContain('multiple={fileDialog.multiple}');
+    // LoadFileOrShowDialog: wxFD_MULTIPLE, and the three titles of
+    // files.cpp:203,246,257 - "Open Gerber File(s)", not the menu's label.
+    const show = FILES.slice(FILES.indexOf('export async function LoadFileOrShowDialog'));
+    expect(show.slice(0, show.indexOf('lastGerberFileWildcard,'))).toMatch(
+      /FileDialog\(\s*dialogTitle,\s*dialogFiletypes,\s*true,/,
+    );
     for (const title of [
-      "title: 'Open Gerber Plot File(s)'",
-      "title: 'Open NC (Excellon) Drill File(s)'",
-      "title: 'Open Autodetected File(s)'",
+      "'Open Autodetected File(s)'",
+      "'Open Gerber File(s)'",
+      "'Open NC (Excellon) Drill File(s)'",
     ]) {
-      expect(GV, `no entry point for ${title}`).toContain(title);
+      expect(FILES, `no entry point for ${title}`).toContain(title);
     }
+    expect(JOB).toContain("'Open Gerber Job File'");
   });
 
   it('asks for ONE file for the zip, as its own dialog does', () => {
-    const zip = GV.slice(GV.indexOf("title: 'Open Zip File'"));
-    expect(zip.slice(0, zip.indexOf('});'))).toContain('multiple: false');
+    // files.cpp:661, wxFD_OPEN | wxFD_FILE_MUST_EXIST: no wxFD_MULTIPLE.
+    expect(FILES).toContain("FileDialog('Open Zip File', GERBVIEW_ZIP_FILTERS, false, 0)");
   });
 
   it('keeps the machine as the other door', () => {
-    // Read the BUTTON, not the file: `toContain('Open from Computer...')` over
-    // the source matched the comment three lines above it, so a sweep that
-    // replaced the label passed. `openLocalFiles` is unchanged and is what the
-    // button runs.
-    const el = [...GV.matchAll(/<OpenFileDialog\b[\s\S]*?\/>/g)].map((m) => m[0]).join('\n');
+    // Read the ELEMENT, not the file, so a comment cannot satisfy it.
+    const el = GV.slice(
+      GV.indexOf('<OpenFileDialog'),
+      GV.indexOf('<input', GV.indexOf('<OpenFileDialog')),
+    );
     expect(el, 'the from-computer button is gone').toContain('Open from Computer...');
-    expect(el).toContain('const from = gbrOpen.fromComputer;');
+    expect(el).toContain('void openFileDialog(req.filters, {');
   });
 
   it('names no shared folder, because a gerber belongs to one board', () => {
     // Plotted output goes to the project's own `gerbers/`
     // (dialog_plot_pcb.tsx:93,121-133), so every project is listed and there is
     // no Templates-style row for it.
-    const el = [...GV.matchAll(/<OpenFileDialog\b[\s\S]*?\/>/g)].map((m) => m[0]).join('\n');
+    const el = GV.slice(
+      GV.indexOf('<OpenFileDialog'),
+      GV.indexOf('<input', GV.indexOf('<OpenFileDialog')),
+    );
     expect(el).not.toMatch(/kind=/);
   });
 
-  it('hands the batch to the loader that already knows these formats', () => {
-    // `loadFiles` is LoadListOfGerberAndDrillFiles and handles the zip, the job
-    // file and the drill reader between them. A second loader taking a
-    // different shape would be that function twice.
-    expect(GV).toContain(
-      'void loadFiles([asFile(file), ...file.rest.map(asFile)], opened.fileType);',
-    );
+  it('hands every chosen file back to the frame, which loads it by path', () => {
+    // The chooser's rows go onto the RAM disk and their paths are the dialog's
+    // answer, as GetPaths() is upstream; the frame's loader takes it from there.
+    expect(GV).toContain('[file, ...file.rest].map((f) => putFile(f.path, f.bytes))');
   });
 });
 

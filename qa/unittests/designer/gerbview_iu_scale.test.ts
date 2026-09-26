@@ -32,9 +32,16 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, relative } from 'node:path';
 
-const ROOTS = ['../../../designer/src/editors/gerbview', '../../../designer/src/render/gl'].map(
-  (r) => fileURLToPath(new URL(r, import.meta.url)),
-);
+/**
+ * The page, the GL code, and - since GerbView draws through GERBVIEW_FRAME on
+ * common's OPENGL_GAL - the `gerbview` package itself, where the canvas code
+ * now lives.
+ */
+const ROOTS = [
+  '../../../designer/src/editors/gerbview',
+  '../../../designer/src/render/gl',
+  '../../../gerbview',
+].map((r) => fileURLToPath(new URL(r, import.meta.url)));
 
 /**
  * `editors/gerbview/prefs/` is DIALOG code and is scanned out.
@@ -64,6 +71,7 @@ function walk(dir: string): string[] {
   const out: string[] = [];
   for (const entry of readdirSync(dir)) {
     const p = join(dir, entry);
+    if (entry === 'node_modules') continue;
     if (statSync(p).isDirectory()) out.push(...walk(p));
     else if (/\.tsx?$/.test(p)) out.push(p);
   }
@@ -107,9 +115,27 @@ describe('the GerbView / common IU mismatch', () => {
     expect(offenders(/\bGERB_IU_PER_MM\b/)).toEqual([]);
   });
 
-  it('never reaches for gerbIUScale there either', () => {
-    // The same 1e5 by another name.
-    expect(offenders(/\bgerbIUScale\b/)).toEqual([]);
+  it('never imports common’s gerbIUScale there either', () => {
+    // The same 1e5 by another name. `gerbview` has a `gerbIUScale` of its own,
+    // built from the parser's 1e6 (`gerbview/gerbview.ts`), so the rule is on
+    // the IMPORT from common, not on the word - read per file, since an
+    // import list spans lines.
+    const offending: string[] = [];
+    for (const root of ROOTS) {
+      for (const file of walk(root)) {
+        if (SCANNED_OUT.some((dir) => file.startsWith(`${dir}/`))) continue;
+        const src = strip(readFileSync(file, 'utf8'));
+        for (const m of src.matchAll(/import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*'@ziroeda\/common[^']*'/g)) {
+          if (/\bgerbIUScale\b/.test(m[1] ?? '')) offending.push(file);
+        }
+      }
+    }
+    expect(offending).toEqual([]);
+  });
+
+  it('and the page does not name gerbIUScale at all', () => {
+    // The page has no scale of its own to mean; the frame's GetIuScale() is it.
+    expect(offenders(/\bgerbIUScale\b/).filter((l) => l.startsWith('designer/'))).toEqual([]);
   });
 
   it('scans files at all, so an empty result means something', () => {

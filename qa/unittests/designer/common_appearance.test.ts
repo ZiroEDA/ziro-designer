@@ -295,7 +295,9 @@ describe('the board painter dims the way pcb_painter does', () => {
     for (const frame of [
       'designer/src/editors/pcb/PcbEditor.tsx',
       'designer/src/editors/footprint/FootprintEditor.tsx',
-      'designer/src/editors/gerbview/GerberViewer.tsx',
+      // Not GerbView: GERBVIEW_RENDER_SETTINGS never reads
+      // hicontrast_dimming_factor - only pcb_painter.cpp:176 does - so it
+      // dims at RENDER_SETTINGS' own 0.2 (render_settings.cpp:42).
     ]) {
       const src = readFileSync(resolve(process.cwd(), '..', frame), 'utf8');
       expect(src, frame).toMatch(

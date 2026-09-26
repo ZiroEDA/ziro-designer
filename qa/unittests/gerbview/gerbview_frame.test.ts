@@ -19,7 +19,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { EDA_DRAW_PANEL_GAL } from '@ziroeda/common/draw_panel_gal.js';
 import { GAL_TYPE } from '@ziroeda/common/draw_panel_gal.js';
-import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
+import { CROSS_HAIR_MODE, GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
+import { KICURSOR } from '@ziroeda/common/gal/cursors.js';
 import { DS_PROXY_VIEW_ITEM } from '@ziroeda/common/drawing_sheet/ds_proxy_view_item.js';
 import { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
 import { GERBVIEW_LAYER_ID } from '@ziroeda/common/layer_id.js';
@@ -32,6 +33,7 @@ import {
 } from '@ziroeda/common/wildcards_and_files_ext.js';
 import { PAGE_SIZE_TYPE } from '@ziroeda/common/page_info.js';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { VIEW } from '@ziroeda/common/view/view.js';
 import { VC_SETTINGS } from '@ziroeda/common/view/view_controls.js';
 import { wxChoice } from '@ziroeda/common/wx/choice.js';
@@ -45,6 +47,7 @@ import { GERBVIEW_FRAME, type GERBVIEW_FRAME_HOST } from '@ziroeda/gerbview/gerb
 import { GERBVIEW_PAINTER } from '@ziroeda/gerbview/gerbview_painter.js';
 import { GERBVIEW_SETTINGS } from '@ziroeda/gerbview/gerbview_settings.js';
 import { GERBVIEW_ACTIONS } from '@ziroeda/gerbview/tools/gerbview_actions.js';
+import { checkedSet } from '@ziroeda/designer/src/editors/gerbview/gerbview_settings_bridge.js';
 import { DCODE_SELECTION_BOX } from '@ziroeda/gerbview/widgets/dcode_selection_box.js';
 import { GBR_LAYER_BOX_SELECTOR } from '@ziroeda/gerbview/widgets/gbr_layer_box_selector.js';
 
@@ -162,6 +165,10 @@ interface Env {
   dialogs: { title: string; filters: readonly unknown[]; multiple: boolean }[];
   /** What the next dialogs answer, in order; Cancel once it runs out. */
   answers: string[][];
+  /** Every cursor the frame set on its canvas, in order. */
+  cursors: KICURSOR[];
+  /** Every wxSingleChoiceDialog the frame showed. */
+  choices: { caption: string; choices: string[] }[];
 }
 
 function setup(): Env {
@@ -192,6 +199,7 @@ function setup(): Env {
   };
 
   const sheets: DS_PROXY_VIEW_ITEM[] = [];
+  const cursors: KICURSOR[] = [];
   const canvas = {
     GetGAL: () => gal,
     GetView: () => view,
@@ -204,7 +212,7 @@ function setup(): Env {
     SetFocus: () => {},
     Refresh: () => {},
     ForceRefresh: () => {},
-    SetCurrentCursor: () => {},
+    SetCurrentCursor: (aCursor: KICURSOR) => cursors.push(aCursor),
     SetHighContrastLayer: () => {},
     GetDefaultViewBBox: () => new BOX2I(),
     GetClientSize: () => ({ x: 1000, y: 800 }),
@@ -214,6 +222,7 @@ function setup(): Env {
   const boxes: string[] = [];
   const dialogs: Env['dialogs'] = [];
   const answers: Env['answers'] = [];
+  const choices: Env['choices'] = [];
   const host: GERBVIEW_FRAME_HOST = {
     FileDialog: (aTitle, aFilters, aMultiple) => {
       dialogs.push({ title: aTitle, filters: aFilters, multiple: aMultiple });
@@ -233,7 +242,10 @@ function setup(): Env {
     SaveFileDialog: () => Promise.resolve(null),
     MapGerberLayersToPcb: () => Promise.resolve(null),
     SaveTextFile: () => {},
-    SingleChoiceDialog: () => Promise.resolve(),
+    SingleChoiceDialog: (aCaption, aChoices) => {
+      choices.push({ caption: aCaption, choices: [...aChoices] });
+      return Promise.resolve();
+    },
   };
 
   frame.SetHost(host);
@@ -244,7 +256,7 @@ function setup(): Env {
   frame.m_SelAperAttributesBox = new wxChoice();
   frame.AttachCanvas(canvas as unknown as EDA_DRAW_PANEL_GAL as never);
 
-  return { frame, view, boxes, sheets, dialogs, answers };
+  return { frame, view, boxes, sheets, dialogs, answers, cursors, choices };
 }
 
 let env: Env;
@@ -462,7 +474,10 @@ describe('the automatic layer sorts', () => {
       .map((n) => n.slice(n.lastIndexOf('/') + 1));
 
   it('a first Open sorts its batch by file extension: .gtl over .gbl', async () => {
-    env.answers.push([put('b.gbl', gerber('Copper,L2,Bot')), put('t.gtl', gerber('Copper,L1,Top'))]);
+    env.answers.push([
+      put('b.gbl', gerber('Copper,L2,Bot')),
+      put('t.gtl', gerber('Copper,L1,Top')),
+    ]);
 
     await env.frame.LoadGerberFiles('');
 
@@ -471,7 +486,10 @@ describe('the automatic layer sorts', () => {
 
   it('an Open onto loaded layers leaves the load order alone', async () => {
     await env.frame.LoadGerberFiles(put('z.gbr', gerber('Other,Comment')));
-    env.answers.push([put('b.gbl', gerber('Copper,L2,Bot')), put('t.gtl', gerber('Copper,L1,Top'))]);
+    env.answers.push([
+      put('b.gbl', gerber('Copper,L2,Bot')),
+      put('t.gtl', gerber('Copper,L1,Top')),
+    ]);
 
     await env.frame.LoadGerberFiles('');
 
@@ -494,5 +512,340 @@ describe('the automatic layer sorts', () => {
     await env.frame.LoadGerberJobFile(job);
 
     expect(names()).toEqual(['job-b.gbr', 'job-a.gbr']);
+  });
+});
+
+/**
+ * GerbView's "Crosshair modes" toolbar group is three actions
+ * (`toolbars_gerber.cpp:62-65`), each COMMON_TOOLS setting ONE value of
+ * CROSS_HAIR_MODE and writing it to the window settings
+ * (`common_tools.cpp`, CursorSmall/Full/45Crosshairs). One enum, so the three
+ * are exclusive by construction and the diagonal is reachable.
+ */
+describe('the crosshair modes', () => {
+  it('each action sets its own mode on the GAL and in gerbview.json', () => {
+    const mgr = env.frame.GetToolManager()!;
+    const cases = [
+      [ACTIONS.cursor45Crosshairs, CROSS_HAIR_MODE.FULLSCREEN_DIAGONAL],
+      [ACTIONS.cursorFullCrosshairs, CROSS_HAIR_MODE.FULLSCREEN_CROSS],
+      [ACTIONS.cursorSmallCrosshairs, CROSS_HAIR_MODE.SMALL_CROSS],
+    ] as const;
+
+    for (const [action, mode] of cases) {
+      mgr.RunAction(action);
+      expect(env.frame.GetGalDisplayOptions().GetCursorMode()).toBe(mode);
+      expect(env.frame.gvconfig().m_Window.cursor.cross_hair_mode).toBe(mode);
+    }
+  });
+});
+
+/**
+ * What the toolbar opens with, read off a fresh frame the way
+ * setupUIConditions' conditions read it: grid on (`app_settings.cpp:555-556`),
+ * millimetres (gerbview is on neither imperial name, the `else` arm), the
+ * layer manager, and SMALL_CROSS (`gal_display_options.cpp:52`). Every
+ * display toggle starts off.
+ */
+describe('the toolbar a fresh frame opens with', () => {
+  it('checks exactly four buttons', () => {
+    expect([...checkedSet(env.frame)].sort()).toEqual([
+      'crosshairSmall',
+      'showLayerManager',
+      'toggleGrid',
+      'unitsMm',
+    ]);
+  });
+
+  it('follows the frame when a tool flips a setting', () => {
+    env.frame.GetToolManager()!.RunAction(ACTIONS.cursor45Crosshairs);
+    env.frame.gvconfig().m_Display.m_DisplayLinesFill = false;
+
+    const on = checkedSet(env.frame);
+    expect(on.has('crosshair45')).toBe(true);
+    expect(on.has('crosshairSmall')).toBe(false);
+    expect(on.has('linesSketch')).toBe(true);
+  });
+});
+
+/**
+ * GERBVIEW_INSPECTION_TOOL::MeasureTool sets KICURSOR::MEASURE on the canvas
+ * (`gerbview_inspection_tool.cpp`, its setCursor lambda), the cursor every
+ * frame's ruler uses.
+ */
+describe('the measure tool', () => {
+  it('shows the MEASURE cursor', () => {
+    env.frame.GetToolManager()!.RunAction(ACTIONS.measureTool);
+
+    expect(env.cursors.at(-1)).toBe(KICURSOR.MEASURE);
+  });
+});
+
+/**
+ * Units go through EDA_DRAW_FRAME: ToggleUserUnits returns to the unit last
+ * used on the other side (`eda_draw_frame.cpp`, m_System.last_*_units), and
+ * the frame's settings carry it back to gerbview.json.
+ */
+describe('the unit actions', () => {
+  it('Ctrl+U goes back to the imperial unit last used, not the default', () => {
+    const mgr = env.frame.GetToolManager()!;
+
+    mgr.RunAction(ACTIONS.milsUnits);
+    mgr.RunAction(ACTIONS.millimetersUnits);
+    expect(env.frame.GetUserUnits()).toBe('mm');
+
+    mgr.RunAction(ACTIONS.toggleUnits);
+    expect(env.frame.GetUserUnits()).toBe('mils');
+  });
+});
+
+/**
+ * Alt+1 / Alt+2 are COMMON_TOOLS::GridFast1 / GridFast2 on this frame: the
+ * grid row gerbview.json names (window.grid.fast_grid_1 / _2), written back
+ * to window.grid.last_size_idx.
+ */
+describe('the fast grids', () => {
+  it('select the rows gerbview.json names, and cycle between them', () => {
+    const grid = env.frame.gvconfig().m_Window.grid;
+    grid.fast_grid_1 = 2;
+    grid.fast_grid_2 = 5;
+    const mgr = env.frame.GetToolManager()!;
+
+    mgr.RunAction(ACTIONS.gridFast1);
+    expect(grid.last_size_idx).toBe(2);
+    mgr.RunAction(ACTIONS.gridFast2);
+    expect(grid.last_size_idx).toBe(5);
+    mgr.RunAction(ACTIONS.gridFastCycle);
+    expect(grid.last_size_idx).toBe(2);
+  });
+});
+
+/**
+ * GERBVIEW_FRAME::UpdateTitleAndInfo (`gerbview_frame.cpp:659-710`): the
+ * title, status field 0 and the text beside the aux toolbar, all read off the
+ * ACTIVE layer's image.
+ */
+describe('GERBVIEW_FRAME::UpdateTitleAndInfo', () => {
+  const plain = ['%FSLAX24Y24*%', '%MOIN*%', '%ADD10C,0.01*%', 'D10*', 'X0Y0D03*', 'M02*'].join('\n');
+  const x2 = [
+    '%FSLAX36Y36*%',
+    '%MOMM*%',
+    '%TF.FileFunction,Copper,L1,Top*%',
+    '%INMyImage*%',
+    '%LNTopCopper*%',
+    '%ADD10C,0.5*%',
+    'D10*',
+    'X0Y0D03*',
+    'M02*',
+  ].join('\n');
+
+  /** `SetTitle( _("Gerber Viewer") )` and "Drawing layer not in use" (:667-671). */
+  it('with nothing loaded: the bare frame name, a blank field 0, the unused-layer text', () => {
+    env.frame.UpdateTitleAndInfo();
+
+    expect(env.frame.GetTitle()).toBe('Gerber Viewer');
+    expect(env.frame.GetStatusText(0)).toBe('');
+    expect(env.frame.m_TextInfo).toBe('Drawing layer not in use');
+  });
+
+  /**
+   * `filename.GetFullName()` WITH the extension (:684), " (with X2
+   * attributes)" before the dash (:686-688); `"fmt: %s X%d.%d Y%d.%d no %cZ"`
+   * plus " X2 attr" (:701-708). %LN is skipped as a comment
+   * (`rs274x.cpp:676-681`), so the layer name is always 'no name', while %IN
+   * does store.
+   */
+  it('for an X2 file: the extension kept, both X2 flags, the names quoted', async () => {
+    await env.frame.LoadGerberFiles(put('top.gbr', x2));
+
+    expect(env.frame.GetTitle()).toBe('top.gbr (with X2 attributes) — Gerber Viewer');
+    expect(env.frame.GetStatusText(0)).toBe("Image name: 'MyImage'  Layer name: 'no name'");
+    expect(env.frame.m_TextInfo).toBe('fmt: mm X3.6 Y3.6 no LZ X2 attr');
+  });
+
+  it('for a plain file: no X2 flag anywhere, and inches', async () => {
+    await env.frame.LoadGerberFiles(put('p.gbr', plain));
+
+    expect(env.frame.GetTitle()).toBe('p.gbr — Gerber Viewer');
+    expect(env.frame.m_TextInfo).toBe('fmt: in X2.4 Y2.4 no LZ');
+  });
+
+  it('follows the active layer', async () => {
+    await env.frame.LoadGerberFiles(put('top.gbr', x2));
+    await env.frame.LoadGerberFiles(put('p.gbr', plain));
+
+    env.frame.SetActiveLayer(0);
+    expect(env.frame.GetTitle()).toBe('top.gbr (with X2 attributes) — Gerber Viewer');
+    env.frame.SetActiveLayer(1);
+    expect(env.frame.GetTitle()).toBe('p.gbr — Gerber Viewer');
+  });
+});
+
+/**
+ * A two-aperture, two-item RS-274X file in millimetres: D10 is a 0.6 mm round
+ * pad and D11 a 1.5 x 0.8 mm rectangle, flashed with %TO.N / %TO.C attached.
+ */
+const SAMPLE = [
+  '%FSLAX36Y36*%',
+  '%MOMM*%',
+  '%TF.FileFunction,Copper,L1,Top*%',
+  '%ADD10C,0.6*%',
+  '%ADD11R,1.5X0.8*%',
+  '%TO.N,GND*%',
+  '%TO.C,R1*%',
+  'D10*',
+  'X1000000Y1000000D03*',
+  '%TO.N,VCC*%',
+  '%TO.C,C2*%',
+  'D11*',
+  'X2000000Y1000000D03*',
+  'M02*',
+].join('\n');
+
+/** A second layer: one aperture, D20, and a component the first file lacks. */
+const SECOND = ['%FSLAX36Y36*%', '%MOMM*%', '%ADD20C,0.3*%', '%TO.C,U9*%', 'D20*', 'X0Y0D03*', 'M02*'].join('\n');
+
+/**
+ * The TOP_AUX boxes, read off the frame's own widgets after a load
+ * (`toolbars_gerber.cpp:275-420`). The empty entry is `NO_SELECTION_STRING`,
+ * `_( "<No selection>" )` (:280).
+ */
+describe('the D-code box', () => {
+  /**
+   * `"tool %d [%.3fx%.3f %s] %s"` (:322-326): three decimals in EVERY unit, so
+   * 0.6 mm is "0.600", and the units are GerbView's own "in" and "mil".
+   */
+  it('formats an aperture as tool N [WxH unit] Type, per the frame units', async () => {
+    await env.frame.LoadGerberFiles(put('top.gbr', SAMPLE));
+
+    expect(env.frame.m_DCodeSelector!.GetStrings()).toEqual([
+      '<No selection>',
+      'tool 10 [0.600x0.600 mm] Round',
+      'tool 11 [1.500x0.800 mm] Rect',
+    ]);
+
+    env.frame.GetToolManager()!.RunAction(ACTIONS.inchesUnits);
+    expect(env.frame.m_DCodeSelector!.GetString(1)).toBe('tool 10 [0.024x0.024 in] Round');
+    env.frame.GetToolManager()!.RunAction(ACTIONS.milsUnits);
+    expect(env.frame.m_DCodeSelector!.GetString(1)).toBe('tool 10 [23.622x23.622 mil] Round');
+  });
+
+  it('carries the D-code number the selection stores', async () => {
+    await env.frame.LoadGerberFiles(put('top.gbr', SAMPLE));
+
+    env.frame.m_DCodeSelector!.SetDCodeSelection(11);
+    expect(env.frame.m_DCodeSelector!.GetSelectedDCodeId()).toBe(11);
+  });
+
+  it('holds only the empty entry when the active layer has no image', () => {
+    env.frame.updateDCodeSelectBox();
+
+    expect(env.frame.m_DCodeSelector!.GetStrings()).toEqual(['<No selection>']);
+  });
+});
+
+describe('the three highlight lists', () => {
+  /**
+   * Built "from the partial lists stored in EACH file image" (:335-345), and
+   * through a std::map, so sorted and de-duplicated.
+   */
+  it('span every loaded image, sorted, after the empty entry', async () => {
+    await env.frame.LoadGerberFiles(put('top.gbr', SAMPLE));
+    await env.frame.LoadGerberFiles(put('bot.gbr', SECOND));
+
+    env.frame.SetActiveLayer(0);
+    expect(env.frame.m_SelComponentBox!.GetStrings()).toEqual(['<No selection>', 'C2', 'R1', 'U9']);
+    expect(env.frame.m_SelNetnameBox!.GetStrings()).toEqual(['<No selection>', 'GND', 'VCC']);
+  });
+
+  /**
+   * `m_SelNetnameBox->Append( UnescapeString( entry.first ) )` (:381): the net
+   * list is the ONE of the three that unescapes.
+   */
+  it('unescapes a net name, which the component list does not', async () => {
+    await env.frame.LoadGerberFiles(
+      put(
+        'esc.gbr',
+        [
+          '%FSLAX36Y36*%',
+          '%MOMM*%',
+          '%ADD10C,0.2*%',
+          '%TO.N,SHEET{slash}NET*%',
+          '%TO.C,J{slash}1*%',
+          'D10*',
+          'X0Y0D03*',
+          'M02*',
+        ].join('\n'),
+      ),
+    );
+
+    expect(env.frame.m_SelNetnameBox!.GetStrings()).toEqual(['<No selection>', 'SHEET/NET']);
+    expect(env.frame.m_SelComponentBox!.GetStrings()).toEqual(['<No selection>', 'J{slash}1']);
+  });
+});
+
+/**
+ * GERBVIEW_INSPECTION_TOOL::ShowDCodes (`gerbview_inspection_tool.cpp:88-145`),
+ * the list it hands wxSingleChoiceDialog.
+ */
+describe('GERBVIEW_INSPECTION_TOOL::ShowDCodes', () => {
+  const show = (): string[] => {
+    env.frame.GetToolManager()!.RunAction(GERBVIEW_ACTIONS.showDCodes);
+    const shown = env.choices.at(-1)!;
+    expect(shown.caption).toBe('D Codes');
+    return shown.choices;
+  };
+
+  /**
+   * `*** Active layer (%2.2d) ***` / `*** layer %2.2d  ***` on layer + 1
+   * (:109-113): the inactive form has two spaces before its stars.
+   */
+  it('heads every layer, marking the active one, and moves the marker with it', async () => {
+    await env.frame.LoadGerberFiles(put('top.gbr', SAMPLE));
+    await env.frame.LoadGerberFiles(put('bot.gbr', SECOND));
+
+    env.frame.SetActiveLayer(0);
+    let lines = show();
+    expect(lines[0]).toBe('*** Active layer (01) ***');
+    expect(lines.find((l) => l.startsWith('*** layer'))).toBe('*** layer 02  ***');
+
+    env.frame.SetActiveLayer(1);
+    lines = show();
+    expect(lines[0]).toBe('*** layer 01  ***');
+    expect(lines.find((l) => l.includes('Active'))).toBe('*** Active layer (02) ***');
+    // ii restarts at 1 for each layer (:116).
+    expect(lines.filter((l) => l.startsWith('tool 1:'))).toHaveLength(2);
+  });
+
+  /**
+   * `"tool %d:   Dcode D%d   V %.4f %s  H %.4f %s   %s  attribute '%s'"`
+   * (:125-131). V is m_Size.y and H is m_Size.x: D11 is 1.5 wide by 0.8 tall.
+   */
+  it('formats a row exactly, with V before H, and flags one in use', async () => {
+    await env.frame.LoadGerberFiles(put('top.gbr', SAMPLE));
+
+    const lines = show();
+    expect(lines[1]).toBe(
+      "tool 1:   Dcode D10   V 0.6000 mm  H 0.6000 mm   Round  attribute 'none' (in use)",
+    );
+    expect(lines[2]).toBe(
+      "tool 2:   Dcode D11   V 0.8000 mm  H 1.5000 mm   Rect  attribute 'none' (in use)",
+    );
+  });
+
+  it('uses four decimals in every unit, and GerbView’s own unit words', async () => {
+    await env.frame.LoadGerberFiles(put('top.gbr', SAMPLE));
+
+    env.frame.GetToolManager()!.RunAction(ACTIONS.inchesUnits);
+    expect(show()[1]).toContain('V 0.0236 in');
+    env.frame.GetToolManager()!.RunAction(ACTIONS.milsUnits);
+    expect(show()[1]).toContain('V 23.6220 mil');
+  });
+
+  /** `if( gerber->GetDcodesCount() == 0 ) continue;` (:106-107). */
+  it('skips a layer with no apertures, and lists nothing when nothing is loaded', async () => {
+    expect(show()).toEqual([]);
+
+    await env.frame.LoadGerberFiles(put('e.gbr', ['%FSLAX36Y36*%', '%MOMM*%', 'M02*'].join('\n')));
+    expect(show()).toEqual([]);
   });
 });

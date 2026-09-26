@@ -23,7 +23,28 @@ import {
   X2_ATTRIBUTE_FILEFUNCTION,
 } from '@ziroeda/gerbview';
 import { CHAR_PTR, LINE_BUFFER } from '@ziroeda/gerbview/libc.js';
-import { gerbviewLayerDisplayName } from '@ziroeda/designer/src/editors/gerbview/gerberAuxControls.js';
+
+/**
+ * `GERBER_FILE_IMAGE_LIST::GetDisplayName( aIdx, aNameOnly, aFullName )`
+ * (`gerber_file_image_list.cpp:140-200`) on a list holding `aImage` at
+ * `aIndex` under `aFileName` - the call the layers manager and the layer box
+ * make.
+ */
+function gerbviewLayerDisplayName(
+  aImage: GERBER_FILE_IMAGE | null,
+  aFileName: string,
+  aIndex: number,
+  aOpts: { nameOnly?: boolean; fullName?: boolean } = {},
+): string {
+  const list = new GERBER_FILE_IMAGE_LIST();
+
+  if (aImage) {
+    aImage.m_FileName = aFileName;
+    list.AddGbrImage(aImage, aIndex);
+  }
+
+  return list.GetDisplayName(aIndex, aOpts.nameOnly === true, aOpts.fullName === true);
+}
 
 /** `X2_ATTRIBUTE_FILEFUNCTION` from the text after `%TF.FileFunction,`. */
 function fileFunction(ff: string): X2_ATTRIBUTE_FILEFUNCTION {

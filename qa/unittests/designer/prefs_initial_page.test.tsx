@@ -28,7 +28,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
 import { PreferencesDialog } from '@ziroeda/designer/src/dialogs/PreferencesDialog.js';
-import { FIRST_PAGE, PAGES, labelOf, pageFor } from '@ziroeda/designer/src/dialogs/prefs/registry.js';
+import {
+  FIRST_PAGE,
+  PAGES,
+  labelOf,
+  pageFor,
+} from '@ziroeda/designer/src/dialogs/prefs/registry.js';
 
 afterEach(cleanup);
 

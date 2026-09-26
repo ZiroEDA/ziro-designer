@@ -35,6 +35,7 @@ import { PCB_SCREEN } from '@ziroeda/pcbnew/pcb_screen.js';
 import { pcbnewSettingsOf, type PCB_EDIT_FRAME } from './pcb_edit_frame.js';
 import { type KiCursor, kiCursor } from '../../ui/kicursors.js';
 import { settings } from '../../prefs/settings.js';
+import { drawPanelWindow } from '../../render/gal_window.js';
 
 // The program object's common half is designer/src/pgm_app.ts (09-26).
 
@@ -84,39 +85,7 @@ export function reloadUserColorSettings(): void {
 // The wxWindow the panel adopts
 // ---------------------------------------------------------------------------
 
-/** `KICURSOR` -> the designer's `CURSOR_STORE` name. */
-function cursorName(aCursor: KICURSOR): KiCursor {
-  const name = KICURSOR[aCursor] ?? 'ARROW';
-  const base = name.replace(/64$/, '');
-
-  switch (base) {
-    case 'DEFAULT':
-      return 'ARROW';
-    default:
-      return base as KiCursor;
-  }
-}
-
-/** The bitmap font atlas the GAL uploads, decoded once. */
-let s_fontImage: Promise<ImageBitmap> | null = null;
-
-export function loadBitmapFontImage(): Promise<ImageBitmap> {
-  s_fontImage ??= (async () => {
-    const url = new URL('../../../../common/gal/opengl/bitmap_font_img.png', import.meta.url).href;
-    const response = await fetch(url);
-
-    if (!response.ok) throw new Error(`bitmap font atlas: ${response.status}`);
-
-    // No colour management and no premultiplication: the three channels are
-    // signed distances, not colours, and either transform would corrupt them.
-    return await createImageBitmap(await response.blob(), {
-      premultiplyAlpha: 'none',
-      colorSpaceConversion: 'none',
-    });
-  })();
-
-  return s_fontImage;
-}
+export { loadBitmapFontImage } from '../../render/gal_window.js';
 
 /**
  * `PCB_EDIT_FRAME::PCB_EDIT_FRAME`'s canvas construction: the panel on the
@@ -130,11 +99,7 @@ export function createPcbDrawPanel(
   aCanvas: HTMLCanvasElement,
   aFontImage: ImageBitmap,
 ): PCB_DRAW_PANEL_GAL | null {
-  const window: DRAW_PANEL_GAL_WINDOW = {
-    canvas: aCanvas,
-    GetCursorCss: (aCursor: KICURSOR): string => kiCursor(cursorName(aCursor)),
-    GetBitmapFontImage: (): TexImageSource => aFontImage,
-  };
+  const window: DRAW_PANEL_GAL_WINDOW = drawPanelWindow(aCanvas, aFontImage);
 
   let panel: PCB_DRAW_PANEL_GAL;
 

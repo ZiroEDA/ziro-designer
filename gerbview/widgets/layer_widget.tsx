@@ -32,7 +32,7 @@
  * pops up, and none of them is a glyph KiCad draws anywhere.
  */
 
-import { useRef, useState, type JSX } from 'react';
+import { useState, type JSX } from 'react';
 import { ContextMenu } from '@ziroeda/common/tool/action_menu_bar.js';
 import { layerContextMenu, type LayerInfo, type RenderRow } from './gerbview_layer_widget.js';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
@@ -78,7 +78,6 @@ export function LayerManager({
 }): JSX.Element {
   const [page, setPage] = useState<'layers' | 'items'>('layers');
   const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
-  const colorInputs = useRef<Record<number, HTMLInputElement | null>>({});
 
   const menu = layerContextMenu({
     showAll: onShowAll,
@@ -138,26 +137,15 @@ export function LayerManager({
                 className={`ze-layer-indicator${layer.index === activeLayer ? ' on' : ''}`}
                 aria-hidden="true"
               />
-              {/* col 1, COLUMN_COLORBM */}
-              <button
-                type="button"
-                className="ze-layer-swatch picker"
-                style={{ background: layer.color }}
-                title="Left double click or middle click for color change, right click for menu"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  colorInputs.current[layer.index]?.click();
-                }}
-              >
-                {/* COLOR_SWATCH (color_swatch.cpp:301-328), which is what
-                    GERBER_LAYER_WIDGET's colour column actually is. */}
-                <ColorSwatch
-                  size="small"
-                  label={`Set color for ${layer.name}`}
-                  color={parseColor4d(layer.color)}
-                  onChange={(picked) => onSetColor(layer.index, toCssColor(picked, ', '))}
-                />
-              </button>
+              {/* col 1, COLUMN_COLORBM: a COLOR_SWATCH (color_swatch.cpp:301-328)
+                  whose left-down is also the row's (layer_widget.cpp:339), so
+                  the click is left to bubble. */}
+              <ColorSwatch
+                size="small"
+                label={`Set color for ${layer.name}`}
+                color={parseColor4d(layer.color)}
+                onChange={(picked) => onSetColor(layer.index, toCssColor(picked, ', '))}
+              />
               {/* col 2, COLUMN_COLOR_LYR_CB — an unlabelled checkbox. */}
               <input
                 type="checkbox"

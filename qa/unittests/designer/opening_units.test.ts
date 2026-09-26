@@ -33,7 +33,6 @@ import {
 } from '@ziroeda/common/settings/app_settings_units.js';
 import { DEFAULT_TOGGLES as SCH_TOGGLES } from '@ziroeda/designer/src/editors/schematic/toggles.js';
 import { DEFAULT_TOGGLES as SYM_TOGGLES } from '@ziroeda/designer/src/editors/symbol/toggles.js';
-import { DEFAULT_TOGGLES as GBR_TOGGLES } from '@ziroeda/designer/src/editors/gerbview/toggles.js';
 import { DEFAULT_TOGGLES as DS_TOGGLES } from '@ziroeda/designer/src/editors/drawingsheet/toggles.js';
 import { DEFAULT_TOGGLES as FP_TOGGLES } from '@ziroeda/designer/src/editors/footprint/toggles.js';
 
@@ -105,15 +104,6 @@ describe('the unit each frame actually boots with', () => {
    */
   it('opens the drawing sheet editor in mils', () => {
     expect(bootUnit(DS_TOGGLES)).toBe('unitsMils');
-  });
-
-  /**
-   * `GERBVIEW_SETTINGS` passes `"gerbview"`
-   * (`gerbview/gerbview_settings.cpp:40`), which is on neither imperial name,
-   * so it takes the `else` arm.
-   */
-  it('opens gerbview in mm', () => {
-    expect(bootUnit(GBR_TOGGLES)).toBe('unitsMm');
   });
 
   /**

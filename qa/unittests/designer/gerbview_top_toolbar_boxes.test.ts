@@ -121,10 +121,11 @@ describe('the layer selector carries a colour swatch per entry', () => {
     // Without this the three above pass while the selector stays bare — the
     // shape of test that cannot fail, since the widget supporting a swatch is
     // not the widget showing one.
-    // By ROW, not off the Layer: `GetLayerColor( GERBER_DRAW_LAYER( layer ) )`
-    // (`gerbview/widgets/gerbview_layer_widget.cpp:307`). A colour frozen onto
-    // the image would follow the file through a sort instead of staying on the
-    // row it belongs to.
-    expect(VIEWER).toMatch(/swatch: colorAt\(i\),/);
+    // By ROW, not off the Layer: GBR_LAYER_PRESENTATION::getLayerColor is
+    // `GetLayerColor( GERBER_DRAW_LAYER( aLayer ) )`
+    // (`gerbview/widgets/gbr_layer_box_selector.cpp`), and Resync keeps it on
+    // the row it builds. A colour frozen onto the image would follow the file
+    // through a sort instead of staying on the row it belongs to.
+    expect(VIEWER).toContain('swatch: toCss(r.color),');
   });
 });

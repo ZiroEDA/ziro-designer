@@ -192,7 +192,6 @@ describe('one CURSOR_STORE, like KiCad', () => {
     'editors/symbol/cursors.ts',
     'editors/footprint/cursors.ts',
     'editors/pcb/cursors.ts',
-    'editors/gerbview/cursors.ts',
     'editors/drawingsheet/cursors.ts',
     'ui/tool_cursors.ts',
   ];

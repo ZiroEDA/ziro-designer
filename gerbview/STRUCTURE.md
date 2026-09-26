@@ -45,34 +45,34 @@ which); **n/a** (a browser cannot have it).
 | `am_param` | here | `am_param.ts`: `AM_PARAM`, `AM_PARAM_ITEM`, `AM_PARAM_EVAL` |
 | `am_primitive` | here | `am_primitive.ts`: `AM_PRIMITIVE` |
 | `aperture_macro` | here | `aperture_macro.ts`: `APERTURE_MACRO`; `APERTURE_MACRO_SET` (a `std::set` by name) is a `Map` |
-| `clear_gbr_drawlayers` | waiting | `GERBVIEW_FRAME::Clear_DrawLayers` / `Erase_Current_DrawLayer`: `clearAll` / `deleteLayer` in `designer/.../GerberViewer.tsx`, the frame |
+| `clear_gbr_drawlayers` | here | `clear_gbr_drawlayers.ts`: `Clear_DrawLayers` / `Erase_Current_DrawLayer`, bound onto `GERBVIEW_FRAME` |
 | `dcode` | here | `dcode.ts` (`D_CODE`, `ShowApertureType`) |
 | `evaluate` | here | `evaluate.ts` |
-| `events_called_functions` | waiting | `GERBVIEW_FRAME`'s event handlers, inline in `GerberViewer.tsx` |
+| `events_called_functions` | here | `events_called_functions.ts`: the frame's event handlers, bound onto `GERBVIEW_FRAME` |
 | `excellon_read_drill_file` (+ `excellon_image.h`) | here | `excellon_read_drill_file.ts` (`EXCELLON_IMAGE`, `TestFileIsExcellon`); `LoadFile` takes the file's text, since the browser hands us bytes, not a path |
 | `excellon_defaults.h` | here | `excellon_defaults.ts` |
 | `export_to_pcbnew` | here | `export_to_pcbnew.ts` (`GBR_TO_PCB_EXPORTER`); `ExportPcb` returns the text instead of writing a file. `exportLayersToPcb` is `GERBVIEW_CONTROL::ExportToPcbnew`'s half, goes to `tools/gerbview_control` |
-| `files` | here, part waiting | `files.ts`: the refusal gates and messages of `LoadListOfGerberAndDrillFiles`, `GBR_FILE_TYPE` and the autodetect dispatch. The frame half (open dialogs, zip) is `GerberViewer.tsx` |
+| `files` | here | `files.ts`: `LoadFileOrShowDialog`, the three `Load*Files`, `LoadListOfGerberAndDrillFiles`, `unarchiveFiles` / `LoadZipArchiveFile` (fflate), reading by path from the RAM disk. The `wxFileDialog` is the page's, through `GERBVIEW_FRAME_HOST::FileDialog` |
 | `gbr_layout` | here | `gbr_layout.ts` (`GBR_LAYOUT`); methods to align (`ComputeBoundingBox`, `GetImagesList`) |
 | `gbr_display_options.h` | here | `gbr_display_options.ts` |
-| `gerber_collectors` | here | `gerber_collectors.ts` (`GERBER_COLLECTOR`). Picking in `GerberCanvas.tsx` still loops `HitTest` itself; it moves onto this with `gerbview_selection_tool` |
+| `gerber_collectors` | here | `gerber_collectors.ts` (`GERBER_COLLECTOR`), which `GERBVIEW_SELECTION_TOOL` picks through |
 | `gerber_draw_item` | here | `gerber_draw_item.ts`, `GetMsgPanelInfo` included |
 | `gerber_file_image` | here | `gerber_file_image.ts`; the members defined in `readgerb`, `rs274x`, `rs274d` and `rs274_read_XY_and_IJ_coordinates` are functions in those files taking `self`, which the class delegates to |
 | `gerber_file_image_list` | here | `gerber_file_image_list.ts` (`GERBER_FILE_IMAGE_LIST`, `sortFileExtension`, `sortZorder`) |
 | `gerbview` (+ `gerbview.h`) | here / waiting | `gerbview.ts`: `gerbview.h`'s enums and units. `KIFACE::CreateKiWindow`'s panel switch is `designer/.../prefs/index.ts` (waiting on `dialogs/prefs/types`) |
-| `gerbview_draw_panel_gal` | waiting | `designer/.../GerberCanvas.tsx` (reads `prefs/useSettings`, `render/gl/gerbview_gl`, `ui/view_controls`) |
-| `gerbview_frame` | waiting | `designer/.../GerberViewer.tsx` (reads `prefs/*`, `fs/*`, `dialogs/*`, `ui/*`) |
+| `gerbview_draw_panel_gal` | here | `gerbview_draw_panel_gal.ts` (`GERBVIEW_DRAW_PANEL_GAL`) on common's `EDA_DRAW_PANEL_GAL` / `OPENGL_GAL` / `VIEW` - the first frame hosted on the ported GAL. The page hands it its `<canvas>` (`designer/src/render/gal_window.ts`) |
+| `gerbview_frame` | here | `gerbview_frame.ts` (`GERBVIEW_FRAME`). The page, `designer/.../GerberViewer.tsx`, hosts it: the chrome, the dialogs behind `GERBVIEW_FRAME_HOST`, and `gerbview_settings_bridge.ts` between `gerbview.json` and `GERBVIEW_SETTINGS`. `setupUIConditions` is still `checkedSet` in that bridge rather than `EDITOR_CONDITIONS` |
 | `gerbview_id.h` | n/a | wx command ids; our menus and toolbars dispatch by action name |
-| `gerbview_painter` | here | `gerbview_painter.ts` (`GERBVIEW_RENDER_SETTINGS`, `GERBVIEW_PAINTER`); it draws through `designer/.../gerber_surface_gal.ts` until `gerbview_draw_panel_gal` lands (below) |
-| `gerbview_printout` | port, blocked | `GERBVIEW_PRINTOUT` derives `BOARD_PRINTOUT`, which is `common/STRUCTURE.md`'s "to port" row. Print today is a screenshot in a window (`printLayers` in `GerberViewer.tsx`) |
-| `gerbview_settings` | here | `gerbview_settings.ts` (`GERBVIEW_SETTINGS`); the frame's prefs still read `designer/src/prefs/settings.ts`' slice, and `syncGerbviewSettings` (`gerberRender.ts`) copies the display toggles across until the frame reads this class |
+| `gerbview_painter` | here | `gerbview_painter.ts` (`GERBVIEW_RENDER_SETTINGS`, `GERBVIEW_PAINTER`), drawing on `OPENGL_GAL` |
+| `gerbview_printout` | port, blocked | `GERBVIEW_PRINTOUT` derives `BOARD_PRINTOUT`, which is `common/STRUCTURE.md`'s "to port" row. Print today is the browser's `window.print()` |
+| `gerbview_settings` | here | `gerbview_settings.ts` (`GERBVIEW_SETTINGS`), which the frame reads. `JSON_SETTINGS::Load` / `Store` against the account-synced slice are `designer/.../gerbview_settings_bridge.ts` |
 | `job_file_reader` | here | `job_file_reader.ts` (`GERBER_JOBFILE_READER`) |
 | `menubar` | here | `menubar.ts` (`doReCreateMenuBar`'s tree); the frame renders it |
 | `readgerb` | here | `readgerb.ts` |
 | `rs274d` | here | `rs274d.ts` |
 | `rs274_read_XY_and_IJ_coordinates` | here | `rs274_read_XY_and_IJ_coordinates.ts` |
 | `rs274x` | here | `rs274x.ts` |
-| `toolbars_gerber` (+ `.h`) | here, part to fold | `toolbars_gerber.ts` (`DefaultToolbarConfig`); the `update*SelectBox` half is still in `designer/.../gerberAuxControls.ts` |
+| `toolbars_gerber` (+ `.h`) | here | `toolbars_gerber.ts` (`DefaultToolbarConfig`, the `update*SelectBox` family, `OnUpdateSelectDCode`) |
 | `X2_gerber_attributes` | here | `X2_gerber_attributes.ts` |
 
 ### `dialogs/` — 7 units
@@ -97,17 +97,17 @@ driver (`common/STRUCTURE.md` has `spacemouse` n/a for the same reason).
 | KiCad unit | status | ours / note |
 |---|---|---|
 | `gerbview_actions` | here | `tools/gerbview_actions.ts` (`GERBVIEW_ACTIONS`), generated from the `.cpp` as `pcbnew/tools/pcb_actions.ts` was. `menubar.ts` / `gerberToolbars.ts` still restate the strings; they read these once the frame dispatches `TOOL_ACTION`s |
-| `gerbview_control` | waiting | the handlers are inline in `GerberViewer.tsx`; the toggle half is `designer/.../toggles.ts` (reads `prefs/settings`' `GerbviewSettings`) |
-| `gerbview_inspection_tool` | waiting | the measure tool is in `GerberCanvas.tsx`; `ShowDCodes`' list text is `dcodeListLines` in `gerberAuxControls.ts` |
+| `gerbview_control` | here | `tools/gerbview_control.ts` (`GERBVIEW_CONTROL`); `Print` waits on `gerbview_printout` |
+| `gerbview_inspection_tool` | here | `tools/gerbview_inspection_tool.ts` (`GERBVIEW_INSPECTION_TOOL`: `ShowDCodes`, `ShowSource`, `MeasureTool` on common's `RULER_ITEM`) |
 | `gerbview_selection` | here | `tools/gerbview_selection.ts` (`GERBVIEW_SELECTION`) |
-| `gerbview_selection_tool` | waiting | picking is in `GerberCanvas.tsx` |
+| `gerbview_selection_tool` | here | `tools/gerbview_selection_tool.ts` (`GERBVIEW_SELECTION_TOOL` on common's `SELECTION_TOOL`) |
 
 ### `widgets/` — 4 units
 
 | KiCad unit | status | ours / note |
 |---|---|---|
-| `dcode_selection_box` | move | `dcodeChoices` / `dcodeUnitLabel` in `gerberAuxControls.ts` |
-| `gbr_layer_box_selector` | move | `layerChoiceLabels` in `gerberAuxControls.ts` |
+| `dcode_selection_box` | here | `widgets/dcode_selection_box.ts` (`DCODE_SELECTION_BOX` on common's `wxChoice`) |
+| `gbr_layer_box_selector` | here | `widgets/gbr_layer_box_selector.ts` (`GBR_LAYER_BOX_SELECTOR`, `GBR_LAYER_PRESENTATION`) |
 | `gerbview_layer_widget` | here | `widgets/gerbview_layer_widget.ts` (the Items rows and the layer context menu) |
 | `layer_widget` | here | `widgets/layer_widget.tsx` (the notebook, rows, swatches). The package compiles JSX for it (`tsconfig.json` `jsx`, `react` dependency), as `common/` does |
 
@@ -122,20 +122,22 @@ driver (`common/STRUCTURE.md` has `spacemouse` n/a for the same reason).
   and `FormatStringFromGerber` (`common/gbr_metadata.cpp`). Belongs in
   `common/`; kept here because another session owns `common/` right now.
 - `index.ts` — the package barrel, kept.
-- `designer/.../gerberAuxControls.ts` — nine functions from six KiCad files
-  (`toolbars_gerber`, `dcode`, `dcode_selection_box`, `gbr_layer_box_selector`,
-  `gerbview_frame`, `gerber_file_image`); split to them.
+- `designer/.../gerberAuxControls.ts` — `layersPaneWidth` alone,
+  `LAYER_WIDGET::GetBestSize` + `ReFillLayerWidget`'s arithmetic over widths
+  the page measures. Its other helpers were copies of what the frame's own
+  units now do, and went; their tests run against those units.
 - `designer/.../gerberColors.ts` — `s_defaultTheme`'s gerbview rows, which
   `common/settings/builtin_color_themes.ts` already holds, plus
   `COLOR4D::Brightened`; to read those instead of restating them.
-- `designer/.../gerberRender.ts`, `designer/src/render/gl/gerbview_gl.ts`,
-  `designer/.../gerber_surface_gal.ts` — the Canvas 2D and WebGL backends
-  `GERBVIEW_PAINTER` draws through, and the interim GAL over them: KiCad's
-  `common/gal/cairo` and `common/gal/opengl`, not a gerbview file. They go
-  when the frame draws through `GERBVIEW_DRAW_PANEL_GAL` on common's `VIEW`,
-  as `pcb_canvas.ts` does.
-- `designer/.../cursors.ts`, `gerbview.css` — app glue (`ui/tool_cursors`,
-  the frame's stylesheet); stay with the frame.
+- `designer/.../gerbview_settings_bridge.ts` — `JSON_SETTINGS::Load` /
+  `Store` between the account-synced `gerbview.json` slice and
+  `GERBVIEW_SETTINGS`, the colour store into the frame's `COLOR_SETTINGS`,
+  and `checkedSet` (to become `setupUIConditions`).
+- `gerbview.css` — the frame's stylesheet; stays with the frame.
+- The page's own Canvas 2D / WebGL gerber renderer (`GerberCanvas.tsx`,
+  `gerberRender.ts`, `gerber_surface_gal.ts`, `render/gl/gerbview_gl.ts`) and
+  its `toggles.ts` / `cursors.ts` are gone: the frame draws through
+  `GERBVIEW_DRAW_PANEL_GAL` on common's `OPENGL_GAL`.
 - `designer/.../prefs/index.ts` (`KIFACE::CreateKiWindow`'s panel switch),
   `prefs/resets.ts` (each panel's `ResetPanel`), `prefs/PanelGerbviewGrids.tsx`
   and `prefs/PanelGerbviewToolbars.tsx` (the shared `PANEL_GRID_SETTINGS` /

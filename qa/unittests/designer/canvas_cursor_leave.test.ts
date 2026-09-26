@@ -40,7 +40,6 @@ const SRC = fileURLToPath(new URL('../../../designer/src/editors/', import.meta.
 /** Every canvas that draws a crosshair and reports a cursor to a status bar. */
 const CANVASES = [
   'drawingsheet/DrawingSheetCanvas.tsx',
-  'gerbview/GerberCanvas.tsx',
   'symbol/SymbolCanvas.tsx',
   'footprint/FootprintCanvas.tsx',
 ];
