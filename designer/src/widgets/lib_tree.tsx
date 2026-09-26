@@ -25,7 +25,7 @@ import {
   LIB_TREE_INDENT,
   PINNING_SYMBOL,
 } from './lib_tree_model_adapter.js';
-import { SelectColumnsDialog } from './select_columns_dialog.js';
+import { EDA_REORDERABLE_LIST_DIALOG } from '@ziroeda/common/dialogs/eda_reorderable_list_dialog.js';
 import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
 
@@ -1273,7 +1273,8 @@ export function LibTree({
       {contextMenu}
       {headerContextMenu}
       {columnsDialog && (
-        <SelectColumnsDialog
+        <EDA_REORDERABLE_LIST_DIALOG
+          title="Select Columns"
           available={adapter.getAvailableColumns()}
           enabled={adapter.getShownColumns()}
           onOk={(cols) => {

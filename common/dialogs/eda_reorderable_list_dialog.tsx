@@ -2,16 +2,18 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * The "Select Columns" dialog behind a library tree's header context menu.
- * Mirrors kicad/common/dialogs/eda_reorderable_list_dialog.cpp
- * (EDA_REORDERABLE_LIST_DIALOG): an Available list on the left, an Enabled list
- * on the right, ">" / "<" between them and Move up / Move down beside the
- * enabled list.
+ * `EDA_REORDERABLE_LIST_DIALOG` (common/dialogs/eda_reorderable_list_dialog.cpp):
+ * an Available list on the left, an Enabled list on the right, ">" / "<"
+ * between them and Move up / Move down beside the enabled list. The library
+ * tree's header menu opens it as `EDA_REORDERABLE_LIST_DIALOG dlg( m_parent,
+ * _( "Select Columns" ), ... )` (widgets/lib_tree.cpp:1105).
  */
 import { useState } from 'react';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { useModalEscape } from './use_modal_escape.js';
 
-export interface SelectColumnsDialogProps {
+export interface EDA_REORDERABLE_LIST_DIALOG_PROPS {
+  /** `aTitle`. */
+  title: string;
   /** Every column the tree can show (m_availableItems). */
   available: readonly string[];
   /** Currently shown columns, in order (m_enabledItems). */
@@ -20,12 +22,13 @@ export interface SelectColumnsDialogProps {
   onCancel: () => void;
 }
 
-export function SelectColumnsDialog({
+export function EDA_REORDERABLE_LIST_DIALOG({
+  title,
   available,
   enabled,
   onOk,
   onCancel,
-}: SelectColumnsDialogProps): JSX.Element {
+}: EDA_REORDERABLE_LIST_DIALOG_PROPS): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
   useModalEscape(onCancel);
@@ -69,7 +72,7 @@ export function SelectColumnsDialog({
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
       <div className="ze-modal ze-select-columns" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
-          Select Columns
+          {title}
           <span className="x" onClick={onCancel}>
             ✕
           </span>
