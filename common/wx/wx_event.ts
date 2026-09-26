@@ -167,6 +167,15 @@ export class wxKeyboardState {
   HasAnyModifiers(): boolean {
     return this.m_controlDown || this.m_shiftDown || this.m_altDown || this.m_metaDown;
   }
+  /** `GetModifiers()`: the `wxMOD_*` mask. */
+  GetModifiers(): number {
+    return (
+      (this.m_altDown ? wxMOD_ALT : 0) |
+      (this.m_controlDown ? wxMOD_CONTROL : 0) |
+      (this.m_shiftDown ? wxMOD_SHIFT : 0) |
+      (this.m_metaDown ? wxMOD_META : 0)
+    );
+  }
 
   SetControlDown(down: boolean): void {
     this.m_controlDown = down;
@@ -781,6 +790,29 @@ export function wxGetKeyState(aKey: number): boolean {
 /** The platform's half of `wxGetKeyState`: record a key's state. */
 export function wxSetKeyState(aKey: number, aDown: boolean): void {
   s_keyState.set(aKey, aDown);
+}
+
+/**
+ * `wxGetMouseState()`: the pointer's button state as the platform knows it
+ * now, not as an event carried it. GTK asks the display server; the page's
+ * equivalent is a window-level, capture-phase watch of every pointer event
+ * (`dom_events.ts`), fed in through {@link wxSetMouseButtons}.
+ */
+let s_mouseButtons = 0;
+
+export function wxGetMouseState(): wxMouseState {
+  const state = new wxMouseState();
+  state.SetLeftDown((s_mouseButtons & 1) !== 0);
+  state.SetRightDown((s_mouseButtons & 2) !== 0);
+  state.SetMiddleDown((s_mouseButtons & 4) !== 0);
+  state.SetAux1Down((s_mouseButtons & 8) !== 0);
+  state.SetAux2Down((s_mouseButtons & 16) !== 0);
+  return state;
+}
+
+/** The platform's half of `wxGetMouseState`: the DOM's `buttons` mask. */
+export function wxSetMouseButtons(aButtons: number): void {
+  s_mouseButtons = aButtons;
 }
 
 /** `wxKeyEvent`: a key code (`WXK_*` or an upper-case ASCII code), its unicode character and the modifiers. */

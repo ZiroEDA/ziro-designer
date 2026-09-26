@@ -10,7 +10,19 @@
  * This is the GTK build: `MODIFIER_CTRL` is "Ctrl+" (on macOS it is "Cmd+").
  */
 import { WXK } from '@ziroeda/core/wx_keycodes.js';
-import { TOOL_MODIFIERS } from './tool/tool_event.js';
+// The named constants, not a destructure of TOOL_MODIFIERS at load: this module
+// sits on the tool_event -> tool_action -> action_manager -> here cycle, so it
+// can load before tool_event has finished, and only a live binding read at call
+// time survives that.
+import {
+  MD_ALT,
+  MD_ALTGR,
+  MD_CTRL,
+  MD_META,
+  MD_MODIFIER_MASK,
+  MD_SHIFT,
+  MD_SUPER,
+} from './tool/tool_event.js';
 import type { TOOL_ACTION } from './tool/tool_action.js';
 
 export const DEFAULT_HOTKEY_FILENAME_EXT = 'hotkeys';
@@ -122,8 +134,6 @@ const MODIFIER_META = 'Meta+';
 const MODIFIER_WIN = 'Win+';
 const MODIFIER_SUPER = 'Super+';
 const MODIFIER_ALTGR = 'AltGr+';
-
-const { MD_CTRL, MD_ALT, MD_SHIFT, MD_META, MD_SUPER, MD_ALTGR, MD_MODIFIER_MASK } = TOOL_MODIFIERS;
 
 /**
  * Return the key name from the key code.

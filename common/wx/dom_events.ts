@@ -37,6 +37,8 @@ import {
   wxKeyEvent,
   wxMouseEvent,
   wxMouseWheelAxis,
+  wxSetKeyState,
+  wxSetMouseButtons,
 } from './wx_event.js';
 
 /**
@@ -317,4 +319,31 @@ export function wxKeyEventFromDom(
   void aTarget;
 
   return ev;
+}
+
+/**
+ * The display server's view of the pointer buttons and the keys, which
+ * `wxGetMouseState` and `wxGetKeyState` answer from on GTK. Watched at the
+ * window, capture phase, so an up that lands outside the canvas - or on
+ * something that stops propagation - still clears the state; TOOL_DISPATCHER
+ * relies on that to end a drag whose button-up it never received.
+ */
+if (typeof window !== 'undefined') {
+  const buttons = (e: PointerEvent | MouseEvent): void => wxSetMouseButtons(e.buttons);
+
+  for (const type of ['pointerdown', 'pointerup', 'pointermove', 'pointercancel'] as const)
+    window.addEventListener(type, buttons, { capture: true, passive: true });
+
+  window.addEventListener(
+    'keydown',
+    (e: KeyboardEvent) => wxSetKeyState(wxKeyCodeFromDom(e), true),
+    { capture: true, passive: true },
+  );
+  window.addEventListener(
+    'keyup',
+    (e: KeyboardEvent) => wxSetKeyState(wxKeyCodeFromDom(e), false),
+    { capture: true, passive: true },
+  );
+  // A button released after the page lost focus never sends its pointerup.
+  window.addEventListener('blur', () => wxSetMouseButtons(0));
 }
