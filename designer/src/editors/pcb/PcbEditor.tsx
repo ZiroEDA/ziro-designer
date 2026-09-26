@@ -10,6 +10,7 @@
  * viewer pipeline, layer/object controls and presets are fully functional.
  */
 
+import { WX_TEXT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_text_entry.js';
 import { Pgm } from '@ziroeda/common/pgm_base.js';
 import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
@@ -2132,6 +2133,12 @@ export function PcbEditor({
   // The modal sub-dialogs DIALOG_DRC raises: "Delete exclusions too?"
   const [drcYesNoCancel, setDrcYesNoCancel] = useState<{
     resolve: (r: 'yes' | 'no' | 'cancel') => void;
+  } | null>(null);
+  // ...and "Exclusion Comment" (WX_TEXT_ENTRY_DIALOG).
+  const [drcTextEntry, setDrcTextEntry] = useState<{
+    caption: string;
+    initial: string;
+    resolve: (value: string | null) => void;
   } | null>(null);
   // Edit Teardrops (DIALOG_GLOBAL_EDIT_TEARDROPS).
   const [teardropsOpen, setTeardropsOpen] = useState(false);
@@ -5250,8 +5257,10 @@ export function PcbEditor({
       let dialog: DIALOG_DRC;
 
       const window: DIALOG_DRC_WINDOW = {
-        // WX_TEXT_ENTRY_DIALOG( _( "Exclusion Comment" ) ) - the ERC dialog asks the same way.
-        textEntry: async (title, initial) => globalThis.prompt(title, initial),
+        // WX_TEXT_ENTRY_DIALOG( this, wxEmptyString, _( "Exclusion Comment" ),
+        // aInitial, true ) - the shared dialog, as the ERC dialog asks too.
+        textEntry: (caption, initial) =>
+          new Promise<string | null>((resolve) => setDrcTextEntry({ caption, initial, resolve })),
         askDeleteExclusions: () =>
           new Promise<'yes' | 'no' | 'cancel'>((resolve) => setDrcYesNoCancel({ resolve })),
         saveReport: async (defaultName, write) => {
@@ -12109,6 +12118,18 @@ export function PcbEditor({
           isSingle={!projectHasSchematic}
           canRefillZones={false}
           rootRef={drcDialogRef}
+        />
+      )}
+      {drcTextEntry && (
+        <WX_TEXT_ENTRY_DIALOG
+          label=""
+          caption={drcTextEntry.caption}
+          defaultValue={drcTextEntry.initial}
+          extraWidth
+          onResult={(value) => {
+            drcTextEntry.resolve(value);
+            setDrcTextEntry(null);
+          }}
         />
       )}
       {drcYesNoCancel && (

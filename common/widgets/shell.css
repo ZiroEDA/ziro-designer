@@ -13117,6 +13117,25 @@ textarea.ze-ds-textedit {
   margin: 5px; /* [data] wxALL, 5 */
 }
 
+/* WX_TEXT_ENTRY_DIALOG (common/dialogs/dialog_text_entry.tsx). Each border is
+   dialog_text_entry_base.cpp's Add(): m_ContentSizer wxALL 5 inside the main
+   sizer, the label wxTOP|wxRIGHT|wxLEFT 5, the entry wxALL 5. */
+.ze-textentry-body {
+  display: flex;
+  flex-direction: column;
+  margin: 5px; /* [data] Add( m_ContentSizer, 1, wxALL|wxEXPAND, 5 ) */
+}
+.ze-textentry-label {
+  margin: 5px 5px 0; /* [data] wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5 */
+}
+.ze-textentry-ctrl {
+  margin: 5px; /* [data] wxEXPAND|wxALL, 5 */
+  min-width: 300px; /* [data] m_textCtrl->SetMinSize( wxSize( 300,-1 ) ) */
+}
+.ze-textentry-ctrl.extra {
+  min-width: 700px; /* [data] aExtraWidth ? wxSize( 700, -1 ) */
+}
+
 /* Syntax Help states its own size where the Errors box takes the minimum:
 
      dlg->SetMinSize( dlg->ConvertDialogToPixels( wxSize( 320, 320 ) ) );

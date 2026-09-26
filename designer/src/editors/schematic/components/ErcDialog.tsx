@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { WX_TEXT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_text_entry.js';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { iuToMM } from '@ziroeda/common';
 import {
@@ -439,11 +440,10 @@ export function ErcDialog({
     const excludedNow = isExcl(v);
     const listName = v.severity === 'error' ? 'errors' : 'warnings';
     const key = ercExclusionKey(v);
-    const askComment = (initial: string): string | null => {
-      // WX_TEXT_ENTRY_DIALOG( _( "Exclusion Comment" ) ).
-      const text = window.prompt('Exclusion Comment', initial);
-      return text === null ? null : text;
-    };
+    // WX_TEXT_ENTRY_DIALOG( this, wxEmptyString, _( "Exclusion Comment" ),
+    // aInitial, true ): the shared dialog, not the browser's prompt().
+    const askComment = (initial: string, done: (text: string) => void): void =>
+      setCommentAsk({ initial, done });
     const items: MenuItem[] = excludedNow
       ? [
           {
@@ -453,8 +453,7 @@ export function ErcDialog({
           {
             label: 'Edit exclusion comment...',
             action: () => {
-              const text = askComment(exclusionComments?.get(key) ?? '');
-              if (text !== null) onToggleExclude(v, text);
+              askComment(exclusionComments?.get(key) ?? '', (text) => onToggleExclude(v, text));
             },
           },
           { sep: true },
@@ -467,8 +466,7 @@ export function ErcDialog({
           {
             label: 'Exclude with comment...',
             action: () => {
-              const text = askComment('');
-              if (text !== null) onToggleExclude(v, text);
+              askComment('', (text) => onToggleExclude(v, text));
             },
           },
           { sep: true },
@@ -527,6 +525,11 @@ export function ErcDialog({
   const [configOpen, setConfigOpen] = useState<{ x: number; y: number } | null>(null);
   // The Save File dialog's wildcard: a text report or the JSON schema.
   const [saveMenu, setSaveMenu] = useState<{ x: number; y: number } | null>(null);
+  /** The open Exclusion Comment dialog, and what OK does with its text. */
+  const [commentAsk, setCommentAsk] = useState<{
+    initial: string;
+    done: (text: string) => void;
+  } | null>(null);
 
   return (
     <div className="ze-erc-panel" ref={panelRef}>
@@ -813,6 +816,19 @@ export function ErcDialog({
           y={configOpen.y}
           items={configMenu}
           onClose={() => setConfigOpen(null)}
+        />
+      )}
+      {commentAsk && (
+        <WX_TEXT_ENTRY_DIALOG
+          label=""
+          caption="Exclusion Comment"
+          defaultValue={commentAsk.initial}
+          extraWidth
+          onResult={(text) => {
+            const { done } = commentAsk;
+            setCommentAsk(null);
+            if (text !== null) done(text);
+          }}
         />
       )}
     </div>
