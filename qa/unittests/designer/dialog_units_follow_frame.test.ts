@@ -43,7 +43,11 @@ const DIALOGS = fileURLToPath(
  */
 const SHARED_DIALOGS = fileURLToPath(new URL('../../../common/dialogs', import.meta.url));
 // Keyed as `common/<file>` since 09-21: eeschema's wrapper has the same name.
-const SHARED_FILES = ['common/dialog_table_properties.tsx'];
+// Every file in the folder since 09-26, not a hand-kept list: a dialog that
+// moved into common/dialogs otherwise left the scan the day it arrived.
+const SHARED_FILES = readdirSync(SHARED_DIALOGS)
+  .filter((f) => f.endsWith('.tsx'))
+  .map((f) => `common/${f}`);
 
 /**
  * The board editor's dialogs, scanned by the same rule.

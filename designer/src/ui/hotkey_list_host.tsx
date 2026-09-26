@@ -29,15 +29,14 @@
  * schematic's action registry.
  */
 import { useEffect, useState, type JSX } from 'react';
-import { PanelHotkeysEditor } from '../dialogs/prefs/panels/PanelHotkeysEditor.js';
-import { buildHotkeySections, type HotkeyOverrides } from './hotkeys_inventory.js';
+import { HotkeyListDialog } from '@ziroeda/common/dialogs/dialog_hotkey_list.js';
+import { buildHotkeySections } from './hotkeys_inventory.js';
 import {
   claimBrowserHotkeys,
   lockReservedKeysWhileFullscreen,
 } from '@ziroeda/common/browser_hotkeys.js';
 import { onShowHotkeyList } from './hotkey_list_action.js';
 import { settings } from '../prefs/settings.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 /**
  * The host for ACTIONS::listHotKeys. One of these is mounted above the app, so
@@ -92,52 +91,12 @@ export function HotkeyListHost(): JSX.Element | null {
     };
   }, []);
 
-  return open ? <HotkeyListDialog onClose={() => setOpen(false)} /> : null;
-}
-
-export function HotkeyListDialog({ onClose }: { onClose: () => void }): JSX.Element {
-  /**
-   * `HOTKEY::m_EditKeycode` - the pending value the tree shows, which OK
-   * commits and Cancel drops. The stored binding does not move until
-   * TransferDataFromWindow, which is why the dialog holds a copy rather than
-   * writing settings as the user goes.
-   */
-  const [edit, setEdit] = useState<HotkeyOverrides>(() => ({ ...settings.hotkeys }));
-
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-  useModalEscape(onClose);
-
-  /** DIALOG_LIST_HOTKEYS::TransferDataFromWindow, forwarded to the panel. */
-  const onOk = (): void => {
-    settings.setHotkeys(edit);
-    onClose();
-  };
-
-  return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-hotkeys" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Hotkey List
-          <span className="x" title="Close" onClick={onClose}>
-            ✕
-          </span>
-        </div>
-
-        <div className="ze-modal-body ze-hotkeys-body">
-          {/* PANEL_HOTKEYS_EDITOR( aParent, this, true ) - the same panel the
-              Preferences page shows, built read-only. */}
-          <PanelHotkeysEditor readOnly overrides={edit} onChange={setEdit}>
-            {/* sdb_sizer, added to the panel's GetBottomSizer(). */}
-            <button type="button" className="ze-btn" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="button" className="ze-btn" onClick={onOk}>
-              OK
-            </button>
-          </PanelHotkeysEditor>
-        </div>
-      </div>
-    </div>
-  );
+  return open ? (
+    <HotkeyListDialog
+      actions={buildHotkeySections}
+      overrides={settings.hotkeys}
+      onApply={(next) => settings.setHotkeys(next)}
+      onClose={() => setOpen(false)}
+    />
+  ) : null;
 }

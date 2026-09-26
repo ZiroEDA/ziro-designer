@@ -152,7 +152,9 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // Setup panels moved to `common/dialogs`, with two colours and four sizes.
   // colours 2 -> 1 on 09-26 (stage 3b): prefs/widgets.tsx, the wx controls
   // every panel is built from, moved to `common/wx` with its one colour.
-  dialogs: { colours: 1, metrics: 15 },
+  // 1/15 -> 0/0 on 09-26 (stage 3d): DIALOG_LIST_HOTKEYS and
+  // PANEL_HOTKEYS_EDITOR moved to `common/dialogs` and took the rest.
+  dialogs: { colours: 0, metrics: 0 },
   // metrics 18 -> 16 on 09-26: the calculator's own About box went, and its
   // `margin: '0 0 8px'` and `paddingLeft: 18` with it. Help > About opens
   // common/dialog_about's DIALOG_ABOUT now, as pcb_calculator's does.
@@ -704,7 +706,8 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // metrics 0 -> 15 on 09-26: the stage-1 moves, 8 from `dialogs` and 7 from
   // `editors/schematic`. Nothing added or removed: 8 + 7 = 15.
   // 0/15 -> 2/19 on 09-26 (stage 2): what `dialogs` gave up, 2 + 4.
-  'common/dialogs': { colours: 2, metrics: 19 },
+  // 2/19 -> 3/34 on 09-26 (stage 3d): what `dialogs` gave up, 1 + 15.
+  'common/dialogs': { colours: 3, metrics: 34 },
   // 09-26 (stage 3b): common/wx/controls.tsx, the wx controls the panels'
   // `_base` files instantiate, with the one colour `dialogs` gave up.
   'common/wx': { colours: 1, metrics: 0 },

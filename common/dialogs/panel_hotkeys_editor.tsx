@@ -37,17 +37,23 @@
 
 import { useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react';
 import {
-  buildHotkeySections,
   filterHotkeys,
   hotkeyConflicts,
   type HotkeyOverrides,
-} from '../../../ui/hotkeys_inventory.js';
-import { importOntoNames, parseHotkeyFile } from '@ziroeda/common/hotkeys_basic_file.js';
-import { isBrowserReserved } from '@ziroeda/common/browser_hotkeys.js';
-import { comboFromEvent, isReservedHotkey } from '../../../editors/schematic/hotkey_bindings.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+  type HotkeySection,
+} from '../hotkey_store.js';
+import { importOntoNames, parseHotkeyFile } from '../hotkeys_basic_file.js';
+import { isBrowserReserved } from '../browser_hotkeys.js';
+import { comboFromEvent, isReservedHotkey } from '../hotkeys_basic_keys.js';
+import { useModalEscape } from './use_modal_escape.js';
 
 interface Props {
+  /**
+   * `m_actions`, the actions list: every program's TOOL_ACTIONs, which the
+   * frame collects (`kiface->GetActions( hotkeysPanel->ActionsList() )`) and
+   * the panel's HOTKEY_STORE folds into sections with the overrides applied.
+   */
+  actions: (overrides: HotkeyOverrides) => HotkeySection[];
   overrides: HotkeyOverrides;
   /** Absent from the map = the action keeps its default. */
   onChange?: (next: HotkeyOverrides) => void;
@@ -134,6 +140,7 @@ function HotkeyPrompt({
 }
 
 export function PanelHotkeysEditor({
+  actions,
   overrides,
   onChange,
   readOnly,
@@ -171,7 +178,7 @@ export function PanelHotkeysEditor({
    */
   const [selected, setSelected] = useState<string | null>(null);
 
-  const all = useMemo(() => buildHotkeySections(overrides), [overrides]);
+  const all = useMemo(() => actions(overrides), [actions, overrides]);
   const shown = useMemo(() => filterHotkeys(all, filter), [all, filter]);
 
   useEffect(() => {

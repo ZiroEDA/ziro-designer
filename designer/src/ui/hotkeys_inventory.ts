@@ -58,6 +58,16 @@ import {
 } from '../editors/pcb/pcbToolbars.js';
 import { VIEWER3D_TOP_TOOLBAR } from '../editors/pcb/viewer3dToolbars.js';
 import { buildViewer3DMenus } from '../editors/pcb/viewer3dMenus.js';
+// HOTKEY_STORE's model (common/hotkey_store.cpp) lives in common/; this module
+// is the app's actions list that fills it.
+export {
+  filterHotkeys,
+  hotkeyConflicts,
+  type HotkeyEntry,
+  type HotkeyOverrides,
+  type HotkeySection,
+} from '@ziroeda/common/hotkey_store.js';
+import type { HotkeyEntry, HotkeyOverrides, HotkeySection } from '@ziroeda/common/hotkey_store.js';
 import {
   SYM_TOP_TOOLBAR,
   SYM_LEFT_TOOLBAR,
@@ -78,38 +88,6 @@ import {
   DS_LEFT_TOOLBAR,
   DS_RIGHT_TOOLBAR,
 } from '../editors/drawingsheet/drawingSheetToolbars.js';
-
-export interface HotkeyEntry {
-  /**
-   * `TOOL_ACTION::GetName()` - the key HOTKEY_STORE's map is keyed on, which is
-   * what an override, an import and a reset all match a row by.
-   *
-   * Upstream's is `<app>.<Tool>.<action>`; we have the app and the action id but
-   * no tool, so ours is `<app>.<id>` - `kicad.newProject`, `eeschema.drawWire`.
-   * What matters is that it is stable and app-qualified, so the same id in two
-   * editors is two rows rather than one.
-   *
-   * '' for a PSEUDO_ACTION - the gestures and the platform commands - which has
-   * no name upstream either, and so can be neither rebound nor imported onto.
-   */
-  name: string;
-  /** GetFriendlyName(), with the ellipsis stripped as updateFromClientData does. */
-  command: string;
-  /** The primary accelerator in force: the override where there is one, else the default. */
-  keys: string;
-  /** `GetDefaultHotKey()`, which is what "Undo All Changes" and a reset restore. */
-  defaultKeys: string;
-  /** m_EditKeycodeAlt. Nothing here binds a second key yet, so always ''. */
-  alt: string;
-  /** GetDescription(), flattened to one line. */
-  description: string;
-}
-
-export interface HotkeySection {
-  /** GetSectionName( action ) - what the tree row says. */
-  name: string;
-  entries: HotkeyEntry[];
-}
 
 /**
  * A row while it is still being collected, carrying where its name came from.
@@ -580,7 +558,6 @@ const PLATFORM_COMMANDS: HotkeyEntry[] = [
  * sparse map rather than a full copy of the table - the same reason upstream
  * writes only the changed lines.
  */
-export type HotkeyOverrides = Readonly<Record<string, string | null>>;
 
 /**
  * The schematic's action registry, folded into its section.
@@ -903,55 +880,5 @@ export function buildHotkeySections(overrides: HotkeyOverrides = {}): HotkeySect
     }
   }
   out.push({ name: 'Gestures', entries: GESTURES });
-  return out;
-}
-
-/**
- * WIDGET_HOTKEY_LIST's filter, which tests the command name and the key text,
- * so searching "ctrl+z" finds Undo. The description is searched too - upstream
- * added that column and there is no reason to make it dead weight.
- */
-export function filterHotkeys(sections: readonly HotkeySection[], filter: string): HotkeySection[] {
-  const needle = filter.trim().toLowerCase();
-  if (needle === '') return sections as HotkeySection[];
-  return sections
-    .map((s) => ({
-      name: s.name,
-      entries: s.entries.filter(
-        (e) =>
-          e.command.toLowerCase().includes(needle) ||
-          e.keys.toLowerCase().includes(needle) ||
-          e.description.toLowerCase().includes(needle),
-      ),
-    }))
-    .filter((s) => s.entries.length > 0);
-}
-
-/**
- * Commands already answering to `keys`, ignoring the one being rebound.
- *
- * `WIDGET_HOTKEY_LIST::resolveKeyConflicts` names what holds a combo before
- * assigning it, because "already taken" is the one thing a user cannot see for
- * themselves while typing one into a row. It searches the whole store rather
- * than the section, so a schematic binding that collides with a PCB one is
- * still reported.
- *
- * A PSEUDO_ACTION is skipped: a gesture is not something a key can be taken
- * from, and Ctrl+Click is not a keystroke.
- */
-export function hotkeyConflicts(
-  sections: readonly HotkeySection[],
-  keys: string,
-  exceptName: string,
-): { command: string; section: string }[] {
-  if (keys === '') return [];
-  const want = keys.toLowerCase();
-  const out: { command: string; section: string }[] = [];
-  for (const s of sections) {
-    for (const e of s.entries) {
-      if (e.name === '' || e.name === exceptName) continue;
-      if (e.keys.toLowerCase() === want) out.push({ command: e.command, section: s.name });
-    }
-  }
   return out;
 }

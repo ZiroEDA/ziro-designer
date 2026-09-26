@@ -44,7 +44,7 @@ const OWNS_A_CANVAS = [
   'editors/pcb/PcbEditor.tsx',
   'editors/schematic/SchematicEditor.tsx',
   'editors/symbol/SymbolEditor.tsx',
-  'dialogs/prefs/panels/PanelHotkeysEditor.tsx',
+  '../../common/dialogs/panel_hotkeys_editor.tsx',
 ];
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -56,7 +56,26 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-const FILES = walk(SRC).map((path) => ({
+/**
+ * KiCad's shared dialogs live in `common/` (its `common/dialogs` and
+ * `common/dialog_about`), and ours have been moving there since 09-26. A walk
+ * of `designer/src` alone lost every dialog the moment it moved - they were
+ * no longer checked, and nothing failed. Both trees are walked; a `common/`
+ * file's `rel` is spelled from `designer/src` (`../../common/...`).
+ */
+const COMMON = fileURLToPath(new URL('../../../common', import.meta.url));
+
+function walkCommon(dir: string, out: string[] = []): string[] {
+  for (const name of readdirSync(dir)) {
+    if (name === 'node_modules') continue;
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) walkCommon(path, out);
+    else if (name.endsWith('.tsx')) out.push(path);
+  }
+  return out;
+}
+
+const FILES = [...walk(SRC), ...walkCommon(COMMON)].map((path) => ({
   rel: relative(SRC, path),
   src: readFileSync(path, 'utf8'),
 }));

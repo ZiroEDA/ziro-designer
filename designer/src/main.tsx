@@ -11,7 +11,7 @@ import { DesktopGate } from './mobile/DesktopGate.js';
 import { ErrorBoundary } from './ui/ErrorBoundary.js';
 import { StorageBanner } from './ui/StorageBanner.js';
 import { TooltipLayer } from '@ziroeda/common/widgets/tooltip.js';
-import { HotkeyListHost } from './ui/dialog_hotkey_list.js';
+import { HotkeyListHost } from './ui/hotkey_list_host.js';
 import { initTelemetry } from './telemetry/reporter.js';
 import { sentrySink } from './telemetry/sentrySink.js';
 import { installGlobalErrorHandlers } from './telemetry/global_handlers.js';
