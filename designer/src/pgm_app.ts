@@ -24,7 +24,6 @@ import { WXK } from '@ziroeda/common/wx/wx_event.js';
 import { colorSettingsById } from './prefs/color_settings_list.js';
 import { type MouseDragAction, type ScrollModifier, settings } from './prefs/settings.js';
 
-
 /** `panel_mouse_settings.cpp:113-119`: the four choices are `WXK_*` codes. */
 const MODIFIER_CODES: Readonly<Record<ScrollModifier, number>> = {
   none: WXK.WXK_NONE,
@@ -104,7 +103,6 @@ function loadColorSettingsByName(aName: string): COLOR_SETTINGS | null {
   cs.LoadFromContents(contents);
   return cs;
 }
-
 
 /**
  * `PGM_BASE::InitPgm`: install the program object once, at startup. Later

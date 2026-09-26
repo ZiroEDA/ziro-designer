@@ -21,10 +21,7 @@ import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { KICURSOR } from '@ziroeda/common/gal/cursors.js';
 import type { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { LSET } from '@ziroeda/common/lset.js';
-import {
-  PGM_BASE,
-  PgmOrNull,
-} from '@ziroeda/common/pgm_base.js';
+import { PGM_BASE, PgmOrNull } from '@ziroeda/common/pgm_base.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { parseBoardItemId } from '@ziroeda/pcbnew/edit-board.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
