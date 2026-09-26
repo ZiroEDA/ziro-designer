@@ -1,0 +1,12 @@
+{
+  "name": "@ziroeda/potrace",
+  "version": "0.0.0",
+  "description": "potracelib 1.15 ported from KiCad's thirdparty/potrace: bitmap decomposition, polygon fitting and curve optimisation, as bitmap2component calls them.",
+  "license": "GPL-2.0-or-later",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

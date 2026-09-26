@@ -260,7 +260,6 @@ describe('every frame opens it', () => {
     'designer/src/editors/pcb/Viewer3DFrame.tsx': 'viewer3d',
     'designer/src/editors/schematic/dialogs/dialog_assign_footprints.tsx': 'cvpcb',
     'designer/src/editors/calculator/CalculatorTools.tsx': 'calculator',
-    'designer/src/editors/image/ImageConverter.tsx': 'imageConverter',
   };
 
   for (const [file, title] of Object.entries(FRAMES)) {
@@ -268,6 +267,18 @@ describe('every frame opens it', () => {
       expect(read(file)).toContain(`<ShowAboutDialog title={ABOUT_TITLES.${title}}`);
     });
   }
+
+  it('ImageConverter.tsx shows it titled with the frame m_aboutTitle, ABOUT_TITLES.imageConverter', () => {
+    // BITMAP2CMP_FRAME sets m_aboutTitle in its constructor
+    // (bitmap2cmp_frame.cpp: `m_aboutTitle = _HKI( "KiCad Image Converter" )`)
+    // and ShowAboutDialog( this ) reads it; the frame is bitmap2component's now.
+    expect(read('designer/src/editors/image/ImageConverter.tsx')).toContain(
+      '<ShowAboutDialog title={frame.m_aboutTitle}',
+    );
+    expect(read('bitmap2component/bitmap2cmp_frame.ts')).toContain(
+      'this.m_aboutTitle = ABOUT_TITLES.imageConverter;',
+    );
+  });
 
   it('the schematic answers the About action its Help menu sends', () => {
     const src = read('designer/src/editors/schematic/SchematicEditor.tsx');
