@@ -1,0 +1,22 @@
+{
+  "name": "@ziroeda/pagelayout_editor",
+  "version": "0.0.0",
+  "description": "Drawing Sheet Editor mirroring KiCad's pagelayout_editor/ (pl_editor): the frame, its layout and settings, undo/redo, the toolbars and menus, the properties and inspector dialogs, and the PL_* tools.",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ziroeda/common": "workspace:*",
+    "@ziroeda/core": "workspace:*",
+    "@ziroeda/kimath": "workspace:*",
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "vite": "^6.0.7"
+  }
+}

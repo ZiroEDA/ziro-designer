@@ -15,7 +15,7 @@
  * a user who learns "right-click, Grid" in the schematic finds it in the board.
  *
  * Ours had one copy, private to the Drawing Sheet Editor
- * (`editors/drawingsheet/ds_context_menu.ts`), and the PCB editor's context
+ * (`pagelayout_editor/tools/pl_selection_tool.ts`), and the PCB editor's context
  * menu simply had no Zoom or Grid rows at all.
  *
  *     aMenu.AddSeparator( 1000 );

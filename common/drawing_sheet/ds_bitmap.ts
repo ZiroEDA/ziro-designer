@@ -13,16 +13,16 @@
  * converts a user-picked image file into the payload + its natural size.
  */
 
-/** Base64 → bytes. */
-function base64ToBytes(b64: string): Uint8Array {
+/** Base64 → bytes (`wxBase64Decode`). */
+export function base64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64.replace(/\s+/g, ''));
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 }
 
-/** Bytes → base64. */
-function bytesToBase64(bytes: Uint8Array): string {
+/** Bytes → base64 (`wxBase64Encode`). */
+export function bytesToBase64(bytes: Uint8Array): string {
   let bin = '';
   const CHUNK = 0x8000;
   for (let i = 0; i < bytes.length; i += CHUNK) {

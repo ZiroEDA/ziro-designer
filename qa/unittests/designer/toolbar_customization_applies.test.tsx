@@ -43,7 +43,7 @@ import {
 import {
   DS_DEFAULT_TOOLBARS,
   DS_LEFT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
+} from '@ziroeda/pagelayout_editor/toolbars_pl_editor.js';
 import { SCH_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
 
 afterEach(cleanup);

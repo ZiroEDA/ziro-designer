@@ -34,7 +34,7 @@ import { fileURLToPath } from 'node:url';
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const PANEL = read('../../../designer/src/editors/drawingsheet/PropertiesFrame.tsx');
+const PANEL = read('../../../pagelayout_editor/dialogs/properties_frame_ui.tsx');
 const EDITOR = read('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx');
 const FIELD = read('../../../common/widgets/unit_binder_ui.tsx');
 

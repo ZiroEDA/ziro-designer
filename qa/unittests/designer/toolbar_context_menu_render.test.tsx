@@ -25,7 +25,7 @@ import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import {
   DS_LEFT_TOOLBAR,
   DS_RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
+} from '@ziroeda/pagelayout_editor/toolbars_pl_editor.js';
 import { PCB_LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
 
 // `qa` has no testing-library setup file, so the auto-cleanup that ships with

@@ -328,19 +328,25 @@ describe('C9: the frame opens in mils, and the grid does not follow the unit', (
   });
 });
 
-const TOOLBARS = read('../../../designer/src/editors/drawingsheet/drawingSheetToolbars.ts');
+const TOOLBARS = read('../../../pagelayout_editor/toolbars_pl_editor.ts');
 const CANVAS_TSX = CANVAS; // alias for readability below
 
-/** One menu's item block, sliced out of the `menus` memo. */
+/**
+ * The menu bar: `doReCreateMenuBar` in pagelayout_editor/menubar.ts
+ * (menubar.cpp), which the editor renders.
+ */
+const MENUBAR = read('../../../pagelayout_editor/menubar.ts');
+
+/** One menu's item block, sliced out of `doReCreateMenuBar`. */
 function menu(name: string): string {
   // A menu may carry a comment between its label and its items (Preferences
   // does), so anchor on the label and run to that menu's closing `],`.
-  const at = EDITOR.indexOf(`        label: '${name}',\n`);
+  const at = MENUBAR.indexOf(`      label: '${name}',\n`);
   expect(at, `no ${name} menu`).toBeGreaterThanOrEqual(0);
-  const items = EDITOR.indexOf('        items: [', at);
+  const items = MENUBAR.indexOf('      items: [', at);
   expect(items, `${name} has no items`).toBeGreaterThan(at);
-  const end = EDITOR.indexOf('\n        ],', items);
-  return EDITOR.slice(items, end);
+  const end = MENUBAR.indexOf('\n      ],', items);
+  return MENUBAR.slice(items, end);
 }
 
 describe('C2: Place ends with a separator and Reset Grid Origin', () => {
@@ -421,7 +427,9 @@ describe('C5: zoomTool is an armed rubber-band tool', () => {
     const view = menu('View');
     const at = view.indexOf("label: 'Zoom to Selection Area'");
     const row = view.slice(at, at + 260);
-    expect(row).toContain("setActiveTool('zoomTool')");
+    expect(row).toContain('action: h.zoomTool');
+    // ...and the editor's handler for it arms the tool.
+    expect(EDITOR).toContain("zoomTool: () => setActiveTool('zoomTool'),");
     // Upstream needs no selection, so the row has no `disabled` condition.
     expect(row).not.toContain('disabled:');
   });
@@ -673,12 +681,16 @@ describe('D7: this editor adds no new hardcoded font size', () => {
    * PropertiesFrame.tsx is the unit-binder PR's file. This test is a ratchet
    * so the count cannot grow while that is settled - see the PR.
    */
-  const FILES = ['DesignInspector.tsx', 'PropertiesFrame.tsx', 'DrawingSheetEditor.tsx'];
+  const FILES = [
+    'pagelayout_editor/dialogs/design_inspector_ui.tsx',
+    'pagelayout_editor/dialogs/properties_frame_ui.tsx',
+    'designer/src/editors/drawingsheet/DrawingSheetEditor.tsx',
+  ];
 
   it('holds at the 6 known sites', () => {
     let n = 0;
     for (const f of FILES) {
-      const src = read(`../../../designer/src/editors/drawingsheet/${f}`);
+      const src = read(`../../../${f}`);
       n += [...src.matchAll(/fontSize:\s*\d/g)].length;
     }
     // 14 until UnitField took MmField's literal "mm" span away, then 13 until

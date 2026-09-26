@@ -79,7 +79,7 @@ import {
   SELECT_THRESHOLD_PX,
   thresholdToWorld,
   withinPoint,
-} from './hit_test.js';
+} from '@ziroeda/pagelayout_editor/tools/pl_selection_tool.js';
 
 /*
  * The canvas cursors are KiCad's own art now - see `ui/kicursors.ts` and

@@ -22,6 +22,19 @@ import { list, atom, str, type SNode, type SList } from '@ziroeda/sexpr/types.js
 import { serialize } from '@ziroeda/sexpr/serializer.js';
 import { GENERATOR, GENERATOR_VERSION } from '../generator.js';
 import { formatDouble2Str } from '../plotters/fmt.js';
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '../font/text_attributes.js';
+import { bytesToBase64 } from './ds_bitmap.js';
+import {
+  CORNER_ANCHOR,
+  type DS_DATA_ITEM,
+  type DS_DATA_ITEM_BITMAP,
+  type DS_DATA_ITEM_POLYGONS,
+  type DS_DATA_ITEM_TEXT,
+  DS_ITEM_TYPE,
+  PAGE_OPTION,
+  type POINT_COORD,
+} from './ds_data_item.js';
+import type { DS_DATA_MODEL } from './ds_data_model.js';
 import {
   WKS_FILE_VERSION,
   type WksSheet,
@@ -29,6 +42,11 @@ import {
   type WksPoint,
   type WksText,
   type WksItemBase,
+  type WksCorner,
+  type WksOption,
+  type WksHJustify,
+  type WksVJustify,
+  type WksXY,
 } from './types.js';
 
 const A = atom;
@@ -199,8 +217,13 @@ function itemNode(it: WksItem, defaultLineWidth: number): SList | null {
   }
 }
 
-/** Build the `(kicad_wks …)` AST for a sheet. */
-export function writeDrawingSheet(sheet: WksSheet): SList {
+/**
+ * Build the `(kicad_wks …)` AST for a sheet. `aWithSetup` false is
+ * `DS_DATA_MODEL_IO::Format( aModel, aItemsList )`, the clipboard's form,
+ * which writes the header and the items and no `(setup …)`
+ * (ds_data_model_io.cpp:170-181).
+ */
+export function writeDrawingSheet(sheet: WksSheet, aWithSetup = true): SList {
   const s = sheet.setup;
   const setup = list(
     A('setup'),
@@ -220,12 +243,198 @@ export function writeDrawingSheet(sheet: WksSheet): SList {
     list(A('version'), A(String(WKS_FILE_VERSION))),
     list(A('generator'), S(GENERATOR)),
     list(A('generator_version'), S(GENERATOR_VERSION)),
-    setup,
+    ...(aWithSetup ? [setup] : []),
     ...items,
   );
 }
 
-/** Serialize a `WksSheet` to `.kicad_wks` text. */
-export function serializeDrawingSheet(sheet: WksSheet): string {
-  return serialize(writeDrawingSheet(sheet));
+/** Serialize a `WksSheet` to `.kicad_wks` text; see `writeDrawingSheet` for `aWithSetup`. */
+export function serializeDrawingSheet(sheet: WksSheet, aWithSetup = true): string {
+  return serialize(writeDrawingSheet(sheet, aWithSetup));
+}
+
+// ----- DS_DATA_MODEL_IO::Format( DS_DATA_MODEL* ) ------------------------------
+
+// Functions rather than tables: this module and ds_data_item.ts import each
+// other, so their enums are not there yet while this one is initialising.
+function cornerName(aAnchor: number): WksCorner {
+  switch (aAnchor) {
+    case CORNER_ANCHOR.RT_CORNER:
+      return 'rtcorner';
+    case CORNER_ANCHOR.LB_CORNER:
+      return 'lbcorner';
+    case CORNER_ANCHOR.LT_CORNER:
+      return 'ltcorner';
+    default:
+      return 'rbcorner';
+  }
+}
+
+function optionName(aOption: PAGE_OPTION): WksOption {
+  switch (aOption) {
+    case PAGE_OPTION.FIRST_PAGE_ONLY:
+      return 'page1only';
+    case PAGE_OPTION.SUBSEQUENT_PAGES:
+      return 'notonpage1';
+    default:
+      return 'normal';
+  }
+}
+
+const pointOf = (c: POINT_COORD): WksPoint => ({
+  x: c.m_Pos.x,
+  y: c.m_Pos.y,
+  corner: cornerName(c.m_Anchor),
+});
+
+const hjustifyOf = (a: GR_TEXT_H_ALIGN_T): WksHJustify =>
+  a === GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER
+    ? 'center'
+    : a === GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT
+      ? 'right'
+      : 'left';
+
+const vjustifyOf = (a: GR_TEXT_V_ALIGN_T): WksVJustify =>
+  a === GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP
+    ? 'top'
+    : a === GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM
+      ? 'bottom'
+      : 'center';
+
+function baseOf(aItem: DS_DATA_ITEM): Omit<WksItemBase, 'type'> {
+  return {
+    name: aItem.m_Name,
+    option: optionName(aItem.GetPage1Option()),
+    repeat: aItem.m_RepeatCount,
+    incrx: aItem.m_IncrementVector.x,
+    incry: aItem.m_IncrementVector.y,
+    incrlabel: aItem.m_IncrementLabel,
+    comment: aItem.m_Info,
+  };
+}
+
+/** `DS_DATA_MODEL_IO::Format( DS_DATA_MODEL*, DS_DATA_ITEM* )`: one item as the file holds it. */
+function formatItem(aItem: DS_DATA_ITEM): WksItem | null {
+  const base = baseOf(aItem);
+
+  switch (aItem.GetType()) {
+    case DS_ITEM_TYPE.DS_SEGMENT:
+    case DS_ITEM_TYPE.DS_RECT:
+      return {
+        ...base,
+        type: aItem.GetType() === DS_ITEM_TYPE.DS_SEGMENT ? 'line' : 'rect',
+        start: pointOf(aItem.m_Pos),
+        end: pointOf(aItem.m_End),
+        lineWidth: aItem.m_LineWidth,
+      };
+
+    case DS_ITEM_TYPE.DS_TEXT: {
+      const t = aItem as DS_DATA_ITEM_TEXT;
+      const c = t.m_TextColor;
+      // COLOR4D::UNSPECIFIED is (0, 0, 0, 0): no `(color …)` is written.
+      const unspecified = c.r === 0 && c.g === 0 && c.b === 0 && c.a === 0;
+      const face = t.m_Font ? t.m_Font.GetName() : '';
+
+      return {
+        ...base,
+        type: 'text',
+        text: t.m_TextBase,
+        pos: pointOf(t.m_Pos),
+        fontW: t.m_TextSize.x,
+        fontH: t.m_TextSize.y,
+        bold: t.m_Bold,
+        italic: t.m_Italic,
+        ...(face ? { face } : {}),
+        ...(unspecified
+          ? {}
+          : {
+              color: {
+                r: Math.round(c.r * 255),
+                g: Math.round(c.g * 255),
+                b: Math.round(c.b * 255),
+                a: c.a,
+              },
+            }),
+        lineWidth: t.m_LineWidth,
+        hjustify: hjustifyOf(t.m_Hjustify),
+        vjustify: vjustifyOf(t.m_Vjustify),
+        rotate: t.m_Orient,
+        maxlen: t.m_BoundingBoxSize.x,
+        maxheight: t.m_BoundingBoxSize.y,
+      };
+    }
+
+    case DS_ITEM_TYPE.DS_POLYPOLYGON: {
+      const p = aItem as DS_DATA_ITEM_POLYGONS;
+      const contours: WksXY[][] = [];
+
+      for (let kk = 0; kk < p.GetPolyCount(); kk++) {
+        const contour: WksXY[] = [];
+
+        for (let ii = p.GetPolyIndexStart(kk); ii <= p.GetPolyIndexEnd(kk); ii++)
+          contour.push({ x: p.m_Corners[ii]!.x, y: p.m_Corners[ii]!.y });
+
+        contours.push(contour);
+      }
+
+      return {
+        ...base,
+        type: 'polygon',
+        pos: pointOf(p.m_Pos),
+        rotate: p.m_Orient.AsDegrees(),
+        lineWidth: p.m_LineWidth,
+        contours,
+      };
+    }
+
+    case DS_ITEM_TYPE.DS_BITMAP: {
+      const b = aItem as DS_DATA_ITEM_BITMAP;
+      const image = b.m_ImageBitmap;
+      const data = image ? image.SaveImageData() : null;
+      const px = image?.GetOriginalImageData() ? image.GetSizePixels() : null;
+
+      return {
+        ...base,
+        type: 'bitmap',
+        pos: pointOf(b.m_Pos),
+        scale: image ? image.GetScale() : 1,
+        pngB64: data ? bytesToBase64(data) : '',
+        ppi: image ? image.GetPPI() : 300,
+        ...(px ? { pxW: px.x, pxH: px.y } : {}),
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * `DS_DATA_MODEL_IO::Format( DS_DATA_MODEL* )` as the `WksSheet` that
+ * `writeDrawingSheet` above prints: the model's setup and its items. With
+ * `aItemsList` it is the clipboard's form, `Format( aModel, aItemsList )`,
+ * whose text carries no `(setup …)`: print it with `aWithSetup` false.
+ */
+export function DS_DATA_MODEL_IO_Format(
+  aModel: DS_DATA_MODEL,
+  aItemsList?: readonly DS_DATA_ITEM[],
+): WksSheet {
+  const items = (aItemsList ?? aModel.GetItems())
+    .map(formatItem)
+    .filter((i): i is WksItem => i !== null);
+
+  return {
+    version: WKS_FILE_VERSION,
+    generator: GENERATOR,
+    setup: {
+      textW: aModel.m_DefaultTextSize.x,
+      textH: aModel.m_DefaultTextSize.y,
+      lineWidth: aModel.m_DefaultLineWidth,
+      textLineWidth: aModel.m_DefaultTextThickness,
+      leftMargin: aModel.GetLeftMargin(),
+      rightMargin: aModel.GetRightMargin(),
+      topMargin: aModel.GetTopMargin(),
+      bottomMargin: aModel.GetBottomMargin(),
+    },
+    items,
+  };
 }

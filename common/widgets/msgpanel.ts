@@ -7,6 +7,8 @@
  * panel that paints them, is the React message panel.
  */
 
+import { ADVANCED_CFG } from '../advanced_config.js';
+
 /** The default number of spaces between each text string. */
 export const MSG_PANEL_DEFAULT_PAD = 6;
 
@@ -44,4 +46,21 @@ export class MSG_PANEL_ITEM {
   GetPadding(): number {
     return this.m_Padding;
   }
+}
+
+/**
+ * `GetMsgPanelDisplayUuid( const KIID& aKiid )` (common/widgets/msgpanel.cpp):
+ * the UUID row's text when the advanced config asks for one.
+ */
+export function GetMsgPanelDisplayUuid(aKiid: string): string | undefined {
+  const showUuids = ADVANCED_CFG.GetCfg().m_MsgPanelShowUuids;
+  let uuid: string | undefined;
+
+  if (showUuids > 0) {
+    uuid = aKiid;
+
+    if (showUuids === 2) uuid = uuid.slice(0, 8);
+  }
+
+  return uuid;
 }

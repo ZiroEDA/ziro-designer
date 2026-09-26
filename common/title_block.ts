@@ -155,7 +155,7 @@ export class TITLE_BLOCK {
     if (tokenUpdated) {
       if (aToken.value === 'CURRENT_DATE') aToken.value = TITLE_BLOCK.GetCurrentDate();
       else if (aProject)
-        aToken.value = ExpandTextVars(aToken.value, aProject.TextVarResolver, aFlags);
+        aToken.value = ExpandTextVars(aToken.value, (t) => aProject.TextVarResolver(t), aFlags);
 
       // This is the default fallback, so don't claim we resolved it
       if (aToken.value === `\${${originalToken}}`) return false;

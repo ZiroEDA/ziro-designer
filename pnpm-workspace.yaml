@@ -3,6 +3,7 @@ packages:
   - "eeschema"
   - "gerbview"
   - "bitmap2component"
+  - "pagelayout_editor"
   - "pcbnew"
   - "pcb_calculator"
   - "designer"

@@ -73,9 +73,10 @@ import {
   zoomFactorForScale,
   zoomMsg,
 } from '@ziroeda/common/widgets/kistatusbar_format.js';
-import { DS_DEFAULT_TOOLBARS } from './drawingSheetToolbars.js';
+import { DS_DEFAULT_TOOLBARS } from '@ziroeda/pagelayout_editor/toolbars_pl_editor.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
-import { buildDsContextMenu } from './ds_context_menu.js';
+import { buildDsContextMenu } from '@ziroeda/pagelayout_editor/tools/pl_selection_tool.js';
+import { doReCreateMenuBar } from '@ziroeda/pagelayout_editor/menubar.js';
 import {
   DEFAULT_GRID_INDEX,
   GRID_SIZE_LIST,
@@ -85,14 +86,17 @@ import {
   type FastGridAction,
 } from '@ziroeda/common/settings/grid_settings_ui.js';
 import { DrawingSheetCanvas, type DrawingSheetCanvasController } from './DrawingSheetCanvas.js';
-import { PropertiesFrame, SyntaxHelpDialog } from './PropertiesFrame.js';
+import {
+  PropertiesFrame,
+  SyntaxHelpDialog,
+} from '@ziroeda/pagelayout_editor/dialogs/properties_frame_ui.js';
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
 import { dockedPaneWidth } from '@ziroeda/common/widgets/wx_aui_sash_geometry.js';
 import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
 import { leafOf, savePathWithExtension } from '../../fs/save_path.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { drawingSheetWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
-import { DesignInspector } from './DesignInspector.js';
+import { DesignInspector } from '@ziroeda/pagelayout_editor/dialogs/design_inspector_ui.js';
 import { MessageDialogError, MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
@@ -106,13 +110,22 @@ import {
   dsFileLoadedMsg,
   dsFileSavedMsg,
   dsUnableToLoadMsg,
-} from './file_commands.js';
-import { PL_EDITOR_STATUS_TEMPLATES, plCoordFields } from './pl_status_bar.js';
-import { PL_EDITOR_PRINT_PAGES, printDocumentHtml } from './print_document.js';
-import { DS_CANVAS_PAGE_NUMBERING, dsPrintPageNumbering } from './page_numbering.js';
+} from '@ziroeda/pagelayout_editor/files.js';
+import {
+  PL_EDITOR_STATUS_TEMPLATES,
+  plCoordFields,
+} from '@ziroeda/pagelayout_editor/pl_editor_frame.js';
+import {
+  PL_EDITOR_PRINT_PAGES,
+  printDocumentHtml,
+} from '@ziroeda/pagelayout_editor/dialogs/dialogs_for_printing.js';
+import {
+  DS_CANVAS_PAGE_NUMBERING,
+  dsPrintPageNumbering,
+} from '@ziroeda/pagelayout_editor/dialogs/dialogs_for_printing.js';
 import { UnsavedChangesDialog } from '@ziroeda/common/dialogs/dialog_unsaved_changes.js';
 import { handleUnsavedChanges, type UnsavedChangesResult } from '@ziroeda/common/confirm.js';
-import { dsInspectorTitle } from './design_inspector.js';
+import { dsInspectorTitle } from '@ziroeda/pagelayout_editor/dialogs/design_inspector.js';
 import { DialogPageSettings } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import {
   previewPageMM,
@@ -120,7 +133,7 @@ import {
   previewSettingsFromConfig,
   writePageToConfig,
   type PreviewSettings,
-} from './preview_settings.js';
+} from '@ziroeda/pagelayout_editor/pl_editor_frame.js';
 import {
   captureUndoItem,
   clearUndoRedoList,
@@ -131,9 +144,14 @@ import {
   type RestoredLayout,
   rollbackFromUndo,
   saveCopyInUndoList,
-} from './undo_stack.js';
-import { toolClearsSelection } from './hit_test.js';
-import { pasteEnabled, redoEnabled, toolbarDisabledIds, undoEnabled } from './ui_conditions.js';
+} from '@ziroeda/pagelayout_editor/pl_editor_undo_redo.js';
+import { toolClearsSelection } from '@ziroeda/pagelayout_editor/tools/pl_selection_tool.js';
+import {
+  pasteEnabled,
+  redoEnabled,
+  toolbarDisabledIds,
+  undoEnabled,
+} from '@ziroeda/pagelayout_editor/pl_editor_frame.js';
 import { imageFileToPng, decodeImageMeta } from '@ziroeda/common';
 import { drawDrawingSheetItems, DS_PRINT_PAPER_COLOR } from '@ziroeda/common';
 import '@ziroeda/common/widgets/shell.css';
@@ -1950,189 +1968,56 @@ export function DrawingSheetEditor({
   });
 
   const menus: Menu[] = useMemo(
-    () => [
-      {
-        label: 'File',
-        items: [
-          {
-            label: 'New...',
-            icon: 'new',
-            action: () => requestFileCommand('new'),
-            shortcut: browserSafeKey('Ctrl+N'),
-          },
-          {
-            label: 'Open...',
-            icon: 'open',
-            action: () => requestFileCommand('open'),
-            shortcut: 'Ctrl+O',
-          },
-          openRecentItem,
-          { sep: true },
-          { label: 'Save', icon: 'save', action: save, shortcut: 'Ctrl+S' },
-          { label: 'Save As...', icon: 'saveAs', action: saveAs, shortcut: 'Shift+Ctrl+S' },
-          { sep: true },
-          { label: 'Print...', icon: 'print', action: printSheet, shortcut: 'Ctrl+P' },
-          { sep: true },
-          addClose('Drawing Sheet Editor', onExitToHome),
-          addQuit('Drawing Sheet Editor', onExitToHome),
-        ],
-      },
-      {
-        label: 'Edit',
-        items: [
-          // ENABLE( cond.UndoAvailable() ) / RedoAvailable()
-          // (pl_editor_frame.cpp:319-320).
-          {
-            label: 'Undo',
-            icon: 'undo',
-            action: undo,
-            shortcut: 'Ctrl+Z',
-            disabled: !undoEnabled(historyDepth),
-          },
-          {
-            label: 'Redo',
-            icon: 'redo',
-            action: redo,
-            shortcut: 'Ctrl+Y',
-            disabled: !redoEnabled(historyDepth),
-          },
-          { sep: true },
-          {
-            label: 'Cut',
-            icon: 'cut',
-            action: cutSelection,
-            shortcut: 'Ctrl+X',
-            disabled: selection.size === 0,
-          },
-          {
-            label: 'Copy',
-            icon: 'copy',
-            action: copySelection,
-            shortcut: 'Ctrl+C',
-            disabled: selection.size === 0,
-          },
-          {
-            // Ctrl+V is performed by the browser's own paste, which is the only
-            // reliable read of the system clipboard - see `nativeShortcut`. The
-            // action is what the *row* does when it is clicked.
-            label: 'Paste',
-            icon: 'paste',
-            action: () => void pasteFromSystem(),
-            shortcut: 'Ctrl+V',
-            nativeShortcut: true,
-            // ENABLE( SELECTION_CONDITIONS::Idle && cond.NoActiveTool() )
-            // (pl_editor_frame.cpp:326) — see `ui_conditions.ts`.
-            disabled: !pasteEnabled({
-              activeTool,
-              moving: moveMode,
-              drawing: drawingIndex.current !== null,
-            }),
-          },
-          {
-            label: 'Delete',
-            icon: 'dsDelete',
-            action: deleteSelection,
-            shortcut: 'Delete',
-            disabled: selection.size === 0,
-          },
-        ],
-      },
-      {
-        label: 'View',
-        items: [
-          { label: 'Zoom In', icon: 'zoomIn', action: () => controller.current?.zoomIn() },
-          { label: 'Zoom Out', icon: 'zoomOut', action: () => controller.current?.zoomOut() },
-          {
-            label: 'Zoom to Fit',
-            icon: 'zoomFit',
-            action: () => controller.current?.zoomToFit(),
-            shortcut: 'Home',
-          },
-          {
-            label: 'Zoom to Selection Area',
-            icon: 'zoomTool',
-            action: () => setActiveTool('zoomTool'),
-            shortcut: 'Ctrl+F5',
-          },
-          {
-            label: 'Refresh',
-            icon: 'zoomRedraw',
-            action: () => controller.current?.redraw(),
-            shortcut: 'F5',
-          },
-          { sep: true },
-          {
-            label: 'Page Preview Settings...',
-            icon: 'previewSettings',
-            action: pageSetup,
-          },
-        ],
-      },
-      {
-        label: 'Place',
-        items: [
-          {
-            label: 'Draw Lines',
-            icon: 'dsAddLine',
-            action: () => onRightTool('dsAddLine'),
-          },
-          {
-            label: 'Draw Rectangles',
-            icon: 'dsAddRect',
-            action: () => onRightTool('dsAddRect'),
-          },
-          { label: 'Draw Text', icon: 'dsAddText', action: () => onRightTool('dsAddText') },
-          {
-            label: 'Place Bitmaps',
-            icon: 'dsAddBitmap',
-            action: () => onRightTool('dsAddBitmap'),
-          },
-          { sep: true },
-          {
-            label: 'Append Existing Drawing Sheet...',
-            icon: 'appendSheet',
-            action: () => setOpenDlg('append'),
-          },
-          { sep: true },
-          // PL_EDITOR_CONTROL::GridResetOrigin (pl_editor_control.cpp) is
-          // SetGridOrigin( 0, 0 ) followed by ForceRefresh(). Our grid is
-          // anchored at (0, 0) and there is no gridSetOrigin to move it, so
-          // only the refresh half is observable here - see the PR.
-          {
-            label: 'Reset Grid Origin',
-            action: () => controller.current?.redraw(),
-          },
-        ],
-      },
-      {
-        label: 'Inspect',
-        items: [
-          { label: 'Show Design Inspector', icon: 'inspect', action: () => setShowInspector(true) },
-        ],
-      },
-      {
-        label: 'Preferences',
-        // menubar.cpp:142-149 — openPreferences then AddMenuLanguageList, and
-        // unlike bitmap2cmp and cvpcb pl_editor puts no separator between them.
-        items: [
-          { label: 'Preferences...', action: () => setShowPrefs('default'), shortcut: 'Ctrl+,' },
-          setLanguageMenuItem({
-            current: common.system.language,
-            onSelect: (label) =>
-              settings.updateCommon((c) => {
-                c.system.language = label;
-              }),
+    () =>
+      doReCreateMenuBar({
+        doNew: () => requestFileCommand('new'),
+        open: () => requestFileCommand('open'),
+        openRecent: openRecentItem,
+        save,
+        saveAs,
+        print: printSheet,
+        close: onExitToHome,
+        undo,
+        redo,
+        cut: cutSelection,
+        copy: copySelection,
+        paste: () => void pasteFromSystem(),
+        doDelete: deleteSelection,
+        undoEnabled: undoEnabled(historyDepth),
+        redoEnabled: redoEnabled(historyDepth),
+        selectionNotEmpty: selection.size !== 0,
+        // `ACTIONS::paste`'s condition - see `pasteEnabled` in pl_editor_frame.ts.
+        pasteEnabled: pasteEnabled({
+          activeTool,
+          moving: moveMode,
+          drawing: drawingIndex.current !== null,
+        }),
+        zoomInCenter: () => controller.current?.zoomIn(),
+        zoomOutCenter: () => controller.current?.zoomOut(),
+        zoomFitScreen: () => controller.current?.zoomToFit(),
+        zoomTool: () => setActiveTool('zoomTool'),
+        zoomRedraw: () => controller.current?.redraw(),
+        previewSettings: pageSetup,
+        drawLine: () => onRightTool('dsAddLine'),
+        drawRectangle: () => onRightTool('dsAddRect'),
+        placeText: () => onRightTool('dsAddText'),
+        placeImage: () => onRightTool('dsAddBitmap'),
+        appendImportedDrawingSheet: () => setOpenDlg('append'),
+        // PL_EDITOR_CONTROL::GridResetOrigin (pl_editor_control.cpp) is
+        // SetGridOrigin( 0, 0 ) followed by ForceRefresh(). Our grid is
+        // anchored at (0, 0) and there is no gridSetOrigin to move it, so
+        // only the refresh half is observable here.
+        gridResetOrigin: () => controller.current?.redraw(),
+        showInspector: () => setShowInspector(true),
+        openPreferences: () => setShowPrefs('default'),
+        language: common.system.language,
+        onSelectLanguage: (label) =>
+          settings.updateCommon((c) => {
+            c.system.language = label;
           }),
-        ],
-      },
-      // "Syntax Help" is not a Help-menu entry upstream: pl_editor puts it in
-      // the properties panel as a hyperlink (properties_frame_base.cpp,
-      // m_syntaxHelpLink), which is where ours lives now too.
-      standardHelpMenu({
         showHotkeys: showHotkeyList,
         showAbout: () => setAboutOpen(true),
       }),
-    ],
     [
       requestFileCommand,
       save,
@@ -2156,6 +2041,8 @@ export function DrawingSheetEditor({
       onExitToHome,
       openRecentItem,
       common.system.language,
+      pageSetup,
+      onRightTool,
     ],
   );
 

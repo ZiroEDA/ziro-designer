@@ -150,7 +150,7 @@ export class BITMAP2CMP_FRAME extends EDA_BASE_FRAME {
     this.m_toolManager.InitTools();
   }
 
-  config(): BITMAP2CMP_SETTINGS {
+  override config(): BITMAP2CMP_SETTINGS {
     return this.m_config;
   }
 
@@ -195,13 +195,13 @@ export class BITMAP2CMP_FRAME extends EDA_BASE_FRAME {
     this.m_ui.SetTitle(this.GetTitle());
   }
 
-  LoadSettings(aCfg: BITMAP2CMP_SETTINGS): void {
+  override LoadSettings(aCfg: BITMAP2CMP_SETTINGS): void {
     this.m_srcFileName = aCfg.m_BitmapFileName;
     this.m_outFileName = aCfg.m_ConvertedFileName;
     this.m_panel.LoadSettings(aCfg);
   }
 
-  SaveSettings(aCfg: BITMAP2CMP_SETTINGS): void {
+  override SaveSettings(aCfg: BITMAP2CMP_SETTINGS): void {
     aCfg.m_BitmapFileName = this.m_srcFileName;
     aCfg.m_ConvertedFileName = this.m_outFileName;
     this.m_panel.SaveSettings(aCfg);

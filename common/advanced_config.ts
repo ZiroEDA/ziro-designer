@@ -13,6 +13,18 @@ export class ADVANCED_CFG {
   m_ScreenDPI = 91;
 
   /**
+   * Show UUIDs of items in the message panel: 0 no, 1 the whole UUID, 2 its
+   * first eight characters. Setting name: "MsgPanelShowUuids"; default 0.
+   */
+  m_MsgPanelShowUuids = 0;
+
+  /**
+   * The number of milliseconds to wait in a click before showing a disambiguation menu.
+   * Setting name: "DisambiguationTime"; default 500.
+   */
+  m_DisambiguationMenuDelay = 500;
+
+  /**
    * When true, strokes the triangulations in OpenGL
    */
   m_DrawTriangulationOutlines = false;
