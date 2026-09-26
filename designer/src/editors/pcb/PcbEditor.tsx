@@ -366,7 +366,8 @@ import { BuildBomTextFromBoard } from '@ziroeda/pcbnew/build_BOM_from_board.js';
 import { DialogBoardStatistics } from './dialogs/dialog_board_statistics.js';
 import { DialogFilterSelection } from './dialogs/dialog_filter_selection.js';
 import { DialogMoveExact, type MoveExactValues } from './dialogs/dialog_move_exact.js';
-import { DialogLineModification } from './dialogs/dialog_line_modification.js';
+import { WX_UNIT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_unit_entry.js';
+import { WX_MULTI_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_multi_unit_entry.js';
 import { DialogCreateArray } from './dialogs/dialog_create_array.js';
 import { DEFAULT_ARRAY_SETTINGS, arraySpecFrom, type ArraySettings } from './array_settings.js';
 import { handleAtPoint, handleDragTarget, handleTolerance } from './point_edit_canvas.js';
@@ -1615,6 +1616,8 @@ export function PcbEditor({
   const [filletRadius, setFilletRadius] = useState(1_000_000);
   const [chamferSetback, setChamferSetback] = useState(1_000_000);
   const [dogboneRadius, setDogboneRadius] = useState(1_000_000);
+  // s_dogBoneParams.AddSlots, true until the user says otherwise.
+  const [dogboneSlots, setDogboneSlots] = useState(true);
   // The reference item for Position Relative, chosen by clicking the canvas
   // (upstream arms PCB_PICKER_TOOL for this). Kept across openings, as upstream
   // keeps its dialog alive between calls.
@@ -4829,7 +4832,7 @@ export function PcbEditor({
 
   /** EDIT_TOOL::ModifyLines — fillet, chamfer or extend the selected lines. */
   const applyLineModification = useCallback(
-    (op: LineModification, valueIU?: number) => {
+    (op: LineModification, valueIU?: number, addSlots = true) => {
       const brd = boardRef.current;
       const sel = [...selForDrawRef.current];
       if (!brd || sel.length < 2) return;
@@ -4838,10 +4841,8 @@ export function PcbEditor({
         radius: valueIU,
         setback: valueIU,
         dogboneRadius: valueIU,
-        // Without slots, an acute corner yields a pocket no cutter can reach.
-        // Upstream offers the choice; taking the usable one is the better
-        // default, and the engine reports which case it hit either way.
-        addSlots: true,
+        // DOGBONE_CORNER_ROUTINE::PARAMETERS::AddSlots, as the dialog answered.
+        addSlots,
       });
       if (res.board !== brd) commitBoard(res.board);
       setLineModOpen(null);
@@ -12006,31 +12007,48 @@ export function PcbEditor({
           onClose={() => setOutsetOpen(false)}
         />
       )}
-      {lineModOpen && board && (
-        <DialogLineModification
+      {(lineModOpen === 'fillet' || lineModOpen === 'chamfer') && board && (
+        // GetRadiusParams / GetChamferParams (pcbnew/tools/edit_tool.cpp:1485,
+        // :1550): WX_UNIT_ENTRY_DIALOG; Cancel or a value of 0 does nothing.
+        <WX_UNIT_ENTRY_DIALOG
+          caption={lineModOpen === 'fillet' ? 'Fillet Lines' : 'Chamfer Lines'}
+          label={lineModOpen === 'fillet' ? 'Radius:' : 'Chamfer setback:'}
+          defaultValue={lineModOpen === 'fillet' ? filletRadius : chamferSetback}
           units={unitLabel}
-          title={
-            lineModOpen === 'fillet'
-              ? 'Fillet Lines'
-              : lineModOpen === 'chamfer'
-                ? 'Chamfer Lines'
-                : 'Dogbone Corners'
-          }
-          label={lineModOpen === 'chamfer' ? 'Set-back:' : 'Radius:'}
-          value={
-            lineModOpen === 'fillet'
-              ? filletRadius
-              : lineModOpen === 'chamfer'
-                ? chamferSetback
-                : dogboneRadius
-          }
-          onApply={(v: number) => {
-            if (lineModOpen === 'fillet') setFilletRadius(v);
-            else if (lineModOpen === 'chamfer') setChamferSetback(v);
-            else setDogboneRadius(v);
-            applyLineModification(lineModOpen, v);
+          iuScale={pcbIUScale}
+          onResult={(v) => {
+            const op = lineModOpen;
+            setLineModOpen(null);
+            if (v === null || v === 0) return;
+            if (op === 'fillet') setFilletRadius(v);
+            else setChamferSetback(v);
+            applyLineModification(op, v);
           }}
-          onClose={() => setLineModOpen(null)}
+        />
+      )}
+      {lineModOpen === 'dogbone' && board && (
+        // GetDogboneParams (edit_tool.cpp:1498-1530): WX_MULTI_ENTRY_DIALOG.
+        <WX_MULTI_ENTRY_DIALOG
+          caption="Dogbone Corner Settings"
+          entries={[
+            { label: 'Arc radius:', value: { UNIT_BOUND: dogboneRadius } },
+            {
+              label: 'Add slots in acute corners',
+              tooltip: 'Add slots in acute corners to allow access to a cutter of the given radius',
+              value: { CHECKBOX: dogboneSlots },
+            },
+          ]}
+          units={unitLabel}
+          iuScale={pcbIUScale}
+          onResult={(r) => {
+            setLineModOpen(null);
+            if (r === null) return;
+            const radius = r[0] as number;
+            const slots = r[1] as boolean;
+            setDogboneRadius(radius);
+            setDogboneSlots(slots);
+            applyLineModification('dogbone', radius, slots);
+          }}
         />
       )}
       {posRelOpen && board && (
