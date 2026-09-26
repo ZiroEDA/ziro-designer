@@ -13,7 +13,7 @@
       "!bitmaps_png/sources",
       "!qa/data",
       "!**/dist",
-      "!common/font/newstroke_glyphs.ts",
+      "!common/newstroke_font.ts",
       "!designer/src/render/gl/vendor",
       "!libs/kimath/src/thirdparty/vendor",
       "!docs/email-templates"
