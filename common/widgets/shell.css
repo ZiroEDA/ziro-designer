@@ -13339,6 +13339,57 @@ fieldset.ze-sbox > legend {
   gap: 8px; /* [px] the panel's own notebook-to-grid spacing, as before */
 }
 
+/* DIALOG_PLUGIN_OPTIONS (common/dialogs/dialog_plugin_options.tsx), each
+   border dialog_plugin_options_base.cpp's Add(). */
+.ze-pluginopts-upper {
+  display: flex;
+  margin: 5px 5px 0; /* [data] Add( m_horizontal_sizer, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5 ) */
+}
+.ze-pluginopts-grid {
+  flex: 3 1 auto; /* [data] Add( m_grid_sizer, 3, ... ) */
+  display: flex;
+  flex-direction: column;
+  min-width: 400px; /* [data] m_grid_sizer->SetMinSize( wxSize( 400,300 ) ) */
+  min-height: 300px; /* [data] the same line */
+  margin: 5px 5px 0; /* [data] wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5 */
+}
+.ze-pluginopts-gridpane {
+  flex: 1 1 auto;
+  margin: 5px 5px 0; /* [data] Add( m_grid, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5 ) */
+}
+.ze-pluginopts-col0 {
+  width: 120px; /* [data] m_grid->SetColSize( 0, 120 ) */
+}
+.ze-pluginopts-btngap {
+  width: 20px; /* [data] bButtonsSizer->Add( 20, 0, 0, wxEXPAND, 5 ) */
+}
+.ze-pluginopts-choices {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  margin: 5px 5px 0; /* [data] Add( m_options_sizer, 0, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5 ) */
+}
+.ze-pluginopts-list {
+  flex: 3 1 auto; /* [data] Add( m_listbox, 3, wxALL|wxEXPAND, 5 ) */
+  margin: 5px; /* [data] the same Add() */
+}
+.ze-pluginopts-choice.selected {
+  background: var(--selection-bg);
+  color: var(--selection-fg);
+}
+.ze-pluginopts-append {
+  margin: 0 5px 5px; /* [data] wxBOTTOM|wxEXPAND|wxLEFT|wxRIGHT, 5 */
+}
+.ze-pluginopts-spacer {
+  height: 10px; /* [data] Add( 0, 0, 0, wxEXPAND|wxTOP|wxBOTTOM, 5 ): 5 + 5 */
+}
+.ze-pluginopts-html {
+  flex: 2 1 auto; /* [data] Add( m_html, 2, wxALL|wxEXPAND, 5 ) */
+  margin: 5px; /* [data] the same Add() */
+  min-width: 280px; /* [data] m_html->SetMinSize( wxSize( 280,100 ) ) */
+  min-height: 100px; /* [data] the same line */
+}
+
 /* Syntax Help states its own size where the Errors box takes the minimum:
 
      dlg->SetMinSize( dlg->ConvertDialogToPixels( wxSize( 320, 320 ) ) );

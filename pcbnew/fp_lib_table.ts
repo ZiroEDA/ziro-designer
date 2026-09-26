@@ -407,81 +407,16 @@ export function parseLibraryTable(buffer: string, scope: LibraryTableScope): Lib
   return table;
 }
 
-/* -------------------------------------------------------------------------- */
-/*  The options column                                                         */
-/* -------------------------------------------------------------------------- */
-
-const OPT_SEP = '|';
-
-/** ASCII `isspace`, the classification `ParseOptions` skips leading run with. */
-const isSpace = (ch: string): boolean => ch === ' ' || (ch >= '\t' && ch <= '\r');
-
-/**
- * `LIBRARY_TABLE::ParseOptions`: `a=1|b=2` into a map. Whitespace is skipped
- * only at the *start* of each pair, so `a = 1` gives the key `a ` and the value
- * ` 1`; a `\|` is an escaped separator; a pair with no `=` maps to the empty
- * string, which is how a valueless flag is recorded.
- */
-export function parseLibraryTableOptions(optionsList: string): Map<string, string> {
-  const props = new Map<string, string>();
-  let cp = 0;
-  const end = optionsList.length;
-
-  while (cp < end) {
-    let pair = '';
-
-    while (cp < end && isSpace(optionsList[cp]!)) cp++;
-
-    while (cp < end) {
-      if (optionsList[cp] === '\\' && cp + 1 < end && optionsList[cp + 1] === OPT_SEP) {
-        cp++;
-        pair += optionsList[cp++];
-      } else if (optionsList[cp] === OPT_SEP) {
-        cp++;
-        break;
-      } else {
-        pair += optionsList[cp++];
-      }
-    }
-
-    if (pair.length === 0) continue;
-
-    const eqNdx = pair.indexOf('=');
-
-    if (eqNdx !== -1) props.set(pair.slice(0, eqNdx), pair.slice(eqNdx + 1));
-    else props.set(pair, '');
-  }
-
-  return props;
-}
-
-/**
- * `LIBRARY_TABLE::FormatOptions`. Keys come out sorted because upstream walks a
- * `std::map`, and only the *value* has its separators escaped — a key
- * containing `|` is emitted raw and will not survive a re-parse.
- */
-export function formatLibraryTableOptions(properties: ReadonlyMap<string, string>): string {
-  let ret = '';
-
-  for (const name of [...properties.keys()].sort()) {
-    const value = properties.get(name)!;
-
-    if (ret.length) ret += OPT_SEP;
-
-    ret += name;
-
-    if (value.length) {
-      ret += '=';
-
-      for (const ch of value) {
-        if (ch === OPT_SEP) ret += '\\';
-        ret += ch;
-      }
-    }
-  }
-
-  return ret;
-}
+// The options column's parser and formatter are LIBRARY_TABLE's
+// (common/libraries/library_table.cpp), so they live in common/.
+export {
+  formatLibraryTableOptions,
+  parseLibraryTableOptions,
+} from '@ziroeda/common/libraries/library_table.js';
+import {
+  formatLibraryTableOptions,
+  parseLibraryTableOptions,
+} from '@ziroeda/common/libraries/library_table.js';
 
 /* -------------------------------------------------------------------------- */
 /*  URI expansion                                                              */

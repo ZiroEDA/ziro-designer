@@ -22,6 +22,7 @@
  * instead of opening a file picker.
  */
 
+import { DIALOG_PLUGIN_OPTIONS } from '@ziroeda/common/dialogs/dialog_plugin_options.js';
 import { DIALOG_EDIT_LIBRARY_TABLES } from '@ziroeda/common/dialogs/dialog_edit_library_tables.js';
 import { useMemo, useState, type JSX } from 'react';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
@@ -55,6 +56,8 @@ export function DialogSymLibTable({
 
   const [tab, setTab] = useState<'global' | 'project'>('project');
   const [rows, setRows] = useState<FpLibRow[]>(() => projectSymLibTable(projectFiles));
+  // The row whose DIALOG_PLUGIN_OPTIONS is up (optionsEditor).
+  const [optionsRow, setOptionsRow] = useState<number | null>(null);
   const [sel, setSel] = useState<number | null>(null);
   const [browseOpen, setBrowseOpen] = useState(false);
 
@@ -204,7 +207,9 @@ export function DialogSymLibTable({
                       />
                     </td>
                     <td style={{ ...cell, padding: '3px 6px' }}>{r.type || 'KiCad'}</td>
-                    <td style={cell}>
+                    {/* LIB_TABLE_GRID_TRICKS::handleDoubleClick: a double-click on
+                        COL_OPTIONS runs optionsEditor, DIALOG_PLUGIN_OPTIONS. */}
+                    <td style={cell} onDoubleClick={() => setOptionsRow(i)}>
                       <input
                         type="text"
                         value={r.options}
@@ -328,6 +333,21 @@ export function DialogSymLibTable({
             </div>
           </div>
         </>
+      )}
+      {optionsRow !== null && rows[optionsRow] && (
+        // optionsEditor (panel_sym_lib_table.cpp:168-192). The KiCad s-expression
+        // plugin appends no choices (IO_BASE::GetLibraryOptions), so the list is
+        // empty and the grid is the whole of it.
+        <DIALOG_PLUGIN_OPTIONS
+          nickname={rows[optionsRow].name}
+          pluginOptions={new Map()}
+          formattedOptions={rows[optionsRow].options}
+          onResult={(result) => {
+            const at = optionsRow;
+            setOptionsRow(null);
+            if (result !== null && result !== rows[at]?.options) setAt(at, { options: result });
+          }}
+        />
       )}
     </DIALOG_EDIT_LIBRARY_TABLES>
   );
