@@ -49,7 +49,7 @@
  */
 import type { JSX } from 'react';
 import { Check, Group } from '@ziroeda/common/wx/controls.js';
-import { PanelGalOptions } from '../../../dialogs/prefs/PanelGalOptions.js';
+import { PanelGalOptions } from '@ziroeda/common/dialogs/panel_gal_options.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 
 export function PanelSymbolEditorDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {

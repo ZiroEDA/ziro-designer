@@ -23,7 +23,7 @@
  * thickness, Minimum grid spacing and Snap to grid above it.
  */
 import type { JSX } from 'react';
-import { PanelGalOptions } from '../../../dialogs/prefs/PanelGalOptions.js';
+import { PanelGalOptions } from '@ziroeda/common/dialogs/panel_gal_options.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 
 export function PanelPlEditorDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {

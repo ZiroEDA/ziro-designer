@@ -54,7 +54,7 @@
 import { useState, type JSX } from 'react';
 import { PadsAndClearanceGroups } from '../../../dialogs/prefs/DisplayOptionsGroups.js';
 import type { PadsAndClearanceValue } from '../../../dialogs/prefs/DisplayOptionsGroups.js';
-import { PanelGalOptions } from '../../../dialogs/prefs/PanelGalOptions.js';
+import { PanelGalOptions } from '@ziroeda/common/dialogs/panel_gal_options.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 
 export function PanelFpDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {

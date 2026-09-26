@@ -15,7 +15,7 @@
  * binding, not a panel, exactly as upstream's one line is.
  */
 import type { JSX } from 'react';
-import { PanelGridSettings } from '../../../dialogs/prefs/PanelGridSettings.js';
+import { PanelGridSettings } from '@ziroeda/common/dialogs/panel_grid_settings.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 import { defaultUnits, toStatusUnits } from '@ziroeda/common/settings/app_settings_units.js';
 import { pcbIUScale } from '@ziroeda/common';

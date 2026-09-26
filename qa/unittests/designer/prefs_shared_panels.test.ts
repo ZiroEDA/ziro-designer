@@ -38,12 +38,12 @@ import {
   GRID_STYLE_CHOICES,
   GRID_THICKNESS_CHOICES,
   GRID_THICKNESS_RANGE,
-} from '@ziroeda/designer/src/dialogs/prefs/gal_options.js';
+} from '@ziroeda/common/dialogs/panel_gal_options.js';
 import {
   GRID_GROUP_TITLES,
   OVERRIDE_ROWS,
   type GridFrameType,
-} from '@ziroeda/designer/src/dialogs/prefs/grid_settings_rows.js';
+} from '@ziroeda/common/dialogs/panel_grid_settings.js';
 import { EESCHEMA_DEFAULTS, PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
@@ -75,6 +75,9 @@ function sourcesUnder(dir: string): string[] {
  */
 const PREFS_DIRS = [
   'dialogs/prefs',
+  // The shared panels live in KiCad's directory since 09-26. A rule scoped to
+  // the folder a panel used to sit in would go blind the day it moved.
+  '../../common/dialogs',
   ...readdirSync(join(SRC, 'editors'), { withFileTypes: true })
     .filter((e) => e.isDirectory())
     .map((e) => `editors/${e.name}/prefs`)
@@ -283,7 +286,7 @@ describe('there is one implementation of each, and both consumers use it', () =>
   it('every Grids page renders the shared panel and declares no controls of its own', () => {
     for (const rel of GRID_PAGES) {
       const src = read(rel);
-      expect(src, rel).toContain("from '../../../dialogs/prefs/PanelGridSettings.js'");
+      expect(src, rel).toContain("from '@ziroeda/common/dialogs/panel_grid_settings.js'");
       expect(src, rel).toContain('<PanelGridSettings');
       // The tell that a copy has grown back: a page that renders the shared
       // panel has no group of its own to title.
@@ -344,7 +347,7 @@ describe('there is one implementation of each, and both consumers use it', () =>
   it('every Display Options page embeds the shared GAL panel', () => {
     for (const rel of DISPLAY_PAGES) {
       const src = read(rel);
-      expect(src, rel).toContain("from '../../../dialogs/prefs/PanelGalOptions.js'");
+      expect(src, rel).toContain("from '@ziroeda/common/dialogs/panel_gal_options.js'");
       expect(src, rel).toContain('<PanelGalOptions');
       for (const title of GAL_GROUP_TITLES)
         expect(src, `${rel} declares its own "${title}" group`).not.toContain(`title="${title}"`);
@@ -370,10 +373,10 @@ describe('there is one implementation of each, and both consumers use it', () =>
     // The other half: banning the literal is only worth anything if the
     // headings still reach the screen. Each is rendered by exactly one panel,
     // by index into its table.
-    const gal = read('dialogs/prefs/PanelGalOptions.tsx');
+    const gal = read('../../common/dialogs/panel_gal_options.tsx');
     for (const i of GAL_GROUP_TITLES.keys())
       expect(gal, `GAL_GROUP_TITLES[${i}]`).toContain(`<Group title={GAL_GROUP_TITLES[${i}]}>`);
-    const grid = read('dialogs/prefs/PanelGridSettings.tsx');
+    const grid = read('../../common/dialogs/panel_grid_settings.tsx');
     // ...except the Grids heading itself, which is NOT a headed group: it is
     // `bSizerLeftCol->Add( m_gridsLabel, 0, wxTOP|wxRIGHT|wxLEFT, 5 )`
     // (`panel_grid_settings_base.cpp:27`) with no `wxStaticLine` after it — the
@@ -389,22 +392,22 @@ describe('there is one implementation of each, and both consumers use it', () =>
     for (const label of GRID_DISPLAY_LABELS) {
       const files = filesWithStatement(`'${label}'`).concat(filesWithStatement(`"${label}"`));
       expect(files, `"${label}" is written in ${files.join(', ')}`).toHaveLength(1);
-      expect(files[0]).toBe('dialogs/prefs/gal_options.ts');
+      expect(files[0]).toBe('../../common/dialogs/panel_gal_options.tsx');
     }
   });
 
   it('keeps the frame table out of the panels that consume it', () => {
     // The table is the panel's whole per-editor behaviour. If a page ever
     // spells a row out itself, that page has stopped being parameterised.
-    for (const rel of [...GRID_PAGES, 'dialogs/prefs/PanelGridSettings.tsx']) {
-      if (rel === 'dialogs/prefs/PanelGridSettings.tsx') continue;
+    for (const rel of [...GRID_PAGES, '../../common/dialogs/panel_grid_settings.tsx']) {
+      if (rel === '../../common/dialogs/panel_grid_settings.tsx') continue;
       const src = read(rel);
       for (const [, label] of OVERRIDE_ROWS.FRAME_SCH)
         expect(src, `${rel} spells "${label}"`).not.toContain(`'${label}'`);
     }
-    // And the one place it does live is a `.ts`, so it stays assertable.
+    // And the one place it does live is the shared panel itself.
     expect(filesWithStatement("'Connected items:'")).toEqual([
-      'dialogs/prefs/grid_settings_rows.ts',
+      '../../common/dialogs/panel_grid_settings.tsx',
     ]);
   });
 });

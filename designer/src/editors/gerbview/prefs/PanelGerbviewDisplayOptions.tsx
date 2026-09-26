@@ -41,7 +41,7 @@
  */
 import type { JSX } from 'react';
 import { Check, Group, Num, Radio } from '@ziroeda/common/wx/controls.js';
-import { PanelGalOptions } from '../../../dialogs/prefs/PanelGalOptions.js';
+import { PanelGalOptions } from '@ziroeda/common/dialogs/panel_gal_options.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 import { GBR_PAGE_SIZE_CHOICES, OPACITY_RANGE } from './display_options.js';
 

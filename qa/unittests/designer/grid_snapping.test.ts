@@ -38,7 +38,7 @@ import {
   gridSnappingEnabled,
   type GridSnapping,
 } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
-import { GRID_SNAP_CHOICES } from '@ziroeda/designer/src/dialogs/prefs/gal_options.js';
+import { GRID_SNAP_CHOICES } from '@ziroeda/common/dialogs/panel_gal_options.js';
 import {
   EESCHEMA_DEFAULTS,
   GERBVIEW_DEFAULTS,

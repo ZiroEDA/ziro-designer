@@ -81,7 +81,7 @@ const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
 
 const EDITOR = read('editors/drawingsheet/DrawingSheetEditor.tsx');
-const GAL_PANEL = read('dialogs/prefs/PanelGalOptions.tsx');
+const GAL_PANEL = read('../../common/dialogs/panel_gal_options.tsx');
 const DS_DISPLAY = read('editors/drawingsheet/prefs/PanelPlEditorDisplayOptions.tsx');
 const SHELL = read('dialogs/PreferencesDialog.tsx');
 

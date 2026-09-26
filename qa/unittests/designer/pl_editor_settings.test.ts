@@ -436,9 +436,7 @@ const EDITOR = readFileSync(
  * the editor no longer holds a second copy of either control.
  */
 const GAL_PANEL = readFileSync(
-  fileURLToPath(
-    new URL('../../../designer/src/dialogs/prefs/PanelGalOptions.tsx', import.meta.url),
-  ),
+  fileURLToPath(new URL('../../../common/dialogs/panel_gal_options.tsx', import.meta.url)),
   'utf8',
 );
 

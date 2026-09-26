@@ -191,7 +191,7 @@ describe('the embedded PANEL_GAL_OPTIONS is live', () => {
 
   it('passes the symbol editor’s own window slice, not eeschema’s', () => {
     const src = read('editors/symbol/prefs/PanelSymbolEditorDisplayOptions.tsx');
-    expect(src).toContain("from '../../../dialogs/prefs/PanelGalOptions.js'");
+    expect(src).toContain("from '@ziroeda/common/dialogs/panel_gal_options.js'");
     expect(src).toContain('win={symbolEditor.window}');
     expect(src).not.toContain('ctx.eeschema');
   });

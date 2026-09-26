@@ -34,7 +34,7 @@ import { schIUScale } from '@ziroeda/common';
 import {
   PanelGridSettings,
   type GridSettingsSlice,
-} from '@ziroeda/designer/src/dialogs/prefs/PanelGridSettings.js';
+} from '@ziroeda/common/dialogs/panel_grid_settings.js';
 import type { GridEntry } from '@ziroeda/common/settings/grid_settings_ui.js';
 
 afterEach(cleanup);

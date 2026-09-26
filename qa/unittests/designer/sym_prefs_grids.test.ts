@@ -35,7 +35,7 @@ import {
 } from '@ziroeda/designer/src/prefs/settings.js';
 import { symbolGridForTool, symbolGridIU } from '@ziroeda/designer/src/editors/symbol/grid.js';
 import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST } from '@ziroeda/common/settings/grid_settings_ui.js';
-import { OVERRIDE_ROWS } from '@ziroeda/designer/src/dialogs/prefs/grid_settings_rows.js';
+import { OVERRIDE_ROWS } from '@ziroeda/common/dialogs/panel_grid_settings.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
@@ -210,12 +210,12 @@ describe('symbolGridForTool: EE_GRID_HELPER::GetItemGrid, by tool', () => {
 describe('the page is the shared panel, constructed for this frame', () => {
   const PAGE = 'editors/symbol/prefs/PanelSymbolEditorGrids.tsx';
 
-  it('calls dialogs/prefs/PanelGridSettings rather than copying it', () => {
+  it('calls common/dialogs/panel_grid_settings rather than copying it', () => {
     // The rule this editor's Grids page exists to obey: KiCad writes
     // `PANEL_GRID_SETTINGS` once in `common/` and every KIFACE constructs the
     // same type. A second copy here is the defect, not a style choice.
     const src = read(PAGE);
-    expect(src).toContain("from '../../../dialogs/prefs/PanelGridSettings.js'");
+    expect(src).toContain("from '@ziroeda/common/dialogs/panel_grid_settings.js'");
     expect(src).toContain('frameType="FRAME_SCH_SYMBOL_EDITOR"');
     // It must not restate the panel: no listbox, no override rows of its own.
     expect(src).not.toContain('ze-gridlist');

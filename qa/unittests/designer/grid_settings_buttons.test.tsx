@@ -26,8 +26,8 @@ import { drawSheetIUScale, schIUScale, type EdaIuScale } from '@ziroeda/common';
 import {
   PanelGridSettings,
   type GridSettingsSlice,
-} from '@ziroeda/designer/src/dialogs/prefs/PanelGridSettings.js';
-import type { GridFrameType } from '@ziroeda/designer/src/dialogs/prefs/grid_settings_rows.js';
+} from '@ziroeda/common/dialogs/panel_grid_settings.js';
+import type { GridFrameType } from '@ziroeda/common/dialogs/panel_grid_settings.js';
 import type { GridEntry } from '@ziroeda/common/settings/grid_settings_ui.js';
 import type { EdaUnits } from '@ziroeda/common/widgets/unit_binder.js';
 

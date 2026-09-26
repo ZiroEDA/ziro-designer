@@ -15,7 +15,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { GERBVIEW_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
-import { OVERRIDE_ROWS } from '@ziroeda/designer/src/dialogs/prefs/grid_settings_rows.js';
+import { OVERRIDE_ROWS } from '@ziroeda/common/dialogs/panel_grid_settings.js';
 import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST } from '@ziroeda/common/settings/grid_settings_ui.js';
 import { gerbIUScale, GERB_IU_PER_MM } from '@ziroeda/common';
 

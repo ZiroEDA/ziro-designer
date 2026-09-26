@@ -14,7 +14,7 @@
 import type { JSX } from 'react';
 import { Check, Group, Num, Sel } from '@ziroeda/common/wx/controls.js';
 import { CrossProbingGroup } from '../../../dialogs/prefs/CrossProbingGroup.js';
-import { PanelGalOptions } from '../../../dialogs/prefs/PanelGalOptions.js';
+import { PanelGalOptions } from '@ziroeda/common/dialogs/panel_gal_options.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 
 export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {
