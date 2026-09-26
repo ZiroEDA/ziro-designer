@@ -98,6 +98,11 @@ describe('CAIRO_PRINT_GAL::ComputeWorldScreenMatrix (cairo_print.cpp:197-236)', 
     expect(at({ x: 8.5, y: 11 }, false, (g) => g.SetZoomFactor(2))).toEqual([445, 550]);
   });
 
+  it('landscape turned by the GAL: the flip comes after the turn (flip * rotate)', () => {
+    // ( 10, 0 ) turns to ( 0, 10 ); flipping x leaves it; + ( 425, 550 )
+    expect(at({ x: 11, y: 8.5 }, false, (g) => g.SetFlip(true, false))).toEqual([425, 560]);
+  });
+
   it('a flip mirrors about the look-at point before the centring', () => {
     expect(at({ x: 8.5, y: 11 }, false, (g) => g.SetFlip(true, false))).toEqual([415, 550]);
   });

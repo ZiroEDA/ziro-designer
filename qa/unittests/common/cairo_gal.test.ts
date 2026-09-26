@@ -36,8 +36,15 @@ import {
   CAIRO_GAL_BASE,
   type CAIRO_GAL_WINDOW,
 } from '@ziroeda/common/gal/cairo/cairo_gal.js';
+import { BITMAP_BASE } from '@ziroeda/common/bitmap_base.js';
+import { OUTLINE_GLYPH, STROKE_GLYPH } from '@ziroeda/common/font/glyph.js';
+import { CAIRO_COMPOSITOR } from '@ziroeda/common/gal/cairo/cairo_compositor.js';
 import { RENDER_TARGET } from '@ziroeda/common/gal/definitions.js';
-import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
+import {
+  GAL_ANTIALIASING_MODE,
+  GAL_DISPLAY_OPTIONS,
+} from '@ziroeda/common/gal/gal_display_options.js';
+import { WX_IMAGE } from '@ziroeda/common/wx_image.js';
 import type { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
 import {
   calls,
@@ -447,6 +454,147 @@ describe('CAIRO_GAL_BASE: primitives', () => {
   });
 });
 
+describe('CAIRO_GAL_BASE: more primitives', () => {
+  it('DrawArc of a full turn stays a full turn after the angle transform (cairo_gal.cpp:147, 171-172)', () => {
+    const gal = strokeGal();
+    gal.DrawArc({ x: 0, y: 0 }, 5, new EDA_ANGLE(0), new EDA_ANGLE(360));
+    // angle_xform( 2pi ) is fmod( 2pi, 2pi ) = 0: the end is forced to start + 2pi
+    expect(paints(gal.canvas.log)[0]!.path[1]).toEqual([
+      'A',
+      100.5,
+      50.5,
+      10,
+      0,
+      r9(2 * PI),
+      false,
+    ]);
+  });
+
+  it('DrawArcSegment restores the Cairo matrix it translated (cairo_gal.cpp:425-445)', () => {
+    const gal = strokeGal();
+    gal.DrawArcSegment({ x: 0, y: 0 }, 5, new EDA_ANGLE(0), new EDA_ANGLE(90), 2, 0);
+    gal.canvas.log.length = 0;
+    gal.DrawLine({ x: 0, y: 0 }, { x: 10, y: 0 });
+    expect(paints(gal.canvas.log)[0]!.path).toEqual([
+      ['M', 100.5, 50.5],
+      ['L', 120.5, 50.5],
+    ]);
+  });
+
+  it('DrawBitmap paints the pixels centred, one image pixel per 1 / PPI inch (cairo_gal.cpp:509-586)', () => {
+    const factory = installSurfaceFactory();
+    try {
+      const image = new WX_IMAGE(2, 1);
+      image.GetData()!.set([10, 20, 30, 40, 50, 60]);
+      const bitmap = new BITMAP_BASE();
+      bitmap.SetImage(image);
+      expect(bitmap.GetPPI()).toBe(300);
+
+      const gal = strokeGal();
+      gal.DrawBitmap(bitmap, 0.5);
+
+      const [surface] = factory.surfaces;
+      expect([surface!.w, surface!.h]).toEqual([2, 1]);
+      const put = calls(surface!.canvas.log, 'putImageData')[0]!;
+      expect([...(put[1] as ImageData).data]).toEqual([10, 20, 30, 255, 40, 50, 60, 255]);
+
+      // world2screen ( 2, 0, 0, 2, 100, 50 ), scale 1 / ( 300 * 0.01 ), translate ( -1, -0.5 )
+      const log = gal.canvas.log;
+      const at = log.findIndex(([n]) => n === 'drawImage');
+      const transform = log
+        .slice(0, at)
+        .filter(([n]) => n === 'setTransform')
+        .at(-1)!;
+      expect(transform.slice(1).map((v) => r9(v as number))).toEqual([
+        r9(2 / 3),
+        0,
+        0,
+        r9(2 / 3),
+        r9(100 - 2 / 3),
+        r9(50 - 1 / 3),
+      ]);
+      expect(log[at]).toEqual(['drawImage', surface!.canvas.image, 0, 0]);
+      expect(
+        log
+          .slice(0, at)
+          .filter(([n]) => n === '=globalAlpha')
+          .at(-1),
+      ).toEqual(['=globalAlpha', 0.5]);
+    } finally {
+      factory.restore();
+    }
+  });
+
+  it('DrawGlyphs draws a stroke glyph as polylines, and takes no hover colour (cairo_gal.cpp:131-135, 1882-1888)', () => {
+    const gal = strokeGal();
+    gal.SetHoverColor(GREEN);
+    const glyph = new STROKE_GLYPH();
+    glyph.AddPoint({ x: 0, y: 0 });
+    glyph.AddPoint({ x: 10, y: 0 });
+    glyph.RaisePen();
+    glyph.AddPoint({ x: 0, y: 5 });
+    glyph.AddPoint({ x: 10, y: 5 });
+    glyph.SetIsHover(true);
+    gal.DrawGlyphs([glyph]);
+    expect(paints(gal.canvas.log).map((p) => [p.path, p.style])).toEqual([
+      [
+        [
+          ['M', 100.5, 50.5],
+          ['L', 120.5, 50.5],
+        ],
+        'rgba(255, 0, 0, 1)',
+      ],
+      [
+        [
+          ['M', 100.5, 60.5],
+          ['L', 120.5, 60.5],
+        ],
+        'rgba(255, 0, 0, 1)',
+      ],
+    ]);
+  });
+
+  it('an outline glyph fills its triangles even-odd, then puts stroke mode back (cairo_gal.cpp:1889-1932)', () => {
+    const gal = strokeGal();
+    gal.SetFillColor(BLUE);
+    // big enough that the triangulator keeps it: two triangles
+    const glyph = new OUTLINE_GLYPH();
+    glyph.AddOutline(
+      new SHAPE_LINE_CHAIN(
+        [
+          { x: 0, y: 0 },
+          { x: 1000, y: 0 },
+          { x: 1000, y: 1000 },
+          { x: 0, y: 1000 },
+        ],
+        true,
+      ),
+    );
+    gal.DrawGlyphs([glyph]);
+    const fills = paints(gal.canvas.log);
+    expect(fills.map((p) => [p.kind, p.rule, p.style, p.path.length])).toEqual([
+      ['fill', 'evenodd', 'rgba(0, 0, 255, 1)', 4],
+      ['fill', 'evenodd', 'rgba(0, 0, 255, 1)', 4],
+    ]);
+    expect([gal.GetIsFill(), gal.GetIsStroke()]).toEqual([false, true]);
+  });
+});
+
+describe('CAIRO_COMPOSITOR: antialiasing (cairo_compositor.cpp:60-69, .h:98-109)', () => {
+  it('maps the GAL modes to Cairo and back; anything else is none', () => {
+    const c = new CAIRO_COMPOSITOR({ get: () => null as unknown as cairo_t, set: () => {} });
+    const roundTrip = (aMode: GAL_ANTIALIASING_MODE) => {
+      c.SetAntialiasingMode(aMode);
+      return c.GetAntialiasingMode();
+    };
+    expect(roundTrip(GAL_ANTIALIASING_MODE.AA_FAST)).toBe(GAL_ANTIALIASING_MODE.AA_FAST);
+    expect(roundTrip(GAL_ANTIALIASING_MODE.AA_HIGHQUALITY)).toBe(
+      GAL_ANTIALIASING_MODE.AA_HIGHQUALITY,
+    );
+    expect(roundTrip(GAL_ANTIALIASING_MODE.AA_NONE)).toBe(GAL_ANTIALIASING_MODE.AA_NONE);
+  });
+});
+
 describe('CAIRO_GAL_BASE: groups (cairo_gal.cpp:818-980)', () => {
   it('draws while recording, keeps the state changes, and replays them', () => {
     const gal = strokeGal();
@@ -692,6 +840,14 @@ describe('EDA_DRAW_PANEL_GAL: Cairo as the fallback (draw_panel_gal.cpp:589-660)
     expect(p.SwitchBackend(GAL_TYPE.GAL_TYPE_OPENGL)).toBe(true);
     expect(p.m_gal).toBeInstanceOf(CAIRO_GAL);
     expect(p.m_backend).toBe(GAL_TYPE.GAL_TYPE_CAIRO);
+  });
+
+  it('is not reached for when OpenGL fails on a canvas that holds WebGL', () => {
+    const p = panel(true);
+    // the "well and truly banjaxed" branch: no GAL, so the stub one, and no error
+    expect(p.SwitchBackend(GAL_TYPE.GAL_TYPE_OPENGL)).toBe(true);
+    expect(p.m_gal).not.toBeInstanceOf(CAIRO_GAL);
+    expect(p.m_backend).toBe(GAL_TYPE.GAL_TYPE_NONE);
   });
 
   it('cannot be had on a canvas holding WebGL: a dummy GAL, as when the backend throws', () => {
