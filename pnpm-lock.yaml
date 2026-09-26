@@ -210,6 +210,8 @@ importers:
         specifier: ^6.4.2
         version: 6.4.2
 
+  libs/potrace: {}
+
   libs/rectpack2d: {}
 
   libs/sexpr: {}
@@ -278,6 +280,9 @@ importers:
       '@ziroeda/pcbnew':
         specifier: workspace:*
         version: link:../pcbnew
+      '@ziroeda/potrace':
+        specifier: workspace:*
+        version: link:../libs/potrace
       '@ziroeda/sexpr':
         specifier: workspace:*
         version: link:../libs/sexpr

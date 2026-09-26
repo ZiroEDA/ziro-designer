@@ -20,6 +20,7 @@
     "@ziroeda/kimath": "workspace:*",
     "@ziroeda/pcb_calculator": "workspace:*",
     "@ziroeda/pcbnew": "workspace:*",
+    "@ziroeda/potrace": "workspace:*",
     "@ziroeda/sexpr": "workspace:*",
     "@ziroeda/zint": "workspace:*"
   },
