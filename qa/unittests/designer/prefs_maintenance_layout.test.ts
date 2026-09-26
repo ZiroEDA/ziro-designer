@@ -32,7 +32,7 @@ const src = (rel: string): string =>
   readFileSync(resolve(process.cwd(), '../designer/src', rel), 'utf8');
 
 const CSS = src('../../common/widgets/shell.css');
-const PANEL = src('dialogs/prefs/panels/PanelMaintenance.tsx');
+const PANEL = src('../../common/dialogs/panel_maintenance.tsx');
 const DIALOG = src('dialogs/PreferencesDialog.tsx');
 /** Comments stripped: prose ABOUT a control is not that control. */
 const strip = (s: string): string =>
@@ -174,7 +174,9 @@ describe('every button on the page is live', () => {
     const at = CODE.indexOf('Reset &quot;Don&apos;t Show Again&quot; Dialogs');
     expect(at).toBeGreaterThan(-1);
     const arm = CODE.slice(CODE.lastIndexOf('<button', at), at);
-    expect(arm).toMatch(/clearDoNotShowAgainSettings\(\)/);
+    // The persisted half is the settings manager's since 09-26 (the panel is
+    // handed the operations upstream reaches through Pgm()).
+    expect(arm).toMatch(/settingsManager\.ClearDontShowAgain\(\)/);
     expect(arm).toMatch(/clearDoNotShowAgainDialogs\(\)/);
   });
 

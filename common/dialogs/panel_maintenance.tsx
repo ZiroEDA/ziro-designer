@@ -51,15 +51,12 @@
  * defaults on the way out.
  */
 import { useState, type JSX } from 'react';
-import { Num } from '@ziroeda/common/wx/controls.js';
-import {
-  clearDialogState,
-  clearDoNotShowAgainSettings,
-  clearFileHistory,
-  resetAllSettings,
-} from '../../../prefs/maintenance.js';
-import { clearDoNotShowAgainDialogs } from '@ziroeda/common/kidialog_do_not_show.js';
-import type { PrefsContext } from '../types.js';
+import { Num } from '../wx/controls.js';
+import { clearDoNotShowAgainDialogs } from '../kidialog_do_not_show.js';
+import type {
+  COMMON_SETTINGS_DRAFT,
+  MAINTENANCE_SETTINGS_MANAGER,
+} from '../settings/common_settings.js';
 
 /** `m_cacheLifetime`'s own tooltip, upstream's text verbatim. [data] */
 const CACHE_TOOLTIP =
@@ -76,7 +73,14 @@ const CACHE_TOOLTIP =
 const CACHE_DAYS_MIN = 0;
 const CACHE_DAYS_MAX = 120;
 
-export function PanelMaintenance({ ctx }: { ctx: PrefsContext }): JSX.Element {
+export function PanelMaintenance({
+  ctx,
+}: {
+  ctx: COMMON_SETTINGS_DRAFT & {
+    cancelDialog: () => void;
+    settingsManager: MAINTENANCE_SETTINGS_MANAGER;
+  };
+}): JSX.Element {
   // What the last button press did, shown where upstream shows an infobar.
   const [note, setNote] = useState<string | null>(null);
 
@@ -105,7 +109,7 @@ export function PanelMaintenance({ ctx }: { ctx: PrefsContext }): JSX.Element {
             type="button"
             className="ze-btn"
             onClick={() => {
-              const n = clearFileHistory();
+              const n = ctx.settingsManager.ClearFileHistory();
               // `_( "File history cleared." )` [data]
               setNote(n > 0 ? 'File history cleared.' : 'File history was already empty.');
             }}
@@ -119,7 +123,7 @@ export function PanelMaintenance({ ctx }: { ctx: PrefsContext }): JSX.Element {
             onClick={() => {
               // `doClearDontShowAgain()` — the persisted six and the session
               // map, in that order, exactly as upstream (`:94-105`).
-              const n = clearDoNotShowAgainSettings() + clearDoNotShowAgainDialogs();
+              const n = ctx.settingsManager.ClearDontShowAgain() + clearDoNotShowAgainDialogs();
               // `_( "\"Don't show again\" dialogs reset." )` [data]
               setNote(
                 n > 0 ? '"Don\'t show again" dialogs reset.' : 'No dialog had been silenced.',
@@ -137,7 +141,7 @@ export function PanelMaintenance({ ctx }: { ctx: PrefsContext }): JSX.Element {
               // session half is not storage and so cannot live in
               // `clearDialogState`.
               clearDoNotShowAgainDialogs();
-              const n = clearDialogState();
+              const n = ctx.settingsManager.ClearDialogState();
               // `_( "All dialogs reset to defaults." )` [data]
               setNote(
                 n > 0 ? 'All dialogs reset to defaults.' : 'No dialog had remembered any state.',
@@ -155,7 +159,7 @@ export function PanelMaintenance({ ctx }: { ctx: PrefsContext }): JSX.Element {
               // `resetAllSettings` drops the whole prefix, which takes the six
               // persisted bools with it; the session map is not in storage.
               clearDoNotShowAgainDialogs();
-              resetAllSettings();
+              ctx.settingsManager.ResetToDefaults();
               // `wxQueueEvent( m_parent, … wxID_CANCEL )`: the working copy must
               // not be committed over the defaults we just wrote.
               ctx.cancelDialog();

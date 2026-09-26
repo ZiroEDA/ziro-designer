@@ -514,3 +514,20 @@ export interface COMMON_SETTINGS_DRAFT {
   common: CommonSettings;
   upC: (fn: (s: CommonSettings) => void) => void;
 }
+
+/**
+ * The SETTINGS_MANAGER operations PANEL_MAINTENANCE calls through `Pgm()`
+ * (panel_maintenance.cpp:82-141), each returning how many entries it cleared
+ * so the panel can say whether there was anything to clear. The app's settings
+ * store implements them; the panel is handed them with its draft.
+ */
+export interface MAINTENANCE_SETTINGS_MANAGER {
+  /** `SETTINGS_MANAGER::ClearFileHistory()` and the frames' histories. */
+  ClearFileHistory(): number;
+  /** `m_DoNotShowAgain` cleared and saved (`doClearDontShowAgain`). */
+  ClearDontShowAgain(): number;
+  /** `m_dialogControlValues` cleared and saved (`doClearDialogState`). */
+  ClearDialogState(): number;
+  /** `SETTINGS_MANAGER::ResetToDefaults()`. */
+  ResetToDefaults(): number;
+}

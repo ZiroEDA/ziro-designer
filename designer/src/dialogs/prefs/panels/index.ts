@@ -16,7 +16,7 @@ import { PanelMouseSettings } from '@ziroeda/common/dialogs/panel_mouse_settings
 import { PanelHotkeys } from './PanelHotkeys.js';
 import { PanelSpacemouse } from '@ziroeda/common/dialogs/panel_spacemouse.js';
 import { PanelGitRepos } from '@ziroeda/common/dialogs/git/panel_git_repos.js';
-import { PanelMaintenance } from './PanelMaintenance.js';
+import { PanelMaintenance } from '@ziroeda/common/dialogs/panel_maintenance.js';
 import {
   resetCommonPanel,
   resetGitPanel,

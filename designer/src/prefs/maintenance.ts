@@ -13,6 +13,7 @@
  * and so nothing here needs React.
  */
 import { COMMON_DEFAULTS, SETTINGS_SLICES, sliceStorageKey } from './settings.js';
+import type { MAINTENANCE_SETTINGS_MANAGER } from '@ziroeda/common/settings/common_settings.js';
 
 /**
  * Every key this app owns. `sliceStorageKey` is the one place the prefix is
@@ -135,3 +136,14 @@ export function clearDialogState(store: Storage = localStorage): number {
   store.setItem(key, JSON.stringify(obj));
   return n;
 }
+
+/**
+ * The four as the SETTINGS_MANAGER operations PANEL_MAINTENANCE calls, for the
+ * Preferences book to hand the panel (common/dialogs/panel_maintenance.tsx).
+ */
+export const MAINTENANCE_OPS: MAINTENANCE_SETTINGS_MANAGER = {
+  ClearFileHistory: () => clearFileHistory(),
+  ClearDontShowAgain: () => clearDoNotShowAgainSettings(),
+  ClearDialogState: () => clearDialogState(),
+  ResetToDefaults: () => resetAllSettings(),
+};

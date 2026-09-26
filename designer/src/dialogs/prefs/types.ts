@@ -42,6 +42,7 @@ import type {
   Viewer3dSettings,
 } from '../../prefs/settings.js';
 import type { ToolbarSettings } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
+import type { MAINTENANCE_SETTINGS_MANAGER } from '@ziroeda/common/settings/common_settings.js';
 
 /** One page in the book. The web mirror of KiCad's `PANEL_*` ids. */
 export type PrefsPageId =
@@ -199,6 +200,8 @@ export interface PrefsContext {
    * it had just restored.
    */
   cancelDialog: () => void;
+  /** PANEL_MAINTENANCE's `Pgm().GetSettingsManager()`, from the app's store. */
+  settingsManager: MAINTENANCE_SETTINGS_MANAGER;
 }
 
 /** A constructed page: its body, and its "Reset to Defaults" (`RESETTABLE_PANEL::ResetPanel`). */

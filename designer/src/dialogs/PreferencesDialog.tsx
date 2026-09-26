@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { MAINTENANCE_OPS } from '../prefs/maintenance.js';
 import { useEffect, useMemo, useState, type JSX } from 'react';
 import {
   settings,
@@ -424,6 +425,7 @@ export function PreferencesDialog({
     // copy is dropped rather than committed. Which is the whole point of the
     // call site — see `PrefsContext.cancelDialog`.
     cancelDialog: onClose,
+    settingsManager: MAINTENANCE_OPS,
   };
 
   // `AddLazySubPage`: the page is constructed the first time it is opened, and

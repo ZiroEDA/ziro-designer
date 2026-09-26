@@ -143,12 +143,13 @@ def main(pairs):
                 # repo-relative spelling, possibly behind ../ segments
                 out = re.sub(r'((?:\.\./)*)' + re.escape(o_ext) + r'(?=[\'"`\s)]|$)',
                              lambda m, new=new: m.group(1) + new, out)
-            # package-rooted spellings: designer/src/dialogs/x -> read('dialogs/x')
-            d_old = pkg_of(old)
-            if d_old:
-                tail_old = os.path.relpath(old, d_old)
-                for base in (d_old + '/src', d_old):
-                    pass
+            # SRC-rooted spellings in qa: a test that reads `src('dialogs/x.tsx')`
+            # relative to designer/src. The new home is spelled from there too.
+            if f.startswith('qa/') and old.startswith('designer/src/'):
+                tail = old[len('designer/src/'):]
+                new_rel = os.path.relpath(new, 'designer/src')
+                out = re.sub(r"(['\"`])" + re.escape(tail) + r"\1",
+                             lambda m, n=new_rel: m.group(1) + n + m.group(1), out)
         if out != src:
             plans[f] = out
 
