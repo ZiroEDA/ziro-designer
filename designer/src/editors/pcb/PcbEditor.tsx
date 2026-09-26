@@ -1944,6 +1944,12 @@ export function PcbEditor({
     setViewCenter: (aPos: KVec2, aRects: readonly BOX2D[]) => void;
   } | null>(null);
   if (!frameRef.current) {
+    // `PGM_BASE::InitPgm` runs before any KiCad frame exists, and the frame
+    // needs it at once: the SetBoard below joins the board to `Prj()`, which is
+    // `Pgm().GetSettingsManager().Prj()`. Installing it only in the canvas
+    // effect, after this first render, threw "Pgm() called before the PGM_BASE
+    // was set" whenever the PCB editor was the first frame to open.
+    installPgm();
     frameRef.current = new PCB_EDIT_FRAME({
       settings: () => pcbnewSettingsOf(pcbCfgRef.current),
       onModify: () => setDirtyRef.current(true),
