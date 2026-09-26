@@ -35,6 +35,10 @@ import {
 } from '@ziroeda/common/tool/tool_event.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { wxMenuEvent, wxMenuEventType } from '@ziroeda/common/wx/menu.js';
+import { gerbIUScale } from '@ziroeda/common/eda_units.js';
+import { GRID_MENU } from '@ziroeda/common/tool/grid_menu.js';
+import { ZOOM_MENU } from '@ziroeda/common/tool/zoom_menu.js';
+import { GERBVIEW_SETTINGS } from '@ziroeda/gerbview/gerbview_settings.js';
 
 const never = (): boolean => false;
 
@@ -200,5 +204,40 @@ describe('TOOL_MANAGER context menu', () => {
     expect(seen.map((e) => e.Action())).toEqual([TA_CHOICE_MENU_CHOICE, TA_CHOICE_MENU_CLOSED]);
     expect(seen[0]!.GetCommandId()).toBe(-1);
     expect(seen[1]!.Parameter<ACTION_MENU>()).toBe(m);
+  });
+});
+
+describe('GRID_MENU and ZOOM_MENU (grid_menu.cpp:60-80, zoom_menu.cpp:60-84)', () => {
+  const cfg = new GERBVIEW_SETTINGS();
+  const parent = {
+    config: () => cfg,
+    GetWindowSettings: (c: GERBVIEW_SETTINGS) => c.m_Window,
+    GetIuScale: () => gerbIUScale,
+    GetUnitPair: () => ({ primary: 'mm' as const, secondary: 'mils' as const }),
+    GetCanvas: () => ({ GetGAL: () => ({ GetZoomFactor: () => zoom }) }),
+  };
+  let zoom = 1.0;
+
+  it('GRID_MENU: Grid Origin, a separator, then one checked row per grid on the current one', () => {
+    cfg.m_Window.grid.last_size_idx = 3;
+    const m = new GRID_MENU(parent);
+    const items = m.GetMenuItems();
+
+    expect(items[1]!.IsSeparator()).toBe(true);
+    expect(items.length).toBe(2 + cfg.m_Window.grid.grids.length);
+    expect(items.filter((i) => i.IsChecked()).map((i) => items.indexOf(i))).toEqual([2 + 3]);
+    expect(items[5]!.GetId()).toBe(main_id.ID_POPUP_GRID_START + 3);
+  });
+
+  it('ZOOM_MENU: "Zoom: %.2f" rows, the preset within 10 % of the zoom checked', () => {
+    zoom = 1.05; // within 10 % of the 1.0 preset only
+    const m = new ZOOM_MENU(parent);
+    m.UpdateAll();
+    const items = m.GetMenuItems();
+    const i10 = cfg.m_Window.zoom_factors.indexOf(1.0);
+
+    expect(items[i10]!.GetItemLabelText()).toBe('Zoom: 1.00');
+    expect(items.filter((i) => i.IsChecked()).map((i) => items.indexOf(i))).toEqual([i10]);
+    expect(items[i10]!.GetId()).toBe(main_id.ID_POPUP_ZOOM_LEVEL_START + i10 + 1);
   });
 });

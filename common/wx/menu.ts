@@ -168,14 +168,14 @@ export class wxMenuItem {
 
 export class wxMenu {
   protected m_items: wxMenuItem[] = [];
-  private m_parent: wxMenu | null = null;
+  private m_menuParent: wxMenu | null = null;
 
   GetParent(): wxMenu | null {
-    return this.m_parent;
+    return this.m_menuParent;
   }
 
   SetParent(aParent: wxMenu | null): void {
-    this.m_parent = aParent;
+    this.m_menuParent = aParent;
   }
 
   GetMenuItemCount(): number {
@@ -212,7 +212,17 @@ export class wxMenu {
     return this.m_items.find((i) => i.GetId() === aId) ?? null;
   }
 
-  Append(aItem: wxMenuItem): wxMenuItem {
+  /** `Append( item )`, or `Append( id, text, help, kind )`. */
+  Append(aItem: wxMenuItem): wxMenuItem;
+  Append(aId: number, aText: string, aHelp?: string, aKind?: wxItemKind): wxMenuItem;
+  Append(
+    a: wxMenuItem | number,
+    aText = '',
+    aHelp = '',
+    aKind = wxItemKind.wxITEM_NORMAL,
+  ): wxMenuItem {
+    const aItem = typeof a === 'number' ? new wxMenuItem(this, a, aText, aHelp, aKind) : a;
+
     aItem.SetMenu(this);
     this.m_items.push(aItem);
 
@@ -254,6 +264,11 @@ export class wxMenu {
   /** `Delete( item )`: remove the item (a submenu is detached, not deleted). */
   Delete(aItem: wxMenuItem): void {
     this.Destroy(aItem);
+  }
+
+  /** `Check( id, check )`. */
+  Check(aId: number, aCheck: boolean): void {
+    this.FindItem(aId)?.Check(aCheck);
   }
 
   GetLabelText(aId: number): string {

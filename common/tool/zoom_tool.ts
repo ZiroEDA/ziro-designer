@@ -27,6 +27,8 @@ import { ACTIONS } from './actions.js';
 import { RESET_REASON } from './tool_base.js';
 import { BUT_LEFT, BUT_RIGHT, type TOOL_EVENT } from './tool_event.js';
 import { TOOL_INTERACTIVE } from './tool_interactive.js';
+import { SELECTION } from './selection.js';
+import { SELECTION_CONDITIONS } from './selection_conditions.js';
 
 /** A world-space point, matching the canvases' own `Vec2`. */
 export interface ZoomAreaPoint {
@@ -142,9 +144,15 @@ export class ZOOM_TOOL extends TOOL_INTERACTIVE {
 
   /// @copydoc TOOL_INTERACTIVE::Init
   override Init(): boolean {
-    // The context menu - cancelInteractive, a separator, then
-    // AddStandardSubMenus - is a TOOL_MENU, which is not ported yet
-    // (tool_interactive.ts); a right click passes through below.
+    const ctxMenu = this.m_menu.GetMenu();
+
+    // cancel current tool goes in main context menu at the top if present
+    ctxMenu.AddItem(ACTIONS.cancelInteractive, SELECTION_CONDITIONS.ShowAlways, 1);
+    ctxMenu.AddSeparator(1);
+
+    // Finally, add the standard zoom/grid items
+    this.getEditFrame<EDA_DRAW_FRAME>().AddStandardSubMenus(this.m_menu);
+
     return true;
   }
 
@@ -174,7 +182,8 @@ export class ZOOM_TOOL extends TOOL_INTERACTIVE {
       } else if (evt.IsDrag(BUT_LEFT) || evt.IsDrag(BUT_RIGHT)) {
         if (yield* this.selectRegion()) break;
       } else if (evt.IsClick(BUT_RIGHT)) {
-        // m_menu->ShowContextMenu( dummy ): TOOL_MENU is not ported yet.
+        const dummy = new SELECTION();
+        this.m_menu.ShowContextMenu(dummy);
       } else {
         evt.SetPassEvent();
       }

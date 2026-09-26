@@ -44,6 +44,9 @@ import { ACTIONS } from './tool/actions.js';
 import { COMMON_TOOLS } from './tool/common_tools.js';
 import { TOOL_EVENT } from './tool/tool_event.js';
 import { GRID_MENU } from './tool/grid_menu.js';
+import { SELECTION_CONDITIONS } from './tool/selection_conditions.js';
+import type { TOOL_MENU } from './tool/tool_menu.js';
+import { ZOOM_MENU } from './tool/zoom_menu.js';
 import { IsImperialUnit } from './units_provider.js';
 import { RENDER_TARGET } from './gal/definitions.js';
 import { wxChoice, wxNOT_FOUND } from './wx/choice.js';
@@ -497,6 +500,28 @@ export abstract class EDA_DRAW_FRAME extends EDA_BASE_FRAME {
   /** `ClearToolbarControl` / the grid control factory's `new wxChoice`. */
   SetGridSelectBox(aBox: wxChoice | null): void {
     this.m_gridSelectBox = aBox;
+  }
+
+  /**
+   * Construct "basic" menus for a tool: the Zoom and Grid submenus at the end
+   * of every draw frame's context menu.
+   */
+  AddStandardSubMenus(aToolMenu: TOOL_MENU): void {
+    const commonTools = this.m_toolManager!.GetTool(COMMON_TOOLS)!;
+    const aMenu = aToolMenu.GetMenu();
+
+    aMenu.AddSeparator(1000);
+
+    const zoomMenu = new ZOOM_MENU(this);
+    zoomMenu.SetTool(commonTools);
+    aToolMenu.RegisterSubMenu(zoomMenu);
+
+    const gridMenu = new GRID_MENU(this);
+    gridMenu.SetTool(commonTools);
+    aToolMenu.RegisterSubMenu(gridMenu);
+
+    aMenu.AddMenu(zoomMenu, SELECTION_CONDITIONS.ShowAlways, 1000);
+    aMenu.AddMenu(gridMenu, SELECTION_CONDITIONS.ShowAlways, 1000);
   }
 
   // ---- zoom ---------------------------------------------------------------
