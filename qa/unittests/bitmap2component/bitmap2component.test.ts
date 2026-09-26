@@ -138,6 +138,19 @@ describe("BITMAPCONV_INFO writes KiCad's own bytes", () => {
   });
 });
 
+describe('PostScript line wrapping (outputOnePolygon)', () => {
+  it('breaks after every eighth lineto: `if( jj++ > 6 )` from jj = 0', () => {
+    // A disc traces to one long outline; the two-blob file above never wraps.
+    const disc = bitmap(24, 24, (x, y) => (x + 0.5 - 12) ** 2 + (y + 0.5 - 12) ** 2 <= 90);
+    const text = convert(disc, POSTSCRIPT_FMT, 300, 300);
+    const body = text.split('moveto\n')[1]!.split('\nclosepath fill')[0]!;
+    const counts = body.split('\n').map((line) => line.match(/lineto/g)?.length ?? 0);
+    expect(counts.length).toBeGreaterThan(2);
+    expect(counts.slice(0, -1).every((n) => n === 8)).toBe(true);
+    expect(counts.at(-1)).toBeLessThanOrEqual(8);
+  });
+});
+
 describe('SYMBOL_PASTE_FMT is SYMBOL_FMT without the library wrapper', () => {
   it('drops the (kicad_symbol_lib ...) line and its closing paren, nothing else', () => {
     const lib = convert(square24(), SYMBOL_FMT, 300, 300);
