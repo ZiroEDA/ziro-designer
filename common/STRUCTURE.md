@@ -153,7 +153,7 @@ wildcards_and_files_ext.
 | `newstroke_font` | done 09-26 (was `font/newstroke_glyphs.ts`). **Latin only** (U+0020..U+00FF): the CJK and other ranges are not ported, so such text draws no glyphs |
 | `array_axis` | the `ArrayAxis` half of `array_options.ts` (a record, not the class) |
 | `dpi_scaling`, `dpi_scaling_common`, `gal_display_options_common` | `DPI_SCALING_GetDefaultScaleFactor` in `gal/gal_display_options.ts` |
-| `env_vars` | `ENV_VAR` in `common.ts` |
+| `env_vars` | done 09-26: the whole `ENV_VAR` namespace (was three functions in `common.ts`); `wxGetEnv` is `wx/utils.ts` |
 | `increment` | `IncrementString` in `eeschema/tools/repeat_item.ts` |
 | `xnode` | `class XNODE` in `eeschema/exporters/netlist_exporter_kicad.ts` |
 | `status_popup` | `STATUS_TEXT_POPUP` in `pcbnew/pad_enumerate.ts` |

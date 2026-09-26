@@ -47,7 +47,9 @@ export const DRAWING_SHEET_FILE_EXTENSION = 'kicad_wks';
 // ---------------------------------------------------------------------------
 // ExpandTextVars / ResolveTextVars (common/common.cpp)
 
+import { ENV_VAR } from './env_vars.js';
 import { EscapeHTML } from './string_utils.js';
+import { wxGetEnv } from './wx/utils.js';
 import type { OutStr } from './font/font.js';
 import { EXPRESSION_EVALUATOR } from './text_eval/text_eval_wrapper.js';
 
@@ -304,50 +306,6 @@ export function ResolveTextVars(
   return text;
 }
 
-/**
- * The process environment `KIwxExpandEnvVars` reads through `wxGetEnv`.
- *
- * A browser has no environment, so the default answers nothing; a host that
- * does have one (a node harness, a test) installs its own lookup.
- */
-export type EnvVarLookup = (aName: string) => string | undefined;
-
-let s_envVarLookup: EnvVarLookup = () => undefined;
-
-export function SetEnvVarLookup(aLookup: EnvVarLookup): void {
-  s_envVarLookup = aLookup;
-}
-
-/** `ENV_VAR::GetVersionedEnvVarName`: `KICAD<major>_<base>`. */
-export function GetVersionedEnvVarName(aBaseName: string): string {
-  // [data] the major version of the KiCad build we mirror.
-  return `KICAD10_${aBaseName}`;
-}
-
-/** `ENV_VAR::GetPredefinedEnvVars` (env_vars.cpp:38). */
-const predefinedEnvVars: readonly string[] = [
-  'KIPRJMOD',
-  GetVersionedEnvVarName('SYMBOL_DIR'),
-  GetVersionedEnvVarName('3DMODEL_DIR'),
-  GetVersionedEnvVarName('FOOTPRINT_DIR'),
-  GetVersionedEnvVarName('TEMPLATE_DIR'),
-  'KICAD_USER_TEMPLATE_DIR',
-  'KICAD_PTEMPLATES',
-  GetVersionedEnvVarName('3RD_PARTY'),
-];
-
-/** `ENV_VAR::IsVersionedEnvVar` (env_vars.cpp:87). */
-export function IsVersionedEnvVar(aName: string, aBaseName: string): boolean {
-  const prefix = 'KICAD';
-  const suffix = `_${aBaseName}`;
-
-  if (!aName.startsWith(prefix) || !aName.endsWith(suffix)) return false;
-
-  const version = aName.substring(prefix.length, aName.length - suffix.length);
-
-  return version !== '' && /^[0-9]+$/.test(version);
-}
-
 /** `wxString::Matches` for the one `KICAD*_X` wildcard this needs: `*` matches any run. */
 const wildcardMatches = (aPattern: string, aText: string): boolean => {
   const re = new RegExp(
@@ -388,9 +346,9 @@ function KIwxExpandEnvVars(
   let strResult = '';
 
   const getVersionedEnvVar = (aMatch: string): string | null => {
-    for (const v of predefinedEnvVars) {
+    for (const v of ENV_VAR.GetPredefinedEnvVars()) {
       if (wildcardMatches(aMatch, v)) {
-        const value = s_envVarLookup(v);
+        const value = ENV_VAR.GetEnvVar(v);
 
         if (value === undefined) continue;
 
@@ -448,7 +406,7 @@ function KIwxExpandEnvVars(
         //     set through wxSetEnv may not be read correctly!
         let expanded = false;
         const resolved = { value: strVarName };
-        const env = s_envVarLookup(strVarName);
+        const env = wxGetEnv(strVarName);
 
         if (aProject && aProject(resolved)) {
           strResult += resolved.value;
@@ -463,7 +421,7 @@ function KIwxExpandEnvVars(
         // displays correctly
         else if (
           strVarName.includes('KISYS3DMOD') ||
-          IsVersionedEnvVar(strVarName, '3DMODEL_DIR')
+          ENV_VAR.IsVersionedEnvVar(strVarName, '3DMODEL_DIR')
         ) {
           const v = getVersionedEnvVar('KICAD*_3DMODEL_DIR');
 
@@ -473,7 +431,7 @@ function KIwxExpandEnvVars(
           }
         } else if (
           strVarName === 'KICAD_SYMBOL_DIR' ||
-          IsVersionedEnvVar(strVarName, 'SYMBOL_DIR')
+          ENV_VAR.IsVersionedEnvVar(strVarName, 'SYMBOL_DIR')
         ) {
           const v = getVersionedEnvVar('KICAD*_SYMBOL_DIR');
 
@@ -481,14 +439,14 @@ function KIwxExpandEnvVars(
             strResult += v;
             expanded = true;
           }
-        } else if (IsVersionedEnvVar(strVarName, 'FOOTPRINT_DIR')) {
+        } else if (ENV_VAR.IsVersionedEnvVar(strVarName, 'FOOTPRINT_DIR')) {
           const v = getVersionedEnvVar('KICAD*_FOOTPRINT_DIR');
 
           if (v !== null) {
             strResult += v;
             expanded = true;
           }
-        } else if (IsVersionedEnvVar(strVarName, '3RD_PARTY')) {
+        } else if (ENV_VAR.IsVersionedEnvVar(strVarName, '3RD_PARTY')) {
           const v = getVersionedEnvVar('KICAD*_3RD_PARTY');
 
           if (v !== null) {
@@ -510,10 +468,10 @@ function KIwxExpandEnvVars(
           const isVersionedWildcard =
             strVarName.includes('KISYS3DMOD') ||
             strVarName === 'KICAD_SYMBOL_DIR' ||
-            IsVersionedEnvVar(strVarName, '3DMODEL_DIR') ||
-            IsVersionedEnvVar(strVarName, 'SYMBOL_DIR') ||
-            IsVersionedEnvVar(strVarName, 'FOOTPRINT_DIR') ||
-            IsVersionedEnvVar(strVarName, '3RD_PARTY');
+            ENV_VAR.IsVersionedEnvVar(strVarName, '3DMODEL_DIR') ||
+            ENV_VAR.IsVersionedEnvVar(strVarName, 'SYMBOL_DIR') ||
+            ENV_VAR.IsVersionedEnvVar(strVarName, 'FOOTPRINT_DIR') ||
+            ENV_VAR.IsVersionedEnvVar(strVarName, '3RD_PARTY');
 
           if (isVersionedWildcard) {
             strResult += str[n - 1];
