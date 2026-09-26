@@ -107,6 +107,17 @@ export const kicadSymbolLibWildcard = (): ChooserFilter =>
 export const kicadFootprintLibWildcard = (): ChooserFilter =>
   fileFilter('KiCad footprint library paths', ['pretty']);
 
+/** `FILEEXT::KiCadFootprintLibFileWildcard` (`:363-366`): one `.kicad_mod` file, not a `.pretty`. */
+export const kicadFootprintFileWildcard = (): ChooserFilter =>
+  fileFilter('KiCad footprint files', ['kicad_mod']);
+
+/** `FILEEXT::ImageFileWildcard` (`:585-588`). */
+export const imageFileWildcard = (): ChooserFilter =>
+  fileFilter('Image files', ['png', 'jpg', 'jpeg', 'bmp', 'gif']);
+
+/** `FILEEXT::PSFileWildcard` (`:443-446`). */
+export const psFileWildcard = (): ChooserFilter => fileFilter('PostScript files', ['ps']);
+
 export const drawingSheetWildcard = (): ChooserFilter =>
   fileFilter('Drawing sheet files', ['kicad_wks']);
 
