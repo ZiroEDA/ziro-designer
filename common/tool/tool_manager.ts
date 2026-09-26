@@ -28,10 +28,12 @@ import {
   type TOOL_STATE_FUNC,
   TOOL_TYPE,
 } from './tool_base.js';
-import type { TOOL_INTERACTIVE, ACTION_MENU } from './tool_interactive.js';
+import type { TOOL_INTERACTIVE } from './tool_interactive.js';
+import type { ACTION_MENU } from './action_menu.js';
 import type { TOOL_ACTION } from './tool_action.js';
 import {
   BUT_LEFT,
+  AS_GLOBAL,
   BUT_RIGHT,
   CONTEXT_MENU_TRIGGER,
   SYNCRONOUS_TOOL_STATE,
@@ -951,13 +953,66 @@ export class TOOL_MANAGER {
 
       if (this.m_viewControls) this.m_viewControls.ForceCursorPosition(true, this.m_menuCursor);
 
+      // Display a copy of menu
+      const menu = m!.Clone();
+
       this.m_menuOwner = toolId;
       this.m_menuActive = true;
 
-      throw new Error(
-        'TOOL_MANAGER::DispatchContextMenu: the popup menu is ACTION_MENU, pending (#636 stage 3)',
-      );
+      // frame->PopupMenu( menu, pos ) blocks upstream until the menu closes;
+      // the page's popup is asynchronous, so the rest runs when it closes. A
+      // frame with no popup (no page) closes it at once, unselected.
+      const holder = this.m_frame as unknown as {
+        PopupMenu?: (aMenu: ACTION_MENU, aOnClose: () => void) => void;
+      } | null;
+
+      if (holder?.PopupMenu) holder.PopupMenu(menu, () => this.contextMenuClosed(m!, menu));
+      else this.contextMenuClosed(m!, menu);
+
+      break;
     }
+  }
+
+  /** The second half of DispatchContextMenu, after `PopupMenu` returns. */
+  private contextMenuClosed(m: ACTION_MENU, menu: ACTION_MENU): void {
+    // Warp the cursor if a menu item was selected
+    if (menu.GetSelected() >= 0) {
+      if (this.m_viewControls && this.m_warpMouseAfterContextMenu)
+        this.m_viewControls.WarpMouseCursor(this.m_menuCursor, true, false);
+    }
+    // Otherwise notify the tool of a canceled menu
+    else {
+      const evt = new TOOL_EVENT(TC_COMMAND, TA_CHOICE_MENU_CHOICE, -1, AS_GLOBAL);
+      evt.SetHasPosition(false);
+      evt.SetParameter(m);
+      this.dispatchInternal(evt);
+    }
+
+    // Restore setting in case it was vetoed
+    this.m_warpMouseAfterContextMenu = true;
+
+    // Notify the tools that menu has been closed
+    const evt = new TOOL_EVENT(TC_COMMAND, TA_CHOICE_MENU_CLOSED);
+    evt.SetHasPosition(false);
+    evt.SetParameter(m);
+    this.dispatchInternal(evt);
+
+    this.m_menuActive = false;
+    this.m_menuOwner = -1;
+
+    // Restore cursor settings
+    for (const [id, cursorSetting] of this.m_cursorSettings) {
+      const st = this.m_toolIdIndex.get(id);
+      console.assert(st !== undefined);
+
+      if (!st) continue;
+
+      const vc = st.vcSettings;
+      vc.m_forceCursorPosition = cursorSetting !== undefined;
+      vc.m_forcedPosition = cursorSetting ?? { x: 0, y: 0 };
+    }
+
+    this.m_cursorSettings.clear();
   }
 
   /**

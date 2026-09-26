@@ -11,21 +11,8 @@ import type { COROUTINE_BODY } from './coroutine.js';
 import { TOOL_BASE, type TOOL_ID, type TOOL_STATE_FUNC, TOOL_TYPE } from './tool_base.js';
 import { CONTEXT_MENU_TRIGGER, TC_ANY, TA_ANY, TOOL_EVENT, TOOL_EVENT_LIST } from './tool_event.js';
 import { TOOL_MANAGER } from './tool_manager.js';
-
-/**
- * `ACTION_MENU` as the manager and the interactive tool know it: the context
- * menu a tool schedules. The class itself lands with the tools (#636 stage 3).
- */
-export interface ACTION_MENU {
-  SetTool(aTool: TOOL_INTERACTIVE): void;
-  Clone(): ACTION_MENU;
-  GetSelected(): number;
-}
-
-/** `TOOL_MENU`, the tool's own context menu wrapper — with the tools (#636 stage 3). */
-export interface TOOL_MENU {
-  GetMenu(): ACTION_MENU;
-}
+import type { ACTION_MENU } from './action_menu.js';
+import { TOOL_MENU } from './tool_menu.js';
 
 /**
  * A C++ handler is a plain `int f( const TOOL_EVENT& )`; a state function
@@ -42,7 +29,7 @@ export function SYNC_HANDLER<T extends TOOL_INTERACTIVE>(
 }
 
 export abstract class TOOL_INTERACTIVE extends TOOL_BASE {
-  protected m_menu: TOOL_MENU | null = null;
+  protected m_menu: TOOL_MENU;
 
   /**
    * Create a tool with given id & name. The name must be unique.
@@ -58,7 +45,8 @@ export abstract class TOOL_INTERACTIVE extends TOOL_BASE {
       typeof a === 'string' ? TOOL_MANAGER.MakeToolId(a) : a,
       typeof a === 'string' ? a : b!,
     );
-    // if( Pgm().IsGUI() ) m_menu.reset( new TOOL_MENU( *this ) )   -- TOOL_MENU pending (#636 stage 3)
+    // if( Pgm().IsGUI() ) m_menu.reset( new TOOL_MENU( *this ) ): a page is always a GUI.
+    this.m_menu = new TOOL_MENU(this);
   }
 
   /**
@@ -71,7 +59,7 @@ export abstract class TOOL_INTERACTIVE extends TOOL_BASE {
   }
 
   GetToolMenu(): TOOL_MENU {
-    return this.m_menu!;
+    return this.m_menu;
   }
 
   /**

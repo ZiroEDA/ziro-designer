@@ -22,6 +22,7 @@ import { type PICKED_ITEMS_LIST, UNDO_REDO_CONTAINER } from './undo_redo_contain
 import { UNITS_PROVIDER } from './units_provider.js';
 import { RPT_SEVERITY_UNDEFINED, type Severity } from './reporter.js';
 import type { TOOL_ACTION } from './tool/tool_action.js';
+import type { ACTION_MENU } from './tool/action_menu.js';
 import type { APP_SETTINGS_BASE, WINDOW_SETTINGS } from './settings/app_settings.js';
 
 export const DEFAULT_MAX_UNDO_ITEMS = 0;
@@ -351,6 +352,25 @@ export abstract class EDA_BASE_FRAME
    */
   CallAfter(aFn: () => void): void {
     setTimeout(aFn, 0);
+  }
+
+  private m_popupMenuPresenter: ((aMenu: ACTION_MENU, aOnClose: () => void) => void) | null = null;
+
+  /**
+   * `wxWindow::PopupMenu( menu, pos )`: show a context menu at the pointer.
+   * Upstream it blocks until the menu closes; here `aOnClose` runs then. The
+   * popup is the page's (`common/tool/action_menu_popup.tsx`); a frame with
+   * none closes the menu at once, unselected.
+   */
+  PopupMenu(aMenu: ACTION_MENU, aOnClose: () => void): void {
+    if (this.m_popupMenuPresenter) this.m_popupMenuPresenter(aMenu, aOnClose);
+    else aOnClose();
+  }
+
+  SetPopupMenuPresenter(
+    aPresenter: ((aMenu: ACTION_MENU, aOnClose: () => void) => void) | null,
+  ): void {
+    this.m_popupMenuPresenter = aPresenter;
   }
 
   private m_preferencesPresenter: ((aStartPage: string, aStartParentPage: string) => void) | null =
