@@ -1415,6 +1415,18 @@ describe('DIALOG_MAP_GERBER_LAYERS_TO_PCB', () => {
     ]);
   });
 
+  it('a 2-layer board has no room for even In1.Cu: ordinal 1 > 2 - 2 (:436)', async () => {
+    await load4();
+    const dlg = await open();
+    dlg.m_layersLookUpTable[0] = 4; // In1_Cu
+
+    expect(dlg.TransferDataFromWindow()).toBe(false);
+
+    dlg.OnBrdLayersCountSelection(1);
+
+    expect(dlg.TransferDataFromWindow()).toBe(true);
+  });
+
   it('OK normalises an odd count before the export reads it (:421)', async () => {
     await load4();
     env.okCancelAnswers.push(true);
