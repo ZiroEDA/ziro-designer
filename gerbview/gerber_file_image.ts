@@ -12,10 +12,20 @@
  */
 
 import type { Vec2 } from '@ziroeda/kimath';
-import { GERBER_FORMAT, IU_PER_MM, IU_PER_MILS } from './types.js';
+import { IU_PER_MM, IU_PER_MILS } from './gerbview.js';
 import { D_CODE } from './dcode.js';
 import type { ApertureMacro } from './aperture_macro.js';
 import type { GERBER_DRAW_ITEM, BBox } from './gerber_draw_item.js';
+
+/**
+ * Which reader built an image. Ours: KiCad tells them apart by class
+ * (`EXCELLON_IMAGE` derives `GERBER_FILE_IMAGE`, `excellon_image.h`) and asks
+ * `dynamic_cast`; this goes when `EXCELLON_IMAGE` is ported.
+ */
+export enum GERBER_FORMAT {
+  RS274X = 'RS274X',
+  EXCELLON = 'EXCELLON',
+}
 
 /** Coordinate format from the FS command. */
 export interface CoordFormat {

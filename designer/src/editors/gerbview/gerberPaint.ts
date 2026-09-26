@@ -28,7 +28,11 @@
  * that, and the two callers legitimately differ.
  */
 
-import { GBR_BASIC_SHAPE, type GERBER_DRAW_ITEM, type AmResolvedShape } from '@ziroeda/gerbview';
+import {
+  GBR_BASIC_SHAPE_TYPE,
+  type GERBER_DRAW_ITEM,
+  type AmResolvedShape,
+} from '@ziroeda/gerbview';
 
 /**
  * The drawing surface both backends provide.
@@ -156,7 +160,7 @@ export function paintItemGeometry(
   only?: 'fill' | 'stroke',
 ): void {
   switch (item.shape) {
-    case GBR_BASIC_SHAPE.GBR_SEGMENT: {
+    case GBR_BASIC_SHAPE_TYPE.GBR_SEGMENT: {
       if (opts.linesSketch) {
         s.lineWidth = worldPen;
         s.lineCap = 'round';
@@ -169,13 +173,13 @@ export function paintItemGeometry(
       }
       break;
     }
-    case GBR_BASIC_SHAPE.GBR_ARC:
-    case GBR_BASIC_SHAPE.GBR_CIRCLE: {
+    case GBR_BASIC_SHAPE_TYPE.GBR_ARC:
+    case GBR_BASIC_SHAPE_TYPE.GBR_CIRCLE: {
       const r = Math.hypot(item.start.x - item.arcCentre.x, item.start.y - item.arcCentre.y);
       s.lineWidth = opts.linesSketch ? worldPen : Math.max(item.width, worldPen);
       s.lineCap = 'round';
       s.beginPath();
-      if (item.shape === GBR_BASIC_SHAPE.GBR_CIRCLE) {
+      if (item.shape === GBR_BASIC_SHAPE_TYPE.GBR_CIRCLE) {
         s.arc(item.arcCentre.x, item.arcCentre.y, r, 0, Math.PI * 2);
       } else {
         const a0 = Math.atan2(item.start.y - item.arcCentre.y, item.start.x - item.arcCentre.x);
@@ -185,7 +189,7 @@ export function paintItemGeometry(
       s.stroke();
       break;
     }
-    case GBR_BASIC_SHAPE.GBR_POLYGON: {
+    case GBR_BASIC_SHAPE_TYPE.GBR_POLYGON: {
       if (opts.polygonsSketch) {
         s.lineWidth = worldPen;
         if (item.polyPoints.length > 0) {

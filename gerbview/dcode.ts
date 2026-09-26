@@ -11,8 +11,20 @@
  */
 
 import type { Vec2 } from '@ziroeda/kimath';
-import { APERTURE_T } from './types.js';
 import type { ApertureMacro, AmResolvedShape } from './aperture_macro.js';
+
+/**
+ * `APERTURE_T` (`dcode.h:48-55`), the standard aperture templates and the
+ * macro reference. [data] KiCad's own character codes — including `'0'`
+ * (zero) for the oval, where the `%AD` template letter is `O`.
+ */
+export enum APERTURE_T {
+  APT_CIRCLE = 'C',
+  APT_RECT = 'R',
+  APT_OVAL = '0',
+  APT_POLYGON = 'P',
+  APT_MACRO = 'M',
+}
 
 /** Hole shape of an aperture drill (D_CODE::m_DrillShape). */
 export enum APERTURE_DEF_HOLE {

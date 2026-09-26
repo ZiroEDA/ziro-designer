@@ -48,7 +48,11 @@
  * by a boolean in `GetApertureMacroShape`, not by compositing.
  */
 
-import { GBR_BASIC_SHAPE, type GERBER_DRAW_ITEM, type GERBER_FILE_IMAGE } from '@ziroeda/gerbview';
+import {
+  GBR_BASIC_SHAPE_TYPE,
+  type GERBER_DRAW_ITEM,
+  type GERBER_FILE_IMAGE,
+} from '@ziroeda/gerbview';
 import {
   paintItemGeometry,
   type GerberPaintOptions,
@@ -148,11 +152,11 @@ function flashKind(item: GERBER_DRAW_ITEM): number {
  */
 function kindRank(item: GERBER_DRAW_ITEM): number {
   switch (item.shape) {
-    case GBR_BASIC_SHAPE.GBR_POLYGON:
+    case GBR_BASIC_SHAPE_TYPE.GBR_POLYGON:
       return KIND_TRI;
-    case GBR_BASIC_SHAPE.GBR_SEGMENT:
-    case GBR_BASIC_SHAPE.GBR_ARC:
-    case GBR_BASIC_SHAPE.GBR_CIRCLE:
+    case GBR_BASIC_SHAPE_TYPE.GBR_SEGMENT:
+    case GBR_BASIC_SHAPE_TYPE.GBR_ARC:
+    case GBR_BASIC_SHAPE_TYPE.GBR_CIRCLE:
       return KIND_SEG;
     default:
       return flashKind(item);

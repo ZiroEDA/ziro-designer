@@ -13,7 +13,7 @@
  */
 
 import {
-  GBR_BASIC_SHAPE,
+  GBR_BASIC_SHAPE_TYPE,
   IU_PER_MM,
   type GERBER_FILE_IMAGE,
   type GERBER_DRAW_ITEM,
@@ -403,7 +403,7 @@ function drawItem(
   ctx.strokeStyle = color;
 
   switch (item.shape) {
-    case GBR_BASIC_SHAPE.GBR_SEGMENT: {
+    case GBR_BASIC_SHAPE_TYPE.GBR_SEGMENT: {
       ctx.globalCompositeOperation = op;
       if (opts.linesSketch) {
         ctx.lineWidth = worldPen;
@@ -417,14 +417,14 @@ function drawItem(
       }
       break;
     }
-    case GBR_BASIC_SHAPE.GBR_ARC:
-    case GBR_BASIC_SHAPE.GBR_CIRCLE: {
+    case GBR_BASIC_SHAPE_TYPE.GBR_ARC:
+    case GBR_BASIC_SHAPE_TYPE.GBR_CIRCLE: {
       ctx.globalCompositeOperation = op;
       const r = Math.hypot(item.start.x - item.arcCentre.x, item.start.y - item.arcCentre.y);
       ctx.lineWidth = opts.linesSketch ? worldPen : Math.max(item.width, worldPen);
       ctx.lineCap = 'round';
       ctx.beginPath();
-      if (item.shape === GBR_BASIC_SHAPE.GBR_CIRCLE) {
+      if (item.shape === GBR_BASIC_SHAPE_TYPE.GBR_CIRCLE) {
         ctx.arc(item.arcCentre.x, item.arcCentre.y, r, 0, Math.PI * 2);
       } else {
         const a0 = Math.atan2(item.start.y - item.arcCentre.y, item.start.x - item.arcCentre.x);
@@ -434,7 +434,7 @@ function drawItem(
       ctx.stroke();
       break;
     }
-    case GBR_BASIC_SHAPE.GBR_POLYGON: {
+    case GBR_BASIC_SHAPE_TYPE.GBR_POLYGON: {
       ctx.globalCompositeOperation = op;
       if (opts.polygonsSketch) {
         ctx.lineWidth = worldPen;
@@ -581,9 +581,9 @@ export function renderGerberLayers(
       for (const item of layer.image.items) {
         if (!item.dcodeNum) continue;
         if (
-          item.shape === GBR_BASIC_SHAPE.GBR_SEGMENT ||
-          item.shape === GBR_BASIC_SHAPE.GBR_ARC ||
-          item.shape === GBR_BASIC_SHAPE.GBR_POLYGON
+          item.shape === GBR_BASIC_SHAPE_TYPE.GBR_SEGMENT ||
+          item.shape === GBR_BASIC_SHAPE_TYPE.GBR_ARC ||
+          item.shape === GBR_BASIC_SHAPE_TYPE.GBR_POLYGON
         )
           continue;
         const b = item.getBoundingBox();

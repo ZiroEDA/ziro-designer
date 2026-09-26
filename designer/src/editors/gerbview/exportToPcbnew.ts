@@ -40,7 +40,7 @@ import { formatDouble2Str } from '@ziroeda/common/plotters/fmt.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
 import {
   APERTURE_T,
-  GBR_BASIC_SHAPE,
+  GBR_BASIC_SHAPE_TYPE,
   GERBER_FORMAT,
   IU_PER_MM,
   type GERBER_DRAW_ITEM,
@@ -258,9 +258,9 @@ export class GbrToPcbExporter {
   private collect_hole(item: GERBER_DRAW_ITEM): void {
     const size = itemSize(item);
 
-    if (item.shape === GBR_BASIC_SHAPE.GBR_SPOT_CIRCLE)
+    if (item.shape === GBR_BASIC_SHAPE_TYPE.GBR_SPOT_CIRCLE)
       this.vias.push({ pos: item.start, size: size.x + 1, drill: size.x });
-    else if (item.shape === GBR_BASIC_SHAPE.GBR_SEGMENT)
+    else if (item.shape === GBR_BASIC_SHAPE_TYPE.GBR_SEGMENT)
       this.slots.push({ start: item.start, end: item.end, width: size.x });
   }
 
@@ -316,26 +316,26 @@ export class GbrToPcbExporter {
     const size = itemSize(item);
 
     switch (item.shape) {
-      case GBR_BASIC_SHAPE.GBR_POLYGON:
+      case GBR_BASIC_SHAPE_TYPE.GBR_POLYGON:
         this.writePcbPolygon(item.polyPoints, aLayer);
         break;
 
-      case GBR_BASIC_SHAPE.GBR_SPOT_CIRCLE:
+      case GBR_BASIC_SHAPE_TYPE.GBR_SPOT_CIRCLE:
         this.writePcbFilledCircle(item.start, Math.trunc(size.x / 2), aLayer);
         break;
 
-      case GBR_BASIC_SHAPE.GBR_SPOT_RECT:
-      case GBR_BASIC_SHAPE.GBR_SPOT_OVAL:
-      case GBR_BASIC_SHAPE.GBR_SPOT_POLY:
-      case GBR_BASIC_SHAPE.GBR_SPOT_MACRO:
+      case GBR_BASIC_SHAPE_TYPE.GBR_SPOT_RECT:
+      case GBR_BASIC_SHAPE_TYPE.GBR_SPOT_OVAL:
+      case GBR_BASIC_SHAPE_TYPE.GBR_SPOT_POLY:
+      case GBR_BASIC_SHAPE_TYPE.GBR_SPOT_MACRO:
         this.writeFlashedShape(item, aLayer);
         break;
 
-      case GBR_BASIC_SHAPE.GBR_ARC:
+      case GBR_BASIC_SHAPE_TYPE.GBR_ARC:
         this.export_non_copper_arc(item, aLayer);
         break;
 
-      case GBR_BASIC_SHAPE.GBR_CIRCLE:
+      case GBR_BASIC_SHAPE_TYPE.GBR_CIRCLE:
         this.w(
           `\t(gr_circle (start ${f(item.start.x)} ${f(-item.start.y)}) ` +
             `(end ${f(item.end.x)} ${f(-item.end.y)}) (layer ${LSET_Name(aLayer)})\n`,
@@ -344,7 +344,7 @@ export class GbrToPcbExporter {
         this.w('\t)\n');
         break;
 
-      case GBR_BASIC_SHAPE.GBR_SEGMENT:
+      case GBR_BASIC_SHAPE_TYPE.GBR_SEGMENT:
         if (apertureType(item) === APERTURE_T.APT_RECT) {
           // "Using a rectangular aperture to draw a line is deprecated since
           // 2020[.] However old gerber file can use it (rare case) and can
@@ -397,20 +397,20 @@ export class GbrToPcbExporter {
     if (!item.layerPolarity) return;
 
     switch (item.shape) {
-      case GBR_BASIC_SHAPE.GBR_SPOT_CIRCLE:
-      case GBR_BASIC_SHAPE.GBR_SPOT_RECT:
-      case GBR_BASIC_SHAPE.GBR_SPOT_OVAL:
-      case GBR_BASIC_SHAPE.GBR_SPOT_POLY:
-      case GBR_BASIC_SHAPE.GBR_SPOT_MACRO:
+      case GBR_BASIC_SHAPE_TYPE.GBR_SPOT_CIRCLE:
+      case GBR_BASIC_SHAPE_TYPE.GBR_SPOT_RECT:
+      case GBR_BASIC_SHAPE_TYPE.GBR_SPOT_OVAL:
+      case GBR_BASIC_SHAPE_TYPE.GBR_SPOT_POLY:
+      case GBR_BASIC_SHAPE_TYPE.GBR_SPOT_MACRO:
         this.export_flashed_copper_item(item, aLayer);
         break;
 
-      case GBR_BASIC_SHAPE.GBR_CIRCLE:
-      case GBR_BASIC_SHAPE.GBR_ARC:
+      case GBR_BASIC_SHAPE_TYPE.GBR_CIRCLE:
+      case GBR_BASIC_SHAPE_TYPE.GBR_ARC:
         this.export_segarc_copper_item(item, aLayer);
         break;
 
-      case GBR_BASIC_SHAPE.GBR_POLYGON:
+      case GBR_BASIC_SHAPE_TYPE.GBR_POLYGON:
         // "One can use a polygon or a zone to output a Gerber region. none are
         // perfect. The current way is use a polygon, as the zone export is
         // experimental and only for tests." — `writePcbZoneItem` sits behind an
@@ -418,7 +418,7 @@ export class GbrToPcbExporter {
         this.writePcbPolygon(item.polyPoints, aLayer);
         break;
 
-      case GBR_BASIC_SHAPE.GBR_SEGMENT:
+      case GBR_BASIC_SHAPE_TYPE.GBR_SEGMENT:
         if (apertureType(item) === APERTURE_T.APT_RECT)
           this.writePcbPolygon(convertSegmentToPolygon(item, itemSize(item)), aLayer);
         else this.export_segline_copper_item(item, aLayer);
@@ -463,7 +463,7 @@ export class GbrToPcbExporter {
   private export_flashed_copper_item(item: GERBER_DRAW_ITEM, aLayer: number): void {
     const size = itemSize(item);
 
-    if (item.shape === GBR_BASIC_SHAPE.GBR_SPOT_CIRCLE) {
+    if (item.shape === GBR_BASIC_SHAPE_TYPE.GBR_SPOT_CIRCLE) {
       // "See if there's a via that we can enlarge to fit this flashed item"
       for (const via of this.vias) {
         if (via.pos.x === item.start.x && via.pos.y === item.start.y) {
@@ -474,8 +474,8 @@ export class GbrToPcbExporter {
     }
 
     if (
-      item.shape === GBR_BASIC_SHAPE.GBR_SPOT_CIRCLE ||
-      (item.shape === GBR_BASIC_SHAPE.GBR_SPOT_OVAL && size.x === size.y)
+      item.shape === GBR_BASIC_SHAPE_TYPE.GBR_SPOT_CIRCLE ||
+      (item.shape === GBR_BASIC_SHAPE_TYPE.GBR_SPOT_OVAL && size.x === size.y)
     ) {
       // "export it as filled circle"
       this.writePcbFilledCircle(item.start, Math.trunc(size.x / 2), aLayer);

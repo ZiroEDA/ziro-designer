@@ -16,7 +16,13 @@
  * position, and every pixel would still be drawn.
  */
 import { describe, expect, it } from 'vitest';
-import { parseGerber, GBR_BASIC_SHAPE, APERTURE_T, D_CODE, IU_PER_MM } from '@ziroeda/gerbview';
+import {
+  parseGerber,
+  GBR_BASIC_SHAPE_TYPE,
+  APERTURE_T,
+  D_CODE,
+  IU_PER_MM,
+} from '@ziroeda/gerbview';
 
 const twoFlashes = [
   '%FSLAX46Y46*%',
@@ -32,7 +38,7 @@ describe('aperture shape caches', () => {
   it('resolves a flash once and hands the same array back', () => {
     const img = parseGerber(twoFlashes, 'a.gbr');
     const item = img.items[0]!;
-    expect(item.shape).toBe(GBR_BASIC_SHAPE.GBR_SPOT_CIRCLE);
+    expect(item.shape).toBe(GBR_BASIC_SHAPE_TYPE.GBR_SPOT_CIRCLE);
     expect(item.resolveFlashShapes()).toBe(item.resolveFlashShapes());
   });
 

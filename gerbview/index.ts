@@ -8,11 +8,12 @@
  * layout (GBR_LAYOUT), ready for a Canvas 2D renderer in the app.
  */
 
-export * from './types.js';
+export * from './gerbview.js';
+export { GERBER_DRAWLAYERS_COUNT } from '@ziroeda/common/layer_id.js';
 export * from './aperture_macro.js';
-export { D_CODE, APERTURE_DEF_HOLE } from './dcode.js';
+export { D_CODE, APERTURE_DEF_HOLE, APERTURE_T } from './dcode.js';
 export * from './gerber_draw_item.js';
-export { GERBER_FILE_IMAGE, type CoordFormat } from './gerber_file_image.js';
+export { GERBER_FILE_IMAGE, GERBER_FORMAT, type CoordFormat } from './gerber_file_image.js';
 export { parseGerber } from './gerber_file_image_parse.js';
 export { parseExcellon, EXCELLON_STRUCT_DEFAULTS, type ExcellonDefaults } from './excellon.js';
 export { GBR_LAYOUT } from './gbr_layout.js';

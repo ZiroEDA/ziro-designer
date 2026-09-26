@@ -10,7 +10,7 @@
 
 import type { GERBER_FILE_IMAGE } from './gerber_file_image.js';
 import type { BBox } from './gerber_draw_item.js';
-import { GERBER_DRAWLAYERS_COUNT } from './types.js';
+import { GERBER_DRAWLAYERS_COUNT } from '@ziroeda/common/layer_id.js';
 
 export class GBR_LAYOUT {
   images: (GERBER_FILE_IMAGE | null)[] = new Array(GERBER_DRAWLAYERS_COUNT).fill(null);

@@ -10,9 +10,11 @@
  */
 
 import type { Vec2 } from '@ziroeda/kimath';
-import { APERTURE_T, GBR_BASIC_SHAPE, IU_PER_MM, IU_PER_MILS } from './types.js';
+import { APERTURE_T } from './dcode.js';
+import { GBR_BASIC_SHAPE_TYPE } from './gerber_draw_item.js';
+import { IU_PER_MM, IU_PER_MILS } from './gerbview.js';
 import { GERBER_FILE_IMAGE } from './gerber_file_image.js';
-import { GERBER_FORMAT } from './types.js';
+import { GERBER_FORMAT } from './gerber_file_image.js';
 import { GERBER_DRAW_ITEM } from './gerber_draw_item.js';
 
 interface DrillState {
@@ -148,7 +150,7 @@ export function parseExcellon(
   const flashHole = (at: Vec2): void => {
     const dia = toolDia.get(st.tool) ?? 0;
     const item = new GERBER_DRAW_ITEM();
-    item.shape = GBR_BASIC_SHAPE.GBR_SPOT_CIRCLE;
+    item.shape = GBR_BASIC_SHAPE_TYPE.GBR_SPOT_CIRCLE;
     item.start = toIU(at);
     item.end = item.start;
     item.dcodeNum = st.tool;
@@ -164,7 +166,7 @@ export function parseExcellon(
   const routeSegment = (from: Vec2, to: Vec2): void => {
     const dia = toolDia.get(st.tool) ?? 0;
     const item = new GERBER_DRAW_ITEM();
-    item.shape = GBR_BASIC_SHAPE.GBR_SEGMENT;
+    item.shape = GBR_BASIC_SHAPE_TYPE.GBR_SEGMENT;
     item.start = toIU(from);
     item.end = toIU(to);
     item.width = dia * st.iuScale;

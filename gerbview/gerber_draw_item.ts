@@ -11,9 +11,30 @@
  */
 
 import type { Vec2 } from '@ziroeda/kimath';
-import { GBR_BASIC_SHAPE } from './types.js';
 import type { D_CODE } from './dcode.js';
 import type { AmResolvedShape } from './aperture_macro.js';
+
+/** `GBR_BASIC_SHAPE_TYPE` (`gerber_draw_item.h:50-61`), `m_Shape`. */
+export enum GBR_BASIC_SHAPE_TYPE {
+  /** Usual segment: line with rounded ends. */
+  GBR_SEGMENT = 0,
+  /** Arcs (with rounded ends). */
+  GBR_ARC,
+  /** Ring. */
+  GBR_CIRCLE,
+  /** Polygonal shape. */
+  GBR_POLYGON,
+  /** Flashed shape: round shape (can have hole). */
+  GBR_SPOT_CIRCLE,
+  /** Flashed shape: rectangular shape (can have hole). */
+  GBR_SPOT_RECT,
+  /** Flashed shape: oval shape. */
+  GBR_SPOT_OVAL,
+  /** Flashed shape: regular polygon, 3 to 12 edges. */
+  GBR_SPOT_POLY,
+  /** Complex shape described by a macro. */
+  GBR_SPOT_MACRO,
+}
 
 export interface BBox {
   minX: number;
@@ -39,7 +60,7 @@ export interface ApertureTransform {
 }
 
 export class GERBER_DRAW_ITEM {
-  shape: GBR_BASIC_SHAPE = GBR_BASIC_SHAPE.GBR_SEGMENT;
+  shape: GBR_BASIC_SHAPE_TYPE = GBR_BASIC_SHAPE_TYPE.GBR_SEGMENT;
   start: Vec2 = { x: 0, y: 0 };
   end: Vec2 = { x: 0, y: 0 };
   /** Arc centre (absolute IU) for GBR_ARC. */
@@ -116,7 +137,7 @@ export class GERBER_DRAW_ITEM {
   getBoundingBox(): BBox {
     const halfW = this.width / 2;
     switch (this.shape) {
-      case GBR_BASIC_SHAPE.GBR_POLYGON: {
+      case GBR_BASIC_SHAPE_TYPE.GBR_POLYGON: {
         if (this.polyPoints.length === 0) return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
         let minX = Infinity,
           minY = Infinity,
@@ -130,8 +151,8 @@ export class GERBER_DRAW_ITEM {
         }
         return { minX, minY, maxX, maxY };
       }
-      case GBR_BASIC_SHAPE.GBR_ARC:
-      case GBR_BASIC_SHAPE.GBR_CIRCLE: {
+      case GBR_BASIC_SHAPE_TYPE.GBR_ARC:
+      case GBR_BASIC_SHAPE_TYPE.GBR_CIRCLE: {
         const r =
           Math.hypot(this.start.x - this.arcCentre.x, this.start.y - this.arcCentre.y) + halfW;
         return {
@@ -141,7 +162,7 @@ export class GERBER_DRAW_ITEM {
           maxY: this.arcCentre.y + r,
         };
       }
-      case GBR_BASIC_SHAPE.GBR_SEGMENT: {
+      case GBR_BASIC_SHAPE_TYPE.GBR_SEGMENT: {
         return {
           minX: Math.min(this.start.x, this.end.x) - halfW,
           minY: Math.min(this.start.y, this.end.y) - halfW,
@@ -191,15 +212,15 @@ export class GERBER_DRAW_ITEM {
   /** Distance-based hit test in IU (used by the item picker/inspector). */
   hitTest(pos: Vec2, tolerance: number): boolean {
     switch (this.shape) {
-      case GBR_BASIC_SHAPE.GBR_SEGMENT:
+      case GBR_BASIC_SHAPE_TYPE.GBR_SEGMENT:
         return distToSegment(pos, this.start, this.end) <= this.width / 2 + tolerance;
-      case GBR_BASIC_SHAPE.GBR_CIRCLE:
-      case GBR_BASIC_SHAPE.GBR_ARC: {
+      case GBR_BASIC_SHAPE_TYPE.GBR_CIRCLE:
+      case GBR_BASIC_SHAPE_TYPE.GBR_ARC: {
         const r = Math.hypot(this.start.x - this.arcCentre.x, this.start.y - this.arcCentre.y);
         const d = Math.hypot(pos.x - this.arcCentre.x, pos.y - this.arcCentre.y);
         return Math.abs(d - r) <= this.width / 2 + tolerance;
       }
-      case GBR_BASIC_SHAPE.GBR_POLYGON:
+      case GBR_BASIC_SHAPE_TYPE.GBR_POLYGON:
         return pointInPolygon(pos, this.polyPoints);
       default: {
         for (const sh of this.resolveFlashShapes()) {
@@ -218,16 +239,16 @@ export class GERBER_DRAW_ITEM {
 
   /** A one-line label for the inspector / status bar. */
   describe(): string {
-    const shapeNames: Record<GBR_BASIC_SHAPE, string> = {
-      [GBR_BASIC_SHAPE.GBR_SEGMENT]: 'Line',
-      [GBR_BASIC_SHAPE.GBR_ARC]: 'Arc',
-      [GBR_BASIC_SHAPE.GBR_CIRCLE]: 'Circle',
-      [GBR_BASIC_SHAPE.GBR_POLYGON]: 'Region',
-      [GBR_BASIC_SHAPE.GBR_SPOT_CIRCLE]: 'Flashed round',
-      [GBR_BASIC_SHAPE.GBR_SPOT_RECT]: 'Flashed rect',
-      [GBR_BASIC_SHAPE.GBR_SPOT_OVAL]: 'Flashed oval',
-      [GBR_BASIC_SHAPE.GBR_SPOT_POLY]: 'Flashed poly',
-      [GBR_BASIC_SHAPE.GBR_SPOT_MACRO]: 'Flashed macro',
+    const shapeNames: Record<GBR_BASIC_SHAPE_TYPE, string> = {
+      [GBR_BASIC_SHAPE_TYPE.GBR_SEGMENT]: 'Line',
+      [GBR_BASIC_SHAPE_TYPE.GBR_ARC]: 'Arc',
+      [GBR_BASIC_SHAPE_TYPE.GBR_CIRCLE]: 'Circle',
+      [GBR_BASIC_SHAPE_TYPE.GBR_POLYGON]: 'Region',
+      [GBR_BASIC_SHAPE_TYPE.GBR_SPOT_CIRCLE]: 'Flashed round',
+      [GBR_BASIC_SHAPE_TYPE.GBR_SPOT_RECT]: 'Flashed rect',
+      [GBR_BASIC_SHAPE_TYPE.GBR_SPOT_OVAL]: 'Flashed oval',
+      [GBR_BASIC_SHAPE_TYPE.GBR_SPOT_POLY]: 'Flashed poly',
+      [GBR_BASIC_SHAPE_TYPE.GBR_SPOT_MACRO]: 'Flashed macro',
     };
     const d = this.dcodeNum ? ` D${this.dcodeNum}` : '';
     return `${shapeNames[this.shape]}${d}`;

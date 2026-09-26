@@ -12,7 +12,9 @@
  */
 
 import type { Vec2 } from '@ziroeda/kimath';
-import { APERTURE_T, GBR_BASIC_SHAPE, GERB_INTERPOL } from './types.js';
+import { APERTURE_T } from './dcode.js';
+import { GBR_BASIC_SHAPE_TYPE } from './gerber_draw_item.js';
+import { Gerb_Interpolation } from './gerbview.js';
 import { APERTURE_DEF_HOLE } from './dcode.js';
 import { ApertureMacro, AMP, type AmPrimitive } from './aperture_macro.js';
 import {
@@ -24,7 +26,7 @@ import { GERBER_FILE_IMAGE } from './gerber_file_image.js';
 
 /** Live pen/graphic state while interpreting D-code commands. */
 interface GraphicState {
-  interpol: GERB_INTERPOL;
+  interpol: Gerb_Interpolation;
   multiQuadrant: boolean; // G75 (true) vs G74 single-quadrant (false)
   regionActive: boolean; // between G36 and G37
   currentAperture: number; // selected D-code (>=10)
@@ -40,7 +42,7 @@ export function parseGerber(text: string, fileName: string): GERBER_FILE_IMAGE {
   img.rawText = text;
 
   const state: GraphicState = {
-    interpol: GERB_INTERPOL.LINEAR_1X,
+    interpol: Gerb_Interpolation.GERB_INTERPOL_LINEAR_1X,
     multiQuadrant: false,
     regionActive: false,
     currentAperture: 0,
@@ -137,19 +139,19 @@ export function parseGerber(text: string, fileName: string): GERBER_FILE_IMAGE {
     item.dcodeNum = state.currentAperture;
     switch (d.shape) {
       case APERTURE_T.APT_CIRCLE:
-        item.shape = GBR_BASIC_SHAPE.GBR_SPOT_CIRCLE;
+        item.shape = GBR_BASIC_SHAPE_TYPE.GBR_SPOT_CIRCLE;
         break;
       case APERTURE_T.APT_RECT:
-        item.shape = GBR_BASIC_SHAPE.GBR_SPOT_RECT;
+        item.shape = GBR_BASIC_SHAPE_TYPE.GBR_SPOT_RECT;
         break;
       case APERTURE_T.APT_OVAL:
-        item.shape = GBR_BASIC_SHAPE.GBR_SPOT_OVAL;
+        item.shape = GBR_BASIC_SHAPE_TYPE.GBR_SPOT_OVAL;
         break;
       case APERTURE_T.APT_POLYGON:
-        item.shape = GBR_BASIC_SHAPE.GBR_SPOT_POLY;
+        item.shape = GBR_BASIC_SHAPE_TYPE.GBR_SPOT_POLY;
         break;
       default:
-        item.shape = GBR_BASIC_SHAPE.GBR_SPOT_MACRO;
+        item.shape = GBR_BASIC_SHAPE_TYPE.GBR_SPOT_MACRO;
         break;
     }
     emit(item);
@@ -158,12 +160,12 @@ export function parseGerber(text: string, fileName: string): GERBER_FILE_IMAGE {
   const drawSegmentOrArc = (to: Vec2): void => {
     const d = img.getDcode(state.currentAperture);
     const width = d ? iuLen(d.size.x) : 0;
-    if (state.interpol === GERB_INTERPOL.LINEAR_1X) {
+    if (state.interpol === Gerb_Interpolation.GERB_INTERPOL_LINEAR_1X) {
       if (state.regionActive) {
         regionPoints.push(toIU(to));
       } else {
         const item = new GERBER_DRAW_ITEM();
-        item.shape = GBR_BASIC_SHAPE.GBR_SEGMENT;
+        item.shape = GBR_BASIC_SHAPE_TYPE.GBR_SEGMENT;
         item.start = toIU(state.pos);
         item.end = toIU(to);
         item.width = width;
@@ -218,7 +220,7 @@ export function parseGerber(text: string, fileName: string): GERBER_FILE_IMAGE {
       return;
     }
     const item = new GERBER_DRAW_ITEM();
-    item.shape = GBR_BASIC_SHAPE.GBR_ARC;
+    item.shape = GBR_BASIC_SHAPE_TYPE.GBR_ARC;
     item.start = toIU(from);
     item.end = toIU(to);
     item.arcCentre = toIU(centre);
@@ -226,7 +228,7 @@ export function parseGerber(text: string, fileName: string): GERBER_FILE_IMAGE {
     item.dcode = d ?? null;
     item.dcodeNum = state.currentAperture;
     // Preserve arc direction for the renderer.
-    item.arcCcw = state.interpol === GERB_INTERPOL.ARC_G03_CCW;
+    item.arcCcw = state.interpol === Gerb_Interpolation.GERB_INTERPOL_ARC_POS;
     emit(item);
   };
 
@@ -728,13 +730,13 @@ export function parseGerber(text: string, fileName: string): GERBER_FILE_IMAGE {
   function applyGCode(g: number): void {
     switch (g) {
       case 1:
-        state.interpol = GERB_INTERPOL.LINEAR_1X;
+        state.interpol = Gerb_Interpolation.GERB_INTERPOL_LINEAR_1X;
         break;
       case 2:
-        state.interpol = GERB_INTERPOL.ARC_G02_CW;
+        state.interpol = Gerb_Interpolation.GERB_INTERPOL_ARC_NEG;
         break;
       case 3:
-        state.interpol = GERB_INTERPOL.ARC_G03_CCW;
+        state.interpol = Gerb_Interpolation.GERB_INTERPOL_ARC_POS;
         break;
       case 74:
         state.multiQuadrant = false;
@@ -770,7 +772,7 @@ export function parseGerber(text: string, fileName: string): GERBER_FILE_IMAGE {
   function finishRegion(): void {
     if (regionPoints.length >= 3) {
       const item = new GERBER_DRAW_ITEM();
-      item.shape = GBR_BASIC_SHAPE.GBR_POLYGON;
+      item.shape = GBR_BASIC_SHAPE_TYPE.GBR_POLYGON;
       item.polyPoints = regionPoints.slice();
       item.dcodeNum = 0;
       emit(item);
@@ -798,11 +800,11 @@ function cloneItemTranslated(src: GERBER_DRAW_ITEM, dx: number, dy: number): GER
 }
 
 /** Turn an arc into a polyline (for region contours). */
-function arcPolyline(from: Vec2, to: Vec2, centre: Vec2, interpol: GERB_INTERPOL): Vec2[] {
+function arcPolyline(from: Vec2, to: Vec2, centre: Vec2, interpol: Gerb_Interpolation): Vec2[] {
   const r = Math.hypot(from.x - centre.x, from.y - centre.y);
   const a0 = Math.atan2(from.y - centre.y, from.x - centre.x);
   let a1 = Math.atan2(to.y - centre.y, to.x - centre.x);
-  const ccw = interpol === GERB_INTERPOL.ARC_G03_CCW;
+  const ccw = interpol === Gerb_Interpolation.GERB_INTERPOL_ARC_POS;
   if (ccw && a1 <= a0) a1 += 2 * Math.PI;
   if (!ccw && a1 >= a0) a1 -= 2 * Math.PI;
   const steps = Math.max(2, Math.ceil((Math.abs(a1 - a0) / (Math.PI * 2)) * 64));
