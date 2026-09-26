@@ -118,6 +118,12 @@ export const equFileWildcard = (): ChooserFilter =>
 /** `FILEEXT::ZipFileWildcard` (`:521-524`). */
 export const zipFileWildcard = (): ChooserFilter => fileFilter('Zip file', ['zip']);
 
+/** `FILEEXT::ReportFileWildcard()`: "Report files" on `ReportFileExtension`, rpt. */
+export const reportFileWildcard = (): ChooserFilter => fileFilter('Report files', ['rpt']);
+
+/** `FILEEXT::JsonFileWildcard()`: "Json files" on `JsonFileExtension`, json. */
+export const jsonFileWildcard = (): ChooserFilter => fileFilter('Json files', ['json']);
+
 /** `FILEEXT::GerberJobFileWildcard` (`:539-542`). The extension is "gbrjob". */
 export const gerberJobFileWildcard = (): ChooserFilter => fileFilter('Gerber job file', ['gbrjob']);
 

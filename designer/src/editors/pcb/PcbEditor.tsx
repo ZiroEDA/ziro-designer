@@ -10,6 +10,8 @@
  * viewer pipeline, layer/object controls and presets are fully functional.
  */
 
+import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
+import { jsonFileWildcard, reportFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import { DialogAssignNetclass } from '@ziroeda/common/dialogs/dialog_assign_netclass.js';
 import { addNetclassAssignment } from '@ziroeda/eeschema/tools/assign_netclass.js';
 import { connectedItemIdsOnNets } from '@ziroeda/pcbnew/edit-board.js';
@@ -2159,6 +2161,11 @@ export function PcbEditor({
   // The modal sub-dialogs DIALOG_DRC raises: "Delete exclusions too?"
   const [drcYesNoCancel, setDrcYesNoCancel] = useState<{
     resolve: (r: 'yes' | 'no' | 'cancel') => void;
+  } | null>(null);
+  // ...its "Save Report File" (wxFileDialog, wxFD_SAVE)...
+  const [drcSaveReport, setDrcSaveReport] = useState<{
+    defaultName: string;
+    resolve: (path: string | null) => void;
   } | null>(null);
   // ...and "Exclusion Comment" (WX_TEXT_ENTRY_DIALOG).
   const [drcTextEntry, setDrcTextEntry] = useState<{
@@ -5290,8 +5297,15 @@ export function PcbEditor({
         saveReport: async (defaultName, write) => {
           // wxFileDialog( _( "Save Report File" ), Prj().GetProjectPath(), ... ): the report
           // goes to the project's files, as the plots do; a report or the JSON schema.
-          const name = globalThis.prompt('Save Report File', defaultName);
-          if (name === null) return null;
+          // wxFD_SAVE in the project folder, the report's name suggested.
+          const path = await new Promise<string | null>((resolve) =>
+            setDrcSaveReport({ defaultName, resolve }),
+          );
+          if (path === null) return null;
+          const prefix = projectName ? `/${projectName}/` : '/';
+          const name = path.startsWith(prefix)
+            ? path.slice(prefix.length)
+            : path.slice(path.lastIndexOf('/') + 1);
           const text = write(name);
           if (text === null) return name;
           if (onOutputFile) onOutputFile(name, new TextEncoder().encode(text), 'text/plain');
@@ -12288,6 +12302,23 @@ export function PcbEditor({
                 ),
               },
             });
+          }}
+        />
+      )}
+      {drcSaveReport && (
+        // DIALOG_DRC::OnSaveReport (dialog_drc.cpp:1154-1156):
+        // wxFileDialog( _( "Save Report File" ), Prj().GetProjectPath(),
+        //   fn.GetFullName(), ReportFileWildcard() | JsonFileWildcard(), wxFD_SAVE ).
+        <SaveAsDialog
+          title="Save Report File"
+          initialName={drcSaveReport.defaultName}
+          filters={[reportFileWildcard(), jsonFileWildcard()]}
+          {...(projectName
+            ? { projectDir: `/${projectName}`, initialPath: `/${projectName}` }
+            : {})}
+          onDone={(path) => {
+            drcSaveReport.resolve(path);
+            setDrcSaveReport(null);
           }}
         />
       )}
