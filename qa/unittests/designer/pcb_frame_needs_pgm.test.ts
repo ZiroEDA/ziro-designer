@@ -68,3 +68,21 @@ describe('PCB_EDIT_FRAME needs the PGM_BASE before its first SetBoard', () => {
     expect(install).toBeLessThan(construct);
   });
 });
+
+describe('PGM_BASE::InitPgm runs at program start, before any frame', () => {
+  it('main.tsx installs it before the app renders', () => {
+    const main = readFileSync(resolve(process.cwd(), '../designer/src/main.tsx'), 'utf8');
+    const init = main.indexOf('InitPgm();');
+    const render = main.indexOf('createRoot(');
+    expect(init).toBeGreaterThan(0);
+    expect(init).toBeLessThan(render);
+  });
+
+  it('is installed once, and the PCB editor builds on the same object', async () => {
+    const { InitPgm } = await import('@ziroeda/designer/src/pgm_app.js');
+    SetPgm(null);
+    const first = InitPgm();
+    expect(InitPgm()).toBe(first);
+    expect(installPgm()).toBe(first);
+  });
+});

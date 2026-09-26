@@ -18,6 +18,7 @@ import { installGlobalErrorHandlers } from './telemetry/global_handlers.js';
 import { installOverlayScrollbars } from '@ziroeda/common/widgets/overlay_scrollbars.js';
 import { installDialogSizeHints } from '@ziroeda/common/dialogs/dialog_size_hints.js';
 import { SetFileDialog } from '@ziroeda/common/wx/filedlg.js';
+import { InitPgm } from './pgm_app.js';
 import { OpenFileDialog } from './fs/OpenFileDialog.js';
 import { installOutlineFontProvider } from './font/outline_fonts.js';
 import { missingFeatures, unsupportedMessage } from './browser_support.js';
@@ -47,6 +48,8 @@ installOverlayScrollbars();
 // own text changed. Installed here rather than per dialog because in wx it
 // comes from the dialog base class, not from the dialog.
 installDialogSizeHints();
+// PGM_BASE::InitPgm: the program object exists before any frame does.
+InitPgm();
 // wxFileDialog, for the dialogs in common/ that open one (common/wx/filedlg.tsx).
 // The chooser's `kind` is its own set of shared folders; common passes a string.
 SetFileDialog((p) => (
