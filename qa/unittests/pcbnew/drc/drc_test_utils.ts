@@ -6,7 +6,7 @@
  * pinned reference tree. A suite skips itself when the tree is not on disk.
  */
 import { existsSync, readFileSync } from 'node:fs';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { PgmOrNull, SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
 import { ENUM_MAP } from '@ziroeda/common/properties/property.js';

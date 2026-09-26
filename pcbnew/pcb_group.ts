@@ -49,7 +49,7 @@ import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
 import type { EDA_SEARCH_DATA } from '@ziroeda/common/eda_search_data.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import type { KIID } from '@ziroeda/common/kiid.js';
-import { FLASHING, GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { FLASHING, GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { unescapeString } from '@ziroeda/common/string_utils.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';

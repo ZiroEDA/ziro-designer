@@ -21,7 +21,7 @@
 import { type EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 import { IN_EDIT } from '@ziroeda/common/eda_item_flags.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
-import { GAL_LAYER_ID, PCB_LAYER_ID, F_Cu } from '@ziroeda/common/layer_ids.js';
+import { GAL_LAYER_ID, PCB_LAYER_ID, F_Cu } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { COORD_TYPES_T } from '@ziroeda/common/origin_transforms.js';
 import {

@@ -7,7 +7,7 @@
  * with a given number of copper layers, in either direction.
  */
 
-import { PCB_LAYER_ID } from './layer_ids.js';
+import { PCB_LAYER_ID } from './layer_id.js';
 
 class LAYER_RANGE_ITERATOR {
   private m_current: number;

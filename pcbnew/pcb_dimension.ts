@@ -41,7 +41,7 @@ import {
   unitLabel,
   unitLabelText,
 } from '@ziroeda/common/eda_units.js';
-import { FLASHING, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { FLASHING, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
 import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';

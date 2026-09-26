@@ -27,7 +27,7 @@ import {
   IsFrontLayer,
   IsSolderMaskLayer,
   PCB_LAYER_ID,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import {
   ENUM_MAP,
   type INSPECTABLE_ITEM,

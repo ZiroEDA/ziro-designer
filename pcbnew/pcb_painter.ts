@@ -117,7 +117,7 @@ import {
   NETNAMES_LAYER_ID,
   PCB_LAYER_ID,
   ToLAYER_ID,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
 import { RENDER_SETTINGS } from '@ziroeda/common/render_settings.js';

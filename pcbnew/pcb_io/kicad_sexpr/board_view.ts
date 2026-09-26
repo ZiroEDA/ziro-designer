@@ -25,7 +25,7 @@ import { FILL_T, SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import type { EDA_TEXT } from '@ziroeda/common/eda_text.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
 import { kiidPathAsString, kiidFromString, newKiid, type KIID } from '@ziroeda/common/kiid.js';
-import type { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import {
   MAX_PAGE_SIZE_PCBNEW_MM,

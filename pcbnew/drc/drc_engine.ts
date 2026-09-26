@@ -21,7 +21,7 @@ import { HOLE_PROXY } from '@ziroeda/common/eda_item_flags.js';
 import { ExpandTextVars } from '@ziroeda/common/common.js';
 import type { OutStr } from '@ziroeda/common/font/font.js';
 import type { KIID } from '@ziroeda/common/kiid.js';
-import { IsPcbLayer, type PCB_LAYER_ID, PCB_LAYER_ID as LAYER } from '@ziroeda/common/layer_ids.js';
+import { IsPcbLayer, type PCB_LAYER_ID, PCB_LAYER_ID as LAYER } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import type { NETCLASS } from '@ziroeda/common/netclass.js';
 import type { PROGRESS_REPORTER } from '@ziroeda/common/progress_reporter.js';

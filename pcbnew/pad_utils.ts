@@ -4,7 +4,7 @@
 /** `pcbnew/pad_utils.h` / `pad_utils.cpp`: `PAD_UTILS`, small pad helpers shared by the pad dialogs. */
 
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
-import type { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { PAD } from './pad.js';
 import { PAD_SHAPE } from './padstack.js';
 

@@ -17,7 +17,7 @@ import { LINE_STYLES, type NetClass, type NetClassesData } from '@ziroeda/common
 import { COLOR4D_UNSPECIFIED, parseColor4d, toCssColor } from '@ziroeda/common/color4d.js';
 import { pcbIUScale, schIUScale } from '@ziroeda/common/eda_units.js';
 import { EMBEDDED_FILE, EMBEDDED_FILES, FILE_TYPE } from '@ziroeda/common/embedded_files.js';
-import { IsCopperLayer, IsCopperLayerLowerThan, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { IsCopperLayer, IsCopperLayerLowerThan, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { NETCLASS } from '@ziroeda/common/netclass.js';
 import type { PROJECT } from '@ziroeda/common/project.js';

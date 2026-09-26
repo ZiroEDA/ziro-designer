@@ -542,7 +542,7 @@ import {
   NET_COLOR_MODE,
   ZONE_DISPLAY_MODE,
 } from '@ziroeda/common/project/board_project_settings.js';
-import { GAL_LAYER_ID, LayerName, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { GAL_LAYER_ID, LayerName, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { VIEW_UPDATE_FLAGS, type VIEW_ITEM } from '@ziroeda/common/view/view_item.js';
 import { PAD } from '@ziroeda/pcbnew/pad.js';

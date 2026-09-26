@@ -8,9 +8,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { ADD_MODE } from '@ziroeda/pcbnew/board_item_container.js';
-import { GAL_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { GAL_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
 import { PAD } from '@ziroeda/pcbnew/pad.js';

@@ -14,7 +14,7 @@
  */
 import { WXK } from '@ziroeda/core/wx_keycodes.js';
 import { BITMAPS } from '@ziroeda/common/bitmaps_list.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { ACTIONS, CURSOR_EVENT_TYPE, REMOVE_FLAGS } from '@ziroeda/common/tool/actions.js';
 import {
   TOOL_ACTION,

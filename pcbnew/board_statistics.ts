@@ -19,7 +19,7 @@
  * layer at all reports `UNDEFINED_LAYER` at both ends rather than being
  * skipped: it is still a hole somebody has to drill.
  */
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { BOARD } from './board.js';
 import { PAD_ATTRIB, PAD_DRILL_SHAPE } from './padstack.js';

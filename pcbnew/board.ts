@@ -46,7 +46,7 @@ import {
   LayerName,
   PCB_LAYER_ID,
   ToLAYER_ID,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { VIEW } from '@ziroeda/common/view/view.js';
 import { RPT_SEVERITY_EXCLUSION } from '@ziroeda/common/reporter.js';

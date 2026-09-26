@@ -8,7 +8,7 @@
  */
 import { DSNLEXER, PARSE_ERROR, T, type Tok } from '@ziroeda/common/dsnlexer.js';
 import type { EdaDataType, EdaUnits } from '@ziroeda/common/eda_units.js';
-import { type PCB_LAYER_ID, PCB_LAYER_ID as LAYER, ToLAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { type PCB_LAYER_ID, PCB_LAYER_ID as LAYER, ToLAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
 import {

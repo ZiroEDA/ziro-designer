@@ -7,7 +7,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { LAYER_PRESET } from '@ziroeda/common/project/board_project_settings.js';
 import {

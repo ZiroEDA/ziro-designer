@@ -21,7 +21,7 @@ import {
   PCB_LAYER_ID,
   PCBNEW_LAYER_ID_START,
   SCH_LAYER_ID,
-} from './layer_ids.js';
+} from './layer_id.js';
 import { LSET } from './lset.js';
 import type { COLOR_SETTINGS } from './settings/color_settings.js';
 import type { VIEW_ITEM } from './view/view_item.js';

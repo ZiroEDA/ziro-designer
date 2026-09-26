@@ -23,7 +23,7 @@ import {
   LAYER_RATSNEST,
   type PCB_LAYER_ID,
   UNDEFINED_LAYER,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
 import type { NETCLASS } from '@ziroeda/common/netclass.js';

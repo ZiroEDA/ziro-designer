@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** `pcbnew/component_classes/component_class_assignment_rule.h` + `.cpp`. */
-import type { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import type { FOOTPRINT } from '../footprint.js';
 

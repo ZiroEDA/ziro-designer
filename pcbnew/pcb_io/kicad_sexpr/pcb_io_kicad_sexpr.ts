@@ -48,7 +48,7 @@ import {
   MAX_CU_LAYERS,
   PCB_LAYER_ID,
   User_1,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import { LAYER_RANGE } from '@ziroeda/common/layer_range.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { type OUTPUTFORMATTER, PRETTIFIED_STRING_FORMATTER } from '@ziroeda/common/richio.js';

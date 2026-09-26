@@ -117,7 +117,7 @@ import { UNCONNECTED_LAYER_MODE } from './padstack.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
-import type { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 

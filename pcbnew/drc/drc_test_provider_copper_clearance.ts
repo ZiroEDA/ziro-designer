@@ -14,7 +14,7 @@
  * - DRCE_ZONES_INTERSECT
  * - DRCE_SHORTING_ITEMS
  */
-import { FLASHING, IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { FLASHING, IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LAYER_RANGE } from '@ziroeda/common/layer_range.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';

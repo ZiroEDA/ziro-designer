@@ -10,7 +10,7 @@
 import { describe, expect, it } from 'vitest';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';

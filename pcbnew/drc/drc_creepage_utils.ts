@@ -16,7 +16,7 @@
  * `resizeI` here does the same.
  */
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
-import { type PCB_LAYER_ID, PCB_LAYER_ID as LAYER } from '@ziroeda/common/layer_ids.js';
+import { type PCB_LAYER_ID, PCB_LAYER_ID as LAYER } from '@ziroeda/common/layer_id.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import {
   ANGLE_0,

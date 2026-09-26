@@ -24,7 +24,7 @@ import type { EDA_TEXT } from '@ziroeda/common/eda_text.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
 import { type FileDataType, pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
-import { FUTURE_FORMAT_ERROR, IO_ERROR } from '@ziroeda/common/ki_exception.js';
+import { FUTURE_FORMAT_ERROR, IO_ERROR } from '@ziroeda/common/exceptions.js';
 import { type KIID, kiidFromString } from '@ziroeda/common/kiid.js';
 import {
   B_Adhes,
@@ -47,7 +47,7 @@ import {
   PCB_LAYER_ID,
   Rescue,
   UNDEFINED_LAYER,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import { NETCLASS } from '@ziroeda/common/netclass.js';

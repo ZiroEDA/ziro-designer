@@ -44,7 +44,7 @@ import {
   type PCB_LAYER_ID,
   Rescue,
   User_1,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import { In_Cu } from './layer_ids.js';
 import type { LSEQ } from '@ziroeda/common/lseq.js';
 import { LSET } from '@ziroeda/common/lset.js';

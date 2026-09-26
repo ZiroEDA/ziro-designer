@@ -13,7 +13,7 @@
  */
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
-import { LayerName, PCB_LAYER_ID, UNDEFINED_LAYER } from '@ziroeda/common/layer_ids.js';
+import { LayerName, PCB_LAYER_ID, UNDEFINED_LAYER } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import type { Reporter } from '@ziroeda/common/reporter.js';
 import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';

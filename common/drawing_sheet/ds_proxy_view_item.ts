@@ -38,7 +38,7 @@ import {
   LAYER_SCHEMATIC_GRID,
   LAYER_SELECT_OVERLAY,
   SCH_LAYER_ID,
-} from '../layer_ids.js';
+} from '../layer_id.js';
 import type { PAGE_INFO } from '../page_info.js';
 import { RENDER_SETTINGS } from '../render_settings.js';
 import type { COLOR_SETTINGS } from '../settings/color_settings.js';

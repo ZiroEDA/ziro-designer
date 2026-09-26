@@ -17,7 +17,7 @@ import { FILL_T, SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
 import { FetchUnitsFromString, pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { convertToNewOverbarNotation } from '@ziroeda/common/string_utils.js';
-import { FUTURE_FORMAT_ERROR, IO_ERROR, PARSE_ERROR } from '@ziroeda/common/ki_exception.js';
+import { FUTURE_FORMAT_ERROR, IO_ERROR, PARSE_ERROR } from '@ziroeda/common/exceptions.js';
 import { type KIID, kiidFromString } from '@ziroeda/common/kiid.js';
 import {
   B_Cu,
@@ -29,7 +29,7 @@ import {
   Margin,
   type PCB_LAYER_ID,
   UNDEFINED_LAYER,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { LINE_STYLE, STROKE_PARAMS, STROKE_PARAMS_PARSER } from '@ziroeda/common/stroke_params.js';

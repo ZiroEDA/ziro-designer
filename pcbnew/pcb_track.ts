@@ -46,7 +46,7 @@ import {
   PCB_LAYER_ID,
   PCBNEW_LAYER_ID_START,
   ToLAYER_ID,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import { LAYER_RANGE } from '@ziroeda/common/layer_range.js';
 import { COORD_TYPES_T } from '@ziroeda/common/origin_transforms.js';
 import {

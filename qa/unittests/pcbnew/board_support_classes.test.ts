@@ -22,7 +22,7 @@ import {
 import { Prettify } from '@ziroeda/common/io/kicad/kicad_io_utils.js';
 import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/page_info.js';
 import { STRING_FORMATTER } from '@ziroeda/common/richio.js';
-import { B_Cu, F_Cu, F_Fab, Edge_Cuts, In1_Cu, In2_Cu } from '@ziroeda/common/layer_ids.js';
+import { B_Cu, F_Cu, F_Fab, Edge_Cuts, In1_Cu, In2_Cu } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import {
   DXF_OUTLINE_MODE,

@@ -11,7 +11,7 @@
  * (seen on CM5_MINIMA_3, 2026-09-18).
  */
 import { describe, expect, it } from 'vitest';
-import { CLEARANCE_LAYER_FOR, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { CLEARANCE_LAYER_FOR, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { PCB_DRAW_PANEL_GAL } from '@ziroeda/pcbnew/pcb_draw_panel_gal.js';
 import { PCB_SCREEN } from '@ziroeda/pcbnew/pcb_screen.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';

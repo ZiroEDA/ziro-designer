@@ -12,7 +12,7 @@
  */
 import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
-import { IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';

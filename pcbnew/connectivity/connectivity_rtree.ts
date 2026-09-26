@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** `pcbnew/connectivity/connectivity_rtree.h`. */
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { RTree } from '@ziroeda/kimath/src/thirdparty/rtree.js';
 

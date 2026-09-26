@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { GENERATOR } from '@ziroeda/common/generator.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';

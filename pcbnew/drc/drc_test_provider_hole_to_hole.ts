@@ -9,7 +9,7 @@
  * - DRCE_DRILLED_HOLES_TOO_CLOSE
  * - DRCE_DRILLED_HOLES_COLOCATED
  */
-import { PCB_LAYER_ID, UNDEFINED_LAYER } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID, UNDEFINED_LAYER } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';

@@ -38,7 +38,7 @@ import {
   VIA_COPPER_LAYER_FOR,
   ZONE_LAYER_FOR,
   CLEARANCE_LAYER_FOR,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';

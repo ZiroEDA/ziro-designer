@@ -15,7 +15,7 @@ import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_c
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { Color4d } from '../color4d.js';
 import { GAL_SCOPED_ATTRS, GAL_SCOPED_ATTRS_FLAGS } from '../gal/graphics_abstraction_layer.js';
-import { LAYER_GP_OVERLAY } from '../layer_ids.js';
+import { LAYER_GP_OVERLAY } from '../layer_id.js';
 import type { VIEW } from './view.js';
 import { VIEW_ITEM } from './view_item.js';
 

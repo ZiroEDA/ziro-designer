@@ -11,7 +11,7 @@
  * upstream because `POINTS` collides with a Windows header define; the
  * *string* is `ly_points`, and that is what a file carries.
  */
-import { GAL_LAYER_ID, GAL_SET } from '../layer_ids.js';
+import { GAL_LAYER_ID, GAL_SET } from '../layer_id.js';
 
 export enum VISIBILITY_LAYER {
   TRACKS = 0,

@@ -31,7 +31,7 @@ import { DS_PROXY_VIEW_ITEM } from '@ziroeda/common/drawing_sheet/ds_proxy_view_
 import { pcbIUScale, type EdaUnits } from '@ziroeda/common/eda_units.js';
 import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
 import { ENUM_MAP } from '@ziroeda/common/properties/property.js';

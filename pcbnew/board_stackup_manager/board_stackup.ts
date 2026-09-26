@@ -24,7 +24,7 @@ import {
   IsCopperLayer,
   type PCB_LAYER_ID,
   UNDEFINED_LAYER,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import type { OUTPUTFORMATTER } from '@ziroeda/common/richio.js';
 import { FormatDouble2Str, UIDouble2Str } from '@ziroeda/common/string_utils.js';

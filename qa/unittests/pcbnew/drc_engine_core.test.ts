@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 import { PARSE_ERROR } from '@ziroeda/common/dsnlexer.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import type { OutStr } from '@ziroeda/common/font/font.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
 import {
   Reporter,

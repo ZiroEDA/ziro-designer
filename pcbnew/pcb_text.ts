@@ -51,7 +51,7 @@ import {
   IsBackLayer,
   IsFrontLayer,
   PCB_LAYER_ID,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import { unescapeString } from '@ziroeda/common/string_utils.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';

@@ -10,12 +10,7 @@
 
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
-import {
-  FLASHING,
-  GAL_LAYER_ID,
-  PCB_LAYER_ID,
-  POINT_LAYER_FOR,
-} from '@ziroeda/common/layer_ids.js';
+import { FLASHING, GAL_LAYER_ID, PCB_LAYER_ID, POINT_LAYER_FOR } from '@ziroeda/common/layer_id.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import { type FLIP_DIRECTION, MIRROR } from '@ziroeda/core/mirror.js';

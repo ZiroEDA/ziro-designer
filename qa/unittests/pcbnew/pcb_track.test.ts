@@ -8,7 +8,7 @@
  * BOARD as parent), not derived from our port.
  */
 import { describe, expect, it } from 'vitest';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';

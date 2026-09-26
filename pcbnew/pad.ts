@@ -30,7 +30,7 @@ import {
   IsNetnameLayer,
   NETNAMES_LAYER_ID,
   PCB_LAYER_ID,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import { LAYER_RANGE } from '@ziroeda/common/layer_range.js';
 import { ELECTRICAL_PINTYPES } from '@ziroeda/common/pin_type.js';
 import {

@@ -17,7 +17,7 @@ import { PROGRESS_REPORTER_BASE } from '@ziroeda/common/widgets/progress_reporte
 import { PARSE_ERROR } from '@ziroeda/common/dsnlexer.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { MARKER_T } from '@ziroeda/common/marker_base.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { MALFORMED_B_COURTYARD, MALFORMED_F_COURTYARD } from '@ziroeda/common/eda_item_flags.js';
 import {
   RC_TREE_MODEL,

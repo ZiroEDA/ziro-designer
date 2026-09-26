@@ -9,7 +9,7 @@
  * BOARD, not derived from our port.
  */
 import { describe, expect, it } from 'vitest';
-import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { MARKER_T } from '@ziroeda/common/marker_base.js';
 import {
   RPT_SEVERITY_ERROR,

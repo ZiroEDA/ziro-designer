@@ -17,7 +17,7 @@
  * - cross-check PCB netlist against SCH netlist
  * - cross-check PCB fields against SCH fields
  */
-import { UNDEFINED_LAYER } from '@ziroeda/common/layer_ids.js';
+import { UNDEFINED_LAYER } from '@ziroeda/common/layer_id.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import { FIELD_T, GetCanonicalFieldName } from '@ziroeda/common/template_fieldnames.js';
 import { FOOTPRINT_ATTR_T, type FOOTPRINT } from '../footprint.js';

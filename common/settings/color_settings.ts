@@ -21,7 +21,7 @@ import {
   NETNAMES_LAYER_ID,
   PCB_LAYER_ID,
   SCH_LAYER_ID,
-} from '../layer_ids.js';
+} from '../layer_id.js';
 import {
   BUILTIN_CLASSIC_THEME,
   BUILTIN_DEFAULT_THEME,

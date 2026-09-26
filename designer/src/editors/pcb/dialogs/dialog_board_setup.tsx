@@ -219,7 +219,7 @@ import { BoardSetupToWindow } from './board_setup_transfer.js';
 import { delayProfileNames, validateTuningProfiles } from './panels/panel_pcb_tuning_profiles.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { LSET } from '@ziroeda/common/lset.js';
-import type { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
 import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import { ParseBoard } from '@ziroeda/pcbnew/read-board.js';

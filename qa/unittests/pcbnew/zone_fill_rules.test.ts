@@ -19,7 +19,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { pcbMmToIU as MM } from '@ziroeda/common/eda_units.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
 import { DRC_CONSTRAINT_T } from '@ziroeda/pcbnew/drc/drc_rule.js';
 import { ParseBoard } from '@ziroeda/pcbnew/read-board.js';

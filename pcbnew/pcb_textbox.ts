@@ -43,7 +43,7 @@ import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import type { OutStr } from '@ziroeda/common/font/font.js';
 import type { METRICS } from '@ziroeda/common/font/font_metrics.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
-import { FLASHING, GAL_LAYER_ID, IsBackLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { FLASHING, GAL_LAYER_ID, IsBackLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { unescapeString } from '@ziroeda/common/string_utils.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';

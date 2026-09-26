@@ -21,7 +21,7 @@ import {
   IsCopperLayer,
   LayerName,
   PCB_LAYER_ID,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { COORD_TYPES_T } from '@ziroeda/common/origin_transforms.js';
 import {

@@ -31,7 +31,7 @@ import {
   stringFromValue as stringFromValueIU,
 } from '@ziroeda/common/eda_units.js';
 import { LSET } from '@ziroeda/common/lset.js';
-import type { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { BOARD_STACKUP } from '@ziroeda/pcbnew/board_stackup_manager/board_stackup.js';

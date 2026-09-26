@@ -19,7 +19,7 @@ import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import { STRUCT_DELETED, UR_TRANSIENT } from '@ziroeda/common/eda_item_flags.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import {
   EVENTS,

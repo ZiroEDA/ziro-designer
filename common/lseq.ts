@@ -8,7 +8,7 @@
  * function here.
  */
 
-import type { PCB_LAYER_ID } from './layer_ids.js';
+import type { PCB_LAYER_ID } from './layer_id.js';
 
 export type LSEQ = PCB_LAYER_ID[];
 

@@ -41,7 +41,7 @@
  * to *both* sides' shapes, because a through hole consumes space on the far
  * side even where no courtyard is drawn.
  */
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import {
   SHAPE_POLY_SET,
   TransformCircleToPolygon,

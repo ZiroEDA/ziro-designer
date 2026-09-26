@@ -22,7 +22,7 @@ import {
   LayerName,
   PCB_LAYER_ID,
   UNDEFINED_LAYER,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';

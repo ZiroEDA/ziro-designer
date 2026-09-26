@@ -20,7 +20,7 @@ import {
   LayerName,
   PCB_LAYER_ID,
   ToLAYER_ID,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import { MARKER_BASE, MARKER_T } from '@ziroeda/common/marker_base.js';
 import type { RC_ITEM } from '@ziroeda/common/rc_item.js';
 import {

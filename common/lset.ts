@@ -13,12 +13,7 @@
  */
 
 import { BASE_SET } from './base_set.js';
-import {
-  IsCopperLayer,
-  MAX_CU_LAYERS,
-  MAX_USER_DEFINED_LAYERS,
-  PCB_LAYER_ID,
-} from './layer_ids.js';
+import { IsCopperLayer, MAX_CU_LAYERS, MAX_USER_DEFINED_LAYERS, PCB_LAYER_ID } from './layer_id.js';
 import { LAYER_RANGE } from './layer_range.js';
 import type { LSEQ } from './lseq.js';
 

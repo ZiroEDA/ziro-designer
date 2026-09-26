@@ -17,7 +17,7 @@
  * And `visible_layers` is a hex string of the `LSET`, so a layer renumbering
  * is a format change rather than a silent shift.
  */
-import { GAL_SET, PCB_LAYER_ID, PCBNEW_LAYER_ID_START } from '../layer_ids.js';
+import { GAL_SET, PCB_LAYER_ID, PCBNEW_LAYER_ID_START } from '../layer_id.js';
 import { LSET } from '../lset.js';
 import {
   JSON_SETTINGS,

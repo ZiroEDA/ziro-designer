@@ -11,7 +11,7 @@
  * - DRCE_ISOLATED_COPPER
  */
 import { IS_DELETED } from '@ziroeda/common/eda_item_flags.js';
-import { IsCopperLayer, UNDEFINED_LAYER } from '@ziroeda/common/layer_ids.js';
+import { IsCopperLayer, UNDEFINED_LAYER } from '@ziroeda/common/layer_id.js';
 import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { add, divideI, equal, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';

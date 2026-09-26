@@ -49,7 +49,7 @@ import {
   IsCopperLayer,
   IsValidLayer,
   PCB_LAYER_ID,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import {

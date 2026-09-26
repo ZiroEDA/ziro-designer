@@ -39,7 +39,7 @@ import {
   POINT_LAYER_FOR,
   VIA_COPPER_LAYER_FOR,
   ZONE_LAYER_FOR,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 
 const out = (s: string) => writeSync(1, `${s}\n`);
 const ms = (t: number) =>

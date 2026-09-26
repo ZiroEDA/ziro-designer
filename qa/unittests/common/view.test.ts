@@ -19,7 +19,7 @@ import type { Color4d } from '@ziroeda/common/color4d.js';
 import { VIEW } from '@ziroeda/common/view/view.js';
 import { VIEW_GROUP } from '@ziroeda/common/view/view_group.js';
 import { VIEW_ITEM, VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
-import { LAYER_SELECT_OVERLAY } from '@ziroeda/common/layer_ids.js';
+import { LAYER_SELECT_OVERLAY } from '@ziroeda/common/layer_id.js';
 
 const TEST_LAYER = 0;
 

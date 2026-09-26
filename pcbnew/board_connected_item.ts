@@ -13,7 +13,7 @@
  */
 
 import { ROUTER_TRANSIENT } from '@ziroeda/common/eda_item_flags.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { NETCLASS } from '@ziroeda/common/netclass.js';
 import {

@@ -23,7 +23,7 @@ import {
   type PCB_LAYER_ID,
   PCB_LAYER_ID as LAYER,
   ToLAYER_ID,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import type { CONTEXT, VAR_REF, VALUE } from '@ziroeda/common/libeval_compiler/libeval_compiler.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { ENUM_MAP } from '@ziroeda/common/properties/property.js';

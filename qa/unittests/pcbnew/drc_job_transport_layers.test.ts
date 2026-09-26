@@ -19,7 +19,7 @@
  * two answers differed - which is how the round trip was caught.
  */
 import { describe, expect, it } from 'vitest';
-import { IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { GENERATOR } from '@ziroeda/common/generator.js';
 import {
   CTL_ENUMERATE_LAYERS,

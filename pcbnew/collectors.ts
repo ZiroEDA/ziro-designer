@@ -12,7 +12,7 @@
 import { COLLECTOR } from '@ziroeda/common/collector.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { INSPECT_RESULT } from '@ziroeda/common/eda_item.js';
-import { IsBackLayer, IsFrontLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { IsBackLayer, IsFrontLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { LSET } from '@ziroeda/common/lset.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';

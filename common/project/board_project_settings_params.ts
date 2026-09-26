@@ -7,7 +7,7 @@
  * subclasses `PROJECT_FILE` uses for its per-board lists.
  */
 import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
-import { BoardLayerFromLegacyId, GAL_LAYER_ID, PCB_LAYER_ID } from '../layer_ids.js';
+import { BoardLayerFromLegacyId, GAL_LAYER_ID, PCB_LAYER_ID } from '../layer_id.js';
 import { type JsonObject, type JsonValue, PARAM_LAMBDA } from '../settings/json_settings.js';
 import {
   RenderLayerFromVisbilityString,

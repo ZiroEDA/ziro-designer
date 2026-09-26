@@ -29,7 +29,7 @@ import {
 } from '@ziroeda/common/properties/property.js';
 import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 
-import { GAL_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { GAL_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { GetDefaultVariantName, IsURL, unescapeString } from '@ziroeda/common/string_utils.js';
 import {
   FIELD_T,

@@ -24,7 +24,7 @@ import {
   LAYER_SELECT_OVERLAY,
   LAYER_VIA_COPPER_START,
   LAYER_ZONE_START,
-} from '../layer_ids.js';
+} from '../layer_id.js';
 import type { VIEW } from './view.js';
 import { VIEW_ITEM } from './view_item.js';
 

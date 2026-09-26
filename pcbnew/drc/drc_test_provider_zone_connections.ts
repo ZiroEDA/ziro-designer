@@ -11,7 +11,7 @@
  * - DRCE_STARVED_THERMAL
  */
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
-import type { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
 import { ARC_LOW_DEF } from '@ziroeda/kimath/src/base_units.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';

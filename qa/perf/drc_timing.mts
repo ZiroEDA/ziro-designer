@@ -13,7 +13,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
 import { PROGRESS_REPORTER_BASE } from '@ziroeda/common/widgets/progress_reporter_base.js';

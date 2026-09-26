@@ -11,7 +11,7 @@
  * does not wrap PCB_TABLECELL.
  */
 import { describe, expect, it } from 'vitest';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';

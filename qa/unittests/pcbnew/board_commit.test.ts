@@ -11,7 +11,7 @@ import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import { UR_TRANSIENT } from '@ziroeda/common/eda_item_flags.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { UNDO_REDO } from '@ziroeda/common/undo_redo_container.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';

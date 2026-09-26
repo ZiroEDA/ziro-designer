@@ -11,7 +11,7 @@
  */
 import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
 import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
-import type { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ARC_HIGH_DEF } from '@ziroeda/kimath/src/base_units.js';

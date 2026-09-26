@@ -11,7 +11,7 @@
  * `m_id`, the pointer order), exactly as the C++ sorts it by pointer.
  */
 import type { COMMIT } from '@ziroeda/common/commit.js';
-import { FLASHING, IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { FLASHING, IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { EuclideanNormI, sub, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';

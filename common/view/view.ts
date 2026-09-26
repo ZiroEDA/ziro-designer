@@ -13,7 +13,7 @@ import type { Vec2, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { ARC_LOW_DEF } from '@ziroeda/kimath/src/base_units.js';
 import { CornerStrategy, SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { stdSort } from '@ziroeda/kimath/src/clipper2/clipper.core.js';
-import { UNDEFINED_LAYER } from '../layer_ids.js';
+import { UNDEFINED_LAYER } from '../layer_id.js';
 import { MAX_LAYERS_FOR_VIEW, RENDER_TARGET } from '../gal/definitions.js';
 import { type GAL, GAL_UPDATE_CONTEXT } from '../gal/graphics_abstraction_layer.js';
 import type { PAINTER } from '../gal/painter.js';

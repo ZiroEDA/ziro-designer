@@ -19,7 +19,7 @@ import {
   DIM_UNITS_FORMAT,
   DIM_UNITS_MODE,
 } from './pcb_dimension_types.js';
-import { IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { VIATYPE } from './pcb_track_types.js';
 import {

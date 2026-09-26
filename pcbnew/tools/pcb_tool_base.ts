@@ -7,7 +7,7 @@
  * angle-snap queries. `doInteractiveItemPlacement` and the context menu
  * (`Init`'s CONDITIONAL_MENU) come with the placement tools (#636 stage 3).
  */
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { RESET_REASON, TOOL_ID } from '@ziroeda/common/tool/tool_base.js';
 import { TOOL_INTERACTIVE } from '@ziroeda/common/tool/tool_interactive.js';

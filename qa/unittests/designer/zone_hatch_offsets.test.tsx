@@ -30,7 +30,7 @@ import {
   syncCopperLayers,
   type ZoneLayerPropertiesMap,
 } from '@ziroeda/designer/src/editors/pcb/board_settings.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { readSetup, writeSetup } from './board_setup_test_utils.js';
 import { LSET_Name, LSET_NameToLayer } from '@ziroeda/pcbnew/layer_ids.js';
 

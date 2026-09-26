@@ -31,7 +31,7 @@ import type { ZONE } from './zone.js';
 import type { APP_SETTINGS_BASE } from '@ziroeda/common/settings/app_settings.js';
 import type { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
 import type { TOOL_DISPATCHER } from '@ziroeda/common/draw_panel_gal.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
 import { type VIEW_ITEM, VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
 import type { BOARD } from './board.js';

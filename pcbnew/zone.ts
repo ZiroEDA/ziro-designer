@@ -19,7 +19,7 @@ import type { EDA_SEARCH_DATA } from '@ziroeda/common/eda_search_data.js';
 import { COURTYARD_CONFLICT } from '@ziroeda/common/eda_item_flags.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import type { OutStr } from '@ziroeda/common/font/font.js';
-import { FLASHING, GAL_LAYER_ID, IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { FLASHING, GAL_LAYER_ID, IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { COORD_TYPES_T } from '@ziroeda/common/origin_transforms.js';
 import {
   ENUM_MAP,

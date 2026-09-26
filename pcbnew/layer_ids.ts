@@ -3,7 +3,7 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The pcbnew-side layer helpers over `include/layer_ids.h` / `lset.h`, which
- * live in `common/layer_ids.ts` and `common/lset.ts`. What is left
+ * live in `common/layer_id.ts` and `common/lset.ts`. What is left
  * here is the canonical-name (`'F.Cu'`) form the plain-object board model
  * still speaks, each a delegate over the numeric one.
  */
@@ -12,7 +12,7 @@ import {
   FlipLayer as FlipLayerId,
   LayerName as LayerNameId,
   PCB_LAYER_ID,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 
 /**
@@ -20,7 +20,7 @@ import { LSET } from '@ziroeda/common/lset.js';
  * model carries as its layer id.
  *
  * @deprecated KiCad's `PCB_LAYER_ID` is the numeric enum in
- * `@ziroeda/common/layer_ids.js`; the items on it use that. This alias
+ * `@ziroeda/common/layer_id.ts`; the items on it use that. This alias
  * goes with the plain-object model (#636 stage 2).
  */
 export type PCB_LAYER_NAME = string;
@@ -58,7 +58,7 @@ export {
   UNDEFINED_LAYER,
   UNSELECTED_LAYER,
   User_1,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 
 /**
  * `In1_Cu = 4 … In30_Cu = 62`, which the enum spells out one line at a time.
@@ -116,7 +116,7 @@ export function LayerSelectorUIOrder(aNotAllowed: Iterable<number> = []): number
 export const UserMask: readonly number[] = LSET.UserMask().Seq();
 
 /**
- * @deprecated `FlipLayer( PCB_LAYER_ID )` in `@ziroeda/common/layer_ids.js`;
+ * @deprecated `FlipLayer( PCB_LAYER_ID )` in `@ziroeda/common/layer_id.ts`;
  * this is the canonical-name form over it.
  */
 export function FlipLayer(aLayer: PCB_LAYER_NAME): PCB_LAYER_NAME {
@@ -126,7 +126,7 @@ export function FlipLayer(aLayer: PCB_LAYER_NAME): PCB_LAYER_NAME {
 }
 
 /**
- * @deprecated `LayerName( int )` in `@ziroeda/common/layer_ids.js`; this is
+ * @deprecated `LayerName( int )` in `@ziroeda/common/layer_id.ts`; this is
  * the canonical-name form over it (a name it does not know is its own name).
  */
 export function LayerName(aLayer: PCB_LAYER_NAME): string {

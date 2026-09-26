@@ -22,7 +22,7 @@ import {
   type PCB_LAYER_ID,
   PCB_LAYER_ID as LAYER,
   ToLAYER_ID,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import {
   COMPILER,
   CONTEXT,

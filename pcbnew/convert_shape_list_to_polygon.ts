@@ -32,7 +32,7 @@ import {
 } from '@ziroeda/kimath/src/math/vector2.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD } from './board.js';

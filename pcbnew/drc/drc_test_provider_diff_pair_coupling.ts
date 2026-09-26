@@ -11,7 +11,7 @@
  * - DRCE_TOO_MANY_VIAS
  */
 import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
-import { type PCB_LAYER_ID, UNDEFINED_LAYER } from '@ziroeda/common/layer_ids.js';
+import { type PCB_LAYER_ID, UNDEFINED_LAYER } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
 import type { MINOPTMAX } from '@ziroeda/core/minoptmax.js';

@@ -32,7 +32,7 @@ import {
   IsFrontLayer,
   GAL_LAYER_ID,
   PCB_LAYER_ID,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import { type RENDER_SETTINGS, plotterRenderSettings } from '@ziroeda/common/render_settings.js';
 import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
 import { COORD_TYPES_T } from '@ziroeda/common/origin_transforms.js';

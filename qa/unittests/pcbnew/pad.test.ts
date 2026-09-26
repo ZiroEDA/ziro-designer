@@ -7,7 +7,7 @@
  * 2-copper BOARD), not derived from our port.
  */
 import { describe, expect, it } from 'vitest';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';

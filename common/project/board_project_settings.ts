@@ -7,7 +7,7 @@
  * records `PROJECT_FILE` stores (presets, viewports, layer pairs, IPC-2581).
  */
 import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
-import { GAL_SET, PCB_LAYER_ID } from '../layer_ids.js';
+import { GAL_SET, PCB_LAYER_ID } from '../layer_id.js';
 import { LSET } from '../lset.js';
 
 export enum HIGH_CONTRAST_MODE {

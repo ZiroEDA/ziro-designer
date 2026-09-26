@@ -6,7 +6,7 @@
  * the project file's `tuning_profiles` nested settings, which the length /
  * delay calculation reads for propagation delays.
  */
-import { IsCopperLayerLowerThan, type PCB_LAYER_ID, UNDEFINED_LAYER } from '../layer_ids.js';
+import { IsCopperLayerLowerThan, type PCB_LAYER_ID, UNDEFINED_LAYER } from '../layer_id.js';
 import { LSET } from '../lset.js';
 import {
   type JSON_SETTINGS,

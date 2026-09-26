@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { VALUE, VAR_TYPE_T } from '@ziroeda/common/libeval_compiler/libeval_compiler.js';
 import { NETCLASS } from '@ziroeda/common/netclass.js';
 import { PROPERTY_MANAGER } from '@ziroeda/common/properties/property_mgr.js';

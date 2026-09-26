@@ -19,7 +19,7 @@ import {
   GAL_LAYER_ID,
   LayerName,
   PCB_LAYER_ID,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import { REFERENCE_IMAGE } from '@ziroeda/common/reference_image.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';

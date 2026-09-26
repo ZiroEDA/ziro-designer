@@ -38,7 +38,7 @@ import {
 import { TOOL_ACTION_SCOPE } from '@ziroeda/common/tool/tool_action.js';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
 import { ITEM_PICKER, PICKED_ITEMS_LIST, UNDO_REDO } from '@ziroeda/common/undo_redo_container.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { BOARD_COMMIT } from './board_commit.js';

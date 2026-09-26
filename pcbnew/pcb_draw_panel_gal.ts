@@ -168,7 +168,7 @@ import {
   User_9,
   VIA_COPPER_LAYER_FOR,
   ZONE_LAYER_FOR,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import { DEFAULT_THEME, GetColorSettings, PgmOrNull } from '@ziroeda/common/pgm_base.js';
 import { VIEW } from '@ziroeda/common/view/view.js';
 import { WX_VIEW_CONTROLS } from '@ziroeda/common/view/wx_view_controls.js';

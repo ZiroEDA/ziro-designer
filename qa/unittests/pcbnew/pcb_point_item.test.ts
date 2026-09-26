@@ -8,7 +8,7 @@
  * (BOX2I::ByCenter, SEG::Collide, SHAPE_CIRCLE::Collide).
  */
 import { describe, expect, it } from 'vitest';
-import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { STRING_ANY_MAP } from '@ziroeda/common/string_any_map.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';

@@ -4,7 +4,7 @@
 /** `qa/tests/common/test_lset.cpp` and `test_layer_ids.cpp`, transcribed. */
 import { describe, expect, it } from 'vitest';
 import { BASE_SET } from '@ziroeda/common/base_set.js';
-import { IsCopperLayer, IsCopperLayerLowerThan, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { IsCopperLayer, IsCopperLayerLowerThan, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSEQ_TestLayers } from '@ziroeda/common/lseq.js';
 import { type LSEQ, LSET } from '@ziroeda/common/lset.js';
 

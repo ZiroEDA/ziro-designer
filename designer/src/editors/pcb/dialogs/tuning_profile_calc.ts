@@ -20,7 +20,7 @@ import {
   IsFrontLayer,
   IsCopperLayerLowerThan,
   PCB_LAYER_ID,
-} from '@ziroeda/common/layer_ids.js';
+} from '@ziroeda/common/layer_id.js';
 import { COUPLED_MICROSTRIP } from '@ziroeda/common/transline_calculations/coupled_microstrip.js';
 import { COUPLED_STRIPLINE } from '@ziroeda/common/transline_calculations/coupled_stripline.js';
 import { MICROSTRIP } from '@ziroeda/common/transline_calculations/microstrip.js';
