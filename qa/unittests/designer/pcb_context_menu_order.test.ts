@@ -193,7 +193,7 @@ describe('the rows a connectable item is entitled to', () => {
       return i;
     };
     const props = at("label: 'Properties...'");
-    const netclass = at("TODO('Assign Netclass...')");
+    const netclass = at("label: 'Assign Netclass...'");
     const clearance = at("'Clearance Resolution...' : 'Constraints Resolution...'");
     expect(netclass).toBeGreaterThan(props);
     expect(clearance).toBeGreaterThan(netclass);
@@ -201,7 +201,10 @@ describe('the rows a connectable item is entitled to', () => {
 
   it('gates it on the five connected types, not on "something is selected"', () => {
     // `connectedTypes` (edit_tool.cpp:128).
-    expect(FRAME).toContain("menuEntry(TODO('Assign Netclass...'), -1, onlyConnected)");
+    // Live since 09-26 (DIALOG_ASSIGN_NETCLASS is common/dialogs'), same gate.
+    expect(FRAME).toContain(
+      "menuEntry({ label: 'Assign Netclass...', action: () => assignNetclass() }, -1, onlyConnected)",
+    );
     expect(FRAME).toContain(
       "const connectedKinds = new Set(['track', 'arc', 'via', 'pad', 'zone']);",
     );

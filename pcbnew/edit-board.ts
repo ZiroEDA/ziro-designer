@@ -135,6 +135,33 @@ export function parseBoardItemId(id: string): BoardItemRef | null {
   return { kind: kind as BoardItemKind, index };
 }
 
+/**
+ * `PCB_SELECTION_TOOL::SelectAllItemsOnNet`, as the ids it would select: every
+ * connected item (`BOARD::AllConnectedItems` - tracks, arcs, vias, pads and
+ * zones) whose net is one of `aNetCodes`.
+ */
+export function connectedItemIdsOnNets(board: Board, aNetCodes: ReadonlySet<number>): string[] {
+  const ids: string[] = [];
+  board.tracks.forEach((t, i) => {
+    if (aNetCodes.has(t.net)) ids.push(boardItemId('track', i));
+  });
+  board.arcs.forEach((a, i) => {
+    if (aNetCodes.has(a.net)) ids.push(boardItemId('arc', i));
+  });
+  board.vias.forEach((v, i) => {
+    if (aNetCodes.has(v.net)) ids.push(boardItemId('via', i));
+  });
+  board.footprints.forEach((fp, i) => {
+    fp.pads.forEach((pad, j) => {
+      if (pad.net !== undefined && aNetCodes.has(pad.net)) ids.push(boardItemId('pad', i, j));
+    });
+  });
+  board.zones.forEach((z, i) => {
+    if (aNetCodes.has(z.net)) ids.push(boardItemId('zone', i));
+  });
+  return ids;
+}
+
 // ----- geometry helpers -------------------------------------------------------
 
 /** Distance from `p` to segment `a`-`b` (KiCad TestSegmentHit's core). */

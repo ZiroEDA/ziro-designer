@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { Priority } from '@ziroeda/eeschema/connectivity/nets.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import {
   ensureFileExtension,
@@ -11176,13 +11177,30 @@ export function SchematicEditor({
       {/* Assign Netclass (DIALOG_ASSIGN_NETCLASS). */}
       {netclassPatterns && (
         <DialogAssignNetclass
-          patterns={netclassPatterns}
-          netClasses={setup.netClasses.classes.map((c) => c.name)}
+          frame="schematic"
+          netNames={new Set(netclassPatterns)}
+          // SCHEMATIC::GetNetClassAssignmentCandidates (schematic.cpp:742-758):
+          // every non-bus net driven at least by a pin, as a sorted set.
+          candidateNetNames={[
+            ...new Set(
+              (netlist?.nets ?? [])
+                .filter((n) => n.driverPriority >= Priority.Pin)
+                .map((n) => n.name),
+            ),
+          ].sort()}
+          // netSettings->GetNetclasses(): a std::map, so by name, and without Default.
+          netClasses={setup.netClasses.classes
+            .map((c) => c.name)
+            .filter((n) => n !== 'Default')
+            .sort()}
           onCancel={() => setNetclassPatterns(null)}
-          onOk={(netClass) => {
-            const assignments = netclassPatterns.reduce(
-              (acc, pattern) => addNetclassAssignment(acc, pattern, netClass),
+          onOk={(pattern, netClass) => {
+            // SetNetclassPatternAssignment( pattern, netclass ): the one pattern,
+            // bus members expanded.
+            const assignments = addNetclassAssignment(
               setup.netClasses.assignments,
+              pattern,
+              netClass,
             );
             commitSetup({
               ...setup,

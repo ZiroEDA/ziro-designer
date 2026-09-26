@@ -13390,6 +13390,45 @@ fieldset.ze-sbox > legend {
   min-height: 100px; /* [data] the same line */
 }
 
+/* DIALOG_ASSIGN_NETCLASS (common/dialogs/dialog_assign_netclass.tsx), each
+   border dialog_assign_netclass_base.cpp's Add(). */
+.ze-assignnc-upper {
+  display: flex;
+  align-items: center;
+  margin: 5px; /* [data] Add( bUpperSizer, 0, wxEXPAND|wxALL, 5 ) */
+}
+.ze-assignnc-patlabel {
+  margin-left: 10px; /* [data] wxALIGN_CENTER_VERTICAL|wxLEFT, 10 */
+}
+.ze-assignnc-pattern {
+  flex: 1 1 auto;
+  min-width: 240px; /* [data] m_patternCtrl->SetMinSize( wxSize( 240,-1 ) ) */
+  margin: 0 5px; /* [data] wxRIGHT|wxLEFT|wxALIGN_CENTER_VERTICAL, 5 */
+}
+.ze-assignnc-nclabel {
+  margin-left: 30px; /* [data] wxALIGN_CENTER_VERTICAL|wxLEFT, 30 */
+}
+.ze-assignnc-netclass {
+  margin: 5px; /* [data] Add( m_netclassCtrl, 0, wxALL, 5 ) */
+}
+.ze-assignnc-lower {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  margin: 0 10px 10px; /* [data] Add( bLowerSizer, 1, wxBOTTOM|wxEXPAND|wxLEFT|wxRIGHT, 10 ) */
+}
+.ze-assignnc-matching {
+  flex: 2 1 auto;
+  min-height: 200px; /* [data] m_matchingNets->SetMinSize( wxSize( -1,200 ) ) */
+  margin: 0 5px 5px; /* [data] wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5 */
+  font-size: var(--ui-font-size-info); /* KIUI::GetInfoFont */
+}
+.ze-assignnc-info {
+  margin: 5px 5px 0; /* [data] Add( m_info, 0, wxTOP|wxRIGHT|wxLEFT, 5 ) */
+  font-size: var(--ui-font-size-info); /* KIUI::GetInfoFont( this ).Italic() */
+  font-style: italic;
+}
+
 /* Syntax Help states its own size where the Errors box takes the minimum:
 
      dlg->SetMinSize( dlg->ConvertDialogToPixels( wxSize( 320, 320 ) ) );

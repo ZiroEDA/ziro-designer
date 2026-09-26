@@ -718,7 +718,9 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `editors/schematic`. Nothing added or removed: 8 + 7 = 15.
   // 0/15 -> 2/19 on 09-26 (stage 2): what `dialogs` gave up, 2 + 4.
   // 2/19 -> 3/34 on 09-26 (stage 3d): what `dialogs` gave up, 1 + 15.
-  'common/dialogs': { colours: 3, metrics: 34 },
+  // metrics 34 -> 27 on 09-26: the Assign Netclass stub's inline styles went
+  // when DIALOG_ASSIGN_NETCLASS was ported; its sizes are shell.css's, marked.
+  'common/dialogs': { colours: 3, metrics: 27 },
   // 09-26 (stage 3b): common/wx/controls.tsx, the wx controls the panels'
   // `_base` files instantiate, with the one colour `dialogs` gave up.
   'common/wx': { colours: 1, metrics: 0 },
@@ -1355,7 +1357,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1263 -> 1236: the Print dialog's twenty-seven, see `editors/pcb`.
     // 1236 -> 1226: the line-modification box's ten, see `editors/pcb`.
     // 1226 -> 1223: the symbol library table's three, see `widgets`.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1223);
+    // 1223 -> 1216: the Assign Netclass stub's seven, see `common/dialogs`.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1216);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {
