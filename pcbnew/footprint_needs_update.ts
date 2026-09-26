@@ -17,8 +17,8 @@ import { LayerName, PCB_LAYER_ID, UNDEFINED_LAYER } from '@ziroeda/common/layer_
 import { LSET } from '@ziroeda/common/lset.js';
 import type { Reporter } from '@ziroeda/common/reporter.js';
 import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
-import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { EuclideanNorm, equal, sub, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD } from './board.js';

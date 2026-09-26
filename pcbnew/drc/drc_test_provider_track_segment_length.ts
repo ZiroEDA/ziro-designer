@@ -10,7 +10,7 @@
  * - DRCE_TRACK_SEGMENT_LENGTH
  */
 import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import type { PCB_ARC, PCB_TRACK } from '../pcb_track.js';

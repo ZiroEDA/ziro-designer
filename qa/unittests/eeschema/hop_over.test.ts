@@ -15,9 +15,9 @@ import {
   buildWireWithHopShape,
   shouldHopOver,
   type HopShapePart,
-} from '@ziroeda/eeschema/src/tools/hop_over.js';
-import { makeBus, makeWire } from '@ziroeda/eeschema/src/tools/build.js';
-import type { SchLine, Vec2 } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/hop_over.js';
+import { makeBus, makeWire } from '@ziroeda/eeschema/tools/build.js';
+import type { SchLine, Vec2 } from '@ziroeda/eeschema/types.js';
 
 const w = (x1: number, y1: number, x2: number, y2: number): SchLine =>
   makeWire({ x: x1, y: y1 }, { x: x2, y: y2 });

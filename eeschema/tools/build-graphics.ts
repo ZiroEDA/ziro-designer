@@ -10,7 +10,7 @@
  * (no coordinate inversion, unlike symbol-library graphics).
  */
 
-import { list, atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/types.js';
+import { list, atom, str, type SList, type SNode } from '@ziroeda/sexpr/types.js';
 import { iuToMM, mmToIU } from '@ziroeda/common/eda_units.js';
 import { newKiid } from '@ziroeda/common/kiid.js';
 import type {

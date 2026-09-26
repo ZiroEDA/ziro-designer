@@ -10,7 +10,7 @@
  * are written in millimetres, matching the file format.
  */
 
-import { head, isList, list, atom, str, type SList } from '@ziroeda/sexpr/src/types.js';
+import { head, isList, list, atom, str, type SList } from '@ziroeda/sexpr/types.js';
 import { iuToMM } from '@ziroeda/common/eda_units.js';
 import { newKiid } from '@ziroeda/common/kiid.js';
 import type {

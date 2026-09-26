@@ -19,7 +19,7 @@
  * …>`), and a mapped type carries only public members.
  */
 
-import { IsEeschemaType, KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { IsEeschemaType, KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ANGLE_0, EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { SHAPE_COMPOUND } from '@ziroeda/kimath/src/geometry/shape_compound.js';
 import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';

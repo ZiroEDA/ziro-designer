@@ -15,7 +15,7 @@ import { parse } from '@ziroeda/sexpr';
 import { readFootprintFile } from '@ziroeda/pcbnew';
 import { SEXPR_BOARD_FILE_VERSION } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 import { readSymbolLib } from '@ziroeda/eeschema';
-import { serializeSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/write-symbol-lib.js';
+import { serializeSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/write-symbol-lib.js';
 import { readDrawingSheet } from '@ziroeda/common/drawing_sheet/read.js';
 import { serializeDrawingSheet } from '@ziroeda/common/drawing_sheet/write.js';
 import { defaultDrawingSheet } from '@ziroeda/common/drawing_sheet/default-sheet.js';

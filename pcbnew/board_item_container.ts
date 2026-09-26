@@ -8,7 +8,7 @@
  * @see BOARD
  */
 
-import type { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import type { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { BOARD_ITEM } from './board_item.js';
 
 export enum ADD_MODE {

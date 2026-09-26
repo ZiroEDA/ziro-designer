@@ -15,7 +15,7 @@
  */
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
-import { imageDataUrl } from '@ziroeda/eeschema/src/import_gfx/image_format.js';
+import { imageDataUrl } from '@ziroeda/eeschema/import_gfx/image_format.js';
 import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 export interface ImagePropsResult {

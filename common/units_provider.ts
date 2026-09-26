@@ -9,7 +9,7 @@
  * `EDA_UNIT_UTILS::UI` port that the dialogs need.
  */
 
-import type { MINOPTMAX } from '@ziroeda/core/src/minoptmax.js';
+import type { MINOPTMAX } from '@ziroeda/core/minoptmax.js';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import {
   type EdaDataType,

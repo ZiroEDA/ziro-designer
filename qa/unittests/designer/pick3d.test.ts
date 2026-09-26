@@ -5,7 +5,7 @@
  * text `EDA_3D_CANVAS` makes of a hit (eda_3d_canvas.cpp:985-1078, 1129-1163).
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import {
   boardItemAt,

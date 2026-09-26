@@ -13,7 +13,7 @@ import {
   UNDEFINED_LAYER,
 } from '@ziroeda/common/layer_ids.js';
 import type { NETCLASS } from '@ziroeda/common/netclass.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import type { BOARD } from '../board.js';
 import type { PAD } from '../pad.js';

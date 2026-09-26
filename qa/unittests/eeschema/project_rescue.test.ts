@@ -10,7 +10,7 @@
  * one that is live without a cache library.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, readSymbolLib } from '@ziroeda/eeschema';
 import { unescapeString } from '@ziroeda/common';
 import {
@@ -24,9 +24,9 @@ import {
   repointSymbols,
   RESCUE_PIN_TESTS,
   type RescueSources,
-} from '@ziroeda/eeschema/src/tools/project_rescue.js';
-import { readLegacySymbolLibrary } from '@ziroeda/eeschema/src/sch_io/legacy/read-lib.js';
-import type { LibSymbol, Schematic, SchSymbol } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/project_rescue.js';
+import { readLegacySymbolLibrary } from '@ziroeda/eeschema/sch_io/legacy/read-lib.js';
+import type { LibSymbol, Schematic, SchSymbol } from '@ziroeda/eeschema/types.js';
 
 const BODY = `
   (property "Reference" "R" (at 0 0 0))

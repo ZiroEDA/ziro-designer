@@ -26,8 +26,8 @@ import {
   movedPreviewItems,
   previewJunctionPoints,
   type DragPenWidths,
-} from '@ziroeda/eeschema/src/tools/drag_net_collision.js';
-import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/drag_net_collision.js';
+import type { LibSymbol } from '@ziroeda/eeschema/types.js';
 
 const MM = 10000;
 const LIB = new Map<string, LibSymbol>();

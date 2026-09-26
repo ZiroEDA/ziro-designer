@@ -25,19 +25,19 @@
  * connectivity".
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { planMove } from '@ziroeda/eeschema/src/tools/connect.js';
-import { orthoMove } from '@ziroeda/eeschema/src/tools/ortho.js';
-import { moveWithConnections } from '@ziroeda/eeschema/src/tools/move.js';
-import { withPostMoveCleanup } from '@ziroeda/eeschema/src/tools/post_move_cleanup.js';
-import { withCleanup } from '@ziroeda/eeschema/src/tools/cleanup.js';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { planMove } from '@ziroeda/eeschema/tools/connect.js';
+import { orthoMove } from '@ziroeda/eeschema/tools/ortho.js';
+import { moveWithConnections } from '@ziroeda/eeschema/tools/move.js';
+import { withPostMoveCleanup } from '@ziroeda/eeschema/tools/post_move_cleanup.js';
+import { withCleanup } from '@ziroeda/eeschema/tools/cleanup.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { EditCommand } from '@ziroeda/eeschema/src/tools/command.js';
-import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/src/types.js';
+import type { EditCommand } from '@ziroeda/eeschema/tools/command.js';
+import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/types.js';
 
 const rawR = readFileSync(
   fileURLToPath(new URL('../../data/R.kicad_sym', import.meta.url)),

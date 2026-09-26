@@ -17,9 +17,9 @@
  * names a net nothing declares, and loads back unconnected.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { head, isList, type SList, type SNode } from '@ziroeda/sexpr/src/types.js';
-import { arg, numArg } from '@ziroeda/sexpr/src/query.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { head, isList, type SList, type SNode } from '@ziroeda/sexpr/types.js';
+import { arg, numArg } from '@ziroeda/sexpr/query.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import { applyPadValues, collectPadValues, padAt } from '@ziroeda/pcbnew/pad_properties.js';

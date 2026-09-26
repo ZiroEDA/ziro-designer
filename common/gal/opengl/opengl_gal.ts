@@ -52,7 +52,7 @@ import { checkGlError } from './utils.js';
 import { SHADER_MODE } from './vertex_common.js';
 import { VERTEX_ITEM } from './vertex_item.js';
 import { VERTEX_MANAGER } from './vertex_manager.js';
-import { wxASSERT } from '@ziroeda/core/src/wx_assert.js';
+import { wxASSERT } from '@ziroeda/core/wx_assert.js';
 
 const { SHADER_NONE, SHADER_FILLED_CIRCLE, SHADER_STROKED_CIRCLE, SHADER_FONT, SHADER_HOLE_WALL } =
   SHADER_MODE;

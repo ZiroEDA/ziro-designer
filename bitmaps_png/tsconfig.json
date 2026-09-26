@@ -4,5 +4,6 @@
     "rootDir": ".",
     "types": ["vite/client"]
   },
-  "include": ["src"]
+  "include": ["."],
+  "exclude": ["node_modules"]
 }

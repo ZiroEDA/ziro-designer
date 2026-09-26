@@ -11,7 +11,7 @@ import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import { SELECTION } from '@ziroeda/common/tool/selection.js';
 import type { VIEW_ITEM } from '@ziroeda/common/view/view_item.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import type { FOOTPRINT } from '../footprint.js';

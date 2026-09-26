@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** `include/gal/gal_display_options.h` + `common/gal/gal_display_options.cpp`. */
-import { OBSERVABLE } from '@ziroeda/core/src/observable.js';
+import { OBSERVABLE } from '@ziroeda/core/observable.js';
 
 /**
  * Type definition of the grid style.

@@ -19,11 +19,11 @@ import { cleanup, render } from '@testing-library/react';
 import { parse } from '@ziroeda/sexpr';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { schPropertiesFor } from '@ziroeda/eeschema/src/tools/sch_properties_panel.js';
-import { itemRefById } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { schPropertiesFor } from '@ziroeda/eeschema/tools/sch_properties_panel.js';
+import { itemRefById } from '@ziroeda/eeschema/tools/hittest.js';
 import { SchPropertiesPanel } from '@ziroeda/designer/src/editors/schematic/components/SchPropertiesPanel.js';
-import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol } from '@ziroeda/eeschema/types.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 
 afterEach(cleanup);

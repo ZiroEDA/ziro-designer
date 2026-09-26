@@ -75,7 +75,7 @@
 import { strNumCmp, wildCompareString } from '@ziroeda/common/string_utils.js';
 import { getRefDesPrefix } from '../autorouter/spread_footprints.js';
 import { setFootprintReference } from '../edit-footprint.js';
-import type { SList, SNode } from '@ziroeda/sexpr/src/types.js';
+import type { SList, SNode } from '@ziroeda/sexpr/types.js';
 import type { Board, PcbFootprint } from '../types.js';
 
 /** `MINGRID`, the grid `RoundToGrid` falls back to when it is handed 0. */

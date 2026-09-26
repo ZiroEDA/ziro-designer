@@ -10,7 +10,7 @@
  * attribute set as a symbol because they apply to everything inside it.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 

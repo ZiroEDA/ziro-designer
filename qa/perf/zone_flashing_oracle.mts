@@ -24,7 +24,7 @@
 import { readFileSync } from 'node:fs';
 import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { LSET } from '@ziroeda/common/lset.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ParseBoard } from '@ziroeda/pcbnew/read-board.js';
 import { ZONE_LAYER_OVERRIDE } from '@ziroeda/pcbnew/board_item.js';
 import { ZONE_FILLER } from '@ziroeda/pcbnew/zone_filler.js';

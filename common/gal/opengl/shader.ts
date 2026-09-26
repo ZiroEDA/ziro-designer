@@ -7,7 +7,7 @@
  */
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { wxASSERT } from '@ziroeda/core/src/wx_assert.js';
+import { wxASSERT } from '@ziroeda/core/wx_assert.js';
 
 /// Type definition for the shader
 export enum SHADER_TYPE {

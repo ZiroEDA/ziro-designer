@@ -12,7 +12,7 @@
  * width rule is ported with it.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { inheritTrackWidth } from '@ziroeda/pcbnew/inherit_track_width.js';
 

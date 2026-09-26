@@ -20,7 +20,7 @@ import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { ITALIC_TILT } from '@ziroeda/common/font/font_metrics.js';
 import { ITALIC_TILT as VIA_TEXT_BOX } from '@ziroeda/common/font/text_box.js';
-import { ITALIC_TILT as VIA_EESCHEMA } from '@ziroeda/eeschema/src/fieldbox.js';
+import { ITALIC_TILT as VIA_EESCHEMA } from '@ziroeda/eeschema/fieldbox.js';
 
 /** Repo root: this file is `qa/unittests/common/…`. */
 const ROOT = new URL('../../../', import.meta.url).pathname;

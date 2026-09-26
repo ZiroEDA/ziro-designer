@@ -15,7 +15,7 @@
  * presentation: sorting it would renumber the enum.
  *
  * The human-readable labels are a different table — `g_pinElectricalTypes` in
- * `eeschema/pin_type.cpp`, ours in `eeschema/src/pin_type.ts` — because upstream
+ * `eeschema/pin_type.cpp`, ours in `eeschema/pin_type.ts` — because upstream
  * separates them too: the panel's Pin Type combo lists these canonical names.
  */
 

@@ -54,7 +54,7 @@
  * gate is here or nowhere.
  */
 
-import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol } from '@ziroeda/eeschema/types.js';
 import { hasAlternateBodyStyle, unitCount, unitsLocked } from './edits.js';
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 

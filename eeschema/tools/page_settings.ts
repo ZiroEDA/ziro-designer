@@ -14,7 +14,7 @@
 
 import type { Schematic, TitleBlock } from '../types.js';
 import type { EditCommand } from './command.js';
-import { list, atom, str, head, isList, type SList, type SNode } from '@ziroeda/sexpr/src/types.js';
+import { list, atom, str, head, isList, type SList, type SNode } from '@ziroeda/sexpr/types.js';
 
 /** The editable page-settings fields (DIALOG_PAGES_SETTINGS controls). */
 export interface PageSettings {

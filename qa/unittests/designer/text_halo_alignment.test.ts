@@ -42,7 +42,7 @@ import {
   setVectorText,
 } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
 import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 type Mat = [number, number, number, number, number, number];
 const IDENT: Mat = [1, 0, 0, 1, 0, 0];

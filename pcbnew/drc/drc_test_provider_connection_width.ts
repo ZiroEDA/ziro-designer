@@ -13,7 +13,7 @@ import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
 import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { LSET } from '@ziroeda/common/lset.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ARC_HIGH_DEF } from '@ziroeda/kimath/src/base_units.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { SEG } from '@ziroeda/kimath/src/geometry/seg.js';

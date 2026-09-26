@@ -15,7 +15,7 @@ import { PCB_IU_PER_MM as IU } from '@ziroeda/common/eda_units.js';
 import { netClassClearanceMM, type NetClassesData } from '@ziroeda/common/project/net_settings.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { fillZones, zoneClearanceOf, type ZoneFillOptions } from '@ziroeda/pcbnew/zone_filler.js';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 
 const DATA = resolve(__dirname, '../../data/zone_fill');
 

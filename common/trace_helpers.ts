@@ -13,7 +13,7 @@
  */
 
 // The timer the traces print, for the packages that reach core through common.
-export { PROF_TIMER } from '@ziroeda/core/src/profile.js';
+export { PROF_TIMER } from '@ziroeda/core/profile.js';
 
 /** Flag to enable GAL profile tracing (`traceGalProfile`). */
 export const traceGalProfile = 'KICAD_GAL_PROFILE';

@@ -14,7 +14,7 @@ import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { UNDO_REDO } from '@ziroeda/common/undo_redo_container.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { BOARD_LISTENER } from '@ziroeda/pcbnew/board.js';
 import { APPEND_UNDO, BOARD_COMMIT, SKIP_UNDO } from '@ziroeda/pcbnew/board_commit.js';

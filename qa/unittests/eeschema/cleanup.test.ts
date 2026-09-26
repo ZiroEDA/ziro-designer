@@ -2,13 +2,13 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { addItems, makeWire, makeBus, makeJunction } from '@ziroeda/eeschema/src/tools/index.js';
-import { mergeColinearWires, withCleanup } from '@ziroeda/eeschema/src/tools/cleanup.js';
-import { History } from '@ziroeda/eeschema/src/tools/command.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { addItems, makeWire, makeBus, makeJunction } from '@ziroeda/eeschema/tools/index.js';
+import { mergeColinearWires, withCleanup } from '@ziroeda/eeschema/tools/cleanup.js';
+import { History } from '@ziroeda/eeschema/tools/command.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const at = (x: number, y: number) => ({ x: mmToIU(x), y: mmToIU(y) });
 const EMPTY = (): Schematic => readSchematic(parse('(kicad_sch (version 1) (lib_symbols))'));

@@ -36,7 +36,7 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSymbolLib } from '@ziroeda/eeschema';
-import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol } from '@ziroeda/eeschema/types.js';
 import {
   SYMBOL_ACTION_ENABLE,
   symbolActionEnabled,

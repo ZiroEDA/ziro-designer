@@ -19,8 +19,8 @@
  * slot number means nothing and the start layer means everything.
  */
 
-import { atom, list, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
-import { childNamed } from '@ziroeda/sexpr/src/query.js';
+import { atom, list, str, type SList, type SNode } from '@ziroeda/sexpr/index.js';
+import { childNamed } from '@ziroeda/sexpr/query.js';
 
 /** `PADSTACK::DRILL_PROPS`, as a `.kicad_pcb` carries one. */
 export interface PcbDrillSlot {

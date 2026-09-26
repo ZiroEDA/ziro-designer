@@ -18,7 +18,7 @@ import {
   transferTemplateFieldnames,
   type TemplateFieldname,
 } from '@ziroeda/designer/src/editors/schematic/template_fieldnames.js';
-import { MANDATORY_FIELDS } from '@ziroeda/eeschema/src/tools/properties.js';
+import { MANDATORY_FIELDS } from '@ziroeda/eeschema/tools/properties.js';
 
 const t = (name: string, visible = false, url = false): TemplateFieldname => ({
   name,

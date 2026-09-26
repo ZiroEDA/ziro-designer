@@ -9,7 +9,7 @@
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import {
   brightened,
   brightness,

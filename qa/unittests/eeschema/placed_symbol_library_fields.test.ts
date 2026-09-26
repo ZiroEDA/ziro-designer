@@ -33,13 +33,13 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSymbolLib } from '@ziroeda/eeschema/src/index.js';
-import { makeSymbol } from '@ziroeda/eeschema/src/tools/build.js';
-import { autoplacePlacedSymbol } from '@ziroeda/eeschema/src/tools/autoplace_fields.js';
-import { transformSymbol } from '@ziroeda/eeschema/src/tools/transform.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSymbolLib } from '@ziroeda/eeschema/index.js';
+import { makeSymbol } from '@ziroeda/eeschema/tools/build.js';
+import { autoplacePlacedSymbol } from '@ziroeda/eeschema/tools/autoplace_fields.js';
+import { transformSymbol } from '@ziroeda/eeschema/tools/transform.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { SchField, SchSymbol, Vec2 } from '@ziroeda/eeschema/src/types.js';
+import type { SchField, SchSymbol, Vec2 } from '@ziroeda/eeschema/types.js';
 
 /** Stock `Device:C`, copied from /usr/share/kicad/symbols/Device.kicad_sym. */
 const C = readSymbolLib(

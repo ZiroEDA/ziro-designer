@@ -13,7 +13,7 @@
 import { checkGlError } from './utils.js';
 import { VERTEX_SIZE, VERTEX_STORAGE } from './vertex_common.js';
 import type { VERTEX_ITEM } from './vertex_item.js';
-import { wxASSERT } from '@ziroeda/core/src/wx_assert.js';
+import { wxASSERT } from '@ziroeda/core/wx_assert.js';
 
 export abstract class VERTEX_CONTAINER {
   ///< Free space left in the container, expressed in vertices

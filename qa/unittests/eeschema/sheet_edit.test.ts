@@ -6,10 +6,10 @@
  * replaceSheet with patched fields round-trips losslessly through the writer.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic, sheetName, sheetFile } from '@ziroeda/eeschema';
-import { replaceSheet } from '@ziroeda/eeschema/src/tools/mutate.js';
-import { History } from '@ziroeda/eeschema/src/tools/command.js';
+import { replaceSheet } from '@ziroeda/eeschema/tools/mutate.js';
+import { History } from '@ziroeda/eeschema/tools/command.js';
 
 const SCH = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
   (sheet (at 100 100) (size 30 20) (uuid "sh-1")

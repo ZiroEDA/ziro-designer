@@ -8,7 +8,7 @@
  * caller already handles that answer.
  */
 
-import { WXK } from '@ziroeda/core/src/wx_keycodes.js';
+import { WXK } from '@ziroeda/core/wx_keycodes.js';
 import { wxSetKeyState } from '../wx/wx_event.js';
 
 /** `wxWindow` as the platform layer reaches it: the element, its client size and focus. */

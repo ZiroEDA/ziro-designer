@@ -14,7 +14,7 @@
  * the same bar with one tool not yet working. The previous note here said
  * drawSymbolTextBox and drawBezier were absent because "the document model does
  * not yet represent text boxes or bezier body items" — half of that is stale,
- * `kind: 'bezier'` is in `eeschema/src/types.ts:196` — but neither has a tool,
+ * `kind: 'bezier'` is in `eeschema/types.ts:196` — but neither has a tool,
  * so both are greyed rather than dropped.
  */
 

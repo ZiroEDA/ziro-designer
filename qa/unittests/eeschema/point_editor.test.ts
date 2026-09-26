@@ -10,12 +10,12 @@
  * close over its own pins, and everything anchored to a sheet pin follows it.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { refId, hitTest } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { imagePixelSize, imagePPI, imageSizeIU } from '@ziroeda/eeschema/src/tools/image_size.js';
+import { refId, hitTest } from '@ziroeda/eeschema/tools/hittest.js';
+import { imagePixelSize, imagePPI, imageSizeIU } from '@ziroeda/eeschema/tools/image_size.js';
 import { CalcArcCenter } from '@ziroeda/kimath/src/trigo.js';
-import { ArcEditMode, incrementArcEditMode } from '@ziroeda/eeschema/src/tools/arc_edit.js';
+import { ArcEditMode, incrementArcEditMode } from '@ziroeda/eeschema/tools/arc_edit.js';
 import {
   pointEditTarget,
   canAddCorner,
@@ -27,7 +27,7 @@ import {
   dragHandle,
   reshapeCommand,
   type EditHandle,
-} from '@ziroeda/eeschema/src/tools/point_editor.js';
+} from '@ziroeda/eeschema/tools/point_editor.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 type P = { x: number; y: number };

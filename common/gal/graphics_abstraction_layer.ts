@@ -16,7 +16,7 @@ import { MATRIX3x3D } from '@ziroeda/kimath/src/math/matrix3x3.js';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import type { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
-import type { LINK } from '@ziroeda/core/src/observable.js';
+import type { LINK } from '@ziroeda/core/observable.js';
 import { ADVANCED_CFG } from '../advanced_config.js';
 import type { BITMAP_BASE } from '../bitmap_base.js';
 import type { Color4d } from '../color4d.js';

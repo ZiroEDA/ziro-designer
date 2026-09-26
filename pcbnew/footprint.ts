@@ -79,8 +79,8 @@ import {
 } from '@ziroeda/common/string_utils.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
-import { FLIP_DIRECTION, MIRRORVAL } from '@ziroeda/core/src/mirror.js';
-import { BaseType, KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { FLIP_DIRECTION, MIRRORVAL } from '@ziroeda/core/mirror.js';
+import { BaseType, KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ARC_LOW_DEF } from '@ziroeda/kimath/src/base_units.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { buildConvexHullOfPolySet } from '@ziroeda/kimath/src/geometry/convex_hull.js';
@@ -124,7 +124,7 @@ import type { PCB_TRACK } from './pcb_track.js';
 import { ZONE } from './zone.js';
 import { ZONE_CONNECTION } from './zones.js';
 import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
-import { applyMixins } from '@ziroeda/core/src/mixins.js';
+import { applyMixins } from '@ziroeda/core/mixins.js';
 
 // `class FOOTPRINT : public BOARD_ITEM_CONTAINER, public EMBEDDED_FILES`
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (EMBEDDED_FILES mixin)

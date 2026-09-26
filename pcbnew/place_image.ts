@@ -89,7 +89,7 @@ export function fileChosen(
  * `DRAWING_TOOL::PlaceReferenceImage` (pcbnew/tools/drawing_tool.cpp:845), where
  * a mouse motion does `image->SetPosition( cursorPos )` -- an absolute position
  * on a tool's preview item, not a translation of a committed one. eeschema's
- * same-named `moveImage` (eeschema/src/tools/move.ts) is `SCH_BITMAP::Move`,
+ * same-named `moveImage` (eeschema/tools/move.ts) is `SCH_BITMAP::Move`,
  * which offsets a placed item. Only the name is shared.
  */
 export function moveImage(state: ImagePlaceState, at: Vec2): ImagePlaceState {

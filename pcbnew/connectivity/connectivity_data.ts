@@ -12,7 +12,7 @@ import type { COMMIT } from '@ziroeda/common/commit.js';
 import { IS_DELETED } from '@ziroeda/common/eda_item_flags.js';
 import { PCB_LAYER_ID, ToLAYER_ID } from '@ziroeda/common/layer_ids.js';
 import type { NET_SETTINGS } from '@ziroeda/common/project/net_settings.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { SHAPE_CIRCLE } from '@ziroeda/kimath/src/geometry/shape_circle.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';

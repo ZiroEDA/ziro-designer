@@ -8,7 +8,7 @@
  * compound conditions with `||`, `&&` and `!` on functors; here they are
  * `SELECTION_CONDITIONS.Or / And / Not`.
  */
-import type { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import type { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { IS_MOVING, IS_NEW, IS_PASTED } from '../eda_item_flags.js';
 import type { SELECTION } from './selection.js';
 

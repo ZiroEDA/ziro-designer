@@ -11,8 +11,8 @@
  * y' = y·cos − x·sin.
  */
 
-import { head, type SList } from '@ziroeda/sexpr/src/types.js';
-import { serialize } from '@ziroeda/sexpr/src/serializer.js';
+import { head, type SList } from '@ziroeda/sexpr/types.js';
+import { serialize } from '@ziroeda/sexpr/serializer.js';
 import type { BOARD } from './board.js';
 import type { FOOTPRINT } from './footprint.js';
 import {
@@ -22,7 +22,7 @@ import {
 } from './pcb_io/kicad_sexpr/board_view.js';
 import { PCB_IO_KICAD_SEXPR_PARSER } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { Board, PcbFootprint } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

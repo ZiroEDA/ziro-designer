@@ -5,7 +5,7 @@
  * Previous / Next Marker, counterpart RC_TREE_MODEL::PrevMarker / NextMarker.
  */
 import { describe, it, expect } from 'vitest';
-import { nextMarker, prevMarker } from '@ziroeda/eeschema/src/erc/marker_nav.js';
+import { nextMarker, prevMarker } from '@ziroeda/eeschema/erc/marker_nav.js';
 
 const ORDER = ['a', 'b', 'c'];
 

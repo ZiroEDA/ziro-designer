@@ -26,7 +26,7 @@ WT = Path(__file__).resolve().parents[2]
 BIN = Path("/home/akshay/ziro-designer-1/node_modules/.bin")
 
 D = "designer/src"
-P = "pcb_calculator/src"
+P = "pcb_calculator"
 Q = "qa/unittests/pcb_calculator"
 
 SETTINGS = f"{Q}/calculator_settings.test.ts"

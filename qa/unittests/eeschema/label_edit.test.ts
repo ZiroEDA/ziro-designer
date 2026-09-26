@@ -6,17 +6,17 @@
  * the lossless writer patch for `(shape …)` on global/hierarchical labels.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { replaceLabel } from '@ziroeda/eeschema/src/tools/mutate.js';
-import { History } from '@ziroeda/eeschema/src/tools/command.js';
-import { makeLabel } from '@ziroeda/eeschema/src/tools/build.js';
+import { replaceLabel } from '@ziroeda/eeschema/tools/mutate.js';
+import { History } from '@ziroeda/eeschema/tools/command.js';
+import { makeLabel } from '@ziroeda/eeschema/tools/build.js';
 import {
   globalLabelShape,
   labelBox,
   labelTextBox,
   textPenWidth,
-} from '@ziroeda/eeschema/src/tools/bbox.js';
+} from '@ziroeda/eeschema/tools/bbox.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const SCH = `(kicad_sch (version 20231120) (generator "test") (paper "A4")

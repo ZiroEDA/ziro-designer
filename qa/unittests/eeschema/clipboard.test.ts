@@ -8,18 +8,18 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parse, serialize } from '@ziroeda/sexpr/src/index.js';
+import { parse, serialize } from '@ziroeda/sexpr/index.js';
 import { readSchematic, writeSchematic } from '@ziroeda/eeschema';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import { boxSelect } from '@ziroeda/eeschema/src/tools/boxselect.js';
+import { boxSelect } from '@ziroeda/eeschema/tools/boxselect.js';
 import {
   copySelectionText,
   parsePastedText,
   translatePayload,
   pasteItems,
-} from '@ziroeda/eeschema/src/tools/clipboard.js';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { symbolBodyBBox } from '@ziroeda/eeschema/src/tools/bbox.js';
+} from '@ziroeda/eeschema/tools/clipboard.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
+import { symbolBodyBBox } from '@ziroeda/eeschema/tools/bbox.js';
 
 const fixture = readFileSync(
   fileURLToPath(new URL('../../data/nfc-antenna.kicad_sch', import.meta.url)),
@@ -204,9 +204,7 @@ describe('copy/paste (doCopy / Paste port)', () => {
 
 describe('getSelectedItemsAsText (CopyAsText port)', () => {
   it('joins the shown text of selected labels/text', async () => {
-    const { getSelectedItemsAsText } = await import(
-      '@ziroeda/eeschema/src/tools/sch_tool_utils.js'
-    );
+    const { getSelectedItemsAsText } = await import('@ziroeda/eeschema/tools/sch_tool_utils.js');
     const src = `(kicad_sch (version 20230121) (generator eeschema) (lib_symbols)
       (label "NET_A" (at 10 10 0) (uuid "l-1"))
       (label "NET_B" (at 20 20 0) (uuid "l-2"))

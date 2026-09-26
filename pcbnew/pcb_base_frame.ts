@@ -21,7 +21,7 @@ import type { PAGE_INFO } from '@ziroeda/common/page_info.js';
 import type { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
 import { add, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { type EDA_ITEM, RECURSE_MODE } from '@ziroeda/common/eda_item.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ARC_LOW_DEF } from '@ziroeda/kimath/src/base_units.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { CornerStrategy, SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';

@@ -12,15 +12,15 @@
  * label sitting at the same spot must still do all three.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { planMove } from '@ziroeda/eeschema/src/tools/connect.js';
-import { orthoMove } from '@ziroeda/eeschema/src/tools/ortho.js';
-import { moveWithConnections } from '@ziroeda/eeschema/src/tools/move.js';
-import { collectAnchors } from '@ziroeda/eeschema/src/tools/snap.js';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { planMove } from '@ziroeda/eeschema/tools/connect.js';
+import { orthoMove } from '@ziroeda/eeschema/tools/ortho.js';
+import { moveWithConnections } from '@ziroeda/eeschema/tools/move.js';
+import { collectAnchors } from '@ziroeda/eeschema/tools/snap.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 const NO_LIB = new Map<string, LibSymbol>();
 

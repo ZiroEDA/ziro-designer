@@ -7,9 +7,9 @@
  * writer patches for `(stroke …)` and `(diameter …)`.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { replaceLine, replaceJunction } from '@ziroeda/eeschema/src/tools/mutate.js';
+import { replaceLine, replaceJunction } from '@ziroeda/eeschema/tools/mutate.js';
 import { mmToIU, iuToMM } from '@ziroeda/common/eda_units.js';
 
 const SCH = `(kicad_sch (version 20231120) (generator "test") (paper "A4")

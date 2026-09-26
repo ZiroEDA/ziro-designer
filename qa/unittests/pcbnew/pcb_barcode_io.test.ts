@@ -22,7 +22,7 @@ import { describe, expect, it, vi } from 'vitest';
 // Every read assembles the barcode's symbol (`PCB_BARCODE::AssembleBarcode`,
 // the parser's last step), and a knockout QR takes a second or more.
 vi.setConfig({ testTimeout: 30_000 });
-import { parse, head } from '@ziroeda/sexpr/src/index.js';
+import { parse, head } from '@ziroeda/sexpr/index.js';
 import { readBoard, readFootprintFile } from '@ziroeda/pcbnew/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import { emptyBoard, flatText, writtenNode } from './support/written_node.js';

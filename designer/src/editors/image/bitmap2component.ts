@@ -22,7 +22,7 @@ import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
 import { RPT_SEVERITY_ERROR, type Reporter } from '@ziroeda/common/reporter.js';
 import { SEXPR_BOARD_FILE_VERSION } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
-import { SYMBOL_LIB_FILE_VERSION } from '@ziroeda/eeschema/src/sch_io/sexpr/write-symbol-lib.js';
+import { SYMBOL_LIB_FILE_VERSION } from '@ziroeda/eeschema/sch_io/sexpr/write-symbol-lib.js';
 import { WKS_FILE_VERSION } from '@ziroeda/common/drawing_sheet/types.js';
 
 /** KiCad's SCH_LINE_THICKNESS_MM used for symbol polyline strokes. */

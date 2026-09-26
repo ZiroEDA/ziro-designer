@@ -14,7 +14,7 @@
 import type { EdaDataType } from '@ziroeda/common/eda_units.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { BOARD_CONNECTED_ITEM } from '../board_connected_item.js';
 import type { BOARD_ITEM } from '../board_item.js';

@@ -7,7 +7,7 @@
  * actually reach the file.
  */
 import { describe, it, expect } from 'vitest';
-import { head, parse, serialize } from '@ziroeda/sexpr/src/index.js';
+import { head, parse, serialize } from '@ziroeda/sexpr/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';

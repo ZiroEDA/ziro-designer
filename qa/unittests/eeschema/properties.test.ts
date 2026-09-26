@@ -9,11 +9,11 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parse, serialize } from '@ziroeda/sexpr/src/index.js';
+import { parse, serialize } from '@ziroeda/sexpr/index.js';
 import { readSchematic, writeSchematic } from '@ziroeda/eeschema';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import { editSymbolProperties, type EditedField } from '@ziroeda/eeschema/src/tools/properties.js';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { editSymbolProperties, type EditedField } from '@ziroeda/eeschema/tools/properties.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import {
   fieldTextBox,
   fieldBoundingBox,
@@ -23,8 +23,8 @@ import {
   effectiveHorizJustify,
   isHorizJustifyFlipped,
   DEFAULT_TEXT_SIZE,
-} from '@ziroeda/eeschema/src/fieldbox.js';
-import type { SchField, SchSymbol, TextEffects } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/fieldbox.js';
+import type { SchField, SchSymbol, TextEffects } from '@ziroeda/eeschema/types.js';
 
 const fixture = readFileSync(
   fileURLToPath(new URL('../../data/nfc-antenna.kicad_sch', import.meta.url)),

@@ -12,9 +12,9 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parse, serialize } from '@ziroeda/sexpr';
-import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { writeSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/write-schematic.js';
-import { editSymbolProperties } from '@ziroeda/eeschema/src/tools/properties.js';
+import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { writeSchematic } from '@ziroeda/eeschema/sch_io/sexpr/write-schematic.js';
+import { editSymbolProperties } from '@ziroeda/eeschema/tools/properties.js';
 import {
   colorFromHex,
   colorHex,
@@ -22,7 +22,7 @@ import {
   rowsFromSymbol,
   validateRows,
 } from '@ziroeda/designer/src/editors/schematic/symbol_props_rows.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 /** A resistor whose Footprint field is pinned in place and colour-set. */
 const SRC = `(kicad_sch (version 20250114)

@@ -27,13 +27,13 @@
  * 278 x 128 mm of sheet.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { planMove } from '@ziroeda/eeschema/src/tools/connect.js';
-import { orthoMove } from '@ziroeda/eeschema/src/tools/ortho.js';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { planMove } from '@ziroeda/eeschema/tools/connect.js';
+import { orthoMove } from '@ziroeda/eeschema/tools/ortho.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import { mmToIU, iuToMM } from '@ziroeda/common/eda_units.js';
-import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/types.js';
 
 const LIB = new Map<string, LibSymbol>();
 

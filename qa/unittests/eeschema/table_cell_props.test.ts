@@ -14,8 +14,8 @@ import {
   cellPropsFromSelection,
   hAlignOf,
   vAlignOf,
-} from '@ziroeda/eeschema/src/tools/table_cell_props.js';
-import type { SchTableCell, Schematic } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/table_cell_props.js';
+import type { SchTableCell, Schematic } from '@ziroeda/eeschema/types.js';
 
 const cell = (text: string, effects: string, extra = ''): string =>
   `(table_cell "${text}" (exclude_from_sim no) (at 10 10 0) (size 20 10)

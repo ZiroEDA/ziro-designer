@@ -57,7 +57,7 @@
 import { kiidFromString, kiidPathAsString } from '@ziroeda/common/kiid.js';
 import { COMPONENT, NETLIST } from './pcb_netlist.js';
 import { parseKicadNetlist } from './kicad_netlist_reader.js';
-import { parse } from '@ziroeda/sexpr/src/parser.js';
+import { parse } from '@ziroeda/sexpr/parser.js';
 
 /** NETLIST_READER::NETLIST_FILE_T. */
 export type NetlistFileType = 'unknown' | 'orcad' | 'legacy' | 'kicad';

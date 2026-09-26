@@ -14,11 +14,11 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { replaceBusEntry } from '@ziroeda/eeschema/src/tools/mutate.js';
+import { replaceBusEntry } from '@ziroeda/eeschema/tools/mutate.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import { schPropertiesFor } from '@ziroeda/eeschema/src/tools/sch_properties_panel.js';
-import { itemRefById, refId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+import { schPropertiesFor } from '@ziroeda/eeschema/tools/sch_properties_panel.js';
+import { itemRefById, refId } from '@ziroeda/eeschema/tools/hittest.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 const sheet = (body: string): Schematic =>
   readSchematic(parse(`(kicad_sch (version 20250114)\n${body}\n)`));

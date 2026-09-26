@@ -28,7 +28,7 @@ import type { CONTEXT, VAR_REF, VALUE } from '@ziroeda/common/libeval_compiler/l
 import { LSET } from '@ziroeda/common/lset.js';
 import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
 import { wxSplit } from '@ziroeda/common/string_utils.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ARC_LOW_DEF } from '@ziroeda/kimath/src/base_units.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import type { SHAPE } from '@ziroeda/kimath/src/geometry/shape.js';

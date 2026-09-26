@@ -8,7 +8,7 @@
  * scroll delta of 1.0 is one notch, `GDK_SCROLL_RIGHT` is +120).
  */
 
-import { WXK } from '@ziroeda/core/src/wx_keycodes.js';
+import { WXK } from '@ziroeda/core/wx_keycodes.js';
 import * as KIPLATFORM_UI from '../kiplatform/ui.js';
 import {
   wxEVT_AUX1_DCLICK,

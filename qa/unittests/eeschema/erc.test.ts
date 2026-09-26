@@ -7,14 +7,14 @@
  * (erc.cpp, erc_settings.cpp, connection_graph.cpp).
  */
 import { describe, it, expect } from 'vitest';
-import { parse, serialize } from '@ziroeda/sexpr/src/index.js';
+import { parse, serialize } from '@ziroeda/sexpr/index.js';
 import { readSchematic, writeSchematic } from '@ziroeda/eeschema';
-import { runErc } from '@ziroeda/eeschema/src/connectivity/erc.js';
-import { computeNetlist } from '@ziroeda/eeschema/src/connectivity/nets.js';
-import { defaultErcSettings } from '@ziroeda/eeschema/src/erc/erc_settings.js';
-import { makeNoConnect } from '@ziroeda/eeschema/src/tools/build.js';
-import { flattenLibSymbol } from '@ziroeda/eeschema/src/lib_symbol.js';
-import { addItems } from '@ziroeda/eeschema/src/tools/mutate.js';
+import { runErc } from '@ziroeda/eeschema/connectivity/erc.js';
+import { computeNetlist } from '@ziroeda/eeschema/connectivity/nets.js';
+import { defaultErcSettings } from '@ziroeda/eeschema/erc/erc_settings.js';
+import { makeNoConnect } from '@ziroeda/eeschema/tools/build.js';
+import { flattenLibSymbol } from '@ziroeda/eeschema/lib_symbol.js';
+import { addItems } from '@ziroeda/eeschema/tools/mutate.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 /** One-pin test symbol; the pin's connection point is the symbol position. */

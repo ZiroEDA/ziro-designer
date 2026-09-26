@@ -51,11 +51,11 @@
  *    back across the symbol.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { transformItems, type TransformOp } from '@ziroeda/eeschema/src/tools/transform.js';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import type { Schematic, SchSymbol } from '@ziroeda/eeschema/src/types.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { transformItems, type TransformOp } from '@ziroeda/eeschema/tools/transform.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
+import type { Schematic, SchSymbol } from '@ziroeda/eeschema/types.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 /**

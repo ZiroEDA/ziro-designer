@@ -15,7 +15,7 @@
  * fit no gateways — `Move` was false on every board.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { applyPnsChanges, PnsSession } from '@ziroeda/pcbnew/router/pns_session.js';
 import { DEFAULT_ROUTER_SIZES, PnsRouterMode } from '@ziroeda/pcbnew/router/pns_router.js';

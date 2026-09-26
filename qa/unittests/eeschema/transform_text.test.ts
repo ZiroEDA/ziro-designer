@@ -20,10 +20,10 @@ import {
   rotateText90,
   mirrorTextSpin,
   flipHJustify,
-} from '@ziroeda/eeschema/src/tools/transform.js';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+} from '@ziroeda/eeschema/tools/transform.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const sheet = (body: string): Schematic =>
   readSchematic(parse(`(kicad_sch (version 20250114)\n${body}\n)`));

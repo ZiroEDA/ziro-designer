@@ -27,12 +27,12 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
-import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
+import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
 import {
   dynamicFieldNames,
   schPropertiesFor,
-} from '@ziroeda/eeschema/src/tools/sch_properties_panel.js';
-import { itemRefById } from '@ziroeda/eeschema/src/tools/hittest.js';
+} from '@ziroeda/eeschema/tools/sch_properties_panel.js';
+import { itemRefById } from '@ziroeda/eeschema/tools/hittest.js';
 
 /**
  * The fields are deliberately NOT written alphabetically, and the user field

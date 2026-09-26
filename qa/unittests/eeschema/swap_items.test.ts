@@ -9,11 +9,11 @@
  * positions cycle rather than the first and last exchanging.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { refId, sheetPinId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { swapItems, canSwap } from '@ziroeda/eeschema/src/tools/swap_items.js';
-import { sideOfAngle } from '@ziroeda/eeschema/src/tools/sch_sheet_pin_tool.js';
+import { refId, sheetPinId } from '@ziroeda/eeschema/tools/hittest.js';
+import { swapItems, canSwap } from '@ziroeda/eeschema/tools/swap_items.js';
+import { sideOfAngle } from '@ziroeda/eeschema/tools/sch_sheet_pin_tool.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const mm = (v: number): number => mmToIU(v);

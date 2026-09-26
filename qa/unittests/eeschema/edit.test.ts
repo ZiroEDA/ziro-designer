@@ -4,15 +4,15 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import { hitTest } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { History } from '@ziroeda/eeschema/src/tools/command.js';
-import { moveItems, moveWithConnections } from '@ziroeda/eeschema/src/tools/move.js';
-import { planMove, symbolPinPositions } from '@ziroeda/eeschema/src/tools/connect.js';
-import { symbolBodyBBox } from '@ziroeda/eeschema/src/tools/bbox.js';
-import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+import { hitTest } from '@ziroeda/eeschema/tools/hittest.js';
+import { History } from '@ziroeda/eeschema/tools/command.js';
+import { moveItems, moveWithConnections } from '@ziroeda/eeschema/tools/move.js';
+import { planMove, symbolPinPositions } from '@ziroeda/eeschema/tools/connect.js';
+import { symbolBodyBBox } from '@ziroeda/eeschema/tools/bbox.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 const fixture = (name: string): string =>
   readFileSync(fileURLToPath(new URL(`../../data/${name}`, import.meta.url)), 'utf8');
@@ -192,7 +192,7 @@ describe('connection-aware move (rubber-banding)', () => {
 
 describe('orthogonal move (keeps wires orthogonal with a bend)', () => {
   it('bends at the far end and leaves it where it was', async () => {
-    const { orthoMove } = await import('@ziroeda/eeschema/src/tools/ortho.js');
+    const { orthoMove } = await import('@ziroeda/eeschema/tools/ortho.js');
     const { sch, libById } = loadOneEndWire();
     // The wire is vertical (x=161.29 from y=105.0 to 111.76); its end sits on
     // J1 pin 1. Upstream's cache holds that pin (getConnectedItems has no
@@ -227,7 +227,7 @@ describe('orthogonal move (keeps wires orthogonal with a bend)', () => {
   });
 
   it('undoes an orthogonal move exactly (removes the bend, reverses)', async () => {
-    const { orthoMove } = await import('@ziroeda/eeschema/src/tools/ortho.js');
+    const { orthoMove } = await import('@ziroeda/eeschema/tools/ortho.js');
     const { sch, libById } = loadOneEndWire();
     const ids = new Set(['d5224ac6-3b29-4f27-99e0-c4e878a39680']);
     const spec = planMove(sch, libById, ids);
@@ -241,7 +241,7 @@ describe('orthogonal move (keeps wires orthogonal with a bend)', () => {
   });
 
   it('bends the rubber-band stubs into an L in H/V line mode', async () => {
-    const { orthoMove } = await import('@ziroeda/eeschema/src/tools/ortho.js');
+    const { orthoMove } = await import('@ziroeda/eeschema/tools/ortho.js');
     const { sch, libById } = load();
     // Drag the wire itself (both ends sit on J1's fixed pins) diagonally. The
     // stub that keeps each pin connected leaves the pin along one axis and then

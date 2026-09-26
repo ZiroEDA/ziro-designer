@@ -51,9 +51,9 @@ import type { RENDER_SETTINGS } from '@ziroeda/common/render_settings.js';
 import type { STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
-import { applyMixins } from '@ziroeda/core/src/mixins.js';
-import type { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { applyMixins } from '@ziroeda/core/mixins.js';
+import type { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ARC_LOW_DEF } from '@ziroeda/kimath/src/base_units.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { CIRCLE } from '@ziroeda/kimath/src/geometry/circle.js';
@@ -105,7 +105,7 @@ export interface PCB_SHAPE
   IsFilledForHitTesting(): boolean;
 }
 
-// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: KiCad's multiple inheritance, see libs/core/src/mixins.ts
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: KiCad's multiple inheritance, see libs/core/mixins.ts
 export class PCB_SHAPE extends BOARD_CONNECTED_ITEM {
   protected m_hasSolderMask: boolean;
   protected m_solderMaskMargin: number | undefined;

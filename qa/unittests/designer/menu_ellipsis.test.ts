@@ -24,14 +24,7 @@ import { describe, expect, it } from 'vitest';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 
-const SOURCE_DIRS = [
-  'designer/src',
-  'common',
-  'eeschema/src',
-  'pcbnew',
-  'gerbview/src',
-  'pcb_calculator/src',
-];
+const SOURCE_DIRS = ['designer/src', 'common', 'eeschema', 'pcbnew', 'gerbview', 'pcb_calculator'];
 
 /**
  * The occurrences that are not this convention at all.
@@ -42,7 +35,7 @@ const SOURCE_DIRS = [
  * one is a decision somebody writes down.
  */
 const ALLOWED = new Map<string, string>([
-  ['eeschema/src/tools/sch_collectors.ts', 'ellipsize() truncates a long name'],
+  ['eeschema/tools/sch_collectors.ts', 'ellipsize() truncates a long name'],
   ['designer/src/ui/hotkeys_inventory.ts', 'a regex that must keep matching BOTH forms'],
   // The marker moved with the Nets list into the shared APPEARANCE_CONTROLS.
   ['designer/src/widgets/appearance_controls.tsx', 'a leading "…N more" truncation marker'],

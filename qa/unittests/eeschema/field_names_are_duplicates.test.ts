@@ -12,7 +12,7 @@
  * fields. Either mistake passes a test that only checks the equal case.
  */
 import { describe, expect, it } from 'vitest';
-import { fieldNamesAreDuplicates } from '@ziroeda/eeschema/src/tools/properties.js';
+import { fieldNamesAreDuplicates } from '@ziroeda/eeschema/tools/properties.js';
 
 describe('FieldNamesAreDuplicates', () => {
   it('identical names collide', () => {

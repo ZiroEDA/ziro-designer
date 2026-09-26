@@ -9,7 +9,7 @@
  */
 import { IsCopperLayer, type PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { LSET } from '@ziroeda/common/lset.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import type { PAD } from '../pad.js';
 import { ISOLATED_ISLANDS, type ZONE } from '../zone.js';

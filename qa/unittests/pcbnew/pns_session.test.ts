@@ -24,7 +24,7 @@
  * which is the argument for this file existing at all.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 import {

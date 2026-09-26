@@ -55,9 +55,9 @@ import { formatG, unescapeString } from '@ziroeda/common/string_utils.js';
 import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
-import { FLIP_DIRECTION, MIRROR } from '@ziroeda/core/src/mirror.js';
+import { FLIP_DIRECTION, MIRROR } from '@ziroeda/core/mirror.js';
 import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { PCBNEW_SETTINGS } from './pcbnew_settings.js';
 import {
   ERROR_LOC,

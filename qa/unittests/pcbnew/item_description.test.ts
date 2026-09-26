@@ -16,7 +16,7 @@ import {
   netnameMsg,
   zoneItemDescription,
 } from '@ziroeda/pcbnew/item_description.js';
-import type { SList } from '@ziroeda/sexpr/src/index.js';
+import type { SList } from '@ziroeda/sexpr/index.js';
 
 const EMPTY = { kind: 'list', items: [] } as unknown as SList;
 

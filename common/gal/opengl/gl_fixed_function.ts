@@ -22,7 +22,7 @@
 
 import { cos, sin } from '@ziroeda/kimath/src/math/libm.js';
 import type { MATRIX3x3D } from '@ziroeda/kimath/src/math/matrix3x3.js';
-import { wxASSERT } from '@ziroeda/core/src/wx_assert.js';
+import { wxASSERT } from '@ziroeda/core/wx_assert.js';
 
 export enum GL_MATRIX_MODE {
   GL_MODELVIEW = 0x1700,

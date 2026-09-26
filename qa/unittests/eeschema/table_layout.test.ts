@@ -12,14 +12,10 @@ import {
   normalizeTable,
   resizeCellEdge,
   tableOrigin,
-} from '@ziroeda/eeschema/src/tools/table_layout.js';
-import {
-  dragHandle,
-  editHandles,
-  pointEditTarget,
-} from '@ziroeda/eeschema/src/tools/point_editor.js';
+} from '@ziroeda/eeschema/tools/table_layout.js';
+import { dragHandle, editHandles, pointEditTarget } from '@ziroeda/eeschema/tools/point_editor.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { SchTable } from '@ziroeda/eeschema/src/types.js';
+import type { SchTable } from '@ziroeda/eeschema/types.js';
 
 const mm = (n: number): number => n * 10000;
 

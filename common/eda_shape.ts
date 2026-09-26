@@ -15,9 +15,9 @@
  * …>`), and a mapped type carries only public members.
  */
 
-import { longest_common_subset } from '@ziroeda/core/src/kicad_algo.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
-import { type FLIP_DIRECTION, MIRROR } from '@ziroeda/core/src/mirror.js';
+import { longest_common_subset } from '@ziroeda/core/kicad_algo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { type FLIP_DIRECTION, MIRROR } from '@ziroeda/core/mirror.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
 import {

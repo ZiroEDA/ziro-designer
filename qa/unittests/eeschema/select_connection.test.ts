@@ -8,8 +8,8 @@
  * instead.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
 import {
   addItems,
   makeWire,
@@ -19,16 +19,16 @@ import {
   makeLabel,
   placeSymbol,
   refId,
-} from '@ziroeda/eeschema/src/tools/index.js';
+} from '@ziroeda/eeschema/tools/index.js';
 import {
   expandConnectionGraphically,
   expandConnectionWithGraph,
   selectConnection,
-} from '@ziroeda/eeschema/src/tools/select_connection.js';
+} from '@ziroeda/eeschema/tools/select_connection.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import type { Schematic, LibSymbol } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic, LibSymbol } from '@ziroeda/eeschema/types.js';
 
 const at = (x: number, y: number) => ({ x: mmToIU(x), y: mmToIU(y) });
 const EMPTY = (): Schematic => readSchematic(parse('(kicad_sch (version 1) (lib_symbols))'));

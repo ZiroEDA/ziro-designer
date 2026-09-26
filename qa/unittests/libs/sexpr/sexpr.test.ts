@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parse, serialize, tokenize, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
+import { parse, serialize, tokenize, type SList, type SNode } from '@ziroeda/sexpr/index.js';
 
 const fixture = (name: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../data/${name}`, import.meta.url)), 'utf8');

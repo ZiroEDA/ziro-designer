@@ -7,7 +7,7 @@
  */
 import { type PCB_LAYER_ID, PCB_LAYER_ID as LAYER } from '@ziroeda/common/layer_ids.js';
 import { RPT_SEVERITY_ERROR, type Reporter } from '@ziroeda/common/reporter.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import {
   PCBEXPR_COMPILER,

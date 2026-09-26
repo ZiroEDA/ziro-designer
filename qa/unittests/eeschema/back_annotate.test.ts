@@ -14,8 +14,8 @@ import {
   defaultBackAnnotateOptions,
   type BackAnnotateOptions,
   type PcbFootprintData,
-} from '@ziroeda/eeschema/src/tools/back_annotate.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/back_annotate.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const SCH = `(kicad_sch (version 20250114) (generator "test") (paper "A4")
   (lib_symbols

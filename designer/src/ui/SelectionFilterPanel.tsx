@@ -14,8 +14,8 @@
  * both frames add.
  */
 import type { JSX } from 'react';
-import type { SelectionFilterOptions } from '@ziroeda/eeschema/src/tools/sch_selection_filter.js';
-import { selectionFilterAll } from '@ziroeda/eeschema/src/tools/sch_selection_filter.js';
+import type { SelectionFilterOptions } from '@ziroeda/eeschema/tools/sch_selection_filter.js';
+import { selectionFilterAll } from '@ziroeda/eeschema/tools/sch_selection_filter.js';
 import {
   selectionFilterGrid,
   setAllSelectionFilterCategories,

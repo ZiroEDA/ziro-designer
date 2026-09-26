@@ -16,7 +16,7 @@
  */
 
 import type { Schematic } from '@ziroeda/eeschema';
-import { busJunctionIds } from '@ziroeda/eeschema/src/connectivity/bus.js';
+import { busJunctionIds } from '@ziroeda/eeschema/connectivity/bus.js';
 import type { WksSheet } from '@ziroeda/common';
 import type { Theme } from '../theme.js';
 import { KICAD_CLASSIC } from '../theme.js';

@@ -18,9 +18,9 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr';
-import { readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { serializeSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/write-symbol-lib.js';
-import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
+import { readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { serializeSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/write-symbol-lib.js';
+import type { LibSymbol } from '@ziroeda/eeschema/types.js';
 
 /** Modelled but deliberately not round-tripped, and why. Branch keys apply to everything under them. */
 const EXCLUDED: Record<string, string> = {

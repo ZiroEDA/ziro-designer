@@ -9,8 +9,8 @@
  * wire and takes a stub with it.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
 import {
   addItems,
   makeWire,
@@ -18,19 +18,19 @@ import {
   makeLabel,
   makeNoConnect,
   refId,
-} from '@ziroeda/eeschema/src/tools/index.js';
-import { planMove } from '@ziroeda/eeschema/src/tools/connect.js';
-import { moveWithConnections, grabHotkeyAction } from '@ziroeda/eeschema/src/tools/move.js';
-import { orthoMove } from '@ziroeda/eeschema/src/tools/ortho.js';
-import { withCleanup } from '@ziroeda/eeschema/src/tools/cleanup.js';
-import { placeSymbol } from '@ziroeda/eeschema/src/tools/index.js';
-import { readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { symbolPinPositions } from '@ziroeda/eeschema/src/tools/connect.js';
+} from '@ziroeda/eeschema/tools/index.js';
+import { planMove } from '@ziroeda/eeschema/tools/connect.js';
+import { moveWithConnections, grabHotkeyAction } from '@ziroeda/eeschema/tools/move.js';
+import { orthoMove } from '@ziroeda/eeschema/tools/ortho.js';
+import { withCleanup } from '@ziroeda/eeschema/tools/cleanup.js';
+import { placeSymbol } from '@ziroeda/eeschema/tools/index.js';
+import { readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { symbolPinPositions } from '@ziroeda/eeschema/tools/connect.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol } from '@ziroeda/eeschema/types.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const at = (x: number, y: number) => ({ x: mmToIU(x), y: mmToIU(y) });
 /** The connected-items grid a 90 degree elbow is set back by (50 mil). */

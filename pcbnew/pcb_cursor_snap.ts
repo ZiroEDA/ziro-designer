@@ -483,7 +483,7 @@ const symbolPolyBox = (
  * takes a `GRID_HELPER_GRIDS` and filters on `SCH_ITEM::IsConnectable()`, which
  * has no meaning on a board where the layer filtering has already happened as the
  * anchors were collected. Ours mirrors that split, and eeschema's same-named
- * function in eeschema/src/tools/snap.ts is deliberately not this one.
+ * function in eeschema/tools/snap.ts is deliberately not this one.
  */
 export function nearestAnchor(
   aAnchors: readonly SnapAnchor[],

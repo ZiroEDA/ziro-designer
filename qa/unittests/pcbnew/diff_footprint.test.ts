@@ -15,7 +15,7 @@
  * one `HasLibrary` call that answers "loaded", not "configured".
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/parser.js';
+import { parse } from '@ziroeda/sexpr/parser.js';
 import {
   diffFootprintAgainstLibrary,
   resolveLibraryFootprint,

@@ -8,7 +8,7 @@
  * columns, attribute columns, the delimited export and applying edits back.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, type Schematic } from '@ziroeda/eeschema';
 import {
   buildFieldsReferences,
@@ -17,7 +17,7 @@ import {
   loadFieldNames,
   QUANTITY_VARIABLE,
   type BomPresetSpec,
-} from '@ziroeda/eeschema/src/tools/fields_data_model.js';
+} from '@ziroeda/eeschema/tools/fields_data_model.js';
 
 const sym = (
   ref: string,

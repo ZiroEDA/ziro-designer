@@ -30,10 +30,10 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, refId } from '@ziroeda/eeschema';
-import { labelBox } from '@ziroeda/eeschema/src/tools/bbox.js';
-import { hitTest } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { labelBox } from '@ziroeda/eeschema/tools/bbox.js';
+import { hitTest } from '@ziroeda/eeschema/tools/hittest.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 const LIB = new Map<string, LibSymbol>();
 const ANCHOR = mmToIU(100);

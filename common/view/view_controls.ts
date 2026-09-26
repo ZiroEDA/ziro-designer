@@ -7,7 +7,7 @@
  * a view (cursor, panning, zooming), which a tool's state saves and restores
  * through the TOOL_MANAGER. The canvas-bound `WX_VIEW_CONTROLS` sits on it.
  */
-import { WXK } from '@ziroeda/core/src/wx_keycodes.js';
+import { WXK } from '@ziroeda/core/wx_keycodes.js';
 import type { Vec2 as VECTOR2D } from '@ziroeda/kimath/src/math/vector2.js';
 import { MOUSE_DRAG_ACTION } from '../mouse_drag_action.js';
 import type { VIEW } from './view.js';

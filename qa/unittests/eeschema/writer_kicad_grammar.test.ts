@@ -35,15 +35,15 @@ import { fileURLToPath } from 'node:url';
 import { parse, serialize, isList, head, type SNode } from '@ziroeda/sexpr';
 import { readSchematic, writeSchematic } from '@ziroeda/eeschema';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import { annotateSymbols, defaultAnnotateOptions } from '@ziroeda/eeschema/src/tools/annotate.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import { annotateSymbols, defaultAnnotateOptions } from '@ziroeda/eeschema/tools/annotate.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 import {
   copySelectionText,
   parsePastedText,
   translatePayload,
   pasteItems,
-} from '@ziroeda/eeschema/src/tools/clipboard.js';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+} from '@ziroeda/eeschema/tools/clipboard.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 
 /** A whole, loadable document: KiCad needs the header, not just the items. */
 const sch = (body: string): Schematic =>

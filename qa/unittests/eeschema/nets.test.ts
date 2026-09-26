@@ -2,9 +2,9 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { computeNetlist } from '@ziroeda/eeschema/src/connectivity/nets.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { computeNetlist } from '@ziroeda/eeschema/connectivity/nets.js';
 import {
   addItems,
   makeWire,
@@ -12,12 +12,12 @@ import {
   makeLabel,
   makeBus,
   placeSymbol,
-} from '@ziroeda/eeschema/src/tools/index.js';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+} from '@ziroeda/eeschema/tools/index.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import type { Schematic, LibSymbol } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic, LibSymbol } from '@ziroeda/eeschema/types.js';
 
 const at = (x: number, y: number) => ({ x: mmToIU(x), y: mmToIU(y) });
 const EMPTY = (): Schematic => readSchematic(parse('(kicad_sch (version 1) (lib_symbols))'));

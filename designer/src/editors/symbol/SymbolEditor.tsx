@@ -122,7 +122,7 @@ import {
   type SchSearchData,
   type SymbolFindMatch,
   type SymbolItemRef,
-} from '@ziroeda/eeschema/src/tools/sch_find_replace_tool.js';
+} from '@ziroeda/eeschema/tools/sch_find_replace_tool.js';
 import { type SymbolConditions, symbolConditions, symbolToolbarDisabledIds } from './conditions.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
@@ -145,7 +145,7 @@ import { symSelectionFilterShown } from '../../ui/selection_filter_panel.js';
 import {
   defaultSelectionFilter,
   type SelectionFilterOptions,
-} from '@ziroeda/eeschema/src/tools/sch_selection_filter.js';
+} from '@ziroeda/eeschema/tools/sch_selection_filter.js';
 import { HomeLink } from '../../ui/HomeLink.js';
 
 /**
@@ -2323,7 +2323,7 @@ export function SymbolEditor({
           // schematic's own embedded `lib_symbols` and writing `R12` back into
           // the cached `Device:R` would arm "Update Symbols from Library" to
           // push it onto every other resistor. That trade is documented at
-          // `eeschema/src/tools/symbol_from_schematic.ts:30-47` and owned
+          // `eeschema/tools/symbol_from_schematic.ts:30-47` and owned
           // there; the title just reports what the working symbol says.
           reference: workSymbol?.properties.find((f) => f.key === 'Reference')?.value ?? '',
           // `GetCurSymbol()->GetLibId().Format()`, still escaped - the module

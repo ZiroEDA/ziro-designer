@@ -18,7 +18,7 @@
 import { BOX2I, BOX2ISafe } from '@ziroeda/kimath/src/math/box2.js';
 import type { Vec2 as VECTOR2D, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { brightened, brightness, type Color4d, LEGACY_COLORS } from '../color4d.js';
 import { EDA_ITEM } from '../eda_item.js';
 import { type EdaIuScale, SCH_IU_PER_MM } from '../eda_units.js';

@@ -6,7 +6,7 @@
  * upstream's writer has no token for, so the reader has to restore it.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import { applyTeardrops } from '@ziroeda/pcbnew/teardrop.js';

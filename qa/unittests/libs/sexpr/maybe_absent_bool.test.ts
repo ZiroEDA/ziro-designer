@@ -15,9 +15,9 @@
  * items and a child `SList`.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { ExpectingError, maybeAbsentBool, maybeAbsentBoolOf } from '@ziroeda/sexpr/src/query.js';
-import { childNamed } from '@ziroeda/sexpr/src/query.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { ExpectingError, maybeAbsentBool, maybeAbsentBoolOf } from '@ziroeda/sexpr/query.js';
+import { childNamed } from '@ziroeda/sexpr/query.js';
 
 const node = (src: string) => parse(src);
 

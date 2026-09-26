@@ -12,10 +12,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { autoplacedFields } from '@ziroeda/eeschema/src/tools/autoplace_fields.js';
-import type { Schematic, SchSymbol, LibSymbol } from '@ziroeda/eeschema/src/types.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { autoplacedFields } from '@ziroeda/eeschema/tools/autoplace_fields.js';
+import type { Schematic, SchSymbol, LibSymbol } from '@ziroeda/eeschema/types.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   symbolOrientation,

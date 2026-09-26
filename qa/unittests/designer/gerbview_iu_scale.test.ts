@@ -9,7 +9,7 @@
  *   - KiCad: `constexpr double GERB_IU_PER_MM = 1e5;` — "Gerbview IU is 10
  *     nanometers" (`include/base_units.h:69`). Our `common/eda_units.ts`
  *     matches it, and `gerbIUScale` is built from it.
- *   - Our Gerber parser: `IU_PER_MM = 1e6` (`gerbview/src/types.ts:15`).
+ *   - Our Gerber parser: `IU_PER_MM = 1e6` (`gerbview/types.ts:15`).
  *
  * Every coordinate on the GerbView canvas — every item, every bounding box, the
  * view transform — is in the parser's 1e6. So anything that reaches for
@@ -92,7 +92,7 @@ describe('the GerbView / common IU mismatch', () => {
     // If someone reconciles the two, this test should be deleted rather than
     // left passing vacuously — so it fails loudly when the premise goes away.
     const gerb = readFileSync(
-      fileURLToPath(new URL('../../../gerbview/src/types.ts', import.meta.url)),
+      fileURLToPath(new URL('../../../gerbview/types.ts', import.meta.url)),
       'utf8',
     );
     const common = readFileSync(

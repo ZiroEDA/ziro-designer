@@ -24,9 +24,9 @@
  */
 
 import { kiidFromName } from '@ziroeda/common/kiid.js';
-import { parse } from '@ziroeda/sexpr/src/parser.js';
-import { head, isList, type SList } from '@ziroeda/sexpr/src/types.js';
-import { arg, args, childNamed, childrenNamed } from '@ziroeda/sexpr/src/query.js';
+import { parse } from '@ziroeda/sexpr/parser.js';
+import { head, isList, type SList } from '@ziroeda/sexpr/types.js';
+import { arg, args, childNamed, childrenNamed } from '@ziroeda/sexpr/query.js';
 import { COMPONENT, NETLIST, type NETLIST_GROUP, type UNIT_INFO } from './pcb_netlist.js';
 
 /** The child lists of a node (the netlist has no bare atoms below the leaves). */

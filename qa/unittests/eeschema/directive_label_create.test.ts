@@ -26,13 +26,13 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { makeDirectiveLabel } from '@ziroeda/eeschema/src/tools/build.js';
+import { makeDirectiveLabel } from '@ziroeda/eeschema/tools/build.js';
 import {
   DIRECTIVE_SYMBOL_SIZE,
   directiveGraphic,
-} from '@ziroeda/eeschema/src/tools/directive_label.js';
+} from '@ziroeda/eeschema/tools/directive_label.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const AT = { x: mmToIU(100), y: mmToIU(100) };
 

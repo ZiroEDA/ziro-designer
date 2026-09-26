@@ -19,12 +19,12 @@
  *  - Duplicate(): doCopy(true) into a local buffer + Paste from it.
  */
 
-import { parse, serialize } from '@ziroeda/sexpr/src/index.js';
-import { head, isList, str, type SList } from '@ziroeda/sexpr/src/types.js';
+import { parse, serialize } from '@ziroeda/sexpr/index.js';
+import { head, isList, str, type SList } from '@ziroeda/sexpr/types.js';
 import { readSchematic } from '../sch_io/sexpr/read-schematic.js';
 import type { Schematic, SchSymbol, SchField, LibSymbol, Vec2 } from '../types.js';
 import { writeSchematic } from '../sch_io/sexpr/write-schematic.js';
-import { childNamed } from '@ziroeda/sexpr/src/query.js';
+import { childNamed } from '@ziroeda/sexpr/query.js';
 import {
   moveBusEntry,
   moveDirectiveLabel,

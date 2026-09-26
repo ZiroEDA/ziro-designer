@@ -11,7 +11,7 @@
  * where it was.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
-import { WXK } from '@ziroeda/core/src/wx_keycodes.js';
+import { WXK } from '@ziroeda/core/wx_keycodes.js';
 import type { Vec2, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { GAL_DISPLAY_OPTIONS, GRID_SNAPPING } from '@ziroeda/common/gal/gal_display_options.js';
 import { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';

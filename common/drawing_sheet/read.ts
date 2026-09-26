@@ -23,10 +23,10 @@
  *  - `(repeat N)` is clamped to 1..100.
  */
 
-import { parse } from '@ziroeda/sexpr/src/parser.js';
+import { parse } from '@ziroeda/sexpr/parser.js';
 import { convertToNewOverbarNotation } from '../string_utils.js';
-import { childNamed, childrenNamed, args, arg, numArg } from '@ziroeda/sexpr/src/query.js';
-import { head, isList, type SList } from '@ziroeda/sexpr/src/types.js';
+import { childNamed, childrenNamed, args, arg, numArg } from '@ziroeda/sexpr/query.js';
+import { head, isList, type SList } from '@ziroeda/sexpr/types.js';
 import {
   DEFAULT_SETUP,
   WKS_FILE_VERSION,

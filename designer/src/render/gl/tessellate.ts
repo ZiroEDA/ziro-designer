@@ -61,7 +61,7 @@ export const SCH_ARC_TOLERANCE = 0.005 * SCH_IU_PER_MM;
  *
  * KiCad's GerbView works in 10 nm, `gerbIUScale.IU_PER_MM == 1e5`, so upstream
  * this constant is 500. **Our gerbview engine does not** - it declares
- * `IU_PER_MM = 1e6`, "following KiCad's board IU" (`gerbview/src/types.ts:15`),
+ * `IU_PER_MM = 1e6`, "following KiCad's board IU" (`gerbview/types.ts:15`),
  * so its geometry arrives in board units and 0.005 mm of sagitta is 5000, the
  * same number the board uses. That is why this is written against
  * PCB_IU_PER_MM and not against `GERB_IU_PER_MM`, which `common` also exports

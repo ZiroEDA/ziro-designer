@@ -17,7 +17,7 @@
  */
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { type PCB_LAYER_ID, PCB_LAYER_ID as LAYER } from '@ziroeda/common/layer_ids.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import {
   ANGLE_0,
   ANGLE_360,

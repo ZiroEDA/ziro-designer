@@ -62,7 +62,7 @@ export interface FieldRow {
  * mandatory ids — REFERENCE, VALUE, FOOTPRINT, DATASHEET, DESCRIPTION — exist
  * on every symbol whether or not the file wrote them, which is why
  * `TransferDataToWindow` can push `m_symbol->GetFields()` straight into the
- * grid and get five rows. Our placer (`makeSymbol`, eeschema/src/tools/build.ts)
+ * grid and get five rows. Our placer (`makeSymbol`, eeschema/tools/build.ts)
  * writes only Reference and Value, and a hand-edited file may carry fewer
  * still, so the missing ones are materialised here — from the library part's
  * own property, which is where a real placement's copy came from.

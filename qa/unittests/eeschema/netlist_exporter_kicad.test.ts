@@ -8,7 +8,7 @@
  * parser has to see the same components, pads and nets.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, netlistKicad, type NetlistSheet } from '@ziroeda/eeschema';
 import { loadKicadNetlist } from '@ziroeda/pcbnew';
 

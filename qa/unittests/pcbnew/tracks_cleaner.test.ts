@@ -17,7 +17,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { U } from './support/written_node.js';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { segApproxCollinear } from '@ziroeda/kimath/src/geometry/seg.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';

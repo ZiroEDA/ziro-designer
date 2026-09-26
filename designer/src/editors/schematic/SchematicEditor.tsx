@@ -337,17 +337,17 @@ import {
   rescueLibraryNickname,
   rescuedDefinition,
   type RescueCandidate,
-} from '@ziroeda/eeschema/src/tools/project_rescue.js';
+} from '@ziroeda/eeschema/tools/project_rescue.js';
 import { DialogRescueEach, type RescueInstance } from './dialogs/dialog_rescue_each.js';
 import {
   legacyCacheFileNames,
   readLegacySymbolLibrary,
-} from '@ziroeda/eeschema/src/sch_io/legacy/read-lib.js';
+} from '@ziroeda/eeschema/sch_io/legacy/read-lib.js';
 import {
   legacyLibrarySymbols,
   legacyRootFile,
   readLegacyProject,
-} from '@ziroeda/eeschema/src/sch_io/legacy/read-schematic.js';
+} from '@ziroeda/eeschema/sch_io/legacy/read-schematic.js';
 import { preloadSchematicLibraries } from './preload.js';
 import {
   projectSymbolLibraries,
@@ -461,7 +461,7 @@ import {
 } from './schematic_settings.js';
 import { netClassHumanReadableName } from '@ziroeda/common/project/net_settings.js';
 import type { PdfNetInfo } from './render/pdf_annotations.js';
-import type { Netlist } from '@ziroeda/eeschema/src/connectivity/nets.js';
+import type { Netlist } from '@ziroeda/eeschema/connectivity/nets.js';
 import { DEFAULT_WIRE_WIDTH } from './render/renderer.js';
 import { computeNetClassOverrides } from './net_overrides.js';
 import {
@@ -545,7 +545,7 @@ import {
   collectSchTableValues,
   tableWithValues,
   type SchTableValues,
-} from '@ziroeda/eeschema/src/tools/sch_table_properties.js';
+} from '@ziroeda/eeschema/tools/sch_table_properties.js';
 import { DialogTableProperties } from './dialogs/dialog_table_properties.js';
 import { DialogImportGfx } from './dialogs/dialog_import_gfx.js';
 import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
@@ -577,7 +577,7 @@ import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
 import { useUnsavedGuard } from '@ziroeda/common/use_unsaved_guard.js';
 import '@ziroeda/common/widgets/shell.css';
 import { schSymbolLibraryName } from '@ziroeda/eeschema';
-import { busJunctionIds as busJunctionIdsOf } from '@ziroeda/eeschema/src/connectivity/bus.js';
+import { busJunctionIds as busJunctionIdsOf } from '@ziroeda/eeschema/connectivity/bus.js';
 import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
 import {

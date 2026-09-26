@@ -7,13 +7,10 @@
  * and the source S-expression, round-trips through the writer, and is undoable.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import {
-  setPageSettingsCommand,
-  getPageSettings,
-} from '@ziroeda/eeschema/src/tools/page_settings.js';
-import { History } from '@ziroeda/eeschema/src/tools/command.js';
+import { setPageSettingsCommand, getPageSettings } from '@ziroeda/eeschema/tools/page_settings.js';
+import { History } from '@ziroeda/eeschema/tools/command.js';
 
 const SCH = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
   (lib_symbols)

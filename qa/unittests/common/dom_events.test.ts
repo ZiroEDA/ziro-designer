@@ -8,7 +8,7 @@
  * DCLICK), the button state after the event, and the key codes.
  */
 import { describe, expect, it } from 'vitest';
-import { WXK } from '@ziroeda/core/src/wx_keycodes.js';
+import { WXK } from '@ziroeda/core/wx_keycodes.js';
 import {
   wxKeyCodeFromDom,
   wxMouseEventFromDom,

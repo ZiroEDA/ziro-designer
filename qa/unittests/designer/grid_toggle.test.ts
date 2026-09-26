@@ -26,7 +26,7 @@ import { drawGrid, viewFromOffsets } from '@ziroeda/common/draw_panel_gal_grid_c
 import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 // `drawGrid` batches its ticks into a cached `Path2D`, which Node has no
 // implementation of. It is only ever handed back to `stroke`/`fill`, so an

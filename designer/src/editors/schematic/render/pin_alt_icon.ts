@@ -11,7 +11,7 @@
  * editor imports it, rather than each renderer carrying a copy of the geometry.
  *
  * It is placed from `PIN_LAYOUT_CACHE::getUntransformedAltIconBox`, which is
- * `altIconBox` in `eeschema/src/pin_box.ts`.
+ * `altIconBox` in `eeschema/pin_box.ts`.
  */
 import type { Vec2 } from '@ziroeda/kimath';
 

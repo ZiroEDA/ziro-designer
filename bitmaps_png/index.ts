@@ -12,7 +12,7 @@
  * (`calculator/`, `constraints/`, `teardrops/`, `tuning/`, `theme/`), the
  * cursor PNGs (`cursors/`), and ours (`launcher/`, `manager/`).
  */
-const URLS = import.meta.glob('../sources/*/*.{svg,png}', {
+const URLS = import.meta.glob('./sources/*/*.{svg,png}', {
   query: '?url',
   import: 'default',
   eager: true,
@@ -31,7 +31,7 @@ export type BitmapGroup =
 
 /** The URL of `sources/<group>/<file>`, or undefined when no such bitmap exists. */
 export function bitmapUrl(group: BitmapGroup, file: string): string | undefined {
-  return URLS[`../sources/${group}/${file}`];
+  return URLS[`./sources/${group}/${file}`];
 }
 
 /** `bitmapUrl( group, name + '.svg' )`. */
@@ -41,10 +41,10 @@ export function svgUrl(group: BitmapGroup, name: string): string | undefined {
 
 /** Every file name in a group, for the inventories that walk a set. */
 export function bitmapNames(group: BitmapGroup): string[] {
-  const prefix = `../sources/${group}/`;
+  const prefix = `./sources/${group}/`;
   return Object.keys(URLS)
     .filter((k) => k.startsWith(prefix))
     .map((k) => k.slice(prefix.length));
 }
 
-export { default as kicadIconUrl } from '../sources/icon_kicad.png';
+export { default as kicadIconUrl } from './sources/icon_kicad.png';

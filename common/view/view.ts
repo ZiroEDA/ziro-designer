@@ -21,7 +21,7 @@ import { VIEW_GROUP } from './view_group.js';
 import { type VIEW_ITEM, VIEW_UPDATE_FLAGS, VIEW_VISIBILITY_FLAGS } from './view_item.js';
 import { VIEW_OVERLAY } from './view_overlay.js';
 import { VIEW_RTREE } from './view_rtree.js';
-import { wxASSERT } from '@ziroeda/core/src/wx_assert.js';
+import { wxASSERT } from '@ziroeda/core/wx_assert.js';
 
 const { NONE, APPEARANCE, COLOR, GEOMETRY, LAYERS, INITIAL_ADD, REPAINT, ALL } = VIEW_UPDATE_FLAGS;
 const { VISIBLE, HIDDEN, OVERLAY_HIDDEN } = VIEW_VISIBILITY_FLAGS;

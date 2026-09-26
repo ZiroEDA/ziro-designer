@@ -128,17 +128,17 @@ import {
   makeSymbol,
 } from '@ziroeda/eeschema';
 // Imported by module path rather than through the package barrel: Vite serves
-// a cached transform of `eeschema/src/index.ts` and does not re-transform it
+// a cached transform of `eeschema/index.ts` and does not re-transform it
 // when a new export appears, so a barrel import of anything added since the
 // dev server started resolves to `undefined` at runtime.
-import { makeBezier } from '@ziroeda/eeschema/src/tools/build-graphics.js';
+import { makeBezier } from '@ziroeda/eeschema/tools/build-graphics.js';
 import {
   type BezierDraw,
   beginBezier,
   bezierPoints,
   calcBezier,
   continueBezier,
-} from '@ziroeda/eeschema/src/tools/bezier_geom.js';
+} from '@ziroeda/eeschema/tools/bezier_geom.js';
 import { hitTestDrawingSheet } from '@ziroeda/common';
 import {
   renderSchematic,

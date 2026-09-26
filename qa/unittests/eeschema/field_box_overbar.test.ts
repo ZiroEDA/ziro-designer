@@ -43,9 +43,9 @@
  * constants. Nothing here asks the code under test what it thinks.
  */
 import { describe, expect, it } from 'vitest';
-import { fieldTextBox } from '@ziroeda/eeschema/src/fieldbox.js';
-import { labelTextBox, textPenWidth } from '@ziroeda/eeschema/src/tools/bbox.js';
-import type { SchField } from '@ziroeda/eeschema/src/types.js';
+import { fieldTextBox } from '@ziroeda/eeschema/fieldbox.js';
+import { labelTextBox, textPenWidth } from '@ziroeda/eeschema/tools/bbox.js';
+import type { SchField } from '@ziroeda/eeschema/types.js';
 
 /** `KiROUND`: half away from zero. */
 const kiRound = (v: number): number => Math.sign(v) * Math.round(Math.abs(v));

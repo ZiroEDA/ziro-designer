@@ -4,13 +4,13 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parse, serialize } from '@ziroeda/sexpr/src/index.js';
+import { parse, serialize } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import { History } from '@ziroeda/eeschema/src/tools/command.js';
-import { addItems, deleteByIds, needsJunction } from '@ziroeda/eeschema/src/tools/mutate.js';
-import { makeWire } from '@ziroeda/eeschema/src/tools/build.js';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { History } from '@ziroeda/eeschema/tools/command.js';
+import { addItems, deleteByIds, needsJunction } from '@ziroeda/eeschema/tools/mutate.js';
+import { makeWire } from '@ziroeda/eeschema/tools/build.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 
 const fixture = readFileSync(
   fileURLToPath(new URL('../../data/nfc-antenna.kicad_sch', import.meta.url)),

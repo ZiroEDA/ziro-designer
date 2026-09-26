@@ -24,16 +24,16 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import {
   autoplacedFields,
   autoplacedLibFields,
   autoplacePlacedSymbol,
   libPreviewFields,
-} from '@ziroeda/eeschema/src/tools/autoplace_fields.js';
+} from '@ziroeda/eeschema/tools/autoplace_fields.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { SchField, Vec2 } from '@ziroeda/eeschema/src/types.js';
+import type { SchField, Vec2 } from '@ziroeda/eeschema/types.js';
 
 const LIB = `(lib_symbols
   (symbol "Connector:Screw_Terminal_01x02" (pin_names (offset 1.016) hide)

@@ -26,7 +26,7 @@
  * layout is derived from the serializer rather than observed.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import { emptyBoard, flatText, writtenNode } from './support/written_node.js';

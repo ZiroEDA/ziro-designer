@@ -14,18 +14,18 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
-import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
+import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
 import {
   GRIP_MARGIN_PX,
   leftDragStart,
   requestMovableSelection,
   selectionContains,
-} from '@ziroeda/eeschema/src/tools/sch_drag_start.js';
-import { collectPinSegments, refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+} from '@ziroeda/eeschema/tools/sch_drag_start.js';
+import { collectPinSegments, refId } from '@ziroeda/eeschema/tools/hittest.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/types.js';
 
 const rawR = readFileSync(
   fileURLToPath(new URL('../../data/R.kicad_sym', import.meta.url)),

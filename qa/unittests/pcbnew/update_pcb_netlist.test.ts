@@ -15,7 +15,7 @@ import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { Reporter } from '@ziroeda/common/reporter.js';
 import { readSchematic } from '@ziroeda/eeschema';
-import { netlistKicad } from '@ziroeda/eeschema/src/exporters/netlist_exporter_kicad.js';
+import { netlistKicad } from '@ziroeda/eeschema/exporters/netlist_exporter_kicad.js';
 import {
   BOARD_NETLIST_UPDATER,
   buildRatsnest,

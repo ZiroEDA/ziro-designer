@@ -12,7 +12,7 @@
  */
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ResizeI, sub, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { PAD } from '../pad.js';
 import { type PCB_VIA, VIATYPE } from '../pcb_track.js';

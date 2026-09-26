@@ -20,8 +20,8 @@ import {
   syncPinFromLabel,
   syncPlacementFor,
   syncSheetPinBuckets,
-} from '@ziroeda/eeschema/src/tools/sync_sheet_pins.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/sync_sheet_pins.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 /** A parent with one sheet carrying `pins`. */
 const parentWith = (pins: string): Schematic =>

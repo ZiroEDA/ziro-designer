@@ -27,7 +27,7 @@ import {
   VERTEX_SIZE,
 } from './vertex_common.js';
 import type { VERTEX_ITEM } from './vertex_item.js';
-import { wxASSERT } from '@ziroeda/core/src/wx_assert.js';
+import { wxASSERT } from '@ziroeda/core/wx_assert.js';
 
 /**
  * Class to handle uploading vertices and indices to GPU in drawing purposes.

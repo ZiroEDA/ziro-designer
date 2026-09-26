@@ -118,7 +118,7 @@ const f = (aValue: number): string =>
  * scale that was current when it was defined, hence the multiply.
  *
  * The `width` fallback is not dead: an Excellon routed slot is emitted with a
- * width but no D_CODE (`gerbview/src/excellon.ts:110-119`), and it is exactly
+ * width but no D_CODE (`gerbview/excellon.ts:110-119`), and it is exactly
  * the item `collect_hole` turns into a slot.
  */
 function itemSize(item: GERBER_DRAW_ITEM): VECTOR2I {

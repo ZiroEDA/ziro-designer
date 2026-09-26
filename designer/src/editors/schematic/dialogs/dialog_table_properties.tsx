@@ -10,7 +10,7 @@
  * is left here is the two things that are this editor's own — the schematic IU
  * scale, and the stroke colour a `SCH_TABLE` carries and a `PCB_TABLE` does not.
  *
- * The decisions live in `eeschema/src/tools/sch_table_properties.ts`: which
+ * The decisions live in `eeschema/tools/sch_table_properties.ts`: which
  * controls are live, what a switched-off line stores, how a stored style maps
  * to the combo.
  */
@@ -21,7 +21,7 @@ import {
   borderControlsEnabled,
   separatorControlsEnabled,
   type SchTableValues,
-} from '@ziroeda/eeschema/src/tools/sch_table_properties.js';
+} from '@ziroeda/eeschema/tools/sch_table_properties.js';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { DialogTableProperties as SharedTableDialog } from '@ziroeda/common/dialogs/dialog_table_properties.js';
 // A TableColor is the same [r, g, b, a] tuple an ItemColor is, so it takes

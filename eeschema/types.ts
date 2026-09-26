@@ -17,7 +17,7 @@
  *     are for reading/rendering/editing; `source` is the lossless backing store.
  */
 
-import type { SList } from '@ziroeda/sexpr/src/types.js';
+import type { SList } from '@ziroeda/sexpr/types.js';
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 export type { Vec2 };

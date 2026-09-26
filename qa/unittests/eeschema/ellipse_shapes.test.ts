@@ -21,15 +21,11 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import { makeEllipse, makeEllipseArc } from '@ziroeda/eeschema/src/tools/build-graphics.js';
-import { hitTest } from '@ziroeda/eeschema/src/tools/hittest.js';
-import {
-  dragHandle,
-  editHandles,
-  pointEditTarget,
-} from '@ziroeda/eeschema/src/tools/point_editor.js';
-import { moveRigidItems } from '@ziroeda/eeschema/src/tools/move.js';
-import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+import { makeEllipse, makeEllipseArc } from '@ziroeda/eeschema/tools/build-graphics.js';
+import { hitTest } from '@ziroeda/eeschema/tools/hittest.js';
+import { dragHandle, editHandles, pointEditTarget } from '@ziroeda/eeschema/tools/point_editor.js';
+import { moveRigidItems } from '@ziroeda/eeschema/tools/move.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 const SRC = `(kicad_sch (version 20250114) (lib_symbols)
   (ellipse (center 100 60) (major_radius 20) (minor_radius 10) (rotation_angle 30)

@@ -26,8 +26,8 @@ const ensureZstd = (): Promise<unknown> => {
   return zstdReady;
 };
 import { mmh3HashToString, mmh3HashToStringV1 } from '@ziroeda/kimath';
-import { isList, head, list, atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
-import { arg, childNamed } from '@ziroeda/sexpr/src/query.js';
+import { isList, head, list, atom, str, type SList, type SNode } from '@ziroeda/sexpr/index.js';
+import { arg, childNamed } from '@ziroeda/sexpr/query.js';
 import type { EditCommand } from './command.js';
 import type { Schematic } from '../types.js';
 

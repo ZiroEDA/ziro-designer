@@ -29,9 +29,9 @@
  * `${INTERSHEET_REFS}` text rather than the text alone.
  */
 import type { LibSymbol, SchField, SchLabel, SchSymbol, Schematic } from '@ziroeda/eeschema';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { schSymbolLibraryName } from '@ziroeda/eeschema/src/lib_symbol_compare.js';
-import { fieldShownText, fieldTextBox } from '@ziroeda/eeschema/src/fieldbox.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
+import { schSymbolLibraryName } from '@ziroeda/eeschema/lib_symbol_compare.js';
+import { fieldShownText, fieldTextBox } from '@ziroeda/eeschema/fieldbox.js';
 import {
   emptyBBox,
   includePoint,
@@ -40,7 +40,7 @@ import {
   sheetPinBBox,
   symbolBodyBBox,
   type BBox,
-} from '@ziroeda/eeschema/src/tools/bbox.js';
+} from '@ziroeda/eeschema/tools/bbox.js';
 import type { PdfBox2, PdfPlotter } from '@ziroeda/pcbnew/plot_pdf.js';
 
 /** What the sheet's connectivity knows about a wire, bus or label. */

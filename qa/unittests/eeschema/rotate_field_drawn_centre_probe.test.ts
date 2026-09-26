@@ -43,10 +43,10 @@
  * autoplacer is not in the loop at all: this pins the box, and only the box.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { fieldBoundingBox, fieldShownText } from '@ziroeda/eeschema/src/fieldbox.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { fieldBoundingBox, fieldShownText } from '@ziroeda/eeschema/fieldbox.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 import { mmToIU, iuToMM } from '@ziroeda/common/eda_units.js';
 
 const DIODE = `(symbol "Device:D" (pin_numbers (hide yes)) (pin_names (offset 1.016) (hide yes))

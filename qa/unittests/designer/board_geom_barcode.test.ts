@@ -18,7 +18,7 @@
  * plotter, DRC and convert are covered elsewhere.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { buildBoard3dLayers } from '@ziroeda/designer/src/editors/pcb/board_3d_layers.js';
 import type { Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';

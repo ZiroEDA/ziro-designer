@@ -49,8 +49,8 @@ import {
   KIUI_EllipsizeMenuText,
   KIUI_EllipsizeStatusText,
 } from '@ziroeda/common/widgets/ui_common.js';
-import { FLIP_DIRECTION, MIRROR } from '@ziroeda/core/src/mirror.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { FLIP_DIRECTION, MIRROR } from '@ziroeda/core/mirror.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { CIRCLE } from '@ziroeda/kimath/src/geometry/circle.js';
 import {

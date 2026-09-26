@@ -12,7 +12,7 @@
  * select items that are fully inside", drawn yellow.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { boardItemsInBox, boardItemsInLasso } from '@ziroeda/pcbnew/edit-board.js';
 import { lassoIsInside } from '@ziroeda/common/preview_items/selection_area.js';

@@ -17,7 +17,7 @@
  * rather than naming text boxes, and a new kind is covered the day it is added.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import {
   deleteBoardItems,

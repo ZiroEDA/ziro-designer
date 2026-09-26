@@ -13,9 +13,9 @@ import {
   editorUnitFor,
   libSymbolFromPlacement,
   symbolEditorRequest,
-} from '@ziroeda/eeschema/src/tools/symbol_from_schematic.js';
+} from '@ziroeda/eeschema/tools/symbol_from_schematic.js';
 import { applyTransform, invertTransform, symbolTransform } from '@ziroeda/common/transform.js';
-import type { LibSymbol, SchSymbol } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol, SchSymbol } from '@ziroeda/eeschema/types.js';
 
 /** Positions in the model are internal units; the fixture is written in mm. */
 const mm = (n: number): number => n * 10000;

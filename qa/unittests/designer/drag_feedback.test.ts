@@ -21,9 +21,9 @@ import { parse } from '@ziroeda/sexpr';
 import { readSchematic, refId } from '@ziroeda/eeschema';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { fieldId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { placeSymbol } from '@ziroeda/eeschema/src/tools/index.js';
+import { readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { fieldId } from '@ziroeda/eeschema/tools/hittest.js';
+import { placeSymbol } from '@ziroeda/eeschema/tools/index.js';
 import {
   DEFAULT_RENDER_OPTS,
   renderSchematic,
@@ -31,7 +31,7 @@ import {
 } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
 import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 import type { Theme } from '@ziroeda/designer/src/editors/schematic/theme.js';
 
 interface Seg {

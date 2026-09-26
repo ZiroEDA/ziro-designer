@@ -20,7 +20,7 @@
  * skipped: it is still a hole somebody has to drill.
  */
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { BOARD } from './board.js';
 import { PAD_ATTRIB, PAD_DRILL_SHAPE } from './padstack.js';
 import type { PCB_VIA } from './pcb_track.js';

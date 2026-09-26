@@ -36,15 +36,15 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
-import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
+import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
 import {
   schPropertiesFor,
   schItemFriendlyName,
-} from '@ziroeda/eeschema/src/tools/sch_properties_panel.js';
-import { itemRefById } from '@ziroeda/eeschema/src/tools/hittest.js';
+} from '@ziroeda/eeschema/tools/sch_properties_panel.js';
+import { itemRefById } from '@ziroeda/eeschema/tools/hittest.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 const rawR = readFileSync(
   fileURLToPath(new URL('../../data/R.kicad_sym', import.meta.url)),

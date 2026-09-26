@@ -20,7 +20,7 @@ Ground truth for every mapping below is the KiCad source
 | Panels (UI only; re-export their data slices from schematic_settings.ts) | `designer/src/editors/schematic/dialogs/panels/panel_*.tsx` |
 | Hydrate on project load / persist on OK | `SchematicEditor.tsx` (project-load effect + dialog `onOk`; same flow as the drawing-sheet ref in `projectSheet.ts`) |
 | Render-time consumers | `render/renderer.ts` (`RenderOpts` + module globals), threaded to print/plot via `PlotOpts` (`render/plot.ts`); editor builds them once in the `drawingDefaults` memo |
-| ERC consumers | `eeschema/src/connectivity/erc.ts` (`runErc(sch, libById, settings, { connectionGridIU })`) |
+| ERC consumers | `eeschema/connectivity/erc.ts` (`runErc(sch, libById, settings, { connectionGridIU })`) |
 | Tests | `qa/unittests/designer/project_settings.test.ts`, `qa/unittests/designer/schematic_settings.test.ts`, `qa/unittests/eeschema/erc_settings.test.ts` |
 
 ## Page-by-page status
@@ -84,7 +84,7 @@ Ground truth for every mapping below is the KiCad source
   grid can't express an unset line style, so only non-Solid styles
   contribute to merges.
 - **Text Variables** (PR #122), `expandTextVars` +
-  `schematicTextVarResolver` (`eeschema/src/tools/text_vars.ts`): recursive
+  `schematicTextVarResolver` (`eeschema/tools/text_vars.ts`): recursive
   `${VAR}` expansion with the TITLE_BLOCK / SCHEMATIC / PROJECT token set,
   applied at the renderer's GetShownText choke points (labels, free text,
   text boxes, tables, fields) on screen, print and plot.
@@ -92,7 +92,7 @@ Ground truth for every mapping below is the KiCad source
   in `.kicad_pro`, where current KiCad stores them (the schematic writer no
   longer emits `bus_alias` nodes; the parser only accepts legacy ones).
 - **Bus connectivity** (PRs #124-#126), `NET_SETTINGS` bus-label parsing +
-  member expansion (`eeschema/src/connectivity/bus.ts`), bus subgraphs with
+  member expansion (`eeschema/connectivity/bus.ts`), bus subgraphs with
   member-net joins in the netlist (separate union-find; entries split
   bus-side/wire-side; aliases unfold), and the three bus ERC rules
   (`net_not_bus_member`, `bus_to_net_conflict`, `bus_to_bus_conflict`).
@@ -103,7 +103,7 @@ Ground truth for every mapping below is the KiCad source
   Import-Settings buttons (exact `DIALOG_SCH_IMPORT_SETTINGS` checkbox set).
 - **Net Chains** (PR #134), detection AND the committed store are live:
   `CONNECTION_GRAPH::RebuildNetChains` port
-  (`eeschema/src/connectivity/net_chains.ts`), nets bridged through 2-pin
+  (`eeschema/connectivity/net_chains.ts`), nets bridged through 2-pin
   passives with collinear wires, power-edge drops, leaf/stub pruning,
   label-driven naming, plus `(net_chain …)` node persistence in `.kicad_sch`
   (parse/write per `parseSchNetChain` / `SCH_IO_KICAD_SEXPR::Format`), the
@@ -122,13 +122,13 @@ Ground truth for every mapping below is the KiCad source
   chain→class rekeying).
 - **Wire hop-overs** (PR #134), Formatting's Hop-over size choice draws hop
   arcs where wires cross: `SCH_LINE::ShouldHopOver` +
-  `BuildWireWithHopShape` ports (`eeschema/src/tools/hop_over.ts`, with
+  `BuildWireWithHopShape` ports (`eeschema/tools/hop_over.ts`, with
   `SEG::Intersect`'s integer parametric test and `CalcArcCenter` in
   `libs/kimath/src/trigo.ts`); arc radius = default line width ×
   `hopover_size_mult_list[choice]`; screen, print and plot.
 - **Embedded Files, write side** (PR #134), add/remove/export are live:
   `CompressAndEncode`/`DecompressAndDecode` ports in
-  `eeschema/src/tools/embedded.ts` (zstd level 15 via `@bokuweb/zstd-wasm`,
+  `eeschema/tools/embedded.ts` (zstd level 15 via `@bokuweb/zstd-wasm`,
   76-column `|`-delimited base64, MurmurHash3 x64_128 checksum with the V1
   tail and legacy SHA-256 fallbacks, `libs/kimath/src/mmh3_hash.ts`);
   AddFile's extension→type table and name-sorted collection; the panel adds
@@ -137,14 +137,14 @@ Ground truth for every mapping below is the KiCad source
 - **Inter-sheet references** (PR #134), Formatting's show flag draws the
   implicit "Intersheet References" field beside global labels:
   `RecomputeIntersheetRefs` map build + `ResolveTextVar` INTERSHEET_REFS
-  ports (`eeschema/src/tools/intersheet_refs.ts`), autoplaced past the flag
+  ports (`eeschema/tools/intersheet_refs.ts`), autoplaced past the flag
   tail per `AutoplaceFields` or at the stored field position; own-page /
   abbreviated / prefix / suffix options all live; per-sheet virtual page on
   screen, print and plot.
 - **Embedded Files, read side** (PR #123), the page lists the document's
   real `embedded_files` section (names, types, `kicad-embed://` references)
   and the `embedded_fonts` flag via `listEmbeddedFiles`
-  (`eeschema/src/tools/embedded.ts`), refreshed on every dialog open; the
+  (`eeschema/tools/embedded.ts`), refreshed on every dialog open; the
   zstd blobs round-trip byte-exact through the lossless AST.
 
 ### 🟡 Persisted correctly, not consumed yet

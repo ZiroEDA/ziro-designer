@@ -39,8 +39,8 @@ import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/prop
 import type { RENDER_SETTINGS } from '@ziroeda/common/render_settings.js';
 import { STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
-import type { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
 import { ARC_HIGH_DEF } from '@ziroeda/kimath/src/base_units.js';
 import type { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';

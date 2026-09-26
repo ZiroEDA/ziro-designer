@@ -27,9 +27,9 @@ import {
 } from '@ziroeda/pcbnew/dialogs/dialog_board_reannotate.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import type { Board, PcbFootprint, PcbTextItem } from '@ziroeda/pcbnew/types.js';
-import type { SList, SNode } from '@ziroeda/sexpr/src/types.js';
+import type { SList, SNode } from '@ziroeda/sexpr/types.js';
 
 /** 1 mm in board IU (nanometres). */
 const MM = 1_000_000;

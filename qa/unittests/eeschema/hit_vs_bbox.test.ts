@@ -36,9 +36,9 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
-import { hitTest } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { alignBoxes } from '@ziroeda/eeschema/src/tools/sch_align_tool.js';
-import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+import { hitTest } from '@ziroeda/eeschema/tools/hittest.js';
+import { alignBoxes } from '@ziroeda/eeschema/tools/sch_align_tool.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 const FIXTURE = `(kicad_sch (version 20250114) (generator "test") (paper "A4")
   (lib_symbols

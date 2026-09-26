@@ -22,10 +22,10 @@ import { readSchematic } from '@ziroeda/eeschema';
 import {
   schItemFriendlyName,
   schPropertiesFor,
-} from '@ziroeda/eeschema/src/tools/sch_properties_panel.js';
-import { itemRefById, refId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { tableCellId } from '@ziroeda/eeschema/src/tools/table_cells.js';
-import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/sch_properties_panel.js';
+import { itemRefById, refId } from '@ziroeda/eeschema/tools/hittest.js';
+import { tableCellId } from '@ziroeda/eeschema/tools/table_cells.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 const LIB = new Map<string, LibSymbol>();
 

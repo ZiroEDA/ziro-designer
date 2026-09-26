@@ -9,7 +9,7 @@
  *
  * This is the GTK build: `MODIFIER_CTRL` is "Ctrl+" (on macOS it is "Cmd+").
  */
-import { WXK } from '@ziroeda/core/src/wx_keycodes.js';
+import { WXK } from '@ziroeda/core/wx_keycodes.js';
 import { TOOL_MODIFIERS } from './tool/tool_event.js';
 import type { TOOL_ACTION } from './tool/tool_action.js';
 

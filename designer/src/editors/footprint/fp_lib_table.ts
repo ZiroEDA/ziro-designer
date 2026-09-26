@@ -22,7 +22,7 @@
  */
 
 import { parse } from '@ziroeda/sexpr';
-import { arg, childNamed, childrenNamed } from '@ziroeda/sexpr/src/query.js';
+import { arg, childNamed, childrenNamed } from '@ziroeda/sexpr/query.js';
 
 /** A LIB_TABLE_ROW: `(lib (name "X")(type "KiCad")(uri "…")(options "")(descr ""))`. */
 export interface FpLibRow {

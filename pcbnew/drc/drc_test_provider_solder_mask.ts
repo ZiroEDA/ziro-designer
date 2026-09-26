@@ -13,7 +13,7 @@
 import { IsFrontLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { CornerStrategy } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';

@@ -33,7 +33,7 @@ import { cleanup, createEvent, fireEvent, render, screen, within } from '@testin
 import { afterEach, describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import type { LibSymbol, SchSymbol, SymbolEdit } from '@ziroeda/eeschema';
 import { SymbolPropertiesDialog } from '@ziroeda/designer/src/editors/schematic/components/SymbolPropertiesDialog.js';
@@ -75,7 +75,7 @@ afterEach(cleanup);
 
 /**
  * A resistor placed the way OUR placer places one — Reference and Value only
- * (`makeSymbol`, eeschema/src/tools/build.ts) — beside a library part that
+ * (`makeSymbol`, eeschema/tools/build.ts) — beside a library part that
  * carries all five mandatory properties. That gap is difference 2: KiCad's
  * SCH_SYMBOL always has five fields because it copied the part's.
  */

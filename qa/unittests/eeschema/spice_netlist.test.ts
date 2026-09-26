@@ -9,7 +9,7 @@
  * directive collection, and the assembled netlist order.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import {
   collectSpiceDirectives,
@@ -17,7 +17,7 @@ import {
   generateSpiceNetlist,
   inferSimModel,
   toSpice,
-} from '@ziroeda/eeschema/src/exporters/spice.js';
+} from '@ziroeda/eeschema/exporters/spice.js';
 
 describe('convertToSpiceMarkup', () => {
   it('flattens markup and replaces ngspice-hostile characters', () => {

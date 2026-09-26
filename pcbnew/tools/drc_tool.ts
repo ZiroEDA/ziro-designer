@@ -17,7 +17,7 @@ import type { COROUTINE_BODY } from '@ziroeda/common/tool/coroutine.js';
 import type { RESET_REASON, TOOL_STATE_FUNC } from '@ziroeda/common/tool/tool_base.js';
 import { EVENTS, type TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
 import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
-import { BaseType, KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { BaseType, KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD } from '../board.js';
 import type { BOARD_ITEM } from '../board_item.js';

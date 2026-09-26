@@ -13,7 +13,7 @@
  * the search is sequential.
  */
 import { PCB_LAYER_ID, ToLAYER_ID } from '@ziroeda/common/layer_ids.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { SHAPE } from '@ziroeda/kimath/src/geometry/shape.js';
 import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import { TRIANGULATED_POLYGON } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';

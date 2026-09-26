@@ -8,10 +8,10 @@
  * round-trips through the writer.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic, refId } from '@ziroeda/eeschema';
-import { bulkEditFieldsCommand } from '@ziroeda/eeschema/src/tools/properties.js';
-import { History } from '@ziroeda/eeschema/src/tools/command.js';
+import { bulkEditFieldsCommand } from '@ziroeda/eeschema/tools/properties.js';
+import { History } from '@ziroeda/eeschema/tools/command.js';
 
 const SCH = `(kicad_sch (version 20231120) (generator "test") (lib_symbols)
   (symbol (lib_id "Device:R") (at 10 10 0) (unit 1) (uuid "r1")

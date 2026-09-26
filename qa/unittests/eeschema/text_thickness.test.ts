@@ -16,9 +16,9 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { makeLabel } from '@ziroeda/eeschema/src/tools/build.js';
+import { makeLabel } from '@ziroeda/eeschema/tools/build.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const SRC = `(kicad_sch (version 20250114) (paper "A4") (lib_symbols)
   (text "thick" (at 10 10 0)

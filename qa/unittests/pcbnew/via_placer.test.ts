@@ -12,7 +12,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { U } from './support/written_node.js';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { placeVia, trackUnderVia } from '@ziroeda/pcbnew/via_placer.js';

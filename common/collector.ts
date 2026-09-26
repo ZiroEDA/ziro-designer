@@ -8,7 +8,7 @@
  */
 import type { EDA_ITEM, INSPECTOR_FUNC } from './eda_item.js';
 import { INSPECT_RESULT } from './eda_item.js';
-import type { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import type { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 
 export class COLLECTOR {

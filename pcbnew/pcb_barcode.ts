@@ -22,8 +22,8 @@ import { FLASHING, GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import { KIUI_EllipsizeStatusText } from '@ziroeda/common/widgets/ui_common.js';
-import { FLIP_DIRECTION, MIRROR } from '@ziroeda/core/src/mirror.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { FLIP_DIRECTION, MIRROR } from '@ziroeda/core/mirror.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ARC_LOW_DEF } from '@ziroeda/kimath/src/base_units.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { ANGLE_180, EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';

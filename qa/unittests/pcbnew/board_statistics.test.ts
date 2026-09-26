@@ -11,7 +11,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
-import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
+import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';

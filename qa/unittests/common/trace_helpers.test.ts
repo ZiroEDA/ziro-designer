@@ -3,12 +3,12 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * `TRACE_MANAGER` / `KI_TRACE` / `wxLogTrace` (common/trace_helpers.ts) and
- * `PROF_TIMER` (libs/core/src/profile.ts): the masks come from the browser's
+ * `PROF_TIMER` (libs/core/profile.ts): the masks come from the browser's
  * environment, `localStorage`, read once as the C++ reads `KICAD_TRACE` once;
  * a message under a mask that is off is never even built.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { PROF_TIMER } from '@ziroeda/core/src/profile.js';
+import { PROF_TIMER } from '@ziroeda/core/profile.js';
 
 const store = new Map<string, string>();
 

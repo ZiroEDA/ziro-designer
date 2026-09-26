@@ -11,9 +11,9 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
-import { symbolFieldBoxes } from '@ziroeda/eeschema/src/fieldbox.js';
+import { symbolFieldBoxes } from '@ziroeda/eeschema/fieldbox.js';
 import { setFontProvider } from '@ziroeda/common/font/font_provider.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const src = (face: string): string => `(kicad_sch (version 20250114) (paper "A4")
   (lib_symbols

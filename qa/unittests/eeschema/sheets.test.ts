@@ -6,7 +6,7 @@
  * and the project hierarchy helpers (SCH_SHEET_LIST equivalent).
  */
 import { describe, it, expect } from 'vitest';
-import { parse, serialize } from '@ziroeda/sexpr/src/index.js';
+import { parse, serialize } from '@ziroeda/sexpr/index.js';
 import { readSchematic, writeSchematic } from '@ziroeda/eeschema';
 import {
   buildSheetTree,
@@ -14,11 +14,11 @@ import {
   repairPageNumbersOnLoad,
   sheetFile,
   sheetName,
-} from '@ziroeda/eeschema/src/project.js';
-import { comparePageNum } from '@ziroeda/eeschema/src/tools/sch_sheet_path.js';
+} from '@ziroeda/eeschema/project.js';
+import { comparePageNum } from '@ziroeda/eeschema/tools/sch_sheet_path.js';
 import { existsSync, readFileSync } from 'node:fs';
-import { moveItems } from '@ziroeda/eeschema/src/tools/move.js';
-import { runErc } from '@ziroeda/eeschema/src/connectivity/erc.js';
+import { moveItems } from '@ziroeda/eeschema/tools/move.js';
+import { runErc } from '@ziroeda/eeschema/connectivity/erc.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const SHEET = `(sheet (at 100 50) (size 40 30)

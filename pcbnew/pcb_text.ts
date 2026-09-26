@@ -59,9 +59,9 @@ import {
   KIUI_EllipsizeMenuText,
   KIUI_EllipsizeStatusText,
 } from '@ziroeda/common/widgets/ui_common.js';
-import { applyMixins } from '@ziroeda/core/src/mixins.js';
-import { FLIP_DIRECTION, MIRRORVAL } from '@ziroeda/core/src/mirror.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { applyMixins } from '@ziroeda/core/mixins.js';
+import { FLIP_DIRECTION, MIRRORVAL } from '@ziroeda/core/mirror.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import {
   ANGLE_180,
@@ -105,7 +105,7 @@ export interface PCB_TEXT
   ClearRenderCache(): void;
 }
 
-// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: KiCad's multiple inheritance, see libs/core/src/mixins.ts
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: KiCad's multiple inheritance, see libs/core/mixins.ts
 export class PCB_TEXT extends BOARD_ITEM {
   private m_knockout_cache: PCB_TEXT_KNOCKOUT_CACHE_DATA | null = null;
 

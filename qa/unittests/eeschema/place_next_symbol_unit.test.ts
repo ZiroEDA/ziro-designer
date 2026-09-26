@@ -13,12 +13,12 @@ import {
   planNextSymbolUnit,
   unplacedUnits,
   PLACE_NEXT_UNIT_MESSAGES,
-} from '@ziroeda/eeschema/src/tools/symbol_unit.js';
-import { placeSymbolInstance } from '@ziroeda/eeschema/src/tools/mutate.js';
-import { moveSymbolTo } from '@ziroeda/eeschema/src/tools/move.js';
-import { transformSymbol } from '@ziroeda/eeschema/src/tools/transform.js';
+} from '@ziroeda/eeschema/tools/symbol_unit.js';
+import { placeSymbolInstance } from '@ziroeda/eeschema/tools/mutate.js';
+import { moveSymbolTo } from '@ziroeda/eeschema/tools/move.js';
+import { transformSymbol } from '@ziroeda/eeschema/tools/transform.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 /** A four-unit part; unit 3 carries a name of its own. */
 const LIB = `(symbol "Amp:LM324"

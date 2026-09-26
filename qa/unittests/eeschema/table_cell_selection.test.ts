@@ -12,17 +12,17 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
-import { hitTest } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { deleteByIds } from '@ziroeda/eeschema/src/tools/mutate.js';
-import { moveItems } from '@ziroeda/eeschema/src/tools/move.js';
-import { copySelectionText } from '@ziroeda/eeschema/src/tools/clipboard.js';
+import { hitTest } from '@ziroeda/eeschema/tools/hittest.js';
+import { deleteByIds } from '@ziroeda/eeschema/tools/mutate.js';
+import { moveItems } from '@ziroeda/eeschema/tools/move.js';
+import { copySelectionText } from '@ziroeda/eeschema/tools/clipboard.js';
 import {
   defaultSelectionFilter,
   itemPassesFilter,
-} from '@ziroeda/eeschema/src/tools/sch_selection_filter.js';
-import { getMsgPanelItems } from '@ziroeda/eeschema/src/tools/msg_panel.js';
-import { tableCellId } from '@ziroeda/eeschema/src/tools/table_cells.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/sch_selection_filter.js';
+import { getMsgPanelItems } from '@ziroeda/eeschema/tools/msg_panel.js';
+import { tableCellId } from '@ziroeda/eeschema/tools/table_cells.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const mm = (n: number): number => n * 10000;
 const TABLE = 't-1';

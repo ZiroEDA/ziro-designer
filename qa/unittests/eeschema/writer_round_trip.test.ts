@@ -20,7 +20,7 @@ import { describe, it, expect } from 'vitest';
 import { parse, serialize } from '@ziroeda/sexpr';
 import { readSchematic, writeSchematic } from '@ziroeda/eeschema';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const sch = (body: string): Schematic =>
   readSchematic(parse(`(kicad_sch (version 20250114) (lib_symbols) ${body})`));

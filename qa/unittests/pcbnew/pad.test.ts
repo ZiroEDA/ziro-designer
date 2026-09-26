@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
-import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
+import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
 import { ANGLE_90 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { SHAPE_CIRCLE } from '@ziroeda/kimath/src/geometry/shape_circle.js';
 import { SHAPE_COMPOUND } from '@ziroeda/kimath/src/geometry/shape_compound.js';

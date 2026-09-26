@@ -8,7 +8,7 @@
  * through the same handler chain wx would.
  */
 
-import { WXK } from '@ziroeda/core/src/wx_keycodes.js';
+import { WXK } from '@ziroeda/core/wx_keycodes.js';
 import { GetClampedCoords } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import {

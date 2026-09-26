@@ -16,12 +16,12 @@
  * move on any path. They now share `moveRigidItems`.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { planMove } from '@ziroeda/eeschema/src/tools/connect.js';
-import { orthoMove } from '@ziroeda/eeschema/src/tools/ortho.js';
-import { moveWithConnections, moveItems } from '@ziroeda/eeschema/src/tools/move.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
+import { planMove } from '@ziroeda/eeschema/tools/connect.js';
+import { orthoMove } from '@ziroeda/eeschema/tools/ortho.js';
+import { moveWithConnections, moveItems } from '@ziroeda/eeschema/tools/move.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const DOC = `(kicad_sch (version 20250114) (generator "x") (lib_symbols)

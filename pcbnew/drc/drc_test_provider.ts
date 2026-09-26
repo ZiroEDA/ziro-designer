@@ -12,7 +12,7 @@ import type { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import type { LSET } from '@ziroeda/common/lset.js';
 import { RPT_SEVERITY_INFO, type Reporter } from '@ziroeda/common/reporter.js';
 import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
-import { BaseType, KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { BaseType, KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { SHAPE } from '@ziroeda/kimath/src/geometry/shape.js';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';

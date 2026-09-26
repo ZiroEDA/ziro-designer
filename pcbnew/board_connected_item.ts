@@ -32,7 +32,7 @@ import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/prop
 import { PROPERTY_VALIDATORS } from '@ziroeda/common/properties/property_validators.js';
 import type { OutStr } from '@ziroeda/common/font/font.js';
 import { unescapeString } from '@ziroeda/common/string_utils.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { BOARD_ITEM } from './board_item.js';
 import { type NETINFO_ITEM, NETINFO_LIST } from './netinfo.js';
 import { TEARDROP_PARAMETERS } from './teardrop/teardrop_parameters.js';

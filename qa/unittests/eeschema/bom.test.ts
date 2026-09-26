@@ -8,7 +8,7 @@
  * quotes per RFC 4180.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import {
   buildBom,
@@ -16,7 +16,7 @@ import {
   bomToDelimited,
   compareRefs,
   refsShorthand,
-} from '@ziroeda/eeschema/src/exporters/bom.js';
+} from '@ziroeda/eeschema/exporters/bom.js';
 
 const sym = (
   ref: string,

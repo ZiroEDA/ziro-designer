@@ -75,7 +75,7 @@ import {
   wxTimer,
   type wxTimerEvent,
 } from './wx/wx_event.js';
-import { PROF_TIMER } from '@ziroeda/core/src/profile.js';
+import { PROF_TIMER } from '@ziroeda/core/profile.js';
 import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { Vec2 as VECTOR2D, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 

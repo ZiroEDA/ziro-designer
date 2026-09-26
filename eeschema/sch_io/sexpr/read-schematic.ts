@@ -10,7 +10,7 @@
  * children (they stay in `source`) so newer/foreign fields never cause data loss.
  */
 
-import { head, isList, type SList } from '@ziroeda/sexpr/src/types.js';
+import { head, isList, type SList } from '@ziroeda/sexpr/types.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { type Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/reporter.js';
 import { closedOutline } from '../../tools/build-graphics.js';
@@ -24,7 +24,7 @@ import {
   numArg,
   numberField,
   stringField,
-} from '@ziroeda/sexpr/src/query.js';
+} from '@ziroeda/sexpr/query.js';
 import type {
   Fill,
   LabelKind,

@@ -12,7 +12,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import {
   buildPageRefsMap,
@@ -20,7 +20,7 @@ import {
   intersheetRefsField,
   intersheetRefsText,
   type IntersheetRefsConfig,
-} from '@ziroeda/eeschema/src/tools/intersheet_refs.js';
+} from '@ziroeda/eeschema/tools/intersheet_refs.js';
 
 const sch = (body: string) =>
   readSchematic(parse(`(kicad_sch (version 20230121) (generator eeschema) ${body})`));

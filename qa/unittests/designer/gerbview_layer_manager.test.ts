@@ -147,7 +147,7 @@ describe('the right-click menu', () => {
    * DIALOG_DRAW_LAYERS_SETTINGS, which we have not built.
    *
    * It used to leave four. The two sorts came off this list when the
-   * comparators landed (`gerbview/src/layer_sort.ts`) — re-derived from what is
+   * comparators landed (`gerbview/layer_sort.ts`) — re-derived from what is
    * built, not read back off the new output: each of the two removed is
    * separately asserted to run in `gerbview_layer_sort_wiring.test.ts`, and
    * each of the two that stay is unbuilt for a reason named above.

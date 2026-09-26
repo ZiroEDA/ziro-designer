@@ -13,7 +13,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import {
   instanceKey,
@@ -21,7 +21,7 @@ import {
   getRootPageNumber,
   setSheetPageNumberCommand,
   setRootPageNumberCommand,
-} from '@ziroeda/eeschema/src/tools/sch_sheet_path.js';
+} from '@ziroeda/eeschema/tools/sch_sheet_path.js';
 
 const fixture = readFileSync(
   fileURLToPath(new URL('../../data/complex_hierarchy.kicad_sch', import.meta.url)),

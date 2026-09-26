@@ -14,9 +14,9 @@ import {
   globalEdit,
   globalEditCommand,
   type GlobalEditScope,
-} from '@ziroeda/eeschema/src/tools/global_edit_text_and_graphics.js';
+} from '@ziroeda/eeschema/tools/global_edit_text_and_graphics.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const SCH = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
   (lib_symbols

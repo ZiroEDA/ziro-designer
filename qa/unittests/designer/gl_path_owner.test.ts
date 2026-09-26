@@ -13,7 +13,7 @@
  * `startNew`, which is the method that tags the owner.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { buildScene } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 import { GL_PATH_FACTORY, GlPath, setPathOwner } from '@ziroeda/designer/src/render/gl/gl_path.js';

@@ -19,9 +19,9 @@ import {
   rowColCommand,
   tableCellsCommand,
   unmergeCells,
-} from '@ziroeda/eeschema/src/tools/table_edit.js';
-import { tableCellId } from '@ziroeda/eeschema/src/tools/table_cells.js';
-import type { SchTable, Schematic } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/table_edit.js';
+import { tableCellId } from '@ziroeda/eeschema/tools/table_cells.js';
+import type { SchTable, Schematic } from '@ziroeda/eeschema/types.js';
 
 const mm = (n: number): number => n * 10000;
 const TABLE = 't-1';

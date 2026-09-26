@@ -35,9 +35,9 @@ import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/settings/builtin_color_th
 import { STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
-import { applyMixins } from '@ziroeda/core/src/mixins.js';
-import type { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { applyMixins } from '@ziroeda/core/mixins.js';
+import type { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { SHAPE } from '@ziroeda/kimath/src/geometry/shape.js';

@@ -13,8 +13,8 @@
  * with a segment without touching it.
  */
 import { describe, it, expect } from 'vitest';
-import { SegmentIndex, onSegment } from '@ziroeda/eeschema/src/connectivity/segment_index.js';
-import type { Vec2 } from '@ziroeda/eeschema/src/types.js';
+import { SegmentIndex, onSegment } from '@ziroeda/eeschema/connectivity/segment_index.js';
+import type { Vec2 } from '@ziroeda/eeschema/types.js';
 
 interface Seg {
   item: number;

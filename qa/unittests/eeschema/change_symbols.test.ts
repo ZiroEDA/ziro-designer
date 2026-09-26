@@ -16,9 +16,9 @@ import {
   changeSymbolsCommand,
   defaultChangeSymbolsOptions,
   type ChangeSymbolsOptions,
-} from '@ziroeda/eeschema/src/tools/change_symbols.js';
+} from '@ziroeda/eeschema/tools/change_symbols.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 const SCH = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
   (lib_symbols

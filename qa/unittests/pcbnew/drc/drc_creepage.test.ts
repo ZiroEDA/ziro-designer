@@ -11,7 +11,7 @@ import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { RPT_SEVERITY_ERROR, RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { SEG } from '@ziroeda/kimath/src/geometry/seg.js';

@@ -6,9 +6,9 @@
  * schematic symbol count as "doesn't match copy in library".
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSymbolLib } from '@ziroeda/eeschema';
-import { compareLibSymbolsForErc } from '@ziroeda/eeschema/src/lib_symbol_compare.js';
+import { compareLibSymbolsForErc } from '@ziroeda/eeschema/lib_symbol_compare.js';
 
 const symbol = (body: string) =>
   readSymbolLib(

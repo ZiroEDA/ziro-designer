@@ -31,7 +31,7 @@ import {
   allBoardItemIds,
   isBoardItemLocked,
 } from '@ziroeda/pcbnew/edit-board.js';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { U } from './support/written_node.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';

@@ -14,8 +14,8 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
 import {
   hitTest,
   refId,
@@ -24,19 +24,19 @@ import {
   collectPinSegments,
   pinId,
   itemRefById,
-} from '@ziroeda/eeschema/src/tools/hittest.js';
+} from '@ziroeda/eeschema/tools/hittest.js';
 import {
   itemPassesFilter,
   defaultSelectionFilter,
-} from '@ziroeda/eeschema/src/tools/sch_selection_filter.js';
-import { collectAndGuess } from '@ziroeda/eeschema/src/tools/sch_collectors.js';
-import { moveItems, planMove } from '@ziroeda/eeschema/src/tools/index.js';
-import { placeSymbol } from '@ziroeda/eeschema/src/tools/index.js';
-import { moveWithConnections } from '@ziroeda/eeschema/src/tools/move.js';
-import { orthoMove } from '@ziroeda/eeschema/src/tools/ortho.js';
+} from '@ziroeda/eeschema/tools/sch_selection_filter.js';
+import { collectAndGuess } from '@ziroeda/eeschema/tools/sch_collectors.js';
+import { moveItems, planMove } from '@ziroeda/eeschema/tools/index.js';
+import { placeSymbol } from '@ziroeda/eeschema/tools/index.js';
+import { moveWithConnections } from '@ziroeda/eeschema/tools/move.js';
+import { orthoMove } from '@ziroeda/eeschema/tools/ortho.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import { symbolBodyBBox } from '@ziroeda/eeschema/src/tools/bbox.js';
-import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+import { symbolBodyBBox } from '@ziroeda/eeschema/tools/bbox.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 import {
   renderSchematic,
   DEFAULT_RENDER_OPTS,

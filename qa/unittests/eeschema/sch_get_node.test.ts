@@ -7,8 +7,8 @@
  * through the netlist, plus the connection-name lookup the highlight uses.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
 import {
   addItems,
   makeWire,
@@ -16,17 +16,17 @@ import {
   makeLabel,
   makeNoConnect,
   placeSymbol,
-} from '@ziroeda/eeschema/src/tools/index.js';
-import { getNode } from '@ziroeda/eeschema/src/tools/sch_get_node.js';
+} from '@ziroeda/eeschema/tools/index.js';
+import { getNode } from '@ziroeda/eeschema/tools/sch_get_node.js';
 import {
   computeNetlist,
   connectionName,
   equivalentBusNames,
-} from '@ziroeda/eeschema/src/connectivity/nets.js';
+} from '@ziroeda/eeschema/connectivity/nets.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import type { Schematic, LibSymbol } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic, LibSymbol } from '@ziroeda/eeschema/types.js';
 
 const at = (x: number, y: number) => ({ x: mmToIU(x), y: mmToIU(y) });
 const ACC = mmToIU(0.5);

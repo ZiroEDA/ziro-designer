@@ -16,8 +16,8 @@ import {
   resolveFieldCaseConflicts,
   resolveFieldCaseConflictsCommand,
   type FieldCaseAction,
-} from '@ziroeda/eeschema/src/tools/field_case_conflicts.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/field_case_conflicts.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const sch = (body: string): Schematic =>
   readSchematic(parse(`(kicad_sch (version 20231120) (generator "test") (lib_symbols) ${body})`));

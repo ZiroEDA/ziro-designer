@@ -57,7 +57,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 import { ZONE_LAYER_OVERRIDE } from '@ziroeda/pcbnew/board_item.js';

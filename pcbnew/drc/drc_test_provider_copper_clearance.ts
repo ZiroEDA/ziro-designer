@@ -18,7 +18,7 @@ import { FLASHING, IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_ids
 import { LAYER_RANGE } from '@ziroeda/common/layer_range.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { SEG } from '@ziroeda/kimath/src/geometry/seg.js';
 import type { SHAPE } from '@ziroeda/kimath/src/geometry/shape.js';
 import type { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';

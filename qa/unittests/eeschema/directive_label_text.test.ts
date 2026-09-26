@@ -13,12 +13,12 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { makeDirectiveLabel } from '@ziroeda/eeschema/src/tools/build.js';
-import { replaceDirectiveLabel } from '@ziroeda/eeschema/src/tools/mutate.js';
-import { getMsgPanelItems } from '@ziroeda/eeschema/src/tools/msg_panel.js';
-import { itemRefById, refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { makeDirectiveLabel } from '@ziroeda/eeschema/tools/build.js';
+import { replaceDirectiveLabel } from '@ziroeda/eeschema/tools/mutate.js';
+import { getMsgPanelItems } from '@ziroeda/eeschema/tools/msg_panel.js';
+import { itemRefById, refId } from '@ziroeda/eeschema/tools/hittest.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 const LIB = new Map<string, LibSymbol>();
 const sheet = (body: string): Schematic =>

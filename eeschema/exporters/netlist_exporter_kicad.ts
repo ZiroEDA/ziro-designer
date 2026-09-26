@@ -27,9 +27,9 @@
  */
 
 import { strNumCmp } from '@ziroeda/common/string_utils.js';
-import { atom, list, str, type SList, type SNode } from '@ziroeda/sexpr/src/types.js';
-import { arg, childrenNamed } from '@ziroeda/sexpr/src/query.js';
-import { serialize } from '@ziroeda/sexpr/src/serializer.js';
+import { atom, list, str, type SList, type SNode } from '@ziroeda/sexpr/types.js';
+import { arg, childrenNamed } from '@ziroeda/sexpr/query.js';
+import { serialize } from '@ziroeda/sexpr/serializer.js';
 import { computeHierarchyNetlist, type HierSheet } from '../connectivity/hierarchy.js';
 import { enumeratePins, type Netlist, type PinNode } from '../connectivity/nets.js';
 import { resolvePadNumbers } from '../sch_pin.js';

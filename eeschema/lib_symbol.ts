@@ -7,7 +7,7 @@
  */
 
 import { type Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/reporter.js';
-import { isList, head, str, atom, type SList } from '@ziroeda/sexpr/src/types.js';
+import { isList, head, str, atom, type SList } from '@ziroeda/sexpr/types.js';
 import type { LibSymbol, LibSymbolUnit, SchField } from './types.js';
 import { writeLibSymbolNode } from './sch_io/sexpr/write-symbol-lib.js';
 import { MANDATORY_FIELDS } from './tools/properties.js';

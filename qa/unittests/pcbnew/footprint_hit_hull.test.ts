@@ -22,7 +22,7 @@ import { boardHitCandidates, boardItemsInBox } from '@ziroeda/pcbnew/edit-board.
 import { footprintBBox, footprintHull } from '@ziroeda/pcbnew/edit-footprint.js';
 import { pcbMmToIU as mm } from '@ziroeda/common/eda_units.js';
 import type { Board, PcbFootprint, PcbPad, PcbShape, PcbTextItem } from '@ziroeda/pcbnew/types.js';
-import type { SList } from '@ziroeda/sexpr/src/index.js';
+import type { SList } from '@ziroeda/sexpr/index.js';
 
 const pad = (at: { x: number; y: number }, s: number): PcbPad => ({
   number: '1',

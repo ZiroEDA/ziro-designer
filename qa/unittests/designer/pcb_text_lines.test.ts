@@ -9,7 +9,7 @@
  * exactly, where each of these was a visible, reproducible difference.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 import { layoutText, splitTextLines } from '@ziroeda/common/font/stroke_font.js';

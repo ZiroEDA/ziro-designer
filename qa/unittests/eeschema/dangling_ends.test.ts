@@ -8,8 +8,8 @@
  * away marks the freed wire ends, rotating it back clears them.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
 import {
   addItems,
   makeWire,
@@ -19,13 +19,10 @@ import {
   makeNoConnect,
   refId,
   transformItems,
-} from '@ziroeda/eeschema/src/tools/index.js';
-import {
-  danglingWireEnds,
-  danglingLabelAnchors,
-} from '@ziroeda/eeschema/src/connectivity/dangling.js';
+} from '@ziroeda/eeschema/tools/index.js';
+import { danglingWireEnds, danglingLabelAnchors } from '@ziroeda/eeschema/connectivity/dangling.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const at = (x: number, y: number) => ({ x: mmToIU(x), y: mmToIU(y) });
 const EMPTY = (): Schematic => readSchematic(parse('(kicad_sch (version 1) (lib_symbols))'));

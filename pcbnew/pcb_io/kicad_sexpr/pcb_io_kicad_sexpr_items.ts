@@ -34,7 +34,7 @@ import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { LINE_STYLE, STROKE_PARAMS, STROKE_PARAMS_PARSER } from '@ziroeda/common/stroke_params.js';
 import { FIELD_T, GetUserFieldName } from '@ziroeda/common/template_fieldnames.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ARC_HIGH_DEF } from '@ziroeda/kimath/src/base_units.js';
 import {
   ERROR_LOC,

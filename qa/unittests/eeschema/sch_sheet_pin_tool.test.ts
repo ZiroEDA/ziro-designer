@@ -9,9 +9,9 @@
  * cursor is nearest, and clamps it along that edge's length.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { hitTest, refId, sheetPinId } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { hitTest, refId, sheetPinId } from '@ziroeda/eeschema/tools/hittest.js';
 import {
   parseSheetPinId,
   moveSheetPin,
@@ -21,7 +21,7 @@ import {
   cleanupSheetPins,
   hierarchicalLabelNames,
   autoplaceAllSheetPins,
-} from '@ziroeda/eeschema/src/tools/sch_sheet_pin_tool.js';
+} from '@ziroeda/eeschema/tools/sch_sheet_pin_tool.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const mm = (v: number): number => mmToIU(v);

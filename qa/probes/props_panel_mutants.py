@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 WIDGET = "designer/src/widgets/properties_panel.tsx"
 CSS = "designer/src/widgets/properties_panel.css"
-DATA = "eeschema/src/tools/sch_properties_panel.ts"
+DATA = "eeschema/tools/sch_properties_panel.ts"
 
 WIDGET_TEST = "unittests/designer/properties_panel_widget.test.tsx"
 DATA_TEST = "unittests/eeschema/props_panel_symbol.test.ts"

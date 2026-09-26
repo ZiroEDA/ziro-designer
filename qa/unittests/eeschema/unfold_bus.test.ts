@@ -9,14 +9,14 @@
  * list offering names the bus does not carry.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import {
   busUnfoldMembers,
   unfoldBus,
   busForUnfolding,
   nearestPointOnSegment,
-} from '@ziroeda/eeschema/src/tools/unfold_bus.js';
+} from '@ziroeda/eeschema/tools/unfold_bus.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const mm = (v: number): number => mmToIU(v);

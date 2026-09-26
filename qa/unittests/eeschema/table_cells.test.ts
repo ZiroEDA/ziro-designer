@@ -18,8 +18,8 @@ import {
   resolveCell,
   tableCellId,
   tableOfCellId,
-} from '@ziroeda/eeschema/src/tools/table_cells.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/table_cells.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const mm = (n: number): number => n * 10000;
 

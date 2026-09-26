@@ -26,21 +26,17 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import { makeBezier } from '@ziroeda/eeschema/src/tools/build-graphics.js';
-import { hitTest } from '@ziroeda/eeschema/src/tools/hittest.js';
-import {
-  dragHandle,
-  editHandles,
-  pointEditTarget,
-} from '@ziroeda/eeschema/src/tools/point_editor.js';
+import { makeBezier } from '@ziroeda/eeschema/tools/build-graphics.js';
+import { hitTest } from '@ziroeda/eeschema/tools/hittest.js';
+import { dragHandle, editHandles, pointEditTarget } from '@ziroeda/eeschema/tools/point_editor.js';
 import {
   type BezierDraw,
   beginBezier,
   bezierPoints,
   calcBezier,
   continueBezier,
-} from '@ziroeda/eeschema/src/tools/bezier_geom.js';
-import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/bezier_geom.js';
+import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/types.js';
 
 const at = (x: number, y: number): Vec2 => ({ x: mmToIU(x), y: mmToIU(y) });
 

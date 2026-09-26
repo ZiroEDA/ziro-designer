@@ -25,10 +25,10 @@ import {
   replaceImage,
   replaceSheet,
   replaceLabel,
-} from '@ziroeda/eeschema/src/tools/mutate.js';
+} from '@ziroeda/eeschema/tools/mutate.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { EditCommand } from '@ziroeda/eeschema/src/tools/command.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { EditCommand } from '@ziroeda/eeschema/tools/command.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const sheet = (body: string): Schematic =>
   readSchematic(parse(`(kicad_sch (version 20250114)\n${body}\n)`));

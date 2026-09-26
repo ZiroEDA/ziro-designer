@@ -7,22 +7,22 @@
  * it hands to the net it sits on.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { makeDirectiveLabel, makeWire } from '@ziroeda/eeschema/src/tools/build.js';
+import { makeDirectiveLabel, makeWire } from '@ziroeda/eeschema/tools/build.js';
 import {
   directiveBox,
   directiveGraphic,
   directiveNetclass,
   directiveNetclassAssignments,
-} from '@ziroeda/eeschema/src/tools/directive_label.js';
-import { computeNetlist } from '@ziroeda/eeschema/src/connectivity/nets.js';
-import { hitTest } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { addItems, deleteByIds } from '@ziroeda/eeschema/src/tools/mutate.js';
-import { moveItems } from '@ziroeda/eeschema/src/tools/move.js';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+} from '@ziroeda/eeschema/tools/directive_label.js';
+import { computeNetlist } from '@ziroeda/eeschema/connectivity/nets.js';
+import { hitTest } from '@ziroeda/eeschema/tools/hittest.js';
+import { addItems, deleteByIds } from '@ziroeda/eeschema/tools/mutate.js';
+import { moveItems } from '@ziroeda/eeschema/tools/move.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const EMPTY = `(kicad_sch (version 20250114) (generator "eeschema"))`;
 const load = (): Schematic => readSchematic(parse(EMPTY));

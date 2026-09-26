@@ -8,16 +8,16 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parse, serialize } from '@ziroeda/sexpr';
-import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { writeSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/write-schematic.js';
+import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { writeSchematic } from '@ziroeda/eeschema/sch_io/sexpr/write-schematic.js';
 import {
   clearAlternates,
   isUsableAlternate,
   pinAlternate,
   resolvePin,
   symbolPin,
-} from '@ziroeda/eeschema/src/tools/pin_alternates.js';
-import type { LibPin, Schematic } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/pin_alternates.js';
+import type { LibPin, Schematic } from '@ziroeda/eeschema/types.js';
 
 /**
  * A two-pin part whose pin 2 can also serve as an SPI clock or a reset — and,

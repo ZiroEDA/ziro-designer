@@ -56,9 +56,9 @@ import {
  * `%TF.FileFunction` value (`gerbview/X2_gerber_attributes.cpp:196-231`).
  *
  * `m_Prms.Item( 0 )` is the attribute name, which our parser has already
- * stripped (`gerbview/src/gerber_file_image_parse.ts:453`), so upstream's
+ * stripped (`gerbview/gerber_file_image_parse.ts:453`), so upstream's
  * `Item( 1 )` is our field 0 — the same offset `zOrderOf`
- * (`gerbview/src/layer_sort.ts:237`) reads. Upstream pads the parameter list to
+ * (`gerbview/layer_sort.ts:237`) reads. Upstream pads the parameter list to
  * seven entries in the constructor (`:139-141`) so a short attribute answers
  * the empty string rather than running off the end; `?? ''` is that padding.
  */

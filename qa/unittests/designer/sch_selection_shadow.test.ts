@@ -14,15 +14,15 @@
  * see it either: every one of those kinds *drew*, it just never glowed.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import {
   renderSchematic,
   DEFAULT_RENDER_OPTS,
 } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
 import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 interface Call {
   op: string;

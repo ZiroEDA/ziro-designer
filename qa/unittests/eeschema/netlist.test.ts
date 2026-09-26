@@ -8,7 +8,7 @@
  */
 import { GENERATOR, GENERATOR_APPLICATION, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import {
   netlistKicadXml,
@@ -16,7 +16,7 @@ import {
   netlistPads,
   netlistCadstar,
   generateNetlist,
-} from '@ziroeda/eeschema/src/exporters/netlist.js';
+} from '@ziroeda/eeschema/exporters/netlist.js';
 
 // A 2-pin resistor-like part and a wire joining R1 pin 2 to R2 pin 1.
 const LIB = `(symbol "Device:R" (pin_names (offset 0))

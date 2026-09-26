@@ -20,9 +20,9 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
-import { schPropertiesFor } from '@ziroeda/eeschema/src/tools/sch_properties_panel.js';
-import { itemRefById, refId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+import { schPropertiesFor } from '@ziroeda/eeschema/tools/sch_properties_panel.js';
+import { itemRefById, refId } from '@ziroeda/eeschema/tools/hittest.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 const LIB = new Map<string, LibSymbol>();
 

@@ -18,11 +18,11 @@
  * pin on the top or bottom border pointed and measured outwards.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { sheetPinBBox } from '@ziroeda/eeschema/src/tools/bbox.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { sheetPinBBox } from '@ziroeda/eeschema/tools/bbox.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 /** A 40 x 40 sheet at (100,50) with one pin on each of its four borders. */
 const doc: Schematic = readSchematic(

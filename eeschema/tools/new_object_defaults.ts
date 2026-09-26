@@ -12,7 +12,7 @@
  */
 
 import type { LibSymbol, SchField } from '../types.js';
-import { list, atom, str, type SList } from '@ziroeda/sexpr/src/types.js';
+import { list, atom, str, type SList } from '@ziroeda/sexpr/types.js';
 
 /**
  * `POWER_SYMBOLS` (`eeschema_settings.h`), the "Power Symbols:" choice.

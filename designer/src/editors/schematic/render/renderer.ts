@@ -88,16 +88,16 @@ import {
   splitTextLines,
   type TextHAlign,
 } from '@ziroeda/common/font/stroke_font.js';
-import type { TextEffects as SchTextEffects } from '@ziroeda/eeschema/src/types.js';
+import type { TextEffects as SchTextEffects } from '@ziroeda/eeschema/types.js';
 import { outlineBoundaryLimits } from '@ziroeda/common/font/outline_layout.js';
 import { getOutlineFont } from '../../../font/outline_fonts.js';
 import { drawOutlineText } from '../../../font/draw_outline_text.js';
-import { globalLabelShape, isEmpty, textPenWidth } from '@ziroeda/eeschema/src/tools/bbox.js';
-import { contentBBox } from '@ziroeda/eeschema/src/tools/scene_bbox.js';
-import { tableCellId } from '@ziroeda/eeschema/src/tools/table_cells.js';
+import { globalLabelShape, isEmpty, textPenWidth } from '@ziroeda/eeschema/tools/bbox.js';
+import { contentBBox } from '@ziroeda/eeschema/tools/scene_bbox.js';
+import { tableCellId } from '@ziroeda/eeschema/tools/table_cells.js';
 import { schSymbolLibraryName } from '@ziroeda/eeschema';
-import { imageDataUrl } from '@ziroeda/eeschema/src/import_gfx/image_format.js';
-import { libPreviewFields } from '@ziroeda/eeschema/src/tools/autoplace_fields.js';
+import { imageDataUrl } from '@ziroeda/eeschema/import_gfx/image_format.js';
+import { libPreviewFields } from '@ziroeda/eeschema/tools/autoplace_fields.js';
 import { drawField } from '../../symbol/render/symbolRenderer.js';
 import {
   DNP_MARKER_STROKE_WIDTH,
@@ -107,7 +107,7 @@ import {
   simExclusionMarker,
 } from './symbol_markers.js';
 import { dimmedColor } from './render_color.js';
-import { altIconBox } from '@ziroeda/eeschema/src/pin_box.js';
+import { altIconBox } from '@ziroeda/eeschema/pin_box.js';
 import { drawAltPinModesIcon } from './pin_alt_icon.js';
 
 /**

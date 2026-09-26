@@ -28,7 +28,7 @@
 import type { LibSymbol, Schematic, SchSymbol } from '../types.js';
 import type { EditCommand } from './command.js';
 import { symbolNodeWithFreshUuids } from './build.js';
-import { childNamed } from '@ziroeda/sexpr/src/query.js';
+import { childNamed } from '@ziroeda/sexpr/query.js';
 import { isList, type SList } from '@ziroeda/sexpr';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 

@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { WX_IMAGE } from '@ziroeda/common/wx_image.js';
-import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
+import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 import { PCB_REFERENCE_IMAGE } from '@ziroeda/pcbnew/pcb_reference_image.js';

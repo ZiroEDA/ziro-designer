@@ -16,8 +16,8 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, readSymbolLib, refId } from '@ziroeda/eeschema';
-import { planMove } from '@ziroeda/eeschema/src/tools/connect.js';
-import { orthoMove } from '@ziroeda/eeschema/src/tools/ortho.js';
+import { planMove } from '@ziroeda/eeschema/tools/connect.js';
+import { orthoMove } from '@ziroeda/eeschema/tools/ortho.js';
 import {
   dragSplit,
   movingIds,
@@ -26,7 +26,7 @@ import {
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 const rawR = readFileSync(
   fileURLToPath(new URL('../../data/R.kicad_sym', import.meta.url)),

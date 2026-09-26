@@ -20,7 +20,7 @@ import {
 import { GL_BEGIN_MODE, type GL_FIXED_FUNCTION, GL_MATRIX_MODE } from './gl_fixed_function.js';
 import { glsl_xor_diff_frag, glsl_xor_diff_vert } from './shaders/xor_diff.js';
 import { checkGlError } from './utils.js';
-import { wxASSERT } from '@ziroeda/core/src/wx_assert.js';
+import { wxASSERT } from '@ziroeda/core/wx_assert.js';
 
 const COLOR4D_BLACK: Color4d = { r: 0, g: 0, b: 0, a: 1 };
 

@@ -51,9 +51,9 @@ import {
   KIUI_EllipsizeMenuText,
   KIUI_EllipsizeStatusText,
 } from '@ziroeda/common/widgets/ui_common.js';
-import { applyMixins } from '@ziroeda/core/src/mixins.js';
-import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { applyMixins } from '@ziroeda/core/mixins.js';
+import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import {
   ANGLE_90,
@@ -88,7 +88,7 @@ import { PCB_TEXT } from './pcb_text.js';
 // biome-ignore lint/suspicious/noEmptyInterface: declaration merging carries the EDA_TEXT mixin's members
 export interface PCB_TEXTBOX extends Omit<EDA_TEXT, 'Replace' | 'Similarity' | 'Compare'> {}
 
-// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: KiCad's multiple inheritance, see libs/core/src/mixins.ts
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: KiCad's multiple inheritance, see libs/core/mixins.ts
 export class PCB_TEXTBOX extends PCB_SHAPE {
   protected m_borderEnabled: boolean; ///< Controls drawing the border (as defined by the stroke members)
 

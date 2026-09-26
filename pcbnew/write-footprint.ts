@@ -7,7 +7,7 @@
  * onto the front, detached and cleared of nets, then `Format`ted with
  * `CTL_FOR_LIBRARY` — over the footprint's class.
  */
-import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
+import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
 import { ANGLE_0 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import type { BOARD } from './board.js';

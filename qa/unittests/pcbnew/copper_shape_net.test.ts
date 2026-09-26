@@ -21,7 +21,7 @@
  * KiCad 10 has saved — which is every board that has one.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard, readFootprintFile } from '@ziroeda/pcbnew/read-board.js';
 import { flatText, writtenNode } from './support/written_node.js';
 

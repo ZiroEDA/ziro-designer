@@ -10,9 +10,9 @@
  * (ApplyNetChainNetclasses → pattern assignments).
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { computeNetlist } from '@ziroeda/eeschema/src/connectivity/nets.js';
+import { computeNetlist } from '@ziroeda/eeschema/connectivity/nets.js';
 import {
   chainPatternAssignments,
   detectNetChains,
@@ -22,7 +22,7 @@ import {
   restoreCommittedNetChains,
   writeNetChains,
   type CommittedNetChain,
-} from '@ziroeda/eeschema/src/connectivity/net_chains.js';
+} from '@ziroeda/eeschema/connectivity/net_chains.js';
 import {
   defaultSchematicSetup,
   resolveEffectiveNetClass,

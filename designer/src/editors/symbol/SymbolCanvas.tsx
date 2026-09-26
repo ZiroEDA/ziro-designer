@@ -21,8 +21,8 @@ import {
   EDIT_POINT_SIZE,
   editPointColors,
 } from '@ziroeda/common';
-import type { EditHandle } from '@ziroeda/eeschema/src/tools/point_editor.js';
-import { ArcEditMode } from '@ziroeda/eeschema/src/tools/arc_edit.js';
+import type { EditHandle } from '@ziroeda/eeschema/tools/point_editor.js';
+import { ArcEditMode } from '@ziroeda/eeschema/tools/arc_edit.js';
 import {
   commonInputPrefs,
   dragGesture,

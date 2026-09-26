@@ -12,7 +12,7 @@
  * re-exported under its C++ home.
  */
 import type { Vec2 as VECTOR2D } from '@ziroeda/kimath/src/math/vector2.js';
-import { WXK } from '@ziroeda/core/src/wx_keycodes.js';
+import { WXK } from '@ziroeda/core/wx_keycodes.js';
 import { BITMAPS } from '../bitmaps_list.js';
 import type { EdaUnits } from '../eda_units.js';
 import { ARC_EDIT_MODE, FRAME_T, wxID } from '../frame_type.js';

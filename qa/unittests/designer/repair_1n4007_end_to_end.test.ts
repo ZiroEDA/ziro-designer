@@ -24,14 +24,14 @@
  * geometry. The broken schematic is what our writer produced before fb9a40b1.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { serialize } from '@ziroeda/sexpr/src/serializer.js';
-import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { writeSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/write-schematic.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { serialize } from '@ziroeda/sexpr/serializer.js';
+import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { writeSchematic } from '@ziroeda/eeschema/sch_io/sexpr/write-schematic.js';
 import {
   changeSymbols,
   defaultChangeSymbolsOptions,
-} from '@ziroeda/eeschema/src/tools/change_symbols.js';
+} from '@ziroeda/eeschema/tools/change_symbols.js';
 import { repairSourceLibs } from '@ziroeda/designer/src/editors/schematic/symbols/repair_source.js';
 
 /** As served: the parent carries the body, the child carries only fields. */

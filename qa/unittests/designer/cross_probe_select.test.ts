@@ -25,14 +25,14 @@ import {
   crossProbeSchSelection,
   findSymbolsFromSyncSelection,
   schCrossProbeZoomScale,
-} from '@ziroeda/eeschema/src/tools/cross_probe.js';
+} from '@ziroeda/eeschema/tools/cross_probe.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { boardSyncSelectionParts } from '@ziroeda/pcbnew/cross_probe.js';
 import { readBoard } from '@ziroeda/pcbnew';
 import { findItemsFromSyncSelection, crossProbeZoomScale } from '@ziroeda/pcbnew';
 import { escapeIpc } from '@ziroeda/common/string_utils.js';
 import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
-import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol } from '@ziroeda/eeschema/types.js';
 // The symbol and sheet uuids are real ones: a `(path …)` in a board file is
 // read as a KIID_PATH, and `KIID( const wxString& )` (kiid.cpp) draws a random
 // uuid for any text that does not parse as one.

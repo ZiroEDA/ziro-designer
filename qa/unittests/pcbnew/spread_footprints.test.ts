@@ -20,7 +20,7 @@
  * the outline of the next. A box that included the text could not produce that.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readFootprintFile } from '@ziroeda/pcbnew/read-board.js';
 import { footprintBBox } from '@ziroeda/pcbnew/edit-footprint.js';
 import { spreadFootprints } from '@ziroeda/pcbnew/autorouter/spread_footprints.js';

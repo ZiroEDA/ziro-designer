@@ -17,7 +17,7 @@
  * lets `findDpPrimitivePair` say `pair.primP()` is always on P.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { PnsBoardIface } from '@ziroeda/pcbnew/router/pns_board_iface.js';
 import { PnsSession } from '@ziroeda/pcbnew/router/pns_session.js';

@@ -46,7 +46,7 @@ import {
   SHAPE_POLY_SET,
   TransformCircleToPolygon,
 } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { BOARD } from './board.js';
 import { type DrillLineItem, CollectDrillLineItems } from './board_statistics.js';
 import { FP_SMD, FP_THROUGH_HOLE } from './footprint.js';

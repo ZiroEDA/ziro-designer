@@ -7,10 +7,10 @@
  * matrix cell must change the reported violations.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
-import { runErc } from '@ziroeda/eeschema/src/connectivity/erc.js';
-import { defaultErcSettings, typeIndex } from '@ziroeda/eeschema/src/erc/erc_settings.js';
+import { runErc } from '@ziroeda/eeschema/connectivity/erc.js';
+import { defaultErcSettings, typeIndex } from '@ziroeda/eeschema/erc/erc_settings.js';
 
 function libDef(name: string, type: string): string {
   return `(symbol "T:${name}" (pin_names (offset 0.254))

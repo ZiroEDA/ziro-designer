@@ -47,7 +47,7 @@ import { render } from '@testing-library/react';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { ProjectTreePane } from '@ziroeda/designer/src/home/project_tree_pane.js';
 import { SelectionFilterPanel } from '@ziroeda/designer/src/ui/SelectionFilterPanel.js';
-import { defaultSelectionFilter } from '@ziroeda/eeschema/src/tools/sch_selection_filter.js';
+import { defaultSelectionFilter } from '@ziroeda/eeschema/tools/sch_selection_filter.js';
 
 // `import.meta.url` is not a file: URL under happy-dom, so paths go through
 // the repo root instead — the same workaround chooser_shell_metrics.test.tsx uses.

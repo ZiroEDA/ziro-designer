@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import { sheetToSvg } from '@ziroeda/designer/src/editors/schematic/render/plot.js';
 import type { PlotOpts } from '@ziroeda/designer/src/editors/schematic/render/plot.js';

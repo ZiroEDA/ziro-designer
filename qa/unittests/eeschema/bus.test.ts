@@ -12,7 +12,7 @@ import {
   isBusLabel,
   parseBusGroup,
   parseBusVector,
-} from '@ziroeda/eeschema/src/connectivity/bus.js';
+} from '@ziroeda/eeschema/connectivity/bus.js';
 
 describe('parseBusVector', () => {
   it('expands a basic range', () => {

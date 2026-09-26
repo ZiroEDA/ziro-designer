@@ -31,12 +31,12 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { serialize } from '@ziroeda/sexpr/src/serializer.js';
-import { readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { makeSymbol } from '@ziroeda/eeschema/src/tools/build.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { serialize } from '@ziroeda/sexpr/serializer.js';
+import { readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { makeSymbol } from '@ziroeda/eeschema/tools/build.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol } from '@ziroeda/eeschema/types.js';
 
 /**
  * Stock `power:GND`, copied verbatim from /usr/share/kicad/symbols/power.kicad_sym

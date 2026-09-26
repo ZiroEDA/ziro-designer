@@ -12,7 +12,7 @@
 import { type KIID, niluuid } from '@ziroeda/common/kiid.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { RPT_SEVERITY_UNDEFINED, type Severity } from '@ziroeda/common/reporter.js';
-import { MINOPTMAX } from '@ziroeda/core/src/minoptmax.js';
+import { MINOPTMAX } from '@ziroeda/core/minoptmax.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import { ZONE_CONNECTION } from '../zones.js';
 import type { DRC_RULE_CONDITION } from './drc_rule_condition.js';

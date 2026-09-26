@@ -21,8 +21,8 @@ import {
   translatePayload,
   pasteItems,
   type PasteOptions,
-} from '@ziroeda/eeschema/src/tools/clipboard.js';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+} from '@ziroeda/eeschema/tools/clipboard.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 // ---- fixtures ---------------------------------------------------------------

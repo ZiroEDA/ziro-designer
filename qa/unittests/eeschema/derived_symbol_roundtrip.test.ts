@@ -17,22 +17,22 @@
  * alone misses the writer, which is where this bug actually lived.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { serialize } from '@ziroeda/sexpr/src/serializer.js';
-import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { writeSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/write-schematic.js';
-import { writeSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/write-symbol-lib.js';
-import { flattenLibSymbol } from '@ziroeda/eeschema/src/lib_symbol.js';
-import { placeSymbol } from '@ziroeda/eeschema/src/tools/mutate.js';
-import { makeSymbol } from '@ziroeda/eeschema/src/tools/build.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { serialize } from '@ziroeda/sexpr/serializer.js';
+import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { writeSchematic } from '@ziroeda/eeschema/sch_io/sexpr/write-schematic.js';
+import { writeSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/write-symbol-lib.js';
+import { flattenLibSymbol } from '@ziroeda/eeschema/lib_symbol.js';
+import { placeSymbol } from '@ziroeda/eeschema/tools/mutate.js';
+import { makeSymbol } from '@ziroeda/eeschema/tools/build.js';
 import {
   changeSymbols,
   defaultChangeSymbolsOptions,
-} from '@ziroeda/eeschema/src/tools/change_symbols.js';
-import { History } from '@ziroeda/eeschema/src/tools/command.js';
+} from '@ziroeda/eeschema/tools/change_symbols.js';
+import { History } from '@ziroeda/eeschema/tools/command.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/reporter.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 /**
  * Shaped like Diode.kicad_sym's 1N4001/1N4007 pair, the part that lost its body:

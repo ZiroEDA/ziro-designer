@@ -16,8 +16,8 @@ import {
   planNetclassAssignment,
   selectedNets,
   type SelectedNet,
-} from '@ziroeda/eeschema/src/tools/assign_netclass.js';
-import { Priority } from '@ziroeda/eeschema/src/connectivity/nets.js';
+} from '@ziroeda/eeschema/tools/assign_netclass.js';
+import { Priority } from '@ziroeda/eeschema/connectivity/nets.js';
 
 const net = (over: Partial<SelectedNet> = {}): SelectedNet => ({
   name: 'CLK',

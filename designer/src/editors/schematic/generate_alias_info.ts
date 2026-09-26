@@ -10,7 +10,7 @@
  * appended after its own.
  */
 import type { LibSymbol } from '@ziroeda/eeschema';
-import { letterSubReference } from '@ziroeda/eeschema/src/fieldbox.js';
+import { letterSubReference } from '@ziroeda/eeschema/fieldbox.js';
 
 function escapeHtml(text: string): string {
   return text

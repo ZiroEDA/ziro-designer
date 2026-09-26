@@ -16,9 +16,9 @@ import {
   netNavigatorIndex,
   netOfItem,
   stepNetItem,
-} from '@ziroeda/eeschema/src/tools/net_navigator.js';
+} from '@ziroeda/eeschema/tools/net_navigator.js';
 import { iuToMM } from '@ziroeda/common/eda_units.js';
-import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 /** A resistor wired to a labelled net, with a junction, a no-connect and a bus. */
 const SCH = `(kicad_sch (version 20250114) (generator "test") (paper "A4")

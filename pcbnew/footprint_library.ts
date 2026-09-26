@@ -43,7 +43,7 @@
  * does the reverse. Both are reproduced.
  */
 
-import { parse } from '@ziroeda/sexpr/src/parser.js';
+import { parse } from '@ziroeda/sexpr/parser.js';
 import {
   NESTED_TABLE_ROW_TYPE,
   absolutePath,

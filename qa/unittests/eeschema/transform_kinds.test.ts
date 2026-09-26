@@ -12,12 +12,12 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
-import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
+import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
 import { serializeSchematic } from '@ziroeda/eeschema';
-import { transformItems } from '@ziroeda/eeschema/src/tools/transform.js';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { transformItems } from '@ziroeda/eeschema/tools/transform.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { Schematic, Vec2 } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic, Vec2 } from '@ziroeda/eeschema/types.js';
 
 const GRID = mmToIU(1.27);
 /** On-grid coordinates: an off-grid fixture measures the snap, not the feature. */

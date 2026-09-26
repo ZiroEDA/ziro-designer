@@ -3,7 +3,7 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard, rotatePcb, arcCenter } from '@ziroeda/pcbnew/read-board.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 

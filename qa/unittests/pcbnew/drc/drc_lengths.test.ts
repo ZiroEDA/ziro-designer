@@ -11,7 +11,7 @@ import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { RPT_SEVERITY_ERROR, RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
 import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { DRC_ITEM } from '@ziroeda/pcbnew/drc/drc_item.js';
 import { PCB_DRC_CODE } from '@ziroeda/pcbnew/drc/drc_item.js';
 import { LENGTH_DELAY_CALCULATION } from '@ziroeda/pcbnew/length_delay_calculation/length_delay_calculation.js';

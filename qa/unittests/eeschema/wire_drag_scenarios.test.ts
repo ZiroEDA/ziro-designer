@@ -23,18 +23,18 @@
  * once, so a fix to one path cannot quietly break another.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { planMove } from '@ziroeda/eeschema/src/tools/connect.js';
-import { orthoMove } from '@ziroeda/eeschema/src/tools/ortho.js';
-import { moveWithConnections } from '@ziroeda/eeschema/src/tools/move.js';
-import { withCleanup } from '@ziroeda/eeschema/src/tools/cleanup.js';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { computeNetlist } from '@ziroeda/eeschema/src/connectivity/nets.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { planMove } from '@ziroeda/eeschema/tools/connect.js';
+import { orthoMove } from '@ziroeda/eeschema/tools/ortho.js';
+import { moveWithConnections } from '@ziroeda/eeschema/tools/move.js';
+import { withCleanup } from '@ziroeda/eeschema/tools/cleanup.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
+import { computeNetlist } from '@ziroeda/eeschema/connectivity/nets.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/types.js';
 
 const R = readSymbolLib(
   parse(readFileSync(fileURLToPath(new URL('../../data/R.kicad_sym', import.meta.url)), 'utf8')),

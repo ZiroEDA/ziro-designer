@@ -42,9 +42,9 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr';
-import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { collectAndGuess } from '@ziroeda/eeschema/src/tools/sch_collectors.js';
-import { refId, type ItemRef } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { collectAndGuess } from '@ziroeda/eeschema/tools/sch_collectors.js';
+import { refId, type ItemRef } from '@ziroeda/eeschema/tools/hittest.js';
 import {
   AnyItems,
   AttributeItems,
@@ -58,7 +58,7 @@ import {
   selectPoint,
   trimToScanTypes,
   type ScanTypes,
-} from '@ziroeda/eeschema/src/tools/sch_request_selection.js';
+} from '@ziroeda/eeschema/tools/sch_request_selection.js';
 import {
   clearHoverSelection,
   isHoverSelection,
@@ -66,7 +66,7 @@ import {
   type HoverSelection,
 } from '@ziroeda/designer/src/editors/schematic/hover_selection.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/types.js';
 
 const rawR = readFileSync(
   fileURLToPath(new URL('../../data/R.kicad_sym', import.meta.url)),

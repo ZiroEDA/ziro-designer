@@ -46,7 +46,7 @@ vi.mock('three', async (importOriginal) => {
   return { ...real, WebGLRenderer: FakeRenderer };
 });
 
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { mount3DViewer } from '../pcb3d.js';
 

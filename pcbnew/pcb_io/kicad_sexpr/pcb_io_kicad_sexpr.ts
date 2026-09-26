@@ -63,7 +63,7 @@ import { ANGLE_45, ANGLE_90, type EDA_ANGLE } from '@ziroeda/kimath/src/geometry
 import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { BOARD } from '../../board.js';
 import { BOARD_ITEM, ZONE_LAYER_OVERRIDE } from '../../board_item.js';
 import { LAYER, LAYER_T } from '../../board_types.js';

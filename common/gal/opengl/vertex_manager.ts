@@ -23,7 +23,7 @@ import {
 } from './vertex_common.js';
 import { VERTEX_CONTAINER } from './vertex_container.js';
 import type { VERTEX_ITEM } from './vertex_item.js';
-import { wxASSERT } from '@ziroeda/core/src/wx_assert.js';
+import { wxASSERT } from '@ziroeda/core/wx_assert.js';
 
 /** `glm::mat4`, column-major. */
 export type MAT4 = Float32Array;

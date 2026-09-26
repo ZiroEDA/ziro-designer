@@ -31,10 +31,10 @@ import {
   ruleAreaNetclassAssignments,
   ruleAreaNetclasses,
   ruleAreas,
-} from '@ziroeda/eeschema/src/tools/rule_area.js';
-import { computeNetlist } from '@ziroeda/eeschema/src/connectivity/nets.js';
+} from '@ziroeda/eeschema/tools/rule_area.js';
+import { computeNetlist } from '@ziroeda/eeschema/connectivity/nets.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 const LIB = new Map<string, LibSymbol>();
 

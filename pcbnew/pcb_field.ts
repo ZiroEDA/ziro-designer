@@ -39,7 +39,7 @@ import {
 } from '@ziroeda/common/template_fieldnames.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { KIUI_EllipsizeMenuText } from '@ziroeda/common/widgets/ui_common.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { BOARD_ITEM } from './board_item.js';
 import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
 import type { FOOTPRINT } from './footprint.js';

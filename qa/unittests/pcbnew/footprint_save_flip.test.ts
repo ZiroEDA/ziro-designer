@@ -15,8 +15,8 @@
  * is the C++ method's arithmetic, not our output.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { head, isList, type SList } from '@ziroeda/sexpr/src/types.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { head, isList, type SList } from '@ziroeda/sexpr/types.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { readFootprintFile } from '@ziroeda/pcbnew/read-board.js';
 import { FLIP_DIRECTION, serializeFootprint } from '@ziroeda/pcbnew/write-footprint.js';

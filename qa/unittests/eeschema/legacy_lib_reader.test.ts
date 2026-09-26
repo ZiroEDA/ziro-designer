@@ -44,13 +44,13 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSymbolLib } from '@ziroeda/eeschema';
 import {
   legacyCacheFileNames,
   readLegacySymbolLibrary,
-} from '@ziroeda/eeschema/src/sch_io/legacy/read-lib.js';
-import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/sch_io/legacy/read-lib.js';
+import type { LibSymbol } from '@ziroeda/eeschema/types.js';
 
 const data = (name: string): string =>
   readFileSync(

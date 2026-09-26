@@ -9,7 +9,7 @@
  * member prunes it from its group.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic, withCleanup, deleteByIds } from '@ziroeda/eeschema';
 import {
   groupItemsCommand,
@@ -20,8 +20,8 @@ import {
   canRemoveFromGroup,
   expandSelectionToGroups,
   pruneGroupMembers,
-} from '@ziroeda/eeschema/src/tools/sch_group_tool.js';
-import { History } from '@ziroeda/eeschema/src/tools/command.js';
+} from '@ziroeda/eeschema/tools/sch_group_tool.js';
+import { History } from '@ziroeda/eeschema/tools/command.js';
 
 const sym = (ref: string, uuid: string): string =>
   `(symbol (lib_id "Device:R") (at 10 10 0) (unit 1) (uuid "${uuid}")

@@ -29,7 +29,7 @@ import type { PCB_TEXT } from './pcb_text.js';
 import type { PCB_TRACK, PCB_VIA } from './pcb_track.js';
 import { VIATYPE } from './pcb_track_types.js';
 import type { ZONE } from './zone.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { BOARD_ITEM } from './board_item.js';
 
 /**

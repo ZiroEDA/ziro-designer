@@ -35,7 +35,7 @@
  * cannot compare anything that contains one.
  */
 
-import { atom, list, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
+import { atom, list, str, type SList, type SNode } from '@ziroeda/sexpr/index.js';
 import { convertToNewOverbarNotation } from '@ziroeda/common/string_utils.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
 import type { Reporter } from '@ziroeda/common/reporter.js';

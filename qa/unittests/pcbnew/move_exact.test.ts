@@ -17,7 +17,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import { head, isList } from '@ziroeda/sexpr/src/index.js';
+import { head, isList } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { writtenNode, writtenNodes } from './support/written_node.js';
 import {

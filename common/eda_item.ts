@@ -6,7 +6,7 @@
  * all the KiCad significant classes used in schematics and boards.
  */
 
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { EMBEDDED_FILES } from './embedded_files.js';

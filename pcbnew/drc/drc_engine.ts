@@ -28,7 +28,7 @@ import type { PROGRESS_REPORTER } from '@ziroeda/common/progress_reporter.js';
 import { RPT_SEVERITY_ERROR, type Reporter } from '@ziroeda/common/reporter.js';
 import { EscapeHTML } from '@ziroeda/common/string_utils.js';
 import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
-import { BaseType, KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { BaseType, KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { NETLIST } from '../netlist_reader/pcb_netlist.js';

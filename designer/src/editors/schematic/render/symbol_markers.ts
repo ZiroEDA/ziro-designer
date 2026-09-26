@@ -15,7 +15,7 @@
  * per symbol and not once per unit.
  */
 import { schIUScale } from '@ziroeda/common';
-import type { BBox } from '@ziroeda/eeschema/src/tools/bbox.js';
+import type { BBox } from '@ziroeda/eeschema/tools/bbox.js';
 
 interface Vec2 {
   readonly x: number;

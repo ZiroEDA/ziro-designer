@@ -15,7 +15,7 @@
  * always enough — reading the whole payload to find it would mean decoding
  * megabytes of pixel data on every hit test.
  *
- * **Note on duplication:** `eeschema/src/tools/image_size.ts` carries its own
+ * **Note on duplication:** `eeschema/tools/image_size.ts` carries its own
  * copy of this parsing. It predates this module and is owned by another effort;
  * pointing it here would be a tidy follow-up, but is not this change's to make.
  */

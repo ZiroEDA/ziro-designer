@@ -1466,7 +1466,7 @@ export function SymbolPropertiesDialog({
               live for every other one, with no wxUpdateUI handler and no
               enable condition at all.
               SEAM: it stays disabled here because `OnEditSpiceModel` (:587)
-              opens DIALOG_SIM_MODEL, which is not ported — eeschema/src/sim/
+              opens DIALOG_SIM_MODEL, which is not ported — eeschema/sim/
               carries the model types the SPICE exporter needs, not the dialog.
               A live button that opened nothing would be the worse divergence,
               so the reason is stated in the tooltip the user actually sees. */}

@@ -11,7 +11,7 @@
  * with no net re-connected.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { computeNetlist, computeHierarchyNetlist, readSchematic } from '@ziroeda/eeschema';
 import type { Schematic } from '@ziroeda/eeschema';
 

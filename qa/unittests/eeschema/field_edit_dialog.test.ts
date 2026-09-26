@@ -22,20 +22,20 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
 import {
   autoplaceAfterFieldEdit,
   fieldEditCaption,
   fieldEditTarget,
-} from '@ziroeda/eeschema/src/tools/field_properties.js';
-import { collectFieldBoxes, refId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { collectAndGuess } from '@ziroeda/eeschema/src/tools/sch_collectors.js';
-import { symbolBodyBBox } from '@ziroeda/eeschema/src/tools/bbox.js';
-import { placeSymbol } from '@ziroeda/eeschema/src/tools/index.js';
+} from '@ziroeda/eeschema/tools/field_properties.js';
+import { collectFieldBoxes, refId } from '@ziroeda/eeschema/tools/hittest.js';
+import { collectAndGuess } from '@ziroeda/eeschema/tools/sch_collectors.js';
+import { symbolBodyBBox } from '@ziroeda/eeschema/tools/bbox.js';
+import { placeSymbol } from '@ziroeda/eeschema/tools/index.js';
 import { titleCaps } from '@ziroeda/common/string_utils.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { LibSymbol, SchField, Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol, SchField, Schematic } from '@ziroeda/eeschema/types.js';
 
 const R = readSymbolLib(
   parse(readFileSync(fileURLToPath(new URL('../../data/R.kicad_sym', import.meta.url)), 'utf8')),

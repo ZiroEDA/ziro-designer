@@ -32,8 +32,8 @@ import { useMemo, useState, type JSX } from 'react';
 import {
   GRAPHICS_IMPORTER_SCH,
   type SchImportedItem,
-} from '@ziroeda/eeschema/src/import_gfx/graphics_importer_sch.js';
-import { GRAPHICS_IMPORTER_LIB_SYMBOL } from '@ziroeda/eeschema/src/import_gfx/graphics_importer_lib_symbol.js';
+} from '@ziroeda/eeschema/import_gfx/graphics_importer_sch.js';
+import { GRAPHICS_IMPORTER_LIB_SYMBOL } from '@ziroeda/eeschema/import_gfx/graphics_importer_lib_symbol.js';
 import {
   fileExtension,
   getImportableFileTypes,

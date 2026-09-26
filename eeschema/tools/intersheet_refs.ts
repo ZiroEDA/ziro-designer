@@ -14,7 +14,7 @@
  * form and the prefix/suffix.
  */
 
-import { childNamed, childrenNamed } from '@ziroeda/sexpr/src/query.js';
+import { childNamed, childrenNamed } from '@ziroeda/sexpr/query.js';
 import type { Schematic, SchField, SchLabel } from '../types.js';
 import { readField } from '../sch_io/sexpr/read-schematic.js';
 

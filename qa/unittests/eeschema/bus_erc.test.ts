@@ -7,10 +7,10 @@
  * mismatches, each honouring the Violation Severity settings.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
-import { runErc } from '@ziroeda/eeschema/src/connectivity/erc.js';
-import { defaultErcSettings } from '@ziroeda/eeschema/src/erc/erc_settings.js';
+import { runErc } from '@ziroeda/eeschema/connectivity/erc.js';
+import { defaultErcSettings } from '@ziroeda/eeschema/erc/erc_settings.js';
 
 const doc = (body: string) =>
   readSchematic(parse(`(kicad_sch (version 20230121) (generator eeschema) ${body})`));

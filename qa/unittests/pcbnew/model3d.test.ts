@@ -6,7 +6,7 @@
  * the first step toward rendering component bodies in the 3D viewer.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 
 const BOARD = `(kicad_pcb (version 20241229) (generator "test")

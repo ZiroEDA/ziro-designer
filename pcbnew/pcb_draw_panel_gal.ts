@@ -174,7 +174,7 @@ import { VIEW } from '@ziroeda/common/view/view.js';
 import { WX_VIEW_CONTROLS } from '@ziroeda/common/view/wx_view_controls.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import { ZOOM_MAX_LIMIT_PCBNEW, ZOOM_MIN_LIMIT_PCBNEW } from '@ziroeda/common/zoom_defines.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { BOARD } from './board.js';
 import type { PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
 import type { PCB_BASE_FRAME } from './pcb_base_frame.js';

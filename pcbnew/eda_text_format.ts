@@ -26,7 +26,7 @@
  * here; the two we do not are noted where they would go.
  */
 
-import { atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
+import { atom, str, type SList, type SNode } from '@ziroeda/sexpr/index.js';
 import { pcbIuToMM } from '@ziroeda/common/eda_units.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

@@ -33,7 +33,7 @@
  * `SCH_DRAWING_TOOLS::DrawShape`, which drives `EDA_SHAPE::beginEdit` /
  * `calcEdit` / `continueEdit` and takes its points in the order start, *end*,
  * C1, C2 with no reflection and no chaining. That divergence is upstream's, not
- * ours; `eeschema/src/tools/bezier_geom.ts` is the port of the other path.
+ * ours; `eeschema/tools/bezier_geom.ts` is the port of the other path.
  */
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

@@ -33,9 +33,9 @@ import {
   labelTextBox,
   textBoxWidth,
   textPenWidth,
-} from '@ziroeda/eeschema/src/tools/bbox.js';
-import { fieldTextBox } from '@ziroeda/eeschema/src/fieldbox.js';
-import type { SchField, SchLabel } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/bbox.js';
+import { fieldTextBox } from '@ziroeda/eeschema/fieldbox.js';
+import type { SchField, SchLabel } from '@ziroeda/eeschema/types.js';
 
 /** `KiROUND`: half away from zero. */
 const kiRound = (v: number): number => (v < 0 ? Math.ceil(v - 0.5) : Math.floor(v + 0.5));

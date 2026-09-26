@@ -19,7 +19,7 @@
  * labelled "D1" on the silkscreen and "REF**" in the middle.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoardFootprint, readFootprintFile } from '@ziroeda/pcbnew/read-board.js';
 import {
   footprintTextRaw,

@@ -20,8 +20,8 @@
  */
 
 import { parse } from '@ziroeda/sexpr';
-import { readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
+import { readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import type { LibSymbol } from '@ziroeda/eeschema/types.js';
 import { parseFpLibTable, type FpLibRow } from '../../footprint/fp_lib_table.js';
 import { findProjectFile as findProjectFileByUri } from '../../../fs/project_paths.js';
 

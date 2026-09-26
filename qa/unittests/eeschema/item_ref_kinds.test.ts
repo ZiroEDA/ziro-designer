@@ -15,15 +15,10 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
-import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import {
-  itemRefById,
-  refId,
-  sheetPinId,
-  type ItemRef,
-} from '@ziroeda/eeschema/src/tools/hittest.js';
-import { getMsgPanelItems } from '@ziroeda/eeschema/src/tools/msg_panel.js';
-import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { itemRefById, refId, sheetPinId, type ItemRef } from '@ziroeda/eeschema/tools/hittest.js';
+import { getMsgPanelItems } from '@ziroeda/eeschema/tools/msg_panel.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 const sheet = (body: string): Schematic =>
   readSchematic(parse(`(kicad_sch (version 20250114)\n${body}\n)`));

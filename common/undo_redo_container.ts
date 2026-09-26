@@ -13,7 +13,7 @@ import { asEdaGroup } from './eda_group.js';
 import type { EDA_ITEM } from './eda_item.js';
 import { UR_TRANSIENT, type EDA_ITEM_FLAGS } from './eda_item_flags.js';
 import { type KIID, niluuid } from './kiid.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 
 /** The screen an item belongs to: eeschema's BASE_SCREEN; a board passes null. */
 export type BASE_SCREEN_LIKE = object;

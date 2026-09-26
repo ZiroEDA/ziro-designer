@@ -15,7 +15,7 @@ import { type EDA_ITEM_FLAGS, STARTPOINT, STRUCT_DELETED } from '@ziroeda/common
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { kiidCombine, kiidIncrement } from '@ziroeda/common/kiid.js';
 import { IsExternalCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
 import {
   ERROR_LOC,

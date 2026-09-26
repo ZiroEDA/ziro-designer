@@ -17,7 +17,7 @@ import {
   gerberLayerFromFilename,
   zOrderOf,
 } from '@ziroeda/gerbview';
-import { parseExcellon } from '@ziroeda/gerbview/src/excellon.js';
+import { parseExcellon } from '@ziroeda/gerbview/excellon.js';
 import { gerbviewLayerDisplayName } from '@ziroeda/designer/src/editors/gerbview/gerberAuxControls.js';
 
 const sortNames = (names: string[]): string[] => names.slice().sort(compareByFileExtension);

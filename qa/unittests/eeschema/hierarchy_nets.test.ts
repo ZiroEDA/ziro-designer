@@ -7,11 +7,11 @@
  * subgraphs on one net, named by the chain's best driver.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
-import { computeHierarchyNetlist } from '@ziroeda/eeschema/src/connectivity/hierarchy.js';
-import { runErc, type ExternalPin } from '@ziroeda/eeschema/src/connectivity/erc.js';
-import { enumeratePins } from '@ziroeda/eeschema/src/connectivity/nets.js';
+import { computeHierarchyNetlist } from '@ziroeda/eeschema/connectivity/hierarchy.js';
+import { runErc, type ExternalPin } from '@ziroeda/eeschema/connectivity/erc.js';
+import { enumeratePins } from '@ziroeda/eeschema/connectivity/nets.js';
 import type { Schematic } from '@ziroeda/eeschema';
 
 const LIB = `(symbol "T:PAS" (pin_names (offset 0.254))

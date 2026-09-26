@@ -9,10 +9,10 @@
  * duplication is Ctrl+D and already exists.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { incrementString, repeatItems } from '@ziroeda/eeschema/src/tools/repeat_item.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
+import { incrementString, repeatItems } from '@ziroeda/eeschema/tools/repeat_item.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const mm = (v: number): number => mmToIU(v);

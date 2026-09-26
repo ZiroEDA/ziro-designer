@@ -9,7 +9,7 @@
  * The page stored its rows in the project file and nothing on the board ever
  * read them, so a text reading `${REVISION}` drew those nine characters. The
  * schematic side already expanded them; the expander itself was stranded in
- * `eeschema/src/tools/`, which is why the board could not reach it. Upstream
+ * `eeschema/tools/`, which is why the board could not reach it. Upstream
  * keeps it in `common/` precisely because both editors call it, so it moved
  * there rather than being copied.
  *

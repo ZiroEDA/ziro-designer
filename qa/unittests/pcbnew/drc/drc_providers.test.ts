@@ -15,7 +15,7 @@ import {
   RPT_SEVERITY_WARNING,
 } from '@ziroeda/common/reporter.js';
 import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
-import { BaseType, KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { BaseType, KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
 import type { DRC_ITEM } from '@ziroeda/pcbnew/drc/drc_item.js';

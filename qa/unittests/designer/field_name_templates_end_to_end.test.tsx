@@ -40,7 +40,7 @@ import {
   FieldsDataModel,
   loadFieldNames,
   symbolTextVarResolver,
-} from '@ziroeda/eeschema/src/tools/fields_data_model.js';
+} from '@ziroeda/eeschema/tools/fields_data_model.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import { parse } from '@ziroeda/sexpr';
 

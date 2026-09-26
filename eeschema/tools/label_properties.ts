@@ -15,8 +15,8 @@
  * keeps everything we don't model (positions, fonts, hyperlinks) byte-stable.
  */
 
-import { head, isList, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
-import { childrenNamed } from '@ziroeda/sexpr/src/query.js';
+import { head, isList, type SList, type SNode } from '@ziroeda/sexpr/index.js';
+import { childrenNamed } from '@ziroeda/sexpr/query.js';
 import { readField } from '../sch_io/sexpr/read-schematic.js';
 import { buildPropertyNode, patchProperty } from '../sch_io/sexpr/write-schematic.js';
 import type { LibSymbol, SchField, SchLabel, SchSymbol, Schematic, Vec2 } from '../types.js';

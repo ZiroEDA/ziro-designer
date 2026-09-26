@@ -18,8 +18,8 @@
  * and nothing appeared until the click committed a stable one.
  */
 import { describe, it, expect } from 'vitest';
-import { makeImage } from '@ziroeda/eeschema/src/tools/build-graphics.js';
-import { serialize } from '@ziroeda/sexpr/src/index.js';
+import { makeImage } from '@ziroeda/eeschema/tools/build-graphics.js';
+import { serialize } from '@ziroeda/sexpr/index.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const at = (x: number, y: number) => ({ x: mmToIU(x), y: mmToIU(y) });

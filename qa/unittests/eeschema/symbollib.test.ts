@@ -4,12 +4,12 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
 import { mmToIU, iuToMM } from '@ziroeda/common/eda_units.js';
-import { History } from '@ziroeda/eeschema/src/tools/command.js';
-import { placeSymbol } from '@ziroeda/eeschema/src/tools/mutate.js';
-import { makeSymbol } from '@ziroeda/eeschema/src/tools/build.js';
+import { History } from '@ziroeda/eeschema/tools/command.js';
+import { placeSymbol } from '@ziroeda/eeschema/tools/mutate.js';
+import { makeSymbol } from '@ziroeda/eeschema/tools/build.js';
 
 const r = readFileSync(fileURLToPath(new URL('../../data/R.kicad_sym', import.meta.url)), 'utf8');
 const lib = readSymbolLib(parse(r));

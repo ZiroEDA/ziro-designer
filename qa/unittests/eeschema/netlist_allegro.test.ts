@@ -18,9 +18,9 @@ import {
   extractTailNumber,
   netlistAllegro,
   removeTailDigits,
-} from '@ziroeda/eeschema/src/exporters/netlist_exporter_allegro.js';
-import { netlistFiles } from '@ziroeda/eeschema/src/exporters/netlist.js';
-import type { LibPin, LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/exporters/netlist_exporter_allegro.js';
+import { netlistFiles } from '@ziroeda/eeschema/exporters/netlist.js';
+import type { LibPin, LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 /** Two resistors on one net plus a capacitor, so grouping has something to do. */
 const SCH = `(kicad_sch (version 20250114) (generator "test") (paper "A4")

@@ -20,7 +20,7 @@
  * `166.9637`. Board code must take {@link pcbIUScale}.
  */
 
-import type { MINOPTMAX } from '@ziroeda/core/src/minoptmax.js';
+import type { MINOPTMAX } from '@ziroeda/core/minoptmax.js';
 import { formatF, formatG } from './string_utils.js';
 
 /** Gerbview IU is 10 nanometres. */

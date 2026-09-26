@@ -10,7 +10,7 @@
 import { describe, expect, it } from 'vitest';
 import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { STRING_ANY_MAP } from '@ziroeda/common/string_any_map.js';
-import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
+import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 import type { BOARD_COMMIT_LIKE } from '@ziroeda/pcbnew/board_item.js';

@@ -13,10 +13,10 @@ import {
   makeBusEntryOrSegment,
   isBusToBus,
   busEntryEnd,
-} from '@ziroeda/eeschema/src/tools/bus_entry_kind.js';
-import { addItems } from '@ziroeda/eeschema/src/tools/mutate.js';
+} from '@ziroeda/eeschema/tools/bus_entry_kind.js';
+import { addItems } from '@ziroeda/eeschema/tools/mutate.js';
 import { mmToIU, iuToMM } from '@ziroeda/common/eda_units.js';
-import type { Schematic, Vec2 } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic, Vec2 } from '@ziroeda/eeschema/types.js';
 
 const at = (xmm: number, ymm: number): Vec2 => ({ x: mmToIU(xmm), y: mmToIU(ymm) });
 const seg = (kind: string, uuid: string, a: Vec2, b: Vec2): string =>

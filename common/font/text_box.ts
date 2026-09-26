@@ -24,7 +24,7 @@
  *
  * This lives in `common/` because upstream's does: `eeschema`, `pcbnew`,
  * `gerbview` and the drawing-sheet code all call the same `EDA_TEXT` method.
- * `eeschema/src/fieldbox.ts` grew its own copy of this maths first, for symbol
+ * `eeschema/fieldbox.ts` grew its own copy of this maths first, for symbol
  * fields; this is that maths with the schematic-field specifics lifted out, so
  * the board can use it too instead of guessing.
  */

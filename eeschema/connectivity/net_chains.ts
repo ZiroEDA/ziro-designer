@@ -31,8 +31,8 @@
  * gates in the bridge builder.
  */
 
-import { isList, head, list, atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
-import { arg, childNamed } from '@ziroeda/sexpr/src/query.js';
+import { isList, head, list, atom, str, type SList, type SNode } from '@ziroeda/sexpr/index.js';
+import { arg, childNamed } from '@ziroeda/sexpr/query.js';
 import type { LibSymbol, Schematic, Vec2 } from '../types.js';
 import type { EditCommand } from '../tools/command.js';
 import { refId } from '../tools/hittest.js';

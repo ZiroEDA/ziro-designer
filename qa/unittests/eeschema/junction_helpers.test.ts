@@ -8,20 +8,20 @@
  * legitimate dots at bus tees or pin-on-wire points.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { addItems, makeWire, makeBus, makeJunction } from '@ziroeda/eeschema/src/tools/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { addItems, makeWire, makeBus, makeJunction } from '@ziroeda/eeschema/tools/index.js';
 import {
   analyzePoint,
   isExplicitJunction,
   isExplicitJunctionAllowed,
   isExplicitJunctionNeeded,
   isBusLabelText,
-} from '@ziroeda/eeschema/src/tools/junction_helpers.js';
-import { mergeColinearWires } from '@ziroeda/eeschema/src/tools/cleanup.js';
-import { finishWires } from '@ziroeda/eeschema/src/tools/sch_line_wire_bus_tool.js';
+} from '@ziroeda/eeschema/tools/junction_helpers.js';
+import { mergeColinearWires } from '@ziroeda/eeschema/tools/cleanup.js';
+import { finishWires } from '@ziroeda/eeschema/tools/sch_line_wire_bus_tool.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const at = (x: number, y: number) => ({ x: mmToIU(x), y: mmToIU(y) });
 const EMPTY = (): Schematic => readSchematic(parse('(kicad_sch (version 1) (lib_symbols))'));

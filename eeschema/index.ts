@@ -38,7 +38,7 @@ export * from './exporters/netlist_exporter_kicad.js';
 export * from './exporters/spice.js';
 
 import { writeSchematic as _writeSchematic } from './sch_io/sexpr/write-schematic.js';
-import { serialize as _serialize } from '@ziroeda/sexpr/src/serializer.js';
+import { serialize as _serialize } from '@ziroeda/sexpr/serializer.js';
 import type { Schematic as _Schematic } from './types.js';
 
 /** Serialize an edited schematic back to `.kicad_sch` text. */

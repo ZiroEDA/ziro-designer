@@ -32,7 +32,7 @@ import type { TOOL_BASE } from '@ziroeda/common/tool/tool_base.js';
 import type { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { ITEM_PICKER, PICKED_ITEMS_LIST, UNDO_REDO } from '@ziroeda/common/undo_redo_container.js';
 import type { BASE_SCREEN_LIKE } from '@ziroeda/common/undo_redo_container.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { BOARD } from './board.js';
 import type { PCB_VIEW } from './pcb_view.js';

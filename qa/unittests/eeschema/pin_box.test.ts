@@ -13,10 +13,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { libPinBoundingBox, altIconBox } from '@ziroeda/eeschema/src/pin_box.js';
-import type { LibSymbol, LibPin } from '@ziroeda/eeschema/src/types.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { libPinBoundingBox, altIconBox } from '@ziroeda/eeschema/pin_box.js';
+import type { LibSymbol, LibPin } from '@ziroeda/eeschema/types.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 /**

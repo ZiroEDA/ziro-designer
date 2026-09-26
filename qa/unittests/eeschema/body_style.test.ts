@@ -10,14 +10,14 @@
  * the highest number declared rather than the number of unit blocks.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import {
   cycleBodyStyle,
   bodyStyleCount,
   hasAlternateBodyStyle,
-} from '@ziroeda/eeschema/src/tools/body_style.js';
+} from '@ziroeda/eeschema/tools/body_style.js';
 
 /** A gate with a De Morgan alternate, and a resistor without one. */
 const LIB = `(lib_symbols

@@ -19,7 +19,7 @@
  * for an image loaded out of a `.kicad_sch` we never saw chosen.
  */
 import { describe, it, expect } from 'vitest';
-import { imageDataUrl, imageMimeType } from '@ziroeda/eeschema/src/import_gfx/image_format.js';
+import { imageDataUrl, imageMimeType } from '@ziroeda/eeschema/import_gfx/image_format.js';
 
 /** The first bytes of each format, base64'd the way the file stores them. */
 const b64 = (bytes: number[]): string => Buffer.from(Uint8Array.from(bytes)).toString('base64');

@@ -22,7 +22,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { WX_IMAGE } from '@ziroeda/common/wx_image.js';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 import { buildScene, DEFAULT_DRAW_OPTIONS } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';

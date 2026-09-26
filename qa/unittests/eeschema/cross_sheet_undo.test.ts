@@ -26,14 +26,11 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
-import { ProjectHistory, History, type EditCommand } from '@ziroeda/eeschema/src/tools/command.js';
-import { addItems, deleteByIds } from '@ziroeda/eeschema/src/tools/mutate.js';
-import {
-  setPageSettingsCommand,
-  getPageSettings,
-} from '@ziroeda/eeschema/src/tools/page_settings.js';
-import { makeJunctionWithUuid } from '@ziroeda/eeschema/src/tools/build.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import { ProjectHistory, History, type EditCommand } from '@ziroeda/eeschema/tools/command.js';
+import { addItems, deleteByIds } from '@ziroeda/eeschema/tools/mutate.js';
+import { setPageSettingsCommand, getPageSettings } from '@ziroeda/eeschema/tools/page_settings.js';
+import { makeJunctionWithUuid } from '@ziroeda/eeschema/tools/build.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const doc = (body: string): Schematic =>
   readSchematic(

@@ -125,7 +125,7 @@ import type { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js'
 import { printableCharCount, unescapeString } from '@ziroeda/common/string_utils.js';
 import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
 import type { VIEW_ITEM } from '@ziroeda/common/view/view_item.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
 import { BOARD_ITEM } from './board_item.js';
 import { BOARD_USE } from './board.js';

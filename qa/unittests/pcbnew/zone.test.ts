@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
-import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
+import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 import {

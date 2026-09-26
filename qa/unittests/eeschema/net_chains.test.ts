@@ -7,10 +7,10 @@
  * their nets into chains; power-touching edges drop; labels name chains.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
-import { computeNetlist } from '@ziroeda/eeschema/src/connectivity/nets.js';
-import { detectNetChains } from '@ziroeda/eeschema/src/connectivity/net_chains.js';
+import { computeNetlist } from '@ziroeda/eeschema/connectivity/nets.js';
+import { detectNetChains } from '@ziroeda/eeschema/connectivity/net_chains.js';
 
 // A horizontal 2-pin resistor: pins at (x-2.54, y) and (x+2.54, y).
 const res = (ref: string, x: number, y: number, uuid: string): string => `

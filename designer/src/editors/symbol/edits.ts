@@ -32,7 +32,7 @@ import {
   type SymItemKind,
 } from './render/symbolRenderer.js';
 import { symbolGridIU } from './grid.js';
-import { incrementString } from '@ziroeda/eeschema/src/tools/repeat_item.js';
+import { incrementString } from '@ziroeda/eeschema/tools/repeat_item.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
 import {
   type EditHandle,
@@ -42,8 +42,8 @@ import {
   graphicIndicatorLines,
   pinRoot,
   pinRootOnSeg,
-} from '@ziroeda/eeschema/src/tools/point_editor.js';
-import type { ArcEditMode } from '@ziroeda/eeschema/src/tools/arc_edit.js';
+} from '@ziroeda/eeschema/tools/point_editor.js';
+import type { ArcEditMode } from '@ziroeda/eeschema/tools/arc_edit.js';
 
 export interface SymItemRef {
   kind: SymItemKind;
@@ -629,7 +629,7 @@ export function createImagePins(
  * (`symbol_edit_frame.cpp:431`), over one `pointEditorTypes` list
  * (`sch_point_editor.cpp:50-56`). A rectangle therefore carries the same eight
  * handles in either editor, and the geometry is the shared behaviours in
- * `eeschema/src/tools/point_editor.ts` — this file resolves the selection and
+ * `eeschema/tools/point_editor.ts` — this file resolves the selection and
  * writes the result back, and computes nothing of its own.
  *
  * The symbol editor sees only `SCH_SHAPE_T` of that list: a `LIB_SYMBOL` holds

@@ -39,7 +39,7 @@ import type {
   PcbVia,
   PcbZone,
 } from '@ziroeda/pcbnew/types.js';
-import type { SList, SNode } from '@ziroeda/sexpr/src/types.js';
+import type { SList, SNode } from '@ziroeda/sexpr/types.js';
 
 const P = (x: number, y: number) => ({ x, y });
 

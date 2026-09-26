@@ -13,7 +13,7 @@ import { HOLE_PROXY } from '@ziroeda/common/eda_item_flags.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
-import { BaseType, KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { BaseType, KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ARC_LOW_DEF } from '@ziroeda/kimath/src/base_units.js';
 import type { OutInt } from '@ziroeda/kimath/src/geometry/shape.js';
 import { CornerStrategy } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';

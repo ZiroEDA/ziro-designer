@@ -21,7 +21,7 @@ import {
   mapPadNumbersToNetTieGroups,
 } from '@ziroeda/pcbnew/footprint_checker.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import type { PcbFootprint, PcbPad, PcbShape } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);

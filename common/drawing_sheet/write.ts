@@ -18,8 +18,8 @@
  *    out as base64 `(data "…" "…")` chunks.
  */
 
-import { list, atom, str, type SNode, type SList } from '@ziroeda/sexpr/src/types.js';
-import { serialize } from '@ziroeda/sexpr/src/serializer.js';
+import { list, atom, str, type SNode, type SList } from '@ziroeda/sexpr/types.js';
+import { serialize } from '@ziroeda/sexpr/serializer.js';
 import { GENERATOR, GENERATOR_VERSION } from '../generator.js';
 import { formatDouble2Str } from '../plotters/fmt.js';
 import {

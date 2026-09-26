@@ -27,13 +27,13 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSymbolLib } from '@ziroeda/eeschema';
-import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol } from '@ziroeda/eeschema/types.js';
 import {
   defaultSearchData,
   findMatchesInSymbol,
   replaceInSymbol,
   type SchSearchData,
-} from '@ziroeda/eeschema/src/tools/sch_find_replace_tool.js';
+} from '@ziroeda/eeschema/tools/sch_find_replace_tool.js';
 
 /**
  * One symbol carrying one of everything the walk can reach: visible and hidden

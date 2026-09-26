@@ -26,9 +26,9 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { changeTextType } from '@ziroeda/eeschema/src/tools/change_text_type.js';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import { changeTextType } from '@ziroeda/eeschema/tools/change_text_type.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 /**
  * Fields that are modelled but deliberately not round-tripped, and why.

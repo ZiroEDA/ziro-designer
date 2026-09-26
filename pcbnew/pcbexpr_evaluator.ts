@@ -50,7 +50,7 @@ import {
 } from '@ziroeda/common/properties/property.js';
 import { PROPERTY_MANAGER } from '@ziroeda/common/properties/property_mgr.js';
 import { wildCompareString } from '@ziroeda/common/string_utils.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { BOARD } from './board.js';
 import { BOARD_CONNECTED_ITEM } from './board_connected_item.js';

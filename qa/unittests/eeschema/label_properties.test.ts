@@ -8,10 +8,10 @@
  * (SCH_SCREEN::GetLabelOrientationForPoint).
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { serialize } from '@ziroeda/sexpr/src/serializer.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { serialize } from '@ziroeda/sexpr/serializer.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { makeLabel, makeWire } from '@ziroeda/eeschema/src/tools/build.js';
+import { makeLabel, makeWire } from '@ziroeda/eeschema/tools/build.js';
 import {
   SPIN_ANGLE,
   cleanLabelFields,
@@ -22,11 +22,11 @@ import {
   setNodeFields,
   spinOfAngle,
   wireLabelDriverName,
-} from '@ziroeda/eeschema/src/tools/label_properties.js';
-import { computeNetlist } from '@ziroeda/eeschema/src/connectivity/nets.js';
-import { makeLabel as buildLabel } from '@ziroeda/eeschema/src/tools/build.js';
+} from '@ziroeda/eeschema/tools/label_properties.js';
+import { computeNetlist } from '@ziroeda/eeschema/connectivity/nets.js';
+import { makeLabel as buildLabel } from '@ziroeda/eeschema/tools/build.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const SHEET = `(kicad_sch (version 20250114) (generator "eeschema")
   (global_label "VCC" (shape input) (at 50 50 0)
