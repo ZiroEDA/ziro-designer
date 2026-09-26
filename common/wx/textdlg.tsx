@@ -23,6 +23,7 @@ import type { wxTextValidator } from '../validators.js';
 export function WxTextEntryDialog({
   caption,
   message,
+  value = '',
   validator,
   onCancel,
   onConfirm,
@@ -31,13 +32,15 @@ export function WxTextEntryDialog({
   caption: string;
   /** The prompt above the entry. */
   message: string;
+  /** The entry's initial text (wxTextEntryDialog's `value`). */
+  value?: string;
   /** `SetTextValidator`: characters it excludes cannot be typed. */
   validator?: wxTextValidator;
   onCancel: () => void;
   onConfirm: (text: string) => void;
 }): JSX.Element {
   useModalEscape(onCancel);
-  const [name, setName] = useState('');
+  const [name, setName] = useState(value);
 
   const ok = name !== '';
 

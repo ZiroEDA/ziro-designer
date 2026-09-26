@@ -10,6 +10,8 @@
  * viewer pipeline, layer/object controls and presets are fully functional.
  */
 
+import { EDA_VIEW_SWITCHER } from '@ziroeda/common/dialogs/eda_view_switcher.js';
+import { WxTextEntryDialog } from '@ziroeda/common/wx/textdlg.js';
 import { WX_TEXT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_text_entry.js';
 import { Pgm } from '@ziroeda/common/pgm_base.js';
 import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
@@ -1451,6 +1453,21 @@ export function PcbEditor({
   const [viewportSel, setViewportSel] = useState('---');
   // "Delete preset/viewport..." chooser popup.
   const [deleteChooser, setDeleteChooser] = useState<'presets' | 'viewports' | null>(null);
+  // APPEARANCE_CONTROLS::m_presetMRU / m_viewportMRU: most recent first. The
+  // preset list starts as every preset in m_layerPresets' (alphabetical)
+  // order (rebuildLayerPresetsWidget( true )); viewports as they are added.
+  const [presetMRU, setPresetMRU] = useState<string[]>(() =>
+    BUILTIN_PRESETS.map((p) => p.name).sort(),
+  );
+  const [viewportMRU, setViewportMRU] = useState<string[]>([]);
+  const touchMRU = (list: string[], name: string): string[] => [
+    name,
+    ...list.filter((n) => n !== name),
+  ];
+  // The EDA_VIEW_SWITCHER that is up, and which list it is cycling.
+  const [viewSwitcher, setViewSwitcher] = useState<'presets' | 'viewports' | null>(null);
+  // "Save preset..." / "Save viewport...": the wxTextEntryDialog that is up.
+  const [saveNameAsk, setSaveNameAsk] = useState<'preset' | 'viewport' | null>(null);
   // Nets tab state: per-net / per-class colors, ratsnest visibility, and the
   // Net Display Options modes (appearance_controls.cpp net display pane).
   const [hiddenNets, setHiddenNets] = useState<ReadonlySet<number>>(new Set());
@@ -9806,6 +9823,7 @@ export function PcbEditor({
   };
 
   const applyPreset = (name: string): void => {
+    setPresetMRU((m) => touchMRU(m, name));
     const user = userPresets.find((x) => x.name === name);
     if (user) {
       setVisible(new Set(user.layers));
@@ -9893,9 +9911,8 @@ export function PcbEditor({
   const onPresetChoice = (value: string): void => {
     if (value === PRESET_SEPARATOR) return;
     if (value === 'Save preset...') {
-      const name = window.prompt('Layer preset name:')?.trim();
-      if (!name) return;
-      setUserPresets((p) => [...p.filter((x) => x.name !== name), { name, layers: [...visible] }]);
+      // wxTextEntryDialog( _( "Layer preset name:" ), _( "Save Layer Preset" ) ).
+      setSaveNameAsk('preset');
       return;
     }
     if (value === 'Delete preset...') {
@@ -9910,11 +9927,8 @@ export function PcbEditor({
   const onViewportChoice = (value: string): void => {
     if (value === '---') return;
     if (value === 'Save viewport...') {
-      const name = window.prompt('Viewport name:')?.trim();
-      if (!name) return;
-      const v = { ...viewRef.current };
-      setViewports((p) => [...p.filter((x) => x.name !== name), { name, view: v }]);
-      setViewportSel(name);
+      // wxTextEntryDialog( _( "Viewport name:" ), _( "Save Viewport" ), name ).
+      setSaveNameAsk('viewport');
       return;
     }
     if (value === 'Delete viewport...') {
@@ -9927,8 +9941,49 @@ export function PcbEditor({
     viewRef.current.ty = vp.view.ty;
     viewRef.current.scale = vp.view.scale;
     setViewportSel(value);
+    setViewportMRU((m) => touchMRU(m, value));
     requestDraw();
   };
+
+  /** The two saves, once the name dialog answers. */
+  const saveNamed = (kind: 'preset' | 'viewport', name: string): void => {
+    if (kind === 'preset') {
+      setUserPresets((p) => [...p.filter((x) => x.name !== name), { name, layers: [...visible] }]);
+      setPresetMRU((m) => touchMRU(m, name));
+    } else {
+      const v = { ...viewRef.current };
+      setViewports((p) => [...p.filter((x) => x.name !== name), { name, view: v }]);
+      setViewportSel(name);
+      setViewportMRU((m) => touchMRU(m, name));
+    }
+  };
+
+  // PCB_BASE_EDIT_FRAME::TryBefore (pcb_base_edit_frame.cpp:117-190): Tab
+  // with PRESET_SWITCH_KEY (Ctrl) held raises the preset switcher, with
+  // VIEWPORT_SWITCH_KEY (Shift) the viewport one, when there is anything to
+  // offer. A page is never given Ctrl+Tab by the browser outside fullscreen
+  // (common/browser_reserved.ts), so in practice the preset switcher opens
+  // only there; Shift+Tab always reaches it.
+  const viewSwitchRef = useRef({ presetMRU, viewportMRU, viewSwitcher });
+  viewSwitchRef.current = { presetMRU, viewportMRU, viewSwitcher };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key !== 'Tab' || e.defaultPrevented) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      const { presetMRU: pm, viewportMRU: vm, viewSwitcher: up } = viewSwitchRef.current;
+      if (up) return;
+      if (e.ctrlKey && pm.length > 0) {
+        e.preventDefault();
+        setViewSwitcher('presets');
+      } else if (e.shiftKey && !e.ctrlKey && vm.length > 0) {
+        e.preventDefault();
+        setViewSwitcher('viewports');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // `NET_GRID_TABLE::Rebuild`'s filter and sort, in a module qa can import;
   // see appearance_nets.ts for both decisions and what each one got wrong.
@@ -12133,6 +12188,32 @@ export function PcbEditor({
           isSingle={!projectHasSchematic}
           canRefillZones={false}
           rootRef={drcDialogRef}
+        />
+      )}
+      {viewSwitcher && (
+        <EDA_VIEW_SWITCHER
+          items={viewSwitcher === 'presets' ? presetMRU : viewportMRU}
+          ctrlKey={viewSwitcher === 'presets' ? 'Control' : 'Shift'}
+          onResult={(i) => {
+            const list = viewSwitcher === 'presets' ? presetMRU : viewportMRU;
+            const kind = viewSwitcher;
+            setViewSwitcher(null);
+            if (i === null || i < 0 || i >= list.length) return;
+            if (kind === 'presets') applyPreset(list[i]!);
+            else onViewportChoice(list[i]!);
+          }}
+        />
+      )}
+      {saveNameAsk && (
+        <WxTextEntryDialog
+          caption={saveNameAsk === 'preset' ? 'Save Layer Preset' : 'Save Viewport'}
+          message={saveNameAsk === 'preset' ? 'Layer preset name:' : 'Viewport name:'}
+          onCancel={() => setSaveNameAsk(null)}
+          onConfirm={(name) => {
+            const kind = saveNameAsk;
+            setSaveNameAsk(null);
+            saveNamed(kind, name);
+          }}
         />
       )}
       {drcTextEntry && (
