@@ -267,7 +267,9 @@ describe('the seams the strings above have to reach', () => {
   });
 
   it('opens the shared About dialog instead of writing the status line', () => {
-    expect(statements(EDITOR, '<AboutDialog title={ABOUT_TITLES.drawingSheet}')).toHaveLength(1);
+    expect(statements(EDITOR, '<ShowAboutDialog title={ABOUT_TITLES.drawingSheet}')).toHaveLength(
+      1,
+    );
     // The whole call, not the phrase: the phrase survives in the JSX comment
     // that records why the status write was wrong, and `statements` cannot see
     // inside a `{/* … */}` block's continuation lines.

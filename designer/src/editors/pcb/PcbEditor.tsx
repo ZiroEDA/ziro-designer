@@ -580,7 +580,7 @@ import { standardSubMenuEntries } from '@ziroeda/common/eda_draw_frame_submenus.
 import { PCB_CONTROL, PCB_DEFAULT_TOOLBARS } from './pcbToolbars.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import '@ziroeda/common/widgets/shell.css';
-import { AboutDialog } from '../../home/dialogs/dialog_about.js';
+import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { EMPTY_PCB } from '../../home/new_project.js';
 import { ProgressDialog, nextPaint } from '@ziroeda/common/widgets/wx_progress_reporters.js';
 import { yieldToEventLoop } from '@ziroeda/common/yield_to_event_loop.js';
@@ -11750,7 +11750,9 @@ export function PcbEditor({
           onCancel={() => setPasteSpecialOpen(false)}
         />
       )}
-      {aboutOpen && <AboutDialog title={ABOUT_TITLES.pcb} onClose={() => setAboutOpen(false)} />}
+      {aboutOpen && (
+        <ShowAboutDialog title={ABOUT_TITLES.pcb} onClose={() => setAboutOpen(false)} />
+      )}
       {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
       {/* `WX_PROGRESS_REPORTER( this, _( "Load Footprint Libraries" ), 1, PR_CAN_ABORT )`
           (cvpcb_mainframe.cpp:910), the same reporter the footprint reads use. */}

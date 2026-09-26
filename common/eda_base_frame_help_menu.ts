@@ -51,6 +51,12 @@ export interface HelpMenuHandlers {
 
 const SEP: MenuItem = { sep: true };
 
+/**
+ * Where ACTIONS::reportBug goes. One constant because two places run that
+ * action: this menu, and the About dialog's Report Bug button.
+ */
+export const REPORT_BUG_URL = 'https://github.com/ZiroEDA/ziro-designer/issues';
+
 const openExternal = (url: string) => (): void => {
   window.open(url, '_blank', 'noopener,noreferrer');
 };
@@ -85,7 +91,7 @@ export function standardHelpMenu(h: HelpMenuHandlers): Menu {
       // ACTIONS::reportBug.
       {
         label: 'Report Bug',
-        action: openExternal('https://github.com/ZiroEDA/ziro-designer/issues'),
+        action: openExternal(REPORT_BUG_URL),
       },
       SEP,
       { label: ABOUT_LABEL, action: h.showAbout },

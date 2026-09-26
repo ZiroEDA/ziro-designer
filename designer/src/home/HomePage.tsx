@@ -98,7 +98,8 @@ import {
   projectFileContext,
   runActivation,
 } from './file_activation.js';
-import { AboutDialog } from './dialogs/dialog_about.js';
+import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
+import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { showHotkeyList } from '../ui/hotkey_list_action.js';
 import { TextViewerDialog } from './dialogs/dialog_text_viewer.js';
 import { buildManagerMenus } from './menubar.js';
@@ -2274,7 +2275,9 @@ export function HomePage({
       )}
 
       {/* KiCad's "Load Schematic" progress dialog, web-style. */}
-      {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
+      {aboutOpen && (
+        <ShowAboutDialog title={ABOUT_TITLES.manager} onClose={() => setAboutOpen(false)} />
+      )}
       {infoMessage !== null && (
         <MessageDialogOk
           caption={INFO_CAPTION}

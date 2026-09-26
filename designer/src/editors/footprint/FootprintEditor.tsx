@@ -115,7 +115,7 @@ import {
 import { GetLayerName } from '@ziroeda/pcbnew/layer_ids.js';
 import { DEFAULT_DRAW_OPTIONS, type PcbDrawOptions } from '../pcb/renderBoard.js';
 import '@ziroeda/common/widgets/shell.css';
-import { AboutDialog } from '../../home/dialogs/dialog_about.js';
+import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import type { PrefsPageId } from '../../dialogs/prefs/types.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
@@ -2137,7 +2137,7 @@ export function FootprintEditor({
       )}
 
       {aboutOpen && (
-        <AboutDialog title={ABOUT_TITLES.footprint} onClose={() => setAboutOpen(false)} />
+        <ShowAboutDialog title={ABOUT_TITLES.footprint} onClose={() => setAboutOpen(false)} />
       )}
       {prefsOpen && (
         <PreferencesDialog

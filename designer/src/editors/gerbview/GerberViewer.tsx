@@ -120,7 +120,7 @@ import { exportLayersToPcb } from './exportToPcbnew.js';
 import type { GerberLayerView, GerberRenderOptions } from './gerberRender.js';
 import { gerbviewMenus } from './menubar.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
-import { AboutDialog } from '../../home/dialogs/dialog_about.js';
+import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import type { PrefsPageId } from '../../dialogs/prefs/types.js';
@@ -1957,7 +1957,7 @@ export function GerberViewer({
           m_aboutTitle - "KiCad Gerber Viewer" upstream (gerbview_frame.cpp),
           which is ABOUT_TITLES.gerbview here. It had sat defined and unused. */}
       {aboutOpen && (
-        <AboutDialog title={ABOUT_TITLES.gerbview} onClose={() => setAboutOpen(false)} />
+        <ShowAboutDialog title={ABOUT_TITLES.gerbview} onClose={() => setAboutOpen(false)} />
       )}
       {prefsOpen && (
         <PreferencesDialog

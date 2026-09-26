@@ -300,7 +300,9 @@ const BASELINE: Record<string, number> = {
   // "Double-click a symbol..." hint that an empty SYMBOL_EDIT_FRAME does not
   // have; it carried an inline `fontSize: 14` and a `color: '#888'`.
   'editors/symbol': 1,
-  home: 5,
+  // 5 -> 1 on 09-26: the old About stub's 16/12/12/12, gone with it. The
+  // real dialog's one size is DIALOG_ABOUT_BASE's own `wxFont( 14, ... )`.
+  home: 1,
   mobile: 6,
   pcm: 10,
   // 157 until the Appearance panel pass. KIUI::GetInfoFont is one font for the
@@ -653,7 +655,9 @@ describe('hardcoded font sizes do not grow', () => {
     // 201 -> 194: the DRC dialog's seven; `editors/pcb` 61 -> 54 is the only
     // row that moves and 201 - 7 agrees with it.
     // 194 -> 134: the 60 that left with `ui`, see that row.
-    expect(sites.length).toBe(134);
+    // 134 -> 130: the About stub's four; `home` 5 -> 1 is the only row that
+    // moves and 134 - 4 agrees with it.
+    expect(sites.length).toBe(130);
   });
 });
 

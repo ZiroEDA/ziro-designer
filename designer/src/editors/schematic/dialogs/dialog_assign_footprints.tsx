@@ -182,7 +182,7 @@ import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
 import { showHotkeyList } from '../../../ui/hotkey_list_action.js';
 import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
-import { AboutDialog } from '../../../home/dialogs/dialog_about.js';
+import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { PreferencesDialog } from '../../../dialogs/PreferencesDialog.js';
 import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import {
@@ -1628,7 +1628,7 @@ export function DialogAssignFootprints({
         {/* DIALOG_ABOUT titles itself from EDA_BASE_FRAME::GetAboutTitle, and
             cvpcb_mainframe.cpp:88 sets that to the bare "Assign Footprints". */}
         {aboutOpen && (
-          <AboutDialog title={ABOUT_TITLES.cvpcb} onClose={() => setAboutOpen(false)} />
+          <ShowAboutDialog title={ABOUT_TITLES.cvpcb} onClose={() => setAboutOpen(false)} />
         )}
 
         {libTableOpen && onSaveLibTable && (

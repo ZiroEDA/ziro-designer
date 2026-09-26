@@ -514,6 +514,8 @@ import { BUILTIN_THEMES } from './theme.js';
 import { ProgressDialog, nextPaint } from '@ziroeda/common/widgets/wx_progress_reporters.js';
 import type { ProgressSnapshot } from '@ziroeda/common/widgets/progress_reporter_snapshot.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
+import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
+import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import type { PrefsPageId } from '../../dialogs/prefs/types.js';
 import { settings, gridSizeToIU } from '../../prefs/settings.js';
 import {
@@ -1559,6 +1561,7 @@ export function SchematicEditor({
     height: panelHeights.search ?? SCH_BOTTOM_DOCK.bestHeight,
   };
   const [prefsOpen, setPrefsOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   /**
    * `ShowPreferences( aStartPage, aStartParentPage )`'s first argument, for the
    * callers that name a page — `COMMON_TOOLS::GridProperties` is the only one
@@ -7470,6 +7473,12 @@ export function SchematicEditor({
 
   const onTopAction = useCallback(
     (id: string) => {
+      // ACTIONS::about — Help > About. The menu sent this id and nothing
+      // answered it, so the schematic's About did nothing at all.
+      if (id === 'about') {
+        setAboutOpen(true);
+        return;
+      }
       // ACTIONS::listHotKeys — Ctrl+F1 and Help > List Hotkeys.
       if (id === 'listHotkeys') {
         showHotkeyList();
@@ -10907,6 +10916,9 @@ export function SchematicEditor({
         />
       )}
 
+      {aboutOpen && (
+        <ShowAboutDialog title={ABOUT_TITLES.schematic} onClose={() => setAboutOpen(false)} />
+      )}
       {prefsOpen && (
         <PreferencesDialog initialPage={prefsPage} onClose={() => setPrefsOpen(false)} />
       )}

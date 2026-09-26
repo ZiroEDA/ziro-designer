@@ -110,7 +110,7 @@ import {
 import { DialogImportGfx } from '../schematic/dialogs/dialog_import_gfx.js';
 import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import '@ziroeda/common/widgets/shell.css';
-import { AboutDialog } from '../../home/dialogs/dialog_about.js';
+import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import type { PrefsPageId } from '../../dialogs/prefs/types.js';
 import { symbolEditorMenus } from './menubar.js';
@@ -2806,7 +2806,9 @@ export function SymbolEditor({
           onReplaceAll={doReplaceAll}
         />
       )}
-      {aboutOpen && <AboutDialog title={ABOUT_TITLES.symbol} onClose={() => setAboutOpen(false)} />}
+      {aboutOpen && (
+        <ShowAboutDialog title={ABOUT_TITLES.symbol} onClose={() => setAboutOpen(false)} />
+      )}
       {prefsOpen && (
         <PreferencesDialog
           onClose={() => setPrefsOpen(null)}

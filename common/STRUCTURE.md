@@ -41,14 +41,45 @@ is the lookup.
 
 | state | units |
 |---|---|
-| **ported** (16) | `color_swatch`, `footprint_choice`, `kistatusbar`, `msgpanel`, `paged_dialog`, `progress_reporter_base`, `report_severity`, `split_button`, `std_bitmap_button`, `ui_common`, `unit_binder`, `wx_combobox` (+ `wx_bitmap_combobox`: the swatch option), `wx_ellipsized_static_text`, `wx_grid` (the unit cell only), `wx_progress_reporters`, `wx_splitter_window` |
+| **ported** (17) | `color_swatch`, `footprint_choice`, `html_window`, `kistatusbar`, `msgpanel`, `paged_dialog`, `progress_reporter_base`, `report_severity`, `split_button`, `std_bitmap_button`, `ui_common`, `unit_binder`, `wx_combobox` (+ `wx_bitmap_combobox`: the swatch option), `wx_ellipsized_static_text`, `wx_grid` (the unit cell only), `wx_progress_reporters`, `wx_splitter_window` |
 | **ours, no KiCad file** | `spin_ctrl`, `slider`, `tooltip` (wx's own controls), `wx_aui_sash` (from `wx_aui_utils`), `rc_tree_style` (`wx_dataviewctrl`'s `GetAttr` as CSS), `icons`, `canvas_size`, `overlay_scrollbars`, `shell.css` (the GTK theme), `use_dismiss_on_outside` |
 | **still in `designer/`** (they read `designer/src/prefs`, or an editor's types; move with `common/settings`) | `wx_infobar` (`ReadOnlyNotice.tsx`), `widget_hotkey_list` (`dialog_hotkey_list.tsx`), `layer_box_selector` / `layer_presentation` / `lib_tree` / `net_selector` / `netclass_selector` / `font_choice` / `text_ctrl_eval` / `footprint_preview_widget` (the editors' own widgets under `designer/src/editors` and `designer/src/widgets`), `gal_options_panel_base` (the Display Options prefs page), `wx_html_report_panel` / `wx_html_report_box` (the REPORTER widgets) |
 | **n/a in a browser** | `aui_json_serializer`, `wx_aui_art_providers`, `wx_panel`, `webview_panel`, `mathplot` (the simulator, not built), `app_progress_dialog` (wx's dialog; `wx_progress_reporters` is the one we draw) |
-| **missing** (features not built, not moves) | `area_selector`, `bitmap_button`, `bitmap_toggle`, `button_row_panel`, `design_block_pane`, `panel_design_block_chooser`, `filter_combobox`, `footprint_diff_widget`, `footprint_select_widget`, the nine `grid_*` cell helpers (`grid_bitmap_toggle`, `grid_button`, `grid_checkbox`, `grid_color_swatch_helpers`, `grid_combobox`, `grid_icon_text_helpers`, `grid_striped_renderer`, `grid_text_button_helpers`, `grid_text_helpers` — our grids draw these inline), `html_window`, `indicator_icon`, `listbox_tricks`, `margin_offset_binder`, `number_badge`, `search_pane` (+`_base`, `_tab`), `stepped_slider`, `up_down_tree`, `widget_save_restore`, `wx_busy_indicator`, `wx_collapsible_pane`, `wx_dataviewctrl`, `wx_listbox`, `wx_treebook`, `zoom_correction_ctrl` |
+| **missing** (features not built, not moves) | `area_selector`, `bitmap_button`, `bitmap_toggle`, `button_row_panel`, `design_block_pane`, `panel_design_block_chooser`, `filter_combobox`, `footprint_diff_widget`, `footprint_select_widget`, the nine `grid_*` cell helpers (`grid_bitmap_toggle`, `grid_button`, `grid_checkbox`, `grid_color_swatch_helpers`, `grid_combobox`, `grid_icon_text_helpers`, `grid_striped_renderer`, `grid_text_button_helpers`, `grid_text_helpers` — our grids draw these inline), `indicator_icon`, `listbox_tricks`, `margin_offset_binder`, `number_badge`, `search_pane` (+`_base`, `_tab`), `stepped_slider`, `up_down_tree`, `widget_save_restore`, `wx_busy_indicator`, `wx_collapsible_pane`, `wx_dataviewctrl`, `wx_listbox`, `wx_treebook`, `zoom_correction_ctrl` |
 
 Names and placement verified 09-21; method-level parity of the 16 ported
 units is NOT claimed by this row — each is audited when its screen is.
+
+## `dialog_about/` — 7 KiCad files, CLOSED 09-26
+
+| KiCad | ours |
+|---|---|
+| `dialog_about.cpp`, `dialog_about.h`, `dialog_about_base.cpp`, `dialog_about_base.h` | `dialog_about.tsx` — the class and its wxFormBuilder base are one file, as every dialog here is |
+| `aboutinfo.h` | `aboutinfo.ts` — `ABOUT_APP_INFO`, `CONTRIBUTOR` |
+| `AboutDialog_main.cpp` | `AboutDialog_main.tsx` — `ShowAboutDialog` is a component, so `.tsx` |
+| `dialog_about_base.fbp` | n/a — wxFormBuilder's project file, not code |
+
+Divergences, each written once here:
+
+- **The product half says ZiroEDA.** Description, licence line, window title
+  and version are about the program running, which must not claim to be KiCad.
+  The description adds a "Built on KiCad's work" section: the attribution the
+  GPL and CC-BY-SA require wherever the work is conveyed.
+- **The credits are KiCad's, unchanged.** 811 contributors transcribed from
+  10.0.5 by `qa/probes/about_contributors_extract.py`; re-run it for a new
+  release, never hand-edit the block. Each contributor page opens with one line
+  saying they are KiCad's credits.
+- **No Donate button** — the Help menu already leaves `ACTIONS::donate` out.
+- **Version info** (`GetVersionInfoData`, in `build_version.ts`): same sections;
+  the native-library lines (wx, Boost, OCC, Curl, ngspice, compiler) are left out,
+  and the browser's user agent and WebGL context take the platform and OpenGL
+  lines.
+- `CreateKiBitmap` / `m_bitmaps` (freeing wxBitmaps) and `OnNotebookPageChanged`
+  (a wxMac repaint workaround) have nothing to do here.
+
+Layout measured by `qa/probes/dialog_about_probe.cpp`. Every frame's Help >
+About opens it (eleven; the schematic's menu item used to do nothing, and the
+calculator and image converter had invented boxes of their own).
 
 ## `dialogs/` — 88 KiCad units
 

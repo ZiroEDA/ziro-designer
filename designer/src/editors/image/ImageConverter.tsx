@@ -73,8 +73,8 @@ import {
 import './imageConverter.css';
 import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
-import { ABOUT_TITLES, aboutWindowTitle } from '@ziroeda/common/eda_base_frame_about_titles.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
+import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
 import { useMenuHotkeys } from '@ziroeda/common/tool/use_menu_hotkeys.js';
 import { addQuit } from '@ziroeda/common/tool/action_menu.js';
@@ -189,10 +189,6 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
   // The file a drop is holding while "Replace Loaded File?" is up.
   const [dropPending, setDropPending] = useState<File | null>(null);
 
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts. Registered only while the box is up, so it does not
-  // sit on the stack swallowing the key for the frame behind it.
-  useModalEscape(() => setAboutOpen(false), aboutOpen);
   const [prefsOpen, setPrefsOpen] = useState(false);
 
   // SaveSettings: persist the panel state whenever it changes.
@@ -751,41 +747,10 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
 
       {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
 
+      {/* ShowAboutDialog( this ), as bitmap2component's Help > About calls it.
+          This frame had its own About box, with its own copy. */}
       {aboutOpen && (
-        // The dialog CHROME is the shared one - ui/shell.css's .ze-modal family,
-        // the same widget home/dialogs/dialog_about.tsx and every other launcher
-        // uses. Only the copy below is this frame's. There was a private
-        // .imgc-modal skin here that restated the shared padding, radius, border
-        // and shadow; a second copy of a widget is a second thing to keep in
-        // step, which is the whole reason KiCad has one wxDialog.
-        <div className="ze-modal-backdrop" onMouseDown={() => setAboutOpen(false)}>
-          <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="ze-modal-header">
-              {aboutWindowTitle(ABOUT_TITLES.imageConverter)}
-              <span className="x" title="Close" onClick={() => setAboutOpen(false)}>
-                ✕
-              </span>
-            </div>
-            <div className="ze-label-dialog-body">
-              <p style={{ marginTop: 0 }}>
-                Convert a bitmap image into KiCad artwork, like KiCad's Image Converter
-                (bitmap2component): the picture is reduced to greyscale, thresholded to black &
-                white, then traced with potrace into filled polygons.
-              </p>
-              <ul style={{ margin: 0, paddingLeft: 'var(--ui-line-height)', lineHeight: 1.6 }}>
-                <li>Symbol, a schematic library symbol (.kicad_sym)</li>
-                <li>Footprint, a PCB footprint (.kicad_mod) on the chosen layer</li>
-                <li>Postscript, an encapsulated PostScript drawing (.ps)</li>
-                <li>Drawing Sheet, a worksheet graphic (.kicad_wks)</li>
-              </ul>
-            </div>
-            <div className="ze-modal-footer">
-              <button type="button" className="ze-btn primary" onClick={() => setAboutOpen(false)}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+        <ShowAboutDialog title={ABOUT_TITLES.imageConverter} onClose={() => setAboutOpen(false)} />
       )}
     </div>
   );

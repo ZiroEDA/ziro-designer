@@ -10,7 +10,6 @@
 
 import { useEffect, useState, type JSX } from 'react';
 import { MenuBar, type Menu } from '@ziroeda/common/tool/action_menu_bar.js';
-import { Modal } from './fields.js';
 import { PanelRegulator } from './panels/panel_regulator.js';
 import { PanelRCalculator } from './panels/panel_r_calculator.js';
 import { PanelElectricalSpacing } from './panels/panel_electrical_spacing.js';
@@ -30,7 +29,8 @@ import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
 import { useMenuHotkeys } from '@ziroeda/common/tool/use_menu_hotkeys.js';
 import { addClose, addQuit } from '@ziroeda/common/tool/action_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
-import { ABOUT_TITLES, aboutWindowTitle } from '@ziroeda/common/eda_base_frame_about_titles.js';
+import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
+import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
 import { settings } from '../../prefs/settings.js';
@@ -198,26 +198,10 @@ export function CalculatorTools({ onExitToHome }: { onExitToHome: () => void }):
       </div>
       {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
 
+      {/* ShowAboutDialog( this ), as pcb_calculator's Help > About calls it.
+          This frame had its own About box, with its own copy. */}
       {aboutOpen && (
-        <Modal
-          title={aboutWindowTitle(ABOUT_TITLES.calculator)}
-          onClose={() => setAboutOpen(false)}
-          footer={
-            <button type="button" className="calc-btn primary" onClick={() => setAboutOpen(false)}>
-              Close
-            </button>
-          }
-        >
-          <p style={{ margin: '0 0 8px' }}>
-            Engineering calculators for PCB design, organised like KiCad's Calculator Tools:
-          </p>
-          <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
-            <li>General system design, regulators, resistor substitution</li>
-            <li>Power, current & isolation, spacing, via, track width, fusing, cable</li>
-            <li>High speed, wavelength, RF attenuators, transmission lines</li>
-            <li>Memo, E-series, colour code, board classes, galvanic corrosion</li>
-          </ul>
-        </Modal>
+        <ShowAboutDialog title={ABOUT_TITLES.calculator} onClose={() => setAboutOpen(false)} />
       )}
     </div>
   );

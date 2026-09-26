@@ -146,7 +146,10 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // inline width/gap of the button row; `panel_embedded_files` lost its
   // checkbox's own flex row for `.ze-pref-check`.
   dialogs: { colours: 4, metrics: 27 },
-  'editors/calculator': { colours: 2, metrics: 18 },
+  // metrics 18 -> 16 on 09-26: the calculator's own About box went, and its
+  // `margin: '0 0 8px'` and `paddingLeft: 18` with it. Help > About opens
+  // common/dialog_about's DIALOG_ABOUT now, as pcb_calculator's does.
+  'editors/calculator': { colours: 2, metrics: 16 },
   'editors/drawingsheet': { colours: 0, metrics: 0 },
   // 9/20 -> 8/17: the Appearance panel became the shared APPEARANCE_CONTROLS
   // and the hand-rolled layer list went with it. The colour was the swatch's
@@ -355,7 +358,10 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `import.meta.glob('../assets/manager/*.svg')` read as an unterminated
   // block comment (`/*.svg`) and blanked the rest of the file. The glob is
   // gone (`@ziroeda/bitmaps_png`), so the literal is visible.
-  home: { colours: 7, metrics: 8 },
+  // 7/8 -> 6/4 on 09-26: home/dialogs/dialog_about.tsx is gone, and with it
+  // its `#7fb4e6` link colour (--link-fg is HOTLIGHT) and the four inline
+  // sizes of a hand-drawn stub. DIALOG_ABOUT lives in common/dialog_about.
+  home: { colours: 6, metrics: 4 },
   mobile: { colours: 15, metrics: 23 },
   // 33 colours, down from 193: 160 were `defaultRepo.ts`' invented colour
   // themes, gone with the real ones (see `prefs/color_settings_list.ts`). What is
@@ -1128,7 +1134,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // reads one foreground on both labels). `ui` 187 -> 186; 332 - 1 agrees.
     // 331 -> 326: the DRC dialog's five, see the `editors/pcb` row; 331 - 5.
     // 324 -> 332: main's eight (325 -> 333 there), merged 09-25.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(332);
+    // 332 -> 331: the About stub's `#7fb4e6`, see the `home` row.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(331);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1305,7 +1312,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1284 -> 1271: the DRC dialog's thirteen, see the `editors/pcb` row.
     // 1270 -> 1271: the `home` row's hidden literal, see there.
     // 1271 -> 1283: main's twelve presence-badge values, merged 09-25.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1283);
+    // 1283 -> 1277: the About stub's four (`home`) and the calculator's own
+    // About box's two (`editors/calculator`); DIALOG_ABOUT's are all marked.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1277);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

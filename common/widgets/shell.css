@@ -12960,6 +12960,163 @@ textarea.ze-ds-textedit {
   max-height: 60vh;
   overflow-y: auto;
 }
+/* HTML_WINDOW (common/widgets/html_window.tsx). SetPage wraps every page in
+   `<body text=WINDOWTEXT bgcolor=WINDOW link=HOTLIGHT>`; those three are
+   --view-fg, --chrome-bg2 and --link-fg. The page is set in the dialog's own
+   font (`SetStandardFonts( font.GetPointSize(), font.GetFaceName() ... )`). */
+.ze-html-window {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  box-sizing: border-box;
+  /* [data] wxHtmlWindow's default SetBorders( 10 ). */
+  padding: 10px;
+  background: var(--chrome-bg2);
+  color: var(--view-fg);
+  font: inherit;
+  font-size: var(--ui-font-size);
+  outline: none;
+}
+.ze-html-window a {
+  color: var(--link-fg);
+}
+/* wxHW_NO_SELECTION. */
+.ze-html-window.no-select {
+  user-select: none;
+}
+
+/* DIALOG_ABOUT (common/dialog_about/dialog_about.tsx). Every border below is
+   the `Add()` in dialog_about_base.cpp beside it; the sizes are
+   `qa/probes/dialog_about_probe.cpp`, the same sizer tree built with
+   wxWidgets: client 760 x 514, the notebook 750 x 350 at (5, 115). */
+/* bSizerTitle, added with no border flags, so its 5 is inert. */
+.ze-about-title {
+  display: flex;
+  flex-direction: row;
+}
+/* The three `Add( 0, 0, 1, wxEXPAND )` spacers. */
+.ze-about-spacer {
+  flex: 1 1 0;
+}
+/* Add( m_bitmapApp, 1, wxALIGN_CENTER|wxALL, 5 ). */
+.ze-about-bitmap {
+  flex: 1 1 auto;
+  margin: 5px; /* [data] wxALL, 5 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* [px] the frame icon, aParent->GetIcon(): a frame's SetIcons() bundle asked
+   for wxDefaultSize answers with its 32 member, because wxSYS_ICON_X is 32
+   here (dialog_about_probe, frame-icon). */
+.ze-about-bitmap img {
+  width: 32px;
+  height: 32px; /* [px] the same 32 */
+}
+/* Add( b_apptitleSizer, 10, wxALL|wxEXPAND, 5 ). */
+.ze-about-apptitle {
+  flex: 10 1 auto;
+  margin: 5px; /* [data] wxALL, 5 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+/* m_staticTextAppTitle: Add( .., 0, wxALIGN_CENTER|wxALL, 5 ), and
+   [data] SetFont( wxFont( 14, ..., wxFONTWEIGHT_BOLD ) ) - KiCad's own size,
+   not the theme's. */
+.ze-about-name {
+  margin: 5px; /* [data] wxALL, 5 */
+  font-size: 14pt; /* [data] wxFont( 14, ... ) */
+  font-weight: 700;
+}
+/* m_staticTextBuildVersion / m_staticTextLibVersion:
+   wxALIGN_CENTER|wxLEFT|wxRIGHT|wxTOP, 5. The lib line carries a "\n". */
+.ze-about-build,
+.ze-about-lib {
+  margin: 5px 5px 0; /* [data] wxLEFT|wxRIGHT|wxTOP, 5 */
+  white-space: pre-line;
+}
+/* Add( bSizer5, 0, wxEXPAND, 10 ): no side flags, so the 10 is inert. */
+.ze-about-actions {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+/* Each button: Add( .., 0, wxALL|wxEXPAND, 5 ). */
+.ze-about-actions .ze-btn {
+  margin: 5px; /* [data] wxALL, 5 */
+}
+/* Add( m_notebook, 2, wxEXPAND|wxALL, 5 ), SetMinSize( wxSize( 750, 350 ) ). */
+.ze-about-notebook {
+  margin: 5px; /* [data] wxALL, 5 */
+  /* The dialog states no size: DIALOG_ABOUT Fit()s around this minimum, and
+     the probe's client width is 760 = 750 + wxALL 5 either side. */
+  width: 750px; /* [data] SetMinSize( wxSize( 750, 350 ) ) */
+  min-height: 350px; /* [data] the same line */
+  height: 350px; /* [data] the same 350 */
+  flex: 0 0 auto;
+}
+/* The tab strip with GtkNotebook's scroll arrows: nine tabs are wider than
+   750px, so a scrollable GtkNotebook shows them. */
+.ze-about-tabstrip {
+  display: flex;
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--chrome-border); /* [css] the notebook frame line, as .ze-nb-tabs */
+}
+.ze-about-tabstrip .ze-nb-tabs {
+  flex: 1 1 auto;
+  overflow: hidden;
+  border-bottom: none;
+}
+/* [px] the probe: with the arrows showing, the first tab's content starts 37px
+   inside the notebook where an unscrolled strip puts it at 20 (8 lead-in + 12
+   tab padding), so each arrow takes 17. */
+.ze-about-arrow {
+  flex: 0 0 17px; /* [px] 37 - 20, above */
+  height: var(--tab-strip-height);
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: default;
+}
+.ze-about-arrow:disabled {
+  color: var(--ctl-fg-disabled);
+}
+/* [px] the probe: a tab's 16px image and its label sit 10px apart. */
+.ze-about-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px; /* [px] the image-to-label gap, above */
+  white-space: nowrap;
+}
+.ze-about-tabs button img {
+  width: 16px; /* [data] c_iconSize = 16 */
+  height: 16px; /* [data] the same 16 */
+}
+.ze-about-body {
+  flex: 1 1 auto;
+}
+/* The page: Add( htmlWindow, 1, wxEXPAND, 0 ). */
+.ze-about-page {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+/* bSizerButtons: Add( .., 0, wxALIGN_RIGHT|wxRIGHT|wxLEFT, 5 ), and the OK
+   button in it wxALL 5. */
+.ze-about-buttons {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 5px; /* [data] wxRIGHT|wxLEFT, 5 */
+}
+.ze-about-buttons .ze-btn {
+  margin: 5px; /* [data] wxALL, 5 */
+}
+
 /* Syntax Help states its own size where the Errors box takes the minimum:
 
      dlg->SetMinSize( dlg->ConvertDialogToPixels( wxSize( 320, 320 ) ) );

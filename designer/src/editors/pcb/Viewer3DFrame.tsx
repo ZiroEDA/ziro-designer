@@ -37,7 +37,7 @@ import {
 } from '../../prefs/useSettings.js';
 import { VIEWER3D_DEFAULTS } from '../../prefs/settings.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
-import { AboutDialog } from '../../home/dialogs/dialog_about.js';
+import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import type { Board } from '@ziroeda/pcbnew';
 import { MenuBar } from '@ziroeda/common/tool/action_menu_bar.js';
@@ -876,7 +876,7 @@ export function Viewer3DFrame({
         )}
       </div>
       {aboutOpen && (
-        <AboutDialog title={ABOUT_TITLES.viewer3d} onClose={() => setAboutOpen(false)} />
+        <ShowAboutDialog title={ABOUT_TITLES.viewer3d} onClose={() => setAboutOpen(false)} />
       )}
       {deleteChooser === 'presets' && (
         <EdaListDialog

@@ -94,7 +94,7 @@ import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { drawingSheetWildcard } from '../../fs/wildcards.js';
 import { DesignInspector } from './DesignInspector.js';
 import { MessageDialogError, MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
-import { AboutDialog } from '../../home/dialogs/dialog_about.js';
+import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import {
   DS_APPEND_DIALOG_TITLE,
@@ -2764,7 +2764,7 @@ export function DrawingSheetEditor({
           "ZiroEDA Drawing Sheet Editor" into status pane 0, which is both the
           wrong widget and a pane pl_editor reserves for its file commands. */}
       {aboutOpen && (
-        <AboutDialog title={ABOUT_TITLES.drawingSheet} onClose={() => setAboutOpen(false)} />
+        <ShowAboutDialog title={ABOUT_TITLES.drawingSheet} onClose={() => setAboutOpen(false)} />
       )}
 
       {/*

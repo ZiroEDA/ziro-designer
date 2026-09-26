@@ -472,9 +472,5 @@
   flex: none;
 }
 
-/* The About box is the SHARED dialog widget: .ze-modal / .ze-modal-header /
-   .ze-label-dialog-body / .ze-modal-footer in ui/shell.css, the same one
-   home/dialogs/dialog_about.tsx gives the PCB, symbol and footprint editors.
-   This frame used to carry a private .imgc-modal skin that restated the shared
-   padding, radius, border, shadow and backdrop wash. Nothing about the dialog
-   is stated here now - only its content is this frame's. */
+/* The About box is common/dialog_about's DIALOG_ABOUT, the one every frame
+   opens; nothing about it is stated here. */
