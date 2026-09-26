@@ -13,7 +13,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { layerContextMenu } from '@ziroeda/designer/src/editors/gerbview/layer_widget.js';
+import { layerContextMenu } from '@ziroeda/gerbview/widgets/gerbview_layer_widget.js';
 
 const VIEWER = readFileSync(
   fileURLToPath(

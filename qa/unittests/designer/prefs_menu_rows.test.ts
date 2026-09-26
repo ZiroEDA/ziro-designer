@@ -34,7 +34,7 @@ const FRAMES: [string, string][] = [
   // The board editor's bar is a data module, like the three above it. The frame
   // still exists; it just no longer holds the rows.
   ['board editor', 'editors/pcb/menubar.ts'],
-  ['gerber viewer', 'editors/gerbview/menubar.ts'],
+  ['gerber viewer', '../../gerbview/menubar.ts'],
   ['project manager', 'home/menubar.ts'],
   ['assign footprints', 'editors/schematic/dialogs/dialog_assign_footprints.tsx'],
 ];

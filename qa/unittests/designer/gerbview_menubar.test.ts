@@ -16,15 +16,9 @@
  * "Preferences" menu that upstream does not have.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  GBR_TOP_TOOLBAR,
-  GBR_LEFT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/gerbview/gerberToolbars.js';
-import * as gerberToolbars from '@ziroeda/designer/src/editors/gerbview/gerberToolbars.js';
-import {
-  gerbviewMenus,
-  type GerbviewMenuHandlers,
-} from '@ziroeda/designer/src/editors/gerbview/menubar.js';
+import { GBR_TOP_TOOLBAR, GBR_LEFT_TOOLBAR } from '@ziroeda/gerbview/toolbars_gerber.js';
+import * as gerberToolbars from '@ziroeda/gerbview/toolbars_gerber.js';
+import { gerbviewMenus, type GerbviewMenuHandlers } from '@ziroeda/gerbview/menubar.js';
 import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
 import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 import type {

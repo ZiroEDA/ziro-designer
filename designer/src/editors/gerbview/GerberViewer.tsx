@@ -57,7 +57,7 @@ import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
 /** `BASE_SCREEN::m_LocalOrigin`; a module constant so its identity is stable. */
 const GBR_LOCAL_ORIGIN = { x: 0, y: 0 };
 import { ensureTextCtrlWidth, measureTextWidth } from '@ziroeda/common/widgets/text_ctrl_width.js';
-import { GBR_CONTROL, GBR_DEFAULT_TOOLBARS } from './gerberToolbars.js';
+import { GBR_CONTROL, GBR_DEFAULT_TOOLBARS } from '@ziroeda/gerbview/toolbars_gerber.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { Combo, type ComboOption } from '@ziroeda/common/widgets/wx_combobox.js';
 import {
@@ -124,7 +124,7 @@ import {
   type GerberLayerView,
   type GerberRenderOptions,
 } from './gerberRender.js';
-import { gerbviewMenus } from './menubar.js';
+import { gerbviewMenus } from '@ziroeda/gerbview/menubar.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';

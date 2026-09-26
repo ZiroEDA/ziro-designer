@@ -165,7 +165,7 @@ const FRAMES: FrameRow[] = [
   {
     // The bar moved out of the frame into its own data module, the way
     // eeschema's did, so that qa can compile it.
-    file: 'editors/gerbview/menubar.ts',
+    file: '../../gerbview/menubar.ts',
     upstream: 'gerbview/menubar.cpp:159',
     app: 'Gerber Viewer',
     rows: ['quitOrClose'],
@@ -346,6 +346,7 @@ describe('no menu declares a key the browser will not deliver', () => {
     const files: string[] = [];
     const walk = (dir: string): void => {
       for (const name of readdirSync(dir)) {
+        if (name === 'node_modules') continue;
         const path = join(dir, name);
         if (statSync(path).isDirectory()) {
           walk(path);
@@ -365,6 +366,10 @@ describe('no menu declares a key the browser will not deliver', () => {
       }
     };
     walk(SRC);
+    // The editor packages that keep their frame's menubar beside KiCad's
+    // (gerbview/menubar.ts): a sweep of designer/ alone would stop seeing a
+    // menu the day it moved.
+    walk(join(SRC, '../../gerbview'));
     return { declared: out, visited: new Set(files) };
   })();
 

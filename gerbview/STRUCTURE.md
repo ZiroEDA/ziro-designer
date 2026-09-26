@@ -67,12 +67,12 @@ which); **n/a** (a browser cannot have it).
 | `gerbview_printout` | port, blocked | `GERBVIEW_PRINTOUT` derives `BOARD_PRINTOUT`, which is `common/STRUCTURE.md`'s "to port" row. Print today is a screenshot in a window (`printLayers` in `GerberViewer.tsx`) |
 | `gerbview_settings` | here | `gerbview_settings.ts` (`GERBVIEW_SETTINGS`); the frame's prefs still read `designer/src/prefs/settings.ts`' slice, and `syncGerbviewSettings` (`gerberRender.ts`) copies the display toggles across until the frame reads this class |
 | `job_file_reader` | here | `job_file_reader.ts` (`GERBER_JOBFILE_READER`) |
-| `menubar` | move | `designer/.../menubar.ts` → `menubar.ts` |
+| `menubar` | here | `menubar.ts` (`doReCreateMenuBar`'s tree); the frame renders it |
 | `readgerb` | here | `readgerb.ts` |
 | `rs274d` | here | `rs274d.ts` |
 | `rs274_read_XY_and_IJ_coordinates` | here | `rs274_read_XY_and_IJ_coordinates.ts` |
 | `rs274x` | here | `rs274x.ts` |
-| `toolbars_gerber` (+ `.h`) | move | `designer/.../gerberToolbars.ts` (`DefaultToolbarConfig`) and the `update*SelectBox` half of `gerberAuxControls.ts` → `toolbars_gerber.ts` |
+| `toolbars_gerber` (+ `.h`) | here, part to fold | `toolbars_gerber.ts` (`DefaultToolbarConfig`); the `update*SelectBox` half is still in `designer/.../gerberAuxControls.ts` |
 | `X2_gerber_attributes` | here | `X2_gerber_attributes.ts` |
 
 ### `dialogs/` — 7 units
@@ -108,7 +108,7 @@ driver (`common/STRUCTURE.md` has `spacemouse` n/a for the same reason).
 |---|---|---|
 | `dcode_selection_box` | move | `dcodeChoices` / `dcodeUnitLabel` in `gerberAuxControls.ts` |
 | `gbr_layer_box_selector` | move | `layerChoiceLabels` in `gerberAuxControls.ts` |
-| `gerbview_layer_widget` | move | `designer/.../layer_widget.ts` (the Items rows and the layer context menu) |
+| `gerbview_layer_widget` | here | `widgets/gerbview_layer_widget.ts` (the Items rows and the layer context menu) |
 | `layer_widget` | move | `designer/.../LayerManager.tsx` (the notebook, rows, swatches) |
 
 ## Ours with no KiCad unit — each to KiCad's file or stated here

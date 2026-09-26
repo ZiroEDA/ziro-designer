@@ -44,7 +44,7 @@ import {
   PCB_LEFT_TOOLBAR,
   PCB_RIGHT_TOOLBAR,
 } from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
-import { GBR_LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/gerbview/gerberToolbars.js';
+import { GBR_LEFT_TOOLBAR } from '@ziroeda/gerbview/toolbars_gerber.js';
 import {
   SYM_LEFT_TOOLBAR,
   SYM_RIGHT_TOOLBAR,
