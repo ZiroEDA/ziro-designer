@@ -754,7 +754,10 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // it paints its own track from --chrome-active and --slider-track-bg. The
   // 45th metric that appeared alongside it, the notebook's `margin: 5px 0`,
   // carries [data] and its Add() call, so it is not counted. RESCANNED.
-  widgets: { colours: 6, metrics: 44 },
+  // metrics 44 -> 41 on 09-26: the symbol library table's inline body style
+  // (`padding: '10px 14px'`, `gap: 8`) went for DIALOG_EDIT_LIBRARY_TABLES'
+  // sizer, cited in shell.css.
+  widgets: { colours: 6, metrics: 41 },
 };
 
 /** Properties whose value the GTK theme decides, so a px in one is drift. */
@@ -1351,7 +1354,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1264 -> 1263: the image dialog's canvas radius, see `editors/schematic`.
     // 1263 -> 1236: the Print dialog's twenty-seven, see `editors/pcb`.
     // 1236 -> 1226: the line-modification box's ten, see `editors/pcb`.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1226);
+    // 1226 -> 1223: the symbol library table's three, see `widgets`.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1223);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

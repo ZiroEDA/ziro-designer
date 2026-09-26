@@ -22,6 +22,7 @@
  * instead of opening a file picker.
  */
 
+import { DIALOG_EDIT_LIBRARY_TABLES } from '@ziroeda/common/dialogs/dialog_edit_library_tables.js';
 import { useMemo, useState, type JSX } from 'react';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
 import type { FpLibRow } from '../editors/footprint/fp_lib_table.js';
@@ -30,7 +31,6 @@ import {
   projectSymbolFiles,
   rowSymLibName,
 } from '../editors/schematic/symbols/project_sym_lib_table.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 interface Props {
   /** The open project's files (`.kicad_sym`, the table, the `.kicad_pro`). */
@@ -51,9 +51,7 @@ export function DialogSymLibTable({
   onSave,
   onClose,
 }: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-  useModalEscape(onClose);
+  // Esc is Cancel: DIALOG_EDIT_LIBRARY_TABLES registers it.
 
   const [tab, setTab] = useState<'global' | 'project'>('project');
   const [rows, setRows] = useState<FpLibRow[]>(() => projectSymLibTable(projectFiles));
@@ -95,265 +93,242 @@ export function DialogSymLibTable({
   }));
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Symbol Libraries
-          <span className="x" title="Close" onClick={onClose}>
-            ✕
-          </span>
-        </div>
-        <div
-          className="ze-modal-body"
-          style={{ display: 'flex', flexDirection: 'column', padding: '10px 14px', gap: 8 }}
+    // DIALOG_EDIT_LIBRARY_TABLES dlg( aParent, _( "Symbol Libraries" ) );
+    // dlg.InstallPanel( new PANEL_SYM_LIB_TABLE( ... ) ) - panel_sym_lib_table.cpp:1056.
+    <DIALOG_EDIT_LIBRARY_TABLES
+      title="Symbol Libraries"
+      onCancel={onClose}
+      onOK={() => onSave(rows.filter((r) => r.name.trim() && r.uri.trim()))}
+    >
+      {/* The two library tables (upstream's notebook pages). */}
+      <div className="ze-tabbar">
+        <button
+          type="button"
+          className={`ze-tab${tab === 'global' ? ' active' : ''}`}
+          onClick={() => setTab('global')}
         >
-          {/* The two library tables (upstream's notebook pages). */}
-          <div className="ze-tabbar">
+          Global Libraries
+        </button>
+        <button
+          type="button"
+          className={`ze-tab${tab === 'project' ? ' active' : ''}`}
+          onClick={() => setTab('project')}
+        >
+          Project Specific Libraries
+        </button>
+      </div>
+
+      {tab === 'global' ? (
+        <>
+          <div className="ze-grid-pane" style={{ flex: 1, minHeight: 0 }}>
+            <table className="ze-grid" style={{ tableLayout: 'fixed', width: '100%' }}>
+              <colgroup>
+                <col style={{ width: 220 }} />
+                <col />
+                <col style={{ width: 110 }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Nickname</th>
+                  <th>Library Path</th>
+                  <th>Library Format</th>
+                </tr>
+              </thead>
+              <tbody>
+                {globalRows.map((r) => (
+                  <tr key={r.name}>
+                    <td style={{ padding: '3px 6px' }}>{r.name}</td>
+                    <td style={{ padding: '3px 6px' }}>{r.uri}</td>
+                    <td style={{ padding: '3px 6px' }}>KiCad</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="ze-muted" style={{ fontSize: 11.5 }}>
+            The global table is the hosted KiCad library set ({globalLibraries.length} libraries)
+            and is read-only here.
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="ze-grid-pane" style={{ flex: 1, minHeight: 0 }}>
+            <table className="ze-grid" style={{ tableLayout: 'fixed', width: '100%' }}>
+              <colgroup>
+                <col style={{ width: 56 }} />
+                <col style={{ width: 180 }} />
+                <col />
+                <col style={{ width: 110 }} />
+                <col style={{ width: 120 }} />
+                <col style={{ width: 160 }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Enable</th>
+                  <th>Nickname</th>
+                  <th>Library Path</th>
+                  <th>Library Format</th>
+                  <th>Options</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr
+                    key={i}
+                    className={i === sel ? 'selected' : undefined}
+                    onFocusCapture={() => setSel(i)}
+                    onMouseDown={() => setSel(i)}
+                  >
+                    <td style={{ ...cell, textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={!r.disabled}
+                        onChange={(e) => setAt(i, { disabled: !e.target.checked })}
+                      />
+                    </td>
+                    <td style={cell}>
+                      <input
+                        type="text"
+                        value={r.name}
+                        placeholder="MySymbols"
+                        onChange={(e) => setAt(i, { name: e.target.value })}
+                      />
+                    </td>
+                    <td style={cell}>
+                      <input
+                        type="text"
+                        value={r.uri}
+                        placeholder="${KIPRJMOD}/MySymbols.kicad_sym"
+                        onChange={(e) => setAt(i, { uri: e.target.value })}
+                      />
+                    </td>
+                    <td style={{ ...cell, padding: '3px 6px' }}>{r.type || 'KiCad'}</td>
+                    <td style={cell}>
+                      <input
+                        type="text"
+                        value={r.options}
+                        onChange={(e) => setAt(i, { options: e.target.value })}
+                      />
+                    </td>
+                    <td style={cell}>
+                      <input
+                        type="text"
+                        value={r.descr}
+                        onChange={(e) => setAt(i, { descr: e.target.value })}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="ze-grid-btns" style={{ position: 'relative' }}>
             <button
               type="button"
-              className={`ze-tab${tab === 'global' ? ' active' : ''}`}
-              onClick={() => setTab('global')}
+              className="ze-gridbtn"
+              title="Add empty row to table"
+              onClick={() => addRow({ name: '', type: 'KiCad', uri: '', options: '', descr: '' })}
             >
-              Global Libraries
+              <Icon name="plus" size={14} />
             </button>
             <button
               type="button"
-              className={`ze-tab${tab === 'project' ? ' active' : ''}`}
-              onClick={() => setTab('project')}
+              className="ze-btn sm"
+              title="Add Existing"
+              disabled={unregistered.length === 0}
+              onClick={() => setBrowseOpen((v) => !v)}
             >
-              Project Specific Libraries
+              Add Existing
+            </button>
+            {browseOpen && unregistered.length > 0 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: '100%',
+                  left: 34,
+                  zIndex: 20,
+                  minWidth: 240,
+                  marginBottom: 4,
+                  background: 'var(--chrome-bg2)',
+                  border: '1px solid var(--chrome-border)',
+                  borderRadius: 3,
+                  fontSize: 12,
+                  boxShadow: '0 6px 20px rgba(0,0,0,0.4)',
+                }}
+              >
+                {unregistered.map((d) => (
+                  <div
+                    key={d.file}
+                    className="ze-menu-item"
+                    style={{ padding: '4px 12px', cursor: 'default' }}
+                    onClick={() => {
+                      addRow({
+                        name: d.file,
+                        type: 'KiCad',
+                        uri: `\${KIPRJMOD}/${d.file}.kicad_sym`,
+                        options: '',
+                        descr: '',
+                      });
+                      setBrowseOpen(false);
+                    }}
+                  >
+                    {d.file}.kicad_sym
+                  </div>
+                ))}
+              </div>
+            )}
+            <span style={{ width: 8 }} />
+            <button
+              type="button"
+              className="ze-gridbtn"
+              title="Move up"
+              disabled={sel === null || sel === 0}
+              onClick={() => move(-1)}
+            >
+              <Icon name="arrowUp" size={14} />
+            </button>
+            <button
+              type="button"
+              className="ze-gridbtn"
+              title="Move down"
+              disabled={sel === null || sel === rows.length - 1}
+              onClick={() => move(1)}
+            >
+              <Icon name="arrowDown" size={14} />
+            </button>
+            <button
+              type="button"
+              className="ze-gridbtn"
+              title="Remove library from table"
+              disabled={sel === null}
+              onClick={removeSel}
+            >
+              <Icon name="delete" size={14} />
             </button>
           </div>
 
-          {tab === 'global' ? (
-            <>
-              <div className="ze-grid-pane" style={{ flex: 1, minHeight: 0 }}>
-                <table className="ze-grid" style={{ tableLayout: 'fixed', width: '100%' }}>
-                  <colgroup>
-                    <col style={{ width: 220 }} />
-                    <col />
-                    <col style={{ width: 110 }} />
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <th>Nickname</th>
-                      <th>Library Path</th>
-                      <th>Library Format</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {globalRows.map((r) => (
-                      <tr key={r.name}>
-                        <td style={{ padding: '3px 6px' }}>{r.name}</td>
-                        <td style={{ padding: '3px 6px' }}>{r.uri}</td>
-                        <td style={{ padding: '3px 6px' }}>KiCad</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="ze-muted" style={{ fontSize: 11.5 }}>
-                The global table is the hosted KiCad library set ({globalLibraries.length}{' '}
-                libraries) and is read-only here.
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="ze-grid-pane" style={{ flex: 1, minHeight: 0 }}>
-                <table className="ze-grid" style={{ tableLayout: 'fixed', width: '100%' }}>
-                  <colgroup>
-                    <col style={{ width: 56 }} />
-                    <col style={{ width: 180 }} />
-                    <col />
-                    <col style={{ width: 110 }} />
-                    <col style={{ width: 120 }} />
-                    <col style={{ width: 160 }} />
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <th>Enable</th>
-                      <th>Nickname</th>
-                      <th>Library Path</th>
-                      <th>Library Format</th>
-                      <th>Options</th>
-                      <th>Description</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((r, i) => (
-                      <tr
-                        key={i}
-                        className={i === sel ? 'selected' : undefined}
-                        onFocusCapture={() => setSel(i)}
-                        onMouseDown={() => setSel(i)}
-                      >
-                        <td style={{ ...cell, textAlign: 'center' }}>
-                          <input
-                            type="checkbox"
-                            checked={!r.disabled}
-                            onChange={(e) => setAt(i, { disabled: !e.target.checked })}
-                          />
-                        </td>
-                        <td style={cell}>
-                          <input
-                            type="text"
-                            value={r.name}
-                            placeholder="MySymbols"
-                            onChange={(e) => setAt(i, { name: e.target.value })}
-                          />
-                        </td>
-                        <td style={cell}>
-                          <input
-                            type="text"
-                            value={r.uri}
-                            placeholder="${KIPRJMOD}/MySymbols.kicad_sym"
-                            onChange={(e) => setAt(i, { uri: e.target.value })}
-                          />
-                        </td>
-                        <td style={{ ...cell, padding: '3px 6px' }}>{r.type || 'KiCad'}</td>
-                        <td style={cell}>
-                          <input
-                            type="text"
-                            value={r.options}
-                            onChange={(e) => setAt(i, { options: e.target.value })}
-                          />
-                        </td>
-                        <td style={cell}>
-                          <input
-                            type="text"
-                            value={r.descr}
-                            onChange={(e) => setAt(i, { descr: e.target.value })}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="ze-grid-btns" style={{ position: 'relative' }}>
-                <button
-                  type="button"
-                  className="ze-gridbtn"
-                  title="Add empty row to table"
-                  onClick={() =>
-                    addRow({ name: '', type: 'KiCad', uri: '', options: '', descr: '' })
-                  }
-                >
-                  <Icon name="plus" size={14} />
-                </button>
-                <button
-                  type="button"
-                  className="ze-btn sm"
-                  title="Add Existing"
-                  disabled={unregistered.length === 0}
-                  onClick={() => setBrowseOpen((v) => !v)}
-                >
-                  Add Existing
-                </button>
-                {browseOpen && unregistered.length > 0 && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      bottom: '100%',
-                      left: 34,
-                      zIndex: 20,
-                      minWidth: 240,
-                      marginBottom: 4,
-                      background: 'var(--chrome-bg2)',
-                      border: '1px solid var(--chrome-border)',
-                      borderRadius: 3,
-                      fontSize: 12,
-                      boxShadow: '0 6px 20px rgba(0,0,0,0.4)',
-                    }}
-                  >
-                    {unregistered.map((d) => (
-                      <div
-                        key={d.file}
-                        className="ze-menu-item"
-                        style={{ padding: '4px 12px', cursor: 'default' }}
-                        onClick={() => {
-                          addRow({
-                            name: d.file,
-                            type: 'KiCad',
-                            uri: `\${KIPRJMOD}/${d.file}.kicad_sym`,
-                            options: '',
-                            descr: '',
-                          });
-                          setBrowseOpen(false);
-                        }}
-                      >
-                        {d.file}.kicad_sym
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <span style={{ width: 8 }} />
-                <button
-                  type="button"
-                  className="ze-gridbtn"
-                  title="Move up"
-                  disabled={sel === null || sel === 0}
-                  onClick={() => move(-1)}
-                >
-                  <Icon name="arrowUp" size={14} />
-                </button>
-                <button
-                  type="button"
-                  className="ze-gridbtn"
-                  title="Move down"
-                  disabled={sel === null || sel === rows.length - 1}
-                  onClick={() => move(1)}
-                >
-                  <Icon name="arrowDown" size={14} />
-                </button>
-                <button
-                  type="button"
-                  className="ze-gridbtn"
-                  title="Remove library from table"
-                  disabled={sel === null}
-                  onClick={removeSel}
-                >
-                  <Icon name="delete" size={14} />
-                </button>
-              </div>
-
-              {/* The read-only environment/path substitutions grid. */}
-              <div>
-                <div style={{ fontSize: 12, marginBottom: 3 }}>Available path substitutions:</div>
-                <div className="ze-grid-pane" style={{ maxHeight: 92, overflow: 'auto' }}>
-                  <table className="ze-grid" style={{ tableLayout: 'fixed', width: '100%' }}>
-                    <colgroup>
-                      <col style={{ width: 180 }} />
-                      <col />
-                    </colgroup>
-                    <tbody>
-                      <tr>
-                        <td style={{ padding: '3px 6px' }}>$&#123;KIPRJMOD&#125;</td>
-                        <td style={{ padding: '3px 6px' }}>the project folder</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="ze-btn primary"
-            onClick={() => {
-              onSave(rows.filter((r) => r.name.trim() && r.uri.trim()));
-            }}
-          >
-            OK
-          </button>
-        </div>
-      </div>
-    </div>
+          {/* The read-only environment/path substitutions grid. */}
+          <div>
+            <div style={{ fontSize: 12, marginBottom: 3 }}>Available path substitutions:</div>
+            <div className="ze-grid-pane" style={{ maxHeight: 92, overflow: 'auto' }}>
+              <table className="ze-grid" style={{ tableLayout: 'fixed', width: '100%' }}>
+                <colgroup>
+                  <col style={{ width: 180 }} />
+                  <col />
+                </colgroup>
+                <tbody>
+                  <tr>
+                    <td style={{ padding: '3px 6px' }}>$&#123;KIPRJMOD&#125;</td>
+                    <td style={{ padding: '3px 6px' }}>the project folder</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+    </DIALOG_EDIT_LIBRARY_TABLES>
   );
 }

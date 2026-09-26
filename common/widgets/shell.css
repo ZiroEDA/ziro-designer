@@ -13327,6 +13327,18 @@ fieldset.ze-sbox > legend {
   margin: 5px; /* [data] wxGBSpan( 1, 3 ), wxALIGN_CENTER_VERTICAL | wxALL, 5 */
 }
 
+/* DIALOG_EDIT_LIBRARY_TABLES (common/dialogs/dialog_edit_library_tables.tsx):
+   InstallPanel's sizer. */
+.ze-libtables-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  margin: 5px 5px 0; /* [data] Add( m_contentPanel, 1, wxEXPAND|wxLEFT|wxTOP|wxRIGHT, 5 ) */
+  min-width: 1000px; /* [data] m_contentPanel->SetMinSize( FromDIP( wxSize( 1000, 600 ) ) ) */
+  min-height: 600px; /* [data] the same line */
+  gap: 8px; /* [px] the panel's own notebook-to-grid spacing, as before */
+}
+
 /* Syntax Help states its own size where the Errors box takes the minimum:
 
      dlg->SetMinSize( dlg->ConvertDialogToPixels( wxSize( 320, 320 ) ) );
