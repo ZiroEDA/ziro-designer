@@ -10,9 +10,12 @@
  */
 
 import type { MOUSE_DRAG_ACTION } from './mouse_drag_action.js';
-import { PROJECT } from './project.js';
+import { PROJECT, PROJECT_VAR_NAME } from './project.js';
 import { PROJECT_FILE, PROJECT_FILE_EXTENSION } from './project/project_file.js';
 import { PROJECT_LOCAL_SETTINGS } from './project/project_local_settings.js';
+import type { COMMON_SETTINGS_ENVIRONMENT } from './settings/common_settings.js';
+import { ENV_VAR_MAP } from './settings/environment.js';
+import { wxGetEnv, wxSetEnv } from './wx/utils.js';
 import { COLOR_SETTINGS } from './settings/color_settings.js';
 import type { JsonObject, JsonValue } from './settings/json_settings.js';
 
@@ -27,6 +30,8 @@ export interface COMMON_SETTINGS_LIKE {
   };
   /** `COMMON_SETTINGS::INPUT`: the modifiers are `WXK_*` codes, 0 for none. */
   m_Input: COMMON_SETTINGS_INPUT;
+  /** `COMMON_SETTINGS::m_Env`: the environment variables KiCad knows about. */
+  m_Env: COMMON_SETTINGS_ENVIRONMENT;
 }
 
 /** `COMMON_SETTINGS::INPUT` (include/settings/common_settings.h). */
@@ -127,6 +132,13 @@ export class SETTINGS_MANAGER {
 
     project.setProjectFullName(fullPath);
 
+    if (aSetActive) {
+      // until multiple projects are in play, set an environment variable for the
+      // the project pointer. (wxFileName::GetPath: the directory, no trailing separator.)
+      const cut = fullPath.lastIndexOf('/');
+      wxSetEnv(PROJECT_VAR_NAME, cut > 0 ? fullPath.slice(0, cut) : cut === 0 ? '/' : '');
+    }
+
     const success = this.loadProjectFile(project, aProJson);
 
     if (success) project.SetReadOnly(project.GetProjectFile().IsReadOnly());
@@ -164,6 +176,9 @@ export class SETTINGS_MANAGER {
       // Immediately reload a null project; this is required until the rest of the application
       // is refactored to not assume that Prj() always works
       if (this.m_projects_list.length === 0) this.LoadProject('');
+
+      // Remove the reference in the environment to the previous project
+      wxSetEnv(PROJECT_VAR_NAME, '');
     }
 
     return true;
@@ -394,6 +409,61 @@ export class PGM_BASE {
 
   GetSettingsManager(): SETTINGS_MANAGER {
     return this.m_settings_manager;
+  }
+
+  /**
+   * `loadCommonSettings`, its environment half: every variable the settings
+   * hold goes into the process environment, except KIPRJMOD (reserved for
+   * the project path), an empty name, and one the system environment set.
+   */
+  loadCommonSettings(): void {
+    const settings = this.m_settings;
+    if (!settings) return;
+
+    for (const [key, item] of settings.m_Env.vars) {
+      // Do not store the env var PROJECT_VAR_NAME ("KIPRJMOD") definition if for some reason
+      // it is found in config. (It is reserved and defined as project path)
+      if (key === PROJECT_VAR_NAME) continue;
+
+      // Don't set bogus empty entries in the environment
+      if (key === '') continue;
+
+      // Do not overwrite vars set by the system environment with values from the settings file
+      if (item.GetDefinedExternally()) continue;
+
+      this.SetLocalEnvVariable(key, item.GetValue());
+    }
+  }
+
+  /**
+   * `SetLocalEnvVariable`: set one variable in the process environment, unless
+   * it is already set - then succeed only if it already has this value.
+   */
+  SetLocalEnvVariable(aName: string, aValue: string): boolean {
+    if (aName === '') return false;
+
+    // Check to see if the environment variable is already set.
+    const env = wxGetEnv(aName);
+
+    if (env !== undefined) return env === aValue;
+
+    return wxSetEnv(aName, aValue);
+  }
+
+  /**
+   * `SetLocalEnvVariables`: put every variable in the process environment,
+   * overwriting externally defined ones until the next time the app runs.
+   */
+  SetLocalEnvVariables(): void {
+    const settings = this.m_settings;
+    if (!settings) return;
+
+    for (const [key, item] of settings.m_Env.vars) wxSetEnv(key, item.GetValue());
+  }
+
+  /** `GetLocalEnvVariables`: `GetCommonSettings()->m_Env.vars`. */
+  GetLocalEnvVariables(): ENV_VAR_MAP {
+    return this.m_settings?.m_Env.vars ?? new ENV_VAR_MAP();
   }
 }
 

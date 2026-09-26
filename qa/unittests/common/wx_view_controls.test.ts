@@ -1,3 +1,4 @@
+import { ENV_VAR_MAP } from '@ziroeda/common/settings/environment.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -228,6 +229,7 @@ function setup(aInput: Partial<COMMON_SETTINGS_LIKE['m_Input']> = {}): {
         hicontrast_dimming_factor: 0.8,
       },
       m_Input: { ...INPUT, ...aInput },
+      m_Env: { vars: new ENV_VAR_MAP() },
     }),
   );
   const options = new GAL_DISPLAY_OPTIONS();

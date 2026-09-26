@@ -1,3 +1,4 @@
+import { ENV_VAR_MAP } from '@ziroeda/common/settings/environment.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -200,6 +201,7 @@ beforeAll(() => {
       reverse_scroll_zoom: false,
       reverse_scroll_pan_h: false,
     },
+    m_Env: { vars: new ENV_VAR_MAP() },
   });
   cfg = new PCBNEW_SETTINGS();
   pgm.GetSettingsManager().RegisterSettings('pcbnew', cfg);

@@ -17,6 +17,9 @@ import { type PROJECT_FILE, PROJECT_FILE_EXTENSION } from './project/project_fil
 import type { PROJECT_LOCAL_SETTINGS } from './project/project_local_settings.js';
 import { TITLE_BLOCK } from './title_block.js';
 
+/** `PROJECT_VAR_NAME` (include/project.h): the variable naming the project's directory. */
+export const PROJECT_VAR_NAME = 'KIPRJMOD';
+
 /** The set of `_ELEM`s that a `PROJECT` can hold. */
 export enum PROJECT_ELEM {
   LEGACY_SYMBOL_LIBS,

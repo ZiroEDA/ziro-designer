@@ -7,10 +7,11 @@
  * the help strings at :121-164.
  */
 import { ENV_VAR } from '@ziroeda/common/env_vars.js';
+import { ENV_VAR_ITEM, ENV_VAR_MAP } from '@ziroeda/common/settings/environment.js';
 import { SetEnvVarLookup } from '@ziroeda/common/wx/utils.js';
 import { afterEach, describe, expect, it } from 'vitest';
 
-const item = (v: string) => ({ GetValue: () => v });
+const item = (v: string) => new ENV_VAR_ITEM('', v);
 
 describe('ENV_VAR', () => {
   afterEach(() => SetEnvVarLookup(() => undefined));
@@ -50,9 +51,10 @@ describe('ENV_VAR', () => {
   });
 
   it('the versioned value prefers this version, then any version in map order', () => {
-    const map = new Map([
-      ['KICAD8_3RD_PARTY', item('/eight')],
+    // Inserted out of order: a std::map walks by key, so KICAD8 comes first.
+    const map = new ENV_VAR_MAP([
       ['KICAD9_3RD_PARTY', item('/nine')],
+      ['KICAD8_3RD_PARTY', item('/eight')],
     ]);
     expect(ENV_VAR.GetVersionedEnvVarValue(map, '3RD_PARTY')).toBe('/eight');
     map.set('KICAD10_3RD_PARTY', item('/ten'));

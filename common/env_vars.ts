@@ -7,15 +7,8 @@
  * and the help text the Configure Paths dialog shows for each.
  */
 import { GetMajorMinorPatchTuple } from './build_version.js';
+import type { ENV_VAR_MAP } from './settings/environment.js';
 import { wxGetEnv } from './wx/utils.js';
-
-/** The one half of `ENV_VAR_ITEM` (settings/environment.h) this reads. */
-export interface ENV_VAR_ITEM {
-  GetValue(): string;
-}
-
-/** `ENV_VAR_MAP`: name -> item. */
-export type ENV_VAR_MAP = ReadonlyMap<string, ENV_VAR_ITEM>;
 
 export namespace ENV_VAR {
   /**
@@ -63,7 +56,7 @@ export namespace ENV_VAR {
 
   /**
    * `GetVersionedEnvVarValue`: this version's variable if the map has it,
-   * otherwise the first of any version, in map order.
+   * otherwise the first of any version, in the map's (key) order.
    */
   export function GetVersionedEnvVarValue(
     aMap: ENV_VAR_MAP,

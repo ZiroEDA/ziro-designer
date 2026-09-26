@@ -11,6 +11,10 @@
  * the same reason. The store that loads, saves and syncs every slice is still
  * the app's; this module is the COMMON_SETTINGS half of it.
  */
+import { ENV_VAR } from '../env_vars.js';
+import { PATHS } from '../paths.js';
+import { wxGetEnv } from '../wx/utils.js';
+import { ENV_VAR_ITEM, type ENV_VAR_MAP } from './environment.js';
 import { deepMerge } from './json_settings.js';
 
 /** MOUSE_DRAG_ACTION (common_settings.h). */
@@ -530,4 +534,36 @@ export interface MAINTENANCE_SETTINGS_MANAGER {
   ClearDialogState(): number;
   /** `SETTINGS_MANAGER::ResetToDefaults()`. */
   ResetToDefaults(): number;
+}
+
+/** `COMMON_SETTINGS::ENVIRONMENT`: the variables KiCad knows about, by name. */
+export interface COMMON_SETTINGS_ENVIRONMENT {
+  vars: ENV_VAR_MAP;
+}
+
+/**
+ * `COMMON_SETTINGS::InitializeEnvironment`: KiCad's built-in variables at
+ * their stock defaults, each overridden by the process environment when that
+ * defines it (and marked as defined externally).
+ */
+export function InitializeEnvironment(aEnv: COMMON_SETTINGS_ENVIRONMENT): void {
+  const addVar = (aKey: string, aDefault: string): void => {
+    const item = new ENV_VAR_ITEM(aKey, aDefault, aDefault);
+    aEnv.vars.set(aKey, item);
+
+    const envValue = wxGetEnv(aKey);
+
+    if (envValue !== undefined && envValue !== '') {
+      item.SetValue(envValue);
+      item.SetDefinedExternally();
+    }
+  };
+
+  addVar(ENV_VAR.GetVersionedEnvVarName('FOOTPRINT_DIR'), PATHS.GetStockFootprintsPath());
+  addVar(ENV_VAR.GetVersionedEnvVarName('3DMODEL_DIR'), PATHS.GetStock3dmodelsPath());
+  addVar(ENV_VAR.GetVersionedEnvVarName('TEMPLATE_DIR'), PATHS.GetStockTemplatesPath());
+  addVar('KICAD_USER_TEMPLATE_DIR', PATHS.GetUserTemplatesPath());
+  addVar(ENV_VAR.GetVersionedEnvVarName('3RD_PARTY'), PATHS.GetDefault3rdPartyPath());
+  addVar(ENV_VAR.GetVersionedEnvVarName('SYMBOL_DIR'), PATHS.GetStockSymbolsPath());
+  addVar(ENV_VAR.GetVersionedEnvVarName('DESIGN_BLOCK_DIR'), PATHS.GetStockDesignBlocksPath());
 }

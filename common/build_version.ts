@@ -12,6 +12,14 @@ import { version as REACT_VERSION } from 'react';
 /** `KICAD_MAJOR_MINOR_PATCH_VERSION` of the reference build. */
 export const KICAD_MAJOR_MINOR_PATCH_VERSION = '10.0.5';
 
+/** `KICAD_MAJOR_MINOR_VERSION` of the reference build. */
+export const KICAD_MAJOR_MINOR_VERSION = '10.0';
+
+/** `GetMajorMinorVersion()`: "10.0". */
+export function GetMajorMinorVersion(): string {
+  return KICAD_MAJOR_MINOR_VERSION;
+}
+
 export function GetMajorMinorPatchVersion(): string {
   return KICAD_MAJOR_MINOR_PATCH_VERSION;
 }

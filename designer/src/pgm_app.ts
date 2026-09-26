@@ -11,6 +11,11 @@
  * It used to be created by the PCB editor's canvas, so on the home screen and
  * in every other editor `Pgm()` did not exist until a board had been opened.
  */
+import {
+  type COMMON_SETTINGS_ENVIRONMENT,
+  InitializeEnvironment,
+} from '@ziroeda/common/settings/common_settings.js';
+import { ENV_VAR_MAP } from '@ziroeda/common/settings/environment.js';
 import { MOUSE_DRAG_ACTION } from '@ziroeda/common/mouse_drag_action.js';
 import {
   type COMMON_SETTINGS_INPUT,
@@ -41,6 +46,12 @@ const DRAG_ACTIONS: Readonly<Record<MouseDragAction, MOUSE_DRAG_ACTION>> = {
   pan: MOUSE_DRAG_ACTION.PAN,
   none: MOUSE_DRAG_ACTION.NONE,
 };
+
+/**
+ * `COMMON_SETTINGS::m_Env`: one map for the life of the program, so a
+ * preference change that rebuilds the rest of COMMON_SETTINGS keeps it.
+ */
+const s_env: COMMON_SETTINGS_ENVIRONMENT = { vars: new ENV_VAR_MAP() };
 
 /** `COMMON_SETTINGS`, from the designer's `common.json` slice. */
 export function commonSettingsOf(): COMMON_SETTINGS_LIKE {
@@ -76,6 +87,7 @@ export function commonSettingsOf(): COMMON_SETTINGS_LIKE {
       hicontrast_dimming_factor: c.appearance.hicontrast_dimming_factor,
     },
     m_Input,
+    m_Env: s_env,
   };
 }
 
@@ -112,6 +124,12 @@ export function InitPgm(): PGM_BASE {
   let pgm = PgmOrNull();
   if (!pgm) {
     pgm = new PGM_BASE(commonSettingsOf());
+
+    // Set up built-in environment variables (and override them from the system
+    // environment if set), then put them in the environment (loadCommonSettings).
+    InitializeEnvironment(s_env);
+    pgm.loadCommonSettings();
+
     pgm.GetSettingsManager().SetColorSettingsLoader(loadColorSettingsByName);
     SetPgm(pgm);
   }

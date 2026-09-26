@@ -121,7 +121,7 @@ the code it ports:
 Tabled 09-26. Of KiCad's 131 `common/*.cpp`: **57 here under KiCad's name**,
 **19 here or elsewhere in the tree under another name** (each a rename, a
 move or a split, one stage apiece), **10 to port** (the feature exists in the
-app, the unit does not), **16 waiting on their feature**, **29 n/a**.
+app, the unit does not), **16 waiting on their feature**, **28 n/a**, and `paths` partly here.
 
 KiCad has an `include/` beside `common/`; we have none. A header-only
 `include/<x>.h` is `common/<x>.ts` (`base_set`, `collector`, `ctl_flags`,
@@ -191,7 +191,7 @@ friends, over `bitmap_store`), `gr_basic` (the page-settings preview),
 `kiway_player` + `kiway_mail` (the frames and their mail live in
 `designer/src/App.tsx`; they come here when designer/ becomes `kicad/`).
 
-**n/a (29)** — a desktop process, a filesystem or a toolkit the page does not
+**n/a (28)** — a desktop process, a filesystem or a toolkit the page does not
 have: `asset_archive` (resources.zip; artwork is imported), `bitmap_info`
 (the per-size PNG index; we ship the SVGs and have no PNG sizes), `bin_mod`,
 `cli_progress_reporter`, `config_params` (legacy wxConfig), `eda_dde`
@@ -199,11 +199,19 @@ have: `asset_archive` (resources.zip; artwork is imported), `bitmap_info`
 `history_lock` (file locks), `json_conversions`, `json_schema_validator`
 (JSON is native), `kiface_base`, `kiway`, `kiway_holder`, `single_top`
 (DSO loading), `locale_io` (JS number text is locale-free),
-`navlib_safe_init`, `spacemouse` (3D mouse driver), `paths`,
+`navlib_safe_init`, `spacemouse` (3D mouse driver),
 `systemdirsappend`, `searchhelpfilefullpath`, `search_stack` (no search
 path list; files resolve through the project), `singleton`, `streamwrapper`,
 `filter_reader`, `textentry_tricks` (a browser input does it), `ui_events`,
 `wx_filename`.
+
+**Partly here, the rest n/a (09-26):** `paths` - the stock-library and
+user-template getters `COMMON_SETTINGS::InitializeEnvironment` needs, at the
+Linux build's install location (`/usr/share/kicad`), where the hosted
+libraries are mounted; the settings / cache / plugin / log folders are n/a.
+`settings/environment` (`ENV_VAR_ITEM`, a key-ordered `ENV_VAR_MAP`) and
+`PGM_BASE`'s environment (`loadCommonSettings`, `SetLocalEnvVariable(s)`,
+`GetLocalEnvVariables`, KIPRJMOD on project load) came with it.
 
 **Ours with no root unit** — each to KiCad's file or stated here:
 
