@@ -87,7 +87,7 @@ import {
   DS_TOP_TOOLBAR,
   DS_LEFT_TOOLBAR,
   DS_RIGHT_TOOLBAR,
-} from '../editors/drawingsheet/drawingSheetToolbars.js';
+} from '@ziroeda/pagelayout_editor/toolbars_pl_editor.js';
 
 /**
  * A row while it is still being collected, carrying where its name came from.

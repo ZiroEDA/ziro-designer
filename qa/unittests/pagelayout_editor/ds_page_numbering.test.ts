@@ -30,7 +30,7 @@ import { fileURLToPath } from 'node:url';
 import {
   DS_CANVAS_PAGE_NUMBERING,
   dsPrintPageNumbering,
-} from '@ziroeda/designer/src/editors/drawingsheet/page_numbering.js';
+} from '@ziroeda/pagelayout_editor/dialogs/dialogs_for_printing.js';
 import { layoutDrawingSheet, type WksSheet } from '@ziroeda/common';
 
 const A4 = { widthMM: 297, heightMM: 210 };

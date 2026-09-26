@@ -41,7 +41,7 @@ import { toggleIdUnits, unitsToggleId } from '@ziroeda/common/settings/app_setti
 import {
   previewSettingsFromConfig,
   writePageToConfig,
-} from '@ziroeda/designer/src/editors/drawingsheet/preview_settings.js';
+} from '@ziroeda/pagelayout_editor/pl_editor_frame.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 

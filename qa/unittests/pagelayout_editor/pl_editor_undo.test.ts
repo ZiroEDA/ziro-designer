@@ -20,13 +20,13 @@ import {
   rebuildSelection,
   rollbackFromUndo,
   saveCopyInUndoList,
-} from '@ziroeda/designer/src/editors/drawingsheet/undo_stack.js';
+} from '@ziroeda/pagelayout_editor/pl_editor_undo_redo.js';
 import {
   pasteEnabled,
   redoEnabled,
   toolbarDisabledIds,
   undoEnabled,
-} from '@ziroeda/designer/src/editors/drawingsheet/ui_conditions.js';
+} from '@ziroeda/pagelayout_editor/pl_editor_frame.js';
 
 interface Layout {
   readonly items: readonly string[];

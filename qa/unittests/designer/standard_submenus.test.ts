@@ -176,7 +176,7 @@ describe('the launchers that install it', () => {
    * and that is exactly what the Drawing Sheet Editor had.
    */
   it.each([
-    ['the drawing sheet', 'editors/drawingsheet/ds_context_menu.ts'],
+    ['the drawing sheet', '../../pagelayout_editor/tools/pl_selection_tool.ts'],
     ['the PCB editor', 'editors/pcb/PcbEditor.tsx'],
   ])('%s calls the shared one and builds no rows of its own', (_name, rel) => {
     const src = read(rel);

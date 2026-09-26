@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const DIALOG = read('../../../designer/src/editors/drawingsheet/DesignInspector.tsx');
+const DIALOG = read('../../../pagelayout_editor/dialogs/design_inspector_ui.tsx');
 const EDITOR = read('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx');
 
 describe('DSP-15 — a row click does not end the dialog', () => {

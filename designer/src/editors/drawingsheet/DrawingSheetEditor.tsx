@@ -73,9 +73,9 @@ import {
   zoomFactorForScale,
   zoomMsg,
 } from '@ziroeda/common/widgets/kistatusbar_format.js';
-import { DS_DEFAULT_TOOLBARS } from './drawingSheetToolbars.js';
+import { DS_DEFAULT_TOOLBARS } from '@ziroeda/pagelayout_editor/toolbars_pl_editor.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
-import { buildDsContextMenu } from './ds_context_menu.js';
+import { buildDsContextMenu } from '@ziroeda/pagelayout_editor/tools/pl_selection_tool.js';
 import {
   DEFAULT_GRID_INDEX,
   GRID_SIZE_LIST,
@@ -85,14 +85,17 @@ import {
   type FastGridAction,
 } from '@ziroeda/common/settings/grid_settings_ui.js';
 import { DrawingSheetCanvas, type DrawingSheetCanvasController } from './DrawingSheetCanvas.js';
-import { PropertiesFrame, SyntaxHelpDialog } from './PropertiesFrame.js';
+import {
+  PropertiesFrame,
+  SyntaxHelpDialog,
+} from '@ziroeda/pagelayout_editor/dialogs/properties_frame_ui.js';
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
 import { dockedPaneWidth } from '@ziroeda/common/widgets/wx_aui_sash_geometry.js';
 import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
 import { leafOf, savePathWithExtension } from '../../fs/save_path.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { drawingSheetWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
-import { DesignInspector } from './DesignInspector.js';
+import { DesignInspector } from '@ziroeda/pagelayout_editor/dialogs/design_inspector_ui.js';
 import { MessageDialogError, MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
@@ -106,13 +109,22 @@ import {
   dsFileLoadedMsg,
   dsFileSavedMsg,
   dsUnableToLoadMsg,
-} from './file_commands.js';
-import { PL_EDITOR_STATUS_TEMPLATES, plCoordFields } from './pl_status_bar.js';
-import { PL_EDITOR_PRINT_PAGES, printDocumentHtml } from './print_document.js';
-import { DS_CANVAS_PAGE_NUMBERING, dsPrintPageNumbering } from './page_numbering.js';
+} from '@ziroeda/pagelayout_editor/files.js';
+import {
+  PL_EDITOR_STATUS_TEMPLATES,
+  plCoordFields,
+} from '@ziroeda/pagelayout_editor/pl_editor_frame.js';
+import {
+  PL_EDITOR_PRINT_PAGES,
+  printDocumentHtml,
+} from '@ziroeda/pagelayout_editor/dialogs/dialogs_for_printing.js';
+import {
+  DS_CANVAS_PAGE_NUMBERING,
+  dsPrintPageNumbering,
+} from '@ziroeda/pagelayout_editor/dialogs/dialogs_for_printing.js';
 import { UnsavedChangesDialog } from '@ziroeda/common/dialogs/dialog_unsaved_changes.js';
 import { handleUnsavedChanges, type UnsavedChangesResult } from '@ziroeda/common/confirm.js';
-import { dsInspectorTitle } from './design_inspector.js';
+import { dsInspectorTitle } from '@ziroeda/pagelayout_editor/dialogs/design_inspector.js';
 import { DialogPageSettings } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import {
   previewPageMM,
@@ -120,7 +132,7 @@ import {
   previewSettingsFromConfig,
   writePageToConfig,
   type PreviewSettings,
-} from './preview_settings.js';
+} from '@ziroeda/pagelayout_editor/pl_editor_frame.js';
 import {
   captureUndoItem,
   clearUndoRedoList,
@@ -131,9 +143,14 @@ import {
   type RestoredLayout,
   rollbackFromUndo,
   saveCopyInUndoList,
-} from './undo_stack.js';
-import { toolClearsSelection } from './hit_test.js';
-import { pasteEnabled, redoEnabled, toolbarDisabledIds, undoEnabled } from './ui_conditions.js';
+} from '@ziroeda/pagelayout_editor/pl_editor_undo_redo.js';
+import { toolClearsSelection } from '@ziroeda/pagelayout_editor/tools/pl_selection_tool.js';
+import {
+  pasteEnabled,
+  redoEnabled,
+  toolbarDisabledIds,
+  undoEnabled,
+} from '@ziroeda/pagelayout_editor/pl_editor_frame.js';
 import { imageFileToPng, decodeImageMeta } from '@ziroeda/common';
 import { drawDrawingSheetItems, DS_PRINT_PAPER_COLOR } from '@ziroeda/common';
 import '@ziroeda/common/widgets/shell.css';

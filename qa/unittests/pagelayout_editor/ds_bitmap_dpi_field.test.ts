@@ -28,7 +28,7 @@ import { describe, expect, it } from 'vitest';
 /** The panel's source with comments blanked — prose must not read as code. */
 const PANEL = readFileSync(
   fileURLToPath(
-    new URL('../../../designer/src/editors/drawingsheet/PropertiesFrame.tsx', import.meta.url),
+    new URL('../../../pagelayout_editor/dialogs/properties_frame_ui.tsx', import.meta.url),
   ),
   'utf8',
 )

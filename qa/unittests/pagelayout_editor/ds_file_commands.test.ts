@@ -34,7 +34,7 @@ import {
   dsSaveBecomesSaveAs,
   dsUnableToLoadMsg,
   dsUnableToWriteMsg,
-} from '@ziroeda/designer/src/editors/drawingsheet/file_commands.js';
+} from '@ziroeda/pagelayout_editor/files.js';
 
 /** The sheet that was open in the driven session. */
 const SHEET = '/home/akshay/pl_audit_home/sheets/probe.kicad_wks';

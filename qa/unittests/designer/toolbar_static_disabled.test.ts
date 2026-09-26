@@ -61,7 +61,7 @@ import {
   DS_TOP_TOOLBAR,
   DS_LEFT_TOOLBAR,
   DS_RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
+} from '@ziroeda/pagelayout_editor/toolbars_pl_editor.js';
 import { VIEWER3D_TOP_TOOLBAR } from '@ziroeda/designer/src/editors/pcb/viewer3dToolbars.js';
 import type { ToolButton, ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 

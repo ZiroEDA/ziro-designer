@@ -48,7 +48,7 @@ import { UnitField } from '@ziroeda/common/widgets/unit_binder_ui.js';
 import type { EdaUnits, UnitRange } from '@ziroeda/common/widgets/unit_binder.js';
 import { MessageDialogError } from '@ziroeda/common/dialogs/dialog_message.js';
 import { DS_ITEM_COLOR, DS_ITEM_COLOR_HEX } from '@ziroeda/common';
-import { fmtInt, fmtRotation } from './properties_format.js';
+import { fmtInt, fmtRotation } from './properties_frame.js';
 
 /**
  * The font faces the Text page offers — `FONT_CHOICE`

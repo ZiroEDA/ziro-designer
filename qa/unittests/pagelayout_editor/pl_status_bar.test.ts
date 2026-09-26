@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url';
 import {
   PL_EDITOR_STATUS_TEMPLATES,
   plCoordFields,
-} from '@ziroeda/designer/src/editors/drawingsheet/pl_status_bar.js';
+} from '@ziroeda/pagelayout_editor/pl_editor_frame.js';
 import { formatG } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { mmToIU } from '@ziroeda/common';
 import { STATUS_FIELD_TEMPLATES } from '@ziroeda/common/widgets/kistatusbar_field.js';

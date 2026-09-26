@@ -23,7 +23,7 @@ import {
   DS_INSPECTOR_ICON_PX,
   xpmRuns,
   type XpmIcon,
-} from './inspector_icons.js';
+} from './design_inspector.js';
 
 /** The row's icon, by item type — `ReCreateDesignList`'s switch (:243-263). */
 const iconFor = (item: WksItem | undefined): XpmIcon | undefined =>

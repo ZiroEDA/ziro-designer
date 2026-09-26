@@ -39,7 +39,7 @@ import {
   LEFT_TOOLBAR,
   RIGHT_TOOLBAR,
 } from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
-import { DS_LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
+import { DS_LEFT_TOOLBAR } from '@ziroeda/pagelayout_editor/toolbars_pl_editor.js';
 import {
   PCB_LEFT_TOOLBAR,
   PCB_RIGHT_TOOLBAR,

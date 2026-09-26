@@ -118,7 +118,7 @@ export interface KiStatusBarProps {
    *
    * Naming a pane here makes it fixed at that template's width; a pane left
    * out keeps whatever the shared table says, stretch included. See
-   * `editors/drawingsheet/pl_status_bar.ts` for the one caller.
+   * `pagelayout_editor/pl_editor_frame.ts` for the one caller.
    */
   templates?: Partial<Record<KiStatusBarField, string>>;
   /** Per-pane `data-testid`, for the frames whose tests address a pane. */

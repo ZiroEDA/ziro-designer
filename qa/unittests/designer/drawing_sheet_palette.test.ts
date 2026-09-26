@@ -328,7 +328,7 @@ describe('C9: the frame opens in mils, and the grid does not follow the unit', (
   });
 });
 
-const TOOLBARS = read('../../../designer/src/editors/drawingsheet/drawingSheetToolbars.ts');
+const TOOLBARS = read('../../../pagelayout_editor/toolbars_pl_editor.ts');
 const CANVAS_TSX = CANVAS; // alias for readability below
 
 /** One menu's item block, sliced out of the `menus` memo. */
@@ -673,12 +673,16 @@ describe('D7: this editor adds no new hardcoded font size', () => {
    * PropertiesFrame.tsx is the unit-binder PR's file. This test is a ratchet
    * so the count cannot grow while that is settled - see the PR.
    */
-  const FILES = ['DesignInspector.tsx', 'PropertiesFrame.tsx', 'DrawingSheetEditor.tsx'];
+  const FILES = [
+    'pagelayout_editor/dialogs/design_inspector_ui.tsx',
+    'pagelayout_editor/dialogs/properties_frame_ui.tsx',
+    'designer/src/editors/drawingsheet/DrawingSheetEditor.tsx',
+  ];
 
   it('holds at the 6 known sites', () => {
     let n = 0;
     for (const f of FILES) {
-      const src = read(`../../../designer/src/editors/drawingsheet/${f}`);
+      const src = read(`../../../${f}`);
       n += [...src.matchAll(/fontSize:\s*\d/g)].length;
     }
     // 14 until UnitField took MmField's literal "mm" span away, then 13 until

@@ -36,7 +36,7 @@ import {
   DS_INSPECTOR_ICON_OFFSET,
   xpmRuns,
   type XpmIcon,
-} from '@ziroeda/designer/src/editors/drawingsheet/inspector_icons.js';
+} from '@ziroeda/pagelayout_editor/dialogs/design_inspector.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
@@ -163,7 +163,7 @@ describe('the cell metrics', () => {
 });
 
 describe('the dialog draws them', () => {
-  const PANEL = read('../../../designer/src/editors/drawingsheet/DesignInspector.tsx')
+  const PANEL = read('../../../pagelayout_editor/dialogs/design_inspector_ui.tsx')
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\/\/[^\n]*/g, '');

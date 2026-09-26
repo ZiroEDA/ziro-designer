@@ -23,7 +23,7 @@ import {
   DS_INSPECTOR_DEFAULT_TITLE,
   dsInspectorRows,
   dsInspectorTitle,
-} from '@ziroeda/designer/src/editors/drawingsheet/design_inspector.js';
+} from '@ziroeda/pagelayout_editor/dialogs/design_inspector.js';
 import { defaultDrawingSheet, type WksItem, type WksText } from '@ziroeda/common';
 
 const items = defaultDrawingSheet().items;

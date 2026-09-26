@@ -13,6 +13,7 @@ format-compatibility.
 | `eeschema/`      | `eeschema/`          | Schematic engine: document model, `sch_io/sexpr` reader/writer, `connectivity/` (nets, ERC), `tools/` (interactive editing) |
 | `pcbnew/`        | `pcbnew/`            | Board engine: board/footprint/pad/zone object model, `pcb_io/sexpr` parser + formatter, board and footprint editing |
 | `gerbview/`      | `gerbview/`          | Gerber viewer engine: RS-274X Gerber + Excellon drill readers, `D_CODE` apertures, `APERTURE_MACRO` primitives, `GERBER_DRAW_ITEM` model, `GBR_LAYOUT`, `.gbrjob` job-file parsing |
+| `pagelayout_editor/` | `pagelayout_editor/` | Drawing Sheet Editor (`pl_editor`): `PL_EDITOR_FRAME`, its layout, settings and undo/redo, the toolbars, the properties and inspector dialogs, `tools/` (the `PL_*` tools); per-unit table in `pagelayout_editor/STRUCTURE.md` |
 | `common/`        | `common/`            | Shared EDA classes: shapes, text, units, placement transforms, stroke `font/` |
 | `pcb_calculator/`| `pcb_calculator/` + `common/transline_calculations/` | Calculator Tools engine: regulators, track/via/fusing current, E-series, electrical spacing (IPC-2221 + IEC 60664), board classes, galvanic corrosion, and the `transline/` models (microstrip, coupled microstrip, coplanar, coax, rectangular waveguide, stripline, twisted pair) |
 | `libs/kimath/`   | `libs/kimath/`       | Math: `math/vector2`, `geometry/eda_angle`, `trigo`                       |
@@ -53,5 +54,5 @@ Vitest suites for all of them, arranged by the module under test.
   static assets.
 - **Future tools get their own engine dirs** following the same upstream
   conventions (gerber viewer → `gerbview/` ✅, drawing-sheet editor →
-  `pagelayout_editor/`, …), with their UI frames in the app. The Gerber
+  `pagelayout_editor/` ✅, …), with their UI frames in the app. The Gerber
   Viewer's UI frame lives in `designer/src/editors/gerbview/`.

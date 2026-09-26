@@ -16,7 +16,7 @@ import { PAPER_CHOICES, PAPER_MILS, PAPER_MM } from '@ziroeda/common';
 import {
   previewPageMM,
   defaultPreviewSettings,
-} from '@ziroeda/designer/src/editors/drawingsheet/preview_settings.js';
+} from '@ziroeda/pagelayout_editor/pl_editor_frame.js';
 import { pageSettingsLabels } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 
 describe('the paper-size combo', () => {

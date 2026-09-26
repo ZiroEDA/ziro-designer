@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 import {
   buildDsContextMenu,
   type DsContextMenuActions,
-} from '@ziroeda/designer/src/editors/drawingsheet/ds_context_menu.js';
+} from '@ziroeda/pagelayout_editor/tools/pl_selection_tool.js';
 // `ZOOM_MENU` and `GRID_MENU` were a third copy inside ds_context_menu.ts.
 // Upstream they are installed by ONE base-frame method,
 // `EDA_DRAW_FRAME::AddStandardSubMenus`, so they live in one shared module and

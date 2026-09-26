@@ -23,14 +23,11 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import {
-  fmtInt,
-  fmtRotation,
-} from '@ziroeda/designer/src/editors/drawingsheet/properties_format.js';
+import { fmtInt, fmtRotation } from '@ziroeda/pagelayout_editor/dialogs/properties_frame.js';
 
 const PANEL = readFileSync(
   fileURLToPath(
-    new URL('../../../designer/src/editors/drawingsheet/PropertiesFrame.tsx', import.meta.url),
+    new URL('../../../pagelayout_editor/dialogs/properties_frame_ui.tsx', import.meta.url),
   ),
   'utf8',
 );

@@ -29,7 +29,7 @@ import { fileURLToPath } from 'node:url';
 import {
   PL_EDITOR_PRINT_PAGES,
   printDocumentHtml,
-} from '@ziroeda/designer/src/editors/drawingsheet/print_document.js';
+} from '@ziroeda/pagelayout_editor/dialogs/dialogs_for_printing.js';
 
 describe('the printout is two pages', () => {
   it('numbers them 1 and 2, as HasPage does', () => {

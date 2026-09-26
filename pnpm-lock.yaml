@@ -87,6 +87,9 @@ importers:
       '@ziroeda/kimath':
         specifier: workspace:*
         version: link:../libs/kimath
+      '@ziroeda/pagelayout_editor':
+        specifier: workspace:*
+        version: link:../pagelayout_editor
       '@ziroeda/pcb_calculator':
         specifier: workspace:*
         version: link:../pcb_calculator
@@ -216,6 +219,28 @@ importers:
 
   libs/zint: {}
 
+  pagelayout_editor:
+    dependencies:
+      '@ziroeda/common':
+        specifier: workspace:*
+        version: link:../common
+      '@ziroeda/core':
+        specifier: workspace:*
+        version: link:../libs/core
+      '@ziroeda/kimath':
+        specifier: workspace:*
+        version: link:../libs/kimath
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.18
+        version: 18.3.31
+      vite:
+        specifier: ^6.0.7
+        version: 6.4.3(@types/node@22.20.0)(terser@5.51.2)
+
   pcb_calculator:
     dependencies:
       '@ziroeda/common':
@@ -272,6 +297,9 @@ importers:
       '@ziroeda/kimath':
         specifier: workspace:*
         version: link:../libs/kimath
+      '@ziroeda/pagelayout_editor':
+        specifier: workspace:*
+        version: link:../pagelayout_editor
       '@ziroeda/pcb_calculator':
         specifier: workspace:*
         version: link:../pcb_calculator

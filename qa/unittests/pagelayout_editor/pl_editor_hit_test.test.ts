@@ -13,7 +13,7 @@ import {
   thresholdToWorld,
   toolClearsSelection,
   withinPoint,
-} from '@ziroeda/designer/src/editors/drawingsheet/hit_test.js';
+} from '@ziroeda/pagelayout_editor/tools/pl_selection_tool.js';
 
 describe('the three thresholds are three different numbers', () => {
   /**

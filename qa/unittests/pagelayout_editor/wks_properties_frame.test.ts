@@ -29,7 +29,7 @@ import { DEFAULT_FONT_NAME, KICAD_FONT_NAME } from '@ziroeda/common/font/stroke_
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const PANEL = read('../../../designer/src/editors/drawingsheet/PropertiesFrame.tsx');
+const PANEL = read('../../../pagelayout_editor/dialogs/properties_frame_ui.tsx');
 
 /** Every `<UnitField …/>` in the panel, keyed by the model value it edits. */
 const FIELDS: Record<string, string> = (() => {
