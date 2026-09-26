@@ -24,7 +24,7 @@
  */
 
 import type { LibSymbol, Schematic, Vec2 } from '../types.js';
-import { localToWorld, symbolTransform } from '@ziroeda/common/src/transform.js';
+import { localToWorld, symbolTransform } from '@ziroeda/common/transform.js';
 import { refId } from './hittest.js';
 import { contains, inflate, labelBox, type BBox } from './bbox.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';

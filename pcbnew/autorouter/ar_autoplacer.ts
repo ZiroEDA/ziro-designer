@@ -31,7 +31,7 @@
  * a horizontal or vertical run.
  */
 
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { textItemBBox } from '../text_metrics.js';
 import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

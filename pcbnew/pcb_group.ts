@@ -17,7 +17,7 @@
  * `PCB_GROUP_DESC`, the `PROPERTY_MANAGER` registration.
  */
 
-import { EDA_GROUP } from '@ziroeda/common/src/eda_group.js';
+import { EDA_GROUP } from '@ziroeda/common/eda_group.js';
 import {
   ENUM_MAP,
   type INSPECTABLE_ITEM,
@@ -33,8 +33,8 @@ import {
   TYPE_INT,
   TYPE_OPT_INT,
   TYPE_STRING,
-} from '@ziroeda/common/src/properties/property.js';
-import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 
 import {
   CompareByUuid,
@@ -44,16 +44,16 @@ import {
   type INSPECTOR,
   INSPECT_RESULT,
   RECURSE_MODE,
-} from '@ziroeda/common/src/eda_item.js';
-import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/src/eda_draw_frame.js';
-import type { EDA_SEARCH_DATA } from '@ziroeda/common/src/eda_search_data.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import type { KIID } from '@ziroeda/common/src/kiid.js';
-import { FLASHING, GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { unescapeString } from '@ziroeda/common/src/string_utils.js';
-import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
-import { MSG_PANEL_ITEM } from '@ziroeda/common/src/widgets/msgpanel.js';
+} from '@ziroeda/common/eda_item.js';
+import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
+import type { EDA_SEARCH_DATA } from '@ziroeda/common/eda_search_data.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import type { KIID } from '@ziroeda/common/kiid.js';
+import { FLASHING, GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { unescapeString } from '@ziroeda/common/string_utils.js';
+import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import { applyMixins } from '@ziroeda/core/src/mixins.js';
 import type { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';

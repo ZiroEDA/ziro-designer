@@ -33,13 +33,13 @@
  * board painter (the schematic's printSheet mechanics), then opens the
  * browser's print flow on the composed pages.
  */
-import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
+import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import { useState, type JSX } from 'react';
 import type { Board } from '@ziroeda/pcbnew';
 import { buildScene, drawBoard, type PcbDrawOptions } from '../renderBoard.js';
 import { PCB_BW_PRINT_THEME, PCB_THEMES, themeByFilename } from '../pcbTheme.js';
 import { settings } from '../../../prefs/settings.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 const DPI = 300;

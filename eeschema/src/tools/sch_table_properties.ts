@@ -41,7 +41,7 @@
  * the combo falls back to index 0 for anything out of range.
  */
 
-import { tableRowCount } from '@ziroeda/common/src/table.js';
+import { tableRowCount } from '@ziroeda/common/table.js';
 import type { Schematic, SchTable, Stroke } from '../types.js';
 import type { EditCommand } from './command.js';
 import { refId } from './hittest.js';

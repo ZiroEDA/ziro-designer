@@ -11,8 +11,8 @@
  * silk and mask skipped, either order) is pinned in `board_support_classes`.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { PnsBoardIface } from '@ziroeda/pcbnew/router/pns_board_iface.js';
 import {
   BOARD_DESIGN_SETTINGS,

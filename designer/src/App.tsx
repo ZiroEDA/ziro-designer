@@ -15,7 +15,7 @@ import type { LibSymbol } from '@ziroeda/eeschema';
 import { HomePage } from './home/HomePage.js';
 import type { PickedFile } from './editors/schematic/SchematicEditor.js';
 import { EMPTY_PCB } from './home/new_project.js';
-import { ProgressDialog } from '@ziroeda/common/src/widgets/wx_progress_reporters.js';
+import { ProgressDialog } from '@ziroeda/common/widgets/wx_progress_reporters.js';
 import { ProjectSyncProvider } from './sync/ProjectSyncProvider.js';
 import type { EditorKind } from './sync/ProjectSyncTransport.js';
 import {
@@ -32,7 +32,7 @@ import { saveSession, loadSession } from './home/session.js';
 import { installFlushOnHide } from './home/flush_on_hide.js';
 import { setRecoveryProvider } from './home/recovery.js';
 import { recoverySnapshotFrom } from './home/recovery_source.js';
-import { formatTitle, useDocumentTitle } from '@ziroeda/common/src/use_document_title.js';
+import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
 import { pushProject } from './cloud/sync.js';
 import { useRoute } from './nav/useRoute.js';
 import { fileForFrame, type ProjectView, type Route } from './nav/route.js';
@@ -52,7 +52,7 @@ import { ReadOnlyNotice } from './ui/ReadOnlyNotice.js';
 import { installCommonAppearance } from './ui/common_appearance.js';
 import { projectStoreFileSystem } from './fs/project_store_fs.js';
 import { warmLibraryIndexes } from './libraryHosts.js';
-import '@ziroeda/common/src/widgets/shell.css';
+import '@ziroeda/common/widgets/shell.css';
 
 /**
  * The editor frames load on demand, one chunk each.

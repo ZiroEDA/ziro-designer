@@ -5,8 +5,8 @@
  * `pcbnew/drc/drc_rule_condition.h` + `.cpp`: a rule's `(condition "...")`,
  * compiled once to PCBEXPR_UCODE and evaluated per item pair.
  */
-import { type PCB_LAYER_ID, PCB_LAYER_ID as LAYER } from '@ziroeda/common/src/layer_ids.js';
-import { RPT_SEVERITY_ERROR, type Reporter } from '@ziroeda/common/src/reporter.js';
+import { type PCB_LAYER_ID, PCB_LAYER_ID as LAYER } from '@ziroeda/common/layer_ids.js';
+import { RPT_SEVERITY_ERROR, type Reporter } from '@ziroeda/common/reporter.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import {

@@ -79,7 +79,7 @@
 
 import { segApproxCollinear } from '@ziroeda/kimath/src/geometry/seg.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import type { Reporter } from '@ziroeda/common/src/reporter.js';
+import type { Reporter } from '@ziroeda/common/reporter.js';
 import {
   buildCleanupConnectivity,
   cnItemHitTest,

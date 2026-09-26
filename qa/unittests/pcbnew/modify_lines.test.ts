@@ -13,7 +13,7 @@
 import { describe, expect, it } from 'vitest';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { flatText, writtenNodes } from './support/written_node.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { modifiableLineCount, modifyLines } from '@ziroeda/pcbnew/modify_lines.js';
 import type { Board, PcbShape } from '@ziroeda/pcbnew/types.js';
 

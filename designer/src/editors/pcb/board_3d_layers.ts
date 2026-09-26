@@ -20,7 +20,7 @@
  * Coordinates stay in KiCad's frame (IU, y down). `pcb3d.ts` scales into
  * 3D units and flips y, as `BiuTo3dUnits()` / `-pos.y` do upstream.
  */
-import { ARC_HIGH_DEF } from '@ziroeda/common/src/eda_units.js';
+import { ARC_HIGH_DEF } from '@ziroeda/common/eda_units.js';
 import {
   type Polygon,
   booleanAdd,

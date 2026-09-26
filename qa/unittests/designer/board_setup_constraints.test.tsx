@@ -22,7 +22,7 @@
  *     (`KiBitmapBundle( …, 24 )`, `panel_setup_constraints.cpp:61-73`).
  *
  * So these assert the structure, per element. The widths themselves are in
- * `common/src/widgets/shell.css` and are measured by
+ * `common/widgets/shell.css` and are measured by
  * `qa/probes/constraints_layout_probe.cpp`; what a DOM test can pin is that
  * the markup those rules are written against is the markup we render.
  */

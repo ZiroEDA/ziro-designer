@@ -31,7 +31,7 @@ import {
 } from '@ziroeda/designer/src/editors/footprint/fp_layer_choices.js';
 import { layerColor } from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
 import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common';
-import { toCssColor } from '@ziroeda/common/src/color4d.js';
+import { toCssColor } from '@ziroeda/common/color4d.js';
 
 const values = (rows: readonly { value: string }[]): string[] => rows.map((r) => r.value);
 const labels = (rows: readonly { label: string }[]): string[] => rows.map((r) => r.label);

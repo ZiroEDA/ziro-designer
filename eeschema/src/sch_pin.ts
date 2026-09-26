@@ -13,7 +13,7 @@
  * so stand for several pads.
  */
 
-import { expandStackedPinNotation } from '@ziroeda/common/src/string_utils.js';
+import { expandStackedPinNotation } from '@ziroeda/common/string_utils.js';
 import type { LibSymbol, SchSymbol } from './types.js';
 
 /** SCH_PIN::PAD_RESOLUTION, how a pin's pad number was arrived at. */

@@ -9,7 +9,7 @@
  *       ~/kicad-reference/demos/cm5_minima/CM5_MINIMA_3.kicad_pcb
  */
 import { existsSync, readFileSync } from 'node:fs';
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { type DRC_JOB_REQUEST, loadBoardForDrc } from '@ziroeda/pcbnew/drc/drc_job.js';
 
 const boardPath = process.argv[2]!;

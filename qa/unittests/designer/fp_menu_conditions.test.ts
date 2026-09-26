@@ -30,7 +30,7 @@ import {
   type FootprintMenuConditions,
   type FootprintMenuHandlers,
 } from '@ziroeda/designer/src/editors/footprint/menubar.js';
-import type { Menu, MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
+import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 
 const noop = (): void => {};
 

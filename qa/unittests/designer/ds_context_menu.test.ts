@@ -24,19 +24,19 @@ import {
 // `EDA_DRAW_FRAME::AddStandardSubMenus`, so they live in one shared module and
 // the test reads them from there — the same rows the PCB editor's menu ends
 // with.
-import { gridSubMenu, zoomSubMenu } from '@ziroeda/common/src/eda_draw_frame_submenus.js';
+import { gridSubMenu, zoomSubMenu } from '@ziroeda/common/eda_draw_frame_submenus.js';
 // Both of these used to be a second copy inside ds_context_menu.ts. They are
 // `common/` helpers upstream, so there is one copy now and the test reads it
 // from where it lives.
-import { gridChoiceLabel, secondaryUnits } from '@ziroeda/common/src/settings/grid_settings_ui.js';
+import { gridChoiceLabel, secondaryUnits } from '@ziroeda/common/settings/grid_settings_ui.js';
 import { PCB_IU_PER_MM, PL_IU_PER_MM } from '@ziroeda/common';
 import {
   ZOOM_LIST,
   nextZoomPreset,
   zoomPresetLabel,
   isZoomPresetChecked,
-} from '@ziroeda/common/src/settings/zoom_settings.js';
-import type { MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
+} from '@ziroeda/common/settings/zoom_settings.js';
+import type { MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 import { PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 
 const noop = (): void => {};
@@ -267,7 +267,7 @@ describe('the canvas actually raises it', () => {
 
   it('renders the shared ContextMenu, not a private popup', () => {
     expect(EDITOR).toMatch(/import \{\s*MenuBar,\s*ContextMenu,/);
-    expect(EDITOR).toContain("from '@ziroeda/common/src/tool/action_menu_bar.js'");
+    expect(EDITOR).toContain("from '@ziroeda/common/tool/action_menu_bar.js'");
     expect(EDITOR).toContain('items={buildDsContextMenu(');
   });
 });

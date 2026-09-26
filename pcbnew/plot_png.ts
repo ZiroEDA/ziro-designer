@@ -79,7 +79,7 @@
  *   Cairo-equivalent and is where real pixels come from in the application. The
  *   interface is declared structurally here, so this module needs no DOM
  *   import and `qa` can drive it with a plain recorder;
- * - the encoding is `common/src/png_encoder.ts`, a byte-exact PNG writer
+ * - the encoding is `common/png_encoder.ts`, a byte-exact PNG writer
  *   standing in for `cairo_surface_write_to_png`, including cairo's own
  *   un-premultiply arithmetic.
  *
@@ -103,7 +103,7 @@ import {
   pngPremultiplyRgba8,
   pngUnpremultiplyArgb32,
   type PngEncodeOptions,
-} from '@ziroeda/common/src/png_encoder.js';
+} from '@ziroeda/common/png_encoder.js';
 
 /** `FILL_T` (eda_shape.h). NO_FILL is 1, not 0 — never treat this as a boolean. */
 export enum FILL_T {
@@ -134,12 +134,9 @@ export enum LINE_STYLE {
 export {
   DO_NOT_SET_LINE_WIDTH,
   USE_DEFAULT_LINE_WIDTH,
-} from '@ziroeda/common/src/plotters/plotter.js';
+} from '@ziroeda/common/plotters/plotter.js';
 
-import {
-  DO_NOT_SET_LINE_WIDTH,
-  USE_DEFAULT_LINE_WIDTH,
-} from '@ziroeda/common/src/plotters/plotter.js';
+import { DO_NOT_SET_LINE_WIDTH, USE_DEFAULT_LINE_WIDTH } from '@ziroeda/common/plotters/plotter.js';
 
 /** `DEFAULT_PNG_DPI` / `MIN_PNG_DPI` / `MAX_PNG_DPI` (plotter_png.h). */
 export const DEFAULT_PNG_DPI = 300;
@@ -156,8 +153,8 @@ export const MAX_PNG_DIMENSION = 32767;
 
 // `COLOR4D` lives in `common` because the graphics importers, shared with
 // eeschema, need it too. Re-exported here so existing consumers are unaffected.
-export { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/src/color4d.js';
-import { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/src/color4d.js';
+export { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/color4d.js';
+import { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/color4d.js';
 
 /** `COLOR4D::UNSPECIFIED`, which really is transparent black — color4d.cpp:543. */
 export const COLOR4D_UNSPECIFIED: Color4d = { r: 0, g: 0, b: 0, a: 0 };

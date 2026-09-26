@@ -20,12 +20,9 @@ import {
   type LibSymbolUnit,
   type SchField,
 } from '@ziroeda/eeschema';
-import {
-  nearestGridPosition,
-  nearestHalfGridPosition,
-} from '@ziroeda/common/src/eda_draw_frame.js';
-import { textWidth } from '@ziroeda/common/src/font/font_provider.js';
-import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
+import { nearestGridPosition, nearestHalfGridPosition } from '@ziroeda/common/eda_draw_frame.js';
+import { textWidth } from '@ziroeda/common/font/font_provider.js';
+import { measureText } from '@ziroeda/common/font/stroke_font.js';
 import {
   libUnitShown,
   pinBodyEnd,
@@ -36,7 +33,7 @@ import {
 } from './render/symbolRenderer.js';
 import { symbolGridIU } from './grid.js';
 import { incrementString } from '@ziroeda/eeschema/src/tools/repeat_item.js';
-import { schIUScale } from '@ziroeda/common/src/eda_units.js';
+import { schIUScale } from '@ziroeda/common/eda_units.js';
 import {
   type EditHandle,
   dragGraphic,

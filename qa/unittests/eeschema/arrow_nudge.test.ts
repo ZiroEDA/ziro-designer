@@ -18,7 +18,7 @@ import {
   nudge,
   type ArrowNudgeState,
 } from '@ziroeda/eeschema/src/tools/arrow_nudge.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Vec2 } from '@ziroeda/eeschema/src/types.js';
 
 const GRID = mmToIU(1.27); // KiCad's 50 mil schematic grid

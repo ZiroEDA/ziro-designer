@@ -3,9 +3,9 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** PROJECT and the project half of SETTINGS_MANAGER. */
 import { describe, expect, it } from 'vitest';
-import { PGM_BASE, SETTINGS_MANAGER } from '@ziroeda/common/src/pgm_base.js';
-import { LIB_TYPE_T, PROJECT, PROJECT_ELEM, RSTRING_T } from '@ziroeda/common/src/project.js';
-import { PROJECT_FILE } from '@ziroeda/common/src/project/project_file.js';
+import { PGM_BASE, SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
+import { LIB_TYPE_T, PROJECT, PROJECT_ELEM, RSTRING_T } from '@ziroeda/common/project.js';
+import { PROJECT_FILE } from '@ziroeda/common/project/project_file.js';
 
 describe('PROJECT', () => {
   it('splits its full name the way wxFileName does', () => {

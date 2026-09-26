@@ -21,7 +21,7 @@ import { hitTest } from '@ziroeda/eeschema/src/tools/hittest.js';
 import { addItems, deleteByIds } from '@ziroeda/eeschema/src/tools/mutate.js';
 import { moveItems } from '@ziroeda/eeschema/src/tools/move.js';
 import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const EMPTY = `(kicad_sch (version 20250114) (generator "eeschema"))`;

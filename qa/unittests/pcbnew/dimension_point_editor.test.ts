@@ -13,7 +13,7 @@
  * grips, their hit tolerance and their painting were already there.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   boardEditHandles,
   dragBoardHandle,

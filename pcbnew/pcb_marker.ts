@@ -8,21 +8,21 @@
  * Not here: `PCB_MARKER_DESC`, the `PROPERTY_MANAGER` registration.
  */
 
-import type { Color4d } from '@ziroeda/common/src/color4d.js';
-import type { EDA_DRAW_FRAME_LIKE, EDA_ITEM } from '@ziroeda/common/src/eda_item.js';
-import type { EDA_SEARCH_DATA } from '@ziroeda/common/src/eda_search_data.js';
-import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { type KIID, kiidFromString } from '@ziroeda/common/src/kiid.js';
+import type { Color4d } from '@ziroeda/common/color4d.js';
+import type { EDA_DRAW_FRAME_LIKE, EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import type { EDA_SEARCH_DATA } from '@ziroeda/common/eda_search_data.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { type KIID, kiidFromString } from '@ziroeda/common/kiid.js';
 import {
   FLASHING,
   GAL_LAYER_ID,
   LayerName,
   PCB_LAYER_ID,
   ToLAYER_ID,
-} from '@ziroeda/common/src/layer_ids.js';
-import { MARKER_BASE, MARKER_T } from '@ziroeda/common/src/marker_base.js';
-import type { RC_ITEM } from '@ziroeda/common/src/rc_item.js';
+} from '@ziroeda/common/layer_ids.js';
+import { MARKER_BASE, MARKER_T } from '@ziroeda/common/marker_base.js';
+import type { RC_ITEM } from '@ziroeda/common/rc_item.js';
 import {
   RPT_SEVERITY_ERROR,
   RPT_SEVERITY_EXCLUSION,
@@ -30,11 +30,11 @@ import {
   RPT_SEVERITY_UNDEFINED,
   RPT_SEVERITY_WARNING,
   type Severity,
-} from '@ziroeda/common/src/reporter.js';
-import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/src/settings/builtin_color_themes.js';
-import { STROKE_PARAMS } from '@ziroeda/common/src/stroke_params.js';
-import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
-import { MSG_PANEL_ITEM } from '@ziroeda/common/src/widgets/msgpanel.js';
+} from '@ziroeda/common/reporter.js';
+import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/settings/builtin_color_themes.js';
+import { STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
+import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import { applyMixins } from '@ziroeda/core/src/mixins.js';
 import type { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
@@ -70,8 +70,8 @@ import {
   TYPE_INT,
   TYPE_OPT_INT,
   TYPE_STRING,
-} from '@ziroeda/common/src/properties/property.js';
-import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 
 import { DRC_ITEM, PCB_DRC_CODE } from './drc/drc_item.js';
 import { PCB_SHAPE } from './pcb_shape.js';

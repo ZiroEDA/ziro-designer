@@ -28,7 +28,7 @@
 // `StrNumCmp( …, true )`: the natural-order comparison the label sort uses, so
 // `D9` comes before `D10`. `sch_drawing_tools.cpp:3917` passes aIgnoreCase =
 // true, which is the opposite of StrNumCmp's own default, so it is spelled out.
-import { strNumCmp } from '@ziroeda/common/src/string_utils.js';
+import { strNumCmp } from '@ziroeda/common/string_utils.js';
 import type { LabelShape, SchLabel, SchSheet, Schematic } from '../types.js';
 
 /** A label on the child sheet that the parent has no pin for yet. */

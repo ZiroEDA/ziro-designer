@@ -34,12 +34,12 @@
  * says so in its tooltip; and the Ctrl+Tab / Shift+Tab cycling popups.
  */
 import type { JSX } from 'react';
-import type { Color4d } from '@ziroeda/common/src/color4d.js';
+import type { Color4d } from '@ziroeda/common/color4d.js';
 import type { Board } from '@ziroeda/pcbnew';
 import { GetLayerName } from '@ziroeda/pcbnew/layer_ids.js';
 import { Check } from '../../dialogs/prefs/widgets.js';
-import { ColorSwatch } from '@ziroeda/common/src/widgets/color_swatch.js';
-import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
+import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { EyeIcon } from '../../widgets/appearance_controls.js';
 import {
   APPEARANCE_ROWS_3D,

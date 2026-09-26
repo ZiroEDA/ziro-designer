@@ -59,7 +59,7 @@
  *    symbol open reads `[no symbol loaded]`, never `*[no symbol loaded]`.
  */
 
-import { frameTitle, type FrameTitleParts } from '@ziroeda/common/src/use_document_title.js';
+import { frameTitle, type FrameTitleParts } from '@ziroeda/common/use_document_title.js';
 
 /** `_( "Symbol Editor" )`, the half after the dash. */
 export const SYM_FRAME_NAME = 'Symbol Editor';
@@ -114,7 +114,7 @@ export interface SymFrameTitleSpec {
  *
  * Passed in rather than imported so this module stays free of the symbol
  * editor's library layer; the call site hands it
- * `@ziroeda/common/src/string_utils.js`'s `unescapeString`, which is the port
+ * `@ziroeda/common/string_utils.js`'s `unescapeString`, which is the port
  * of `common/string_utils.cpp`.
  */
 export type Unescape = (s: string) => string;

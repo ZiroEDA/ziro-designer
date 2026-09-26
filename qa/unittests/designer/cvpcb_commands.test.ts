@@ -48,7 +48,7 @@ import {
   UNSAVED_CHANGES_EXTENDED,
   UNSAVED_CHANGES_SAVE_LABEL,
   UNSAVED_CHANGES_TITLE,
-} from '@ziroeda/common/src/confirm.js';
+} from '@ziroeda/common/confirm.js';
 
 const comp = (reference: string, footprint = ''): CvpcbComponent => ({
   reference,

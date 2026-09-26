@@ -40,7 +40,7 @@ import { makeLabel, makeDirectiveLabel } from './build.js';
 import { setLabelFields, labelFields } from './label_properties.js';
 import { makeTextBox } from './build-graphics.js';
 import { parseBusGroup } from '../connectivity/bus.js';
-import { escapeNetName } from '@ziroeda/common/src/string_utils.js';
+import { escapeNetName } from '@ziroeda/common/string_utils.js';
 import type { EditCommand } from './command.js';
 
 /** What a selection can be turned into: the label kinds, plus the two that

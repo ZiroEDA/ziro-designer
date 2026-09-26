@@ -57,7 +57,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
               and this port draws every string with KiCad's stroke font or its
               MSDF atlas — so choosing a second face would change nothing on
               screen. The measuring half of that already has its seam
-              (`common/src/font/font_provider.ts`, deliberately with no
+              (`common/font/font_provider.ts`, deliberately with no
               provider installed, because a face that measures one way and
               draws another is worse than no outline fonts at all); the drawing
               half is issue #154, and this list becomes the installed faces

@@ -6,7 +6,7 @@
  * copper finishes and the mask/silk/dielectric colour lists a stackup can
  * name. The names are `.gbrjob` keywords, so they are data, not chrome.
  */
-import type { Color4d } from '@ziroeda/common/src/color4d.js';
+import type { Color4d } from '@ziroeda/common/color4d.js';
 import {
   BOARD_STACKUP_ITEM_TYPE,
   DEFAULT_SOLDERMASK_OPACITY,

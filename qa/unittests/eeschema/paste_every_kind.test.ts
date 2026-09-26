@@ -22,7 +22,7 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   pasteItems,
   translatePayload,

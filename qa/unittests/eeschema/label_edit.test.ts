@@ -17,7 +17,7 @@ import {
   labelTextBox,
   textPenWidth,
 } from '@ziroeda/eeschema/src/tools/bbox.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const SCH = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
   (label "NET1" (at 50 50 0) (effects (font (size 1.27 1.27)) (justify left bottom)) (uuid "loc-1"))

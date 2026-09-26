@@ -28,7 +28,7 @@
  * `A_lm` (GL_LIGHT_MODEL_AMBIENT) is set to zero in `init_lights`.
  */
 import * as THREE from 'three';
-import type { Color4d } from '@ziroeda/common/src/color4d.js';
+import type { Color4d } from '@ziroeda/common/color4d.js';
 
 export type Vec3 = [number, number, number];
 

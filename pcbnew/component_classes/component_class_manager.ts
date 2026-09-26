@@ -14,7 +14,7 @@
 import {
   COMPONENT_CLASS_ASSIGNMENT_DATA,
   CONDITION_TYPE,
-} from '@ziroeda/common/src/project/component_class_settings.js';
+} from '@ziroeda/common/project/component_class_settings.js';
 import type { BOARD } from '../board.js';
 import type { FOOTPRINT } from '../footprint.js';
 import { COMPONENT_CLASS, USAGE } from './component_class.js';

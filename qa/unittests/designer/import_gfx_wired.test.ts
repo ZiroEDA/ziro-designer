@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { HOTKEYS } from '@ziroeda/designer/src/editors/schematic/hotkeys.js';
 import { buildMenus } from '@ziroeda/designer/src/editors/schematic/menubar.js';
 import { eventFromCombo } from '@ziroeda/designer/src/editors/schematic/hotkey_bindings.js';
-import { dispatchMenuHotkey } from '@ziroeda/common/src/tool/action_menu_hotkeys.js';
+import { dispatchMenuHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 
 /** A stand-in event for `eventFromCombo` to build a synthetic keystroke from. */
 const BASE = {

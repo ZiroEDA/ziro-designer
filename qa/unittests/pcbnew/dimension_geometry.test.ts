@@ -15,7 +15,7 @@
  * raw IU would be nanometres across and rounding would dominate every number.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { PcbDimension, PcbTextItem } from '@ziroeda/pcbnew/types.js';
 import {
   ARROW_ANGLE_DEG,

@@ -8,9 +8,9 @@
  * Errors generated:
  * - DRCE_SILK_CLEARANCE
  */
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/src/reporter.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { SHAPE } from '@ziroeda/kimath/src/geometry/shape.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';

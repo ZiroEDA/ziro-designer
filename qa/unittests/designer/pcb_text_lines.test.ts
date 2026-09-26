@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
-import { layoutText, splitTextLines } from '@ziroeda/common/src/font/stroke_font.js';
+import { layoutText, splitTextLines } from '@ziroeda/common/font/stroke_font.js';
 import {
   buildDrawSteps,
   buildScene,

@@ -3,7 +3,7 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** `qa/tests/common/test_base_set.cpp`, transcribed (the `std::hash` case aside). */
 import { describe, expect, it } from 'vitest';
-import { BASE_SET } from '@ziroeda/common/src/base_set.js';
+import { BASE_SET } from '@ziroeda/common/base_set.js';
 
 describe('BaseSet', () => {
   it('ConstructionAndSize', () => {

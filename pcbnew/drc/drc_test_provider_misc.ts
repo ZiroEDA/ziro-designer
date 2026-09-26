@@ -14,16 +14,16 @@
  * - DRCE_GENERIC_ERROR                      ///< user-defined errors
  * - DRCE_MISSING_TUNING_PROFILES            ///< tuning profile for netc lass not defined
  */
-import { ExpandEnvVarSubstitutions } from '@ziroeda/common/src/common.js';
-import { pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
-import { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
+import { ExpandEnvVarSubstitutions } from '@ziroeda/common/common.js';
+import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
+import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
 import {
   LAYER_DRAWINGSHEET,
   LayerName,
   PCB_LAYER_ID,
   UNDEFINED_LAYER,
-} from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
+} from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import {

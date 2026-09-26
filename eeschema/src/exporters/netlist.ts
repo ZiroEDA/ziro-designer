@@ -16,7 +16,7 @@
 import type { Schematic, SchSymbol, LibSymbol } from '../types.js';
 import { computeNetlist, enumeratePins } from '../connectivity/nets.js';
 import { refId } from '../tools/hittest.js';
-import { GENERATOR_APPLICATION } from '@ziroeda/common/src/generator.js';
+import { GENERATOR_APPLICATION } from '@ziroeda/common/generator.js';
 import { compareRefs } from './bom.js';
 import { netlistAllegro, type AllegroFile } from './netlist_exporter_allegro.js';
 

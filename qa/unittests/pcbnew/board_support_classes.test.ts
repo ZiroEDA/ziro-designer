@@ -11,25 +11,25 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { DSNLEXER } from '@ziroeda/common/src/dsnlexer.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { DSNLEXER } from '@ziroeda/common/dsnlexer.js';
 import {
   EMBEDDED_FILES,
   EMBEDDED_FILE,
   FILE_TYPE,
   ParseEmbedded,
-} from '@ziroeda/common/src/embedded_files.js';
-import { Prettify } from '@ziroeda/common/src/io/kicad/kicad_io_utils.js';
-import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/src/page_info.js';
-import { STRING_FORMATTER } from '@ziroeda/common/src/richio.js';
-import { B_Cu, F_Cu, F_Fab, Edge_Cuts, In1_Cu, In2_Cu } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
+} from '@ziroeda/common/embedded_files.js';
+import { Prettify } from '@ziroeda/common/io/kicad/kicad_io_utils.js';
+import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/page_info.js';
+import { STRING_FORMATTER } from '@ziroeda/common/richio.js';
+import { B_Cu, F_Cu, F_Fab, Edge_Cuts, In1_Cu, In2_Cu } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import {
   DXF_OUTLINE_MODE,
   DXF_UNITS,
   PLOT_FORMAT,
   PLOT_TEXT_MODE,
-} from '@ziroeda/common/src/plotters/plotter.js';
+} from '@ziroeda/common/plotters/plotter.js';
 import { BOARD_DESIGN_SETTINGS } from '@ziroeda/pcbnew/board_design_settings.js';
 import { BOARD_STACKUP } from '@ziroeda/pcbnew/board_stackup_manager/board_stackup.js';
 import { PCB_PLOT_PARAMS, PCB_PLOT_PARAMS_PARSER } from '@ziroeda/pcbnew/pcb_plot_params.js';

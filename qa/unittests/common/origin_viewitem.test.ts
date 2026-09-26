@@ -21,7 +21,7 @@ import {
   drawOriginViewItem,
   ORIGIN_VIEWITEM_SIZE,
   type OriginMarkerStyle,
-} from '@ziroeda/common/src/preview_items/origin_viewitem.js';
+} from '@ziroeda/common/preview_items/origin_viewitem.js';
 
 interface Call {
   op: string;

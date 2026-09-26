@@ -24,9 +24,9 @@
  * Footprint set should not wipe the footprint you assigned.
  */
 
-import { GetRefDesNumber, GetRefDesPrefix } from '@ziroeda/common/src/refdes_utils.js';
-import { unescapeString, wildCompareString } from '@ziroeda/common/src/string_utils.js';
-import { Reporter } from '@ziroeda/common/src/reporter.js';
+import { GetRefDesNumber, GetRefDesPrefix } from '@ziroeda/common/refdes_utils.js';
+import { unescapeString, wildCompareString } from '@ziroeda/common/string_utils.js';
+import { Reporter } from '@ziroeda/common/reporter.js';
 import type { LibPin, LibSymbol, Schematic, SchField, SchSymbol } from '../types.js';
 import { flattenLibSymbol } from '../lib_symbol.js';
 import type { EditCommand } from './command.js';

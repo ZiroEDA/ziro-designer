@@ -8,16 +8,16 @@
  * Not here: `PCB_POINT_DESC`, the `PROPERTY_MANAGER` registration.
  */
 
-import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/src/eda_item.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import {
   FLASHING,
   GAL_LAYER_ID,
   PCB_LAYER_ID,
   POINT_LAYER_FOR,
-} from '@ziroeda/common/src/layer_ids.js';
-import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
-import { MSG_PANEL_ITEM } from '@ziroeda/common/src/widgets/msgpanel.js';
+} from '@ziroeda/common/layer_ids.js';
+import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import { type FLIP_DIRECTION, MIRROR } from '@ziroeda/core/src/mirror.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
@@ -48,8 +48,8 @@ import {
   TYPE_INT,
   TYPE_OPT_INT,
   TYPE_STRING,
-} from '@ziroeda/common/src/properties/property.js';
-import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 
 import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
 

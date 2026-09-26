@@ -15,8 +15,8 @@
  * VECTOR2I. `VECTOR2I::Resize( double )` truncates its length to int first;
  * `resizeI` here does the same.
  */
-import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
-import { type PCB_LAYER_ID, PCB_LAYER_ID as LAYER } from '@ziroeda/common/src/layer_ids.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { type PCB_LAYER_ID, PCB_LAYER_ID as LAYER } from '@ziroeda/common/layer_ids.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import {
   ANGLE_0,

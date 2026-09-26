@@ -16,16 +16,12 @@
  * are the same wx widgets on the same DIALOG_SHIM.
  */
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
-import { rcTreeRowStyle, rcTreeTextColour } from '@ziroeda/common/src/widgets/rc_tree_style.js';
-import type {
-  RC_TREE_MODEL,
-  RC_TREE_NODE,
-  RC_TREE_VIEW_STATE,
-} from '@ziroeda/common/src/rc_item.js';
-import { RC_TREE_NODE_TYPE } from '@ziroeda/common/src/rc_item.js';
-import { ContextMenu, type MenuItem } from '@ziroeda/common/src/tool/action_menu_bar.js';
-import { bitmapUrl } from '@ziroeda/common/src/bitmap_store.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { rcTreeRowStyle, rcTreeTextColour } from '@ziroeda/common/widgets/rc_tree_style.js';
+import type { RC_TREE_MODEL, RC_TREE_NODE, RC_TREE_VIEW_STATE } from '@ziroeda/common/rc_item.js';
+import { RC_TREE_NODE_TYPE } from '@ziroeda/common/rc_item.js';
+import { ContextMenu, type MenuItem } from '@ziroeda/common/tool/action_menu_bar.js';
+import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 import type { DIALOG_DRC, DrcMenuRow, IgnoredRow } from './dialog_drc_model.js';
 
 /** What a NUMBER_BADGE paints for one count, or null when it paints nothing. */

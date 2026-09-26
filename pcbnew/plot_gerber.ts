@@ -16,12 +16,12 @@
  */
 
 import type { Board, PcbBarcode, PcbPad, PcbShape, PcbFootprint } from './types.js';
-import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { pcbIuToMM as iuToMM } from '@ziroeda/common/eda_units.js';
 import {
   GENERATOR_APPLICATION,
   GENERATOR_VENDOR,
   GENERATOR_VERSION,
-} from '@ziroeda/common/src/generator.js';
+} from '@ziroeda/common/generator.js';
 import { tessellateArc, rotatePcb } from './read-board.js';
 import { barcodeGeometry } from './pcb_io/kicad_sexpr/board_view.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

@@ -14,23 +14,23 @@
  * `SetParameter` / `Synthesize` / `Analyse` / `Get*Results` exactly as upstream
  * does, one parameter table per line type.
  */
-import { FromUserUnit, pcbIUScale } from '@ziroeda/common/src/eda_units.js';
+import { FromUserUnit, pcbIUScale } from '@ziroeda/common/eda_units.js';
 import {
   IsBackLayer,
   IsFrontLayer,
   IsCopperLayerLowerThan,
   PCB_LAYER_ID,
-} from '@ziroeda/common/src/layer_ids.js';
-import { COUPLED_MICROSTRIP } from '@ziroeda/common/src/transline_calculations/coupled_microstrip.js';
-import { COUPLED_STRIPLINE } from '@ziroeda/common/src/transline_calculations/coupled_stripline.js';
-import { MICROSTRIP } from '@ziroeda/common/src/transline_calculations/microstrip.js';
-import { STRIPLINE } from '@ziroeda/common/src/transline_calculations/stripline.js';
+} from '@ziroeda/common/layer_ids.js';
+import { COUPLED_MICROSTRIP } from '@ziroeda/common/transline_calculations/coupled_microstrip.js';
+import { COUPLED_STRIPLINE } from '@ziroeda/common/transline_calculations/coupled_stripline.js';
+import { MICROSTRIP } from '@ziroeda/common/transline_calculations/microstrip.js';
+import { STRIPLINE } from '@ziroeda/common/transline_calculations/stripline.js';
 import {
   SYNTHESIZE_OPTS,
   TRANSLINE_PARAMETERS,
   type TRANSLINE_RESULT,
   TRANSLINE_STATUS,
-} from '@ziroeda/common/src/transline_calculations/transline_calculation_base.js';
+} from '@ziroeda/common/transline_calculations/transline_calculation_base.js';
 import {
   type BOARD_STACKUP,
   type BOARD_STACKUP_ITEM,

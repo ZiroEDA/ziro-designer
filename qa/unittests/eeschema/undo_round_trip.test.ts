@@ -38,7 +38,7 @@ import { makeWire, makeJunction, makeLabel } from '@ziroeda/eeschema/src/tools/b
 import { refId, sheetPinId } from '@ziroeda/eeschema/src/tools/hittest.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const rawR = readFileSync(
   fileURLToPath(new URL('../../data/R.kicad_sym', import.meta.url)),

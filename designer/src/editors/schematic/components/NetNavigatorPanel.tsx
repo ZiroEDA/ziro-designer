@@ -25,7 +25,7 @@
 
 import { useMemo, useState, type JSX } from 'react';
 import { buildNetNavigator, type NetNavigatorNet } from '@ziroeda/eeschema';
-import { unescapeString } from '@ziroeda/common/src/string_utils.js';
+import { unescapeString } from '@ziroeda/common/string_utils.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema';
 
 /**

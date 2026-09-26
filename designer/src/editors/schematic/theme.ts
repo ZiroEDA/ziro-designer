@@ -5,7 +5,7 @@
  * The schematic's view of KiCad's built-in colour themes.
  *
  * The colours themselves are NOT defined here. They live once, for every
- * editor, in `@ziroeda/common/src/settings/builtin_color_themes.ts` — a
+ * editor, in `@ziroeda/common/settings/builtin_color_themes.ts` — a
  * mechanical port of `common/settings/builtin_color_themes.h`, which is
  * likewise the single place KiCad defines them. This module only names the
  * schematic layers eeschema's renderer cares about (`SCH_LAYER_ID`) and

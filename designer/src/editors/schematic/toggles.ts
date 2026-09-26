@@ -17,7 +17,7 @@
  * each render (`SETTINGS_TOGGLES` in `SchematicEditor.tsx`).
  */
 
-import { defaultUnitsToggle } from '@ziroeda/common/src/settings/app_settings_units.js';
+import { defaultUnitsToggle } from '@ziroeda/common/settings/app_settings_units.js';
 
 /**
  * The left toolbar's cycling groups — `AppendGroup( TOOLBAR_GROUP_CONFIG(...) )`

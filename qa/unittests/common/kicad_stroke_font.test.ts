@@ -3,8 +3,8 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** `qa/tests/common/test_kicad_stroke_font.cpp`, transcribed. */
 import { describe, expect, it } from 'vitest';
-import { STROKE_FONT } from '@ziroeda/common/src/font/stroke_font.js';
-import type { GLYPH_LIKE } from '@ziroeda/common/src/font/glyph.js';
+import { STROKE_FONT } from '@ziroeda/common/font/stroke_font.js';
+import type { GLYPH_LIKE } from '@ziroeda/common/font/glyph.js';
 import { ANGLE_0 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 

@@ -32,7 +32,7 @@ import {
   autoplacePlacedSymbol,
   libPreviewFields,
 } from '@ziroeda/eeschema/src/tools/autoplace_fields.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { SchField, Vec2 } from '@ziroeda/eeschema/src/types.js';
 
 const LIB = `(lib_symbols

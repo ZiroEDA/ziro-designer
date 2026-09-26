@@ -17,7 +17,7 @@ import { readSchematic } from '@ziroeda/eeschema';
 import { contentBBox, selectionBBox } from '@ziroeda/eeschema/src/tools/scene_bbox.js';
 import { isEmpty } from '@ziroeda/eeschema/src/tools/bbox.js';
 import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
 
 /** One of every item kind that carries geometry, each somewhere different. */

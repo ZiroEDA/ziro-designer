@@ -11,7 +11,7 @@ import {
 } from '@ziroeda/eeschema/src/tools/snap.js';
 import { addItems, makeWire, placeSymbol } from '@ziroeda/eeschema/src/tools/index.js';
 import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { Schematic, LibSymbol } from '@ziroeda/eeschema/src/types.js';

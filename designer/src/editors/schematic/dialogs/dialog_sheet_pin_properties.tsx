@@ -14,7 +14,7 @@
 import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import type { LabelShape, TextEffects } from '@ziroeda/eeschema';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 /** The flag shapes, in the dialog's order (LABEL_FLAG_SHAPE). */
 const SHAPES: { value: LabelShape; label: string }[] = [

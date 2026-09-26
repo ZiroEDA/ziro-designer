@@ -41,7 +41,7 @@
  * to *both* sides' shapes, because a through hole consumes space on the far
  * side even where no courtyard is drawn.
  */
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import {
   SHAPE_POLY_SET,
   TransformCircleToPolygon,
@@ -55,11 +55,11 @@ import type { PCB_VIA } from './pcb_track.js';
 import { VIATYPE } from './pcb_track_types.js';
 import { ARC_LOW_DEF } from '@ziroeda/kimath/src/base_units.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
-import { RECURSE_MODE } from '@ziroeda/common/src/eda_item.js';
-import type { EdaDataType } from '@ziroeda/common/src/eda_units.js';
-import { GENERATOR_APPLICATION, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
-import { GetISO8601CurrentDateTime } from '@ziroeda/common/src/string_utils.js';
-import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
+import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
+import type { EdaDataType } from '@ziroeda/common/eda_units.js';
+import { GENERATOR_APPLICATION, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
+import { GetISO8601CurrentDateTime } from '@ziroeda/common/string_utils.js';
+import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 
 export interface BoardStatisticsOptions {
   /** `m_checkBoxExcludeComponentsNoPins`. */

@@ -18,8 +18,8 @@
  */
 import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
-import { ITALIC_TILT } from '@ziroeda/common/src/font/font_metrics.js';
-import { ITALIC_TILT as VIA_TEXT_BOX } from '@ziroeda/common/src/font/text_box.js';
+import { ITALIC_TILT } from '@ziroeda/common/font/font_metrics.js';
+import { ITALIC_TILT as VIA_TEXT_BOX } from '@ziroeda/common/font/text_box.js';
 import { ITALIC_TILT as VIA_EESCHEMA } from '@ziroeda/eeschema/src/fieldbox.js';
 
 /** Repo root: this file is `qa/unittests/common/…`. */
@@ -40,13 +40,13 @@ const declarations = (): string[] =>
     .filter(Boolean);
 
 describe('ITALIC_TILT has one home', () => {
-  it('is declared in common/src/font/font_metrics.ts and nowhere else', () => {
+  it('is declared in common/font/font_metrics.ts and nowhere else', () => {
     const files = declarations().map((l) => l.split(':')[0]);
     // The exception is gone. `wksRender.ts` kept a second `1 / 8` and was
     // excused here while its tree was being rewritten; that rewrite moved it to
-    // `common/src/drawing_sheet/ds_painter.ts`, where a duplicate of a common/
+    // `common/drawing_sheet/ds_painter.ts`, where a duplicate of a common/
     // constant two directories away was indefensible, so it imports this one.
-    expect(files).toEqual(['common/src/font/font_metrics.ts']);
+    expect(files).toEqual(['common/font/font_metrics.ts']);
   });
 
   it('is 1/8, and every re-export is the same value', () => {

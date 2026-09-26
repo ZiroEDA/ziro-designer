@@ -19,8 +19,8 @@
 
 import { head, isList, list, atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { arg, childNamed, numArg, stringField } from '@ziroeda/sexpr/src/query.js';
-import { iuToMM, mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
+import { iuToMM, mmToIU } from '@ziroeda/common/eda_units.js';
+import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
 import { fieldIsPrivate, readEffects, readField } from './read-schematic.js';
 import { openOutline } from '../../tools/build-graphics.js';
 import { writeLibSymbolNode } from './write-symbol-lib.js';

@@ -13,7 +13,7 @@
  * the engine.
  */
 
-import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { pcbIuToMM as iuToMM } from '@ziroeda/common/eda_units.js';
 import type { DrcConstraintType, DrcRuleSet } from './drc_rule_view.js';
 import {
   buildDrcRuleEngine,

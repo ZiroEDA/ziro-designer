@@ -66,7 +66,7 @@ local clearance, teardrop parameters, `GetNetname`, `SetNet`. - for all of it.
 |---|---|
 | `Move/Rotate/Mirror` → `EDA_SHAPE::move/rotate/flip`; `Flip` adds `FlipLayer` | ✓ |
 | `GetPosition` = `EDA_SHAPE::getPosition()`: ARC → centre, POLY → vertex 0, else `m_start` | ✗ ours returns `GetStart()` for every shape |
-| `HitTest` → `EDA_SHAPE::hitTest` | ✓ in structure; `common/src/eda_shape.ts` is a 279-line partial of a ~2500-line class (no `SHAPE_POLY_SET` poly, no hatch fill, rounded-rect edge collide simplified) |
+| `HitTest` → `EDA_SHAPE::hitTest` | ✓ in structure; `common/eda_shape.ts` is a 279-line partial of a ~2500-line class (no `SHAPE_POLY_SET` poly, no hatch fill, rounded-rect edge collide simplified) |
 | `m_stroke` (`STROKE_PARAMS`), fill mode, `m_netCode`/connected shapes (in KiCad `PCB_SHAPE` is a `BOARD_CONNECTED_ITEM`), `m_hasSolderMask`, `m_solderMaskMargin`, `m_hatchingDirty` | - |
 
 ### `PCB_TEXT` (`pcbnew/pcb_text.cpp`)
@@ -75,7 +75,7 @@ local clearance, teardrop parameters, `GetNetname`, `SetNet`. - for all of it.
 | `Move` (h:101), `Rotate` (:445), `Mirror` (:457) | ✓ |
 | `Flip` (:478) | ✗ toggles `SetMirrored` unconditionally; the C++ does it only `if( IsSideSpecific() )` |
 | `KeepUpright`, `m_keepUpright` | - |
-| `HitTest` → `TextHitTest` | ✓ in structure; `common/src/eda_text.ts` (114 lines) approximates the glyph box as `len × size × 0.6` - not `GetEffectiveTextShape()`/`GetTextBox()` |
+| `HitTest` → `TextHitTest` | ✓ in structure; `common/eda_text.ts` (114 lines) approximates the glyph box as `len × size × 0.6` - not `GetEffectiveTextShape()`/`GetTextBox()` |
 
 ### `PCB_FIELD` (`pcbnew/pcb_field.h`)
 `m_id`, `m_name`, `IsReference/IsValue` ✓; `FIELD_T` enum renumbered
@@ -214,7 +214,7 @@ the cost, and it is already the pattern in `pcb_shape.ts`/`pcb_text.ts`).
 `SHAPE_LINE_CHAIN` pieces; `SHAPE_POLY_SET` and `BOX2I` as classes are
 stage-1 prerequisites.
 
-**`EDA_ITEM` goes in `common/src`,** shared with the schematic later; it
+**`EDA_ITEM` goes in `common`,** shared with the schematic later; it
 carries `m_Uuid` (`kiid.ts` exists), `Type()` (`KICAD_T`), `m_parent`,
 `m_flags`, `m_forceVisible`, the `IsSelected/SetSelected` family.
 

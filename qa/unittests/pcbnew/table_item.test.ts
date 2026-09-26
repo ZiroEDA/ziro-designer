@@ -40,8 +40,8 @@ import {
 import { itemAnchorPoint } from '@ziroeda/pcbnew/move_exact.js';
 import { DEFAULT_SELECTION_FILTER, itemPassesFilter } from '@ziroeda/pcbnew/filter_selection.js';
 import { tableBBox, tableBorderSegments, tableCell } from '@ziroeda/pcbnew/table_geometry.js';
-import { tableRowCount } from '@ziroeda/common/src/table.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { tableRowCount } from '@ziroeda/common/table.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);

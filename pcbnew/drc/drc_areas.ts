@@ -19,8 +19,8 @@
  * very area that shaped it.
  */
 
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { wildCompareString } from '@ziroeda/common/src/string_utils.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { wildCompareString } from '@ziroeda/common/string_utils.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { PcbZone } from '../types.js';
 import { pointInPoly, pointSeg, segSeg, type Shape, shapeBBox, shapeDist } from './drc_geometry.js';

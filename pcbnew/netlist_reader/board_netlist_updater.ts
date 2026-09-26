@@ -35,11 +35,11 @@ import {
   RPT_SEVERITY_INFO,
   RPT_SEVERITY_WARNING,
   type Reporter,
-} from '@ziroeda/common/src/reporter.js';
-import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { unescapeString } from '@ziroeda/common/src/string_utils.js';
+} from '@ziroeda/common/reporter.js';
+import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
+import { unescapeString } from '@ziroeda/common/string_utils.js';
 import { exchangeFootprint, placeFootprint } from './pcb_netlist_utils.js';
-import { newKiid } from '@ziroeda/common/src/kiid.js';
+import { newKiid } from '@ziroeda/common/kiid.js';
 import { boardItemBBox } from '../edit-board.js';
 import { setFootprintReference, setFootprintValue } from '../edit-footprint.js';
 import { appendNet, findNet, removeUnusedNets, UNCONNECTED_NET } from '../netinfo.js';

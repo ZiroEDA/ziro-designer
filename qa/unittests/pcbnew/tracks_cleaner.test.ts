@@ -26,7 +26,7 @@ import {
   cleanupTrackGeometry,
   type TrackGeometryCleanupOptions,
 } from '@ziroeda/pcbnew/tracks_cleaner.js';
-import { Reporter } from '@ziroeda/common/src/reporter.js';
+import { Reporter } from '@ziroeda/common/reporter.js';
 import type {
   Board,
   PcbArcTrack,

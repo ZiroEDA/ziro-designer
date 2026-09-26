@@ -21,8 +21,8 @@
  * the footprint for the click but says nothing on hover — left out.
  */
 import type { Board } from '@ziroeda/pcbnew';
-import { ARC_HIGH_DEF } from '@ziroeda/common/src/eda_units.js';
-import { escapeIpc } from '@ziroeda/common/src/string_utils.js';
+import { ARC_HIGH_DEF } from '@ziroeda/common/eda_units.js';
+import { escapeIpc } from '@ziroeda/common/string_utils.js';
 import { chainPointInside } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { padIsOnLayer } from '@ziroeda/pcbnew/pad_enumerate.js';

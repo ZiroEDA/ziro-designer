@@ -5,8 +5,8 @@
  * `pcbnew/drc/drc_rtree.h`: an R-tree for fast spatial and layer indexing of
  * connectable items. Non-owning.
  */
-import { LSET } from '@ziroeda/common/src/lset.js';
-import type { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { type OutInt, type SHAPE, SHAPE_TYPE } from '@ziroeda/kimath/src/geometry/shape.js';
 import { SHAPE_NULL } from '@ziroeda/kimath/src/geometry/shape_null.js';

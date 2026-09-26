@@ -11,7 +11,7 @@
  * produces, is logic; the dialog around it is not.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { parseDrcRules } from '@ziroeda/pcbnew';
 import type { Board } from '@ziroeda/pcbnew';
 import {

@@ -417,7 +417,7 @@ describe('DIALOG_ERC: chrome', () => {
     expect(document.querySelector('.ze-erc-panel')).toBeTruthy();
     // `import.meta.url` is not a file: URL under happy-dom, so the path is
     // resolved from the vitest root the way the other .tsx suites resolve it.
-    const css = readFileSync(resolve(process.cwd(), '../common/src/widgets/shell.css'), 'utf8');
+    const css = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
     const rule = css.slice(css.indexOf('.ze-erc-panel {'));
     expect(rule.slice(0, rule.indexOf('}'))).toContain('resize: both');
   });

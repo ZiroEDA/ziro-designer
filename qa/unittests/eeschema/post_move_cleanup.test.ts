@@ -30,7 +30,7 @@ import { moveItems } from '@ziroeda/eeschema/src/tools/move.js';
 import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { mmToIU, iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU, iuToMM } from '@ziroeda/common/eda_units.js';
 import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/src/types.js';
 
 const rawR = readFileSync(

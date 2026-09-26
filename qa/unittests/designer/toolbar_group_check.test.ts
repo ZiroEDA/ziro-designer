@@ -56,18 +56,18 @@ import {
 import {
   actionIsToolbarToggle,
   GROUP_ACTION_TOOLBAR_TOGGLE,
-} from '@ziroeda/common/src/tool/actions_state.js';
+} from '@ziroeda/common/tool/actions_state.js';
 import {
   groupIsCheckItem,
   type ToolButton,
   type ToolEntry,
   type ToolGroup,
-} from '@ziroeda/common/src/tool/action_toolbar_types.js';
+} from '@ziroeda/common/tool/action_toolbar_types.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const TOOLBAR_TSX = readFileSync(
-  fileURLToPath(new URL('../../../common/src/tool/action_toolbar.tsx', import.meta.url)),
+  fileURLToPath(new URL('../../../common/tool/action_toolbar.tsx', import.meta.url)),
   'utf8',
 );
 

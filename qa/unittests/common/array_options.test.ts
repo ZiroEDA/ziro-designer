@@ -24,7 +24,7 @@ import {
   gridItemNumber,
   gridTransform,
   type ArrayGridOptions,
-} from '@ziroeda/common/src/array_options.js';
+} from '@ziroeda/common/array_options.js';
 
 const grid = (over: Partial<ArrayGridOptions> = {}): ArrayGridOptions => ({
   nx: 3,

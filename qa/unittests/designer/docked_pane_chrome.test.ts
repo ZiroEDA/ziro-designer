@@ -49,7 +49,7 @@ function read(rel: string): string {
   );
 }
 
-const SHELL = read('../../common/src/widgets/shell.css');
+const SHELL = read('../../common/widgets/shell.css');
 const PROPS = read('widgets/properties_panel.css');
 const APPEAR = read('widgets/appearance_controls.css');
 
@@ -212,7 +212,7 @@ describe('the three pages, and the controls on them', () => {
 
   it('and the slider on it is the shared one, not a range input of its own', () => {
     const tsx = read('widgets/appearance_controls.tsx');
-    expect(tsx).toContain("import { Slider } from '@ziroeda/common/src/widgets/slider.js'");
+    expect(tsx).toContain("import { Slider } from '@ziroeda/common/widgets/slider.js'");
     // The JSX, with the comments stripped: the note at the call site names the
     // input it replaced, and a raw `toContain` matches that prose.
     expect(tsx.replace(/\/\*[\s\S]*?\*\//g, '')).not.toContain('type="range"');
@@ -231,15 +231,13 @@ describe('the three pages, and the controls on them', () => {
     // 300 )` with `SetMinimumPaneSize( 80 )` (appearance_controls_base.cpp:52,
     // :144). Without it a 220-net board pushed Net Classes off the pane.
     const tsx = read('widgets/appearance_controls.tsx');
-    expect(tsx).toContain(
-      "import { Sash } from '@ziroeda/common/src/widgets/wx_splitter_window.js'",
-    );
+    expect(tsx).toContain("import { Sash } from '@ziroeda/common/widgets/wx_splitter_window.js'");
     expect(tsx).toMatch(/const NETS_SASH_POS = 300;/);
     expect(tsx).toMatch(/const NETS_MIN_PANE = 80;/);
     // The shared sash, which is the wxSplitterWindow one — #181818 and 5px,
     // not wxAUI's #373737. Its geometry is `resizeDock`, the same clamp
     // DockSash uses, so the sign rule is stated once.
-    const sash = read('../../common/src/widgets/wx_splitter_window.tsx');
+    const sash = read('../../common/widgets/wx_splitter_window.tsx');
     expect(sash).toContain("from './wx_aui_sash_geometry.js'");
     expect(sash).toContain("className={`ze-sash ${vertical ? 'h' : 'v'}`}");
     expect(body(SHELL, '.ze-sash')).toMatch(/background:\s*var\(--splitter-sash\)/);

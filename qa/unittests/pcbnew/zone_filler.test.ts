@@ -7,11 +7,11 @@
  * drops islands that reach nothing.
  */
 import { boardFromBOARD, boardToBOARD } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
-import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
+import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import { describe, it, expect } from 'vitest';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import { fillZone, fillZones, zoneClearanceOf } from '@ziroeda/pcbnew/zone_filler.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type {
   Board,
   PadPrimitive,

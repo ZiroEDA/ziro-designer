@@ -31,7 +31,7 @@
 import { useCallback, useRef, useState, type JSX } from 'react';
 import { avatarColorFor } from '../auth/avatar_color.js';
 import { profileInitial } from '../auth/profile.js';
-import { useDismissOnOutside } from '@ziroeda/common/src/widgets/use_dismiss_on_outside.js';
+import { useDismissOnOutside } from '@ziroeda/common/widgets/use_dismiss_on_outside.js';
 
 export function AccountButton({
   email,

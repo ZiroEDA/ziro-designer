@@ -26,7 +26,7 @@ import { COLOR_LAYERS } from '@ziroeda/designer/src/editors/schematic/prefs/schC
 import { colorThemeOptions } from '@ziroeda/designer/src/dialogs/prefs/ColorThemeChoice.js';
 import { COLOR_PREVIEW_SCHEMATIC } from '@ziroeda/designer/src/editors/schematic/prefs/color_preview_schematic.js';
 
-const CSS = readFileSync(resolve(process.cwd(), '../common/src/widgets/shell.css'), 'utf8');
+const CSS = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
 
 /** A rule body by exact selector, comments stripped. */
 function rule(selector: string): string {

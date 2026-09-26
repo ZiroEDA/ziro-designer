@@ -24,7 +24,7 @@
  */
 
 import type { JSX } from 'react';
-import { SpinCtrl } from '@ziroeda/common/src/widgets/spin_ctrl.js';
+import { SpinCtrl } from '@ziroeda/common/widgets/spin_ctrl.js';
 
 const icon = (name: string): string | undefined => svgUrl('teardrops', name);
 

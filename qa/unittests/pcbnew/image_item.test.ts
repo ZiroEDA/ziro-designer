@@ -41,10 +41,10 @@ import {
   imageSizeIU,
   iuPerPixel,
 } from '@ziroeda/pcbnew/image_geometry.js';
-import { DEFAULT_PPI, pngPPI, pngPixelSize } from '@ziroeda/common/src/png_meta.js';
-import { pngCrc32 } from '@ziroeda/common/src/png_encoder.js';
-import { WX_IMAGE } from '@ziroeda/common/src/wx_image.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { DEFAULT_PPI, pngPPI, pngPixelSize } from '@ziroeda/common/png_meta.js';
+import { pngCrc32 } from '@ziroeda/common/png_encoder.js';
+import { WX_IMAGE } from '@ziroeda/common/wx_image.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);

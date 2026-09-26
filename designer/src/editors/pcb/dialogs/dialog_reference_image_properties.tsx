@@ -54,24 +54,20 @@
  */
 
 import { useState, type JSX } from 'react';
-import { pcbIuToMM, pcbIUScale, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbIuToMM, pcbIUScale, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import {
   scaleForHeight,
   scaleForWidth,
   sizeForScale,
   type ImageValues,
 } from '@ziroeda/pcbnew/image_properties.js';
-import { pngPPI } from '@ziroeda/common/src/png_meta.js';
+import { pngPPI } from '@ziroeda/common/png_meta.js';
 import type { PcbImage } from '@ziroeda/pcbnew/types.js';
-import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
-import { StdDialogButtons } from '@ziroeda/common/src/dialog_shim_buttons.js';
-import {
-  parseUnitValue,
-  stringFromValue,
-  unitLabel,
-} from '@ziroeda/common/src/widgets/unit_binder.js';
-import type { StatusUnits } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import { StdDialogButtons } from '@ziroeda/common/dialog_shim_buttons.js';
+import { parseUnitValue, stringFromValue, unitLabel } from '@ziroeda/common/widgets/unit_binder.js';
+import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 interface Props {
   image: PcbImage;

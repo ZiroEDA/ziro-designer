@@ -16,7 +16,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { head, isList, parse, serialize } from '@ziroeda/sexpr/src/index.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import {

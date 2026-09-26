@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse, serialize } from '@ziroeda/sexpr/src/index.js';
 import { readSchematic, writeSchematic } from '@ziroeda/eeschema';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { moveItems } from '@ziroeda/eeschema/src/tools/move.js';
 import { placeSymbol } from '@ziroeda/eeschema/src/tools/mutate.js';
 import { readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';

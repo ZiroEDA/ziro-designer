@@ -1,4 +1,4 @@
-# designer/src/ui/<file>	common/src/<dest>	KiCad counterpart (or "ours: <why>")
+# designer/src/ui/<file>	common/<dest>	KiCad counterpart (or "ours: <why>")
 ColorSwatch.tsx	widgets/color_swatch.tsx	common/widgets/color_swatch.cpp
 Combo.tsx	widgets/wx_combobox.tsx	common/widgets/wx_combobox.cpp (our wxChoice/wxComboBox)
 combo_popup.ts	widgets/wx_combobox_popup.ts	ours: the popup half of wx_combobox

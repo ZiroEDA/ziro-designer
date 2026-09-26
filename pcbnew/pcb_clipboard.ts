@@ -72,8 +72,8 @@ import {
   FormatClipboardBoard,
   FormatClipboardFootprint,
 } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { type KIID, newKiid } from '@ziroeda/common/src/kiid.js';
-import { RECURSE_MODE } from '@ziroeda/common/src/eda_item.js';
+import { type KIID, newKiid } from '@ziroeda/common/kiid.js';
+import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import {
   boardItemId,
   parseBoardItemId,

@@ -26,7 +26,7 @@
  * separator on that side, because there is nothing beyond it to separate from —
  * that is what makes a merged cell look merged rather than merely wide.
  */
-import { tableRowCount } from '@ziroeda/common/src/table.js';
+import { tableRowCount } from '@ziroeda/common/table.js';
 import { textBoxCorners } from './textbox_geometry.js';
 import type { PcbTable, PcbTableCell, StrokeType } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

@@ -7,7 +7,7 @@ import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic
 import { addItems, makeWire, makeBus, makeJunction } from '@ziroeda/eeschema/src/tools/index.js';
 import { mergeColinearWires, withCleanup } from '@ziroeda/eeschema/src/tools/cleanup.js';
 import { History } from '@ziroeda/eeschema/src/tools/command.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const at = (x: number, y: number) => ({ x: mmToIU(x), y: mmToIU(y) });

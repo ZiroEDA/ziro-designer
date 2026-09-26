@@ -6,7 +6,7 @@
  * against the `SHAPE_ARC` class.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { SEG } from '@ziroeda/kimath/src/geometry/seg.js';

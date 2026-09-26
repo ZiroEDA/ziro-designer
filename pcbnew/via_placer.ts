@@ -27,7 +27,7 @@
  * surgery: the caller supplies the click, and what comes back is a board.
  */
 
-import { newKiid } from '@ziroeda/common/src/kiid.js';
+import { newKiid } from '@ziroeda/common/kiid.js';
 import type { Board, PcbTrack, PcbVia } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { segNearestPoint } from '@ziroeda/kimath/src/geometry/seg.js';

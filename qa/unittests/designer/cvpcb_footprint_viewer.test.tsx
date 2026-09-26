@@ -31,9 +31,9 @@ import {
   DISPLAY_FP_TOP_TOOLBAR,
 } from '@ziroeda/designer/src/editors/schematic/display_footprints_toolbars.js';
 import { fitMarginScaleFactor } from '@ziroeda/designer/src/ui/view_controls.js';
-import { BITMAP } from '@ziroeda/common/src/bitmap_store_actions.js';
-import type { ToolEntry, ToolGroup } from '@ziroeda/common/src/tool/action_toolbar_types.js';
-import { EDA_FRAME_DEFAULT_SIZE } from '@ziroeda/common/src/eda_base_frame_size.js';
+import { BITMAP } from '@ziroeda/common/bitmap_store_actions.js';
+import type { ToolEntry, ToolGroup } from '@ziroeda/common/tool/action_toolbar_types.js';
+import { EDA_FRAME_DEFAULT_SIZE } from '@ziroeda/common/eda_base_frame_size.js';
 
 beforeAll(() => {
   vi.stubGlobal('fetch', async () => new Response('', { status: 404 }));

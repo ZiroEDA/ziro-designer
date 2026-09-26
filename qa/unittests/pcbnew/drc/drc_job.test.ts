@@ -15,7 +15,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { DRC_ITEM } from '@ziroeda/pcbnew/drc/drc_item.js';
 import {

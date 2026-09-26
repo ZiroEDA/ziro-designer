@@ -5,7 +5,7 @@
  * The constant-only headers under KiCad's `include/font/`.
  *
  * Two of them, kept together because they are leaves that everything else in
- * `common/src/font/` needs and neither may import the other's dependents:
+ * `common/font/` needs and neither may import the other's dependents:
  *
  *   - `include/font/font_metrics.h`  `KIFONT::METRICS` — the interline pitch,
  *     overbar height and underline offset, expressed as multiples of the glyph

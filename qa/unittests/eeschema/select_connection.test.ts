@@ -25,7 +25,7 @@ import {
   expandConnectionWithGraph,
   selectConnection,
 } from '@ziroeda/eeschema/src/tools/select_connection.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { Schematic, LibSymbol } from '@ziroeda/eeschema/src/types.js';

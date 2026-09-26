@@ -26,7 +26,7 @@ import {
   hotkeyConflicts,
 } from '@ziroeda/designer/src/editors/schematic/hotkey_list.js';
 import { HOTKEYS, actionName } from '@ziroeda/designer/src/editors/schematic/hotkeys.js';
-import type { Menu } from '@ziroeda/common/src/tool/action_menu_types.js';
+import type { Menu } from '@ziroeda/common/tool/action_menu_types.js';
 
 const ev = (key: string, mods: Partial<KeyLike> = {}): KeyLike => ({
   key,

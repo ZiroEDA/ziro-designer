@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** `pcbnew/connectivity/from_to_cache.h` + `.cpp`. */
-import { wildCompareString } from '@ziroeda/common/src/string_utils.js';
+import { wildCompareString } from '@ziroeda/common/string_utils.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { BOARD } from '../board.js';
 import type { BOARD_CONNECTED_ITEM } from '../board_connected_item.js';

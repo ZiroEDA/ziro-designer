@@ -7,8 +7,8 @@ import {
   symbolTransform,
   applyTransform,
   localToWorld,
-} from '@ziroeda/common/src/transform.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+} from '@ziroeda/common/transform.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 describe('rotationTransform', () => {
   it('matches KiCad rotation matrices', () => {

@@ -31,7 +31,7 @@ import {
   simExclusionMarker,
 } from '@ziroeda/designer/src/editors/schematic/render/symbol_markers.js';
 import { dimmedColor } from '@ziroeda/designer/src/editors/schematic/render/render_color.js';
-import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/src/settings/builtin_color_themes.js';
+import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/settings/builtin_color_themes.js';
 import { toCssColor } from '@ziroeda/common';
 import { symbolBodyBBox, type BBox } from '@ziroeda/eeschema/src/tools/bbox.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';

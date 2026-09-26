@@ -16,23 +16,23 @@ import {
   type Color4d,
   darkened,
   withAlpha,
-} from '@ziroeda/common/src/color4d.js';
-import { EDA_ITEM } from '@ziroeda/common/src/eda_item.js';
+} from '@ziroeda/common/color4d.js';
+import { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import {
   LAYER_PCB_BACKGROUND,
   LAYER_RATSNEST,
   type PCB_LAYER_ID,
   UNDEFINED_LAYER,
-} from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { PgmOrNull } from '@ziroeda/common/src/pgm_base.js';
-import type { NETCLASS } from '@ziroeda/common/src/netclass.js';
-import type { VIEW } from '@ziroeda/common/src/view/view.js';
+} from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import type { NETCLASS } from '@ziroeda/common/netclass.js';
+import type { VIEW } from '@ziroeda/common/view/view.js';
 import {
   HIGH_CONTRAST_MODE,
   NET_COLOR_MODE,
   RATSNEST_MODE,
-} from '@ziroeda/common/src/project/board_project_settings.js';
+} from '@ziroeda/common/project/board_project_settings.js';
 import type { CONNECTIVITY_DATA } from '../connectivity/connectivity_data.js';
 import type { PCB_RENDER_SETTINGS } from '../pcb_painter.js';
 import type { PCBNEW_SETTINGS } from '../pcbnew_settings.js';

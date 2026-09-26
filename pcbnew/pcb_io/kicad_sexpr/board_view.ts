@@ -20,23 +20,23 @@
  * embedded files, generators, a footprint's text boxes, tables and zones)
  * simply stays on the class and is written unchanged.
  */
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
-import { FILL_T, SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
-import type { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
-import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/font/text_attributes.js';
-import { kiidPathAsString, kiidFromString, newKiid, type KIID } from '@ziroeda/common/src/kiid.js';
-import type { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LIB_ID } from '@ziroeda/common/src/lib_id.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
+import { FILL_T, SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import type { EDA_TEXT } from '@ziroeda/common/eda_text.js';
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
+import { kiidPathAsString, kiidFromString, newKiid, type KIID } from '@ziroeda/common/kiid.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import {
   MAX_PAGE_SIZE_PCBNEW_MM,
   MIN_PAGE_SIZE_MM,
   PAGE_INFO,
   PAGE_SIZE_TYPE,
-} from '@ziroeda/common/src/page_info.js';
-import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/src/stroke_params.js';
-import { FormatDouble2Str } from '@ziroeda/common/src/string_utils.js';
-import { TITLE_BLOCK } from '@ziroeda/common/src/title_block.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
+} from '@ziroeda/common/page_info.js';
+import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
+import { FormatDouble2Str } from '@ziroeda/common/string_utils.js';
+import { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { ANGLE_0, EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import type { Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
@@ -45,7 +45,7 @@ import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { Vec2, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
-import { FIELD_T } from '@ziroeda/common/src/template_fieldnames.js';
+import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
 import { BOARD } from '../../board.js';
 import { ADD_MODE, REMOVE_MODE } from '../../board_item_container.js';
 import type { BOARD_ITEM } from '../../board_item.js';

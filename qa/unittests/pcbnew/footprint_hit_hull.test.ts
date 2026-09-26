@@ -20,7 +20,7 @@
 import { describe, expect, it } from 'vitest';
 import { boardHitCandidates, boardItemsInBox } from '@ziroeda/pcbnew/edit-board.js';
 import { footprintBBox, footprintHull } from '@ziroeda/pcbnew/edit-footprint.js';
-import { pcbMmToIU as mm } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mm } from '@ziroeda/common/eda_units.js';
 import type { Board, PcbFootprint, PcbPad, PcbShape, PcbTextItem } from '@ziroeda/pcbnew/types.js';
 import type { SList } from '@ziroeda/sexpr/src/index.js';
 

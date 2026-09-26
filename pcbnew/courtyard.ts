@@ -21,7 +21,7 @@
  *     or sit exactly at the clearance distance, are legal.
  */
 
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { getArcToSegmentCount } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { deflatePolygon } from './drc/drc_areas.js';

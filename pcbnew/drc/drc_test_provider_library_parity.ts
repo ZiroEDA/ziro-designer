@@ -12,9 +12,9 @@
  * - DRCE_LIB_FOOTPRINT_ISSUES
  * - DRCE_LIB_FOOTPRINT_MISMATCH
  */
-import { IO_ERROR } from '@ziroeda/common/src/ki_exception.js';
-import { UNDEFINED_LAYER } from '@ziroeda/common/src/layer_ids.js';
-import { unescapeString } from '@ziroeda/common/src/string_utils.js';
+import { IO_ERROR } from '@ziroeda/common/ki_exception.js';
+import { UNDEFINED_LAYER } from '@ziroeda/common/layer_ids.js';
+import { unescapeString } from '@ziroeda/common/string_utils.js';
 import { BOARD_ITEM } from '../board_item.js';
 import type { FOOTPRINT } from '../footprint.js';
 import { FootprintNeedsUpdate } from '../footprint_needs_update.js';

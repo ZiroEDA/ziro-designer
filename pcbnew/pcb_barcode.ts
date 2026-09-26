@@ -14,14 +14,14 @@
  * `PCB_BARCODE_DESC`, the `PROPERTY_MANAGER` registration.
  */
 
-import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/src/eda_draw_frame.js';
-import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/src/eda_item.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { GetPenSizeForNormal } from '@ziroeda/common/src/gr_text.js';
-import { FLASHING, GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
-import { MSG_PANEL_ITEM } from '@ziroeda/common/src/widgets/msgpanel.js';
-import { KIUI_EllipsizeStatusText } from '@ziroeda/common/src/widgets/ui_common.js';
+import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { GetPenSizeForNormal } from '@ziroeda/common/gr_text.js';
+import { FLASHING, GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import { KIUI_EllipsizeStatusText } from '@ziroeda/common/widgets/ui_common.js';
 import { FLIP_DIRECTION, MIRROR } from '@ziroeda/core/src/mirror.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { ARC_LOW_DEF } from '@ziroeda/kimath/src/base_units.js';
@@ -52,8 +52,8 @@ import {
   TYPE_INT,
   TYPE_OPT_INT,
   TYPE_STRING,
-} from '@ziroeda/common/src/properties/property.js';
-import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 
 import { PCB_TEXT } from './pcb_text.js';
 import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';

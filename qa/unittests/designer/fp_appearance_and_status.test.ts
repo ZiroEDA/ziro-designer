@@ -37,7 +37,7 @@ import { footprintToolMsg } from '@ziroeda/designer/src/editors/footprint/footpr
 // The frame's opening toolbar state moved to `footprint/toggles.ts`, beside the
 // radio groups and the reducer that were still stranded in `FootprintEditor.tsx`.
 import { DEFAULT_TOGGLES as FP_DEFAULT_TOGGLES } from '@ziroeda/designer/src/editors/footprint/toggles.js';
-import { angleSnapModeOf, constraintsMsg } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
+import { angleSnapModeOf, constraintsMsg } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { GetLayerName } from '@ziroeda/pcbnew/layer_ids.js';
 
 const NAMES = FOOTPRINT_LAYERS.map((l) => l.name);

@@ -21,19 +21,19 @@
  * re-encoding is not applied, our net names stay raw.)
  */
 
-import { NET_SETTINGS } from '@ziroeda/common/src/project/net_settings.js';
+import { NET_SETTINGS } from '@ziroeda/common/project/net_settings.js';
 import type { Schematic, Vec2 } from '../types.js';
 import { SegmentIndex } from './segment_index.js';
 import { refId } from '../tools/hittest.js';
 
-/** @deprecated `NET_SETTINGS.ParseBusVector` (common/src/project/net_settings.ts); this delegates. */
+/** @deprecated `NET_SETTINGS.ParseBusVector` (common/project/net_settings.ts); this delegates. */
 export function parseBusVector(bus: string): { name: string; members: string[] } | null {
   const name = { value: '' };
   const members: string[] = [];
   return NET_SETTINGS.ParseBusVector(bus, name, members) ? { name: name.value, members } : null;
 }
 
-/** @deprecated `NET_SETTINGS.ParseBusGroup` (common/src/project/net_settings.ts); this delegates. */
+/** @deprecated `NET_SETTINGS.ParseBusGroup` (common/project/net_settings.ts); this delegates. */
 export function parseBusGroup(group: string): { name: string; members: string[] } | null {
   const name = { value: '' };
   const members: string[] = [];

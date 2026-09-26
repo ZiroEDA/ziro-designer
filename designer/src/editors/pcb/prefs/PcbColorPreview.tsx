@@ -39,7 +39,7 @@ import {
   DEFAULT_DRAW_OPTIONS,
   type BoardScene,
 } from '../renderBoard.js';
-import { drawGrid } from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
+import { drawGrid } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import {
   usePreviewViewControls,
   type PreviewView,

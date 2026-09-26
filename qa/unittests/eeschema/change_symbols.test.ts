@@ -7,7 +7,7 @@
  * the library part, and the two rules that stop it destroying work — an empty
  * library field does not blank yours, and a power symbol's value is its net.
  */
-import { GetRefDesNumber, GetRefDesPrefix } from '@ziroeda/common/src/refdes_utils.js';
+import { GetRefDesNumber, GetRefDesPrefix } from '@ziroeda/common/refdes_utils.js';
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
@@ -17,7 +17,7 @@ import {
   defaultChangeSymbolsOptions,
   type ChangeSymbolsOptions,
 } from '@ziroeda/eeschema/src/tools/change_symbols.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const SCH = `(kicad_sch (version 20231120) (generator "test") (paper "A4")

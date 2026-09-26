@@ -42,7 +42,7 @@
  *    commit and not of the row.
  */
 
-import { LINE_STYLE_CHOICES } from '@ziroeda/common/src/stroke_params.js';
+import { LINE_STYLE_CHOICES } from '@ziroeda/common/stroke_params.js';
 import { parseBoardItemId, setFootprintFieldByName } from './edit-board.js';
 import { applyPadValues, collectPadValues, type PadRef, type PadValues } from './pad_properties.js';
 import {
@@ -52,7 +52,7 @@ import {
 } from './footprint_properties.js';
 import { ZONE_CONNECTION_CHOICES } from './zone_connection.js';
 import { GetLayerName } from './layer_ids.js';
-import { GetArcAngle } from '@ziroeda/common/src/eda_shape.js';
+import { GetArcAngle } from '@ziroeda/common/eda_shape.js';
 import { UI_FILL_MODE_CHOICES } from './shape_fill.js';
 import type { TeardropParams } from './types.js';
 import { UNCONNECTED_LAYER_MODE_CHOICES } from './unused_pad_layers.js';
@@ -67,7 +67,7 @@ import {
 } from './padstack_drill.js';
 import { defaultTeardropParameters } from './teardrop.js';
 import { arcCenter } from './read-board.js';
-import { ELECTRICAL_PINTYPES, type ElectricalPinType } from '@ziroeda/common/src/pin_type.js';
+import { ELECTRICAL_PINTYPES, type ElectricalPinType } from '@ziroeda/common/pin_type.js';
 import {
   applyTrackViaValues,
   trackViaSelection,
@@ -110,7 +110,7 @@ import {
   sizeForScale,
   type ImageValues,
 } from './image_properties.js';
-import { pcbMmToIU, type EdaUnits } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU, type EdaUnits } from '@ziroeda/common/eda_units.js';
 import {
   RESERVED_FOOTPRINT_PROPERTIES,
   type BarcodeEcc,

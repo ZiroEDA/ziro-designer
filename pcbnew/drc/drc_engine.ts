@@ -13,25 +13,21 @@
  * `InitializeClearanceCache` collapse to plain Maps and a loop: one thread.
  * The view-based engine the dialog still runs is `drc_engine_view.ts`.
  */
-import type { DS_PROXY_VIEW_ITEM } from '@ziroeda/common/src/drawing_sheet/ds_proxy_view_item.js';
-import { DescribeRef } from '@ziroeda/common/src/common.js';
-import { PARSE_ERROR } from '@ziroeda/common/src/dsnlexer.js';
-import { type EdaUnits, pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { HOLE_PROXY } from '@ziroeda/common/src/eda_item_flags.js';
-import { ExpandTextVars } from '@ziroeda/common/src/common.js';
-import type { OutStr } from '@ziroeda/common/src/font/font.js';
-import type { KIID } from '@ziroeda/common/src/kiid.js';
-import {
-  IsPcbLayer,
-  type PCB_LAYER_ID,
-  PCB_LAYER_ID as LAYER,
-} from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import type { NETCLASS } from '@ziroeda/common/src/netclass.js';
-import type { PROGRESS_REPORTER } from '@ziroeda/common/src/progress_reporter.js';
-import { RPT_SEVERITY_ERROR, type Reporter } from '@ziroeda/common/src/reporter.js';
-import { EscapeHTML } from '@ziroeda/common/src/string_utils.js';
-import { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
+import type { DS_PROXY_VIEW_ITEM } from '@ziroeda/common/drawing_sheet/ds_proxy_view_item.js';
+import { DescribeRef } from '@ziroeda/common/common.js';
+import { PARSE_ERROR } from '@ziroeda/common/dsnlexer.js';
+import { type EdaUnits, pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { HOLE_PROXY } from '@ziroeda/common/eda_item_flags.js';
+import { ExpandTextVars } from '@ziroeda/common/common.js';
+import type { OutStr } from '@ziroeda/common/font/font.js';
+import type { KIID } from '@ziroeda/common/kiid.js';
+import { IsPcbLayer, type PCB_LAYER_ID, PCB_LAYER_ID as LAYER } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import type { NETCLASS } from '@ziroeda/common/netclass.js';
+import type { PROGRESS_REPORTER } from '@ziroeda/common/progress_reporter.js';
+import { RPT_SEVERITY_ERROR, type Reporter } from '@ziroeda/common/reporter.js';
+import { EscapeHTML } from '@ziroeda/common/string_utils.js';
+import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { BaseType, KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';

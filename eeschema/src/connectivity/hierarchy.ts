@@ -28,7 +28,7 @@
  * sheets, which is what lets ERC treat them as one net.
  */
 
-import { escapeNetName } from '@ziroeda/common/src/string_utils.js';
+import { escapeNetName } from '@ziroeda/common/string_utils.js';
 import type { Schematic } from '../types.js';
 import { sheetName } from '../project.js';
 import { refId } from '../tools/hittest.js';

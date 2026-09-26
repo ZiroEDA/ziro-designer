@@ -12,7 +12,7 @@
  * picker and opens off-screen on a control near the window edge.
  */
 import { describe, expect, it } from 'vitest';
-import { fromHSV, setFromHexString, toHexString, toHSV } from '@ziroeda/common/src/color4d.js';
+import { fromHSV, setFromHexString, toHexString, toHSV } from '@ziroeda/common/color4d.js';
 
 const near = (a: number, b: number, eps = 1e-9): void => expect(Math.abs(a - b)).toBeLessThan(eps);
 

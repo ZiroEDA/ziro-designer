@@ -34,7 +34,7 @@ import type {
   Stroke,
   TextEffects,
 } from '../types.js';
-import { wildCompareString } from '@ziroeda/common/src/string_utils.js';
+import { wildCompareString } from '@ziroeda/common/string_utils.js';
 import type { EditCommand } from './command.js';
 import { isBusLabelText } from './junction_helpers.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';

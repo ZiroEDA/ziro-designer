@@ -6,14 +6,14 @@
 //
 //   NODE_OPTIONS=--max-old-space-size=12000 npx tsx qa/perf/view_draw_timing.mts <board.kicad_pcb> [--profile]
 import { readFileSync, writeSync } from 'node:fs';
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
-import { FRAME_T } from '@ziroeda/common/src/frame_type.js';
-import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/src/gal/gal_display_options.js';
-import { GAL_DRAWING_CONTEXT } from '@ziroeda/common/src/gal/graphics_abstraction_layer.js';
-import { RENDER_TARGET } from '@ziroeda/common/src/gal/definitions.js';
-import { OPENGL_GAL, type OPENGL_GAL_CANVAS } from '@ziroeda/common/src/gal/opengl/opengl_gal.js';
-import { PGM_BASE, SetPgm } from '@ziroeda/common/src/pgm_base.js';
-import { COLOR_SETTINGS } from '@ziroeda/common/src/settings/color_settings.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
+import { GAL_DRAWING_CONTEXT } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
+import { RENDER_TARGET } from '@ziroeda/common/gal/definitions.js';
+import { OPENGL_GAL, type OPENGL_GAL_CANVAS } from '@ziroeda/common/gal/opengl/opengl_gal.js';
+import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 import { GAL_LAYER_ORDER } from '@ziroeda/pcbnew/pcb_draw_panel_gal.js';
@@ -21,7 +21,7 @@ import { PCB_DISPLAY_OPTIONS, PCB_PAINTER } from '@ziroeda/pcbnew/pcb_painter.js
 import { PCB_VIEW } from '@ziroeda/pcbnew/pcb_view.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 import { RATSNEST_VIEW_ITEM } from '@ziroeda/pcbnew/ratsnest/ratsnest_view_item.js';
-import { VIEW } from '@ziroeda/common/src/view/view.js';
+import { VIEW } from '@ziroeda/common/view/view.js';
 import {
   BITMAP_LAYER_FOR,
   CLEARANCE_LAYER_FOR,
@@ -39,7 +39,7 @@ import {
   POINT_LAYER_FOR,
   VIA_COPPER_LAYER_FOR,
   ZONE_LAYER_FOR,
-} from '@ziroeda/common/src/layer_ids.js';
+} from '@ziroeda/common/layer_ids.js';
 
 const out = (s: string) => writeSync(1, `${s}\n`);
 const ms = (t: number) =>
@@ -270,7 +270,7 @@ view.SetScale(fitScale);
 view.SetCenter(bbox.Centre());
 
 // Count the R-tree visits a frame makes
-import { VIEW_RTREE } from '@ziroeda/common/src/view/view_rtree.js';
+import { VIEW_RTREE } from '@ziroeda/common/view/view_rtree.js';
 const visits = { queries: 0, visits: 0 };
 const origQuery = VIEW_RTREE.prototype.Query;
 VIEW_RTREE.prototype.Query = function (this: VIEW_RTREE, aBounds, aVisitor) {

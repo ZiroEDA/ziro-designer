@@ -10,20 +10,20 @@
  * properties panel carries.
  */
 
-import { EDA_ITEM, RECURSE_MODE } from '@ziroeda/common/src/eda_item.js';
-import type { EDA_GROUP } from '@ziroeda/common/src/eda_group.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { METRICS } from '@ziroeda/common/src/font/font_metrics.js';
-import { type KIID, newKiid } from '@ziroeda/common/src/kiid.js';
+import { EDA_ITEM, RECURSE_MODE } from '@ziroeda/common/eda_item.js';
+import type { EDA_GROUP } from '@ziroeda/common/eda_group.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { METRICS } from '@ziroeda/common/font/font_metrics.js';
+import { type KIID, newKiid } from '@ziroeda/common/kiid.js';
 import {
   FLASHING,
   GAL_LAYER_ID,
   IsCopperLayer,
   LayerName,
   PCB_LAYER_ID,
-} from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { COORD_TYPES_T } from '@ziroeda/common/src/origin_transforms.js';
+} from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { COORD_TYPES_T } from '@ziroeda/common/origin_transforms.js';
 import {
   ENUM_MAP,
   type INSPECTABLE_ITEM,
@@ -34,11 +34,11 @@ import {
   TYPE_BOOL,
   TYPE_INT,
   TYPE_STRING,
-} from '@ziroeda/common/src/properties/property.js';
-import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
-import type { RENDER_SETTINGS } from '@ziroeda/common/src/render_settings.js';
-import { STROKE_PARAMS } from '@ziroeda/common/src/stroke_params.js';
-import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
+import type { RENDER_SETTINGS } from '@ziroeda/common/render_settings.js';
+import { STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
+import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
 import { ARC_HIGH_DEF } from '@ziroeda/kimath/src/base_units.js';

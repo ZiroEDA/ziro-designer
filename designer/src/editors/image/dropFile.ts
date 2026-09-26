@@ -20,7 +20,7 @@
  * can be checked without a DOM — the split `confirm.ts` makes for the
  * unsaved-changes question.
  */
-import type { MessageDialogIcon, YesNoResult } from '@ziroeda/common/src/confirm_types.js';
+import type { MessageDialogIcon, YesNoResult } from '@ziroeda/common/confirm_types.js';
 
 /** The dialog's caption, character for character. */
 export const REPLACE_LOADED_FILE_CAPTION = 'Replace Loaded File?';

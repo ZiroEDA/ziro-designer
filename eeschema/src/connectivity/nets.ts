@@ -38,8 +38,8 @@
  */
 
 import type { Schematic, SchSymbol, LibSymbol, Vec2 } from '../types.js';
-import { symbolTransform, localToWorld } from '@ziroeda/common/src/transform.js';
-import { escapeNetName } from '@ziroeda/common/src/string_utils.js';
+import { symbolTransform, localToWorld } from '@ziroeda/common/transform.js';
+import { escapeNetName } from '@ziroeda/common/string_utils.js';
 import { refId } from '../tools/hittest.js';
 import { subReference } from '../fieldbox.js';
 import { expandBusLabel, isBusLabel } from './bus.js';

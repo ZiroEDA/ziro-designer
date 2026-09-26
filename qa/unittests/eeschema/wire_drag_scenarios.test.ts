@@ -33,7 +33,7 @@ import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
 import { computeNetlist } from '@ziroeda/eeschema/src/connectivity/nets.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/src/types.js';
 
 const R = readSymbolLib(

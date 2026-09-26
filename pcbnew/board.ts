@@ -23,7 +23,7 @@ import {
   INSPECT_RESULT,
   type INSPECTOR,
   RECURSE_MODE,
-} from '@ziroeda/common/src/eda_item.js';
+} from '@ziroeda/common/eda_item.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
@@ -32,10 +32,10 @@ import {
   BuildBoardPolygonOutlines,
   type OUTLINE_ERROR_HANDLER,
 } from './convert_shape_list_to_polygon.js';
-import type { EDA_GROUP } from '@ziroeda/common/src/eda_group.js';
-import { STRUCT_DELETED } from '@ziroeda/common/src/eda_item_flags.js';
-import { type EdaUnits, pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { type KIID, niluuid } from '@ziroeda/common/src/kiid.js';
+import type { EDA_GROUP } from '@ziroeda/common/eda_group.js';
+import { STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
+import { type EdaUnits, pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { type KIID, niluuid } from '@ziroeda/common/kiid.js';
 import {
   FlipLayer as flipLayerId,
   GAL_LAYER_ID,
@@ -46,32 +46,32 @@ import {
   LayerName,
   PCB_LAYER_ID,
   ToLAYER_ID,
-} from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { VIEW } from '@ziroeda/common/src/view/view.js';
-import { RPT_SEVERITY_EXCLUSION } from '@ziroeda/common/src/reporter.js';
-import type { OutStr } from '@ziroeda/common/src/font/font.js';
-import { GetDefaultVariantName, SortVariantNames } from '@ziroeda/common/src/string_utils.js';
-import type { HISTORY_FILE_DATA } from '@ziroeda/common/src/local_history.js';
-import { FORMAT_MODE } from '@ziroeda/common/src/io/kicad/kicad_io_utils.js';
-import { STRING_FORMATTER } from '@ziroeda/common/src/richio.js';
+} from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { VIEW } from '@ziroeda/common/view/view.js';
+import { RPT_SEVERITY_EXCLUSION } from '@ziroeda/common/reporter.js';
+import type { OutStr } from '@ziroeda/common/font/font.js';
+import { GetDefaultVariantName, SortVariantNames } from '@ziroeda/common/string_utils.js';
+import type { HISTORY_FILE_DATA } from '@ziroeda/common/local_history.js';
+import { FORMAT_MODE } from '@ziroeda/common/io/kicad/kicad_io_utils.js';
+import { STRING_FORMATTER } from '@ziroeda/common/richio.js';
 import { PCB_IO_KICAD_SEXPR } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { DIM_UNITS_MODE } from './pcb_dimension_types.js';
-import { TITLE_BLOCK } from '@ziroeda/common/src/title_block.js';
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
-import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/src/page_info.js';
+import { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
+import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/page_info.js';
 import { applyMixins } from '@ziroeda/core/src/mixins.js';
 import { PCB_PLOT_PARAMS } from './pcb_plot_params.js';
-import { NETCLASS } from '@ziroeda/common/src/netclass.js';
+import { NETCLASS } from '@ziroeda/common/netclass.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
 import { BOARD_ITEM, DELETED_BOARD_ITEM } from './board_item.js';
 import { ADD_MODE, BOARD_ITEM_CONTAINER, REMOVE_MODE } from './board_item_container.js';
 import { BOARD_USE, LAYER, LAYER_T } from './board_types.js';
-import { type PROJECT, PROJECT_ELEM } from '@ziroeda/common/src/project.js';
-import { NET_SETTINGS } from '@ziroeda/common/src/project/net_settings.js';
-import { TUNING_PROFILES } from '@ziroeda/common/src/project/tuning_profiles.js';
+import { type PROJECT, PROJECT_ELEM } from '@ziroeda/common/project.js';
+import { NET_SETTINGS } from '@ziroeda/common/project/net_settings.js';
+import { TUNING_PROFILES } from '@ziroeda/common/project/tuning_profiles.js';
 import type { FOOTPRINT_LIBRARY_ADAPTER } from './footprint_library_adapter.js';
 import {
   LENGTH_DELAY_CALCULATION,
@@ -92,12 +92,12 @@ import { PCB_MARKER } from './pcb_marker.js';
 import { PCB_TABLE } from './pcb_table.js';
 import { PCB_BARCODE } from './pcb_barcode.js';
 import type { PCB_SHAPE } from './pcb_shape.js';
-import type { RENDER_SETTINGS } from '@ziroeda/common/src/render_settings.js';
+import type { RENDER_SETTINGS } from '@ziroeda/common/render_settings.js';
 import type { PCB_DIMENSION_BASE } from './pcb_dimension.js';
 import type { PCB_TEXT } from './pcb_text.js';
 import type { PCB_TEXTBOX } from './pcb_textbox.js';
-import { EDA_SHAPE } from '@ziroeda/common/src/eda_shape.js';
-import { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
+import { EDA_SHAPE } from '@ziroeda/common/eda_shape.js';
+import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
 import type { PCB_TRACK, PCB_VIA } from './pcb_track.js';
 import { type ENDPOINT_T, VIATYPE } from './pcb_track_types.js';
 import { type ISOLATED_ISLANDS, ZONE } from './zone.js';
@@ -108,18 +108,18 @@ import {
   ITEM_PICKER,
   type PICKED_ITEMS_LIST,
   UNDO_REDO,
-} from '@ziroeda/common/src/undo_redo_container.js';
+} from '@ziroeda/common/undo_redo_container.js';
 import type { BOARD_COMMIT } from './board_commit.js';
-import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/src/eda_item.js';
-import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
-import { MSG_PANEL_ITEM } from '@ziroeda/common/src/widgets/msgpanel.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import { GENERAL_COLLECTOR, PCB_LAYER_COLLECTOR } from './collectors.js';
 import type { PAD } from './pad.js';
 import { PAD_PROP } from './padstack.js';
-import { MARKER_T } from '@ziroeda/common/src/marker_base.js';
+import { MARKER_T } from '@ziroeda/common/marker_base.js';
 import { PCB_BOARD_OUTLINE } from './pcb_board_outline.js';
 import type { DRC_RTREE } from './drc/drc_rtree.js';
-import type { COMMIT } from '@ziroeda/common/src/commit.js';
+import type { COMMIT } from '@ziroeda/common/commit.js';
 import { CONNECTIVITY_DATA, EXCLUDE_ZONES } from './connectivity/connectivity_data.js';
 import { COMPONENT_CLASS_MANAGER } from './component_classes/component_class_manager.js';
 import type { CN_EDGE, PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';

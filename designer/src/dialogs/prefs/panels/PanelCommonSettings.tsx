@@ -274,7 +274,7 @@ export function PanelCommonSettings({ ctx }: { ctx: PrefsContext }): JSX.Element
             max={100}
             /* `PCB_PAINTER::GetColor` takes `m_hiContrastFactor = 1.0 -
                hicontrast_dimming_factor` (`pcbnew/pcb_painter.cpp:176`), which
-               is `hiContrastFactorFor` in `common/src/render_settings.ts`. The
+               is `hiContrastFactorFor` in `common/render_settings.ts`. The
                board editor, the footprint editor and GerbView all pass it now;
                it used to be the constant that expression yields at the shipped
                default, so typing 40 here dimmed nothing. */

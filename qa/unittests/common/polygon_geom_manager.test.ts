@@ -16,7 +16,7 @@ import {
   LeaderMode,
   PolygonGeomManager,
   type PolygonGeomClient,
-} from '@ziroeda/common/src/preview_items/polygon_geom_manager.js';
+} from '@ziroeda/common/preview_items/polygon_geom_manager.js';
 
 interface Log {
   firstPoint: number;

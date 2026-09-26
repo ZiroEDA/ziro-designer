@@ -19,13 +19,13 @@
  */
 
 import { PL_EDITOR_DEFAULTS, type PlEditorSettings } from '../../prefs/settings.js';
-import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
+import type { EdaUnits } from '@ziroeda/common/eda_units.js';
 import {
   switchUnits as sharedSwitchUnits,
   toggleIdUnits,
   toggleUnitsId as sharedToggleUnitsId,
   unitsToggleId,
-} from '@ziroeda/common/src/settings/app_settings_units.js';
+} from '@ziroeda/common/settings/app_settings_units.js';
 
 /** `EDA_DRAW_FRAME`'s unit choice — one of three, never none and never two. */
 export const UNIT_GROUP = ['unitsMm', 'unitsInches', 'unitsMils'];

@@ -10,14 +10,14 @@
  * The listener is `BOARD_LISTENER` as the React side subscribes to it: every
  * notification schedules one re-derivation of the view from the BOARD.
  */
-import { PARSE_ERROR } from '@ziroeda/common/src/dsnlexer.js';
-import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/src/eda_draw_frame.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { ENUM_MAP } from '@ziroeda/common/src/properties/property.js';
-import { FRAME_T } from '@ziroeda/common/src/frame_type.js';
-import { CLEARANCE_LAYER_FOR, IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { TOOL_MANAGER } from '@ziroeda/common/src/tool/tool_manager.js';
-import { VIEW_UPDATE_FLAGS, type VIEW_ITEM } from '@ziroeda/common/src/view/view_item.js';
+import { PARSE_ERROR } from '@ziroeda/common/dsnlexer.js';
+import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import { CLEARANCE_LAYER_FOR, IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
+import { VIEW_UPDATE_FLAGS, type VIEW_ITEM } from '@ziroeda/common/view/view_item.js';
 import { FLIP_DIRECTION } from '@ziroeda/kimath/src/core/mirror.js';
 import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
@@ -25,7 +25,7 @@ import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
 import type { BOARD_ITEM_CONTAINER } from '@ziroeda/pcbnew/board_item_container.js';
 import { BOARD_LISTENER } from '@ziroeda/pcbnew/board.js';
-import { HIGH_CONTRAST_MODE } from '@ziroeda/common/src/project/board_project_settings.js';
+import { HIGH_CONTRAST_MODE } from '@ziroeda/common/project/board_project_settings.js';
 import { PAD } from '@ziroeda/pcbnew/pad.js';
 import { PCB_VIA, VIATYPE } from '@ziroeda/pcbnew/pcb_track.js';
 import type { PROGRESS_REPORTER_LIKE } from '@ziroeda/pcbnew/connectivity/connectivity_algo.js';
@@ -39,8 +39,8 @@ import { type DIALOG_DRC_LIKE, DRC_TOOL } from '@ziroeda/pcbnew/tools/drc_tool.j
 import type { DRC_JOB_HOOKS, DRC_JOB_REQUEST } from '@ziroeda/pcbnew/drc/drc_job.js';
 import { runDrcJobOffThread } from './drc_runner.js';
 import { PCB_TOOL_BASE } from '@ziroeda/pcbnew/tools/pcb_tool_base.js';
-import { MARKER_T } from '@ziroeda/common/src/marker_base.js';
-import { RPT_SEVERITY_EXCLUSION } from '@ziroeda/common/src/reporter.js';
+import { MARKER_T } from '@ziroeda/common/marker_base.js';
+import { RPT_SEVERITY_EXCLUSION } from '@ziroeda/common/reporter.js';
 import type { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { PcbnewSettings } from '../../prefs/settings.js';

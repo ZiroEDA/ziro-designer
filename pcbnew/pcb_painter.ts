@@ -35,7 +35,7 @@ import {
   type VECTOR2I,
 } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
-import { ADVANCED_CFG } from '@ziroeda/common/src/advanced_config.js';
+import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
 import {
   brightened,
   type Color4d,
@@ -46,24 +46,24 @@ import {
   brightness,
   mix,
   withAlpha,
-} from '@ziroeda/common/src/color4d.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { FONT } from '@ziroeda/common/src/font/font.js';
-import type { METRICS } from '@ziroeda/common/src/font/font_metrics.js';
-import type { GLYPH_LIKE } from '@ziroeda/common/src/font/glyph.js';
+} from '@ziroeda/common/color4d.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { FONT } from '@ziroeda/common/font/font.js';
+import type { METRICS } from '@ziroeda/common/font/font_metrics.js';
+import type { GLYPH_LIKE } from '@ziroeda/common/font/glyph.js';
 import {
   GR_TEXT_H_ALIGN_T,
   GR_TEXT_V_ALIGN_T,
   TEXT_ATTRIBUTES,
-} from '@ziroeda/common/src/font/text_attributes.js';
-import { FRAME_T } from '@ziroeda/common/src/frame_type.js';
-import type { GAL } from '@ziroeda/common/src/gal/graphics_abstraction_layer.js';
+} from '@ziroeda/common/font/text_attributes.js';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import type { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
 import {
   GAL_SCOPED_ATTRS,
   GAL_SCOPED_ATTRS_FLAGS,
-} from '@ziroeda/common/src/gal/graphics_abstraction_layer.js';
-import { PAINTER } from '@ziroeda/common/src/gal/painter.js';
-import { GetPenSizeForNormal } from '@ziroeda/common/src/gr_text.js';
+} from '@ziroeda/common/gal/graphics_abstraction_layer.js';
+import { PAINTER } from '@ziroeda/common/gal/painter.js';
+import { GetPenSizeForNormal } from '@ziroeda/common/gr_text.js';
 import {
   B_Cu,
   B_Mask,
@@ -117,14 +117,14 @@ import {
   NETNAMES_LAYER_ID,
   PCB_LAYER_ID,
   ToLAYER_ID,
-} from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { PgmOrNull } from '@ziroeda/common/src/pgm_base.js';
-import { RENDER_SETTINGS } from '@ziroeda/common/src/render_settings.js';
-import type { COLOR_SETTINGS } from '@ziroeda/common/src/settings/color_settings.js';
-import { printableCharCount, unescapeString } from '@ziroeda/common/src/string_utils.js';
-import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/src/stroke_params.js';
-import type { VIEW_ITEM } from '@ziroeda/common/src/view/view_item.js';
+} from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import { RENDER_SETTINGS } from '@ziroeda/common/render_settings.js';
+import type { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
+import { printableCharCount, unescapeString } from '@ziroeda/common/string_utils.js';
+import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
+import type { VIEW_ITEM } from '@ziroeda/common/view/view_item.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
 import { BOARD_ITEM } from './board_item.js';
@@ -133,7 +133,7 @@ import {
   HIGH_CONTRAST_MODE,
   NET_COLOR_MODE,
   ZONE_DISPLAY_MODE,
-} from '@ziroeda/common/src/project/board_project_settings.js';
+} from '@ziroeda/common/project/board_project_settings.js';
 import type { FOOTPRINT } from './footprint.js';
 import { NETINFO_LIST } from './netinfo.js';
 import { PAD } from './pad.js';
@@ -158,7 +158,7 @@ import {
   PCBNEW_SETTINGS,
   SHOW_WITH_VIA_ALWAYS,
 } from './pcbnew_settings.js';
-import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import type { ZONE } from './zone.js';
 import { ZONE_BORDER_DISPLAY_STYLE } from './zone_settings.js';
 

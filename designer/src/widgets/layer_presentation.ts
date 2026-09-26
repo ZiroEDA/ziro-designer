@@ -27,7 +27,7 @@
  */
 
 import { LayerName, LSET_Name } from '@ziroeda/pcbnew/layer_ids.js';
-import { parseColor4d, swatchOverBackground, toCssColor } from '@ziroeda/common/src/color4d.js';
+import { parseColor4d, swatchOverBackground, toCssColor } from '@ziroeda/common/color4d.js';
 import { layerColor } from '../editors/pcb/pcbTheme.js';
 
 /** One layer as a widget shows it: the stored name, the shown name, a swatch. */

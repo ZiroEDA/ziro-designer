@@ -75,7 +75,7 @@ export interface ExtentsBox {
  * `(paper "A4" portrait)` and `(paper "User" 431.8 279.4)` resolve the way the
  * Page Settings dialog resolves them rather than by a second reading of the
  * string. The table behind it is `PAGE_INFO::standardPageSizes` in
- * `common/src/page_info.ts`; there is no size table in this file on purpose.
+ * `common/page_info.ts`; there is no size table in this file on purpose.
  */
 export function pcbPageSizeIU(paperToken: string): { x: number; y: number } {
   const [widthMM, heightMM] = pageSizeMM(fromPaperToken(paperToken));

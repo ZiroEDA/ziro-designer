@@ -7,7 +7,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { FORMAT_MODE, Prettify } from '@ziroeda/common/src/io/kicad/kicad_io_utils.js';
+import { FORMAT_MODE, Prettify } from '@ziroeda/common/io/kicad/kicad_io_utils.js';
 
 const RESAVE = fileURLToPath(new URL('../../data/pcbnew/resave/', import.meta.url));
 

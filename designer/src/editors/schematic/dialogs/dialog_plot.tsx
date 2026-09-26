@@ -33,8 +33,8 @@ import { IU_PER_MILS } from '../schematic_settings.js';
 import { BUILTIN_THEMES } from '../theme.js';
 import { settings } from '../../../prefs/settings.js';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '../../../widgets/wx_html_report_panel.js';
-import { Icon } from '@ziroeda/common/src/widgets/icons.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { Icon } from '@ziroeda/common/widgets/icons.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 export type PlotFormat = 'ps' | 'pdf' | 'svg' | 'dxf' | 'png';
 

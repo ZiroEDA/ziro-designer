@@ -19,7 +19,7 @@ import {
   type Netlist,
   type Schematic,
 } from '@ziroeda/eeschema';
-import { LINE_STYLE, LINE_STYLE_NAMES } from '@ziroeda/common/src/stroke_params.js';
+import { LINE_STYLE, LINE_STYLE_NAMES } from '@ziroeda/common/stroke_params.js';
 import {
   IU_PER_MILS,
   LINE_STYLES,

@@ -50,7 +50,7 @@ import {
   frameTitle,
   type FrameTitleParts,
   READ_ONLY_SUFFIX,
-} from '@ziroeda/common/src/use_document_title.js';
+} from '@ziroeda/common/use_document_title.js';
 
 /** `_( "PCB Editor" )`, the half after the dash. */
 export const PCB_FRAME_NAME = 'PCB Editor';

@@ -18,14 +18,14 @@ import {
   gridSubMenu,
   standardSubMenuEntries,
   zoomSubMenu,
-} from '@ziroeda/common/src/eda_draw_frame_submenus.js';
-import { evaluateConditionalMenu, menuEntry } from '@ziroeda/common/src/tool/conditional_menu.js';
+} from '@ziroeda/common/eda_draw_frame_submenus.js';
+import { evaluateConditionalMenu, menuEntry } from '@ziroeda/common/tool/conditional_menu.js';
 import {
   GRID_SIZE_LIST,
   gridEntryOf,
   type GridEntry,
-} from '@ziroeda/common/src/settings/grid_settings_ui.js';
-import { ZOOM_LIST, zoomPresetLabel } from '@ziroeda/common/src/settings/zoom_settings.js';
+} from '@ziroeda/common/settings/grid_settings_ui.js';
+import { ZOOM_LIST, zoomPresetLabel } from '@ziroeda/common/settings/zoom_settings.js';
 import { PCB_IU_PER_MM, PL_IU_PER_MM } from '@ziroeda/common';
 
 const noop = (): void => {};

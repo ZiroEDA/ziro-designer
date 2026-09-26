@@ -7,8 +7,8 @@ import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic
 import { makeWire, makeLabel } from '@ziroeda/eeschema/src/tools/build.js';
 import { addItems } from '@ziroeda/eeschema/src/tools/mutate.js';
 import { lassoSelect } from '@ziroeda/eeschema/src/tools/boxselect.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { lassoIsInside } from '@ziroeda/common/src/preview_items/selection_area.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
+import { lassoIsInside } from '@ziroeda/common/preview_items/selection_area.js';
 
 const EMPTY = () => readSchematic(parse('(kicad_sch (version 1) (lib_symbols))'));
 const at = (x: number, y: number) => ({ x: mmToIU(x), y: mmToIU(y) });

@@ -3,8 +3,8 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** `qa/tests/common/test_layer_range.cpp`, transcribed. */
 import { describe, expect, it } from 'vitest';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LAYER_RANGE } from '@ziroeda/common/src/layer_range.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LAYER_RANGE } from '@ziroeda/common/layer_range.js';
 
 const { F_Cu, B_Cu, In1_Cu, In2_Cu, In3_Cu, In4_Cu, F_Mask, B_Mask, PCB_LAYER_ID_COUNT } =
   PCB_LAYER_ID;

@@ -28,9 +28,9 @@
  * `imageBBox` directly; a predicate was written and had no caller, so it is not
  * kept. Same call as the text box work.
  */
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { pngPPI, pngPixelSize } from '@ziroeda/common/src/png_meta.js';
-import { pixelSizeIu } from '@ziroeda/common/src/reference_image.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { pngPPI, pngPixelSize } from '@ziroeda/common/png_meta.js';
+import { pixelSizeIu } from '@ziroeda/common/reference_image.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { PcbImage } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

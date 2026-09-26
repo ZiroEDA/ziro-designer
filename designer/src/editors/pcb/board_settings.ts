@@ -20,7 +20,7 @@
 // The netclass half is NET_SETTINGS and comes from common/; embedded files and
 // text variables are still eeschema's PROJECT_FILE sections here.
 import { defaultNetClasses, type NetClassesData } from '@ziroeda/common';
-import { RPT_SEVERITY_IGNORE, RPT_SEVERITY_WARNING } from '@ziroeda/common/src/reporter.js';
+import { RPT_SEVERITY_IGNORE, RPT_SEVERITY_WARNING } from '@ziroeda/common/reporter.js';
 import { BOARD_DESIGN_SETTINGS } from '@ziroeda/pcbnew/board_design_settings.js';
 import { DRC_ITEM } from '@ziroeda/pcbnew/drc/drc_item.js';
 import { AllCuMask, LSET_Name } from '@ziroeda/pcbnew/layer_ids.js';

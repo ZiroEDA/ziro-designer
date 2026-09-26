@@ -27,7 +27,7 @@ import {
   OwnerDrawnCombo,
   type DrawItemFlags,
   type OwnerDrawnItem,
-} from '@ziroeda/common/src/widgets/footprint_choice.js';
+} from '@ziroeda/common/widgets/footprint_choice.js';
 
 /**
  * The half of `FOOTPRINT_CHOICE::OnDrawItem` that decides *what* is greyed

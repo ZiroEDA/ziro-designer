@@ -24,7 +24,7 @@ import { serializeSchematic } from '@ziroeda/eeschema';
 import { transformItems, type TransformOp } from '@ziroeda/eeschema/src/tools/transform.js';
 import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
 import { tableCellId } from '@ziroeda/eeschema/src/tools/table_cells.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const mm = mmToIU;

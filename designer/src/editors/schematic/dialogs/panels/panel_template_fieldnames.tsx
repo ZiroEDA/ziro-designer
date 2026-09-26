@@ -31,7 +31,7 @@
  */
 
 import { useState, type JSX } from 'react';
-import { StdBitmapButton } from '@ziroeda/common/src/widgets/std_bitmap_button.js';
+import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
 import type { FieldTemplate } from '../../schematic_settings.js';
 
 // The data model lives in schematic_settings.ts (KiCad's data/UI split);

@@ -53,10 +53,10 @@ import {} from '@ziroeda/designer/src/editors/symbol/render/symbolRenderer.js';
  * slicing to the first `}` in the raw text lands inside that comment and returns
  * a body missing everything after it.
  */
-const SHELL = readFileSync(
-  join(__dirname, '../../../common/src/widgets/shell.css'),
-  'utf8',
-).replace(/\/\*[\s\S]*?\*\//g, '');
+const SHELL = readFileSync(join(__dirname, '../../../common/widgets/shell.css'), 'utf8').replace(
+  /\/\*[\s\S]*?\*\//g,
+  '',
+);
 
 const decl = (selector: string, prop: string): string | undefined => {
   // A selector may be one of several in a comma group — `.ze-grid

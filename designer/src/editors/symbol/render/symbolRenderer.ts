@@ -24,8 +24,8 @@ import type { Vec2 } from '@ziroeda/kimath';
 import { zoomFitView } from '../../../ui/view_controls.js';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import type { LibGraphic, LibPin, LibSymbol, LibSymbolUnit, SchField } from '@ziroeda/eeschema';
-import { layoutText, measureText } from '@ziroeda/common/src/font/stroke_font.js';
-import { textWidth } from '@ziroeda/common/src/font/font_provider.js';
+import { layoutText, measureText } from '@ziroeda/common/font/stroke_font.js';
+import { textWidth } from '@ziroeda/common/font/font_provider.js';
 import { getOutlineFont } from '../../../font/outline_fonts.js';
 import { drawOutlineText } from '../../../font/draw_outline_text.js';
 import { ITALIC_TILT } from '@ziroeda/eeschema';
@@ -34,7 +34,7 @@ import {
   drawGrid,
   viewFromOffsets,
   type GridStyle,
-} from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
+} from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 
 export interface Viewport {
   scale: number;

@@ -24,13 +24,13 @@
  * and a path is split on slashes, so a reference containing either would tear
  * the packet apart.
  */
-import { escapeIpc } from '@ziroeda/common/src/string_utils.js';
+import { escapeIpc } from '@ziroeda/common/string_utils.js';
 import { symbolField } from '../exporters/netlist.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 import { resolvePadNumbers } from '../sch_pin.js';
 import { refId } from './hittest.js';
 import type { LibSymbol, Schematic, SchSymbol } from '../types.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 /** `<symbolRefId>:pin<k>` -> its two halves; null for anything else. */
 function pinRef(id: string): { owner: string; index: number } | null {

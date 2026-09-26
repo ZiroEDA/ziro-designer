@@ -23,7 +23,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readdirSync } from 'node:fs';
-import { BITMAP } from '@ziroeda/common/src/bitmap_store_actions.js';
+import { BITMAP } from '@ziroeda/common/bitmap_store_actions.js';
 import {
   TOP_TOOLBAR,
   LEFT_TOOLBAR,
@@ -56,7 +56,7 @@ import {
   DS_RIGHT_TOOLBAR,
 } from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
 import { VIEWER3D_TOP_TOOLBAR } from '@ziroeda/designer/src/editors/pcb/viewer3dToolbars.js';
-import type { ToolButton, ToolEntry } from '@ziroeda/common/src/tool/action_toolbar_types.js';
+import type { ToolButton, ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 
 const buttons = (entries: readonly ToolEntry[]): ToolButton[] =>
   entries.flatMap((e) =>

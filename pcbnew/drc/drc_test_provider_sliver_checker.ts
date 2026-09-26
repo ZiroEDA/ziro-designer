@@ -9,10 +9,10 @@
  * Errors generated:
  * - DRCE_COPPER_SLIVER
  */
-import { ADVANCED_CFG } from '@ziroeda/common/src/advanced_config.js';
-import { pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
-import type { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
+import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
+import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import { ARC_LOW_DEF } from '@ziroeda/kimath/src/base_units.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';

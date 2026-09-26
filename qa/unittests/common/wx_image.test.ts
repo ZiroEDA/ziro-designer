@@ -15,7 +15,7 @@ import {
   wxIMAGE_OPTION_RESOLUTIONUNIT,
   wxIMAGE_OPTION_RESOLUTIONX,
   wxImageResolution,
-} from '@ziroeda/common/src/wx_image.js';
+} from '@ziroeda/common/wx_image.js';
 
 const dir = new URL('../../fixtures/png/', import.meta.url);
 const expected = JSON.parse(

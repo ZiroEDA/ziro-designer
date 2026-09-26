@@ -28,7 +28,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { displayNetnames, displayNetname } from '@ziroeda/pcbnew/netinfo.js';
-import { wxSplit } from '@ziroeda/common/src/string_utils.js';
+import { wxSplit } from '@ziroeda/common/string_utils.js';
 
 const names = (entries: [number, string][]): Map<number, string> =>
   displayNetnames(new Map(entries));

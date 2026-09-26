@@ -4,7 +4,7 @@
 /**
  * EDA_BASE_FRAME::AddMenuLanguageList (common/eda_base_frame.cpp:2062-2087)
  * and the LanguagesList table (common/pgm_base.cpp:95-148), against the shared
- * port in common/src/eda_base_frame_language_menu.ts — and through the project manager's
+ * port in common/eda_base_frame_language_menu.ts — and through the project manager's
  * real menu builder, which is where a user meets it.
  */
 import { describe, expect, it, vi } from 'vitest';
@@ -13,9 +13,9 @@ import {
   LANGUAGES_LIST,
   setLanguageMenuItem,
   TRANSLATED_LANGUAGES,
-} from '@ziroeda/common/src/eda_base_frame_language_menu.js';
+} from '@ziroeda/common/eda_base_frame_language_menu.js';
 import { buildManagerMenus } from '@ziroeda/designer/src/home/menubar.js';
-import type { MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
+import type { MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 import type { ProjectMeta } from '@ziroeda/designer/src/home/projectStore.js';
 
 const menu = (over: Partial<Parameters<typeof setLanguageMenuItem>[0]> = {}): MenuItem =>

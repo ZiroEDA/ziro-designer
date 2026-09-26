@@ -25,9 +25,9 @@
  * at all, including none.
  */
 import { describe, expect, it } from 'vitest';
-import { interline, layoutText } from '@ziroeda/common/src/font/stroke_font.js';
-import { fontInterline } from '@ziroeda/common/src/font/text_box.js';
-import { INTERLINE_PITCH, STROKE_LEGACY_FACTOR } from '@ziroeda/common/src/font/font_metrics.js';
+import { interline, layoutText } from '@ziroeda/common/font/stroke_font.js';
+import { fontInterline } from '@ziroeda/common/font/text_box.js';
+import { INTERLINE_PITCH, STROKE_LEGACY_FACTOR } from '@ziroeda/common/font/font_metrics.js';
 
 /** stroke_font.cpp's LEGACY_FACTOR and font_metrics.h's m_InterlinePitch. */
 const CPP_PITCH = 1.68 * 0.9583;

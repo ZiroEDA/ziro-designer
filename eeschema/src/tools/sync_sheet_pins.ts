@@ -34,7 +34,7 @@
  */
 
 import type { LabelShape, SchLabel, Schematic, SchSheet, SheetPin } from '../types.js';
-import { strNumCmp } from '@ziroeda/common/src/string_utils.js';
+import { strNumCmp } from '@ziroeda/common/string_utils.js';
 import { refId, sheetPinId } from './hittest.js';
 import type { EditCommand } from './command.js';
 import { replaceSheetPin, type SheetPinRef } from './sch_sheet_pin_tool.js';

@@ -17,11 +17,11 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { head, isList, type SList } from '@ziroeda/sexpr/src/types.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { readFootprintFile } from '@ziroeda/pcbnew/read-board.js';
 import { FLIP_DIRECTION, serializeFootprint } from '@ziroeda/pcbnew/write-footprint.js';
-import { FlipLayer, type PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
+import { FlipLayer, type PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import { LAYER_T } from '@ziroeda/pcbnew/board_types.js';
 import { B_Cu, F_Cu, In_Cu, User_1 } from '@ziroeda/pcbnew/layer_ids.js';
 import { emptyBOARD } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';

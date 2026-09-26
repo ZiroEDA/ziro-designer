@@ -7,10 +7,10 @@
  * module on the same inputs (a default 2-copper BOARD as parent).
  */
 import { describe, expect, it } from 'vitest';
-import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { ANGLE_90 } from '@ziroeda/kimath/src/geometry/eda_angle.js';

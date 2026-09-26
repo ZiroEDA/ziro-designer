@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
-import {
-  GENERATOR,
-  GENERATOR_APPLICATION,
-  GENERATOR_VERSION,
-} from '@ziroeda/common/src/generator.js';
+import { GENERATOR, GENERATOR_APPLICATION, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
 import { describe, it, expect } from 'vitest';
 import {
   parseDrawingSheet,
@@ -22,8 +18,8 @@ import {
   type WksBitmap,
   type DsTextItem,
   type DsLineItem,
-} from '@ziroeda/common/src/drawing_sheet/index.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+} from '@ziroeda/common/drawing_sheet/index.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const A4 = { widthMM: 297, heightMM: 210 };
 

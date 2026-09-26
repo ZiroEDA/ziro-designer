@@ -15,7 +15,7 @@ import { defaultErcSettings } from '@ziroeda/eeschema/src/erc/erc_settings.js';
 import { makeNoConnect } from '@ziroeda/eeschema/src/tools/build.js';
 import { flattenLibSymbol } from '@ziroeda/eeschema/src/lib_symbol.js';
 import { addItems } from '@ziroeda/eeschema/src/tools/mutate.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 /** One-pin test symbol; the pin's connection point is the symbol position. */
 function libDef(name: string, type: string, power = false): string {

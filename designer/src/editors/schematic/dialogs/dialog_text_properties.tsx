@@ -29,23 +29,23 @@
 
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
-import type { StatusUnits } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
+import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import {
   parseUnitValueDouble,
   stringFromValue,
   unitLabel,
-} from '@ziroeda/common/src/widgets/unit_binder.js';
-import { toolbarIconUrl } from '@ziroeda/common/src/bitmap_store.js';
-import { ColorSwatch } from '@ziroeda/common/src/widgets/color_swatch.js';
+} from '@ziroeda/common/widgets/unit_binder.js';
+import { toolbarIconUrl } from '@ziroeda/common/bitmap_store.js';
+import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
 import {
   LINE_STYLE_NAMES,
   lineStyleComboValue,
   type LineStyleToken,
-} from '@ziroeda/common/src/stroke_params.js';
+} from '@ziroeda/common/stroke_params.js';
 import { FontChoice } from '../../../ui/TextFormatBar.js';
-import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 export type HAlign = 'left' | 'center' | 'right';
 export type VAlign = 'top' | 'center' | 'bottom';

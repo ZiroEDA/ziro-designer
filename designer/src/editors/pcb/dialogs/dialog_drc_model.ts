@@ -13,30 +13,27 @@
  * run starts and the gauge lands at the end, because there is no event loop
  * to yield to mid-run (`updateUI`'s `SafeYieldFor`).
  */
-import { PROGRESS_REPORTER_BASE } from '@ziroeda/common/src/widgets/progress_reporter_base.js';
-import { PARSE_ERROR } from '@ziroeda/common/src/dsnlexer.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { MARKER_T } from '@ziroeda/common/src/marker_base.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import {
-  MALFORMED_B_COURTYARD,
-  MALFORMED_F_COURTYARD,
-} from '@ziroeda/common/src/eda_item_flags.js';
+import { PROGRESS_REPORTER_BASE } from '@ziroeda/common/widgets/progress_reporter_base.js';
+import { PARSE_ERROR } from '@ziroeda/common/dsnlexer.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { MARKER_T } from '@ziroeda/common/marker_base.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { MALFORMED_B_COURTYARD, MALFORMED_F_COURTYARD } from '@ziroeda/common/eda_item_flags.js';
 import {
   RC_TREE_MODEL,
   type RC_TREE_NODE,
   RC_TREE_NODE_TYPE,
   RC_TREE_VIEW_STATE,
-} from '@ziroeda/common/src/rc_item.js';
-import type { RC_ITEM } from '@ziroeda/common/src/rc_item.js';
+} from '@ziroeda/common/rc_item.js';
+import type { RC_ITEM } from '@ziroeda/common/rc_item.js';
 import {
   RPT_SEVERITY_ERROR,
   RPT_SEVERITY_EXCLUSION,
   RPT_SEVERITY_IGNORE,
   RPT_SEVERITY_WARNING,
   type Severity,
-} from '@ziroeda/common/src/reporter.js';
-import { ACTIONS } from '@ziroeda/common/src/tool/actions.js';
+} from '@ziroeda/common/reporter.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';

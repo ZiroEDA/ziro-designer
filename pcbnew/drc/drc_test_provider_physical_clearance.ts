@@ -10,11 +10,11 @@
  * - DRCE_PHYSICAL_CLEARANCE
  * - DRCE_PHYSICAL_HOLE_CLEARANCE
  */
-import { ADVANCED_CFG } from '@ziroeda/common/src/advanced_config.js';
-import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
-import { IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/src/reporter.js';
+import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { GetArcToSegmentCount } from '@ziroeda/kimath/src/geometry/geometry_utils.js';

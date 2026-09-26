@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { ARRAY_PAD_NUMBER_PROVIDER } from '@ziroeda/pcbnew/array_pad_number_provider.js';
-import type { ArrayGridOptions } from '@ziroeda/common/src/array_options.js';
+import type { ArrayGridOptions } from '@ziroeda/common/array_options.js';
 
 /** A 3x3 grid numbered 1,2,3,... from the primary axis. */
 const grid = (extra: Partial<ArrayGridOptions> = {}): ArrayGridOptions => ({

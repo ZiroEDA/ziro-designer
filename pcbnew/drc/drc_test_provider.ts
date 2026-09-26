@@ -7,15 +7,15 @@
  * providers from. A provider module registers itself at load, as the C++'s
  * `static DRC_REGISTER_TEST_PROVIDER<T> dummy;` does.
  */
-import { type EdaDataType, type EdaUnits, pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import type { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import type { LSET } from '@ziroeda/common/src/lset.js';
-import { RPT_SEVERITY_INFO, type Reporter } from '@ziroeda/common/src/reporter.js';
-import { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
+import { type EdaDataType, type EdaUnits, pcbIUScale } from '@ziroeda/common/eda_units.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import type { LSET } from '@ziroeda/common/lset.js';
+import { RPT_SEVERITY_INFO, type Reporter } from '@ziroeda/common/reporter.js';
+import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { BaseType, KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { SHAPE } from '@ziroeda/kimath/src/geometry/shape.js';
-import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD } from '../board.js';
 import type { BOARD_ITEM } from '../board_item.js';

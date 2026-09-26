@@ -24,7 +24,7 @@ import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readFootprintFile } from '@ziroeda/pcbnew/read-board.js';
 import { footprintBBox } from '@ziroeda/pcbnew/edit-footprint.js';
 import { spreadFootprints } from '@ziroeda/pcbnew/autorouter/spread_footprints.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';
 
 /**

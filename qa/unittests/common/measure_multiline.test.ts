@@ -15,7 +15,7 @@
  * drew its selection halo out there, and pushed autoplaced fields away.
  */
 import { describe, it, expect } from 'vitest';
-import { layoutText, measureText } from '@ziroeda/common/src/font/stroke_font.js';
+import { layoutText, measureText } from '@ziroeda/common/font/stroke_font.js';
 
 const SIZE = 10000;
 

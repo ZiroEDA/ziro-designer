@@ -40,16 +40,12 @@
 import { useState, type JSX } from 'react';
 import { schIUScale } from '@ziroeda/common';
 import type { TextEffects } from '@ziroeda/eeschema';
-import { ColorSwatch } from '@ziroeda/common/src/widgets/color_swatch.js';
+import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { FontChoice, TextFormatBar, type HAlign, type VAlign } from '../../../ui/TextFormatBar.js';
-import {
-  parseUnitValue,
-  stringFromValue,
-  unitLabel,
-} from '@ziroeda/common/src/widgets/unit_binder.js';
-import type { StatusUnits } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
+import { parseUnitValue, stringFromValue, unitLabel } from '@ziroeda/common/widgets/unit_binder.js';
+import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 /** DEFAULT_SIZE_TEXT, 50 mil, the size a field falls back to. */
 const DEFAULT_TEXT_SIZE = schIUScale.mmToIU(1.27);

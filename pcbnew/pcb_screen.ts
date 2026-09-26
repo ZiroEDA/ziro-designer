@@ -7,8 +7,8 @@
  */
 
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-import { BASE_SCREEN } from '@ziroeda/common/src/base_screen.js';
-import { B_Cu, F_Cu, type PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { BASE_SCREEN } from '@ziroeda/common/base_screen.js';
+import { B_Cu, F_Cu, type PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 
 export class PCB_SCREEN extends BASE_SCREEN {
   m_Active_Layer: PCB_LAYER_ID;

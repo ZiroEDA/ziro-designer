@@ -10,7 +10,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
 import { hitTestSymbol } from '@ziroeda/designer/src/editors/symbol/edits.js';
-import { setFontProvider } from '@ziroeda/common/src/font/font_provider.js';
+import { setFontProvider } from '@ziroeda/common/font/font_provider.js';
 import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
 
 const lib = (face: string): LibSymbol =>

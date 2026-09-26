@@ -68,7 +68,7 @@
  *     and has no closed form; the set of violations is unaffected.
  */
 
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import {
   booleanAdd,

@@ -11,8 +11,8 @@
  */
 
 import { head, isList, list, atom, str, type SList } from '@ziroeda/sexpr/src/types.js';
-import { iuToMM } from '@ziroeda/common/src/eda_units.js';
-import { newKiid } from '@ziroeda/common/src/kiid.js';
+import { iuToMM } from '@ziroeda/common/eda_units.js';
+import { newKiid } from '@ziroeda/common/kiid.js';
 import type {
   SchLine,
   SchJunction,
@@ -28,7 +28,7 @@ import type {
   TextEffects,
   Vec2,
 } from '../types.js';
-import type { Orientation } from '@ziroeda/common/src/transform.js';
+import type { Orientation } from '@ziroeda/common/transform.js';
 import { buildPropertyNode as writeFieldNode } from '../sch_io/sexpr/write-schematic.js';
 import { flattenLibSymbol } from '../lib_symbol.js';
 import { MANDATORY_FIELDS, isMandatoryField } from './properties.js';

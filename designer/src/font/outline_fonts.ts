@@ -28,16 +28,13 @@
  * as `s_fontMap` is keyed — the same face file serves "Arial" and
  * "Liberation Sans", but each keeps the name it was asked for.
  */
-import { BUNDLED_FONTS, findFont } from '@ziroeda/common/src/font/fontconfig.js';
-import { FONT } from '@ziroeda/common/src/font/font.js';
-import { setFontProvider } from '@ziroeda/common/src/font/font_provider.js';
-import { type OutlineFace, parseOutlineFace } from '@ziroeda/common/src/font/outline_face.js';
-import { OUTLINE_FONT, OutlineFont } from '@ziroeda/common/src/font/outline_font.js';
-import {
-  outlineBoundaryLimits,
-  outlineTextWidth,
-} from '@ziroeda/common/src/font/outline_layout.js';
-import { isStrokeFont } from '@ziroeda/common/src/font/text_box.js';
+import { BUNDLED_FONTS, findFont } from '@ziroeda/common/font/fontconfig.js';
+import { FONT } from '@ziroeda/common/font/font.js';
+import { setFontProvider } from '@ziroeda/common/font/font_provider.js';
+import { type OutlineFace, parseOutlineFace } from '@ziroeda/common/font/outline_face.js';
+import { OUTLINE_FONT, OutlineFont } from '@ziroeda/common/font/outline_font.js';
+import { outlineBoundaryLimits, outlineTextWidth } from '@ziroeda/common/font/outline_layout.js';
+import { isStrokeFont } from '@ziroeda/common/font/text_box.js';
 
 /** Where the bundled files are served from; see `fontconfig.ts`'s catalogue. */
 const FONTS_URL = '/fonts/';

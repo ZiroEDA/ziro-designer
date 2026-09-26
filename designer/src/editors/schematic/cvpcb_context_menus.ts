@@ -49,7 +49,7 @@
  * it forward; the panel's own ✕ is what stands for closing the frame.
  */
 
-import type { MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
+import type { MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 
 /** What the rows run. Each is the TOOL_ACTION of the same name. */
 export interface CvpcbContextMenuActions {

@@ -16,7 +16,7 @@
  * in a profiler, which is exactly the kind of thing to hold with a test.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { buildScene } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 import {
   ReferenceImageCache,

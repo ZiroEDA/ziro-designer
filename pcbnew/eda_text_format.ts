@@ -27,7 +27,7 @@
  */
 
 import { atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
-import { pcbIuToMM } from '@ziroeda/common/src/eda_units.js';
+import { pcbIuToMM } from '@ziroeda/common/eda_units.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const list = (...items: SNode[]): SList => ({ kind: 'list', items });

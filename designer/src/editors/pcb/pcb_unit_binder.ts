@@ -22,11 +22,11 @@
  * it shows 1.5 on a board whose own status bar reads mils.
  */
 
-import { pcbIuToMM, pcbIUScale, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
-import { parseUnitValue, stringFromValue } from '@ziroeda/common/src/widgets/unit_binder.js';
-import type { StatusUnits } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
+import { pcbIuToMM, pcbIUScale, pcbMmToIU } from '@ziroeda/common/eda_units.js';
+import { parseUnitValue, stringFromValue } from '@ziroeda/common/widgets/unit_binder.js';
+import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 
-export { unitLabel } from '@ziroeda/common/src/widgets/unit_binder.js';
+export { unitLabel } from '@ziroeda/common/widgets/unit_binder.js';
 
 /** `UNIT_BINDER::SetValue`: board IU out, in the frame's units. */
 export function pcbUnitText(iu: number, units: StatusUnits): string {

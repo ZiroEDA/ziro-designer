@@ -12,7 +12,7 @@
  * fell straight through to the three-facet floor and rendered as triangles.
  */
 import { describe, expect, it } from 'vitest';
-import { PCB_IU_PER_MM, SCH_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
+import { PCB_IU_PER_MM, SCH_IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import {
   arcToPolyline,
   facetsForRadius,
@@ -20,7 +20,7 @@ import {
   PCB_ARC_TOLERANCE,
   SCH_ARC_TOLERANCE,
 } from '@ziroeda/designer/src/render/gl/tessellate.js';
-import { GERB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
+import { GERB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import { IU_PER_MM as GBR_ENGINE_IU_PER_MM } from '@ziroeda/gerbview';
 
 /** The same physical 0.005 mm sagitta, in each editor's own units. */

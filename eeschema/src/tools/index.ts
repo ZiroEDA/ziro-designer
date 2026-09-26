@@ -32,9 +32,9 @@ export * from './sch_collectors.js';
 export * from './sch_get_node.js';
 export * from './sch_properties_panel.js';
 export * from './msg_panel.js';
-// Hoisted to `common/src/text_vars.ts`, where upstream keeps `ExpandTextVars`
+// Hoisted to `common/text_vars.ts`, where upstream keeps `ExpandTextVars`
 // (both editors use it). Re-exported so eeschema's callers are unchanged.
-export * from '@ziroeda/common/src/text_vars.js';
+export * from '@ziroeda/common/text_vars.js';
 export * from './embedded.js';
 export * from './refdes_tracker.js';
 export * from './build.js';

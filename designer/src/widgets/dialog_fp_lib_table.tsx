@@ -20,14 +20,14 @@
  */
 
 import { useMemo, useState, type JSX } from 'react';
-import { Icon } from '@ziroeda/common/src/widgets/icons.js';
+import { Icon } from '@ziroeda/common/widgets/icons.js';
 import {
   projectFpLibTable,
   projectPrettyDirs,
   rowPrettyDir,
   type FpLibRow,
 } from '../editors/footprint/fp_lib_table.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 interface Props {
   /** The open project's files (footprints, the table, the `.kicad_pro`). */

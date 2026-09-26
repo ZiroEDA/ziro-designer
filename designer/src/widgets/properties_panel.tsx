@@ -57,9 +57,9 @@
 import { Fragment, useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import { COLOR4D_UNSPECIFIED, parseColor4d, toHexString } from '@ziroeda/common';
-import { ColorSwatch } from '@ziroeda/common/src/widgets/color_swatch.js';
-import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
-import { Icon } from '@ziroeda/common/src/widgets/icons.js';
+import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import { Icon } from '@ziroeda/common/widgets/icons.js';
 import './properties_panel.css';
 
 /**

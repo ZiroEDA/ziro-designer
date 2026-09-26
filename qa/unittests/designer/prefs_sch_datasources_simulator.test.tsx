@@ -277,7 +277,7 @@ describe('the choices are sized by their contents, as a wxChoice is', () => {
    * combos are about 165 px and ours were about 450.
    */
   it('gives neither grid column a fraction of the free space', () => {
-    const css = readFileSync(resolve(process.cwd(), '../common/src/widgets/shell.css'), 'utf8');
+    const css = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
     const rule = /\.ze-simprefs-grid\s*\{([^}]*)\}/.exec(css.replace(/\/\*[\s\S]*?\*\//g, ''));
     expect(rule, 'no .ze-simprefs-grid rule').toBeTruthy();
     const body = rule?.[1] ?? '';

@@ -39,7 +39,7 @@ import {
   worldToDeviceY,
   type GridStyle,
   type GridView,
-} from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
+} from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 
 // ---------------------------------------------------------------------------
 // A recording canvas

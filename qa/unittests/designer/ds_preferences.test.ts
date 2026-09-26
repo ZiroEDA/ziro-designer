@@ -42,7 +42,7 @@ import {
   ALWAYS_SHOW_CROSSHAIRS_LABEL,
   CROSSHAIR_MODE_CHOICES,
   crosshairSegments,
-} from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
+} from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 
 describe('PANEL_GAL_OPTIONS’ Cursor group', () => {
   it('offers three shapes, in KiCad’s order with KiCad’s labels', () => {

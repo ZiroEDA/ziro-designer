@@ -35,7 +35,7 @@ import { parse } from '@ziroeda/sexpr/src/index.js';
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';
 import { readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
 import { makeSymbol } from '@ziroeda/eeschema/src/tools/build.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
 
 /**

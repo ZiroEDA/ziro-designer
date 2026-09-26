@@ -8,7 +8,7 @@
  * 1.27 mm default text), not derived from our port.
  */
 import { describe, expect, it } from 'vitest';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';

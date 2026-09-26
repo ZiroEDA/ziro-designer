@@ -10,7 +10,7 @@
 import { describe, it, expect } from 'vitest';
 import { parse, head, isList, type SList } from '@ziroeda/sexpr';
 import { childNamed, childrenNamed } from '@ziroeda/sexpr/src/query.js';
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { EMPTY_PCB } from '@ziroeda/designer/src/home/new_project.js';
 import { readSetup, writeSetup } from './board_setup_test_utils.js';
 

@@ -17,8 +17,8 @@
 import type { Vec2 } from '@ziroeda/kimath';
 import type { LibPin, LibSymbol, SchField, Schematic } from '../types.js';
 import type { EditCommand } from './command.js';
-import { EdaCombinedMatcher } from '@ziroeda/common/src/eda_pattern_match.js';
-import { unescapeString } from '@ziroeda/common/src/string_utils.js';
+import { EdaCombinedMatcher } from '@ziroeda/common/eda_pattern_match.js';
+import { unescapeString } from '@ziroeda/common/string_utils.js';
 import { refId } from './hittest.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 

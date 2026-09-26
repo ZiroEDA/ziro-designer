@@ -7,12 +7,8 @@
  *
  * The `PNS_TUNE` wxLogTrace lines are left out.
  */
-import {
-  FLASHING,
-  type PCB_LAYER_ID,
-  PCB_LAYER_ID as LAYER,
-} from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
+import { FLASHING, type PCB_LAYER_ID, PCB_LAYER_ID as LAYER } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { CIRCLE } from '@ziroeda/kimath/src/geometry/circle.js';

@@ -19,7 +19,7 @@ import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import { fillZone } from '@ziroeda/pcbnew/zone_filler.js';
 import { moveBoardItems, moveZoneCorner } from '@ziroeda/pcbnew/edit-board.js';
-import { PCB_IU_PER_MM as MM } from '@ziroeda/common/src/eda_units.js';
+import { PCB_IU_PER_MM as MM } from '@ziroeda/common/eda_units.js';
 
 const BOARD = `(kicad_pcb (version 20241229) (generator "t")
   (general (thickness 1.6)) (paper "A4")

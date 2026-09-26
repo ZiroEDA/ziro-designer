@@ -2,7 +2,7 @@
 // `for z in b.Zones(): z.CacheTriangulation()` used as the KiCad oracle.
 //   NODE_OPTIONS=--max-old-space-size=12000 node <vite-node> perf/zone_triangulation_timing.mts <board.kicad_pcb>
 import { readFileSync } from 'node:fs';
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 

@@ -28,7 +28,7 @@ import {
   TOOLBAR_SETTINGS_DEFAULTS,
   type ToolbarDefaults,
   type ToolbarSettings,
-} from '@ziroeda/common/src/tool/ui/toolbar_configuration.js';
+} from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import {
   DS_DEFAULT_TOOLBARS,
   DS_LEFT_TOOLBAR,
@@ -464,7 +464,7 @@ describe('ResetPanel', () => {
  * 30, and no expander column at all, so a group was told apart from a leaf only
  * by its missing icon and nothing lined up with anything.
  */
-const CSS = readFileSync(resolve(process.cwd(), '../common/src/widgets/shell.css'), 'utf8');
+const CSS = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
 /** A rule body by exact selector, comments stripped. */
 const rule = (selector: string): string => {
   const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');

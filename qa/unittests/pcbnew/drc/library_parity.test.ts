@@ -7,10 +7,10 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { SETTINGS_MANAGER } from '@ziroeda/common/src/pgm_base.js';
-import { ENUM_MAP } from '@ziroeda/common/src/properties/property.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
+import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
 import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
 import type { DRC_ITEM } from '@ziroeda/pcbnew/drc/drc_item.js';
 import { PCB_DRC_CODE } from '@ziroeda/pcbnew/drc/drc_item.js';

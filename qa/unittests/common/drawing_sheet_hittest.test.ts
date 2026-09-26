@@ -22,9 +22,9 @@ import {
   layoutDrawingSheet,
   hitTestDrawingSheet,
   drawItemBBox,
-} from '@ziroeda/common/src/drawing_sheet/index.js';
-import type { WksBitmap, WksSheet } from '@ziroeda/common/src/drawing_sheet/index.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+} from '@ziroeda/common/drawing_sheet/index.js';
+import type { WksBitmap, WksSheet } from '@ziroeda/common/drawing_sheet/index.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const A4 = { widthMM: 297, heightMM: 210 };
 const CTX = {

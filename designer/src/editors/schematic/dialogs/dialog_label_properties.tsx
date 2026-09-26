@@ -31,12 +31,12 @@
 
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
-import type { StatusUnits } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
+import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import {
   parseUnitValueDouble,
   stringFromValue,
   unitLabel,
-} from '@ziroeda/common/src/widgets/unit_binder.js';
+} from '@ziroeda/common/widgets/unit_binder.js';
 import {
   cleanLabelFields,
   type DirectiveShape,
@@ -44,12 +44,12 @@ import {
   type LabelShape,
   type LabelSpin,
 } from '@ziroeda/eeschema';
-import { toolbarIconUrl } from '@ziroeda/common/src/bitmap_store.js';
-import { ColorSwatch } from '@ziroeda/common/src/widgets/color_swatch.js';
+import { toolbarIconUrl } from '@ziroeda/common/bitmap_store.js';
+import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
 import { FontChoice } from '../../../ui/TextFormatBar.js';
-import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 /** A flag shape: a label's electrical one, or a directive label's outline. */
 export type AnyLabelShape = LabelShape | DirectiveShape;

@@ -17,7 +17,7 @@ import {
 import { placeSymbolInstance } from '@ziroeda/eeschema/src/tools/mutate.js';
 import { moveSymbolTo } from '@ziroeda/eeschema/src/tools/move.js';
 import { transformSymbol } from '@ziroeda/eeschema/src/tools/transform.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
 
 /** A four-unit part; unit 3 carries a name of its own. */

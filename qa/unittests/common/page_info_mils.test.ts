@@ -22,7 +22,7 @@ import {
   PAPER_MM,
   pageSizeDisplayMM,
   pageSizeIU,
-} from '@ziroeda/common/src/page_info.js';
+} from '@ziroeda/common/page_info.js';
 
 describe('the table is the C++ table, in mils', () => {
   // KiROUND( mm * 1000 / 25.4 ) for each metric size; the imperial ones are

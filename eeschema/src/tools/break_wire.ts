@@ -42,7 +42,7 @@
 import type { Schematic, SchLine, Vec2 } from '../types.js';
 import { refId } from './hittest.js';
 import { nodeWithUuid } from './build.js';
-import { newKiid } from '@ziroeda/common/src/kiid.js';
+import { newKiid } from '@ziroeda/common/kiid.js';
 import type { MoveSpec } from './connect.js';
 import type { EditCommand } from './command.js';
 

@@ -27,13 +27,10 @@
  * aAttrs.m_StrokeWidth )`), which is why the pen still reaches here.
  */
 import type { Vec2 } from '@ziroeda/kimath';
-import { metricsInterline } from '@ziroeda/common/src/font/font_metrics.js';
-import type { OutlineFont } from '@ziroeda/common/src/font/outline_font.js';
-import {
-  layoutOutlineText,
-  type OutlineTextLayout,
-} from '@ziroeda/common/src/font/outline_layout.js';
-import type { TextHAlign } from '@ziroeda/common/src/font/stroke_font.js';
+import { metricsInterline } from '@ziroeda/common/font/font_metrics.js';
+import type { OutlineFont } from '@ziroeda/common/font/outline_font.js';
+import { layoutOutlineText, type OutlineTextLayout } from '@ziroeda/common/font/outline_layout.js';
+import type { TextHAlign } from '@ziroeda/common/font/stroke_font.js';
 
 /** `getLinePositions`' `height += size.y * 1.17` — "a fudge to match 6.0 positioning". */
 const SINGLE_LINE_BLOCK = 1.17;

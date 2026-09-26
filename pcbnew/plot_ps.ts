@@ -75,7 +75,7 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { EDA_ANGLE, ANGLE_0, ANGLE_90 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { RotatePoint, CalcArcCenter } from '@ziroeda/kimath/src/trigo.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/eda_text.js';
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/eda_text.js';
 
 /** `FILL_T` (eda_shape.h). NO_FILL is 1, not 0 — never treat this as a boolean. */
 export enum FILL_T {
@@ -114,19 +114,16 @@ export enum LINE_STYLE {
 export {
   DO_NOT_SET_LINE_WIDTH,
   USE_DEFAULT_LINE_WIDTH,
-} from '@ziroeda/common/src/plotters/plotter.js';
+} from '@ziroeda/common/plotters/plotter.js';
 
-import {
-  DO_NOT_SET_LINE_WIDTH,
-  USE_DEFAULT_LINE_WIDTH,
-} from '@ziroeda/common/src/plotters/plotter.js';
-import { PLOT_TEXT_MODE } from '@ziroeda/common/src/plotters/plotter.js';
+import { DO_NOT_SET_LINE_WIDTH, USE_DEFAULT_LINE_WIDTH } from '@ziroeda/common/plotters/plotter.js';
+import { PLOT_TEXT_MODE } from '@ziroeda/common/plotters/plotter.js';
 export { PLOT_TEXT_MODE };
 
 // `COLOR4D` lives in `common` because the graphics importers, shared with
 // eeschema, need it too. Re-exported here so existing consumers are unaffected.
-export { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/src/color4d.js';
-import { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/src/color4d.js';
+export { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/color4d.js';
+import { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/color4d.js';
 
 const colorEquals = (a: Color4d, b: Color4d): boolean =>
   a.r === b.r && a.g === b.g && a.b === b.b && a.a === b.a;
@@ -139,9 +136,9 @@ export {
   DEFAULT_GAP_LENGTH_RATIO,
   type PlotterRenderSettings as PsRenderSettings,
   plotterRenderSettings as psRenderSettings,
-} from '@ziroeda/common/src/render_settings.js';
+} from '@ziroeda/common/render_settings.js';
 
-import type { PlotterRenderSettings as PsRenderSettings } from '@ziroeda/common/src/render_settings.js';
+import type { PlotterRenderSettings as PsRenderSettings } from '@ziroeda/common/render_settings.js';
 
 /**
  * `PAGE_INFO`, reduced to the six accessors SetViewport and StartPlot make on
@@ -200,7 +197,7 @@ export interface PsTextAttributes {
 /**
  * `KIFONT::FONT`, reduced to the one call the PostScript text path makes.
  * Supplied by the caller for the same reason the SVG back-end asks for one: the
- * monorepo's stroke font (common/src/font/stroke_font.ts) does not implement
+ * monorepo's stroke font (common/font/stroke_font.ts) does not implement
  * KIFONT's contract — no justification, italic shear, rotation or bold
  * thickness — and faking those here would be a substitute, not a port.
  *
@@ -244,16 +241,16 @@ export interface PsImage {
 // `{fmt}`'s `{:.Nf}`. One implementation for every backend, as upstream has
 // one `fmt::print`; the precision is a call-site argument, not a per-backend
 // formatter. Re-exported so existing importers of this module are unaffected.
-export { fixed } from '@ziroeda/common/src/plotters/fmt.js';
-import { decompose, fixed, scaledRound } from '@ziroeda/common/src/plotters/fmt.js';
+export { fixed } from '@ziroeda/common/plotters/fmt.js';
+import { decompose, fixed, scaledRound } from '@ziroeda/common/plotters/fmt.js';
 
 /**
  * `%g` and its default precision now live beside `fixed`, `decompose` and
- * `scaledRound` in `common/src/plotters/fmt.ts` — the module those three were
+ * `scaledRound` in `common/plotters/fmt.ts` — the module those three were
  * already moved to. Re-exported so this module's importers are unaffected.
  */
-export { FMT_G_PRECISION, formatG } from '@ziroeda/common/src/plotters/fmt.js';
-import { formatG } from '@ziroeda/common/src/plotters/fmt.js';
+export { FMT_G_PRECISION, formatG } from '@ziroeda/common/plotters/fmt.js';
+import { formatG } from '@ziroeda/common/plotters/fmt.js';
 
 /** The `{:.3g}` `emitSetRGBColor` alone asks for, above a comment asking why. */
 export const RGB_G_PRECISION = 3;

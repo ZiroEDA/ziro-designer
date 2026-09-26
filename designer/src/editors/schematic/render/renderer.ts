@@ -17,8 +17,8 @@ import {
   drawGrid,
   viewFromOffsets,
   type GridOptions,
-} from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
-import { pageSizeMM } from '@ziroeda/common/src/page_info.js';
+} from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
+import { pageSizeMM } from '@ziroeda/common/page_info.js';
 import {
   symbolTransform,
   localToWorld,
@@ -87,9 +87,9 @@ import {
   measureText,
   splitTextLines,
   type TextHAlign,
-} from '@ziroeda/common/src/font/stroke_font.js';
+} from '@ziroeda/common/font/stroke_font.js';
 import type { TextEffects as SchTextEffects } from '@ziroeda/eeschema/src/types.js';
-import { outlineBoundaryLimits } from '@ziroeda/common/src/font/outline_layout.js';
+import { outlineBoundaryLimits } from '@ziroeda/common/font/outline_layout.js';
 import { getOutlineFont } from '../../../font/outline_fonts.js';
 import { drawOutlineText } from '../../../font/draw_outline_text.js';
 import { globalLabelShape, isEmpty, textPenWidth } from '@ziroeda/eeschema/src/tools/bbox.js';
@@ -4654,7 +4654,7 @@ function strokeGlyphs(
 
 /**
  * Page size for a `(paper …)` token in **eeschema's** IU, or null when the name
- * is unknown. The table is `common/src/page_info.ts`, which is where KiCad
+ * is unknown. The table is `common/page_info.ts`, which is where KiCad
  * keeps it too — this file used to carry its own copy, and `renderBoard.ts`
  * carried a second that had already drifted.
  */

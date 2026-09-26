@@ -10,11 +10,11 @@
  * and, on request, its `GetBodyBoundingBox()` sibling, which stops at the body.
  */
 
-import { localToWorld, type Transform } from '@ziroeda/common/src/transform.js';
-import { symbolTransform } from '@ziroeda/common/src/transform.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
-import type { TextStyle } from '@ziroeda/common/src/font/font_provider.js';
-import { stringBoundaryLimits } from '@ziroeda/common/src/font/text_box.js';
+import { localToWorld, type Transform } from '@ziroeda/common/transform.js';
+import { symbolTransform } from '@ziroeda/common/transform.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
+import type { TextStyle } from '@ziroeda/common/font/font_provider.js';
+import { stringBoundaryLimits } from '@ziroeda/common/font/text_box.js';
 import type {
   LibPin,
   LibSymbol,
@@ -179,7 +179,7 @@ export function textPenWidth(height: number, bold = false): number {
  * `FONT::StringBoundaryLimits`, which for a stroke font is the glyph-run box
  * inflated by `KiROUND( 1.5 × thickness )` on each side.
  *
- * This is `common/src/font/text_box.ts`'s `stringBoundaryLimits`, not a second
+ * This is `common/font/text_box.ts`'s `stringBoundaryLimits`, not a second
  * copy of it. The copy that used to live here added the pen but never took off
  * the trailing side bearing: `STROKE_FONT::GetTextAsGlyphs`
  * (`common/font/stroke_font.cpp:283`) closes the box at

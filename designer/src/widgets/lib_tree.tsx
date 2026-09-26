@@ -26,8 +26,8 @@ import {
   PINNING_SYMBOL,
 } from './lib_tree_model_adapter.js';
 import { SelectColumnsDialog } from './select_columns_dialog.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
-import { bitmapUrl } from '@ziroeda/common/src/bitmap_store.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
 
 /**
  * `wxDataViewItemAttr` as CSS. `SetColour( wxSYS_COLOUR_GRAYTEXT )` becomes

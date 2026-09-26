@@ -58,7 +58,7 @@ import {
   clearFileHistory,
   resetAllSettings,
 } from '../../../prefs/maintenance.js';
-import { clearDoNotShowAgainDialogs } from '@ziroeda/common/src/kidialog_do_not_show.js';
+import { clearDoNotShowAgainDialogs } from '@ziroeda/common/kidialog_do_not_show.js';
 import type { PrefsContext } from '../types.js';
 
 /** `m_cacheLifetime`'s own tooltip, upstream's text verbatim. [data] */

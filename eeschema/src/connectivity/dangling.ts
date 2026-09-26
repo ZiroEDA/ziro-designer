@@ -12,7 +12,7 @@
  */
 
 import type { Schematic, LibSymbol, SchSymbol, Vec2 } from '../types.js';
-import { symbolTransform, localToWorld } from '@ziroeda/common/src/transform.js';
+import { symbolTransform, localToWorld } from '@ziroeda/common/transform.js';
 import { SegmentIndex, onSegment } from './segment_index.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 

@@ -31,8 +31,8 @@ import {
   showApertureType,
   textInfoLine,
 } from '@ziroeda/designer/src/editors/gerbview/gerberAuxControls.js';
-import { GRID_SIZE_LIST, gridChoiceLabel } from '@ziroeda/common/src/settings/grid_settings_ui.js';
-import { ZOOM_LIST, zoomChoices } from '@ziroeda/common/src/settings/zoom_settings.js';
+import { GRID_SIZE_LIST, gridChoiceLabel } from '@ziroeda/common/settings/grid_settings_ui.js';
+import { ZOOM_LIST, zoomChoices } from '@ziroeda/common/settings/zoom_settings.js';
 import { APERTURE_T } from '@ziroeda/gerbview';
 
 /** GerbView reads coordinates at 1 nm per IU, `gerbIUScale.IU_PER_MM`. */

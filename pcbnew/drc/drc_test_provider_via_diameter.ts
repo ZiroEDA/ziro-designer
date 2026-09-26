@@ -8,8 +8,8 @@
  * Errors generated:
  * - DRCE_VIA_DIAMETER
  */
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/src/reporter.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import { PADSTACK } from '../padstack.js';

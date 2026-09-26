@@ -22,7 +22,7 @@ import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
 import { planMove } from '@ziroeda/eeschema/src/tools/connect.js';
 import { orthoMove } from '@ziroeda/eeschema/src/tools/ortho.js';
 import { moveWithConnections, moveItems } from '@ziroeda/eeschema/src/tools/move.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const DOC = `(kicad_sch (version 20250114) (generator "x") (lib_symbols)
   (sheet (at 50 50) (size 30 20) (uuid "sh1")

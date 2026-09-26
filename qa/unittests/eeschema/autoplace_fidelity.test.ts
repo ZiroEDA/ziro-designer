@@ -16,7 +16,7 @@ import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
 import { autoplacedFields } from '@ziroeda/eeschema/src/tools/autoplace_fields.js';
 import type { Schematic, SchSymbol, LibSymbol } from '@ziroeda/eeschema/src/types.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   symbolOrientation,
   SYM_MIRROR_X,
@@ -25,7 +25,7 @@ import {
   SYM_ORIENT_90,
   SYM_ORIENT_180,
   SYM_ORIENT_270,
-} from '@ziroeda/common/src/transform.js';
+} from '@ziroeda/common/transform.js';
 
 const OPTS = { allowRejustify: true, alignToGrid: true };
 

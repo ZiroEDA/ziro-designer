@@ -25,7 +25,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { makeTableFromDrag, tableGridFor } from '@ziroeda/eeschema/src/tools/build-graphics.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 /** KiCad's defaults: 50 mil text, 50 mil grid. */
 const FONT = mmToIU(1.27);

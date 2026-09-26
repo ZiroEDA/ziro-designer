@@ -12,7 +12,7 @@
  */
 import { parse } from '@ziroeda/sexpr';
 import { readSymbolLib, type LibSymbol } from '@ziroeda/eeschema';
-import { Reporter } from '@ziroeda/common/src/reporter.js';
+import { Reporter } from '@ziroeda/common/reporter.js';
 import { searchTerm, type SearchTerm } from '@ziroeda/common';
 import { fetchLibraryIndex, libraryBase } from '../../../libraryHosts.js';
 import { trackLibraryLoad } from '../../../widgets/library_loading.js';

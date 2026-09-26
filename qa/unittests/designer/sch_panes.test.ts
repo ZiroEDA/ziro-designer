@@ -590,7 +590,7 @@ describe('the editor docks Search at the bottom of the canvas column', () => {
    */
   it('has both dock classes in the shared stylesheet', () => {
     const css = readFileSync(
-      fileURLToPath(new URL('../../../common/src/widgets/shell.css', import.meta.url)),
+      fileURLToPath(new URL('../../../common/widgets/shell.css', import.meta.url)),
       'utf8',
     );
     expect(css).toMatch(/^\.ze-canvas-col \{/m);

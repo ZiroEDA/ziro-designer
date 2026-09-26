@@ -10,8 +10,8 @@
  * - DRCE_MICROVIA_DRILL_OUT_OF_RANGE
  * - DRCE_PADSTACK
  */
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/src/reporter.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { ResizeI, sub, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { PAD } from '../pad.js';

@@ -13,9 +13,9 @@
  * `selectionTool`) and are not here either.
  */
 import { WXK } from '@ziroeda/core/src/wx_keycodes.js';
-import { BITMAPS } from '@ziroeda/common/src/bitmaps_list.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { ACTIONS, CURSOR_EVENT_TYPE, REMOVE_FLAGS } from '@ziroeda/common/src/tool/actions.js';
+import { BITMAPS } from '@ziroeda/common/bitmaps_list.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { ACTIONS, CURSOR_EVENT_TYPE, REMOVE_FLAGS } from '@ziroeda/common/tool/actions.js';
 import {
   TOOL_ACTION,
   TOOL_ACTION_ARGS,
@@ -23,7 +23,7 @@ import {
   TOOL_ACTION_GROUP,
   TOOL_ACTION_SCOPE,
   TOOLBAR_STATE,
-} from '@ziroeda/common/src/tool/tool_action.js';
+} from '@ziroeda/common/tool/tool_action.js';
 import {
   MD_ALT,
   MD_CTRL,
@@ -31,9 +31,9 @@ import {
   TOOL_EVENT,
   TOOL_EVENT_CATEGORY,
   TOOL_ACTIONS,
-} from '@ziroeda/common/src/tool/tool_event.js';
+} from '@ziroeda/common/tool/tool_event.js';
 import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
-import type { EDA_ITEM } from '@ziroeda/common/src/eda_item.js';
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import type { FOOTPRINT } from '../footprint.js';
 import type { PCB_REFERENCE_IMAGE } from '../pcb_reference_image.js';
 import { PnsDragMode } from '../router/pns_drag_algo.js';

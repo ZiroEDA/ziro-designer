@@ -18,7 +18,7 @@ import type { JSX } from 'react';
 import { schIUScale } from '@ziroeda/common';
 import { PanelGridSettings } from '../../../dialogs/prefs/PanelGridSettings.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { toStatusUnits } from '@ziroeda/common/src/settings/app_settings_units.js';
+import { toStatusUnits } from '@ziroeda/common/settings/app_settings_units.js';
 
 export function PanelEeschemaGrids({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { eeschema, upE } = ctx;

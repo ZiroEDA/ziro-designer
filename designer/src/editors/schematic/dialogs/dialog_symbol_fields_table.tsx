@@ -37,7 +37,7 @@ import {
   type FieldsTableEdits,
   type Schematic,
 } from '@ziroeda/eeschema';
-import { Icon } from '@ziroeda/common/src/widgets/icons.js';
+import { Icon } from '@ziroeda/common/widgets/icons.js';
 import {
   bomBuiltInPresets,
   bomFmtBuiltInPresets,
@@ -45,7 +45,7 @@ import {
   type BomPreset,
   type BomPresets,
 } from '../schematic_settings.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 /** Changed cells, grouped by sheet file then symbol refId. */
 export type FieldsEdits = FieldsTableEdits['fields'];

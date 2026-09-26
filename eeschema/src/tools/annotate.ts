@@ -32,7 +32,7 @@ import {
   RPT_SEVERITY_ACTION,
   RPT_SEVERITY_ERROR,
   type ReportLine,
-} from '@ziroeda/common/src/reporter.js';
+} from '@ziroeda/common/reporter.js';
 
 /** ANNOTATE_ORDER_T. */
 export type AnnotateOrder = 'x' | 'y' | 'unsorted';

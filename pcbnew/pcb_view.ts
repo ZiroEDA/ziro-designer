@@ -8,9 +8,9 @@
 
 import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { INT_MAX, INT_MIN } from '@ziroeda/kimath/src/math/util.js';
-import { RECURSE_MODE } from '@ziroeda/common/src/eda_item.js';
-import { VIEW } from '@ziroeda/common/src/view/view.js';
-import { type VIEW_ITEM, VIEW_UPDATE_FLAGS } from '@ziroeda/common/src/view/view_item.js';
+import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
+import { VIEW } from '@ziroeda/common/view/view.js';
+import { type VIEW_ITEM, VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
 import type { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { KICAD_T as T } from '@ziroeda/core/src/typeinfo.js';
 import type { BOARD_ITEM } from './board_item.js';

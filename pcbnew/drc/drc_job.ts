@@ -27,15 +27,15 @@
  * browser-shaped: the worker calls it, the in-process fallback calls it, and
  * `qa` calls it directly.
  */
-import { DS_PROXY_VIEW_ITEM } from '@ziroeda/common/src/drawing_sheet/ds_proxy_view_item.js';
-import { pcbIUScale, type EdaUnits } from '@ziroeda/common/src/eda_units.js';
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
-import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { SETTINGS_MANAGER } from '@ziroeda/common/src/pgm_base.js';
-import { ENUM_MAP } from '@ziroeda/common/src/properties/property.js';
-import type { JsonValue } from '@ziroeda/common/src/settings/json_settings.js';
+import { DS_PROXY_VIEW_ITEM } from '@ziroeda/common/drawing_sheet/ds_proxy_view_item.js';
+import { pcbIUScale, type EdaUnits } from '@ziroeda/common/eda_units.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
+import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
+import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD } from '../board.js';
 import { loadKicadNetlist } from '../netlist_reader/kicad_netlist_reader.js';

@@ -19,7 +19,7 @@
  * part that vanished.
  */
 
-import { Reporter } from '@ziroeda/common/src/reporter.js';
+import { Reporter } from '@ziroeda/common/reporter.js';
 import type { LibSymbol, Schematic, SchField, SchSymbol } from '../types.js';
 import { flattenLibSymbol } from '../lib_symbol.js';
 import type { EditCommand } from './command.js';
@@ -33,7 +33,7 @@ import { schSymbolLibraryName } from '../lib_symbol_compare.js';
  * the `space_allowed = true` that lets a space through.
  *
  * One table, read by both {@link isValidLibId} and {@link libIdParseOffset}.
- * LIB_ID itself is `common/`, and both of these belong in `common/src` the day
+ * LIB_ID itself is `common/`, and both of these belong in `common` the day
  * it is ported; until then the point of the rule is served by there being a
  * single copy of the set rather than one per caller.
  */

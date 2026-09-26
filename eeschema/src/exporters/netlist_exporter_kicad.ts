@@ -26,7 +26,7 @@
  * sheet-level DNP / exclude-from-board attributes.
  */
 
-import { strNumCmp } from '@ziroeda/common/src/string_utils.js';
+import { strNumCmp } from '@ziroeda/common/string_utils.js';
 import { atom, list, str, type SList, type SNode } from '@ziroeda/sexpr/src/types.js';
 import { arg, childrenNamed } from '@ziroeda/sexpr/src/query.js';
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';

@@ -21,7 +21,7 @@ const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
 
 const DIALOG = read('editors/pcb/dialogs/dialog_reference_image_properties.tsx');
-const CSS = read('../../common/src/widgets/shell.css');
+const CSS = read('../../common/widgets/shell.css');
 const EDITOR = read('editors/pcb/PcbEditor.tsx');
 const CURSORS = read('editors/pcb/cursors.ts');
 /** Comments are prose, and this file's name the controls it does NOT have. */
@@ -114,7 +114,7 @@ describe('PANEL_IMAGE_EDITOR, which is half the dialog and was absent', () => {
     expect(code).toContain('PPI:');
     expect(code).toContain('{pngPPI(image.data)}');
     // Through the shared PNG reader, which is where the pHYs chunk is parsed.
-    expect(DIALOG).toContain("from '@ziroeda/common/src/png_meta.js'");
+    expect(DIALOG).toContain("from '@ziroeda/common/png_meta.js'");
   });
 
   it('gives Scale no unit label, because its binder is given none', () => {

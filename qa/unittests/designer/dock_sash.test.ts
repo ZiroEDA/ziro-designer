@@ -12,7 +12,7 @@
  * sign, the pane's own MinSize, and a window too narrow for both.
  */
 import { describe, expect, it } from 'vitest';
-import { dockedPaneWidth, resizeDock } from '@ziroeda/common/src/widgets/wx_aui_sash_geometry.js';
+import { dockedPaneWidth, resizeDock } from '@ziroeda/common/widgets/wx_aui_sash_geometry.js';
 
 describe('resizeDock', () => {
   it('grows a right-docked pane when the pointer moves left', () => {

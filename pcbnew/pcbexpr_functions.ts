@@ -15,23 +15,19 @@ import {
   HOLE_PROXY,
   MALFORMED_COURTYARDS,
   ROUTER_TRANSIENT,
-} from '@ziroeda/common/src/eda_item_flags.js';
-import { kiidSniffTest } from '@ziroeda/common/src/kiid.js';
+} from '@ziroeda/common/eda_item_flags.js';
+import { kiidSniffTest } from '@ziroeda/common/kiid.js';
 import {
   IsBackLayer,
   IsFrontLayer,
   type PCB_LAYER_ID,
   PCB_LAYER_ID as LAYER,
   ToLAYER_ID,
-} from '@ziroeda/common/src/layer_ids.js';
-import type {
-  CONTEXT,
-  VAR_REF,
-  VALUE,
-} from '@ziroeda/common/src/libeval_compiler/libeval_compiler.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { ENUM_MAP } from '@ziroeda/common/src/properties/property.js';
-import { wxSplit } from '@ziroeda/common/src/string_utils.js';
+} from '@ziroeda/common/layer_ids.js';
+import type { CONTEXT, VAR_REF, VALUE } from '@ziroeda/common/libeval_compiler/libeval_compiler.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
+import { wxSplit } from '@ziroeda/common/string_utils.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { ARC_LOW_DEF } from '@ziroeda/kimath/src/base_units.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';

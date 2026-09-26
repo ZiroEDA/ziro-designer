@@ -7,7 +7,7 @@
  * track ends).
  */
 
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 
 // IDs for targets when creating teardrops
 export enum TARGET_TD {

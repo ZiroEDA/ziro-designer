@@ -7,24 +7,24 @@
  * expected values were read from KiCad's own `pcbnew` python module.
  */
 import { describe, expect, it } from 'vitest';
-import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { ADD_MODE } from '@ziroeda/pcbnew/board_item_container.js';
-import { GAL_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
+import { GAL_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
 import { PAD } from '@ziroeda/pcbnew/pad.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
 import { VIATYPE } from '@ziroeda/pcbnew/pcb_track_types.js';
-import type { MSG_PANEL_ITEM } from '@ziroeda/common/src/widgets/msgpanel.js';
+import type { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
-import type { HISTORY_FILE_DATA } from '@ziroeda/common/src/local_history.js';
-import { GetDefaultVariantName } from '@ziroeda/common/src/string_utils.js';
+import type { HISTORY_FILE_DATA } from '@ziroeda/common/local_history.js';
+import { GetDefaultVariantName } from '@ziroeda/common/string_utils.js';
 import { PCB_DIM_ALIGNED } from '@ziroeda/pcbnew/pcb_dimension.js';
 import { DIM_UNITS_MODE } from '@ziroeda/pcbnew/pcb_dimension_types.js';
-import { NETCLASS } from '@ziroeda/common/src/netclass.js';
-import { SETTINGS_MANAGER } from '@ziroeda/common/src/pgm_base.js';
+import { NETCLASS } from '@ziroeda/common/netclass.js';
+import { SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
 import { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
 import { NETINFO_ITEM } from '@ziroeda/pcbnew/netinfo.js';
 import { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';

@@ -28,7 +28,7 @@ import type {
   LibSymbol,
   Vec2,
 } from '../types.js';
-import type { Orientation } from '@ziroeda/common/src/transform.js';
+import type { Orientation } from '@ziroeda/common/transform.js';
 import { refId, sheetPinId } from './hittest.js';
 import { hasCellSelection, tableCellId } from './table_cells.js';
 import { makeSymbol } from './build.js';

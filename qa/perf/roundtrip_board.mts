@@ -14,9 +14,9 @@
  *   kicad-cli pcb drc --severity-all --format json -o out.json out.kicad_pcb
  */
 import { readFileSync, writeFileSync } from 'node:fs';
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { ParseBoard } from '@ziroeda/pcbnew/read-board.js';
-import { GENERATOR } from '@ziroeda/common/src/generator.js';
+import { GENERATOR } from '@ziroeda/common/generator.js';
 import {
   CTL_ENUMERATE_LAYERS,
   CTL_FOR_BOARD,

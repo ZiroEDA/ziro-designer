@@ -25,8 +25,8 @@
 
 import { buildBoardPolygonOutlines } from './convert_shape_list_to_polygon_legacy.js';
 import type { Geom, MultiPolygon, Ring } from 'polygon-clipping';
-import { ADVANCED_CFG } from '@ziroeda/common/src/advanced_config.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   chainPointInside,
   booleanAdd,
@@ -114,10 +114,10 @@ import type { ZONE } from './zone.js';
 import type { PCB_VIA } from './pcb_track.js';
 import { ZONE_LAYER_OVERRIDE } from './board_item.js';
 import { UNCONNECTED_LAYER_MODE } from './padstack.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
-import type { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 

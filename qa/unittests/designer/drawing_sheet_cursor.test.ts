@@ -33,7 +33,7 @@ const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
 const CANVAS = read('../../../designer/src/editors/drawingsheet/DrawingSheetCanvas.tsx');
-const SHELL = read('../../../common/src/widgets/shell.css');
+const SHELL = read('../../../common/widgets/shell.css');
 
 /**
  * The decision, called rather than grepped.

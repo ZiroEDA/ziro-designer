@@ -27,7 +27,7 @@
  * from `measureText` and the two C++ constants, never from `textBoxWidth`.
  */
 import { describe, expect, it } from 'vitest';
-import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
+import { measureText } from '@ziroeda/common/font/stroke_font.js';
 import {
   globalLabelShape,
   labelTextBox,

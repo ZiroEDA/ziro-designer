@@ -12,11 +12,11 @@
  * footprints and their courtyards, which come with FOOTPRINT.
  */
 
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/src/eda_draw_frame.js';
-import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/src/eda_item.js';
-import { RECURSE_MODE } from '@ziroeda/common/src/eda_item.js';
-import { EDA_SHAPE, FILL_T, SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
+import { EDA_SHAPE, FILL_T, SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import {
   FLASHING,
   GAL_LAYER_ID,
@@ -27,7 +27,7 @@ import {
   IsFrontLayer,
   IsSolderMaskLayer,
   PCB_LAYER_ID,
-} from '@ziroeda/common/src/layer_ids.js';
+} from '@ziroeda/common/layer_ids.js';
 import {
   ENUM_MAP,
   type INSPECTABLE_ITEM,
@@ -43,14 +43,14 @@ import {
   TYPE_INT,
   TYPE_OPT_INT,
   TYPE_STRING,
-} from '@ziroeda/common/src/properties/property.js';
-import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 
-import { LSET } from '@ziroeda/common/src/lset.js';
-import type { RENDER_SETTINGS } from '@ziroeda/common/src/render_settings.js';
-import type { STROKE_PARAMS } from '@ziroeda/common/src/stroke_params.js';
-import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
-import { MSG_PANEL_ITEM } from '@ziroeda/common/src/widgets/msgpanel.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import type { RENDER_SETTINGS } from '@ziroeda/common/render_settings.js';
+import type { STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
+import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import { applyMixins } from '@ziroeda/core/src/mixins.js';
 import type { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
@@ -69,7 +69,7 @@ import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
 import { DEFAULT_LINE_WIDTH } from './board_design_settings_defaults.js';
 import { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
-import type { HIGH_CONTRAST_MODE } from '@ziroeda/common/src/project/board_project_settings.js';
+import type { HIGH_CONTRAST_MODE } from '@ziroeda/common/project/board_project_settings.js';
 import { BOARD_ITEM } from './board_item.js';
 import type { BOARD } from './board.js';
 import { DRC_CONSTRAINT_T } from './drc/drc_rule.js';

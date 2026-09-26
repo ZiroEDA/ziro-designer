@@ -53,8 +53,8 @@
  * `m_UserLayerNames`, which is where upstream's names surface too.
  */
 import { useState, type JSX } from 'react';
-import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
-import { StdBitmapButton } from '@ziroeda/common/src/widgets/std_bitmap_button.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
 import { Sel } from '../../../dialogs/prefs/widgets.js';
 import { userLayerChoices } from '../fp_layer_choices.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';

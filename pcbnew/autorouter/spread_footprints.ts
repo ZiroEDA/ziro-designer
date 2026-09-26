@@ -21,8 +21,8 @@
  * same compact arrangement KiCad produces.
  */
 
-import { getTrailingInt } from '@ziroeda/common/src/string_utils.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { getTrailingInt } from '@ziroeda/common/string_utils.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { findBestPacking, type RectWH } from '@ziroeda/rectpack2d';
 import { boardItemId, moveBoardItems } from '../edit-board.js';
 import { footprintBBox } from '../edit-footprint.js';

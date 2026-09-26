@@ -18,7 +18,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { PCB_IU_PER_MM } from '@ziroeda/common';
-import { rulerTicks, MINOR_TICK_PX } from '@ziroeda/common/src/preview_items/ruler_item.js';
+import { rulerTicks, MINOR_TICK_PX } from '@ziroeda/common/preview_items/ruler_item.js';
 
 /** The scale in Akshay's capture: 965 device px across 10 mm. */
 const CAPTURE_PX_PER_IU = 965 / (10 * PCB_IU_PER_MM);

@@ -30,8 +30,8 @@ import {
   GENERATOR_APPLICATION,
   GENERATOR_VENDOR,
   GENERATOR_VERSION,
-} from '@ziroeda/common/src/generator.js';
-import { strNumCmp, unescapeString } from '@ziroeda/common/src/string_utils.js';
+} from '@ziroeda/common/generator.js';
+import { strNumCmp, unescapeString } from '@ziroeda/common/string_utils.js';
 import { boardAuxOrigin } from '../plot_gerber.js';
 import type { Board, PcbFootprint } from '../types.js';
 
@@ -263,7 +263,7 @@ export function genPositionData(
 
   let out = `### Footprint positions - created on ${opts.creationDate ?? ''} ###\n`;
   // Upstream prints `### Printed by KiCad version <ver>`. Naming KiCad in a
-  // file we generated is what common/src/generator.ts exists to prevent, so the
+  // file we generated is what common/generator.ts exists to prevent, so the
   // line carries our own identity, as plot_gerber.ts already does.
   // One name, not two: the application and the vendor are now the same word,
   // and "Printed by ZiroEDA ZiroEDA" is not a sentence.

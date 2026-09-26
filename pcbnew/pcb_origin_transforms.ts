@@ -2,8 +2,8 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** `pcbnew/pcb_origin_transforms.h` + `.cpp`. */
-import { COORD_TYPES_T, ORIGIN_TRANSFORMS } from '@ziroeda/common/src/origin_transforms.js';
-import { FRAME_T } from '@ziroeda/common/src/frame_type.js';
+import { COORD_TYPES_T, ORIGIN_TRANSFORMS } from '@ziroeda/common/origin_transforms.js';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { PCB_BASE_FRAME } from './pcb_base_frame.js';
 

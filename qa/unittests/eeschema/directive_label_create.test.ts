@@ -31,7 +31,7 @@ import {
   DIRECTIVE_SYMBOL_SIZE,
   directiveGraphic,
 } from '@ziroeda/eeschema/src/tools/directive_label.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const AT = { x: mmToIU(100), y: mmToIU(100) };

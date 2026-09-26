@@ -72,8 +72,8 @@
  */
 
 import type { LibPin, LibSymbol } from './types.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { stringBoundaryLimits } from '@ziroeda/common/src/font/text_box.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
+import { stringBoundaryLimits } from '@ziroeda/common/font/text_box.js';
 import type { BBox } from './tools/bbox.js';
 
 /**

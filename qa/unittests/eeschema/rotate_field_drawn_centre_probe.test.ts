@@ -47,7 +47,7 @@ import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
 import { fieldBoundingBox, fieldShownText } from '@ziroeda/eeschema/src/fieldbox.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
-import { mmToIU, iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU, iuToMM } from '@ziroeda/common/eda_units.js';
 
 const DIODE = `(symbol "Device:D" (pin_numbers (hide yes)) (pin_names (offset 1.016) (hide yes))
     (property "Reference" "D" (at 0 2.54 0))

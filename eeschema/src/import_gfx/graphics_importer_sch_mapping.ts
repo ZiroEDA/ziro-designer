@@ -31,11 +31,11 @@ import {
   GRAPHICS_IMPORTER,
   type IMPORTED_STROKE,
   COLOR4D_UNSPECIFIED,
-} from '@ziroeda/common/src/import_gfx/graphics_importer.js';
-import { LINE_STYLE } from '@ziroeda/common/src/stroke_params.js';
-import type { Color4d } from '@ziroeda/common/src/color4d.js';
-import type { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/eda_text.js';
-import { schIUScale } from '@ziroeda/common/src/eda_units.js';
+} from '@ziroeda/common/import_gfx/graphics_importer.js';
+import { LINE_STYLE } from '@ziroeda/common/stroke_params.js';
+import type { Color4d } from '@ziroeda/common/color4d.js';
+import type { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/eda_text.js';
+import { schIUScale } from '@ziroeda/common/eda_units.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { Vec2, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Fill, Stroke } from '../types.js';

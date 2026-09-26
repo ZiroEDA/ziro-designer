@@ -74,7 +74,7 @@ function paperOf(paper?: string): string {
  *
  * Deliberately not `common`'s `GERB_IU_PER_MM`. Those two do not agree: KiCad
  * says `GERB_IU_PER_MM = 1e5`, "Gerbview IU is 10 nanometers"
- * (include/base_units.h:69), and our `common/src/eda_units.ts:24` matches it,
+ * (include/base_units.h:69), and our `common/eda_units.ts:24` matches it,
  * but our parser works in 1e6. Reconciling them is a change to every Gerber
  * coordinate in the package and is not this feature's to make; drawing the page
  * in the units the canvas actually uses is. Using the 1e5 constant here would

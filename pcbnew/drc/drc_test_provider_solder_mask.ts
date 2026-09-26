@@ -10,9 +10,9 @@
  * - DRCE_SILK_MASK_CLEARANCE
  * - DRCE_SOLDERMASK_BRIDGE
  */
-import { IsFrontLayer, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/src/reporter.js';
+import { IsFrontLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { CornerStrategy } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';

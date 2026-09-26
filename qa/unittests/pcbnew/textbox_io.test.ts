@@ -30,7 +30,7 @@ import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import { emptyBoard, flatText, writtenNode } from './support/written_node.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Board, PcbTextBox } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);

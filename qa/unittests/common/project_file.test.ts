@@ -7,15 +7,15 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { LAYER_PRESET } from '@ziroeda/common/src/project/board_project_settings.js';
+import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { LAYER_PRESET } from '@ziroeda/common/project/board_project_settings.js';
 import {
   CONDITION_TYPE,
   CONDITIONS_OPERATOR,
-} from '@ziroeda/common/src/project/component_class_settings.js';
-import { PROJECT_FILE } from '@ziroeda/common/src/project/project_file.js';
-import type { JsonObject } from '@ziroeda/common/src/settings/json_settings.js';
+} from '@ziroeda/common/project/component_class_settings.js';
+import { PROJECT_FILE } from '@ziroeda/common/project/project_file.js';
+import type { JsonObject } from '@ziroeda/common/settings/json_settings.js';
 
 const DEMO = new URL('../../../designer/public/demos/ecc83/', import.meta.url);
 

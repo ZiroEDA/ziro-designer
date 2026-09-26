@@ -20,11 +20,11 @@ import {
   type CSSProperties,
   type JSX,
 } from 'react';
-import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
-import { Slider } from '@ziroeda/common/src/widgets/slider.js';
-import { MenuBar, type Menu, type MenuItem } from '@ziroeda/common/src/tool/action_menu_bar.js';
-import { MessageDialogYesNo } from '@ziroeda/common/src/dialogs/dialog_message.js';
-import type { YesNoResult } from '@ziroeda/common/src/confirm_types.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import { Slider } from '@ziroeda/common/widgets/slider.js';
+import { MenuBar, type Menu, type MenuItem } from '@ziroeda/common/tool/action_menu_bar.js';
+import { MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
+import type { YesNoResult } from '@ziroeda/common/confirm_types.js';
 import {
   acceptDrop,
   askBeforeReplace,
@@ -34,7 +34,7 @@ import {
   REPLACE_LOADED_FILE_MESSAGE,
 } from './dropFile.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
-import { Reporter } from '@ziroeda/common/src/reporter.js';
+import { Reporter } from '@ziroeda/common/reporter.js';
 import { bitmapDepth, imageMeta } from './imageMeta.js';
 import {
   loadBitmap2CmpSettings,
@@ -46,9 +46,9 @@ import {
   MISSING_FILE_EXTENDED,
   missingFileMessage,
   openRecentMenuItem,
-} from '@ziroeda/common/src/file_history.js';
-import { useFileHistory } from '@ziroeda/common/src/use_file_history.js';
-import { setLanguageMenuItem } from '@ziroeda/common/src/eda_base_frame_language_menu.js';
+} from '@ziroeda/common/file_history.js';
+import { useFileHistory } from '@ziroeda/common/use_file_history.js';
+import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
 import { settings } from '../../prefs/settings.js';
 import { useCommonSettings } from '../../prefs/useSettings.js';
 import {
@@ -71,13 +71,13 @@ import {
   type SizeUnit,
 } from './imageSize.js';
 import './imageConverter.css';
-import { standardHelpMenu } from '@ziroeda/common/src/eda_base_frame_help_menu.js';
+import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
-import { ABOUT_TITLES, aboutWindowTitle } from '@ziroeda/common/src/eda_base_frame_about_titles.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
-import { KiStatusBar } from '@ziroeda/common/src/widgets/kistatusbar.js';
-import { useMenuHotkeys } from '@ziroeda/common/src/tool/use_menu_hotkeys.js';
-import { addQuit } from '@ziroeda/common/src/tool/action_menu.js';
+import { ABOUT_TITLES, aboutWindowTitle } from '@ziroeda/common/eda_base_frame_about_titles.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
+import { useMenuHotkeys } from '@ziroeda/common/tool/use_menu_hotkeys.js';
+import { addQuit } from '@ziroeda/common/tool/action_menu.js';
 import { HomeLink } from '../../ui/HomeLink.js';
 
 type Tab = 'original' | 'greyscale' | 'bw';

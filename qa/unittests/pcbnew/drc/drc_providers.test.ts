@@ -6,15 +6,15 @@
  * from the reference tree's `qa/data/pcbnew`.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
-import { niluuid } from '@ziroeda/common/src/kiid.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
+import { niluuid } from '@ziroeda/common/kiid.js';
 import {
   RPT_SEVERITY_ERROR,
   RPT_SEVERITY_IGNORE,
   RPT_SEVERITY_WARNING,
-} from '@ziroeda/common/src/reporter.js';
-import { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
+} from '@ziroeda/common/reporter.js';
+import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { BaseType, KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';

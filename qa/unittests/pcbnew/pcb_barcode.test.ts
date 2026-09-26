@@ -44,7 +44,7 @@ import { bestSnapAnchor } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
 import { boardEditHandles, dragBoardHandle } from '@ziroeda/pcbnew/point_editor.js';
 import { pcbBarcodeMsgPanelInfo } from '@ziroeda/pcbnew/msg_panel.js';
 import { pcbPropertiesFor } from '@ziroeda/pcbnew/properties_panel.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Board, PcbBarcode } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);

@@ -10,7 +10,7 @@
  * correct sort and a broken summary. Both are pinned here.
  */
 import { describe, expect, it } from 'vitest';
-import { pinNumbersCompare } from '@ziroeda/common/src/pin_numbers.js';
+import { pinNumbersCompare } from '@ziroeda/common/pin_numbers.js';
 
 describe('PIN_NUMBERS::Compare', () => {
   it('is a natural compare, so 10 comes after 9 and not after 1', () => {

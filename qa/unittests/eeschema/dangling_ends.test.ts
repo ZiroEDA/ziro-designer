@@ -24,7 +24,7 @@ import {
   danglingWireEnds,
   danglingLabelAnchors,
 } from '@ziroeda/eeschema/src/connectivity/dangling.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const at = (x: number, y: number) => ({ x: mmToIU(x), y: mmToIU(y) });

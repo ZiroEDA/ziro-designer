@@ -24,7 +24,7 @@ import {
   ellipticIntegral,
   skinDepth,
   unitPropagationDelay,
-} from '@ziroeda/common/src/transline_calculations/tc_common.js';
+} from '@ziroeda/common/transline_calculations/tc_common.js';
 import type { TranslineAnalysis } from './transline.js';
 
 // KiCad's EllipticIntegral() interprets its argument as the *parameter* m

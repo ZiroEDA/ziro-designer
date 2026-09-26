@@ -10,10 +10,10 @@
  * than by re-running the code.
  */
 import { describe, expect, it } from 'vitest';
-import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 import { ADD_MODE } from '@ziroeda/pcbnew/board_item_container.js';
 import { CollectDrillLineItems, sameDrillLineItem } from '@ziroeda/pcbnew/board_statistics.js';
@@ -26,8 +26,8 @@ import {
   ResetCounts,
   STATISTICS_INT_MAX,
 } from '@ziroeda/pcbnew/board_statistics_report.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { FOOTPRINT, FOOTPRINT_ATTR_T } from '@ziroeda/pcbnew/footprint.js';
 import { PAD } from '@ziroeda/pcbnew/pad.js';
 import { PAD_ATTRIB, PAD_DRILL_SHAPE, PAD_PROP, PAD_SHAPE } from '@ziroeda/pcbnew/padstack.js';
@@ -35,7 +35,7 @@ import { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
 import { PCB_ARC, PCB_TRACK, PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
 import { VIATYPE } from '@ziroeda/pcbnew/pcb_track_types.js';
 import { PCB_TEXT } from '@ziroeda/pcbnew/pcb_text.js';
-import { FIELD_T } from '@ziroeda/common/src/template_fieldnames.js';
+import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
 
 const P = (x: number, y: number) => ({ x, y });
 

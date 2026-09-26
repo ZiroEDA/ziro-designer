@@ -11,8 +11,8 @@
  */
 
 import { head, isList, type SList } from '@ziroeda/sexpr/src/types.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { type Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/src/reporter.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
+import { type Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/reporter.js';
 import { closedOutline } from '../../tools/build-graphics.js';
 import {
   arg,

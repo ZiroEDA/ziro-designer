@@ -18,10 +18,10 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { NO_ARROWS, submenuEnds } from '@ziroeda/common/src/tool/action_menu_scroll.js';
+import { NO_ARROWS, submenuEnds } from '@ziroeda/common/tool/action_menu_scroll.js';
 
 const MENUBAR = readFileSync(
-  fileURLToPath(new URL('../../../common/src/tool/action_menu_bar.tsx', import.meta.url)),
+  fileURLToPath(new URL('../../../common/tool/action_menu_bar.tsx', import.meta.url)),
   'utf8',
 );
 
@@ -101,7 +101,7 @@ describe('the flyout is capped by the screen, never by itself', () => {
 
   it('caps it in CSS at the viewport instead', () => {
     const shell = readFileSync(
-      fileURLToPath(new URL('../../../common/src/widgets/shell.css', import.meta.url)),
+      fileURLToPath(new URL('../../../common/widgets/shell.css', import.meta.url)),
       'utf8',
     );
     const at = shell.indexOf('.ze-submenu {');

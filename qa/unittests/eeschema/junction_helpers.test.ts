@@ -20,7 +20,7 @@ import {
 } from '@ziroeda/eeschema/src/tools/junction_helpers.js';
 import { mergeColinearWires } from '@ziroeda/eeschema/src/tools/cleanup.js';
 import { finishWires } from '@ziroeda/eeschema/src/tools/sch_line_wire_bus_tool.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const at = (x: number, y: number) => ({ x: mmToIU(x), y: mmToIU(y) });

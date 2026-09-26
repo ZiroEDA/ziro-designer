@@ -6,7 +6,7 @@
  * filter gauntlet, and the four actions.
  */
 import { describe, it, expect } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   applyGlobalTeardropEdit,
   countGlobalTeardropTargets,

@@ -20,7 +20,7 @@
 
 import type { LabelShape, Schematic, SchSheet, SheetPin, Vec2 } from '../types.js';
 import { addSheetPin } from './build-graphics.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { refId, sheetPinId } from './hittest.js';
 import type { EditCommand } from './command.js';
 

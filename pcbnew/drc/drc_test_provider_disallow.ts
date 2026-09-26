@@ -9,10 +9,10 @@
  * - DRCE_ALLOWED_ITEMS
  * - DRCE_TEXT_ON_EDGECUTS
  */
-import { HOLE_PROXY } from '@ziroeda/common/src/eda_item_flags.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/src/reporter.js';
+import { HOLE_PROXY } from '@ziroeda/common/eda_item_flags.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
 import { BaseType, KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { ARC_LOW_DEF } from '@ziroeda/kimath/src/base_units.js';
 import type { OutInt } from '@ziroeda/kimath/src/geometry/shape.js';

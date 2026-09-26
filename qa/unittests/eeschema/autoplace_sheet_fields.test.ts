@@ -24,7 +24,7 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { autoplaceSheetFields, readSchematic, type SchField } from '@ziroeda/eeschema';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 /** 6 mils, KiCad's DEFAULT_LINE_WIDTH_MILS, in schematic IU. */
 const PEN = mmToIU(0.1524);

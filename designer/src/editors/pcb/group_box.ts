@@ -18,8 +18,8 @@
  * behaviour, and a decision inside a component can only be checked by rendering
  * it.
  */
-import { printableCharCount } from '@ziroeda/common/src/string_utils.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
+import { printableCharCount } from '@ziroeda/common/string_utils.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 
 export interface Box {
   minX: number;

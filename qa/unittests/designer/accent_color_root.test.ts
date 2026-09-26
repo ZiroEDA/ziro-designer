@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
 
-const SHELL = read('../../common/src/widgets/shell.css');
+const SHELL = read('../../common/widgets/shell.css');
 
 /** The body of the `.ze-app select { … }` rule. */
 function selectRule(): string {

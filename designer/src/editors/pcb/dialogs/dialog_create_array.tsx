@@ -11,7 +11,7 @@
  * for the same reason.
  */
 import { useState, type JSX, type Ref } from 'react';
-import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   arrayItemCount,
   arraySettingsValid,

@@ -7,8 +7,8 @@
  * reads off the stackup, and the four line calculations.
  */
 import { describe, expect, it } from 'vitest';
-import { FromUserUnit, pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { FromUserUnit, pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import {
   CalculationType,
   RHO,

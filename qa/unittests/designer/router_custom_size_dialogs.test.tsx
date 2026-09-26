@@ -31,7 +31,7 @@ import {
   DialogPnsDiffPairDimensions,
   type DiffPairDimensionsValue,
 } from '@ziroeda/designer/src/editors/pcb/dialogs/dialog_pns_diff_pair_dimensions.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 
 afterEach(cleanup);
 

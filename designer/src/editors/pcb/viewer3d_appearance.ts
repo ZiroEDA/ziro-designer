@@ -11,9 +11,9 @@
  * can pin the semantics: which rows exist, what a toggle does to the preset,
  * which colours the stackup is allowed to own.
  */
-import type { Color4d } from '@ziroeda/common/src/color4d.js';
-import { COLOR4D_UNSPECIFIED } from '@ziroeda/common/src/color4d.js';
-import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/src/settings/builtin_color_themes.js';
+import type { Color4d } from '@ziroeda/common/color4d.js';
+import { COLOR4D_UNSPECIFIED } from '@ziroeda/common/color4d.js';
+import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/settings/builtin_color_themes.js';
 import {
   DEFAULT_BACKGROUND_BOT,
   DEFAULT_BACKGROUND_TOP,

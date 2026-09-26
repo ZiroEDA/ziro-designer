@@ -23,7 +23,7 @@
 
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { head, isList, type SList, type SNode } from '@ziroeda/sexpr/src/types.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 
 /** DRC_CONSTRAINT_T. Only the names appearing in `.kicad_dru` are listed. */
 export type DrcConstraintType =

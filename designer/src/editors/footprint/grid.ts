@@ -24,9 +24,9 @@
  * gives every file the switch does not name, which is `0.5 mm`.
  */
 import { settings, type FpEditSettings } from '../../prefs/settings.js';
-import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
-import { gridSizeToIU } from '@ziroeda/common/src/settings/grid_settings_ui.js';
-import { gridSnappingEnabled } from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
+import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
+import { gridSizeToIU } from '@ziroeda/common/settings/grid_settings_ui.js';
+import { gridSnappingEnabled } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 
 /**
  * A grid string in **pcbnew's** internal units.

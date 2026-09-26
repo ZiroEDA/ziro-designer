@@ -13,7 +13,7 @@
  * navigation.
  */
 import { describe, it, expect } from 'vitest';
-import { installUnsavedGuard } from '@ziroeda/common/src/use_unsaved_guard.js';
+import { installUnsavedGuard } from '@ziroeda/common/use_unsaved_guard.js';
 
 function fakeWindow() {
   const listeners = new Map<string, Set<(e: BeforeUnloadEvent) => void>>();

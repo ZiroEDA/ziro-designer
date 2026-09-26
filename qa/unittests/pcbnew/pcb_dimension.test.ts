@@ -8,7 +8,7 @@
  * 0.2 mm line), not derived from our port.
  */
 import { describe, expect, it } from 'vitest';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';

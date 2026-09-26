@@ -21,7 +21,7 @@
  * copies the three values independently, so they resolve independently too.
  */
 
-import { wildCompareString } from '@ziroeda/common/src/string_utils.js';
+import { wildCompareString } from '@ziroeda/common/string_utils.js';
 import { testDrcCondition, type DrcExprContext } from './drc_expr.js';
 import type {
   DrcConstraint,

@@ -56,7 +56,7 @@
 
 import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
 import { hasAlternateBodyStyle, unitCount, unitsLocked } from './edits.js';
-import type { ToolEntry } from '@ziroeda/common/src/tool/action_toolbar_types.js';
+import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 
 /** The two halves of a `LIB_ID`, as `GetLibNickname()` / `GetLibItemName()`. */
 export interface LibIdParts {

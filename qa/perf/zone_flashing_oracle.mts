@@ -22,8 +22,8 @@
  *     npx tsx perf/zone_flashing_oracle.mts <board.kicad_pcb>
  */
 import { readFileSync } from 'node:fs';
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { ParseBoard } from '@ziroeda/pcbnew/read-board.js';
 import { ZONE_LAYER_OVERRIDE } from '@ziroeda/pcbnew/board_item.js';

@@ -32,12 +32,12 @@ import {
   TOOLBAR_CONTEXT_MENUS,
   toolbarContextMenu,
   toolbarContextMenuRows,
-} from '@ziroeda/common/src/tool/ui/toolbar_context_menu_registry.js';
+} from '@ziroeda/common/tool/ui/toolbar_context_menu_registry.js';
 import {
   COMMON_TOOLBAR_ACTIONS,
   toolbarActionMenuLabel,
   toolbarActionTooltip,
-} from '@ziroeda/common/src/tool/action_toolbar_actions.js';
+} from '@ziroeda/common/tool/action_toolbar_actions.js';
 
 /** The exact rows of each frame's registered menu, as the C++ writes them. */
 const EXPECTED: Record<string, Record<string, string[]>> = {

@@ -9,13 +9,13 @@
  * BOARD, not derived from our port.
  */
 import { describe, expect, it } from 'vitest';
-import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { MARKER_T } from '@ziroeda/common/src/marker_base.js';
+import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { MARKER_T } from '@ziroeda/common/marker_base.js';
 import {
   RPT_SEVERITY_ERROR,
   RPT_SEVERITY_EXCLUSION,
   RPT_SEVERITY_WARNING,
-} from '@ziroeda/common/src/reporter.js';
+} from '@ziroeda/common/reporter.js';
 import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 import { DRC_ITEM, PCB_DRC_CODE } from '@ziroeda/pcbnew/drc/drc_item.js';

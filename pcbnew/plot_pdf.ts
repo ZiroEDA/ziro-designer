@@ -106,19 +106,16 @@ export enum LINE_STYLE {
 export {
   DO_NOT_SET_LINE_WIDTH,
   USE_DEFAULT_LINE_WIDTH,
-} from '@ziroeda/common/src/plotters/plotter.js';
+} from '@ziroeda/common/plotters/plotter.js';
 
-import {
-  DO_NOT_SET_LINE_WIDTH,
-  USE_DEFAULT_LINE_WIDTH,
-} from '@ziroeda/common/src/plotters/plotter.js';
-import { PLOT_TEXT_MODE } from '@ziroeda/common/src/plotters/plotter.js';
+import { DO_NOT_SET_LINE_WIDTH, USE_DEFAULT_LINE_WIDTH } from '@ziroeda/common/plotters/plotter.js';
+import { PLOT_TEXT_MODE } from '@ziroeda/common/plotters/plotter.js';
 export { PLOT_TEXT_MODE };
 
 // `COLOR4D` lives in `common` because the graphics importers, shared with
 // eeschema, need it too. Re-exported here so existing consumers are unaffected.
-export { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/src/color4d.js';
-import { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/src/color4d.js';
+export { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/color4d.js';
+import { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/color4d.js';
 
 const colorEquals = (a: Color4d, b: Color4d): boolean =>
   a.r === b.r && a.g === b.g && a.b === b.b && a.a === b.a;
@@ -135,11 +132,11 @@ export interface PdfBox2 {
 export {
   DEFAULT_DASH_LENGTH_RATIO,
   DEFAULT_GAP_LENGTH_RATIO,
-} from '@ziroeda/common/src/render_settings.js';
+} from '@ziroeda/common/render_settings.js';
 import {
   type PlotterRenderSettings,
   plotterRenderSettings,
-} from '@ziroeda/common/src/render_settings.js';
+} from '@ziroeda/common/render_settings.js';
 
 /**
  * `RENDER_SETTINGS` plus the one accessor only the PDF backend reaches for.
@@ -220,8 +217,8 @@ export interface PdfProject {
 // `{fmt}`'s `{:.Nf}`. One implementation for every backend, as upstream has
 // one `fmt::print`; the precision is a call-site argument, not a per-backend
 // formatter. Re-exported so existing importers of this module are unaffected.
-export { fixed } from '@ziroeda/common/src/plotters/fmt.js';
-import { decompose, fixed, scaledRound } from '@ziroeda/common/src/plotters/fmt.js';
+export { fixed } from '@ziroeda/common/plotters/fmt.js';
+import { decompose, fixed, scaledRound } from '@ziroeda/common/plotters/fmt.js';
 
 /** fmt's bare `{:f}`: a hard-coded six decimals. PlotPoly and PenTo use it. */
 export const DEFAULT_FMT_PRECISION = 6;

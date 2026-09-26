@@ -402,7 +402,7 @@ export function readNetChains(sch: Schematic): CommittedNetChain[] {
  * shortest round-tripping form, never switches to exponent notation, and so
  * disagrees with `%g` on both large and very small values.
  */
-import { formatDouble2Str } from '@ziroeda/common/src/plotters/fmt.js';
+import { formatDouble2Str } from '@ziroeda/common/plotters/fmt.js';
 
 /** Parse our rgba() color strings back into (color R G B A) components. */
 function colorParts(color: string): [number, number, number, number] | null {

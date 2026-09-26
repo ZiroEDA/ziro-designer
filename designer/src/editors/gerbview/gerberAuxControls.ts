@@ -19,8 +19,8 @@ import {
   messageTextFromValue,
   unitText,
   type StatusUnits,
-} from '@ziroeda/common/src/widgets/kistatusbar_format.js';
-import { frameTitle, type FrameTitleParts } from '@ziroeda/common/src/use_document_title.js';
+} from '@ziroeda/common/widgets/kistatusbar_format.js';
+import { frameTitle, type FrameTitleParts } from '@ziroeda/common/use_document_title.js';
 
 /**
  * `#define NO_SELECTION_STRING _( "<No selection>" )`

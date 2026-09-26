@@ -12,7 +12,7 @@
  * courtyard and on a rule area that disallows footprints.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   beginCourtyardConflicts,
   conflictShadowRings,

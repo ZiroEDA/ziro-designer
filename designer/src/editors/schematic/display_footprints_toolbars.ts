@@ -21,7 +21,7 @@
  * one. Hotkeys are left off, as they are everywhere else in this port.
  */
 
-import type { ToolEntry } from '@ziroeda/common/src/tool/action_toolbar_types.js';
+import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 
 const sep: ToolEntry = 'sep';
 

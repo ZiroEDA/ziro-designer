@@ -12,16 +12,13 @@
  * the answer the C++ gives without them.
  */
 
-import {
-  FOOTPRINT_EDIT_FRAME_NAME,
-  PCB_EDIT_FRAME_NAME,
-} from '@ziroeda/common/src/eda_draw_frame.js';
-import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/src/eda_item.js';
-import { IGNORE_PARENT_GROUP } from '@ziroeda/common/src/eda_item.js';
-import { ENTERED, ROUTER_TRANSIENT, SKIP_STRUCT } from '@ziroeda/common/src/eda_item_flags.js';
-import { type EDA_SHAPE, FILL_T, SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import type { OutStr } from '@ziroeda/common/src/font/font.js';
+import { FOOTPRINT_EDIT_FRAME_NAME, PCB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import { IGNORE_PARENT_GROUP } from '@ziroeda/common/eda_item.js';
+import { ENTERED, ROUTER_TRANSIENT, SKIP_STRUCT } from '@ziroeda/common/eda_item_flags.js';
+import { type EDA_SHAPE, FILL_T, SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import type { OutStr } from '@ziroeda/common/font/font.js';
 import {
   FLASHING,
   GAL_LAYER_ID,
@@ -33,9 +30,9 @@ import {
   IsNetnameLayer,
   NETNAMES_LAYER_ID,
   PCB_LAYER_ID,
-} from '@ziroeda/common/src/layer_ids.js';
-import { LAYER_RANGE } from '@ziroeda/common/src/layer_range.js';
-import { ELECTRICAL_PINTYPES } from '@ziroeda/common/src/pin_type.js';
+} from '@ziroeda/common/layer_ids.js';
+import { LAYER_RANGE } from '@ziroeda/common/layer_range.js';
+import { ELECTRICAL_PINTYPES } from '@ziroeda/common/pin_type.js';
 import {
   ENUM_MAP,
   type INSPECTABLE_ITEM,
@@ -49,17 +46,17 @@ import {
   TYPE_OPT_INT,
   TYPE_STRING,
   TYPE_CAST,
-} from '@ziroeda/common/src/properties/property.js';
-import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
-import { PROPERTY_VALIDATORS } from '@ziroeda/common/src/properties/property_validators.js';
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
+import { PROPERTY_VALIDATORS } from '@ziroeda/common/properties/property_validators.js';
 import { INT_MAX } from '@ziroeda/kimath/src/math/util.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { formatG, unescapeString } from '@ziroeda/common/src/string_utils.js';
-import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/src/stroke_params.js';
-import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
-import { MSG_PANEL_ITEM } from '@ziroeda/common/src/widgets/msgpanel.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { formatG, unescapeString } from '@ziroeda/common/string_utils.js';
+import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
+import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import { FLIP_DIRECTION, MIRROR } from '@ziroeda/core/src/mirror.js';
-import { PgmOrNull } from '@ziroeda/common/src/pgm_base.js';
+import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { PCBNEW_SETTINGS } from './pcbnew_settings.js';
 import {

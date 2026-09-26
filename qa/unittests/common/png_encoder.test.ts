@@ -20,7 +20,7 @@ import {
   pngPremultiplyRgba8,
   pngUnpremultiplyArgb32,
   zlibStored,
-} from '@ziroeda/common/src/png_encoder.js';
+} from '@ziroeda/common/png_encoder.js';
 
 const ascii = (s: string): Uint8Array => Uint8Array.from(s, (c) => c.charCodeAt(0));
 

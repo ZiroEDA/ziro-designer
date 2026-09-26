@@ -51,7 +51,7 @@
  * other half of the feature.
  */
 
-import { applyTransform, invertTransform, symbolTransform } from '@ziroeda/common/src/transform.js';
+import { applyTransform, invertTransform, symbolTransform } from '@ziroeda/common/transform.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 import type { LibSymbol, SchField, SchSymbol } from '../types.js';
 import { refId } from './hittest.js';

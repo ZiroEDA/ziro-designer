@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse, serialize } from '@ziroeda/sexpr/src/index.js';
 import { readSchematic, writeSchematic } from '@ziroeda/eeschema';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { editSymbolProperties, type EditedField } from '@ziroeda/eeschema/src/tools/properties.js';
 import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
 import {

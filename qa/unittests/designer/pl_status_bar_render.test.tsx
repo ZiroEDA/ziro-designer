@@ -20,7 +20,7 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
-import { KiStatusBar } from '@ziroeda/common/src/widgets/kistatusbar.js';
+import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
 import { PL_EDITOR_STATUS_TEMPLATES } from '@ziroeda/designer/src/editors/drawingsheet/pl_status_bar.js';
 
 afterEach(cleanup);

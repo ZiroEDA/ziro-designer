@@ -10,7 +10,7 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import { replaceLine, replaceJunction } from '@ziroeda/eeschema/src/tools/mutate.js';
-import { mmToIU, iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU, iuToMM } from '@ziroeda/common/eda_units.js';
 
 const SCH = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
   (wire (pts (xy 50 50) (xy 80 50)) (stroke (width 0) (type default)) (uuid "w-1"))

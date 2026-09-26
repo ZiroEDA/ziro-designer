@@ -6,11 +6,7 @@
  * two output pins wired together must land on one net with both nodes, and the
  * component/footprint sections must reflect the placed symbols.
  */
-import {
-  GENERATOR,
-  GENERATOR_APPLICATION,
-  GENERATOR_VERSION,
-} from '@ziroeda/common/src/generator.js';
+import { GENERATOR, GENERATOR_APPLICATION, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readSchematic } from '@ziroeda/eeschema';

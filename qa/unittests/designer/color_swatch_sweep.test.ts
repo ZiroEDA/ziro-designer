@@ -22,7 +22,7 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
-import { COLOR4D_UNSPECIFIED } from '@ziroeda/common/src/color4d.js';
+import { COLOR4D_UNSPECIFIED } from '@ziroeda/common/color4d.js';
 import {
   color4dToItemColor,
   itemColorToColor4d,
@@ -72,7 +72,7 @@ describe('no launcher keeps its own colour control', () => {
     const users = walk(SRC).filter((f) =>
       codeLines(f).some(({ line }) => line.includes('<DialogColorPicker')),
     );
-    // The swatch itself is `common/src/widgets/color_swatch.tsx` now, outside
+    // The swatch itself is `common/widgets/color_swatch.tsx` now, outside
     // this walk of `designer/src`; the one launcher user is the drawing sheet.
     expect(users.map((f) => f.slice(SRC.length + 1)).sort()).toEqual([
       'editors/drawingsheet/PropertiesFrame.tsx',
@@ -92,7 +92,7 @@ describe('no launcher keeps its own colour control', () => {
 });
 
 describe('the swatch opens the picker the way COLOR_SWATCH does', () => {
-  const WIDGET = readFileSync(join(SRC, '../../common/src/widgets/color_swatch.tsx'), 'utf8');
+  const WIDGET = readFileSync(join(SRC, '../../common/widgets/color_swatch.tsx'), 'utf8');
 
   it('changes nothing on a cancel', () => {
     // `if( result == wxID_OK )` (color_swatch.cpp:322) - a cancel does not even

@@ -38,7 +38,7 @@ import { isAlignedKind } from './types.js';
 import { radialKnee } from './dimension_geometry.js';
 import { updateDimension } from './dimension_text.js';
 import { isBackLayer } from './table_properties.js';
-import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
+import type { EdaUnits } from '@ziroeda/common/eda_units.js';
 import { vectorSnapped45 } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

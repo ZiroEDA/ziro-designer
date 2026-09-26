@@ -14,7 +14,7 @@
  * DRILLORIGIN/GRIDORIGIN/PAGESETTINGS commands need BOARD_EDITOR_CONTROL,
  * PCB_CONTROL and DS_PROXY_UNDO_ITEM (stage 3/6) and are pending.
  */
-import { UNDO_REDO_LIST } from '@ziroeda/common/src/eda_base_frame.js';
+import { UNDO_REDO_LIST } from '@ziroeda/common/eda_base_frame.js';
 import { DRC_ENGINE } from './drc/drc_engine.js';
 /**
  * Each `drc_test_provider_*.cpp` registers itself with a file-scope
@@ -26,28 +26,24 @@ import { DRC_ENGINE } from './drc/drc_engine.js';
  * so the providers are pulled in here.
  */
 import './drc/drc_test_providers.js';
-import type { EDA_ITEM } from '@ziroeda/common/src/eda_item.js';
-import { UR_TRANSIENT } from '@ziroeda/common/src/eda_item_flags.js';
-import { FRAME_T } from '@ziroeda/common/src/frame_type.js';
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import { UR_TRANSIENT } from '@ziroeda/common/eda_item_flags.js';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import {
   EVENTS,
   TOOL_ACTIONS,
   TOOL_EVENT,
   TOOL_EVENT_CATEGORY,
-} from '@ziroeda/common/src/tool/tool_event.js';
-import { TOOL_ACTION_SCOPE } from '@ziroeda/common/src/tool/tool_action.js';
-import { RESET_REASON } from '@ziroeda/common/src/tool/tool_base.js';
-import {
-  ITEM_PICKER,
-  PICKED_ITEMS_LIST,
-  UNDO_REDO,
-} from '@ziroeda/common/src/undo_redo_container.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+} from '@ziroeda/common/tool/tool_event.js';
+import { TOOL_ACTION_SCOPE } from '@ziroeda/common/tool/tool_action.js';
+import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
+import { ITEM_PICKER, PICKED_ITEMS_LIST, UNDO_REDO } from '@ziroeda/common/undo_redo_container.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { BOARD_COMMIT } from './board_commit.js';
-import { DEFAULT_THEME, GetColorSettings } from '@ziroeda/common/src/pgm_base.js';
-import type { COLOR_SETTINGS } from '@ziroeda/common/src/settings/color_settings.js';
+import { DEFAULT_THEME, GetColorSettings } from '@ziroeda/common/pgm_base.js';
+import type { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
 import type { BOARD } from './board.js';
 import type { PCB_VIEW } from './pcb_view.js';
 import type { BOARD_ITEM } from './board_item.js';

@@ -18,17 +18,17 @@
  * is left in place as a comment with the answer the C++ gives without them.
  */
 
-import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/src/eda_draw_frame.js';
-import type { EDA_DRAW_FRAME_LIKE, INSPECTOR } from '@ziroeda/common/src/eda_item.js';
-import { INSPECT_RESULT } from '@ziroeda/common/src/eda_item.js';
+import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
+import type { EDA_DRAW_FRAME_LIKE, INSPECTOR } from '@ziroeda/common/eda_item.js';
+import { INSPECT_RESULT } from '@ziroeda/common/eda_item.js';
 import {
   type EDA_ITEM_FLAGS,
   ENDPOINT,
   ROUTER_TRANSIENT,
   STARTPOINT,
-} from '@ziroeda/common/src/eda_item_flags.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import type { OutStr } from '@ziroeda/common/src/font/font.js';
+} from '@ziroeda/common/eda_item_flags.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import type { OutStr } from '@ziroeda/common/font/font.js';
 import {
   FLASHING,
   GAL_LAYER_ID,
@@ -46,9 +46,9 @@ import {
   PCB_LAYER_ID,
   PCBNEW_LAYER_ID_START,
   ToLAYER_ID,
-} from '@ziroeda/common/src/layer_ids.js';
-import { LAYER_RANGE } from '@ziroeda/common/src/layer_range.js';
-import { COORD_TYPES_T } from '@ziroeda/common/src/origin_transforms.js';
+} from '@ziroeda/common/layer_ids.js';
+import { LAYER_RANGE } from '@ziroeda/common/layer_range.js';
+import { COORD_TYPES_T } from '@ziroeda/common/origin_transforms.js';
 import {
   ENUM_MAP,
   type INSPECTABLE_ITEM,
@@ -59,13 +59,13 @@ import {
   TYPE_INT,
   TYPE_OPT_INT,
   type VALIDATOR_RESULT,
-} from '@ziroeda/common/src/properties/property.js';
-import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
-import { VALIDATION_ERROR_MSG } from '@ziroeda/common/src/properties/property_validators.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { unescapeString } from '@ziroeda/common/src/string_utils.js';
-import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
-import { MSG_PANEL_ITEM } from '@ziroeda/common/src/widgets/msgpanel.js';
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
+import { VALIDATION_ERROR_MSG } from '@ziroeda/common/properties/property_validators.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { unescapeString } from '@ziroeda/common/string_utils.js';
+import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { MINOPTMAX } from '@ziroeda/core/src/minoptmax.js';
 import { FLIP_DIRECTION, MIRROR } from '@ziroeda/core/src/mirror.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';

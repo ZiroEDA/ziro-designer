@@ -52,7 +52,7 @@ import { fileURLToPath } from 'node:url';
 import { join, relative } from 'node:path';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
-const SHELL_CSS = readFileSync(join(SRC, '../../common/src/widgets/shell.css'), 'utf8');
+const SHELL_CSS = readFileSync(join(SRC, '../../common/widgets/shell.css'), 'utf8');
 
 /** CSS defines `pt` against 96 dpi exactly, which is also this desktop's dpi. */
 const PT = 96 / 72;
@@ -386,7 +386,7 @@ const BASELINE: Record<string, number> = {
   // ×3, 13 ×4, 14 ×3, 16, 18 and 22 — replaced by `--ui-font-size`,
   // `--ui-font-size-info` and a `calc()` off the former when the card became
   // the docked sign-in panel.
-  // 65 -> 5 on 09-21: the shared widgets moved to `common/src/widgets`
+  // 65 -> 5 on 09-21: the shared widgets moved to `common/widgets`
   // (KiCad's directory) and took their 60 with them; this scan walks
   // `designer/src` only, so those are ratcheted by `central_values` from now on.
   ui: 5,
@@ -674,7 +674,7 @@ describe('hardcoded font sizes do not grow', () => {
  */
 describe('the shell root uses the font tokens, not a literal', () => {
   const shell = readFileSync(
-    fileURLToPath(new URL('../../../common/src/widgets/shell.css', import.meta.url)),
+    fileURLToPath(new URL('../../../common/widgets/shell.css', import.meta.url)),
     'utf8',
   );
 

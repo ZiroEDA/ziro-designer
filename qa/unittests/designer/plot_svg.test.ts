@@ -51,7 +51,7 @@ describe('plot to SVG', () => {
     // own SVG for an A4 sheet says 297.002mm.
     //
     // This read 297 because the schematic renderer carried a private paper
-    // table with the rounded metric numbers in it; `common/src/page_info.ts`
+    // table with the rounded metric numbers in it; `common/page_info.ts`
     // derives mm from the mils, which is the chain KiCad computes.
     expect(svg).toContain('width="297.002mm"');
     expect(svg).toContain('height="210.007mm"');

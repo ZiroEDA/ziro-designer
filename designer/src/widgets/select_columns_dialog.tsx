@@ -9,7 +9,7 @@
  * enabled list.
  */
 import { useState } from 'react';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 export interface SelectColumnsDialogProps {
   /** Every column the tree can show (m_availableItems). */

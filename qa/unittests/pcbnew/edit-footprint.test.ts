@@ -25,8 +25,8 @@ import {
 } from '@ziroeda/pcbnew/edit-footprint.js';
 import type { PcbPad, PcbShape } from '@ziroeda/pcbnew/types.js';
 
-import { pcbMmToIU as mmToIU, pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
-import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
+import { pcbMmToIU as mmToIU, pcbIuToMM as iuToMM } from '@ziroeda/common/eda_units.js';
+import { measureText } from '@ziroeda/common/font/stroke_font.js';
 import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';
 
 /** `KiROUND`: half away from zero. */

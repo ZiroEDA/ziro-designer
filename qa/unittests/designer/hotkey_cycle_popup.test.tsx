@@ -27,7 +27,7 @@ import {
   gridFeedback,
   GRID_SIZE_LIST,
   type GridEntry,
-} from '@ziroeda/common/src/settings/grid_settings_ui.js';
+} from '@ziroeda/common/settings/grid_settings_ui.js';
 
 afterEach(cleanup);
 

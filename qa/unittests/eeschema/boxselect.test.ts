@@ -15,7 +15,7 @@ import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
 import { boxSelect, lassoSelect } from '@ziroeda/eeschema/src/tools/boxselect.js';
 import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/src/types.js';
 
 /** Every kind that can be dragged over, each in its own 20 mm cell. */

@@ -38,7 +38,7 @@ import {
   eventFromCombo,
   RESERVED_HOTKEYS,
   isReservedHotkey,
-} from '@ziroeda/common/src/hotkeys_basic_keys.js';
+} from '@ziroeda/common/hotkeys_basic_keys.js';
 
 export { type KeyLike, comboFromEvent, eventFromCombo, RESERVED_HOTKEYS, isReservedHotkey };
 

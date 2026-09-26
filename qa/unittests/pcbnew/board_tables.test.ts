@@ -7,10 +7,10 @@
  * `board_stackup_table.cpp`).
  */
 import { describe, expect, it } from 'vitest';
-import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
-import { GR_TEXT_H_ALIGN_T } from '@ziroeda/common/src/eda_text.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { GR_TEXT_H_ALIGN_T } from '@ziroeda/common/eda_text.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 import { Build_Board_Characteristics_Table } from '@ziroeda/pcbnew/board_tables/board_characteristics_table.js';
 import { Build_Board_Stackup_Table } from '@ziroeda/pcbnew/board_tables/board_stackup_table.js';

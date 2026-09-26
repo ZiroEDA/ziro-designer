@@ -35,7 +35,7 @@ import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import polygonClipping, { type Geom, type MultiPolygon, type Ring } from 'polygon-clipping';
 
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { arcShape, padShapes } from './drc/drc_engine_view.js';
 import { pointInPoly, shapeBBox, shapeDist, type Shape } from './drc/drc_geometry.js';
 import { shapeToPolygon } from './zone_filler.js';

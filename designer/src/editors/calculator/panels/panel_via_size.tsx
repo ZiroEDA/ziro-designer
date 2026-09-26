@@ -13,7 +13,7 @@ import {
   STANDARD_RESISTIVITY_LIST,
   viaSize,
 } from '@ziroeda/pcb_calculator';
-import { SingleChoiceDialog } from '@ziroeda/common/src/dialogs/dialog_single_choice.js';
+import { SingleChoiceDialog } from '@ziroeda/common/dialogs/dialog_single_choice.js';
 import {
   Field,
   Group,

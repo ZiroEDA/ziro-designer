@@ -10,16 +10,16 @@
  */
 import { describe, expect, it } from 'vitest';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
-import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/src/gal/gal_display_options.js';
-import { GAL } from '@ziroeda/common/src/gal/graphics_abstraction_layer.js';
-import { RENDER_TARGET } from '@ziroeda/common/src/gal/definitions.js';
-import { PAINTER } from '@ziroeda/common/src/gal/painter.js';
-import { RENDER_SETTINGS } from '@ziroeda/common/src/render_settings.js';
-import type { Color4d } from '@ziroeda/common/src/color4d.js';
-import { VIEW } from '@ziroeda/common/src/view/view.js';
-import { VIEW_GROUP } from '@ziroeda/common/src/view/view_group.js';
-import { VIEW_ITEM, VIEW_UPDATE_FLAGS } from '@ziroeda/common/src/view/view_item.js';
-import { LAYER_SELECT_OVERLAY } from '@ziroeda/common/src/layer_ids.js';
+import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
+import { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
+import { RENDER_TARGET } from '@ziroeda/common/gal/definitions.js';
+import { PAINTER } from '@ziroeda/common/gal/painter.js';
+import { RENDER_SETTINGS } from '@ziroeda/common/render_settings.js';
+import type { Color4d } from '@ziroeda/common/color4d.js';
+import { VIEW } from '@ziroeda/common/view/view.js';
+import { VIEW_GROUP } from '@ziroeda/common/view/view_group.js';
+import { VIEW_ITEM, VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
+import { LAYER_SELECT_OVERLAY } from '@ziroeda/common/layer_ids.js';
 
 const TEST_LAYER = 0;
 

@@ -42,7 +42,7 @@ import {
   symbolNodeWithFreshUuids,
   symbolNodeWithoutInstances,
 } from './build.js';
-import { newKiid } from '@ziroeda/common/src/kiid.js';
+import { newKiid } from '@ziroeda/common/kiid.js';
 import type { EditCommand } from './command.js';
 import type { ItemsBatch } from './mutate.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';

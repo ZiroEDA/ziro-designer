@@ -23,7 +23,7 @@ import {
   connectionName,
   equivalentBusNames,
 } from '@ziroeda/eeschema/src/connectivity/nets.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { Schematic, LibSymbol } from '@ziroeda/eeschema/src/types.js';

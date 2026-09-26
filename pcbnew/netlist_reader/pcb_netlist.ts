@@ -15,7 +15,7 @@
  * component classes, design variants and design-block layouts.
  */
 
-import { strNumCmp } from '@ziroeda/common/src/string_utils.js';
+import { strNumCmp } from '@ziroeda/common/string_utils.js';
 
 /**
  * A pin-name -> net-name association (plus the pin's function and electrical

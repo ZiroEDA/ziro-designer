@@ -29,7 +29,7 @@ import { symbolPinPositions } from '@ziroeda/eeschema/src/tools/connect.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const at = (x: number, y: number) => ({ x: mmToIU(x), y: mmToIU(y) });

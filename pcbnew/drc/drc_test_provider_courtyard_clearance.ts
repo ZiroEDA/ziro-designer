@@ -12,9 +12,9 @@
  * - DRCE_PTH_IN_COURTYARD,
  * - DRCE_NPTH_IN_COURTYARD,
  */
-import { MALFORMED_COURTYARDS } from '@ziroeda/common/src/eda_item_flags.js';
-import { PCB_LAYER_ID, UNDEFINED_LAYER } from '@ziroeda/common/src/layer_ids.js';
-import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/src/reporter.js';
+import { MALFORMED_COURTYARDS } from '@ziroeda/common/eda_item_flags.js';
+import { PCB_LAYER_ID, UNDEFINED_LAYER } from '@ziroeda/common/layer_ids.js';
+import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import type { OUTLINE_ERROR_HANDLER } from '../convert_shape_list_to_polygon.js';

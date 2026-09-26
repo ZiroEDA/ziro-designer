@@ -38,7 +38,7 @@ import {
 import { itemAnchorPoint } from '@ziroeda/pcbnew/move_exact.js';
 import { DEFAULT_SELECTION_FILTER, itemPassesFilter } from '@ziroeda/pcbnew/filter_selection.js';
 import { textBoxCorners } from '@ziroeda/pcbnew/textbox_geometry.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);

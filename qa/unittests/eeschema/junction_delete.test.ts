@@ -27,7 +27,7 @@ import { readSchematic, refId } from '@ziroeda/eeschema';
 import { deleteByIds } from '@ziroeda/eeschema/src/tools/mutate.js';
 import { deleteItems, withCleanup } from '@ziroeda/eeschema/src/tools/cleanup.js';
 import { computeNetlist } from '@ziroeda/eeschema/src/connectivity/nets.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 
 /** A tee: two colinear wires meeting a third, with a dot on the meeting point. */

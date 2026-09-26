@@ -16,8 +16,8 @@
 
 import { head, isList, list, atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { childNamed } from '@ziroeda/sexpr/src/query.js';
-import { iuToMM, mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
+import { iuToMM, mmToIU } from '@ziroeda/common/eda_units.js';
+import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
 import { readGraphic, readLibPin } from './read-schematic.js';
 import { patchProperty } from './write-schematic.js';
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';

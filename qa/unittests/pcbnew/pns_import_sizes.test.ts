@@ -18,7 +18,7 @@
  *     half of the test the single-track branch uses.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { PnsBoardIface } from '@ziroeda/pcbnew/router/pns_board_iface.js';
 import { DEFAULT_ROUTER_SIZES } from '@ziroeda/pcbnew/router/pns_router.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';

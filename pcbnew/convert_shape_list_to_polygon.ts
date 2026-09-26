@@ -12,8 +12,8 @@
  *
  */
 
-import { SKIP_STRUCT } from '@ziroeda/common/src/eda_item_flags.js';
-import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
+import { SKIP_STRUCT } from '@ziroeda/common/eda_item_flags.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { ANGLE_360 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { ROUNDRECT } from '@ziroeda/kimath/src/geometry/roundrect.js';
 import { SEG } from '@ziroeda/kimath/src/geometry/seg.js';
@@ -31,8 +31,8 @@ import {
   sub,
 } from '@ziroeda/kimath/src/math/vector2.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD } from './board.js';

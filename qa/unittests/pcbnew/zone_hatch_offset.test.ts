@@ -28,7 +28,7 @@ import { fillZones, hatchingOffsetFor } from '@ziroeda/pcbnew/zone_filler.js';
 // is 1e6, so `mmToIU(1)` here would be a thousandth of what is meant and every offset below would be
 // far too small to move a 3 mm hatch grid — which is exactly how this file
 // failed first time round.
-import { pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
 
 /** A 20 x 20 mm hatched copper zone on F.Cu, with a coarse enough grid to see. */
 const BOARD_TEXT = (extra = ''): string => `(kicad_pcb (version 20241229) (generator "test")

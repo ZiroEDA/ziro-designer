@@ -10,7 +10,7 @@
  * layout, this is the part with a decision in it.
  */
 import type { OutsetOptions } from '@ziroeda/pcbnew';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 
 /** One field per `PARAMETERS` member. */
 export interface OutsetSettings {

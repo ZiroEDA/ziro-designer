@@ -19,7 +19,7 @@ import { comparePageNum } from '@ziroeda/eeschema/src/tools/sch_sheet_path.js';
 import { existsSync, readFileSync } from 'node:fs';
 import { moveItems } from '@ziroeda/eeschema/src/tools/move.js';
 import { runErc } from '@ziroeda/eeschema/src/connectivity/erc.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const SHEET = `(sheet (at 100 50) (size 40 30)
   (stroke (width 0.1524) (type solid)) (fill (color 255 255 194 1.0))

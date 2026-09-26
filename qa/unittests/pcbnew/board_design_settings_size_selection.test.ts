@@ -20,7 +20,7 @@
  *     `GetCurrentDiffPairGap()`, so a selected row's gap can supply it.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   BOARD_DESIGN_SETTINGS,
   DIFF_PAIR_DIMENSION,

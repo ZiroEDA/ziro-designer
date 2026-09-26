@@ -25,7 +25,7 @@ import {
   groupIsCheckItem,
   type ToolEntry,
   type ToolGroup,
-} from '@ziroeda/common/src/tool/action_toolbar_types.js';
+} from '@ziroeda/common/tool/action_toolbar_types.js';
 
 const groups = (entries: readonly ToolEntry[]): ToolGroup[] =>
   entries.filter((e): e is ToolGroup => typeof e === 'object' && 'group' in e);

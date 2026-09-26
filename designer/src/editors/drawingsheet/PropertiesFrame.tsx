@@ -38,15 +38,15 @@ import {
   type WksOption,
   type WksColor,
 } from '@ziroeda/common';
-import { DEFAULT_FONT_NAME, KICAD_FONT_NAME } from '@ziroeda/common/src/font/stroke_font.js';
-import { bitmapUrl } from '@ziroeda/common/src/bitmap_store.js';
-import { DialogColorPicker } from '@ziroeda/common/src/dialogs/dialog_color_picker.js';
-import { COLOR4D_UNSPECIFIED, type Color4d } from '@ziroeda/common/src/color4d.js';
-import { Combo, type ComboOption } from '@ziroeda/common/src/widgets/wx_combobox.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
-import { UnitField } from '@ziroeda/common/src/widgets/unit_binder_ui.js';
-import type { EdaUnits, UnitRange } from '@ziroeda/common/src/widgets/unit_binder.js';
-import { MessageDialogError } from '@ziroeda/common/src/dialogs/dialog_message.js';
+import { DEFAULT_FONT_NAME, KICAD_FONT_NAME } from '@ziroeda/common/font/stroke_font.js';
+import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
+import { DialogColorPicker } from '@ziroeda/common/dialogs/dialog_color_picker.js';
+import { COLOR4D_UNSPECIFIED, type Color4d } from '@ziroeda/common/color4d.js';
+import { Combo, type ComboOption } from '@ziroeda/common/widgets/wx_combobox.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { UnitField } from '@ziroeda/common/widgets/unit_binder_ui.js';
+import type { EdaUnits, UnitRange } from '@ziroeda/common/widgets/unit_binder.js';
+import { MessageDialogError } from '@ziroeda/common/dialogs/dialog_message.js';
 import { DS_ITEM_COLOR, DS_ITEM_COLOR_HEX } from '@ziroeda/common';
 import { fmtInt, fmtRotation } from './properties_format.js';
 

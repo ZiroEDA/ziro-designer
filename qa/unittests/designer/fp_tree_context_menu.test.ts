@@ -23,7 +23,7 @@ import {
   footprintTreeContextMenu,
   type FpTreeSelection,
 } from '@ziroeda/designer/src/editors/footprint/tree_context_menu.js';
-import type { MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
+import type { MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 
 const noop = (): void => {};
 const handlers = { action: noop };

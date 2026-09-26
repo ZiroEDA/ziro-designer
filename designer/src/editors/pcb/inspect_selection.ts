@@ -11,7 +11,7 @@
  * logic — the dialog around it is not.
  */
 
-import { unescapeString } from '@ziroeda/common/src/string_utils.js';
+import { unescapeString } from '@ziroeda/common/string_utils.js';
 import {
   type Board,
   buildClearanceReport,

@@ -15,14 +15,14 @@ import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { boardItemsInBox, boardItemsInLasso } from '@ziroeda/pcbnew/edit-board.js';
-import { lassoIsInside } from '@ziroeda/common/src/preview_items/selection_area.js';
+import { lassoIsInside } from '@ziroeda/common/preview_items/selection_area.js';
 import {
   polyHitsBox,
   polyHitsPolygon,
   polyHitsSegment,
   pointInPolygon,
 } from '@ziroeda/kimath/src/geometry/poly_hit_test.js';
-import { pcbMmToIU as MM } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as MM } from '@ziroeda/common/eda_units.js';
 
 const board = () =>
   readBoard(

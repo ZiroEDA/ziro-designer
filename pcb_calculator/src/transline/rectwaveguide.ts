@@ -16,7 +16,7 @@ import {
   type TcElectrical,
   ZF0,
   skinDepth,
-} from '@ziroeda/common/src/transline_calculations/tc_common.js';
+} from '@ziroeda/common/transline_calculations/tc_common.js';
 import type { TranslineAnalysis } from './transline.js';
 
 export interface RectWaveguidePhysical {

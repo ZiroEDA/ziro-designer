@@ -149,11 +149,11 @@ export interface Viewer3dRenderOptions {
   /** `render.use_board_editor_copper_colors` (default false), and `m_BoardEditorColors[F_Cu/B_Cu]`. */
   useBoardEditorCopperColors?: boolean;
   boardEditorCopperColors?: {
-    'F.Cu': import('@ziroeda/common/src/color4d.js').Color4d;
-    'B.Cu': import('@ziroeda/common/src/color4d.js').Color4d;
+    'F.Cu': import('@ziroeda/common/color4d.js').Color4d;
+    'B.Cu': import('@ziroeda/common/color4d.js').Color4d;
   };
   /** `GetLayerColors()` as the pane resolved it (preset, stackup, swatches). */
-  layerColors?: ReadonlyMap<string, import('@ziroeda/common/src/color4d.js').Color4d>;
+  layerColors?: ReadonlyMap<string, import('@ziroeda/common/color4d.js').Color4d>;
   /** `GetNetClass()->GetHumanReadableName()` by net code, for the HOVERED_ITEM pane. */
   netClassOf?: (net: number) => string;
   /**

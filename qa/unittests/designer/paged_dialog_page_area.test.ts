@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const CSS = readFileSync(
-  fileURLToPath(new URL('../../../common/src/widgets/shell.css', import.meta.url)),
+  fileURLToPath(new URL('../../../common/widgets/shell.css', import.meta.url)),
   'utf8',
 );
 

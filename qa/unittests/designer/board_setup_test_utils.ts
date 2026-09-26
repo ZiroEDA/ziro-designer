@@ -6,10 +6,10 @@
  * through a SETTINGS_MANAGER, the panels' transfers over the live objects,
  * and the board back out through the writer.
  */
-import { SETTINGS_MANAGER } from '@ziroeda/common/src/pgm_base.js';
-import type { PROJECT } from '@ziroeda/common/src/project.js';
-import { DumpJson } from '@ziroeda/common/src/settings/json_dump.js';
-import type { JsonValue } from '@ziroeda/common/src/settings/json_settings.js';
+import { SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
+import type { PROJECT } from '@ziroeda/common/project.js';
+import { DumpJson } from '@ziroeda/common/settings/json_dump.js';
+import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import {
   BoardSetupFromWindow,
   BoardSetupToWindow,

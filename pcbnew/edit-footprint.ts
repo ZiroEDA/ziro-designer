@@ -19,7 +19,7 @@
 import { textItemBBox, textItemHitTest } from './text_metrics.js';
 import { rotatePcb } from './read-board.js';
 import { shapePoints as shapeOutline } from './courtyard.js';
-import { ARC_LOW_DEF, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
+import { ARC_LOW_DEF, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import { buildConvexHull } from '@ziroeda/kimath/src/geometry/convex_hull.js';
 import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
 import type {

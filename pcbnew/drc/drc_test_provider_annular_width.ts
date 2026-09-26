@@ -12,8 +12,8 @@
  * Todo:
  * - check pad holes too.
  */
-import type { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/src/reporter.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';

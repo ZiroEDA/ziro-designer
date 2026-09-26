@@ -24,7 +24,7 @@ export interface TranslineElectrical {
   murC: number;
 }
 
-export type { TranslineAnalysis } from '@ziroeda/common/src/transline_calculations/tc_common.js';
+export type { TranslineAnalysis } from '@ziroeda/common/transline_calculations/tc_common.js';
 
 /** Skin depth δ = sqrt(1/(π·f·µ·σ)). */
 export function skinDepth(frequencyHz: number, sigma: number, murC: number): number {

@@ -65,7 +65,7 @@ import {
   requestSelection,
   type HoverSelection,
 } from '@ziroeda/designer/src/editors/schematic/hover_selection.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/src/types.js';
 
 const rawR = readFileSync(

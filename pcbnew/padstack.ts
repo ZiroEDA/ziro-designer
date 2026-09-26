@@ -84,8 +84,8 @@ import {
   IsFrontLayer,
   IsNonCopperLayer,
   PCB_LAYER_ID,
-} from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
+} from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import {
   ANGLE_0,
   ANGLE_45,
@@ -96,10 +96,10 @@ import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD } from './board.js';
 import type { BOARD_ITEM } from './board_item.js';
-import type { EDA_SHAPE } from '@ziroeda/common/src/eda_shape.js';
+import type { EDA_SHAPE } from '@ziroeda/common/eda_shape.js';
 import type { PCB_SHAPE } from './pcb_shape.js';
 import { ZONE_CONNECTION } from './zones.js';
-import { ENUM_MAP } from '@ziroeda/common/src/properties/property.js';
+import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
 
 /**
  * `IMPLEMENT_ENUM_TO_WXANY( PAD_DRILL_POST_MACHINING_MODE )` and

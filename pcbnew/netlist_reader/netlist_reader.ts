@@ -54,7 +54,7 @@
  * component list.
  */
 
-import { kiidFromString, kiidPathAsString } from '@ziroeda/common/src/kiid.js';
+import { kiidFromString, kiidPathAsString } from '@ziroeda/common/kiid.js';
 import { COMPONENT, NETLIST } from './pcb_netlist.js';
 import { parseKicadNetlist } from './kicad_netlist_reader.js';
 import { parse } from '@ziroeda/sexpr/src/parser.js';

@@ -8,8 +8,8 @@
  * Errors generated:
  * - DRCE_TRACK_ANGLE
  */
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/src/reporter.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import {
   ANGLE_0,

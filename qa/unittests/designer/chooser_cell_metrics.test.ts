@@ -41,7 +41,7 @@ import { describe, expect, it } from 'vitest';
 
 const UI = fileURLToPath(new URL('../../../designer/src/ui/', import.meta.url));
 const SHELL = readFileSync(
-  fileURLToPath(new URL('../../../common/src/widgets/shell.css', import.meta.url)),
+  fileURLToPath(new URL('../../../common/widgets/shell.css', import.meta.url)),
   'utf8',
 );
 const CHOOSER = readFileSync(`${UI}file_chooser.css`, 'utf8');

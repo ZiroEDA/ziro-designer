@@ -61,7 +61,7 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { EDA_ANGLE, ANGLE_180 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { CalcArcCenter } from '@ziroeda/kimath/src/trigo.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/eda_text.js';
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/eda_text.js';
 
 /** `FILL_T` (eda_shape.h). NO_FILL is 1, not 0 — never treat this as a boolean. */
 export enum FILL_T {
@@ -98,19 +98,16 @@ export enum LINE_STYLE {
 export {
   DO_NOT_SET_LINE_WIDTH,
   USE_DEFAULT_LINE_WIDTH,
-} from '@ziroeda/common/src/plotters/plotter.js';
+} from '@ziroeda/common/plotters/plotter.js';
 
-import {
-  DO_NOT_SET_LINE_WIDTH,
-  USE_DEFAULT_LINE_WIDTH,
-} from '@ziroeda/common/src/plotters/plotter.js';
-import { PLOT_TEXT_MODE } from '@ziroeda/common/src/plotters/plotter.js';
+import { DO_NOT_SET_LINE_WIDTH, USE_DEFAULT_LINE_WIDTH } from '@ziroeda/common/plotters/plotter.js';
+import { PLOT_TEXT_MODE } from '@ziroeda/common/plotters/plotter.js';
 export { PLOT_TEXT_MODE };
 
 // `COLOR4D` lives in `common` because the graphics importers, shared with
 // eeschema, need it too. Re-exported here so existing consumers are unaffected.
-export { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/src/color4d.js';
-import { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/src/color4d.js';
+export { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/color4d.js';
+import { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/color4d.js';
 
 const colorEquals = (a: Color4d, b: Color4d): boolean =>
   a.r === b.r && a.g === b.g && a.b === b.b && a.a === b.a;
@@ -123,9 +120,9 @@ export {
   DEFAULT_GAP_LENGTH_RATIO,
   type PlotterRenderSettings as SvgRenderSettings,
   plotterRenderSettings as svgRenderSettings,
-} from '@ziroeda/common/src/render_settings.js';
+} from '@ziroeda/common/render_settings.js';
 
-import type { PlotterRenderSettings as SvgRenderSettings } from '@ziroeda/common/src/render_settings.js';
+import type { PlotterRenderSettings as SvgRenderSettings } from '@ziroeda/common/render_settings.js';
 
 /** The `TEXT_ATTRIBUTES` fields Text and PlotText read (text_attributes.h). */
 export interface SvgTextAttributes {
@@ -142,7 +139,7 @@ export interface SvgTextAttributes {
 
 /**
  * `KIFONT::FONT`, reduced to the two calls the SVG text path makes. Supplied by
- * the caller because the monorepo's stroke font (common/src/font/stroke_font.ts)
+ * the caller because the monorepo's stroke font (common/font/stroke_font.ts)
  * does not implement KIFONT's contract — it has no justification, italic shear,
  * rotation or bold-thickness handling — and faking those here would be a
  * substitute, not a port.
@@ -191,8 +188,8 @@ export interface SvgImage {
 // one `fmt::print`; the precision is a call-site argument (SVG's is
 // `m_precision`, SVG_plotter.cpp:176), not a per-backend formatter.
 // Re-exported so existing importers of this module are unaffected.
-export { fixed } from '@ziroeda/common/src/plotters/fmt.js';
-import { fixed } from '@ziroeda/common/src/plotters/fmt.js';
+export { fixed } from '@ziroeda/common/plotters/fmt.js';
+import { fixed } from '@ziroeda/common/plotters/fmt.js';
 
 /** fmt's bare `{:f}`: a hard-coded six decimals, whatever m_precision says. */
 export const DEFAULT_FMT_PRECISION = 6;

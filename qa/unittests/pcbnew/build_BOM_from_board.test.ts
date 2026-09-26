@@ -15,7 +15,7 @@ import {
   BuildBomTextFromBoard,
 } from '@ziroeda/pcbnew/build_BOM_from_board.js';
 import { FOOTPRINT, FP_EXCLUDE_FROM_BOM } from '@ziroeda/pcbnew/footprint.js';
-import { LIB_ID } from '@ziroeda/common/src/lib_id.js';
+import { LIB_ID } from '@ziroeda/common/lib_id.js';
 
 const add = (b: BOARD, ref: string, value: string, fpName: string, attrs = 0): FOOTPRINT => {
   const fp = new FOOTPRINT(b);

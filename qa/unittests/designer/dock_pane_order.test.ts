@@ -74,7 +74,7 @@ const SCH = read(`${SRC}editors/schematic/SchematicEditor.tsx`);
 const PCB = read(`${SRC}editors/pcb/PcbEditor.tsx`);
 const SYM = read(`${SRC}editors/symbol/SymbolEditor.tsx`);
 const FP = read(`${SRC}editors/footprint/FootprintEditor.tsx`);
-const SHELL = read(`${SRC}../../common/src/widgets/shell.css`);
+const SHELL = read(`${SRC}../../common/widgets/shell.css`);
 
 /**
  * `a` appears before `b` in `src`, having first established that both are

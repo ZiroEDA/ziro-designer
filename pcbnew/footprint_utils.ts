@@ -10,7 +10,7 @@
  * for its pads to land on the copper that is already routed?
  */
 
-import { orthoRealignTransform } from '@ziroeda/common/src/item_realignment.js';
+import { orthoRealignTransform } from '@ziroeda/common/item_realignment.js';
 import { EDA_ANGLE, ANGLE_0 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';

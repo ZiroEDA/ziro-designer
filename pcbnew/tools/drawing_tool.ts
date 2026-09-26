@@ -45,7 +45,7 @@
  * be the odd behaviour.
  */
 
-import { BezierGeomManager, BezierStep } from '@ziroeda/common/src/index.js';
+import { BezierGeomManager, BezierStep } from '@ziroeda/common/index.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** The four control points of a `(gr_curve (pts …))`, in file order. */

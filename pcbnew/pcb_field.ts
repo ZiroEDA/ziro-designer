@@ -8,9 +8,9 @@
  * Not here: `Serialize`/`Deserialize` (protobuf) and `PCB_FIELD_DESC`.
  */
 
-import { ResolveTextVars, type TextVarResolverFn } from '@ziroeda/common/src/common.js';
-import type { EDA_SEARCH_DATA } from '@ziroeda/common/src/eda_search_data.js';
-import { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
+import { ResolveTextVars, type TextVarResolverFn } from '@ziroeda/common/common.js';
+import type { EDA_SEARCH_DATA } from '@ziroeda/common/eda_search_data.js';
+import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
 import {
   ENUM_MAP,
   type INSPECTABLE_ITEM,
@@ -26,19 +26,19 @@ import {
   TYPE_INT,
   TYPE_OPT_INT,
   TYPE_STRING,
-} from '@ziroeda/common/src/properties/property.js';
-import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 
-import { GAL_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { GetDefaultVariantName, IsURL, unescapeString } from '@ziroeda/common/src/string_utils.js';
+import { GAL_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { GetDefaultVariantName, IsURL, unescapeString } from '@ziroeda/common/string_utils.js';
 import {
   FIELD_T,
   GetCanonicalFieldName,
   GetUserFieldName,
   DO_TRANSLATE,
-} from '@ziroeda/common/src/template_fieldnames.js';
-import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
-import { KIUI_EllipsizeMenuText } from '@ziroeda/common/src/widgets/ui_common.js';
+} from '@ziroeda/common/template_fieldnames.js';
+import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { KIUI_EllipsizeMenuText } from '@ziroeda/common/widgets/ui_common.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { BOARD_ITEM } from './board_item.js';
 import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';

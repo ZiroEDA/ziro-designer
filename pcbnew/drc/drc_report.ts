@@ -6,24 +6,24 @@
  * the report text - the file is the caller's (the designer's file manager)
  * where the C++ writes to `aFullFileName`.
  */
-import { GetMajorMinorPatchVersion } from '@ziroeda/common/src/build_version.js';
-import { type EdaUnits, pcbIUScale, unitLabel } from '@ziroeda/common/src/eda_units.js';
-import type { RC_ITEMS_PROVIDER } from '@ziroeda/common/src/rc_item.js';
+import { GetMajorMinorPatchVersion } from '@ziroeda/common/build_version.js';
+import { type EdaUnits, pcbIUScale, unitLabel } from '@ziroeda/common/eda_units.js';
+import type { RC_ITEMS_PROVIDER } from '@ziroeda/common/rc_item.js';
 import type {
   DRC_REPORT as RC_JSON_DRC_REPORT,
   IGNORED_CHECK,
   VIOLATION,
-} from '@ziroeda/common/src/rc_json_schema.js';
-import { violationToJson } from '@ziroeda/common/src/rc_json_schema.js';
+} from '@ziroeda/common/rc_json_schema.js';
+import { violationToJson } from '@ziroeda/common/rc_json_schema.js';
 import {
   RPT_SEVERITY_ERROR,
   RPT_SEVERITY_EXCLUSION,
   RPT_SEVERITY_WARNING,
   type Severity,
-} from '@ziroeda/common/src/reporter.js';
-import { GetISO8601CurrentDateTime } from '@ziroeda/common/src/string_utils.js';
-import { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
-import { formatSeverities } from '@ziroeda/common/src/widgets/report_severity.js';
+} from '@ziroeda/common/reporter.js';
+import { GetISO8601CurrentDateTime } from '@ziroeda/common/string_utils.js';
+import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { formatSeverities } from '@ziroeda/common/widgets/report_severity.js';
 import type { BOARD } from '../board.js';
 import { DRC_ITEM } from './drc_item.js';
 

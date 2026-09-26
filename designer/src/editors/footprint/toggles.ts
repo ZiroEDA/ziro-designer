@@ -15,7 +15,7 @@
  * disabled outright without failing one test.
  */
 
-import { defaultUnitsToggle } from '@ziroeda/common/src/settings/app_settings_units.js';
+import { defaultUnitsToggle } from '@ziroeda/common/settings/app_settings_units.js';
 
 /**
  * The left toolbar's cycling groups — `AppendGroup( TOOLBAR_GROUP_CONFIG(...) )`

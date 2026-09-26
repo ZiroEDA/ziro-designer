@@ -2,9 +2,9 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** `pcbnew/length_delay_calculation/tuning_profile_parameters_user_defined.h` / `.cpp`. */
-import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
-import { IsCopperLayerLowerThan, type PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import type { TUNING_PROFILE } from '@ziroeda/common/src/project/tuning_profiles.js';
+import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
+import { IsCopperLayerLowerThan, type PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import type { TUNING_PROFILE } from '@ziroeda/common/project/tuning_profiles.js';
 import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import {
   type LENGTH_DELAY_CALCULATION_ITEM,

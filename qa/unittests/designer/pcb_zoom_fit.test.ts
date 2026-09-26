@@ -267,7 +267,7 @@ describe('the PCB frame asks for that box', () => {
 
   it('keeps no page-size table of its own', () => {
     // The literal `A4: [297, 210]` this file carried is PAGE_INFO's data, and
-    // PAGE_INFO is `common/src/page_info.ts` here.
+    // PAGE_INFO is `common/page_info.ts` here.
     expect(src).not.toMatch(/A4:\s*\[\s*297\s*,\s*210\s*\]/);
   });
 });

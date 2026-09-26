@@ -14,7 +14,7 @@
  * (0.7, 0.61, 0.0) it comes out 0.277.
  */
 import { describe, expect, it } from 'vitest';
-import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/src/settings/builtin_color_themes.js';
+import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/settings/builtin_color_themes.js';
 import {
   LIGHT1_DIR,
   LIGHT2_DIR,

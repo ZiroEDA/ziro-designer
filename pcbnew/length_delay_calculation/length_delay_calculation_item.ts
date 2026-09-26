@@ -11,8 +11,8 @@ import {
   IsCopperLayerLowerThan,
   type PCB_LAYER_ID,
   UNDEFINED_LAYER,
-} from '@ziroeda/common/src/layer_ids.js';
-import type { NETCLASS } from '@ziroeda/common/src/netclass.js';
+} from '@ziroeda/common/layer_ids.js';
+import type { NETCLASS } from '@ziroeda/common/netclass.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import type { BOARD } from '../board.js';

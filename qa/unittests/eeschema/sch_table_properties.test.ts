@@ -17,7 +17,7 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { makeTable } from '@ziroeda/eeschema/src/tools/build-graphics.js';
 import {
   applySchTableValues,
@@ -28,7 +28,7 @@ import {
   tableStrokeStyle,
   tableWithValues,
 } from '@ziroeda/eeschema/src/tools/sch_table_properties.js';
-import { tableRowCount } from '@ziroeda/common/src/table.js';
+import { tableRowCount } from '@ziroeda/common/table.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const EMPTY = `(kicad_sch (version 20250114) (paper "A4") (lib_symbols))`;

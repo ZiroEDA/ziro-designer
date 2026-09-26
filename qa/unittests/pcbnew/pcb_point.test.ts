@@ -50,8 +50,8 @@ import { pcbPropertiesFor } from '@ziroeda/pcbnew/properties_panel.js';
 import { bestSnapAnchor } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
 import { pcbPointMsgPanelInfo } from '@ziroeda/pcbnew/msg_panel.js';
 import { boardIsEmpty } from '@ziroeda/pcbnew/tools/pcb_selection_conditions.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
+import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);

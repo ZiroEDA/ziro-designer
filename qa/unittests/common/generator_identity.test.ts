@@ -3,7 +3,7 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * We must not identify ourselves as KiCad or any of its programs
- * (common/src/generator.ts).
+ * (common/generator.ts).
  *
  * KiCad's formats carry a `(generator ...)` token naming the program that wrote
  * the file. Writing KiCad's own program names there misuses the KiCad name, and
@@ -22,7 +22,7 @@ import {
   GENERATOR_APPLICATION,
   GENERATOR_VENDOR,
   GENERATOR_VERSION,
-} from '@ziroeda/common/src/generator.js';
+} from '@ziroeda/common/generator.js';
 
 /** KiCad's own program names, as they appear in `(generator ...)` tokens. */
 const KICAD_PROGRAM_NAMES = [

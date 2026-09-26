@@ -32,14 +32,14 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import type { JSX } from 'react';
-import { Toolbar } from '@ziroeda/common/src/tool/action_toolbar.js';
+import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { useToolbarEntries } from '@ziroeda/designer/src/ui/useToolbarEntries.js';
 import { settings } from '@ziroeda/designer/src/prefs/settings.js';
 import {
   configFromEntries,
   setStoredToolbarConfig,
   type ToolbarSettings,
-} from '@ziroeda/common/src/tool/ui/toolbar_configuration.js';
+} from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import {
   DS_DEFAULT_TOOLBARS,
   DS_LEFT_TOOLBAR,

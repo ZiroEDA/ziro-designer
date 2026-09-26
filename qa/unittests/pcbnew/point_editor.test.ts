@@ -16,7 +16,7 @@
  * twice is the same as once. Preview and commit cannot disagree if that holds.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   boardEditHandles,
   dragBoardHandle,

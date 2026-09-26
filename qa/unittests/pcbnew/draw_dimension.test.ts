@@ -18,7 +18,7 @@
  * Fixtures are in millimetres; the arithmetic rounds to whole IU.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';

@@ -33,8 +33,8 @@ import { collectFieldBoxes, refId } from '@ziroeda/eeschema/src/tools/hittest.js
 import { collectAndGuess } from '@ziroeda/eeschema/src/tools/sch_collectors.js';
 import { symbolBodyBBox } from '@ziroeda/eeschema/src/tools/bbox.js';
 import { placeSymbol } from '@ziroeda/eeschema/src/tools/index.js';
-import { titleCaps } from '@ziroeda/common/src/string_utils.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { titleCaps } from '@ziroeda/common/string_utils.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { LibSymbol, SchField, Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const R = readSymbolLib(

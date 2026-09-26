@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 import {
   LeaderMode,
   TwoPointGeomManager,
-} from '@ziroeda/common/src/preview_items/two_point_geom_manager.js';
+} from '@ziroeda/common/preview_items/two_point_geom_manager.js';
 
 describe('the unconstrained case', () => {
   it('takes the end exactly as given', () => {

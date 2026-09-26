@@ -29,7 +29,7 @@ import { resolve } from 'node:path';
 const SRC = resolve(process.cwd(), '../designer/src');
 const read = (rel: string): string => readFileSync(resolve(SRC, rel), 'utf8');
 const PANEL = read('editors/schematic/prefs/PanelEeschemaEditingOptions.tsx');
-const CSS = read('../../common/src/widgets/shell.css');
+const CSS = read('../../common/widgets/shell.css');
 const CODE = PANEL.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 /** A rule body by exact selector, comments stripped. */

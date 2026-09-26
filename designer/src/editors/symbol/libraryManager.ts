@@ -19,7 +19,7 @@
 import { parse } from '@ziroeda/sexpr';
 import { readSymbolLib, serializeSymbolLib, type LibSymbol } from '@ziroeda/eeschema';
 import { libraryBase } from '../../libraryHosts.js';
-import { unescapeString } from '@ziroeda/common/src/string_utils.js';
+import { unescapeString } from '@ziroeda/common/string_utils.js';
 
 export interface ManagedLibrary {
   /** Library nickname shown in the tree (file basename without extension). */

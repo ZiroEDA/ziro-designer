@@ -9,10 +9,10 @@
  * desktop-only items are reinterpreted for the web (see the notes inline).
  */
 
-import type { Menu, MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
-import { standardHelpMenu } from '@ziroeda/common/src/eda_base_frame_help_menu.js';
-import { DEFAULT_FILE_HISTORY_SIZE, openRecentMenuItem } from '@ziroeda/common/src/file_history.js';
-import { setLanguageMenuItem } from '@ziroeda/common/src/eda_base_frame_language_menu.js';
+import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
+import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
+import { DEFAULT_FILE_HISTORY_SIZE, openRecentMenuItem } from '@ziroeda/common/file_history.js';
+import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
 import type { ProjectMeta } from './projectStore.js';
 import type { DemoMeta } from './demos.js';
 

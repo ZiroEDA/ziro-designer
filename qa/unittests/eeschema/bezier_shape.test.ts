@@ -25,7 +25,7 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { makeBezier } from '@ziroeda/eeschema/src/tools/build-graphics.js';
 import { hitTest } from '@ziroeda/eeschema/src/tools/hittest.js';
 import {

@@ -19,28 +19,28 @@
  * `OUTLINE_FONT::GetEmbeddingPermission`.
  */
 
-import { FIELD_T, GetCanonicalFieldName } from '@ziroeda/common/src/template_fieldnames.js';
+import { FIELD_T, GetCanonicalFieldName } from '@ziroeda/common/template_fieldnames.js';
 import {
   FOOTPRINT_CHOOSER_FRAME_NAME,
   FOOTPRINT_EDIT_FRAME_NAME,
   FOOTPRINT_VIEWER_FRAME_NAME,
-} from '@ziroeda/common/src/eda_draw_frame.js';
-import type { EDA_DRAW_FRAME_LIKE, INSPECTOR } from '@ziroeda/common/src/eda_item.js';
-import { EDA_ITEM, INSPECT_RESULT, RECURSE_MODE } from '@ziroeda/common/src/eda_item.js';
+} from '@ziroeda/common/eda_draw_frame.js';
+import type { EDA_DRAW_FRAME_LIKE, INSPECTOR } from '@ziroeda/common/eda_item.js';
+import { EDA_ITEM, INSPECT_RESULT, RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import {
   COURTYARD_CONFLICT,
   MALFORMED_B_COURTYARD,
   MALFORMED_COURTYARDS,
   MALFORMED_F_COURTYARD,
   STRUCT_DELETED,
-} from '@ziroeda/common/src/eda_item_flags.js';
-import type { EDA_SEARCH_DATA } from '@ziroeda/common/src/eda_search_data.js';
-import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
-import { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import type { OutStr } from '@ziroeda/common/src/font/font.js';
-import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/font/text_attributes.js';
-import { type KIID, newKiid, niluuid } from '@ziroeda/common/src/kiid.js';
+} from '@ziroeda/common/eda_item_flags.js';
+import type { EDA_SEARCH_DATA } from '@ziroeda/common/eda_search_data.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import type { OutStr } from '@ziroeda/common/font/font.js';
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
+import { type KIID, newKiid, niluuid } from '@ziroeda/common/kiid.js';
 import {
   FLASHING,
   FlipLayer,
@@ -49,9 +49,9 @@ import {
   IsCopperLayer,
   IsValidLayer,
   PCB_LAYER_ID,
-} from '@ziroeda/common/src/layer_ids.js';
-import { LIB_ID } from '@ziroeda/common/src/lib_id.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
+} from '@ziroeda/common/layer_ids.js';
+import { LIB_ID } from '@ziroeda/common/lib_id.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import {
   ENUM_MAP,
   type INSPECTABLE_ITEM,
@@ -66,19 +66,19 @@ import {
   TYPE_OPT_DOUBLE,
   TYPE_OPT_INT,
   TYPE_STRING,
-} from '@ziroeda/common/src/properties/property.js';
-import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
-import { type SearchTerm, searchTerm } from '@ziroeda/common/src/eda_pattern_match.js';
-import { GetRefDesPrefix } from '@ziroeda/common/src/refdes_utils.js';
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
+import { type SearchTerm, searchTerm } from '@ziroeda/common/eda_pattern_match.js';
+import { GetRefDesPrefix } from '@ziroeda/common/refdes_utils.js';
 import {
   GetDefaultVariantName,
   formatG,
   getTrailingInt,
   strNumCmp,
   unescapeString,
-} from '@ziroeda/common/src/string_utils.js';
-import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
-import { MSG_PANEL_ITEM } from '@ziroeda/common/src/widgets/msgpanel.js';
+} from '@ziroeda/common/string_utils.js';
+import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import { FLIP_DIRECTION, MIRRORVAL } from '@ziroeda/core/src/mirror.js';
 import { BaseType, KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { ARC_LOW_DEF } from '@ziroeda/kimath/src/base_units.js';
@@ -123,7 +123,7 @@ import { PCB_TEXTBOX } from './pcb_textbox.js';
 import type { PCB_TRACK } from './pcb_track.js';
 import { ZONE } from './zone.js';
 import { ZONE_CONNECTION } from './zones.js';
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { applyMixins } from '@ziroeda/core/src/mixins.js';
 
 // `class FOOTPRINT : public BOARD_ITEM_CONTAINER, public EMBEDDED_FILES`

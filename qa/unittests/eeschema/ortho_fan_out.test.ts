@@ -32,7 +32,7 @@ import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic
 import { planMove } from '@ziroeda/eeschema/src/tools/connect.js';
 import { orthoMove } from '@ziroeda/eeschema/src/tools/ortho.js';
 import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { mmToIU, iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU, iuToMM } from '@ziroeda/common/eda_units.js';
 import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/src/types.js';
 
 const LIB = new Map<string, LibSymbol>();

@@ -7,8 +7,8 @@
  * copper zone R-trees, the courtyard and net-tie caches, the isolated
  * islands map, the connectivity. Its thread pool is a plain loop here.
  */
-import { IsCopperLayer, type PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
+import { IsCopperLayer, type PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import type { PAD } from '../pad.js';

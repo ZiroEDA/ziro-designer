@@ -10,10 +10,10 @@
  * - DRCE_DIFF_PAIR_UNCOUPLED_LENGTH_TOO_LONG
  * - DRCE_TOO_MANY_VIAS
  */
-import { ADVANCED_CFG } from '@ziroeda/common/src/advanced_config.js';
-import { type PCB_LAYER_ID, UNDEFINED_LAYER } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/src/reporter.js';
+import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
+import { type PCB_LAYER_ID, UNDEFINED_LAYER } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
 import type { MINOPTMAX } from '@ziroeda/core/src/minoptmax.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';

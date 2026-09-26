@@ -26,15 +26,15 @@
  */
 
 import type { LibSymbol, SchField, SchSymbol, Vec2 } from './types.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { textWidth } from '@ziroeda/common/src/font/font_provider.js';
-import { ITALIC_TILT } from '@ziroeda/common/src/font/font_metrics.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
+import { textWidth } from '@ziroeda/common/font/font_provider.js';
+import { ITALIC_TILT } from '@ziroeda/common/font/font_metrics.js';
 import {
   symbolTransform,
   applyTransform,
   invertTransform,
   type Transform,
-} from '@ziroeda/common/src/transform.js';
+} from '@ziroeda/common/transform.js';
 
 /** Advance width of `text` at glyph size `sizeIU` (Newstroke advance sum). */
 export type TextMeasurer = (text: string, sizeIU: number) => number;
@@ -45,10 +45,10 @@ export const DEFAULT_TEXT_SIZE = mmToIU(1.27);
 /**
  * `include/font/font.h:62` `ITALIC_TILT = 1.0 / 8`: glyphs shear right by
  * y·tilt. Re-exported, not redeclared — the single home is
- * `common/src/font/font_metrics.ts`, and `@ziroeda/eeschema` is where the
+ * `common/font/font_metrics.ts`, and `@ziroeda/eeschema` is where the
  * symbol and schematic renderers have always reached for it.
  */
-export { ITALIC_TILT } from '@ziroeda/common/src/font/font_metrics.js';
+export { ITALIC_TILT } from '@ziroeda/common/font/font_metrics.js';
 
 const kiRound = (v: number): number => (v < 0 ? Math.ceil(v - 0.5) : Math.floor(v + 0.5));
 

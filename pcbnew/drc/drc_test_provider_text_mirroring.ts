@@ -9,9 +9,9 @@
  * - DRCE_MIRRORED_TEXT_ON_FRONT_LAYER
  * - DRCE_NONMIRRORED_TEXT_ON_BACK_LAYER
  */
-import { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
+import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';

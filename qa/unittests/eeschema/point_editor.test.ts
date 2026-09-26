@@ -28,7 +28,7 @@ import {
   reshapeCommand,
   type EditHandle,
 } from '@ziroeda/eeschema/src/tools/point_editor.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 type P = { x: number; y: number };
 const mm = (v: number): number => mmToIU(v);

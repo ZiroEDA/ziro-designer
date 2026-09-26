@@ -14,34 +14,30 @@
  * and the board out of the normal save.
  */
 import { LINE_STYLES, type NetClass, type NetClassesData } from '@ziroeda/common';
-import { COLOR4D_UNSPECIFIED, parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
-import { pcbIUScale, schIUScale } from '@ziroeda/common/src/eda_units.js';
-import { EMBEDDED_FILE, EMBEDDED_FILES, FILE_TYPE } from '@ziroeda/common/src/embedded_files.js';
-import {
-  IsCopperLayer,
-  IsCopperLayerLowerThan,
-  PCB_LAYER_ID,
-} from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { NETCLASS } from '@ziroeda/common/src/netclass.js';
-import type { PROJECT } from '@ziroeda/common/src/project.js';
+import { COLOR4D_UNSPECIFIED, parseColor4d, toCssColor } from '@ziroeda/common/color4d.js';
+import { pcbIUScale, schIUScale } from '@ziroeda/common/eda_units.js';
+import { EMBEDDED_FILE, EMBEDDED_FILES, FILE_TYPE } from '@ziroeda/common/embedded_files.js';
+import { IsCopperLayer, IsCopperLayerLowerThan, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { NETCLASS } from '@ziroeda/common/netclass.js';
+import type { PROJECT } from '@ziroeda/common/project.js';
 import {
   COMPONENT_CLASS_ASSIGNMENT_DATA,
   CONDITION_TYPE,
   CONDITIONS_OPERATOR,
-} from '@ziroeda/common/src/project/component_class_settings.js';
+} from '@ziroeda/common/project/component_class_settings.js';
 import {
   DELAY_PROFILE_TRACK_PROPAGATION_ENTRY,
   DELAY_PROFILE_VIA_OVERRIDE_ENTRY,
   TUNING_PROFILE,
   TUNING_PROFILE_TYPE,
-} from '@ziroeda/common/src/project/tuning_profiles.js';
+} from '@ziroeda/common/project/tuning_profiles.js';
 import {
   RPT_SEVERITY_ERROR,
   RPT_SEVERITY_IGNORE,
   RPT_SEVERITY_WARNING,
   type Severity,
-} from '@ziroeda/common/src/reporter.js';
+} from '@ziroeda/common/reporter.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import {

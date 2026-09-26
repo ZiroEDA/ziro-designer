@@ -28,7 +28,7 @@ import {
 } from '@ziroeda/designer/src/editors/gerbview/toggles.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { crosshairSegments } from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
+import { crosshairSegments } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 
 const src = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');

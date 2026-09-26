@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import type { JSX, ReactNode } from 'react';
-import type { CrossProbingSettings } from '@ziroeda/common/src/cross_probing_settings.js';
+import type { CrossProbingSettings } from '@ziroeda/common/cross_probing_settings.js';
 import { Check, Group } from './widgets.js';
 
 /**

@@ -18,7 +18,7 @@
  * out of the DRC constraints.
  */
 
-import { unescapeString } from '@ziroeda/common/src/string_utils.js';
+import { unescapeString } from '@ziroeda/common/string_utils.js';
 import type { Board } from './types.js';
 
 export interface NetRow {

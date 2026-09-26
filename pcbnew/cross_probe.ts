@@ -21,9 +21,9 @@
  * item is the one the view gets centred on and it has to be the one the user's
  * selection started from.
  */
-import type { CrossProbingSettings } from '@ziroeda/common/src/cross_probing_settings.js';
-import { pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
-import { escapeIpc } from '@ziroeda/common/src/string_utils.js';
+import type { CrossProbingSettings } from '@ziroeda/common/cross_probing_settings.js';
+import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
+import { escapeIpc } from '@ziroeda/common/string_utils.js';
 import { boardItemId } from './edit-board.js';
 import type { Board } from './types.js';
 

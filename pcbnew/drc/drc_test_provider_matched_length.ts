@@ -11,9 +11,9 @@
  * - DRCE_TOO_MANY_VIAS
  * Todo: arc support
  */
-import type { EdaDataType } from '@ziroeda/common/src/eda_units.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/src/reporter.js';
+import type { EdaDataType } from '@ziroeda/common/eda_units.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { BOARD_CONNECTED_ITEM } from '../board_connected_item.js';

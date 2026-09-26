@@ -15,7 +15,7 @@
  */
 import { useState, type JSX, type Ref } from 'react';
 import { polarTranslation } from '@ziroeda/pcbnew';
-import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 
 /** `DIALOG_POSITION_RELATIVE::ANCHOR_TYPE`, less the interactive point picker. */
 export type PositionReferenceKind = 'gridOrigin' | 'userOrigin' | 'item';

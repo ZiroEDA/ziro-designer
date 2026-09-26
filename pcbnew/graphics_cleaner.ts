@@ -49,7 +49,7 @@ export const DRC_EPSILON = 500;
 // `ARC_HIGH_DEF`, the default `m_MaxError`, lives with the other
 // `base_units.h` constants; this re-export is only so the router and the
 // importer keep the import path they already had.
-import { ARC_HIGH_DEF } from '@ziroeda/common/src/eda_units.js';
+import { ARC_HIGH_DEF } from '@ziroeda/common/eda_units.js';
 export { ARC_HIGH_DEF };
 
 export type CleanupCode = 'null_graphic' | 'duplicate_graphic';

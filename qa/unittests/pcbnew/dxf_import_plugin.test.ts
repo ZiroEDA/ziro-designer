@@ -11,7 +11,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
-import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/eda_text.js';
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/eda_text.js';
 import {
   DXF_IMPORT_PLUGIN,
   DXF_IMPORT_UNITS,
@@ -19,15 +19,15 @@ import {
   matrixSetRotation,
   matrixSetScale,
   matrixZero,
-} from '@ziroeda/common/src/import_gfx/dxf_import_plugin.js';
-import { SPLINE_ERROR, bsplineToBeziers } from '@ziroeda/common/src/import_gfx/dxf_spline.js';
+} from '@ziroeda/common/import_gfx/dxf_import_plugin.js';
+import { SPLINE_ERROR, bsplineToBeziers } from '@ziroeda/common/import_gfx/dxf_spline.js';
 import {
   DXF_READER,
   stripWhiteSpace,
   toInt,
   toInt16,
   toReal,
-} from '@ziroeda/common/src/import_gfx/dxf_reader.js';
+} from '@ziroeda/common/import_gfx/dxf_reader.js';
 import {
   IMPORTED_ARC,
   IMPORTED_CIRCLE,
@@ -37,7 +37,7 @@ import {
   IMPORTED_SPLINE,
   IMPORTED_TEXT,
   type IMPORTED_SHAPE,
-} from '@ziroeda/common/src/import_gfx/graphics_importer.js';
+} from '@ziroeda/common/import_gfx/graphics_importer.js';
 import { GRAPHICS_IMPORTER_PCBNEW } from '@ziroeda/pcbnew/import_gfx/graphics_importer_pcbnew.js';
 
 /** Build DXF text from group couplets. */

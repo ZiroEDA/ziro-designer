@@ -30,12 +30,12 @@
  * transcription cannot be kept honest, and this one had drifted from the menus
  * it claimed to describe within a day of being written.
  */
-import type { Menu, MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
-import type { ToolEntry } from '@ziroeda/common/src/tool/action_toolbar_types.js';
-import { TOOLBAR_ACTIONS } from '@ziroeda/common/src/tool/action_toolbar_actions.js';
-import { DEFAULT_LANGUAGE } from '@ziroeda/common/src/eda_base_frame_language_menu.js';
-import { browserSafeKey } from '@ziroeda/common/src/browser_reserved.js';
-import { hotkeyListName } from '@ziroeda/common/src/tool/action_menu_key_names.js';
+import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
+import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
+import { TOOLBAR_ACTIONS } from '@ziroeda/common/tool/action_toolbar_actions.js';
+import { DEFAULT_LANGUAGE } from '@ziroeda/common/eda_base_frame_language_menu.js';
+import { browserSafeKey } from '@ziroeda/common/browser_reserved.js';
+import { hotkeyListName } from '@ziroeda/common/tool/action_menu_key_names.js';
 import { buildManagerMenus } from '../home/menubar.js';
 import { TOOL_HOTKEYS, buildMenus as buildSchMenus } from '../editors/schematic/menubar.js';
 import {

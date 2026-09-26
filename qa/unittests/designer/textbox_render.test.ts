@@ -18,7 +18,7 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 import { buildScene } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 

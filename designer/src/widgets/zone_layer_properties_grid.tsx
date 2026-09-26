@@ -28,12 +28,12 @@
  */
 
 import type { JSX } from 'react';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import type { ZoneLayerPropertiesMap } from '../editors/pcb/board_settings.js';
 import { PCB_BACKGROUND } from '../editors/pcb/pcbTheme.js';
 import { LSET_NameToLayer } from '@ziroeda/pcbnew/layer_ids.js';
 import { layerChoice } from './layer_presentation.js';
-import { parseUnitValueDouble, stringFromValue } from '@ziroeda/common/src/widgets/unit_binder.js';
+import { parseUnitValueDouble, stringFromValue } from '@ziroeda/common/widgets/unit_binder.js';
 
 /**
  * `GetColLabelValue()` (`zone_layer_properties_grid.h:48-57`). The base's

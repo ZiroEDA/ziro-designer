@@ -34,10 +34,10 @@ import { buildHotkeySections, type HotkeyOverrides } from './hotkeys_inventory.j
 import {
   claimBrowserHotkeys,
   lockReservedKeysWhileFullscreen,
-} from '@ziroeda/common/src/browser_hotkeys.js';
+} from '@ziroeda/common/browser_hotkeys.js';
 import { onShowHotkeyList } from './hotkey_list_action.js';
 import { settings } from '../prefs/settings.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 /**
  * The host for ACTIONS::listHotKeys. One of these is mounted above the app, so

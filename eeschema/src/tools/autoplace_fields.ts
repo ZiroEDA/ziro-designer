@@ -46,7 +46,7 @@ import {
   type HJustify,
   type SymbolFieldBox,
 } from '../fieldbox.js';
-import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
+import { measureText } from '@ziroeda/common/font/stroke_font.js';
 import { libPinBoundingBox } from '../pin_box.js';
 import {
   symbolTransform,
@@ -57,8 +57,8 @@ import {
   SYM_ORIENT_90,
   SYM_ORIENT_180,
   SYM_ORIENT_270,
-} from '@ziroeda/common/src/transform.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+} from '@ziroeda/common/transform.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { refId } from './hittest.js';
 import type { Schematic } from '../types.js';
 import type { EditCommand } from './command.js';

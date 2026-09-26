@@ -29,7 +29,7 @@ import {
   defaultTeardrops,
   type TeardropsSetup,
 } from '@ziroeda/designer/src/editors/pcb/dialogs/panels/panel_pcb_teardrops.js';
-import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
+import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
 
 afterEach(cleanup);
 

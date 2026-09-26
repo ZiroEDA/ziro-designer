@@ -37,8 +37,8 @@
  */
 
 import { useState, type JSX } from 'react';
-import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
-import { EdaListDialog } from '@ziroeda/common/src/dialogs/eda_list_dialog.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import { EdaListDialog } from '@ziroeda/common/dialogs/eda_list_dialog.js';
 import {
   MANDATORY_LAYERS,
   type BoardLayer,

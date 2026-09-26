@@ -45,7 +45,7 @@ import { resolveCell } from './table_cells.js';
 import { resizeCellEdge } from './table_layout.js';
 import { sheetPinBBox } from './bbox.js';
 import { imageSizeIU } from './image_size.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { EditCommand } from './command.js';
 import {
   ArcEditMode,

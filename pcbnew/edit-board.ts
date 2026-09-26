@@ -26,7 +26,7 @@
  * (KiCad selects the FOOTPRINT, not its pad, unless you alt/nested-select).
  */
 
-import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { barcodeBBox, barcodeGeometry, barcodeHullBoxes } from './pcb_io/kicad_sexpr/board_view.js';
 import { textItemBBox } from './text_metrics.js';
 import { arcCenter, rotatePcb } from './read-board.js';
@@ -67,7 +67,7 @@ import {
 } from '@ziroeda/kimath/src/geometry/poly_hit_test.js';
 import { isHatchedFill, isSolidFill, shapeHatchLines } from './shape_fill.js';
 import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
-import { ARC_HIGH_DEF } from '@ziroeda/common/src/eda_units.js';
+import { ARC_HIGH_DEF } from '@ziroeda/common/eda_units.js';
 
 // ----- item ids ---------------------------------------------------------------
 

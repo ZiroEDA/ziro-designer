@@ -16,7 +16,7 @@
  */
 import { useState, type JSX } from 'react';
 import { conflictKey, type FieldCaseAction, type FieldCaseConflict } from '@ziroeda/eeschema';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 interface Props {
   conflicts: readonly FieldCaseConflict[];

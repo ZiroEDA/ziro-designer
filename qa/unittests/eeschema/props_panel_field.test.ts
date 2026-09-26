@@ -25,7 +25,7 @@ import {
   type PropRow,
 } from '@ziroeda/eeschema/src/tools/sch_properties_panel.js';
 import { itemRefById, refId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const rawR = readFileSync(

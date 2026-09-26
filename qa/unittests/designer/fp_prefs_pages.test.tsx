@@ -408,7 +408,7 @@ describe('Footprint Editor > Footprint Defaults', () => {
     // width stated, so both grids stop at 610 and the page is empty to the
     // right of them. Column 0 was taking the slack instead, which stretched
     // Value across the dialog and pushed Layer to the far edge.
-    const css = readFileSync(resolve(process.cwd(), '../common/src/widgets/shell.css'), 'utf8');
+    const css = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
     const rule = (selector: string): string => {
       for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g))
         if ((m[1] ?? '').split(',').some((sel) => sel.trim() === selector)) return m[2] ?? '';
@@ -550,7 +550,7 @@ describe('Footprint Editor > Graphics Defaults', () => {
     // true, true, aKeep = true )`. [px] the live editor's gridlines fall at
     // 776 / 887 / 987 / 1087 / 1193 / 1253 — 125 then 110/100/100/105/59, with
     // only Text Thickness widened, by its own header.
-    const css = readFileSync(resolve(process.cwd(), '../common/src/widgets/shell.css'), 'utf8');
+    const css = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
     const rule = (selector: string): string => {
       for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g))
         if ((m[1] ?? '').split(',').some((sel) => sel.trim() === selector)) return m[2] ?? '';
@@ -647,7 +647,7 @@ describe('Footprint Editor > User Layer Names', () => {
     // 100% wins — Layer and Name collapsed onto their own text. Only
     // `table-layout: fixed` reads a stated width as stated, and in that
     // algorithm the filler has to be `auto` or it takes the whole table.
-    const css = readFileSync(resolve(process.cwd(), '../common/src/widgets/shell.css'), 'utf8');
+    const css = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
     const rule = (selector: string): string => {
       for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g))
         if ((m[1] ?? '').split(',').some((sel) => sel.trim() === selector)) return m[2] ?? '';

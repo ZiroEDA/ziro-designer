@@ -11,8 +11,8 @@
  */
 
 import { list, atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/types.js';
-import { iuToMM, mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { newKiid } from '@ziroeda/common/src/kiid.js';
+import { iuToMM, mmToIU } from '@ziroeda/common/eda_units.js';
+import { newKiid } from '@ziroeda/common/kiid.js';
 import type {
   LibGraphic,
   SchBusEntry,

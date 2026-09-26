@@ -125,7 +125,7 @@ describe('the page', () => {
   it('is a native <select> nowhere', () => {
     // A wxChoice is a button with a popup. `Combo` is the shared widget.
     const src = read(PAGE);
-    expect(src).toContain("from '@ziroeda/common/src/widgets/wx_combobox.js'");
+    expect(src).toContain("from '@ziroeda/common/widgets/wx_combobox.js'");
     expect(src).not.toContain('<select');
   });
 
@@ -250,7 +250,7 @@ describe('the Use theme choice is content-width, not panel-width', () => {
     // wxEXPAND, then `Fit()`. The choice IS proportion 1 inside `bSizer2`, but
     // its parent claims no spare width for it to take, so reading that
     // proportion alone and writing `flex: 1` stretched it to the panel edge.
-    const css = readFileSync(join(SRC, '../../common/src/widgets/shell.css'), 'utf8');
+    const css = readFileSync(join(SRC, '../../common/widgets/shell.css'), 'utf8');
     const at = css.indexOf('.ze-sym-colors-row {');
     expect(at).toBeGreaterThan(-1);
     const rule = css.slice(at, css.indexOf('}', at));

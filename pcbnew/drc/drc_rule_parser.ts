@@ -6,15 +6,11 @@
  * `DRC_RULES_LEXER` is DSNLEXER over `common/drc_rules.keywords`; here a
  * keyword is its text, so `case 'clearance':` is `case T_clearance:`.
  */
-import { DSNLEXER, PARSE_ERROR, T, type Tok } from '@ziroeda/common/src/dsnlexer.js';
-import type { EdaDataType, EdaUnits } from '@ziroeda/common/src/eda_units.js';
-import {
-  type PCB_LAYER_ID,
-  PCB_LAYER_ID as LAYER,
-  ToLAYER_ID,
-} from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { ENUM_MAP } from '@ziroeda/common/src/properties/property.js';
+import { DSNLEXER, PARSE_ERROR, T, type Tok } from '@ziroeda/common/dsnlexer.js';
+import type { EdaDataType, EdaUnits } from '@ziroeda/common/eda_units.js';
+import { type PCB_LAYER_ID, PCB_LAYER_ID as LAYER, ToLAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
 import {
   type Reporter,
   RPT_SEVERITY_ERROR,
@@ -24,9 +20,9 @@ import {
   RPT_SEVERITY_UNDEFINED,
   RPT_SEVERITY_WARNING,
   type Severity,
-} from '@ziroeda/common/src/reporter.js';
+} from '@ziroeda/common/reporter.js';
 
-import { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
+import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { COMPONENT_CLASS_ASSIGNMENT_RULE } from '../component_classes/component_class_assignment_rule.js';
 import {
   PCBEXPR_EVALUATOR,

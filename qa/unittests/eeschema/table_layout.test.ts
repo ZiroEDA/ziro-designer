@@ -18,7 +18,7 @@ import {
   editHandles,
   pointEditTarget,
 } from '@ziroeda/eeschema/src/tools/point_editor.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { SchTable } from '@ziroeda/eeschema/src/types.js';
 
 const mm = (n: number): number => n * 10000;

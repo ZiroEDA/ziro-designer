@@ -16,7 +16,7 @@
  * KiCad writes none of those. wxWidgets asks GTK once, GTK answers out of the
  * desktop theme, and that single answer is why its eight launchers look like
  * one program without anybody maintaining eight themes. Ours is the `:root`
- * block in `common/src/widgets/shell.css`.
+ * block in `common/widgets/shell.css`.
  *
  * ---------------------------------------------------------------------------
  * WHAT COUNTS, AND HOW TO MAKE A LITERAL STOP COUNTING
@@ -91,7 +91,7 @@ import { fileURLToPath } from 'node:url';
 import { join, relative } from 'node:path';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
-const COMMON = fileURLToPath(new URL('../../../common/src', import.meta.url));
+const COMMON = fileURLToPath(new URL('../../../common', import.meta.url));
 
 /**
  * Seeded 2026-08-20 from the tree, per area, AFTER the central-values pass took
@@ -847,6 +847,8 @@ function scan(): Site[] {
   // `common/widgets`, `common/dialogs`); the ratchet follows them there.
   (function walk(dir: string) {
     for (const entry of readdirSync(dir)) {
+      // node_modules sits beside the sources now that common has no src/.
+      if (entry === 'node_modules') continue;
       const p = join(dir, entry);
       if (statSync(p).isDirectory()) walk(p);
       else if (/\.(css|tsx)$/.test(p)) files.push(p);
@@ -911,7 +913,7 @@ const examples = (area: string, kind: Site['kind']): string =>
     .join('\n');
 
 const HOWTO =
-  'Either consume the token from common/src/widgets/shell.css (adding it there if ' +
+  'Either consume the token from common/widgets/shell.css (adding it there if ' +
   'it is missing), or mark the literal on its own line with [data] and the C++ ' +
   'that hardcodes it, [css] and the Yaru rule, [px] and the measurement, or ' +
   '[art] and the bitmap KiCad ships instead. Restating the token value locally ' +
@@ -1096,7 +1098,7 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 525 -> 521: the selection band. `PcbEditor` had four invented literals
     // for the rubber-band marquee — a blue and a green, in fill and stroke —
     // where KiCad reads `KIGFX::PREVIEW::SELECTION_AREA`'s own six-colour table
-    // (`selection_area.cpp:44-62`), which `common/src/preview_items/
+    // (`selection_area.cpp:44-62`), which `common/preview_items/
     // selection_area.ts` already held for the schematic. `editors/pcb` is the
     // only row that moves and 525 - 4 agrees with it.
     // 521 -> 517: the Draw Filled Zone tool's own hand-rolled dialog, the same

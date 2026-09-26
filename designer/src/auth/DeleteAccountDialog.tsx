@@ -28,9 +28,9 @@
  */
 import { useCallback, useEffect, useState, type FormEvent, type JSX } from 'react';
 import { cloudBackend } from '../cloud/cloudStore.js';
-import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
-import { StdDialogButtons } from '@ziroeda/common/src/dialog_shim_buttons.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import { StdDialogButtons } from '@ziroeda/common/dialog_shim_buttons.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 import { DELETE_REASONS, validateDeleteAccountForm } from './delete_account_form.js';
 
 type Step = 'reason' | 'confirmation' | 'password';

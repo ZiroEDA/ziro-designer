@@ -28,7 +28,7 @@
  * `FP_EXCLUDE_FROM_BOM` — a fiducial or a mounting hole — contributes neither
  * a line nor a count, so the quantities are what somebody has to buy.
  */
-import { strNumCmp } from '@ziroeda/common/src/string_utils.js';
+import { strNumCmp } from '@ziroeda/common/string_utils.js';
 import type { BOARD } from './board.js';
 import { FP_EXCLUDE_FROM_BOM } from './footprint.js';
 

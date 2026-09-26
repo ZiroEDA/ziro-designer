@@ -9,7 +9,7 @@ import { makeBus, makeLabel } from '@ziroeda/eeschema/src/tools/build.js';
 import { subReference } from '@ziroeda/eeschema/src/fieldbox.js';
 import { makeTextBox, makeTable } from '@ziroeda/eeschema/src/tools/build-graphics.js';
 import { addItems } from '@ziroeda/eeschema/src/tools/mutate.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const EMPTY = () => readSchematic(parse('(kicad_sch (version 1) (lib_symbols))'));
 const at = (x: number, y: number) => ({ x: mmToIU(x), y: mmToIU(y) });

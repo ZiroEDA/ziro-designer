@@ -12,7 +12,7 @@
  * creation counter, is that order here. The locks and atomics are dropped:
  * the search is sequential.
  */
-import { PCB_LAYER_ID, ToLAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { PCB_LAYER_ID, ToLAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { SHAPE } from '@ziroeda/kimath/src/geometry/shape.js';
 import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';

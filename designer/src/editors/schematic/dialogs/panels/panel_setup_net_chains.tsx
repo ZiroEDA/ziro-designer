@@ -13,7 +13,7 @@
  */
 
 import { useState, type JSX } from 'react';
-import { Icon } from '@ziroeda/common/src/widgets/icons.js';
+import { Icon } from '@ziroeda/common/widgets/icons.js';
 import type { NetChain, NetChainClass, NetChainsData } from '../../schematic_settings.js';
 
 // The data model lives in schematic_settings.ts (KiCad's data/UI split);
@@ -24,8 +24,8 @@ export {
   type NetChainClass,
   type NetChainsData,
 } from '../../schematic_settings.js';
-import { ColorSwatch } from '@ziroeda/common/src/widgets/color_swatch.js';
-import { parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
+import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
+import { parseColor4d, toCssColor } from '@ziroeda/common/color4d.js';
 
 interface Props {
   value: NetChainsData;

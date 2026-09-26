@@ -38,7 +38,7 @@ import { describe, expect, it } from 'vitest';
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const SHELL = read('../../../common/src/widgets/shell.css');
+const SHELL = read('../../../common/widgets/shell.css');
 
 /** shell.css quotes braces inside its prose, so comments go before slicing. */
 const stripComments = (css: string): string => css.replace(/\/\*[\s\S]*?\*\//g, '');

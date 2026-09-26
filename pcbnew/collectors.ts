@@ -9,11 +9,11 @@
  * `GENERAL_COLLECTOR` with its `COLLECTORS_GUIDE` — the selection tool's
  * hit-tester, which decides what a click lands on.
  */
-import { COLLECTOR } from '@ziroeda/common/src/collector.js';
-import type { EDA_ITEM } from '@ziroeda/common/src/eda_item.js';
-import { INSPECT_RESULT } from '@ziroeda/common/src/eda_item.js';
-import { IsBackLayer, IsFrontLayer, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import type { LSET } from '@ziroeda/common/src/lset.js';
+import { COLLECTOR } from '@ziroeda/common/collector.js';
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import { INSPECT_RESULT } from '@ziroeda/common/eda_item.js';
+import { IsBackLayer, IsFrontLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import type { LSET } from '@ziroeda/common/lset.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { FOOTPRINT } from './footprint.js';

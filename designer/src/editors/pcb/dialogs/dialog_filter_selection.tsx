@@ -14,7 +14,7 @@
  */
 import type { JSX, Ref } from 'react';
 import { allItemsState, type SelectionFilter, setAllFilterItems } from '@ziroeda/pcbnew';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 interface Props {
   filter: SelectionFilter;

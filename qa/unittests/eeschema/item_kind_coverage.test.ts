@@ -22,7 +22,7 @@ import { moveItems, deleteByIds } from '@ziroeda/eeschema';
 import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Schematic, Vec2 } from '@ziroeda/eeschema/src/types.js';
 
 const rawR = readFileSync(

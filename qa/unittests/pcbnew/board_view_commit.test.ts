@@ -4,9 +4,9 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
-import { FRAME_T } from '@ziroeda/common/src/frame_type.js';
-import { TOOL_MANAGER } from '@ziroeda/common/src/tool/tool_manager.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { parse } from '@ziroeda/sexpr';
 import type { BOARD_ITEM_CONTAINER } from '@ziroeda/pcbnew/board_item_container.js';
 import { boardItemId, deleteBoardItems, moveBoardItems } from '@ziroeda/pcbnew/edit-board.js';

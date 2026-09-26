@@ -56,7 +56,7 @@ import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic
 import { transformItems, type TransformOp } from '@ziroeda/eeschema/src/tools/transform.js';
 import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
 import type { Schematic, SchSymbol } from '@ziroeda/eeschema/src/types.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 /**
  * `Device:D` as the probe file carried it — the same polylines, the same two

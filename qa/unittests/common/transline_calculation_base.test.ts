@@ -7,16 +7,16 @@
  * `Analyse` / `Get*Results`), over the same maths the Calculator Tools use.
  */
 import { describe, expect, it } from 'vitest';
-import { COUPLED_MICROSTRIP } from '@ziroeda/common/src/transline_calculations/coupled_microstrip.js';
-import { COUPLED_STRIPLINE } from '@ziroeda/common/src/transline_calculations/coupled_stripline.js';
-import { MICROSTRIP } from '@ziroeda/common/src/transline_calculations/microstrip.js';
-import { STRIPLINE } from '@ziroeda/common/src/transline_calculations/stripline.js';
+import { COUPLED_MICROSTRIP } from '@ziroeda/common/transline_calculations/coupled_microstrip.js';
+import { COUPLED_STRIPLINE } from '@ziroeda/common/transline_calculations/coupled_stripline.js';
+import { MICROSTRIP } from '@ziroeda/common/transline_calculations/microstrip.js';
+import { STRIPLINE } from '@ziroeda/common/transline_calculations/stripline.js';
 import {
   SYNTHESIZE_OPTS,
   TRANSLINE_CALCULATION_BASE,
   TRANSLINE_PARAMETERS as P,
   TRANSLINE_STATUS,
-} from '@ziroeda/common/src/transline_calculations/transline_calculation_base.js';
+} from '@ziroeda/common/transline_calculations/transline_calculation_base.js';
 import { microstripAnalyze, microstripSynthesize } from '@ziroeda/pcb_calculator';
 
 const RHO = 1.72e-8;

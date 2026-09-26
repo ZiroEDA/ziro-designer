@@ -12,10 +12,10 @@
  * the C++ does without one.
  */
 
-import { ROUTER_TRANSIENT } from '@ziroeda/common/src/eda_item_flags.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { NETCLASS } from '@ziroeda/common/src/netclass.js';
+import { ROUTER_TRANSIENT } from '@ziroeda/common/eda_item_flags.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { NETCLASS } from '@ziroeda/common/netclass.js';
 import {
   ENUM_MAP,
   type INSPECTABLE_ITEM,
@@ -27,11 +27,11 @@ import {
   TYPE_DOUBLE,
   TYPE_INT,
   TYPE_STRING,
-} from '@ziroeda/common/src/properties/property.js';
-import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
-import { PROPERTY_VALIDATORS } from '@ziroeda/common/src/properties/property_validators.js';
-import type { OutStr } from '@ziroeda/common/src/font/font.js';
-import { unescapeString } from '@ziroeda/common/src/string_utils.js';
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
+import { PROPERTY_VALIDATORS } from '@ziroeda/common/properties/property_validators.js';
+import type { OutStr } from '@ziroeda/common/font/font.js';
+import { unescapeString } from '@ziroeda/common/string_utils.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { BOARD_ITEM } from './board_item.js';
 import { type NETINFO_ITEM, NETINFO_LIST } from './netinfo.js';

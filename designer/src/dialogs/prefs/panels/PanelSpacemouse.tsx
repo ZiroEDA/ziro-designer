@@ -59,7 +59,7 @@
  */
 import type { JSX } from 'react';
 import { Check, Group } from '../widgets.js';
-import { Slider } from '@ziroeda/common/src/widgets/slider.js';
+import { Slider } from '@ziroeda/common/widgets/slider.js';
 import type { PrefsContext } from '../types.js';
 
 export function PanelSpacemouse({ ctx }: { ctx: PrefsContext }): JSX.Element {

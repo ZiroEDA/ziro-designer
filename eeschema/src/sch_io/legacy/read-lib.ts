@@ -39,9 +39,9 @@
 
 import { atom, list, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { fx, fy, kiRound, mil, mm, ParseError, Scanner } from './parse.js';
-import { convertToNewOverbarNotation } from '@ziroeda/common/src/string_utils.js';
-import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
-import type { Reporter } from '@ziroeda/common/src/reporter.js';
+import { convertToNewOverbarNotation } from '@ziroeda/common/string_utils.js';
+import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
+import type { Reporter } from '@ziroeda/common/reporter.js';
 import type { LibSymbol } from '../../types.js';
 import { readSymbolLib } from '../sexpr/read-schematic.js';
 

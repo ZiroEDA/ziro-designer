@@ -33,10 +33,10 @@
  */
 
 import { useRef, useState, type JSX } from 'react';
-import { ContextMenu } from '@ziroeda/common/src/tool/action_menu_bar.js';
+import { ContextMenu } from '@ziroeda/common/tool/action_menu_bar.js';
 import { layerContextMenu, type LayerInfo, type RenderRow } from './layer_widget.js';
-import { ColorSwatch } from '@ziroeda/common/src/widgets/color_swatch.js';
-import { parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
+import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
+import { parseColor4d, toCssColor } from '@ziroeda/common/color4d.js';
 
 export type { LayerInfo, RenderRow } from './layer_widget.js';
 export { renderRows, layerContextMenu } from './layer_widget.js';

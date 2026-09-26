@@ -26,7 +26,7 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { makeRuleArea, makeRuleAreaPreview } from '@ziroeda/eeschema/src/tools/build-graphics.js';
 import { dragHandle, editHandles } from '@ziroeda/eeschema/src/tools/point_editor.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';

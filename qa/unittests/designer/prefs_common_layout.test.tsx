@@ -38,7 +38,7 @@ const PANEL = readFileSync(
   resolve(process.cwd(), '../designer/src/dialogs/prefs/panels/PanelCommonSettings.tsx'),
   'utf8',
 );
-const CSS = readFileSync(resolve(process.cwd(), '../common/src/widgets/shell.css'), 'utf8');
+const CSS = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
 const WIDGETS = readFileSync(
   resolve(process.cwd(), '../designer/src/dialogs/prefs/widgets.tsx'),
   'utf8',
@@ -182,7 +182,7 @@ describe('a group heading is a label and a rule, at the dialog font', () => {
  *                                                every toolbar metric derives
  *                                                from
  *     appearance.hicontrast_dimming_factor
- *                                     LIVE     — common/src/render_settings.ts
+ *                                     LIVE     — common/render_settings.ts
  *                                                `hiContrastFactorFor`, passed
  *                                                by the board, footprint and
  *                                                Gerber painters
@@ -247,7 +247,7 @@ describe('a row is enabled exactly when something reads its setting', () => {
     ],
     // The ELEMENT, not the import above it: `indexOf('ZoomCorrectionCtrl')`
     // lands on the import, and the first `/>` after that is some other row's.
-    ['<ZoomCorrectionCtrl', 'zoom_correction_factor', 'common/src/widgets/kistatusbar_format.ts'],
+    ['<ZoomCorrectionCtrl', 'zoom_correction_factor', 'common/widgets/kistatusbar_format.ts'],
   ])('%s is live, bound to %s, and read by %s', (label, setting, reader) => {
     const p = props(label);
     expect(p, label).toContain(setting);

@@ -24,7 +24,7 @@ import { schPropertiesFor } from '@ziroeda/eeschema/src/tools/sch_properties_pan
 import { itemRefById } from '@ziroeda/eeschema/src/tools/hittest.js';
 import { SchPropertiesPanel } from '@ziroeda/designer/src/editors/schematic/components/SchPropertiesPanel.js';
 import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
-import type { StatusUnits } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
+import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 
 afterEach(cleanup);
 

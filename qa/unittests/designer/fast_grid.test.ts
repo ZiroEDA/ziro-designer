@@ -29,7 +29,7 @@ import {
   fastGridActionForKey,
   fastGridIndex,
   type FastGridSlice,
-} from '@ziroeda/common/src/settings/grid_settings_ui.js';
+} from '@ziroeda/common/settings/grid_settings_ui.js';
 import {
   EESCHEMA_DEFAULTS,
   GERBVIEW_DEFAULTS,

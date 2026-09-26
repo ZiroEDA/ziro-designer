@@ -790,7 +790,7 @@ export function pcbTextMsgPanelInfo(
 
   // "Don't use GetShownText() here; we want to show the user the variable
   // references." KIUI::EllipsizeStatusText is left to CSS, as it is in
-  // common/src/drawing_sheet/msg_panel.ts.
+  // common/drawing_sheet/msg_panel.ts.
   list.push({ upper: parent ? 'Text' : 'PCB Text', lower: t.text });
 
   if (parent) {

@@ -42,17 +42,17 @@
  * `widgets/panel_selection_filter.tsx`.
  */
 import { useMemo, useRef, useState, type JSX } from 'react';
-import { COLOR4D_UNSPECIFIED, parseColor4d } from '@ziroeda/common/src/color4d.js';
-import type { Color4d } from '@ziroeda/common/src/color4d.js';
-import { ColorSwatch } from '@ziroeda/common/src/widgets/color_swatch.js';
-import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
-import { Slider } from '@ziroeda/common/src/widgets/slider.js';
-import { Sash } from '@ziroeda/common/src/widgets/wx_splitter_window.js';
+import { COLOR4D_UNSPECIFIED, parseColor4d } from '@ziroeda/common/color4d.js';
+import type { Color4d } from '@ziroeda/common/color4d.js';
+import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import { Slider } from '@ziroeda/common/widgets/slider.js';
+import { Sash } from '@ziroeda/common/widgets/wx_splitter_window.js';
 // KiCad's own bitmaps, vendored under `assets/toolbar/`. Nothing in this panel
 // reaches for `ui/icons.tsx` any more: that module's own header calls its
 // glyphs "recognisable stand-ins, not KiCad's exact bitmaps", and every icon
 // this panel needs exists upstream.
-import { bitmapUrl } from '@ziroeda/common/src/bitmap_store.js';
+import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
 import { layerTooltip } from './appearance_layers.js';
 import {
   appearanceObjectRows,

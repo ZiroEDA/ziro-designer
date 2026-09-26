@@ -13,8 +13,8 @@
  * conventional import site for panel-specific types.
  */
 
-import { netclassPatternMatches } from '@ziroeda/common/src/eda_pattern_match.js';
-import { LINE_STYLE_NAMES } from '@ziroeda/common/src/stroke_params.js';
+import { netclassPatternMatches } from '@ziroeda/common/eda_pattern_match.js';
+import { LINE_STYLE_NAMES } from '@ziroeda/common/stroke_params.js';
 import { defaultErcSettings, type ErcSettings } from '@ziroeda/eeschema';
 
 // ---------------------------------------------------------------------------
@@ -359,7 +359,7 @@ export function defaultBusAliases(): BusAlias[] {
 // `common/project/net_settings.cpp` — part of PROJECT_FILE, read by pcbnew as
 // well as by eeschema. Re-exported below so this module's own callers are
 // unaffected, while pcbnew asks common/ for them rather than asking eeschema.
-export * from '@ziroeda/common/src/project/net_settings.js';
+export * from '@ziroeda/common/project/net_settings.js';
 // `export *` re-exports without binding, so the four names this module still
 // USES are imported as well.
 import {
@@ -367,7 +367,7 @@ import {
   defaultNetClasses,
   type NetChainsData,
   type NetClassesData,
-} from '@ziroeda/common/src/project/net_settings.js';
+} from '@ziroeda/common/project/net_settings.js';
 
 // ---------------------------------------------------------------------------
 // Embedded files (PANEL_EMBEDDED_FILES).

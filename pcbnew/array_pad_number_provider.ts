@@ -21,7 +21,7 @@ import {
   circularItemNumber,
   gridItemNumber,
   numberingStartIsSpecified,
-} from '@ziroeda/common/src/array_options.js';
+} from '@ziroeda/common/array_options.js';
 
 /** `const ARRAY_OPTIONS&`: the two kinds, tagged as `create_array.ts` tags them. */
 export type ArrayNumberingSpec =

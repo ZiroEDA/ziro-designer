@@ -10,8 +10,8 @@
  * `Serialize` / `Deserialize` (the protobuf API) are not ported.
  */
 
-import { FormatInternalUnits, pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { FormatBool } from '@ziroeda/common/src/io/kicad/kicad_io_utils.js';
+import { FormatInternalUnits, pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { FormatBool } from '@ziroeda/common/io/kicad/kicad_io_utils.js';
 import {
   B_Cu,
   B_Mask,
@@ -24,10 +24,10 @@ import {
   IsCopperLayer,
   type PCB_LAYER_ID,
   UNDEFINED_LAYER,
-} from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import type { OUTPUTFORMATTER } from '@ziroeda/common/src/richio.js';
-import { FormatDouble2Str, UIDouble2Str } from '@ziroeda/common/src/string_utils.js';
+} from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import type { OUTPUTFORMATTER } from '@ziroeda/common/richio.js';
+import { FormatDouble2Str, UIDouble2Str } from '@ziroeda/common/string_utils.js';
 import type { BOARD_DESIGN_SETTINGS } from '../board_design_settings.js';
 
 // ---------------------------------------------------------------------------

@@ -7,7 +7,7 @@
  * The two do not agree, and that is a live trap rather than a live bug:
  *
  *   - KiCad: `constexpr double GERB_IU_PER_MM = 1e5;` — "Gerbview IU is 10
- *     nanometers" (`include/base_units.h:69`). Our `common/src/eda_units.ts`
+ *     nanometers" (`include/base_units.h:69`). Our `common/eda_units.ts`
  *     matches it, and `gerbIUScale` is built from it.
  *   - Our Gerber parser: `IU_PER_MM = 1e6` (`gerbview/src/types.ts:15`).
  *
@@ -96,7 +96,7 @@ describe('the GerbView / common IU mismatch', () => {
       'utf8',
     );
     const common = readFileSync(
-      fileURLToPath(new URL('../../../common/src/eda_units.ts', import.meta.url)),
+      fileURLToPath(new URL('../../../common/eda_units.ts', import.meta.url)),
       'utf8',
     );
     expect(gerb).toContain('export const IU_PER_MM = 1e6');

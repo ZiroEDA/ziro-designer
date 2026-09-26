@@ -49,7 +49,7 @@ import {
   toggleUnitsId,
   unitsToggleId,
   type UnitsSlice,
-} from '@ziroeda/common/src/settings/app_settings_units.js';
+} from '@ziroeda/common/settings/app_settings_units.js';
 import {
   persistSymbolToggle,
   symbolTogglesFromSettings,
@@ -201,7 +201,7 @@ describe('one copy of the unit actions', () => {
       const src = read(rel);
       expect(src, `${rel} declares its own isImperial`).not.toMatch(/function isImperial\b/);
       expect(src, `${rel} does not use the shared module`).toContain(
-        "from '@ziroeda/common/src/settings/app_settings_units.js'",
+        "from '@ziroeda/common/settings/app_settings_units.js'",
       );
     }
   });

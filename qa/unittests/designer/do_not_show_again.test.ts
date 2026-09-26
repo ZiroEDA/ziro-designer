@@ -16,7 +16,7 @@ import {
   clearDoNotShowAgainDialogs,
   doNotShowAgainAnswer,
   rememberDoNotShowAgain,
-} from '@ziroeda/common/src/kidialog_do_not_show.js';
+} from '@ziroeda/common/kidialog_do_not_show.js';
 import {
   STORAGE_PREFIX,
   clearDialogState,

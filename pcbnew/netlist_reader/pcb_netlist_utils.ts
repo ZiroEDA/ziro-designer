@@ -22,7 +22,7 @@
  * attributes, clearance overrides, 3D models) comes from the library, which is what
  * ExchangeFootprint's default reset flags do.
  */
-import { kiidFromString, newKiid } from '@ziroeda/common/src/kiid.js';
+import { kiidFromString, newKiid } from '@ziroeda/common/kiid.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
 import { ANGLE_0, EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';

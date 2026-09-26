@@ -19,8 +19,8 @@
  * even for the rows the footprint editor's page could already move.
  */
 import { type JSX, useMemo } from 'react';
-import { parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
-import { BOARD_COLOR_KEYS } from '@ziroeda/common/src/settings/color_theme_file.js';
+import { parseColor4d, toCssColor } from '@ziroeda/common/color4d.js';
+import { BOARD_COLOR_KEYS } from '@ziroeda/common/settings/color_theme_file.js';
 import {
   PanelColorSettings,
   type ColorSwatchRow,

@@ -29,9 +29,9 @@ import {
 } from '@ziroeda/pcbnew';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { PAD_DRILL_SHAPE } from '@ziroeda/pcbnew/padstack.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 interface Props {
   board: BOARD;

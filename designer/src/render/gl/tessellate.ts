@@ -17,7 +17,7 @@
  *  - **Polygons** are triangulated by ear clipping.
  */
 
-import { PCB_IU_PER_MM, SCH_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
+import { PCB_IU_PER_MM, SCH_IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
 
 export interface Pt {

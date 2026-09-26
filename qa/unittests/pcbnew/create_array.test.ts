@@ -11,7 +11,7 @@
  * and moves when position 0's transform is not the identity.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { arraySize, createArray } from '@ziroeda/pcbnew/create_array.js';
 import type { Board, PcbVia } from '@ziroeda/pcbnew/types.js';
 

@@ -13,7 +13,7 @@
  * - DRCE_FOOTPRINT (unknown or duplicate pads in net-tie pad groups),
  * - DRCE_SHORTING_ITEMS
  */
-import type { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import type { PAD } from '../pad.js';

@@ -7,12 +7,12 @@
  * `kicad-cli pcb drc` on the same boards (issue 636, stage 4d).
  */
 import { beforeAll, describe, expect, it } from 'vitest';
-import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
-import { RPT_SEVERITY_ERROR, RPT_SEVERITY_IGNORE } from '@ziroeda/common/src/reporter.js';
+import { RPT_SEVERITY_ERROR, RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { SEG } from '@ziroeda/kimath/src/geometry/seg.js';
 import { SHAPE_ARC } from '@ziroeda/kimath/src/geometry/shape_arc.js';

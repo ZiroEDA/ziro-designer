@@ -4,9 +4,9 @@
 /** BOARD_DESIGN_SETTINGS as the project file's `board.design_settings`. */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { SETTINGS_MANAGER } from '@ziroeda/common/src/pgm_base.js';
-import type { JsonObject } from '@ziroeda/common/src/settings/json_settings.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
+import type { JsonObject } from '@ziroeda/common/settings/json_settings.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 import {
   BOARD_DESIGN_SETTINGS,

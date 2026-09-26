@@ -21,7 +21,7 @@ import {
   footprintViewOfLibrary,
 } from './pcb_io/kicad_sexpr/board_view.js';
 import { PCB_IO_KICAD_SEXPR_PARSER } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { Board, PcbFootprint } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

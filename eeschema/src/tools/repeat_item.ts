@@ -20,7 +20,7 @@
 import type { Schematic, SchLabel, Vec2 } from '../types.js';
 import { refId } from './hittest.js';
 import { addItems } from './mutate.js';
-import { newKiid } from '@ziroeda/common/src/kiid.js';
+import { newKiid } from '@ziroeda/common/kiid.js';
 import type { EditCommand } from './command.js';
 
 /**

@@ -22,7 +22,7 @@ import { isRuntimeKind, latestVersion, pcm, pcmThemeId, usePcmVersion } from './
 import { themeFromLayerCss } from '../editors/schematic/theme.js';
 import type { PackageKind, PackageState, RepoPackage, Repository } from './types.js';
 import './pcm.css';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 type Tab = PackageKind | 'installed' | 'pending';
 

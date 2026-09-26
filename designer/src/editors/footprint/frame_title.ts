@@ -71,7 +71,7 @@ import {
   type FrameTitleParts,
   READ_ONLY_SUFFIX,
   UNSAVED_SUFFIX,
-} from '@ziroeda/common/src/use_document_title.js';
+} from '@ziroeda/common/use_document_title.js';
 
 /** `_( "Footprint Editor" )`, the half after the dash. */
 export const FP_FRAME_NAME = 'Footprint Editor';

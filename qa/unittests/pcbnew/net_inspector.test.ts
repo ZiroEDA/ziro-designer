@@ -11,7 +11,7 @@
  * worse than a column that is honestly missing.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { netInspectorRows, netInspectorSummary } from '@ziroeda/pcbnew/net_inspector.js';
 import type { Board, PcbPad } from '@ziroeda/pcbnew/types.js';
 

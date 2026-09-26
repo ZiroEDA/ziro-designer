@@ -19,13 +19,13 @@
  * The strings are KiCad's own, verbatim and in its order.
  */
 
-import type { ElectricalPinType } from '@ziroeda/common/src/pin_type.js';
+import type { ElectricalPinType } from '@ziroeda/common/pin_type.js';
 
 /**
  * `g_pinElectricalTypes` (pin_type.cpp), in ELECTRICAL_PINTYPE order.
  *
  * Keyed by `ElectricalPinType`, so the canonical names live in ONE place
- * (`common/src/pin_type.ts`, upstream's `common/pin_type.h`) and a token added
+ * (`common/pin_type.ts`, upstream's `common/pin_type.h`) and a token added
  * there without a label here fails to compile.
  */
 const PIN_TYPE_NAMES: Readonly<Record<ElectricalPinType, string>> = {

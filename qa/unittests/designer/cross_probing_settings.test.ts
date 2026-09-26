@@ -29,11 +29,11 @@ import {
   CROSS_PROBE_FLASH_INTERVAL_MS,
   CROSS_PROBE_FLASH_LAST_PHASE,
 } from '@ziroeda/pcbnew';
-import { pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import {
   CROSS_PROBING_DEFAULTS,
   type CrossProbingSettings,
-} from '@ziroeda/common/src/cross_probing_settings.js';
+} from '@ziroeda/common/cross_probing_settings.js';
 import {
   EESCHEMA_DEFAULTS,
   PCBNEW_DEFAULTS,

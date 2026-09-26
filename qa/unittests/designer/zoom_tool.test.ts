@@ -14,16 +14,16 @@ import {
   SELECTION_AREA_FILL,
   SELECTION_AREA_STROKE,
   zoomAreaTarget,
-} from '@ziroeda/common/src/tool/zoom_tool.js';
+} from '@ziroeda/common/tool/zoom_tool.js';
 import {
   clampViewScale,
   clampZoomFactor,
   ZOOM_LIMITS,
-} from '@ziroeda/common/src/settings/zoom_settings.js';
+} from '@ziroeda/common/settings/zoom_settings.js';
 import {
   scaleForZoomFactor,
   zoomFactorForScale,
-} from '@ziroeda/common/src/widgets/kistatusbar_format.js';
+} from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { SCH_IU_PER_MM } from '@ziroeda/common';
 
 /** A 800x600 device-pixel canvas at scale 1, so the viewport is 800x600 world. */

@@ -341,7 +341,7 @@ describe('the stylesheet states what wxPropertyGrid decides, and nothing else', 
   const rules = css.replace(/\/\*[\s\S]*?\*\//g, '');
 
   it('lives beside its widget rather than in ui/shell.css', () => {
-    const shell = readFileSync(resolve(process.cwd(), '../common/src/widgets/shell.css'), 'utf8');
+    const shell = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
     expect(shell).not.toContain('.ze-pgrid');
   });
 
@@ -613,7 +613,7 @@ describe('the editing rules every launcher relies on', () => {
 });
 
 describe('the private pcbnew copy of this widget is gone', () => {
-  const shell = readFileSync(resolve(process.cwd(), '../common/src/widgets/shell.css'), 'utf8');
+  const shell = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
 
   it('leaves no .ze-pg* rules behind in ui/shell.css', () => {
     // PcbEditor.tsx drew its own grid with `PgCat`/`PgRow`/`PgEdit` styled by

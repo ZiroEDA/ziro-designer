@@ -25,7 +25,7 @@ import {
 } from '@ziroeda/designer/src/editors/schematic/moving_ids.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const rawR = readFileSync(

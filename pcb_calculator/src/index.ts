@@ -24,7 +24,7 @@ export * from './galvanic_corrosion.js';
 export * from './color_code.js';
 export * from './attenuators/attenuator_classes.js';
 // The line maths and the `TRANSLINE_CALCULATION_BASE` classes live in
-// `common/src/transline_calculations/` since 09-21, where KiCad keeps them;
+// `common/transline_calculations/` since 09-21, where KiCad keeps them;
 // the four files below are the ones the Tuning Profiles calculator shares.
 // `transline/` keeps pcb_calculator's own functional adapters over them.
 export * from './transline/transline.js';
@@ -45,12 +45,12 @@ export {
   unitPropagationDelay,
   /** The electrical inputs every line type shares. */
   type TcElectrical,
-} from '@ziroeda/common/src/transline_calculations/tc_common.js';
-export * from '@ziroeda/common/src/transline_calculations/microstrip.js';
-export * from '@ziroeda/common/src/transline_calculations/coupled_microstrip.js';
+} from '@ziroeda/common/transline_calculations/tc_common.js';
+export * from '@ziroeda/common/transline_calculations/microstrip.js';
+export * from '@ziroeda/common/transline_calculations/coupled_microstrip.js';
 export * from './transline/coplanar.js';
 export * from './transline/coax.js';
 export * from './transline/rectwaveguide.js';
-export * from '@ziroeda/common/src/transline_calculations/stripline.js';
-export * from '@ziroeda/common/src/transline_calculations/coupled_stripline.js';
+export * from '@ziroeda/common/transline_calculations/stripline.js';
+export * from '@ziroeda/common/transline_calculations/coupled_stripline.js';
 export * from './transline/twistedpair.js';

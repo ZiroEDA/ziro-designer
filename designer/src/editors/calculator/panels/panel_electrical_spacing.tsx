@@ -23,7 +23,7 @@ import {
   printfG,
   ratedImpulseWithstandVoltageV,
 } from '@ziroeda/pcb_calculator';
-import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { Field, Group, LEN_UNITS, fmt, parseNum } from '../fields.js';
 import { useCalcSaveSettings } from '../calc_settings.js';
 import { CALC_ART_SIZE } from '../art_sizes.js';

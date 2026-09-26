@@ -14,7 +14,7 @@ import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import { refId, sheetPinId } from '@ziroeda/eeschema/src/tools/hittest.js';
 import { swapItems, canSwap } from '@ziroeda/eeschema/src/tools/swap_items.js';
 import { sideOfAngle } from '@ziroeda/eeschema/src/tools/sch_sheet_pin_tool.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const mm = (v: number): number => mmToIU(v);
 

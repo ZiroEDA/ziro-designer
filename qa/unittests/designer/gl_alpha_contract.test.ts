@@ -45,10 +45,7 @@ describe('WebGL context attributes', () => {
  * fully transparent: the board vanished the moment antialiasing was on.
  */
 describe('the GAL canvas is an opaque window', () => {
-  const gal = readFileSync(
-    new URL('../../../common/src/draw_panel_gal.ts', import.meta.url),
-    'utf8',
-  );
+  const gal = readFileSync(new URL('../../../common/draw_panel_gal.ts', import.meta.url), 'utf8');
   const attrs = gal.slice(gal.indexOf("getContext('webgl2'"), gal.indexOf('if (!gl) throw'));
 
   it('declares alpha false', () => {
@@ -58,7 +55,7 @@ describe('the GAL canvas is an opaque window', () => {
 
   it('the presentors mask alpha off when they write the screen', () => {
     const aa = readFileSync(
-      new URL('../../../common/src/gal/opengl/antialiasing.ts', import.meta.url),
+      new URL('../../../common/gal/opengl/antialiasing.ts', import.meta.url),
       'utf8',
     );
     expect(aa.match(/gl\.colorMask\(true, true, true, false\)/g)?.length).toBe(2);

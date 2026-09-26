@@ -25,7 +25,7 @@
  */
 
 import { useState, type JSX } from 'react';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 /** `PASTE_MODE` (`include/dialogs/dialog_paste_special.h:33-38`), in order. */
 export const PASTE_MODES = [

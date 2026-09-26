@@ -22,7 +22,7 @@
  * non-copper zone can keep a name that collides with another.
  */
 
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Board, PcbZone } from './types.js';
 import type { ZoneBorderStyle, ZoneValueError } from './rule_area_properties.js';
 

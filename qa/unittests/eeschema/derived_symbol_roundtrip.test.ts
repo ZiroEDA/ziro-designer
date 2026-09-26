@@ -30,8 +30,8 @@ import {
   defaultChangeSymbolsOptions,
 } from '@ziroeda/eeschema/src/tools/change_symbols.js';
 import { History } from '@ziroeda/eeschema/src/tools/command.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/src/reporter.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
+import { Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/reporter.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 
 /**

@@ -35,14 +35,14 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
-import { Toolbar } from '@ziroeda/common/src/tool/action_toolbar.js';
+import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
 import { SYM_LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/symbol/symbolToolbars.js';
 import { DS_LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
 import { PCB_LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
 import { FP_LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/footprint/footprintToolbars.js';
 import { GBR_LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/gerbview/gerberToolbars.js';
-import type { ToolEntry } from '@ziroeda/common/src/tool/action_toolbar_types.js';
+import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 
 // `qa` has no testing-library setup file, so the auto-cleanup that ships with
 // one is not running: without this every render stays in the document.

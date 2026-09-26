@@ -11,12 +11,12 @@
  * In "Report" mode (aReporter != nullptr) all properties are checked and reported on.
  * In "DRC" mode (aReporter == nulltpr) properties are only checked until a difference is found.
  */
-import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { LayerName, PCB_LAYER_ID, UNDEFINED_LAYER } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import type { Reporter } from '@ziroeda/common/src/reporter.js';
-import { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { LayerName, PCB_LAYER_ID, UNDEFINED_LAYER } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import type { Reporter } from '@ziroeda/common/reporter.js';
+import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';

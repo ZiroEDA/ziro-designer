@@ -18,7 +18,7 @@
  * table cells and text boxes — so one call covers all of them.
  */
 import { describe, expect, it } from 'vitest';
-import { expandTextVars } from '@ziroeda/common/src/text_vars.js';
+import { expandTextVars } from '@ziroeda/common/text_vars.js';
 import { parse } from '@ziroeda/sexpr';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { buildScene } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
@@ -76,7 +76,7 @@ function glyphOps(filter = {}): number {
 describe('the expander is shared, not per editor', () => {
   it('lives in common, where ExpandTextVars does', async () => {
     // A copy in pcbnew would have been the easy move and the wrong one.
-    const mod = await import('@ziroeda/common/src/text_vars.js');
+    const mod = await import('@ziroeda/common/text_vars.js');
     expect(typeof mod.expandTextVars).toBe('function');
   });
 

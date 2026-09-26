@@ -25,7 +25,7 @@
  * modifier, or a key that belongs to the browser — the entry says so.
  */
 
-import { browserSafeKey } from '@ziroeda/common/src/browser_reserved.js';
+import { browserSafeKey } from '@ziroeda/common/browser_reserved.js';
 
 /** A section of the Hotkey List, matching how upstream groups the editor's actions. */
 export type HotkeySection =

@@ -16,7 +16,7 @@
  * a +90° rotation maps (x, y) to (y, −x), not read back out of the code.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { head, isList } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { writtenNode, writtenNodes } from './support/written_node.js';

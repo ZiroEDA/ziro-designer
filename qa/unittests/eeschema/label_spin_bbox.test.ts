@@ -32,7 +32,7 @@ import { parse } from '@ziroeda/sexpr';
 import { readSchematic, refId } from '@ziroeda/eeschema';
 import { labelBox } from '@ziroeda/eeschema/src/tools/bbox.js';
 import { hitTest } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const LIB = new Map<string, LibSymbol>();

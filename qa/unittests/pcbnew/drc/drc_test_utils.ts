@@ -6,11 +6,11 @@
  * pinned reference tree. A suite skips itself when the tree is not on disk.
  */
 import { existsSync, readFileSync } from 'node:fs';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { PgmOrNull, SETTINGS_MANAGER } from '@ziroeda/common/src/pgm_base.js';
-import { ENUM_MAP } from '@ziroeda/common/src/properties/property.js';
-import type { JsonValue } from '@ziroeda/common/src/settings/json_settings.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { PgmOrNull, SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
+import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
+import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
 import '@ziroeda/pcbnew/drc/drc_test_providers.js';

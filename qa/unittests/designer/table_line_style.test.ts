@@ -37,7 +37,7 @@ import {
   setVectorText,
 } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
 import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { makeTable } from '@ziroeda/eeschema/src/tools/build-graphics.js';
 import type { Schematic, SchTable, Stroke } from '@ziroeda/eeschema/src/types.js';
 

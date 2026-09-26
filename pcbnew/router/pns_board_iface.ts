@@ -43,7 +43,7 @@
  */
 import { buildConvexHull } from '@ziroeda/kimath/src/geometry/convex_hull.js';
 import { Distance } from '@ziroeda/kimath/src/math/vector2.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import type { BOARD_STACKUP } from '../board_stackup_manager/board_stackup.js';
 import type { BOARD_DESIGN_SETTINGS } from '../board_design_settings.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';

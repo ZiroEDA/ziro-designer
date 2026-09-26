@@ -22,7 +22,7 @@ import {
   schematicGridOptions,
   setVectorText,
 } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
-import { drawGrid, viewFromOffsets } from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
+import { drawGrid, viewFromOffsets } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';

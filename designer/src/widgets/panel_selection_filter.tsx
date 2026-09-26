@@ -14,7 +14,7 @@
  * none of it.
  */
 import type { JSX } from 'react';
-import { ContextMenu } from '@ziroeda/common/src/tool/action_menu_bar.js';
+import { ContextMenu } from '@ziroeda/common/tool/action_menu_bar.js';
 
 /** One category checkbox. */
 export interface SelectionFilterItem {

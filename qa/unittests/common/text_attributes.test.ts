@@ -3,14 +3,14 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** `qa/tests/common/test_text_attributes.cpp`, transcribed (minus the `std::hash` checks). */
 import { describe, expect, it } from 'vitest';
-import { FONT } from '@ziroeda/common/src/font/font.js';
-import '@ziroeda/common/src/font/stroke_font.js';
+import { FONT } from '@ziroeda/common/font/font.js';
+import '@ziroeda/common/font/stroke_font.js';
 import {
   GR_TEXT_H_ALIGN_T,
   GR_TEXT_V_ALIGN_T,
   TEXT_ATTRIBUTES,
-} from '@ziroeda/common/src/font/text_attributes.js';
-import { COLOR4D_UNSPECIFIED, LEGACY_COLORS } from '@ziroeda/common/src/color4d.js';
+} from '@ziroeda/common/font/text_attributes.js';
+import { COLOR4D_UNSPECIFIED, LEGACY_COLORS } from '@ziroeda/common/color4d.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 
 describe('TextAttributes', () => {

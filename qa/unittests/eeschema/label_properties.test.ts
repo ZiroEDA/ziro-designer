@@ -25,7 +25,7 @@ import {
 } from '@ziroeda/eeschema/src/tools/label_properties.js';
 import { computeNetlist } from '@ziroeda/eeschema/src/connectivity/nets.js';
 import { makeLabel as buildLabel } from '@ziroeda/eeschema/src/tools/build.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const SHEET = `(kicad_sch (version 20250114) (generator "eeschema")

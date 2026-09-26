@@ -17,7 +17,7 @@ import {
   busForUnfolding,
   nearestPointOnSegment,
 } from '@ziroeda/eeschema/src/tools/unfold_bus.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const mm = (v: number): number => mmToIU(v);
 

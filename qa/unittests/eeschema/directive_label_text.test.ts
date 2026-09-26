@@ -17,7 +17,7 @@ import { makeDirectiveLabel } from '@ziroeda/eeschema/src/tools/build.js';
 import { replaceDirectiveLabel } from '@ziroeda/eeschema/src/tools/mutate.js';
 import { getMsgPanelItems } from '@ziroeda/eeschema/src/tools/msg_panel.js';
 import { itemRefById, refId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const LIB = new Map<string, LibSymbol>();

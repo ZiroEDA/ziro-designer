@@ -4,7 +4,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { FORMAT_MODE, Prettify } from '@ziroeda/common/src/io/kicad/kicad_io_utils.js';
+import { FORMAT_MODE, Prettify } from '@ziroeda/common/io/kicad/kicad_io_utils.js';
 const dir = join(homedir(), 'kicad-oracle/resave');
 let ok = 0;
 for (const f of readdirSync(dir).filter((f) => f.endsWith('.kicad_pcb'))) {

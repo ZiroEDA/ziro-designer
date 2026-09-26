@@ -24,7 +24,7 @@
  * implementation returns, would make this file unable to fail.
  */
 import { describe, expect, it } from 'vitest';
-import { formatDouble2Str } from '@ziroeda/common/src/plotters/fmt.js';
+import { formatDouble2Str } from '@ziroeda/common/plotters/fmt.js';
 
 describe('the %.10g branch', () => {
   it('keeps ten significant digits, not ten decimal places', () => {
@@ -94,7 +94,7 @@ describe('the |v| <= 0.0001 branch', () => {
 describe('the drawing sheet writes through it', () => {
   it('no longer rounds a small value to a flat zero', async () => {
     const { serializeDrawingSheet, defaultDrawingSheet } = await import(
-      '@ziroeda/common/src/drawing_sheet/index.js'
+      '@ziroeda/common/drawing_sheet/index.js'
     );
     const sheet = defaultDrawingSheet();
     // A pen width below 1e-7: toFixed(6) wrote `0`, which reads back as "use

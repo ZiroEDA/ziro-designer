@@ -25,8 +25,8 @@
  * a single FR4 brown, so the Color column changed nothing in 3D.
  */
 
-import type { Color4d } from '@ziroeda/common/src/color4d.js';
-import { parseColor4d, COLOR4D_UNSPECIFIED } from '@ziroeda/common/src/color4d.js';
+import type { Color4d } from '@ziroeda/common/color4d.js';
+import { parseColor4d, COLOR4D_UNSPECIFIED } from '@ziroeda/common/color4d.js';
 import type { PhysicalStackup, BoardFinish } from './board_settings.js';
 
 /** `ADD_COLOR( list, r, g, b, a, name )` — 0-255 channels, 0-1 alpha. */

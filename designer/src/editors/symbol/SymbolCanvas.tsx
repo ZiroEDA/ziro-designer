@@ -32,11 +32,11 @@ import {
   makeZoomController,
   wheelAction,
 } from '../../ui/view_controls.js';
-import { drawCrosshair } from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
+import { drawCrosshair } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import { symbolToolCursor } from './cursors.js';
-import { clampViewScale } from '@ziroeda/common/src/settings/zoom_settings.js';
+import { clampViewScale } from '@ziroeda/common/settings/zoom_settings.js';
 import { SCH_IU_PER_MM } from '@ziroeda/common';
-import { zoomAreaTarget, type ZoomArea } from '@ziroeda/common/src/tool/zoom_tool.js';
+import { zoomAreaTarget, type ZoomArea } from '@ziroeda/common/tool/zoom_tool.js';
 import { SYM_SHAPE_TOOLS } from './symbolToolbars.js';
 import { settings } from '../../prefs/settings.js';
 import { useSymbolEditorSettings } from '../../prefs/useSettings.js';

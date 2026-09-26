@@ -23,7 +23,7 @@
  * deleted the directory from it passed.
  */
 
-import { ensureFileExtension } from '@ziroeda/common/src/common.js';
+import { ensureFileExtension } from '@ziroeda/common/common.js';
 
 /** `wxFileName::GetFullName()` — the name with its extension, no directory. */
 export const leafOf = (path: string): string => path.split('/').filter(Boolean).pop() ?? '';

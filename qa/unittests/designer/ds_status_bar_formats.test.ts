@@ -15,7 +15,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { formatG, gridMsg } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
+import { formatG, gridMsg } from '@ziroeda/common/widgets/kistatusbar_format.js';
 
 describe('formatG — C’s %g', () => {
   it('switches to exponent form once the exponent reaches the precision', () => {

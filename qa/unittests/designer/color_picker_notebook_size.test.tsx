@@ -29,8 +29,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { cleanup, fireEvent, render } from '@testing-library/react';
-import { DialogColorPicker } from '@ziroeda/common/src/dialogs/dialog_color_picker.js';
-import { saveColorPickerTab } from '@ziroeda/common/src/dialogs/dialog_color_picker_tab.js';
+import { DialogColorPicker } from '@ziroeda/common/dialogs/dialog_color_picker.js';
+import { saveColorPickerTab } from '@ziroeda/common/dialogs/dialog_color_picker_tab.js';
 // The app's settings store installs itself as the tab store on import.
 import '@ziroeda/designer/src/prefs/settings.js';
 
@@ -38,7 +38,7 @@ afterEach(cleanup);
 
 // happy-dom rewrites `import.meta.url` to an http: URL, so the path is taken
 // off the cwd the way the other DOM tests here take it.
-const CSS = readFileSync(resolve(process.cwd(), '../common/src/widgets/shell.css'), 'utf8');
+const CSS = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
 
 /** Every rule body, by selector, comments stripped. */
 function rules(): { sel: string; body: string }[] {

@@ -10,15 +10,11 @@
  * Some calculations (mainly computeCurvedForRoundShape) are derived from
  * https://github.com/NilujePerchut/kicad_scripts/tree/master/teardrops
  */
-import type { COMMIT } from '@ziroeda/common/src/commit.js';
-import {
-  type EDA_ITEM_FLAGS,
-  STARTPOINT,
-  STRUCT_DELETED,
-} from '@ziroeda/common/src/eda_item_flags.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { kiidCombine, kiidIncrement } from '@ziroeda/common/src/kiid.js';
-import { IsExternalCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import type { COMMIT } from '@ziroeda/common/commit.js';
+import { type EDA_ITEM_FLAGS, STARTPOINT, STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { kiidCombine, kiidIncrement } from '@ziroeda/common/kiid.js';
+import { IsExternalCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
 import {

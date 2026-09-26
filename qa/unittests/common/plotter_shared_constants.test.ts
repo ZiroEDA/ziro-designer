@@ -10,16 +10,13 @@
 
 import { describe, it, expect } from 'vitest';
 
-import {
-  DO_NOT_SET_LINE_WIDTH,
-  USE_DEFAULT_LINE_WIDTH,
-} from '@ziroeda/common/src/plotters/plotter.js';
+import { DO_NOT_SET_LINE_WIDTH, USE_DEFAULT_LINE_WIDTH } from '@ziroeda/common/plotters/plotter.js';
 import {
   DEFAULT_DASH_LENGTH_RATIO,
   DEFAULT_GAP_LENGTH_RATIO,
   plotterRenderSettings,
-} from '@ziroeda/common/src/render_settings.js';
-import { fixed } from '@ziroeda/common/src/plotters/fmt.js';
+} from '@ziroeda/common/render_settings.js';
+import { fixed } from '@ziroeda/common/plotters/fmt.js';
 
 import * as ps from '@ziroeda/pcbnew/plot_ps.js';
 import * as svg from '@ziroeda/pcbnew/plot_svg.js';

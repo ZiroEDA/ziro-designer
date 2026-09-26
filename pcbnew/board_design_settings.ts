@@ -11,16 +11,16 @@
  * value the board file parser set.
  */
 
-import { ADVANCED_CFG } from '@ziroeda/common/src/advanced_config.js';
-import { PCB_IU_PER_MM, pcbIUScale } from '@ziroeda/common/src/eda_units.js';
+import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
+import { PCB_IU_PER_MM, pcbIUScale } from '@ziroeda/common/eda_units.js';
 import {
   DIM_PRECISION,
   DIM_TEXT_POSITION,
   DIM_UNITS_FORMAT,
   DIM_UNITS_MODE,
 } from './pcb_dimension_types.js';
-import { IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
+import { IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import { VIATYPE } from './pcb_track_types.js';
 import {
   RPT_SEVERITY_ERROR,
@@ -29,11 +29,11 @@ import {
   type Severity,
   SeverityFromString,
   SeverityToString,
-} from '@ziroeda/common/src/reporter.js';
+} from '@ziroeda/common/reporter.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc/drc_item.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { ARC_HIGH_DEF } from '@ziroeda/kimath/src/base_units.js';
-import { NET_SETTINGS } from '@ziroeda/common/src/project/net_settings.js';
+import { NET_SETTINGS } from '@ziroeda/common/project/net_settings.js';
 import {
   type JSON_SETTINGS,
   type JsonObject,
@@ -44,8 +44,8 @@ import {
   PARAM_LAMBDA,
   PARAM_SCALED,
   ref,
-} from '@ziroeda/common/src/settings/json_settings.js';
-import { TEXT_MAX_SIZE_MM, TEXT_MIN_SIZE_MM } from '@ziroeda/common/src/eda_text.js';
+} from '@ziroeda/common/settings/json_settings.js';
+import { TEXT_MAX_SIZE_MM, TEXT_MIN_SIZE_MM } from '@ziroeda/common/eda_text.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import {
   ZONE_BORDER_HATCH_DIST_MM,

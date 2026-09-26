@@ -9,7 +9,7 @@
  */
 
 import { useState, type JSX } from 'react';
-import { Icon } from '@ziroeda/common/src/widgets/icons.js';
+import { Icon } from '@ziroeda/common/widgets/icons.js';
 import type { TextVar } from '../../editors/schematic/schematic_settings.js';
 
 // The data model lives in schematic_settings.ts (KiCad's data/UI split);

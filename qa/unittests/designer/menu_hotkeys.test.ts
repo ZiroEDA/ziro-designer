@@ -19,8 +19,8 @@ import {
   matchesAccelerator,
   parseAccelerator,
   type HotkeyEvent,
-} from '@ziroeda/common/src/tool/action_menu_hotkeys.js';
-import type { Menu } from '@ziroeda/common/src/tool/action_menu_types.js';
+} from '@ziroeda/common/tool/action_menu_hotkeys.js';
+import type { Menu } from '@ziroeda/common/tool/action_menu_types.js';
 
 /** A keyboard event with nothing held down, overridden per case. */
 const ev = (key: string, mods: Partial<HotkeyEvent> = {}): HotkeyEvent => ({

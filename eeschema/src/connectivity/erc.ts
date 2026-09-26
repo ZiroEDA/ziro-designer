@@ -39,7 +39,7 @@ import {
   expandStackedPinNotation,
   strNumCmp,
   unescapeString,
-} from '@ziroeda/common/src/string_utils.js';
+} from '@ziroeda/common/string_utils.js';
 import { compareLibSymbolsForErc } from '../lib_symbol_compare.js';
 import { flattenLibSymbol } from '../lib_symbol.js';
 import { checkSimModel } from '../sim/sim_model.js';

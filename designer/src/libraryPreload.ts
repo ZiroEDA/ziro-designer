@@ -60,7 +60,7 @@
 import {
   backgroundJobsMonitor,
   type BackgroundJob,
-} from '@ziroeda/common/src/background_jobs_monitor.js';
+} from '@ziroeda/common/background_jobs_monitor.js';
 import { ensureBundle } from './libraryBundleStore.js';
 
 /** Which hosted library set a preload covers. */

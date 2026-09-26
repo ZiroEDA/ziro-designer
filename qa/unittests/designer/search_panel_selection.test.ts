@@ -31,7 +31,7 @@ const read = (rel: string): string =>
 
 const PANEL = read('../../../designer/src/editors/schematic/components/SearchPanel.tsx');
 const EDITOR = read('../../../designer/src/editors/schematic/SchematicEditor.tsx');
-const CSS = read('../../../common/src/widgets/shell.css');
+const CSS = read('../../../common/widgets/shell.css');
 
 /** The `<SearchPanel … />` element as the editor writes it. */
 const usage = (): string => {

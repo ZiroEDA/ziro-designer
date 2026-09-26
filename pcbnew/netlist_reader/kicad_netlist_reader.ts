@@ -23,7 +23,7 @@
  * carries neither design variants nor net-chain assignments yet.
  */
 
-import { kiidFromName } from '@ziroeda/common/src/kiid.js';
+import { kiidFromName } from '@ziroeda/common/kiid.js';
 import { parse } from '@ziroeda/sexpr/src/parser.js';
 import { head, isList, type SList } from '@ziroeda/sexpr/src/types.js';
 import { arg, args, childNamed, childrenNamed } from '@ziroeda/sexpr/src/query.js';

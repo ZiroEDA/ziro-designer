@@ -33,7 +33,7 @@ const PANEL = readFileSync(
   resolve(process.cwd(), '../designer/src/dialogs/prefs/panels/PanelSpacemouse.tsx'),
   'utf8',
 );
-const CSS = readFileSync(resolve(process.cwd(), '../common/src/widgets/shell.css'), 'utf8');
+const CSS = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
 const INDEX = readFileSync(
   resolve(process.cwd(), '../designer/src/dialogs/prefs/panels/index.ts'),
   'utf8',

@@ -20,7 +20,7 @@
  */
 
 import type { JSX } from 'react';
-import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import type { ZoneDefaults } from '../../board_settings.js';
 
 // The data model lives in board_settings.ts (KiCad's data/UI split);

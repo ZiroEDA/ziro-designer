@@ -40,8 +40,8 @@
  * single sheet path and `$A_PROPERTIES` has one `ROOM` group.
  */
 
-import { strNumCmp } from '@ziroeda/common/src/string_utils.js';
-import { GENERATOR_APPLICATION } from '@ziroeda/common/src/generator.js';
+import { strNumCmp } from '@ziroeda/common/string_utils.js';
+import { GENERATOR_APPLICATION } from '@ziroeda/common/generator.js';
 import type { LibPin, LibSymbol, Schematic, SchSymbol } from '../types.js';
 import { boardSymbols, netPinsByName, symbolField, type NetlistMeta } from './netlist.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';

@@ -5,32 +5,28 @@
 // the events its transitions name, which action a hotkey runs, and what a
 // commit stages for an add, a remove and a modify.
 import { describe, expect, it } from 'vitest';
-import { CHANGE_TYPE, COMMIT } from '@ziroeda/common/src/commit.js';
-import { EDA_ITEM, type INSPECTOR, INSPECT_RESULT } from '@ziroeda/common/src/eda_item.js';
-import { ACTIONS } from '@ziroeda/common/src/tool/actions.js';
-import { ACTION_MANAGER } from '@ziroeda/common/src/tool/action_manager.js';
+import { CHANGE_TYPE, COMMIT } from '@ziroeda/common/commit.js';
+import { EDA_ITEM, type INSPECTOR, INSPECT_RESULT } from '@ziroeda/common/eda_item.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { ACTION_MANAGER } from '@ziroeda/common/tool/action_manager.js';
 import {
   TOOL_ACTION,
   TOOL_ACTION_ARGS,
   TOOL_ACTION_FLAGS,
   TOOL_ACTION_SCOPE,
-} from '@ziroeda/common/src/tool/tool_action.js';
-import { RESET_REASON } from '@ziroeda/common/src/tool/tool_base.js';
+} from '@ziroeda/common/tool/tool_action.js';
+import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
 import {
   MD_CTRL,
   TOOL_ACTIONS,
   TOOL_EVENT,
   TOOL_EVENT_CATEGORY,
   TOOL_MOUSE_BUTTONS,
-} from '@ziroeda/common/src/tool/tool_event.js';
-import { TOOL_INTERACTIVE } from '@ziroeda/common/src/tool/tool_interactive.js';
-import { TOOL_MANAGER } from '@ziroeda/common/src/tool/tool_manager.js';
-import { TOOLS_HOLDER } from '@ziroeda/common/src/tool/tools_holder.js';
-import {
-  ITEM_PICKER,
-  PICKED_ITEMS_LIST,
-  UNDO_REDO,
-} from '@ziroeda/common/src/undo_redo_container.js';
+} from '@ziroeda/common/tool/tool_event.js';
+import { TOOL_INTERACTIVE } from '@ziroeda/common/tool/tool_interactive.js';
+import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
+import { TOOLS_HOLDER } from '@ziroeda/common/tool/tools_holder.js';
+import { ITEM_PICKER, PICKED_ITEMS_LIST, UNDO_REDO } from '@ziroeda/common/undo_redo_container.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { WXK } from '@ziroeda/core/src/wx_keycodes.js';
 import type { KICAD_T as KT } from '@ziroeda/core/src/typeinfo.js';

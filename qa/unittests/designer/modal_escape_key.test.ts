@@ -36,7 +36,7 @@ beforeAll(() => {
 });
 
 const { cancelTopModal, pushModalCancel, resetModalStack } = await import(
-  '@ziroeda/common/src/dialogs/modal_escape.js'
+  '@ziroeda/common/dialogs/modal_escape.js'
 );
 
 afterEach(() => resetModalStack());

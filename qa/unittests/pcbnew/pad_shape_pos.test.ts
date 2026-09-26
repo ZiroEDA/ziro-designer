@@ -26,7 +26,7 @@ import { describe, it, expect } from 'vitest';
 import { padShapePos } from '@ziroeda/pcbnew/padstack.js';
 import { padShapes } from '@ziroeda/pcbnew/drc/drc_engine_view.js';
 import { padHoleSegment } from '@ziroeda/pcbnew/footprint_checker.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { PcbPad } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);

@@ -6,7 +6,7 @@
  *
  * `PCB_TEXT::GetBoundingBox` and `PCB_TEXT::TextHitTest` (`pcbnew/pcb_text.cpp`)
  * are thin wrappers over `EDA_TEXT::GetTextBox` / `EDA_TEXT::TextHitTest`, which
- * live in `common/src/font/text_box.ts` because upstream's live in `common/`.
+ * live in `common/font/text_box.ts` because upstream's live in `common/`.
  * This file is only the adapter: it maps a `PcbTextItem` onto `TextBoxAttrs`,
  * applies `PCB_TEXT::GetDrawRotation`, and rotates the box (or un-rotates the
  * point) the way the two `pcb_text.cpp` methods do.
@@ -25,11 +25,11 @@ import {
   type TextBoxAttrs,
   type TextHJustify,
   type TextVJustify,
-} from '@ziroeda/common/src/font/text_box.js';
+} from '@ziroeda/common/font/text_box.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { PcbTextItem } from './types.js';
 
-export type { TextBox2 } from '@ziroeda/common/src/font/text_box.js';
+export type { TextBox2 } from '@ziroeda/common/font/text_box.js';
 
 const hJustifyOf = (justify?: string[]): TextHJustify =>
   justify?.includes('left') ? 'left' : justify?.includes('right') ? 'right' : 'center';

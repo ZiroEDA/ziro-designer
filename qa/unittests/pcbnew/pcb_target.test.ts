@@ -7,7 +7,7 @@
  * from our port.
  */
 import { describe, expect, it } from 'vitest';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';

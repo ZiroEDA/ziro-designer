@@ -17,13 +17,13 @@
  * are `int += double` truncations.
  */
 
-import { effectiveTextPenWidth } from '@ziroeda/common/src/font/text_box.js';
-import { ITALIC_TILT } from '@ziroeda/common/src/font/font_metrics.js';
+import { effectiveTextPenWidth } from '@ziroeda/common/font/text_box.js';
+import { ITALIC_TILT } from '@ziroeda/common/font/font_metrics.js';
 import {
   splitTextLines,
   strokeGlyphs,
   type StrokeGlyph,
-} from '@ziroeda/common/src/font/stroke_font.js';
+} from '@ziroeda/common/font/stroke_font.js';
 import {
   ErrorLoc,
   transformOvalToPolygon,

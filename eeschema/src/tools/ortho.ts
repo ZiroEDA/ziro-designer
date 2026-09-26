@@ -35,7 +35,7 @@ import type {
 } from '../types.js';
 import { refId } from './hittest.js';
 import { makeBus, makeWire, makeWireWithUuid, makeJunctionWithUuid } from './build.js';
-import { newKiid } from '@ziroeda/common/src/kiid.js';
+import { newKiid } from '@ziroeda/common/kiid.js';
 import { symbolPinPositions } from './connect.js';
 import { moveSymbolOrFields, moveRigidItems } from './move.js';
 import type { MoveSpec } from './connect.js';

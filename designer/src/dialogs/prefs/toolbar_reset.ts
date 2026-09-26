@@ -37,7 +37,7 @@
  * whole-tree diff. The panel is built the same way round: see the note on
  * `items` in `PanelToolbarCustomization.tsx`.
  */
-import type { ToolbarSettings } from '@ziroeda/common/src/tool/ui/toolbar_configuration.js';
+import type { ToolbarSettings } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 
 export function resetToolbarsPanel(store: ToolbarSettings): void {
   store.toolbars = [];

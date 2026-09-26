@@ -6,7 +6,7 @@
  * `eeschema/lib_symbol.cpp` (LIB_SYMBOL).
  */
 
-import { type Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/src/reporter.js';
+import { type Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/reporter.js';
 import { isList, head, str, atom, type SList } from '@ziroeda/sexpr/src/types.js';
 import type { LibSymbol, LibSymbolUnit, SchField } from './types.js';
 import { writeLibSymbolNode } from './sch_io/sexpr/write-symbol-lib.js';

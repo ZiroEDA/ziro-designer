@@ -26,7 +26,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it, afterEach } from 'vitest';
 import { act, cleanup, render } from '@testing-library/react';
 import { useRef, type JSX } from 'react';
-import { useStatusReadout } from '@ziroeda/common/src/use_status_readout.js';
+import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
 
 afterEach(cleanup);
 

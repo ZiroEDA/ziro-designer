@@ -31,7 +31,7 @@ import {
   TOOLBAR_LOC_NAMES,
   type ToolbarDefaults,
   type ToolbarSettings,
-} from '@ziroeda/common/src/tool/ui/toolbar_configuration.js';
+} from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import {
   DS_DEFAULT_TOOLBARS,
   DS_LEFT_TOOLBAR,
@@ -40,7 +40,7 @@ import {
 } from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
 import { SCH_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
 import { PCB_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
-import type { ToolEntry } from '@ziroeda/common/src/tool/action_toolbar_types.js';
+import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 import {
   EESCHEMA_DEFAULTS,
   PCBNEW_DEFAULTS,

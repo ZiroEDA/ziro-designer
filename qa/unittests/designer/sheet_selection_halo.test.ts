@@ -33,7 +33,7 @@ import {
   setVectorText,
 } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
 import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 
 /** One recorded stroke: its colour and the box it covered, in canvas space. */

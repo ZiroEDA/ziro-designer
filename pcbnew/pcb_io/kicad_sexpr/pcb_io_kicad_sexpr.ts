@@ -9,25 +9,25 @@
  * here; `FormatBoardToFormatter` and `Format( aItem )` are the writer.
  */
 
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
-import { FILL_T, SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
-import { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
-import { CTL_OMIT_COLOR, CTL_OMIT_HYPERLINK } from '@ziroeda/common/src/ctl_flags.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
+import { FILL_T, SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
+import { CTL_OMIT_COLOR, CTL_OMIT_HYPERLINK } from '@ziroeda/common/ctl_flags.js';
 import {
   type FileDataType,
   FormatAngle,
   FormatInternalUnits,
   pcbIUScale,
-} from '@ziroeda/common/src/eda_units.js';
-import { CALLBACK_GAL } from '@ziroeda/common/src/callback_gal.js';
-import { GENERATOR } from '@ziroeda/common/src/generator.js';
+} from '@ziroeda/common/eda_units.js';
+import { CALLBACK_GAL } from '@ziroeda/common/callback_gal.js';
+import { GENERATOR } from '@ziroeda/common/generator.js';
 import {
   FormatBool,
   FormatOptBool,
   FormatStreamData,
   FormatUuid,
-} from '@ziroeda/common/src/io/kicad/kicad_io_utils.js';
-import { kiidPathAsString } from '@ziroeda/common/src/kiid.js';
+} from '@ziroeda/common/io/kicad/kicad_io_utils.js';
+import { kiidPathAsString } from '@ziroeda/common/kiid.js';
 import {
   B_Adhes,
   B_CrtYd,
@@ -48,11 +48,11 @@ import {
   MAX_CU_LAYERS,
   PCB_LAYER_ID,
   User_1,
-} from '@ziroeda/common/src/layer_ids.js';
-import { LAYER_RANGE } from '@ziroeda/common/src/layer_range.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { type OUTPUTFORMATTER, PRETTIFIED_STRING_FORMATTER } from '@ziroeda/common/src/richio.js';
-import { FormatDouble2Str, formatF, formatG } from '@ziroeda/common/src/string_utils.js';
+} from '@ziroeda/common/layer_ids.js';
+import { LAYER_RANGE } from '@ziroeda/common/layer_range.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { type OUTPUTFORMATTER, PRETTIFIED_STRING_FORMATTER } from '@ziroeda/common/richio.js';
+import { FormatDouble2Str, formatF, formatG } from '@ziroeda/common/string_utils.js';
 import {
   RECT_CHAMFER_BOTTOM_LEFT,
   RECT_CHAMFER_BOTTOM_RIGHT,

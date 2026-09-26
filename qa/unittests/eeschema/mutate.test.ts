@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse, serialize } from '@ziroeda/sexpr/src/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { History } from '@ziroeda/eeschema/src/tools/command.js';
 import { addItems, deleteByIds, needsJunction } from '@ziroeda/eeschema/src/tools/mutate.js';
 import { makeWire } from '@ziroeda/eeschema/src/tools/build.js';

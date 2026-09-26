@@ -14,28 +14,24 @@
  * up by their tool names, absent until registered — the C++ guards the
  * selection tool the same way in Push. PCBNEW_SETTINGS comes from the frame.
  */
-import { CHANGE_TYPE, COMMIT, type COMMIT_LINE } from '@ziroeda/common/src/commit.js';
-import type { EDA_ITEM } from '@ziroeda/common/src/eda_item.js';
-import { RECURSE_MODE } from '@ziroeda/common/src/eda_item.js';
-import { STRUCT_DELETED, UR_TRANSIENT } from '@ziroeda/common/src/eda_item_flags.js';
-import { FRAME_T } from '@ziroeda/common/src/frame_type.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
+import { CHANGE_TYPE, COMMIT, type COMMIT_LINE } from '@ziroeda/common/commit.js';
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
+import { STRUCT_DELETED, UR_TRANSIENT } from '@ziroeda/common/eda_item_flags.js';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import {
   EVENTS,
   TOOL_ACTIONS,
   TOOL_EVENT,
   TOOL_EVENT_CATEGORY,
-} from '@ziroeda/common/src/tool/tool_event.js';
-import { TOOL_ACTION_SCOPE } from '@ziroeda/common/src/tool/tool_action.js';
-import type { TOOL_BASE } from '@ziroeda/common/src/tool/tool_base.js';
-import type { TOOL_MANAGER } from '@ziroeda/common/src/tool/tool_manager.js';
-import {
-  ITEM_PICKER,
-  PICKED_ITEMS_LIST,
-  UNDO_REDO,
-} from '@ziroeda/common/src/undo_redo_container.js';
-import type { BASE_SCREEN_LIKE } from '@ziroeda/common/src/undo_redo_container.js';
+} from '@ziroeda/common/tool/tool_event.js';
+import { TOOL_ACTION_SCOPE } from '@ziroeda/common/tool/tool_action.js';
+import type { TOOL_BASE } from '@ziroeda/common/tool/tool_base.js';
+import type { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
+import { ITEM_PICKER, PICKED_ITEMS_LIST, UNDO_REDO } from '@ziroeda/common/undo_redo_container.js';
+import type { BASE_SCREEN_LIKE } from '@ziroeda/common/undo_redo_container.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { BOARD } from './board.js';

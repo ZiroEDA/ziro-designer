@@ -14,7 +14,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { U, writtenItems } from './support/written_node.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import {
   applyImageValues,

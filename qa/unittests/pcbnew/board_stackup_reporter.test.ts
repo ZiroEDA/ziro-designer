@@ -6,7 +6,7 @@
  * the Physical Stackup page's "Export to Clipboard" text.
  */
 import { describe, expect, it } from 'vitest';
-import { IsValidLayer } from '@ziroeda/common/src/layer_ids.js';
+import { IsValidLayer } from '@ziroeda/common/layer_ids.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 import { BS_EDGE_CONNECTOR_BEVELLED } from '@ziroeda/pcbnew/board_stackup_manager/board_stackup.js';
 import { BuildStackupReport } from '@ziroeda/pcbnew/board_stackup_manager/board_stackup_reporter.js';

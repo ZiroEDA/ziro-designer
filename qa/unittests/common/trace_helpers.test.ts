@@ -26,7 +26,7 @@ afterEach(() => {
 });
 
 async function load() {
-  return import('@ziroeda/common/src/trace_helpers.js');
+  return import('@ziroeda/common/trace_helpers.js');
 }
 
 describe('TRACE_MANAGER', () => {

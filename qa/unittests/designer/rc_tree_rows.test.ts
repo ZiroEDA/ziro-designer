@@ -15,8 +15,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { RC_TREE_ATTR } from '@ziroeda/common/src/rc_item.js';
-import { rcTreeRowStyle } from '@ziroeda/common/src/widgets/rc_tree_style.js';
+import type { RC_TREE_ATTR } from '@ziroeda/common/rc_item.js';
+import { rcTreeRowStyle } from '@ziroeda/common/widgets/rc_tree_style.js';
 
 const WHITE = { r: 1, g: 1, b: 1, a: 1 };
 
@@ -30,7 +30,7 @@ const WHITE = { r: 1, g: 1, b: 1, a: 1 };
  */
 function ruleBlock(aSelector: string): string {
   const css = readFileSync(
-    resolve(import.meta.dirname, '../../../common/src/widgets/shell.css'),
+    resolve(import.meta.dirname, '../../../common/widgets/shell.css'),
     'utf8',
   );
   const blocks: string[] = [];

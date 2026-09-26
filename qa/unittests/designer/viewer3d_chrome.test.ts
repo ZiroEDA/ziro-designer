@@ -22,15 +22,15 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readdirSync } from 'node:fs';
-import { BITMAP } from '@ziroeda/common/src/bitmap_store_actions.js';
+import { BITMAP } from '@ziroeda/common/bitmap_store_actions.js';
 import { VIEWER3D_TOP_TOOLBAR } from '@ziroeda/designer/src/editors/pcb/viewer3dToolbars.js';
 import {
   buildViewer3DMenus,
   type Viewer3DMenuActions,
   type Viewer3DMenuState,
 } from '@ziroeda/designer/src/editors/pcb/viewer3dMenus.js';
-import type { ToolButton, ToolEntry } from '@ziroeda/common/src/tool/action_toolbar_types.js';
-import type { MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
+import type { ToolButton, ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
+import type { MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 
 const buttons = (entries: readonly ToolEntry[]): ToolButton[] =>
   entries.flatMap((e) =>

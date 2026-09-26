@@ -19,7 +19,7 @@ import {
   TEXT_MIN_SIZE_MM,
   checkFpGraphicsRow,
 } from '@ziroeda/designer/src/editors/footprint/graphics_defaults.js';
-import { stringFromValue } from '@ziroeda/common/src/widgets/unit_binder.js';
+import { stringFromValue } from '@ziroeda/common/widgets/unit_binder.js';
 import { pcbIUScale } from '@ziroeda/common';
 
 /** `m_unitProvider->StringFromValue( v, true )` for a millimetre frame. */

@@ -35,7 +35,7 @@ import { withCleanup } from '@ziroeda/eeschema/src/tools/cleanup.js';
 import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { EditCommand } from '@ziroeda/eeschema/src/tools/command.js';
 import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/src/types.js';
 

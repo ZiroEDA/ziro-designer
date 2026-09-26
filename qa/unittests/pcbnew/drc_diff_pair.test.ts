@@ -20,7 +20,7 @@
  *    there is a test for it precisely so nobody "fixes" it.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   commonParallelProjection,
   coupledSpans,

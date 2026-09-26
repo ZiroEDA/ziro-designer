@@ -22,27 +22,27 @@
  *    pad.cpp; zone fills sit directly under their layer's tracks.
  */
 
-import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
-import { pageSizeMM } from '@ziroeda/common/src/page_info.js';
+import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
+import { pageSizeMM } from '@ziroeda/common/page_info.js';
 import { boardOutlineLoops } from './boardOutline.js';
-import { galSnapPx } from '@ziroeda/common/src/gal_pixel_grid.js';
+import { galSnapPx } from '@ziroeda/common/gal_pixel_grid.js';
 import {
   brightened,
   brightness,
   darkened,
   parseColor4d,
   toCssColor,
-} from '@ziroeda/common/src/color4d.js';
+} from '@ziroeda/common/color4d.js';
 import {
   drawOriginViewItem,
   ORIGIN_VIEWITEM_SIZE,
-} from '@ziroeda/common/src/preview_items/origin_viewitem.js';
-import { printableCharCount, unescapeString } from '@ziroeda/common/src/string_utils.js';
+} from '@ziroeda/common/preview_items/origin_viewitem.js';
+import { printableCharCount, unescapeString } from '@ziroeda/common/string_utils.js';
 import {
   HI_CONTRAST_FACTOR,
   edgeCutsContrastFactor,
   hiContrastColor,
-} from '@ziroeda/common/src/render_settings.js';
+} from '@ziroeda/common/render_settings.js';
 import { drawDrawingSheetItems, hitTestDrawingSheet } from '@ziroeda/common';
 import {
   defaultDrawingSheet,
@@ -81,7 +81,7 @@ import {
 } from '@ziroeda/pcbnew';
 import { barcodeBBox, barcodeGeometry } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import { textPenWidth } from '@ziroeda/pcbnew/text_metrics.js';
-import { effectiveTextPenWidth, ITALIC_TILT } from '@ziroeda/common/src/font/text_box.js';
+import { effectiveTextPenWidth, ITALIC_TILT } from '@ziroeda/common/font/text_box.js';
 import {
   PCB_PAINT_ORDER,
   PCB_SPECIAL,
@@ -91,14 +91,14 @@ import {
   PCB_PLACE_ORIGIN,
   type PcbColorTheme,
 } from './pcbTheme.js';
-import { layoutText, measureText, textBlockOffset } from '@ziroeda/common/src/font/stroke_font.js';
-import { metricsInterline } from '@ziroeda/common/src/font/font_metrics.js';
-import type { OutlineFont } from '@ziroeda/common/src/font/outline_font.js';
+import { layoutText, measureText, textBlockOffset } from '@ziroeda/common/font/stroke_font.js';
+import { metricsInterline } from '@ziroeda/common/font/font_metrics.js';
+import type { OutlineFont } from '@ziroeda/common/font/outline_font.js';
 import { getOutlineFont } from '../../font/outline_fonts.js';
 import { outlineLayout } from '../../font/draw_outline_text.js';
 import { padShapePos } from '@ziroeda/pcbnew/padstack.js';
 import type { BitmapTextPlacement } from '../../render/gl/bitmap_text.js';
-import { expandTextVars, type TextVarResolver } from '@ziroeda/common/src/text_vars.js';
+import { expandTextVars, type TextVarResolver } from '@ziroeda/common/text_vars.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
@@ -111,12 +111,12 @@ const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
  * Declared with the shared status-bar formatters, which need the same number to
  * report a zoom factor, and re-exported here so board code keeps one import.
  */
-import { GAL_SCREEN_DPI } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
+import { GAL_SCREEN_DPI } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import {
   DEFAULT_GRID_APPEARANCE,
   type GridOptions,
   type GridStyle,
-} from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
+} from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import { isHatchedFill, isSolidFill, shapeHatchLines } from '@ziroeda/pcbnew/shape_fill.js';
 
 export { GAL_SCREEN_DPI };
@@ -2434,7 +2434,7 @@ function asBitmapText(ctx: CanvasRenderingContext2D, fn: () => void): void {
 /**
  * `PAGE_INFO`'s size for this `(paper …)` token, in pcbnew's IU.
  *
- * The table is `common/src/page_info.ts` — one copy, because eeschema's
+ * The table is `common/page_info.ts` — one copy, because eeschema's
  * renderer needs the same one. This file's private copy did not handle
  * `PAGE_SIZE_TYPE::User`, so a board with a custom page size drew neither its
  * sheet nor its page limits; the schematic's copy did, which is how the two
@@ -3581,7 +3581,7 @@ export function drawOriginMarkers(
 function gridOriginColor(gridCss: string, backgroundCss: string): string {
   const grid = parseColor4d(gridCss);
   // `GetClearColor()` is the canvas background; `GetBrightness()` is the
-  // weighted W3C formula, which `common/src/color4d.ts` already ports.
+  // weighted W3C formula, which `common/color4d.ts` already ports.
   const bg = brightness(parseColor4d(backgroundCss));
   return toCssColor(bg > 0.5 ? darkened(grid, 0.25) : brightened(grid, 0.25));
 }

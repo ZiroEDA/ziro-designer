@@ -26,7 +26,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { useState } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { ContextMenu } from '@ziroeda/common/src/tool/action_menu_bar.js';
+import { ContextMenu } from '@ziroeda/common/tool/action_menu_bar.js';
 
 afterEach(cleanup);
 

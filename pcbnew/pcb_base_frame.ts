@@ -9,18 +9,18 @@
  * designer's; the settings objects come through two abstract accessors so
  * the designer's stores supply them.
  */
-import { EDA_DRAW_FRAME } from '@ziroeda/common/src/eda_draw_frame.js';
-import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import type { FRAME_T } from '@ziroeda/common/src/frame_type.js';
-import type { KIID } from '@ziroeda/common/src/kiid.js';
-import { RPT_SEVERITY_ACTION, type Severity } from '@ziroeda/common/src/reporter.js';
+import { EDA_DRAW_FRAME } from '@ziroeda/common/eda_draw_frame.js';
+import type { EdaUnits } from '@ziroeda/common/eda_units.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import type { FRAME_T } from '@ziroeda/common/frame_type.js';
+import type { KIID } from '@ziroeda/common/kiid.js';
+import { RPT_SEVERITY_ACTION, type Severity } from '@ziroeda/common/reporter.js';
 import type { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import { CLEANUP_FIRST } from './cleanup_item.js';
-import type { PAGE_INFO } from '@ziroeda/common/src/page_info.js';
-import type { TITLE_BLOCK } from '@ziroeda/common/src/title_block.js';
+import type { PAGE_INFO } from '@ziroeda/common/page_info.js';
+import type { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
 import { add, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-import { type EDA_ITEM, RECURSE_MODE } from '@ziroeda/common/src/eda_item.js';
+import { type EDA_ITEM, RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { ARC_LOW_DEF } from '@ziroeda/kimath/src/base_units.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
@@ -28,14 +28,14 @@ import { CornerStrategy, SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/sha
 import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import type { FOOTPRINT } from './footprint.js';
 import type { ZONE } from './zone.js';
-import type { APP_SETTINGS_BASE } from '@ziroeda/common/src/settings/app_settings.js';
-import type { COLOR_SETTINGS } from '@ziroeda/common/src/settings/color_settings.js';
-import type { TOOL_DISPATCHER } from '@ziroeda/common/src/draw_panel_gal.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { RESET_REASON } from '@ziroeda/common/src/tool/tool_base.js';
-import { type VIEW_ITEM, VIEW_UPDATE_FLAGS } from '@ziroeda/common/src/view/view_item.js';
+import type { APP_SETTINGS_BASE } from '@ziroeda/common/settings/app_settings.js';
+import type { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
+import type { TOOL_DISPATCHER } from '@ziroeda/common/draw_panel_gal.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
+import { type VIEW_ITEM, VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
 import type { BOARD } from './board.js';
-import { HIGH_CONTRAST_MODE } from '@ziroeda/common/src/project/board_project_settings.js';
+import { HIGH_CONTRAST_MODE } from '@ziroeda/common/project/board_project_settings.js';
 import { PAD } from './pad.js';
 import { PCB_DISPLAY_OPTIONS, type PCB_PAINTER } from './pcb_painter.js';
 import type { PCB_DRAW_PANEL_GAL } from './pcb_draw_panel_gal.js';

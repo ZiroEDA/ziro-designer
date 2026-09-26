@@ -24,7 +24,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const CSS = readFileSync(resolve(process.cwd(), '../common/src/widgets/shell.css'), 'utf8').replace(
+const CSS = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8').replace(
   /\/\*[\s\S]*?\*\//g,
   '',
 );

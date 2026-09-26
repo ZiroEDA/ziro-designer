@@ -5,7 +5,7 @@
  * `pcbnew/board_stackup_manager/board_stackup_reporter.cpp`: the text the
  * Physical Stackup page's "Export to Clipboard" copies.
  */
-import { type EdaUnits, pcbIUScale, stringFromValue } from '@ziroeda/common/src/eda_units.js';
+import { type EdaUnits, pcbIUScale, stringFromValue } from '@ziroeda/common/eda_units.js';
 import {
   type BOARD_STACKUP,
   BOARD_STACKUP_ITEM_TYPE,

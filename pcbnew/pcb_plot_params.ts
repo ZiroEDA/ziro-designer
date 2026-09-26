@@ -16,10 +16,10 @@
  * plotters take their colours from the render settings they are handed.
  */
 
-import { type Color4d, COLOR4D_UNSPECIFIED } from '@ziroeda/common/src/color4d.js';
-import { type DSNLEXER, T, type Tok } from '@ziroeda/common/src/dsnlexer.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { FormatBool } from '@ziroeda/common/src/io/kicad/kicad_io_utils.js';
+import { type Color4d, COLOR4D_UNSPECIFIED } from '@ziroeda/common/color4d.js';
+import { type DSNLEXER, T, type Tok } from '@ziroeda/common/dsnlexer.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { FormatBool } from '@ziroeda/common/io/kicad/kicad_io_utils.js';
 import {
   B_Adhes,
   B_CrtYd,
@@ -44,20 +44,20 @@ import {
   type PCB_LAYER_ID,
   Rescue,
   User_1,
-} from '@ziroeda/common/src/layer_ids.js';
+} from '@ziroeda/common/layer_ids.js';
 import { In_Cu } from './layer_ids.js';
-import type { LSEQ } from '@ziroeda/common/src/lseq.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
+import type { LSEQ } from '@ziroeda/common/lseq.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import {
   DXF_OUTLINE_MODE,
   DXF_UNITS,
   PLOT_FORMAT,
   PLOT_PARAMS,
   PLOT_TEXT_MODE,
-} from '@ziroeda/common/src/plotters/plotter.js';
-import type { OUTPUTFORMATTER } from '@ziroeda/common/src/richio.js';
-import { FormatDouble2Str } from '@ziroeda/common/src/string_utils.js';
-import { BASE_SET } from '@ziroeda/common/src/base_set.js';
+} from '@ziroeda/common/plotters/plotter.js';
+import type { OUTPUTFORMATTER } from '@ziroeda/common/richio.js';
+import { FormatDouble2Str } from '@ziroeda/common/string_utils.js';
+import { BASE_SET } from '@ziroeda/common/base_set.js';
 
 /** `DRILL_MARKS` (pcbnew/plotprint_opts.h). */
 export enum DRILL_MARKS {

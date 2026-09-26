@@ -11,34 +11,31 @@
  * make upstream.
  */
 
-import type {
-  DRAW_PANEL_GAL_WINDOW,
-  EDA_DRAW_PANEL_GAL,
-} from '@ziroeda/common/src/draw_panel_gal.js';
-import { DS_PROXY_VIEW_ITEM } from '@ziroeda/common/src/drawing_sheet/ds_proxy_view_item.js';
-import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/src/view/view_item.js';
-import type { WksSheet } from '@ziroeda/common/src/drawing_sheet/types.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { KICURSOR } from '@ziroeda/common/src/gal/cursors.js';
-import type { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { MOUSE_DRAG_ACTION } from '@ziroeda/common/src/mouse_drag_action.js';
+import type { DRAW_PANEL_GAL_WINDOW, EDA_DRAW_PANEL_GAL } from '@ziroeda/common/draw_panel_gal.js';
+import { DS_PROXY_VIEW_ITEM } from '@ziroeda/common/drawing_sheet/ds_proxy_view_item.js';
+import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
+import type { WksSheet } from '@ziroeda/common/drawing_sheet/types.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { KICURSOR } from '@ziroeda/common/gal/cursors.js';
+import type { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { MOUSE_DRAG_ACTION } from '@ziroeda/common/mouse_drag_action.js';
 import {
   type COMMON_SETTINGS_INPUT,
   type COMMON_SETTINGS_LIKE,
   PGM_BASE,
   PgmOrNull,
   SetPgm,
-} from '@ziroeda/common/src/pgm_base.js';
-import { COLOR_SETTINGS } from '@ziroeda/common/src/settings/color_settings.js';
-import { WXK } from '@ziroeda/common/src/wx/wx_event.js';
+} from '@ziroeda/common/pgm_base.js';
+import { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
+import { WXK } from '@ziroeda/common/wx/wx_event.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { parseBoardItemId } from '@ziroeda/pcbnew/edit-board.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
 import { PCB_SELECTION } from '@ziroeda/pcbnew/tools/pcb_selection.js';
-import { RECURSE_MODE } from '@ziroeda/common/src/eda_item.js';
-import type { VIEW } from '@ziroeda/common/src/view/view.js';
+import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
+import type { VIEW } from '@ziroeda/common/view/view.js';
 import { PCB_DRAW_PANEL_GAL } from '@ziroeda/pcbnew/pcb_draw_panel_gal.js';
 import type { PCB_DISPLAY_OPTIONS } from '@ziroeda/pcbnew/pcb_painter.js';
 import { PCB_SCREEN } from '@ziroeda/pcbnew/pcb_screen.js';
@@ -199,8 +196,7 @@ let s_fontImage: Promise<ImageBitmap> | null = null;
 
 export function loadBitmapFontImage(): Promise<ImageBitmap> {
   s_fontImage ??= (async () => {
-    const url = new URL('../../../../common/src/gal/opengl/bitmap_font_img.png', import.meta.url)
-      .href;
+    const url = new URL('../../../../common/gal/opengl/bitmap_font_img.png', import.meta.url).href;
     const response = await fetch(url);
 
     if (!response.ok) throw new Error(`bitmap font atlas: ${response.status}`);

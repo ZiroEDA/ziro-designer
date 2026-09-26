@@ -12,20 +12,15 @@
  * no counterpart: the filler runs on one thread here.
  */
 
-import { GetKiCadThreadPool } from '@ziroeda/common/src/thread_pool.js';
-import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/src/eda_draw_frame.js';
-import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/src/eda_item.js';
-import type { EDA_SEARCH_DATA } from '@ziroeda/common/src/eda_search_data.js';
-import { COURTYARD_CONFLICT } from '@ziroeda/common/src/eda_item_flags.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import type { OutStr } from '@ziroeda/common/src/font/font.js';
-import {
-  FLASHING,
-  GAL_LAYER_ID,
-  IsCopperLayer,
-  PCB_LAYER_ID,
-} from '@ziroeda/common/src/layer_ids.js';
-import { COORD_TYPES_T } from '@ziroeda/common/src/origin_transforms.js';
+import { GetKiCadThreadPool } from '@ziroeda/common/thread_pool.js';
+import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import type { EDA_SEARCH_DATA } from '@ziroeda/common/eda_search_data.js';
+import { COURTYARD_CONFLICT } from '@ziroeda/common/eda_item_flags.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import type { OutStr } from '@ziroeda/common/font/font.js';
+import { FLASHING, GAL_LAYER_ID, IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { COORD_TYPES_T } from '@ziroeda/common/origin_transforms.js';
 import {
   ENUM_MAP,
   type INSPECTABLE_ITEM,
@@ -41,17 +36,17 @@ import {
   TYPE_STRING,
   TYPE_UNSIGNED,
   type VALIDATOR_RESULT,
-} from '@ziroeda/common/src/properties/property.js';
-import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/src/properties/property_mgr.js';
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 import {
   PROPERTY_VALIDATORS,
   VALIDATION_ERROR_MSG,
-} from '@ziroeda/common/src/properties/property_validators.js';
+} from '@ziroeda/common/properties/property_validators.js';
 import { INT_MAX } from '@ziroeda/kimath/src/math/util.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { AccumulateDescription, unescapeString } from '@ziroeda/common/src/string_utils.js';
-import type { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
-import { MSG_PANEL_ITEM } from '@ziroeda/common/src/widgets/msgpanel.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { AccumulateDescription, unescapeString } from '@ziroeda/common/string_utils.js';
+import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import { longest_common_subset } from '@ziroeda/core/src/kicad_algo.js';
 import type { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';

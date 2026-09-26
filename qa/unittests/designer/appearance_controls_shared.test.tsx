@@ -240,7 +240,7 @@ describe('the Layers page, per frame, out of the one widget', () => {
    * that is doing the real work.
    */
   it('paints the active row m_layerPanelColour + 15, not the accent', () => {
-    const css = readFileSync(resolve(process.cwd(), '../common/src/widgets/shell.css'), 'utf8');
+    const css = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
     const body = (selector: string): string => {
       const at = css.indexOf(`\n${selector} {`);
       expect(at, selector).toBeGreaterThan(-1);

@@ -35,11 +35,11 @@ import {
   PanelGridSettings,
   type GridSettingsSlice,
 } from '@ziroeda/designer/src/dialogs/prefs/PanelGridSettings.js';
-import type { GridEntry } from '@ziroeda/common/src/settings/grid_settings_ui.js';
+import type { GridEntry } from '@ziroeda/common/settings/grid_settings_ui.js';
 
 afterEach(cleanup);
 
-const CSS = readFileSync(resolve(process.cwd(), '../common/src/widgets/shell.css'), 'utf8');
+const CSS = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
 
 /** A rule body by exact selector, comments stripped. */
 function rule(selector: string): string {

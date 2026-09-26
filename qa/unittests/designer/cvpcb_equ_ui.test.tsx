@@ -21,7 +21,7 @@ import { cleanup, fireEvent, render } from '@testing-library/react';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
 import { DialogAssignFootprints } from '@ziroeda/designer/src/editors/schematic/dialogs/dialog_assign_footprints.js';
-import { BITMAP } from '@ziroeda/common/src/bitmap_store_actions.js';
+import { BITMAP } from '@ziroeda/common/bitmap_store_actions.js';
 
 beforeAll(() => {
   vi.stubGlobal('fetch', async () => new Response('', { status: 404 }));

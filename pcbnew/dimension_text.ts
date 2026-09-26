@@ -41,13 +41,8 @@
  * in the tests for all four crossbar directions. Only the aligned formula is
  * ported, because only the aligned formula ever runs.
  */
-import {
-  pcbIUScale,
-  toUserUnit,
-  unitLabelText,
-  type EdaUnits,
-} from '@ziroeda/common/src/eda_units.js';
-import { kiRound } from '@ziroeda/common/src/font/text_box.js';
+import { pcbIUScale, toUserUnit, unitLabelText, type EdaUnits } from '@ziroeda/common/eda_units.js';
+import { kiRound } from '@ziroeda/common/font/text_box.js';
 import { dimensionCrossbar, measuredValue, radialKnee } from './dimension_geometry.js';
 import { textPenWidth } from './text_metrics.js';
 import type { PcbDimension } from './types.js';

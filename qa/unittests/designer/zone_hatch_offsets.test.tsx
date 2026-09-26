@@ -30,7 +30,7 @@ import {
   syncCopperLayers,
   type ZoneLayerPropertiesMap,
 } from '@ziroeda/designer/src/editors/pcb/board_settings.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
 import { readSetup, writeSetup } from './board_setup_test_utils.js';
 import { LSET_Name, LSET_NameToLayer } from '@ziroeda/pcbnew/layer_ids.js';
 
@@ -118,7 +118,7 @@ describe('the grid is content-sized, so it must not be contained', () => {
   // i.e. it takes its own size rather than stretching. A `contain: inline-size`
   // on such a box has nothing left to size it and it collapses: the page went
   // blank, caption and rule only, when that landed on the shared pane class.
-  const css = readFileSync(join(__dirname, '../../../common/src/widgets/shell.css'), 'utf8');
+  const css = readFileSync(join(__dirname, '../../../common/widgets/shell.css'), 'utf8');
   const ruleFor = (selector: string): string => {
     const at = css.indexOf(`\n${selector} {`);
     if (at === -1) throw new Error(`no rule for ${selector}`);

@@ -10,9 +10,9 @@
  * settings key per code); everything that lists DRC checks reads it here.
  */
 
-import { RC_ITEM, RC_ITEMS_PROVIDER } from '@ziroeda/common/src/rc_item.js';
-import { type KIID, niluuid } from '@ziroeda/common/src/kiid.js';
-import { MARKER_T } from '@ziroeda/common/src/marker_base.js';
+import { RC_ITEM, RC_ITEMS_PROVIDER } from '@ziroeda/common/rc_item.js';
+import { type KIID, niluuid } from '@ziroeda/common/kiid.js';
+import { MARKER_T } from '@ziroeda/common/marker_base.js';
 import type { BOARD } from '../board.js';
 import type { PCB_MARKER } from '../pcb_marker.js';
 

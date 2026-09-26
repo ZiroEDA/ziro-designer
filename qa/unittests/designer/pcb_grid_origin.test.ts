@@ -23,7 +23,7 @@ import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { boardGridOrigin } from '@ziroeda/pcbnew/plot_gerber.js';
 import { snapToGridSize } from '@ziroeda/designer/src/editors/pcb/pcb_grid.js';
 import { pcbGridOptions } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
-import { drawGrid, visibleGridStep } from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
+import { drawGrid, visibleGridStep } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 
 const MM = 1e6;
 

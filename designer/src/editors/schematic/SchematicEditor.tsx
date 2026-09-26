@@ -361,7 +361,7 @@ import {
   serializeFpLibTable,
   type FpLibRow,
 } from '../footprint/fp_lib_table.js';
-import { Toolbar } from '@ziroeda/common/src/tool/action_toolbar.js';
+import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
 import { kicadSchematicWildcard } from '../../fs/wildcards.js';
@@ -372,8 +372,8 @@ import {
   ContextMenu,
   type Menu,
   type MenuItem,
-} from '@ziroeda/common/src/tool/action_menu_bar.js';
-import { assembleMenu, type RankedItem } from '@ziroeda/common/src/tool/action_menu_rank.js';
+} from '@ziroeda/common/tool/action_menu_bar.js';
+import { assembleMenu, type RankedItem } from '@ziroeda/common/tool/action_menu_rank.js';
 import {
   clearHoverSelection,
   isHoverSelection,
@@ -388,13 +388,10 @@ import {
   revertPromptMessage,
   savedFileMessage,
 } from './files_io.js';
-import { MessageDialogOk, MessageDialogYesNo } from '@ziroeda/common/src/dialogs/dialog_message.js';
-import { INFO_CAPTION } from '@ziroeda/common/src/confirm_types.js';
-import {
-  dispatchMenuHotkey,
-  focusBlocksHotkey,
-} from '@ziroeda/common/src/tool/action_menu_hotkeys.js';
-import { wasBrowserSuppressed, type FocusLike } from '@ziroeda/common/src/browser_hotkeys.js';
+import { MessageDialogOk, MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
+import { INFO_CAPTION } from '@ziroeda/common/confirm_types.js';
+import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
+import { wasBrowserSuppressed, type FocusLike } from '@ziroeda/common/browser_hotkeys.js';
 import { remapEvent } from './hotkey_bindings.js';
 import { applyHotkeyOverrides } from './hotkey_list.js';
 import { DialogAssignNetclass } from './dialogs/dialog_assign_netclass.js';
@@ -462,7 +459,7 @@ import {
   resolveEffectiveNetClass,
   subpartSettings,
 } from './schematic_settings.js';
-import { netClassHumanReadableName } from '@ziroeda/common/src/project/net_settings.js';
+import { netClassHumanReadableName } from '@ziroeda/common/project/net_settings.js';
 import type { PdfNetInfo } from './render/pdf_annotations.js';
 import type { Netlist } from '@ziroeda/eeschema/src/connectivity/nets.js';
 import { DEFAULT_WIRE_WIDTH } from './render/renderer.js';
@@ -512,10 +509,10 @@ import {
   type PlotOpts,
   type PlotSink,
 } from './render/plot.js';
-import { DEFAULT_SETUP } from '@ziroeda/common/src/drawing_sheet/types.js';
+import { DEFAULT_SETUP } from '@ziroeda/common/drawing_sheet/types.js';
 import { BUILTIN_THEMES } from './theme.js';
-import { ProgressDialog, nextPaint } from '@ziroeda/common/src/widgets/wx_progress_reporters.js';
-import type { ProgressSnapshot } from '@ziroeda/common/src/widgets/progress_reporter_snapshot.js';
+import { ProgressDialog, nextPaint } from '@ziroeda/common/widgets/wx_progress_reporters.js';
+import type { ProgressSnapshot } from '@ziroeda/common/widgets/progress_reporter_snapshot.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import type { PrefsPageId } from '../../dialogs/prefs/types.js';
 import { settings, gridSizeToIU } from '../../prefs/settings.js';
@@ -525,7 +522,7 @@ import {
   gridChoiceLabel,
   gridFeedback,
   type FastGridAction,
-} from '@ziroeda/common/src/settings/grid_settings_ui.js';
+} from '@ziroeda/common/settings/grid_settings_ui.js';
 import { useHotkeyCyclePopup } from '../../widgets/HotkeyCyclePopup.js';
 import {
   useCommonSettings,
@@ -551,17 +548,17 @@ import {
 } from '@ziroeda/eeschema/src/tools/sch_table_properties.js';
 import { DialogTableProperties } from './dialogs/dialog_table_properties.js';
 import { DialogImportGfx } from './dialogs/dialog_import_gfx.js';
-import { KiStatusBar } from '@ziroeda/common/src/widgets/kistatusbar.js';
-import { MsgPanel } from '@ziroeda/common/src/widgets/msgpanel_ui.js';
+import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
+import { MsgPanel } from '@ziroeda/common/widgets/msgpanel_ui.js';
 import {
   gridMsg,
   messageTextFromValue,
   type StatusUnits,
   unitsMsg,
-} from '@ziroeda/common/src/widgets/kistatusbar_format.js';
-import { formatTitle, useDocumentTitle } from '@ziroeda/common/src/use_document_title.js';
-import { useLiveState } from '@ziroeda/common/src/use_live_state.js';
-import { withSaveEnablement } from '@ziroeda/common/src/save_enablement.js';
+} from '@ziroeda/common/widgets/kistatusbar_format.js';
+import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
+import { useLiveState } from '@ziroeda/common/use_live_state.js';
+import { withSaveEnablement } from '@ziroeda/common/save_enablement.js';
 import { fileBaseName, pathHumanReadable, SCH_FRAME_NAME, schFrameTitle } from './frame_title.js';
 import {
   SCH_BOTTOM_DOCK,
@@ -574,14 +571,14 @@ import {
   type SchLeftPane,
 } from './panes.js';
 import { SelectionFilterPanel } from '../../ui/SelectionFilterPanel.js';
-import { DockSash } from '@ziroeda/common/src/widgets/wx_aui_sash.js';
+import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
 import { loadOutlineFontsFor } from '../../font/outline_fonts.js';
-import { useStatusReadout } from '@ziroeda/common/src/use_status_readout.js';
-import { useUnsavedGuard } from '@ziroeda/common/src/use_unsaved_guard.js';
-import '@ziroeda/common/src/widgets/shell.css';
+import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
+import { useUnsavedGuard } from '@ziroeda/common/use_unsaved_guard.js';
+import '@ziroeda/common/widgets/shell.css';
 import { schSymbolLibraryName } from '@ziroeda/eeschema';
 import { busJunctionIds as busJunctionIdsOf } from '@ziroeda/eeschema/src/connectivity/bus.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
 import {
   CROSS_PROBE_FLASH_INTERVAL_MS,

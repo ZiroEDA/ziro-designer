@@ -10,26 +10,26 @@
  * viewer pipeline, layer/object controls and presets are fully functional.
  */
 
-import { Pgm } from '@ziroeda/common/src/pgm_base.js';
-import type { JsonValue } from '@ziroeda/common/src/settings/json_settings.js';
-import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
-import { editPointColors } from '@ziroeda/common/src/color4d.js';
-import { galPenWidth, galSnapPx } from '@ziroeda/common/src/gal_pixel_grid.js';
+import { Pgm } from '@ziroeda/common/pgm_base.js';
+import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
+import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
+import { editPointColors } from '@ziroeda/common/color4d.js';
+import { galPenWidth, galSnapPx } from '@ziroeda/common/gal_pixel_grid.js';
 import {
   drawSelectionArea,
   drawSelectionLasso,
   isBackgroundDark,
   lassoIsInside,
   selectionAreaColors,
-} from '@ziroeda/common/src/preview_items/selection_area.js';
+} from '@ziroeda/common/preview_items/selection_area.js';
 import { overlayTargetColor } from '../../render/gl/scene.js';
-import { BezierStep } from '@ziroeda/common/src/preview_items/bezier_geom_manager.js';
-import { PolygonGeomManager } from '@ziroeda/common/src/preview_items/polygon_geom_manager.js';
-import { COLOR4D_WHITE, brightness, cssWithAlpha, toCss } from '@ziroeda/common/src/color4d.js';
-import { drawPolygonItem } from '@ziroeda/common/src/preview_items/polygon_item.js';
+import { BezierStep } from '@ziroeda/common/preview_items/bezier_geom_manager.js';
+import { PolygonGeomManager } from '@ziroeda/common/preview_items/polygon_geom_manager.js';
+import { COLOR4D_WHITE, brightness, cssWithAlpha, toCss } from '@ziroeda/common/color4d.js';
+import { drawPolygonItem } from '@ziroeda/common/preview_items/polygon_item.js';
 import { DialogRuleAreaProperties } from './dialogs/dialog_rule_area_properties.js';
 import type { PROGRESS_REPORTER_LIKE } from '@ziroeda/pcbnew/connectivity/connectivity_algo.js';
-import { PROF_TIMER, traceAllegroPerf, wxLogTrace } from '@ziroeda/common/src/trace_helpers.js';
+import { PROF_TIMER, traceAllegroPerf, wxLogTrace } from '@ziroeda/common/trace_helpers.js';
 import { placeVia } from '@ziroeda/pcbnew/via_placer.js';
 import { DEFAULT_RULE_AREA_KEEPOUT } from '@ziroeda/pcbnew/convert_shapes.js';
 import {
@@ -38,13 +38,13 @@ import {
   type RuleAreaValues,
   type ZoneBorderStyle,
 } from '@ziroeda/pcbnew/rule_area_properties.js';
-import { TwoPointGeomManager } from '@ziroeda/common/src/preview_items/two_point_geom_manager.js';
-import { ArcGeomManager, ArcStep } from '@ziroeda/common/src/preview_items/arc_geom_manager.js';
-import { arcMidPoint, drawArcAssistant } from '@ziroeda/common/src/preview_items/arc_assistant.js';
+import { TwoPointGeomManager } from '@ziroeda/common/preview_items/two_point_geom_manager.js';
+import { ArcGeomManager, ArcStep } from '@ziroeda/common/preview_items/arc_geom_manager.js';
+import { arcMidPoint, drawArcAssistant } from '@ziroeda/common/preview_items/arc_assistant.js';
 import {
   drawTwoPointAssistant,
   type TwoPointShape,
-} from '@ziroeda/common/src/preview_items/two_point_assistant.js';
+} from '@ziroeda/common/preview_items/two_point_assistant.js';
 import {
   LeaderMode,
   vectorSnapped45,
@@ -57,7 +57,7 @@ import {
   EDIT_POINT_BORDER_SIZE,
   EDIT_POINT_HOVER_SIZE,
   EDIT_POINT_SIZE,
-} from '@ziroeda/common/src/preview_items/edit_points.js';
+} from '@ziroeda/common/preview_items/edit_points.js';
 import {
   commonInputPrefs,
   dragGesture,
@@ -68,22 +68,22 @@ import {
   wheelAction,
   zoomFitScale,
 } from '../../ui/view_controls.js';
-import { DockSash } from '@ziroeda/common/src/widgets/wx_aui_sash.js';
+import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
 import { onOutlineFontsChanged } from '../../font/outline_fonts.js';
 import {
   applyCanvasSize,
   canvasBackingSize,
   isMeasured,
-} from '@ziroeda/common/src/widgets/canvas_size.js';
+} from '@ziroeda/common/widgets/canvas_size.js';
 import { appearanceNetRows } from './appearance_nets.js';
-import { useStatusReadout } from '@ziroeda/common/src/use_status_readout.js';
+import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
 
 /**
  * `BASE_SCREEN::m_LocalOrigin`, the point pane 3's dx/dy/dist measures from.
  * A module constant so its identity is stable across renders.
  */
 const PCB_LOCAL_ORIGIN = { x: 0, y: 0 };
-import { drawRulerItem, rulerEnd } from '@ziroeda/common/src/preview_items/ruler_item.js';
+import { drawRulerItem, rulerEnd } from '@ziroeda/common/preview_items/ruler_item.js';
 import { boardToolCursor } from './cursors.js';
 import { pickerSnapsToGridOnly } from './picker_snap.js';
 import {
@@ -98,7 +98,7 @@ import {
   ZOOM_LIST,
   isZoomSelectPreset,
   zoomSelectLabel,
-} from '@ziroeda/common/src/settings/zoom_settings.js';
+} from '@ziroeda/common/settings/zoom_settings.js';
 
 import type { FitType } from '../../ui/view_controls.js';
 import { pcbIUScale, pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common';
@@ -257,7 +257,7 @@ import {
   hasLockedItems,
   hasUnlockedItems,
 } from '@ziroeda/pcbnew/tools/pcb_selection_conditions.js';
-import { Icon } from '@ziroeda/common/src/widgets/icons.js';
+import { Icon } from '@ziroeda/common/widgets/icons.js';
 import { applyPnsChanges, PnsSession } from '@ziroeda/pcbnew/router/pns_session.js';
 import { PnsRouterMode } from '@ziroeda/pcbnew/router/pns_router.js';
 import type { PnsDesignSettings } from '@ziroeda/pcbnew/router/pns_board_iface.js';
@@ -270,7 +270,7 @@ import { dimensionDefaultsFrom, dimensionToolKind } from './dimension_tools.js';
 import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties.js';
 import { DialogTextBoxProperties } from './dialogs/dialog_textbox_properties.js';
 import { DialogReferenceImageProperties } from './dialogs/dialog_reference_image_properties.js';
-import { DialogTableProperties } from '@ziroeda/common/src/dialogs/dialog_table_properties.js';
+import { DialogTableProperties } from '@ziroeda/common/dialogs/dialog_table_properties.js';
 import {
   applyTableValues,
   collectTableValues,
@@ -305,13 +305,13 @@ import {
   ContextMenu,
   type Menu,
   type MenuItem,
-} from '@ziroeda/common/src/tool/action_menu_bar.js';
-import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
+} from '@ziroeda/common/tool/action_menu_bar.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { layerBoxLabel, layerForHotkey } from './layer_box_label.js';
-import { Toolbar } from '@ziroeda/common/src/tool/action_toolbar.js';
-import { formatTitle, useDocumentTitle } from '@ziroeda/common/src/use_document_title.js';
+import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
+import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
 import { PCB_FRAME_NAME, pcbFrameTitle } from './frame_title.js';
-import { withSaveEnablement } from '@ziroeda/common/src/save_enablement.js';
+import { withSaveEnablement } from '@ziroeda/common/save_enablement.js';
 import {
   copySelectionToClipboardText,
   cutSelectionToClipboardText,
@@ -320,8 +320,8 @@ import {
   type PasteMode,
 } from '@ziroeda/pcbnew/pcb_clipboard.js';
 import { DialogPasteSpecial, type PasteSpecialMode } from '../../dialogs/dialog_paste_special.js';
-import { KiStatusBar } from '@ziroeda/common/src/widgets/kistatusbar.js';
-import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/src/widgets/msgpanel_ui.js';
+import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
+import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/widgets/msgpanel_ui.js';
 import {
   gridMsg,
   messageTextFromValue,
@@ -331,7 +331,7 @@ import {
   unitText,
   zoomFactorForScale,
   zoomMsg,
-} from '@ziroeda/common/src/widgets/kistatusbar_format.js';
+} from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { DialogPcbFind, DEFAULT_PCB_FIND, type PcbFindOptions } from './dialogs/dialog_find.js';
 import { DialogPageSettings } from '../../dialogs/dialog_page_settings.js';
 import { pageSettingsValue, toPaperToken } from '../../dialogs/page_settings_model.js';
@@ -348,7 +348,7 @@ import { druFileName, findProjectDru, findProjectPrl, findProjectPro } from './p
 import { clampMaxErrorMM } from './board_settings.js';
 import type { TextGfxRow } from './board_settings.js';
 import { BoardSetupFromWindow, BoardSetupToWindow } from './dialogs/board_setup_transfer.js';
-import { DumpJson } from '@ziroeda/common/src/settings/json_dump.js';
+import { DumpJson } from '@ziroeda/common/settings/json_dump.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { DialogDrc } from './dialogs/dialog_drc.js';
 import { DialogUpdatePcb, type UpdatePcbOptions } from './dialogs/dialog_update_pcb.js';
@@ -482,7 +482,7 @@ import type { DRC_TOOL } from '@ziroeda/pcbnew/tools/drc_tool.js';
 import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import type { Vec2 as KVec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { DIALOG_DRC, type DIALOG_DRC_WINDOW } from './dialogs/dialog_drc_model.js';
-import { MessageDialogYesNoCancel } from '@ziroeda/common/src/dialogs/dialog_message.js';
+import { MessageDialogYesNoCancel } from '@ziroeda/common/dialogs/dialog_message.js';
 import {
   applyTeardropParametersList,
   commitViewToBoard,
@@ -529,14 +529,14 @@ import {
   HIGH_CONTRAST_MODE,
   NET_COLOR_MODE,
   ZONE_DISPLAY_MODE,
-} from '@ziroeda/common/src/project/board_project_settings.js';
-import { GAL_LAYER_ID, LayerName, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { VIEW_UPDATE_FLAGS, type VIEW_ITEM } from '@ziroeda/common/src/view/view_item.js';
+} from '@ziroeda/common/project/board_project_settings.js';
+import { GAL_LAYER_ID, LayerName, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { VIEW_UPDATE_FLAGS, type VIEW_ITEM } from '@ziroeda/common/view/view_item.js';
 import { PAD } from '@ziroeda/pcbnew/pad.js';
 import { PCB_TRACK, PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
 import { TRACK_CLEARANCE_MODE } from '@ziroeda/pcbnew/pcbnew_settings.js';
-import { GRID_STYLE } from '@ziroeda/common/src/gal/gal_display_options.js';
+import { GRID_STYLE } from '@ziroeda/common/gal/gal_display_options.js';
 import {
   applyToggle,
   crosshairToggleId,
@@ -563,61 +563,58 @@ import {
   drawGrid,
   drawCrosshair,
   gridSnappingEnabled,
-} from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
+} from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import {
   GRID_SIZE_LIST,
   gridEntryOf,
   gridSizeToIU,
   gridSizesIU,
-} from '@ziroeda/common/src/settings/grid_settings_ui.js';
+} from '@ziroeda/common/settings/grid_settings_ui.js';
 import {
   type ConditionalEntry,
   evaluateConditionalMenu,
   menuEntry,
   menuSeparator,
-} from '@ziroeda/common/src/tool/conditional_menu.js';
-import { standardSubMenuEntries } from '@ziroeda/common/src/eda_draw_frame_submenus.js';
+} from '@ziroeda/common/tool/conditional_menu.js';
+import { standardSubMenuEntries } from '@ziroeda/common/eda_draw_frame_submenus.js';
 import { PCB_CONTROL, PCB_DEFAULT_TOOLBARS } from './pcbToolbars.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
-import '@ziroeda/common/src/widgets/shell.css';
+import '@ziroeda/common/widgets/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 import { EMPTY_PCB } from '../../home/new_project.js';
-import { ProgressDialog, nextPaint } from '@ziroeda/common/src/widgets/wx_progress_reporters.js';
-import { yieldToEventLoop } from '@ziroeda/common/src/yield_to_event_loop.js';
-import type { ProgressSnapshot } from '@ziroeda/common/src/widgets/progress_reporter_snapshot.js';
+import { ProgressDialog, nextPaint } from '@ziroeda/common/widgets/wx_progress_reporters.js';
+import { yieldToEventLoop } from '@ziroeda/common/yield_to_event_loop.js';
+import type { ProgressSnapshot } from '@ziroeda/common/widgets/progress_reporter_snapshot.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
-import { standardHelpMenu } from '@ziroeda/common/src/eda_base_frame_help_menu.js';
+import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
-import { ABOUT_TITLES } from '@ziroeda/common/src/eda_base_frame_about_titles.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
-import { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
-import { addQuitOrClose } from '@ziroeda/common/src/tool/action_menu.js';
-import {
-  dispatchMenuHotkey,
-  focusBlocksHotkey,
-} from '@ziroeda/common/src/tool/action_menu_hotkeys.js';
+import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { addQuitOrClose } from '@ziroeda/common/tool/action_menu.js';
+import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import {
   isTypingTarget,
   wasBrowserSuppressed,
   type FocusLike,
-} from '@ziroeda/common/src/browser_hotkeys.js';
-import { browserSafeKey } from '@ziroeda/common/src/browser_reserved.js';
+} from '@ziroeda/common/browser_hotkeys.js';
+import { browserSafeKey } from '@ziroeda/common/browser_reserved.js';
 import { settings } from '../../prefs/settings.js';
-import { setLanguageMenuItem } from '@ziroeda/common/src/eda_base_frame_language_menu.js';
-import { hiContrastFactorFor } from '@ziroeda/common/src/render_settings.js';
+import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
+import { hiContrastFactorFor } from '@ziroeda/common/render_settings.js';
 import {
   useCommonSettings,
   usePcbnewSettings,
   useUserColors,
   useUserThemes,
 } from '../../prefs/useSettings.js';
-import { ColorSwatch } from '@ziroeda/common/src/widgets/color_swatch.js';
+import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import {
   COLOR4D_UNSPECIFIED,
   parseColor4d,
   toCssColor,
   type Color4d,
-} from '@ziroeda/common/src/color4d.js';
+} from '@ziroeda/common/color4d.js';
 import { HomeLink } from '../../ui/HomeLink.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)

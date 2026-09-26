@@ -19,10 +19,7 @@ import { pcm } from '../pcm/pcmStore.js';
 import { KICAD_DEFAULT, type Theme } from '../editors/schematic/theme.js';
 import { themeByLayer } from '../editors/schematic/prefs/schColorLayers.js';
 import type { ThemeFile } from '../dialogs/prefs/dialog_theme_folder.js';
-import {
-  BOARD_COLOR_KEYS,
-  type ThemeLayerId,
-} from '@ziroeda/common/src/settings/color_theme_file.js';
+import { BOARD_COLOR_KEYS, type ThemeLayerId } from '@ziroeda/common/settings/color_theme_file.js';
 
 /**
  * The `board` section of the writable theme.

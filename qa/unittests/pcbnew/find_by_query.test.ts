@@ -10,7 +10,7 @@
  * items here, because there is one evaluator and one set of property names.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { boardQueryItems, findByQuery, usesPairwiseSyntax } from '@ziroeda/pcbnew/find_by_query.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 

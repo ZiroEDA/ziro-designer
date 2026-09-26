@@ -46,16 +46,16 @@
 // `LINE_STYLE` and `COLOR4D` moved to `common` when the graphics importers did:
 // they are shared with eeschema, which cannot import from pcbnew. Re-exported
 // here so every existing consumer of `plot_dxf` is unaffected.
-export { LINE_STYLE } from '@ziroeda/common/src/stroke_params.js';
-export { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/src/color4d.js';
-import { LINE_STYLE } from '@ziroeda/common/src/stroke_params.js';
-import { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/src/color4d.js';
+export { LINE_STYLE } from '@ziroeda/common/stroke_params.js';
+export { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/color4d.js';
+import { LINE_STYLE } from '@ziroeda/common/stroke_params.js';
+import { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/color4d.js';
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { EDA_ANGLE, ANGLE_90, ANGLE_180 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/eda_text.js';
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/eda_text.js';
 import type { PCB_LAYER_NAME } from './layer_ids.js';
 
 /** `DXF_UNITS` (plotter.h). MM is 1 because Windows headers claim `MM`. */
@@ -93,18 +93,15 @@ const DXF_OBLIQUE_ANGLE = 15;
 export {
   DO_NOT_SET_LINE_WIDTH,
   USE_DEFAULT_LINE_WIDTH,
-} from '@ziroeda/common/src/plotters/plotter.js';
+} from '@ziroeda/common/plotters/plotter.js';
 
-import {
-  DO_NOT_SET_LINE_WIDTH,
-  USE_DEFAULT_LINE_WIDTH,
-} from '@ziroeda/common/src/plotters/plotter.js';
+import { DO_NOT_SET_LINE_WIDTH, USE_DEFAULT_LINE_WIDTH } from '@ziroeda/common/plotters/plotter.js';
 import {
   DXF_UNITS,
   PLOT_TEXT_MODE,
   DXF_LAYER_OUTPUT_MODE,
   DXF_OUTLINE_MODE,
-} from '@ziroeda/common/src/plotters/plotter.js';
+} from '@ziroeda/common/plotters/plotter.js';
 export { DXF_UNITS, PLOT_TEXT_MODE, DXF_LAYER_OUTPUT_MODE, DXF_OUTLINE_MODE };
 
 /**

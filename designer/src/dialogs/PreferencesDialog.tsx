@@ -18,9 +18,9 @@ import {
   type Viewer3dSettings,
 } from '../prefs/settings.js';
 import type { PrefsTransferPrompt } from './prefs/types.js';
-import type { ToolbarSettings } from '@ziroeda/common/src/tool/ui/toolbar_configuration.js';
-import { MessageDialogYesNo } from '@ziroeda/common/src/dialogs/dialog_message.js';
-import { PagedDialogTree } from '@ziroeda/common/src/widgets/paged_dialog_tree.js';
+import type { ToolbarSettings } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
+import { MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
+import { PagedDialogTree } from '@ziroeda/common/widgets/paged_dialog_tree.js';
 import { FIRST_PAGE, PAGES, labelOf, ownerOf } from './prefs/registry.js';
 import { loadPrefsPanel, peekPrefsPanel } from './prefs/lazy_pages.js';
 import {
@@ -33,7 +33,7 @@ import {
 import type { HotkeyOverrides } from '../editors/schematic/hotkey_bindings.js';
 import { setReportingEnabled } from '../telemetry/reporter.js';
 import { sentrySink } from '../telemetry/sentrySink.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 /**
  * The Preferences dialog shell, the web mirror of KiCad's PAGED_DIALOG

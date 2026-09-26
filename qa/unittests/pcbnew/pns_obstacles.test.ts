@@ -19,7 +19,7 @@
  * exercise is that a track bends round the copper that is in its way.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { boardObstacleHulls } from '@ziroeda/pcbnew/router/pns_obstacles.js';
 import { routeShortest } from '@ziroeda/pcbnew/router/pns_walkaround.js';
 import { pointInside, pointOnEdge } from '@ziroeda/pcbnew/router/pns_chain.js';

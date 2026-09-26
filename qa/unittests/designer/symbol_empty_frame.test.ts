@@ -26,7 +26,7 @@ import {
   defaultUnits,
   defaultUnitsToggle,
   type AppSettingsName,
-} from '@ziroeda/common/src/settings/app_settings_units.js';
+} from '@ziroeda/common/settings/app_settings_units.js';
 import {
   selectionFilterGrid,
   setAllSelectionFilterCategories,

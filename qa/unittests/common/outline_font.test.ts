@@ -24,22 +24,22 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { parseOutlineFace } from '@ziroeda/common/src/font/outline_face.js';
+import { parseOutlineFace } from '@ziroeda/common/font/outline_face.js';
 import {
   OutlineFont,
   emUnits,
   faceSize,
   subscriptSize,
-} from '@ziroeda/common/src/font/outline_font.js';
+} from '@ziroeda/common/font/outline_font.js';
 import {
   layoutOutlineText,
   outlineBoundaryLimits,
   outlineTextWidth,
-} from '@ziroeda/common/src/font/outline_layout.js';
-import { BUNDLED_FONTS, findFont } from '@ziroeda/common/src/font/fontconfig.js';
-import { contourWinding, outlineToSegments } from '@ziroeda/common/src/font/outline_decomposer.js';
-import { setFontProvider, textLimits, textWidth } from '@ziroeda/common/src/font/font_provider.js';
-import { isStrokeFont, stringBoundaryLimits } from '@ziroeda/common/src/font/text_box.js';
+} from '@ziroeda/common/font/outline_layout.js';
+import { BUNDLED_FONTS, findFont } from '@ziroeda/common/font/fontconfig.js';
+import { contourWinding, outlineToSegments } from '@ziroeda/common/font/outline_decomposer.js';
+import { setFontProvider, textLimits, textWidth } from '@ziroeda/common/font/font_provider.js';
+import { isStrokeFont, stringBoundaryLimits } from '@ziroeda/common/font/text_box.js';
 
 const FONTS = fileURLToPath(new URL('../../../designer/public/fonts/', import.meta.url));
 const DATA = fileURLToPath(new URL('../../data/font/', import.meta.url));

@@ -13,7 +13,7 @@ import {
   BUNDLED_FAMILIES,
   installOutlineFontFaces,
 } from '@ziroeda/designer/src/font/outline_fonts.js';
-import { BUNDLED_FONTS } from '@ziroeda/common/src/font/fontconfig.js';
+import { BUNDLED_FONTS } from '@ziroeda/common/font/fontconfig.js';
 
 afterEach(cleanup);
 

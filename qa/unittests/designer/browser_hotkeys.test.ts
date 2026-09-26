@@ -15,7 +15,7 @@ import {
   isBrowserReserved,
   isTypingTarget,
   planClaim,
-} from '@ziroeda/common/src/browser_hotkeys.js';
+} from '@ziroeda/common/browser_hotkeys.js';
 import { buildHotkeySections } from '@ziroeda/designer/src/ui/hotkeys_inventory.js';
 
 describe('what a page can and cannot take', () => {

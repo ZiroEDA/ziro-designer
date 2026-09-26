@@ -5,17 +5,17 @@
  * JSON_SETTINGS + PROJECT_LOCAL_SETTINGS: the `.kicad_prl` in and out.
  */
 import { describe, expect, it } from 'vitest';
-import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { HIGH_CONTRAST_MODE } from '@ziroeda/common/src/project/board_project_settings.js';
-import { PROJECT_LOCAL_SETTINGS } from '@ziroeda/common/src/project/project_local_settings.js';
+import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { HIGH_CONTRAST_MODE } from '@ziroeda/common/project/board_project_settings.js';
+import { PROJECT_LOCAL_SETTINGS } from '@ziroeda/common/project/project_local_settings.js';
 import {
   JSON_SETTINGS,
   PARAM,
   PARAM_SCALED,
   ref,
   SETTINGS_LOC,
-} from '@ziroeda/common/src/settings/json_settings.js';
+} from '@ziroeda/common/settings/json_settings.js';
 
 describe('JSON_SETTINGS', () => {
   class T extends JSON_SETTINGS {

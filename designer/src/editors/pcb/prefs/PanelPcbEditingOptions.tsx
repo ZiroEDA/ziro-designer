@@ -54,7 +54,7 @@
  */
 import type { JSX } from 'react';
 import { Check, Group, Num, Radio, Sel } from '../../../dialogs/prefs/widgets.js';
-import { unitLabel } from '@ziroeda/common/src/eda_units.js';
+import { unitLabel } from '@ziroeda/common/eda_units.js';
 import { ARC_EDIT_MODE_CHOICES } from '../../footprint/arc_edit_mode.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 

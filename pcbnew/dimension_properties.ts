@@ -32,7 +32,7 @@
  * to the wrong kind produces a file KiCad reads back differently from what was
  * saved.
  */
-import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
+import type { EdaUnits } from '@ziroeda/common/eda_units.js';
 import { parseBoardItemId } from './edit-board.js';
 import { updateDimension } from './dimension_text.js';
 import { isAlignedKind } from './types.js';

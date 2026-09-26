@@ -14,7 +14,7 @@
  * two apart and proves nothing.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   positionRelative,
   promotePadsToFootprints,

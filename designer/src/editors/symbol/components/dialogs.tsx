@@ -15,8 +15,8 @@ import { EMPTY_SOURCE, type LibPin, type LibSymbol, type SchField } from '@ziroe
 import { PIN_ORIENTATION_NAMES, drawPin, MM } from '../render/symbolRenderer.js';
 import { allPins, unitCount, hasAlternateBodyStyle } from '../edits.js';
 import { KICAD_CLASSIC } from '../../schematic/theme.js';
-import { LINE_STYLE_NAMES, lineStyleComboValue } from '@ziroeda/common/src/stroke_params.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { LINE_STYLE_NAMES, lineStyleComboValue } from '@ziroeda/common/stroke_params.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 /**
  * The Symbol Editor's dialogs, ported from KiCad:

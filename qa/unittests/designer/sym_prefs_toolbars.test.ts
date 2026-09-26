@@ -38,7 +38,7 @@ import {
   toolbarLocsOf,
   TOOLBAR_SETTINGS_DEFAULTS,
   type ToolbarSettings,
-} from '@ziroeda/common/src/tool/ui/toolbar_configuration.js';
+} from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');

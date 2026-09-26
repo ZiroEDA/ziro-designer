@@ -8,7 +8,7 @@ import {
   netclassPatternMatches,
   searchTerm,
   type SearchTerm,
-} from '@ziroeda/common/src/eda_pattern_match.js';
+} from '@ziroeda/common/eda_pattern_match.js';
 
 // Weighted terms as LIB_SYMBOL::cacheSearchTerms builds them for Device:R.
 function deviceR(): SearchTerm[] {

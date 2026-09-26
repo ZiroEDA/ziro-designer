@@ -10,10 +10,10 @@
  * - DRCE_EDGE_CLEARANCE
  * - DRCE_SILK_EDGE_CLEARANCE
  */
-import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
-import { PCB_LAYER_ID, UNDEFINED_LAYER } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/src/reporter.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { PCB_LAYER_ID, UNDEFINED_LAYER } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { SHAPE } from '@ziroeda/kimath/src/geometry/shape.js';
 import { SHAPE_TYPE } from '@ziroeda/kimath/src/geometry/shape.js';

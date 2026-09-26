@@ -34,7 +34,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse, serialize, isList, head, type SNode } from '@ziroeda/sexpr';
 import { readSchematic, writeSchematic } from '@ziroeda/eeschema';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { annotateSymbols, defaultAnnotateOptions } from '@ziroeda/eeschema/src/tools/annotate.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 import {

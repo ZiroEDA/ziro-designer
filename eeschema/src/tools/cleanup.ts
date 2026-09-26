@@ -18,7 +18,7 @@
 
 import type { Schematic, SchLine, SchJunction, Vec2, LibSymbol } from '../types.js';
 import { makeWireWithUuid, makeBus, makeJunction } from './build.js';
-import { newKiid } from '@ziroeda/common/src/kiid.js';
+import { newKiid } from '@ziroeda/common/kiid.js';
 import { pruneGroupMembers } from './sch_group_tool.js';
 import type { EditCommand } from './command.js';
 import { isExplicitJunction, isExplicitJunctionNeeded } from './junction_helpers.js';

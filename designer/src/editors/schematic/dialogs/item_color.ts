@@ -19,7 +19,7 @@
  * are allowed, so that channel now survives a round trip.
  */
 
-import { type Color4d, COLOR4D_UNSPECIFIED, color4dChannel } from '@ziroeda/common/src/color4d.js';
+import { type Color4d, COLOR4D_UNSPECIFIED, color4dChannel } from '@ziroeda/common/color4d.js';
 
 /** Item colour as stored: [r, g, b] 0-255 plus alpha 0-1; unset = layer colour. */
 export type ItemColor = readonly [number, number, number, number];

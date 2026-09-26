@@ -4,14 +4,14 @@
 import type { Entry } from '../fs/filesystem.js';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { preloadBundle } from '../libraryPreload.js';
-import { MenuBar, type Menu } from '@ziroeda/common/src/tool/action_menu_bar.js';
+import { MenuBar, type Menu } from '@ziroeda/common/tool/action_menu_bar.js';
 import { HomeLink } from '../ui/HomeLink.js';
 import { AccountButton } from '../ui/AccountButton.js';
 import { adoptProjectKey, projectKeyFor } from '../cloud/session_keys.js';
 import { RecoveryKeyDialog } from '../auth/RecoveryKeyDialog.js';
 import { DeleteAccountDialog } from '../auth/DeleteAccountDialog.js';
 import { ShareButton } from './ShareButton.js';
-import { PRODUCT } from '@ziroeda/common/src/eda_base_frame_about_titles.js';
+import { PRODUCT } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { profilePhotoUrl } from '../auth/profile.js';
 import {
   localIdForCloudUid,
@@ -52,8 +52,8 @@ import {
   redeemPendingInvite,
   type ProjectRole,
 } from '../cloud/invites.js';
-import { ProgressDialog, nextPaint } from '@ziroeda/common/src/widgets/wx_progress_reporters.js';
-import type { ProgressSnapshot } from '@ziroeda/common/src/widgets/progress_reporter_snapshot.js';
+import { ProgressDialog, nextPaint } from '@ziroeda/common/widgets/wx_progress_reporters.js';
+import type { ProgressSnapshot } from '@ziroeda/common/widgets/progress_reporter_snapshot.js';
 import {
   loadTemplates,
   createFromTemplate,
@@ -68,7 +68,7 @@ import {
   userTemplateFiles,
 } from './user_templates.js';
 import { demoAt, launchDemoFrame, loadDemos, openDemo, type DemoMeta } from './demos.js';
-import '@ziroeda/common/src/widgets/shell.css';
+import '@ziroeda/common/widgets/shell.css';
 import type { PickedHomeFile } from './files.js';
 import {
   EMPTY_PCB,
@@ -102,7 +102,7 @@ import { AboutDialog } from './dialogs/dialog_about.js';
 import { showHotkeyList } from '../ui/hotkey_list_action.js';
 import { TextViewerDialog } from './dialogs/dialog_text_viewer.js';
 import { buildManagerMenus } from './menubar.js';
-import { useMenuHotkeys } from '@ziroeda/common/src/tool/use_menu_hotkeys.js';
+import { useMenuHotkeys } from '@ziroeda/common/tool/use_menu_hotkeys.js';
 import { PreferencesDialog } from '../dialogs/PreferencesDialog.js';
 import { settings } from '../prefs/settings.js';
 import { useCommonSettings } from '../prefs/useSettings.js';
@@ -112,13 +112,13 @@ import { listFileSystem } from '../fs/list_fs.js';
 import { projectAt, projectStoreFileSystem } from '../fs/project_store_fs.js';
 import { NEW_PROJECT_FOLDER_FILTERS, OPEN_PROJECT_FILTERS } from '../fs/wildcards.js';
 import { normalize as normalizePath, segments } from '../fs/path.js';
-import { EllipsizedField } from '@ziroeda/common/src/widgets/wx_ellipsized_static_text_ui.js';
+import { EllipsizedField } from '@ziroeda/common/widgets/wx_ellipsized_static_text_ui.js';
 import { managerTitle, projectStatusText } from './manager_frame.js';
 import { type LauncherId, showPlayerRefusal } from './show_player.js';
-import { MessageDialogOk } from '@ziroeda/common/src/dialogs/dialog_message.js';
-import { INFO_CAPTION } from '@ziroeda/common/src/confirm_types.js';
-import { KiStatusBar } from '@ziroeda/common/src/widgets/kistatusbar.js';
-import { buttonTooltipFor, tooltipFor } from '@ziroeda/common/src/widgets/tooltip.js';
+import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
+import { INFO_CAPTION } from '@ziroeda/common/confirm_types.js';
+import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
+import { buttonTooltipFor, tooltipFor } from '@ziroeda/common/widgets/tooltip.js';
 import { ProjectTreePane, mgrUrl } from './project_tree_pane.js';
 import { type MgrAction, MGR_TOOLS, TILES, tileIcon } from './launcher_tiles.js';
 import { LocalHistoryPane } from './LocalHistoryPane.js';
@@ -138,7 +138,7 @@ import {
   restoreConfirmMessage,
   type Snapshot,
 } from './local_history.js';
-import { MessageDialogYesNo } from '@ziroeda/common/src/dialogs/dialog_message.js';
+import { MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
 
 import {
   filesFromFileList,

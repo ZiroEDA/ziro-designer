@@ -25,13 +25,13 @@
  */
 
 import { useState, type JSX } from 'react';
-import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { DimensionValues } from '@ziroeda/pcbnew/dimension_properties.js';
 import type { DimensionKind } from '@ziroeda/pcbnew/types.js';
 import { dimensionDialogFields } from '../dimension_tools.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
-import type { StatusUnits } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
+import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 
 const UNITS = ['Inches', 'Mils', 'Millimeters', 'Automatic'];
 const FORMATS = ['1234', '1234 mm', '1234 (mm)'];

@@ -21,12 +21,12 @@
  * against the symbol the way SCH_FIELD::GetShownText does.
  */
 
-import { strNumCmp, valueStringCompare } from '@ziroeda/common/src/string_utils.js';
+import { strNumCmp, valueStringCompare } from '@ziroeda/common/string_utils.js';
 import type { Schematic, SchSymbol } from '../types.js';
 import { buildSheetTree } from '../project.js';
 import { refId } from './hittest.js';
 import { isMandatoryField, type SymbolAttrEdit } from './properties.js';
-import { expandTextVars, type TextVarResolver } from '@ziroeda/common/src/text_vars.js';
+import { expandTextVars, type TextVarResolver } from '@ziroeda/common/text_vars.js';
 import { refsShorthand, type BomOutputFormat } from '../exporters/bom.js';
 
 /** FIELDS_EDITOR_GRID_DATA_MODEL::QUANTITY_VARIABLE. */

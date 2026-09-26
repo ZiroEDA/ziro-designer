@@ -40,13 +40,13 @@ import {
   WKS_FILE_VERSION,
 } from '@ziroeda/common';
 import type { Vec2 } from '@ziroeda/kimath';
-import { Combo, type ComboOption } from '@ziroeda/common/src/widgets/wx_combobox.js';
+import { Combo, type ComboOption } from '@ziroeda/common/widgets/wx_combobox.js';
 import {
   MenuBar,
   ContextMenu,
   type Menu,
   type MenuItem,
-} from '@ziroeda/common/src/tool/action_menu_bar.js';
+} from '@ziroeda/common/tool/action_menu_bar.js';
 
 /** m_pageSelectBox (pl_editor_frame.cpp): page 1 versus every other page. */
 const PAGE_NUMBER_CHOICES: readonly ComboOption[] = [
@@ -54,17 +54,17 @@ const PAGE_NUMBER_CHOICES: readonly ComboOption[] = [
   { value: '2', label: 'Other pages' },
 ];
 import { ReadOnlyNotice } from '../../ui/ReadOnlyNotice.js';
-import { Toolbar } from '@ziroeda/common/src/tool/action_toolbar.js';
+import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import {
   FRAME_TITLE_SEPARATOR,
   formatTitle,
   frameTitleName,
   useDocumentTitle,
-} from '@ziroeda/common/src/use_document_title.js';
-import { useUnsavedGuard } from '@ziroeda/common/src/use_unsaved_guard.js';
-import { KiStatusBar } from '@ziroeda/common/src/widgets/kistatusbar.js';
-import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/src/widgets/msgpanel_ui.js';
-import { measureTextWidth } from '@ziroeda/common/src/widgets/text_ctrl_width.js';
+} from '@ziroeda/common/use_document_title.js';
+import { useUnsavedGuard } from '@ziroeda/common/use_unsaved_guard.js';
+import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
+import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/widgets/msgpanel_ui.js';
+import { measureTextWidth } from '@ziroeda/common/widgets/text_ctrl_width.js';
 import {
   formatG,
   gridMsg,
@@ -72,7 +72,7 @@ import {
   unitText,
   zoomFactorForScale,
   zoomMsg,
-} from '@ziroeda/common/src/widgets/kistatusbar_format.js';
+} from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { DS_DEFAULT_TOOLBARS } from './drawingSheetToolbars.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { buildDsContextMenu } from './ds_context_menu.js';
@@ -83,19 +83,19 @@ import {
   fastGridIndex,
   gridSizeToMM,
   type FastGridAction,
-} from '@ziroeda/common/src/settings/grid_settings_ui.js';
+} from '@ziroeda/common/settings/grid_settings_ui.js';
 import { DrawingSheetCanvas, type DrawingSheetCanvasController } from './DrawingSheetCanvas.js';
 import { PropertiesFrame, SyntaxHelpDialog } from './PropertiesFrame.js';
-import { DockSash } from '@ziroeda/common/src/widgets/wx_aui_sash.js';
-import { dockedPaneWidth } from '@ziroeda/common/src/widgets/wx_aui_sash_geometry.js';
+import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
+import { dockedPaneWidth } from '@ziroeda/common/widgets/wx_aui_sash_geometry.js';
 import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
 import { leafOf, savePathWithExtension } from '../../fs/save_path.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { drawingSheetWildcard } from '../../fs/wildcards.js';
 import { DesignInspector } from './DesignInspector.js';
-import { MessageDialogError, MessageDialogOk } from '@ziroeda/common/src/dialogs/dialog_message.js';
+import { MessageDialogError, MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
-import { ABOUT_TITLES } from '@ziroeda/common/src/eda_base_frame_about_titles.js';
+import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import {
   DS_APPEND_DIALOG_TITLE,
   DS_OPEN_DIALOG_TITLE,
@@ -110,8 +110,8 @@ import {
 import { PL_EDITOR_STATUS_TEMPLATES, plCoordFields } from './pl_status_bar.js';
 import { PL_EDITOR_PRINT_PAGES, printDocumentHtml } from './print_document.js';
 import { DS_CANVAS_PAGE_NUMBERING, dsPrintPageNumbering } from './page_numbering.js';
-import { UnsavedChangesDialog } from '@ziroeda/common/src/dialogs/dialog_unsaved_changes.js';
-import { handleUnsavedChanges, type UnsavedChangesResult } from '@ziroeda/common/src/confirm.js';
+import { UnsavedChangesDialog } from '@ziroeda/common/dialogs/dialog_unsaved_changes.js';
+import { handleUnsavedChanges, type UnsavedChangesResult } from '@ziroeda/common/confirm.js';
 import { dsInspectorTitle } from './design_inspector.js';
 import { DialogPageSettings } from '../../dialogs/dialog_page_settings.js';
 import {
@@ -136,8 +136,8 @@ import { toolClearsSelection } from './hit_test.js';
 import { pasteEnabled, redoEnabled, toolbarDisabledIds, undoEnabled } from './ui_conditions.js';
 import { imageFileToPng, decodeImageMeta } from '@ziroeda/common';
 import { drawDrawingSheetItems, DS_PRINT_PAPER_COLOR } from '@ziroeda/common';
-import '@ziroeda/common/src/widgets/shell.css';
-import { standardHelpMenu } from '@ziroeda/common/src/eda_base_frame_help_menu.js';
+import '@ziroeda/common/widgets/shell.css';
+import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 // The shared Preferences dialog, the one every other launcher opens.
 // `EDA_BASE_FRAME::ShowPreferences` is on the base frame precisely so that no
@@ -149,16 +149,13 @@ import {
   MISSING_FILE_EXTENDED,
   missingFileMessage,
   openRecentMenuItem,
-} from '@ziroeda/common/src/file_history.js';
-import { useFileHistory } from '@ziroeda/common/src/use_file_history.js';
-import { setLanguageMenuItem } from '@ziroeda/common/src/eda_base_frame_language_menu.js';
-import { addClose, addQuit } from '@ziroeda/common/src/tool/action_menu.js';
-import { browserSafeKey } from '@ziroeda/common/src/browser_reserved.js';
-import {
-  dispatchMenuHotkey,
-  focusBlocksHotkey,
-} from '@ziroeda/common/src/tool/action_menu_hotkeys.js';
-import { wasBrowserSuppressed, type FocusLike } from '@ziroeda/common/src/browser_hotkeys.js';
+} from '@ziroeda/common/file_history.js';
+import { useFileHistory } from '@ziroeda/common/use_file_history.js';
+import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
+import { addClose, addQuit } from '@ziroeda/common/tool/action_menu.js';
+import { browserSafeKey } from '@ziroeda/common/browser_reserved.js';
+import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
+import { wasBrowserSuppressed, type FocusLike } from '@ziroeda/common/browser_hotkeys.js';
 import { PL_EDITOR_DEFAULTS, settings } from '../../prefs/settings.js';
 import { useCommonSettings, usePlEditorSettings } from '../../prefs/useSettings.js';
 import {
@@ -168,7 +165,7 @@ import {
   toggleUnitsId,
   togglesFromSettings,
 } from './toggles.js';
-import { DRAWING_SHEET_FILE_EXTENSION } from '@ziroeda/common/src/common.js';
+import { DRAWING_SHEET_FILE_EXTENSION } from '@ziroeda/common/common.js';
 import { HomeLink } from '../../ui/HomeLink.js';
 
 export interface DrawingSheetEditorFile {

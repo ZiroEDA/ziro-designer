@@ -10,7 +10,7 @@
  * cannot: on a four-layer board the net is the part they *share*, and the layer
  * and the priority are the only things that tell them apart.
  */
-import { unescapeString } from '@ziroeda/common/src/string_utils.js';
+import { unescapeString } from '@ziroeda/common/string_utils.js';
 import { GetLayerName } from './layer_ids.js';
 import type { Board, PcbZone } from './types.js';
 

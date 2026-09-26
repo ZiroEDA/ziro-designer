@@ -36,9 +36,9 @@ import {
   colorThemeFileText,
   colorThemeFromFile,
   type ColorThemeContents,
-} from '@ziroeda/common/src/settings/color_theme_file.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
-import { OK_LABEL } from '@ziroeda/common/src/confirm_types.js';
+} from '@ziroeda/common/settings/color_theme_file.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
+import { OK_LABEL } from '@ziroeda/common/confirm_types.js';
 
 /** A theme this app holds, which can be written into the folder. */
 export interface ThemeFile {

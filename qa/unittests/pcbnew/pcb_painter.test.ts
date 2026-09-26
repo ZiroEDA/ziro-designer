@@ -15,12 +15,12 @@ import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { Vec2, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-import { ADVANCED_CFG } from '@ziroeda/common/src/advanced_config.js';
-import { brightened, brightness, type Color4d } from '@ziroeda/common/src/color4d.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { FRAME_T } from '@ziroeda/common/src/frame_type.js';
-import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/src/gal/gal_display_options.js';
-import { GAL } from '@ziroeda/common/src/gal/graphics_abstraction_layer.js';
+import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
+import { brightened, brightness, type Color4d } from '@ziroeda/common/color4d.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
+import { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
 import {
   B_Cu,
   F_Cu,
@@ -38,15 +38,15 @@ import {
   VIA_COPPER_LAYER_FOR,
   ZONE_LAYER_FOR,
   CLEARANCE_LAYER_FOR,
-} from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { PGM_BASE, SetPgm } from '@ziroeda/common/src/pgm_base.js';
-import { COLOR_SETTINGS } from '@ziroeda/common/src/settings/color_settings.js';
+} from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 import {
   HIGH_CONTRAST_MODE,
   NET_COLOR_MODE,
-} from '@ziroeda/common/src/project/board_project_settings.js';
+} from '@ziroeda/common/project/board_project_settings.js';
 import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
 import { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
 import { NETINFO_ITEM } from '@ziroeda/pcbnew/netinfo.js';
@@ -60,7 +60,7 @@ import {
 import { PCB_TRACK, PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 import { ZONE } from '@ziroeda/pcbnew/zone.js';
-import { SELECTED, BRIGHTENED } from '@ziroeda/common/src/eda_item_flags.js';
+import { SELECTED, BRIGHTENED } from '@ziroeda/common/eda_item_flags.js';
 
 /** A GAL that records the drawing calls the painter makes. */
 class RECORDING_GAL extends GAL {

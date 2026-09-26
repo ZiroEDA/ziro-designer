@@ -6,7 +6,7 @@
  * substrates a stackup row can name, with their εr and tanδ, for the gerber
  * job file and the Physical Stackup page.
  */
-import { UIDouble2Str } from '@ziroeda/common/src/string_utils.js';
+import { UIDouble2Str } from '@ziroeda/common/string_utils.js';
 import {
   DEFAULT_EPSILON_R_SILKSCREEN,
   DEFAULT_EPSILON_R_SOLDERMASK,

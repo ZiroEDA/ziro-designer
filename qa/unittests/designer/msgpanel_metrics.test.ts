@@ -33,14 +33,14 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { MSG_PANEL_DEFAULT_PAD } from '@ziroeda/common/src/widgets/msgpanel_types.js';
+import { MSG_PANEL_DEFAULT_PAD } from '@ziroeda/common/widgets/msgpanel_types.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
 
-const SHELL = read('../../common/src/widgets/shell.css');
-const MSGPANEL_TSX = read('../../common/src/widgets/msgpanel_ui.tsx');
-const MSGPANEL_TYPES = read('../../common/src/widgets/msgpanel_types.ts');
+const SHELL = read('../../common/widgets/shell.css');
+const MSGPANEL_TSX = read('../../common/widgets/msgpanel_ui.tsx');
+const MSGPANEL_TYPES = read('../../common/widgets/msgpanel_types.ts');
 
 /** The stylesheet with its comments removed, so they cannot read as values. */
 const CSS_CODE = SHELL.replace(/\/\*[\s\S]*?\*\//g, '');

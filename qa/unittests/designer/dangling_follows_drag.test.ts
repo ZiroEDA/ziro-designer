@@ -24,7 +24,7 @@ import {
   setVectorText,
 } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
 import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
 
 /** Records the centre of every stroked rectangle (the dangling squares). */

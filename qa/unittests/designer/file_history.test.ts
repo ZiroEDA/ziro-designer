@@ -3,7 +3,7 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * FILE_HISTORY (common/file_history.cpp) and the two EDA_BASE_FRAME methods
- * that drive it, against the shared port in common/src/file_history.ts.
+ * that drive it, against the shared port in common/file_history.ts.
  *
  * Exercised through the module's public surface and through the real menu
  * builder (`buildManagerMenus`), not through a private helper: a test that
@@ -17,10 +17,10 @@ import {
   NO_FILES_LABEL,
   openRecentMenuItem,
   type FileHistoryStorage,
-} from '@ziroeda/common/src/file_history.js';
+} from '@ziroeda/common/file_history.js';
 import { buildManagerMenus } from '@ziroeda/designer/src/home/menubar.js';
 import type { ProjectMeta } from '@ziroeda/designer/src/home/projectStore.js';
-import type { MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
+import type { MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 
 /** An in-memory Storage, so no test touches the real localStorage. */
 function fakeStorage(seed?: Record<string, string>): FileHistoryStorage {

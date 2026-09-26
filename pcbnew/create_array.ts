@@ -36,7 +36,7 @@ import {
   type ArrayCircularOptions,
   type ArrayGridOptions,
   type ArrayTransform,
-} from '@ziroeda/common/src/array_options.js';
+} from '@ziroeda/common/array_options.js';
 import type { Board } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

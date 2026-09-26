@@ -10,17 +10,17 @@
  * path. The expectations are the C++'s precedence, not the code's output.
  */
 import { describe, expect, it } from 'vitest';
-import { PARSE_ERROR } from '@ziroeda/common/src/dsnlexer.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import type { OutStr } from '@ziroeda/common/src/font/font.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { SETTINGS_MANAGER } from '@ziroeda/common/src/pgm_base.js';
+import { PARSE_ERROR } from '@ziroeda/common/dsnlexer.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import type { OutStr } from '@ziroeda/common/font/font.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
 import {
   Reporter,
   RPT_SEVERITY_ERROR,
   RPT_SEVERITY_IGNORE,
   RPT_SEVERITY_WARNING,
-} from '@ziroeda/common/src/reporter.js';
+} from '@ziroeda/common/reporter.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 import { DEFAULT_MINCLEARANCE } from '@ziroeda/pcbnew/board_design_settings_defaults.js';
 import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';

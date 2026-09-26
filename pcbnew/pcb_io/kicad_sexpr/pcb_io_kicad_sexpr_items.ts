@@ -11,14 +11,14 @@
  * `Rotate( { 0, 0 }, fp->GetOrientation() )` + `Move( fp->GetPosition() )`.
  */
 
-import { DSNLEXER, T, type Tok } from '@ziroeda/common/src/dsnlexer.js';
-import { ParseEmbedded } from '@ziroeda/common/src/embedded_files.js';
-import { FILL_T, SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
-import { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
-import { FetchUnitsFromString, pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { convertToNewOverbarNotation } from '@ziroeda/common/src/string_utils.js';
-import { FUTURE_FORMAT_ERROR, IO_ERROR, PARSE_ERROR } from '@ziroeda/common/src/ki_exception.js';
-import { type KIID, kiidFromString } from '@ziroeda/common/src/kiid.js';
+import { DSNLEXER, T, type Tok } from '@ziroeda/common/dsnlexer.js';
+import { ParseEmbedded } from '@ziroeda/common/embedded_files.js';
+import { FILL_T, SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
+import { FetchUnitsFromString, pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { convertToNewOverbarNotation } from '@ziroeda/common/string_utils.js';
+import { FUTURE_FORMAT_ERROR, IO_ERROR, PARSE_ERROR } from '@ziroeda/common/ki_exception.js';
+import { type KIID, kiidFromString } from '@ziroeda/common/kiid.js';
 import {
   B_Cu,
   B_Fab,
@@ -29,15 +29,11 @@ import {
   Margin,
   type PCB_LAYER_ID,
   UNDEFINED_LAYER,
-} from '@ziroeda/common/src/layer_ids.js';
-import { LIB_ID } from '@ziroeda/common/src/lib_id.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import {
-  LINE_STYLE,
-  STROKE_PARAMS,
-  STROKE_PARAMS_PARSER,
-} from '@ziroeda/common/src/stroke_params.js';
-import { FIELD_T, GetUserFieldName } from '@ziroeda/common/src/template_fieldnames.js';
+} from '@ziroeda/common/layer_ids.js';
+import { LIB_ID } from '@ziroeda/common/lib_id.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { LINE_STYLE, STROKE_PARAMS, STROKE_PARAMS_PARSER } from '@ziroeda/common/stroke_params.js';
+import { FIELD_T, GetUserFieldName } from '@ziroeda/common/template_fieldnames.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { ARC_HIGH_DEF } from '@ziroeda/kimath/src/base_units.js';
 import {

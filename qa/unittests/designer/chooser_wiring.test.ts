@@ -27,7 +27,7 @@ import {
   DRAWING_SHEET_FILE_EXTENSION,
   KICAD_SCHEMATIC_FILE_EXTENSION,
   ensureFileExtension,
-} from '@ziroeda/common/src/common.js';
+} from '@ziroeda/common/common.js';
 
 const src = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');

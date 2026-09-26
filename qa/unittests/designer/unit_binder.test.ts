@@ -27,7 +27,7 @@ import {
   unitText,
   validateUnitValue,
   valueDescriptionFromLabel,
-} from '@ziroeda/common/src/widgets/unit_binder.js';
+} from '@ziroeda/common/widgets/unit_binder.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -36,7 +36,7 @@ const read = (rel: string): string =>
 
 const PANEL = read('../../../designer/src/editors/drawingsheet/PropertiesFrame.tsx');
 const EDITOR = read('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx');
-const FIELD = read('../../../common/src/widgets/unit_binder_ui.tsx');
+const FIELD = read('../../../common/widgets/unit_binder_ui.tsx');
 
 /** The five ranges properties_frame.cpp passes to validateMM, in millimetres. */
 const LINE_WIDTH = { min: 0.0, max: 10.0 };

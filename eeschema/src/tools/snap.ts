@@ -10,7 +10,7 @@
  */
 
 import type { Schematic, LibSymbol, SchSymbol, Vec2 } from '../types.js';
-import { symbolTransform, localToWorld } from '@ziroeda/common/src/transform.js';
+import { symbolTransform, localToWorld } from '@ziroeda/common/transform.js';
 import { refId } from './hittest.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 

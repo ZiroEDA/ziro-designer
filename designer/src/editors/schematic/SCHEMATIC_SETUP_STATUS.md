@@ -51,7 +51,7 @@ Ground truth for every mapping below is the KiCad source
   - *Label size ratio* → global-label flag margin (`GetLabelBoxExpansion`).
   - *Overbar offset* → `~{...}` overbar height; the renderer seeds the shared
     stroke font per render (`setOverbarHeightRatio` in
-    `common/src/font/stroke_font.ts`).
+    `common/font/stroke_font.ts`).
   - *Pin symbol size* → negation bubble / polarity slopes / clock notch, with
     KiCad's 0-fallback (number-size/2 external, name-size/2 else number/2 clock).
   - *Connection grid* → the `endpoint_off_grid` ERC rule (see below). This is

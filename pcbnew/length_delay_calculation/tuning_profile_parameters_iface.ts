@@ -2,8 +2,8 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** `pcbnew/length_delay_calculation/tuning_profile_parameters_iface.h`. */
-import type { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import type { NETCLASS } from '@ziroeda/common/src/netclass.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import type { NETCLASS } from '@ziroeda/common/netclass.js';
 import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import type { BOARD } from '../board.js';
 import type { LENGTH_DELAY_CALCULATION } from './length_delay_calculation.js';

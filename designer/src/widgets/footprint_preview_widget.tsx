@@ -21,7 +21,7 @@ import {
   DEFAULT_DRAW_OPTIONS,
   PCB_DEFAULT_GRID_IU,
 } from '../editors/pcb/renderBoard.js';
-import { drawCrosshair, drawGrid } from '@ziroeda/common/src/draw_panel_gal_grid_cursor.js';
+import { drawCrosshair, drawGrid } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import { PCB_BACKGROUND, PCB_CURSOR } from '../editors/pcb/pcbTheme.js';
 import { settings } from '../prefs/settings.js';
 import { footprintToBoard, FOOTPRINT_LAYERS } from '../editors/footprint/footprintBoard.js';

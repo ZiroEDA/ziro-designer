@@ -64,10 +64,10 @@ import {
 } from 'react';
 import { Check } from './widgets.js';
 import { ColorThemeChoice } from './ColorThemeChoice.js';
-import { ColorSwatch } from '@ziroeda/common/src/widgets/color_swatch.js';
+import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { ThemeFolderDialog, type FolderFile, type ThemeFile } from './dialog_theme_folder.js';
 import { AddColorThemeDialog } from './dialog_add_color_theme.js';
-import { MessageDialogOk } from '@ziroeda/common/src/dialogs/dialog_message.js';
+import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import {
   PICK_CANCELLED,
   pickThemeFolder,
@@ -77,7 +77,7 @@ import {
 } from '../../fs/theme_folder.js';
 import type { UserColorTheme } from '../../prefs/settings.js';
 import type { Color4d } from '@ziroeda/common';
-import type { ColorThemeContents } from '@ziroeda/common/src/settings/color_theme_file.js';
+import type { ColorThemeContents } from '@ziroeda/common/settings/color_theme_file.js';
 
 /**
  * What a subclass has to supply for the base's two theme commands to work —

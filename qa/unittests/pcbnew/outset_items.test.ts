@@ -11,7 +11,7 @@
  * case therefore checks the kind as well as the geometry.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { outsetItems, outsetSegmentRing, roundRectOutwards } from '@ziroeda/pcbnew/outset_items.js';
 import type { Board, PcbShape } from '@ziroeda/pcbnew/types.js';
 

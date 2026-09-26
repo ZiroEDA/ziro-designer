@@ -11,11 +11,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { PCB_IU_PER_MM as IU } from '@ziroeda/common/src/eda_units.js';
-import {
-  netClassClearanceMM,
-  type NetClassesData,
-} from '@ziroeda/common/src/project/net_settings.js';
+import { PCB_IU_PER_MM as IU } from '@ziroeda/common/eda_units.js';
+import { netClassClearanceMM, type NetClassesData } from '@ziroeda/common/project/net_settings.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { fillZones, zoneClearanceOf, type ZoneFillOptions } from '@ziroeda/pcbnew/zone_filler.js';
 import { parse } from '@ziroeda/sexpr/src/index.js';

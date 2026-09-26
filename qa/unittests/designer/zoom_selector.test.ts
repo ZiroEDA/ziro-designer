@@ -32,11 +32,11 @@ import {
   isZoomSelectPreset,
   zoomPresetLabel,
   zoomSelectLabel,
-} from '@ziroeda/common/src/settings/zoom_settings.js';
+} from '@ziroeda/common/settings/zoom_settings.js';
 import {
   scaleForZoomFactor,
   zoomFactorForScale,
-} from '@ziroeda/common/src/widgets/kistatusbar_format.js';
+} from '@ziroeda/common/widgets/kistatusbar_format.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 

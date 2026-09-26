@@ -27,21 +27,21 @@
 import {
   CROSS_PROBING_DEFAULTS,
   type CrossProbingSettings,
-} from '@ziroeda/common/src/cross_probing_settings.js';
-import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
-import { setColorPickerTabStore } from '@ziroeda/common/src/dialogs/dialog_color_picker_tab.js';
+} from '@ziroeda/common/cross_probing_settings.js';
+import type { EdaUnits } from '@ziroeda/common/eda_units.js';
+import { setColorPickerTabStore } from '@ziroeda/common/dialogs/dialog_color_picker_tab.js';
 import type { RegulatorData } from '@ziroeda/pcb_calculator';
-import { defaultUnits } from '@ziroeda/common/src/settings/app_settings_units.js';
+import { defaultUnits } from '@ziroeda/common/settings/app_settings_units.js';
 import {
   DEFAULT_GRID_INDEX,
   GRID_SIZE_LIST,
   type GridEntry,
   gridEntryOf,
-} from '@ziroeda/common/src/settings/grid_settings_ui.js';
+} from '@ziroeda/common/settings/grid_settings_ui.js';
 import {
   normalizeToolbarSettings,
   type ToolbarSettings,
-} from '@ziroeda/common/src/tool/ui/toolbar_configuration.js';
+} from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import {
   DEFAULT_ROUTING_SETTINGS,
   writeRoutingSettings,

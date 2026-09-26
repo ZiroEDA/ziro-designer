@@ -13,12 +13,12 @@ import {
   type DRAW_PANEL_GAL_WINDOW,
   EDA_DRAW_PANEL_GAL,
   GAL_TYPE,
-} from '@ziroeda/common/src/draw_panel_gal.js';
-import type { DS_PROXY_VIEW_ITEM } from '@ziroeda/common/src/drawing_sheet/ds_proxy_view_item.js';
-import type { EDA_DRAW_FRAME } from '@ziroeda/common/src/eda_draw_frame.js';
-import { FRAME_T } from '@ziroeda/common/src/frame_type.js';
-import { RENDER_TARGET } from '@ziroeda/common/src/gal/definitions.js';
-import type { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/src/gal/gal_display_options.js';
+} from '@ziroeda/common/draw_panel_gal.js';
+import type { DS_PROXY_VIEW_ITEM } from '@ziroeda/common/drawing_sheet/ds_proxy_view_item.js';
+import type { EDA_DRAW_FRAME } from '@ziroeda/common/eda_draw_frame.js';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import { RENDER_TARGET } from '@ziroeda/common/gal/definitions.js';
+import type { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
 import {
   B_Adhes,
   B_CrtYd,
@@ -168,12 +168,12 @@ import {
   User_9,
   VIA_COPPER_LAYER_FOR,
   ZONE_LAYER_FOR,
-} from '@ziroeda/common/src/layer_ids.js';
-import { DEFAULT_THEME, GetColorSettings, PgmOrNull } from '@ziroeda/common/src/pgm_base.js';
-import { VIEW } from '@ziroeda/common/src/view/view.js';
-import { WX_VIEW_CONTROLS } from '@ziroeda/common/src/view/wx_view_controls.js';
-import { MSG_PANEL_ITEM } from '@ziroeda/common/src/widgets/msgpanel.js';
-import { ZOOM_MAX_LIMIT_PCBNEW, ZOOM_MIN_LIMIT_PCBNEW } from '@ziroeda/common/src/zoom_defines.js';
+} from '@ziroeda/common/layer_ids.js';
+import { DEFAULT_THEME, GetColorSettings, PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import { VIEW } from '@ziroeda/common/view/view.js';
+import { WX_VIEW_CONTROLS } from '@ziroeda/common/view/wx_view_controls.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import { ZOOM_MAX_LIMIT_PCBNEW, ZOOM_MIN_LIMIT_PCBNEW } from '@ziroeda/common/zoom_defines.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { BOARD } from './board.js';
 import type { PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';

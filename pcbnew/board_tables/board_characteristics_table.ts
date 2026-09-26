@@ -10,8 +10,8 @@ import {
   pcbIUScale,
   stringFromValue,
   unityScale,
-} from '@ziroeda/common/src/eda_units.js';
-import { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
+} from '@ziroeda/common/eda_units.js';
+import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { BOARD } from '../board.js';
 import { DEFAULT_LINE_WIDTH } from '../board_design_settings_defaults.js';

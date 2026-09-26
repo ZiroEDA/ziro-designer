@@ -13,8 +13,8 @@ import {
   wxKeyCodeFromDom,
   wxMouseEventFromDom,
   wxWheelEventFromDom,
-} from '@ziroeda/common/src/wx/dom_events.js';
-import { wxGetKeyState, wxMouseWheelAxis } from '@ziroeda/common/src/wx/wx_event.js';
+} from '@ziroeda/common/wx/dom_events.js';
+import { wxGetKeyState, wxMouseWheelAxis } from '@ziroeda/common/wx/wx_event.js';
 
 const target = {
   getBoundingClientRect: () => ({ left: 10, top: 20 }),

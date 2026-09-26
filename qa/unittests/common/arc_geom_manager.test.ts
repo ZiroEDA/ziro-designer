@@ -11,7 +11,7 @@
  * where that matters the trace is written out.
  */
 import { describe, expect, it } from 'vitest';
-import { ArcGeomManager, ArcStep } from '@ziroeda/common/src/preview_items/arc_geom_manager.js';
+import { ArcGeomManager, ArcStep } from '@ziroeda/common/preview_items/arc_geom_manager.js';
 
 /** One click: the motion that precedes it, then the click. */
 function click(mgr: ArcGeomManager, p: { x: number; y: number }): void {

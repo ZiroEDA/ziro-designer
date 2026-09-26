@@ -39,7 +39,7 @@ import {
   showsArcNetName,
 } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 import { GL_PATH_FACTORY } from '@ziroeda/designer/src/render/gl/gl_path.js';
-import { printableCharCount } from '@ziroeda/common/src/string_utils.js';
+import { printableCharCount } from '@ziroeda/common/string_utils.js';
 
 const MM = 1e6;
 

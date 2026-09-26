@@ -63,7 +63,7 @@
  * behaviour.
  */
 
-import { strNumCmp } from '@ziroeda/common/src/string_utils.js';
+import { strNumCmp } from '@ziroeda/common/string_utils.js';
 import { rotatePcb } from './read-board.js';
 import { isCopperLayerName } from './swap_layers.js';
 import type { PcbFootprint, PcbPad, PcbShape } from './types.js';

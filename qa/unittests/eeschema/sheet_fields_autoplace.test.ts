@@ -27,7 +27,7 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import { makeSheet } from '@ziroeda/eeschema/src/tools/build-graphics.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const AT = { x: mmToIU(100), y: mmToIU(50) };

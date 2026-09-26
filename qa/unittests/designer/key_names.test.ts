@@ -28,7 +28,7 @@ import {
   acceleratorName,
   hotkeyListKey,
   hotkeyListName,
-} from '@ziroeda/common/src/tool/action_menu_key_names.js';
+} from '@ziroeda/common/tool/action_menu_key_names.js';
 import { buildHotkeySections, menuHotkeyName } from '@ziroeda/designer/src/ui/hotkeys_inventory.js';
 import { HOTKEYS } from '@ziroeda/designer/src/editors/schematic/hotkeys.js';
 import { APP_ORDER, APP_REGISTRIES } from '@ziroeda/designer/src/ui/hotkey_apps.js';
@@ -37,9 +37,9 @@ import {
   parseAccelerator,
   matchesAccelerator,
   type HotkeyEvent,
-} from '@ziroeda/common/src/tool/action_menu_hotkeys.js';
+} from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import { applyHotkeyOverrides } from '@ziroeda/designer/src/editors/schematic/hotkey_list.js';
-import type { Menu, MenuItem } from '@ziroeda/common/src/tool/action_menu_types.js';
+import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 
 /**
  * The whole divergent set, transcribed here a second time on purpose.

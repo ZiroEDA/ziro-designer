@@ -40,13 +40,13 @@ import {
   type IMPORTED_STROKE,
   COLOR4D_UNSPECIFIED,
   setupSplineOrLine,
-} from '@ziroeda/common/src/import_gfx/graphics_importer.js';
-import { LINE_STYLE } from '@ziroeda/common/src/stroke_params.js';
+} from '@ziroeda/common/import_gfx/graphics_importer.js';
+import { LINE_STYLE } from '@ziroeda/common/stroke_params.js';
 import type { PCB_LAYER_NAME } from '../layer_ids.js';
 import { joinJustify } from '../textbox_properties.js';
 import type { PcbShape, PcbTextItem, StrokeType } from '../types.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/eda_text.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/eda_text.js';
 import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
 import { segApproxCollinear } from '@ziroeda/kimath/src/geometry/seg.js';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';

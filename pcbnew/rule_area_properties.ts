@@ -29,7 +29,7 @@
  * step, because the writer emits a stored source verbatim.
  */
 
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 // ZONE_SETTINGS' defaults for a fresh rule area, which is also what a copper
 // zone being *converted* into one starts from.
 import { DEFAULT_RULE_AREA_KEEPOUT } from './convert_shapes.js';

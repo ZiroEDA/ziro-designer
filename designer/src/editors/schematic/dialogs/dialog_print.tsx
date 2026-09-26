@@ -30,7 +30,7 @@ import { useState, type JSX } from 'react';
 import type { PlotOpts } from '../render/plot.js';
 import { BUILTIN_THEMES } from '../theme.js';
 import { settings } from '../../../prefs/settings.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 interface Props {
   onPrint: (opts: PlotOpts, themeId?: string) => void;

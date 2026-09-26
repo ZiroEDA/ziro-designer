@@ -167,7 +167,7 @@ What that found, on top of #619's list:
   with A3 paper and no pointer over its canvas reads `X 410  Y 287` -
   (0, 0) through that transform, `410 = 420 - 10` - and `dx -0  dy -0`, minus
   zeros included, because `%.4g` of `0 * -1` is `-0` in C. Both photographed.
-  Ours printed `dx 0  dy 0`: `formatG` in `common/src/string_utils.ts` returned
+  Ours printed `dx 0  dy 0`: `formatG` in `common/string_utils.ts` returned
   `'0'` for any zero. That is a shared function every `%g` in the app goes
   through, so it was fixed there rather than worked around in the status bar.
 

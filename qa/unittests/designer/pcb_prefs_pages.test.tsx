@@ -323,7 +323,7 @@ describe('PCB Editor > Colors', () => {
     //
     // The PCB renderer's private paper table had no `User` branch — the
     // schematic's copy did — so the sheet and the page limits drew NOTHING.
-    // `common/src/page_info.ts` is now the one table.
+    // `common/page_info.ts` is now the one table.
     expect(pageSizeMM('User 152.4 127')).toEqual({ w: 152.4, h: 127 });
     // 6000 x 5000 mils IS that page.
     expect(6000 * 0.0254).toBeCloseTo(152.4, 6);
@@ -334,7 +334,7 @@ describe('PCB Editor > Colors', () => {
     // (11693 x 8268 mils), which is `PAGE_INFO`'s own storage — KiCad holds a
     // page in MILS and converts, so 11693 x 0.0254 = 297.0022 is the number it
     // actually computes. The two private tables both said a clean 297, which
-    // was the LESS faithful value; see the head of `common/src/page_info.ts`.
+    // was the LESS faithful value; see the head of `common/page_info.ts`.
     const a4 = pageSizeMM('A4');
     expect(a4?.w).toBeCloseTo(297.0022, 4);
     expect(a4?.h).toBeCloseTo(210.0072, 4);

@@ -6,7 +6,7 @@
  * schematics. Counterpart: `eeschema/import_gfx/graphics_importer_sch.{h,cpp}`.
  *
  * The parsers, the buffer and the primitive sink are shared and live in
- * `common/src/import_gfx/`. Everything arriving here is millimetres in the
+ * `common/import_gfx/`. Everything arriving here is millimetres in the
  * source drawing's frame; everything leaving is a schematic-model record in
  * internal units, ready to be committed.
  *
@@ -35,16 +35,16 @@
  * outline.
  */
 
-import { schIUScale } from '@ziroeda/common/src/eda_units.js';
-import type { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/eda_text.js';
+import { schIUScale } from '@ziroeda/common/eda_units.js';
+import type { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/eda_text.js';
 import {
   type IMPORTED_STROKE,
   COLOR4D_UNSPECIFIED,
   setupSplineOrLine,
-} from '@ziroeda/common/src/import_gfx/graphics_importer.js';
+} from '@ziroeda/common/import_gfx/graphics_importer.js';
 import { SCH_IMPORT_MAPPING } from './graphics_importer_sch_mapping.js';
-import { LINE_STYLE } from '@ziroeda/common/src/stroke_params.js';
-import type { Color4d } from '@ziroeda/common/src/color4d.js';
+import { LINE_STYLE } from '@ziroeda/common/stroke_params.js';
+import type { Color4d } from '@ziroeda/common/color4d.js';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { EuclideanNormI, type Vec2, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';

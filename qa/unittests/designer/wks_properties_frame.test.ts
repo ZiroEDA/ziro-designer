@@ -24,7 +24,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { DEFAULT_FONT_NAME, KICAD_FONT_NAME } from '@ziroeda/common/src/font/stroke_font.js';
+import { DEFAULT_FONT_NAME, KICAD_FONT_NAME } from '@ziroeda/common/font/stroke_font.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
@@ -139,7 +139,7 @@ describe('a failed check is reported, not swallowed', () => {
     // shared KICAD_MESSAGE_DIALOG (common/confirm.cpp) — so ours is the shared
     // ui/ dialog, not a box hand-rolled in this panel.
     expect(PANEL).toContain(
-      "import { MessageDialogError } from '@ziroeda/common/src/dialogs/dialog_message.js'",
+      "import { MessageDialogError } from '@ziroeda/common/dialogs/dialog_message.js'",
     );
     expect(PANEL).toContain(
       '{error && <MessageDialogError message={error} onClose={() => setError(null)} />}',
@@ -207,7 +207,7 @@ describe('the row labels are the ones properties_frame_base.cpp declares', () =>
     // m_Font null, "KiCad Font" names the stroke font. They are two rows of
     // the shared Combo's option list, not one merged entry.
     // The labels are DEFAULT_FONT_NAME and KICAD_FONT_NAME, stated once in
-    // common/src/font/stroke_font.ts; this asserts the panel names the
+    // common/font/stroke_font.ts; this asserts the panel names the
     // constants in that order and, separately, what the constants say.
     const faces = PANEL.slice(PANEL.indexOf('const FACE_CHOICES'));
     expect(faces.slice(0, faces.indexOf('];'))).toContain(
@@ -233,15 +233,15 @@ describe('the row labels are the ones properties_frame_base.cpp declares', () =>
 });
 
 describe('"KiCad Font" is the stroke font, not an outline family', () => {
-  const RENDER = read('../../../common/src/drawing_sheet/ds_painter.ts');
+  const RENDER = read('../../../common/drawing_sheet/ds_painter.ts');
 
   it('names it once, in the font module that owns it', () => {
     // include/font/kicad_font_name.h, which stroke_font.cpp:189 assigns to the
     // stroke font's own m_fontName. `font.ts` (font.cpp includes the header)
     // defines it; `stroke_font.ts` re-exports, never redefines.
-    const FONT = read('../../../common/src/font/font.ts');
+    const FONT = read('../../../common/font/font.ts');
     expect(FONT).toContain("export const KICAD_FONT_NAME = 'KiCad Font';");
-    const STROKE = read('../../../common/src/font/stroke_font.ts');
+    const STROKE = read('../../../common/font/stroke_font.ts');
     expect(STROKE).toContain("export { KICAD_FONT_NAME } from './font.js';");
     expect(STROKE).not.toContain("KICAD_FONT_NAME = 'KiCad Font'");
   });
@@ -326,7 +326,7 @@ describe('DSP-20 — the label text KiCad prints', () => {
     // m_fontCtrlChoices (:155). They are not the same value: the first writes
     // no (face …) at all, the second writes (face "KiCad Font").
     //
-    // Both labels are now stated once in common/src/font/stroke_font.ts, so
+    // Both labels are now stated once in common/font/stroke_font.ts, so
     // this asserts the panel names the CONSTANTS and, separately, what the
     // constants say — which lets the literal be tokenised and still fails if
     // either word changes. Asserting the literal in this file would have made
@@ -351,7 +351,7 @@ describe('DSP-21 — the panel takes its metrics from the theme', () => {
     // The standing rule (per-launcher tokenisation): a measured chrome metric
     // goes in the :root token layer, and the editor's own CSS consumes it by
     // name. Adding a ninth hardcoded font size is the defect this pins.
-    const CSS = read('../../../common/src/widgets/shell.css');
+    const CSS = read('../../../common/widgets/shell.css');
     const start = CSS.indexOf('---- Drawing Sheet Editor properties panel');
     const end = CSS.indexOf("---- UNIT_BINDER's unit static text", start);
     expect(start, 'the drawing sheet CSS block moved').toBeGreaterThan(-1);
@@ -369,7 +369,7 @@ describe('DSP-21 — the panel takes its metrics from the theme', () => {
   it('marks the selected tab in the desktop accent, not in a blue of our own', () => {
     // [px] sampled off ziro-dsp/shots/k_tab.png: rgb(238, 84, 31), which is
     // --chrome-active (#e95420). This block carries no hex colour of its own.
-    const CSS = read('../../../common/src/widgets/shell.css');
+    const CSS = read('../../../common/widgets/shell.css');
     const start = CSS.indexOf('---- Drawing Sheet Editor properties panel');
     const end = CSS.indexOf("---- UNIT_BINDER's unit static text", start);
     const block = CSS.slice(start, end);
@@ -384,7 +384,7 @@ describe('DSP-21 — the panel takes its metrics from the theme', () => {
   it('lets a distance field fill its column instead of pinning 62 px', () => {
     // Every wxTextCtrl in properties_frame_base.cpp is added wxEXPAND into a
     // sizer with a growable value column (AddGrowableCol( 1 )).
-    const FIELD = read('../../../common/src/widgets/unit_binder_ui.tsx');
+    const FIELD = read('../../../common/widgets/unit_binder_ui.tsx');
     expect(FIELD).not.toContain('width = 62');
     expect(FIELD).toContain("flex: '1 1 auto'");
   });
@@ -404,7 +404,7 @@ describe('DSP-23 — the pane has its AUI caption', () => {
   it('uses the shared caption, not a private one', () => {
     // .ze-panel-header is WX_AUI_DOCK_ART's caption measured off a real pane;
     // the PCB, schematic and symbol editors all already draw theirs with it.
-    const SHELL = read('../../../common/src/widgets/shell.css');
+    const SHELL = read('../../../common/widgets/shell.css');
     expect(SHELL).toContain('.ze-panel-header {');
     expect(PANEL).not.toMatch(/ze-ds-(pane)?caption/);
   });

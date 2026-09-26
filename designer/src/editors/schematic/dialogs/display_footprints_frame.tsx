@@ -47,10 +47,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { PCB_IU_PER_MM, pcbIuToMM } from '@ziroeda/common';
 import { footprintMsgPanelInfo, type PcbFootprint } from '@ziroeda/pcbnew';
-import { Toolbar } from '@ziroeda/common/src/tool/action_toolbar.js';
-import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
-import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/src/widgets/msgpanel_ui.js';
-import { KiStatusBar } from '@ziroeda/common/src/widgets/kistatusbar.js';
+import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/widgets/msgpanel_ui.js';
+import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
 import {
   FootprintCanvas,
   type FootprintCanvasController,
@@ -64,8 +64,8 @@ import {
   DEFAULT_GRID_INDEX,
   gridChoiceLabel,
   gridSizesIU,
-} from '@ziroeda/common/src/settings/grid_settings_ui.js';
-import { ZOOM_LIST, zoomChoices } from '@ziroeda/common/src/settings/zoom_settings.js';
+} from '@ziroeda/common/settings/grid_settings_ui.js';
+import { ZOOM_LIST, zoomChoices } from '@ziroeda/common/settings/zoom_settings.js';
 import {
   coordsMsg,
   deltasMsg,
@@ -77,12 +77,9 @@ import {
   zoomFactorForScale,
   zoomMsg,
   type StatusUnits,
-} from '@ziroeda/common/src/widgets/kistatusbar_format.js';
-import {
-  EDA_FRAME_DEFAULT_SIZE,
-  EDA_FRAME_MIN_SIZE,
-} from '@ziroeda/common/src/eda_base_frame_size.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+} from '@ziroeda/common/widgets/kistatusbar_format.js';
+import { EDA_FRAME_DEFAULT_SIZE, EDA_FRAME_MIN_SIZE } from '@ziroeda/common/eda_base_frame_size.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 import { Viewer3DFrame } from '../../pcb/Viewer3DFrame.js';
 import {
   DISPLAY_FP_CONTROL,

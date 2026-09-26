@@ -29,7 +29,7 @@ import type { DsDrawItem } from '@ziroeda/common';
 import { drawDrawingSheetItems } from '@ziroeda/common';
 
 const PAINTER = readFileSync(
-  fileURLToPath(new URL('../../../common/src/drawing_sheet/ds_painter.ts', import.meta.url)),
+  fileURLToPath(new URL('../../../common/drawing_sheet/ds_painter.ts', import.meta.url)),
   'utf8',
 );
 

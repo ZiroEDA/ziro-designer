@@ -13,7 +13,7 @@
  * side so it can be unit-tested.
  */
 import type { LibSymbol, Schematic, SchLine, Vec2 } from '../types.js';
-import { symbolTransform, localToWorld } from '@ziroeda/common/src/transform.js';
+import { symbolTransform, localToWorld } from '@ziroeda/common/transform.js';
 import { addItems } from './mutate.js';
 import { needsJunction } from './mutate.js';
 import { makeWire, makeBus, makeJunction } from './build.js';

@@ -13,7 +13,7 @@ import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
 import { alignItems } from '@ziroeda/eeschema/src/tools/sch_align_tool.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const mm = (v: number): number => mmToIU(v);
 const LIBS = new Map();

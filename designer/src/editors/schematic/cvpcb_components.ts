@@ -24,7 +24,7 @@ import {
   type SchSymbol,
 } from '@ziroeda/eeschema';
 import { schSymbolLibraryName } from '@ziroeda/eeschema';
-import { expandStackedPinNotation } from '@ziroeda/common/src/string_utils.js';
+import { expandStackedPinNotation } from '@ziroeda/common/string_utils.js';
 
 /** One row of the "Symbol : Footprint Assignments" pane. */
 export interface CvpcbComponent {

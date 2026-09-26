@@ -38,7 +38,7 @@ import { readSymbolLib } from '@ziroeda/eeschema/src/index.js';
 import { makeSymbol } from '@ziroeda/eeschema/src/tools/build.js';
 import { autoplacePlacedSymbol } from '@ziroeda/eeschema/src/tools/autoplace_fields.js';
 import { transformSymbol } from '@ziroeda/eeschema/src/tools/transform.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { SchField, SchSymbol, Vec2 } from '@ziroeda/eeschema/src/types.js';
 
 /** Stock `Device:C`, copied from /usr/share/kicad/symbols/Device.kicad_sym. */

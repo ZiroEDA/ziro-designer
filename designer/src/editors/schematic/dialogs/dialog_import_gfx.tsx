@@ -39,13 +39,13 @@ import {
   getImportableFileTypes,
   getPlugin,
   getPluginByExt,
-} from '@ziroeda/common/src/import_gfx/graphics_import_mgr.js';
+} from '@ziroeda/common/import_gfx/graphics_import_mgr.js';
 import {
   DXF_IMPORT_PLUGIN,
   DXF_IMPORT_UNITS,
-} from '@ziroeda/common/src/import_gfx/dxf_import_plugin.js';
+} from '@ziroeda/common/import_gfx/dxf_import_plugin.js';
 import type { LibGraphic, SchLabel } from '@ziroeda/eeschema';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 interface Props {
   /**

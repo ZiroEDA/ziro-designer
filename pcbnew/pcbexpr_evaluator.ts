@@ -16,13 +16,13 @@ import {
   DoubleValueFromStringIn,
   DoubleValueFromStringWithUnits,
   type EdaUnits,
-} from '@ziroeda/common/src/eda_units.js';
+} from '@ziroeda/common/eda_units.js';
 import {
   LayerName,
   type PCB_LAYER_ID,
   PCB_LAYER_ID as LAYER,
   ToLAYER_ID,
-} from '@ziroeda/common/src/layer_ids.js';
+} from '@ziroeda/common/layer_ids.js';
 import {
   COMPILER,
   CONTEXT,
@@ -33,8 +33,8 @@ import {
   VALUE,
   VAR_REF,
   VAR_TYPE_T,
-} from '@ziroeda/common/src/libeval_compiler/libeval_compiler.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
+} from '@ziroeda/common/libeval_compiler/libeval_compiler.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import {
   ENUM_MAP,
   enumAnyAsString,
@@ -47,9 +47,9 @@ import {
   TYPE_OPT_INT,
   TYPE_STRING,
   type TYPE_ID,
-} from '@ziroeda/common/src/properties/property.js';
-import { PROPERTY_MANAGER } from '@ziroeda/common/src/properties/property_mgr.js';
-import { wildCompareString } from '@ziroeda/common/src/string_utils.js';
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER } from '@ziroeda/common/properties/property_mgr.js';
+import { wildCompareString } from '@ziroeda/common/string_utils.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { BOARD } from './board.js';

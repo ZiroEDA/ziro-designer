@@ -65,7 +65,7 @@
  */
 import type { JSX } from 'react';
 import { Check, Group, Num, Sel } from '../../../dialogs/prefs/widgets.js';
-import { unitLabel } from '@ziroeda/common/src/eda_units.js';
+import { unitLabel } from '@ziroeda/common/eda_units.js';
 import { ARC_EDIT_MODE_CHOICES } from '../arc_edit_mode.js';
 import { setSessionArcEditMode, useSessionArcEditMode } from '../arc_edit_mode.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';

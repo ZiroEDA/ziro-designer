@@ -11,8 +11,8 @@
  * names the two distinct sources and their two distinct licences. */
 
 import type { JSX } from 'react';
-import { ABOUT_TITLES, aboutWindowTitle } from '@ziroeda/common/src/eda_base_frame_about_titles.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { ABOUT_TITLES, aboutWindowTitle } from '@ziroeda/common/eda_base_frame_about_titles.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 declare const __BUILD_STAMP__: string;
 

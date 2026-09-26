@@ -42,10 +42,10 @@ import {
   hotkeyConflicts,
   type HotkeyOverrides,
 } from '../../../ui/hotkeys_inventory.js';
-import { importOntoNames, parseHotkeyFile } from '@ziroeda/common/src/hotkeys_basic_file.js';
-import { isBrowserReserved } from '@ziroeda/common/src/browser_hotkeys.js';
+import { importOntoNames, parseHotkeyFile } from '@ziroeda/common/hotkeys_basic_file.js';
+import { isBrowserReserved } from '@ziroeda/common/browser_hotkeys.js';
 import { comboFromEvent, isReservedHotkey } from '../../../editors/schematic/hotkey_bindings.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 interface Props {
   overrides: HotkeyOverrides;

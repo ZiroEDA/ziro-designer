@@ -25,7 +25,7 @@ import {
   resApproximationText,
   resEquivCalc,
 } from '@ziroeda/pcb_calculator';
-import { MessageDialogOk } from '@ziroeda/common/src/dialogs/dialog_message.js';
+import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import { parseNum } from '../fields.js';
 
 // The resistor calculator offers only the coarser series (E1…E24).

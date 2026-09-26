@@ -41,8 +41,8 @@
  * `editors/footprint/new_footprint.ts` is that call.
  */
 import { useState, type JSX } from 'react';
-import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
-import { StdBitmapButton } from '@ziroeda/common/src/widgets/std_bitmap_button.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
 import { allLayerChoices } from '../fp_layer_choices.js';
 import type { FpTextItem } from '../../../prefs/settings.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';

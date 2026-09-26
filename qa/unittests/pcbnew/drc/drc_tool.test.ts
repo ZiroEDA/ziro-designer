@@ -6,13 +6,13 @@
  * with no canvas. KiCad's creepage board (1 violation) is the fixture.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import {
   RPT_SEVERITY_ERROR,
   RPT_SEVERITY_EXCLUSION,
   RPT_SEVERITY_IGNORE,
-} from '@ziroeda/common/src/reporter.js';
-import { RC_TREE_NODE_TYPE } from '@ziroeda/common/src/rc_item.js';
+} from '@ziroeda/common/reporter.js';
+import { RC_TREE_NODE_TYPE } from '@ziroeda/common/rc_item.js';
 import type { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import {
@@ -20,7 +20,7 @@ import {
   type DIALOG_DRC_WINDOW,
 } from '@ziroeda/designer/src/editors/pcb/dialogs/dialog_drc_model.js';
 import { PCB_EDIT_FRAME } from '@ziroeda/designer/src/editors/pcb/pcb_edit_frame.js';
-import { PGM_BASE, SetPgm } from '@ziroeda/common/src/pgm_base.js';
+import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 import { DRC_ITEM, PCB_DRC_CODE } from '@ziroeda/pcbnew/drc/drc_item.js';
 import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';

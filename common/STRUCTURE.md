@@ -4,12 +4,18 @@ The rule is the same as `pcbnew/STRUCTURE.md`: every file sits where KiCad
 keeps it, under KiCad's name; only divergences are recorded, once, here. A
 folder is closed when its row says so, and is not reopened.
 
+There is no `src/`: since 09-26 the sources sit at the package root, beside
+`package.json`, the way KiCad's `common/` holds its `.cpp` files beside
+`CMakeLists.txt` (pcbnew did the same on 09-20). Import as
+`@ziroeda/common/widgets/...`, never `/src/`. `node_modules` now sits beside
+the sources too, so any test that walks this directory must skip it.
+
 ## The layering, and why the screens are here
 
 KiCad: wxWidgets (outside the tree) → `common/widgets`, `common/dialogs`
 (KiCad's own shared widgets) → `<editor>/dialogs` (screens) and `<editor>/*`
 (engine), every arrow one way. Ours, since 09-21: React (outside, in
-`node_modules`) → `common/src/widgets`, `common/src/dialogs` → the screens.
+`node_modules`) → `common/widgets`, `common/dialogs` → the screens.
 Until 09-21 the shared widgets lived in `designer/src/ui`, inside the app
 package, which is why no screen could sit in a KiCad directory without a
 package cycle. `designer/` is KiCad's `kicad/`: the launcher, routing and the

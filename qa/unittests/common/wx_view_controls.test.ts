@@ -13,21 +13,21 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { WXK } from '@ziroeda/core/src/wx_keycodes.js';
 import type { Vec2, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-import { GAL_DISPLAY_OPTIONS, GRID_SNAPPING } from '@ziroeda/common/src/gal/gal_display_options.js';
-import { GAL } from '@ziroeda/common/src/gal/graphics_abstraction_layer.js';
-import * as KIPLATFORM_UI from '@ziroeda/common/src/kiplatform/ui.js';
-import { MOUSE_DRAG_ACTION } from '@ziroeda/common/src/mouse_drag_action.js';
-import { type COMMON_SETTINGS_LIKE, PGM_BASE, SetPgm } from '@ziroeda/common/src/pgm_base.js';
-import { VIEW } from '@ziroeda/common/src/view/view.js';
+import { GAL_DISPLAY_OPTIONS, GRID_SNAPPING } from '@ziroeda/common/gal/gal_display_options.js';
+import { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
+import * as KIPLATFORM_UI from '@ziroeda/common/kiplatform/ui.js';
+import { MOUSE_DRAG_ACTION } from '@ziroeda/common/mouse_drag_action.js';
+import { type COMMON_SETTINGS_LIKE, PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { VIEW } from '@ziroeda/common/view/view.js';
 import {
   WX_VIEW_CONTROLS,
   type WX_VIEW_CONTROLS_PANEL,
-} from '@ziroeda/common/src/view/wx_view_controls.js';
+} from '@ziroeda/common/view/wx_view_controls.js';
 import {
   ACCELERATING_ZOOM_CONTROLLER,
   CONSTANT_ZOOM_CONTROLLER,
   type TIMESTAMP_PROVIDER,
-} from '@ziroeda/common/src/view/zoom_controller.js';
+} from '@ziroeda/common/view/zoom_controller.js';
 import {
   type wxEvent,
   type wxEventType,
@@ -42,7 +42,7 @@ import {
   wxMouseWheelAxis,
   wxOrientation,
   wxScrollWinEvent,
-} from '@ziroeda/common/src/wx/wx_event.js';
+} from '@ziroeda/common/wx/wx_event.js';
 
 describe('ZoomController', () => {
   it('ConstController: a GTK3 detent zooms by ~1.1 either way', () => {

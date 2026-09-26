@@ -11,24 +11,21 @@
  * refinement.
  */
 import { describe, expect, it } from 'vitest';
-import { ArcGeomManager } from '@ziroeda/common/src/preview_items/arc_geom_manager.js';
+import { ArcGeomManager } from '@ziroeda/common/preview_items/arc_geom_manager.js';
 import {
   arcCursorStrings,
   arcMidPoint,
   drawArcAssistant,
-} from '@ziroeda/common/src/preview_items/arc_assistant.js';
+} from '@ziroeda/common/preview_items/arc_assistant.js';
 import {
   drawTwoPointAssistant,
   twoPointCursorStrings,
-} from '@ziroeda/common/src/preview_items/two_point_assistant.js';
-import {
-  angleIsSpecial,
-  specialAngleColour,
-} from '@ziroeda/common/src/preview_items/draw_context.js';
+} from '@ziroeda/common/preview_items/two_point_assistant.js';
+import { angleIsSpecial, specialAngleColour } from '@ziroeda/common/preview_items/draw_context.js';
 import {
   constantLinePitchPx,
   drawTextNextToCursor,
-} from '@ziroeda/common/src/preview_items/preview_utils.js';
+} from '@ziroeda/common/preview_items/preview_utils.js';
 
 /** pcbnew's internal units per millimetre. */
 const IU = 1e6;

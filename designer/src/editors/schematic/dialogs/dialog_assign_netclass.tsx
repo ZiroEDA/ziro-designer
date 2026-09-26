@@ -16,7 +16,7 @@
  */
 
 import { useState, type JSX } from 'react';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 interface Props {
   /** Patterns from `planNetclassAssignment`, already sorted and de-duplicated. */

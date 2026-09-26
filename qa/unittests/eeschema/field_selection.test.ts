@@ -34,7 +34,7 @@ import { moveItems, planMove } from '@ziroeda/eeschema/src/tools/index.js';
 import { placeSymbol } from '@ziroeda/eeschema/src/tools/index.js';
 import { moveWithConnections } from '@ziroeda/eeschema/src/tools/move.js';
 import { orthoMove } from '@ziroeda/eeschema/src/tools/ortho.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { symbolBodyBBox } from '@ziroeda/eeschema/src/tools/bbox.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
 import {

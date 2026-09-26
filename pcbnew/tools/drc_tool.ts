@@ -10,19 +10,19 @@
  * the tool drives it through `DIALOG_DRC_LIKE`, the subset of DIALOG_DRC's
  * surface the C++ tool calls. The Design Rule Editor dialog is not ported.
  */
-import { ACTIONS } from '@ziroeda/common/src/tool/actions.js';
-import type { PROGRESS_REPORTER } from '@ziroeda/common/src/progress_reporter.js';
-import type { RC_ITEM } from '@ziroeda/common/src/rc_item.js';
-import type { COROUTINE_BODY } from '@ziroeda/common/src/tool/coroutine.js';
-import type { RESET_REASON, TOOL_STATE_FUNC } from '@ziroeda/common/src/tool/tool_base.js';
-import { EVENTS, type TOOL_EVENT } from '@ziroeda/common/src/tool/tool_event.js';
-import type { TOOL_ACTION } from '@ziroeda/common/src/tool/tool_action.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import type { PROGRESS_REPORTER } from '@ziroeda/common/progress_reporter.js';
+import type { RC_ITEM } from '@ziroeda/common/rc_item.js';
+import type { COROUTINE_BODY } from '@ziroeda/common/tool/coroutine.js';
+import type { RESET_REASON, TOOL_STATE_FUNC } from '@ziroeda/common/tool/tool_base.js';
+import { EVENTS, type TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
+import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import { BaseType, KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD } from '../board.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import { BOARD_COMMIT, SKIP_SET_DIRTY, SKIP_UNDO } from '../board_commit.js';
-import { kiidFromString } from '@ziroeda/common/src/kiid.js';
+import { kiidFromString } from '@ziroeda/common/kiid.js';
 import type { DRC_ENGINE } from '../drc/drc_engine.js';
 import {
   type DRC_JOB_HOOKS,

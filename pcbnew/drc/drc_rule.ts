@@ -9,9 +9,9 @@
  * The plain-object rule set the older, view-based engine reads is
  * `drc_rule_view.ts`; it goes with that engine (#636 stage 4).
  */
-import { type KIID, niluuid } from '@ziroeda/common/src/kiid.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { RPT_SEVERITY_UNDEFINED, type Severity } from '@ziroeda/common/src/reporter.js';
+import { type KIID, niluuid } from '@ziroeda/common/kiid.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { RPT_SEVERITY_UNDEFINED, type Severity } from '@ziroeda/common/reporter.js';
 import { MINOPTMAX } from '@ziroeda/core/src/minoptmax.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import { ZONE_CONNECTION } from '../zones.js';

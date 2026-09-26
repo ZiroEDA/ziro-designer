@@ -3,7 +3,7 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The pcbnew-side layer helpers over `include/layer_ids.h` / `lset.h`, which
- * live in `common/src/layer_ids.ts` and `common/src/lset.ts`. What is left
+ * live in `common/layer_ids.ts` and `common/lset.ts`. What is left
  * here is the canonical-name (`'F.Cu'`) form the plain-object board model
  * still speaks, each a delegate over the numeric one.
  */
@@ -12,15 +12,15 @@ import {
   FlipLayer as FlipLayerId,
   LayerName as LayerNameId,
   PCB_LAYER_ID,
-} from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
+} from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
 
 /**
  * The canonical layer token (`F.Cu`, `B.SilkS`, …) the plain-object board
  * model carries as its layer id.
  *
  * @deprecated KiCad's `PCB_LAYER_ID` is the numeric enum in
- * `@ziroeda/common/src/layer_ids.js`; the items on it use that. This alias
+ * `@ziroeda/common/layer_ids.js`; the items on it use that. This alias
  * goes with the plain-object model (#636 stage 2).
  */
 export type PCB_LAYER_NAME = string;
@@ -58,7 +58,7 @@ export {
   UNDEFINED_LAYER,
   UNSELECTED_LAYER,
   User_1,
-} from '@ziroeda/common/src/layer_ids.js';
+} from '@ziroeda/common/layer_ids.js';
 
 /**
  * `In1_Cu = 4 … In30_Cu = 62`, which the enum spells out one line at a time.
@@ -116,7 +116,7 @@ export function LayerSelectorUIOrder(aNotAllowed: Iterable<number> = []): number
 export const UserMask: readonly number[] = LSET.UserMask().Seq();
 
 /**
- * @deprecated `FlipLayer( PCB_LAYER_ID )` in `@ziroeda/common/src/layer_ids.js`;
+ * @deprecated `FlipLayer( PCB_LAYER_ID )` in `@ziroeda/common/layer_ids.js`;
  * this is the canonical-name form over it.
  */
 export function FlipLayer(aLayer: PCB_LAYER_NAME): PCB_LAYER_NAME {
@@ -126,7 +126,7 @@ export function FlipLayer(aLayer: PCB_LAYER_NAME): PCB_LAYER_NAME {
 }
 
 /**
- * @deprecated `LayerName( int )` in `@ziroeda/common/src/layer_ids.js`; this is
+ * @deprecated `LayerName( int )` in `@ziroeda/common/layer_ids.js`; this is
  * the canonical-name form over it (a name it does not know is its own name).
  */
 export function LayerName(aLayer: PCB_LAYER_NAME): string {

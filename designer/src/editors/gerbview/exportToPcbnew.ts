@@ -36,8 +36,8 @@
  */
 
 import { EDA_ANGLE, EDA_ANGLE_T, RotatePoint, type VECTOR2I } from '@ziroeda/kimath';
-import { formatDouble2Str } from '@ziroeda/common/src/plotters/fmt.js';
-import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
+import { formatDouble2Str } from '@ziroeda/common/plotters/fmt.js';
+import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
 import {
   APERTURE_T,
   GBR_BASIC_SHAPE,
@@ -222,7 +222,7 @@ export class GbrToPcbExporter {
    *
    * The one divergence is the `(generator …)` pair. Upstream writes
    * `"gerbview"` and `GetMajorMinorVersion()`; we write the two central values
-   * from `common/src/generator.ts`, which every other writer in this tree uses
+   * from `common/generator.ts`, which every other writer in this tree uses
    * and which exist because ZiroEDA is one application rather than
    * KiCad's eight separate ones.
    *

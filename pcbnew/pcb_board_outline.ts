@@ -2,10 +2,10 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** `pcbnew/pcb_board_outline.h` + `.cpp`. */
-import type { EDA_ITEM } from '@ziroeda/common/src/eda_item.js';
-import { SKIP_STRUCT } from '@ziroeda/common/src/eda_item_flags.js';
-import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import { SKIP_STRUCT } from '@ziroeda/common/eda_item_flags.js';
+import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';

@@ -29,7 +29,7 @@ import {
   colorThemeFromFile,
   colorThemeToFile,
   type SchLayerId,
-} from '@ziroeda/common/src/settings/color_theme_file.js';
+} from '@ziroeda/common/settings/color_theme_file.js';
 
 const KICAD = JSON.parse(
   readFileSync(resolve(process.cwd(), 'data/settings/kicad_10_0_5_default_theme.json'), 'utf8'),

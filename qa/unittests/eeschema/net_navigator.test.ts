@@ -17,7 +17,7 @@ import {
   netOfItem,
   stepNetItem,
 } from '@ziroeda/eeschema/src/tools/net_navigator.js';
-import { iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { iuToMM } from '@ziroeda/common/eda_units.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
 
 /** A resistor wired to a labelled net, with a junction, a no-connect and a bus. */

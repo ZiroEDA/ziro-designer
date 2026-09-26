@@ -44,8 +44,8 @@ import {
   type ColorThemeIo,
 } from '../../../dialogs/prefs/PanelColorSettings.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { parseColor4d, toCssColor } from '@ziroeda/common/src/color4d.js';
-import { BOARD_COLOR_KEYS } from '@ziroeda/common/src/settings/color_theme_file.js';
+import { parseColor4d, toCssColor } from '@ziroeda/common/color4d.js';
+import { BOARD_COLOR_KEYS } from '@ziroeda/common/settings/color_theme_file.js';
 import { themeFilesFor } from '../../../prefs/theme_files.js';
 import {
   FP_COLOR_BACKGROUND_KEY,

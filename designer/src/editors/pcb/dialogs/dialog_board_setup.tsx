@@ -26,12 +26,12 @@ import {
   PagedDialog,
   type PagedDialogError,
   type PagedDialogSection,
-} from '@ziroeda/common/src/widgets/paged_dialog.js';
-import { validateUnitValue, type UnitRange } from '@ziroeda/common/src/widgets/unit_binder.js';
-import { pcbIUScale, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
+} from '@ziroeda/common/widgets/paged_dialog.js';
+import { validateUnitValue, type UnitRange } from '@ziroeda/common/widgets/unit_binder.js';
+import { pcbIUScale, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import { PCB_VIA, VIA_PARAMETER_ERROR_FIELD } from '@ziroeda/pcbnew/pcb_track.js';
-import { Icon } from '@ziroeda/common/src/widgets/icons.js';
-import { SpinCtrl } from '@ziroeda/common/src/widgets/spin_ctrl.js';
+import { Icon } from '@ziroeda/common/widgets/icons.js';
+import { SpinCtrl } from '@ziroeda/common/widgets/spin_ctrl.js';
 
 /**
  * KiCad's own dark-theme constraint icons, vendored under assets/constraints
@@ -218,14 +218,14 @@ import type {
 import { BoardSetupToWindow } from './board_setup_transfer.js';
 import { delayProfileNames, validateTuningProfiles } from './panels/panel_pcb_tuning_profiles.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import type { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { SETTINGS_MANAGER } from '@ziroeda/common/src/pgm_base.js';
-import type { JsonValue } from '@ziroeda/common/src/settings/json_settings.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
+import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import { ParseBoard } from '@ziroeda/pcbnew/read-board.js';
 import { DialogImportSettings, type ImportSettingsOpts } from './dialog_import_settings.js';
 import { pcbUnitTextMM, pcbUnitValueMM, unitLabel } from '../pcb_unit_binder.js';
-import type { StatusUnits } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
+import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { svgUrl } from '@ziroeda/bitmaps_png';
 
 // The aggregate model lives in board_settings.ts (KiCad's data/UI split);

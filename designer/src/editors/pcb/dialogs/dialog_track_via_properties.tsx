@@ -17,10 +17,10 @@
  */
 
 import { useMemo, useState, type JSX } from 'react';
-import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { TrackViaSelection, TrackViaValues } from '@ziroeda/pcbnew/track_via_properties.js';
 import { collectTrackViaValues } from '@ziroeda/pcbnew/track_via_properties.js';
-import { useModalEscape } from '@ziroeda/common/src/dialogs/use_modal_escape.js';
+import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 interface Props {
   selection: TrackViaSelection;

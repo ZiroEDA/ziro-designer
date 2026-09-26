@@ -19,8 +19,8 @@
  * KiCad prints `1900 mils`.
  */
 import type { EdaIuScale } from '@ziroeda/common';
-import type { StatusUnits } from '@ziroeda/common/src/widgets/kistatusbar_format.js';
-import { parseUnitValue, stringFromValue } from '@ziroeda/common/src/widgets/unit_binder.js';
+import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
+import { parseUnitValue, stringFromValue } from '@ziroeda/common/widgets/unit_binder.js';
 
 /**
  * `PGPROPERTY_DISTANCE::DistanceToString` (pg_properties.cpp:346-389).

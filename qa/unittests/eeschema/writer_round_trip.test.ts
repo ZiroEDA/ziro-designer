@@ -19,7 +19,7 @@
 import { describe, it, expect } from 'vitest';
 import { parse, serialize } from '@ziroeda/sexpr';
 import { readSchematic, writeSchematic } from '@ziroeda/eeschema';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const sch = (body: string): Schematic =>

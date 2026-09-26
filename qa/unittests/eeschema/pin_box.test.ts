@@ -17,7 +17,7 @@ import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
 import { libPinBoundingBox, altIconBox } from '@ziroeda/eeschema/src/pin_box.js';
 import type { LibSymbol, LibPin } from '@ziroeda/eeschema/src/types.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 /**
  * One library symbol carrying one pin, built from the caller's tokens.

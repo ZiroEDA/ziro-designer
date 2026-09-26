@@ -29,7 +29,7 @@ import {
   tableAt,
   type TableValues,
 } from '@ziroeda/pcbnew/table_properties.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);

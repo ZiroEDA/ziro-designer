@@ -19,7 +19,7 @@
  */
 
 import { PINNING_SYMBOL } from '../../widgets/lib_tree_model_adapter.js';
-import { strNumCmp } from '@ziroeda/common/src/string_utils.js';
+import { strNumCmp } from '@ziroeda/common/string_utils.js';
 
 /**
  * `CVPCB_MAINFRAME::BuildLibrariesList` (cvpcb_mainframe.cpp:1005-1046) — the

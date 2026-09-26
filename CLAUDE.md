@@ -27,8 +27,8 @@ Never a local literal.**
 
 | KiCad asks | we ask |
 |---|---|
-| the GTK theme (`wxSYS_*`, `gtk-font-name`, the Yaru stylesheet) | the tokens in `designer/src/ui/shell.css` |
-| `common/` — `EDA_TEXT`, `SEG`, `StrNumCmp`, `COLOR4D`, `PLOTTER` statics | `common/src/**` |
+| the GTK theme (`wxSYS_*`, `gtk-font-name`, the Yaru stylesheet) | the tokens in `common/widgets/shell.css` |
+| `common/` — `EDA_TEXT`, `SEG`, `StrNumCmp`, `COLOR4D`, `PLOTTER` statics | `common/**` |
 | a base class every subclass inherits | one shared module, never a per-editor copy |
 | its own data table — resistor bands, layer palette | mirror *that data*; do not invent |
 

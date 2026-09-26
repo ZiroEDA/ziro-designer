@@ -14,12 +14,12 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { OVERFLOW_SIZE, visibleCount } from '@ziroeda/common/src/tool/action_toolbar_overflow.js';
+import { OVERFLOW_SIZE, visibleCount } from '@ziroeda/common/tool/action_toolbar_overflow.js';
 
 const src = (rel: string): string =>
   readFileSync(resolve(process.cwd(), '../designer/src', rel), 'utf8');
 
-const CSS = src('../../common/src/widgets/shell.css');
+const CSS = src('../../common/widgets/shell.css');
 
 /** A rule body by exact selector, comments stripped — a `}` inside a comment
  *  ends a naive split, and every one of these rules carries prose. */
@@ -121,7 +121,7 @@ describe('the frame clips, because a wxFrame clips', () => {
 });
 
 describe('the overflowed tools are reachable', () => {
-  const TB = src('../../common/src/tool/action_toolbar.tsx');
+  const TB = src('../../common/tool/action_toolbar.tsx');
 
   it('are dropped from the layout, not painted over', () => {
     // An item wx has overflowed does not take space -- which is what leaves

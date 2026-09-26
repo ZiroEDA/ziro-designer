@@ -17,8 +17,8 @@
  * be handed.
  */
 
-import { schIUScale } from '@ziroeda/common/src/eda_units.js';
-import { pixelSizeIu } from '@ziroeda/common/src/reference_image.js';
+import { schIUScale } from '@ziroeda/common/eda_units.js';
+import { pixelSizeIu } from '@ziroeda/common/reference_image.js';
 import type { SchImage } from '../types.js';
 
 /** `BITMAP_BASE`'s default resolution when the file states none. */

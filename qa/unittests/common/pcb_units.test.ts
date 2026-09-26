@@ -16,7 +16,7 @@ import {
   pcbIuToMM,
   pcbMmToIU,
   schIUScale,
-} from '@ziroeda/common/src/eda_units.js';
+} from '@ziroeda/common/eda_units.js';
 
 describe('EDA_IU_SCALE', () => {
   it("carries KiCad's per-application scales", () => {

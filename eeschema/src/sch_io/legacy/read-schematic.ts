@@ -36,9 +36,9 @@
  */
 
 import { atom, list, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
-import { convertToNewOverbarNotation } from '@ziroeda/common/src/string_utils.js';
-import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
-import type { Reporter } from '@ziroeda/common/src/reporter.js';
+import { convertToNewOverbarNotation } from '@ziroeda/common/string_utils.js';
+import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
+import type { Reporter } from '@ziroeda/common/reporter.js';
 import type { LibSymbol, Schematic } from '../../types.js';
 import { readSchematic } from '../sexpr/read-schematic.js';
 import { writeLibSymbolNode } from '../sexpr/write-symbol-lib.js';

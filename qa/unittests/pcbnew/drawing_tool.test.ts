@@ -23,7 +23,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BezierGeomManager,
   BezierStep,
-} from '@ziroeda/common/src/preview_items/bezier_geom_manager.js';
+} from '@ziroeda/common/preview_items/bezier_geom_manager.js';
 import {
   bezierChainSeed,
   bezierClick,

@@ -13,7 +13,7 @@
       "!bitmaps_png/sources",
       "!qa/data",
       "!**/dist",
-      "!common/src/font/newstroke_glyphs.ts",
+      "!common/font/newstroke_glyphs.ts",
       "!designer/src/render/gl/vendor",
       "!libs/kimath/src/thirdparty/vendor",
       "!docs/email-templates"
@@ -61,7 +61,7 @@
   },
   "overrides": [
     {
-      "includes": ["common/src/gal/opengl/**"],
+      "includes": ["common/gal/opengl/**"],
       "linter": {
         "rules": {
           "correctness": {

@@ -18,8 +18,8 @@
  * is the parity target as much as the membership is.
  */
 
-import type { ToolEntry } from '@ziroeda/common/src/tool/action_toolbar_types.js';
-import type { ToolbarDefaults } from '@ziroeda/common/src/tool/ui/toolbar_configuration.js';
+import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
+import type { ToolbarDefaults } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 
 const sep: ToolEntry = 'sep';
 

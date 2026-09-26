@@ -20,7 +20,7 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { backgroundJobsMonitor } from '@ziroeda/common/src/background_jobs_monitor.js';
+import { backgroundJobsMonitor } from '@ziroeda/common/background_jobs_monitor.js';
 import { PRELOAD_JOB_NAME } from '@ziroeda/designer/src/libraryPreload.js';
 
 const read = (rel: string): string =>

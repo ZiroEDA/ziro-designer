@@ -15,7 +15,7 @@
  * nothing would be worse than its absence.
  */
 import type { ArraySpec } from '@ziroeda/pcbnew';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 
 export type ArrayMode = 'grid' | 'circular';
 

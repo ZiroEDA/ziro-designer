@@ -54,8 +54,8 @@ import {
   unitPropagationDelay,
 } from '@ziroeda/pcb_calculator';
 import { type CSSProperties, type JSX, useState } from 'react';
-import { Combo } from '@ziroeda/common/src/widgets/wx_combobox.js';
-import { SingleChoiceDialog } from '@ziroeda/common/src/dialogs/dialog_single_choice.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import { SingleChoiceDialog } from '@ziroeda/common/dialogs/dialog_single_choice.js';
 import {
   ANGLE_UNITS,
   FREQ_UNITS,

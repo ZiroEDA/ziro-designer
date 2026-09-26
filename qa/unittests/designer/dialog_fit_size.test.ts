@@ -38,7 +38,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const SRC = join(__dirname, '../../../designer/src');
-const SHELL = join(SRC, '../../common/src/widgets/shell.css');
+const SHELL = join(SRC, '../../common/widgets/shell.css');
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {

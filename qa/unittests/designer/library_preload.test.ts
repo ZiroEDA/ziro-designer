@@ -24,7 +24,7 @@ import {
 import {
   BackgroundJobsMonitor,
   backgroundJobsMonitor,
-} from '@ziroeda/common/src/background_jobs_monitor.js';
+} from '@ziroeda/common/background_jobs_monitor.js';
 
 /** A settled promise chain plus one macrotask, so a `setTimeout(0)` lands. */
 const tick = (ms = 0): Promise<void> => new Promise((r) => setTimeout(r, ms));

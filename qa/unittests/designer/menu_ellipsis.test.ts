@@ -26,7 +26,7 @@ const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 
 const SOURCE_DIRS = [
   'designer/src',
-  'common/src',
+  'common',
   'eeschema/src',
   'pcbnew',
   'gerbview/src',
@@ -47,7 +47,7 @@ const ALLOWED = new Map<string, string>([
   // The marker moved with the Nets list into the shared APPEARANCE_CONTROLS.
   ['designer/src/widgets/appearance_controls.tsx', 'a leading "…N more" truncation marker'],
   ['designer/src/telemetry/scrub.ts', '"…[truncated]" in a scrubbed report'],
-  ['common/src/drawing_sheet/read.ts', 'an elided s-expression in a parser error'],
+  ['common/drawing_sheet/read.ts', 'an elided s-expression in a parser error'],
 ]);
 
 /** Source files, comments blanked, so prose about the rule is not the rule. */

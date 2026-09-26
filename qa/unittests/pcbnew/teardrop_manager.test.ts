@@ -9,9 +9,9 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { TOOL_MANAGER } from '@ziroeda/common/src/tool/tool_manager.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { CornerStrategy, SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';

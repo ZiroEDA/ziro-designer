@@ -9,10 +9,10 @@
  * - DRCE_TEXT_HEIGHT
  * - DRCE_TEXT_THICKNESS
  */
-import { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
-import type { OUTLINE_GLYPH } from '@ziroeda/common/src/font/glyph.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/src/reporter.js';
+import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
+import type { OUTLINE_GLYPH } from '@ziroeda/common/font/glyph.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { ARC_LOW_DEF } from '@ziroeda/kimath/src/base_units.js';
 import { CornerStrategy } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';

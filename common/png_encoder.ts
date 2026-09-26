@@ -160,7 +160,7 @@ export interface PngEncodeOptions {
   /**
    * Pixels per inch to record in a `pHYs` chunk. Omitted by default, because
    * `cairo_surface_write_to_png` writes no `pHYs` and a plot that gained one
-   * would not be the file KiCad produces. `common/src/png_meta.ts` is the
+   * would not be the file KiCad produces. `common/png_meta.ts` is the
    * reader that would see it.
    */
   ppi?: number;

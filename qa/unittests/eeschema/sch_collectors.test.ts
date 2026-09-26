@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { addItems, makeWire, makeJunction, makeLabel } from '@ziroeda/eeschema/src/tools/index.js';
 import { collectAndGuess, describeItem } from '@ziroeda/eeschema/src/tools/sch_collectors.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const at = (x: number, y: number) => ({ x: mmToIU(x), y: mmToIU(y) });

@@ -21,7 +21,7 @@
 
 import type { Schematic, SchGroup } from '../types.js';
 import type { EditCommand } from './command.js';
-import { newKiid } from '@ziroeda/common/src/kiid.js';
+import { newKiid } from '@ziroeda/common/kiid.js';
 import { list, atom, str } from '@ziroeda/sexpr/src/types.js';
 
 /** Every item uuid a group member can reference (groups included, for nesting). */

@@ -18,14 +18,14 @@
  * (append-to-existing is not used).
  */
 
-import { DSNLEXER, PARSE_ERROR, T, type Tok } from '@ziroeda/common/src/dsnlexer.js';
-import { EMBEDDED_FILES, ParseEmbedded } from '@ziroeda/common/src/embedded_files.js';
-import type { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
-import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/font/text_attributes.js';
-import { type FileDataType, pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { RECURSE_MODE } from '@ziroeda/common/src/eda_item.js';
-import { FUTURE_FORMAT_ERROR, IO_ERROR } from '@ziroeda/common/src/ki_exception.js';
-import { type KIID, kiidFromString } from '@ziroeda/common/src/kiid.js';
+import { DSNLEXER, PARSE_ERROR, T, type Tok } from '@ziroeda/common/dsnlexer.js';
+import { EMBEDDED_FILES, ParseEmbedded } from '@ziroeda/common/embedded_files.js';
+import type { EDA_TEXT } from '@ziroeda/common/eda_text.js';
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
+import { type FileDataType, pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
+import { FUTURE_FORMAT_ERROR, IO_ERROR } from '@ziroeda/common/ki_exception.js';
+import { type KIID, kiidFromString } from '@ziroeda/common/kiid.js';
 import {
   B_Adhes,
   B_CrtYd,
@@ -47,18 +47,14 @@ import {
   PCB_LAYER_ID,
   Rescue,
   UNDEFINED_LAYER,
-} from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { LIB_ID } from '@ziroeda/common/src/lib_id.js';
-import { NETCLASS } from '@ziroeda/common/src/netclass.js';
-import {
-  MAX_PAGE_SIZE_PCBNEW_MM,
-  MIN_PAGE_SIZE_MM,
-  PAGE_INFO,
-} from '@ziroeda/common/src/page_info.js';
-import { STRING_ANY_MAP } from '@ziroeda/common/src/string_any_map.js';
-import { convertToNewOverbarNotation } from '@ziroeda/common/src/string_utils.js';
-import { TITLE_BLOCK } from '@ziroeda/common/src/title_block.js';
+} from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { LIB_ID } from '@ziroeda/common/lib_id.js';
+import { NETCLASS } from '@ziroeda/common/netclass.js';
+import { MAX_PAGE_SIZE_PCBNEW_MM, MIN_PAGE_SIZE_MM, PAGE_INFO } from '@ziroeda/common/page_info.js';
+import { STRING_ANY_MAP } from '@ziroeda/common/string_any_map.js';
+import { convertToNewOverbarNotation } from '@ziroeda/common/string_utils.js';
+import { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { SHAPE_ARC } from '@ziroeda/kimath/src/geometry/shape_arc.js';
 import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';

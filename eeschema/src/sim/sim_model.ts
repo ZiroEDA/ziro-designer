@@ -21,7 +21,7 @@
  */
 
 import type { LibSymbol, SchSymbol } from '../types.js';
-import { strNumCmp } from '@ziroeda/common/src/string_utils.js';
+import { strNumCmp } from '@ziroeda/common/string_utils.js';
 import {
   SIM_DEVICE_FIELD,
   SIM_DEVICE_FIELD_VALUES,

@@ -9,9 +9,9 @@
  * `LAYER_PROPERTIES_GRID_TABLE` (a wxGrid table); both are dialog chrome.
  */
 
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import { ANGLE_0, type EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { type VECTOR2I, equal } from '@ziroeda/kimath/src/math/vector2.js';
 import { TEARDROP_TYPE } from './teardrop/teardrop_types.js';

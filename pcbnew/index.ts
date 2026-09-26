@@ -291,7 +291,7 @@ export {
 } from './netlist_reader/pcb_netlist_utils.js';
 // A new board item's UUID is `KIID::KIID()`, which upstream has once for the
 // whole application; re-exported from common so the board barrel still offers it.
-export { newKiid as newBoardUuid } from '@ziroeda/common/src/kiid.js';
+export { newKiid as newBoardUuid } from '@ziroeda/common/kiid.js';
 export {
   computeFootprintShift,
   uniquePadCount,
@@ -673,7 +673,7 @@ export {
 } from './table_geometry.js';
 // tableRowCount is not re-exported here: it is the same statement in
 // SCH_TABLE::GetRowCount and PCB_TABLE::GetRowCount, so it lives in
-// @ziroeda/common/src/table.js and both editors import it from there.
+// @ziroeda/common/table.js and both editors import it from there.
 
 export {
   tableAt,
@@ -1017,12 +1017,12 @@ export {
 // Graphics import (DXF/SVG into board graphics). Only the import-specific
 // names travel: MATRIX3x3D, the IMPORTED_* shape classes and
 // setupSplineOrLine are KiCad names another port will want and stay importable
-// from '@ziroeda/common/src/import_gfx/graphics_importer.js' / './import_gfx/graphics_importer_pcbnew.js' alone.
+// from '@ziroeda/common/import_gfx/graphics_importer.js' / './import_gfx/graphics_importer_pcbnew.js' alone.
 export {
   GRAPHICS_IMPORTER_BUFFER,
   IMPORTED_STROKE,
   POLY_FILL_RULE,
-} from '@ziroeda/common/src/import_gfx/graphics_importer.js';
+} from '@ziroeda/common/import_gfx/graphics_importer.js';
 
 export {
   GRAPHICS_IMPORTER_PCBNEW,
@@ -1241,9 +1241,9 @@ export {
   toInt,
   toInt16,
   toReal,
-} from '@ziroeda/common/src/import_gfx/dxf_reader.js';
+} from '@ziroeda/common/import_gfx/dxf_reader.js';
 
-export { SPLINE_ERROR, bsplineToBeziers } from '@ziroeda/common/src/import_gfx/dxf_spline.js';
+export { SPLINE_ERROR, bsplineToBeziers } from '@ziroeda/common/import_gfx/dxf_spline.js';
 
 export {
   DXF2BRD_ENTITY_DATA,
@@ -1261,7 +1261,7 @@ export {
   matrixSetRotation,
   matrixSetScale,
   matrixZero,
-} from '@ziroeda/common/src/import_gfx/dxf_import_plugin.js';
+} from '@ziroeda/common/import_gfx/dxf_import_plugin.js';
 // And once more for the PNG back-end, the raster one. Only the PNG-prefixed
 // names travel; FILL_T, LINE_STYLE, Color4d, COLOR4D_BLACK/WHITE and the two
 // line-width sentinels stay importable from './plot_png.js' alone, because all
@@ -1302,7 +1302,7 @@ export {
   adler32,
   PNG_SIGNATURE,
   type PngEncodeOptions,
-} from '@ziroeda/common/src/png_encoder.js';
+} from '@ziroeda/common/png_encoder.js';
 // ----- PNS: collision querying (pns_node, pns_rule_resolver, pns_item_hull) --------
 //
 // `PnsNode`'s three collision entry points are methods, so they arrive with the
@@ -1355,7 +1355,7 @@ export {
   type NSVGpaint,
   type NSVGpath,
   type NSVGshape,
-} from '@ziroeda/common/src/import_gfx/nanosvg.js';
+} from '@ziroeda/common/import_gfx/nanosvg.js';
 
 export {
   GatherInterpolatedCubicBezierCurve,
@@ -1364,7 +1364,7 @@ export {
   calculateBezierSegmentationThreshold,
   distanceFromPointToLine,
   getBezierPoint,
-} from '@ziroeda/common/src/import_gfx/svg_import_plugin.js';
+} from '@ziroeda/common/import_gfx/svg_import_plugin.js';
 // ----- PNS::SHOVE ----------------------------------------------------------------
 //
 // The push-and-shove core: given a head, push the nearest obstacle out of the

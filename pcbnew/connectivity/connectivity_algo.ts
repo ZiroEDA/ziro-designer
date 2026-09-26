@@ -10,9 +10,9 @@
  * same graph. The deferred via-net list is sorted by item afterwards (by
  * `m_id`, the pointer order), exactly as the C++ sorts it by pointer.
  */
-import type { COMMIT } from '@ziroeda/common/src/commit.js';
-import { FLASHING, IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
+import type { COMMIT } from '@ziroeda/common/commit.js';
+import { FLASHING, IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
 import { EuclideanNormI, sub, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { stdSort } from '@ziroeda/kimath/src/clipper2/clipper.core.js';

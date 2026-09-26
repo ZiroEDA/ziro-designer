@@ -14,9 +14,9 @@
  * lettering on a board, which is a short, not a cosmetic difference.
  */
 
-import { effectiveTextPenWidth } from '@ziroeda/common/src/font/text_box.js';
-import { ITALIC_TILT } from '@ziroeda/common/src/font/font_metrics.js';
-import { layoutText, textBlockOffset } from '@ziroeda/common/src/font/stroke_font.js';
+import { effectiveTextPenWidth } from '@ziroeda/common/font/text_box.js';
+import { ITALIC_TILT } from '@ziroeda/common/font/font_metrics.js';
+import { layoutText, textBlockOffset } from '@ziroeda/common/font/stroke_font.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { circlePoly, stadiumPoly } from './convert_basic_shapes_to_polygon.js';
 import type { Shape } from './drc/drc_geometry.js';

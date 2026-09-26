@@ -18,8 +18,8 @@
  * Usage:
  *   node tools/gen_bitmap_font_full.mjs [path-to-kicad-source]
  *
- * Writes common/src/gal/opengl/bitmap_font_desc.ts and
- * common/src/gal/opengl/bitmap_font_img.png.
+ * Writes common/gal/opengl/bitmap_font_desc.ts and
+ * common/gal/opengl/bitmap_font_img.png.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -130,7 +130,7 @@ console.log(
 );
 
 writeFileSync(
-  join(HERE, '..', 'common/src/gal/opengl/bitmap_font_img.png'),
+  join(HERE, '..', 'common/gal/opengl/bitmap_font_img.png'),
   png(img.width, img.height, img.px),
 );
 
@@ -192,5 +192,5 @@ export const font_codepoint_infos: readonly (readonly number[])[] = [
 ${desc.glyphs.map((g) => `  [${g.join(', ')}],`).join('\n')}
 ];
 `;
-writeFileSync(join(HERE, '..', 'common/src/gal/opengl/bitmap_font_desc.ts'), ts);
-console.log('wrote common/src/gal/opengl/bitmap_font_desc.ts and bitmap_font_img.png');
+writeFileSync(join(HERE, '..', 'common/gal/opengl/bitmap_font_desc.ts'), ts);
+console.log('wrote common/gal/opengl/bitmap_font_desc.ts and bitmap_font_img.png');

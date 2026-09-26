@@ -13,10 +13,10 @@
 import { describe, it, expect } from 'vitest';
 import { GRAPHICS_IMPORTER_LIB_SYMBOL } from '@ziroeda/eeschema/src/import_gfx/graphics_importer_lib_symbol.js';
 import { GRAPHICS_IMPORTER_SCH } from '@ziroeda/eeschema/src/import_gfx/graphics_importer_sch.js';
-import { IMPORTED_STROKE } from '@ziroeda/common/src/import_gfx/graphics_importer.js';
-import { LINE_STYLE } from '@ziroeda/common/src/stroke_params.js';
-import { COLOR4D_BLACK } from '@ziroeda/common/src/color4d.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { IMPORTED_STROKE } from '@ziroeda/common/import_gfx/graphics_importer.js';
+import { LINE_STYLE } from '@ziroeda/common/stroke_params.js';
+import { COLOR4D_BLACK } from '@ziroeda/common/color4d.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const plain = () => new IMPORTED_STROKE(0.2, LINE_STYLE.SOLID);
 

@@ -23,7 +23,7 @@
  * that is excluded from simulation but populated keeps its full colours, and it
  * is DNP alone that greys a symbol out.
  *
- * The arithmetic itself is `COLOR4D`'s and lives in `common/src/color4d.ts`
+ * The arithmetic itself is `COLOR4D`'s and lives in `common/color4d.ts`
  * with the rest of it; this module only states the order and the 0.5.
  */
 import { desaturate, mix, parseColor4d, toCssColor } from '@ziroeda/common';
