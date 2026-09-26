@@ -15,15 +15,16 @@ import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { GERBVIEW_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { unescapeString as UnescapeString } from '@ziroeda/common/string_utils.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
-import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
+import type { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
 import { EVENTS, type TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
 import { SYNC_HANDLER, TOOL_INTERACTIVE } from '@ziroeda/common/tool/tool_interactive.js';
 import { VIEW_UPDATE_FLAGS, type VIEW_ITEM } from '@ziroeda/common/view/view_item.js';
 import { kicadPcbWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import type { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import { DIALOG_MAP_GERBER_LAYERS_TO_PCB } from '../dialogs/dialog_map_gerber_layers_to_pcb.js';
 import { EXCELLON_IMAGE } from '../excellon_read_drill_file.js';
 import { GBR_TO_PCB_EXPORTER } from '../export_to_pcbnew.js';
-import { GBR_BASIC_SHAPE_TYPE, GERBER_DRAW_ITEM } from '../gerber_draw_item.js';
+import { GBR_BASIC_SHAPE_TYPE, type GERBER_DRAW_ITEM } from '../gerber_draw_item.js';
 import type { GERBVIEW_FRAME } from '../gerbview_frame.js';
 import type { GERBVIEW_PAINTER, GERBVIEW_RENDER_SETTINGS } from '../gerbview_painter.js';
 import { GERBVIEW_ACTIONS } from './gerbview_actions.js';
@@ -299,7 +300,8 @@ export class GERBVIEW_CONTROL extends TOOL_INTERACTIVE {
     return 0;
   }
 
-  private async exportToPcbnew(): Promise<void> {
+  /** The body of ExportToPcbnew, as a promise: its three modal dialogs are awaited. */
+  async exportToPcbnew(): Promise<void> {
     let layercount = 0;
 
     const images = this.frame().GetGerberLayout().GetImagesList();
@@ -325,9 +327,10 @@ export class GERBVIEW_CONTROL extends TOOL_INTERACTIVE {
     // EnsureFileExtension( filedlg.GetPath(), FILEEXT::KiCadPcbFileExtension )
     const fileName = /\.kicad_pcb$/i.test(path) ? path : `${path}.kicad_pcb`;
 
-    const layerdlg = await this.frame().Host().MapGerberLayersToPcb();
+    const layerdlg = new DIALOG_MAP_GERBER_LAYERS_TO_PCB(this.frame());
+    await layerdlg.initDialog();
 
-    if (layerdlg === null) return;
+    if (!(await this.frame().Host().MapGerberLayersToPcbDialog(layerdlg))) return;
 
     this.frame().m_mruPath = fileName.slice(0, Math.max(0, fileName.lastIndexOf('/')));
 
@@ -339,7 +342,13 @@ export class GERBVIEW_CONTROL extends TOOL_INTERACTIVE {
 
     this.frame()
       .Host()
-      .SaveTextFile(fileName, gbr_exporter.ExportPcb(layerdlg.lookUp, layerdlg.copperLayersCount));
+      .SaveTextFile(
+        fileName,
+        gbr_exporter.ExportPcb(
+          layerdlg.GetLayersLookUpTable(),
+          DIALOG_MAP_GERBER_LAYERS_TO_PCB.GetCopperLayersCount(),
+        ),
+      );
   }
 
   // Highlight control
