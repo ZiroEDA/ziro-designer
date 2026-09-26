@@ -217,8 +217,13 @@ function itemNode(it: WksItem, defaultLineWidth: number): SList | null {
   }
 }
 
-/** Build the `(kicad_wks …)` AST for a sheet. */
-export function writeDrawingSheet(sheet: WksSheet): SList {
+/**
+ * Build the `(kicad_wks …)` AST for a sheet. `aWithSetup` false is
+ * `DS_DATA_MODEL_IO::Format( aModel, aItemsList )`, the clipboard's form,
+ * which writes the header and the items and no `(setup …)`
+ * (ds_data_model_io.cpp:170-181).
+ */
+export function writeDrawingSheet(sheet: WksSheet, aWithSetup = true): SList {
   const s = sheet.setup;
   const setup = list(
     A('setup'),
@@ -238,14 +243,14 @@ export function writeDrawingSheet(sheet: WksSheet): SList {
     list(A('version'), A(String(WKS_FILE_VERSION))),
     list(A('generator'), S(GENERATOR)),
     list(A('generator_version'), S(GENERATOR_VERSION)),
-    setup,
+    ...(aWithSetup ? [setup] : []),
     ...items,
   );
 }
 
-/** Serialize a `WksSheet` to `.kicad_wks` text. */
-export function serializeDrawingSheet(sheet: WksSheet): string {
-  return serialize(writeDrawingSheet(sheet));
+/** Serialize a `WksSheet` to `.kicad_wks` text; see `writeDrawingSheet` for `aWithSetup`. */
+export function serializeDrawingSheet(sheet: WksSheet, aWithSetup = true): string {
+  return serialize(writeDrawingSheet(sheet, aWithSetup));
 }
 
 // ----- DS_DATA_MODEL_IO::Format( DS_DATA_MODEL* ) ------------------------------

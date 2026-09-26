@@ -45,9 +45,11 @@ import type { TITLE_BLOCK } from '../title_block.js';
 import type { VIEW } from '../view/view.js';
 import type { VIEW_ITEM } from '../view/view_item.js';
 import { defaultDrawingSheet } from './default-sheet.js';
+import type { DS_DATA_ITEM_BITMAP } from './ds_data_item.js';
 import {
   type DS_DRAW_ITEM_BASE,
   DS_DRAW_ITEM_BITMAP,
+  type DS_DRAW_ITEM_PAGE,
   DS_DRAW_ITEM_LINE,
   DS_DRAW_ITEM_POLYPOLYGONS,
   DS_DRAW_ITEM_RECT,
@@ -197,6 +199,9 @@ export class DS_PAINTER extends PAINTER {
       case KICAD_T.WSG_BITMAP_T:
         this.drawBitmap(item as DS_DRAW_ITEM_BITMAP, aLayer);
         break;
+      case KICAD_T.WSG_PAGE_T:
+        this.drawPage(item as DS_DRAW_ITEM_PAGE, aLayer);
+        break;
       default:
         return false;
     }
@@ -270,14 +275,60 @@ export class DS_PAINTER extends PAINTER {
     const gal = this.m_gal!;
     gal.Save();
 
+    const bitmap = aItem.GetPeer() as DS_DATA_ITEM_BITMAP | null;
+
     const position: VECTOR2D = aItem.GetPosition();
     gal.Translate(position);
 
-    // If we've failed to read the bitmap data, don't try to draw it: the layout
-    // carries no decoded image (the bitmap's pixels are the host's), so the
-    // sheet's bitmaps are not drawn here yet.
+    // If we've failed to read the bitmap data, don't try to draw it. An item
+    // the layout built (no peer) carries no decoded image. Upstream returns
+    // here without the Restore; ours keeps the GAL's stack balanced.
+    if (!bitmap?.m_ImageBitmap?.GetImageData()) {
+      gal.Restore();
+      return;
+    }
+
+    // When the image scale factor is not 1.0, we need to modify the actual scale
+    // as the image scale factor is similar to a local zoom
+    const img_scale = bitmap.m_ImageBitmap.GetScale();
+
+    if (img_scale !== 1.0) gal.Scale({ x: img_scale, y: img_scale });
+
+    gal.DrawBitmap(bitmap.m_ImageBitmap);
 
     gal.Restore();
+  }
+
+  private drawPage(aItem: DS_DRAW_ITEM_PAGE, _aLayer: number): void {
+    const gal = this.m_gal!;
+    const origin: VECTOR2D = { x: 0.0, y: 0.0 };
+    const end: VECTOR2D = { x: aItem.GetPageSize().x, y: aItem.GetPageSize().y };
+
+    gal.SetIsStroke(true);
+
+    // Use a gray color for the border color
+    gal.SetStrokeColor(this.m_renderSettings.m_pageBorderColor);
+    gal.SetIsFill(false);
+    gal.SetLineWidth(this.m_renderSettings.GetDefaultPenWidth());
+
+    gal.DrawRectangle(origin, end);
+
+    // Draw the corner marker
+    const marker_size = aItem.GetMarkerSize();
+
+    gal.SetStrokeColor(this.m_renderSettings.m_pageBorderColor);
+    const pos: VECTOR2D = { x: aItem.GetMarkerPos().x, y: aItem.GetMarkerPos().y };
+
+    // Draw a circle and a X
+    gal.DrawCircle(pos, marker_size);
+    gal.DrawLine(
+      { x: pos.x - marker_size, y: pos.y - marker_size },
+      { x: pos.x + marker_size, y: pos.y + marker_size },
+    );
+    gal.DrawLine(
+      { x: pos.x + marker_size, y: pos.y - marker_size },
+      { x: pos.x - marker_size, y: pos.y + marker_size },
+    );
   }
 
   DrawBorder(aPageInfo: PAGE_INFO, aScaleFactor: number): void {

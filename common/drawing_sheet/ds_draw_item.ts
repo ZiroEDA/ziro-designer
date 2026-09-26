@@ -961,8 +961,9 @@ export class DS_DRAW_ITEM_LIST {
    *         by the corresponding value.
    */
   BuildFullText(aTextbase: string): string {
-    const projectResolver: TextVarResolverFn | null = this.m_project
-      ? this.m_project.TextVarResolver
+    const project = this.m_project;
+    const projectResolver: TextVarResolverFn | null = project
+      ? (t) => project.TextVarResolver(t)
       : null;
 
     const wsResolver: TextVarResolverFn = (token: OutStr): boolean => {

@@ -240,6 +240,28 @@ describe('DS_DRAW_ITEM_LIST::BuildFullText', () => {
     expect(list.BuildFullText('${#}/${##} ${TITLE} ${PAPER}')).toBe('3/7 Board A4');
   });
 
+  it('asks the project for its own variables, as a method on the project', () => {
+    // PROJECT::TextVarResolver reads the project's own members, so it must be
+    // called on the project (title_block.cpp:118, ds_painter.cpp:215).
+    class PRJ {
+      private m_name = 'amp';
+      TextVarResolver(aToken: { value: string }): boolean {
+        if (aToken.value !== 'PROJECTNAME') return false;
+        aToken.value = this.m_name;
+        return true;
+      }
+    }
+    const list = new DS_DRAW_ITEM_LIST(drawSheetIUScale);
+    list.SetProject(new PRJ());
+    expect(list.BuildFullText('${PROJECTNAME}')).toBe('amp');
+
+    // ...and through the title block, whose REVISION may itself hold one.
+    const tb = new TITLE_BLOCK();
+    tb.SetRevision('${PROJECTNAME}-B');
+    list.SetTitleBlock(tb);
+    expect(list.BuildFullText('${REVISION}')).toBe('amp-B');
+  });
+
   it('keeps an unknown variable as it was written', () => {
     const list = new DS_DRAW_ITEM_LIST(drawSheetIUScale);
     expect(list.BuildFullText('${NOPE}')).toBe('${NOPE}');

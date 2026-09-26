@@ -183,7 +183,7 @@ export class DS_DATA_MODEL {
    * @return the S-expression text.
    */
   SaveInString(aItemsList?: readonly DS_DATA_ITEM[]): string {
-    return serializeDrawingSheet(DS_DATA_MODEL_IO_Format(this, aItemsList));
+    return serializeDrawingSheet(DS_DATA_MODEL_IO_Format(this, aItemsList), !aItemsList);
   }
 
   Append(aItem: DS_DATA_ITEM): void {
