@@ -13182,6 +13182,114 @@ textarea.ze-ds-textedit {
   padding: 5px; /* [data] sizer->Add( reporter, 1, wxEXPAND | wxALL, 5 ) */
 }
 
+/* wxStaticBox / wxStaticBoxSizer, once. `qa/probes/staticbox_inset_probe.cpp`
+   asks wx: GetBordersForSizer reports 18 px on top (the label line) and 0 on
+   every other side, the child sits flush inside, and the theme paints a 1 px
+   frame in rgb(24, 24, 24) - the borders colour, --ctl-border - down both
+   sides and along the bottom, with the top edge running behind the label, which
+   starts at the frame's own left edge and is not bold. A fieldset and its
+   legend are that shape. Dialogs used to restate a padding and border each. */
+fieldset.ze-sbox {
+  border: 1px solid var(--ctl-border);
+  margin: 0;
+  padding: 0; /* [px] GetBordersForSizer: 0 on the sides and bottom */
+  min-width: auto;
+}
+fieldset.ze-sbox > legend {
+  padding: 0;
+  margin: 0;
+  font: inherit;
+}
+
+/* DIALOG_PRINT_GENERIC (common/dialogs/dialog_print_generic.tsx). Every
+   border is dialog_print_generic_base.cpp's Add(). */
+.ze-printdlg-upper {
+  display: flex;
+  align-items: stretch;
+  margin: 5px; /* [data] Add( m_bUpperSizer, 1, wxEXPAND|wxALL, 5 ) */
+}
+.ze-printdlg-rightcol {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+}
+.ze-printdlg-options {
+  flex: 1 1 auto;
+  margin: 5px; /* [data] Add( m_sbOptionsSizer, 1, wxEXPAND|wxALL, 5 ) */
+}
+.ze-printdlg-optgrid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  row-gap: 3px; /* [data] wxGridBagSizer( 3, 0 ) */
+  align-items: center;
+  margin: 0 5px 5px 0; /* [data] Add( m_gbOptionsSizer, 1, wxEXPAND|wxBOTTOM|wxRIGHT, 5 ) */
+}
+.ze-printdlg-label {
+  margin: 0 5px 5px; /* [data] wxALIGN_CENTER_VERTICAL|wxBOTTOM|wxRIGHT|wxLEFT, 5 */
+}
+.ze-printdlg-choice {
+  margin: 0 5px 5px; /* [data] wxBOTTOM|wxRIGHT|wxLEFT|wxEXPAND, 5 */
+}
+.ze-printdlg-span {
+  grid-column: 1 / span 2;
+  margin: 0 5px 5px; /* [data] wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5 */
+}
+.ze-printdlg-scale {
+  display: flex;
+  flex-direction: column;
+  margin: 5px; /* [data] Add( bScaleSizer, 0, wxALL|wxEXPAND, 5 ) */
+}
+.ze-printdlg-radio {
+  margin: 0 5px; /* [data] Add( m_scale1, 0, wxRIGHT|wxLEFT, 5 ) */
+}
+.ze-printdlg-gap5 {
+  height: 5px; /* [data] bScaleSizer->Add( 0, 5, 0, 0, 5 ) */
+}
+.ze-printdlg-gap3 {
+  height: 3px; /* [data] bScaleSizer->Add( 0, 3, 0, wxEXPAND, 5 ) */
+}
+.ze-printdlg-custom {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px; /* [data] Add( bSizerScaleCustom, 1, wxEXPAND|wxBOTTOM, 5 ) */
+}
+.ze-printdlg-customtext {
+  flex: 1 1 auto;
+  margin-right: 5px; /* [data] Add( m_scaleCustomText, 1, wxEXPAND|wxRIGHT, 5 ) */
+}
+/* DIALOG_PRINT_PCBNEW's additions (pcbnew/dialogs/dialog_print_pcbnew.cpp,
+   createExtraOptions / createLeftPanel), each Add()'s flags. */
+.ze-printdlg-layers {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  margin: 5px; /* [data] Insert( 0, sbLayersSizer, 1, wxEXPAND | wxALL, 5 ) */
+}
+.ze-printdlg-layerlist {
+  min-width: 180px; /* [data] m_layerCheckListBox->SetMinSize( wxSize( 180, -1 ) ) */
+  margin: 0 5px 5px 0; /* [data] wxEXPAND|wxBOTTOM|wxRIGHT, 5 */
+}
+.ze-printdlg-span-nb {
+  grid-column: 1 / span 2;
+  margin: 0 5px; /* [data] wxLEFT|wxRIGHT, 5 */
+}
+.ze-printdlg-indent {
+  grid-column: 1 / span 2;
+  margin-left: 28px; /* [data] wxLEFT, 28 */
+}
+.ze-printdlg-theme {
+  min-width: 200px; /* [data] m_colorTheme->SetMinSize( { 200, -1 } ) */
+}
+.ze-printdlg-emptyrow {
+  grid-column: 1 / span 2; /* [data] `rows++`: an empty gridbag row */
+}
+.ze-printdlg-choice2 {
+  margin: 0 5px 5px 0; /* [data] wxALIGN_CENTER_VERTICAL|wxRIGHT|wxBOTTOM, 5 */
+}
+.ze-printdlg-info {
+  margin: 0 5px 5px 15px; /* [data] wxBOTTOM|wxRIGHT|wxLEFT 5, inside wxLEFT 10 */
+}
+
 /* Syntax Help states its own size where the Errors box takes the minimum:
 
      dlg->SetMinSize( dlg->ConvertDialogToPixels( wxSize( 320, 320 ) ) );
@@ -15390,8 +15498,9 @@ td.ze-fieldnames-bool {
 .ze-chsym-mrad > span {
   white-space: nowrap;
 }
-/* `m_fieldsBox` is a wxCheckListBox: a bordered scrolling list, added at
-   proportion 1 so it takes the box's height.
+/* wxCheckListBox, once (`.ze-checklistbox`): a bordered scrolling list, added
+   at proportion 1 so it takes its box's height. Change Symbols' `m_fieldsBox`
+   and the board Print dialog's layer list are both this.
 
    Its fill is wxSYS_COLOUR_LISTBOX, which is --chrome-bg2. It said --ctl-face
    (#373737), the BUTTON face, which is 16 levels too light and made the list
@@ -15403,11 +15512,13 @@ td.ze-fieldnames-bool {
    (wxWindow::GetBackgroundColour on the wxCheckListBox itself answers with the
    inherited dialog face, #2C2C2C — it reports what wx was told, not what GTK
    paints, so it is not the number to take.) */
-.ze-chsym-fieldbox {
+.ze-checklistbox {
   flex: 1;
   overflow-y: auto;
   border: 1px solid var(--chrome-border);
   background: var(--chrome-bg2);
+}
+.ze-chsym-fieldbox {
   /* [data] `m_fieldsBox->SetMinSize( wxSize( -1, 120 ) )`, :99. */
   min-height: 120px;
 }

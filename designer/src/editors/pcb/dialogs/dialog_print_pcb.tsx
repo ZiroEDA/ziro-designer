@@ -33,20 +33,24 @@
  * board painter (the schematic's printSheet mechanics), then opens the
  * browser's print flow on the composed pages.
  */
+import {
+  DIALOG_PRINT_GENERIC,
+  getScaleValue as baseGetScaleValue,
+  MAX_SCALE,
+  MIN_SCALE,
+} from '@ziroeda/common/dialogs/dialog_print_generic.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import { ContextMenu } from '@ziroeda/common/tool/action_menu_bar.js';
+import { MessageDialogError, MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import { useState, type JSX } from 'react';
 import type { Board } from '@ziroeda/pcbnew';
 import { buildScene, drawBoard, type PcbDrawOptions } from '../renderBoard.js';
 import { PCB_BW_PRINT_THEME, PCB_THEMES, themeByFilename } from '../pcbTheme.js';
 import { settings } from '../../../prefs/settings.js';
-import { useModalEscape } from '@ziroeda/common/dialogs/use_modal_escape.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 const DPI = 300;
-
-// Print scale clamps (dialog_print_generic.cpp MIN_SCALE / MAX_SCALE).
-const MIN_SCALE = 0.01;
-const MAX_SCALE = 100.0;
 
 const PAPER_MM: Record<string, [number, number]> = {
   A5: [210, 148],
@@ -105,6 +109,8 @@ export function DialogPcbPrint({ board, drawOpts, onClose }: Props): JSX.Element
     cfg.drill_marks >= 0 && cfg.drill_marks <= 2 ? cfg.drill_marks : 1,
   );
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const toggle = (name: string): void =>
     setChecked((p) => {
@@ -133,27 +139,16 @@ export function DialogPcbPrint({ board, drawOpts, onClose }: Props): JSX.Element
     setMenu(null);
   };
 
-  // DIALOG_PRINT_GENERIC::getScaleValue: 1:1 -> 1.0, fit -> 0.0, custom
-  // parsed + clamped with KiCad's messages (invalid input resets to 1.0).
+  // DIALOG_PRINT_GENERIC::getScaleValue (common/dialogs/dialog_print_generic):
+  // a corrected custom value is written back and DisplayInfoMessage says why.
   const getScaleValue = (): number => {
-    if (scaleMode === '1:1') return 1.0;
-    if (scaleMode === 'fit') return 0.0;
-    let scale = Number(customScale);
-    if (!Number.isFinite(scale)) {
-      window.alert('Warning: custom scale is not a number.');
-      setCustomScale('1');
-      return 1.0;
+    const r = baseGetScaleValue(scaleMode, customScale);
+    if (r.reset) {
+      setScaleMode(r.reset.mode);
+      if (r.reset.text !== undefined) setCustomScale(r.reset.text);
     }
-    if (scale > MAX_SCALE) {
-      scale = MAX_SCALE;
-      setCustomScale(String(scale));
-      window.alert(`Warning: custom scale is too large.\nIt will be clamped to ${scale}.`);
-    } else if (scale < MIN_SCALE) {
-      scale = MIN_SCALE;
-      setCustomScale(String(scale));
-      window.alert(`Warning: custom scale is too small.\nIt will be clamped to ${scale}.`);
-    }
-    return scale;
+    if (r.info) setInfo(r.info);
+    return r.scale;
   };
 
   // saveSettings (DIALOG_PRINT_PCBNEW + DIALOG_PRINT_GENERIC + Save-to-config):
@@ -188,10 +183,8 @@ export function DialogPcbPrint({ board, drawOpts, onClose }: Props): JSX.Element
     onClose();
   };
 
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts. Esc is the Close button, which stores the print
-  // options on the way out as the dialog's own close does.
-  useModalEscape(saveAndClose);
+  // Esc is the Close button (DIALOG_PRINT_GENERIC registers it), which stores
+  // the print options on the way out as the dialog's own close does.
 
   // "Print" auto-opens the browser print flow on load; "Print Preview" (KiCad's
   // Apply / preview frame) just shows the composed pages so they can be reviewed.
@@ -199,7 +192,7 @@ export function DialogPcbPrint({ board, drawOpts, onClose }: Props): JSX.Element
     saveSettings();
     if (checked.size === 0) {
       // DisplayError( this, _( "Nothing to print" ) )
-      window.alert('Nothing to print');
+      setError('Nothing to print');
       return;
     }
 
@@ -330,263 +323,146 @@ export function DialogPcbPrint({ board, drawOpts, onClose }: Props): JSX.Element
       };
   };
 
-  const box: React.CSSProperties = {
-    border: '1px solid var(--chrome-border)',
-    borderRadius: 4,
-    padding: '6px 10px 8px',
-    margin: '0 0 10px',
-  };
-  const legend: React.CSSProperties = { fontSize: 11.5, padding: '0 4px', fontWeight: 600 };
-  const check: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-    margin: '5px 0',
-    fontSize: 12.5,
-  };
-  const fieldRow: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    margin: '5px 0',
-    fontSize: 12.5,
-  };
-
   return (
-    <div className="ze-modal-backdrop" onMouseDown={saveAndClose}>
-      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Print
-          <span className="x" title="Close" onClick={saveAndClose}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-modal-body" style={{ display: 'block', padding: '10px 14px' }}>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-            {/* Include Layers checklist */}
-            <fieldset
-              style={{ ...box, flex: '0 0 220px', display: 'flex', flexDirection: 'column' }}
-            >
-              <legend style={legend}>Include Layers</legend>
-              <div
-                className="ze-grid-pane"
-                style={{ height: 300, padding: '4px 6px' }}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  setMenu({ x: e.clientX, y: e.clientY });
-                }}
-              >
-                {layerNames.map((l) => (
-                  <label key={l} style={{ ...check, margin: '3px 0' }}>
-                    <input type="checkbox" checked={checked.has(l)} onChange={() => toggle(l)} />
-                    {displayName.get(l) ?? l}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-
-            {/* Options + Scale */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <fieldset style={box}>
-                <legend style={legend}>Options</legend>
-                <div style={fieldRow}>
-                  <span>Output mode:</span>
-                  <select
-                    className="ze-select"
-                    value={bw ? 'bw' : 'color'}
-                    onChange={(e) => setBw(e.target.value === 'bw')}
-                  >
-                    <option value="color">Color</option>
-                    <option value="bw">Black and white</option>
-                  </select>
-                </div>
-                <label style={check}>
-                  <input
-                    type="checkbox"
-                    checked={sheet}
-                    onChange={(e) => setSheet(e.target.checked)}
-                  />
-                  Print drawing sheet
-                </label>
-                <label style={check}>
-                  <input
-                    type="checkbox"
-                    checked={useObjectsTab}
-                    onChange={(e) => setUseObjectsTab(e.target.checked)}
-                  />
-                  Print according to objects tab of appearance manager
-                </label>
-                {/* onColorModeClicked: B&W disables the color-only options. */}
-                <label style={{ ...check, opacity: bw ? 0.5 : 1 }}>
-                  <input
-                    type="checkbox"
-                    disabled={bw}
-                    checked={background}
-                    onChange={(e) => setBackground(e.target.checked)}
-                  />
-                  Print background color
-                </label>
-                <label style={{ ...check, opacity: bw ? 0.5 : 1 }}>
-                  <input
-                    type="checkbox"
-                    disabled={bw}
-                    checked={useTheme}
-                    onChange={(e) => setUseTheme(e.target.checked)}
-                  />
-                  Use a different color theme for printing:
-                </label>
-                <div style={{ ...fieldRow, marginLeft: 22 }}>
-                  <select
-                    className="ze-select"
-                    style={{ minWidth: 200 }}
-                    disabled={bw || !useTheme}
-                    value={themeFile}
-                    onChange={(e) => setThemeFile(e.target.value)}
-                  >
-                    {PCB_THEMES.map((t) => (
-                      <option key={t.filename} value={t.filename}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div style={fieldRow}>
-                  <span>Drill marks:</span>
-                  <select
-                    className="ze-select"
-                    value={drillMarks}
-                    onChange={(e) => setDrillMarks(Number(e.target.value))}
-                  >
-                    <option value={0}>No drill mark</option>
-                    <option value={1}>Small mark</option>
-                    <option value={2}>Real drill</option>
-                  </select>
-                </div>
-                <label style={check}>
-                  <input
-                    type="checkbox"
-                    checked={mirrored}
-                    onChange={(e) => setMirrored(e.target.checked)}
-                  />
-                  Print mirrored
-                </label>
-                <label style={check}>
-                  <input
-                    type="checkbox"
-                    checked={onePerLayer}
-                    onChange={(e) => setOnePerLayer(e.target.checked)}
-                  />
-                  Print one page per layer
-                </label>
-                {/* onPagePerLayerClicked: gated + restored from the stored value. */}
-                <label style={{ ...check, marginLeft: 20, opacity: onePerLayer ? 1 : 0.5 }}>
-                  <input
-                    type="checkbox"
-                    disabled={!onePerLayer}
-                    checked={onePerLayer && edgesAllPages}
-                    onChange={(e) => setEdgesAllPages(e.target.checked)}
-                  />
-                  Print board edges on all pages
-                </label>
-              </fieldset>
-
-              {/* Scale: vertical (bScaleSizer wxVERTICAL); Custom input fills width. */}
-              <fieldset style={box}>
-                <legend style={legend}>Scale</legend>
-                <label style={{ ...check, margin: '4px 0' }}>
-                  <input
-                    type="radio"
-                    checked={scaleMode === '1:1'}
-                    onChange={() => setScaleMode('1:1')}
-                  />
-                  1:1
-                </label>
-                <label style={{ ...check, margin: '4px 0' }}>
-                  <input
-                    type="radio"
-                    checked={scaleMode === 'fit'}
-                    onChange={() => setScaleMode('fit')}
-                  />
-                  Fit to page
-                </label>
-                <div style={{ ...fieldRow, margin: '4px 0' }}>
-                  <label
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}
-                  >
-                    <input
-                      type="radio"
-                      checked={scaleMode === 'custom'}
-                      onChange={() => setScaleMode('custom')}
-                    />
-                    Custom:
-                  </label>
-                  <input
-                    className="ze-search"
-                    style={{ flex: 1, minWidth: 0, boxSizing: 'border-box' }}
-                    value={customScale}
-                    onChange={(e) => {
-                      // onSetCustomScale: typing selects the Custom radio.
-                      setCustomScale(e.target.value);
-                      setScaleMode('custom');
-                    }}
-                  />
-                </div>
-              </fieldset>
-            </div>
-          </div>
-          {/* m_infoText, under both panels (DIALOG_PRINT_PCBNEW's constructor). */}
-          <div className="ze-muted" style={{ fontSize: 11, fontStyle: 'italic', marginTop: 2 }}>
-            Right-click for layer selection commands.
-          </div>
-        </div>
-
-        {/* KiCad std-button order (GTK): Print Preview (Apply), Close, Print (OK). */}
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={() => doPrint(true)}>
-            Print Preview
-          </button>
-          <button type="button" className="ze-btn" onClick={saveAndClose}>
-            Close
-          </button>
-          <button type="button" className="ze-btn primary" onClick={() => doPrint(false)}>
-            Print
-          </button>
-        </div>
-
-        {menu && (
-          <div
-            style={{
-              position: 'fixed',
-              left: menu.x,
-              top: menu.y,
-              zIndex: 100,
-              background: 'var(--chrome-bg2)',
-              border: '1px solid var(--chrome-border)',
-              borderRadius: 3,
-              fontSize: 12,
-              boxShadow: '0 6px 20px rgba(0,0,0,0.4)',
+    <>
+      <DIALOG_PRINT_GENERIC
+        blackWhite={bw}
+        onBlackWhite={setBw}
+        titleBlock={sheet}
+        onTitleBlock={setSheet}
+        scaleMode={scaleMode}
+        onScaleMode={setScaleMode}
+        customScale={customScale}
+        onCustomScale={setCustomScale}
+        // m_infoText->SetLabel( _( "Right-click for layer selection commands." ) ); Show().
+        infoText="Right-click for layer selection commands."
+        onPrint={() => doPrint(false)}
+        onClose={saveAndClose}
+        leading={
+          // createLeftPanel: "Include Layers", a wxCheckListBox, Insert()ed at 0.
+          <fieldset
+            className="ze-sbox ze-printdlg-layers"
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setMenu({ x: e.clientX, y: e.clientY });
             }}
-            onMouseLeave={() => setMenu(null)}
           >
-            {[
-              ['Select Fab Layers', 'fab'],
-              ['Select all Copper Layers', 'allcu'],
-              ['Deselect all Copper Layers', 'nocu'],
-              ['Select all Layers', 'all'],
-              ['Deselect all Layers', 'none'],
-            ].map(([label, cmd]) => (
-              <div
-                key={cmd}
-                className="ze-menu-item"
-                style={{ padding: '4px 12px', cursor: 'default' }}
-                onClick={() => menuCmd(cmd!)}
-              >
-                {label}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+            <legend>Include Layers</legend>
+            <div className="ze-checklistbox ze-printdlg-layerlist">
+              {layerNames.map((l) => (
+                <label key={l} className="ze-check">
+                  <input type="checkbox" checked={checked.has(l)} onChange={() => toggle(l)} />
+                  {displayName.get(l) ?? l}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        }
+        extraOptions={
+          // createExtraOptions: the rows appended to the Options gridbag.
+          <>
+            <label className="ze-check ze-printdlg-span">
+              <input
+                type="checkbox"
+                checked={useObjectsTab}
+                onChange={(e) => setUseObjectsTab(e.target.checked)}
+              />
+              Print according to objects tab of appearance manager
+            </label>
+            {/* onColorModeClicked: Black and white disables the colour-only options. */}
+            <label className="ze-check ze-printdlg-span">
+              <input
+                type="checkbox"
+                disabled={bw}
+                checked={background}
+                onChange={(e) => setBackground(e.target.checked)}
+              />
+              Print background color
+            </label>
+            <label className="ze-check ze-printdlg-span-nb">
+              <input
+                type="checkbox"
+                disabled={bw}
+                checked={useTheme}
+                onChange={(e) => setUseTheme(e.target.checked)}
+              />
+              Use a different color theme for printing:
+            </label>
+            <div className="ze-printdlg-indent">
+              <Combo
+                className="ze-printdlg-theme"
+                disabled={bw || !useTheme}
+                value={themeFile}
+                onChange={setThemeFile}
+                options={PCB_THEMES.map((t) => ({ value: t.filename, label: t.name }))}
+              />
+            </div>
+            <span className="ze-printdlg-emptyrow" />
+            <span className="ze-printdlg-label">Drill marks:</span>
+            <Combo
+              className="ze-printdlg-choice2"
+              value={String(drillMarks)}
+              onChange={(v) => setDrillMarks(Number(v))}
+              options={[
+                { value: '0', label: 'No drill mark' },
+                { value: '1', label: 'Small mark' },
+                { value: '2', label: 'Real drill' },
+              ]}
+            />
+            <label className="ze-check ze-printdlg-span">
+              <input
+                type="checkbox"
+                checked={mirrored}
+                onChange={(e) => setMirrored(e.target.checked)}
+              />
+              Print mirrored
+            </label>
+            <label className="ze-check ze-printdlg-span-nb">
+              <input
+                type="checkbox"
+                checked={onePerLayer}
+                onChange={(e) => setOnePerLayer(e.target.checked)}
+              />
+              Print one page per layer
+            </label>
+            {/* onPagePerLayerClicked: gated, and restored from the stored value. */}
+            <label className="ze-check ze-printdlg-indent">
+              <input
+                type="checkbox"
+                disabled={!onePerLayer}
+                checked={onePerLayer && edgesAllPages}
+                onChange={(e) => setEdgesAllPages(e.target.checked)}
+              />
+              Print board edges on all pages
+            </label>
+          </>
+        }
+      />
+      {menu && (
+        // m_popMenu, shown by PopupMenu on a right click.
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            { label: 'Select Fab Layers', action: () => menuCmd('fab') },
+            { label: 'Select all Copper Layers', action: () => menuCmd('allcu') },
+            { label: 'Deselect all Copper Layers', action: () => menuCmd('nocu') },
+            { label: 'Select all Layers', action: () => menuCmd('all') },
+            { label: 'Deselect all Layers', action: () => menuCmd('none') },
+          ]}
+        />
+      )}
+      {info && (
+        // DisplayInfoMessage (confirm.cpp:249-274).
+        <MessageDialogOk
+          caption="Information"
+          icon="information"
+          message={info}
+          onClose={() => setInfo(null)}
+        />
+      )}
+      {error && <MessageDialogError message={error} onClose={() => setError(null)} />}
+    </>
   );
 }

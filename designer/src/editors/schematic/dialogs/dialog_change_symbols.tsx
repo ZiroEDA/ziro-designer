@@ -402,7 +402,7 @@ export function DialogChangeSymbols({
                 {/* m_fieldsBox is a wxCheckListBox: a bordered, scrolling list
                   with a checkbox per row, which is why it reads as a box and
                   not as a run of loose checkboxes. */}
-                <div className="ze-chsym-fieldbox">
+                <div className="ze-checklistbox ze-chsym-fieldbox">
                   {fieldNames.map((name) => (
                     <label className="row" key={name}>
                       <input

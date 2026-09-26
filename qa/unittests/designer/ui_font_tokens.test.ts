@@ -277,7 +277,8 @@ const BASELINE: Record<string, number> = {
   // predecessor's seven inline sizes (12 / 10.5 / 11.5 / 12.5 px) went with it.
   // 54 -> 49 on 09-26: dialog_inspect_constraints.tsx's five inline sizes,
   // gone with it for common/dialogs' DIALOG_BOOK_REPORTER.
-  'editors/pcb': 49,
+  // 49 -> 44 on 09-26: the Print dialog's five inline sizes, gone with it.
+  'editors/pcb': 44,
   // 55 -> 50: the COLOR_SWATCH sweep's second half. Seven Clear buttons and
   // one `(using Schematic Editor colors)` hint each carried an inline
   // `fontSize: 11`, and none of them exists upstream - the swatch clears
@@ -663,7 +664,8 @@ describe('hardcoded font sizes do not grow', () => {
     // moves and 134 - 4 agrees with it.
     // 130 -> 129: the `dialogs` one that moved out of this scan's reach.
     // 129 -> 124: the old inspect box's five, see `editors/pcb`.
-    expect(sites.length).toBe(124);
+    // 124 -> 119: the Print dialog's five, see `editors/pcb`.
+    expect(sites.length).toBe(119);
   });
 });
 

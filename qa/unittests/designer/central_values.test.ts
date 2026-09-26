@@ -261,7 +261,10 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // 31/187 -> 30/174 on 09-26: dialog_inspect_constraints.tsx is gone - an
   // invented floating box of inline styles - for common/dialogs'
   // DIALOG_BOOK_REPORTER, whose metrics are shell.css's and each marked.
-  'editors/pcb': { colours: 30, metrics: 174 },
+  // 30/174 -> 29/147 on 09-26: the Print dialog's inline fieldsets, legends,
+  // rows and hand-drawn menu went for common/dialogs' DIALOG_PRINT_GENERIC and
+  // the shared ContextMenu; every length they state now is shell.css's, marked.
+  'editors/pcb': { colours: 29, metrics: 147 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -1160,7 +1163,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 332 -> 331: the About stub's `#7fb4e6`, see the `home` row.
     // 331 -> 330: the old inspect box's shadow colour, see `editors/pcb`.
     // 330 -> 329: the image dialog's `#fff`, see `editors/schematic`.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(329);
+    // 329 -> 328: the Print dialog's menu shadow, see `editors/pcb`.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(328);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1341,7 +1345,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // About box's two (`editors/calculator`); DIALOG_ABOUT's are all marked.
     // 1277 -> 1264: the old inspect box's thirteen, see `editors/pcb`.
     // 1264 -> 1263: the image dialog's canvas radius, see `editors/schematic`.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1263);
+    // 1263 -> 1236: the Print dialog's twenty-seven, see `editors/pcb`.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1236);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {
