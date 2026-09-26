@@ -18,6 +18,7 @@ import {
   ZOOM_LIST_PL_EDITOR,
 } from '../zoom_defines.js';
 import { GRID, GRID_SETTINGS } from './grid_settings.js';
+import type { EdaUnits } from '../eda_units.js';
 
 /**
  * Cross-probing behavior.
@@ -171,6 +172,33 @@ export enum EDA_UNITS_INT {
   PS_PER_INCH = 10,
   PS_PER_CM = 11,
   PS_PER_MM = 12,
+}
+
+/** `EDA_UNITS` by its integer, as the unit strings the port carries. */
+const EDA_UNITS_BY_INT: readonly EdaUnits[] = [
+  'in',
+  'mm',
+  'unscaled',
+  'degrees',
+  'percent',
+  'mils',
+  'um',
+  'cm',
+  'fs',
+  'ps',
+  'ps/in',
+  'ps/cm',
+  'ps/mm',
+];
+
+/** `static_cast<EDA_UNITS>( aValue )`: a stored integer as the unit. */
+export function EdaUnitsFromInt(aValue: number): EdaUnits {
+  return EDA_UNITS_BY_INT[aValue] ?? 'mm';
+}
+
+/** `static_cast<int>( aUnits )`: the integer a unit is stored as. */
+export function EdaUnitsToInt(aUnits: EdaUnits): number {
+  return EDA_UNITS_BY_INT.indexOf(aUnits);
 }
 
 export class APP_SETTINGS_BASE {

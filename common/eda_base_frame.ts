@@ -22,6 +22,7 @@ import { type PICKED_ITEMS_LIST, UNDO_REDO_CONTAINER } from './undo_redo_contain
 import { UNITS_PROVIDER } from './units_provider.js';
 import { RPT_SEVERITY_UNDEFINED, type Severity } from './reporter.js';
 import type { TOOL_ACTION } from './tool/tool_action.js';
+import type { APP_SETTINGS_BASE, WINDOW_SETTINGS } from './settings/app_settings.js';
 
 export const DEFAULT_MAX_UNDO_ITEMS = 0;
 export const ABS_MAX_UNDO_ITEMS = 65536;
@@ -106,6 +107,10 @@ export abstract class EDA_BASE_FRAME
 
   SetUserUnits(aUnits: EdaUnits): void {
     this.m_unitsProvider.SetUserUnits(aUnits);
+  }
+
+  GetIuScale(): EdaIuScale {
+    return this.m_unitsProvider.GetIuScale();
   }
 
   GetUnitsProvider(): UNITS_PROVIDER {
@@ -276,6 +281,94 @@ export abstract class EDA_BASE_FRAME
 
   GetToolCanvas(): unknown {
     return null;
+  }
+
+  // ---- settings -----------------------------------------------------------
+
+  /**
+   * Return the settings object used in SaveSettings(), and is overloaded in
+   * KICAD_MANAGER_FRAME. Upstream it is `Kiface().KifaceSettings()`: the
+   * settings of the kiface the frame belongs to, which each frame's package
+   * supplies by overriding this.
+   */
+  config(): APP_SETTINGS_BASE | null {
+    return null;
+  }
+
+  /**
+   * Return a pointer to the window settings for this frame.
+   *
+   * By default, points to aCfg->m_Window for top-level frames.
+   */
+  GetWindowSettings(aCfg: APP_SETTINGS_BASE): WINDOW_SETTINGS {
+    return aCfg.m_Window;
+  }
+
+  /**
+   * Load common frame parameters from a configuration file.
+   *
+   * The window geometry, AUI perspective and file history are the page's
+   * own; nothing of `LoadWindowSettings` has a model here.
+   */
+  LoadSettings(_aCfg: APP_SETTINGS_BASE): void {}
+
+  /** Save common frame parameters to a configuration data file. */
+  SaveSettings(_aCfg: APP_SETTINGS_BASE): void {}
+
+  // ---- wxFrame's status bar ---------------------------------------------
+
+  /** The fields `SetStatusText` writes, by index. */
+  private m_statusText: string[] = [];
+  private m_statusSink: ((aText: string, aField: number) => void) | null = null;
+
+  /**
+   * `wxFrame::SetStatusText( text, number )`. The page's status bar installs
+   * a sink with {@link SetStatusTextSink} and writes the field itself, as a
+   * wxStatusBar repaints only the field that changed.
+   */
+  SetStatusText(aText: string, aNumber = 0): void {
+    if (this.m_statusText[aNumber] === aText) return;
+
+    this.m_statusText[aNumber] = aText;
+    this.m_statusSink?.(aText, aNumber);
+  }
+
+  /** `wxStatusBar::GetStatusText( number )`. */
+  GetStatusText(aNumber = 0): string {
+    return this.m_statusText[aNumber] ?? '';
+  }
+
+  /** The page's half of the status bar: where a changed field goes. */
+  SetStatusTextSink(aSink: ((aText: string, aField: number) => void) | null): void {
+    this.m_statusSink = aSink;
+  }
+
+  // ---- wxEvtHandler / window services ----------------------------------
+
+  /**
+   * `wxEvtHandler::CallAfter( fn )`: run `fn` once the current event has
+   * been handled - a queued event, which a macrotask is.
+   */
+  CallAfter(aFn: () => void): void {
+    setTimeout(aFn, 0);
+  }
+
+  private m_preferencesPresenter: ((aStartPage: string, aStartParentPage: string) => void) | null =
+    null;
+
+  /**
+   * `EDA_BASE_FRAME::ShowPreferences`: the Preferences dialog, opened at a
+   * page. The dialog is the page's (`prefs/PreferencesDialog.tsx`), installed
+   * with {@link SetPreferencesPresenter}.
+   */
+  ShowPreferences(aStartPage: string, aStartParentPage: string): void {
+    this.m_preferencesPresenter?.(aStartPage, aStartParentPage);
+  }
+
+  SetPreferencesPresenter(
+    aPresenter: ((aStartPage: string, aStartParentPage: string) => void) | null,
+  ): void {
+    this.m_preferencesPresenter = aPresenter;
   }
 }
 

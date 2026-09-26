@@ -314,7 +314,7 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
    * `EDA_BASE_FRAME::config()` is `Kiface().KifaceSettings()`, which in
    * pcbnew's kiface is its PCBNEW_SETTINGS; FOOTPRINT_EDIT_FRAME overrides it.
    */
-  config(): APP_SETTINGS_BASE {
+  override config(): APP_SETTINGS_BASE {
     return this.GetPcbNewSettings();
   }
 

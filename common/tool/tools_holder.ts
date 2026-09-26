@@ -13,6 +13,7 @@ import { SELECTION } from './selection.js';
 import type { TOOL_ACTION } from './tool_action.js';
 import type { TOOL_EVENT } from './tool_event.js';
 import type { TOOL_MANAGER } from './tool_manager.js';
+import type { TOOL_DISPATCHER } from './tool_dispatcher.js';
 
 /** `COMMON_SETTINGS::INPUT`'s three fields `CommonSettingsChanged` reads. */
 export interface TOOLS_HOLDER_INPUT_SETTINGS {
@@ -27,7 +28,7 @@ export const HOTKEYS_CHANGED = 0x02;
 export abstract class TOOLS_HOLDER {
   protected m_toolManager: TOOL_MANAGER | null;
   protected m_actions: ACTIONS | null;
-  protected m_toolDispatcher: unknown; // TOOL_DISPATCHER (#636 stage 3)
+  protected m_toolDispatcher: TOOL_DISPATCHER | null;
 
   protected m_dummySelection = new SELECTION(); // Empty dummy selection
 
@@ -60,7 +61,7 @@ export abstract class TOOLS_HOLDER {
     return this.m_toolManager;
   }
 
-  GetToolDispatcher(): unknown {
+  GetToolDispatcher(): TOOL_DISPATCHER | null {
     return this.m_toolDispatcher;
   }
 

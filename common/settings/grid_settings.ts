@@ -5,7 +5,12 @@
  * `include/settings/grid_settings.h` + `common/settings/grid_settings.cpp`:
  * one grid entry and the per-window grid settings block.
  */
-import type { EdaIuScale, EdaUnits } from '../eda_units.js';
+import {
+  DoubleValueFromStringIn,
+  type EdaIuScale,
+  type EdaUnits,
+  messageTextFromValue,
+} from '../eda_units.js';
 
 export class GRID {
   name: string;
@@ -26,13 +31,41 @@ export class GRID {
   /**
    * Returns a string representation of the grid in specified units.
    * Will reduce to a single dimension if the grid is square.
-   *
-   * Pending (#636 stage 6): `EDA_UNIT_UTILS::UI::DoubleValueFromString` is not
-   * in common yet (the designer's `unit_binder.ts` carries it); the designer's
-   * `gridMessageText` renders this row until it moves.
    */
-  MessageText(_aScale: EdaIuScale, _aUnits: EdaUnits, _aDisplayUnits = true): string {
-    throw new Error('GRID::MessageText: pending (#636 stage 6)');
+  MessageText(aScale: EdaIuScale, aUnits: EdaUnits, aDisplayUnits = true): string {
+    const type = 'distance';
+
+    const xStr = messageTextFromValue(
+      aScale,
+      aUnits,
+      DoubleValueFromStringIn(aScale, 'mm', this.x, type),
+      aDisplayUnits,
+    );
+    const yStr = messageTextFromValue(
+      aScale,
+      aUnits,
+      DoubleValueFromStringIn(aScale, 'mm', this.y, type),
+      aDisplayUnits,
+    );
+
+    if (xStr === yStr) return xStr;
+
+    return `${xStr} x ${yStr}`;
+  }
+
+  UserUnitsMessageText(
+    aProvider: { GetIuScale(): EdaIuScale; GetUserUnits(): EdaUnits },
+    aDisplayUnits = true,
+  ): string {
+    return this.MessageText(aProvider.GetIuScale(), aProvider.GetUserUnits(), aDisplayUnits);
+  }
+
+  /** `GRID::ToDouble`: the size in internal units. */
+  ToDouble(aScale: EdaIuScale): { x: number; y: number } {
+    return {
+      x: DoubleValueFromStringIn(aScale, 'mm', this.x),
+      y: DoubleValueFromStringIn(aScale, 'mm', this.y),
+    };
   }
 }
 
