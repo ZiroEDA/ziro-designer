@@ -328,3 +328,53 @@ export function netclassPatternMatches(pattern: string, netName: string): boolea
   }
   return matcher.startsWith(netName);
 }
+
+/**
+ * `EDA_PATTERN_MATCH_WILDCARD_ANCHORED` (eda_pattern_match.cpp:207): a
+ * wildcard - `*` any run, `?` one character - matched against the WHOLE
+ * candidate. The wildcard is compiled to `^…$` with `.*+?^${}()|[]/\`
+ * escaped, then handed to `EDA_PATTERN_MATCH_REGEX::SetPattern`.
+ */
+export class EDA_PATTERN_MATCH_WILDCARD_ANCHORED {
+  private m_wildcard_pattern = '';
+  private m_regex: RegExp | null = null;
+
+  SetPattern(aPattern: string): boolean {
+    this.m_wildcard_pattern = aPattern;
+
+    const to_replace = '.*+?^${}()|[]/\\';
+    let regex = '^';
+
+    for (const c of aPattern) {
+      if (c === '?') regex += '.';
+      else if (c === '*') regex += '.*';
+      else if (to_replace.includes(c)) regex += `\\${c}`;
+      else regex += c;
+    }
+
+    regex += '$';
+
+    try {
+      this.m_regex = new RegExp(regex, 'u');
+    } catch {
+      this.m_regex = null;
+    }
+
+    return this.m_regex !== null;
+  }
+
+  GetPattern(): string {
+    return this.m_wildcard_pattern;
+  }
+
+  /** `Find`: the match, or null. (An uncompilable pattern is searched for as text.) */
+  Find(aCandidate: string): { start: number; length: number } | null {
+    if (this.m_regex) {
+      const m = this.m_regex.exec(aCandidate);
+      return m ? { start: m.index, length: m[0].length } : null;
+    }
+
+    const loc = aCandidate.indexOf(this.m_wildcard_pattern);
+    return loc < 0 ? null : { start: loc, length: this.m_wildcard_pattern.length };
+  }
+}

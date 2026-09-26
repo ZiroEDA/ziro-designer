@@ -22,6 +22,7 @@
  *    the "not found in any of the project footprint libraries" branch instead
  *    of the one under test.
  */
+import { FOOTPRINT_LIST_IMPL } from '@ziroeda/pcbnew/footprint_info_impl.js';
 import { describe, it, expect } from 'vitest';
 import type { CvpcbComponent } from '@ziroeda/designer/src/editors/schematic/cvpcb_components.js';
 import {
@@ -226,7 +227,11 @@ describe('wxString::Matches (:253)', () => {
 });
 
 describe('AutomaticFootprintMatching (auto_associate.cpp:170-304)', () => {
-  const known = new Set(['Lib:R_0805', 'Lib:R_0603', 'Lib:C_0805', 'Lib:SOIC-8', 'Lib:DIP-8']);
+  // m_FootprintsList: the footprints the libraries hold.
+  const known = new FOOTPRINT_LIST_IMPL();
+  known.ReadFootprintIndex([
+    { name: 'Lib', footprints: ['R_0805', 'R_0603', 'C_0805', 'SOIC-8', 'DIP-8'] },
+  ]);
   const equ = (value: string, footprint: string): FootprintEquivalence => ({ value, footprint });
 
   it('matches on VALUE, case-insensitively, and reports nothing when it assigns', () => {

@@ -19,7 +19,11 @@
  */
 import { LibTreeNode, LibTreeNodeType } from '../../../widgets/lib_tree_model.js';
 import type { LibTreeModelAdapter } from '../../../widgets/lib_tree_model_adapter.js';
-import { footprintSearchTerms, type FpIndexEntry } from '../../../widgets/footprint_list.js';
+import { EDA_PATTERN_MATCH_WILDCARD_ANCHORED } from '@ziroeda/common/eda_pattern_match.js';
+import {
+  FOOTPRINT_INFO_IMPL,
+  type FootprintIndexLibrary,
+} from '@ziroeda/pcbnew/footprint_info_impl.js';
 import { footprintLibraryDescription } from '../../../widgets/lib_table_descriptions.js';
 
 /**
@@ -39,16 +43,6 @@ export interface FootprintTreeFilter {
 }
 
 /** `EDA_PATTERN_MATCH_WILDCARD_ANCHORED` — the whole string, `*` and `?`. */
-function wildcardMatches(pattern: string, text: string): boolean {
-  const rx = new RegExp(
-    `^${pattern
-      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-      .replace(/\*/g, '.*')
-      .replace(/\?/g, '.')}$`,
-    'i',
-  );
-  return rx.test(text);
-}
 
 /**
  * `FOOTPRINT_CHOOSER_FRAME::filterFootprint`: a footprint survives when it
@@ -63,25 +57,30 @@ export function footprintPassesFilter(
 ): boolean {
   const { fpFilters, pinCount } = filter;
 
-  if (fpFilters && fpFilters.length > 0) {
-    // A filter may be `Lib:Name*` or a bare `Name*`; upstream matches the
-    // LIB_ID when the pattern carries a colon and the name when it does not.
-    const ok = fpFilters.some((p) =>
-      p.includes(':') ? wildcardMatches(p, `${libNickname}:${name}`) : wildcardMatches(p, name),
-    );
-    if (!ok) return false;
+  // FOOTPRINT_CHOOSER_FRAME::filterFootprint (footprint_chooser_frame.cpp:460-470).
+  if (pinCount !== undefined && pinCount > 0) {
+    if ((pads ?? 0) !== pinCount) return false;
   }
 
-  // `pads === undefined` is an index generated before the field existed, and
-  // the filter degrades to "no filtering" rather than to "nothing matches" -
-  // the same graceful shape the rest of the footprint list uses.
-  if (pinCount !== undefined && pads !== undefined && pads !== pinCount) return false;
+  if (fpFilters && fpFilters.length > 0) {
+    // The matching is case insensitive: EDA_PATTERN_MATCH_WILDCARD_ANCHORED over
+    // the lower-cased name, with `nickname:` when the filter has a colon.
+    const ok = fpFilters.some((pattern) => {
+      const matcher = new EDA_PATTERN_MATCH_WILDCARD_ANCHORED();
+      matcher.SetPattern(pattern.toLowerCase());
+      let text = '';
+      if (pattern.includes(':')) text = `${libNickname.toLowerCase()}:`;
+      text += name.toLowerCase();
+      return matcher.Find(text) !== null;
+    });
+    if (!ok) return false;
+  }
 
   return true;
 }
 
 /** One tree item for the footprint at `i` of `lib`, under `parent`. */
-function footprintItem(lib: FpIndexEntry, i: number, parent: LibTreeNode): LibTreeNode {
+function footprintItem(lib: FootprintIndexLibrary, i: number, parent: LibTreeNode): LibTreeNode {
   const name = lib.footprints[i]!;
   const item = new LibTreeNode();
   item.type = LibTreeNodeType.ITEM;
@@ -91,14 +90,16 @@ function footprintItem(lib: FpIndexEntry, i: number, parent: LibTreeNode): LibTr
   item.libItemName = name;
   // `FOOTPRINT_INFO::m_doc` is what the Description column shows.
   item.desc = lib.descr?.[i] ?? '';
-  // `FOOTPRINT_INFO::GetSearchTerms` — the six weighted terms, which
-  // `footprintSearchTerms` already states once for the whole app.
-  item.sourceSearchTerms = footprintSearchTerms(
+  // `FOOTPRINT_INFO::GetSearchTerms` — the six weighted terms.
+  item.sourceSearchTerms = new FOOTPRINT_INFO_IMPL(
     lib.name,
     name,
-    lib.tags?.[i] ?? '',
     lib.descr?.[i] ?? '',
-  );
+    lib.tags?.[i] ?? '',
+    0,
+    lib.pads?.[i] ?? 0,
+    lib.pads?.[i] ?? 0,
+  ).GetSearchTerms();
   return item;
 }
 
@@ -112,7 +113,7 @@ function footprintItem(lib: FpIndexEntry, i: number, parent: LibTreeNode): LibTr
  */
 export function addFootprintHistory(
   adapter: LibTreeModelAdapter,
-  index: readonly FpIndexEntry[],
+  index: readonly FootprintIndexLibrary[],
   history: readonly string[],
 ): LibTreeNode {
   const group = adapter.addGroup('-- Recently Used --');
@@ -143,7 +144,7 @@ export function addFootprintHistory(
  */
 export function addFootprintLibraries(
   adapter: LibTreeModelAdapter,
-  index: readonly FpIndexEntry[],
+  index: readonly FootprintIndexLibrary[],
   filter: FootprintTreeFilter = {},
   pinnedLibs: readonly string[] = [],
 ): void {

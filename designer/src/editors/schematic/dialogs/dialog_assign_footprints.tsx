@@ -112,15 +112,12 @@ import { Toolbar, type ToolEntry } from '@ziroeda/common/tool/action_toolbar.js'
 import { DisplayFootprintsFrame } from './display_footprints_frame.js';
 import { LibraryLoadingPanel } from '../../../widgets/library_loading_panel.js';
 import type { PcbFootprint } from '@ziroeda/pcbnew';
+import { loadFootprint, loadFootprintIndex } from '../../../widgets/footprint_list.js';
+import { FOOTPRINT_FILTER } from '@ziroeda/common/footprint_filter.js';
 import {
-  footprintSearchTerms,
-  footprintTextMatchers,
-  hasFootprintInfo,
-  loadFootprint,
-  loadFootprintIndex,
-  matchesFootprintText,
-  type FpIndexEntry,
-} from '../../../widgets/footprint_list.js';
+  FOOTPRINT_LIST_IMPL,
+  type FootprintIndexLibrary,
+} from '@ziroeda/pcbnew/footprint_info_impl.js';
 import { parseFootprint } from '../../footprint/footprintBoard.js';
 import { uniquePadCount } from '@ziroeda/pcbnew';
 import {
@@ -533,28 +530,31 @@ export function DialogAssignFootprints({
     return out;
   }, [projectFootprints]);
 
-  const [hostedIndex, setHostedIndex] = useState<FpIndexEntry[]>([]);
+  const [hostedIndex, setHostedIndex] = useState<FootprintIndexLibrary[]>([]);
   const [indexLoaded, setIndexLoaded] = useState(false);
   // The hosted index carries each footprint's pad count, description and
   // keywords (FOOTPRINT_INFO's cached fields, see tools/libraries/fp_index.mjs);
   // the project's own `.pretty` files are already in memory, so theirs are
   // computed here the same way FOOTPRINT_INFO_IMPL::load does.
-  const index = useMemo<FpIndexEntry[]>(
+  const index = useMemo<FootprintIndexLibrary[]>(
     () => [
       ...[...projectLibs].map(([name, fps]) => {
-        const entry: FpIndexEntry = {
-          name,
-          footprints: [...fps.keys()],
-          pads: [],
-          descr: [],
-          tags: [],
-        };
+        const pads: number[] = [];
+        const descr: string[] = [];
+        const tags: string[] = [];
         for (const text of fps.values()) {
           const fp = parseFootprint(text);
-          entry.pads!.push(fp ? uniquePadCount(fp) : 0);
-          entry.descr!.push(fp?.descr ?? '');
-          entry.tags!.push(fp?.tags ?? '');
+          pads.push(fp ? uniquePadCount(fp) : 0);
+          descr.push(fp?.descr ?? '');
+          tags.push(fp?.tags ?? '');
         }
+        const entry: FootprintIndexLibrary = {
+          name,
+          footprints: [...fps.keys()],
+          pads,
+          descr,
+          tags,
+        };
         return entry;
       }),
       ...hostedIndex,
@@ -704,82 +704,36 @@ export function DialogAssignFootprints({
    * (`common/footprint_info.cpp`). `descr`/`tags` are '' and `pads` undefined on
    * an index generated before those fields existed.
    */
-  const catalog = useMemo(() => {
-    const out: {
-      id: string;
-      lib: string;
-      name: string;
-      pads: number | undefined;
-      descr: string;
-      tags: string;
-    }[] = [];
-    for (const lib of index) {
-      lib.footprints.forEach((name, i) => {
-        out.push({
-          id: `${lib.name}:${name}`,
-          lib: lib.name,
-          name,
-          pads: lib.pads?.[i],
-          descr: lib.descr?.[i] ?? '',
-          tags: lib.tags?.[i] ?? '',
-        });
-      });
-    }
-    return out;
+  /**
+   * `GFootprintList`: the FOOTPRINT_LIST the project's and the hosted
+   * libraries make (FOOTPRINT_LIST_IMPL::ReadFootprintFiles, sorted by
+   * FOOTPRINT_INFO::operator<).
+   */
+  const footprintList = useMemo(() => {
+    const list = new FOOTPRINT_LIST_IMPL();
+    list.ReadFootprintIndex(index);
+    return list;
   }, [index]);
 
-  /** Every "Lib:Footprint" id known to the libraries, in index order. */
-  const allFootprints = useMemo(() => catalog.map((fp) => fp.id), [catalog]);
-  const knownFootprints = useMemo(() => new Set(allFootprints), [allFootprints]);
-
   /**
-   * `FOOTPRINT_FILTER::ITERATOR::increment` (common/footprint_filter.cpp:50-104),
-   * in its order: pin count, library, the symbol's fp_filters, then the search
-   * text. A candidate has to survive all four.
-   *
-   * The search text is the part that was wrong. Upstream splits the box on
-   * whitespace, makes one EDA_COMBINED_MATCHER per token, and scores each of
-   * them against `FOOTPRINT_INFO::GetSearchTerms()` — nickname, name, LIB_ID,
-   * every keyword token, the whole keyword string and the description. We
-   * matched the tokens as plain substrings of the `Lib:Name` string alone, so
-   * `smd` found nothing here and hundreds of footprints in KiCad.
-   *
-   * Building the search terms is the expensive step, so it runs last, exactly
-   * where upstream's iterator puts it.
+   * `FOOTPRINTS_LISTBOX::SetFootprints` (cvpcb/footprints_listbox.cpp:120-159):
+   * a FOOTPRINT_FILTER over the list, given the symbol's footprint filters, its
+   * pin count and the library as the toolbar toggles ask, and the text box.
    */
   const filtered = useMemo(() => {
-    const patterns =
-      filterFlags & FILTER_BY_FP_FILTERS && component
-        ? component.fpFilters.map((p) => ({
-            withLib: p.includes(':'),
-            re: wildcardToRegExp(p),
-          }))
-        : null;
-    const matchers = footprintTextMatchers(filterText);
-    const out: string[] = [];
-    for (const fp of catalog) {
-      if (filterFlags & FILTER_BY_PIN_COUNT && component) {
-        // `PinCountMatch`. An index generated before pad counts existed cannot
-        // answer, and does not veto: degrading to "no pin filter" beats
-        // degrading to "nothing matches".
-        if (fp.pads !== undefined && fp.pads !== component.pinCount) continue;
-      }
-      if (filterFlags & FILTER_BY_LIBRARY && selectedLibrary && fp.lib !== selectedLibrary)
-        continue;
-      if (patterns && patterns.length > 0) {
-        const hit = patterns.some((p) =>
-          p.re.test(p.withLib ? fp.id.toLowerCase() : fp.name.toLowerCase()),
-        );
-        if (!hit) continue;
-      }
-      if (matchers.length > 0) {
-        const terms = footprintSearchTerms(fp.lib, fp.name, fp.tags, fp.descr);
-        if (!matchesFootprintText(matchers, terms)) continue;
-      }
-      out.push(fp.id);
-    }
-    return out;
-  }, [catalog, filterFlags, component, selectedLibrary, filterText]);
+    const filter = new FOOTPRINT_FILTER(footprintList);
+
+    if (filterFlags & FILTER_BY_FP_FILTERS && component)
+      filter.FilterByFootprintFilters(component.fpFilters);
+
+    if (filterFlags & FILTER_BY_PIN_COUNT && component) filter.FilterByPinCount(component.pinCount);
+
+    if (filterFlags & FILTER_BY_LIBRARY) filter.FilterByLibrary(selectedLibrary ?? '');
+
+    if (filterText !== '') filter.FilterByTextPattern(filterText);
+
+    return [...filter].map((fp) => `${fp.GetLibNickname()}:${fp.GetFootprintName()}`);
+  }, [footprintList, filterFlags, component, selectedLibrary, filterText]);
 
   const selectedFootprint = curFp >= 0 ? (filtered[curFp] ?? '') : '';
   /**
@@ -798,10 +752,9 @@ export function DialogAssignFootprints({
   const viewerFootprint = selectedFootprint || (component ? footprintOf(component) : '');
   /** `m_FootprintsList->GetFootprintInfo( name )` for the "Lib: %s" pane; null
    *  when the list has no entry, which writes the pane empty. */
-  const viewerLibNickname =
-    viewerFootprint && hasFootprintInfo(knownFootprints, viewerFootprint)
-      ? (viewerFootprint.split(':')[0] ?? null)
-      : null;
+  const viewerLibNickname = viewerFootprint
+    ? (footprintList.GetFootprintInfo(viewerFootprint)?.GetLibNickname() ?? null)
+    : null;
 
   /** FOOTPRINTS_LISTBOX::SetFootprints' rows, `"%3d Lib:Footprint"`. */
   const footprintRows = useMemo(
@@ -868,7 +821,7 @@ export function DialogAssignFootprints({
       model,
       components,
       sortEquivalences(list),
-      knownFootprints,
+      footprintList,
     );
     setModel(result.state);
     setAutoAssocStatus(result.status);
@@ -1535,7 +1488,7 @@ export function DialogAssignFootprints({
                 // SYMBOLS_LISTBOX::OnGetItemAttr: every row FOOTPRINT_LIST has
                 // no FOOTPRINT_INFO for gets the warning background — which an
                 // *unassigned* symbol is too, GetFootprintInfo("") being null.
-                const warn = indexLoaded && !hasFootprintInfo(knownFootprints, fpid);
+                const warn = indexLoaded && footprintList.GetFootprintInfo(fpid) === null;
                 return (
                   <span className={warn ? 'ze-fpassign-warn' : undefined}>{symbolRows[i]}</span>
                 );
@@ -1689,17 +1642,4 @@ export function DialogAssignFootprints({
       </div>
     </div>
   );
-}
-
-/** EDA_PATTERN_MATCH_WILDCARD_ANCHORED, `*` and `?` over the whole name. */
-function wildcardToRegExp(pattern: string): RegExp {
-  const escaped = pattern
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    .replace(/\?/g, '.')
-    .replace(/\*/g, '.*');
-  try {
-    return new RegExp(`^${escaped}$`, 'i');
-  } catch {
-    return /$^/;
-  }
 }

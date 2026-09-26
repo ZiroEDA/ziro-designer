@@ -30,7 +30,7 @@ import { generateFootprintInfo } from '@ziroeda/designer/src/editors/pcb/widgets
 import { LibTreeModelAdapter } from '@ziroeda/designer/src/widgets/lib_tree_model_adapter.js';
 import { FootprintChooserFrame } from '@ziroeda/designer/src/editors/pcb/dialogs/footprint_chooser_frame.js';
 import { PanelFootprintChooser } from '@ziroeda/designer/src/editors/pcb/widgets/panel_footprint_chooser.js';
-import type { FpIndexEntry } from '@ziroeda/designer/src/widgets/footprint_list.js';
+import type { FootprintIndexLibrary } from '@ziroeda/pcbnew/footprint_info_impl.js';
 
 afterEach(cleanup);
 
@@ -50,7 +50,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-const INDEX: FpIndexEntry[] = [
+const INDEX: FootprintIndexLibrary[] = [
   {
     name: 'TerminalBlock',
     footprints: ['TB_01x02_P5.00mm', 'TB_01x03_P5.00mm'],
@@ -99,9 +99,12 @@ describe('the filter is two independent halves', () => {
     );
   });
 
-  it('degrades to no filtering when the index carries no pad count', () => {
-    // Not to "nothing matches" — an older index must not empty the chooser.
-    expect(footprintPassesFilter({ pinCount: 2 }, 'TerminalBlock', 'TB', undefined)).toBe(true);
+  it('compares the pad count as filterFootprint does, and only for a count above 0', () => {
+    // `if( m_pinCount > 0 && filterByPinCount() ) if( aNode.m_PinCount != m_pinCount )`
+    // (footprint_chooser_frame.cpp:460-463). Every hosted index entry carries its
+    // unique pad count, so there is no "unknown" to wave through.
+    expect(footprintPassesFilter({ pinCount: 2 }, 'TerminalBlock', 'TB', undefined)).toBe(false);
+    expect(footprintPassesFilter({ pinCount: 0 }, 'TerminalBlock', 'TB', 5)).toBe(true);
   });
 
   it('applies both halves at once', () => {

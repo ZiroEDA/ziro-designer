@@ -32,7 +32,8 @@ import type { FootprintTreeFilter } from '../widgets/fp_tree_model_adapter.js';
 import { footprintHistory } from '../widgets/footprint_history.js';
 import { FootprintPreview3D, useFootprintHolderBoard } from '../widgets/footprint_preview_3d.js';
 import { Viewer3DFrame } from '../Viewer3DFrame.js';
-import { loadFootprintIndex, type FpIndexEntry } from '../../../widgets/footprint_list.js';
+import { loadFootprintIndex } from '../../../widgets/footprint_list.js';
+import type { FootprintIndexLibrary } from '@ziroeda/pcbnew/footprint_info_impl.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
 
@@ -106,7 +107,7 @@ export function FootprintChooserFrame({
 }: FootprintChooserFrameProps): JSX.Element {
   useModalEscape(onCancel);
 
-  const [index, setIndex] = useState<readonly FpIndexEntry[]>([]);
+  const [index, setIndex] = useState<readonly FootprintIndexLibrary[]>([]);
   /**
    * `SetTitle( GetTitle() + " (%d items loaded)" )` runs ONCE, in the
    * constructor, before any `Regenerate()` - so the count is the whole library

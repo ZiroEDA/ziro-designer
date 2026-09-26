@@ -37,7 +37,7 @@ import { LibTree } from '../../../widgets/lib_tree.js';
 import { LibTreeModelAdapter } from '../../../widgets/lib_tree_model_adapter.js';
 import { LibTreeNodeType, type LibTreeNode } from '../../../widgets/lib_tree_model.js';
 import { FootprintPreviewWidget } from '../../../widgets/footprint_preview_widget.js';
-import type { FpIndexEntry } from '../../../widgets/footprint_list.js';
+import type { FootprintIndexLibrary } from '@ziroeda/pcbnew/footprint_info_impl.js';
 import {
   addFootprintHistory,
   addFootprintLibraries,
@@ -61,7 +61,7 @@ const NO_HISTORY: readonly string[] = [];
 
 export interface PanelFootprintChooserProps {
   /** The shipped footprint index; the frame loads it and hands it over. */
-  index: readonly FpIndexEntry[];
+  index: readonly FootprintIndexLibrary[];
   /**
    * `adapter->SetFilter( &m_filter )` (:104). The frame owns this — it is the
    * state of the two checkboxes it put in the filters slot.

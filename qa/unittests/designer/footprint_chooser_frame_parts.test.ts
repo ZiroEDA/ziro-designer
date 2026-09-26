@@ -23,9 +23,9 @@ import {
   symbolLibraryDescription,
 } from '@ziroeda/designer/src/widgets/lib_table_descriptions.js';
 import { LibTreeModelAdapter } from '@ziroeda/designer/src/widgets/lib_tree_model_adapter.js';
-import type { FpIndexEntry } from '@ziroeda/designer/src/widgets/footprint_list.js';
+import type { FootprintIndexLibrary } from '@ziroeda/pcbnew/footprint_info_impl.js';
 
-const INDEX: FpIndexEntry[] = [
+const INDEX: FootprintIndexLibrary[] = [
   { name: 'Battery', footprints: ['BatteryClip_A', 'BatteryClip_B'], pads: [2, 2] },
   { name: 'Resistor_SMD', footprints: ['R_0805'], pads: [2], descr: ['Resistor SMD 0805'] },
 ];

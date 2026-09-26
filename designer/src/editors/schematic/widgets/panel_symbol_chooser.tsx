@@ -31,7 +31,8 @@ import { LibTreeModelAdapter, type SortMode } from '../../../widgets/lib_tree_mo
 import { LibTreeNode, LibTreeNodeType } from '../../../widgets/lib_tree_model.js';
 import { FootprintPreviewWidget } from '../../../widgets/footprint_preview_widget.js';
 import { FootprintSelectWidget } from '../../../widgets/footprint_select_widget.js';
-import { loadFootprintIndex, filterFootprints } from '../../../widgets/footprint_list.js';
+import { loadFootprintIndex } from '../../../widgets/footprint_list.js';
+import { filterFootprints } from '@ziroeda/pcbnew/pcbnew.js';
 import { SymbolPreviewWidget } from './symbol_preview_widget.js';
 import { generateAliasInfo } from '../generate_alias_info.js';
 import { symbolChooserFields, symbolSearchTerms } from '../symbol_search_terms.js';
@@ -682,9 +683,14 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
       let cancelled = false;
       void loadFootprintIndex().then((index) => {
         if (cancelled) return;
-        const matched = filterFootprints(index, fpFilters, 400, fpPinCount).filter(
-          (fp) => !alwaysIncluded.includes(fp),
-        );
+        // FOOTPRINT_SELECT_WIDGET::UpdateList -> pcbnew's filterFootprints:
+        // FilterByFootprintFilters( filters, true ), max 400.
+        const matched = filterFootprints(index, {
+          pin_count: fpPinCount,
+          filters: fpFilters,
+          zero_filters: true,
+          max_results: 400,
+        }).filter((fp) => !alwaysIncluded.includes(fp));
         setFpItems([...alwaysIncluded, ...matched]);
       });
       return () => {

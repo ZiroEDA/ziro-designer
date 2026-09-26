@@ -80,7 +80,7 @@
  * footprint filters to the symbol, not to reorder the files.
  */
 
-import { hasFootprintInfo } from '../../widgets/footprint_list.js';
+import type { FOOTPRINT_LIST } from '@ziroeda/common/footprint_info.js';
 import type { CvpcbComponent } from './cvpcb_components.js';
 import { associateFootprint, footprintOf, type CvpcbAssociations } from './cvpcb_commands.js';
 
@@ -323,14 +323,15 @@ export function automaticFootprintMatching(
   state: CvpcbAssociations,
   components: readonly CvpcbComponent[],
   equivList: readonly FootprintEquivalence[],
-  known: ReadonlySet<string>,
+  /** `m_FootprintsList`. */
+  aFootprintList: FOOTPRINT_LIST,
 ): AutoAssociateResult {
   // `if( m_netlist.IsEmpty() ) return;` — before the status text is written.
   if (components.length === 0) return { state, status: null, warning: '' };
 
   /** `m_FootprintsList->GetFootprintInfo( … )->GetFootprintName()`, or null. */
   const footprintName = (fpid: string): string | null =>
-    hasFootprintInfo(known, fpid) ? fpid.slice(fpid.indexOf(':') + 1) : null;
+    aFootprintList.GetFootprintInfo(fpid)?.GetFootprintName() ?? null;
 
   let next = state;
   let firstAssoc = true;
