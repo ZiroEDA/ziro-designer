@@ -1305,6 +1305,18 @@ export class GAL implements GAL_DISPLAY_OPTIONS_OBSERVER {
     return this.m_gridMinSpacing;
   }
 
+  /**
+   * Ensure that the first element is smaller than the second.
+   *
+   * `template <typename T> void normalize( T& a, T& b )`: the pair comes back
+   * in order, where the C++ swaps through its references.
+   */
+  protected normalize(a: number, b: number): [number, number] {
+    if (a > b) return [b, a];
+
+    return [a, b];
+  }
+
   // MIN_DEPTH must be set to be - (VIEW::VIEW_MAX_LAYERS + abs(VIEW::TOP_LAYER_MODIFIER))
   // MAX_DEPTH must be set to be VIEW::VIEW_MAX_LAYERS + abs(VIEW::TOP_LAYER_MODIFIER) -1
   // VIEW_MAX_LAYERS and TOP_LAYER_MODIFIER are defined in view.h.
