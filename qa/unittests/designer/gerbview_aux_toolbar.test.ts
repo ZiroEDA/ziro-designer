@@ -24,10 +24,10 @@ import {
 import { D_CODE } from '@ziroeda/gerbview/dcode.js';
 import { GRID_SIZE_LIST, gridChoiceLabel } from '@ziroeda/common/settings/grid_settings_ui.js';
 import { ZOOM_LIST, zoomChoices } from '@ziroeda/common/settings/zoom_settings.js';
-import { APERTURE_T } from '@ziroeda/gerbview';
+import { APERTURE_T, IU_PER_MM } from '@ziroeda/gerbview';
 
-/** GerbView reads coordinates at 1 nm per IU, `gerbIUScale.IU_PER_MM`. */
-const GBR_IU_PER_MM = 1e6;
+/** GerbView's frame scale, 10 nm per IU (`GERB_IU_PER_MM`). */
+const GBR_IU_PER_MM = IU_PER_MM;
 
 describe('the TOP_AUX toolbar layout', () => {
   /**
@@ -115,8 +115,8 @@ describe('the grid selector', () => {
    * not eeschema/symbol_editor/pl_editor (`app_settings.cpp:472-481`).
    *
    * Both halves are load-bearing: mm at four decimals and mils at two is
-   * MessageTextFromValue's non-short-form precision, which is what a 1e6-IU
-   * frame gets; a 1e4-IU frame would print "0.500 mm (20 mils)".
+   * MessageTextFromValue's non-short-form precision, which is what a 1e5-IU
+   * GerbView frame gets; a 1e4-IU frame would print "0.500 mm (20 mils)".
    */
   it('reads 0.5000 mm (19.69 mils) at GerbView’s default grid', () => {
     // Read from the table rather than retyped, so the row and the label are

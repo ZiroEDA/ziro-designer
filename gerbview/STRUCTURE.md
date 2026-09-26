@@ -150,19 +150,17 @@ driver (`common/STRUCTURE.md` has `spacemouse` n/a for the same reason).
   `PCB_LAYER_ID_COUNT` = 128 (`include/layer_ids.h:519`). The viewer refused
   the 33rd file with "No more available layers". `common/layer_id.ts` already
   had the right value.
-- **Gerbview's internal unit is 1 nm here, 10 nm in KiCad**
-  (`GERB_IU_PER_MM = 1e5`, `include/base_units.h:69`). Coordinates keep one
-  more decimal than KiCad's `KiROUND` leaves them; `export_to_pcbnew`'s
-  `MapToPcbUnits` divides by our own `IU_PER_MM`, so the exported millimetres
-  agree except in that last digit. Not yet changed: every engine test pins nm.
-  One visible effect: a pathological file whose coordinates overflow an
-  `int` at 1 nm but not at 10 nm logs "Overflow converting value to int".
 
 ## Divergences the engine port fixed
 
 Each was found by porting the C++ unit and re-deriving the expectation from
 it, never by re-baselining to what the new code prints.
 
+- **The internal unit was 1 nm; KiCad's is 10 nm** (`GERB_IU_PER_MM = 1e5`,
+  `include/base_units.h:69`). Every coordinate kept a decimal KiCad's
+  `KiROUND` drops, so Export to PCB wrote `0.800001` where KiCad writes
+  `0.80001` (collect_hole's `+ 1` IU) and `1.414214` where it writes
+  `1.41421`. gerbview now uses common's `gerbIUScale`, the one scale.
 - **G02 arcs exported the long way round.** `fillArcGBRITEM` stores a
   not-clockwise arc end-for-start (`rs274d.cpp:285-294`); ours never swapped,
   so a G02 arc took G03's mid point in Export to PCB.

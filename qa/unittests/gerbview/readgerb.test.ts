@@ -5,13 +5,13 @@
  * `GERBER_FILE_IMAGE::LoadGerberFile` (`gerbview/readgerb.cpp`) end to end:
  * what the RS-274X reader builds from a file, in GerbView's own terms.
  *
- * Every number here is worked out from the C++ by hand, in our 1 nm unit
- * (`gerbview.ts`: KiCad's is 10 nm, so each is ten times KiCad's):
+ * Every number here is worked out from the C++ by hand, in GerbView's 10 nm
+ * unit (`GERB_IU_PER_MM = 1e5`, `include/base_units.h:69`):
  *
  *   `%FSLAX46Y46*%` : m_FmtScale 6, m_FmtLen 10, leading zeros omitted.
- *   `%MOMM*%`       : conv_scale = IU_PER_MILS * 1000 / 25.4 = 1e6 per mm.
- *   `X5000000`      : scale_list[6] = 0.001 * 1e6 * 0.0254 = 25.4, / 25.4
- *                     for metric = 1 per digit, so 5 mm = 5e6.
+ *   `%MOMM*%`       : conv_scale = IU_PER_MILS * 1000 / 25.4 = 1e5 per mm.
+ *   `X5000000`      : scale_list[6] = 0.001 * 1e5 * 0.0254 = 2.54, / 25.4
+ *                     for metric = 0.1 per digit, so 5 mm = 5e5.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -68,13 +68,13 @@ describe('LoadGerberFile', () => {
       GBR_BASIC_SHAPE_TYPE.GBR_SPOT_CIRCLE,
       GBR_BASIC_SHAPE_TYPE.GBR_SEGMENT,
     ]);
-    expect(items[1]!.m_Start).toStrictEqual({ x: 5000000, y: 0 });
-    expect(items[1]!.m_Size).toStrictEqual({ x: 500000, y: 500000 });
+    expect(items[1]!.m_Start).toStrictEqual({ x: 500000, y: 0 });
+    expect(items[1]!.m_Size).toStrictEqual({ x: 50000, y: 50000 });
     expect(items[1]!.m_Flashed).toBe(true);
     // The trace takes the rect's whole m_Size: x is its width.
     expect(items[2]!.m_Start).toStrictEqual({ x: 0, y: 0 });
-    expect(items[2]!.m_End).toStrictEqual({ x: 10000000, y: 0 });
-    expect(items[2]!.m_Size).toStrictEqual({ x: 1000000, y: 500000 });
+    expect(items[2]!.m_End).toStrictEqual({ x: 1000000, y: 0 });
+    expect(items[2]!.m_Size).toStrictEqual({ x: 100000, y: 50000 });
     expect(items[2]!.m_DCode).toBe(11);
     expect(img.GetDCODE(11)?.m_ApertType).toBe(APERTURE_T.APT_RECT);
     expect(img.m_GerbMetric).toBe(true);
@@ -84,10 +84,10 @@ describe('LoadGerberFile', () => {
   it('draws in image coordinates: the Y axis turns downward', () => {
     const img = load([...HEAD, '%ADD10C,0.5*%', 'D10*', 'X1000000Y2000000D03*', 'M02*']);
     const flash = img.GetItems()[0]!;
-    expect(flash.m_Start).toStrictEqual({ x: 1000000, y: 2000000 });
+    expect(flash.m_Start).toStrictEqual({ x: 100000, y: 200000 });
     // GetABPosition: "abPos.y must be negated when no mirror, because draw
     // axis is top to bottom".
-    expect(flash.GetABPosition(flash.m_Start)).toStrictEqual({ x: 1000000, y: -2000000 });
+    expect(flash.GetABPosition(flash.m_Start)).toStrictEqual({ x: 100000, y: -200000 });
   });
 
   it('builds a region from G36 .. G37, closing it once', () => {
@@ -108,9 +108,9 @@ describe('LoadGerberFile', () => {
     // the last point: (0,0) is written once at each end.
     expect(polys[0]!.m_ShapeAsPolygon.COutline(0).CPoints()).toStrictEqual([
       { x: 0, y: 0 },
-      { x: 0, y: 5000000 },
-      { x: 5000000, y: 5000000 },
-      { x: 5000000, y: 0 },
+      { x: 0, y: 500000 },
+      { x: 500000, y: 500000 },
+      { x: 500000, y: 0 },
       { x: 0, y: 0 },
     ]);
     expect(polys[0]!.m_DCode).toBe(0);
@@ -136,9 +136,10 @@ describe('LoadGerberFile', () => {
     // Fractured: the hole is joined to the outline, so one outline, no holes.
     expect(shape.OutlineCount()).toBe(1);
     expect(shape.HoleCount(0)).toBe(0);
-    // Two 64-gons of radius 1e6 and 0.5e6: 32 r^2 sin( 2pi/64 ) each.
+    // Two 64-gons of radius 1e5 and 0.5e5 (2 and 1 mm diameters at
+    // GERB_IU_PER_MM = 1e5): 32 r^2 sin( 2pi/64 ) each.
     const k = 32 * Math.sin((2 * Math.PI) / 64);
-    expect(area(shape) / (k * (1e12 - 0.25e12))).toBeCloseTo(1, 5);
+    expect(area(shape) / (k * (1e10 - 0.25e10))).toBeCloseTo(1, 5);
   });
 
   it('replicates a Step and Repeat block when it closes', () => {
@@ -153,7 +154,7 @@ describe('LoadGerberFile', () => {
     ]);
     expect(img.GetItems().map((i) => i.m_Start)).toStrictEqual([
       { x: 0, y: 0 },
-      { x: 10000000, y: 0 },
+      { x: 1000000, y: 0 },
     ]);
   });
 
@@ -187,8 +188,8 @@ describe('LoadGerberFile', () => {
     // G03 is GERB_INTERPOL_ARC_POS, handed to fillArcGBRITEM as clockwise,
     // which keeps start and end in file order.
     expect(arc.m_Start).toStrictEqual({ x: 0, y: 0 });
-    expect(arc.m_End).toStrictEqual({ x: 2000000, y: 0 });
-    expect(arc.m_ArcCentre).toStrictEqual({ x: 1000000, y: 0 });
+    expect(arc.m_End).toStrictEqual({ x: 200000, y: 0 });
+    expect(arc.m_ArcCentre).toStrictEqual({ x: 100000, y: 0 });
   });
 
   it('swaps an arc read as G02 end for start', () => {
@@ -203,7 +204,7 @@ describe('LoadGerberFile', () => {
       'M02*',
     ]);
     const arc = img.GetItems()[0]!;
-    expect(arc.m_Start).toStrictEqual({ x: 2000000, y: 0 });
+    expect(arc.m_Start).toStrictEqual({ x: 200000, y: 0 });
     expect(arc.m_End).toStrictEqual({ x: 0, y: 0 });
   });
 

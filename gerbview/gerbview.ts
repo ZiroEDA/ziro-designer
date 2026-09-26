@@ -9,7 +9,7 @@
  * until `dialogs/prefs/types` leaves the app (see STRUCTURE.md).
  */
 
-import { EdaIuScale } from '@ziroeda/common/eda_units.js';
+import { GERB_IU_PER_MM, gerbIUScale } from '@ziroeda/common/eda_units.js';
 
 /** `Gerb_Interpolation` (`gerbview.h:33-38`), the G01 / G02 / G03 modes. */
 export enum Gerb_Interpolation {
@@ -48,20 +48,12 @@ export enum Gerb_Analyse_Cmd {
 }
 
 /**
- * Our gerbview internal unit: **1 nm**, where KiCad's is 10 nm
- * (`GERB_IU_PER_MM = 1e5`, `include/base_units.h:69`, which is
- * `common/`'s `GERB_IU_PER_MM`). A divergence recorded in STRUCTURE.md: every
- * engine test pins nanometres, and `export_to_pcbnew`'s `MapToPcbUnits`
- * divides by this same value, so the exported millimetres agree with KiCad's
- * except in the digit KiCad's `KiROUND` drops.
+ * The gerbview internal unit: 10 nm, `GERB_IU_PER_MM = 1e5`
+ * (`include/base_units.h:69`) - common's own, so there is one gerbview scale
+ * in the tree.
  */
-export const IU_PER_MM = 1e6;
-/** Internal units per mil (0.001"), in our 1 nm unit. */
-export const IU_PER_MILS = 25400;
+export const IU_PER_MM = GERB_IU_PER_MM;
+/** Internal units per mil (0.001"): `GERB_IU_PER_MM * 0.0254`. */
+export const IU_PER_MILS = gerbIUScale.IU_PER_MILS;
 
-/**
- * `gerbIUScale`, at our 1 nm (see {@link IU_PER_MM}). `common/eda_units.ts`
- * exports KiCad's 10 nm one under the same name; gerbview files import this
- * one, so reconciling the unit is a change to this line.
- */
-export const gerbIUScale = new EdaIuScale(IU_PER_MM);
+export { gerbIUScale };

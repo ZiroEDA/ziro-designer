@@ -523,8 +523,9 @@ describe('drill files become holes, not drawings', () => {
     expect(img.m_IsX2_file).toBe(false);
 
     const text = exportText([{ image: img, name: 'drill' }]);
-    // collect_hole: `m_Size.x + 1` for the pad, `m_Size.x` for the drill.
-    expect(text).toContain('(via (at 0.01 -0.01) (size 0.800001) (drill 0.8) (layers F.Cu B.Cu))');
+    // collect_hole: `m_Size.x + 1` for the pad, `m_Size.x` for the drill -
+    // one IU, which at GERB_IU_PER_MM = 1e5 is 0.00001 mm.
+    expect(text).toContain('(via (at 0.01 -0.01) (size 0.80001) (drill 0.8) (layers F.Cu B.Cu))');
     expect(text).not.toContain('gr_circle');
     expect(text).not.toContain('gr_line');
     expect(text).not.toContain('gr_poly');
@@ -540,7 +541,7 @@ describe('drill files become holes, not drawings', () => {
     const text = exportText([{ image: parseExcellon(SLOT_FILE, 'board-PTH.drl'), name: 'd' }]);
     expect(text).toContain(
       '(footprint "slot" (pad 1 thru_hole oval (at 0.02 -0.01 0) ' +
-        '(size 0.520001 0.500001) (drill oval 0.52 0.5)))',
+        '(size 0.52001 0.50001) (drill oval 0.52 0.5)))',
     );
   });
 
@@ -578,7 +579,7 @@ describe('drill files become holes, not drawings', () => {
       { image: parseExcellon(DRILL_FILE, 'board-PTH.drl'), name: 'd' },
       { image: parseGerber(pad, 'board-F_Cu.gbr'), name: 'f' },
     ]);
-    expect(text).toContain('(via (at 0.01 -0.01) (size 0.800001) (drill 0.8) (layers F.Cu B.Cu))');
+    expect(text).toContain('(via (at 0.01 -0.01) (size 0.80001) (drill 0.8) (layers F.Cu B.Cu))');
     expect(text).toContain('(center 5 -5) (end 5.75 -5)');
   });
 
@@ -596,7 +597,7 @@ describe('drill files become holes, not drawings', () => {
       'M02*',
     ].join('\n');
     const text = exportText([{ image: parseGerber(g, 'holes.gbr'), name: 'h' }]);
-    expect(text).toContain('(via (at 3 0) (size 0.400001) (drill 0.4) (layers F.Cu B.Cu))');
+    expect(text).toContain('(via (at 3 0) (size 0.40001) (drill 0.4) (layers F.Cu B.Cu))');
     expect(text).not.toContain('gr_circle');
   });
 });
@@ -785,14 +786,14 @@ describe('ExportPcb with a lookup table the automatic mapping would not produce'
     // UNDEFINED_LAYER for one, so only an explicit table reaches this.
     const text = new GBR_TO_PCB_EXPORTER([drillImage()]).ExportPcb([F_Cu], 2);
 
-    expect(text).toContain('(via (at 0.01 -0.01) (size 0.800001) (drill 0.8) (layers F.Cu B.Cu))');
+    expect(text).toContain('(via (at 0.01 -0.01) (size 0.80001) (drill 0.8) (layers F.Cu B.Cu))');
   });
 
   it('still collects it through the Hole Data row when the layer is UNDEFINED', () => {
     // The other arm, `else if( gerb && pcb_layer_number == UNDEFINED_LAYER )`.
     const text = new GBR_TO_PCB_EXPORTER([drillImage()]).ExportPcb([UNDEFINED_LAYER], 2);
 
-    expect(text).toContain('(via (at 0.01 -0.01) (size 0.800001) (drill 0.8) (layers F.Cu B.Cu))');
+    expect(text).toContain('(via (at 0.01 -0.01) (size 0.80001) (drill 0.8) (layers F.Cu B.Cu))');
   });
 });
 
@@ -824,8 +825,10 @@ describe('the arc midpoint rule', () => {
     // so b becomes 360 and the mean is 225 — the LONG way round. Without the
     // wrap the mean would be 45, the other side of the circle entirely.
     //
-    // 2 mm radius at 225 degrees is (2·cos225, 2·sin225) = (-1.414214,
-    // -1.414214) in Gerber coordinates, and Y negates on the way out.
+    // 2 mm radius at 225 degrees is (2·cos225, 2·sin225) in Gerber
+    // coordinates: 200000 IU x 0.7071068 = 141421.36, an integer VECTOR2I, so
+    // (-141421, -141421) IU = (-1.41421, -1.41421) mm. Y negates on the way
+    // out.
     //
     // G03 is GERB_INTERPOL_ARC_POS, which fillArcGBRITEM takes as clockwise
     // and so keeps start and end in file order (rs274d.cpp:285-294).
@@ -844,8 +847,8 @@ describe('the arc midpoint rule', () => {
     ].join('\n');
     const text = exportText([{ image: parseGerber(g, 'a.gbr'), name: 'a' }]);
 
-    expect(text).toContain('(mid -1.414214 1.414214)');
-    expect(text).not.toContain('(mid 1.414214 -1.414214)');
+    expect(text).toContain('(mid -1.41421 1.41421)');
+    expect(text).not.toContain('(mid 1.41421 -1.41421)');
   });
 
   it('sees the arc direction only through the reader swapping the ends', () => {
@@ -854,7 +857,7 @@ describe('the arc midpoint rule', () => {
     // clockwise and stores end-for-start (rs274d.cpp:285-294, :703-706).
     // So G02 has a = atan2( 0, 2 ) = 0 and b = atan2( 2, 0 ) = 90 degrees,
     // no wrap, and (2, 0) rotated by -EDA_ANGLE( 45 ) - RotatePoint's
-    // x cos + y sin, y cos - x sin - is (1.414214, 1.414214): the short way,
+    // x cos + y sin, y cos - x sin - is (1.41421, 1.41421): the short way,
     // mid at 45 degrees, Y negated on the way out. G03 keeps the ends and
     // goes the long way, as in the test above. Ours once exported both
     // directions with the G03 mid, because the reader did not swap.
@@ -875,8 +878,8 @@ describe('the arc midpoint rule', () => {
     const cw = exportText([{ image: parseGerber(gerber('G02*'), 'a.gbr'), name: 'a' }]);
     const ccw = exportText([{ image: parseGerber(gerber('G03*'), 'a.gbr'), name: 'a' }]);
 
-    expect(cw).toContain('(start 2 0) (mid 1.414214 -1.414214) (end 0 -2)');
-    expect(ccw).toContain('(start 0 -2) (mid -1.414214 1.414214) (end 2 0)');
+    expect(cw).toContain('(start 2 0) (mid 1.41421 -1.41421) (end 0 -2)');
+    expect(ccw).toContain('(start 0 -2) (mid -1.41421 1.41421) (end 2 0)');
   });
 });
 

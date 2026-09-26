@@ -63,11 +63,11 @@ describe('GERBER_COLLECTOR', () => {
     const img = twoFlashes();
     const [a, b] = img.GetItems();
     const c = new GERBER_COLLECTOR();
-    c.Collect(img, [KICAD_T.GERBER_DRAW_ITEM_T], { x: 5000000, y: 0 });
+    c.Collect(img, [KICAD_T.GERBER_DRAW_ITEM_T], { x: 500000, y: 0 });
     expect(c.GetCount()).toBe(1);
     expect(c.at(0)).toBe(b);
 
-    c.Collect(img, [KICAD_T.GERBER_DRAW_ITEM_T], { x: 200000, y: 0 });
+    c.Collect(img, [KICAD_T.GERBER_DRAW_ITEM_T], { x: 20000, y: 0 });
     expect([...c]).toStrictEqual([a]);
   });
 
@@ -75,7 +75,7 @@ describe('GERBER_COLLECTOR', () => {
     const img = twoFlashes();
     const c = new GERBER_COLLECTOR();
     c.Collect(img, [KICAD_T.GERBER_DRAW_ITEM_T], { x: 0, y: 0 });
-    c.Collect(img, [KICAD_T.GERBER_DRAW_ITEM_T], { x: 2500000, y: 0 });
+    c.Collect(img, [KICAD_T.GERBER_DRAW_ITEM_T], { x: 250000, y: 0 });
     expect(c.GetCount()).toBe(0);
   });
 
@@ -100,11 +100,12 @@ describe('GERBVIEW_SELECTION', () => {
     both.Add(b!);
     // GetBoundingBox starts from BOX2I( m_Start, ( 1, 1 ) ) - "(pos,dim) in
     // nature, therefore the +1" (gerber_draw_item.cpp:268-269) - inflated by
-    // the 500000 radius: x -500000 .. 500001, and y the same until the AB
-    // transform negates it to -500001 .. 500000. The union is x -500000 ..
-    // 5500001, y -500001 .. 500000, and Centre() is origin + size / 2 in
-    // integers: (-500000 + 3000000, -500001 + 500000).
-    expect(both.GetCenter()).toStrictEqual({ x: 2500000, y: -1 });
+    // the 0.5 mm radius, 50000 IU at 10 nm: x -50000 .. 50001, and y the same
+    // until the AB transform negates it to -50001 .. 50000. The union is
+    // x -50000 .. 550001, y -50001 .. 50000, and Centre() is origin + size / 2
+    // in integers: (-50000 + 600001 / 2, -50001 + 100001 / 2)
+    // = (-50000 + 300000, -50001 + 50000).
+    expect(both.GetCenter()).toStrictEqual({ x: 250000, y: -1 });
   });
 
   it('bounds the view by its items, and is empty with none', () => {
@@ -114,7 +115,7 @@ describe('GERBVIEW_SELECTION', () => {
     both.Add(b!);
     const box = both.ViewBBox();
     // The +1 of each item's box, above.
-    expect([box.GetLeft(), box.GetRight()]).toStrictEqual([-500000, 5500001]);
+    expect([box.GetLeft(), box.GetRight()]).toStrictEqual([-50000, 550001]);
     expect(new GERBVIEW_SELECTION().ViewBBox().GetWidth()).toBe(0);
   });
 });

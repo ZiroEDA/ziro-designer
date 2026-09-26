@@ -466,12 +466,11 @@ describe('GERBVIEW_FRAME::SetPageSettings', () => {
   });
 
   it('spans the page in gerbview IU, which is what zoom-to-fit falls back to', () => {
-    // 32000 mils = 812.8 mm, at gerbview's gerbIUScale - 1 nm, where KiCad's
-    // is 10 nm (the open IU divergence; this moves with it).
+    // 32000 mils = 812.8 mm, at gerbIUScale's 10 nm (GERB_IU_PER_MM = 1e5).
     const bbox = env.sheets.at(-1)!.ViewBBox();
 
-    expect(bbox.GetWidth()).toBe(Math.round(812.8 * 1e6));
-    expect(bbox.GetHeight()).toBe(Math.round(812.8 * 1e6));
+    expect(bbox.GetWidth()).toBe(Math.round(812.8 * 1e5));
+    expect(bbox.GetHeight()).toBe(Math.round(812.8 * 1e5));
   });
 });
 
@@ -958,7 +957,7 @@ describe('DIALOG_DRAW_LAYERS_SETTINGS', () => {
   const offsetsOf = (): string[] =>
     [0, 1, 2].map((i) => {
       const img = env.frame.GetGbrImage(i)!;
-      return `${img.m_DisplayOffset.x / 1e6},${img.m_DisplayOffset.y / 1e6}@${img.m_DisplayRotation.AsDegrees()}`;
+      return `${img.m_DisplayOffset.x / 1e5},${img.m_DisplayOffset.y / 1e5}@${img.m_DisplayRotation.AsDegrees()}`;
     });
 
   const apply =

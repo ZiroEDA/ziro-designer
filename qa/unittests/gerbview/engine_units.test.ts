@@ -6,7 +6,8 @@
  * polygons, and `GERBER_DRAW_ITEM::GetABPosition`.
  *
  * Every expectation is worked by hand from the C++ (`gerbview/evaluate.cpp`,
- * `am_param.cpp`, `dcode.cpp`, `gerber_draw_item.cpp`) in our 1 nm unit, never
+ * `am_param.cpp`, `dcode.cpp`, `gerber_draw_item.cpp`) in GerbView's 10 nm unit
+ * (`GERB_IU_PER_MM = 1e5`), never
  * read back out of the module.
  */
 import { describe, expect, it } from 'vitest';
@@ -104,25 +105,27 @@ describe('D_CODE::ConvertShapeToPolygon', () => {
     // currpos = size / 2, then x -= w, y -= h, x += w, y += h.
     expect(sorted(apertureOutline('%ADD10R,1X0.5*%', 10))).toStrictEqual(
       sorted([
-        { x: 500000, y: 250000 },
-        { x: -500000, y: 250000 },
-        { x: -500000, y: -250000 },
-        { x: 500000, y: -250000 },
+        { x: 50000, y: 25000 },
+        { x: -50000, y: 25000 },
+        { x: -50000, y: -25000 },
+        { x: 50000, y: -25000 },
       ]),
     );
   });
 
   it('turns a regular polygon by MINUS its %AD rotation', () => {
-    // P, 1 mm, 3 vertices, 30 degrees. Vertex ii is (500000, 0) rotated by
-    // 360 * ii / 3 with RotatePoint's (x cos + y sin, y cos - x sin):
-    // (500000, 0), (-250000, -433013), (-250000, 433013). Then the outline by
-    // -30 (cos 0.866, sin -0.5): (433013, 250000), (0, -500000),
-    // (-433013, 250000). By +30 every y would change sign.
+    // P, 1 mm, 3 vertices, 30 degrees. Vertex ii is (50000, 0) rotated by
+    // 360 * ii / 3 with RotatePoint's (x cos + y sin, y cos - x sin), each
+    // KiROUNDed: (50000, 0), (-25000, -43301), (-25000, 43301). Then the
+    // outline by -30 (cos 0.8660254, sin -0.5), KiROUNDed again:
+    // (43301.27, 25000) -> (43301, 25000); (-21650.635 + 21650.5,
+    // -37499.78 - 12500) -> (0, -50000); (-43301.135, 24999.78) ->
+    // (-43301, 25000). By +30 every y would change sign.
     expect(sorted(apertureOutline('%ADD11P,1X3X30*%', 11))).toStrictEqual(
       sorted([
-        { x: 433013, y: 250000 },
-        { x: 0, y: -500000 },
-        { x: -433013, y: 250000 },
+        { x: 43301, y: 25000 },
+        { x: 0, y: -50000 },
+        { x: -43301, y: 25000 },
       ]),
     );
   });
@@ -155,7 +158,7 @@ describe('GERBER_DRAW_ITEM::GetABPosition', () => {
   };
 
   it('negates Y alone when nothing else is set', () => {
-    expect(flashAt([])).toStrictEqual({ x: 1000000, y: 0 });
+    expect(flashAt([])).toStrictEqual({ x: 100000, y: 0 });
   });
 
   it('adds %OF, rotates by minus %IR, mirrors A, and flips Y last', () => {
@@ -163,21 +166,21 @@ describe('GERBER_DRAW_ITEM::GetABPosition', () => {
     // (-y, x) = (-3, 2); %MIA1 negates x: (3, 2); B is not mirrored, so y is
     // negated for the top-down draw axis: (3, -2).
     expect(flashAt(['%OFA1B3*%', '%IR90*%', '%MIA1B0*%'])).toStrictEqual({
-      x: 3000000,
-      y: -2000000,
+      x: 300000,
+      y: -200000,
     });
   });
 
   it('leaves Y alone when B is mirrored', () => {
     // (1, 0) + (1, 3) = (2, 3); no rotation; B mirrored: y stays 3.
-    expect(flashAt(['%OFA1B3*%', '%MIA0B1*%'])).toStrictEqual({ x: 2000000, y: 3000000 });
+    expect(flashAt(['%OFA1B3*%', '%MIA0B1*%'])).toStrictEqual({ x: 200000, y: 300000 });
   });
 
   it('adds %IO as well as %OF', () => {
     // (1, 0) + %OF (1, 3) + %IO (0.5, 0.25) = (2.5, 3.25), then -y.
     expect(flashAt(['%OFA1B3*%', '%IOA0.5B0.25*%'])).toStrictEqual({
-      x: 2500000,
-      y: -3250000,
+      x: 250000,
+      y: -325000,
     });
   });
 });
