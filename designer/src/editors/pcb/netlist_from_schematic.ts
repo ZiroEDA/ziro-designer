@@ -38,7 +38,7 @@ import { RPT_SEVERITY_ERROR } from '@ziroeda/common';
 import { ENV_VAR } from '@ziroeda/common/env_vars.js';
 import { niluuid } from '@ziroeda/common/kiid.js';
 import { PgmOrNull, SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
-import { globalSymLibNicknames } from '../schematic/symbols/index.js';
+import { GLOBAL_SYM_LIB_NICKNAMES } from '../schematic/symbols/global_sym_lib_table.js';
 import { projectSymLibTable } from '../schematic/symbols/project_sym_lib_table.js';
 import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import {
@@ -131,20 +131,18 @@ function variantDescriptionsOf(files: readonly RawFile[], rootPro?: string): Map
 
 /**
  * `LIBRARY_MANAGER::GetFullURI( SYMBOL, nickname )`: the project's
- * `sym-lib-table` row first, then the global table - KiCad's
+ * `sym-lib-table` row first, then the global table - KiCad's default
  * `template/sym-lib-table`, every row of which is
- * `${KICAD10_SYMBOL_DIR}/<nickname>.kicad_sym`, and which our hosted libraries
- * mirror. A nickname in neither table has no URI. Before the hosted index has
- * loaded the global table cannot be asked, so it is taken to hold the library.
+ * `${KICAD10_SYMBOL_DIR}/<nickname>.kicad_sym`. A nickname in neither table
+ * has no URI, and makeLibraries leaves it out.
  */
 function symbolLibraryUri(files: readonly RawFile[]): (aNickname: string) => string | undefined {
   const projectRows = projectSymLibTable(files);
-  const globalNicknames = globalSymLibNicknames();
   const symbolDir = ENV_VAR.GetVersionedEnvVarName('SYMBOL_DIR');
   return (aNickname) => {
     const row = projectRows.find((r) => r.name === aNickname);
     if (row) return row.uri;
-    if (globalNicknames && !globalNicknames.has(aNickname)) return undefined;
+    if (!GLOBAL_SYM_LIB_NICKNAMES.has(aNickname)) return undefined;
     return `\${${symbolDir}}/${aNickname}.kicad_sym`;
   };
 }
