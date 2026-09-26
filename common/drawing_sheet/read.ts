@@ -27,6 +27,22 @@ import { parse } from '@ziroeda/sexpr/parser.js';
 import { convertToNewOverbarNotation } from '../string_utils.js';
 import { childNamed, childrenNamed, args, arg, numArg } from '@ziroeda/sexpr/query.js';
 import { head, isList, type SList } from '@ziroeda/sexpr/types.js';
+import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { BITMAP_BASE } from '../bitmap_base.js';
+import { FONT } from '../font/font.js';
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '../font/text_attributes.js';
+import { base64ToBytes } from './ds_bitmap.js';
+import {
+  CORNER_ANCHOR,
+  DS_DATA_ITEM,
+  DS_DATA_ITEM_BITMAP,
+  DS_DATA_ITEM_POLYGONS,
+  DS_DATA_ITEM_TEXT,
+  DS_ITEM_TYPE,
+  PAGE_OPTION,
+  POINT_COORD,
+} from './ds_data_item.js';
+import type { DS_DATA_MODEL } from './ds_data_model.js';
 import {
   DEFAULT_SETUP,
   WKS_FILE_VERSION,
@@ -433,4 +449,163 @@ export function readDrawingSheet(root: SList): WksSheet {
 /** Convenience: parse `.kicad_wks` source text straight to a `WksSheet`. */
 export function parseDrawingSheet(text: string): WksSheet {
   return readDrawingSheet(parse(text));
+}
+
+// ----- DRAWING_SHEET_PARSER::Parse( DS_DATA_MODEL* ) ---------------------------
+
+// Functions rather than tables: this module and ds_data_item.ts import each
+// other, so their enums are not there yet while this one is initialising.
+function cornerOf(aCorner: WksCorner): CORNER_ANCHOR {
+  switch (aCorner) {
+    case 'rtcorner':
+      return CORNER_ANCHOR.RT_CORNER;
+    case 'lbcorner':
+      return CORNER_ANCHOR.LB_CORNER;
+    case 'ltcorner':
+      return CORNER_ANCHOR.LT_CORNER;
+    default:
+      return CORNER_ANCHOR.RB_CORNER;
+  }
+}
+
+function optionOf(aOption: WksOption): PAGE_OPTION {
+  switch (aOption) {
+    case 'page1only':
+      return PAGE_OPTION.FIRST_PAGE_ONLY;
+    case 'notonpage1':
+      return PAGE_OPTION.SUBSEQUENT_PAGES;
+    default:
+      return PAGE_OPTION.ALL_PAGES;
+  }
+}
+
+function hAlignOf(aJustify: WksHJustify): GR_TEXT_H_ALIGN_T {
+  switch (aJustify) {
+    case 'center':
+      return GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER;
+    case 'right':
+      return GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT;
+    default:
+      return GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT;
+  }
+}
+
+function vAlignOf(aJustify: WksVJustify): GR_TEXT_V_ALIGN_T {
+  switch (aJustify) {
+    case 'top':
+      return GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP;
+    case 'bottom':
+      return GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM;
+    default:
+      return GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER;
+  }
+}
+
+/** `parseCoordinate( POINT_COORD& )`. */
+const coordOf = (p: WksPoint): POINT_COORD =>
+  new POINT_COORD({ x: p.x, y: p.y }, cornerOf(p.corner));
+
+/** The fields every item's parse sets on the `DS_DATA_ITEM` base. */
+function readBaseInto(it: WksItem, aItem: DS_DATA_ITEM): void {
+  aItem.m_Name = it.name;
+  aItem.m_Info = it.comment;
+  aItem.SetPage1Option(optionOf(it.option));
+  aItem.m_RepeatCount = it.repeat;
+  aItem.m_IncrementVector = { x: it.incrx, y: it.incry };
+  aItem.m_IncrementLabel = it.incrlabel;
+}
+
+/**
+ * `DRAWING_SHEET_PARSER::Parse( DS_DATA_MODEL* aLayout )`: the setup and the
+ * items of a parsed sheet, appended to `aLayout` as `DS_DATA_ITEM`s. The text
+ * is parsed by `readDrawingSheet` above, whose `WksSheet` is the file as
+ * written; this is the half that fills the model.
+ */
+export function DRAWING_SHEET_PARSER_Parse(aSheet: WksSheet, aLayout: DS_DATA_MODEL): void {
+  aLayout.SetFileFormatVersionAtLoad(aSheet.version);
+
+  const s = aSheet.setup;
+  aLayout.m_DefaultLineWidth = s.lineWidth;
+  aLayout.m_DefaultTextSize = { x: s.textW, y: s.textH };
+  aLayout.m_DefaultTextThickness = s.textLineWidth;
+  aLayout.SetLeftMargin(s.leftMargin);
+  aLayout.SetRightMargin(s.rightMargin);
+  aLayout.SetTopMargin(s.topMargin);
+  aLayout.SetBottomMargin(s.bottomMargin);
+
+  for (const it of aSheet.items) {
+    switch (it.type) {
+      case 'line':
+      case 'rect': {
+        const item = new DS_DATA_ITEM(
+          it.type === 'line' ? DS_ITEM_TYPE.DS_SEGMENT : DS_ITEM_TYPE.DS_RECT,
+        );
+        readBaseInto(it, item);
+        item.m_Pos = coordOf(it.start);
+        item.m_End = coordOf(it.end);
+        item.m_LineWidth = it.lineWidth;
+        aLayout.Append(item);
+        break;
+      }
+
+      case 'polygon': {
+        const item = new DS_DATA_ITEM_POLYGONS();
+        readBaseInto(it, item);
+        item.m_Pos = coordOf(it.pos);
+        item.m_Orient = new EDA_ANGLE(it.rotate);
+        item.m_LineWidth = it.lineWidth;
+
+        for (const contour of it.contours) {
+          for (const corner of contour) item.AppendCorner(corner);
+
+          item.CloseContour();
+        }
+
+        item.SetBoundingBox();
+        aLayout.Append(item);
+        break;
+      }
+
+      case 'text': {
+        const item = new DS_DATA_ITEM_TEXT(it.text);
+        readBaseInto(it, item);
+        item.m_Pos = coordOf(it.pos);
+        item.m_Orient = it.rotate;
+        item.m_Hjustify = hAlignOf(it.hjustify);
+        item.m_Vjustify = vAlignOf(it.vjustify);
+        item.m_Bold = it.bold;
+        item.m_Italic = it.italic;
+        item.m_TextSize = { x: it.fontW, y: it.fontH };
+        item.m_LineWidth = it.lineWidth;
+        item.m_BoundingBoxSize = { x: it.maxlen, y: it.maxheight };
+
+        if (it.color)
+          item.m_TextColor = {
+            r: it.color.r / 255.0,
+            g: it.color.g / 255.0,
+            b: it.color.b / 255.0,
+            a: it.color.a,
+          };
+
+        if (it.face) item.m_Font = FONT.GetFont(it.face, item.m_Bold, item.m_Italic);
+
+        aLayout.Append(item);
+        break;
+      }
+
+      case 'bitmap': {
+        const image = new BITMAP_BASE();
+        const item = new DS_DATA_ITEM_BITMAP(image);
+        readBaseInto(it, item);
+        item.m_Pos = coordOf(it.pos);
+        image.SetScale(it.scale);
+
+        if (it.pngB64 !== '' && !image.ReadImageFile(base64ToBytes(it.pngB64)))
+          throw new Error('Failed to read image data.');
+
+        aLayout.Append(item);
+        break;
+      }
+    }
+  }
 }

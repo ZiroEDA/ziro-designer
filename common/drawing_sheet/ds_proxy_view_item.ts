@@ -9,9 +9,10 @@
  * drawing sheet paints on LAYER_DRAWINGSHEET.
  *
  * The item list a `DS_DRAW_ITEM_LIST` would build comes from the resolved
- * layout (`layoutDrawingSheet`), whose `DsDrawItem`s carry what the painter
- * reads off a `DS_DRAW_ITEM_*` — the `DS_DATA_MODEL` classes themselves are
- * the drawing sheet editor's port. The layout works in schematic internal
+ * layout (`layoutDrawingSheet`): each `DsDrawItem` becomes the
+ * `DS_DRAW_ITEM_*` (`ds_draw_item.ts`) the painter draws, with no
+ * `DS_DATA_ITEM` peer. Building from `DS_DATA_MODEL::GetTheInstance()` as
+ * KiCad does is the next step for the board and schematic canvases. The layout works in schematic internal
  * units (`SCH_IU_PER_MM`); `m_iuScale` converts to the host's.
  */
 
@@ -23,11 +24,9 @@ import { brightened, brightness, type Color4d, LEGACY_COLORS } from '../color4d.
 import { EDA_ITEM } from '../eda_item.js';
 import { type EdaIuScale, SCH_IU_PER_MM } from '../eda_units.js';
 import { FONT } from '../font/font.js';
-import { METRICS } from '../font/font_metrics.js';
-import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T, TEXT_ATTRIBUTES } from '../font/text_attributes.js';
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '../font/text_attributes.js';
 import type { GAL } from '../gal/graphics_abstraction_layer.js';
 import { PAINTER } from '../gal/painter.js';
-import { GetPenSizeForBold, GetPenSizeForNormal } from '../gr_text.js';
 import {
   GAL_LAYER_ID,
   LAYER_BRIGHTENED,
@@ -46,7 +45,15 @@ import type { TITLE_BLOCK } from '../title_block.js';
 import type { VIEW } from '../view/view.js';
 import type { VIEW_ITEM } from '../view/view_item.js';
 import { defaultDrawingSheet } from './default-sheet.js';
-import { type DsDrawItem, type DsTextItem, layoutDrawingSheet } from './layout.js';
+import {
+  type DS_DRAW_ITEM_BASE,
+  DS_DRAW_ITEM_BITMAP,
+  DS_DRAW_ITEM_LINE,
+  DS_DRAW_ITEM_POLYPOLYGONS,
+  DS_DRAW_ITEM_RECT,
+  DS_DRAW_ITEM_TEXT,
+} from './ds_draw_item.js';
+import { type DsTextItem, layoutDrawingSheet } from './layout.js';
 import type { WksSheet } from './types.js';
 
 /** `COLOR4D::UNSPECIFIED`. */
@@ -159,250 +166,6 @@ export class DS_RENDER_SETTINGS extends RENDER_SETTINGS {
 }
 
 /**
- * The `DS_DRAW_ITEM_*` the painter draws, as the resolved layout supplies
- * them: each is an EDA_ITEM with the `WSG_*_T` type and the accessors the
- * painter reads. Every coordinate is in the host's internal units.
- */
-abstract class DS_DRAW_ITEM_BASE extends EDA_ITEM {
-  protected constructor(aType: KICAD_T) {
-    super(aType);
-  }
-
-  /** `GetApproxBBox()`: the item's approximate bounding box, for the viewport cull. */
-  abstract GetApproxBBox(): BOX2I;
-}
-
-/** `DS_DRAW_ITEM_LINE`. */
-export class DS_DRAW_ITEM_LINE extends DS_DRAW_ITEM_BASE {
-  constructor(
-    private readonly m_start: VECTOR2I,
-    private readonly m_end: VECTOR2I,
-    private readonly m_penWidth: number,
-  ) {
-    super(KICAD_T.WSG_LINE_T);
-  }
-
-  GetStart(): VECTOR2I {
-    return this.m_start;
-  }
-  GetEnd(): VECTOR2I {
-    return this.m_end;
-  }
-  GetPenWidth(): number {
-    return this.m_penWidth;
-  }
-
-  override GetClass(): string {
-    return 'DS_DRAW_ITEM_LINE';
-  }
-
-  override GetApproxBBox(): BOX2I {
-    const bbox = new BOX2I(this.m_start, { x: 0, y: 0 });
-    bbox.Merge(this.m_end);
-    bbox.Normalize();
-    bbox.Inflate(this.m_penWidth);
-    return bbox;
-  }
-}
-
-/** `DS_DRAW_ITEM_RECT`. */
-export class DS_DRAW_ITEM_RECT extends DS_DRAW_ITEM_BASE {
-  constructor(
-    private readonly m_start: VECTOR2I,
-    private readonly m_end: VECTOR2I,
-    private readonly m_penWidth: number,
-  ) {
-    super(KICAD_T.WSG_RECT_T);
-  }
-
-  GetStart(): VECTOR2I {
-    return this.m_start;
-  }
-  GetEnd(): VECTOR2I {
-    return this.m_end;
-  }
-  GetPenWidth(): number {
-    return this.m_penWidth;
-  }
-
-  override GetClass(): string {
-    return 'DS_DRAW_ITEM_RECT';
-  }
-
-  override GetApproxBBox(): BOX2I {
-    const bbox = new BOX2I(this.m_start, { x: 0, y: 0 });
-    bbox.Merge(this.m_end);
-    bbox.Normalize();
-    bbox.Inflate(this.m_penWidth);
-    return bbox;
-  }
-}
-
-/** `DS_DRAW_ITEM_POLYPOLYGONS`: one outline of the poly-polygon, as the layout resolves them. */
-export class DS_DRAW_ITEM_POLYPOLYGONS extends DS_DRAW_ITEM_BASE {
-  constructor(private readonly m_outlines: readonly (readonly VECTOR2I[])[]) {
-    super(KICAD_T.WSG_POLY_T);
-  }
-
-  GetOutlines(): readonly (readonly VECTOR2I[])[] {
-    return this.m_outlines;
-  }
-
-  override GetClass(): string {
-    return 'DS_DRAW_ITEM_POLYPOLYGONS';
-  }
-
-  override GetApproxBBox(): BOX2I {
-    const bbox = new BOX2I();
-    let first = true;
-
-    for (const outline of this.m_outlines) {
-      for (const pt of outline) {
-        if (first) {
-          bbox.SetOrigin(pt);
-          bbox.SetSize({ x: 0, y: 0 });
-          first = false;
-        } else bbox.Merge(pt);
-      }
-    }
-
-    return bbox;
-  }
-}
-
-/** `DS_DRAW_ITEM_TEXT`: an EDA_TEXT's worth of attributes, from the layout. */
-export class DS_DRAW_ITEM_TEXT extends DS_DRAW_ITEM_BASE {
-  constructor(
-    private readonly m_text: string,
-    private readonly m_pos: VECTOR2I,
-    private readonly m_attrs: TEXT_ATTRIBUTES,
-    private readonly m_textColor: Color4d,
-    private readonly m_fontName: string,
-    private readonly m_penWidth: number,
-  ) {
-    super(KICAD_T.WSG_TEXT_T);
-  }
-
-  /** `EDA_TEXT::GetText`: the text as `DS_DRAW_ITEM_LIST::BuildFullText` built it. */
-  GetText(): string {
-    return this.m_text;
-  }
-  GetShownText(_aAllowExtraText: boolean): string {
-    return this.m_text;
-  }
-  GetTextPos(): VECTOR2I {
-    return this.m_pos;
-  }
-  GetAttributes(): TEXT_ATTRIBUTES {
-    return this.m_attrs;
-  }
-  GetTextColor(): Color4d {
-    return this.m_textColor;
-  }
-  GetFont(): FONT | null {
-    return this.m_attrs.m_Font;
-  }
-  GetFontName(): string {
-    return this.m_fontName;
-  }
-  IsBold(): boolean {
-    return this.m_attrs.m_Bold;
-  }
-  IsItalic(): boolean {
-    return this.m_attrs.m_Italic;
-  }
-  GetFontMetrics(): METRICS {
-    return METRICS.Default();
-  }
-
-  /**
-   * `EDA_TEXT::GetEffectiveTextPenWidth()`: the stroke width, or the
-   * normal/bold pen for the size when it is unset.
-   */
-  GetEffectiveTextPenWidth(aDefaultPenWidth = 0): number {
-    let penWidth = this.m_penWidth;
-
-    if (penWidth <= 1) {
-      penWidth = aDefaultPenWidth;
-
-      if (this.IsBold())
-        penWidth = GetPenSizeForBold(Math.min(this.m_attrs.m_Size.x, this.m_attrs.m_Size.y));
-      else if (penWidth <= 1)
-        penWidth = GetPenSizeForNormal(Math.min(this.m_attrs.m_Size.x, this.m_attrs.m_Size.y));
-    }
-
-    // Clip pen size for small texts:
-    penWidth = ClampTextPenSize(penWidth, this.m_attrs.m_Size, this.IsBold());
-
-    return penWidth;
-  }
-
-  override GetClass(): string {
-    return 'DS_DRAW_ITEM_TEXT';
-  }
-
-  override GetApproxBBox(): BOX2I {
-    // The text's box: the layout's hit test uses the same estimate.
-    const size = this.m_attrs.m_Size;
-    const halfH = Math.trunc(size.y / 2);
-    const halfW = Math.trunc((Math.max(1, [...this.m_text].length) * size.x) / 2);
-    let cx = this.m_pos.x;
-    let cy = this.m_pos.y;
-
-    if (this.m_attrs.m_Halign === GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT) cx += halfW;
-    else if (this.m_attrs.m_Halign === GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT) cx -= halfW;
-
-    if (this.m_attrs.m_Valign === GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP) cy += halfH;
-    else if (this.m_attrs.m_Valign === GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM) cy -= halfH;
-
-    return new BOX2I({ x: cx - halfW, y: cy - halfH }, { x: 2 * halfW, y: 2 * halfH });
-  }
-}
-
-/** `DS_DRAW_ITEM_BITMAP`: the image, decoded by the host, drawn at its position and scale. */
-export class DS_DRAW_ITEM_BITMAP extends DS_DRAW_ITEM_BASE {
-  constructor(
-    private readonly m_pos: VECTOR2I,
-    private readonly m_scale: number,
-    private readonly m_size: VECTOR2I,
-  ) {
-    super(KICAD_T.WSG_BITMAP_T);
-  }
-
-  override GetPosition(): VECTOR2I {
-    return this.m_pos;
-  }
-  GetScale(): number {
-    return this.m_scale;
-  }
-
-  override GetClass(): string {
-    return 'DS_DRAW_ITEM_BITMAP';
-  }
-
-  override GetApproxBBox(): BOX2I {
-    return new BOX2I(
-      {
-        x: this.m_pos.x - Math.trunc(this.m_size.x / 2),
-        y: this.m_pos.y - Math.trunc(this.m_size.y / 2),
-      },
-      this.m_size,
-    );
-  }
-}
-
-/**
- * `ClampTextPenSize( int aPenSize, const VECTOR2I& aSize, bool aBold )`
- * (`common/gr_text.cpp`): the pen may not exceed a quarter of the size.
- */
-function ClampTextPenSize(aPenSize: number, aSize: VECTOR2I, aBold: boolean): number {
-  const scale = aBold ? 4.0 : 6.0;
-  const maxWidth = Math.trunc(Math.min(Math.abs(aSize.x), Math.abs(aSize.y)) / scale + 0.5);
-
-  return Math.min(aPenSize, maxWidth);
-}
-
-/**
  * Methods for drawing drawing sheet items.
  */
 export class DS_PAINTER extends PAINTER {
@@ -470,7 +233,9 @@ export class DS_PAINTER extends PAINTER {
     gal.SetIsFill(true);
     gal.SetIsStroke(false);
 
-    for (const outline of aItem.GetOutlines()) gal.DrawPolygon(outline);
+    const polygons = aItem.GetPolygons();
+
+    for (let idx = 0; idx < polygons.OutlineCount(); ++idx) gal.DrawPolygon(polygons.Outline(idx));
   }
 
   private drawText(aItem: DS_DRAW_ITEM_TEXT, aLayer: number): void {
@@ -744,30 +509,28 @@ export class DS_PROXY_VIEW_ITEM extends EDA_ITEM {
     for (const item of items) {
       switch (item.kind) {
         case 'line':
-          out.push(new DS_DRAW_ITEM_LINE(toIU(item.a), toIU(item.b), penOf(item.width)));
+          out.push(new DS_DRAW_ITEM_LINE(null, 0, toIU(item.a), toIU(item.b), penOf(item.width)));
           break;
         case 'rect':
-          out.push(new DS_DRAW_ITEM_RECT(toIU(item.a), toIU(item.b), penOf(item.width)));
+          out.push(new DS_DRAW_ITEM_RECT(null, 0, toIU(item.a), toIU(item.b), penOf(item.width)));
           break;
-        case 'poly':
-          out.push(new DS_DRAW_ITEM_POLYPOLYGONS([item.pts.map(toIU)]));
+        case 'poly': {
+          const pts = item.pts.map(toIU);
+          const poly = new DS_DRAW_ITEM_POLYPOLYGONS(null, 0, pts[0] ?? { x: 0, y: 0 }, 0);
+          poly.GetPolygons().NewOutline();
+
+          for (const pt of pts) poly.GetPolygons().Append(pt);
+
+          out.push(poly);
           break;
+        }
         case 'text':
           out.push(this.makeTextItem(item, toIU, k));
           break;
         case 'bitmap':
-          out.push(
-            new DS_DRAW_ITEM_BITMAP(toIU(item.at), item.scale, {
-              x: Math.trunc(
-                ((item.pxW ?? 0) * 25.4 * item.scale * this.m_iuScale.IU_PER_MM) /
-                  (item.ppi || 300),
-              ),
-              y: Math.trunc(
-                ((item.pxH ?? 0) * 25.4 * item.scale * this.m_iuScale.IU_PER_MM) /
-                  (item.ppi || 300),
-              ),
-            }),
-          );
+          // The layout's image has no BITMAP_BASE peer; DS_PAINTER draws no
+          // pixels for it (drawBitmap below).
+          out.push(new DS_DRAW_ITEM_BITMAP(null, 0, toIU(item.at)));
           break;
       }
     }
@@ -836,40 +599,44 @@ export class DS_PROXY_VIEW_ITEM extends EDA_ITEM {
     aToIU: (p: { x: number; y: number }) => VECTOR2I,
     aScale: number,
   ): DS_DRAW_ITEM_TEXT {
-    const attrs = new TEXT_ATTRIBUTES();
-    attrs.m_Size = { x: Math.trunc(aItem.w * aScale), y: Math.trunc(aItem.h * aScale) };
-    attrs.m_Bold = aItem.bold;
-    attrs.m_Italic = aItem.italic;
-    attrs.m_Angle = new EDA_ANGLE(aItem.rotate);
-    attrs.m_Halign =
-      aItem.hjustify === 'left'
-        ? GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT
-        : aItem.hjustify === 'right'
-          ? GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT
-          : GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER;
-    attrs.m_Valign =
-      aItem.vjustify === 'top'
-        ? GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP
-        : aItem.vjustify === 'bottom'
-          ? GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM
-          : GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER;
-    attrs.m_Multiline = true;
-    attrs.m_StrokeWidth = Math.trunc(aItem.thickness * aScale);
-
-    if (aItem.face) attrs.m_Font = FONT.GetFont(aItem.face, aItem.bold, aItem.italic, null, true);
+    const font = aItem.face ? FONT.GetFont(aItem.face, aItem.bold, aItem.italic, null, true) : null;
 
     const color: Color4d = aItem.color
       ? { r: aItem.color.r / 255, g: aItem.color.g / 255, b: aItem.color.b / 255, a: aItem.color.a }
       : COLOR4D_UNSPECIFIED;
 
-    return new DS_DRAW_ITEM_TEXT(
+    const text = new DS_DRAW_ITEM_TEXT(
+      this.m_iuScale,
+      null,
+      0,
       aItem.text,
       aToIU(aItem.at),
-      attrs,
+      { x: Math.trunc(aItem.w * aScale), y: Math.trunc(aItem.h * aScale) },
+      Math.trunc(aItem.thickness * aScale),
+      font,
+      aItem.italic,
+      aItem.bold,
       color,
-      aItem.face ?? '',
-      attrs.m_StrokeWidth,
     );
+
+    text.SetHorizJustify(
+      aItem.hjustify === 'left'
+        ? GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT
+        : aItem.hjustify === 'right'
+          ? GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT
+          : GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER,
+    );
+    text.SetVertJustify(
+      aItem.vjustify === 'top'
+        ? GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP
+        : aItem.vjustify === 'bottom'
+          ? GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM
+          : GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER,
+    );
+    text.SetTextAngle(new EDA_ANGLE(aItem.rotate));
+    text.SetMultilineAllowed(true);
+
+    return text;
   }
 
   /// @copydoc VIEW_ITEM::ViewDraw()
