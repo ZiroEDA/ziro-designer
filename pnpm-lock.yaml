@@ -178,6 +178,9 @@ importers:
 
   gerbview:
     dependencies:
+      '@ziroeda/common':
+        specifier: workspace:*
+        version: link:../common
       '@ziroeda/kimath':
         specifier: workspace:*
         version: link:../libs/kimath

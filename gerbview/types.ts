@@ -16,8 +16,13 @@ export const IU_PER_MM = 1e6;
 /** Internal units per mil (0.001"). 1 mil = 0.0254 mm. */
 export const IU_PER_MILS = 25400;
 
-/** GerbView supports up to 32 Gerber layers (GERBER_DRAWLAYERS_COUNT). */
-export const GERBER_DRAWLAYERS_COUNT = 32;
+/**
+ * `GERBER_DRAWLAYERS_COUNT` is `PCB_LAYER_ID_COUNT`, 128
+ * (`include/layer_ids.h:519`), and lives in `common/layer_id.ts` as it lives in
+ * KiCad's `layer_ids.h`. This file said 32, so the 33rd file was refused with
+ * "No more available layers".
+ */
+export { GERBER_DRAWLAYERS_COUNT } from '@ziroeda/common/layer_id.js';
 
 /**
  * Aperture shape kinds (APERTURE_T in dcode.h). APT_MACRO defers to an

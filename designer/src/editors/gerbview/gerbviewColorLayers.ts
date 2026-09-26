@@ -53,9 +53,10 @@ import {
   GERBER_NEGATIVE_COLOR,
   GERBER_PAGE_LIMITS_COLOR,
 } from './gerberColors.js';
+import { GERBER_DRAWLAYERS_COUNT } from '@ziroeda/common/layer_id.js';
 
 /** `GERBER_DRAWLAYERS_COUNT` — `PCB_LAYER_ID_COUNT` (`layer_ids.h:519`, `:171`). */
-export const GERBER_DRAWLAYERS_COUNT = 128;
+export { GERBER_DRAWLAYERS_COUNT };
 
 /**
  * The seven gerbview-specific layers, in the id order `m_validLayers`' second
