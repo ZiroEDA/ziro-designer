@@ -156,7 +156,7 @@ wildcards_and_files_ext.
 | `env_vars` | done 09-26: the whole `ENV_VAR` namespace (was three functions in `common.ts`); `wxGetEnv` is `wx/utils.ts` |
 | `increment` | done 09-26: `IncrementString`, `STRING_INCREMENTER`, `IndexFromAlphabetic`, `AlphabeticFromIndex` (were in `repeat_item.ts` and `array_options.ts`; the drawing sheet stepped only its last character) |
 | `xnode` | done 09-26: `XNODE` + `XATTR` over a `wxXmlNode`-shaped tree; the KiCad netlist prints through it and matches `kicad-cli` byte for byte in layout. **Still a second copy:** `class X` in `eeschema/exporters/netlist.ts` (the generic XML netlist), which KiCad builds from the SAME `makeRoot` tree and saves with `wxXmlDocument::Save` - settled with eeschema's exporters, see below |
-| `status_popup` | `STATUS_TEXT_POPUP` in `pcbnew/pad_enumerate.ts` |
+| `status_popup` | done 09-26: `STATUS_POPUP` / `STATUS_TEXT_POPUP` (measured by `qa/probes/status_popup_probe.cpp`); wired where the tool exists - the schematic sheet-pin tool's "Click over a sheet." and "No new hierarchical labels found." (was the info bar, and nothing). KiCad's other callers wait on their tools: pad renumbering (engine only, no UI), `PCB_GROUP_TOOL`/`SCH_GROUP_TOOL::PickNewMember`, `POSITION_RELATIVE_TOOL`'s picks, `PCB_PICKER_TOOL`, `EDIT_TOOL::pickReferencePoint` (Copy with Reference is a TODO), `PCB_CONTROL`'s "Item locked.", the array-move count |
 | `filename_resolver` | `designer/src/editors/pcb/filename_resolver.ts` |
 | `footprint_filter`, `footprint_info` | `designer/src/widgets/footprint_list.ts` |
 | `lib_tree_model`, `lib_tree_model_adapter` | `designer/src/widgets/` |

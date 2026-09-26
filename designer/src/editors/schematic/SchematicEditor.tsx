@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import * as KIPLATFORM_UI from '@ziroeda/common/kiplatform/ui.js';
+import { STATUS_TEXT_POPUP } from '@ziroeda/common/status_popup.js';
 import { Priority } from '@ziroeda/eeschema/connectivity/nets.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import {
@@ -6595,6 +6597,29 @@ export function SchematicEditor({
       ? doc
       : (project.current.docs.get(syncParentFile.current) ?? null);
 
+  /**
+   * SCH_DRAWING_TOOLS::m_statusPopup: a tool's one popup, replaced by the next
+   * (`std::make_unique` over the old one) and shown beside the cursor for two
+   * seconds - `Move( GetMousePosition() + wxPoint( 20, 20 ) ); PopupFor( 2000 )`.
+   */
+  const statusPopupRef = useRef<STATUS_TEXT_POPUP | null>(null);
+  const showStatusPopup = useCallback((aText: string) => {
+    statusPopupRef.current?.Destroy();
+    const popup = new STATUS_TEXT_POPUP();
+    statusPopupRef.current = popup;
+    popup.SetText(aText);
+    const at = KIPLATFORM_UI.GetMousePosition();
+    popup.Move({ x: at.x + 20, y: at.y + 20 });
+    popup.PopupFor(2000);
+  }, []);
+  useEffect(() => () => statusPopupRef.current?.Destroy(), []);
+
+  /** `isSheetPin` with no sheet under the cursor (sch_drawing_tools.cpp:2299). */
+  const onSheetPinMiss = useCallback(
+    () => showStatusPopup('Click over a sheet.'),
+    [showStatusPopup],
+  );
+
   const onSheetPinClick = useCallback(
     (index: number, at: Vec2, side: SheetSide) => {
       const d = doc;
@@ -6613,11 +6638,10 @@ export function SchematicEditor({
       const queued = placing?.kind === 'sheetPin' ? placing.queue[0] : undefined;
       const next = queued ?? nextImportableSheetPin(sheet, liveDocs().get(sheetFile(sheet)));
       if (!next) {
-        setInfoBar('No new hierarchical labels found.');
+        showStatusPopup('No new hierarchical labels found.');
         setActiveTool('select');
         return;
       }
-      setInfoBar(null);
       lastSheetPin.current = { shape: next.shape };
       runCommand(replaceSheet(index, addSheetPin(sheet, next.text, at, side, next.shape)));
       if (!placing || !queued) return;
@@ -6627,7 +6651,7 @@ export function SchematicEditor({
       setSyncPlacement(rest);
       if (!rest) endSyncPlacement();
     },
-    [doc, liveDocs, runCommand, endSyncPlacement],
+    [doc, liveDocs, runCommand, endSyncPlacement, showStatusPopup],
   );
 
   /** The active grid step, which the table's cell size is snapped to. */
@@ -9954,6 +9978,7 @@ export function SchematicEditor({
               // fifteen characters wide and a row two high.
               tableFontSizeIU={setup.formatting.defaultTextSizeMils * IU_PER_MILS}
               onSheetPinClick={onSheetPinClick}
+              onSheetPinMiss={onSheetPinMiss}
               pendingImage={pendingImage}
               onImagePlaced={onImagePlaced}
               grabRequest={grabRequest}

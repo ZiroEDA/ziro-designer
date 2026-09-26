@@ -2634,6 +2634,35 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    and the drawing canvases, which swap cursor per tool exactly as the desktop
    app does. Those set theirs inline from JS, so no rule here can reach them. */
 
+/* STATUS_POPUP / STATUS_TEXT_POPUP (common/status_popup.ts), measured by
+   qa/probes/status_popup_probe.cpp with KiCad's own construction: a
+   wxPopupWindow with wxBORDER_NONE (outer = client = panel size, so no frame
+   at all), the panel and window BTNFACE, the text BTNTEXT in the default GUI
+   font at an 18 px line, added with wxALL 5 - "Click on new member..." is
+   163 x 28, text at (5, 5). BTNFACE is the same wx colour as 3DFACE. */
+.ze-status-popup {
+  position: fixed;
+  /* Above the frame, like the top-level window it is; below a tooltip. */
+  z-index: 400; /* [css] */
+  pointer-events: none;
+  background: var(--content-bg);
+}
+
+.ze-status-popup-panel {
+  display: flex;
+  background: var(--content-bg);
+  color: var(--chrome-fg);
+  font-family: var(--ui-font-family);
+  font-size: var(--ui-font-size);
+  line-height: var(--ui-line-height);
+}
+
+.ze-status-popup-text {
+  /* m_topSizer->Add( m_statusLine, 1, wxALL | wxEXPAND, 5 ) */
+  margin: 5px; /* [px] the sizer border KiCad states */
+  white-space: pre;
+}
+
 /* ---------------------------------------------------------------------------
    Tooltip (see ui/Tooltip.tsx).
 

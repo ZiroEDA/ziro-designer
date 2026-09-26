@@ -757,6 +757,8 @@ interface Props {
   onTableDrawn?: (start: Vec2, end: Vec2) => void;
   /** A sheet-pin click landed on a sheet edge: prompt for the pin name and add it. */
   onSheetPinClick?: (sheetIndex: number, at: Vec2, side: 0 | 90 | 180 | 270) => void;
+  /** The sheet-pin tool clicked with no sheet under the cursor. */
+  onSheetPinMiss?: () => void;
   /**
    * `schematic->Settings().m_DefaultTextSize`, in IU. The table tool needs it:
    * a column is fifteen characters wide and a row two high, so the grid a drag
@@ -868,6 +870,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     onTextBoxDrawn,
     onTableDrawn,
     onSheetPinClick,
+    onSheetPinMiss,
     tableFontSizeIU,
     pendingImage,
     onImagePlaced,
@@ -3557,6 +3560,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       if (activeTool === 'sheetPin') {
         const found = nearestSheetEdge(schematic, world, (10 * dpr()) / vp.scale, snap);
         if (found) onSheetPinClick?.(found.index, found.at, found.side);
+        else onSheetPinMiss?.();
         return;
       }
 
@@ -3883,6 +3887,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       onPasteDone,
       onImagePlaced,
       onSheetPinClick,
+      onSheetPinMiss,
       danglingPinAt,
       onCommand,
       buildMoveCommit,

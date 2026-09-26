@@ -34,6 +34,20 @@ export function SetMousePosition(aX: number, aY: number): void {
   s_mousePosition = { x: aX, y: aY };
 }
 
+/**
+ * On GTK `wxGetMousePosition` asks the display server, so it knows the
+ * pointer wherever it is - not only over a canvas that forwarded an event.
+ * The page's equivalent is to watch the pointer at the window, capture phase,
+ * so nothing that stops propagation can hide a move from it.
+ */
+if (typeof window !== 'undefined') {
+  // Viewport coordinates: what a fixed-position popup is placed in, and the
+  // same as page coordinates here, since the app's page never scrolls.
+  const track = (e: PointerEvent): void => SetMousePosition(e.clientX, e.clientY);
+  window.addEventListener('pointermove', track, { capture: true, passive: true });
+  window.addEventListener('pointerdown', track, { capture: true, passive: true });
+}
+
 /** Record the modifier state carried by a DOM event, for `wxGetKeyState`. */
 export function RecordModifierState(aEvent: {
   ctrlKey: boolean;
