@@ -34,7 +34,7 @@ const BACKDROPS = ['ze-modal-backdrop', 'calc-modal-backdrop', 'imgc-modal-backd
 /**
  * Frames that render a dialog inline and also own a canvas, where Esc is
  * `ACTIONS::cancelInteractive` - abandon the tool - and has nothing to do with
- * any dialog. `PanelHotkeysEditor` is here for the mirror image: HK_PROMPT_DIALOG
+ * any dialog. `WidgetHotkeyList` is here for the mirror image: HK_PROMPT_DIALOG
  * eats every keystroke to assign it, and has to let this one through to the
  * stack rather than assign Esc as a hotkey.
  */
@@ -44,7 +44,7 @@ const OWNS_A_CANVAS = [
   'editors/pcb/PcbEditor.tsx',
   'editors/schematic/SchematicEditor.tsx',
   'editors/symbol/SymbolEditor.tsx',
-  '../../common/dialogs/panel_hotkeys_editor.tsx',
+  '../../common/widgets/widget_hotkey_list.tsx',
 ];
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -160,6 +160,8 @@ describe('what the registered cancel means', () => {
     // :347 - and only then does Esc reach the dialog. The tree registers above
     // the dialog containing it and drops off when the box empties, so the
     // ordering is the stack's rather than a listener race.
-    expect(registered('../../common/widgets/lib_tree.tsx')).toEqual([`() => onQueryText(''), search !== ''`]);
+    expect(registered('../../common/widgets/lib_tree.tsx')).toEqual([
+      `() => onQueryText(''), search !== ''`,
+    ]);
   });
 });
