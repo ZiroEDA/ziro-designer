@@ -66,7 +66,7 @@ describe('the page edits the GLOBAL list, which is eeschema.json’s', () => {
         ctx={ctxFor(settingsWith([{ name: 'MPN', visible: true, url: false }]))}
       />,
     );
-    expect(screen.getByDisplayValue('MPN')).toBeTruthy();
+    expect(screen.getByText('MPN')).toBeTruthy();
   });
 
   /** `m_title->SetLabel( _( "Global Field Name Templates" ) )` (`:50`). */
@@ -78,7 +78,12 @@ describe('the page edits the GLOBAL list, which is eeschema.json’s', () => {
   it('writes an edit back into drawing.field_names and nowhere else', () => {
     const s = settingsWith([{ name: 'MPN', visible: false, url: false }]);
     render(<PanelTemplateFieldnames ctx={ctxFor(s)} />);
-    fireEvent.change(screen.getByDisplayValue('MPN'), { target: { value: 'Manufacturer' } });
+    const td = screen.getByText('MPN').closest('td') as HTMLElement;
+    fireEvent.mouseDown(td, { button: 0 });
+    fireEvent.mouseUp(td);
+    const input = td.querySelector('input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Manufacturer' } });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
     expect(s.drawing.field_names).toEqual([{ name: 'Manufacturer', visible: false, url: false }]);
   });
 });

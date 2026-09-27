@@ -15486,16 +15486,6 @@ fieldset.ze-sbox > legend {
 .ze-fieldnames .ze-grid th {
   height: auto;
 }
-/* [data] `SetColSize( 1, 48 )` and `SetColSize( 2, 48 )`; column 0 takes the
-   slack, which is `SetupColumnAutosizer( 0 )`. */
-.ze-fieldnames-bool {
-  width: 48px;
-}
-/* `SetCellAlignment( row, n, wxALIGN_CENTRE, wxALIGN_CENTRE )` on both boolean
-   columns. */
-td.ze-fieldnames-bool {
-  text-align: center;
-}
 .ze-fieldnames > .ze-grid-btns {
   /* [data] `Add( bSizer10, 0, wxEXPAND|wxTOP, 3 )` — this row's own 3, where
      the shared rule carries another page's 6. */
