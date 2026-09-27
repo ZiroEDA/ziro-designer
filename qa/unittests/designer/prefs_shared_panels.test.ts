@@ -274,13 +274,12 @@ describe('there is one implementation of each, and both consumers use it', () =>
   });
 
   /** Every page that upstream builds out of one of the shared panels. */
-  const GRID_PAGES = [
-    'editors/schematic/prefs/PanelEeschemaGrids.tsx',
-    'editors/drawingsheet/prefs/PanelPlEditorGrids.tsx',
-  ];
+  // pl_editor's and GerbView's Grids pages are their KIFACE's CreateKiWindow
+  // (pl_editor.ts, gerbview.ts): `createElement( PanelGridSettings, … )`.
+  const GRID_PAGES = ['editors/schematic/prefs/PanelEeschemaGrids.tsx'];
   const DISPLAY_PAGES = [
     'editors/schematic/prefs/PanelEeschemaDisplayOptions.tsx',
-    'editors/drawingsheet/prefs/PanelPlEditorDisplayOptions.tsx',
+    '../../pagelayout_editor/dialogs/panel_pl_editor_display_options_ui.tsx',
   ];
 
   it('every Grids page renders the shared panel and declares no controls of its own', () => {
@@ -317,7 +316,7 @@ describe('there is one implementation of each, and both consumers use it', () =>
   ];
   const COLOR_NON_SUBCLASSES = [
     'editors/symbol/prefs/PanelSymbolEditorColorSettings.tsx',
-    'editors/drawingsheet/prefs/PanelPlEditorColorSettings.tsx',
+    '../../pagelayout_editor/dialogs/panel_pl_editor_color_settings_ui.tsx',
   ];
 
   it('both PANEL_COLOR_SETTINGS subclasses render the shared panel', () => {

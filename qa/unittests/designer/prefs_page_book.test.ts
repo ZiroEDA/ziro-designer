@@ -188,7 +188,7 @@ const OWNER_SOURCES: Record<string, string> = {
   footprint: 'editors/footprint/prefs/index.ts',
   pcb: 'editors/pcb/prefs/index.ts',
   gerbview: 'editors/gerbview/prefs/index.tsx',
-  drawingsheet: 'editors/drawingsheet/prefs/index.ts',
+  drawingsheet: 'editors/drawingsheet/prefs/index.tsx',
 };
 
 describe('every page id is constructed by its owner', () => {

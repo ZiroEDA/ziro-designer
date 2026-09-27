@@ -89,7 +89,7 @@ const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
 
 const EDITOR = read('editors/drawingsheet/DrawingSheetEditor.tsx');
 const GAL_PANEL = read('../../common/dialogs/panel_gal_options.tsx');
-const DS_DISPLAY = read('editors/drawingsheet/prefs/PanelPlEditorDisplayOptions.tsx');
+const DS_DISPLAY = read('../../pagelayout_editor/dialogs/panel_pl_editor_display_options_ui.tsx');
 const SHELL = read('dialogs/PreferencesDialog.tsx');
 
 /** Statements only: a commented-out line must not satisfy any of these. */
@@ -122,7 +122,7 @@ describe('the Cursor group’s two controls, where they now live', () => {
     // `PANEL_GAL_OPTIONS` is `common/` code precisely so there is one of it.
     for (const rel of [
       'editors/schematic/prefs/PanelEeschemaDisplayOptions.tsx',
-      'editors/drawingsheet/prefs/PanelPlEditorDisplayOptions.tsx',
+      '../../pagelayout_editor/dialogs/panel_pl_editor_display_options_ui.tsx',
     ])
       expect(statements(read(rel), '<PanelGalOptions'), rel).toHaveLength(1);
   });
@@ -153,10 +153,10 @@ describe('the black background is still read and never written', () => {
     for (const [name, src] of [
       ['DrawingSheetEditor.tsx', EDITOR],
       ['PanelPlEditorDisplayOptions.tsx', DS_DISPLAY],
-      ['PanelPlEditorGrids.tsx', read('editors/drawingsheet/prefs/PanelPlEditorGrids.tsx')],
+      ['pl_editor.ts', read('../../pagelayout_editor/pl_editor.ts')],
       [
         'PanelPlEditorColorSettings.tsx',
-        read('editors/drawingsheet/prefs/PanelPlEditorColorSettings.tsx'),
+        read('../../pagelayout_editor/dialogs/panel_pl_editor_color_settings_ui.tsx'),
       ],
       ['PanelGalOptions.tsx', GAL_PANEL],
     ] as const) {

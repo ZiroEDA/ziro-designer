@@ -92,12 +92,13 @@ const gbrReset =
   (aId: 'gbr-colors' | 'gbr-display' | 'gbr-grids' | 'gbr-excellon' | 'gbr-toolbars') =>
   (aCtx: PrefsContext): void =>
     createGerbviewPrefsPanel(aId)!.reset!(aCtx);
-import {
-  resetPlEditorColorSettings,
-  resetPlEditorDisplayOptions,
-  resetPlEditorGrids,
-  resetPlEditorToolbars,
-} from '@ziroeda/designer/src/editors/drawingsheet/prefs/resets.js';
+import { createPrefsPanel as createPlEditorPrefsPanel } from '@ziroeda/designer/src/editors/drawingsheet/prefs/index.js';
+
+/** A pl_editor page's ResetPanel, through the KIFACE switch that makes the page. */
+const dsReset =
+  (aId: 'ds-display' | 'ds-grids' | 'ds-colors' | 'ds-toolbars') =>
+  (aCtx: PrefsContext): void =>
+    createPlEditorPrefsPanel(aId)!.reset!(aCtx);
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
@@ -447,10 +448,10 @@ const RESETS: Partial<Record<PrefsPageId, (ctx: PrefsContext) => void>> = {
   'pcb-editing': resetPcbEditingOptions,
   'sch-toolbars': resetEeschemaToolbars,
   'pcb-toolbars': resetPcbToolbars,
-  'ds-display': resetPlEditorDisplayOptions,
-  'ds-grids': resetPlEditorGrids,
-  'ds-colors': resetPlEditorColorSettings,
-  'ds-toolbars': resetPlEditorToolbars,
+  'ds-display': dsReset('ds-display'),
+  'ds-grids': dsReset('ds-grids'),
+  'ds-colors': dsReset('ds-colors'),
+  'ds-toolbars': dsReset('ds-toolbars'),
   'gbr-colors': gbrReset('gbr-colors'),
   'gbr-display': gbrReset('gbr-display'),
   'gbr-grids': gbrReset('gbr-grids'),

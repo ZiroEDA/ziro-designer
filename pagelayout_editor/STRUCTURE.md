@@ -101,7 +101,7 @@ Counts: 26 rows — 21 here (3 of them with a window half in `designer/`),
 | `files` | here | `files.ts`: `Files_io`, `OnFileHistory`, `LoadDrawingSheetFile`, `InsertDrawingSheetFile`, `SaveDrawingSheetFile` (bound on the frame); the dialogs are the host's |
 | `menubar` | here | `menubar.ts` (`doReCreateMenuBar`), which the window renders; each row runs its action |
 | `pl_draw_panel_gal` | here | `pl_draw_panel_gal.ts` (`PL_DRAW_PANEL_GAL`): `DisplayDrawingSheet`, the layer targets, `SetTopLayer`, `SwitchBackend` |
-| `pl_editor` | here, part in `designer/` | `pl_editor.ts`: `OnKifaceStart`, `CreateKiWindow( FRAME_PL_EDITOR )`, `SaveFileAs`. The four `PANEL_DS_*` pages are `designer/.../prefs/index.ts` |
+| `pl_editor` | here | `pl_editor.ts`: `OnKifaceStart`, `CreateKiWindow` (the frame, and the four `PANEL_DS_*` pages over `PL_PREFS_CONTEXT`), `SaveFileAs`. `designer/.../prefs/index.tsx` is only the seam to the program's Preferences dialog |
 | `pl_editor_frame` | here, part in `designer/` | `pl_editor_frame.ts` (`PL_EDITOR_FRAME`); see "Hosted" |
 | `pl_editor_layout` | here | `pl_editor_layout.ts` (`PL_EDITOR_LAYOUT`) |
 | `pl_editor_settings` | here | `pl_editor_settings.ts` (`PL_EDITOR_SETTINGS`, the seven PARAMs as `FromJson` / `ToJson`) |
@@ -117,8 +117,8 @@ Counts: 26 rows — 21 here (3 of them with a window half in `designer/`),
 | `design_inspector` (+ `dialog_design_inspector_base`) | here | `dialogs/design_inspector.ts` (`DIALOG_INSPECTOR` over the model, the six XPM icons) + `dialogs/design_inspector_ui.tsx` |
 | `dialog_new_dataitem_base` | n/a | a wxFormBuilder base no class derives from; KiCad 10 never shows it |
 | `dialogs_for_printing` | here | `dialogs/dialogs_for_printing.ts`: `PLEDITOR_PRINTOUT` (two pages, fitted by wxPrintout, drawn on the wxDC print path), `InvokeDialogPrint`, `InvokeDialogPrintPreview`. `PLEDITOR_PREVIEW_FRAME` has no browser form: the browser's print dialog previews, so the preview prints |
-| `panel_pl_editor_color_settings` (+ `_base`) | here, in `designer/` | `designer/.../prefs/PanelPlEditorColorSettings.tsx` (reads `dialogs/prefs/types`, `pcm/pcmStore`, `prefs/color_settings_list`) |
-| `panel_pl_editor_display_options` | here, in `designer/` | `designer/.../prefs/PanelPlEditorDisplayOptions.tsx` (reads `dialogs/prefs/types`) |
+| `panel_pl_editor_color_settings` (+ `_base`) | here | `dialogs/panel_pl_editor_color_settings.ts` (`ResetPanel`) + `_ui.tsx`; the installed themes come in through `PL_PREFS_CONTEXT` |
+| `panel_pl_editor_display_options` | here | `dialogs/panel_pl_editor_display_options.ts` (`ResetPanel`) + `_ui.tsx`, the embedded `PANEL_GAL_OPTIONS` |
 | `properties_frame` (+ `properties_frame_base`) | here | `dialogs/properties_frame.ts` (`PROPERTIES_FRAME`: every control's state, the transfers, `OnAcceptPrms` / `OnUpdateUI`) + `dialogs/properties_frame_ui.tsx` (the panel). Its nineteen `UNIT_BINDER`s are common's engine half (`common/widgets/unit_binder.ts`) |
 
 ### `navlib/` — 2 units: n/a

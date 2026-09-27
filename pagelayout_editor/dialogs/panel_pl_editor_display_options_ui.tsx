@@ -24,9 +24,9 @@
  */
 import type { JSX } from 'react';
 import { PanelGalOptions } from '@ziroeda/common/dialogs/panel_gal_options.js';
-import type { PrefsContext } from '../../../dialogs/prefs/types.js';
+import type { PL_PREFS_CONTEXT } from '../pl_editor.js';
 
-export function PanelPlEditorDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {
+export function PanelPlEditorDisplayOptions({ ctx }: { ctx: PL_PREFS_CONTEXT }): JSX.Element {
   const { plEditor, upPl } = ctx;
   return (
     <div className="ze-pref-columns">

@@ -31,22 +31,18 @@
  * a control that displays a value and then discards it is exactly the failure
  * this editor's audit exists to catch.
  */
-import { usePcmVersion } from '../../../pcm/pcmStore.js';
-import { colorSettingsList } from '../../../prefs/color_settings_list.js';
 import type { JSX } from 'react';
 import { ColorThemeChoice } from '@ziroeda/common/dialogs/panel_color_settings.js';
-import type { PrefsContext } from '../../../dialogs/prefs/types.js';
+import type { PL_PREFS_CONTEXT } from '../pl_editor.js';
 
-export function PanelPlEditorColorSettings({ ctx }: { ctx: PrefsContext }): JSX.Element {
-  // Re-render when a PCM theme is installed, as the choice used to itself.
-  usePcmVersion();
+export function PanelPlEditorColorSettings({ ctx }: { ctx: PL_PREFS_CONTEXT }): JSX.Element {
   const { plEditor, upPl } = ctx;
   // No group box: `p1mainSizer` holds the label-and-choice row directly, with
   // no `wxStaticBoxSizer` and no heading. eeschema's Colors page has one because
   // `PANEL_COLOR_SETTINGS_BASE` gives it one; this page is not that class.
   return (
     <ColorThemeChoice
-      installed={colorSettingsList()}
+      installed={ctx.installedThemes}
       label="Color theme:"
       value={plEditor.appearance.color_theme}
       onChange={(v) =>
