@@ -39,6 +39,7 @@ import { ACTION_CONDITIONS } from '@ziroeda/common/tool/action_manager.js';
 import { EDITOR_CONDITIONS } from '@ziroeda/common/tool/editor_conditions.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { COMMON_TOOLS } from '@ziroeda/common/tool/common_tools.js';
+import { PICKER_TOOL } from '@ziroeda/common/tool/picker_tool.js';
 import type { SELECTION } from '@ziroeda/common/tool/selection.js';
 import {
   type SELECTION_CONDITION,
@@ -427,14 +428,15 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
     this.GetCanvas()!.SetEventDispatcher(this.m_toolDispatcher);
 
     // Register tools
-    // COMMON_CONTROL and PICKER_TOOL are not ported to common/tool yet
-    // (STRUCTURE.md); the page's menus answer COMMON_CONTROL's actions.
+    // COMMON_CONTROL is not ported to common/tool yet (STRUCTURE.md); the
+    // page's menus answer its actions. PL_POINT_EDITOR waits on EDIT_POINTS.
     this.m_toolManager.RegisterTool(new COMMON_TOOLS());
     this.m_toolManager.RegisterTool(new ZOOM_TOOL());
     this.m_toolManager.RegisterTool(new PL_SELECTION_TOOL());
     this.m_toolManager.RegisterTool(new PL_EDITOR_CONTROL());
     this.m_toolManager.RegisterTool(new PL_DRAWING_TOOLS());
     this.m_toolManager.RegisterTool(new PL_EDIT_TOOL());
+    this.m_toolManager.RegisterTool(new PICKER_TOOL());
     this.m_toolManager.InitTools();
 
     // Run the selection tool, it is supposed to be always active
