@@ -567,7 +567,7 @@ export abstract class DL_CREATION_ADAPTER {
 
 /**
  * `DL_Dxf`, reduced to reading. (The writing half of the C++ class is a DXF
- * *plotter*, which ZiroEDA already has in `plot_dxf.ts`.)
+ * *plotter*, which ZiroEDA already has in `plotters/DXF_plotter.ts`.)
  */
 export class DXF_READER {
   private values = new Map<number, string>();

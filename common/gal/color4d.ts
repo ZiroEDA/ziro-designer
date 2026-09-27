@@ -4,10 +4,9 @@
 /**
  * `COLOR4D` — a colour as four normalised components, KiCad's `common/color4d.h`.
  *
- * It lived in `pcbnew/plot_dxf.ts` because the DXF plotter was the first
- * thing to need it. The graphics importers need it too, and they are shared
- * between the board and the schematic, so it belongs where both can reach it.
- * `plot_dxf.ts` re-exports it, so nothing that used it there had to change.
+ * It lived in the DXF plotter because that was the first thing to need it.
+ * The graphics importers need it too, and they are shared between the board
+ * and the schematic, so it belongs where both can reach it.
  */
 
 export interface Color4d {

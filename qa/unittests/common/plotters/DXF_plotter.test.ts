@@ -4,26 +4,29 @@
 import { describe, it, expect } from 'vitest';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/eda_text.js';
+import type { Color4d } from '@ziroeda/common/gal/color4d.js';
+import { plotterRenderSettings } from '@ziroeda/common/render_settings.js';
 import {
-  DxfPlotter,
-  DXF_UNITS,
   DXF_LAYER_OUTPUT_MODE,
   DXF_OUTLINE_MODE,
-  PLOT_TEXT_MODE,
+  DXF_UNITS,
   FILL_T,
   LINE_STYLE,
-  formatCoord,
-  getDXFLineType,
-  FindNearestLegacyColor,
+  PLOT_TEXT_MODE,
+  type PLOTTER_TEXT_ATTRIBUTES,
+} from '@ziroeda/common/plotters/plotter.js';
+import {
   acadColorName,
   arcPts,
   containsNonAsciiChars,
-  escapeDxfText,
-  type Color4d,
+  DXF_PLOTTER,
   type DxfLayerExport,
   type DxfRenderSettings,
-  type DxfTextAttributes,
-} from '@ziroeda/pcbnew/plot_dxf.js';
+  escapeDxfText,
+  FindNearestLegacyColor,
+  formatCoord,
+  getDXFLineType,
+} from '@ziroeda/common/plotters/DXF_plotter.js';
 
 /** A colour from 0..255 components, the way a render-settings theme would supply it. */
 const rgb = (r: number, g: number, b: number): Color4d => ({
@@ -34,6 +37,11 @@ const rgb = (r: number, g: number, b: number): Color4d => ({
 });
 
 const settings = (colors: Record<string, Color4d> = {}): DxfRenderSettings => ({
+  // DXF never asks for a pen or a dash; the stub's answers are never read.
+  GetDefaultPenWidth: () => plotterRenderSettings().GetDefaultPenWidth(),
+  GetDashLength: (w) => plotterRenderSettings().GetDashLength(w),
+  GetDotLength: (w) => plotterRenderSettings().GetDotLength(w),
+  GetGapLength: (w) => plotterRenderSettings().GetGapLength(w),
   GetLayerColor: (layer) => colors[layer] ?? rgb(0, 0, 0),
 });
 
@@ -51,8 +59,8 @@ function plotter(
     iusPerDecimil?: number;
     units?: DXF_UNITS;
   } = {},
-): DxfPlotter {
-  const p = new DxfPlotter(settings(opts.colors));
+): DXF_PLOTTER {
+  const p = new DXF_PLOTTER(settings(opts.colors));
   p.SetUnits(opts.units ?? DXF_UNITS.INCH);
   p.SetViewport({ x: 0, y: 0 }, opts.iusPerDecimil ?? 2540, 1, false);
   p.SetColorMode(opts.colorMode ?? true);
@@ -65,7 +73,7 @@ function plotter(
 const ENTITIES_OPEN = '  0\nSECTION\n  2\nENTITIES\n';
 
 /** Everything the plotter wrote between the ENTITIES marker and its ENDSEC. */
-function entities(p: DxfPlotter): string {
+function entities(p: DXF_PLOTTER): string {
   const s = p.text();
   const start = s.indexOf(ENTITIES_OPEN) + ENTITIES_OPEN.length;
   const end = s.indexOf('  0\nENDSEC\n', start);
@@ -366,7 +374,7 @@ describe('DXF layer naming (GetCurrentLayerName)', () => {
 
   it('names layers after ACAD colours when the export list is empty', () => {
     // This is the eeschema path: 249 LAYER records, one per legacy colour.
-    const p = new DxfPlotter(settings());
+    const p = new DXF_PLOTTER(settings());
     p.SetViewport({ x: 0, y: 0 }, 2540, 1, false);
     p.SetColorMode(true);
     p.StartPlot();
@@ -384,7 +392,7 @@ describe('DXF layer naming (GetCurrentLayerName)', () => {
   it('takes Current_Layer_Name from the last SetColor, not from render settings', () => {
     // Layer_Name reads the render settings and Current_Layer_Name reads the
     // stored colour; conflating the two would rename every text entity's layer.
-    const p = new DxfPlotter(settings({ 'F.Cu': rgb(255, 255, 255) }));
+    const p = new DXF_PLOTTER(settings({ 'F.Cu': rgb(255, 255, 255) }));
     p.SetViewport({ x: 0, y: 0 }, 2540, 1, false);
     p.SetColorMode(true);
     p.SetLayer('F.Cu');
@@ -397,7 +405,7 @@ describe('DXF layer naming (GetCurrentLayerName)', () => {
   it('collapses every colour but black and white to black in mono mode', () => {
     // SetColor is the only mono-mode filter in the whole back-end; without it a
     // black-and-white plot would still name its layers after coloured entries.
-    const mono = new DxfPlotter(settings());
+    const mono = new DXF_PLOTTER(settings());
     mono.SetColorMode(false);
     mono.SetColor(rgb(127, 0, 0));
     expect(mono.GetCurrentLayerName(DXF_LAYER_OUTPUT_MODE.Current_Layer_Name)).toBe('BLACK');
@@ -405,14 +413,14 @@ describe('DXF layer naming (GetCurrentLayerName)', () => {
     mono.SetColor(rgb(255, 255, 255));
     expect(mono.GetCurrentLayerName(DXF_LAYER_OUTPUT_MODE.Current_Layer_Name)).toBe('WHITE');
 
-    const colour = new DxfPlotter(settings());
+    const colour = new DXF_PLOTTER(settings());
     colour.SetColorMode(true);
     colour.SetColor(rgb(127, 0, 0));
     expect(colour.GetCurrentLayerName(DXF_LAYER_OUTPUT_MODE.Current_Layer_Name)).toBe('RED');
   });
 
   it('ignores the layer argument in Current_Layer_Color_Name', () => {
-    const p = new DxfPlotter(settings({ 'F.Cu': rgb(127, 0, 0), 'B.Cu': rgb(255, 255, 255) }));
+    const p = new DXF_PLOTTER(settings({ 'F.Cu': rgb(127, 0, 0), 'B.Cu': rgb(255, 255, 255) }));
     p.SetLayer('F.Cu');
 
     expect(p.GetCurrentLayerName(DXF_LAYER_OUTPUT_MODE.Layer_Color_Name, 'B.Cu')).toBe('WHITE');
@@ -424,7 +432,7 @@ describe('DXF layer naming (GetCurrentLayerName)', () => {
   it('truncates colour components rather than rounding them', () => {
     // int( 0.5 * 255 ) is 127, not 128; rounding would land on a different
     // palette entry and rename the layer.
-    const p = new DxfPlotter(settings({ 'F.Cu': { r: 0.5, g: 0, b: 0, a: 1 } }));
+    const p = new DXF_PLOTTER(settings({ 'F.Cu': { r: 0.5, g: 0, b: 0, a: 1 } }));
     p.SetLayer('F.Cu');
 
     expect(p.GetCurrentLayerName(DXF_LAYER_OUTPUT_MODE.Layer_Color_Name)).toBe('RED');
@@ -433,7 +441,7 @@ describe('DXF layer naming (GetCurrentLayerName)', () => {
   it('writes one LAYER record but declares two in mono mode with no export list', () => {
     // Upstream clamps numLayers to 1 after computing the header count from 249;
     // the count is left at numLayers + 1 = 2 and the mismatch is real.
-    const p = new DxfPlotter(settings());
+    const p = new DXF_PLOTTER(settings());
     p.SetViewport({ x: 0, y: 0 }, 2540, 1, false);
     p.SetColorMode(false);
     p.StartPlot();
@@ -805,7 +813,7 @@ describe('DXF pad flashes', () => {
 });
 
 describe('DXF native text (PlotText / plotOneLineOfText)', () => {
-  const attrs = (over: Partial<DxfTextAttributes> = {}): DxfTextAttributes => ({
+  const attrs = (over: Partial<PLOTTER_TEXT_ATTRIBUTES> = {}): PLOTTER_TEXT_ATTRIBUTES => ({
     m_Size: { x: 10000, y: 10000 },
     m_Halign: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT,
     m_Valign: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM,
@@ -824,8 +832,10 @@ describe('DXF native text (PlotText / plotOneLineOfText)', () => {
     // never turns it off would leave the whole TEXT emitter unexercised.
     const p = plotter({ iusPerDecimil: 1 });
 
+    // PLOTTER::PlotText strokes it; handed no font, that refuses rather than
+    // substitute one.
     expect(() => p.PlotText({ x: 0, y: 0 }, rgb(0, 0, 0), 'REF**', attrs())).toThrow(
-      /stroked-text fallback is not ported/,
+      /PLOTTER::PlotText needs a font/,
     );
   });
 
@@ -919,7 +929,7 @@ describe('DXF native text (PlotText / plotOneLineOfText)', () => {
     // With an empty export list the layer name comes from the colour this call
     // stored, so resolving the name first would put the text on the previous
     // colour's layer.
-    const p = new DxfPlotter(settings());
+    const p = new DXF_PLOTTER(settings());
     p.SetViewport({ x: 0, y: 0 }, 1, 1, false);
     p.SetColorMode(true);
     p.StartPlot();

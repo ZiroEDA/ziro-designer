@@ -180,20 +180,6 @@ export {
   boardGridOrigin,
   type GerberPlotOpts,
 } from './plot_gerber.js';
-// Only the DXF-prefixed names are re-exported here. The plotter's generic
-// companions (FILL_T, LINE_STYLE, formatCoord, ...) mirror KiCad names other
-// ports will want too, so they stay importable from './plot_dxf.js' alone
-// rather than competing for a slot on the package surface.
-export {
-  DxfPlotter,
-  DXF_UNITS,
-  DXF_LAYER_OUTPUT_MODE,
-  DXF_OUTLINE_MODE,
-  type DxfRenderSettings,
-  type DxfPlotParams,
-  type DxfTextAttributes,
-  type DxfLayerExport,
-} from './plot_dxf.js';
 export { serializeBoard, serializeBoardAsync } from './write-board.js';
 export type { DrcViolation, DrcItemRef } from './drc/drc_engine_view.js';
 // --- Netlist (eeschema -> pcbnew) --------------------------------------------

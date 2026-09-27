@@ -962,7 +962,7 @@ export class SVG_PLOTTER extends PSLIKE_PLOTTER {
    * and that fill change is what dirties the context, so the style group is
    * emitted before the `<path>` rather than after.
    */
-  PenTo(pos: Vec2, plume: 'U' | 'D' | 'Z'): void {
+  PenTo(pos: Vec2, plume: PEN_PLUME): void {
     const p = this.m_precision;
 
     if (plume === 'Z') {

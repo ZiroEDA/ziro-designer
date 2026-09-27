@@ -4,10 +4,9 @@
 /**
  * `LINE_STYLE`, the dash pattern of a stroke — KiCad's `common/stroke_params.h`.
  *
- * Moved out of `pcbnew/plot_dxf.ts` for the same reason as [Color4d]: the
+ * Moved out of the DXF plotter for the same reason as [Color4d]: the
  * graphics importers are shared between the board and the schematic, and a
- * schematic package cannot import from the board package. `plot_dxf.ts`
- * re-exports it.
+ * schematic package cannot import from the board package.
  *
  * `DEFAULT = -1` is meaningful and is not "solid": it means the item has no
  * style of its own and inherits one.

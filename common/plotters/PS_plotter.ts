@@ -988,7 +988,7 @@ export class PS_PLOTTER extends PSLIKE_PLOTTER {
    * writes nothing even though the device position might differ after a
    * viewport change.
    */
-  PenTo(pos: Vec2, plume: 'U' | 'D' | 'Z'): void {
+  PenTo(pos: Vec2, plume: PEN_PLUME): void {
     if (plume === 'Z') {
       if (this.m_penState !== 'Z') {
         this.emit('stroke\n');

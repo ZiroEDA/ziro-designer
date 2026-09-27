@@ -3,10 +3,9 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * DXF_PLOTTER, the AutoCAD R2004 (AC1018) plot back-end, transcribed from
- * common/plotters/DXF_plotter.cpp plus the handful of PLOTTER base members it
- * leans on (common/plotters/plotter.cpp: userToDeviceCoordinates,
- * userToDeviceSize, the MoveTo/LineTo/FinishTo/PenFinish pen wrappers and
- * ThickOval).
+ * common/plotters/DXF_plotter.cpp. It derives from PLOTTER (plotter.ts), which
+ * carries the device transform, the pen wrappers, ThickOval and the stroked
+ * text fallback, as upstream's base class does.
  *
  * A DXF file is read by mechanical CAD, so the byte-level syntax *is* the
  * interface: a stray space in a group code or a reordered subclass marker is
@@ -43,66 +42,33 @@
  * port defect.
  */
 
-// `LINE_STYLE` and `COLOR4D` moved to `common` when the graphics importers did:
-// they are shared with eeschema, which cannot import from pcbnew. Re-exported
-// here so every existing consumer of `plot_dxf` is unaffected.
-export { LINE_STYLE } from '@ziroeda/common/stroke_params.js';
-export { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/gal/color4d.js';
-import { LINE_STYLE } from '@ziroeda/common/stroke_params.js';
-import { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/gal/color4d.js';
-
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { EDA_ANGLE, ANGLE_90, ANGLE_180 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { ANGLE_90, EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/eda_text.js';
-import type { PCB_LAYER_NAME } from './layer_ids.js';
-
-/** `DXF_UNITS` (plotter.h). MM is 1 because Windows headers claim `MM`. */
-
-/** `PLOT_TEXT_MODE` (plotter.h). Only NATIVE reaches the TEXT entity path. */
-
-/** `DXF_LAYER_OUTPUT_MODE` (plotter.h). */
-
-/** `DXF_OUTLINE_MODE` (plotter.h): the plot dialog's DXF outline/filled radio. */
-
-/** `FILL_T` (eda_shape.h). NO_FILL is 1, not 0 — never treat this as a boolean. */
-export enum FILL_T {
-  NO_FILL = 1,
-  FILLED_SHAPE,
-  FILLED_WITH_BG_BODYCOLOR,
-  FILLED_WITH_COLOR,
-  HATCH,
-  REVERSE_HATCH,
-  CROSS_HATCH,
-}
-
-/** `LINE_STYLE` (stroke_params.h). */
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '../eda_text.js';
+import { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '../gal/color4d.js';
+import type { PlotterRenderSettings } from '../render_settings.js';
+import {
+  DO_NOT_SET_LINE_WIDTH,
+  DXF_LAYER_OUTPUT_MODE,
+  DXF_OUTLINE_MODE,
+  DXF_UNITS,
+  FILL_T,
+  LINE_STYLE,
+  PLOT_FORMAT,
+  PLOT_TEXT_MODE,
+  PLOTTER,
+  type PLOTTER_FONT,
+  type PLOTTER_TEXT_ATTRIBUTES,
+  type PEN_PLUME,
+} from './plotter.js';
 
 /**
  * Oblique angle for DXF native text. Upstream's comment: "I don't remember if
  * 15 degrees is the ISO value... it looks nice anyway".
  */
 const DXF_OBLIQUE_ANGLE = 15;
-
-/**
- * `PLOTTER::DO_NOT_SET_LINE_WIDTH` / `USE_DEFAULT_LINE_WIDTH` (plotter.h:139-140).
- * Statics on the base upstream, so one declaration here, re-exported for the
- * callers that reach for them through this module.
- */
-export {
-  DO_NOT_SET_LINE_WIDTH,
-  USE_DEFAULT_LINE_WIDTH,
-} from '@ziroeda/common/plotters/plotter.js';
-
-import { DO_NOT_SET_LINE_WIDTH, USE_DEFAULT_LINE_WIDTH } from '@ziroeda/common/plotters/plotter.js';
-import {
-  DXF_UNITS,
-  PLOT_TEXT_MODE,
-  DXF_LAYER_OUTPUT_MODE,
-  DXF_OUTLINE_MODE,
-} from '@ziroeda/common/plotters/plotter.js';
-export { DXF_UNITS, PLOT_TEXT_MODE, DXF_LAYER_OUTPUT_MODE, DXF_OUTLINE_MODE };
 
 /**
  * `#define DXF_LINE_WIDTH DO_NOT_SET_LINE_WIDTH` — DXF carries no line widths,
@@ -117,11 +83,12 @@ const colorEquals = (a: Color4d, b: Color4d): boolean =>
   a.r === b.r && a.g === b.g && a.b === b.b && a.a === b.a;
 
 /**
- * The slice of `RENDER_SETTINGS` the plotter uses. Injected rather than
- * imported because pcbnew must not reach into designer/'s theme.
+ * `RENDER_SETTINGS` plus the one accessor only DXF reaches for: the layer
+ * colour GetCurrentLayerName names a layer after. Layers are pcbnew's layer
+ * names here, which common cannot import, hence `string`.
  */
-export interface DxfRenderSettings {
-  GetLayerColor(aLayer: PCB_LAYER_NAME): Color4d;
+export interface DxfRenderSettings extends PlotterRenderSettings {
+  GetLayerColor(aLayer: string): Color4d;
 }
 
 /**
@@ -133,21 +100,8 @@ export interface DxfPlotParams {
   GetDXFPlotMode(): DXF_OUTLINE_MODE;
 }
 
-/** The `TEXT_ATTRIBUTES` fields plotOneLineOfText reads (text_attributes.h). */
-export interface DxfTextAttributes {
-  m_Size: Vec2;
-  m_Halign: GR_TEXT_H_ALIGN_T;
-  m_Valign: GR_TEXT_V_ALIGN_T;
-  m_StrokeWidth: number;
-  m_Angle: EDA_ANGLE;
-  m_Italic: boolean;
-  m_Bold: boolean;
-  m_Mirrored: boolean;
-  m_Multiline: boolean;
-}
-
 /** One `m_layersToExport` entry: the board layer and the DXF layer name for it. */
-export type DxfLayerExport = readonly [layer: PCB_LAYER_NAME, name: string];
+export type DxfLayerExport = readonly [layer: string, name: string];
 
 interface DxfLayout {
   name: string;
@@ -874,19 +828,7 @@ const TEXT_ENCODER = new TextEncoder();
  * upstream does: SetUnits / SetViewport / SetColorMode / SetLayersToExport,
  * then StartPlot, then geometry with SetLayer between layers, then EndPlot.
  */
-export class DxfPlotter {
-  // ---- PLOTTER base state (the members DXF actually reads) -----------------
-  private m_plotOffset: Vec2 = { x: 0, y: 0 };
-  private m_plotScale = 1;
-  private m_paperSize: Vec2 = { x: 0, y: 0 };
-  private m_IUsPerDecimil = 1;
-  private m_iuPerDeviceUnit = 1;
-  private m_colorMode = false;
-  private m_currentPenWidth = -1;
-  private m_penLastpos: Vec2 = { x: 0, y: 0 };
-  private m_layer: PCB_LAYER_NAME = '';
-  private m_layersToExport: readonly DxfLayerExport[] = [];
-
+export class DXF_PLOTTER extends PLOTTER {
   // ---- DXF_PLOTTER state ---------------------------------------------------
   private m_plotUnits: DXF_UNITS = DXF_UNITS.INCH;
   private m_unitScalingFactor = 0.0001;
@@ -907,12 +849,33 @@ export class DxfPlotter {
   /** The emitted file. Bytes, because layer names are UTF-8 and glyphs Latin-1. */
   private out: number[] = [];
 
-  constructor(private readonly m_renderSettings: DxfRenderSettings) {
+  /** DXF reads the layer colour too, which PLOTTER's slice does not carry. */
+  protected declare m_renderSettings: DxfRenderSettings | null;
+
+  constructor(aRenderSettings: DxfRenderSettings | null = null) {
+    super();
+    this.m_renderSettings = aRenderSettings;
+
     // DXF_PLOTTER's constructor body, in order.
     this.m_textAsLines = true;
     this.m_currentColor = COLOR4D_BLACK;
     this.m_currentLineType = LINE_STYLE.SOLID;
     this.SetUnits(DXF_UNITS.INCH);
+  }
+
+  override GetPlotterType(): PLOT_FORMAT {
+    return PLOT_FORMAT.DXF;
+  }
+
+  static GetDefaultFileExtension(): string {
+    return 'dxf';
+  }
+
+  /** `m_renderSettings->`, with the DXF-only accessor. */
+  protected override renderSettings(): DxfRenderSettings {
+    if (!this.m_renderSettings) throw new Error('plotter has no render settings');
+
+    return this.m_renderSettings;
   }
 
   // =========================================================================
@@ -988,53 +951,9 @@ export class DxfPlotter {
     this.m_currentColor = COLOR4D_BLACK;
   }
 
-  /**
-   * `PLOTTER::userToDeviceCoordinates`, specialised to the state SetViewport
-   * pins for DXF: paper size (0,0), no mirroring, no reversed Y axis. Keeping
-   * `m_paperSize.y - v` rather than `-v` is what stops a point on the origin
-   * row emitting "-0." instead of "0.".
-   */
-  private userToDeviceCoordinates(aCoordinate: Vec2): Vec2 {
-    const pos = {
-      x: aCoordinate.x - this.m_plotOffset.x,
-      y: aCoordinate.y - this.m_plotOffset.y,
-    };
-
-    const x = pos.x * this.m_plotScale;
-    const y = this.m_paperSize.y - pos.y * this.m_plotScale;
-
-    return { x: x * this.m_iuPerDeviceUnit, y: y * this.m_iuPerDeviceUnit };
-  }
-
-  /** `PLOTTER::userToDeviceSize( const VECTOR2I& )` — no Y negation. */
-  private userToDeviceSizeV(aSize: Vec2): Vec2 {
-    return {
-      x: aSize.x * this.m_plotScale * this.m_iuPerDeviceUnit,
-      y: aSize.y * this.m_plotScale * this.m_iuPerDeviceUnit,
-    };
-  }
-
-  /** `PLOTTER::userToDeviceSize( double )`. */
-  private userToDeviceSize(aSize: number): number {
-    return aSize * this.m_plotScale * this.m_iuPerDeviceUnit;
-  }
-
   /** DXF carries no line widths, so the width is discarded and the pen is 0. */
   SetCurrentLineWidth(_width: number, _aData?: unknown): void {
     this.m_currentPenWidth = 0;
-  }
-
-  GetCurrentLineWidth(): number {
-    return this.m_currentPenWidth;
-  }
-
-  /** `PLOTTER::SetColorMode`. pcbnew passes `!blackAndWhite`. */
-  SetColorMode(aColorMode: boolean): void {
-    this.m_colorMode = aColorMode;
-  }
-
-  GetColorMode(): boolean {
-    return this.m_colorMode;
   }
 
   /**
@@ -1055,39 +974,13 @@ export class DxfPlotter {
    * `SetTextMode`. The constructor leaves m_textAsLines true, so the native
    * TEXT entity path is reached only when the caller explicitly asks for it.
    */
-  SetTextMode(aMode: PLOT_TEXT_MODE): void {
+  override SetTextMode(aMode: PLOT_TEXT_MODE): void {
     if (aMode !== PLOT_TEXT_MODE.DEFAULT) this.m_textAsLines = aMode !== PLOT_TEXT_MODE.NATIVE;
   }
 
   /** `SetDash`. The width argument is ignored; DXF dashes are a linetype name. */
   SetDash(_aLineWidth: number, aLineStyle: LINE_STYLE): void {
     this.m_currentLineType = aLineStyle;
-  }
-
-  SetLayer(aLayer: PCB_LAYER_NAME): void {
-    this.m_layer = aLayer;
-  }
-
-  GetLayer(): PCB_LAYER_NAME {
-    return this.m_layer;
-  }
-
-  /**
-   * `PLOTTER::SetLayersToExport`. pcbnew populates this for every plot, so a
-   * board plot names its DXF layers after board layers; leaving it empty is the
-   * eeschema path, where the 249 ACAD colour names become the layers.
-   */
-  SetLayersToExport(aLayersToExport: readonly DxfLayerExport[]): void {
-    this.m_layersToExport = aLayersToExport;
-  }
-
-  /** `PLOTTER::GetPlotterArcHighDef` / `GetPlotterArcLowDef`. */
-  GetPlotterArcHighDef(): number {
-    return this.m_IUsPerDecimil * 2;
-  }
-
-  GetPlotterArcLowDef(): number {
-    return this.m_IUsPerDecimil * 8;
   }
 
   // =========================================================================
@@ -1101,7 +994,7 @@ export class DxfPlotter {
    * Current_Layer_Color_Name ignores the layer id it was handed in favour of
    * the current layer. `int( c * 255 )` truncates towards zero, so 0.5 is 127.
    */
-  GetCurrentLayerName(aMode: DXF_LAYER_OUTPUT_MODE, aLayerId?: PCB_LAYER_NAME): string {
+  GetCurrentLayerName(aMode: DXF_LAYER_OUTPUT_MODE, aLayerId?: string): string {
     const actualLayerId = aLayerId !== undefined ? aLayerId : this.m_layer;
 
     switch (aMode) {
@@ -1111,7 +1004,7 @@ export class DxfPlotter {
           const layerColor =
             aMode === DXF_LAYER_OUTPUT_MODE.Current_Layer_Name
               ? this.m_currentColor
-              : this.m_renderSettings.GetLayerColor(actualLayerId);
+              : this.renderSettings().GetLayerColor(actualLayerId);
 
           const color = FindNearestLegacyColor(
             Math.trunc(layerColor.r * 255),
@@ -1130,8 +1023,8 @@ export class DxfPlotter {
       case DXF_LAYER_OUTPUT_MODE.Current_Layer_Color_Name: {
         const layerColor =
           aMode === DXF_LAYER_OUTPUT_MODE.Current_Layer_Color_Name
-            ? this.m_renderSettings.GetLayerColor(this.GetLayer())
-            : this.m_renderSettings.GetLayerColor(actualLayerId);
+            ? this.renderSettings().GetLayerColor(this.GetLayer())
+            : this.renderSettings().GetLayerColor(actualLayerId);
 
         const color = FindNearestLegacyColor(
           Math.trunc(layerColor.r * 255),
@@ -1376,7 +1269,7 @@ export class DxfPlotter {
 
         colorNumber = it !== undefined ? it[1] : 7; // Default to white/black
 
-        actualColor = this.m_renderSettings.GetLayerColor(this.m_layersToExport[i]![0]);
+        actualColor = this.renderSettings().GetLayerColor(this.m_layersToExport[i]![0]);
         hasActualColor = true;
       } else {
         layerName = acad_dxf_color_names[i]![0];
@@ -1665,27 +1558,6 @@ export class DxfPlotter {
   // Pen
   // =========================================================================
 
-  /** `PLOTTER::MoveTo`. */
-  MoveTo(pos: Vec2): void {
-    this.PenTo(pos, 'U');
-  }
-
-  /** `PLOTTER::LineTo`. */
-  LineTo(pos: Vec2): void {
-    this.PenTo(pos, 'D');
-  }
-
-  /** `PLOTTER::FinishTo`. */
-  FinishTo(pos: Vec2): void {
-    this.PenTo(pos, 'D');
-    this.PenTo(pos, 'Z');
-  }
-
-  /** `PLOTTER::PenFinish`. The point is irrelevant to a 'Z' motion. */
-  PenFinish(): void {
-    this.PenTo({ x: 0, y: 0 }, 'Z');
-  }
-
   /**
    * `PenTo`. Two behaviours matter to callers: 'Z' returns *before* recording
    * the position, so the pen still sits at the last drawn point after a
@@ -1696,7 +1568,7 @@ export class DxfPlotter {
    * Hand-rolled rather than routed through emitEntityHandle because group 6,
    * the linetype, has to sit between group 8 and the AcDbLine marker.
    */
-  PenTo(pos: Vec2, plume: 'U' | 'D' | 'Z'): void {
+  PenTo(pos: Vec2, plume: PEN_PLUME): void {
     if (plume === 'Z') return;
 
     const pos_dev = this.userToDeviceCoordinates(pos);
@@ -1852,7 +1724,7 @@ export class DxfPlotter {
    * VECTOR2I, so C++ truncates it towards zero on the way in; Math.trunc here
    * reproduces that.
    */
-  Arc(
+  override Arc(
     aCenter: Vec2,
     aStartAngle: EDA_ANGLE,
     aAngle: EDA_ANGLE,
@@ -1895,7 +1767,7 @@ export class DxfPlotter {
    * the base class would draw a filled circle there, but DXF overrides the
    * whole method and PenTo drops the equal-position move.
    */
-  ThickSegment(aStart: Vec2, aEnd: Vec2, _aWidth: number, aData?: DxfPlotParams): void {
+  override ThickSegment(aStart: Vec2, aEnd: Vec2, _aWidth: number, aData?: DxfPlotParams): void {
     if (aData && aData.GetDXFPlotMode() === DXF_OUTLINE_MODE.SKETCH) {
       throw new Error(
         'DXF ThickSegment in SKETCH mode is not ported (needs TransformOvalToPolygon)',
@@ -1907,7 +1779,7 @@ export class DxfPlotter {
   }
 
   /** `ThickArc`. `aWidth / 2` is integer division, hence the Math.trunc. */
-  ThickArc(
+  override ThickArc(
     centre: Vec2,
     aStartAngle: EDA_ANGLE,
     aAngle: EDA_ANGLE,
@@ -1930,7 +1802,7 @@ export class DxfPlotter {
    * are not concentric: width 5 gives an outer edge at p1 - 2 and an inner one
    * at p1 + 3. Computing p1 + width/2 instead would diverge.
    */
-  ThickRect(p1: Vec2, p2: Vec2, width: number, aData?: DxfPlotParams): void {
+  override ThickRect(p1: Vec2, p2: Vec2, width: number, aData?: DxfPlotParams): void {
     if (aData && aData.GetDXFPlotMode() === DXF_OUTLINE_MODE.SKETCH) {
       const half = Math.trunc(width / 2);
       const offsetp1 = { x: p1.x - half, y: p1.y - half };
@@ -1948,7 +1820,7 @@ export class DxfPlotter {
   }
 
   /** `ThickCircle`. */
-  ThickCircle(pos: Vec2, diametre: number, width: number, aData?: DxfPlotParams): void {
+  override ThickCircle(pos: Vec2, diametre: number, width: number, aData?: DxfPlotParams): void {
     if (aData && aData.GetDXFPlotMode() === DXF_OUTLINE_MODE.SKETCH) {
       this.Circle(pos, diametre - width, FILL_T.NO_FILL, DXF_LINE_WIDTH);
       this.Circle(pos, diametre + width, FILL_T.NO_FILL, DXF_LINE_WIDTH);
@@ -1958,59 +1830,10 @@ export class DxfPlotter {
   }
 
   /** `FilledCircle`, the only internal caller that reaches the POLYLINE fill. */
-  FilledCircle(pos: Vec2, diametre: number, aData?: DxfPlotParams): void {
+  override FilledCircle(pos: Vec2, diametre: number, aData?: DxfPlotParams): void {
     if (aData && aData.GetDXFPlotMode() === DXF_OUTLINE_MODE.SKETCH)
       this.Circle(pos, diametre, FILL_T.NO_FILL, DXF_LINE_WIDTH);
     else this.Circle(pos, diametre, FILL_T.FILLED_SHAPE, 0);
-  }
-
-  /**
-   * `PLOTTER::ThickOval`, inherited unchanged. Both the radius and the
-   * half-height are integer divisions. FlashPadOval has already normalised the
-   * size, so this method's own swap is then a no-op — but it is upstream's and
-   * ThickOval has other callers, so it stays.
-   */
-  ThickOval(aPos: Vec2, aSize: Vec2, aOrient: EDA_ANGLE, aWidth: number, aData?: unknown): void {
-    this.SetCurrentLineWidth(aWidth, aData);
-
-    let orient = aOrient;
-    const size = { x: aSize.x, y: aSize.y };
-
-    if (size.x > size.y) {
-      [size.x, size.y] = [size.y, size.x];
-      orient = orient.add(ANGLE_90);
-    }
-
-    const deltaxy = size.y - size.x; // distance between centres of the oval
-    const radius = Math.trunc(size.x / 2);
-
-    // Shape is (x = corner and arc ends, c = arc centre)
-    //  xcx
-    //
-    //  xcx
-    const half_height = Math.trunc(deltaxy / 2);
-    const corners: Vec2[] = [
-      { x: -radius, y: -half_height },
-      { x: -radius, y: half_height },
-      { x: 0, y: half_height },
-      { x: radius, y: half_height },
-      { x: radius, y: -half_height },
-      { x: 0, y: -half_height },
-    ].map((corner) => {
-      const rotated = RotatePoint(corner, orient);
-      return { x: rotated.x + aPos.x, y: rotated.y + aPos.y };
-    });
-
-    // Gen shape (2 lines and 2 180 deg arcs):
-    this.MoveTo(corners[0]!);
-    this.FinishTo(corners[1]!);
-
-    this.Arc(corners[2]!, orient.negate(), ANGLE_180, radius, FILL_T.NO_FILL, aWidth);
-
-    this.MoveTo(corners[3]!);
-    this.FinishTo(corners[4]!);
-
-    this.Arc(corners[5]!, orient.negate(), ANGLE_180.negate(), radius, FILL_T.NO_FILL, aWidth);
   }
 
   // =========================================================================
@@ -2136,22 +1959,86 @@ export class DxfPlotter {
   // =========================================================================
 
   /**
+   * `Text`. The same guard as PlotText; the native path builds its own
+   * TEXT_ATTRIBUTES and, as upstream does, never sets `m_Size` on it, so the
+   * TEXT entity it writes has the default-constructed (0,0) size.
+   */
+  override Text(
+    aPos: Vec2,
+    aColor: Color4d,
+    aText: string,
+    aOrient: EDA_ANGLE,
+    aSize: Vec2,
+    aH_justify: GR_TEXT_H_ALIGN_T,
+    aV_justify: GR_TEXT_V_ALIGN_T,
+    aWidth: number,
+    aItalic: boolean,
+    aBold: boolean,
+    aMultilineAllowed: boolean,
+    aFont: PLOTTER_FONT | null,
+    aFontMetrics?: unknown,
+    aData?: unknown,
+  ): void {
+    let multilineAllowed = aMultilineAllowed;
+
+    // Fix me: see how to use DXF text mode for multiline texts
+    if (multilineAllowed && !aText.includes('\n')) multilineAllowed = false; // the text has only one line.
+
+    const processSuperSub = aText.includes('^{') || aText.includes('_{');
+
+    if (this.m_textAsLines || containsNonAsciiChars(aText) || multilineAllowed || processSuperSub) {
+      // output text as graphics.
+      // Perhaps multiline texts could be handled as DXF text entity
+      // but I do not want spend time about this (JPC)
+      super.Text(
+        aPos,
+        aColor,
+        aText,
+        aOrient,
+        aSize,
+        aH_justify,
+        aV_justify,
+        aWidth,
+        aItalic,
+        aBold,
+        multilineAllowed,
+        aFont,
+        aFontMetrics,
+        aData,
+      );
+    } else {
+      const attrs: PLOTTER_TEXT_ATTRIBUTES = {
+        m_Size: { x: 0, y: 0 },
+        m_Halign: aH_justify,
+        m_Valign: aV_justify,
+        m_StrokeWidth: aWidth,
+        m_Angle: aOrient,
+        m_Italic: aItalic,
+        m_Bold: aBold,
+        m_Mirrored: aSize.x < 0,
+        m_Multiline: false,
+      };
+      this.plotOneLineOfText(aPos, aColor, aText, attrs);
+    }
+  }
+
+  /**
    * `PlotText`, the entry point pcbnew uses for every string it plots.
    *
    * The guard below is why a plain plot never contains a TEXT entity: the
    * constructor leaves m_textAsLines true, so unless the caller has asked for
    * PLOT_TEXT_MODE::NATIVE the text is stroked into LINE entities instead.
    */
-  PlotText(
+  override PlotText(
     aPos: Vec2,
     aColor: Color4d,
     aText: string,
-    aAttributes: DxfTextAttributes,
-    _aFont?: unknown,
-    _aFontMetrics?: unknown,
-    _aData?: unknown,
+    aAttributes: PLOTTER_TEXT_ATTRIBUTES,
+    aFont: PLOTTER_FONT | null = null,
+    aFontMetrics?: unknown,
+    aData?: unknown,
   ): void {
-    const attrs: DxfTextAttributes = { ...aAttributes };
+    const attrs: PLOTTER_TEXT_ATTRIBUTES = { ...aAttributes };
 
     // Fix me: see how to use DXF text mode for multiline texts
     if (attrs.m_Multiline && !aText.includes('\n')) attrs.m_Multiline = false;
@@ -2164,11 +2051,10 @@ export class DxfPlotter {
       attrs.m_Multiline ||
       processSuperSub
     ) {
-      // Upstream falls back to PLOTTER::PlotText, which strokes the glyphs
-      // through KIFONT::FONT::Draw into MoveTo/LineTo pairs. That needs a font
-      // engine this repo does not have yet, so refuse loudly rather than emit a
-      // file with the text silently missing.
-      throw new Error('DXF stroked-text fallback is not ported (needs KIFONT::FONT::Draw)');
+      // output text as graphics.
+      // Perhaps multiline texts could be handled as DXF text entity
+      // but I do not want spend time about that (JPC)
+      super.PlotText(aPos, aColor, aText, aAttributes, aFont, aFontMetrics, aData);
     } else {
       this.plotOneLineOfText(aPos, aColor, aText, attrs);
     }
@@ -2190,7 +2076,7 @@ export class DxfPlotter {
     aPos: Vec2,
     aColor: Color4d,
     aText: string,
-    aAttributes: DxfTextAttributes,
+    aAttributes: PLOTTER_TEXT_ATTRIBUTES,
   ): void {
     const origin_dev = this.userToDeviceCoordinates(aPos);
     this.SetColor(aColor);

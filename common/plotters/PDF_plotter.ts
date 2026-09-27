@@ -167,7 +167,7 @@ export interface PdfProject {
 // Number formatting
 // ===========================================================================
 
-import { decompose, fixed, formatG, scaledRound } from './fmt.js';
+import { fixed, formatG } from './fmt.js';
 
 /** fmt's bare `{:f}`: a hard-coded six decimals. PlotPoly and PenTo use it. */
 export const DEFAULT_FMT_PRECISION = 6;
@@ -951,7 +951,7 @@ export class PDF_PLOTTER extends PSLIKE_PLOTTER {
    * same plume writes nothing even though the device position might differ
    * after a viewport change.
    */
-  PenTo(pos: Vec2, plume: 'U' | 'D' | 'Z'): void {
+  PenTo(pos: Vec2, plume: PEN_PLUME): void {
     if (plume === 'Z') {
       if (this.m_penState !== 'Z') {
         this.work('S\n');

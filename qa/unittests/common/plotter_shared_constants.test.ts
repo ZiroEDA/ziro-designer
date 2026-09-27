@@ -23,9 +23,9 @@ import { PS_PLOTTER } from '@ziroeda/common/plotters/PS_plotter.js';
 import { SVG_PLOTTER } from '@ziroeda/common/plotters/SVG_plotter.js';
 import { PDF_PLOTTER } from '@ziroeda/common/plotters/PDF_plotter.js';
 import * as png from '@ziroeda/pcbnew/plot_png.js';
-import * as dxf from '@ziroeda/pcbnew/plot_dxf.js';
+import { DXF_PLOTTER } from '@ziroeda/common/plotters/DXF_plotter.js';
 
-const BACKENDS = { png, dxf };
+const BACKENDS = { png };
 
 describe('PLOTTER line-width sentinels', () => {
   it('are the values plotter.h:139-140 declares', () => {
@@ -50,10 +50,10 @@ describe('PLOTTER line-width sentinels', () => {
     expect(PLOTTER.DO_NOT_SET_LINE_WIDTH).toBe(DO_NOT_SET_LINE_WIDTH);
     expect(PLOTTER.USE_DEFAULT_LINE_WIDTH).toBe(USE_DEFAULT_LINE_WIDTH);
 
-    for (const cls of [PS_PLOTTER, PDF_PLOTTER, SVG_PLOTTER]) {
+    for (const cls of [PS_PLOTTER, PDF_PLOTTER, SVG_PLOTTER, DXF_PLOTTER]) {
       expect(cls.DO_NOT_SET_LINE_WIDTH).toBe(DO_NOT_SET_LINE_WIDTH);
       expect(cls.USE_DEFAULT_LINE_WIDTH).toBe(USE_DEFAULT_LINE_WIDTH);
-      expect(new cls(plotterRenderSettings(), (b: Uint8Array) => b)).toBeInstanceOf(PLOTTER);
+      expect(new cls(null, (b: Uint8Array) => b)).toBeInstanceOf(PLOTTER);
     }
   });
 });

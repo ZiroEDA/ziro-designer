@@ -1158,6 +1158,7 @@ export abstract class PLOTTER {
 
   /** Plot a square centered on the position. Building block for markers. */
   protected markerSquare(position: Vec2, radius: number): void {
+    // biome-ignore lint/suspicious/noApproximativeNumericConstant: [data] upstream's literal, not SQRT2
     const r = KiROUND(radius / 1.4142);
 
     const corner_list: Vec2[] = [
