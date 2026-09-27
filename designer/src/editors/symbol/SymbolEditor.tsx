@@ -16,6 +16,7 @@ import {
   type SchField,
 } from '@ziroeda/eeschema';
 import * as sexpr from '@ziroeda/sexpr';
+import { GetAssociatedDocument } from '@ziroeda/common/eda_doc.js';
 import { MenuBar, type Menu } from '@ziroeda/common/tool/action_menu_bar.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
@@ -1048,9 +1049,11 @@ export function SymbolEditor({
   );
 
   const showDatasheet = useCallback(() => {
-    const url = workSymbol?.properties.find((f) => f.key === 'Datasheet')?.value ?? '';
-    if (/^https?:\/\//i.test(url)) window.open(url, '_blank', 'noopener');
-    else setStatus(url ? `Datasheet: ${url}` : 'No datasheet defined');
+    // SCH_INSPECTION_TOOL::ShowDatasheet (sch_inspection_tool.cpp:473-519).
+    if (!workSymbol) return;
+    const datasheet = workSymbol.properties.find((f) => f.key === 'Datasheet')?.value ?? '';
+    if (datasheet === '' || datasheet === '~') setStatus('No datasheet defined.');
+    else GetAssociatedDocument(datasheet, null);
   }, [workSymbol]);
 
   // ----- Find / Find and Replace (SCH_FIND_REPLACE_TOOL) ------------------------------

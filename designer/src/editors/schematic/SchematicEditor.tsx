@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { GetAssociatedDocument } from '@ziroeda/common/eda_doc.js';
 import * as KIPLATFORM_UI from '@ziroeda/common/kiplatform/ui.js';
 import { STATUS_TEXT_POPUP } from '@ziroeda/common/status_popup.js';
 import { Priority } from '@ziroeda/eeschema/connectivity/nets.js';
@@ -7008,11 +7009,11 @@ export function SchematicEditor({
         const page = link.slice(1);
         const target = flatSheets.find((ref) => pageNumberOf(ref.path) === page);
         if (target) switchSheet(target.path, target.file);
-        else setInfoBar(`No sheet with page number "${page}".`);
+        else setInfoBar(`Page '${page}' not found.`);
         return;
       }
-      if (/^https?:\/\//i.test(link)) window.open(link, '_blank', 'noopener,noreferrer');
-      else setInfoBar(`Cannot open "${link}" from the browser.`);
+      // SCH_NAVIGATE_TOOL::HypertextCommand (sch_navigate_tool.cpp:108).
+      GetAssociatedDocument(link, null);
     },
     [flatSheets, pageNumberOf, switchSheet],
   );
@@ -9263,10 +9264,10 @@ export function SchematicEditor({
               : doc.symbols.find((sy, i) => refId('symbol', sy.uuid, i) === id);
           if (sym) {
             e.preventDefault();
-            const url = (sym.fields.find((f) => f.key === 'Datasheet')?.value ?? '').trim();
-            // "~" is KiCad's "no datasheet", not a URL.
-            if (url === '' || url === '~') setError('No datasheet defined.');
-            else window.open(url, '_blank', 'noopener,noreferrer');
+            const datasheet = sym.fields.find((f) => f.key === 'Datasheet')?.value ?? '';
+            // "~" is KiCad's "no datasheet", not a URL (sch_inspection_tool.cpp:511).
+            if (datasheet === '' || datasheet === '~') setError('No datasheet defined.');
+            else GetAssociatedDocument(datasheet, null);
             finishCommand();
             return;
           }

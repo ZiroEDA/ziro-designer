@@ -22,6 +22,7 @@ import {
   symbolSearchTerms,
   type LibIndexEntry,
 } from '../symbols/index.js';
+import { GetAssociatedDocument } from '@ziroeda/common/eda_doc.js';
 import { Toolbar, type ToolEntry } from '@ziroeda/common/tool/action_toolbar.js';
 import {
   fitSymbol,
@@ -353,9 +354,11 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
   );
 
   const showDatasheet = useCallback(() => {
-    const url = previewSym ? symbolProperty(previewSym, 'Datasheet') : '';
-    if (/^https?:\/\//i.test(url)) window.open(url, '_blank', 'noopener');
-    else setStatus(url ? `Datasheet: ${url}` : 'No datasheet defined');
+    // SCH_INSPECTION_TOOL::ShowDatasheet (sch_inspection_tool.cpp:483-519).
+    if (!previewSym) return;
+    const datasheet = symbolProperty(previewSym, 'Datasheet');
+    if (datasheet === '' || datasheet === '~') setStatus('No datasheet defined.');
+    else GetAssociatedDocument(datasheet, null);
   }, [previewSym]);
 
   const addToSchematic = useCallback(() => {
