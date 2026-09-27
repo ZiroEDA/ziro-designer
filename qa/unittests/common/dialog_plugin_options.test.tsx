@@ -75,11 +75,16 @@ describe('DIALOG_PLUGIN_OPTIONS', () => {
 
 describe('the symbol library table opens it on a double-click in Options', () => {
   it('is wired as LIB_TABLE_GRID_TRICKS::handleDoubleClick does', () => {
-    const src = readFileSync(
-      resolve(process.cwd(), '../designer/src/widgets/dialog_sym_lib_table.tsx'),
+    // The double-click itself is driven in designer/lib_table_dialogs.test.
+    const tricks = readFileSync(
+      resolve(process.cwd(), '../common/lib_table_grid_tricks.ts'),
       'utf8',
     );
-    expect(src).toContain('onDoubleClick={() => setOptionsRow(i)}');
+    const src = readFileSync(
+      resolve(process.cwd(), '../designer/src/widgets/lib_table_panel.tsx'),
+      'utf8',
+    );
+    expect(tricks).toContain('if (aEvent.GetCol() === COL_OPTIONS) {');
     expect(src).toContain('<DIALOG_PLUGIN_OPTIONS');
   });
 });

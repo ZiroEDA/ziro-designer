@@ -171,10 +171,7 @@ export function LibTableNotebookView({
 }): JSX.Element {
   const [, bump] = useReducer((n: number) => n + 1, 0);
 
-  useLayoutEffect(() => {
-    notebook.SetRefreshListener(bump);
-    return () => notebook.SetRefreshListener(null);
-  }, [notebook]);
+  useLayoutEffect(() => notebook.AddRefreshListener(bump), [notebook]);
 
   const selection = notebook.GetSelection();
   const page = selection >= 0 ? notebook.GetPage(selection) : null;

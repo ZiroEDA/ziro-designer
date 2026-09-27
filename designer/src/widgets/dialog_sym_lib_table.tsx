@@ -3,11 +3,12 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Manage Symbol Libraries. Counterpart: `eeschema/dialogs/panel_sym_lib_table.cpp`
- * (PANEL_SYM_LIB_TABLE, opened by ACTIONS::showSymbolLibTable), the two library
- * tables, "Global Libraries" and "Project Specific Libraries", each a grid of
- * Enable / Nickname / Library Path / Library Format / Options / Description
- * rows, with add / add-existing / move / remove buttons and the read-only
- * path-substitution list underneath.
+ * (PANEL_SYM_LIB_TABLE in DIALOG_EDIT_LIBRARY_TABLES, opened by
+ * ACTIONS::showSymbolLibTable): the shared library-table panel
+ * (`lib_table_panel.tsx`) with the symbol table's differences -
+ * `SYMBOL_GRID_TRICKS` has the Show column and the `(sym_lib_table` preamble,
+ * the substitutions list always shows `KICAD10_SYMBOL_DIR`, and a row is
+ * checked by finding its `.kicad_sym`.
  *
  * Registering a library here is what makes it exist: SYMBOL_LIB_TABLE resolves a
  * LIB_ID's nickname through the project table then the global one, so a
@@ -16,22 +17,25 @@
  * which is why the file listing under "Add Existing" writes a row rather than
  * quietly treating the file as usable.
  *
- * Web deltas: the global table is the hosted library set, which is fixed, so
- * that tab is read-only (upstream's Reset/Migrate buttons have nothing to act
- * on). "Add Existing" lists the `.kicad_sym` files already in the project
- * instead of opening a file picker.
+ * Web deltas (the panel's file comment has the shared ones): the global table
+ * is the hosted library set and read-only; "Add Existing" lists the
+ * `.kicad_sym` files already in the project instead of opening a file picker.
  */
-
-import { DIALOG_PLUGIN_OPTIONS } from '@ziroeda/common/dialogs/dialog_plugin_options.js';
-import { DIALOG_EDIT_LIBRARY_TABLES } from '@ziroeda/common/dialogs/dialog_edit_library_tables.js';
-import { useMemo, useState, type JSX } from 'react';
-import { Icon } from '@ziroeda/common/widgets/icons.js';
-import type { FpLibRow } from '../editors/footprint/fp_lib_table.js';
+import type { JSX } from 'react';
 import {
-  projectSymLibTable,
+  LIBRARY_TABLE,
+  LIBRARY_TABLE_SCOPE,
+  LIBRARY_TABLE_TYPE,
+  type LIBRARY_TABLE_ROW,
+} from '@ziroeda/common/libraries/library_table.js';
+import { findProjectFile } from '../fs/project_paths.js';
+import { fpLibRowsOf, type FpLibRow } from '../editors/footprint/fp_lib_table.js';
+import {
+  projectSymLibTablePath,
   projectSymbolFiles,
   rowSymLibName,
 } from '../editors/schematic/symbols/project_sym_lib_table.js';
+import { hostedLibraryTable, LIB_LOADED, LibTablePanel, libNotFound } from './lib_table_panel.js';
 
 interface Props {
   /** The open project's files (`.kicad_sym`, the table, the `.kicad_pro`). */
@@ -45,6 +49,31 @@ interface Props {
   onClose: () => void;
 }
 
+/** The `sym-lib-table` anchors `${KIPRJMOD}` for a folder with no `.kicad_pro`. */
+const SYM_LIB_TABLE_ANCHOR = /(^|\/)sym-lib-table$/i;
+
+/** A `${KIPRJMOD}` / `$(KIPRJMOD)` reference: the only kind a project file can answer. */
+const isProjectRelative = (aUri: string): boolean => /^\$[{(]KIPRJMOD[})]/i.test(aUri);
+
+/** The project's `sym-lib-table` as a LIBRARY_TABLE; an empty one when there is none. */
+function projectTableOf(files: Props['projectFiles']): LIBRARY_TABLE {
+  const path = projectSymLibTablePath(files);
+  const file = files.find((f) => f.name === path);
+
+  if (!file) {
+    const table = LIBRARY_TABLE.Empty(LIBRARY_TABLE_SCOPE.PROJECT, LIBRARY_TABLE_TYPE.SYMBOL);
+    table.SetPath(path);
+    return table;
+  }
+
+  return LIBRARY_TABLE.FromFile(
+    path,
+    file.text,
+    LIBRARY_TABLE_SCOPE.PROJECT,
+    LIBRARY_TABLE_TYPE.SYMBOL,
+  );
+}
+
 export function DialogSymLibTable({
   projectFiles,
   globalLibraries,
@@ -52,303 +81,52 @@ export function DialogSymLibTable({
   onSave,
   onClose,
 }: Props): JSX.Element {
-  // Esc is Cancel: DIALOG_EDIT_LIBRARY_TABLES registers it.
-
-  const [tab, setTab] = useState<'global' | 'project'>('project');
-  const [rows, setRows] = useState<FpLibRow[]>(() => projectSymLibTable(projectFiles));
-  // The row whose DIALOG_PLUGIN_OPTIONS is up (optionsEditor).
-  const [optionsRow, setOptionsRow] = useState<number | null>(null);
-  const [sel, setSel] = useState<number | null>(null);
-  const [browseOpen, setBrowseOpen] = useState(false);
-
-  // The project's `.kicad_sym` files; "Add Existing" offers the unregistered ones.
-  const symFiles = useMemo(() => projectSymbolFiles(projectFiles, rows), [projectFiles, rows]);
-  const unregistered = symFiles.filter(
-    (d) => !rows.some((r) => rowSymLibName(r).toLowerCase() === d.file.toLowerCase()),
-  );
-
-  const setAt = (i: number, patch: Partial<FpLibRow>): void =>
-    setRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
-  const addRow = (row: FpLibRow): void => {
-    setRows([...rows, row]);
-    setSel(rows.length);
-  };
-  const removeSel = (): void => {
-    if (sel === null) return;
-    setRows(rows.filter((_, j) => j !== sel));
-    setSel(null);
-  };
-  const move = (delta: -1 | 1): void => {
-    if (sel === null) return;
-    const to = sel + delta;
-    if (to < 0 || to >= rows.length) return;
-    const next = [...rows];
-    const [row] = next.splice(sel, 1);
-    next.splice(to, 0, row!);
-    setRows(next);
-    setSel(to);
-  };
-
-  const cell: React.CSSProperties = { padding: 0 };
-  const globalRows = globalLibraries.map((name) => ({
-    name,
-    uri: `${globalBase}/${name}.kicad_sym`,
-  }));
+  const rowFile = (aRow: LIBRARY_TABLE_ROW) =>
+    findProjectFile(projectFiles, aRow.URI(), SYM_LIB_TABLE_ANCHOR);
 
   return (
-    // DIALOG_EDIT_LIBRARY_TABLES dlg( aParent, _( "Symbol Libraries" ) );
-    // dlg.InstallPanel( new PANEL_SYM_LIB_TABLE( ... ) ) - panel_sym_lib_table.cpp:1056.
-    <DIALOG_EDIT_LIBRARY_TABLES
+    <LibTablePanel
       title="Symbol Libraries"
-      onCancel={onClose}
-      onOK={() => onSave(rows.filter((r) => r.name.trim() && r.uri.trim()))}
-    >
-      {/* The two library tables (upstream's notebook pages). */}
-      <div className="ze-tabbar">
-        <button
-          type="button"
-          className={`ze-tab${tab === 'global' ? ' active' : ''}`}
-          onClick={() => setTab('global')}
-        >
-          Global Libraries
-        </button>
-        <button
-          type="button"
-          className={`ze-tab${tab === 'project' ? ' active' : ''}`}
-          onClick={() => setTab('project')}
-        >
-          Project Specific Libraries
-        </button>
-      </div>
-
-      {tab === 'global' ? (
-        <>
-          <div className="ze-grid-pane" style={{ flex: 1, minHeight: 0 }}>
-            <table className="ze-grid" style={{ tableLayout: 'fixed', width: '100%' }}>
-              <colgroup>
-                <col style={{ width: 220 }} />
-                <col />
-                <col style={{ width: 110 }} />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>Nickname</th>
-                  <th>Library Path</th>
-                  <th>Library Format</th>
-                </tr>
-              </thead>
-              <tbody>
-                {globalRows.map((r) => (
-                  <tr key={r.name}>
-                    <td style={{ padding: '3px 6px' }}>{r.name}</td>
-                    <td style={{ padding: '3px 6px' }}>{r.uri}</td>
-                    <td style={{ padding: '3px 6px' }}>KiCad</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="ze-muted" style={{ fontSize: 11.5 }}>
-            The global table is the hosted KiCad library set ({globalLibraries.length} libraries)
-            and is read-only here.
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="ze-grid-pane" style={{ flex: 1, minHeight: 0 }}>
-            <table className="ze-grid" style={{ tableLayout: 'fixed', width: '100%' }}>
-              <colgroup>
-                <col style={{ width: 56 }} />
-                <col style={{ width: 180 }} />
-                <col />
-                <col style={{ width: 110 }} />
-                <col style={{ width: 120 }} />
-                <col style={{ width: 160 }} />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>Enable</th>
-                  <th>Nickname</th>
-                  <th>Library Path</th>
-                  <th>Library Format</th>
-                  <th>Options</th>
-                  <th>Description</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => (
-                  <tr
-                    key={i}
-                    className={i === sel ? 'selected' : undefined}
-                    onFocusCapture={() => setSel(i)}
-                    onMouseDown={() => setSel(i)}
-                  >
-                    <td style={{ ...cell, textAlign: 'center' }}>
-                      <input
-                        type="checkbox"
-                        checked={!r.disabled}
-                        onChange={(e) => setAt(i, { disabled: !e.target.checked })}
-                      />
-                    </td>
-                    <td style={cell}>
-                      <input
-                        type="text"
-                        value={r.name}
-                        placeholder="MySymbols"
-                        onChange={(e) => setAt(i, { name: e.target.value })}
-                      />
-                    </td>
-                    <td style={cell}>
-                      <input
-                        type="text"
-                        value={r.uri}
-                        placeholder="${KIPRJMOD}/MySymbols.kicad_sym"
-                        onChange={(e) => setAt(i, { uri: e.target.value })}
-                      />
-                    </td>
-                    <td style={{ ...cell, padding: '3px 6px' }}>{r.type || 'KiCad'}</td>
-                    {/* LIB_TABLE_GRID_TRICKS::handleDoubleClick: a double-click on
-                        COL_OPTIONS runs optionsEditor, DIALOG_PLUGIN_OPTIONS. */}
-                    <td style={cell} onDoubleClick={() => setOptionsRow(i)}>
-                      <input
-                        type="text"
-                        value={r.options}
-                        onChange={(e) => setAt(i, { options: e.target.value })}
-                      />
-                    </td>
-                    <td style={cell}>
-                      <input
-                        type="text"
-                        value={r.descr}
-                        onChange={(e) => setAt(i, { descr: e.target.value })}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="ze-grid-btns" style={{ position: 'relative' }}>
-            <button
-              type="button"
-              className="ze-gridbtn"
-              title="Add empty row to table"
-              onClick={() => addRow({ name: '', type: 'KiCad', uri: '', options: '', descr: '' })}
-            >
-              <Icon name="plus" size={14} />
-            </button>
-            <button
-              type="button"
-              className="ze-btn sm"
-              title="Add Existing"
-              disabled={unregistered.length === 0}
-              onClick={() => setBrowseOpen((v) => !v)}
-            >
-              Add Existing
-            </button>
-            {browseOpen && unregistered.length > 0 && (
-              <div
-                style={{
-                  position: 'absolute',
-                  bottom: '100%',
-                  left: 34,
-                  zIndex: 20,
-                  minWidth: 240,
-                  marginBottom: 4,
-                  background: 'var(--chrome-bg2)',
-                  border: '1px solid var(--chrome-border)',
-                  borderRadius: 3,
-                  fontSize: 12,
-                  boxShadow: '0 6px 20px rgba(0,0,0,0.4)',
-                }}
-              >
-                {unregistered.map((d) => (
-                  <div
-                    key={d.file}
-                    className="ze-menu-item"
-                    style={{ padding: '4px 12px', cursor: 'default' }}
-                    onClick={() => {
-                      addRow({
-                        name: d.file,
-                        type: 'KiCad',
-                        uri: `\${KIPRJMOD}/${d.file}.kicad_sym`,
-                        options: '',
-                        descr: '',
-                      });
-                      setBrowseOpen(false);
-                    }}
-                  >
-                    {d.file}.kicad_sym
-                  </div>
-                ))}
-              </div>
-            )}
-            <span style={{ width: 8 }} />
-            <button
-              type="button"
-              className="ze-gridbtn"
-              title="Move up"
-              disabled={sel === null || sel === 0}
-              onClick={() => move(-1)}
-            >
-              <Icon name="arrowUp" size={14} />
-            </button>
-            <button
-              type="button"
-              className="ze-gridbtn"
-              title="Move down"
-              disabled={sel === null || sel === rows.length - 1}
-              onClick={() => move(1)}
-            >
-              <Icon name="arrowDown" size={14} />
-            </button>
-            <button
-              type="button"
-              className="ze-gridbtn"
-              title="Remove library from table"
-              disabled={sel === null}
-              onClick={removeSel}
-            >
-              <Icon name="delete" size={14} />
-            </button>
-          </div>
-
-          {/* The read-only environment/path substitutions grid. */}
-          <div>
-            <div style={{ fontSize: 12, marginBottom: 3 }}>Available path substitutions:</div>
-            <div className="ze-grid-pane" style={{ maxHeight: 92, overflow: 'auto' }}>
-              <table className="ze-grid" style={{ tableLayout: 'fixed', width: '100%' }}>
-                <colgroup>
-                  <col style={{ width: 180 }} />
-                  <col />
-                </colgroup>
-                <tbody>
-                  <tr>
-                    <td style={{ padding: '3px 6px' }}>$&#123;KIPRJMOD&#125;</td>
-                    <td style={{ padding: '3px 6px' }}>the project folder</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
+      type={LIBRARY_TABLE_TYPE.SYMBOL}
+      preamble="(sym_lib_table"
+      supportsVisibilityColumn
+      dirVarBase="SYMBOL_DIR"
+      globalTable={hostedLibraryTable(
+        LIBRARY_TABLE_TYPE.SYMBOL,
+        globalLibraries,
+        (name) => `${globalBase}/${name}.kicad_sym`,
       )}
-      {optionsRow !== null && rows[optionsRow] && (
-        // optionsEditor (panel_sym_lib_table.cpp:168-192). The KiCad s-expression
-        // plugin appends no choices (IO_BASE::GetLibraryOptions), so the list is
-        // empty and the grid is the whole of it.
-        <DIALOG_PLUGIN_OPTIONS
-          nickname={rows[optionsRow].name}
-          pluginOptions={new Map()}
-          formattedOptions={rows[optionsRow].options}
-          onResult={(result) => {
-            const at = optionsRow;
-            setOptionsRow(null);
-            if (result !== null && result !== rows[at]?.options) setAt(at, { options: result });
-          }}
-        />
-      )}
-    </DIALOG_EDIT_LIBRARY_TABLES>
+      projectTable={projectTableOf(projectFiles)}
+      checkRow={(row) => {
+        if (row.Type() !== 'KiCad' || !isProjectRelative(row.URI())) return undefined;
+
+        // SCH_IO_KICAD_SEXPR_LIB_CACHE::Load: "Library '%s' not found."
+        return rowFile(row) ? LIB_LOADED : libNotFound(`Library '${row.URI()}' not found.`);
+      }}
+      nestedTableExists={(row) => isProjectRelative(row.URI()) && !!rowFile(row)}
+      existing={(rows) => {
+        // A file whose name a row's `.kicad_sym` already has is registered.
+        const registered = new Set(
+          rows.map((r) =>
+            rowSymLibName({
+              name: '',
+              type: '',
+              uri: r.URI(),
+              options: '',
+              descr: '',
+            }).toLowerCase(),
+          ),
+        );
+        return projectSymbolFiles(projectFiles, [])
+          .filter((d) => !registered.has(d.file.toLowerCase()))
+          .map((d) => ({
+            name: d.file,
+            uri: `\${KIPRJMOD}/${d.file}.kicad_sym`,
+            label: `${d.file}.kicad_sym`,
+          }));
+      }}
+      onSave={(table) => onSave(fpLibRowsOf(table))}
+      onClose={onClose}
+    />
   );
 }

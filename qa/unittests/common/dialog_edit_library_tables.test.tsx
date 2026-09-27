@@ -28,11 +28,17 @@ describe('DIALOG_EDIT_LIBRARY_TABLES', () => {
   });
 
   it('is what Manage Symbol Libraries installs its panel into', () => {
+    // The shared library-table panel installs itself in the dialog; the
+    // symbol dialog gives it the title (rendered in lib_table_dialogs.test).
+    const panel = readFileSync(
+      resolve(process.cwd(), '../designer/src/widgets/lib_table_panel.tsx'),
+      'utf8',
+    );
     const src = readFileSync(
       resolve(process.cwd(), '../designer/src/widgets/dialog_sym_lib_table.tsx'),
       'utf8',
     );
-    expect(src).toContain('<DIALOG_EDIT_LIBRARY_TABLES');
+    expect(panel).toContain('<DIALOG_EDIT_LIBRARY_TABLES');
     expect(src).toContain('title="Symbol Libraries"');
   });
 });

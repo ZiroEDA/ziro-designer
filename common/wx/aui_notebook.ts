@@ -3,13 +3,12 @@
 /**
  * `wxAuiNotebook`, the model half: pages, their tab text and the selection.
  * wxWidgets, not KiCad code; only what the library-table panels call. A view
- * draws the tabs and the selected page, and redraws when `SetRefreshListener`'s
- * listener fires.
+ * draws the tabs and the selected page, and redraws when a refresh listener fires.
  */
 export class wxAuiNotebook<PAGE> {
   private m_pages: { page: PAGE; text: string }[] = [];
   private m_selection = -1;
-  private m_refresh: (() => void) | null = null;
+  private readonly m_refresh = new Set<() => void>();
 
   /** `AddPage( page, caption, select )`; the first page is selected regardless. */
   AddPage(aPage: PAGE, aCaption: string, aSelect = false): boolean {
@@ -70,11 +69,13 @@ export class wxAuiNotebook<PAGE> {
     return this.SetSelection(aPage);
   }
 
-  SetRefreshListener(aListener: (() => void) | null): void {
-    this.m_refresh = aListener;
+  /** A view's redraw, called on every change; returns its removal. */
+  AddRefreshListener(aListener: () => void): () => void {
+    this.m_refresh.add(aListener);
+    return () => this.m_refresh.delete(aListener);
   }
 
   Refresh(): void {
-    this.m_refresh?.();
+    for (const listener of this.m_refresh) listener();
   }
 }
