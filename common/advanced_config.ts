@@ -142,6 +142,20 @@ export class ADVANCED_CFG {
    */
   m_SmallDrillMarkSize = 0.35;
 
+  /**
+   * The PDF Type 3 stroke font (pdf_stroke_font.cpp): the pen width as a
+   * fraction of the em when a text has none of its own, the glyph offsets in
+   * em, the pen multiplier for bold, and a scale on each glyph's advance.
+   * Setting names: "PDFStrokeFontWidthFactor" (.12), "PDFStrokeFontXOffset"
+   * (0.1), "PDFStrokeFontYOffset" (0.35), "PDFStrokeFontBoldMultiplier" (1.8),
+   * "PDFStrokeFontKerningFactor" (1.0).
+   */
+  m_PDFStrokeFontWidthFactor = 0.12; // default 12% of EM
+  m_PDFStrokeFontXOffset = 0.1;
+  m_PDFStrokeFontYOffset = 0.35;
+  m_PDFStrokeFontBoldMultiplier = 1.8;
+  m_PDFStrokeFontKerningFactor = 1.0;
+
   private static s_cfg: ADVANCED_CFG | null = null;
 
   /** Get the singleton instance's config, which is shared by all consumers. */

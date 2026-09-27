@@ -53,22 +53,32 @@
  * variable expansion behind `ResolveUriByEnvVars` (`PdfProject`; passing none
  * mirrors upstream's null PROJECT).
  *
- * Two things are absent rather than injected. `Text` (which throws past its
- * zero-size guard) and so `PlotText` need the
- * Type 3 stroke-font subsetter (pdf_stroke_font.cpp), the CID outline-font
- * subsetter (pdf_outline_font.cpp, which needs FreeType) and the markup parser;
- * because nothing then registers a glyph, `endPlotEmitResources` writes the
- * same empty font dictionary upstream writes for a text-free document, so this
- * is a gap and not a divergence. `Plot3DModel` is absent too, though
+ * Text is PDF text, as upstream's: `Text` writes each word through the Type 3
+ * stroke-font subsetter (pdf_stroke_font.ts) or the CIDFontType2 outline-font
+ * subsetter (pdf_outline_font.ts, over the face outline_face.ts reads), and
+ * `endPlotEmitResources` emits the subsets. The font comes in on the
+ * PLOTTER_FONT (`plotterFont`); without one it is the stroke font, which is
+ * `FONT::GetFont( m_renderSettings->GetDefaultFont() )` for every default.
+ * `@{…}` expressions are not evaluated. `Plot3DModel` is absent, though
  * `Set3DExport` and the `/3D` annotation it guards are ported: with no model
  * plotted the annotation names handle -1, which is what upstream emits in the
  * same situation.
  */
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { ANGLE_0, EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import type { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '../eda_text.js';
+import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
+import { ADVANCED_CFG } from '../advanced_config.js';
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '../eda_text.js';
+import { FONT, TEXT_STYLE, type TEXT_STYLE_FLAGS, wxTokenizeRetDelims } from '../font/font.js';
+import { ITALIC_TILT, METRICS } from '../font/font_metrics.js';
+import type { OUTLINE_FONT } from '../font/outline_font.js';
+import { TEXT_ATTRIBUTES } from '../font/text_attributes.js';
+import { GetPenSizeForBold } from '../gr_text.js';
+import { MARKUP_PARSER, type NODE } from '../markup_parser.js';
+import { PDF_OUTLINE_FONT_MANAGER, type PDF_OUTLINE_FONT_RUN } from './pdf_outline_font.js';
+import { PDF_STROKE_FONT_MANAGER, type PDF_STROKE_FONT_RUN } from './pdf_stroke_font.js';
 import { COLOR4D_WHITE, type Color4d } from '../gal/color4d.js';
 import {
   DO_NOT_SET_LINE_WIDTH,
@@ -167,7 +177,22 @@ export interface PdfProject {
 // Number formatting
 // ===========================================================================
 
-import { fixed, formatG } from './fmt.js';
+import { fixed, formatG, shortest } from './fmt.js';
+
+/** `OVERBAR_INFO` (plotters_pslike.h): an overbar to draw once the text is out. */
+interface OVERBAR_INFO {
+  startPos: Vec2; // Start position of overbar text
+  endPos: Vec2; // End position of overbar text
+  fontSize: Vec2; // Font size for proper overbar positioning
+  isOutline: boolean; // True if the overbar applies to an outline font run
+  vAlign: GR_TEXT_V_ALIGN_T; // Original vertical alignment of the parent text
+}
+
+/** `std::lround`: half away from zero. */
+const lround = (aValue: number): number => Math.sign(aValue) * Math.round(Math.abs(aValue));
+
+/** `{:02X}`. */
+const hex2 = (aValue: number): string => aValue.toString(16).toUpperCase().padStart(2, '0');
 
 /** fmt's bare `{:f}`: a hard-coded six decimals. PlotPoly and PenTo use it. */
 export const DEFAULT_FMT_PRECISION = 6;
@@ -405,6 +430,8 @@ export class PDF_PLOTTER extends PSLIKE_PLOTTER {
   private m_totalOutlineNodes = 0;
   private m_3dModelHandle = -1;
   private m_3dExportMode = false;
+  private m_strokeFontManager: PDF_STROKE_FONT_MANAGER | null = null;
+  private m_outlineFontManager: PDF_OUTLINE_FONT_MANAGER | null = null;
 
   /** The output file, as bytes. `ftell( m_outputFile )` is `m_outLength`. */
   private m_out: Uint8Array[] = [];
@@ -1460,6 +1487,12 @@ export class PDF_PLOTTER extends PSLIKE_PLOTTER {
 
     this.m_outlineRoot = newOutlineNode();
 
+    if (!this.m_strokeFontManager) this.m_strokeFontManager = new PDF_STROKE_FONT_MANAGER();
+    else this.m_strokeFontManager.Reset();
+
+    if (!this.m_outlineFontManager) this.m_outlineFontManager = new PDF_OUTLINE_FONT_MANAGER();
+    else this.m_outlineFontManager.Reset();
+
     /* The header (that's easy!). The second line is binary junk required
        to make the file binary from the beginning (the important thing is
        that they must have the bit 7 set) */
@@ -1604,18 +1637,171 @@ export class PDF_PLOTTER extends PSLIKE_PLOTTER {
   // Resources
   // =========================================================================
 
+  /** `emitStrokeFonts`: each stroke-font subset as a Type 3 font. */
+  private emitStrokeFonts(): void {
+    if (!this.m_strokeFontManager) return;
+
+    for (const subset of this.m_strokeFontManager.AllSubsets()) {
+      if (subset.GlyphCount() <= 1) {
+        subset.SetCharProcsHandle(-1);
+        subset.SetFontHandle(-1);
+        subset.SetToUnicodeHandle(-1);
+        continue;
+      }
+
+      for (const glyph of subset.Glyphs()) {
+        const charProcHandle = this.startPdfStream();
+
+        if (glyph.m_stream !== '') this.work(`${glyph.m_stream}\n`);
+
+        this.closePdfStream();
+        glyph.m_charProcHandle = charProcHandle;
+      }
+
+      const charProcDictHandle = this.startPdfObject();
+      this.out('<<\n');
+
+      for (const glyph of subset.Glyphs())
+        this.out(`    /${glyph.m_name} ${glyph.m_charProcHandle} 0 R\n`);
+
+      this.out('>>\n');
+      this.closePdfObject();
+      subset.SetCharProcsHandle(charProcDictHandle);
+
+      const toUnicodeHandle = this.startPdfStream();
+      const cmap = subset.BuildToUnicodeCMap();
+
+      if (cmap !== '') this.work(cmap);
+
+      this.closePdfStream();
+      subset.SetToUnicodeHandle(toUnicodeHandle);
+
+      const fontMatrixScale = 1.0 / subset.UnitsPerEm();
+      const minX = subset.FontBBoxMinX();
+      const minY = subset.FontBBoxMinY();
+      const maxX = subset.FontBBoxMaxX();
+      const maxY = subset.FontBBoxMaxY();
+      const d = (v: number): string => this.encodeDoubleForPlotter(v);
+
+      const fontHandle = this.startPdfObject();
+      this.out(
+        `<<\n/Type /Font\n/Subtype /Type3\n/Name ${subset.ResourceName()}\n` +
+          `/FontBBox [ ${d(minX)} ${d(minY)} ${d(maxX)} ${d(maxY)} ]\n`,
+      );
+      this.out(
+        `/FontMatrix [ ${d(fontMatrixScale)} 0 0 ${d(fontMatrixScale)} 0 0 ]\n` +
+          `/CharProcs ${subset.CharProcsHandle()} 0 R\n`,
+      );
+      this.out(`/Encoding << /Type /Encoding /Differences ${subset.BuildDifferencesArray()} >>\n`);
+      this.out(
+        `/FirstChar ${subset.FirstChar()}\n/LastChar ${subset.LastChar()}\n` +
+          `/Widths ${subset.BuildWidthsArray()}\n`,
+      );
+      this.out(
+        `/ToUnicode ${subset.ToUnicodeHandle()} 0 R\n/Resources << /ProcSet [/PDF /Text] >>\n>>\n`,
+      );
+      this.closePdfObject();
+      subset.SetFontHandle(fontHandle);
+    }
+  }
+
+  /** `emitOutlineFonts`: each outline-font subset as a Type 0 / CIDFontType2 pair. */
+  private emitOutlineFonts(): void {
+    if (!this.m_outlineFontManager) return;
+
+    for (const subset of this.m_outlineFontManager.AllSubsets()) {
+      if (!subset.HasGlyphs()) continue;
+
+      const fontData = subset.FontFileData();
+
+      if (fontData.length === 0) continue;
+
+      const fontFileHandle = this.startPdfStream();
+      subset.SetFontFileHandle(fontFileHandle);
+
+      this.workBytes(fontData);
+
+      this.closePdfStream();
+
+      const cidMap = subset.BuildCIDToGIDStream();
+      const cidMapHandle = this.startPdfStream();
+      subset.SetCIDMapHandle(cidMapHandle);
+
+      if (cidMap.length > 0) this.workBytes(cidMap);
+
+      this.closePdfStream();
+
+      const toUnicode = subset.BuildToUnicodeCMap();
+      const toUnicodeHandle = this.startPdfStream();
+      subset.SetToUnicodeHandle(toUnicodeHandle);
+
+      if (toUnicode !== '') this.work(toUnicode);
+
+      this.closePdfStream();
+
+      const d = (v: number): string => this.encodeDoubleForPlotter(v);
+      const descriptorHandle = this.startPdfObject();
+      subset.SetFontDescriptorHandle(descriptorHandle);
+
+      this.out(
+        `<<\n/Type /FontDescriptor\n/FontName /${subset.BaseFontName()}\n/Flags ${subset.Flags()}\n` +
+          `/ItalicAngle ${d(subset.ItalicAngle())}\n/Ascent ${d(subset.Ascent())}\n` +
+          `/Descent ${d(subset.Descent())}\n/CapHeight ${d(subset.CapHeight())}\n` +
+          `/StemV ${d(subset.StemV())}\n/FontBBox [ ${d(subset.BBoxMinX())} ${d(subset.BBoxMinY())} ` +
+          `${d(subset.BBoxMaxX())} ${d(subset.BBoxMaxY())} ]\n/FontFile2 ${subset.FontFileHandle()} 0 R\n>>\n`,
+      );
+      this.closePdfObject();
+
+      const cidFontHandle = this.startPdfObject();
+      subset.SetCIDFontHandle(cidFontHandle);
+
+      this.out(
+        `<<\n/Type /Font\n/Subtype /CIDFontType2\n/BaseFont /${subset.BaseFontName()}\n` +
+          '/CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >>\n' +
+          `/FontDescriptor ${subset.FontDescriptorHandle()} 0 R\n/W ${subset.BuildWidthsArray()}\n` +
+          `/CIDToGIDMap ${subset.CIDMapHandle()} 0 R\n>>\n`,
+      );
+      this.closePdfObject();
+
+      const fontHandle = this.startPdfObject();
+      subset.SetFontHandle(fontHandle);
+
+      this.out(
+        `<<\n/Type /Font\n/Subtype /Type0\n/BaseFont /${subset.BaseFontName()}\n/Encoding /Identity-H\n` +
+          `/DescendantFonts [ ${subset.CIDFontHandle()} 0 R ]\n/ToUnicode ${subset.ToUnicodeHandle()} 0 R\n>>\n`,
+      );
+      this.closePdfObject();
+    }
+  }
+
   /**
-   * `endPlotEmitResources`. The font dictionaries come out empty here: with
-   * PDF_PLOTTER::Text unported nothing ever registers a glyph, and upstream's
-   * emitStrokeFonts / emitOutlineFonts loop over an empty subset list and emit
-   * nothing either. A document with no text is therefore byte-identical.
+   * `endPlotEmitResources`: the fonts, the font resource dictionary, the
+   * images.
    *
    * The image resource dictionary is opened with a `println("<<\n")`, i.e. a
    * blank line after the `<<`. Trimming it would move every later object.
    */
   private endPlotEmitResources(): void {
+    this.emitOutlineFonts();
+    this.emitStrokeFonts();
+
     this.startPdfObject(this.m_fontResDictHandle);
     this.out('<<\n');
+
+    if (this.m_outlineFontManager) {
+      for (const subset of this.m_outlineFontManager.AllSubsets()) {
+        if (subset.FontHandle() >= 0)
+          this.out(`    ${subset.ResourceName()} ${subset.FontHandle()} 0 R\n`);
+      }
+    }
+
+    if (this.m_strokeFontManager) {
+      for (const subset of this.m_strokeFontManager.AllSubsets()) {
+        if (subset.FontHandle() >= 0)
+          this.out(`    ${subset.ResourceName()} ${subset.FontHandle()} 0 R\n`);
+      }
+    }
+
     this.out('>>\n');
     this.closePdfObject();
 
@@ -2025,32 +2211,639 @@ export class PDF_PLOTTER extends PSLIKE_PLOTTER {
   // =========================================================================
 
   /**
-   * `PDF_PLOTTER::Text`. Upstream draws through its own Type 3 font managers
-   * (pdf_stroke_font / pdf_outline_font) so the text stays selectable; those
-   * are not ported, so beyond the zero-size guard this refuses rather than
-   * fall back to PLOTTER::Text's stroked glyphs, which would be a different
-   * file.
+   * `PDF_PLOTTER::Text`: the text as PDF text, in the Type 3 stroke font or the
+   * embedded outline font, one `BT … ET` block per word so markup (sub- and
+   * superscripts, overbars) can move and resize between words.
+   *
+   * `@{…}` expression substitution runs here upstream (EXPRESSION_EVALUATOR);
+   * as in PLOTTER::Text it is skipped rather than approximated.
    */
   override Text(
-    _aPos: Vec2,
-    _aColor: Color4d,
-    _aText: string,
-    _aOrient: EDA_ANGLE,
+    aPos: Vec2,
+    aColor: Color4d,
+    aText: string,
+    aOrient: EDA_ANGLE,
     aSize: Vec2,
-    _aH_justify: GR_TEXT_H_ALIGN_T,
-    _aV_justify: GR_TEXT_V_ALIGN_T,
-    _aWidth: number,
-    _aItalic: boolean,
-    _aBold: boolean,
+    aH_justify: GR_TEXT_H_ALIGN_T,
+    aV_justify: GR_TEXT_V_ALIGN_T,
+    aWidth: number,
+    aItalic: boolean,
+    aBold: boolean,
     _aMultilineAllowed: boolean,
-    _aFont: PLOTTER_FONT | null,
-    _aFontMetrics?: unknown,
-    _aData?: unknown,
+    aFont: PLOTTER_FONT | null,
+    aFontMetrics?: unknown,
+    aData?: unknown,
   ): void {
     // PDF files do not like 0 sized texts which create broken files.
     if (aSize.x === 0 || aSize.y === 0) return;
 
-    throw new Error('PDF_PLOTTER::Text is not ported (needs PDF_STROKE_FONT_MANAGER)');
+    const text = aText;
+    let width = aWidth;
+
+    this.SetColor(aColor);
+    this.SetCurrentLineWidth(width, aData);
+
+    const t_size = { x: Math.abs(aSize.x), y: Math.abs(aSize.y) };
+    const textMirrored = aSize.x < 0;
+
+    if (width === 0 && aBold) width = GetPenSizeForBold(Math.min(t_size.x, t_size.y));
+
+    if (width < 0) width = -width;
+
+    // `if( !aFont ) aFont = KIFONT::FONT::GetFont( m_renderSettings->GetDefaultFont() )`
+    const font: FONT = aFont?.font ?? FONT.GetFont();
+    const fontMetrics: METRICS =
+      aFontMetrics instanceof METRICS ? aFontMetrics : (aFont?.metrics ?? METRICS.Default());
+
+    const computeAlignedStartPos = (): Vec2 => {
+      let startPos = { x: aPos.x, y: aPos.y };
+
+      if (font.IsStroke()) {
+        const alignAttrs = new TEXT_ATTRIBUTES();
+        alignAttrs.m_Size = t_size;
+        alignAttrs.m_StrokeWidth = width;
+        alignAttrs.m_Halign = aH_justify;
+        alignAttrs.m_Valign = aV_justify;
+        alignAttrs.m_Bold = aBold;
+        alignAttrs.m_Italic = aItalic;
+
+        // getLinePositions returns anchor + offset; use (0,0) to get the offset alone.
+        let drawOffset = font.GetAlignedDrawPosition(text, { x: 0, y: 0 }, alignAttrs, fontMetrics);
+
+        // GAL mirrors about the text anchor (GetDrawPos), after placing the unmirrored
+        // cursor.  Negating the X offset before rotation makes the Type3 Tz=-100 origin
+        // land on the mirrored start so ink sits on the correct side of the anchor.
+        if (textMirrored) drawOffset = { x: -drawOffset.x, y: drawOffset.y };
+
+        drawOffset = RotatePoint(drawOffset, aOrient);
+        startPos = { x: aPos.x + drawOffset.x, y: aPos.y + drawOffset.y };
+      } else {
+        const full_box = {
+          ...font.StringBoundaryLimits(text, t_size, width, aBold, aItalic, fontMetrics),
+        };
+
+        if (textMirrored) full_box.x *= -1;
+
+        const box_x = RotatePoint({ x: full_box.x, y: 0 }, aOrient);
+        const box_y = RotatePoint({ x: 0, y: full_box.y }, aOrient);
+
+        if (aH_justify === GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER)
+          startPos = {
+            x: startPos.x - Math.trunc(box_x.x / 2),
+            y: startPos.y - Math.trunc(box_x.y / 2),
+          };
+        else if (aH_justify === GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT)
+          startPos = { x: startPos.x - box_x.x, y: startPos.y - box_x.y };
+
+        if (aV_justify === GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER)
+          startPos = {
+            x: startPos.x + Math.trunc(box_y.x / 2),
+            y: startPos.y + Math.trunc(box_y.y / 2),
+          };
+        else if (aV_justify === GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP)
+          startPos = { x: startPos.x + box_y.x, y: startPos.y + box_y.y };
+      }
+
+      return startPos;
+    };
+
+    // Parse the text for markup
+    const markupTree = new MARKUP_PARSER(text).Parse();
+
+    if (!markupTree) {
+      // Fallback to simple text rendering if parsing fails
+      let pos = computeAlignedStartPos();
+
+      for (const word of wxTokenizeRetDelims(text, ' '))
+        pos = this.renderWord(
+          word,
+          pos,
+          t_size,
+          aOrient,
+          textMirrored,
+          width,
+          aBold,
+          aItalic,
+          font,
+          fontMetrics,
+          aV_justify,
+          0,
+        );
+
+      return;
+    }
+
+    const pos = computeAlignedStartPos();
+
+    // Render markup tree
+    const overbars: OVERBAR_INFO[] = [];
+    this.renderMarkupNode(
+      markupTree,
+      pos,
+      t_size,
+      aOrient,
+      textMirrored,
+      width,
+      aBold,
+      aItalic,
+      font,
+      fontMetrics,
+      aV_justify,
+      0,
+      overbars,
+    );
+
+    // Draw any overbars that were accumulated
+    this.drawOverbars(overbars, aOrient, fontMetrics);
+  }
+
+  /** `renderWord`: one word as PDF text; returns the cursor after it. */
+  private renderWord(
+    aWord: string,
+    aPosition: Vec2,
+    aSize: Vec2,
+    aOrient: EDA_ANGLE,
+    aTextMirrored: boolean,
+    aWidth: number,
+    aBold: boolean,
+    aItalic: boolean,
+    aFont: FONT,
+    aFontMetrics: METRICS,
+    aV_justify: GR_TEXT_V_ALIGN_T,
+    aTextStyle: TEXT_STYLE_FLAGS,
+  ): Vec2 {
+    // Don't try to output a blank string, but handle space characters for word separation
+    if (aWord === '') return aPosition;
+
+    // Compute the per-word cursor advance via the font's own glyph metrics so the gap between
+    // words matches what the PDF Tj operator further down will produce.  StringBoundaryLimits
+    // would inflate the stroke-font bbox by 3*thickness, opening spurious whitespace between
+    // words (issue #24419).
+    //
+    // Only BOLD/ITALIC from the caller are forwarded; SUPERSCRIPT/SUBSCRIPT in aTextStyle have
+    // already been baked into aSize by renderMarkupNode, and Tj renders with that reduced Tf
+    // size, so GetTextAsGlyphs must not apply the SUPER_SUB_SIZE_MULTIPLIER a second time.
+    let metricsStyle: TEXT_STYLE_FLAGS = 0;
+
+    if (aBold) metricsStyle |= TEXT_STYLE.BOLD;
+
+    if (aItalic) metricsStyle |= TEXT_STYLE.ITALIC;
+
+    const cursorAdvanceX = (aText: string): number =>
+      aFont.GetTextAsGlyphs(
+        null,
+        null,
+        aText,
+        aSize,
+        { x: 0, y: 0 },
+        ANGLE_0,
+        false,
+        { x: 0, y: 0 },
+        metricsStyle,
+      ).x;
+
+    const add = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x + b.x, y: a.y + b.y });
+
+    // If the word is just a space character, advance position by space width and continue
+    if (aWord === ' ') {
+      const spaceBox = { x: cursorAdvanceX(' '), y: 0 };
+
+      if (aTextMirrored) spaceBox.x *= -1;
+
+      return add(aPosition, RotatePoint(spaceBox, aOrient));
+    }
+
+    // Tabs are layout only.  Plot visible runs at font layout positions.
+    if (aWord.includes('\t')) {
+      const positionedAdvance = (aText: string): Vec2 => {
+        const advance = { x: cursorAdvanceX(aText), y: 0 };
+
+        if (aTextMirrored) advance.x *= -1;
+
+        return RotatePoint(advance, aOrient);
+      };
+
+      let prefix = '';
+      let segment = '';
+
+      const flushSegment = (): void => {
+        if (segment !== '') {
+          this.renderWord(
+            segment,
+            add(aPosition, positionedAdvance(prefix)),
+            aSize,
+            aOrient,
+            aTextMirrored,
+            aWidth,
+            aBold,
+            aItalic,
+            aFont,
+            aFontMetrics,
+            aV_justify,
+            aTextStyle,
+          );
+          prefix += segment;
+          segment = '';
+        }
+      };
+
+      for (const c of aWord) {
+        if (c === '\t') {
+          flushSegment();
+          prefix += c;
+        } else {
+          segment += c;
+        }
+      }
+
+      flushSegment();
+
+      return add(aPosition, positionedAdvance(aWord));
+    }
+
+    // Compute transformation parameters for this word
+    const params = this.computeTextParameters(
+      aPosition,
+      aWord,
+      aOrient,
+      aSize,
+      aTextMirrored,
+      GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT,
+      GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM,
+      aWidth,
+      aItalic,
+      aBold,
+    );
+    const { wideningFactor, ctm_a, ctm_b, ctm_c, ctm_d, heightFactor } = params;
+    let { ctm_e, ctm_f } = params;
+
+    const bbox = { x: cursorAdvanceX(aWord), y: 0 };
+
+    if (aTextMirrored) bbox.x *= -1;
+
+    const nextPos = add(aPosition, RotatePoint(bbox, aOrient));
+
+    // Apply vertical offset for subscript/superscript
+    // Stroke font positioning (baseline) already correct per user feedback.
+    // Outline fonts need: superscript +1 full font height higher; subscript +1 full font height higher
+    if (aTextStyle & TEXT_STYLE.SUPERSCRIPT) {
+      const factor = aFont.IsOutline() ? 0.05 : 0.03; // stroke original ~0.40, outline needs +1.0
+      const offset = RotatePoint({ x: 0, y: lround(aSize.y * factor) }, aOrient);
+      ctm_e -= offset.x;
+      ctm_f += offset.y; // Note: PDF Y increases upward
+    } else if (aTextStyle & TEXT_STYLE.SUBSCRIPT) {
+      // For outline fonts raise by one font height versus stroke (which shifts downward slightly)
+      let offset = { x: 0, y: 0 };
+
+      if (aFont.IsStroke()) offset.y = lround(aSize.y * 0.01);
+
+      offset = RotatePoint(offset, aOrient);
+      ctm_e += offset.x;
+      ctm_f -= offset.y; // Note: PDF Y increases upward
+    }
+
+    const f = (v: number): string => fixed(v, 6);
+
+    // Render the word using existing outline font logic
+    if (aFont.IsOutline()) {
+      const outlineFont = aFont as OUTLINE_FONT;
+      const outlineRuns: PDF_OUTLINE_FONT_RUN[] = [];
+
+      if (this.m_outlineFontManager) {
+        this.m_outlineFontManager.EncodeString(
+          aWord,
+          outlineFont,
+          aItalic || (aTextStyle & TEXT_STYLE.ITALIC) !== 0,
+          aBold || (aTextStyle & TEXT_STYLE.BOLD) !== 0,
+          outlineRuns,
+        );
+      }
+
+      if (outlineRuns.length > 0) {
+        // Apply baseline adjustment (keeping existing logic)
+        const baseline_factor = 0.17;
+        let alignment_multiplier = 1.0;
+
+        if (aV_justify === GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER) alignment_multiplier = 2.0;
+        else if (aV_justify === GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP) alignment_multiplier = 4.0;
+
+        const font_size_dev = this.userToDeviceSizeV(aSize);
+        const baseline_adjustment = font_size_dev.y * baseline_factor * alignment_multiplier;
+
+        const angle_rad = aOrient.AsRadians();
+        const cos_angle = Math.cos(angle_rad);
+        const sin_angle = Math.sin(angle_rad);
+
+        const adjusted_ctm_e = ctm_e - baseline_adjustment * sin_angle;
+        const adjusted_ctm_f = ctm_f + baseline_adjustment * cos_angle;
+
+        const adj_c = ctm_c;
+        const adj_d = ctm_d;
+
+        // Synthetic italic (shear) for outline font if requested but font not intrinsically italic
+        let syntheticItalicApplied = false;
+        let appliedTilt = 0.0;
+        let syn_c = adj_c;
+        let syn_d = adj_d;
+        let syn_a = ctm_a;
+        let syn_b = ctm_b;
+        const wantItalic = aItalic || (aTextStyle & TEXT_STYLE.ITALIC) !== 0;
+
+        // (KICAD_FORCE_SYN_ITALIC / KICAD_SYN_ITALIC_TILT, environment overrides for
+        // testing, are never set here.)
+        const wantBold = aBold || (aTextStyle & TEXT_STYLE.BOLD) !== 0;
+        const fontIsItalic = aFont.IsItalic();
+        const fontIsBold = aFont.IsBold();
+        const fontIsFakeItalic = outlineFont.IsFakeItalic();
+
+        // Apply synthetic italic if:
+        //  - Italic requested AND outline font
+        //  - And there is no REAL italic face.
+        //    (A fake italic flag from fontconfig substitution should NOT block synthetic shear.)
+        const realItalicFace = fontIsItalic && !fontIsFakeItalic;
+
+        if (wantItalic && !realItalicFace) {
+          // Left-multiply a horizontal shear: (c', d') = (c + tilt * a, d + tilt * b).
+          // This produces a right-leaning italic for positive tilt.
+          let tilt = ITALIC_TILT;
+
+          if (wideningFactor < 0)
+            // mirrored text should mirror the shear
+            tilt = -tilt;
+
+          syn_c = adj_c + tilt * syn_a;
+          syn_d = adj_d + tilt * syn_b;
+          appliedTilt = tilt;
+          syntheticItalicApplied = true;
+        }
+
+        if (wantBold && !fontIsBold) {
+          // Slight horizontal widening to simulate bold (~3%)
+          syn_a *= 1.03;
+          syn_b *= 1.03;
+        }
+
+        if (syntheticItalicApplied) {
+          // PDF comment to allow manual inspection in the output stream
+          this.work(
+            `% syn-italic tilt=${shortest(appliedTilt)} a=${shortest(syn_a)} b=${shortest(syn_b)} ` +
+              `c=${shortest(syn_c)} d=${shortest(syn_d)}\n`,
+          );
+        }
+
+        this.work(
+          `q ${f(syn_a)} ${f(syn_b)} ${f(syn_c)} ${f(syn_d)} ${f(adjusted_ctm_e)} ${f(adjusted_ctm_f)} cm BT ` +
+            `0 Tr ${this.encodeDoubleForPlotter(wideningFactor * 100)} Tz `,
+        );
+
+        for (const run of outlineRuns) {
+          let out = `${run.m_subset.ResourceName()} ${this.encodeDoubleForPlotter(heightFactor)} Tf <`;
+
+          for (const glyph of run.m_glyphs)
+            out += `${hex2((glyph.cid >> 8) & 0xff)}${hex2(glyph.cid & 0xff)}`;
+
+          out += '> Tj ';
+          this.work(out);
+        }
+
+        this.work('ET\n');
+        this.work('Q\n');
+      }
+    } else {
+      // Handle stroke fonts
+      if (!this.m_strokeFontManager) return nextPos;
+
+      const runs: PDF_STROKE_FONT_RUN[] = [];
+      this.m_strokeFontManager.EncodeString(aWord, runs, aWidth, aSize.x, aSize.y, aBold, aItalic);
+
+      if (runs.length > 0) {
+        const dev_size = this.userToDeviceSizeV(aSize);
+        const fontSize = dev_size.y;
+
+        let adj_c = ctm_c;
+        let adj_d = ctm_d;
+
+        if (aItalic) {
+          let tilt = -ITALIC_TILT;
+
+          if (wideningFactor < 0) tilt = -tilt;
+
+          adj_c -= ctm_a * tilt;
+          adj_d -= ctm_b * tilt;
+        }
+
+        // Cancel m_PDFStrokeFontXOffset / m_PDFStrokeFontYOffset baked into Type3 charprocs.
+        // Horizontal/vertical anchors are already GAL-aligned in PDF_PLOTTER::Text().
+        // X offset is stored in aspect-scaled glyph X units, so cancel with device width.
+        // When Tz mirrors (wideningFactor < 0), glyph X is flipped, so cancel the other way.
+        const xOffsetEm = ADVANCED_CFG.GetCfg().m_PDFStrokeFontXOffset;
+        const yOffsetEm = ADVANCED_CFG.GetCfg().m_PDFStrokeFontYOffset;
+        const xCancelDev = xOffsetEm * dev_size.x;
+        const yCancelDev = yOffsetEm * dev_size.y;
+        const xSign = wideningFactor < 0 ? -1.0 : 1.0;
+
+        const adj_ctm_e = ctm_e - yCancelDev * adj_c - xSign * xCancelDev * ctm_a;
+        const adj_ctm_f = ctm_f - yCancelDev * adj_d - xSign * xCancelDev * ctm_b;
+
+        // Aspect ratio is baked into the Type3 glyph charprocs; Tz only mirrors when needed.
+        const tzFactor = wideningFactor < 0 ? -100.0 : 100.0;
+
+        this.work(
+          `q ${f(ctm_a)} ${f(ctm_b)} ${f(adj_c)} ${f(adj_d)} ${f(adj_ctm_e)} ${f(adj_ctm_f)} cm BT ` +
+            `0 Tr ${this.encodeDoubleForPlotter(tzFactor)} Tz `,
+        );
+
+        for (const run of runs) {
+          this.work(
+            `${run.m_subset.ResourceName()} ${this.encodeDoubleForPlotter(fontSize)} Tf ` +
+              `${encodeByteString(run.m_bytes)} Tj `,
+          );
+        }
+
+        this.work('ET\n');
+        this.work('Q\n');
+      }
+    }
+
+    return nextPos;
+  }
+
+  /** `renderMarkupNode`: a markup subtree, word by word; returns the cursor after it. */
+  private renderMarkupNode(
+    aNode: NODE | null,
+    aPosition: Vec2,
+    aBaseSize: Vec2,
+    aOrient: EDA_ANGLE,
+    aTextMirrored: boolean,
+    aWidth: number,
+    aBaseBold: boolean,
+    aBaseItalic: boolean,
+    aFont: FONT,
+    aFontMetrics: METRICS,
+    aV_justify: GR_TEXT_V_ALIGN_T,
+    aTextStyle: TEXT_STYLE_FLAGS,
+    aOverbars: OVERBAR_INFO[],
+  ): Vec2 {
+    let nextPosition = aPosition;
+
+    if (!aNode) return nextPosition;
+
+    let currentStyle = aTextStyle;
+    let currentSize = aBaseSize;
+    let drawOverbar = false;
+
+    // Handle markup node types
+    if (!aNode.is_root()) {
+      if (aNode.isSubscript()) {
+        currentStyle |= TEXT_STYLE.SUBSCRIPT;
+        // Subscript: smaller size and lower position
+        currentSize = { x: Math.trunc(aBaseSize.x * 0.5), y: Math.trunc(aBaseSize.y * 0.6) };
+      } else if (aNode.isSuperscript()) {
+        currentStyle |= TEXT_STYLE.SUPERSCRIPT;
+        // Superscript: smaller size and higher position
+        currentSize = { x: Math.trunc(aBaseSize.x * 0.5), y: Math.trunc(aBaseSize.y * 0.6) };
+      }
+
+      if (aNode.isOverbar()) {
+        drawOverbar = true;
+        // Overbar doesn't change font size, just adds decoration
+      }
+
+      // Render content of this node if it has text
+      if (aNode.has_content()) {
+        const nodeText = aNode.asWxString();
+
+        // Process text content (simplified version of the main text processing)
+        for (const word of wxTokenizeRetDelims(nodeText, ' ')) {
+          nextPosition = this.renderWord(
+            word,
+            nextPosition,
+            currentSize,
+            aOrient,
+            aTextMirrored,
+            aWidth,
+            aBaseBold || (currentStyle & TEXT_STYLE.BOLD) !== 0,
+            aBaseItalic || (currentStyle & TEXT_STYLE.ITALIC) !== 0,
+            aFont,
+            aFontMetrics,
+            aV_justify,
+            currentStyle,
+          );
+        }
+      }
+    }
+
+    // Process child nodes recursively
+    for (const child of aNode.children) {
+      const startPos = nextPosition;
+
+      nextPosition = this.renderMarkupNode(
+        child,
+        nextPosition,
+        currentSize,
+        aOrient,
+        aTextMirrored,
+        aWidth,
+        aBaseBold,
+        aBaseItalic,
+        aFont,
+        aFontMetrics,
+        aV_justify,
+        currentStyle,
+        aOverbars,
+      );
+
+      // Store overbar info for later rendering
+      if (drawOverbar) {
+        aOverbars.push({
+          startPos,
+          endPos: nextPosition,
+          fontSize: currentSize,
+          isOutline: aFont.IsOutline(),
+          vAlign: aV_justify,
+        });
+      }
+    }
+
+    return nextPosition;
+  }
+
+  /** `drawOverbars`: each accumulated overbar as a stroked line. */
+  private drawOverbars(
+    aOverbars: readonly OVERBAR_INFO[],
+    aOrient: EDA_ANGLE,
+    aFontMetrics: METRICS,
+  ): void {
+    for (const overbar of aOverbars) {
+      // Baseline direction (vector from start to end). If zero length, derive from orientation.
+      const dir = {
+        x: overbar.endPos.x - overbar.startPos.x,
+        y: overbar.endPos.y - overbar.startPos.y,
+      };
+
+      let len = Math.hypot(dir.x, dir.y);
+
+      if (len <= 1e-6) {
+        // Fallback: derive direction from orientation angle
+        const ang = aOrient.AsRadians();
+        dir.x = Math.cos(ang);
+        dir.y = Math.sin(ang);
+        len = 1.0;
+      }
+
+      dir.x /= len;
+      dir.y /= len;
+
+      // Perpendicular (rotate dir 90° CCW). Upward in text space so overbar sits above baseline.
+      const nrm = { x: -dir.y, y: dir.x };
+
+      // Base vertical offset distance in device units (baseline -> default overbar position)
+      let barOffset = aFontMetrics.GetOverbarVerticalPosition(overbar.fontSize.y);
+
+      // Adjust further to match screen drawing.  This is somewhat disturbing, but I can't figure
+      // out why it's needed.
+      if (overbar.isOutline) barOffset += overbar.fontSize.y * 0.16;
+      else barOffset += overbar.fontSize.y * 0.32;
+
+      // Mirror the text vertical alignment adjustments used for baseline shifting.
+      let alignMult = 1.0;
+
+      switch (overbar.vAlign) {
+        case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER:
+          alignMult = overbar.isOutline ? 2.0 : 1.0;
+          break;
+        case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP:
+          alignMult = overbar.isOutline ? 4.0 : 1.0;
+          break;
+        default:
+          alignMult = 1.0;
+          break; // bottom
+      }
+
+      if (alignMult > 1.0) {
+        // Scale only the baseline component (approx 17% of height, matching earlier baseline_factor)
+        const baseline_factor = 0.17;
+        barOffset += (alignMult - 1.0) * (baseline_factor * overbar.fontSize.y);
+      }
+
+      // Trim to avoid rounded cap extension (assumes stroke caps); proportion of font width.
+      const barTrim = overbar.fontSize.x * 0.1;
+
+      const startPt = { x: overbar.startPos.x, y: overbar.startPos.y };
+      const endPt = { x: overbar.endPos.x, y: overbar.endPos.y };
+
+      // Both endpoints should share identical vertical (normal) offset above baseline.
+      const offVec = { x: -barOffset * nrm.x, y: -barOffset * nrm.y };
+
+      startPt.x += dir.x * barTrim + offVec.x;
+      startPt.y += dir.y * barTrim + offVec.y;
+      endPt.x -= dir.x * barTrim - offVec.x; // subtract trim, then apply same vertical offset
+      endPt.y -= dir.y * barTrim - offVec.y;
+
+      this.MoveTo({ x: KiROUND(startPt.x), y: KiROUND(startPt.y) });
+      this.LineTo({ x: KiROUND(endPt.x), y: KiROUND(endPt.y) });
+      this.PenFinish();
+    }
   }
 
   /** `PDF_PLOTTER::PlotText`: a mirrored run is a negative width into Text. */

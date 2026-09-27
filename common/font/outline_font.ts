@@ -558,6 +558,34 @@ export class OUTLINE_FONT extends FONT {
     return this.m_fontFileName;
   }
 
+  /** `GetEmbeddingPermission`: the OS/2 `fsType` licence bits. */
+  GetEmbeddingPermission(): EMBEDDING_PERMISSION {
+    const fsType = this.m_font?.face.fsType;
+
+    // If this table isn't present, we can't assume anything
+    if (fsType === undefined) return EMBEDDING_PERMISSION.RESTRICTED;
+
+    // We don't support bitmap fonts, so this disables embedding
+    if (fsType & 0x0200) return EMBEDDING_PERMISSION.RESTRICTED; // FT_FSTYPE_BITMAP_EMBEDDING_ONLY
+
+    // Per the OpenType spec, only bits 0-3 of fsType define the embedding license.
+    // Bits 8-9 (no-subsetting, bitmap-only) are independent modifiers and must be
+    // masked off before checking the embedding permission level.
+    const embeddingBits = fsType & 0x000f;
+
+    // This allows the font to be exported from KiCad
+    if (embeddingBits === 0x0000) return EMBEDDING_PERMISSION.INSTALLABLE;
+
+    // This allows us to use the font in KiCad but not export
+    if (embeddingBits & 0x0008) return EMBEDDING_PERMISSION.EDITABLE;
+
+    // This is not actually supported by KiCad ATM(2024)
+    if (embeddingBits & 0x0004) return EMBEDDING_PERMISSION.PRINT_PREVIEW_ONLY;
+
+    // Anything else that is not explicitly enabled we treat as restricted.
+    return EMBEDDING_PERMISSION.RESTRICTED;
+  }
+
   /** The face-level layout this class draws through. */
   GetFace(): OutlineFont | null {
     return this.m_font;

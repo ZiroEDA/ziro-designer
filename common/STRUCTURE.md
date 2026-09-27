@@ -534,12 +534,12 @@ goes through `GERBER_PLOTTER` (09-27).
 |---|---|
 | `plotter.cpp` + `include/plotters/plotter.h` | `plotter.ts`: `PLOTTER` whole (polyArc, BezierCurve, Marker, Thick*, the SHAPE_LINE_CHAIN PlotPoly is `PlotPolyLineChain`, the three-point Arc is `ArcThroughPoints`) |
 | `PS_plotter.cpp` + `plotters_pslike.h` | `PS_plotter.ts`: `PSLIKE_PLOTTER`, `PS_PLOTTER` |
-| `PDF_plotter.cpp` | `PDF_plotter.ts`: `PDF_PLOTTER`; `Text` throws past its zero-size guard |
+| `PDF_plotter.cpp` | `PDF_plotter.ts`: `PDF_PLOTTER`, text included; object-for-object against kicad-cli (`qa/data/pcbnew/plot/pdf_text`) but for the Info dictionary |
 | `SVG_plotter.cpp` | `SVG_plotter.ts`: `SVG_PLOTTER` |
 | `DXF_plotter.cpp` + `plotter_dxf.h` | `DXF_plotter.ts`: `DXF_PLOTTER` |
 | `GERBER_plotter.cpp` + `plotter_gerber.h`, `gbr_plotter_apertures.h`, `gbr_plotter_aperture_macros.h` | `GERBER_plotter.ts`: `GERBER_PLOTTER`, `APERTURE`, `APER_MACRO_FREEPOLY(_LIST)` and the `%AM` texts, whole. pcbnew's Gerber goes through it (`pcb_plotter.ts` -> `plot_board_layers.ts` -> `plot_brditems_plotter.ts`) and matches kicad-cli byte for byte (`qa/data/pcbnew/plot/gerber_oracle`) but for our name and the clock. The polygon overloads are `GetOrCreateApertureCorners` / `selectApertureCorners` / `plotArcShape` / `PlotGerberRegionLineChain` |
 | `common_plot_functions.cpp` | **missing**: `GetDefaultPlotExtension`, `PlotDrawingSheet` (eeschema draws the sheet through the renderer instead) |
-| `pdf_stroke_font.cpp`, `pdf_outline_font.cpp` (+ `.h`) | **missing**: PDF text |
+| `pdf_stroke_font.cpp`, `pdf_outline_font.cpp` (+ `.h`) | `pdf_stroke_font.ts`, `pdf_outline_font.ts`. The outline font's FreeType/HarfBuzz questions go to `OutlineFace` (bbox, fsType, unscaled advance, shaped clusters, the file bytes); HarfBuzz's full GSUB/GPOS is pair kerning there. `std::map`'s font-pointer order is first-sight order. The outline path is pinned by formula (`pdf_outline_font.test.ts`), not by kicad-cli: pcbnew never reaches it without embedded fonts |
 | — | `fmt.ts` is ours: the `{fmt}` conversions every backend prints through |
 
 Divergences: no `FILE*` (`bytes()` / `text()`); the font is a

@@ -31,11 +31,11 @@
  *    SHAPE_LINE_CHAIN `PlotPoly` is `PlotPolyLineChain` and the EDA_SHAPE
  *    `ThickArc` is `ThickArcShape`. The centre/angle forms keep the upstream
  *    name.
- * 3. **The font is still handed in.** `Text` / `PlotText` take a
- *    {@link PLOTTER_FONT} that yields the glyph strokes, where upstream draws
- *    through `KIFONT::FONT::Draw` on a CALLBACK_GAL and falls back to
- *    `FONT::GetFont( m_renderSettings->GetDefaultFont() )`. Called without one,
- *    they throw rather than substitute a font.
+ * 3. **The font is handed in wrapped.** `Text` / `PlotText` take a
+ *    {@link PLOTTER_FONT}; {@link plotterFont} wraps a real `KIFONT::FONT` and
+ *    its METRICS and draws through a CALLBACK_GAL exactly as upstream does.
+ *    Called without one, the stroking base throws rather than substitute a
+ *    font (PDF_PLOTTER falls back to the stroke font, as upstream).
  */
 
 import type { Color4d } from '../gal/color4d.js';
@@ -215,6 +215,13 @@ export interface PLOTTER_TEXT_ATTRIBUTES {
  * that has only `Draw` plots strokes and nothing else.
  */
 export interface PLOTTER_FONT {
+  /**
+   * The `KIFONT::FONT` and `METRICS` themselves, when there is one: PDF_PLOTTER
+   * writes text as PDF fonts and needs the glyphs, not just the strokes.
+   */
+  readonly font?: FONT;
+  readonly metrics?: METRICS;
+
   Draw(
     aText: string,
     aPos: Vec2,
@@ -263,6 +270,8 @@ export function plotterFont(aFont: FONT, aFontMetrics: METRICS): PLOTTER_FONT {
   };
 
   return {
+    font: aFont,
+    metrics: aFontMetrics,
     Draw(aText, aPos, aAttributes) {
       const strokes: [Vec2, Vec2][] = [];
 

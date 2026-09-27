@@ -60,6 +60,15 @@ export interface ShapedGlyph {
   readonly xAdvance: number;
   /** `y_advance`; zero for horizontal scripts. */
   readonly yAdvance: number;
+  /**
+   * `hb_glyph_info_t::cluster`: the UTF-8 byte offset in the shaped run of
+   * the character(s) this glyph came from. The PDF outline font maps each
+   * glyph back to its text through it.
+   */
+  readonly cluster?: number;
+  /** `x_offset` / `y_offset`, in font units; zero without mark positioning. */
+  readonly xOffset?: number;
+  readonly yOffset?: number;
 }
 
 /**
@@ -89,6 +98,16 @@ export interface OutlineFace {
    * Sans run is exactly that much narrower than the unrounded arithmetic.
    */
   readonly integerPpem: boolean;
+  /** `face->bbox` (head xMin/yMin/xMax/yMax), font units. */
+  readonly bbox?: { xMin: number; yMin: number; xMax: number; yMax: number };
+  /** `FT_FACE_FLAG_FIXED_WIDTH` (post.isFixedPitch). */
+  readonly isFixedPitch?: boolean;
+  /** OS/2 `fsType`; undefined when the face has no OS/2 table. */
+  readonly fsType?: number;
+  /** The font file itself, as the PDF plotter embeds it (`FontFileData`). */
+  readonly fontData?: Uint8Array;
+  /** `FT_Load_Glyph( FT_LOAD_NO_SCALE )`'s `advance.x`, in font units. */
+  advance?(glyphId: number): number;
   /** `FT_Get_Char_Index`: 0 when the face has no glyph for the codepoint. */
   glyphIndex(codepoint: number): number;
   /** `hb_shape` over a run: one entry per glyph, in order. */
@@ -114,10 +133,18 @@ export class OpenTypeFace implements OutlineFace {
   readonly isBold: boolean;
   readonly isItalic: boolean;
   readonly integerPpem: boolean;
+  readonly bbox: { xMin: number; yMin: number; xMax: number; yMax: number };
+  readonly isFixedPitch: boolean;
+  readonly fsType: number | undefined;
+  readonly fontData: Uint8Array | undefined;
   private readonly outlines = new Map<number, readonly OutlineCommand[]>();
   private readonly orientations = new Map<number, OutlineOrientation>();
 
-  constructor(private readonly font: Font) {
+  constructor(
+    private readonly font: Font,
+    aFontData?: Uint8Array,
+  ) {
+    this.fontData = aFontData;
     const family = (font.names as { fontFamily?: Record<string, string> }).fontFamily ?? {};
     this.familyName = family.en ?? Object.values(family)[0] ?? '';
     this.unitsPerEm = font.unitsPerEm;
@@ -137,6 +164,21 @@ export class OpenTypeFace implements OutlineFace {
     this.isItalic = (fsSelection & 0x01) !== 0 || (macStyle & 0x02) !== 0;
     // The TrueType driver's rule; the CFF driver has no such rounding.
     this.integerPpem = !tables.cff && ((tables.head?.flags ?? 0) & 8) !== 0;
+    const head = font.tables.head as
+      | { xMin?: number; yMin?: number; xMax?: number; yMax?: number }
+      | undefined;
+    this.bbox = {
+      xMin: head?.xMin ?? 0,
+      yMin: head?.yMin ?? 0,
+      xMax: head?.xMax ?? 0,
+      yMax: head?.yMax ?? 0,
+    };
+    this.isFixedPitch = ((font.tables.post as { isFixedPitch?: number })?.isFixedPitch ?? 0) !== 0;
+    this.fsType = (font.tables.os2 as { fsType?: number } | undefined)?.fsType;
+  }
+
+  advance(glyphId: number): number {
+    return this.font.glyphs.get(glyphId).advanceWidth ?? 0;
   }
 
   glyphIndex(codepoint: number): number {
@@ -159,6 +201,7 @@ export class OpenTypeFace implements OutlineFace {
     const out: ShapedGlyph[] = [];
     const tables = this.kerningTables(text);
     let prev: Glyph | null = null;
+    let cluster = 0;
     for (const ch of text) {
       const id = this.glyphIndex(ch.codePointAt(0)!);
       const glyph = this.font.glyphs.get(id);
@@ -171,7 +214,8 @@ export class OpenTypeFace implements OutlineFace {
           out[out.length - 1] = { ...left, xAdvance: left.xAdvance + k };
         }
       }
-      out.push({ id, xAdvance, yAdvance: 0 });
+      out.push({ id, xAdvance, yAdvance: 0, cluster, xOffset: 0, yOffset: 0 });
+      cluster += new TextEncoder().encode(ch).length;
       prev = glyph;
     }
     return out;
@@ -284,5 +328,5 @@ function scriptTag(text: string): string {
 
 /** `FT_New_Face` from bytes: TrueType (.ttf) and OpenType (.otf), as upstream. */
 export function parseOutlineFace(bytes: ArrayBuffer): OpenTypeFace {
-  return new OpenTypeFace(parseOpenType(bytes));
+  return new OpenTypeFace(parseOpenType(bytes), new Uint8Array(bytes));
 }
