@@ -83,6 +83,33 @@ describe('NETLIST::FormatCvpcbNetlist', () => {
     );
   });
 
+  it('appends the first KIID to the timestamp unless CTL_OMIT_FP_UUID', () => {
+    const one = new COMPONENT('L:F', 'R3', 'v', '/', ['only']);
+    const root = new COMPONENT('L:F', 'R4', 'v', '/', []);
+    const text = (c: COMPONENT, ctl: number) => {
+      const sf = new STRING_FORMATTER();
+      c.Format(sf, 0, ctl);
+      return sf.GetString().split('\n')[4];
+    };
+    expect(text(one, 0)).toBe('  (timestamp "/only")');
+    expect(text(one, 0x8 /* CTL_OMIT_FP_UUID */)).toBe('  (timestamp "")');
+    expect(text(root, 0)).toBe('  (timestamp "")');
+  });
+
+  it("counts the nest indent into the wrap length, as Print's return value does", () => {
+    // Each pin_net is 16 + 21 = 37 characters. With "  (nets " counted as 8,
+    // two of them reach 82 and the third wraps; counting only "(nets " (6)
+    // would reach 80, which is not past 80, and keep it on the line.
+    const c = new COMPONENT('L:F', 'U2', 'v', '/', []);
+    for (let i = 0; i < 3; ++i)
+      c.AddNet(String(i), `N${i}_23456789012345678901`.slice(0, 21), '', '');
+    const sf = new STRING_FORMATTER();
+    c.Format(sf, 0, 0x1 /* CTL_OMIT_EXTRA */);
+    const lines = sf.GetString().split('\n');
+    expect(lines[1]!.length).toBe(8 + 37 + 37);
+    expect(lines[2]!.startsWith('    (pin_net "2"')).toBe(true);
+  });
+
   it('round-trips through the schematic side of the mail', () => {
     const netlist = new NETLIST();
     netlist.AddComponent(new COMPONENT('A:B', 'R1', '', '/', []));
