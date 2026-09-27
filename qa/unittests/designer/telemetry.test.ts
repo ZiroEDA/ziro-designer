@@ -3,7 +3,7 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Crash-report scrubbing and the opt-out boundary
- * (designer/src/telemetry/{scrub,reporter}.ts).
+ * (designer/src/telemetry/{scrub,sentry_backend}.ts, over common/app_monitor.ts).
  *
  * A board is intellectual property, so these tests pin down both halves of the
  * bargain: that identifying data is stripped before anything is sent, and that
@@ -16,13 +16,19 @@ import {
   scrubUrl,
   type ScrubbableEvent,
 } from '@ziroeda/designer/src/telemetry/scrub.js';
-import {
-  prepareEvent,
-  reportingEnabled,
-  setReportingEnabled,
-} from '@ziroeda/designer/src/telemetry/reporter.js';
+import { SENTRY, SetSentryBackend } from '@ziroeda/common/app_monitor.js';
+import { prepareEvent, sentryBackend } from '@ziroeda/designer/src/telemetry/sentry_backend.js';
 
-afterEach(() => setReportingEnabled(true));
+const sentry = (): SENTRY => {
+  SetSentryBackend(sentryBackend);
+  return SENTRY.Instance();
+};
+
+afterEach(() => {
+  sentry().SetSentryOptIn(true);
+  SetSentryBackend(null);
+  SENTRY.ResetInstance();
+});
 
 describe('scrubText', () => {
   it('redacts project file names but keeps the extension', () => {
@@ -154,7 +160,8 @@ describe('scrubEvent', () => {
 
 describe('opt-out enforcement', () => {
   it('is on by default', () => {
-    expect(reportingEnabled()).toBe(true);
+    // Upstream starts opted out and asks; ours starts on (the scrubbing notes).
+    expect(sentryBackend.OptInExists()).toBe(true);
   });
 
   it('scrubs and forwards while enabled', () => {
@@ -163,14 +170,16 @@ describe('opt-out enforcement', () => {
   });
 
   it('drops every event once switched off, including already-queued ones', () => {
-    setReportingEnabled(false);
-    expect(reportingEnabled()).toBe(false);
+    sentry().SetSentryOptIn(false);
+    expect(sentryBackend.OptInExists()).toBe(false);
+    expect(SENTRY.Instance().IsOptedIn()).toBe(false);
     expect(prepareEvent({ message: 'boom' })).toBeNull();
   });
 
-  it('resumes when switched back on', () => {
-    setReportingEnabled(false);
-    setReportingEnabled(true);
+  it('forwards again once switched back on', () => {
+    sentry().SetSentryOptIn(false);
+    sentry().SetSentryOptIn(true);
+    expect(SENTRY.Instance().IsOptedIn()).toBe(true);
     expect(prepareEvent({ message: 'boom' })).not.toBeNull();
   });
 

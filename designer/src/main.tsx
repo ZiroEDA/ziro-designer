@@ -17,8 +17,9 @@ import { ErrorBoundary } from './ui/ErrorBoundary.js';
 import { StorageBanner } from './ui/StorageBanner.js';
 import { TooltipLayer } from '@ziroeda/common/widgets/tooltip.js';
 import { HotkeyListHost } from './ui/hotkey_list_host.js';
-import { initTelemetry } from './telemetry/reporter.js';
-import { sentrySink } from './telemetry/sentrySink.js';
+import { SENTRY, SetSentryBackend, SetSentryBuildInfo } from '@ziroeda/common/app_monitor.js';
+import { GetBuildVersion, GetMajorMinorVersion } from '@ziroeda/common/build_version.js';
+import { SENTRY_RELEASE, sentryBackend } from './telemetry/sentry_backend.js';
 import { installGlobalErrorHandlers } from './telemetry/global_handlers.js';
 import { installOverlayScrollbars } from '@ziroeda/common/widgets/overlay_scrollbars.js';
 import { installDialogSizeHints } from '@ziroeda/common/dialog_shim.js';
@@ -33,10 +34,16 @@ import { authEnabled } from './auth/supabaseClient.js';
 import { setCloudBackend } from './cloud/cloudStore.js';
 import { supabaseBackend } from './cloud/supabaseBackend.js';
 
-// Before rendering, so a crash during the first paint is still reported. No-ops
-// when VITE_SENTRY_DSN is unset or the user has opted out, the same
-// env-gated-degrades-to-offline shape as auth and cloud sync.
-initTelemetry(sentrySink);
+// `APP_MONITOR::SENTRY::Instance()->Init()`, as PGM_BASE::InitPgm starts it:
+// before rendering, so a crash during the first paint is still reported. It
+// does nothing when VITE_SENTRY_DSN is unset or the user has opted out.
+SetSentryBackend(sentryBackend);
+SetSentryBuildInfo({
+  commitHash: SENTRY_RELEASE,
+  majorMinor: GetMajorMinorVersion(),
+  version: GetBuildVersion(),
+});
+SENTRY.Instance().Init();
 // The error boundary only sees render and commit. Nearly everything here is a
 // pointer handler, a key handler or an await — none of which reach a boundary,
 // all of which were going to a console nobody reads.

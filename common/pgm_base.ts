@@ -9,6 +9,8 @@
  * null, which the readers already handle.
  */
 
+import { SENTRY } from './app_monitor.js';
+import { IO_ERROR } from './exceptions.js';
 import type { MOUSE_DRAG_ACTION } from './mouse_drag_action.js';
 import { PROJECT, PROJECT_VAR_NAME } from './project.js';
 import { PROJECT_FILE, PROJECT_FILE_EXTENSION } from './project/project_file.js';
@@ -397,9 +399,57 @@ export function GetColorSettings(aName: string): COLOR_SETTINGS {
   return Pgm().GetSettingsManager().GetColorSettings(aName);
 }
 
+/**
+ * `PGM_BASE::HandleException( aPtr, aUnhandled )` (pgm_base.cpp:833-866): log
+ * it, and report it when it escaped. A module function, not only the method,
+ * because the browser's global handlers can fire before `Pgm()` exists.
+ */
+export function HandleException(aError: unknown, aUnhandled: boolean): void {
+  if (aError instanceof IO_ERROR) {
+    console.error(aError.What());
+
+    // Log this IO_ERROR escaped our usual uses (bad)
+    if (aUnhandled) SENTRY.Instance().LogException(aError.What(), aUnhandled, aError);
+  } else if (aError instanceof Error) {
+    SENTRY.Instance().LogException(aError.message, aUnhandled, aError);
+
+    console.error(`Unhandled exception class: ${aError.name}  what: ${aError.message}`);
+  } else {
+    // We really shouldn't have these but just in case...
+    console.error('Unhandled exception of unknown type');
+
+    if (aUnhandled)
+      SENTRY.Instance().LogException('Unhandled exception of unknown type', aUnhandled, aError);
+  }
+}
+
+/** `PGM_BASE::HandleAssert` (pgm_base.cpp:869-894). */
+export function HandleAssert(
+  aFile: string,
+  aLine: number,
+  aFunc: string,
+  aCond: string,
+  aMsg: string,
+): void {
+  const assertStr =
+    aMsg !== ''
+      ? `Assertion failed at ${aFile}:${aLine} in ${aFunc}: ${aCond} - ${aMsg}`
+      : `Assertion failed at ${aFile}:${aLine} in ${aFunc}: ${aCond}`;
+
+  SENTRY.Instance().LogAssert({ file: aFile, line: aLine, func: aFunc, cond: aCond }, assertStr);
+}
+
 export class PGM_BASE {
   private m_settings: COMMON_SETTINGS_LIKE | null;
   private readonly m_settings_manager = new SETTINGS_MANAGER();
+
+  HandleException(aError: unknown, aUnhandled: boolean): void {
+    HandleException(aError, aUnhandled);
+  }
+
+  HandleAssert(aFile: string, aLine: number, aFunc: string, aCond: string, aMsg: string): void {
+    HandleAssert(aFile, aLine, aFunc, aCond, aMsg);
+  }
 
   constructor(aCommonSettings: COMMON_SETTINGS_LIKE | null = null) {
     this.m_settings = aCommonSettings;

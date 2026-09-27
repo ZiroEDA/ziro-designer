@@ -118,9 +118,9 @@ the code it ports:
 
 ## Root — 131 KiCad units
 
-Tabled 09-26, recounted 09-27. Of KiCad's 131 `common/*.cpp`: **60 here
-under KiCad's name**, **19 here or elsewhere in the tree under another name**
-(18 done; `app_monitor` still ours), **7 to port** (the feature exists in the
+Tabled 09-26, recounted 09-27. Of KiCad's 131 `common/*.cpp`: **61 here
+under KiCad's name**, **18 here or elsewhere in the tree under another name**
+(each a rename, a move or a split, all done), **7 to port** (the feature exists in the
 app, the unit does not), **16 waiting on their feature**, **27 n/a**, and
 **2 partly here** (`paths`, `kiway`).
 
@@ -132,7 +132,7 @@ KiCad has an `include/` beside `common/`; we have none. A header-only
 `string_any_map`, `units_provider`, `zoom_defines`), and a unit split
 across `include/<x>.h` + `common/<y>.cpp` takes the `.cpp` name.
 
-**Here, KiCad's name (60):** advanced_config array_options
+**Here, KiCad's name (61):** advanced_config app_monitor array_options
 background_jobs_monitor base_screen bitmap_base bitmap_store build_version
 board_printout callback_gal commit common confirm draw_panel_gal dsnlexer
 eda_base_frame eda_draw_frame eda_group eda_item eda_pattern_match eda_shape
@@ -145,7 +145,7 @@ reporter richio string_utils stroke_params template_fieldnames thread_pool
 title_block trace_helpers undo_redo_container validators
 wildcards_and_files_ext.
 
-**Here under another name — rename, move or split (19):**
+**Here under another name — rename, move or split (18):**
 
 | KiCad unit | ours now |
 |---|---|
@@ -163,7 +163,6 @@ wildcards_and_files_ext.
 | `filename_resolver` | done 09-26: `FILENAME_RESOLVER`, the class, over `wxFileExists` / `wxDirExists` (`wx/filefn.ts`, a mount table: the open project at `/<projectName>`, the hosted 3D library at `${KICAD10_3DMODEL_DIR}` = `/usr/share/kicad/3dmodels`, `/tmp` a RAM disk for `GetTemporaryFileName`). The web-only rescues (basename match, `.3dshapes/` suffix) are gone: KiCad does not do them. Open: the 3D view passes no embedded-files stack (the plain board view carries none) and no footprint library path |
 | `footprint_filter`, `footprint_info` | done 09-27: `FOOTPRINT_INFO`, `FOOTPRINT_LIST`, `FOOTPRINT_FILTER` (and `EDA_PATTERN_MATCH_WILDCARD_ANCHORED` in `eda_pattern_match.ts`); pcbnew's `FOOTPRINT_LIST_IMPL` builds the list from the hosted index (`pcbnew/footprint_info_impl.ts`) and its `filterFootprints` answers the symbol chooser (`pcbnew/pcbnew.ts`). `designer/src/widgets/footprint_list.ts` keeps only the hosted I/O |
 | `lib_tree_model`, `lib_tree_model_adapter` | done 09-27: moved from `designer/src/widgets/` (`LIB_TREE_ITEM`, include/lib_tree_item.h, stays folded into eeschema's symbol projection `lib_tree_item.ts` for now) |
-| `app_monitor` | `designer/src/telemetry/reporter.ts` (Sentry, as KiCad's) |
 
 **Found by `kicad-cli sch export netlist` against ours (09-26), all fixed the
 same day:** one-pin nets are `unconnected-(…)`; the root sheet is named from
@@ -331,3 +330,14 @@ pl_editor is the only caller - KiCad prints the other editors through GAL.
 hands each frame (`EDA_BASE_FRAME::SetKiway`) for the calls frames make
 into KIWAY: OnKiCadExit, Player, the project manager, and another kiface's
 dialogs. `designer/src/App.tsx` implements it over the views.
+
+`app_monitor` (09-27): `APP_MONITOR` - `SENTRY` (opt-in, the id, LogException,
+LogAssert with its cache), breadcrumbs, `TRANSACTION` - over a
+`SENTRY_BACKEND` the program installs (`designer/src/telemetry/sentry_backend.ts`:
+the browser SDK, the opt-in as `privacy.crash_reports`, the id in
+localStorage, every event scrubbed). `PGM_BASE::HandleException` /
+`HandleAssert` came with it; the browser's global handlers and the error
+boundary report through them. Opting in takes effect at the next start, as
+upstream's does. Ours starts opted in where upstream starts opted out and
+asks; the scrubbing notes say why. No transactions are traced (upstream
+samples 5%).

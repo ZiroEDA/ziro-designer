@@ -3,7 +3,8 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { Component, type ErrorInfo, type JSX, type ReactNode } from 'react';
 import { downloadRecoveryZip, getRecoverySnapshot } from '../home/recovery.js';
-import { captureError, reportingActive } from '../telemetry/reporter.js';
+import { SENTRY } from '@ziroeda/common/app_monitor.js';
+import { HandleException } from '@ziroeda/common/pgm_base.js';
 import './errorBoundary.css';
 
 interface Props {
@@ -41,7 +42,7 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error('[ziro] unhandled error', error, info.componentStack);
     // The component stack is not attached: it can embed props, and so project
     // data. The exception's own stack is what identifies the bug anyway.
-    captureError(error, { boundary: 'root' });
+    HandleException(error, true);
   }
 
   private onSave = (): void => {
@@ -101,7 +102,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </>
           )}
 
-          {reportingActive() && (
+          {SENTRY.Instance().IsOptedIn() && (
             <p className="ze-crash-note">
               An anonymous crash report was sent so we can fix this. It contains the error below and
               no project data. You can turn reports off in Preferences → Common → Privacy.

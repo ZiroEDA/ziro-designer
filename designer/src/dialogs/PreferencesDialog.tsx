@@ -32,8 +32,7 @@ import {
   type PrefsPanelModule,
 } from './prefs/types.js';
 import type { HotkeyOverrides } from '../editors/schematic/hotkey_bindings.js';
-import { setReportingEnabled } from '../telemetry/reporter.js';
-import { sentrySink } from '../telemetry/sentrySink.js';
+import { SENTRY } from '@ziroeda/common/app_monitor.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 /**
@@ -378,10 +377,10 @@ export function PreferencesDialog({
     settings.setUserColors(userColors);
     settings.setUserThemes(userThemes);
     settings.setHotkeys(hotkeys);
-    // Routed through the reporter rather than written directly: switching this
-    // off has to tear the transport down now, not merely record a preference.
+    // `SENTRY::SetSentryOptIn`: switching this off closes the reporter now;
+    // switching it on takes effect at the next start, as upstream's does.
     if (privacy.crash_reports !== settings.privacy.crash_reports)
-      setReportingEnabled(privacy.crash_reports, sentrySink);
+      SENTRY.Instance().SetSentryOptIn(privacy.crash_reports);
     onClose();
   };
 
