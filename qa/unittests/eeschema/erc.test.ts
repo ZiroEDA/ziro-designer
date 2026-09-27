@@ -6,6 +6,7 @@
  * no-connect flags, and label checks, against KiCad's documented behaviour
  * (erc.cpp, erc_settings.cpp, connection_graph.cpp).
  */
+import { wxSetEnv, wxUnsetEnv } from '@ziroeda/common/wx/utils.js';
 import { describe, it, expect } from 'vitest';
 import { parse, serialize } from '@ziroeda/sexpr/index.js';
 import { readSchematic, writeSchematic } from '@ziroeda/eeschema';
@@ -675,6 +676,30 @@ describe('runErc, schematic-wide tests', () => {
         }),
       ),
     ).toContain('unresolved_variable');
+    // An environment variable is substituted before `unresolved` looks.
+    wxSetEnv('ERC_TEST_ENV', 'e');
+    try {
+      const { doc: d4, libById: l4 } = sch(`${label('${ERC_TEST_ENV}', 10, 10, 'l4')}`);
+      expect(
+        codes(runErc(d4, l4, defaultErcSettings(), { resolveTextVar: () => false })),
+      ).not.toContain('unresolved_variable');
+    } finally {
+      wxUnsetEnv('ERC_TEST_ENV');
+    }
+    // A value that is itself a variable resolves in ResolveTextVars' passes.
+    const { doc: d5, libById: l5 } = sch(`${label('${OUTER}', 10, 10, 'l5')}`);
+    expect(
+      codes(
+        runErc(d5, l5, defaultErcSettings(), {
+          resolveTextVar: (t) => {
+            const v = ({ OUTER: '${INNER}x', INNER: 'y' } as Record<string, string>)[t.value];
+            if (v === undefined) return false;
+            t.value = v;
+            return true;
+          },
+        }),
+      ),
+    ).not.toContain('unresolved_variable');
     for (const text of ['${KNOWN}']) {
       const { doc: d2, libById: l2 } = sch(`${label(text, 10, 10, 'l2')}`);
       const ok = runErc(d2, l2, defaultErcSettings(), {

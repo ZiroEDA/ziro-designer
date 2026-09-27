@@ -128,6 +128,22 @@ describe('fields table data model', () => {
     expect(model.getValue(0, mpn)).toBe('CCC');
   });
 
+  it('resolves a token only the document answers, through the symbol resolver', () => {
+    // SCH_SYMBOL::ResolveTextVar falls through to SCHEMATIC::ResolveTextVar
+    // for a token that is none of its own.
+    const doc = load(`${sym('R1', '${TITLE}', 'R_0603', 'a')}`);
+    const docs = new Map([['root.kicad_sch', doc]]);
+    const refs = buildFieldsReferences(docs, 'root.kicad_sch');
+    const model = new FieldsDataModel(refs, () => (t) => {
+      if (t.value !== 'TITLE') return false;
+      t.value = 'Amp';
+      return true;
+    });
+    loadFieldNames(model, refs);
+    model.rebuildRows();
+    expect(model.getExportValue(0, model.getFieldNameCol('Value'))).toBe('Amp');
+  });
+
   it('expands and collapses a group into its members', () => {
     const doc = load(`
       ${sym('R1', '1k', 'R_0603', 'a')}
