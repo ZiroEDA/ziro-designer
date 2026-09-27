@@ -120,6 +120,7 @@ function makeHarness(): Harness {
     showExchangeFootprintsDialog: () => {},
     findDialogRects: (): BOX2D[] => [],
     setViewCenter: (_aPos: Vec2) => {},
+    setHighlightNets: () => {},
   });
 
   h.frame = frame;

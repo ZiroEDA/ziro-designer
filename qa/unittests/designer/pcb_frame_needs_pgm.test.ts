@@ -35,6 +35,7 @@ const makeFrame = () =>
     showExchangeFootprintsDialog: () => {},
     findDialogRects: () => [],
     setViewCenter: () => {},
+    setHighlightNets: () => {},
   });
 
 describe('PCB_EDIT_FRAME needs the PGM_BASE before its first SetBoard', () => {

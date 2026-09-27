@@ -558,9 +558,6 @@ export function App(): JSX.Element {
   // Fetch the editors in the background while the launcher is on screen, so
   // opening one is not the first time its code is asked for.
   useEffect(() => prefetchEditors(), []);
-  // The schematic's highlighted net, cross-probed to the PCB editor (KiCad
-  // sends "$NET: <name>" between the frames; here both are mounted together).
-  const [crossProbeNet, setCrossProbeNet] = useState<string | null>(null);
   // Tools > Update PCB from Schematic (F8) from the schematic editor: switch to
   // the PCB frame and bump this, which is what runs the dialog there. KiCad's
   // SCH_EDIT_FRAME::doUpdatePcb hands off to pcbnew the same way.
@@ -583,8 +580,6 @@ export function App(): JSX.Element {
     parts: readonly string[];
     nonce: number;
   } | null>(null);
-  // ...and the board's highlighted net, arriving at the schematic as `$NET:`.
-  const [schCrossProbeNet, setSchCrossProbeNet] = useState<string | null>(null);
   const [schMounted, setSchMounted] = useState(false);
   const [pcbMounted, setPcbMounted] = useState(false);
   const [symMounted, setSymMounted] = useState(false);
@@ -1776,9 +1771,8 @@ export function App(): JSX.Element {
                 projectName={projectName}
                 readOnlyNotice={demoNotice}
                 readOnly={!!demoProject}
-                onCrossProbeNet={setCrossProbeNet}
+                kiway={kiway}
                 syncSelectionFromPcb={schSyncSelection}
-                crossProbeNetFromPcb={schCrossProbeNet}
                 onSelectOnPcb={selectOnPcb}
               />
             </Suspense>
@@ -1813,10 +1807,9 @@ export function App(): JSX.Element {
                 rootPro={activeBase || undefined}
                 onPersistFiles={persistFilesNow}
                 onOutputFile={onOutputFile}
-                crossProbeNet={crossProbeNet}
+                kiway={kiway}
                 syncSelection={pcbSyncSelection}
                 onSyncSelectionToSch={setSchSyncSelection}
-                onCrossProbeNetToSch={setSchCrossProbeNet}
                 updateFromSchematic={updatePcbNonce}
                 readOnlyNotice={demoNotice}
                 readOnly={!!demoProject}

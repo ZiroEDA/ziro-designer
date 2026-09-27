@@ -30,6 +30,9 @@ import { PAD } from '@ziroeda/pcbnew/pad.js';
 import { PCB_VIA, VIATYPE } from '@ziroeda/pcbnew/pcb_track.js';
 import type { PROGRESS_REPORTER_LIKE } from '@ziroeda/pcbnew/connectivity/connectivity_algo.js';
 import { PCB_BASE_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_base_edit_frame.js';
+import { STRTOK, strncpyLine } from '@ziroeda/common/libc/string.js';
+import type { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
+import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from '@ziroeda/pcbnew/pcb_base_frame.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 import { BOARD_COMMIT, SKIP_SET_DIRTY, SKIP_UNDO } from '@ziroeda/pcbnew/board_commit.js';
@@ -70,6 +73,8 @@ export function pcbnewSettingsOf(json: PcbnewSettings): PCBNEW_SETTINGS {
   s.m_Display.m_RatsnestThickness = d.ratsnest_thickness;
   s.m_ShowPageLimits = d.show_page_borders;
   s.m_ColorTheme = json.appearance.color_theme;
+
+  s.m_CrossProbing = { ...json.cross_probing };
 
   s.m_DRCDialog.report_all_track_errors = json.DRC.report_all_track_errors;
   s.m_DRCDialog.crossprobe = json.DRC.crossprobe;
@@ -124,6 +129,12 @@ export interface PCB_EDIT_FRAME_HOOKS {
   setViewCenter(aPos: Vec2, aObscuringScreenRects: readonly BOX2D[]): void;
   /** `wxMessageBox( _( "Incomplete undo/redo operation: some items not found" ) )`. */
   onUndoRedoIncomplete(): void;
+  /**
+   * `pcb->SetHighLightNet()` + `renderSettings->SetHighlight()`: the editor
+   * still owns the highlighted-net set, so it performs the change. Empty is
+   * no highlight.
+   */
+  setHighlightNets(aNetCodes: ReadonlySet<number>): void;
 }
 
 export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
@@ -168,6 +179,94 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   /** The rules file's text, which `DRC_ENGINE::InitEngine` reads here in place of the path. */
   GetDesignRulesText(): string | null {
     return this.m_designRulesText;
+  }
+
+  /** `PCB_EDIT_FRAME::KiwayMailIn` (pcbnew/cross-probing.cpp:533). */
+  override KiwayMailIn(mail: KIWAY_MAIL_EVENT): void {
+    const payload = mail.GetPayload();
+
+    switch (mail.Command()) {
+      case MAIL_T.MAIL_CROSS_PROBE:
+        this.ExecuteRemoteCommand(payload);
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  /**
+   * `PCB_EDIT_FRAME::ExecuteRemoteCommand` (pcbnew/cross-probing.cpp:83): a
+   * cross-probe packet from the schematic. The `$CLEAR`, `$NET:` and `$NETS:`
+   * arms are here; `$CONFIG`, `$CUSTOM_RULES`, `$DRC` and the item probes
+   * (`$PART:`, `$PAD:`, `$REF:`, `$VAL:`, `$SHEET:`) are not yet.
+   */
+  ExecuteRemoteCommand(cmdline: string): void {
+    const pcb = this.GetBoard();
+
+    if (!pcb) return;
+
+    const crossProbingSettings = this.hooks.settings().m_CrossProbing;
+
+    const tok = new STRTOK(strncpyLine(cmdline));
+    const idcmd = tok.Next(' \n\r');
+    const text = tok.Next('"\n\r');
+
+    if (idcmd === null) return;
+
+    let netcode = -1;
+    let multiHighlight = false;
+    const highlighted = new Set<number>();
+
+    if (idcmd === '$CLEAR') {
+      this.hooks.setHighlightNets(new Set());
+      return;
+    } else if (idcmd === '$NET:') {
+      if (!crossProbingSettings.auto_highlight) return;
+
+      const netinfo = pcb.FindNet(text ?? '');
+
+      if (netinfo) netcode = netinfo.GetNetCode();
+
+      // fall through to highlighting section
+    } else if (idcmd === '$NETS:') {
+      if (!crossProbingSettings.auto_highlight) return;
+
+      // wxStringTokenizer( …, ",", wxTOKEN_STRTOK ): empty tokens are skipped.
+      for (const token of (text ?? '').split(',')) {
+        if (token === '') continue;
+
+        const netinfo = pcb.FindNet(token.trim());
+
+        if (netinfo) {
+          highlighted.add(netinfo.GetNetCode());
+          multiHighlight = true;
+        }
+      }
+
+      netcode = -1;
+
+      // fall through to highlighting section
+    } else {
+      return;
+    }
+
+    if (netcode > 0 || multiHighlight) {
+      if (!multiHighlight) highlighted.add(netcode);
+
+      this.hooks.setHighlightNets(highlighted);
+    } else {
+      // renderSettings->SetHighlight( false )
+      this.hooks.setHighlightNets(new Set());
+    }
+  }
+
+  /** `PCB_EDIT_FRAME::SendCrossProbeNetName` (pcbnew/cross-probing.cpp:405). */
+  SendCrossProbeNetName(aNetName: string): void {
+    // The command is a keyword followed by a quoted string.
+    const packet = `$NET: "${aNetName}"`;
+
+    this.Kiway()?.ExpressMail(FRAME_T.FRAME_SCH, MAIL_T.MAIL_CROSS_PROBE, { value: packet }, this);
   }
 
   CreateDrcDialog(aTool: DRC_TOOL, aParent: unknown): DIALOG_DRC_LIKE {

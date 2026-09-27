@@ -20,6 +20,9 @@ import {
 } from '@ziroeda/common';
 import { resolveActiveSheet, readSheetRef, writeSheetRefText } from '@ziroeda/common';
 import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import type { KIWAY } from '@ziroeda/common/kiway.js';
+import { SCH_EDIT_FRAME } from './sch_edit_frame.js';
 import { parse } from '@ziroeda/sexpr';
 import { useProjectSync } from '../../sync/ProjectSyncProvider.js';
 import {
@@ -805,9 +808,8 @@ export function SchematicEditor({
   extraSheetFiles,
   projectName,
   rootPro,
-  onCrossProbeNet,
+  kiway,
   syncSelectionFromPcb,
-  crossProbeNetFromPcb,
   onSelectOnPcb,
 }: {
   onExitToHome: () => void;
@@ -913,10 +915,12 @@ export function SchematicEditor({
    *  holds several projects, this pins which one's root sheet to load, so the
    *  editor matches the launcher tree instead of guessing the first/last pro. */
   rootPro?: string;
-  /** The net the highlight tools are showing, cross-probed to the PCB editor
-   *  (SCH_EDIT_FRAME::SendCrossProbeConnection / SendCrossProbeClearHighlight);
-   *  null when the highlight is cleared. */
-  onCrossProbeNet?: (net: string | null) => void;
+  /**
+   * The program's KIWAY: the editor's SCH_EDIT_FRAME registers as FRAME_SCH's
+   * player on it, so the board's cross-probe mail reaches `KiwayMailIn`, and
+   * sends its own through it.
+   */
+  kiway?: KIWAY;
   /**
    * The board's selection arriving here — `SCH_EDIT_FRAME::KiwayMailIn`'s
    * `MAIL_SELECTION` (`eeschema/sch_edit_frame.cpp`), which parses the
@@ -924,8 +928,6 @@ export function SchematicEditor({
    * The nonce makes the same packet arriving twice arrive twice.
    */
   syncSelectionFromPcb?: { parts: readonly string[]; nonce: number } | null;
-  /** The board's highlighted net, arriving as KiCad's `$NET: "<name>"`. */
-  crossProbeNetFromPcb?: string | null;
   /** Select on PCB (SCH_ACTIONS::selectOnPCB): the `$SELECT:` parts of the
    *  current selection, for the board frame to resolve and select. */
   onSelectOnPcb?: (parts: readonly string[]) => void;
@@ -1874,6 +1876,27 @@ export function SchematicEditor({
    * touching the highlight, so a refused probe leaves whatever is lit alone.
    */
   const [probedNet, setProbedNet] = useState<string | null>(null);
+  // The frame's KIWAY half: `$NET:` from the board lands in `setProbedNet`,
+  // `auto_highlight` having been checked by ExecuteRemoteCommand.
+  const schFrameRef = useRef<SCH_EDIT_FRAME | null>(null);
+  if (!schFrameRef.current) {
+    schFrameRef.current = new SCH_EDIT_FRAME({
+      crossProbingSettings: () => settings.eeschema.cross_probing,
+      highlightNet: (aNetName) => setProbedNet(aNetName === '' ? null : aNetName),
+    });
+  }
+  // `KIWAY::Player()` stores the frame it created as FRAME_SCH's player, and
+  // the frame's close tells KIWAY it is gone (`PlayerDidClose`).
+  useEffect(() => {
+    const frame = schFrameRef.current!;
+    if (!kiway) return;
+    frame.SetKiway(kiway);
+    kiway.SetPlayerFrame(FRAME_T.FRAME_SCH, frame);
+    return () => {
+      kiway.PlayerDidClose(FRAME_T.FRAME_SCH, frame);
+      frame.SetKiway(null);
+    };
+  }, [kiway]);
   const { highlightWires, highlightName } = useMemo(() => {
     const items = new Set<string>();
     let name: string | null = null;
@@ -1926,8 +1949,10 @@ export function SchematicEditor({
     return highlightName;
   }, [highlightedChain, highlightName, committedChains]);
   useEffect(() => {
-    onCrossProbeNet?.(crossProbeNet);
-  }, [crossProbeNet, onCrossProbeNet]);
+    const frame = schFrameRef.current!;
+    if (crossProbeNet === null) frame.SendCrossProbeClearHighlight();
+    else frame.SendCrossProbeNetName(crossProbeNet);
+  }, [crossProbeNet]);
 
   /**
    * ...and the board's selection arriving HERE — `SCH_SELECTION_TOOL::
@@ -1943,12 +1968,6 @@ export function SchematicEditor({
    *   flash_selection the newly probed items blink
    *   auto_highlight  belongs to the `$NET:` probe, not to this one
    */
-  useEffect(() => {
-    if (crossProbeNetFromPcb === undefined) return;
-    // The refusal is the whole of what `auto_highlight` does here.
-    if (!settings.eeschema.cross_probing.auto_highlight) return;
-    setProbedNet(crossProbeNetFromPcb);
-  }, [crossProbeNetFromPcb]);
 
   const probeNonceRef = useRef<number | null>(null);
   useEffect(() => {

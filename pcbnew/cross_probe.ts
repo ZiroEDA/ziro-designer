@@ -283,27 +283,6 @@ export function crossProbeSelection(
 }
 
 /**
- * The net code a `$NET: <name>` probe should highlight: null to refuse the probe
- * outright, 0 for "no such net" (which clears the highlight, upstream's
- * `SetHighlight( false )` when `netcode <= 0`).
- *
- * `if( !crossProbingSettings.auto_highlight ) return;` (pcbnew/cross-probing.cpp:
- * 140) returns *before* the highlight is touched, which is the difference
- * between the two zero-ish answers: refusing leaves whatever was highlighted
- * alone, while an unknown net clears it.
- */
-export function crossProbeHighlightNet(
-  cfg: CROSS_PROBING_SETTINGS,
-  board: Board,
-  netName: string | null,
-): number | null {
-  if (!cfg.auto_highlight) return null;
-  if (!netName) return 0;
-  for (const [code, name] of board.nets) if (name === netName) return code;
-  return 0;
-}
-
-/**
  * The `$SELECT:` parts a board selection sends TO the schematic —
  * `PCB_EDIT_FRAME::collectItemsForSyncParts` (`pcbnew/cross-probing.cpp:
  * 305-345`), the mirror of eeschema's `syncSelectionParts`.

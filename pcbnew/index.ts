@@ -165,7 +165,6 @@ export {
   crossProbeViewChange,
   crossProbeSelection,
   boardSyncSelectionParts,
-  crossProbeHighlightNet,
   crossProbeFlashSelection,
   CROSS_PROBE_FLASH_INTERVAL_MS,
   CROSS_PROBE_FLASH_LAST_PHASE,

@@ -11,6 +11,8 @@
  */
 
 import type { OutStr } from '@ziroeda/common/eda_item.js';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import type { KIWAY } from '@ziroeda/common/kiway.js';
 import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
 import { jsonFileWildcard, reportFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import { DialogAssignNetclass } from '@ziroeda/common/dialogs/dialog_assign_netclass.js';
@@ -245,7 +247,6 @@ import {
   type ImagePlaceState,
   crossProbeSelection,
   boardSyncSelectionParts,
-  crossProbeHighlightNet,
   crossProbeViewChange,
   crossProbeFlashSelection,
   CROSS_PROBE_FLASH_INTERVAL_MS,
@@ -1142,12 +1143,11 @@ export function PcbEditor({
   rootPro,
   onPersistFiles,
   onOutputFile,
-  crossProbeNet,
+  kiway,
   syncSelection,
   onSyncSelectionToSch,
   viewer3DOpen,
   onViewer3DOpenChange,
-  onCrossProbeNetToSch,
   updateFromSchematic,
   readOnlyNotice,
   readOnly,
@@ -1212,10 +1212,12 @@ export function PcbEditor({
   /** Write a generated output file (plot / drill) into the project's file
    *  manager; the path is relative to the project folder. */
   onOutputFile?: (path: string, bytes: Uint8Array, mime: string) => void;
-  /** Net highlighted in the schematic editor, cross-probed here (KiCad's
-   *  SCH_EDIT_FRAME::SendCrossProbeConnection -> pcbnew's "$NET:" handler);
-   *  null clears the highlight (SendCrossProbeClearHighlight). */
-  crossProbeNet?: string | null;
+  /**
+   * The program's KIWAY: the frame registers as FRAME_PCB_EDITOR's player on
+   * it, so the schematic's cross-probe mail reaches `KiwayMailIn`, and sends
+   * its own through it.
+   */
+  kiway?: KIWAY;
   /** Select on PCB from the schematic: the `$SELECT:` parts to resolve against
    *  this board (pcbnew's own handler, `FindItemsFromSyncSelection` then
    *  `syncSelection`). The nonce makes a repeat of the same request arrive. */
@@ -1234,12 +1236,6 @@ export function PcbEditor({
    */
   viewer3DOpen?: boolean;
   onViewer3DOpenChange?: (open: boolean) => void;
-  /**
-   * This board's highlighted net, as KiCad's `$NET: "<name>"` —
-   * `PCB_EDIT_FRAME::SendCrossProbeNetName` (`pcbnew/cross-probing.cpp:405`).
-   * null is `SendCrossProbeClearHighlight`.
-   */
-  onCrossProbeNetToSch?: (net: string | null) => void;
   /** A strip to show above the canvas, e.g. "this demo is not being saved". */
   readOnlyNotice?: JSX.Element | null;
   /**
@@ -1527,25 +1523,6 @@ export function PcbEditor({
   // The previously-shown highlight set, restored by the toggle button/Alt+`
   // (BOARD_INSPECTION_TOOL::m_lastHighlighted).
   const lastHighlightRef = useRef<ReadonlySet<number>>(new Set());
-  // Cross-probe from the schematic's net highlight: the net name arrives here
-  // and is resolved against the board's net table, exactly as pcbnew's
-  // "$NET: <name>" express-mail handler does.
-  useEffect(() => {
-    if (crossProbeNet === undefined) return;
-    const brd = boardRef.current;
-    if (!brd) return;
-    // null is "$NET:" refused because auto_highlight is off
-    // (pcbnew/cross-probing.cpp:140): the probe returns before touching the
-    // highlight, so whatever is lit stays lit. 0 is "no such net", which does
-    // clear it.
-    const code = crossProbeHighlightNet(settings.pcbnew.cross_probing, brd, crossProbeNet);
-    if (code === null) return;
-    setHighlightNets((prev) => {
-      if (code <= 0) return prev.size === 0 ? prev : new Set();
-      if (prev.size === 1 && prev.has(code)) return prev;
-      return new Set([code]);
-    });
-  }, [crossProbeNet]);
   const [activeTool, setActiveTool] = useState('selectSetRect');
   // Selected board items (PCB_SELECTION_TOOL's selection), by `${kind}:${index}` id.
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
@@ -1559,12 +1536,11 @@ export function PcbEditor({
    * the schematic side already does when a CHAIN is highlighted.
    */
   useEffect(() => {
-    if (!onCrossProbeNetToSch) return;
     const brd = boardRef.current;
     if (!brd) return;
     const first = [...highlightNets][0];
-    onCrossProbeNetToSch(first === undefined ? null : (brd.nets.get(first) ?? null));
-  }, [highlightNets, onCrossProbeNetToSch]);
+    frameRef.current?.SendCrossProbeNetName(first === undefined ? '' : (brd.nets.get(first) ?? ''));
+  }, [highlightNets]);
 
   /**
    * Send this selection to the schematic — `PCB_EDIT_FRAME::SendSelectItemsToSch`,
@@ -2010,6 +1986,14 @@ export function PcbEditor({
       },
       findDialogRects: () => drcWindowRef.current!.findDialogRects(),
       setViewCenter: (aPos, aRects) => drcWindowRef.current!.setViewCenter(aPos, aRects),
+      // The `$NET:` probe's highlight, kept as the same set when it is unchanged
+      // so the send-back below does not fire for it.
+      setHighlightNets: (aNetCodes) =>
+        setHighlightNets((prev) =>
+          prev.size === aNetCodes.size && [...aNetCodes].every((c) => prev.has(c))
+            ? prev
+            : aNetCodes,
+        ),
     });
     // `PCB_EDIT_FRAME::PCB_EDIT_FRAME`: `SetBoard( new BOARD() )` (:250) --
     // the frame never has no board, and the empty one's drawing sheet is on
@@ -2018,6 +2002,18 @@ export function PcbEditor({
     // SetBoard, seconds later.
     if (emptyBoard.k) frameRef.current.SetBoard(emptyBoard.k, false);
   }
+  // `KIWAY::Player()` stores the frame it created as FRAME_PCB_EDITOR's player,
+  // and the frame's close tells KIWAY it is gone (`PlayerDidClose`).
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!kiway || !frame) return;
+    frame.SetKiway(kiway);
+    kiway.SetPlayerFrame(FRAME_T.FRAME_PCB_EDITOR, frame);
+    return () => {
+      kiway.PlayerDidClose(FRAME_T.FRAME_PCB_EDITOR, frame);
+      frame.SetKiway(null);
+    };
+  }, [kiway]);
   // The rows the disambiguation menu is pointing at, and their geometry.
   //
   // `doSelectionMenu` answers TA_CHOICE_MENU_UPDATE with
