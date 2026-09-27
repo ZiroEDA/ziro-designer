@@ -27,15 +27,6 @@ describe('DSP-15 — a row click does not end the dialog', () => {
     return DIALOG.slice(at, DIALOG.indexOf('}}', at));
   })();
 
-  it('selects the item', () => {
-    // design_inspector.cpp:344-353 — ClearSelection, AddItemToSel, Refresh,
-    // CopyPrmsFromItemToPanel.
-    expect(rowClick).toContain('onSelect(row.itemIndex)');
-    // …and only for a real DS_DATA_ITEM: m_itemsList[0] is nullptr for the
-    // root "Layout" row and onCellClicked returns early on it (:344-347).
-    expect(rowClick).toContain('row.itemIndex !== null');
-  });
-
   it('does not close (onCellClicked never calls EndModal)', () => {
     expect(rowClick).not.toContain('onClose');
   });
@@ -48,10 +39,6 @@ describe('DSP-16 — a row click selects, it does not re-zoom the view', () => {
     expect(at, 'DesignInspector is not rendered').toBeGreaterThan(-1);
     return EDITOR.slice(at, EDITOR.indexOf('/>', at));
   })();
-
-  it('sets the selection', () => {
-    expect(onSelect).toContain('setSelection(new Set([i]))');
-  });
 
   it('leaves the zoom and the scroll position alone', () => {
     // onCellClicked calls GetCanvas()->Refresh() and nothing else: KiCad stayed

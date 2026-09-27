@@ -2,109 +2,174 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * DSP-18 — what the Design Inspector's grid actually contains, against
- * `DIALOG_INSPECTOR::ReCreateDesignList`
- * (pagelayout_editor/dialogs/design_inspector.cpp:205-315) and its wxFormBuilder
- * base (dialog_design_inspector_base.cpp:26-46).
+ * `DIALOG_INSPECTOR` (pagelayout_editor/dialogs/design_inspector.cpp), as
+ * `PL_EDITOR_FRAME::ShowDesignInspector` builds it over the live model:
  *
- * The audit's table, all seven rows of it:
- *
- *   dialog title         file base name, or `<default drawing sheet>`
- *   row-number gutter    yes (SetRowLabelSize( 40 ))
- *   first column header  `-`
- *   root row Comment     `A3`  (the page TYPE, not a description of the page)
- *   root row Text        `Size: 420.0x297.0mm`
- *   empty Comment cells  blank
- *   type glyphs          colour XPM bitmaps
+ *   ReCreateDesignList (:205-315)  a "Layout" root row with the page type in
+ *       Comment and "Size: %.1fx%.1fmm" in Text, then one row per item: its
+ *       class name, "%d" repeat count, m_Info, and a text's m_TextBase; the
+ *       title is the file's base name or "<default drawing sheet>".
+ *   onCellClicked (:338-354)  selects the row; on an item row, clears the
+ *       editor's selection, selects the item and refills the Properties panel.
+ *       It never ends the dialog and never touches the view.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  CORNER_ANCHOR,
+  DS_DATA_ITEM,
+  DS_DATA_ITEM_POLYGONS,
+  DS_DATA_ITEM_TEXT,
+  DS_ITEM_TYPE,
+} from '@ziroeda/common/drawing_sheet/ds_data_item.js';
+import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
+import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { EDA_UNITS_INT } from '@ziroeda/common/settings/app_settings.js';
+import {
+  DIALOG_INSPECTOR,
+  DS_ICON_IMG,
+  DS_ICON_LINE,
+  DS_ICON_POLY,
+  DS_ICON_RECT,
+  DS_ICON_ROOT,
+  DS_ICON_TEXT,
   DS_INSPECTOR_COLUMNS,
   DS_INSPECTOR_DEFAULT_TITLE,
-  dsInspectorRows,
-  dsInspectorTitle,
 } from '@ziroeda/pagelayout_editor/dialogs/design_inspector.js';
-import { defaultDrawingSheet, type WksItem, type WksText } from '@ziroeda/common';
+import { PL_ACTIONS } from '@ziroeda/pagelayout_editor/tools/pl_actions.js';
+import { PL_SELECTION_TOOL } from '@ziroeda/pagelayout_editor/tools/pl_selection_tool.js';
+import { type Harness, makeHarness, settle } from './pl_editor_fixture.js';
 
-const items = defaultDrawingSheet().items;
+let model: DS_DATA_MODEL;
 
-describe('dsInspectorTitle', () => {
-  it('names the sheet, base name only', () => {
-    expect(dsInspectorTitle('pagelayout_default')).toBe('pagelayout_default');
+beforeEach(() => {
+  SetPgm(new PGM_BASE());
+  model = new DS_DATA_MODEL();
+  DS_DATA_MODEL.SetAltInstance(model);
+});
+
+afterEach(() => {
+  DS_DATA_MODEL.SetAltInstance(null);
+  SetPgm(null);
+});
+
+/** A line (commented), a text, a polygon and a rectangle. */
+function sheet(): Harness {
+  const h = makeHarness(EDA_UNITS_INT.MM);
+  model.ClearList();
+
+  const line = new DS_DATA_ITEM(DS_ITEM_TYPE.DS_SEGMENT);
+  line.SetStart(10, 10, CORNER_ANCHOR.LT_CORNER);
+  line.SetEnd(40, 10, CORNER_ANCHOR.LT_CORNER);
+  line.m_Info = 'rule';
+  line.m_RepeatCount = 3;
+  model.Append(line);
+
+  const text = new DS_DATA_ITEM_TEXT('${TITLE}');
+  text.SetStart(20, 20, CORNER_ANCHOR.LT_CORNER);
+  model.Append(text);
+
+  model.Append(new DS_DATA_ITEM_POLYGONS());
+
+  const rect = new DS_DATA_ITEM(DS_ITEM_TYPE.DS_RECT);
+  rect.SetStart(5, 5, CORNER_ANCHOR.LT_CORNER);
+  rect.SetEnd(8, 8, CORNER_ANCHOR.LT_CORNER);
+  model.Append(rect);
+
+  h.frame.HardRedraw();
+  return h;
+}
+
+async function inspect(h: Harness): Promise<DIALOG_INSPECTOR> {
+  h.mgr.RunAction(PL_ACTIONS.showInspector);
+  await settle();
+  return h.host.inspectors[0]!;
+}
+
+describe('the title', () => {
+  it('falls back to <default drawing sheet> when nothing is loaded', async () => {
+    expect((await inspect(sheet())).GetTitle()).toBe(DS_INSPECTOR_DEFAULT_TITLE);
   });
 
-  it('falls back to <default drawing sheet> when nothing is loaded', () => {
-    // design_inspector.cpp:218-221 — `if( fn.GetName().IsEmpty() )`.
-    expect(dsInspectorTitle('')).toBe(DS_INSPECTOR_DEFAULT_TITLE);
-    expect(dsInspectorTitle('   ')).toBe(DS_INSPECTOR_DEFAULT_TITLE);
+  it('names the sheet by its base name only', async () => {
+    const h = sheet();
+    h.frame.SetCurrentFileName('/Templates/pagelayout_default.kicad_wks');
+    expect((await inspect(h)).GetTitle()).toBe('pagelayout_default');
   });
 });
 
-describe('the column headers', () => {
-  it('are KiCad’s five, the first of which is a dash', () => {
-    // dialog_design_inspector_base.cpp:35-39. Ours left the first one empty.
+describe('the grid', () => {
+  it('has KiCad’s five columns, the first a dash', () => {
     expect(DS_INSPECTOR_COLUMNS).toEqual(['-', 'Type', 'Count', 'Comment', 'Text']);
   });
+
+  it('opens on a Layout row: the page TYPE in Comment, its size in Text', async () => {
+    const root = (await inspect(sheet())).GetRows()[0]!;
+
+    // A3 is 16535 x 11693 mils -> 419989 x 297002 IU -> "%.1f" mm.
+    expect(root).toMatchObject({
+      number: 1,
+      type: 'Layout',
+      count: '-',
+      comment: 'A3',
+      text: 'Size: 420.0x297.0mm',
+      itemIndex: null,
+      icon: DS_ICON_ROOT,
+    });
+  });
+
+  it('lists every item from row 2: class name, count, comment, raw text, type icon', async () => {
+    const rows = (await inspect(sheet())).GetRows().slice(1);
+
+    expect(rows.map((r) => [r.number, r.type, r.count, r.comment, r.text])).toEqual([
+      [2, 'Line', '3', 'rule', ''],
+      [3, 'Text', '1', '', '${TITLE}'],
+      [4, 'Imported Shape', '1', '', ''],
+      [5, 'Rectangle', '1', '', ''],
+    ]);
+    expect(rows.map((r) => r.icon)).toEqual([
+      DS_ICON_LINE,
+      DS_ICON_TEXT,
+      DS_ICON_POLY,
+      DS_ICON_RECT,
+    ]);
+    expect(rows.map((r) => r.icon)).not.toContain(DS_ICON_IMG);
+  });
 });
 
-describe('the root row', () => {
-  const root = dsInspectorRows(items, 'A3', [420, 297])[0];
+describe('onCellClicked', () => {
+  it('selects the item in the editor and loads the Properties panel', async () => {
+    const h = sheet();
+    const dlg = await inspect(h);
 
-  it('is row 1, is called Layout and has no repeat count', () => {
-    expect(root?.number).toBe(1);
-    expect(root?.type).toBe('Layout');
-    expect(root?.count).toBe('-');
+    dlg.onCellClicked(2);
+
+    const selection = h.mgr.GetTool(PL_SELECTION_TOOL)!.GetSelection();
+    expect(selection.GetSize()).toBe(1);
+    expect(selection.Front()).toBe(model.GetItem(1)!.GetDrawItems()[0]);
+    expect(h.frame.GetPropertiesFrame()!.m_staticTextType).toBe('Text');
+    expect(dlg.GetSelectedRow()).toBe(2);
   });
 
-  it('puts the page TYPE in Comment (GetTypeAsString)', () => {
-    // page_info.cpp:153-157 returns the enum name, "A3". Ours put the whole
-    // "A4 297x210mm landscape" description there.
-    expect(root?.comment).toBe('A3');
+  it('on the root row selects the row and nothing in the editor', async () => {
+    const h = sheet();
+    const dlg = await inspect(h);
+    h.mgr.GetTool(PL_SELECTION_TOOL)!.AddItemToSel(model.GetItem(0)!.GetDrawItems()[0]!);
+
+    dlg.onCellClicked(0);
+
+    expect(dlg.GetSelectedRow()).toBe(0);
+    expect(h.mgr.GetTool(PL_SELECTION_TOOL)!.GetSelection().GetSize()).toBe(1);
   });
 
-  it('puts the page SIZE in Text', () => {
-    // wxString::Format( _( "Size: %.1fx%.1fmm" ), … ) — :232-235. Ours left the
-    // cell empty.
-    expect(root?.text).toBe('Size: 420.0x297.0mm');
-  });
+  it('leaves the zoom and the view centre alone', async () => {
+    const h = sheet();
+    const dlg = await inspect(h);
+    const scale = h.view.GetScale();
+    const centre = h.view.GetCenter();
 
-  it('is not a DS_DATA_ITEM, so a click on it selects nothing', () => {
-    // m_itemsList.push_back( nullptr ) — :238.
-    expect(root?.itemIndex).toBeNull();
-  });
-});
+    dlg.onCellClicked(4);
 
-describe('the item rows', () => {
-  const rows = dsInspectorRows(items, 'A4', [297, 210]);
-
-  it('number from 2 and index the sheet from 0', () => {
-    expect(rows).toHaveLength(items.length + 1);
-    expect(rows[1]?.number).toBe(2);
-    expect(rows[1]?.itemIndex).toBe(0);
-    expect(rows[rows.length - 1]?.itemIndex).toBe(items.length - 1);
-  });
-
-  it('leave an empty comment EMPTY', () => {
-    // COL_COMMENT is `item->m_Info` verbatim (:276). Ours drew a grey "-" in
-    // every blank cell, which reads as a value.
-    const blank = rows.find((r) => r.itemIndex !== null && items[r.itemIndex]?.comment === '');
-    expect(blank, 'default sheet has no un-commented item').toBeDefined();
-    expect(blank?.comment).toBe('');
-  });
-
-  it('show a text item’s raw m_TextBase and nothing for the others', () => {
-    const text = rows.find(
-      (r) => r.itemIndex !== null && items[r.itemIndex]?.type === 'text',
-    ) as (typeof rows)[number];
-    expect(text.text).toBe((items[text.itemIndex as number] as WksText).text);
-
-    for (const r of rows.slice(1)) {
-      if (r.itemIndex !== null && items[r.itemIndex]?.type !== 'text') expect(r.text).toBe('');
-    }
-  });
-
-  it('name a polygon "Imported Shape" (DS_DATA_ITEM::GetClassName)', () => {
-    const poly = { ...(items[0] as WksItem), type: 'polygon', repeat: 1 } as WksItem;
-    expect(dsInspectorRows([poly], 'A4', [297, 210])[1]?.type).toBe('Imported Shape');
+    expect(h.view.GetScale()).toBe(scale);
+    expect(h.view.GetCenter()).toEqual(centre);
   });
 });

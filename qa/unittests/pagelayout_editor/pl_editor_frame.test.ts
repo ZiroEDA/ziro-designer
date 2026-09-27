@@ -38,6 +38,7 @@ import {
 import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
 import { EDA_UNITS_INT } from '@ziroeda/common/settings/app_settings.js';
 import { LAYER_DRAWINGSHEET_PAGE1, LAYER_DRAWINGSHEET_PAGEn } from '@ziroeda/common/layer_id.js';
+import { PAGE_INFO } from '@ziroeda/common/page_info.js';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { TA_MOUSE_CLICK, TA_MOUSE_MOTION } from '@ziroeda/common/tool/tool_event.js';
@@ -71,6 +72,25 @@ describe('PL_EDITOR_FRAME at start-up', () => {
     expect(h.frame.GetUndoCommandCount()).toBe(0);
     expect(h.frame.IsContentModified()).toBe(false);
     expect(h.frame.GetTitle()).toBe('[no drawing sheet loaded] — Drawing Sheet Editor');
+  });
+
+  it('opens landscape, with the custom size at 17000 x 11000 mils (pl_editor_settings.cpp:52-58)', () => {
+    const h = makeHarness(EDA_UNITS_INT.MM);
+
+    expect(h.frame.GetPageSettings().IsPortrait()).toBe(false);
+    expect(PAGE_INFO.GetCustomWidthMils()).toBe(17000);
+    expect(PAGE_INFO.GetCustomHeightMils()).toBe(11000);
+    // A3 is 420 mm: the border band's 50 mm marks run to 8 (A4's 297 to 5).
+    expect(Math.floor(h.frame.GetPageSettings().GetWidthMM() / 50)).toBe(8);
+  });
+
+  it('last_was_portrait swaps the page (LoadSettings, pl_editor_frame.cpp:543-548)', () => {
+    const h = makeHarness(EDA_UNITS_INT.MM, 0, (cfg) => {
+      cfg.m_LastWasPortrait = true;
+    });
+
+    expect(h.frame.GetPageSettings().IsPortrait()).toBe(true);
+    expect(h.frame.GetPageSizeIU()).toEqual({ x: 297002, y: 419989 });
   });
 
   it('the page box shows page 1 items or later-page items, never both', () => {
@@ -250,5 +270,47 @@ describe('PL_EDIT_TOOL and PL_EDITOR_CONTROL', () => {
 
     h.mgr.RunAction(PL_ACTIONS.layoutEditMode);
     expect(model.m_EditMode).toBe(true);
+  });
+});
+
+describe('the canvas numbering never follows the page selector', () => {
+  /**
+   * `PL_DRAW_PANEL_GAL::DisplayDrawingSheet` resolves text through a dummy
+   * DS_DRAW_ITEM_LIST (pl_draw_panel_gal.cpp:91-97) that is never given a page
+   * number or a sheet count, so it reads its defaults, "1" of 1
+   * (ds_draw_item.h). The driven pl_editor shows `Id: 1/1` on "Other pages"
+   * too; the selector only swaps the PAGE1 / PAGEn layers.
+   */
+  it('reads 1/1 on "Page 1" and on "Other pages"', () => {
+    const h = makeHarness(EDA_UNITS_INT.MM);
+    model.ClearList();
+    const id = new DS_DATA_ITEM_TEXT('Id: ${#}/${##}');
+    model.Append(id);
+    h.mgr.RunAction(PL_ACTIONS.layoutNormalMode);
+
+    expect(id.m_FullText).toBe('Id: 1/1');
+
+    h.frame.GetPageSelectBox().SetSelection(1);
+    h.frame.OnSelectPage();
+    h.frame.HardRedraw();
+
+    expect(id.m_FullText).toBe('Id: 1/1');
+  });
+});
+
+describe('zoom', () => {
+  it('steps through pl_editor’s ZOOM_LIST (zoom_defines.h:38, app_settings.cpp:580)', () => {
+    const h = makeHarness(EDA_UNITS_INT.MM);
+    const gal = h.frame.GetCanvas()!.GetGAL();
+
+    gal.SetZoomFactor(1.0);
+    h.mgr.RunAction(ACTIONS.zoomInCenter);
+    // x1.3 = 1.3, then the first preset at or past it: 2.2.
+    expect(gal.GetZoomFactor()).toBe(2.2);
+
+    gal.SetZoomFactor(1.0);
+    h.mgr.RunAction(ACTIONS.zoomOutCenter);
+    // 1/1.3 = 0.769, the last preset at or below it: 0.6.
+    expect(gal.GetZoomFactor()).toBe(0.6);
   });
 });

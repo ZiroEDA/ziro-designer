@@ -155,14 +155,6 @@ describe('the frame hands the cursor over as it found it', () => {
    * put `cursor ?? { x: 1, y: 1 }` back at the call site and nothing failed
    * until this was here.
    */
-  it('passes the raw cursor, null included', () => {
-    const call = EDITOR.slice(
-      EDITOR.indexOf('} = plCoordFields('),
-      EDITOR.indexOf('} = plCoordFields(') + 200,
-    );
-    expect(call).toContain('plCoordFields(\n    cursor,\n');
-    expect(call).not.toContain('cursor ??');
-  });
 
   it('states no coordinate template of its own', () => {
     // The `X %.4g  Y %.4g` / `dx %.4g  dy %.4g` pair lives in one place now.

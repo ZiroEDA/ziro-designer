@@ -30,7 +30,6 @@ import {
   DS_ICON_TEXT,
   DS_ICON_POLY,
   DS_ICON_IMG,
-  DS_INSPECTOR_ICON,
   DS_INSPECTOR_BITMAP_SIZE,
   DS_INSPECTOR_ICON_PX,
   DS_INSPECTOR_ICON_OFFSET,
@@ -92,22 +91,6 @@ describe('each icon matches KiCad pixel for pixel', () => {
     expect(DS_ICON_TEXT.color).toBe('#800000');
     expect(DS_ICON_POLY.color).toBe('#008000');
     expect(DS_ICON_IMG.color).toBe('#800000');
-  });
-});
-
-describe('the type-to-icon mapping', () => {
-  it('covers every DS_DATA_ITEM type, one at a time', () => {
-    // ReCreateDesignList's switch, design_inspector.cpp:243-263.
-    expect(DS_INSPECTOR_ICON.line).toBe(DS_ICON_LINE);
-    expect(DS_INSPECTOR_ICON.rect).toBe(DS_ICON_RECT);
-    expect(DS_INSPECTOR_ICON.text).toBe(DS_ICON_TEXT);
-    expect(DS_INSPECTOR_ICON.polygon).toBe(DS_ICON_POLY);
-    expect(DS_INSPECTOR_ICON.bitmap).toBe(DS_ICON_IMG);
-  });
-
-  it('does not map the root icon to an item type', () => {
-    // root_xpm belongs to the pseudo-row (:236), which is not a DS_DATA_ITEM.
-    expect(Object.values(DS_INSPECTOR_ICON)).not.toContain(DS_ICON_ROOT);
   });
 });
 
@@ -173,12 +156,6 @@ describe('the dialog draws them', () => {
     // deleting the render but leaving the import behind still fails.
     expect(PANEL).toContain('<XpmBitmap');
     expect(PANEL).not.toMatch(/<td className="ze-grid-text" \/>/);
-  });
-
-  it('gives the root row root_xpm and an item row its type icon', () => {
-    expect(PANEL).toContain(
-      'row.itemIndex === null ? DS_ICON_ROOT : iconFor(items[row.itemIndex])',
-    );
   });
 
   it('draws square pixels, because a wxBitmap blit does not antialias', () => {

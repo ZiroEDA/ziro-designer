@@ -102,7 +102,6 @@ describe('"KiCad Font" is the stroke font, not an outline family', () => {
  * declarations. What each one is checking against is named on the line.
  */
 describe('DSP-20 — the label text KiCad prints', () => {
-
   it('leaves the first-page choice unlabelled', () => {
     // bSizerButt (properties_frame_base.cpp:38-42) adds m_choicePageOpt with no
     // wxStaticText beside it; the three entries say what it is. Ours labelled

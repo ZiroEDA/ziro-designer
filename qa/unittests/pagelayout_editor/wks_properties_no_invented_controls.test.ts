@@ -128,7 +128,6 @@ describe('the four plain wxTextCtrl fields', () => {
   });
 });
 
-
 describe('tooltips', () => {
   // The seven SetToolTip calls in properties_frame_base.cpp are the whole list:
   // m_bold (:93), m_italic (:98), m_constraintXLabel (:185),

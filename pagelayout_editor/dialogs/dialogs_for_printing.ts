@@ -109,12 +109,6 @@ export interface DsPageNumbering {
 }
 
 /**
- * `DS_DRAW_ITEM_LIST`'s own defaults, which the editor canvas never overrides.
- * Constant on purpose: the `Page 1 / Other pages` selector must not reach it.
- */
-export const DS_CANVAS_PAGE_NUMBERING: DsPageNumbering = { pageName: '1', sheetCount: 1 };
-
-/**
  * `aScreen->GetPageNumber()` / `aScreen->GetPageCount()` for the sheet of paper
  * numbered `aPageNum`.
  */

@@ -13,10 +13,6 @@
  */
 import { describe, expect, it } from 'vitest';
 import { PAPER_CHOICES, PAPER_MILS, PAPER_MM } from '@ziroeda/common';
-import {
-  previewPageMM,
-  defaultPreviewSettings,
-} from '@ziroeda/pagelayout_editor/pl_editor_frame.js';
 import { pageSettingsLabels } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 
 describe('the paper-size combo', () => {
@@ -74,15 +70,6 @@ describe('the paper-size combo', () => {
     expect(Math.round((210 * 1000) / 25.4)).toBe(8268);
     expect(Math.round((148 * 1000) / 25.4)).toBe(5827);
   });
-
-  it('swaps width and height for portrait', () => {
-    const s = { ...defaultPreviewSettings(), paper: 'A3', portrait: true };
-    const land = previewPageMM({ ...s, portrait: false });
-    expect(previewPageMM(s)).toEqual([land[1], land[0]]);
-    // A3 landscape is 16535 x 11693 mils, which is what the swap is swapping.
-    expect(land[0]).toBeCloseTo((16535 * 25.4) / 1000, 9);
-    expect(land[1]).toBeCloseTo((11693 * 25.4) / 1000, 9);
-  });
 });
 
 describe('DSP-24 — the dialog is "Preview Settings" in this frame', () => {
@@ -121,49 +108,5 @@ describe('DSP-24 — the dialog is "Preview Settings" in this frame', () => {
     // branch overwrite it, so no frame ever renders that string.
     for (const frame of ['eeschema', 'pcbnew', 'pl_editor'] as const)
       expect(pageSettingsLabels(frame).titleBlock).not.toBe('Title Block Parameters');
-  });
-});
-
-/**
- * The Drawing Sheet Editor's page defaults are pl_editor's own, not the
- * schematic's.
- *
- *     PARAM<wxString>( "last_paper_size",   &m_LastPaperSize,   "A3" )
- *     PARAM<int>(      "last_custom_width",  &m_LastCustomWidth,  17000 )
- *     PARAM<int>(      "last_custom_height", &m_LastCustomHeight, 11000 )
- *                             pagelayout_editor/pl_editor_settings.cpp:52-56
- *
- * `LoadSettings` feeds `m_LastPaperSize` into `SetPageSettings`
- * (`pl_editor_frame.cpp:543-548`), so this IS what a fresh profile opens on.
- *
- * Ours opened on A4 and it was visible with the two windows side by side: the
- * border's coordinate band repeats every 50 mm, so A3's 420 mm runs 1..8 across
- * the top where A4's 297 runs 1..6. The margin was never wrong — measured off
- * both windows it is 9.93 mm on KiCad's and 9.95 mm on ours, the 10 mm the
- * sheet declares.
- */
-describe('the editor opens on pl_editor’s page, not the schematic’s', () => {
-  it('defaults to A3', () => {
-    expect(defaultPreviewSettings().paper).toBe('A3');
-  });
-
-  it('and A3 is the size that makes the band run to 8', () => {
-    // 420 mm / 50 mm per mark. Derived here rather than transcribed, so the
-    // number and the reason cannot drift apart.
-    const [w] = previewPageMM(defaultPreviewSettings());
-    expect(w).toBeCloseTo(419.989, 3); // 16535 mils, not a round 420
-    expect(Math.floor(w / 50)).toBe(8);
-    // A4 would give 5 full marks — a visibly different band.
-    expect(Math.floor(297 / 50)).toBe(5);
-  });
-
-  it('keeps the custom size at 17000 x 11000 mils', () => {
-    const s = defaultPreviewSettings();
-    expect(s.customWidthMM).toBeCloseTo(17000 * 0.0254, 4);
-    expect(s.customHeightMM).toBeCloseTo(11000 * 0.0254, 4);
-  });
-
-  it('opens landscape', () => {
-    expect(defaultPreviewSettings().portrait).toBe(false);
   });
 });

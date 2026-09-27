@@ -377,8 +377,8 @@ export function DrawingSheetEditor({
 
     const w = window.open('', '_blank', 'width=900,height=700');
     if (!w) {
-      // Not upstream's "An error occurred attempting to print the drawing
-      // sheet.": that reports a printer that refused the job, not a browser
+      // Not upstream's printer-error box (dialogs_for_printing.cpp:241-242):
+      // that reports a printer that refused the job, not a browser
       // that refused a window.
       displayErrorMessage(
         'Print could not open the preview window.\n\n' +
