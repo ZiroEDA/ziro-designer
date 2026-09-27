@@ -53,6 +53,28 @@ const BOARD = `(kicad_pcb (version 20241229) (generator "test")
   (setup)
 )`;
 
+/** A layer's offset cell: the row whose Layer cell names it, column 1 (X) or 2 (Y). */
+function offsetCell(aLayer: string, aAxis: 'X' | 'Y'): HTMLElement {
+  const row = [...document.querySelectorAll('.ze-zone-layer-grid tbody tr')].find(
+    (tr) => tr.querySelector('td[data-col="0"]')?.textContent === aLayer,
+  ) as HTMLElement;
+  return row.querySelector(`td[data-col="${aAxis === 'X' ? 1 : 2}"]`) as HTMLElement;
+}
+
+/** The text a layer's offset cell shows. */
+const offsetText = (aLayer: string, aAxis: 'X' | 'Y'): string =>
+  offsetCell(aLayer, aAxis).textContent ?? '';
+
+/** Type into a layer's offset cell through its editor, as a user would. */
+function editOffset(aLayer: string, aAxis: 'X' | 'Y', aText: string): void {
+  const td = offsetCell(aLayer, aAxis);
+  fireEvent.mouseDown(td, { button: 0 });
+  fireEvent.mouseUp(td);
+  const input = td.querySelector('input') as HTMLInputElement;
+  fireEvent.change(input, { target: { value: aText } });
+  fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+}
+
 describe('the page', () => {
   it('is a caption, a rule and the shared grid', () => {
     render(<Harness layers={copperStackNames(2)} />);
@@ -67,7 +89,9 @@ describe('the page', () => {
     expect([...ZONE_LAYER_GRID_COLUMNS]).toEqual(['Layer', 'Offset X', 'Offset Y']);
     render(<Harness layers={copperStackNames(2)} />);
     expect(
-      [...document.querySelectorAll('.ze-zone-layer-grid th')].map((t) => t.textContent),
+      [...document.querySelectorAll('.ze-zone-layer-grid th:not(.ze-grid-filler)')].map(
+        (t) => t.textContent,
+      ),
     ).toEqual(['Layer', 'Offset X', 'Offset Y']);
   });
 
@@ -83,16 +107,16 @@ describe('the page', () => {
     // `GetValue()` is `hatching_offset.value_or( VECTOR2I() )` and goes through
     // `StringFromValue( …, true )`.
     render(<Harness layers={copperStackNames(2)} />);
-    expect((screen.getByLabelText('F.Cu offset X') as HTMLInputElement).value).toBe('0 mm');
-    expect((screen.getByLabelText('B.Cu offset Y') as HTMLInputElement).value).toBe('0 mm');
+    expect(offsetText('F.Cu', 'X')).toBe('0 mm');
+    expect(offsetText('B.Cu', 'Y')).toBe('0 mm');
   });
 
   it('gives a layer an offset the moment one axis is edited', () => {
     // `SetValue()` assigns the whole VECTOR2I back, so the optional becomes set.
     render(<Harness layers={copperStackNames(2)} />);
-    fireEvent.change(screen.getByLabelText('F.Cu offset X'), { target: { value: '0.5 mm' } });
-    expect((screen.getByLabelText('F.Cu offset X') as HTMLInputElement).value).toBe('0.5 mm');
-    expect((screen.getByLabelText('F.Cu offset Y') as HTMLInputElement).value).toBe('0 mm');
+    editOffset('F.Cu', 'X', '0.5 mm');
+    expect(offsetText('F.Cu', 'X')).toBe('0.5 mm');
+    expect(offsetText('F.Cu', 'Y')).toBe('0 mm');
   });
 
   it('edits one axis without disturbing the other', () => {
@@ -105,11 +129,11 @@ describe('the page', () => {
         initial={{ 'F.Cu': { hatchingOffset: { x: 0, y: -3 } } }}
       />,
     );
-    fireEvent.change(screen.getByLabelText('F.Cu offset X'), { target: { value: '0.5 mm' } });
-    expect((screen.getByLabelText('F.Cu offset Y') as HTMLInputElement).value).toBe('-3 mm');
+    editOffset('F.Cu', 'X', '0.5 mm');
+    expect(offsetText('F.Cu', 'Y')).toBe('-3 mm');
 
-    fireEvent.change(screen.getByLabelText('F.Cu offset Y'), { target: { value: '7 mm' } });
-    expect((screen.getByLabelText('F.Cu offset X') as HTMLInputElement).value).toBe('0.5 mm');
+    editOffset('F.Cu', 'Y', '7 mm');
+    expect(offsetText('F.Cu', 'X')).toBe('0.5 mm');
   });
 });
 
@@ -148,8 +172,8 @@ describe('the grid is the shared one', () => {
         onChange={() => {}}
       />,
     );
-    expect((screen.getByLabelText('F.Cu offset X') as HTMLInputElement).value).toBe('1 mm');
-    expect((screen.getByLabelText('F.Cu offset Y') as HTMLInputElement).value).toBe('-2 mm');
+    expect(offsetText('F.Cu', 'X')).toBe('1 mm');
+    expect(offsetText('F.Cu', 'Y')).toBe('-2 mm');
   });
 
   it('draws each layer’s swatch from LAYER_PRESENTATION', () => {
