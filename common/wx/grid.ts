@@ -920,7 +920,11 @@ class wxGridSelection {
 
     const canonical = aBlock.Canonicalize();
 
-    for (let n = 0; n < this.m_selection.length; n++) {
+    // The parts re-added below go on the end, past `count`: they are not
+    // looked at again (gridsel.cpp's loop bound).
+    let count = this.m_selection.length;
+
+    for (let n = 0; n < count; n++) {
       const selBlock = this.m_selection[n]!;
 
       if (!selBlock.Intersects(canonical)) continue;
@@ -946,6 +950,7 @@ class wxGridSelection {
 
       this.m_selection.splice(n, 1);
       n--;
+      count--;
 
       for (let i = 0; i < 2; ++i) {
         const part = result[i];
@@ -1131,13 +1136,18 @@ export class wxGrid extends wxEvtHandler {
     a.SetReadOnly(false);
     return a;
   })();
-  private m_typeEditors = new Map<string, () => wxGridCellEditor>([
-    [wxGRID_VALUE_STRING, () => new wxGridCellTextEditor()],
-    [wxGRID_VALUE_BOOL, () => new wxGridCellBoolEditor()],
+  /**
+   * `wxGridTypeRegistry`: one editor and one renderer per data type, shared by
+   * every cell of that type - so asking a cell for its editor again mid-edit
+   * (`WX_GRID::CommitPendingChanges` does) gets the editor that holds the edit.
+   */
+  private m_typeEditors = new Map<string, wxGridCellEditor>([
+    [wxGRID_VALUE_STRING, new wxGridCellTextEditor()],
+    [wxGRID_VALUE_BOOL, new wxGridCellBoolEditor()],
   ]);
-  private m_typeRenderers = new Map<string, () => wxGridCellRenderer>([
-    [wxGRID_VALUE_STRING, () => new wxGridCellStringRenderer()],
-    [wxGRID_VALUE_BOOL, () => new wxGridCellBoolRenderer()],
+  private m_typeRenderers = new Map<string, wxGridCellRenderer>([
+    [wxGRID_VALUE_STRING, new wxGridCellStringRenderer()],
+    [wxGRID_VALUE_BOOL, new wxGridCellBoolRenderer()],
   ]);
   /** The editor of the cell being edited, kept for the edit's life. */
   private m_currentEditor: wxGridCellEditor | null = null;
@@ -1386,8 +1396,8 @@ export class wxGrid extends wxEvtHandler {
   /** `RegisterDataType( typeName, renderer, editor )`. */
   RegisterDataType(
     aTypeName: string,
-    aRenderer: () => wxGridCellRenderer,
-    aEditor: () => wxGridCellEditor,
+    aRenderer: wxGridCellRenderer,
+    aEditor: wxGridCellEditor,
   ): void {
     this.m_typeRenderers.set(aTypeName, aRenderer);
     this.m_typeEditors.set(aTypeName, aEditor);
@@ -1400,8 +1410,7 @@ export class wxGrid extends wxEvtHandler {
     if (attr.HasEditor()) return attr.GetEditorPtr()!;
 
     const type = this.m_table?.GetTypeName(aRow, aCol) ?? wxGRID_VALUE_STRING;
-    const make = this.m_typeEditors.get(type) ?? this.m_typeEditors.get(wxGRID_VALUE_STRING)!;
-    return make();
+    return this.m_typeEditors.get(type) ?? this.m_typeEditors.get(wxGRID_VALUE_STRING)!;
   }
 
   /** `GetCellRenderer`: the attribute's, else the one for the cell's type. */
@@ -1411,8 +1420,7 @@ export class wxGrid extends wxEvtHandler {
     if (attr.HasRenderer()) return attr.GetRendererPtr()!;
 
     const type = this.m_table?.GetTypeName(aRow, aCol) ?? wxGRID_VALUE_STRING;
-    const make = this.m_typeRenderers.get(type) ?? this.m_typeRenderers.get(wxGRID_VALUE_STRING)!;
-    return make();
+    return this.m_typeRenderers.get(type) ?? this.m_typeRenderers.get(wxGRID_VALUE_STRING)!;
   }
 
   // ---- the grid cursor -----------------------------------------------------

@@ -138,6 +138,15 @@ describe('wxGrid rows coming and going (Redimension, UpdateRows)', () => {
 
     g.DeleteRows(4, 3);
     expect(g.GetSelectedRows()).toEqual([]);
+    expect(g.GetSelectionBlockTopLeft()).toEqual([]);
+  });
+
+  it('lists selected rows sorted, whatever order they were added in', () => {
+    const g = new wxGrid();
+    g.CreateGrid(6, 2, wxGridSelectionModes.wxGridSelectRows);
+    g.SelectRow(4);
+    g.SelectRow(1, true);
+    expect(g.GetSelectedRows()).toEqual([1, 4]);
   });
 });
 
@@ -220,6 +229,18 @@ describe('the cell editor (DoEnableCellEditControl / DoSaveEditControlValue)', (
     g.Connect(wxEVT_GRID_EDITOR_SHOWN, (e: wxGridEvent) => e.Veto());
     g.EnableCellEditControl();
     expect(g.IsCellEditControlShown()).toBe(false);
+  });
+});
+
+describe('the type registry', () => {
+  it('shares one editor per type, so the edit is there when a cell is asked again', () => {
+    const g = new wxGrid();
+    g.CreateGrid(2, 2);
+    expect(g.GetCellEditor(0, 0)).toBe(g.GetCellEditor(1, 1));
+
+    g.EnableCellEditControl();
+    g.GetCurrentEditor()!.m_value = 'typed';
+    expect(g.GetCellEditor(0, 0).m_value).toBe('typed');
   });
 });
 
