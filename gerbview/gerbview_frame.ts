@@ -54,9 +54,9 @@ import { ZOOM_TOOL } from '@ziroeda/common/tool/zoom_tool.js';
 import type { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
 import { ORIGIN_TRANSFORMS } from '@ziroeda/common/origin_transforms.js';
 import { VIEW_UPDATE_FLAGS, type VIEW_ITEM } from '@ziroeda/common/view/view_item.js';
-import { wxChoice } from '@ziroeda/common/wx/choice.js';
+import type { wxChoice } from '@ziroeda/common/wx/choice.js';
 import { messageTextFromValue } from '@ziroeda/common/eda_units.js';
-import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { Clear_DrawLayers, Erase_Current_DrawLayer } from './clear_gbr_drawlayers.js';
 import type { ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
@@ -85,6 +85,8 @@ import {
 } from './gerber_file_image_list.js';
 import { wxDirExists, wxFileExists } from '@ziroeda/common/wx/filefn.js';
 import { DIALOG_DRAW_LAYERS_SETTINGS } from './dialogs/dialog_draw_layers_settings.js';
+import type { DIALOG_MAP_GERBER_LAYERS_TO_PCB } from './dialogs/dialog_map_gerber_layers_to_pcb.js';
+import { SELECT_LAYER_DIALOG } from './dialogs/dialog_select_one_pcb_layer.js';
 import type { DIALOG_PRINT_GERBVIEW } from './dialogs/dialog_print_gerbview.js';
 import { gerbIUScale } from './gerbview.js';
 import type { GERBVIEW_DRAW_PANEL_GAL } from './gerbview_draw_panel_gal.js';
@@ -101,9 +103,9 @@ import { GERBVIEW_ACTIONS } from './tools/gerbview_actions.js';
 import { GERBVIEW_CONTROL } from './tools/gerbview_control.js';
 import { GERBVIEW_INSPECTION_TOOL } from './tools/gerbview_inspection_tool.js';
 import { GERBVIEW_SELECTION_TOOL } from './tools/gerbview_selection_tool.js';
-import { DCODE_SELECTION_BOX } from './widgets/dcode_selection_box.js';
+import type { DCODE_SELECTION_BOX } from './widgets/dcode_selection_box.js';
 import { GERBER_LAYER_WIDGET } from './widgets/gerbview_layer_widget.js';
-import { GBR_LAYER_BOX_SELECTOR } from './widgets/gbr_layer_box_selector.js';
+import type { GBR_LAYER_BOX_SELECTOR } from './widgets/gbr_layer_box_selector.js';
 
 export const GERBVIEW_FRAME_NAME = 'GerberFrame';
 
@@ -139,10 +141,17 @@ export interface GERBVIEW_FRAME_HOST {
     aFilters: readonly ChooserFilter[],
   ): Promise<string | null>;
   /**
-   * `DIALOG_MAP_GERBER_LAYERS_TO_PCB`: the layer look-up table and copper
-   * count on OK, null on Cancel.
+   * `DIALOG_MAP_GERBER_LAYERS_TO_PCB::ShowModal()`: the dialog, already through
+   * `initDialog`; true for wxID_OK, which its TransferDataFromWindow allowed.
    */
-  MapGerberLayersToPcb(): Promise<{ lookUp: number[]; copperLayersCount: number } | null>;
+  MapGerberLayersToPcbDialog(aDlg: DIALOG_MAP_GERBER_LAYERS_TO_PCB): Promise<boolean>;
+  /** `SELECT_LAYER_DIALOG::ShowModal()`: true for wxID_OK (TransferDataFromWindow ran). */
+  SelectLayerDialog(aDlg: SELECT_LAYER_DIALOG): Promise<boolean>;
+  /**
+   * `KICAD_MESSAGE_DIALOG( parent, aMessage, aCaption, wxOK | wxCANCEL | wxOK_DEFAULT )`:
+   * true for wxID_OK.
+   */
+  OkCancelMessageDialog(aMessage: string, aCaption: string): Promise<boolean>;
   /** Write a text file the user chose to save. */
   SaveTextFile(aPath: string, aText: string): void;
   /** `wxSingleChoiceDialog( this, message, caption, choices ).ShowModal()`, the result unread. */
@@ -164,7 +173,9 @@ const NO_HOST: GERBVIEW_FRAME_HOST = {
   MessageBox: () => Promise.resolve(),
   UpdateFileHistory: () => {},
   SaveFileDialog: () => Promise.resolve(null),
-  MapGerberLayersToPcb: () => Promise.resolve(null),
+  MapGerberLayersToPcbDialog: () => Promise.resolve(false),
+  SelectLayerDialog: () => Promise.resolve(false),
+  OkCancelMessageDialog: () => Promise.resolve(false),
   SaveTextFile: () => {},
   SingleChoiceDialog: () => Promise.resolve(),
   DrawLayersSettingsDialog: () => Promise.resolve(false),
@@ -886,6 +897,22 @@ export class GERBVIEW_FRAME extends EDA_DRAW_FRAME {
     view.UpdateAllItems(VIEW_UPDATE_FLAGS.ALL);
 
     this.GetCanvas()!.Refresh();
+  }
+
+  /**
+   * `SelectPCBLayer` (`dialogs/dialog_select_one_pcb_layer.cpp:74-83`): show
+   * the list of PCB layers for a Gerber layer, and return the one chosen —
+   * `aDefaultLayer` when the dialog is cancelled.
+   */
+  async SelectPCBLayer(
+    aDefaultLayer: number,
+    aCopperLayerCount: number,
+    aGerberName: string,
+  ): Promise<number> {
+    const frame = new SELECT_LAYER_DIALOG(this, aDefaultLayer, aCopperLayerCount, aGerberName);
+
+    await this.Host().SelectLayerDialog(frame);
+    return frame.GetSelectedLayer();
   }
 
   /**

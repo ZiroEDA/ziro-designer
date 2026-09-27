@@ -40,6 +40,7 @@ import {
   ERROR_CAPTION,
   type MessageDialogIcon,
   OK_LABEL,
+  okCancelButtons,
   type YesNoCancelResult,
   type YesNoResult,
   yesNoButtons,
@@ -219,6 +220,61 @@ export function MessageDialogYesNo({
  * With no `wxCANCEL` in the style word Esc maps to the only button there is, so
  * Esc dismisses it.
  */
+/**
+ * `KICAD_MESSAGE_DIALOG( parent, msg, caption, wxOK | wxCANCEL | wxOK_DEFAULT )`
+ * — GerbView's "Automatic Layer Assignment" question
+ * (`dialog_map_gerber_layers_to_pcb.cpp:214-219`). No `wxICON_*` in the style
+ * word, and no `wxYES`, so `wxMessageDialogBase::GetEffectiveIcon` gives it the
+ * information icon; the buttons are `okCancelButtons`' GTK row, and Esc is
+ * `wxID_CANCEL` because the style has one.
+ */
+export function MessageDialogOkCancel({
+  caption,
+  message,
+  icon = 'information',
+  onResult,
+}: {
+  caption: string;
+  message: string;
+  icon?: MessageDialogIcon;
+  /** True for wxID_OK. */
+  onResult: (aOk: boolean) => void;
+}): JSX.Element {
+  useModalEscape(() => onResult(false));
+
+  const defaultRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    defaultRef.current?.focus();
+  }, []);
+
+  return (
+    <div className="ze-modal-backdrop">
+      <div className="ze-modal ze-msgdlg" role="dialog" aria-modal="true">
+        <div className="ze-msgdlg-title">{caption}</div>
+        <div className="ze-msgdlg-body">
+          <DialogIcon icon={icon} />
+          <div className="ze-msgdlg-text">
+            <div className="ze-msgdlg-message">{message}</div>
+          </div>
+        </div>
+        <div className="ze-msgdlg-buttons">
+          {okCancelButtons().map((b) => (
+            <button
+              key={b.id}
+              type="button"
+              className={`ze-btn${b.isDefault ? ' primary' : ''}`}
+              ref={b.isDefault ? defaultRef : undefined}
+              onClick={() => onResult(b.id === 'ok')}
+            >
+              {b.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * `wxMessageDialog( …, wxYES_NO | wxCANCEL | wxICON_* )` with `SetYesNoLabels`:
  * three buttons, and Esc is `wxID_CANCEL` because the style has one.

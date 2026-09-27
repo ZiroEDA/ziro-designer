@@ -27,7 +27,11 @@ import {
 } from 'react';
 import { parseColor4d, toCss } from '@ziroeda/common/color4d.js';
 import { HtmlMessageBox } from '@ziroeda/common/dialogs/html_message_box.js';
-import { MessageDialogError, MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
+import {
+  MessageDialogError,
+  MessageDialogOk,
+  MessageDialogOkCancel,
+} from '@ziroeda/common/dialogs/dialog_message.js';
 import { SingleChoiceDialog } from '@ziroeda/common/dialogs/dialog_single_choice.js';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
@@ -58,7 +62,10 @@ import type { DIALOG_DRAW_LAYERS_SETTINGS } from '@ziroeda/gerbview/dialogs/dial
 import type { DIALOG_PRINT_GERBVIEW } from '@ziroeda/gerbview/dialogs/dialog_print_gerbview.js';
 import { DialogPrintGerbview } from '@ziroeda/gerbview/dialogs/dialog_print_gerbview_ui.js';
 import { DialogDrawLayersSettings } from '@ziroeda/gerbview/dialogs/dialog_draw_layers_settings_ui.js';
-import { mapGerberLayersToPcb } from '@ziroeda/gerbview/dialogs/dialog_map_gerber_layers_to_pcb.js';
+import type { DIALOG_MAP_GERBER_LAYERS_TO_PCB } from '@ziroeda/gerbview/dialogs/dialog_map_gerber_layers_to_pcb.js';
+import { DialogMapGerberLayersToPcb } from '@ziroeda/gerbview/dialogs/dialog_map_gerber_layers_to_pcb_ui.js';
+import type { SELECT_LAYER_DIALOG } from '@ziroeda/gerbview/dialogs/dialog_select_one_pcb_layer.js';
+import { DialogSelectOnePcbLayer } from '@ziroeda/gerbview/dialogs/dialog_select_one_pcb_layer_ui.js';
 import { GERBVIEW_DRAW_PANEL_GAL } from '@ziroeda/gerbview/gerbview_draw_panel_gal.js';
 import { GERBVIEW_FRAME, type GERBVIEW_FRAME_HOST } from '@ziroeda/gerbview/gerbview_frame.js';
 import { GERBVIEW_SETTINGS } from '@ziroeda/gerbview/gerbview_settings.js';
@@ -190,6 +197,19 @@ export function GerberViewer({
     dlg: DIALOG_DRAW_LAYERS_SETTINGS;
     done: (aOk: boolean) => void;
   } | null>(null);
+  const [mapLayersBox, setMapLayersBox] = useState<{
+    dlg: DIALOG_MAP_GERBER_LAYERS_TO_PCB;
+    done: (aOk: boolean) => void;
+  } | null>(null);
+  const [selectLayerBox, setSelectLayerBox] = useState<{
+    dlg: SELECT_LAYER_DIALOG;
+    done: (aOk: boolean) => void;
+  } | null>(null);
+  const [okCancelBox, setOkCancelBox] = useState<{
+    message: string;
+    caption: string;
+    done: (aOk: boolean) => void;
+  } | null>(null);
   const [choiceBox, setChoiceBox] = useState<{
     caption: string;
     choices: readonly string[];
@@ -239,24 +259,14 @@ export function GerberViewer({
       UpdateFileHistory: () => {},
       SaveFileDialog: (_aTitle, aDefaultName) =>
         Promise.resolve(`/tmp/${projectName || aDefaultName}`),
-      MapGerberLayersToPcb: () => {
-        // DIALOG_MAP_GERBER_LAYERS_TO_PCB's automatic half: each image's
-        // known layer, by its slot (GetLayersLookUpTable()).
-        const list = frame.GetImagesList();
-        const images = [];
-
-        for (let i = 0; i < list.ImagesMaxCount(); ++i) {
-          const img = list.GetGbrImage(i);
-          if (img) images.push({ slot: i, img });
-        }
-
-        const map = mapGerberLayersToPcb(images.map((e) => e.img));
-        const lookUp = new Array<number>(list.ImagesMaxCount()).fill(-1);
-        images.forEach((e, k) => {
-          lookUp[e.slot] = map.rows[k]?.pcbLayer ?? -1;
-        });
-        return Promise.resolve({ lookUp, copperLayersCount: map.copperLayerCount });
-      },
+      MapGerberLayersToPcbDialog: (aDlg) =>
+        new Promise((resolve) => setMapLayersBox({ dlg: aDlg, done: resolve })),
+      SelectLayerDialog: (aDlg) =>
+        new Promise((resolve) => setSelectLayerBox({ dlg: aDlg, done: resolve })),
+      OkCancelMessageDialog: (aMessage, aCaption) =>
+        new Promise((resolve) =>
+          setOkCancelBox({ message: aMessage, caption: aCaption, done: resolve }),
+        ),
       SaveTextFile: (aPath, aText) => {
         const url = URL.createObjectURL(new Blob([aText], { type: 'application/octet-stream' }));
         const a = document.createElement('a');
@@ -273,7 +283,7 @@ export function GerberViewer({
       DrawLayersSettingsDialog: (aDlg) =>
         new Promise((resolve) => setDrawLayersBox({ dlg: aDlg, done: resolve })),
     }),
-    [frame, projectName],
+    [projectName],
   );
 
   // ---- the frame and the chrome it drives ---------------------------------
@@ -775,6 +785,39 @@ export function GerberViewer({
             const done = htmlBox.done;
             setHtmlBox(null);
             done();
+          }}
+        />
+      )}
+      {mapLayersBox && (
+        <DialogMapGerberLayersToPcb
+          dlg={mapLayersBox.dlg}
+          onClose={(aOk) => {
+            const done = mapLayersBox.done;
+            setMapLayersBox(null);
+            // Store Choice wrote GERBVIEW_SETTINGS, OK or not.
+            persist();
+            done(aOk);
+          }}
+        />
+      )}
+      {selectLayerBox && (
+        <DialogSelectOnePcbLayer
+          dlg={selectLayerBox.dlg}
+          onClose={(aOk) => {
+            const done = selectLayerBox.done;
+            setSelectLayerBox(null);
+            done(aOk);
+          }}
+        />
+      )}
+      {okCancelBox && (
+        <MessageDialogOkCancel
+          caption={okCancelBox.caption}
+          message={okCancelBox.message}
+          onResult={(aOk) => {
+            const done = okCancelBox.done;
+            setOkCancelBox(null);
+            done(aOk);
           }}
         />
       )}

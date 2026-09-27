@@ -1374,11 +1374,11 @@ export const SYMBOL_EDITOR_DEFAULTS: SymbolEditorSettings = {
  * over its `APP_SETTINGS_BASE` base (`common/settings/app_settings.cpp`).
  *
  * Same rule as `PlEditorSettings` above: only the keys the Gerber Viewer puts a
- * control in front of. The four file histories (`system.drill_file_history`,
- * `system.zip_file_history`, `system.job_file_history`) and
- * `gerber_to_pcb_layers` are omitted — the first three are paths on a disk this
- * app does not have, and the fourth is written by the Map Gerber Layers dialog
- * rather than by Preferences.
+ * control in front of. The three file histories (`system.drill_file_history`,
+ * `system.zip_file_history`, `system.job_file_history`) are omitted — they are
+ * paths on a disk this app does not have. `gerber_to_pcb_layers` and
+ * `gerber_to_pcb_copperlayers_count` are here though no Preferences page shows
+ * them: the Map Gerber Layers dialog's Store Choice writes them.
  *
  * **One deliberate deviation, and it is the only one.** Three of `Display
  * Options`' checkboxes — Sketch flashed items / lines / polygons — write
@@ -1527,7 +1527,12 @@ export interface GerbviewSettings {
     /** `excellon_defaults.inch_mantissa_len`, FMT_MANTISSA_INCH = 4, range 2..6. */
     inch_mantissa_len: number;
   };
-  /** `gerber_to_pcb_copperlayers_count` (`gerbview_settings.cpp:76-77`), 2. */
+  /**
+   * `gerber_to_pcb_layers` (`gerbview_settings.cpp:74-75`), `{}`: Store
+   * Choice's GERBER_DRAWLAYERS_COUNT layer ids, one per Gerber layer.
+   */
+  gerber_to_pcb_layers: number[];
+  /** `gerber_to_pcb_copperlayers_count` (`gerbview_settings.cpp:77-78`), 2. */
   gerber_to_pcb_copperlayers_count: number;
 }
 
@@ -1584,6 +1589,7 @@ export const GERBVIEW_DEFAULTS: GerbviewSettings = {
     inch_integer_len: 2,
     inch_mantissa_len: 4,
   },
+  gerber_to_pcb_layers: [],
   gerber_to_pcb_copperlayers_count: 2,
 };
 
