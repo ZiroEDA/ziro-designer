@@ -92,6 +92,8 @@ const COL_LABELS = ['Line Thickness', 'Text Width', 'Text Height', 'Text Thickne
  */
 const DISABLED_COLOUR = 'var(--grid-label-bg)';
 
+const toIU = (mm: number): number => Math.round(mm * PCB_IU_PER_MM);
+
 export function PanelFpGraphicsDefaults({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { fpEdit, upFp } = ctx;
   const upFpRef = useRef(upFp);
@@ -128,7 +130,6 @@ export function PanelFpGraphicsDefaults({ ctx }: { ctx: PrefsContext }): JSX.Ele
     return { grid: g, tricks: new GRID_TRICKS(g), provider: p };
   });
 
-  const toIU = (mm: number): number => Math.round(mm * PCB_IU_PER_MM);
   const written = useRef<string | null>(null);
   const key = JSON.stringify([units, GRAPHICS_ROWS.map((r) => ds[r.key])]);
 
