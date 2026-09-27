@@ -1662,7 +1662,16 @@ export class VIEW {
   DataReference(): VIEW {
     const ret = new VIEW();
     ret.m_allItems = this.m_allItems;
-    ret.m_layers = this.m_layers;
+    // std::map<int, VIEW_LAYER> assigns by value: each layer's flags and its
+    // requiredLayers set are the new view's own, and only the items RTree - a
+    // shared_ptr - is shared. Sharing the map made a printout's
+    // SetLayerVisible hide layers on the screen's view.
+    ret.m_layers = new Map(
+      [...this.m_layers].map(([id, l]) => [
+        id,
+        { ...l, requiredLayers: new Set(l.requiredLayers) },
+      ]),
+    );
     ret.m_hasPendingItemUpdates = this.m_hasPendingItemUpdates;
     ret.SortOrderedLayers();
     return ret;
