@@ -47,8 +47,8 @@ export interface RenderRow {
  *
  * The colours are each row's `s_defaultTheme` entry, which is what
  * `m_frame->GetVisibleElementColor( id )` resolves to on a fresh profile
- * (`:145`), so they live in `gerberColors.ts` with the rest of the table rather
- * than here.
+ * (`:145`), so the caller passes them in from the frame's COLOR_SETTINGS
+ * rather than this module restating them.
  */
 export function renderRows(colors: {
   dcodes: string;

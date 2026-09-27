@@ -32,7 +32,7 @@
  * `GERBER_DRAWLAYERS_COUNT` is `PCB_LAYER_ID_COUNT`, **128** (`:519`, `:171`),
  * so upstream really does draw 128 graphic-layer swatches, of which only the
  * first 64 have a default colour in `s_defaultTheme` — see
- * `GERBER_DEFAULT_THEME_LAYERS` in `designer/.../gerberColors.ts`. The rest are
+ * the 64 `GERBVIEW_LAYER_ID_START+n` rows of `BUILTIN_DEFAULT_THEME`. The rest are
  * `COLOR4D::UNSPECIFIED`, which `COLOR_SWATCH::MakeBitmap` draws as the bare
  * checkerboard. Reproduced rather than tidied to 64: the bar is that a user
  * cannot tell which program they are in, and a list that stops at 64 is a

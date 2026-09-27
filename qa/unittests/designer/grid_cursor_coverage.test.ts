@@ -198,7 +198,6 @@ describe('shared grid + crosshair', () => {
     const OLD: [string, RegExp][] = [
       ['editors/drawingsheet/DrawingSheetCanvas.tsx', /rgba\(0,0,0,0\.32\)/],
       ['editors/drawingsheet/DrawingSheetCanvas.tsx', /rgba\(90,160,255,0\.55\)/],
-      ['editors/gerbview/gerberColors.ts', /GERBER_GRID_COLOR = '#5A5A5A'/],
     ];
     for (const [rel, re] of OLD) expect(read(rel), `${rel} ${re}`).not.toMatch(re);
   });

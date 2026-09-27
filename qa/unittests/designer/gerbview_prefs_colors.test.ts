@@ -29,7 +29,7 @@ import {
   GERBER_BG_COLOR,
   GERBER_DEFAULT_THEME_LAYERS,
   GERBER_GRID_COLOR,
-} from '@ziroeda/designer/src/editors/gerbview/gerberColors.js';
+} from '../gerbview/builtin_theme_oracle.js';
 
 describe('m_validLayers, and the names createSwatches gives them', () => {
   /**

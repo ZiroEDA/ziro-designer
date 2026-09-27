@@ -25,7 +25,7 @@ import {
   GERBER_LAYER_COLORS,
   defaultLayerColor,
   layerColorAt,
-} from '@ziroeda/designer/src/editors/gerbview/gerberColors.js';
+} from '../gerbview/builtin_theme_oracle.js';
 
 const FRAME = readFileSync(
   fileURLToPath(

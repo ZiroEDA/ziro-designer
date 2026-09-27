@@ -16,24 +16,40 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  brightened,
-  defaultLayerColor,
-  GERBER_AXES_COLOR,
-  GERBER_BG_COLOR,
-  GERBER_DCODE_COLOR,
-  GERBER_DEFAULT_THEME_LAYERS,
-  GERBER_DRAWINGSHEET_COLOR,
-  GERBER_GRID_COLOR,
-  GERBER_LAYER_COLORS,
-  GERBER_NEGATIVE_COLOR,
-  GERBER_OPACITY_MODE_ALPHA,
-  GERBER_PAGE_LIMITS_COLOR,
-  highlightedLayerColor,
-  selectedLayerColor,
-} from '@ziroeda/designer/src/editors/gerbview/gerberColors.js';
-import { GERBER_DRAW_LAYER } from '@ziroeda/common/layer_id.js';
-import type { GERBER_DRAW_ITEM } from '@ziroeda/gerbview';
-import { parseGerber } from '../gerbview/load_image.js';
+  brightened as brightenedColor,
+  type Color4d,
+  LEGACY_COLORS,
+  parseColor4d,
+  toCssColor,
+} from '@ziroeda/common/color4d.js';
+import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/settings/builtin_color_themes.js';
+import { GBR_DISPLAY_OPTIONS } from '@ziroeda/gerbview/gbr_display_options.js';
+
+// What the product draws with, read where the product reads it: common's
+// copy of s_defaultTheme, the GAL's axes colour, GBR_DISPLAY_OPTIONS and
+// COLOR4D::Brightened. The expectations below are transcribed from the header.
+
+const theme = (aKey: string): string =>
+  toCssColor((BUILTIN_DEFAULT_THEME as Record<string, Color4d>)[aKey]!, ', ');
+const layerKey = (i: number): string =>
+  i === 0 ? 'GERBVIEW_LAYER_ID_START' : `GERBVIEW_LAYER_ID_START+${i}`;
+
+const GERBER_LAYER_COLORS = Array.from({ length: 14 }, (_, i) => theme(layerKey(i)));
+const defaultLayerColor = (i: number): string => theme(layerKey(i));
+const GERBER_DEFAULT_THEME_LAYERS = Object.keys(BUILTIN_DEFAULT_THEME).filter((k) =>
+  k.startsWith('GERBVIEW_LAYER_ID_START'),
+).length;
+/** The axes keep the GAL default, `SetAxesColor( COLOR4D( BLUE ) )`. */
+const GERBER_AXES_COLOR = toCssColor(LEGACY_COLORS.BLUE, ', ');
+const GERBER_BG_COLOR = theme('LAYER_GERBVIEW_BACKGROUND');
+const GERBER_DCODE_COLOR = theme('LAYER_DCODES');
+const GERBER_GRID_COLOR = theme('LAYER_GERBVIEW_GRID');
+const GERBER_NEGATIVE_COLOR = theme('LAYER_NEGATIVE_OBJECTS');
+const GERBER_DRAWINGSHEET_COLOR = theme('LAYER_GERBVIEW_DRAWINGSHEET');
+const GERBER_PAGE_LIMITS_COLOR = theme('LAYER_GERBVIEW_PAGE_LIMITS');
+const GERBER_OPACITY_MODE_ALPHA = new GBR_DISPLAY_OPTIONS().m_OpacityModeAlphaValue;
+const brightened = (aCss: string, aFactor: number): string =>
+  toCssColor(brightenedColor(parseColor4d(aCss), aFactor), ', ');
 
 /** `builtin_color_themes.h:91-104`, the fourteen distinct rows, in order. */
 const CYCLE = [
@@ -171,46 +187,21 @@ describe('COLOR4D::Brightened', () => {
 
   /**
    * A lerp lifts a dark colour much further than a light one, which a multiply
-   * would not. 40 -> 148 is +108; 217 -> 236 is only +19.
+   * would not. 40 -> 147 is +107; 217 -> 236 is only +19.
    */
   it('lifts a dark channel far more than a light one', () => {
-    expect(brightened('rgb(40, 204, 217)', 0.5)).toBe('rgb(148, 230, 236)');
-  });
-
-  it('reads hex as well as rgb(), and leaves anything else alone', () => {
-    expect(brightened('#4d7fc4', 0.5)).toBe('rgb(166, 191, 226)');
-    expect(brightened('not-a-colour', 0.5)).toBe('not-a-colour');
-  });
-});
-
-describe('the highlight and selection colours', () => {
-  /**
-   * `m_layerColorsHi[i] = baseColor.Brightened( 0.5 )` and
-   * `m_layerColorsSel[i] = baseColor.Brightened( 0.8 )`
-   * (`gerbview_painter.cpp:70-71`). Both are the LAYER's colour lifted, so a
-   * highlighted item still reads as belonging to its layer. Ours painted every
-   * highlight flat white, which lost the layer entirely.
-   */
-  it('are the layer’s own colour brightened, not white', () => {
-    const layer = CYCLE[0] as string;
-    expect(highlightedLayerColor(layer)).toBe(brightened(layer, 0.5));
-    expect(selectedLayerColor(layer)).toBe(brightened(layer, 0.8));
-    expect(highlightedLayerColor(layer)).not.toBe('rgb(255, 255, 255)');
-  });
-
-  it('lift a selection further than a highlight', () => {
-    const layer = CYCLE[13] as string;
-    // 0.8 > 0.5, so the selected form is closer to white on every channel.
-    expect(selectedLayerColor(layer)).toBe('rgb(219, 229, 243)');
-    expect(highlightedLayerColor(layer)).toBe('rgb(166, 191, 226)');
-  });
-
-  it('differ per layer, which a single constant could not', () => {
-    const a = highlightedLayerColor(CYCLE[0] as string);
-    const b = highlightedLayerColor(CYCLE[6] as string);
-    expect(a).not.toBe(b);
+    // 40 lands on 147, not the 148 an integer "(40 + 255) / 2 = 147.5, round
+    // up" gives: KiCad works in doubles - CSS_COLOR's 40 / 255.0, then
+    // r * 0.5 + 0.5 = 0.57843137..., and * 255 is 147.49999999999997, which
+    // ToColour's + 0.5 truncates to 147. The helper this used to test did the
+    // integer sum, and so disagreed with KiCad by one.
+    expect(brightened('rgb(40, 204, 217)', 0.5)).toBe('rgb(147, 230, 236)');
   });
 });
+
+// The highlight and selection colours are GERBVIEW_RENDER_SETTINGS' own,
+// `Brightened( 0.5 )` and `( 0.8 )` of the layer colour; gerbview_painter.test
+// pins them on the painter that draws them.
 
 describe('the axes', () => {
   /**
@@ -244,7 +235,7 @@ describe('the axes', () => {
    * provenance; pinned so the coincidence is not mistaken for a wiring.
    */
   it('coincides with the theme entry without being it', () => {
-    expect(GERBER_AXES_COLOR).toBe('rgb(0, 0, 132)');
+    expect(GERBER_AXES_COLOR).toBe(theme('LAYER_GERBVIEW_AXES'));
     expect(GERBER_DRAWINGSHEET_COLOR).toBe('rgb(0, 0, 132)');
   });
 });

@@ -26,7 +26,7 @@ import {
   GERBER_GRID_COLOR,
   GERBER_NEGATIVE_COLOR,
   GERBER_PAGE_LIMITS_COLOR,
-} from '@ziroeda/designer/src/editors/gerbview/gerberColors.js';
+} from '../gerbview/builtin_theme_oracle.js';
 
 const COLORS = {
   dcodes: GERBER_DCODE_COLOR,

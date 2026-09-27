@@ -2,32 +2,14 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * GerbView's default colours — `s_defaultTheme` in
- * `common/settings/builtin_color_themes.h`, which is the table
- * `COLOR_SETTINGS`' constructor reads to seed every `gerbview.*` colour
- * (`common/settings/color_settings.cpp:103-121`).
+ * GerbView's rows of `s_defaultTheme` (`common/settings/builtin_color_themes.h`),
+ * transcribed by hand - the test-side oracle the gerbview colour tests measure
+ * the product against.
  *
- * This file used to hold an invented palette: sixteen made-up hexes
- * (`#D02020`, `#20A020`, …) that appear nowhere upstream, a `#DDDDDD` for
- * DCodes, a `#0F0F1A` for negative objects, and a permanent 0.8 alpha. None of
- * it was KiCad's. CLAUDE.md's rule for this case is explicit — a table KiCad
- * hardcodes is *data*, it stays local, "but must mirror KiCad's own table
- * rather than our invention".
- *
- * ---------------------------------------------------------------------------
- * THE LAYER CYCLE
- * ---------------------------------------------------------------------------
- *
- * `s_defaultTheme` carries **64** gerbview drawing-layer entries,
- * `GERBVIEW_LAYER_ID_START + 0` through `+ 63`
- * (`builtin_color_themes.h:91-154`), and every one of them is the fourteen
- * below repeated — index 14 is index 0 again, and it holds without exception
- * for all 64. Alpha is 1 throughout.
- *
- * `s_classicTheme` is a *different* table further down the same file
- * (`:310` onward) whose gerbview rows are named COLOR4D constants — MAGENTA,
- * BROWN, LIGHTGRAY. It is not what a stock install shows and is not mirrored
- * here.
+ * The product reads these colours from `common/settings/builtin_color_themes.ts`,
+ * which a generator writes from the same header. This copy used to sit in
+ * `designer/src/editors/gerbview/gerberColors.ts`, where nothing in the app
+ * read it any more; as a second, independent derivation it belongs here.
  */
 
 /**
@@ -180,57 +162,3 @@ export const GERBER_AUX_ITEMS_COLOR = 'rgb(255, 255, 255)';
  * behaviour.
  */
 export const GERBER_OPACITY_MODE_ALPHA = 0.6;
-
-/* ---------------------------------------------------------------------------
-   COLOR4D arithmetic
-   --------------------------------------------------------------------------- */
-
-/** Parse `rgb(r, g, b)` / `#rrggbb` into 0..255 channels. */
-function channels(color: string): [number, number, number] | null {
-  const rgb = /^rgb\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(color);
-  if (rgb) return [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])];
-
-  const hex = /^#([0-9a-f]{6})$/i.exec(color.trim());
-  if (hex) {
-    const n = Number.parseInt(hex[1] as string, 16);
-    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-  }
-  return null;
-}
-
-/**
- * `COLOR4D::Brightened( aFactor )` (`include/gal/color4d.h:269-275`):
- *
- *     r * ( 1.0 - aFactor ) + aFactor
- *
- * per channel, on 0..1 components, with alpha untouched. It is a lerp towards
- * white, not a multiply, so a dark colour brightens far more than a light one.
- */
-export function brightened(color: string, factor: number): string {
-  const c = channels(color);
-  if (!c) return color;
-  const f = Math.min(Math.max(factor, 0), 1);
-  const lerp = (v: number): number => Math.round((v / 255) * (1 - f) * 255 + f * 255);
-  return `rgb(${lerp(c[0])}, ${lerp(c[1])}, ${lerp(c[2])})`;
-}
-
-/**
- * The colour a highlighted item takes: `m_layerColorsHi`, which
- * `GERBVIEW_RENDER_SETTINGS::LoadColors` fills with `baseColor.Brightened( 0.5 )`
- * (`gerbview/gerbview_painter.cpp:70`) and `GetColor` returns for a net,
- * component or attribute match (`:135-147`).
- *
- * It is the **layer's own colour** brightened, so a highlighted item still
- * reads as belonging to its layer. Ours painted every highlight flat white.
- */
-export function highlightedLayerColor(layerColor: string): string {
-  return brightened(layerColor, 0.5);
-}
-
-/**
- * `m_layerColorsSel`, `baseColor.Brightened( 0.8 )` — a *selected* item, which
- * is a stronger lift than a highlighted one (`gerbview_painter.cpp:71`).
- */
-export function selectedLayerColor(layerColor: string): string {
-  return brightened(layerColor, 0.8);
-}

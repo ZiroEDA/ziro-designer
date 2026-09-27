@@ -180,7 +180,9 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // wxChoice and the toolbar's own sizer spaces it; a margin typed at the call
   // site was this launcher deciding for itself what the toolbar looks like.
   'editors/footprint': { colours: 4, metrics: 13 },
-  'editors/gerbview': { colours: 1, metrics: 4 },
+  // 1 -> 0 colours: gerberColors.ts, which nothing in the app read, left for
+  // qa as the test-side transcription of s_defaultTheme (09-27).
+  'editors/gerbview': { colours: 0, metrics: 4 },
   // 1 -> 0. Its last metric was the slider's `height: 7px` NOT-PROVEN fudge,
   // and the slider itself moved to ui/Slider.tsx + shell.css when it stopped
   // being this launcher's private copy of a control wx has one of. The number
@@ -1217,7 +1219,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 330 -> 329: the image dialog's `#fff`, see `editors/schematic`.
     // 329 -> 328: the Print dialog's menu shadow, see `editors/pcb`.
     // 328 -> 326: the line-modification box's two, see `editors/pcb`.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(326);
+    // 326 -> 325: gerberColors.ts left the app, see `editors/gerbview`.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(325);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
