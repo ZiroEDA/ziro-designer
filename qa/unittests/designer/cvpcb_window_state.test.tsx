@@ -40,7 +40,7 @@ function Window({
   docs: ReadonlyMap<string, ReturnType<typeof readSchematic>>;
 }): JSX.Element {
   const app = useCvpcbApp();
-  return <DialogAssignFootprints app={app} docs={docs} onApply={() => {}} onClose={() => {}} />;
+  return <DialogAssignFootprints app={app} docs={docs} onClose={() => {}} />;
 }
 
 // The dialog fetches the hosted footprint index on mount; there is no server.

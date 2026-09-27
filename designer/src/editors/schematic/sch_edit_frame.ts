@@ -31,6 +31,13 @@ export interface SCH_EDIT_FRAME_HOOKS {
    * `on_selection` has been checked. Focusing the first item is not ported.
    */
   syncSelection(aParts: readonly string[], aFocusOnFirst: boolean): void;
+  /**
+   * `SCH_EDITOR_CONTROL::AssignFootprints( payload )`: apply CvPcb's
+   * `cvpcb_netlist` as one undoable commit. Throws on a payload it cannot read.
+   */
+  assignFootprints(aChangedSetOfReferences: string): void;
+  /** `SaveProject()`: write the schematic now; false when it could not be. */
+  saveProject(): boolean;
 }
 
 export class SCH_EDIT_FRAME extends KIWAY_PLAYER {
@@ -78,6 +85,20 @@ export class SCH_EDIT_FRAME extends KIWAY_PLAYER {
         this.hooks.syncSelection(syncStr.split(','), focusOnFirst);
         break;
       }
+
+      case MAIL_T.MAIL_ASSIGN_FOOTPRINTS:
+        try {
+          this.hooks.assignFootprints(payload);
+        } catch {
+          // IO_ERROR: an unreadable payload assigns nothing.
+        }
+
+        break;
+
+      case MAIL_T.MAIL_SCH_SAVE:
+        if (this.hooks.saveProject()) mail.SetPayload('success');
+
+        break;
 
       default:
         break;

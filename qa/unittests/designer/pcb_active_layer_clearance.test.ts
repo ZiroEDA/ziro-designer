@@ -34,6 +34,9 @@ function makeFrame() {
     showExchangeFootprintsDialog: () => {},
     findDialogRects: () => [],
     setViewCenter: () => {},
+    setHighlightNets: () => {},
+    syncSelection: () => {},
+    updatePcbFromSchematic: () => {},
   });
   // `createPcbDrawPanel`'s screen, whose m_Active_Layer the frame reads.
   frame.SetScreen(new PCB_SCREEN({ x: 297000000, y: 210000000 }));

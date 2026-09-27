@@ -53,7 +53,7 @@ function Window({
   docs: ReadonlyMap<string, ReturnType<typeof readSchematic>>;
 }): JSX.Element {
   const app = useCvpcbApp();
-  return <DialogAssignFootprints app={app} docs={docs} onApply={() => {}} onClose={() => {}} />;
+  return <DialogAssignFootprints app={app} docs={docs} onClose={() => {}} />;
 }
 
 afterEach(cleanup);

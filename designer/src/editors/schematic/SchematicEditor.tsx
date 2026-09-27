@@ -23,6 +23,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from 'rea
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import { SCH_EDIT_FRAME } from './sch_edit_frame.js';
+import { assignFootprintsCommands } from '@ziroeda/eeschema/tools/assign_footprints.js';
 import { parse } from '@ziroeda/sexpr';
 import { useProjectSync } from '../../sync/ProjectSyncProvider.js';
 import {
@@ -1827,11 +1828,24 @@ export function SchematicEditor({
   // The frame's KIWAY half: `$NET:` from the board lands in `setProbedNet`,
   // `auto_highlight` having been checked by ExecuteRemoteCommand.
   const schFrameRef = useRef<SCH_EDIT_FRAME | null>(null);
+  // MAIL_ASSIGN_FOOTPRINTS and MAIL_SCH_SAVE, filled in below once the
+  // project edit and the save they call exist.
+  const assignFootprintsRef = useRef<(aPayload: string) => void>(() => {});
+  const saveProjectRef = useRef<() => boolean>(() => false);
+  /**
+   * `SaveProject()` arriving in the same tick as the assignment it saves: the
+   * assignment's step folds on the next render, so it is marked to be written
+   * then rather than left to the debounced save.
+   */
+  const saveRequestedRef = useRef(false);
+  const assignPendingRef = useRef(false);
   if (!schFrameRef.current) {
     schFrameRef.current = new SCH_EDIT_FRAME({
       crossProbingSettings: () => settings.eeschema.cross_probing,
       highlightNet: (aNetName) => setProbedNet(aNetName === '' ? null : aNetName),
       syncSelection: (aParts) => applyPcbSelectionRef.current(aParts),
+      assignFootprints: (aPayload) => assignFootprintsRef.current(aPayload),
+      saveProject: () => saveProjectRef.current(),
     });
   }
   const applyPcbSelectionRef = useRef<(parts: readonly string[]) => void>(() => {});
@@ -2308,7 +2322,7 @@ export function SchematicEditor({
       for (const [file, next] of step.docs) {
         // The open sheet is written to disk by the ordinary (debounced) save, so
         // it is reported only when the caller asked to persist right now.
-        if (file === here && !persist) continue;
+        if (file === here && !persist && !saveRequestedRef.current) continue;
         if (file !== here) project.current.docs.set(file, next);
         try {
           changed.push({ name: file, text: serializeSchematic(next) });
@@ -2320,7 +2334,7 @@ export function SchematicEditor({
         pendingProjectChange.current.push(...changed);
         if (!applyingRemoteRef.current) pendingIsMine.current = true;
       }
-      if (persist) pendingPersist.current = true;
+      if (persist || saveRequestedRef.current) pendingPersist.current = true;
       // The one status whose undo navigates; see `EditCommand.pageSettings`.
       if (step.showSheet && step.showSheet !== here) pendingShowSheet.current = step.showSheet;
       return step.docs.get(here) ?? fallback;
@@ -2355,6 +2369,8 @@ export function SchematicEditor({
    */
   const pendingClearHistory = useRef(false);
   useEffect(() => {
+    saveRequestedRef.current = false;
+    assignPendingRef.current = false;
     if (pendingClearHistory.current) {
       pendingClearHistory.current = false;
       history.current.clear();
@@ -5386,6 +5402,21 @@ export function SchematicEditor({
     setDirty(false);
     setUnsaved(false);
   }, [fileName, currentFile, onPersistFiles, onSaveFiles]);
+  // `SCH_EDITOR_CONTROL::AssignFootprints`: CvPcb's netlist, one commit over
+  // every sheet it reaches.
+  assignFootprintsRef.current = (aPayload) => {
+    const commands = assignFootprintsCommands(liveDocs(), assignFpFiles, aPayload);
+    if (!commands) return;
+    assignPendingRef.current = true;
+    runProject(commands);
+  };
+  // `SaveProject()`: an assignment from this same mail round is written as it
+  // folds; with nothing pending, the open sheet is saved now.
+  saveProjectRef.current = () => {
+    if (assignPendingRef.current) saveRequestedRef.current = true;
+    else save();
+    return true;
+  };
 
   /**
    * `SCH_EDITOR_CONTROL::SaveCurrSheetCopyAs` (eeschema/tools/
@@ -10531,10 +10562,7 @@ export function SchematicEditor({
                 // hierarchy order, not every .kicad_sch in the project folder.
                 files={assignFpFiles}
                 projectFootprints={projectFootprintFiles}
-                onApply={(edits, { save, close }) => {
-                  applyFieldsEdits(edits, { persist: save });
-                  if (close) setAssignFpOpen(false);
-                }}
+                kiway={kiway}
                 onSaveLibTable={saveProjectFpLibTable}
                 onSaveEquFiles={saveProjectEquFiles}
                 onClose={() => setAssignFpOpen(false)}

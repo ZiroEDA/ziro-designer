@@ -94,22 +94,19 @@ interface Saved {
 
 function open_(opts: { equFiles?: string[]; equText?: string | null } = {}): {
   root: HTMLElement;
-  applied: { edits: unknown; save: boolean }[];
   saved: Saved[];
 } {
   const docs = new Map([['a.kicad_sch', readSchematic(parse(SHEET))]]);
-  const applied: { edits: unknown; save: boolean }[] = [];
   const saved: Saved[] = [];
   const { container } = render(
     <Window
       docs={docs}
       projectFootprints={projectFiles(opts)}
-      onApply={(edits, o) => applied.push({ edits, save: o.save })}
       onSaveEquFiles={(files, newFiles) => saved.push({ files, newFiles })}
       onClose={() => {}}
     />,
   );
-  return { root: container, applied, saved };
+  return { root: container, saved };
 }
 
 /** Every toolbar button, in order, by the name a screen reader gets — which is
@@ -512,7 +509,6 @@ describe('the equivalence list is sorted before the match (auto_associate.cpp:18
       <Window
         docs={docs}
         projectFootprints={projectFiles({ equText: SPLIT_EQU })}
-        onApply={() => {}}
         onClose={() => {}}
       />,
     );

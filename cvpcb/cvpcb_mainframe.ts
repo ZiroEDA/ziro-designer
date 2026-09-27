@@ -112,6 +112,12 @@ import {
   type SchSymbol,
 } from '@ziroeda/eeschema';
 import { schSymbolLibraryName } from '@ziroeda/eeschema';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import { KIWAY_PLAYER } from '@ziroeda/common/kiway_player.js';
+import { MAIL_T } from '@ziroeda/common/mail_type.js';
+import { COMPONENT, NETLIST } from '@ziroeda/common/netlist_reader/netlist.js';
+import { STRING_FORMATTER } from '@ziroeda/common/richio.js';
 import { handleUnsavedChanges, type UnsavedChangesResult } from '@ziroeda/common/confirm.js';
 import { PINNING_SYMBOL } from '@ziroeda/common/lib_tree_model_adapter.js';
 import { expandStackedPinNotation, strNumCmp } from '@ziroeda/common/string_utils.js';
@@ -644,4 +650,63 @@ export function cvpcbFootprintsContextMenu(actions: CvpcbContextMenuActions): Me
       action: actions.showFootprintViewer,
     },
   ];
+}
+
+/**
+ * `CVPCB_MAINFRAME` (cvpcb/cvpcb_mainframe.h) — its KIWAY half: what a save
+ * mails the schematic. `cvpcb_mainframe_ui.tsx` is the window.
+ */
+export class CVPCB_MAINFRAME extends KIWAY_PLAYER {
+  constructor() {
+    super(FRAME_T.FRAME_CVPCB, pcbIUScale, 'mm');
+  }
+
+  /**
+   * `CVPCB_MAINFRAME::SaveFootprintAssociation` (readwrite_dlgs.cpp:290): mail
+   * the assignments as a `cvpcb_netlist` (MAIL_ASSIGN_FOOTPRINTS) and, for
+   * "Apply, Save Schematic & Continue", ask the schematic to save
+   * (MAIL_SCH_SAVE). `m_netlist` is every component, carrying the footprint
+   * it is associated with now.
+   *
+   * @return whether the schematic answered the save with "success".
+   */
+  SaveFootprintAssociation(
+    doSaveSchematic: boolean,
+    aComponents: readonly CvpcbComponent[],
+    aAssigned: ReadonlyMap<string, string>,
+  ): boolean {
+    const kiway = this.Kiway();
+
+    if (!kiway) return false;
+
+    const netlist = new NETLIST();
+
+    for (const comp of aComponents)
+      netlist.AddComponent(
+        new COMPONENT(
+          aAssigned.get(comp.reference) ?? comp.footprint,
+          comp.reference,
+          comp.value,
+          '/',
+          [],
+        ),
+      );
+
+    const sf = new STRING_FORMATTER();
+    netlist.FormatCvpcbNetlist(sf);
+
+    let payload = { value: sf.GetString() };
+    kiway.ExpressMail(FRAME_T.FRAME_SCH, MAIL_T.MAIL_ASSIGN_FOOTPRINTS, payload, this);
+
+    let saved = false;
+
+    if (doSaveSchematic) {
+      payload = { value: '' };
+      kiway.ExpressMail(FRAME_T.FRAME_SCH, MAIL_T.MAIL_SCH_SAVE, payload, this);
+
+      saved = payload.value === 'success';
+    }
+
+    return saved;
+  }
 }

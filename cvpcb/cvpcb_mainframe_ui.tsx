@@ -112,7 +112,7 @@ import {
   type Ref,
   type SetStateAction,
 } from 'react';
-import type { Schematic, FieldsTableEdits } from '@ziroeda/eeschema';
+import type { Schematic } from '@ziroeda/eeschema';
 import {
   ContextMenu,
   MenuBar,
@@ -161,6 +161,7 @@ import {
   cvpcbFootprintsContextMenu,
   cvpcbSymbolsContextMenu,
   type CvpcbContextMenuActions,
+  CVPCB_MAINFRAME,
 } from './cvpcb_mainframe.js';
 import { footprintSelectionAfterRebuild } from './footprints_listbox.js';
 import { selectedLibraryOf } from './library_listbox.js';
@@ -174,7 +175,9 @@ import {
   pasteAssoc as pasteAssocCommand,
 } from './tools/cvpcb_association_tool.js';
 import { changeFocus, gotoNA as gotoNACommand } from './tools/cvpcb_control.js';
-import type { CvpcbSaveCommand } from './readwrite_dlgs.js';
+import { SCHEMATIC_SAVED_STATUS, type CvpcbSaveCommand } from './readwrite_dlgs.js';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import type { KIWAY } from '@ziroeda/common/kiway.js';
 import {
   automaticFootprintMatching,
   buildEquivalenceList,
@@ -198,14 +201,6 @@ import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import { readEquFile } from './cvpcb_equ_files.js';
 import { DialogConfigEquFiles, type CvpcbEquFilesApp } from './dialogs/dialog_config_equfiles.js';
 import './cvpcb_mainframe_ui.css';
-
-/**
- * The Footprint field edits Assign Footprints writes — `FieldsTableEdits`
- * (`@ziroeda/eeschema`)'s own shape, not designer's `FieldsEdits` alias for it
- * (`dialog_symbol_fields_table.tsx`): `cvpcb` never imports `designer`, and
- * the two names are the same type by construction.
- */
-export type CvpcbFieldsEdits = FieldsTableEdits['fields'];
 
 /** `false` back to `boolean`, `'x'` back to `string` — see `useDialogControl`'s
  *  own `Widened` (`ui/useDialogControl.ts`), which this mirrors. */
@@ -347,9 +342,12 @@ interface Props {
    *  plus its `fp-lib-table` (which names the libraries, the fp-lib-table's
    *  project scope). */
   projectFootprints?: readonly { name: string; text: string }[];
-  /** Write the assignments as Footprint field edits. `save` also persists the
-   *  changed sheets; `close` dismisses the window (OK). */
-  onApply: (edits: CvpcbFieldsEdits, opts: { save: boolean; close: boolean }) => void;
+  /**
+   * The program's KIWAY: the window's CVPCB_MAINFRAME registers as FRAME_CVPCB's
+   * player on it and mails the schematic its assignments (MAIL_ASSIGN_FOOTPRINTS)
+   * and its saves (MAIL_SCH_SAVE). Without one a save reaches nothing.
+   */
+  kiway?: KIWAY;
   /** Save the project's footprint library table (Manage Footprint Libraries).
    *  Absent when there is no project to write it into. */
   onSaveLibTable?: (rows: FpLibRow[]) => void;
@@ -559,7 +557,7 @@ export function DialogAssignFootprints({
   docs,
   files,
   projectFootprints,
-  onApply,
+  kiway,
   onSaveLibTable,
   onSaveEquFiles,
   onClose,
@@ -976,33 +974,39 @@ export function DialogAssignFootprints({
       setContextMenu({ items: build(contextMenuActions), x: e.clientX, y: e.clientY });
     };
 
-  /** The Footprint field edits the assignments amount to, one per unit. */
-  const buildEdits = (): CvpcbFieldsEdits => {
-    const edits: CvpcbFieldsEdits = new Map();
-    for (const comp of components) {
-      const fpid = assigned.get(comp.reference);
-      if (fpid === undefined || fpid === comp.footprint) continue;
-      for (const inst of comp.instances) {
-        if (!edits.has(inst.file)) edits.set(inst.file, new Map());
-        edits.get(inst.file)!.set(inst.id, { Footprint: fpid });
-      }
-    }
-    return edits;
+  // The window's KIWAY half, registered as FRAME_CVPCB while it is open.
+  const [frame] = useState(() => new CVPCB_MAINFRAME());
+  useEffect(() => {
+    if (!kiway) return;
+    frame.SetKiway(kiway);
+    kiway.SetPlayerFrame(FRAME_T.FRAME_CVPCB, frame);
+    return () => {
+      kiway.PlayerDidClose(FRAME_T.FRAME_CVPCB, frame);
+      frame.SetKiway(null);
+    };
+  }, [kiway, frame]);
+
+  /**
+   * `SaveFootprintAssociation`: mail the assignments, and the save when asked.
+   * "Schematic saved" goes up only when the schematic answers the save with
+   * "success".
+   */
+  const saveFootprintAssociation = (doSaveSchematic: boolean): void => {
+    if (frame.SaveFootprintAssociation(doSaveSchematic, components, assigned))
+      setSavedStatus(SCHEMATIC_SAVED_STATUS);
   };
 
   /** CVPCB_MAINFRAME::m_modified. */
   const changed = model.modified;
 
   /**
-   * Run a save command. `assign` is the MAIL_ASSIGN_FOOTPRINTS half — always
-   * sent, and here that is `onApply`, which applies the Footprint fields to the
-   * open schematic as an undoable command. `saveSchematic` is the MAIL_SCH_SAVE
-   * half, which is the only thing that writes the `.kicad_sch` files.
+   * Run a save command: MAIL_ASSIGN_FOOTPRINTS always, MAIL_SCH_SAVE for
+   * "Apply, Save Schematic & Continue", then close for OK.
    */
   const runSave = (cmd: CvpcbSaveCommand): void => {
-    onApply(buildEdits(), { save: cmd.effect.saveSchematic, close: cmd.close });
-    if (cmd.effect.status !== null) setSavedStatus(cmd.effect.status);
-    if (!cmd.close) setModel((m) => markSaved(m));
+    saveFootprintAssociation(cmd.effect.saveSchematic);
+    if (cmd.close) onClose();
+    else setModel((m) => markSaved(m));
   };
 
   /** canCloseWindow: unsaved links are asked about before the window goes. */
@@ -1016,8 +1020,8 @@ export function DialogAssignFootprints({
   const answerUnsavedChanges = (result: UnsavedChangesResult): void => {
     setUnsavedPrompt(false);
     const { close, effect } = resolveUnsavedChanges(result);
-    if (effect) onApply(buildEdits(), { save: effect.saveSchematic, close });
-    else if (close) onClose();
+    if (effect) saveFootprintAssociation(effect.saveSchematic);
+    if (close) onClose();
   };
 
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See

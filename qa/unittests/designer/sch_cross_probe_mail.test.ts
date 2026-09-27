@@ -32,10 +32,17 @@ function setup() {
   const cfg = new CROSS_PROBING_SETTINGS();
   const highlighted: string[] = [];
   const synced: [string[], boolean][] = [];
+  const assigned: string[] = [];
+  let saveAnswer = true;
   const frame = new SCH_EDIT_FRAME({
     crossProbingSettings: () => cfg,
     highlightNet: (n) => highlighted.push(n),
     syncSelection: (parts, focus) => synced.push([[...parts], focus]),
+    assignFootprints: (payload) => {
+      if (!payload.startsWith('(cvpcb_netlist')) throw new Error('not a cvpcb_netlist');
+      assigned.push(payload);
+    },
+    saveProject: () => saveAnswer,
   });
   const kiway = new KIWAY({
     OnKiCadExit: () => {},
@@ -57,7 +64,25 @@ function setup() {
       { value: packet },
       pcb,
     );
-  return { cfg, highlighted, synced, frame, pcb, probe, select };
+  const mail = (command: MAIL_T, value: string) => {
+    const payload = { value };
+    kiway.ExpressMail(FRAME_T.FRAME_SCH, command, payload);
+    return payload.value;
+  };
+  return {
+    cfg,
+    highlighted,
+    synced,
+    assigned,
+    frame,
+    pcb,
+    probe,
+    select,
+    mail,
+    failSave: () => {
+      saveAnswer = false;
+    },
+  };
 }
 
 describe('the board probing a net on the schematic', () => {
@@ -154,6 +179,8 @@ describe('Update PCB from Schematic', () => {
       crossProbingSettings: () => new CROSS_PROBING_SETTINGS(),
       highlightNet: () => {},
       syncSelection: () => {},
+      assignFootprints: () => {},
+      saveProject: () => true,
     });
     frame.SetKiway(kiway);
 
@@ -163,6 +190,27 @@ describe('Update PCB from Schematic', () => {
     const pcb = new PCB_STUB();
     kiway.SetPlayerFrame(FRAME_T.FRAME_PCB_EDITOR, pcb);
     expect(pcb.received).toEqual([[MAIL_T.MAIL_PCB_UPDATE, '']]);
+  });
+});
+
+describe('CvPcb mailing the schematic', () => {
+  it('MAIL_ASSIGN_FOOTPRINTS hands the payload to AssignFootprints', () => {
+    const env = setup();
+    env.mail(MAIL_T.MAIL_ASSIGN_FOOTPRINTS, '(cvpcb_netlist\n)\n');
+    expect(env.assigned).toEqual(['(cvpcb_netlist\n)\n']);
+  });
+
+  it('swallows a payload AssignFootprints cannot read, as the IO_ERROR catch does', () => {
+    const env = setup();
+    expect(() => env.mail(MAIL_T.MAIL_ASSIGN_FOOTPRINTS, '(export)')).not.toThrow();
+    expect(env.assigned).toEqual([]);
+  });
+
+  it('MAIL_SCH_SAVE answers "success" when SaveProject() does, and leaves the payload otherwise', () => {
+    const env = setup();
+    expect(env.mail(MAIL_T.MAIL_SCH_SAVE, '')).toBe('success');
+    env.failSave();
+    expect(env.mail(MAIL_T.MAIL_SCH_SAVE, '')).toBe('');
   });
 });
 

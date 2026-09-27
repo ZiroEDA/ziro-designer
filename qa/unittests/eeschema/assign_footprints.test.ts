@@ -17,6 +17,8 @@ import {
   assignFootprintsCommands,
   parseCvpcbNetlist,
 } from '@ziroeda/eeschema/tools/assign_footprints.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
+import { restoreSymbols } from '@ziroeda/eeschema/tools/properties.js';
 
 describe('NETLIST::FormatCvpcbNetlist', () => {
   it('writes (ref "…" (fpid "…")) per component and nothing CTL_FOR_CVPCB omits', () => {
@@ -196,6 +198,28 @@ describe('SCH_EDITOR_CONTROL::AssignFootprints', () => {
     expect([fpOf(back, 'a1'), fpOf(back, 'a2')]).toEqual([
       { value: '', hidden: false },
       { value: '', hidden: false },
+    ]);
+  });
+
+  it('restoreSymbols puts the captured symbols back verbatim and leaves the rest', () => {
+    const cmd = assignFootprintsCommands(
+      docs,
+      ['root.kicad_sch'],
+      payload([
+        ['R1', 'Res:R'],
+        ['C1', 'X:C'],
+      ]),
+    )!.get('root.kicad_sch')!;
+    const after = cmd.apply(doc);
+    // Capture only R1's first unit: C1 and R1's second unit keep the new value.
+    const i = doc.symbols.findIndex((x) => x.uuid === 'a1');
+    const back = restoreSymbols(new Map([[refId('symbol', 'a1', i), doc.symbols[i]!]])).apply(
+      after,
+    );
+    expect([fpOf(back, 'a1'), fpOf(back, 'a2').value, fpOf(back, 'b1').value]).toEqual([
+      { value: '', hidden: false },
+      'Res:R',
+      'X:C',
     ]);
   });
 

@@ -242,7 +242,6 @@ function open_(): HTMLElement {
       app={makeCvpcbApp()}
       docs={docs}
       projectFootprints={PROJECT}
-      onApply={() => {}}
       onClose={() => {}}
     />,
   );
