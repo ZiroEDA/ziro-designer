@@ -700,6 +700,21 @@ describe('runErc, schematic-wide tests', () => {
         }),
       ),
     ).not.toContain('unresolved_variable');
+    // A token built from another token: ExpandTextVars expands the inner one
+    // first (`${A${B}}` asks for `A1`), which the environment pass cannot.
+    const { doc: d6, libById: l6 } = sch(`${label('${A${B}}', 10, 10, 'l6')}`);
+    expect(
+      codes(
+        runErc(d6, l6, defaultErcSettings(), {
+          resolveTextVar: (t) => {
+            const v = ({ B: '1', A1: 'ok' } as Record<string, string>)[t.value];
+            if (v === undefined) return false;
+            t.value = v;
+            return true;
+          },
+        }),
+      ),
+    ).not.toContain('unresolved_variable');
     for (const text of ['${KNOWN}']) {
       const { doc: d2, libById: l2 } = sch(`${label(text, 10, 10, 'l2')}`);
       const ok = runErc(d2, l2, defaultErcSettings(), {
