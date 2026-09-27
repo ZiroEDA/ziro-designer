@@ -141,7 +141,7 @@ describe('fields table data model', () => {
     });
     loadFieldNames(model, refs);
     model.rebuildRows();
-    expect(model.getExportValue(0, model.getFieldNameCol('Value'))).toBe('Amp');
+    expect(model.getExportValue(0, model.getFieldNameCol('Value'), ', ', '-')).toBe('Amp');
   });
 
   it('expands and collapses a group into its members', () => {
