@@ -3266,6 +3266,26 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-hotkeys-row[title] {
   cursor: default;
 }
+/* BUTTON_ROW_PANEL (widgets/button_row_panel.tsx): every button bordered
+   wxTOP|wxBOTTOM and on each side but the row's outer ends, at
+   KIUI::GetStdMargin(); a stretch spacer between the left and right groups. */
+.ze-button-row {
+  display: flex;
+  align-items: center;
+}
+.ze-button-row > .ze-btn {
+  /* [data] KIUI::GetStdMargin() returns 5 (ui_common.cpp:49-53) */
+  margin: 5px;
+}
+.ze-button-row > .ze-btn.first-left {
+  margin-left: 0;
+}
+.ze-button-row > .ze-btn.last-right {
+  margin-right: 0;
+}
+.ze-button-row-spacer {
+  flex: 1 1 0;
+}
 /* The two button groups: the panel's own row on the left, the dialog's
    wxStdDialogButtonSizer on the right.
 

@@ -40,6 +40,7 @@ import { useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from '
 import type { HotkeyOverrides, HotkeySection } from '../hotkey_store.js';
 import { importOntoNames, parseHotkeyFile } from '../hotkeys_basic_file.js';
 import { WidgetHotkeyList } from '../widgets/widget_hotkey_list.js';
+import { ButtonRowPanel } from '../widgets/button_row_panel.js';
 
 interface Props {
   /**
@@ -143,22 +144,21 @@ export function PanelHotkeysEditor({
           lays out on the right. */}
       <div className="ze-modal-footer ze-hotkeys-foot">
         <div className="left">
-          <button
-            type="button"
-            className="ze-btn"
-            title="Undo all changes made so far in this dialog"
-            onClick={undoAllChanges}
-          >
-            Undo All Changes
-          </button>
-          <button
-            type="button"
-            className="ze-btn"
-            title="Import hotkey definitions from an external file, replacing the current values"
-            onClick={() => fileRef.current?.click()}
-          >
-            Import Hotkeys...
-          </button>
+          <ButtonRowPanel
+            left={[
+              {
+                text: 'Undo All Changes',
+                tooltip: 'Undo all changes made so far in this dialog',
+                onClick: undoAllChanges,
+              },
+              {
+                text: 'Import Hotkeys...',
+                tooltip:
+                  'Import hotkey definitions from an external file, replacing the current values',
+                onClick: () => fileRef.current?.click(),
+              },
+            ]}
+          />
           <input
             ref={fileRef}
             type="file"
