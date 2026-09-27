@@ -14,23 +14,20 @@
  * `EDIT_POINTS`, dragging a handle calls `UpdateItem` which reads every point
  * back and rewrites the shape, and `FinalizeItem` runs once when the drag ends.
  *
- * `eeschema/tools/point_editor.ts` and `pcbnew/point_editor.ts` do not call
- * these classes: both editors instead derive handles from an immutable
- * document and return a *new* document from a drag (`editHandles` /
- * `dragHandle`), so a drag is a pure function of (document, handle, cursor)
- * and the live preview and the committed result cannot disagree - a design
- * documented at the top of `eeschema/tools/point_editor.ts`. Re-platforming
- * either editor onto mutable `EDIT_POINTS` + `COMMIT` is a rearchitecture, not
- * a swap, so their own per-behaviour ports (`eeschema/tools/arc_edit.ts` and the
- * handle builders/draggers in both `point_editor.ts` files) stay as they are;
- * this file is the faithful, class-shaped port of the C++ for anything that
- * *can* use it directly (a future mutable-model canvas, or a unit test that
- * wants to drive the same shape KiCad's own point editor does).
+ * Both editors hold their documents as immutable plain data and answer a drag
+ * with a *new* document (`editHandles` / `dragHandle`), so neither has a live
+ * `EDA_SHAPE` + `COMMIT` for these classes to mutate. The arc - the one shape
+ * whose drag is real maths rather than "set this point" - still goes through
+ * here: {@link ArcEditPointPositions} and {@link DragArcEditPoint} at the end
+ * of this file run `EDA_ARC_POINT_EDIT_BEHAVIOR` itself on a scratch
+ * `EDA_SHAPE` for the length of one call. The other shapes' handle-setting
+ * stays in the editors (see their files for what that leaves unported, e.g.
+ * `EC_CONVERGING` on a polygon edge drag).
  */
 
 import type { COMMIT } from '../commit.js';
 import type { EDA_ITEM } from '../eda_item.js';
-import { type EDA_SHAPE, SHAPE_T } from '../eda_shape.js';
+import { EDA_SHAPE, FILL_T, SHAPE_T } from '../eda_shape.js';
 import { ADVANCED_CFG } from '../advanced_config.js';
 import type { EdaIuScale } from '../eda_units.js';
 import { ARC_EDIT_MODE } from '../frame_type.js';
@@ -50,7 +47,7 @@ import {
   type VECTOR2I,
 } from '@ziroeda/kimath/src/math/vector2.js';
 import { EC_CONVERGING } from './edit_constraints.js';
-import type { EDIT_POINT, EDIT_POINTS } from './edit_points.js';
+import { type EDIT_POINT, EDIT_POINTS } from './edit_points.js';
 
 /**
  * `CHECK_POINT_COUNT( aPoints, aExpected )`: `wxCHECK( aPoints.PointsSize() ==
@@ -1049,3 +1046,82 @@ export const KI_ARC_EDIT = {
   EditArcEndpointKeepCenter,
   EditArcMidKeepCenter,
 };
+
+// ---------------------------------------------------------------------------
+// Ours, not upstream's: the arc behaviour driven over a value.
+//
+// Both editors hold an arc as plain (start, mid, end) data and answer a drag
+// with a new document, so neither has a live `EDA_SHAPE` for
+// `EDA_ARC_POINT_EDIT_BEHAVIOR` to mutate. These two functions give it one for
+// the length of a call: a scratch `EDA_SHAPE` built with `SetArcGeometry`, the
+// behaviour's own `MakePoints`, and - for a drag - its own `UpdateItem`. So the
+// arc maths is this file's, once, for every editor.
+// ---------------------------------------------------------------------------
+
+/** A bare `EDA_SHAPE` host for an arc, the mixin with nothing else. */
+class SCRATCH_ARC extends EDA_SHAPE {
+  constructor(aStart: VECTOR2I, aMid: VECTOR2I, aEnd: VECTOR2I) {
+    super();
+    this.initEdaShape(SHAPE_T.ARC, 0, FILL_T.NO_FILL);
+    this.SetArcGeometry(aStart, aMid, aEnd);
+  }
+}
+
+/** An arc as a value: its three stored points, and the centre `EDA_SHAPE` derives. */
+export interface ArcPoints {
+  start: VECTOR2I;
+  mid: VECTOR2I;
+  end: VECTOR2I;
+  center: VECTOR2I;
+}
+
+/**
+ * `EDA_ARC_POINT_EDIT_BEHAVIOR::MakePoints` for an arc given as (start, mid,
+ * end): the four edit points in upstream's order - start, mid (`GetArcMid`,
+ * re-derived, not the stored one), end, centre.
+ */
+export function ArcEditPointPositions(
+  aStart: VECTOR2I,
+  aMid: VECTOR2I,
+  aEnd: VECTOR2I,
+): [VECTOR2I, VECTOR2I, VECTOR2I, VECTOR2I] {
+  const arc = new SCRATCH_ARC(aStart, aMid, aEnd);
+
+  return [arc.GetStart(), arc.GetArcMid(), arc.GetEnd(), arc.getCenter()];
+}
+
+/**
+ * `EDA_ARC_POINT_EDIT_BEHAVIOR::UpdateItem` for an arc given as (start, mid,
+ * end): edit point `aPointIndex` (0 start, 1 mid, 2 end, 3 centre) moved to
+ * `aCursor` under `aMode`, and the arc it leaves. `aCursor` doubles as the
+ * view's cursor position, which the mid and end branches read.
+ */
+export function DragArcEditPoint(
+  aStart: VECTOR2I,
+  aMid: VECTOR2I,
+  aEnd: VECTOR2I,
+  aPointIndex: number,
+  aCursor: VECTOR2I,
+  aMode: ARC_EDIT_MODE,
+  aIuScale: EdaIuScale,
+): ArcPoints {
+  const arc = new SCRATCH_ARC(aStart, aMid, aEnd);
+  const controls = { GetCursorPosition: () => aCursor } as unknown as VIEW_CONTROLS;
+  const behavior = new EDA_ARC_POINT_EDIT_BEHAVIOR(arc, { value: aMode }, controls, aIuScale);
+  const points = new EDIT_POINTS(null);
+
+  behavior.MakePoints(points);
+
+  const edited = points.Point(aPointIndex);
+
+  edited.SetPosition(aCursor);
+  // The arc behaviour reads neither the commit nor the updated-items list.
+  behavior.UpdateItem(edited, points, null as unknown as COMMIT, []);
+
+  return {
+    start: arc.GetStart(),
+    mid: arc.GetArcMid(),
+    end: arc.GetEnd(),
+    center: arc.getCenter(),
+  };
+}

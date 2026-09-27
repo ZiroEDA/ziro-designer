@@ -45,21 +45,14 @@ import { resolveCell } from './table_cells.js';
 import { resizeCellEdge } from './table_layout.js';
 import { sheetPinBBox } from './bbox.js';
 import { imageSizeIU } from './image_size.js';
-import { mmToIU } from '@ziroeda/common/eda_units.js';
+import { mmToIU, schIUScale } from '@ziroeda/common/eda_units.js';
 import type { EditCommand } from './command.js';
+import type { ARC_EDIT_MODE } from '@ziroeda/common/frame_type.js';
 import {
-  ArcEditMode,
-  arcState,
-  arcMidOf,
-  arcFromState,
-  setArcGeometry,
-  editArcCenterKeepEndpoints,
-  editArcEndpointKeepCenter,
-  editArcEndpointKeepRadius,
-  editArcEndpointKeepTangent,
-  editArcMidKeepCenter,
-  editArcMidKeepEndpoints,
-} from './arc_edit.js';
+  ArcEditPointPositions,
+  DragArcEditPoint,
+} from '@ziroeda/common/tool/point_editor_behavior.js';
+import { ArcEditMode } from './arc_edit.js';
 
 /** A square handle on a corner or vertex (EDIT_POINT), or a circle at an edge
  *  midpoint (EDIT_LINE). */
@@ -519,14 +512,15 @@ export function graphicHandles(g: LibGraphic): EditHandle[] {
       ];
     }
     case 'arc': {
-      // EDA_ARC_POINT_EDIT_BEHAVIOR: start, mid, end, centre. The two indicator
-      // lines from the centre are drawn, not grabbed, so they are not handles.
-      const s = arcState(g.start, g.mid, g.end);
+      // EDA_ARC_POINT_EDIT_BEHAVIOR::MakePoints: start, mid, end, centre. The
+      // two indicator lines from the centre are drawn, not grabbed, so they are
+      // not handles.
+      const [start, mid, end, center] = ArcEditPointPositions(g.start, g.mid, g.end);
       return [
-        pt('point', ARC_START, g.start),
-        pt('point', ARC_MID, arcMidOf(s)),
-        pt('point', ARC_END, g.end),
-        pt('point', ARC_CENTER, s.center),
+        pt('point', ARC_START, start),
+        pt('point', ARC_MID, mid),
+        pt('point', ARC_END, end),
+        pt('point', ARC_CENTER, center),
       ];
     }
     case 'bezier':
@@ -572,9 +566,9 @@ export function graphicHandles(g: LibGraphic): EditHandle[] {
 }
 
 /**
- * EDA_ARC_POINT_EDIT_BEHAVIOR::UpdateItem. Which point moved and which arc edit
- * mode is set together decide what the drag means; every combination is one of
- * the helpers in arc_edit.ts.
+ * EDA_ARC_POINT_EDIT_BEHAVIOR::UpdateItem, run by the common behaviour itself
+ * (`DragArcEditPoint`). Which point moved and which arc edit mode is set
+ * together decide what the drag means.
  */
 function dragArc(
   g: Extract<LibGraphic, { kind: 'arc' }>,
@@ -582,51 +576,27 @@ function dragArc(
   pos: Vec2,
   mode: ArcEditMode,
 ): { start: Vec2; mid: Vec2; end: Vec2 } | null {
-  const cur = arcState(g.start, g.mid, g.end);
-  const mid = arcMidOf(cur);
-
   // Upstream only reaches UpdateItem once a point has actually moved, and every
-  // mode below decides what to do by comparing the incoming points against the
-  // arc's own. Handing it a point that has not moved is therefore ambiguous:
-  // the endpoint branches would read it as the *other* end being dragged and
+  // mode decides what to do by comparing the incoming points against the arc's
+  // own. Handing it a point that has not moved is therefore ambiguous: the
+  // endpoint branches would read it as the *other* end being dragged and
   // re-derive both ends, nudging the arc by a rounding step. A drag frame that
   // did not move the grabbed point leaves the arc alone, and says so by
   // returning null so the caller can hand back the very same document.
   if (pos.x === h.at.x && pos.y === h.at.y) return null;
 
-  if (h.index === ARC_CENTER) {
-    if (mode === ArcEditMode.KeepEndpointsOrStartDirection) {
-      return arcFromState({
-        ...cur,
-        center: editArcCenterKeepEndpoints(pos, cur.start, cur.end),
-      });
-    }
-    // Both centre-keeping modes just move the whole arc.
-    const d = { x: pos.x - cur.center.x, y: pos.y - cur.center.y };
-    return setArcGeometry(
-      { x: g.start.x + d.x, y: g.start.y + d.y },
-      { x: mid.x + d.x, y: mid.y + d.y },
-      { x: g.end.x + d.x, y: g.end.y + d.y },
-    );
-  }
+  // `ArcEditMode` is `ARC_EDIT_MODE` value for value (app_settings.h order).
+  const { start, mid, end } = DragArcEditPoint(
+    g.start,
+    g.mid,
+    g.end,
+    h.index,
+    pos,
+    mode as number as ARC_EDIT_MODE,
+    schIUScale,
+  );
 
-  if (h.index === ARC_MID) {
-    if (mode === ArcEditMode.KeepEndpointsOrStartDirection)
-      return editArcMidKeepEndpoints(cur, cur.start, cur.end, pos);
-    return arcFromState(editArcMidKeepCenter(cur.center, cur.start, cur.end, pos));
-  }
-
-  // A start or end drag: `pos` replaces that endpoint, the other stays put.
-  const start = h.index === ARC_START ? pos : cur.start;
-  const end = h.index === ARC_END ? pos : cur.end;
-  switch (mode) {
-    case ArcEditMode.KeepCenterAdjustAngleRadius:
-      return arcFromState(editArcEndpointKeepCenter(cur, cur.center, start, end));
-    case ArcEditMode.KeepCenterEndsAdjustAngle:
-      return arcFromState(editArcEndpointKeepRadius(cur, cur.center, start, end));
-    case ArcEditMode.KeepEndpointsOrStartDirection:
-      return arcFromState(editArcEndpointKeepTangent(cur, cur.center, start, mid, end));
-  }
+  return { start, mid, end };
 }
 
 /**
@@ -936,7 +906,7 @@ export function graphicIndicatorLines(g: LibGraphic | undefined): [Vec2, Vec2][]
   if (g?.kind === 'arc') {
     // The same centre the ARC_CENTER handle is placed at, so the leaders land
     // on it however the three stored points are arranged.
-    const { center } = arcState(g.start, g.mid, g.end);
+    const [, , , center] = ArcEditPointPositions(g.start, g.mid, g.end);
     return [
       [center, g.start],
       [center, g.end],

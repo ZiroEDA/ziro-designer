@@ -429,6 +429,24 @@ describe('arcs', () => {
     expect(arcHandle(3).at.y).toBeCloseTo(mm(20), -2);
   });
 
+  it('puts the mid handle at the stored mid while the arc is untouched', () => {
+    // MakePoints adds `m_arc.GetArcMid()`, and GetArcMid returns the stored
+    // `m_arcMidData.mid` while start, end and centre are the ones it was loaded
+    // with - "keep the original mid point data to minimize churn"
+    // (eda_shape.cpp:1117-1120). A file may store any point on the arc as its
+    // mid - here one at -60 deg rather than the angular midpoint at -45 deg -
+    // and the handle sits on it. (Ours used to re-derive the -45 deg point.)
+    const offMid = readSchematic(
+      parse(
+        `(kicad_sch (version 1) (lib_symbols)
+           (arc (start 60 10) (mid 65 11.3397) (end 70 20) (uuid "a2")))`,
+      ),
+    );
+    const t = pointEditTarget(offMid, ARC_ID)!;
+    const midHandle = editHandles(offMid, t).find((h) => h.index === 1 && h.kind === 'point')!;
+    expect(midHandle.at).toEqual({ x: mm(65), y: mm(11.3397) });
+  });
+
   it('moves the whole arc when the centre is dragged, keeping the centre', () => {
     // KEEP_CENTER_ADJUST_ANGLE_RADIUS and KEEP_CENTER_ENDS_ADJUST_ANGLE both
     // just translate the arc by the centre's delta.
@@ -516,6 +534,26 @@ describe('arcs', () => {
       ArcEditMode.KeepCenterEndsAdjustAngle,
     );
     expect(radius(arcOf(out))).toBeCloseTo(before, -2);
+  });
+
+  it('keeps the other end and its tangent when an endpoint is dragged in keep-endpoints mode', () => {
+    // editArcEndpointKeepTangent: the end that does not move keeps its tangent,
+    // so the new centre stays on the line through that end and the old centre -
+    // here y = 20 mm, the old centre being (60, 20) and the fixed end (70, 20).
+    const out = dragHandle(
+      arcDoc,
+      target(),
+      arcHandle(0),
+      { x: mm(63), y: mm(8) },
+      ArcEditMode.KeepEndpointsOrStartDirection,
+    );
+    const g = arcOf(out);
+    expect(g.end).toEqual(arcOf(arcDoc).end);
+    expect(g.start).toEqual({ x: mm(63), y: mm(8) });
+    const c = CalcArcCenter(g.start, g.mid, g.end);
+    expect(c.y).toBeCloseTo(mm(20), -3);
+    // ...and it did move along that line: the radius is not the old 10 mm.
+    expect(Math.abs(radius(g) - mm(10))).toBeGreaterThan(mm(1));
   });
 
   it('leaves an untouched arc exactly where it was', () => {
