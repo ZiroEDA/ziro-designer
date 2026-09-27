@@ -106,6 +106,14 @@ describe('AutoDecodeCSV', () => {
     ]);
   });
 
+  it('drops a CR even inside a cell, where trimming cannot reach it', () => {
+    expect(decode('a\rb,c').rows).toEqual([['ab', 'c']]);
+  });
+
+  it('leaves a lone quote as it is: unquoting takes two', () => {
+    expect(decode('a,"').rows).toEqual([['a', '"']]);
+  });
+
   it('drops CRs and a UTF-8 byte order mark', () => {
     expect(decode('﻿a,b\r\n1,2\r\n').rows).toEqual([
       ['a', 'b'],

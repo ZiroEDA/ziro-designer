@@ -6,7 +6,8 @@
  * mounted with a program of the test's own - the `PL_EDITOR_APP` designer
  * supplies in the app. The GL window never arrives, so no WebGL is needed.
  */
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { GetClipboardUTF8, SaveClipboard } from '@ziroeda/common/clipboard.js';
 import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
 import type { DRAW_PANEL_GAL_WINDOW } from '@ziroeda/common/draw_panel_gal.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
@@ -79,6 +80,20 @@ describe('the Drawing Sheet Editor window', () => {
     const root = container.querySelector('.ze-app.ze-wks');
     expect(root).not.toBeNull();
     expect(root!.contains(screen.getByTestId('chooser'))).toBe(true);
+  });
+
+  it('a system paste event becomes wxTheClipboard (ACTIONS::paste then reads it)', async () => {
+    render(<PlEditorFrameWindow app={makeApp()} onExitToHome={() => {}} />);
+    SaveClipboard('copied here');
+
+    const e = new Event('paste', { cancelable: true });
+    Object.defineProperty(e, 'clipboardData', {
+      value: { types: ['text/plain'], getData: () => 'from the system', items: [] },
+    });
+    window.dispatchEvent(e);
+
+    expect(e.defaultPrevented).toBe(true);
+    await waitFor(() => expect(GetClipboardUTF8()).toBe('from the system'));
   });
 
   it('puts the program home link at the left of the menu bar', () => {
