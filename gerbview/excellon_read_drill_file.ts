@@ -42,7 +42,8 @@ import {
 } from './excellon_defaults.js';
 import { GERBER_DRAW_ITEM } from './gerber_draw_item.js';
 import { GERBER_FILE_IMAGE, LAST_EXTRA_ARC_DATA_TYPE } from './gerber_file_image.js';
-import { Gerb_Interpolation, gerbIUScale } from './gerbview.js';
+import { Gerb_Interpolation } from './gerbview.js';
+import { gerbIUScale } from '@ziroeda/common/eda_units.js';
 import {
   CHAR_PTR,
   FILE,

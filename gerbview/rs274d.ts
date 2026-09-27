@@ -23,7 +23,8 @@ import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { APERTURE_T, type D_CODE, FIRST_DCODE } from './dcode.js';
 import { GBR_BASIC_SHAPE_TYPE, GERBER_DRAW_ITEM } from './gerber_draw_item.js';
 import { GERBER_BUFZ, GERBER_FILE_IMAGE } from './gerber_file_image.js';
-import { Gerb_GCommand, Gerb_Interpolation, gerbIUScale } from './gerbview.js';
+import { Gerb_GCommand, Gerb_Interpolation } from './gerbview.js';
+import { gerbIUScale } from '@ziroeda/common/eda_units.js';
 import { CHAR_PTR, LINE_BUFFER, NUL, strncmp0, strtol10 } from './libc.js';
 
 const add = (a: VECTOR2I, b: VECTOR2I): VECTOR2I => ({ x: a.x + b.x, y: a.y + b.y });

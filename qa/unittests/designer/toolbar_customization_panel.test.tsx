@@ -21,7 +21,7 @@ import { resolve } from 'node:path';
 import { useState, type JSX } from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { PanelToolbarCustomization } from '@ziroeda/common/dialogs/panel_toolbar_customization.js';
-import { resetToolbarsPanel } from '@ziroeda/designer/src/dialogs/prefs/toolbar_reset.js';
+import { resetToolbarsPanel } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import {
   configFromEntries,
   storedToolbarConfig,

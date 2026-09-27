@@ -31,7 +31,7 @@ import {
 } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import type { AM_PARAMS } from './am_param.js';
 import type { APERTURE_MACRO } from './aperture_macro.js';
-import { IU_PER_MM } from './gerbview.js';
+import { GERB_IU_PER_MM as IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import { scaletoIU } from './rs274_read_XY_and_IJ_coordinates.js';
 
 /**

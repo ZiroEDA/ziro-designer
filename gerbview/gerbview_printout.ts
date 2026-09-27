@@ -16,7 +16,7 @@ import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { GBR_LAYOUT } from './gbr_layout.js';
 import { GERBER_FILE_IMAGE_LIST } from './gerber_file_image_list.js';
-import { gerbIUScale } from './gerbview.js';
+import { gerbIUScale } from '@ziroeda/common/eda_units.js';
 import { GERBVIEW_PAINTER } from './gerbview_painter.js';
 
 export class GERBVIEW_PRINTOUT extends BOARD_PRINTOUT {

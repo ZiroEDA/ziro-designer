@@ -53,7 +53,7 @@ import { mapGerberLayersToPcb } from './dialogs/dialog_map_gerber_layers_to_pcb.
 import { EXCELLON_IMAGE } from './excellon_read_drill_file.js';
 import { GBR_BASIC_SHAPE_TYPE, type GERBER_DRAW_ITEM } from './gerber_draw_item.js';
 import type { GERBER_FILE_IMAGE } from './gerber_file_image.js';
-import { gerbIUScale } from './gerbview.js';
+import { gerbIUScale } from '@ziroeda/common/eda_units.js';
 
 /** `EXPORT_SLOT`. */
 export class EXPORT_SLOT {

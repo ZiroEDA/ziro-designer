@@ -18,7 +18,7 @@
  * the rule is one line long: **a page resets its own fields and no others.**
  */
 import { COMMON_DEFAULTS, PRIVACY_DEFAULTS } from '../../../prefs/settings.js';
-import { resetKeys } from '../reset.js';
+import { resetKeys } from '@ziroeda/common/settings/json_settings.js';
 import type { PrefsContext } from '../types.js';
 
 /**

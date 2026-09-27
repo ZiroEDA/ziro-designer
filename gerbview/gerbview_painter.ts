@@ -33,7 +33,7 @@ import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { APERTURE_DEF_HOLETYPE, APERTURE_T, type D_CODE } from './dcode.js';
 import { GBR_BASIC_SHAPE_TYPE, GERBER_DRAW_ITEM } from './gerber_draw_item.js';
-import { gerbIUScale } from './gerbview.js';
+import { gerbIUScale } from '@ziroeda/common/eda_units.js';
 import { GERBVIEW_SETTINGS } from './gerbview_settings.js';
 
 /** `COLOR4D( 0, 0, 0, 0 )`. */

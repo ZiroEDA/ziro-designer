@@ -88,7 +88,7 @@ import { DIALOG_DRAW_LAYERS_SETTINGS } from './dialogs/dialog_draw_layers_settin
 import type { DIALOG_MAP_GERBER_LAYERS_TO_PCB } from './dialogs/dialog_map_gerber_layers_to_pcb.js';
 import { SELECT_LAYER_DIALOG } from './dialogs/dialog_select_one_pcb_layer.js';
 import type { DIALOG_PRINT_GERBVIEW } from './dialogs/dialog_print_gerbview.js';
-import { gerbIUScale } from './gerbview.js';
+import { gerbIUScale } from '@ziroeda/common/eda_units.js';
 import type { GERBVIEW_DRAW_PANEL_GAL } from './gerbview_draw_panel_gal.js';
 import type { GERBVIEW_PAINTER } from './gerbview_painter.js';
 import type { GERBVIEW_SETTINGS } from './gerbview_settings.js';
