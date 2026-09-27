@@ -15,7 +15,19 @@
  * view's.
  */
 import type { wxMenu } from './menu.js';
-import { wxEvent, wxEvtHandler, type wxEventType, wxNewEventType } from './wx_event.js';
+import {
+  WXK,
+  wxEVT_CHAR_HOOK,
+  wxEVT_KEY_DOWN,
+  wxEvent,
+  wxEvtHandler,
+  type wxEventType,
+  type wxKeyEvent,
+  wxMOD_CONTROL,
+  wxMOD_NONE,
+  wxMOD_SHIFT,
+  wxNewEventType,
+} from './wx_event.js';
 
 // ---------------------------------------------------------------------------
 // coordinates
@@ -1036,6 +1048,106 @@ class wxGridSelection {
     }
   }
 
+  /**
+   * `ExtendCurrentBlock( blockStart, blockEnd )`: grow or shrink the last
+   * block from its anchor corner - the keyboard's Shift+arrow.
+   */
+  ExtendCurrentBlock(aBlockStart: wxGridCellCoords, aBlockEnd: wxGridCellCoords): boolean {
+    if (this.m_selectionMode === wxGridSelectionModes.wxGridSelectNone) return false;
+
+    const cursor = this.m_grid.GetGridCursorCoords();
+
+    if (!this.IsInSelection(cursor.m_row, cursor.m_col)) {
+      this.SelectBlock(aBlockStart.m_row, aBlockStart.m_col, aBlockEnd.m_row, aBlockEnd.m_col);
+      return true;
+    }
+
+    const block = this.m_selection[this.m_selection.length - 1]!;
+    const newBlock = new wxGridBlockCoords(
+      block.m_topRow,
+      block.m_leftCol,
+      block.m_bottomRow,
+      block.m_rightCol,
+    );
+    let canChangeRow = false;
+    let canChangeCol = false;
+
+    switch (this.m_selectionMode) {
+      case wxGridSelectionModes.wxGridSelectCells:
+        canChangeRow = true;
+        canChangeCol = true;
+        break;
+      case wxGridSelectionModes.wxGridSelectColumns:
+        canChangeCol = true;
+        break;
+      case wxGridSelectionModes.wxGridSelectRows:
+        canChangeRow = true;
+        break;
+      case wxGridSelectionModes.wxGridSelectRowsOrColumns:
+        if (block.m_topRow !== 0 || block.m_bottomRow !== this.m_grid.GetNumberRows() - 1)
+          canChangeRow = true;
+        else if (block.m_leftCol !== 0 || block.m_rightCol !== this.m_grid.GetNumberCols() - 1)
+          canChangeCol = true;
+        else {
+          canChangeRow = true;
+          canChangeCol = true;
+        }
+        break;
+    }
+
+    if (canChangeRow) {
+      if (aBlockStart.m_row === block.m_topRow) newBlock.m_bottomRow = aBlockEnd.m_row;
+      else if (aBlockStart.m_row === block.m_bottomRow) newBlock.m_topRow = aBlockEnd.m_row;
+      else {
+        const top = Math.min(aBlockStart.m_row, aBlockEnd.m_row);
+        const bottom = Math.max(aBlockStart.m_row, aBlockEnd.m_row);
+
+        if (top < newBlock.m_topRow) newBlock.m_topRow = top;
+        if (bottom > newBlock.m_bottomRow) newBlock.m_bottomRow = bottom;
+      }
+    }
+
+    if (canChangeCol) {
+      if (aBlockStart.m_col === block.m_leftCol) newBlock.m_rightCol = aBlockEnd.m_col;
+      else if (aBlockStart.m_col === block.m_rightCol) newBlock.m_leftCol = aBlockEnd.m_col;
+      else {
+        const left = Math.min(aBlockStart.m_col, aBlockEnd.m_col);
+        const right = Math.max(aBlockStart.m_col, aBlockEnd.m_col);
+
+        if (left < newBlock.m_leftCol) newBlock.m_leftCol = left;
+        if (right > newBlock.m_rightCol) newBlock.m_rightCol = right;
+      }
+    }
+
+    const canonical = newBlock.Canonicalize();
+
+    if (canonical.equals(block)) return false;
+
+    this.m_selection[this.m_selection.length - 1] = canonical;
+    this.m_grid.sendRangeSelected(canonical, true);
+    return true;
+  }
+
+  /**
+   * `GetExtensionAnchor`: the corner of the last block opposite the cursor,
+   * which Shift+arrow moves.
+   */
+  GetExtensionAnchor(): wxGridCellCoords {
+    const coords = this.m_grid.GetGridCursorCoords();
+
+    if (!this.IsInSelection(coords.m_row, coords.m_col)) return coords;
+
+    const block = this.m_selection[this.m_selection.length - 1]!;
+
+    if (block.m_topRow === coords.m_row) coords.m_row = block.m_bottomRow;
+    else if (block.m_bottomRow === coords.m_row) coords.m_row = block.m_topRow;
+
+    if (block.m_leftCol === coords.m_col) coords.m_col = block.m_rightCol;
+    else if (block.m_rightCol === coords.m_col) coords.m_col = block.m_leftCol;
+
+    return coords;
+  }
+
   GetCellSelection(): wxGridCellCoords[] {
     if (this.m_selectionMode !== wxGridSelectionModes.wxGridSelectCells) return [];
 
@@ -1696,6 +1808,276 @@ export class wxGrid extends wxEvtHandler {
         if (this.SendEvent(wxEVT_GRID_CELL_CHANGED, row, col, oldval) === EventResult.Event_Vetoed)
           this.SetCellValue(row, col, oldval);
     }
+  }
+
+  // ---- the keyboard -----------------------------------------------------------
+
+  /**
+   * One step along a row or column from `aCoords`, past hidden columns
+   * (`wxGridForward/BackwardOperations::TryToAdvance`); null at the edge.
+   */
+  private advance(aCoords: wxGridCellCoords, aDir: 'up' | 'down' | 'left' | 'right'): boolean {
+    if (aDir === 'up' || aDir === 'down') {
+      const step = aDir === 'down' ? 1 : -1;
+      const row = aCoords.m_row + step;
+
+      if (row < 0 || row >= this.m_numRows) return false;
+
+      aCoords.m_row = row;
+      return true;
+    }
+
+    const step = aDir === 'right' ? 1 : -1;
+
+    for (let col = aCoords.m_col + step; col >= 0 && col < this.m_numCols; col += step) {
+      if (this.IsColShown(col)) {
+        aCoords.m_col = col;
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * `DoMoveCursor`: with Shift, extend the selection from its anchor; without,
+   * clear it and move the cursor. (Ctrl+arrow's `DoMoveCursorByBlock`, the
+   * jump to the edge of the filled cells, moves one cell here.)
+   */
+  private DoMoveCursor(aExpand: boolean, aDir: 'up' | 'down' | 'left' | 'right'): boolean {
+    if (this.m_currentCellCoords.equals(wxGridNoCellCoords())) return false;
+
+    if (aExpand) {
+      if (!this.m_selection) return false;
+
+      const coords = this.m_selection.GetExtensionAnchor();
+
+      if (!this.advance(coords, aDir)) return false;
+
+      if (this.m_selection.ExtendCurrentBlock(this.GetGridCursorCoords(), coords)) this.Refresh();
+    } else {
+      this.ClearSelection();
+
+      const coords = this.GetGridCursorCoords();
+
+      if (!this.advance(coords, aDir)) return false;
+
+      this.GoToCell(coords.m_row, coords.m_col);
+    }
+
+    return true;
+  }
+
+  MoveCursorUp(aExpandSelection: boolean): boolean {
+    return this.DoMoveCursor(aExpandSelection, 'up');
+  }
+  MoveCursorDown(aExpandSelection: boolean): boolean {
+    return this.DoMoveCursor(aExpandSelection, 'down');
+  }
+  MoveCursorLeft(aExpandSelection: boolean): boolean {
+    return this.DoMoveCursor(aExpandSelection, 'left');
+  }
+  MoveCursorRight(aExpandSelection: boolean): boolean {
+    return this.DoMoveCursor(aExpandSelection, 'right');
+  }
+
+  /** `DoGridProcessTab` with the default `Tab_Stop`: along the row, then stop. */
+  DoGridProcessTab(aShift: boolean): void {
+    if (!aShift) {
+      if (this.GetGridCursorCol() < this.GetNumberCols() - 1) {
+        this.MoveCursorRight(false);
+        return;
+      }
+    } else if (this.GetGridCursorCol()) {
+      this.MoveCursorLeft(false);
+      return;
+    }
+
+    this.DisableCellEditControl();
+  }
+
+  /** `OnKeyDown`, the class handler: the cursor keys, Enter, Esc, Tab, Home/End, Space. */
+  OnKeyDown(aEvent: wxKeyEvent): void {
+    const shift = aEvent.state.ShiftDown();
+    const ctrl = aEvent.state.ControlDown();
+
+    switch (aEvent.GetKeyCode()) {
+      case WXK.WXK_UP:
+        this.DoMoveCursor(shift, 'up');
+        break;
+      case WXK.WXK_DOWN:
+        this.DoMoveCursor(shift, 'down');
+        break;
+      case WXK.WXK_LEFT:
+        this.DoMoveCursor(shift, 'left');
+        break;
+      case WXK.WXK_RIGHT:
+        this.DoMoveCursor(shift, 'right');
+        break;
+      case WXK.WXK_RETURN:
+      case WXK.WXK_NUMPAD_ENTER:
+        if (ctrl) {
+          aEvent.Skip(); // to let the edit control have the return
+        } else {
+          this.DisableCellEditControl();
+          this.MoveCursorDown(shift);
+        }
+        break;
+      case WXK.WXK_ESCAPE:
+        this.ClearSelection();
+        break;
+      case WXK.WXK_TAB:
+        this.DoGridProcessTab(shift);
+        break;
+      case WXK.WXK_HOME:
+      case WXK.WXK_END:
+        if (!this.m_currentCellCoords.equals(wxGridNoCellCoords())) {
+          const toStart = aEvent.GetKeyCode() === WXK.WXK_HOME;
+          let row: number;
+
+          if (ctrl) row = toStart ? 0 : this.m_numRows - 1;
+          else if (this.m_selection && shift) row = this.m_selection.GetExtensionAnchor().m_row;
+          else row = this.m_currentCellCoords.m_row;
+
+          let col: number;
+
+          if (toStart) for (col = 0; col < this.m_numCols && !this.IsColShown(col); ++col);
+          else for (col = this.m_numCols - 1; col >= 0 && !this.IsColShown(col); --col);
+
+          if (shift) {
+            this.m_selection?.ExtendCurrentBlock(
+              this.GetGridCursorCoords(),
+              new wxGridCellCoords(row, col),
+            );
+            this.Refresh();
+          } else {
+            this.ClearSelection();
+            this.GoToCell(row, col);
+          }
+        }
+        break;
+      case ' '.charCodeAt(0): {
+        if (!this.m_selection) {
+          aEvent.Skip();
+          break;
+        }
+
+        const anchor = this.m_selection.GetExtensionAnchor();
+        let selStart: wxGridCellCoords | null = null;
+        let selEnd: wxGridCellCoords | null = null;
+
+        switch (aEvent.GetModifiers()) {
+          case wxMOD_CONTROL:
+            selStart = new wxGridCellCoords(0, this.m_currentCellCoords.m_col);
+            selEnd = new wxGridCellCoords(this.m_numRows - 1, anchor.m_col);
+            break;
+          case wxMOD_SHIFT:
+            selStart = new wxGridCellCoords(this.m_currentCellCoords.m_row, 0);
+            selEnd = new wxGridCellCoords(anchor.m_row, this.m_numCols - 1);
+            break;
+          case wxMOD_CONTROL | wxMOD_SHIFT:
+            selStart = new wxGridCellCoords(0, 0);
+            selEnd = new wxGridCellCoords(this.m_numRows - 1, this.m_numCols - 1);
+            break;
+          case wxMOD_NONE:
+            if (!this.IsEditable()) {
+              this.MoveCursorRight(false);
+              break;
+            }
+            aEvent.Skip();
+            break;
+          default:
+            aEvent.Skip();
+        }
+
+        if (selStart && selEnd) {
+          this.m_selection.ExtendCurrentBlock(selStart, selEnd);
+          this.Refresh();
+        }
+        break;
+      }
+      default:
+        aEvent.Skip();
+    }
+  }
+
+  /**
+   * `OnChar`: F2, or a key the editor takes, opens the editor on the cursor;
+   * a typed character becomes its text (`wxGridCellTextEditor::StartingKey`).
+   */
+  OnChar(aEvent: wxKeyEvent): void {
+    if (this.IsCellEditControlEnabled() || !this.CanEnableCellControl()) {
+      aEvent.Skip();
+      return;
+    }
+
+    const specialEditKey = aEvent.GetKeyCode() === WXK.WXK_F2 && !aEvent.state.HasAnyModifiers();
+    const ch = aEvent.GetUnicodeKey();
+    const accepted =
+      !aEvent.state.ControlDown() && !aEvent.state.AltDown() && ch >= 0x20 && ch !== 0x7f;
+
+    if (specialEditKey || accepted) {
+      if (this.DoEnableCellEditControl() && !specialEditKey && this.m_currentEditor)
+        this.m_currentEditor.m_value = String.fromCodePoint(ch);
+    } else {
+      aEvent.Skip();
+    }
+  }
+
+  /**
+   * `wxGridCellEditorEvtHandler::OnKeyDown`, the open editor's own keys: Esc
+   * abandons, Tab moves along, Enter goes to the grid's handler.
+   *
+   * @return true when the editor's key was handled here.
+   */
+  EditorKeyDown(aEvent: wxKeyEvent): boolean {
+    switch (aEvent.GetKeyCode()) {
+      case WXK.WXK_ESCAPE:
+        this.m_currentEditor?.Reset();
+        this.DisableCellEditControl();
+        return true;
+      case WXK.WXK_TAB:
+        this.DisableCellEditControl();
+        this.DoGridProcessTab(aEvent.state.ShiftDown());
+        return true;
+      case WXK.WXK_RETURN:
+      case WXK.WXK_NUMPAD_ENTER:
+        if (!this.ProcessEvent(aEvent)) this.OnKeyDown(aEvent);
+        return !aEvent.GetSkipped();
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * A key as wx routes it: `wxEVT_CHAR_HOOK` first (GRID_TRICKS' hook),
+   * then - with the editor open - the editor's own handler, otherwise the
+   * `wxEVT_KEY_DOWN` handlers and the class's `OnKeyDown`, and last `OnChar`.
+   *
+   * @return true when something handled it (the view prevents the default).
+   */
+  HandleKey(aEvent: wxKeyEvent): boolean {
+    aEvent.SetEventType(wxEVT_CHAR_HOOK);
+
+    if (this.ProcessEvent(aEvent)) return true;
+
+    if (this.IsCellEditControlEnabled()) {
+      aEvent.SetEventType(wxEVT_KEY_DOWN);
+      return this.EditorKeyDown(aEvent);
+    }
+
+    aEvent.SetEventType(wxEVT_KEY_DOWN);
+
+    if (this.ProcessEvent(aEvent)) return true;
+
+    aEvent.Skip(false);
+    this.OnKeyDown(aEvent);
+
+    if (!aEvent.GetSkipped()) return true;
+
+    aEvent.Skip(false);
+    this.OnChar(aEvent);
+    return !aEvent.GetSkipped();
   }
 
   // ---- events and refresh ------------------------------------------------------

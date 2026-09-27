@@ -7237,7 +7237,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    different affordance, not a lighter version of the same one.
    The row LABEL keeps its own colour: [px] the label cell of the selected row
    still measures rgb(55,55,55), so the fill stops at the data cells. */
-.ze-grid tr.selected td {
+.ze-grid tr.selected td,
+.ze-grid td.selected {
   background: var(--selection-bg);
   color: var(--selection-fg);
 }
@@ -7253,7 +7254,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    too, and a table that takes no focus of its own cannot tell that apart from
    nothing being focused at all. Closing that needs the grids to be focusable,
    which is a change at 34 call sites and not this one. */
-.ze-grid:focus-within tr.selected td {
+.ze-grid:focus-within tr.selected td,
+.ze-grid:focus-within td.selected {
   background: var(--grid-selection-idle-bg);
 }
 .ze-grid tr.selected td.ze-grid-rowlabel {
