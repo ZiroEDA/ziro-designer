@@ -64,7 +64,7 @@ which); **n/a** (a browser cannot have it).
 | `gerbview_frame` | here | `gerbview_frame.ts` (`GERBVIEW_FRAME`). The page, `designer/.../GerberViewer.tsx`, hosts it: the chrome, the dialogs behind `GERBVIEW_FRAME_HOST`, and `gerbview_settings_bridge.ts` between `gerbview.json` and `GERBVIEW_SETTINGS`. `setupUIConditions` is still `checkedSet` in that bridge rather than `EDITOR_CONDITIONS` |
 | `gerbview_id.h` | n/a | wx command ids; our menus and toolbars dispatch by action name |
 | `gerbview_painter` | here | `gerbview_painter.ts` (`GERBVIEW_RENDER_SETTINGS`, `GERBVIEW_PAINTER`), drawing on `OPENGL_GAL` |
-| `gerbview_printout` | port, blocked | `GERBVIEW_PRINTOUT` derives `BOARD_PRINTOUT`, whose DrawPage draws through `CAIRO_PRINT_GAL` (`common/gal/cairo`, in progress). Until it lands the dialog's Print is the browser's `window.print()` |
+| `gerbview_printout` | here | `gerbview_printout.ts` (`GERBVIEW_PRINTOUT` on common's `BOARD_PRINTOUT`, drawing each layer's page through `CAIRO_PRINT_GAL`); `common/wx/printer.ts`'s `wxPrinter` hands the pages to the browser's print dialog, A4 at 300 PPI |
 | `gerbview_settings` | here | `gerbview_settings.ts` (`GERBVIEW_SETTINGS`), which the frame reads. `JSON_SETTINGS::Load` / `Store` against the account-synced slice are `designer/.../gerbview_settings_bridge.ts` |
 | `job_file_reader` | here | `job_file_reader.ts` (`GERBER_JOBFILE_READER`) |
 | `menubar` | here | `menubar.ts` (`doReCreateMenuBar`'s tree); the frame renders it |

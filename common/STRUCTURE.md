@@ -177,10 +177,10 @@ unknown library; `source` is the full path and `date` is
 **To port (10)** — the behaviour exists, inline in a screen or plotter: `grid_tricks`
 and `lib_table_grid_tricks` (in `SymbolPropertiesDialog`,
 `symbol_props_rows`, `dialog_sym_lib_table`), `lib_table_notebook_panel`
-(`dialog_edit_library_tables`), `board_printout` (BOARD_PRINTOUT_SETTINGS
-is here and GerbView's print dialog reads it; BOARD_PRINTOUT's DrawPage waits
-on `gal/cairo`'s CAIRO_PRINT_GAL, and pcbnew's `dialog_print_pcb` still draws
-through `pcbTheme` / `renderBoard`), `printout` (here: PRINTOUT_SETTINGS),
+(`dialog_edit_library_tables`), `board_printout` (here, BOARD_PRINTOUT_SETTINGS and BOARD_PRINTOUT
+over CAIRO_PRINT_GAL, which GerbView prints through; pcbnew's
+`dialog_print_pcb` still draws through `pcbTheme` / `renderBoard` rather than
+a PCBNEW_PRINTOUT), `printout` (here: PRINTOUT_SETTINGS),
 `clipboard` (`navigator.clipboard` at
 each call site), `eda_doc` (datasheet opening), `bitmap` (`KiBitmap` and
 friends, over `bitmap_store`), `gr_basic` (the page-settings preview),

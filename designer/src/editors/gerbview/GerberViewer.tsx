@@ -55,6 +55,7 @@ import { ensureTextCtrlWidth, measureTextWidth } from '@ziroeda/common/widgets/t
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { wxChoice } from '@ziroeda/common/wx/choice.js';
+import { wxPrinter } from '@ziroeda/common/wx/printer.js';
 import { s_tempFileSystem } from '@ziroeda/common/wx/filefn.js';
 import type { ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
 import { graphicLayerKey } from '@ziroeda/gerbview/dialogs/panel_gerbview_color_settings.js';
@@ -835,9 +836,11 @@ export function GerberViewer({
         <DialogPrintGerbview
           dlg={printBox.dlg}
           onMessage={(message, error) => setPrintMessage({ message, error })}
-          // GERBVIEW_PRINTOUT draws through CAIRO_PRINT_GAL, which is not in
-          // common yet: until it is, the pages are the browser's own print.
-          onPrint={() => window.print()}
+          // wxPrinter::Print( this, printout, true ): the pages
+          // GERBVIEW_PRINTOUT draws, into the browser's print dialog.
+          onPrint={() => {
+            new wxPrinter().Print(printBox.dlg.createPrintout('Print'));
+          }}
           onClose={() => {
             const done = printBox.done;
             setPrintBox(null);

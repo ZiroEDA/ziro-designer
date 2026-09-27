@@ -16,7 +16,8 @@
  *   gbr_layer_box_selector.cpp Resync (:76-129)  one row per LOADED image.
  *   gerbview_control.cpp LayerNext/MoveLayerUp (:334-380).
  */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { fakeCanvas, installSurfaceFactory, paints } from '../common/cairo_test_canvas.js';
 import type { EDA_DRAW_PANEL_GAL } from '@ziroeda/common/draw_panel_gal.js';
 import { GAL_TYPE } from '@ziroeda/common/draw_panel_gal.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
@@ -1677,5 +1678,96 @@ describe('SELECT_LAYER_DIALOG', () => {
     expect(await env.frame.SelectPCBLayer(-2, 2, '"a.gbr"')).toBe(17);
 
     expect(await env.frame.SelectPCBLayer(25, 2, '"a.gbr"')).toBe(25);
+  });
+});
+
+/**
+ * GERBVIEW_PRINTOUT (`gerbview/gerbview_printout.cpp`) through BOARD_PRINTOUT's
+ * DrawPage (`common/board_printout.cpp:93-205`), on a recording page canvas.
+ */
+describe('GERBVIEW_PRINTOUT', () => {
+  let factory: ReturnType<typeof installSurfaceFactory>;
+
+  beforeEach(() => {
+    factory = installSurfaceFactory();
+  });
+
+  afterEach(() => factory.restore());
+
+  const pageDC = () => {
+    const canvas = fakeCanvas('page');
+    return {
+      canvas,
+      dc: {
+        ctx: canvas.ctx,
+        image: canvas.image,
+        GetSize: () => ({ x: 2480, y: 3508 }),
+        GetPPI: () => 300,
+      },
+    };
+  };
+
+  const printoutFor = async (aChecked: boolean[]) => {
+    await env.frame.LoadGerberFiles(put('a.gbr', SAMPLE));
+    await env.frame.LoadGerberFiles(put('b.gbr', SECOND));
+    env.frame.GetToolManager()!.RunAction(ACTIONS.print);
+    await Promise.resolve();
+    const dlg = env.prints.at(-1)!;
+    dlg.m_layerLists[0]!.checked = aChecked;
+    dlg.onPrintButtonClick();
+    return dlg.createPrintout('Print');
+  };
+
+  const allPaints = (aPage: ReturnType<typeof fakeCanvas>) => [
+    ...paints(aPage.log),
+    ...factory.surfaces.flatMap((s) => paints(s.canvas.log)),
+  ];
+
+  it('has one page per checked layer (GetPageInfo, HasPage)', async () => {
+    const printout = await printoutFor([true, true]);
+
+    expect(printout.GetPageInfo()).toEqual({
+      minPage: 1,
+      maxPage: 2,
+      selPageFrom: 1,
+      selPageTo: 2,
+    });
+    expect([printout.HasPage(2), printout.HasPage(3)]).toEqual([true, false]);
+  });
+
+  it('draws a page, and restores the layer set after it (:47-76)', async () => {
+    const printout = await printoutFor([true, true]);
+    const { canvas, dc } = pageDC();
+    printout.SetDC(dc);
+
+    expect(printout.OnPrintPage(1)).toBe(true);
+    expect(allPaints(canvas).length).toBeGreaterThan(0);
+
+    const settings = (printout as unknown as { m_settings: BOARD_PRINTOUT_SETTINGS }).m_settings;
+    expect([settings.m_LayerSet.test(0), settings.m_LayerSet.test(1)]).toEqual([true, true]);
+  });
+
+  it('refuses a page past the layers it prints', async () => {
+    const printout = await printoutFor([true, false]);
+    printout.SetDC(pageDC().dc);
+
+    expect(printout.OnPrintPage(2)).toBe(false);
+  });
+
+  /** m_blackWhite: every layer BLACK on a WHITE background (:117-126). */
+  it('prints black on white in black and white mode, the dialog default', async () => {
+    const printout = await printoutFor([true, false]);
+    const { canvas, dc } = pageDC();
+    printout.SetDC(dc);
+
+    printout.OnPrintPage(1);
+
+    const styles = new Set(
+      allPaints(canvas)
+        .map((p) => String(p.style))
+        .filter((s) => s !== 'undefined'),
+    );
+    // The background clear in white, every item in black: nothing else.
+    expect([...styles].sort()).toEqual(['rgba(0, 0, 0, 1)', 'rgba(255, 255, 255, 1)']);
   });
 });
