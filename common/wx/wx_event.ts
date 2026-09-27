@@ -141,6 +141,64 @@ export class wxEvent {
   }
 }
 
+/**
+ * `wxEvtHandler`: the dynamic event table (`Connect` / `Bind`), searched most
+ * recently connected first. A handler that does not `Skip()` consumes the
+ * event.
+ */
+export class wxEvtHandler {
+  private readonly m_handlers = new Map<wxEventType, ((aEvent: wxEvent) => void)[]>();
+
+  /** `Connect( eventType, handler )`. */
+  Connect<E extends wxEvent>(aEventType: wxEventType, aHandler: (aEvent: E) => void): void {
+    let list = this.m_handlers.get(aEventType);
+
+    if (!list) {
+      list = [];
+      this.m_handlers.set(aEventType, list);
+    }
+
+    list.push(aHandler as (aEvent: wxEvent) => void);
+  }
+
+  /** `Disconnect( eventType, handler? )`: all of the type when no handler is given. */
+  Disconnect<E extends wxEvent>(aEventType: wxEventType, aHandler?: (aEvent: E) => void): void {
+    if (!aHandler) {
+      this.m_handlers.delete(aEventType);
+      return;
+    }
+
+    const list = this.m_handlers.get(aEventType);
+
+    if (list) {
+      const i = list.lastIndexOf(aHandler as (aEvent: wxEvent) => void);
+
+      if (i >= 0) list.splice(i, 1);
+    }
+  }
+
+  /**
+   * `ProcessEvent`: the dynamically connected handlers, most recently
+   * connected first.
+   *
+   * @return true if the event was processed (not skipped by every handler).
+   */
+  ProcessEvent(aEvent: wxEvent): boolean {
+    const list = this.m_handlers.get(aEvent.GetEventType());
+
+    if (!list || list.length === 0) return false;
+
+    for (let i = list.length - 1; i >= 0; --i) {
+      aEvent.Skip(false);
+      list[i]!(aEvent);
+
+      if (!aEvent.GetSkipped()) return true;
+    }
+
+    return false;
+  }
+}
+
 /** `wxKeyboardState`: the modifier flags. */
 export class wxKeyboardState {
   protected m_controlDown = false;

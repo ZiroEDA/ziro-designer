@@ -74,6 +74,7 @@ import {
   type wxOrientation,
   wxShowEvent,
   wxSizeEvent,
+  wxEvtHandler,
   wxTimer,
   type wxTimerEvent,
 } from './wx/wx_event.js';
@@ -135,7 +136,10 @@ function wxGetLocalTimeMillis(): number {
 /**
  * The GAL-based canvas.
  */
-export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS, CAIRO_GAL_WINDOW {
+export class EDA_DRAW_PANEL_GAL
+  extends wxEvtHandler
+  implements OPENGL_GAL_CANVAS, CAIRO_GAL_WINDOW
+{
   // The Linux build: Cairo is the fallback (not on OSX, where it does not work).
   static readonly GAL_FALLBACK: GAL_TYPE = GAL_TYPE.GAL_TYPE_CAIRO;
   static readonly GAL_FALLBACK_AVAILABLE =
@@ -230,9 +234,6 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS, CAIRO_GAL_WINDOW {
   /// Optional overlay for drawing transient debug objects
   protected m_debugOverlay: VIEW_OVERLAY | null = null;
 
-  /// The dynamic event table: `wxEvtHandler::Connect`, searched most-recent first.
-  private readonly m_handlers = new Map<wxEventType, ((aEvent: wxEvent) => void)[]>();
-
   /// The paint and idle handlers are connected by ForceRefresh and disconnected by StopDrawing.
   private m_paintConnected = false;
 
@@ -259,6 +260,7 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS, CAIRO_GAL_WINDOW {
     aOptions: GAL_DISPLAY_OPTIONS,
     aGalType: GAL_TYPE = GAL_TYPE.GAL_TYPE_OPENGL,
   ) {
+    super();
     this.window = aWindow;
     this.m_MouseCapturedLost = false;
     this.m_parent = aParentWindow;
@@ -378,58 +380,8 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS, CAIRO_GAL_WINDOW {
   }
 
   // ------------------------------------------------------------------
-  // wxEvtHandler: the dynamic event table
+  // wxEvtHandler: posting (the table itself is the base class's)
   // ------------------------------------------------------------------
-
-  /** `wxWindow::Connect( eventType, handler )`. */
-  Connect(aEventType: wxEventType, aHandler: (aEvent: wxEvent) => void): void {
-    let list = this.m_handlers.get(aEventType);
-
-    if (!list) {
-      list = [];
-      this.m_handlers.set(aEventType, list);
-    }
-
-    list.push(aHandler);
-  }
-
-  /** `wxWindow::Disconnect( eventType, handler? )`: all of the type when no handler is given. */
-  Disconnect(aEventType: wxEventType, aHandler?: (aEvent: wxEvent) => void): void {
-    if (!aHandler) {
-      this.m_handlers.delete(aEventType);
-      return;
-    }
-
-    const list = this.m_handlers.get(aEventType);
-
-    if (list) {
-      const i = list.lastIndexOf(aHandler);
-
-      if (i >= 0) list.splice(i, 1);
-    }
-  }
-
-  /**
-   * `wxEvtHandler::ProcessEvent`: the dynamically connected handlers, most
-   * recently connected first; a handler that does not `Skip()` consumes the
-   * event.
-   *
-   * @return true if the event was processed (not skipped by every handler).
-   */
-  ProcessEvent(aEvent: wxEvent): boolean {
-    const list = this.m_handlers.get(aEvent.GetEventType());
-
-    if (!list || list.length === 0) return false;
-
-    for (let i = list.length - 1; i >= 0; --i) {
-      aEvent.Skip(false);
-      list[i]!(aEvent);
-
-      if (!aEvent.GetSkipped()) return true;
-    }
-
-    return false;
-  }
 
   /** `wxPostEvent( this, event )`: queued, processed from the event loop. */
   PostEvent(aEvent: wxEvent): void {
