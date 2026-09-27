@@ -14450,6 +14450,25 @@ fieldset.ze-sbox > legend {
   background: var(--odcombo-grey);
 }
 
+/* FILTER_COMBOPOPUP (widgets/filter_combobox.tsx): a wxPanel in the same
+   wxComboCtrl popup window, holding "Filter:", the filter wxTextCtrl and a
+   wxListBox in one vertical sizer. Only the list scrolls. */
+.ze-filter-popup {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.ze-filter-popup-label {
+  color: var(--chrome-fg);
+}
+.ze-filter-popup-list {
+  /* [data] mainSizer->Add( m_listBox, 1, wxEXPAND | wxTOP, 2 ) (filter_combobox.cpp:84) */
+  margin-top: 2px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 /* wxGetSingleChoice raises a wxSingleChoiceDialog, which is sized by its LIST -
    [px] 240 px wide and 325 tall for the resistivity list, its title clipped to
    "Electrical R..." because the dialog is narrower than the caption. Ours was

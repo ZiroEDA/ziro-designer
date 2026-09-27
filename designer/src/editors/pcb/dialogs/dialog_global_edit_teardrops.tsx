@@ -23,6 +23,7 @@ import type {
 import { DEFAULT_GLOBAL_TEARDROP_EDIT } from '@ziroeda/pcbnew/teardrop_global_edit.js';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { NetSelector } from '@ziroeda/common/widgets/net_selector.js';
 
 interface Props {
   /** Net codes and names for the "Filter items by net" choice. */
@@ -212,17 +213,12 @@ export function DialogGlobalEditTeardrops({
                   onChange={(e) => set({ netFilter: e.target.checked ? 0 : null })}
                 />
                 Filter items by net:
-                <select
-                  value={opts.netFilter ?? 0}
+                <NetSelector
+                  netInfo={nets}
+                  netcode={opts.netFilter ?? 0}
                   disabled={opts.netFilter == null}
-                  onChange={(e) => set({ netFilter: Number(e.target.value) })}
-                >
-                  {[...nets.entries()].map(([code, name]) => (
-                    <option key={code} value={code}>
-                      {name === '' ? '<no net>' : name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(netFilter) => set({ netFilter })}
+                />
               </label>
 
               <label>

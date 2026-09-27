@@ -18,6 +18,7 @@ import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { PadValues } from '@ziroeda/pcbnew/pad_properties.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { NetSelector } from '@ziroeda/common/widgets/net_selector.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 
@@ -171,17 +172,7 @@ export function DialogPadProperties({
                 </label>
                 <label>
                   <span className="ze-tvp-label">Net:</span>
-                  <select
-                    className="ze-tvp-select"
-                    value={String(v.net)}
-                    onChange={(e) => set({ net: Number(e.target.value) })}
-                  >
-                    {[...nets.entries()].map(([code, name]) => (
-                      <option key={code} value={code}>
-                        {name === '' ? '<no net>' : name}
-                      </option>
-                    ))}
-                  </select>
+                  <NetSelector netInfo={nets} netcode={v.net} onChange={(net) => set({ net })} />
                 </label>
                 <label>
                   <span className="ze-tvp-label">Pad type:</span>

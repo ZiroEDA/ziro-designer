@@ -21,6 +21,8 @@ import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { TrackViaSelection, TrackViaValues } from '@ziroeda/pcbnew/track_via_properties.js';
 import { collectTrackViaValues } from '@ziroeda/pcbnew/track_via_properties.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { NetSelector } from '@ziroeda/common/widgets/net_selector.js';
+import { INDETERMINATE_STATE } from '@ziroeda/common/widgets/ui_common.js';
 
 interface Props {
   selection: TrackViaSelection;
@@ -233,15 +235,17 @@ export function DialogTrackViaProperties({
         <div className="ze-modal-body ze-update-pcb-body ze-tvp-body">
           <fieldset>
             <legend>Common</legend>
-            {choice(
-              'Net:',
-              net,
-              setNet,
-              [...nets.entries()].map(([code, name]) => ({
-                value: String(code),
-                label: name === '' ? '<no net>' : name,
-              })),
-            )}
+            <label>
+              <span className="ze-tvp-label">Net:</span>
+              {/* NET_SELECTOR, with INDETERMINATE_STATE only for a selection
+                  whose nets differ (dialog_track_via_properties.cpp:765-775). */}
+              <NetSelector
+                netInfo={nets}
+                netcode={net === '' ? -1 : Number(net)}
+                indeterminateString={seed.net === undefined ? INDETERMINATE_STATE : ''}
+                onChange={(code) => setNet(code === -1 ? '' : String(code))}
+              />
+            </label>
             {tri(locked, setLocked, 'Locked')}
           </fieldset>
 

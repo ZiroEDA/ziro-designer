@@ -17,6 +17,7 @@ import { iuToMM, mmToIU } from '@ziroeda/common';
 import type { GlobalEditAction, GlobalEditScope } from '@ziroeda/eeschema';
 import { LINE_STYLE_NAMES } from '@ziroeda/common/stroke_params.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { INDETERMINATE_ACTION } from '@ziroeda/common/widgets/ui_common.js';
 
 export interface GlobalEditResult {
   scope: GlobalEditScope;
@@ -41,7 +42,8 @@ interface Props {
 /** A checkbox that also carries an indeterminate state (wxCHK_3STATE). */
 type Tri = 'indeterminate' | 'yes' | 'no';
 
-const INDETERMINATE = '-- leave unchanged --';
+/** `INDETERMINATE_ACTION` (include/widgets/ui_common.h:47). */
+const INDETERMINATE = INDETERMINATE_ACTION;
 
 /** SPIN_STYLE, in the orientation dropdown's order. */
 const ORIENTATIONS = ['Right', 'Up', 'Left', 'Down'];

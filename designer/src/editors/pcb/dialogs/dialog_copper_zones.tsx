@@ -42,6 +42,7 @@ import { useState, type JSX } from 'react';
 import type { ZoneValues } from '@ziroeda/pcbnew/zone_properties.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
+import { NetSelector } from '@ziroeda/common/widgets/net_selector.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
@@ -253,14 +254,13 @@ export function DialogCopperZones({
               </label>
               {/* NET_SELECTOR. Code 0 is `<no net>`, which is what the infobar
                   above is about. */}
-              <Combo
+              <NetSelector
                 id="ze-cz-net"
-                value={String(v.net)}
-                options={[...nets.entries()].map(([code, name]) => ({
-                  value: String(code),
-                  label: name === '' ? '<no net>' : name,
-                }))}
-                onChange={(value) => set({ net: Number(value) })}
+                netInfo={nets}
+                // `SetSelectedNetcode( std::max( 0, m_settings->m_Netcode ) )`
+                // (panel_zone_properties.cpp:147).
+                netcode={Math.max(0, v.net)}
+                onChange={(net) => set({ net })}
               />
             </div>
 

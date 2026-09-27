@@ -37,6 +37,14 @@ export function KIUI_EllipsizeMenuText(aString: string): string {
 }
 
 /**
+ * Used for holding indeterminate values, such as with multiple selections
+ * holding different values or controls which do not wish to set a value
+ * (`include/widgets/ui_common.h:42-47`).
+ */
+export const INDETERMINATE_STATE = '-- mixed values --';
+export const INDETERMINATE_ACTION = '-- leave unchanged --';
+
+/**
  * `KIUI::s_FocusStealableInputName`: widgets carrying this name are never
  * considered focused (a `data-focus-stealable` attribute here).
  */
