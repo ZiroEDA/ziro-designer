@@ -181,10 +181,11 @@ unknown library; `source` is the full path and `date` is
 (the variants model does not exist yet) and the second XNODE copy in
 `eeschema/exporters/netlist.ts`.
 
-**To port (3)** — the behaviour exists, inline in a screen or plotter: `grid_tricks`
-and `lib_table_grid_tricks` (in `SymbolPropertiesDialog`,
-`symbol_props_rows`, `dialog_sym_lib_table`), `lib_table_notebook_panel`
-(`dialog_edit_library_tables`).
+**To port (2)** — `lib_table_grid_tricks` and `lib_table_notebook_panel`
+(the library-table dialogs, `dialog_sym_lib_table` / `dialog_fp_lib_table`).
+Both sit on KiCad 10's `libraries/` (LIBRARY_TABLE, LIBRARY_MANAGER,
+LIB_TABLE_GRID_DATA_MODEL), which is not ported. `grid_tricks` is done
+(09-27): `grid_tricks.ts` over `wx/grid.ts` and `widgets/wx_grid.tsx`.
 
 **Waiting on their feature (16):** `design_block`, `design_block_info`,
 `design_block_io`, `design_block_library_adapter`,
