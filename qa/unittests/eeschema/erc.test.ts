@@ -715,6 +715,12 @@ describe('runErc, schematic-wide tests', () => {
         }),
       ),
     ).not.toContain('unresolved_variable');
+    // The shown text, not the source: ExpandTextVars drops an empty `${}`,
+    // so nothing is left to flag (common.cpp:238).
+    const { doc: d7, libById: l7 } = sch(`${label('a${}b', 10, 10, 'l7')}`);
+    expect(
+      codes(runErc(d7, l7, defaultErcSettings(), { resolveTextVar: () => false })),
+    ).not.toContain('unresolved_variable');
     for (const text of ['${KNOWN}']) {
       const { doc: d2, libById: l2 } = sch(`${label(text, 10, 10, 'l2')}`);
       const ok = runErc(d2, l2, defaultErcSettings(), {
