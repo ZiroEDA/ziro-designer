@@ -356,7 +356,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `common/dialogs` with its seven.
   // 30/178 -> 29/177 on 09-26: dialog_image_properties' inline preview canvas
   // (`#fff`, a 4px radius) went for common/dialogs' PANEL_IMAGE_EDITOR.
-  'editors/schematic': { colours: 29, metrics: 177 },
+  'editors/schematic': { colours: 25, metrics: 166 },
   // designer/src/sync/, the multiplayer layer. Eight colours, all of them
   // peerColor.ts's palette: one hue per person in a shared project, so two
   // people's cursors and selection boxes are told apart at a glance.
@@ -1220,7 +1220,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 329 -> 328: the Print dialog's menu shadow, see `editors/pcb`.
     // 328 -> 326: the line-modification box's two, see `editors/pcb`.
     // 326 -> 325: gerberColors.ts left the app, see `editors/gerbview`.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(325);
+    // 325 -> 321: the bus alias and BOM preset panels moved onto WX_GRID and
+    // their four `#888` placeholder lines (text KiCad never shows) went.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(321);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1405,7 +1407,10 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1236 -> 1226: the line-modification box's ten, see `editors/pcb`.
     // 1226 -> 1223: the symbol library table's three, see `widgets`.
     // 1223 -> 1216: the Assign Netclass stub's seven, see `common/dialogs`.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1216);
+    // 1216 -> 1205: the bus alias and BOM preset panels' eleven inline px
+    // (margins and paddings stated per dialog); their sizer borders now sit in
+    // shell.css, each marked [data] with its Add().
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1205);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

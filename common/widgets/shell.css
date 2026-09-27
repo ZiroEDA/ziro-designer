@@ -7114,7 +7114,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    And it is the ODD grid rows that are striped, row 0 being left alone — so
    `nth-child(even)` in CSS, where the first `<tr>` is child 1. Scoped to
    `tbody` because a `<thead>` restarts the count and would invert it. */
-[data-grid-striping="1"] .ze-grid tbody tr:nth-child(even) > td {
+[data-grid-striping="1"] .ze-grid tbody tr:nth-child(even) > td,
+.ze-grid.ze-grid-striped tbody tr:nth-child(even) > td {
   /* [data] `ChangeLightness( 105 )` — 5% of white over the cell colour. */
   background: color-mix(in srgb, var(--grid-cell-bg) 95%, #fff);
 }
@@ -17695,7 +17696,7 @@ td.ze-grid-bool {
 }
 
 /* PANEL_SETUP_BUSES (panel_setup_buses_base.cpp). bMargins holds two columns
-   at proportion 1, the left one with `wxRIGHT, 5`. */
+   at proportion 1. */
 .ze-busdefs {
   display: flex;
   height: 100%;
@@ -17707,17 +17708,18 @@ td.ze-grid-bool {
   min-width: 0;
 }
 .ze-busdefs-col:first-child {
+  /* [data] `bMargins->Add( bLeftCol, 1, wxEXPAND|wxRIGHT, 5 )`. */
   margin-right: 5px;
 }
-/* [data] `m_busesLabel` `wxLEFT|wxTOP, 8`, `m_membersLabel` `wxTOP|wxRIGHT|wxLEFT, 8`,
-   each followed by a 3 px spacer. */
 .ze-busdefs-label {
+  /* [data] `m_busesLabel` `wxLEFT|wxTOP, 8`; `m_membersLabel` `wxTOP|wxRIGHT|wxLEFT, 8`. */
   padding: 8px 8px 0 8px;
+  /* [data] each followed by `Add( 0, 3, 0, wxEXPAND, 5 )`. */
   margin-bottom: 3px;
 }
-/* [data] `SetMinSize( wxSize( -1, 180 ) )`, added at proportion 1. */
 .ze-busdefs-grid {
   flex: 1;
+  /* [data] `SetMinSize( wxSize( -1, 180 ) )`, added at proportion 1. */
   min-height: 180px;
 }
 .ze-busdefs .ze-grid-btns {
@@ -17725,20 +17727,20 @@ td.ze-grid-bool {
   margin-top: 3px;
   align-items: center;
 }
-/* [data] `bSizer10->Add( 20, 0, 0, wxEXPAND, 5 )`. */
 .ze-busdefs-gap {
+  /* [data] `bSizer10->Add( 20, 0, 0, wxEXPAND, 5 )`. */
   width: 20px;
   flex: 0 0 auto;
 }
-/* [data] `bSizer10->Add( 15, 0, 1, 0, 5 )`: at least 15, and the slack. */
 .ze-busdefs-stretch {
+  /* [data] `bSizer10->Add( 15, 0, 1, 0, 5 )`: at least 15, and the slack. */
   min-width: 15px;
   flex: 1 1 auto;
 }
-/* `m_source->SetFont( KIUI::GetSmallInfoFont( aWindow ) )`, added
-   `wxALIGN_CENTER_VERTICAL|wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
+/* `m_source->SetFont( KIUI::GetSmallInfoFont( aWindow ) )`. */
 .ze-busdefs-source {
   font-size: var(--ui-font-size-small);
+  /* [data] `wxALIGN_CENTER_VERTICAL|wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
   margin: 0 5px 5px 5px;
 }
 
@@ -17748,22 +17750,24 @@ td.ze-grid-bool {
   flex-direction: column;
   height: 100%;
 }
-/* [data] each title `wxTOP|wxLEFT|wxEXPAND, 8`, then a 3 px spacer. */
 .ze-bompresets-title {
+  /* [data] each title `wxTOP|wxLEFT|wxEXPAND, 8`. */
   padding: 8px 0 0 8px;
+  /* [data] then `Add( 0, 3, 0, wxEXPAND, 5 )`. */
   margin-bottom: 3px;
 }
-/* [data] `SetMinSize( wxSize( -1, 180 ) )`, `Add( grid, 1, wxEXPAND|wxBOTTOM, 3 )`. */
 .ze-bompresets-grid {
   flex: 1;
+  /* [data] `SetMinSize( wxSize( -1, 180 ) )`. */
   min-height: 180px;
+  /* [data] `Add( grid, 1, wxEXPAND|wxBOTTOM, 3 )`. */
   margin-bottom: 3px;
 }
-/* [data] the button `wxBOTTOM, 5`, then a 5 px spacer. */
 .ze-bompresets-btn {
+  /* [data] the button `wxBOTTOM, 5`, then `Add( 0, 5, 0, wxEXPAND, 5 )`. */
   margin-bottom: 10px;
 }
-/* [data] the second button is the sizer's last item: `wxBOTTOM, 5` and no spacer. */
 .ze-bompresets-btn:last-child {
+  /* [data] the sizer's last item: `wxBOTTOM, 5` and no spacer. */
   margin-bottom: 5px;
 }

@@ -9,9 +9,15 @@
  * schematic are referenced elsewhere as ${EMBED_...}.
  */
 
-import { useRef, useState, type JSX } from 'react';
-import { Icon } from '../widgets/icons.js';
+import { type JSX, useLayoutEffect, useRef, useState } from 'react';
 import type { EmbeddedFile, EmbeddedFilesData } from '../embedded_files.js';
+import { SaveClipboard } from '../clipboard.js';
+import { GRID_TRICKS, GRIDTRICKS_FIRST_CLIENT_ID } from '../grid_tricks.js';
+import { Icon } from '../widgets/icons.js';
+import { WX_GRID } from '../widgets/wx_grid.js';
+import { type wxGridEvent, wxGridStringTable } from '../wx/grid.js';
+import { WxGridView } from '../wx/grid_ui.js';
+import type { wxMenu, wxMenuEvent } from '../wx/menu.js';
 
 // The data model lives beside the class it describes in common/;
 // re-exported here so the panel stays the import site for its slice.
@@ -20,6 +26,38 @@ export {
   type EmbeddedFile,
   type EmbeddedFilesData,
 } from '../embedded_files.js';
+
+const EMBEDDED_FILES_GRID_TRICKS_COPY_FILENAME = GRIDTRICKS_FIRST_CLIENT_ID;
+
+/** `EMBEDDED_FILES_GRID_TRICKS`: "Copy Embedded Reference" over a cell. */
+export class EMBEDDED_FILES_GRID_TRICKS extends GRID_TRICKS {
+  private m_curRow = -1;
+
+  protected override showPopupMenu(aMenu: wxMenu, aEvent: wxGridEvent): void {
+    const row = aEvent.GetRow();
+
+    if (row >= 0 && row < this.m_grid.GetNumberRows()) {
+      this.m_curRow = row;
+      aMenu.Append(
+        EMBEDDED_FILES_GRID_TRICKS_COPY_FILENAME,
+        'Copy Embedded Reference',
+        'Copy the reference for this embedded file',
+      );
+      aMenu.AppendSeparator();
+      super.showPopupMenu(aMenu, aEvent);
+    } else {
+      this.m_curRow = -1;
+    }
+  }
+
+  protected override doPopupSelection(aEvent: wxMenuEvent): void {
+    if (aEvent.GetId() === EMBEDDED_FILES_GRID_TRICKS_COPY_FILENAME) {
+      if (this.m_curRow >= 0) SaveClipboard(this.m_grid.GetCellValue(this.m_curRow, 1));
+    } else {
+      super.doPopupSelection(aEvent);
+    }
+  }
+}
 
 interface Props {
   value: EmbeddedFilesData;
@@ -30,13 +68,41 @@ interface Props {
 }
 
 export function PanelEmbeddedFiles({ value, onChange, onExport }: Props): JSX.Element {
-  const [sel, setSel] = useState<number | null>(value.files.length ? 0 : null);
+  const [{ grid, tricks }] = useState(() => {
+    const g = new WX_GRID();
+    g.SetTable(new wxGridStringTable(0, 2), true);
+    g.EnableEditing(false);
+    g.SetColLabelValue(0, 'Filename');
+    g.SetColLabelValue(1, 'Embedded Reference');
+    g.EnableAlternateRowColors();
+    return { grid: g, tricks: new EMBEDDED_FILES_GRID_TRICKS(g) };
+  });
   const fileInput = useRef<HTMLInputElement | null>(null);
 
+  // TransferDataToWindow: one row per file, name and link.
+  const key = JSON.stringify(value.files.map((f) => [f.name, f.reference]));
+  // biome-ignore lint/correctness/useExhaustiveDependencies: key is the rows' content; the grid is stable
+  useLayoutEffect(() => {
+    const rows = JSON.parse(key) as [string, string][];
+    grid.BeginBatch();
+    grid.ClearRows();
+    grid.AppendRows(rows.length);
+    rows.forEach(([name, link], ii) => {
+      grid.SetCellValue(ii, 0, name);
+      grid.SetCellValue(ii, 1, link);
+    });
+    grid.EndBatch();
+  }, [key]);
+
+  /** `onDeleteEmbeddedFile`: `OnDeleteRows`, each row's file by its name. */
   const removeSel = (): void => {
-    if (sel === null) return;
-    onChange({ ...value, files: value.files.filter((_, j) => j !== sel) });
-    setSel(value.files.length - 2 >= 0 ? Math.min(sel, value.files.length - 2) : null);
+    const names: string[] = [];
+    grid.OnDeleteRows((row) => {
+      names.push(grid.GetCellValue(row, 0));
+      grid.DeleteRows(row, 1);
+    });
+    if (names.length)
+      onChange({ ...value, files: value.files.filter((f) => !names.includes(f.name)) });
   };
 
   // onAddEmbeddedFiles: multi-select picker; AddFile(name, overwrite=true)
@@ -58,40 +124,14 @@ export function PanelEmbeddedFiles({ value, onChange, onExport }: Props): JSX.El
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="ze-grid-pane" style={{ flex: 1, minHeight: 0 }}>
-        <table className="ze-grid" style={{ tableLayout: 'fixed', width: '100%' }}>
-          <colgroup>
-            <col style={{ width: '40%' }} />
-            <col />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>Filename</th>
-              <th>Embedded Reference</th>
-            </tr>
-          </thead>
-          <tbody>
-            {value.files.map((f, i) => (
-              <tr
-                key={i}
-                className={i === sel ? 'selected' : undefined}
-                onMouseDown={() => setSel(i)}
-              >
-                <td>
-                  <span className="ze-grid-input" style={{ display: 'block' }}>
-                    {f.name}
-                  </span>
-                </td>
-                <td>
-                  <span className="ze-grid-input" style={{ display: 'block' }}>
-                    {f.reference}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <WxGridView
+          grid={grid}
+          tricks={tricks}
+          columns={[{ width: 100 }, { width: 180 }]}
+          flexCol={1}
+          ariaLabel="Embedded files"
+        />
       </div>
-
       <div className="ze-grid-btns" style={{ alignItems: 'center' }}>
         <input
           ref={fileInput}
@@ -116,7 +156,6 @@ export function PanelEmbeddedFiles({ value, onChange, onExport }: Props): JSX.El
           type="button"
           className="ze-gridbtn"
           title="Remove embedded file"
-          disabled={sel === null}
           onClick={removeSel}
         >
           <Icon name="delete" />

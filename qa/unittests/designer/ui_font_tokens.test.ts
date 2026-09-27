@@ -301,7 +301,7 @@ const BASELINE: Record<string, number> = {
   // 46 -> 45: the Field Name Templates page's `fontSize: 12.5`, which went with
   // the duplicate table it was on — the shared panel states no size at all.
   // RESCANNED.
-  'editors/schematic': 45,
+  'editors/schematic': 41,
   // 2 until the Symbol Editor parity pass deleted the invented
   // "Double-click a symbol..." hint that an empty SYMBOL_EDIT_FRAME does not
   // have; it carried an inline `fontSize: 14` and a `color: '#888'`.
@@ -667,7 +667,9 @@ describe('hardcoded font sizes do not grow', () => {
     // 129 -> 124: the old inspect box's five, see `editors/pcb`.
     // 124 -> 119: the Print dialog's five, see `editors/pcb`.
     // 119 -> 116: the line-modification box's three, see `editors/pcb`.
-    expect(sites.length).toBe(116);
+    // 116 -> 112: the bus alias and BOM preset panels' 12.5px / 12px labels,
+    // now plain labels in the panel font as their wxStaticTexts are.
+    expect(sites.length).toBe(112);
   });
 });
 

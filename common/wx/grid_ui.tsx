@@ -352,7 +352,11 @@ export function WxGridView({
     <>
       <table
         ref={tableRef}
-        className={`ze-grid${className ? ` ${className}` : ''}`}
+        className={`ze-grid${
+          (grid as wxGrid & { AlternateRowColors?: () => boolean }).AlternateRowColors?.()
+            ? ' ze-grid-striped'
+            : ''
+        }${className ? ` ${className}` : ''}`}
         style={style}
         // biome-ignore lint/a11y/noNoninteractiveTabindex: the grid window takes the focus, as wx's does
         tabIndex={0}
