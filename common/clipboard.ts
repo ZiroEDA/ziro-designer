@@ -185,6 +185,14 @@ export function GetImageFromClipboard(): WX_IMAGE | null {
 }
 
 /**
+ * `wxTheClipboard->IsSupported( wxDF_TEXT )` and `GetData( wxTextDataObject )`:
+ * the clipboard's text, or null when it holds none (GRID_TRICKS asks this).
+ */
+export function GetClipboardText(): string | null {
+  return s_clipboard.text;
+}
+
+/**
  * Store tabular data to the system clipboard.
  */
 export function SaveTabularDataToClipboard(aData: readonly (readonly string[])[]): boolean {

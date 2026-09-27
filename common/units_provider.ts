@@ -11,7 +11,9 @@
 
 import type { MINOPTMAX } from '@ziroeda/core/minoptmax.js';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import {
+  DoubleValueFromStringIn,
   type EdaDataType,
   type EdaIuScale,
   type EdaUnits,
@@ -69,6 +71,36 @@ export class UNITS_PROVIDER {
       aAddUnitLabel,
       aType,
     );
+  }
+
+  /** `StringFromOptionalValue`: the null string for no value. */
+  StringFromOptionalValue(
+    aValue: number | null | undefined,
+    aAddUnitLabel = false,
+    aType: EdaDataType = 'distance',
+  ): string {
+    if (aValue === null || aValue === undefined) return UNITS_PROVIDER.NullUiString;
+
+    return this.StringFromValue(aValue, aAddUnitLabel, aType);
+  }
+
+  /** `ValueFromString`: the text in the units for `aType`, to internal units. */
+  ValueFromString(aTextValue: string, aType: EdaDataType = 'distance'): number {
+    const value = DoubleValueFromStringIn(
+      this.GetIuScale(),
+      this.GetUnitsFromType(aType),
+      aTextValue,
+      aType,
+    );
+
+    return KiROUND(value);
+  }
+
+  /** `OptionalValueFromString`: null for the null string. */
+  OptionalValueFromString(aTextValue: string, aType: EdaDataType = 'distance'): number | null {
+    if (aTextValue === UNITS_PROVIDER.NullUiString) return null;
+
+    return this.ValueFromString(aTextValue, aType);
   }
 
   /**

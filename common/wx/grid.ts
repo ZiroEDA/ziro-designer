@@ -14,6 +14,7 @@
  * answers for it. Painting, sizing, scrolling and the native header are the
  * view's.
  */
+import type { wxMenu } from './menu.js';
 import { wxEvent, wxEvtHandler, type wxEventType, wxNewEventType } from './wx_event.js';
 
 // ---------------------------------------------------------------------------
@@ -257,7 +258,7 @@ export class wxGridEvent extends wxEvent {
     super(aType);
   }
 
-  GetEventObject(): wxGrid {
+  override GetEventObject(): wxGrid {
     return this.m_grid;
   }
   GetRow(): number {
@@ -1128,7 +1129,7 @@ export class wxGrid extends wxEvtHandler {
   private m_currentCellCoords = wxGridNoCellCoords();
   private m_selection: wxGridSelection | null = null;
   private m_editable = true;
-  private m_cellEditCtrlEnabled = false;
+  protected m_cellEditCtrlEnabled = false;
   private m_hiddenCols = new Set<number>();
   private m_batchCount = 0;
   private m_defaultCellAttr = (() => {
@@ -1734,6 +1735,35 @@ export class wxGrid extends wxEvtHandler {
   }
   GetBatchCount(): number {
     return this.m_batchCount;
+  }
+
+  private m_popupPresenter: ((aMenu: wxMenu, aOnSelect: (aId: number) => void) => void) | null =
+    null;
+  private m_navigateHandler: (() => void) | null = null;
+
+  /** The view's context menu: shows `aMenu`, calls back with the chosen item's id. */
+  SetPopupMenuPresenter(
+    aPresenter: ((aMenu: wxMenu, aOnSelect: (aId: number) => void) => void) | null,
+  ): void {
+    this.m_popupPresenter = aPresenter;
+  }
+
+  /**
+   * `PopupMenu( menu )`: wx's is modal and dispatches the choice as a menu
+   * event; a page's menu is not, so the choice comes back through `aOnSelect`.
+   */
+  PopupMenu(aMenu: wxMenu, aOnSelect: (aId: number) => void): void {
+    this.m_popupPresenter?.(aMenu, aOnSelect);
+  }
+
+  /** The view's focus move out of the grid (Ctrl+Tab). */
+  SetNavigateHandler(aHandler: (() => void) | null): void {
+    this.m_navigateHandler = aHandler;
+  }
+
+  /** `Navigate()`: focus the next control after the grid. */
+  Navigate(): void {
+    this.m_navigateHandler?.();
   }
 
   /** The view's redraw, called whenever the model changes outside a batch. */

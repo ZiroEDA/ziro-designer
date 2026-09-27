@@ -100,6 +100,7 @@ export class wxEvent {
   protected m_propagationLevel: number;
   /** `wxEvent::m_timeStamp` (ms). */
   protected m_timeStamp: number;
+  protected m_eventObject: unknown = null;
 
   constructor(aEventType: wxEventType = wxEVT_NULL, aPropagates = false) {
     this.m_eventType = aEventType;
@@ -109,6 +110,14 @@ export class wxEvent {
 
   GetEventType(): wxEventType {
     return this.m_eventType;
+  }
+
+  /** `GetEventObject()`: what sent the event (a grid's text editor, say). */
+  GetEventObject(): unknown {
+    return this.m_eventObject;
+  }
+  SetEventObject(aObject: unknown): void {
+    this.m_eventObject = aObject;
   }
   SetEventType(aType: wxEventType): void {
     this.m_eventType = aType;

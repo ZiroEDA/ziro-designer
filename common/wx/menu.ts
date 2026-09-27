@@ -266,6 +266,21 @@ export class wxMenu {
     this.Destroy(aItem);
   }
 
+  /** `AppendCheckItem( id, text, help )`. */
+  AppendCheckItem(aId: number, aText: string, aHelp = ''): wxMenuItem {
+    return this.Append(aId, aText, aHelp, wxItemKind.wxITEM_CHECK);
+  }
+
+  /** `Enable( id, enable )`. */
+  Enable(aId: number, aEnable: boolean): void {
+    this.FindItem(aId)?.Enable(aEnable);
+  }
+
+  /** `IsEnabled( id )`. */
+  IsEnabled(aId: number): boolean {
+    return this.FindItem(aId)?.IsEnabled() ?? false;
+  }
+
   /** `Check( id, check )`. */
   Check(aId: number, aCheck: boolean): void {
     this.FindItem(aId)?.Check(aCheck);
