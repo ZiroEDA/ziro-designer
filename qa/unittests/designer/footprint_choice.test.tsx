@@ -27,12 +27,12 @@ import {
   FootprintChoice,
   drawFootprintItem,
   greyRange,
-} from '@ziroeda/designer/src/widgets/footprint_choice.js';
+} from '@ziroeda/common/widgets/footprint_choice.js';
 import {
   FootprintSelectWidget,
   footprintChoiceItems,
-} from '@ziroeda/designer/src/widgets/footprint_select_widget.js';
-import { POPUP_MAX_H, placeComboPopup } from '@ziroeda/common/widgets/footprint_choice_popup.js';
+} from '@ziroeda/common/widgets/footprint_select_widget.js';
+import { POPUP_MAX_H, placeComboPopup } from '@ziroeda/common/wx/odcombo_popup.js';
 import { resetModalStack } from '@ziroeda/common/dialog_shim.js';
 
 afterEach(() => {

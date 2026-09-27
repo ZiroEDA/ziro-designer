@@ -30,7 +30,7 @@ import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
 import { LibTreeModelAdapter, type SortMode } from '@ziroeda/common/lib_tree_model_adapter.js';
 import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
 import { FootprintPreviewWidget } from '../../../widgets/footprint_preview_widget.js';
-import { FootprintSelectWidget } from '../../../widgets/footprint_select_widget.js';
+import { FootprintSelectWidget } from '@ziroeda/common/widgets/footprint_select_widget.js';
 import { loadFootprintIndex } from '../../../widgets/footprint_list.js';
 import { filterFootprints } from '@ziroeda/pcbnew/pcbnew.js';
 import { SymbolPreviewWidget } from './symbol_preview_widget.js';
