@@ -38,6 +38,12 @@ export interface SCH_EDIT_FRAME_HOOKS {
   assignFootprints(aChangedSetOfReferences: string): void;
   /** `SaveProject()`: write the schematic now; false when it could not be. */
   saveProject(): boolean;
+  /**
+   * `MAIL_SCH_GET_NETLIST`'s body: `ReadyToNetlist( aAnnotateMessage )`, then
+   * `NETLIST_EXPORTER_KICAD::Format( GNL_ALL | GNL_OPT_KICAD )`. Null when the
+   * schematic is not ready to netlist, which leaves the payload unchanged.
+   */
+  getNetlist(aAnnotateMessage: string): string | null;
 }
 
 export class SCH_EDIT_FRAME extends KIWAY_PLAYER {
@@ -99,6 +105,14 @@ export class SCH_EDIT_FRAME extends KIWAY_PLAYER {
         if (this.hooks.saveProject()) mail.SetPayload('success');
 
         break;
+
+      case MAIL_T.MAIL_SCH_GET_NETLIST: {
+        const netlist = this.hooks.getNetlist(payload);
+
+        if (netlist !== null) mail.SetPayload(netlist);
+
+        break;
+      }
 
       default:
         break;

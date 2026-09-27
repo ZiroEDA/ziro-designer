@@ -43,6 +43,7 @@ function setup() {
       assigned.push(payload);
     },
     saveProject: () => saveAnswer,
+    getNetlist: () => null,
   });
   const kiway = new KIWAY({
     OnKiCadExit: () => {},
@@ -181,6 +182,7 @@ describe('Update PCB from Schematic', () => {
       syncSelection: () => {},
       assignFootprints: () => {},
       saveProject: () => true,
+      getNetlist: () => null,
     });
     frame.SetKiway(kiway);
 

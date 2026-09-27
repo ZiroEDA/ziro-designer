@@ -502,7 +502,7 @@ import {
   commitViewToBoard,
 } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view_commit.js';
 import { PCB_EDIT_FRAME, REACT_BOARD_LISTENER, pcbnewSettingsOf } from './pcb_edit_frame.js';
-import { fetchNetlistFromSchematic } from './netlist_from_schematic.js';
+import { FetchNetlistFromSchematic } from './netlist_from_schematic.js';
 import { loadFootprint } from '../../widgets/footprint_list.js';
 import { FootprintChooserFrame } from './dialogs/footprint_chooser_frame.js';
 import { addFootprintToHistory } from './widgets/footprint_history.js';
@@ -4420,7 +4420,9 @@ export function PcbEditor({
     setUpdatePcbError(null);
     const files = projectFilesNow();
 
-    const fetched = fetchNetlistFromSchematic(
+    const fetched = FetchNetlistFromSchematic(
+      frameRef.current?.Kiway() ?? null,
+      frameRef.current,
       files,
       'Updating PCB requires a fully annotated schematic.',
       rootPro,
@@ -5358,7 +5360,13 @@ export function PcbEditor({
     },
     isSingle: () => !projectHasSchematic,
     fetchNetlistFromSchematic: (aNetlist: NETLIST, aMessage: string): boolean => {
-      const fetched = fetchNetlistFromSchematic(projectFilesNow(), aMessage, rootPro);
+      const fetched = FetchNetlistFromSchematic(
+        frameRef.current?.Kiway() ?? null,
+        frameRef.current,
+        projectFilesNow(),
+        aMessage,
+        rootPro,
+      );
 
       if (!fetched.ok) {
         // DisplayErrorMessage( this, msg, details )

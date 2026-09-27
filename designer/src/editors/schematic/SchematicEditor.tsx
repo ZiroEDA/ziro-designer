@@ -24,6 +24,7 @@ import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import { SCH_EDIT_FRAME } from './sch_edit_frame.js';
 import { assignFootprintsCommands } from '@ziroeda/eeschema/tools/assign_footprints.js';
+import { fetchNetlistFromSchematic } from '../pcb/netlist_from_schematic.js';
 import { parse } from '@ziroeda/sexpr';
 import { useProjectSync } from '../../sync/ProjectSyncProvider.js';
 import {
@@ -1832,6 +1833,7 @@ export function SchematicEditor({
   // project edit and the save they call exist.
   const assignFootprintsRef = useRef<(aPayload: string) => void>(() => {});
   const saveProjectRef = useRef<() => boolean>(() => false);
+  const getNetlistRef = useRef<(aAnnotateMessage: string) => string | null>(() => null);
   /**
    * `SaveProject()` arriving in the same tick as the assignment it saves: the
    * assignment's step folds on the next render, so it is marked to be written
@@ -1846,6 +1848,7 @@ export function SchematicEditor({
       syncSelection: (aParts) => applyPcbSelectionRef.current(aParts),
       assignFootprints: (aPayload) => assignFootprintsRef.current(aPayload),
       saveProject: () => saveProjectRef.current(),
+      getNetlist: (aAnnotateMessage) => getNetlistRef.current(aAnnotateMessage),
     });
   }
   const applyPcbSelectionRef = useRef<(parts: readonly string[]) => void>(() => {});
@@ -5409,6 +5412,26 @@ export function SchematicEditor({
     if (!commands) return;
     assignPendingRef.current = true;
     runProject(commands);
+  };
+  // MAIL_SCH_GET_NETLIST: ReadyToNetlist and NETLIST_EXPORTER_KICAD over the
+  // live sheets - the open one included, whose edits the project's files only
+  // get on the debounced save - with the project's other files as they are.
+  getNetlistRef.current = (aAnnotateMessage) => {
+    const live = new Map<string, string>();
+    try {
+      for (const [file, sheet] of project.current.docs) live.set(file, serializeSchematic(sheet));
+      if (docRef.current) live.set(currentFileRef.current, serializeSchematic(docRef.current));
+    } catch {
+      return null;
+    }
+    const baseOf = (name: string): string =>
+      name.slice(Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\')) + 1);
+    const files = rawFiles.map((f) => {
+      const text = live.get(baseOf(f.name));
+      return text === undefined ? f : { name: f.name, text };
+    });
+    const fetched = fetchNetlistFromSchematic(files, aAnnotateMessage, rootPro);
+    return fetched.ok ? fetched.netlistText : null;
   };
   // `SaveProject()`: an assignment from this same mail round is written as it
   // folds; with nothing pending, the open sheet is saved now.
