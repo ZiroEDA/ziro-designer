@@ -63,6 +63,16 @@ describe('EE_GRID_HELPER', () => {
       expect(helper(offGrid(), false).BestSnapAnchor(at(15.2, 0.4), CONN)).toEqual(at(15.2, 0));
     });
 
+    it('offers no point level with the cursor beyond the wire', () => {
+      // TestSegmentHit( possible, start, end, 0 ): past the far end, the point
+      // level with the cursor is off the wire, so the end itself wins.
+      expect(helper(offGrid(), false).BestSnapAnchor(at(20.8, 0.3), CONN)).toEqual(at(20.3, 0));
+      // ...and the same for a vertical wire, which is the other branch.
+      const vertical = addItems({ lines: [makeWire(at(0, 10.3), at(0, 20.3))] }).apply(EMPTY());
+      expect(helper(vertical, false).BestSnapAnchor(at(0.3, 15.2), CONN)).toEqual(at(0, 15.2));
+      expect(helper(vertical, false).BestSnapAnchor(at(0.3, 20.8), CONN)).toEqual(at(0, 20.3));
+    });
+
     it('drops the anchors of aSkip', () => {
       const sch = offGrid();
       const skip = new Set([refId('line', sch.lines[0]!.uuid, 0)]);
@@ -155,6 +165,22 @@ describe('EE_GRID_HELPER', () => {
     const h = helper(w);
     expect(h.IsMovableFromAnchorPoint(refId('sheet', 's', 0))).toBe(false);
     expect(h.IsMovableFromAnchorPoint(refId('line', w.lines[0]!.uuid, 0))).toBe(true);
+  });
+
+  it('says a symbol is movable from its anchor only if every pin is a 25 mil step from it', () => {
+    const onStep = placeSymbol(R, at(0, 0)).apply(EMPTY());
+    // The same resistor with its pins nudged 1 mil sideways.
+    const nudged: LibSymbol = {
+      ...R,
+      units: R.units.map((u) => ({
+        ...u,
+        pins: u.pins.map((p) => ({ ...p, at: { x: p.at.x + 254, y: p.at.y } })),
+      })),
+    };
+    const offStep = placeSymbol(nudged, at(0, 0)).apply(EMPTY());
+    const id = (d: Schematic) => refId('symbol', d.symbols[0]!.uuid, 0);
+    expect(helper(onStep).IsMovableFromAnchorPoint(id(onStep))).toBe(true);
+    expect(helper(offStep).IsMovableFromAnchorPoint(id(offStep))).toBe(false);
   });
 
   it('nearestSnapAnchor snaps within range and ignores anchors outside it', () => {
