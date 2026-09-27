@@ -131,9 +131,21 @@ describe('appearance.grid_striping', () => {
     // "to allow for the header row" (`wx_grid.cpp:180-183`). Getting this
     // backwards is invisible until you compare against KiCad side by side.
     const css = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
+    // The rule whose selector list holds the striping selector (a WX_GRID
+    // with the `ze-grid-striped` class shares the same block).
     const rule = css
-      .split('[data-grid-striping="1"] .ze-grid tbody tr:nth-child(even) > td {')[1]
-      ?.split('}')[0];
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('}')
+      .find((block) =>
+        block
+          .split('{')[0]!
+          .split(',')
+          .some(
+            (sel) =>
+              sel.trim() === '[data-grid-striping="1"] .ze-grid tbody tr:nth-child(even) > td',
+          ),
+      )
+      ?.split('{')[1];
     expect(rule, 'no striping rule').toBeDefined();
     // The colour is the cell token shifted, never a hex of its own:
     // `aBaseColor.ChangeLightness( 105 )` is 5% of white over it.
