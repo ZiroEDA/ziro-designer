@@ -148,7 +148,7 @@ const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
 
 /** Each frame that registers a grid menu, and the file that mounts its toolbar. */
 const CALL_SITES: [app: string, file: string][] = [
-  ['pl_editor', 'editors/drawingsheet/DrawingSheetEditor.tsx'],
+  ['pl_editor', '../../pagelayout_editor/pl_editor_frame_ui.tsx'],
   ['eeschema', 'editors/schematic/SchematicEditor.tsx'],
   ['symbol_editor', 'editors/symbol/SymbolEditor.tsx'],
   ['pcbnew', 'editors/pcb/PcbEditor.tsx'],
@@ -166,7 +166,7 @@ describe('every frame with a registered menu is wired to receive it', () => {
     // runs every id as its TOOL_ACTION through the bridge's table.
     if (app === 'pl_editor') {
       expect(read(rel)).toContain('const action = ACTION_FOR_ID[id];');
-      expect(read('editors/drawingsheet/pl_editor_settings_bridge.ts')).toContain(
+      expect(read('../../pagelayout_editor/pl_editor_settings_bridge.ts')).toContain(
         'gridProperties: ACTIONS.gridProperties,',
       );
       return;

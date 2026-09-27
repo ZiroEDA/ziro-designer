@@ -38,6 +38,7 @@ import { fileURLToPath } from 'node:url';
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
+// The Open and Save As choosers are the page's: the account's storage is the program's.
 const PL = read('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx');
 const SAVEAS = read('../../../designer/src/fs/SaveAsDialog.tsx');
 const SCH = read('../../../designer/src/editors/schematic/SchematicEditor.tsx');

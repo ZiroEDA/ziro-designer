@@ -64,7 +64,7 @@ const FRAMES: {
 }[] = [
   {
     app: 'pl_editor',
-    file: 'editors/drawingsheet/DrawingSheetEditor.tsx',
+    file: 'editors/drawingsheet/DrawingSheetEditor.tsx+../../pagelayout_editor/pl_editor_frame_ui.tsx',
     bars: 3,
     banned: ['DS_TOP_TOOLBAR', 'DS_LEFT_TOOLBAR', 'DS_RIGHT_TOOLBAR'],
   },

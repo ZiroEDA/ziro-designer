@@ -153,7 +153,7 @@ describe('a DockSash is a sibling of its pane, never a child', () => {
   const FRAMES = [
     'editors/pcb/PcbEditor.tsx',
     '../../gerbview/gerbview_frame_ui.tsx',
-    'editors/drawingsheet/DrawingSheetEditor.tsx',
+    '../../pagelayout_editor/pl_editor_frame_ui.tsx',
   ];
 
   /** A line's leading-space count. */

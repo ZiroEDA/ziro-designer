@@ -37,7 +37,7 @@ import {
   ACTION_FOR_ID,
   loadPlEditorSettings,
   uiState,
-} from '@ziroeda/designer/src/editors/drawingsheet/pl_editor_settings_bridge.js';
+} from '@ziroeda/pagelayout_editor/pl_editor_settings_bridge.js';
 import { PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';

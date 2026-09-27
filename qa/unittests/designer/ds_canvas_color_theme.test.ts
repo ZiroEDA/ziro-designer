@@ -23,7 +23,8 @@ import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
 import type { DS_RENDER_SETTINGS } from '@ziroeda/common/drawing_sheet/ds_proxy_view_item.js';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { EDA_UNITS_INT } from '@ziroeda/common/settings/app_settings.js';
-import { loadPlEditorColors } from '@ziroeda/designer/src/editors/drawingsheet/pl_editor_settings_bridge.js';
+import { loadPlEditorColors } from '@ziroeda/pagelayout_editor/pl_editor_settings_bridge.js';
+import { colorSettingsFor } from '@ziroeda/designer/src/editors/drawingsheet/DrawingSheetEditor.js';
 import { KICAD_CLASSIC, KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
 import { settings } from '@ziroeda/designer/src/prefs/settings.js';
 import { type Harness, makeHarness } from '../pagelayout_editor/pl_editor_fixture.js';
@@ -42,7 +43,7 @@ const css = (s: string): string => toCss(parseColor4d(s));
 
 function painted(aTheme: string): { h: Harness; rs: DS_RENDER_SETTINGS } {
   const h = makeHarness(EDA_UNITS_INT.MM);
-  loadPlEditorColors(h.frame, aTheme);
+  loadPlEditorColors(h.frame, colorSettingsFor(aTheme));
   const rs = h.view.GetPainter().GetSettings() as DS_RENDER_SETTINGS;
   return { h, rs };
 }
@@ -78,7 +79,7 @@ describe('the painter holds the colours of the stored theme', () => {
   it('a second load repaints without a new frame', () => {
     const { h, rs } = painted('_builtin_default');
 
-    loadPlEditorColors(h.frame, '_builtin_classic');
+    loadPlEditorColors(h.frame, colorSettingsFor('_builtin_classic'));
 
     expect(toCss(rs.GetBackgroundColor())).toBe(css(KICAD_CLASSIC.background));
   });

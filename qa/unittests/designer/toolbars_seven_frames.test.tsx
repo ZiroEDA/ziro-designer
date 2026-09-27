@@ -103,7 +103,10 @@ describe('the frame reads the store, not the module constant', () => {
     ['editors/schematic/SchematicEditor.tsx', 'eeschema'],
     ['editors/symbol/SymbolEditor.tsx', 'symbol_editor'],
     ['editors/pcb/PcbEditor.tsx', 'pcbnew'],
-    ['editors/drawingsheet/DrawingSheetEditor.tsx', 'pl_editor'],
+    [
+      'editors/drawingsheet/DrawingSheetEditor.tsx+../../pagelayout_editor/pl_editor_frame_ui.tsx',
+      'pl_editor',
+    ],
     ['editors/gerbview/GerberViewer.tsx+../../gerbview/gerbview_frame_ui.tsx', 'gerbview'],
     ['editors/footprint/FootprintEditor.tsx', 'fpedit'],
     ['editors/pcb/Viewer3DFrame.tsx', '3d_viewer'],

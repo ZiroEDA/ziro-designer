@@ -36,24 +36,29 @@ schematic canvas moves onto it, pl_editor needs its own (`SetAltInstance`).
 
 ## Hosted
 
-The Drawing Sheet Editor's window is `designer/.../DrawingSheetEditor.tsx`
-hosting `PL_EDITOR_FRAME`, exactly as `GerberViewer.tsx` hosts
-`GERBVIEW_FRAME`: it builds the frame through `pl_editor.ts`' `CreateKiWindow`
-over the `pl_editor.json` slice (`pl_editor_settings_bridge.ts`, JSON_SETTINGS
-Load / Store), hands it a `PL_DRAW_PANEL_GAL` on its `<canvas>`
-(`render/gal_window.ts`), answers `PL_EDITOR_FRAME_HOST` with its dialogs
+The Drawing Sheet Editor's window is `pl_editor_frame_ui.tsx`, the `wxFrame`
+half of `PL_EDITOR_FRAME`, as `gerbview_frame_ui.tsx` is GERBVIEW_FRAME's: it
+builds the frame through `pl_editor.ts`' `CreateKiWindow` over the
+`pl_editor.json` slice (`pl_editor_settings_bridge.ts`, JSON_SETTINGS Load /
+Store), hands it a `PL_DRAW_PANEL_GAL` on its `<canvas>`, answers `PL_EDITOR_FRAME_HOST` with its dialogs
 (each a Promise the frame continues from when it settles), and runs every
 menu row and toolbar button as the frame's TOOL_ACTION with its position
 cleared, as `ACTION_TOOLBAR::onToolEvent` does. The check / enable state of
 every control is the frame's `ProcessUpdateUI`; the status bar, message
 panel, context menus and Preferences go through the frame's sinks.
 
-What the page still does itself, and why:
+What only the program has comes in as `PL_EDITOR_APP`
+(`designer/.../DrawingSheetEditor.tsx` supplies it): `Pgm()`'s settings slice
+and language, the KIWAY, the Open and Save As dialogs over the account's
+storage (drawn inside the frame through `overlay`), where a written sheet
+goes, the Preferences dialog, the toolbar layout and the GL window.
 
-- **The colour theme.** `loadPlEditorColors` loads the painter from the theme
-  the page resolves (built-in, installed, made, or User with the stored
-  overrides): SETTINGS_MANAGER's "User" does not carry the schematic
-  overrides the page's colour store holds.
+What the window does that upstream's does not, and why:
+
+- **The colour theme.** `loadPlEditorColors` loads the painter from the
+  `COLOR_SETTINGS` the program resolves (built-in, installed, made, or User
+  with the stored overrides): SETTINGS_MANAGER's "User" does not carry the
+  schematic overrides the program's colour store holds.
 - **The clipboard.** `SaveClipboard` writes a cache and the system
   clipboard; `GetClipboardUTF8` / `GetImageFromClipboard` read the cache,
   which a `paste` event refreshes. A browser reads the system clipboard only
@@ -64,19 +69,12 @@ What the page still does itself, and why:
   wxFileDialog upstream; here `PlaceItem` waits for the page's chooser inside
   its coroutine and passes the answer in.
 
-## Where the screens are, and why some are still in `designer/`
+## Where the screens are
 
-A screen can come here only when everything it imports is in `common/` or
-here: `pagelayout_editor` must not import `designer`. What still reads the
-app's own modules stays:
-
-- `DrawingSheetEditor.tsx` — the window: `designer/src/prefs/*` (the
-  `plEditor` slice), `fs/*` (the file chooser and Save As), `ui/*`
-  (`ReadOnlyNotice`, `HomeLink`, `useToolbarEntries`, the hotkey list),
-  `dialogs/PreferencesDialog`.
-- `pl_editor_settings_bridge.ts` — `prefs/settings`, `prefs/useSettings`
-  (the theme), the schematic colour table.
-- `prefs/*` (`dialogs/prefs/types`, `pcm/pcmStore`, `prefs/color_settings_list`).
+Every KiCad unit's code is here, the window included. What stays in
+`designer/` is the program's side: `DrawingSheetEditor.tsx` supplying
+`PL_EDITOR_APP`, and `prefs/index.tsx`, the seam to the Preferences dialog.
+`pagelayout_editor` must not import `designer`; the arrow runs the other way.
 
 ## The 27 KiCad `.cpp` files
 
@@ -87,12 +85,9 @@ app's own modules stays:
 header-only headers (`invoke_pl_editor_dialog.h`, `pl_editor_id.h`): 26 rows.
 
 Status legend: **here** (our file exists under KiCad's name and path);
-**here, part in `designer/`** (the engine half is here, the window half is
-held by an import named above); **n/a** (a browser cannot have it, or KiCad
-does not build anything from it).
+**n/a** (a browser cannot have it, or KiCad does not build anything from it).
 
-Counts: 26 rows — 21 here (3 of them with a window half in `designer/`),
-2 in `designer/` only (the two Preferences panels), 3 n/a.
+Counts: 26 rows — 23 here, 3 n/a.
 
 ### Root — 9 `.cpp` units + 2 headers
 
@@ -102,7 +97,7 @@ Counts: 26 rows — 21 here (3 of them with a window half in `designer/`),
 | `menubar` | here | `menubar.ts` (`doReCreateMenuBar`), which the window renders; each row runs its action |
 | `pl_draw_panel_gal` | here | `pl_draw_panel_gal.ts` (`PL_DRAW_PANEL_GAL`): `DisplayDrawingSheet`, the layer targets, `SetTopLayer`, `SwitchBackend` |
 | `pl_editor` | here | `pl_editor.ts`: `OnKifaceStart`, `CreateKiWindow` (the frame, and the four `PANEL_DS_*` pages over `PL_PREFS_CONTEXT`), `SaveFileAs`. `designer/.../prefs/index.tsx` is only the seam to the program's Preferences dialog |
-| `pl_editor_frame` | here, part in `designer/` | `pl_editor_frame.ts` (`PL_EDITOR_FRAME`); see "Hosted" |
+| `pl_editor_frame` | here | `pl_editor_frame.ts` (`PL_EDITOR_FRAME`) + `pl_editor_frame_ui.tsx`, the `wxFrame` half; see "Hosted" |
 | `pl_editor_layout` | here | `pl_editor_layout.ts` (`PL_EDITOR_LAYOUT`) |
 | `pl_editor_settings` | here | `pl_editor_settings.ts` (`PL_EDITOR_SETTINGS`, the seven PARAMs as `FromJson` / `ToJson`) |
 | `pl_editor_undo_redo` | here | `pl_editor_undo_redo.ts`: the frame's `SaveCopyInUndoList`, `GetLayoutFromUndoList`, `GetLayoutFromRedoList`, `RollbackFromUndo` on `DS_PROXY_UNDO_ITEM` |

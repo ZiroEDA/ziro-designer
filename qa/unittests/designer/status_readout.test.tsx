@@ -197,7 +197,7 @@ describe('the draw frames', () => {
     // origin corner, with a sign flip per axis, and its pane 3 is `dx`/`dy`
     // with no `dist`: that is the frame's own `plCoordFields`, and the page
     // only shows what the frame's status sink hands it.
-    const src = read('editors/drawingsheet/DrawingSheetEditor.tsx');
+    const src = read('../../pagelayout_editor/pl_editor_frame_ui.tsx');
     expect(src).toContain('frame.SetStatusTextSink(');
     expect(src).not.toContain('useStatusReadout');
     expect(

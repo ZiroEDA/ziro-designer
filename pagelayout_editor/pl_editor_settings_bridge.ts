@@ -17,21 +17,17 @@
  * `wxEVT_UPDATE_UI`.
  */
 
-import { parseColor4d } from '@ziroeda/common/color4d.js';
 import { EdaUnitsFromInt, EdaUnitsToInt } from '@ziroeda/common/settings/app_settings.js';
-import { COLOR_SETTINGS, layerIdFromThemeKey } from '@ziroeda/common/settings/color_settings.js';
+import type { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
 import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
-import { resolveThemeById } from '../../prefs/useSettings.js';
-import { themeByLayer } from '../schematic/prefs/schColorLayers.js';
 import { GRID } from '@ziroeda/common/settings/grid_settings.js';
 import { CROSS_HAIR_MODE } from '@ziroeda/common/gal/gal_display_options.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import { wxUpdateUIEvent } from '@ziroeda/common/wx/wx_event.js';
-import type { PL_EDITOR_FRAME } from '@ziroeda/pagelayout_editor/pl_editor_frame.js';
-import type { PL_EDITOR_SETTINGS } from '@ziroeda/pagelayout_editor/pl_editor_settings.js';
-import { PL_ACTIONS } from '@ziroeda/pagelayout_editor/tools/pl_actions.js';
-import type { PlEditorSettings } from '../../prefs/settings.js';
+import type { PL_EDITOR_FRAME } from './pl_editor_frame.js';
+import type { PL_EDITOR_SETTINGS, PlEditorSettings } from './pl_editor_settings.js';
+import { PL_ACTIONS } from './tools/pl_actions.js';
 
 /** `grid.style`'s stored integers (`common/settings/app_settings.cpp`): 0 dots, 1 lines, 2 crosses. */
 const GRID_STYLE: readonly PlEditorSettings['window']['grid']['style'][] = [
@@ -125,27 +121,19 @@ export function storePlEditorSettings(aCfg: PL_EDITOR_SETTINGS, aJson: PlEditorS
 /**
  * `DS_RENDER_SETTINGS::LoadColors( ::GetColorSettings( cfg->m_ColorTheme ) )`
  * (pl_draw_panel_gal.cpp:57-59, pl_editor_frame.cpp:641-650) with the theme
- * the page resolves: a built-in, an installed or made theme, or "User" with
+ * the program resolves (`PL_EDITOR_APP::ColorSettings`): a built-in, an installed or made theme, or "User" with
  * the per-layer overrides the Colors pages store - the one colour store every
  * editor here reads. The frame's own `CommonSettingsChanged` asks
  * SETTINGS_MANAGER, whose "User" does not carry the schematic overrides the
  * page's store holds; this is the page's answer, as GerbView's
  * `loadGerbviewColors` is.
  */
-export function loadPlEditorColors(aFrame: PL_EDITOR_FRAME, aThemeId: string): void {
+export function loadPlEditorColors(aFrame: PL_EDITOR_FRAME, aColors: COLOR_SETTINGS): void {
   const canvas = aFrame.GetCanvas();
 
   if (!canvas) return;
 
-  const cs = new COLOR_SETTINGS(aThemeId);
-
-  for (const [layer, css] of Object.entries(themeByLayer(resolveThemeById(aThemeId)))) {
-    const id = layerIdFromThemeKey(layer);
-
-    if (id !== undefined && css) cs.SetColor(id, parseColor4d(css));
-  }
-
-  canvas.GetView().GetPainter().GetSettings().LoadColors(cs);
+  canvas.GetView().GetPainter().GetSettings().LoadColors(aColors);
   canvas.GetView().UpdateAllItems(VIEW_UPDATE_FLAGS.COLOR);
   canvas.ForceRefresh();
 }

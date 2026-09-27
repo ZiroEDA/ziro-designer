@@ -17,7 +17,7 @@ const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
 const DIALOG = read('../../../pagelayout_editor/dialogs/design_inspector_ui.tsx');
-const EDITOR = read('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx');
+const EDITOR = read('../../../pagelayout_editor/pl_editor_frame_ui.tsx');
 
 describe('DSP-15 — a row click does not end the dialog', () => {
   /** The item row's `onClick={…}` handler body. */

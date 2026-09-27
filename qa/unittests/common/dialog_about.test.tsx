@@ -269,7 +269,7 @@ describe('every frame opens it', () => {
   it('DrawingSheetEditor.tsx shows it titled with the frame m_aboutTitle, ABOUT_TITLES.drawingSheet', () => {
     // COMMON_CONTROL::About runs ShowAboutDialog( m_frame ); pl_editor_frame.cpp
     // sets m_aboutTitle in the constructor.
-    expect(read('designer/src/editors/drawingsheet/DrawingSheetEditor.tsx')).toContain(
+    expect(read('pagelayout_editor/pl_editor_frame_ui.tsx')).toContain(
       '<ShowAboutDialog title={frame.m_aboutTitle}',
     );
     expect(read('pagelayout_editor/pl_editor_frame.ts')).toContain(

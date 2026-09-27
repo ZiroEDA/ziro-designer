@@ -87,7 +87,7 @@ describe('PANEL_GAL_OPTIONS’ Cursor group', () => {
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
 
-const EDITOR = read('editors/drawingsheet/DrawingSheetEditor.tsx');
+const EDITOR = read('../../pagelayout_editor/pl_editor_frame_ui.tsx');
 const GAL_PANEL = read('../../common/dialogs/panel_gal_options.tsx');
 const DS_DISPLAY = read('../../pagelayout_editor/dialogs/panel_pl_editor_display_options_ui.tsx');
 const SHELL = read('dialogs/PreferencesDialog.tsx');
@@ -187,8 +187,10 @@ describe('the black background is still read and never written', () => {
 
 describe('the editor opens the shared dialog, not one of its own', () => {
   it('imports the shell every other launcher imports', () => {
-    expect(statements(EDITOR, "from '../../dialogs/PreferencesDialog.js'")).toHaveLength(1);
-    expect(statements(EDITOR, '<PreferencesDialog')).toHaveLength(1);
+    // The dialog is the program's: the page hands it to the window.
+    const PAGE = read('editors/drawingsheet/DrawingSheetEditor.tsx');
+    expect(statements(PAGE, "from '../../dialogs/PreferencesDialog.js'")).toHaveLength(1);
+    expect(statements(PAGE, '<PreferencesDialog')).toHaveLength(1);
   });
 
   it('lands ACTIONS::gridProperties on the Grids page, not on the book’s first', async () => {
@@ -214,8 +216,14 @@ describe('the editor opens the shared dialog, not one of its own', () => {
       SetPgm(null);
     }
     // The page's presenter looks the named page up; the menu item passes none.
+    expect(statements(EDITOR, 'setPrefsOpen({ page: aPage, parent: aParentPage }),')).toHaveLength(
+      1,
+    );
     expect(
-      statements(EDITOR, "setPrefsOpen(aPage === '' ? true : pageFor(aPage, aParentPage)),"),
+      statements(
+        read('editors/drawingsheet/DrawingSheetEditor.tsx'),
+        "{...(page === '' ? {} : { initialPage: pageFor(page, parent) })}",
+      ),
     ).toHaveLength(1);
     // The menu row runs ACTIONS::openPreferences, which COMMON_CONTROL answers
     // with ShowPreferences( "", "" ) - into the presenter above.

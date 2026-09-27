@@ -69,7 +69,7 @@ const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
 const SRC = '../../../designer/src/';
-const DS = read(`${SRC}editors/drawingsheet/DrawingSheetEditor.tsx`);
+const DS = read(`${SRC}../../pagelayout_editor/pl_editor_frame_ui.tsx`);
 const SCH = read(`${SRC}editors/schematic/SchematicEditor.tsx`);
 const PCB = read(`${SRC}editors/pcb/PcbEditor.tsx`);
 const SYM = read(`${SRC}editors/symbol/SymbolEditor.tsx`);
@@ -191,7 +191,7 @@ describe('a docked pane is sized by the numbers upstream states, not at the call
     // and the width it opens at is the STORED one, the default only standing in
     // for a profile that has never dragged it. The sash itself is pinned in
     // `ds_origin_and_sash.test.ts`.
-    expect(DS).toContain('useState(settings.plEditor.properties_frame_width)');
+    expect(DS).toContain('() => appRef.current.GetPlEditorSettings().properties_frame_width,');
     expect(DS).toContain('style={{ width: propsWidth, minWidth: propsWidth }}');
     // The number it replaced. 272 is nowhere in pl_editor.
     expect(DS).not.toContain('width: 272');

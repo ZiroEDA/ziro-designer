@@ -127,9 +127,7 @@ describe('Files_io’s dispatch rules', () => {
 });
 
 const EDITOR = readFileSync(
-  fileURLToPath(
-    new URL('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx', import.meta.url),
-  ),
+  fileURLToPath(new URL('../../../pagelayout_editor/pl_editor_frame_ui.tsx', import.meta.url)),
   'utf8',
 );
 

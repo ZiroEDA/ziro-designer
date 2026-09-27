@@ -18,7 +18,7 @@ import { PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const EDITOR = read('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx');
+const EDITOR = read('../../../pagelayout_editor/pl_editor_frame_ui.tsx');
 // The coord-origin marker is DS_DRAW_ITEM_PAGE's, set by DisplayDrawingSheet:
 // driven in unittests/pagelayout_editor/pl_editor_chrome.test.ts.
 
@@ -77,6 +77,6 @@ describe('the pane opens at the width the settings declare', () => {
     // `LoadSettings` reads it back at pl_editor_frame.cpp:538 and the pane is
     // built with it as `BestSize` at :204. Seeding the state from the constant
     // instead is exactly the bug this whole slice exists to remove.
-    expect(EDITOR).toContain('useState(settings.plEditor.properties_frame_width)');
+    expect(EDITOR).toContain('() => appRef.current.GetPlEditorSettings().properties_frame_width,');
   });
 });

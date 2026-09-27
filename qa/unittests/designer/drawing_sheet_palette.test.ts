@@ -42,7 +42,7 @@ import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST } from '@ziroeda/common/settings/gri
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const EDITOR = read('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx');
+const EDITOR = read('../../../pagelayout_editor/pl_editor_frame_ui.tsx');
 const SHELL = read('../../../common/widgets/shell.css');
 
 /** The stylesheet with its comments taken out, so they cannot read as values. */
@@ -450,7 +450,7 @@ describe('D7: this editor adds no new hardcoded font size', () => {
   const FILES = [
     'pagelayout_editor/dialogs/design_inspector_ui.tsx',
     'pagelayout_editor/dialogs/properties_frame_ui.tsx',
-    'designer/src/editors/drawingsheet/DrawingSheetEditor.tsx',
+    'pagelayout_editor/pl_editor_frame_ui.tsx',
   ];
 
   it('holds at the 6 known sites', () => {

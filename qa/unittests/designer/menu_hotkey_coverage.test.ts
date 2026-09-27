@@ -53,7 +53,7 @@ const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
  */
 const CONVERTED = [
   'editors/calculator/CalculatorTools.tsx',
-  'editors/drawingsheet/DrawingSheetEditor.tsx',
+  '../../pagelayout_editor/pl_editor_frame_ui.tsx',
   'editors/footprint/FootprintEditor.tsx',
   '../../gerbview/gerbview_frame_ui.tsx',
   '../../bitmap2component/bitmap2cmp_frame_ui.tsx',
@@ -245,7 +245,7 @@ const MENU_MODULE: Readonly<Record<string, string>> = {
   'editors/footprint/FootprintEditor.tsx': 'editors/footprint/menubar.ts',
   'editors/pcb/PcbEditor.tsx': 'editors/pcb/menubar.ts',
   // pl_editor's bar is its package's menubar.ts, beside KiCad's menubar.cpp.
-  'editors/drawingsheet/DrawingSheetEditor.tsx': '../../pagelayout_editor/menubar.ts',
+  '../../pagelayout_editor/pl_editor_frame_ui.tsx': '../../pagelayout_editor/menubar.ts',
 };
 
 /**
@@ -965,7 +965,7 @@ describe('the project manager, pressed for real', () => {
  * reason KiCad has them in `common/` at all.
  */
 const DECLARED: Readonly<Record<string, readonly string[]>> = {
-  'editors/drawingsheet/DrawingSheetEditor.tsx': [
+  '../../pagelayout_editor/pl_editor_frame_ui.tsx': [
     // File. Ctrl+N / Ctrl+W / Ctrl+Q are BROWSER_RESERVED and carry the
     // substitution `browserSafeKey` gives them - which is exactly the key that
     // was printed and dead before this branch.

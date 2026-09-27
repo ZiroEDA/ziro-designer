@@ -34,7 +34,7 @@ import {
   loadPlEditorSettings,
   storePlEditorSettings,
   uiState,
-} from '@ziroeda/designer/src/editors/drawingsheet/pl_editor_settings_bridge.js';
+} from '@ziroeda/pagelayout_editor/pl_editor_settings_bridge.js';
 import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
 import { CROSS_HAIR_MODE } from '@ziroeda/common/gal/gal_display_options.js';
 import { PAGE_INFO } from '@ziroeda/common/page_info.js';
@@ -395,9 +395,7 @@ describe('the settings survive a reload', () => {
 });
 
 const EDITOR = readFileSync(
-  fileURLToPath(
-    new URL('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx', import.meta.url),
-  ),
+  fileURLToPath(new URL('../../../pagelayout_editor/pl_editor_frame_ui.tsx', import.meta.url)),
   'utf8',
 );
 
@@ -422,7 +420,7 @@ const PREFS_SHELL = readFileSync(
  */
 describe('the page loads and stores through the bridge', () => {
   it('builds the frame over the settings slice', () => {
-    expect(EDITOR).toContain('loadPlEditorSettings(cfg, settings.plEditor);');
+    expect(EDITOR).toContain('loadPlEditorSettings(cfg, appRef.current.GetPlEditorSettings());');
     expect(EDITOR).toContain('loadPlEditorSettings(frame.config(), plCfg);');
   });
 

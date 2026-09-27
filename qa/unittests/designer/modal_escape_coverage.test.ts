@@ -39,7 +39,7 @@ const BACKDROPS = ['ze-modal-backdrop', 'calc-modal-backdrop', 'imgc-modal-backd
  * stack rather than assign Esc as a hotkey.
  */
 const OWNS_A_CANVAS = [
-  'editors/drawingsheet/DrawingSheetEditor.tsx',
+  '../../pagelayout_editor/pl_editor_frame_ui.tsx',
   'editors/footprint/FootprintEditor.tsx',
   'editors/pcb/PcbEditor.tsx',
   'editors/schematic/SchematicEditor.tsx',

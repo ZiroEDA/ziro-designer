@@ -508,7 +508,7 @@ describe('the base class and its one subclass', () => {
     // DIALOG_PAGES_SETTINGS itself; neither has a subclass.
     for (const rel of [
       'editors/pcb/PcbEditor.tsx',
-      'editors/drawingsheet/DrawingSheetEditor.tsx',
+      '../../pagelayout_editor/pl_editor_frame_ui.tsx',
     ]) {
       const src = EDITOR(rel);
       expect([...src.matchAll(/<DialogPageSettings\b/g)], rel).toHaveLength(1);
@@ -526,7 +526,7 @@ describe('the base class and its one subclass', () => {
     expect([...DIALOG.matchAll(/pageExports(From|To)Settings/g)]).toEqual([]);
     for (const rel of [
       'editors/pcb/PcbEditor.tsx',
-      'editors/drawingsheet/DrawingSheetEditor.tsx',
+      '../../pagelayout_editor/pl_editor_frame_ui.tsx',
     ]) {
       expect([...EDITOR(rel).matchAll(/pageExports(From|To)Settings/g)], rel).toEqual([]);
     }
