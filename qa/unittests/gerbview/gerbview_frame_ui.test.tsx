@@ -8,7 +8,7 @@
  * is the frame's chrome and what it asks of the program.
  */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import type { KIWAY } from '@ziroeda/common/kiway.js';
+import { KIWAY } from '@ziroeda/common/kiway.js';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
 import type { DRAW_PANEL_GAL_WINDOW } from '@ziroeda/common/draw_panel_gal.js';
 import { type GERBVIEW_APP, GerbviewFrameWindow } from '@ziroeda/gerbview/gerbview_frame_ui.js';
@@ -24,13 +24,13 @@ function makeApp(over: Partial<GERBVIEW_APP> = {}): { app: GERBVIEW_APP; calls: 
   const calls: string[] = [];
   let gerbview = structuredClone(GERBVIEW_DEFAULTS);
   let colors: Record<string, string> = {};
-  const kiway: KIWAY = {
+  const kiway = new KIWAY({
     OnKiCadExit: () => calls.push('exit'),
     Player: () => false,
     HasProjectManager: () => true,
     ShowProjectManager: () => calls.push('project manager'),
     CreateKiWindow: () => false,
-  };
+  });
   const app: GERBVIEW_APP = {
     homeLink: <span data-testid="home" />,
     kiway,

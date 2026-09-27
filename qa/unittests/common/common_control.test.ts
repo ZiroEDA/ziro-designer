@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EDA_BASE_FRAME } from '@ziroeda/common/eda_base_frame.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { onShowHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
-import type { KIWAY } from '@ziroeda/common/kiway.js';
+import { KIWAY, type KIWAY_PROGRAM } from '@ziroeda/common/kiway.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import {
   COMMON_CONTROL,
@@ -39,7 +39,7 @@ interface Env {
   opened: string[];
 }
 
-function setup(aKiway: Partial<KIWAY> = {}): Env {
+function setup(aKiway: Partial<KIWAY_PROGRAM> = {}): Env {
   const frame = new TEST_FRAME();
   const mgr = new TOOL_MANAGER();
   mgr.SetEnvironment(null, null, null, null as never, frame);
@@ -59,20 +59,22 @@ function setup(aKiway: Partial<KIWAY> = {}): Env {
 
   frame.SetPreferencesPresenter((p, pp) => env.prefs.push([p, pp]));
   frame.SetAboutPresenter((t) => env.about.push(t));
-  frame.SetKiway({
-    OnKiCadExit: () => env.calls.push('exit'),
-    Player: (t) => {
-      env.calls.push(`player ${FRAME_T[t]}`);
-      return true;
-    },
-    HasProjectManager: () => true,
-    ShowProjectManager: () => env.calls.push('project manager'),
-    CreateKiWindow: (t) => {
-      env.calls.push(`kiwindow ${FRAME_T[t]}`);
-      return true;
-    },
-    ...aKiway,
-  });
+  frame.SetKiway(
+    new KIWAY({
+      OnKiCadExit: () => env.calls.push('exit'),
+      Player: (t) => {
+        env.calls.push(`player ${FRAME_T[t]}`);
+        return true;
+      },
+      HasProjectManager: () => true,
+      ShowProjectManager: () => env.calls.push('project manager'),
+      CreateKiWindow: (t) => {
+        env.calls.push(`kiwindow ${FRAME_T[t]}`);
+        return true;
+      },
+      ...aKiway,
+    }),
+  );
 
   return env;
 }

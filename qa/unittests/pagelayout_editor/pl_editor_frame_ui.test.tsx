@@ -10,7 +10,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { GetClipboardUTF8, SaveClipboard } from '@ziroeda/common/clipboard.js';
 import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
 import type { DRAW_PANEL_GAL_WINDOW } from '@ziroeda/common/draw_panel_gal.js';
-import type { KIWAY } from '@ziroeda/common/kiway.js';
+import { KIWAY } from '@ziroeda/common/kiway.js';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
 import {
@@ -32,13 +32,13 @@ afterEach(() => {
 
 function makeApp(): PL_EDITOR_APP {
   let pl = structuredClone(PL_EDITOR_DEFAULTS);
-  const kiway: KIWAY = {
+  const kiway = new KIWAY({
     OnKiCadExit: () => {},
     Player: () => false,
     HasProjectManager: () => true,
     ShowProjectManager: () => {},
     CreateKiWindow: () => false,
-  };
+  });
   return {
     homeLink: <span data-testid="home" />,
     kiway,

@@ -3,10 +3,8 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * `EDA_DRAW_FRAME` (include/eda_draw_frame.h, common/eda_draw_frame.cpp): the
- * base of every frame with a drawing canvas. Between it and EDA_BASE_FRAME the
- * C++ has KIWAY_PLAYER, the window-to-window messaging base, which has no
- * browser counterpart and is skipped. What is here is the part the model
- * layer reaches: the canvas accessor, the colour settings, the message
+ * base of every frame with a drawing canvas, a KIWAY_PLAYER as upstream's
+ * is. What is here is the part the model layer reaches: the canvas accessor, the colour settings, the message
  * panel hooks and the item resolver — and, first, the grid snapping the
  * frame owns.
  *
@@ -31,7 +29,7 @@ import { GAL_DISPLAY_OPTIONS_IMPL } from './gal_display_options_common.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import type { EdaIuScale, EdaUnits } from './eda_units.js';
-import { EDA_BASE_FRAME } from './eda_base_frame.js';
+import { KIWAY_PLAYER } from './kiway_player.js';
 import type { FRAME_T } from './frame_type.js';
 import type { KIID } from './kiid.js';
 import type { EDA_DRAW_FRAME_LIKE, EDA_ITEM } from './eda_item.js';
@@ -118,7 +116,7 @@ export const FOOTPRINT_EDIT_FRAME_NAME = 'ModEditFrame';
 export const FOOTPRINT_VIEWER_FRAME_NAME = 'ModViewFrame';
 export const PCB_EDIT_FRAME_NAME = 'PcbFrame';
 
-export abstract class EDA_DRAW_FRAME extends EDA_BASE_FRAME {
+export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
   protected m_canvas: EDA_DRAW_PANEL_GAL | null = null;
   protected m_currentScreen: BASE_SCREEN | null = null; ///< current used SCREEN
   protected m_colorSettings: COLOR_SETTINGS | null = null;
@@ -301,13 +299,9 @@ export abstract class EDA_DRAW_FRAME extends EDA_BASE_FRAME {
     return this.m_galDisplayOptions;
   }
 
-  /**
-   * `Kiway().Player( aFrameType, false )`: the sibling frame if it is open.
-   * KIWAY is the desktop's window broker; the designer's frames answer with
-   * theirs, and the base has no siblings.
-   */
-  KiwayPlayer(_aFrameType: FRAME_T): unknown {
-    return null;
+  /** `Kiway().Player( aFrameType, false )`: the sibling frame if it is open. */
+  KiwayPlayer(aFrameType: FRAME_T): KIWAY_PLAYER | null {
+    return this.Kiway()?.GetPlayerFrame(aFrameType) ?? null;
   }
 
   /** `wxWindow::Raise()`: bring the frame to the front. */

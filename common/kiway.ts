@@ -2,17 +2,30 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `include/kiway.h`: KIWAY, as far as a frame calls it.
+ * `include/kiway.h`, `common/kiway.cpp`: KIWAY, the way between the frames of
+ * one project.
  *
- * Upstream KIWAY loads the kiface DSOs and owns every KIWAY_PLAYER window; here
- * the program does both - an editor is a route, and the project manager is the
- * page every editor goes home to - so KIWAY is the interface the program hands
- * each frame (`EDA_BASE_FRAME::SetKiway`), and each method is what the program
- * does for the call of the same name.
+ * Upstream KIWAY loads the kiface DSOs and creates every KIWAY_PLAYER window
+ * itself; here the program does both - an editor is a view it mounts, and the
+ * project manager is the page every editor goes home to - so the program hands
+ * KIWAY a {@link KIWAY_PROGRAM} for those, and KIWAY keeps the rest: which
+ * players are alive, and the mail between them.
+ *
+ * One difference follows from mounting. `KIFACE::CreateKiWindow` returns the
+ * frame; a mounted view registers its player a render later
+ * ({@link KIWAY.SetPlayerFrame}). Mail sent to a player that {@link KIWAY.Player}
+ * has asked the program to create is held until it registers, which is what
+ * upstream's synchronous creation gives its callers for free
+ * (`Player( FRAME_FOOTPRINT_EDITOR, true )` then `ExpressMail( ..., MAIL_FP_EDIT )`).
  */
 import type { FRAME_T } from './frame_type.js';
+import type { KIWAY_PLAYER } from './kiway_player.js';
+import { KIWAY_MAIL_EVENT, type MAIL_PAYLOAD } from './kiway_mail.js';
+import type { MAIL_T } from './mail_type.js';
+import type { wxEvent } from './wx/wx_event.js';
 
-export interface KIWAY {
+/** What the program does for KIWAY: the kifaces' windows and the top frame. */
+export interface KIWAY_PROGRAM {
   /** `KIWAY::OnKiCadExit()`: leave the suite (here, go back to the project manager). */
   OnKiCadExit(): void;
 
@@ -37,4 +50,114 @@ export interface KIWAY {
    * kiface is not available, which upstream also swallows.
    */
   CreateKiWindow(aClassId: FRAME_T): boolean;
+}
+
+export class KIWAY {
+  private readonly m_program: KIWAY_PROGRAM;
+
+  /** `m_playerFrameId`: the live player of each FRAME_T. */
+  private readonly m_playerFrame = new Map<FRAME_T, KIWAY_PLAYER>();
+
+  /** Mail for players the program is still creating, delivered when they register. */
+  private readonly m_pendingMail = new Map<FRAME_T, KIWAY_MAIL_EVENT[]>();
+
+  constructor(aProgram: KIWAY_PROGRAM) {
+    this.m_program = aProgram;
+  }
+
+  OnKiCadExit(): void {
+    this.m_program.OnKiCadExit();
+  }
+
+  /**
+   * `Player( aFrameType, true )` + `showFrame()`: open or raise that editor.
+   * A player not yet alive is being created from here on, so mail sent to it
+   * waits for it.
+   */
+  Player(aFrameType: FRAME_T): boolean {
+    const shown = this.m_program.Player(aFrameType);
+
+    if (shown && !this.m_playerFrame.has(aFrameType) && !this.m_pendingMail.has(aFrameType))
+      this.m_pendingMail.set(aFrameType, []);
+
+    return shown;
+  }
+
+  HasProjectManager(): boolean {
+    return this.m_program.HasProjectManager();
+  }
+
+  ShowProjectManager(): void {
+    this.m_program.ShowProjectManager();
+  }
+
+  CreateKiWindow(aClassId: FRAME_T): boolean {
+    return this.m_program.CreateKiWindow(aClassId);
+  }
+
+  /** `GetPlayerFrame( aFrameType )`: the live player of that type, or null. */
+  GetPlayerFrame(aFrameType: FRAME_T): KIWAY_PLAYER | null {
+    return this.m_playerFrame.get(aFrameType) ?? null;
+  }
+
+  /**
+   * `m_playerFrameId[aFrameType].store( frame->GetId() )`, which upstream does
+   * as `CreateKiWindow` returns: the player is alive, and any mail held for it
+   * is delivered.
+   */
+  SetPlayerFrame(aFrameType: FRAME_T, aFrame: KIWAY_PLAYER): void {
+    this.m_playerFrame.set(aFrameType, aFrame);
+
+    const pending = this.m_pendingMail.get(aFrameType);
+    this.m_pendingMail.delete(aFrameType);
+
+    for (const mail of pending ?? []) aFrame.ProcessEvent(mail);
+  }
+
+  /**
+   * Notify the KIWAY that a player frame is closing: `m_playerFrameId[aFrameType]
+   * = wxID_NONE`. Only the frame registered for that type is forgotten.
+   */
+  PlayerDidClose(aFrameType: FRAME_T, aFrame?: KIWAY_PLAYER): void {
+    if (aFrame && this.m_playerFrame.get(aFrameType) !== aFrame) return;
+
+    this.m_playerFrame.delete(aFrameType);
+    this.m_pendingMail.delete(aFrameType);
+  }
+
+  /**
+   * Send `aPayload` to `aDestination` from `aSource`. The recipient receives it
+   * in `KIWAY_PLAYER::KiwayMailIn()`, and an answer comes back in `aPayload`.
+   */
+  ExpressMail(
+    aDestination: FRAME_T,
+    aCommand: MAIL_T,
+    aPayload: MAIL_PAYLOAD,
+    aSource: unknown = null,
+  ): void {
+    const mail = new KIWAY_MAIL_EVENT(aDestination, aCommand, aPayload, aSource);
+
+    this.ProcessEvent(mail);
+  }
+
+  /** `ProcessEvent`: route mail to its recipient, if it is alive. */
+  ProcessEvent(aEvent: wxEvent): boolean {
+    if (aEvent instanceof KIWAY_MAIL_EVENT) {
+      const dest = aEvent.Dest();
+
+      // see if recipient is alive
+      const alive = this.GetPlayerFrame(dest);
+
+      if (alive) return alive.ProcessEvent(aEvent);
+
+      const pending = this.m_pendingMail.get(dest);
+
+      if (pending) {
+        pending.push(aEvent);
+        return true;
+      }
+    }
+
+    return false;
+  }
 }

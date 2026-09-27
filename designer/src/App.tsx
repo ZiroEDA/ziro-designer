@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
-import type { KIWAY } from '@ziroeda/common/kiway.js';
+import { KIWAY } from '@ziroeda/common/kiway.js';
 import {
   useEffect,
   useMemo,
@@ -1459,7 +1459,7 @@ export function App(): JSX.Element {
       [FRAME_T.FRAME_CALC]: 'calculator',
     };
 
-    return {
+    return new KIWAY({
       OnKiCadExit: goHome,
       Player: (aFrameType) => {
         const v = PLAYER_VIEW[aFrameType];
@@ -1473,7 +1473,7 @@ export function App(): JSX.Element {
       // The library tables and Configure Paths are raised by the editors that
       // own them, not through a KIWAY here.
       CreateKiWindow: () => false,
-    };
+    });
   }, [goHome, mountFor]);
   const showPcb = useCallback(() => {
     setPcbMounted(true);

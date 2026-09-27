@@ -20,7 +20,7 @@
  */
 import { COMMON_CONTROL } from '@ziroeda/common/tool/common_control.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
-import { EDA_BASE_FRAME } from '@ziroeda/common/eda_base_frame.js';
+import { KIWAY_PLAYER } from '@ziroeda/common/kiway_player.js';
 import { unityScale } from '@ziroeda/common/eda_units.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
@@ -120,7 +120,7 @@ const EXPORTS: Record<'wks' | 'ps' | 'sym' | 'mod', EXPORT_SPEC> = {
   },
 };
 
-export class BITMAP2CMP_FRAME extends EDA_BASE_FRAME {
+export class BITMAP2CMP_FRAME extends KIWAY_PLAYER {
   private m_panel: BITMAP2CMP_PANEL;
   private m_dropTarget: DROP_FILE;
   private m_ui: BITMAP2CMP_FRAME_UI;
