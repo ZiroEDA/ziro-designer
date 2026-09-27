@@ -18,11 +18,6 @@
  * `In1_Cu … In30_Cu` and `L2 … L30` and `G1 … G30` are consecutive in all
  * three, and upstream only spells them out because C++ has no better way to
  * write a map literal.
- *
- * {@link mapGerberLayersToPcb} below is NOT upstream: it is the one-click
- * mapping this port used while it had no dialog, kept only because the
- * exporter's tests drive `ExportPcb` through it (`exportLayersToPcb`). The
- * frame no longer calls it; Export to PCB asks, as KiCad does.
  */
 
 import {
@@ -63,14 +58,6 @@ import {
   UNDEFINED_LAYER,
   UNSELECTED_LAYER,
 } from '@ziroeda/pcbnew/layer_ids.js';
-
-/**
- * `X2_ATTRIBUTE_FILEFUNCTION::IsDrillFile()` of an image's file function — a
- * `%TF.FileFunction,Plated,…` or `,NonPlated,…` gerber.
- */
-export function isDrillFileFunction(image: GERBER_FILE_IMAGE): boolean {
-  return image.m_FileFunction?.IsDrillFile() === true;
-}
 
 /**
  * `findNumX2GerbersLoaded`'s `kicadLayers` map
@@ -263,129 +250,6 @@ export function findKnownGerberLayer(image: GERBER_FILE_IMAGE): number {
   if (kicad !== UNSELECTED_LAYER) return kicad;
 
   return findAltiumExtensionLayer(image);
-}
-
-/**
- * Where an unmatched Gerber goes, in order.
- *
- * **This is a divergence, deliberately.** Upstream leaves an unmatched row at
- * `UNSELECTED_LAYER` and colours it blue "Do not export"; `ExportPcb` then
- * drops it (`export_to_pcbnew.cpp:111-112`). That is only safe because a human
- * is looking at the dialog and can assign the layer by hand before pressing
- * OK. We have no such dialog, so honouring `UNSELECTED_LAYER` would mean a
- * one-click export that silently omits layers with no way to get them back —
- * the worse of the two failures. A wrong-but-visible layer can be seen in
- * pcbnew and moved; a missing one cannot.
- *
- * These are KiCad's four general-purpose user layers, `Dwgs_User`,
- * `Cmts_User`, `Eco1_User` and `Eco2_User` — the same four `LSET::UserMask()`
- * lists ahead of `Edge_Cuts` and `Margin`, which are not general-purpose. They
- * are handed out one per unmatched layer rather than indexed by the layer's
- * position, so three unmatched layers get three distinct destinations instead
- * of colliding; past the fourth they do repeat, and there is nowhere else for
- * them to go.
- */
-export const FALLBACK_USER_LAYERS: readonly number[] = [Dwgs_User, Cmts_User, Eco1_User, Eco2_User];
-
-/** One row of the mapping: what `aLayerLookUpTable[layer]` holds, plus why. */
-export interface GerberLayerMapping {
-  /** The `PCB_LAYER_ID` for this image, or `UNSELECTED_LAYER`/`UNDEFINED_LAYER`. */
-  pcbLayer: number;
-  /** True when no table claimed it and {@link FALLBACK_USER_LAYERS} chose. */
-  fallback: boolean;
-}
-
-/** What {@link mapGerberLayersToPcb} answers: the lookup table and the stack. */
-export interface GerberLayerMap {
-  rows: GerberLayerMapping[];
-  /**
-   * `DIALOG_MAP_GERBER_LAYERS_TO_PCB::m_exportBoardCopperLayersCount`, which
-   * `ExportPcb` takes as `aCopperLayers` and `writePcbHeader` turns into
-   * `LSET::AllCuMask( m_pcbCopperLayersCount )`.
-   */
-  copperLayerCount: number;
-}
-
-/**
- * `normalizeBrdLayersCount` (`:255-266`): even, at least 2, at most
- * `GERBER_DRAWLAYERS_COUNT`.
- */
-function normalizeBrdLayersCount(count: number): number {
-  let n = count;
-  if (n & 1) n++;
-  // Upstream clamps at GERBER_DRAWLAYERS_COUNT (128) and its combo stops at
-  // "32 Layers", so no count over 32 can be chosen there. With no combo here,
-  // and the count grown to fit an inner layer, 32 is the clamp that keeps the
-  // board a valid one.
-  if (n > 32) n = 32;
-  if (n < 2) n = 2;
-  return n;
-}
-
-/**
- * The whole automatic assignment: `findKnownGerbersLoaded`, then the block
- * `initDialog` runs when the user accepts it (`:220-249`), then
- * `normalizeBrdLayersCount`.
- *
- * Two things happen here that upstream leaves to a human:
- *
- * 1. An unmatched plain Gerber is given a user drawing layer instead of being
- *    dropped — see {@link FALLBACK_USER_LAYERS}.
- * 2. An Excellon drill file, and a gerber whose X2 attribute says it is a
- *    drill file (`IsDrillFile()`), are mapped to `UNDEFINED_LAYER`, the value
- *    the dialog's "Hole Data" row returns. `ExportPcb` reads that as "collect
- *    these as holes" (`export_to_pcbnew.cpp:89-93`) and their geometry becomes
- *    vias and slots. This one is also a divergence — upstream would leave both
- *    at `UNSELECTED_LAYER` until a human picked Hole Data — but the *opposite*
- *    choice is not available to us: giving a drill file a fallback graphics
- *    layer would draw its holes as circles AND (for the Excellon case) export
- *    them as vias, double-exporting the file.
- *
- * The copper count follows upstream exactly where it can:
- * `std::max( total_copper, 2 )` (`:246`). Upstream then *refuses* the export
- * with "Exported board does not have enough copper layers to handle selected
- * inner layers" if a mapped inner layer does not fit (`:436-441`); with no
- * dialog to return to there is nothing to refuse into, so the count is grown
- * to fit instead. That check is `CopperLayerToOrdinal( inner_layer_max ) >
- * count - 2`, so the count that satisfies it is `ordinal + 2`.
- */
-export function mapGerberLayersToPcb(images: readonly GERBER_FILE_IMAGE[]): GerberLayerMap {
-  const rows: GerberLayerMapping[] = [];
-  let fallbackUsed = 0;
-
-  for (const image of images) {
-    if (image instanceof EXCELLON_IMAGE || isDrillFileFunction(image)) {
-      rows.push({ pcbLayer: UNDEFINED_LAYER, fallback: false });
-      continue;
-    }
-
-    const known = findKnownGerberLayer(image);
-
-    if (known === UNSELECTED_LAYER) {
-      const layer = FALLBACK_USER_LAYERS[fallbackUsed % FALLBACK_USER_LAYERS.length]!;
-      fallbackUsed++;
-      rows.push({ pcbLayer: layer, fallback: true });
-    } else {
-      rows.push({ pcbLayer: known, fallback: false });
-    }
-  }
-
-  // "Reset the number of copper layers to the total found" (:245-248).
-  let totalCopper = 0;
-  let innerLayerMax = 0;
-
-  for (const row of rows) {
-    if (IsCopperLayer(row.pcbLayer)) totalCopper++;
-    if (IsInnerCopperLayer(row.pcbLayer) && row.pcbLayer > innerLayerMax)
-      innerLayerMax = row.pcbLayer;
-  }
-
-  let copperLayerCount = Math.max(totalCopper, 2);
-
-  if (innerLayerMax > 0)
-    copperLayerCount = Math.max(copperLayerCount, CopperLayerToOrdinal(innerLayerMax) + 2);
-
-  return { rows, copperLayerCount: normalizeBrdLayersCount(copperLayerCount) };
 }
 
 // ---------------------------------------------------------------------------

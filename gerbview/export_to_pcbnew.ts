@@ -49,7 +49,6 @@ import {
   UserMask,
 } from '@ziroeda/pcbnew/layer_ids.js';
 import { APERTURE_T, D_CODE } from './dcode.js';
-import { mapGerberLayersToPcb } from './dialogs/dialog_map_gerber_layers_to_pcb.js';
 import { EXCELLON_IMAGE } from './excellon_read_drill_file.js';
 import { GBR_BASIC_SHAPE_TYPE, type GERBER_DRAW_ITEM } from './gerber_draw_item.js';
 import type { GERBER_FILE_IMAGE } from './gerber_file_image.js';
@@ -593,44 +592,4 @@ export class GBR_TO_PCB_EXPORTER {
     this.fprintf(`\t\t(fill yes) (layer ${LSET_Name(aLayer)})`);
     this.fprintf('\n\t)\n');
   }
-}
-
-/** What {@link exportLayersToPcb} answers. */
-export interface PcbExportResult {
-  /** The `.kicad_pcb` text. */
-  text: string;
-  /**
-   * The Gerber layer names that no mapping table claimed and that were placed
-   * on a user drawing layer instead. Upstream would have shown these as "Do
-   * not export" and waited for the user; with no dialog, the caller reports
-   * them rather than letting the export be silently approximate.
-   */
-  fallbackLayers: string[];
-}
-
-/**
- * `GERBVIEW_CONTROL::ExportToPcbnew`'s half (`gerbview_control.cpp:104-148`):
- * map the layers to board layers, then run the exporter over them.
- *
- * Upstream asks for a file name and opens DIALOG_MAP_GERBER_LAYERS_TO_PCB,
- * which hands `ExportPcb` the lookup table and the copper count; with no
- * dialog here yet, `mapGerberLayersToPcb` produces both. Goes to
- * `tools/gerbview_control` with the frame (STRUCTURE.md).
- */
-export function exportLayersToPcb(
-  layers: readonly { image: GERBER_FILE_IMAGE; name: string }[],
-): PcbExportResult {
-  const images = layers.map((l) => l.image);
-  const map = mapGerberLayersToPcb(images);
-
-  const exporter = new GBR_TO_PCB_EXPORTER(images);
-
-  const text = exporter.ExportPcb(
-    map.rows.map((r) => r.pcbLayer),
-    map.copperLayerCount,
-  );
-
-  const fallbackLayers = layers.filter((_, i) => map.rows[i]?.fallback).map((l) => l.name);
-
-  return { text, fallbackLayers };
 }

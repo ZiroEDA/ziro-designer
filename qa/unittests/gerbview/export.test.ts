@@ -23,13 +23,22 @@ import {
   X2_ATTRIBUTE_FILEFUNCTION,
 } from '@ziroeda/gerbview';
 import { CHAR_PTR, LINE_BUFFER } from '@ziroeda/gerbview/libc.js';
-import { exportLayersToPcb, GBR_TO_PCB_EXPORTER } from '@ziroeda/gerbview/export_to_pcbnew.js';
+import { GBR_TO_PCB_EXPORTER } from '@ziroeda/gerbview/export_to_pcbnew.js';
+import { GERBER_FILE_IMAGE_LIST } from '@ziroeda/gerbview/gerber_file_image_list.js';
+import type { GERBVIEW_FRAME } from '@ziroeda/gerbview/gerbview_frame.js';
+import { GERBVIEW_SETTINGS } from '@ziroeda/gerbview/gerbview_settings.js';
 import { parseExcellon, parseGerber } from './load_image.js';
 import {
+  DIALOG_MAP_GERBER_LAYERS_TO_PCB,
   findKnownGerberLayer,
-  mapGerberLayersToPcb,
 } from '@ziroeda/gerbview/dialogs/dialog_map_gerber_layers_to_pcb.js';
-import { F_Cu, LSET_Name, UNDEFINED_LAYER, UNSELECTED_LAYER } from '@ziroeda/pcbnew/layer_ids.js';
+import {
+  Dwgs_User,
+  F_Cu,
+  LSET_Name,
+  UNDEFINED_LAYER,
+  UNSELECTED_LAYER,
+} from '@ziroeda/pcbnew/layer_ids.js';
 import { isSolidFill } from '@ziroeda/pcbnew/shape_fill.js';
 
 // ---------------------------------------------------------------------------
@@ -68,8 +77,69 @@ const mappedName = (img: GERBER_FILE_IMAGE): string | null => {
 /** A file name that matches no suffix and no extension, to isolate the X2 table. */
 const NEUTRAL_NAME = 'plainname.zzz';
 
-const exportText = (layers: { image: GERBER_FILE_IMAGE; name: string }[]): string =>
-  exportLayersToPcb(layers).text;
+/**
+ * `GERBVIEW_CONTROL::ExportToPcbnew` (`gerbview_control.cpp:104-148`) with the
+ * user's hands taken out: the images loaded, DIALOG_MAP_GERBER_LAYERS_TO_PCB
+ * opened with "Assign to matching PCB layers?" answered OK, `aEdit` standing
+ * for whatever the user then changes in the dialog, OK pressed, and
+ * `ExportPcb` run on the table and the copper count the dialog hands back.
+ *
+ * There is no other way to a lookup table: upstream has no automatic export,
+ * and neither do we.
+ */
+interface MAP_DIALOG_RUN {
+  dlg: DIALOG_MAP_GERBER_LAYERS_TO_PCB;
+  /** What TransferDataFromWindow answered: false keeps the dialog open. */
+  accepted: boolean;
+  /** Every wxMessageBox the dialog raised. */
+  messages: string[];
+}
+
+async function runMapDialog(
+  images: GERBER_FILE_IMAGE[],
+  aEdit: (aDlg: DIALOG_MAP_GERBER_LAYERS_TO_PCB) => void = () => {},
+): Promise<MAP_DIALOG_RUN> {
+  const list = GERBER_FILE_IMAGE_LIST.GetImagesList();
+  list.DeleteAllImages();
+  images.forEach((img, i) => list.AddGbrImage(img, i));
+
+  const messages: string[] = [];
+  const cfg = new GERBVIEW_SETTINGS();
+  const parent = {
+    gvconfig: () => cfg,
+    GetGerberLayout: () => ({ GetImagesList: () => list }),
+    Host: () => ({
+      OkCancelMessageDialog: () => Promise.resolve(true),
+      MessageBox: (aMessage: string) => {
+        messages.push(aMessage);
+        return Promise.resolve();
+      },
+    }),
+  } as unknown as GERBVIEW_FRAME;
+
+  // A class static upstream: reset it, or one test's count opens the next.
+  DIALOG_MAP_GERBER_LAYERS_TO_PCB.m_exportBoardCopperLayersCount = 2;
+
+  const dlg = new DIALOG_MAP_GERBER_LAYERS_TO_PCB(parent);
+  await dlg.initDialog();
+  aEdit(dlg);
+
+  return { dlg, accepted: dlg.TransferDataFromWindow(), messages };
+}
+
+const exportText = async (
+  layers: { image: GERBER_FILE_IMAGE; name: string }[],
+  aEdit?: (aDlg: DIALOG_MAP_GERBER_LAYERS_TO_PCB) => void,
+): Promise<string> => {
+  const images = layers.map((l) => l.image);
+  const run = await runMapDialog(images, aEdit);
+  expect(run.accepted, run.messages.join('\n')).toBe(true);
+
+  return new GBR_TO_PCB_EXPORTER(images).ExportPcb(
+    run.dlg.GetLayersLookUpTable(),
+    DIALOG_MAP_GERBER_LAYERS_TO_PCB.GetCopperLayersCount(),
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Table 1: the X2 file function
@@ -313,35 +383,37 @@ const TWO_LAYER_HEADER_BLOCK = [
 describe('the board header', () => {
   const emptyTop = (): GERBER_FILE_IMAGE => image('board-F_Cu.gbr', 'Copper,L1,Top');
 
-  it('declares the post-v9 layer numbering, verbatim', () => {
-    expect(exportText([{ image: emptyTop(), name: 'top' }])).toContain(TWO_LAYER_HEADER_BLOCK);
+  it('declares the post-v9 layer numbering, verbatim', async () => {
+    expect(await exportText([{ image: emptyTop(), name: 'top' }])).toContain(
+      TWO_LAYER_HEADER_BLOCK,
+    );
   });
 
-  it('writes the 20240928 version, not the pre-v9 20221018', () => {
+  it('writes the 20240928 version, not the pre-v9 20221018', async () => {
     // "Note: the .kicad_pcb version used here is after layers_id changes".
-    const text = exportText([{ image: emptyTop(), name: 'top' }]);
+    const text = await exportText([{ image: emptyTop(), name: 'top' }]);
     expect(text.startsWith('(kicad_pcb (version 20240928)\n')).toBe(true);
     expect(text).not.toContain('20221018');
   });
 
-  it('writes a generator and a generator_version pair', () => {
-    const text = exportText([{ image: emptyTop(), name: 'top' }]);
+  it('writes a generator and a generator_version pair', async () => {
+    const text = await exportText([{ image: emptyTop(), name: 'top' }]);
     expect(text).toMatch(/\t\(generator "[^"]+"\)\n\t\(generator_version "[^"]+"\)\n\n/);
   });
 
-  it('never uses the pre-v9 ids for a layer that moved', () => {
+  it('never uses the pre-v9 ids for a layer that moved', async () => {
     // B.Cu was 31 and B.Adhes was 32 before the layers_id change; F.Mask was
     // 39 and is now 1. Any of those appearing means the old table came back.
-    const text = exportText([{ image: emptyTop(), name: 'top' }]);
+    const text = await exportText([{ image: emptyTop(), name: 'top' }]);
     expect(text).not.toContain('(31 B.Cu');
     expect(text).not.toContain('(32 B.Adhes');
     expect(text).not.toContain('(39 F.Mask');
   });
 
-  it('grows the copper stack to the number of copper gerbers, B.Cu last', () => {
+  it('grows the copper stack to the number of copper gerbers, B.Cu last', async () => {
     // `m_exportBoardCopperLayersCount = std::max( total_copper, 2 )` (`:246`),
     // then the LSET copper iterator reaches B_Cu only after the inner layers.
-    const text = exportText([
+    const text = await exportText([
       { image: image('board-F_Cu.gbr'), name: 'f' },
       { image: image('board-In1_Cu.gbr'), name: 'in1' },
       { image: image('board-In2_Cu.gbr'), name: 'in2' },
@@ -358,17 +430,28 @@ describe('the board header', () => {
     );
   });
 
-  it('declares an inner layer even when too few copper gerbers were loaded', () => {
-    // Upstream refuses the export here ("Exported board does not have enough
-    // copper layers…", `:436-441`); with no dialog to return to we grow the
-    // count instead, so the geometry never lands on an undeclared layer.
-    const text = exportText([{ image: image('board-In5_Cu.gbr'), name: 'in5' }]);
+  it('refuses an inner layer the copper count cannot hold', async () => {
+    // TransferDataFromWindow (`:415-444`): In5.Cu on a 2-layer board keeps the
+    // dialog open with a message. This port used to grow the count by itself.
+    const run = await runMapDialog([image('board-In5_Cu.gbr')]);
+    expect(run.accepted).toBe(false);
+    expect(run.messages).toEqual([
+      'Exported board does not have enough copper layers to handle selected inner layers',
+    ]);
+  });
+
+  it('declares the inner layer once the user raises the count', async () => {
+    // "8 Layers" is the combo's fourth entry: F.Cu, In1..In6, B.Cu.
+    const text = await await exportText(
+      [{ image: image('board-In5_Cu.gbr'), name: 'in5' }],
+      (dlg) => dlg.OnBrdLayersCountSelection(3),
+    );
     expect(text).toContain('\t\t(12 In5.Cu signal)\n');
     expect(text).toContain('\t\t(14 In6.Cu signal)\n');
   });
 
-  it('keeps the copper count even, as normalizeBrdLayersCount does', () => {
-    const text = exportText([
+  it('keeps the copper count even, as normalizeBrdLayersCount does', async () => {
+    const text = await exportText([
       { image: image('board-F_Cu.gbr'), name: 'f' },
       { image: image('board-In1_Cu.gbr'), name: 'in1' },
       { image: image('board-B_Cu.gbr'), name: 'b' },
@@ -378,8 +461,8 @@ describe('the board header', () => {
     expect(ids).toEqual([0, 4, 6, 2]);
   });
 
-  it('is read back by readBoard with those ids and names', () => {
-    const board = readBoard(parse(exportText([{ image: emptyTop(), name: 'top' }])));
+  it('is read back by readBoard with those ids and names', async () => {
+    const board = readBoard(parse(await exportText([{ image: emptyTop(), name: 'top' }])));
     const byName = new Map(board.layers.map((l) => [l.name, l]));
     expect(byName.get('F.Cu')).toMatchObject({ id: 0, kind: 'signal' });
     expect(byName.get('B.Cu')).toMatchObject({ id: 2, kind: 'signal' });
@@ -408,9 +491,9 @@ const TRACE_GERBER = (fileFunction: string): string =>
   ].join('\n');
 
 describe('the copper / non-copper split in ExportPcb', () => {
-  it('writes a copper layer as tracks, not graphics', () => {
+  it('writes a copper layer as tracks, not graphics', async () => {
     // export_copper_item -> export_segline_copper_item / export_segarc_copper_item.
-    const text = exportText([
+    const text = await exportText([
       { image: parseGerber(TRACE_GERBER('Copper,L1,Top'), 'a.gbr'), name: 'a' },
     ]);
     expect(text).toContain('(segment (start 0 0) (end 5 0) (width 0.5) (layer F.Cu) (net 0))');
@@ -419,8 +502,8 @@ describe('the copper / non-copper split in ExportPcb', () => {
     expect(text).not.toContain('gr_arc');
   });
 
-  it('writes a non-copper layer as graphics, not tracks', () => {
-    const text = exportText([
+  it('writes a non-copper layer as graphics, not tracks', async () => {
+    const text = await exportText([
       { image: parseGerber(TRACE_GERBER('Legend,Top'), 'a.gbr'), name: 'a' },
     ]);
     expect(text).toContain('\t(gr_line\n');
@@ -429,15 +512,15 @@ describe('the copper / non-copper split in ExportPcb', () => {
     expect(text).not.toContain('\t(arc\n');
   });
 
-  it('gives every graphic a (stroke (width …) (type solid))', () => {
+  it('gives every graphic a (stroke (width …) (type solid))', async () => {
     // export_stroke_info; this file used to write a bare `(width …)` instead.
-    const text = exportText([
+    const text = await exportText([
       { image: parseGerber(TRACE_GERBER('Legend,Top'), 'a.gbr'), name: 'a' },
     ]);
     expect(text).toContain('\t\t(stroke (width 0.5) (type solid))\n');
   });
 
-  it('drops an item drawn under %LPC', () => {
+  it('drops an item drawn under %LPC', async () => {
     // `if( aGbrItem->GetLayerPolarity() ) return;` — m_LayerNegative.
     const g = [
       '%FSLAX46Y46*%',
@@ -452,12 +535,12 @@ describe('the copper / non-copper split in ExportPcb', () => {
       'X9000000Y0D01*',
       'M02*',
     ].join('\n');
-    const text = exportText([{ image: parseGerber(g, 'a.gbr'), name: 'a' }]);
+    const text = await exportText([{ image: parseGerber(g, 'a.gbr'), name: 'a' }]);
     expect(text).toContain('(end 5 0)');
     expect(text).not.toContain('(end 9 0)');
   });
 
-  it('writes a filled circle for a round flash, with no stroke', () => {
+  it('writes a filled circle for a round flash, with no stroke', async () => {
     // writePcbFilledCircle: `(fill yes)` and a zero stroke width, not the
     // 0.1 mm outline this file used to draw.
     const g = [
@@ -469,7 +552,7 @@ describe('the copper / non-copper split in ExportPcb', () => {
       'X1000000Y2000000D03*',
       'M02*',
     ].join('\n');
-    const text = exportText([{ image: parseGerber(g, 'a.gbr'), name: 'a' }]);
+    const text = await exportText([{ image: parseGerber(g, 'a.gbr'), name: 'a' }]);
     expect(text).toContain(
       '\t(gr_circle\n\t\t(center 1 -2) (end 1.3 -2)\n' +
         '\t\t(stroke (width 0) (type solid))\n' +
@@ -477,7 +560,7 @@ describe('the copper / non-copper split in ExportPcb', () => {
     );
   });
 
-  it('writes a rectangular-aperture stroke as a polygon', () => {
+  it('writes a rectangular-aperture stroke as a polygon', async () => {
     // "Using a rectangular aperture to draw a line is deprecated since 2020 …
     // So draw this line as polygon" (`:217-227`).
     const g = [
@@ -491,7 +574,7 @@ describe('the copper / non-copper split in ExportPcb', () => {
       'X4000000Y0D01*',
       'M02*',
     ].join('\n');
-    const text = exportText([{ image: parseGerber(g, 'a.gbr'), name: 'a' }]);
+    const text = await exportText([{ image: parseGerber(g, 'a.gbr'), name: 'a' }]);
     expect(text).not.toContain('gr_line');
     // The six-corner hull: half the 1x2 aperture either side of a 4 mm run,
     // with Y negated on the way out.
@@ -514,7 +597,7 @@ const SLOT_FILE = ['M48', 'METRIC,TZ', 'T1C0.500', '%', 'G05', 'T1', 'X10Y10G85X
 );
 
 describe('drill files become holes, not drawings', () => {
-  it('exports an Excellon hole as a via and nothing else', () => {
+  it('exports an Excellon hole as a via and nothing else', async () => {
     const img = parseExcellon(DRILL_FILE, 'board-PTH.drl');
     // The attribute EXCELLON_IMAGE::LoadFile gives itself:
     // file_attribute[] = ".FileFunction,Other,Drill*"  (excellon_read_drill_file.cpp:192)
@@ -522,7 +605,7 @@ describe('drill files become holes, not drawings', () => {
     expect(img.m_FileFunction?.GetPrm(2)).toBe('Drill');
     expect(img.m_IsX2_file).toBe(false);
 
-    const text = exportText([{ image: img, name: 'drill' }]);
+    const text = await exportText([{ image: img, name: 'drill' }]);
     // collect_hole: `m_Size.x + 1` for the pad, `m_Size.x` for the drill -
     // one IU, which at GERB_IU_PER_MM = 1e5 is 0.00001 mm.
     expect(text).toContain('(via (at 0.01 -0.01) (size 0.80001) (drill 0.8) (layers F.Cu B.Cu))');
@@ -531,21 +614,25 @@ describe('drill files become holes, not drawings', () => {
     expect(text).not.toContain('gr_poly');
   });
 
-  it('never puts a drill file on Edge.Cuts or on a drawing layer', () => {
-    const text = exportText([{ image: parseExcellon(DRILL_FILE, 'board-PTH.drl'), name: 'd' }]);
+  it('never puts a drill file on Edge.Cuts or on a drawing layer', async () => {
+    const text = await exportText([
+      { image: parseExcellon(DRILL_FILE, 'board-PTH.drl'), name: 'd' },
+    ]);
     expect([...text.matchAll(/\(layer (\S+)\)/g)].map((m) => m[1])).toEqual([]);
   });
 
-  it('exports a routed slot as an oval thru-hole pad', () => {
+  it('exports a routed slot as an oval thru-hole pad', async () => {
     // export_slot (`:333-355`): a footprint, because a via cannot be oval.
-    const text = exportText([{ image: parseExcellon(SLOT_FILE, 'board-PTH.drl'), name: 'd' }]);
+    const text = await exportText([
+      { image: parseExcellon(SLOT_FILE, 'board-PTH.drl'), name: 'd' },
+    ]);
     expect(text).toContain(
       '(footprint "slot" (pad 1 thru_hole oval (at 0.02 -0.01 0) ' +
         '(size 0.52001 0.50001) (drill oval 0.52 0.5)))',
     );
   });
 
-  it('swallows a concentric copper flash into the via it sits on', () => {
+  it('swallows a concentric copper flash into the via it sits on', async () => {
     // export_flashed_copper_item (`:497-508`): the via grows to the pad
     // diameter and the flash itself is not written.
     const pad = [
@@ -557,7 +644,7 @@ describe('drill files become holes, not drawings', () => {
       'X10000Y10000D03*',
       'M02*',
     ].join('\n');
-    const text = exportText([
+    const text = await exportText([
       { image: parseExcellon(DRILL_FILE, 'board-PTH.drl'), name: 'd' },
       { image: parseGerber(pad, 'board-F_Cu.gbr'), name: 'f' },
     ]);
@@ -565,7 +652,7 @@ describe('drill files become holes, not drawings', () => {
     expect(text).not.toContain('gr_circle');
   });
 
-  it('leaves an off-centre copper flash as its own filled circle', () => {
+  it('leaves an off-centre copper flash as its own filled circle', async () => {
     const pad = [
       '%FSLAX46Y46*%',
       '%MOMM*%',
@@ -575,7 +662,7 @@ describe('drill files become holes, not drawings', () => {
       'X5000000Y5000000D03*',
       'M02*',
     ].join('\n');
-    const text = exportText([
+    const text = await exportText([
       { image: parseExcellon(DRILL_FILE, 'board-PTH.drl'), name: 'd' },
       { image: parseGerber(pad, 'board-F_Cu.gbr'), name: 'f' },
     ]);
@@ -583,10 +670,11 @@ describe('drill files become holes, not drawings', () => {
     expect(text).toContain('(center 5 -5) (end 5.75 -5)');
   });
 
-  it('collects a gerber whose X2 attribute says it is a drill file', () => {
-    // IsDrillFile() — `%TF.FileFunction,Plated,1,4,PTH`. Upstream would leave
-    // this at UNSELECTED_LAYER until the user picked the dialog's Hole Data
-    // row; we take that row for it, because the alternative is drawing it.
+  it('collects a gerber whose X2 attribute says it is a drill file', async () => {
+    // IsDrillFile() — `%TF.FileFunction,Plated,1,4,PTH`. No table claims it,
+    // so it stays at UNSELECTED_LAYER until the user picks the dialog's Hole
+    // Data row, which is UNDEFINED_LAYER (`:324-333`); ExportPcb then collects
+    // it as holes (`export_to_pcbnew.cpp:89-93`).
     const g = [
       '%FSLAX46Y46*%',
       '%MOMM*%',
@@ -596,7 +684,12 @@ describe('drill files become holes, not drawings', () => {
       'X3000000Y0D03*',
       'M02*',
     ].join('\n');
-    const text = exportText([{ image: parseGerber(g, 'holes.gbr'), name: 'h' }]);
+    const text = await await exportText(
+      [{ image: parseGerber(g, 'holes.gbr'), name: 'h' }],
+      (dlg) => {
+        dlg.m_layersLookUpTable[0] = UNDEFINED_LAYER;
+      },
+    );
     expect(text).toContain('(via (at 3 0) (size 0.40001) (drill 0.4) (layers F.Cu B.Cu))');
     expect(text).not.toContain('gr_circle');
   });
@@ -606,56 +699,54 @@ describe('drill files become holes, not drawings', () => {
 // The unmatched layer
 
 describe('a layer no table claims', () => {
-  it('goes to a user drawing layer rather than being dropped', () => {
-    const g = [
-      '%FSLAX46Y46*%',
-      '%MOMM*%',
-      '%ADD10C,0.2*%',
-      'D10*',
-      'G01*',
-      'X0Y0D02*',
-      'X1000000Y0D01*',
-      'M02*',
-    ].join('\n');
-    const text = exportText([{ image: parseGerber(g, 'mystery.xyz'), name: 'mystery' }]);
+  // Upstream leaves it at UNSELECTED_LAYER, shown blue as "Do not export"
+  // (`dialog_map_gerber_layers_to_pcb.cpp:231-236`), and ExportPcb skips it
+  // (`export_to_pcbnew.cpp:111-112`) unless the user picks a layer by hand.
+  // This port used to hand such a layer one of four user layers on its own;
+  // that was ours, not KiCad's, and is gone.
+  const MYSTERY = [
+    '%FSLAX46Y46*%',
+    '%MOMM*%',
+    '%ADD10C,0.2*%',
+    'D10*',
+    'G01*',
+    'X0Y0D02*',
+    'X1000000Y0D01*',
+    'M02*',
+  ].join('\n');
+
+  it('is not exported', async () => {
+    const text = await await exportText([
+      { image: parseGerber(MYSTERY, 'mystery.xyz'), name: 'mystery' },
+    ]);
+    expect(text).not.toContain('gr_line');
+    expect(text).not.toContain('(segment');
+  });
+
+  it('is shown as Do not export', async () => {
+    const { dlg } = await runMapDialog([image('mystery.xyz'), image('board-F_Cu.gbr')]);
+    expect(dlg.GetLayersLookUpTable().slice(0, 2)).toEqual([UNSELECTED_LAYER, F_Cu]);
+    expect(dlg.m_layersList.map((t) => t.label)).toEqual(['Do not export', 'F.Cu']);
+  });
+
+  it('is exported where the user puts it', async () => {
+    const text = await await exportText(
+      [{ image: parseGerber(MYSTERY, 'mystery.xyz'), name: 'mystery' }],
+      (dlg) => {
+        dlg.m_layersLookUpTable[0] = Dwgs_User;
+      },
+    );
     expect(text).toContain('(layer Dwgs.User)');
   });
 
-  it('gives each unmatched layer a different one of the four', () => {
-    const blank = (): GERBER_FILE_IMAGE => image('mystery.xyz');
-    const map = mapGerberLayersToPcb([blank(), blank(), blank(), blank(), blank()]);
-    expect(map.rows.map((r) => LSET_Name(r.pcbLayer))).toEqual([
-      'Dwgs.User',
-      'Cmts.User',
-      'Eco1.User',
-      'Eco2.User',
-      'Dwgs.User',
-    ]);
-    expect(map.rows.map((r) => r.fallback)).toEqual([true, true, true, true, true]);
-  });
-
-  it('does not consume a fallback slot for a layer a table claimed', () => {
-    const map = mapGerberLayersToPcb([
-      image('mystery.xyz'),
-      image('board-F_Cu.gbr'),
-      image('other.xyz'),
-    ]);
-    expect(map.rows.map((r) => LSET_Name(r.pcbLayer))).toEqual(['Dwgs.User', 'F.Cu', 'Cmts.User']);
-    expect(map.rows.map((r) => r.fallback)).toEqual([true, false, true]);
-  });
-
-  it('is named back to the caller so the export is not silently approximate', () => {
-    const g = ['%FSLAX46Y46*%', '%MOMM*%', '%ADD10C,0.2*%', 'M02*'].join('\n');
-    const r = exportLayersToPcb([
-      { image: parseGerber(g, 'mystery.xyz'), name: 'mystery' },
-      { image: image('board-F_Cu.gbr'), name: 'top copper' },
-    ]);
-    expect(r.fallbackLayers).toEqual(['mystery']);
-  });
-
-  it('does not give a drill file a fallback layer', () => {
-    const map = mapGerberLayersToPcb([parseExcellon(DRILL_FILE, 'board-PTH.drl')]);
-    expect(map.rows[0]!.fallback).toBe(false);
+  it('leaves a drill file at Do not export, and still exports its holes', async () => {
+    // No table has a drill row, so an Excellon file stays UNSELECTED - but
+    // ExportPcb collects an EXCELLON_IMAGE's holes before it looks at the
+    // layer at all (`export_to_pcbnew.cpp:84-88`).
+    const drill = parseExcellon(DRILL_FILE, 'board-PTH.drl');
+    const { dlg } = await runMapDialog([drill]);
+    expect(dlg.GetLayersLookUpTable()[0]).toBe(UNSELECTED_LAYER);
+    expect(await await exportText([{ image: drill, name: 'drill' }])).toContain('(via ');
   });
 });
 
@@ -698,10 +789,10 @@ describe('the exported board reads back', () => {
     'M02*',
   ].join('\n');
 
-  const board = () =>
+  const board = async () =>
     readBoard(
       parse(
-        exportText([
+        await exportText([
           { image: parseGerber(FULL_GERBER, 'board-F_Cu.gbr'), name: 'top' },
           { image: parseGerber(SILK_GERBER, 'board-F_SilkS.gbr'), name: 'silk' },
           { image: parseExcellon(SLOT_FILE, 'board-PTH.drl'), name: 'drill' },
@@ -709,41 +800,41 @@ describe('the exported board reads back', () => {
       ),
     );
 
-  it('parses through @ziroeda/sexpr and readBoard', () => {
-    expect(() => board()).not.toThrow();
+  it('parses through @ziroeda/sexpr and readBoard', async () => {
+    await expect(board()).resolves.toBeDefined();
   });
 
-  it('puts the copper trace on F.Cu as a track', () => {
-    const b = board();
+  it('puts the copper trace on F.Cu as a track', async () => {
+    const b = await board();
     expect(b.tracks.map((t) => t.layer)).toEqual(['F.Cu']);
     expect(b.tracks[0]!.start).toEqual({ x: 0, y: 0 });
     expect(b.tracks[0]!.end).toEqual({ x: 5e6, y: 0 });
   });
 
-  it('puts the silkscreen trace on F.SilkS as a graphic', () => {
-    const lines = board().shapes.filter((s) => s.kind === 'line');
+  it('puts the silkscreen trace on F.SilkS as a graphic', async () => {
+    const lines = (await board()).shapes.filter((s) => s.kind === 'line');
     expect(lines.map((s) => s.layer)).toEqual(['F.SilkS']);
   });
 
-  it('puts the region and the flashed pads on F.Cu, filled', () => {
+  it('puts the region and the flashed pads on F.Cu, filled', async () => {
     // `IsSolidFill()`, not truthiness: `'none'` is a non-empty string.
-    const filled = board().shapes.filter(isSolidFill);
+    const filled = (await board()).shapes.filter(isSolidFill);
     expect(filled.length).toBeGreaterThan(0);
     expect(filled.every((s) => s.layer === 'F.Cu')).toBe(true);
   });
 
-  it('reads the routed slot back as a footprint with one pad', () => {
+  it('reads the routed slot back as a footprint with one pad', async () => {
     // A `(footprint …)` with no `(at …)`; parseFOOTPRINT leaves such a
     // footprint at the origin rather than rejecting it.
-    const b = board();
+    const b = await board();
     expect(b.footprints.length).toBe(1);
     expect(b.footprints[0]!.lib).toBe('slot');
     expect(b.footprints[0]!.pads.length).toBe(1);
     expect(b.footprints[0]!.pads[0]!.shape).toBe('oval');
   });
 
-  it('lands nothing on a layer the header did not declare', () => {
-    const b = board();
+  it('lands nothing on a layer the header did not declare', async () => {
+    const b = await board();
     const declared = new Set(b.layers.map((l) => l.name));
     const used = [
       ...b.shapes.map((s) => s.layer),
@@ -755,10 +846,10 @@ describe('the exported board reads back', () => {
     for (const layer of used) expect(declared.has(layer)).toBe(true);
   });
 
-  it('accepts the unquoted layer names upstream writes', () => {
+  it('accepts the unquoted layer names upstream writes', async () => {
     // `fprintf( …, "(layer %s)", LSET::Name( … ) )` — no quotes anywhere, in
     // the (layers …) block or on an item.
-    const text = exportText([
+    const text = await exportText([
       { image: parseGerber(SILK_GERBER, 'board-F_SilkS.gbr'), name: 'silk' },
     ]);
     expect(text).toContain('(layer F.SilkS)');
@@ -771,10 +862,8 @@ describe('the exported board reads back', () => {
 // What the automatic mapping cannot reach
 //
 // Both of these were found by a mutation sweep: the mutant survived, which
-// means the behaviour was never pinned. Neither is reachable through
-// `exportLayersToPcb`, because our own mapping never produces the lookup table
-// that would reach it — upstream's dialog can, so `ExportPcb` still has to be
-// right, and these drive the exporter with that table directly.
+// means the behaviour was never pinned. These drive the exporter with a table
+// directly, as a user editing the dialog could produce.
 
 describe('ExportPcb with a lookup table the automatic mapping would not produce', () => {
   const drillImage = () => parseExcellon(DRILL_FILE, 'board-PTH.drl');
@@ -798,13 +887,13 @@ describe('ExportPcb with a lookup table the automatic mapping would not produce'
 });
 
 describe('the copper stack is sized by the number of copper gerbers', () => {
-  it('counts copper FILES, not the deepest inner layer reached', () => {
+  it('counts copper FILES, not the deepest inner layer reached', async () => {
     // `if( IsCopperLayer( currLayer ) ) total_copper++;` counts one per mapped
     // row, duplicates included, and `std::max( total_copper, 2 )` (`:246`) is
     // the count. Three gerbers all pointing at F.Cu therefore ask for a
     // 3-layer board, which normalizeBrdLayersCount rounds to 4 — even though
     // no inner layer is mapped at all.
-    const text = exportText([
+    const text = await exportText([
       { image: image('a-F_Cu.gbr'), name: 'a' },
       { image: image('b-F_Cu.gbr'), name: 'b' },
       { image: image('c-F_Cu.gbr'), name: 'c' },
@@ -818,7 +907,7 @@ describe('the copper stack is sized by the number of copper gerbers', () => {
 // Two more the sweep found unpinned
 
 describe('the arc midpoint rule', () => {
-  it('walks counter-clockwise from start to end, wrapping b past a', () => {
+  it('walks counter-clockwise from start to end, wrapping b past a', async () => {
     // `if( a > b ) b += 2 * M_PI;` then
     // `GetRotated( seg_start, arc_center, -EDA_ANGLE( (b-a)/2 ) )` puts the mid
     // at the mean angle (a+b)/2. Start at 90 degrees and end at 0 makes a > b,
@@ -845,13 +934,13 @@ describe('the arc midpoint rule', () => {
       'X2000000Y0I0J-2000000D01*',
       'M02*',
     ].join('\n');
-    const text = exportText([{ image: parseGerber(g, 'a.gbr'), name: 'a' }]);
+    const text = await exportText([{ image: parseGerber(g, 'a.gbr'), name: 'a' }]);
 
     expect(text).toContain('(mid -1.41421 1.41421)');
     expect(text).not.toContain('(mid 1.41421 -1.41421)');
   });
 
-  it('sees the arc direction only through the reader swapping the ends', () => {
+  it('sees the arc direction only through the reader swapping the ends', async () => {
     // `export_non_copper_arc` reads only m_Start, m_End and m_ArcCentre - but
     // G02 is GERB_INTERPOL_ARC_NEG, which fillArcGBRITEM receives as NOT
     // clockwise and stores end-for-start (rs274d.cpp:285-294, :703-706).
@@ -875,8 +964,8 @@ describe('the arc midpoint rule', () => {
         'X2000000Y0I0J-2000000D01*',
         'M02*',
       ].join('\n');
-    const cw = exportText([{ image: parseGerber(gerber('G02*'), 'a.gbr'), name: 'a' }]);
-    const ccw = exportText([{ image: parseGerber(gerber('G03*'), 'a.gbr'), name: 'a' }]);
+    const cw = await exportText([{ image: parseGerber(gerber('G02*'), 'a.gbr'), name: 'a' }]);
+    const ccw = await exportText([{ image: parseGerber(gerber('G03*'), 'a.gbr'), name: 'a' }]);
 
     expect(cw).toContain('(start 2 0) (mid 1.41421 -1.41421) (end 0 -2)');
     expect(ccw).toContain('(start 0 -2) (mid -1.41421 1.41421) (end 2 0)');
@@ -884,7 +973,7 @@ describe('the arc midpoint rule', () => {
 });
 
 describe('ConvertSegmentToPolygon mirrors when the run goes downwards', () => {
-  it('flips the hull top-to-bottom for a negative delta.y', () => {
+  it('flips the hull top-to-bottom for a negative delta.y', async () => {
     // `bool change = delta.y < 0; … if( change ) Mirror( {0,0}, TOP_BOTTOM );`
     // A 1 x 2 mm rectangular aperture swept (0,0) -> (4, -3) mm. Corners 1-6
     // transcribed from gerber_draw_item.cpp:392-452 with the mirror applied,
@@ -901,7 +990,7 @@ describe('ConvertSegmentToPolygon mirrors when the run goes downwards', () => {
       'X4000000Y-3000000D01*',
       'M02*',
     ].join('\n');
-    const text = exportText([{ image: parseGerber(g, 'a.gbr'), name: 'a' }]);
+    const text = await exportText([{ image: parseGerber(g, 'a.gbr'), name: 'a' }]);
 
     expect(text).toContain(
       ' (xy -0.5 -1) (xy -0.5 1) (xy 3.5 4)\n\t\t\t (xy 4.5 4) (xy 4.5 2) (xy 0.5 -1))',
