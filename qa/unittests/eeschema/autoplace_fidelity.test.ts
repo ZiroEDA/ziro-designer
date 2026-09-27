@@ -25,7 +25,7 @@ import {
   SYM_ORIENT_90,
   SYM_ORIENT_180,
   SYM_ORIENT_270,
-} from '@ziroeda/common/transform.js';
+} from '@ziroeda/kimath/src/transform.js';
 
 const OPTS = { allowRejustify: true, alignToGrid: true };
 

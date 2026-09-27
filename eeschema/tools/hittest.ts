@@ -18,7 +18,7 @@ import { imageSizeIU } from './image_size.js';
 // avoiding it.
 import { cellAt, tableCellId } from './table_cells.js';
 import { symbolFieldBoxes, type Box } from '../fieldbox.js';
-import { symbolTransform, localToWorld } from '@ziroeda/common/transform.js';
+import { symbolTransform, localToWorld } from '@ziroeda/kimath/src/transform.js';
 import { measureText } from '@ziroeda/common/font/stroke_font.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 

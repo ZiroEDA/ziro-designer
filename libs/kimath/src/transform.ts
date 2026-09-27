@@ -17,7 +17,7 @@
  * convention KiCad's schematic format uses, so no extra Y-flip is introduced here.
  */
 
-import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import type { Vec2 } from './math/vector2.js';
 
 /** A 2x2 integer transform, matching KiCad's `TRANSFORM { x1, y1, x2, y2 }`. */
 export interface Transform {

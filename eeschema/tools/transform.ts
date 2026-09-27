@@ -47,7 +47,7 @@ import type {
   TextEffects,
   Vec2,
 } from '../types.js';
-import { rotateOrientation, mirrorOrientation } from '@ziroeda/common/transform.js';
+import { rotateOrientation, mirrorOrientation } from '@ziroeda/kimath/src/transform.js';
 import { reanchorFields } from '../fieldbox.js';
 import { nearestHalfGridPosition } from '@ziroeda/common/eda_draw_frame.js';
 import { CalcArcCenter } from '@ziroeda/kimath/src/trigo.js';

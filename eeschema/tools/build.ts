@@ -28,7 +28,7 @@ import type {
   TextEffects,
   Vec2,
 } from '../types.js';
-import type { Orientation } from '@ziroeda/common/transform.js';
+import type { Orientation } from '@ziroeda/kimath/src/transform.js';
 import { buildPropertyNode as writeFieldNode } from '../sch_io/sexpr/write-schematic.js';
 import { flattenLibSymbol } from '../lib_symbol.js';
 import { MANDATORY_FIELDS, isMandatoryField } from './properties.js';

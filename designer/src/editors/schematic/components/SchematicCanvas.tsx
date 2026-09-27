@@ -4453,7 +4453,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       if ((activeTool === 'placeSymbol' || activeTool === 'placePower') && placeLib) {
         // Advance the attached symbol's orientation in place. Serialized mirror
         // axis 'y' is KiCad's MirrorHorizontally (hotkey X), 'x' its
-        // MirrorVertically (hotkey Y), see common/transform.ts.
+        // MirrorVertically (hotkey Y), see libs/kimath/src/transform.ts.
         const inst = placeInstanceRef.current;
         if (inst) {
           // A copied symbol turns exactly as a placed one does: about its own

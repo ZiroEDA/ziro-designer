@@ -12,7 +12,7 @@ import {
   symbolTransform,
   orientationFromTransform,
   type Orientation,
-} from '@ziroeda/common/transform.js';
+} from '@ziroeda/kimath/src/transform.js';
 import { transformItems } from '@ziroeda/eeschema/tools/transform.js';
 import { History } from '@ziroeda/eeschema/tools/command.js';
 import { refId } from '@ziroeda/eeschema/tools/hittest.js';

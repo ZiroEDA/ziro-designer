@@ -34,7 +34,7 @@ import {
   applyTransform,
   invertTransform,
   type Transform,
-} from '@ziroeda/common/transform.js';
+} from '@ziroeda/kimath/src/transform.js';
 
 /** Advance width of `text` at glyph size `sizeIU` (Newstroke advance sum). */
 export type TextMeasurer = (text: string, sizeIU: number) => number;

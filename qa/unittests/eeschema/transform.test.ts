@@ -7,7 +7,7 @@ import {
   symbolTransform,
   applyTransform,
   localToWorld,
-} from '@ziroeda/common/transform.js';
+} from '@ziroeda/kimath/src/transform.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 describe('rotationTransform', () => {

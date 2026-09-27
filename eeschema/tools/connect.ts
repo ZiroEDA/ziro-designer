@@ -18,7 +18,7 @@
  * wire (or symbol) attached to a fixed pin instead of pulling free of it.
  */
 
-import { symbolTransform, localToWorld } from '@ziroeda/common/transform.js';
+import { symbolTransform, localToWorld } from '@ziroeda/kimath/src/transform.js';
 import type { LibSymbol, SchSymbol, Schematic, Vec2 } from '../types.js';
 import { refId } from './hittest.js';
 import { newKiid } from '@ziroeda/common/kiid.js';

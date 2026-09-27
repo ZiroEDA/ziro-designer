@@ -10,8 +10,8 @@
  * and, on request, its `GetBodyBoundingBox()` sibling, which stops at the body.
  */
 
-import { localToWorld, type Transform } from '@ziroeda/common/transform.js';
-import { symbolTransform } from '@ziroeda/common/transform.js';
+import { localToWorld, type Transform } from '@ziroeda/kimath/src/transform.js';
+import { symbolTransform } from '@ziroeda/kimath/src/transform.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { TextStyle } from '@ziroeda/common/font/font_provider.js';
 import { stringBoundaryLimits } from '@ziroeda/common/font/text_box.js';

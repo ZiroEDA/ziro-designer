@@ -14,7 +14,7 @@ import {
   libSymbolFromPlacement,
   symbolEditorRequest,
 } from '@ziroeda/eeschema/tools/symbol_from_schematic.js';
-import { applyTransform, invertTransform, symbolTransform } from '@ziroeda/common/transform.js';
+import { applyTransform, invertTransform, symbolTransform } from '@ziroeda/kimath/src/transform.js';
 import type { LibSymbol, SchSymbol } from '@ziroeda/eeschema/types.js';
 
 /** Positions in the model are internal units; the fixture is written in mm. */

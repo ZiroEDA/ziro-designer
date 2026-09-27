@@ -12,7 +12,7 @@ export * from './common.js';
 export * from './string_utils.js';
 export * from './pin_numbers.js';
 export * from './pin_type.js';
-export * from './transform.js';
+export * from '@ziroeda/kimath/src/transform.js';
 export * from './eda_shape.js';
 export * from './eda_text.js';
 export * from './font/stroke_font.js';
