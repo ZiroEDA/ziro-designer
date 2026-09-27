@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { CAIRO_PRINT_GAL } from '@ziroeda/common/gal/cairo/cairo_print.js';
 import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
 import { GAL_PRINT, type wxDC } from '@ziroeda/common/gal/gal_print.js';
-import { WX_IMAGE } from '@ziroeda/common/wx_image.js';
+import { WX_IMAGE } from '@ziroeda/common/wx/wx_image.js';
 import { fakeCanvas, installSurfaceFactory, paints } from './cairo_test_canvas.js';
 
 function page(aPPI = 100) {

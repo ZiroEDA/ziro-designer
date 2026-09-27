@@ -18,7 +18,7 @@
  */
 
 import { inflateZlib } from './inflate.js';
-import { PNG_SIGNATURE, pngChunk, pngCrc32, zlibStored } from './png_encoder.js';
+import { PNG_SIGNATURE, pngChunk, pngCrc32, zlibStored } from '../png_encoder.js';
 
 /** `wxImageResolution`. */
 export enum wxImageResolution {

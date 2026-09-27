@@ -41,9 +41,9 @@ import {
   imageSizeIU,
   iuPerPixel,
 } from '@ziroeda/pcbnew/image_geometry.js';
-import { DEFAULT_PPI, pngPPI, pngPixelSize } from '@ziroeda/common/png_meta.js';
+import { DEFAULT_PPI, pngPPI, pngPixelSize } from '@ziroeda/common/wx/png_meta.js';
 import { pngCrc32 } from '@ziroeda/common/png_encoder.js';
-import { WX_IMAGE } from '@ziroeda/common/wx_image.js';
+import { WX_IMAGE } from '@ziroeda/common/wx/wx_image.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 

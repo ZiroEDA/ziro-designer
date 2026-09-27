@@ -21,7 +21,7 @@
  */
 import { AutoDecodeCSV, CSV_WRITER } from './io/csv.js';
 import { wxMemoryBuffer } from './wx/buffer.js';
-import { WX_IMAGE } from './wx_image.js';
+import { WX_IMAGE } from './wx/wx_image.js';
 
 /** `wxDF_BITMAP` on GTK: a PNG. */
 const wxDF_BITMAP = 'image/png';

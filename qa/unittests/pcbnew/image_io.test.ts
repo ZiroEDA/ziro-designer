@@ -25,7 +25,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
-import { WX_IMAGE } from '@ziroeda/common/wx_image.js';
+import { WX_IMAGE } from '@ziroeda/common/wx/wx_image.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import type { SList } from '@ziroeda/sexpr/types.js';

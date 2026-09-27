@@ -21,7 +21,7 @@
  * whether the board *looks* right. That needs the browser.
  */
 import { describe, expect, it } from 'vitest';
-import { WX_IMAGE } from '@ziroeda/common/wx_image.js';
+import { WX_IMAGE } from '@ziroeda/common/wx/wx_image.js';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';

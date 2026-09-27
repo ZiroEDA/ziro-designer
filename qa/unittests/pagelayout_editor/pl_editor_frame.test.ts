@@ -43,7 +43,7 @@ import { PAGE_INFO } from '@ziroeda/common/page_info.js';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { GetClipboardUTF8, SaveClipboard } from '@ziroeda/common/clipboard.js';
 import { wxMemoryBuffer } from '@ziroeda/common/wx/buffer.js';
-import { WX_IMAGE } from '@ziroeda/common/wx_image.js';
+import { WX_IMAGE } from '@ziroeda/common/wx/wx_image.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { TA_MOUSE_CLICK, TA_MOUSE_MOTION } from '@ziroeda/common/tool/tool_event.js';

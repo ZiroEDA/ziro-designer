@@ -21,7 +21,7 @@ import {
 } from '@ziroeda/common/clipboard.js';
 import { AutoDecodeCSV, CSV_WRITER } from '@ziroeda/common/io/csv.js';
 import { wxMemoryBuffer } from '@ziroeda/common/wx/buffer.js';
-import { WX_IMAGE } from '@ziroeda/common/wx_image.js';
+import { WX_IMAGE } from '@ziroeda/common/wx/wx_image.js';
 
 const decode = (aInput: string): { ok: boolean; rows: string[][] } => {
   const rows: string[][] = [['stale']];

@@ -16,7 +16,7 @@
 
 import { BITMAP_BASE } from './bitmap_base.js';
 import type { EdaIuScale } from './eda_units.js';
-import type { WX_IMAGE } from './wx_image.js';
+import type { WX_IMAGE } from './wx/wx_image.js';
 import { type FLIP_DIRECTION, MIRROR } from '@ziroeda/core/mirror.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { IsVec2SafeXY } from '@ziroeda/kimath/src/geometry/geometry_utils.js';

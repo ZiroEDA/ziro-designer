@@ -113,7 +113,7 @@ export * from './array_axis.js';
 export * from './array_options.js';
 export * from './table.js';
 export * from './reference_image.js';
-export { pngPixelSize, pngPPI, DEFAULT_PPI } from './png_meta.js';
+export { pngPixelSize, pngPPI, DEFAULT_PPI } from './wx/png_meta.js';
 
 // `ExpandTextVars` (common/common.cpp) — both editors resolve ${VAR} with it.
 export * from './text_vars.js';

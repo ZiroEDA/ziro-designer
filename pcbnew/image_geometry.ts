@@ -29,7 +29,7 @@
  * kept. Same call as the text box work.
  */
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
-import { pngPPI, pngPixelSize } from '@ziroeda/common/png_meta.js';
+import { pngPPI, pngPixelSize } from '@ziroeda/common/wx/png_meta.js';
 import { pixelSizeIu } from '@ziroeda/common/reference_image.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { PcbImage } from './types.js';

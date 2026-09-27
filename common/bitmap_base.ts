@@ -30,7 +30,7 @@ import {
   wxIMAGE_OPTION_RESOLUTIONX,
   wxIMAGE_OPTION_RESOLUTIONY,
   wxImageResolution,
-} from './wx_image.js';
+} from './wx/wx_image.js';
 
 /** The `PLOTTER` members `PlotImage` reaches. -- PLOTTER class pending (#636 stage 4) */
 export interface PLOTTER_FOR_IMAGE {

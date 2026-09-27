@@ -45,7 +45,7 @@ import {
   GAL_ANTIALIASING_MODE,
   GAL_DISPLAY_OPTIONS,
 } from '@ziroeda/common/gal/gal_display_options.js';
-import { WX_IMAGE } from '@ziroeda/common/wx_image.js';
+import { WX_IMAGE } from '@ziroeda/common/wx/wx_image.js';
 import type { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
 import {
   calls,

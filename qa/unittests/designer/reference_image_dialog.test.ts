@@ -120,7 +120,7 @@ describe('PANEL_IMAGE_EDITOR, which is half the dialog and was absent', () => {
     expect(panelCode).toContain('<span className="ze-imgedit-ppi">{ppi}</span>');
     expect(code).toContain('ppi={pngPPI(v.data ?? image.data)}');
     // Through the shared PNG reader, which is where the pHYs chunk is parsed.
-    expect(DIALOG).toContain("from '@ziroeda/common/png_meta.js'");
+    expect(DIALOG).toContain("from '@ziroeda/common/wx/png_meta.js'");
   });
 
   it('gives Scale no unit label, because its binder is given none', () => {

@@ -24,7 +24,7 @@
 
 import { type Color4d, COLOR4D_BLACK, toCss } from '../color4d.js';
 import type { CANVAS_2D } from '../gal/cairo/cairo_api.js';
-import type { WX_IMAGE } from '../wx_image.js';
+import type { WX_IMAGE } from './wx_image.js';
 
 export enum wxPenStyle {
   wxPENSTYLE_INVALID = -1,

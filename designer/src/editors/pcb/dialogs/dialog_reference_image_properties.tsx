@@ -61,7 +61,7 @@ import {
   sizeForScale,
   type ImageValues,
 } from '@ziroeda/pcbnew/image_properties.js';
-import { pngPixelSize, pngPPI } from '@ziroeda/common/png_meta.js';
+import { pngPixelSize, pngPPI } from '@ziroeda/common/wx/png_meta.js';
 import { CheckValues, PANEL_IMAGE_EDITOR } from '@ziroeda/common/dialogs/panel_image_editor.js';
 import { MessageDialogError, MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
 import type { PcbImage } from '@ziroeda/pcbnew/types.js';
