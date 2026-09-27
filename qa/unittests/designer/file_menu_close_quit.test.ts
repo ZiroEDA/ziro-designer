@@ -210,7 +210,7 @@ const FRAMES: FrameRow[] = [
     rows: ['quitOrClose'],
   },
   {
-    file: 'editors/image/ImageConverter.tsx',
+    file: '../../bitmap2component/bitmap2cmp_frame_ui.tsx',
     upstream: 'bitmap2component/bitmap2cmp_frame.cpp:299',
     app: 'Image Converter',
     rows: ['quit'],

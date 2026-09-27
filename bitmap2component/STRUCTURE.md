@@ -22,7 +22,7 @@ which `common/STRUCTURE.md` has as n/a). All seven have a home.
 | `bitmap2component` (+ `.h`) | here | `bitmap2component.ts`: `OUTPUT_FMT_ID`, `BITMAPCONV_INFO`, `BezierToPolyline`. Writes KiCad's bytes exactly, bar the uuids and the generator token (below) |
 | `bitmap2cmp_panel` (+ `.h`) | here | `bitmap2cmp_panel.ts`: `IMAGE_SIZE`, `BITMAP2CMP_PANEL`, `DROP_FILE` — the controls are fields holding what the wx control holds, so the handlers read field text as the C++ does. `IMAGE_SIZE`'s members are defined in `bitmap2cmp_frame.cpp`; the class is declared in `bitmap2cmp_panel.h`, so it lives here |
 | `bitmap2cmp_panel_base` (+ `.h`, `.fbp`) | here | folded into `bitmap2cmp_panel_ui.tsx` (the layout, and the three `OnPaint*` handlers) and `bitmap2cmp_panel.css` (the sizer borders) |
-| `bitmap2cmp_frame` (+ `.h`) | here, window in `designer/` | `bitmap2cmp_frame.ts`: `BITMAP2CMP_FRAME` on `EDA_BASE_FRAME` — title, open, the four exports, settings, its `TOOL_MANAGER`. The window (`doReCreateMenuBar`, the status bar, the message boxes and file dialogs it asks for through `BITMAP2CMP_FRAME_UI`) is `designer/src/editors/image/ImageConverter.tsx`: it reads `designer/src/prefs/*` (the settings slice, the Preferences dialog, `useSettings`), `ui/HomeLink`, `ui/hotkey_list_action` and `fs/open_file_dialog` — the gerbview precedent, "waiting" until those move to `common/` |
+| `bitmap2cmp_frame` (+ `.h`) | here | `bitmap2cmp_frame.ts`: `BITMAP2CMP_FRAME` on `EDA_BASE_FRAME` — title, open, the four exports, settings, its `TOOL_MANAGER`. The `wxFrame` half is `bitmap2cmp_frame_ui.tsx` + `bitmap2cmp_frame.css`: `doReCreateMenuBar`, the status bar, the message boxes the frame asks for through `BITMAP2CMP_FRAME_UI`, the About dialog and `m_fileHistory`. What only the program has — `Pgm()`'s settings manager and language, the file dialog (the account's chooser), Preferences, the hotkey list, the way home — comes in as `BITMAP2CMP_APP` |
 | `bitmap2cmp_control` (+ `.h`) | here | `bitmap2cmp_control.ts`: `BITMAP2CMP_CONTROL`, `ACTIONS::open` → `OnLoadFile`. The header's `Close()` is declared and never defined upstream; absent |
 | `bitmap2cmp_settings` (+ `.h`) | here | `bitmap2cmp_settings.ts`: `BITMAP2CMP_SETTINGS`, its seven PARAMs (`FromJson` / `ToJson`), schema version 1 and the 0 → 1 `last_mod_layer` migration. The JSON store is the app's `bitmap2component` slice, whose defaults now come from this class. `MigrateFromLegacy` (a KiCad 5 wxConfig) is n/a |
 | `bitmap2cmp_main` | here | `bitmap2cmp_main.ts`: the `BMP2CMP` kiface's `CreateKiWindow` — the settings object, then the frame. `KIFACE_GETTER`, `OnKifaceStart` and `IfaceOrAddress` are DSO plumbing (n/a, as `kiface_base` is in `common/STRUCTURE.md`) |
@@ -56,10 +56,11 @@ It is pinned **bit for bit** against KiCad's own C, compiled unmodified
   The toolkit, kept beside its one caller as `gerbview/libc.ts` keeps the C
   library.
 - `index.ts` — the package barrel.
-- `designer/src/editors/image/bitmap2cmpSettings.ts` — the slice glue
-  (`loadBitmap2CmpSettings` / `saveBitmap2CmpSettings`) and the Open Recent
-  store, which keeps each image's bytes because a browser file has no path to
-  reopen. Stays with the window.
+- `designer/src/editors/image/ImageConverter.tsx` + `bitmap2cmpSettings.ts` —
+  not this package's: the program's side of `BITMAP2CMP_APP`, i.e. `Pgm()`
+  (the settings slice through the shared manager, which syncs it to the
+  account) and `KIWAY`. KiCad's counterpart is `common/pgm_base.cpp` and
+  `kicad/`, which is what `designer/` is.
 
 ## Deliberate divergences
 

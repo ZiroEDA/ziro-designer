@@ -58,7 +58,7 @@ describe('no launcher restates it', () => {
   // right and hides that the root is wrong for all the others.
   const LAUNCHERS = [
     'editors/calculator/calculator.css',
-    'editors/image/imageConverter.css',
+    '../../bitmap2component/bitmap2cmp_frame.css',
     'widgets/properties_panel.css',
   ];
 

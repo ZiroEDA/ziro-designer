@@ -260,7 +260,7 @@ describe('the capabilities that used to block it', () => {
   it('leaves the bitmap pickers on the OS picker, which is correct', () => {
     // A bitmap comes from your machine, not from the project - the same reason
     // KiCad's bitmap2component opens a plain file dialog. Not a gap.
-    for (const file of ['editors/image/ImageConverter.tsx']) {
+    for (const file of ['../../bitmap2component/bitmap2cmp_frame_ui.tsx']) {
       expect(code(src(file))).toContain('type="file"');
     }
   });

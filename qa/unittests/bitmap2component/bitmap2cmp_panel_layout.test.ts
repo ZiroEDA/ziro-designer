@@ -29,8 +29,8 @@ const read = (rel: string): string =>
 const CSS = read('../../../bitmap2component/bitmap2cmp_panel.css');
 const TSX = read('../../../bitmap2component/bitmap2cmp_panel_ui.tsx');
 /** The window around the panel: BITMAP2CMP_FRAME's half. */
-const FRAME_CSS = read('../../../designer/src/editors/image/imageConverter.css');
-const FRAME_TSX = read('../../../designer/src/editors/image/ImageConverter.tsx');
+const FRAME_CSS = read('../../../bitmap2component/bitmap2cmp_frame.css');
+const FRAME_TSX = read('../../../bitmap2component/bitmap2cmp_frame_ui.tsx');
 const SHELL = read('../../../common/widgets/shell.css');
 
 /** The shared GTK control-theme tokens, as a name -> value map. */

@@ -220,7 +220,7 @@ describe('the bar height is a property of the frame', () => {
   // measure the same. Both numbers below are measured off real KiCad windows
   // at 1920x1200; see --statusbar-height in ui/shell.css for the pixel runs.
   const shell = read('../../common/widgets/shell.css');
-  const imgc = read('editors/image/imageConverter.css');
+  const imgc = read('../../bitmap2component/bitmap2cmp_frame.css');
 
   it('defaults to KISTATUSBAR\u2019s measured 23px', () => {
     // Every EDA_DRAW_FRAME (eda_draw_frame.cpp:136) and KICAD_MANAGER_FRAME
@@ -326,7 +326,7 @@ describe('the status bar and the message panel exist once', () => {
     ['editors/drawingsheet/DrawingSheetEditor.tsx', ['KiStatusBar', 'MsgPanel']],
     ['editors/gerbview/GerberViewer.tsx', ['KiStatusBar', 'MsgPanel']],
     ['editors/schematic/components/SymbolLibraryBrowser.tsx', ['MsgPanel']],
-    ['editors/image/ImageConverter.tsx', ['KiStatusBar']],
+    ['../../bitmap2component/bitmap2cmp_frame_ui.tsx', ['KiStatusBar']],
     ['home/HomePage.tsx', ['KiStatusBar']],
   ];
 

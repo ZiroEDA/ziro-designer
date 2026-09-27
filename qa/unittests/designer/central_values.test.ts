@@ -1501,7 +1501,7 @@ describe('the three launchers this pass took are actually on the tokens', () => 
     expect(SITES.filter((s) => s.area === 'editors/image' && s.kind === 'metrics')).toStrictEqual(
       [],
     );
-    const css = readFileSync(join(SRC, 'editors/image/imageConverter.css'), 'utf8');
+    const css = readFileSync(join(BITMAP2COMPONENT, 'bitmap2cmp_frame.css'), 'utf8');
     expect(css).not.toContain('NOT PROVEN');
     const shell = readFileSync(join(COMMON, 'widgets/shell.css'), 'utf8');
     const at = shell.indexOf('NOT PROVEN');

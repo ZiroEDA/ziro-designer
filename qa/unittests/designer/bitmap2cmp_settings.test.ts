@@ -352,7 +352,7 @@ describe('settings stored under the old key are not stranded', () => {
 // ---------------------------------------------------------------------------
 
 describe('the editor’s own LoadSettings / SaveSettings', () => {
-  // The two functions ImageConverter.tsx actually calls
+  // The two functions the window actually calls, through BITMAP2CMP_APP
   // (bitmap2cmp_panel.cpp:76-107 and :110-117). Checking the manager alone
   // would leave these free to drop a field on the way through, which is a
   // per-field bug behind a whole-object seam — exactly the shape this file is
@@ -366,7 +366,7 @@ describe('the editor’s own LoadSettings / SaveSettings', () => {
   });
 
   it('opening the editor and changing nothing does not claim an edit', async () => {
-    // `ImageConverter.tsx` saves from an effect, and an effect fires on MOUNT —
+    // The window saves from an effect, and an effect fires on MOUNT —
     // with exactly the values `loadBitmap2CmpSettings` just returned. As a
     // private localStorage key that only rewrote the same bytes. As a slice it
     // would stamp `updatedAt`, and `decideSlice`'s `updatedAt > syncedAt` would
@@ -432,8 +432,9 @@ describe('the editor reads and writes the slice, not a private key', () => {
     // the account, and it would fail silently — the preference simply stops
     // travelling. The history's key is the one localStorage string that may
     // remain.
+    // The history's key is the frame's own now, in bitmap2component.
     const keys = [...SRC.matchAll(/'(ziroeda\.[a-z0-9_.]+)'/g)].map((m) => m[1]);
-    expect(keys).toEqual(['ziroeda.bitmap2cmp.recent']);
+    expect(keys).toEqual([]);
   });
 
   it('goes through the manager in both directions', () => {

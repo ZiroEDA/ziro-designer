@@ -56,7 +56,7 @@ const CONVERTED = [
   'editors/drawingsheet/DrawingSheetEditor.tsx',
   'editors/footprint/FootprintEditor.tsx',
   'editors/gerbview/GerberViewer.tsx',
-  'editors/image/ImageConverter.tsx',
+  '../../bitmap2component/bitmap2cmp_frame_ui.tsx',
   'editors/pcb/PcbEditor.tsx',
   'editors/schematic/SchematicEditor.tsx',
   'editors/schematic/components/SymbolLibraryBrowser.tsx',
@@ -206,6 +206,7 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
+    if (name === 'node_modules') continue;
     const path = join(dir, name);
     if (statSync(path).isDirectory()) walk(path, out);
     else if (name.endsWith('.tsx')) out.push(path);
@@ -213,7 +214,20 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-const FILES = walk(SRC).map((path) => ({
+/**
+ * The frames' windows live in their KiCad package once they move out of
+ * designer (bitmap2component/bitmap2cmp_frame_ui.tsx), so the sweep walks
+ * those packages too. A walk of designer/src alone would lose every frame that
+ * moved, and pass.
+ */
+const FRAME_PACKAGES = ['bitmap2component', 'gerbview', 'pagelayout_editor'].map((p) =>
+  fileURLToPath(new URL(`../../../${p}`, import.meta.url)),
+);
+
+const FILES = [
+  ...walk(SRC),
+  ...FRAME_PACKAGES.flatMap((dir) => walk(dir).filter((p) => !p.includes('node_modules'))),
+].map((path) => ({
   rel: relative(SRC, path).split('\\').join('/'),
   src: readFileSync(path, 'utf8'),
 }));
