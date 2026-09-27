@@ -26,7 +26,7 @@ import { letterSubReference, type LibSymbol } from '@ziroeda/eeschema';
 import { symbolLibraryDescription } from '../../../widgets/lib_table_descriptions.js';
 import { atom, list, str } from '@ziroeda/sexpr/types.js';
 import { searchTerm } from '@ziroeda/common';
-import { LibTree } from '../../../widgets/lib_tree.js';
+import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
 import { LibTreeModelAdapter, type SortMode } from '@ziroeda/common/lib_tree_model_adapter.js';
 import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
 import { FootprintPreviewWidget } from '../../../widgets/footprint_preview_widget.js';

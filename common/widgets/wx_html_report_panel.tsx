@@ -20,7 +20,7 @@ import {
   RPT_SEVERITY_WARNING,
   type ReportLine,
   type Severity,
-} from '@ziroeda/common';
+} from '../reporter.js';
 
 /** The panel's own definition of "all" (wx_html_report_panel.cpp). */
 export const RPT_SEVERITY_ALL =

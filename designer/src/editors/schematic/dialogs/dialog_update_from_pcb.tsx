@@ -32,7 +32,7 @@ import {
   type Schematic,
 } from '@ziroeda/eeschema';
 import type { EditCommand } from '@ziroeda/eeschema';
-import { HtmlReportPanel, RPT_SEVERITY_ALL } from '../../../widgets/wx_html_report_panel.js';
+import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
 import {
   RPT_SEVERITY_ACTION,
   RPT_SEVERITY_ERROR,

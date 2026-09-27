@@ -40,7 +40,7 @@ import {
   RPT_SEVERITY_WARNING,
   type ReportLine,
 } from '@ziroeda/common';
-import { HtmlReportPanel, RPT_SEVERITY_ALL } from '../../../widgets/wx_html_report_panel.js';
+import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 

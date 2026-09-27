@@ -14,7 +14,7 @@ import sys
 import os
 
 ROOT = '/home/akshay/ziro-designer-1'
-LT = 'designer/src/widgets/lib_tree.tsx'
+LT = 'common/widgets/lib_tree.tsx'
 AD = 'common/lib_tree_model_adapter.ts'
 FP = 'designer/src/editors/footprint/fp_tree_synchronizing_adapter.ts'
 FE = 'designer/src/editors/footprint/FootprintEditor.tsx'

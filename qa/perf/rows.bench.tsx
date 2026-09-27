@@ -33,7 +33,7 @@ function makeRows(n: number): Row[] {
   return out;
 }
 
-// The row markup of designer/src/widgets/lib_tree.tsx, verbatim in shape.
+// The row markup of common/widgets/lib_tree.tsx, verbatim in shape.
 function Rows({ rows }: { rows: Row[] }): JSX.Element {
   return (
     <div className="ze-libtree-list">

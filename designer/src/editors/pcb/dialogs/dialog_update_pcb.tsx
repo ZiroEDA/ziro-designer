@@ -16,7 +16,7 @@
 
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import type { ReportLine, Severity } from '@ziroeda/common';
-import { HtmlReportPanel, RPT_SEVERITY_ALL } from '../../../widgets/wx_html_report_panel.js';
+import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 /** The option set BOARD_NETLIST_UPDATER is driven with (the dialog's checkboxes). */

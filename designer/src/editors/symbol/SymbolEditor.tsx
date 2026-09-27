@@ -30,7 +30,7 @@ import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_titl
 import { useUnsavedGuard } from '@ziroeda/common/use_unsaved_guard.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 // The ONE tree widget, as `SYMBOL_TREE_PANE` mounts the ONE `LIB_TREE`.
-import { LibTree } from '../../widgets/lib_tree.js';
+import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
 import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
 import { SymbolTreeSynchronizingAdapter } from './symbol_tree_synchronizing_adapter.js';
 import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';

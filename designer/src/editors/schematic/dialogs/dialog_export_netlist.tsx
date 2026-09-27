@@ -18,7 +18,7 @@
 import { useState, type JSX } from 'react';
 import { strToU8, zipSync } from 'fflate';
 import { RPT_SEVERITY_ACTION, RPT_SEVERITY_ERROR, type ReportLine } from '@ziroeda/common';
-import { HtmlReportPanel, RPT_SEVERITY_ALL } from '../../../widgets/wx_html_report_panel.js';
+import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
 import {
   generateNetlist,
   netlistFiles,

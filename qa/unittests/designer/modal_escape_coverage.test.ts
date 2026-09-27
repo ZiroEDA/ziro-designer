@@ -160,6 +160,6 @@ describe('what the registered cancel means', () => {
     // :347 - and only then does Esc reach the dialog. The tree registers above
     // the dialog containing it and drops off when the box empties, so the
     // ordering is the stack's rather than a listener race.
-    expect(registered('widgets/lib_tree.tsx')).toEqual([`() => onQueryText(''), search !== ''`]);
+    expect(registered('../../common/widgets/lib_tree.tsx')).toEqual([`() => onQueryText(''), search !== ''`]);
   });
 });

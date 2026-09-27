@@ -17,18 +17,18 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
-import { type LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
+import { type LibTreeNode, LibTreeNodeType } from '../lib_tree_model.js';
 import {
   type LibTreeModelAdapter,
   type LibTreeNodeAttr,
   SortMode,
   LIB_TREE_INDENT,
   PINNING_SYMBOL,
-} from '@ziroeda/common/lib_tree_model_adapter.js';
-import { EDA_REORDERABLE_LIST_DIALOG } from '@ziroeda/common/dialogs/eda_reorderable_list_dialog.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
-import { KiBitmapBundle } from '@ziroeda/common/bitmap.js';
-import { BITMAPS } from '@ziroeda/common/bitmaps/bitmaps_list.js';
+} from '../lib_tree_model_adapter.js';
+import { EDA_REORDERABLE_LIST_DIALOG } from '../dialogs/eda_reorderable_list_dialog.js';
+import { useModalEscape } from '../dialog_shim.js';
+import { KiBitmapBundle } from '../bitmap.js';
+import { BITMAPS } from '../bitmaps/bitmaps_list.js';
 
 /**
  * `wxDataViewItemAttr` as CSS. `SetColour( wxSYS_COLOUR_GRAYTEXT )` becomes

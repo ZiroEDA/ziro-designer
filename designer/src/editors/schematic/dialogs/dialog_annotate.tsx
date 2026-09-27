@@ -13,7 +13,7 @@
 import { useState, type JSX } from 'react';
 import type { AnnotateOptions } from '@ziroeda/eeschema';
 import type { ReportLine, Severity } from '@ziroeda/common';
-import { HtmlReportPanel, RPT_SEVERITY_ALL } from '../../../widgets/wx_html_report_panel.js';
+import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
 import { toolbarIconUrl } from '@ziroeda/common/bitmap_store.js';
 import { settings } from '../../../prefs/settings.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';

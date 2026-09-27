@@ -717,7 +717,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // common/widgets metrics 658 -> 670: main's presence badge and panel
   // (.ze-presence-*) landed in shell.css after it moved here - twelve
   // values, all geometry KiCad has no widget for (see main's 694 -> 706).
-  'common/widgets': { colours: 144, metrics: 670 },
+  'common/widgets': { colours: 144, metrics: 672 },
   'common/tool': { colours: 0, metrics: 1 },
   // metrics 0 -> 15 on 09-26: the stage-1 moves, 8 from `dialogs` and 7 from
   // `editors/schematic`. Nothing added or removed: 8 + 7 = 15.
@@ -764,7 +764,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // metrics 44 -> 41 on 09-26: the symbol library table's inline body style
   // (`padding: '10px 14px'`, `gap: 8`) went for DIALOG_EDIT_LIBRARY_TABLES'
   // sizer, cited in shell.css.
-  widgets: { colours: 6, metrics: 41 },
+  widgets: { colours: 6, metrics: 39 },
 };
 
 /** Properties whose value the GTK theme decides, so a px in one is drift. */
