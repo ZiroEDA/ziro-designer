@@ -14,7 +14,7 @@ import {
   PCB_AUX_TOOLBAR,
   PCB_RIGHT_TOOLBAR,
   PCB_CONTROL,
-} from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
+} from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
 import { BITMAP } from '@ziroeda/common/bitmap_store_actions.js';
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 

@@ -20,7 +20,7 @@ import { catalogueFor, ourToolbarId } from '../../../ui/action_catalogue.js';
 import type { JSX } from 'react';
 import { PanelToolbarCustomization } from '@ziroeda/common/dialogs/panel_toolbar_customization.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { FP_DEFAULT_TOOLBARS } from '../footprintToolbars.js';
+import { FP_DEFAULT_TOOLBARS } from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
 
 export function PanelFpToolbars({ ctx }: { ctx: PrefsContext }): JSX.Element {
   return (

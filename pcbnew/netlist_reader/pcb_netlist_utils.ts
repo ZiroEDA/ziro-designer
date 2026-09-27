@@ -28,7 +28,7 @@ import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { fpidItemName } from './pcb_netlist.js';
 import { footprintViewOfBoard } from '../pcb_io/kicad_sexpr/board_view.js';
-import { LSET_NameToLayer } from '../layer_ids.js';
+import { LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
 import type { PcbFootprint } from '../types.js';
 
 export interface PlaceFootprintOptions {

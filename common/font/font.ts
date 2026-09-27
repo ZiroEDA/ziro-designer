@@ -845,8 +845,10 @@ export abstract class FONT {
 
     if (this.IsStroke()) {
       // Fudge factors to match 6.0 positioning
-      offset.x += Math.trunc(aAttrs.m_StrokeWidth / 1.52);
-      offset.y -= Math.trunc(aAttrs.m_StrokeWidth * 0.052);
+      // `int += double` / `int -= double`: the sum is taken in double and
+      // truncated once, so the product is not truncated on its own.
+      offset.x = Math.trunc(offset.x + aAttrs.m_StrokeWidth / 1.52);
+      offset.y = Math.trunc(offset.y - aAttrs.m_StrokeWidth * 0.052);
     }
 
     switch (aAttrs.m_Valign) {

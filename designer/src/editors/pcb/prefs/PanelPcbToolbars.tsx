@@ -17,7 +17,7 @@ import { catalogueFor, ourToolbarId } from '../../../ui/action_catalogue.js';
 import type { JSX } from 'react';
 import { PanelToolbarCustomization } from '@ziroeda/common/dialogs/panel_toolbar_customization.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { PCB_DEFAULT_TOOLBARS } from '../pcbToolbars.js';
+import { PCB_DEFAULT_TOOLBARS } from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
 
 export function PanelPcbToolbars({ ctx }: { ctx: PrefsContext }): JSX.Element {
   return (

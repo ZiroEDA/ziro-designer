@@ -11,7 +11,7 @@ import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { KIWAY } from '@ziroeda/common/kiway.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import { SYMBOL_EDIT_FRAME } from '@ziroeda/designer/src/editors/symbol/symbol_edit_frame.js';
-import { FOOTPRINT_EDIT_FRAME } from '@ziroeda/designer/src/editors/footprint/footprint_edit_frame.js';
+import { FOOTPRINT_EDIT_FRAME } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 
 const makeKiway = (shown: FRAME_T[] = []) =>
   new KIWAY({

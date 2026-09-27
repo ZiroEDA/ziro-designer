@@ -26,7 +26,7 @@ import {
   DS_LEFT_TOOLBAR,
   DS_RIGHT_TOOLBAR,
 } from '@ziroeda/pagelayout_editor/toolbars_pl_editor.js';
-import { PCB_LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
+import { PCB_LEFT_TOOLBAR } from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
 
 // `qa` has no testing-library setup file, so the auto-cleanup that ships with
 // one is not running: without this every render stays in the document and the

@@ -25,8 +25,6 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { boardHitCandidates, parseBoardItemId } from './edit-board.js';
 import type { ANCHOR } from '@ziroeda/common/tool/grid_helper.js';
 import {
-  alignToArc,
-  alignToSegment,
   gridArcFromPoints,
   layerMatches,
   PCB_GRID_HELPER,
@@ -103,24 +101,28 @@ function padSnap(aBoard: Board, aWhere: Vec2, aLayer?: string): BoardCursorSnap 
 export function snapToBoardCopper(
   aBoard: Board,
   aWhere: Vec2,
-  aGrid: PcbGridState,
+  aGrid: PCB_GRID_HELPER | PcbGridState,
   aOpts: BoardSnapOptions,
 ): BoardCursorSnap | null {
+  // The router tool's own `m_gridHelper` when the caller holds one, as the
+  // editor does; a bare state gets a helper for the one call.
+  const grid = aGrid instanceof PCB_GRID_HELPER ? aGrid : new PCB_GRID_HELPER(aGrid);
+
   // `pickSingleItem`'s slot ordering: everything on the active layer first,
   // and only then the same search with the layer preference dropped.
   if (aOpts.layer) {
-    const onLayer = pickOnLayer(aBoard, aWhere, aGrid, aOpts, aOpts.layer);
+    const onLayer = pickOnLayer(aBoard, aWhere, grid, aOpts, aOpts.layer);
 
     if (onLayer) return onLayer;
   }
 
-  return pickOnLayer(aBoard, aWhere, aGrid, aOpts, undefined);
+  return pickOnLayer(aBoard, aWhere, grid, aOpts, undefined);
 }
 
 function pickOnLayer(
   aBoard: Board,
   aWhere: Vec2,
-  aGrid: PcbGridState,
+  aGrid: PCB_GRID_HELPER,
   aOpts: BoardSnapOptions,
   aLayer: string | undefined,
 ): BoardCursorSnap | null {
@@ -175,12 +177,12 @@ function pickOnLayer(
       const arc = gridArcFromPoints(curved.start, curved.mid, curved.end);
 
       if (arc)
-        return { net: t.net, snap: alignToArc(aWhere, arc, aGrid), kind: 'arc', width: t.width };
+        return { net: t.net, snap: aGrid.AlignToArc(aWhere, arc), kind: 'arc', width: t.width };
     }
 
     return {
       net: t.net,
-      snap: alignToSegment(aWhere, { a: t.start, b: t.end }, aGrid),
+      snap: aGrid.AlignToSegment(aWhere, { a: t.start, b: t.end }),
       kind: r.kind,
       width: t.width,
     };

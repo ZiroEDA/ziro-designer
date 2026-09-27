@@ -155,9 +155,9 @@ const FRAMES: FrameRow[] = [
     rows: ['close'],
   },
   {
-    // Likewise: `editors/footprint/menubar.ts` is the tree, and the frame keeps
+    // Likewise: `menubar_footprint_editor.ts` is the tree, and the frame keeps
     // only the handlers.
-    file: 'editors/footprint/menubar.ts',
+    file: '../../pcbnew/menubar_footprint_editor.ts',
     upstream: 'pcbnew/menubar_footprint_editor.cpp:92',
     app: 'Footprint Editor',
     rows: ['close'],
@@ -198,7 +198,7 @@ const FRAMES: FrameRow[] = [
   {
     // The bar is a data module now, like the schematic's below and the symbol,
     // footprint and Gerber ones above.
-    file: 'editors/pcb/menubar.ts',
+    file: '../../pcbnew/menubar_pcb_editor.ts',
     upstream: 'pcbnew/menubar_pcb_editor.cpp:165',
     app: 'PCB Editor',
     rows: ['quitOrClose'],
@@ -374,6 +374,7 @@ describe('no menu declares a key the browser will not deliver', () => {
     walk(join(SRC, '../../pagelayout_editor'));
     walk(join(SRC, '../../bitmap2component'));
     walk(join(SRC, '../../cvpcb'));
+    walk(join(SRC, '../../pcbnew'));
     return { declared: out, visited: new Set(files) };
   })();
 

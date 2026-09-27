@@ -30,8 +30,8 @@ import { dispatchMenuHotkey, type HotkeyEvent } from '@ziroeda/common/tool/actio
 import { buildManagerMenus } from '@ziroeda/designer/src/home/menubar.js';
 import { buildMenus } from '@ziroeda/designer/src/editors/schematic/menubar.js';
 import { symbolEditorMenus } from '@ziroeda/designer/src/editors/symbol/menubar.js';
-import { footprintEditorMenus } from '@ziroeda/designer/src/editors/footprint/menubar.js';
-import { buildPcbMenus as pcbMenus } from '@ziroeda/designer/src/editors/pcb/menubar.js';
+import { footprintEditorMenus } from '@ziroeda/pcbnew/menubar_footprint_editor.js';
+import { buildPcbMenus as pcbMenus } from '@ziroeda/pcbnew/menubar_pcb_editor.js';
 import { browserSafeKey } from '@ziroeda/common/browser_reserved.js';
 import {
   addClose,

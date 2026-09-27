@@ -17,7 +17,7 @@
  * and applies it only to what is on the canvas.
  */
 import { describe, expect, it } from 'vitest';
-import { FpTreeSynchronizingAdapter } from '@ziroeda/designer/src/editors/footprint/fp_tree_synchronizing_adapter.js';
+import { FpTreeSynchronizingAdapter } from '@ziroeda/pcbnew/fp_tree_synchronizing_adapter.js';
 import { LibTreeNode, LibTreeNodeType, makeItemNode } from '@ziroeda/common/lib_tree_model.js';
 
 interface FrameState {

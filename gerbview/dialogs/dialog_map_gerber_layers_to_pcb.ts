@@ -57,7 +57,7 @@ import {
   Margin,
   UNDEFINED_LAYER,
   UNSELECTED_LAYER,
-} from '@ziroeda/pcbnew/layer_ids.js';
+} from '@ziroeda/common/layer_ids.js';
 
 /**
  * `findNumX2GerbersLoaded`'s `kicadLayers` map

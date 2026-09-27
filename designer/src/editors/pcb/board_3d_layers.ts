@@ -80,7 +80,7 @@ import {
   PCB_LAYER_ID_COUNT,
   Rescue,
   User_1,
-} from '@ziroeda/pcbnew/layer_ids.js';
+} from '@ziroeda/common/layer_ids.js';
 import { boardOutlineLoops, type Box } from './boardOutline.js';
 
 /** The PCB_LAYER_IDs the 3D viewer builds (`techLayerList`). */

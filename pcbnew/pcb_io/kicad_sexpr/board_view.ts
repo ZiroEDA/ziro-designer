@@ -74,7 +74,7 @@ import {
   LSET_NameToLayer,
   UNDEFINED_LAYER,
   User_1,
-} from '../../layer_ids.js';
+} from '@ziroeda/common/layer_ids.js';
 import { LSET } from '../../lset.js';
 import { NETINFO_ITEM, NETINFO_LIST } from '../../netinfo.js';
 import { PAD } from '../../pad.js';

@@ -20,7 +20,7 @@ import { describe, expect, it } from 'vitest';
 import {
   FP_LEFT_TOOLBAR,
   FP_RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/footprint/footprintToolbars.js';
+} from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
 import {
   groupIsCheckItem,
   type ToolEntry,

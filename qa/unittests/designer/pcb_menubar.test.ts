@@ -22,7 +22,7 @@ import {
   buildPcbMenus,
   type PcbMenuChecks,
   type PcbMenuState,
-} from '@ziroeda/designer/src/editors/pcb/menubar.js';
+} from '@ziroeda/pcbnew/menubar_pcb_editor.js';
 import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 
 /** A board with nothing selected and both sibling editors reachable. */

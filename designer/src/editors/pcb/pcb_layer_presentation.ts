@@ -19,7 +19,7 @@
  * name, the shown name, and `DrawColorSwatch( aLayer )` as CSS.
  */
 
-import { LayerName, LSET_Name } from '@ziroeda/pcbnew/layer_ids.js';
+import { LayerName, LSET_Name } from '@ziroeda/common/layer_ids.js';
 import { type Color4d, parseColor4d, toCssColor } from '@ziroeda/common/gal/color4d.js';
 import { GAL_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LAYER_PRESENTATION } from '@ziroeda/common/widgets/layer_presentation.js';

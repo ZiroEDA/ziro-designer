@@ -413,7 +413,7 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
     this.SetGridSnapping(true);
     this.SetUseGrid(aState.enableGrid && aState.size > 0);
     this.SetSnap(aState.enableSnap);
-    this.SetAuxAxes(!!aState.auxAxis, aState.auxAxis ?? { x: 0, y: 0 });
+    if (aState.auxAxis) this.SetAuxAxes(true, aState.auxAxis);
 
     return this;
   }
@@ -895,14 +895,4 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
  */
 export function align(aPoint: Vec2, aGrid: PcbGridState): Vec2 {
   return new PCB_GRID_HELPER(aGrid).Align(aPoint);
-}
-
-/** `AlignToSegment` for one event's state. */
-export function alignToSegment(aPoint: Vec2, aSeg: GridSeg, aGrid: PcbGridState): Vec2 {
-  return new PCB_GRID_HELPER(aGrid).AlignToSegment(aPoint, aSeg);
-}
-
-/** `AlignToArc` for one event's state. */
-export function alignToArc(aPoint: Vec2, aArc: GridArc, aGrid: PcbGridState): Vec2 {
-  return new PCB_GRID_HELPER(aGrid).AlignToArc(aPoint, aArc);
 }

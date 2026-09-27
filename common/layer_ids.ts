@@ -12,8 +12,8 @@ import {
   FlipLayer as FlipLayerId,
   LayerName as LayerNameId,
   PCB_LAYER_ID,
-} from '@ziroeda/common/layer_id.js';
-import { LSET } from '@ziroeda/common/lset.js';
+} from './layer_id.js';
+import { LSET } from './lset.js';
 
 /**
  * The canonical layer token (`F.Cu`, `B.SilkS`, …) the plain-object board
@@ -58,7 +58,7 @@ export {
   UNDEFINED_LAYER,
   UNSELECTED_LAYER,
   User_1,
-} from '@ziroeda/common/layer_id.js';
+} from './layer_id.js';
 
 /**
  * `In1_Cu = 4 … In30_Cu = 62`, which the enum spells out one line at a time.

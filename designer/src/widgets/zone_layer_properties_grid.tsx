@@ -43,7 +43,7 @@ import {
 import { WxGridView } from '@ziroeda/common/wx/grid_ui.js';
 import type { ZoneLayerPropertiesMap } from '../editors/pcb/board_settings.js';
 import { PCB_BACKGROUND } from '../editors/pcb/pcbTheme.js';
-import { LSET_NameToLayer } from '@ziroeda/pcbnew/layer_ids.js';
+import { LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
 import { layerChoice } from '../editors/pcb/pcb_layer_presentation.js';
 
 /**

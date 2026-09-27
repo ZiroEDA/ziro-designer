@@ -38,7 +38,7 @@ import {
   LSET_Name,
   UNDEFINED_LAYER,
   UNSELECTED_LAYER,
-} from '@ziroeda/pcbnew/layer_ids.js';
+} from '@ziroeda/common/layer_ids.js';
 import { isSolidFill } from '@ziroeda/pcbnew/shape_fill.js';
 
 // ---------------------------------------------------------------------------

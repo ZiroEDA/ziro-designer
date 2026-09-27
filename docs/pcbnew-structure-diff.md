@@ -1,15 +1,15 @@
 # pcbnew file-structure divergence from KiCad 10.0.5
 
-Generated 2026-09-20 against `/home/akshay/kicad-reference/pcbnew`. Regenerate with `qa/probes/struct_diff.sh`.
+Generated 2026-09-28 against `/home/akshay/kicad-reference/pcbnew`. Regenerate with `qa/probes/struct_diff.sh`.
 
 | status | count | meaning |
 |---|---:|---|
-| SAME | 145 | same relative path and name as KiCad's `.cpp` |
+| SAME | 168 | same relative path and name as KiCad's `.cpp` |
 | MOVED | 1 | KiCad has this name, in a different directory |
-| DIALOG | 20 | KiCad has it as `dialogs/dialog_<name>.cpp` |
+| DIALOG | 18 | KiCad has it as `dialogs/dialog_<name>.cpp` |
 | HEADER | 14 | KiCad declares it in a `.h` with no matching `.cpp` |
-| ELSEWHERE | 7 | KiCad puts it outside `pcbnew/` |
-| OURS | 118 | no KiCad file of this name anywhere |
+| ELSEWHERE | 5 | KiCad puts it outside `pcbnew/` |
+| OURS | 96 | no KiCad file of this name anywhere |
 
 ## MOVED
 
@@ -21,8 +21,6 @@ Generated 2026-09-20 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 
 | ours (`pcbnew/`) | KiCad (`pcbnew/` unless noted) |
 |---|---|
-| `barcode_properties.ts` | `dialogs/dialog_barcode_properties_base.cpp` |
-| `board_reannotate.ts` | `dialogs/dialog_board_reannotate_base.cpp` |
 | `create_array.ts` | `dialogs/dialog_create_array_base.cpp` |
 | `dimension_properties.ts` | `dialogs/dialog_dimension_properties_base.cpp` |
 | `filter_selection.ts` | `dialogs/dialog_filter_selection_base.cpp` |
@@ -46,8 +44,6 @@ Generated 2026-09-20 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 
 | ours (`pcbnew/`) | KiCad (`pcbnew/` unless noted) |
 |---|---|
-| `barcode/common.ts` | `common/common.cpp` |
-| `board_project_settings.ts` | `common/project/board_project_settings.cpp` |
 | `convert_basic_shapes_to_polygon.ts` | `libs/kimath/src/convert_basic_shapes_to_polygon.cpp` |
 | `drc/shape_collisions.ts` | `libs/kimath/src/geometry/shape_collisions.cpp` |
 | `layer_ids.ts` | `include/layer_ids.h` |
@@ -77,24 +73,7 @@ Generated 2026-09-20 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 
 | ours (`pcbnew/`) | KiCad (`pcbnew/` unless noted) |
 |---|---|
-| `autoplace_footprints.ts` | `-` |
-| `autoplace_matrix.ts` | `-` |
-| `barcode/code128.ts` | `-` |
-| `barcode/code.ts` | `-` |
-| `barcode/dmatrix_tables.ts` | `-` |
-| `barcode/dmatrix.ts` | `-` |
-| `barcode_geometry.ts` | `-` |
-| `barcode/microqr.ts` | `-` |
-| `barcode/qr_tables.ts` | `-` |
-| `barcode/qr.ts` | `-` |
-| `barcode/reedsol.ts` | `-` |
-| `barcode/zint.ts` | `-` |
-| `bezier_tool.ts` | `-` |
 | `board_design_settings_defaults.ts` | `-` |
-| `board_design_settings_sizes.ts` | `-` |
-| `board_exchange_footprint.ts` | `-` |
-| `board_listener.ts` | `-` |
-| `board_stackup_distance.ts` | `-` |
 | `board_types.ts` | `-` |
 | `cleanup_connectivity.ts` | `-` |
 | `connectivity.ts` | `-` |
@@ -141,6 +120,7 @@ Generated 2026-09-20 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 | `modify_lines.ts` | `-` |
 | `msg_panel.ts` | `-` |
 | `net_inspector.ts` | `-` |
+| `netlist_reader/pcb_netlist_utils.ts` | `-` |
 | `non_copper_zone_properties.ts` | `-` |
 | `pad_enumerate.ts` | `-` |
 | `pad_margins.ts` | `-` |
@@ -153,11 +133,6 @@ Generated 2026-09-20 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 | `pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_items.ts` | `-` |
 | `pcb_text_help.ts` | `-` |
 | `place_image.ts` | `-` |
-| `plot_dxf.ts` | `-` |
-| `plot_gerber.ts` | `-` |
-| `plot_pdf.ts` | `-` |
-| `plot_ps.ts` | `-` |
-| `plot_svg.ts` | `-` |
 | `point_editor.ts` | `-` |
 | `polygon_booleans.ts` | `-` |
 | `read-board.ts` | `-` |
@@ -197,16 +172,26 @@ Generated 2026-09-20 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 
 ## SAME
 
-<details><summary>145 files already at KiCad's own path</summary>
+<details><summary>168 files already at KiCad's own path</summary>
 
+- `array_pad_number_provider.ts`
+- `autorouter/ar_autoplacer.ts`
+- `autorouter/ar_matrix.ts`
 - `autorouter/spread_footprints.ts`
 - `board_commit.ts`
 - `board_connected_item.ts`
 - `board_design_settings.ts`
 - `board_item.ts`
+- `board_stackup_manager/board_stackup_reporter.ts`
 - `board_stackup_manager/board_stackup.ts`
+- `board_stackup_manager/dielectric_material.ts`
+- `board_stackup_manager/stackup_predefined_prms.ts`
+- `board_statistics_report.ts`
 - `board_statistics.ts`
+- `board_tables/board_characteristics_table.ts`
+- `board_tables/board_stackup_table.ts`
 - `board.ts`
+- `build_BOM_from_board.ts`
 - `cleanup_item.ts`
 - `collectors.ts`
 - `component_classes/component_class_assignment_rule.ts`
@@ -218,6 +203,8 @@ Generated 2026-09-20 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `connectivity/connectivity_items.ts`
 - `connectivity/from_to_cache.ts`
 - `convert_shape_list_to_polygon.ts`
+- `dialogs/dialog_barcode_properties.ts`
+- `dialogs/dialog_board_reannotate.ts`
 - `drc/drc_cache_generator.ts`
 - `drc/drc_creepage_utils.ts`
 - `drc/drc_engine.ts`
@@ -255,12 +242,16 @@ Generated 2026-09-20 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `drc/drc_test_provider_via_diameter.ts`
 - `drc/drc_test_provider_zone_connections.ts`
 - `exporters/export_d356.ts`
+- `exporters/gendrill_excellon_writer.ts`
+- `exporters/gerber_jobfile_writer.ts`
 - `exporters/place_file_exporter.ts`
+- `footprint_info_impl.ts`
 - `footprint_library_adapter.ts`
 - `footprint.ts`
 - `generators_mgr.ts`
 - `generators/pcb_tuning_pattern.ts`
 - `graphics_cleaner.ts`
+- `grid_layer_box_helpers.ts`
 - `import_gfx/graphics_importer_pcbnew.ts`
 - `length_delay_calculation/length_delay_calculation_item.ts`
 - `length_delay_calculation/length_delay_calculation.ts`
@@ -287,9 +278,12 @@ Generated 2026-09-20 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.ts`
 - `pcb_marker.ts`
 - `pcbnew_settings.ts`
+- `pcbnew.ts`
 - `pcb_origin_transforms.ts`
 - `pcb_painter.ts`
 - `pcb_plot_params.ts`
+- `pcb_plotter.ts`
+- `pcbplot.ts`
 - `pcb_point.ts`
 - `pcb_reference_image.ts`
 - `pcb_screen.ts`
@@ -300,6 +294,8 @@ Generated 2026-09-20 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `pcb_text.ts`
 - `pcb_track.ts`
 - `pcb_view.ts`
+- `plot_board_layers.ts`
+- `plot_brditems_plotter.ts`
 - `ratsnest/ratsnest_data.ts`
 - `ratsnest/ratsnest.ts`
 - `ratsnest/ratsnest_view_item.ts`
@@ -334,6 +330,8 @@ Generated 2026-09-20 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `router/pns_walkaround.ts`
 - `teardrop/teardrop_parameters.ts`
 - `teardrop/teardrop.ts`
+- `tools/board_editor_control.ts`
+- `tools/drawing_tool.ts`
 - `tools/drc_tool.ts`
 - `tools/pcb_actions.ts`
 - `tools/pcb_grid_helper.ts`

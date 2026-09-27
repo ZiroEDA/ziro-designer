@@ -55,7 +55,7 @@ import {
   PCB_TOP_TOOLBAR,
   PCB_LEFT_TOOLBAR,
   PCB_RIGHT_TOOLBAR,
-} from '../editors/pcb/pcbToolbars.js';
+} from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
 import { VIEWER3D_TOP_TOOLBAR } from '../editors/pcb/viewer3dToolbars.js';
 import { buildViewer3DMenus } from '../editors/pcb/viewer3dMenus.js';
 // HOTKEY_STORE's model (common/hotkey_store.cpp) lives in common/; this module
@@ -77,7 +77,7 @@ import {
   FP_TOP_TOOLBAR,
   FP_LEFT_TOOLBAR,
   FP_RIGHT_TOOLBAR,
-} from '../editors/footprint/footprintToolbars.js';
+} from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
 import {
   GBR_TOP_TOOLBAR,
   GBR_TOP_AUX_TOOLBAR,

@@ -52,7 +52,7 @@ import {
   type FootprintValues,
 } from './footprint_properties.js';
 import { ZONE_CONNECTION_CHOICES } from './zone_connection.js';
-import { GetLayerName } from './layer_ids.js';
+import { GetLayerName } from '@ziroeda/common/layer_ids.js';
 import { GetArcAngle } from '@ziroeda/common/eda_shape.js';
 import { UI_FILL_MODE_CHOICES } from './shape_fill.js';
 import type { TeardropParams } from './types.js';

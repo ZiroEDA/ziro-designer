@@ -48,7 +48,7 @@ import type {
 import type { ToolButton } from '@ziroeda/common/tool/action_toolbar_types.js';
 import { PAGES } from '@ziroeda/designer/src/dialogs/prefs/registry.js';
 import { toolbarEntries } from '@ziroeda/designer/src/ui/useToolbarEntries.js';
-import { FP_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/footprint/footprintToolbars.js';
+import { FP_DEFAULT_TOOLBARS } from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
 import { VIEWER3D_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/pcb/viewer3dToolbars.js';
 
 afterEach(cleanup);

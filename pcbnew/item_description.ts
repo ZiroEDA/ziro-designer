@@ -11,7 +11,7 @@
  * and the priority are the only things that tell them apart.
  */
 import { unescapeString } from '@ziroeda/common/string_utils.js';
-import { GetLayerName } from './layer_ids.js';
+import { GetLayerName } from '@ziroeda/common/layer_ids.js';
 import type { Board, PcbZone } from './types.js';
 
 /**

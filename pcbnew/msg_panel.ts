@@ -67,7 +67,7 @@ import {
   unescapeString,
 } from '@ziroeda/common';
 import { type BoardItemRef, parseBoardItemId } from './edit-board.js';
-import { GetLayerName } from './layer_ids.js';
+import { GetLayerName } from '@ziroeda/common/layer_ids.js';
 import type {
   BarcodeKind,
   PcbBarcode,

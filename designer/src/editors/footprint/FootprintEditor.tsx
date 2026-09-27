@@ -4,7 +4,7 @@
 import { parse } from '@ziroeda/sexpr';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
-import { FOOTPRINT_EDIT_FRAME } from './footprint_edit_frame.js';
+import { FOOTPRINT_EDIT_FRAME } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import { mmToIU, pcbIuToMM, PCB_IU_PER_MM, SCH_IU_PER_MM } from '@ziroeda/common';
 import {
@@ -64,7 +64,7 @@ import { useUnsavedGuard } from '@ziroeda/common/use_unsaved_guard.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
 import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
-import { FpTreeSynchronizingAdapter } from './fp_tree_synchronizing_adapter.js';
+import { FpTreeSynchronizingAdapter } from '@ziroeda/pcbnew/fp_tree_synchronizing_adapter.js';
 import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
 import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/widgets/msgpanel_ui.js';
 import {
@@ -77,7 +77,7 @@ import {
   zoomFactorForScale,
   zoomMsg,
 } from '@ziroeda/common/widgets/kistatusbar_format.js';
-import { FP_DEFAULT_TOOLBARS, footprintToolMsg } from './footprintToolbars.js';
+import { FP_DEFAULT_TOOLBARS, footprintToolMsg } from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
 import { FootprintCanvas, type FootprintCanvasController } from './FootprintCanvas.js';
@@ -115,7 +115,7 @@ import {
   SelectionFilterPanel,
   type SelectionFilterItem,
 } from '../../widgets/panel_selection_filter.js';
-import { GetLayerName } from '@ziroeda/pcbnew/layer_ids.js';
+import { GetLayerName } from '@ziroeda/common/layer_ids.js';
 import { DEFAULT_DRAW_OPTIONS, type PcbDrawOptions } from '../pcb/renderBoard.js';
 import '@ziroeda/common/widgets/shell.css';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
@@ -131,7 +131,7 @@ import {
 import { pcbThemeWithOverrides } from '../pcb/pcbTheme.js';
 import { settings } from '../../prefs/settings.js';
 import { hiContrastFactorFor } from '@ziroeda/common/render_settings.js';
-import { footprintEditorMenus } from './menubar.js';
+import { footprintEditorMenus } from '@ziroeda/pcbnew/menubar_footprint_editor.js';
 import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';

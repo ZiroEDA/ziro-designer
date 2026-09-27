@@ -80,7 +80,7 @@ import {
 import { LAYER, LAYER_T } from '../../board_types.js';
 import { FOOTPRINT, FP_3DMODEL } from '../../footprint.js';
 import { GENERATORS_MGR } from '../../generators_mgr.js';
-import { LSET_Name, LSET_NameToLayer } from '../../layer_ids.js';
+import { LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
 import { NETINFO_ITEM, NETINFO_LIST } from '../../netinfo.js';
 import { PADSTACK } from '../../padstack.js';
 import { PCB_BARCODE } from '../../pcb_barcode.js';

@@ -35,7 +35,7 @@ import { LEGACY_COLORS } from '@ziroeda/common/gal/color4d.js';
 import type { Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Board } from '@ziroeda/pcbnew';
-import { B_Cu, B_Mask, F_Cu, F_Mask, GetLayerName } from '@ziroeda/pcbnew/layer_ids.js';
+import { B_Cu, B_Mask, F_Cu, F_Mask, GetLayerName } from '@ziroeda/common/layer_ids.js';
 import { viaIsTented } from '@ziroeda/pcbnew/exporters/export_d356.js';
 import { BOARD_STACKUP_ITEM_TYPE } from '@ziroeda/pcbnew/board_stackup_manager/board_stackup.js';
 import {

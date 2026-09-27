@@ -65,8 +65,8 @@ const RETIRED = [
 ] as const;
 
 describe('a shared action has one id across frames', () => {
-  const fp = idsIn('editors/footprint/footprintToolbars.ts');
-  const pcb = idsIn('editors/pcb/pcbToolbars.ts');
+  const fp = idsIn('../../pcbnew/toolbars_footprint_editor.ts');
+  const pcb = idsIn('../../pcbnew/toolbars_pcb_editor.ts');
 
   for (const id of SHARED_WITH_PCB) {
     it(`the footprint editor spells it "${id}", as the PCB editor does`, () => {

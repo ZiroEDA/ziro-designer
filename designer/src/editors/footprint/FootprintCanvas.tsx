@@ -63,7 +63,7 @@ import { drawSelectionArea, isBackgroundDark, selectionAreaColors } from '@ziroe
 import { FOOTPRINT_LAYERS, footprintToBoard } from './footprintBoard.js';
 import type { PcbLayerDef } from '@ziroeda/pcbnew/types.js';
 import { pcbGridOptions, PCB_DEFAULT_GRID_IU } from '../pcb/renderBoard.js';
-import { snapToGridSize } from '../pcb/pcb_grid.js';
+import { PCB_GRID_HELPER } from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
 
 export interface FootprintCanvasController {
   zoomToFit: () => void;
@@ -321,14 +321,21 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
     const activeToolRef = useRef(activeTool);
     activeToolRef.current = activeTool;
     /** GRID_HELPER::BestSnapAnchor, reduced to the plain grid about the
-     *  frame's grid origin. */
+     *  frame's grid origin - `Align` on the frame's one `PCB_GRID_HELPER`,
+     *  held for the canvas's life as a tool holds its grid helper. */
     const gridOriginRef = useRef(gridOrigin);
     gridOriginRef.current = gridOrigin;
+    const gridHelperRef = useRef<PCB_GRID_HELPER | null>(null);
     const snapRef = useRef((p: Vec2): Vec2 => p);
     // `snapping` unset keeps the old reading for the two viewer frames, which
     // have no Snap to grid control of their own yet.
     const snapOn = snapping ?? showGrid;
-    snapRef.current = (p: Vec2): Vec2 => (snapOn ? snapToGridSize(p, gridIU, gridOrigin) : p);
+    snapRef.current = (p: Vec2): Vec2 => {
+      gridHelperRef.current ??= new PCB_GRID_HELPER();
+      return gridHelperRef.current
+        .SetState({ size: gridIU, origin: gridOrigin, enableGrid: snapOn, enableSnap: true })
+        .Align(p);
+    };
 
     // Compile the footprint (wrapped as a board) into retained per-layer paths.
     // `layers` is the FRAME's set, which in the editor carries the user layers

@@ -17,8 +17,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   align,
-  alignToArc,
-  alignToSegment,
   gridArcFromPoints,
   PCB_GRID_HELPER,
   type PcbGridState,
@@ -77,7 +75,10 @@ describe('alignToSegment (PCB_GRID_HELPER::AlignToSegment)', () => {
     // The vertical ray from that grid node crosses the centreline at the node's
     // own x, and is nearer to it than either diagonal. The cursor is on the
     // copper, at a point that still lines up with the grid.
-    expect(alignToSegment(pointer, TRACK, grid)).toEqual({ x: 2.5 * MM, y: 1_123_000 });
+    expect(new PCB_GRID_HELPER(grid).AlignToSegment(pointer, TRACK)).toEqual({
+      x: 2.5 * MM,
+      y: 1_123_000,
+    });
   });
 
   it('offers the diagonal crossings, and takes the nearest of the four', () => {
@@ -89,14 +90,17 @@ describe('alignToSegment (PCB_GRID_HELPER::AlignToSegment)', () => {
     // aligned = (4, 2) mm. The centreline is 0.877 mm above that, so the
     // vertical crossing is 0.877 mm away and each diagonal is 0.877·√2.
     expect(align(pointer, grid)).toEqual({ x: 4 * MM, y: 2 * MM });
-    expect(alignToSegment(pointer, TRACK, grid)).toEqual({ x: 4 * MM, y: 1_123_000 });
+    expect(new PCB_GRID_HELPER(grid).AlignToSegment(pointer, TRACK)).toEqual({
+      x: 4 * MM,
+      y: 1_123_000,
+    });
   });
 
   it('prefers an end when the pointer is near one', () => {
     // Measured from the raw pointer, not the grid node — upstream scores the
     // two ends against `aPoint` and the crossings against `aligned`.
     const pointer = { x: 100_000, y: 1_120_000 };
-    expect(alignToSegment(pointer, TRACK, gridState())).toEqual(TRACK.a);
+    expect(new PCB_GRID_HELPER(gridState()).AlignToSegment(pointer, TRACK)).toEqual(TRACK.a);
   });
 
   it('discards crossings that land beyond the track, and falls back to its end', () => {
@@ -104,19 +108,24 @@ describe('alignToSegment (PCB_GRID_HELPER::AlignToSegment)', () => {
     // each crossing is a millimetre off the segment, so `c_gridSnapEpsilon_sq`
     // throws them all away and the nearest end wins.
     const pointer = { x: 11 * MM, y: 1_123_000 };
-    expect(alignToSegment(pointer, TRACK, gridState())).toEqual(TRACK.b);
+    expect(new PCB_GRID_HELPER(gridState()).AlignToSegment(pointer, TRACK)).toEqual(TRACK.b);
   });
 
   it('is a plain grid align when snapping is off (Shift held)', () => {
     const pointer = { x: 2_600_000, y: 1_100_000 };
     const grid = gridState({ enableSnap: false });
-    expect(alignToSegment(pointer, TRACK, grid)).toEqual({ x: 2.5 * MM, y: 1 * MM });
+    expect(new PCB_GRID_HELPER(grid).AlignToSegment(pointer, TRACK)).toEqual({
+      x: 2.5 * MM,
+      y: 1 * MM,
+    });
   });
 
   it('survives a zero-length track rather than dividing by its direction', () => {
     const degenerate = { a: { x: 3 * MM, y: 3 * MM }, b: { x: 3 * MM, y: 3 * MM } };
     const pointer = { x: 3_100_000, y: 3_100_000 };
-    expect(alignToSegment(pointer, degenerate, gridState())).toEqual(degenerate.a);
+    expect(new PCB_GRID_HELPER(gridState()).AlignToSegment(pointer, degenerate)).toEqual(
+      degenerate.a,
+    );
   });
 });
 
@@ -126,7 +135,7 @@ describe('alignToArc (PCB_GRID_HELPER::AlignToArc)', () => {
 
   it('puts the cursor on the arc', () => {
     const pointer = { x: 700_000, y: 700_000 };
-    const got = alignToArc(pointer, ARC, gridState());
+    const got = new PCB_GRID_HELPER(gridState()).AlignToArc(pointer, ARC);
 
     // The +45° ray from the grid node (0.5, 0.5) mm meets the arc at 45°, which
     // is nearer to that node than any other crossing or either end.
@@ -138,7 +147,7 @@ describe('alignToArc (PCB_GRID_HELPER::AlignToArc)', () => {
 
   it('is a plain grid align when snapping is off', () => {
     const pointer = { x: 700_000, y: 700_000 };
-    expect(alignToArc(pointer, ARC, gridState({ enableSnap: false }))).toEqual({
+    expect(new PCB_GRID_HELPER(gridState({ enableSnap: false })).AlignToArc(pointer, ARC)).toEqual({
       x: 0.5 * MM,
       y: 0.5 * MM,
     });
@@ -172,7 +181,7 @@ describe('gridArcFromPoints (SHAPE_ARC from a curved track)', () => {
   it('produces no crossings from a degenerate arc, leaving only its ends', () => {
     const degenerate = gridArcFromPoints({ x: 0, y: 0 }, { x: 1 * MM, y: 0 }, { x: 2 * MM, y: 0 });
     const pointer = { x: 1_100_000, y: 100_000 };
-    const got = alignToArc(pointer, degenerate!, gridState());
+    const got = new PCB_GRID_HELPER(gridState()).AlignToArc(pointer, degenerate!);
 
     // Every crossing is suppressed, so the nearer end wins — the cursor stays
     // on the copper rather than leaping to the centre clamped at INT_MAX.
@@ -192,6 +201,15 @@ describe('PCB_GRID_HELPER (the helper the router asks)', () => {
       x: 2.5 * MM,
       y: 1_123_000,
     });
+  });
+
+  it('drops the last gesture\'s aux axis when SetState is handed none', () => {
+    // The editor holds one helper and re-states it per event; a gesture's
+    // origin must not outlive the gesture.
+    const helper = new PCB_GRID_HELPER(gridState({ auxAxis: { x: 1_234, y: 5_678 } }));
+    expect(helper.Align({ x: 1_300, y: 5_600 })).toEqual({ x: 1_234, y: 5_678 });
+    helper.SetState(gridState());
+    expect(helper.Align({ x: 1_300, y: 5_600 })).toEqual({ x: 0, y: 0 });
   });
 
   it('follows SetSnap on a long-lived helper', () => {

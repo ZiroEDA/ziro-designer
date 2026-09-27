@@ -207,8 +207,8 @@ describe('one ruler, three canvases', () => {
     // ruler on. The footprint editor called it `measure`: the button lit, the
     // canvas heard nothing, and the only ruler in that frame was the viewer's.
     const bars: [string, string][] = [
-      ['editors/pcb/pcbToolbars.ts', 'PCB_RIGHT'],
-      ['editors/footprint/footprintToolbars.ts', 'FP_RIGHT'],
+      ['../../pcbnew/toolbars_pcb_editor.ts', 'PCB_RIGHT'],
+      ['../../pcbnew/toolbars_footprint_editor.ts', 'FP_RIGHT'],
       ['../../cvpcb/toolbars_display_footprints.ts', 'viewer'],
       ['../../gerbview/toolbars_gerber.ts', 'GBR_LEFT'],
     ];

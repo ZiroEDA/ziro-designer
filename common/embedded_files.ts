@@ -16,8 +16,9 @@
  * `await EMBEDDED_FILES.InitCodec()` ahead of a parse that may meet data.
  * The C++ links libzstd and has no such step.
  *
- * Not ported: the disk-facing calls (`AddFile( wxFileName )`,
- * `ComputeFileHash`, `GetTemporaryFileName`, the fontconfig cache
+ * `AddFile( wxFileName, aOverwrite )` reads its "disk" through the in-memory
+ * mounts (`wxReadFileSync`). Not ported: the other disk-facing calls
+ * (`ComputeFileHash`, `GetTemporaryFileName`, the fontconfig cache
  * `UpdateFontFiles` / `GetFontFiles`) — there is no disk here.
  */
 
@@ -33,6 +34,7 @@ import {
   wxFindMount,
   wxGetTempDir,
   wxNormalizePath,
+  wxReadFileSync,
 } from './wx/filefn.js';
 
 /** `FILEEXT::KiCadUriPrefix`. */
@@ -227,9 +229,25 @@ export class EMBEDDED_FILES {
   }
 
   /**
+   * Load a file from disk and adds it to the collection.
+   *
+   * @param aName is the name of the file to load.
+   * @param aOverwrite is true if the file should be overwritten if it already exists in the
+   *                   collection.
+   * @return the file if it was added, or the existing one when @p aOverwrite is false; null
+   *         when it could not be read.
+   *
+   * "Disk" is whichever in-memory mount holds the path (`wxReadFileSync`).
+   */
+  AddFile(aName: string, aOverwrite: boolean): EMBEDDED_FILE | null;
+  /**
    * Append a file to the collection.  Ownership of @p aFile is transferred to the collection.
    */
-  AddFile(aFile: EMBEDDED_FILE | null): void {
+  AddFile(aFile: EMBEDDED_FILE | null): void;
+  AddFile(a: string | EMBEDDED_FILE | null, aOverwrite?: boolean): EMBEDDED_FILE | null | undefined {
+    if (typeof a === 'string') return this.addFileFromDisk(a, aOverwrite ?? false);
+
+    const aFile = a;
     if (!aFile) return;
 
     const name = aFile.name;
@@ -240,6 +258,54 @@ export class EMBEDDED_FILES {
     this.m_files.set(name, aFile);
 
     if (this.m_fileAddedCallback) this.m_fileAddedCallback(aFile);
+  }
+
+  /** `AddFile( const wxFileName& aName, bool aOverwrite )` (embedded_files.cpp:69-138). */
+  private addFileFromDisk(aPath: string, aOverwrite: boolean): EMBEDDED_FILE | null {
+    const fullName = fullNameOf(aPath);
+
+    if (this.HasFile(fullName)) {
+      if (!aOverwrite) return this.m_files.get(fullName)!;
+
+      this.m_files.delete(fullName);
+    }
+
+    // wxFFileInputStream file( aName.GetFullPath() ); if( !file.IsOk() ) return nullptr;
+    const bytes = wxReadFileSync(aPath);
+
+    if (!bytes) return null;
+
+    const efile = new EMBEDDED_FILE();
+    efile.name = fullName;
+
+    const dot = fullName.lastIndexOf('.');
+    const ext = dot > 0 ? fullName.slice(dot + 1).toUpperCase() : '';
+
+    // Handle some common file extensions
+    if (ext === 'STP' || ext === 'STPZ' || ext === 'STEP' || ext === 'WRL' || ext === 'WRZ') {
+      efile.type = FILE_TYPE.MODEL;
+    } else if (ext === 'WOFF' || ext === 'WOFF2' || ext === 'TTF' || ext === 'OTF') {
+      efile.type = FILE_TYPE.FONT;
+    } else if (ext === 'PDF') {
+      efile.type = FILE_TYPE.DATASHEET;
+    } else if (ext === 'KICAD_WKS') {
+      efile.type = FILE_TYPE.WORKSHEET;
+    }
+
+    // if( !efile->decompressedData.data() ) return nullptr;  - an empty vector has no data
+    if (bytes.length === 0) return null;
+
+    efile.decompressedData = bytes.slice();
+
+    if (EMBEDDED_FILES.CompressAndEncode(efile) !== RETURN_CODE.OK) return null;
+
+    efile.is_valid = true;
+
+    this.m_files.set(fullName, efile);
+
+    if (this.m_fileAddedCallback) this.m_fileAddedCallback(efile);
+
+    return efile;
   }
 
   /**

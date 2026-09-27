@@ -39,12 +39,12 @@ import {
   PCB_AUX_TOOLBAR,
   PCB_LEFT_TOOLBAR,
   PCB_RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
+} from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
 import {
   FP_TOP_TOOLBAR,
   FP_LEFT_TOOLBAR,
   FP_RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/footprint/footprintToolbars.js';
+} from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
 import {
   GBR_TOP_TOOLBAR,
   GBR_TOP_AUX_TOOLBAR,

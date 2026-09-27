@@ -43,7 +43,7 @@ import { DS_LEFT_TOOLBAR } from '@ziroeda/pagelayout_editor/toolbars_pl_editor.j
 import {
   PCB_LEFT_TOOLBAR,
   PCB_RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
+} from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
 import { GBR_LEFT_TOOLBAR } from '@ziroeda/gerbview/toolbars_gerber.js';
 import {
   SYM_LEFT_TOOLBAR,
@@ -52,7 +52,7 @@ import {
 import {
   FP_LEFT_TOOLBAR,
   FP_RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/footprint/footprintToolbars.js';
+} from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
 import {
   actionIsToolbarToggle,
   GROUP_ACTION_TOOLBAR_TOGGLE,

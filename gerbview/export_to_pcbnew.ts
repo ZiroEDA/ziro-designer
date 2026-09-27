@@ -47,7 +47,7 @@ import {
   LSET_Name,
   UNDEFINED_LAYER,
   UserMask,
-} from '@ziroeda/pcbnew/layer_ids.js';
+} from '@ziroeda/common/layer_ids.js';
 import { APERTURE_T, D_CODE } from './dcode.js';
 import { EXCELLON_IMAGE } from './excellon_read_drill_file.js';
 import { GBR_BASIC_SHAPE_TYPE, type GERBER_DRAW_ITEM } from './gerber_draw_item.js';

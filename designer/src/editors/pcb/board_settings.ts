@@ -23,7 +23,7 @@ import { defaultNetClasses, type NetClassesData } from '@ziroeda/common';
 import { RPT_SEVERITY_IGNORE, RPT_SEVERITY_WARNING } from '@ziroeda/common/reporter.js';
 import { BOARD_DESIGN_SETTINGS } from '@ziroeda/pcbnew/board_design_settings.js';
 import { DRC_ITEM } from '@ziroeda/pcbnew/drc/drc_item.js';
-import { AllCuMask, LSET_Name } from '@ziroeda/pcbnew/layer_ids.js';
+import { AllCuMask, LSET_Name } from '@ziroeda/common/layer_ids.js';
 import {
   defaultEmbeddedFiles,
   type EmbeddedFilesData,
@@ -316,7 +316,7 @@ export interface PhysicalStackup {
 /**
  * The copper stack, front to back, as canonical layer names — `LSET::AllCuMask(
  * n )` walked by its own copper iterator, which reaches **B.Cu last**, after
- * the inner layers (`pcbnew/layer_ids.ts`, `common/lset.cpp:838-885`).
+ * the inner layers (`common/layer_ids.ts`, `common/lset.cpp:838-885`).
  *
  * Exported because four places need this one list and three of them had grown
  * their own `['F.Cu', ...In, 'B.Cu']`: the stackup builder, `syncCopperLayers`,

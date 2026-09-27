@@ -30,10 +30,10 @@ const src = (rel: string): string =>
 const FRAMES: [string, string][] = [
   ['schematic', 'editors/schematic/menubar.ts'],
   ['symbol editor', 'editors/symbol/menubar.ts'],
-  ['footprint editor', 'editors/footprint/menubar.ts'],
+  ['footprint editor', '../../pcbnew/menubar_footprint_editor.ts'],
   // The board editor's bar is a data module, like the three above it. The frame
   // still exists; it just no longer holds the rows.
-  ['board editor', 'editors/pcb/menubar.ts'],
+  ['board editor', '../../pcbnew/menubar_pcb_editor.ts'],
   ['gerber viewer', '../../gerbview/menubar.ts'],
   ['project manager', 'home/menubar.ts'],
   ['assign footprints', '../../cvpcb/cvpcb_mainframe_ui.tsx'],
@@ -88,7 +88,7 @@ describe('the library tables stay', () => {
    * dialogs are built.
    */
   it('the board editor offers the footprint table its board is written against', () => {
-    expect(src('editors/pcb/menubar.ts')).toContain('Manage Footprint Libraries...');
+    expect(src('../../pcbnew/menubar_pcb_editor.ts')).toContain('Manage Footprint Libraries...');
   });
 
   it('and the schematic actually opens the symbol one', () => {

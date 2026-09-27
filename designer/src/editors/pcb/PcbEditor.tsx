@@ -261,7 +261,7 @@ import {
   barcodeValues,
 } from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties.js';
 import { DialogBarcodeProperties } from './dialogs/dialog_barcode_properties.js';
-import { GetLayerName } from '@ziroeda/pcbnew/layer_ids.js';
+import { GetLayerName } from '@ziroeda/common/layer_ids.js';
 import {
   boardIsEmpty,
   hasLockedItems,
@@ -274,7 +274,7 @@ import type { PnsDesignSettings } from '@ziroeda/pcbnew/router/pns_board_iface.j
 import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
 import { ReferenceImageCache } from './image_cache.js';
 import { cleanup3dCache } from './model_cache.js';
-import { buildPcbMenus } from './menubar.js';
+import { buildPcbMenus } from '@ziroeda/pcbnew/menubar_pcb_editor.js';
 import { Viewer3DFrame } from './Viewer3DFrame.js';
 import { dimensionDefaultsFrom, dimensionToolKind } from './dimension_tools.js';
 import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties.js';
@@ -317,7 +317,7 @@ import {
   type MenuItem,
 } from '@ziroeda/common/tool/action_menu_bar.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { layerBoxLabel, layerForHotkey } from './layer_box_label.js';
+import { layerBoxLabel, layerForHotkey } from '@ziroeda/pcbnew/pcb_layer_box_selector.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
 import { PCB_FRAME_NAME, pcbFrameTitle } from './frame_title.js';
@@ -328,7 +328,7 @@ import {
   parseClipboardText,
   pasteIntoBoard,
   type PasteMode,
-} from '@ziroeda/pcbnew/pcb_clipboard.js';
+} from '@ziroeda/pcbnew/kicad_clipboard.js';
 import {
   DialogPasteSpecial,
   type PasteSpecialMode,
@@ -419,13 +419,8 @@ import {
   SelectionFilterPanel,
   type SelectionFilterItem,
 } from '../../widgets/panel_selection_filter.js';
-import { align, type PcbGridState } from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
-import {
-  bestDragOrigin,
-  bestSnapAnchor,
-  type BoardCursorSnap,
-  snapToBoardCopper,
-} from '@ziroeda/pcbnew/pcb_cursor_snap.js';
+import { PCB_GRID_HELPER, type PcbGridState } from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
+import { type BoardCursorSnap, snapToBoardCopper } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
 import { inheritTrackWidth } from '@ziroeda/pcbnew/inherit_track_width.js';
 import { moveDelta } from './pcb_grid.js';
 import { contextMenuPick } from './pcb_context_selection.js';
@@ -591,7 +586,7 @@ import {
   menuSeparator,
 } from '@ziroeda/common/tool/conditional_menu.js';
 import { standardSubMenuEntries } from '@ziroeda/common/eda_draw_frame_submenus.js';
-import { PCB_CONTROL, PCB_DEFAULT_TOOLBARS } from './pcbToolbars.js';
+import { PCB_CONTROL, PCB_DEFAULT_TOOLBARS } from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import '@ziroeda/common/widgets/shell.css';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
@@ -1701,6 +1696,17 @@ export function PcbEditor({
     auxAxis: auxAxisRef.current,
   });
   /**
+   * The editor's `PCB_GRID_HELPER`, held for its life as a tool holds its
+   * `m_gridHelper` (`PCB_TOOL_BASE`, `ROUTER_TOOL`, `EDIT_TOOL`); each ask
+   * pokes this event's state into it, as upstream's handlers call
+   * `SetUseGrid` / `SetSnap` / `SetAuxAxes` on the long-lived one.
+   */
+  const gridHelperRef = useRef<PCB_GRID_HELPER | null>(null);
+  const gridHelper = (): PCB_GRID_HELPER => {
+    gridHelperRef.current ??= new PCB_GRID_HELPER();
+    return gridHelperRef.current.SetState(gridState());
+  };
+  /**
    * What the drawing sheet is drawn from — `DS_PROXY_VIEW_ITEM`'s properties.
    *
    * One function because two callers must not disagree: the painter, and the
@@ -1721,7 +1727,7 @@ export function PcbEditor({
   // and quantise the gesture's origin away again — which is the bug this is
   // here to prevent, so there is deliberately no other route to the grid.
   const snapToGrid = (p: { x: number; y: number }): { x: number; y: number } =>
-    align(p, gridState());
+    gridHelper().Align(p);
   // Where the routing crosshair actually goes — `controls()->ForceCursorPosition(
   // true, m_endSnapPoint )` at the end of `TOOL_BASE::updateEndItem`. `draw` is
   // memoised long before `copperAt` exists, so it reads the live one off a ref
@@ -1754,7 +1760,7 @@ export function PcbEditor({
 
     if (!brd) return snapToGrid(w);
 
-    return bestSnapAnchor(brd, w, gridState(), {
+    return gridHelper().BestSnapAnchor(brd, w, {
       // `view->ToWorld( 25 )` and `view->ToWorld( m_SnapHysteresis )`.
       snapScale: 25 / viewRef.current.scale,
       hysteresis: 5 / viewRef.current.scale,
@@ -4599,7 +4605,7 @@ export function PcbEditor({
     // `grid.BestSnapAnchor( refPt, nullptr )`, the multi-item branch's snap.
     return (
       modificationPoint(brd, items, (p) =>
-        bestSnapAnchor(brd, p, gridState(), {
+        gridHelper().BestSnapAnchor(brd, p, {
           snapScale: 25 / viewRef.current.scale,
           hysteresis: 5 / viewRef.current.scale,
           visibleGrid: gridIURef.current,
@@ -7063,7 +7069,7 @@ export function PcbEditor({
   const copperAt = (w: { x: number; y: number }): BoardCursorSnap | null => {
     const brd = boardRef.current;
     if (!brd) return null;
-    return snapToBoardCopper(brd, w, gridState(), {
+    return snapToBoardCopper(brd, w, gridHelper(), {
       tol: tolOf(),
       // `pickSingleItem`'s `tl`, the view's top layer. A preference, not a
       // filter: an item elsewhere is still picked when this layer has none.
@@ -7085,7 +7091,7 @@ export function PcbEditor({
     const brd = boardRef.current;
     if (!brd) return snapToGrid(w);
     return (
-      snapToBoardCopper(brd, w, gridState(), {
+      snapToBoardCopper(brd, w, gridHelper(), {
         tol: tolOf(),
         layer: /\.Cu$/.test(activeLayerRef.current) ? activeLayerRef.current : undefined,
         avoid: aAvoid ?? undefined,
@@ -8137,7 +8143,9 @@ export function PcbEditor({
     // keeps the part's *original* off-grid position reachable, so a move that
     // changes its mind can put it back exactly.
     auxAxisRef.current = null;
-    const dragOrigin = bestDragOrigin(brd, sel, origin, { gridSize: gridIURef.current });
+    const dragOrigin = gridHelper().BestDragOrigin(brd, sel, origin, {
+      gridSize: gridIURef.current,
+    });
     moveAnchorRef.current = dragOrigin;
     auxAxisRef.current = dragOrigin;
     const fpIdx = new Set<number>();
@@ -8307,7 +8315,7 @@ export function PcbEditor({
     const brd = boardRef.current;
     if (!brd) return snapToGrid(w);
     const id = editHandleItemRef.current;
-    return bestSnapAnchor(brd, w, gridState(), {
+    return gridHelper().BestSnapAnchor(brd, w, {
       snapScale: 25 / viewRef.current.scale,
       hysteresis: 5 / viewRef.current.scale,
       visibleGrid: gridIURef.current,
@@ -8672,7 +8680,7 @@ export function PcbEditor({
   const moveSnap = (raw: { x: number; y: number }): { x: number; y: number } => {
     const brd = boardRef.current;
     if (!brd) return snapToGrid(raw);
-    return bestSnapAnchor(brd, raw, gridState(), {
+    return gridHelper().BestSnapAnchor(brd, raw, {
       snapScale: 25 / viewRef.current.scale,
       hysteresis: 5 / viewRef.current.scale,
       visibleGrid: gridIURef.current,

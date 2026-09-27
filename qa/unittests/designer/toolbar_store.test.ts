@@ -39,7 +39,7 @@ import {
   DS_TOP_TOOLBAR,
 } from '@ziroeda/pagelayout_editor/toolbars_pl_editor.js';
 import { SCH_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
-import { PCB_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
+import { PCB_DEFAULT_TOOLBARS } from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 import {
   EESCHEMA_DEFAULTS,

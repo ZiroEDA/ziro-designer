@@ -42,7 +42,7 @@ import {
   setupSplineOrLine,
 } from '@ziroeda/common/import_gfx/graphics_importer.js';
 import { LINE_STYLE } from '@ziroeda/common/stroke_params.js';
-import type { PCB_LAYER_NAME } from '../layer_ids.js';
+import type { PCB_LAYER_NAME } from '@ziroeda/common/layer_ids.js';
 import { joinJustify } from '../textbox_properties.js';
 import type { PcbShape, PcbTextItem, StrokeType } from '../types.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';

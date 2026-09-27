@@ -16,6 +16,7 @@ import { LSET } from '@ziroeda/common/lset.js';
 import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { CLEARANCE_LAYER_FOR, IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { EMBED_TOOL } from '@ziroeda/common/tool/embed_tool.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { VIEW_UPDATE_FLAGS, type VIEW_ITEM } from '@ziroeda/common/view/view_item.js';
 import { FLIP_DIRECTION } from '@ziroeda/kimath/src/core/mirror.js';
@@ -159,8 +160,8 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
   /**
    * `PCB_EDIT_FRAME::setupTools` (pcb_edit_frame.cpp:940): the manager, its
-   * environment, the tools registered in the C++ order - DRC_TOOL is the one
-   * ported so far (#636 stage 4d); the rest are stage 3's.
+   * environment, the tools registered in the C++ order - DRC_TOOL (#636 stage
+   * 4d) and common's EMBED_TOOL are the ones ported so far; the rest are stage 3's.
    */
   private setupTools(): void {
     // Create the manager and dispatcher & route draw panel events to the dispatcher
@@ -169,6 +170,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
     // Register tools
     this.m_toolManager.RegisterTool(new DRC_TOOL());
+    void EMBED_TOOL;
     this.m_toolManager.InitTools();
 
     for (const tool of this.m_toolManager.Tools()) {

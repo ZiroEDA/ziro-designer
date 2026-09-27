@@ -23,7 +23,7 @@ import { FLIP_DIRECTION, serializeFootprint } from '@ziroeda/pcbnew/write-footpr
 import { FlipLayer, type PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { LAYER_T } from '@ziroeda/pcbnew/board_types.js';
-import { B_Cu, F_Cu, In_Cu, User_1 } from '@ziroeda/pcbnew/layer_ids.js';
+import { B_Cu, F_Cu, In_Cu, User_1 } from '@ziroeda/common/layer_ids.js';
 import { emptyBOARD } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';
 

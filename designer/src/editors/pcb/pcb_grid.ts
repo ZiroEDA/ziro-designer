@@ -24,28 +24,10 @@
  * fails the workspace typecheck even though vitest runs it happily.
  */
 
-import { computeNearest } from '@ziroeda/common/tool/grid_helper.js';
-
 /** A point in internal units. */
 export interface GridPoint {
   x: number;
   y: number;
-}
-
-/**
- * `GRID_HELPER::computeNearest`: the nearest node of a grid of `size`, anchored
- * at `origin`.
- *
- * Both the crosshair and the move go through this, which is what makes a
- * dragged item follow the snapped crosshair rather than the raw pointer
- * (`edit_tool_move_fct.cpp`: `m_cursor = grid.BestSnapAnchor( mousePos )`,
- * `movement = m_cursor - prevPos`).
- */
-export function snapToGridSize(p: GridPoint, size: number, origin: GridPoint): GridPoint {
-  // Our guard, not upstream's: a GAL grid is never zero, and `computeNearest`
-  // would divide by it.
-  if (!(size > 0)) return { x: p.x, y: p.y };
-  return computeNearest(p, { x: size, y: size }, origin);
 }
 
 /**

@@ -106,7 +106,7 @@ import type {
 import type { ZoneConnection } from './zone_connection.js';
 import type { BOARD } from './board.js';
 import type { BOARD_ITEM } from './board_item.js';
-import { LSET_NameToLayer, type PCB_LAYER_NAME } from './layer_ids.js';
+import { LSET_NameToLayer, type PCB_LAYER_NAME } from '@ziroeda/common/layer_ids.js';
 import { DRC_ENGINE } from './drc/drc_engine.js';
 import { DRC_CONSTRAINT_T } from './drc/drc_rule.js';
 import { ZONE_CONNECTION } from './zones.js';

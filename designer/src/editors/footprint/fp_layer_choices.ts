@@ -45,7 +45,7 @@ import {
   LayerSelectorUIOrder,
   MAX_CU_LAYERS,
   Margin,
-} from '@ziroeda/pcbnew/layer_ids.js';
+} from '@ziroeda/common/layer_ids.js';
 import { fpBackgroundDefault } from './fpColorLayers.js';
 import { layerChoice, type LayerChoice } from '../pcb/pcb_layer_presentation.js';
 

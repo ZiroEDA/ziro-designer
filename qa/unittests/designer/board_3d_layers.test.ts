@@ -21,7 +21,7 @@ import {
   F_Paste,
   F_SilkS,
   In_Cu,
-} from '@ziroeda/pcbnew/layer_ids.js';
+} from '@ziroeda/common/layer_ids.js';
 import type { Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import {
   DEFAULT_HOLE_PLATING_THICKNESS,

@@ -45,7 +45,7 @@ import {
   Rescue,
   User_1,
 } from '@ziroeda/common/layer_id.js';
-import { In_Cu } from './layer_ids.js';
+import { In_Cu } from '@ziroeda/common/layer_ids.js';
 import type { LSEQ } from '@ziroeda/common/lseq.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import {

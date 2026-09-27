@@ -65,7 +65,7 @@ import {
   GRID_CELL_LAYER_RENDERER,
   GRID_CELL_LAYER_SELECTOR,
 } from '@ziroeda/pcbnew/grid_layer_box_helpers.js';
-import { LSET_Name, LSET_NameToLayer } from '@ziroeda/pcbnew/layer_ids.js';
+import { LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
 import { allLayerChoices, choiceOf } from '../fp_layer_choices.js';
 import type { FpTextItem } from '../../../prefs/settings.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
