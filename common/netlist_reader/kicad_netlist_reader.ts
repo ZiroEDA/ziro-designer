@@ -229,7 +229,7 @@ export function parseKicadNetlist(root: SList, netlist: NETLIST): void {
         for (const libpart of childrenNamed(section, 'libpart')) parseLibPartList(netlist, libpart);
         break;
       default:
-        // version / design / libraries / variants / net_chains: nothing to do.
+        // version / design / libraries / variants: nothing to do.
         break;
     }
   }

@@ -87,7 +87,6 @@ const ENUMS: Record<string, readonly string[]> = {
   'labels.kind': ['label', 'global_label', 'hierarchical_label', 'text'],
   'labels.shape': ['input', 'output', 'bidirectional', 'tri_state', 'passive'],
   'symbols.mirror': ['x', 'y'],
-  'symbols.passthrough': ['block', 'force'],
   'busEntries.kind': ['wire', 'bus'],
   'directiveLabels.shape': ['dot', 'round', 'diamond', 'rectangle'],
 };

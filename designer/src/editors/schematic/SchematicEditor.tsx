@@ -176,10 +176,6 @@ import {
   symbolLibIdRows,
   orphanCandidates,
   libIdChangeCommand,
-  detectFieldCaseConflicts,
-  resolveFieldCaseConflictsCommand,
-  type FieldCaseAction,
-  type FieldCaseConflict,
   type ChangeSymbolsMessage,
   type ChangeSymbolsMode,
   type ChangeSymbolsOptions,
@@ -421,7 +417,6 @@ import {
 } from './dialogs/dialog_global_edit_text_and_graphics.js';
 import { DialogChangeSymbols, type ChangeSymbolsSubject } from './dialogs/dialog_change_symbols.js';
 import { DialogEditSymbolsLibId } from './dialogs/dialog_edit_symbols_libid.js';
-import { DialogResolveFieldCaseConflicts } from './dialogs/dialog_resolve_field_case_conflicts.js';
 import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
 import { DialogLineProperties, type ItemColor } from './dialogs/dialog_line_properties.js';
 import { DialogEeschemaPageSettings } from '../../dialogs/dialog_eeschema_page_settings.js';
@@ -453,10 +448,6 @@ import {
   type SchematicSetup,
 } from './dialogs/dialog_schematic_setup.js';
 import {
-  DialogCreateNetChain,
-  type CreateChainFocusHint,
-} from './dialogs/dialog_create_net_chain.js';
-import {
   findProjectPro,
   readSchematicSetup,
   writeEquivalenceFilesText,
@@ -477,17 +468,8 @@ import { computeNetClassOverrides } from './net_overrides.js';
 import {
   RefDesTracker,
   buildPageRefsMap,
-  chainPatternAssignments,
   connectionName,
   equivalentBusNames,
-  detectNetChains,
-  isValidNetChainName,
-  netChainsCommand,
-  readNetChains,
-  removeFromNetChainCommand,
-  restoreCommittedNetChains,
-  writeNetChains,
-  type CommittedNetChain,
   intersheetRefsText,
   addEmbeddedFile,
   embeddedFilesCommand,
@@ -1816,7 +1798,7 @@ export function SchematicEditor({
   // user just changed depends on it, so the edit is painted first and the nets
   // are rebuilt immediately afterwards, with the previous result left on screen
   // for that one frame rather than blanking. Everything derived from the graph
-  // (net colours, netclass widths, chains) keys off `connDoc` so it stays
+  // (net colours, netclass widths) keys off `connDoc` so it stays
   // self-consistent; a wire drawn this frame simply has no override yet.
   //
   // This does not widen any window a caller could observe: a handler that edits
@@ -1835,29 +1817,6 @@ export function SchematicEditor({
     () => (connDoc ? computeNetlist(connDoc, libById, { busAliases }) : null),
     [connDoc, libById, busAliases],
   );
-  // This run's potential chains (RebuildNetChains) and the committed chains
-  // restored against them, shared by netclass resolution, the highlight
-  // actions and the Create Net Chain dialog.
-  const potentialChains = useMemo(
-    () => (connDoc && netlist ? detectNetChains(connDoc, libById, netlist) : []),
-    [connDoc, libById, netlist],
-  );
-  const committedChains = useMemo(() => {
-    if (!connDoc) return [];
-    return netlist
-      ? restoreCommittedNetChains(
-          connDoc,
-          libById,
-          netlist,
-          potentialChains,
-          readNetChains(connDoc),
-        )
-      : readNetChains(connDoc);
-  }, [connDoc, libById, netlist, potentialChains]);
-
-  // SetHighlightedNetChain (SCHEMATIC::m_highlightedNetChain): exclusive with
-  // the plain net highlight, like upstream.
-  const [highlightedChain, setHighlightedChain] = useState<string | null>(null);
   /**
    * A net highlighted by a `$NET:` probe from the board, subject to
    * `cross_probing.auto_highlight` — `if( !crossProbingSettings.auto_highlight )
@@ -1906,18 +1865,7 @@ export function SchematicEditor({
   const { highlightWires, highlightName } = useMemo(() => {
     const items = new Set<string>();
     let name: string | null = null;
-    if (netlist && highlightedChain !== null) {
-      // A highlighted chain brightens every member net's items
-      // (UpdateNetHighlighting walks the chain's nets).
-      const chain = committedChains.find((c) => c.name === highlightedChain);
-      if (chain) {
-        name = chain.name;
-        for (const netName of chain.nets) {
-          const net = netlist.nets.find((n) => n.name === netName);
-          if (net) for (const item of net.items) items.add(item);
-        }
-      }
-    } else if (netlist && (highlightItem !== null || probedNet !== null)) {
+    if (netlist && (highlightItem !== null || probedNet !== null)) {
       // `$NET: "<name>"` from the board (`eeschema/cross-probing.cpp:225-250`)
       // names a net directly, where a click names an ITEM and the net is
       // derived from it. Both end in the same `connNames` walk below, which is
@@ -1944,21 +1892,14 @@ export function SchematicEditor({
       }
     }
     return { highlightWires: items, highlightName: name };
-  }, [netlist, highlightItem, highlightedChain, highlightBusMembers, committedChains, probedNet]);
+  }, [netlist, highlightItem, highlightBusMembers, probedNet]);
 
-  // Cross-probe the highlight to the PCB editor. A highlighted chain probes its
-  // first member net, the PCB side takes one net, as upstream notes when it
-  // cross-probes a chain (sch_editor_control.cpp:1250).
-  const crossProbeNet = useMemo(() => {
-    if (highlightedChain !== null)
-      return committedChains.find((c) => c.name === highlightedChain)?.nets[0] ?? null;
-    return highlightName;
-  }, [highlightedChain, highlightName, committedChains]);
+  // Cross-probe the highlight to the PCB editor.
   useEffect(() => {
     const frame = schFrameRef.current!;
-    if (crossProbeNet === null) frame.SendCrossProbeClearHighlight();
-    else frame.SendCrossProbeNetName(crossProbeNet);
-  }, [crossProbeNet]);
+    if (highlightName === null) frame.SendCrossProbeClearHighlight();
+    else frame.SendCrossProbeNetName(highlightName);
+  }, [highlightName]);
 
   /**
    * ...and the board's selection arriving HERE — `SCH_SELECTION_TOOL::
@@ -2076,19 +2017,6 @@ export function SchematicEditor({
     return () => clearTimeout(t);
   }, [flashPhase]);
 
-  // Wire tint while a coloured chain is highlighted (painter chain block).
-  const chainHighlight = useMemo(() => {
-    if (!netlist || highlightedChain === null) return undefined;
-    const chain = committedChains.find((c) => c.name === highlightedChain);
-    if (!chain || chain.color === '') return undefined;
-    const lineIds = new Set<string>();
-    for (const netName of chain.nets) {
-      const net = netlist.nets.find((n) => n.name === netName);
-      if (net) for (const item of net.items) lineIds.add(item);
-    }
-    return { lineIds, color: chain.color };
-  }, [netlist, highlightedChain, committedChains]);
-
   // The live document for stable callbacks is `docRef`, kept by `setDoc`.
   // Which file that document is, for the same reason: an undo step is applied
   // inside a `setDoc` updater, where the state value of `currentFile` may be a
@@ -2140,11 +2068,10 @@ export function SchematicEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // SCH_EDITOR_CONTROL::ClearHighlight, the net, the chain and the bus-member
-  // mode all drop together (`~`, Esc, or a click on empty space).
+  // SCH_EDITOR_CONTROL::ClearHighlight, the net and the bus-member mode drop
+  // together (`~`, Esc, or a click on empty space).
   const clearHighlight = useCallback(() => {
     setHighlightItem(null);
-    setHighlightedChain(null);
     setHighlightBusMembers(false);
   }, []);
 
@@ -2152,12 +2079,8 @@ export function SchematicEditor({
   // stays stable across renders.
   const netlistRef = useRef(netlist);
   netlistRef.current = netlist;
-  const chainsRef = useRef(committedChains);
-  chainsRef.current = committedChains;
-  // GetHighlightedConnection(): empty while a chain is highlighted, since the
-  // two modes are exclusive upstream.
   const highlightConnRef = useRef<string | null>(null);
-  highlightConnRef.current = highlightedChain !== null ? null : highlightName;
+  highlightConnRef.current = highlightName;
 
   // Highlight-Net tool, a port of eeschema's static highlightNet()
   // (sch_editor_control.cpp:1051). The selection is left alone: upstream's
@@ -2172,28 +2095,18 @@ export function SchematicEditor({
     const nl = netlistRef.current;
     const name = id !== null && nl ? connectionName(nl, id) : null;
     if (name === null) {
-      // No connection under the cursor: clear the net *and* the chain highlight.
+      // No connection under the cursor: clear the highlight.
       setHighlightItem(null);
-      setHighlightedChain(null);
       setHighlightBusMembers(false);
       return;
     }
     if (name !== highlightConnRef.current) {
       setHighlightBusMembers(false);
-      setHighlightedChain(null);
       setHighlightItem(id);
       return;
     }
-    // Same net re-invoked: expand to the chain that contains it, or fall back
-    // to toggling the bus members in and out of the highlight.
-    const chain = chainsRef.current.find((c) => c.nets.includes(name));
-    if (chain) {
-      setHighlightItem(null);
-      setHighlightBusMembers(false);
-      setHighlightedChain(chain.name);
-    } else {
-      setHighlightBusMembers((v) => !v);
-    }
+    // Same net re-invoked: toggle the bus members in and out of the highlight.
+    setHighlightBusMembers((v) => !v);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -3070,28 +2983,12 @@ export function SchematicEditor({
   // ERC severities + pin-conflict map that the ERC checker reads. (The setup
   // state itself is declared above the netlist memo, which consumes it.)
   const [setupOpen, setSetupOpen] = useState(false);
-  // Net-chain tools: the Create Net Chain dialog (ShowCreateNetChain) and the
-  // Name Net Chain prompt (NameNetChain's wxGetTextFromUser).
-  const [createChainOpen, setCreateChainOpen] = useState(false);
-  const [chainRename, setChainRename] = useState<{ orig: string; name: string } | null>(null);
-
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts. Registered only while the dialog is up, so a
-  // closed one does not sit on the stack swallowing the key.
-  useModalEscape(() => setChainRename(null), chainRename !== null);
   // Generate Bill of Materials (Symbol Fields Table export) dialog.
   const [bomOpen, setBomOpen] = useState(false);
   // Export Netlist (DIALOG_EXPORT_NETLIST) dialog.
   const [netlistOpen, setNetlistOpen] = useState(false);
   // Bulk Edit Symbol Fields (Symbol Fields Table edit view) dialog.
   const [fieldsTableOpen, setFieldsTableOpen] = useState(false);
-  // DIALOG_RESOLVE_FIELD_CASE_CONFLICTS gates the fields table: two field names
-  // differing only in case cannot both be a column, so the table will not open
-  // until they are resolved. `pending` is the view it should open afterwards.
-  const [caseConflicts, setCaseConflicts] = useState<{
-    list: readonly FieldCaseConflict[];
-    pending: 'edit' | 'bom';
-  } | null>(null);
   // Symbol Library Browser (SYMBOL_VIEWER_FRAME).
   const [browserOpen, setBrowserOpen] = useState(false);
   // Assign Footprints (CVPCB_MAINFRAME).
@@ -3318,9 +3215,6 @@ export function SchematicEditor({
   // Per-item netclass render fallbacks (wire colour/width/style, junction
   // clamp) for the current sheet, reuses the connectivity memo; undefined
   // when no class carries a visual parameter.
-  // Committed-chain netclass overrides join the per-net resolution
-  // (CONNECTION_GRAPH::ApplyNetChainNetclasses feeds NET_SETTINGS' chain
-  // pattern assignments) so member nets draw with the chain's netclass.
   // Keyed on connDoc alongside the graph it resolves against, the ids in the
   // override maps are only meaningful for the document the netlist was built
   // from. An item added since simply has no override for a frame.
@@ -3328,7 +3222,6 @@ export function SchematicEditor({
     () =>
       connDoc
         ? computeNetClassOverrides(connDoc, libById, setup, netlist, [
-            ...chainPatternAssignments(committedChains),
             // Netclass directive labels assign to whatever net they sit on.
             ...directiveNetclassAssignments(connDoc, netlist),
             // ...and a rule area assigns to every net it encloses, from the
@@ -3337,7 +3230,7 @@ export function SchematicEditor({
             ...ruleAreaNetclassAssignments(connDoc, libById, netlist),
           ])
         : undefined,
-    [connDoc, libById, setup, netlist, committedChains],
+    [connDoc, libById, setup, netlist],
   );
 
   // `${VAR}` resolver for a document: project text variables (Schematic Setup
@@ -3706,34 +3599,11 @@ export function SchematicEditor({
     }
   }, [pendingRemoteChange, sheetInstanceRefs, currentFile, applySheetDocument]);
 
-  /** Open the fields table, unless its field names have to be resolved first. */
-  const openFieldsTable = useCallback(
-    (view: 'edit' | 'bom') => {
-      const conflicts = doc ? detectFieldCaseConflicts(doc) : [];
-      if (conflicts.length > 0) {
-        setCaseConflicts({ list: conflicts, pending: view });
-        return;
-      }
-      if (view === 'bom') setBomOpen(true);
-      else setFieldsTableOpen(true);
-    },
-    [doc],
-  );
-
-  const applyCaseConflicts = useCallback(
-    (actions: Map<string, FieldCaseAction>, separator: string) => {
-      if (!doc || !caseConflicts) return;
-      const cmd = resolveFieldCaseConflictsCommand(doc, caseConflicts.list, actions, separator);
-      if (cmd) runCommand(cmd);
-      const view = caseConflicts.pending;
-      setCaseConflicts(null);
-      // Resolving only the first two spellings of a name can leave a third, so
-      // the table opens on the next pass rather than after this one.
-      if (view === 'bom') setBomOpen(true);
-      else setFieldsTableOpen(true);
-    },
-    [doc, caseConflicts, runCommand],
-  );
+  /** Open the fields table (DIALOG_SYMBOL_FIELDS_TABLE opens directly). */
+  const openFieldsTable = useCallback((view: 'edit' | 'bom') => {
+    if (view === 'bom') setBomOpen(true);
+    else setFieldsTableOpen(true);
+  }, []);
 
   // Bulk Edit Symbol Library Links (DIALOG_EDIT_SYMBOLS_LIBID). A bad row keeps
   // the dialog open on its error rather than closing on a half-applied edit.
@@ -4842,7 +4712,6 @@ export function SchematicEditor({
   const resetTransient = useCallback(() => {
     setSelection(new Set());
     setHighlightItem(null);
-    setHighlightedChain(null);
     setHighlightBusMembers(false);
     setPendingLabel(null);
     setActiveTool('select');
@@ -6500,8 +6369,6 @@ export function SchematicEditor({
       ...(resolveTextVar ? { resolveTextVar } : {}),
       // ${INTERSHEET_REFS} on global labels (LAYER_INTERSHEET_REFS shown).
       ...(intersheetRefs ? { intersheetRefs } : {}),
-      // Highlighted-chain wire tint (SetHighlightedNetChain + chain colour).
-      ...(chainHighlight ? { chainHighlight } : {}),
       selectionThicknessMils: es.selection.thickness,
       highlightThicknessMils: es.selection.highlight_thickness,
       grid: {
@@ -7600,9 +7467,6 @@ export function SchematicEditor({
       else if (id === 'revert') revert();
       else if (id === 'erc') setErcOpen(true);
       else if (id === 'manageSymbolLibraries') setSymLibTableOpen(true);
-      // SCH_EDITOR_CONTROL::ShowCreateNetChain opens whatever is selected; a
-      // symbol selection only pre-fills the dialog's from/to focus hint.
-      else if (id === 'createNetChain') setCreateChainOpen(true);
       else if (id === 'ercPrevMarker' || id === 'ercNextMarker' || id === 'ercExcludeMarker') {
         // The dialog owns the tree, so raise it first and act on the next tick,
         // when it has mounted and filled in the ref (dlg->Show(true); dlg->Raise();
@@ -7785,37 +7649,14 @@ export function SchematicEditor({
       } else if (id === 'schematicSetup') {
         // The Embedded Files page lists the sheet's embedded_files section
         // (names + embed-fonts flag) fresh from the document on every open,
-        // read-only until the zstd blobs can be decoded, and the Net Chains
-        // page shows the engine's detected (potential) chains
-        // (CONNECTION_GRAPH::RebuildNetChains), each keeping its persisted
-        // chain-class assignment.
+        // read-only until the zstd blobs can be decoded.
         if (doc) {
           const emb = listEmbeddedFiles(doc);
-          const detected = netlist ? detectNetChains(doc, libById, netlist) : [];
           setSetup((prev) => ({
             ...prev,
             embeddedFiles: {
               files: emb.files.map((f) => ({ name: f.name, reference: f.reference })),
               embedFonts: emb.embedFonts,
-            },
-            netChains: {
-              ...prev.netChains,
-              // The grid lists committed chains (PANEL_SETUP_NET_CHAINS::
-              // loadFromModel): persisted (net_chain …) nodes restored against
-              // this run's potentials (RebuildNetChains passes 2a/2b).
-              chains: (netlist
-                ? restoreCommittedNetChains(doc, libById, netlist, detected, readNetChains(doc))
-                : readNetChains(doc)
-              ).map((c) => ({
-                origName: c.name,
-                name: c.name,
-                members: [...c.nets],
-                chainClass: prev.netChains.classByChain[c.name] ?? '',
-                netClass: c.netClass,
-                color: c.color,
-                from: c.from,
-                to: c.to,
-              })),
             },
           }));
         }
@@ -7988,7 +7829,6 @@ export function SchematicEditor({
     //   200   Transform, Attributes, Properties…  sch_edit_tool.cpp
     //   250   sheet pins, labels, netclass, Lock  sch_selection_tool / sch_edit_tool
     //   300   the clipboard block                 sch_edit_tool.cpp
-    //   400   net chain menu                      sch_selection_tool.cpp
     //   401   Select All / Unselect All           sch_edit_tool.cpp
     //  1000   Zoom / Grid                         AddStandardSubMenus
     //
@@ -8567,72 +8407,26 @@ export function SchematicEditor({
           tool('Place Global Label', 'placeGlobalLabel', 'Ctrl+L'),
           tool('Place Hierarchical Label', 'placeHierLabel', 'H'),
         );
-      // SCH_SELECTION_TOOL's net-chain menu: Create for symbols-only
-      // selections; Highlight / Remove-from / Name when the hit item's net
-      // belongs to a committed chain.
+      // SCH_ACTIONS::clearHighlight (sch_selection_tool.cpp:353), rank 1,
+      // right after the group-enter items.
+      if (highlightItem !== null)
+        add(1.9, { label: 'Clear Net Highlighting', action: clearHighlight });
+      // SCH_ACTIONS::findNetInInspector (sch_selection_tool.cpp:387), rank 250,
+      // between assignNetclass and editPageNumber.
       {
-        const chainItems: MenuItem[] = [];
-        const symbolIds = doc
-          ? new Set(doc.symbols.map((s, i) => refId('symbol', s.uuid, i)))
-          : new Set<string>();
-        const symbolsOnly = selection.size > 0 && [...selection].every((id) => symbolIds.has(id));
-        if (symbolsOnly)
-          chainItems.push({
-            label: 'Create Net Chain...',
-            action: () => setCreateChainOpen(true),
-          });
         const hitCode = hit && netlist ? netlist.netByItem.get(hit.id) : undefined;
         const hitNet =
           hitCode !== undefined
             ? (netlist?.nets.find((n) => n.code === hitCode)?.name ?? null)
             : null;
-        const hitChain = hitNet ? committedChains.find((c) => c.nets.includes(hitNet)) : undefined;
-        if (hitChain && hitNet) {
-          chainItems.push(
-            {
-              label: 'Highlight Net Chain',
-              action: () => {
-                // HighlightNetChain: the chain replaces the net highlight; the
-                // selection is untouched.
-                setHighlightItem(null);
-                setHighlightBusMembers(false);
-                setHighlightedChain(hitChain.name);
-              },
-            },
-            {
-              label: 'Remove from Net Chain',
-              action: () => {
-                // RemoveFromNetChain: block every 2-pin symbol bridging this
-                // net out of its chain, then chains rebuild via the memos.
-                if (doc && netlist) {
-                  const cmd = removeFromNetChainCommand(doc, libById, netlist, hitNet);
-                  if (cmd) runCommand(cmd);
-                }
-              },
-            },
-            {
-              label: 'Name Net Chain...',
-              action: () => setChainRename({ orig: hitChain.name, name: hitChain.name }),
-            },
-          );
-        }
         if (hitNet)
-          chainItems.push({
-            // SCH_ACTIONS::findNetInInspector: show the Net Navigator and put
-            // the selection on the clicked item's row, which is what the panel
-            // marks as active.
+          add(250.35, {
             label: 'Find in Net Navigator',
             action: () => {
               setLocalToggles((prev) => new Set(prev).add('showNetNavigator'));
               if (hit) setSelection(new Set([hit.id]));
             },
           });
-        if (highlightedChain !== null || highlightItem !== null)
-          chainItems.push({
-            label: 'Clear Net Highlighting',
-            action: clearHighlight,
-          });
-        if (chainItems.length > 0) add(400, ...chainItems);
       }
       // SCH_ACTIONS::selectConnection, gated on `expandableSelection` — the
       // connectivity-carrying kinds. A sheet is not one of them.
@@ -8756,8 +8550,9 @@ export function SchematicEditor({
     );
 
     // The separators this menu declares: two at rank 100 (the second is the
-    // line under Draw Buses), then 200, 300, 400, the edit tool's own at 400
-    // that lands after the net chain menu, and AddStandardSubMenus' at 1000.
+    // line under Draw Buses), then 200, 300, 400 (sch_selection_tool.cpp),
+    // the edit tool's own separator also at 400 (sch_edit_tool.cpp, before
+    // Select All / Unselect All), and AddStandardSubMenus' at 1000.
     return assembleMenu(entries, [100, 101, 200, 300, 400, 401, 1000]);
   };
 
@@ -9833,7 +9628,7 @@ export function SchematicEditor({
                                 libById={libById}
                                 fmt={fmt}
                                 selectedId={selection.size === 1 ? [...selection][0] : undefined}
-                                highlightedNet={highlightedChain}
+                                highlightedNet={highlightName}
                                 prebuilt={netNavigatorTree}
                                 onSelect={(id) => {
                                   // onNetNavigatorSelection ends in
@@ -10486,14 +10281,6 @@ export function SchematicEditor({
                 }}
               />
             )}
-            {caseConflicts && (
-              <DialogResolveFieldCaseConflicts
-                conflicts={caseConflicts.list}
-                onApply={applyCaseConflicts}
-                // Cancel abandons opening the table (m_aborted upstream).
-                onCancel={() => setCaseConflicts(null)}
-              />
-            )}
             {libIdsOpen && doc && (
               <DialogEditSymbolsLibId
                 rows={symbolLibIdRows(doc, libById)}
@@ -10641,151 +10428,11 @@ export function SchematicEditor({
                 onClose={() => setPlotOpen(false)}
               />
             )}
-            {createChainOpen && doc && (
-              <DialogCreateNetChain
-                potentials={potentialChains}
-                committed={committedChains}
-                hint={(() => {
-                  // ShowCreateNetChain's FOCUS_HINT from the current selection:
-                  // symbol references, or a single wire's net name.
-                  const hint: CreateChainFocusHint = {};
-                  if (doc) {
-                    const selSymbols = doc.symbols
-                      .map((s, i) => ({ s, id: refId('symbol', s.uuid, i) }))
-                      .filter((e) => selection.has(e.id));
-                    const ref = (sym: (typeof selSymbols)[number]['s']): string =>
-                      sym.fields.find((f) => f.key === 'Reference')?.value ?? '';
-                    if (selSymbols[0]) hint.fromRef = ref(selSymbols[0].s);
-                    if (selSymbols[1]) hint.toRef = ref(selSymbols[1].s);
-                    if (selSymbols.length === 0 && selection.size === 1 && netlist) {
-                      const code = netlist.netByItem.get([...selection][0]!);
-                      const net =
-                        code !== undefined ? netlist.nets.find((n) => n.code === code) : undefined;
-                      if (net) hint.netName = net.name;
-                    }
-                  }
-                  return hint;
-                })()}
-                onCreate={(chain) => {
-                  // CreateNetChainFromPotential + highlight the new chain.
-                  runCommand(netChainsCommand(writeNetChains(doc, [...committedChains, chain])));
-                  setSelection(new Set());
-                  setHighlightItem(null);
-                  setHighlightBusMembers(false);
-                  setHighlightedChain(chain.name);
-                }}
-                onClose={() => setCreateChainOpen(false)}
-              />
-            )}
-            {chainRename && doc && (
-              <div className="ze-modal-backdrop" onMouseDown={() => setChainRename(null)}>
-                <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
-                  <div className="ze-modal-header">
-                    Name Net Chain
-                    <span className="x" title="Cancel" onClick={() => setChainRename(null)}>
-                      ✕
-                    </span>
-                  </div>
-                  <div className="ze-modal-body" style={{ display: 'block', padding: 14 }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      Net chain name:
-                      <input
-                        style={{ flex: 1 }}
-                        value={chainRename.name}
-                        autoFocus
-                        onChange={(e) =>
-                          setChainRename((p) => (p ? { ...p, name: e.target.value } : p))
-                        }
-                      />
-                    </label>
-                  </div>
-                  <div className="ze-modal-footer">
-                    <button className="ze-btn" onClick={() => setChainRename(null)}>
-                      Cancel
-                    </button>
-                    <button
-                      className="ze-btn primary"
-                      onClick={() => {
-                        // NameNetChain: rename the committed chain (collisions
-                        // rejected like RenameCommittedNetChain), rekey the
-                        // chain->class map, and keep the chain highlighted.
-                        const { orig, name } = chainRename;
-                        if (
-                          name === orig ||
-                          !isValidNetChainName(name) ||
-                          committedChains.some((c) => c.name === name)
-                        ) {
-                          setChainRename(null);
-                          return;
-                        }
-                        runCommand(
-                          netChainsCommand(
-                            writeNetChains(
-                              doc,
-                              committedChains.map((c) => (c.name === orig ? { ...c, name } : c)),
-                            ),
-                          ),
-                        );
-                        const classByChain = { ...setup.netChains.classByChain };
-                        if (classByChain[orig] !== undefined) {
-                          classByChain[name] = classByChain[orig];
-                          delete classByChain[orig];
-                          commitSetup({
-                            ...setup,
-                            netChains: { ...setup.netChains, classByChain },
-                          });
-                        }
-                        if (highlightedChain === orig) setHighlightedChain(name);
-                        setChainRename(null);
-                      }}
-                    >
-                      OK
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
             {setupOpen && (
               <DialogSchematicSetup
                 value={setup}
-                onOk={(nextIn) => {
-                  // PANEL_SETUP_NET_CHAINS::ApplyEdits: rekey the chain->class
-                  // map for renamed rows and drop deleted chains before the
-                  // project file persists it.
-                  let next = nextIn;
-                  if (doc) {
-                    const committedAtOpen = readNetChains(doc).map((c) => c.name);
-                    const rows = next.netChains.chains;
-                    const rowByOrig = new Map(
-                      rows.filter((r) => r.origName).map((r) => [r.origName, r]),
-                    );
-                    const classByChain = { ...next.netChains.classByChain };
-                    for (const name of committedAtOpen) {
-                      const row = rowByOrig.get(name);
-                      if (!row || row.name !== name) delete classByChain[name];
-                    }
-                    for (const row of rows) {
-                      if (row.chainClass) classByChain[row.name] = row.chainClass;
-                      else delete classByChain[row.name];
-                    }
-                    next = { ...next, netChains: { ...next.netChains, classByChain } };
-                  }
+                onOk={(next) => {
                   commitSetup(next);
-                  // Net-chain renames/edits/deletes write back to the document's
-                  // (net_chain …) nodes (they live in .kicad_sch, root sheet).
-                  if (doc) {
-                    const before = readNetChains(doc);
-                    const rowByOrig = new Map(
-                      next.netChains.chains.filter((r) => r.origName).map((r) => [r.origName, r]),
-                    );
-                    const after = before.flatMap((c) => {
-                      const row = rowByOrig.get(c.name);
-                      if (!row) return []; // deleted
-                      return [{ ...c, name: row.name, netClass: row.netClass, color: row.color }];
-                    });
-                    if (JSON.stringify(after) !== JSON.stringify(before))
-                      runCommand(netChainsCommand(writeNetChains(doc, after)));
-                  }
                   // The Embedded Files page edits the document itself
                   // (EMBEDDED_FILES lives in .kicad_sch, not the project file):
                   // compress added files, drop removed ones, set the fonts flag.
@@ -10926,10 +10573,16 @@ export function SchematicEditor({
                       doc={doc}
                       libById={libById}
                       fmt={fmt}
-                      selectionZoom={settings.common.search_pane.selection_zoom}
-                      onSelectionZoomChange={(mode) =>
+                      menuState={{
+                        selectionZoom: settings.common.search_pane.selection_zoom,
+                        searchHiddenFields: settings.common.search_pane.search_hidden_fields,
+                        searchMetadata: settings.common.search_pane.search_metadata,
+                      }}
+                      onMenuStateChange={(next) =>
                         settings.updateCommon((c) => {
-                          c.search_pane.selection_zoom = mode;
+                          c.search_pane.selection_zoom = next.selectionZoom;
+                          c.search_pane.search_hidden_fields = next.searchHiddenFields;
+                          c.search_pane.search_metadata = next.searchMetadata;
                         })
                       }
                       selection={selection}

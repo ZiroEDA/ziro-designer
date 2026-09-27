@@ -435,23 +435,6 @@ export function readSchematicSetupText(proText: string): SchematicSetup {
     s.netClasses.netColors = out;
   }
 
-  // net_settings.net_chain_classes: the only persisted net-chain state is the
-  // chain -> class map; the chains themselves are engine data. Rebuild the
-  // class list (name + member count) so the panel shows what the file holds.
-  const chainClasses = getPath(j, 'net_settings.net_chain_classes');
-  if (isObj(chainClasses)) {
-    const counts = new Map<string, number>();
-    const byChain: Record<string, string> = {};
-    for (const [chain, v] of Object.entries(chainClasses)) {
-      if (typeof v === 'string' && v) {
-        counts.set(v, (counts.get(v) ?? 0) + 1);
-        byChain[chain] = v;
-      }
-    }
-    s.netChains.classes = [...counts].map(([name, members]) => ({ name, members }));
-    s.netChains.classByChain = byChain;
-  }
-
   // text_variables (project-file top level).
   const vars = getPath(j, 'text_variables');
   if (isObj(vars)) {
@@ -798,21 +781,6 @@ export function writeSchematicSetupText(proText: string, s: SchematicSetup): str
       ]),
     ),
   );
-
-  // net_settings.net_chain_classes: the in-memory chain -> class map persists
-  // verbatim (NET_SETTINGS::m_netChainClasses), minus entries whose class the
-  // panel deleted and with the grid rows' edits applied on top (the dialog's
-  // ApplyEdits already rekeyed renames and dropped deleted chains).
-  const chainOut: Json = {};
-  const liveClasses = new Set(s.netChains.classes.map((c) => c.name));
-  for (const [chain, cls] of Object.entries(s.netChains.classByChain)) {
-    if (cls && liveClasses.has(cls)) chainOut[chain] = cls;
-  }
-  for (const chain of s.netChains.chains) {
-    if (chain.chainClass) chainOut[chain.name] = chain.chainClass;
-    else delete chainOut[chain.name];
-  }
-  setPath(j, 'net_settings.net_chain_classes', chainOut);
 
   // text_variables: fully owned by the panel, rebuild (a deleted row must
   // leave the file).

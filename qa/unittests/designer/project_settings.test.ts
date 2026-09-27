@@ -111,11 +111,6 @@ function customSetup(): SchematicSetup {
     // carry them across a write or a schematic save would drop the board's.
     netColors: { '+3V3': '#ee8a00' },
   };
-  s.netChains = {
-    chains: [{ name: 'CHAIN1', members: ['N1', 'N2'], chainClass: 'CC1', netClass: '', color: '' }],
-    classes: [{ name: 'CC1', members: 1 }],
-    classByChain: { CHAIN1: 'CC1' },
-  };
   s.usedDesignators = 'R1-3,U1';
   s.busAliases = [
     { name: 'DATA', members: ['D0', 'D1', 'D2'] },
@@ -148,12 +143,10 @@ describe('schematic setup .kicad_pro persistence', () => {
     const back = readSchematicSetupText(text!);
 
     // Not persisted in .kicad_pro (documented): embedded files (.kicad_sch
-    // data), the net-chain member lists, and the internal pin_to_pin_error
-    // severity.
+    // data) and the internal pin_to_pin_error severity.
     const strip = (x: SchematicSetup): SchematicSetup => ({
       ...x,
       embeddedFiles: { files: [], embedFonts: false },
-      netChains: { ...x.netChains, chains: [] },
       erc: {
         ...x.erc,
         severities: { ...x.erc.severities, pin_to_pin_error: 'error' },
@@ -205,7 +198,6 @@ describe('schematic setup .kicad_pro persistence', () => {
           },
         ],
         netclass_patterns: [{ netclass: 'A', pattern: 'VCC*' }],
-        net_chain_classes: { C1: 'CCA', C2: 'CCA', C3: 'CCB' },
       },
       schematic: {
         annotate_start_num: 200,
@@ -330,10 +322,6 @@ describe('schematic setup .kicad_pro persistence', () => {
     });
     expect(s.netClasses.classes[2]!.color).toBe('#ff0000');
     expect(s.netClasses.assignments).toEqual([{ pattern: 'VCC*', netClass: 'A' }]);
-    expect(s.netChains.classes).toEqual([
-      { name: 'CCA', members: 2 },
-      { name: 'CCB', members: 1 },
-    ]);
     expect(s.textVars).toEqual([{ name: 'PROJ', value: 'Ziro' }]);
 
     // Unknown severity keys survive an unchanged OK.

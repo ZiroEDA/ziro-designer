@@ -9,7 +9,8 @@
  * they match each other:
  *
  *   - the drawing sheet's `toFixed(6)` (`drawing_sheet/write.ts`);
- *   - `net_chains`'s `String(Number(v.toPrecision(10)))`;
+ *   - `net_chains`'s `String(Number(v.toPrecision(10)))` (that module has since
+ *     been removed — net chains were a KiCad master feature, not in 10.0.5);
  *   - `write-footprint`'s `toFixed(10)` — which is `%.10f`, not `%.10g`.
  *
  * Replacing all three with one port moved **zero** existing expectations, which

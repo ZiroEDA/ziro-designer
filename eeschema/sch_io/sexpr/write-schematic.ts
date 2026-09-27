@@ -465,7 +465,6 @@ const SYMBOL_CHILD_ORDER = [
   'on_board',
   'in_pos_files',
   'dnp',
-  'passthrough',
   'locked',
   'fields_autoplaced',
   'uuid',
@@ -539,21 +538,6 @@ function patchFieldsAutoplaced(node: SList, algo: 'auto' | 'manual' | undefined)
     return mapChild(node, 'fields_autoplaced', () => list(atom('fields_autoplaced'), atom('yes')));
   }
   return insertCanonical(node, list(atom('fields_autoplaced'), atom('yes')));
-}
-
-/** Patch `(passthrough block|force)`; DEFAULT (undefined) removes the token,
- *  the writer omits it "to avoid file churn" (saveSymbol). */
-function patchPassthrough(node: SList, mode: 'block' | 'force' | undefined): SList {
-  const child = childNamed(node, 'passthrough');
-  if (!mode) {
-    if (!child) return node;
-    return { kind: 'list', items: node.items.filter((it) => it !== child) };
-  }
-  if (child) {
-    if (child.items[1]?.kind === 'atom' && child.items[1].value === mode) return node;
-    return mapChild(node, 'passthrough', () => list(atom('passthrough'), atom(mode)));
-  }
-  return insertCanonical(node, list(atom('passthrough'), atom(mode)));
 }
 
 /** Patch `(unit N)`; insert canonically when absent and not unit 1. */
@@ -720,7 +704,6 @@ function writeSymbol(sym: SchSymbol): SList {
   if (sym.excludedFromPosFiles !== undefined)
     node = patchSymbolBool(node, 'in_pos_files', !sym.excludedFromPosFiles, true);
   node = patchSymbolBool(node, 'dnp', sym.dnp, false);
-  node = patchPassthrough(node, sym.passthrough);
   node = patchSymbolBool(node, 'locked', sym.locked ?? false, false);
   node = patchFieldsAutoplaced(node, sym.fieldsAutoplaced);
   node = patchSymbolPins(node, sym.pins);

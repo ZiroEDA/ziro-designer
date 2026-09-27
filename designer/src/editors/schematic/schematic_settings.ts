@@ -260,20 +260,15 @@ export function defaultBusAliases(): BusAlias[] {
 }
 
 // ---------------------------------------------------------------------------
-// Net chains and net classes are NOT here: they are `NET_SETTINGS`, which lives
+// Net classes are NOT here: they are `NET_SETTINGS`, which lives
 // in `common/project/net_settings.ts` because upstream's is
 // `common/project/net_settings.cpp` — part of PROJECT_FILE, read by pcbnew as
 // well as by eeschema. Re-exported below so this module's own callers are
 // unaffected, while pcbnew asks common/ for them rather than asking eeschema.
 export * from '@ziroeda/common/project/net_settings.js';
-// `export *` re-exports without binding, so the four names this module still
+// `export *` re-exports without binding, so the names this module still
 // USES are imported as well.
-import {
-  defaultNetChains,
-  defaultNetClasses,
-  type NetChainsData,
-  type NetClassesData,
-} from '@ziroeda/common/project/net_settings.js';
+import { defaultNetClasses, type NetClassesData } from '@ziroeda/common/project/net_settings.js';
 
 // ---------------------------------------------------------------------------
 // Embedded files (PANEL_EMBEDDED_FILES).
@@ -338,8 +333,6 @@ export interface SchematicSetup {
   bomPresets: BomPresets;
   /** Bus alias definitions (PANEL_SETUP_BUSES). */
   busAliases: BusAlias[];
-  /** Net chains + net-chain classes (PANEL_SETUP_NET_CHAINS). */
-  netChains: NetChainsData;
   /** Net classes + assignments (PANEL_SETUP_NETCLASSES). */
   netClasses: NetClassesData;
   /** Embedded files + embed-fonts flag (PANEL_EMBEDDED_FILES). */
@@ -364,7 +357,6 @@ export function defaultSchematicSetup(): SchematicSetup {
     annotation: defaultAnnotation(),
     bomPresets: defaultBomPresets(),
     busAliases: defaultBusAliases(),
-    netChains: defaultNetChains(),
     netClasses: defaultNetClasses(),
     embeddedFiles: defaultEmbeddedFiles(),
     ercExclusions: [],

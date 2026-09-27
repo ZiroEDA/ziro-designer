@@ -72,7 +72,9 @@ describe('the Net Navigator matches upstream', () => {
   });
 
   it('is told which net is highlighted', () => {
-    expect(EDITOR).toContain('highlightedNet={highlightedChain}');
+    // `highlightName` is `GetHighlightedConnection()` (m_highlightedConn),
+    // the same value net_navigator.cpp's RefreshNetNavigator reads.
+    expect(EDITOR).toContain('highlightedNet={highlightName}');
   });
 });
 
@@ -125,7 +127,7 @@ describe('picking a leaf focuses the item', () => {
   it('centres on the item bounding box, as FocusOnLocation does', () => {
     expect(EDITOR).toContain('FocusOnLocation');
     expect(EDITOR).toMatch(
-      /highlightedNet=\{highlightedChain\}[\s\S]{0,900}?controller\.current\?\.centerOn/,
+      /highlightedNet=\{highlightName\}[\s\S]{0,900}?controller\.current\?\.centerOn/,
     );
   });
 

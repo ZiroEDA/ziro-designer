@@ -445,9 +445,6 @@ export interface SchSymbol {
    * lives only in memory. `undefined` is AUTOPLACE_NONE.
    */
   readonly fieldsAutoplaced?: 'auto' | 'manual';
-  /** `(passthrough block|force)`, net-chain bridge participation
-   *  (SCH_SYMBOL::PASSTHROUGH_MODE); undefined = DEFAULT (omitted in files). */
-  readonly passthrough?: 'block' | 'force';
   /** `(exclude_from_sim yes)`; undefined when the token is absent (pre-7.0 files). */
   readonly excludedFromSim?: boolean;
   /** `(in_pos_files no)`, SCH_SYMBOL::GetExcludedFromPosFiles (stored inverted

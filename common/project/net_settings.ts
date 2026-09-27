@@ -11,48 +11,10 @@
  * and `editors/pcb/project_settings.ts` imported `NetClass` across, which is
  * the same misplacement as the drawing-sheet painter: a project-level structure
  * filed under whichever editor happened to need it first.
- *
- * Net chains come with it. `PANEL_SETUP_NET_CHAINS` sits beside the netclass
- * panel in the same Schematic Setup page and its classes resolve through the
- * same table, so splitting the two would leave the resolution reaching back
- * across the boundary that was just drawn.
  */
 
 import { netclassPatternMatches } from '../eda_pattern_match.js';
 import { LINE_STYLE_NAMES } from '../stroke_params.js';
-
-// ---------------------------------------------------------------------------
-// Net chains (PANEL_SETUP_NET_CHAINS).
-
-export interface NetChain {
-  name: string;
-  members: string[];
-  chainClass: string;
-  netClass: string;
-  color: string;
-  /** The committed chain's name at dialog-open time; renames diff against it
-   *  (PANEL_SETUP_NET_CHAINS CHAIN_ROW::origName). Unset = not committed. */
-  origName?: string;
-  /** Terminal end pins, carried through edits for the `.kicad_sch` writer. */
-  from?: { ref: string; pin: string };
-  to?: { ref: string; pin: string };
-}
-export interface NetChainClass {
-  name: string;
-  members: number;
-}
-export interface NetChainsData {
-  /** Committed chains, the dialog grid rows (loadFromModel lists only the
-   *  committed set; potentials become committed via the editor tools). */
-  chains: NetChain[];
-  classes: NetChainClass[];
-  /** The persisted chain -> class map (net_settings.net_chain_classes). */
-  classByChain: Record<string, string>;
-}
-
-export function defaultNetChains(): NetChainsData {
-  return { chains: [], classes: [], classByChain: {} };
-}
 
 // ---------------------------------------------------------------------------
 // Net classes (NET_SETTINGS / PANEL_SETUP_NETCLASSES).
@@ -211,7 +173,7 @@ export function netClassHumanReadableName(eff: EffectiveNetClass): string {
 export function netClassClearanceMM(
   netName: string,
   data: NetClassesData,
-  chainAssignments?: readonly { pattern: string; netClass: string }[],
+  extraAssignments?: readonly { pattern: string; netClass: string }[],
 ): number | undefined {
   const num = (s: string): number | undefined => {
     const v = Number.parseFloat(s);
@@ -222,7 +184,7 @@ export function netClassClearanceMM(
   const matched: NetClass[] = [];
 
   if (netName) {
-    for (const a of [...data.assignments, ...(chainAssignments ?? [])]) {
+    for (const a of [...data.assignments, ...(extraAssignments ?? [])]) {
       if (!a.netClass) continue;
       const cls = data.classes.find((c) => c.name === a.netClass);
       if (!cls || matched.includes(cls)) continue;
@@ -253,7 +215,7 @@ export function netClassClearanceMM(
 export function resolveEffectiveNetClass(
   netName: string,
   data: NetClassesData,
-  chainAssignments?: readonly { pattern: string; netClass: string }[],
+  extraAssignments?: readonly { pattern: string; netClass: string }[],
 ): EffectiveNetClass {
   const dflt = data.classes[0] ?? blankNetClass('Default');
   // Priority = grid position (the serializer writes it that way); Default last.
@@ -261,10 +223,10 @@ export function resolveEffectiveNetClass(
     c === dflt ? Number.MAX_SAFE_INTEGER : data.classes.indexOf(c) - 1;
   const matched: NetClass[] = [];
   if (netName) {
-    // User pattern assignments first, then chain-derived ones, the same two
-    // applyPatternList calls in NET_SETTINGS::GetEffectiveNetClass; chain
-    // netclasses must exist (ApplyNetChainNetclasses' HasNetclass gate).
-    for (const a of [...data.assignments, ...(chainAssignments ?? [])]) {
+    // User pattern assignments first, then the caller's extra ones (directive
+    // labels, rule areas), the same two applyPatternList calls in
+    // NET_SETTINGS::GetEffectiveNetClass.
+    for (const a of [...data.assignments, ...(extraAssignments ?? [])]) {
       if (!a.netClass) continue;
       const cls = data.classes.find((c) => c.name === a.netClass);
       if (!cls || matched.includes(cls)) continue;

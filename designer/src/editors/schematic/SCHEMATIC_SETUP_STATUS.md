@@ -101,25 +101,16 @@ Ground truth for every mapping below is the KiCad source
   `REFDES_TRACKER` port (serialize/deserialize in
   `schematic.used_designators`), and the dialog's Reset-to-Defaults +
   Import-Settings buttons (exact `DIALOG_SCH_IMPORT_SETTINGS` checkbox set).
-- **Net Chains** (PR #134), detection AND the committed store are live:
-  `CONNECTION_GRAPH::RebuildNetChains` port
-  (`eeschema/connectivity/net_chains.ts`), nets bridged through 2-pin
-  passives with collinear wires, power-edge drops, leaf/stub pruning,
-  label-driven naming, plus `(net_chain …)` node persistence in `.kicad_sch`
-  (parse/write per `parseSchNetChain` / `SCH_IO_KICAD_SEXPR::Format`), the
-  symbol `(passthrough block|force)` attribute with its bridge gates,
-  terminal-pin selection (farthest pin pair), the committed-restore passes
-  (terminal match into a potential, member-net fallback), and chain-netclass
-  application into netclass resolution (`ApplyNetChainNetclasses`). The Setup
-  grid edits committed chains (rename/netclass/colour/delete) with
-  `ApplyEdits`' chain→class rekeying into `net_settings.net_chain_classes`.
-- **Net-chain editor tools** (PR #134), the Create Net Chain dialog
-  (`DIALOG_CREATE_NET_CHAIN` port: uncommitted potentials, editable suggested
-  names, terminals column, focus hints, multi-create), plus the context-menu
-  actions Highlight Net Chain (member nets brighten; wires tint in the
-  chain's colour), Remove from Net Chain (`(passthrough block)` on bridging
-  symbols, undoable) and Name Net Chain (rename with collision rejection and
-  chain→class rekeying).
+- **Net Chains: removed** (this pass). `eeschema/connectivity/net_chains.ts`,
+  the Create Net Chain dialog, the Setup page, the context-menu actions
+  (Create/Highlight/Remove-from/Name Net Chain), the symbol
+  `(passthrough block|force)` attribute, and the `(net_chain …)` node were all
+  ported from KiCad *master* ahead of the 10.0.5 pin — `grep -rin netchain`
+  over the whole 10.0.5 tree hits nothing outside translated documentation
+  strings. A `.kicad_sch` still carrying a `(net_chain …)` node no longer
+  round-trips it: the reader drops the node (10.0.5's own parser would throw
+  `Expecting()` on an unrecognised top-level token; see
+  `sch_io_kicad_sexpr_parser.cpp`'s `ParseSchematic` default case).
 - **Wire hop-overs** (PR #134), Formatting's Hop-over size choice draws hop
   arcs where wires cross: `SCH_LINE::ShouldHopOver` +
   `BuildWireWithHopShape` ports (`eeschema/tools/hop_over.ts`, with

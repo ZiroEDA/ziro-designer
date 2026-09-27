@@ -732,10 +732,6 @@ function readSymbol(node: SList): SchSymbol {
     });
   }
   if (boolField(node, 'locked', false)) sym.locked = true;
-  // (passthrough default|block|force), case-insensitive; DEFAULT stays unset.
-  const passthroughNode = childNamed(node, 'passthrough');
-  const passthrough = passthroughNode ? arg(passthroughNode, 0)?.toLowerCase() : undefined;
-  if (passthrough === 'block' || passthrough === 'force') sym.passthrough = passthrough;
   // Keep "token absent" distinct from "no": older files have no exclude_from_sim.
   if (childNamed(node, 'exclude_from_sim'))
     sym.excludedFromSim = boolField(node, 'exclude_from_sim', false);
@@ -1285,7 +1281,18 @@ function readSchematicBody(root: SList, reporter?: Reporter): Schematic {
       const n = childNamed(root, 'sheet_instances');
       return n ? childrenNamed(n, 'path').map((p) => readInstancePath(p, undefined)) : [];
     })(),
-    source: root,
+    // `net_chain` was ported from a KiCad master feature ahead of the 10.0.5
+    // parity pin, where it does not exist:
+    // SCH_IO_KICAD_SEXPR_PARSER::ParseSchematic's `default:` case `Expecting()`s
+    // and throws on any top-level token it does not recognise, which
+    // `net_chain` would be. We stay lenient about genuinely unknown tokens
+    // (forward-compat, see the file header), but this one we know is not a
+    // real 10.0.5 node, so it is dropped here rather than silently round-tripped
+    // by the generic "preserve unknown structural nodes" fallback in the writer.
+    source:
+      root.items.some((it) => isList(it) && head(it) === 'net_chain')
+        ? { kind: 'list', items: root.items.filter((it) => !(isList(it) && head(it) === 'net_chain')) }
+        : root,
   };
   // parseSchSymbolInstances: the root's legacy per-path symbol table.
   const symbolInstancesNode = childNamed(root, 'symbol_instances');

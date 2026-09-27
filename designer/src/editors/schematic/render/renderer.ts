@@ -607,10 +607,6 @@ export interface RenderOpts {
    *  label text (SCH_GLOBALLABEL::ResolveTextVar `INTERSHEET_REFS` branch).
    *  Unset = the layer is hidden, like SetLayerVisible(LAYER_INTERSHEET_REFS). */
   intersheetRefs?: { text: (resolvedLabel: string) => string };
-  /** The highlighted net chain's member wires + its colour override
-   *  (SCHEMATIC::GetHighlightedNetChain + SCH_NETCHAIN::GetColor, the painter
-   *  tints chain wires while that chain is highlighted). */
-  chainHighlight?: { lineIds: ReadonlySet<string>; color: string };
   /** Per-item netclass fallbacks (SCH_LINE::GetLineColor/GetPenWidth/
    *  GetEffectiveLineStyle, SCH_JUNCTION::getEffectiveShape): applied only
    *  where the item carries no stroke of its own. */
@@ -892,8 +888,6 @@ function itemColour(
 function itemOwnCss(own: string | undefined | false): string | undefined {
   return g_overrideItemColors || !own ? undefined : own;
 }
-// Highlighted-chain wire tint for the current render (unset = none).
-let g_chainHighlight: RenderOpts['chainHighlight'];
 // Netclass fallbacks for the current render (unset = no netclass visuals).
 let g_netOverrides: RenderOpts['netOverrides'];
 // Text-variable resolver for the current render (unset = draw verbatim).
@@ -1020,7 +1014,6 @@ export function renderSchematic(
   g_intersheetRefs = opts.intersheetRefs;
   g_overrideItemColors = opts.overrideItemColors ?? false;
   g_devicePixelRatio = opts.devicePixelRatio ?? 1;
-  g_chainHighlight = opts.chainHighlight;
   g_netOverrides = opts.netOverrides;
   g_resolveText = opts.resolveTextVar;
   g_subpart = opts.subpart;
@@ -1276,24 +1269,16 @@ export function renderSchematic(
         : (nc?.widthIU ?? lineDefaultWidth(line.kind));
     // An explicit stroke colour overrides the layer colour for wires and buses
     // too (SCH_PAINTER::getRenderColor honours SCH_LINE::GetLineColor()).
-    // A highlighted chain with a colour override tints its member wires
-    // (sch_painter.cpp draw(SCH_LINE): GetNetChainForNet + chain colour).
-    const chainTint =
-      line.kind === 'wire' && g_chainHighlight?.lineIds.has(refId('line', line.uuid, i))
-        ? g_chainHighlight.color
-        : undefined;
-    ctx.strokeStyle =
-      chainTint ??
-      (on
-        ? theme.netHighlight
-        : (itemOwnCss(line.stroke?.color && cssColor(line.stroke.color)) ??
-          (nc?.color
-            ? nc.color
-            : line.kind === 'bus'
-              ? theme.bus
-              : line.kind === 'wire'
-                ? theme.wire
-                : theme.noteLine)));
+    ctx.strokeStyle = on
+      ? theme.netHighlight
+      : (itemOwnCss(line.stroke?.color && cssColor(line.stroke.color)) ??
+        (nc?.color
+          ? nc.color
+          : line.kind === 'bus'
+            ? theme.bus
+            : line.kind === 'wire'
+              ? theme.wire
+              : theme.noteLine));
     ctx.lineWidth = penWidth(width);
     const dashType =
       line.stroke?.type && line.stroke.type !== 'default'

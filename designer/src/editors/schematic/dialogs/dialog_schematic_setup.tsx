@@ -22,7 +22,6 @@ import {
   defaultBomPresets,
   defaultBusAliases,
   defaultFormatting,
-  defaultNetChains,
   defaultNetClasses,
   type SchematicSetup,
 } from '../schematic_settings.js';
@@ -36,7 +35,6 @@ import { PanelEeschemaAnnotationOptions } from './panels/panel_eeschema_annotati
 import { PanelSetupFormatting } from './panels/panel_setup_formatting.js';
 import { PanelBomPresets } from './panels/panel_bom_presets.js';
 import { PanelSetupBuses } from './panels/panel_setup_buses.js';
-import { PanelSetupNetChains } from './panels/panel_setup_net_chains.js';
 import { PanelSetupNetclasses } from '@ziroeda/common/dialogs/panel_setup_netclasses.js';
 import {
   PanelEmbeddedFiles,
@@ -56,7 +54,6 @@ type PageId =
   | 'pinmap'
   | 'netclasses'
   | 'buses'
-  | 'netChains'
   | 'textVars'
   | 'embedded';
 
@@ -86,7 +83,6 @@ export function DialogSchematicSetup({
     annotation: { ...value.annotation },
     bomPresets: structuredClone(value.bomPresets),
     busAliases: structuredClone(value.busAliases),
-    netChains: structuredClone(value.netChains),
     netClasses: structuredClone(value.netClasses),
     embeddedFiles: structuredClone(value.embeddedFiles),
     ercExclusions: [...value.ercExclusions],
@@ -236,18 +232,6 @@ export function DialogSchematicSetup({
             <PanelSetupBuses
               aliases={s.busAliases}
               onChange={(busAliases) => setS((cur) => ({ ...cur, busAliases }))}
-            />
-          ),
-        },
-        {
-          id: 'netChains',
-          resettable: true,
-          onReset: () => setS((cur) => ({ ...cur, netChains: defaultNetChains() })),
-          label: 'Net Chains',
-          render: () => (
-            <PanelSetupNetChains
-              value={s.netChains}
-              onChange={(netChains) => setS((cur) => ({ ...cur, netChains }))}
             />
           ),
         },
