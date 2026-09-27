@@ -3,18 +3,31 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Edit Symbol Library Links. Counterpart:
- * `eeschema/dialogs/dialog_edit_symbols_libid_base.cpp`
+ * `eeschema/dialogs/dialog_edit_symbols_libid.cpp` and its `_base.cpp`
  * (DIALOG_EDIT_SYMBOLS_LIBID).
  *
- * A grid of three columns — the references using a library id, the id itself,
- * and what it should say instead. Rows whose library part cannot be found are
- * marked, and Map Orphans fills their new-id cell by searching every loaded
- * library for a part of the same name, which is usually all a renamed library
- * needs.
+ * A WX_GRID of three columns with GRID_TRICKS, rows selected whole — the
+ * references using a library id (auto-wrapped), the id itself, and what it
+ * should say instead. The first two are read-only; an orphan's current id is
+ * drawn bold italic (`AddRowToGrid`). Map Orphans fills an orphan's new-id
+ * cell by searching every loaded library for a part of the same name, asks
+ * which one when there is more than one, and reports the count.
+ *
+ * Not ported: the cell editor's browse button (`GRID_CELL_SYMBOL_ID_EDITOR`)
+ * and the double-click browse, which need a symbol chooser this dialog is not
+ * handed; the new id is typed.
  */
-import { useMemo, useState, type JSX } from 'react';
+import { type JSX, useState } from 'react';
 import { isValidLibId, type LibIdRow } from '@ziroeda/eeschema';
+import { DisplayInfoMessage } from '@ziroeda/common/confirm.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { SingleChoiceDialog } from '@ziroeda/common/dialogs/dialog_single_choice.js';
+import { wxGridSelectionModes } from '@ziroeda/common/wx/grid.js';
+import { useStringGrid, WxGridView } from '@ziroeda/common/wx/grid_ui.js';
+
+const COL_REFS = 0;
+const COL_CURR_LIBID = 1;
+const COL_NEW_LIBID = 2;
 
 interface Props {
   rows: readonly LibIdRow[];
@@ -27,6 +40,8 @@ interface Props {
   errors: readonly string[];
 }
 
+type GridRow = { refs: string; current: string; next: string };
+
 export function DialogEditSymbolsLibId({
   rows,
   candidatesFor,
@@ -38,149 +53,192 @@ export function DialogEditSymbolsLibId({
   // ui/modal_escape.ts.
   useModalEscape(onClose);
 
-  const [newIds, setNewIds] = useState<Record<string, string>>({});
-  const [note, setNote] = useState<string | null>(null);
+  const [gridRows, setGridRows] = useState<GridRow[]>(() =>
+    rows.map((r) => ({ refs: r.references.join(', '), current: r.current, next: '' })),
+  );
+  /** The `wxSingleChoiceDialog` Map Orphans is waiting on. */
+  const [choice, setChoice] = useState<{
+    current: string;
+    candidates: string[];
+    resolve: (v: string | null) => void;
+  } | null>(null);
 
-  const orphanRows = useMemo(() => rows.filter((r) => r.orphan), [rows]);
+  /** `m_OrphansRowIndexes`. */
+  const orphanRows = rows.flatMap((r, i) => (r.orphan ? [i] : []));
 
-  const mapOrphans = (): void => {
-    // onClickOrphansButton: take the first candidate for each orphan and
-    // report how many could not be resolved at all.
-    const next = { ...newIds };
-    let fixed = 0;
-    let ambiguous = 0;
-    for (const row of orphanRows) {
-      const candidates = candidatesFor(row.current);
+  const { grid, tricks, onUpdate } = useStringGrid<GridRow>({
+    labels: ['Symbols', 'Current Library Reference', 'New Library Reference'],
+    mode: wxGridSelectionModes.wxGridSelectRows,
+    rows: gridRows,
+    toCells: (r) => [r.refs, r.current, r.next],
+    fromCells: (c) => ({ refs: c[0]!, current: c[1]!, next: c[2]! }),
+    onChange: setGridRows,
+    setup: (g) => {
+      for (let row = 0; row < g.GetNumberRows(); ++row) {
+        g.SetReadOnly(row, COL_REFS);
+        g.SetReadOnly(row, COL_CURR_LIBID);
+      }
+    },
+  });
+
+  /** `onClickOrphansButton`. */
+  const onClickOrphansButton = async (): Promise<void> => {
+    let fixesCount = 0;
+
+    for (const orphanRow of orphanRows) {
+      const current = grid.GetCellValue(orphanRow, COL_CURR_LIBID);
+      const candidates = candidatesFor(current);
+
       if (candidates.length === 0) continue;
-      next[row.current] = candidates[0]!;
-      fixed++;
-      if (candidates.length > 1) ambiguous++;
+
+      // Uses the first found. Most of time, it is alone.
+      grid.SetCellValue(orphanRow, COL_NEW_LIBID, candidates[0]!);
+      fixesCount++;
+
+      // If more than one LIB_ID candidate, ask for selection between candidates.
+      if (candidates.length > 1) {
+        grid.SelectRow(orphanRow);
+        const picked = await new Promise<string | null>((resolve) =>
+          setChoice({ current, candidates, resolve }),
+        );
+        setChoice(null);
+
+        if (picked !== null) grid.SetCellValue(orphanRow, COL_NEW_LIBID, picked);
+      }
     }
-    setNewIds(next);
-    const missing = orphanRows.length - fixed;
-    setNote(
-      missing > 0
-        ? `${fixed} link(s) mapped, ${missing} not found`
-        : `All ${fixed} link(s) resolved` +
-            (ambiguous > 0
-              ? ` — ${ambiguous} had more than one candidate; the first was taken, pick another from the list if it is wrong`
-              : ''),
-    );
+
+    if (fixesCount < orphanRows.length)
+      await DisplayInfoMessage(
+        `${fixesCount} link(s) mapped, ${orphanRows.length - fixesCount} not found`,
+      );
+    else await DisplayInfoMessage(`All ${fixesCount} link(s) resolved`);
   };
 
-  const apply = (): void => {
-    const changes = new Map<string, string>();
-    for (const [current, next] of Object.entries(newIds)) {
-      if (next.trim() !== '' && next !== current) changes.set(current, next.trim());
+  /** `validateLibIds`: an invalid new id is reported and its editor reopened. */
+  const validateLibIds = async (): Promise<boolean> => {
+    if (!grid.CommitPendingChanges()) return false;
+
+    for (let row = 0; row < grid.GetNumberRows(); ++row) {
+      const newLibId = grid.GetCellValue(row, COL_NEW_LIBID).trim();
+
+      if (newLibId === '') continue;
+
+      if (!isValidLibId(newLibId)) {
+        await DisplayInfoMessage(`Symbol library identifier ${newLibId} is not valid.`);
+        grid.SetGridCursor(row, COL_NEW_LIBID);
+        grid.EnableCellEditControl(true);
+        return false;
+      }
     }
+
+    return true;
+  };
+
+  const apply = async (): Promise<void> => {
+    if (!(await validateLibIds())) return;
+
+    const changes = new Map<string, string>();
+
+    for (let row = 0; row < grid.GetNumberRows(); ++row) {
+      const current = grid.GetCellValue(row, COL_CURR_LIBID);
+      const next = grid.GetCellValue(row, COL_NEW_LIBID).trim();
+
+      if (next !== '' && next !== current) changes.set(current, next);
+    }
+
     onApply(changes);
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div
-        className="ze-modal ze-label-dialog"
-        style={{ minWidth: 680 }}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="ze-modal-header">
-          Symbol Library References
-          <span className="x" title="Close" onClick={onClose}>
-            ✕
-          </span>
-        </div>
+    <>
+      <div className="ze-modal-backdrop" onMouseDown={onClose}>
         <div
-          className="ze-label-dialog-body"
-          style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+          className="ze-modal ze-label-dialog"
+          style={{ minWidth: 680 }}
+          onMouseDown={(e) => e.stopPropagation()}
         >
-          {errors.length > 0 && (
-            <div className="ze-props-error">
-              {errors.map((e) => (
-                <div key={e}>{e}</div>
-              ))}
-            </div>
-          )}
-          {note && (
-            <div className="ze-muted" onClick={() => setNote(null)}>
-              {note}
-            </div>
-          )}
-          <div style={{ maxHeight: '55vh', overflowY: 'auto' }}>
-            <table className="ze-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left' }}>Symbols</th>
-                  <th style={{ textAlign: 'left' }}>Current Library Reference</th>
-                  <th style={{ textAlign: 'left' }}>New Library Reference</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => {
-                  const value = newIds[row.current] ?? '';
-                  const bad = value.trim() !== '' && !isValidLibId(value.trim());
-                  const candidates = row.orphan ? candidatesFor(row.current) : [];
-                  return (
-                    <tr key={row.current}>
-                      <td>{row.references.join(', ')}</td>
-                      <td
-                        // Orphan rows are marked, as upstream colours the cell.
-                        style={row.orphan ? { color: 'var(--ze-error, #c33)' } : undefined}
-                        title={row.orphan ? 'No library part of this id was found' : undefined}
+          <div className="ze-modal-header">
+            Symbol Library References
+            <span className="x" title="Close" onClick={onClose}>
+              ✕
+            </span>
+          </div>
+          <div
+            className="ze-label-dialog-body"
+            style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+          >
+            {errors.length > 0 && (
+              <div className="ze-props-error">
+                {errors.map((e) => (
+                  <div key={e}>{e}</div>
+                ))}
+              </div>
+            )}
+            {/* `m_grid->SetMinSize( wxSize( -1, 300 ) )`. */}
+            <div className="ze-grid-pane" style={{ minHeight: 300, maxHeight: '55vh' }}>
+              <WxGridView
+                grid={grid}
+                tricks={tricks}
+                columns={[{ width: 280 }, { width: 280 }, { width: 280 }]}
+                flexCol={COL_NEW_LIBID}
+                onUpdate={onUpdate}
+                ariaLabel="Symbol library references"
+                renderCell={(row, col, value) => {
+                  // `m_autoWrapRenderer` on the references.
+                  if (col === COL_REFS)
+                    return (
+                      <span className="ze-grid-text" style={{ whiteSpace: 'normal' }}>
+                        {value}
+                      </span>
+                    );
+
+                  // An orphan's id: `font.MakeBold(); font.MakeItalic()`.
+                  if (col === COL_CURR_LIBID && rows[row]?.orphan)
+                    return (
+                      <span
+                        className="ze-grid-text"
+                        style={{ fontWeight: 'bold', fontStyle: 'italic' }}
                       >
-                        {row.current}
-                        {row.orphan && ' (orphan)'}
-                      </td>
-                      <td>
-                        <input
-                          className="ze-search"
-                          style={{
-                            width: '100%',
-                            ...(bad ? { borderColor: 'var(--ze-error, #c33)' } : {}),
-                          }}
-                          value={value}
-                          list={candidates.length > 0 ? `ze-cand-${row.current}` : undefined}
-                          onChange={(e) =>
-                            setNewIds((s) => ({ ...s, [row.current]: e.target.value }))
-                          }
-                          onKeyDown={(e) => e.stopPropagation()}
-                        />
-                        {candidates.length > 0 && (
-                          <datalist id={`ze-cand-${row.current}`}>
-                            {candidates.map((c) => (
-                              <option key={c} value={c} />
-                            ))}
-                          </datalist>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        {value}
+                      </span>
+                    );
+
+                  return null;
+                }}
+              />
+            </div>
+          </div>
+          <div className="ze-modal-footer">
+            <button
+              type="button"
+              className="ze-btn"
+              onClick={() => void onClickOrphansButton()}
+              disabled={orphanRows.length === 0}
+              title={
+                'If some symbols are orphaned (the linked symbol is not found anywhere),\n' +
+                'try to find a candidate having the same name in one of loaded symbol libraries.'
+              }
+            >
+              Map Orphans
+            </button>
+            <span style={{ flex: 1 }} />
+            <button type="button" className="ze-btn" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="button" className="ze-btn primary" onClick={() => void apply()}>
+              OK
+            </button>
           </div>
         </div>
-        <div className="ze-modal-footer">
-          <button
-            className="ze-btn"
-            onClick={mapOrphans}
-            disabled={orphanRows.length === 0}
-            title={
-              orphanRows.length === 0
-                ? 'Every symbol has a library part'
-                : 'Look for a part of the same name in the loaded libraries'
-            }
-          >
-            Map Orphans
-          </button>
-          <span style={{ flex: 1 }} />
-          <button className="ze-btn" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="ze-btn primary" onClick={apply}>
-            OK
-          </button>
-        </div>
       </div>
-    </div>
+      {choice && (
+        <SingleChoiceDialog
+          caption={`Candidates count ${choice.candidates.length} `}
+          message={`Available Candidates for ${choice.current} `}
+          choices={choice.candidates.map((c) => ({ value: c, label: c }))}
+          onResult={choice.resolve}
+        />
+      )}
+    </>
   );
 }
