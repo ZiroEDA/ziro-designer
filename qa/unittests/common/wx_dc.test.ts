@@ -170,6 +170,40 @@ const CASES: ProbeCase[] = [
       ],
     ],
   },
+  {
+    // The centring offset's device distance is 1450 * 0.003367 = 4.88: wx
+    // rounds it to 5, where truncating would give 4.
+    dc: [1000, 700],
+    img: [297000, 205000],
+    scale: 0.00336700337,
+    paperRect: [0, 0, 297000, 207900],
+    offset: [0, 1450],
+    devOrg: [0, 5],
+    l2d: [
+      [
+        [297000, 205000],
+        [1000, 695, 1000, 690],
+      ],
+      [
+        [12345, 6789],
+        [42, 28, 42, 23],
+      ],
+    ],
+    d2l: [
+      [
+        [0, 0],
+        [0, -1485, 0, 0],
+      ],
+      [
+        [1000, 700],
+        [297000, 206415, 297000, 207900],
+      ],
+      [
+        [100, 37],
+        [29700, 9504, 29700, 10989],
+      ],
+    ],
+  },
 ];
 
 describe('wxPrintout page fitting, as wxWidgets computes it', () => {

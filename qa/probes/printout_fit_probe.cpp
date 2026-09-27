@@ -88,6 +88,8 @@ public:
         // 16535 x 11693, times IU_PER_MILS 25.4, truncated (GetSizeIU).
         run( 2480, 3508, 210007, 297002 );
         run( 2480, 3508, 419989, 297002 );
+        // A centring offset whose device distance has a fraction over a half.
+        run( 1000, 700, 297000, 205000 );
         return false;
     }
 };
