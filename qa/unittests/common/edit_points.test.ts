@@ -120,6 +120,14 @@ describe('EDIT_POINTS contours', () => {
     expect(pts.Next(new EDIT_POINT({ x: 0, y: 0 }))).toBe(pts.Point(1));
   });
 
+  it('merges a line into a box the points started', () => {
+    const pts = new EDIT_POINTS(null);
+    pts.AddPoint({ x: 0, y: 0 });
+    pts.AddLine(new EDIT_POINT({ x: -5, y: 2 }), new EDIT_POINT({ x: 7, y: 9 }));
+    const box = pts.ViewBBox();
+    expect([box.GetX(), box.GetY(), box.GetRight(), box.GetBottom()]).toEqual([-5, 0, 7, 9]);
+  });
+
   it('bounds the lines too', () => {
     const pts = new EDIT_POINTS(null);
     const a = new EDIT_POINT({ x: -5, y: 2 });
@@ -131,6 +139,32 @@ describe('EDIT_POINTS contours', () => {
 });
 
 describe('the constraints', () => {
+  it('EC_CONVERGING slides the far end along a sloping neighbour', () => {
+    // (0,0) (10,0) (10,10) (0,20): the end side runs from (0,20) along (10,-10),
+    // the line y = 20 - x. Drag the right edge to x = 14: its origin stays on
+    // y = 0 at (14,0), and its end moves ALONG the neighbour to (14,6) - not
+    // to (14,10), where the drag alone put it.
+    const pts = new EDIT_POINTS(null);
+    for (const p of [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 10, y: 10 },
+      { x: 0, y: 20 },
+    ])
+      pts.AddPoint(p);
+    for (let i = 0; i < 4; ++i) pts.AddLine(pts.Point(i), pts.Point((i + 1) % 4));
+
+    const right = pts.Line(1);
+    const c = new EC_CONVERGING(right, pts);
+    right.SetPosition({ x: 14, y: 5 });
+    c.Apply(grid(1));
+
+    expect([pos(pts.Point(1)), pos(pts.Point(2))]).toEqual([
+      { x: 14, y: 0 },
+      { x: 14, y: 6 },
+    ]);
+  });
+
   it('EC_VERTICAL aligns to the grid, then takes the constrainer X', () => {
     const handle = new EDIT_POINT({ x: 3, y: 7 });
     new EC_VERTICAL(handle, new EDIT_POINT({ x: 10, y: 0 })).Apply(grid(5));
