@@ -164,6 +164,13 @@ export class GRID_HELPER {
   protected m_manualOrigin: VECTOR2I = { x: 0, y: 0 };
   protected m_manualGridSnapping = true;
 
+  /**
+   * Whether a canvas stands in for the `VIEW` the two view items live in. An
+   * editor without a `TOOL_MANAGER` sets it with {@link SetViewAttached} when
+   * it draws {@link GetAxisState} / {@link GetSnapIndicatorState} itself.
+   */
+  private m_viewAttached = false;
+
   private m_viewAxis: AxisViewState = { position: { x: 0, y: 0 }, visible: false };
   private m_viewSnapPoint: SnapIndicatorViewState = {
     position: { x: 0, y: 0 },
@@ -237,11 +244,11 @@ export class GRID_HELPER {
       this.m_auxAxis = aOrigin;
       this.m_viewAxis = {
         position: aOrigin,
-        visible: this.m_toolMgr ? true : this.m_viewAxis.visible,
+        visible: this.hasView() ? true : this.m_viewAxis.visible,
       };
     } else {
       this.m_auxAxis = null;
-      if (this.m_toolMgr) this.m_viewAxis = { ...this.m_viewAxis, visible: false };
+      if (this.hasView()) this.m_viewAxis = { ...this.m_viewAxis, visible: false };
     }
   }
 
@@ -584,13 +591,28 @@ export class GRID_HELPER {
 
   /** `GRID_HELPER::updateSnapPoint` (`grid_helper.cpp:347-359`). */
   protected updateSnapPoint(aPoint: TYPED_POINT2I): void {
-    if (!this.m_toolMgr) return;
+    if (!this.hasView()) return;
 
     this.m_viewSnapPoint = {
       position: { ...aPoint.m_point },
       snapTypes: aPoint.m_types,
       visible: true,
     };
+  }
+
+  /** `m_toolMgr->GetView()->SetVisible( &m_viewSnapPoint, aVisible )`. */
+  protected setSnapPointVisible(aVisible: boolean): void {
+    if (this.hasView()) this.m_viewSnapPoint = { ...this.m_viewSnapPoint, visible: aVisible };
+  }
+
+  /** Whether there is a view for `m_viewAxis` / `m_viewSnapPoint` to live in. */
+  protected hasView(): boolean {
+    return !!this.m_toolMgr || this.m_viewAttached;
+  }
+
+  /** Let a canvas stand in for the `VIEW`; see `m_viewAttached`. */
+  SetViewAttached(aAttached: boolean): void {
+    this.m_viewAttached = aAttached;
   }
 
   /** The `m_viewAxis` state; see the file comment. */

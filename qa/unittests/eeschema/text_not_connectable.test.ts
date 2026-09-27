@@ -17,7 +17,8 @@ import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js'
 import { planMove } from '@ziroeda/eeschema/tools/connect.js';
 import { orthoMove } from '@ziroeda/eeschema/tools/ortho.js';
 import { moveWithConnections } from '@ziroeda/eeschema/tools/move.js';
-import { sheetAnchors } from '@ziroeda/eeschema/tools/ee_grid_helper.js';
+import { EE_GRID_HELPER } from '@ziroeda/eeschema/tools/ee_grid_helper.js';
+import { GRID_HELPER_GRIDS } from '@ziroeda/common/tool/grid_helper.js';
 import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
@@ -89,16 +90,21 @@ describe('free text is not connectable', () => {
   });
 
   it('is not a snap anchor', () => {
-    const at = sheet('text').labels[0]!.at;
-    const textAnchors = sheetAnchors(sheet('text'), NO_LIB)
-      .GetAnchors()
-      .map((a) => a.pos);
-    const labelAnchors = sheetAnchors(sheet('label'), NO_LIB)
-      .GetAnchors()
-      .map((a) => a.pos);
-    const has = (pts: readonly { x: number; y: number }[]) =>
-      pts.some((p) => p.x === at.x && p.y === at.y);
-    expect(has(textAnchors)).toBe(false);
-    expect(has(labelAnchors)).toBe(true);
+    // The anchors BestSnapAnchor collected around the item: a label's position
+    // is one (its connection point), a text's is not (`aIncludeText` is off).
+    const anchorsNear = (doc: Schematic) => {
+      const at = doc.labels[0]!.at;
+      const h = new EE_GRID_HELPER();
+      h.SetSchematic(doc, NO_LIB);
+      h.BestSnapAnchor(
+        { x: at.x + mmToIU(0.5), y: at.y + mmToIU(0.3) },
+        GRID_HELPER_GRIDS.GRID_CONNECTABLE,
+      );
+      return { at, pts: h.GetAnchors().map((a) => a.pos) };
+    };
+    const text = anchorsNear(sheet('text'));
+    const label = anchorsNear(sheet('label'));
+    expect(text.pts).not.toContainEqual(text.at);
+    expect(label.pts).toContainEqual(label.at);
   });
 });
