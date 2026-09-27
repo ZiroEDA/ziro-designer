@@ -12,6 +12,11 @@
  * Other). Edge Cuts and Courtyards are graphics-only, so their Text Width/Height/
  * Thickness/Italic/Keep-Upright cells are blank and disabled, as upstream.
  *
+ * The grid is upstream's: a WX_GRID over its string table with GRID_TRICKS,
+ * `SetUnitsProvider` + `SetAutoEvalCols` on the four size columns, Italic and
+ * Keep Upright read-only `wxGridCellBoolRenderer` cells that GRID_TRICKS
+ * toggles, and `DISABLE_CELL` painting the dead cells wxSYS_COLOUR_FRAMEBK.
+ *
  * Both headings carry a `wxStaticLine` under them
  * (`panel_setup_text_and_graphics_base.cpp:27`,
  * `panel_setup_dimensions_base.cpp:24`), which is `.ze-pref-group-title`; ours
@@ -21,10 +26,21 @@
  * entry lines up with the Precision choice. No SetFont anywhere in either panel.
  */
 
-import type { JSX } from 'react';
+import { type JSX, useLayoutEffect, useRef, useState } from 'react';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { GRID_TRICKS } from '@ziroeda/common/grid_tricks.js';
+import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { parseUnitValueDouble, stringFromValue } from '@ziroeda/common/widgets/unit_binder.js';
+import { parseUnitValueDouble } from '@ziroeda/common/widgets/unit_binder.js';
+import { WX_GRID } from '@ziroeda/common/widgets/wx_grid.js';
+import {
+  wxALIGN_CENTER,
+  wxALIGN_LEFT,
+  wxGridCellAttr,
+  wxGridCellBoolRenderer,
+  wxGridStringTable,
+} from '@ziroeda/common/wx/grid.js';
+import { WxGridView } from '@ziroeda/common/wx/grid_ui.js';
 import type { DimensionDefaults, TextGfxDefaults, TextGfxRow } from '../../board_settings.js';
 
 // The data model lives in board_settings.ts (KiCad's data/UI split);
@@ -57,122 +73,140 @@ interface Props {
   onChange: (next: TextGfxDefaults) => void;
 }
 
-// Text columns (blank for graphics-only rows); Line Thickness is always shown.
-/** Column keys, for the <colgroup> widths above. */
-const COL_KEYS = ['line', 'w', 'h', 'th', 'italic', 'upright'] as const;
+/** `COL_*` (`panel_setup_text_and_graphics.cpp:36-44`). */
+const COL_LINE_THICKNESS = 0;
+const COL_TEXT_WIDTH = 1;
+const COL_TEXT_HEIGHT = 2;
+const COL_TEXT_THICKNESS = 3;
+const COL_TEXT_ITALIC = 4;
+const COL_TEXT_UPRIGHT = 5;
 
-const TEXT_COLS: { label: string; key: 'textWidth' | 'textHeight' | 'textThickness' }[] = [
-  { label: 'Text Width', key: 'textWidth' },
-  { label: 'Text Height', key: 'textHeight' },
-  { label: 'Text Thickness', key: 'textThickness' },
+/** `SetColLabelValue` (`_base.cpp:53-58`): no unit, the cells carry it. */
+const COL_LABELS = [
+  'Line Thickness',
+  'Text Width',
+  'Text Height',
+  'Text Thickness',
+  'Italic',
+  'Keep Upright',
 ];
 
+/** [data] `SetColSize` 140/140/140/140/80/120 (`panel_setup_text_and_graphics_base.cpp:46-51`). */
+const COL_WIDTHS = [140, 140, 140, 140, 80, 120];
+
+/** `wxSYS_COLOUR_FRAMEBK`, the same enumerator as BTNFACE: the grid's label colour. */
+const DISABLED_COLOUR = 'var(--grid-label-bg)';
+
+const toIU = (mm: number): number => Math.round(mm * pcbIUScale.IU_PER_MM);
+
 export function PanelPcbTextGraphics({ value, onChange }: Props): JSX.Element {
-  // `StringFromValue( …, true )` / `ValueFromString` — a wxGrid numeric cell's
-  // text carries its unit, which is why the column labels do not.
-  const show = (v: number): string => stringFromValue(v, 'mm', true, pcbIUScale);
   const num = (s: string): number => parseUnitValueDouble(s, 'mm');
-  const setCell = (i: number, patch: Partial<TextGfxRow>): void =>
-    onChange({ ...value, rows: value.rows.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
   const setDim = <K extends keyof DimensionDefaults>(k: K, val: DimensionDefaults[K]): void =>
     onChange({ ...value, dimensions: { ...value.dimensions, [k]: val } });
   const d = value.dimensions;
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
-  // Graphics-only cells: no gridlines + the outside-table grey, so Edge Cuts /
-  // Courtyards read as one blank block like KiCad (not empty bordered cells).
-  const blankCell: React.CSSProperties = { border: 'none', background: 'var(--chrome-bg)' };
+  const [{ grid, tricks }] = useState(() => {
+    const g = new WX_GRID();
+    g.SetTable(new wxGridStringTable(ROWS.length, COL_LABELS.length), true);
+    COL_LABELS.forEach((label, c) => {
+      g.SetColLabelValue(c, label);
+    });
+    ROWS.forEach((r, i) => {
+      g.SetRowLabelValue(i, r.label);
+    });
+    g.SetRowLabelAlignment(wxALIGN_LEFT);
+    // `SetUnitsProvider( m_Frame )`; this panel's frame reads millimetres.
+    g.SetUnitsProvider(new UNITS_PROVIDER(pcbIUScale, 'mm'));
+    g.SetAutoEvalCols([COL_LINE_THICKNESS, COL_TEXT_WIDTH, COL_TEXT_HEIGHT, COL_TEXT_THICKNESS]);
+    return { grid: g, tricks: new GRID_TRICKS(g) };
+  });
+
+  const written = useRef<string | null>(null);
+  const key = JSON.stringify(value.rows);
+
+  // `TransferDataToWindow` (`:124-180`).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: key is the rows' content; the grid is stable
+  useLayoutEffect(() => {
+    if (key === written.current) return;
+
+    grid.BeginBatch();
+
+    value.rows.forEach((r, i) => {
+      grid.SetUnitValue(i, COL_LINE_THICKNESS, toIU(r.lineThickness));
+
+      if (!ROWS[i]?.text) {
+        for (const col of [
+          COL_TEXT_WIDTH,
+          COL_TEXT_HEIGHT,
+          COL_TEXT_THICKNESS,
+          COL_TEXT_ITALIC,
+          COL_TEXT_UPRIGHT,
+        ]) {
+          grid.SetReadOnly(i, col);
+          grid.SetCellBackgroundColour(i, col, DISABLED_COLOUR);
+        }
+      } else {
+        grid.SetUnitValue(i, COL_TEXT_WIDTH, toIU(r.textWidth));
+        grid.SetUnitValue(i, COL_TEXT_HEIGHT, toIU(r.textHeight));
+        grid.SetUnitValue(i, COL_TEXT_THICKNESS, toIU(r.textThickness));
+        grid.SetCellValue(i, COL_TEXT_ITALIC, r.italic ? '1' : '');
+        grid.SetCellValue(i, COL_TEXT_UPRIGHT, r.keepUpright ? '1' : '');
+
+        for (const col of [COL_TEXT_ITALIC, COL_TEXT_UPRIGHT]) {
+          const attr = new wxGridCellAttr();
+          attr.SetRenderer(new wxGridCellBoolRenderer());
+          attr.SetReadOnly(); // not really; we delegate interactivity to GRID_TRICKS
+          attr.SetAlignment(wxALIGN_CENTER, wxALIGN_CENTER);
+          grid.SetAttr(i, col, attr);
+        }
+      }
+    });
+
+    grid.EndBatch();
+    written.current = key;
+  }, [key]);
+
+  /** `TransferDataFromWindow`'s reads (`:184-275`), after every change the grid draws. */
+  const transfer = (): void => {
+    const mm = (i: number, col: number): number => grid.GetUnitValue(i, col) / pcbIUScale.IU_PER_MM;
+    const rows: TextGfxRow[] = valueRef.current.rows.map((r, i) =>
+      ROWS[i]?.text
+        ? {
+            lineThickness: mm(i, COL_LINE_THICKNESS),
+            textWidth: mm(i, COL_TEXT_WIDTH),
+            textHeight: mm(i, COL_TEXT_HEIGHT),
+            textThickness: mm(i, COL_TEXT_THICKNESS),
+            // `wxGridCellBoolEditor::IsTrueValue`.
+            italic: grid.GetCellValue(i, COL_TEXT_ITALIC) === '1',
+            keepUpright: grid.GetCellValue(i, COL_TEXT_UPRIGHT) === '1',
+          }
+        : { ...r, lineThickness: mm(i, COL_LINE_THICKNESS) },
+    );
+    const next = JSON.stringify(rows);
+
+    if (next === written.current) return;
+
+    written.current = next;
+    onChangeRef.current({ ...valueRef.current, rows });
+  };
 
   return (
     <div className="ze-pref-page-natural">
       {/* PANEL_SETUP_TEXT_AND_GRAPHICS */}
       <div className="ze-pref-group-title">Default Properties for New Graphics and Text</div>
       <div className="ze-grid-pane ze-tg-grid-pane" style={{ maxHeight: '48vh' }}>
-        <table className="ze-grid" style={{ whiteSpace: 'nowrap' }}>
-          {/* [data] `SetColSize` 140/140/140/140/80/120
-              (`panel_setup_text_and_graphics_base.cpp:46-51`). The row-label
-              column is the grid's own and takes what its labels need. This
-              table had NO column widths and `width: 100%`, so every column
-              stretched to its header — and the headers were the invented
-              "Line Thickness (mm)" form, which is the longest string on the
-              page. Between them they made the dialog ~260 px too wide. */}
-          <colgroup>
-            <col />
-            {[140, 140, 140, 140, 80, 120].map((w, i) => (
-              <col key={COL_KEYS[i]} style={{ width: w }} />
-            ))}
-          </colgroup>
-          <thead>
-            <tr>
-              <th style={{ position: 'sticky', left: 0 }} />
-              {/* `SetColLabelValue` carries NO unit: upstream puts the unit in
-                  each CELL, via `StringFromValue( …, true )`. */}
-              <th>Line Thickness</th>
-              {TEXT_COLS.map((c) => (
-                <th key={c.key}>{c.label}</th>
-              ))}
-              <th>Italic</th>
-              <th>Keep Upright</th>
-            </tr>
-          </thead>
-          <tbody>
-            {value.rows.map((r, i) => {
-              const hasText = ROWS[i]!.text;
-              return (
-                <tr key={i}>
-                  <th
-                    style={{ textAlign: 'left', padding: '0 8px', background: 'var(--chrome-bg2)' }}
-                  >
-                    {ROWS[i]!.label}
-                  </th>
-                  <td>
-                    <input
-                      type="text"
-                      value={show(r.lineThickness)}
-                      onChange={(e) => setCell(i, { lineThickness: num(e.target.value) })}
-                    />
-                  </td>
-                  {TEXT_COLS.map((c) => (
-                    <td key={c.key} style={hasText ? undefined : blankCell}>
-                      {hasText ? (
-                        <input
-                          type="text"
-                          value={show(r[c.key])}
-                          onChange={(e) => setCell(i, { [c.key]: num(e.target.value) })}
-                        />
-                      ) : null}
-                    </td>
-                  ))}
-                  <td
-                    style={
-                      hasText ? { textAlign: 'center' } : { ...blankCell, textAlign: 'center' }
-                    }
-                  >
-                    {hasText && (
-                      <input
-                        type="checkbox"
-                        checked={r.italic}
-                        onChange={(e) => setCell(i, { italic: e.target.checked })}
-                      />
-                    )}
-                  </td>
-                  <td
-                    style={
-                      hasText ? { textAlign: 'center' } : { ...blankCell, textAlign: 'center' }
-                    }
-                  >
-                    {hasText && (
-                      <input
-                        type="checkbox"
-                        checked={r.keepUpright}
-                        onChange={(e) => setCell(i, { keepUpright: e.target.checked })}
-                      />
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <WxGridView
+          grid={grid}
+          tricks={tricks}
+          rowLabels
+          columns={COL_WIDTHS.map((width) => ({ width }))}
+          onUpdate={transfer}
+          ariaLabel="Default properties for new graphics and text"
+        />
       </div>
 
       {/* PANEL_SETUP_DIMENSIONS — one `wxGridBagSizer( 0, 5 )`, six columns
