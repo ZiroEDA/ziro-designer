@@ -116,14 +116,6 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
     'if (multi && (e.ctrlKey || e.metaKey)) {',
     'if (e.ctrlKey || e.altKey || e.metaKey) return;',
   ],
-  'editors/drawingsheet/DrawingSheetEditor.tsx': [
-    'const plain = !e.ctrlKey && !e.metaKey && !e.altKey;',
-    // ACTIONS::toggleUnits (Ctrl+U, actions.cpp:1149-1156). pl_editor puts the
-    // units on the LEFT TOOLBAR and gives them no menu row, so there is no
-    // accelerator for the dispatcher to read and this is the command's only
-    // declaration - a context action, like the symbol editor's Ctrl+D below.
-    "if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'u') {",
-  ],
   'editors/footprint/FootprintEditor.tsx': ['const plain = !e.ctrlKey && !e.metaKey && !e.altKey;'],
   'editors/pcb/PcbEditor.tsx': [
     // The chain's own "no Ctrl/Cmd held" predicate - the same guard as the
@@ -444,27 +436,9 @@ const CANVAS_KEYS: Readonly<
     }
   >
 > = {
-  'editors/drawingsheet/DrawingSheetEditor.tsx': {
-    moved: [
-      ['Ctrl+S save', /=== 's'/],
-      ['Ctrl+N new', /=== 'n'/],
-      ['Ctrl+O open', /=== 'o'/],
-      ['Ctrl+Z undo', /=== 'z'/],
-      ['Ctrl+Y redo', /=== 'y'/],
-      ['Ctrl+C copy', /=== 'c'/],
-      ['Ctrl+X cut', /=== 'x'/],
-      ['Del delete', /=== 'Delete'/],
-      ['Home zoom to fit', /=== 'Home'/],
-    ],
-    kept: [
-      // PL_ACTIONS::move, pl_actions.cpp:84 - the one hotkey pl_editor
-      // declares for itself, and it has no row anywhere in the frame.
-      ['M move', /e\.key === 'm' \|\| e\.key === 'M'/],
-      // The cancel chain. ACTIONS::cancelInteractive is scoped to the running
-      // tool, so it is a context action too.
-      ['Esc cancel', /e\.key === 'Escape'/],
-    ],
-  },
+  // pl_editor keeps none: M, Escape and Ctrl+U are PL_ACTIONS::move,
+  // ACTIONS::cancelInteractive and ACTIONS::toggleUnits, dispatched by the
+  // TOOL_DISPATCHER on PL_DRAW_PANEL_GAL, as upstream.
   'editors/footprint/FootprintEditor.tsx': {
     moved: [
       ['Ctrl+S save', /e\.key\.toLowerCase\(\) === 's'/],

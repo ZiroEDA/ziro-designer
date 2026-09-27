@@ -160,9 +160,17 @@ describe('every frame with a registered menu is wired to receive it', () => {
     expect(read(rel)).toContain(`app="${app}"`);
   });
 
-  it.each(CALL_SITES)('%s dispatches the menu`s action', (_app, rel) => {
+  it.each(CALL_SITES)('%s dispatches the menu`s action', (app, rel) => {
     // The row runs through the frame's own `onActivate`, so the frame has to
-    // answer for an id that is on no button of its own.
+    // answer for an id that is on no button of its own. pl_editor's toolbar
+    // runs every id as its TOOL_ACTION through the bridge's table.
+    if (app === 'pl_editor') {
+      expect(read(rel)).toContain('const action = ACTION_FOR_ID[id];');
+      expect(read('editors/drawingsheet/pl_editor_settings_bridge.ts')).toContain(
+        'gridProperties: ACTIONS.gridProperties,',
+      );
+      return;
+    }
     expect(read(rel)).toMatch(/id === 'gridProperties'/);
   });
 

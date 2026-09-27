@@ -13,8 +13,6 @@
  * a cold-open pl_editor where ours prints plain integers.
  */
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { formatG, gridMsg } from '@ziroeda/common/widgets/kistatusbar_format.js';
 
 describe('formatG — C’s %g', () => {
@@ -60,36 +58,6 @@ describe('formatG — C’s %g', () => {
     expect(formatG(1000)).toBe('1000');
   });
 });
-
-const EDITOR = readFileSync(
-  fileURLToPath(
-    new URL('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx', import.meta.url),
-  ),
-  'utf8',
-);
-
-describe('the status bar’s own formats', () => {
-  it('formats both coordinate pairs with %.4g', () => {
-    expect(EDITOR).toContain('const fmt4 = (n: number): string => formatG(n, 4);');
-    expect(EDITOR).not.toContain('toPrecision(4)');
-  });
-
-  it('prints the mils grid to six decimal places', () => {
-    // DisplayGridMsg's `default:` branch is a bare "grid %f", and C's default
-    // precision for %f is 6. 0.5 mm is 19.685039 mils.
-    expect(gridMsg((0.5 / 25.4) * 1000 + '')).toBe('grid 19.68503937007874');
-    expect(gridMsg(((0.5 / 25.4) * 1000).toFixed(6))).toBe('grid 19.685039');
-
-    const at = EDITOR.indexOf("unit === 'mils'");
-    expect(at).toBeGreaterThan(-1);
-    const branch = EDITOR.slice(at, EDITOR.indexOf(': iuToMM(gridIU).toFixed(4)', at));
-    expect(branch).toContain('toFixed(6)');
-    expect(branch).not.toContain('toFixed(1)');
-  });
-
-  it('leaves the inch and mm grid formats alone, which already matched', () => {
-    // "grid %.3f" in inch, "grid %.4f" in mm (pl_editor_frame.cpp:713-714).
-    expect(EDITOR).toContain('(iuToMM(gridIU) / 25.4).toFixed(3)');
-    expect(EDITOR).toContain('iuToMM(gridIU).toFixed(4)');
-  });
-});
+// Where the frame applies them - UpdateStatusBar's %.4g panes and
+// DisplayGridMsg's per-unit grid format - is driven through PL_EDITOR_FRAME in
+// unittests/pagelayout_editor/pl_editor_frame.test.ts.

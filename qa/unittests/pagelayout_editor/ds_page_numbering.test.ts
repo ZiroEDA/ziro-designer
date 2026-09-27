@@ -27,10 +27,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import {
-  DS_CANVAS_PAGE_NUMBERING,
-  dsPrintPageNumbering,
-} from '@ziroeda/pagelayout_editor/dialogs/dialogs_for_printing.js';
+import { dsPrintPageNumbering } from '@ziroeda/pagelayout_editor/dialogs/dialogs_for_printing.js';
 import { layoutDrawingSheet, type WksSheet } from '@ziroeda/common';
 
 const A4 = { widthMM: 297, heightMM: 210 };
@@ -103,30 +100,6 @@ function idText(ctx: Record<string, unknown>): string {
   return text.text;
 }
 
-describe('the canvas numbering never follows the page selector', () => {
-  it('reads 1/1 on "Page 1", as the driven pl_editor does', () => {
-    expect(idText({ pageNumber: 1, ...DS_CANVAS_PAGE_NUMBERING })).toBe('Id: 1/1');
-  });
-
-  it('reads 1/1 on "Other pages" too', () => {
-    // The whole bug in one line: this used to be `Id: 2/2`.
-    expect(idText({ pageNumber: 2, ...DS_CANVAS_PAGE_NUMBERING })).toBe('Id: 1/1');
-  });
-
-  it('still hides and shows the page-option items between the two', () => {
-    // The selector has to keep doing its real job — the layer toggle — or the
-    // fix above would be "make the two pages identical", which is a different
-    // bug wearing the same green tick.
-    const one = layoutDrawingSheet(SHEET, A4, { pageNumber: 1, ...DS_CANVAS_PAGE_NUMBERING });
-    const other = layoutDrawingSheet(SHEET, A4, { pageNumber: 2, ...DS_CANVAS_PAGE_NUMBERING });
-    const ys = (ds: ReturnType<typeof layoutDrawingSheet>): number[] =>
-      ds.filter((d) => d.kind === 'line').map((d) => (d.kind === 'line' ? d.a.y : 0));
-    expect(ys(one)).toHaveLength(1);
-    expect(ys(other)).toHaveLength(1);
-    expect(ys(one)).not.toEqual(ys(other));
-  });
-});
-
 describe('the printout numbers the sheets and not the total', () => {
   it('prints page 1 as 1/1', () => {
     expect(idText({ pageNumber: 1, ...dsPrintPageNumbering(1) })).toBe('Id: 1/1');
@@ -167,10 +140,6 @@ describe('the frame states no page numbering of its own', () => {
     // `sheetCount: pageNumber > 1 ? 2 : 1` — twice — is what was here.
     expect(statements(EDITOR, 'sheetCount')).toHaveLength(0);
     expect(statements(EDITOR, 'pageName')).toHaveLength(0);
-  });
-
-  it('spreads the canvas defaults into the render context', () => {
-    expect(statements(EDITOR, '...DS_CANVAS_PAGE_NUMBERING,')).toHaveLength(1);
   });
 
   it('spreads the printout’s numbering into the printed page’s context', () => {

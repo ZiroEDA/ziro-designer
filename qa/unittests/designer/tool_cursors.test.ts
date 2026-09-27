@@ -28,7 +28,6 @@ import { describe, expect, it } from 'vitest';
 import { sharedToolCursorName, toolCursorCss } from '@ziroeda/designer/src/ui/tool_cursors.js';
 import { kiCursor } from '@ziroeda/designer/src/ui/kicursors.js';
 import { boardToolCursor } from '@ziroeda/designer/src/editors/pcb/cursors.js';
-import { drawingSheetToolCursor } from '@ziroeda/designer/src/editors/drawingsheet/cursors.js';
 import { footprintToolCursor } from '@ziroeda/designer/src/editors/footprint/cursors.js';
 import { symbolToolCursor } from '@ziroeda/designer/src/editors/symbol/cursors.js';
 import { toolCursorName } from '@ziroeda/designer/src/editors/schematic/cursors.js';
@@ -163,27 +162,5 @@ describe('every editor answers through the shared table', () => {
 
   it('and eeschema, whose map is the one the others were modelled on', () => {
     expect(toolCursorName('delete')).toBe('REMOVE');
-  });
-
-  it('and the drawing-sheet editor, the last one to get a cursors.ts', () => {
-    // This was a grep of `DrawingSheetCanvas.tsx` for `sharedToolCursorName`,
-    // because that editor was then the one canvas deciding inline. `726e0836`
-    // moved the decision into its own `cursors.ts` like the other four and the
-    // grep went red on a refactor — the exact failure the rest of this file was
-    // rewritten to stop making. There is no exception left to name, so it is
-    // asked the same way as its siblings.
-    //
-    // Against `kiCursor` rather than `toolCursorCss`: the latter reaches the
-    // shared table too, so it would agree with a wrong table. This asks the
-    // cursor store, and so fails both if the editor stops consulting the table
-    // and if the table's answer for the action changes.
-    expect(drawingSheetToolCursor('dsDelete', { placing: false })).toBe(kiCursor('REMOVE'));
-    expect(drawingSheetToolCursor('dsDelete', { placing: false })).not.toBe('crosshair');
-    expect(drawingSheetToolCursor('zoomTool', { placing: false })).toBe(kiCursor('ZOOM_IN'));
-    // The shared answer wins over this editor's own state, as it does upstream:
-    // placing an item does not turn the eraser back into a pencil.
-    expect(drawingSheetToolCursor('dsDelete', { placing: true })).toBe(kiCursor('REMOVE'));
-    // …while a tool the table has no answer for still gets this editor's own.
-    expect(drawingSheetToolCursor('dsAddLine', { placing: true })).toBe(kiCursor('PENCIL'));
   });
 });

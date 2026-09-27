@@ -45,7 +45,6 @@ const GRID_OWNERS: [canvas: string, file: string][] = [
   ['schematic', 'editors/schematic/render/renderer.ts'],
   ['symbol editor', 'editors/symbol/render/symbolRenderer.ts'],
   ['footprint editor', 'editors/footprint/FootprintCanvas.tsx'],
-  ['pl_editor', 'editors/drawingsheet/DrawingSheetCanvas.tsx'],
 ];
 
 /** Where each canvas' crosshair (GAL::blitCursor) is drawn. */
@@ -54,7 +53,6 @@ const CROSSHAIR_OWNERS: [canvas: string, file: string][] = [
   ['symbol editor', 'editors/symbol/SymbolCanvas.tsx'],
   ['pcb', 'editors/pcb/PcbEditor.tsx'],
   ['footprint editor', 'editors/footprint/FootprintCanvas.tsx'],
-  ['pl_editor', 'editors/drawingsheet/DrawingSheetCanvas.tsx'],
 ];
 
 /** Everything that draws a grid or a crosshair, for the no-local-copy sweep. */
@@ -192,15 +190,9 @@ describe('shared grid + crosshair', () => {
     expect(pcb).not.toMatch(/\[1000, 500, 250, 200, 100, 50, 25, 20, 10, 5, 2, 1\]/);
   });
 
-  it('no canvas invents its own grid colour any more', () => {
-    // Each copy had picked a value with no upstream source. They come off the
-    // frame's COLOR_SETTINGS layer now, which IS per-editor upstream.
-    const OLD: [string, RegExp][] = [
-      ['editors/drawingsheet/DrawingSheetCanvas.tsx', /rgba\(0,0,0,0\.32\)/],
-      ['editors/drawingsheet/DrawingSheetCanvas.tsx', /rgba\(90,160,255,0\.55\)/],
-    ];
-    for (const [rel, re] of OLD) expect(read(rel), `${rel} ${re}`).not.toMatch(re);
-  });
+  // 'no canvas invents its own grid colour any more' checked three files for
+  // their invented grid colours. All three are gone (DrawingSheetCanvas.tsx and
+  // gerberColors.ts, 09-27): the frames take the colour from COLOR_SETTINGS.
 
   it('the shared module owns the coarse-grid factor, not its callers', () => {
     // SetCoarseGrid(10) was spelled three different ways: a GRID_TICK const in

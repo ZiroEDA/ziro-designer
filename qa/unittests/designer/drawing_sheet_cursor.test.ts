@@ -22,114 +22,15 @@
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import {
-  drawingSheetToolCursor,
-  type DrawingSheetCursorState,
-} from '@ziroeda/designer/src/editors/drawingsheet/cursors.js';
-import { KICURSOR_NAMES, kiCursor } from '@ziroeda/designer/src/ui/kicursors.js';
 import { fileURLToPath } from 'node:url';
+
+// The pointer each tool asks for is PL_DRAWING_TOOLS' and ZOOM_TOOL's own now,
+// driven through the frame in unittests/pagelayout_editor/pl_editor_chrome.test.ts.
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const CANVAS = read('../../../designer/src/editors/drawingsheet/DrawingSheetCanvas.tsx');
 const SHELL = read('../../../common/widgets/shell.css');
-
-/**
- * The decision, called rather than grepped.
- *
- * This read the `const cursor = …` chain out of the canvas as TEXT, which is
- * CLAUDE.md's "file-level check where the rule is per-occurrence" from the
- * other side: it pinned the implementation, and went red the moment the shared
- * actions moved into `ui/tool_cursors.ts` even though every answer was still
- * right. The chain is now `editors/drawingsheet/cursors.ts`, like the other
- * four editors', and this calls it.
- */
-const cursorFor = (tool: string, state: Partial<DrawingSheetCursorState> = {}): string =>
-  drawingSheetToolCursor(tool, { placing: false, moveMode: false, ...state });
-
-describe('the drawing sheet canvas shows KiCad’s pointer', () => {
-  it('idles on the arrow, not a crosshair', () => {
-    // pl_selection_tool.cpp:209. The crosshair is DRAWN, not pointed.
-    expect(cursorFor('dsSelect')).toBe('default');
-    expect(cursorFor('')).toBe('default');
-  });
-
-  it('still draws the crosshair mark itself', () => {
-    // Removing the pointer crosshair must not remove the drawn one — that is
-    // the mark KiCad's always_show_cursor puts on the canvas.
-    expect(CANVAS).toContain('drawCrosshair(');
-  });
-
-  it('gives the text tool KiCad’s I-beam, not the browser’s', () => {
-    // `else if( isText ) -> KICURSOR::TEXT` (pl_drawing_tools.cpp:88-90), and
-    // KICURSOR::TEXT is `cursor-text.xpm` (cursors.cpp:192-197) — KiCad's own
-    // art. The CSS keyword `text` is a different glyph the platform draws, so
-    // naming it here was a near miss, not a match.
-    expect(cursorFor('dsAddText')).toBe(kiCursor('TEXT'));
-    expect(cursorFor('dsAddText')).not.toBe('text');
-  });
-
-  it('gives place-image the arrow, not the pencil', () => {
-    // `else if( placeImage ) -> KICURSOR::ARROW` (pl_drawing_tools.cpp:91-94).
-    expect(cursorFor('dsAddBitmap')).toBe('default');
-    // …and specifically NOT the pencil the other placement tools take.
-    expect(cursorFor('dsAddBitmap', { placing: true })).toBe('default');
-  });
-
-  it('keeps the pencil for the shape tools only', () => {
-    // `else -> KICURSOR::PENCIL` (pl_drawing_tools.cpp:96-99).
-    expect(cursorFor('dsAddLine', { placing: true })).toBe(kiCursor('PENCIL'));
-    expect(cursorFor('dsAddLine')).toBe('default');
-  });
-
-  it('keeps the remove and zoom pointers', () => {
-    // picker->SetCursor( KICURSOR::REMOVE ) (pl_edit_tool.cpp:424).
-    // Both are shared actions now, so the answer comes from the one table —
-    // which is the point of the table, and is why grepping this file for
-    // `kiCursor('REMOVE')` stopped working.
-    expect(cursorFor('dsDelete')).toBe(kiCursor('REMOVE'));
-    expect(cursorFor('zoomTool')).toBe(kiCursor('ZOOM_IN'));
-  });
-
-  it('moves with the selection in move mode', () => {
-    // KICURSOR::MOVING (pl_selection_tool.cpp:198, pl_edit_tool.cpp:158).
-    expect(cursorFor('dsSelect', { moveMode: true })).toBe(kiCursor('MOVING'));
-    // …and a tool with a cursor of its own is not overridden by the drag.
-    expect(cursorFor('dsAddText', { moveMode: true })).toBe(kiCursor('TEXT'));
-  });
-
-  it('names no cursor KiCad’s table cannot give it', () => {
-    // Every art cursor has to come through `ui/kicursors.ts`, which serves
-    // KiCad's own `.cur` files. Art written here instead — the hand-drawn SVG
-    // pencil and cross this file was first written against — would be a
-    // `url(...)` or `data:` that is not one of the store's.
-    //
-    // So the check is set membership, not the absence of `url(`: `kiCursor`
-    // legitimately RETURNS a `url(...)`, and a source grep for one could not
-    // tell KiCad's art from ours.
-    const FROM_STORE = new Set([
-      ...KICURSOR_NAMES.map((n) => kiCursor(n)),
-      // The CSS keywords a chain may name outright, each because upstream
-      // resolves to a stock cursor rather than to art.
-      'default',
-      'crosshair',
-    ]);
-
-    for (const tool of [
-      'dsSelect',
-      'dsAddText',
-      'dsAddBitmap',
-      'dsAddLine',
-      'dsDelete',
-      'zoomTool',
-    ])
-      for (const state of [{}, { placing: true }, { moveMode: true }]) {
-        const c = cursorFor(tool, state);
-        expect(FROM_STORE, `${tool} ${JSON.stringify(state)} -> ${c}`).toContain(c);
-      }
-  });
-});
 
 describe('a launcher does not restate what the shared combo owns', () => {
   /**

@@ -28,6 +28,7 @@ import {
   type UnitRange,
   parseUnitValue,
   stringFromValue,
+  type UNIT_BINDER,
   unitLabel,
   validateUnitValue,
 } from './unit_binder.js';
@@ -150,6 +151,48 @@ export function UnitField({
       <span className={`ze-muted ze-unit-label${disabled ? ' disabled' : ''}`}>
         {unitLabel(units)}
       </span>
+    </>
+  );
+}
+
+/**
+ * A `UNIT_BINDER` engine's value control and unit static text: the text is the
+ * binder's own (`GetText` / `SetText`), so the dialog that owns the binder
+ * reads it back exactly as typed. `onFocusLost` is the control's
+ * `wxEVT_KILL_FOCUS`, which is where a panel like PROPERTIES_FRAME applies.
+ */
+export function BinderField({
+  binder,
+  onEdit,
+  onFocusLost,
+  title,
+}: {
+  binder: UNIT_BINDER;
+  /** A keystroke changed the text: the owner re-renders. */
+  onEdit: () => void;
+  onFocusLost: () => void;
+  title?: string;
+}): JSX.Element {
+  return (
+    <>
+      <input
+        className="ze-search"
+        type="text"
+        inputMode="decimal"
+        style={{ flex: '1 1 auto', minWidth: 0 }}
+        title={title}
+        value={binder.GetText()}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+        }}
+        onChange={(e) => {
+          binder.SetText(e.target.value);
+          onEdit();
+        }}
+        onBlur={onFocusLost}
+      />
+      <span className="ze-muted ze-unit-label">{unitLabel(binder.GetUnits() as EdaUnits)}</span>
     </>
   );
 }

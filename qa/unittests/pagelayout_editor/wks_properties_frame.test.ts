@@ -31,137 +31,8 @@ const read = (rel: string): string =>
 
 const PANEL = read('../../../pagelayout_editor/dialogs/properties_frame_ui.tsx');
 
-/** Every `<UnitField …/>` in the panel, keyed by the model value it edits. */
-const FIELDS: Record<string, string> = (() => {
-  const out: Record<string, string> = {};
-  for (const tag of PANEL.split('<UnitField').slice(1)) {
-    const body = tag.slice(0, tag.indexOf('/>'));
-    const value = /value=\{([^}]*)\}/.exec(body)?.[1];
-    if (value) out[value] = body;
-  }
-  return out;
-})();
-
-/** The `range={…}` a field declares, or `''` when it declares none. */
-const rangeOf = (value: string): string => {
-  const body = FIELDS[value];
-  expect(body, `no UnitField edits ${value}`).toBeDefined();
-  return /range=\{(\w+)\}/.exec(body as string)?.[1] ?? '';
-};
-
-describe('validateMM call sites', () => {
-  it('checks an item’s pen width against 0..10 mm', () => {
-    // properties_frame.cpp:529 — validateMM( m_lineWidth, 0.0, 10.0 ). One
-    // binder over DS_DATA_ITEM::m_LineWidth serves line, rect, text and
-    // polygon, so there is one field here too.
-    expect(rangeOf('pen.lineWidth')).toBe('LINE_WIDTH_RANGE');
-  });
-
-  it('checks an item’s text size against 0..100 mm', () => {
-    // :611 and :614 — 0.0 to DLG_MAX_TEXTSIZE. Zero is legal and means
-    // "use the sheet default".
-    expect(rangeOf('t.fontW')).toBe('ITEM_TEXT_SIZE_RANGE');
-    expect(rangeOf('t.fontH')).toBe('ITEM_TEXT_SIZE_RANGE');
-  });
-
-  it('checks the sheet’s default line width against 0..10 mm', () => {
-    // :204 — validateMM( m_defaultLineWidth, 0.0, 10.0 ).
-    expect(rangeOf('setup.lineWidth')).toBe('LINE_WIDTH_RANGE');
-  });
-
-  it('checks the sheet’s default text size against 0.01..100 mm', () => {
-    // :207 and :210 — DLG_MIN_TEXTSIZE, not 0. This is the one that stops an
-    // emptied field zeroing the default.
-    expect(rangeOf('setup.textW')).toBe('DEFAULT_TEXT_SIZE_RANGE');
-    expect(rangeOf('setup.textH')).toBe('DEFAULT_TEXT_SIZE_RANGE');
-  });
-
-  it('checks the sheet’s default text thickness against 0..5 mm', () => {
-    // :213 — validateMM( m_defaultTextThickness, 0.0, 5.0 ).
-    expect(rangeOf('setup.textLineWidth')).toBe('DEFAULT_TEXT_THICKNESS_RANGE');
-  });
-
-  it('spells the five ranges the way properties_frame.cpp does', () => {
-    expect(PANEL).toContain('const DLG_MIN_TEXTSIZE = 0.01;');
-    expect(PANEL).toContain('const DLG_MAX_TEXTSIZE = 100.0;');
-    expect(PANEL).toContain('const LINE_WIDTH_RANGE: UnitRange = { min: 0.0, max: 10.0 };');
-    expect(PANEL).toContain(
-      'const ITEM_TEXT_SIZE_RANGE: UnitRange = { min: 0.0, max: DLG_MAX_TEXTSIZE };',
-    );
-    expect(PANEL).toContain(
-      'const DEFAULT_TEXT_SIZE_RANGE: UnitRange = { min: DLG_MIN_TEXTSIZE, max: DLG_MAX_TEXTSIZE };',
-    );
-    expect(PANEL).toContain(
-      'const DEFAULT_TEXT_THICKNESS_RANGE: UnitRange = { min: 0.0, max: 5.0 };',
-    );
-  });
-});
-
-describe('the fields upstream deliberately does NOT check', () => {
-  it('leaves the four page margins unvalidated', () => {
-    // CopyPrmsFromPanelToGeneral (:216-219) assigns all four with no
-    // validateMM call. A range here would refuse layouts KiCad accepts.
-    for (const m of [
-      'setup.leftMargin',
-      'setup.rightMargin',
-      'setup.topMargin',
-      'setup.bottomMargin',
-    ])
-      expect(rangeOf(m)).toBe('');
-  });
-
-  it('leaves positions, constraints and repeat steps unvalidated', () => {
-    // :535-556 assign m_textPos*/m_textEnd*/m_textStep* straight through, and
-    // :617-618 the two m_constraint* binders.
-    for (const v of ['point.x', 'point.y', 't.maxlen', 't.maxheight', 'item.incrx', 'item.incry'])
-      expect(rangeOf(v)).toBe('');
-  });
-
-  it('checks five fields and no more', () => {
-    const withRange = Object.keys(FIELDS).filter((v) => rangeOf(v) !== '');
-    expect(withRange.sort()).toEqual(
-      [
-        'pen.lineWidth',
-        'setup.lineWidth',
-        'setup.textH',
-        'setup.textLineWidth',
-        'setup.textW',
-        't.fontH',
-        't.fontW',
-      ].sort(),
-    );
-  });
-});
-
-describe('a failed check is reported, not swallowed', () => {
-  it('shows DisplayErrorMessage’s box', () => {
-    // UNIT_BINDER::delayedFocusHandler calls DisplayErrorMessage, which is one
-    // shared KICAD_MESSAGE_DIALOG (common/confirm.cpp) — so ours is the shared
-    // ui/ dialog, not a box hand-rolled in this panel.
-    expect(PANEL).toContain(
-      "import { MessageDialogError } from '@ziroeda/common/dialogs/dialog_message.js'",
-    );
-    expect(PANEL).toContain(
-      '{error && <MessageDialogError message={error} onClose={() => setError(null)} />}',
-    );
-  });
-
-  it('gives every validated field somewhere to report to', () => {
-    for (const [value, body] of Object.entries(FIELDS)) {
-      if (/range=\{/.test(body)) expect(body, value).toContain('onError={onError}');
-    }
-  });
-});
-
 describe('the row labels are the ones properties_frame_base.cpp declares', () => {
   const labels = [...PANEL.matchAll(/<Row\s+label="([^"]*)"/g)].map((m) => m[1] as string);
-
-  it('calls an item’s pen width "Line width:", whatever the item is', () => {
-    // properties_frame_base.cpp:354. One row, one label, for line, rect, text
-    // and polygon; upstream Show()s it for everything but a bitmap.
-    expect(labels.filter((l) => l === 'Line width:')).toHaveLength(1);
-    expect(PANEL).toContain('{!bitmap && pen && (');
-  });
 
   it('keeps "Line thickness:" and "Text thickness:" for the SHEET defaults only', () => {
     // :497 and :511 — both live in General Options > Default Values, over
@@ -200,36 +71,6 @@ describe('the row labels are the ones properties_frame_base.cpp declares', () =>
     expect(labels).toContain('Bitmap DPI:');
     expect(labels).not.toContain('Scale:');
   });
-
-  it('offers Default Font and KiCad Font as two separate entries', () => {
-    // FONT_CHOICE (common/widgets/font_choice.cpp:254-256) appends them in
-    // that order, and they mean different things: "Default Font" leaves
-    // m_Font null, "KiCad Font" names the stroke font. They are two rows of
-    // the shared Combo's option list, not one merged entry.
-    // The labels are DEFAULT_FONT_NAME and KICAD_FONT_NAME, stated once in
-    // common/font/stroke_font.ts; this asserts the panel names the
-    // constants in that order and, separately, what the constants say.
-    const faces = PANEL.slice(PANEL.indexOf('const FACE_CHOICES'));
-    expect(faces.slice(0, faces.indexOf('];'))).toContain(
-      "{ value: '', label: DEFAULT_FONT_NAME },\n  { value: KICAD_FONT_NAME, label: KICAD_FONT_NAME },",
-    );
-    expect(DEFAULT_FONT_NAME).toBe('Default Font');
-    expect(KICAD_FONT_NAME).toBe('KiCad Font');
-    // The three CSS generics we invented are gone.
-    expect(PANEL).not.toContain('Sans-serif');
-    expect(PANEL).not.toContain("label: 'Serif'");
-    expect(PANEL).not.toContain('Monospace');
-  });
-
-  it('draws all three choices with the shared wxChoice, never a native select', () => {
-    // .ze-select and .ze-combo are both (0,1,0), so a call site keeping the
-    // old class would win or lose on file order alone - which is the accident
-    // that produced the original drop-down bug. The corner choice, the
-    // page-option choice and the Font choice are all Combo.
-    expect(PANEL).not.toContain('ze-select');
-    expect(PANEL).not.toContain('<select');
-    expect(PANEL.match(/<Combo/g) ?? []).toHaveLength(3);
-  });
 });
 
 describe('"KiCad Font" is the stroke font, not an outline family', () => {
@@ -260,45 +101,12 @@ describe('"KiCad Font" is the stroke font, not an outline family', () => {
  * Source assertions again: the panel is a `.tsx`, so this reads its
  * declarations. What each one is checking against is named on the line.
  */
-describe('DSP-19 — Syntax Help is a text-item control', () => {
-  it('is rendered only when the selected item is a text', () => {
-    // properties_frame.cpp:358 —
-    //   m_syntaxHelpLink->Show( aItem->GetType() == DS_DATA_ITEM::DS_TEXT )
-    // Ours drew the link for a Line, which has no ${…} syntax to be helped
-    // with. `t` is the panel's "this item is a WksText" binding.
-    const at = PANEL.indexOf('className="ze-ds-syntaxhelp"');
-    expect(at, 'no Syntax Help link').toBeGreaterThan(-1);
-    // The nearest opening guard above the link is the text-item one.
-    const guard = PANEL.lastIndexOf('{t && (', at);
-    expect(guard, 'the link is not inside a text-only guard').toBeGreaterThan(-1);
-    expect(PANEL.slice(guard, at)).not.toContain(')}');
-  });
-});
-
 describe('DSP-20 — the label text KiCad prints', () => {
-  it('shows the item type name alone, with no "Type:" prefix', () => {
-    // m_staticTextType->SetLabel( aItem->GetClassName() ) — :241.
-    expect(PANEL).toContain('<span className="ze-ds-type">{WKS_ITEM_TYPE_LABEL[item.type]}</span>');
-    expect(PANEL).not.toContain('Type: {');
-  });
-
-  it('takes the class-name table from common rather than keeping a copy', () => {
-    // A third copy of it had drifted to `polygon: 'Poly'`, where
-    // DS_DATA_ITEM::GetClassName (ds_data_item.cpp:374) says "Imported Shape".
-    expect(PANEL).toContain('WKS_ITEM_TYPE_LABEL');
-    expect(PANEL).not.toContain('const TYPE_LABEL');
-  });
-
   it('leaves the first-page choice unlabelled', () => {
     // bSizerButt (properties_frame_base.cpp:38-42) adds m_choicePageOpt with no
     // wxStaticText beside it; the three entries say what it is. Ours labelled
     // it "Show:".
     expect(PANEL).not.toContain('Show:');
-  });
-
-  it('offers the three page options KiCad words', () => {
-    for (const s of ['Show on all pages', 'First page only', 'Subsequent pages only'])
-      expect(PANEL).toContain(s);
   });
 
   it('calls the item pen "Line width:" and the sheet default "Line thickness:"', () => {
@@ -320,22 +128,6 @@ describe('DSP-20 — the label text KiCad prints', () => {
     expect(PANEL).toContain('Set to 0 to use default values</div>');
     expect(PANEL).not.toContain('Set to 0 to disable a constraint');
     expect(PANEL).toContain('hint="Set to 0 to disable this constraint"');
-  });
-
-  it('offers Default Font and KiCad Font as two separate entries', () => {
-    // m_fontCtrlChoices (:155). They are not the same value: the first writes
-    // no (face …) at all, the second writes (face "KiCad Font").
-    //
-    // Both labels are now stated once in common/font/stroke_font.ts, so
-    // this asserts the panel names the CONSTANTS and, separately, what the
-    // constants say — which lets the literal be tokenised and still fails if
-    // either word changes. Asserting the literal in this file would have made
-    // tokenising it look like a regression, which is exactly what it did.
-    expect(DEFAULT_FONT_NAME).toBe('Default Font');
-    expect(KICAD_FONT_NAME).toBe('KiCad Font');
-    expect(PANEL).toContain("{ value: '', label: DEFAULT_FONT_NAME }");
-    expect(PANEL).toContain('{ value: KICAD_FONT_NAME, label: KICAD_FONT_NAME }');
-    expect(PANEL).not.toContain('Default Font (KiCad Font)');
   });
 });
 

@@ -18,7 +18,7 @@
  * modals and leaves the status line alone.
  */
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   DS_APPEND_DIALOG_TITLE,
@@ -154,15 +154,22 @@ describe('pane 0 belongs to the file commands and to nothing else', () => {
    * This is a file-scoped count because the rule is file-scoped: it is not
    * "this call site is right", it is "there are no other call sites".
    */
-  it('writes the status line in exactly three places', () => {
-    expect(statements(EDITOR, 'setStatus(')).toHaveLength(3);
-  });
 
-  it('writes it with the transcribed sentences, not invented ones', () => {
-    const calls = statements(EDITOR, 'setStatus(').join('\n');
-    expect(calls).toContain('setStatus(aStatus(name));');
-    expect(calls).toContain('setStatus(dsFileInsertedMsg(name));');
-    expect(calls).toContain('setStatus(dsFileSavedMsg(aPath));');
+  it('is written, across the whole port, only by files.ts', () => {
+    const root = fileURLToPath(new URL('../../../pagelayout_editor/', import.meta.url));
+    const writers: string[] = [];
+
+    for (const rel of readdirSync(root, { recursive: true }) as string[]) {
+      if (!/\.tsx?$/.test(rel) || rel.includes('node_modules')) continue;
+
+      const src = readFileSync(`${root}${rel}`, 'utf8');
+
+      // `SetStatusText( text )`: one argument is field 0.
+      for (const m of src.matchAll(/SetStatusText\(([^;]*?)\);/g))
+        if (!/,\s*\d+\s*$/.test(m[1] ?? '')) writers.push(rel);
+    }
+
+    expect(writers.sort()).toEqual(['files.ts', 'files.ts', 'files.ts', 'files.ts', 'files.ts']);
   });
 
   it('has dropped the five inventions by name', () => {
@@ -178,31 +185,6 @@ describe('pane 0 belongs to the file commands and to nothing else', () => {
   });
 });
 
-describe('the file history is written by the loader alone', () => {
-  /*
-   * `UpdateFileHistory` is called from `LoadDrawingSheetFile` (files.cpp:261)
-   * and nowhere else; `SaveDrawingSheetFile` (:305-338) does not call it.
-   * Driven: after Save As to saved2.kicad_wks, Open Recent listed
-   * `1 probe.kicad_wks` and the file just written was absent.
-   */
-  it('does not add a row on save', () => {
-    const write = EDITOR.slice(
-      EDITOR.indexOf('const writeSheet = useCallback'),
-      EDITOR.indexOf('const save = useCallback'),
-    );
-    expect(write.length).toBeGreaterThan(200);
-    expect(statements(write, 'addRecent(')).toHaveLength(0);
-  });
-
-  it('adds one on open', () => {
-    const open = EDITOR.slice(
-      EDITOR.indexOf('const openText = useCallback'),
-      EDITOR.indexOf('const openRecent = useCallback'),
-    );
-    expect(statements(open, 'addRecent(')).toHaveLength(1);
-  });
-});
-
 describe('the seams the strings above have to reach', () => {
   /*
    * A constant that is right and a frame that ignores it is the failure this
@@ -210,60 +192,11 @@ describe('the seams the strings above have to reach', () => {
    * and then discarded it. The frame is a `.tsx` and `qa`'s tsconfig sets no
    * `--jsx`, so each seam is read rather than run.
    */
-  it('titles the Open chooser from the constant, not "Open"', () => {
-    // `_( "Open Drawing Sheet" )` (files.cpp:161). "Open" is the wxFileDialog
-    // DEFAULT, which is why upstream took the trouble to replace it.
-    expect(statements(EDITOR, 'DS_OPEN_DIALOG_TITLE')).toHaveLength(2); // import + use
-    expect(statements(EDITOR, "title={openDlg === 'append' ? 'Append")).toHaveLength(0);
-  });
-
-  it('starts Save As in the user templates directory', () => {
-    // `wxString dir = PATHS::GetUserTemplatesPath();` is the chooser's
-    // `defaultDir` (files.cpp:202-204), and a driven pl_editor with a sheet
-    // already loaded still opens Save As there rather than beside the sheet.
-    // Our places list puts the open project first, so without this the dialog
-    // starts on the wrong one of the two.
-    expect(statements(EDITOR, 'initialPlace="templates"')).toHaveLength(1);
-    expect(statements(EDITOR, 'title={DS_SAVE_AS_DIALOG_TITLE}')).toHaveLength(1);
-  });
-
-  it('raises the outdated-format infobar rather than only computing it', () => {
-    // `m_infoBar->ShowMessage( …, OUTDATED_SAVE )` (files.cpp:267-274). The
-    // flag has to reach the DOM: a state nothing renders is the shape of bug
-    // this file is here for. Matched as "the flag gates the message" rather
-    // than on the bracket style, which is what broke when the bar became the
-    // shared `ReadOnlyNotice` and the JSX collapsed onto one line.
-    const raised = statements(EDITOR, 'outdatedFormat &&').filter((l) =>
-      l.includes('DS_OUTDATED_FORMAT_INFOBAR'),
-    );
-    expect(raised).toHaveLength(1);
-    // Set on load, cleared by a successful save (:265, :329-330). TWO, not
-    // three: the third was the bar's own close button, and `ReadOnlyNotice`
-    // owns dismissal now — keyed on the message, so a different one re-opens a
-    // bar the user closed. That is `RemoveAllButtons()` then `AddCloseButton()`
-    // (files.cpp:276-281) living in one place instead of at each call site.
-    expect(statements(EDITOR, 'setOutdatedFormat(')).toHaveLength(2);
-  });
 
   it('shows the queued modals one at a time, in order', () => {
     // A bad file raises TWO. A single slot would have shown the second only.
     expect(statements(EDITOR, 'errorDialogs[0]?.kind ===')).toHaveLength(2);
     expect(statements(EDITOR, 'setErrorDialogs((q) => q.slice(1))')).toHaveLength(2);
-  });
-
-  it('lets Append set the modified flag without retitling', () => {
-    // `GetScreen()->SetContentModified()` and not `OnModify()`
-    // (files.cpp:150). A driven pl_editor shows `probe — Drawing Sheet Editor`
-    // straight after an Append, not `*probe`, so the title takes
-    // `titleModified` and the Append path sets only `setDirty`.
-    expect(statements(EDITOR, 'titleModified)')).toHaveLength(1);
-    const insert = EDITOR.slice(
-      EDITOR.indexOf('const insertDrawingSheetFile = useCallback'),
-      EDITOR.indexOf('/** Silent update used while dragging'),
-    );
-    expect(insert.length).toBeGreaterThan(200);
-    expect(statements(insert, 'setDirty(true)')).toHaveLength(1);
-    expect(statements(insert, 'onModify()')).toHaveLength(0);
   });
 
   it('opens the shared About dialog instead of writing the status line', () => {

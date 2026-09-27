@@ -40,7 +40,6 @@ import {
   DEFAULT_TOGGLES as SCH_TOGGLES,
   RADIO_GROUPS as SCH_GROUPS,
 } from '@ziroeda/designer/src/editors/schematic/toggles.js';
-import { DEFAULT_TOGGLES as DS_TOGGLES } from '@ziroeda/designer/src/editors/drawingsheet/toggles.js';
 import {
   persistSymbolToggle,
   SYMBOL_SETTING_TOGGLES,
@@ -216,19 +215,9 @@ describe("SCH_EDIT_FRAME's opening toolbar state", () => {
 
 /**
  * GerbView's defaults are GERBVIEW_FRAME's own now, read off a fresh frame in
- * unittests/gerbview/gerbview_frame.test.ts.
+ * unittests/gerbview/gerbview_frame.test.ts, and pl_editor's are
+ * PL_EDITOR_FRAME's, read off a fresh frame in pl_editor_settings.test.ts.
  */
-describe('the frame that already had its defaults in a .ts', () => {
-  /**
-   * pl_editor: grid on, mils (the first imperial name), and EDIT mode —
-   * `DS_DATA_MODEL::GetTheInstance().m_EditMode = true` runs unconditionally in
-   * PL_EDITOR_FRAME's constructor (`pl_editor_frame.cpp:105`) and nothing
-   * persists it.
-   */
-  it('opens the drawing sheet editor with three buttons', () => {
-    expect(sorted(DS_TOGGLES)).toEqual(['layoutEditMode', 'toggleGrid', 'unitsMils']);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // the seam a `.ts` module cannot cover

@@ -240,7 +240,6 @@ describe('the lasso mode follows its winding', () => {
 
 describe('there is one copy of the table', () => {
   const CANVASES = [
-    'editors/drawingsheet/DrawingSheetCanvas.tsx',
     'editors/symbol/SymbolCanvas.tsx',
     'editors/footprint/FootprintCanvas.tsx',
     'editors/schematic/components/SchematicCanvas.tsx',

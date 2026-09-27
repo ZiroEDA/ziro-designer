@@ -107,7 +107,6 @@ describe('every app defaults to ALWAYS, so the sweep changed no default', () => 
 const CANVAS: Record<string, string> = {
   eeschema: 'editors/schematic/components/SchematicCanvas.tsx',
   symbol_editor: 'editors/symbol/grid.ts',
-  pl_editor: 'editors/drawingsheet/DrawingSheetCanvas.tsx',
 };
 
 /** The settings-object expression each canvas must reach for. */
@@ -150,13 +149,6 @@ describe('each canvas asks GetGridSnapping, with its own settings', () => {
     // than on the behaviour it is about.
     expect(src).toMatch(/snapping\s*\?\s*\{\s*x:\s*Math\.round\(p\.x \/ GRID\)/);
     expect(src).toMatch(/:\s*p;/);
-  });
-
-  it('the drawing sheet no longer ties snapping to Show Grid', () => {
-    // It was `showGrid && gridIU > 0`, i.e. WITH_GRID hardcoded.
-    const src = read(CANVAS.pl_editor as string);
-    expect(src).toContain('snapping && gridIU > 0');
-    expect(src).not.toContain('showGrid && gridIU > 0');
   });
 });
 

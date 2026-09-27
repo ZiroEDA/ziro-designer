@@ -25,43 +25,62 @@ are ours there, not here: `ds_data_item.ts` (`DS_DATA_ITEM` and its
 and writer over a `WksSheet` (the file as written); `DRAWING_SHEET_PARSER_Parse`
 and `DS_DATA_MODEL_IO_Format` move that into and out of the model.
 
-`layout.ts` is the older resolver the board and schematic canvases and the
-React editor still draw from; `DS_PROXY_VIEW_ITEM` builds `DS_DRAW_ITEM_*`
-from it with no peer. When those canvases build from
-`DS_DATA_MODEL::GetTheInstance()` as KiCad does, it goes.
+`layout.ts` is the older resolver the board and schematic canvases still draw
+from, and the one the page's print path draws through (below); when those
+build from `DS_DATA_MODEL` as KiCad does, it goes.
 
-## Two editors, for now
+`DS_DATA_MODEL::GetTheInstance()` is one object for the whole page. Upstream
+it is a static per kiface DSO, so pl_editor's model and the schematic's never
+meet; here only pagelayout_editor uses the instance today. The day a board or
+schematic canvas moves onto it, pl_editor needs its own (`SetAltInstance`).
 
-`PL_EDITOR_FRAME` (`pl_editor_frame.ts`) is ported on `EDA_DRAW_FRAME` with
-its tools on `TOOL_INTERACTIVE` / `SELECTION_TOOL`, the undo stack on
-`DS_PROXY_UNDO_ITEM`s, and `PL_DRAW_PANEL_GAL` on `EDA_DRAW_PANEL_GAL`, and is
-driven end to end by `qa/unittests/pagelayout_editor/pl_editor_frame.test.ts`.
-It is **not hosted yet** — the gerbview precedent (`GERBVIEW_FRAME`, "Not
-hosted yet"): the app's window is still `designer/.../DrawingSheetEditor.tsx`
-over `DrawingSheetCanvas.tsx` and a `WksSheet` in React state, and that
-window calls the functional halves kept in these files
-(`pl_editor_undo_redo.ts`' history functions, `pl_editor_frame.ts`'
-status-bar and UI-condition rules and page load/store, `files.ts`' messages,
-`tools/pl_selection_tool.ts`' thresholds and context menu). Hosting is: the
-window builds `PL_EDITOR_FRAME` through `pl_editor.ts`' `CreateKiWindow`,
-answers `PL_EDITOR_FRAME_HOST`, hands it a `PL_DRAW_PANEL_GAL`, and routes its
-menu and toolbar through the tool manager; then the functional halves go.
+## Hosted
+
+The Drawing Sheet Editor's window is `designer/.../DrawingSheetEditor.tsx`
+hosting `PL_EDITOR_FRAME`, exactly as `GerberViewer.tsx` hosts
+`GERBVIEW_FRAME`: it builds the frame through `pl_editor.ts`' `CreateKiWindow`
+over the `pl_editor.json` slice (`pl_editor_settings_bridge.ts`, JSON_SETTINGS
+Load / Store), hands it a `PL_DRAW_PANEL_GAL` on its `<canvas>`
+(`render/gal_window.ts`), answers `PL_EDITOR_FRAME_HOST` with its dialogs
+(each a Promise the frame continues from when it settles), and runs every
+menu row and toolbar button as the frame's TOOL_ACTION with its position
+cleared, as `ACTION_TOOLBAR::onToolEvent` does. The check / enable state of
+every control is the frame's `ProcessUpdateUI`; the status bar, message
+panel, context menus and Preferences go through the frame's sinks.
+
+What the page still does itself, and why:
+
+- **Print.** `ToPrinter` asks the host; the host renders the model's two
+  pages through `layout.ts` to images and hands them to the browser's print.
+  `PLEDITOR_PRINTOUT` draws through a wxDC / CAIRO_PRINT_GAL, which is not
+  wired to a page yet.
+- **The colour theme.** `loadPlEditorColors` loads the painter from the theme
+  the page resolves (built-in, installed, made, or User with the stored
+  overrides): SETTINGS_MANAGER's "User" does not carry the schematic
+  overrides the page's colour store holds.
+- **The clipboard.** `SaveClipboard` writes a cache and the system
+  clipboard; `GetClipboardUTF8` / `GetImageFromClipboard` read the cache,
+  which a `paste` event refreshes. A browser reads the system clipboard only
+  asynchronously or inside that event.
+- **Files.** Opened files are kept by path for `ReadFile`; a write goes to the
+  project (or downloads with none). Open Recent keeps each row's text.
+- **Choose Image.** `AddDrawingSheetItem( DS_BITMAP )` blocks on a
+  wxFileDialog upstream; here `PlaceItem` waits for the page's chooser inside
+  its coroutine and passes the answer in.
 
 ## Where the screens are, and why some are still in `designer/`
 
 A screen can come here only when everything it imports is in `common/` or
 here: `pagelayout_editor` must not import `designer`. What still reads the
-app's own modules stays, and each row says which import holds it:
+app's own modules stays:
 
 - `DrawingSheetEditor.tsx` — the window: `designer/src/prefs/*` (the
-  `plEditor` slice, `useSettings`), `fs/*` (the file chooser and Save As),
-  `ui/*` (`ReadOnlyNotice`, `HomeLink`, `useToolbarEntries`, the hotkey list),
+  `plEditor` slice), `fs/*` (the file chooser and Save As), `ui/*`
+  (`ReadOnlyNotice`, `HomeLink`, `useToolbarEntries`, the hotkey list),
   `dialogs/PreferencesDialog`.
-- `DrawingSheetCanvas.tsx` — the canvas: `prefs/useSettings`,
-  `render/gl/drawingsheet_gl`, `ui/view_controls`.
-- `cursors.ts` (`ui/kicursors`, `ui/tool_cursors`), `toggles.ts`
-  (`prefs/settings`' `PlEditorSettings`), `prefs/*` (`dialogs/prefs/types`,
-  `pcm/pcmStore`, `prefs/color_settings_list`).
+- `pl_editor_settings_bridge.ts` — `prefs/settings`, `prefs/useSettings`
+  (the theme), the schematic colour table.
+- `prefs/*` (`dialogs/prefs/types`, `pcm/pcmStore`, `prefs/color_settings_list`).
 
 ## The 27 KiCad `.cpp` files
 
@@ -76,22 +95,21 @@ Status legend: **here** (our file exists under KiCad's name and path);
 held by an import named above); **n/a** (a browser cannot have it, or KiCad
 does not build anything from it).
 
-Counts: 26 rows — 20 here (4 of them with a window half in `designer/`),
-2 in `designer/` only (the two Preferences panels), 3 n/a, and 1 not ported
-(`tools/pl_point_editor`, waiting on common/tool's `EDIT_POINTS`).
+Counts: 26 rows — 21 here (3 of them with a window half in `designer/`),
+2 in `designer/` only (the two Preferences panels), 3 n/a.
 
 ### Root — 9 `.cpp` units + 2 headers
 
 | KiCad unit | status | ours / note |
 |---|---|---|
-| `files` | here, part in `designer/` | `files.ts`: `LoadDrawingSheetFile`, `InsertDrawingSheetFile`, `SaveDrawingSheetFile` (bound on the frame), and `Files_io`'s messages and rules. `Files_io`, `OnFileHistory` and `DoWithAcceptedFiles` open file dialogs: the window's |
-| `menubar` | here | `menubar.ts` (`doReCreateMenuBar`), which the window renders |
+| `files` | here | `files.ts`: `Files_io`, `OnFileHistory`, `LoadDrawingSheetFile`, `InsertDrawingSheetFile`, `SaveDrawingSheetFile` (bound on the frame); the dialogs are the host's |
+| `menubar` | here | `menubar.ts` (`doReCreateMenuBar`), which the window renders; each row runs its action |
 | `pl_draw_panel_gal` | here | `pl_draw_panel_gal.ts` (`PL_DRAW_PANEL_GAL`): `DisplayDrawingSheet`, the layer targets, `SetTopLayer`, `SwitchBackend` |
 | `pl_editor` | here, part in `designer/` | `pl_editor.ts`: `OnKifaceStart`, `CreateKiWindow( FRAME_PL_EDITOR )`, `SaveFileAs`. The four `PANEL_DS_*` pages are `designer/.../prefs/index.ts` |
-| `pl_editor_frame` | here, part in `designer/` | `pl_editor_frame.ts` (`PL_EDITOR_FRAME`); see "Two editors" |
+| `pl_editor_frame` | here, part in `designer/` | `pl_editor_frame.ts` (`PL_EDITOR_FRAME`); see "Hosted" |
 | `pl_editor_layout` | here | `pl_editor_layout.ts` (`PL_EDITOR_LAYOUT`) |
 | `pl_editor_settings` | here | `pl_editor_settings.ts` (`PL_EDITOR_SETTINGS`, the seven PARAMs as `FromJson` / `ToJson`) |
-| `pl_editor_undo_redo` | here | `pl_editor_undo_redo.ts`: the frame's `SaveCopyInUndoList`, `GetLayoutFromUndoList`, `GetLayoutFromRedoList`, `RollbackFromUndo` on `DS_PROXY_UNDO_ITEM`, and the window's functional history |
+| `pl_editor_undo_redo` | here | `pl_editor_undo_redo.ts`: the frame's `SaveCopyInUndoList`, `GetLayoutFromUndoList`, `GetLayoutFromRedoList`, `RollbackFromUndo` on `DS_PROXY_UNDO_ITEM` |
 | `toolbars_pl_editor` (+ `.h`) | here | `toolbars_pl_editor.ts` (`DefaultToolbarConfig`). `configureToolbars`' two choice boxes are made by the frame's constructor; `ClearToolbarControl` / `UpdateToolbarControlSizes` are the window's |
 | `invoke_pl_editor_dialog.h` | here | declares `InvokeDialogPrint` / `InvokeDialogPrintPreview`, which are `dialogs/dialogs_for_printing`'s: folded there |
 | `pl_editor_id.h` | here | `pl_editor_id.ts` (`pl_editor_ids`) |
@@ -100,12 +118,12 @@ Counts: 26 rows — 20 here (4 of them with a window half in `designer/`),
 
 | KiCad unit | status | ours / note |
 |---|---|---|
-| `design_inspector` (+ `dialog_design_inspector_base`) | here | `dialogs/design_inspector.ts` (the rows and the six XPM icons) + `dialogs/design_inspector_ui.tsx` (the dialog) |
+| `design_inspector` (+ `dialog_design_inspector_base`) | here | `dialogs/design_inspector.ts` (`DIALOG_INSPECTOR` over the model, the six XPM icons) + `dialogs/design_inspector_ui.tsx` |
 | `dialog_new_dataitem_base` | n/a | a wxFormBuilder base no class derives from; KiCad 10 never shows it |
-| `dialogs_for_printing` | here, part in `designer/` | `dialogs/dialogs_for_printing.ts`: `PLEDITOR_PRINTOUT`'s two pages and the page numbering each prints with; the print itself is `printSheet` in `DrawingSheetEditor.tsx` |
+| `dialogs_for_printing` | here, part in `designer/` | `dialogs/dialogs_for_printing.ts`: `PLEDITOR_PRINTOUT`'s two pages and the page numbering each prints with; the print itself is the host's (see "Hosted") |
 | `panel_pl_editor_color_settings` (+ `_base`) | here, in `designer/` | `designer/.../prefs/PanelPlEditorColorSettings.tsx` (reads `dialogs/prefs/types`, `pcm/pcmStore`, `prefs/color_settings_list`) |
 | `panel_pl_editor_display_options` | here, in `designer/` | `designer/.../prefs/PanelPlEditorDisplayOptions.tsx` (reads `dialogs/prefs/types`) |
-| `properties_frame` (+ `properties_frame_base`) | here | `dialogs/properties_frame.ts` (the number formats) + `dialogs/properties_frame_ui.tsx` (the panel). The frame drives it through `PROPERTIES_FRAME_LIKE` (`CopyPrmsFromItemToPanel`, `CopyPrmsFromGeneralToPanel`); the panel still edits a `WksItem` |
+| `properties_frame` (+ `properties_frame_base`) | here | `dialogs/properties_frame.ts` (`PROPERTIES_FRAME`: every control's state, the transfers, `OnAcceptPrms` / `OnUpdateUI`) + `dialogs/properties_frame_ui.tsx` (the panel). Its nineteen `UNIT_BINDER`s are common's engine half (`common/widgets/unit_binder.ts`) |
 
 ### `navlib/` — 2 units: n/a
 
@@ -118,30 +136,30 @@ driver (`common/STRUCTURE.md` has `spacemouse` n/a for the same reason).
 |---|---|---|
 | `pl_actions` | here | `tools/pl_actions.ts` (`PL_ACTIONS`). The header's `pickerTool` and `refreshPreview` are never defined upstream; absent |
 | `pl_drawing_tools` | here | `tools/pl_drawing_tools.ts` (`PL_DRAWING_TOOLS`: `DrawShape`, `PlaceItem`) |
-| `pl_edit_tool` | here | `tools/pl_edit_tool.ts` (`PL_EDIT_TOOL`: move, undo / redo, cut / copy / paste, delete, append). `InteractiveDelete` waits on `PICKER_TOOL` (below) and is not registered |
+| `pl_edit_tool` | here | `tools/pl_edit_tool.ts` (`PL_EDIT_TOOL`: move, undo / redo, cut / copy / paste, delete, `InteractiveDelete` on common's `PICKER_TOOL`, append) |
 | `pl_editor_control` | here | `tools/pl_editor_control.ts` (`PL_EDITOR_CONTROL`) |
-| `pl_point_editor` | **not ported** | `PL_POINT_EDITOR` derives from `EDIT_POINTS` / `EDIT_POINTS_FACTORY` (`common/tool/edit_points.cpp`), which common/tool does not have yet. The React canvas's own handles (`DrawingSheetCanvas.tsx`) stand in |
+| `pl_point_editor` | here | `tools/pl_point_editor.ts` (`PL_POINT_EDITOR`, `EDIT_POINTS_FACTORY`, `pinEditedCorner`) on common's `EDIT_POINTS` (`common/tool/edit_points.ts`). `m_angleItem` (`PREVIEW::ANGLE_ITEM`) is not in common yet |
 | `pl_selection` | here | `tools/pl_selection.ts` (`PL_SELECTION`) |
-| `pl_selection_tool` | here | `tools/pl_selection_tool.ts` (`PL_SELECTION_TOOL` on `SELECTION_TOOL`), plus the window's hit thresholds and context-menu builder |
+| `pl_selection_tool` | here | `tools/pl_selection_tool.ts` (`PL_SELECTION_TOOL` on `SELECTION_TOOL`) |
 
 ## What the frame needs from common/tool that is not there yet
 
 Written around, never copied, and each marked where it is used:
 
-- `EDITOR_CONDITIONS` (`common/tool/editor_conditions.cpp`): `setupUIConditions`
-  writes the five it asks for inline, as `editor_conditions.cpp:169-204` has them.
-- `EDA_DRAW_FRAME::setupUIConditions`, `SetDrawBgColor` / `GetDrawBgColor`,
-  `SetTitle`: the frame keeps `m_drawBgColor` itself; the title goes to the host.
-- `COMMON_CONTROL` is in `common/tool/` now (09-27) but `setupTools` does not register it yet; `PICKER_TOOL` is not registered either.
-- `EDIT_POINTS`: `PL_POINT_EDITOR`, above.
+- `COMMON_CONTROL`: not registered by `setupTools`; the page's menus answer
+  its actions (Preferences, About, the hotkey list, Close).
+- `EDA_DRAW_FRAME::SetDrawBgColor` / `GetDrawBgColor`, `SetTitle`: the frame
+  keeps `m_drawBgColor` itself; the title goes to the host.
+- `PREVIEW::ANGLE_ITEM`: `PL_POINT_EDITOR` draws its handles without the
+  angle readout.
+- `EDIT_POINTS` is ported as far as `PL_POINT_EDITOR` needs: no `EDIT_LINE`,
+  contours or `EDIT_CONSTRAINT`s yet.
 - `TOOL_MANAGER_VIEW_CONTROLS` names only the calls the manager makes; the
-  tools cast `getViewControls()` to `VIEW_CONTROLS` for `ShowCursor`,
-  `CaptureCursor`, `SetAutoPan` and `SetCursorPosition`.
-- `ACTION_TOOLBAR`'s click does not `SetHasPosition( false )` on the event
-  (action_toolbar.cpp:807-808), so a drawing tool run from our toolbar would
-  prime at the cursor as a hotkey does.
-- The clipboard (`common/clipboard.cpp`) and the infobar are the host's.
-
+  tools cast `getViewControls()` to `VIEW_CONTROLS`.
+- A tool cannot block on a page's modal: `PL_DRAWING_TOOLS.waitForModal`
+  waits for the Choose Image dialog on one message, and `PL_EDITOR_CONTROL`'s
+  `PageSetup` continues when its dialog settles (common_tools.ts'
+  `GridOrigin` is the precedent).
 ## Ours with no KiCad unit
 
 - `index.ts` — the package barrel.
@@ -163,6 +181,40 @@ Written around, never copied, and each marked where it is used:
   setup every time. It takes `aWithSetup` now.
 - **`TITLE_BLOCK::TextVarResolver`** called the project's resolver unbound, so
   a project text variable threw instead of resolving; bound now.
+
+Found when the page moved onto the frame (the old page's own model had these
+the page's way, not KiCad's):
+
+- **Every undo entry carries the page.** `SaveCopyInUndoList` is
+  `new DS_PROXY_UNDO_ITEM( this )` (pl_editor_undo_redo.cpp:37); the page gave
+  only Page Preview Settings a PLUS entry.
+- **An undone delete comes back selected.** `DoDelete` takes the copy while
+  the item is still selected (pl_edit_tool.cpp:387) and `Restore` re-selects
+  it; the page's entry recorded no selection.
+- **`OpenProjectFiles` and the image-load failure are `wxMessageBox`**, not
+  `DisplayErrorMessage`; the image one's second argument is the caption, so
+  the message keeps its `%s` (pl_editor_frame.cpp:373-377, :875, :884).
+- **The Properties panel applies all at once, on focus loss.** Every edit only
+  marks it dirty; `OnAcceptPrms` then pushes one undo copy and copies every
+  field into the item and the model. Leaving a field unchanged still marks it
+  dirty (`onTextFocusLost`), so a tab through the panel is an edit upstream
+  too. The page applied each field alone, with no undo entry of its own.
+- **Save As appends the extension the way files.cpp does** (`GetExt() !=
+  kicad_wks` then `<< "." << ext`, :216-221), not through `EnsureFileExtension`,
+  which the page had called: a name ending in a bare dot comes out
+  `foo..kicad_wks`, as upstream's does.
+- **`PL_POINT_EDITOR` can leave `m_editedPoint` set.** Its `Main` ends
+  without `setEditedPoint( nullptr )` (pl_point_editor.cpp:258-266), so when it
+  exits with the pointer on a handle - placing a rectangle leaves the pointer
+  on its last corner, then Escape - `HasPoint()` stays true and
+  `PL_SELECTION_TOOL` starts no disambiguation timer on a left press
+  (pl_selection_tool.cpp:97-98): single clicks select nothing until the point
+  editor runs again. Ported as the C++ reads (upstream the pointer dangles
+  into the freed `EDIT_POINTS`); seen in Chrome. Worth checking on a live
+  pl_editor before deciding it is KiCad's and not ours.
+- **A Bitmap DPI of 0 reaches `SetPPI`**, which divides by it
+  (ds_data_item.cpp:781-785); only `ToLong` failing leaves the item alone. The
+  page refused 0, which is not the panel's rule.
 
 ## Non-source files
 

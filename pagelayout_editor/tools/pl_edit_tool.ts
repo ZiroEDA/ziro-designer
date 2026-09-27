@@ -6,9 +6,8 @@
  * `PL_EDIT_TOOL` — move, undo / redo, cut / copy / paste, delete, and append
  * a drawing sheet file.
  *
- * `InteractiveDelete` (`ACTIONS::deleteTool`) runs `PICKER_TOOL`, which is
- * not in common/tool yet (STRUCTURE.md): it is not registered. The clipboard
- * (`SaveClipboard`, `GetClipboardUTF8`, `GetImageFromClipboard`,
+ * `InteractiveDelete` (`ACTIONS::deleteTool`) drives common's `PICKER_TOOL`.
+ * The clipboard (`SaveClipboard`, `GetClipboardUTF8`, `GetImageFromClipboard`,
  * common/clipboard.cpp) is the frame host's.
  */
 import { BITMAP_BASE } from '@ziroeda/common/bitmap_base.js';
@@ -22,6 +21,7 @@ import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { IS_MOVING, IS_NEW } from '@ziroeda/common/eda_item_flags.js';
 import { KICURSOR } from '@ziroeda/common/gal/cursors.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { PICKER_TOOL } from '@ziroeda/common/tool/picker_tool.js';
 import type { COROUTINE_BODY } from '@ziroeda/common/tool/coroutine.js';
 import { SELECTION_CONDITIONS } from '@ziroeda/common/tool/selection_conditions.js';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
@@ -34,11 +34,15 @@ import {
 } from '@ziroeda/common/tool/tool_event.js';
 import { SYNC_HANDLER, TOOL_INTERACTIVE } from '@ziroeda/common/tool/tool_interactive.js';
 import type { VIEW_CONTROLS } from '@ziroeda/common/view/view_controls.js';
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { PL_EDITOR_FRAME } from '../pl_editor_frame.js';
 import { PL_ACTIONS } from './pl_actions.js';
 import type { PL_SELECTION } from './pl_selection.js';
 import { PL_SELECTION_TOOL } from './pl_selection_tool.js';
+
+/** `#define HITTEST_THRESHOLD_PIXELS 5` (pl_edit_tool.cpp:414), the delete picker's. [data] */
+const DELETE_HITTEST_THRESHOLD_PIXELS = 5;
 
 export class PL_EDIT_TOOL extends TOOL_INTERACTIVE {
   private m_frame: PL_EDITOR_FRAME | null;
@@ -329,7 +333,7 @@ export class PL_EDIT_TOOL extends TOOL_INTERACTIVE {
   ImportDrawingSheetContent(_aEvent: TOOL_EVENT): number {
     this.m_toolMgr!.RunAction(ACTIONS.cancelInteractive);
 
-    this.m_frame!.Files_io('ID_APPEND_DESCR_FILE');
+    void this.m_frame!.Files_io('ID_APPEND_DESCR_FILE');
 
     return 0;
   }
@@ -455,7 +459,71 @@ export class PL_EDIT_TOOL extends TOOL_INTERACTIVE {
     this.Go(this.Copy, ACTIONS.copy.MakeEvent());
     this.Go(SYNC_HANDLER(this.Paste), ACTIONS.paste.MakeEvent());
     this.Go(this.DoDelete, ACTIONS.doDelete.MakeEvent());
+    this.Go(SYNC_HANDLER(this.InteractiveDelete), ACTIONS.deleteTool.MakeEvent());
+  }
 
-    // ACTIONS::deleteTool -> InteractiveDelete waits on PICKER_TOOL.
+  /// The item under the delete picker, brightened.
+  private m_pickerItem: EDA_ITEM | null = null;
+
+  /**
+   * Run the deletion tool: the picker, with the item under the cursor
+   * brightened and deleted on a click (pl_edit_tool.cpp:417-484).
+   */
+  InteractiveDelete(aEvent: TOOL_EVENT): number {
+    const picker = this.m_toolMgr!.GetTool(PICKER_TOOL)!;
+
+    // Deactivate other tools; particularly important if another PICKER is currently running
+    this.Activate();
+
+    picker.SetCursor(KICURSOR.REMOVE);
+    this.m_pickerItem = null;
+
+    picker.SetClickHandler((_aPosition) => {
+      if (this.m_pickerItem) {
+        const selectionTool = this.m_toolMgr!.GetTool(PL_SELECTION_TOOL)!;
+        selectionTool.UnbrightenItem(this.m_pickerItem);
+        selectionTool.AddItemToSel(this.m_pickerItem, true /*quiet mode*/);
+        this.m_toolMgr!.RunAction(ACTIONS.doDelete);
+        this.m_pickerItem = null;
+      }
+
+      return true;
+    });
+
+    picker.SetMotionHandler((aPos) => {
+      const threshold = KiROUND(this.getView()!.ToWorld(DELETE_HITTEST_THRESHOLD_PIXELS));
+      let item: EDA_ITEM | null = null;
+
+      for (const dataItem of DS_DATA_MODEL.GetTheInstance().GetItems()) {
+        for (const drawItem of dataItem.GetDrawItems()) {
+          if (drawItem.HitTest({ x: aPos.x, y: aPos.y }, threshold)) {
+            item = drawItem;
+            break;
+          }
+        }
+      }
+
+      if (this.m_pickerItem !== item) {
+        const selectionTool = this.m_toolMgr!.GetTool(PL_SELECTION_TOOL)!;
+
+        if (this.m_pickerItem) selectionTool.UnbrightenItem(this.m_pickerItem);
+
+        this.m_pickerItem = item;
+
+        if (this.m_pickerItem) selectionTool.BrightenItem(this.m_pickerItem);
+      }
+    });
+
+    picker.SetFinalizeHandler((_aFinalState) => {
+      if (this.m_pickerItem)
+        this.m_toolMgr!.GetTool(PL_SELECTION_TOOL)!.UnbrightenItem(this.m_pickerItem);
+
+      // Wake the selection tool after exiting to ensure the cursor gets updated
+      this.m_toolMgr!.PostAction(ACTIONS.selectionActivate);
+    });
+
+    this.m_toolMgr!.RunAction(ACTIONS.pickerTool, aEvent);
+
+    return 0;
   }
 }

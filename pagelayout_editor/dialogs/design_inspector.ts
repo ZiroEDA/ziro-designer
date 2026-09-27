@@ -2,10 +2,10 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `DIALOG_INSPECTOR::ReCreateDesignList`
- * (pagelayout_editor/dialogs/design_inspector.cpp:205-315) — what the Design
- * Inspector's grid actually contains, as data rather than as JSX, so it can be
- * checked against the C++ line by line.
+ * `pagelayout_editor/dialogs/design_inspector.cpp`: `DIALOG_INSPECTOR`, the
+ * engine half — what the grid contains (`ReCreateDesignList`, :205-315) and
+ * what a click does (`onCellClicked`, :338-354); `design_inspector_ui.tsx`
+ * draws it.
  *
  * The grid is five columns (`COL_INDEX`, :178-186) with the headers
  * `-` / `Type` / `Count` / `Comment` / `Text`
@@ -13,7 +13,15 @@
  * wxGrid's own 1-based row numbers (:45), and a leading pseudo-row describing
  * the page rather than an item.
  */
-import { WKS_ITEM_TYPE_LABEL, type WksItem } from '@ziroeda/common';
+import {
+  type DS_DATA_ITEM,
+  type DS_DATA_ITEM_TEXT,
+  DS_ITEM_TYPE,
+} from '@ziroeda/common/drawing_sheet/ds_data_item.js';
+import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
+import { drawSheetIUScale } from '@ziroeda/common/eda_units.js';
+import type { PL_EDITOR_FRAME } from '../pl_editor_frame.js';
+import { PL_SELECTION_TOOL } from '../tools/pl_selection_tool.js';
 
 /** The five `SetColLabelValue` strings, in `COL_INDEX` order. */
 export const DS_INSPECTOR_COLUMNS: readonly string[] = ['-', 'Type', 'Count', 'Comment', 'Text'];
@@ -38,57 +46,139 @@ export interface DsInspectorRow {
    * early on row 0: "this item is not a DS_DATA_ITEM, just a pseudo item".
    */
   itemIndex: number | null;
+  /** COL_BITMAP's `BitmapGridCellRenderer` XPM. */
+  icon: XpmIcon | undefined;
 }
 
 /**
- * `SetTitle( fn.GetName() )` / `SetTitle( "<default drawing sheet>" )`
- * (design_inspector.cpp:216-221). `wxFileName::GetName()` is the base name
- * without its extension, which `frameTitleName` already implements for the
- * window title, so the caller passes the result of that.
+ * `DIALOG_INSPECTOR` (design_inspector.cpp:189-354): the grid over the live
+ * `DS_DATA_MODEL`, and the click that selects an item in the editor.
  */
-export function dsInspectorTitle(baseName: string): string {
-  return baseName.trim() === '' ? DS_INSPECTOR_DEFAULT_TITLE : baseName;
-}
+export class DIALOG_INSPECTOR {
+  private readonly m_editorFrame: PL_EDITOR_FRAME;
+  /** `m_itemsList`: row -> item; row 0 is the page, a pseudo item. */
+  private m_itemsList: (DS_DATA_ITEM | null)[] = [];
+  private m_rows: DsInspectorRow[] = [];
+  private m_title = '';
+  /** `GetGridList()->SelectRow( row )`. */
+  private m_selectedRow = -1;
 
-/**
- * The grid, root row first.
- *
- * `paperType` is `PAGE_INFO::GetTypeAsString()` — the page type NAME, `A3`,
- * and not a description of it; ours used to put the whole
- * `A4 297x210mm landscape` string there and leave the Text column empty, where
- * KiCad puts `A3` and `Size: 420.0x297.0mm`.
- */
-export function dsInspectorRows(
-  items: readonly WksItem[],
-  paperType: string,
-  pageMM: readonly [number, number],
-): DsInspectorRow[] {
-  const rows: DsInspectorRow[] = [
-    {
+  constructor(aParent: PL_EDITOR_FRAME) {
+    this.m_editorFrame = aParent;
+    this.ReCreateDesignList();
+  }
+
+  GetTitle(): string {
+    return this.m_title;
+  }
+
+  GetRows(): readonly DsInspectorRow[] {
+    return this.m_rows;
+  }
+
+  GetSelectedRow(): number {
+    return this.m_selectedRow;
+  }
+
+  ReCreateDesignList(): void {
+    const page_info = this.m_editorFrame.GetPageLayout().GetPageSettings();
+
+    this.m_itemsList = [];
+    this.m_rows = [];
+
+    const drawingSheet = DS_DATA_MODEL.GetTheInstance();
+    const name = fileNameGetName(this.m_editorFrame.GetCurrentFileName());
+
+    this.m_title = name === '' ? DS_INSPECTOR_DEFAULT_TITLE : name;
+
+    // The first item is the layout: Display info about the page: fmt, size...
+    const page_sizeIU = this.m_editorFrame.GetPageSizeIU();
+    this.m_rows.push({
       number: 1,
       type: 'Layout',
       count: '-',
-      comment: paperType,
-      // wxString::Format( _( "Size: %.1fx%.1fmm" ), … ) — :232-235.
-      text: `Size: ${pageMM[0].toFixed(1)}x${pageMM[1].toFixed(1)}mm`,
+      // Display page format name.
+      comment: page_info.GetTypeAsString(),
+      text:
+        `Size: ${drawSheetIUScale.iuToMM(page_sizeIU.x).toFixed(1)}` +
+        `x${drawSheetIUScale.iuToMM(page_sizeIU.y).toFixed(1)}mm`,
       itemIndex: null,
-    },
-  ];
-
-  items.forEach((it, i) => {
-    rows.push({
-      number: i + 2,
-      type: WKS_ITEM_TYPE_LABEL[it.type],
-      count: String(it.repeat),
-      // m_Info verbatim: an empty comment leaves an EMPTY cell. Ours drew a
-      // grey "-" in every one of them, which reads as a value.
-      comment: it.comment,
-      text: it.type === 'text' ? it.text : '',
-      itemIndex: i,
+      icon: DS_ICON_ROOT,
     });
-  });
+    this.m_itemsList.push(null); // this item is not a DS_DATA_ITEM, just a pseudo item
 
-  return rows;
+    // Now adding all current items
+    drawingSheet.GetItems().forEach((item, i) => {
+      this.m_rows.push({
+        number: i + 2,
+        type: item.GetClassName(),
+        count: String(item.m_RepeatCount),
+        // m_Info verbatim: an empty comment leaves an EMPTY cell.
+        comment: item.m_Info,
+        text: item.GetType() === DS_ITEM_TYPE.DS_TEXT ? (item as DS_DATA_ITEM_TEXT).m_TextBase : '',
+        itemIndex: i,
+        icon: iconForType(item.GetType()),
+      });
+
+      this.m_itemsList.push(item);
+    });
+  }
+
+  SelectRow(aItem: DS_DATA_ITEM): void {
+    // m_itemsList[0] is not a true DS_DATA_ITEM
+    for (let row = 1; row < this.m_itemsList.length; ++row) {
+      if (this.m_itemsList[row] === aItem) {
+        this.m_selectedRow = row;
+        break;
+      }
+    }
+  }
+
+  GetDrawingSheetDataItem(aRow: number): DS_DATA_ITEM | null {
+    return aRow >= 0 && aRow < this.m_itemsList.length ? this.m_itemsList[aRow]! : null;
+  }
+
+  onCellClicked(aRow: number): void {
+    this.m_selectedRow = aRow;
+
+    const item = this.GetDrawingSheetDataItem(aRow);
+
+    if (!item) return; // only DS_DATA_ITEM are returned.
+
+    // Select this item in drawing sheet editor, and update the properties panel:
+    const selectionTool = this.m_editorFrame.GetToolManager()!.GetTool(PL_SELECTION_TOOL)!;
+    selectionTool.ClearSelection();
+    const draw_item = item.GetDrawItems()[0];
+    if (draw_item) selectionTool.AddItemToSel(draw_item);
+    this.m_editorFrame.GetCanvas()!.Refresh();
+    this.m_editorFrame.GetPropertiesFrame()?.CopyPrmsFromItemToPanel(item);
+  }
+}
+
+/** `wxFileName( aPath ).GetName()`: the leaf without its extension. */
+function fileNameGetName(aPath: string): string {
+  const leaf = aPath.slice(aPath.lastIndexOf('/') + 1);
+  const dot = leaf.lastIndexOf('.');
+
+  return dot > 0 ? leaf.slice(0, dot) : leaf;
+}
+
+/** `ReCreateDesignList`'s switch on the item type (:243-263). */
+function iconForType(aType: DS_ITEM_TYPE): XpmIcon | undefined {
+  switch (aType) {
+    case DS_ITEM_TYPE.DS_SEGMENT:
+      return DS_ICON_LINE;
+    case DS_ITEM_TYPE.DS_RECT:
+      return DS_ICON_RECT;
+    case DS_ITEM_TYPE.DS_TEXT:
+      return DS_ICON_TEXT;
+    case DS_ITEM_TYPE.DS_POLYPOLYGON:
+      return DS_ICON_POLY;
+    case DS_ITEM_TYPE.DS_BITMAP:
+      return DS_ICON_IMG;
+    default:
+      return undefined;
+  }
 }
 
 /**
@@ -252,19 +342,6 @@ export const DS_ICON_IMG: XpmIcon = {
     '     xx     ',
     '     xx     ',
   ],
-};
-
-/**
- * Which icon a row shows, by item type. `ReCreateDesignList` switches on
- * `item->GetType()` (`design_inspector.cpp:243-263`); the root row is handled
- * separately at `:236` and uses `root_xpm`.
- */
-export const DS_INSPECTOR_ICON: Record<string, XpmIcon> = {
-  line: DS_ICON_LINE,
-  rect: DS_ICON_RECT,
-  text: DS_ICON_TEXT,
-  polygon: DS_ICON_POLY,
-  bitmap: DS_ICON_IMG,
 };
 
 /**

@@ -36,158 +36,16 @@ import {
   DS_ITEM_TYPE,
 } from '@ziroeda/common/drawing_sheet/ds_data_item.js';
 import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
-import { DS_PAINTER } from '@ziroeda/common/drawing_sheet/ds_proxy_view_item.js';
 import { EDA_UNITS_INT } from '@ziroeda/common/settings/app_settings.js';
-import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
-import { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
 import { LAYER_DRAWINGSHEET_PAGE1, LAYER_DRAWINGSHEET_PAGEn } from '@ziroeda/common/layer_id.js';
+import { PAGE_INFO } from '@ziroeda/common/page_info.js';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
-import {
-  AS_GLOBAL,
-  BUT_LEFT,
-  TA_MOUSE_CLICK,
-  TA_MOUSE_MOTION,
-  TC_MOUSE,
-  TOOL_EVENT,
-} from '@ziroeda/common/tool/tool_event.js';
-import type { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
-import { VIEW } from '@ziroeda/common/view/view.js';
-import { VC_SETTINGS } from '@ziroeda/common/view/view_controls.js';
+import { TA_MOUSE_CLICK, TA_MOUSE_MOTION } from '@ziroeda/common/tool/tool_event.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-import { PL_DRAW_PANEL_GAL } from '@ziroeda/pagelayout_editor/pl_draw_panel_gal.js';
-import {
-  PL_EDITOR_FRAME,
-  type PL_EDITOR_FRAME_HOST,
-} from '@ziroeda/pagelayout_editor/pl_editor_frame.js';
-import { PL_EDITOR_SETTINGS } from '@ziroeda/pagelayout_editor/pl_editor_settings.js';
 import { PL_ACTIONS } from '@ziroeda/pagelayout_editor/tools/pl_actions.js';
 import { PL_SELECTION_TOOL } from '@ziroeda/pagelayout_editor/tools/pl_selection_tool.js';
-
-class STUB_GAL extends GAL {}
-
-interface Harness {
-  frame: PL_EDITOR_FRAME;
-  mgr: TOOL_MANAGER;
-  view: VIEW;
-  cursor: { at: VECTOR2I };
-  status: string[];
-  host: PL_EDITOR_FRAME_HOST & { clipboard: string; titles: string[] };
-}
-
-function makeHarness(aUnits: EDA_UNITS_INT, aCorner = 0): Harness {
-  const cfg = new PL_EDITOR_SETTINGS();
-  cfg.m_System.units = aUnits;
-  cfg.m_CornerOrigin = aCorner;
-
-  const frame = new PL_EDITOR_FRAME(cfg);
-
-  const gal = new STUB_GAL(new GAL_DISPLAY_OPTIONS());
-  const view = new VIEW();
-  view.SetGAL(gal);
-  view.SetPainter(new DS_PAINTER(gal));
-
-  const cursor = { at: { x: 0, y: 0 } as VECTOR2I };
-  const vcSettings = new VC_SETTINGS();
-  const vc = {
-    GetSettings: () => vcSettings,
-    ApplySettings: () => {},
-    ForceCursorPosition: () => {},
-    WarpMouseCursor: () => {},
-    GetMousePosition: () => cursor.at,
-    GetCursorPosition: () => cursor.at,
-    SetCursorPosition: (p: VECTOR2I) => {
-      cursor.at = p;
-    },
-    SetCrossHairCursorPosition: () => {},
-    ShowCursor: () => {},
-    CaptureCursor: () => {},
-    SetAutoPan: () => {},
-    CenterOnCursor: () => {},
-  };
-
-  // PL_DRAW_PANEL_GAL as its constructor leaves it, less the WebGL context.
-  const panel = Object.create(PL_DRAW_PANEL_GAL.prototype) as PL_DRAW_PANEL_GAL;
-  Object.assign(panel, {
-    m_view: view,
-    m_gal: gal,
-    m_viewControls: vc,
-    m_edaFrame: frame,
-    m_backend: 1,
-    m_pageDrawItem: null,
-    SwitchBackend: () => true,
-    GetBackend: () => 1,
-    StartDrawing: () => {},
-    Refresh: () => {},
-    ForceRefresh: () => {},
-    SetFocus: () => {},
-    SetEventDispatcher: () => {},
-    SetCurrentCursor: () => {},
-    GetClientSize: () => ({ x: 1000, y: 800 }),
-    GetDefaultViewBBox: () => view.GetBoundary(),
-  });
-
-  const status: string[] = [];
-  frame.SetStatusTextSink((aText, aField) => {
-    status[aField] = aText;
-  });
-
-  const host = {
-    clipboard: '',
-    titles: [] as string[],
-    SetTitle(aTitle: string) {
-      host.titles.push(aTitle);
-    },
-    DisplayErrorMessage() {},
-    WriteFile: () => true,
-    ReadFile: () => null,
-    UpdateFileHistory() {},
-    ShowOutdatedSaveInfoBar() {},
-    Files_io() {},
-    ToPrinter() {},
-    ShowDesignInspector() {},
-    ShowPageSettingsDialog: () => false,
-    ChooseImageFile: () => null,
-    SaveClipboard(aText: string) {
-      host.clipboard = aText;
-      return true;
-    },
-    GetClipboardUTF8: () => host.clipboard,
-    GetImageFromClipboard: () => null,
-    ShowInfoBarMsg() {},
-    DismissInfoBar() {},
-  };
-  frame.SetHost(host);
-
-  frame.AttachCanvas(panel, null);
-
-  return { frame, mgr: frame.GetToolManager()!, view, cursor, status, host };
-}
-
-function mouse(aMgr: TOOL_MANAGER, aAction: number, aAt: VECTOR2I, aHarness: Harness): void {
-  aHarness.cursor.at = aAt;
-  const e = new TOOL_EVENT(
-    TC_MOUSE,
-    aAction,
-    aAction === TA_MOUSE_MOTION ? 0 : BUT_LEFT,
-    AS_GLOBAL,
-  );
-  e.SetMousePosition(aAt);
-  aMgr.ProcessEvent(e);
-}
-
-/**
- * A toolbar button: `ACTION_TOOLBAR::onToolEvent` makes the action's event
- * and clears its position before processing it (action_toolbar.cpp:807-808),
- * so a drawing tool is not primed at the cursor. (`RunAction` keeps the
- * position, `TOOL_MANAGER::doRunAction`, and a tool that primes on it then
- * starts at the cursor - which is what a hotkey does.)
- */
-function toolbar(aMgr: TOOL_MANAGER, aAction: { MakeEvent(): TOOL_EVENT }): void {
-  const evt = aAction.MakeEvent();
-  evt.SetHasPosition(false);
-  aMgr.ProcessEvent(evt);
-}
+import { type Harness, makeHarness, mouse, settle, toolbar } from './pl_editor_fixture.js';
 
 let model: DS_DATA_MODEL;
 
@@ -214,6 +72,31 @@ describe('PL_EDITOR_FRAME at start-up', () => {
     expect(h.frame.GetUndoCommandCount()).toBe(0);
     expect(h.frame.IsContentModified()).toBe(false);
     expect(h.frame.GetTitle()).toBe('[no drawing sheet loaded] — Drawing Sheet Editor');
+    // Nothing is loaded: no file name, an empty message pane, and an empty
+    // message panel until a selection change (UpdateMsgPanelInfo's only two
+    // callers are selection handlers, pl_editor_control.cpp:171).
+    expect(h.frame.GetCurrentFileName()).toBe('');
+    expect(h.status[0] ?? '').toBe('');
+    expect(h.msgPanel).toEqual([]);
+  });
+
+  it('opens landscape, with the custom size at 17000 x 11000 mils (pl_editor_settings.cpp:52-58)', () => {
+    const h = makeHarness(EDA_UNITS_INT.MM);
+
+    expect(h.frame.GetPageSettings().IsPortrait()).toBe(false);
+    expect(PAGE_INFO.GetCustomWidthMils()).toBe(17000);
+    expect(PAGE_INFO.GetCustomHeightMils()).toBe(11000);
+    // A3 is 420 mm: the border band's 50 mm marks run to 8 (A4's 297 to 5).
+    expect(Math.floor(h.frame.GetPageSettings().GetWidthMM() / 50)).toBe(8);
+  });
+
+  it('last_was_portrait swaps the page (LoadSettings, pl_editor_frame.cpp:543-548)', () => {
+    const h = makeHarness(EDA_UNITS_INT.MM, 0, (cfg) => {
+      cfg.m_LastWasPortrait = true;
+    });
+
+    expect(h.frame.GetPageSettings().IsPortrait()).toBe(true);
+    expect(h.frame.GetPageSizeIU()).toEqual({ x: 297002, y: 419989 });
   });
 
   it('the page box shows page 1 items or later-page items, never both', () => {
@@ -274,6 +157,29 @@ describe('UpdateStatusBar', () => {
     expect(h.status[6]).toBe('mm');
   });
 
+  it('formats both coordinate pairs with %.4g: a cold-open mils bar reads 1.266e+04', () => {
+    // pl_editor_frame.cpp:770-771; %g goes exponential once the exponent
+    // reaches the precision. 12660 mils = 321564 IU, 12170 mils = 309118 IU.
+    const h = makeHarness(EDA_UNITS_INT.MILS);
+    h.cursor.at = { x: 321564, y: 309118 };
+
+    h.frame.UpdateStatusBar();
+
+    expect(h.status[2]).toBe('X 1.266e+04  Y 1.217e+04');
+    expect(h.status[3]).toBe('dx 1.266e+04  dy 1.217e+04');
+  });
+
+  it('writes the grid "%f" in mils, "%.3f" in inches (DisplayGridMsg, :701-722)', () => {
+    const mils = makeHarness(EDA_UNITS_INT.MILS);
+    mils.frame.DisplayGridMsg();
+    // 0.5 mm = 19.685039... mils, and the MILS case is the switch's bare "%f".
+    expect(mils.status[4]).toBe('grid 19.685039');
+
+    const inch = makeHarness(EDA_UNITS_INT.INCH);
+    inch.frame.DisplayGridMsg();
+    expect(inch.status[4]).toBe('grid 0.020');
+  });
+
   it('writes the grid at %.4f in mm', () => {
     const h = makeHarness(EDA_UNITS_INT.MM);
     h.frame.GetCanvas()!.GetGAL().SetGridSize({ x: 500, y: 500 });
@@ -281,6 +187,66 @@ describe('UpdateStatusBar', () => {
     h.frame.DisplayGridMsg();
 
     expect(h.status[4]).toBe('grid 0.5000');
+  });
+});
+
+describe('Place Bitmaps (PlaceItem with AddDrawingSheetItem( DS_BITMAP ))', () => {
+  /** A 1 x 1 PNG. */
+  const PNG = Uint8Array.from(
+    atob(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    ),
+    (c) => c.charCodeAt(0),
+  );
+
+  it('Cancel in Choose Image adds nothing and takes no undo copy', async () => {
+    const h = makeHarness(EDA_UNITS_INT.MM);
+    const before = model.GetCount();
+    h.host.imageAnswers.push(null);
+
+    toolbar(h.mgr, PL_ACTIONS.placeImage);
+    mouse(h.mgr, TA_MOUSE_CLICK, { x: 50000, y: 50000 }, h);
+    await settle();
+
+    expect(model.GetCount()).toBe(before);
+    expect(h.frame.GetUndoCommandCount()).toBe(0);
+  });
+
+  it('an unreadable image is wxMessageBox( message-with-%s, path ), and nothing is added', async () => {
+    const h = makeHarness(EDA_UNITS_INT.MM);
+    const before = model.GetCount();
+    h.host.imageAnswers.push({ path: '/Templates/bad.png', data: new Uint8Array([1, 2, 3]) });
+
+    toolbar(h.mgr, PL_ACTIONS.placeImage);
+    mouse(h.mgr, TA_MOUSE_CLICK, { x: 50000, y: 50000 }, h);
+    await settle();
+
+    // pl_editor_frame.cpp:884: the second argument is the box's caption.
+    expect(h.host.messages).toEqual([
+      { message: "Could not load image from '%s'.", caption: '/Templates/bad.png' },
+    ]);
+    expect(model.GetCount()).toBe(before);
+  });
+
+  it('a chosen image is added under the pointer, carried until the next click', async () => {
+    const h = makeHarness(EDA_UNITS_INT.MM);
+    const before = model.GetCount();
+    h.host.imageAnswers.push({ path: '/Templates/logo.png', data: PNG });
+
+    toolbar(h.mgr, PL_ACTIONS.placeImage);
+    mouse(h.mgr, TA_MOUSE_CLICK, { x: 50000, y: 50000 }, h);
+    await settle();
+
+    expect(h.host.messages).toEqual([]);
+    // Added and carried (first click creates, second places, pl_drawing_tools.cpp:160).
+    expect(model.GetCount()).toBe(before + 1);
+    expect(model.GetItem(before)!.GetType()).toBe(DS_ITEM_TYPE.DS_BITMAP);
+    expect(h.frame.GetUndoCommandCount()).toBe(1);
+
+    mouse(h.mgr, TA_MOUSE_CLICK, { x: 70000, y: 60000 }, h);
+    expect(model.GetItem(before)!.GetStartPosIU()).toEqual({ x: 70000, y: 60000 });
+    // m_mruImagePath = wxPathOnly( fullFilename ).
+    expect(h.frame.GetMruImagePath()).toBe('/Templates');
   });
 });
 
@@ -359,10 +325,16 @@ describe('PL_EDIT_TOOL and PL_EDITOR_CONTROL', () => {
       ['Comment', ''],
     ]);
 
-    // With nothing selected the panel shows the page (A3, 420 x 297 mm).
+    // With nothing selected the panel shows the page and nothing else
+    // (pl_editor_frame.cpp:968-977): 419989 x 297002 IU, MessageTextFromValue
+    // with its default unit label (units_provider.h:127), "%.4f" in mm because
+    // drawSheetIUScale is not SCH_IU_PER_MM (eda_units.cpp:422-424).
     sel.ClearSelection();
-    const page = h.frame.GetMsgPanelItems().map((r) => r.GetUpperText());
-    expect(page).toEqual(['Page Width', 'Page Height']);
+    const page = h.frame.GetMsgPanelItems().map((r) => [r.GetUpperText(), r.GetLowerText()]);
+    expect(page).toEqual([
+      ['Page Width', '419.9890 mm'],
+      ['Page Height', '297.0020 mm'],
+    ]);
   });
 
   it('Delete removes the selected item and stacks an undo', () => {
@@ -393,5 +365,47 @@ describe('PL_EDIT_TOOL and PL_EDITOR_CONTROL', () => {
 
     h.mgr.RunAction(PL_ACTIONS.layoutEditMode);
     expect(model.m_EditMode).toBe(true);
+  });
+});
+
+describe('the canvas numbering never follows the page selector', () => {
+  /**
+   * `PL_DRAW_PANEL_GAL::DisplayDrawingSheet` resolves text through a dummy
+   * DS_DRAW_ITEM_LIST (pl_draw_panel_gal.cpp:91-97) that is never given a page
+   * number or a sheet count, so it reads its defaults, "1" of 1
+   * (ds_draw_item.h). The driven pl_editor shows `Id: 1/1` on "Other pages"
+   * too; the selector only swaps the PAGE1 / PAGEn layers.
+   */
+  it('reads 1/1 on "Page 1" and on "Other pages"', () => {
+    const h = makeHarness(EDA_UNITS_INT.MM);
+    model.ClearList();
+    const id = new DS_DATA_ITEM_TEXT('Id: ${#}/${##}');
+    model.Append(id);
+    h.mgr.RunAction(PL_ACTIONS.layoutNormalMode);
+
+    expect(id.m_FullText).toBe('Id: 1/1');
+
+    h.frame.GetPageSelectBox().SetSelection(1);
+    h.frame.OnSelectPage();
+    h.frame.HardRedraw();
+
+    expect(id.m_FullText).toBe('Id: 1/1');
+  });
+});
+
+describe('zoom', () => {
+  it('steps through pl_editor’s ZOOM_LIST (zoom_defines.h:38, app_settings.cpp:580)', () => {
+    const h = makeHarness(EDA_UNITS_INT.MM);
+    const gal = h.frame.GetCanvas()!.GetGAL();
+
+    gal.SetZoomFactor(1.0);
+    h.mgr.RunAction(ACTIONS.zoomInCenter);
+    // x1.3 = 1.3, then the first preset at or past it: 2.2.
+    expect(gal.GetZoomFactor()).toBe(2.2);
+
+    gal.SetZoomFactor(1.0);
+    h.mgr.RunAction(ACTIONS.zoomOutCenter);
+    // 1/1.3 = 0.769, the last preset at or below it: 0.6.
+    expect(gal.GetZoomFactor()).toBe(0.6);
   });
 });

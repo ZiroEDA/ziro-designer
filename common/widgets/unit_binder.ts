@@ -27,6 +27,13 @@
  * is what lets the numbers be tested without a DOM.
  */
 
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+import {
+  DoubleValueFromStringIn,
+  FromUserUnit,
+  type EdaUnits as EDA_UNITS,
+  stringFromValue as iuStringFromValue,
+} from '../eda_units.js';
 import { type EdaIuScale, SCH_IU_PER_MM, drawSheetIUScale } from '../index.js';
 import type { StatusUnits } from './kistatusbar_format.js';
 
@@ -222,4 +229,134 @@ export function validateUnitValue(
     return `${desc} must be less than ${stringFromValue(range.max, units, true, iuScale)}.`;
 
   return null;
+}
+
+// ---- UNIT_BINDER, the engine half -------------------------------------------
+
+/** What a `UNIT_BINDER` asks its parent: `UNITS_PROVIDER`'s two answers. */
+export interface UNIT_BINDER_UNITS_PROVIDER {
+  GetUserUnits(): EDA_UNITS;
+  GetIuScale(): EdaIuScale;
+}
+
+/**
+ * `UNIT_BINDER` (common/widgets/unit_binder.cpp) as a dialog's engine holds
+ * it: the text in its `wxTextCtrl`, the label an error names, and whether it
+ * is shown. Every read converts in the parent's CURRENT units, as upstream
+ * reads `m_units` that `onUnitsChanged` keeps in step. No NUMERIC_EVALUATOR
+ * yet: an expression reads as its leading number, as
+ * `DIALOG_DRAW_LAYERS_SETTINGS` already notes.
+ */
+export class UNIT_BINDER {
+  private readonly m_unitsProvider: UNIT_BINDER_UNITS_PROVIDER;
+  /** `m_label->GetLabel()`: what an error message names. */
+  private readonly m_label: string;
+  /** Where `delayedFocusHandler`'s `DisplayError` goes. */
+  private readonly m_errorSink: ((aMessage: string) => void) | null;
+  /** The `wxTextCtrl`'s text. */
+  private m_value = '';
+  private m_shown = true;
+  private m_errorMessage = '';
+
+  constructor(
+    aUnitsProvider: UNIT_BINDER_UNITS_PROVIDER,
+    aLabel: string,
+    aErrorSink: ((aMessage: string) => void) | null = null,
+  ) {
+    this.m_unitsProvider = aUnitsProvider;
+    this.m_label = aLabel;
+    this.m_errorSink = aErrorSink;
+  }
+
+  GetLabel(): string {
+    return this.m_label;
+  }
+
+  /** `m_units`: the parent's, read live. */
+  GetUnits(): EDA_UNITS {
+    return this.m_unitsProvider.GetUserUnits();
+  }
+
+  /** `SetDoubleValue( aValue )` (`unit_binder.cpp:434-444`): IU into the field, no unit label. */
+  SetDoubleValue(aValue: number): void {
+    this.m_value = iuStringFromValue(
+      this.m_unitsProvider.GetIuScale(),
+      this.GetUnits(),
+      aValue,
+      false,
+    );
+  }
+
+  /** `SetValue( long long )`. */
+  SetValue(aValue: number): void {
+    this.SetDoubleValue(aValue);
+  }
+
+  /** The field's text, as the control holds it. */
+  GetText(): string {
+    return this.m_value;
+  }
+
+  /** The user typing into the control. */
+  SetText(aText: string): void {
+    this.m_value = aText;
+  }
+
+  /** `GetDoubleValue()`: the text in the parent's units, to IU. */
+  GetDoubleValue(): number {
+    return DoubleValueFromStringIn(
+      this.m_unitsProvider.GetIuScale(),
+      this.GetUnits(),
+      this.m_value,
+    );
+  }
+
+  /** `GetValue()` (`:554-600`): `ValueFromString`, `KiROUND` to IU. */
+  GetValue(): number {
+    return KiROUND(this.GetDoubleValue());
+  }
+
+  /** `GetIntValue()`: `(int) GetValue()`. */
+  GetIntValue(): number {
+    return Math.trunc(this.GetValue());
+  }
+
+  /**
+   * `Validate( aMin, aMax, aUnits )` (`:375-419`). Out of range, the message
+   * names the limit in the field's own unit, and `delayedFocusHandler` shows it
+   * - here straight to the sink, the page's modal.
+   */
+  Validate(aMin: number, aMax: number, aUnits: EDA_UNITS): boolean {
+    const scale = this.m_unitsProvider.GetIuScale();
+    const desc = valueDescriptionFromLabel(this.m_label);
+
+    const fail = (aWhat: string, aLimitIU: number): boolean => {
+      const limit = iuStringFromValue(scale, this.GetUnits(), aLimitIU, true);
+      this.m_errorMessage = `${desc} must be ${aWhat} ${limit}.`;
+      this.m_errorSink?.(this.m_errorMessage);
+      return false;
+    };
+
+    if (this.GetValue() < FromUserUnit(scale, aUnits, aMin))
+      return fail('at least', FromUserUnit(scale, aUnits, aMin));
+
+    if (this.GetValue() > FromUserUnit(scale, aUnits, aMax))
+      return fail('less than', FromUserUnit(scale, aUnits, aMax));
+
+    return true;
+  }
+
+  /** The last message `Validate` raised. */
+  GetErrorMessage(): string {
+    return this.m_errorMessage;
+  }
+
+  /** `Show( aShow )`: the label, the control and the units together. */
+  Show(aShow: boolean): void {
+    this.m_shown = aShow;
+  }
+
+  IsShown(): boolean {
+    return this.m_shown;
+  }
 }

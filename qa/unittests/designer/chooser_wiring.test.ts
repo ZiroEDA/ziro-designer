@@ -544,8 +544,8 @@ describe('the extension is fixed on accept, not locked in the entry', () => {
     expect(savePathWithExtension('/Templates/frame', DRAWING_SHEET_FILE_EXTENSION)).toBe(
       '/Templates/frame.kicad_wks',
     );
-    expect(src('editors/drawingsheet/DrawingSheetEditor.tsx')).toContain(
-      'savePathWithExtension(path, DRAWING_SHEET_FILE_EXTENSION)',
-    );
+    // pl_editor's Save As is not a call site any more: PL_EDITOR_FRAME::Files_io
+    // appends the extension itself, as files.cpp:216-221 does, pinned in
+    // unittests/pagelayout_editor/files_io.test.ts.
   });
 });
