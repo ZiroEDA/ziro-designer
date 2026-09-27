@@ -53,8 +53,8 @@ function modelOf(doc: Schematic, preset?: Partial<BomPresetSpec>): FieldsDataMod
     sortAsc: true,
     filterString: '',
     groupSymbols: true,
-    excludeDnp: false,
-    includeExcludedFromBom: true,
+    excludeDNP: false,
+    includeExcludedFromBOM: true,
     ...preset,
   });
   return model;

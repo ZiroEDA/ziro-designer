@@ -107,8 +107,8 @@ const toSpec = (p: BomPreset): BomPresetSpec => ({
   sortAsc: p.sortAsc,
   filterString: p.filterString,
   groupSymbols: p.groupSymbols,
-  excludeDnp: p.excludeDnp,
-  includeExcludedFromBom: p.includeExcludedFromBom,
+  excludeDNP: p.excludeDNP,
+  includeExcludedFromBOM: p.includeExcludedFromBOM,
 });
 
 const fromSpec = (p: BomPresetSpec, name: string): BomPreset => ({
@@ -119,8 +119,8 @@ const fromSpec = (p: BomPresetSpec, name: string): BomPreset => ({
   sortAsc: p.sortAsc,
   filterString: p.filterString,
   groupSymbols: p.groupSymbols,
-  excludeDnp: p.excludeDnp,
-  includeExcludedFromBom: p.includeExcludedFromBom,
+  excludeDNP: p.excludeDNP,
+  includeExcludedFromBOM: p.includeExcludedFromBOM,
 });
 
 /** syncBomPresetSelection, a preset matches when its simple settings and its
@@ -130,8 +130,8 @@ function presetMatches(preset: BomPreset, current: BomPresetSpec): boolean {
     preset.sortAsc !== current.sortAsc ||
     preset.filterString !== current.filterString ||
     preset.groupSymbols !== current.groupSymbols ||
-    preset.excludeDnp !== current.excludeDnp ||
-    preset.includeExcludedFromBom !== current.includeExcludedFromBom ||
+    preset.excludeDNP !== current.excludeDNP ||
+    preset.includeExcludedFromBOM !== current.includeExcludedFromBOM ||
     preset.sortField !== current.sortField
   ) {
     return false;

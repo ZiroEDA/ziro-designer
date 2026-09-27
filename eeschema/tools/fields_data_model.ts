@@ -21,6 +21,7 @@
  * against the symbol the way SCH_FIELD::GetShownText does.
  */
 
+import type { BOM_FIELD, BOM_PRESET } from '@ziroeda/common/settings/bom_settings.js';
 import { strNumCmp, valueStringCompare } from '@ziroeda/common/string_utils.js';
 import type { Schematic, SchSymbol } from '../types.js';
 import { buildSheetTree } from '../project.js';
@@ -93,26 +94,11 @@ export interface DataModelRow {
 /** FIELDS_EDITOR_GRID_DATA_MODEL::SCOPE. */
 export type FieldsScope = 'all' | 'sheet' | 'sheet-recursive';
 
-/** BOM_FIELD, one column of a BOM preset. */
-export interface BomFieldSpec {
-  name: string;
-  label: string;
-  show: boolean;
-  groupBy: boolean;
-}
+/** BOM_FIELD, one column of a BOM preset (common/settings/bom_settings.ts). */
+export type BomFieldSpec = BOM_FIELD;
 
 /** BOM_PRESET, a named view of the table (columns, grouping, sort, filters). */
-export interface BomPresetSpec {
-  name: string;
-  readOnly?: boolean;
-  fieldsOrdered: BomFieldSpec[];
-  sortField: string;
-  sortAsc: boolean;
-  filterString: string;
-  groupSymbols: boolean;
-  excludeDnp: boolean;
-  includeExcludedFromBom: boolean;
-}
+export type BomPresetSpec = BOM_PRESET;
 
 /** The per-sheet edits {@link FieldsDataModel.applyData} produces. */
 export interface FieldsTableEdits {
@@ -950,8 +936,8 @@ export class FieldsDataModel {
     if (sortCol === -1) sortCol = this.getFieldNameCol('Reference');
     this.setSorting(sortCol, preset.sortAsc);
     this.setFilter(preset.filterString);
-    this.setExcludeDNP(preset.excludeDnp);
-    this.setIncludeExcludedFromBOM(preset.includeExcludedFromBom);
+    this.setExcludeDNP(preset.excludeDNP);
+    this.setIncludeExcludedFromBOM(preset.includeExcludedFromBOM);
     this.rebuildRows();
   }
 
@@ -967,8 +953,8 @@ export class FieldsDataModel {
       sortAsc: this.sortAscending,
       filterString: this.filter,
       groupSymbols: this.groupingEnabled,
-      excludeDnp: this.excludeDNP,
-      includeExcludedFromBom: this.includeExcluded,
+      excludeDNP: this.excludeDNP,
+      includeExcludedFromBOM: this.includeExcluded,
     };
   }
 

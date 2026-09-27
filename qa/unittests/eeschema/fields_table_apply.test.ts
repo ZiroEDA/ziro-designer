@@ -76,8 +76,8 @@ function openTable(docs: ReadonlyMap<string, Schematic>): FieldsDataModel {
     sortAsc: true,
     filterString: '',
     groupSymbols: false,
-    excludeDnp: false,
-    includeExcludedFromBom: true,
+    excludeDNP: false,
+    includeExcludedFromBOM: true,
   });
   return model;
 }

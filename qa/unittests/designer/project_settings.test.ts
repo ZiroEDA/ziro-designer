@@ -295,8 +295,8 @@ describe('schematic setup .kicad_pro persistence', () => {
         sortAsc: true,
         filterString: '',
         groupSymbols: true,
-        excludeDnp: false,
-        includeExcludedFromBom: false,
+        excludeDNP: false,
+        includeExcludedFromBOM: false,
         fieldsOrdered: [
           { name: 'Reference', label: 'Reference', show: true, groupBy: false },
           { name: 'Value', label: 'Value', show: true, groupBy: true },

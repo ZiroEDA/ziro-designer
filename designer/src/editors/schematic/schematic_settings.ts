@@ -196,39 +196,26 @@ import type { TextVar } from '@ziroeda/common/project/project_file.js';
 // BOM presets (bom_settings.h BOM_PRESET / BOM_FMT_PRESET; PANEL_BOM_PRESETS
 // lists them, the Generate BOM dialog applies and saves them).
 
+// BOM_FIELD / BOM_PRESET / BOM_FMT_PRESET are common/settings/bom_settings.ts,
+// as upstream's are common/settings/bom_settings.cpp; the old names are kept
+// as aliases for this module's callers.
+import {
+  type BOM_FIELD,
+  BOM_FMT_PRESET,
+  BOM_PRESET,
+} from '@ziroeda/common/settings/bom_settings.js';
+export {
+  type BOM_FIELD,
+  BOM_FMT_PRESET,
+  BOM_PRESET,
+} from '@ziroeda/common/settings/bom_settings.js';
+
 /** One BOM column (BOM_FIELD): a symbol field or a `${...}` virtual field. */
-export interface BomField {
-  name: string;
-  label: string;
-  show: boolean;
-  groupBy: boolean;
-}
-
+export type BomField = BOM_FIELD;
 /** A named view of the BOM table (BOM_PRESET). */
-export interface BomPreset {
-  name: string;
-  /** Built-ins only; read-only presets are never persisted, like upstream. */
-  readOnly?: boolean;
-  fieldsOrdered: BomField[];
-  sortField: string;
-  sortAsc: boolean;
-  filterString: string;
-  groupSymbols: boolean;
-  excludeDnp: boolean;
-  includeExcludedFromBom: boolean;
-}
-
+export type BomPreset = BOM_PRESET;
 /** A named output format (BOM_FMT_PRESET). */
-export interface BomFmtPreset {
-  name: string;
-  readOnly?: boolean;
-  fieldDelimiter: string;
-  stringDelimiter: string;
-  refDelimiter: string;
-  refRangeDelimiter: string;
-  keepTabs: boolean;
-  keepLineBreaks: boolean;
-}
+export type BomFmtPreset = BOM_FMT_PRESET;
 
 export interface BomPresets {
   presets: BomPreset[];
@@ -250,95 +237,14 @@ export function defaultBomPresets(): BomPresets {
   return { presets: [], fmtPresets: [], settings, fmtSettings, exportFileName: '' };
 }
 
-const bomField = (name: string, label: string, show: boolean, groupBy: boolean): BomField => ({
-  name,
-  label,
-  show,
-  groupBy,
-});
-
-/** BOM_PRESET::BuiltInPresets(), Default Editing, Grouped By Value,
- *  Grouped By Value and Footprint, Attributes (bom_settings.cpp). */
+/** BOM_PRESET::BuiltInPresets(). */
 export function bomBuiltInPresets(): BomPreset[] {
-  const base = {
-    readOnly: true,
-    sortField: 'Reference',
-    sortAsc: true,
-    filterString: '',
-    groupSymbols: true,
-    excludeDnp: false,
-  };
-  return [
-    {
-      ...base,
-      name: 'Default Editing',
-      includeExcludedFromBom: true,
-      fieldsOrdered: [
-        bomField('Reference', 'Reference', true, false),
-        bomField('${QUANTITY}', 'Qty', true, false),
-        bomField('Value', 'Value', true, true),
-        bomField('${DNP}', 'DNP', true, true),
-        bomField('${EXCLUDE_FROM_BOM}', 'Exclude from BOM', true, true),
-        bomField('${EXCLUDE_FROM_BOARD}', 'Exclude from Board', true, true),
-        bomField('${EXCLUDE_FROM_SIM}', 'Exclude from Simulation', true, true),
-        bomField('${EXCLUDE_FROM_POS_FILES}', 'Exclude from Position Files', true, true),
-        bomField('Footprint', 'Footprint', true, true),
-        bomField('Datasheet', 'Datasheet', true, false),
-      ],
-    },
-    {
-      ...base,
-      name: 'Grouped By Value',
-      includeExcludedFromBom: false,
-      fieldsOrdered: [
-        bomField('Reference', 'Reference', true, false),
-        bomField('Value', 'Value', true, true),
-        bomField('Datasheet', 'Datasheet', true, false),
-        bomField('Footprint', 'Footprint', true, false),
-        bomField('${QUANTITY}', 'Qty', true, false),
-        bomField('${DNP}', 'DNP', true, true),
-      ],
-    },
-    {
-      ...base,
-      name: 'Grouped By Value and Footprint',
-      includeExcludedFromBom: false,
-      fieldsOrdered: [
-        bomField('Reference', 'Reference', true, false),
-        bomField('Value', 'Value', true, true),
-        bomField('Datasheet', 'Datasheet', true, false),
-        bomField('Footprint', 'Footprint', true, true),
-        bomField('${QUANTITY}', 'Qty', true, false),
-        bomField('${DNP}', 'DNP', true, true),
-      ],
-    },
-    {
-      ...base,
-      name: 'Attributes',
-      includeExcludedFromBom: true,
-      fieldsOrdered: [
-        bomField('Reference', 'Reference', true, false),
-        bomField('Value', 'Value', true, true),
-        bomField('Datasheet', 'Datasheet', false, false),
-        bomField('Footprint', 'Footprint', false, true),
-        bomField('${DNP}', 'Do Not Place', true, false),
-        bomField('${EXCLUDE_FROM_BOM}', 'Exclude from BOM', true, false),
-        bomField('${EXCLUDE_FROM_BOARD}', 'Exclude from Board', true, false),
-        bomField('${EXCLUDE_FROM_SIM}', 'Exclude from Simulation', true, false),
-        bomField('${EXCLUDE_FROM_POS_FILES}', 'Exclude from Position Files', true, false),
-      ],
-    },
-  ];
+  return BOM_PRESET.BuiltInPresets();
 }
 
-/** BOM_FMT_PRESET::BuiltInPresets(), CSV, TSV, Semicolons. */
+/** BOM_FMT_PRESET::BuiltInPresets(). */
 export function bomFmtBuiltInPresets(): BomFmtPreset[] {
-  const base = { readOnly: true, refRangeDelimiter: '', keepTabs: false, keepLineBreaks: false };
-  return [
-    { ...base, name: 'CSV', fieldDelimiter: ',', stringDelimiter: '"', refDelimiter: ',' },
-    { ...base, name: 'TSV', fieldDelimiter: '\t', stringDelimiter: '', refDelimiter: ',' },
-    { ...base, name: 'Semicolons', fieldDelimiter: ';', stringDelimiter: "'", refDelimiter: ',' },
-  ];
+  return BOM_FMT_PRESET.BuiltInPresets();
 }
 
 // ---------------------------------------------------------------------------

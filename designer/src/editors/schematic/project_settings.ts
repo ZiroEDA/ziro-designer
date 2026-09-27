@@ -290,8 +290,8 @@ export function readSchematicSetupText(proText: string): SchematicSetup {
         sortAsc: bool(e.sort_asc, true),
         filterString: str(e.filter_string, ''),
         groupSymbols: bool(e.group_symbols, false),
-        excludeDnp: bool(e.exclude_dnp, false),
-        includeExcludedFromBom: bool(e.include_excluded_from_bom, false),
+        excludeDNP: bool(e.exclude_dnp, false),
+        includeExcludedFromBOM: bool(e.include_excluded_from_bom, false),
       });
     }
     s.bomPresets.presets = presets;
@@ -331,8 +331,8 @@ export function readSchematicSetupText(proText: string): SchematicSetup {
       sortAsc: bool(bomCur.sort_asc, true),
       filterString: str(bomCur.filter_string, ''),
       groupSymbols: bool(bomCur.group_symbols, false),
-      excludeDnp: bool(bomCur.exclude_dnp, false),
-      includeExcludedFromBom: bool(bomCur.include_excluded_from_bom, false),
+      excludeDNP: bool(bomCur.exclude_dnp, false),
+      includeExcludedFromBOM: bool(bomCur.include_excluded_from_bom, false),
     };
   }
   const fmtCur = getPath(j, 'schematic.bom_fmt_settings');
@@ -660,8 +660,8 @@ export function writeSchematicSetupText(proText: string, s: SchematicSetup): str
         out.sort_asc = p.sortAsc;
         out.filter_string = p.filterString;
         out.group_symbols = p.groupSymbols;
-        out.exclude_dnp = p.excludeDnp;
-        out.include_excluded_from_bom = p.includeExcludedFromBom;
+        out.exclude_dnp = p.excludeDNP;
+        out.include_excluded_from_bom = p.includeExcludedFromBOM;
         // Upstream only writes fields_ordered when non-empty.
         if (p.fieldsOrdered.length > 0)
           out.fields_ordered = p.fieldsOrdered.map((f) => ({
@@ -709,8 +709,8 @@ export function writeSchematicSetupText(proText: string, s: SchematicSetup): str
     sort_asc: cur.sortAsc,
     filter_string: cur.filterString,
     group_symbols: cur.groupSymbols,
-    exclude_dnp: cur.excludeDnp,
-    include_excluded_from_bom: cur.includeExcludedFromBom,
+    exclude_dnp: cur.excludeDNP,
+    include_excluded_from_bom: cur.includeExcludedFromBOM,
   });
   const curFmt = s.bomPresets.fmtSettings;
   setPath(j, 'schematic.bom_fmt_settings', {
