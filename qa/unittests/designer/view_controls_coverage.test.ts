@@ -30,7 +30,6 @@ const CANVASES = [
   'editors/symbol/SymbolCanvas.tsx',
   'editors/pcb/PcbEditor.tsx',
   'editors/footprint/FootprintCanvas.tsx',
-  'editors/drawingsheet/DrawingSheetCanvas.tsx',
   // The preview panes are EDA_DRAW_PANEL_GALs upstream too, so they get
   // WX_VIEW_CONTROLS on the same terms.
   'widgets/preview_view_controls.ts',
@@ -42,7 +41,6 @@ const FITTERS = [
   'editors/symbol/render/symbolRenderer.ts',
   'editors/pcb/PcbEditor.tsx',
   'editors/footprint/FootprintCanvas.tsx',
-  'editors/drawingsheet/DrawingSheetCanvas.tsx',
 ];
 
 const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
@@ -80,7 +78,6 @@ describe('shared view controls', () => {
     ['editors/symbol/render/symbolRenderer.ts', "'symbol_editor'"],
     ['editors/pcb/PcbEditor.tsx', "'pcb'"],
     ['editors/footprint/FootprintCanvas.tsx', "'footprint_editor'"],
-    ['editors/drawingsheet/DrawingSheetCanvas.tsx', "'pl_editor'"],
   ];
 
   /** Every FitFrame in the union, so a file can be checked for foreign ones. */
@@ -185,11 +182,11 @@ describe('shared view controls', () => {
   const AUTOPAN_CANVASES = CANVASES.filter((c) => c !== 'widgets/preview_view_controls.ts');
 
   it('every editing canvas holds its own m_panTimer', () => {
-    // Five, and the preview panes are the sixth CANVAS. If that count moves,
+    // Four, and the preview panes are the fifth CANVAS. If that count moves,
     // read the block comment above before changing the number. GerbView left
-    // this list when it moved onto EDA_DRAW_PANEL_GAL: its autopan is
-    // WX_VIEW_CONTROLS' own, not a canvas's copy.
-    expect(AUTOPAN_CANVASES).toHaveLength(5);
+    // this list when it moved onto EDA_DRAW_PANEL_GAL, and pl_editor after it:
+    // their autopan is WX_VIEW_CONTROLS' own, not a canvas's copy.
+    expect(AUTOPAN_CANVASES).toHaveLength(4);
   });
 
   it.each(AUTOPAN_CANVASES)('%s runs handleAutoPanning on motion', (rel) => {
@@ -220,8 +217,6 @@ describe('shared view controls', () => {
     // absolute world padding, which is what made the framing depend on the
     // document's size; doZoomFit's is a multiplier on the viewport.
     const OLD: [string, RegExp][] = [
-      ['editors/drawingsheet/DrawingSheetCanvas.tsx', /const margin = 12 \* MM/],
-      ['editors/drawingsheet/DrawingSheetCanvas.tsx', /const margin = 6 \* MM/],
       ['editors/footprint/FootprintCanvas.tsx', /const margin = 2 \* MM/],
       ['editors/pcb/PcbEditor.tsx', /fitWorldBox\([^)]*5 \* MM/],
       // fitToContent / fitToBBox / fitSymbol each inflated their box by 8 mm

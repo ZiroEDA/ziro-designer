@@ -43,6 +43,13 @@ import {
   CROSSHAIR_MODE_CHOICES,
   crosshairSegments,
 } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
+import { LEGACY_COLORS } from '@ziroeda/common/color4d.js';
+import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
+import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { EDA_UNITS_INT } from '@ziroeda/common/settings/app_settings.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { pageFor } from '@ziroeda/designer/src/dialogs/prefs/registry.js';
+import { makeHarness, settle } from '../pagelayout_editor/pl_editor_fixture.js';
 
 describe('PANEL_GAL_OPTIONS’ Cursor group', () => {
   it('offers three shapes, in KiCad’s order with KiCad’s labels', () => {
@@ -161,9 +168,20 @@ describe('the black background is still read and never written', () => {
 
   it('still reads the setting at load, as LoadSettings does', () => {
     // Removing the control must not remove the value: `SetDrawBgColor(
-    // cfg->m_BlackBackground ? BLACK : WHITE )` still runs.
-    expect(statements(EDITOR, 'plCfg.black_background')).toHaveLength(1);
-    expect(statements(EDITOR, 'blackBackground={blackBackground}')).toHaveLength(1);
+    // cfg->m_BlackBackground ? BLACK : WHITE )` still runs in the frame, and
+    // the page hands the same setting to DIALOG_PAGES_SETTINGS' preview.
+    expect(statements(EDITOR, 'blackBackground={plCfg.black_background}')).toHaveLength(1);
+    SetPgm(new PGM_BASE());
+    DS_DATA_MODEL.SetAltInstance(new DS_DATA_MODEL());
+    try {
+      const h = makeHarness(EDA_UNITS_INT.MM, 0, (c) => {
+        c.m_BlackBackground = true;
+      });
+      expect(h.frame.GetDrawBgColor()).toEqual(LEGACY_COLORS.BLACK);
+    } finally {
+      DS_DATA_MODEL.SetAltInstance(null);
+      SetPgm(null);
+    }
   });
 });
 
@@ -173,18 +191,32 @@ describe('the editor opens the shared dialog, not one of its own', () => {
     expect(statements(EDITOR, '<PreferencesDialog')).toHaveLength(1);
   });
 
-  it('lands ACTIONS::gridProperties on the Grids page, not on the book’s first', () => {
+  it('lands ACTIONS::gridProperties on the Grids page, not on the book’s first', async () => {
     // `COMMON_TOOLS::GridProperties` for FRAME_PL_EDITOR is nothing but
     // `ShowPreferences( _( "Grids" ), _( "Drawing Sheet Editor" ) )`
     // (`common/tool/common_tools.cpp:609-634`), so an Edit Grids... that opened
     // the book at Common would not be the action at all.
-    expect(statements(EDITOR, "setShowPrefs('ds-grids')")).toHaveLength(1);
-    // …while the menu item passes no page, as upstream passes wxEmptyString.
-    expect(statements(EDITOR, "setShowPrefs('default')")).toHaveLength(1);
-  });
+    SetPgm(new PGM_BASE());
+    DS_DATA_MODEL.SetAltInstance(new DS_DATA_MODEL());
+    try {
+      const h = makeHarness(EDA_UNITS_INT.MM);
+      const asked: [string, string][] = [];
+      h.frame.SetPreferencesPresenter((aPage, aParent) => asked.push([aPage, aParent]));
 
-  it('passes the mode through to the canvas instead of a boolean', () => {
-    expect(statements(EDITOR, 'crosshairMode={plCfg.window.cursor.crosshair}')).toHaveLength(1);
-    expect(statements(EDITOR, 'fullCrosshair')).toHaveLength(0);
+      h.mgr.RunAction(ACTIONS.gridProperties);
+      // `CallAfter( [&]() { ShowPreferences( … ); } )` (common_tools.cpp:612).
+      await settle();
+
+      expect(asked).toEqual([['Grids', 'Drawing Sheet Editor']]);
+      expect(pageFor('Grids', 'Drawing Sheet Editor')).toBe('ds-grids');
+    } finally {
+      DS_DATA_MODEL.SetAltInstance(null);
+      SetPgm(null);
+    }
+    // The page's presenter looks the named page up; the menu item passes none.
+    expect(
+      statements(EDITOR, "setPrefsOpen(aPage === '' ? true : pageFor(aPage, aParentPage)),"),
+    ).toHaveLength(1);
+    expect(statements(EDITOR, 'openPreferences: () => setPrefsOpen(true),')).toHaveLength(1);
   });
 });

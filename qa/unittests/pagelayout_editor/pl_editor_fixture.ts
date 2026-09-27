@@ -78,6 +78,8 @@ export interface Harness {
   mgr: TOOL_MANAGER;
   view: VIEW;
   cursor: { at: VECTOR2I };
+  /** The last `SetCurrentCursor` the tools asked the canvas for. */
+  canvasCursor: { kind: number | null };
   status: string[];
   msgPanel: readonly MSG_PANEL_ITEM[];
   host: TestHost;
@@ -191,6 +193,7 @@ export function makeHarness(
   view.SetPainter(new DS_PAINTER(gal));
 
   const cursor = { at: { x: 0, y: 0 } as VECTOR2I };
+  const canvasCursor: { kind: number | null } = { kind: null };
   const vcSettings = new VC_SETTINGS();
   const vc = {
     GetSettings: () => vcSettings,
@@ -225,7 +228,9 @@ export function makeHarness(
     ForceRefresh: () => {},
     SetFocus: () => {},
     SetEventDispatcher: () => {},
-    SetCurrentCursor: () => {},
+    SetCurrentCursor: (aCursor: number) => {
+      canvasCursor.kind = aCursor;
+    },
     GetClientSize: () => ({ x: 1000, y: 800 }),
     GetDefaultViewBBox: () => view.GetBoundary(),
     Destroy: () => {},
@@ -244,6 +249,7 @@ export function makeHarness(
     mgr: null as unknown as TOOL_MANAGER,
     view,
     cursor,
+    canvasCursor,
     status,
     msgPanel: [],
     host,

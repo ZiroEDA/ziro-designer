@@ -176,7 +176,6 @@ describe('the launchers that install it', () => {
    * and that is exactly what the Drawing Sheet Editor had.
    */
   it.each([
-    ['the drawing sheet', '../../pagelayout_editor/tools/pl_selection_tool.ts'],
     ['the PCB editor', 'editors/pcb/PcbEditor.tsx'],
   ])('%s calls the shared one and builds no rows of its own', (_name, rel) => {
     const src = read(rel);
@@ -196,5 +195,20 @@ describe('the launchers that install it', () => {
     // what this file is for.
     expect(code).not.toContain('gridChoiceLabel');
     expect(code).not.toContain('zoomPresetLabel');
+  });
+
+  it('the drawing sheet hangs them off its tool menus through EDA_DRAW_FRAME', () => {
+    // PL_SELECTION_TOOL::Init and PL_DRAWING_TOOLS::Init call the frame's
+    // AddStandardSubMenus( m_menu ), as upstream; the rows a right click
+    // really shows are in unittests/pagelayout_editor/pl_context_menu.test.ts.
+    for (const rel of [
+      '../../pagelayout_editor/tools/pl_selection_tool.ts',
+      '../../pagelayout_editor/tools/pl_drawing_tools.ts',
+    ]) {
+      const code = read(rel);
+      expect(code, rel).toContain('.AddStandardSubMenus(this.m_menu);');
+      expect(code, rel).not.toContain('gridChoiceLabel');
+      expect(code, rel).not.toContain('zoomPresetLabel');
+    }
   });
 });

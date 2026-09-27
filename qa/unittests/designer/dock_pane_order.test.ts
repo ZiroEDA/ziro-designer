@@ -91,9 +91,8 @@ function before(src: string, a: string, b: string, what: string): void {
 
 describe('a vertical toolbar touches the canvas; a palette docks outside it', () => {
   it('pl_editor: canvas, then RightToolbar L2, then Props L3', () => {
-    // `<DrawingSheetCanvas` alone also matches inside
-    // `useRef<DrawingSheetCanvasController>`, so anchor on the JSX open tag.
-    const canvas = '<DrawingSheetCanvas\n';
+    // The canvas element the PL_DRAW_PANEL_GAL adopts.
+    const canvas = 'data-testid="ds-canvas"';
     before(DS, 'entries={dsLeftBar}', canvas, 'pl_editor left');
     before(DS, canvas, 'entries={dsRightBar}', 'pl_editor canvas');
     // The one this branch fixed: Props used to render between the canvas and

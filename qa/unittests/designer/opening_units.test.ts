@@ -33,7 +33,16 @@ import {
 } from '@ziroeda/common/settings/app_settings_units.js';
 import { DEFAULT_TOGGLES as SCH_TOGGLES } from '@ziroeda/designer/src/editors/schematic/toggles.js';
 import { DEFAULT_TOGGLES as SYM_TOGGLES } from '@ziroeda/designer/src/editors/symbol/toggles.js';
-import { DEFAULT_TOGGLES as DS_TOGGLES } from '@ziroeda/designer/src/editors/drawingsheet/toggles.js';
+import {
+  ACTION_FOR_ID,
+  loadPlEditorSettings,
+  uiState,
+} from '@ziroeda/designer/src/editors/drawingsheet/pl_editor_settings_bridge.js';
+import { PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
+import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
+import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { EDA_UNITS_INT } from '@ziroeda/common/settings/app_settings.js';
+import { makeHarness } from '../pagelayout_editor/pl_editor_fixture.js';
 import { DEFAULT_TOGGLES as FP_TOGGLES } from '@ziroeda/designer/src/editors/footprint/toggles.js';
 
 /** The three unit buttons every `EDA_DRAW_FRAME` toolbar carries. */
@@ -103,7 +112,18 @@ describe('the unit each frame actually boots with', () => {
    * (`pagelayout_editor/pl_editor_settings.cpp:34`) — the first imperial name.
    */
   it('opens the drawing sheet editor in mils', () => {
-    expect(bootUnit(DS_TOGGLES)).toBe('unitsMils');
+    // A frame over the shipped pl_editor.json, as the page builds it.
+    SetPgm(new PGM_BASE());
+    DS_DATA_MODEL.SetAltInstance(new DS_DATA_MODEL());
+    try {
+      const h = makeHarness(EDA_UNITS_INT.MM, 0, (c) =>
+        loadPlEditorSettings(c, structuredClone(PL_EDITOR_DEFAULTS)),
+      );
+      expect(bootUnit(uiState(h.frame, ACTION_FOR_ID).checked)).toBe('unitsMils');
+    } finally {
+      DS_DATA_MODEL.SetAltInstance(null);
+      SetPgm(null);
+    }
   });
 
   /**

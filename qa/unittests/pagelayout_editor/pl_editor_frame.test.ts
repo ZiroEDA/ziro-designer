@@ -72,6 +72,12 @@ describe('PL_EDITOR_FRAME at start-up', () => {
     expect(h.frame.GetUndoCommandCount()).toBe(0);
     expect(h.frame.IsContentModified()).toBe(false);
     expect(h.frame.GetTitle()).toBe('[no drawing sheet loaded] — Drawing Sheet Editor');
+    // Nothing is loaded: no file name, an empty message pane, and an empty
+    // message panel until a selection change (UpdateMsgPanelInfo's only two
+    // callers are selection handlers, pl_editor_control.cpp:171).
+    expect(h.frame.GetCurrentFileName()).toBe('');
+    expect(h.status[0] ?? '').toBe('');
+    expect(h.msgPanel).toEqual([]);
   });
 
   it('opens landscape, with the custom size at 17000 x 11000 mils (pl_editor_settings.cpp:52-58)', () => {
@@ -149,6 +155,29 @@ describe('UpdateStatusBar', () => {
     expect(h.status[3]).toBe('dx -0  dy -0');
     expect(h.status[5]).toBe('coord origin: Right Bottom page corner');
     expect(h.status[6]).toBe('mm');
+  });
+
+  it('formats both coordinate pairs with %.4g: a cold-open mils bar reads 1.266e+04', () => {
+    // pl_editor_frame.cpp:770-771; %g goes exponential once the exponent
+    // reaches the precision. 12660 mils = 321564 IU, 12170 mils = 309118 IU.
+    const h = makeHarness(EDA_UNITS_INT.MILS);
+    h.cursor.at = { x: 321564, y: 309118 };
+
+    h.frame.UpdateStatusBar();
+
+    expect(h.status[2]).toBe('X 1.266e+04  Y 1.217e+04');
+    expect(h.status[3]).toBe('dx 1.266e+04  dy 1.217e+04');
+  });
+
+  it('writes the grid "%f" in mils, "%.3f" in inches (DisplayGridMsg, :701-722)', () => {
+    const mils = makeHarness(EDA_UNITS_INT.MILS);
+    mils.frame.DisplayGridMsg();
+    // 0.5 mm = 19.685039... mils, and the MILS case is the switch's bare "%f".
+    expect(mils.status[4]).toBe('grid 19.685039');
+
+    const inch = makeHarness(EDA_UNITS_INT.INCH);
+    inch.frame.DisplayGridMsg();
+    expect(inch.status[4]).toBe('grid 0.020');
   });
 
   it('writes the grid at %.4f in mm', () => {
@@ -236,10 +265,16 @@ describe('PL_EDIT_TOOL and PL_EDITOR_CONTROL', () => {
       ['Comment', ''],
     ]);
 
-    // With nothing selected the panel shows the page (A3, 420 x 297 mm).
+    // With nothing selected the panel shows the page and nothing else
+    // (pl_editor_frame.cpp:968-977): 419989 x 297002 IU, MessageTextFromValue
+    // with its default unit label (units_provider.h:127), "%.4f" in mm because
+    // drawSheetIUScale is not SCH_IU_PER_MM (eda_units.cpp:422-424).
     sel.ClearSelection();
-    const page = h.frame.GetMsgPanelItems().map((r) => r.GetUpperText());
-    expect(page).toEqual(['Page Width', 'Page Height']);
+    const page = h.frame.GetMsgPanelItems().map((r) => [r.GetUpperText(), r.GetLowerText()]);
+    expect(page).toEqual([
+      ['Page Width', '419.9890 mm'],
+      ['Page Height', '297.0020 mm'],
+    ]);
   });
 
   it('Delete removes the selected item and stacks an undo', () => {

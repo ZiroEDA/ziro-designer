@@ -212,6 +212,20 @@ describe('New', () => {
     expect(h.status[0]).toBe('kept');
   });
 
+  it('keeps the setup - ClearList deletes the items and nothing else - and clears undo', async () => {
+    const h = makeHarness(EDA_UNITS_INT.MM);
+    model.SetLeftMargin(25);
+    h.frame.SaveCopyInUndoList();
+
+    await run(h, ACTIONS.doNew);
+
+    // An empty list STAYS empty: AllowVoidList( true ) (files.cpp:124).
+    expect(model.GetCount()).toBe(0);
+    expect(model.GetLeftMargin()).toBe(25);
+    expect(h.frame.GetUndoCommandCount()).toBe(0);
+    expect(h.frame.IsContentModified()).toBe(false);
+  });
+
   it('Save in the guard saves first, then proceeds', async () => {
     const h = makeHarness(EDA_UNITS_INT.MM);
     h.frame.SetCurrentFileName(PATH);

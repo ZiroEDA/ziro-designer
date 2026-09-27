@@ -192,7 +192,9 @@ describe('one copy of the unit actions', () => {
     // `drawingsheet/toggles.ts` had its own `isImperial` + `switchUnits`.
     // GerbView's units are EDA_DRAW_FRAME's now, pinned in
     // unittests/gerbview/gerbview_frame.test.ts.
-    for (const rel of ['editors/drawingsheet/toggles.ts', 'editors/symbol/toggles.ts']) {
+    // pl_editor's are COMMON_TOOLS' on PL_EDITOR_FRAME now, pinned in
+    // unittests/pagelayout_editor/pl_editor_chrome.test.ts.
+    for (const rel of ['editors/symbol/toggles.ts']) {
       const src = read(rel);
       expect(src, `${rel} declares its own isImperial`).not.toMatch(/function isImperial\b/);
       expect(src, `${rel} does not use the shared module`).toContain(

@@ -40,6 +40,7 @@ import {
   PAGE_OPTION_CHOICES,
   type PROPERTIES_FRAME,
 } from '@ziroeda/pagelayout_editor/dialogs/properties_frame.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { PL_SELECTION_TOOL } from '@ziroeda/pagelayout_editor/tools/pl_selection_tool.js';
 import { type Harness, makeHarness, settle } from './pl_editor_fixture.js';
 
@@ -145,6 +146,21 @@ describe('validateMM: the five checked fields', () => {
 
     // 10 mm = 393.70079 mils, StringFromValue's "%.5f" trimmed.
     expect(h.host.errors[0]?.text).toBe('Line width must be less than 393.70079 mils.');
+  });
+});
+
+describe('the frame is every binder’s UNITS_PROVIDER (properties_frame.cpp:57-79)', () => {
+  it('a units switch re-reads every field in the new unit', () => {
+    const h = mmFrame();
+    const p = panelOf(h);
+    const l = line();
+
+    h.mgr.RunAction(ACTIONS.milsUnits);
+    p.CopyPrmsFromItemToPanel(l);
+
+    // 10 mm = 393.70079 mils ("%.5f" trimmed, eda_units.cpp StringFromValue).
+    expect(p.m_textPosX.GetUnits()).toBe('mils');
+    expect(p.m_textPosX.GetText()).toBe('393.70079');
   });
 });
 

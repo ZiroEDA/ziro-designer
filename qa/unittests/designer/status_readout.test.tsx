@@ -193,14 +193,15 @@ describe('the draw frames', () => {
   });
 
   it('and pl_editor is the one still off it, for a stated reason', () => {
-    // `PL_EDITOR_FRAME::UpdateStatusBar` runs the cursor through
-    // `m_originTransforms` — the page origin can be any corner, with a sign
-    // flip per axis — and its pane 3 is `dx`/`dy` with no `dist`. That is
-    // `plCoordFields`, and the hook would have to learn the origin transform
-    // before this frame could move onto it. Named rather than quietly skipped,
-    // so the list is a checklist and not a decoration.
+    // `PL_EDITOR_FRAME::UpdateStatusBar` runs the cursor through the chosen
+    // origin corner, with a sign flip per axis, and its pane 3 is `dx`/`dy`
+    // with no `dist`: that is the frame's own `plCoordFields`, and the page
+    // only shows what the frame's status sink hands it.
     const src = read('editors/drawingsheet/DrawingSheetEditor.tsx');
-    expect(src).toContain('plCoordFields');
+    expect(src).toContain('frame.SetStatusTextSink(');
     expect(src).not.toContain('useStatusReadout');
+    expect(
+      readFileSync(resolve(process.cwd(), '../pagelayout_editor/pl_editor_frame.ts'), 'utf8'),
+    ).toContain('const fields = plCoordFields(');
   });
 });

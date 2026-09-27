@@ -105,7 +105,7 @@ import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
 import { leafOf } from '../../fs/save_path.js';
 import { InitPgm } from '../../pgm_app.js';
 import { PL_EDITOR_DEFAULTS, settings } from '../../prefs/settings.js';
-import { useCommonSettings, usePlEditorSettings } from '../../prefs/useSettings.js';
+import { useCommonSettings, usePlEditorSettings, useUserColors } from '../../prefs/useSettings.js';
 import { drawPanelWindow, loadBitmapFontImage } from '../../render/gal_window.js';
 import { HomeLink } from '../../ui/HomeLink.js';
 import { ReadOnlyNotice } from '../../ui/ReadOnlyNotice.js';
@@ -114,6 +114,7 @@ import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import {
   ACTION_FOR_ID,
   EDIT_MENU_ACTIONS,
+  loadPlEditorColors,
   loadPlEditorSettings,
   storePlEditorSettings,
   uiState,
@@ -225,6 +226,7 @@ export function DrawingSheetEditor({
   openRequest?: { name: string; text: string; nonce: number } | null;
 }): JSX.Element {
   const plCfg = usePlEditorSettings();
+  const userColors = useUserColors();
   const common = useCommonSettings();
   const recent = useFileHistory(recentFiles);
 
@@ -496,10 +498,19 @@ export function DrawingSheetEditor({
   useEffect(() => {
     loadPlEditorSettings(frame.config(), plCfg);
 
-    if (frame.GetCanvas()) frame.CommonSettingsChanged();
+    if (frame.GetCanvas()) {
+      frame.CommonSettingsChanged();
+      loadPlEditorColors(frame, plCfg.appearance.color_theme);
+    }
 
     repaint();
   }, [frame, plCfg]);
+
+  /** A "User" theme override edited on a Colors page repaints the sheet. */
+  useEffect(() => {
+    if (userColors && frame.GetCanvas())
+      loadPlEditorColors(frame, settings.plEditor.appearance.color_theme);
+  }, [frame, userColors]);
 
   /**
    * Run an action as a toolbar button or a menu row does:
@@ -551,6 +562,7 @@ export function DrawingSheetEditor({
       }
 
       frame.AttachCanvas(panel);
+      loadPlEditorColors(frame, settings.plEditor.appearance.color_theme);
       setAttached(true);
       repaint();
     });

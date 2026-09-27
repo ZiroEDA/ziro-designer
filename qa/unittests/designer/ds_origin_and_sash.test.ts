@@ -18,33 +18,9 @@ import { PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const CANVAS = read('../../../designer/src/editors/drawingsheet/DrawingSheetCanvas.tsx');
 const EDITOR = read('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx');
-
-describe('the coord-origin marker follows the dropdown', () => {
-  it('draws the marker from the originIU prop, not from a constant', () => {
-    // ds_painter.cpp:372-383 puts the circle and the X at GetMarkerPos(), which
-    // PL_DRAW_PANEL_GAL sets from ReturnCoordOriginCorner().
-    expect(CANVAS).toContain('const o = originIU ?? { x: 0, y: 0 };');
-    expect(CANVAS).toContain('ctx.arc(o.x, o.y, r, 0, Math.PI * 2);');
-  });
-
-  it('lists originIU as a dependency of the draw callback', () => {
-    // THE BUG. `draw` is a useCallback; an origin its closure never re-reads is
-    // an origin the dropdown cannot move. The marker was painted once, at
-    // whatever corner the frame opened on, and stayed there.
-    const body = CANVAS.slice(CANVAS.indexOf('const draw = useCallback'));
-    // The dependency array is the block that closes the callback: the first
-    // `}, [` at the callback's own indentation after its body.
-    const close = body.indexOf('\n    }, [');
-    const arr = close >= 0 ? body.slice(close, body.indexOf(']);', close) + 3) : '';
-    expect(arr, 'draw() dependency array').toContain('originIU');
-  });
-
-  it('and the editor actually passes it', () => {
-    expect(EDITOR).toContain('originIU={originInfo.origin}');
-  });
-});
+// The coord-origin marker is DS_DRAW_ITEM_PAGE's, set by DisplayDrawingSheet:
+// driven in unittests/pagelayout_editor/pl_editor_chrome.test.ts.
 
 describe('the Properties palette has wxAUI’s sash', () => {
   it('renders the shared DockSash rather than a fixed strip', () => {
@@ -72,9 +48,12 @@ describe('the Properties palette has wxAUI’s sash', () => {
   it('and the drag reaches properties_frame_width', () => {
     // `m_propertiesFrameWidth = m_propertiesPagelayout->GetSize().x`, then
     // `cfg->m_PropertiesFrameWidth = m_propertiesFrameWidth`
-    // (pl_editor_frame.cpp:558-560). Without this the sash worked and forgot.
+    // (pl_editor_frame.cpp:558-560): the sash sets the panel's size and the
+    // frame's SaveSettings carries it (pl_editor_settings.test.ts drives that).
     const sash = EDITOR.slice(EDITOR.indexOf('<DockSash'));
-    expect(sash.slice(0, sash.indexOf('/>'))).toContain('s.properties_frame_width = w');
+    const body = sash.slice(0, sash.indexOf('/>'));
+    expect(body).toContain('panel?.SetWidth(w)');
+    expect(body).toContain('persist()');
   });
 
   it('takes its floor from the panel’s own content, as MinSize does', () => {
