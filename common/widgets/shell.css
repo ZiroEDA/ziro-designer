@@ -17693,3 +17693,51 @@ td.ze-grid-bool {
   border: 1px solid var(--chrome-border);
   border-radius: 3px;
 }
+
+/* PANEL_SETUP_BUSES (panel_setup_buses_base.cpp). bMargins holds two columns
+   at proportion 1, the left one with `wxRIGHT, 5`. */
+.ze-busdefs {
+  display: flex;
+  height: 100%;
+}
+.ze-busdefs-col {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ze-busdefs-col:first-child {
+  margin-right: 5px;
+}
+/* [data] `m_busesLabel` `wxLEFT|wxTOP, 8`, `m_membersLabel` `wxTOP|wxRIGHT|wxLEFT, 8`,
+   each followed by a 3 px spacer. */
+.ze-busdefs-label {
+  padding: 8px 8px 0 8px;
+  margin-bottom: 3px;
+}
+/* [data] `SetMinSize( wxSize( -1, 180 ) )`, added at proportion 1. */
+.ze-busdefs-grid {
+  flex: 1;
+  min-height: 180px;
+}
+.ze-busdefs .ze-grid-btns {
+  /* [data] `bLeftCol->Add( bSizer10, 0, wxEXPAND|wxTOP, 3 )`. */
+  margin-top: 3px;
+  align-items: center;
+}
+/* [data] `bSizer10->Add( 20, 0, 0, wxEXPAND, 5 )`. */
+.ze-busdefs-gap {
+  width: 20px;
+  flex: 0 0 auto;
+}
+/* [data] `bSizer10->Add( 15, 0, 1, 0, 5 )`: at least 15, and the slack. */
+.ze-busdefs-stretch {
+  min-width: 15px;
+  flex: 1 1 auto;
+}
+/* `m_source->SetFont( KIUI::GetSmallInfoFont( aWindow ) )`, added
+   `wxALIGN_CENTER_VERTICAL|wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
+.ze-busdefs-source {
+  font-size: var(--ui-font-size-small);
+  margin: 0 5px 5px 5px;
+}
