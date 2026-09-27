@@ -22,10 +22,7 @@ import { PLOTTER } from '@ziroeda/common/plotters/plotter.js';
 import { PS_PLOTTER } from '@ziroeda/common/plotters/PS_plotter.js';
 import { SVG_PLOTTER } from '@ziroeda/common/plotters/SVG_plotter.js';
 import { PDF_PLOTTER } from '@ziroeda/common/plotters/PDF_plotter.js';
-import * as png from '@ziroeda/pcbnew/plot_png.js';
 import { DXF_PLOTTER } from '@ziroeda/common/plotters/DXF_plotter.js';
-
-const BACKENDS = { png };
 
 describe('PLOTTER line-width sentinels', () => {
   it('are the values plotter.h:139-140 declares', () => {
@@ -37,13 +34,6 @@ describe('PLOTTER line-width sentinels', () => {
     expect(DO_NOT_SET_LINE_WIDTH).not.toBe(USE_DEFAULT_LINE_WIDTH);
     expect(DO_NOT_SET_LINE_WIDTH).toBeLessThan(0);
     expect(USE_DEFAULT_LINE_WIDTH).toBeLessThan(0);
-  });
-
-  it('reach all five backends as the one pair, not as five copies', () => {
-    for (const [name, m] of Object.entries(BACKENDS)) {
-      expect([name, m.DO_NOT_SET_LINE_WIDTH]).toEqual([name, DO_NOT_SET_LINE_WIDTH]);
-      expect([name, m.USE_DEFAULT_LINE_WIDTH]).toEqual([name, USE_DEFAULT_LINE_WIDTH]);
-    }
   });
 
   it('are PLOTTER statics, inherited by every class in the tree', () => {

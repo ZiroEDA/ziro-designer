@@ -1199,36 +1199,6 @@ export {
   matrixSetScale,
   matrixZero,
 } from '@ziroeda/common/import_gfx/dxf_import_plugin.js';
-// And once more for the PNG back-end, the raster one. Only the PNG-prefixed
-// names travel; FILL_T, LINE_STYLE, Color4d, COLOR4D_BLACK/WHITE and the two
-// line-width sentinels stay importable from './plot_png.js' alone, because all
-// four document back-ends already spell their own copies of them. The encoder
-// travels whole — pngEncodeRgba8, the CRC and the zlib stream are ours, not
-// KiCad's, so nothing else will ever want those names.
-export {
-  PngPlotter,
-  pngRecordingBackend,
-  pngCanvas2DBackend,
-  pngMemorySurface,
-  cssRgba,
-  CAIRO_STATUS,
-  CAIRO_ANTIALIAS,
-  CAIRO_OPERATOR,
-  CAIRO_LINE_CAP,
-  CAIRO_LINE_JOIN,
-  DEFAULT_PNG_DPI,
-  MIN_PNG_DPI,
-  MAX_PNG_DPI,
-  MAX_PNG_DIMENSION,
-  type PngBackend,
-  type PngCanvas2D,
-  type PngContext,
-  type PngImage,
-  type PngOp,
-  type PngRecordingBackend,
-  type PngRecordingContext,
-  type PngSurface,
-} from './plot_png.js';
 export {
   pngEncodeRgba8,
   pngCrc32,

@@ -156,7 +156,6 @@ Generated 2026-09-20 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 | `plot_dxf.ts` | `-` |
 | `plot_gerber.ts` | `-` |
 | `plot_pdf.ts` | `-` |
-| `plot_png.ts` | `-` |
 | `plot_ps.ts` | `-` |
 | `plot_svg.ts` | `-` |
 | `point_editor.ts` | `-` |

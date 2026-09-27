@@ -545,5 +545,5 @@ until these moved in from `pcbnew/plot_*.ts` (09-27).
 Divergences: no `FILE*` (`bytes()` / `text()`); the font is a
 `PLOTTER_FONT` handed in (yields strokes), not `KIFONT::FONT::Draw` on a
 CALLBACK_GAL; `SetPageSettings` takes `PLOTTER_PAGE_INFO`, which `PAGE_INFO`
-satisfies. `pcbnew/plot_png.ts` is from KiCad master (no `PNG_plotter.cpp` in
-10.0.5) and is not part of the tree.
+satisfies. A PNG plotter ported from KiCad master (no `PNG_plotter.cpp` in
+10.0.5) was deleted.
