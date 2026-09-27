@@ -118,10 +118,11 @@ the code it ports:
 
 ## Root — 131 KiCad units
 
-Tabled 09-26. Of KiCad's 131 `common/*.cpp`: **57 here under KiCad's name**,
-**19 here or elsewhere in the tree under another name** (each a rename, a
-move or a split, one stage apiece), **10 to port** (the feature exists in the
-app, the unit does not), **16 waiting on their feature**, **28 n/a**, and `paths` partly here.
+Tabled 09-26, recounted 09-27. Of KiCad's 131 `common/*.cpp`: **60 here
+under KiCad's name**, **19 here or elsewhere in the tree under another name**
+(18 done; `app_monitor` still ours), **7 to port** (the feature exists in the
+app, the unit does not), **16 waiting on their feature**, **27 n/a**, and
+**2 partly here** (`paths`, `kiway`).
 
 KiCad has an `include/` beside `common/`; we have none. A header-only
 `include/<x>.h` is `common/<x>.ts` (`base_set`, `collector`, `ctl_flags`,
@@ -131,14 +132,15 @@ KiCad has an `include/` beside `common/`; we have none. A header-only
 `string_any_map`, `units_provider`, `zoom_defines`), and a unit split
 across `include/<x>.h` + `common/<y>.cpp` takes the `.cpp` name.
 
-**Here, KiCad's name (57):** advanced_config array_options
+**Here, KiCad's name (60):** advanced_config array_options
 background_jobs_monitor base_screen bitmap_base bitmap_store build_version
-callback_gal commit common confirm draw_panel_gal dsnlexer eda_base_frame
-eda_draw_frame eda_group eda_item eda_pattern_match eda_shape eda_text
-eda_units embedded_files file_history gr_text hotkeys_basic hotkey_store
+board_printout callback_gal commit common confirm draw_panel_gal dsnlexer
+eda_base_frame eda_draw_frame eda_group eda_item eda_pattern_match eda_shape
+eda_text eda_units embedded_files file_history gr_basic gr_text hotkeys_basic
+hotkey_store
 inspectable kidialog kiid launch_ext lib_id local_history lseq lset
 marker_base markup_parser netclass origin_transforms page_info pgm_base
-pin_numbers project rc_item refdes_utils reference_image render_settings
+pin_numbers printout project rc_item refdes_utils reference_image render_settings
 reporter richio string_utils stroke_params template_fieldnames thread_pool
 title_block trace_helpers undo_redo_container validators
 wildcards_and_files_ext.
@@ -174,13 +176,10 @@ unknown library; `source` is the full path and `date` is
 (the variants model does not exist yet) and the second XNODE copy in
 `eeschema/exporters/netlist.ts`.
 
-**To port (10)** — the behaviour exists, inline in a screen or plotter: `grid_tricks`
+**To port (7)** — the behaviour exists, inline in a screen or plotter: `grid_tricks`
 and `lib_table_grid_tricks` (in `SymbolPropertiesDialog`,
 `symbol_props_rows`, `dialog_sym_lib_table`), `lib_table_notebook_panel`
-(`dialog_edit_library_tables`), `board_printout` (here, BOARD_PRINTOUT_SETTINGS and BOARD_PRINTOUT
-over CAIRO_PRINT_GAL, which GerbView prints through; pcbnew's
-`dialog_print_pcb` still draws through `pcbTheme` / `renderBoard` rather than
-a PCBNEW_PRINTOUT), `printout` (here: PRINTOUT_SETTINGS),
+(`dialog_edit_library_tables`),
 `clipboard` (`navigator.clipboard` at
 each call site), `eda_doc` (datasheet opening), `bitmap` (`KiBitmap` and
 friends, over `bitmap_store`),
@@ -196,9 +195,13 @@ writers `pcbnew/plot_gerber.ts` still does inline).
 `hash_eda` (footprint-vs-library comparison); `notifications_manager`;
 `scintilla_tricks` (the Scintilla text editors); `ptree` (specctra DSN);
 `kiway_player` + `kiway_mail` (the frames and their mail live in
-`designer/src/App.tsx`; they come here when designer/ becomes `kicad/`).
+`designer/src/App.tsx`, which is the program; designer/ keeps its name).
 
-**n/a (28)** — a desktop process, a filesystem or a toolkit the page does not
+`board_printout` is here (GerbView prints through it); pcbnew's
+`dialog_print_pcb` still draws through `pcbTheme` / `renderBoard` rather than
+a PCBNEW_PRINTOUT - pcbnew's gap, not this unit's.
+
+**n/a (27)** — a desktop process, a filesystem or a toolkit the page does not
 have: `asset_archive` (resources.zip; artwork is imported), `bitmap_info`
 (the per-size PNG index; we ship the SVGs and have no PNG sizes), `bin_mod`,
 `cli_progress_reporter`, `config_params` (legacy wxConfig), `eda_dde`
