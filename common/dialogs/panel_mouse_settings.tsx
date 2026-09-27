@@ -37,7 +37,8 @@ import type { JSX } from 'react';
 import { Check, Group } from '../wx/controls.js';
 import { Combo } from '../widgets/wx_combobox.js';
 import { Slider } from '../widgets/slider.js';
-import { bitmapUrl } from '../bitmap_store.js';
+import { KiBitmapBundle } from '../bitmap.js';
+import { BITMAPS } from '../bitmaps_list.js';
 import type { COMMON_SETTINGS_DRAFT } from '../settings/common_settings.js';
 import type { MouseDragAction, ScrollModifier } from '../settings/common_settings.js';
 
@@ -323,7 +324,7 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
               <span>Vertical touchpad or scroll wheel movement:</span>
               {warn && (
                 <img
-                  src={bitmapUrl('small_warning')}
+                  src={KiBitmapBundle(BITMAPS.small_warning)}
                   alt=""
                   title="Only one action can be assigned to each column"
                 />

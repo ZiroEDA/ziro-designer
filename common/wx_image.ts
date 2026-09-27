@@ -282,6 +282,23 @@ export class WX_IMAGE {
     return out;
   }
 
+  /**
+   * `wxImage::ConvertToDisabled( brightness )`: `wxColour::MakeDisabled` on
+   * every pixel - each channel `AlphaBlend( c, brightness, 0.4 )`, a
+   * truncating cast of `0.4 c + 0.6 brightness`. Alpha is kept. Measured by
+   * `qa/probes/convert_disabled_probe.cpp`.
+   */
+  ConvertToDisabled(aBrightness = 255): WX_IMAGE {
+    const out = new WX_IMAGE(this);
+
+    if (!out.m_rgb) throw new Error('wxImage::ConvertToDisabled: the pixels are not decoded');
+
+    for (let i = 0; i < out.m_rgb.length; ++i)
+      out.m_rgb[i] = Math.trunc(out.m_rgb[i]! * 0.4 + aBrightness * (1.0 - 0.4));
+
+    return out;
+  }
+
   private loadJpegHeader(aData: Uint8Array): boolean {
     // JFIF APP0 density and the SOFn frame header.
     let pos = 2;

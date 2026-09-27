@@ -52,7 +52,8 @@ import { Sash } from '@ziroeda/common/widgets/wx_splitter_window.js';
 // reaches for `ui/icons.tsx` any more: that module's own header calls its
 // glyphs "recognisable stand-ins, not KiCad's exact bitmaps", and every icon
 // this panel needs exists upstream.
-import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
+import { KiBitmapBundle } from '@ziroeda/common/bitmap.js';
+import { BITMAPS } from '@ziroeda/common/bitmaps_list.js';
 import { layerTooltip } from './appearance_layers.js';
 import {
   appearanceObjectRows,
@@ -104,7 +105,7 @@ export function EyeIcon({ on }: { on: boolean }): JSX.Element {
   return (
     <img
       className="ze-eye"
-      src={bitmapUrl(on ? 'visibility' : 'visibility_off')}
+      src={KiBitmapBundle(on ? BITMAPS.visibility : BITMAPS.visibility_off)}
       width="16"
       height="16"
       alt=""
@@ -430,7 +431,7 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
                       Vendored from KiCad's own `sources/dark/list_nets_16.svg`;
                       what stood here was a hand-drawn stand-in out of
                       `icons.tsx`, whose header says as much. */}
-                    <img src={bitmapUrl('list_nets_16')} width="16" height="16" alt="" />
+                    <img src={KiBitmapBundle(BITMAPS.list_nets_16)} width="16" height="16" alt="" />
                   </button>
                 </div>
                 <div className="ze-nets-list">
@@ -493,7 +494,12 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
                   >
                     {/* `m_btnConfigureNetClasses->SetBitmap( KiBitmapBundle(
                       BITMAPS::options_generic_16 ) )` (:474). */}
-                    <img src={bitmapUrl('options_generic_16')} width="16" height="16" alt="" />
+                    <img
+                      src={KiBitmapBundle(BITMAPS.options_generic_16)}
+                      width="16"
+                      height="16"
+                      alt=""
+                    />
                   </button>
                 </div>
                 <div className="ze-netclass-list">

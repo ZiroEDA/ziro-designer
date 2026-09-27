@@ -14,7 +14,8 @@ import {
 } from '@ziroeda/eeschema';
 import { ContextMenu, type MenuItem } from '@ziroeda/common/tool/action_menu_bar.js';
 import { ERC_PHASES } from '@ziroeda/eeschema';
-import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
+import { KiBitmapBundle } from '@ziroeda/common/bitmap.js';
+import { BITMAPS } from '@ziroeda/common/bitmaps_list.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 /**
@@ -564,7 +565,7 @@ export function ErcDialog({
         >
           {/* m_bMenu->SetBitmap( KiBitmapBundle( BITMAPS::config ) ),
               dialog_erc.cpp:98 — the gear, not options_board. */}
-          {bitmapUrl('config') ? <img src={bitmapUrl('config')} alt="" /> : '⚙'}
+          <img src={KiBitmapBundle(BITMAPS.config)} alt="" />
         </button>
       </div>
 

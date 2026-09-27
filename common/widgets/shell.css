@@ -567,6 +567,12 @@
      GTK dims by colour, never by opacity: an opacity fade also washes out the
      control's background and border, which ours did. */
   --ctl-fg-disabled: #929292;
+  /* A disabled bitmap: BITMAP_STORE::GetDisabledBitmapBundle draws the icon
+     through wxImage::ConvertToDisabled( 70 ) on a dark theme, each channel
+     0.4 c + 0.6 * 70/255 with alpha kept (qa/probes/convert_disabled_probe.cpp).
+     brightness( m ) then contrast( k ) is k m c + (1 - k) / 2: k = 171/255,
+     m = 102/171. Not an opacity - that fades the icon into what is behind it. */
+  --bitmap-disabled-filter: brightness(0.596491) contrast(0.670588);
   /* [css] `treeview.view header button { color: #8f8f8f; font-weight: bold }`
      in the Yaru dark stylesheet. A column header is DIMMER than the rows under
      it and heavier — it is a button, not a row — and neither is a shade anyone
@@ -1964,8 +1970,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-tbtn.disabled,
 .ze-tbtn:disabled {
-  opacity: 0.35;
   cursor: default;
+}
+/* The bitmap is what is disabled, not the button: a checked tool keeps its
+   rectangle. */
+.ze-tbtn.disabled > *,
+.ze-tbtn:disabled > * {
+  filter: var(--bitmap-disabled-filter);
 }
 .ze-tbtn.disabled:hover,
 .ze-tbtn:disabled:hover {
@@ -7754,8 +7765,10 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border-color: var(--chrome-border);
 }
 .ze-lp-iconbtn:disabled {
-  opacity: 0.4;
   cursor: default;
+}
+.ze-lp-iconbtn:disabled > * {
+  filter: var(--bitmap-disabled-filter);
 }
 /* optionsSizer: Shape (natural width) beside a growable Formatting box. */
 .ze-lp-options {

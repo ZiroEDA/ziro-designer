@@ -27,7 +27,8 @@ import {
 } from '@ziroeda/common/lib_tree_model_adapter.js';
 import { EDA_REORDERABLE_LIST_DIALOG } from '@ziroeda/common/dialogs/eda_reorderable_list_dialog.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
-import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
+import { KiBitmapBundle } from '@ziroeda/common/bitmap.js';
+import { BITMAPS } from '@ziroeda/common/bitmaps_list.js';
 
 /**
  * `wxDataViewItemAttr` as CSS. `SetColour( wxSYS_COLOUR_GRAYTEXT )` becomes
@@ -1069,7 +1070,7 @@ export function LibTree({
                 SMALLEST as the bundle's default size, which is what a 100%
                 scaling display asks for. 24 was a size KiCad only reaches at
                 150%. */}
-            <img src={bitmapUrl('config')} alt="" width={16} height={16} />
+            <img src={KiBitmapBundle(BITMAPS.config)} alt="" width={16} height={16} />
           </button>
           {sortMenu}
         </div>

@@ -160,7 +160,7 @@ describe('Scroll Gestures puts its buttons where upstream puts them', () => {
   it('carries the label upstream carries, and no more', () => {
     expect(PANEL).toContain('Vertical touchpad or scroll wheel movement:');
     expect(PANEL).not.toContain('only one action can be assigned to each');
-    expect(PANEL).toContain("bitmapUrl('small_warning')");
+    expect(PANEL).toContain("KiBitmapBundle(BITMAPS.small_warning)");
     expect(PANEL).toContain('Only one action can be assigned to each column');
   });
 });
