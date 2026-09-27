@@ -1515,12 +1515,11 @@ export {
 // `router/pns_router.js` directly.
 
 // `PNS::TOOL_BASE`, the three methods of it that are routing decisions rather
-// than wxWidgets event plumbing. `PCB_GRID_HELPER` shrinks to the three calls
-// `snapToItem` makes; the frame/view inputs `pickSingleItem` reads become
+// than wxWidgets event plumbing. `snapToItem` asks the real `PCB_GRID_HELPER`
+// (`tools/pcb_grid_helper.ts`); the frame/view inputs `pickSingleItem` reads become
 // explicit context fields.
 export {
   PNS_COORDS_PADDING,
-  PnsGridHelperGrid,
   PnsMagneticOption,
   checkSnap,
   pickSingleItem,
@@ -1528,7 +1527,6 @@ export {
   type PnsMagneticSettings,
   type PnsPickContext,
   type PnsSnapContext,
-  type PnsSnapGridHelper,
 } from './router/pns_tool_base.js';
 // ----- PNS: interactive single-track placement (pns_line_placer) -------------------
 //

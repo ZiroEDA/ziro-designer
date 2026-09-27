@@ -48,6 +48,8 @@ import type { PnsVia } from './pns_via.js';
 import type { Seg } from './pns_line.js';
 import type { Shape } from '../drc/drc_geometry.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { GRID_HELPER_GRIDS } from '@ziroeda/common/tool/grid_helper.js';
+import type { PCB_GRID_HELPER } from '../tools/pcb_grid_helper.js';
 
 /**
  * `TOOL_BASE::COORDS_PADDING` — `pcbIUScale.mmToIU( 20 )`, i.e. 20 mm in
@@ -56,16 +58,6 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
  * clamping cursor coordinates need the same number.
  */
 export const PNS_COORDS_PADDING = 20_000_000;
-
-/** `GRID_HELPER_GRIDS` (`include/tool/grid_helper.h:39`), the two values used here. */
-export enum PnsGridHelperGrid {
-  GRID_CURRENT = 0,
-  GRID_CONNECTABLE = 1,
-  GRID_WIRES = 2,
-  GRID_VIAS = 3,
-  GRID_TEXT = 4,
-  GRID_GRAPHICS = 5,
-}
 
 /** `MAGNETIC_OPTIONS` — `pcbnew/pcbnew_settings.h:53-58`. */
 export enum PnsMagneticOption {
@@ -78,23 +70,6 @@ export enum PnsMagneticOption {
 export interface PnsMagneticSettings {
   pads: PnsMagneticOption;
   tracks: PnsMagneticOption;
-}
-
-/**
- * `PCB_GRID_HELPER`, reduced to the three calls `snapToItem` makes.
- *
- * The real thing is a tool-manager-bound object that collects snap anchors from
- * the whole board; none of that is engine logic. What the router actually asks
- * of it is "put this point on the grid", "put it on this segment" and "put it
- * on this arc".
- */
-export interface PnsSnapGridHelper {
-  /** `Align( const VECTOR2I&, GRID_HELPER_GRIDS )`. */
-  align(aP: Vec2, aGrid: PnsGridHelperGrid): Vec2;
-  /** `AlignToSegment( const VECTOR2I&, const SEG& )`. */
-  alignToSegment(aP: Vec2, aSeg: Seg): Vec2;
-  /** `AlignToArc( const VECTOR2I&, const SHAPE_ARC& )`. */
-  alignToArc(aP: Vec2, aArc: Shape): Vec2;
 }
 
 /**
@@ -386,14 +361,14 @@ export function checkSnap(aCtx: PnsSnapContext, aItem: PnsItem | null): boolean 
  * seed is used here without ceremony.
  */
 export function snapToItem(
-  aCtx: { router: PnsRouter; iface: PnsRouterIface; grid: PnsSnapGridHelper },
+  aCtx: { router: PnsRouter; iface: PnsRouterIface; grid: PCB_GRID_HELPER },
   aItem: PnsItem | null,
   aP: Vec2,
 ): Vec2 {
-  const gridFor = (): PnsGridHelperGrid =>
-    aCtx.router.isPlacingVia() ? PnsGridHelperGrid.GRID_VIAS : PnsGridHelperGrid.GRID_WIRES;
+  const gridFor = (): GRID_HELPER_GRIDS =>
+    aCtx.router.isPlacingVia() ? GRID_HELPER_GRIDS.GRID_VIAS : GRID_HELPER_GRIDS.GRID_WIRES;
 
-  if (!aItem || !aCtx.iface.isItemVisible(aItem)) return aCtx.grid.align(aP, gridFor());
+  if (!aItem || !aCtx.iface.isItemVisible(aItem)) return aCtx.grid.Align(aP, gridFor());
 
   switch (aItem.kind()) {
     case PnsKind.SOLID_T: {
@@ -436,13 +411,16 @@ export function snapToItem(
         // TODO(snh): Clean this up
         const seg = li as PnsSegment;
 
-        return aCtx.grid.alignToSegment(aP, seg.seg());
+        return aCtx.grid.AlignToSegment(aP, seg.seg());
       }
 
       if (aItem.kind() === PnsKind.ARC_T) {
         const shape = aItem.shape(-1);
 
-        if (shape) return aCtx.grid.alignToArc(aP, shape);
+        // `AlignToArc( aP, *static_cast<const SHAPE_ARC*>( li->Shape( -1 ) ) )`:
+        // an ARC_T's shape is always an arc upstream; anything else falls
+        // through to the grid below.
+        if (shape?.kind === 'arc') return aCtx.grid.AlignToArc(aP, shape);
       }
 
       break;
@@ -452,5 +430,5 @@ export function snapToItem(
       break;
   }
 
-  return aCtx.grid.align(aP, gridFor());
+  return aCtx.grid.Align(aP, gridFor());
 }

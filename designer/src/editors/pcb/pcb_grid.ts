@@ -24,6 +24,8 @@
  * fails the workspace typecheck even though vitest runs it happily.
  */
 
+import { computeNearest } from '@ziroeda/common/tool/grid_helper.js';
+
 /** A point in internal units. */
 export interface GridPoint {
   x: number;
@@ -40,11 +42,10 @@ export interface GridPoint {
  * `movement = m_cursor - prevPos`).
  */
 export function snapToGridSize(p: GridPoint, size: number, origin: GridPoint): GridPoint {
+  // Our guard, not upstream's: a GAL grid is never zero, and `computeNearest`
+  // would divide by it.
   if (!(size > 0)) return { x: p.x, y: p.y };
-  return {
-    x: Math.round((p.x - origin.x) / size) * size + origin.x,
-    y: Math.round((p.y - origin.y) / size) * size + origin.y,
-  };
+  return computeNearest(p, { x: size, y: size }, origin);
 }
 
 /**

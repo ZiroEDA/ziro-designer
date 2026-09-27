@@ -19,7 +19,8 @@ import {
   computeDragAnchors,
   snapToBoardCopper,
 } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
-import { align, computeNearest, type PcbGridState } from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
+import { align, type PcbGridState } from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
+import { computeNearest } from '@ziroeda/common/tool/grid_helper.js';
 
 const MM = 1e6;
 
@@ -69,7 +70,9 @@ describe('snapToBoardCopper over ecc83-pp.kicad_pcb', () => {
     );
     expect(found).toBeDefined();
     // The premise of the whole bug: the grid cannot reach this centreline.
-    expect(computeNearest({ x: 0, y: TRACK.y }, 0.5 * MM, { x: 0, y: 0 }).y).toBe(99.5 * MM);
+    expect(
+      computeNearest({ x: 0, y: TRACK.y }, { x: 0.5 * MM, y: 0.5 * MM }, { x: 0, y: 0 }).y,
+    ).toBe(99.5 * MM);
   });
 
   it('puts the cursor on the centreline mid-span', () => {
