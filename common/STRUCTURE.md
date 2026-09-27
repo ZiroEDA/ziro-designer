@@ -118,9 +118,9 @@ the code it ports:
 
 ## Root — 131 KiCad units
 
-Tabled 09-26, recounted 09-27. Of KiCad's 131 `common/*.cpp`: **62 here
+Tabled 09-26, recounted 09-27. Of KiCad's 131 `common/*.cpp`: **63 here
 under KiCad's name**, **18 here or elsewhere in the tree under another name**
-(each a rename, a move or a split, all done), **6 to port** (the feature exists in the
+(each a rename, a move or a split, all done), **5 to port** (the feature exists in the
 app, the unit does not), **16 waiting on their feature**, **27 n/a**, and
 **2 partly here** (`paths`, `kiway`).
 
@@ -163,6 +163,7 @@ wildcards_and_files_ext.
 | `filename_resolver` | done 09-26: `FILENAME_RESOLVER`, the class, over `wxFileExists` / `wxDirExists` (`wx/filefn.ts`, a mount table: the open project at `/<projectName>`, the hosted 3D library at `${KICAD10_3DMODEL_DIR}` = `/usr/share/kicad/3dmodels`, `/tmp` a RAM disk for `GetTemporaryFileName`). The web-only rescues (basename match, `.3dshapes/` suffix) are gone: KiCad does not do them. Open: the 3D view passes no embedded-files stack (the plain board view carries none) and no footprint library path |
 | `footprint_filter`, `footprint_info` | done 09-27: `FOOTPRINT_INFO`, `FOOTPRINT_LIST`, `FOOTPRINT_FILTER` (and `EDA_PATTERN_MATCH_WILDCARD_ANCHORED` in `eda_pattern_match.ts`); pcbnew's `FOOTPRINT_LIST_IMPL` builds the list from the hosted index (`pcbnew/footprint_info_impl.ts`) and its `filterFootprints` answers the symbol chooser (`pcbnew/pcbnew.ts`). `designer/src/widgets/footprint_list.ts` keeps only the hosted I/O |
 | `clipboard` | done 09-27: the whole unit over a tab-local `wxTheClipboard` - each save goes to the system clipboard too, each `paste` event refills it (`SetClipboardFromPaste`), since a browser reads the system one only in that event or asynchronously. `application/kicad` stays in the tab (a browser writes only text, HTML and PNG). With it `io/csv` (`CSV_WRITER`, `AutoDecodeCSV` over the part of rapidcsv it reaches) and `wx/buffer` (`wxMemoryBuffer`). pl_editor uses it; eeschema's and pcbnew's copy and paste still call `navigator.clipboard` in `designer/` |
+| `eda_doc` | done 09-27: `GetAssociatedDocument` (and `ResolveUriByEnvVars`, common.cpp). A file opens in a tab typed by its extension, where upstream runs `OpenPDF` or the MIME command; no `SEARCH_STACK` (n/a), and a wildcard name has no `wxFileSelector` to ask. The schematic's D key and hyperlinks, the symbol editor and the library browser call it - four `window.open`s that disagreed. They pass no text-variable resolver and no embedded-files stack yet: `text_vars.ts`'s resolver is another shape |
 | `lib_tree_model`, `lib_tree_model_adapter` | done 09-27: moved from `designer/src/widgets/` (`LIB_TREE_ITEM`, include/lib_tree_item.h, stays folded into eeschema's symbol projection `lib_tree_item.ts` for now) |
 
 **Found by `kicad-cli sch export netlist` against ours (09-26), all fixed the
@@ -176,11 +177,11 @@ unknown library; `source` is the full path and `date` is
 (the variants model does not exist yet) and the second XNODE copy in
 `eeschema/exporters/netlist.ts`.
 
-**To port (6)** — the behaviour exists, inline in a screen or plotter: `grid_tricks`
+**To port (5)** — the behaviour exists, inline in a screen or plotter: `grid_tricks`
 and `lib_table_grid_tricks` (in `SymbolPropertiesDialog`,
 `symbol_props_rows`, `dialog_sym_lib_table`), `lib_table_notebook_panel`
 (`dialog_edit_library_tables`),
-`eda_doc` (datasheet opening), `bitmap` (`KiBitmap` and
+`bitmap` (`KiBitmap` and
 friends, over `bitmap_store`),
 `gbr_metadata` (`FormatStringFromGerber`, which GerbView reads with, is
 here - `gbr_metadata.ts`, moved from gerbview/ 09-27; the X2 attribute

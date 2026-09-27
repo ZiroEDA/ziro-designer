@@ -10,6 +10,7 @@ import { SetErrorPresenter } from '@ziroeda/common/confirm.js';
 import { GetAssociatedDocument, ResolveUriByEnvVars } from '@ziroeda/common/eda_doc.js';
 import { EMBEDDED_FILE, EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { MEMORY_FILESYSTEM, wxMountFileSystem } from '@ziroeda/common/wx/filefn.js';
+import { wxSetEnv, wxUnsetEnv } from '@ziroeda/common/wx/utils.js';
 
 const DOCS = '/docs-test';
 let unmount: () => void;
@@ -74,14 +75,14 @@ describe('GetAssociatedDocument', () => {
     expect(blobs[0]!.type).toBe('text/html');
   });
 
-  it('reports a file that is not there, by the name it was given', () => {
-    expect(GetAssociatedDocument(`${DOCS}/missing.pdf`, null)).toBe(false);
+  it('reports a file that is not there, by its name with slashes', () => {
+    expect(GetAssociatedDocument('\\docs-test\\missing.pdf', null)).toBe(false);
     expect(errors).toEqual([`Documentation file '${DOCS}/missing.pdf' not found.`]);
     expect(opened).toEqual([]);
   });
 
-  it('reports a file of a type it cannot open', () => {
-    expect(GetAssociatedDocument(`${DOCS}/notes.xyz`, null)).toBe(false);
+  it('reports a file of a type it cannot open, by its full path', () => {
+    expect(GetAssociatedDocument(`${DOCS}/sub/../notes.xyz`, null)).toBe(false);
     expect(errors).toEqual([`Unknown MIME type for documentation file '${DOCS}/notes.xyz'`]);
     expect(opened).toEqual([]);
   });
@@ -104,7 +105,15 @@ describe('GetAssociatedDocument', () => {
     const files = new EMBEDDED_FILES();
 
     expect(GetAssociatedDocument('kicad-embed://ds.pdf', null)).toBe(false);
-    expect(GetAssociatedDocument('kicad-embed:ds.pdf', null, [files])).toBe(false);
+    // "kicad-embed:" and two more is as long as "kicad-embed://": were the
+    // prefix not checked, what is left would name the file.
+    const withDs = new EMBEDDED_FILES();
+    const f = new EMBEDDED_FILE();
+    f.name = 'ds.pdf';
+    f.decompressedData = new Uint8Array([1]);
+    f.data_hash = 'eda0doc2';
+    withDs.AddFile(f);
+    expect(GetAssociatedDocument('kicad-embed:XYds.pdf', null, [withDs])).toBe(false);
     expect(GetAssociatedDocument('kicad-embed://none.pdf', null, [files])).toBe(false);
     expect(errors).toEqual([]);
     expect(opened).toEqual([]);
@@ -115,5 +124,14 @@ describe('ResolveUriByEnvVars', () => {
   it('expands text variables, then environment ones', () => {
     expect(ResolveUriByEnvVars('${ID}/x', project)).toBe('BAT54/x');
     expect(ResolveUriByEnvVars('${ID}/x', null)).toBe('${ID}/x');
+
+    wxSetEnv('EDA_DOC_ROOT', 'https://docs.example.com');
+    try {
+      expect(ResolveUriByEnvVars('${EDA_DOC_ROOT}/${ID}', project)).toBe(
+        'https://docs.example.com/BAT54',
+      );
+    } finally {
+      wxUnsetEnv('EDA_DOC_ROOT');
+    }
   });
 });
