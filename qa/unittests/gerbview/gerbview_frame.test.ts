@@ -1771,3 +1771,43 @@ describe('GERBVIEW_PRINTOUT', () => {
     expect([...styles].sort()).toEqual(['rgba(0, 0, 0, 1)', 'rgba(255, 255, 255, 1)']);
   });
 });
+
+/**
+ * One gerber layer per page (GERBVIEW_PRINTOUT::OnPrintPage, :47-76): page
+ * one draws a.gbr's two flashes (a round D10 and a rectangular D11), page two
+ * b.gbr's one round D20, and nothing of the other layer. The paints that start
+ * at the page origin are the clears of the page and of the compositor's
+ * buffers, not items.
+ */
+describe('GERBVIEW_PRINTOUT pages', () => {
+  it('draw each layer alone on its own page', async () => {
+    const factory = installSurfaceFactory();
+    await env.frame.LoadGerberFiles(put('a.gbr', SAMPLE));
+    await env.frame.LoadGerberFiles(put('b.gbr', SECOND));
+    env.frame.GetToolManager()!.RunAction(ACTIONS.print);
+    await Promise.resolve();
+    const dlg = env.prints.at(-1)!;
+    dlg.onPrintButtonClick();
+    const printout = dlg.createPrintout('Print');
+
+    const itemPaints = (aPage: number): number => {
+      const canvas = fakeCanvas('page');
+      printout.SetDC({
+        ctx: canvas.ctx,
+        image: canvas.image,
+        GetSize: () => ({ x: 2480, y: 3508 }),
+        GetPPI: () => 300,
+      });
+      const before = factory.surfaces.length;
+      printout.OnPrintPage(aPage);
+      const all = [
+        ...paints(canvas.log),
+        ...factory.surfaces.slice(before).flatMap((f) => paints(f.canvas.log)),
+      ];
+      return all.filter((p) => JSON.stringify(p.path[0]) !== '["M",0,0]').length;
+    };
+
+    expect([itemPaints(1), itemPaints(2)]).toEqual([2, 1]);
+    factory.restore();
+  });
+});
