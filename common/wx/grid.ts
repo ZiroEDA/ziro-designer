@@ -327,6 +327,13 @@ export class wxGridRangeSelectEvent extends wxEvent {
 
 export const wxGRID_VALUE_STRING = 'string';
 export const wxGRID_VALUE_BOOL = 'bool';
+
+/** `wxAlignment` (`wx/defs.h`), for a cell attribute's alignment. */
+export const wxALIGN_LEFT = 0;
+export const wxALIGN_CENTER_HORIZONTAL = 0x0100;
+export const wxALIGN_RIGHT = 0x0200;
+export const wxALIGN_CENTER_VERTICAL = 0x0800;
+export const wxALIGN_CENTER = wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL;
 export const wxGRID_VALUE_NUMBER = 'long';
 export const wxGRID_VALUE_FLOAT = 'double';
 export const wxGRID_VALUE_CHOICE = 'choice';
@@ -447,13 +454,39 @@ export class wxGridCellAttr {
   private m_readOnly: boolean | undefined;
   private m_editor: wxGridCellEditor | null = null;
   private m_renderer: wxGridCellRenderer | null = null;
+  /** A CSS colour: the page's token for the wx colour asked for. */
+  private m_colBack: string | null = null;
+  private m_hAlign: number | null = null;
 
   Clone(): wxGridCellAttr {
     const a = new wxGridCellAttr();
     a.m_readOnly = this.m_readOnly;
     a.m_editor = this.m_editor;
     a.m_renderer = this.m_renderer;
+    a.m_colBack = this.m_colBack;
+    a.m_hAlign = this.m_hAlign;
     return a;
+  }
+
+  SetBackgroundColour(aColour: string): void {
+    this.m_colBack = aColour;
+  }
+  HasBackgroundColour(): boolean {
+    return this.m_colBack !== null;
+  }
+  GetBackgroundColour(): string | null {
+    return this.m_colBack;
+  }
+
+  /** `SetAlignment( hAlign, vAlign )`; only the horizontal half is drawn. */
+  SetAlignment(aHAlign: number, _aVAlign?: number): void {
+    this.m_hAlign = aHAlign;
+  }
+  HasAlignment(): boolean {
+    return this.m_hAlign !== null;
+  }
+  GetHAlign(): number | null {
+    return this.m_hAlign;
   }
 
   SetReadOnly(aReadOnly = true): void {
@@ -493,6 +526,11 @@ export class wxGridCellAttr {
     if (!this.HasEditor() && aFrom.HasEditor()) this.m_editor = aFrom.m_editor;
 
     if (!this.HasRenderer() && aFrom.HasRenderer()) this.m_renderer = aFrom.m_renderer;
+
+    if (!this.HasBackgroundColour() && aFrom.HasBackgroundColour())
+      this.m_colBack = aFrom.m_colBack;
+
+    if (!this.HasAlignment() && aFrom.HasAlignment()) this.m_hAlign = aFrom.m_hAlign;
   }
 }
 
@@ -1469,6 +1507,16 @@ export class wxGrid extends wxEvtHandler {
     this.m_table?.SetColLabelValue(aCol, aValue);
     this.Refresh();
   }
+  private m_rowLabelHAlign = wxALIGN_CENTER_HORIZONTAL;
+
+  /** `SetRowLabelAlignment( horiz, vert )`; only the horizontal half is drawn. */
+  SetRowLabelAlignment(aHAlign: number, _aVAlign?: number): void {
+    this.m_rowLabelHAlign = aHAlign;
+  }
+  GetRowLabelHAlign(): number {
+    return this.m_rowLabelHAlign;
+  }
+
   GetRowLabelValue(aRow: number): string {
     return this.m_table ? this.m_table.GetRowLabelValue(aRow) : '';
   }
@@ -1527,6 +1575,37 @@ export class wxGrid extends wxEvtHandler {
 
   SetColAttr(aCol: number, aAttr: wxGridCellAttr | null): void {
     this.m_table?.SetColAttr(aAttr, aCol);
+    this.Refresh();
+  }
+
+  SetAttr(aRow: number, aCol: number, aAttr: wxGridCellAttr | null): void {
+    if (!this.m_table?.CanHaveAttributes()) return;
+
+    this.m_table.SetAttr(aAttr, aRow, aCol);
+    this.Refresh();
+  }
+
+  /** `SetCellBackgroundColour`; the colour is a CSS colour (a shell token). */
+  SetCellBackgroundColour(aRow: number, aCol: number, aColour: string): void {
+    if (!this.m_table?.CanHaveAttributes()) return;
+
+    const attr = this.m_table.GetAttr(aRow, aCol, wxAttrKind.Cell)?.Clone() ?? new wxGridCellAttr();
+    attr.SetBackgroundColour(aColour);
+    this.m_table.SetAttr(attr, aRow, aCol);
+    this.Refresh();
+  }
+
+  GetCellBackgroundColour(aRow: number, aCol: number): string | null {
+    return this.GetCellAttr(aRow, aCol).GetBackgroundColour();
+  }
+
+  /** `SetCellAlignment( row, col, horiz, vert )`. */
+  SetCellAlignment(aRow: number, aCol: number, aHAlign: number, aVAlign?: number): void {
+    if (!this.m_table?.CanHaveAttributes()) return;
+
+    const attr = this.m_table.GetAttr(aRow, aCol, wxAttrKind.Cell)?.Clone() ?? new wxGridCellAttr();
+    attr.SetAlignment(aHAlign, aVAlign);
+    this.m_table.SetAttr(attr, aRow, aCol);
     this.Refresh();
   }
 

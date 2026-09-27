@@ -41,6 +41,8 @@ import {
   wxEVT_GRID_LABEL_LEFT_CLICK,
   wxEVT_GRID_LABEL_RIGHT_CLICK,
   type wxGrid,
+  wxALIGN_CENTER_HORIZONTAL,
+  wxALIGN_RIGHT,
   wxGRID_VALUE_BOOL,
   wxGridCellBoolRenderer,
   wxGridCellChoiceEditor,
@@ -436,10 +438,26 @@ export function WxGridView({
         <tbody>
           {Array.from({ length: grid.GetNumberRows() }, (_, r) => (
             <tr key={r} className={rowSelected(r) ? 'selected' : undefined}>
-              {rowLabels && <td className="ze-grid-rowlabel">{grid.GetRowLabelValue(r)}</td>}
+              {rowLabels && (
+                <td
+                  className="ze-grid-rowlabel"
+                  style={
+                    grid.GetRowLabelHAlign() & wxALIGN_CENTER_HORIZONTAL
+                      ? undefined
+                      : { textAlign: grid.GetRowLabelHAlign() & wxALIGN_RIGHT ? 'right' : 'left' }
+                  }
+                >
+                  {grid.GetRowLabelValue(r)}
+                </td>
+              )}
               {shownCols.map((c) => {
+                const attr = grid.GetCellAttr(r, c);
+                const hAlign = attr.GetHAlign();
+                const center =
+                  hAlign !== null ? (hAlign & wxALIGN_CENTER_HORIZONTAL) !== 0 : columns[c]?.center;
+                const background = attr.GetBackgroundColour();
                 const classes = [
-                  columns[c]?.center ? 'c' : '',
+                  center ? 'c' : '',
                   c === flexCol ? 'ze-grid-flexcol' : '',
                   mode === wxGridSelectionModes.wxGridSelectCells &&
                   !rowSelected(r) &&
@@ -454,6 +472,7 @@ export function WxGridView({
                   <td
                     key={c}
                     className={classes || undefined}
+                    style={background ? { background } : undefined}
                     title={tip || undefined}
                     data-row={r}
                     data-col={c}

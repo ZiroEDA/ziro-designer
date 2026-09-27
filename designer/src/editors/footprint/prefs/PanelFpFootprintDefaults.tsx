@@ -50,6 +50,7 @@ import { GRID_TRICKS } from '@ziroeda/common/grid_tricks.js';
 import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
 import { WX_GRID, WX_GRID_TABLE_BASE } from '@ziroeda/common/widgets/wx_grid.js';
 import {
+  wxALIGN_LEFT,
   wxGRID_VALUE_BOOL,
   wxGRID_VALUE_NUMBER,
   wxGRID_VALUE_STRING,
@@ -171,6 +172,8 @@ function makeGrid(aForFieldProps: boolean): {
   const tricks = new GRID_TRICKS(grid);
 
   if (aForFieldProps) {
+    // `SetRowLabelSize( 160 )` / `SetRowLabelAlignment( wxALIGN_LEFT, … )` (`_base.cpp:58-59`).
+    grid.SetRowLabelAlignment(wxALIGN_LEFT);
     const attr = new wxGridCellAttr();
     attr.SetRenderer(new wxGridCellBoolRenderer());
     attr.SetReadOnly();

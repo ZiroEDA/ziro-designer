@@ -94,6 +94,29 @@ const panelText = (): string =>
 const comboOptions = (root: ParentNode = document): string[] =>
   Array.from(root.querySelectorAll('.ze-combo-ghost')).map((o) => o.textContent ?? '');
 
+/** A Graphics Defaults grid cell, by row label and column. */
+const gfxCell = (rowLabel: string, col: number): HTMLElement => {
+  const row = GRAPHICS_ROWS.findIndex((r) => r.label === rowLabel);
+  const cell = document.querySelector<HTMLElement>(
+    `.ze-fp-gfxgrid tbody tr:nth-child(${row + 1}) td[data-col="${col}"]`,
+  );
+  if (!cell) throw new Error(`no cell ${rowLabel}/${col}`);
+  return cell;
+};
+
+/** Click a grid cell open (mouse-up opens the editor) and type into its editor. */
+const typeInCell = (cell: HTMLElement, text: string): void => {
+  fireEvent.mouseDown(cell, { button: 0 });
+  fireEvent.mouseUp(cell);
+  const input = cell.querySelector('input');
+  if (!input) throw new Error('no editor opened');
+  fireEvent.change(input, { target: { value: text } });
+  fireEvent.blur(input);
+};
+
+/** The auto-eval re-format runs after the edit is applied (`CallAfter`). */
+const settle = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
 /** vitest's own per-test budget, which has to clear `openPage`'s. */
 const SLOW = 60000;
 
@@ -464,12 +487,11 @@ describe('Footprint Editor > Graphics Defaults', () => {
       // `SetCellValue( row, col, StringFromValue( value, true ) )`
       // (`common/widgets/wx_grid.cpp:970-980`) — so a live footprint editor
       // reads "0.1 mm", and its column headers carry no "(mm)" of their own.
-      const cell = (label: string): string =>
-        (screen.getByLabelText(label) as HTMLInputElement).value;
-      expect(cell('Silk Layers line thickness')).toBe('0.1 mm');
-      expect(cell('Copper Layers text width')).toBe('1.5 mm');
-      expect(cell('Copper Layers text thickness')).toBe('0.3 mm');
-      expect(cell('Edge Cuts line thickness')).toBe('0.05 mm');
+      const cell = (row: string, col: number): string => gfxCell(row, col).textContent ?? '';
+      expect(cell('Silk Layers', 0)).toBe('0.1 mm');
+      expect(cell('Copper Layers', 1)).toBe('1.5 mm');
+      expect(cell('Copper Layers', 3)).toBe('0.3 mm');
+      expect(cell('Edge Cuts', 0)).toBe('0.05 mm');
       // The header states the quantity, never the unit.
       const headers = Array.from(document.querySelectorAll('.ze-fp-gfxgrid thead th')).map(
         (h) => h.textContent ?? '',
@@ -484,15 +506,14 @@ describe('Footprint Editor > Graphics Defaults', () => {
     'commits a cell when its editor closes, and takes a typed unit designator',
     async () => {
       await openPage('fp-graphics');
-      const field = screen.getByLabelText('Fab Layers text height') as HTMLInputElement;
+      const cell = gfxCell('Fab Layers', 2);
       // A wxGrid editor holds its own text until it loses the cell; nothing is
       // reformatted under the caret while it is open.
-      fireEvent.change(field, { target: { value: '40 mils' } });
-      expect(field.value).toBe('40 mils');
-      fireEvent.blur(field);
+      typeInCell(cell, '40 mils');
+      await settle();
       // `ValueFromString` reads the trailing designator, so 40 mils is 1.016 mm
       // and the cell comes back in the frame's own unit.
-      expect(field.value).toBe('1.016 mm');
+      expect(gfxCell('Fab Layers', 2).textContent).toBe('1.016 mm');
     },
     SLOW,
   );
@@ -501,12 +522,13 @@ describe('Footprint Editor > Graphics Defaults', () => {
     'refuses a line width outside KiCad’s limits and says so beside the grid',
     async () => {
       await openPage('fp-graphics');
-      const field = screen.getByLabelText('Silk Layers line thickness') as HTMLInputElement;
-      fireEvent.change(field, { target: { value: '0.001' } });
-      fireEvent.blur(field);
+      typeInCell(gfxCell('Silk Layers', 0), '0.001');
+      await settle();
       // `TransferDataFromWindow`'s KIDIALOG. The value is NOT applied and the
-      // bad text stays in the cell for the user to correct.
-      expect(field.value).toBe('0.001');
+      // bad value stays in the cell for the user to correct - re-formatted in
+      // the frame's unit by `WX_GRID::onCellEditorHidden`, as every auto-eval
+      // cell is.
+      expect(gfxCell('Silk Layers', 0).textContent).toBe('0.001 mm');
       expect(document.querySelector('.ze-prefs-error')?.textContent).toContain(
         'Silk Layers: Incorrect line width.',
       );
@@ -518,12 +540,11 @@ describe('Footprint Editor > Graphics Defaults', () => {
     'truncates a text thickness thicker than a quarter of the text size',
     async () => {
       await openPage('fp-graphics');
-      const field = screen.getByLabelText('Silk Layers text thickness') as HTMLInputElement;
       // Silk text is 1 mm, so the ceiling is 0.25 mm. This one is CLAMPED
       // rather than refused, and the cell is rewritten with the truncation.
-      fireEvent.change(field, { target: { value: '0.6' } });
-      fireEvent.blur(field);
-      expect(field.value).toBe('0.25 mm');
+      typeInCell(gfxCell('Silk Layers', 3), '0.6');
+      await settle();
+      expect(gfxCell('Silk Layers', 3).textContent).toBe('0.25 mm');
       expect(document.querySelector('.ze-prefs-error')?.textContent).toContain(
         'It will be truncated to 0.25 mm',
       );
@@ -537,10 +558,13 @@ describe('Footprint Editor > Graphics Defaults', () => {
       await openPage('fp-graphics');
       const rows = Array.from(document.querySelectorAll('.ze-fp-gfxgrid tbody tr'));
       for (const [i, r] of GRAPHICS_ROWS.entries()) {
-        const cells = Array.from(rows[i]?.querySelectorAll('td') ?? []);
+        const cells = Array.from(rows[i]?.querySelectorAll<HTMLElement>('td[data-col]') ?? []);
         // Column 0 is the line width, which every row has.
-        expect(cells[0]?.querySelector('input')).not.toBeNull();
-        const disabled = cells.slice(1).filter((c) => c.classList.contains('ze-grid-disabled'));
+        expect(cells[0]?.textContent).toMatch(/mm$/);
+        // `disableCell`: painted wxSYS_COLOUR_FRAMEBK, the label colour.
+        const disabled = cells
+          .slice(1)
+          .filter((c) => c.style.background.includes('--grid-label-bg'));
         expect(disabled, `${r.label}`).toHaveLength(r.text ? 0 : 4);
       }
     },

@@ -16181,10 +16181,6 @@ fieldset.ze-sbox > legend {
 .ze-fp-textitems td.ze-grid-filler {
   width: auto;
 }
-/* `SetRowLabelAlignment( wxALIGN_LEFT, wxALIGN_CENTER )` (`_base.cpp:59`). */
-.ze-fp-fieldprops td.ze-grid-rowlabel {
-  text-align: left;
-}
 /* `SetColSize( 0, 460 )` and `SetColSize( 1, 150 )` (`:75-76`). */
 .ze-fp-textitems th:first-child {
   width: 460px; /* [px] */

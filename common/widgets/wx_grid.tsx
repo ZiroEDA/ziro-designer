@@ -36,6 +36,7 @@ import {
   wxEVT_GRID_CELL_CHANGING,
   wxEVT_GRID_COL_MOVE,
   wxEVT_GRID_EDITOR_HIDDEN,
+  wxEVT_GRID_EDITOR_SHOWN,
   wxEVT_GRID_SELECT_CELL,
   wxGrid,
   type wxGridCellAttr,
@@ -111,7 +112,8 @@ export function GridUnitCell({
 // WX_GRID_TABLE_BASE over the headless wxGrid (`common/wx/grid.ts`). The
 // drawing (DrawColLabel, the autosizer, GetVisibleWidth) is the view's; the
 // NUMERIC_EVALUATOR behind the auto-eval columns is not ported (UNIT_BINDER
-// has the same gap), so an auto-eval column reads its text as typed.
+// has the same gap), so an auto-eval column reads its text as typed - but it
+// is still re-formatted in the column's units when its editor closes.
 
 /** `GROUP_TYPE`: how a row of a grouped table shows. */
 export enum GROUP_TYPE {
@@ -189,10 +191,66 @@ export class WX_GRID extends wxGrid {
 
   private readonly onGridCellSelectHandler = (aEvent: wxGridEvent): void =>
     this.onGridCellSelect(aEvent);
+  /** `m_evalBeforeAfter`: what was typed and what it was re-formatted to. */
+  private m_evalBeforeAfter = new Map<string, [string, string]>();
+  private readonly onCellEditorShownHandler = (aEvent: wxGridEvent): void =>
+    this.onCellEditorShown(aEvent);
+  private readonly onCellEditorHiddenHandler = (aEvent: wxGridEvent): void =>
+    this.onCellEditorHidden(aEvent);
   private readonly onGridColMoveHandler = (): void => {
     // wxWidgets won't move an open editor, so better just to close it
     this.CommitPendingChanges(true);
   };
+
+  constructor() {
+    super();
+    this.Connect(wxEVT_GRID_EDITOR_SHOWN, this.onCellEditorShownHandler);
+    this.Connect(wxEVT_GRID_EDITOR_HIDDEN, this.onCellEditorHiddenHandler);
+  }
+
+  /** `onCellEditorShown`: an auto-eval cell reopens on what was typed. */
+  private onCellEditorShown(aEvent: wxGridEvent): void {
+    if (this.m_autoEvalCols.includes(aEvent.GetCol())) {
+      const row = aEvent.GetRow();
+      const col = aEvent.GetCol();
+      const beforeAfter = this.m_evalBeforeAfter.get(`${row},${col}`);
+
+      if (beforeAfter && this.GetCellValue(row, col) === beforeAfter[1])
+        this.SetCellValue(row, col, beforeAfter[0]);
+    }
+
+    aEvent.Skip();
+  }
+
+  /**
+   * `onCellEditorHidden`: once the edit is applied (`CallAfter`), an auto-eval
+   * cell is re-read in its column's units and written back formatted. Nullable
+   * cells and the evaluator itself are not ported.
+   */
+  private onCellEditorHidden(aEvent: wxGridEvent): void {
+    const col = aEvent.GetCol();
+
+    if (this.m_autoEvalCols.includes(col)) {
+      const row = aEvent.GetRow();
+      const unitsProvider = this.getUnitsProvider(col);
+      const [, cellDataType] = this.getColumnUnits(col);
+
+      queueMicrotask(() => {
+        if (row >= this.GetNumberRows() || col >= this.GetNumberCols()) return;
+
+        const stringValue = this.GetCellValue(row, col);
+        const val = unitsProvider.ValueFromString(stringValue, cellDataType);
+        const evalValue = unitsProvider.StringFromValue(val, true, cellDataType);
+
+        if (stringValue !== evalValue) {
+          this.SetCellValue(row, col, evalValue);
+          this.m_evalBeforeAfter.set(`${row},${col}`, [stringValue, evalValue]);
+        }
+      });
+    }
+
+    aEvent.Skip();
+  }
 
   /** The dialog's `OnModify`, which a committed change calls. */
   SetModifyHandler(aOnModify: (() => void) | null): void {
