@@ -30,8 +30,17 @@ import { fracture, type Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { Color4d } from '@ziroeda/common/gal/color4d.js';
-import { FILL_T, plotterPageInfo } from '@ziroeda/common/plotters/plotter.js';
+import { plotterRenderSettings } from '@ziroeda/common/render_settings.js';
+import {
+  DXF_UNITS,
+  FILL_T,
+  type PLOTTER,
+  plotterPageInfo,
+} from '@ziroeda/common/plotters/plotter.js';
+import { DXF_PLOTTER } from '@ziroeda/common/plotters/DXF_plotter.js';
 import { PDF_PLOTTER, pdfRenderSettings } from '@ziroeda/common/plotters/PDF_plotter.js';
+import { PS_PLOTTER } from '@ziroeda/common/plotters/PS_plotter.js';
+import { SVG_PLOTTER } from '@ziroeda/common/plotters/SVG_plotter.js';
 
 const MM = 10000; // IU per mm (matches the renderer)
 
@@ -411,7 +420,7 @@ export function sheetsToPdf(
         s.parent?.sheetName ?? '',
       );
     }
-    renderToVector(s.sch, base, s.opts, new PdfContext(plotter, page.w, page.h), () => '');
+    renderToVector(s.sch, base, s.opts, new PlotterContext(plotter, page.w, page.h));
     // Then what each item's Plot() adds beside its geometry: the links, the
     // popups and the bookmarks, which ClosePage writes as the page's /Annots
     // and EndPlot as the outline.
@@ -483,33 +492,50 @@ export function plotSvg(
 
 // ----- SVG output (vector) ---------------------------------------------------
 
-/** Render a sheet to an SVG document string, at 1 user unit = 1 mm. */
-export function sheetToSvg(sch: Schematic, base: Theme, opts: PlotOpts): string {
+/**
+ * `SCH_PLOTTER::plotOneSheetSVG` (sch_plotter.cpp:587) over the common
+ * `SVG_PLOTTER`: the page in mils, the viewport in decimils, creator
+ * "Eeschema-SVG". The A4 / A choice's `min( scalex, scaley )` is
+ * `plotPageIU`'s scale, folded into the render walk's CTM, so the plotter's
+ * own scale stays 1.
+ */
+export function sheetToSvg(
+  sch: Schematic,
+  base: Theme,
+  opts: PlotOpts,
+  options: { now?: Date; fileName?: string } = {},
+): string {
   const page = plotPageIU(sch, opts);
-  const wMM = page.w / MM;
-  const hMM = page.h / MM;
-  // Draw in IU, then a viewBox in IU with an mm-sized viewport keeps line
-  // widths (which the renderer sets in IU) correct.
-  const svg = new SvgContext(page.w, page.h);
-  const theme = outputTheme(base, opts);
-  // Stroke glyph text as line segments so the adapter records it as vector paths.
-  setVectorText(true);
-  try {
-    renderSchematic(
-      svg as unknown as CanvasRenderingContext2D,
-      sch,
-      { scale: page.scale, offsetX: 0, offsetY: 0 },
-      theme,
-      page.w,
-      page.h,
-      undefined,
-      undefined,
-      outputRenderOpts(opts, sch),
-    );
-  } finally {
-    setVectorText(false);
-  }
-  return svg.toString(wMM, hMM);
+  const plotter = new SVG_PLOTTER(
+    plotterRenderSettings({ defaultPenWidth: opts.defaultPenIU ?? 0 }),
+  );
+  plotter.SetPageSettings(plotPageInfo(sch, page));
+  plotter.SetColorMode(opts.color);
+  plotter.SetViewport({ x: 0, y: 0 }, schIUScale.IU_PER_MILS / 10, 1, false);
+  plotter.SetCreator('Eeschema-SVG');
+  plotter.OpenFile(options.fileName ?? '');
+  plotter.StartPlot(opts.pageNumber ?? '1', options.now);
+  renderToVector(sch, base, opts, new PlotterContext(plotter, page.w, page.h));
+  plotter.EndPlot();
+  return plotter.text();
+}
+
+/**
+ * The plotted page as `PAGE_INFO`: its size in mils (the IU size over
+ * `IU_PER_MILS`), the paper name for PostScript's `%%DocumentMedia`, and the
+ * orientation PostScript un-swaps for its bounding box.
+ */
+function plotPageInfo(
+  sch: Schematic,
+  page: { w: number; h: number },
+): ReturnType<typeof plotterPageInfo> {
+  const mils = schIUScale.IU_PER_MILS;
+  const type = (sch.paper ?? 'A4').split(/\s+/)[0] ?? 'A4';
+  return plotterPageInfo({
+    sizeMils: { x: page.w / mils, y: page.h / mils },
+    type,
+    portrait: page.h > page.w,
+  });
 }
 
 type Mat = [number, number, number, number, number, number];
@@ -526,189 +552,6 @@ function mul(m: Mat, t: Mat): Mat {
   ];
 }
 
-/**
- * The minimal subset of CanvasRenderingContext2D the schematic renderer uses,
- * recording each draw as SVG markup. Transforms are emitted as a `matrix(...)`
- * attribute so stroke widths and dashes stay in local (pre-transform) units,
- * exactly as canvas treats them.
- */
-class SvgContext {
-  private out: string[] = [];
-  private ctm: Mat = IDENT;
-  private stack: { ctm: Mat; fill: string; stroke: string; lw: number; dash: number[] }[] = [];
-  private path: string[] = [];
-  private curX = NaN;
-  private curY = NaN;
-  private startX = NaN;
-  private startY = NaN;
-
-  fillStyle = '#000';
-  strokeStyle = '#000';
-  lineWidth = 1;
-  lineCap = 'butt';
-  lineJoin = 'miter';
-  font = '';
-  textAlign = '';
-  private dash: number[] = [];
-
-  constructor(
-    private pw: number,
-    private ph: number,
-  ) {}
-
-  setTransform(a: number, b: number, c: number, d: number, e: number, f: number): void {
-    this.ctm = [a, b, c, d, e, f];
-  }
-  translate(x: number, y: number): void {
-    this.ctm = mul(this.ctm, [1, 0, 0, 1, x, y]);
-  }
-  rotate(t: number): void {
-    this.ctm = mul(this.ctm, [Math.cos(t), Math.sin(t), -Math.sin(t), Math.cos(t), 0, 0]);
-  }
-  save(): void {
-    this.stack.push({
-      ctm: this.ctm,
-      fill: this.fillStyle,
-      stroke: this.strokeStyle,
-      lw: this.lineWidth,
-      dash: this.dash,
-    });
-  }
-  restore(): void {
-    const s = this.stack.pop();
-    if (!s) return;
-    this.ctm = s.ctm;
-    this.fillStyle = s.fill;
-    this.strokeStyle = s.stroke;
-    this.lineWidth = s.lw;
-    this.dash = s.dash;
-  }
-  setLineDash(d: number[]): void {
-    this.dash = d;
-  }
-
-  beginPath(): void {
-    this.path = [];
-    this.curX = this.curY = this.startX = this.startY = NaN;
-  }
-  moveTo(x: number, y: number): void {
-    this.path.push(`M${n(x)} ${n(y)}`);
-    this.curX = this.startX = x;
-    this.curY = this.startY = y;
-  }
-  lineTo(x: number, y: number): void {
-    this.path.push(`L${n(x)} ${n(y)}`);
-    this.curX = x;
-    this.curY = y;
-  }
-  closePath(): void {
-    this.path.push('Z');
-    this.curX = this.startX;
-    this.curY = this.startY;
-  }
-  rect(x: number, y: number, w: number, h: number): void {
-    this.path.push(`M${n(x)} ${n(y)}h${n(w)}v${n(h)}h${n(-w)}Z`);
-    this.curX = this.startX = x;
-    this.curY = this.startY = y;
-  }
-  arc(cx: number, cy: number, r: number, a0: number, a1: number, ccw = false): void {
-    const sx = cx + r * Math.cos(a0);
-    const sy = cy + r * Math.sin(a0);
-    this.path.push(Number.isNaN(this.curX) ? `M${n(sx)} ${n(sy)}` : `L${n(sx)} ${n(sy)}`);
-    let span = a1 - a0;
-    if (ccw) {
-      if (span > 0) span -= 2 * Math.PI;
-    } else if (span < 0) span += 2 * Math.PI;
-    const sweep = ccw ? 0 : 1;
-    if (Math.abs(span) >= 2 * Math.PI - 1e-6) {
-      // Full circle: two half-arcs (SVG can't draw a 360° arc in one command).
-      const mx = cx - r * Math.cos(a0);
-      const my = cy - r * Math.sin(a0);
-      this.path.push(`A${n(r)} ${n(r)} 0 1 ${sweep} ${n(mx)} ${n(my)}`);
-      this.path.push(`A${n(r)} ${n(r)} 0 1 ${sweep} ${n(sx)} ${n(sy)}`);
-      this.curX = sx;
-      this.curY = sy;
-      return;
-    }
-    const ex = cx + r * Math.cos(a1);
-    const ey = cy + r * Math.sin(a1);
-    const large = Math.abs(span) > Math.PI ? 1 : 0;
-    this.path.push(`A${n(r)} ${n(r)} 0 ${large} ${sweep} ${n(ex)} ${n(ey)}`);
-    this.curX = ex;
-    this.curY = ey;
-  }
-
-  stroke(): void {
-    if (!this.path.length) return;
-    this.out.push(
-      `<path d="${this.path.join(' ')}" fill="none" stroke="${esc(this.strokeStyle)}" ` +
-        `stroke-width="${n(this.lineWidth)}" stroke-linecap="${this.lineCap === 'round' ? 'round' : 'butt'}" ` +
-        `stroke-linejoin="${this.lineJoin === 'round' ? 'round' : 'miter'}"` +
-        this.dashAttr() +
-        this.tf() +
-        '/>',
-    );
-  }
-  fill(): void {
-    if (!this.path.length) return;
-    this.out.push(
-      `<path d="${this.path.join(' ')}" fill="${esc(this.fillStyle)}" stroke="none"${this.tf()}/>`,
-    );
-  }
-  strokeRect(x: number, y: number, w: number, h: number): void {
-    this.out.push(
-      `<rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}" fill="none" ` +
-        `stroke="${esc(this.strokeStyle)}" stroke-width="${n(this.lineWidth)}"` +
-        this.dashAttr() +
-        this.tf() +
-        '/>',
-    );
-  }
-  fillRect(x: number, y: number, w: number, h: number): void {
-    this.out.push(
-      `<rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}" fill="${esc(this.fillStyle)}"${this.tf()}/>`,
-    );
-  }
-  fillText(text: string, x: number, y: number): void {
-    this.out.push(
-      `<text x="${n(x)}" y="${n(y)}" fill="${esc(this.fillStyle)}" text-anchor="middle"${this.tf()}>${escText(text)}</text>`,
-    );
-  }
-  drawImage(img: CanvasImageSource, x: number, y: number, w: number, h: number): void {
-    const src = (img as HTMLImageElement).src ?? '';
-    if (!src) return;
-    this.out.push(
-      `<image x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}" href="${esc(src)}"${this.tf()}/>`,
-    );
-  }
-
-  private dashAttr(): string {
-    return this.dash.length ? ` stroke-dasharray="${this.dash.map(n).join(',')}"` : '';
-  }
-  private tf(): string {
-    const m = this.ctm;
-    if (m[0] === 1 && m[1] === 0 && m[2] === 0 && m[3] === 1 && m[4] === 0 && m[5] === 0) return '';
-    return ` transform="matrix(${m.map(n).join(' ')})"`;
-  }
-
-  toString(wMM: number, hMM: number): string {
-    return (
-      `<?xml version="1.0" encoding="UTF-8"?>\n` +
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${n(wMM)}mm" height="${n(hMM)}mm" ` +
-      `viewBox="0 0 ${n(this.pw)} ${n(this.ph)}">\n` +
-      this.out.join('\n') +
-      `\n</svg>\n`
-    );
-  }
-}
-
-function n(v: number): string {
-  return Number.isFinite(v) ? String(Math.round(v * 1000) / 1000) : '0';
-}
-/** Fixed-decimal number for DXF/PS coordinates (no exponent form). */
-function num(v: number): string {
-  return Number.isFinite(v) ? String(Math.round(v * 10000) / 10000) : '0';
-}
 /** CSS colour (#rgb / #rrggbb / rgb(...)) -> [r,g,b] in 0..255. */
 function parseColor(s: string): [number, number, number] {
   const t = (s || '').trim();
@@ -736,11 +579,11 @@ interface SubPath {
 }
 
 /**
- * Shared CTM + path accumulation for the vector back-ends (DXF, PostScript).
- * Implements the same CanvasRenderingContext2D subset as SvgContext, but, since
- * DXF/PS can't defer a transform to a matrix attribute, every path point is
- * resolved through the CTM to absolute page coordinates before it is emitted.
- * Glyphs arrive as stroked segments (setVectorText), so only geometry is needed.
+ * Shared CTM + path accumulation for the vector back-ends: the
+ * CanvasRenderingContext2D subset the schematic renderer uses, with every path
+ * point resolved through the CTM to absolute page coordinates (IU) before it
+ * reaches a plotter. Glyphs arrive as stroked segments (setVectorText), so only
+ * geometry is needed.
  */
 abstract class VectorContext {
   protected ctm: Mat = IDENT;
@@ -916,181 +759,24 @@ abstract class VectorContext {
   protected abstract emitPolygon(pts: Pt[], color: string): void;
 }
 
-/** DXF (AutoCAD R2000 / AC1015) back-end: one LWPOLYLINE per path, in the
- *  "Export units:" unit (DXF_UNITS::INCH / MM), true-colour (code 420). Y is
- *  flipped because DXF is Y-up. */
-class DxfContext extends VectorContext {
-  private ents: string[] = [];
-  private handle = 0x100;
-  /** IU per exported unit: 1 mm, or 25.4 mm for inches. */
-  private readonly u: number;
-  constructor(
-    pw: number,
-    ph: number,
-    private readonly units: 'in' | 'mm' = 'in',
-  ) {
-    super(pw, ph);
-    this.u = units === 'mm' ? MM : MM * 25.4;
-  }
-  private X(x: number): string {
-    return num(x / this.u);
-  }
-  private Y(y: number): string {
-    return num((this.ph - y) / this.u);
-  }
-  protected emitPolyline(pts: Pt[], width: number, color: string, closed: boolean): void {
-    this.lwpolyline(pts, closed, width, color);
-  }
-  protected emitPolygon(pts: Pt[], color: string): void {
-    // DXF has no simple filled polygon; emit the closed outline (sketch fill).
-    this.lwpolyline(pts, true, 0, color);
-  }
-  private lwpolyline(pts: Pt[], closed: boolean, width: number, color: string): void {
-    if (pts.length < 2) return;
-    const [r, g, b] = parseColor(color);
-    const h = (this.handle++).toString(16).toUpperCase();
-    const e: string[] = [
-      '0',
-      'LWPOLYLINE',
-      '5',
-      h,
-      '100',
-      'AcDbEntity',
-      '8',
-      '0',
-      '100',
-      'AcDbPolyline',
-      '90',
-      String(pts.length),
-      '70',
-      closed ? '1' : '0',
-      '420',
-      String((r << 16) | (g << 8) | b),
-    ];
-    if (width > 0) e.push('43', num(width / this.u));
-    for (const p of pts) e.push('10', this.X(p[0]), '20', this.Y(p[1]));
-    this.ents.push(e.join('\n'));
-  }
-  document(): string {
-    const seed = this.handle.toString(16).toUpperCase();
-    return [
-      '0',
-      'SECTION',
-      '2',
-      'HEADER',
-      '9',
-      '$ACADVER',
-      '1',
-      'AC1015',
-      // $INSUNITS: 1 = inches, 4 = millimeters (the "Export units:" choice).
-      '9',
-      '$INSUNITS',
-      '70',
-      this.units === 'mm' ? '4' : '1',
-      '9',
-      '$HANDSEED',
-      '5',
-      seed,
-      '0',
-      'ENDSEC',
-      '0',
-      'SECTION',
-      '2',
-      'ENTITIES',
-      ...this.ents.join('\n').split('\n'),
-      '0',
-      'ENDSEC',
-      '0',
-      'EOF',
-      '',
-    ].join('\n');
-  }
-}
-
-/** PostScript (Adobe 3.0) back-end: points (1/72"), Y flipped (PS is Y-up). */
-class PsContext extends VectorContext {
-  private body: string[] = [];
-  private K = 72 / (25.4 * MM); // IU -> PostScript points
-  private X(x: number): string {
-    return num(x * this.K);
-  }
-  private Y(y: number): string {
-    return num((this.ph - y) * this.K);
-  }
-  private path(pts: Pt[], closed: boolean, newpath = true): string {
-    const c = [`${newpath ? 'newpath ' : ''}${this.X(pts[0]![0])} ${this.Y(pts[0]![1])} m`];
-    for (let i = 1; i < pts.length; i++) c.push(`${this.X(pts[i]![0])} ${this.Y(pts[i]![1])} l`);
-    if (closed) c.push('closepath');
-    return c.join(' ');
-  }
-  protected emitPolyline(pts: Pt[], width: number, color: string, closed: boolean): void {
-    if (pts.length < 2) return;
-    const [r, g, b] = parseColor(color);
-    this.body.push(
-      `${this.path(pts, closed)} ${num(width * this.K)} setlinewidth ` +
-        `${ps(r)} ${ps(g)} ${ps(b)} setrgbcolor stroke`,
-    );
-  }
-  protected emitPolygon(pts: Pt[], color: string): void {
-    if (pts.length < 3) return;
-    const [r, g, b] = parseColor(color);
-    this.body.push(`${this.path(pts, true)} ${ps(r)} ${ps(g)} ${ps(b)} setrgbcolor fill`);
-  }
-  /** Every ring in one path, one `fill`: PostScript's `fill` is non-zero winding. */
-  protected override emitPolygonSet(rings: Pt[][], color: string): void {
-    const [r, g, b] = parseColor(color);
-    const path = rings.map((pts, i) => this.path(pts, true, i === 0)).join(' ');
-    this.body.push(`${path} ${ps(r)} ${ps(g)} ${ps(b)} setrgbcolor fill`);
-  }
-  document(title: string): string {
-    const w = Math.ceil(this.pw * this.K);
-    const h = Math.ceil(this.ph * this.K);
-    return [
-      '%!PS-Adobe-3.0',
-      `%%BoundingBox: 0 0 ${w} ${h}`,
-      // Declare the real media size so interpreters don't fall back to US
-      // Letter (612 pt) and clip the right edge of a wider sheet.
-      `%%DocumentMedia: plot ${w} ${h} 0 () ()`,
-      `%%Title: ${title}`,
-      '%%Pages: 1',
-      '%%EndComments',
-      '%%BeginProlog',
-      '/m { moveto } bind def',
-      '/l { lineto } bind def',
-      '1 setlinecap 1 setlinejoin',
-      '%%EndProlog',
-      '%%Page: 1 1',
-      `<< /PageSize [${w} ${h}] >> setpagedevice`,
-      ...this.body,
-      'showpage',
-      '%%Trailer',
-      '%%EOF',
-      '',
-    ].join('\n');
-  }
-}
-/** 0..255 channel -> PostScript 0..1 float. */
-function ps(v: number): string {
-  return (v / 255).toFixed(3);
-}
-
 /**
- * The PDF back-end: the render walk's paths handed to the ported
- * `PDF_PLOTTER` as the primitives `SCH_SCREEN::Plot` would call — a stroke is
+ * Every vector back-end: the render walk's paths handed to a common `PLOTTER`
+ * as the primitives `SCH_SCREEN::Plot` would call — a stroke is
  * `MoveTo`/`LineTo`/`FinishTo` (a closed one `PlotPoly( NO_FILL )`), a fill is
  * `PlotPoly( FILLED_SHAPE, 0 )`, colour and pen through `SetColor` and
- * `SetCurrentLineWidth`. The plotter writes the operators, the page's CTM,
- * the compressed stream and the xref; nothing about the file format lives
- * here.
+ * `SetCurrentLineWidth`. The plotter writes the file; nothing about any file
+ * format lives here. PDF, SVG, PostScript and DXF all come through this one
+ * class, as they all come through `PLOTTER` in eeschema.
  *
  * A multi-ring fill — an outline glyph's rings — goes the way
- * `CALLBACK_GAL::DrawGlyph` sends one (callback_gal.cpp:70-78): the
- * `SHAPE_POLY_SET` is `Fracture()`d into one simple outline per glyph, holes
- * bridged in, and each outline is one `PlotPoly`.
+ * `CALLBACK_GAL::DrawGlyph` sends one to every plotter
+ * (callback_gal.cpp:70-78): the `SHAPE_POLY_SET` is `Fracture()`d into one
+ * simple outline per glyph, holes bridged in, and each outline is one
+ * `PlotPoly`.
  */
-class PdfContext extends VectorContext {
+class PlotterContext extends VectorContext {
   constructor(
-    private readonly plotter: PDF_PLOTTER,
+    private readonly plotter: PLOTTER,
     pw: number,
     ph: number,
   ) {
@@ -1105,9 +791,9 @@ class PdfContext extends VectorContext {
   }
   protected emitPolyline(pts: Pt[], width: number, color: string, closed: boolean): void {
     if (pts.length < 2) return;
-    this.plotter.SetColor(PdfContext.colour(color));
+    this.plotter.SetColor(PlotterContext.colour(color));
     if (closed) {
-      this.plotter.PlotPoly(PdfContext.vec(pts), FILL_T.NO_FILL, width);
+      this.plotter.PlotPoly(PlotterContext.vec(pts), FILL_T.NO_FILL, width);
       return;
     }
     this.plotter.SetCurrentLineWidth(width);
@@ -1118,15 +804,15 @@ class PdfContext extends VectorContext {
   }
   protected emitPolygon(pts: Pt[], color: string): void {
     if (pts.length < 3) return;
-    this.plotter.SetColor(PdfContext.colour(color));
-    this.plotter.PlotPoly(PdfContext.vec(pts), FILL_T.FILLED_SHAPE, 0);
+    this.plotter.SetColor(PlotterContext.colour(color));
+    this.plotter.PlotPoly(PlotterContext.vec(pts), FILL_T.FILLED_SHAPE, 0);
   }
   protected override emitPolygonSet(rings: Pt[][], color: string): void {
     if (rings.length === 1) {
       this.emitPolygon(rings[0]!, color);
       return;
     }
-    this.plotter.SetColor(PdfContext.colour(color));
+    this.plotter.SetColor(PlotterContext.colour(color));
     // An OUTLINE_GLYPH is a SHAPE_POLY_SET of VECTOR2I: whole IU before the
     // fracture, as `KiROUND` fills one.
     const whole = rings.map((r) => r.map(([x, y]) => ({ x: KiROUND(x), y: KiROUND(y) })));
@@ -1176,30 +862,78 @@ function nestRings(rings: Vec2[][]): Polygon[] {
   return polygons;
 }
 
-/** Plot the sheet to a true-vector DXF (AutoCAD) drawing. */
+/**
+ * `SCH_PLOTTER::plotOneSheetDXF` (sch_plotter.cpp:768) over the common
+ * `DXF_PLOTTER`: the "Export units:" choice, a zero default pen, the
+ * schematic's own page at scale 1 (upstream passes 1.0 whatever the page-size
+ * choice), creator "Eeschema-DXF". With no layers to export, every entity
+ * lands on the ACAD colour layer named after its colour.
+ */
 export function sheetToDxf(sch: Schematic, base: Theme, opts: PlotOpts): string {
-  const page = plotPageIU(sch, opts);
-  return renderToVector(
+  const page = pageIU(sch);
+  const plotter = new DXF_PLOTTER({
+    ...plotterRenderSettingsFns(0),
+    // LAYER_SCHEMATIC_* colours are only read on the Layer_Name path, which an
+    // empty export list never takes for an entity.
+    GetLayerColor: () => ({ r: 0, g: 0, b: 0, a: 1 }),
+  });
+  plotter.SetUnits((opts.dxfUnits ?? 'in') === 'mm' ? DXF_UNITS.MM : DXF_UNITS.INCH);
+  plotter.SetPageSettings(plotPageInfo(sch, page));
+  plotter.SetColorMode(opts.color);
+  plotter.SetViewport({ x: 0, y: 0 }, schIUScale.IU_PER_MILS / 10, 1, false);
+  plotter.SetCreator('Eeschema-DXF');
+  plotter.OpenFile('');
+  plotter.StartPlot(opts.pageNumber ?? '1');
+  renderToVector(
     sch,
     base,
-    opts,
-    new DxfContext(page.w, page.h, opts.dxfUnits ?? 'in'),
-    (c) => c.document(),
+    { ...opts, pageSizeSelect: 'auto' },
+    new PlotterContext(plotter, page.w, page.h),
   );
+  plotter.EndPlot();
+  return plotter.text();
 }
-/** Plot the sheet to a single-page Adobe PostScript document. */
-export function sheetToPs(sch: Schematic, base: Theme, opts: PlotOpts, title: string): string {
-  const page = plotPageIU(sch, opts);
-  return renderToVector(sch, base, opts, new PsContext(page.w, page.h), (c) => c.document(title));
+
+/** `RENDER_SETTINGS`' pen and dash accessors, as plain functions. */
+function plotterRenderSettingsFns(aDefaultPenWidth: number) {
+  const rs = plotterRenderSettings({ defaultPenWidth: aDefaultPenWidth });
+  return {
+    GetDefaultPenWidth: () => rs.GetDefaultPenWidth(),
+    GetDashLength: (w: number) => rs.GetDashLength(w),
+    GetDotLength: (w: number) => rs.GetDotLength(w),
+    GetGapLength: (w: number) => rs.GetGapLength(w),
+  };
 }
-/** Run the shared render walk into a vector context and serialise it. */
-function renderToVector<C extends VectorContext>(
+
+/**
+ * `SCH_PLOTTER::plotOneSheetPS` (sch_plotter.cpp:434) over the common
+ * `PS_PLOTTER`: creator "Eeschema-PS", the viewport in decimils. The
+ * document's `%%Title` is the plotter's title, which eeschema never sets.
+ */
+export function sheetToPs(
   sch: Schematic,
   base: Theme,
   opts: PlotOpts,
-  ctx: C,
-  done: (c: C) => string,
+  title: string,
+  options: { now?: Date } = {},
 ): string {
+  const page = plotPageIU(sch, opts);
+  const plotter = new PS_PLOTTER(
+    plotterRenderSettings({ defaultPenWidth: opts.defaultPenIU ?? 0 }),
+  );
+  plotter.SetPageSettings(plotPageInfo(sch, page));
+  plotter.SetColorMode(opts.color);
+  plotter.SetViewport({ x: 0, y: 0 }, schIUScale.IU_PER_MILS / 10, 1, false);
+  plotter.SetCreator('Eeschema-PS');
+  plotter.OpenFile(title);
+  plotter.StartPlot(opts.pageNumber ?? '1', options.now);
+  renderToVector(sch, base, opts, new PlotterContext(plotter, page.w, page.h));
+  plotter.EndPlot();
+  return plotter.text();
+}
+
+/** Run the shared render walk into a plotter context. */
+function renderToVector(sch: Schematic, base: Theme, opts: PlotOpts, ctx: VectorContext): void {
   const page = plotPageIU(sch, opts);
   const theme = outputTheme(base, opts);
   setVectorText(true);
@@ -1218,7 +952,6 @@ function renderToVector<C extends VectorContext>(
   } finally {
     setVectorText(false);
   }
-  return done(ctx);
 }
 
 /** Plot to DXF. */
@@ -1243,9 +976,6 @@ export function plotPs(
     new Blob([sheetToPs(sch, base, opts, name)], { type: 'application/postscript' }),
     `${name}.ps`,
   );
-}
-function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 }
 function escText(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

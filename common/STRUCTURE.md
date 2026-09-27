@@ -521,3 +521,29 @@ netlist echoed back), and the LIB_ID-shaped `fpidIsLegacy` / `fpidItemName` /
 rather than a `LIB_ID` instance — `COMPONENT`'s FPID field would need to
 become a `LIB_ID` throughout pcbnew's netlist consumers to fold that in, which
 is a larger change than this move.
+
+## `plotters/` — 9 KiCad files (+ 8 headers), OPEN
+
+One class tree, as upstream: `PLOTTER` → `PSLIKE_PLOTTER` → `PS_PLOTTER` /
+`PDF_PLOTTER` / `SVG_PLOTTER`, and `PLOTTER` → `DXF_PLOTTER`. eeschema's
+PDF, SVG, PostScript and DXF plots all go through them
+(`designer/.../render/plot.ts`'s `PlotterContext`); pcbnew's did not exist
+until these moved in from `pcbnew/plot_*.ts` (09-27).
+
+| KiCad | ours |
+|---|---|
+| `plotter.cpp` + `include/plotters/plotter.h` | `plotter.ts`: `PLOTTER` whole (polyArc, BezierCurve, Marker, Thick*, the SHAPE_LINE_CHAIN PlotPoly is `PlotPolyLineChain`, the three-point Arc is `ArcThroughPoints`) |
+| `PS_plotter.cpp` + `plotters_pslike.h` | `PS_plotter.ts`: `PSLIKE_PLOTTER`, `PS_PLOTTER` |
+| `PDF_plotter.cpp` | `PDF_plotter.ts`: `PDF_PLOTTER`; `Text` throws past its zero-size guard |
+| `SVG_plotter.cpp` | `SVG_plotter.ts`: `SVG_PLOTTER` |
+| `DXF_plotter.cpp` + `plotter_dxf.h` | `DXF_plotter.ts`: `DXF_PLOTTER` |
+| `GERBER_plotter.cpp` + `plotter_gerber.h`, `gbr_plotter_apertures.h`, `gbr_plotter_aperture_macros.h` | **missing**: `pcbnew/plot_gerber.ts` is still a function writer with its own aperture table, not `GERBER_PLOTTER` |
+| `common_plot_functions.cpp` | **missing**: `GetDefaultPlotExtension`, `PlotDrawingSheet` (eeschema draws the sheet through the renderer instead) |
+| `pdf_stroke_font.cpp`, `pdf_outline_font.cpp` (+ `.h`) | **missing**: PDF text |
+| — | `fmt.ts` is ours: the `{fmt}` conversions every backend prints through |
+
+Divergences: no `FILE*` (`bytes()` / `text()`); the font is a
+`PLOTTER_FONT` handed in (yields strokes), not `KIFONT::FONT::Draw` on a
+CALLBACK_GAL; `SetPageSettings` takes `PLOTTER_PAGE_INFO`, which `PAGE_INFO`
+satisfies. `pcbnew/plot_png.ts` is from KiCad master (no `PNG_plotter.cpp` in
+10.0.5) and is not part of the tree.
