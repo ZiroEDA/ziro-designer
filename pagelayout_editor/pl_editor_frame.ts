@@ -79,6 +79,7 @@ import {
 import { PL_ACTIONS } from './tools/pl_actions.js';
 import { PL_DRAWING_TOOLS } from './tools/pl_drawing_tools.js';
 import { PL_EDIT_TOOL } from './tools/pl_edit_tool.js';
+import { PL_POINT_EDITOR } from './tools/pl_point_editor.js';
 import { PL_EDITOR_CONTROL } from './tools/pl_editor_control.js';
 import { PL_SELECTION_TOOL } from './tools/pl_selection_tool.js';
 
@@ -429,13 +430,14 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
 
     // Register tools
     // COMMON_CONTROL is not ported to common/tool yet (STRUCTURE.md); the
-    // page's menus answer its actions. PL_POINT_EDITOR waits on EDIT_POINTS.
+    // page's menus answer its actions.
     this.m_toolManager.RegisterTool(new COMMON_TOOLS());
     this.m_toolManager.RegisterTool(new ZOOM_TOOL());
     this.m_toolManager.RegisterTool(new PL_SELECTION_TOOL());
     this.m_toolManager.RegisterTool(new PL_EDITOR_CONTROL());
     this.m_toolManager.RegisterTool(new PL_DRAWING_TOOLS());
     this.m_toolManager.RegisterTool(new PL_EDIT_TOOL());
+    this.m_toolManager.RegisterTool(new PL_POINT_EDITOR());
     this.m_toolManager.RegisterTool(new PICKER_TOOL());
     this.m_toolManager.InitTools();
 

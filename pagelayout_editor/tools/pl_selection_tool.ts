@@ -41,6 +41,7 @@ import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { PL_EDITOR_FRAME } from '../pl_editor_frame.js';
 import { PL_ACTIONS } from './pl_actions.js';
+import { PL_POINT_EDITOR } from './pl_point_editor.js';
 import { PL_SELECTION } from './pl_selection.js';
 
 /** `#define HITTEST_THRESHOLD_PIXELS 3` (pl_selection_tool.cpp:43). [data] */
@@ -102,8 +103,9 @@ export class PL_SELECTION_TOOL extends SELECTION_TOOL {
 
       if (evt.IsMouseDown(BUT_LEFT)) {
         // Avoid triggering when running under other tools
-        // PL_POINT_EDITOR is not ported (STRUCTURE.md): no tool holds a point.
-        if (frame.ToolStackIsEmpty()) {
+        const pt_tool = this.m_toolMgr!.GetTool(PL_POINT_EDITOR);
+
+        if (frame.ToolStackIsEmpty() && pt_tool && !pt_tool.HasPoint()) {
           this.m_originalCursor = this.m_toolMgr!.GetMousePosition();
           this.m_disambiguateTimer.StartOnce(ADVANCED_CFG.GetCfg().m_DisambiguationMenuDelay);
         }
