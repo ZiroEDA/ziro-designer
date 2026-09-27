@@ -22,7 +22,7 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { useModalEscape } from '../dialog_shim.js';
 import { usePagedDialogSize } from './paged_dialog_size.js';
-import { PagedDialogTree } from './paged_dialog_tree.js';
+import { PagedDialogTree } from './wx_treebook.js';
 
 export interface PagedDialogPage {
   /** Stable page id (also the selection key). */

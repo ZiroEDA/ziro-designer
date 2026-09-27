@@ -3,7 +3,11 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The page tree a `PAGED_DIALOG` puts down its left side — one component, for
- * every dialog that has one.
+ * every dialog that has one. It is the tree half of `WX_TREEBOOK`
+ * (`include/widgets/wx_treebook.h`, `common/widgets/wx_treebook.cpp`), the
+ * `wxTreebook` KiCad's paged dialogs hold; the other half, `AddLazyPage`'s
+ * `LAZY_PAGE` that builds a page on first show, is what React does anyway:
+ * only the selected page is ever rendered.
  *
  * Upstream it is literally one widget: `PAGED_DIALOG` owns a `wxTreebook`
  * (`common/widgets/paged_dialog.cpp:60-73`), and Preferences, Board Setup and

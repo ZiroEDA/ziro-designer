@@ -21,7 +21,7 @@ import {
 import type { PrefsTransferPrompt } from './prefs/types.js';
 import type { ToolbarSettings } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import { MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
-import { PagedDialogTree } from '@ziroeda/common/widgets/paged_dialog_tree.js';
+import { PagedDialogTree } from '@ziroeda/common/widgets/wx_treebook.js';
 import { FIRST_PAGE, PAGES, labelOf, ownerOf } from './prefs/registry.js';
 import { loadPrefsPanel, peekPrefsPanel } from './prefs/lazy_pages.js';
 import {
