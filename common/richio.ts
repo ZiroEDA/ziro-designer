@@ -26,17 +26,22 @@ export abstract class OUTPUTFORMATTER {
 
   protected abstract write(text: string): void;
 
-  /** `Print( int nestLevel, const char* fmt, ... )`: NESTWIDTH spaces per level, then the text. */
-  Print(nestLevel: number, text: string): void;
+  /**
+   * `Print( int nestLevel, const char* fmt, ... )`: NESTWIDTH spaces per level,
+   * then the text. Returns the number of characters written, as upstream's.
+   */
+  Print(nestLevel: number, text: string): number;
   /** `Print( const char* fmt, ... )`. */
-  Print(text: string): void;
-  Print(a: number | string, b?: string): void {
+  Print(text: string): number;
+  Print(a: number | string, b?: string): number {
     if (typeof a === 'number') {
       for (let i = 0; i < a; ++i) this.write(' '.repeat(NESTWIDTH));
       this.write(b ?? '');
-    } else {
-      this.write(a);
+      return a * NESTWIDTH + (b ?? '').length;
     }
+
+    this.write(a);
+    return a.length;
   }
 
   /**

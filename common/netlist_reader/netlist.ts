@@ -22,12 +22,15 @@
  *
  * Left out of this port, because the models behind them do not exist yet:
  * design-block layouts (`NETLIST_GROUP::libId` is carried but nothing reads it
- * for that yet) and `NETLIST::Format`/`FormatCvpcbNetlist` (upstream's
- * OUTPUTFORMATTER dump used to compare a re-imported netlist against itself;
- * nothing here needs the netlist echoed back as text).
+ * for that yet).
  */
 
+import { CTL_OMIT_EXTRA, CTL_OMIT_FILTERS, CTL_OMIT_FP_UUID, CTL_OMIT_NETS } from '../ctl_flags.js';
+import type { OUTPUTFORMATTER } from '../richio.js';
 import { expandStackedPinNotation, strNumCmp } from '../string_utils.js';
+
+/** `CTL_FOR_CVPCB` (netlist.h): what CvPcb's netlist leaves out. */
+export const CTL_FOR_CVPCB = CTL_OMIT_NETS | CTL_OMIT_FILTERS | CTL_OMIT_EXTRA;
 
 /**
  * A pin-name -> net-name association (plus the pin's function and electrical
@@ -42,6 +45,14 @@ export class COMPONENT_NET {
   ) {}
 
   /** COMPONENT_NET::IsValid, a net entry exists only for a named pin. */
+  /** `COMPONENT_NET::Format` (netlist.cpp:33): the characters printed. */
+  Format(aOut: OUTPUTFORMATTER, aNestLevel: number, _aCtl: number): number {
+    return aOut.Print(
+      aNestLevel,
+      `(pin_net ${aOut.Quotew(this.pinName)} ${aOut.Quotew(this.netName)})`,
+    );
+  }
+
   IsValid(): boolean {
     return this.pinName !== '';
   }
@@ -102,6 +113,68 @@ export class COMPONENT {
     /** One UUID per placed unit of the symbol; the first is the primary. */
     readonly kiids: readonly string[],
   ) {}
+
+  /** `COMPONENT::Format` (netlist.cpp:95). */
+  Format(aOut: OUTPUTFORMATTER, aNestLevel: number, aCtl: number): void {
+    const nl = aNestLevel;
+
+    aOut.Print(nl, `(ref ${aOut.Quotew(this.m_reference)} `);
+    aOut.Print(0, `(fpid ${aOut.Quotew(this.m_fpid)})\n`);
+
+    if (!(aCtl & CTL_OMIT_EXTRA)) {
+      aOut.Print(nl + 1, `(value ${aOut.Quotew(this.m_value)})\n`);
+      aOut.Print(nl + 1, `(name ${aOut.Quotew(this.m_name)})\n`);
+      aOut.Print(nl + 1, `(library ${aOut.Quotew(this.m_library)})\n`);
+
+      let path = '';
+
+      // `for( const KIID& pathStep : m_path ) path += '/' + pathStep.AsString();`
+      for (const pathStep of this.path.split('/')) if (pathStep !== '') path += `/${pathStep}`;
+
+      if (!(aCtl & CTL_OMIT_FP_UUID) && this.kiids.length > 0) path += `/${this.kiids[0]}`;
+
+      aOut.Print(nl + 1, `(timestamp ${aOut.Quotew(path)})\n`);
+
+      // Add all fields as a (field) under a (fields) node
+      aOut.Print(nl + 1, '(fields');
+
+      for (const [name, value] of this.m_fields)
+        aOut.Print(nl + 2, `\n(field (name ${aOut.Quotew(name)}) ${aOut.Quotew(value)})`);
+
+      aOut.Print(0, ')\n');
+
+      // Add DNP and Exclude from BOM properties if we have them
+      if (this.m_properties.has('dnp')) aOut.Print(nl + 1, '(property (name "dnp"))\n');
+
+      if (this.m_properties.has('exclude_from_bom'))
+        aOut.Print(nl + 1, '(property (name "exclude_from_bom"))\n');
+    }
+
+    if (!(aCtl & CTL_OMIT_FILTERS) && this.m_footprintFilters.length > 0) {
+      aOut.Print(nl + 1, '(fp_filters');
+
+      for (const filter of this.m_footprintFilters) aOut.Print(0, ` ${aOut.Quotew(filter)}`);
+
+      aOut.Print(0, ')\n');
+    }
+
+    if (!(aCtl & CTL_OMIT_NETS) && this.m_nets.length > 0) {
+      let llen = aOut.Print(nl + 1, '(nets ');
+
+      for (const net of this.m_nets) {
+        if (llen > 80) {
+          aOut.Print(0, '\n');
+          llen = aOut.Print(nl + 1, '  ');
+        }
+
+        llen += net.Format(aOut, 0, aCtl);
+      }
+
+      aOut.Print(0, ')\n');
+    }
+
+    aOut.Print(nl, ')\n'); // </ref>
+  }
 
   AddNet(pinName: string, netName: string, pinFunction: string, pinType: string): void {
     this.m_nets.push(new COMPONENT_NET(pinName, netName, pinFunction, pinType));
@@ -321,6 +394,22 @@ export class NETLIST {
 
   Components(): readonly COMPONENT[] {
     return this.m_components;
+  }
+
+  /** `NETLIST::Format` (netlist.cpp:167). */
+  Format(aDocName: string, aOut: OUTPUTFORMATTER, aNestLevel: number, aCtl = 0): void {
+    const nl = aNestLevel;
+
+    aOut.Print(nl, `(${aDocName}\n`);
+
+    for (const component of this.m_components) component.Format(aOut, nl + 1, aCtl);
+
+    aOut.Print(nl, ')\n');
+  }
+
+  /** `NETLIST::FormatCvpcbNetlist` (netlist.h:389). */
+  FormatCvpcbNetlist(aOut: OUTPUTFORMATTER): void {
+    this.Format('cvpcb_netlist', aOut, 0, CTL_FOR_CVPCB);
   }
 
   AddComponent(component: COMPONENT): void {

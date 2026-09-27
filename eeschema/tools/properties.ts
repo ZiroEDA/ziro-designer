@@ -255,7 +255,7 @@ export function bulkEditSymbolAttributesCommand(
 }
 
 /** Restore captured symbols verbatim (the inverse of a properties edit). */
-function restoreSymbols(
+export function restoreSymbols(
   saved: ReadonlyMap<string, SchSymbol>,
   // The cached definitions as they were, when the edit touched any. Undo has to
   // put these back too: the pin-text flags live on lib_symbols, so restoring
