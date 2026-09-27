@@ -24,10 +24,7 @@
  * there. That is that deployment's design, not a degraded hosted one.
  */
 
-import {
-  CROSS_PROBING_DEFAULTS,
-  type CrossProbingSettings,
-} from '@ziroeda/common/cross_probing_settings.js';
+import { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
 import type { EdaUnits } from '@ziroeda/common/eda_units.js';
 import { setColorPickerTabStore } from '@ziroeda/common/dialogs/dialog_color_picker_tab.js';
 import type { RegulatorData } from '@ziroeda/pcb_calculator';
@@ -139,7 +136,7 @@ export interface EeschemaSettings {
    * PANEL_EESCHEMA_DISPLAY_OPTIONS. Upstream this copy governs probes that
    * *arrive in* the schematic from the board.
    */
-  cross_probing: CrossProbingSettings;
+  cross_probing: CROSS_PROBING_SETTINGS;
   autoplace_fields: {
     enable: boolean;
     allow_rejustify: boolean;
@@ -382,7 +379,7 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
     footprint_preview: true,
     custom_toolbars: false,
   },
-  cross_probing: { ...CROSS_PROBING_DEFAULTS },
+  cross_probing: { ...new CROSS_PROBING_SETTINGS() },
   autoplace_fields: {
     enable: true,
     allow_rejustify: true,
@@ -619,7 +616,7 @@ export interface PcbnewSettings {
    * governed by, because upstream the *receiving* frame's settings decide what
    * a probe does (pcbnew/cross-probing.cpp:140, :221-247, :734, :776).
    */
-  cross_probing: CrossProbingSettings;
+  cross_probing: CROSS_PROBING_SETTINGS;
   printing: PcbnewPrinting;
   /**
    * Tool settings nested inside pcbnew.json. `pns` is PNS::ROUTING_SETTINGS,
@@ -878,7 +875,7 @@ export const PCBNEW_DEFAULTS: PcbnewSettings = {
     color_theme: '_builtin_default',
     custom_toolbars: false,
   },
-  cross_probing: { ...CROSS_PROBING_DEFAULTS },
+  cross_probing: { ...new CROSS_PROBING_SETTINGS() },
   tools: {
     pns: writeRoutingSettings(DEFAULT_ROUTING_SETTINGS),
   },

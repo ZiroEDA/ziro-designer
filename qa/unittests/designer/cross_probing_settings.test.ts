@@ -30,10 +30,7 @@ import {
   CROSS_PROBE_FLASH_LAST_PHASE,
 } from '@ziroeda/pcbnew';
 import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
-import {
-  CROSS_PROBING_DEFAULTS,
-  type CrossProbingSettings,
-} from '@ziroeda/common/cross_probing_settings.js';
+import { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
 import {
   EESCHEMA_DEFAULTS,
   PCBNEW_DEFAULTS,
@@ -58,8 +55,8 @@ const BOARD = `(kicad_pcb (version 20241229) (generator "pcbnew")
 `;
 const board = readBoard(parse(BOARD));
 
-const cfg = (over: Partial<CrossProbingSettings>): CrossProbingSettings => ({
-  ...CROSS_PROBING_DEFAULTS,
+const cfg = (over: Partial<CROSS_PROBING_SETTINGS>): CROSS_PROBING_SETTINGS => ({
+  ...new CROSS_PROBING_SETTINGS(),
   ...over,
 });
 
@@ -68,7 +65,7 @@ const cfg = (over: Partial<CrossProbingSettings>): CrossProbingSettings => ({
 describe('cross_probing settings round-trip', () => {
   it('carries KiCad’s own defaults: four on, flash off', () => {
     // APP_SETTINGS_BASE::APP_SETTINGS_BASE, common/settings/app_settings.cpp:290-303.
-    expect(CROSS_PROBING_DEFAULTS).toEqual({
+    expect({ ...new CROSS_PROBING_SETTINGS() }).toEqual({
       on_selection: true,
       center_on_items: true,
       zoom_to_fit: true,
@@ -79,8 +76,8 @@ describe('cross_probing settings round-trip', () => {
 
   it('hangs off both editors, as it hangs off APP_SETTINGS_BASE upstream', () => {
     // app_settings.h:226 — one per frame that can receive a probe.
-    expect(EESCHEMA_DEFAULTS.cross_probing).toEqual(CROSS_PROBING_DEFAULTS);
-    expect(PCBNEW_DEFAULTS.cross_probing).toEqual(CROSS_PROBING_DEFAULTS);
+    expect(EESCHEMA_DEFAULTS.cross_probing).toEqual({ ...new CROSS_PROBING_SETTINGS() });
+    expect(PCBNEW_DEFAULTS.cross_probing).toEqual({ ...new CROSS_PROBING_SETTINGS() });
   });
 
   it('takes a stored value back and defaults the keys the store predates', () => {

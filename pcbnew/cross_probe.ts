@@ -21,7 +21,7 @@
  * item is the one the view gets centred on and it has to be the one the user's
  * selection started from.
  */
-import type { CrossProbingSettings } from '@ziroeda/common/cross_probing_settings.js';
+import type { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
 import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import { escapeIpc } from '@ziroeda/common/string_utils.js';
 import { boardItemId } from './edit-board.js';
@@ -195,7 +195,7 @@ export function crossProbeZoomScale(
  * calls `SetScale` before `FocusOnLocation` reads the viewport.
  */
 export function crossProbeViewChange(
-  cfg: CrossProbingSettings,
+  cfg: CROSS_PROBING_SETTINGS,
   bbox: { minX: number; minY: number; maxX: number; maxY: number } | null,
   view: CrossProbeView,
   canvas: { width: number; height: number },
@@ -273,7 +273,7 @@ export function crossProbeFlashSelection(phase: number, ids: readonly string[]):
  * issue explicitly — is not subject to the preference.
  */
 export function crossProbeSelection(
-  cfg: CrossProbingSettings,
+  cfg: CROSS_PROBING_SETTINGS,
   board: Board,
   parts: readonly string[],
   force = false,
@@ -293,7 +293,7 @@ export function crossProbeSelection(
  * alone, while an unknown net clears it.
  */
 export function crossProbeHighlightNet(
-  cfg: CrossProbingSettings,
+  cfg: CROSS_PROBING_SETTINGS,
   board: Board,
   netName: string | null,
 ): number | null {
