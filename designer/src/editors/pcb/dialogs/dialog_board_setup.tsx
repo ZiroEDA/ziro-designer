@@ -21,7 +21,12 @@
  * (shared PANEL_SETUP_NETCLASSES) and Text Variables (shared PANEL_TEXT_VARIABLES).
  * Values seed from the project's .kicad_pro and commit on OK.
  */
-import { useState, type JSX } from 'react';
+import { useLayoutEffect, useRef, useState, type JSX } from 'react';
+import { GRID_TRICKS } from '@ziroeda/common/grid_tricks.js';
+import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { WX_GRID } from '@ziroeda/common/widgets/wx_grid.js';
+import { wxGridSelectionModes, wxGridStringTable } from '@ziroeda/common/wx/grid.js';
+import { WxGridView } from '@ziroeda/common/wx/grid_ui.js';
 import {
   PagedDialog,
   type PagedDialogError,
@@ -258,6 +263,175 @@ export type PageId =
   | 'severities'
   | 'embedded';
 
+/** The columns of each Pre-defined Sizes grid, by the grid's title. */
+const SIZE_GRID_KEYS: Record<string, string[]> = {
+  Tracks: ['width'],
+  Vias: ['diameter', 'drill'],
+  'Differential Pairs': ['width', 'gap', 'viaGap'],
+};
+
+/**
+ * One pre-defined-size grid (Tracks / Vias / Differential Pairs), and the
+ * three of them are the whole of `PANEL_SETUP_TRACKS_AND_VIAS`.
+ *
+ * A WX_GRID with GRID_TRICKS, rows selected whole, `SetUnitsProvider( m_Frame )`
+ * and every column auto-eval (`panel_setup_tracks_and_vias.cpp:88-100`): a
+ * cell holds TEXT, "0.5 mm", and a zero is an EMPTY cell, because
+ * `AppendViaSize` / `AppendDiffPairs` only call `SetUnitValue` for a value
+ * `> 0` (`:446-472`) — that empty cell is what `<= 0 means use Netclass`
+ * looks like to the user.
+ */
+function SizeGrid<T extends object>({
+  title,
+  cols,
+  rows,
+  setRows,
+  units,
+  gridRef,
+}: {
+  title: string;
+  cols: { label: string; key: keyof T }[];
+  rows: readonly T[];
+  setRows: (next: T[]) => void;
+  units: StatusUnits;
+  gridRef: (g: WX_GRID) => void;
+}): JSX.Element {
+  const [{ grid, tricks, provider }] = useState(() => {
+    const g = new WX_GRID();
+    g.SetTable(new wxGridStringTable(0, cols.length), true, wxGridSelectionModes.wxGridSelectRows);
+    cols.forEach((c, i) => {
+      g.SetColLabelValue(i, c.label);
+    });
+    const p = new UNITS_PROVIDER(pcbIUScale, units);
+    g.SetUnitsProvider(p);
+    g.SetAutoEvalCols(cols.map((_, i) => i));
+    return { grid: g, tricks: new GRID_TRICKS(g), provider: p };
+  });
+  gridRef(grid);
+
+  const written = useRef<string | null>(null);
+  const key = JSON.stringify([units, rows]);
+
+  /** `AppendTrackWidth` / `AppendViaSize` / `AppendDiffPairs`: a zero stays empty. */
+  const appendRow = (aRow: T): void => {
+    const row = grid.GetNumberRows();
+    grid.AppendRows(1);
+    cols.forEach((c, i) => {
+      const mm = aRow[c.key] as number;
+
+      if (mm > 0) grid.SetUnitValue(row, i, pcbIUScale.mmToIU(mm));
+    });
+  };
+
+  // TransferDataToWindow.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: key is the rows and units; the grid is stable
+  useLayoutEffect(() => {
+    if (key === written.current) return;
+
+    provider.SetUserUnits(units);
+    grid.BeginBatch();
+    grid.ClearRows();
+
+    for (const r of rows) appendRow(r);
+
+    grid.EndBatch();
+    written.current = key;
+  }, [key]);
+
+  /** The rows as the grid holds them; an empty cell is 0. */
+  const read = (): T[] =>
+    Array.from({ length: grid.GetNumberRows() }, (_, row) => {
+      const r = {} as T;
+      cols.forEach((c, i) => {
+        const text = grid.GetCellValue(row, i);
+        (r as Record<keyof T, number>)[c.key] =
+          text.trim() === '' ? 0 : pcbIUScale.iuToMM(grid.GetUnitValue(row, i));
+      });
+      return r;
+    });
+
+  const transfer = (): void => {
+    const next = read();
+    const nextKey = JSON.stringify([units, next]);
+
+    if (nextKey === written.current) return;
+
+    written.current = nextKey;
+    setRows(next);
+  };
+
+  /** `OnSort…Click`: the rows with a first value, sorted as `operator<` does. */
+  const onSort = (): void => {
+    if (grid.GetNumberRows() < 2) return;
+
+    grid.ClearSelection();
+    const sorted = sortSizeRows(
+      read().filter((r) => (r[cols[0]!.key] as number) > 0 || cols.length > 1),
+      cols.map((c) => c.key),
+    );
+    grid.BeginBatch();
+    grid.ClearRows();
+
+    for (const r of sorted) appendRow(r);
+
+    grid.EndBatch();
+  };
+
+  return (
+    <div className="ze-sizes-col">
+      {/* [data] `bSizerTracks->Add( stTracksLabel, 0, wxALL, 5 )`. */}
+      <div className="ze-sizes-title">{title}</div>
+      <div className="ze-grid-pane ze-sizes-pane">
+        <WxGridView
+          grid={grid}
+          tricks={tricks}
+          // [data] `SetColSize( n, 120 )` (`panel_setup_tracks_and_vias_base.cpp:38`, `:92-93`, `:151-153`).
+          columns={cols.map(() => ({ width: 120 }))}
+          onUpdate={transfer}
+          ariaLabel={title}
+        />
+      </div>
+      <div className="ze-grid-btns">
+        {/* `OnAddRow` appends a row of ZEROS and puts the cursor in its first
+            column. It does not invent a size. */}
+        <button
+          type="button"
+          className="ze-gridbtn ze-gridbtn-add"
+          title="Add"
+          onClick={() =>
+            grid.OnAddRow(() => {
+              appendRow({} as T);
+              return [grid.GetNumberRows() - 1, 0];
+            })
+          }
+        >
+          <Icon name="plus" />
+        </button>
+        {/* `std::sort` over the whole struct — `VIA_DIMENSION::operator<`
+            compares diameter then drill, `DIFF_PAIR_DIMENSION::operator<`
+            width then gap then via gap (`board_design_settings.h:144`, `:187`). */}
+        <button
+          type="button"
+          className="ze-gridbtn ze-gridbtn-sort"
+          title="Sort ascending"
+          onClick={onSort}
+        >
+          <Icon name="arrowDown" />
+        </button>
+        {/* `WX_GRID::OnDeleteRows` deletes the SELECTED rows. */}
+        <button
+          type="button"
+          className="ze-gridbtn ze-gridbtn-remove"
+          title="Remove"
+          onClick={() => grid.OnDeleteRows((row) => grid.DeleteRows(row, 1))}
+        >
+          <Icon name="delete" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 interface Props {
   value: BoardSetupValues;
   /**
@@ -287,11 +461,8 @@ export function DialogBoardSetup({
 }: Props): JSX.Element {
   const [v, setV] = useState<BoardSetupValues>(() => structuredClone(value));
   const [importOpen, setImportOpen] = useState(false);
-  // `SetSelectionMode( wxGridSelectRows )` on the three Pre-defined Sizes
-  // grids: one selected row per grid, and it is what the remove button deletes.
-  const [sizeSel, setSizeSel] = useState<Record<string, number | null>>({});
-  // The one open cell editor, keyed grid|row|column. A wxGrid has exactly one.
-  const [cellEdit, setCellEdit] = useState<{ key: string; text: string } | null>(null);
+  /** The three Pre-defined Sizes grids, for `SetError( …, grid, row, col )`. */
+  const sizeGrids = useRef<Record<string, WX_GRID | undefined>>({});
 
   // DIALOG_BOARD_SETUP::onAuxiliaryAction: parse the other project's files
   // and copy the selected groups into the working values (each panel's
@@ -514,174 +685,6 @@ export function DialogBoardSetup({
     </div>
   );
 
-  /**
-   * One pre-defined-size grid (Tracks / Vias / Differential Pairs), and the
-   * three of them are the whole of `PANEL_SETUP_TRACKS_AND_VIAS`.
-   *
-   * A cell is a `WX_GRID` cell with `SetUnitsProvider( m_Frame )` and
-   * `SetAutoEvalCols`, so it holds TEXT, not a number: `SetUnitValue` writes
-   * `StringFromValue( iu, true )` — "0.5 mm" — and `GetUnitValue` parses it
-   * back. Two consequences the previous version got wrong. The cell shows its
-   * unit, and a zero is written as an EMPTY cell, because
-   * `AppendViaSize`/`AppendDiffPairs` only call `SetUnitValue` for a drill,
-   * gap or via gap that is `> 0` (`panel_setup_tracks_and_vias.cpp:446-472`) —
-   * that empty cell is what `<= 0 means use Netclass` looks like to the user.
-   */
-  const sizeGrid = <T,>(
-    title: string,
-    cols: { label: string; key: keyof T }[],
-    rows: T[],
-    setRows: (next: T[]) => void,
-    blank: T,
-  ): JSX.Element => {
-    const sel = sizeSel[title] ?? null;
-    const setSel = (i: number | null): void => setSizeSel({ ...sizeSel, [title]: i });
-
-    // The cell the user is typing in. A wxGrid has exactly one open editor, and
-    // the value commits when it closes — which is why this holds TEXT: driving
-    // the model off every keystroke turns "0." into 0 and rewrites the field
-    // under the caret before the second digit arrives.
-    const cellKey = (i: number, key: keyof T): string => `${title}|${i}|${String(key)}`;
-    const shown = (i: number, key: keyof T): string => {
-      const k = cellKey(i, key);
-      if (cellEdit?.key === k) return cellEdit.text;
-      const mm = rows[i]?.[key] as number;
-      // `SetUnitValue` writes the unit INTO the cell, unlike a UNIT_BINDER,
-      // which puts it in a label beside the field.
-      return mm > 0 ? pcbUnitTextMM(mm, units, true) : '';
-    };
-    const commit = (i: number, key: keyof T, text: string): void => {
-      const arr = [...rows];
-      arr[i] = { ...arr[i]!, [key]: pcbUnitValueMM(text, units) };
-      setRows(arr);
-      setCellEdit(null);
-    };
-
-    return (
-      <div className="ze-sizes-col">
-        {/* [data] `bSizerTracks->Add( stTracksLabel, 0, wxALL, 5 )`. */}
-        <div className="ze-sizes-title">{title}</div>
-        <div className="ze-grid-pane ze-sizes-pane">
-          <table className="ze-grid">
-            {/* The columns are 120 wide and the grid WINDOW is wider; the
-                trailing filler is the empty grid area to their right, which a
-                wxGrid paints and a table otherwise would not. */}
-            <colgroup>
-              {cols.map((c) => (
-                <col key={String(c.key)} className="ze-sizes-col-w" />
-              ))}
-              <col />
-            </colgroup>
-            <thead>
-              <tr>
-                {cols.map((c) => (
-                  <th key={String(c.key)} className="ze-sticky-head">
-                    {c.label}
-                  </th>
-                ))}
-                <th className="ze-sticky-head" />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                // `SetSelectionMode( wxGridSelectRows )` on all three grids
-                // (`panel_setup_tracks_and_vias.cpp:88-90`): the unit of
-                // selection is a ROW, which is what the remove button deletes.
-                <tr
-                  key={i}
-                  className={i === sel ? 'selected' : undefined}
-                  onFocusCapture={() => setSel(i)}
-                  onMouseDown={() => setSel(i)}
-                >
-                  {cols.map((c) => (
-                    <td key={String(c.key)}>
-                      <input
-                        type="text"
-                        id={sizeCellId(title, i, String(c.key))}
-                        value={shown(i, c.key)}
-                        onFocus={() =>
-                          setCellEdit({ key: cellKey(i, c.key), text: shown(i, c.key) })
-                        }
-                        onChange={(e) =>
-                          setCellEdit({ key: cellKey(i, c.key), text: e.target.value })
-                        }
-                        onBlur={(e) => commit(i, c.key, e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') commit(i, c.key, e.currentTarget.value);
-                        }}
-                      />
-                    </td>
-                  ))}
-                  <td />
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="ze-grid-btns">
-          {/* `OnAddRow` appends a row of ZEROS — `AppendTrackWidth( 0 )`,
-              `AppendViaSize( 0, 0 )`, `AppendDiffPairs( 0, 0, 0 )` — and puts
-              the cursor in its first column. It does not invent a size. */}
-          <button
-            type="button"
-            className="ze-gridbtn ze-gridbtn-add"
-            title="Add"
-            onClick={() => {
-              setRows([...rows, blank]);
-              setSel(rows.length);
-              setCellEdit(null);
-              const first = cols[0]!.key;
-              window.setTimeout(
-                () =>
-                  document.getElementById(sizeCellId(title, rows.length, String(first)))?.focus(),
-                0,
-              );
-            }}
-          >
-            <Icon name="plus" />
-          </button>
-          {/* `std::sort` over the whole struct — `VIA_DIMENSION::operator<`
-              compares diameter then drill, `DIFF_PAIR_DIMENSION::operator<`
-              width then gap then via gap (`board_design_settings.h:144`,
-              `:187`). Sorting on the first column alone left two rows of the
-              same diameter in whatever order they were typed. The button is
-              not disabled: upstream's handler returns early under two rows. */}
-          <button
-            type="button"
-            className="ze-gridbtn ze-gridbtn-sort"
-            title="Sort ascending"
-            onClick={() =>
-              setRows(
-                sortSizeRows(
-                  rows,
-                  cols.map((c) => c.key),
-                ),
-              )
-            }
-          >
-            <Icon name="arrowDown" />
-          </button>
-          {/* `WX_GRID::OnDeleteRows` deletes the SELECTED rows. This deleted
-              the last row of the grid whatever was selected. */}
-          <button
-            type="button"
-            className="ze-gridbtn ze-gridbtn-remove"
-            title="Remove"
-            disabled={sel === null}
-            onClick={() => {
-              if (sel === null) return;
-              setRows(rows.filter((_, j) => j !== sel));
-              setSel(rows.length - 1 > sel ? sel : sel - 1 >= 0 ? sel - 1 : null);
-              setCellEdit(null);
-            }}
-          >
-            <Icon name="delete" />
-          </button>
-        </div>
-      </div>
-    );
-  };
-
   const sizesPanel = (): JSX.Element => (
     // `bMainSizer`, horizontal: three columns at proportion 1
     // (`panel_setup_tracks_and_vias_base.cpp:71`, `:130`, `:198`), so they
@@ -690,34 +693,37 @@ export function DialogBoardSetup({
       {/* [data] the column labels, which carry no unit: `SetColLabelValue( 0,
           _("Width") )` and friends (`_base.cpp:41`, `:96-97`, `:165-167`).
           These read "Width (mm)" — the unit is in the CELL, not the header. */}
-      {sizeGrid<{ width: number }>(
-        'Tracks',
-        [{ label: 'Width', key: 'width' }],
-        v.trackWidthsMM.map((width) => ({ width })),
-        (rows) => setV({ ...v, trackWidthsMM: rows.map((r) => r.width) }),
-        { width: 0 },
-      )}
-      {sizeGrid<ViaSize>(
-        'Vias',
-        [
+      <SizeGrid<{ width: number }>
+        title="Tracks"
+        cols={[{ label: 'Width', key: 'width' }]}
+        rows={v.trackWidthsMM.map((width) => ({ width }))}
+        setRows={(rows) => setV((cur) => ({ ...cur, trackWidthsMM: rows.map((r) => r.width) }))}
+        units={units}
+        gridRef={(g) => (sizeGrids.current.Tracks = g)}
+      />
+      <SizeGrid<ViaSize>
+        title="Vias"
+        cols={[
           { label: 'Diameter', key: 'diameter' },
           { label: 'Hole', key: 'drill' },
-        ],
-        v.viaSizesMM,
-        (rows) => setV({ ...v, viaSizesMM: rows }),
-        { diameter: 0, drill: 0 },
-      )}
-      {sizeGrid<DiffPairSize>(
-        'Differential Pairs',
-        [
+        ]}
+        rows={v.viaSizesMM}
+        setRows={(rows) => setV((cur) => ({ ...cur, viaSizesMM: rows }))}
+        units={units}
+        gridRef={(g) => (sizeGrids.current.Vias = g)}
+      />
+      <SizeGrid<DiffPairSize>
+        title="Differential Pairs"
+        cols={[
           { label: 'Width', key: 'width' },
           { label: 'Gap', key: 'gap' },
           { label: 'Via Gap', key: 'viaGap' },
-        ],
-        v.diffPairsMM,
-        (rows) => setV({ ...v, diffPairsMM: rows }),
-        { width: 0, gap: 0, viaGap: 0 },
-      )}
+        ]}
+        rows={v.diffPairsMM}
+        setRows={(rows) => setV((cur) => ({ ...cur, diffPairsMM: rows }))}
+        units={units}
+        gridRef={(g) => (sizeGrids.current['Differential Pairs'] = g)}
+      />
     </div>
   );
 
@@ -991,7 +997,15 @@ export function DialogBoardSetup({
             return {
               message: badSize.message,
               page: 'sizes',
-              focusId: sizeCellId(badSize.grid, badSize.row, badSize.col),
+              focusGridCell: () => {
+                const g = sizeGrids.current[badSize.grid];
+
+                if (!g) return;
+
+                const col = SIZE_GRID_KEYS[badSize.grid]?.indexOf(badSize.col) ?? 0;
+                g.SetGridCursor(badSize.row, Math.max(0, col));
+                g.EnableCellEditControl(true);
+              },
             };
 
           // PANEL_SETUP_TUNING_PROFILES::Validate, each page's ValidateProfile.

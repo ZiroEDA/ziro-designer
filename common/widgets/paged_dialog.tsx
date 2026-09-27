@@ -88,6 +88,11 @@ export interface PagedDialogError {
    * Omitted when the offending value has no single control.
    */
   focusId?: string;
+  /**
+   * `SetError( …, aGrid, aRow, aCol )`: put the grid's cursor on the cell and
+   * open its editor, after the page swap has rendered the grid.
+   */
+  focusGridCell?: () => void;
 }
 
 /** `m_infoBar->ShowMessageFor( aMessage, 10000, … )` (`paged_dialog.cpp:295`). */
@@ -140,6 +145,8 @@ export function PagedDialog({
     setError(err.message);
     window.setTimeout(() => setError(null), INFOBAR_MS);
     setPage(err.page);
+
+    if (err.focusGridCell) window.setTimeout(err.focusGridCell, 0);
 
     if (err.focusId !== undefined) {
       const id = err.focusId;
