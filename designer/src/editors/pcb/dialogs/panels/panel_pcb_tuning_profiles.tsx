@@ -37,7 +37,7 @@ import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { BOARD_STACKUP } from '@ziroeda/pcbnew/board_stackup_manager/board_stackup.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { KiBitmapBundle } from '@ziroeda/common/bitmap.js';
-import { BITMAPS } from '@ziroeda/common/bitmaps_list.js';
+import { BITMAPS } from '@ziroeda/common/bitmaps/bitmaps_list.js';
 import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import type {

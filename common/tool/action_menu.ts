@@ -59,7 +59,7 @@
  */
 import { browserSafeKey } from '../browser_reserved.js';
 import type { MenuItem } from './action_menu_types.js';
-import { BITMAPS } from '../bitmaps_list.js';
+import { BITMAPS } from '../bitmaps/bitmaps_list.js';
 import { main_id } from '../id.js';
 import {
   wxID_ANY,

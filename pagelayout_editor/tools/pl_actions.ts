@@ -10,7 +10,7 @@
  * The header also declares `pickerTool` and `refreshPreview`, which the .cpp
  * never defines; nor do we.
  */
-import { BITMAPS } from '@ziroeda/common/bitmaps_list.js';
+import { BITMAPS } from '@ziroeda/common/bitmaps/bitmaps_list.js';
 import { DS_ITEM_TYPE } from '@ziroeda/common/drawing_sheet/ds_data_item.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import {

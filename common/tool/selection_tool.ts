@@ -8,7 +8,7 @@
  * actions, and the disambiguation menu shown when a click hits several items.
  */
 
-import { BITMAPS } from '../bitmaps_list.js';
+import { BITMAPS } from '../bitmaps/bitmaps_list.js';
 import type { COLLECTOR } from '../collector.js';
 import type { EDA_DRAW_FRAME } from '../eda_draw_frame.js';
 import type { EDA_ITEM } from '../eda_item.js';

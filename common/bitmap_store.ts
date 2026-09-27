@@ -9,7 +9,7 @@
  */
 import { svgUrl } from '@ziroeda/bitmaps_png';
 import { BITMAP } from './bitmap_store_actions.js';
-import { BITMAPS } from './bitmaps_list.js';
+import { BITMAPS } from './bitmaps/bitmaps_list.js';
 
 /** KiCad icon URL for a toolbar tool id, or undefined if none is mapped. */
 export function toolbarIconUrl(id: string): string | undefined {

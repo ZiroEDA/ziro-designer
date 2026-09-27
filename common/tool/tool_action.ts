@@ -9,7 +9,7 @@
  */
 import { ACTION_MANAGER } from './action_manager.js';
 import { TOOL_EVENT, TOOL_ACTIONS, TOOL_ACTION_SCOPE, TOOL_EVENT_CATEGORY } from './tool_event.js';
-import type { BITMAPS } from '../bitmaps_list.js';
+import type { BITMAPS } from '../bitmaps/bitmaps_list.js';
 import { AddHotkeyName, IS_HOTKEY, KeyNameFromKeyCode } from '../hotkeys_basic.js';
 
 /**

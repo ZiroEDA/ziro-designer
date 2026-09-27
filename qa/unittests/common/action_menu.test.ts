@@ -19,7 +19,7 @@
  *       shown is a CLONE; closing unselected sends CHOICE -1 then CLOSED.
  */
 import { describe, expect, it } from 'vitest';
-import { BITMAPS } from '@ziroeda/common/bitmaps_list.js';
+import { BITMAPS } from '@ziroeda/common/bitmaps/bitmaps_list.js';
 import { main_id } from '@ziroeda/common/id.js';
 import { ACTION_MENU } from '@ziroeda/common/tool/action_menu.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';

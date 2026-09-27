@@ -53,7 +53,7 @@ import { Sash } from '@ziroeda/common/widgets/wx_splitter_window.js';
 // glyphs "recognisable stand-ins, not KiCad's exact bitmaps", and every icon
 // this panel needs exists upstream.
 import { KiBitmapBundle } from '@ziroeda/common/bitmap.js';
-import { BITMAPS } from '@ziroeda/common/bitmaps_list.js';
+import { BITMAPS } from '@ziroeda/common/bitmaps/bitmaps_list.js';
 import { layerTooltip } from './appearance_layers.js';
 import {
   appearanceObjectRows,

@@ -28,7 +28,7 @@ import {
 import { EDA_REORDERABLE_LIST_DIALOG } from '@ziroeda/common/dialogs/eda_reorderable_list_dialog.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { KiBitmapBundle } from '@ziroeda/common/bitmap.js';
-import { BITMAPS } from '@ziroeda/common/bitmaps_list.js';
+import { BITMAPS } from '@ziroeda/common/bitmaps/bitmaps_list.js';
 
 /**
  * `wxDataViewItemAttr` as CSS. `SetColour( wxSYS_COLOUR_GRAYTEXT )` becomes

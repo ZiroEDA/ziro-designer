@@ -8,7 +8,7 @@
  * conversions ... can be slow" - has nothing to cache and is not kept.
  */
 import { BITMAP_STORE } from './bitmap_store.js';
-import type { BITMAPS } from './bitmaps_list.js';
+import type { BITMAPS } from './bitmaps/bitmaps_list.js';
 
 let s_BitmapStore: BITMAP_STORE | null = null;
 

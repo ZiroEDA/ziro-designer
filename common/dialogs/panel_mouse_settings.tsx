@@ -38,7 +38,7 @@ import { Check, Group } from '../wx/controls.js';
 import { Combo } from '../widgets/wx_combobox.js';
 import { Slider } from '../widgets/slider.js';
 import { KiBitmapBundle } from '../bitmap.js';
-import { BITMAPS } from '../bitmaps_list.js';
+import { BITMAPS } from '../bitmaps/bitmaps_list.js';
 import type { COMMON_SETTINGS_DRAFT } from '../settings/common_settings.js';
 import type { MouseDragAction, ScrollModifier } from '../settings/common_settings.js';
 

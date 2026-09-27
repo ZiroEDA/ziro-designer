@@ -9,7 +9,7 @@
  * (`common/tool/action_menu_bar.tsx`); this is its model.
  */
 
-import type { BITMAPS } from '../bitmaps_list.js';
+import type { BITMAPS } from '../bitmaps/bitmaps_list.js';
 
 /** `wxItemKind`. */
 export enum wxItemKind {

@@ -15,7 +15,7 @@ import {
 import { ContextMenu, type MenuItem } from '@ziroeda/common/tool/action_menu_bar.js';
 import { ERC_PHASES } from '@ziroeda/eeschema';
 import { KiBitmapBundle } from '@ziroeda/common/bitmap.js';
-import { BITMAPS } from '@ziroeda/common/bitmaps_list.js';
+import { BITMAPS } from '@ziroeda/common/bitmaps/bitmaps_list.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 /**

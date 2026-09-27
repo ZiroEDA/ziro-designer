@@ -8,7 +8,7 @@
  * selector is filled from too.
  */
 
-import { BITMAPS } from '../bitmaps_list.js';
+import { BITMAPS } from '../bitmaps/bitmaps_list.js';
 import type { EdaIuScale, EdaUnits } from '../eda_units.js';
 import { main_id } from '../id.js';
 import type { APP_SETTINGS_BASE, WINDOW_SETTINGS } from '../settings/app_settings.js';

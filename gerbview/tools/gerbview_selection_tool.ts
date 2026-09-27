@@ -9,7 +9,7 @@
  * double click zooms to fit.
  */
 
-import { BITMAPS } from '@ziroeda/common/bitmaps_list.js';
+import { BITMAPS } from '@ziroeda/common/bitmaps/bitmaps_list.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { KICURSOR } from '@ziroeda/common/gal/cursors.js';
 import { unescapeString as UnescapeString } from '@ziroeda/common/string_utils.js';
