@@ -14,15 +14,78 @@
  * let a menu that did not exist read as present.
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { useState } from 'react';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
-import { DialogAssignFootprints } from '@ziroeda/designer/src/editors/schematic/dialogs/dialog_assign_footprints.js';
+import { DialogAssignFootprints, type CVPCB_APP } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
 import {
   cvpcbFootprintsContextMenu,
   cvpcbSymbolsContextMenu,
   type CvpcbContextMenuActions,
 } from '@ziroeda/cvpcb/cvpcb_mainframe.js';
+
+/**
+ * A minimal `CVPCB_APP`: this test lives beside cvpcb's own unit tests and
+ * must not reach into `designer` (the rule the window itself is under). The
+ * footprint canvas and 3D viewer stand in as plain nodes — nothing here opens
+ * the viewer far enough to look inside them, only that the frame it lives in
+ * mounts and closes.
+ */
+function makeCvpcbApp(): CVPCB_APP {
+  return {
+    loadFootprintIndex: () => Promise.resolve([]),
+    loadFootprint: () => Promise.resolve(null),
+    parseFootprint: () => null,
+    footprintToBoard: (fp) => ({
+      version: 20241229,
+      layers: [],
+      nets: new Map([[0, '']]),
+      footprints: fp ? [fp] : [],
+      tracks: [],
+      arcs: [],
+      vias: [],
+      zones: [],
+      shapes: [],
+      texts: [],
+      textBoxes: [],
+      tables: [],
+      images: [],
+      dimensions: [],
+    }),
+    footprintsBase: () => '',
+    pinnedFpLibs: [],
+    language: 'en',
+    SetLanguage: () => {},
+    // Called unconditionally, in the same order, every render — the same
+    // guarantee DIALOG_SHIM persistence needs, just without a store.
+    useDialogControl: (_title, _key, defaultValue) => useState(defaultValue),
+    readEquivalenceFiles: () => [],
+    LibraryLoadingPanel: () => null,
+    DialogFpLibTable: () => null,
+    Preferences: () => null,
+    OpenFileDialog: () => null,
+    FootprintCanvas: (_props, ref) => (
+      <div
+        data-testid="cvpcb-footprint-canvas"
+        ref={(el) => {
+          if (!ref || typeof ref === 'function') return;
+          ref.current = el
+            ? {
+                zoomToFit: () => {},
+                zoomIn: () => {},
+                zoomOut: () => {},
+                redraw: () => {},
+                setScale: () => {},
+                centerContents: () => {},
+              }
+            : null;
+        }}
+      />
+    ),
+    Viewer3DFrame: () => <div data-testid="cvpcb-viewer3d" />,
+  };
+}
 
 beforeAll(() => {
   vi.stubGlobal('fetch', async () => new Response('', { status: 404 }));
@@ -176,6 +239,7 @@ function open_(): HTMLElement {
   const docs = new Map([['a.kicad_sch', readSchematic(parse(SHEET))]]);
   const { container } = render(
     <DialogAssignFootprints
+      app={makeCvpcbApp()}
       docs={docs}
       projectFootprints={PROJECT}
       onApply={() => {}}

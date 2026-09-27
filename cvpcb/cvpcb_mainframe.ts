@@ -7,7 +7,7 @@
  * `AssociateFootprint` and the undo list, `BuildLibrariesList`, the events
  * `setupEventHandlers` wires to the OK / Apply buttons, `canCloseWindow`, and
  * the two context menus `setupTools` builds. The window is
- * `designer/.../dialog_assign_footprints.tsx` for now; see STRUCTURE.md.
+ * `cvpcb_mainframe_ui.tsx`, beside this file; see STRUCTURE.md.
  *
  * The COMPONENT list:
  *

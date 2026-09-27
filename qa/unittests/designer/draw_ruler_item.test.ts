@@ -237,7 +237,11 @@ describe('one ruler, three canvases', () => {
     // in mm there whatever its Units radio said.
     for (const rel of [
       'editors/footprint/FootprintEditor.tsx',
-      'editors/schematic/dialogs/display_footprints_frame.tsx',
+      // `display_footprints_frame.tsx` moved to `cvpcb/` (cvpcb/STRUCTURE.md's
+      // stage two) and hands `measureUnits` through `CVPCB_APP.FootprintCanvas`
+      // as a plain object field; the actual `<FootprintCanvas measureUnits=.../>`
+      // JSX is the designer-side adapter that implements it.
+      'editors/schematic/cvpcb_app.tsx',
     ]) {
       expect(read(rel), `${rel} does not hand the canvas its units`).toContain('measureUnits=');
     }

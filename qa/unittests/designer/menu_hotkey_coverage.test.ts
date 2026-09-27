@@ -60,7 +60,7 @@ const CONVERTED = [
   'editors/pcb/PcbEditor.tsx',
   'editors/schematic/SchematicEditor.tsx',
   'editors/schematic/components/SymbolLibraryBrowser.tsx',
-  'editors/schematic/dialogs/dialog_assign_footprints.tsx',
+  '../../cvpcb/cvpcb_mainframe_ui.tsx',
   'editors/symbol/SymbolEditor.tsx',
   'home/HomePage.tsx',
 ];
@@ -97,7 +97,7 @@ const PENDING: readonly string[] = [
  *
  * None of these claims a key.
  *
- * `dialog_assign_footprints.tsx` - the first is `wxListCtrl`'s selection
+ * `cvpcb_mainframe_ui.tsx` - the first is `wxListCtrl`'s selection
  * modifiers on a **mouse** event (Ctrl adds a row, Shift ranges), which is what
  * makes CvPcb's symbols pane multi-select at all (`SYMBOLS_LISTBOX` is built
  * without `wxLC_SINGLE_SEL`, symbols_listbox.cpp:37). The second is the
@@ -112,7 +112,7 @@ const PENDING: readonly string[] = [
  * therefore show up as a line that is not in this list.
  */
 const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
-  'editors/schematic/dialogs/dialog_assign_footprints.tsx': [
+  '../../cvpcb/cvpcb_mainframe_ui.tsx': [
     'if (multi && (e.ctrlKey || e.metaKey)) {',
     'if (e.ctrlKey || e.altKey || e.metaKey) return;',
   ],
@@ -212,7 +212,7 @@ function walk(dir: string, out: string[] = []): string[] {
  * those packages too. A walk of designer/src alone would lose every frame that
  * moved, and pass.
  */
-const FRAME_PACKAGES = ['bitmap2component', 'gerbview', 'pagelayout_editor'].map((p) =>
+const FRAME_PACKAGES = ['bitmap2component', 'gerbview', 'pagelayout_editor', 'cvpcb'].map((p) =>
   fileURLToPath(new URL(`../../../${p}`, import.meta.url)),
 );
 
@@ -382,7 +382,7 @@ describe('a converted frame has no listener of its own', () => {
     expect(gerb).not.toMatch(/\be\.key\b/);
     expect(gerb).not.toMatch(/addEventListener\('keydown'/);
     // CVPCB keeps Enter, which is CVPCB_ACTIONS::associate and has no row.
-    const cvpcb = source('editors/schematic/dialogs/dialog_assign_footprints.tsx');
+    const cvpcb = source('../../cvpcb/cvpcb_mainframe_ui.tsx');
     expect(cvpcb).toMatch(/e\.key === 'Enter'/);
     // …and Delete, which is now in the same position and was not before.
     //

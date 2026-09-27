@@ -37,10 +37,24 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import type { JSX } from 'react';
 import { cleanup, render } from '@testing-library/react';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
-import { DialogAssignFootprints } from '@ziroeda/designer/src/editors/schematic/dialogs/dialog_assign_footprints.js';
+import { DialogAssignFootprints } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
+import { useCvpcbApp } from '@ziroeda/designer/src/editors/schematic/cvpcb_app.js';
+
+/** `DialogAssignFootprints` with the real program: `cvpcb` never imports
+ *  `designer`, so the window is handed its `CVPCB_APP` the way
+ *  `SchematicEditor.tsx` does. */
+function Window({
+  docs,
+}: {
+  docs: ReadonlyMap<string, ReturnType<typeof readSchematic>>;
+}): JSX.Element {
+  const app = useCvpcbApp();
+  return <DialogAssignFootprints app={app} docs={docs} onApply={() => {}} onClose={() => {}} />;
+}
 
 afterEach(cleanup);
 
@@ -50,10 +64,7 @@ beforeAll(() => {
   vi.stubGlobal('fetch', async () => new Response('', { status: 404 }));
 });
 
-const CSS = readFileSync(
-  resolve(process.cwd(), '../designer/src/editors/schematic/dialogs/dialog_assign_footprints.css'),
-  'utf8',
-);
+const CSS = readFileSync(resolve(process.cwd(), '../cvpcb/cvpcb_mainframe_ui.css'), 'utf8');
 
 /** One rule's body, by its exact selector text, comments stripped. */
 function rule(selector: string): string {
@@ -88,9 +99,7 @@ const SHEET = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
 
 function window_(): HTMLElement {
   const docs = new Map([['a.kicad_sch', readSchematic(parse(SHEET))]]);
-  const { container } = render(
-    <DialogAssignFootprints docs={docs} onApply={() => {}} onClose={() => {}} />,
-  );
+  const { container } = render(<Window docs={docs} />);
   return container;
 }
 

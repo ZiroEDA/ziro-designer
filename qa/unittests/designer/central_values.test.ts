@@ -95,6 +95,7 @@ const COMMON = fileURLToPath(new URL('../../../common', import.meta.url));
 const GERBVIEW = fileURLToPath(new URL('../../../gerbview', import.meta.url));
 const BITMAP2COMPONENT = fileURLToPath(new URL('../../../bitmap2component', import.meta.url));
 const PAGELAYOUT = fileURLToPath(new URL('../../../pagelayout_editor', import.meta.url));
+const CVPCB = fileURLToPath(new URL('../../../cvpcb', import.meta.url));
 
 /**
  * Seeded 2026-08-20 from the tree, per area, AFTER the central-values pass took
@@ -358,7 +359,19 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `common/dialogs` with its seven.
   // 30/178 -> 29/177 on 09-26: dialog_image_properties' inline preview canvas
   // (`#fff`, a 4px radius) went for common/dialogs' PANEL_IMAGE_EDITOR.
-  'editors/schematic': { colours: 23, metrics: 166 },
+  'editors/schematic': { colours: 23, metrics: 163 },
+  // 166 -> 163 metrics on `editors/schematic`, moved here whole: cvpcb's
+  // three windows left `editors/schematic/dialogs/` for the root `cvpcb/`
+  // package (cvpcb/STRUCTURE.md's stage two). No colours moved (the five
+  // files carried none, marked or not) and the 3 metrics are
+  // `cvpcb_mainframe_ui.tsx`'s `FRAME_SIZE` (720/400 — its own header calls
+  // both DATA: `EDA_BASE_FRAME::defaultSize`'s `FromDIP( wxSize( 1280, 720 ) )`
+  // and `minSizeLookup`'s 500x400) and the virtual list's
+  // `useState({ height: 400 })`; none is new debt, all three travelled
+  // unmarked from `dialog_assign_footprints.tsx`, where they were already
+  // counted, unmarked, inside the 166. Tagging them `[data]` / `[px]` is owed,
+  // just not by this move.
+  cvpcb: { colours: 0, metrics: 3 },
   // designer/src/sync/, the multiplayer layer. Eight colours, all of them
   // peerColor.ts's palette: one hue per person in a shared project, so two
   // people's cursors and selection boxes are told apart at a glance.
@@ -937,6 +950,18 @@ function scan(): Site[] {
       else if (/\.(css|tsx)$/.test(p)) files.push(p);
     }
   })(PAGELAYOUT);
+  // cvpcb/'s three windows moved beside KiCad's (cvpcb_mainframe_ui.tsx +
+  // display_footprints_frame.tsx + dialogs/dialog_config_equfiles.tsx,
+  // cvpcb/STRUCTURE.md's stage two); counted under its own package name, the
+  // way common/ is, since cvpcb is not one of designer's `editors/`.
+  (function walk(dir: string) {
+    for (const entry of readdirSync(dir)) {
+      if (entry === 'node_modules') continue;
+      const p = join(dir, entry);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.(css|tsx)$/.test(p)) files.push(p);
+    }
+  })(CVPCB);
   files.sort();
 
   const sites: Site[] = [];
@@ -945,6 +970,7 @@ function scan(): Site[] {
     const inGerbview = !relative(GERBVIEW, file).startsWith('..');
     const inBitmap2component = !relative(BITMAP2COMPONENT, file).startsWith('..');
     const inPagelayout = !relative(PAGELAYOUT, file).startsWith('..');
+    const inCvpcb = !relative(CVPCB, file).startsWith('..');
     const rel = inCommon
       ? `common/${relative(COMMON, file)}`
       : inGerbview
@@ -953,7 +979,9 @@ function scan(): Site[] {
           ? `editors/image/${relative(BITMAP2COMPONENT, file)}`
           : inPagelayout
             ? `editors/drawingsheet/${relative(PAGELAYOUT, file)}`
-            : relative(SRC, file);
+            : inCvpcb
+              ? `cvpcb/${relative(CVPCB, file)}`
+              : relative(SRC, file);
     const parts = rel.split('/');
     const area =
       parts[0] === 'editors' || parts[0] === 'common'

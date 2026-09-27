@@ -256,7 +256,7 @@ describe('every frame opens it', () => {
     'designer/src/editors/symbol/SymbolEditor.tsx': 'symbol',
     'designer/src/editors/footprint/FootprintEditor.tsx': 'footprint',
     'designer/src/editors/pcb/Viewer3DFrame.tsx': 'viewer3d',
-    'designer/src/editors/schematic/dialogs/dialog_assign_footprints.tsx': 'cvpcb',
+    'cvpcb/cvpcb_mainframe_ui.tsx': 'cvpcb',
     'designer/src/editors/calculator/CalculatorTools.tsx': 'calculator',
   };
 

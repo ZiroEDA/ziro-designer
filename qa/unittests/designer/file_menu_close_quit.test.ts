@@ -171,7 +171,7 @@ const FRAMES: FrameRow[] = [
     rows: ['quitOrClose'],
   },
   {
-    file: 'editors/schematic/dialogs/dialog_assign_footprints.tsx',
+    file: '../../cvpcb/cvpcb_mainframe_ui.tsx',
     upstream: 'cvpcb/menubar.cpp:51',
     app: 'Assign Footprints',
     rows: ['close'],
@@ -373,6 +373,7 @@ describe('no menu declares a key the browser will not deliver', () => {
     walk(join(SRC, '../../gerbview'));
     walk(join(SRC, '../../pagelayout_editor'));
     walk(join(SRC, '../../bitmap2component'));
+    walk(join(SRC, '../../cvpcb'));
     return { declared: out, visited: new Set(files) };
   })();
 

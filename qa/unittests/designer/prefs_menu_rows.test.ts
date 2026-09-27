@@ -36,7 +36,7 @@ const FRAMES: [string, string][] = [
   ['board editor', 'editors/pcb/menubar.ts'],
   ['gerber viewer', '../../gerbview/menubar.ts'],
   ['project manager', 'home/menubar.ts'],
-  ['assign footprints', 'editors/schematic/dialogs/dialog_assign_footprints.tsx'],
+  ['assign footprints', '../../cvpcb/cvpcb_mainframe_ui.tsx'],
 ];
 
 describe('every frame ends Preferences the way EDA_BASE_FRAME does', () => {

@@ -79,7 +79,7 @@ import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
 import { FootprintCanvas, type FootprintCanvasController } from './FootprintCanvas.js';
 import { FootprintLibraryManager, fpNameOf, footprintsBase } from './libraryManager.js';
-import { projectFpLibTable, projectLibraryNickname } from './fp_lib_table.js';
+import { projectFpLibTable, projectLibraryNickname } from '@ziroeda/common/fp_lib_table.js';
 import {
   FOOTPRINT_COPPER_STACK,
   footprintLayers,

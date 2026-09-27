@@ -19,13 +19,15 @@
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render } from '@testing-library/react';
+import type { JSX } from 'react';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
-import { DialogAssignFootprints } from '@ziroeda/designer/src/editors/schematic/dialogs/dialog_assign_footprints.js';
+import { DialogAssignFootprints } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
+import { useCvpcbApp } from '@ziroeda/designer/src/editors/schematic/cvpcb_app.js';
 import {
   displayFootprintsLibStatus,
   displayFootprintsTitle,
-} from '@ziroeda/designer/src/editors/schematic/dialogs/display_footprints_frame.js';
+} from '@ziroeda/cvpcb/display_footprints_frame.js';
 import {
   DISPLAY_FP_LEFT_TOOLBAR,
   DISPLAY_FP_TOP_TOOLBAR,
@@ -83,11 +85,18 @@ const SHEET = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
     (property "Reference" "R1" (at 0 0 0)) (property "Value" "1k" (at 0 0 0))
     (property "Footprint" "Resistor_THT:R_Axial_DIN0207" (at 0 0 0))))`;
 
+function Window({
+  docs,
+}: {
+  docs: ReadonlyMap<string, ReturnType<typeof readSchematic>>;
+}): JSX.Element {
+  const app = useCvpcbApp();
+  return <DialogAssignFootprints app={app} docs={docs} onApply={() => {}} onClose={() => {}} />;
+}
+
 function openViewer(): HTMLElement {
   const docs = new Map([['a.kicad_sch', readSchematic(parse(SHEET))]]);
-  const { container } = render(
-    <DialogAssignFootprints docs={docs} onApply={() => {}} onClose={() => {}} />,
-  );
+  const { container } = render(<Window docs={docs} />);
   const button = Array.from(container.querySelectorAll('.ze-toolbar .ze-tbtn')).find(
     (b) => b.getAttribute('aria-label') === 'View Selected Footprint',
   ) as HTMLButtonElement;

@@ -367,7 +367,7 @@ import {
   projectFpLibTablePath,
   serializeFpLibTable,
   type FpLibRow,
-} from '../footprint/fp_lib_table.js';
+} from '@ziroeda/common/fp_lib_table.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
@@ -502,7 +502,8 @@ import { schematicTextVarResolver } from '@ziroeda/eeschema/schematic.js';
 import { ResolveShownText, type TextVarResolverFn } from '@ziroeda/common/common.js';
 import { DialogExportNetlist } from './dialogs/dialog_export_netlist.js';
 import { DialogSymbolFieldsTable, type FieldsEdits } from './dialogs/dialog_symbol_fields_table.js';
-import { DialogAssignFootprints } from './dialogs/dialog_assign_footprints.js';
+import { DialogAssignFootprints } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
+import { useCvpcbApp } from './cvpcb_app.js';
 import { DialogPrint } from './dialogs/dialog_print.js';
 import { DialogPlot, type PlotRequest } from './dialogs/dialog_plot.js';
 import {
@@ -3090,6 +3091,10 @@ export function SchematicEditor({
   const [browserOpen, setBrowserOpen] = useState(false);
   // Assign Footprints (CVPCB_MAINFRAME).
   const [assignFpOpen, setAssignFpOpen] = useState(false);
+  // What `cvpcb` (Assign Footprints, its footprint viewer and Manage
+  // Footprint Association Files) asks of the program: `cvpcb` never imports
+  // `designer`. See `cvpcb_app.tsx`.
+  const cvpcbApp = useCvpcbApp();
   // The sheets of THIS design, in hierarchy order, cvpcb is handed the
   // current schematic's netlist, so sibling projects sharing the folder (and
   // sheets reached twice) must not add rows.
@@ -10868,6 +10873,7 @@ export function SchematicEditor({
               edits through the same per-sheet pathway as the fields table. */}
             {assignFpOpen && (
               <DialogAssignFootprints
+                app={cvpcbApp}
                 docs={liveDocs()}
                 // The netlist CVPCB works on is this design's sheets, in
                 // hierarchy order, not every .kicad_sch in the project folder.

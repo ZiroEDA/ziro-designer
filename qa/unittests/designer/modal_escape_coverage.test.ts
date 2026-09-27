@@ -64,6 +64,10 @@ function walk(dir: string, out: string[] = []): string[] {
  * file's `rel` is spelled from `designer/src` (`../../common/...`).
  */
 const COMMON = fileURLToPath(new URL('../../../common', import.meta.url));
+// Assign Footprints and the two windows it opens moved out of `designer/src`
+// into `cvpcb/` (cvpcb/STRUCTURE.md's stage two): same reason `common/` is
+// walked alongside `designer/src` above.
+const CVPCB = fileURLToPath(new URL('../../../cvpcb', import.meta.url));
 
 function walkCommon(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -75,7 +79,7 @@ function walkCommon(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-const FILES = [...walk(SRC), ...walkCommon(COMMON)].map((path) => ({
+const FILES = [...walk(SRC), ...walkCommon(COMMON), ...walkCommon(CVPCB)].map((path) => ({
   rel: relative(SRC, path),
   src: readFileSync(path, 'utf8'),
 }));
@@ -131,9 +135,7 @@ describe('what the registered cancel means', () => {
     // CVPCB's Cancel is `canCloseWindow`: modified links prompt before they go.
     // Registering the bare `onClose` here would throw the user's assignments
     // away without asking, which is the one thing Esc must never do.
-    expect(registered('editors/schematic/dialogs/dialog_assign_footprints.tsx')).toEqual([
-      'closeWindow',
-    ]);
+    expect(registered('../../cvpcb/cvpcb_mainframe_ui.tsx')).toEqual(['closeWindow']);
     // Same shape in the Symbol Fields Table: `onCancel` confirms, `onClose`
     // does not.
     expect(registered('editors/schematic/dialogs/dialog_symbol_fields_table.tsx')).toEqual([

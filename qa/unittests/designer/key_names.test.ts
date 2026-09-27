@@ -198,7 +198,7 @@ describe('the menu rows print the accelerator, character for character', () => {
     'editors/symbol/menubar.ts',
     'editors/pcb/PcbEditor.tsx',
     'editors/footprint/FootprintEditor.tsx',
-    'editors/schematic/dialogs/dialog_assign_footprints.tsx',
+    '../../cvpcb/cvpcb_mainframe_ui.tsx',
     'editors/schematic/menubar.ts',
     // Already correct before this split, and pinned by
     // drawing_sheet_palette.test.ts as well. The menu bar moved beside

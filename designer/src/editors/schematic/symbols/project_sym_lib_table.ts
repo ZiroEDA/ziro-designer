@@ -23,8 +23,8 @@ import { parse } from '@ziroeda/sexpr';
 import { readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
 import type { LibSymbol } from '@ziroeda/eeschema/types.js';
 import { LIBRARY_TABLE_TYPE } from '@ziroeda/common/libraries/library_table.js';
-import { libraryTableOf, parseFpLibTable, type FpLibRow } from '../../footprint/fp_lib_table.js';
-import { findProjectFile as findProjectFileByUri } from '../../../fs/project_paths.js';
+import { libraryTableOf, parseFpLibTable, type FpLibRow } from '@ziroeda/common/fp_lib_table.js';
+import { findProjectFile as findProjectFileByUri } from '@ziroeda/common/project_paths.js';
 
 /** A project file as the editor holds it. */
 export interface ProjectFile {
@@ -179,7 +179,7 @@ export function projectSymbolFiles(
 /**
  * The `sym-lib-table` also anchors `${KIPRJMOD}`, for a "project" that is only
  * a library folder with no `.kicad_pro` in it. The expansion itself is
- * `fs/project_paths.ts` - one module, because upstream has one
+ * `common/project_paths.ts` - one module, because upstream has one
  * `ExpandEnvVarSubstitutions`.
  */
 const SYM_LIB_TABLE_ANCHOR = /(^|\/)sym-lib-table$/i;

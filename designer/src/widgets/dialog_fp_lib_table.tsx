@@ -26,14 +26,18 @@ import {
   LIBRARY_TABLE_TYPE,
   type LIBRARY_TABLE_ROW,
 } from '@ziroeda/common/libraries/library_table.js';
-import { findProjectFile, projectRelativePath, projectRoot } from '../fs/project_paths.js';
+import {
+  findProjectFile,
+  projectRelativePath,
+  projectRoot,
+} from '@ziroeda/common/project_paths.js';
 import {
   fpLibRowsOf,
   projectFpLibTablePath,
   projectPrettyDirs,
   rowPrettyDir,
   type FpLibRow,
-} from '../editors/footprint/fp_lib_table.js';
+} from '@ziroeda/common/fp_lib_table.js';
 import { hostedLibraryTable, LIB_LOADED, LibTablePanel, libNotFound } from './lib_table_panel.js';
 
 interface Props {

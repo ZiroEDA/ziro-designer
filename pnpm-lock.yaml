@@ -103,6 +103,9 @@ importers:
       '@ziroeda/kimath':
         specifier: workspace:*
         version: link:../libs/kimath
+      '@ziroeda/pcbnew':
+        specifier: workspace:*
+        version: link:../pcbnew
       react:
         specifier: ^18.3.1
         version: 18.3.1

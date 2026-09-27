@@ -14,3 +14,4 @@ export * from './readwrite_dlgs.js';
 export * from './toolbars_display_footprints.js';
 export * from './tools/cvpcb_association_tool.js';
 export * from './tools/cvpcb_control.js';
+export * from './cvpcb_equ_files.js';

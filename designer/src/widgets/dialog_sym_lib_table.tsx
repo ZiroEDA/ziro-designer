@@ -28,8 +28,8 @@ import {
   LIBRARY_TABLE_TYPE,
   type LIBRARY_TABLE_ROW,
 } from '@ziroeda/common/libraries/library_table.js';
-import { findProjectFile } from '../fs/project_paths.js';
-import { fpLibRowsOf, type FpLibRow } from '../editors/footprint/fp_lib_table.js';
+import { findProjectFile } from '@ziroeda/common/project_paths.js';
+import { fpLibRowsOf, type FpLibRow } from '@ziroeda/common/fp_lib_table.js';
 import {
   projectSymLibTablePath,
   projectSymbolFiles,

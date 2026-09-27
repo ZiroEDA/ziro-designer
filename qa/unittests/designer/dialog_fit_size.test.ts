@@ -177,7 +177,11 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
   // merged component states no size, exactly as `bMainSizer->Fit( this )` and
   // `GetSizer()->SetSizeHints( this )` leave it (dialog_page_settings_base.cpp:
   // 403-405, dialog_page_settings.cpp:192).
-  it('3 call sites still name their own size', () => {
+  // 3 -> 2. `dialog_assign_footprints` moved out of `designer/src` into
+  // `cvpcb/cvpcb_mainframe_ui.tsx` (cvpcb/STRUCTURE.md's stage two): its
+  // `FRAME_SIZE` inline style is still there, cited the same way, this walk
+  // just no longer reaches it. `cvpcb_window_metrics.test.tsx` still pins it.
+  it('2 call sites still name their own size', () => {
     // 29 -> 1. The same sweep as the shell.css block below, at the call sites:
     // twenty-five files stated a width or a height inline on a `.ze-modal`,
     // and several also restated the `max-width` / `max-height` caps that
@@ -208,7 +212,7 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
     // `width: max-content`: a floor does not stop max-content going above it,
     // and Board Setup visibly re-sized itself on every row of its tree. Same
     // reasoning, and the same fix, as `.ze-prefs-dialog`.
-    expect(inlineSized()).toHaveLength(3);
+    expect(inlineSized()).toHaveLength(2);
   });
 
   it('6 shell.css variants still name their own size', () => {
