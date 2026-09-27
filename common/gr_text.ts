@@ -3,10 +3,24 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * `gr_text.h` / `common/gr_text.cpp`: the pen-size rules every text item
- * derives its stroke width from. `GRTextWidth` and `GRPrintText` (the wxDC
- * printing path) are not here: the browser has no wxDC.
+ * derives its stroke width from, `GRTextWidth`, and `GRPrintText` - text on
+ * the wxDC print path (`wx/dc.ts`), each stroke a `GRLine`.
  */
 
+import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
+import { CALLBACK_GAL } from './callback_gal.js';
+import type { Color4d } from './color4d.js';
+import { FONT } from './font/font.js';
+import type { METRICS } from './font/font_metrics.js';
+import {
+  type GR_TEXT_H_ALIGN_T,
+  type GR_TEXT_V_ALIGN_T,
+  TEXT_ATTRIBUTES,
+} from './font/text_attributes.js';
+import { GRClosedPoly, GRCSegm, GRLine } from './gr_basic.js';
+import { EXPRESSION_EVALUATOR } from './text_eval/text_eval_wrapper.js';
+import type { wxDC } from './wx/dc.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 
@@ -84,4 +98,93 @@ export function InferBold(aAttrs: {
  */
 export function GetKnockoutTextMargin(aSize: VECTOR2I, aThickness: number): number {
   return Math.max(KiROUND(aThickness / 2.0), KiROUND(aSize.y / 9.0));
+}
+
+/**
+ * Return the text width in internal units, evaluating `@{...}` expressions
+ * first.
+ */
+export function GRTextWidth(
+  aText: string,
+  aFont: FONT | null,
+  aSize: VECTOR2I,
+  aThickness: number,
+  aBold: boolean,
+  aItalic: boolean,
+  aFontMetrics: METRICS,
+): number {
+  const font = aFont ?? FONT.GetFont();
+  let evaluated = aText;
+
+  if (evaluated.includes('@{')) evaluated = new EXPRESSION_EVALUATOR().Evaluate(evaluated);
+
+  return KiROUND(
+    font.StringBoundaryLimits(evaluated, aSize, aThickness, aBold, aItalic, aFontMetrics).x,
+  );
+}
+
+/**
+ * Print a graphic text through wxDC.
+ *
+ * @param aWidth is the pen width: 0 for the default (bold or normal), and
+ *               negative to draw each stroke as an outline (GRCSegm) rather
+ *               than filled (GRLine).
+ */
+export function GRPrintText(
+  aDC: wxDC,
+  aPos: VECTOR2I,
+  aColor: Color4d,
+  aText: string,
+  aOrient: EDA_ANGLE,
+  aSize: VECTOR2I,
+  aH_justify: GR_TEXT_H_ALIGN_T,
+  aV_justify: GR_TEXT_V_ALIGN_T,
+  aWidth: number,
+  aItalic: boolean,
+  aBold: boolean,
+  aFont: FONT | null,
+  aFontMetrics: METRICS,
+): void {
+  let fill_mode = true;
+  let evaluatedText = aText;
+  let width = aWidth;
+
+  if (evaluatedText.includes('@{'))
+    evaluatedText = new EXPRESSION_EVALUATOR().Evaluate(evaluatedText);
+
+  const font = aFont ?? FONT.GetFont();
+
+  if (width === 0) {
+    // Use default values if aWidth == 0
+    if (aBold) width = GetPenSizeForBold(Math.min(aSize.x, aSize.y));
+    else width = GetPenSizeForNormal(Math.min(aSize.x, aSize.y));
+  }
+
+  if (width < 0) {
+    width = -width;
+    fill_mode = false;
+  }
+
+  const callback_gal = new CALLBACK_GAL(
+    // Stroke callback
+    (aPt1, aPt2) => {
+      if (fill_mode) GRLine(aDC, aPt1, aPt2, width, aColor);
+      else GRCSegm(aDC, aPt1, aPt2, width, aColor);
+    },
+    // Polygon callback
+    (aPoly: SHAPE_LINE_CHAIN) => {
+      GRClosedPoly(aDC, aPoly.PointCount(), aPoly.CPoints(), true, aColor);
+    },
+  );
+
+  const attributes = new TEXT_ATTRIBUTES();
+  attributes.m_Angle = aOrient;
+  attributes.m_StrokeWidth = width;
+  attributes.m_Italic = aItalic;
+  attributes.m_Bold = aBold;
+  attributes.m_Halign = aH_justify;
+  attributes.m_Valign = aV_justify;
+  attributes.m_Size = aSize;
+
+  font.DrawAt(callback_gal, evaluatedText, aPos, attributes, aFontMetrics);
 }

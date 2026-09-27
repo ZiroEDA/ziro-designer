@@ -16,6 +16,7 @@
  *   gbr_layer_box_selector.cpp Resync (:76-129)  one row per LOADED image.
  *   gerbview_control.cpp LayerNext/MoveLayerUp (:334-380).
  */
+import { wxDC } from '@ziroeda/common/wx/dc.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { fakeCanvas, installSurfaceFactory, paints } from '../common/cairo_test_canvas.js';
 import type { EDA_DRAW_PANEL_GAL } from '@ziroeda/common/draw_panel_gal.js';
@@ -1699,12 +1700,7 @@ describe('GERBVIEW_PRINTOUT', () => {
     const canvas = fakeCanvas('page');
     return {
       canvas,
-      dc: {
-        ctx: canvas.ctx,
-        image: canvas.image,
-        GetSize: () => ({ x: 2480, y: 3508 }),
-        GetPPI: () => 300,
-      },
+      dc: new wxDC(canvas.ctx, canvas.image, { x: 2480, y: 3508 }, 300),
     };
   };
 
@@ -1793,12 +1789,7 @@ describe('GERBVIEW_PRINTOUT pages', () => {
 
     const itemPaints = (aPage: number): number => {
       const canvas = fakeCanvas('page');
-      printout.SetDC({
-        ctx: canvas.ctx,
-        image: canvas.image,
-        GetSize: () => ({ x: 2480, y: 3508 }),
-        GetPPI: () => 300,
-      });
+      printout.SetDC(new wxDC(canvas.ctx, canvas.image, { x: 2480, y: 3508 }, 300));
       const before = factory.surfaces.length;
       printout.OnPrintPage(aPage);
       const all = [

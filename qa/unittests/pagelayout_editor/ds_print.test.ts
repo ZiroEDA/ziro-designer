@@ -1,130 +1,187 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
-// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * What File > Print produces in the Drawing Sheet Editor.
+ * `PLEDITOR_PRINTOUT` (pagelayout_editor/dialogs/dialogs_for_printing.cpp): two
+ * pages, each fitted to the paper by wxPrintout, drawn black on the wxDC print
+ * path - `PrintDrawingSheet`, `DS_DRAW_ITEM_LIST::Print`, `gr_basic`.
  *
- * Two things are being held here and they are not the same size.
- *
- * **Two pages.** `PLEDITOR_PRINTOUT::HasPage` is `return ( aPageNum <= 2 )` and
- * `GetPageInfo` reports `maxPage = selPageTo = 2`
- * (pagelayout_editor/dialogs/dialogs_for_printing.cpp:62, :152-157), and
- * `PrintPage` sets `screen->SetVirtualPageNumber( aPageNum )` before rendering
- * (:189). That is the whole reason the editor has a `Page 1 / Other pages`
- * selector: an item marked `(option page1only)` is on the first sheet only and
- * one marked `(option notonpage1)` is on the second only, so a one-page print
- * can never show both. Ours printed one page — whichever the toolbar happened
- * to be showing. Opening the print dialog on a driven pl_editor shows the
- * two-page collate icon, which is `SetMaxPage( 2 )` (:230).
- *
- * **A blocked popup.** KiCad's Ctrl+P goes to the GTK system print dialog and
- * prints vectors; a browser cannot, and the raster-to-`window.print` route is
- * the honest substitute. `window.open` returns null when the popup is blocked,
- * and `if (!w) return;` once turned that into a command that did nothing and
- * said nothing.
+ * The page-fit expectations are wxWidgets' own answers for the same sizes,
+ * from `qa/probes/printout_fit_probe.cpp` - not read back off the port.
  */
-import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import {
-  PL_EDITOR_PRINT_PAGES,
-  printDocumentHtml,
-} from '@ziroeda/pagelayout_editor/dialogs/dialogs_for_printing.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
+import { DS_DRAW_ITEM_LIST } from '@ziroeda/common/drawing_sheet/ds_draw_item.js';
+import { GetGRForceBlackPenState } from '@ziroeda/common/gr_basic.js';
+import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/page_info.js';
+import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { EDA_UNITS_INT } from '@ziroeda/common/settings/app_settings.js';
+import { wxDC } from '@ziroeda/common/wx/dc.js';
+import { LEGACY_COLORS } from '@ziroeda/common/color4d.js';
+import { PLEDITOR_PRINTOUT } from '@ziroeda/pagelayout_editor/dialogs/dialogs_for_printing.js';
+import { makeHarness } from './pl_editor_fixture.js';
 
-describe('the printout is two pages', () => {
-  it('numbers them 1 and 2, as HasPage does', () => {
-    expect(PL_EDITOR_PRINT_PAGES).toEqual([1, 2]);
-  });
-
-  it('emits one image per page', () => {
-    const html = printDocumentHtml('frame', [
-      'data:image/png;base64,AAA',
-      'data:image/png;base64,BBB',
-    ]);
-    expect(html.match(/<img /g) ?? []).toHaveLength(2);
-    expect(html).toContain('data:image/png;base64,AAA');
-    expect(html).toContain('data:image/png;base64,BBB');
-  });
-
-  it('puts each image on its own sheet of paper', () => {
-    // Without the break the two images flow onto one page and the printout is
-    // one sheet again, which is the bug with the fix's shape.
-    const html = printDocumentHtml('frame', ['a', 'b']);
-    expect(html).toContain('page-break-after:always');
-    expect(html).toContain('img:last-child{page-break-after:auto}');
-  });
-
-  it('prints after the whole document has loaded, not after the first image', () => {
-    // An `onload` on image 1 can fire before image 2 has been laid out, and
-    // then the second sheet comes out blank.
-    const html = printDocumentHtml('frame', ['a', 'b']);
-    expect(html).toContain('window.addEventListener("load"');
-    expect(html).not.toContain('onload=');
-  });
-
-  it('titles the window with the sheet', () => {
-    expect(printDocumentHtml('frame.kicad_wks', [])).toContain('<title>frame.kicad_wks</title>');
-  });
-});
-
-const EDITOR = readFileSync(
-  fileURLToPath(
-    new URL('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx', import.meta.url),
-  ),
-  'utf8',
-);
-
-const PRINT = (() => {
-  const at = EDITOR.indexOf('const printSheet');
-  expect(at, 'no printSheet').toBeGreaterThan(-1);
-  return EDITOR.slice(at, EDITOR.indexOf('w.document.close();', at));
-})();
-
-/** Statements only: a commented-out line must not satisfy any of these. */
-function statements(src: string, needle: string): string[] {
-  return src
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => !l.startsWith('//') && !l.startsWith('*') && !l.startsWith('/*'))
-    .filter((l) => l.includes(needle));
+/** A 2D context that records every stroke: its colour and width. */
+class RECORDING_CTX {
+  strokes: { style: string; width: number }[] = [];
+  fills = 0;
+  strokeStyle: string | CanvasGradient | CanvasPattern = '';
+  fillStyle: string | CanvasGradient | CanvasPattern = '';
+  lineWidth = 1;
+  lineCap: CanvasLineCap = 'butt';
+  lineJoin: CanvasLineJoin = 'miter';
+  miterLimit = 10;
+  globalAlpha = 1;
+  globalCompositeOperation: GlobalCompositeOperation = 'source-over';
+  beginPath(): void {}
+  moveTo(): void {}
+  lineTo(): void {}
+  bezierCurveTo(): void {}
+  arc(): void {}
+  closePath(): void {}
+  setTransform(): void {}
+  fillRect(): void {}
+  clearRect(): void {}
+  drawImage(): void {}
+  createImageData(): ImageData {
+    return {} as ImageData;
+  }
+  putImageData(): void {}
+  getImageData(): ImageData {
+    return {} as ImageData;
+  }
+  stroke(): void {
+    this.strokes.push({ style: String(this.strokeStyle), width: this.lineWidth });
+  }
+  fill(): void {
+    this.fills++;
+  }
 }
 
-describe('the page the print renders', () => {
-  it('lays each page out at its own page number', () => {
-    // `screen->SetVirtualPageNumber( aPageNum )`: without this both sheets come
-    // out identical and the page options are ignored.
-    expect(statements(PRINT, 'pageNumber: aPageNum')).toHaveLength(1);
-  });
+/** A4 portrait at 300 PPI: 2480 x 3508 device units, the probe's page. */
+function a4Page(): { ctx: RECORDING_CTX; dc: wxDC } {
+  const ctx = new RECORDING_CTX();
+  const dc = new wxDC(ctx as never, {} as CanvasImageSource, { x: 2480, y: 3508 }, 300);
+  return { ctx, dc };
+}
 
-  it('forces the black pen, as GRForceBlackPen( true ) does', () => {
-    // dialogs_for_printing.cpp:184. Without it a coloured `(tbtext … (color …))`
-    // prints in its screen colour.
-    expect(statements(PRINT, 'forceBlackPen: true')).toHaveLength(1);
-  });
+/** What wxPrinter does before each page: the page is the DC, no margins. */
+function printPage(aPrintout: PLEDITOR_PRINTOUT, aDC: wxDC, aPage: number): void {
+  const size = aDC.GetSize();
+  aPrintout.SetPageSizePixels(size.x, size.y);
+  aPrintout.SetPaperRectPixels({ x: 0, y: 0, width: size.x, height: size.y });
+  aPrintout.SetDC(aDC);
+  aPrintout.OnPrintPage(aPage);
+}
+
+let model: DS_DATA_MODEL;
+
+beforeEach(() => {
+  SetPgm(new PGM_BASE());
+  model = new DS_DATA_MODEL();
+  DS_DATA_MODEL.SetAltInstance(model);
 });
 
-describe('Print with popups blocked', () => {
-  it('does not return silently', () => {
-    expect(PRINT).toContain("window.open('', '_blank'");
-    expect(statements(PRINT, 'if (!w) return;')).toHaveLength(0);
+afterEach(() => {
+  DS_DATA_MODEL.SetAltInstance(null);
+  SetPgm(null);
+});
+
+describe('PLEDITOR_PRINTOUT', () => {
+  it('is two pages (HasPage, GetPageInfo)', () => {
+    const h = makeHarness(EDA_UNITS_INT.MM);
+    const printout = new PLEDITOR_PRINTOUT(h.frame, 'Print Drawing Sheet');
+
+    expect([1, 2, 3].map((n) => printout.HasPage(n))).toEqual([true, true, false]);
+    expect(printout.GetPageInfo()).toEqual({
+      minPage: 1,
+      selPageFrom: 1,
+      maxPage: 2,
+      selPageTo: 2,
+    });
   });
 
-  it('raises DisplayErrorMessage’s dialog and names the cause', () => {
-    expect(statements(PRINT, 'displayErrorMessage(')).toHaveLength(1);
-    expect(PRINT).toContain('pop-up');
+  it('fits an A4 sheet to A4 paper as wxPrintout does', () => {
+    const h = makeHarness(EDA_UNITS_INT.MM);
+    h.frame.SetPageSettings(new PAGE_INFO(PAGE_SIZE_TYPE.A4, true));
+    const { dc } = a4Page();
+
+    printPage(new PLEDITOR_PRINTOUT(h.frame, 'Print'), dc, 1);
+
+    // KiCad's A4 is 8268 x 11693 mils, 210007 x 297002 IU. The probe, for
+    // that size: "scale 0.0118091302", "offset 0 28 -> devOrg 0 0".
+    expect(dc.GetUserScale().x).toBeCloseTo(0.0118091302, 10);
+    expect(dc.GetDeviceOrigin()).toEqual({ x: 0, y: 0 });
   });
 
-  it('uses the shared message dialog rather than a private one', () => {
-    // common/confirm.cpp's DisplayErrorMessage is one dialog for every frame;
-    // ui/dialog_message.tsx is that one component here.
-    expect(EDITOR).toContain("from '@ziroeda/common/dialogs/dialog_message.js'");
+  it('centres an A3 landscape sheet on A4 portrait paper as wxPrintout does', () => {
+    const h = makeHarness(EDA_UNITS_INT.MM);
+    // The default sheet is A3 landscape: 420 x 297 mm.
+    const { dc } = a4Page();
+
+    printPage(new PLEDITOR_PRINTOUT(h.frame, 'Print'), dc, 1);
+
+    // A3 is 16535 x 11693 mils, 419989 x 297002 IU. The probe, for that
+    // size: "scale 0.00590491656", "offset 0 148539 -> devOrg 0 877".
+    expect(dc.GetUserScale().x).toBeCloseTo(0.00590491656, 10);
+    expect(dc.GetDeviceOrigin()).toEqual({ x: 0, y: 877 });
   });
 
-  it('does not borrow upstream’s printer-error sentence for a browser refusal', () => {
-    // `An error occurred attempting to print the drawing sheet.`
-    // (dialogs_for_printing.cpp:241) reports a printer that refused the job.
-    // A blocked popup is a different event and pointing the user at the printer
-    // would be worse than saying nothing.
-    expect(EDITOR).not.toContain('An error occurred attempting to print');
+  it('prints black whatever the layer colour, and puts the pen back after', () => {
+    const h = makeHarness(EDA_UNITS_INT.MM);
+    const { ctx, dc } = a4Page();
+
+    printPage(new PLEDITOR_PRINTOUT(h.frame, 'Print'), dc, 1);
+
+    expect(ctx.strokes.length).toBeGreaterThan(0);
+    expect(new Set(ctx.strokes.map((s) => s.style))).toEqual(new Set(['rgb(0, 0, 0)']));
+    expect(GetGRForceBlackPenState()).toBe(false);
+  });
+
+  it('prints on white and restores the frame background after', () => {
+    const h = makeHarness(EDA_UNITS_INT.MM, 0, (cfg) => {
+      cfg.m_BlackBackground = true;
+    });
+    const seen: unknown[] = [];
+    const original = DS_DRAW_ITEM_LIST.prototype.Print;
+    DS_DRAW_ITEM_LIST.prototype.Print = function (this: DS_DRAW_ITEM_LIST, aSettings) {
+      seen.push(h.frame.GetDrawBgColor());
+      original.call(this, aSettings);
+    };
+
+    try {
+      printPage(new PLEDITOR_PRINTOUT(h.frame, 'Print'), a4Page().dc, 1);
+    } finally {
+      DS_DRAW_ITEM_LIST.prototype.Print = original;
+    }
+
+    expect(seen).toEqual([LEGACY_COLORS.WHITE]);
+    expect(h.frame.GetDrawBgColor()).toEqual(LEGACY_COLORS.BLACK);
+  });
+
+  it('numbers the printed sheets 1/1 and 2/1: the page is the sheet, the count stays 1', () => {
+    // `screen->SetVirtualPageNumber( aPageNum )` (:189), then PrintDrawingSheet
+    // passes GetPageNumber() - the virtual page, nothing having set one - and
+    // GetPageCount(), which nothing in pl_editor moves from 1.
+    const h = makeHarness(EDA_UNITS_INT.MM);
+    const numbering: [string, number][] = [];
+    const original = DS_DRAW_ITEM_LIST.prototype.BuildDrawItemsList;
+    DS_DRAW_ITEM_LIST.prototype.BuildDrawItemsList = function (this: DS_DRAW_ITEM_LIST, a, b) {
+      const self = this as unknown as { m_pageNumber: string; m_sheetCount: number };
+      numbering.push([self.m_pageNumber, self.m_sheetCount]);
+      original.call(this, a, b);
+    };
+
+    try {
+      const printout = new PLEDITOR_PRINTOUT(h.frame, 'Print');
+      printPage(printout, a4Page().dc, 1);
+      printPage(printout, a4Page().dc, 2);
+    } finally {
+      DS_DRAW_ITEM_LIST.prototype.BuildDrawItemsList = original;
+    }
+
+    expect(numbering).toEqual([
+      ['1', 1],
+      ['2', 1],
+    ]);
   });
 });

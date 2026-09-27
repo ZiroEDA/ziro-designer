@@ -13,8 +13,9 @@
  * `DS_PROXY_VIEW_ITEM` from the resolved layout (`layout.ts`) has no peer,
  * like KiCad's `DS_DRAW_ITEM_PAGE`.
  *
- * `PrintWsItem` (the wxDC print path) is n/a: every sheet here is drawn
- * through the GAL by `DS_PAINTER`.
+ * Every sheet on screen is drawn through the GAL by `DS_PAINTER`;
+ * `PrintWsItem` is the wxDC print path pl_editor prints through
+ * (`gr_basic.ts`, `wx/dc.ts`).
  */
 
 import { applyMixins } from '@ziroeda/core/mixins.js';
@@ -26,6 +27,8 @@ import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { TestSegmentHit } from '@ziroeda/kimath/src/trigo.js';
 import type { Color4d } from '../color4d.js';
+import { GRLine, GRPoly, GRRect } from '../gr_basic.js';
+import type { RENDER_SETTINGS } from '../render_settings.js';
 import { ExpandTextVars, type TextVarResolverFn } from '../common.js';
 import { EDA_ITEM, type EDA_DRAW_FRAME_LIKE } from '../eda_item.js';
 import { EDA_TEXT } from '../eda_text.js';
@@ -68,6 +71,9 @@ const COLOR4D_UNSPECIFIED: Color4d = { r: 0, g: 0, b: 0, a: 0 };
  *  - bitmaps (also for logos, but they cannot be plot by SVG, GERBER or HPGL plotters
  *    where we just plot the bounding box)
  */
+
+const addV = (a: VECTOR2I, b: VECTOR2I): VECTOR2I => ({ x: a.x + b.x, y: a.y + b.y });
+
 export abstract class DS_DRAW_ITEM_BASE extends EDA_ITEM {
   protected m_peer: DS_DATA_ITEM | null; // the parent DS_DATA_ITEM item in the DS_DATA_MODEL
   protected m_index: number; // the index in the parent's repeat count
@@ -108,6 +114,9 @@ export abstract class DS_DRAW_ITEM_BASE extends EDA_ITEM {
     if (this.m_penWidth > 0) return this.m_penWidth;
     else return 1;
   }
+
+  /** Draws the item to the settings' print DC, at `aOffset` (0,0 by default). */
+  abstract PrintWsItem(aSettings: RENDER_SETTINGS, aOffset?: VECTOR2I): void;
 
   GetFontMetrics(): METRICS {
     return METRICS.Default();
@@ -246,6 +255,14 @@ export class DS_DRAW_ITEM_LINE extends DS_DRAW_ITEM_BASE {
     this.m_end = aPos;
   }
 
+  PrintWsItem(aSettings: RENDER_SETTINGS, aOffset: VECTOR2I = { x: 0, y: 0 }): void {
+    const DC = aSettings.GetPrintDC()!;
+    const color = aSettings.GetLayerColor(LAYER_DRAWINGSHEET);
+    const penWidth = Math.max(this.GetPenWidth(), aSettings.GetDefaultPenWidth());
+
+    GRLine(DC, addV(this.GetStart(), aOffset), addV(this.GetEnd(), aOffset), penWidth, color);
+  }
+
   override GetPosition(): VECTOR2I {
     return this.GetStart();
   }
@@ -299,6 +316,22 @@ export class DS_DRAW_ITEM_POLYPOLYGONS extends DS_DRAW_ITEM_BASE {
 
   override GetClass(): string {
     return 'DS_DRAW_ITEM_POLYPOLYGONS';
+  }
+
+  PrintWsItem(aSettings: RENDER_SETTINGS, aOffset: VECTOR2I = { x: 0, y: 0 }): void {
+    const DC = aSettings.GetPrintDC()!;
+    const color = aSettings.GetLayerColor(LAYER_DRAWINGSHEET);
+    const penWidth = Math.max(this.GetPenWidth(), aSettings.GetDefaultPenWidth());
+
+    for (let idx = 0; idx < this.m_Polygons.OutlineCount(); ++idx) {
+      const outline = this.m_Polygons.Outline(idx);
+      const points_moved: VECTOR2I[] = [];
+
+      for (let ii = 0; ii < outline.PointCount(); ii++)
+        points_moved.push(addV(outline.CPoint(ii), aOffset));
+
+      GRPoly(DC, points_moved.length, points_moved, true, penWidth, color, color);
+    }
   }
 
   GetPolygons(): SHAPE_POLY_SET {
@@ -388,6 +421,14 @@ export class DS_DRAW_ITEM_RECT extends DS_DRAW_ITEM_BASE {
 
   override GetClass(): string {
     return 'DS_DRAW_ITEM_RECT';
+  }
+
+  PrintWsItem(aSettings: RENDER_SETTINGS, aOffset: VECTOR2I = { x: 0, y: 0 }): void {
+    const DC = aSettings.GetPrintDC()!;
+    const color = aSettings.GetLayerColor(LAYER_DRAWINGSHEET);
+    const penWidth = Math.max(this.GetPenWidth(), aSettings.GetDefaultPenWidth());
+
+    GRRect(DC, addV(this.GetStart(), aOffset), addV(this.GetEnd(), aOffset), penWidth, color);
   }
 
   GetStart(): VECTOR2I {
@@ -512,6 +553,10 @@ export class DS_DRAW_ITEM_PAGE extends DS_DRAW_ITEM_BASE {
     return 'DS_DRAW_ITEM_PAGE';
   }
 
+  PrintWsItem(_aSettings: RENDER_SETTINGS, _aOffset?: VECTOR2I): void {
+    /* do nothing */
+  }
+
   SetPageSize(aSize: VECTOR2I): void {
     this.m_pageSize = aSize;
   }
@@ -618,6 +663,15 @@ export class DS_DRAW_ITEM_TEXT extends DS_DRAW_ITEM_BASE {
     return 'DS_DRAW_ITEM_TEXT';
   }
 
+  PrintWsItem(aSettings: RENDER_SETTINGS, aOffset: VECTOR2I = { x: 0, y: 0 }): void {
+    let color = this.GetTextColor();
+
+    if (color.r === 0 && color.g === 0 && color.b === 0 && color.a === 0)
+      color = aSettings.GetLayerColor(LAYER_DRAWINGSHEET);
+
+    this.Print(aSettings, aOffset, color);
+  }
+
   override GetPosition(): VECTOR2I {
     return this.GetTextPos();
   }
@@ -707,6 +761,18 @@ export class DS_DRAW_ITEM_BITMAP extends DS_DRAW_ITEM_BASE {
 
   override GetClass(): string {
     return 'DS_DRAW_ITEM_BITMAP';
+  }
+
+  PrintWsItem(aSettings: RENDER_SETTINGS, aOffset: VECTOR2I = { x: 0, y: 0 }): void {
+    const bitmap = this.GetPeer() as DS_DATA_ITEM_BITMAP | null;
+
+    if (!bitmap?.m_ImageBitmap) return;
+
+    bitmap.m_ImageBitmap.DrawBitmap(
+      aSettings.GetPrintDC()!,
+      addV(this.m_pos, aOffset),
+      aSettings.GetBackgroundColor(),
+    );
   }
 
   override GetPosition(): VECTOR2I {
@@ -887,6 +953,21 @@ export class DS_DRAW_ITEM_LIST {
 
   Remove(aItem: DS_DRAW_ITEM_BASE): void {
     this.m_graphicList = this.m_graphicList.filter((i) => i !== aItem);
+  }
+
+  /**
+   * Draws the item list created by BuildDrawItemsList, bitmaps first so the
+   * lines and text print over them.
+   */
+  Print(aSettings: RENDER_SETTINGS): void {
+    const second_items: DS_DRAW_ITEM_BASE[] = [];
+
+    for (let item = this.GetFirst(); item; item = this.GetNext()) {
+      if (item.Type() === KICAD_T.WSG_BITMAP_T) item.PrintWsItem(aSettings);
+      else second_items.push(item);
+    }
+
+    for (const item of second_items) item.PrintWsItem(aSettings);
   }
 
   /** @return the first DS_DRAW_ITEM_BASE item in list. */

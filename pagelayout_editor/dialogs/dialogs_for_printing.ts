@@ -2,7 +2,10 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * What pl_editor prints, and how many sheets of paper it is.
+ * `pagelayout_editor/dialogs/dialogs_for_printing.cpp`: `PLEDITOR_PRINTOUT`,
+ * `InvokeDialogPrint` and `InvokeDialogPrintPreview` - what pl_editor prints,
+ * how many sheets of paper it is, and how it draws them: on the wxDC print
+ * path (`common/wx/dc.ts`, `gr_basic.ts`, `PrintDrawingSheet`), not the GAL.
  *
  * `PLEDITOR_PRINTOUT` (pagelayout_editor/dialogs/dialogs_for_printing.cpp) is
  * a two-page printout and says so twice:
@@ -22,38 +25,21 @@
  * half of any sheet that uses the feature, and ours printed whichever page the
  * toolbar's `Page 1 / Other pages` selector happened to be on.
  *
- * Kept out of `DrawingSheetEditor.tsx` so `qa` can hold it: the frame is a
- * `.tsx` and `qa`'s tsconfig sets no `--jsx`.
+ * `PLEDITOR_PREVIEW_FRAME` (the wxPrintPreview window) has no browser form:
+ * the browser's print dialog is its own preview, so `InvokeDialogPrintPreview`
+ * prints, as `InvokeDialogPrint` does.
  */
 
-/**
- * `HasPage( aPageNum ) => aPageNum <= 2`. The pages are numbered from 1, so
- * this is `[1, 2]`.
- */
-export const PL_EDITOR_PRINT_PAGES: readonly number[] = [1, 2];
-
-/**
- * The document handed to the print window: one image per page, each on its own
- * sheet.
- *
- * `page-break-after: always` on every image but the last is what makes the
- * browser's print pipeline emit `PL_EDITOR_PRINT_PAGES.length` sheets; without
- * it two images flow onto one page and the printout is not what `HasPage`
- * promised. The `load` listener waits for the whole document rather than the
- * first image's `onload`, which can fire before the second has been laid out
- * and prints a blank second sheet.
- */
-export function printDocumentHtml(title: string, pageImages: readonly string[]): string {
-  const style =
-    'img{width:100%;display:block;page-break-after:always}img:last-child{page-break-after:auto}';
-  return (
-    `<title>${title}</title><style>${style}</style>` +
-    pageImages.map((src) => `<img src="${src}">`).join('') +
-    // Split so this source string cannot close the enclosing document early.
-    '<script>window.addEventListener("load",function(){window.print()})</scr' +
-    'ipt>'
-  );
-}
+import { LEGACY_COLORS } from '@ziroeda/common/color4d.js';
+import { DS_DATA_ITEM_BITMAP } from '@ziroeda/common/drawing_sheet/ds_data_item.js';
+import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
+import { DS_RENDER_SETTINGS } from '@ziroeda/common/drawing_sheet/ds_proxy_view_item.js';
+import { drawSheetIUScale } from '@ziroeda/common/eda_units.js';
+import { GRForceBlackPen, GRResetPenAndBrush } from '@ziroeda/common/gr_basic.js';
+import { LAYER_DRAWINGSHEET } from '@ziroeda/common/layer_id.js';
+import { wxPrinter } from '@ziroeda/common/wx/printer.js';
+import { wxPrintout } from '@ziroeda/common/wx/prntbase.js';
+import type { PL_EDITOR_FRAME } from '../pl_editor_frame.js';
 
 /**
  * What `${#}` and `${##}` resolve to in the Drawing Sheet Editor, on screen and
@@ -96,22 +82,125 @@ export function printDocumentHtml(title: string, pageImages: readonly string[]):
  * calls `SetPageNumber` either — so the printed second sheet is numbered `2` out
  * of a total of `1`. That reads oddly and it is what the program does.
  *
- * Kept out of `DrawingSheetEditor.tsx` because the frame is a `.tsx` and `qa`'s
- * tsconfig sets no `--jsx`, so a rule that lives inside it cannot be exercised.
+ * Both follow from `PrintPage` below with nothing added: the numbering is the
+ * screen's, as upstream's is.
  */
 
-/** The `WksResolveContext` half that decides the numbering. */
-export interface DsPageNumbering {
-  /** `${#}` — `DS_DRAW_ITEM_LIST::m_pageNumber`. */
-  pageName: string;
-  /** `${##}` — `DS_DRAW_ITEM_LIST::m_sheetCount`. */
-  sheetCount: number;
+/**
+ * Custom print out for printing schematics.
+ */
+export class PLEDITOR_PRINTOUT extends wxPrintout {
+  private m_parent: PL_EDITOR_FRAME;
+
+  constructor(aParent: PL_EDITOR_FRAME, aTitle: string) {
+    super(aTitle);
+    this.m_parent = aParent;
+  }
+
+  override OnPrintPage(aPageNum: number): boolean {
+    this.PrintPage(aPageNum);
+    return true;
+  }
+
+  HasPage(aPageNum: number): boolean {
+    return aPageNum <= 2;
+  }
+
+  GetPageInfo(): { minPage: number; maxPage: number; selPageFrom: number; selPageTo: number } {
+    return { minPage: 1, selPageFrom: 1, maxPage: 2, selPageTo: 2 };
+  }
+
+  /**
+   * Print a page.
+   */
+  PrintPage(aPageNum: number): void {
+    const dc = this.GetDC();
+    const screen = this.m_parent.GetScreen()!;
+
+    // Save current offsets and clip box.
+    const tmp_startvisu = { ...screen.m_StartVisu };
+    const old_org = { ...screen.m_DrawOrg };
+
+    // Change scale factor and offset to print the whole page.
+    const pageSizeIU = this.m_parent.GetPageSettings().GetSizeIU(drawSheetIUScale.IU_PER_MILS);
+    this.FitThisSizeToPaper(pageSizeIU);
+    const fitRect = this.GetLogicalPaperRect();
+
+    const xoffset = Math.trunc((fitRect.width - pageSizeIU.x) / 2);
+    const yoffset = Math.trunc((fitRect.height - pageSizeIU.y) / 2);
+
+    this.OffsetLogicalOrigin(xoffset, yoffset);
+
+    GRResetPenAndBrush(dc);
+    GRForceBlackPen(true);
+
+    const bg_color = this.m_parent.GetDrawBgColor();
+    this.m_parent.SetDrawBgColor(LEGACY_COLORS.WHITE);
+
+    screen.SetVirtualPageNumber(aPageNum);
+
+    const renderSettings = new DS_RENDER_SETTINGS();
+    renderSettings.SetDefaultPenWidth(1);
+    renderSettings.SetLayerColor(LAYER_DRAWINGSHEET, LEGACY_COLORS.RED);
+    renderSettings.SetPrintDC(dc);
+
+    // Ensure the scaling factor (used only in printing) of bitmaps is up to date
+    const model = DS_DATA_MODEL.GetTheInstance();
+
+    for (const dataItem of model.GetItems()) {
+      if (dataItem instanceof DS_DATA_ITEM_BITMAP && dataItem.m_ImageBitmap) {
+        const bitmap = dataItem.m_ImageBitmap;
+        bitmap.SetPixelSizeIu((drawSheetIUScale.IU_PER_MILS * 1000) / bitmap.GetPPI());
+      }
+    }
+
+    this.m_parent.PrintDrawingSheet(renderSettings, screen, null, drawSheetIUScale.IU_PER_MILS, '');
+
+    this.m_parent.SetDrawBgColor(bg_color);
+    GRForceBlackPen(false);
+
+    screen.m_StartVisu = tmp_startvisu;
+    screen.m_DrawOrg = old_org;
+
+    // PrintDrawingSheet clears the current display list when calling BuildDrawItemsList()
+    // So rebuild and redraw it.
+    this.m_parent.GetCanvas()?.DisplayDrawingSheet();
+  }
 }
 
 /**
- * `aScreen->GetPageNumber()` / `aScreen->GetPageCount()` for the sheet of paper
- * numbered `aPageNum`.
+ * The paper `ToPrinter` sets up: the sheet's own paper and orientation
+ * (`s_pageSetupData->SetPaperId( pageInfo.GetPaperId() )`, `SetOrientation`),
+ * in inches, as `wxPrinter` takes it.
  */
-export function dsPrintPageNumbering(aPageNum: number): DsPageNumbering {
-  return { pageName: String(aPageNum), sheetCount: 1 };
+function paperInches(aCaller: PL_EDITOR_FRAME): { x: number; y: number } {
+  const page = aCaller.GetPageSettings();
+  return { x: page.GetWidthMils() / 1000, y: page.GetHeightMils() / 1000 };
+}
+
+/**
+ * Create and show a print dialog; returns 1 if OK, 0 if there is a problem.
+ */
+export function InvokeDialogPrint(aCaller: PL_EDITOR_FRAME): number {
+  const printer = new wxPrinter();
+  const printout = new PLEDITOR_PRINTOUT(aCaller, 'Print Drawing Sheet');
+
+  if (!printer.Print(printout, paperInches(aCaller))) {
+    aCaller
+      .GetHost()
+      ?.MessageBox('An error occurred attempting to print the drawing sheet.', 'Printing');
+    return 0;
+  }
+
+  return 1;
+}
+
+/**
+ * Create and show a print preview dialog; returns 1 if OK, 0 if there is a
+ * problem. The browser's print dialog previews, so this prints.
+ */
+export function InvokeDialogPrintPreview(aCaller: PL_EDITOR_FRAME): number {
+  const printer = new wxPrinter();
+
+  return printer.Print(new PLEDITOR_PRINTOUT(aCaller, 'Preview'), paperInches(aCaller)) ? 1 : 0;
 }

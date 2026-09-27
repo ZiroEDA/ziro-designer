@@ -11,6 +11,7 @@
  * its panes, and the two coordinate panes `UpdateStatusBar` formats.
  */
 
+import { InvokeDialogPrint, InvokeDialogPrintPreview } from './dialogs/dialogs_for_printing.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { BASE_SCREEN } from '@ziroeda/common/base_screen.js';
 import { BITMAP_BASE } from '@ziroeda/common/bitmap_base.js';
@@ -136,8 +137,6 @@ export interface PL_EDITOR_FRAME_HOST {
    * Cancel does not.
    */
   HandleUnsavedChanges(aMessage: string, aSaveFunction: () => Promise<boolean>): Promise<boolean>;
-  /** `ToPrinter( doPreview )`: `InvokeDialogPrint`, the browser's print. */
-  ToPrinter(aDoPreview: boolean): void;
   /** `DIALOG_INSPECTOR dlg( this ); dlg.ShowModal();`. */
   ShowDesignInspector(aDlg: DIALOG_INSPECTOR): Promise<void>;
   /**
@@ -1015,7 +1014,10 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
    * Open a dialog frame to print layers.
    */
   ToPrinter(aDoPreview: boolean): void {
-    this.m_host?.ToPrinter(aDoPreview);
+    // `s_PrintData` / `s_pageSetupData` keep the printer and page setup for
+    // the session; the browser's print dialog keeps its own.
+    if (aDoPreview) InvokeDialogPrintPreview(this);
+    else InvokeDialogPrint(this);
   }
 
   /**

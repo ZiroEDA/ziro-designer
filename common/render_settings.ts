@@ -13,6 +13,7 @@
  * line-width sentinels, at the level of sharing upstream gives them.
  */
 
+import type { wxDC } from './wx/dc.js';
 import { brightened, brightness, type Color4d, COLOR4D_BLACK, darkened, mix } from './color4d.js';
 import {
   GAL_LAYER_ID,
@@ -51,7 +52,7 @@ export const DEFAULT_GAP_LENGTH_RATIO = 3;
 /**
  * `KIGFX::RENDER_SETTINGS` (`include/render_settings.h` +
  * `common/render_settings.cpp`): the drawing parameters a PAINTER reads,
- * whole. `m_printDC` is wxDC-only and has no browser form.
+ * whole, `m_printDC` included: the wxDC print path (`wx/dc.ts`) draws on it.
  */
 export abstract class RENDER_SETTINGS {
   protected m_activeLayer: PCB_LAYER_ID; // The active layer (as shown by appearance mgr)
@@ -262,6 +263,17 @@ export abstract class RENDER_SETTINGS {
 
   GetDrawingSheetLineWidth(): number {
     return this.m_drawingSheetLineWidth;
+  }
+
+  /** `m_printDC`: the device context of the wxDC print path, or null. */
+  private m_printDC: wxDC | null = null;
+
+  GetPrintDC(): wxDC | null {
+    return this.m_printDC;
+  }
+
+  SetPrintDC(aDC: wxDC | null): void {
+    this.m_printDC = aDC;
   }
 
   GetDefaultPenWidth(): number {

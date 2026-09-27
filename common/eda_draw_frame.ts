@@ -37,6 +37,11 @@ import type { KIID } from './kiid.js';
 import type { EDA_DRAW_FRAME_LIKE, EDA_ITEM } from './eda_item.js';
 import type { ORIGIN_TRANSFORMS } from './origin_transforms.js';
 import type { BASE_SCREEN } from './base_screen.js';
+import { DS_DRAW_ITEM_LIST } from './drawing_sheet/ds_draw_item.js';
+import { unityScale } from './eda_units.js';
+import type { PAGE_INFO } from './page_info.js';
+import type { RENDER_SETTINGS } from './render_settings.js';
+import type { PROJECT_TEXT_VARS, TITLE_BLOCK } from './title_block.js';
 import { type EDA_DRAW_PANEL_GAL, GAL_TYPE } from './draw_panel_gal.js';
 import { DEFAULT_THEME, GetColorSettings } from './pgm_base.js';
 import type { COLOR_SETTINGS } from './settings/color_settings.js';
@@ -122,6 +127,70 @@ export abstract class EDA_DRAW_FRAME extends EDA_BASE_FRAME {
   /// The background color of the draw canvas; BLACK for Pcbnew, BLACK or WHITE
   /// for Eeschema (eda_draw_frame.cpp:121).
   protected m_drawBgColor: Color4d = LEGACY_COLORS.BLACK;
+
+  abstract GetPageSettings(): PAGE_INFO;
+
+  abstract GetTitleBlock(): TITLE_BLOCK;
+
+  /** `GetScreenDesc()`: the base class returns an empty string (eda_draw_frame.cpp:1249-1253). */
+  GetScreenDesc(): string {
+    return '';
+  }
+
+  /** `GetFullScreenDesc()`: likewise empty in the base class (:1256-1260). */
+  GetFullScreenDesc(): string {
+    return '';
+  }
+
+  /**
+   * Print the drawing-sheet (frame and title block) to the settings' print DC
+   * (`eda_draw_frame.cpp:1219-1246`).
+   *
+   * @param aScreen screen to draw.
+   * @param aProperties optional properties for text variable resolution.
+   * @param aMils2Iu the scaling factor from mils to internal units.
+   * @param aFilename the filename to display in basic inscriptions.
+   * @param aSheetLayer the layer displayed in the title block.
+   */
+  PrintDrawingSheet(
+    aSettings: RENDER_SETTINGS,
+    aScreen: BASE_SCREEN,
+    aProperties: Map<string, string> | null,
+    aMils2Iu: number,
+    aFilename: string,
+    aSheetLayer = '',
+  ): void {
+    if (!this.m_showBorderAndTitleBlock) return;
+
+    const DC = aSettings.GetPrintDC()!;
+    const origin = DC.GetDeviceOrigin();
+
+    if (origin.y > 0) {
+      DC.SetDeviceOrigin(0, 0);
+      DC.SetAxisOrientation(true, false);
+    }
+
+    PrintDrawingSheet(
+      aSettings,
+      this.GetPageSettings(),
+      this.GetScreenDesc(),
+      this.GetFullScreenDesc(),
+      aFilename,
+      this.GetTitleBlock(),
+      aProperties,
+      aScreen.GetPageCount(),
+      aScreen.GetPageNumber(),
+      aMils2Iu,
+      this.Prj(),
+      aSheetLayer,
+      aScreen.GetVirtualPageNumber() === 1,
+    );
+
+    if (origin.y > 0) {
+      DC.SetDeviceOrigin(origin.x, origin.y);
+      DC.SetAxisOrientation(true, true);
+    }
+  }
 
   GetDrawBgColor(): Color4d {
     return this.m_drawBgColor;
@@ -1045,4 +1114,43 @@ export abstract class EDA_DRAW_FRAME extends EDA_BASE_FRAME {
   ): void {
     this.m_pointEntryPresenter = aPresenter;
   }
+}
+
+/**
+ * Print the frame references (drawing sheet) through the settings' print DC
+ * (`eda_draw_frame.cpp:1191-1216`).
+ */
+export function PrintDrawingSheet(
+  aSettings: RENDER_SETTINGS,
+  aPageInfo: PAGE_INFO,
+  aSheetName: string,
+  aSheetPath: string,
+  aFileName: string,
+  aTitleBlock: TITLE_BLOCK,
+  aProperties: Map<string, string> | null,
+  aSheetCount: number,
+  aPageNumber: string,
+  aMils2Iu: number,
+  aProject: PROJECT_TEXT_VARS | null,
+  aSheetLayer = '',
+  aIsFirstPage = true,
+): void {
+  const drawList = new DS_DRAW_ITEM_LIST(unityScale);
+
+  drawList.SetDefaultPenSize(aSettings.GetDefaultPenWidth());
+  drawList.SetPlotterMilsToIUfactor(aMils2Iu);
+  drawList.SetPageNumber(aPageNumber);
+  drawList.SetSheetCount(aSheetCount);
+  drawList.SetFileName(aFileName);
+  drawList.SetSheetName(aSheetName);
+  drawList.SetSheetPath(aSheetPath);
+  drawList.SetSheetLayer(aSheetLayer);
+  if (aProject) drawList.SetProject(aProject);
+  drawList.SetIsFirstPage(aIsFirstPage);
+  drawList.SetProperties(aProperties);
+
+  drawList.BuildDrawItemsList(aPageInfo, aTitleBlock);
+
+  // Draw item list
+  drawList.Print(aSettings);
 }

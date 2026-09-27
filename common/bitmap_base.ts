@@ -8,12 +8,15 @@
  * file (`m_imageData`, cleared by a transform and re-encoded on save), the
  * resolution and the scale.
  *
- * Not here: `DrawBitmap( wxDC* )`, the wxDC drawing path, and the cached
- * `wxBitmap` it draws (`m_bitmap` / `m_bitmapDirty` / `rebuildBitmap`), which
- * exist for wx only; the OpenGL painter reads `m_image` and `m_imageId`.
+ * `DrawBitmap( wxDC* )` is the wxDC print path (`wx/dc.ts`); it draws
+ * `m_image` itself, so the cached `wxBitmap` (`m_bitmap` / `m_bitmapDirty` /
+ * `rebuildBitmap`) that exists for wx has no counterpart. The OpenGL painter
+ * reads `m_image` and `m_imageId`.
  */
 
 import type { Color4d } from './color4d.js';
+import { GetGRForceBlackPenState } from './gr_basic.js';
+import type { wxDC } from './wx/dc.js';
 import { type KIID, newKiid } from './kiid.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
 import { ANGLE_0, ANGLE_90, type EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
@@ -155,6 +158,65 @@ export class BITMAP_BASE {
    *
    * @return The scaling factor from pixel size to actual draw size.
    */
+  /**
+   * Draw the bitmap on the wxDC print path, centred on `aPos`.
+   *
+   * A printer DC cannot use a transform matrix (`wx/dc.ts`), so this is the
+   * C++'s other branch: the DC's scale and logical origin are divided by the
+   * scaling factor for the draw and put back after. An image with alpha is
+   * composed over `aBackgroundColor` first, "most printers don't support
+   * transparent images properly", and greyed while `GRForceBlackPen` is on.
+   */
+  DrawBitmap(aDC: wxDC, aPos: VECTOR2I, aBackgroundColor: Color4d): void {
+    const image = this.m_image;
+
+    if (!image?.HasPixels()) return;
+
+    const pos = { x: aPos.x, y: aPos.y };
+    const size = this.GetSize();
+
+    // This fixes a bug in OSX that should be fixed in the 3.0.3 version or later.
+    if (size.x === 0 || size.y === 0) return;
+
+    // To draw the bitmap, pos is the upper left corner position
+    pos.x -= Math.trunc(size.x / 2);
+    pos.y -= Math.trunc(size.y / 2);
+
+    const scale = aDC.GetUserScale().x;
+    const { x: logicalOriginX, y: logicalOriginY } = aDC.GetLogicalOrigin();
+    const factor = this.GetScalingFactor();
+
+    // `SetLogicalOrigin( wxCoord, wxCoord )`: the quotient is truncated into an int.
+    aDC.SetUserScale(scale * factor, scale * factor);
+    aDC.SetLogicalOrigin(Math.trunc(logicalOriginX / factor), Math.trunc(logicalOriginY / factor));
+
+    pos.x = KiROUND(pos.x / factor);
+    pos.y = KiROUND(pos.y / factor);
+
+    const unspecified =
+      aBackgroundColor.r === 0 &&
+      aBackgroundColor.g === 0 &&
+      aBackgroundColor.b === 0 &&
+      aBackgroundColor.a === 0;
+
+    if (!unspecified && image.HasAlpha()) {
+      // Most printers don't support transparent images properly,
+      // so blend the image with background color.
+      let composed = composeOver(image, aBackgroundColor);
+
+      if (GetGRForceBlackPenState()) composed = composed.ConvertToGreyscale();
+
+      aDC.DrawBitmap(composed, pos.x, pos.y, true);
+    } else if (GetGRForceBlackPenState()) {
+      aDC.DrawBitmap(image.ConvertToGreyscale(), pos.x, pos.y, true);
+    } else {
+      aDC.DrawBitmap(image, pos.x, pos.y, true);
+    }
+
+    aDC.SetUserScale(scale, scale);
+    aDC.SetLogicalOrigin(logicalOriginX, logicalOriginY);
+  }
+
   GetScalingFactor(): number {
     return this.m_pixelSizeIu * this.m_scale;
   }
@@ -514,4 +576,32 @@ export class BITMAP_BASE {
       }
     }
   }
+}
+
+/**
+ * `wxImage image( w, h ); image.SetRGB( all, bg ); image.Paste( src, 0, 0,
+ * wxIMAGE_ALPHA_BLEND_COMPOSE )`: the source over an opaque background, each
+ * channel `src * a + bg * ( 1 - a )`, rounded.
+ */
+function composeOver(aImage: WX_IMAGE, aBg: Color4d): WX_IMAGE {
+  const w = aImage.GetWidth();
+  const h = aImage.GetHeight();
+  const out = new WX_IMAGE(w, h);
+  const dst = out.GetData()!;
+  const src = aImage.GetData()!;
+  const alpha = aImage.GetAlpha()!;
+  const bg = [
+    Math.floor(aBg.r * 255 + 0.5),
+    Math.floor(aBg.g * 255 + 0.5),
+    Math.floor(aBg.b * 255 + 0.5),
+  ];
+
+  for (let i = 0; i < w * h; ++i) {
+    const a = alpha[i]! / 255;
+
+    for (let c = 0; c < 3; ++c)
+      dst[i * 3 + c] = Math.floor(src[i * 3 + c]! * a + bg[c]! * (1 - a) + 0.5);
+  }
+
+  return out;
 }

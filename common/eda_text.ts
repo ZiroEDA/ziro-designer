@@ -41,7 +41,12 @@ import { METRICS } from './font/font_metrics.js';
 import { type GLYPH_LIKE, OUTLINE_GLYPH, STROKE_GLYPH } from './font/glyph.js';
 import type { OUTLINE_FONT } from './font/outline_font.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T, TEXT_ATTRIBUTES } from './font/text_attributes.js';
-import { ClampTextPenSize, GetPenSizeForBold, GetPenSizeForNormal } from './gr_text.js';
+import {
+  ClampTextPenSize,
+  GetPenSizeForBold,
+  GetPenSizeForNormal,
+  GRPrintText,
+} from './gr_text.js';
 import { FormatBool } from './io/kicad/kicad_io_utils.js';
 import { MARKUP_PARSER, type NODE } from './markup_parser.js';
 import type { RENDER_SETTINGS } from './render_settings.js';
@@ -1055,6 +1060,69 @@ export class EDA_TEXT {
    * @param aPositions is the list to populate by the VECTOR2I positions.
    * @param aLineCount is the number of lines (not recalculated here for efficiency reasons.
    */
+  /**
+   * Print this text object to the device context of the settings,
+   * `aSettings->GetPrintDC()`.
+   *
+   * @param aOffset draw offset (usually (0,0)).
+   * @param aColor text color.
+   */
+  Print(aSettings: RENDER_SETTINGS, aOffset: VECTOR2I, aColor: Color4d): void {
+    if (this.IsMultilineAllowed()) {
+      const strings = this.GetShownText(true).split('\n');
+      const positions: VECTOR2I[] = [];
+
+      this.GetLinePositions(aSettings, positions, strings.length);
+
+      for (let ii = 0; ii < strings.length; ii++)
+        this.printOneLineOfText(aSettings, aOffset, aColor, strings[ii]!, positions[ii]!);
+    } else {
+      this.printOneLineOfText(
+        aSettings,
+        aOffset,
+        aColor,
+        this.GetShownText(true),
+        this.GetDrawPos(),
+      );
+    }
+  }
+
+  /**
+   * Print a one line text.
+   */
+  protected printOneLineOfText(
+    aSettings: RENDER_SETTINGS,
+    aOffset: VECTOR2I,
+    aColor: Color4d,
+    aText: string,
+    aPos: VECTOR2I,
+  ): void {
+    const DC = aSettings.GetPrintDC()!;
+    const penWidth = this.GetEffectiveTextPenWidth(aSettings.GetDefaultPenWidth());
+
+    const size = { ...this.GetTextSize() };
+
+    if (this.IsMirrored()) size.x = -size.x;
+
+    const font = this.GetDrawFont(aSettings);
+
+    GRPrintText(
+      DC,
+      { x: aOffset.x + aPos.x, y: aOffset.y + aPos.y },
+      aColor,
+      aText,
+      this.GetDrawRotation(),
+      size,
+      this.GetHorizJustify(),
+      this.GetVertJustify(),
+      penWidth,
+      this.IsItalic(),
+      this.IsBold(),
+      font,
+      this.getFontMetrics(),
+    );
+  }
+
   GetLinePositions(
     aSettings: RENDER_SETTINGS | null,
     aPositions: VECTOR2I[],

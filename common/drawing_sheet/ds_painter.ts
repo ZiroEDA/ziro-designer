@@ -162,14 +162,6 @@ export const DS_DEFAULT_RENDER_COLORS: DsRenderColors = dsLoadColors({
  */
 export const PAGE_MARKER_SIZE_IU = mmToIU(5);
 /**
- * [data] Paper for PRINT output only. A print does not go through the GAL and
- * does not carry the screen theme's background, so the sheet is drawn on white
- * paper however the canvas is themed: `dialogs_for_printing.cpp:186-187` sets
- * `SetDrawBgColor( WHITE )` for the duration and restores it at :211. WHITE is
- * `{255,255,255}`, `common/gal/color4d.cpp:48`.
- */
-export const DS_PRINT_PAPER_COLOR = '#ffffff';
-/**
  * [data] Black-background display option (`pl_editor_settings` `black_background`):
  * `pl_editor_frame.cpp:541` `SetDrawBgColor( cfg->m_BlackBackground ? BLACK : WHITE )`.
  * BLACK is `{0,0,0}`, `common/gal/color4d.cpp:44`.

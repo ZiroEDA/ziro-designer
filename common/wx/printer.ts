@@ -12,11 +12,15 @@
  * stated 300 PPI.
  */
 
-import type { wxDC } from '../gal/gal_print.js';
+import { wxDC } from './dc.js';
+import type { wxRect } from './prntbase.js';
 
 /** What `Print` asks of a printout: `wxPrintout`'s page loop. */
 export interface wxPrintoutPages {
   SetDC(aDC: wxDC | null): void;
+  SetPageSizePixels(w: number, h: number): void;
+  SetPaperRectPixels(aRect: wxRect): void;
+  SetPPIPrinter(x: number, y: number): void;
   GetPageInfo(): { minPage: number; maxPage: number };
   HasPage(aPage: number): boolean;
   OnPrintPage(aPage: number): boolean;
@@ -39,13 +43,9 @@ export function pageDC(
   canvas.height = Math.round(aSizeInches.y * aPPI);
   const ctx = canvas.getContext('2d')!;
 
-  return {
+  return Object.assign(new wxDC(ctx, canvas, { x: canvas.width, y: canvas.height }, aPPI), {
     canvas,
-    ctx,
-    image: canvas,
-    GetSize: () => ({ x: canvas.width, y: canvas.height }),
-    GetPPI: () => aPPI,
-  };
+  });
 }
 
 export class wxPrinter {
@@ -63,6 +63,11 @@ export class wxPrinter {
 
     for (let page = minPage; page <= maxPage && aPrintout.HasPage(page); ++page) {
       const dc = pageDC(aPaperInches, aPPI);
+      const size = dc.GetSize();
+      // A page with no margins: the paper is the page, and the page is the DC.
+      aPrintout.SetPageSizePixels(size.x, size.y);
+      aPrintout.SetPaperRectPixels({ x: 0, y: 0, width: size.x, height: size.y });
+      aPrintout.SetPPIPrinter(aPPI, aPPI);
       aPrintout.SetDC(dc);
 
       if (aPrintout.OnPrintPage(page)) pages.push(dc.canvas.toDataURL('image/png'));

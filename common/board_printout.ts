@@ -7,15 +7,16 @@
  * and BOARD_PRINTOUT, the wxPrintout that draws one page through `GAL_PRINT`
  * (CAIRO_PRINT_GAL on a page-sized canvas).
  *
- * `wxPrintout` is reduced to what the class reads: the page's DC, which the
- * caller that drives the pages hands in with `SetDC` before each
- * `OnPrintPage` (upstream wxPrinter does), and the logical page rectangle,
- * which is that DC's size.
+ * `wxPrintout` is `wx/prntbase.ts`; the caller that drives the pages
+ * (`wx/printer.ts`) hands in each page's DC with `SetDC`, as wxPrinter does.
  */
 
 import { COLOR4D_BLACK, COLOR4D_WHITE, withAlpha } from './color4d.js';
 import { GAL_DISPLAY_OPTIONS } from './gal/gal_display_options.js';
-import { GAL_PRINT, type wxDC } from './gal/gal_print.js';
+import { GAL_PRINT } from './gal/gal_print.js';
+import { wxPrintout } from './wx/prntbase.js';
+
+export { wxPrintout };
 import { GAL_DRAWING_CONTEXT, type GAL } from './gal/graphics_abstraction_layer.js';
 import type { PAINTER } from './gal/painter.js';
 import { GAL_LAYER_ID, LAYER_ID_COUNT } from './layer_id.js';
@@ -61,39 +62,6 @@ export class BOARD_PRINTOUT_SETTINGS extends PRINTOUT_SETTINGS {
 
     aConfig.m_Printing.mirror = this.m_Mirror;
   }
-}
-
-/**
- * `wxPrintout`, as far as BOARD_PRINTOUT reads it.
- */
-export abstract class wxPrintout {
-  private readonly m_title: string;
-  private m_dc: wxDC | null = null;
-
-  constructor(aTitle: string) {
-    this.m_title = aTitle;
-  }
-
-  GetTitle(): string {
-    return this.m_title;
-  }
-
-  /** The page the next OnPrintPage draws on (wxPrinter's `SetDC`). */
-  SetDC(aDC: wxDC | null): void {
-    this.m_dc = aDC;
-  }
-
-  GetDC(): wxDC {
-    return this.m_dc!;
-  }
-
-  /** `GetLogicalPageRect()`: with no page margins, the whole DC. */
-  GetLogicalPageRect(): { x: number; y: number; width: number; height: number } {
-    const size = this.m_dc!.GetSize();
-    return { x: 0, y: 0, width: size.x, height: size.y };
-  }
-
-  abstract OnPrintPage(aPage: number): boolean;
 }
 
 /**

@@ -25,13 +25,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import {
-  drawDrawingSheetItems,
-  DS_PRINT_PAPER_COLOR,
-  layoutDrawingSheet,
-  parseDrawingSheet,
-  type WksSheet,
-} from '@ziroeda/common';
+import { parseDrawingSheet } from '@ziroeda/common';
 import { UnsavedChangesDialog } from '@ziroeda/common/dialogs/dialog_unsaved_changes.js';
 import { handleUnsavedChanges, type UnsavedChangesResult } from '@ziroeda/common/confirm.js';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
@@ -75,18 +69,10 @@ import { dockedPaneWidth } from '@ziroeda/common/widgets/wx_aui_sash_geometry.js
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { drawingSheetWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import { WX_IMAGE } from '@ziroeda/common/wx_image.js';
-import {
-  PL_EDITOR_PRINT_PAGES,
-  dsPrintPageNumbering,
-  printDocumentHtml,
-} from '@ziroeda/pagelayout_editor/dialogs/dialogs_for_printing.js';
 import type { DIALOG_INSPECTOR } from '@ziroeda/pagelayout_editor/dialogs/design_inspector.js';
 import { DesignInspector } from '@ziroeda/pagelayout_editor/dialogs/design_inspector_ui.js';
 import { PropertiesFrame } from '@ziroeda/pagelayout_editor/dialogs/properties_frame_ui.js';
-import {
-  DS_OUTDATED_FORMAT_INFOBAR,
-  DS_USER_TEMPLATES_PATH,
-} from '@ziroeda/pagelayout_editor/files.js';
+import { DS_OUTDATED_FORMAT_INFOBAR } from '@ziroeda/pagelayout_editor/files.js';
 import { doReCreateMenuBar } from '@ziroeda/pagelayout_editor/menubar.js';
 import { PL_DRAW_PANEL_GAL } from '@ziroeda/pagelayout_editor/pl_draw_panel_gal.js';
 import { CreateKiWindow, PL_EDITOR_KIFACE_NAME } from '@ziroeda/pagelayout_editor/pl_editor.js';
@@ -327,73 +313,6 @@ export function DrawingSheetEditor({
     ]);
   }, []);
 
-  /** `PLEDITOR_PRINTOUT` over the model, two pages, black on white. */
-  const printSheet = useCallback(() => {
-    const model = DS_DATA_MODEL.GetTheInstance();
-    let sheet: WksSheet;
-
-    try {
-      sheet = parseDrawingSheet(model.SaveInString());
-    } catch {
-      return;
-    }
-
-    const page = frame.GetPageSettings();
-    const pageMM: [number, number] = [page.GetWidthMM(), page.GetHeightMM()];
-    const tb = frame.GetTitleBlock();
-    const scalePx = 2480 / (pageMM[0] * 1000); // ~300 DPI for an A4-wide page, per IU
-    const pageImage = (aPageNum: number): string | null => {
-      const cv = document.createElement('canvas');
-      cv.width = Math.round(pageMM[0] * 1000 * scalePx);
-      cv.height = Math.round(pageMM[1] * 1000 * scalePx);
-      const ctx = cv.getContext('2d');
-      if (!ctx) return null;
-      // `m_parent->SetDrawBgColor( WHITE )` for the duration of the page.
-      ctx.fillStyle = DS_PRINT_PAPER_COLOR;
-      ctx.fillRect(0, 0, cv.width, cv.height);
-      ctx.setTransform(scalePx, 0, 0, scalePx, 0, 0);
-      const draws = layoutDrawingSheet(
-        sheet,
-        { widthMM: pageMM[0], heightMM: pageMM[1] },
-        {
-          // `screen->SetVirtualPageNumber( aPageNum )` (dialogs_for_printing.cpp:189).
-          pageNumber: aPageNum,
-          ...dsPrintPageNumbering(aPageNum),
-          title: tb.GetTitle(),
-          rev: tb.GetRevision(),
-          date: tb.GetDate(),
-          company: tb.GetCompany(),
-          comments: Array.from({ length: 9 }, (_, i) => tb.GetComment(i)),
-          paper: page.GetTypeAsString(),
-          fileName: frame.GetCurrentFileName(),
-          sheetPath: '/',
-          appVersion: 'ZiroEDA',
-          rawText: model.m_EditMode,
-        },
-      );
-      // `GRForceBlackPen( true )` (:184).
-      drawDrawingSheetItems(ctx, draws, new Set(), { minWidth: 1 / scalePx, forceBlackPen: true });
-      return cv.toDataURL('image/png');
-    };
-
-    const pages = PL_EDITOR_PRINT_PAGES.map(pageImage);
-    if (pages.some((p) => p === null)) return;
-
-    const w = window.open('', '_blank', 'width=900,height=700');
-    if (!w) {
-      // Not upstream's printer-error box (dialogs_for_printing.cpp:241-242):
-      // that reports a printer that refused the job, not a browser
-      // that refused a window.
-      displayErrorMessage(
-        'Print could not open the preview window.\n\n' +
-          'Your browser blocked the pop-up. Allow pop-ups for this site and try again.',
-      );
-      return;
-    }
-    w.document.write(printDocumentHtml(frame.GetCurrentFileName(), pages as string[]));
-    w.document.close();
-  }, [frame, displayErrorMessage]);
-
   const host = useMemo<PL_EDITOR_FRAME_HOST>(
     () => ({
       SetTitle: () => repaint(),
@@ -423,7 +342,6 @@ export function DrawingSheetEditor({
         new Promise((resolve) => setSaveAsDlg({ title: aTitle, resolve })),
       HandleUnsavedChanges: (aMessage, aSave) =>
         new Promise((resolve) => setUnsaved({ message: aMessage, save: aSave, resolve })),
-      ToPrinter: () => printSheet(),
       ShowDesignInspector: (aDlg) => new Promise((resolve) => setInspector({ dlg: aDlg, resolve })),
       ShowPageSettingsDialog: () => new Promise((resolve) => setPageDlg({ resolve })),
       ChooseImageFile: () =>
@@ -443,7 +361,7 @@ export function DrawingSheetEditor({
       ShowInfoBarMsg: (aMsg) => displayErrorMessage(aMsg),
       DismissInfoBar: () => setOutdatedFormat(false),
     }),
-    [displayErrorMessage, onSaveToProject, printSheet],
+    [displayErrorMessage, onSaveToProject],
   );
 
   // ---- the frame and the chrome it drives ---------------------------------

@@ -21,6 +21,8 @@
  *   GRID::MessageText (grid_settings.cpp:27-41)  "x x y", or one value when
  *       the two print the same.
  */
+import { PAGE_INFO } from '@ziroeda/common/page_info.js';
+import { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { EDA_DRAW_PANEL_GAL } from '@ziroeda/common/draw_panel_gal.js';
 import { EDA_DRAW_FRAME } from '@ziroeda/common/eda_draw_frame.js';
@@ -66,6 +68,14 @@ class TEST_FRAME extends EDA_DRAW_FRAME {
 
   override config(): GERBVIEW_SETTINGS {
     return this.cfg;
+  }
+
+  GetPageSettings(): PAGE_INFO {
+    return new PAGE_INFO();
+  }
+
+  GetTitleBlock(): TITLE_BLOCK {
+    return new TITLE_BLOCK();
   }
 
   GetName(): string {

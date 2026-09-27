@@ -69,7 +69,6 @@ export interface TestHost extends PL_EDITOR_FRAME_HOST {
   /** The image the chooser returns (null = Cancel). */
   imageAnswers: ({ path: string; data: Uint8Array } | null)[];
   inspectors: DIALOG_INSPECTOR[];
-  printed: number;
   htmlBoxes: { caption: string; html: string; list: readonly string[] }[];
 }
 
@@ -105,7 +104,6 @@ function makeHost(): TestHost {
     pageSettingsAnswers: [],
     imageAnswers: [],
     inspectors: [],
-    printed: 0,
     htmlBoxes: [],
     SetTitle(aTitle) {
       host.titles.push(aTitle);
@@ -141,9 +139,6 @@ function makeHost(): TestHost {
       const answer = host.unsavedAnswers.shift() ?? 'cancel';
       if (answer === 'save') return aSave();
       return answer === 'discard';
-    },
-    ToPrinter() {
-      host.printed++;
     },
     ShowDesignInspector(aDlg) {
       host.inspectors.push(aDlg);

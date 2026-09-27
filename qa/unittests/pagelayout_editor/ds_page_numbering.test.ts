@@ -27,7 +27,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dsPrintPageNumbering } from '@ziroeda/pagelayout_editor/dialogs/dialogs_for_printing.js';
 import { layoutDrawingSheet, type WksSheet } from '@ziroeda/common';
 
 const A4 = { widthMM: 297, heightMM: 210 };
@@ -100,19 +99,8 @@ function idText(ctx: Record<string, unknown>): string {
   return text.text;
 }
 
-describe('the printout numbers the sheets and not the total', () => {
-  it('prints page 1 as 1/1', () => {
-    expect(idText({ pageNumber: 1, ...dsPrintPageNumbering(1) })).toBe('Id: 1/1');
-  });
-
-  it('prints page 2 as 2 of 1, which is what GetPageCount() gives it', () => {
-    expect(idText({ pageNumber: 2, ...dsPrintPageNumbering(2) })).toBe('Id: 2/1');
-  });
-
-  it('never invents a total of 2', () => {
-    for (const n of [1, 2, 3]) expect(dsPrintPageNumbering(n).sheetCount).toBe(1);
-  });
-});
+// The printout's numbering (1/1 then 2/1) is PLEDITOR_PRINTOUT's, and
+// ds_print.test.ts runs it: the frame prints through the engine now.
 
 const EDITOR = readFileSync(
   fileURLToPath(
@@ -140,9 +128,5 @@ describe('the frame states no page numbering of its own', () => {
     // `sheetCount: pageNumber > 1 ? 2 : 1` — twice — is what was here.
     expect(statements(EDITOR, 'sheetCount')).toHaveLength(0);
     expect(statements(EDITOR, 'pageName')).toHaveLength(0);
-  });
-
-  it('spreads the printout’s numbering into the printed page’s context', () => {
-    expect(statements(EDITOR, '...dsPrintPageNumbering(aPageNum)')).toHaveLength(1);
   });
 });

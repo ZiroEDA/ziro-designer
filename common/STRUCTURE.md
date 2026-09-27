@@ -183,7 +183,7 @@ over CAIRO_PRINT_GAL, which GerbView prints through; pcbnew's
 a PCBNEW_PRINTOUT), `printout` (here: PRINTOUT_SETTINGS),
 `clipboard` (`navigator.clipboard` at
 each call site), `eda_doc` (datasheet opening), `bitmap` (`KiBitmap` and
-friends, over `bitmap_store`), `gr_basic` (the page-settings preview),
+friends, over `bitmap_store`),
 `gbr_metadata` (`FormatStringFromGerber`, which GerbView reads with, is
 here - `gbr_metadata.ts`, moved from gerbview/ 09-27; the X2 attribute
 writers `pcbnew/plot_gerber.ts` still does inline).
@@ -313,6 +313,15 @@ is not ported; the constraints ask it only `AlignGrid`, so that is the
 interface they take, and `EC_CONVERGING`'s own default grid is
 `DEFAULT_GRID_HELPER` (1 x 1 at the origin). The C++ overloads `Previous` /
 `Next` on `EDIT_LINE`; here those are `PreviousLine` / `NextLine`.
+
+The wxDC print path (09-27): `gr_basic` (here, whole), `gr_text`'s
+`GRTextWidth` / `GRPrintText`, `EDA_TEXT::Print`, `BITMAP_BASE::DrawBitmap`,
+`RENDER_SETTINGS`' print DC, the drawing sheet's `PrintWsItem`s and
+`DS_DRAW_ITEM_LIST::Print`, and `PrintDrawingSheet` (free and on
+`EDA_DRAW_FRAME`). The toolkit half is `wx/dc.ts` (`wxDC`, `wxPen`,
+`wxBrush` over the page canvas) and `wx/prntbase.ts` (`wxPrintout`'s page
+fitting); their mapping is measured by `qa/probes/printout_fit_probe.cpp`.
+pl_editor is the only caller - KiCad prints the other editors through GAL.
 
 `kiway` (09-27): not the DSO loader KiCad's is - the interface the program
 hands each frame (`EDA_BASE_FRAME::SetKiway`) for the calls frames make

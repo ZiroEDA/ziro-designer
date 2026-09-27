@@ -32,7 +32,6 @@ import {
   DS_EDIT_POINT_ON_LIGHT,
   DS_MARQUEE,
   DS_PAGE_BORDER_COLOR,
-  DS_PRINT_PAPER_COLOR,
   DS_SELECTED_COLOR,
 } from '@ziroeda/common';
 import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
@@ -98,11 +97,6 @@ describe('D1/D2/D3: the palette is the three layers DS_RENDER_SETTINGS reads', (
     expect(DS_BG_COLOR).toBe(KICAD_DEFAULT.background); // LAYER_SCHEMATIC_BACKGROUND
     expect(DS_PAGE_BORDER_COLOR).toBe(KICAD_DEFAULT.grid); // LAYER_SCHEMATIC_GRID
     expect(DS_ITEM_COLOR).toBe(KICAD_DEFAULT.pageFrame); // LAYER_SCHEMATIC_DRAWINGSHEET
-  });
-
-  it('keeps a separate white for print, which carries no screen theme', () => {
-    expect(DS_PRINT_PAPER_COLOR).toBe('#ffffff');
-    expect(EDITOR).toContain('ctx.fillStyle = DS_PRINT_PAPER_COLOR;');
   });
 });
 

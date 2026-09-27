@@ -50,10 +50,6 @@ panel, context menus and Preferences go through the frame's sinks.
 
 What the page still does itself, and why:
 
-- **Print.** `ToPrinter` asks the host; the host renders the model's two
-  pages through `layout.ts` to images and hands them to the browser's print.
-  `PLEDITOR_PRINTOUT` draws through a wxDC / CAIRO_PRINT_GAL, which is not
-  wired to a page yet.
 - **The colour theme.** `loadPlEditorColors` loads the painter from the theme
   the page resolves (built-in, installed, made, or User with the stored
   overrides): SETTINGS_MANAGER's "User" does not carry the schematic
@@ -120,7 +116,7 @@ Counts: 26 rows — 21 here (3 of them with a window half in `designer/`),
 |---|---|---|
 | `design_inspector` (+ `dialog_design_inspector_base`) | here | `dialogs/design_inspector.ts` (`DIALOG_INSPECTOR` over the model, the six XPM icons) + `dialogs/design_inspector_ui.tsx` |
 | `dialog_new_dataitem_base` | n/a | a wxFormBuilder base no class derives from; KiCad 10 never shows it |
-| `dialogs_for_printing` | here, part in `designer/` | `dialogs/dialogs_for_printing.ts`: `PLEDITOR_PRINTOUT`'s two pages and the page numbering each prints with; the print itself is the host's (see "Hosted") |
+| `dialogs_for_printing` | here | `dialogs/dialogs_for_printing.ts`: `PLEDITOR_PRINTOUT` (two pages, fitted by wxPrintout, drawn on the wxDC print path), `InvokeDialogPrint`, `InvokeDialogPrintPreview`. `PLEDITOR_PREVIEW_FRAME` has no browser form: the browser's print dialog previews, so the preview prints |
 | `panel_pl_editor_color_settings` (+ `_base`) | here, in `designer/` | `designer/.../prefs/PanelPlEditorColorSettings.tsx` (reads `dialogs/prefs/types`, `pcm/pcmStore`, `prefs/color_settings_list`) |
 | `panel_pl_editor_display_options` | here, in `designer/` | `designer/.../prefs/PanelPlEditorDisplayOptions.tsx` (reads `dialogs/prefs/types`) |
 | `properties_frame` (+ `properties_frame_base`) | here | `dialogs/properties_frame.ts` (`PROPERTIES_FRAME`: every control's state, the transfers, `OnAcceptPrms` / `OnUpdateUI`) + `dialogs/properties_frame_ui.tsx` (the panel). Its nineteen `UNIT_BINDER`s are common's engine half (`common/widgets/unit_binder.ts`) |
