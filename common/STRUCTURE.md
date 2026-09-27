@@ -163,7 +163,7 @@ wildcards_and_files_ext.
 | `filename_resolver` | done 09-26: `FILENAME_RESOLVER`, the class, over `wxFileExists` / `wxDirExists` (`wx/filefn.ts`, a mount table: the open project at `/<projectName>`, the hosted 3D library at `${KICAD10_3DMODEL_DIR}` = `/usr/share/kicad/3dmodels`, `/tmp` a RAM disk for `GetTemporaryFileName`). The web-only rescues (basename match, `.3dshapes/` suffix) are gone: KiCad does not do them. Open: the 3D view passes no embedded-files stack (the plain board view carries none) and no footprint library path |
 | `footprint_filter`, `footprint_info` | done 09-27: `FOOTPRINT_INFO`, `FOOTPRINT_LIST`, `FOOTPRINT_FILTER` (and `EDA_PATTERN_MATCH_WILDCARD_ANCHORED` in `eda_pattern_match.ts`); pcbnew's `FOOTPRINT_LIST_IMPL` builds the list from the hosted index (`pcbnew/footprint_info_impl.ts`) and its `filterFootprints` answers the symbol chooser (`pcbnew/pcbnew.ts`). `designer/src/widgets/footprint_list.ts` keeps only the hosted I/O |
 | `clipboard` | done 09-27: the whole unit over a tab-local `wxTheClipboard` - each save goes to the system clipboard too, each `paste` event refills it (`SetClipboardFromPaste`), since a browser reads the system one only in that event or asynchronously. `application/kicad` stays in the tab (a browser writes only text, HTML and PNG). With it `io/csv` (`CSV_WRITER`, `AutoDecodeCSV` over the part of rapidcsv it reaches) and `wx/buffer` (`wxMemoryBuffer`). pl_editor uses it; eeschema's and pcbnew's copy and paste still call `navigator.clipboard` in `designer/` |
-| `eda_doc` | done 09-27: `GetAssociatedDocument` (and `ResolveUriByEnvVars`, common.cpp). A file opens in a tab typed by its extension, where upstream runs `OpenPDF` or the MIME command; no `SEARCH_STACK` (n/a), and a wildcard name has no `wxFileSelector` to ask. The schematic's D key and hyperlinks, the symbol editor and the library browser call it - four `window.open`s that disagreed. They pass no text-variable resolver and no embedded-files stack yet: `text_vars.ts`'s resolver is another shape |
+| `eda_doc` | done 09-27: `GetAssociatedDocument` (and `ResolveUriByEnvVars`, common.cpp). A file opens in a tab typed by its extension, where upstream runs `OpenPDF` or the MIME command; no `SEARCH_STACK` (n/a), and a wildcard name has no `wxFileSelector` to ask. The schematic's D key and hyperlinks, the symbol editor and the library browser call it - four `window.open`s that disagreed. They pass no text-variable resolver and no embedded-files stack yet (the resolvers are one shape now, so the schematic's can be passed) |
 | `bitmap` | done 09-27: `KiBitmap` and friends over a `BITMAP_STORE` class (`bitmap_store.ts`, which was two URL lookups): a bitmap is the SVG's URL, every height one file, dark only. `toolbar/` now holds all of KiCad's dark set (207 were missing) plus `dark/constraints/` under CMake's names; the 48 ids `bitmap_info.cpp` does not list draw `s_imageNotFound`, as upstream. A disabled bitmap is `--bitmap-disabled-filter`, `ConvertToDisabled( 70 )` exactly (probe-measured), where toolbars had `opacity: 0.35`. Open: the widgets that take a bitmap NAME as a prop (`std_bitmap_button`, `wx_combobox`, properties frame, symbol properties, footprint chooser) still resolve through `bitmapUrl`; the launcher (`.ze-launcher:disabled`) still fades by opacity; `toolbar/` carries files 10.0.5's dark set lacks (`add_ellipse*`, a few `constraint_*` from elsewhere) - to trace |
 | `gbr_metadata` | done 09-27, whole: the reader GerbView uses and every X2 writer, matched line for line against 10.0.5's own `gbr_metadata.cpp` linked into `qa/probes/gbr_metadata_probe.cpp`. `GBR_DATA_FIELD::GetGerberString` and `GBR_CMP_PNP_METADATA` sit in `gbr_netlist_metadata.ts` with their header. The plotter's `TF.CreationDate` now comes from here (it was UTC `toISOString()`). Nothing writes `TA`/`TO` yet: `pcbnew/plot_gerber.ts` is not `GERBER_PLOTTER` (common/plotters) and `AddGerberX2Header`'s `TF.ProjectId` / `SameCoordinates` are pcbnew's `pcbplot` to port |
 | `lib_tree_model`, `lib_tree_model_adapter` | done 09-27: moved from `designer/src/widgets/` (`LIB_TREE_ITEM`, include/lib_tree_item.h, stays folded into eeschema's symbol projection `lib_tree_item.ts` for now) |
@@ -227,11 +227,21 @@ libraries are mounted; the settings / cache / plugin / log folders are n/a.
   `eda_base_frame_{about_titles,help_menu,language_menu,size}`,
   `eda_draw_frame_submenus`, `hotkeys_basic_{file,keys}`,
   `kidialog_do_not_show`, `thread_pool_{jobs,worker}`, `use_file_history`.
-- To move: `color4d` → `gal/color4d`; `transform` → `libs/kimath`;
-  `pin_type` → `eeschema/`; `bitmaps_list` → `bitmaps/`;
-  `cross_probing_settings` → `settings/app_settings`; `text_vars` → `common`;
-  `wx_image`, `inflate`, `png_meta` → `wx/` (the wxImage/libpng layer);
-  `picosha2` → `libs/picosha2` (KiCad's `thirdparty/`).
+- Moved 09-27: `color4d` → `gal/color4d`; `transform` → `libs/kimath/src`;
+  `bitmaps_list` → `bitmaps/`; `wx_image`, `inflate`, `png_meta` → `wx/` (the
+  wxImage/libpng layer); `picosha2` → `libs/picosha2` (KiCad's `thirdparty/`).
+  `cross_probing_settings` was a second copy of `CROSS_PROBING_SETTINGS`,
+  already in `settings/app_settings` - deleted. `text_vars` was a second
+  `ExpandTextVars` - deleted; every caller is on `ResolveTextVars` with
+  KiCad-shaped resolvers, `SCHEMATIC::ResolveTextVar` is
+  `eeschema/schematic.ts`, and `ResolveShownText` (in `common.ts`) is the
+  tail of `GetShownText` for the schematic paths not yet on item classes.
+- `pin_type` stays: it holds `common/pin_type.h` (the canonical names), which
+  is where upstream keeps it; the labels of `eeschema/pin_type.cpp` are
+  `eeschema/pin_type.ts`.
+- Open: `text_eval/text_eval_wrapper.ts`'s `EXPRESSION_EVALUATOR` is a stub
+  that returns its input, so `@{...}` math never evaluates (KiCad's
+  `common/text_eval/` is not ported).
 - `item_realignment` is gone (09-27): it cited `common/item_realignment.cpp`,
   which 10.0.5 does not have, and so did its one caller's
   `ComputeFootprintShift`. 10.0.5's ExchangeFootprint matches no pads.
