@@ -29,6 +29,7 @@ import { EDA_REORDERABLE_LIST_DIALOG } from '../dialogs/eda_reorderable_list_dia
 import { useModalEscape } from '../dialog_shim.js';
 import { KiBitmapBundle } from '../bitmap.js';
 import { BITMAPS } from '../bitmaps/bitmaps_list.js';
+import { GetNextItem, GetPrevItem, type WX_DATAVIEW_MODEL } from './wx_dataviewctrl.js';
 
 /**
  * `wxDataViewItemAttr` as CSS. `SetColour( wxSYS_COLOUR_GRAYTEXT )` becomes
@@ -836,10 +837,26 @@ export function LibTree({
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       updateRecentSearchMenu();
-      const idx = rows.findIndex((r) => r.node === selected);
+      // `selectIfValid( m_tree_ctrl->GetPrevItem( sel ) )` / `GetNextItem`,
+      // over the rows the model shows: the visible libraries and their items,
+      // and every unit of an item.
+      const model: WX_DATAVIEW_MODEL<LibTreeNode> = {
+        GetParent: (n) => (n.parent === adapter.tree ? null : n.parent),
+        GetChildren: (n) => {
+          const parent = n ?? adapter.tree;
+          return parent === adapter.tree || parent.parent === adapter.tree
+            ? parent.children.filter((c) => adapter.isVisible(c, searching))
+            : parent.children;
+        },
+        IsExpanded: (n) => n.children.length > 0 && isOpen(n),
+      };
       const next =
-        e.key === 'ArrowDown' ? Math.min(idx + 1, rows.length - 1) : Math.max(idx - 1, 0);
-      if (rows[next]) select(rows[next]!.node);
+        e.key === 'ArrowDown'
+          ? GetNextItem(model, selected ?? null)
+          : selected
+            ? GetPrevItem(model, selected)
+            : null;
+      if (next) select(next);
     } else if (e.key === 'Enter') {
       e.preventDefault();
       updateRecentSearchMenu();
