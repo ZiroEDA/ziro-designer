@@ -18,8 +18,13 @@
  * and the height does, so the row reads "40 x 25 mm" rather than repeating the
  * unit. When the board has no closed outline both it and `Area:` read
  * "unknown"; the densities do too, since they divide by the board area.
+ *
+ * Only the Drill Holes grid is a WX_GRID upstream (`m_gridDrills`, read-only,
+ * cells centred, sorted by a click on a column label through
+ * `wxEVT_GRID_COL_SORT` -> `drillGridSort`); the four General grids are plain
+ * `wxGrid`s and stay tables here.
  */
-import { type JSX, type Ref, useMemo, useState } from 'react';
+import { type JSX, type Ref, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
   type BoardStatisticsData,
   type BoardStatisticsOptions,
@@ -28,7 +33,19 @@ import {
   FormatBoardStatisticsReport,
 } from '@ziroeda/pcbnew';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import {
+  DRILL_LINE_ITEM_COL_ID,
+  DRILL_LINE_ITEM_COMPARE,
+} from '@ziroeda/pcbnew/board_statistics.js';
 import { PAD_DRILL_SHAPE } from '@ziroeda/pcbnew/padstack.js';
+import { WX_GRID } from '@ziroeda/common/widgets/wx_grid.js';
+import {
+  wxALIGN_CENTER,
+  wxEVT_GRID_COL_SORT,
+  type wxGridEvent,
+  wxGridStringTable,
+} from '@ziroeda/common/wx/grid.js';
+import { WxGridView } from '@ziroeda/common/wx/grid_ui.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
@@ -45,6 +62,18 @@ interface Props {
 }
 
 type Tab = 'general' | 'drills';
+
+/** `m_gridDrills->SetColLabelValue` (`_base.cpp:240-247`). */
+const DRILL_COL_LABELS = [
+  'Count',
+  'Shape',
+  'X Size',
+  'Y Size',
+  'Plated',
+  'Via/Pad',
+  'Start Layer',
+  'Stop Layer',
+];
 
 // No metrics here: `.ze-grid` is the shared wxGrid port and carries the
 // padding, the font and the rules. Only the alignment is this dialog's, and
@@ -137,8 +166,72 @@ export function DialogBoardStatistics({
     </label>
   );
 
-  const layerName = (layer: PCB_LAYER_ID): string =>
-    layer === PCB_LAYER_ID.UNDEFINED_LAYER ? 'N/A' : board.GetLayerName(layer);
+  /** `m_gridDrills` (`dialog_board_statistics_base.cpp:226-256`). */
+  const [drillGrid] = useState(() => {
+    const g = new WX_GRID();
+    g.SetTable(new wxGridStringTable(0, DRILL_COL_LABELS.length), true);
+    DRILL_COL_LABELS.forEach((label, c) => {
+      g.SetColLabelValue(c, label);
+    });
+    g.EnableEditing(false);
+    g.SetDefaultCellAlignment(wxALIGN_CENTER, wxALIGN_CENTER);
+    return g;
+  });
+
+  /** `drillGridSort`'s `sort( m_statsData.drillEntries … COMPARE( colId, ascending ) )`. */
+  const [drillSort, setDrillSort] = useState<{ col: DRILL_LINE_ITEM_COL_ID; asc: boolean } | null>(
+    null,
+  );
+  const drills = useMemo(
+    () =>
+      drillSort
+        ? [...data.drillEntries].sort(DRILL_LINE_ITEM_COMPARE(drillSort.col, drillSort.asc))
+        : data.drillEntries,
+    [data, drillSort],
+  );
+
+  useEffect(() => {
+    const drillGridSort = (e: wxGridEvent): void => {
+      const colId = e.GetCol() as DRILL_LINE_ITEM_COL_ID;
+      const ascending = !(drillGrid.IsSortingBy(colId) && drillGrid.IsSortOrderAscending());
+      setDrillSort({ col: colId, asc: ascending });
+    };
+    drillGrid.Connect(wxEVT_GRID_COL_SORT, drillGridSort);
+    return () => drillGrid.Disconnect(wxEVT_GRID_COL_SORT, drillGridSort);
+  }, [drillGrid]);
+
+  // `updateDrillGrid` (`:370-411`).
+  useLayoutEffect(() => {
+    drillGrid.BeginBatch();
+    drillGrid.ClearRows();
+    drillGrid.AppendRows(drills.length);
+
+    drills.forEach((d, row) => {
+      const shapeStr =
+        d.shape === PAD_DRILL_SHAPE.CIRCLE
+          ? 'Round'
+          : d.shape === PAD_DRILL_SHAPE.OBLONG
+            ? 'Slot'
+            : '???';
+      const layerStr = (layer: PCB_LAYER_ID): string =>
+        layer === PCB_LAYER_ID.UNDEFINED_LAYER ? 'N/A' : board.GetLayerName(layer);
+      const cells = [
+        `${d.qty}`,
+        shapeStr,
+        unitsProvider.MessageTextFromValue(d.xSize),
+        unitsProvider.MessageTextFromValue(d.ySize),
+        d.isPlated ? 'PTH' : 'NPTH',
+        d.isPad ? 'Pad' : 'Via',
+        layerStr(d.startLayer),
+        layerStr(d.stopLayer),
+      ];
+      cells.forEach((v, col) => {
+        drillGrid.SetCellValue(row, col, v);
+      });
+    });
+
+    drillGrid.EndBatch();
+  }, [drillGrid, drills, board, unitsProvider]);
 
   return (
     <div ref={rootRef} className="ze-dialog" role="dialog" aria-label="Board Statistics">
@@ -200,44 +293,7 @@ export function DialogBoardStatistics({
             </fieldset>
           </div>
         ) : (
-          <table className="ze-grid">
-            <thead>
-              <tr>
-                <th className="ze-stats-value">Count</th>
-                <th className="ze-stats-label">Shape</th>
-                <th className="ze-stats-value">X Size</th>
-                <th className="ze-stats-value">Y Size</th>
-                <th className="ze-stats-label">Plated</th>
-                <th className="ze-stats-label">Via/Pad</th>
-                <th className="ze-stats-label">Start Layer</th>
-                <th className="ze-stats-label">Stop Layer</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.drillEntries.map((d, i) => (
-                // The rows are a folded table with no identity of their own, so
-                // the index is the key: two rows can differ only by a field the
-                // fold already compared.
-                // biome-ignore lint/suspicious/noArrayIndexKey: folded rows have no id
-                <tr key={i}>
-                  <td className="ze-stats-value">{d.qty}</td>
-                  <td className="ze-stats-label">
-                    {d.shape === PAD_DRILL_SHAPE.CIRCLE
-                      ? 'Round'
-                      : d.shape === PAD_DRILL_SHAPE.OBLONG
-                        ? 'Slot'
-                        : '???'}
-                  </td>
-                  <td className="ze-stats-value">{unitsProvider.MessageTextFromValue(d.xSize)}</td>
-                  <td className="ze-stats-value">{unitsProvider.MessageTextFromValue(d.ySize)}</td>
-                  <td className="ze-stats-label">{d.isPlated ? 'PTH' : 'NPTH'}</td>
-                  <td className="ze-stats-label">{d.isPad ? 'Pad' : 'Via'}</td>
-                  <td className="ze-stats-label">{layerName(d.startLayer)}</td>
-                  <td className="ze-stats-label">{layerName(d.stopLayer)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <WxGridView grid={drillGrid} ariaLabel="Drill holes" />
         )}
 
         <div className="ze-stats-options">

@@ -38,6 +38,49 @@ export interface DrillLineItem {
   qty: number;
 }
 
+/** `DRILL_LINE_ITEM::COL_ID`, the drill grid's columns. */
+export enum DRILL_LINE_ITEM_COL_ID {
+  COL_COUNT = 0,
+  COL_SHAPE,
+  COL_X_SIZE,
+  COL_Y_SIZE,
+  COL_PLATED,
+  COL_VIA_PAD,
+  COL_START_LAYER,
+  COL_STOP_LAYER,
+}
+
+/**
+ * `DRILL_LINE_ITEM::COMPARE( colId, ascending )`, as a sort comparator: the
+ * one field the column shows, ascending or descending.
+ */
+export function DRILL_LINE_ITEM_COMPARE(
+  aColId: DRILL_LINE_ITEM_COL_ID,
+  aAscending: boolean,
+): (aLeft: DrillLineItem, aRight: DrillLineItem) => number {
+  const key = (d: DrillLineItem): number => {
+    switch (aColId) {
+      case DRILL_LINE_ITEM_COL_ID.COL_COUNT:
+        return d.qty;
+      case DRILL_LINE_ITEM_COL_ID.COL_SHAPE:
+        return d.shape;
+      case DRILL_LINE_ITEM_COL_ID.COL_X_SIZE:
+        return d.xSize;
+      case DRILL_LINE_ITEM_COL_ID.COL_Y_SIZE:
+        return d.ySize;
+      case DRILL_LINE_ITEM_COL_ID.COL_PLATED:
+        return d.isPlated ? 1 : 0;
+      case DRILL_LINE_ITEM_COL_ID.COL_VIA_PAD:
+        return d.isPad ? 1 : 0;
+      case DRILL_LINE_ITEM_COL_ID.COL_START_LAYER:
+        return d.startLayer;
+      case DRILL_LINE_ITEM_COL_ID.COL_STOP_LAYER:
+        return d.stopLayer;
+    }
+  };
+  return (a, b) => (aAscending ? key(a) - key(b) : key(b) - key(a));
+}
+
 /**
  * `DRILL_LINE_ITEM::operator==`: every field but the count.
  *

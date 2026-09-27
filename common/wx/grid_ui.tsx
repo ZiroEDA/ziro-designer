@@ -421,11 +421,13 @@ export function WxGridView({
                   key={c}
                   className={columns[c]?.center ? 'c' : undefined}
                   style={columns[c]?.width ? { width: columns[c]!.width } : undefined}
-                  onClick={(e) =>
+                  onClick={(e) => {
                     grid.ProcessEvent(
                       new wxGridEvent(wxEVT_GRID_LABEL_LEFT_CLICK, grid, -1, c, modifiersOf(e)),
-                    )
-                  }
+                    );
+                    // The label's mouse-up: `DoColHeaderClick`.
+                    grid.DoColHeaderClick(c);
+                  }}
                   onContextMenu={(e) => onContextMenu(-1, c, wxEVT_GRID_LABEL_RIGHT_CLICK, e)}
                 >
                   {grid.GetColLabelValue(c)}

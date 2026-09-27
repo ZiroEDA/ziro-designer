@@ -1545,6 +1545,12 @@ export class wxGrid extends wxEvtHandler {
     return this.m_editable;
   }
 
+  /** `SetDefaultCellAlignment( horiz, vert )`. */
+  SetDefaultCellAlignment(aHAlign: number, aVAlign?: number): void {
+    this.m_defaultCellAttr.SetAlignment(aHAlign, aVAlign);
+    this.Refresh();
+  }
+
   EnableEditing(aEdit: boolean): void {
     if (aEdit !== this.m_editable) {
       if (!aEdit) this.DisableCellEditControl();
@@ -2206,6 +2212,38 @@ export class wxGrid extends wxEvtHandler {
   }
 
   /** `SendEvent( type, row, col, string )`: vetoed, deleted, handled or not. */
+  private m_sortCol = -1;
+  private m_sortIsAscending = true;
+
+  /** `SetSortingColumn`: the column the grid is sorted by (-1 for none), and the order. */
+  SetSortingColumn(aCol: number, aAscending = true): void {
+    this.m_sortCol = aCol;
+    this.m_sortIsAscending = aAscending;
+  }
+  UnsetSortingColumn(): void {
+    this.SetSortingColumn(-1);
+  }
+  GetSortingColumn(): number {
+    return this.m_sortCol;
+  }
+  IsSortingBy(aCol: number): boolean {
+    return this.GetSortingColumn() === aCol;
+  }
+  IsSortOrderAscending(): boolean {
+    return this.m_sortIsAscending;
+  }
+
+  /**
+   * `DoColHeaderClick`, on a column label's mouse-up: the grid counts as
+   * resorted when `wxEVT_GRID_COL_SORT` is handled and not vetoed.
+   */
+  DoColHeaderClick(aCol: number): void {
+    if (this.SendEvent(wxEVT_GRID_COL_SORT, -1, aCol) === EventResult.Event_Handled) {
+      this.SetSortingColumn(aCol, this.IsSortingBy(aCol) ? !this.m_sortIsAscending : true);
+      this.Refresh();
+    }
+  }
+
   SendEvent(aType: wxEventType, aRow: number, aCol: number, aString = ''): EventResult {
     const evt = new wxGridEvent(aType, this, aRow, aCol);
     evt.SetString(aString);
