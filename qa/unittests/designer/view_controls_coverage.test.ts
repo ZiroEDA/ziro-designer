@@ -239,7 +239,7 @@ describe('shared view controls', () => {
   });
 
   it('nothing imports view controls sideways out of another editor', () => {
-    for (const rel of [...CANVASES, ...FITTERS, 'widgets/footprint_preview_widget.tsx']) {
+    for (const rel of [...CANVASES, ...FITTERS, 'editors/pcb/footprint_preview_panel.tsx']) {
       expect(read(rel), rel).not.toMatch(/import[^;]*InputPrefs[^;]*SchematicCanvas\.js/);
     }
   });

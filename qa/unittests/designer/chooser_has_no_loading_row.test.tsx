@@ -29,7 +29,8 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
 import { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
 import { SymbolPreviewWidget } from '@ziroeda/designer/src/editors/schematic/widgets/symbol_preview_widget.js';
-import { FootprintPreviewWidget } from '@ziroeda/designer/src/widgets/footprint_preview_widget.js';
+import { FootprintPreviewWidget } from '@ziroeda/common/widgets/footprint_preview_widget.js';
+import { PCB_FOOTPRINT_PREVIEW_PANEL } from '@ziroeda/designer/src/editors/pcb/footprint_preview_panel.js';
 
 afterEach(cleanup);
 
@@ -98,6 +99,7 @@ describe('the preview panes', () => {
     const never = new Promise<never>(() => {});
     const { container } = render(
       <FootprintPreviewWidget
+        panel={PCB_FOOTPRINT_PREVIEW_PANEL}
         footprint="Resistor_SMD:R_0805"
         statusText="No footprint specified"
         resolve={() => never}
@@ -111,6 +113,7 @@ describe('the preview panes', () => {
     // `SetStatusText( _( "Footprint not found." ) )` — footprint_preview_widget.cpp:123.
     const { findByText } = render(
       <FootprintPreviewWidget
+        panel={PCB_FOOTPRINT_PREVIEW_PANEL}
         footprint="Resistor_SMD:Nope"
         statusText="No footprint specified"
         resolve={() => Promise.resolve(null)}

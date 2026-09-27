@@ -29,7 +29,8 @@ import { searchTerm } from '@ziroeda/common';
 import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
 import { LibTreeModelAdapter, type SortMode } from '@ziroeda/common/lib_tree_model_adapter.js';
 import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
-import { FootprintPreviewWidget } from '../../../widgets/footprint_preview_widget.js';
+import { FootprintPreviewWidget } from '@ziroeda/common/widgets/footprint_preview_widget.js';
+import { PCB_FOOTPRINT_PREVIEW_PANEL } from '../../pcb/footprint_preview_panel.js';
 import { FootprintSelectWidget } from '@ziroeda/common/widgets/footprint_select_widget.js';
 import { loadFootprintIndex } from '../../../widgets/footprint_list.js';
 import { filterFootprints } from '@ziroeda/pcbnew/pcbnew.js';
@@ -792,6 +793,7 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
             />
             <div className="ze-chooser-fppreview">
               <FootprintPreviewWidget
+                panel={PCB_FOOTPRINT_PREVIEW_PANEL}
                 footprint={validSelection && !fpStatus ? shownFootprint : ''}
                 statusText={fpStatus}
               />

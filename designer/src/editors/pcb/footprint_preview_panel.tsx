@@ -2,17 +2,18 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Footprint preview pane of the chooser dialogs. Mirrors
- * kicad/common/widgets/footprint_preview_widget.cpp
- * (FOOTPRINT_PREVIEW_WIDGET + FOOTPRINT_PREVIEW_PANEL): fetches the footprint
- * from the hosted libraries and paints it through the PCB paint pipeline,
- * with a status text replacing the canvas when there is nothing to draw
- * ("No footprint specified" / "Footprint not found").
+ * `FOOTPRINT_PREVIEW_PANEL` (`pcbnew/footprint_preview_panel.cpp`): the
+ * board canvas a `FOOTPRINT_PREVIEW_WIDGET` hosts. The widget, its status
+ * text and the "Footprint not found." branch are common
+ * (`common/widgets/footprint_preview_widget.tsx`); upstream it gets this panel
+ * from the kiway (`FRAME_FOOTPRINT_PREVIEW`), here the caller passes
+ * `PCB_FOOTPRINT_PREVIEW_PANEL`.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, type JSX } from 'react';
+import type { FOOTPRINT_PREVIEW_PANEL_BASE } from '@ziroeda/common/widgets/footprint_preview_widget.js';
 import { footprintBBox, footprintTextOnly, type PcbFootprint } from '@ziroeda/pcbnew';
-import { usePreviewViewControls, type PreviewView } from './preview_view_controls.js';
-import type { InputPrefs } from '../ui/view_controls.js';
+import { usePreviewViewControls, type PreviewView } from '../../widgets/preview_view_controls.js';
+import type { InputPrefs } from '../../ui/view_controls.js';
 import {
   buildScene,
   drawAnchors,
@@ -20,61 +21,27 @@ import {
   pcbGridOptions,
   DEFAULT_DRAW_OPTIONS,
   PCB_DEFAULT_GRID_IU,
-} from '../editors/pcb/renderBoard.js';
+} from './renderBoard.js';
 import { drawCrosshair, drawGrid } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
-import { PCB_BACKGROUND, PCB_CURSOR } from '../editors/pcb/pcbTheme.js';
-import { settings } from '../prefs/settings.js';
-import { footprintToBoard, FOOTPRINT_LAYERS } from '../editors/footprint/footprintBoard.js';
-import { loadFootprint } from './footprint_list.js';
+import { PCB_BACKGROUND, PCB_CURSOR } from './pcbTheme.js';
+import { settings } from '../../prefs/settings.js';
+import { footprintToBoard, FOOTPRINT_LAYERS } from '../footprint/footprintBoard.js';
+import { loadFootprint } from '../../widgets/footprint_list.js';
 
 const ALL_LAYERS: ReadonlySet<string> = new Set(FOOTPRINT_LAYERS.map((l) => l.name));
 
-export interface FootprintPreviewWidgetProps {
-  /** Footprint LIB_ID text to display, '' for none (SetStatusText branch). */
-  footprint: string;
-  /** Status label, e.g. "No footprint specified" (upstream SetStatusText). */
-  statusText: string;
-  /** Resolve a LIB_ID to a footprint. Defaults to the hosted libraries; the
-   *  Assign Footprints window passes a resolver that also serves the project's
-   *  own `.pretty` libraries (the fp-lib-table's project scope). */
-  resolve?: (libId: string) => Promise<PcbFootprint | null>;
+export interface FootprintPreviewPanelProps {
+  /** The resolved footprint (`DisplayFootprint`'s `m_currentFootprint`). */
+  footprint: PcbFootprint;
   /** Mouse preferences (PANEL_MOUSE_SETTINGS) for the zoom/pan gestures. */
   inputPrefs?: InputPrefs;
 }
 
-export function FootprintPreviewWidget({
-  footprint,
-  statusText,
-  resolve = loadFootprint,
+export function FootprintPreviewPanel({
+  footprint: fp,
   inputPrefs,
-}: FootprintPreviewWidgetProps): JSX.Element {
+}: FootprintPreviewPanelProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [fp, setFp] = useState<PcbFootprint | null>(null);
-  // `FOOTPRINT_PREVIEW_WIDGET` has two states, not three: `DisplayFootprint`
-  // (common/widgets/footprint_preview_widget.cpp:107-123) either clears the
-  // status or sets "Footprint not found." There is no loading state because the
-  // read is off an already-resident library, so while ours is in flight the
-  // widget keeps showing what it showed before — which is what upstream's panel
-  // does too, since it only repaints once the new footprint resolves.
-  const [status, setStatus] = useState<'idle' | 'missing'>('idle');
-
-  // DisplayFootprint: fetch the .kicad_mod on selection change.
-  useEffect(() => {
-    let cancelled = false;
-    if (!footprint) {
-      setFp(null);
-      setStatus('idle');
-      return;
-    }
-    void resolve(footprint).then((loaded) => {
-      if (cancelled) return;
-      setFp(loaded);
-      setStatus(loaded ? 'idle' : 'missing');
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [footprint, resolve]);
 
   // Paint the footprint through the pane's view (FOOTPRINT_PREVIEW_PANEL's
   // fitToCurrentFootprint seeds it; the wheel and a middle/right drag move it
@@ -215,23 +182,26 @@ export function FootprintPreviewWidget({
   }, [fp, draw]);
 
   return (
-    <div className="ze-fp-preview">
-      {fp && footprint ? (
-        <canvas
-          ref={canvasRef}
-          className="ze-fp-canvas"
-          onWheel={viewCtl.handlers.onWheel}
-          onPointerDown={viewCtl.handlers.onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={viewCtl.handlers.onPointerUp}
-          onPointerCancel={viewCtl.handlers.onPointerUp}
-          onContextMenu={viewCtl.handlers.onContextMenu}
-        />
-      ) : (
-        <div className="ze-muted">
-          {!footprint || status !== 'missing' ? statusText : 'Footprint not found.'}
-        </div>
-      )}
-    </div>
+    <canvas
+      ref={canvasRef}
+      className="ze-fp-canvas"
+      onWheel={viewCtl.handlers.onWheel}
+      onPointerDown={viewCtl.handlers.onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={viewCtl.handlers.onPointerUp}
+      onPointerCancel={viewCtl.handlers.onPointerUp}
+      onContextMenu={viewCtl.handlers.onContextMenu}
+    />
   );
 }
+
+/**
+ * What `FOOTPRINT_PREVIEW_WIDGET`'s constructor gets from
+ * `aKiway.KiFACE( KIWAY::FACE_PCB ).CreateKiWindow( FRAME_FOOTPRINT_PREVIEW )`:
+ * the lookup `DisplayFootprint` does against the footprint libraries, and the
+ * canvas that shows the result.
+ */
+export const PCB_FOOTPRINT_PREVIEW_PANEL: FOOTPRINT_PREVIEW_PANEL_BASE<PcbFootprint> = {
+  resolve: loadFootprint,
+  render: (footprint) => <FootprintPreviewPanel footprint={footprint} />,
+};

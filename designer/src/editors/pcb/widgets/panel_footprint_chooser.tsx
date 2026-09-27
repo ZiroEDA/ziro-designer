@@ -36,7 +36,8 @@ import type { JSX } from 'react';
 import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
 import { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
 import { LibTreeNodeType, type LibTreeNode } from '@ziroeda/common/lib_tree_model.js';
-import { FootprintPreviewWidget } from '../../../widgets/footprint_preview_widget.js';
+import { FootprintPreviewWidget } from '@ziroeda/common/widgets/footprint_preview_widget.js';
+import { PCB_FOOTPRINT_PREVIEW_PANEL } from '../footprint_preview_panel.js';
 import type { FootprintIndexLibrary } from '@ziroeda/pcbnew/footprint_info_impl.js';
 import {
   addFootprintHistory,
@@ -209,6 +210,7 @@ export function PanelFootprintChooser({
         <div className="ze-fpchooser-preview">
           {showFpView && (
             <FootprintPreviewWidget
+              panel={PCB_FOOTPRINT_PREVIEW_PANEL}
               footprint={selected ?? ''}
               // `m_preview_ctrl->SetStatusText( _( "No footprint selected" ) )`
               // (panel_footprint_chooser.cpp:367).
