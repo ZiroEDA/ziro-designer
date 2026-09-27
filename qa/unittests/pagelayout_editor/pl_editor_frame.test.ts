@@ -32,6 +32,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   CORNER_ANCHOR,
   DS_DATA_ITEM,
+  type DS_DATA_ITEM_BITMAP,
   DS_DATA_ITEM_TEXT,
   DS_ITEM_TYPE,
 } from '@ziroeda/common/drawing_sheet/ds_data_item.js';
@@ -40,6 +41,9 @@ import { EDA_UNITS_INT } from '@ziroeda/common/settings/app_settings.js';
 import { LAYER_DRAWINGSHEET_PAGE1, LAYER_DRAWINGSHEET_PAGEn } from '@ziroeda/common/layer_id.js';
 import { PAGE_INFO } from '@ziroeda/common/page_info.js';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { GetClipboardUTF8, SaveClipboard } from '@ziroeda/common/clipboard.js';
+import { wxMemoryBuffer } from '@ziroeda/common/wx/buffer.js';
+import { WX_IMAGE } from '@ziroeda/common/wx_image.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { TA_MOUSE_CLICK, TA_MOUSE_MOTION } from '@ziroeda/common/tool/tool_event.js';
@@ -354,8 +358,40 @@ describe('PL_EDIT_TOOL and PL_EDITOR_CONTROL', () => {
 
     h.mgr.RunAction(ACTIONS.copy);
 
-    expect(h.host.clipboard).toContain('(line');
-    expect(h.host.clipboard).not.toContain('(setup');
+    expect(GetClipboardUTF8()).toContain('(line');
+    expect(GetClipboardUTF8()).not.toContain('(setup');
+  });
+
+  it('Paste reads back what Copy saved', () => {
+    const { h, line } = withOneLine();
+    h.mgr.GetTool(PL_SELECTION_TOOL)!.AddItemToSel(line.GetDrawItems()[0]!);
+    h.mgr.RunAction(ACTIONS.copy);
+
+    h.mgr.RunAction(ACTIONS.paste);
+
+    const items = model.GetItems();
+    expect(items.map((it) => it.GetType())).toEqual([
+      DS_ITEM_TYPE.DS_SEGMENT,
+      DS_ITEM_TYPE.DS_SEGMENT,
+    ]);
+  });
+
+  it('Paste takes an image on the clipboard before its text (pl_edit_tool.cpp:549)', () => {
+    const { h } = withOneLine();
+    const png = new WX_IMAGE(2, 3).SaveFilePng()!;
+    SaveClipboard('not a drawing sheet', [
+      { m_mimeType: 'image/png', m_data: new wxMemoryBuffer(png), m_useRawPngData: true },
+    ]);
+
+    h.mgr.RunAction(ACTIONS.paste);
+
+    const items = model.GetItems();
+    expect(items.map((it) => it.GetType())).toEqual([
+      DS_ITEM_TYPE.DS_SEGMENT,
+      DS_ITEM_TYPE.DS_BITMAP,
+    ]);
+    const bitmap = (items[1] as DS_DATA_ITEM_BITMAP).m_ImageBitmap!.GetImageData()!;
+    expect([bitmap.GetWidth(), bitmap.GetHeight()]).toEqual([2, 3]);
   });
 
   it('the display mode switch turns variable substitution on and off', () => {

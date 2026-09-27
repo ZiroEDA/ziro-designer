@@ -27,7 +27,6 @@ import type { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { VIEW } from '@ziroeda/common/view/view.js';
 import { VC_SETTINGS } from '@ziroeda/common/view/view_controls.js';
 import type { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
-import type { WX_IMAGE } from '@ziroeda/common/wx_image.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { DIALOG_INSPECTOR } from '@ziroeda/pagelayout_editor/dialogs/design_inspector.js';
 import { PL_DRAW_PANEL_GAL } from '@ziroeda/pagelayout_editor/pl_draw_panel_gal.js';
@@ -41,8 +40,6 @@ class STUB_GAL extends GAL {}
 
 /** The recording host: every call the frame made, and the dialogs' answers. */
 export interface TestHost extends PL_EDITOR_FRAME_HOST {
-  clipboard: string;
-  clipboardImage: WX_IMAGE | null;
   titles: string[];
   /** `DisplayErrorMessage` calls, text and extra info. */
   errors: { text: string; extra: string | undefined }[];
@@ -87,8 +84,6 @@ export interface Harness {
 
 function makeHost(): TestHost {
   const host: TestHost = {
-    clipboard: '',
-    clipboardImage: null,
     titles: [],
     errors: [],
     messages: [],
@@ -149,12 +144,6 @@ function makeHost(): TestHost {
     HtmlMessageBox(aCaption, aHtml, aList) {
       host.htmlBoxes.push({ caption: aCaption, html: aHtml, list: aList });
     },
-    SaveClipboard(aText) {
-      host.clipboard = aText;
-      return true;
-    },
-    GetClipboardUTF8: () => host.clipboard,
-    GetImageFromClipboard: () => host.clipboardImage,
     ShowInfoBarMsg() {},
     DismissInfoBar() {},
   };

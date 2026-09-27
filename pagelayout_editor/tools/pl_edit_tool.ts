@@ -7,10 +7,13 @@
  * a drawing sheet file.
  *
  * `InteractiveDelete` (`ACTIONS::deleteTool`) drives common's `PICKER_TOOL`.
- * The clipboard (`SaveClipboard`, `GetClipboardUTF8`, `GetImageFromClipboard`,
- * common/clipboard.cpp) is the frame host's.
  */
 import { BITMAP_BASE } from '@ziroeda/common/bitmap_base.js';
+import {
+  GetClipboardUTF8,
+  GetImageFromClipboard,
+  SaveClipboard,
+} from '@ziroeda/common/clipboard.js';
 import {
   type DS_DATA_ITEM,
   DS_DATA_ITEM_BITMAP,
@@ -402,16 +405,15 @@ export class PL_EDIT_TOOL extends TOOL_INTERACTIVE {
 
     const sexpr = model.SaveInString(items);
 
-    if (this.m_frame!.GetHost()?.SaveClipboard(sexpr)) return 0;
+    if (SaveClipboard(sexpr)) return 0;
     else return -1;
   }
 
   Paste(_aEvent: TOOL_EVENT): number {
     const selection = this.m_selectionTool!.GetSelection();
     const model = DS_DATA_MODEL.GetTheInstance();
-    const host = this.m_frame!.GetHost();
 
-    const clipImg = host?.GetImageFromClipboard() ?? null;
+    const clipImg = GetImageFromClipboard();
 
     if (clipImg) {
       const image = new BITMAP_BASE();
@@ -421,7 +423,7 @@ export class PL_EDIT_TOOL extends TOOL_INTERACTIVE {
     } else {
       this.m_selectionTool!.ClearSelection();
 
-      const clipText = host?.GetClipboardUTF8() ?? '';
+      const clipText = GetClipboardUTF8();
       model.SetPageLayout(clipText, true, 'clipboard');
     }
 

@@ -57,7 +57,6 @@ import { ZOOM_TOOL } from '@ziroeda/common/tool/zoom_tool.js';
 import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import { wxChoice } from '@ziroeda/common/wx/choice.js';
-import type { WX_IMAGE } from '@ziroeda/common/wx_image.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { DIALOG_INSPECTOR } from './dialogs/design_inspector.js';
@@ -152,12 +151,6 @@ export interface PL_EDITOR_FRAME_HOST {
   ChooseImageFile(aDefaultDir: string): Promise<{ path: string; data: Uint8Array } | null>;
   /** `HTML_MESSAGE_BOX dlg( … ); dlg.AddHTML_Text( aHtml ); dlg.ListSet( aList ); dlg.ShowModal()`. */
   HtmlMessageBox(aCaption: string, aHtml: string, aList: readonly string[]): void;
-  /** `SaveClipboard( aTextUTF8 )` (common/clipboard.cpp). */
-  SaveClipboard(aText: string): boolean;
-  /** `GetClipboardUTF8()`: the text a paste carries. */
-  GetClipboardUTF8(): string;
-  /** `GetImageFromClipboard()`: the image a paste carries, or null. */
-  GetImageFromClipboard(): WX_IMAGE | null;
   /** `ShowInfoBarMsg( aMsg )`. */
   ShowInfoBarMsg(aMsg: string): void;
   /** `GetInfoBar()->Dismiss()`. */

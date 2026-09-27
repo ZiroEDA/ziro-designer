@@ -76,7 +76,7 @@ import { MsgPanel } from '@ziroeda/common/widgets/msgpanel_ui.js';
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
 import { dockedPaneWidth } from '@ziroeda/common/widgets/wx_aui_sash_geometry.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { WX_IMAGE } from '@ziroeda/common/wx_image.js';
+import { SetClipboardFromPaste } from '@ziroeda/common/clipboard.js';
 import type { DIALOG_INSPECTOR } from './dialogs/design_inspector.js';
 import { DesignInspector } from './dialogs/design_inspector_ui.js';
 import { PropertiesFrame } from './dialogs/properties_frame_ui.js';
@@ -325,15 +325,6 @@ export function PlEditorFrameWindow({
     null,
   );
 
-  /**
-   * The clipboard `SaveClipboard` / `GetClipboardUTF8` / `GetImageFromClipboard`
-   * read and write (common/clipboard.cpp). A browser's system clipboard can
-   * only be read asynchronously, or in a `paste` event; the frame's reads are
-   * synchronous, so they answer from what the last copy or paste event left
-   * here.
-   */
-  const clipboard = useRef<{ text: string; image: WX_IMAGE | null }>({ text: '', image: null });
-
   /** The file chooser's Cancel: `fileDlg.ShowModal() != wxID_OK`. */
   useEffect(() => {
     const el = imageInputRef.current;
@@ -401,13 +392,6 @@ export function PlEditorFrameWindow({
         }),
       HtmlMessageBox: (aCaption, aHtml, aList) =>
         setHtmlBox({ caption: aCaption, html: aHtml, list: aList }),
-      SaveClipboard: (aText) => {
-        clipboard.current = { text: aText, image: null };
-        void navigator.clipboard?.writeText?.(aText).catch(() => {});
-        return true;
-      },
-      GetClipboardUTF8: () => clipboard.current.text,
-      GetImageFromClipboard: () => clipboard.current.image,
       ShowInfoBarMsg: (aMsg) => displayErrorMessage(aMsg),
       DismissInfoBar: () => setOutdatedFormat(false),
     }),
@@ -631,28 +615,10 @@ export function PlEditorFrameWindow({
 
       if (!dt) return;
 
-      const imgItem = Array.from(dt.items).find(
-        (it) => it.kind === 'file' && it.type.startsWith('image/'),
-      );
-      const text = dt.getData('text/plain');
-
       e.preventDefault();
 
-      const run = (aImage: WX_IMAGE | null): void => {
-        clipboard.current = { text: aImage ? '' : text, image: aImage };
-        runAction(ACTIONS.paste);
-      };
-
-      const file = imgItem?.getAsFile();
-
-      if (file) {
-        void file.arrayBuffer().then((buf) => {
-          const image = new WX_IMAGE();
-          run(image.LoadFile(new Uint8Array(buf)) ? image : null);
-        });
-      } else {
-        run(null);
-      }
+      // `wxTheClipboard` is what the paste carries; then `ACTIONS::paste`.
+      void SetClipboardFromPaste(dt).then(() => runAction(ACTIONS.paste));
     };
 
     window.addEventListener('paste', onPaste);
