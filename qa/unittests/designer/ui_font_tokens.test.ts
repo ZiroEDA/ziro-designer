@@ -279,7 +279,9 @@ const BASELINE: Record<string, number> = {
   // gone with it for common/dialogs' DIALOG_BOOK_REPORTER.
   // 49 -> 44 on 09-26: the Print dialog's five inline sizes, gone with it.
   // 44 -> 41 on 09-26: the line-modification box's three.
-  'editors/pcb': 41,
+  // 41 -> 39: Create Array's rows share one row() and one input style, so
+  // the field and the count row no longer each state `fontSize: 12` twice.
+  'editors/pcb': 39,
   // 55 -> 50: the COLOR_SWATCH sweep's second half. Seven Clear buttons and
   // one `(using Schematic Editor colors)` hint each carried an inline
   // `fontSize: 11`, and none of them exists upstream - the swatch clears

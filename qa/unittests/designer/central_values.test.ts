@@ -272,7 +272,9 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // 29/147 -> 27/137 on 09-26: dialog_line_modification.tsx, an invented
   // floating box, went for common/dialogs' WX_UNIT_ENTRY_DIALOG and
   // WX_MULTI_ENTRY_DIALOG.
-  'editors/pcb': { colours: 27, metrics: 136 },
+  // metrics 136 -> 133: Create Array's label/entry rows share one row() and
+  // one input style instead of restating them per field kind.
+  'editors/pcb': { colours: 27, metrics: 133 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -717,7 +719,10 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // common/widgets metrics 658 -> 670: main's presence badge and panel
   // (.ze-presence-*) landed in shell.css after it moved here - twelve
   // values, all geometry KiCad has no widget for (see main's 694 -> 706).
-  'common/widgets': { colours: 144, metrics: 672 },
+  // 144/672 -> 145/687: WIDGET_HOTKEY_LIST and its HK_PROMPT_DIALOG moved
+  // here out of common/dialogs' PANEL_HOTKEYS_EDITOR, their 1 colour and 15
+  // metrics with them (common/dialogs 2/27 -> 1/12 below).
+  'common/widgets': { colours: 145, metrics: 687 },
   'common/tool': { colours: 0, metrics: 1 },
   // metrics 0 -> 15 on 09-26: the stage-1 moves, 8 from `dialogs` and 7 from
   // `editors/schematic`. Nothing added or removed: 8 + 7 = 15.
@@ -725,7 +730,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // 2/19 -> 3/34 on 09-26 (stage 3d): what `dialogs` gave up, 1 + 15.
   // metrics 34 -> 27 on 09-26: the Assign Netclass stub's inline styles went
   // when DIALOG_ASSIGN_NETCLASS was ported; its sizes are shell.css's, marked.
-  'common/dialogs': { colours: 2, metrics: 27 },
+  'common/dialogs': { colours: 1, metrics: 12 },
   // 09-26 (stage 3b): common/wx/controls.tsx, the wx controls the panels'
   // `_base` files instantiate, with the one colour `dialogs` gave up.
   'common/wx': { colours: 1, metrics: 0 },
