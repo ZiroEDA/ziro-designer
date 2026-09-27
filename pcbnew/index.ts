@@ -138,7 +138,7 @@ export {
   type PasteResult,
   type ParsedClipboard,
   type CutResult,
-} from './pcb_clipboard.js';
+} from './kicad_clipboard.js';
 export {
   boardMsgPanelInfo,
   boardItemMsgPanelInfo,

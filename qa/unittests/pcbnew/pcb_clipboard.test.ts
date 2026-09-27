@@ -27,7 +27,7 @@ import {
   cutSelectionToClipboardText,
   parseClipboardText,
   pasteIntoBoard,
-} from '@ziroeda/pcbnew/pcb_clipboard.js';
+} from '@ziroeda/pcbnew/kicad_clipboard.js';
 import type {
   Board,
   PcbFootprint,
