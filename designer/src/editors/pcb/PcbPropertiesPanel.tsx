@@ -34,7 +34,8 @@ import type { PcbPropRow } from '@ziroeda/pcbnew/properties_panel.js';
 import { pcbIUScale } from '@ziroeda/common';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { PropertiesPanel } from '../../widgets/properties_panel.js';
-import { distanceToString, stringToDistance } from '../../widgets/pg_properties.js';
+import { PGPROPERTY_DISTANCE, type PG_FRAME } from '@ziroeda/common/properties/pg_properties.js';
+import { PG_UNIT_EDITOR } from '@ziroeda/common/properties/pg_editors.js';
 
 export function PcbPropertiesPanel({
   rows,
@@ -53,6 +54,9 @@ export function PcbPropertiesPanel({
   /** `BOARD_COMMIT::Push( "Edit Properties" )` — our command is the next board. */
   onCommand: (board: Board) => void;
 }): JSX.Element {
+  // The frame a property asks: its user units and its EDA_IU_SCALE.
+  const frame: PG_FRAME = { units, iuScale: pcbIUScale };
+
   return (
     <PropertiesPanel<Board>
       selectionCount={selectionCount}
@@ -60,8 +64,8 @@ export function PcbPropertiesPanel({
       rows={rows}
       /* The same PGPROPERTY_DISTANCE the schematic panel uses, at THIS frame's
          EDA_IU_SCALE — the one thing the two subclasses may differ about. */
-      fmt={(iu) => distanceToString(iu, units, pcbIUScale)}
-      parse={(text) => stringToDistance(text, units, pcbIUScale)}
+      fmt={(iu) => new PGPROPERTY_DISTANCE(frame).DistanceToString(iu)}
+      parse={(text) => PG_UNIT_EDITOR.GetValueFromControl(text, false, frame) ?? null}
       onCommand={onCommand}
     />
   );

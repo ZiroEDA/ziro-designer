@@ -258,9 +258,6 @@ libraries are mounted; the settings / cache / plugin / log folders are n/a.
 - `pin_type` stays: it holds `common/pin_type.h` (the canonical names), which
   is where upstream keeps it; the labels of `eeschema/pin_type.cpp` are
   `eeschema/pin_type.ts`.
-- Open: `text_eval/text_eval_wrapper.ts`'s `EXPRESSION_EVALUATOR` is a stub
-  that returns its input, so `@{...}` math never evaluates (KiCad's
-  `common/text_eval/` is not ported).
 - `item_realignment` is gone (09-27): it cited `common/item_realignment.cpp`,
   which 10.0.5 does not have, and so did its one caller's
   `ComputeFootprintShift`. 10.0.5's ExchangeFootprint matches no pads.
@@ -418,3 +415,38 @@ the designer writes themes as the `colors.*` slices. Ours with no upstream
 file: `app_settings_units` and `grid_settings_ui` (pieces of
 `app_settings.cpp`), `zoom_settings` (`zoom_defines.h`), `json_dump`
 (`SaveToFile`'s byte format), `color_theme_file` (one theme file's shape).
+
+## `text_eval/` — 5 KiCad files (+ 4 headers), CLOSED 09-27
+
+| KiCad | ours |
+|---|---|
+| `text_eval_wrapper.cpp` + `include/text_eval/text_eval_wrapper.h` | `text_eval_wrapper.ts`: `EXPRESSION_EVALUATOR` (the four constructor overloads read by argument type; `Clone()` is the copy constructor), the tokenizer, `NUMERIC_EVALUATOR_COMPAT` |
+| `text_eval.lemon` | `text_eval.ts`: no lemon here, so a recursive descent behind lemon's push interface (`ParseAlloc` / `Parse` / `ParseFree`), one function per precedence level. Lemon's error recovery is not reproduced: the wrapper keeps the input on the first error, so it never shapes a result |
+| `text_eval_parser.cpp` + `text_eval_parser.h` | `text_eval_parser.ts`: `NODE`, `DOC`, `VALUE_UTILS`, `DATE_UTILS`, `ESERIES_UTILS`, `EVAL_VISITOR`, `DOC_PROCESSOR` |
+| `text_eval_vcs.cpp` + `.h` | `text_eval_vcs.ts`: a tab has no git checkout, so every query answers as `OpenRepo` failing does (`<unknown>`, 0, empty) |
+| `include/text_eval/text_eval_types.h`, `text_eval_units.h` | `text_eval_types.ts`, `text_eval_units.ts` |
+
+Numbers print through `plotters/fmt.ts` (`{:.Nf}` and `{}` exactly); `std::pow`
+on a power of ten is exact (`std_pow`), because V8's `Math.pow(10, -5)` is one
+ulp off glibc. Checked against the 148 cases of KiCad's
+`qa/tests/common/text_eval`; pinned by `qa/unittests/common/text_eval.test.ts`.
+Stated gaps: tokens are cut at 255 UTF-8 bytes on a character boundary (the
+C++ can split one); `UNIT_BINDER` does not yet evaluate through
+`NUMERIC_EVALUATOR_COMPAT`.
+
+## `properties/` — 7 KiCad files
+
+| KiCad | ours |
+|---|---|
+| `property_mgr.cpp` | `property_mgr.ts` (+ `property.ts`, `property_validators.ts` for the headers) |
+| `pg_properties.cpp` | `pg_properties.ts`: `PGPROPERTY_DISTANCE` / `_SIZE` / `_COORD` / `_ANGLE` / `_RATIO` / `_STRING` / `_COLOR4D` / `_COLORENUM`, over `PG_FRAME` (the frame's units, `EDA_IU_SCALE`, origin transforms) |
+| `pg_editors.cpp` | `pg_editors.ts`: what `PG_UNIT_EDITOR`, `PG_CHECKBOX_EDITOR`, `PG_COLOR_EDITOR`, `PG_FPID_EDITOR` read back; the controls are drawn by `designer/src/widgets/properties_panel.tsx` |
+| `pg_cell_renderer.cpp` | `pg_cell_renderer.ts`: `Render`'s value-cell decision (swatch / disabled / default); the painting is the widget's CSS |
+| `color4d_variant.cpp`, `eda_angle_variant.cpp`, `std_optional_variants.cpp` | folded into `pg_properties.ts`: a JS value needs no wxVariant carrier, an empty optional is `null`, and the two `Write`s are `COLOR4D_VARIANT_DATA_Write` / `EDA_ANGLE_VARIANT_DATA_Write` |
+
+Both panels (`SchPropertiesPanel`, `PcbPropertiesPanel`) and pcbnew's angle
+rows use these; `designer/src/widgets/pg_properties.ts` is gone. Not ported:
+`PGPropertyFactory` (rows are built per editor with the cell type on the row),
+`PGPROPERTY_AREA` / `_TIME` (the frame formatter has no AREA / TIME data type),
+`PGPROPERTY_NET`, `PG_RATIO_EDITOR`, `PG_URL_EDITOR` (its bitmaps are not
+vendored).

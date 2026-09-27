@@ -25,7 +25,18 @@
  */
 import { describe, it, expect } from 'vitest';
 import { pcbIUScale, schIUScale } from '@ziroeda/common';
-import { distanceToString, stringToDistance } from '@ziroeda/designer/src/widgets/pg_properties.js';
+import type { EdaIuScale } from '@ziroeda/common';
+import { PG_UNIT_EDITOR } from '@ziroeda/common/properties/pg_editors.js';
+import { PGPROPERTY_DISTANCE } from '@ziroeda/common/properties/pg_properties.js';
+import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
+
+/** A distance cell of a frame at these units and scale, formatted. */
+const distanceToString = (iu: number, units: StatusUnits, iuScale: EdaIuScale) =>
+  new PGPROPERTY_DISTANCE({ units, iuScale }).DistanceToString(iu);
+
+/** The same cell's editor reading text back; `null` is the refused edit. */
+const stringToDistance = (text: string, units: StatusUnits, iuScale: EdaIuScale) =>
+  PG_UNIT_EDITOR.GetValueFromControl(text, false, { units, iuScale }) ?? null;
 
 /** 1900 mils at the eeschema scale: IU_PER_MILS is 1e4 * 0.0254 = 254. */
 const MILS_1900 = 1900 * 254;

@@ -56,7 +56,9 @@
  */
 import { Fragment, useEffect, useState } from 'react';
 import type { JSX } from 'react';
-import { COLOR4D_UNSPECIFIED, parseColor4d, toHexString } from '@ziroeda/common';
+import { toHexString } from '@ziroeda/common';
+import { PG_CELL_RENDERER } from '@ziroeda/common/properties/pg_cell_renderer.js';
+import { PG_COLOR_EDITOR } from '@ziroeda/common/properties/pg_editors.js';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
@@ -253,7 +255,7 @@ function ValueCell<C>({
   // `ui/ColorSwatch.tsx` already is that control, checkerboard and picker
   // included, so this row hands it the value and takes the answer back; the
   // panel does not draw a swatch of its own.
-  if (row.kind === 'color') {
+  if (PG_CELL_RENDERER.RenderValue(row.kind === 'color', !row.set, false) === 'swatch') {
     const css = typeof row.value === 'string' ? row.value : '';
     return cell(
       // `PG_COLOR_EDITOR::CreateControls` (pg_editors.cpp:336-351) builds it at
@@ -263,7 +265,7 @@ function ValueCell<C>({
       // to edge. `.ze-pgrid-colorcell` is that SetSize; the size class is only
       // what it falls back to where the cell has no size to give.
       <ColorSwatch
-        color={css === '' ? COLOR4D_UNSPECIFIED : parseColor4d(css)}
+        color={PG_COLOR_EDITOR.colorFromVariant(css)}
         size="large"
         className="ze-pgrid-colorcell"
         label={row.name}
@@ -330,8 +332,9 @@ function ValueCell<C>({
     if (text === display) return;
     let v: string | number | boolean = text;
     if (isDist) {
-      // The `std::optional<int>` branch: an emptied cell is "no value", and it
-      // is committed as such instead of being parsed into a number.
+      // The `std::optional<int>` branch of PG_UNIT_EDITOR::GetValueFromControl
+      // (common/properties/pg_editors.ts): an emptied cell is "no value", and
+      // it is committed as such instead of being parsed into a number.
       if (row.optional && text.trim() === '') {
         if (!commitValue('')) setText(display);
         return;
@@ -488,7 +491,11 @@ export function PropertiesPanel<C>({
                   <div
                     className="ze-pgrid-row"
                     key={`${g.title}/${r.name}`}
-                    data-readonly={r.set ? undefined : ''}
+                    data-readonly={
+                      PG_CELL_RENDERER.RenderValue(false, !r.set, false) === 'disabled'
+                        ? ''
+                        : undefined
+                    }
                   >
                     <span className="ze-pgrid-margin" />
                     <span className="ze-pgrid-name" title={r.name}>

@@ -42,6 +42,7 @@
  *    commit and not of the row.
  */
 
+import { PGPROPERTY_ANGLE } from '@ziroeda/common/properties/pg_properties.js';
 import { LINE_STYLE_CHOICES } from '@ziroeda/common/stroke_params.js';
 import { parseBoardItemId, setFootprintFieldByName } from './edit-board.js';
 import { applyPadValues, collectPadValues, type PadRef, type PadValues } from './pad_properties.js';
@@ -261,7 +262,7 @@ export function pcbItemFriendlyName(board: Board, id: string): string | undefine
 }
 
 /** `PGPROPERTY_ANGLE::ValueToString`: `"%g°"`, the degree sign included. */
-const ANGLE = (deg: number): string => `${Number.parseFloat(deg.toFixed(4))}°`;
+const ANGLE = (deg: number): string => new PGPROPERTY_ANGLE().ValueToString(deg);
 
 /**
  * `FOOTPRINT::GetOrientation()` normalised the way `EDA_ANGLE::Normalize180`
