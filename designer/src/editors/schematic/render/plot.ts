@@ -15,6 +15,7 @@
  * every PDF through.
  */
 
+import { ExpandTextVars } from '@ziroeda/common/common.js';
 import type { Schematic } from '@ziroeda/eeschema';
 import { busJunctionIds } from '@ziroeda/eeschema/connectivity/bus.js';
 import type { WksSheet } from '@ziroeda/common';
@@ -426,11 +427,11 @@ export function sheetsToPdf(
   return plotter.bytes();
 }
 
-/** `ExpandTextVars` over the sheet's own resolver. */
+/** `ExpandTextVars( aText, &textResolver )` over the sheet's own resolver. */
 function expandVars(text: string, s: PdfPlotSheet): string {
   const resolve = s.opts.resolveTextVar;
   if (!resolve) return text;
-  return text.replace(/\$\{([^}]*)\}/g, (whole, name: string) => resolve(name) ?? whole);
+  return ExpandTextVars(text, resolve);
 }
 
 /** Plot one sheet to a single-page PDF. */

@@ -116,4 +116,3 @@ export * from './reference_image.js';
 export { pngPixelSize, pngPPI, DEFAULT_PPI } from './wx/png_meta.js';
 
 // `ExpandTextVars` (common/common.cpp) — both editors resolve ${VAR} with it.
-export * from './text_vars.js';

@@ -10,6 +10,7 @@
  * viewer pipeline, layer/object controls and presets are fully functional.
  */
 
+import type { OutStr } from '@ziroeda/common/eda_item.js';
 import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
 import { jsonFileWildcard, reportFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import { DialogAssignNetclass } from '@ziroeda/common/dialogs/dialog_assign_netclass.js';
@@ -2594,19 +2595,22 @@ export function PcbEditor({
    * `BOARD::ResolveTextVar` (`pcbnew/board.cpp`), reached from
    * `PCB_TEXT::GetShownText`: the project's text variables — the Text Variables
    * page's rows — plus the two board tokens that need no title block.
-   * Unresolved names are left verbatim by `expandTextVars`, as upstream leaves
-   * them.
+   * An unanswered name is left verbatim by `ResolveTextVars`, as upstream
+   * leaves it.
    *
    * Not resolved here: the title-block tokens (ISSUE_DATE, REVISION, COMPANY,
    * COMMENT1-9) and `LAYER`, which is per drawn item rather than per board.
    */
-  const resolveTextVar = (token: string): string | undefined => {
+  const resolveTextVar = (token: OutStr): boolean => {
     const vars = boardSetupRef.current.textVars;
-    const hit = vars.find((v) => v.name === token);
-    if (hit) return hit.value;
-    if (token === 'PROJECTNAME') return projectName || undefined;
-    if (token === 'FILENAME') return fileName || undefined;
-    return undefined;
+    const hit = vars.find((v) => v.name === token.value);
+    let value: string | undefined;
+    if (hit) value = hit.value;
+    else if (token.value === 'PROJECTNAME') value = projectName || undefined;
+    else if (token.value === 'FILENAME') value = fileName || undefined;
+    if (value === undefined) return false;
+    token.value = value;
+    return true;
   };
 
   const buildBoardScene = (b: Board, filter: SceneFilter = {}): BoardScene => {

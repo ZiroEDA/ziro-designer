@@ -32,9 +32,9 @@ import {
   type WksSheet,
   type Transform,
 } from '@ziroeda/common';
+import { ResolveShownText, type TextVarResolverFn } from '@ziroeda/common/common.js';
 import {
   buildWireWithHopShape,
-  expandTextVars,
   intersheetRefsAutoplaced,
   intersheetRefsField,
   refId,
@@ -621,7 +621,7 @@ export interface RenderOpts {
   /** Text-variable resolver (PROJECT/TITLE_BLOCK/SCHEMATIC TextVarResolver):
    *  when set, `${VAR}` in labels, text, text boxes, tables and fields renders
    *  expanded (GetShownText). Unset = text draws verbatim. */
-  resolveTextVar?: (token: string) => string | undefined;
+  resolveTextVar?: TextVarResolverFn;
   /** Unit-notation inputs for multi-unit references
    *  (SCHEMATIC_SETTINGS::SubReference: m_SubpartIdSeparator char code, 0 =
    *  none, and m_SubpartFirstId 'A'/'1'). Unset = plain letters (U1A). */
@@ -898,9 +898,9 @@ let g_chainHighlight: RenderOpts['chainHighlight'];
 let g_netOverrides: RenderOpts['netOverrides'];
 // Text-variable resolver for the current render (unset = draw verbatim).
 let g_resolveText: RenderOpts['resolveTextVar'];
-/** GetShownText: expand `${VAR}` when a resolver is active. */
+/** GetShownText: resolve `${VAR}` when a resolver is active. */
 function shownText(text: string): string {
-  return g_resolveText && text.includes('${') ? expandTextVars(text, g_resolveText) : text;
+  return g_resolveText && text.includes('${') ? ResolveShownText(text, g_resolveText) : text;
 }
 const _GRID = 1.27 * MM; // 50 mil
 

@@ -306,6 +306,28 @@ export function ResolveTextVars(
   return text;
 }
 
+/**
+ * The tail every item's `GetShownText` ends with upstream - `ResolveTextVars`,
+ * then the escape markers back to a literal `${` / `@{` for display
+ * (`SCH_FIELD::GetShownText`, sch_field.cpp:249-256; `PCB_TEXT::GetShownText`
+ * the same). Upstream repeats these lines in each item class; the pcbnew
+ * items here keep theirs inline as their classes do, and the schematic paths
+ * whose item classes are not ported yet share this.
+ */
+export function ResolveShownText(
+  aSource: string,
+  aResolver: TextVarResolverFn | null,
+  aDepth = 0,
+): string {
+  let text = ResolveTextVars(aSource, aResolver, { value: aDepth });
+
+  // Convert escape markers back to literal ${} and @{} for final display
+  text = text.replaceAll('<<<ESC_DOLLAR:', '${');
+  text = text.replaceAll('<<<ESC_AT:', '@{');
+
+  return text;
+}
+
 /** `wxString::Matches` for the one `KICAD*_X` wildcard this needs: `*` matches any run. */
 const wildcardMatches = (aPattern: string, aText: string): boolean => {
   const re = new RegExp(

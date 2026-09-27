@@ -44,7 +44,7 @@ import { moveItems } from './move.js';
 import { parseSheetPinId } from './sch_sheet_pin_tool.js';
 import { transformItems } from './transform.js';
 import { bulkEditFieldsCommand } from './properties.js';
-import { isGeneratedField } from './fields_data_model.js';
+import { IsGeneratedField } from '@ziroeda/common/common.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 /** One grid row: `coord`/`dist` are IU numbers the panel renders in the
@@ -977,7 +977,7 @@ function fieldRows(sch: Schematic, id: string): PropRow[] {
       // SetText refuses to change it (sch_field.cpp:1077-1082), so the cell is
       // read-only. `::IsGeneratedField` is a name that is exactly one text
       // variable, like `${QUANTITY}`.
-      ...(isGeneratedField(f.key)
+      ...(IsGeneratedField(f.key)
         ? {}
         : {
             set: (v: string | number | boolean) =>

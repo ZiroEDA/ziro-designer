@@ -31,6 +31,11 @@
  * pin-to-pin warnings, the no-connect checks, and the single-pin label check.
  */
 
+import {
+  ExpandEnvVarSubstitutions,
+  ResolveShownText,
+  type TextVarResolverFn,
+} from '@ziroeda/common/common.js';
 import { electricalPinTypeGetText } from '../pin_type.js';
 import type { Schematic, LibSymbol, Vec2 } from '../types.js';
 import { refId } from '../tools/hittest.js';
@@ -238,8 +243,8 @@ export interface ErcRunOptions {
   /** Global labels used anywhere else in the hierarchy, a global label is only
    *  "single" when it appears once project-wide (ercCheckSingleGlobalLabel). */
   otherSheetGlobalLabels?: ReadonlySet<string>;
-  /** Resolve a `${VAR}` name; undefined means unresolved (TestTextVars). */
-  resolveTextVar?: (name: string) => string | undefined;
+  /** The schematic's text-variable resolver, for TestTextVars. */
+  resolveTextVar?: TextVarResolverFn;
   /** DIALOG_ERC's "Show all errors": mark every pin that lacks a driver, not
    *  just one per net (m_showAllErrors in TestPinToPin). */
   showAllErrors?: boolean;
@@ -1405,14 +1410,15 @@ export function* runErcSteps(
 
   /** ERC_TESTER::TestTextVars. */
   const testTextVars = (): void => {
-    if (opts.resolveTextVar) {
+    const resolver = opts.resolveTextVar;
+    if (resolver) {
+      // `unresolved`: what is left of `${` once the item's shown text has had
+      // the environment substituted too (erc.cpp:190-195), one marker per item.
+      const unresolved = (str: string): boolean =>
+        ExpandEnvVarSubstitutions(str, resolver).includes('${');
       const scan = (text: string, at: Vec2, id: string): void => {
-        for (const m of text.matchAll(/\$\{([^}]+)\}/g)) {
-          const name = m[1]!;
-          if (opts.resolveTextVar?.(name) === undefined) {
-            out.push(violation('unresolved_variable', 'Unresolved text variable', at, [id]));
-          }
-        }
+        if (unresolved(ResolveShownText(text, resolver)))
+          out.push(violation('unresolved_variable', 'Unresolved text variable', at, [id]));
       };
       sch.labels.forEach((l, i) => {
         scan(l.text, l.at, refId('label', l.uuid, i));

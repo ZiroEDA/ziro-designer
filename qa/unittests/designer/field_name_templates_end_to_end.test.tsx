@@ -162,8 +162,10 @@ describe('a ${TEMPLATE} token on a symbol that has no such field is empty', () =
    * not been given that field yet, which is every symbol the moment a template
    * is added.
    */
-  const resolve = (token: string, templates: readonly { name: string }[]): string | undefined =>
-    symbolTextVarResolver(REFS[0]!, undefined, templates)(token);
+  const resolve = (token: string, templates: readonly { name: string }[]): string | undefined => {
+    const t = { value: token };
+    return symbolTextVarResolver(REFS[0]!, undefined, templates)(t) ? t.value : undefined;
+  };
 
   it('answers empty for a template name', () => {
     expect(resolve('MPN', resolveTemplateFieldnames(PROJECT, GLOBAL))).toBe('');

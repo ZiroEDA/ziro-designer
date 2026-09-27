@@ -657,9 +657,35 @@ describe('runErc, schematic-wide tests', () => {
   it('flags an unresolved text variable', () => {
     const { doc, libById } = sch(`${label('${MISSING}', 10, 10, 'l1')}`);
     const v = runErc(doc, libById, defaultErcSettings(), {
-      resolveTextVar: (name) => (name === 'KNOWN' ? 'x' : undefined),
+      resolveTextVar: (t) => {
+        if (t.value !== 'KNOWN') return false;
+        t.value = 'x';
+        return true;
+      },
     });
     expect(codes(v)).toContain('unresolved_variable');
+    // A resolved one is not. An escaped one IS in 10.0.5: SCH_LABEL's
+    // GetShownText turns the escape marker back into a literal `${` before
+    // `unresolved` looks (sch_label.cpp:991, erc.cpp:190-195).
+    const { doc: d3, libById: l3 } = sch(`${label('\\${MISSING}', 10, 10, 'l3')}`);
+    expect(
+      codes(
+        runErc(d3, l3, defaultErcSettings(), {
+          resolveTextVar: () => false,
+        }),
+      ),
+    ).toContain('unresolved_variable');
+    for (const text of ['${KNOWN}']) {
+      const { doc: d2, libById: l2 } = sch(`${label(text, 10, 10, 'l2')}`);
+      const ok = runErc(d2, l2, defaultErcSettings(), {
+        resolveTextVar: (t) => {
+          if (t.value !== 'KNOWN') return false;
+          t.value = 'x';
+          return true;
+        },
+      });
+      expect(codes(ok), text).not.toContain('unresolved_variable');
+    }
   });
 
   it('flags footprint links to unknown libraries and missing footprints', () => {

@@ -485,7 +485,6 @@ import {
   restoreCommittedNetChains,
   writeNetChains,
   type CommittedNetChain,
-  expandTextVars,
   intersheetRefsText,
   addEmbeddedFile,
   embeddedFilesCommand,
@@ -493,10 +492,11 @@ import {
   listEmbeddedFiles,
   removeEmbeddedFile,
   setEmbedFonts,
-  schematicTextVarResolver,
   type IntersheetRefsConfig,
   type IntersheetSheet,
 } from '@ziroeda/eeschema';
+import { schematicTextVarResolver } from '@ziroeda/eeschema/schematic.js';
+import { ResolveShownText, type TextVarResolverFn } from '@ziroeda/common/common.js';
 import { DialogExportNetlist } from './dialogs/dialog_export_netlist.js';
 import { DialogSymbolFieldsTable, type FieldsEdits } from './dialogs/dialog_symbol_fields_table.js';
 import { DialogAssignFootprints } from './dialogs/dialog_assign_footprints.js';
@@ -771,6 +771,12 @@ const DEFAULT_FILE = 'untitled.kicad_sch';
 // session (sch_drawing_tools.cpp s_SymbolHistoryList / s_PowerHistoryList).
 const sSymbolHistoryList: PickedSymbol[] = [];
 const sPowerHistoryList: PickedSymbol[] = [];
+
+/** A token's value from a resolver, or '' when it does not answer. */
+function resolveToken(aResolver: TextVarResolverFn | undefined, aName: string): string {
+  const token = { value: aName };
+  return aResolver?.(token) ? token.value : '';
+}
 
 export function SchematicEditor({
   onExitToHome,
@@ -4395,7 +4401,7 @@ export function SchematicEditor({
           sch,
           virtualPage: i + 1,
           pageString: page,
-          resolve: (t) => expandTextVars(t, resolver),
+          resolve: (t) => ResolveShownText(t, resolver),
         });
       }
     });
@@ -4407,7 +4413,7 @@ export function SchematicEditor({
         sch: doc,
         virtualPage: 1,
         pageString: '1',
-        resolve: (t) => expandTextVars(t, resolver),
+        resolve: (t) => ResolveShownText(t, resolver),
       });
     }
     return { pageRefsMap: buildPageRefsMap(sheets), virtualPageToPages };
@@ -4629,8 +4635,9 @@ export function SchematicEditor({
             ? {
                 pdfMetadata: {
                   title: d.titleBlock?.title || name,
-                  author: resolve?.('AUTHOR') ?? '',
-                  subject: resolve?.('SUBJECT') ?? '',
+                  // `m_schematic->ResolveTextVar( &sheet, &msg, 0 )` with the bare token.
+                  author: resolveToken(resolve, 'AUTHOR'),
+                  subject: resolveToken(resolve, 'SUBJECT'),
                 },
               }
             : {}),
@@ -5805,7 +5812,7 @@ export function SchematicEditor({
         busAliases,
         subSheets: docs,
         otherSheetGlobalLabels: otherGlobals,
-        resolveTextVar: (name) => resolveTextVar?.(name),
+        ...(resolveTextVar ? { resolveTextVar } : {}),
         // SIM_LIB_MGR::ResolveLibraryPath: a `Sim.Library` path resolves
         // against the project, so the project's own files are the library set.
         simLibraryText: (path) => {

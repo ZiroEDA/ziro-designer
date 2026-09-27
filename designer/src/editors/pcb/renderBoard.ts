@@ -95,7 +95,7 @@ import { getOutlineFont } from '../../font/outline_fonts.js';
 import { outlineLayout } from '../../font/draw_outline_text.js';
 import { padShapePos } from '@ziroeda/pcbnew/padstack.js';
 import type { BitmapTextPlacement } from '../../render/gl/bitmap_text.js';
-import { expandTextVars, type TextVarResolver } from '@ziroeda/common/text_vars.js';
+import { ResolveShownText, type TextVarResolverFn } from '@ziroeda/common/common.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
@@ -1359,7 +1359,7 @@ let g_resolveText: SceneFilter['resolveTextVar'];
 
 /** `GetShownText`: expand `${VAR}` when a resolver is active. */
 function shownText(text: string): string {
-  return g_resolveText && text.includes('${') ? expandTextVars(text, g_resolveText) : text;
+  return g_resolveText && text.includes('${') ? ResolveShownText(text, g_resolveText) : text;
 }
 
 type TextKind = 'ref' | 'val' | 'fp' | 'board';
@@ -1759,7 +1759,7 @@ export interface SceneFilter {
    * The same shape as the schematic renderer's `RenderOpts.resolveTextVar`,
    * because it is the same upstream call.
    */
-  resolveTextVar?: TextVarResolver;
+  resolveTextVar?: TextVarResolverFn;
 }
 
 /** Even-odd ray cast: is point `p` inside the closed polygon `poly`? */

@@ -26,7 +26,13 @@ import type { Schematic, SchSymbol } from '../types.js';
 import { buildSheetTree } from '../project.js';
 import { refId } from './hittest.js';
 import { isMandatoryField, type SymbolAttrEdit } from './properties.js';
-import { expandTextVars, type TextVarResolver } from '@ziroeda/common/text_vars.js';
+import {
+  GetGeneratedFieldDisplayName,
+  IsGeneratedField,
+  ResolveShownText,
+  type TextVarResolverFn,
+} from '@ziroeda/common/common.js';
+import type { OutStr } from '@ziroeda/common/eda_item.js';
 import { refsShorthand, type BomOutputFormat } from '../exporters/bom.js';
 
 /** FIELDS_EDITOR_GRID_DATA_MODEL::QUANTITY_VARIABLE. */
@@ -35,13 +41,6 @@ export const QUANTITY_VARIABLE = '${QUANTITY}';
 export const ITEM_NUMBER_VARIABLE = '${ITEM_NUMBER}';
 /** INDETERMINATE_STATE (widgets/ui_common.h), a group's cells disagree. */
 export const INDETERMINATE_STATE = '-- mixed values --';
-
-/** IsGeneratedField (common/common.cpp): a name that is exactly one token. */
-export const isGeneratedField = (name: string): boolean => /^\$\{\w*\}$/.test(name);
-
-/** GetGeneratedFieldDisplayName, the token names with the `${}` stripped. */
-export const generatedFieldDisplayName = (name: string): string =>
-  expandTextVars(name, (token) => token);
 
 /** FIELDS_EDITOR_GRID_DATA_MODEL::isAttribute, columns that write symbol flags. */
 export const ATTRIBUTE_FIELDS = [
@@ -215,16 +214,17 @@ const ATTR_EDIT_KEY: Readonly<Record<string, keyof SymbolAttrEdit>> = {
  */
 export function symbolTextVarResolver(
   ref: FieldsRef,
-  docResolver?: TextVarResolver,
+  docResolver?: TextVarResolverFn,
   /**
    * The RESOLVED template field names (`TEMPLATES::GetTemplateFieldNames()`),
    * for the branch below. Absent = none, which is what a caller with no
    * schematic settings to hand has.
    */
   templateFieldNames: readonly { name: string }[] = [],
-): TextVarResolver {
+): TextVarResolverFn {
   const sym = ref.symbol;
-  return (token) => {
+  /** This symbol's answer for `token`, or undefined to ask the document. */
+  const answer = (token: string): string | undefined => {
     for (const f of sym.fields) {
       if (f.key.toLowerCase() === token.toLowerCase()) {
         if (f.key === 'Reference') return ref.ref + ref.refNumber;
@@ -281,8 +281,19 @@ export function symbolTextVarResolver(
          */
         for (const t of templateFieldNames)
           if (token === t.name || token === t.name.toUpperCase()) return '';
-        return docResolver?.(token);
+        return undefined;
     }
+  };
+
+  return (aToken: OutStr): boolean => {
+    const value = answer(aToken.value);
+
+    if (value !== undefined) {
+      aToken.value = value;
+      return true;
+    }
+
+    return docResolver ? docResolver(aToken) : false;
   };
 }
 
@@ -319,10 +330,10 @@ export function loadFieldNames(
       if (!isMandatoryField(f.key)) userFieldNames.add(f.key);
     }
   }
-  for (const name of [...userFieldNames].sort()) add(name, generatedFieldDisplayName(name));
+  for (const name of [...userFieldNames].sort()) add(name, GetGeneratedFieldDisplayName(name));
   for (const tfn of templateFieldNames) {
     if (tfn.name && !userFieldNames.has(tfn.name))
-      add(tfn.name, generatedFieldDisplayName(tfn.name));
+      add(tfn.name, GetGeneratedFieldDisplayName(tfn.name));
   }
   return order;
 }
@@ -340,7 +351,7 @@ export class FieldsDataModel {
   private rows: DataModelRow[] = [];
   /** symbol key → field name → pending value. */
   private readonly store = new Map<string, Map<string, string>>();
-  private readonly docResolver?: (ref: FieldsRef) => TextVarResolver | undefined;
+  private readonly docResolver?: (ref: FieldsRef) => TextVarResolverFn | undefined;
 
   private filter = '';
   private scope: FieldsScope = 'all';
@@ -355,7 +366,7 @@ export class FieldsDataModel {
 
   constructor(
     refs: readonly FieldsRef[],
-    docResolver?: (ref: FieldsRef) => TextVarResolver | undefined,
+    docResolver?: (ref: FieldsRef) => TextVarResolverFn | undefined,
     /** The resolved template field names — see {@link symbolTextVarResolver}. */
     templateFieldNames: readonly { name: string }[] = [],
   ) {
@@ -589,7 +600,7 @@ export class FieldsDataModel {
     if (value !== undefined) fields.set(fieldName, value);
     // Generated fields absent from the symbol keep their token, which the
     // exporter resolves (e.g. ${QUANTITY}).
-    else if (isGeneratedField(fieldName)) fields.set(fieldName, fieldName);
+    else if (IsGeneratedField(fieldName)) fields.set(fieldName, fieldName);
     else fields.set(fieldName, '');
   }
 
@@ -597,15 +608,15 @@ export class FieldsDataModel {
     return this.store.get(storeKey(ref))?.get(fieldName);
   }
 
-  private resolverFor(ref: FieldsRef): TextVarResolver {
+  private resolverFor(ref: FieldsRef): TextVarResolverFn {
     return symbolTextVarResolver(ref, this.docResolver?.(ref), this.templateFieldNames);
   }
 
   /** getFieldShownText, the field's resolved text straight off the symbol. */
   private getFieldShownText(ref: FieldsRef, fieldName: string): string {
     const value = fieldValue(ref.symbol, fieldName);
-    if (value !== undefined) return expandTextVars(value, this.resolverFor(ref));
-    if (isGeneratedField(fieldName)) return expandTextVars(fieldName, this.resolverFor(ref));
+    if (value !== undefined) return ResolveShownText(value, this.resolverFor(ref));
+    if (IsGeneratedField(fieldName)) return ResolveShownText(fieldName, this.resolverFor(ref));
     return '';
   }
 
@@ -649,11 +660,11 @@ export class FieldsDataModel {
       const lhStored = this.storedValue(lh, col.fieldName) ?? '';
       const rhStored = this.storedValue(rh, col.fieldName) ?? '';
       const lhs =
-        isGeneratedField(col.fieldName) || isGeneratedField(lhStored)
+        IsGeneratedField(col.fieldName) || IsGeneratedField(lhStored)
           ? this.getFieldShownText(lh, col.fieldName)
           : lhStored;
       const rhs =
-        isGeneratedField(col.fieldName) || isGeneratedField(rhStored)
+        IsGeneratedField(col.fieldName) || IsGeneratedField(rhStored)
           ? this.getFieldShownText(rh, col.fieldName)
           : rhStored;
       if (lhs !== rhs) return false;
@@ -804,10 +815,10 @@ export class FieldsDataModel {
       let refFieldValue = this.storedValue(ref, column.fieldName);
       if (refFieldValue === undefined) return INDETERMINATE_STATE;
       if (resolveVars) {
-        if (isGeneratedField(column.fieldName)) {
+        if (IsGeneratedField(column.fieldName)) {
           refFieldValue = this.getFieldShownText(ref, column.fieldName);
         } else if (refFieldValue.includes('${')) {
-          refFieldValue = expandTextVars(refFieldValue, this.resolverFor(ref));
+          refFieldValue = ResolveShownText(refFieldValue, this.resolverFor(ref));
         }
       }
       if (listMixedValues) mixedValues.add(refFieldValue);
@@ -879,7 +890,7 @@ export class FieldsDataModel {
     // References and generated (non-attribute) columns are read-only.
     if (
       this.colIsReference(col) ||
-      (isGeneratedField(column.fieldName) && !this.colIsAttribute(col))
+      (IsGeneratedField(column.fieldName) && !this.colIsAttribute(col))
     )
       return;
     if (value === INDETERMINATE_STATE) return;
@@ -1050,7 +1061,7 @@ export class FieldsDataModel {
           continue;
         }
         // Generated fields (${QUANTITY} …) are read-only.
-        if (isGeneratedField(name)) continue;
+        if (IsGeneratedField(name)) continue;
         // Reference is not editable from this dialog.
         if (name === 'Reference') continue;
         const col = this.getFieldNameCol(name);

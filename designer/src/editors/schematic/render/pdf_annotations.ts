@@ -28,6 +28,7 @@
  * (sch_field.cpp:1384-1400), which needs the page list behind the
  * `${INTERSHEET_REFS}` text rather than the text alone.
  */
+import { ResolveShownText, type TextVarResolverFn } from '@ziroeda/common/common.js';
 import type { LibSymbol, SchField, SchLabel, SchSymbol, Schematic } from '@ziroeda/eeschema';
 import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import { schSymbolLibraryName } from '@ziroeda/eeschema/lib_symbol_compare.js';
@@ -73,8 +74,8 @@ export interface PdfAnnotationContext {
   childPageNumber: (sheetUuid: string) => string | undefined;
   /** The net of a wire, bus or label item (by refId), when connected. */
   netOf?: (itemId: string) => PdfNetInfo | undefined;
-  /** `GetShownText`'s `${VAR}` resolver, by token; undefined leaves the token. */
-  resolve?: (token: string) => string | undefined;
+  /** `GetShownText`'s `${VAR}` resolver. */
+  resolve?: TextVarResolverFn | undefined;
   /** The plot's page scale (`plotPageIU().scale`): drawing IU → plot IU. */
   scale: number;
 }
@@ -92,11 +93,9 @@ export function plotPdfAnnotations(
     pos: { x: b.minX * ctx.scale, y: b.minY * ctx.scale },
     size: { x: (b.maxX - b.minX) * ctx.scale, y: (b.maxY - b.minY) * ctx.scale },
   });
-  /** `ExpandTextVars` over the resolver: every `${TOKEN}` it answers. */
+  /** The item's `GetShownText`. */
   const shown = (text: string): string =>
-    ctx.resolve
-      ? text.replace(/\$\{([^}]*)\}/g, (whole, name: string) => ctx.resolve!(name) ?? whole)
-      : text;
+    ctx.resolve ? ResolveShownText(text, ctx.resolve) : text;
   const merge = (into: BBox, b: BBox): void => {
     includePoint(into, { x: b.minX, y: b.minY });
     includePoint(into, { x: b.maxX, y: b.maxY });
