@@ -9,22 +9,9 @@
  * `GetRow` / `ExpandURI` (library_manager.cpp) — the code that used to be split
  * between `FP_LIB_TABLE` and `LIB_TABLE_BASE`.
  *
- * ## The grammar is far stricter than it looks
- *
- * A library table is s-expressions, but it is *not* parsed by the general
- * s-expression reader, so the general reader's tolerances do not apply and a
- * file the board reader would swallow is rejected here. `LIB_PROPERTY` is
- * `seq<LPAREN, KEY, plus<space>, PROPERTY_VALUE, RPAREN>` with no padding
- * anywhere except between key and value, so `(name foo )` and `( name foo)` are
- * both syntax errors; so is `(hidden )`. There is no recovery: one malformed
- * row fails the whole table, which then reports zero libraries rather than the
- * ones it could read. That is why this is a hand-written matcher mirroring the
- * grammar rule for rule rather than a reuse of `@ziroeda/sexpr`.
- *
- * `QUOTED_TEXT` is `if_must<one<'"'>, until<one<'"'>>>`, which has no escape
- * handling at all: a quoted value ends at the very next `"`, and a backslash is
- * an ordinary character. `\"` inside a value therefore truncates it — reproduced,
- * because a table written by KiCad and read back by us has to agree with KiCad.
+ * The table itself - its parser and its grammar, which is far stricter than
+ * the general s-expression reader - is `common/libraries/`; this file keeps
+ * the plain record the resolution below walks.
  *
  * ## Project rows shadow global rows, but only by nickname
  *
@@ -36,6 +23,8 @@
  * filter, as `HasLibrary( …, aCheckEnabled )` does.
  */
 
+import { LIBRARY_TABLE_TYPE } from '@ziroeda/common/libraries/library_table.js';
+import { LIBRARY_TABLE_PARSER } from '@ziroeda/common/libraries/library_table_parser.js';
 import { fpidLibNickname } from './netlist_reader/pcb_netlist.js';
 
 /** Which table a row came from; `LIBRARY_TABLE_SCOPE` minus the sentinels. */
@@ -89,316 +78,55 @@ export interface LibraryTable {
 /*  Parsing                                                                    */
 /* -------------------------------------------------------------------------- */
 
-/** `tao::pegtl::space`, the grammar's separator class. */
-const SPACE = new Set([' ', '\n', '\r', '\t', '\v', '\f']);
-
-/**
- * `TOKEN`'s `not_one<'(', ')', ' ', '\t', '\n', '\r'>`. Deliberately not the
- * complement of SPACE: a vertical tab or form feed separates tokens for
- * `plus<space>` but is swallowed *into* an unquoted value by the greedy TOKEN.
- */
-const TOKEN_STOP = new Set(['(', ')', ' ', '\t', '\n', '\r']);
-
-const TABLE_TYPES: ReadonlyArray<readonly [string, LibraryTableType]> = [
-  ['sym_lib_table', 'symbol'],
-  ['fp_lib_table', 'footprint'],
-  ['design_block_lib_table', 'design_block'],
-];
-
-/** `LIB_PROPERTY_KEY`, in the grammar's `sor` order. */
-const PROPERTY_KEYS = ['name', 'type', 'uri', 'options', 'descr'] as const;
-type PropertyKey = (typeof PROPERTY_KEYS)[number];
-
-/** A `must<>` violation: everything after it is unreachable, the table is lost. */
-class MustError {
-  constructor(readonly offset: number) {}
-}
-
-interface Cursor {
-  readonly s: string;
-  i: number;
-}
-
-interface RowIR {
-  name: string;
-  type: string;
-  uri: string;
-  options: string;
-  descr: string;
-  hidden: boolean;
-  disabled: boolean;
-}
-
-const newRowIR = (): RowIR => ({
-  name: '',
-  type: '',
-  uri: '',
-  options: '',
-  descr: '',
-  hidden: false,
-  disabled: false,
-});
-
-function literal(c: Cursor, text: string): boolean {
-  if (!c.s.startsWith(text, c.i)) return false;
-  c.i += text.length;
-  return true;
-}
-
-/** `star<space>`. */
-function starSpace(c: Cursor): void {
-  while (c.i < c.s.length && SPACE.has(c.s[c.i]!)) c.i++;
-}
-
-/** `plus<space>`. */
-function plusSpace(c: Cursor): boolean {
-  const start = c.i;
-  starSpace(c);
-  return c.i > start;
-}
-
-/**
- * `PROPERTY_VALUE`, `sor<QUOTED_TEXT, TOKEN>`. Returns null when neither matches.
- * A `"` with no partner is a `must` violation, not a fall-through to TOKEN,
- * because QUOTED_TEXT is an `if_must`.
- */
-function propertyValue(c: Cursor): string | null {
-  if (c.s[c.i] === '"') {
-    const end = c.s.indexOf('"', c.i + 1);
-    if (end === -1) throw new MustError(c.s.length);
-    const value = c.s.slice(c.i + 1, end);
-    c.i = end + 1;
-    return value;
-  }
-
-  const start = c.i;
-  while (c.i < c.s.length && !TOKEN_STOP.has(c.s[c.i]!)) c.i++;
-  return c.i > start ? c.s.slice(start, c.i) : null;
-}
-
-/**
- * `LIB_PROPERTY`. The value is stored the moment PROPERTY_VALUE matches, before
- * the closing paren is checked, because a PEGTL action fires on its own rule's
- * success and is not undone when an enclosing rule backtracks. No successful
- * parse can observe the difference — the only way past a failed LIB_PROPERTY is
- * a `must` violation a few rules up — but the write happening early is what the
- * upstream state machine does.
- */
-function libProperty(c: Cursor, row: RowIR): boolean {
-  const save = c.i;
-
-  if (!literal(c, '(')) return false;
-
-  let key: PropertyKey | undefined;
-  for (const k of PROPERTY_KEYS) {
-    if (literal(c, k)) {
-      key = k;
-      break;
-    }
-  }
-
-  if (key === undefined || !plusSpace(c)) {
-    c.i = save;
-    return false;
-  }
-
-  const value = propertyValue(c);
-
-  if (value === null) {
-    c.i = save;
-    return false;
-  }
-
-  row[key] = value;
-
-  if (!literal(c, ')')) {
-    c.i = save;
-    return false;
-  }
-
-  return true;
-}
-
-/** `LIB_ROW_MEMBER`, `sor<LIB_PROPERTY, HIDDEN_MARKER, DISABLED_MARKER>`. */
-function libRowMember(c: Cursor, row: RowIR): boolean {
-  if (libProperty(c, row)) return true;
-
-  if (literal(c, '(hidden)')) {
-    row.hidden = true;
-    return true;
-  }
-
-  if (literal(c, '(disabled)')) {
-    row.disabled = true;
-    return true;
-  }
-
-  return false;
-}
-
-/** `LIB_ROW`, an `if_must`: once the opening paren is seen, `lib` is compulsory. */
-function libRow(c: Cursor, rows: RowIR[]): boolean {
-  const save = c.i;
-  starSpace(c);
-
-  if (!literal(c, '(')) {
-    c.i = save;
-    return false;
-  }
-
-  starSpace(c);
-
-  if (!literal(c, 'lib') || !plusSpace(c)) throw new MustError(c.i);
-
-  const row = newRowIR();
-  let members = 0;
-
-  for (;;) {
-    const mark = c.i;
-    starSpace(c);
-
-    if (!libRowMember(c, row)) {
-      c.i = mark;
-      break;
-    }
-
-    starSpace(c);
-    members++;
-  }
-
-  if (members === 0) throw new MustError(c.i);
-
-  starSpace(c);
-
-  if (!literal(c, ')')) throw new MustError(c.i);
-
-  starSpace(c);
-  rows.push(row);
-  return true;
-}
-
-/** `TABLE_VERSION`, a plain `seq` so it simply backtracks when absent. */
-function tableVersion(c: Cursor): string | null {
-  const save = c.i;
-
-  if (!literal(c, '(') || !literal(c, 'version') || !plusSpace(c)) {
-    c.i = save;
-    return null;
-  }
-
-  const value = propertyValue(c);
-
-  if (value === null || !literal(c, ')')) {
-    c.i = save;
-    return null;
-  }
-
-  return value;
-}
-
-interface TableIR {
-  type?: LibraryTableType;
-  version: string;
-  rows: RowIR[];
-}
-
-/**
- * `LIB_TABLE_FILE`, `seq<LIB_TABLE, eof>`. `LIB_TABLE` opens on a bare `(` with
- * no leading `pad`, so so much as a blank line before it is a whole-file
- * rejection rather than a `must` violation.
- */
-function libTableFile(c: Cursor, model: TableIR): boolean {
-  if (!literal(c, '(')) return false;
-
-  for (const [keyword, type] of TABLE_TYPES) {
-    if (literal(c, keyword)) {
-      model.type = type;
-      break;
-    }
-  }
-
-  if (model.type === undefined) throw new MustError(c.i);
-
-  // pad_opt< TABLE_VERSION, space >
-  starSpace(c);
-  const version = tableVersion(c);
-  if (version !== null) {
-    model.version = version;
-    starSpace(c);
-  }
-
-  while (libRow(c, model.rows));
-
-  starSpace(c);
-
-  if (!literal(c, ')')) throw new MustError(c.i);
-
-  starSpace(c);
-  return c.i === c.s.length;
-}
-
-function lineColumn(s: string, offset: number): { line: number; column: number } {
-  let line = 1;
-  let lineStart = 0;
-
-  for (let i = 0; i < offset; i++) {
-    if (s[i] === '\n') {
-      line++;
-      lineStart = i + 1;
-    }
-  }
-
-  return { line, column: offset - lineStart + 1 };
-}
-
-/**
- * `boost::lexical_cast<int>` as `initFromIR` uses it: strict, so a stray space
- * or a trailing `.` yields no version at all rather than a partial read.
- */
-function parseVersion(text: string): number | undefined {
+/** `boost::lexical_cast<int>` as `initFromIR` uses it: strict, all or nothing. */
+function lexicalCastInt(text: string): number | undefined {
   if (!/^[+-]?\d+$/.test(text)) return undefined;
   const value = Number(text);
   return value >= -2147483648 && value <= 2147483647 ? value : undefined;
 }
 
+const TABLE_TYPE_NAMES = new Map<LIBRARY_TABLE_TYPE, LibraryTableType>([
+  [LIBRARY_TABLE_TYPE.SYMBOL, 'symbol'],
+  [LIBRARY_TABLE_TYPE.FOOTPRINT, 'footprint'],
+  [LIBRARY_TABLE_TYPE.DESIGN_BLOCK, 'design_block'],
+]);
+
 /**
  * `LIBRARY_TABLE( aFromClipboard, aBuffer, aScope )`: parse a library table out
- * of text. A failure leaves `ok` false with no rows — upstream only calls
- * `initFromIR` on success, so a table with one bad row reports *nothing*, not
- * the rows before the bad one.
+ * of text, through the shared LIBRARY_TABLE_PARSER, into the plain record the
+ * flattening below walks. A failure leaves `ok` false with no rows — upstream
+ * only calls `initFromIR` on success, so a table with one bad row reports
+ * *nothing*, not the rows before the bad one.
  */
 export function parseLibraryTable(buffer: string, scope: LibraryTableScope): LibraryTable {
   const table: LibraryTable = { path: '', scope, ok: false, rows: [] };
-  const c: Cursor = { s: buffer, i: 0 };
-  const model: TableIR = { version: '', rows: [] };
+  const ir = new LIBRARY_TABLE_PARSER().ParseBuffer(buffer);
 
-  try {
-    if (!libTableFile(c, model)) {
-      table.errorDescription = 'An unexpected error occurred while reading library table';
-      return table;
+  if (!ir.ok) {
+    table.errorDescription = ir.error.description;
+
+    if (ir.error.line > 0) {
+      table.errorLine = ir.error.line;
+      table.errorColumn = ir.error.column;
     }
-  } catch (e) {
-    if (!(e instanceof MustError)) throw e;
-    const { line, column } = lineColumn(buffer, e.offset);
-    table.errorDescription = `Syntax error at line ${line}, column ${column}`;
-    table.errorLine = line;
-    table.errorColumn = column;
+
     return table;
   }
 
-  table.type = model.type;
-  table.version = parseVersion(model.version);
+  // LIBRARY_TABLE::initFromIR.
+  table.type = TABLE_TYPE_NAMES.get(ir.value.type);
+  table.version = lexicalCastInt(ir.value.version);
   table.ok = true;
 
-  for (const ir of model.rows) {
+  for (const row of ir.value.rows) {
     table.rows.push({
-      nickname: ir.name,
-      uri: ir.uri,
-      type: ir.type,
-      options: ir.options,
-      description: ir.descr,
-      disabled: ir.disabled,
-      hidden: ir.hidden,
+      nickname: row.nickname,
+      uri: row.uri,
+      type: row.type,
+      options: row.options,
+      description: row.description,
+      disabled: row.disabled,
+      hidden: row.hidden,
       ok: true,
       scope,
     });

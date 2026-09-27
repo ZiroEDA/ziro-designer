@@ -22,7 +22,8 @@
 import { parse } from '@ziroeda/sexpr';
 import { readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
 import type { LibSymbol } from '@ziroeda/eeschema/types.js';
-import { parseFpLibTable, type FpLibRow } from '../../footprint/fp_lib_table.js';
+import { LIBRARY_TABLE_TYPE } from '@ziroeda/common/libraries/library_table.js';
+import { libraryTableOf, parseFpLibTable, type FpLibRow } from '../../footprint/fp_lib_table.js';
 import { findProjectFile as findProjectFileByUri } from '../../../fs/project_paths.js';
 
 /** A project file as the editor holds it. */
@@ -128,15 +129,9 @@ export function findSymLibRowByUri(
   )?.row;
 }
 
-/** Write the rows back as a `sym-lib-table` file (SYMBOL_LIB_TABLE::Format). */
+/** Write the rows back as a `sym-lib-table` file (LIBRARY_TABLE::Save's text). */
 export function serializeSymLibTable(rows: readonly FpLibRow[]): string {
-  const q = (s: string): string => `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-  const lines = rows.map(
-    (r) =>
-      `\t(lib (name ${q(r.name)})(type ${q(r.type || 'KiCad')})(uri ${q(r.uri)})` +
-      `(options ${q(r.options)})(descr ${q(r.descr)})${r.disabled ? '(disabled)' : ''})`,
-  );
-  return `(sym_lib_table\n\t(version 7)\n${lines.join('\n')}${lines.length ? '\n' : ''})\n`;
+  return libraryTableOf(rows, LIBRARY_TABLE_TYPE.SYMBOL).FormatForSave();
 }
 
 /** Path of the project's `sym-lib-table`, existing or to be created (it sits

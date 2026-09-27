@@ -21,8 +21,11 @@
  * for the global table, and their nicknames are the index's library names.
  */
 
-import { parse } from '@ziroeda/sexpr';
-import { arg, childNamed, childrenNamed } from '@ziroeda/sexpr/query.js';
+import {
+  LIBRARY_TABLE,
+  LIBRARY_TABLE_SCOPE,
+  LIBRARY_TABLE_TYPE,
+} from '@ziroeda/common/libraries/library_table.js';
 
 /** A LIB_TABLE_ROW: `(lib (name "X")(type "KiCad")(uri "…")(options "")(descr ""))`. */
 export interface FpLibRow {
@@ -33,41 +36,60 @@ export interface FpLibRow {
   descr: string;
   /** `(disabled)`, the row's "Enable" checkbox; a disabled row is not loaded. */
   disabled?: boolean;
+  /** `(hidden)`, the row's "Show" checkbox (symbol tables only). */
+  hidden?: boolean;
 }
 
-/** Parse an `fp-lib-table` file. Malformed text yields no rows. */
+/**
+ * Parse an `fp-lib-table` file through LIBRARY_TABLE. Malformed text yields no
+ * rows (upstream's whole-table rejection); a row with no name is dropped and a
+ * row with no type reads as "KiCad", as this reader always has.
+ */
 export function parseFpLibTable(text: string): FpLibRow[] {
-  let root: ReturnType<typeof parse>;
-  try {
-    root = parse(text);
-  } catch {
-    return [];
-  }
-  const field = (lib: Parameters<typeof childNamed>[0], key: string): string => {
-    const node = childNamed(lib, key);
-    return node ? (arg(node, 0) ?? '') : '';
-  };
-  return childrenNamed(root, 'lib')
-    .map((lib) => ({
-      name: field(lib, 'name'),
-      type: field(lib, 'type') || 'KiCad',
-      uri: field(lib, 'uri'),
-      options: field(lib, 'options'),
-      descr: field(lib, 'descr'),
-      disabled: !!childNamed(lib, 'disabled'),
+  return fpLibRowsOf(new LIBRARY_TABLE(true, text, LIBRARY_TABLE_SCOPE.PROJECT));
+}
+
+/** A LIBRARY_TABLE's rows as the editor's records. */
+export function fpLibRowsOf(table: LIBRARY_TABLE): FpLibRow[] {
+  return table
+    .Rows()
+    .map((r) => ({
+      name: r.Nickname(),
+      type: r.Type() || 'KiCad',
+      uri: r.URI(),
+      options: r.Options(),
+      descr: r.Description(),
+      disabled: r.Disabled(),
+      ...(r.Hidden() ? { hidden: true } : {}),
     }))
     .filter((r) => r.name);
 }
 
-/** Write the rows back as an `fp-lib-table` file (FP_LIB_TABLE::Format). */
+/** The editor's records as a LIBRARY_TABLE of the given type (`LIBRARY_TABLE::InsertRow`). */
+export function libraryTableOf(
+  rows: readonly FpLibRow[],
+  type: LIBRARY_TABLE_TYPE,
+  scope = LIBRARY_TABLE_SCOPE.PROJECT,
+): LIBRARY_TABLE {
+  const table = LIBRARY_TABLE.Empty(scope, type);
+
+  for (const r of rows) {
+    const row = table.InsertRow();
+    row.SetNickname(r.name);
+    row.SetType(r.type || 'KiCad');
+    row.SetURI(r.uri);
+    row.SetOptions(r.options);
+    row.SetDescription(r.descr);
+    row.SetDisabled(!!r.disabled);
+    row.SetHidden(!!r.hidden);
+  }
+
+  return table;
+}
+
+/** Write the rows back as an `fp-lib-table` file (LIBRARY_TABLE::Save's text). */
 export function serializeFpLibTable(rows: readonly FpLibRow[]): string {
-  const q = (s: string): string => `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-  const lines = rows.map(
-    (r) =>
-      `\t(lib (name ${q(r.name)})(type ${q(r.type || 'KiCad')})(uri ${q(r.uri)})` +
-      `(options ${q(r.options)})(descr ${q(r.descr)})${r.disabled ? '(disabled)' : ''})`,
-  );
-  return `(fp_lib_table\n\t(version 7)\n${lines.join('\n')}${lines.length ? '\n' : ''})\n`;
+  return libraryTableOf(rows, LIBRARY_TABLE_TYPE.FOOTPRINT).FormatForSave();
 }
 
 /** The `.pretty` directory a row's URI points at, without the extension
