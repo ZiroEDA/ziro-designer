@@ -143,6 +143,16 @@ n11 ok=1 clear=0 printed|G04 #@! TO.N*\nG04 #@! TO.P,J2,1*\n|
 last|G04 #@! TO.P,J2,1*\n|
 n12 ok=0 clear=0 printed|<untouched>|
 last|G04 #@! TO.P,J2,1*\n|
+n13 ok=1 clear=0 printed|%TO.P,R7,2*%\n%TO.N,X*%\n|
+last|%TO.P,R7,2*%\n%TO.N,X*%\n|
+n14 ok=1 clear=0 printed|%TO.N,Y*%\n|
+last|%TO.P,R7,2*%\n%TO.N,Y*%\n|
+n15 ok=1 clear=1 printed|%TO.N,Y*%\n|
+last|%TO.N,Y*%\n|
+n16 ok=1 clear=0 printed|%TO.N*%\n%TO.C,U2*%\n|
+last|%TO.C,U2*%\n|
+n17 ok=1 clear=0 printed|%TO.P,U2,1*%\n|
+last|%TO.P,U2,1*%\n|
 pnp.empty|%TO.CMnt,Other*%\n%TO.CRot,0*%\n|
 pnp.full|%TO.CMfr,TI*%\n%TO.CMPN,LM358*%\n%TO.Cpkg,SOIC-8*%\n%TO.CFtp,SOIC-8_3.9x4.9mm*%\n%TO.CVal,LM358*%\n%TO.CLbN,Package_SO*%\n%TO.CLbD,SOIC, 8 Pin*%\n%TO.CMnt,SMD*%\n%TO.CRot,90*%\n|
 pnp.cleared|%TO.CFtp,SOIC-8_3.9x4.9mm*%\n%TO.CLbN,Package_SO*%\n%TO.CLbD,SOIC, 8 Pin*%\n%TO.CMnt,Other*%\n%TO.CRot,0*%\n|

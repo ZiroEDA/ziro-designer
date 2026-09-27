@@ -133,6 +133,11 @@ function replay(): string[] {
   net('n10', N.GBR_NETINFO_NET, '', '', '', 'B', false, true, false);
   net('n11', N.GBR_NETINFO_PAD, 'J2', '1', '', '', false, true, true);
   net('n12', N.GBR_NETINFO_UNSPECIFIED, '', '', '', '', false, false, false);
+  net('n13', PN | N.GBR_NETINFO_CMP, 'R7', '2', '', 'X', false, false, false);
+  net('n14', PN, 'R7', '2', '', 'Y', false, false, false);
+  net('n15', N.GBR_NETINFO_NET, '', '', '', 'Y', false, false, false);
+  net('n16', N.GBR_NETINFO_CMP, 'U2', '', '', '', false, true, false);
+  net('n17', N.GBR_NETINFO_PAD, 'U2', '1', '', '', false, true, false);
 
   const pnp = new GBR_CMP_PNP_METADATA();
   out.push(show('pnp.empty', pnp.FormatCmpPnPMetadata()));

@@ -120,6 +120,13 @@ int main( int argc, char** argv )
     net( "n10", N::GBR_NETINFO_NET, L"", L"", L"", L"B", false, true, false );
     net( "n11", N::GBR_NETINFO_PAD, L"J2", L"1", L"", L"", false, true, true );
     net( "n12", N::GBR_NETINFO_UNSPECIFIED, L"", L"", L"", L"", false, false, false );
+    // A pad never writes TO.C; an unchanged TO.P is not written again; a
+    // cleared dictionary is rewritten whole; TO.C survives a pad that follows.
+    net( "n13", N::GBR_NETINFO_PAD | N::GBR_NETINFO_NET | N::GBR_NETINFO_CMP, L"R7", L"2", L"", L"X", false, false, false );
+    net( "n14", N::GBR_NETINFO_PAD | N::GBR_NETINFO_NET, L"R7", L"2", L"", L"Y", false, false, false );
+    net( "n15", N::GBR_NETINFO_NET, L"", L"", L"", L"Y", false, false, false );
+    net( "n16", N::GBR_NETINFO_CMP, L"U2", L"", L"", L"", false, true, false );
+    net( "n17", N::GBR_NETINFO_PAD, L"U2", L"1", L"", L"", false, true, false );
 
     GBR_CMP_PNP_METADATA pnp;
     show( "pnp.empty", pnp.FormatCmpPnPMetadata() );
