@@ -11,13 +11,13 @@
  * rebuild, `CVPCB_MAINFRAME::OnSelectComponent` and `onTextFilterChangedTimer`.
  */
 import { describe, it, expect } from 'vitest';
+import { buildLibrariesList } from '@ziroeda/cvpcb/cvpcb_mainframe.js';
 import {
-  buildLibrariesList,
   footprintSelectionAfterRebuild,
   rowFootprintId,
-  selectedLibraryOf,
-  typeAheadRow,
-} from '@ziroeda/designer/src/editors/schematic/cvpcb_listbox.js';
+} from '@ziroeda/cvpcb/footprints_listbox.js';
+import { selectedLibraryOf } from '@ziroeda/cvpcb/library_listbox.js';
+import { typeAheadRow } from '@ziroeda/cvpcb/listbox_base.js';
 
 // ---------------------------------------------------------------------------
 // B4: BuildLibrariesList

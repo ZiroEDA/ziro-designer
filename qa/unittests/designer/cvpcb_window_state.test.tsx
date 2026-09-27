@@ -18,7 +18,7 @@
  * two ends), and `cvpcb/cvpcb_mainframe.cpp:122-131` (the panes wxAUI puts a
  * sash between).
  *
- * The commands the rows RUN are pinned in `cvpcb_commands.test.ts`; what is
+ * The commands the rows RUN are pinned in `unittests/cvpcb/cvpcb_commands.test.ts`; what is
  * here is the window — which rows exist, in which order, and what survives a
  * close and re-open.
  */

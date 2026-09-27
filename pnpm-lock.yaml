@@ -89,6 +89,31 @@ importers:
         specifier: ^6.0.7
         version: 6.4.3(@types/node@22.20.0)(terser@5.51.2)
 
+  cvpcb:
+    dependencies:
+      '@ziroeda/common':
+        specifier: workspace:*
+        version: link:../common
+      '@ziroeda/core':
+        specifier: workspace:*
+        version: link:../libs/core
+      '@ziroeda/eeschema':
+        specifier: workspace:*
+        version: link:../eeschema
+      '@ziroeda/kimath':
+        specifier: workspace:*
+        version: link:../libs/kimath
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.18
+        version: 18.3.31
+      vite:
+        specifier: ^6.0.7
+        version: 6.4.3(@types/node@22.20.0)(terser@5.51.2)
+
   designer:
     dependencies:
       '@sentry/browser':
@@ -106,6 +131,9 @@ importers:
       '@ziroeda/common':
         specifier: workspace:*
         version: link:../common
+      '@ziroeda/cvpcb':
+        specifier: workspace:*
+        version: link:../cvpcb
       '@ziroeda/eeschema':
         specifier: workspace:*
         version: link:../eeschema
@@ -326,6 +354,9 @@ importers:
       '@ziroeda/core':
         specifier: workspace:*
         version: link:../libs/core
+      '@ziroeda/cvpcb':
+        specifier: workspace:*
+        version: link:../cvpcb
       '@ziroeda/designer':
         specifier: workspace:*
         version: link:../designer

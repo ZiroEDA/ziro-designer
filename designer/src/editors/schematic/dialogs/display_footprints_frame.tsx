@@ -85,7 +85,7 @@ import {
   DISPLAY_FP_CONTROL,
   DISPLAY_FP_LEFT_TOOLBAR,
   DISPLAY_FP_TOP_TOOLBAR,
-} from '../display_footprints_toolbars.js';
+} from '@ziroeda/cvpcb/toolbars_display_footprints.js';
 
 /** Every layer of the FPHOLDER board is visible: this frame has no Appearance panel. */
 const ALL_LAYERS: ReadonlySet<string> = new Set(FOOTPRINT_LAYERS.map((l) => l.name));

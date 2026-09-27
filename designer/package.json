@@ -18,6 +18,7 @@
     "@ziroeda/bitmap2component": "workspace:*",
     "@ziroeda/bitmaps_png": "workspace:*",
     "@ziroeda/common": "workspace:*",
+    "@ziroeda/cvpcb": "workspace:*",
     "@ziroeda/eeschema": "workspace:*",
     "@ziroeda/gerbview": "workspace:*",
     "@ziroeda/pagelayout_editor": "workspace:*",

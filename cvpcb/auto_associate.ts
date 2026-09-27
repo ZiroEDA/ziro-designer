@@ -81,8 +81,12 @@
  */
 
 import type { FOOTPRINT_LIST } from '@ziroeda/common/footprint_info.js';
-import type { CvpcbComponent } from './cvpcb_components.js';
-import { associateFootprint, footprintOf, type CvpcbAssociations } from './cvpcb_commands.js';
+import {
+  associateFootprint,
+  footprintOf,
+  type CvpcbAssociations,
+  type CvpcbComponent,
+} from './cvpcb_mainframe.js';
 
 /** One line of a `.equ` file (`FOOTPRINT_EQUIVALENCE`, auto_associate.h:35-42). */
 export interface FootprintEquivalence {

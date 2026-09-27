@@ -16,32 +16,33 @@
  * `cvpcb/readwrite_dlgs.cpp`.
  */
 import { describe, it, expect, vi } from 'vitest';
-import type { CvpcbComponent } from '@ziroeda/designer/src/editors/schematic/cvpcb_components.js';
 import {
-  associate,
-  changeFocus,
+  type CvpcbComponent,
   closeWindow,
-  copyAssoc,
-  cutAssoc,
-  deleteAll,
-  deleteAssoc,
   emptyAssociations,
   footprintOf,
-  gotoNA,
   markSaved,
   okCommand,
-  pasteAssoc,
   redoAssociation,
   resolveUnsavedChanges,
   saveAndContinueCommand,
   saveToSchematicCommand,
   selectedComponent,
   undoAssociation,
-  DELETE_ALL_CONFIRMATION,
-  SCHEMATIC_SAVED_STATUS,
   UNSAVED_ASSOCIATIONS_MESSAGE,
   type CvpcbAssociations,
-} from '@ziroeda/designer/src/editors/schematic/cvpcb_commands.js';
+} from '@ziroeda/cvpcb/cvpcb_mainframe.js';
+import {
+  associate,
+  copyAssoc,
+  cutAssoc,
+  deleteAll,
+  deleteAssoc,
+  pasteAssoc,
+  DELETE_ALL_CONFIRMATION,
+} from '@ziroeda/cvpcb/tools/cvpcb_association_tool.js';
+import { changeFocus, gotoNA } from '@ziroeda/cvpcb/tools/cvpcb_control.js';
+import { SCHEMATIC_SAVED_STATUS } from '@ziroeda/cvpcb/readwrite_dlgs.js';
 import {
   handleUnsavedChanges,
   UNSAVED_CHANGES_DISCARD_LABEL,

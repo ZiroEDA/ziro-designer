@@ -209,7 +209,7 @@ describe('one ruler, three canvases', () => {
     const bars: [string, string][] = [
       ['editors/pcb/pcbToolbars.ts', 'PCB_RIGHT'],
       ['editors/footprint/footprintToolbars.ts', 'FP_RIGHT'],
-      ['editors/schematic/display_footprints_toolbars.ts', 'viewer'],
+      ['../../cvpcb/toolbars_display_footprints.ts', 'viewer'],
       ['../../gerbview/toolbars_gerber.ts', 'GBR_LEFT'],
     ];
     for (const [rel, what] of bars) {

@@ -22,7 +22,7 @@ import {
   cvpcbFootprintsContextMenu,
   cvpcbSymbolsContextMenu,
   type CvpcbContextMenuActions,
-} from '@ziroeda/designer/src/editors/schematic/cvpcb_context_menus.js';
+} from '@ziroeda/cvpcb/cvpcb_mainframe.js';
 
 beforeAll(() => {
   vi.stubGlobal('fetch', async () => new Response('', { status: 404 }));

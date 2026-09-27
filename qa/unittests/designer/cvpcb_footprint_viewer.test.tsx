@@ -29,7 +29,7 @@ import {
 import {
   DISPLAY_FP_LEFT_TOOLBAR,
   DISPLAY_FP_TOP_TOOLBAR,
-} from '@ziroeda/designer/src/editors/schematic/display_footprints_toolbars.js';
+} from '@ziroeda/cvpcb/toolbars_display_footprints.js';
 import { fitMarginScaleFactor } from '@ziroeda/designer/src/ui/view_controls.js';
 import { BITMAP } from '@ziroeda/common/bitmap_store_actions.js';
 import type { ToolEntry, ToolGroup } from '@ziroeda/common/tool/action_toolbar_types.js';

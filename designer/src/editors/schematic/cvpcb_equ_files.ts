@@ -11,7 +11,7 @@
  * `cvpcb.equivalence_files` in the `.kicad_pro`; see
  * `project_settings.ts`. Everything here is the logic the dialog's five
  * handlers run, out of the component so it can be tested — the same reason
- * `cvpcb_commands.ts` exists.
+ * `cvpcb/cvpcb_mainframe.ts` exists.
  *
  * ## Where a `.equ` file comes from in a browser
  *

@@ -4,6 +4,7 @@ packages:
   - "gerbview"
   - "bitmap2component"
   - "pagelayout_editor"
+  - "cvpcb"
   - "pcbnew"
   - "pcb_calculator"
   - "designer"

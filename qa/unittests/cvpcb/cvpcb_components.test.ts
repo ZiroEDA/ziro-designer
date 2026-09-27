@@ -19,7 +19,7 @@ import {
   formatSymbolDesc,
   nextUnassociated,
   type CvpcbComponent,
-} from '@ziroeda/designer/src/editors/schematic/cvpcb_components.js';
+} from '@ziroeda/cvpcb/cvpcb_mainframe.js';
 
 // A dual triode (two units + a power unit), a resistor, and a power symbol.
 const SHEET_A = `(kicad_sch (version 20231120) (generator "test") (paper "A4")

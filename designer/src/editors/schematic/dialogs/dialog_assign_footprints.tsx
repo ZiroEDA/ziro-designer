@@ -15,7 +15,7 @@
  * button row "Apply, Save Schematic & Continue" / Cancel / OK.
  *
  * The commands the toolbar, menus, keyboard and button row run are in
- * `cvpcb_commands.ts`, ported from CVPCB_ASSOCIATION_TOOL / CVPCB_CONTROL; this
+ * `cvpcb/tools/`, ported from CVPCB_ASSOCIATION_TOOL / CVPCB_CONTROL; this
  * file is the window they drive. In particular OK does **not** write the
  * `.kicad_sch` files — it mails the links to eeschema and leaves it dirty, so
  * the assignment is still undoable there — and only "Apply, Save Schematic &
@@ -35,7 +35,7 @@
  * redo and deleteAll (`toolbars_cvpcb.cpp:59-64`) and runs
  * `AutomaticFootprintMatching`; `CVPCB_ACTIONS::showEquFileTable` is
  * Preferences > Manage Footprint Association Files... (`menubar.cpp:71`) and
- * opens `DialogConfigEquFiles`. The engine is `cvpcb_auto_associate.ts` and the
+ * opens `DialogConfigEquFiles`. The engine is `cvpcb/auto_associate.ts` and the
  * list is `cvpcb_equ_files.ts`, both beside this file.
  *
  * An earlier pass left both out on the reasoning that with no `.equ` file the
@@ -84,7 +84,7 @@
  *
  * `setupTools` builds one for the symbols pane and one for the footprint pane
  * (cvpcb_mainframe.cpp:271-285) and `setupEventHandlers` binds each to
- * `wxEVT_RIGHT_DOWN` (`:333-344`). Both are here, as `cvpcb_context_menus.ts`.
+ * `wxEVT_RIGHT_DOWN` (`:333-344`). Both are in `cvpcb/cvpcb_mainframe.ts`.
  *
  * This paragraph used to say they were ported while nothing in this file
  * handled a right-click at all, so what a user got was the BROWSER's menu. Two
@@ -133,25 +133,10 @@ import {
   formatFootprintDesc,
   formatSymbolDesc,
   type CvpcbComponent,
-} from '../cvpcb_components.js';
-import {
   buildLibrariesList,
-  footprintSelectionAfterRebuild,
-  selectedLibraryOf,
-  typeAheadRow,
-} from '../cvpcb_listbox.js';
-import {
-  associate as associateCommand,
-  changeFocus,
   closeWindow as closeWindowCommand,
-  copyAssoc as copyAssocCommand,
-  cutAssoc as cutAssocCommand,
-  deleteAll as deleteAllCommand,
-  deleteAssoc as deleteAssocCommand,
-  pasteAssoc as pasteAssocCommand,
   emptyAssociations,
   footprintOf as associationFootprintOf,
-  gotoNA as gotoNACommand,
   markSaved,
   okCommand,
   redoAssociation,
@@ -163,8 +148,30 @@ import {
   UNSAVED_ASSOCIATIONS_MESSAGE,
   type CvpcbAssociations,
   type CvpcbControl,
-  type CvpcbSaveCommand,
-} from '../cvpcb_commands.js';
+  cvpcbFootprintsContextMenu,
+  cvpcbSymbolsContextMenu,
+  type CvpcbContextMenuActions,
+} from '@ziroeda/cvpcb/cvpcb_mainframe.js';
+import { footprintSelectionAfterRebuild } from '@ziroeda/cvpcb/footprints_listbox.js';
+import { selectedLibraryOf } from '@ziroeda/cvpcb/library_listbox.js';
+import { typeAheadRow } from '@ziroeda/cvpcb/listbox_base.js';
+import {
+  associate as associateCommand,
+  copyAssoc as copyAssocCommand,
+  cutAssoc as cutAssocCommand,
+  deleteAll as deleteAllCommand,
+  deleteAssoc as deleteAssocCommand,
+  pasteAssoc as pasteAssocCommand,
+} from '@ziroeda/cvpcb/tools/cvpcb_association_tool.js';
+import { changeFocus, gotoNA as gotoNACommand } from '@ziroeda/cvpcb/tools/cvpcb_control.js';
+import { type CvpcbSaveCommand } from '@ziroeda/cvpcb/readwrite_dlgs.js';
+import {
+  automaticFootprintMatching,
+  buildEquivalenceList,
+  sortEquivalences,
+  CVPCB_WARNING_TITLE,
+  EQU_LOAD_ERROR_TITLE,
+} from '@ziroeda/cvpcb/auto_associate.js';
 import { settings } from '../../../prefs/settings.js';
 import { useDialogControl } from '../../../ui/useDialogControl.js';
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
@@ -182,19 +189,7 @@ import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { PreferencesDialog } from '../../../dialogs/PreferencesDialog.js';
 import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
-import {
-  automaticFootprintMatching,
-  buildEquivalenceList,
-  sortEquivalences,
-  CVPCB_WARNING_TITLE,
-  EQU_LOAD_ERROR_TITLE,
-} from '../cvpcb_auto_associate.js';
 import { readEquFile } from '../cvpcb_equ_files.js';
-import {
-  cvpcbFootprintsContextMenu,
-  cvpcbSymbolsContextMenu,
-  type CvpcbContextMenuActions,
-} from '../cvpcb_context_menus.js';
 import { DialogConfigEquFiles } from './dialog_config_equfiles.js';
 import type { ProjectFile } from '../../../fs/project_paths.js';
 import { readEquivalenceFiles } from '../project_settings.js';
@@ -297,7 +292,7 @@ interface Props {
  *
  * One component for three panes, as upstream has one base class for three
  * listboxes — and, unlike upstream, one copy of the keyboard handling instead
- * of three. `typeAheadRow` (cvpcb_listbox.ts) is the loop `SYMBOLS_LISTBOX`,
+ * of three. `typeAheadRow` (cvpcb/listbox_base.ts) is the loop `SYMBOLS_LISTBOX`,
  * `FOOTPRINTS_LISTBOX` and `LIBRARY_LISTBOX` each carry their own copy of; the
  * Home/End/Up/Down/PageUp/PageDown block is what all three `OnChar`s
  * `event.Skip()` back to the list itself.
@@ -576,7 +571,7 @@ export function DialogAssignFootprints({
     };
   }, [projectLibs]);
   // The associations, the undo lists and the symbol selection: one state,
-  // because the commands in cvpcb_commands.ts move them together (DeleteAll
+  // because the commands in cvpcb/tools/ move them together (DeleteAll
   // rewrites every FPID *and* resets the selection as a single step).
   // `ReadNetListAndFpFiles` selects the first symbol with no footprint, and
   // selects nothing at all when every symbol already has one. Computed once, as
@@ -802,7 +797,7 @@ export function DialogAssignFootprints({
 
   /**
    * `CVPCB_MAINFRAME::AutomaticFootprintMatching` — one press of the toolbar's
-   * second red X, whole. The engine is `cvpcb_auto_associate.ts`; what is here
+   * second red X, whole. The engine is `cvpcb/auto_associate.ts`; what is here
    * is the two message boxes and the status line it writes.
    *
    * The list is re-read from the project on every press, exactly as upstream
@@ -830,7 +825,7 @@ export function DialogAssignFootprints({
 
   // ----- cut / copy / paste ------------------------------------------------
   //
-  // The three commands are in cvpcb_commands.ts; what is left here is the
+  // The three commands are in cvpcb/cvpcb_mainframe.ts; what is left here is the
   // clipboard itself, which is the one part of `wxTheClipboard` the browser
   // does not hand over on the same terms. `wxLogNull raiiDoNotLog` wraps every
   // upstream access precisely because a clipboard call can fail and must stay
@@ -1113,7 +1108,7 @@ export function DialogAssignFootprints({
         // oversight: `setupUIConditions` (cvpcb_mainframe.cpp:284-329) sets a
         // condition for saveAssociations, undo and redo and for nothing else,
         // so cut, copy and paste are always live and take their own guards
-        // silently. See cvpcb_commands.ts for what each of those guards is.
+        // silently. See cvpcb/tools/cvpcb_association_tool.ts for what each of those guards is.
         { label: 'Cut', icon: 'cut', shortcut: 'Ctrl+X', action: cutAssoc },
         { label: 'Copy', icon: 'copy', shortcut: 'Ctrl+C', action: copyAssoc },
         {

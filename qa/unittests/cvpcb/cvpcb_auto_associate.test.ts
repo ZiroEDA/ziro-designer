@@ -24,11 +24,11 @@
  */
 import { FOOTPRINT_LIST_IMPL } from '@ziroeda/pcbnew/footprint_info_impl.js';
 import { describe, it, expect } from 'vitest';
-import type { CvpcbComponent } from '@ziroeda/designer/src/editors/schematic/cvpcb_components.js';
 import {
+  type CvpcbComponent,
   emptyAssociations,
   footprintOf,
-} from '@ziroeda/designer/src/editors/schematic/cvpcb_commands.js';
+} from '@ziroeda/cvpcb/cvpcb_mainframe.js';
 import {
   automaticFootprintMatching,
   buildEquivalenceList,
@@ -41,7 +41,7 @@ import {
   parseEquivalenceFile,
   sortEquivalences,
   type FootprintEquivalence,
-} from '@ziroeda/designer/src/editors/schematic/cvpcb_auto_associate.js';
+} from '@ziroeda/cvpcb/auto_associate.js';
 
 const comp = (
   reference: string,
