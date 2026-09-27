@@ -815,8 +815,8 @@ export class PCB_DRAW_PANEL_GAL extends EDA_DRAW_PANEL_GAL {
     } catch (e) {
       console.error((e as Error).message);
 
-      // Use the fallback if we have one
-      if (EDA_DRAW_PANEL_GAL.GAL_FALLBACK !== this.m_backend) {
+      // Use the fallback if we have one (and the canvas can take it: galFallbackUsable)
+      if (EDA_DRAW_PANEL_GAL.GAL_FALLBACK !== this.m_backend && this.galFallbackUsable()) {
         this.SwitchBackend(EDA_DRAW_PANEL_GAL.GAL_FALLBACK);
 
         if (frame) frame.ActivateGalCanvas();

@@ -243,6 +243,50 @@ libraries are mounted; the settings / cache / plugin / log folders are n/a.
   `use_unsaved_guard`, `yield_to_event_loop` (the React/browser glue), and
   `index` (the package barrel).
 
+## `gal/` — the Cairo backend
+
+Ported 09-27 (branch `common-gal-cairo`), under KiCad's names:
+
+| KiCad unit | ours |
+|---|---|
+| `include/gal/compositor.h` | `gal/compositor.ts`: `COMPOSITOR`, the base (it lived inside `opengl/opengl_compositor.ts`) |
+| `gal/cairo/cairo_gal.{h,cpp}` | `gal/cairo/cairo_gal.ts`: `CAIRO_GAL_BASE`, `CAIRO_GAL` (+ `CAIRO_GAL_WINDOW`, what the `wxWindow` was: the panel's canvas) |
+| `gal/cairo/cairo_compositor.{h,cpp}` | `gal/cairo/cairo_compositor.ts`: `CAIRO_COMPOSITOR`; `cairo_t**` is a get/set pair |
+| `gal/cairo/cairo_print.{h,cpp}` | `gal/cairo/cairo_print.ts`: `CAIRO_PRINT_CTX`, `CAIRO_PRINT_GAL` |
+| `include/gal/gal_print.h` | `gal/gal_print.ts`: `PRINT_CONTEXT`, `GAL_PRINT` (+ `GAL_PRINT.Create`, and `wxDC`, the page canvas stand-in) |
+
+**Ours, no KiCad file:** `gal/cairo/cairo_api.ts` is `<cairo.h>` - the
+`cairo_*` calls the three units make, on a Canvas 2D context, so their bodies
+read call for call like the C++. Its header lists every place a canvas is not
+Cairo; the rules were put to the installed libcairo 1.18.0 by
+`qa/probes/cairo_semantics_probe.py`. Handled there: arcs past a full turn
+(Cairo draws the whole sweep), radius <= 0 (a canvas throws), a zero-width pen
+(a canvas keeps the old width), bounded `SOURCE` / `CLEAR`, the path and
+graphics state (kept by the adapter, replayed at fill/stroke), and the colour
+byte (`(int)(c*65535+0.5)>>8`). **Not reproducible, stated:** antialiasing
+cannot be turned off (`AA_NONE` still renders smooth); coordinates stay floats
+(Cairo rounds to 24.8 fixed); arcs are exact circles (Cairo's are Béziers at
+its tolerance); image filtering and the premultiply of translucent colours are
+the browser's.
+
+**The fallback.** `EDA_DRAW_PANEL_GAL::GAL_FALLBACK` is `GAL_TYPE_CAIRO` as on
+the non-Mac build, but a canvas takes one context type for life: with WebGL2
+on it there is no 2D context. So Cairo is reached only when the browser gave
+the canvas no WebGL2 (`galFallbackUsable`); a GL failure after that (a lost
+context, a failed shader) has no fallback without a second canvas element,
+which is not done. `CAIRO_GAL` renders at the client size in logical pixels
+and the blit scales it to the backing store, as GTK scales the blitted bitmap
+on a HiDPI screen.
+
+**Printing.** `GAL_PRINT.Create( options, dc )` draws on `dc`, a canvas sized
+to the page at `dc.GetPPI()`; that PPI is the print DPI (the Windows/macOS
+branch of `CAIRO_PRINT_CTX`; GTK's 4800 DPI device scale is a vector surface's
+answer). `HasNativeLandscapeRotation()` is true, the GTK3 build's. Turning the
+page canvases into printed pages is the printout's, and not written yet.
+
+Tests: `qa/unittests/common/cairo_{api,gal,print}.test.ts` on a recording
+canvas (`cairo_test_canvas.ts`); the sweep is `qa/probes/cairo_gal_mutants.py`.
+
 ## `tool/`, `preview_items/`, `settings/`
 
 `tool/`: `action_menu` (+ `_bar`, `_hotkeys`, `_key_names`, `_rank`,

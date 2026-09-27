@@ -108,6 +108,13 @@ export class WX_IMAGE {
   GetAlpha(): Uint8Array | null {
     return this.m_alpha;
   }
+  /**
+   * `wxImage::SetAlpha( nullptr )`: give the image an alpha plane for the
+   * caller to fill (wx leaves it uninitialised; it is zero here).
+   */
+  SetAlpha(): void {
+    this.m_alpha = new Uint8Array(this.m_width * this.m_height);
+  }
   HasPixels(): boolean {
     return this.m_pixelsKnown;
   }

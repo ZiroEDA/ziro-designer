@@ -394,9 +394,13 @@ export class OPENGL_GAL extends GAL {
   private m_tessIntersects: number[][] = [];
 
   constructor(aDisplayOptions: GAL_DISPLAY_OPTIONS, aCanvas: OPENGL_GAL_CANVAS) {
+    // A canvas without WebGL2 throws here, before GAL subscribes to the options: a
+    // constructor that throws after it would leave a half-built GAL subscribed, where
+    // the C++ unsubscribes it in ~GAL() (the LINK member) as the exception unwinds.
+    const gl = aCanvas.gl;
     super(aDisplayOptions);
     this.m_canvas = aCanvas;
-    this.gl = aCanvas.gl;
+    this.gl = gl;
     this.ff = new GL_FIXED_FUNCTION(this.gl);
 
     this.m_currentManager = null;
