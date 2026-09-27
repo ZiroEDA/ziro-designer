@@ -168,7 +168,7 @@ wildcards_and_files_ext.
 | `clipboard` | done 09-27: the whole unit over a tab-local `wxTheClipboard` - each save goes to the system clipboard too, each `paste` event refills it (`SetClipboardFromPaste`), since a browser reads the system one only in that event or asynchronously. `application/kicad` stays in the tab (a browser writes only text, HTML and PNG). With it `io/csv` (`CSV_WRITER`, `AutoDecodeCSV` over the part of rapidcsv it reaches) and `wx/buffer` (`wxMemoryBuffer`). pl_editor uses it; eeschema's and pcbnew's copy and paste still call `navigator.clipboard` in `designer/` |
 | `eda_doc` | done 09-27: `GetAssociatedDocument` (and `ResolveUriByEnvVars`, common.cpp). A file opens in a tab typed by its extension, where upstream runs `OpenPDF` or the MIME command; no `SEARCH_STACK` (n/a), and a wildcard name has no `wxFileSelector` to ask. The schematic's D key and hyperlinks, the symbol editor and the library browser call it - four `window.open`s that disagreed. They pass no text-variable resolver and no embedded-files stack yet (the resolvers are one shape now, so the schematic's can be passed) |
 | `bitmap` | done 09-27: `KiBitmap` and friends over a `BITMAP_STORE` class (`bitmap_store.ts`, which was two URL lookups): a bitmap is the SVG's URL, every height one file, dark only. `toolbar/` now holds all of KiCad's dark set (207 were missing) plus `dark/constraints/` under CMake's names; the 48 ids `bitmap_info.cpp` does not list draw `s_imageNotFound`, as upstream. A disabled bitmap is `--bitmap-disabled-filter`, `ConvertToDisabled( 70 )` exactly (probe-measured), where toolbars had `opacity: 0.35`. Open: the widgets that take a bitmap NAME as a prop (`std_bitmap_button`, `wx_combobox`, properties frame, symbol properties, footprint chooser) still resolve through `bitmapUrl`; the launcher (`.ze-launcher:disabled`) still fades by opacity; `toolbar/` carries files 10.0.5's dark set lacks (`add_ellipse*`, a few `constraint_*` from elsewhere) - to trace |
-| `gbr_metadata` | done 09-27, whole: the reader GerbView uses and every X2 writer, matched line for line against 10.0.5's own `gbr_metadata.cpp` linked into `qa/probes/gbr_metadata_probe.cpp`. `GBR_DATA_FIELD::GetGerberString` and `GBR_CMP_PNP_METADATA` sit in `gbr_netlist_metadata.ts` with their header. The plotter's `TF.CreationDate` now comes from here (it was UTC `toISOString()`). Nothing writes `TA`/`TO` yet: `pcbnew/plot_gerber.ts` is not `GERBER_PLOTTER` (common/plotters) and `AddGerberX2Header`'s `TF.ProjectId` / `SameCoordinates` are pcbnew's `pcbplot` to port |
+| `gbr_metadata` | done 09-27, whole: the reader GerbView uses and every X2 writer, matched line for line against 10.0.5's own `gbr_metadata.cpp` linked into `qa/probes/gbr_metadata_probe.cpp`. `GBR_DATA_FIELD::GetGerberString` and `GBR_CMP_PNP_METADATA` sit in `gbr_netlist_metadata.ts` with their header. The plotter's `TF.CreationDate` now comes from here (it was UTC `toISOString()`). `GERBER_PLOTTER` writes the `TA`/`TO` attributes through it, and `pcbnew/pcbplot.ts` the `TF.ProjectId` / `SameCoordinates` header |
 | `lib_tree_model`, `lib_tree_model_adapter` | done 09-27: moved from `designer/src/widgets/` (`LIB_TREE_ITEM`, include/lib_tree_item.h, stays folded into eeschema's symbol projection `lib_tree_item.ts` for now) |
 
 **Found by `kicad-cli sch export netlist` against ours (09-26), all fixed the
@@ -527,8 +527,8 @@ is a larger change than this move.
 One class tree, as upstream: `PLOTTER` → `PSLIKE_PLOTTER` → `PS_PLOTTER` /
 `PDF_PLOTTER` / `SVG_PLOTTER`, and `PLOTTER` → `DXF_PLOTTER`. eeschema's
 PDF, SVG, PostScript and DXF plots all go through them
-(`designer/.../render/plot.ts`'s `PlotterContext`); pcbnew's did not exist
-until these moved in from `pcbnew/plot_*.ts` (09-27).
+(`designer/.../render/plot.ts`'s `PlotterContext`), and pcbnew's Gerber plot
+goes through `GERBER_PLOTTER` (09-27).
 
 | KiCad | ours |
 |---|---|
@@ -537,7 +537,7 @@ until these moved in from `pcbnew/plot_*.ts` (09-27).
 | `PDF_plotter.cpp` | `PDF_plotter.ts`: `PDF_PLOTTER`; `Text` throws past its zero-size guard |
 | `SVG_plotter.cpp` | `SVG_plotter.ts`: `SVG_PLOTTER` |
 | `DXF_plotter.cpp` + `plotter_dxf.h` | `DXF_plotter.ts`: `DXF_PLOTTER` |
-| `GERBER_plotter.cpp` + `plotter_gerber.h`, `gbr_plotter_apertures.h`, `gbr_plotter_aperture_macros.h` | **missing**: `pcbnew/plot_gerber.ts` is still a function writer with its own aperture table, not `GERBER_PLOTTER` |
+| `GERBER_plotter.cpp` + `plotter_gerber.h`, `gbr_plotter_apertures.h`, `gbr_plotter_aperture_macros.h` | `GERBER_plotter.ts`: `GERBER_PLOTTER`, `APERTURE`, `APER_MACRO_FREEPOLY(_LIST)` and the `%AM` texts, whole. pcbnew's Gerber goes through it (`pcb_plotter.ts` -> `plot_board_layers.ts` -> `plot_brditems_plotter.ts`) and matches kicad-cli byte for byte (`qa/data/pcbnew/plot/gerber_oracle`) but for our name and the clock. The polygon overloads are `GetOrCreateApertureCorners` / `selectApertureCorners` / `plotArcShape` / `PlotGerberRegionLineChain` |
 | `common_plot_functions.cpp` | **missing**: `GetDefaultPlotExtension`, `PlotDrawingSheet` (eeschema draws the sheet through the renderer instead) |
 | `pdf_stroke_font.cpp`, `pdf_outline_font.cpp` (+ `.h`) | **missing**: PDF text |
 | — | `fmt.ts` is ours: the `{fmt}` conversions every backend prints through |

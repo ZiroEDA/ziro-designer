@@ -12,9 +12,9 @@
  * Gerber is the format this editor writes, so the dialog shows Gerber's world:
  * upstream's SetPlotFormat( GERBER ) disables drill marks, scaling, mirrored
  * and negative plot outright, options that could never do anything here, so
- * they are left out instead of shown dead, along with the General Options that
- * need plotting passes we don't have (soldermask subtraction, DNP marking,
- * sketch pads / pad numbers). What remains is live: drawing the checked layers,
+ * they are left out instead of shown dead, along with the General Options not
+ * offered here yet (soldermask subtraction, DNP marking, sketch pads / pad
+ * numbers; PlotOneBoardLayer has them). What remains is live: drawing the checked layers,
  * the drill/place file origin, Protel extensions, the Gerber job file, the
  * coordinate format and the X2/X1 attribute style.
  *
@@ -26,14 +26,17 @@
 import { useMemo, useRef, useState, type JSX } from 'react';
 import { zipSync, strToU8 } from 'fflate';
 import {
-  plotGerberLayer,
-  type BoardMaskPasteDefaults,
   plotExcellonDrill,
-  gerberProtelExtension,
   plotGerberJob,
   boardAuxOrigin,
+  PCB_PLOTTER,
   type Board,
 } from '@ziroeda/pcbnew';
+import { DRILL_MARKS, PCB_PLOT_PARAMS } from '@ziroeda/pcbnew/pcb_plot_params.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { PLOT_FORMAT } from '@ziroeda/common/plotters/plotter.js';
+import { Reporter } from '@ziroeda/common/reporter.js';
 import {
   RPT_SEVERITY_ACTION,
   RPT_SEVERITY_INFO,
@@ -47,13 +50,6 @@ import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 interface Props {
   board: Board;
   visibleLayers: ReadonlySet<string>;
-  /**
-   * Board Setup > Solder Mask/Paste, in IU. `PAD::GetSolderMaskExpansion` and
-   * `GetSolderPasteMargin` end their fallback chain here, so without it every
-   * pad plots its bare copper size on the mask and paste layers and the page
-   * changes nothing in the exported gerbers.
-   */
-  maskPaste?: BoardMaskPasteDefaults;
   /** Folders that already exist in the project (browse choices). */
   projectFolders?: readonly string[];
   /** Write a generated file into the project (path relative to the project
@@ -78,7 +74,6 @@ const download = (name: string, data: Uint8Array | string): void => {
 export function DialogPcbPlot({
   board,
   visibleLayers,
-  maskPaste,
   projectFolders = [],
   onOutputFile,
   onRunDrc,
@@ -141,37 +136,76 @@ export function DialogPcbPlot({
     }
   };
 
+  /**
+   * DIALOG_PLOT::Plot for Gerber: the options onto a PCB_PLOT_PARAMS, then
+   * PCB_PLOTTER::Plot, which runs StartPlotBoard / PlotBoardLayers /
+   * GERBER_PLOTTER for each checked layer. Board Setup's Solder Mask/Paste
+   * values reach the pads through the board's own design settings.
+   */
   const plot = (): void => {
-    const made: { layer: string; name: string; text: string }[] = [];
-    const date = new Date();
-    const origin = useAuxOrigin ? boardAuxOrigin(board) : undefined;
-    for (const layer of layerNames.filter((l) => checked.has(l))) {
-      const ext = protel ? gerberProtelExtension(layer) : 'gbr';
-      const name = `${base}-${layer.replace(/\./g, '_')}.${ext}`;
-      made.push({
-        layer,
-        name,
-        text: plotGerberLayer(board, layer, {
-          creationDate: date,
-          coordDigits,
-          useX2,
-          origin,
-          maskPaste,
-        }),
-      });
+    const k = board.k;
+
+    if (!k) {
+      report('The board model is not loaded, nothing to plot.', RPT_SEVERITY_WARNING);
+      return;
     }
-    if (made.length === 0) {
+
+    // BOARD::GetFileName names the files and the TF.ProjectId; the view holds it.
+    if (!k.GetFileName()) k.SetFileName(board.fileName ?? 'board.kicad_pcb');
+
+    const layers = layerNames
+      .filter((l) => checked.has(l))
+      .map((l) => LSET.NameToLayer(l) as PCB_LAYER_ID)
+      .filter((l) => l >= 0);
+
+    if (layers.length === 0) {
       report('No layers selected, nothing to plot.', RPT_SEVERITY_WARNING);
       return;
     }
-    for (const m of made) emit(m.name, m.text, 'application/vnd.gerber');
+
+    const params = new PCB_PLOT_PARAMS();
+    params.assign(k.GetPlotOptions());
+    params.SetFormat(PLOT_FORMAT.GERBER);
+    params.SetUseGerberProtelExtensions(protel);
+    params.SetCreateGerberJobFile(jobFile);
+    params.SetGerberPrecision(coordDigits);
+    params.SetUseGerberX2format(useX2);
+    params.SetUseAuxOrigin(useAuxOrigin);
+    // DIALOG_PLOT::SetPlotFormat( GERBER ) disables the drill marks.
+    params.SetDrillMarksType(DRILL_MARKS.NO_DRILL_SHAPE);
+
+    const reporter = new Reporter();
     const files: Record<string, Uint8Array> = {};
-    for (const m of made) files[m.name] = strToU8(m.text);
+    const mime = 'application/vnd.gerber';
+
+    const { files: plotted } = new PCB_PLOTTER(k, reporter, params).Plot(
+      '',
+      layers,
+      [],
+      protel,
+      (name, bytes) => {
+        files[name] = bytes;
+        const path = dir ? `${dir}/${name}` : name;
+        if (onOutputFile) onOutputFile(path, bytes, mime);
+        else download(name, bytes);
+      },
+      new Date(),
+    );
+
+    for (const line of reporter.lines) {
+      // PCB_PLOTTER names the file it wrote; ours landed in the project folder.
+      const m = /^Plotted to '(.*)'\.$/.exec(line.message);
+      report(
+        m ? `Plotted to '${dir && onOutputFile ? `${dir}/${m[1]}` : m[1]}'.` : line.message,
+        line.severity,
+      );
+    }
+
     if (jobFile) {
       const jobName = `${base}-job.gbrjob`;
       const text = plotGerberJob(
-        board,
-        made.map((m) => ({ layer: m.layer, name: m.name })),
+        k,
+        plotted.map((f) => ({ layer: f.layer, name: f.fullName })),
       );
       emit(jobName, text, 'application/json');
       files[jobName] = strToU8(text);

@@ -41,7 +41,11 @@
 import type { Color4d } from '../gal/color4d.js';
 import { FILL_T } from '../eda_shape.js';
 import type { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '../eda_text.js';
-import { GetPenSizeForBold } from '../gr_text.js';
+import { CALLBACK_GAL } from '../callback_gal.js';
+import type { FONT } from '../font/font.js';
+import type { METRICS } from '../font/font_metrics.js';
+import { TEXT_ATTRIBUTES } from '../font/text_attributes.js';
+import { GetPenSizeForBold, GRTextWidth } from '../gr_text.js';
 import type { PlotterRenderSettings } from '../render_settings.js';
 import { LINE_STYLE } from '../stroke_params.js';
 import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
@@ -200,10 +204,15 @@ export interface PLOTTER_TEXT_ATTRIBUTES {
 /**
  * `KIFONT::FONT`, reduced to the calls the plotters make. `Draw` stands in for
  * `FONT::Draw` driven by a CALLBACK_GAL: it yields the glyph strokes as point
- * pairs in IU, in draw order. The polygon callback (upstream's
- * `PlotPoly( chain, FILLED_SHAPE, 0 )`) only fires for outline fonts and has no
- * analogue here. `GRTextWidth` is gr_text.cpp's free function minus its FONT
- * and METRICS arguments; only SVG's invisible search text reads it.
+ * pairs in IU, in draw order. `GRTextWidth` is gr_text.cpp's free function
+ * minus its FONT and METRICS arguments; only SVG's invisible search text reads
+ * it.
+ *
+ * `DrawCallback`, when present, *is* `FONT::Draw` on upstream's CALLBACK_GAL:
+ * strokes and outline-glyph polygons in draw order, so an outline font's
+ * polygon callback (`PlotPoly( chain, FILLED_SHAPE, 0 )`) fires as it does
+ * upstream. {@link plotterFont} builds one from a real `KIFONT::FONT`; a font
+ * that has only `Draw` plots strokes and nothing else.
  */
 export interface PLOTTER_FONT {
   Draw(
@@ -212,6 +221,14 @@ export interface PLOTTER_FONT {
     aAttributes: PLOTTER_TEXT_ATTRIBUTES,
   ): readonly (readonly [Vec2, Vec2])[];
 
+  DrawCallback?(
+    aText: string,
+    aPos: Vec2,
+    aAttributes: PLOTTER_TEXT_ATTRIBUTES,
+    aStroke: (aPt1: Vec2, aPt2: Vec2) => void,
+    aPolygon: (aPoly: SHAPE_LINE_CHAIN) => void,
+  ): void;
+
   GRTextWidth?(
     aText: string,
     aSize: Vec2,
@@ -219,6 +236,51 @@ export interface PLOTTER_FONT {
     aBold: boolean,
     aItalic: boolean,
   ): number;
+}
+
+/**
+ * A {@link PLOTTER_FONT} over a real `KIFONT::FONT` and its `METRICS`: the
+ * `aFont` / `aFontMetrics` pair upstream's `PLOTTER::Text` and `PlotText` take.
+ * Drawing is `aFont->Draw( &callback_gal, text, aPos, attributes, aFontMetrics )`.
+ */
+export function plotterFont(aFont: FONT, aFontMetrics: METRICS): PLOTTER_FONT {
+  const textAttributes = (aAttributes: PLOTTER_TEXT_ATTRIBUTES): TEXT_ATTRIBUTES =>
+    Object.assign(new TEXT_ATTRIBUTES(), aAttributes);
+
+  const drawCallback = (
+    aText: string,
+    aPos: Vec2,
+    aAttributes: PLOTTER_TEXT_ATTRIBUTES,
+    aStroke: (aPt1: Vec2, aPt2: Vec2) => void,
+    aPolygon: (aPoly: SHAPE_LINE_CHAIN) => void,
+  ): void => {
+    const callback_gal = new CALLBACK_GAL(
+      (aPt1: Vec2, aPt2: Vec2) => aStroke(aPt1, aPt2),
+      (aPoly: SHAPE_LINE_CHAIN) => aPolygon(aPoly),
+    );
+
+    aFont.DrawAt(callback_gal, aText, aPos, textAttributes(aAttributes), aFontMetrics);
+  };
+
+  return {
+    Draw(aText, aPos, aAttributes) {
+      const strokes: [Vec2, Vec2][] = [];
+
+      drawCallback(
+        aText,
+        aPos,
+        aAttributes,
+        (aPt1, aPt2) => strokes.push([aPt1, aPt2]),
+        () => {},
+      );
+
+      return strokes;
+    },
+    DrawCallback: drawCallback,
+    GRTextWidth(aText, aSize, aThickness, aBold, aItalic) {
+      return GRTextWidth(aText, aFont, aSize, aThickness, aBold, aItalic, aFontMetrics);
+    },
+  };
 }
 
 /** The pen plume `PenTo` takes: up, down, or finish the path. */
@@ -903,7 +965,7 @@ export abstract class PLOTTER {
     _aMultilineAllowed: boolean,
     aFont: PLOTTER_FONT | null,
     _aFontMetrics?: unknown,
-    _aData?: unknown,
+    aData?: unknown,
   ): void {
     let penWidth = aPenWidth;
 
@@ -941,12 +1003,21 @@ export abstract class PLOTTER {
       m_Multiline: true,
     };
 
-    for (const [pt1, pt2] of aFont.Draw(aText, aPos, attributes)) {
+    const stroke = (pt1: Vec2, pt2: Vec2): void => {
       this.SetCurrentLineWidth(penWidth);
       this.MoveTo(pt1);
       this.LineTo(pt2);
       this.PenFinish();
+    };
+
+    if (aFont.DrawCallback) {
+      aFont.DrawCallback(aText, aPos, attributes, stroke, (aPoly) =>
+        this.PlotPolyLineChain(aPoly, FILL_T.FILLED_SHAPE, 0, aData),
+      );
+      return;
     }
+
+    for (const [pt1, pt2] of aFont.Draw(aText, aPos, attributes)) stroke(pt1, pt2);
   }
 
   /**
@@ -979,11 +1050,20 @@ export abstract class PLOTTER {
 
     const attributes: PLOTTER_TEXT_ATTRIBUTES = { ...aAttributes, m_StrokeWidth: penWidth };
 
-    for (const [pt1, pt2] of aFont.Draw(aText, aPos, attributes)) {
+    const stroke = (pt1: Vec2, pt2: Vec2): void => {
       this.MoveTo(pt1);
       this.LineTo(pt2);
       this.PenFinish();
+    };
+
+    if (aFont.DrawCallback) {
+      aFont.DrawCallback(aText, aPos, attributes, stroke, (aPoly) =>
+        this.PlotPolyLineChain(aPoly, FILL_T.FILLED_SHAPE, 0, aData),
+      );
+      return;
     }
+
+    for (const [pt1, pt2] of aFont.Draw(aText, aPos, attributes)) stroke(pt1, pt2);
   }
 
   /** Create a clickable hyperlink with a rectangular click area. */
@@ -1038,6 +1118,19 @@ export abstract class PLOTTER {
 
       if (pat & 0o100) this.markerCircle(position, radius);
     }
+  }
+
+  /**
+   * Set the current Gerber layer polarity to positive or negative
+   * by writing \%LPD*\% or \%LPC*\% to the Gerber file, respectively.
+   * (obviously starts a new Gerber layer, too)
+   *
+   * @param aPositive is the layer polarity and true for positive.
+   * It's not useful with most other plotter since they can't 'scratch'
+   * the film like photoplotter imagers do
+   */
+  SetLayerPolarity(_aPositive: boolean): void {
+    // NOP for most plotters
   }
 
   /** Change the current text mode. See the PlotTextMode explanation at the beginning of the file. */

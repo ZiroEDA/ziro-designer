@@ -28,7 +28,7 @@ import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import { setBoardOrigin } from '@ziroeda/pcbnew/edit-board.js';
-import { boardAuxOrigin, boardGridOrigin } from '@ziroeda/pcbnew/plot_gerber.js';
+import { boardAuxOrigin, boardGridOrigin } from '@ziroeda/pcbnew/board_design_settings.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 

@@ -20,7 +20,7 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
-import { boardGridOrigin } from '@ziroeda/pcbnew/plot_gerber.js';
+import { boardGridOrigin } from '@ziroeda/pcbnew/board_design_settings.js';
 import { snapToGridSize } from '@ziroeda/designer/src/editors/pcb/pcb_grid.js';
 import { pcbGridOptions } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 import { drawGrid, visibleGridStep } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';

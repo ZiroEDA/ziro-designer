@@ -40,6 +40,11 @@ import type { VIEW_ITEM } from './view/view_item.js';
  */
 export interface PlotterRenderSettings {
   GetDefaultPenWidth(): number;
+  /**
+   * GERBER_PLOTTER::StartPlot raises the default pen to its 0.1 mm floor.
+   * Optional because only that backend writes it; `RENDER_SETTINGS` has it.
+   */
+  SetDefaultPenWidth?(aWidth: number): void;
   GetDashLength(aLineWidth: number): number;
   GetDotLength(aLineWidth: number): number;
   GetGapLength(aLineWidth: number): number;

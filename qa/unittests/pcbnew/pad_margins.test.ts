@@ -23,9 +23,11 @@ import {
 } from '@ziroeda/pcbnew/pad_margins.js';
 import type { PcbFootprint, PcbPad } from '@ziroeda/pcbnew/types.js';
 import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
-import { parse } from '@ziroeda/sexpr';
-import { readBoard } from '@ziroeda/pcbnew/read-board.js';
-import { plotGerberLayer } from '@ziroeda/pcbnew/plot_gerber.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { PLOT_FORMAT } from '@ziroeda/common/plotters/plotter.js';
+import { ParseBoard } from '@ziroeda/pcbnew/read-board.js';
+import { DRILL_MARKS, PCB_PLOT_PARAMS } from '@ziroeda/pcbnew/pcb_plot_params.js';
+import { PCB_PLOTTER } from '@ziroeda/pcbnew/pcb_plotter.js';
 
 const pad = (over: Partial<PcbPad> = {}): PcbPad =>
   ({
@@ -180,7 +182,9 @@ describe('padApertureSize — what actually gets flashed', () => {
 });
 
 describe('end to end: the page changes the exported gerber', () => {
-  // A 2 x 1 mm SMD pad on F.Cu / F.Mask / F.Paste, plotted per layer.
+  // A 2 x 1 mm SMD pad on F.Cu / F.Mask / F.Paste, plotted per layer through
+  // PCB_PLOTTER -> PlotStandardLayer -> GERBER_PLOTTER. Board Setup writes the
+  // page into the board's BOARD_DESIGN_SETTINGS, which is where the pads read it.
   const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "test")
   (general (thickness 1.6))
   (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (1 "F.Mask" user) (13 "F.Paste" user))
@@ -191,40 +195,66 @@ describe('end to end: the page changes the exported gerber', () => {
   )
 )`;
 
-  const plot = (layer: string, maskPaste?: object): string =>
-    plotGerberLayer(readBoard(parse(BOARD_TEXT)), layer, { creationDate: new Date(0), maskPaste });
+  interface Page {
+    solderMaskExpansion?: number;
+    solderPasteMargin?: number;
+    solderPasteMarginRatio?: number;
+  }
 
-  /** The R aperture the pad flashes with, e.g. "R,2.100000X1.100000". */
-  const rectAperture = (gerber: string): string =>
-    /%ADD\d+R,([\d.]+X[\d.]+)\*%/.exec(gerber)?.[1] ?? 'none';
+  const plot = (layer: PCB_LAYER_ID, page: Page = {}): string => {
+    const board = ParseBoard(BOARD_TEXT);
+    const bds = board.GetDesignSettings();
+    bds.m_SolderMaskExpansion = page.solderMaskExpansion ?? 0;
+    bds.m_SolderPasteMargin = page.solderPasteMargin ?? 0;
+    bds.m_SolderPasteMarginRatio = page.solderPasteMarginRatio ?? 0;
+
+    const params = new PCB_PLOT_PARAMS();
+    params.SetFormat(PLOT_FORMAT.GERBER);
+    params.SetDrillMarksType(DRILL_MARKS.NO_DRILL_SHAPE);
+
+    let text = '';
+    new PCB_PLOTTER(board, null, params).Plot('', [layer], [], false, (_path, bytes) => {
+      text = new TextDecoder().decode(bytes);
+    });
+    return text;
+  };
+
+  /** The aperture the pad flashes with, e.g. "R,2.100000X1.100000". */
+  const aperture = (gerber: string): string => /%ADD10(.*)\*%/.exec(gerber)?.[1] ?? 'none';
 
   it('flashes the bare copper size with no board settings', () => {
-    expect(rectAperture(plot('F.Mask'))).toBe(rectAperture(plot('F.Cu')));
+    expect(aperture(plot(PCB_LAYER_ID.F_Mask))).toBe(aperture(plot(PCB_LAYER_ID.F_Cu)));
+    expect(aperture(plot(PCB_LAYER_ID.F_Cu))).toBe('R,2.000000X1.000000');
   });
 
-  it('grows the F.Mask aperture by the page’s expansion', () => {
-    // 0.1 mm per side on a 2 x 1 mm pad -> 2.2 x 1.2 mm.
-    const g = plot('F.Mask', { solderMaskExpansion: pcbMmToIU(0.1) });
-    expect(rectAperture(g)).toBe('2.200000X1.200000');
+  it('grows the F.Mask aperture by the page’s expansion, as a rounded rect', () => {
+    // kicad-cli, `(pad_to_mask_clearance 0.1)`: PlotStandardLayer turns a rect
+    // with a positive margin into a ROUNDRECT of radius = margin, so 0.1 mm per
+    // side on a 2 x 1 mm pad is a 2.2 x 1.2 mm body with 0.1 mm corners -- the
+    // RoundRect macro's corner centres at +-1.0, +-0.5.
+    const g = plot(PCB_LAYER_ID.F_Mask, { solderMaskExpansion: pcbMmToIU(0.1) });
+    expect(aperture(g)).toBe(
+      'RoundRect,0.100000X-1.000000X-0.500000X1.000000X-0.500000X1.000000X0.500000X-1.000000X0.500000X0',
+    );
     // and the copper layer is untouched by it.
-    expect(rectAperture(plot('F.Cu', { solderMaskExpansion: pcbMmToIU(0.1) }))).toBe(
-      '2.000000X1.000000',
+    expect(aperture(plot(PCB_LAYER_ID.F_Cu, { solderMaskExpansion: pcbMmToIU(0.1) }))).toBe(
+      'R,2.000000X1.000000',
     );
   });
 
   it('shrinks the F.Paste aperture by the page’s clearance and ratio', () => {
     // -0.05 mm absolute plus -10% of each axis: x = 2 - 2*(0.05 + 0.2) = 1.5,
-    // y = 1 - 2*(0.05 + 0.1) = 0.7.
-    const g = plot('F.Paste', {
+    // y = 1 - 2*(0.05 + 0.1) = 0.7 (kicad-cli writes R,1.500000X0.700000).
+    const g = plot(PCB_LAYER_ID.F_Paste, {
       solderPasteMargin: pcbMmToIU(-0.05),
       solderPasteMarginRatio: -0.1,
     });
-    expect(rectAperture(g)).toBe('1.500000X0.700000');
+    expect(aperture(g)).toBe('R,1.500000X0.700000');
   });
 
   it('does not touch the paste layer with a mask-only setting', () => {
-    expect(rectAperture(plot('F.Paste', { solderMaskExpansion: pcbMmToIU(0.1) }))).toBe(
-      '2.000000X1.000000',
+    expect(aperture(plot(PCB_LAYER_ID.F_Paste, { solderMaskExpansion: pcbMmToIU(0.1) }))).toBe(
+      'R,2.000000X1.000000',
     );
   });
 });

@@ -170,16 +170,23 @@ export {
   CROSS_PROBE_FLASH_LAST_PHASE,
   type CrossProbeView,
 } from './cross_probe.js';
+export { boardAuxOrigin, boardGridOrigin } from './board_design_settings.js';
+export { plotExcellonDrill } from './exporters/gendrill_excellon_writer.js';
+export { plotGerberJob } from './exporters/gerber_jobfile_writer.js';
 export {
-  plotGerberLayer,
-  plotExcellonDrill,
-  gerberProtelExtension,
-  plotGerberJob,
-  gerberFileFunction,
-  boardAuxOrigin,
-  boardGridOrigin,
-  type GerberPlotOpts,
-} from './plot_gerber.js';
+  AddGerberX2Attribute,
+  AddGerberX2Header,
+  GetGerberFileFunctionAttribute,
+  GetGerberProtelExtension,
+} from './pcbplot.js';
+export { PCB_PLOTTER, type PCB_PLOTTED_FILE } from './pcb_plotter.js';
+export {
+  PlotBoardLayers,
+  PlotOneBoardLayer,
+  PlotStandardLayer,
+  StartPlotBoard,
+} from './plot_board_layers.js';
+export { BRDITEMS_PLOTTER } from './plot_brditems_plotter.js';
 export { serializeBoard, serializeBoardAsync } from './write-board.js';
 export type { DrcViolation, DrcItemRef } from './drc/drc_engine_view.js';
 // --- Netlist (eeschema -> pcbnew) --------------------------------------------

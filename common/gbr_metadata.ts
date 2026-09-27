@@ -347,6 +347,16 @@ export class GBR_METADATA {
     return this.m_isCopper;
   }
 
+  /** The implicit copy constructor (`GBR_METADATA metadata = *aData;`). */
+  Clone(): GBR_METADATA {
+    const c = new GBR_METADATA();
+    c.m_ApertureMetadata.m_ApertAttribute = this.m_ApertureMetadata.m_ApertAttribute;
+    c.m_ApertureMetadata.m_CustomAttribute = this.m_ApertureMetadata.m_CustomAttribute;
+    c.m_NetlistMetadata = this.m_NetlistMetadata.Clone();
+    c.m_isCopper = this.m_isCopper;
+    return c;
+  }
+
   SetCopper(aValue: boolean): void {
     this.m_isCopper = aValue;
   }

@@ -11841,13 +11841,6 @@ export function PcbEditor({
         <DialogPcbPlot
           board={board}
           visibleLayers={visible}
-          // The Solder Mask/Paste page, in IU. The ratio is a fraction upstream
-          // and a percent on the panel, hence the /100.
-          maskPaste={{
-            solderMaskExpansion: Math.round(boardSetup.maskPaste.maskExpansionMM * MM),
-            solderPasteMargin: Math.round(boardSetup.maskPaste.pasteClearanceMM * MM),
-            solderPasteMarginRatio: boardSetup.maskPaste.pasteRelativePct / 100,
-          }}
           projectFolders={projectFolders}
           onOutputFile={onOutputFile}
           onRunDrc={() => {

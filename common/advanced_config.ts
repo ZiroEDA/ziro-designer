@@ -136,6 +136,12 @@ export class ADVANCED_CFG {
    */
   m_ExtensionSnapTimeoutMs = 500;
 
+  /**
+   * The drill mark size, in mm, the plotters use for "Small" drill marks.
+   * Setting name: "SmallDrillMarkSize"; default 0.35 (clamped 0.0 .. 3.0).
+   */
+  m_SmallDrillMarkSize = 0.35;
+
   private static s_cfg: ADVANCED_CFG | null = null;
 
   /** Get the singleton instance's config, which is shared by all consumers. */
