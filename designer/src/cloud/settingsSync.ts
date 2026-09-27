@@ -101,8 +101,9 @@
  *
  * Everything in {@link SETTINGS_SLICES} does. The keys deliberately left out
  * are the ones that describe *this machine* rather than this person:
- * `ziro.leftWinWidth`, `ziro.templateWindowSize`, `ziroeda.localHistoryShown`
- * and `ziro.guestNudgeDismissed` — pane and window geometry, and a dismissal.
+ * `kicad.json` (`KICAD_SETTINGS`: the project tree's width, the template
+ * window's size, whether Local History is shown) and `ziro.guestNudgeDismissed`
+ * — pane and window geometry, and a dismissal.
  * KiCad stores window geometry in `WINDOW_SETTINGS` and it is per-display; a
  * pane width carried from a 4K desktop to a laptop is a worse experience than
  * the default. `ziroeda.settings_version` and `ziroeda.settings_sync` are this

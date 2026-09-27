@@ -127,7 +127,10 @@ function loadColorSettingsByName(aName: string): COLOR_SETTINGS | null {
 export function InitPgm(): PGM_BASE {
   let pgm = PgmOrNull();
   if (!pgm) {
-    pgm = new PGM_BASE(commonSettingsOf());
+    // The settings manager exists before the program object: the store in
+    // prefs/settings.ts built its files on it at module load, so PGM_BASE
+    // adopts that one rather than starting an empty second manager.
+    pgm = new PGM_BASE(commonSettingsOf(), settings.manager);
 
     // Set up built-in environment variables (and override them from the system
     // environment if set), then put them in the environment (loadCommonSettings).

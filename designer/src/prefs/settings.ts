@@ -65,6 +65,13 @@ import {
 } from '@ziroeda/common/settings/common_settings.js';
 export { deepMerge } from '@ziroeda/common/settings/json_settings.js';
 import { deepMerge } from '@ziroeda/common/settings/json_settings.js';
+import type { JsonValue } from '@ziroeda/common/settings/json_settings_internals.js';
+import { KICAD_SETTINGS } from '@ziroeda/common/settings/kicad_settings.js';
+import {
+  SETTINGS_MANAGER,
+  type SETTINGS_FILE,
+  type SETTINGS_STORE,
+} from '@ziroeda/common/settings/settings_manager.js';
 import {
   BITMAP2CMP_SETTINGS,
   type BITMAP2CMP_SETTINGS_JSON,
@@ -2538,7 +2545,10 @@ export type ToolbarApp = (typeof TOOLBAR_APPS)[number];
 export const toolbarSlice = (app: ToolbarApp): SettingsSlice => `${app}-toolbars` as SettingsSlice;
 
 /** Where a slice lives in localStorage. The one place the prefix is written. */
-export const sliceStorageKey = (slice: SettingsSlice): string => `ziroeda.${slice}`;
+export const sliceStorageKey = (slice: SettingsSlice): string => settingsStorageKey(slice);
+
+/** Where any settings file lives in localStorage, synced slice or not. */
+export const settingsStorageKey = (filename: string): string => `ziroeda.${filename}`;
 
 /**
  * Apply every correction newer than `from` to one stored eeschema settings
@@ -2696,16 +2706,6 @@ function migrateStored(): void {
   }
 }
 
-function load<T>(key: string, defaults: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return structuredClone(defaults);
-    return deepMerge(structuredClone(defaults), JSON.parse(raw));
-  } catch {
-    return structuredClone(defaults);
-  }
-}
-
 /**
  * Upgrade a stored grid list to `GRID{ name, x, y }`.
  *
@@ -2829,22 +2829,207 @@ export function normalizeUserColors(parsed: unknown): Record<string, string> {
 }
 
 /**
- * Read a free-form map out of localStorage through `normalize`.
+ * `SETTINGS_LOC::USER`'s directory, in a browser: one localStorage key per
+ * settings file, `ziroeda.<basename>`. The {@link SETTINGS_STORE} the
+ * `SETTINGS_MANAGER` reads and writes through.
  *
- * `load()` cannot do this: it goes through `deepMerge`, which keeps only keys
- * the *defaults* already have, so a map whose defaults are `{}` comes back
- * empty every time. `colors.user` was loaded that way, which meant the User
- * colour theme was written on every change and silently discarded on every
- * reload — the exact trap the note above `normalizeHotkeys` describes, in the
- * one other place it applies.
+ * Reads the global `localStorage` on every call rather than capturing it, so a
+ * test that swaps the global gets a fresh device. A blocked or unparsable
+ * entry reads as missing, and the file then loads as its defaults.
  */
-function loadFreeForm<T>(key: string, normalize: (parsed: unknown) => T): T {
+export class BROWSER_SETTINGS_STORE implements SETTINGS_STORE {
+  Read(aFilename: string): unknown {
+    try {
+      const raw = localStorage.getItem(settingsStorageKey(aFilename));
+      if (!raw) return undefined;
+      return JSON.parse(raw);
+    } catch {
+      return undefined;
+    }
+  }
+
+  Write(aFilename: string, aValue: unknown): void {
+    store(settingsStorageKey(aFilename), aValue);
+  }
+}
+
+/**
+ * One slice as a settings file the manager can hold: the plain object the
+ * editors read, and the normaliser that turns whatever was stored (or
+ * nothing) into one. `LoadFromJson` is that normaliser, whether the value came
+ * from the browser or from the account, so the two cannot drift apart.
+ */
+export class SLICE_SETTINGS<T> implements SETTINGS_FILE {
+  value: T;
+
+  constructor(
+    private readonly m_filename: string,
+    private readonly m_normalize: (stored: unknown) => T,
+  ) {
+    this.value = m_normalize(undefined);
+  }
+
+  GetFilename(): string {
+    return this.m_filename;
+  }
+
+  LoadFromJson(aJson: unknown): void {
+    this.value = this.m_normalize(aJson);
+  }
+
+  SaveToJson(): unknown {
+    return this.value;
+  }
+}
+
+/** Every slice's in-memory type, by file. */
+interface SliceValues {
+  common: CommonSettings;
+  eeschema: EeschemaSettings;
+  symbol_editor: SymbolEditorSettings;
+  pcbnew: PcbnewSettings;
+  pl_editor: PlEditorSettings;
+  fpedit: FpEditSettings;
+  pcb_calculator: PcbCalculatorSettings;
+  bitmap2component: Bitmap2CmpSettings;
+  privacy: PrivacySettings;
+  '3d_viewer': Viewer3dSettings;
+  'colors.user': Record<string, string>;
+  'colors.themes': Record<string, UserColorTheme>;
+  hotkeys: Record<string, string | null>;
+  'eeschema-toolbars': ToolbarSettings;
+  'fpedit-toolbars': ToolbarSettings;
+  '3d_viewer-toolbars': ToolbarSettings;
+  'symbol_editor-toolbars': ToolbarSettings;
+  'pcbnew-toolbars': ToolbarSettings;
+  'pl_editor-toolbars': ToolbarSettings;
+  gerbview: GerbviewSettings;
+  'gerbview-toolbars': ToolbarSettings;
+}
+
+/** `deepMerge` over a fresh copy of the defaults: a fixed-shape file. */
+const merged =
+  <T>(defaults: T) =>
+  (stored: unknown): T =>
+    deepMerge(structuredClone(defaults), stored);
+
+/**
+ * `normalizeGrids` as well: a stored `window.grid.sizes` is a LIST, and
+ * `deepMerge` adopts a list whole, so an old or hand-edited shape has to be
+ * upgraded on the way in.
+ */
+const mergedWithGrids =
+  <T extends { window: { grid: { sizes: GridEntry[] } } }>(defaults: T) =>
+  (stored: unknown): T =>
+    normalizeGrids(deepMerge(structuredClone(defaults), stored), defaults.window.grid.sizes);
+
+/**
+ * How each file is read, from the browser or from the account alike.
+ *
+ * Not `deepMerge` for the free-form ones: it keeps only keys the defaults
+ * already have, so a map whose defaults are `{}` would come back empty every
+ * time (see `normalizeHotkeys`). `common.json` carries one free-form subtree
+ * (`mergeCommon`), `fpedit.json` another (`mergeFpEdit`), the calculator its
+ * keyword maps. A stored toolbar *replaces* its default rather than being
+ * merged over it (`normalizeToolbarSettings`).
+ */
+const SLICE_NORMALIZE: { [K in SettingsSlice]: (stored: unknown) => SliceValues[K] } = {
+  common: mergeCommon,
+  eeschema: mergedWithGrids(EESCHEMA_DEFAULTS),
+  symbol_editor: mergedWithGrids(SYMBOL_EDITOR_DEFAULTS),
+  pcbnew: merged(PCBNEW_DEFAULTS),
+  pl_editor: mergedWithGrids(PL_EDITOR_DEFAULTS),
+  fpedit: mergeFpEdit,
+  pcb_calculator: normalizePcbCalculator,
+  bitmap2component: merged(BITMAP2CMP_DEFAULTS),
+  privacy: merged(PRIVACY_DEFAULTS),
+  '3d_viewer': mergeViewer3d,
+  'colors.user': normalizeUserColors,
+  'colors.themes': normalizeUserThemes,
+  hotkeys: normalizeHotkeys,
+  'eeschema-toolbars': normalizeToolbarSettings,
+  'fpedit-toolbars': normalizeToolbarSettings,
+  '3d_viewer-toolbars': normalizeToolbarSettings,
+  'symbol_editor-toolbars': normalizeToolbarSettings,
+  'pcbnew-toolbars': normalizeToolbarSettings,
+  'pl_editor-toolbars': normalizeToolbarSettings,
+  gerbview: mergedWithGrids(GERBVIEW_DEFAULTS),
+  'gerbview-toolbars': normalizeToolbarSettings,
+};
+
+type SliceFiles = { [K in SettingsSlice]: SLICE_SETTINGS<SliceValues[K]> };
+
+/**
+ * The localStorage keys the project manager's settings were kept under before
+ * they were `kicad.json`. Exported so the move can be tested without guessing
+ * the strings.
+ */
+export const LEGACY_KICAD_KEYS = {
+  leftWinWidth: 'ziro.leftWinWidth',
+  historyShown: 'ziroeda.localHistoryShown',
+  recentTemplates: 'ziro.recentTemplates',
+  templateFilter: 'ziro.templateFilterChoice',
+  templateWindowSize: 'ziro.templateWindowSize',
+} as const;
+
+/**
+ * Fold the project manager's loose keys into `kicad.json` — a file rename, the
+ * thing `migrateBitmap2CmpKey` does for the Image Converter.
+ *
+ * Not gated on `SETTINGS_VERSION`: `kicad.json` is not a synced slice, so
+ * there is no version for it to stamp, and bumping the synced version would
+ * make every older deploy read the account as a future format. Instead it is
+ * idempotent: a path already in `kicad.json` wins over a legacy key, and the
+ * legacy keys are removed once folded, so it runs at most once per browser
+ * with anything to do.
+ */
+export function migrateKicadSettingsKeys(): boolean {
   try {
+    const get = (k: string): string | null => localStorage.getItem(k);
+    const width = get(LEGACY_KICAD_KEYS.leftWinWidth);
+    const shown = get(LEGACY_KICAD_KEYS.historyShown);
+    const recent = get(LEGACY_KICAD_KEYS.recentTemplates);
+    const filter = get(LEGACY_KICAD_KEYS.templateFilter);
+    const size = get(LEGACY_KICAD_KEYS.templateWindowSize);
+    if ([width, shown, recent, filter, size].every((v) => v === null)) return false;
+
+    const key = settingsStorageKey('kicad');
     const raw = localStorage.getItem(key);
-    if (!raw) return normalize(undefined);
-    return normalize(JSON.parse(raw));
+    const doc = new KICAD_SETTINGS();
+    doc.LoadFromJson(raw ? (JSON.parse(raw) as JsonValue) : {});
+    const had = (path: string): boolean => doc.Contains(path);
+
+    if (width !== null && !had('appearance.left_frame_width')) {
+      const n = Number(width);
+      if (Number.isFinite(n)) doc.Set('appearance.left_frame_width', n);
+    }
+    if (shown !== null && !had('aui.show_history_panel'))
+      doc.Set('aui.show_history_panel', shown === '1');
+    if (recent !== null && !had('template.recent_templates')) {
+      const ids: unknown = JSON.parse(recent);
+      if (Array.isArray(ids))
+        doc.Set(
+          'template.recent_templates',
+          ids.filter((x): x is string => typeof x === 'string'),
+        );
+    }
+    if (filter !== null && !had('template.filter')) {
+      const n = Number(filter);
+      if (Number.isInteger(n)) doc.Set('template.filter', n);
+    }
+    if (size !== null && !had('template.window.size')) {
+      const s = JSON.parse(size) as { w?: unknown; h?: unknown } | null;
+      if (typeof s?.w === 'number' && typeof s.h === 'number')
+        doc.Set('template.window.size', { width: s.w, height: s.h });
+    }
+
+    // The document as it stands, not a Store(): a Store() would first write
+    // the members over the paths just set.
+    localStorage.setItem(key, JSON.stringify(doc.GetJson('')));
+    for (const k of Object.values(LEGACY_KICAD_KEYS)) localStorage.removeItem(k);
+    return true;
   } catch {
-    return normalize(undefined);
+    return false;
   }
 }
 
@@ -2891,233 +3076,26 @@ function loadStamps(): Record<string, SliceStamp> {
   }
 }
 
-/** Reading and replacing one slice's value, in one table rather than nine. */
-interface SliceIO {
-  read(m: SettingsManager): unknown;
-  /** Replace the in-memory value with one that came from storage or the account. */
-  adopt(m: SettingsManager, value: unknown): void;
-}
-
-const SLICE_IO: Record<SettingsSlice, SliceIO> = {
-  common: {
-    read: (m) => m.common,
-    // Not `deepMerge` alone: `dialog.controls` is free-form. See `mergeCommon`.
-    adopt: (m, v) => {
-      m.common = mergeCommon(v);
-    },
-  },
-  eeschema: {
-    read: (m) => m.eeschema,
-    adopt: (m, v) => {
-      m.eeschema = deepMerge(structuredClone(EESCHEMA_DEFAULTS), v);
-    },
-  },
-  symbol_editor: {
-    read: (m) => m.symbolEditor,
-    adopt: (m, v) => {
-      m.symbolEditor = deepMerge(structuredClone(SYMBOL_EDITOR_DEFAULTS), v);
-    },
-  },
-  pcbnew: {
-    read: (m) => m.pcbnew,
-    adopt: (m, v) => {
-      m.pcbnew = deepMerge(structuredClone(PCBNEW_DEFAULTS), v);
-    },
-  },
-  pl_editor: {
-    read: (m) => m.plEditor,
-    adopt: (m, v) => {
-      m.plEditor = deepMerge(structuredClone(PL_EDITOR_DEFAULTS), v);
-    },
-  },
-  fpedit: {
-    read: (m) => m.fpEdit,
-    // Not `deepMerge` alone: `lib_tree.column_widths` is free-form.
-    adopt: (m, v) => {
-      m.fpEdit = mergeFpEdit(v);
-    },
-  },
-  '3d_viewer': {
-    read: (m) => m.viewer3d,
-    adopt: (m, v) => {
-      m.viewer3d = mergeViewer3d(v);
-    },
-  },
-  pcb_calculator: {
-    read: (m) => m.pcbCalculator,
-    // Not `deepMerge`: the transmission-line keyword maps are free-form.
-    adopt: (m, v) => {
-      m.pcbCalculator = normalizePcbCalculator(v);
-    },
-  },
-  bitmap2component: {
-    read: (m) => m.bitmap2cmp,
-    adopt: (m, v) => {
-      m.bitmap2cmp = deepMerge(structuredClone(BITMAP2CMP_DEFAULTS), v);
-    },
-  },
-  privacy: {
-    read: (m) => m.privacy,
-    adopt: (m, v) => {
-      m.privacy = deepMerge(structuredClone(PRIVACY_DEFAULTS), v);
-    },
-  },
-  'colors.user': {
-    read: (m) => m.userColors,
-    adopt: (m, v) => {
-      m.userColors = normalizeUserColors(v);
-    },
-  },
-  // Every theme "New Theme..." made. One slice rather than a file each, because
-  // a slice is what this app syncs; upstream's directory of `<name>.json` is
-  // the same map with the stems as keys.
-  'colors.themes': {
-    read: (m) => m.userThemes,
-    adopt: (m, v) => {
-      m.userThemes = normalizeUserThemes(v);
-    },
-  },
-  hotkeys: {
-    read: (m) => m.hotkeys,
-    adopt: (m, v) => {
-      m.hotkeys = normalizeHotkeys(v);
-    },
-  },
-  // One entry per `TOOLBAR_SETTINGS` file. Not `deepMerge`: a stored toolbar
-  // *replaces* its default rather than being merged over it, and merging two
-  // item lists would produce a toolbar neither side asked for. See
-  // `normalizeToolbarSettings`.
-  'eeschema-toolbars': {
-    read: (m) => m.toolbars.eeschema,
-    adopt: (m, v) => {
-      m.toolbars = { ...m.toolbars, eeschema: normalizeToolbarSettings(v) };
-    },
-  },
-  'symbol_editor-toolbars': {
-    read: (m) => m.toolbars.symbol_editor,
-    adopt: (m, v) => {
-      m.toolbars = { ...m.toolbars, symbol_editor: normalizeToolbarSettings(v) };
-    },
-  },
-  'pcbnew-toolbars': {
-    read: (m) => m.toolbars.pcbnew,
-    adopt: (m, v) => {
-      m.toolbars = { ...m.toolbars, pcbnew: normalizeToolbarSettings(v) };
-    },
-  },
-  'pl_editor-toolbars': {
-    read: (m) => m.toolbars.pl_editor,
-    adopt: (m, v) => {
-      m.toolbars = { ...m.toolbars, pl_editor: normalizeToolbarSettings(v) };
-    },
-  },
-  gerbview: {
-    read: (m) => m.gerbview,
-    adopt: (m, v) => {
-      m.gerbview = deepMerge(structuredClone(GERBVIEW_DEFAULTS), v);
-    },
-  },
-  'gerbview-toolbars': {
-    read: (m) => m.toolbars.gerbview,
-    adopt: (m, v) => {
-      m.toolbars = { ...m.toolbars, gerbview: normalizeToolbarSettings(v) };
-    },
-  },
-  'fpedit-toolbars': {
-    read: (m) => m.toolbars.fpedit,
-    adopt: (m, v) => {
-      m.toolbars = { ...m.toolbars, fpedit: normalizeToolbarSettings(v) };
-    },
-  },
-  '3d_viewer-toolbars': {
-    read: (m) => m.toolbars['3d_viewer'],
-    adopt: (m, v) => {
-      m.toolbars = { ...m.toolbars, '3d_viewer': normalizeToolbarSettings(v) };
-    },
-  },
-};
+const TOOLBAR_SLICES = new Map<SettingsSlice, ToolbarApp>(
+  TOOLBAR_APPS.map((app) => [toolbarSlice(app), app]),
+);
 
 /**
- * SETTINGS_MANAGER, web edition: owns the common + eeschema settings and the
- * active color theme, persists on every change, and notifies subscribers (the
- * editors re-render through useSyncExternalStore).
+ * The editors' view of the settings: a thin layer over the common
+ * `SETTINGS_MANAGER`, which holds one settings file per slice and loads and
+ * saves them through the browser's store.
+ *
+ * What stays here is what upstream has no counterpart for: the named fields
+ * the editors read (`settings.eeschema`), the per-slice sync stamps and the
+ * `onSliceChanged` hook the account sync hangs off, and the change
+ * notification the editors re-render through (useSyncExternalStore).
  */
 export class SettingsManager {
-  // Not `load()`: `common.json` carries one free-form subtree. See `mergeCommon`.
-  common: CommonSettings = loadFreeForm(sliceStorageKey('common'), mergeCommon);
-  eeschema: EeschemaSettings = normalizeGrids(
-    load(sliceStorageKey('eeschema'), EESCHEMA_DEFAULTS),
-    EESCHEMA_DEFAULTS.window.grid.sizes,
-  );
-  /**
-   * `symbol_editor.json`, the Symbol Editor's own settings file.
-   *
-   * `normalizeGrids` for the same reason eeschema and pl_editor need it: a
-   * stored `window.grid.sizes` is a LIST, and `deepMerge` would merge it
-   * element-wise against the defaults instead of replacing it.
-   */
-  symbolEditor: SymbolEditorSettings = normalizeGrids(
-    load(sliceStorageKey('symbol_editor'), SYMBOL_EDITOR_DEFAULTS),
-    SYMBOL_EDITOR_DEFAULTS.window.grid.sizes,
-  );
-  pcbnew: PcbnewSettings = load(sliceStorageKey('pcbnew'), PCBNEW_DEFAULTS);
-  /** `pl_editor.json`, the Drawing Sheet Editor's own settings file. */
-  plEditor: PlEditorSettings = normalizeGrids(
-    load(sliceStorageKey('pl_editor'), PL_EDITOR_DEFAULTS),
-    PL_EDITOR_DEFAULTS.window.grid.sizes,
-  );
-  /** `gerbview.json`, the Gerber Viewer's own settings file. */
-  gerbview: GerbviewSettings = normalizeGrids(
-    load(sliceStorageKey('gerbview'), GERBVIEW_DEFAULTS),
-    GERBVIEW_DEFAULTS.window.grid.sizes,
-  );
-  /** `fpedit.json`, the Footprint Editor's own settings file. Not `load()`:
-   *  `lib_tree.column_widths` is free-form. See `mergeFpEdit`. */
-  fpEdit: FpEditSettings = loadFreeForm(sliceStorageKey('fpedit'), mergeFpEdit);
-
-  viewer3d: Viewer3dSettings = loadFreeForm(sliceStorageKey('3d_viewer'), mergeViewer3d);
-  /** `pcb_calculator.json` — the Calculator Tools frame's last inputs. */
-  pcbCalculator: PcbCalculatorSettings = loadFreeForm(
-    sliceStorageKey('pcb_calculator'),
-    normalizePcbCalculator,
-  );
-  /** `bitmap2component.json`, the Image Converter's own settings file. */
-  bitmap2cmp: Bitmap2CmpSettings = load(sliceStorageKey('bitmap2component'), BITMAP2CMP_DEFAULTS);
-  privacy: PrivacySettings = load(sliceStorageKey('privacy'), PRIVACY_DEFAULTS);
-  /** The editable "User" colour theme: layer-key -> CSS colour overrides. */
-  userThemes: Record<string, UserColorTheme> = loadFreeForm('colors.themes', normalizeUserThemes);
-
-  userColors: Record<string, string> = loadFreeForm(
-    sliceStorageKey('colors.user'),
-    normalizeUserColors,
-  );
-  /** HOTKEY_STORE's overrides: action name -> combo, or null for "no key". */
-  hotkeys: Record<string, string | null> = loadFreeForm(
-    sliceStorageKey('hotkeys'),
-    normalizeHotkeys,
-  );
-  /**
-   * `<app>-toolbars.json`, one per app with a Preferences > Toolbars page.
-   *
-   * Upstream these are separate `TOOLBAR_SETTINGS` objects the settings manager
-   * hands out by file name, never a member of the app's own settings — a frame
-   * holds `m_toolbarSettings` beside `config()`, and the customisation panel is
-   * given both (`PANEL_TOOLBAR_CUSTOMIZATION`'s `aCfg` and `aTbSettings`). One
-   * field holding all three keeps that separation without three near-identical
-   * members and three near-identical updaters.
-   */
-  toolbars: Record<ToolbarApp, ToolbarSettings> = {
-    eeschema: loadFreeForm(sliceStorageKey('eeschema-toolbars'), normalizeToolbarSettings),
-    symbol_editor: loadFreeForm(
-      sliceStorageKey('symbol_editor-toolbars'),
-      normalizeToolbarSettings,
-    ),
-    pcbnew: loadFreeForm(sliceStorageKey('pcbnew-toolbars'), normalizeToolbarSettings),
-    pl_editor: loadFreeForm(sliceStorageKey('pl_editor-toolbars'), normalizeToolbarSettings),
-    gerbview: loadFreeForm(sliceStorageKey('gerbview-toolbars'), normalizeToolbarSettings),
-    fpedit: loadFreeForm(sliceStorageKey('fpedit-toolbars'), normalizeToolbarSettings),
-    '3d_viewer': loadFreeForm(sliceStorageKey('3d_viewer-toolbars'), normalizeToolbarSettings),
-  };
+  /** The `SETTINGS_MANAGER` the files are registered with; `PGM_BASE` adopts it. */
+  readonly manager: SETTINGS_MANAGER;
+  private readonly files: SliceFiles;
+  /** `kicad.json`, the project manager's own settings. Not a synced slice: see `updateKicad`. */
+  readonly kicad: KICAD_SETTINGS;
   /** Per-slice modification and agreement stamps; see {@link SliceStamp}. */
   stamps: Record<string, SliceStamp> = loadStamps();
   /**
@@ -3134,6 +3112,137 @@ export class SettingsManager {
   private listeners = new Set<Listener>();
   /** Monotonic snapshot id for useSyncExternalStore. */
   version = 0;
+  /**
+   * `<app>-toolbars.json`, one per app with a Preferences > Toolbars page, as
+   * one record so a reader holds a stable object between changes.
+   *
+   * Upstream these are separate `TOOLBAR_SETTINGS` objects the settings manager
+   * hands out by file name, never a member of the app's own settings — a frame
+   * holds `m_toolbarSettings` beside `config()`, and the customisation panel is
+   * given both (`PANEL_TOOLBAR_CUSTOMIZATION`'s `aCfg` and `aTbSettings`).
+   */
+  private m_toolbars: Record<ToolbarApp, ToolbarSettings>;
+
+  constructor(aManager: SETTINGS_MANAGER = new SETTINGS_MANAGER()) {
+    this.manager = aManager;
+    if (!aManager.GetStore()) aManager.SetStore(new BROWSER_SETTINGS_STORE());
+
+    const files: Partial<Record<SettingsSlice, SLICE_SETTINGS<unknown>>> = {};
+    for (const slice of SETTINGS_SLICES)
+      files[slice] = aManager.RegisterSettings(
+        new SLICE_SETTINGS<unknown>(slice, SLICE_NORMALIZE[slice]),
+      );
+    this.files = files as SliceFiles;
+
+    migrateKicadSettingsKeys();
+    this.kicad = aManager.RegisterSettings(new KICAD_SETTINGS());
+
+    this.m_toolbars = this.readToolbars();
+  }
+
+  private readToolbars(): Record<ToolbarApp, ToolbarSettings> {
+    const out: Partial<Record<ToolbarApp, ToolbarSettings>> = {};
+    for (const app of TOOLBAR_APPS)
+      out[app] = this.files[toolbarSlice(app) as `${ToolbarApp}-toolbars`].value;
+    return out as Record<ToolbarApp, ToolbarSettings>;
+  }
+
+  get common(): CommonSettings {
+    return this.files.common.value;
+  }
+  set common(v: CommonSettings) {
+    this.files.common.value = v;
+  }
+  get eeschema(): EeschemaSettings {
+    return this.files.eeschema.value;
+  }
+  set eeschema(v: EeschemaSettings) {
+    this.files.eeschema.value = v;
+  }
+  /** `symbol_editor.json`, the Symbol Editor's own settings file. */
+  get symbolEditor(): SymbolEditorSettings {
+    return this.files.symbol_editor.value;
+  }
+  set symbolEditor(v: SymbolEditorSettings) {
+    this.files.symbol_editor.value = v;
+  }
+  get pcbnew(): PcbnewSettings {
+    return this.files.pcbnew.value;
+  }
+  set pcbnew(v: PcbnewSettings) {
+    this.files.pcbnew.value = v;
+  }
+  /** `pl_editor.json`, the Drawing Sheet Editor's own settings file. */
+  get plEditor(): PlEditorSettings {
+    return this.files.pl_editor.value;
+  }
+  set plEditor(v: PlEditorSettings) {
+    this.files.pl_editor.value = v;
+  }
+  /** `gerbview.json`, the Gerber Viewer's own settings file. */
+  get gerbview(): GerbviewSettings {
+    return this.files.gerbview.value;
+  }
+  set gerbview(v: GerbviewSettings) {
+    this.files.gerbview.value = v;
+  }
+  /** `fpedit.json`, the Footprint Editor's own settings file. */
+  get fpEdit(): FpEditSettings {
+    return this.files.fpedit.value;
+  }
+  set fpEdit(v: FpEditSettings) {
+    this.files.fpedit.value = v;
+  }
+  get viewer3d(): Viewer3dSettings {
+    return this.files['3d_viewer'].value;
+  }
+  set viewer3d(v: Viewer3dSettings) {
+    this.files['3d_viewer'].value = v;
+  }
+  /** `pcb_calculator.json` — the Calculator Tools frame's last inputs. */
+  get pcbCalculator(): PcbCalculatorSettings {
+    return this.files.pcb_calculator.value;
+  }
+  set pcbCalculator(v: PcbCalculatorSettings) {
+    this.files.pcb_calculator.value = v;
+  }
+  /** `bitmap2component.json`, the Image Converter's own settings file. */
+  get bitmap2cmp(): Bitmap2CmpSettings {
+    return this.files.bitmap2component.value;
+  }
+  set bitmap2cmp(v: Bitmap2CmpSettings) {
+    this.files.bitmap2component.value = v;
+  }
+  get privacy(): PrivacySettings {
+    return this.files.privacy.value;
+  }
+  set privacy(v: PrivacySettings) {
+    this.files.privacy.value = v;
+  }
+  /** Every theme "New Theme..." made, by file stem. */
+  get userThemes(): Record<string, UserColorTheme> {
+    return this.files['colors.themes'].value;
+  }
+  set userThemes(v: Record<string, UserColorTheme>) {
+    this.files['colors.themes'].value = v;
+  }
+  /** The editable "User" colour theme: layer-key -> CSS colour overrides. */
+  get userColors(): Record<string, string> {
+    return this.files['colors.user'].value;
+  }
+  set userColors(v: Record<string, string>) {
+    this.files['colors.user'].value = v;
+  }
+  /** HOTKEY_STORE's overrides: action name -> combo, or null for "no key". */
+  get hotkeys(): Record<string, string | null> {
+    return this.files.hotkeys.value;
+  }
+  set hotkeys(v: Record<string, string | null>) {
+    this.files.hotkeys.value = v;
+  }
+  get toolbars(): Record<ToolbarApp, ToolbarSettings> {
+    return this.m_toolbars;
+  }
 
   subscribe = (fn: Listener): (() => void) => {
     this.listeners.add(fn);
@@ -3154,8 +3263,8 @@ export class SettingsManager {
    * member, and putting one there would put it in the JSON a user can read and
    * in `deepMerge`'s way.
    */
-  private commit(slice: SettingsSlice, value: unknown): void {
-    store(sliceStorageKey(slice), value);
+  private commit(slice: SettingsSlice): void {
+    this.manager.Save(this.files[slice]);
     const prev = this.stamps[slice];
     // Strictly increasing, not `Date.now()`. Two edits inside one millisecond
     // would otherwise share a stamp, so the second would satisfy
@@ -3170,7 +3279,7 @@ export class SettingsManager {
 
   /** The slice's current value, for a push. */
   sliceValue(slice: SettingsSlice): unknown {
-    return SLICE_IO[slice].read(this);
+    return this.files[slice].SaveToJson();
   }
 
   /**
@@ -3181,8 +3290,9 @@ export class SettingsManager {
    * (projectStore.ts:893) in the one other place this bookkeeping exists.
    */
   adoptSlice(slice: SettingsSlice, value: unknown, cloudAt: number): void {
-    SLICE_IO[slice].adopt(this, value);
-    store(sliceStorageKey(slice), SLICE_IO[slice].read(this));
+    this.files[slice].LoadFromJson(value);
+    if (TOOLBAR_SLICES.has(slice)) this.m_toolbars = this.readToolbars();
+    this.manager.Save(this.files[slice]);
     const updatedAt = this.stamps[slice]?.updatedAt ?? Date.now();
     this.stamps = { ...this.stamps, [slice]: { updatedAt, syncedAt: updatedAt, cloudAt } };
     store(STAMPS_KEY, this.stamps);
@@ -3207,11 +3317,37 @@ export class SettingsManager {
     store(STAMPS_KEY, this.stamps);
   }
 
-  updateCommon(mutate: (s: CommonSettings) => void): void {
-    const next = structuredClone(this.common);
+  /** Replace one slice's value with a mutated copy, and commit it. */
+  private update<K extends SettingsSlice>(slice: K, mutate: (s: SliceValues[K]) => void): void {
+    const file = this.files[slice] as SLICE_SETTINGS<SliceValues[K]>;
+    const next = structuredClone(file.value);
     mutate(next);
-    this.common = next;
-    this.commit('common', next);
+    file.value = next;
+    this.commit(slice);
+  }
+
+  /** Replace one slice's value outright, and commit it. */
+  private replace<K extends SettingsSlice>(slice: K, value: SliceValues[K]): void {
+    (this.files[slice] as SLICE_SETTINGS<SliceValues[K]>).value = value;
+    this.commit(slice);
+  }
+
+  /**
+   * `KICAD_MANAGER_FRAME::SaveSettings`, one member at a time: `kicad.json`
+   * saved through the manager.
+   *
+   * Not stamped and not handed to `onSliceChanged`: what it holds is pane and
+   * window geometry and this machine's recents, which `cloud/settingsSync.ts`
+   * deliberately keeps per device.
+   */
+  updateKicad(mutate: (s: KICAD_SETTINGS) => void): void {
+    mutate(this.kicad);
+    this.manager.Save(this.kicad);
+    this.notify();
+  }
+
+  updateCommon(mutate: (s: CommonSettings) => void): void {
+    this.update('common', mutate);
   }
 
   /**
@@ -3237,39 +3373,24 @@ export class SettingsManager {
   }
 
   updateEeschema(mutate: (s: EeschemaSettings) => void): void {
-    const next = structuredClone(this.eeschema);
-    mutate(next);
-    this.eeschema = next;
-    this.commit('eeschema', next);
+    this.update('eeschema', mutate);
   }
 
   /** `SYMBOL_EDIT_FRAME::SaveSettings` / the five Symbol Editor Preferences pages. */
   updateSymbolEditor(mutate: (s: SymbolEditorSettings) => void): void {
-    const next = structuredClone(this.symbolEditor);
-    mutate(next);
-    this.symbolEditor = next;
-    this.commit('symbol_editor', next);
+    this.update('symbol_editor', mutate);
   }
 
   updatePcbnew(mutate: (s: PcbnewSettings) => void): void {
-    const next = structuredClone(this.pcbnew);
-    mutate(next);
-    this.pcbnew = next;
-    this.commit('pcbnew', next);
+    this.update('pcbnew', mutate);
   }
 
   updatePlEditor(mutate: (s: PlEditorSettings) => void): void {
-    const next = structuredClone(this.plEditor);
-    mutate(next);
-    this.plEditor = next;
-    this.commit('pl_editor', next);
+    this.update('pl_editor', mutate);
   }
 
   updateGerbview(mutate: (s: GerbviewSettings) => void): void {
-    const next = structuredClone(this.gerbview);
-    mutate(next);
-    this.gerbview = next;
-    this.commit('gerbview', next);
+    this.update('gerbview', mutate);
   }
 
   /**
@@ -3278,25 +3399,21 @@ export class SettingsManager {
    * `SetStoredToolbarConfig` (`panel_toolbar_customization.cpp:352-354`).
    */
   updateToolbars(app: ToolbarApp, mutate: (s: ToolbarSettings) => void): void {
-    const next = structuredClone(this.toolbars[app]);
+    const slice = toolbarSlice(app) as `${ToolbarApp}-toolbars`;
+    const next = structuredClone(this.files[slice].value);
     mutate(next);
-    this.toolbars = { ...this.toolbars, [app]: next };
-    this.commit(toolbarSlice(app), next);
+    this.files[slice].value = next;
+    this.m_toolbars = { ...this.m_toolbars, [app]: next };
+    this.commit(slice);
   }
 
   /** `FOOTPRINT_EDIT_FRAME::SaveSettings` (`footprint_edit_frame.cpp:823-860`). */
   updateViewer3d(mutate: (s: Viewer3dSettings) => void): void {
-    const next = structuredClone(this.viewer3d);
-    mutate(next);
-    this.viewer3d = next;
-    this.commit('3d_viewer', this.viewer3d);
+    this.update('3d_viewer', mutate);
   }
 
   updateFpEdit(mutate: (s: FpEditSettings) => void): void {
-    const next = structuredClone(this.fpEdit);
-    mutate(next);
-    this.fpEdit = next;
-    this.commit('fpedit', next);
+    this.update('fpedit', mutate);
   }
 
   /**
@@ -3307,49 +3424,35 @@ export class SettingsManager {
    * `editors/calculator/calc_settings.ts` for the reason that file gives.
    */
   updatePcbCalculator(mutate: (s: PcbCalculatorSettings) => void): void {
-    const next = structuredClone(this.pcbCalculator);
-    mutate(next);
-    this.pcbCalculator = next;
-    this.commit('pcb_calculator', next);
+    this.update('pcb_calculator', mutate);
   }
 
   updateBitmap2Cmp(mutate: (s: Bitmap2CmpSettings) => void): void {
-    const next = structuredClone(this.bitmap2cmp);
-    mutate(next);
-    this.bitmap2cmp = next;
-    this.commit('bitmap2component', next);
+    this.update('bitmap2component', mutate);
   }
 
   updatePrivacy(mutate: (s: PrivacySettings) => void): void {
-    const next = structuredClone(this.privacy);
-    mutate(next);
-    this.privacy = next;
-    this.commit('privacy', next);
+    this.update('privacy', mutate);
   }
 
   resetCommon(): void {
-    this.common = structuredClone(COMMON_DEFAULTS);
-    this.commit('common', this.common);
+    this.replace('common', structuredClone(COMMON_DEFAULTS));
   }
 
   resetEeschema(): void {
-    this.eeschema = structuredClone(EESCHEMA_DEFAULTS);
-    this.commit('eeschema', this.eeschema);
+    this.replace('eeschema', structuredClone(EESCHEMA_DEFAULTS));
   }
 
   setUserColors(colors: Record<string, string>): void {
-    this.userColors = { ...colors };
-    this.commit('colors.user', this.userColors);
+    this.replace('colors.user', { ...colors });
   }
 
   resetUserColors(): void {
-    this.userColors = {};
-    this.commit('colors.user', this.userColors);
+    this.replace('colors.user', {});
   }
 
   setUserThemes(themes: Record<string, UserColorTheme>): void {
-    this.userThemes = { ...themes };
-    this.commit('colors.themes', this.userThemes);
+    this.replace('colors.themes', { ...themes });
   }
 
   /**
@@ -3363,19 +3466,16 @@ export class SettingsManager {
     const next = { ...this.hotkeys };
     if (keys === undefined) delete next[id];
     else next[id] = keys;
-    this.hotkeys = next;
-    this.commit('hotkeys', next);
+    this.replace('hotkeys', next);
   }
 
   /** Replace the whole override map — the Hotkeys page committing on OK. */
   setHotkeys(overrides: Readonly<Record<string, string | null>>): void {
-    this.hotkeys = { ...overrides };
-    this.commit('hotkeys', this.hotkeys);
+    this.replace('hotkeys', { ...overrides });
   }
 
   resetHotkeys(): void {
-    this.hotkeys = {};
-    this.commit('hotkeys', this.hotkeys);
+    this.replace('hotkeys', {});
   }
 }
 

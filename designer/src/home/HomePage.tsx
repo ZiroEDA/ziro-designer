@@ -380,10 +380,14 @@ export function HomePage({
    * load. Off by default, as an unopened AUI pane is.
    */
   const [historyShown, setHistoryShown] = useState<boolean>(
-    () => localStorage.getItem('ziroeda.localHistoryShown') === '1',
+    () => settings.kicad.m_ShowHistoryPanel,
   );
   useEffect(() => {
-    localStorage.setItem('ziroeda.localHistoryShown', historyShown ? '1' : '0');
+    // `aui.show_history_panel` in kicad.json (KICAD_SETTINGS::m_ShowHistoryPanel).
+    if (settings.kicad.m_ShowHistoryPanel === historyShown) return;
+    settings.updateKicad((s) => {
+      s.m_ShowHistoryPanel = historyShown;
+    });
   }, [historyShown]);
   /** The snapshot "Restore Commit" was asked for, while its confirmation is up. */
   const [restoring, setRestoring] = useState<Snapshot | null>(null);
@@ -505,22 +509,17 @@ export function HomePage({
   const [tplStep, setTplStep] = useState<'none' | 'template' | 'name'>('none');
   const [tplChosen, setTplChosen] = useState<TemplateMeta | null>(null);
   /** settings->m_RecentTemplates: template ids, newest first. */
-  const [recentTemplates, setRecentTemplates] = useState<string[]>(() => {
-    try {
-      const raw = localStorage.getItem('ziro.recentTemplates');
-      const ids: unknown = raw ? JSON.parse(raw) : null;
-      if (Array.isArray(ids)) return ids.filter((x): x is string => typeof x === 'string');
-    } catch {
-      /* storage blocked or the value is not ours */
-    }
-    return [];
-  });
+  const [recentTemplates, setRecentTemplates] = useState<string[]>(() =>
+    settings.kicad.m_RecentTemplates.filter((x): x is string => typeof x === 'string'),
+  );
   useEffect(() => {
-    try {
-      localStorage.setItem('ziro.recentTemplates', JSON.stringify(recentTemplates));
-    } catch {
-      /* storage blocked; recents just won't survive the reload */
-    }
+    // `template.recent_templates` in kicad.json.
+    const cur = settings.kicad.m_RecentTemplates;
+    if (cur.length === recentTemplates.length && cur.every((id, i) => id === recentTemplates[i]))
+      return;
+    settings.updateKicad((s) => {
+      s.m_RecentTemplates = [...recentTemplates];
+    });
   }, [recentTemplates]);
   /**
    * The project names already in use, lowercased.
@@ -767,16 +766,12 @@ export function HomePage({
    * localStorage is this app's KICAD_SETTINGS.
    */
   const [panelWidth, setPanelWidth] = useState(() => {
-    try {
-      // Clamped to the sash's own range, so a hand-edited or stale value can
-      // never leave the pane wider than the window or too narrow to hit. 250 is
-      // the floor because that is the pane's post-layout MinSize upstream, which
-      // is also what a first run renders.
-      const saved = Number(localStorage.getItem('ziro.leftWinWidth'));
-      if (Number.isFinite(saved) && saved >= 250 && saved <= 600) return saved;
-    } catch {
-      /* storage blocked: fall through to the first-run default */
-    }
+    // Clamped to the sash's own range, so a hand-edited or stale value can
+    // never leave the pane wider than the window or too narrow to hit. 250 is
+    // the floor because that is the pane's post-layout MinSize upstream, which
+    // is also what a first run renders (the file's own default is 200).
+    const saved = settings.kicad.m_LeftWinWidth;
+    if (Number.isFinite(saved) && saved >= 250 && saved <= 600) return saved;
     return 250;
   });
   /**
@@ -1462,11 +1457,9 @@ export function HomePage({
       // way out; written on mouse-up rather than every mousemove so a drag is
       // one store write, not a hundred.
       setPanelWidth((w) => {
-        try {
-          localStorage.setItem('ziro.leftWinWidth', String(w));
-        } catch {
-          /* storage blocked (private mode): the drag still works this session */
-        }
+        settings.updateKicad((s) => {
+          s.m_LeftWinWidth = w;
+        });
         return w;
       });
     };

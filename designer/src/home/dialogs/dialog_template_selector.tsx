@@ -38,6 +38,7 @@
  * today, and both need a filesystem we do not have.
  */
 
+import { settings } from '../../prefs/settings.js';
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { sanitizeProjectName } from '../new_project.js';
 import type { TemplateMeta } from '../templates.js';
@@ -86,12 +87,8 @@ export function TemplateSelectorDialog({
 }): JSX.Element {
   // m_filterChoice's selection is persisted as m_TemplateFilterChoice.
   const [filterChoice, setFilterChoice] = useState(() => {
-    try {
-      const saved = Number(localStorage.getItem('ziro.templateFilterChoice'));
-      if (Number.isInteger(saved) && saved >= 0 && saved < FILTERS.length) return saved;
-    } catch {
-      /* storage blocked */
-    }
+    const saved = settings.kicad.m_TemplateFilterChoice;
+    if (Number.isInteger(saved) && saved >= 0 && saved < FILTERS.length) return saved;
     return 0;
   });
   const [searchText, setSearchText] = useState('');
@@ -151,21 +148,17 @@ export function TemplateSelectorDialog({
   useEffect(() => {
     const el = frameRef.current;
     if (!el) return;
-    try {
-      const saved = localStorage.getItem('ziro.templateWindowSize');
-      if (saved) {
-        const { w, h } = JSON.parse(saved) as { w: number; h: number };
-        // Clamped to SetSizeHints' floor so a stale or hand-edited value
-        // cannot open the dialog smaller than upstream allows:
-        //   this->SetSizeHints( wxSize( 500,400 ), wxDefaultSize );
-        // (dialog_template_selector_base.cpp:14).
-        if (Number.isFinite(w) && Number.isFinite(h) && w >= 500 && h >= 400) {
-          el.style.width = `${w}px`;
-          el.style.height = `${h}px`;
-        }
+    {
+      const { x: w, y: h } = settings.kicad.m_TemplateWindowSize;
+      // Clamped to SetSizeHints' floor so a stale or hand-edited value
+      // cannot open the dialog smaller than upstream allows:
+      //   this->SetSizeHints( wxSize( 500,400 ), wxDefaultSize );
+      // (dialog_template_selector_base.cpp:14). wxDefaultSize (-1, -1) is
+      // below it, so a fresh profile opens at the sizer's best fit.
+      if (Number.isFinite(w) && Number.isFinite(h) && w >= 500 && h >= 400) {
+        el.style.width = `${w}px`;
+        el.style.height = `${h}px`;
       }
-    } catch {
-      /* storage blocked or corrupt: open at the default size */
     }
     // The size has to be sampled while the element is still in the document:
     // by the time the cleanup runs React has already detached it, and reading
@@ -179,11 +172,9 @@ export function TemplateSelectorDialog({
       document.removeEventListener('mouseup', onMouseUp);
       const s = size.current;
       if (!s) return;
-      try {
-        localStorage.setItem('ziro.templateWindowSize', JSON.stringify(s));
-      } catch {
-        /* storage blocked: the resize still works for this session */
-      }
+      settings.updateKicad((k) => {
+        k.m_TemplateWindowSize = { x: s.w, y: s.h };
+      });
     };
   }, []);
 
@@ -310,11 +301,9 @@ export function TemplateSelectorDialog({
                 onChange={(e) => {
                   const next = Number(e.target.value);
                   setFilterChoice(next);
-                  try {
-                    localStorage.setItem('ziro.templateFilterChoice', String(next));
-                  } catch {
-                    /* storage blocked; the choice just won't persist */
-                  }
+                  settings.updateKicad((k) => {
+                    k.m_TemplateFilterChoice = next;
+                  });
                 }}
               >
                 {FILTERS.map((f, i) => (
