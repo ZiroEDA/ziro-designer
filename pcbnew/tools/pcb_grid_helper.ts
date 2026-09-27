@@ -413,7 +413,7 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
     this.SetGridSnapping(true);
     this.SetUseGrid(aState.enableGrid && aState.size > 0);
     this.SetSnap(aState.enableSnap);
-    if (aState.auxAxis) this.SetAuxAxes(true, aState.auxAxis);
+    this.SetAuxAxes(!!aState.auxAxis, aState.auxAxis ?? { x: 0, y: 0 });
 
     return this;
   }
