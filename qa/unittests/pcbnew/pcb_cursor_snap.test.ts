@@ -19,7 +19,11 @@ import {
   computeDragAnchors,
   snapToBoardCopper,
 } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
-import { align, type PcbGridState } from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
+import {
+  align,
+  PCB_GRID_HELPER,
+  type PcbGridState,
+} from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
 import { computeNearest } from '@ziroeda/common/tool/grid_helper.js';
 
 const MM = 1e6;
@@ -305,6 +309,32 @@ describe('bestSnapAnchor aSkip (PCB_POINT_EDITOR passes { item })', () => {
       avoid: new Set(['track:0', 'track:1']),
     });
     expect(got).toEqual({ x: 10 * MM, y: 10 * MM });
+  });
+});
+
+describe('PCB_GRID_HELPER held across events, as a tool holds it', () => {
+  it("starts each BestSnapAnchor from a clean anchor list, not the last one's", () => {
+    // `BestSnapAnchor` begins with `clearAnchors()` (cpp:622). A helper that
+    // kept the previous board's anchors would snap to a track that is gone.
+    const withTrack = readBoard(
+      parse(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
+  (net 0 "") (net 1 "a")
+  (segment (start 10.1 10.1) (end 20 10.1) (width 0.25) (layer "F.Cu") (net 1))
+)`),
+    );
+    const empty = readBoard(
+      parse(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
+  (net 0 "")
+)`),
+    );
+    const opts = { snapScale: 1 * MM, visibleGrid: 0.5 * MM, layer: 'F.Cu', hysteresis: 0 };
+    const near = { x: 10.12 * MM, y: 10.12 * MM };
+    const helper = new PCB_GRID_HELPER(grid());
+
+    expect(helper.BestSnapAnchor(withTrack, near, opts)).toEqual({ x: 10.1 * MM, y: 10.1 * MM });
+    expect(helper.BestSnapAnchor(empty, near, opts)).toEqual({ x: 10 * MM, y: 10 * MM });
   });
 });
 
