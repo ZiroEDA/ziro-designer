@@ -30,6 +30,7 @@ import {
   cairo_move_to,
   cairo_scale,
   type cairo_t,
+  cairo_translate,
 } from '@ziroeda/common/gal/cairo/cairo_api.js';
 import {
   CAIRO_GAL,
@@ -770,6 +771,21 @@ describe('CAIRO_GAL: the window', () => {
       ['drawImage', temp!.canvas.image, 0, 0],
       ['drawImage', temp!.canvas.image, 0, 0],
     ]);
+  });
+
+  it("a new target takes the current context's matrix (cairo_compositor.cpp:115-125)", () => {
+    class PEEK extends CAIRO_GAL {
+      context(): cairo_t {
+        return this.m_currentContext!;
+      }
+    }
+    const gal = new PEEK(new GAL_DISPLAY_OPTIONS(), windowOn(fakeCanvas('client')));
+    gal.BeginDrawing();
+    cairo_translate(gal.context(), 7, 3);
+    gal.SetTarget(RENDER_TARGET.TARGET_OVERLAY);
+    const m = cairo_matrix_new();
+    cairo_get_matrix(gal.context(), m);
+    expect([m.x0, m.y0]).toEqual([7, 3]);
   });
 
   it('blits the small crosshair, 80 px across, onto the frame (cairo_gal.cpp:1204-1236)', () => {

@@ -135,6 +135,7 @@ describe('CAIRO_PRINT_GAL::Create( options, wxImage, dpi ) (cairo_print.cpp:281-
   it('draws on an image surface its size, and hands the pixels over when destroyed (:137-181)', () => {
     const image = new WX_IMAGE(2, 1);
     image.SetAlpha();
+    image.GetData()!.fill(99); // stale bytes: the transparent pixel must be zeroed, not skipped
     const gal = CAIRO_PRINT_GAL.Create(new GAL_DISPLAY_OPTIONS(), image, 300);
     expect(gal.GetPrintCtx().GetNativeDPI()).toBe(300);
 
