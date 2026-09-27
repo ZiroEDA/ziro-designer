@@ -192,7 +192,7 @@ describe('end to end: the page changes the exported gerber', () => {
 )`;
 
   const plot = (layer: string, maskPaste?: object): string =>
-    plotGerberLayer(readBoard(parse(BOARD_TEXT)), layer, { creationDate: 'x', maskPaste });
+    plotGerberLayer(readBoard(parse(BOARD_TEXT)), layer, { creationDate: new Date(0), maskPaste });
 
   /** The R aperture the pad flashes with, e.g. "R,2.100000X1.100000". */
   const rectAperture = (gerber: string): string =>

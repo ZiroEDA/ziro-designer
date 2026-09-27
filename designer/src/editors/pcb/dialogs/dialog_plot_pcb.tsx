@@ -143,7 +143,7 @@ export function DialogPcbPlot({
 
   const plot = (): void => {
     const made: { layer: string; name: string; text: string }[] = [];
-    const date = new Date().toISOString();
+    const date = new Date();
     const origin = useAuxOrigin ? boardAuxOrigin(board) : undefined;
     for (const layer of layerNames.filter((l) => checked.has(l))) {
       const ext = protel ? gerberProtelExtension(layer) : 'gbr';

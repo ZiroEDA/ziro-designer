@@ -18,6 +18,10 @@
 import type { Board, PcbBarcode, PcbPad, PcbShape, PcbFootprint } from './types.js';
 import { pcbIuToMM as iuToMM } from '@ziroeda/common/eda_units.js';
 import {
+  GBR_NC_STRING_FORMAT,
+  GbrMakeCreationDateAttributeString,
+} from '@ziroeda/common/gbr_metadata.js';
+import {
   GENERATOR_APPLICATION,
   GENERATOR_VENDOR,
   GENERATOR_VERSION,
@@ -109,7 +113,11 @@ export function boardGridOrigin(board: Board): Vec2 {
 
 /** Gerber writer options (the dialog's Gerber Options + General Options). */
 export interface GerberPlotOpts {
-  creationDate?: string;
+  /**
+   * When the file is written, for `TF.CreationDate` (`AddGerberX2Header`,
+   * pcbplot.cpp:304): upstream always writes it, at "now"; no date, no line.
+   */
+  creationDate?: Date;
   /** "Coordinate format:", 4.5 or 4.6, unit mm. */
   coordDigits?: 5 | 6;
   /** "Use extended X2 format": X2 writes %TF attributes, X1 writes them as
@@ -262,14 +270,22 @@ export function plotGerberLayer(board: Board, layer: string, opts: GerberPlotOpt
   for (const bc of board.barcodes) barcodePlot(bc);
   for (const fp of board.footprints) for (const bc of fp.barcodes) barcodePlot(bc);
 
-  const date = opts.creationDate ?? '';
   // X2 puts the file attributes in %TF blocks; X1 keeps the same information as
   // comments (AddGerberX2Header's "G04 #@! TF..." form).
   const tf = (body: string): string =>
     opts.useX2 === false ? `G04 #@! TF${body}*` : `%TF${body}*%`;
   const out: string[] = [
     tf(`.GenerationSoftware,${GENERATOR_VENDOR},${GENERATOR_APPLICATION},${GENERATOR_VERSION}`),
-    ...(date ? [tf(`.CreationDate,${date}`)] : []),
+    ...(opts.creationDate
+      ? [
+          GbrMakeCreationDateAttributeString(
+            opts.useX2 === false
+              ? GBR_NC_STRING_FORMAT.GBR_NC_STRING_FORMAT_X1
+              : GBR_NC_STRING_FORMAT.GBR_NC_STRING_FORMAT_X2,
+            opts.creationDate,
+          ),
+        ]
+      : []),
     tf(`.FileFunction,${gerberFileFunction(layer, copperCount)}`),
     tf(`.FilePolarity,${filePolarity(layer)}`),
     `%FSLAX4${coordDigits}Y4${coordDigits}*%`,

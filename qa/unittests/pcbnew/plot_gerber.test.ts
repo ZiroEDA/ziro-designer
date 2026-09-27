@@ -67,6 +67,24 @@ describe('Gerber X2 plot (GERBER_PLOTTER / pcbplot.cpp)', () => {
     // The geometry itself is unchanged.
     expect(x1).toContain('X10000000Y-10000000D02*');
   });
+  it('writes TF.CreationDate as GbrMakeCreationDateAttributeString does, local time and offset', () => {
+    const savedTz = process.env.TZ;
+    process.env.TZ = 'Asia/Kolkata';
+    try {
+      // 2026-09-28T06:05:04Z; the lines are gbr_metadata_probe.cpp's.
+      const now = new Date(1790575504 * 1000);
+      expect(plotGerberLayer(board, 'F.Cu', { creationDate: now })).toContain(
+        '\n%TF.CreationDate,2026-09-28T11:35:04+05:30*%\n',
+      );
+      expect(plotGerberLayer(board, 'F.Cu', { creationDate: now, useX2: false })).toContain(
+        '\nG04 #@! TF.CreationDate,2026-09-28T11:35:04+05:30*\n',
+      );
+      expect(plotGerberLayer(board, 'F.Cu')).not.toContain('CreationDate');
+    } finally {
+      if (savedTz === undefined) delete process.env.TZ;
+      else process.env.TZ = savedTz;
+    }
+  });
   it('"Use drill/place file origin" plots relative to the aux axis origin', () => {
     const withOrigin = readBoard(
       parse(BOARD.replace('(net 0 "")', '(setup (aux_axis_origin 5 5))\n  (net 0 "")')),
