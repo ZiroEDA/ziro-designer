@@ -2,15 +2,20 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * BOM Presets panel. Counterpart: `eeschema/dialogs/panel_bom_presets_base.cpp`
- * (PANEL_BOM_PRESETS), two read-only "Name" grids (Bill of Materials Presets and
- * Bill of Materials Formatting Presets), each with a delete button beneath. Presets
- * are created from the Symbol Fields Table / BOM export; here they are only listed
- * and removed.
+ * BOM Presets panel. Counterpart: `eeschema/dialogs/panel_bom_presets.cpp`
+ * over `..._base.cpp` (PANEL_BOM_PRESETS): two read-only "Name" WX_GRIDs
+ * (Bill of Materials Presets, Bill of Materials Formatting Presets), each with
+ * a delete button beneath. The presets are made in the Symbol Fields Table;
+ * here they are only listed and removed (`OnDeleteRows`).
+ *
+ * No GRID_TRICKS: upstream pushes none onto these two grids, so they have no
+ * copy, paste or context menu either.
  */
-
-import { useState, type JSX } from 'react';
-import { Icon } from '@ziroeda/common/widgets/icons.js';
+import { type JSX, useLayoutEffect, useState } from 'react';
+import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
+import { WX_GRID } from '@ziroeda/common/widgets/wx_grid.js';
+import { wxGridStringTable } from '@ziroeda/common/wx/grid.js';
+import { WxGridView } from '@ziroeda/common/wx/grid_ui.js';
 import type { BomPresets } from '../../schematic_settings.js';
 
 // The data model lives in schematic_settings.ts (KiCad's data/UI split);
@@ -22,83 +27,74 @@ interface Props {
   onChange: (next: BomPresets) => void;
 }
 
-function PresetGrid({
-  title,
-  names,
-  onDelete,
-}: {
-  title: string;
-  names: string[];
-  onDelete: (i: number) => void;
-}): JSX.Element {
-  const [sel, setSel] = useState<number | null>(names.length ? 0 : null);
-  return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ fontSize: 12.5, margin: '4px 0 6px' }}>{title}</div>
-      <div style={{ flex: 1, minHeight: 60, overflow: 'auto' }}>
-        <table className="ze-grid">
-          <thead>
-            <tr>
-              <th>Name</th>
-            </tr>
-          </thead>
-          <tbody>
-            {names.map((nm, i) => (
-              <tr
-                key={i}
-                className={i === sel ? 'selected' : undefined}
-                onMouseDown={() => setSel(i)}
-              >
-                <td>
-                  <span className="ze-grid-input" style={{ display: 'block' }}>
-                    {nm}
-                  </span>
-                </td>
-              </tr>
-            ))}
-            {names.length === 0 && (
-              <tr>
-                <td style={{ padding: '6px', color: 'var(--ze-muted, #888)' }}>
-                  No presets defined.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      <div className="ze-grid-btns">
-        <button
-          className="ze-gridbtn"
-          title="Delete preset"
-          disabled={sel === null}
-          onClick={() => {
-            if (sel === null) return;
-            onDelete(sel);
-            setSel(names.length - 2 >= 0 ? Math.min(sel, names.length - 2) : null);
-          }}
-        >
-          <Icon name="delete" />
-        </button>
-      </div>
-    </div>
-  );
+function makeGrid(): WX_GRID {
+  const g = new WX_GRID();
+  g.SetTable(new wxGridStringTable(0, 1), true);
+  g.EnableEditing(false);
+  g.SetColLabelValue(0, 'Name');
+  return g;
+}
+
+/** `BuildGrid`, for one grid. */
+function build(aGrid: WX_GRID, aNames: readonly string[]): void {
+  aGrid.BeginBatch();
+  aGrid.ClearRows();
+  aGrid.AppendRows(aNames.length);
+  aNames.forEach((n, row) => {
+    aGrid.SetCellValue(row, 0, n);
+  });
+  aGrid.EndBatch();
 }
 
 export function PanelBomPresets({ value, onChange }: Props): JSX.Element {
+  const [[bomGrid, fmtGrid]] = useState(() => [makeGrid(), makeGrid()] as const);
+
+  const bomNames = JSON.stringify(value.presets.map((p) => p.name));
+  const fmtNames = JSON.stringify(value.fmtPresets.map((p) => p.name));
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the key is the names' content; the grid is stable
+  useLayoutEffect(() => build(bomGrid, JSON.parse(bomNames) as string[]), [bomNames]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the key is the names' content; the grid is stable
+  useLayoutEffect(() => build(fmtGrid, JSON.parse(fmtNames) as string[]), [fmtNames]);
+
+  /** `OnDeleteBomPreset` / `OnDeleteBomFmtPreset`. */
+  const onDelete = (aGrid: WX_GRID, aKey: 'presets' | 'fmtPresets'): void => {
+    const next = [...value[aKey]];
+
+    aGrid.OnDeleteRows((row) => {
+      aGrid.DeleteRows(row, 1);
+      next.splice(row, 1);
+    });
+
+    if (next.length !== value[aKey].length) onChange({ ...value, [aKey]: next });
+  };
+
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <PresetGrid
-        title="Bill of Materials Presets"
-        names={value.presets.map((p) => p.name)}
-        onDelete={(i) => onChange({ ...value, presets: value.presets.filter((_, j) => j !== i) })}
-      />
-      <PresetGrid
-        title="Bill of Materials Formatting Presets"
-        names={value.fmtPresets.map((p) => p.name)}
-        onDelete={(i) =>
-          onChange({ ...value, fmtPresets: value.fmtPresets.filter((_, j) => j !== i) })
-        }
-      />
+    <div className="ze-bompresets">
+      <div className="ze-bompresets-title">Bill of Materials Presets</div>
+      <div className="ze-grid-pane ze-bompresets-grid">
+        <WxGridView grid={bomGrid} columns={[{ width: 420 }]} ariaLabel="BOM presets" />
+      </div>
+      <div className="ze-bompresets-btn">
+        <StdBitmapButton
+          bitmap="small_trash"
+          title="Delete preset"
+          tooltip={null}
+          onClick={() => onDelete(bomGrid, 'presets')}
+        />
+      </div>
+      <div className="ze-bompresets-title">Bill of Materials Formatting Presets</div>
+      <div className="ze-grid-pane ze-bompresets-grid">
+        <WxGridView grid={fmtGrid} columns={[{ width: 420 }]} ariaLabel="BOM formatting presets" />
+      </div>
+      <div className="ze-bompresets-btn">
+        <StdBitmapButton
+          bitmap="small_trash"
+          title="Delete formatting preset"
+          tooltip={null}
+          onClick={() => onDelete(fmtGrid, 'fmtPresets')}
+        />
+      </div>
     </div>
   );
 }

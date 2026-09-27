@@ -17741,3 +17741,29 @@ td.ze-grid-bool {
   font-size: var(--ui-font-size-small);
   margin: 0 5px 5px 5px;
 }
+
+/* PANEL_BOM_PRESETS (panel_bom_presets_base.cpp): one vertical sizer. */
+.ze-bompresets {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+/* [data] each title `wxTOP|wxLEFT|wxEXPAND, 8`, then a 3 px spacer. */
+.ze-bompresets-title {
+  padding: 8px 0 0 8px;
+  margin-bottom: 3px;
+}
+/* [data] `SetMinSize( wxSize( -1, 180 ) )`, `Add( grid, 1, wxEXPAND|wxBOTTOM, 3 )`. */
+.ze-bompresets-grid {
+  flex: 1;
+  min-height: 180px;
+  margin-bottom: 3px;
+}
+/* [data] the button `wxBOTTOM, 5`, then a 5 px spacer. */
+.ze-bompresets-btn {
+  margin-bottom: 10px;
+}
+/* [data] the second button is the sizer's last item: `wxBOTTOM, 5` and no spacer. */
+.ze-bompresets-btn:last-child {
+  margin-bottom: 5px;
+}
