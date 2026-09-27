@@ -216,18 +216,9 @@ export function loadOutlineFontsFor(docs: Iterable<unknown>): Promise<void> {
   return Promise.all(pending).then(() => undefined);
 }
 
-/**
- * The families the catalogue holds, in the order `FONT_LIST_MANAGER` would
- * list them — `FONTCONFIG::ListFonts` collects family names into a
- * `std::set<std::string>` (fontconfig.cpp:395-470), so they come out sorted
- * by codepoint, never by locale.
- */
-export const BUNDLED_FAMILIES: readonly string[] = [
-  ...new Set(BUNDLED_FONTS.map((f) => f.family)),
-].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-
-/** `FONT_CHOICE::OnDrawItem`'s `c_sampleString`. */
-export const FONT_SAMPLE = 'AaBbCcDd123456';
+// `FONT_LIST_MANAGER::GetFonts()` and `c_sampleString` live with FONT_CHOICE,
+// as upstream (font_choice.cpp); re-exported for the callers that load faces.
+export { BUNDLED_FAMILIES, FONT_SAMPLE } from '@ziroeda/common/widgets/font_choice.js';
 
 /**
  * Declare every catalogue file as a CSS `@font-face`, so a dialog can show a

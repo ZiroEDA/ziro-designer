@@ -8,7 +8,7 @@
  */
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { FontChoice } from '@ziroeda/designer/src/ui/TextFormatBar.js';
+import { FontChoice } from '@ziroeda/common/widgets/font_choice.js';
 import {
   BUNDLED_FAMILIES,
   installOutlineFontFaces,

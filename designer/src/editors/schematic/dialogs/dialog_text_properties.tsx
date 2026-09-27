@@ -35,7 +35,7 @@ import {
   stringFromValue,
   unitLabel,
 } from '@ziroeda/common/widgets/unit_binder.js';
-import { toolbarIconUrl } from '@ziroeda/common/bitmap_store.js';
+import { BitmapButton, BitmapButtonSeparator } from '@ziroeda/common/widgets/bitmap_button.js';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
 import {
@@ -43,7 +43,7 @@ import {
   lineStyleComboValue,
   type LineStyleToken,
 } from '@ziroeda/common/stroke_params.js';
-import { FontChoice } from '../../../ui/TextFormatBar.js';
+import { FontChoice } from '@ziroeda/common/widgets/font_choice.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
@@ -109,30 +109,6 @@ interface Props {
 /** `UNIT_BINDER::SetValue`: the frame's units, with the label carrying the name. */
 const sizeToText = (iu: number, units: StatusUnits): string =>
   stringFromValue(iuToMM(iu), units, false);
-
-function IconButton({
-  icon,
-  title,
-  checked,
-  onClick,
-}: {
-  icon: string;
-  title: string;
-  checked?: boolean;
-  onClick: () => void;
-}): JSX.Element {
-  const url = toolbarIconUrl(icon);
-  return (
-    <button
-      type="button"
-      className={`ze-lp-iconbtn${checked ? ' checked' : ''}`}
-      title={title}
-      onClick={onClick}
-    >
-      {url ? <img src={url} alt={title} /> : title}
-    </button>
-  );
-}
 
 /** COLOR_SWATCH in its wxBORDER_SIMPLE panel, with KiCad's "unset" clear. */
 function Swatch({
@@ -298,53 +274,53 @@ export function DialogTextProperties({
             <div className="ze-lp-sizerow">
               <FontChoice face={face} onChange={setFace} />
               <div className="ze-lp-iconbar">
-                <span className="ze-lp-sep" />
-                <IconButton
-                  icon="text_bold"
-                  title="Bold"
+                <BitmapButtonSeparator />
+                <BitmapButton
+                  bitmap="text_bold"
+                  tooltip="Bold"
                   checked={bold}
                   onClick={() => setBold(!bold)}
                 />
-                <IconButton
-                  icon="text_italic"
-                  title="Italic"
+                <BitmapButton
+                  bitmap="text_italic"
+                  tooltip="Italic"
                   checked={italic}
                   onClick={() => setItalic(!italic)}
                 />
-                <span className="ze-lp-sep" />
+                <BitmapButtonSeparator />
                 {H_BUTTONS.map((b) => (
-                  <IconButton
+                  <BitmapButton
                     key={b.value}
-                    icon={b.icon}
-                    title={b.title}
+                    bitmap={b.icon}
+                    tooltip={b.title}
                     checked={hAlign === b.value}
                     onClick={() => setHAlign(b.value)}
                   />
                 ))}
-                <span className="ze-lp-sep" />
+                <BitmapButtonSeparator />
                 {V_BUTTONS.map((b) => (
-                  <IconButton
+                  <BitmapButton
                     key={b.value}
-                    icon={b.icon}
-                    title={b.title}
+                    bitmap={b.icon}
+                    tooltip={b.title}
                     checked={vAlign === b.value}
                     onClick={() => setVAlign(b.value)}
                   />
                 ))}
-                <span className="ze-lp-sep" />
-                <IconButton
-                  icon="text_horizontal"
-                  title="Horizontal"
+                <BitmapButtonSeparator />
+                <BitmapButton
+                  bitmap="text_horizontal"
+                  tooltip="Horizontal"
                   checked={angle === 0}
                   onClick={() => setAngle(0)}
                 />
-                <IconButton
-                  icon="text_vertical"
-                  title="Vertical"
+                <BitmapButton
+                  bitmap="text_vertical"
+                  tooltip="Vertical"
                   checked={angle === 90}
                   onClick={() => setAngle(90)}
                 />
-                <span className="ze-lp-sep" />
+                <BitmapButtonSeparator />
               </div>
             </div>
 

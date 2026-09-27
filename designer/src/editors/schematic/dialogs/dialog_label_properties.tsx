@@ -44,10 +44,10 @@ import {
   type LabelShape,
   type LabelSpin,
 } from '@ziroeda/eeschema';
-import { toolbarIconUrl } from '@ziroeda/common/bitmap_store.js';
+import { BitmapButton, BitmapButtonSeparator } from '@ziroeda/common/widgets/bitmap_button.js';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
-import { FontChoice } from '../../../ui/TextFormatBar.js';
+import { FontChoice } from '@ziroeda/common/widgets/font_choice.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
@@ -203,33 +203,6 @@ const withJustify = (f: EditedLabelField, axis: 'h' | 'v', value: string): Edite
  */
 const sizeToText = (iu: number, units: StatusUnits): string =>
   stringFromValue(iuToMM(iu), units, false);
-
-function IconButton({
-  icon,
-  title,
-  checked,
-  onClick,
-  disabled,
-}: {
-  icon: string;
-  title: string;
-  checked?: boolean;
-  onClick: () => void;
-  disabled?: boolean;
-}): JSX.Element {
-  const url = toolbarIconUrl(icon);
-  return (
-    <button
-      type="button"
-      className={`ze-lp-iconbtn${checked ? ' checked' : ''}`}
-      title={title}
-      disabled={disabled}
-      onClick={onClick}
-    >
-      {url ? <img src={url} alt={title} /> : title}
-    </button>
-  );
-}
 
 export function DialogLabelProperties({
   kind,
@@ -560,23 +533,23 @@ export function DialogLabelProperties({
                 </table>
               </div>
               <div className="ze-lp-fieldbtns">
-                <IconButton icon="small_plus" title="Add field" onClick={addField} />
-                <IconButton
-                  icon="small_up"
-                  title="Move up"
+                <BitmapButton bitmap="small_plus" tooltip="Add field" onClick={addField} />
+                <BitmapButton
+                  bitmap="small_up"
+                  tooltip="Move up"
                   disabled={selRow === null || selRow === 0}
                   onClick={() => moveRow(-1)}
                 />
-                <IconButton
-                  icon="small_down"
-                  title="Move down"
+                <BitmapButton
+                  bitmap="small_down"
+                  tooltip="Move down"
                   disabled={selRow === null || selRow === fields.length - 1}
                   onClick={() => moveRow(1)}
                 />
                 <span className="ze-lp-gap" />
-                <IconButton
-                  icon="small_trash"
-                  title="Delete field"
+                <BitmapButton
+                  bitmap="small_trash"
+                  tooltip="Delete field"
                   disabled={selRow === null}
                   onClick={deleteField}
                 />
@@ -613,29 +586,29 @@ export function DialogLabelProperties({
                     stroke font, so only upstream's two entries are offered. */}
                 {isDirective ? <span /> : <FontChoice face={face} onChange={setFace} />}
                 <div className="ze-lp-iconbar">
-                  <span className="ze-lp-sep" />
+                  <BitmapButtonSeparator />
                   {!isDirective && (
                     <>
-                      <IconButton
-                        icon="text_bold"
-                        title="Bold"
+                      <BitmapButton
+                        bitmap="text_bold"
+                        tooltip="Bold"
                         checked={bold}
                         onClick={() => setBold(!bold)}
                       />
-                      <IconButton
-                        icon="text_italic"
-                        title="Italic"
+                      <BitmapButton
+                        bitmap="text_italic"
+                        tooltip="Italic"
                         checked={italic}
                         onClick={() => setItalic(!italic)}
                       />
-                      <span className="ze-lp-sep" />
+                      <BitmapButtonSeparator />
                     </>
                   )}
                   {(isDirective ? DIRECTIVE_SPINS : SPINS).map((s) => (
-                    <IconButton
+                    <BitmapButton
                       key={s.spin}
-                      icon={s.icon}
-                      title={s.title}
+                      bitmap={s.icon}
+                      tooltip={s.title}
                       checked={spin === s.spin}
                       onClick={() => setSpin(s.spin)}
                     />
@@ -650,7 +623,7 @@ export function DialogLabelProperties({
                       Auto
                     </label>
                   )}
-                  <span className="ze-lp-sep" />
+                  <BitmapButtonSeparator />
                 </div>
 
                 <span className="ze-lp-fmt-label">

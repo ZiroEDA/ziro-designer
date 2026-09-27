@@ -28,9 +28,7 @@
  * still stored, so a file that names a face keeps it.
  */
 import type { JSX } from 'react';
-import { toolbarIconUrl } from '@ziroeda/common/bitmap_store.js';
-import { BUNDLED_FAMILIES, FONT_SAMPLE } from '../font/outline_fonts.js';
-import { Combo, type ComboOption } from '@ziroeda/common/widgets/wx_combobox.js';
+import { BitmapButton, BitmapButtonSeparator } from '@ziroeda/common/widgets/bitmap_button.js';
 
 /** `GR_TEXT_H_ALIGN_T` minus INDETERMINATE, which no button stands for. */
 export type HAlign = 'left' | 'center' | 'right';
@@ -50,99 +48,6 @@ export const V_ALIGN_BUTTONS: { value: VAlign; icon: string; title: string }[] =
   { value: 'center', icon: 'text_valign_center', title: 'Align vertical center' },
   { value: 'bottom', icon: 'text_valign_bottom', title: 'Align bottom' },
 ];
-
-/**
- * `BITMAP_BUTTON`, which draws its bitmap with no border of its own
- * (`wxBU_AUTODRAW|wxBORDER_NONE`) and paints a checked state itself.
- */
-export function IconButton({
-  icon,
-  title,
-  checked,
-  onClick,
-}: {
-  icon: string;
-  title: string;
-  checked?: boolean;
-  onClick: () => void;
-}): JSX.Element {
-  const url = toolbarIconUrl(icon);
-  return (
-    <button
-      type="button"
-      className={`ze-lp-iconbtn${checked ? ' checked' : ''}`}
-      title={title}
-      aria-pressed={checked ?? false}
-      onClick={onClick}
-    >
-      {url ? <img src={url} alt={title} /> : title}
-    </button>
-  );
-}
-
-/**
- * `FONT_CHOICE` (`common/widgets/font_choice.cpp`), whose two built-in entries
- * the generated bases spell "Default Font" and "KiCad Font".
- */
-/**
- * `FONT_CHOICE::RefreshFonts` (common/widgets/font_choice.cpp:227-262): the
- * two built-ins — `wxString m_fontCtrlChoices[] = { _( "Default Font" ),
- * _( "KiCad Font" ) }` (`dialog_field_properties_base.cpp:142`) — then
- * `FONT_LIST_MANAGER::Get().GetFonts()`, which is fontconfig's list of the
- * installed families. A browser cannot enumerate the machine's fonts; what it
- * has is the catalogue `fontconfig.ts` serves, the same families the
- * substitutions land on, so those are the "installed" faces here.
- *
- * `OnDrawItem` draws every installed face's row with a specimen in that
- * face (:355-369); the `sample` on each option is that, and the faces come
- * from the `@font-face` rules `installOutlineFontFaces` declares over the
- * same files the renderer fills glyphs from.
- */
-const FONT_OPTIONS: ComboOption[] = [
-  { value: 'Default Font', label: 'Default Font' },
-  { value: 'KiCad Font', label: 'KiCad Font' },
-  ...BUNDLED_FAMILIES.map((family) => ({
-    value: family,
-    label: family,
-    sample: { text: FONT_SAMPLE, fontFamily: `"${family}"` },
-  })),
-];
-
-/** `FONT_CHOICE::m_notFound`: `wxS( " " ) + _( "<not found>" )`. */
-const NOT_FOUND = ' <not found>';
-
-export function FontChoice({
-  face,
-  onChange,
-}: {
-  /** '' is `Default Font`, i.e. no `(font (face …))` in the file. */
-  face: string;
-  onChange: (face: string) => void;
-}): JSX.Element {
-  // `FONT_CHOICE` is a **wxOwnerDrawnComboBox** (`font_choice.h:28`), not a
-  // wxChoice and certainly not a native dropdown: it draws its own rows so it
-  // can render each face in that face. `Combo` is our owner-drawn one, the
-  // same widget the toolbars' grid and zoom selectors use, so this asks for it
-  // rather than falling back to the browser's `<select>` chrome — which is the
-  // one control in these dialogs that was not ours.
-  //
-  // `SetFontSelection` (:269-285): a face the list does not hold — "Arial" in
-  // a file authored on a machine that had it — is appended as
-  // `name + m_notFound` and selected; its value stays the face, so OK keeps
-  // what the file said.
-  const value = face === '' ? 'Default Font' : face;
-  const options = FONT_OPTIONS.some((o) => o.value === value)
-    ? FONT_OPTIONS
-    : [...FONT_OPTIONS, { value, label: `${value}${NOT_FOUND}` }];
-  return (
-    <Combo
-      className="ze-lp-font"
-      value={value}
-      options={options}
-      onChange={(v) => onChange(v === 'Default Font' ? '' : v)}
-    />
-  );
-}
 
 export interface TextFormatBarProps {
   bold: boolean;
@@ -192,63 +97,68 @@ export function TextFormatBar({
   return (
     <div className="ze-lp-iconbar">
       {/* m_separator1 */}
-      <span className="ze-lp-sep" />
-      <IconButton icon="text_bold" title="Bold" checked={bold} onClick={() => onBold(!bold)} />
-      <IconButton
-        icon="text_italic"
-        title="Italic"
+      <BitmapButtonSeparator />
+      <BitmapButton
+        bitmap="text_bold"
+        tooltip="Bold"
+        checked={bold}
+        onClick={() => onBold(!bold)}
+      />
+      <BitmapButton
+        bitmap="text_italic"
+        tooltip="Italic"
         checked={italic}
         onClick={() => onItalic(!italic)}
       />
       {/* m_separator2 */}
-      <span className="ze-lp-sep" />
+      <BitmapButtonSeparator />
       {H_ALIGN_BUTTONS.map((b) => (
-        <IconButton
+        <BitmapButton
           key={b.value}
-          icon={b.icon}
-          title={b.title}
+          bitmap={b.icon}
+          tooltip={b.title}
           checked={hAlign === b.value}
           onClick={() => onHAlign(b.value)}
         />
       ))}
       {/* m_separator3 */}
-      <span className="ze-lp-sep" />
+      <BitmapButtonSeparator />
       {V_ALIGN_BUTTONS.map((b) => (
-        <IconButton
+        <BitmapButton
           key={b.value}
-          icon={b.icon}
-          title={b.title}
+          bitmap={b.icon}
+          tooltip={b.title}
           checked={vAlign === b.value}
           onClick={() => onVAlign(b.value)}
         />
       ))}
       {/* m_separator4 */}
-      <span className="ze-lp-sep" />
+      <BitmapButtonSeparator />
       {onMirrored ? (
-        <IconButton
-          icon="text_mirrored"
-          title="Mirrored"
+        <BitmapButton
+          bitmap="text_mirrored"
+          tooltip="Mirrored"
           checked={mirrored === true}
           onClick={() => onMirrored(!mirrored)}
         />
       ) : (
         <>
-          <IconButton
-            icon="text_horizontal"
-            title="Horizontal text"
+          <BitmapButton
+            bitmap="text_horizontal"
+            tooltip="Horizontal text"
             checked={angle === 0}
             onClick={() => onAngle?.(0)}
           />
-          <IconButton
-            icon="text_vertical"
-            title="Vertical text"
+          <BitmapButton
+            bitmap="text_vertical"
+            tooltip="Vertical text"
             checked={angle === 90}
             onClick={() => onAngle?.(90)}
           />
         </>
       )}
       {/* m_separator5 */}
-      <span className="ze-lp-sep" />
+      <BitmapButtonSeparator />
     </div>
   );
 }

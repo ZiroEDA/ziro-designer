@@ -35,7 +35,7 @@ import { Viewer3DFrame } from '../Viewer3DFrame.js';
 import { loadFootprintIndex } from '../../../widgets/footprint_list.js';
 import type { FootprintIndexLibrary } from '@ziroeda/pcbnew/footprint_info_impl.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
-import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
+import { BitmapButton, BitmapButtonSeparator } from '@ziroeda/common/widgets/bitmap_button.js';
 
 /**
  * `inline static bool m_showDescription = true; m_showFpMode = true;
@@ -44,36 +44,6 @@ import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
  * resets them. Module-level for the same reason.
  */
 const views = { description: true, fp: true, threeD: false };
-
-/**
- * `BITMAP_BUTTON` with `SetIsRadioButton()` and `Check()`, the bottom panel's
- * three toggles. The same class paints the text-format bars, so it is their
- * `.ze-lp-iconbtn` rule and not a second one.
- */
-function ViewToggle({
-  bitmap,
-  tooltip,
-  checked,
-  onClick,
-}: {
-  bitmap: string;
-  tooltip: string;
-  checked: boolean;
-  onClick: () => void;
-}): JSX.Element {
-  const url = bitmapUrl(bitmap);
-  return (
-    <button
-      type="button"
-      className={`ze-lp-iconbtn${checked ? ' checked' : ''}`}
-      title={tooltip}
-      aria-pressed={checked}
-      onClick={onClick}
-    >
-      {url ? <img src={url} alt="" /> : tooltip}
-    </button>
-  );
-}
 
 export interface FootprintChooserFrameProps {
   /**
@@ -253,26 +223,26 @@ export function FootprintChooserFrame({
             BITMAP_BUTTONs with their two separators, the checkbox, a 20px
             spacer and the wxStdDialogButtonSizer — everything right-aligned. */}
         <div className="ze-cp-buttons ze-fpchooser-foot">
-          <ViewToggle
+          <BitmapButton
             bitmap={showDescription ? 'text_visibility_off' : 'text_visibility'}
             tooltip="Show/hide description panel"
             checked={showDescription}
             onClick={toggleDescription}
           />
-          <span className="ze-lp-sep" />
-          <ViewToggle
+          <BitmapButtonSeparator />
+          <BitmapButton
             bitmap="shape_3d"
             tooltip="Show/hide 3D view panel"
             checked={show3D}
             onClick={toggle3D}
           />
-          <ViewToggle
+          <BitmapButton
             bitmap="module"
             tooltip="Show/hide footprint view panel"
             checked={showFp}
             onClick={toggleFp}
           />
-          <span className="ze-lp-sep" />
+          <BitmapButtonSeparator />
           {/* m_show3DViewer (:178) — `onExternalViewer3DEnable`: ticked with
               the 3D view on opens EDA_3D_VIEWER_FRAME; unticked closes it. */}
           <label className="ze-check">
