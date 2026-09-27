@@ -1878,6 +1878,7 @@ export function App(): JSX.Element {
             <Suspense fallback={frameLoading}>
               <DrawingSheetEditor
                 onExitToHome={goHome}
+                kiway={kiway}
                 projectName={projectName}
                 /* Two cases, because this frame is reachable both ways.
                  WITH a project open, the thing to keep is the project, not the

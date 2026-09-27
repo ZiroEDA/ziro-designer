@@ -18,7 +18,8 @@ import { describe, expect, it } from 'vitest';
 import { DS_ITEM_TYPE } from '@ziroeda/common/drawing_sheet/ds_data_item.js';
 import { DS_DRAW_ITEM_LINE } from '@ziroeda/common/drawing_sheet/ds_draw_item.js';
 import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
-import { TOOLBAR_STATE } from '@ziroeda/common/tool/tool_action.js';
+import { type TOOL_ACTION, TOOLBAR_STATE } from '@ziroeda/common/tool/tool_action.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import {
   doReCreateMenuBar,
   type PlEditorMenuHandlers,
@@ -128,6 +129,25 @@ describe('IFACE::SaveFileAs', () => {
 });
 
 describe('doReCreateMenuBar', () => {
+  /** The actions the rows ran on the frame's tool manager, in order. */
+  let ran: TOOL_ACTION[] = [];
+
+  it('runs Preferences... and the Help rows on the tool manager, for COMMON_CONTROL', () => {
+    ran = [];
+    const menus = doReCreateMenuBar(handlers());
+    menus.find((m) => m.label === 'Preferences')!.items[0]!.action!();
+    for (const item of menus.find((m) => m.label === 'Help')!.items) item.action?.();
+    expect(ran).toEqual([
+      ACTIONS.openPreferences,
+      ACTIONS.help,
+      ACTIONS.gettingStarted,
+      ACTIONS.listHotKeys,
+      ACTIONS.getInvolved,
+      ACTIONS.reportBug,
+      ACTIONS.about,
+    ]);
+  });
+
   const handlers = (over: Partial<PlEditorMenuHandlers> = {}): PlEditorMenuHandlers => {
     const noop = () => {};
     return {
@@ -161,11 +181,9 @@ describe('doReCreateMenuBar', () => {
       appendImportedDrawingSheet: noop,
       gridResetOrigin: noop,
       showInspector: noop,
-      openPreferences: noop,
+      toolManager: { RunAction: (a: TOOL_ACTION) => ran.push(a) },
       language: 'Default',
       onSelectLanguage: noop,
-      showHotkeys: noop,
-      showAbout: noop,
       ...over,
     };
   };

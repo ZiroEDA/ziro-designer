@@ -255,7 +255,6 @@ describe('every frame opens it', () => {
     'designer/src/editors/pcb/PcbEditor.tsx': 'pcb',
     'designer/src/editors/symbol/SymbolEditor.tsx': 'symbol',
     'designer/src/editors/footprint/FootprintEditor.tsx': 'footprint',
-    'designer/src/editors/drawingsheet/DrawingSheetEditor.tsx': 'drawingSheet',
     'designer/src/editors/pcb/Viewer3DFrame.tsx': 'viewer3d',
     'designer/src/editors/schematic/dialogs/dialog_assign_footprints.tsx': 'cvpcb',
     'designer/src/editors/calculator/CalculatorTools.tsx': 'calculator',
@@ -266,6 +265,17 @@ describe('every frame opens it', () => {
       expect(read(file)).toContain(`<ShowAboutDialog title={ABOUT_TITLES.${title}}`);
     });
   }
+
+  it('DrawingSheetEditor.tsx shows it titled with the frame m_aboutTitle, ABOUT_TITLES.drawingSheet', () => {
+    // COMMON_CONTROL::About runs ShowAboutDialog( m_frame ); pl_editor_frame.cpp
+    // sets m_aboutTitle in the constructor.
+    expect(read('designer/src/editors/drawingsheet/DrawingSheetEditor.tsx')).toContain(
+      '<ShowAboutDialog title={frame.m_aboutTitle}',
+    );
+    expect(read('pagelayout_editor/pl_editor_frame.ts')).toContain(
+      'this.m_aboutTitle = ABOUT_TITLES.drawingSheet;',
+    );
+  });
 
   it('gerbview_frame_ui.tsx shows it titled with the frame m_aboutTitle, ABOUT_TITLES.gerbview', () => {
     // COMMON_CONTROL::About runs ShowAboutDialog( m_frame ); the frame sets

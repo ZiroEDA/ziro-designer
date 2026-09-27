@@ -43,7 +43,7 @@ import {
 import { HtmlMessageBox } from '@ziroeda/common/dialogs/html_message_box.js';
 import { GAL_TYPE } from '@ziroeda/common/draw_panel_gal.js';
 import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
-import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
+import type { KIWAY } from '@ziroeda/common/kiway.js';
 import {
   FileHistory,
   MISSING_FILE_EXTENDED,
@@ -109,7 +109,6 @@ import { useCommonSettings, usePlEditorSettings, useUserColors } from '../../pre
 import { drawPanelWindow, loadBitmapFontImage } from '../../render/gal_window.js';
 import { HomeLink } from '../../ui/HomeLink.js';
 import { ReadOnlyNotice } from '../../ui/ReadOnlyNotice.js';
-import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import {
   ACTION_FOR_ID,
@@ -207,12 +206,15 @@ function titleBlockOf(aValue: PageSettingsValue): TITLE_BLOCK {
 
 export function DrawingSheetEditor({
   onExitToHome,
+  kiway,
   projectName,
   onSaveToProject,
   openRequest,
   readOnlyNotice,
 }: {
   onExitToHome: () => void;
+  /** The program's KIWAY, which COMMON_CONTROL calls. */
+  kiway: KIWAY;
   projectName?: string;
   /**
    * The read-only strip, when the layout cannot be written: `LoadDrawingSheetFile`
@@ -462,6 +464,8 @@ export function DrawingSheetEditor({
     frame.SetPreferencesPresenter((aPage, aParentPage) =>
       setPrefsOpen(aPage === '' ? true : pageFor(aPage, aParentPage)),
     );
+    frame.SetAboutPresenter(() => setAboutOpen(true));
+    frame.SetKiway(kiway);
 
     const boxes = [frame.GetOriginSelectBox(), frame.GetPageSelectBox()];
     for (const b of boxes) b.SetChangeListener(repaint);
@@ -472,9 +476,11 @@ export function DrawingSheetEditor({
       frame.SetStatusTextSink(null);
       frame.SetMsgPanelSink(null);
       frame.SetPreferencesPresenter(null);
+      frame.SetAboutPresenter(null);
+      frame.SetKiway(null);
       for (const b of boxes) b.SetChangeListener(null);
     };
-  }, [frame, host]);
+  }, [frame, host, kiway]);
 
   /** Frame -> `pl_editor.json`: `SaveSettings`, then the store. */
   const persist = useCallback(() => {
@@ -781,14 +787,12 @@ export function DrawingSheetEditor({
         appendImportedDrawingSheet: () => runAction(PL_ACTIONS.appendImportedDrawingSheet),
         gridResetOrigin: () => runAction(ACTIONS.gridResetOrigin),
         showInspector: () => runAction(PL_ACTIONS.showInspector),
-        openPreferences: () => setPrefsOpen(true),
+        toolManager: { RunAction: (a) => runAction(a) },
         language: common.system.language,
         onSelectLanguage: (label) =>
           settings.updateCommon((c) => {
             c.system.language = label;
           }),
-        showHotkeys: showHotkeyList,
-        showAbout: () => setAboutOpen(true),
       }),
     // The enable flags are fresh each render, so the menus follow every repaint.
     [runAction, openRecentItem, onExitToHome, edit.disabled, common.system.language],
@@ -1118,7 +1122,7 @@ export function DrawingSheetEditor({
       )}
 
       {aboutOpen && (
-        <ShowAboutDialog title={ABOUT_TITLES.drawingSheet} onClose={() => setAboutOpen(false)} />
+        <ShowAboutDialog title={frame.m_aboutTitle} onClose={() => setAboutOpen(false)} />
       )}
       {prefsOpen !== null && (
         <PreferencesDialog

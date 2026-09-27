@@ -200,13 +200,15 @@ describe('the seams the strings above have to reach', () => {
   });
 
   it('opens the shared About dialog instead of writing the status line', () => {
-    expect(statements(EDITOR, '<ShowAboutDialog title={ABOUT_TITLES.drawingSheet}')).toHaveLength(
-      1,
-    );
+    // COMMON_CONTROL::About runs ShowAboutDialog( m_frame ), titled with the
+    // frame's m_aboutTitle.
+    expect(statements(EDITOR, '<ShowAboutDialog title={frame.m_aboutTitle}')).toHaveLength(1);
     // The whole call, not the phrase: the phrase survives in the JSX comment
     // that records why the status write was wrong, and `statements` cannot see
     // inside a `{/* … */}` block's continuation lines.
     expect(statements(EDITOR, "setStatus('ZiroEDA Drawing Sheet Editor')")).toHaveLength(0);
-    expect(statements(EDITOR, 'showAbout: () => setAboutOpen(true)')).toHaveLength(1);
+    expect(statements(EDITOR, 'frame.SetAboutPresenter(() => setAboutOpen(true));')).toHaveLength(
+      1,
+    );
   });
 });

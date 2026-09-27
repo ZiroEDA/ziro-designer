@@ -41,6 +41,7 @@ import { LAYER_DRAWINGSHEET_PAGE1, LAYER_DRAWINGSHEET_PAGEn } from '@ziroeda/com
 import { PAGE_INFO } from '@ziroeda/common/page_info.js';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { TA_MOUSE_CLICK, TA_MOUSE_MOTION } from '@ziroeda/common/tool/tool_event.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { PL_ACTIONS } from '@ziroeda/pagelayout_editor/tools/pl_actions.js';
@@ -407,5 +408,23 @@ describe('zoom', () => {
     h.mgr.RunAction(ACTIONS.zoomOutCenter);
     // 1/1.3 = 0.769, the last preset at or below it: 0.6.
     expect(gal.GetZoomFactor()).toBe(0.6);
+  });
+});
+
+describe('COMMON_CONTROL is registered (pl_editor_frame.cpp:290)', () => {
+  it('answers ACTIONS::about with the frame m_aboutTitle', () => {
+    const h = makeHarness(EDA_UNITS_INT.MM);
+    const titles: string[] = [];
+    h.frame.SetAboutPresenter((t) => titles.push(t));
+    h.mgr.RunAction(ACTIONS.about);
+    expect(titles).toEqual([ABOUT_TITLES.drawingSheet]);
+  });
+
+  it('answers ACTIONS::openPreferences with ShowPreferences( "", "" )', () => {
+    const h = makeHarness(EDA_UNITS_INT.MM);
+    const pages: [string, string][] = [];
+    h.frame.SetPreferencesPresenter((p, pp) => pages.push([p, pp]));
+    h.mgr.RunAction(ACTIONS.openPreferences);
+    expect(pages).toEqual([['', '']]);
   });
 });

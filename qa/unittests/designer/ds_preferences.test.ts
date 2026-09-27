@@ -217,6 +217,8 @@ describe('the editor opens the shared dialog, not one of its own', () => {
     expect(
       statements(EDITOR, "setPrefsOpen(aPage === '' ? true : pageFor(aPage, aParentPage)),"),
     ).toHaveLength(1);
-    expect(statements(EDITOR, 'openPreferences: () => setPrefsOpen(true),')).toHaveLength(1);
+    // The menu row runs ACTIONS::openPreferences, which COMMON_CONTROL answers
+    // with ShowPreferences( "", "" ) - into the presenter above.
+    expect(statements(EDITOR, 'toolManager: { RunAction: (a) => runAction(a) },')).toHaveLength(1);
   });
 });

@@ -24,6 +24,7 @@
  * `gridOrigin` defaults to zero, which makes both `fmod` offsets zero.
  */
 
+import { type Color4d, LEGACY_COLORS } from './color4d.js';
 import { EDITOR_CONDITIONS } from './tool/editor_conditions.js';
 import { ACTION_CONDITIONS } from './tool/action_manager.js';
 import { GAL_DISPLAY_OPTIONS_IMPL } from './gal_display_options_common.js';
@@ -118,6 +119,17 @@ export abstract class EDA_DRAW_FRAME extends EDA_BASE_FRAME {
   protected m_colorSettings: COLOR_SETTINGS | null = null;
   protected m_galDisplayOptions: GAL_DISPLAY_OPTIONS_IMPL = new GAL_DISPLAY_OPTIONS_IMPL();
   protected m_canvasType: GAL_TYPE = GAL_TYPE.GAL_TYPE_OPENGL;
+  /// The background color of the draw canvas; BLACK for Pcbnew, BLACK or WHITE
+  /// for Eeschema (eda_draw_frame.cpp:121).
+  protected m_drawBgColor: Color4d = LEGACY_COLORS.BLACK;
+
+  GetDrawBgColor(): Color4d {
+    return this.m_drawBgColor;
+  }
+
+  SetDrawBgColor(aColor: Color4d): void {
+    this.m_drawBgColor = aColor;
+  }
 
   /// Show the drawing sheet (border & title block).
   protected m_showBorderAndTitleBlock = false;

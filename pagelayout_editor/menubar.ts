@@ -14,14 +14,21 @@
  */
 import { browserSafeKey } from '@ziroeda/common/browser_reserved.js';
 import {
-  type HelpMenuHandlers,
+  type HelpMenuToolManager,
   standardHelpMenu,
 } from '@ziroeda/common/eda_base_frame_help_menu.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
 import { addClose, addQuit } from '@ziroeda/common/tool/action_menu.js';
 import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 
-export interface PlEditorMenuHandlers extends HelpMenuHandlers {
+export interface PlEditorMenuHandlers {
+  /**
+   * The frame's TOOL_MANAGER, where COMMON_CONTROL answers Preferences... and
+   * the Help menu (`pl_editor_frame.cpp:290`).
+   */
+  toolManager: HelpMenuToolManager;
+
   // File
   doNew: () => void;
   open: () => void;
@@ -69,7 +76,6 @@ export interface PlEditorMenuHandlers extends HelpMenuHandlers {
   showInspector: () => void;
 
   // Preferences
-  openPreferences: () => void;
   language: string;
   onSelectLanguage: (label: string) => void;
 }
@@ -193,13 +199,17 @@ export function doReCreateMenuBar(h: PlEditorMenuHandlers): Menu[] {
       // menubar.cpp:142-149 — openPreferences then AddMenuLanguageList, and
       // unlike bitmap2cmp and cvpcb pl_editor puts no separator between them.
       items: [
-        { label: 'Preferences...', action: h.openPreferences, shortcut: 'Ctrl+,' },
+        {
+          label: 'Preferences...',
+          action: () => h.toolManager.RunAction(ACTIONS.openPreferences),
+          shortcut: 'Ctrl+,',
+        },
         setLanguageMenuItem({ current: h.language, onSelect: h.onSelectLanguage }),
       ],
     },
     // "Syntax Help" is not a Help-menu entry upstream: pl_editor puts it in
     // the properties panel as a hyperlink (properties_frame_base.cpp,
     // m_syntaxHelpLink), which is where ours lives too.
-    standardHelpMenu(h),
+    standardHelpMenu(h.toolManager),
   ];
 }

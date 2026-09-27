@@ -39,6 +39,7 @@ import type { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
 import { ACTION_CONDITIONS } from '@ziroeda/common/tool/action_manager.js';
 import { EDITOR_CONDITIONS } from '@ziroeda/common/tool/editor_conditions.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { COMMON_CONTROL } from '@ziroeda/common/tool/common_control.js';
 import { COMMON_TOOLS } from '@ziroeda/common/tool/common_tools.js';
 import { PICKER_TOOL } from '@ziroeda/common/tool/picker_tool.js';
 import type { SELECTION } from '@ziroeda/common/tool/selection.js';
@@ -198,8 +199,6 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
   private m_mruImagePath: string; // Most recently used path for placing a new image
   private m_grid_origin: VECTOR2I = { x: 0, y: 0 };
 
-  /// `EDA_DRAW_FRAME::m_drawBgColor`, which our base does not carry yet.
-  private m_drawBgColor: Color4d = LEGACY_COLORS.WHITE;
   private m_settings: PL_EDITOR_SETTINGS;
   private m_host: PL_EDITOR_FRAME_HOST | null = null;
   private m_originTransforms = new ORIGIN_TRANSFORMS();
@@ -429,8 +428,7 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
     this.GetCanvas()!.SetEventDispatcher(this.m_toolDispatcher);
 
     // Register tools
-    // COMMON_CONTROL is not ported to common/tool yet (STRUCTURE.md); the
-    // page's menus answer its actions.
+    this.m_toolManager.RegisterTool(new COMMON_CONTROL());
     this.m_toolManager.RegisterTool(new COMMON_TOOLS());
     this.m_toolManager.RegisterTool(new ZOOM_TOOL());
     this.m_toolManager.RegisterTool(new PL_SELECTION_TOOL());
@@ -821,16 +819,6 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
     cfg.m_LastWasPortrait = this.GetPageSettings().IsPortrait();
     cfg.m_LastCustomWidth = Math.trunc(PAGE_INFO.GetCustomWidthMils());
     cfg.m_LastCustomHeight = Math.trunc(PAGE_INFO.GetCustomHeightMils());
-  }
-
-  /** `EDA_DRAW_FRAME::SetDrawBgColor`. */
-  SetDrawBgColor(aColor: Color4d): void {
-    this.m_drawBgColor = aColor;
-  }
-
-  /** `EDA_DRAW_FRAME::GetDrawBgColor`. */
-  GetDrawBgColor(): Color4d {
-    return this.m_drawBgColor;
   }
 
   OnSelectPage(): void {
