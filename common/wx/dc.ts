@@ -127,7 +127,8 @@ export interface wxPoint {
 }
 
 /** `wxRound`: to the nearest integer, halves away from zero. */
-export const wxRound = (x: number): number => (x < 0 ? -Math.round(-x) : Math.round(x));
+/** An int has no negative zero, so neither does this. */
+export const wxRound = (x: number): number => (x < 0 ? -Math.round(-x) : Math.round(x)) + 0;
 
 /**
  * The page canvas' 2D context: the cairo layer's `CANVAS_2D`, which
