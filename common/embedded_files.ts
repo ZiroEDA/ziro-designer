@@ -25,7 +25,7 @@ import { compress, decompress, init as zstdInit } from '@bokuweb/zstd-wasm';
 import { mmh3HashToStringV1 as mmh3HashToString } from '@ziroeda/kimath/src/mmh3_hash.js';
 import { type DSNLEXER, DSNLEXER as DSNLEXER_CLASS, PARSE_ERROR, T, type Tok } from './dsnlexer.js';
 import { PATHS } from './paths.js';
-import { hash256_hex_string } from './picosha2.js';
+import { hash256_hex_string } from '@ziroeda/picosha2';
 import type { OUTPUTFORMATTER } from './richio.js';
 import {
   MEMORY_FILESYSTEM,
