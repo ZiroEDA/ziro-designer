@@ -43,6 +43,8 @@ import {
   type wxGrid,
   wxGridCellBoolRenderer,
   wxGridCellChoiceEditor,
+  type wxGridCellChoiceView,
+  type wxGridCellDrawn,
   type wxGridCellEditor,
   wxGridEvent,
   wxGridSelectionModes,
@@ -289,6 +291,27 @@ export function WxGridView({
 
     if (custom) return custom;
 
+    const choiceView = aEditor as wxGridCellEditor & Partial<wxGridCellChoiceView>;
+
+    if (choiceView.GetComboOptions)
+      return (
+        <Combo
+          autoFocus
+          value={aEditor.m_value}
+          options={choiceView
+            .GetComboOptions()
+            .map((o) =>
+              o.swatch === undefined
+                ? { value: o.value, label: o.label }
+                : { value: o.value, label: o.label, swatch: o.swatch },
+            )}
+          onChange={(v) => {
+            aEditor.m_value = v;
+            grid.DisableCellEditControl();
+          }}
+        />
+      );
+
     if (aEditor instanceof wxGridCellChoiceEditor)
       return (
         <Combo
@@ -328,6 +351,20 @@ export function WxGridView({
     const custom = renderCell?.(aRow, aCol, value);
 
     if (custom) return custom;
+
+    const drawn = grid.GetCellRenderer(aRow, aCol) as Partial<wxGridCellDrawn>;
+
+    if (drawn.DrawValue) {
+      const { label, swatch } = drawn.DrawValue(value, grid, aRow, aCol);
+      return (
+        <span className="ze-grid-text">
+          {swatch !== undefined && (
+            <span className="ze-combo-swatch" style={{ background: swatch }} />
+          )}
+          {label}
+        </span>
+      );
+    }
 
     if (grid.GetCellRenderer(aRow, aCol) instanceof wxGridCellBoolRenderer)
       return (

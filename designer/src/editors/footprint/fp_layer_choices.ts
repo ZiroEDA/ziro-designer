@@ -67,7 +67,7 @@ export type FpLayerChoice = LayerChoice;
  * This frame's subclass of the shared builder: it supplies the background and
  * nothing else.
  */
-const choiceOf = (id: number): FpLayerChoice => layerChoice(id, fpBackgroundDefault());
+export const choiceOf = (id: number): FpLayerChoice => layerChoice(id, fpBackgroundDefault());
 
 /**
  * Every layer the selector has — `GRID_CELL_LAYER_SELECTOR( nullptr, {} )`, an

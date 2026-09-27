@@ -627,8 +627,12 @@ describe('Footprint Editor > User Layer Names', () => {
       // The grid starts empty — a fresh install has named no user layer — so
       // `m_bpAdd` is what puts a layer cell on the page.
       fireEvent.click(screen.getByLabelText('Add layer'));
-      const cell = document.querySelector('.ze-fp-layernames tbody td:first-child');
+      const cell = document.querySelector('.ze-fp-layernames tbody td[data-col="0"]');
       expect(cell, 'the added row').not.toBeNull();
+      // Add opens no editor upstream (`OnAddRow` returns column -1); a click on
+      // the layer cell does, and the layer box is that editor.
+      fireEvent.mouseDown(cell!, { button: 0 });
+      fireEvent.mouseUp(cell!);
       const offered = comboOptions(cell ?? document);
       expect(offered).toHaveLength(49);
       expect(offered[0]).toBe('User.Drawings');

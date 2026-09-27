@@ -334,6 +334,27 @@ export const wxGRID_VALUE_CHOICE = 'choice';
 /** `wxGridCellRenderer`: how a cell draws. The view reads the class. */
 export class wxGridCellRenderer {}
 
+/**
+ * A renderer that draws its value as a label with a swatch (a layer, a colour
+ * choice) rather than as the raw text; the view asks it.
+ */
+export interface wxGridCellDrawn {
+  DrawValue(
+    aValue: string,
+    aGrid: wxGrid,
+    aRow: number,
+    aCol: number,
+  ): { label: string; swatch?: string };
+}
+
+/**
+ * An editor whose control is a combo over fixed options (a layer box, an
+ * icon-text popup); the view draws the shared Combo with them.
+ */
+export interface wxGridCellChoiceView {
+  GetComboOptions(): readonly { value: string; label: string; swatch?: string }[];
+}
+
 /** `wxGridCellStringRenderer`. */
 export class wxGridCellStringRenderer extends wxGridCellRenderer {}
 
@@ -619,6 +640,12 @@ export abstract class wxGridTableBase {
   GetValueAsBool(_aRow: number, _aCol: number): boolean {
     return false;
   }
+
+  GetValueAsLong(_aRow: number, _aCol: number): number {
+    return 0;
+  }
+
+  SetValueAsLong(_aRow: number, _aCol: number, _aValue: number): void {}
 
   SetValueAsBool(_aRow: number, _aCol: number, _aValue: boolean): void {}
 
