@@ -276,6 +276,24 @@ export interface CommonSettings {
      * and ACTIONS::zoomFitSelection for `zoom`, after selecting the hits.
      */
     selection_zoom: 'none' | 'pan' | 'zoom';
+    /**
+     * `search_pane.search_hidden_fields`, the pane menu's "Search Hidden
+     * Fields" toggle — `SCH_SEARCH_HANDLER::Search` sets `SCH_SEARCH_DATA::
+     * searchAllFields` from it. `PARAM<bool>` default is `true`
+     * (app_settings.cpp:212-213).
+     */
+    search_hidden_fields: boolean;
+    /**
+     * `search_pane.search_metadata`, the pane menu's "Search Metadata" toggle
+     * — library links, descriptions and keywords. `PARAM<bool>` default is
+     * `false` (app_settings.cpp:215-216).
+     *
+     * The schematic search engine (`eeschema/tools/search_handlers.ts`) does
+     * not yet consult it: it has no metadata columns to match against, so the
+     * setting round-trips but toggling it changes no result today — a real,
+     * documented gap rather than an invented one.
+     */
+    search_metadata: boolean;
   };
   /**
    * `dialog.controls` — every dialog's remembered control values.
@@ -409,6 +427,8 @@ export const COMMON_DEFAULTS: CommonSettings = {
   // KiCad's default is PAN (app_settings.cpp: search_pane.selection_zoom).
   search_pane: {
     selection_zoom: 'pan',
+    search_hidden_fields: true,
+    search_metadata: false,
   },
   // `nlohmann::json::object()` is the param's default (common_settings.cpp:505):
   // no dialog has been opened yet, so every control takes its own default.

@@ -29,6 +29,7 @@ export * from './sim/sim_model.js';
 export * from './sim/sim_model_types.js';
 export * from './sch_pin.js';
 export * from './tools/index.js';
+export * from './widgets/search_handlers.js';
 export * from './connectivity/index.js';
 export * from './erc/marker_nav.js';
 export * from './exporters/bom.js';

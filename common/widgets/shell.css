@@ -9117,6 +9117,28 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   color: var(--selection-fg);
 }
 
+/* SEARCH_PANE_BASE's own sizer (search_pane_base.cpp:14-51): `bSizer2` is
+   `m_searchCtrl1` (proportion 1, `wxALIGN_CENTER_VERTICAL|wxRIGHT`, border 4),
+   `m_staticline1` (`.ze-libtree-sep` already carries its own
+   `wxEXPAND|wxTOP|wxBOTTOM, 3`) and `m_menuButton` — whose own border (2) is
+   inert, because `wxALIGN_CENTER_VERTICAL` alone sets no directional bit for
+   it to apply to, so no left margin is added here either. */
+.ze-search-pane-header {
+  display: flex;
+  align-items: center;
+}
+.ze-search-pane-header > .ze-search {
+  margin-right: 4px;
+}
+/* `m_sizerOuter->Add( m_notebook, 1, wxEXPAND|wxBOTTOM, 4 )`. */
+.ze-search-pane-notebook {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 4px;
+}
+
 /* The docked Search pane is 240px wide, where four tabs at the dialog's padding
    overflow and put a horizontal scrollbar under the whole panel. Upstream's
    wxNotebook scrolls its own tab strip in that case; wrapping is the web
