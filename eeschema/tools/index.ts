@@ -11,7 +11,7 @@ export * from './point_editor.js';
 export * from './arc_edit.js';
 export * from './image_size.js';
 export * from './transform.js';
-export * from './snap.js';
+export * from './ee_grid_helper.js';
 export * from './cleanup.js';
 export * from './rule_area.js';
 export * from './import_sheet_pins.js';

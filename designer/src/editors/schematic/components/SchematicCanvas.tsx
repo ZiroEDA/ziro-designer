@@ -91,9 +91,10 @@ import {
   makeBusEntryOrSegment,
   makeImage,
   DEFAULT_ENTRY_SIZE,
-  collectAnchors,
-  selectionAnchors,
-  nearestAnchor,
+  EE_GRID_HELPER,
+  nearestSnapAnchor,
+  sheetAnchors,
+  selectionSnapPoints,
   danglingPinPositions,
   boxSelect,
   lassoSelect,
@@ -1070,7 +1071,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   // Connectable snapping during a move: the moved items' own connection points and the
   // anchors of everything else, so a dragged pin/wire-end snaps onto a matching anchor.
   const movePointsRef = useRef<Vec2[]>([]);
-  const moveAnchorsRef = useRef<Vec2[]>([]);
+  const moveAnchorsRef = useRef<EE_GRID_HELPER | null>(null);
 
   // Point editing (SCH_POINT_EDITOR): the handles of the one selected item,
   // which one the cursor is over, and the drag in flight. The reshaped document
@@ -1331,29 +1332,30 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   );
 
   // Dangling (unconnected) pins, KiCad's clickable wire-start anchors.
-  const danglingPins = useMemo(
-    () => danglingPinPositions(schematic, libById),
-    [schematic, libById],
-  );
+  const danglingPins = useMemo(() => {
+    const helper = new EE_GRID_HELPER();
+    helper.computePinAnchors(danglingPinPositions(schematic, libById));
+    return helper;
+  }, [schematic, libById]);
   /** The dangling pin at/near a world point (within ~8px), or null. */
   const danglingPinAt = useCallback(
     (world: Vec2): Vec2 | null => {
       const vp = viewportRef.current;
       const maxDist = vp && vp.scale > 0 ? 8 / vp.scale : GRID / 2;
-      return nearestAnchor(world, danglingPins, maxDist);
+      return nearestSnapAnchor(danglingPins, world, maxDist);
     },
     [danglingPins],
   );
 
   // Connectable anchors (pins/wire-ends/junctions/labels) for cursor snapping, à la
   // KiCad's BestSnapAnchor with GRID_CONNECTABLE.
-  const anchors = useMemo(() => collectAnchors(schematic, libById), [schematic, libById]);
+  const anchors = useMemo(() => sheetAnchors(schematic, libById), [schematic, libById]);
   /** Snap a world point to the nearest connection anchor within ~10px, else to the grid. */
   const snapConn = useCallback(
     (world: Vec2): Vec2 => {
       const vp = viewportRef.current;
       const maxDist = vp && vp.scale > 0 ? 10 / vp.scale : GRID / 2;
-      return nearestAnchor(world, anchors, maxDist) ?? snap(world);
+      return nearestSnapAnchor(anchors, world, maxDist) ?? snap(world);
     },
     [anchors],
   );
@@ -1524,7 +1526,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       effSelRef.current = new Set([...plan.dragEnd, ...plan.dragStart]);
       moveSpecRef.current = plan.spec;
       movePointsRef.current = plan.at ? [plan.at] : [];
-      moveAnchorsRef.current = collectAnchors(split, libById, effSelRef.current);
+      moveAnchorsRef.current = sheetAnchors(split, libById, effSelRef.current);
       // `m_breakPos` seeds the cursor so the first motion is measured from the
       // break, not from wherever the pointer was when the menu was dismissed.
       moveStartRef.current = plan.at ?? cursor;
@@ -1556,13 +1558,13 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       const next = planMove(schematic, libById, effSelRef.current);
       moveSpecRef.current = next;
       const moved = new Set([...effSelRef.current, ...next.wireStart, ...next.wireEnd]);
-      moveAnchorsRef.current = collectAnchors(schematic, libById, moved);
+      moveAnchorsRef.current = sheetAnchors(schematic, libById, moved);
       requestDraw();
       return;
     }
 
     if (isRemotelyLocked(selection)) return; // designer/src/sync/ — a peer's claim
-    const anchors = selectionAnchors(schematic, libById, selection);
+    const anchors = selectionSnapPoints(schematic, libById, selection);
     const origin = cursorRef.current ? snap(cursorRef.current) : (anchors[0] ?? null);
     if (!origin) return;
     moveKindRef.current = kind;
@@ -1571,7 +1573,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     moveSpecRef.current = spec;
     movePointsRef.current = anchors;
     const moving = new Set([...selection, ...spec.wireStart, ...spec.wireEnd]);
-    moveAnchorsRef.current = collectAnchors(schematic, libById, moving);
+    moveAnchorsRef.current = sheetAnchors(schematic, libById, moving);
     moveStartRef.current = origin;
     moveDeltaRef.current = { x: 0, y: 0 };
     modeRef.current = 'move';
@@ -3839,12 +3841,12 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         moveSpecRef.current = spec;
         movePointsRef.current = grabbedEnd
           ? [grabbedEnd]
-          : selectionAnchors(schematic, libById, effSel);
+          : selectionSnapPoints(schematic, libById, effSel);
         // Snap targets are the fixed anchors: exclude the selection AND the wires that
         // rubber-band with it (spec.wireStart/wireEnd), so a moved point never snaps
         // back onto a wire that is moving with it.
         const moving = new Set([...effSelRef.current, ...spec.wireStart, ...spec.wireEnd]);
-        moveAnchorsRef.current = collectAnchors(schematic, libById, moving);
+        moveAnchorsRef.current = sheetAnchors(schematic, libById, moving);
       } else {
         // Empty canvas (or SELECT-mode drag): start a KiCad drag-box selection
         // (left-to-right = window select, right-to-left = greedy). A no-drag
@@ -4045,7 +4047,8 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         let bestDelta: Vec2 | null = null;
         for (const mp of movePointsRef.current) {
           const cand = { x: mp.x + delta.x, y: mp.y + delta.y };
-          const a = nearestAnchor(cand, moveAnchorsRef.current, maxDist);
+          const fixed = moveAnchorsRef.current;
+          const a = fixed ? nearestSnapAnchor(fixed, cand, maxDist) : null;
           if (!a) continue;
           const dx = a.x - cand.x,
             dy = a.y - cand.y,

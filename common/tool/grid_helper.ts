@@ -20,14 +20,12 @@
  * (`tool/construction_manager.ts`), exactly as upstream holds it - the
  * reduced `SnapLineManagerLite` stand-in this file used to carry is gone.
  *
- * Two pieces are still reduced, because nothing in `GRID_HELPER` itself needs
- * the full machinery behind them, and no subclass in this tree calls this
- * base yet - `eeschema/tools/snap.ts`, `pcbnew/tools/pcb_grid_helper.ts` and
- * `pcbnew/router/pns_tool_base.ts` are separate, ad-hoc ports that predate
- * this file and reduce the same C++ their own way. Rewiring them onto this
- * base is a bigger job than this port (they are functional/data-oriented,
- * this is the real stateful class) and is left as a follow-up, not attempted
- * here:
+ * The editors derive from it as upstream does: `EE_GRID_HELPER`
+ * (`eeschema/tools/ee_grid_helper.ts`) and `PCB_GRID_HELPER`
+ * (`pcbnew/tools/pcb_grid_helper.ts`), neither with a `TOOL_MANAGER` - they
+ * feed the grid through the manual setters. Two pieces are still reduced,
+ * because nothing in `GRID_HELPER` itself needs the full machinery behind
+ * them:
  *
  *  - `m_viewAxis` / `m_viewSnapPoint` are `ORIGIN_VIEWITEM` / `SNAP_INDICATOR`
  *    **instances** upstream, and it is the *subclass* constructor
