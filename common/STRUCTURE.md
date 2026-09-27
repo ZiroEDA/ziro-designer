@@ -235,8 +235,9 @@ libraries are mounted; the settings / cache / plugin / log folders are n/a.
   `cross_probing_settings` → `settings/app_settings`; `text_vars` → `common`;
   `wx_image`, `inflate`, `png_meta` → `wx/` (the wxImage/libpng layer);
   `picosha2` → `libs/picosha2` (KiCad's `thirdparty/`).
-- `item_realignment` cites `common/item_realignment.cpp`, which 10.0.5 does
-  not have — to be traced before anything else is done with it.
+- `item_realignment` is gone (09-27): it cited `common/item_realignment.cpp`,
+  which 10.0.5 does not have, and so did its one caller's
+  `ComputeFootprintShift`. 10.0.5's ExchangeFootprint matches no pads.
 - Ours, no KiCad file, kept and named here: `browser_hotkeys`,
   `browser_reserved` (the tab's own keys), `generator` (our identity in
   files), `gal_pixel_grid` (the `kicad_vert.glsl` rule, shared by two

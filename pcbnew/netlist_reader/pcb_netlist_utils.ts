@@ -24,9 +24,8 @@
  */
 import { kiidFromString, newKiid } from '@ziroeda/common/kiid.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
-import { ANGLE_0, EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-import { computeFootprintShift } from '../footprint_utils.js';
 import { fpidItemName } from './pcb_netlist.js';
 import { footprintViewOfBoard } from '../pcb_io/kicad_sexpr/board_view.js';
 import { LSET_NameToLayer } from '../layer_ids.js';
@@ -102,8 +101,8 @@ export function placeFootprint(
 }
 
 /**
- * BOARD::ExchangeFootprint with the netlist updater's arguments
- * (`matchPadPositions = true`, every reset flag at its default): the replacement
+ * PCB_EDIT_FRAME::ExchangeFootprint with the netlist updater's arguments (every
+ * reset flag at its default, board_netlist_updater.cpp:382): the replacement
  * comes from the library, and only the board-owned state listed in this module's
  * header is carried over.
  *
@@ -117,24 +116,11 @@ export function exchangeFootprint(
   libFootprint: PcbFootprint,
   newFpid: string,
 ): PcbFootprint | null {
-  // The shift to apply if the library footprint's anchor or body moved relative to
-  // the one on the board.
-  const probe = placeFootprint(libFootprint, {
-    fpid: newFpid,
-    at: existing.at,
-    angle: existing.angle,
-    layer: existing.layer,
-  });
-  if (!probe) return null;
-
-  const shift = computeFootprintShift(existing, probe);
-  const position = shift
-    ? { x: existing.at.x + shift.shift.x, y: existing.at.y + shift.shift.y }
-    : existing.at;
-  const orientation =
-    shift && !shift.angleShift.equals(ANGLE_0)
-      ? existing.angle + shift.angleShift.AsDegrees()
-      : existing.angle;
+  // `PlaceFootprint( aNew, false, aExisting->GetPosition() )`, then the old
+  // orientation (pcb_edit_frame.cpp:2669-2675): the replacement goes exactly
+  // where the old one was, with no pad matching - 10.0.5 has none.
+  const position = existing.at;
+  const orientation = existing.angle;
 
   const placed = placeFootprint(libFootprint, {
     fpid: newFpid,
