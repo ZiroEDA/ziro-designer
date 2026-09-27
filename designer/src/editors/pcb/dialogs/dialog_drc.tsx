@@ -23,37 +23,13 @@ import { ContextMenu, type MenuItem } from '@ziroeda/common/tool/action_menu_bar
 import { KiBitmapBundle } from '@ziroeda/common/bitmap.js';
 import { BITMAPS } from '@ziroeda/common/bitmaps/bitmaps_list.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { NumberBadge } from '@ziroeda/common/widgets/number_badge.js';
+import {
+  RPT_SEVERITY_ERROR,
+  RPT_SEVERITY_EXCLUSION,
+  RPT_SEVERITY_WARNING,
+} from '@ziroeda/common/reporter.js';
 import type { DIALOG_DRC, DrcMenuRow, IgnoredRow } from './dialog_drc_model.js';
-
-/** What a NUMBER_BADGE paints for one count, or null when it paints nothing. */
-interface Badge {
-  text: string;
-  kind: 'err' | 'warn' | 'excl' | 'zero';
-}
-
-/**
- * `NUMBER_BADGE::UpdateNumber` (number_badge.cpp:43-92) + the "+" cap of its
- * paint (:177-180): a negative number hides the badge; zero is green for an
- * error or warning severity and hidden otherwise; past the maximum it reads
- * "max+".
- */
-function numberBadge(
-  aNumber: number,
-  aMax: number,
-  aSeverity: 'error' | 'warning' | 'exclusion',
-): Badge | null {
-  if (aNumber < 0) return null;
-
-  if (aNumber === 0) {
-    if (aSeverity === 'exclusion') return null;
-
-    return { text: '0', kind: 'zero' };
-  }
-
-  const text = aNumber > aMax ? `${aMax}+` : `${aNumber}`;
-
-  return { text, kind: aSeverity === 'error' ? 'err' : aSeverity === 'warning' ? 'warn' : 'excl' };
-}
 
 const toMenuItems = (rows: DrcMenuRow[]): MenuItem[] =>
   rows.map((r) =>
@@ -192,18 +168,6 @@ export function DialogDrc({ dialog, isSingle, canRefillZones, rootRef }: Props):
 
   const page = dialog.m_notebookSelection;
   const running = dialog.m_runningResultsBook === 0;
-
-  const errorsBadge = numberBadge(dialog.m_errorsBadge.number, dialog.m_errorsBadge.max, 'error');
-  const warningsBadge = numberBadge(
-    dialog.m_warningsBadge.number,
-    dialog.m_warningsBadge.max,
-    'warning',
-  );
-  const exclusionsBadge = numberBadge(
-    dialog.m_exclusionsBadge.number,
-    dialog.m_exclusionsBadge.max,
-    'exclusion',
-  );
 
   return (
     <div
@@ -368,7 +332,11 @@ export function DialogDrc({ dialog, isSingle, canRefillZones, rootRef }: Props):
           />
           Errors
         </label>
-        {errorsBadge && <span className={`badge ${errorsBadge.kind}`}>{errorsBadge.text}</span>}
+        <NumberBadge
+          number={dialog.m_errorsBadge.number}
+          max={dialog.m_errorsBadge.max}
+          severity={RPT_SEVERITY_ERROR}
+        />
         <span className="gap-25" />
         <label className="chk">
           <input
@@ -378,9 +346,11 @@ export function DialogDrc({ dialog, isSingle, canRefillZones, rootRef }: Props):
           />
           Warnings
         </label>
-        {warningsBadge && (
-          <span className={`badge ${warningsBadge.kind}`}>{warningsBadge.text}</span>
-        )}
+        <NumberBadge
+          number={dialog.m_warningsBadge.number}
+          max={dialog.m_warningsBadge.max}
+          severity={RPT_SEVERITY_WARNING}
+        />
         <span className="gap-25" />
         <label className="chk">
           <input
@@ -390,9 +360,11 @@ export function DialogDrc({ dialog, isSingle, canRefillZones, rootRef }: Props):
           />
           Exclusions
         </label>
-        {exclusionsBadge && (
-          <span className={`badge ${exclusionsBadge.kind}`}>{exclusionsBadge.text}</span>
-        )}
+        <NumberBadge
+          number={dialog.m_exclusionsBadge.number}
+          max={dialog.m_exclusionsBadge.max}
+          severity={RPT_SEVERITY_EXCLUSION}
+        />
         <span className="grow" />
         <button
           type="button"

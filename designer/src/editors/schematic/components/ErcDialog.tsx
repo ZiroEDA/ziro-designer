@@ -17,6 +17,12 @@ import { ERC_PHASES } from '@ziroeda/eeschema';
 import { KiBitmapBundle } from '@ziroeda/common/bitmap.js';
 import { BITMAPS } from '@ziroeda/common/bitmaps/bitmaps_list.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { numberBadge, type NumberBadgeState } from '@ziroeda/common/widgets/number_badge.js';
+import {
+  RPT_SEVERITY_ERROR,
+  RPT_SEVERITY_EXCLUSION,
+  RPT_SEVERITY_WARNING,
+} from '@ziroeda/common/reporter.js';
 
 /**
  * Electrical Rules Checker. Counterpart: `eeschema/dialogs/dialog_erc.cpp`
@@ -69,17 +75,13 @@ export const ERC_DEFAULT_FILTERS: ErcFilters = {
 export const ERC_BADGE_MAX = 999;
 
 /** What a NUMBER_BADGE paints for one count, or null when it paints nothing. */
-export interface ErcBadge {
-  /** The label, capped with a "+" past the maximum. */
-  text: string;
-  /** The severity class the colour comes from. */
-  kind: 'err' | 'warn' | 'excl' | 'zero';
-}
+export type ErcBadge = NumberBadgeState;
 
 /**
- * `NUMBER_BADGE::UpdateNumber` (`number_badge.cpp:43-92`). A negative number
- * hides the badge outright; zero hides it for every severity but error and
- * warning, where it turns green; anything else takes its severity's colour.
+ * `NUMBER_BADGE::UpdateNumber` (`number_badge.cpp:43-92`) with DIALOG_ERC's
+ * maximum. A negative number hides the badge outright; zero hides it for
+ * every severity but error and warning, where it turns green; anything else
+ * takes its severity's colour.
  *
  * `DIALOG_ERC::updateDisplayedCounts` passes -1 for the error and warning
  * counts when ERC has not been run and the count is zero
@@ -87,16 +89,15 @@ export interface ErcBadge {
  * markers absent rather than shown green.
  */
 export function ercBadge(n: number, severity: 'error' | 'warning' | 'exclusion'): ErcBadge | null {
-  if (n < 0) return null;
-  if (n === 0) {
-    if (severity === 'exclusion') return null;
-    return { text: '0', kind: 'zero' };
-  }
-  const text = n > ERC_BADGE_MAX ? `${ERC_BADGE_MAX}+` : `${n}`;
-  return {
-    text,
-    kind: severity === 'error' ? 'err' : severity === 'warning' ? 'warn' : 'excl',
-  };
+  return numberBadge(
+    n,
+    severity === 'error'
+      ? RPT_SEVERITY_ERROR
+      : severity === 'warning'
+        ? RPT_SEVERITY_WARNING
+        : RPT_SEVERITY_EXCLUSION,
+    ERC_BADGE_MAX,
+  );
 }
 
 /** EESCHEMA_SETTINGS m_ERCDialog, the config (gear) menu's three toggles. */
@@ -721,7 +722,7 @@ export function ErcDialog({
           />
           Errors
         </label>
-        {errorsBadge && <span className={`badge ${errorsBadge.kind}`}>{errorsBadge.text}</span>}
+        {errorsBadge && <span className={`ze-badge ${errorsBadge.kind}`}>{errorsBadge.text}</span>}
         <span className="gap-25" />
         <label className="chk">
           <input
@@ -732,7 +733,7 @@ export function ErcDialog({
           Warnings
         </label>
         {warningsBadge && (
-          <span className={`badge ${warningsBadge.kind}`}>{warningsBadge.text}</span>
+          <span className={`ze-badge ${warningsBadge.kind}`}>{warningsBadge.text}</span>
         )}
         <span className="gap-25" />
         <label className="chk">
@@ -744,7 +745,7 @@ export function ErcDialog({
           Exclusions
         </label>
         {exclusionsBadge && (
-          <span className={`badge ${exclusionsBadge.kind}`}>{exclusionsBadge.text}</span>
+          <span className={`ze-badge ${exclusionsBadge.kind}`}>{exclusionsBadge.text}</span>
         )}
         <span className="grow" />
         <button

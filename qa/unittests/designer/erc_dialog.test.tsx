@@ -92,10 +92,10 @@ const buttonRow = (): { label: string; disabled: boolean }[] =>
   }));
 
 const badges = (): { text: string; kind: string }[] =>
-  Array.from(document.querySelectorAll('.ze-erc-footer .badge')).map((b) => ({
+  Array.from(document.querySelectorAll('.ze-erc-footer .ze-badge')).map((b) => ({
     text: b.textContent ?? '',
     kind: Array.from(b.classList)
-      .filter((c) => c !== 'badge')
+      .filter((c) => c !== 'ze-badge')
       .join(' '),
   }));
 

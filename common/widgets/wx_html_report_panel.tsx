@@ -21,6 +21,7 @@ import {
   type ReportLine,
   type Severity,
 } from '../reporter.js';
+import { NumberBadge } from './number_badge.js';
 
 /** The panel's own definition of "all" (wx_html_report_panel.cpp). */
 export const RPT_SEVERITY_ALL =
@@ -39,12 +40,6 @@ interface Props {
   minHeight?: number;
   /** Sort the body by severity, as Flush( true ) does. */
   sorted?: boolean;
-}
-
-/** NUMBER_BADGE: red/yellow when non-zero, green at zero, hidden when negative. */
-function Badge({ count, severity }: { count: number; severity: Severity }): JSX.Element {
-  const cls = count === 0 ? 'zero' : severity === RPT_SEVERITY_ERROR ? 'error' : 'warning';
-  return <span className={`ze-badge ${cls}`}>{count}</span>;
 }
 
 export function HtmlReportPanel({
@@ -143,7 +138,7 @@ export function HtmlReportPanel({
           />
           Errors
         </label>
-        <Badge count={count(RPT_SEVERITY_ERROR)} severity={RPT_SEVERITY_ERROR} />
+        <NumberBadge number={count(RPT_SEVERITY_ERROR)} severity={RPT_SEVERITY_ERROR} />
         <label>
           <input
             type="checkbox"
@@ -152,7 +147,7 @@ export function HtmlReportPanel({
           />
           Warnings
         </label>
-        <Badge count={count(RPT_SEVERITY_WARNING)} severity={RPT_SEVERITY_WARNING} />
+        <NumberBadge number={count(RPT_SEVERITY_WARNING)} severity={RPT_SEVERITY_WARNING} />
         <label>
           <input
             type="checkbox"

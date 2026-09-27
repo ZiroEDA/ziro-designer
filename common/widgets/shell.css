@@ -5174,28 +5174,42 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-report-spacer {
   flex: 1;
 }
+/* NUMBER_BADGE (widgets/number_badge.tsx) paints its own pill and picks both
+   colours from the severity it is handed (number_badge.cpp:43-92). Every pair
+   below is that table, so each carries [data] on its own line. `computeSize`
+   sizes it to "m" + the digits in the bold 10pt badge font, never narrower
+   than it is tall, and `DrawRoundedRectangle( rect, rect.height / 2 )` makes
+   the ends round. */
 .ze-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 18px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 8px;
-  /* [data] `NUMBER_BADGE::m_textSize( 10 )` (number_badge.cpp:33) — a point
-     size, so it is --ui-font-size-info, not 11 of anything. */
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 9px;
+  /* `m_textSize( 10 )` (number_badge.cpp:33), a POINT size: it draws with
+     `wxFont( m_textSize, ... )` (:141). The 10pt is the token's value. */
   font-size: var(--ui-font-size-info);
-  font-weight: 600;
-  background: #2e8b2e;
-  color: #fff;
+  /* [data] BADGE_FONTWEIGHT is wxFONTWEIGHT_BOLD off macOS (:118-124). */
+  font-weight: bold;
 }
-.ze-badge.error {
-  background: #f04040;
-  color: #fff;
+.ze-badge.err {
+  background: #f04040; /* [data] IsDarkTheme() ? wxColour( 240, 64, 64 ) : *wxRED */
+  color: #ffffff; /* [data] *wxWHITE */
 }
-.ze-badge.warning {
-  background: #f0d000;
-  color: #000;
+.ze-badge.warn {
+  background: #ffff00; /* [data] *wxYELLOW */
+  color: #000000; /* [data] *wxBLACK */
+}
+/* aNumber == 0 with an error or warning severity: the "all clear" badge; and
+   any RPT_SEVERITY_ACTION count. */
+.ze-badge.zero {
+  background: #008400; /* [data] KIGFX::COLOR4D( GREEN ), color4d.cpp:59 */
+  color: #ffffff; /* [data] *wxWHITE */
+}
+.ze-badge.excl {
+  background: #c0c0c0; /* [data] *wxLIGHT_GREY */
+  color: #000000; /* [data] *wxBLACK */
 }
 
 .ze-mitem .mcheck {
@@ -9049,38 +9063,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   gap: 4px;
   cursor: default;
-}
-/* NUMBER_BADGE paints its own pill and picks both colours from the severity it
-   is handed (number_badge.cpp:43-92). Every pair below is that table, so each
-   carries [data] on its own line; the base rule states neither, so a badge with
-   no severity class paints nothing. */
-.ze-erc-footer .badge {
-  min-width: 20px;
-  padding: 1px 6px;
-  border-radius: 9px;
-  text-align: center;
-  /* [data] `NUMBER_BADGE`'s `m_textSize( 10 )` (number_badge.cpp:33), a POINT
-     size — it draws with `wxFont( m_textSize, ... )` (:141) and DIALOG_ERC never
-     calls SetTextSize, so it keeps the default. This said 11px, which is
-     smaller than the 10pt it should be. */
-  font-size: 10pt;
-}
-.ze-erc-footer .badge.err {
-  background: #f04040; /* [data] IsDarkTheme() ? wxColour( 240, 64, 64 ) : *wxRED */
-  color: #ffffff; /* [data] *wxWHITE */
-}
-.ze-erc-footer .badge.warn {
-  background: #ffff00; /* [data] *wxYELLOW */
-  color: #000000; /* [data] *wxBLACK */
-}
-/* aNumber == 0 with an error or warning severity: the "all clear" badge. */
-.ze-erc-footer .badge.zero {
-  background: #008400; /* [data] KIGFX::COLOR4D( GREEN ), color4d.cpp:59 */
-  color: #ffffff; /* [data] *wxWHITE */
-}
-.ze-erc-footer .badge.excl {
-  background: #c0c0c0; /* [data] *wxLIGHT_GREY */
-  color: #000000; /* [data] *wxBLACK */
 }
 /* Violations / Ignored Tests notebook tabs (DIALOG_ERC m_notebook) */
 .ze-erc-tabs {

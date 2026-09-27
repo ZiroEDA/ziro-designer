@@ -722,7 +722,10 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // 144/672 -> 145/687: WIDGET_HOTKEY_LIST and its HK_PROMPT_DIALOG moved
   // here out of common/dialogs' PANEL_HOTKEYS_EDITOR, their 1 colour and 15
   // metrics with them (common/dialogs 2/27 -> 1/12 below).
-  'common/widgets': { colours: 145, metrics: 687 },
+  // 145/687 -> 139/684: NUMBER_BADGE is one `.ze-badge` rule set now. The
+  // report panel's copy had invented its six colours and its own pill
+  // geometry; the ERC/DRC copy already carried upstream's table as [data].
+  'common/widgets': { colours: 139, metrics: 684 },
   'common/tool': { colours: 0, metrics: 1 },
   // metrics 0 -> 15 on 09-26: the stage-1 moves, 8 from `dialogs` and 7 from
   // `editors/schematic`. Nothing added or removed: 8 + 7 = 15.
