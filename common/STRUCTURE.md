@@ -326,9 +326,7 @@ canvas (`cairo_test_canvas.ts`); the sweep is `qa/probes/cairo_gal_mutants.py`.
 `toolbar_context_menu_registry`) joined the engine tool files on 09-21.
 `preview_items/`: `arc_assistant`, `draw_context`, `polygon_item`,
 `preview_utils`, `ruler_item`, `two_point_assistant` joined the geom
-managers. `settings/`: `app_settings_units`, `grid_settings_ui`,
-`zoom_settings` beside the JSON_SETTINGS classes. None of the three is tabled
-against KiCad's list yet.
+managers. `settings/` has its own section below.
 
 `tool/common_control` (09-27): COMMON_CONTROL, every handler of the C++.
 Help and Get Involved open our pages, not KiCad's (the file's header says
@@ -368,3 +366,35 @@ boundary report through them. Opting in takes effect at the next start, as
 upstream's does. Ours starts opted in where upstream starts opted out and
 asks; the scrubbing notes say why. No transactions are traced (upstream
 samples 5%).
+
+## `settings/` — 14 KiCad `.cpp` + their headers, CLOSED 09-27
+
+File for file against `common/settings/` and `include/settings/`:
+`app_settings`, `aui_settings` (the `wxPoint` / `wxSize` serializers only:
+nothing stores a `wxRect` or an AUI perspective as JSON), `bom_settings`
+(`BOM_FIELD`, `BOM_PRESET`, `BOM_FMT_PRESET`, moved from designer's
+`schematic_settings.ts`, which re-exports the old names), `builtin_color_themes`,
+`color_settings`, `common_settings`, `environment`, `grid_settings`,
+`json_settings` (+ `json_settings_internals`), `kicad_settings`,
+`layer_settings_utils`, `nested_settings`, `parameters` (the `PARAM_*`
+classes; `json_settings.ts` re-exports them, but not `NESTED_SETTINGS`, which
+extends `JSON_SETTINGS` and would evaluate before it), `settings_manager`.
+
+`settings_manager`: moved out of `pgm_base.ts` (re-exported there). It holds
+the registered files and loads / saves them through a `SETTINGS_STORE` the
+app installs in place of the settings directory; `GetAppSettings( name )`
+answers a view registered by name first (`PCBNEW_SETTINGS` is built from the
+`pcbnew` file), then a `JSON_SETTINGS` file of that name. The browser store
+and the account sync stay in designer: `prefs/settings.ts`'s
+`SettingsManager` registers each slice as a `SLICE_SETTINGS` file on the
+manager `PGM_BASE` adopts, and keeps its API. `kicad.json` is
+`KICAD_SETTINGS`, registered the same way, not synced (per-device geometry).
+
+Not here: `cvpcb_settings` (moves with CvPcb), `common_settings_internals.h`.
+`APP_SETTINGS_BASE` is still not a `JSON_SETTINGS`, so `KICAD_SETTINGS`
+derives from `JSON_SETTINGS` directly. Colour themes are loaded through the
+app's loader (`SetColorSettingsLoader`); `SaveColorSettings` is not ported -
+the designer writes themes as the `colors.*` slices. Ours with no upstream
+file: `app_settings_units` and `grid_settings_ui` (pieces of
+`app_settings.cpp`), `zoom_settings` (`zoom_defines.h`), `json_dump`
+(`SaveToFile`'s byte format), `color_theme_file` (one theme file's shape).
