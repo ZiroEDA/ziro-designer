@@ -43,15 +43,9 @@ export abstract class KIWAY_PLAYER extends EDA_BASE_FRAME {
     return this.m_eventHandler.ProcessEvent(aEvent);
   }
 
-  /** Overload me for your frame type. */
-  OpenProjectFiles(_aFileList: readonly string[], _aCtl = 0): boolean {
-    // Any overload should probably do this also:
-    // Prj().MaybeLoadProjectSettings();
-
-    // Then update the window title.
-
-    return false;
-  }
+  // `OpenProjectFiles( aFileList, aCtl )` is declared by each frame instead:
+  // the files are the page's own objects (an image, a fetched Gerber), not
+  // paths, and gerbview's load is asynchronous, so no one signature covers them.
 
   /** Receive a KIWAY_MAIL_EVENT. Override this in derived classes. */
   KiwayMailIn(_aEvent: KIWAY_MAIL_EVENT): void {}

@@ -129,6 +129,20 @@ describe('KIWAY mail', () => {
     ]);
   });
 
+  it('drops the held mail of a player that closed before it registered', () => {
+    const kiway = makeKiway();
+    const fpEdit = new TEST_PLAYER(FRAME_T.FRAME_FOOTPRINT_EDITOR);
+
+    kiway.Player(FRAME_T.FRAME_FOOTPRINT_EDITOR);
+    kiway.ExpressMail(FRAME_T.FRAME_FOOTPRINT_EDITOR, MAIL_T.MAIL_FP_EDIT, {
+      value: 'a.kicad_mod',
+    });
+    kiway.PlayerDidClose(FRAME_T.FRAME_FOOTPRINT_EDITOR);
+    kiway.SetPlayerFrame(FRAME_T.FRAME_FOOTPRINT_EDITOR, fpEdit);
+
+    expect(fpEdit.received).toEqual([]);
+  });
+
   it('holds nothing for a player the program could not create', () => {
     const kiway = makeKiway();
     const calc = new TEST_PLAYER(FRAME_T.FRAME_CALC);
