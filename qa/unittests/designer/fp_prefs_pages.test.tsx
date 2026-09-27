@@ -365,16 +365,16 @@ describe('Footprint Editor > Footprint Defaults', () => {
     async () => {
       await openPage('fp-defaults');
       const [ref, value] = FPEDIT_DEFAULTS.design_settings.default_footprint_text_items;
-      const inputs = Array.from(
-        document.querySelectorAll<HTMLInputElement>('.ze-fp-fieldprops input[type="text"]'),
-      ).map((i) => i.value);
-      expect(inputs[0]).toBe(ref?.text);
-      expect(inputs[1]).toBe(value?.text);
+      const values = Array.from(
+        document.querySelectorAll('.ze-fp-fieldprops tbody td[data-col="0"]'),
+      ).map((c) => c.textContent);
+      expect(values[0]).toBe(ref?.text);
+      expect(values[1]).toBe(value?.text);
       // The third default item — `${REFERENCE}` on F.Fab — is the lower grid's
       // one row on a fresh install.
       const items = Array.from(
-        document.querySelectorAll<HTMLInputElement>('.ze-fp-textitems input[type="text"]'),
-      ).map((i) => i.value);
+        document.querySelectorAll('.ze-fp-textitems tbody td[data-col="0"]'),
+      ).map((c) => c.textContent);
       expect(items).toEqual(
         FPEDIT_DEFAULTS.design_settings.default_footprint_text_items.slice(2).map((t) => t.text),
       );
@@ -390,7 +390,11 @@ describe('Footprint Editor > Footprint Defaults', () => {
       // `getEnabledLayers()` is `LSET::AllLayersMask()` and `UIOrder()` yields
       // 95 rows. See `fp_layer_choices.test.ts` for the list itself; this is
       // the assertion that the PAGE reaches it.
-      const cell = document.querySelector('.ze-fp-fieldprops td:last-child');
+      const cell = document.querySelector('.ze-fp-fieldprops tbody td[data-col="2"]');
+      expect(cell).not.toBeNull();
+      // A click opens the cell's editor, and the layer box is that editor.
+      fireEvent.mouseDown(cell!, { button: 0 });
+      fireEvent.mouseUp(cell!);
       const offered = comboOptions(cell ?? document);
       expect(offered).toHaveLength(95);
       expect(offered[0]).toBe('F.Cu');

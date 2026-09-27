@@ -41,6 +41,7 @@ import {
   wxEVT_GRID_LABEL_LEFT_CLICK,
   wxEVT_GRID_LABEL_RIGHT_CLICK,
   type wxGrid,
+  wxGRID_VALUE_BOOL,
   wxGridCellBoolRenderer,
   wxGridCellChoiceEditor,
   type wxGridCellChoiceView,
@@ -366,16 +367,23 @@ export function WxGridView({
       );
     }
 
-    if (grid.GetCellRenderer(aRow, aCol) instanceof wxGridCellBoolRenderer)
+    if (grid.GetCellRenderer(aRow, aCol) instanceof wxGridCellBoolRenderer) {
+      // wxGridCellBoolRenderer::Draw: the table's bool when it can give one,
+      // else the string compared against the editor's "1".
+      const table = grid.GetTable();
+      const checked = table?.CanGetValueAs(aRow, aCol, wxGRID_VALUE_BOOL)
+        ? table.GetValueAsBool(aRow, aCol)
+        : value === '1';
       return (
         <input
           type="checkbox"
           tabIndex={-1}
           readOnly
-          checked={value === '1'}
+          checked={checked}
           aria-label={grid.GetColLabelValue(aCol)}
         />
       );
+    }
 
     return <span className="ze-grid-text">{value}</span>;
   };
