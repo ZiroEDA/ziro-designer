@@ -18,7 +18,7 @@
  * is why every function below returns pixels rather than internal units.
  */
 
-import { brightness, COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '../color4d.js';
+import { brightness, COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '../gal/color4d.js';
 import { type EdaIuScale, type EdaUnits, toUserUnit, unitLabelText } from '../eda_units.js';
 import { FONT } from '../font/font.js';
 import { METRICS } from '../font/font_metrics.js';

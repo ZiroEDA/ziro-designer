@@ -34,7 +34,7 @@ import {
   type ColorSwatchRow,
 } from '@ziroeda/common/dialogs/panel_color_settings.js';
 import type { GBR_PREFS_CONTEXT } from '../gerbview.js';
-import { COLOR4D_UNSPECIFIED, parseColor4d, toCssColor } from '@ziroeda/common/color4d.js';
+import { COLOR4D_UNSPECIFIED, parseColor4d, toCssColor } from '@ziroeda/common/gal/color4d.js';
 import {
   GERBER_DRAWLAYERS_COUNT,
   GERBVIEW_FIXED_LAYERS,

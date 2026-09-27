@@ -24,7 +24,7 @@
 
 import type { CSSProperties, JSX } from 'react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { type Color4d, fromHSV, setFromHexString, toHSV, toHexString } from '../color4d.js';
+import { type Color4d, fromHSV, setFromHexString, toHSV, toHexString } from '../gal/color4d.js';
 import { definedColorGrid } from './dialog_color_picker_colors.js';
 import { Slider } from '../widgets/slider.js';
 import { useModalEscape } from '../dialog_shim.js';

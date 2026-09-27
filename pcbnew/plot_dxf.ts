@@ -47,9 +47,9 @@
 // they are shared with eeschema, which cannot import from pcbnew. Re-exported
 // here so every existing consumer of `plot_dxf` is unaffected.
 export { LINE_STYLE } from '@ziroeda/common/stroke_params.js';
-export { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/color4d.js';
+export { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/gal/color4d.js';
 import { LINE_STYLE } from '@ziroeda/common/stroke_params.js';
-import { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/color4d.js';
+import { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/gal/color4d.js';
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { EDA_ANGLE, ANGLE_90, ANGLE_180 } from '@ziroeda/kimath/src/geometry/eda_angle.js';

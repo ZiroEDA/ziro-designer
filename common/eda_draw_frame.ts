@@ -24,7 +24,7 @@
  * `gridOrigin` defaults to zero, which makes both `fmod` offsets zero.
  */
 
-import { type Color4d, LEGACY_COLORS } from './color4d.js';
+import { type Color4d, LEGACY_COLORS } from './gal/color4d.js';
 import { EDITOR_CONDITIONS } from './tool/editor_conditions.js';
 import { ACTION_CONDITIONS } from './tool/action_manager.js';
 import { GAL_DISPLAY_OPTIONS_IMPL } from './gal_display_options_common.js';
@@ -57,7 +57,7 @@ import type { TOOL_MENU } from './tool/tool_menu.js';
 import { ZOOM_MENU } from './tool/zoom_menu.js';
 import { IsImperialUnit } from './units_provider.js';
 import { RENDER_TARGET } from './gal/definitions.js';
-import { wxChoice, wxNOT_FOUND } from './wx/choice.js';
+import { type wxChoice, wxNOT_FOUND } from './wx/choice.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';

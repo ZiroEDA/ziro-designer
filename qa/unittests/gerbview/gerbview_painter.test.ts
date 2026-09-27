@@ -11,7 +11,7 @@
  * the layer colours this file sets, not a call into the code under test.
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import type { Color4d } from '@ziroeda/common/color4d.js';
+import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import {
   GAL_LAYER_ID,
   GERBER_DCODE_LAYER,

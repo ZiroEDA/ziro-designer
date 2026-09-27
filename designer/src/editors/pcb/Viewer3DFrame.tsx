@@ -64,7 +64,7 @@ import { Appearance3DPanel } from './Appearance3DPanel.js';
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
 import { EdaListDialog } from '@ziroeda/common/dialogs/eda_list_dialog.js';
 import { settings } from '../../prefs/settings.js';
-import { parseColor4d, toCssColor, type Color4d } from '@ziroeda/common/color4d.js';
+import { parseColor4d, toCssColor, type Color4d } from '@ziroeda/common/gal/color4d.js';
 import { pcbLayerIdOf, plotLayerSelection } from './board_3d_layers.js';
 import { PCB_LAYER_COLORS } from './pcbTheme.js';
 import {

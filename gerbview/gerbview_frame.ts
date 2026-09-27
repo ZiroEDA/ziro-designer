@@ -18,7 +18,7 @@
  * here.
  */
 
-import type { Color4d } from '@ziroeda/common/color4d.js';
+import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import { EDA_DRAW_FRAME } from '@ziroeda/common/eda_draw_frame.js';
 import { CANDIDATE } from '@ziroeda/common/eda_item_flags.js';
 import { BASE_SCREEN } from '@ziroeda/common/base_screen.js';

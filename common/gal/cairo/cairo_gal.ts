@@ -30,7 +30,7 @@ import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { EuclideanNorm, type Vec2, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePointD } from '@ziroeda/kimath/src/trigo.js';
 import type { BITMAP_BASE } from '../../bitmap_base.js';
-import { type Color4d, COLOR4D_BLACK, LEGACY_COLORS } from '../../color4d.js';
+import { type Color4d, COLOR4D_BLACK, LEGACY_COLORS } from '../color4d.js';
 import type { GLYPH_LIKE, OUTLINE_GLYPH, STROKE_GLYPH } from '../../font/glyph.js';
 import type { KICURSOR } from '../cursors.js';
 import { RENDER_TARGET } from '../definitions.js';
@@ -91,8 +91,8 @@ import {
   cairo_surface_destroy,
   cairo_surface_flush,
   cairo_surface_mark_dirty,
-  cairo_surface_t,
-  cairo_t,
+  type cairo_surface_t,
+  type cairo_t,
   cairo_translate,
   cairo_fill_rule_t,
 } from './cairo_api.js';

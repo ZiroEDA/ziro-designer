@@ -11,7 +11,7 @@
  * (`wx/printer.ts`) hands in each page's DC with `SetDC`, as wxPrinter does.
  */
 
-import { COLOR4D_BLACK, COLOR4D_WHITE, withAlpha } from './color4d.js';
+import { COLOR4D_BLACK, COLOR4D_WHITE, withAlpha } from './gal/color4d.js';
 import { GAL_DISPLAY_OPTIONS } from './gal/gal_display_options.js';
 import { GAL_PRINT } from './gal/gal_print.js';
 import { wxPrintout } from './wx/prntbase.js';

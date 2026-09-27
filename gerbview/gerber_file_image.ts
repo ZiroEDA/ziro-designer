@@ -21,7 +21,7 @@
  * `FILE` over it (libc.ts).
  */
 import { EDA_ITEM, INSPECT_RESULT, type INSPECTOR } from '@ziroeda/common/eda_item.js';
-import { type Color4d, COLOR4D_WHITE } from '@ziroeda/common/color4d.js';
+import { type Color4d, COLOR4D_WHITE } from '@ziroeda/common/gal/color4d.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ANGLE_0, type EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';

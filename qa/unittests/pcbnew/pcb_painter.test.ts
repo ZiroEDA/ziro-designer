@@ -17,7 +17,7 @@ import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_c
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { Vec2, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
-import { brightened, brightness, type Color4d } from '@ziroeda/common/color4d.js';
+import { brightened, brightness, type Color4d } from '@ziroeda/common/gal/color4d.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';

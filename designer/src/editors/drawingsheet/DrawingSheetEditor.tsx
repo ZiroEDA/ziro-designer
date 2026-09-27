@@ -10,7 +10,7 @@
  * the way home.
  */
 import { type JSX, useCallback, useMemo, useState } from 'react';
-import { parseColor4d } from '@ziroeda/common/color4d.js';
+import { parseColor4d } from '@ziroeda/common/gal/color4d.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import { COLOR_SETTINGS, layerIdFromThemeKey } from '@ziroeda/common/settings/color_settings.js';
 import { drawingSheetWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';

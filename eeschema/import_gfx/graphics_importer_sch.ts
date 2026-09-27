@@ -44,7 +44,7 @@ import {
 } from '@ziroeda/common/import_gfx/graphics_importer.js';
 import { SCH_IMPORT_MAPPING } from './graphics_importer_sch_mapping.js';
 import { LINE_STYLE } from '@ziroeda/common/stroke_params.js';
-import type { Color4d } from '@ziroeda/common/color4d.js';
+import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { EuclideanNormI, type Vec2, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';

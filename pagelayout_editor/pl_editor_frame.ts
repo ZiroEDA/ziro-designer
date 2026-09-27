@@ -15,7 +15,7 @@ import { InvokeDialogPrint, InvokeDialogPrintPreview } from './dialogs/dialogs_f
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { BASE_SCREEN } from '@ziroeda/common/base_screen.js';
 import { BITMAP_BASE } from '@ziroeda/common/bitmap_base.js';
-import { type Color4d, LEGACY_COLORS } from '@ziroeda/common/color4d.js';
+import { type Color4d, LEGACY_COLORS } from '@ziroeda/common/gal/color4d.js';
 import {
   CORNER_ANCHOR,
   DS_DATA_ITEM,

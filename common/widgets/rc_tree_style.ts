@@ -14,7 +14,7 @@
  * have - `rc_item.cpp:592` says "Strikethrough would be better, if wxWidgets
  * supported it", which is why the row is italic instead.
  */
-import { type Color4d, changeLightness, rgb8ToCss, setFromHexString } from '../color4d.js';
+import { type Color4d, changeLightness, rgb8ToCss, setFromHexString } from '../gal/color4d.js';
 import type { RC_TREE_ATTR } from '../rc_item.js';
 import type { CSSProperties } from 'react';
 

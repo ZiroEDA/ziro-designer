@@ -15,7 +15,7 @@ import { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
 import { RENDER_TARGET } from '@ziroeda/common/gal/definitions.js';
 import { PAINTER } from '@ziroeda/common/gal/painter.js';
 import { RENDER_SETTINGS } from '@ziroeda/common/render_settings.js';
-import type { Color4d } from '@ziroeda/common/color4d.js';
+import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import { VIEW } from '@ziroeda/common/view/view.js';
 import { VIEW_GROUP } from '@ziroeda/common/view/view_group.js';
 import { VIEW_ITEM, VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';

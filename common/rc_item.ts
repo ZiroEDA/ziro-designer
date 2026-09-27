@@ -25,7 +25,7 @@ import {
   RPT_SEVERITY_WARNING,
   type Severity,
 } from './reporter.js';
-import { brightness as colorBrightness, type Color4d } from './color4d.js';
+import { brightness as colorBrightness, type Color4d } from './gal/color4d.js';
 import type { UNITS_PROVIDER } from './units_provider.js';
 import { toUserUnit } from './eda_units.js';
 

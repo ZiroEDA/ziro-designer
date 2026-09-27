@@ -30,7 +30,7 @@
  * prints, as `InvokeDialogPrint` does.
  */
 
-import { LEGACY_COLORS } from '@ziroeda/common/color4d.js';
+import { LEGACY_COLORS } from '@ziroeda/common/gal/color4d.js';
 import { DS_DATA_ITEM_BITMAP } from '@ziroeda/common/drawing_sheet/ds_data_item.js';
 import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
 import { DS_RENDER_SETTINGS } from '@ziroeda/common/drawing_sheet/ds_proxy_view_item.js';

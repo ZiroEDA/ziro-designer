@@ -12,7 +12,7 @@
  */
 
 import { ResolveTextVars, type TextVarResolverFn } from '@ziroeda/common/common.js';
-import { COLOR4D_UNSPECIFIED, type Color4d } from '@ziroeda/common/color4d.js';
+import { COLOR4D_UNSPECIFIED, type Color4d } from '@ziroeda/common/gal/color4d.js';
 import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
 import type { EDA_GROUP } from '@ziroeda/common/eda_group.js';
 import {

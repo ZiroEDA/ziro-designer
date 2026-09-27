@@ -10,7 +10,7 @@
 
 import { cos, sin } from '@ziroeda/kimath/src/math/libm.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import type { Color4d } from '../../color4d.js';
+import type { Color4d } from '../color4d.js';
 import { GPU_MANAGER } from './gpu_manager.js';
 import type { SHADER } from './shader.js';
 import {

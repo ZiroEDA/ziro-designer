@@ -26,8 +26,8 @@
  * `LAYER_SELECTION_SHADOWS` there to mimic the macOS system highlight, and we
  * are not a Mac application.
  */
-import type { Color4d } from '../color4d.js';
-import { LEGACY_COLORS, type EdaColorName } from '../color4d.js';
+import type { Color4d } from '../gal/color4d.js';
+import { LEGACY_COLORS, type EdaColorName } from '../gal/color4d.js';
 
 /** `CSS_COLOR( r, g, b, a )` -- 8-bit channels, normalised. */
 const css = (r: number, g: number, b: number, a: number): Color4d => ({

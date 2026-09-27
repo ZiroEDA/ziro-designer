@@ -28,7 +28,7 @@
  * gives that a radius is square-on.
  */
 
-import { cssWithAlpha } from '../color4d.js';
+import { cssWithAlpha } from '../gal/color4d.js';
 import { galPenWidth } from '../gal_pixel_grid.js';
 import { previewOverlayDeemphAlpha } from './preview_utils.js';
 

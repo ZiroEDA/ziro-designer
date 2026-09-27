@@ -22,7 +22,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { LEGACY_COLOR_NAMES, colorRefs } from '@ziroeda/common/color4d.js';
+import { LEGACY_COLOR_NAMES, colorRefs } from '@ziroeda/common/gal/color4d.js';
 import {
   DEFINED_COLORS_ROWS,
   definedColorGrid,

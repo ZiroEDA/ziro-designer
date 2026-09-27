@@ -31,7 +31,13 @@
 
 import type { CSSProperties, JSX } from 'react';
 import { useState } from 'react';
-import { brightness, type Color4d, COLOR4D_UNSPECIFIED, darkened, toCssColor } from '../color4d.js';
+import {
+  brightness,
+  type Color4d,
+  COLOR4D_UNSPECIFIED,
+  darkened,
+  toCssColor,
+} from '../gal/color4d.js';
 import { DialogColorPicker } from '../dialogs/dialog_color_picker.js';
 
 /**

@@ -21,7 +21,7 @@ import {
   LEGACY_COLORS,
   parseColor4d,
   toCssColor,
-} from '@ziroeda/common/color4d.js';
+} from '@ziroeda/common/gal/color4d.js';
 import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/settings/builtin_color_themes.js';
 import { GBR_DISPLAY_OPTIONS } from '@ziroeda/gerbview/gbr_display_options.js';
 

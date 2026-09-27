@@ -16,7 +16,7 @@
  * plotters take their colours from the render settings they are handed.
  */
 
-import { type Color4d, COLOR4D_UNSPECIFIED } from '@ziroeda/common/color4d.js';
+import { type Color4d, COLOR4D_UNSPECIFIED } from '@ziroeda/common/gal/color4d.js';
 import { type DSNLEXER, T, type Tok } from '@ziroeda/common/dsnlexer.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { FormatBool } from '@ziroeda/common/io/kicad/kicad_io_utils.js';

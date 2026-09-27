@@ -34,7 +34,7 @@
  * says so in its tooltip; and the Ctrl+Tab / Shift+Tab cycling popups.
  */
 import type { JSX } from 'react';
-import type { Color4d } from '@ziroeda/common/color4d.js';
+import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import type { Board } from '@ziroeda/pcbnew';
 import { GetLayerName } from '@ziroeda/pcbnew/layer_ids.js';
 import { Check } from '@ziroeda/common/wx/controls.js';

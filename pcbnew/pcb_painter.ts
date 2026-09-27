@@ -46,7 +46,7 @@ import {
   brightness,
   mix,
   withAlpha,
-} from '@ziroeda/common/color4d.js';
+} from '@ziroeda/common/gal/color4d.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { FONT } from '@ziroeda/common/font/font.js';
 import type { METRICS } from '@ziroeda/common/font/font_metrics.js';

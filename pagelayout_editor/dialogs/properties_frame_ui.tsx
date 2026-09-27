@@ -22,7 +22,7 @@
 
 import { type JSX, useEffect, useReducer, useState } from 'react';
 import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
-import { COLOR4D_UNSPECIFIED, type Color4d, toCss } from '@ziroeda/common/color4d.js';
+import { COLOR4D_UNSPECIFIED, type Color4d, toCss } from '@ziroeda/common/gal/color4d.js';
 import { DialogColorPicker } from '@ziroeda/common/dialogs/dialog_color_picker.js';
 import type { UNIT_BINDER } from '@ziroeda/common/widgets/unit_binder.js';
 import { BinderField } from '@ziroeda/common/widgets/unit_binder_ui.js';

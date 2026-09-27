@@ -14,7 +14,7 @@
  * and the board out of the normal save.
  */
 import { LINE_STYLES, type NetClass, type NetClassesData } from '@ziroeda/common';
-import { COLOR4D_UNSPECIFIED, parseColor4d, toCssColor } from '@ziroeda/common/color4d.js';
+import { COLOR4D_UNSPECIFIED, parseColor4d, toCssColor } from '@ziroeda/common/gal/color4d.js';
 import { pcbIUScale, schIUScale } from '@ziroeda/common/eda_units.js';
 import { EMBEDDED_FILE, EMBEDDED_FILES, FILE_TYPE } from '@ziroeda/common/embedded_files.js';
 import { IsCopperLayer, IsCopperLayerLowerThan, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';

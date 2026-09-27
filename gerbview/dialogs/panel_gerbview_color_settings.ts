@@ -43,7 +43,7 @@
  * and not 0.
  */
 import type { GBR_PREFS_CONTEXT } from '../gerbview.js';
-import { toCssColor } from '@ziroeda/common/color4d.js';
+import { toCssColor } from '@ziroeda/common/gal/color4d.js';
 import { GERBER_DRAWLAYERS_COUNT } from '@ziroeda/common/layer_id.js';
 import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/settings/builtin_color_themes.js';
 

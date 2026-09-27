@@ -67,7 +67,7 @@ import {
   DS_BG_COLOR_LIGHT as DS_BG_WHITE,
   DS_ITEM_COLOR as SCH_DRAWINGSHEET,
 } from '../index.js';
-import { toCssColor } from '../color4d.js';
+import { toCssColor } from '../gal/color4d.js';
 import { BUILTIN_DEFAULT_THEME } from '../settings/builtin_color_themes.js';
 
 /** pcbnew's background and sheet ink: the default theme's two layers. */

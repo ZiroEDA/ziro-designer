@@ -8,7 +8,7 @@
  * `applyMixins`. A derived constructor calls `initMarkerBase()`.
  */
 
-import type { Color4d } from './color4d.js';
+import type { Color4d } from './gal/color4d.js';
 import type { KIID } from './kiid.js';
 import { KIGEOM_ShapeHitTest } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';

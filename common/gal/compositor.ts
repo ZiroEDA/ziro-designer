@@ -6,7 +6,7 @@
  * `OPENGL_COMPOSITOR` and `CAIRO_COMPOSITOR` derive from.
  */
 
-import type { Color4d } from '../color4d.js';
+import type { Color4d } from './color4d.js';
 
 /**
  * Handle multitarget rendering (ie. to different textures/surfaces) and later compositing

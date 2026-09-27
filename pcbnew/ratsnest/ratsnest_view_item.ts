@@ -16,7 +16,7 @@ import {
   type Color4d,
   darkened,
   withAlpha,
-} from '@ziroeda/common/color4d.js';
+} from '@ziroeda/common/gal/color4d.js';
 import { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import {
   LAYER_PCB_BACKGROUND,

@@ -13,7 +13,7 @@ import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { SEG } from '@ziroeda/kimath/src/geometry/seg.js';
 import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
-import type { Color4d } from '../color4d.js';
+import type { Color4d } from '../gal/color4d.js';
 import { GAL_SCOPED_ATTRS, GAL_SCOPED_ATTRS_FLAGS } from '../gal/graphics_abstraction_layer.js';
 import { LAYER_GP_OVERLAY } from '../layer_id.js';
 import type { VIEW } from './view.js';

@@ -15,7 +15,7 @@ import type { JSX, ReactNode } from 'react';
 import { Combo } from '../widgets/wx_combobox.js';
 import { ColorSwatch } from '../widgets/color_swatch.js';
 import { SpinCtrl } from '../widgets/spin_ctrl.js';
-import { parseColor4d, toCssColor } from '../color4d.js';
+import { parseColor4d, toCssColor } from '../gal/color4d.js';
 
 /**
  * wx border flags -> the classes `.ze-pref-group-body` reads.

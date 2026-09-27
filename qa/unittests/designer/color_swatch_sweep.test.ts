@@ -22,7 +22,7 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
-import { COLOR4D_UNSPECIFIED } from '@ziroeda/common/color4d.js';
+import { COLOR4D_UNSPECIFIED } from '@ziroeda/common/gal/color4d.js';
 import {
   color4dToItemColor,
   itemColorToColor4d,

@@ -21,7 +21,7 @@ import { WX_TEXT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_text_entry.
 import { Pgm } from '@ziroeda/common/pgm_base.js';
 import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
-import { editPointColors } from '@ziroeda/common/color4d.js';
+import { editPointColors } from '@ziroeda/common/gal/color4d.js';
 import { galPenWidth, galSnapPx } from '@ziroeda/common/gal_pixel_grid.js';
 import {
   drawSelectionArea,
@@ -33,7 +33,7 @@ import {
 import { overlayTargetColor } from '../../render/gl/scene.js';
 import { BezierStep } from '@ziroeda/common/preview_items/bezier_geom_manager.js';
 import { PolygonGeomManager } from '@ziroeda/common/preview_items/polygon_geom_manager.js';
-import { COLOR4D_WHITE, brightness, cssWithAlpha, toCss } from '@ziroeda/common/color4d.js';
+import { COLOR4D_WHITE, brightness, cssWithAlpha, toCss } from '@ziroeda/common/gal/color4d.js';
 import { drawPolygonItem } from '@ziroeda/common/preview_items/polygon_item.js';
 import { DialogRuleAreaProperties } from './dialogs/dialog_rule_area_properties.js';
 import type { PROGRESS_REPORTER_LIKE } from '@ziroeda/pcbnew/connectivity/connectivity_algo.js';
@@ -626,7 +626,7 @@ import {
   parseColor4d,
   toCssColor,
   type Color4d,
-} from '@ziroeda/common/color4d.js';
+} from '@ziroeda/common/gal/color4d.js';
 import { HomeLink } from '../../ui/HomeLink.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)

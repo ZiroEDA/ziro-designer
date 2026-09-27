@@ -6,7 +6,7 @@
  * C++, never read back off the code.
  */
 import { describe, expect, it } from 'vitest';
-import type { Color4d } from '@ziroeda/common/color4d.js';
+import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
 import { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
 import '@ziroeda/common/font/stroke_font.js';

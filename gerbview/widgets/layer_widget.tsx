@@ -41,7 +41,7 @@ import {
   type RenderRow,
 } from './gerbview_layer_widget.js';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
-import { parseColor4d, toCssColor } from '@ziroeda/common/color4d.js';
+import { parseColor4d, toCssColor } from '@ziroeda/common/gal/color4d.js';
 
 export type { LayerInfo, RenderRow } from './gerbview_layer_widget.js';
 export { renderRows, layerContextMenu } from './gerbview_layer_widget.js';

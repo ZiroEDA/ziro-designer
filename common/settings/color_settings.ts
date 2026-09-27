@@ -11,7 +11,7 @@
  * with `aResetIfMissing`, as `COLOR_MAP_PARAM::Load` does.
  */
 
-import { type Color4d, COLOR4D_UNSPECIFIED, parseColor4d } from '../color4d.js';
+import { type Color4d, COLOR4D_UNSPECIFIED, parseColor4d } from '../gal/color4d.js';
 import {
   GAL_LAYER_ID,
   GERBER_DRAWLAYERS_COUNT,

@@ -25,7 +25,7 @@
  *   - Count         `msg.Printf( wxT( "%d" ), aItem->m_RepeatCount );` (:384)
  */
 
-import { COLOR4D_UNSPECIFIED, type Color4d } from '@ziroeda/common/color4d.js';
+import { COLOR4D_UNSPECIFIED, type Color4d } from '@ziroeda/common/gal/color4d.js';
 import {
   CORNER_ANCHOR,
   type DS_DATA_ITEM,

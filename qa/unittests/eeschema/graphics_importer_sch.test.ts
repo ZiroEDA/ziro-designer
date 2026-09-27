@@ -18,7 +18,7 @@ import { IMPORTED_STROKE } from '@ziroeda/common/import_gfx/graphics_importer.js
 import { DXF_IMPORT_PLUGIN } from '@ziroeda/common/import_gfx/dxf_import_plugin.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { LINE_STYLE } from '@ziroeda/common/stroke_params.js';
-import { COLOR4D_BLACK } from '@ziroeda/common/color4d.js';
+import { COLOR4D_BLACK } from '@ziroeda/common/gal/color4d.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Fill, LibGraphic, SchLabel, Stroke } from '@ziroeda/eeschema/types.js';
 

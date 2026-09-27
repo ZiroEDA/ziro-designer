@@ -41,7 +41,7 @@
  */
 
 import { LINE_STYLE } from '../stroke_params.js';
-import type { Color4d } from '../color4d.js';
+import type { Color4d } from '../gal/color4d.js';
 import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import type { Vec2, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { segApproxCollinear } from '@ziroeda/kimath/src/geometry/seg.js';

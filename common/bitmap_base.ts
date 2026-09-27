@@ -14,7 +14,7 @@
  * reads `m_image` and `m_imageId`.
  */
 
-import type { Color4d } from './color4d.js';
+import type { Color4d } from './gal/color4d.js';
 import { GetGRForceBlackPenState } from './gr_basic.js';
 import type { wxDC } from './wx/dc.js';
 import { type KIID, newKiid } from './kiid.js';

@@ -334,7 +334,7 @@ export function resolveEffectiveNetClass(
 // helpers — is here. The plain-object `NetClass`/`NetClassesData` forms above
 // are the older surface the designer still reads and go with stage 2.
 
-import { type Color4d, COLOR4D_UNSPECIFIED, parseColor4d, toCssString } from '../color4d.js';
+import { type Color4d, COLOR4D_UNSPECIFIED, parseColor4d, toCssString } from '../gal/color4d.js';
 import {
   type JSON_SETTINGS,
   type JsonObject,

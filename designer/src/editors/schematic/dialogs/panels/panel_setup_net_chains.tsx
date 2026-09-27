@@ -25,7 +25,7 @@ export {
   type NetChainsData,
 } from '../../schematic_settings.js';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
-import { parseColor4d, toCssColor } from '@ziroeda/common/color4d.js';
+import { parseColor4d, toCssColor } from '@ziroeda/common/gal/color4d.js';
 
 interface Props {
   value: NetChainsData;

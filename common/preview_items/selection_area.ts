@@ -27,8 +27,8 @@
  * `selectionColorScheme[…]` directly and never asks the painter for a layer
  * colour, so these stay [data] here rather than becoming tokens.
  */
-import type { Color4d } from '../color4d.js';
-import { brightness, parseColor4d, toCss } from '../color4d.js';
+import type { Color4d } from '../gal/color4d.js';
+import { brightness, parseColor4d, toCss } from '../gal/color4d.js';
 import { GAL_LAYER_ID } from '../layer_id.js';
 import { SELECTION_MODE } from '../tool/selection_tool.js';
 import type { VIEW } from '../view/view.js';

@@ -47,7 +47,7 @@ import {
   type TEXT_DIMS,
 } from './preview_utils.js';
 import type { TWO_POINT_GEOMETRY_MANAGER } from './two_point_geom_manager.js';
-import type { Color4d } from '../color4d.js';
+import type { Color4d } from '../gal/color4d.js';
 import { EDA_ITEM } from '../eda_item.js';
 import type { EdaIuScale, EdaUnits } from '../eda_units.js';
 import { FONT } from '../font/font.js';

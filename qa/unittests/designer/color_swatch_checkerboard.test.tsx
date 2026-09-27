@@ -23,7 +23,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
-import { COLOR4D_UNSPECIFIED, type Color4d } from '@ziroeda/common/color4d.js';
+import { COLOR4D_UNSPECIFIED, type Color4d } from '@ziroeda/common/gal/color4d.js';
 
 afterEach(cleanup);
 

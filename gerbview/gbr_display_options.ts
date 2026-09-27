@@ -6,7 +6,7 @@
  * Viewer draws. "Some of these parameters are used only for printing, some
  * others only for drawing on screen."
  */
-import { type Color4d, LEGACY_COLORS } from '@ziroeda/common/color4d.js';
+import { type Color4d, LEGACY_COLORS } from '@ziroeda/common/gal/color4d.js';
 
 export class GBR_DISPLAY_OPTIONS {
   /** Option to draw flashed items (filled/sketch). */

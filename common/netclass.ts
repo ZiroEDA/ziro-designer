@@ -7,7 +7,7 @@
  * is `number | undefined`; `Serialize`/`Deserialize` (protobuf) are not here.
  */
 
-import { type Color4d, COLOR4D_UNSPECIFIED } from './color4d.js';
+import { type Color4d, COLOR4D_UNSPECIFIED } from './gal/color4d.js';
 import { pcbIUScale, schIUScale } from './eda_units.js';
 import { wildCompareString } from './string_utils.js';
 

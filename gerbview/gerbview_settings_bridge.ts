@@ -14,7 +14,7 @@
  * and visibility, the cursor mode and the units.
  */
 
-import { parseColor4d } from '@ziroeda/common/color4d.js';
+import { parseColor4d } from '@ziroeda/common/gal/color4d.js';
 import {
   GERBER_DRAW_LAYER,
   GERBER_DRAWLAYERS_COUNT,

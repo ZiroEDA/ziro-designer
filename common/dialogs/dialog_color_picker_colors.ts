@@ -22,7 +22,7 @@
  * reordering is needed here for the same reason.
  */
 
-import { type ColorRef, colorRefs } from '../color4d.js';
+import { type ColorRef, colorRefs } from '../gal/color4d.js';
 
 /**
  * `table_row_count` (dialog_color_picker.cpp:179). [data] — with 35 colours it

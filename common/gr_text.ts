@@ -10,7 +10,7 @@
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import { CALLBACK_GAL } from './callback_gal.js';
-import type { Color4d } from './color4d.js';
+import type { Color4d } from './gal/color4d.js';
 import { FONT } from './font/font.js';
 import type { METRICS } from './font/font_metrics.js';
 import {

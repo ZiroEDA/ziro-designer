@@ -43,7 +43,7 @@ import {
   CROSSHAIR_MODE_CHOICES,
   crosshairSegments,
 } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
-import { LEGACY_COLORS } from '@ziroeda/common/color4d.js';
+import { LEGACY_COLORS } from '@ziroeda/common/gal/color4d.js';
 import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { EDA_UNITS_INT } from '@ziroeda/common/settings/app_settings.js';

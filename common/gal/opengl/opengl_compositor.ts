@@ -8,7 +8,7 @@
  */
 
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-import type { Color4d } from '../../color4d.js';
+import type { Color4d } from '../color4d.js';
 import { GAL_ANTIALIASING_MODE } from '../gal_display_options.js';
 import {
   ANTIALIASING_NONE,

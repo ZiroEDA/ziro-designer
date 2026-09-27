@@ -14,7 +14,7 @@ import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { Vec2 as VECTOR2D, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePoint, RotatePointD } from '@ziroeda/kimath/src/trigo.js';
 import type { BITMAP_BASE } from '../bitmap_base.js';
-import type { Color4d } from '../color4d.js';
+import type { Color4d } from '../gal/color4d.js';
 import { EdaIuScale, unityScale } from '../eda_units.js';
 import type { FONT } from '../font/font.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '../font/text_attributes.js';

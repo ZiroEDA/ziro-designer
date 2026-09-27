@@ -27,7 +27,7 @@ import {
 } from './edit_constraints.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-import { editPointColors, parseColor4d, toCss } from '../color4d.js';
+import { editPointColors, parseColor4d, toCss } from '../gal/color4d.js';
 import { EDA_ITEM } from '../eda_item.js';
 import { GAL_SCOPED_ATTRS, GAL_SCOPED_ATTRS_FLAGS } from '../gal/graphics_abstraction_layer.js';
 import { GAL_LAYER_ID } from '../layer_id.js';

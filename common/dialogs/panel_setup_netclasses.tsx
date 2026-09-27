@@ -31,7 +31,7 @@ export {
 } from '../project/net_settings.js';
 import { ColorSwatch } from '../widgets/color_swatch.js';
 import { Combo } from '../widgets/wx_combobox.js';
-import { parseColor4d, toCssColor } from '../color4d.js';
+import { parseColor4d, toCssColor } from '../gal/color4d.js';
 
 interface Props {
   value: NetClassesData;

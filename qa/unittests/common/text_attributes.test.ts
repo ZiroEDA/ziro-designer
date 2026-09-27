@@ -10,7 +10,7 @@ import {
   GR_TEXT_V_ALIGN_T,
   TEXT_ATTRIBUTES,
 } from '@ziroeda/common/font/text_attributes.js';
-import { COLOR4D_UNSPECIFIED, LEGACY_COLORS } from '@ziroeda/common/color4d.js';
+import { COLOR4D_UNSPECIFIED, LEGACY_COLORS } from '@ziroeda/common/gal/color4d.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 
 describe('TextAttributes', () => {

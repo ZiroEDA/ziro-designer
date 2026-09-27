@@ -30,7 +30,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { parseColor4d, toCss } from '@ziroeda/common/color4d.js';
+import { parseColor4d, toCss } from '@ziroeda/common/gal/color4d.js';
 import { HtmlMessageBox } from '@ziroeda/common/dialogs/html_message_box.js';
 import {
   MessageDialogError,

@@ -9,7 +9,7 @@
  * drawing to the subclass.
  */
 
-import { COLOR4D_WHITE, type Color4d } from '../color4d.js';
+import { COLOR4D_WHITE, type Color4d } from '../gal/color4d.js';
 import { EDA_ITEM } from '../eda_item.js';
 import type { GAL } from '../gal/graphics_abstraction_layer.js';
 import { GAL_LAYER_ID } from '../layer_id.js';

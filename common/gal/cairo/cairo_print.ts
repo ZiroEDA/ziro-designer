@@ -16,7 +16,7 @@
 
 import type { Vec2, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { MATRIX3x3D } from '@ziroeda/kimath/src/math/matrix3x3.js';
-import type { Color4d } from '../../color4d.js';
+import type { Color4d } from '../color4d.js';
 import { WX_IMAGE } from '../../wx/wx_image.js';
 import type { GAL_DISPLAY_OPTIONS } from '../gal_display_options.js';
 import type { GAL_PRINT, PRINT_CONTEXT, wxDC } from '../gal_print.js';

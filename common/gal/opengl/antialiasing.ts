@@ -8,7 +8,7 @@
  */
 
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-import type { Color4d } from '../../color4d.js';
+import type { Color4d } from '../color4d.js';
 import { GL_BEGIN_MODE, GL_MATRIX_MODE } from './gl_fixed_function.js';
 import type { OPENGL_COMPOSITOR } from './opengl_compositor.js';
 import { SHADER, SHADER_TYPE } from './shader.js';

@@ -33,7 +33,7 @@ import { colorSettingsById } from '../../../prefs/color_settings_list.js';
 import { BUILTIN_THEMES, KICAD_DEFAULT, type Theme, themeFromLayerCss } from '../theme.js';
 import { ColorPreviewPanel } from './ColorPreviewPanel.js';
 import { BUILTIN_CLASSIC_THEME, BUILTIN_DEFAULT_THEME, type Color4d } from '@ziroeda/common';
-import { COLOR4D_UNSPECIFIED, parseColor4d, toCssColor } from '@ziroeda/common/color4d.js';
+import { COLOR4D_UNSPECIFIED, parseColor4d, toCssColor } from '@ziroeda/common/gal/color4d.js';
 import type { SchLayerId } from '@ziroeda/common/settings/color_theme_file.js';
 import { COLOR_LAYERS } from './schColorLayers.js';
 import { themeFilesFor } from '../../../prefs/theme_files.js';

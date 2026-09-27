@@ -32,7 +32,7 @@ import {
   darkened,
   parseColor4d,
   toCssColor,
-} from '@ziroeda/common/color4d.js';
+} from '@ziroeda/common/gal/color4d.js';
 import { drawOriginViewItem, ORIGIN_VIEWITEM_SIZE } from '@ziroeda/common/origin_viewitem.js';
 import { printableCharCount, unescapeString } from '@ziroeda/common/string_utils.js';
 import {

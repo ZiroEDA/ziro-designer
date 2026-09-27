@@ -21,7 +21,7 @@
 import { usePcmVersion } from '../../../pcm/pcmStore.js';
 import { colorSettingsList } from '../../../prefs/color_settings_list.js';
 import { type JSX, useMemo } from 'react';
-import { parseColor4d, toCssColor } from '@ziroeda/common/color4d.js';
+import { parseColor4d, toCssColor } from '@ziroeda/common/gal/color4d.js';
 import { BOARD_COLOR_KEYS } from '@ziroeda/common/settings/color_theme_file.js';
 import {
   PanelColorSettings,

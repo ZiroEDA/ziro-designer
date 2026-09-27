@@ -22,7 +22,7 @@
  * `wxDCImpl`'s `false` (gtk/print.h:214-312, dc.h:540).
  */
 
-import { type Color4d, COLOR4D_BLACK, toCss } from '../color4d.js';
+import { type Color4d, COLOR4D_BLACK, toCss } from '../gal/color4d.js';
 import type { CANVAS_2D } from '../gal/cairo/cairo_api.js';
 import type { WX_IMAGE } from './wx_image.js';
 

@@ -8,7 +8,7 @@
  * Not here: `PCB_MARKER_DESC`, the `PROPERTY_MANAGER` registration.
  */
 
-import type { Color4d } from '@ziroeda/common/color4d.js';
+import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import type { EDA_DRAW_FRAME_LIKE, EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import type { EDA_SEARCH_DATA } from '@ziroeda/common/eda_search_data.js';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';

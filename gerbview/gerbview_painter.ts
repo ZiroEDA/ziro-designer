@@ -11,7 +11,7 @@
  * here depends on which, as upstream's painter does not depend on Cairo or
  * OpenGL.
  */
-import { brightened, type Color4d, COLOR4D_WHITE, darkened } from '@ziroeda/common/color4d.js';
+import { brightened, type Color4d, COLOR4D_WHITE, darkened } from '@ziroeda/common/gal/color4d.js';
 import { PAINTER } from '@ziroeda/common/gal/painter.js';
 import type { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';

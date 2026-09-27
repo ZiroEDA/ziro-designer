@@ -19,7 +19,7 @@ import type { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set
 import type { LINK } from '@ziroeda/core/observable.js';
 import { ADVANCED_CFG } from '../advanced_config.js';
 import type { BITMAP_BASE } from '../bitmap_base.js';
-import type { Color4d } from '../color4d.js';
+import type { Color4d } from './color4d.js';
 import { FONT } from '../font/font.js';
 import { METRICS } from '../font/font_metrics.js';
 import type { GLYPH_LIKE } from '../font/glyph.js';

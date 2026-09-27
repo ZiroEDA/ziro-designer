@@ -35,7 +35,7 @@ import {
   hiContrastColor,
   hiContrastFactorFor,
 } from '@ziroeda/common/render_settings.js';
-import { parseColor4d } from '@ziroeda/common/color4d.js';
+import { parseColor4d } from '@ziroeda/common/gal/color4d.js';
 import {
   GAL_SCREEN_DPI,
   scaleForZoomFactor,

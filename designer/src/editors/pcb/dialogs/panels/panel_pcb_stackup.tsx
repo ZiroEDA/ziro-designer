@@ -41,7 +41,7 @@ import {
   type StackupLayer,
 } from '../../board_settings.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
-import type { Color4d } from '@ziroeda/common/color4d.js';
+import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import { BOARD_STACKUP_ITEM_TYPE } from '@ziroeda/pcbnew/board_stackup_manager/board_stackup.js';
 import {
   DIELECTRIC_SUBSTRATE,

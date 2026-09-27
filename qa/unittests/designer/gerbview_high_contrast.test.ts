@@ -30,7 +30,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parseColor4d, toCss, mix } from '@ziroeda/common/color4d.js';
+import { parseColor4d, toCss, mix } from '@ziroeda/common/gal/color4d.js';
 import { HI_CONTRAST_FACTOR, hiContrastColor } from '@ziroeda/common/render_settings.js';
 
 const src = (rel: string): string =>

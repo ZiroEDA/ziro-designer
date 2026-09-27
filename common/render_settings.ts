@@ -14,7 +14,14 @@
  */
 
 import type { wxDC } from './wx/dc.js';
-import { brightened, brightness, type Color4d, COLOR4D_BLACK, darkened, mix } from './color4d.js';
+import {
+  brightened,
+  brightness,
+  type Color4d,
+  COLOR4D_BLACK,
+  darkened,
+  mix,
+} from './gal/color4d.js';
 import {
   GAL_LAYER_ID,
   IsNetnameLayer,

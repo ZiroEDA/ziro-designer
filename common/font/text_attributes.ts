@@ -8,7 +8,7 @@
 
 import { ANGLE_0, type EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-import { type Color4d, COLOR4D_UNSPECIFIED } from '../color4d.js';
+import { type Color4d, COLOR4D_UNSPECIFIED } from '../gal/color4d.js';
 import type { FONT } from './font.js';
 
 // Graphic Text alignments:

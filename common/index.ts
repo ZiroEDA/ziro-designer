@@ -105,7 +105,7 @@ export * from './drawing_sheet/project_sheet.js';
 export * from './project/net_settings.js';
 
 export * from './page_info.js';
-export * from './color4d.js';
+export * from './gal/color4d.js';
 export * from './settings/builtin_color_themes.js';
 export * from './settings/color_theme_file.js';
 

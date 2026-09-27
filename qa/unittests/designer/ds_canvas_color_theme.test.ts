@@ -18,7 +18,7 @@
  * Classic is WHITE / DARKGRAY / RED (`builtin_color_themes.h`).
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { parseColor4d, toCss } from '@ziroeda/common/color4d.js';
+import { parseColor4d, toCss } from '@ziroeda/common/gal/color4d.js';
 import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
 import type { DS_RENDER_SETTINGS } from '@ziroeda/common/drawing_sheet/ds_proxy_view_item.js';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';

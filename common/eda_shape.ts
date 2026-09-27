@@ -60,7 +60,7 @@ import {
   divideI,
 } from '@ziroeda/kimath/src/math/vector2.js';
 import { CalcArcCenterI, RotatePoint, TestSegmentHit } from '@ziroeda/kimath/src/trigo.js';
-import { type Color4d, COLOR4D_UNSPECIFIED } from './color4d.js';
+import { type Color4d, COLOR4D_UNSPECIFIED } from './gal/color4d.js';
 import { messageTextFromAngle } from './eda_units.js';
 import { LINE_STYLE, STROKE_PARAMS } from './stroke_params.js';
 import type { UNITS_PROVIDER } from './units_provider.js';

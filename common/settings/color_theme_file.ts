@@ -24,7 +24,7 @@
  * `s_defaultTheme`, which is why their swatches show the bare checkerboard —
  * a theme file has never carried them.
  */
-import { parseColor4d, toCssString } from '../color4d.js';
+import { parseColor4d, toCssString } from '../gal/color4d.js';
 import { BUILTIN_DEFAULT_THEME } from './builtin_color_themes.js';
 
 /**
