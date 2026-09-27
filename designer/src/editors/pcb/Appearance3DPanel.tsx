@@ -40,7 +40,8 @@ import { GetLayerName } from '@ziroeda/pcbnew/layer_ids.js';
 import { Check } from '@ziroeda/common/wx/controls.js';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { EyeIcon } from '../../widgets/appearance_controls.js';
+import { BitmapToggle } from '@ziroeda/common/widgets/bitmap_toggle.js';
+import { BITMAPS } from '@ziroeda/common/bitmaps/bitmaps_list.js';
 import {
   APPEARANCE_ROWS_3D,
   COLORED_FLAGS,
@@ -126,14 +127,13 @@ export function Appearance3DPanel(p: Appearance3DPanelProps): JSX.Element {
                 {isBackground ? (
                   <span className="ze-layer-swatch ze-appearance-3d-swatch-gap" />
                 ) : (
-                  <button
-                    type="button"
-                    className="ze-eye-btn"
-                    title={`Show or hide ${row.label.toLowerCase()}`}
-                    onClick={() => p.onToggleLayer(row.id, !on)}
-                  >
-                    <EyeIcon on={on} />
-                  </button>
+                  <BitmapToggle
+                    checked={on}
+                    checkedBitmap={BITMAPS.visibility}
+                    uncheckedBitmap={BITMAPS.visibility_off}
+                    tooltip={`Show or hide ${row.label.toLowerCase()}`}
+                    onToggle={(checked) => p.onToggleLayer(row.id, checked)}
+                  />
                 )}
                 <span className="ze-ellipsis">{label}</span>
               </div>

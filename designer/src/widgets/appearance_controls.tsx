@@ -54,6 +54,8 @@ import { Sash } from '@ziroeda/common/widgets/wx_splitter_window.js';
 // this panel needs exists upstream.
 import { KiBitmapBundle } from '@ziroeda/common/bitmap.js';
 import { BITMAPS } from '@ziroeda/common/bitmaps/bitmaps_list.js';
+import { BitmapToggle } from '@ziroeda/common/widgets/bitmap_toggle.js';
+import { IndicatorIcon, ROW_ICON_STATE } from '@ziroeda/common/widgets/indicator_icon.js';
 import { layerTooltip } from './appearance_layers.js';
 import {
   appearanceObjectRows,
@@ -80,37 +82,6 @@ export function appearanceTabs(aFpEditor: boolean): readonly AppearanceTab[] {
   const pages: AppearanceTab[] = ['Layers', 'Objects', 'Nets'];
   if (aFpEditor) pages.splice(2, 1);
   return pages;
-}
-
-/**
- * The visibility (eye) toggle every layer and object row carries —
- * `APPEARANCE_SETTING::ctl_visibility`, a `BITMAP_TOGGLE` built with
- * `BITMAPS::visibility` / `BITMAPS::visibility_off` (`:1560-1580`, `:2380`).
- *
- * `BITMAP_TOGGLE` swaps between TWO of KiCad's own bitmaps — it does not draw
- * one glyph at two opacities:
- *
- *     m_visibleBitmapBundle    = KiBitmapBundle( BITMAPS::visibility );
- *     m_notVisibileBitmapBundle = KiBitmapBundle( BITMAPS::visibility_off );
- *         (appearance_controls.cpp:427-428)
- *
- * This was a hand-drawn inline `<svg>` — an eye path, a pupil, and a diagonal
- * stroke added when off, dimmed to `opacity: 0.4`. Both files are vendored
- * under `assets/toolbar/`, and are byte-identical to KiCad's own
- * `sources/dark/visibility{,_off}.svg`, so the invented glyph was standing
- * beside the real one it was imitating. It is the most repeated icon in the
- * whole panel: every layer, object and net row carries one.
- */
-export function EyeIcon({ on }: { on: boolean }): JSX.Element {
-  return (
-    <img
-      className="ze-eye"
-      src={KiBitmapBundle(on ? BITMAPS.visibility : BITMAPS.visibility_off)}
-      width="16"
-      height="16"
-      alt=""
-    />
-  );
 }
 
 /** One row of the Nets grid (`NET_GRID_ENTRY`, appearance_controls.h:48-62). */
@@ -329,19 +300,17 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
                   }}
                   title={layerTooltip(name)}
                 >
-                  <span className={`ze-layer-indicator${name === activeLayer ? ' on' : ''}`} />
+                  <IndicatorIcon
+                    state={name === activeLayer ? ROW_ICON_STATE.ON : ROW_ICON_STATE.OFF}
+                  />
                   <span className="ze-layer-swatch" style={{ background: layerColor(name) }} />
-                  <button
-                    type="button"
-                    className="ze-eye-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleLayer(name);
-                    }}
-                    title="Show or hide this layer"
-                  >
-                    <EyeIcon on={on} />
-                  </button>
+                  <BitmapToggle
+                    checked={on}
+                    checkedBitmap={BITMAPS.visibility}
+                    uncheckedBitmap={BITMAPS.visibility_off}
+                    tooltip="Show or hide this layer"
+                    onToggle={() => onToggleLayer(name)}
+                  />
                   <span className="ze-ellipsis">{layerName(name)}</span>
                 </div>
               );
@@ -373,14 +342,13 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
                   {noVisibility ? (
                     <span style={{ width: 16, flex: '0 0 auto' }} />
                   ) : (
-                    <button
-                      type="button"
-                      className="ze-eye-btn"
-                      onClick={() => onToggleObject(key)}
-                      title={`Show or hide ${label.toLowerCase()}`}
-                    >
-                      <EyeIcon on={on} />
-                    </button>
+                    <BitmapToggle
+                      checked={on}
+                      checkedBitmap={BITMAPS.visibility}
+                      uncheckedBitmap={BITMAPS.visibility_off}
+                      tooltip={`Show or hide ${label.toLowerCase()}`}
+                      onToggle={() => onToggleObject(key)}
+                    />
                   )}
                   {/* Opacity rows fix the label width so all sliders line up
                     (KiCad's label->SetMinSize(labelWidth)); other rows let the
@@ -447,14 +415,13 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
                         color={net.color ? parseColor4d(net.color) : COLOR4D_UNSPECIFIED}
                         onChange={(picked) => nets.onNetColor(net.code, picked)}
                       />
-                      <button
-                        type="button"
-                        className="ze-eye-btn"
-                        title={`Show or hide ratsnest for ${net.name}`}
-                        onClick={() => nets.onNetVisibility(net.code)}
-                      >
-                        <EyeIcon on={net.visible} />
-                      </button>
+                      <BitmapToggle
+                        checked={net.visible}
+                        checkedBitmap={BITMAPS.visibility}
+                        uncheckedBitmap={BITMAPS.visibility_off}
+                        tooltip={`Show or hide ratsnest for ${net.name}`}
+                        onToggle={() => nets.onNetVisibility(net.code)}
+                      />
                       <span className="ze-ellipsis">{net.name || `(unnamed ${net.code})`}</span>
                     </div>
                   ))}
@@ -521,14 +488,13 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
                             onChange={(picked) => nets.onNetclassColor(cls.name, picked)}
                           />
                         )}
-                        <button
-                          type="button"
-                          className="ze-eye-btn"
-                          title={`Show or hide ratsnest for the ${cls.name} class`}
-                          onClick={() => nets.onNetclassVisibility(cls.name)}
-                        >
-                          <EyeIcon on={cls.visible} />
-                        </button>
+                        <BitmapToggle
+                          checked={cls.visible}
+                          checkedBitmap={BITMAPS.visibility}
+                          uncheckedBitmap={BITMAPS.visibility_off}
+                          tooltip={`Show or hide ratsnest for the ${cls.name} class`}
+                          onToggle={() => nets.onNetclassVisibility(cls.name)}
+                        />
                         <span className="ze-ellipsis">{cls.name}</span>
                       </div>
                     );

@@ -42,6 +42,7 @@ import {
 } from './gerbview_layer_widget.js';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { parseColor4d, toCssColor } from '@ziroeda/common/gal/color4d.js';
+import { IndicatorIcon, ROW_ICON_STATE } from '@ziroeda/common/widgets/indicator_icon.js';
 
 export type { LayerInfo, RenderRow } from './gerbview_layer_widget.js';
 export { renderRows, layerContextMenu } from './gerbview_layer_widget.js';
@@ -116,9 +117,8 @@ export function LayerManager({
               title={layer.function ? `${layer.name}, ${layer.function}` : layer.name}
             >
               {/* col 0, COLUMN_ICON_ACTIVE */}
-              <span
-                className={`ze-layer-indicator${layer.index === activeLayer ? ' on' : ''}`}
-                aria-hidden="true"
+              <IndicatorIcon
+                state={layer.index === activeLayer ? ROW_ICON_STATE.ON : ROW_ICON_STATE.OFF}
               />
               {/* col 1, COLUMN_COLORBM: a COLOR_SWATCH (color_swatch.cpp:301-328)
                   whose left-down is also the row's (layer_widget.cpp:339), so
@@ -143,7 +143,7 @@ export function LayerManager({
               {/* col 4, COLUMN_ALPHA_INDICATOR. GerbView never lights this: it
                   is created STATE::OFF (`layer_widget.cpp:367-370`) and nothing
                   in GerbView sets it. It stays so the grid keeps five columns. */}
-              <span className="ze-layer-indicator" aria-hidden="true" />
+              <IndicatorIcon state={ROW_ICON_STATE.OFF} />
             </div>
           ))}
         </div>
