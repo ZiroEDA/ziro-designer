@@ -359,7 +359,13 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `common/dialogs` with its seven.
   // 30/178 -> 29/177 on 09-26: dialog_image_properties' inline preview canvas
   // (`#fff`, a 4px radius) went for common/dialogs' PANEL_IMAGE_EDITOR.
-  'editors/schematic': { colours: 23, metrics: 163 },
+  // 23/163 -> 16/128: Net Chains and Resolve Field Case Conflicts removed
+  // whole (KiCad *master* features ported ahead of the 10.0.5 pin; neither
+  // exists there). Three files went: panel_setup_net_chains.tsx (5 colours -
+  // #000000/#888 x4 - and 14 metrics), dialog_create_net_chain.tsx (0
+  // colours, 8 metrics) and dialog_resolve_field_case_conflicts.tsx (0
+  // colours, 1 metric). RESCANNED against the tree with them gone.
+  'editors/schematic': { colours: 16, metrics: 128 },
   // 166 -> 163 metrics on `editors/schematic`, moved here whole: cvpcb's
   // three windows left `editors/schematic/dialogs/` for the root `cvpcb/`
   // package (cvpcb/STRUCTURE.md's stage two). No colours moved (the five
