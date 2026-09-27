@@ -306,6 +306,14 @@ why); `Execute` is a KIWAY player, since every binary it names is an editor
 here. gerbview and bitmap2component register it; the other frames' menus
 still call the page directly and move over one frame at a time.
 
+`tool/edit_points` + `tool/edit_constraints` + `preview_items/angle_item`
+(09-27): whole - `EDIT_POINT` / `EDIT_LINE` / `EDIT_POINTS` with contours
+and lines, the eight `EC_*` constraints, and the angle readout. `GRID_HELPER`
+is not ported; the constraints ask it only `AlignGrid`, so that is the
+interface they take, and `EC_CONVERGING`'s own default grid is
+`DEFAULT_GRID_HELPER` (1 x 1 at the origin). The C++ overloads `Previous` /
+`Next` on `EDIT_LINE`; here those are `PreviousLine` / `NextLine`.
+
 `kiway` (09-27): not the DSO loader KiCad's is - the interface the program
 hands each frame (`EDA_BASE_FRAME::SetKiway`) for the calls frames make
 into KIWAY: OnKiCadExit, Player, the project manager, and another kiface's

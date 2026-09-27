@@ -6,10 +6,12 @@
  * `PL_POINT_EDITOR`, the handles on a selected line's two ends and a selected
  * rectangle's four corners, dragged to reshape it.
  *
- * `m_angleItem` (`KIGFX::PREVIEW::ANGLE_ITEM`, the angle readout drawn while
- * a line end is dragged) is not in common/preview_items yet; the handles and
- * the edit itself are whole without it.
+ * `m_angleItem` is common's `ANGLE_ITEM`, added and updated where the C++
+ * does. It draws a readout only at a point that is active or hovered, and
+ * nothing in pl_editor sets either (only the board and schematic point
+ * editors do), so here, as upstream, it draws nothing.
  */
+import { ANGLE_ITEM } from '@ziroeda/common/preview_items/angle_item.js';
 import type { DS_DATA_ITEM } from '@ziroeda/common/drawing_sheet/ds_data_item.js';
 import type {
   DS_DRAW_ITEM_BASE,
@@ -165,6 +167,8 @@ export class PL_POINT_EDITOR extends TOOL_INTERACTIVE {
   ///< Currently available edit points.
   private m_editPoints: EDIT_POINTS | null = null;
 
+  private m_angleItem: ANGLE_ITEM | null = null;
+
   constructor() {
     super('plEditor.PointEditor');
     this.m_frame = null;
@@ -185,8 +189,13 @@ export class PL_POINT_EDITOR extends TOOL_INTERACTIVE {
 
     const view = this.getView();
 
-    if (view && this.m_editPoints) view.Remove(this.m_editPoints);
+    if (view) {
+      if (this.m_angleItem) view.Remove(this.m_angleItem);
 
+      if (this.m_editPoints) view.Remove(this.m_editPoints);
+    }
+
+    this.m_angleItem = null;
     this.m_editPoints = null;
   }
 
@@ -246,7 +255,10 @@ export class PL_POINT_EDITOR extends TOOL_INTERACTIVE {
 
     if (!this.m_editPoints) return 0;
 
+    this.m_angleItem = new ANGLE_ITEM(this.m_editPoints);
+
     this.getView()!.Add(this.m_editPoints);
+    this.getView()!.Add(this.m_angleItem);
     this.setEditedPoint(null);
     this.updateEditedPoint(aEvent);
     let inDrag = false;
@@ -298,10 +310,12 @@ export class PL_POINT_EDITOR extends TOOL_INTERACTIVE {
 
     if (this.m_editPoints) {
       this.getView()!.Remove(this.m_editPoints);
+      this.getView()!.Remove(this.m_angleItem!);
 
       if (modified) frame.OnModify();
 
       this.m_editPoints = null;
+      this.m_angleItem = null;
       frame.GetCanvas()!.Refresh();
     }
 
@@ -449,6 +463,7 @@ export class PL_POINT_EDITOR extends TOOL_INTERACTIVE {
     }
 
     this.getView()!.Update(this.m_editPoints);
+    this.getView()!.Update(this.m_angleItem!);
   }
 
   ///< Set the current point being edited. NULL means none.

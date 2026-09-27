@@ -138,7 +138,7 @@ driver (`common/STRUCTURE.md` has `spacemouse` n/a for the same reason).
 | `pl_drawing_tools` | here | `tools/pl_drawing_tools.ts` (`PL_DRAWING_TOOLS`: `DrawShape`, `PlaceItem`) |
 | `pl_edit_tool` | here | `tools/pl_edit_tool.ts` (`PL_EDIT_TOOL`: move, undo / redo, cut / copy / paste, delete, `InteractiveDelete` on common's `PICKER_TOOL`, append) |
 | `pl_editor_control` | here | `tools/pl_editor_control.ts` (`PL_EDITOR_CONTROL`) |
-| `pl_point_editor` | here | `tools/pl_point_editor.ts` (`PL_POINT_EDITOR`, `EDIT_POINTS_FACTORY`, `pinEditedCorner`) on common's `EDIT_POINTS` (`common/tool/edit_points.ts`). `m_angleItem` (`PREVIEW::ANGLE_ITEM`) is not in common yet |
+| `pl_point_editor` | here | `tools/pl_point_editor.ts` (`PL_POINT_EDITOR`, `EDIT_POINTS_FACTORY`, `pinEditedCorner`) on common's `EDIT_POINTS` (`common/tool/edit_points.ts`) and `ANGLE_ITEM` (`common/preview_items/angle_item.ts`), which draws nothing here, as upstream: nothing in pl_editor marks a point active or hovered |
 | `pl_selection` | here | `tools/pl_selection.ts` (`PL_SELECTION`) |
 | `pl_selection_tool` | here | `tools/pl_selection_tool.ts` (`PL_SELECTION_TOOL` on `SELECTION_TOOL`) |
 
@@ -146,14 +146,7 @@ driver (`common/STRUCTURE.md` has `spacemouse` n/a for the same reason).
 
 Written around, never copied, and each marked where it is used:
 
-- `COMMON_CONTROL`: not registered by `setupTools`; the page's menus answer
-  its actions (Preferences, About, the hotkey list, Close).
-- `EDA_DRAW_FRAME::SetDrawBgColor` / `GetDrawBgColor`, `SetTitle`: the frame
-  keeps `m_drawBgColor` itself; the title goes to the host.
-- `PREVIEW::ANGLE_ITEM`: `PL_POINT_EDITOR` draws its handles without the
-  angle readout.
-- `EDIT_POINTS` is ported as far as `PL_POINT_EDITOR` needs: no `EDIT_LINE`,
-  contours or `EDIT_CONSTRAINT`s yet.
+- `EDA_DRAW_FRAME::SetTitle`: the title goes to the host.
 - `TOOL_MANAGER_VIEW_CONTROLS` names only the calls the manager makes; the
   tools cast `getViewControls()` to `VIEW_CONTROLS`.
 - A tool cannot block on a page's modal: `PL_DRAWING_TOOLS.waitForModal`
