@@ -212,6 +212,22 @@ describe('Place Bitmaps (PlaceItem with AddDrawingSheetItem( DS_BITMAP ))', () =
     expect(h.frame.GetUndoCommandCount()).toBe(0);
   });
 
+  it('an unreadable image is wxMessageBox( message-with-%s, path ), and nothing is added', async () => {
+    const h = makeHarness(EDA_UNITS_INT.MM);
+    const before = model.GetCount();
+    h.host.imageAnswers.push({ path: '/Templates/bad.png', data: new Uint8Array([1, 2, 3]) });
+
+    toolbar(h.mgr, PL_ACTIONS.placeImage);
+    mouse(h.mgr, TA_MOUSE_CLICK, { x: 50000, y: 50000 }, h);
+    await settle();
+
+    // pl_editor_frame.cpp:884: the second argument is the box's caption.
+    expect(h.host.messages).toEqual([
+      { message: "Could not load image from '%s'.", caption: '/Templates/bad.png' },
+    ]);
+    expect(model.GetCount()).toBe(before);
+  });
+
   it('a chosen image is added under the pointer, carried until the next click', async () => {
     const h = makeHarness(EDA_UNITS_INT.MM);
     const before = model.GetCount();

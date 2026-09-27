@@ -140,6 +140,8 @@ describe('onCellClicked', () => {
   it('selects the item in the editor and loads the Properties panel', async () => {
     const h = sheet();
     const dlg = await inspect(h);
+    // Something else selected first: the click REPLACES it (ClearSelection, :348).
+    h.mgr.GetTool(PL_SELECTION_TOOL)!.AddItemToSel(model.GetItem(0)!.GetDrawItems()[0]!);
 
     dlg.onCellClicked(2);
 
