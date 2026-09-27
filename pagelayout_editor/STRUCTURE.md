@@ -203,6 +203,15 @@ the page's way, not KiCad's):
   kicad_wks` then `<< "." << ext`, :216-221), not through `EnsureFileExtension`,
   which the page had called: a name ending in a bare dot comes out
   `foo..kicad_wks`, as upstream's does.
+- **`PL_POINT_EDITOR` can leave `m_editedPoint` set.** Its `Main` ends
+  without `setEditedPoint( nullptr )` (pl_point_editor.cpp:258-266), so when it
+  exits with the pointer on a handle - placing a rectangle leaves the pointer
+  on its last corner, then Escape - `HasPoint()` stays true and
+  `PL_SELECTION_TOOL` starts no disambiguation timer on a left press
+  (pl_selection_tool.cpp:97-98): single clicks select nothing until the point
+  editor runs again. Ported as the C++ reads (upstream the pointer dangles
+  into the freed `EDIT_POINTS`); seen in Chrome. Worth checking on a live
+  pl_editor before deciding it is KiCad's and not ours.
 - **A Bitmap DPI of 0 reaches `SetPPI`**, which divides by it
   (ds_data_item.cpp:781-785); only `ToLong` failing leaves the item alone. The
   page refused 0, which is not the panel's rule.
