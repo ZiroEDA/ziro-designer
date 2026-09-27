@@ -55,7 +55,7 @@
  * from data on every render, which is what `UpdateFileHistory`'s
  * `ReCreateMenuBar()` (:1477-1481) is emulating anyway.
  *
- * Callers: `editors/image/ImageConverter.tsx`,
+ * Callers: `bitmap2component/bitmap2cmp_frame_ui.tsx`,
  * `editors/drawingsheet/DrawingSheetEditor.tsx`, `home/menubar.ts`.
  * Still to be retro-fitted: the Assign Footprints dialog and gerbview's four
  * separate histories, when those branches land.

@@ -216,7 +216,7 @@ describe('Combo: interiors follow GTK, where a button and an entry differ', () =
 });
 
 describe('Combo: the arrow points down, and a local rule cannot outrank it', () => {
-  const IMGC = read('../../../designer/src/editors/image/imageConverter.css');
+  const IMGC = read('../../../bitmap2component/bitmap2cmp_frame.css');
 
   /**
    * A wxChoice's arrow points DOWN and stays down; it is not a disclosure

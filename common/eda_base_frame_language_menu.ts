@@ -34,7 +34,7 @@
  * Upstream this is one function in `common/`, and every frame's Preferences
  * menu ends with a call to it. Ours was an inline
  * `[{ label: 'English', disabled: true }]` stub written twice — once in
- * `editors/image/ImageConverter.tsx` and once in `home/menubar.ts` — which two
+ * `bitmap2component/bitmap2cmp_frame_ui.tsx` and once in `home/menubar.ts` — which two
  * independent launcher audits flagged separately (Image Converter C5, CvPcb C3).
  *
  * WHAT IS REAL HERE AND WHAT IS NOT
