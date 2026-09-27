@@ -36,6 +36,7 @@ const makeFrame = () =>
     findDialogRects: () => [],
     setViewCenter: () => {},
     setHighlightNets: () => {},
+    syncSelection: () => {},
   });
 
 describe('PCB_EDIT_FRAME needs the PGM_BASE before its first SetBoard', () => {

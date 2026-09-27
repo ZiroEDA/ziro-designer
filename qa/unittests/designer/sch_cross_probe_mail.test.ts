@@ -31,9 +31,11 @@ class PCB_STUB extends KIWAY_PLAYER {
 function setup() {
   const cfg = new CROSS_PROBING_SETTINGS();
   const highlighted: string[] = [];
+  const synced: [string[], boolean][] = [];
   const frame = new SCH_EDIT_FRAME({
     crossProbingSettings: () => cfg,
     highlightNet: (n) => highlighted.push(n),
+    syncSelection: (parts, focus) => synced.push([[...parts], focus]),
   });
   const kiway = new KIWAY({
     OnKiCadExit: () => {},
@@ -48,7 +50,14 @@ function setup() {
   kiway.SetPlayerFrame(FRAME_T.FRAME_PCB_EDITOR, pcb);
   const probe = (packet: string) =>
     kiway.ExpressMail(FRAME_T.FRAME_SCH, MAIL_T.MAIL_CROSS_PROBE, { value: packet }, pcb);
-  return { cfg, highlighted, frame, pcb, probe };
+  const select = (packet: string, force = false) =>
+    kiway.ExpressMail(
+      FRAME_T.FRAME_SCH,
+      force ? MAIL_T.MAIL_SELECTION_FORCE : MAIL_T.MAIL_SELECTION,
+      { value: packet },
+      pcb,
+    );
+  return { cfg, highlighted, synced, frame, pcb, probe, select };
 }
 
 describe('the board probing a net on the schematic', () => {
@@ -83,6 +92,47 @@ describe('the schematic probing a net on the board', () => {
     expect(env.pcb.received).toEqual([
       [MAIL_T.MAIL_CROSS_PROBE, '$NET: "GND"'],
       [MAIL_T.MAIL_CROSS_PROBE, '$CLEAR\n'],
+    ]);
+  });
+});
+
+describe('the board syncing its selection to the schematic', () => {
+  it('hands the parts after the two-character mode to the selection', () => {
+    const env = setup();
+    env.select('$SELECT: 0,FR1,PR2/1');
+    env.select('$SELECT: 1,FR3');
+    expect(env.synced).toEqual([
+      [['FR1', 'PR2/1'], false],
+      [['FR3'], true],
+    ]);
+  });
+
+  it('refuses MAIL_SELECTION when on_selection is off, but not MAIL_SELECTION_FORCE', () => {
+    const env = setup();
+    env.cfg.on_selection = false;
+    env.select('$SELECT: 0,FR1');
+    env.select('$SELECT: 0,FR2', true);
+    expect(env.synced).toEqual([[['FR2'], false]]);
+  });
+
+  it('drops a command too short to carry a sync string', () => {
+    // `if( paramStr.size() < 2 ) break;` — the prefix itself is not checked.
+    const env = setup();
+    env.select('$SELECT: 0');
+    env.select('$SELECT: ');
+    expect(env.synced).toEqual([]);
+  });
+});
+
+describe('the schematic syncing its selection to the board', () => {
+  it('SendSelectItemsToPcb mails $SELECT: 0,<parts>, forced or not, and nothing for no parts', () => {
+    const env = setup();
+    env.frame.SendSelectItemsToPcb(['FR1', 'S/a/b/'], false);
+    env.frame.SendSelectItemsToPcb(['PU1/2'], true);
+    env.frame.SendSelectItemsToPcb([], true);
+    expect(env.pcb.received).toEqual([
+      [MAIL_T.MAIL_SELECTION, '$SELECT: 0,FR1,S/a/b/'],
+      [MAIL_T.MAIL_SELECTION_FORCE, '$SELECT: 0,PU1/2'],
     ]);
   });
 });

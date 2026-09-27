@@ -47,13 +47,17 @@ interface Env {
   settings: PCBNEW_SETTINGS;
   /** Every highlight the frame asked the editor for, as sorted net codes. */
   highlights: number[][];
+  /** Every selection the frame asked the editor to sync: [parts, selectConnections]. */
+  synced: [string[], boolean][];
   probe(packet: string): void;
+  select(packet: string, force?: boolean): void;
 }
 
 function setup(): Env {
   installPgm();
   const settings = new PCBNEW_SETTINGS();
   const highlights: number[][] = [];
+  const synced: [string[], boolean][] = [];
   const frame = new PCB_EDIT_FRAME({
     settings: () => settings,
     onModify: () => {},
@@ -70,6 +74,7 @@ function setup(): Env {
     findDialogRects: () => [],
     setViewCenter: () => {},
     setHighlightNets: (codes) => highlights.push([...codes].sort((a, b) => a - b)),
+    syncSelection: (parts, conn) => synced.push([[...parts], conn]),
   });
   frame.SetBoard(ParseBoard(BOARD), false);
 
@@ -88,8 +93,15 @@ function setup(): Env {
     frame,
     settings,
     highlights,
+    synced,
     probe: (packet) =>
       kiway.ExpressMail(FRAME_T.FRAME_PCB_EDITOR, MAIL_T.MAIL_CROSS_PROBE, { value: packet }),
+    select: (packet, force = false) =>
+      kiway.ExpressMail(
+        FRAME_T.FRAME_PCB_EDITOR,
+        force ? MAIL_T.MAIL_SELECTION_FORCE : MAIL_T.MAIL_SELECTION,
+        { value: packet },
+      ),
   };
 }
 
@@ -172,5 +184,65 @@ describe('the board probing a net on the schematic', () => {
       [MAIL_T.MAIL_CROSS_PROBE, '$NET: "GND"'],
       [MAIL_T.MAIL_CROSS_PROBE, '$NET: ""'],
     ]);
+  });
+});
+
+describe('the schematic syncing its selection to the board', () => {
+  it('MAIL_SELECTION hands the parts after the mode to the selection', () => {
+    const env = setup();
+    env.select('$SELECT: 0,FR1,PU1/3,S/abc/');
+    expect(env.synced).toEqual([[['FR1', 'PU1/3', 'S/abc/'], false]]);
+  });
+
+  it('mode 1 is "with connections"', () => {
+    const env = setup();
+    env.select('$SELECT: 1,FR1');
+    expect(env.synced).toEqual([[['FR1'], true]]);
+  });
+
+  it('refuses MAIL_SELECTION when on_selection is off, but not MAIL_SELECTION_FORCE', () => {
+    // `case MAIL_SELECTION: if( !on_selection ) break; KI_FALLTHROUGH;`
+    const env = setup();
+    env.settings.m_CrossProbing.on_selection = false;
+    env.select('$SELECT: 0,FR1');
+    env.select('$SELECT: 0,FR2', true);
+    expect(env.synced).toEqual([[['FR2'], false]]);
+  });
+
+  it('ignores a packet without the $SELECT: prefix', () => {
+    const env = setup();
+    env.select('$SELECTX 0,FR1');
+    env.select('0,FR1');
+    expect(env.synced).toEqual([]);
+  });
+
+  it('with no comma after the mode, syncs the whole parameter string (npos + 1 is 0)', () => {
+    const env = setup();
+    env.select('$SELECT: FR1');
+    expect(env.synced).toEqual([[['FR1'], false]]);
+  });
+});
+
+describe('the board syncing its selection to the schematic', () => {
+  it('SendSelectItemsToSch mails $SELECT: 0,<parts> as MAIL_SELECTION, or _FORCE', () => {
+    const env = setup();
+    const sch = new SCH_STUB();
+    env.kiway.SetPlayerFrame(FRAME_T.FRAME_SCH, sch);
+
+    env.frame.SendSelectItemsToSch(['FR1', 'PR2/1'], false);
+    env.frame.SendSelectItemsToSch(['FR3'], true);
+
+    expect(sch.received).toEqual([
+      [MAIL_T.MAIL_SELECTION, '$SELECT: 0,FR1,PR2/1'],
+      [MAIL_T.MAIL_SELECTION_FORCE, '$SELECT: 0,FR3'],
+    ]);
+  });
+
+  it('sends nothing for an empty selection, so the schematic keeps its own', () => {
+    const env = setup();
+    const sch = new SCH_STUB();
+    env.kiway.SetPlayerFrame(FRAME_T.FRAME_SCH, sch);
+    env.frame.SendSelectItemsToSch([], false);
+    expect(sch.received).toEqual([]);
   });
 });

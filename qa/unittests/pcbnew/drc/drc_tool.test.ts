@@ -121,6 +121,7 @@ function makeHarness(): Harness {
     findDialogRects: (): BOX2D[] => [],
     setViewCenter: (_aPos: Vec2) => {},
     setHighlightNets: () => {},
+    syncSelection: () => {},
   });
 
   h.frame = frame;

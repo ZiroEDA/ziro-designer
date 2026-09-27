@@ -25,6 +25,12 @@ export interface SCH_EDIT_FRAME_HOOKS {
    * (`FindFirstSubgraphByName`) and relights; empty is no highlight.
    */
   highlightNet(aNetName: string): void;
+  /**
+   * `findItemsFromSyncSelection` then `SCH_SELECTION_TOOL::SyncSelection`:
+   * the editor owns the selection, so it resolves the parts and applies them.
+   * `on_selection` has been checked. Focusing the first item is not ported.
+   */
+  syncSelection(aParts: readonly string[], aFocusOnFirst: boolean): void;
 }
 
 export class SCH_EDIT_FRAME extends KIWAY_PLAYER {
@@ -43,6 +49,35 @@ export class SCH_EDIT_FRAME extends KIWAY_PLAYER {
       case MAIL_T.MAIL_CROSS_PROBE:
         this.ExecuteRemoteCommand(payload);
         break;
+
+      // biome-ignore lint/suspicious/noFallthroughSwitchClause: KI_FALLTHROUGH, as upstream
+      case MAIL_T.MAIL_SELECTION:
+        if (!this.hooks.crossProbingSettings().on_selection) break;
+
+      // KI_FALLTHROUGH;
+
+      case MAIL_T.MAIL_SELECTION_FORCE: {
+        // $SELECT: 0,<spec1>,<spec2>,<spec3>
+        // Try to select specified items.
+
+        // $SELECT: 1,<spec1>,<spec2>,<spec3>
+        // Select and focus on <spec1> item, select other specified items that are on the
+        // same sheet.
+
+        const prefix = '$SELECT: ';
+
+        const paramStr = payload.substring(prefix.length);
+
+        // Empty/broken command: we need at least 2 chars for sync string.
+        if (paramStr.length < 2) break;
+
+        const syncStr = paramStr.substring(2);
+
+        const focusOnFirst = paramStr[0] === '1';
+
+        this.hooks.syncSelection(syncStr.split(','), focusOnFirst);
+        break;
+      }
 
       default:
         break;
@@ -72,6 +107,31 @@ export class SCH_EDIT_FRAME extends KIWAY_PLAYER {
       // Cross-probing is now done through selection so we no longer need a clear command
       return;
     }
+  }
+
+  /**
+   * `SCH_EDIT_FRAME::SendSelectItemsToPcb` (eeschema/cross-probing.cpp:312),
+   * over the parts `syncSelectionParts` gives, in selection order. Nothing is
+   * sent for no parts, as upstream.
+   */
+  SendSelectItemsToPcb(aParts: readonly string[], aForce: boolean): void {
+    if (aParts.length === 0) return;
+
+    let command = '$SELECT: 0,';
+
+    for (const part of aParts) {
+      command += part;
+      command += ',';
+    }
+
+    command = command.slice(0, -1);
+
+    this.Kiway()?.ExpressMail(
+      FRAME_T.FRAME_PCB_EDITOR,
+      aForce ? MAIL_T.MAIL_SELECTION_FORCE : MAIL_T.MAIL_SELECTION,
+      { value: command },
+      this,
+    );
   }
 
   /** `SCH_EDIT_FRAME::SendCrossProbeNetName` (eeschema/cross-probing.cpp:383). */

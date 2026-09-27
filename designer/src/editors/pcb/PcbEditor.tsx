@@ -1144,8 +1144,6 @@ export function PcbEditor({
   onPersistFiles,
   onOutputFile,
   kiway,
-  syncSelection,
-  onSyncSelectionToSch,
   viewer3DOpen,
   onViewer3DOpenChange,
   updateFromSchematic,
@@ -1218,17 +1216,6 @@ export function PcbEditor({
    * its own through it.
    */
   kiway?: KIWAY;
-  /** Select on PCB from the schematic: the `$SELECT:` parts to resolve against
-   *  this board (pcbnew's own handler, `FindItemsFromSyncSelection` then
-   *  `syncSelection`). The nonce makes a repeat of the same request arrive. */
-  syncSelection?: { parts: readonly string[]; nonce: number } | null;
-  /**
-   * The other direction: this board's selection, as the `$SELECT:` parts the
-   * schematic resolves — `PCB_EDIT_FRAME::SendSelectItemsToSch`
-   * (`pcbnew/cross-probing.cpp:349`). The nonce is what makes selecting the
-   * same items twice arrive twice, since it is an event rather than a state.
-   */
-  onSyncSelectionToSch?: (sel: { parts: readonly string[]; nonce: number }) => void;
   /**
    * The 3D viewer (`EDA_3D_VIEWER_FRAME`) open over this frame, controlled
    * from outside so the address can carry it (`/p/<uid>/pcb/3d`). Omitted,
@@ -1546,24 +1533,25 @@ export function PcbEditor({
    * Send this selection to the schematic — `PCB_EDIT_FRAME::SendSelectItemsToSch`,
    * which `PCB_SELECTION_TOOL` calls whenever the selection settles.
    *
-   * The nonce comes from the parts themselves rather than a counter: re-sending
-   * an identical packet is what upstream's `aForce` is for, and this side never
-   * forces, so a selection that has not changed has nothing to say. An empty
-   * selection still sends — that is how the schematic learns to clear its own.
+   * A selection that has not changed has nothing to say: re-sending an
+   * identical packet is what upstream's `aForce` is for, and this side never
+   * forces. An empty selection sends nothing (`if( parts.empty() ) return;`),
+   * so clearing the board's selection leaves the schematic's alone.
+   *
+   * `lastPartsRef` is also `m_ProbingSchToPcb`, the recursion guard: a probe
+   * from the schematic records the parts of the selection it applied, so that
+   * selection is not mailed back.
    */
   const lastPartsRef = useRef<string>('');
-  const syncNonceRef = useRef(0);
   useEffect(() => {
-    if (!onSyncSelectionToSch) return;
     const brd = boardRef.current;
     if (!brd) return;
     const parts = boardSyncSelectionParts(brd, selection);
     const key = parts.join(',');
     if (key === lastPartsRef.current) return;
     lastPartsRef.current = key;
-    syncNonceRef.current += 1;
-    onSyncSelectionToSch({ parts, nonce: syncNonceRef.current });
-  }, [selection, onSyncSelectionToSch]);
+    frameRef.current?.SendSelectItemsToSch(parts, false);
+  }, [selection]);
   // Disambiguation menu (PCB_SELECTION_TOOL::doSelectionMenu): shown at a click
   // that hits several equally-plausible items so the user can pick one.
   const [disambig, setDisambig] = useState<{
@@ -1988,6 +1976,9 @@ export function PcbEditor({
       setViewCenter: (aPos, aRects) => drcWindowRef.current!.setViewCenter(aPos, aRects),
       // The `$NET:` probe's highlight, kept as the same set when it is unchanged
       // so the send-back below does not fire for it.
+      // MAIL_SELECTION(_FORCE): the frame has checked `on_selection` already,
+      // so the parts are applied as a forced probe.
+      syncSelection: (aParts) => applySyncSelectionRef.current(aParts, true),
       setHighlightNets: (aNetCodes) =>
         setHighlightNets((prev) =>
           prev.size === aNetCodes.size && [...aNetCodes].every((c) => prev.has(c))
@@ -5076,11 +5067,6 @@ export function PcbEditor({
   // the one whose settings decide what it does (pcbnew/cross-probing.cpp:734
   // reads `GetPcbNewSettings()`), so the schematic's copy has no say here.
   //
-  // Keyed on the nonce alone: the parts of a repeated request are equal, and
-  // re-running on every render would fight the user's own clicks.
-  const syncNonce = syncSelection?.nonce;
-  const syncPartsRef = useRef(syncSelection?.parts);
-  syncPartsRef.current = syncSelection?.parts;
   // The flash run in progress (pcb_edit_frame.cpp:665-679): the ids to restore
   // and the interval handle, kept out of state so a phase tick does not have to
   // survive a re-render to be cancellable.
@@ -5092,15 +5078,18 @@ export function PcbEditor({
    * through `MAIL_SELECTION` and the same cross-probing settings.
    */
   const applySyncSelection = useCallback(
-    (parts: readonly string[]) => {
+    (parts: readonly string[], force = false) => {
       const brd = boardRef.current;
       const canvas = canvasRef.current;
       if (!brd) return;
       const cfg = settings.pcbnew.cross_probing;
       // null is `case MAIL_SELECTION: if( !...on_selection ) break;` — the packet
       // is dropped whole, so the existing selection stays as the user left it.
-      const ids = crossProbeSelection(cfg, brd, parts);
+      const ids = crossProbeSelection(cfg, brd, parts, force);
       if (ids === null) return;
+      // `m_ProbingSchToPcb = true`: this selection came from the schematic, so
+      // it is not sent back to it.
+      lastPartsRef.current = boardSyncSelectionParts(brd, new Set(ids)).join(',');
       setSelection(new Set(ids));
 
       // A fresh probe restarts any flash still running (`m_crossProbeFlashTimer.Stop()`).
@@ -5164,10 +5153,8 @@ export function PcbEditor({
     },
     [requestDraw, settings.pcbnew.cross_probing],
   );
-  useEffect(() => {
-    if (syncNonce === undefined) return;
-    applySyncSelection(syncPartsRef.current ?? []);
-  }, [syncNonce, applySyncSelection]);
+  const applySyncSelectionRef = useRef(applySyncSelection);
+  applySyncSelectionRef.current = applySyncSelection;
   /** The footprint indices in the selection, for the 3D viewer's `IsSelected()`. */
   const selectedFootprints = useMemo(() => {
     const out = new Set<number>();

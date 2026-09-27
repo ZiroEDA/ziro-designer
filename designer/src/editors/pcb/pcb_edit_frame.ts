@@ -135,6 +135,12 @@ export interface PCB_EDIT_FRAME_HOOKS {
    * no highlight.
    */
   setHighlightNets(aNetCodes: ReadonlySet<number>): void;
+  /**
+   * `PCB_ACTIONS::syncSelection` / `syncSelectionWithNets` on the items
+   * `FindItemsFromSyncSelection` names: the editor owns the selection, so it
+   * resolves the parts and applies them. `on_selection` has been checked.
+   */
+  syncSelection(aParts: readonly string[], aSelectConnections: boolean): void;
 }
 
 export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
@@ -189,6 +195,36 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
       case MAIL_T.MAIL_CROSS_PROBE:
         this.ExecuteRemoteCommand(payload);
         break;
+
+      // biome-ignore lint/suspicious/noFallthroughSwitchClause: KI_FALLTHROUGH, as upstream
+      case MAIL_T.MAIL_SELECTION:
+        if (!this.hooks.settings().m_CrossProbing.on_selection) break;
+
+      // KI_FALLTHROUGH;
+
+      case MAIL_T.MAIL_SELECTION_FORCE: {
+        // $SELECT: <mode 0 - only footprints, 1 - with connections>,<spec1>,<spec2>,<spec3>
+        const prefix = '$SELECT: ';
+
+        if (payload.startsWith(prefix)) {
+          const del = ',';
+          const paramStr = payload.substring(prefix.length);
+          const modeEnd = paramStr.indexOf(del);
+          // std::stoi of the mode: its leading integer, and wxFAIL (false) on none.
+          const mode = Number.parseInt(
+            modeEnd === -1 ? paramStr : paramStr.substring(0, modeEnd),
+            10,
+          );
+          const selectConnections = mode === 1;
+
+          // `paramStr.substr( modeEnd + 1 )`: npos + 1 wraps to 0, the whole string.
+          const syncStr = paramStr.substring(modeEnd + 1);
+
+          this.hooks.syncSelection(syncStr.split(del), selectConnections);
+        }
+
+        break;
+      }
 
       default:
         break;
@@ -259,6 +295,35 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
       // renderSettings->SetHighlight( false )
       this.hooks.setHighlightNets(new Set());
     }
+  }
+
+  /**
+   * `PCB_EDIT_FRAME::SendSelectItemsToSch` (pcbnew/cross-probing.cpp:349),
+   * over the parts `collectItemsForSyncParts` gives (`boardSyncSelectionParts`,
+   * sorted as upstream's `std::set`). The focus item is not sent: the
+   * selection tool does not yet tell a point select from the rest, so the mode
+   * is always 0. Nothing is sent for no parts, as upstream.
+   */
+  SendSelectItemsToSch(aParts: readonly string[], aForce: boolean): void {
+    let command = '$SELECT: ';
+
+    command += '0,';
+
+    if (aParts.length === 0) return;
+
+    for (const part of aParts) {
+      command += part;
+      command += ',';
+    }
+
+    command = command.slice(0, -1);
+
+    this.Kiway()?.ExpressMail(
+      FRAME_T.FRAME_SCH,
+      aForce ? MAIL_T.MAIL_SELECTION_FORCE : MAIL_T.MAIL_SELECTION,
+      { value: command },
+      this,
+    );
   }
 
   /** `PCB_EDIT_FRAME::SendCrossProbeNetName` (pcbnew/cross-probing.cpp:405). */

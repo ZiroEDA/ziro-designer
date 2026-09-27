@@ -809,8 +809,6 @@ export function SchematicEditor({
   projectName,
   rootPro,
   kiway,
-  syncSelectionFromPcb,
-  onSelectOnPcb,
 }: {
   onExitToHome: () => void;
   onShowPcb?: () => void;
@@ -921,16 +919,6 @@ export function SchematicEditor({
    * sends its own through it.
    */
   kiway?: KIWAY;
-  /**
-   * The board's selection arriving here — `SCH_EDIT_FRAME::KiwayMailIn`'s
-   * `MAIL_SELECTION` (`eeschema/sch_edit_frame.cpp`), which parses the
-   * `$SELECT:` parts and hands them to `SCH_SELECTION_TOOL::SyncSelection`.
-   * The nonce makes the same packet arriving twice arrive twice.
-   */
-  syncSelectionFromPcb?: { parts: readonly string[]; nonce: number } | null;
-  /** Select on PCB (SCH_ACTIONS::selectOnPCB): the `$SELECT:` parts of the
-   *  current selection, for the board frame to resolve and select. */
-  onSelectOnPcb?: (parts: readonly string[]) => void;
 }): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const initial = useMemo<Schematic | null>(() => {
@@ -1883,8 +1871,20 @@ export function SchematicEditor({
     schFrameRef.current = new SCH_EDIT_FRAME({
       crossProbingSettings: () => settings.eeschema.cross_probing,
       highlightNet: (aNetName) => setProbedNet(aNetName === '' ? null : aNetName),
+      syncSelection: (aParts) => applyPcbSelectionRef.current(aParts),
     });
   }
+  const applyPcbSelectionRef = useRef<(parts: readonly string[]) => void>(() => {});
+  /**
+   * `SCH_EDITOR_CONTROL::CrossProbeToPcb` on every Selected / Unselected /
+   * Cleared event: the selection's parts, mailed unforced so the board's own
+   * `on_selection` decides. A selection that has not changed has nothing to
+   * say, and one that names nothing on the board sends nothing.
+   *
+   * `lastSchPartsRef` is also the recursion guard (`m_probingPcbToSch`): a
+   * probe from the board records the parts of the selection it applied.
+   */
+  const lastSchPartsRef = useRef('');
   // `KIWAY::Player()` stores the frame it created as FRAME_SCH's player, and
   // the frame's close tells KIWAY it is gone (`PlayerDidClose`).
   useEffect(() => {
@@ -1969,22 +1969,28 @@ export function SchematicEditor({
    *   auto_highlight  belongs to the `$NET:` probe, not to this one
    */
 
-  const probeNonceRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (!syncSelectionFromPcb || syncSelectionFromPcb.nonce === probeNonceRef.current) return;
-    probeNonceRef.current = syncSelectionFromPcb.nonce;
+  const applyPcbSelection = (parts: readonly string[]): void => {
     const doc = docRef.current;
     if (!doc) return;
+    // Forced: `SCH_EDIT_FRAME::KiwayMailIn` has already refused a MAIL_SELECTION
+    // with `on_selection` off, before touching the selection.
     const ids = crossProbeSchSelection(
       settings.eeschema.cross_probing,
       doc,
-      syncSelectionFromPcb.parts,
+      parts,
       currentPath,
       libByIdRef.current,
+      true,
     );
-    // null is the probe REFUSED (`on_selection` off): upstream `break`s before
-    // touching the selection, so whatever the user had picked stays picked.
     if (ids === null) return;
+    // `m_syncingPcbToSchSelection = true`: this selection came from the board,
+    // so it is not sent back to it.
+    lastSchPartsRef.current = syncSelectionParts(
+      doc,
+      new Set(ids),
+      currentPath,
+      libByIdRef.current,
+    ).join(',');
     setSelection(new Set(ids));
     if (ids.length === 0) return;
 
@@ -2020,7 +2026,18 @@ export function SchematicEditor({
     // phases and the interval are `pcbnew/cross_probe.ts`', because the
     // blink is one behaviour and only the items differ.
     if (cfg.flash_selection) setFlashPhase(0);
-  }, [syncSelectionFromPcb, currentPath]);
+  };
+  applyPcbSelectionRef.current = applyPcbSelection;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the selection (and the sheet it is read against) is the trigger; the document and library are read through refs
+  useEffect(() => {
+    const doc = docRef.current;
+    if (!doc) return;
+    const parts = syncSelectionParts(doc, selection, currentPath, libByIdRef.current);
+    const key = parts.join(',');
+    if (key === lastSchPartsRef.current) return;
+    lastSchPartsRef.current = key;
+    schFrameRef.current!.SendSelectItemsToPcb(parts, false);
+  }, [selection, currentPath]);
 
   /**
    * The flash itself: `crossProbeFlashSelection` decides which ids are lit at
@@ -8047,12 +8064,19 @@ export function SchematicEditor({
       // SCH_ACTIONS::selectOnPCB, gated on `crossProbingSelection` — the kinds
       // that name something on the board (symbols, pins, sheets). A selection
       // of wires or labels has nothing to send, so the entry is absent.
-      if (doc && onSelectOnPcb) {
+      if (doc && kiway) {
         const parts = syncSelectionParts(doc, selection, currentPath, libById);
         if (parts.length > 0)
           add(150.2, {
             label: 'Select on PCB',
-            action: () => onSelectOnPcb(parts),
+            // `ExplicitCrossProbeToPcb`: a forced probe. Upstream the board frame
+            // is already on screen beside the schematic; here one editor shows
+            // at a time, so the board is brought up first (`Kiway().Player()`),
+            // and the mail waits for it if it is still mounting.
+            action: () => {
+              kiway.Player(FRAME_T.FRAME_PCB_EDITOR);
+              schFrameRef.current!.SendSelectItemsToPcb(parts, true);
+            },
           });
       }
       if (netlist && selectedNets(netlist, selection).length > 0)
