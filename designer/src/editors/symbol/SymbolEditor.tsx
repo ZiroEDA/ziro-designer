@@ -3,6 +3,9 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { iuToMM, SCH_IU_PER_MM } from '@ziroeda/common';
 import { parse } from '@ziroeda/sexpr';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import type { KIWAY } from '@ziroeda/common/kiway.js';
+import { SYMBOL_EDIT_FRAME } from './symbol_edit_frame.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -242,7 +245,7 @@ export function SymbolEditor({
   projectName,
   initialProject,
   onAddSymbolToSchematic,
-  openRequest,
+  kiway,
   schematicSymbol,
   onSaveToSchematic,
   readOnlyNotice,
@@ -253,9 +256,12 @@ export function SymbolEditor({
   initialProject?: SymbolEditorFile[] | null;
   /** eeschema wiring for "Add symbol to schematic" (SCH_ACTIONS::addSymbolToSchematic). */
   onAddSymbolToSchematic?: (sym: LibSymbol) => void;
-  /** The `.kicad_sym` the project manager launched us on (KiCad's MAIL_LIB_EDIT).
-   *  Re-sent with a fresh nonce each activation so a resident editor re-opens. */
-  openRequest?: { file: string | null; nonce: number } | null;
+  /**
+   * The program's KIWAY: the editor's SYMBOL_EDIT_FRAME registers as
+   * FRAME_SCH_SYMBOL_EDITOR's player on it, so the project manager's
+   * MAIL_LIB_EDIT reaches `KiwayMailIn`.
+   */
+  kiway?: KIWAY;
   /** A symbol handed over from the schematic (SCH_EDIT_TOOL's Edit with Symbol
    *  Editor). Re-sent with a fresh nonce so a resident editor re-opens it. */
   schematicSymbol?: {
@@ -683,9 +689,7 @@ export function SymbolEditor({
   // MAIL_LIB_EDIT. A `.kicad_sym` is a whole library, so select it in the tree
   // (like KiCad highlighting the library node) and load its first symbol so the
   // canvas isn't blank. Runs after the bootstrap effect registered the library.
-  useEffect(() => {
-    const file = openRequest?.file;
-    if (!file) return;
+  const libEdit = (file: string): void => {
     // KiwayMailIn's MAIL_LIB_EDIT: the payload is a *URI*, resolved through the
     // library table, and the nickname comes from the row it matches. A file no
     // row points at is refused with upstream's message rather than opened.
@@ -716,8 +720,24 @@ export function SymbolEditor({
       setTreeSel({ lib, name: first ?? null });
       if (first) void loadSymbol(lib, first);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openRequest?.nonce]);
+  };
+  const libEditRef = useRef(libEdit);
+  libEditRef.current = libEdit;
+  const [symFrame] = useState(
+    () => new SYMBOL_EDIT_FRAME({ libEdit: (uri) => libEditRef.current(uri) }),
+  );
+  // `KIWAY::Player()` stores the frame it created as FRAME_SCH_SYMBOL_EDITOR's
+  // player; mail held for it is delivered here, after the bootstrap effect
+  // above has registered the project's libraries.
+  useEffect(() => {
+    if (!kiway) return;
+    symFrame.SetKiway(kiway);
+    kiway.SetPlayerFrame(FRAME_T.FRAME_SCH_SYMBOL_EDITOR, symFrame);
+    return () => {
+      kiway.PlayerDidClose(FRAME_T.FRAME_SCH_SYMBOL_EDITOR, symFrame);
+      symFrame.SetKiway(null);
+    };
+  }, [kiway, symFrame]);
 
   // A symbol on loan from the schematic. Upstream hands it to a session-only
   // instance tab (findOrCreateSymbolInstanceTab); we have no tabs, so it goes

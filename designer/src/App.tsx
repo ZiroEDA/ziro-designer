@@ -2,6 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import { KIWAY } from '@ziroeda/common/kiway.js';
 import {
   useEffect,
@@ -571,8 +572,27 @@ export function App(): JSX.Element {
   // The file the project manager double-clicked into the footprint / symbol
   // editor (KiCad's MAIL_FP_EDIT / MAIL_LIB_EDIT). Re-sent with a fresh nonce
   // each activation so a resident editor re-opens on the newly-picked file.
-  const [fpRequest, setFpRequest] = useState<{ file: string | null; nonce: number } | null>(null);
-  const [symRequest, setSymRequest] = useState<{ file: string | null; nonce: number } | null>(null);
+  // The library file each editor was last opened on, for the address (`?f=`);
+  // the editor itself is told by mail, below.
+  const [fpFile, setFpFile] = useState<string | null>(null);
+  const [symFile, setSymFile] = useState<string | null>(null);
+  // The program's KIWAY (built further down), for the handlers above it.
+  const kiwayRef = useRef<KIWAY | null>(null);
+  /**
+   * `PROJECT_TREE_ITEM::Activate` for a library file: open the editor, then
+   * `ExpressMail( …, MAIL_LIB_EDIT / MAIL_FP_EDIT, fullFileName )`. KIWAY holds
+   * the mail while an editor that was not running mounts.
+   */
+  const expressLibEdit = useCallback((aKind: 'symbols' | 'footprints', aFile: string) => {
+    const kiway = kiwayRef.current;
+    if (!kiway) return;
+    const frame =
+      aKind === 'symbols' ? FRAME_T.FRAME_SCH_SYMBOL_EDITOR : FRAME_T.FRAME_FOOTPRINT_EDITOR;
+    kiway.Player(frame);
+    kiway.ExpressMail(frame, aKind === 'symbols' ? MAIL_T.MAIL_LIB_EDIT : MAIL_T.MAIL_FP_EDIT, {
+      value: aFile,
+    });
+  }, []);
   // A .kicad_wks the project manager double-clicked into the Drawing Sheet
   // Editor: its name + content, re-sent with a fresh nonce so a resident editor
   // re-opens on the newly-picked file.
@@ -674,8 +694,8 @@ export function App(): JSX.Element {
     // the board's address -- a file pcbnew does not open.
     const file = fileForFrame(pv, {
       schematic: startFile,
-      symbols: symRequest?.file,
-      footprints: fpRequest?.file,
+      symbols: symFile,
+      footprints: fpFile,
     });
     return {
       kind: 'project',
@@ -685,7 +705,7 @@ export function App(): JSX.Element {
       // the 3D viewer over the board editor: `/pcb/3d`
       ...(pv === 'pcb' && pcb3dOpen ? { child: '3d' as const } : {}),
     };
-  }, [view, openUid, startFile, symRequest?.file, fpRequest?.file, demoRoute, pcb3dOpen]);
+  }, [view, openUid, startFile, symFile, fpFile, demoRoute, pcb3dOpen]);
 
   // Restore the last view on reload. The ADDRESS is asked first, and only when
   // it names nothing does this fall back to the old behaviour -- the saved view
@@ -768,20 +788,18 @@ export function App(): JSX.Element {
           const v =
             route.view === 'manager' ? 'home' : (route.view as Extract<typeof view, 'schematic'>);
           // `?f=` goes to the frame the address names, and only to that one.
-          // The symbol and footprint editors take it as an open request -- the
-          // same message the project manager sends on a double-click, KiCad's
-          // MAIL_LIB_EDIT and MAIL_FP_EDIT -- because that is the only way in
-          // to a resident editor; a bare prop would be swallowed as unchanged
-          // when the same library is asked for twice.
+          // The symbol and footprint editors are sent it as the project
+          // manager sends a double-clicked library, KiCad's MAIL_LIB_EDIT and
+          // MAIL_FP_EDIT.
           if (route.file) {
-            if (route.view === 'symbols')
-              setSymRequest((prev) => ({ file: route.file!, nonce: (prev?.nonce ?? 0) + 1 }));
-            else if (route.view === 'footprints')
-              setFpRequest((prev) => ({ file: route.file!, nonce: (prev?.nonce ?? 0) + 1 }));
+            if (route.view === 'symbols') setSymFile(route.file);
+            else if (route.view === 'footprints') setFpFile(route.file);
             else setStartFile(route.file);
           }
           mountFor(v);
           setView(v);
+          if (route.file && (route.view === 'symbols' || route.view === 'footprints'))
+            expressLibEdit(route.view, route.file);
           // `/pcb/3d` raises the 3D viewer over the board; any other address
           // closes it, the way a child frame closes when you leave its parent.
           setPcb3dOpen(route.view === 'pcb' && route.child === '3d');
@@ -869,7 +887,16 @@ export function App(): JSX.Element {
         setRestoring(false);
       }
     })();
-  }, [route, openUid, openByUid, mountFor, openProjectFiles, demoSource?.id, applyDemoFrame]);
+  }, [
+    route,
+    openUid,
+    openByUid,
+    mountFor,
+    openProjectFiles,
+    demoSource?.id,
+    applyDemoFrame,
+    expressLibEdit,
+  ]);
 
   /**
    * And the address mirrors the state.
@@ -1448,6 +1475,7 @@ export function App(): JSX.Element {
       CreateKiWindow: () => false,
     });
   }, [goHome, mountFor]);
+  kiwayRef.current = kiway;
   const showPcb = useCallback(() => {
     setPcbMounted(true);
     setView('pcb');
@@ -1625,7 +1653,8 @@ export function App(): JSX.Element {
           }
           setSymMounted(true);
           setView('symbols');
-          setSymRequest((prev) => ({ file: startFile ?? null, nonce: (prev?.nonce ?? 0) + 1 }));
+          setSymFile(startFile ?? null);
+          if (startFile) expressLibEdit('symbols', startFile);
         }}
         onOpenFootprintEditor={(files, startFile) => {
           if (files) {
@@ -1634,7 +1663,8 @@ export function App(): JSX.Element {
           }
           setFpMounted(true);
           setView('footprints');
-          setFpRequest((prev) => ({ file: startFile ?? null, nonce: (prev?.nonce ?? 0) + 1 }));
+          setFpFile(startFile ?? null);
+          if (startFile) expressLibEdit('footprints', startFile);
         }}
         onOpenCalculator={() => {
           setCalcMounted(true);
@@ -1783,7 +1813,7 @@ export function App(): JSX.Element {
                 projectName={projectName}
                 initialProject={projectFiles}
                 onAddSymbolToSchematic={addSymbolToSchematic}
-                openRequest={symRequest}
+                kiway={kiway}
                 schematicSymbol={symFromSchematic}
                 onSaveToSchematic={saveSymbolToSchematic}
                 /* `SYMBOL_EDIT_FRAME::ShowInfoBarMessages` puts up "Library is
@@ -1803,11 +1833,7 @@ export function App(): JSX.Element {
         <div style={frameStyle(view === 'footprints')}>
           <Frozen shown={view === 'footprints'}>
             <Suspense fallback={frameLoading}>
-              <FootprintEditor
-                onExitToHome={goHome}
-                initialProject={projectFiles}
-                openRequest={fpRequest}
-              />
+              <FootprintEditor onExitToHome={goHome} initialProject={projectFiles} kiway={kiway} />
             </Suspense>
           </Frozen>
         </div>

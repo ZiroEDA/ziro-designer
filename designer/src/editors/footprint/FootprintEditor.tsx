@@ -2,6 +2,9 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { parse } from '@ziroeda/sexpr';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import type { KIWAY } from '@ziroeda/common/kiway.js';
+import { FOOTPRINT_EDIT_FRAME } from './footprint_edit_frame.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import { mmToIU, pcbIuToMM, PCB_IU_PER_MM, SCH_IU_PER_MM } from '@ziroeda/common';
 import {
@@ -239,13 +242,16 @@ const FP_LEFT_DISABLED: ReadonlySet<string> = new Set(['gridOrigin']);
 export function FootprintEditor({
   onExitToHome,
   initialProject,
-  openRequest,
+  kiway,
 }: {
   onExitToHome: () => void;
   initialProject?: FootprintEditorFile[] | null;
-  /** The `.kicad_mod` the project manager launched us on (KiCad's MAIL_FP_EDIT).
-   *  Re-sent with a fresh nonce each activation so a resident editor re-opens. */
-  openRequest?: { file: string | null; nonce: number } | null;
+  /**
+   * The program's KIWAY: the editor's FOOTPRINT_EDIT_FRAME registers as
+   * FRAME_FOOTPRINT_EDITOR's player on it, so the project manager's
+   * MAIL_FP_EDIT reaches `KiwayMailIn`.
+   */
+  kiway?: KIWAY;
 }): JSX.Element {
   /*
    * `EDA_BASE_FRAME::RecreateToolbars` asks the TOOLBAR_SETTINGS for each
@@ -622,9 +628,7 @@ export function FootprintEditor({
   // MAIL_FP_EDIT. Resolve its `.pretty` library and name, expand and select it
   // in the library tree, and load it onto the canvas. Runs after the bootstrap
   // effect has registered the project libraries (same mount, declared earlier).
-  useEffect(() => {
-    const file = openRequest?.file;
-    if (!file) return;
+  const fpEdit = (file: string): void => {
     const { lib, name } = fpTargetOf(file);
     if (!manager.current.libraryExists(lib)) return;
     const names = manager.current.footprintNames(lib);
@@ -635,8 +639,24 @@ export function FootprintEditor({
     setSelectLibId(`${lib}:${target}`);
     setTreeSel({ lib, name: target });
     void loadFootprint(lib, target);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openRequest?.nonce]);
+  };
+  const fpEditRef = useRef(fpEdit);
+  fpEditRef.current = fpEdit;
+  const [fpFrame] = useState(
+    () => new FOOTPRINT_EDIT_FRAME({ fpEdit: (f) => fpEditRef.current(f) }),
+  );
+  // `KIWAY::Player()` stores the frame it created as FRAME_FOOTPRINT_EDITOR's
+  // player; mail held for it is delivered here, after the bootstrap effect
+  // above has registered the project's libraries.
+  useEffect(() => {
+    if (!kiway) return;
+    fpFrame.SetKiway(kiway);
+    kiway.SetPlayerFrame(FRAME_T.FRAME_FOOTPRINT_EDITOR, fpFrame);
+    return () => {
+      kiway.PlayerDidClose(FRAME_T.FRAME_FOOTPRINT_EDITOR, fpFrame);
+      fpFrame.SetKiway(null);
+    };
+  }, [kiway, fpFrame]);
 
   // ----- undoable edits ---------------------------------------------------------
   /** Commit one edit: snapshot for undo, buffer to the manager, mark modified. */
