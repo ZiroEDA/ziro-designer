@@ -7,11 +7,12 @@
  * vertical, a horizontal, a 45 or 90 degree line, a line, a circle; keep a
  * polygon edge parallel to itself.
  *
- * `GRID_HELPER` (`common/tool/grid_helper.cpp`) is not ported; every rule here
- * asks it one thing, `AlignGrid`, so that is the whole of {@link GRID_HELPER}.
- * The one grid a rule makes for itself - `EC_CONVERGING`'s `GRID_HELPER
- * dummyGrid;` - is a default GRID_HELPER, a 1 x 1 grid at the origin
- * (grid_helper.cpp:51-53), which {@link DEFAULT_GRID_HELPER} is.
+ * `GRID_HELPER` itself is `tool/grid_helper.ts` now, but every rule here still
+ * asks it only one thing, `AlignGrid`, so that stays the whole interface these
+ * classes take ({@link GRID_HELPER} below) rather than the concrete class -
+ * anything with an `AlignGrid` will do, `EC_CONVERGING`'s own default grid
+ * included. That default - `GRID_HELPER dummyGrid;`, a 1 x 1 grid at the
+ * origin (`grid_helper.cpp:51-53`) - is {@link DEFAULT_GRID_HELPER}.
  */
 
 import { vectorSnapped45, vectorSnapped90 } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
@@ -26,6 +27,7 @@ import {
 } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import type { EDIT_LINE, EDIT_POINT, EDIT_POINTS } from './edit_points.js';
+import { computeNearest } from './grid_helper.js';
 
 /**
  * Mode for polygon line edge constraints. Determines what happens to the dragged line's
@@ -53,15 +55,8 @@ export interface GRID_HELPER {
   AlignGrid(aPoint: VECTOR2I): VECTOR2I;
 }
 
-/**
- * `GRID_HELPER::computeNearest( aPoint, aGrid, aOffset )` (grid_helper.cpp:445-450).
- */
-export function computeNearest(aPoint: VECTOR2I, aGrid: VECTOR2I, aOffset: VECTOR2I): VECTOR2I {
-  return {
-    x: KiROUND((aPoint.x - aOffset.x) / aGrid.x) * aGrid.x + aOffset.x,
-    y: KiROUND((aPoint.y - aOffset.y) / aGrid.y) * aGrid.y + aOffset.y,
-  };
-}
+/** `GRID_HELPER::computeNearest` - re-exported from the real class's module; see the file comment. */
+export { computeNearest };
 
 /**
  * A default-constructed GRID_HELPER: no tool manager, so `GetGrid()` is

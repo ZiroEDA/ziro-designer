@@ -337,10 +337,30 @@ still call the page directly and move over one frame at a time.
 `tool/edit_points` + `tool/edit_constraints` + `preview_items/angle_item`
 (09-27): whole - `EDIT_POINT` / `EDIT_LINE` / `EDIT_POINTS` with contours
 and lines, the eight `EC_*` constraints, and the angle readout. `GRID_HELPER`
-is not ported; the constraints ask it only `AlignGrid`, so that is the
-interface they take, and `EC_CONVERGING`'s own default grid is
+was not ported yet at the time; the constraints ask it only `AlignGrid`, so
+that stayed the interface they take (now `tool/grid_helper.ts` has the real
+class, but the constraints still take the light interface - anything with an
+`AlignGrid` will do), and `EC_CONVERGING`'s own default grid is
 `DEFAULT_GRID_HELPER` (1 x 1 at the origin). The C++ overloads `Previous` /
 `Next` on `EDIT_LINE`; here those are `PreviousLine` / `NextLine`.
+
+`tool/grid_helper` + `preview_items/snap_indicator` (09-27): `GRID_HELPER`,
+the base class every editor's grid-snapping helper builds on, and its origin
+marker with a snap-type icon. Ported whole against the geometry -
+`Align`/`AlignGrid` (all overloads), `computeNearest`, `canUseGrid`,
+`GetSelectionGrid`, the anchor list, the skip point, the mask flags, and
+`SnapToConstructionLines`. Three pieces are reduced (see the file's own
+header comment for why): `m_viewAxis`/`m_viewSnapPoint` are plain state
+(`GetAxisState()`/`GetSnapIndicatorState()`) rather than `VIEW_ITEM`
+instances added to a `VIEW` - upstream's base class never adds them either,
+only the `EE_GRID_HELPER`/`PCB_GRID_HELPER` subclass constructors do;
+`SNAP_MANAGER` is reduced to `SnapLineManagerLite`, the direction-list piece
+`GRID_HELPER` itself reads; and the anchor-debug overlay (gated off by
+default) is not ported. **Not rewired**: `eeschema/tools/snap.ts`,
+`pcbnew/tools/pcb_grid_helper.ts` and `pcbnew/router/pns_tool_base.ts` are
+separate, functional/data-oriented ports of the same C++ that predate this
+file; switching them onto this base is a bigger job than this port and is
+left open.
 
 The wxDC print path (09-27): `gr_basic` (here, whole), `gr_text`'s
 `GRTextWidth` / `GRPrintText`, `EDA_TEXT::Print`, `BITMAP_BASE::DrawBitmap`,
