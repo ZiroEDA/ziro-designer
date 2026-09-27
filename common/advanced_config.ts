@@ -118,6 +118,16 @@ export class ADVANCED_CFG {
    */
   m_MaximumThreads = 0;
 
+  /**
+   * When point-editing an arc by an endpoint while keeping the tangent at the
+   * other end, the derived radius is rejected once `|v2.y / (R - v2.x)|`
+   * exceeds this, so a near-degenerate drag cannot blow the radius up to
+   * overflow the geometry that draws it.
+   * Setting name: "DrawArcCenterMaxAngle"
+   * Default value: 50.0
+   */
+  m_DrawArcCenterMaxAngle = 50.0;
+
   private static s_cfg: ADVANCED_CFG | null = null;
 
   /** Get the singleton instance's config, which is shared by all consumers. */

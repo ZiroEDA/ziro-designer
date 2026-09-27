@@ -359,6 +359,23 @@ separate, functional/data-oriented ports of the same C++ that predate this
 file; switching them onto this base is a bigger job than this port and is
 left open.
 
+`tool/point_editor_behavior` (09-27): whole - `POINT_EDIT_BEHAVIOR` and the six
+"standard" behaviours (`POLYGON_`/`EDA_POLYGON_`/`EDA_SEGMENT_`/`EDA_CIRCLE_`/
+`EDA_BEZIER_`/`EDA_TABLECELL_`/`EDA_ARC_POINT_EDIT_BEHAVIOR`) plus the
+`KI_ARC_EDIT` namespace and `IncrementArcEditMode`. `m_DrawArcCenterMaxAngle`
+joined `advanced_config.ts` for this (KiCad's own default, 50.0). **Not
+rewired**, same shape as the grid-helper entry above:
+`eeschema/tools/point_editor.ts` + `eeschema/tools/arc_edit.ts` and
+`pcbnew/point_editor.ts` are deliberate functional, immutable-document ports
+of this same C++ (a drag is `(document, handle, cursor) -> new document`, so
+the live preview and the committed result cannot disagree - see the header
+comment of `eeschema/tools/point_editor.ts`); re-platforming either onto this
+file's mutable `EDIT_POINTS` + `COMMIT` shape is a rearchitecture, not a
+swap, and is left open. This file exists for whatever *can* take the C++
+shape directly, and its own tests transcribe the two upstream cases
+(`ArcEditKeepsSmallSchematicRadius`, `PolygonBehaviorSurvivesAssignment`)
+that read on it.
+
 The wxDC print path (09-27): `gr_basic` (here, whole), `gr_text`'s
 `GRTextWidth` / `GRPrintText`, `EDA_TEXT::Print`, `BITMAP_BASE::DrawBitmap`,
 `RENDER_SETTINGS`' print DC, the drawing sheet's `PrintWsItem`s and
