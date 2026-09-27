@@ -437,6 +437,17 @@ describe('the editor reads and writes the slice, not a private key', () => {
     expect(keys).toEqual([]);
   });
 
+  it('keeps the Open Recent store under the key it has always had', () => {
+    // The frame's m_fileHistory, which moved into bitmap2component with the
+    // window. Renaming the key would silently empty every user's Open Recent.
+    const FRAME = readFileSync(
+      fileURLToPath(new URL('../../../bitmap2component/bitmap2cmp_frame_ui.tsx', import.meta.url)),
+      'utf8',
+    );
+    const keys = [...FRAME.matchAll(/'(ziroeda\.[a-z0-9_.]+)'/g)].map((m) => m[1]);
+    expect(keys).toEqual(['ziroeda.bitmap2cmp.recent']);
+  });
+
   it('goes through the manager in both directions', () => {
     expect(SRC).toContain('settings.bitmap2cmp');
     expect(SRC).toContain('settings.updateBitmap2Cmp');
