@@ -45,7 +45,7 @@ is the lookup.
 | **ours, no KiCad file** | `spin_ctrl`, `slider`, `tooltip` (wx's own controls), `wx_aui_sash` (from `wx_aui_utils`), `rc_tree_style` (`wx_dataviewctrl`'s `GetAttr` as CSS), `icons`, `canvas_size`, `overlay_scrollbars`, `shell.css` (the GTK theme), `use_dismiss_on_outside` |
 | **still in `designer/`** (they read `designer/src/prefs`, or an editor's types; move with `common/settings`) | `wx_infobar` (`ReadOnlyNotice.tsx`), `widget_hotkey_list` (`dialog_hotkey_list.tsx`), `layer_box_selector` / `layer_presentation` / `lib_tree` / `net_selector` / `netclass_selector` / `font_choice` / `text_ctrl_eval` / `footprint_preview_widget` (the editors' own widgets under `designer/src/editors` and `designer/src/widgets`), `gal_options_panel_base` (the Display Options prefs page), `wx_html_report_panel` (the REPORTER widget) |
 | **n/a in a browser** | `aui_json_serializer`, `wx_aui_art_providers`, `wx_panel`, `webview_panel`, `mathplot` (the simulator, not built), `app_progress_dialog` (wx's dialog; `wx_progress_reporters` is the one we draw) |
-| **missing** (features not built, not moves) | `area_selector`, `bitmap_button`, `bitmap_toggle`, `button_row_panel`, `design_block_pane`, `panel_design_block_chooser`, `filter_combobox`, `footprint_diff_widget`, `footprint_select_widget`, the nine `grid_*` cell helpers (`grid_bitmap_toggle`, `grid_button`, `grid_checkbox`, `grid_color_swatch_helpers`, `grid_combobox`, `grid_icon_text_helpers`, `grid_striped_renderer`, `grid_text_button_helpers`, `grid_text_helpers` — our grids draw these inline), `indicator_icon`, `listbox_tricks`, `margin_offset_binder`, `number_badge`, `search_pane` (+`_base`, `_tab`), `stepped_slider`, `up_down_tree`, `widget_save_restore`, `wx_busy_indicator`, `wx_collapsible_pane`, `wx_dataviewctrl`, `wx_listbox`, `wx_treebook`, `zoom_correction_ctrl` |
+| **missing** (features not built, not moves) | `area_selector`, `bitmap_button`, `bitmap_toggle`, `button_row_panel`, `design_block_pane`, `panel_design_block_chooser`, `filter_combobox`, `footprint_diff_widget`, `footprint_select_widget`, the `grid_*` cell helpers (`grid_bitmap_toggle`, `grid_button` - its GRID_BITMAP_BUTTON_RENDERER is ported, 09-27 -, `grid_checkbox`, `grid_color_swatch_helpers`, `grid_combobox`, `grid_icon_text_helpers`, `grid_striped_renderer`, `grid_text_button_helpers`, `grid_text_helpers` — our grids draw these inline), `indicator_icon`, `listbox_tricks`, `margin_offset_binder`, `number_badge`, `search_pane` (+`_base`, `_tab`), `stepped_slider`, `up_down_tree`, `widget_save_restore`, `wx_busy_indicator`, `wx_collapsible_pane`, `wx_dataviewctrl`, `wx_listbox`, `wx_treebook`, `zoom_correction_ctrl` |
 
 Names and placement verified 09-21; method-level parity of the 16 ported
 units is NOT claimed by this row — each is audited when its screen is.
@@ -118,12 +118,13 @@ the code it ports:
 
 ## Root — 131 KiCad units
 
-Tabled 09-26, recounted 09-27. Of KiCad's 131 `common/*.cpp`: **85 here
-under KiCad's name** (67 below, and the 18 renamed ones in the table after
+Tabled 09-26, recounted 09-27. Of KiCad's 131 `common/*.cpp`: **87 here
+under KiCad's name** (69 below, and the 18 renamed ones in the table after
 them - every one of those is now at `common/<unit>.ts`, the table only says
-what it used to be called), **2 to port** (`lib_table_grid_tricks`,
-`lib_table_notebook_panel`, both waiting on the `libraries/` port), **16
-waiting on their feature**, **27 n/a**, and **1 partly here** (`kiway`).
+what it used to be called), **none to port** (the last two,
+`lib_table_grid_tricks` and `lib_table_notebook_panel`, landed 09-27 with
+the `libraries/` port), **16 waiting on their feature**, **27 n/a**, and
+**1 partly here** (`kiway`).
 
 KiCad has an `include/` beside `common/`; we have none. A header-only
 `include/<x>.h` is `common/<x>.ts` (`base_set`, `collector`, `ctl_flags`,
@@ -133,14 +134,15 @@ KiCad has an `include/` beside `common/`; we have none. A header-only
 `string_any_map`, `units_provider`, `zoom_defines`), and a unit split
 across `include/<x>.h` + `common/<y>.cpp` takes the `.cpp` name.
 
-**Here, KiCad's name (66):** advanced_config app_monitor array_options
+**Here, KiCad's name (68):** advanced_config app_monitor array_options
 background_jobs_monitor base_screen bitmap_base bitmap_store build_version
 board_printout callback_gal commit common confirm draw_panel_gal dsnlexer
 eda_base_frame eda_draw_frame eda_group eda_item eda_pattern_match eda_shape
 eda_text eda_units embedded_files file_history gr_basic gr_text grid_tricks hotkeys_basic
 paths
 hotkey_store
-inspectable kidialog kiid launch_ext lib_id local_history lseq lset
+inspectable kidialog kiid launch_ext lib_id lib_table_grid_tricks
+lib_table_notebook_panel local_history lseq lset
 marker_base markup_parser netclass origin_transforms page_info pgm_base
 pin_numbers printout project rc_item refdes_utils reference_image render_settings
 reporter richio string_utils stroke_params template_fieldnames thread_pool
@@ -181,11 +183,25 @@ unknown library; `source` is the full path and `date` is
 (the variants model does not exist yet) and the second XNODE copy in
 `eeschema/exporters/netlist.ts`.
 
-**To port (2)** — `lib_table_grid_tricks` and `lib_table_notebook_panel`
-(the library-table dialogs, `dialog_sym_lib_table` / `dialog_fp_lib_table`).
-Both sit on KiCad 10's `libraries/` (LIBRARY_TABLE, LIBRARY_MANAGER,
-LIB_TABLE_GRID_DATA_MODEL), which is not ported. `grid_tricks` is done
-(09-27): `grid_tricks.ts` over `wx/grid.ts` and `widgets/wx_grid.tsx`.
+**The library tables (09-27): `libraries/` + the two lib-table units.**
+`libraries/library_table` (LIBRARY_TABLE, LIBRARY_TABLE_ROW, the options
+helpers), `libraries/library_table_parser` (the strict PEGTL-shaped matcher,
+moved from pcbnew), `libraries/lib_table_grid_data_model`
+(LIB_TABLE_GRID_DATA_MODEL; the header is `include/`, the unit
+`common/libraries/`), and of `libraries/library_manager` only the
+LIBRARY_MANAGER_ADAPTER half the grids ask (`CheckTableRow`, `LibraryError`,
+the configuration hooks) - LIBRARY_MANAGER itself (loading, `Rows`,
+`GetRow`) is not ported, pcbnew's `fp_lib_table.ts` keeps its own `Rows` /
+`GetRow` / `ExpandURI` over a plain record, and loading stays the editors'.
+`lib_table_grid_tricks` is whole; `lib_table_notebook_panel` lacks the
+closable-page half (`TableModified`, `SaveTable`, `SaveOverrides`,
+`GetCanClose`), since no nested table is opened here. Manage Symbol / Footprint
+Libraries (`designer/src/widgets/dialog_{sym,fp}_lib_table.tsx`) sit on them
+through one shared panel, `lib_table_panel.tsx`. The table writers now emit
+10.0.5's text (one space between a row's members). With them:
+`widgets/grid_button` (GRID_BITMAP_BUTTON_RENDERER only) and `wx/aui_notebook`
+(the notebook model). `grid_tricks` is done (09-27): `grid_tricks.ts` over
+`wx/grid.ts` and `widgets/wx_grid.tsx`.
 
 **Waiting on their feature (16):** `design_block`, `design_block_info`,
 `design_block_io`, `design_block_library_adapter`,
