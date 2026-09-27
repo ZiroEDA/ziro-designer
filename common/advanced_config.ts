@@ -128,6 +128,14 @@ export class ADVANCED_CFG {
    */
   m_DrawArcCenterMaxAngle = 50.0;
 
+  /**
+   * How long (in milliseconds) `CONSTRUCTION_MANAGER` waits before a
+   * proposed batch of temporary construction geometry is accepted and shown,
+   * unless it is a persistent batch or the timeout is superseded first.
+   * Setting name: "ExtensionSnapTimeoutMs"; default 500.
+   */
+  m_ExtensionSnapTimeoutMs = 500;
+
   private static s_cfg: ADVANCED_CFG | null = null;
 
   /** Get the singleton instance's config, which is shared by all consumers. */

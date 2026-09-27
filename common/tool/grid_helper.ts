@@ -16,11 +16,13 @@
  * `computeNearest`, `canUseGrid`, `GetSelectionGrid`, `GetGridSize`,
  * `addAnchor` / `clearAnchors` / the `ANCHOR` type, the skip point, the mask
  * flags, and `SnapToConstructionLines` are all ported line for line against
- * `common/tool/grid_helper.cpp`.
+ * `common/tool/grid_helper.cpp`. `m_snapManager` is the real `SNAP_MANAGER`
+ * (`tool/construction_manager.ts`), exactly as upstream holds it - the
+ * reduced `SnapLineManagerLite` stand-in this file used to carry is gone.
  *
- * Three pieces are reduced, because nothing in `GRID_HELPER` itself needs the
- * full machinery behind them, and no subclass in this tree calls this base
- * yet - `eeschema/tools/snap.ts`, `pcbnew/tools/pcb_grid_helper.ts` and
+ * Two pieces are still reduced, because nothing in `GRID_HELPER` itself needs
+ * the full machinery behind them, and no subclass in this tree calls this
+ * base yet - `eeschema/tools/snap.ts`, `pcbnew/tools/pcb_grid_helper.ts` and
  * `pcbnew/router/pns_tool_base.ts` are separate, ad-hoc ports that predate
  * this file and reduce the same C++ their own way. Rewiring them onto this
  * base is a bigger job than this port (they are functional/data-oriented,
@@ -34,13 +36,15 @@
  *    ({@link AxisViewState}, {@link SnapIndicatorViewState}, read through
  *    {@link GRID_HELPER.GetAxisState} / {@link GRID_HELPER.GetSnapIndicatorState}),
  *    for a subclass or renderer to feed into `drawOriginViewItem` /
- *    `drawSnapIndicator` (`preview_items/snap_indicator.ts`).
- *  - `m_snapManager` (`SNAP_MANAGER`, `include/tool/construction_manager.h`)
- *    is reduced to the one piece `GRID_HELPER`'s own methods read: the
- *    snap-line direction list and its derived "active direction"
- *    ({@link SnapLineManagerLite}, a lean transcription of `SNAP_LINE_MANAGER`).
- *    The construction-geometry and snap-guide-colour halves are UI state for
- *    a preview overlay this base class never draws.
+ *    `drawSnapIndicator` (`preview_items/snap_indicator.ts`). `m_constructionGeomPreview`
+ *    (`KIGFX::CONSTRUCTION_GEOM`) is ported the same way: real state
+ *    (`preview_items/construction_geom.ts`), held by this class exactly as
+ *    upstream holds it, but never added to a `VIEW` here - upstream's own
+ *    `view->Add( &m_constructionGeomPreview )` lives in the
+ *    `GRID_HELPER( TOOL_MANAGER*, int )` constructor, which is not reachable
+ *    without a subclass wiring a canvas to it either. A renderer reaches the
+ *    geometry through `getSnapManager().GetViewItem()` and draws it with
+ *    `drawConstructionGeom`.
  *  - `m_anchorDebug` / `enableAndGetAnchorDebug` (`ANCHOR_DEBUG`, gated by an
  *    advanced-config flag that defaults off) is not ported; the getter always
  *    answers `null`, which is upstream's own default-config behaviour.
@@ -50,7 +54,7 @@
  */
 
 import { PT_NONE, type TYPED_POINT2I } from '@ziroeda/kimath/src/geometry/point_types.js';
-import { INT_MIN, KiROUND } from '@ziroeda/kimath/src/math/util.js';
+import { KiROUND, INT_MIN } from '@ziroeda/kimath/src/math/util.js';
 import {
   type VECTOR2I,
   type Vec2,
@@ -58,6 +62,8 @@ import {
   toVECTOR2I,
 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { EDA_ITEM } from '../eda_item.js';
+import { CONSTRUCTION_GEOM } from '../preview_items/construction_geom.js';
+import { SNAP_MANAGER } from './construction_manager.js';
 import type { SELECTION } from './selection.js';
 import type { TOOL_MANAGER } from './tool_manager.js';
 
@@ -117,158 +123,6 @@ export function computeNearest(aPoint: VECTOR2I, aGrid: VECTOR2I, aOffset: VECTO
   };
 }
 
-/** `normalizeDirection` (`construction_manager.cpp:406-427`): a direction's canonical form. */
-function normalizeDirection(aDir: VECTOR2I): VECTOR2I {
-  if (aDir.x === 0 && aDir.y === 0) return { x: 0, y: 0 };
-
-  let dx = aDir.x;
-  let dy = aDir.y;
-
-  let a = Math.abs(dx);
-  let b = Math.abs(dy);
-  while (b) {
-    [a, b] = [b, a % b];
-  }
-  const gcd = a;
-
-  if (gcd > 0) {
-    dx = dx / gcd;
-    dy = dy / gcd;
-  }
-
-  if (dx < 0 || (dx === 0 && dy < 0)) {
-    dx = -dx;
-    dy = -dy;
-  }
-
-  return { x: dx, y: dy };
-}
-
-/** `findDirectionIndex` (`construction_manager.cpp:432-447`). */
-function findDirectionIndex(aDirections: readonly VECTOR2I[], aDelta: VECTOR2I): number | null {
-  const normalized = normalizeDirection(aDelta);
-
-  if (normalized.x === 0 && normalized.y === 0) return null;
-
-  const index = aDirections.findIndex((d) => d.x === normalized.x && d.y === normalized.y);
-
-  return index === -1 ? null : index;
-}
-
-/**
- * `SNAP_LINE_MANAGER` (`include/tool/construction_manager.h:71-150`), reduced
- * to the pure data `GRID_HELPER`'s own methods touch: the direction list, the
- * snap-line origin/end, and the derived "active direction". The rendering
- * half (`CONSTRUCTION_VIEW_HANDLER`, `notifyGuideChange` ->
- * `SNAP_MANAGER::UpdateSnapGuides`, `SetSnappedAnchor`,
- * `GetNearestSnapLinePoint`) is not ported: nothing in `GRID_HELPER` itself
- * calls it.
- */
-class SnapLineManagerLite {
-  private m_directions: VECTOR2I[] = [];
-  private m_snapLineOrigin: VECTOR2I | null = null;
-  private m_snapLineEnd: VECTOR2I | null = null;
-  private m_activeDirection: number | null = null;
-
-  constructor() {
-    // `SNAP_LINE_MANAGER::SNAP_LINE_MANAGER` (`construction_manager.cpp:398-403`).
-    this.SetDirections([
-      { x: 1, y: 0 },
-      { x: 0, y: 1 },
-    ]);
-  }
-
-  GetDirections(): readonly VECTOR2I[] {
-    return this.m_directions;
-  }
-
-  GetSnapLineOrigin(): VECTOR2I | null {
-    return this.m_snapLineOrigin;
-  }
-
-  GetActiveDirection(): number | null {
-    return this.m_activeDirection;
-  }
-
-  /** `SNAP_LINE_MANAGER::SetDirections` (`construction_manager.cpp:450-489`). */
-  SetDirections(aDirections: readonly VECTOR2I[]): void {
-    const unique: VECTOR2I[] = [];
-
-    for (const direction of aDirections) {
-      const normalized = normalizeDirection(direction);
-
-      if (normalized.x === 0 && normalized.y === 0) continue;
-
-      if (!unique.some((u) => u.x === normalized.x && u.y === normalized.y))
-        unique.push(normalized);
-    }
-
-    const changed =
-      unique.length !== this.m_directions.length ||
-      unique.some((d, i) => {
-        const existing = this.m_directions[i];
-        return !existing || d.x !== existing.x || d.y !== existing.y;
-      });
-
-    if (!changed) return;
-
-    this.m_directions = unique;
-    this.m_activeDirection = null;
-
-    if (this.m_snapLineOrigin && this.m_snapLineEnd) {
-      const delta = {
-        x: this.m_snapLineEnd.x - this.m_snapLineOrigin.x,
-        y: this.m_snapLineEnd.y - this.m_snapLineOrigin.y,
-      };
-
-      if (findDirectionIndex(this.m_directions, delta) === null) this.m_snapLineEnd = null;
-    }
-
-    if (this.m_directions.length === 0) {
-      this.ClearSnapLine();
-    }
-  }
-
-  /** `SNAP_LINE_MANAGER::SetSnapLineOrigin` (`construction_manager.cpp:491-504`). */
-  SetSnapLineOrigin(aOrigin: VECTOR2I): void {
-    if (this.m_snapLineOrigin && vecEqual(this.m_snapLineOrigin, aOrigin) && !this.m_snapLineEnd)
-      return;
-
-    this.m_snapLineOrigin = aOrigin;
-    this.m_snapLineEnd = null;
-    this.m_activeDirection = null;
-  }
-
-  /** `SNAP_LINE_MANAGER::SetSnapLineEnd` (`construction_manager.cpp:507-525`). */
-  SetSnapLineEnd(aSnapEnd: VECTOR2I | null): void {
-    if (!this.m_snapLineOrigin) return;
-
-    const same =
-      (aSnapEnd === null && this.m_snapLineEnd === null) ||
-      (aSnapEnd !== null && this.m_snapLineEnd !== null && vecEqual(aSnapEnd, this.m_snapLineEnd));
-
-    if (same) return;
-
-    this.m_snapLineEnd = aSnapEnd;
-
-    if (aSnapEnd) {
-      this.m_activeDirection = findDirectionIndex(this.m_directions, {
-        x: aSnapEnd.x - this.m_snapLineOrigin.x,
-        y: aSnapEnd.y - this.m_snapLineOrigin.y,
-      });
-    } else {
-      this.m_activeDirection = null;
-    }
-  }
-
-  /** `SNAP_LINE_MANAGER::ClearSnapLine` (`construction_manager.cpp:528-535`). */
-  ClearSnapLine(): void {
-    this.m_snapLineOrigin = null;
-    this.m_snapLineEnd = null;
-    this.m_activeDirection = null;
-  }
-}
-
 /** The `m_viewAxis` state a subclass or renderer reads; see the file comment. */
 export interface AxisViewState {
   position: VECTOR2I;
@@ -319,7 +173,12 @@ export class GRID_HELPER {
     visible: false,
   };
 
-  private m_snapLineManager = new SnapLineManagerLite();
+  /// Show construction geometry (if any) on the canvas; see the file comment
+  /// for why this is never added to a real `VIEW` here.
+  private m_constructionGeomPreview = new CONSTRUCTION_GEOM();
+
+  /// Manage the construction geometry, snap lines, reference points, etc.
+  private m_snapManager = new SNAP_MANAGER(this.m_constructionGeomPreview);
 
   /**
    * `GRID_HELPER()` / `GRID_HELPER( TOOL_MANAGER*, int )` (`grid_helper.cpp:42-94`).
@@ -344,15 +203,17 @@ export class GRID_HELPER {
 
   /**
    * Reset all internal state. Used to remove any dangling pointers to items
-   * that have been deleted.
-   *
-   * `m_constructionGeomPreview.ClearSnapLine()` (the *rendered* construction
-   * geometry's own clear, a different type) is not ported - see the file
-   * comment; the snap line's own state still clears.
+   * that have been deleted. `GRID_HELPER::FullReset` (`grid_helper.h:70-74`).
    */
   FullReset(): void {
-    this.m_snapLineManager.ClearSnapLine();
+    this.m_constructionGeomPreview.ClearSnapLine();
+    this.m_snapManager.Clear();
     this.m_anchors = [];
+  }
+
+  /** `GRID_HELPER::getSnapManager` (`grid_helper.h:236`). */
+  protected getSnapManager(): SNAP_MANAGER {
+    return this.m_snapManager;
   }
 
   // Manual setters used when no TOOL_MANAGER/View is available (e.g. in tests)
@@ -487,20 +348,24 @@ export class GRID_HELPER {
     this.m_enableSnapLine = aSnap;
   }
 
+  /** `GRID_HELPER::SetSnapLineDirections` (`grid_helper.cpp:135-138`). */
   SetSnapLineDirections(aDirections: readonly VECTOR2I[]): void {
-    this.m_snapLineManager.SetDirections(aDirections);
+    this.m_snapManager.GetSnapLineManager().SetDirections(aDirections);
   }
 
+  /** `GRID_HELPER::SetSnapLineOrigin` (`grid_helper.cpp:141-144`). */
   SetSnapLineOrigin(aOrigin: VECTOR2I): void {
-    this.m_snapLineManager.SetSnapLineOrigin(aOrigin);
+    this.m_snapManager.GetSnapLineManager().SetSnapLineOrigin(aOrigin);
   }
 
+  /** `GRID_HELPER::SetSnapLineEnd` (`grid_helper.cpp:147-150`). */
   SetSnapLineEnd(aEnd: VECTOR2I | null): void {
-    this.m_snapLineManager.SetSnapLineEnd(aEnd);
+    this.m_snapManager.GetSnapLineManager().SetSnapLineEnd(aEnd);
   }
 
+  /** `GRID_HELPER::ClearSnapLine` (`grid_helper.cpp:153-156`). */
   ClearSnapLine(): void {
-    this.m_snapLineManager.ClearSnapLine();
+    this.m_snapManager.GetSnapLineManager().ClearSnapLine();
   }
 
   /**
@@ -515,12 +380,13 @@ export class GRID_HELPER {
     aGrid: Vec2,
     aSnapRange: number,
   ): VECTOR2I | null {
-    const origin = this.m_snapLineManager.GetSnapLineOrigin();
-    const directions = this.m_snapLineManager.GetDirections();
+    const snapLineManager = this.m_snapManager.GetSnapLineManager();
+    const origin = snapLineManager.GetSnapLineOrigin();
+    const directions = snapLineManager.GetDirections();
 
     if (!origin || directions.length === 0) return null;
 
-    const activeDirection = this.m_snapLineManager.GetActiveDirection();
+    const activeDirection = snapLineManager.GetActiveDirection();
 
     const originVec: Vec2 = { x: origin.x, y: origin.y };
     const cursorVec: Vec2 = { x: aPoint.x, y: aPoint.y };

@@ -346,18 +346,43 @@ the base class every editor's grid-snapping helper builds on, and its origin
 marker with a snap-type icon. Ported whole against the geometry -
 `Align`/`AlignGrid` (all overloads), `computeNearest`, `canUseGrid`,
 `GetSelectionGrid`, the anchor list, the skip point, the mask flags, and
-`SnapToConstructionLines`. Three pieces are reduced (see the file's own
+`SnapToConstructionLines`. Two pieces are reduced (see the file's own
 header comment for why): `m_viewAxis`/`m_viewSnapPoint` are plain state
 (`GetAxisState()`/`GetSnapIndicatorState()`) rather than `VIEW_ITEM`
 instances added to a `VIEW` - upstream's base class never adds them either,
-only the `EE_GRID_HELPER`/`PCB_GRID_HELPER` subclass constructors do;
-`SNAP_MANAGER` is reduced to `SnapLineManagerLite`, the direction-list piece
-`GRID_HELPER` itself reads; and the anchor-debug overlay (gated off by
-default) is not ported. **Not rewired**: `eeschema/tools/snap.ts`,
-`pcbnew/tools/pcb_grid_helper.ts` and `pcbnew/router/pns_tool_base.ts` are
-separate, functional/data-oriented ports of the same C++ that predate this
-file; switching them onto this base is a bigger job than this port and is
-left open.
+only the `EE_GRID_HELPER`/`PCB_GRID_HELPER` subclass constructors do; and the
+anchor-debug overlay (gated off by default) is not ported. **Not rewired**:
+`eeschema/tools/snap.ts`, `pcbnew/tools/pcb_grid_helper.ts` and
+`pcbnew/router/pns_tool_base.ts` are separate, functional/data-oriented ports
+of the same C++ that predate this file; switching them onto this base is a
+bigger job than this port and is left open.
+
+`tool/construction_manager` + `preview_items/construction_geom` (09-27):
+`CONSTRUCTION_MANAGER` (persistent + temporary batches of "construction"
+geometry, the timeout-based `ACTIVATION_HELPER` that accepts a proposed
+batch), `SNAP_LINE_MANAGER` (the snap-line's own state - origin, end,
+direction list, active direction, `GetNearestSnapLinePoint`,
+`SetSnappedAnchor`) and `SNAP_MANAGER` (glues the two together, plus the
+snap-guide colours), and `CONSTRUCTION_GEOM` (the drawables, snap line and
+snap guides they feed). `tool/grid_helper.ts` now holds the real
+`SNAP_MANAGER`/`CONSTRUCTION_GEOM`, exactly as upstream's `GRID_HELPER`
+holds them, replacing the `SnapLineManagerLite` stand-in from the previous
+entry. `ACTIVATION_HELPER`'s `std::mutex` is dropped (one JS thread); its
+`wxTimer` is `setTimeout`; its proposal hash is a string key over each
+item's identity rather than a hash of its C++ pointer value (strictly more
+correct - no collisions). `construction_geom.ts` draws as plain functions
+over Canvas2D (`drawConstructionGeom`), like `snap_indicator.ts`, but keeps
+upstream's WORLD-coordinate transform rather than resetting to device pixels
+- it assumes the caller already set `ctx.setTransform` to the view scale
+(`designer/src/editors/pcb/renderBoard.ts`'s convention), so only a
+screen-pixel size or pen width needs converting (`worldScale`, the same
+`GAL::m_worldScale`). Neither `CONSTRUCTION_GEOM` nor the drawables it holds
+are added to the real `VIEW` class here - a renderer reaches them through
+`GRID_HELPER`'s `getSnapManager().GetViewItem()`, not yet wired to any
+canvas, matching `snap_indicator`'s own not-yet-called-anywhere state.
+`KIGFX::DrawCross`/`DrawDashedLine` (`preview_items/item_drawing_utils.cpp`,
+not ported as a shared module) are transcribed private to this file, since
+upstream's only two callers are both in the same `ViewDraw`.
 
 `tool/point_editor_behavior` (09-27): whole - `POINT_EDIT_BEHAVIOR` and the six
 "standard" behaviours (`POLYGON_`/`EDA_POLYGON_`/`EDA_SEGMENT_`/`EDA_CIRCLE_`/
