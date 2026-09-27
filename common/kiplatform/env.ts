@@ -25,3 +25,11 @@ export function GetDocumentsPath(): string {
 export function GetUserCachePath(): string {
   return '/.cache';
 }
+
+/**
+ * `GetUserConfigPath`: `g_get_user_config_dir()`, `$HOME/.config` - `/.config`
+ * with no home, as above.
+ */
+export function GetUserConfigPath(): string {
+  return '/.config';
+}

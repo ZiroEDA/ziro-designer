@@ -118,13 +118,12 @@ the code it ports:
 
 ## Root — 131 KiCad units
 
-Tabled 09-26, recounted 09-27. Of KiCad's 131 `common/*.cpp`: **84 here
-under KiCad's name** (66 below, and the 18 renamed ones in the table after
+Tabled 09-26, recounted 09-27. Of KiCad's 131 `common/*.cpp`: **85 here
+under KiCad's name** (67 below, and the 18 renamed ones in the table after
 them - every one of those is now at `common/<unit>.ts`, the table only says
 what it used to be called), **2 to port** (`lib_table_grid_tricks`,
 `lib_table_notebook_panel`, both waiting on the `libraries/` port), **16
-waiting on their feature**, **27 n/a**, and **2 partly here** (`paths`,
-`kiway`).
+waiting on their feature**, **27 n/a**, and **1 partly here** (`kiway`).
 
 KiCad has an `include/` beside `common/`; we have none. A header-only
 `include/<x>.h` is `common/<x>.ts` (`base_set`, `collector`, `ctl_flags`,
@@ -139,6 +138,7 @@ background_jobs_monitor base_screen bitmap_base bitmap_store build_version
 board_printout callback_gal commit common confirm draw_panel_gal dsnlexer
 eda_base_frame eda_draw_frame eda_group eda_item eda_pattern_match eda_shape
 eda_text eda_units embedded_files file_history gr_basic gr_text grid_tricks hotkeys_basic
+paths
 hotkey_store
 inspectable kidialog kiid launch_ext lib_id local_history lseq lset
 marker_base markup_parser netclass origin_transforms page_info pgm_base
@@ -215,7 +215,7 @@ path list; files resolve through the project), `singleton`, `streamwrapper`,
 `filter_reader`, `textentry_tricks` (a browser input does it), `ui_events`,
 `wx_filename`.
 
-**Partly here, the rest n/a (09-26):** `paths` - the stock-library and
+**`paths` whole (09-27):** every getter's Linux branch, at the installed build's CMake locations. Before that, 09-26: the stock-library and
 user-template getters `COMMON_SETTINGS::InitializeEnvironment` needs, at the
 Linux build's install location (`/usr/share/kicad`), where the hosted
 libraries are mounted; the settings / cache / plugin / log folders are n/a.
