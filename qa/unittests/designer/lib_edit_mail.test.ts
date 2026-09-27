@@ -105,3 +105,18 @@ describe('MAIL_FP_EDIT', () => {
     expect([sym, fp]).toEqual([[], ['R.kicad_mod']]);
   });
 });
+
+describe('the frames are the types KIWAY knows them as', () => {
+  it('IsType answers FRAME_SCH_SYMBOL_EDITOR and FRAME_FOOTPRINT_EDITOR', () => {
+    const sym = new SYMBOL_EDIT_FRAME({ libEdit: () => {} });
+    const fp = new FOOTPRINT_EDIT_FRAME({ fpEdit: () => {} });
+    expect([
+      sym.IsType(FRAME_T.FRAME_SCH_SYMBOL_EDITOR),
+      sym.IsType(FRAME_T.FRAME_FOOTPRINT_EDITOR),
+    ]).toEqual([true, false]);
+    expect([
+      fp.IsType(FRAME_T.FRAME_FOOTPRINT_EDITOR),
+      fp.IsType(FRAME_T.FRAME_SCH_SYMBOL_EDITOR),
+    ]).toEqual([true, false]);
+  });
+});
