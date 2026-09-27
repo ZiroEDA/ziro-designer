@@ -13408,7 +13408,7 @@ fieldset.ze-sbox > legend {
   color: #ff0080; /* [data] wxColour( 255, 0, 128 ) */
 }
 .ze-mapgbr-vline {
-  width: 1px;
+  width: 1px; /* [css] a wxStaticLine is a GtkSeparator: Yaru `separator { min-width: 1px }` */
   margin: 5px; /* [data] Add( m_staticlineSep, 0, wxEXPAND | wxALL, 5 ) */
   background: var(--gtk-separator);
 }
@@ -13447,8 +13447,8 @@ fieldset.ze-sbox > legend {
 .ze-selectlayer-buttons {
   display: flex; /* [data] buttonsSizer, wxVERTICAL */
   flex-direction: column;
-  align-self: flex-end; /* [data] Add( buttonsSizer, 0, wxALIGN_BOTTOM | wxALL, 5 ) */
-  margin: 5px;
+  align-self: flex-end;
+  margin: 5px; /* [data] Add( buttonsSizer, 0, wxALIGN_BOTTOM | wxALL, 5 ) */
 }
 .ze-selectlayer-buttons > .ze-btn {
   margin: 5px; /* [data] Add( button, 0, wxGROW | wxALL, 5 ) */
