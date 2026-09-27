@@ -41,7 +41,7 @@
 import { useState, type JSX } from 'react';
 import type { ZoneValues } from '@ziroeda/pcbnew/zone_properties.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { Infobar } from '../../../ui/ReadOnlyNotice.js';
+import { Infobar } from '@ziroeda/common/widgets/wx_infobar_ui.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';

@@ -269,7 +269,7 @@ import { Icon } from '@ziroeda/common/widgets/icons.js';
 import { applyPnsChanges, PnsSession } from '@ziroeda/pcbnew/router/pns_session.js';
 import { PnsRouterMode } from '@ziroeda/pcbnew/router/pns_router.js';
 import type { PnsDesignSettings } from '@ziroeda/pcbnew/router/pns_board_iface.js';
-import { Infobar } from '../../ui/ReadOnlyNotice.js';
+import { Infobar } from '@ziroeda/common/widgets/wx_infobar_ui.js';
 import { ReferenceImageCache } from './image_cache.js';
 import { cleanup3dCache } from './model_cache.js';
 import { buildPcbMenus } from './menubar.js';

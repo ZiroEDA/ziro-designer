@@ -50,7 +50,7 @@ import {
   reportSignedIn,
 } from './home/save_state.js';
 import { SaveIndicator } from './ui/SaveIndicator.js';
-import { ReadOnlyNotice } from './ui/ReadOnlyNotice.js';
+import { ReadOnlyNotice } from '@ziroeda/common/widgets/wx_infobar_ui.js';
 import { installCommonAppearance } from './ui/common_appearance.js';
 import { projectStoreFileSystem } from './fs/project_store_fs.js';
 import { warmLibraryIndexes } from './libraryHosts.js';

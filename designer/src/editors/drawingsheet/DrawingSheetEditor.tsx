@@ -94,7 +94,7 @@ import { PL_EDITOR_DEFAULTS, settings } from '../../prefs/settings.js';
 import { useCommonSettings, usePlEditorSettings, useUserColors } from '../../prefs/useSettings.js';
 import { drawPanelWindow, loadBitmapFontImage } from '../../render/gal_window.js';
 import { HomeLink } from '../../ui/HomeLink.js';
-import { ReadOnlyNotice } from '../../ui/ReadOnlyNotice.js';
+import { ReadOnlyNotice } from '@ziroeda/common/widgets/wx_infobar_ui.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import {
   ACTION_FOR_ID,
