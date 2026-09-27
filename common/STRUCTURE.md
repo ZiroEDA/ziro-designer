@@ -118,11 +118,13 @@ the code it ports:
 
 ## Root — 131 KiCad units
 
-Tabled 09-26, recounted 09-27. Of KiCad's 131 `common/*.cpp`: **65 here
-under KiCad's name**, **18 here or elsewhere in the tree under another name**
-(each a rename, a move or a split, all done), **3 to port** (the feature exists in the
-app, the unit does not), **16 waiting on their feature**, **27 n/a**, and
-**2 partly here** (`paths`, `kiway`).
+Tabled 09-26, recounted 09-27. Of KiCad's 131 `common/*.cpp`: **84 here
+under KiCad's name** (66 below, and the 18 renamed ones in the table after
+them - every one of those is now at `common/<unit>.ts`, the table only says
+what it used to be called), **2 to port** (`lib_table_grid_tricks`,
+`lib_table_notebook_panel`, both waiting on the `libraries/` port), **16
+waiting on their feature**, **27 n/a**, and **2 partly here** (`paths`,
+`kiway`).
 
 KiCad has an `include/` beside `common/`; we have none. A header-only
 `include/<x>.h` is `common/<x>.ts` (`base_set`, `collector`, `ctl_flags`,
@@ -132,11 +134,11 @@ KiCad has an `include/` beside `common/`; we have none. A header-only
 `string_any_map`, `units_provider`, `zoom_defines`), and a unit split
 across `include/<x>.h` + `common/<y>.cpp` takes the `.cpp` name.
 
-**Here, KiCad's name (61):** advanced_config app_monitor array_options
+**Here, KiCad's name (66):** advanced_config app_monitor array_options
 background_jobs_monitor base_screen bitmap_base bitmap_store build_version
 board_printout callback_gal commit common confirm draw_panel_gal dsnlexer
 eda_base_frame eda_draw_frame eda_group eda_item eda_pattern_match eda_shape
-eda_text eda_units embedded_files file_history gr_basic gr_text hotkeys_basic
+eda_text eda_units embedded_files file_history gr_basic gr_text grid_tricks hotkeys_basic
 hotkey_store
 inspectable kidialog kiid launch_ext lib_id local_history lseq lset
 marker_base markup_parser netclass origin_transforms page_info pgm_base
@@ -145,7 +147,7 @@ reporter richio string_utils stroke_params template_fieldnames thread_pool
 title_block trace_helpers undo_redo_container validators
 wildcards_and_files_ext.
 
-**Here under another name — rename, move or split (18):**
+**Renamed to KiCad's name, 09-26 / 09-27 (18) — the old names, for the record:**
 
 | KiCad unit | ours now |
 |---|---|
