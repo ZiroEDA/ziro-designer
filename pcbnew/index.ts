@@ -169,7 +169,7 @@ export {
   CROSS_PROBE_FLASH_INTERVAL_MS,
   CROSS_PROBE_FLASH_LAST_PHASE,
   type CrossProbeView,
-} from './cross_probe.js';
+} from './cross-probing.js';
 export { boardAuxOrigin, boardGridOrigin } from './board_design_settings.js';
 export { plotExcellonDrill } from './exporters/gendrill_excellon_writer.js';
 export { plotGerberJob } from './exporters/gerber_jobfile_writer.js';

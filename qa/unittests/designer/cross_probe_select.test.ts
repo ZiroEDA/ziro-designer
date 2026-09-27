@@ -27,7 +27,7 @@ import {
   schCrossProbeZoomScale,
 } from '@ziroeda/eeschema/tools/cross_probe.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import { boardSyncSelectionParts } from '@ziroeda/pcbnew/cross_probe.js';
+import { boardSyncSelectionParts } from '@ziroeda/pcbnew/cross-probing.js';
 import { readBoard } from '@ziroeda/pcbnew';
 import { findItemsFromSyncSelection, crossProbeZoomScale } from '@ziroeda/pcbnew';
 import { escapeIpc } from '@ziroeda/common/string_utils.js';
