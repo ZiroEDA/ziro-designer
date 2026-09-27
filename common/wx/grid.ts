@@ -380,6 +380,19 @@ export class wxGridCellEditor {
   Reset(): void {
     this.m_value = this.m_startValue;
   }
+
+  /**
+   * `StartingKey`: the key that opened the editor becomes its text (a text
+   * editor's; others ignore it).
+   */
+  StartingKey(aChar: string): void {
+    this.m_value = aChar;
+  }
+
+  /** What the control keeps of typed text: all of it, unless a validator filters. */
+  FilterText(aText: string): string {
+    return aText;
+  }
 }
 
 /** `wxGridCellTextEditor`. */
@@ -2018,7 +2031,7 @@ export class wxGrid extends wxEvtHandler {
 
     if (specialEditKey || accepted) {
       if (this.DoEnableCellEditControl() && !specialEditKey && this.m_currentEditor)
-        this.m_currentEditor.m_value = String.fromCodePoint(ch);
+        this.m_currentEditor.StartingKey(String.fromCodePoint(ch));
     } else {
       aEvent.Skip();
     }

@@ -2,85 +2,113 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Text Variables panel. Counterpart: `common/dialogs/panel_text_variables_base.cpp`
- * (PANEL_TEXT_VARIABLES), the project's `${NAME}` substitutions, edited in a
- * two-column grid (Variable Name / Text Substitution) with an add and a delete
- * bitmap button at the bottom-left. Delete removes the selected row.
+ * Text Variables panel. Counterpart: `common/dialogs/panel_text_variables.cpp`
+ * (PANEL_TEXT_VARIABLES), the project's `${NAME}` substitutions in a
+ * two-column WX_GRID (Variable Name / Text Substitution) with GRID_TRICKS, an
+ * add and a delete bitmap button at the bottom-left.
+ *
+ * As upstream: rows select whole (`wxGridSelectRows`); a name refuses the
+ * characters `{}[]()%~<>"='\`;:.,&?/\|$` as they are typed; an empty name is
+ * vetoed on `wxEVT_GRID_CELL_CHANGING` and reported, with the editor reopened
+ * on it; Add opens the new row's name, Delete removes the selected rows.
  */
 
-import { useState, type JSX } from 'react';
-import { Icon } from '../widgets/icons.js';
+import { type JSX, useEffect } from 'react';
+import { DisplayErrorMessage } from '../confirm.js';
 import type { TextVar } from '../project/project_file.js';
+import { GRID_CELL_TEXT_EDITOR } from '../widgets/grid_text_helpers.js';
+import { Icon } from '../widgets/icons.js';
+import type { WX_GRID } from '../widgets/wx_grid.js';
+import {
+  wxEVT_GRID_CELL_CHANGING,
+  wxGridCellAttr,
+  type wxGridEvent,
+  wxGridSelectionModes,
+} from '../wx/grid.js';
+import { useStringGrid, WxGridView } from '../wx/grid_ui.js';
 
 // The data model lives beside the class it describes in common/;
 // re-exported here so the panel stays the import site for its slice.
 export type { TextVar } from '../project/project_file.js';
+
+const TV_NAME_COL = 0;
+const TV_VALUE_COL = 1;
 
 interface Props {
   vars: TextVar[];
   onChange: (next: TextVar[]) => void;
 }
 
-export function PanelTextVariables({ vars, onChange }: Props): JSX.Element {
-  const [sel, setSel] = useState<number | null>(vars.length ? 0 : null);
+/** `AppendTextVar`'s name-cell editor: the name validator. */
+function nameEditorAttr(): wxGridCellAttr {
+  const editor = new GRID_CELL_TEXT_EDITOR();
+  // prohibit these characters in the alias names: []{}()%~<>"='`;:.,&?/\|$
+  editor.SetValidator('{}[]()%~<>"=\'`;:.,&?/\\|$');
+  const attr = new wxGridCellAttr();
+  attr.SetEditor(editor);
+  return attr;
+}
 
-  const setAt = (i: number, patch: Partial<TextVar>): void =>
-    onChange(vars.map((v, j) => (j === i ? { ...v, ...patch } : v)));
-  const add = (): void => {
-    onChange([...vars, { name: '', value: '' }]);
-    setSel(vars.length);
-  };
-  const removeSel = (): void => {
-    if (sel === null) return;
-    onChange(vars.filter((_, j) => j !== sel));
-    setSel(vars.length - 1 > sel ? sel : sel - 1 >= 0 ? sel - 1 : null);
-  };
+function onAddTextVar(aGrid: WX_GRID): void {
+  aGrid.OnAddRow(() => {
+    aGrid.AppendRows(1);
+    return [aGrid.GetNumberRows() - 1, TV_NAME_COL];
+  });
+}
+
+export function PanelTextVariables({ vars, onChange }: Props): JSX.Element {
+  const { grid, tricks, onUpdate } = useStringGrid<TextVar>({
+    labels: ['Variable Name', 'Text Substitution'],
+    mode: wxGridSelectionModes.wxGridSelectRows,
+    rows: vars,
+    toCells: (v) => [v.name, v.value],
+    fromCells: (c) => ({ name: c[TV_NAME_COL]!, value: c[TV_VALUE_COL]! }),
+    onChange,
+    setup: (g) => g.SetColAttr(TV_NAME_COL, nameEditorAttr()),
+    onAddRow: onAddTextVar,
+  });
+
+  // OnGridCellChanging: an empty name is refused, reported from OnUpdateUI,
+  // and the editor goes back on it.
+  useEffect(() => {
+    const onChanging = (e: wxGridEvent): void => {
+      if (e.GetString() === '' && e.GetCol() === TV_NAME_COL) {
+        e.Veto();
+        const row = e.GetRow();
+        queueMicrotask(() => {
+          DisplayErrorMessage('Variable name cannot be empty.');
+          grid.SetGridCursor(row, TV_NAME_COL);
+          grid.EnableCellEditControl(true);
+        });
+        return;
+      }
+
+      e.Skip();
+    };
+    grid.Connect(wxEVT_GRID_CELL_CHANGING, onChanging);
+    return () => grid.Disconnect(wxEVT_GRID_CELL_CHANGING, onChanging);
+  }, [grid]);
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '2px 2px' }}>
       <div className="ze-grid-pane" style={{ flex: 1, minHeight: 0 }}>
-        <table className="ze-grid" style={{ tableLayout: 'fixed', width: '100%' }}>
-          <colgroup>
-            <col style={{ width: 160 }} />
-            <col />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>Variable Name</th>
-              <th>Text Substitution</th>
-            </tr>
-          </thead>
-          <tbody>
-            {vars.map((v, i) => (
-              <tr
-                key={i}
-                className={i === sel ? 'selected' : undefined}
-                onFocusCapture={() => setSel(i)}
-                onMouseDown={() => setSel(i)}
-              >
-                <td>
-                  <input
-                    type="text"
-                    value={v.name}
-                    placeholder="MY_VARIABLE"
-                    onChange={(e) => setAt(i, { name: e.target.value })}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    value={v.value}
-                    onChange={(e) => setAt(i, { value: e.target.value })}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <WxGridView
+          grid={grid}
+          tricks={tricks}
+          columns={[{ width: 160 }]}
+          flexCol={TV_VALUE_COL}
+          onUpdate={onUpdate}
+          ariaLabel="Text variables"
+        />
       </div>
 
       <div className="ze-grid-btns">
-        <button type="button" className="ze-gridbtn" title="Add text variable" onClick={add}>
+        <button
+          type="button"
+          className="ze-gridbtn"
+          title="Add text variable"
+          onClick={() => onAddTextVar(grid)}
+        >
           <Icon name="plus" />
         </button>
         <span style={{ width: 15 }} />
@@ -88,8 +116,7 @@ export function PanelTextVariables({ vars, onChange }: Props): JSX.Element {
           type="button"
           className="ze-gridbtn"
           title="Delete text variable"
-          disabled={sel === null}
-          onClick={removeSel}
+          onClick={() => grid.OnDeleteRows((row) => grid.DeleteRows(row, 1))}
         >
           <Icon name="delete" />
         </button>

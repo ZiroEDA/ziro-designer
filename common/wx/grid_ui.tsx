@@ -28,7 +28,8 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { GRID_TRICKS } from '../grid_tricks.js';
+import { GRID_TRICKS } from '../grid_tricks.js';
+import { WX_GRID } from '../widgets/wx_grid.js';
 import { ContextMenu } from '../tool/action_menu_bar.js';
 import type { MenuItem } from '../tool/action_menu_types.js';
 import { Combo } from '../widgets/wx_combobox.js';
@@ -45,6 +46,7 @@ import {
   type wxGridCellEditor,
   wxGridEvent,
   wxGridSelectionModes,
+  wxGridStringTable,
 } from './grid.js';
 import { type wxMenu, wxMenuItem } from './menu.js';
 import {
@@ -104,6 +106,7 @@ export function WxGridView({
   className,
   style,
   ariaLabel,
+  onUpdate,
 }: {
   grid: wxGrid;
   /** The grid's GRID_TRICKS, for the cell tooltips. */
@@ -125,6 +128,8 @@ export function WxGridView({
   className?: string;
   style?: CSSProperties;
   ariaLabel?: string;
+  /** After every redraw: where a controlled panel reads the grid back. */
+  onUpdate?: () => void;
 }): JSX.Element {
   const [, bump] = useReducer((n: number) => n + 1, 0);
   const tableRef = useRef<HTMLTableElement>(null);
@@ -171,6 +176,7 @@ export function WxGridView({
   // wxEVT_UPDATE_UI after every change the grid draws.
   useEffect(() => {
     grid.ProcessEvent(new wxUpdateUIEvent(0));
+    onUpdate?.();
   });
 
   const editor = grid.GetCurrentEditor();
@@ -304,7 +310,7 @@ export function WxGridView({
         autoFocus
         value={aEditor.m_value}
         onChange={(e) => {
-          aEditor.m_value = e.target.value;
+          aEditor.m_value = aEditor.FilterText(e.target.value);
           bump();
         }}
         onKeyDown={(e) => onKey(e, e.currentTarget)}
@@ -420,4 +426,75 @@ export function WxGridView({
       )}
     </>
   );
+}
+
+/**
+ * A WX_GRID over a string table, bound to a controlled list: the rows load
+ * into the grid whenever `rows` changes from outside, and every change the
+ * grid makes - an edit, a paste, a cut, an added or deleted row - comes back
+ * through `onChange`. KiCad's dialogs read their grid on OK; ours are
+ * controlled, so the reading happens after each redraw (`onUpdate`).
+ */
+export function useStringGrid<T>(opts: {
+  labels: readonly string[];
+  mode?: wxGridSelectionModes;
+  rows: readonly T[];
+  toCells: (aRow: T) => readonly string[];
+  fromCells: (aCells: readonly string[], aIndex: number) => T;
+  onChange: (aRows: T[]) => void;
+  /** Column attributes, editors, read-only cells: run after each load. */
+  setup?: (aGrid: WX_GRID) => void;
+  /** GRID_TRICKS' add handler (Enter on the last row, a paste past the end). */
+  onAddRow?: (aGrid: WX_GRID) => void;
+}): { grid: WX_GRID; tricks: GRID_TRICKS; onUpdate: () => void } {
+  const optsRef = useRef(opts);
+  optsRef.current = opts;
+
+  const [{ grid, tricks }] = useState(() => {
+    const g = new WX_GRID();
+    g.SetTable(new wxGridStringTable(0, opts.labels.length), true, opts.mode);
+    opts.labels.forEach((label, c) => {
+      g.SetColLabelValue(c, label);
+    });
+    const t = new GRID_TRICKS(g, () => optsRef.current.onAddRow?.(g));
+    return { grid: g, tricks: t };
+  });
+
+  const read = (): string[][] =>
+    Array.from({ length: grid.GetNumberRows() }, (_, r) =>
+      Array.from({ length: grid.GetNumberCols() }, (_, c) => grid.GetCellValue(r, c)),
+    );
+
+  const last = useRef<string[][] | null>(null);
+  const cells = opts.rows.map((r) => [...opts.toCells(r)]);
+  const cellsKey = JSON.stringify(cells);
+
+  // TransferDataToWindow when the list changed from outside the grid.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: cellsKey is the content of cells; the grid is stable
+  useLayoutEffect(() => {
+    if (last.current !== null && cellsKey === JSON.stringify(last.current)) return;
+
+    grid.BeginBatch();
+    grid.ClearRows();
+    grid.AppendRows(cells.length);
+    cells.forEach((row, r) => {
+      row.forEach((v, c) => {
+        grid.GetTable()!.SetValue(r, c, v);
+      });
+    });
+    optsRef.current.setup?.(grid);
+    grid.EndBatch();
+    last.current = cells;
+  }, [cellsKey]);
+
+  const onUpdate = (): void => {
+    const now = read();
+
+    if (JSON.stringify(now) === JSON.stringify(last.current)) return;
+
+    last.current = now;
+    optsRef.current.onChange(now.map((row, i) => optsRef.current.fromCells(row, i)));
+  };
+
+  return { grid, tricks, onUpdate };
 }
