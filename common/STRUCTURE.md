@@ -400,6 +400,12 @@ shape directly, and its own tests transcribe the two upstream cases
 (`ArcEditKeepsSmallSchematicRadius`, `PolygonBehaviorSurvivesAssignment`)
 that read on it.
 
+`tool/embed_tool` (09-28): EMBED_TOOL, whole. `EMBEDDED_FILES::AddFile(
+wxFileName, aOverwrite )`, which its add action calls, came with it and reads
+through the in-memory mounts. PCB_EDIT_FRAME registers it; the schematic,
+symbol and footprint frames have no TOOL_MANAGER yet. Nothing in 10.0.5 runs
+either action - `PANEL_EMBEDDED_FILES` edits its collection directly.
+
 The wxDC print path (09-27): `gr_basic` (here, whole), `gr_text`'s
 `GRTextWidth` / `GRPrintText`, `EDA_TEXT::Print`, `BITMAP_BASE::DrawBitmap`,
 `RENDER_SETTINGS`' print DC, the drawing sheet's `PrintWsItem`s and

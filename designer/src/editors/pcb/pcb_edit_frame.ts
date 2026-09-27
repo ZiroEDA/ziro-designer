@@ -170,7 +170,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
     // Register tools
     this.m_toolManager.RegisterTool(new DRC_TOOL());
-    void EMBED_TOOL;
+    this.m_toolManager.RegisterTool(new EMBED_TOOL());
     this.m_toolManager.InitTools();
 
     for (const tool of this.m_toolManager.Tools()) {

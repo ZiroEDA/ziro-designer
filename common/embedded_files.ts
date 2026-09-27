@@ -244,7 +244,10 @@ export class EMBEDDED_FILES {
    * Append a file to the collection.  Ownership of @p aFile is transferred to the collection.
    */
   AddFile(aFile: EMBEDDED_FILE | null): void;
-  AddFile(a: string | EMBEDDED_FILE | null, aOverwrite?: boolean): EMBEDDED_FILE | null | undefined {
+  AddFile(
+    a: string | EMBEDDED_FILE | null,
+    aOverwrite?: boolean,
+  ): EMBEDDED_FILE | null | undefined {
     if (typeof a === 'string') return this.addFileFromDisk(a, aOverwrite ?? false);
 
     const aFile = a;
