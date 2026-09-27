@@ -242,8 +242,8 @@ const source = (rel: string): string => {
 const MENU_MODULE: Readonly<Record<string, string>> = {
   'editors/schematic/SchematicEditor.tsx': 'editors/schematic/menubar.ts',
   'editors/symbol/SymbolEditor.tsx': 'editors/symbol/menubar.ts',
-  'editors/footprint/FootprintEditor.tsx': 'editors/footprint/menubar.ts',
-  'editors/pcb/PcbEditor.tsx': 'editors/pcb/menubar.ts',
+  'editors/footprint/FootprintEditor.tsx': '../../pcbnew/menubar_footprint_editor.ts',
+  'editors/pcb/PcbEditor.tsx': '../../pcbnew/menubar_pcb_editor.ts',
   // pl_editor's bar is its package's menubar.ts, beside KiCad's menubar.cpp.
   '../../pagelayout_editor/pl_editor_frame_ui.tsx': '../../pagelayout_editor/menubar.ts',
 };
@@ -1063,8 +1063,9 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
   ],
   'editors/pcb/PcbEditor.tsx': [
     /*
-     * The MENU BAR's accelerators, read straight off `editors/pcb/menubar.ts`
-     * now that the tree is a module — see MENU_BUILDER above.
+     * The MENU BAR's accelerators, read straight off
+     * `pcbnew/menubar_pcb_editor.ts` now that the tree is a module — see
+     * MENU_BUILDER above.
      *
      * This list used to be scraped out of `PcbEditor.tsx`, which put the canvas
      * CONTEXT menu's keys in it too: one file held both, and a regex cannot

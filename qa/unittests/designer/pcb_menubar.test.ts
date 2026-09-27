@@ -9,7 +9,7 @@
  * separators, same submenus.
  *
  * This read the SOURCE of `PcbEditor.tsx` with a regex until the bar moved into
- * `editors/pcb/menubar.ts` — because `qa`'s tsconfig compiles `.ts` only, and a
+ * `pcbnew/menubar_pcb_editor.ts` — because `qa`'s tsconfig compiles `.ts` only, and a
  * menu built inside a `.tsx` cannot be imported at all. A regex over ten
  * thousand lines can read the labels and say nothing about what a row DOES,
  * whether its condition is right, or whether the accelerator it prints reaches
