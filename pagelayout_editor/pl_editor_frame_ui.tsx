@@ -91,7 +91,7 @@ import {
   type PlEditorSettings,
 } from './pl_editor_settings.js';
 import { PL_ACTIONS } from './tools/pl_actions.js';
-import { ReadOnlyNotice } from '@ziroeda/common/widgets/wx_infobar_ui.js';
+import { ReadOnlyNotice } from '@ziroeda/common/widgets/wx_infobar.js';
 import {
   ACTION_FOR_ID,
   EDIT_MENU_ACTIONS,

@@ -34,7 +34,7 @@ import type {
   ProjectSyncTransport,
 } from '../../sync/ProjectSyncTransport.js';
 import { PresencePanel } from '../../ui/PresencePanel.js';
-import { ReadOnlyNotice } from '@ziroeda/common/widgets/wx_infobar_ui.js';
+import { ReadOnlyNotice } from '@ziroeda/common/widgets/wx_infobar.js';
 import { useAuth } from '../../auth/AuthProvider.js';
 import {
   type ArcEditMode,
