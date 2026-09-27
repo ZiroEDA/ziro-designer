@@ -785,7 +785,7 @@ function resolveToken(aResolver: TextVarResolverFn | undefined, aName: string): 
 export function SchematicEditor({
   onExitToHome,
   onShowPcb,
-  onUpdatePcb,
+  hasBoard,
   onEditSymbolInEditor,
   editedSymbol,
   readOnlyNotice,
@@ -813,9 +813,9 @@ export function SchematicEditor({
 }: {
   onExitToHome: () => void;
   onShowPcb?: () => void;
-  /** Tools > Update PCB from Schematic (F8): switch to the PCB editor and run
-   *  its update dialog. Absent when the project has no board. */
-  onUpdatePcb?: () => void;
+  /** Whether the project has a board, which Tools > Update PCB from Schematic
+   *  (F8) needs here: upstream would create one, this editor does not. */
+  hasBoard?: boolean;
   /** SCH_EDIT_TOOL's Edit with Symbol Editor (Ctrl+E): hand the placement's
    *  symbol to the symbol editor and switch to it. */
   onEditSymbolInEditor?: (req: {
@@ -1898,6 +1898,11 @@ export function SchematicEditor({
       frame.SetKiway(null);
     };
   }, [kiway]);
+  /** Tools > Update PCB from Schematic (F8): `SCH_EDIT_FRAME::OnUpdatePCB`. */
+  const onUpdatePcb = useMemo(
+    () => (hasBoard && kiway ? () => schFrameRef.current!.OnUpdatePCB() : undefined),
+    [hasBoard, kiway],
+  );
   const { highlightWires, highlightName } = useMemo(() => {
     const items = new Set<string>();
     let name: string | null = null;

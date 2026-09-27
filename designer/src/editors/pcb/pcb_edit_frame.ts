@@ -141,6 +141,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
    * resolves the parts and applies them. `on_selection` has been checked.
    */
   syncSelection(aParts: readonly string[], aSelectConnections: boolean): void;
+  /** `m_toolManager->RunAction( ACTIONS::updatePcbFromSchematic )`: the editor's dialog. */
+  updatePcbFromSchematic(): void;
 }
 
 export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
@@ -225,6 +227,10 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
         break;
       }
+
+      case MAIL_T.MAIL_PCB_UPDATE:
+        this.hooks.updatePcbFromSchematic();
+        break;
 
       default:
         break;

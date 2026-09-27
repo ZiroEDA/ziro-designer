@@ -37,6 +37,7 @@ const makeFrame = () =>
     setViewCenter: () => {},
     setHighlightNets: () => {},
     syncSelection: () => {},
+    updatePcbFromSchematic: () => {},
   });
 
 describe('PCB_EDIT_FRAME needs the PGM_BASE before its first SetBoard', () => {

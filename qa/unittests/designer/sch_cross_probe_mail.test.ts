@@ -137,6 +137,35 @@ describe('the schematic syncing its selection to the board', () => {
   });
 });
 
+describe('Update PCB from Schematic', () => {
+  it('OnUpdatePCB brings the board up, then mails it MAIL_PCB_UPDATE', () => {
+    const shown: FRAME_T[] = [];
+    const kiway = new KIWAY({
+      OnKiCadExit: () => {},
+      Player: (t) => {
+        shown.push(t);
+        return true;
+      },
+      HasProjectManager: () => true,
+      ShowProjectManager: () => {},
+      CreateKiWindow: () => false,
+    });
+    const frame = new SCH_EDIT_FRAME({
+      crossProbingSettings: () => new CROSS_PROBING_SETTINGS(),
+      highlightNet: () => {},
+      syncSelection: () => {},
+    });
+    frame.SetKiway(kiway);
+
+    // The board is not up yet: the mail waits for it to register.
+    frame.OnUpdatePCB();
+    expect(shown).toEqual([FRAME_T.FRAME_PCB_EDITOR]);
+    const pcb = new PCB_STUB();
+    kiway.SetPlayerFrame(FRAME_T.FRAME_PCB_EDITOR, pcb);
+    expect(pcb.received).toEqual([[MAIL_T.MAIL_PCB_UPDATE, '']]);
+  });
+});
+
 describe('strtok', () => {
   it('skips leading delimiters, consumes one after the token, and ends with null', () => {
     const tok = new STRTOK('  $NET: "a b"\n');

@@ -1146,7 +1146,6 @@ export function PcbEditor({
   kiway,
   viewer3DOpen,
   onViewer3DOpenChange,
-  updateFromSchematic,
   readOnlyNotice,
   readOnly,
 }: {
@@ -1234,10 +1233,6 @@ export function PcbEditor({
    * `App.tsx`, since its title was rebuilt on the shared rule.
    */
   readOnly?: boolean;
-  /** Bumped by the schematic editor's Tools > Update PCB from Schematic (F8),
-   *  which switches here and then runs the same dialog this frame's own F8 does
-   *  (KiCad's SCH_EDIT_FRAME::doUpdatePcb hands off to pcbnew the same way). */
-  updateFromSchematic?: number | null;
 }): JSX.Element {
   /**
    * `EDA_BASE_FRAME::RecreateToolbars` (`common/eda_base_frame.cpp:1728-1843`):
@@ -1979,6 +1974,7 @@ export function PcbEditor({
       // MAIL_SELECTION(_FORCE): the frame has checked `on_selection` already,
       // so the parts are applied as a forced probe.
       syncSelection: (aParts) => applySyncSelectionRef.current(aParts, true),
+      updatePcbFromSchematic: () => void openUpdatePcbRef.current(),
       setHighlightNets: (aNetCodes) =>
         setHighlightNets((prev) =>
           prev.size === aNetCodes.size && [...aNetCodes].every((c) => prev.has(c))
@@ -4469,16 +4465,10 @@ export function PcbEditor({
     }
   }, [projectFilesNow, rootPro]);
 
-  // Tools > Update PCB from Schematic, invoked from the schematic editor: the
-  // app switches to this frame and bumps the nonce, and the same dialog opens
-  // as for this frame's own F8. Skipped on mount so merely opening the PCB
-  // editor does not pop it.
-  const updateReqRef = useRef<number | null | undefined>(updateFromSchematic);
-  useEffect(() => {
-    if (updateFromSchematic === updateReqRef.current) return;
-    updateReqRef.current = updateFromSchematic;
-    if (updateFromSchematic != null) void openUpdatePcb();
-  }, [updateFromSchematic, openUpdatePcb]);
+  // Tools > Update PCB from Schematic, invoked from the schematic editor:
+  // MAIL_PCB_UPDATE runs the same dialog as this frame's own F8.
+  const openUpdatePcbRef = useRef(openUpdatePcb);
+  openUpdatePcbRef.current = openUpdatePcb;
 
   /**
    * DIALOG_UPDATE_PCB::PerformUpdate. A dry run only reports; a real run commits the

@@ -49,6 +49,8 @@ interface Env {
   highlights: number[][];
   /** Every selection the frame asked the editor to sync: [parts, selectConnections]. */
   synced: [string[], boolean][];
+  /** How many times the frame ran Update PCB from Schematic. */
+  updates(): number;
   probe(packet: string): void;
   select(packet: string, force?: boolean): void;
 }
@@ -58,6 +60,7 @@ function setup(): Env {
   const settings = new PCBNEW_SETTINGS();
   const highlights: number[][] = [];
   const synced: [string[], boolean][] = [];
+  let updates = 0;
   const frame = new PCB_EDIT_FRAME({
     settings: () => settings,
     onModify: () => {},
@@ -75,6 +78,9 @@ function setup(): Env {
     setViewCenter: () => {},
     setHighlightNets: (codes) => highlights.push([...codes].sort((a, b) => a - b)),
     syncSelection: (parts, conn) => synced.push([[...parts], conn]),
+    updatePcbFromSchematic: () => {
+      updates += 1;
+    },
   });
   frame.SetBoard(ParseBoard(BOARD), false);
 
@@ -94,6 +100,7 @@ function setup(): Env {
     settings,
     highlights,
     synced,
+    updates: () => updates,
     probe: (packet) =>
       kiway.ExpressMail(FRAME_T.FRAME_PCB_EDITOR, MAIL_T.MAIL_CROSS_PROBE, { value: packet }),
     select: (packet, force = false) =>
@@ -244,5 +251,15 @@ describe('the board syncing its selection to the schematic', () => {
     env.kiway.SetPlayerFrame(FRAME_T.FRAME_SCH, sch);
     env.frame.SendSelectItemsToSch([], false);
     expect(sch.received).toEqual([]);
+  });
+});
+
+describe('MAIL_PCB_UPDATE', () => {
+  it('runs Update PCB from Schematic, whatever the payload', () => {
+    const env = setup();
+    env.kiway.ExpressMail(FRAME_T.FRAME_PCB_EDITOR, MAIL_T.MAIL_PCB_UPDATE, { value: '' });
+    expect(env.updates()).toBe(1);
+    env.probe('$NET: "VCC"');
+    expect(env.updates()).toBe(1);
   });
 });

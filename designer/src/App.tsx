@@ -558,10 +558,6 @@ export function App(): JSX.Element {
   // Fetch the editors in the background while the launcher is on screen, so
   // opening one is not the first time its code is asked for.
   useEffect(() => prefetchEditors(), []);
-  // Tools > Update PCB from Schematic (F8) from the schematic editor: switch to
-  // the PCB frame and bump this, which is what runs the dialog there. KiCad's
-  // SCH_EDIT_FRAME::doUpdatePcb hands off to pcbnew the same way.
-  const [updatePcbNonce, setUpdatePcbNonce] = useState<number | null>(null);
   const [schMounted, setSchMounted] = useState(false);
   const [pcbMounted, setPcbMounted] = useState(false);
   const [symMounted, setSymMounted] = useState(false);
@@ -1709,14 +1705,7 @@ export function App(): JSX.Element {
                       }
                     : undefined
                 }
-                onUpdatePcb={
-                  pcbFile
-                    ? () => {
-                        showPcb();
-                        setUpdatePcbNonce((n) => (n ?? 0) + 1);
-                      }
-                    : undefined
-                }
+                hasBoard={!!pcbFile}
                 onShowSymbolEditor={showSymbolEditor}
                 onShowFootprintEditor={showFootprintEditor}
                 onShowCalculator={showCalculator}
@@ -1778,7 +1767,6 @@ export function App(): JSX.Element {
                 onPersistFiles={persistFilesNow}
                 onOutputFile={onOutputFile}
                 kiway={kiway}
-                updateFromSchematic={updatePcbNonce}
                 readOnlyNotice={demoNotice}
                 readOnly={!!demoProject}
               />

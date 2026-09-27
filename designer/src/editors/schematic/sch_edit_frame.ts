@@ -110,6 +110,24 @@ export class SCH_EDIT_FRAME extends KIWAY_PLAYER {
   }
 
   /**
+   * `SCH_EDIT_FRAME::OnUpdatePCB` (eeschema/sch_edit_frame.cpp:1354): bring
+   * the board up and mail it `MAIL_PCB_UPDATE`, which runs its Update PCB
+   * from Schematic. Upstream opens the project's board when pcbnew is not
+   * running, creating it if it does not exist; the editor here only offers
+   * the command when the project has a board.
+   */
+  OnUpdatePCB(): void {
+    const kiway = this.Kiway();
+
+    if (!kiway) return;
+
+    kiway.Player(FRAME_T.FRAME_PCB_EDITOR);
+
+    const payload = { value: '' };
+    kiway.ExpressMail(FRAME_T.FRAME_PCB_EDITOR, MAIL_T.MAIL_PCB_UPDATE, payload, this);
+  }
+
+  /**
    * `SCH_EDIT_FRAME::SendSelectItemsToPcb` (eeschema/cross-probing.cpp:312),
    * over the parts `syncSelectionParts` gives, in selection order. Nothing is
    * sent for no parts, as upstream.

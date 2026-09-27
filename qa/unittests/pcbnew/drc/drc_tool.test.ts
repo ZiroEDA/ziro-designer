@@ -122,6 +122,7 @@ function makeHarness(): Harness {
     setViewCenter: (_aPos: Vec2) => {},
     setHighlightNets: () => {},
     syncSelection: () => {},
+    updatePcbFromSchematic: () => {},
   });
 
   h.frame = frame;
