@@ -45,7 +45,7 @@ import { TA_MOUSE_CLICK, TA_MOUSE_MOTION } from '@ziroeda/common/tool/tool_event
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { PL_ACTIONS } from '@ziroeda/pagelayout_editor/tools/pl_actions.js';
 import { PL_SELECTION_TOOL } from '@ziroeda/pagelayout_editor/tools/pl_selection_tool.js';
-import { type Harness, makeHarness, mouse, toolbar } from './pl_editor_fixture.js';
+import { type Harness, makeHarness, mouse, settle, toolbar } from './pl_editor_fixture.js';
 
 let model: DS_DATA_MODEL;
 
@@ -187,6 +187,50 @@ describe('UpdateStatusBar', () => {
     h.frame.DisplayGridMsg();
 
     expect(h.status[4]).toBe('grid 0.5000');
+  });
+});
+
+describe('Place Bitmaps (PlaceItem with AddDrawingSheetItem( DS_BITMAP ))', () => {
+  /** A 1 x 1 PNG. */
+  const PNG = Uint8Array.from(
+    atob(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    ),
+    (c) => c.charCodeAt(0),
+  );
+
+  it('Cancel in Choose Image adds nothing and takes no undo copy', async () => {
+    const h = makeHarness(EDA_UNITS_INT.MM);
+    const before = model.GetCount();
+    h.host.imageAnswers.push(null);
+
+    toolbar(h.mgr, PL_ACTIONS.placeImage);
+    mouse(h.mgr, TA_MOUSE_CLICK, { x: 50000, y: 50000 }, h);
+    await settle();
+
+    expect(model.GetCount()).toBe(before);
+    expect(h.frame.GetUndoCommandCount()).toBe(0);
+  });
+
+  it('a chosen image is added under the pointer, carried until the next click', async () => {
+    const h = makeHarness(EDA_UNITS_INT.MM);
+    const before = model.GetCount();
+    h.host.imageAnswers.push({ path: '/Templates/logo.png', data: PNG });
+
+    toolbar(h.mgr, PL_ACTIONS.placeImage);
+    mouse(h.mgr, TA_MOUSE_CLICK, { x: 50000, y: 50000 }, h);
+    await settle();
+
+    expect(h.host.messages).toEqual([]);
+    // Added and carried (first click creates, second places, pl_drawing_tools.cpp:160).
+    expect(model.GetCount()).toBe(before + 1);
+    expect(model.GetItem(before)!.GetType()).toBe(DS_ITEM_TYPE.DS_BITMAP);
+    expect(h.frame.GetUndoCommandCount()).toBe(1);
+
+    mouse(h.mgr, TA_MOUSE_CLICK, { x: 70000, y: 60000 }, h);
+    expect(model.GetItem(before)!.GetStartPosIU()).toEqual({ x: 70000, y: 60000 });
+    // m_mruImagePath = wxPathOnly( fullFilename ).
+    expect(h.frame.GetMruImagePath()).toBe('/Templates');
   });
 });
 

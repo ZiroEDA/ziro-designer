@@ -18,6 +18,7 @@ import {
   BUT_LEFT,
   BUT_RIGHT,
   TA_ANY,
+  TA_NONE,
   TC_MESSAGE,
   TOOL_EVENT,
 } from '@ziroeda/common/tool/tool_event.js';
@@ -88,7 +89,9 @@ export class PL_DRAWING_TOOLS extends TOOL_INTERACTIVE {
     void aPromise.then((aResult) => {
       result = aResult;
       settled = true;
-      this.m_toolMgr?.ProcessEvent(new TOOL_EVENT(TC_MESSAGE, TA_ANY, MODAL_DONE));
+      // TA_NONE: a message carries no action (TA_ANY would read as a choice-menu
+      // event and go to the menu owner only).
+      this.m_toolMgr?.ProcessEvent(new TOOL_EVENT(TC_MESSAGE, TA_NONE, MODAL_DONE));
     });
 
     while (!settled) {
