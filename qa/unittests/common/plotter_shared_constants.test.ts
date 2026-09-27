@@ -18,13 +18,14 @@ import {
 } from '@ziroeda/common/render_settings.js';
 import { fixed } from '@ziroeda/common/plotters/fmt.js';
 
-import * as ps from '@ziroeda/pcbnew/plot_ps.js';
-import * as svg from '@ziroeda/pcbnew/plot_svg.js';
-import * as pdf from '@ziroeda/pcbnew/plot_pdf.js';
+import { PLOTTER } from '@ziroeda/common/plotters/plotter.js';
+import { PS_PLOTTER } from '@ziroeda/common/plotters/PS_plotter.js';
+import { SVG_PLOTTER } from '@ziroeda/common/plotters/SVG_plotter.js';
+import { PDF_PLOTTER } from '@ziroeda/common/plotters/PDF_plotter.js';
 import * as png from '@ziroeda/pcbnew/plot_png.js';
 import * as dxf from '@ziroeda/pcbnew/plot_dxf.js';
 
-const BACKENDS = { ps, svg, pdf, png, dxf };
+const BACKENDS = { png, dxf };
 
 describe('PLOTTER line-width sentinels', () => {
   it('are the values plotter.h:139-140 declares', () => {
@@ -42,6 +43,17 @@ describe('PLOTTER line-width sentinels', () => {
     for (const [name, m] of Object.entries(BACKENDS)) {
       expect([name, m.DO_NOT_SET_LINE_WIDTH]).toEqual([name, DO_NOT_SET_LINE_WIDTH]);
       expect([name, m.USE_DEFAULT_LINE_WIDTH]).toEqual([name, USE_DEFAULT_LINE_WIDTH]);
+    }
+  });
+
+  it('are PLOTTER statics, inherited by every class in the tree', () => {
+    expect(PLOTTER.DO_NOT_SET_LINE_WIDTH).toBe(DO_NOT_SET_LINE_WIDTH);
+    expect(PLOTTER.USE_DEFAULT_LINE_WIDTH).toBe(USE_DEFAULT_LINE_WIDTH);
+
+    for (const cls of [PS_PLOTTER, PDF_PLOTTER, SVG_PLOTTER]) {
+      expect(cls.DO_NOT_SET_LINE_WIDTH).toBe(DO_NOT_SET_LINE_WIDTH);
+      expect(cls.USE_DEFAULT_LINE_WIDTH).toBe(USE_DEFAULT_LINE_WIDTH);
+      expect(new cls(plotterRenderSettings(), (b: Uint8Array) => b)).toBeInstanceOf(PLOTTER);
     }
   });
 });
@@ -66,13 +78,6 @@ describe('RENDER_SETTINGS dash geometry', () => {
     expect(rs.GetDashLength(100)).toBe(100);
     expect(rs.GetGapLength(100)).toBe(100);
   });
-
-  it('reaches ps, svg and pdf as the one pair of ratios', () => {
-    for (const m of [ps, svg, pdf]) {
-      expect(m.DEFAULT_DASH_LENGTH_RATIO).toBe(DEFAULT_DASH_LENGTH_RATIO);
-      expect(m.DEFAULT_GAP_LENGTH_RATIO).toBe(DEFAULT_GAP_LENGTH_RATIO);
-    }
-  });
 });
 
 describe('fmt {:.Nf}', () => {
@@ -95,11 +100,5 @@ describe('fmt {:.Nf}', () => {
     expect(fixed(-0, 3)).toBe('-0.000');
     expect(fixed(-1e-9, 3)).toBe('-0.000');
     expect(fixed(0, 3)).toBe('0.000');
-  });
-
-  it('is the one function ps, svg and pdf print through', () => {
-    expect(ps.fixed).toBe(fixed);
-    expect(svg.fixed).toBe(fixed);
-    expect(pdf.fixed).toBe(fixed);
   });
 });

@@ -29,7 +29,9 @@ import { schIUScale } from '@ziroeda/common/eda_units.js';
 import { fracture, type Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import { FILL_T, PdfPlotter, pdfRenderSettings, type Color4d } from '@ziroeda/pcbnew/plot_pdf.js';
+import type { Color4d } from '@ziroeda/common/gal/color4d.js';
+import { FILL_T, plotterPageInfo } from '@ziroeda/common/plotters/plotter.js';
+import { PDF_PLOTTER, pdfRenderSettings } from '@ziroeda/common/plotters/PDF_plotter.js';
 
 const MM = 10000; // IU per mm (matches the renderer)
 
@@ -349,7 +351,7 @@ export interface PdfPlotSheet {
  * `SCH_PLOTTER::createPDFFile`, over the ported `PDF_PLOTTER`: one document,
  * one page per sheet, every page a compressed content stream of the same
  * paths the screen draws — `PDF_PLOTTER` is the one KiCad class both editors
- * plot PDF through, which is why this reaches for `pcbnew/plot_pdf.ts`
+ * plot PDF through, which is why this reaches for `common/plotters/PDF_plotter.ts`
  * rather than writing a second file format.
  *
  * `setupPlotPagePDF` (:276-310) sizes the page and sets the viewport in
@@ -366,7 +368,7 @@ export function sheetsToPdf(
   const first = sheets[0];
   if (!first) return new Uint8Array();
   const bw = !first.opts.color;
-  const plotter = new PdfPlotter(
+  const plotter = new PDF_PLOTTER(
     // SCH_RENDER_SETTINGS' default pen: the schematic's "Minimum line width",
     // which the renderer strokes zero-width items with.
     pdfRenderSettings({ defaultPenWidth: first.opts.defaultPenIU ?? 0 }),
@@ -394,7 +396,7 @@ export function sheetsToPdf(
     if (i > 0) plotter.ClosePage();
     // setupPlotPagePDF: the page in mils, the viewport in decimils.
     const mils = schIUScale.IU_PER_MILS;
-    plotter.SetPageSettings({ x: page.w / mils, y: page.h / mils });
+    plotter.SetPageSettings(plotterPageInfo({ sizeMils: { x: page.w / mils, y: page.h / mils } }));
     plotter.SetViewport({ x: 0, y: 0 }, mils / 10, 1, false);
     const pageNumber = s.opts.pageNumber ?? String(i + 1);
     const sheetName = s.opts.sheetName ?? '';
@@ -1088,7 +1090,7 @@ function ps(v: number): string {
  */
 class PdfContext extends VectorContext {
   constructor(
-    private readonly plotter: PdfPlotter,
+    private readonly plotter: PDF_PLOTTER,
     pw: number,
     ph: number,
   ) {

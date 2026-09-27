@@ -3,10 +3,10 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * PDF_PLOTTER, the PDF 1.5 plot back-end, transcribed from
- * common/plotters/PDF_plotter.cpp plus the members it inherits from
- * PSLIKE_PLOTTER (SetColor, SetTextMode, SetScaleAdjust) and PLOTTER
- * (userToDeviceCoordinates, userToDeviceSize, the Get*MarkLenIU dash lengths,
- * the MoveTo/LineTo/FinishTo/PenFinish pen wrappers and the three-point Arc).
+ * common/plotters/PDF_plotter.cpp. It derives from PSLIKE_PLOTTER
+ * (PS_plotter.ts: SetColor, SetTextMode, SetScaleAdjust, the pad flashes) and
+ * so from PLOTTER (plotter.ts: the device transform, the dash lengths, the pen
+ * wrappers, the three-point Arc and the Thick* helpers), as upstream's does.
  *
  * Unlike DXF and SVG this back-end is not an append-only text emitter: a PDF is
  * a container of numbered indirect objects, and the trailer's cross-reference
@@ -49,12 +49,12 @@
  *
  * Deliberate gaps, each modelled as an injected dependency rather than
  * approximated: the DEFLATE compressor (`PdfDeflate`), the raster image
- * (`PdfImage`, standing in for wxImage), the page size (`SetPageSettings` takes
- * the mils PAGE_INFO::GetSizeMils would have returned) and the environment
+ * (`PdfImage`, standing in for wxImage) and the environment
  * variable expansion behind `ResolveUriByEnvVars` (`PdfProject`; passing none
  * mirrors upstream's null PROJECT).
  *
- * Two things are absent rather than injected. `Text` and `PlotText` need the
+ * Two things are absent rather than injected. `Text` (which throws past its
+ * zero-size guard) and so `PlotText` need the
  * Type 3 stroke-font subsetter (pdf_stroke_font.cpp), the CID outline-font
  * subsetter (pdf_outline_font.cpp, which needs FreeType) and the markup parser;
  * because nothing then registers a glyph, `endPlotEmitResources` writes the
@@ -67,58 +67,21 @@
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
-import { CalcArcCenter } from '@ziroeda/kimath/src/trigo.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-
-/** `FILL_T` (eda_shape.h). NO_FILL is 1, not 0 — never treat this as a boolean. */
-export enum FILL_T {
-  NO_FILL = 1,
-  FILLED_SHAPE,
-  FILLED_WITH_BG_BODYCOLOR,
-  FILLED_WITH_COLOR,
-  HATCH,
-  REVERSE_HATCH,
-  CROSS_HATCH,
-}
-
-/** `LINE_STYLE` (stroke_params.h). */
-export enum LINE_STYLE {
-  DEFAULT = -1,
-  SOLID = 0,
-  DASH,
-  DOT,
-  DASHDOT,
-  DASHDOTDOT,
-}
-
-/**
- * `PLOT_TEXT_MODE` (plotter.h). PSLIKE_PLOTTER's constructor selects PHANTOM and
- * only PDF_PLOTTER::Text ever reads it, so with text unported the member is
- * write-only here. It is kept because SetTextMode is part of the contract a
- * caller drives a PS-like plotter through.
- */
-
-/**
- * `PLOTTER::DO_NOT_SET_LINE_WIDTH` / `USE_DEFAULT_LINE_WIDTH` (plotter.h:139-140).
- * Statics on the base upstream, so one declaration here, re-exported for the
- * callers that reach for them through this module.
- */
-export {
+import type { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '../eda_text.js';
+import { COLOR4D_WHITE, type Color4d } from '../gal/color4d.js';
+import {
   DO_NOT_SET_LINE_WIDTH,
+  FILL_T,
+  LINE_STYLE,
+  PLOT_FORMAT,
+  type PLOTTER_FONT,
+  type PLOTTER_TEXT_ATTRIBUTES,
+  type PEN_PLUME,
+  toVector2I,
   USE_DEFAULT_LINE_WIDTH,
-} from '@ziroeda/common/plotters/plotter.js';
-
-import { DO_NOT_SET_LINE_WIDTH, USE_DEFAULT_LINE_WIDTH } from '@ziroeda/common/plotters/plotter.js';
-import { PLOT_TEXT_MODE } from '@ziroeda/common/plotters/plotter.js';
-export { PLOT_TEXT_MODE };
-
-// `COLOR4D` lives in `common` because the graphics importers, shared with
-// eeschema, need it too. Re-exported here so existing consumers are unaffected.
-export { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/gal/color4d.js';
-import { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/gal/color4d.js';
-
-const colorEquals = (a: Color4d, b: Color4d): boolean =>
-  a.r === b.r && a.g === b.g && a.b === b.b && a.a === b.a;
+} from './plotter.js';
+import { PSLIKE_PLOTTER } from './PS_plotter.js';
 
 /** A `BOX2I` reduced to what HyperlinkBox / Bookmark store: origin plus extent. */
 export interface PdfBox2 {
@@ -126,17 +89,7 @@ export interface PdfBox2 {
   size: Vec2;
 }
 
-// `RENDER_SETTINGS` and its ISO 128-2 dash/gap ratios live in `common`: upstream
-// keeps them on RENDER_SETTINGS, not on PLOTTER, and every backend asks the one
-// object for a dash length.
-export {
-  DEFAULT_DASH_LENGTH_RATIO,
-  DEFAULT_GAP_LENGTH_RATIO,
-} from '@ziroeda/common/render_settings.js';
-import {
-  type PlotterRenderSettings,
-  plotterRenderSettings,
-} from '@ziroeda/common/render_settings.js';
+import { type PlotterRenderSettings, plotterRenderSettings } from '../render_settings.js';
 
 /**
  * `RENDER_SETTINGS` plus the one accessor only the PDF backend reaches for.
@@ -214,81 +167,10 @@ export interface PdfProject {
 // Number formatting
 // ===========================================================================
 
-// `{fmt}`'s `{:.Nf}`. One implementation for every backend, as upstream has
-// one `fmt::print`; the precision is a call-site argument, not a per-backend
-// formatter. Re-exported so existing importers of this module are unaffected.
-export { fixed } from '@ziroeda/common/plotters/fmt.js';
-import { decompose, fixed, scaledRound } from '@ziroeda/common/plotters/fmt.js';
+import { decompose, fixed, formatG, scaledRound } from './fmt.js';
 
 /** fmt's bare `{:f}`: a hard-coded six decimals. PlotPoly and PenTo use it. */
 export const DEFAULT_FMT_PRECISION = 6;
-
-/** printf's default `%g` precision, i.e. six *significant* digits. */
-export const FMT_G_PRECISION = 6;
-
-/**
- * fmt's `{:g}`, i.e. C's `%g` at the default precision of six significant
- * digits: pick `%e` when the decimal exponent falls outside `[-4, 6)` and `%f`
- * otherwise, then strip the fractional part's trailing zeros and a bare
- * trailing point.
- *
- * The exponent is decided on the *rounded* value, not the raw one, which is why
- * it is recovered here by rounding to six significant digits and checking the
- * digit count rather than by trusting `Math.log10`. 9.9999995 is a six-digit
- * value whose exponent is 1, not 0.
- */
-export function formatG(aValue: number): string {
-  if (Number.isNaN(aValue)) return 'nan';
-  if (!Number.isFinite(aValue)) return aValue > 0 ? 'inf' : '-inf';
-
-  const negative = aValue < 0 || Object.is(aValue, -0);
-  const sign = negative ? '-' : '';
-
-  if (aValue === 0) return `${sign}0`;
-
-  const precision = FMT_G_PRECISION;
-  const { mantissa, exponent } = decompose(aValue);
-  const low = 10n ** BigInt(precision - 1);
-  const high = low * 10n;
-
-  // log10 only seeds the exponent; the loops below make it exact, which is what
-  // lets the digits come from BigInt arithmetic rather than from log10's
-  // accuracy. The overflow loop is the one that runs — rounding to six
-  // significant digits can carry into the next decade, as 9.999999 does. The
-  // underflow loop has never been observed to run on V8 and is kept because the
-  // invariant it enforces, a significand of exactly `precision` digits, belongs
-  // to this function rather than to the standard library.
-  let decimalExponent = Math.floor(Math.log10(Math.abs(aValue)));
-  let significand = scaledRound(mantissa, exponent, precision - 1 - decimalExponent);
-
-  while (significand >= high) {
-    decimalExponent += 1;
-    significand = scaledRound(mantissa, exponent, precision - 1 - decimalExponent);
-  }
-
-  while (significand < low) {
-    decimalExponent -= 1;
-    significand = scaledRound(mantissa, exponent, precision - 1 - decimalExponent);
-  }
-
-  if (decimalExponent < -4 || decimalExponent >= precision) {
-    const digits = significand.toString();
-    const fraction = digits.slice(1).replace(/0+$/, '');
-    const expSign = decimalExponent < 0 ? '-' : '+';
-    const expDigits = String(Math.abs(decimalExponent)).padStart(2, '0');
-
-    return `${sign}${digits[0]}${fraction ? `.${fraction}` : ''}e${expSign}${expDigits}`;
-  }
-
-  let out = fixed(Math.abs(aValue), precision - 1 - decimalExponent);
-
-  if (out.includes('.')) {
-    out = out.replace(/0+$/, '');
-    if (out.endsWith('.')) out = out.slice(0, -1);
-  }
-
-  return `${sign}${out}`;
-}
 
 /** fmt's `{:0Nd}`: a decimal integer zero-padded to N digits. */
 function zeroPad(aValue: number, aWidth: number): string {
@@ -296,28 +178,6 @@ function zeroPad(aValue: number, aWidth: number): string {
   const digits = String(Math.abs(aValue)).padStart(negative ? aWidth - 1 : aWidth, '0');
 
   return negative ? `-${digits}` : digits;
-}
-
-/** The `VECTOR2D` -> `VECTOR2I` conversion: truncate towards zero, per component. */
-const toVector2I = (aVec: Vec2): Vec2 => ({
-  x: Math.trunc(aVec.x),
-  y: Math.trunc(aVec.y),
-});
-
-/**
- * `VECTOR2<double>::EuclideanNorm` (vector2d.h:279). kimath's exported
- * EuclideanNorm is a bare `Math.hypot`; upstream shortcuts the axis-aligned and
- * 45-degree cases first, and `|x| * sqrt(2)` is not obliged to agree with
- * `hypot(x, x)` in the last bit.
- */
-function euclideanNormD(aVec: Vec2): number {
-  // 45° are common in KiCad, so we can optimize the calculation
-  if (Math.abs(aVec.x) === Math.abs(aVec.y)) return Math.abs(aVec.x) * Math.SQRT2;
-
-  if (aVec.x === 0) return Math.abs(aVec.y);
-  if (aVec.y === 0) return Math.abs(aVec.x);
-
-  return Math.hypot(aVec.x, aVec.y);
 }
 
 /** `COLOR4D::ToColour`: `(unsigned char)( channel * 255 + 0.5 )`, per channel. */
@@ -522,33 +382,7 @@ const newOutlineNode = (aActionHandle = -1, aTitle = '', aEntryHandle = -1): Out
  * multi-page document — ClosePage and StartPage between pages, then EndPlot.
  * Read the finished document back with `bytes()`.
  */
-export class PdfPlotter {
-  // ---- PLOTTER base state --------------------------------------------------
-  private m_plotOffset: Vec2 = { x: 0, y: 0 };
-  private m_plotScale = 1;
-  private m_paperSize: Vec2 = { x: 0, y: 0 };
-  private m_pageSizeMils: Vec2 = { x: 0, y: 0 };
-  private m_IUsPerDecimil = 1;
-  private m_iuPerDeviceUnit = 1;
-  private m_currentPenWidth = -1;
-  private m_penState: 'U' | 'D' | 'Z' = 'Z';
-  private m_penLastpos: Vec2 = { x: 0, y: 0 };
-  private m_plotMirror = false;
-  private m_mirrorIsHorizontal = true;
-  private m_yaxisReversed = false;
-  private m_colorMode = false;
-  private m_negativeMode = false;
-  private m_creator = '';
-  private m_filename = '';
-  private m_title = '';
-  private m_author = '';
-  private m_subject = '';
-
-  // ---- PSLIKE_PLOTTER state ------------------------------------------------
-  private plotScaleAdjX = 1;
-  private plotScaleAdjY = 1;
-  private m_textMode: PLOT_TEXT_MODE = PLOT_TEXT_MODE.PHANTOM;
-
+export class PDF_PLOTTER extends PSLIKE_PLOTTER {
   // ---- PDF_PLOTTER state ---------------------------------------------------
   private m_pageTreeHandle = 0;
   private m_fontResDictHandle = 0;
@@ -575,7 +409,6 @@ export class PdfPlotter {
   /** The output file, as bytes. `ftell( m_outputFile )` is `m_outLength`. */
   private m_out: Uint8Array[] = [];
   private m_outLength = 0;
-  private m_outputFile = false;
 
   /** The temporary stream-accumulation file, likewise. Null when closed. */
   private m_work: Uint8Array[] | null = null;
@@ -592,17 +425,33 @@ export class PdfPlotter {
   private readonly m_debugPdfWriter: boolean;
   private readonly m_project: PdfProject | null;
 
+  /** PDF reads the background colour too, which PLOTTER's slice does not carry. */
+  protected declare m_renderSettings: PdfRenderSettings | null;
+
   constructor(
-    private readonly m_renderSettings: PdfRenderSettings,
+    aRenderSettings: PdfRenderSettings | null,
     private readonly m_deflate: PdfDeflate,
     aOptions: { debugPdfWriter?: boolean; project?: PdfProject } = {},
   ) {
+    super();
+    this.m_renderSettings = aRenderSettings;
     this.m_debugPdfWriter = aOptions.debugPdfWriter ?? false;
     this.m_project = aOptions.project ?? null;
   }
 
   static GetDefaultFileExtension(): string {
     return 'pdf';
+  }
+
+  override GetPlotterType(): PLOT_FORMAT {
+    return PLOT_FORMAT.PDF;
+  }
+
+  /** `m_renderSettings->`, with the PDF-only accessor. */
+  protected override renderSettings(): PdfRenderSettings {
+    if (!this.m_renderSettings) throw new Error('plotter has no render settings');
+
+    return this.m_renderSettings;
   }
 
   // =========================================================================
@@ -669,46 +518,6 @@ export class PdfPlotter {
   // =========================================================================
 
   /**
-   * `PDF_PLOTTER::OpenFile`. There is no file here — the document accumulates
-   * in memory — but the name is still needed: EndPlot falls back to its base
-   * name for the `/Title` when none was set.
-   */
-  OpenFile(aFullFilename: string): boolean {
-    this.m_filename = aFullFilename;
-    this.m_outputFile = true;
-    return true;
-  }
-
-  GetFilename(): string {
-    return this.m_filename;
-  }
-
-  SetCreator(aCreator: string): void {
-    this.m_creator = aCreator;
-  }
-
-  SetTitle(aTitle: string): void {
-    this.m_title = aTitle;
-  }
-
-  SetAuthor(aAuthor: string): void {
-    this.m_author = aAuthor;
-  }
-
-  SetSubject(aSubject: string): void {
-    this.m_subject = aSubject;
-  }
-
-  /**
-   * `PLOTTER::SetPageSettings`, collapsed to the one thing StartPage and
-   * ClosePage ask a PAGE_INFO for: `GetSizeMils()`, a VECTOR2D of mils. The
-   * page-size table itself is not this module's business.
-   */
-  SetPageSettings(aSizeMils: Vec2): void {
-    this.m_pageSizeMils = { x: aSizeMils.x, y: aSizeMils.y };
-  }
-
-  /**
    * `PDF_PLOTTER::SetViewport`. Unlike every other back-end this one does *not*
    * compute the paper size here — the PDF engine handles the page size page by
    * page, in StartPage — and the device unit is one decimil, which is what the
@@ -724,34 +533,6 @@ export class PdfPlotter {
     this.m_iuPerDeviceUnit = 1.0 / aIusPerDecimil;
   }
 
-  /** `PSLIKE_PLOTTER::SetScaleAdjust`, the fine scaling StartPage's CTM folds in. */
-  SetScaleAdjust(aScaleX: number, aScaleY: number): void {
-    this.plotScaleAdjX = aScaleX;
-    this.plotScaleAdjY = aScaleY;
-  }
-
-  /** `PLOTTER::SetColorMode`. pcbnew passes `!blackAndWhite`. */
-  SetColorMode(aColorMode: boolean): void {
-    this.m_colorMode = aColorMode;
-  }
-
-  GetColorMode(): boolean {
-    return this.m_colorMode;
-  }
-
-  SetNegative(aNegative: boolean): void {
-    this.m_negativeMode = aNegative;
-  }
-
-  /** `PSLIKE_PLOTTER::SetTextMode`. DEFAULT means "leave the mode alone". */
-  SetTextMode(aMode: PLOT_TEXT_MODE): void {
-    if (aMode !== PLOT_TEXT_MODE.DEFAULT) this.m_textMode = aMode;
-  }
-
-  GetTextMode(): PLOT_TEXT_MODE {
-    return this.m_textMode;
-  }
-
   /**
    * `PDF_PLOTTER::Set3DExport`. With it set, StartPage writes no content stream,
    * ClosePage adds a `/3D` annotation and EndPlot emits no resources at all.
@@ -763,72 +544,9 @@ export class PdfPlotter {
     this.m_3dExportMode = aYes;
   }
 
-  /** `PLOTTER::GetPlotterArcHighDef` / `GetPlotterArcLowDef`. */
-  GetPlotterArcHighDef(): number {
-    return this.m_IUsPerDecimil * 2;
-  }
-
-  GetPlotterArcLowDef(): number {
-    return this.m_IUsPerDecimil * 8;
-  }
-
   // =========================================================================
   // Coordinates
   // =========================================================================
-
-  /**
-   * `PLOTTER::userToDeviceCoordinates`. m_yaxisReversed is false for PDF, so the
-   * paper flip stands and the result is in decimils with y measured down from
-   * the top of the page — which the page CTM then turns the right way up.
-   *
-   * The vertical-mirror branch is unreachable: nothing in the KiCad tree ever
-   * assigns m_mirrorIsHorizontal, so it is `true` from PLOTTER's constructor
-   * onwards. It is kept because the transform, not the reachable half of it, is
-   * the unit being ported.
-   */
-  private userToDeviceCoordinates(aCoordinate: Vec2): Vec2 {
-    const pos = {
-      x: aCoordinate.x - this.m_plotOffset.x,
-      y: aCoordinate.y - this.m_plotOffset.y,
-    };
-
-    let x = pos.x * this.m_plotScale;
-    let y = this.m_paperSize.y - pos.y * this.m_plotScale;
-
-    if (this.m_plotMirror) {
-      if (this.m_mirrorIsHorizontal) x = this.m_paperSize.x - pos.x * this.m_plotScale;
-      else y = pos.y * this.m_plotScale;
-    }
-
-    if (this.m_yaxisReversed) y = this.m_paperSize.y - y;
-
-    x *= this.m_iuPerDeviceUnit;
-    y *= this.m_iuPerDeviceUnit;
-
-    return { x, y };
-  }
-
-  /** `PLOTTER::userToDeviceSize( double )`. */
-  private userToDeviceSize(aSize: number): number {
-    return aSize * this.m_plotScale * this.m_iuPerDeviceUnit;
-  }
-
-  /**
-   * `PLOTTER::GetDotMarkLenIU` and friends. Despite the `IU` in the names these
-   * are already in *device* units — userToDeviceSize has run — and SetDash then
-   * truncates each to an int, so a dash pattern is whole decimils.
-   */
-  private GetDotMarkLenIU(aLineWidth: number): number {
-    return this.userToDeviceSize(this.m_renderSettings.GetDotLength(aLineWidth));
-  }
-
-  private GetDashMarkLenIU(aLineWidth: number): number {
-    return this.userToDeviceSize(this.m_renderSettings.GetDashLength(aLineWidth));
-  }
-
-  private GetDashGapLenIU(aLineWidth: number): number {
-    return this.userToDeviceSize(this.m_renderSettings.GetGapLength(aLineWidth));
-  }
 
   // =========================================================================
   // Numeric encoding
@@ -879,7 +597,7 @@ export class PdfPlotter {
     let width = aWidth;
 
     if (width === DO_NOT_SET_LINE_WIDTH) return;
-    else if (width === USE_DEFAULT_LINE_WIDTH) width = this.m_renderSettings.GetDefaultPenWidth();
+    else if (width === USE_DEFAULT_LINE_WIDTH) width = this.renderSettings().GetDefaultPenWidth();
 
     if (width === 0) width = 1;
 
@@ -889,17 +607,13 @@ export class PdfPlotter {
     this.m_currentPenWidth = width;
   }
 
-  GetCurrentLineWidth(): number {
-    return this.m_currentPenWidth;
-  }
-
   /**
    * `emitSetRGBColor`. PDF has no alpha in the graphics state the plotter uses,
    * so a translucent colour is pre-blended against white paper. Both the fill
    * (`rg`) and the stroke (`RG`) colour are set from the same triple, on one
    * line, every time — there is no change detection here at all.
    */
-  private emitSetRGBColor(r: number, g: number, b: number, a: number): void {
+  protected override emitSetRGBColor(r: number, g: number, b: number, a: number): void {
     let red = r;
     let green = g;
     let blue = b;
@@ -915,27 +629,6 @@ export class PdfPlotter {
     const bs = this.encodeDoubleForPlotter(blue);
 
     this.work(`${rs} ${gs} ${bs} rg ${rs} ${gs} ${bs} RG\n`);
-  }
-
-  /**
-   * `PSLIKE_PLOTTER::SetColor`. In mono mode only exact white survives as white
-   * — every other colour, alpha included in the comparison, becomes black, and
-   * the alpha is forced to 1.
-   */
-  SetColor(aColor: Color4d): void {
-    if (this.m_colorMode) {
-      if (this.m_negativeMode)
-        this.emitSetRGBColor(1 - aColor.r, 1 - aColor.g, 1 - aColor.b, aColor.a);
-      else this.emitSetRGBColor(aColor.r, aColor.g, aColor.b, aColor.a);
-    } else {
-      // B/W mode: pcbnew relies on the two colours to draw holes white on black pads.
-      let k = 1; // White
-
-      if (!colorEquals(aColor, COLOR4D_WHITE)) k = 0;
-
-      if (this.m_negativeMode) this.emitSetRGBColor(1 - k, 1 - k, 1 - k, 1.0);
-      else this.emitSetRGBColor(k, k, k, 1.0);
-    }
   }
 
   /**
@@ -1166,7 +859,7 @@ export class PdfPlotter {
    * and stroke), so the pie's two straight edges are stroked too; an unfilled
    * one is left open and merely stroked.
    */
-  Arc(
+  override Arc(
     aCenter: Vec2,
     aStartAngle: EDA_ANGLE,
     aAngle: EDA_ANGLE,
@@ -1210,41 +903,6 @@ export class PdfPlotter {
   }
 
   /**
-   * `PLOTTER::Arc( start, mid, end, … )`, inherited unchanged: it derives the
-   * centre and sweep and defers to the override above. `det <= 0` counts a
-   * collinear triple as clockwise, so a degenerate arc normalises positive.
-   */
-  ArcThroughPoints(aStart: Vec2, aMid: Vec2, aEnd: Vec2, aFill: FILL_T, aWidth: number): void {
-    const aCenter = CalcArcCenter(aStart, aMid, aEnd);
-
-    const startAngle = EDA_ANGLE.fromVector({
-      x: aStart.x - aCenter.x,
-      y: aStart.y - aCenter.y,
-    });
-    const endAngle = EDA_ANGLE.fromVector({
-      x: aEnd.x - aCenter.x,
-      y: aEnd.y - aCenter.y,
-    });
-
-    // < 0: left, 0 : on the line, > 0 : right
-    const det =
-      (aEnd.x - aStart.x) * (aMid.y - aStart.y) - (aEnd.y - aStart.y) * (aMid.x - aStart.x);
-
-    const cw = det <= 0;
-    const angle = endAngle.sub(startAngle);
-
-    if (cw) angle.Normalize();
-    else angle.NormalizeNegative();
-
-    const radius = euclideanNormD({
-      x: aStart.x - aCenter.x,
-      y: aStart.y - aCenter.y,
-    });
-
-    this.Arc(aCenter, startAngle, angle, radius, aFill, aWidth);
-  }
-
-  /**
    * `PlotPoly( const std::vector<VECTOR2I>& )`. Two details set this apart from
    * everything around it: the coordinates go out as a bare `{:f}`, six decimals
    * with the zeros kept, where Rect and Arc use encodeDoubleForPlotter's
@@ -1285,24 +943,6 @@ export class PdfPlotter {
   // =========================================================================
   // Pen
   // =========================================================================
-
-  MoveTo(pos: Vec2): void {
-    this.PenTo(pos, 'U');
-  }
-
-  LineTo(pos: Vec2): void {
-    this.PenTo(pos, 'D');
-  }
-
-  FinishTo(pos: Vec2): void {
-    this.PenTo(pos, 'D');
-    this.PenTo(pos, 'Z');
-  }
-
-  PenFinish(): void {
-    // The point is not important with Z motion
-    this.PenTo({ x: 0, y: 0 }, 'Z');
-  }
 
   /**
    * `PenTo`. 'Z' strokes whatever path is open and parks the pen at (-1,-1),
@@ -1355,7 +995,7 @@ export class PdfPlotter {
    * registered handles in insertion order and takes the first match, so the
    * handle a repeat gets is the earliest equal one.
    */
-  PlotImage(aImage: PdfImage, aPos: Vec2, aScaleFactor: number): void {
+  override PlotImage(aImage: PdfImage, aPos: Vec2, aScaleFactor: number): void {
     const pix_size = { x: aImage.GetWidth(), y: aImage.GetHeight() };
 
     // Requested size (in IUs)
@@ -1570,7 +1210,7 @@ export class PdfPlotter {
         : `${aParentPageName} (Page ${aParentPageNumber})`;
 
     // Compute the paper size in IUs
-    const paperSize = toVector2I(this.m_pageSizeMils);
+    const paperSize = toVector2I(this.PageSettings().GetSizeMils());
 
     this.m_paperSize = {
       x: Math.trunc(paperSize.x * (10.0 / this.m_iuPerDeviceUnit)),
@@ -1594,7 +1234,7 @@ export class PdfPlotter {
           ` ${this.encodeDoubleForPlotter(0.0072 * this.plotScaleAdjY)} 0 0 cm 1 J 1 j` +
           ` 0 0 0 rg 0 0 0 RG` +
           ` ${this.encodeDoubleForPlotter(
-            this.userToDeviceSize(this.m_renderSettings.GetDefaultPenWidth()),
+            this.userToDeviceSize(this.renderSettings().GetDefaultPenWidth()),
           )} w\n`,
       );
     }
@@ -1627,8 +1267,8 @@ export class PdfPlotter {
     // Page size is in 1/72 of inch (default user space units).
     const PTsPERMIL = 0.072;
     const psPaperSize = {
-      x: this.m_pageSizeMils.x * PTsPERMIL,
-      y: this.m_pageSizeMils.y * PTsPERMIL,
+      x: this.PageSettings().GetSizeMils().x * PTsPERMIL,
+      y: this.PageSettings().GetSizeMils().y * PTsPERMIL,
     };
 
     const iuToPdfUserSpace = (aCoord: Vec2): Vec2 => {
@@ -2021,7 +1661,7 @@ export class PdfPlotter {
         this.m_deflate(
           WriteImageStream(
             image,
-            toColour(this.m_renderSettings.GetBackgroundColor()),
+            toColour(this.renderSettings().GetBackgroundColor()),
             this.m_colorMode,
           ),
         ),
@@ -2384,13 +2024,82 @@ export class PdfPlotter {
   // Annotations
   // =========================================================================
 
+  /**
+   * `PDF_PLOTTER::Text`. Upstream draws through its own Type 3 font managers
+   * (pdf_stroke_font / pdf_outline_font) so the text stays selectable; those
+   * are not ported, so beyond the zero-size guard this refuses rather than
+   * fall back to PLOTTER::Text's stroked glyphs, which would be a different
+   * file.
+   */
+  override Text(
+    _aPos: Vec2,
+    _aColor: Color4d,
+    _aText: string,
+    _aOrient: EDA_ANGLE,
+    aSize: Vec2,
+    _aH_justify: GR_TEXT_H_ALIGN_T,
+    _aV_justify: GR_TEXT_V_ALIGN_T,
+    _aWidth: number,
+    _aItalic: boolean,
+    _aBold: boolean,
+    _aMultilineAllowed: boolean,
+    _aFont: PLOTTER_FONT | null,
+    _aFontMetrics?: unknown,
+    _aData?: unknown,
+  ): void {
+    // PDF files do not like 0 sized texts which create broken files.
+    if (aSize.x === 0 || aSize.y === 0) return;
+
+    throw new Error('PDF_PLOTTER::Text is not ported (needs PDF_STROKE_FONT_MANAGER)');
+  }
+
+  /** `PDF_PLOTTER::PlotText`: a mirrored run is a negative width into Text. */
+  override PlotText(
+    aPos: Vec2,
+    aColor: Color4d,
+    aText: string,
+    aAttributes: PLOTTER_TEXT_ATTRIBUTES,
+    aFont: PLOTTER_FONT | null,
+    aFontMetrics?: unknown,
+    aData?: unknown,
+  ): void {
+    const size = { x: aAttributes.m_Size.x, y: aAttributes.m_Size.y };
+
+    // PDF files do not like 0 sized texts which create broken files.
+    if (size.x === 0 || size.y === 0) return;
+
+    if (aAttributes.m_Mirrored) size.x = -size.x;
+
+    this.Text(
+      aPos,
+      aColor,
+      aText,
+      aAttributes.m_Angle,
+      size,
+      aAttributes.m_Halign,
+      aAttributes.m_Valign,
+      aAttributes.m_StrokeWidth,
+      aAttributes.m_Italic,
+      aAttributes.m_Bold,
+      aAttributes.m_Multiline,
+      aFont,
+      aFontMetrics,
+      aData,
+    );
+  }
+
+  /** `PDF_PLOTTER::encodeStringForPlotter`, the free function above. */
+  protected override encodeStringForPlotter(aUnicode: string): string {
+    return encodeStringForPlotter(aUnicode);
+  }
+
   /** `HyperlinkBox`. Queued until ClosePage, which is where the object is made. */
-  HyperlinkBox(aBox: PdfBox2, aDestinationURL: string): void {
+  override HyperlinkBox(aBox: PdfBox2, aDestinationURL: string): void {
     this.m_hyperlinksInPage.push({ box: cloneBox(aBox), url: aDestinationURL });
   }
 
   /** `HyperlinkMenu`. Likewise; the JavaScript is only built at EndPlot. */
-  HyperlinkMenu(aBox: PdfBox2, aDestURLs: readonly string[]): void {
+  override HyperlinkMenu(aBox: PdfBox2, aDestURLs: readonly string[]): void {
     this.m_hyperlinkMenusInPage.push({ box: cloneBox(aBox), urls: [...aDestURLs] });
   }
 
@@ -2399,7 +2108,7 @@ export class PdfPlotter {
    * string — which is a real key, so ungrouped bookmarks all land under one
    * unnamed outline node rather than directly under the page.
    */
-  Bookmark(aLocation: PdfBox2, aSymbolReference: string, aGroupName = ''): void {
+  override Bookmark(aLocation: PdfBox2, aSymbolReference: string, aGroupName = ''): void {
     const group = this.m_bookmarksInPage.get(aGroupName);
 
     if (group) group.push({ box: cloneBox(aLocation), ref: aSymbolReference });

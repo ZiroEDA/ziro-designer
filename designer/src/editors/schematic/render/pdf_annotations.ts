@@ -42,7 +42,7 @@ import {
   symbolBodyBBox,
   type BBox,
 } from '@ziroeda/eeschema/tools/bbox.js';
-import type { PdfBox2, PdfPlotter } from '@ziroeda/pcbnew/plot_pdf.js';
+import type { PdfBox2, PDF_PLOTTER } from '@ziroeda/common/plotters/PDF_plotter.js';
 
 /** What the sheet's connectivity knows about a wire, bus or label. */
 export interface PdfNetInfo {
@@ -84,7 +84,7 @@ export interface PdfAnnotationContext {
 export const gotoPageHref = (page: string): string => `#${page}`;
 
 export function plotPdfAnnotations(
-  plotter: PdfPlotter,
+  plotter: PDF_PLOTTER,
   sch: Schematic,
   libById: Map<string, LibSymbol>,
   ctx: PdfAnnotationContext,

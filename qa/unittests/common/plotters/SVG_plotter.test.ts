@@ -4,25 +4,27 @@
 import { describe, expect, it } from 'vitest';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/eda_text.js';
+import { GetPenSizeForBold } from '@ziroeda/common/gr_text.js';
+import { type Color4d, COLOR4D_WHITE } from '@ziroeda/common/gal/color4d.js';
+import { fixed } from '@ziroeda/common/plotters/fmt.js';
+import { plotterRenderSettings } from '@ziroeda/common/render_settings.js';
 import {
-  base64Encode,
-  type Color4d,
-  COLOR4D_WHITE,
   DO_NOT_SET_LINE_WIDTH,
   FILL_T,
-  fixed,
-  GetISO8601CurrentDateTime,
-  GetPenSizeForBold,
-  hex6,
   LINE_STYLE,
-  type SvgFont,
-  type SvgImage,
-  SvgPlotter,
-  svgRenderSettings,
-  type SvgTextAttributes,
+  type PLOTTER_FONT,
+  type PLOTTER_TEXT_ATTRIBUTES,
+  plotterPageInfo,
   USE_DEFAULT_LINE_WIDTH,
+} from '@ziroeda/common/plotters/plotter.js';
+import {
+  base64Encode,
+  GetISO8601CurrentDateTime,
+  hex6,
+  SVG_PLOTTER,
+  type SvgImage,
   XmlEsc,
-} from '@ziroeda/pcbnew/plot_svg.js';
+} from '@ziroeda/common/plotters/SVG_plotter.js';
 
 /** A4 landscape in mils, i.e. what PAGE_INFO::GetSizeMils() hands SetViewport. */
 const A4_MILS = { x: 11693, y: 8268 };
@@ -50,11 +52,11 @@ function plotter(
     offset?: { x: number; y: number };
     start?: boolean;
   } = {},
-): SvgPlotter {
-  const p = new SvgPlotter(svgRenderSettings({ defaultPenWidth: opts.defaultPenWidth ?? 0 }));
+): SVG_PLOTTER {
+  const p = new SVG_PLOTTER(plotterRenderSettings({ defaultPenWidth: opts.defaultPenWidth ?? 0 }));
   p.OpenFile('/home/plots/board.svg');
   p.SetCreator('ZiroEDA');
-  p.SetPageSettings(A4_MILS);
+  p.SetPageSettings(plotterPageInfo({ sizeMils: A4_MILS }));
   p.SetColorMode(opts.colorMode ?? true);
   p.SetViewport(opts.offset ?? { x: 0, y: 0 }, 2540, opts.scale ?? 1, opts.mirror ?? false);
 
@@ -64,14 +66,14 @@ function plotter(
 }
 
 /** The document with the header dropped, so a test can read the body as prose. */
-function body(p: SvgPlotter): string {
+function body(p: SVG_PLOTTER): string {
   const text = p.text();
   const cut = text.indexOf(' transform="translate(0 0) scale(1 1)">\n');
   return text.slice(cut + ' transform="translate(0 0) scale(1 1)">\n'.length);
 }
 
 /** A stroke font stub: one horizontal segment per character, at the baseline. */
-const stubFont = (width = 1000): SvgFont => ({
+const stubFont = (width = 1000): PLOTTER_FONT => ({
   GRTextWidth: (aText) => aText.length * width,
   Draw: (aText, aPos) =>
     Array.from(aText, (_ch, i) => [
@@ -80,7 +82,7 @@ const stubFont = (width = 1000): SvgFont => ({
     ]) as readonly (readonly [{ x: number; y: number }, { x: number; y: number }])[],
 });
 
-const attributes = (over: Partial<SvgTextAttributes> = {}): SvgTextAttributes => ({
+const attributes = (over: Partial<PLOTTER_TEXT_ATTRIBUTES> = {}): PLOTTER_TEXT_ATTRIBUTES => ({
   m_Size: { x: 1500, y: 1500 },
   m_Halign: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT,
   m_Valign: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM,
@@ -185,8 +187,10 @@ describe('SetViewport and the document header', () => {
     // PAGE_INFO::SetWidthMM stores mils as a double, so a user page really can
     // arrive fractional; m_paperSize is a VECTOR2I and the assignment truncates.
     // Keeping the fraction would turn 209.9818 mm into a clean 210.
-    const p = new SvgPlotter(svgRenderSettings());
-    p.SetPageSettings({ x: (210 * 1000) / 25.4, y: (297 * 1000) / 25.4 });
+    const p = new SVG_PLOTTER(plotterRenderSettings());
+    p.SetPageSettings(
+      plotterPageInfo({ sizeMils: { x: (210 * 1000) / 25.4, y: (297 * 1000) / 25.4 } }),
+    );
     p.SetViewport({ x: 0, y: 0 }, 2540, 1, false);
     p.StartPlot('', new Date(2026, 0, 2, 3, 4, 5));
 
@@ -215,10 +219,10 @@ describe('SetViewport and the document header', () => {
   });
 
   it('escapes the title and the creator and uses the file base name', () => {
-    const p = new SvgPlotter(svgRenderSettings());
+    const p = new SVG_PLOTTER(plotterRenderSettings());
     p.OpenFile('/home/plots/a&b<c>.svg');
     p.SetCreator('Ziro & Co');
-    p.SetPageSettings(A4_MILS);
+    p.SetPageSettings(plotterPageInfo({ sizeMils: A4_MILS }));
     p.SetViewport({ x: 0, y: 0 }, 2540, 1, false);
     p.StartPlot('', new Date(2026, 0, 2, 3, 4, 5));
 
@@ -339,7 +343,7 @@ describe('the graphics context', () => {
   });
 
   it('resolves USE_DEFAULT_LINE_WIDTH through the render settings', () => {
-    const p = new SvgPlotter(svgRenderSettings({ defaultPenWidth: 21_200 }));
+    const p = new SVG_PLOTTER(plotterRenderSettings({ defaultPenWidth: 21_200 }));
     p.SetCurrentLineWidth(USE_DEFAULT_LINE_WIDTH);
 
     expect(p.GetCurrentLineWidth()).toBe(21_200);

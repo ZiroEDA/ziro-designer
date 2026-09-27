@@ -3,28 +3,29 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, expect, it, vi } from 'vitest';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { type Color4d, COLOR4D_WHITE } from '@ziroeda/common/gal/color4d.js';
+import { fixed, formatG } from '@ziroeda/common/plotters/fmt.js';
 import {
-  type Color4d,
-  COLOR4D_WHITE,
   DO_NOT_SET_LINE_WIDTH,
+  FILL_T,
+  LINE_STYLE,
+  plotterPageInfo,
+  USE_DEFAULT_LINE_WIDTH,
+} from '@ziroeda/common/plotters/plotter.js';
+import {
   encodeByteString,
   encodeStringForPlotter,
   EscapeJsString,
-  FILL_T,
-  fixed,
-  formatG,
   IsGotoPageHref,
-  LINE_STYLE,
   NormalizeFileUri,
+  PDF_PLOTTER,
   type PdfDeflate,
   type PdfImage,
-  PdfPlotter,
   pdfCreationDate,
   pdfRenderSettings,
-  USE_DEFAULT_LINE_WIDTH,
   WriteImageSMaskStream,
   WriteImageStream,
-} from '@ziroeda/pcbnew/plot_pdf.js';
+} from '@ziroeda/common/plotters/PDF_plotter.js';
 
 /** A4 landscape in mils, i.e. what PAGE_INFO::GetSizeMils() hands SetPageSettings. */
 const A4_MILS = { x: 11693, y: 8268 };
@@ -72,8 +73,8 @@ interface PlotterOpts {
 }
 
 /** A plotter wired the way pcbnew wires one: A4, 2540 IU per decimil, colour on. */
-function plotter(opts: PlotterOpts = {}): PdfPlotter {
-  const p = new PdfPlotter(
+function plotter(opts: PlotterOpts = {}): PDF_PLOTTER {
+  const p = new PDF_PLOTTER(
     pdfRenderSettings({
       defaultPenWidth: opts.defaultPenWidth ?? 0,
       backgroundColor: opts.background,
@@ -84,7 +85,7 @@ function plotter(opts: PlotterOpts = {}): PdfPlotter {
 
   p.OpenFile('/home/plots/board.pdf');
   p.SetCreator('ZiroEDA');
-  p.SetPageSettings(A4_MILS);
+  p.SetPageSettings(plotterPageInfo({ sizeMils: A4_MILS }));
   p.SetColorMode(opts.colorMode ?? true);
   p.SetViewport(opts.offset ?? { x: 0, y: 0 }, 2540, opts.scale ?? 1, opts.mirror ?? false);
 
@@ -121,7 +122,7 @@ function objectAt(aText: string, n: number): string {
  * The first page's content stream, less its first line — which StartPage always
  * fills with the default graphics state, whatever the default pen width is.
  */
-function stream(p: PdfPlotter): string {
+function stream(p: PDF_PLOTTER): string {
   const text = p.text();
   const open = text.indexOf('stream\n{');
   const body = text.slice(open + 'stream\n{'.length, text.indexOf('}\nendstream', open));
@@ -130,7 +131,7 @@ function stream(p: PdfPlotter): string {
 }
 
 /** Draw into page one, then finish the document so the stream can be read back. */
-function draw(p: PdfPlotter, aBody: (aPlotter: PdfPlotter) => void): string {
+function draw(p: PDF_PLOTTER, aBody: (aPlotter: PDF_PLOTTER) => void): string {
   aBody(p);
   p.EndPlot(NOW);
 
@@ -169,7 +170,7 @@ const rgb = (r: number, g: number, b: number, a = 1): Color4d => ({
 
 // ===========================================================================
 
-describe('PdfPlotter file skeleton', () => {
+describe('PDF_PLOTTER file skeleton', () => {
   it('opens with the version line and the four high-bit bytes that mark it binary', () => {
     const p = plotter();
     p.EndPlot(NOW);
@@ -339,7 +340,7 @@ describe('PdfPlotter file skeleton', () => {
   });
 });
 
-describe('PdfPlotter stream length back-patching', () => {
+describe('PDF_PLOTTER stream length back-patching', () => {
   it('defers the length to an indirect object holding the compressed byte count', () => {
     const p = plotter();
     p.EndPlot(NOW);
@@ -399,7 +400,7 @@ describe('PdfPlotter stream length back-patching', () => {
   });
 });
 
-describe('PdfPlotter numeric encoding', () => {
+describe('PDF_PLOTTER numeric encoding', () => {
   const encode = (aValue: number): string => plotter().encodeDoubleForPlotter(aValue);
 
   it('emits the shortest six-significant-digit form for ordinary values', () => {
@@ -449,7 +450,7 @@ describe('PdfPlotter numeric encoding', () => {
   });
 });
 
-describe('PdfPlotter graphics state', () => {
+describe('PDF_PLOTTER graphics state', () => {
   it('promotes a zero pen to one internal unit and emits the operator once', () => {
     const body = draw(plotter(), (p) => {
       p.SetCurrentLineWidth(0);
@@ -551,7 +552,7 @@ describe('PdfPlotter graphics state', () => {
   });
 });
 
-describe('PdfPlotter entities', () => {
+describe('PDF_PLOTTER entities', () => {
   it('draws a rectangle with the native operator and the right paint verb', () => {
     const p1 = { x: 10 * DECIMIL, y: 20 * DECIMIL };
     const p2 = { x: 110 * DECIMIL, y: 70 * DECIMIL };
@@ -770,7 +771,7 @@ describe('PdfPlotter entities', () => {
     // fractional; assigning GetSizeMils()'s VECTOR2D into a VECTOR2I member
     // drops the fraction before the multiply, which moves every device y by a
     // whole decimil. The media box, which reads the mils directly, keeps it.
-    p.SetPageSettings({ x: 11693.9, y: 8268.9 });
+    p.SetPageSettings(plotterPageInfo({ sizeMils: { x: 11693.9, y: 8268.9 } }));
     p.StartPlot('1');
 
     const body = draw(p, (q) =>
@@ -803,7 +804,7 @@ describe('PdfPlotter entities', () => {
   });
 });
 
-describe('PdfPlotter images', () => {
+describe('PDF_PLOTTER images', () => {
   const pixels = image({ width: 2, height: 1, data: [10, 20, 30, 40, 50, 60] });
 
   it('scales the unit square onto the target rectangle and restores the matrix', () => {
@@ -935,7 +936,7 @@ describe('PdfPlotter images', () => {
   });
 });
 
-describe('PdfPlotter outline and pages', () => {
+describe('PDF_PLOTTER outline and pages', () => {
   it('files each page under an outline entry named for its number', () => {
     const p = plotter();
     p.EndPlot(NOW);
@@ -1124,7 +1125,7 @@ describe('PdfPlotter outline and pages', () => {
   });
 });
 
-describe('PdfPlotter hyperlinks', () => {
+describe('PDF_PLOTTER hyperlinks', () => {
   const box = { pos: { x: 0, y: 0 }, size: { x: 100 * DECIMIL, y: 50 * DECIMIL } };
 
   it('resolves an internal page reference to a destination on that page', () => {
@@ -1255,7 +1256,7 @@ describe('PdfPlotter hyperlinks', () => {
   });
 });
 
-describe('PdfPlotter string encoding', () => {
+describe('PDF_PLOTTER string encoding', () => {
   it('keeps an ASCII string readable and escapes only the PDF delimiters', () => {
     expect(encodeStringForPlotter('R1 (0603)')).toBe('(R1 \\(0603\\))');
     expect(encodeStringForPlotter('C:\\plots')).toBe('(C:\\\\plots)');
@@ -1310,7 +1311,7 @@ describe('PdfPlotter string encoding', () => {
   });
 });
 
-describe('PdfPlotter 3D export mode', () => {
+describe('PDF_PLOTTER 3D export mode', () => {
   it('writes no content stream and annotates the page as 3D', () => {
     const p = plotter({ start: false });
 

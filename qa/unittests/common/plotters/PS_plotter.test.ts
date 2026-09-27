@@ -4,28 +4,28 @@
 import { describe, expect, it } from 'vitest';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/eda_text.js';
+import { type Color4d, COLOR4D_BLACK, COLOR4D_WHITE } from '@ziroeda/common/gal/color4d.js';
+import { formatG } from '@ziroeda/common/plotters/fmt.js';
+import { plotterRenderSettings } from '@ziroeda/common/render_settings.js';
 import {
-  type Color4d,
-  COLOR4D_BLACK,
-  COLOR4D_WHITE,
   DO_NOT_SET_LINE_WIDTH,
-  encodeStringForPlotter,
   FILL_T,
-  formatG,
-  getFillId,
   LINE_STYLE,
   PLOT_TEXT_MODE,
+  type PLOTTER_FONT,
+  type PLOTTER_TEXT_ATTRIBUTES,
+  plotterPageInfo,
+  USE_DEFAULT_LINE_WIDTH,
+} from '@ziroeda/common/plotters/plotter.js';
+import {
+  encodeStringForPlotter,
+  getFillId,
   POSTSCRIPT_TEXT_ASCENT,
   PS_MACRO_PROLOG,
-  type PsFont,
+  PS_PLOTTER,
   type PsImage,
-  PsPlotter,
-  type PsTextAttributes,
   psCreationDate,
-  psPageInfo,
-  psRenderSettings,
-  USE_DEFAULT_LINE_WIDTH,
-} from '@ziroeda/pcbnew/plot_ps.js';
+} from '@ziroeda/common/plotters/PS_plotter.js';
 
 /** A4 portrait and landscape in mils, as PAGE_INFO stores them for each orientation. */
 const A4_PORTRAIT_MILS = { x: 8268, y: 11693 };
@@ -56,17 +56,17 @@ interface PlotterOptions {
 }
 
 /** A plotter opened, described and viewported, but not yet started. */
-function makePlotter(aOptions: PlotterOptions = {}): PsPlotter {
+function makePlotter(aOptions: PlotterOptions = {}): PS_PLOTTER {
   const portrait = aOptions.portrait ?? true;
-  const plotter = new PsPlotter(
-    psRenderSettings({ defaultPenWidth: aOptions.defaultPenWidth ?? 100 }),
+  const plotter = new PS_PLOTTER(
+    plotterRenderSettings({ defaultPenWidth: aOptions.defaultPenWidth ?? 100 }),
   );
 
   plotter.OpenFile('/plots/board.ps');
   plotter.SetCreator('ZiroEDA (6.0)');
   plotter.SetTitle('board');
   plotter.SetPageSettings(
-    psPageInfo({
+    plotterPageInfo({
       sizeMils: portrait ? A4_PORTRAIT_MILS : A4_LANDSCAPE_MILS,
       type: aOptions.type ?? 'A4',
       portrait,
@@ -80,7 +80,10 @@ function makePlotter(aOptions: PlotterOptions = {}): PsPlotter {
 }
 
 /** A plotter whose emitted text so far is discarded: only the geometry that follows matters. */
-function drawingPlotter(aOptions: PlotterOptions = {}): { plotter: PsPlotter; body: () => string } {
+function drawingPlotter(aOptions: PlotterOptions = {}): {
+  plotter: PS_PLOTTER;
+  body: () => string;
+} {
   const plotter = makePlotter(aOptions);
 
   plotter.StartPlot('1', WHEN);
@@ -93,7 +96,7 @@ function drawingPlotter(aOptions: PlotterOptions = {}): { plotter: PsPlotter; bo
 /** A font that yields one stroke per character, so the pen traffic is countable. */
 const stubFont = (
   aStrokes: readonly (readonly [{ x: number; y: number }, { x: number; y: number }])[],
-): PsFont => ({
+): PLOTTER_FONT => ({
   Draw: () => aStrokes,
 });
 
@@ -329,9 +332,11 @@ describe('StartPlot', () => {
   });
 
   it('refuses to start before OpenFile', () => {
-    const plotter = new PsPlotter(psRenderSettings());
+    const plotter = new PS_PLOTTER(plotterRenderSettings());
 
-    plotter.SetPageSettings(psPageInfo({ sizeMils: A4_PORTRAIT_MILS, type: 'A4', portrait: true }));
+    plotter.SetPageSettings(
+      plotterPageInfo({ sizeMils: A4_PORTRAIT_MILS, type: 'A4', portrait: true }),
+    );
 
     // Upstream's wxASSERT( m_outputFile ) is compiled out of a release build and
     // then writes to a null FILE*. Throwing is the honest analogue.
@@ -339,7 +344,7 @@ describe('StartPlot', () => {
   });
 
   it('refuses to plot without a page description', () => {
-    const plotter = new PsPlotter(psRenderSettings());
+    const plotter = new PS_PLOTTER(plotterRenderSettings());
 
     plotter.OpenFile('/plots/board.ps');
 
@@ -1190,7 +1195,7 @@ describe('text', () => {
 
   it('does not re-issue the pen per stroke on the PlotText path', () => {
     const { plotter, body } = drawingPlotter();
-    const attributes: PsTextAttributes = {
+    const attributes: PLOTTER_TEXT_ATTRIBUTES = {
       m_Size: { x: 500, y: 500 },
       m_Halign: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT,
       m_Valign: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM,
@@ -1252,7 +1257,7 @@ describe('text', () => {
     let boldWidth = -99;
     let negativeWidth = -99;
 
-    const capture = (aSink: (aWidth: number) => void): PsFont => ({
+    const capture = (aSink: (aWidth: number) => void): PLOTTER_FONT => ({
       Draw: (_t, _p, aAttributes) => {
         aSink(aAttributes.m_StrokeWidth);
         return [];
@@ -1302,8 +1307,8 @@ describe('text', () => {
 
   it('encodes a mirrored run as a negative width and reads it back out', () => {
     const { plotter } = drawingPlotter();
-    let seen: PsTextAttributes | null = null;
-    const attributes: PsTextAttributes = {
+    let seen: PLOTTER_TEXT_ATTRIBUTES | null = null;
+    const attributes: PLOTTER_TEXT_ATTRIBUTES = {
       m_Size: { x: 500, y: 500 },
       m_Halign: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT,
       m_Valign: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM,
@@ -1330,7 +1335,7 @@ describe('text', () => {
 
   it('turns a negative x size back into a mirror flag on the Text path', () => {
     const { plotter } = drawingPlotter();
-    let seen: PsTextAttributes | null = null;
+    let seen: PLOTTER_TEXT_ATTRIBUTES | null = null;
 
     plotter.Text(
       { x: 0, y: 0 },
@@ -1450,7 +1455,7 @@ describe('returnPostscriptTextWidth', () => {
 });
 
 describe('computeTextParameters', () => {
-  const call = (aPlotter: PsPlotter, aOverrides: { width?: number; bold?: boolean } = {}) =>
+  const call = (aPlotter: PS_PLOTTER, aOverrides: { width?: number; bold?: boolean } = {}) =>
     aPlotter.computeTextParameters(
       { x: 0, y: 0 },
       'AV',
@@ -1492,7 +1497,7 @@ describe('computeTextParameters', () => {
     plain.SetViewport({ x: 0, y: 0 }, IUS_PER_DECIMIL, 1, false);
     mirrored.SetViewport({ x: 0, y: 0 }, IUS_PER_DECIMIL, 1, true);
 
-    const both = (aPlotter: PsPlotter, aMirror: boolean) =>
+    const both = (aPlotter: PS_PLOTTER, aMirror: boolean) =>
       aPlotter.computeTextParameters(
         { x: 0, y: 0 },
         'A',
@@ -1518,7 +1523,7 @@ describe('computeTextParameters', () => {
     const plain = makePlotter();
     const mirrored = makePlotter({ mirror: true });
 
-    const rotation = (aPlotter: PsPlotter) =>
+    const rotation = (aPlotter: PS_PLOTTER) =>
       aPlotter.computeTextParameters(
         { x: 0, y: 0 },
         'A',
@@ -1559,7 +1564,7 @@ describe('EndPlot', () => {
   });
 
   it('refuses to end a plot that was never opened', () => {
-    const plotter = new PsPlotter(psRenderSettings());
+    const plotter = new PS_PLOTTER(plotterRenderSettings());
 
     expect(() => plotter.EndPlot()).toThrow(/before OpenFile/);
   });
@@ -1567,7 +1572,7 @@ describe('EndPlot', () => {
   it('reports its file extension and remembers its filename', () => {
     const plotter = makePlotter();
 
-    expect(PsPlotter.GetDefaultFileExtension()).toBe('ps');
+    expect(PS_PLOTTER.GetDefaultFileExtension()).toBe('ps');
     expect(plotter.GetFilename()).toBe('/plots/board.ps');
   });
 });

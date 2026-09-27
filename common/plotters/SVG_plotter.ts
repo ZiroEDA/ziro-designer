@@ -3,11 +3,10 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * SVG_PLOTTER, the SVG 1.1 plot back-end, transcribed from
- * common/plotters/SVG_plotter.cpp plus the handful of members it inherits from
- * PSLIKE_PLOTTER (SetColor) and PLOTTER (userToDeviceCoordinates,
- * userToDeviceSize, GetDash/Dot/GapMarkLenIU, the MoveTo/LineTo/FinishTo/
- * PenFinish pen wrappers, the three-point Arc, PlotImage's degenerate fallback
- * and Text's glyph stroking).
+ * common/plotters/SVG_plotter.cpp. It derives from PSLIKE_PLOTTER
+ * (PS_plotter.ts) and so from PLOTTER (plotter.ts), which carry SetColor, the
+ * device transform, the dash lengths, the pen wrappers, the three-point Arc and
+ * Text's glyph stroking, as upstream's base classes do.
  *
  * The plotter is an append-only text emitter with a *lazy graphics context*.
  * Pen colour, brush colour and alpha, fill mode, pen width and dash style live
@@ -49,123 +48,31 @@
  * the `<image>` data URI is unpadded.
  *
  * Deliberate gaps, each modelled as an injected dependency rather than
- * approximated: the font (`SvgFont`, standing in for KIFONT::FONT — the
- * monorepo has a stroke font but not KIFONT's Draw/StringBoundaryLimits
- * contract), the raster image (`SvgImage`, standing in for wxImage), and the
- * page size (`SetPageSettings` takes the mils that PAGE_INFO::GetSizeMils
- * would have returned). `@{…}` expression evaluation is skipped, as is the
+ * approximated: the font (PLOTTER's `PLOTTER_FONT`, standing in for
+ * KIFONT::FONT; SVG needs its `GRTextWidth` too) and the raster image
+ * (`SvgImage`, standing in for wxImage). `@{…}` expression evaluation is skipped, as is the
  * outline-font polygon callback; both are noted where they would have run.
  */
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { EDA_ANGLE, ANGLE_180 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
-import { CalcArcCenter } from '@ziroeda/kimath/src/trigo.js';
-import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/eda_text.js';
-
-/** `FILL_T` (eda_shape.h). NO_FILL is 1, not 0 — never treat this as a boolean. */
-export enum FILL_T {
-  NO_FILL = 1,
-  FILLED_SHAPE,
-  FILLED_WITH_BG_BODYCOLOR,
-  FILLED_WITH_COLOR,
-  HATCH,
-  REVERSE_HATCH,
-  CROSS_HATCH,
-}
-
-/** `LINE_STYLE` (stroke_params.h). */
-export enum LINE_STYLE {
-  DEFAULT = -1,
-  SOLID = 0,
-  DASH,
-  DOT,
-  DASHDOT,
-  DASHDOTDOT,
-}
-
-/**
- * `PLOT_TEXT_MODE` (plotter.h). The SVG constructor selects STROKE, but the
- * member is then never read: SVG_PLOTTER::Text always emits the hidden native
- * string *and* the stroked glyphs regardless of the mode.
- */
-
-/**
- * `PLOTTER::DO_NOT_SET_LINE_WIDTH` / `USE_DEFAULT_LINE_WIDTH` (plotter.h:139-140).
- * Statics on the base upstream, so one declaration here, re-exported for the
- * callers that reach for them through this module.
- */
-export {
+import { type EDA_ANGLE, ANGLE_180 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { RotatePointD } from '@ziroeda/kimath/src/trigo.js';
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '../eda_text.js';
+import type { Color4d } from '../gal/color4d.js';
+import type { PlotterRenderSettings } from '../render_settings.js';
+import {
   DO_NOT_SET_LINE_WIDTH,
+  FILL_T,
+  LINE_STYLE,
+  PLOT_FORMAT,
+  PLOT_TEXT_MODE,
+  type PLOTTER_FONT,
+  type PLOTTER_TEXT_ATTRIBUTES,
+  type PEN_PLUME,
+  toVector2I,
   USE_DEFAULT_LINE_WIDTH,
-} from '@ziroeda/common/plotters/plotter.js';
-
-import { DO_NOT_SET_LINE_WIDTH, USE_DEFAULT_LINE_WIDTH } from '@ziroeda/common/plotters/plotter.js';
-import { PLOT_TEXT_MODE } from '@ziroeda/common/plotters/plotter.js';
-export { PLOT_TEXT_MODE };
-
-// `COLOR4D` lives in `common` because the graphics importers, shared with
-// eeschema, need it too. Re-exported here so existing consumers are unaffected.
-export { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/gal/color4d.js';
-import { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/gal/color4d.js';
-
-const colorEquals = (a: Color4d, b: Color4d): boolean =>
-  a.r === b.r && a.g === b.g && a.b === b.b && a.a === b.a;
-
-// `RENDER_SETTINGS` and its ISO 128-2 dash/gap ratios live in `common`: upstream
-// keeps them on RENDER_SETTINGS, not on PLOTTER, and every backend asks the one
-// object for a dash length. Re-exported under the names this module used.
-export {
-  DEFAULT_DASH_LENGTH_RATIO,
-  DEFAULT_GAP_LENGTH_RATIO,
-  type PlotterRenderSettings as SvgRenderSettings,
-  plotterRenderSettings as svgRenderSettings,
-} from '@ziroeda/common/render_settings.js';
-
-import type { PlotterRenderSettings as SvgRenderSettings } from '@ziroeda/common/render_settings.js';
-
-/** The `TEXT_ATTRIBUTES` fields Text and PlotText read (text_attributes.h). */
-export interface SvgTextAttributes {
-  m_Size: Vec2;
-  m_Halign: GR_TEXT_H_ALIGN_T;
-  m_Valign: GR_TEXT_V_ALIGN_T;
-  m_StrokeWidth: number;
-  m_Angle: EDA_ANGLE;
-  m_Italic: boolean;
-  m_Bold: boolean;
-  m_Mirrored: boolean;
-  m_Multiline: boolean;
-}
-
-/**
- * `KIFONT::FONT`, reduced to the two calls the SVG text path makes. Supplied by
- * the caller because the monorepo's stroke font (common/font/stroke_font.ts)
- * does not implement KIFONT's contract — it has no justification, italic shear,
- * rotation or bold-thickness handling — and faking those here would be a
- * substitute, not a port.
- *
- * `GRTextWidth` is gr_text.cpp's free function minus its FONT and METRICS
- * arguments; only the invisible search-layer `textLength` depends on it.
- * `Draw` stands in for `FONT::Draw` driven by a CALLBACK_GAL: it must yield the
- * glyph strokes as point pairs in IU, in draw order. The polygon callback (which
- * upstream routes to `PlotPoly(chain, FILLED_SHAPE, 0)`) only fires for outline
- * fonts and has no analogue here.
- */
-export interface SvgFont {
-  GRTextWidth(
-    aText: string,
-    aSize: Vec2,
-    aThickness: number,
-    aBold: boolean,
-    aItalic: boolean,
-  ): number;
-
-  Draw(
-    aText: string,
-    aPos: Vec2,
-    aAttributes: SvgTextAttributes,
-  ): readonly (readonly [Vec2, Vec2])[];
-}
+} from './plotter.js';
+import { PSLIKE_PLOTTER } from './PS_plotter.js';
 
 /**
  * `wxImage`, reduced to what PlotImage uses. `SaveFilePng` is
@@ -184,12 +91,7 @@ export interface SvgImage {
 // Number formatting
 // ===========================================================================
 
-// `{fmt}`'s `{:.Nf}`. One implementation for every backend, as upstream has
-// one `fmt::print`; the precision is a call-site argument (SVG's is
-// `m_precision`, SVG_plotter.cpp:176), not a per-backend formatter.
-// Re-exported so existing importers of this module are unaffected.
-export { fixed } from '@ziroeda/common/plotters/fmt.js';
-import { fixed } from '@ziroeda/common/plotters/fmt.js';
+import { fixed } from './fmt.js';
 
 /** fmt's bare `{:f}`: a hard-coded six decimals, whatever m_precision says. */
 export const DEFAULT_FMT_PRECISION = 6;
@@ -197,58 +99,6 @@ export const DEFAULT_FMT_PRECISION = 6;
 /** fmt's `{:06X}`: uppercase hex, zero-padded to at least six digits. */
 export function hex6(aValue: number): string {
   return (aValue >>> 0).toString(16).toUpperCase().padStart(6, '0');
-}
-
-/** The `VECTOR2D` -> `VECTOR2I` conversion: truncate towards zero, per component. */
-const toVector2I = (aVec: Vec2): Vec2 => ({
-  x: Math.trunc(aVec.x),
-  y: Math.trunc(aVec.y),
-});
-
-/**
- * `RotatePoint( VECTOR2D&, const EDA_ANGLE& )` (libs/kimath/src/trigo.cpp:291).
- * kimath's TypeScript RotatePoint is the *integer* overload and rounds; Arc
- * rotates device-space doubles, where rounding to whole millimetres would be
- * catastrophic, so the double overload is reproduced here rather than made
- * public in kimath, which must stay untouched.
- */
-function rotatePointD(aPoint: Vec2, aAngle: EDA_ANGLE): Vec2 {
-  const angle = aAngle.Clone().Normalize();
-
-  // Cheap and dirty optimizations for 0, 90, 180, and 270 degrees.
-  if (angle.AsDegrees() === 0) return { x: aPoint.x, y: aPoint.y };
-  if (angle.AsDegrees() === 90) return { x: aPoint.y, y: -aPoint.x };
-  if (angle.AsDegrees() === 180) return { x: -aPoint.x, y: -aPoint.y };
-  if (angle.AsDegrees() === 270) return { x: -aPoint.y, y: aPoint.x };
-
-  const sinus = angle.Sin();
-  const cosinus = angle.Cos();
-
-  return {
-    x: aPoint.y * sinus + aPoint.x * cosinus,
-    y: aPoint.y * cosinus - aPoint.x * sinus,
-  };
-}
-
-/**
- * `VECTOR2<double>::EuclideanNorm` (vector2d.h:279). kimath's exported
- * EuclideanNorm is a bare `Math.hypot`; upstream shortcuts the axis-aligned and
- * 45-degree cases first, and `|x| * sqrt(2)` is not obliged to agree with
- * `hypot(x, x)` in the last bit.
- */
-function euclideanNormD(aVec: Vec2): number {
-  // 45° are common in KiCad, so we can optimize the calculation
-  if (Math.abs(aVec.x) === Math.abs(aVec.y)) return Math.abs(aVec.x) * Math.SQRT2;
-
-  if (aVec.x === 0) return Math.abs(aVec.y);
-  if (aVec.y === 0) return Math.abs(aVec.x);
-
-  return Math.hypot(aVec.x, aVec.y);
-}
-
-/** `GetPenSizeForBold` (gr_text.cpp:33). */
-export function GetPenSizeForBold(aTextSize: number): number {
-  return KiROUND(aTextSize / 5.0);
 }
 
 // ===========================================================================
@@ -372,25 +222,7 @@ function fullName(aPath: string): string {
  * read the document back with `text()`. Write it to disk as UTF-8 — every
  * string that reaches the file goes through upstream's TO_UTF8.
  */
-export class SvgPlotter {
-  // ---- PLOTTER base state --------------------------------------------------
-  private m_plotOffset: Vec2 = { x: 0, y: 0 };
-  private m_plotScale = 1;
-  private m_paperSize: Vec2 = { x: 0, y: 0 };
-  private m_pageSizeMils: Vec2 = { x: 0, y: 0 };
-  private m_IUsPerDecimil = 1;
-  private m_iuPerDeviceUnit = 1;
-  private m_currentPenWidth = -1;
-  private m_penState: 'U' | 'D' | 'Z' = 'Z';
-  private m_penLastpos: Vec2 = { x: 0, y: 0 };
-  private m_plotMirror = false;
-  private m_mirrorIsHorizontal = true;
-  private m_yaxisReversed = false;
-  private m_colorMode = false;
-  private m_negativeMode = false;
-  private m_creator = '';
-  private m_filename = '';
-
+export class SVG_PLOTTER extends PSLIKE_PLOTTER {
   // ---- SVG_PLOTTER state ---------------------------------------------------
   private m_fillMode: FILL_T = FILL_T.NO_FILL;
   private m_pen_rgb_color = 0;
@@ -400,14 +232,15 @@ export class SvgPlotter {
   private m_dashed: LINE_STYLE = LINE_STYLE.SOLID;
   private m_precision = 4;
 
-  /** PSLIKE_PLOTTER::m_textMode. Set by the constructor and never read again. */
-  private m_textMode: PLOT_TEXT_MODE = PLOT_TEXT_MODE.PHANTOM;
-
   /** The emitted document. UTF-8 on the way to disk, a JS string in memory. */
   private out = '';
 
-  constructor(private readonly m_renderSettings: SvgRenderSettings) {
-    // SVG_PLOTTER's constructor body, in order.
+  constructor(aRenderSettings: PlotterRenderSettings | null = null) {
+    super();
+    this.m_renderSettings = aRenderSettings;
+
+    // SVG_PLOTTER's constructor body, in order. PSLIKE_PLOTTER's m_textMode
+    // is set here and never read again.
     this.m_graphics_changed = true;
     this.SetTextMode(PLOT_TEXT_MODE.STROKE);
     this.m_fillMode = FILL_T.NO_FILL;
@@ -420,6 +253,10 @@ export class SvgPlotter {
 
   static GetDefaultFileExtension(): string {
     return 'svg';
+  }
+
+  override GetPlotterType(): PLOT_FORMAT {
+    return PLOT_FORMAT.SVG;
   }
 
   // =========================================================================
@@ -443,33 +280,6 @@ export class SvgPlotter {
   // =========================================================================
   // Setup
   // =========================================================================
-
-  /**
-   * `PLOTTER::OpenFile`. There is no file here — the document accumulates in a
-   * string — but the name is still needed: StartPlot puts its base name in the
-   * `<title>`.
-   */
-  OpenFile(aFullFilename: string): boolean {
-    this.m_filename = aFullFilename;
-    return true;
-  }
-
-  GetFilename(): string {
-    return this.m_filename;
-  }
-
-  SetCreator(aCreator: string): void {
-    this.m_creator = aCreator;
-  }
-
-  /**
-   * `PLOTTER::SetPageSettings`, collapsed to the one thing SetViewport asks a
-   * PAGE_INFO for: `GetSizeMils()`, a VECTOR2D of mils. The page-size table
-   * itself is not this module's business.
-   */
-  SetPageSettings(aSizeMils: Vec2): void {
-    this.m_pageSizeMils = { x: aSizeMils.x, y: aSizeMils.y };
-  }
 
   /**
    * `SetViewport`. SVG is the one back-end that reverses the Y axis, and the
@@ -496,7 +306,7 @@ export class SvgPlotter {
     // and every caller passes an integer `aIusPerDecimil` (pcbnew 2540,
     // eeschema 100, gerbview 1000), so it can never fire. Mutation testing
     // confirms it. Kept as upstream's arithmetic, not on the strength of a test.
-    const paperSize = toVector2I(this.m_pageSizeMils);
+    const paperSize = toVector2I(this.PageSettings().GetSizeMils());
     this.m_paperSize = {
       x: Math.trunc(paperSize.x * (10.0 * aIusPerDecimil)),
       y: Math.trunc(paperSize.y * (10.0 * aIusPerDecimil)),
@@ -509,7 +319,7 @@ export class SvgPlotter {
   }
 
   /** `SetSvgCoordinatesFormat`. SVG units are always mm; only the digits move. */
-  SetSvgCoordinatesFormat(aPrecision: number): void {
+  override SetSvgCoordinatesFormat(aPrecision: number): void {
     this.m_precision = aPrecision;
   }
 
@@ -517,107 +327,9 @@ export class SvgPlotter {
     return this.m_precision;
   }
 
-  /** `PLOTTER::SetColorMode`. pcbnew passes `!blackAndWhite`. */
-  SetColorMode(aColorMode: boolean): void {
-    this.m_colorMode = aColorMode;
-  }
-
-  GetColorMode(): boolean {
-    return this.m_colorMode;
-  }
-
-  SetNegative(aNegative: boolean): void {
-    this.m_negativeMode = aNegative;
-  }
-
-  /**
-   * `PSLIKE_PLOTTER::SetTextMode`. SVG's constructor calls it with STROKE, but
-   * SVG_PLOTTER never consults m_textMode: Text emits both the hidden native
-   * string and the stroked glyphs no matter what.
-   */
-  SetTextMode(aMode: PLOT_TEXT_MODE): void {
-    if (aMode !== PLOT_TEXT_MODE.DEFAULT) this.m_textMode = aMode;
-  }
-
-  GetTextMode(): PLOT_TEXT_MODE {
-    return this.m_textMode;
-  }
-
-  /** `PLOTTER::GetPlotterArcHighDef` / `GetPlotterArcLowDef`. */
-  GetPlotterArcHighDef(): number {
-    return this.m_IUsPerDecimil * 2;
-  }
-
-  GetPlotterArcLowDef(): number {
-    return this.m_IUsPerDecimil * 8;
-  }
-
   // =========================================================================
   // Coordinates
   // =========================================================================
-
-  /**
-   * `PLOTTER::userToDeviceCoordinates`. With SVG's m_yaxisReversed the two Y
-   * flips cancel, so the observable transform really is `y = pos.y * scale`;
-   * the arithmetic is written out anyway because the *vertical* mirror branch
-   * replaces the first flip only and would then not cancel.
-   *
-   * That branch is unreachable today: nothing in the KiCad tree ever assigns
-   * m_mirrorIsHorizontal, so it is `true` from PLOTTER's constructor onwards
-   * and only the horizontal mirror can fire. It is kept because the transform,
-   * not the reachable half of it, is the unit being ported.
-   */
-  private userToDeviceCoordinates(aCoordinate: Vec2): Vec2 {
-    const pos = {
-      x: aCoordinate.x - this.m_plotOffset.x,
-      y: aCoordinate.y - this.m_plotOffset.y,
-    };
-
-    let x = pos.x * this.m_plotScale;
-    let y = this.m_paperSize.y - pos.y * this.m_plotScale;
-
-    if (this.m_plotMirror) {
-      if (this.m_mirrorIsHorizontal) x = this.m_paperSize.x - pos.x * this.m_plotScale;
-      else y = pos.y * this.m_plotScale;
-    }
-
-    if (this.m_yaxisReversed) y = this.m_paperSize.y - y;
-
-    x *= this.m_iuPerDeviceUnit;
-    y *= this.m_iuPerDeviceUnit;
-
-    return { x, y };
-  }
-
-  /** `PLOTTER::userToDeviceSize( const VECTOR2I& )` — no Y negation. */
-  private userToDeviceSizeV(aSize: Vec2): Vec2 {
-    return {
-      x: aSize.x * this.m_plotScale * this.m_iuPerDeviceUnit,
-      y: aSize.y * this.m_plotScale * this.m_iuPerDeviceUnit,
-    };
-  }
-
-  /** `PLOTTER::userToDeviceSize( double )`. */
-  private userToDeviceSize(aSize: number): number {
-    return aSize * this.m_plotScale * this.m_iuPerDeviceUnit;
-  }
-
-  /**
-   * `PLOTTER::GetDotMarkLenIU` and friends. Despite the `IU` in the names these
-   * are already in *device* units — userToDeviceSize has run. Scaling them
-   * again in setSVGPlotStyle would square the plot scale.
-   */
-  private GetDotMarkLenIU(aLineWidth: number): number {
-    return this.userToDeviceSize(this.m_renderSettings.GetDotLength(aLineWidth));
-  }
-
-  private GetDashMarkLenIU(aLineWidth: number): number {
-    return this.userToDeviceSize(this.m_renderSettings.GetDashLength(aLineWidth));
-  }
-
-  private GetDashGapLenIU(aLineWidth: number): number {
-    return this.userToDeviceSize(this.m_renderSettings.GetGapLength(aLineWidth));
-  }
 
   // =========================================================================
   // Graphics context
@@ -752,7 +464,7 @@ export class SvgPlotter {
     let width = aWidth;
 
     if (width === DO_NOT_SET_LINE_WIDTH) return;
-    else if (width === USE_DEFAULT_LINE_WIDTH) width = this.m_renderSettings.GetDefaultPenWidth();
+    else if (width === USE_DEFAULT_LINE_WIDTH) width = this.renderSettings().GetDefaultPenWidth();
 
     if (width !== this.m_currentPenWidth) {
       this.m_graphics_changed = true;
@@ -760,16 +472,12 @@ export class SvgPlotter {
     }
   }
 
-  GetCurrentLineWidth(): number {
-    return this.m_currentPenWidth;
-  }
-
   /**
    * `emitSetRGBColor`. The channels are *truncated*, not rounded, so r = 0.5
    * gives 0x7F. Pen and brush always carry the same triple; only the brush
    * carries the alpha.
    */
-  private emitSetRGBColor(r: number, g: number, b: number, a: number): void {
+  protected override emitSetRGBColor(r: number, g: number, b: number, a: number): void {
     const red = Math.trunc(255.0 * r);
     const green = Math.trunc(255.0 * g);
     const blue = Math.trunc(255.0 * b);
@@ -782,27 +490,6 @@ export class SvgPlotter {
       // Currently, use the same color for brush and pen.
       this.m_brush_rgb_color = rgb_color;
       this.m_brush_alpha = a;
-    }
-  }
-
-  /**
-   * `PSLIKE_PLOTTER::SetColor`. In mono mode only exact white survives as white
-   * — every other colour, alpha included in the comparison, becomes black, and
-   * the alpha is forced to 1.
-   */
-  SetColor(aColor: Color4d): void {
-    if (this.m_colorMode) {
-      if (this.m_negativeMode)
-        this.emitSetRGBColor(1 - aColor.r, 1 - aColor.g, 1 - aColor.b, aColor.a);
-      else this.emitSetRGBColor(aColor.r, aColor.g, aColor.b, aColor.a);
-    } else {
-      // B/W mode: pcbnew relies on the two colours to draw holes white on black pads.
-      let k = 1; // White
-
-      if (!colorEquals(aColor, COLOR4D_WHITE)) k = 0;
-
-      if (this.m_negativeMode) this.emitSetRGBColor(1 - k, 1 - k, 1 - k, 1.0);
-      else this.emitSetRGBColor(k, k, k, 1.0);
     }
   }
 
@@ -819,11 +506,11 @@ export class SvgPlotter {
    * by the lazy graphics context, which leaves its last group open, so a block
    * cannot nest inside it.
    */
-  StartBlock(_aData?: unknown): void {
+  override StartBlock(_aData?: unknown): void {
     // Intentionally empty, as upstream is.
   }
 
-  EndBlock(_aData?: unknown): void {
+  override EndBlock(_aData?: unknown): void {
     // Intentionally empty, as upstream is.
   }
 
@@ -1011,7 +698,7 @@ export class SvgPlotter {
    * A filled arc emits *two* paths: the pie wedge with a zero pen, then the
    * stroked arc with no fill.
    */
-  Arc(
+  override Arc(
     aCenter: Vec2,
     aStartAngle: EDA_ANGLE,
     aAngle: EDA_ANGLE,
@@ -1044,9 +731,9 @@ export class SvgPlotter {
     }
 
     let start = { x: radius_device, y: 0 };
-    start = rotatePointD(start, startAngle);
+    start = RotatePointD(start, startAngle);
     let end = { x: radius_device, y: 0 };
-    end = rotatePointD(end, endAngle);
+    end = RotatePointD(end, endAngle);
     start = { x: start.x + centre_device.x, y: start.y + centre_device.y };
     end = { x: end.x + centre_device.x, y: end.y + centre_device.y };
 
@@ -1096,45 +783,11 @@ export class SvgPlotter {
   }
 
   /**
-   * `PLOTTER::Arc( start, mid, end, … )`, inherited unchanged: it derives the
-   * centre and sweep and defers to the override above. `det <= 0` counts a
-   * collinear triple as clockwise, so a degenerate arc normalises positive.
-   */
-  ArcThroughPoints(aStart: Vec2, aMid: Vec2, aEnd: Vec2, aFill: FILL_T, aWidth: number): void {
-    const aCenter = CalcArcCenter(aStart, aMid, aEnd);
-
-    const startAngle = EDA_ANGLE.fromVector({
-      x: aStart.x - aCenter.x,
-      y: aStart.y - aCenter.y,
-    });
-    const endAngle = EDA_ANGLE.fromVector({
-      x: aEnd.x - aCenter.x,
-      y: aEnd.y - aCenter.y,
-    });
-
-    // < 0: left, 0 : on the line, > 0 : right
-    const det =
-      (aEnd.x - aStart.x) * (aMid.y - aStart.y) - (aEnd.y - aStart.y) * (aMid.x - aStart.x);
-
-    const cw = det <= 0;
-    const angle = endAngle.sub(startAngle);
-
-    if (cw) angle.Normalize();
-    else angle.NormalizeNegative();
-
-    const radius = euclideanNormD({
-      x: aStart.x - aCenter.x,
-      y: aStart.y - aCenter.y,
-    });
-    this.Arc(aCenter, startAngle, angle, radius, aFill, aWidth);
-  }
-
-  /**
    * `BezierCurve`. Upstream keeps the flattening fallback behind an `#if 1`, so
    * aTolerance is dead and a real cubic goes out; the `C` command takes three
    * points because the current point is the start.
    */
-  BezierCurve(
+  override BezierCurve(
     aStart: Vec2,
     aControl1: Vec2,
     aControl2: Vec2,
@@ -1227,7 +880,7 @@ export class SvgPlotter {
    * 64th character (i.e. after index 63, 127, …). The element is left without a
    * trailing newline, exactly as upstream leaves it.
    */
-  PlotImage(aImage: SvgImage, aPos: Vec2, aScaleFactor: number): void {
+  override PlotImage(aImage: SvgImage, aPos: Vec2, aScaleFactor: number): void {
     const pix_size = { x: aImage.GetWidth(), y: aImage.GetHeight() };
 
     // Requested size (in IUs)
@@ -1299,24 +952,6 @@ export class SvgPlotter {
   // Pen
   // =========================================================================
 
-  MoveTo(pos: Vec2): void {
-    this.PenTo(pos, 'U');
-  }
-
-  LineTo(pos: Vec2): void {
-    this.PenTo(pos, 'D');
-  }
-
-  FinishTo(pos: Vec2): void {
-    this.PenTo(pos, 'D');
-    this.PenTo(pos, 'Z');
-  }
-
-  PenFinish(): void {
-    // The point is not important with Z motion
-    this.PenTo({ x: 0, y: 0 }, 'Z');
-  }
-
   /**
    * `PenTo`. There is no mid-path moveto: once a path is open a 'U' plume emits
    * an `L`, exactly like a 'D' would, so two disjoint polylines need an explicit
@@ -1387,7 +1022,7 @@ export class SvgPlotter {
    * `text_size.y` is computed from `aSize.x`, not aSize.y: four thirds of the
    * *width*, as integer arithmetic, converting Hershey height to em size.
    */
-  Text(
+  override Text(
     aPos: Vec2,
     aColor: Color4d,
     aText: string,
@@ -1399,8 +1034,8 @@ export class SvgPlotter {
     aItalic: boolean,
     aBold: boolean,
     aMultilineAllowed: boolean,
-    aFont: SvgFont | null,
-    _aFontMetrics?: unknown,
+    aFont: PLOTTER_FONT | null,
+    aFontMetrics?: unknown,
     _aData?: unknown,
   ): void {
     this.setFillMode(FILL_T.NO_FILL);
@@ -1435,7 +1070,8 @@ export class SvgPlotter {
         break;
     }
 
-    if (!aFont) throw new Error('SVG Text needs a font (KIFONT::FONT::GetFont is not ported)');
+    if (!aFont?.GRTextWidth)
+      throw new Error('SVG Text needs a font (KIFONT::FONT::GetFont is not wired)');
 
     // aSize.x or aSize.y is < 0 for mirrored texts; the size is the magnitude.
     const text_size = {
@@ -1477,7 +1113,7 @@ export class SvgPlotter {
     // search and for screen readers).
     this.emit(`<g class="stroked-text"><desc>${XmlEsc(aText)}</desc>\n`);
 
-    this.plotterText(
+    super.Text(
       aPos,
       aColor,
       aText,
@@ -1490,90 +1126,22 @@ export class SvgPlotter {
       aBold,
       aMultilineAllowed,
       aFont,
+      aFontMetrics,
     );
 
     this.emit('</g>');
   }
 
   /**
-   * `PLOTTER::Text`, the glyph stroking half. Every segment the font yields
-   * becomes its own `<path>`, because the callback closes the path each time —
-   * one element per stroke, which is a lot of elements and is what upstream
-   * emits.
-   *
-   * `@{…}` expression substitution runs here upstream (EXPRESSION_EVALUATOR);
-   * it has no counterpart in this repo and is skipped rather than approximated
-   * with a regex, so a string containing `@{` plots literally.
-   *
-   * A negative pen width is made positive *after* the bold default is applied,
-   * so a bold string with a zero width picks up size/5 and a deliberately
-   * negative width is only ever a sign trick.
-   */
-  private plotterText(
-    aPos: Vec2,
-    aColor: Color4d,
-    aText: string,
-    aOrient: EDA_ANGLE,
-    aSize: Vec2,
-    aH_justify: GR_TEXT_H_ALIGN_T,
-    aV_justify: GR_TEXT_V_ALIGN_T,
-    aPenWidth: number,
-    aItalic: boolean,
-    aBold: boolean,
-    _aMultilineAllowed: boolean,
-    aFont: SvgFont,
-  ): void {
-    let penWidth = aPenWidth;
-
-    this.SetColor(aColor);
-
-    if (penWidth === 0 && aBold) penWidth = GetPenSizeForBold(Math.min(aSize.x, aSize.y));
-
-    if (penWidth < 0) penWidth = -penWidth;
-
-    const size = { x: aSize.x, y: aSize.y };
-    let mirrored = false;
-
-    // if Size.x is < 0, the text is mirrored (there is no other flag for it)
-    if (size.x < 0) {
-      size.x = -size.x;
-      mirrored = true;
-    }
-
-    const attributes: SvgTextAttributes = {
-      m_Angle: aOrient,
-      m_StrokeWidth: penWidth,
-      m_Italic: aItalic,
-      m_Bold: aBold,
-      m_Halign: aH_justify,
-      m_Valign: aV_justify,
-      m_Size: size,
-      m_Mirrored: mirrored,
-      // TEXT_ATTRIBUTES' constructor default is *true*, and PLOTTER::Text never
-      // assigns it — so aMultilineAllowed is accepted, threaded all the way down
-      // from SVG_PLOTTER::Text, and then silently discarded. Passing false here
-      // would make single-line-only callers behave differently from upstream.
-      m_Multiline: true,
-    };
-
-    for (const [pt1, pt2] of aFont.Draw(aText, aPos, attributes)) {
-      this.SetCurrentLineWidth(penWidth);
-      this.MoveTo(pt1);
-      this.LineTo(pt2);
-      this.PenFinish();
-    }
-  }
-
-  /**
    * `PlotText`. A mirrored run is handed to Text as a *negative width*, which is
    * the encoding Text's XOR mirror test then reads back out.
    */
-  PlotText(
+  override PlotText(
     aPos: Vec2,
     aColor: Color4d,
     aText: string,
-    aAttributes: SvgTextAttributes,
-    aFont: SvgFont | null,
+    aAttributes: PLOTTER_TEXT_ATTRIBUTES,
+    aFont: PLOTTER_FONT | null,
     aFontMetrics?: unknown,
     aData?: unknown,
   ): void {

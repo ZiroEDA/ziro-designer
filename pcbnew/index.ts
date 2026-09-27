@@ -194,51 +194,6 @@ export {
   type DxfTextAttributes,
   type DxfLayerExport,
 } from './plot_dxf.js';
-// Same rule for the SVG back-end: only the SVG-prefixed names travel to the
-// package surface. FILL_T, LINE_STYLE, PLOT_TEXT_MODE, Color4d, XmlEsc, fixed
-// and base64Encode are KiCad names the DXF module already claims or another
-// port will want, so they stay importable from './plot_svg.js' alone.
-export {
-  SvgPlotter,
-  svgRenderSettings,
-  type SvgRenderSettings,
-  type SvgTextAttributes,
-  type SvgFont,
-  type SvgImage,
-} from './plot_svg.js';
-// And again for the PDF back-end. Only the PDF-prefixed names travel; FILL_T,
-// LINE_STYLE, PLOT_TEXT_MODE, Color4d, fixed, formatG, encodeStringForPlotter
-// and the two image-stream writers stay importable from './plot_pdf.js' alone,
-// because the DXF and SVG modules already spell their own copies of the first
-// four and the rest are KiCad names a later port will want.
-export {
-  PdfPlotter,
-  pdfRenderSettings,
-  pdfCreationDate,
-  type PdfRenderSettings,
-  type PdfImage,
-  type PdfDeflate,
-  type PdfProject,
-  type PdfBox2,
-} from './plot_pdf.js';
-// And once more for the PostScript back-end, which is PDF's sibling under
-// PSLIKE_PLOTTER and repeats the same helpers for the same reason. Only the
-// PS-prefixed names travel; FILL_T, LINE_STYLE, PLOT_TEXT_MODE, Color4d, fixed,
-// formatG, getFillId, encodeStringForPlotter, GetPenSizeForBold and the
-// PS_MACRO_PROLOG / POSTSCRIPT_TEXT_ASCENT constants stay importable from
-// './plot_ps.js' alone, because three of the four back-ends already spell their
-// own copies of the enums and the rest are KiCad names, not Ziro ones.
-export {
-  PsPlotter,
-  psRenderSettings,
-  psPageInfo,
-  psCreationDate,
-  type PsRenderSettings,
-  type PsPageInfo,
-  type PsImage,
-  type PsFont,
-  type PsTextAttributes,
-} from './plot_ps.js';
 export { serializeBoard, serializeBoardAsync } from './write-board.js';
 export type { DrcViolation, DrcItemRef } from './drc/drc_engine_view.js';
 // --- Netlist (eeschema -> pcbnew) --------------------------------------------
