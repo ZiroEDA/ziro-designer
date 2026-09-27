@@ -53,7 +53,10 @@
  * `OnOkClick` is the only writer upstream too (`:104-118`).
  */
 
-import { useMemo, useRef, useState, type JSX } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type JSX } from 'react';
+import { WX_GRID } from '@ziroeda/common/widgets/wx_grid.js';
+import { wxGridStringTable } from '@ziroeda/common/wx/grid.js';
+import { WxGridView } from '@ziroeda/common/wx/grid_ui.js';
 import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { MessageDialogError } from '@ziroeda/common/dialogs/dialog_message.js';
@@ -113,6 +116,21 @@ export function DialogConfigEquFiles({
   const localInput = useRef<HTMLInputElement>(null);
 
   const root = useMemo(() => projectRoot(projectFiles), [projectFiles]);
+
+  /** `m_gridEnvVars`, filled as `DIALOG_CONFIG_EQUFILES`' constructor does (`:67-80`). */
+  const [envGrid] = useState(() => {
+    const g = new WX_GRID();
+    g.SetTable(new wxGridStringTable(0, 2), true);
+    g.SetColLabelValue(0, 'Name');
+    g.SetColLabelValue(1, 'Value');
+    return g;
+  });
+  useLayoutEffect(() => {
+    envGrid.ClearRows();
+    envGrid.AppendRows(1);
+    envGrid.SetCellValue(0, 0, PROJECT_VAR_NAME);
+    envGrid.SetCellValue(0, 1, root.replace(/\/$/, ''));
+  }, [envGrid, root]);
   const proName = useMemo(
     () => projectFiles.find((f) => /\.kicad_pro$/i.test(f.name))?.name ?? '',
     [projectFiles],
@@ -216,14 +234,14 @@ export function DialogConfigEquFiles({
           <div className="ze-equfiles-label ze-equfiles-vars-label">
             Available path substitutions:
           </div>
-          <table className="ze-grid ze-equfiles-vars">
-            <tbody>
-              <tr>
-                <td>{PROJECT_VAR_NAME}</td>
-                <td>{root.replace(/\/$/, '')}</td>
-              </tr>
-            </tbody>
-          </table>
+          {/* `m_gridEnvVars`: a WX_GRID with no column or row labels
+              (`SetColLabelSize( 0 )`, `SetRowLabelSize( 0 )`), autosized. */}
+          <WxGridView
+            grid={envGrid}
+            colLabels={false}
+            className="ze-equfiles-vars"
+            ariaLabel="Available path substitutions"
+          />
         </div>
         <div className="ze-modal-footer">
           <button
