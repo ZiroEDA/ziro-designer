@@ -47,13 +47,13 @@ import {
   Margin,
 } from '@ziroeda/pcbnew/layer_ids.js';
 import { fpBackgroundDefault } from './fpColorLayers.js';
-import { layerChoice, type LayerChoice } from '../../widgets/layer_presentation.js';
+import { layerChoice, type LayerChoice } from '../pcb/pcb_layer_presentation.js';
 
 /**
  * The footprint editor's row type. It IS `LAYER_PRESENTATION`'s `LayerChoice`
  * — the name/label/swatch triple is not per frame, only the background the
  * swatch is composited over is, so the type is re-exported rather than
- * redeclared (`widgets/layer_presentation.ts`).
+ * redeclared (`editors/pcb/pcb_layer_presentation.ts`).
  */
 export type FpLayerChoice = LayerChoice;
 

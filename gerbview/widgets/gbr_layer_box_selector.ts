@@ -13,7 +13,9 @@
  */
 
 import type { Color4d } from '@ziroeda/common/gal/color4d.js';
-import { GAL_LAYER_ID, GERBER_DRAW_LAYER, UNDEFINED_LAYER } from '@ziroeda/common/layer_id.js';
+import { GAL_LAYER_ID, GERBER_DRAW_LAYER } from '@ziroeda/common/layer_id.js';
+import { LAYER_BOX_SELECTOR } from '@ziroeda/common/widgets/layer_box_selector.js';
+import { LAYER_PRESENTATION } from '@ziroeda/common/widgets/layer_presentation.js';
 import { GERBER_FILE_IMAGE_LIST } from '../gerber_file_image_list.js';
 
 /** `wxNOT_FOUND`. */
@@ -27,8 +29,10 @@ export interface GBR_LAYER_BOX_FRAME {
 /**
  * Gerbview-specific implementation of the LAYER_PRESENTATION interface.
  */
-export class GBR_LAYER_PRESENTATION {
-  constructor(private readonly m_frame: GBR_LAYER_BOX_FRAME) {}
+export class GBR_LAYER_PRESENTATION extends LAYER_PRESENTATION {
+  constructor(private readonly m_frame: GBR_LAYER_BOX_FRAME) {
+    super();
+  }
 
   // Returns a color index from the layer id
   getLayerColor(aLayer: number): Color4d {
@@ -61,76 +65,13 @@ export interface GBR_LAYER_BOX_ROW {
 }
 
 // class to display a layer list in GerbView.
-export class GBR_LAYER_BOX_SELECTOR {
-  private m_rows: GBR_LAYER_BOX_ROW[] = [];
-  private m_selection = wxNOT_FOUND;
+export class GBR_LAYER_BOX_SELECTOR extends LAYER_BOX_SELECTOR<GBR_LAYER_BOX_ROW> {
   private readonly m_layerPresentation: GBR_LAYER_PRESENTATION;
-  /// LAYER_SELECTOR::m_layerhotkeys
-  protected m_layerhotkeys: boolean;
 
   constructor(aFrame: GBR_LAYER_BOX_FRAME) {
+    super();
     this.m_layerPresentation = new GBR_LAYER_PRESENTATION(aFrame);
     this.m_layerhotkeys = false;
-  }
-
-  // wxBitmapComboBox, as far as the C++ uses it
-
-  Clear(): void {
-    this.m_rows = [];
-    this.m_selection = wxNOT_FOUND;
-  }
-
-  GetCount(): number {
-    return this.m_rows.length;
-  }
-
-  GetRow(aIndex: number): GBR_LAYER_BOX_ROW | undefined {
-    return this.m_rows[aIndex];
-  }
-
-  GetRows(): readonly GBR_LAYER_BOX_ROW[] {
-    return this.m_rows;
-  }
-
-  GetSelection(): number {
-    return this.m_selection;
-  }
-
-  SetSelection(aIndex: number): void {
-    this.m_selection = aIndex >= 0 && aIndex < this.m_rows.length ? aIndex : wxNOT_FOUND;
-  }
-
-  // LAYER_SELECTOR
-
-  SetLayersHotkeys(value: boolean): boolean {
-    this.m_layerhotkeys = value;
-    return this.m_layerhotkeys;
-  }
-
-  // LAYER_BOX_SELECTOR
-
-  GetLayerSelection(): number {
-    if (this.GetSelection() < 0) return UNDEFINED_LAYER;
-
-    return this.m_rows[this.GetSelection()]!.layerid;
-  }
-
-  SetLayerSelection(layer: number): number {
-    for (let i = 0; i < this.GetCount(); i++) {
-      if (this.m_rows[i]!.layerid === layer) {
-        if (this.GetSelection() !== i) {
-          // Element (i) is not selected
-          this.SetSelection(i);
-          return i;
-        }
-
-        return i; // If element already selected; do nothing
-      }
-    }
-
-    // Not Found
-    this.SetSelection(-1);
-    return -1;
   }
 
   // Reload the Layers names and bitmaps
@@ -145,7 +86,7 @@ export class GBR_LAYER_BOX_SELECTOR {
       // Don't show unused layers
       if (images.GetGbrImage(layerid) === null) continue;
 
-      this.m_rows.push({
+      this.Append({
         name: this.m_layerPresentation.getLayerName(layerid),
         background: this.m_layerPresentation.getLayerColor(GAL_LAYER_ID.LAYER_PCB_BACKGROUND),
         color: this.m_layerPresentation.getLayerColor(layerid),
