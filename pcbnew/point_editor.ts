@@ -53,6 +53,12 @@ import type { Board, PcbBarcode, PcbDimension, PcbShape } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { imageBBox } from './image_geometry.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { ARC_EDIT_MODE } from '@ziroeda/common/frame_type.js';
+import {
+  ArcEditPointPositions,
+  DragArcEditPoint,
+} from '@ziroeda/common/tool/point_editor_behavior.js';
 import type { PcbImage } from './types.js';
 
 /** A square handle on a corner or vertex (`EDIT_POINT`), or a circle at an edge
@@ -83,6 +89,7 @@ const CIRC_END = 1;
 const ARC_START = 0;
 const ARC_MID = 1;
 const ARC_END = 2;
+const ARC_CENTER = 3;
 // `pcb_point_editor.h:135-146`. The knee shares the crossbar-start slot because
 // no dimension has both.
 const DIM_START = 0;
@@ -239,10 +246,14 @@ export function boardEditHandles(board: Board, id: string): BoardEditHandle[] {
   }
 
   if (s.kind === 'arc' && s.start && s.mid && s.end) {
+    // `EDA_ARC_POINT_EDIT_BEHAVIOR::MakePoints` (pcb_point_editor.cpp:1999):
+    // start, mid, end and the centre.
+    const [start, mid, end, center] = ArcEditPointPositions(s.start, s.mid, s.end);
     return [
-      pt('point', ARC_START, s.start),
-      pt('point', ARC_MID, s.mid),
-      pt('point', ARC_END, s.end),
+      pt('point', ARC_START, start),
+      pt('point', ARC_MID, mid),
+      pt('point', ARC_END, end),
+      pt('point', ARC_CENTER, center),
     ];
   }
 
@@ -501,12 +512,17 @@ function withShape(board: Board, index: number, next: Partial<PcbShape>): Board 
  *
  * `pos` is where the *handle* goes, not a delta — an edge handle therefore
  * carries its whole edge, since its position is the edge's midpoint.
+ *
+ * `arcMode` is `PCB_POINT_EDITOR::m_arcEditMode` — the "Arc editing mode"
+ * preference (`PCBNEW_SETTINGS::m_ArcEditMode`) — which only a graphic arc
+ * reads. Its default is upstream's initial value.
  */
 export function dragBoardHandle(
   board: Board,
   id: string,
   handle: BoardEditHandle,
   pos: Vec2,
+  arcMode: ARC_EDIT_MODE = ARC_EDIT_MODE.KEEP_CENTER_ADJUST_ANGLE_RADIUS,
 ): Board {
   const r = parseBoardItemId(id);
   if (!r) return board;
@@ -687,13 +703,21 @@ export function dragBoardHandle(
   }
 
   if (s.kind === 'arc' && s.start && s.mid && s.end) {
-    const next =
-      handle.index === ARC_START
-        ? { start: pos }
-        : handle.index === ARC_MID
-          ? { mid: pos }
-          : { end: pos };
-    return withShape(board, r.index, next);
+    // `EDA_ARC_POINT_EDIT_BEHAVIOR::UpdateItem` under `m_arcEditMode`
+    // (pcb_point_editor.cpp:2000-2002, :2322) - the common behaviour itself.
+    // A frame that did not move the grabbed point reshapes nothing: upstream
+    // only reaches UpdateItem once a point has moved.
+    if (handle.kind !== 'point' || same(pos, handle.at)) return board;
+    const { start, mid, end } = DragArcEditPoint(
+      s.start,
+      s.mid,
+      s.end,
+      handle.index,
+      pos,
+      arcMode,
+      pcbIUScale,
+    );
+    return withShape(board, r.index, { start, mid, end });
   }
 
   if (s.kind === 'curve' && s.pts && s.pts.length >= 4) {

@@ -17,6 +17,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
+import { ARC_EDIT_MODE } from '@ziroeda/common/frame_type.js';
 import {
   boardEditHandles,
   dragBoardHandle,
@@ -414,6 +415,57 @@ describe('tracks and arcs', () => {
     // The ends stay put: only the bulge changed.
     expect(out.arcs[0]!.start).toEqual({ x: 0, y: 0 });
     expect(out.arcs[0]!.end).toEqual({ x: MM(10), y: 0 });
+  });
+});
+
+describe('a graphic arc (EDA_ARC_POINT_EDIT_BEHAVIOR)', () => {
+  // A quarter circle of radius 10 mm about the origin: (10, 0) round to (0, 10).
+  const arcShape = (): PcbShape => ({
+    kind: 'arc',
+    start: { x: MM(10), y: 0 },
+    mid: { x: 7071068, y: 7071068 },
+    end: { x: 0, y: MM(10) },
+    width: MM(0.15),
+    fillMode: 'none',
+    layer: 'F.SilkS',
+  });
+  const b = board({ shapes: [arcShape()] });
+  const arcOut = (out: Board) =>
+    out.shapes[0]! as Required<Pick<PcbShape, 'start' | 'mid' | 'end'>>;
+
+  it('offers start, mid, end and the centre', () => {
+    const hs = boardEditHandles(b, 'shape:0');
+    expect(hs.map((h) => h.index)).toEqual([0, 1, 2, 3]);
+    expect(hs[3]!.at).toEqual({ x: 0, y: 0 });
+  });
+
+  it('keeps the centre by default: a dragged end sets the radius for both ends', () => {
+    // KEEP_CENTER_ADJUST_ANGLE_RADIUS, upstream's initial m_arcEditMode.
+    const out = arcOut(
+      dragBoardHandle(b, 'shape:0', handle(b, 'shape:0', 'point', 0), { x: MM(20), y: 0 }),
+    );
+    expect(out.start).toEqual({ x: MM(20), y: 0 });
+    expect(out.end).toEqual({ x: 0, y: MM(20) });
+  });
+
+  it('keeps both ends when the mid is dragged in keep-endpoints mode', () => {
+    const out = arcOut(
+      dragBoardHandle(
+        b,
+        'shape:0',
+        handle(b, 'shape:0', 'point', 1),
+        { x: MM(9), y: MM(9) },
+        ARC_EDIT_MODE.KEEP_ENDPOINTS_OR_START_DIRECTION,
+      ),
+    );
+    expect(out.start).toEqual({ x: MM(10), y: 0 });
+    expect(out.end).toEqual({ x: 0, y: MM(10) });
+    expect(out.mid).not.toEqual(arcShape().mid);
+  });
+
+  it('reshapes nothing when the grabbed point has not moved', () => {
+    const h = handle(b, 'shape:0', 'point', 0);
+    expect(dragBoardHandle(b, 'shape:0', h, h.at)).toBe(b);
   });
 });
 

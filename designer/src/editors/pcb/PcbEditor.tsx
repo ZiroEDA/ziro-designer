@@ -11,7 +11,7 @@
  */
 
 import type { OutStr } from '@ziroeda/common/eda_item.js';
-import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import { type ARC_EDIT_MODE, FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
 import { jsonFileWildcard, reportFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
@@ -1306,6 +1306,13 @@ export function PcbEditor({
    */
   const rotationStepRef = useRef(90);
   rotationStepRef.current = pcbCfg.editing.rotation_angle / 10;
+  /**
+   * `PCB_POINT_EDITOR::m_arcEditMode`, read from `PCBNEW_SETTINGS::m_ArcEditMode`
+   * when the point editor starts (pcb_point_editor.cpp:2322); a ref because the
+   * handle drag runs in a long-lived pointer handler.
+   */
+  const arcEditModeRef = useRef<ARC_EDIT_MODE>(0);
+  arcEditModeRef.current = pcbCfg.editing.arc_edit_mode as ARC_EDIT_MODE;
   /** `MAGNETIC_SETTINGS`, for the snap path, which is not a React consumer. */
   const magneticRef = useRef({ pads: 1, tracks: 1 });
   magneticRef.current = {
@@ -9194,7 +9201,7 @@ export function PcbEditor({
       if (cur && brd && id) {
         const to = handleSnap(cur);
         const target = handleDragTarget(handleDrag.handle, handleDrag.origin, to);
-        const next = dragBoardHandle(brd, id, handleDrag.handle, target);
+        const next = dragBoardHandle(brd, id, handleDrag.handle, target, arcEditModeRef.current);
         pointEditPreviewRef.current = next;
         editHandlesRef.current = boardEditHandles(next, id);
         editIndicatorsRef.current = boardIndicatorLines(next, id);
