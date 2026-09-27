@@ -221,6 +221,7 @@ export function DialogSchematicSetup({
           label: 'Net Classes',
           render: () => (
             <PanelSetupNetclasses
+              isEEschema
               value={s.netClasses}
               onChange={(netClasses) => setS((cur) => ({ ...cur, netClasses }))}
             />

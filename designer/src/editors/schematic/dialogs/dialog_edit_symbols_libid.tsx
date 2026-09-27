@@ -175,7 +175,14 @@ export function DialogEditSymbolsLibId({
               </div>
             )}
             {/* `m_grid->SetMinSize( wxSize( -1, 300 ) )`. */}
-            <div className="ze-grid-pane" style={{ minHeight: 300, maxHeight: '55vh' }}>
+            <div
+              className="ze-grid-pane"
+              style={{
+                // [data] m_grid->SetMinSize( wxSize( -1, 300 ) ) (_base.cpp:51)
+                minHeight: 300,
+                maxHeight: '55vh',
+              }}
+            >
               <WxGridView
                 grid={grid}
                 tricks={tricks}

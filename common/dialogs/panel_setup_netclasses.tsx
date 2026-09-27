@@ -8,10 +8,29 @@
  * columns) with add / move-up / move-down / remove. Bottom: a "Netclass
  * Assignments" grid mapping a net-name pattern to a net class. The Default class
  * is always present and cannot be removed or reordered.
+ *
+ * Both grids are WX_GRIDs with GRID_TRICKS, rows selected whole. As upstream
+ * the netclasses are listed by priority with Default LAST (`loadNetclasses`),
+ * a new class goes in at the top, the columns shown are the editor's
+ * (`ShowHideColumns`), the colours are swatch cells, and renaming a class
+ * renames it in the assignments (`OnNetclassGridCellChanging`). The
+ * assignments sort on a click on their column label. Not ported: the
+ * matching-nets pane and the per-column tooltips.
  */
 
-import { useState, type JSX } from 'react';
-import { Icon } from '../widgets/icons.js';
+import { type JSX, useEffect, useLayoutEffect } from 'react';
+import { DisplayErrorMessage } from '../confirm.js';
+import { StdBitmapButton } from '../widgets/std_bitmap_button.js';
+import type { WX_GRID } from '../widgets/wx_grid.js';
+import {
+  wxEVT_GRID_CELL_CHANGING,
+  wxEVT_GRID_LABEL_LEFT_CLICK,
+  wxGridCellAttr,
+  wxGridCellChoiceEditor,
+  type wxGridEvent,
+  wxGridSelectionModes,
+} from '../wx/grid.js';
+import { useStringGrid, WxGridView } from '../wx/grid_ui.js';
 import {
   LINE_STYLES,
   blankNetClass as blankClass,
@@ -30,12 +49,13 @@ export {
   type NetClassesData,
 } from '../project/net_settings.js';
 import { ColorSwatch } from '../widgets/color_swatch.js';
-import { Combo } from '../widgets/wx_combobox.js';
 import { parseColor4d, toCssColor } from '../gal/color4d.js';
 
 interface Props {
   value: NetClassesData;
   onChange: (next: NetClassesData) => void;
+  /** `aIsEEschema`: which half of the columns the grid shows. */
+  isEEschema?: boolean;
   /**
    * `UpdateDelayProfileNames( aNames )` (panel_setup_netclasses.cpp:1002):
    * the Board Setup dialog hands over its Tuning Profiles page's names and the
@@ -45,8 +65,9 @@ interface Props {
   delayProfileNames?: readonly string[];
 }
 
-// The editable text columns (label -> key), in KiCad's order after Name.
-const NUM_COLS: { label: string; key: keyof NetClass }[] = [
+/** The netclass grid's columns, in `GRID_*` order (`panel_setup_netclasses.cpp:52-73`). */
+const GRID_COLS: { label: string; key: keyof NetClass }[] = [
+  { label: 'Name', key: 'name' },
   { label: 'Clearance', key: 'clearance' },
   { label: 'Track Width', key: 'trackWidth' },
   { label: 'Via Size', key: 'viaSize' },
@@ -56,240 +77,331 @@ const NUM_COLS: { label: string; key: keyof NetClass }[] = [
   { label: 'DP Width', key: 'dpWidth' },
   { label: 'DP Gap', key: 'dpGap' },
   { label: 'Tuning Profile', key: 'tuningProfile' },
+  { label: 'PCB Color', key: 'pcbColor' },
   { label: 'Wire Thickness', key: 'wireThickness' },
   { label: 'Bus Thickness', key: 'busThickness' },
+  { label: 'Color', key: 'color' },
+  { label: 'Line Style', key: 'lineStyle' },
 ];
 
-export function PanelSetupNetclasses({ value, onChange, delayProfileNames }: Props): JSX.Element {
-  const [sel, setSel] = useState<number>(0);
+const GRID_NAME = 0;
+const GRID_DELAY_PROFILE = 9;
+const GRID_PCB_COLOR = 10;
+const GRID_SCHEMATIC_COLOR = 13;
+const GRID_LINESTYLE = 14;
 
-  const setClasses = (classes: NetClass[]): void => onChange({ ...value, classes });
-  const setAt = (i: number, patch: Partial<NetClass>): void =>
-    setClasses(value.classes.map((c, j) => (j === i ? { ...c, ...patch } : c)));
-  const isDefault = (i: number): boolean => i === 0;
+/** `NETCLASS::Default`. */
+const DEFAULT_NETCLASS = 'Default';
 
-  const add = (): void => {
-    onChange({ ...value, classes: [...value.classes, blankClass('')] });
-    setSel(value.classes.length);
-  };
-  const remove = (): void => {
-    if (isDefault(sel)) return; // Default cannot be removed
-    setClasses(value.classes.filter((_, j) => j !== sel));
-    setSel(Math.max(0, sel - 1));
-  };
-  const move = (dir: -1 | 1): void => {
-    const j = sel + dir;
-    if (sel === 0 || j <= 0 || j >= value.classes.length) return; // Default stays first
-    const next = [...value.classes];
-    [next[sel], next[j]] = [next[j]!, next[sel]!];
-    setClasses(next);
-    setSel(j);
+export function PanelSetupNetclasses({
+  value,
+  onChange,
+  isEEschema = false,
+  delayProfileNames,
+}: Props): JSX.Element {
+  // `loadNetclasses`: by priority, then Default in the last row.
+  const gridClasses = [...value.classes.slice(1), ...value.classes.slice(0, 1)];
+  const dpViaGapOf = (aName: string): string =>
+    value.classes.find((c) => c.name === aName)?.dpViaGap ?? '';
+
+  const nc = useStringGrid<NetClass>({
+    labels: GRID_COLS.map((c) => c.label),
+    mode: wxGridSelectionModes.wxGridSelectRows,
+    rows: gridClasses,
+    toCells: (c) => GRID_COLS.map((col) => c[col.key]),
+    fromCells: (cells) => {
+      const c = blankClass(cells[GRID_NAME]!);
+      GRID_COLS.forEach((col, i) => {
+        c[col.key] = cells[i]!;
+      });
+      c.dpViaGap = dpViaGapOf(c.name);
+      return c;
+    },
+    onChange: (rows) => onChange({ ...value, classes: [...rows.slice(-1), ...rows.slice(0, -1)] }),
+    setup: (g) => {
+      // The Default row: its name, colours and line style are fixed.
+      const last = g.GetNumberRows() - 1;
+
+      if (last >= 0)
+        for (const col of [GRID_NAME, GRID_PCB_COLOR, GRID_SCHEMATIC_COLOR, GRID_LINESTYLE])
+          g.SetReadOnly(last, col);
+    },
+    onAddRow: (g) => onAddNetclass(g),
+  });
+
+  const asg = useStringGrid<NetClassAssignment>({
+    labels: ['Pattern', 'Net Class'],
+    mode: wxGridSelectionModes.wxGridSelectRows,
+    rows: value.assignments,
+    toCells: (a) => [a.pattern, a.netClass],
+    fromCells: (c) => ({ pattern: c[0]!, netClass: c[1]! }),
+    onChange: (assignments) => onChange({ ...value, assignments }),
+    onAddRow: (g) => onAddAssignment(g),
+  });
+
+  // `ShowHideColumns` and the attributes the constructor sets (`:136-170`).
+  const profilesKey = JSON.stringify(delayProfileNames ?? null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: profilesKey is delayProfileNames' content; the grid is stable
+  useLayoutEffect(() => {
+    const g = nc.grid;
+    g.ShowHideColumns(isEEschema ? '0 11 12 13 14' : '0 1 2 3 4 5 6 7 8 9 10');
+
+    const style = new wxGridCellAttr();
+    style.SetEditor(new wxGridCellChoiceEditor(LINE_STYLES));
+    g.SetColAttr(GRID_LINESTYLE, style);
+
+    if (delayProfileNames) {
+      const attr = new wxGridCellAttr();
+      attr.SetEditor(new wxGridCellChoiceEditor(['', ...delayProfileNames]));
+      g.SetColAttr(GRID_DELAY_PROFILE, attr);
+    }
+  }, [nc.grid, isEEschema, profilesKey]);
+
+  // `rebuildNetclassDropdowns`: the assignments' Net Class column offers the names.
+  const namesKey = JSON.stringify(value.classes.map((c) => c.name));
+  // biome-ignore lint/correctness/useExhaustiveDependencies: namesKey is the names' content; the grid is stable
+  useLayoutEffect(() => {
+    const attr = new wxGridCellAttr();
+    attr.SetEditor(
+      new wxGridCellChoiceEditor(gridClasses.map((c) => c.name).filter((n) => n !== '')),
+    );
+    asg.grid.SetColAttr(1, attr);
+  }, [namesKey]);
+
+  // `OnNetclassGridCellChanging`: a name is validated, and a rename follows
+  // into the assignments.
+  useEffect(() => {
+    const g = nc.grid;
+    const onChanging = (e: wxGridEvent): void => {
+      e.Skip();
+
+      if (e.GetCol() !== GRID_NAME) return;
+
+      const row = e.GetRow();
+      const tmp = e.GetString().trim();
+      let error: string | null = null;
+
+      if (tmp === '') error = 'Netclass must have a name.';
+
+      for (let ii = 0; ii < g.GetNumberRows() && error === null; ii++)
+        if (ii !== row && g.GetCellValue(ii, GRID_NAME).toLowerCase() === tmp.toLowerCase())
+          error = 'Netclass name already in use.';
+
+      if (error !== null) {
+        e.Veto();
+        const msg = error;
+        queueMicrotask(() => DisplayErrorMessage(msg));
+        return;
+      }
+
+      const oldName = g.GetCellValue(row, GRID_NAME);
+
+      if (oldName !== '')
+        for (let r = 0; r < asg.grid.GetNumberRows(); ++r)
+          if (asg.grid.GetCellValue(r, 1) === oldName) asg.grid.SetCellValue(r, 1, e.GetString());
+    };
+    g.Connect(wxEVT_GRID_CELL_CHANGING, onChanging);
+    return () => g.Disconnect(wxEVT_GRID_CELL_CHANGING, onChanging);
+  }, [nc.grid, asg.grid]);
+
+  // `OnNetclassAssignmentSort`, on a click on an assignment column label.
+  useEffect(() => {
+    const g = asg.grid;
+    let sortCol = 0;
+    let sortAsc = false;
+    const onSort = (e: wxGridEvent): void => {
+      e.Skip();
+
+      if (!g.CommitPendingChanges()) return;
+
+      const col = e.GetCol();
+
+      if (col < 0 || col >= g.GetNumberCols()) return;
+
+      if (col !== sortCol) {
+        sortCol = col;
+        sortAsc = true;
+      } else {
+        sortAsc = !sortAsc;
+      }
+
+      const rows = Array.from({ length: g.GetNumberRows() }, (_, r) => [
+        g.GetCellValue(r, 0),
+        g.GetCellValue(r, 1),
+      ]);
+      rows.sort((a, b) => {
+        const s1 = a[sortCol]!;
+        const s2 = b[sortCol]!;
+        const lt = s1 < s2 ? -1 : s1 > s2 ? 1 : 0;
+        return sortAsc ? lt : -lt;
+      });
+      g.BeginBatch();
+      rows.forEach(([pattern, netclass], r) => {
+        g.SetCellValue(r, 0, pattern!);
+        g.SetCellValue(r, 1, netclass!);
+      });
+      g.EndBatch();
+    };
+    g.Connect(wxEVT_GRID_LABEL_LEFT_CLICK, onSort);
+    return () => g.Disconnect(wxEVT_GRID_LABEL_LEFT_CLICK, onSort);
+  }, [asg.grid]);
+
+  /** `OnAddNetclassClick`: a row at the top, colours unspecified, style not defined. */
+  function onAddNetclass(g: WX_GRID): void {
+    g.OnAddRow(() => {
+      g.InsertRows(0);
+      const blank = blankClass('');
+      g.SetCellValue(0, GRID_PCB_COLOR, blank.pcbColor);
+      g.SetCellValue(0, GRID_SCHEMATIC_COLOR, blank.color);
+      g.SetCellValue(0, GRID_LINESTYLE, blank.lineStyle);
+      return [0, GRID_NAME];
+    });
+  }
+
+  /** `OnRemoveNetclassClick`: never the Default row; its members go back to Default. */
+  const onRemoveNetclass = (): void => {
+    const g = nc.grid;
+    g.OnDeleteRows(
+      (row) => {
+        if (row === g.GetNumberRows() - 1) {
+          DisplayErrorMessage('The default net class is required.');
+          return false;
+        }
+
+        return true;
+      },
+      (row) => {
+        const classname = g.GetCellValue(row, GRID_NAME);
+
+        for (let a = 0; a < asg.grid.GetNumberRows(); ++a)
+          if (asg.grid.GetCellValue(a, 1) === classname)
+            asg.grid.SetCellValue(a, 1, DEFAULT_NETCLASS);
+
+        g.DeleteRows(row, 1);
+      },
+    );
   };
 
-  const setAssign = (assignments: NetClassAssignment[]): void =>
-    onChange({ ...value, assignments });
+  /** `OnAddAssignmentClick`: a new pattern for the Default class. */
+  function onAddAssignment(g: WX_GRID): void {
+    g.OnAddRow(() => {
+      const row = g.GetNumberRows();
+      g.AppendRows(1);
+      g.SetCellValue(row, 1, value.classes[0]?.name ?? DEFAULT_NETCLASS);
+      return [row, 0];
+    });
+  }
+
+  const colorCell = (row: number, col: number, css: string): JSX.Element => (
+    // GRID_CELL_COLOR_RENDERER / GRID_CELL_COLOR_SELECTOR: the swatch, and
+    // the colour picker when the cell is edited.
+    <span className="ze-grid-text">
+      <ColorSwatch
+        size="small"
+        label={GRID_COLS[col]!.label}
+        disabled={nc.grid.IsReadOnly(row, col)}
+        color={parseColor4d(css || '#000000')}
+        onChange={(picked) => nc.grid.SetCellValue(row, col, toCssColor(picked, ', '))}
+      />
+    </span>
+  );
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Netclasses grid */}
       <div className="ze-pref-group-title">Netclasses</div>
       <div className="ze-grid-pane" style={{ flex: '1 1 55%', minHeight: 80 }}>
-        <table className="ze-grid" style={{ minWidth: 1180, width: '100%', whiteSpace: 'nowrap' }}>
-          <thead>
-            <tr>
-              <th style={{ position: 'sticky', left: 0 }}>Name</th>
-              {NUM_COLS.map((c) => (
-                <th key={c.key}>{c.label}</th>
-              ))}
-              <th>PCB Color</th>
-              <th>Color</th>
-              <th>Line Style</th>
-            </tr>
-          </thead>
-          <tbody>
-            {value.classes.map((c, i) => (
-              <tr
-                key={i}
-                className={i === sel ? 'selected' : undefined}
-                onMouseDown={() => setSel(i)}
-              >
-                <td style={{ minWidth: 120 }}>
-                  <input
-                    type="text"
-                    value={c.name}
-                    disabled={isDefault(i)}
-                    onChange={(e) => setAt(i, { name: e.target.value })}
-                  />
-                </td>
-                {NUM_COLS.map((col) =>
-                  col.key === 'tuningProfile' && delayProfileNames ? (
-                    <td key={col.key} style={{ minWidth: 74 }}>
-                      <Combo
-                        className="ze-grid-combo"
-                        value={c.tuningProfile}
-                        ariaLabel={`${c.name} tuning profile`}
-                        options={['', ...delayProfileNames].map((n) => ({ value: n, label: n }))}
-                        onChange={(n) => setAt(i, { tuningProfile: n })}
-                      />
-                    </td>
-                  ) : (
-                    <td key={col.key} style={{ minWidth: 74 }}>
-                      <input
-                        type="text"
-                        value={c[col.key]}
-                        onChange={(e) => setAt(i, { [col.key]: e.target.value })}
-                      />
-                    </td>
-                  ),
-                )}
-                <td style={{ textAlign: 'center' }}>
-                  {/* COLOR_SWATCH (color_swatch.cpp:301-328), where an
-                      <input type="color"> handed the job to the desktop's own
-                      popup - anchored to the control, so off-screen near the
-                      window edge, and unable to carry alpha. */}
-                  <ColorSwatch
-                    size="small"
-                    label="PCB color"
-                    color={parseColor4d(c.pcbColor || '#000000')}
-                    onChange={(picked) => setAt(i, { pcbColor: toCssColor(picked, ', ') })}
-                  />
-                </td>
-                <td style={{ textAlign: 'center' }}>
-                  <ColorSwatch
-                    size="small"
-                    label="Schematic color"
-                    color={parseColor4d(c.color || '#000000')}
-                    onChange={(picked) => setAt(i, { color: toCssColor(picked, ', ') })}
-                  />
-                </td>
-                <td>
-                  {/* `GRID_CELL_CHOICE_EDITOR` — a wxChoice inside the cell,
-                      so the shared owner-drawn combo, not a native select. */}
-                  <Combo
-                    className="ze-grid-combo"
-                    value={c.lineStyle}
-                    ariaLabel={`${c.name} line style`}
-                    options={LINE_STYLES.map((st) => ({ value: st, label: st }))}
-                    onChange={(st) => setAt(i, { lineStyle: st })}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <WxGridView
+          grid={nc.grid}
+          tricks={nc.tricks}
+          onUpdate={nc.onUpdate}
+          ariaLabel="Netclasses"
+          renderCell={(row, col, css) =>
+            col === GRID_PCB_COLOR || col === GRID_SCHEMATIC_COLOR ? colorCell(row, col, css) : null
+          }
+        />
       </div>
 
       <div className="ze-grid-btns">
-        <button type="button" className="ze-gridbtn" title="Add netclass" onClick={add}>
-          <Icon name="plus" />
-        </button>
-        <button
-          type="button"
-          className="ze-gridbtn"
+        <StdBitmapButton
+          bitmap="small_plus"
+          title="Add netclass"
+          tooltip={null}
+          onClick={() => onAddNetclass(nc.grid)}
+        />
+        <StdBitmapButton
+          bitmap="small_up"
           title="Move up"
-          disabled={sel <= 1}
-          onClick={() => move(-1)}
-        >
-          <Icon name="arrowUp" />
-        </button>
-        <button
-          type="button"
-          className="ze-gridbtn"
+          tooltip={null}
+          onClick={() =>
+            nc.grid.OnMoveRowUp(
+              // Can't move the Default netclass
+              (row) => row !== nc.grid.GetNumberRows() - 1,
+              (row) => nc.grid.SwapRows(row, row - 1),
+            )
+          }
+        />
+        <StdBitmapButton
+          bitmap="small_down"
           title="Move down"
-          disabled={sel === 0 || sel >= value.classes.length - 1}
-          onClick={() => move(1)}
-        >
-          <Icon name="arrowDown" />
-        </button>
+          tooltip={null}
+          onClick={() =>
+            nc.grid.OnMoveRowDown(
+              // Can't move the Default netclass
+              (row) => row + 1 !== nc.grid.GetNumberRows() - 1,
+              (row) => nc.grid.SwapRows(row, row + 1),
+            )
+          }
+        />
         <span className="ze-gridbtn-gap" />
-        <button
-          type="button"
-          className="ze-gridbtn"
+        <StdBitmapButton
+          bitmap="small_trash"
           title="Remove netclass"
-          disabled={isDefault(sel)}
-          onClick={remove}
-        >
-          <Icon name="delete" />
-        </button>
+          tooltip={null}
+          onClick={onRemoveNetclass}
+        />
         <span style={{ flex: 1 }} />
-        {/* `m_colorDefaultHelpText`, a plain wxStaticText — the panel calls
-            SetFont and SetForegroundColour on none of its labels, so this is
-            the dialog's own font and ink, not a grey 11px caption. */}
-        <span>Set color to transparent to use layer default color.</span>
-        {/* Stubbed: copies net colors from the schematic's netclass definitions. */}
-        <button type="button" className="ze-btn ze-nc-importcolors" title="Not implemented yet">
-          Import colors from schematic
-        </button>
+        {/* `m_colorDefaultHelpText`; pcbnew relabels it (`:176-181`). */}
+        <span>
+          {isEEschema
+            ? 'Set color to transparent to use KiCad default color.'
+            : 'Set color to transparent to use layer default color.'}
+        </span>
+        {/* `m_importColorsButton`, hidden in eeschema. Stubbed: it copies net
+            colours from the schematic's netclass definitions. */}
+        {!isEEschema && (
+          <button type="button" className="ze-btn ze-nc-importcolors" title="Not implemented yet">
+            Import colors from schematic
+          </button>
+        )}
       </div>
 
       {/* Assignments grid */}
       <div className="ze-pref-group-title">Netclass Assignments</div>
       <div className="ze-grid-pane" style={{ flex: '1 1 45%', minHeight: 60 }}>
-        <table className="ze-grid" style={{ tableLayout: 'fixed', width: '100%' }}>
-          <colgroup>
-            <col />
-            <col style={{ width: 200 }} />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>Pattern</th>
-              <th>Net Class</th>
-            </tr>
-          </thead>
-          <tbody>
-            {value.assignments.map((a, i) => (
-              <tr key={i}>
-                <td>
-                  <input
-                    type="text"
-                    value={a.pattern}
-                    placeholder="e.g. /CLK*"
-                    onChange={(e) =>
-                      setAssign(
-                        value.assignments.map((x, j) =>
-                          j === i ? { ...x, pattern: e.target.value } : x,
-                        ),
-                      )
-                    }
-                  />
-                </td>
-                <td>
-                  <Combo
-                    className="ze-grid-combo"
-                    value={a.netClass}
-                    ariaLabel="Net class"
-                    options={value.classes.map((c) => ({ value: c.name, label: c.name }))}
-                    onChange={(nc) =>
-                      setAssign(
-                        value.assignments.map((x, j) => (j === i ? { ...x, netClass: nc } : x)),
-                      )
-                    }
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <WxGridView
+          grid={asg.grid}
+          tricks={asg.tricks}
+          columns={[{ width: 270 }, { width: 160 }]}
+          flexCol={0}
+          onUpdate={asg.onUpdate}
+          ariaLabel="Netclass assignments"
+        />
       </div>
       <div className="ze-grid-btns">
-        <button
-          type="button"
-          className="ze-gridbtn"
+        <StdBitmapButton
+          bitmap="small_plus"
           title="Add assignment"
-          onClick={() => setAssign([...value.assignments, { pattern: '', netClass: 'Default' }])}
-        >
-          <Icon name="plus" />
-        </button>
+          tooltip={null}
+          onClick={() => onAddAssignment(asg.grid)}
+        />
         <span style={{ width: 15 }} />
-        <button
-          type="button"
-          className="ze-gridbtn"
+        <StdBitmapButton
+          bitmap="small_trash"
           title="Remove assignment"
-          disabled={value.assignments.length === 0}
-          onClick={() => setAssign(value.assignments.slice(0, -1))}
-        >
-          <Icon name="delete" />
-        </button>
+          tooltip={null}
+          onClick={() => asg.grid.OnDeleteRows((row) => asg.grid.DeleteRows(row, 1))}
+        />
       </div>
     </div>
   );

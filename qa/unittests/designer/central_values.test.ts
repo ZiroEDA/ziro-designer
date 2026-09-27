@@ -272,7 +272,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // 29/147 -> 27/137 on 09-26: dialog_line_modification.tsx, an invented
   // floating box, went for common/dialogs' WX_UNIT_ENTRY_DIALOG and
   // WX_MULTI_ENTRY_DIALOG.
-  'editors/pcb': { colours: 27, metrics: 137 },
+  'editors/pcb': { colours: 27, metrics: 136 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -356,7 +356,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // `common/dialogs` with its seven.
   // 30/178 -> 29/177 on 09-26: dialog_image_properties' inline preview canvas
   // (`#fff`, a 4px radius) went for common/dialogs' PANEL_IMAGE_EDITOR.
-  'editors/schematic': { colours: 25, metrics: 166 },
+  'editors/schematic': { colours: 23, metrics: 166 },
   // designer/src/sync/, the multiplayer layer. Eight colours, all of them
   // peerColor.ts's palette: one hue per person in a shared project, so two
   // people's cursors and selection boxes are told apart at a glance.
@@ -725,7 +725,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // 2/19 -> 3/34 on 09-26 (stage 3d): what `dialogs` gave up, 1 + 15.
   // metrics 34 -> 27 on 09-26: the Assign Netclass stub's inline styles went
   // when DIALOG_ASSIGN_NETCLASS was ported; its sizes are shell.css's, marked.
-  'common/dialogs': { colours: 3, metrics: 27 },
+  'common/dialogs': { colours: 2, metrics: 27 },
   // 09-26 (stage 3b): common/wx/controls.tsx, the wx controls the panels'
   // `_base` files instantiate, with the one colour `dialogs` gave up.
   'common/wx': { colours: 1, metrics: 0 },
