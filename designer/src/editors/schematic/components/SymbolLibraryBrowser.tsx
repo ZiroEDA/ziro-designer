@@ -41,14 +41,14 @@ import type { Menu } from '@ziroeda/common/tool/action_menu_types.js';
 import { addClose } from '@ziroeda/common/tool/action_menu.js';
 import { dispatchMenuHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import type { FocusLike } from '@ziroeda/common/browser_hotkeys.js';
+// LIB_TREE_MODEL_ADAPTER::GetPinningSymbol.
+import { PINNING_SYMBOL } from '@ziroeda/common/lib_tree_model_adapter.js';
 
 interface Props {
   onPick: (lib: LibSymbol) => void;
   onClose: () => void;
 }
 
-/** LIB_TREE_MODEL_ADAPTER::GetPinningSymbol. */
-const PINNING_SYMBOL = '☆ ';
 
 /** BODY_STYLE::BASE / DEMORGAN (symbol_edit_frame.h DEMORGAN_STD / DEMORGAN_ALT). */
 const DEMORGAN_STD = 'Standard';
