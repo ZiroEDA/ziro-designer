@@ -132,7 +132,7 @@ Written around, never copied, and each marked where it is used:
   writes the five it asks for inline, as `editor_conditions.cpp:169-204` has them.
 - `EDA_DRAW_FRAME::setupUIConditions`, `SetDrawBgColor` / `GetDrawBgColor`,
   `SetTitle`: the frame keeps `m_drawBgColor` itself; the title goes to the host.
-- `COMMON_CONTROL`, `PICKER_TOOL`: not registered by `setupTools`.
+- `COMMON_CONTROL` is in `common/tool/` now (09-27) but `setupTools` does not register it yet; `PICKER_TOOL` is not registered either.
 - `EDIT_POINTS`: `PL_POINT_EDITOR`, above.
 - `TOOL_MANAGER_VIEW_CONTROLS` names only the calls the manager makes; the
   tools cast `getViewControls()` to `VIEW_CONTROLS` for `ShowCursor`,

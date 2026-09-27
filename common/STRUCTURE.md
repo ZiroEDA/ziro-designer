@@ -204,7 +204,7 @@ have: `asset_archive` (resources.zip; artwork is imported), `bitmap_info`
 `cli_progress_reporter`, `config_params` (legacy wxConfig), `eda_dde`
 (socket cross-probe; one tab), `env_paths`, `executable_names`, `gestfich`,
 `history_lock` (file locks), `json_conversions`, `json_schema_validator`
-(JSON is native), `kiface_base`, `kiway`, `kiway_holder`, `single_top`
+(JSON is native), `kiface_base`, `kiway_holder`, `single_top`
 (DSO loading), `locale_io` (JS number text is locale-free),
 `navlib_safe_init`, `spacemouse` (3D mouse driver),
 `systemdirsappend`, `searchhelpfilefullpath`, `search_stack` (no search
@@ -299,3 +299,14 @@ canvas (`cairo_test_canvas.ts`); the sweep is `qa/probes/cairo_gal_mutants.py`.
 managers. `settings/`: `app_settings_units`, `grid_settings_ui`,
 `zoom_settings` beside the JSON_SETTINGS classes. None of the three is tabled
 against KiCad's list yet.
+
+`tool/common_control` (09-27): COMMON_CONTROL, every handler of the C++.
+Help and Get Involved open our pages, not KiCad's (the file's header says
+why); `Execute` is a KIWAY player, since every binary it names is an editor
+here. gerbview and bitmap2component register it; the other frames' menus
+still call the page directly and move over one frame at a time.
+
+`kiway` (09-27): not the DSO loader KiCad's is - the interface the program
+hands each frame (`EDA_BASE_FRAME::SetKiway`) for the calls frames make
+into KIWAY: OnKiCadExit, Player, the project manager, and another kiface's
+dialogs. `designer/src/App.tsx` implements it over the views.
