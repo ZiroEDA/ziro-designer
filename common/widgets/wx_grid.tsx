@@ -28,7 +28,7 @@
  * width no wxGrid column has; see `UnitField`'s `size` for the same note.
  */
 import { type JSX, useRef, useState } from 'react';
-import type { EdaUnits as EDA_UNITS_T } from '../eda_units.js';
+import type { EdaDataType, EdaUnits as EDA_UNITS_T } from '../eda_units.js';
 import { UNITS_PROVIDER } from '../units_provider.js';
 import {
   type wxAttrKind,
@@ -184,7 +184,7 @@ export class WX_GRID extends wxGrid {
   private m_weOwnTable = false;
   private m_unitsProviders = new Map<number, UNITS_PROVIDER>();
   private m_autoEvalCols: number[] = [];
-  private m_autoEvalColsUnits = new Map<number, [EDA_UNITS_T, 'distance' | 'area' | 'volume']>();
+  private m_autoEvalColsUnits = new Map<number, [EDA_UNITS_T, EdaDataType]>();
   private m_altRowColors = false;
   /** `DIALOG_SHIM::OnModify()` of the dialog the grid sits in. */
   private m_onModify: (() => void) | null = null;
@@ -558,13 +558,8 @@ export class WX_GRID extends wxGrid {
     this.m_autoEvalCols = aCols;
   }
 
-  SetAutoEvalColUnits(
-    aCol: number,
-    aUnit: EDA_UNITS_T,
-    aUnitType?: 'distance' | 'area' | 'volume',
-  ): void {
-    const type =
-      aUnitType ?? (UNITS_PROVIDER.GetTypeFromUnits(aUnit) as 'distance' | 'area' | 'volume');
+  SetAutoEvalColUnits(aCol: number, aUnit: EDA_UNITS_T, aUnitType?: EdaDataType): void {
+    const type = aUnitType ?? (UNITS_PROVIDER.GetTypeFromUnits(aUnit) as EdaDataType);
     this.m_autoEvalColsUnits.set(aCol, [aUnit, type]);
   }
 
@@ -572,7 +567,7 @@ export class WX_GRID extends wxGrid {
     return this.m_unitsProviders.get(aCol) ?? this.m_unitsProviders.values().next().value!;
   }
 
-  private getColumnUnits(aCol: number): [EDA_UNITS_T, 'distance' | 'area' | 'volume'] {
+  private getColumnUnits(aCol: number): [EDA_UNITS_T, EdaDataType] {
     return (
       this.m_autoEvalColsUnits.get(aCol) ?? [this.getUnitsProvider(aCol).GetUserUnits(), 'distance']
     );

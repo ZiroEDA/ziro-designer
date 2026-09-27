@@ -51,6 +51,19 @@ function Harness({
   );
 }
 
+/**
+ * Open a track cell's `GRID_CELL_RUN_FUNCTION_EDITOR` (the click's mouse-up
+ * opens it) and press its button.
+ */
+function runCalculator(col: string): void {
+  const cell = document.querySelector(
+    `[aria-label="Track propagation"] tbody td[data-col="${col}"]`,
+  ) as HTMLElement;
+  fireEvent.mouseDown(cell, { button: 0 });
+  fireEvent.mouseUp(cell);
+  fireEvent.click(cell.querySelector('.ze-grid-textbtn button')!);
+}
+
 afterEach(() => {
   cleanup();
   errors.length = 0;
@@ -171,12 +184,11 @@ describe('the profile page', () => {
       viaLayerTo: 'B.Cu',
       delay: 0,
     });
-    // Nothing selected: the trash button does nothing.
-    expect(
-      (screen.getByRole('button', { name: 'Remove via delay override' }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
-    fireEvent.mouseDown(screen.getByLabelText('Via delay 1'));
+    // A click on a cell selects its row (wxGridSelectRows).
+    const cell = document.querySelector(
+      '[aria-label="Via delay overrides"] tbody td[data-col="4"]',
+    ) as HTMLElement;
+    fireEvent.mouseDown(cell, { button: 0 });
     fireEvent.click(screen.getByRole('button', { name: 'Remove via delay override' }));
     expect(last!.profiles[0]!.viaOverrides).toEqual([]);
   });
@@ -185,7 +197,7 @@ describe('the profile page', () => {
     let last: TuningProfilesData | undefined;
     render(<Harness initial={oneProfile()} onState={(v) => (last = v)} />);
     fireEvent.click(screen.getByRole('button', { name: 'Add track propagation row' }));
-    fireEvent.click(screen.getByTitle('Calculate width'));
+    runCalculator('3');
     const e = last!.profiles[0]!.trackEntries[0]!;
     expect(e.widthMM).toBeGreaterThan(0);
     expect(e.delay).toBeGreaterThan(0);
@@ -197,7 +209,7 @@ describe('the profile page', () => {
     diff.profiles[0]!.type = 'Differential';
     render(<Harness initial={diff} />);
     fireEvent.click(screen.getByRole('button', { name: 'Add track propagation row' }));
-    fireEvent.click(screen.getByTitle('Calculate width'));
+    runCalculator('3');
     expect(errors).toEqual(['Error: Diff pair gap must be greater than 0 to calculate width']);
   });
 });

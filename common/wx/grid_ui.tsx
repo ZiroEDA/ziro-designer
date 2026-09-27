@@ -29,6 +29,7 @@ import {
   useState,
 } from 'react';
 import { GRID_TRICKS } from '../grid_tricks.js';
+import type { GRID_CELL_TEXT_BUTTON_VIEW } from '../widgets/grid_text_button_helpers.js';
 import { WX_GRID } from '../widgets/wx_grid.js';
 import { ContextMenu } from '../tool/action_menu_bar.js';
 import type { MenuItem } from '../tool/action_menu_types.js';
@@ -328,7 +329,7 @@ export function WxGridView({
         />
       );
 
-    return (
+    const input = (
       <input
         className="ze-grid-input"
         type="text"
@@ -345,6 +346,36 @@ export function WxGridView({
         }}
       />
     );
+
+    // GRID_CELL_TEXT_BUTTON: the entry with a button at its right, which keeps
+    // the focus in the entry (a wxComboCtrl's button does not take it).
+    const textButton = aEditor as wxGridCellEditor & Partial<GRID_CELL_TEXT_BUTTON_VIEW>;
+
+    if (textButton.GetButtonBitmap && textButton.OnButtonClick) {
+      const bitmap = textButton.GetButtonBitmap();
+      return (
+        <span className="ze-grid-textbtn">
+          {input}
+          <button
+            type="button"
+            className="ze-grid-cellbtn"
+            tabIndex={-1}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onClick={() => {
+              textButton.OnButtonClick?.();
+              bump();
+            }}
+          >
+            {bitmap ? <img src={bitmap} alt="" draggable={false} /> : null}
+          </button>
+        </span>
+      );
+    }
+
+    return input;
   };
 
   const cellContent = (aRow: number, aCol: number): ReactNode => {

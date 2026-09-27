@@ -23,10 +23,19 @@
  * `.ze-grid`, the buttons `.ze-gridbtn`; the widths stated are transcribed
  * from the base file and from `setColumnWidths`.
  */
-import { type JSX, useRef, useState } from 'react';
+import { type JSX, useLayoutEffect, useRef, useState } from 'react';
+import { GRID_TRICKS } from '@ziroeda/common/grid_tricks.js';
+import { GRID_CELL_RUN_FUNCTION_EDITOR } from '@ziroeda/common/widgets/grid_text_button_helpers.js';
+import { WX_GRID } from '@ziroeda/common/widgets/wx_grid.js';
+import {
+  wxGridCellAttr,
+  wxGridCellChoiceEditor,
+  wxGridSelectionModes,
+  wxGridStringTable,
+} from '@ziroeda/common/wx/grid.js';
+import { WxGridView } from '@ziroeda/common/wx/grid_ui.js';
 import {
   DoubleValueFromStringIn,
-  type EdaDataType,
   pcbIUScale,
   stringFromValue as stringFromValueIU,
 } from '@ziroeda/common/eda_units.js';
@@ -36,8 +45,6 @@ import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { BOARD_STACKUP } from '@ziroeda/pcbnew/board_stackup_manager/board_stackup.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { KiBitmapBundle } from '@ziroeda/common/bitmap.js';
-import { BITMAPS } from '@ziroeda/common/bitmaps/bitmaps_list.js';
 import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import type {
@@ -47,7 +54,6 @@ import type {
   TuningProfileTrackEntry,
   TuningProfileViaOverride,
 } from '../../board_settings.js';
-import { pcbUnitTextMM, pcbUnitValueMM } from '../../pcb_unit_binder.js';
 import { CalculationType, calculateTrackParameters } from '../tuning_profile_calc.js';
 
 // The aggregate model lives in board_settings.ts (KiCad's data/UI split);
@@ -114,110 +120,6 @@ function newProfile(): TuningProfile {
   };
 }
 
-/**
- * A unitised cell for a type the frame's units decide through
- * `GetUnitsFromType` — a `LENGTH_DELAY` reads "ps/cm" or "ps/in", a `TIME`
- * "ps". The model is IU, as `SetUnitValue` / `GetUnitValue` are.
- */
-function TypedUnitCell({
-  value,
-  provider,
-  type,
-  ariaLabel,
-  onCommit,
-}: {
-  value: number;
-  provider: UNITS_PROVIDER;
-  type: EdaDataType;
-  ariaLabel: string;
-  onCommit: (iu: number) => void;
-}): JSX.Element {
-  const [text, setText] = useState<string | null>(null);
-  const units = provider.GetUnitsFromType(type);
-  const shown = stringFromValueIU(pcbIUScale, units, value, true, type);
-
-  const commit = (): void => {
-    if (text === null) return;
-    onCommit(KiROUND(DoubleValueFromStringIn(pcbIUScale, units, text, type)));
-    setText(null);
-  };
-
-  return (
-    <input
-      type="text"
-      inputMode="decimal"
-      size={1}
-      className="ze-grid-input ze-bare"
-      aria-label={ariaLabel}
-      value={text ?? shown}
-      onChange={(e) => setText(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        e.stopPropagation();
-        if (e.key === 'Enter') commit();
-        else if (e.key === 'Escape') setText(null);
-      }}
-    />
-  );
-}
-
-/** A distance cell whose model is millimetres (`GetUnitValue` over a DISTANCE column). */
-function DistanceCell({
-  mm,
-  units,
-  ariaLabel,
-  onCommit,
-}: {
-  mm: number;
-  units: StatusUnits;
-  ariaLabel: string;
-  onCommit: (mm: number) => void;
-}): JSX.Element {
-  const [text, setText] = useState<string | null>(null);
-  const commit = (): void => {
-    if (text === null) return;
-    onCommit(pcbUnitValueMM(text, units));
-    setText(null);
-  };
-  return (
-    <input
-      type="text"
-      inputMode="decimal"
-      size={1}
-      className="ze-grid-input ze-bare"
-      aria-label={ariaLabel}
-      value={text ?? pcbUnitTextMM(mm, units, true)}
-      onChange={(e) => setText(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        e.stopPropagation();
-        if (e.key === 'Enter') commit();
-        else if (e.key === 'Escape') setText(null);
-      }}
-    />
-  );
-}
-
-/**
- * `GRID_CELL_RUN_FUNCTION_EDITOR`'s button: `TEXT_BUTTON_RUN_FUNCTION` carries
- * `BITMAPS::small_refresh` (`grid_text_button_helpers.cpp:522`).
- */
-function RunFunctionButton({ title, onRun }: { title: string; onRun: () => void }): JSX.Element {
-  const url = KiBitmapBundle(BITMAPS.small_refresh);
-  return (
-    <button
-      type="button"
-      className="ze-grid-cellbtn"
-      title={title}
-      aria-label={title}
-      onMouseDown={(e) => e.stopPropagation()}
-      onClick={onRun}
-    >
-      {url ? <img src={url} alt="" draggable={false} /> : null}
-    </button>
-  );
-}
-
 export function PanelPcbTuningProfiles({
   value,
   onChange,
@@ -274,7 +176,6 @@ export function PanelPcbTuningProfiles({
             key={page}
             profile={cur}
             onChange={setCur}
-            units={units}
             provider={provider.current}
             layers={layers}
             stackup={stackup}
@@ -306,11 +207,42 @@ export function PanelPcbTuningProfiles({
   );
 }
 
+/** TRACK_GRID_* and VIA_GRID_* (`panel_setup_tuning_profile_info.h`). */
+const TRACK_GRID_SIGNAL_LAYER = 0;
+const TRACK_GRID_TOP_REFERENCE = 1;
+const TRACK_GRID_BOTTOM_REFERENCE = 2;
+const TRACK_GRID_TRACK_WIDTH = 3;
+const TRACK_GRID_TRACK_GAP = 4;
+const TRACK_GRID_DELAY = 5;
+const VIA_GRID_SIGNAL_LAYER_FROM = 0;
+const VIA_GRID_SIGNAL_LAYER_TO = 1;
+const VIA_GRID_VIA_LAYER_FROM = 2;
+const VIA_GRID_VIA_LAYER_TO = 3;
+const VIA_GRID_DELAY = 4;
+
+function makeGrid(aLabels: readonly string[]): { grid: WX_GRID; tricks: GRID_TRICKS } {
+  const grid = new WX_GRID();
+  grid.SetTable(
+    new wxGridStringTable(0, aLabels.length),
+    true,
+    wxGridSelectionModes.wxGridSelectRows,
+  );
+  aLabels.forEach((label, c) => {
+    grid.SetColLabelValue(c, label);
+  });
+  return { grid, tricks: new GRID_TRICKS(grid) };
+}
+
+const choiceAttr = (aChoices: readonly string[]): wxGridCellAttr => {
+  const attr = new wxGridCellAttr();
+  attr.SetEditor(new wxGridCellChoiceEditor(aChoices, false));
+  return attr;
+};
+
 /** `PANEL_SETUP_TUNING_PROFILE_INFO`, one notebook page. */
 function ProfileInfoPage({
   profile,
   onChange,
-  units,
   provider,
   layers,
   stackup,
@@ -318,102 +250,193 @@ function ProfileInfoPage({
 }: {
   profile: TuningProfile;
   onChange: (patch: Partial<TuningProfile>) => void;
-  units: StatusUnits;
   provider: UNITS_PROVIDER;
   layers: readonly TuningLayer[];
   stackup: BOARD_STACKUP | null;
   onError: (message: string) => void;
 }): JSX.Element {
-  // `SetSelectionMode( wxGridSelectRows )` on each grid: one selected row.
-  const [trackSel, setTrackSel] = useState<number | null>(null);
-  const [viaSel, setViaSel] = useState<number | null>(null);
   const differential = profile.type === 'Differential';
-  const layerOptions = layers.map((l) => ({ value: l.id, label: l.name }));
-  const layerOptionsWithNone = [{ value: '', label: NONE_LAYER }, ...layerOptions];
-  const first = layers[0]?.id ?? '';
-  const last = layers[layers.length - 1]?.id ?? '';
+  const ctx = useRef({ profile, onChange, provider, layers, stackup, onError });
+  ctx.current = { profile, onChange, provider, layers, stackup, onError };
 
-  const setTrack = (i: number, patch: Partial<TuningProfileTrackEntry>): void =>
-    onChange({
-      trackEntries: profile.trackEntries.map((e, j) => (j === i ? { ...e, ...patch } : e)),
-    });
-  const setVia = (i: number, patch: Partial<TuningProfileViaOverride>): void =>
-    onChange({
-      viaOverrides: profile.viaOverrides.map((e, j) => (j === i ? { ...e, ...patch } : e)),
-    });
+  /** `m_layerNames` and `m_layerNamesToIDs`. */
+  const layerNames = layers.map((l) => l.name);
+  const nameOf = (id: string): string => layers.find((l) => l.id === id)?.name ?? '';
+  const idOf = (name: string): string => ctx.current.layers.find((l) => l.name === name)?.id ?? '';
 
-  // ----- OnAddTrackRow: the next signal layer down, its neighbours as references
-  const addTrackRow = (): void => {
-    const rows = profile.trackEntries;
-    const entry: TuningProfileTrackEntry = {
-      signalLayer: '',
-      topReference: '',
-      bottomReference: '',
-      widthMM: 0,
-      diffPairGapMM: 0,
-      delay: 0,
-    };
-    const setFrontRowLayers = (): void => {
-      if (layers.length === 0) return;
-      entry.signalLayer = layers[0]!.id;
-      if (layers.length < 2) return;
-      entry.bottomReference = layers[1]!.id;
-    };
-    if (rows.length === 0) {
-      setFrontRowLayers();
-    } else {
-      const lastSignal = rows[rows.length - 1]!.signalLayer;
-      const idx = layers.findIndex((l) => l.id === lastSignal);
-      if (idx === -1) {
-        // `nameItr == end()`: the row is added with no layers set.
-      } else if (idx === layers.length - 1) {
-        setFrontRowLayers();
-      } else {
-        entry.signalLayer = layers[idx + 1]!.id;
-        entry.topReference = layers[idx]!.id;
-        if (idx + 2 < layers.length) entry.bottomReference = layers[idx + 2]!.id;
-      }
+  const [track] = useState(() => {
+    const t = makeGrid(TRACK_COLUMNS);
+    // `SetAutoEvalColUnits` + `SetAutoEvalCols` (`:89-99`).
+    t.grid.SetUnitsProvider(provider);
+    t.grid.SetAutoEvalColUnits(
+      TRACK_GRID_DELAY,
+      provider.GetUnitsFromType('length_delay'),
+      'length_delay',
+    );
+    t.grid.SetAutoEvalColUnits(TRACK_GRID_TRACK_WIDTH, provider.GetUnitsFromType('distance'));
+    t.grid.SetAutoEvalColUnits(TRACK_GRID_TRACK_GAP, provider.GetUnitsFromType('distance'));
+    t.grid.SetAutoEvalCols([TRACK_GRID_DELAY, TRACK_GRID_TRACK_WIDTH, TRACK_GRID_TRACK_GAP]);
+
+    // The calculation editors (`:101-130`).
+    for (const col of [TRACK_GRID_TRACK_WIDTH, TRACK_GRID_TRACK_GAP, TRACK_GRID_DELAY]) {
+      const attr = new wxGridCellAttr();
+      attr.SetEditor(
+        new GRID_CELL_RUN_FUNCTION_EDITOR((row, c) => calculateTrackParametersForCell(row, c)),
+      );
+      t.grid.SetColAttr(col, attr);
     }
-    onChange({ trackEntries: [...rows, entry] });
+
+    return t;
+  });
+  const [via] = useState(() => {
+    const v = makeGrid(VIA_COLUMNS);
+    v.grid.SetUnitsProvider(provider);
+    v.grid.SetAutoEvalColUnits(VIA_GRID_DELAY, provider.GetUnitsFromType('time'), 'time');
+    v.grid.SetAutoEvalCols([VIA_GRID_DELAY]);
+    return v;
+  });
+
+  // `UpdateLayerNames`: the choice editors over the copper stack's names.
+  const layerKey = JSON.stringify(layerNames);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: layerKey is layerNames' content; the grids are stable
+  useLayoutEffect(() => {
+    const withNone = [NONE_LAYER, ...layerNames];
+    track.grid.SetColAttr(TRACK_GRID_SIGNAL_LAYER, choiceAttr(layerNames));
+    track.grid.SetColAttr(TRACK_GRID_TOP_REFERENCE, choiceAttr(withNone));
+    track.grid.SetColAttr(TRACK_GRID_BOTTOM_REFERENCE, choiceAttr(withNone));
+
+    for (const col of [
+      VIA_GRID_SIGNAL_LAYER_FROM,
+      VIA_GRID_SIGNAL_LAYER_TO,
+      VIA_GRID_VIA_LAYER_FROM,
+      VIA_GRID_VIA_LAYER_TO,
+    ])
+      via.grid.SetColAttr(col, choiceAttr(layerNames));
+  }, [layerKey]);
+
+  // `onChangeProfileType`: Diff Pair Gap shows only for a differential profile.
+  useLayoutEffect(() => {
+    track.grid.CommitPendingChanges();
+    via.grid.CommitPendingChanges();
+
+    if (differential) track.grid.ShowCol(TRACK_GRID_TRACK_GAP);
+    else track.grid.HideCol(TRACK_GRID_TRACK_GAP);
+  }, [track, via, differential]);
+
+  // `LoadProfile` (`:158-206`), whenever the rows change from outside the grids.
+  const written = useRef<{ track: string; via: string }>({ track: '', via: '' });
+  const trackKey = JSON.stringify(profile.trackEntries);
+  const viaKey = JSON.stringify(profile.viaOverrides);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: trackKey is the rows' content; the grid is stable
+  useLayoutEffect(() => {
+    if (trackKey === written.current.track) return;
+
+    const g = track.grid;
+    g.BeginBatch();
+    g.ClearRows();
+
+    for (const e of profile.trackEntries) {
+      const row = g.GetNumberRows();
+      g.AppendRows(1);
+      g.SetCellValue(row, TRACK_GRID_SIGNAL_LAYER, nameOf(e.signalLayer));
+      g.SetCellValue(row, TRACK_GRID_TOP_REFERENCE, nameOf(e.topReference) || NONE_LAYER);
+      g.SetCellValue(row, TRACK_GRID_BOTTOM_REFERENCE, nameOf(e.bottomReference) || NONE_LAYER);
+      g.SetUnitValue(row, TRACK_GRID_TRACK_WIDTH, pcbIUScale.mmToIU(e.widthMM));
+      g.SetUnitValue(row, TRACK_GRID_TRACK_GAP, pcbIUScale.mmToIU(e.diffPairGapMM));
+      g.SetUnitValue(row, TRACK_GRID_DELAY, e.delay);
+    }
+
+    g.EndBatch();
+    written.current.track = trackKey;
+  }, [trackKey]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: viaKey is the rows' content; the grid is stable
+  useLayoutEffect(() => {
+    if (viaKey === written.current.via) return;
+
+    const g = via.grid;
+    g.BeginBatch();
+    g.ClearRows();
+
+    for (const o of profile.viaOverrides) {
+      const row = g.GetNumberRows();
+      g.AppendRows(1);
+      g.SetCellValue(row, VIA_GRID_SIGNAL_LAYER_FROM, nameOf(o.signalLayerFrom));
+      g.SetCellValue(row, VIA_GRID_SIGNAL_LAYER_TO, nameOf(o.signalLayerTo));
+      g.SetCellValue(row, VIA_GRID_VIA_LAYER_FROM, nameOf(o.viaLayerFrom));
+      g.SetCellValue(row, VIA_GRID_VIA_LAYER_TO, nameOf(o.viaLayerTo));
+      g.SetUnitValue(row, VIA_GRID_DELAY, o.delay);
+    }
+
+    g.EndBatch();
+    written.current.via = viaKey;
+  }, [viaKey]);
+
+  /** `GetProfile()`'s two grid loops (`:225-285`), after every change a grid draws. */
+  const readTrack = (): TuningProfileTrackEntry[] => {
+    const g = track.grid;
+    return Array.from({ length: g.GetNumberRows() }, (_, row) => ({
+      signalLayer: idOf(g.GetCellValue(row, TRACK_GRID_SIGNAL_LAYER)),
+      topReference: idOf(g.GetCellValue(row, TRACK_GRID_TOP_REFERENCE)),
+      bottomReference: idOf(g.GetCellValue(row, TRACK_GRID_BOTTOM_REFERENCE)),
+      widthMM: pcbIUScale.iuToMM(g.GetUnitValue(row, TRACK_GRID_TRACK_WIDTH)),
+      diffPairGapMM: pcbIUScale.iuToMM(g.GetUnitValue(row, TRACK_GRID_TRACK_GAP)),
+      delay: g.GetUnitValue(row, TRACK_GRID_DELAY),
+    }));
   };
-  const removeTrackRow = (): void => {
-    if (trackSel === null || trackSel >= profile.trackEntries.length) return;
-    onChange({ trackEntries: profile.trackEntries.filter((_, j) => j !== trackSel) });
-    setTrackSel(null);
+  const transferTrack = (): void => {
+    const rows = readTrack();
+    const key = JSON.stringify(rows);
+
+    if (key === written.current.track) return;
+
+    written.current.track = key;
+    ctx.current.onChange({ trackEntries: rows });
+  };
+  const transferVia = (): void => {
+    const g = via.grid;
+    const rows: TuningProfileViaOverride[] = Array.from(
+      { length: g.GetNumberRows() },
+      (_, row) => ({
+        signalLayerFrom: idOf(g.GetCellValue(row, VIA_GRID_SIGNAL_LAYER_FROM)),
+        signalLayerTo: idOf(g.GetCellValue(row, VIA_GRID_SIGNAL_LAYER_TO)),
+        viaLayerFrom: idOf(g.GetCellValue(row, VIA_GRID_VIA_LAYER_FROM)),
+        viaLayerTo: idOf(g.GetCellValue(row, VIA_GRID_VIA_LAYER_TO)),
+        delay: g.GetUnitValue(row, VIA_GRID_DELAY),
+      }),
+    );
+    const key = JSON.stringify(rows);
+
+    if (key === written.current.via) return;
+
+    written.current.via = key;
+    ctx.current.onChange({ viaOverrides: rows });
   };
 
-  // ----- OnAddViaOverride: first layer to last, both pairs
-  const addViaOverride = (): void => {
-    onChange({
-      viaOverrides: [
-        ...profile.viaOverrides,
-        {
-          signalLayerFrom: first,
-          signalLayerTo: last,
-          viaLayerFrom: first,
-          viaLayerTo: last,
-          delay: 0,
-        },
-      ],
-    });
-  };
-  const removeViaOverride = (): void => {
-    if (viaSel === null || viaSel >= profile.viaOverrides.length) return;
-    onChange({ viaOverrides: profile.viaOverrides.filter((_, j) => j !== viaSel) });
-    setViaSel(null);
-  };
+  /** `calculateTrackParametersForCell` (`:702-800`), from a cell's run-function button. */
+  function calculateTrackParametersForCell(aRow: number, aCol: number): void {
+    const { stackup: brdStackup, profile: cur, onError: reportError } = ctx.current;
+    const g = track.grid;
+    g.CommitPendingChanges(true);
+    const e = readTrack()[aRow];
 
-  // ----- calculateTrackParametersForCell
-  const layerId = (id: string): PCB_LAYER_ID | undefined => {
-    if (id === '') return undefined;
-    const l = LSET.NameToLayer(id);
-    return l < 0 ? undefined : (l as PCB_LAYER_ID);
-  };
-  const calculate = (row: number, type: CalculationType): void => {
-    const e = profile.trackEntries[row];
-    if (!e || !stackup) return;
+    if (!e || !brdStackup) return;
+
+    const layerId = (id: string): PCB_LAYER_ID | undefined => {
+      if (id === '') return undefined;
+      const l = LSET.NameToLayer(id);
+      return l < 0 ? undefined : (l as PCB_LAYER_ID);
+    };
+    const isDiff = cur.type === 'Differential';
+    const type =
+      aCol === TRACK_GRID_TRACK_GAP
+        ? CalculationType.GAP
+        : aCol === TRACK_GRID_DELAY
+          ? CalculationType.DELAY
+          : CalculationType.WIDTH;
     const result = calculateTrackParameters(
-      stackup,
+      brdStackup,
       {
         signalLayer: layerId(e.signalLayer),
         topReference: layerId(e.topReference),
@@ -421,31 +444,75 @@ function ProfileInfoPage({
         width: e.widthMM > 0 ? pcbIUScale.mmToIU(e.widthMM) : undefined,
         gap: e.diffPairGapMM > 0 ? pcbIUScale.mmToIU(e.diffPairGapMM) : undefined,
       },
-      differential,
-      profile.targetImpedance,
+      isDiff,
+      cur.targetImpedance,
       type,
     );
+
     if (!result.OK) {
-      onError(result.ErrorMsg);
+      reportError(result.ErrorMsg);
       return;
     }
-    const patch: Partial<TuningProfileTrackEntry> = { delay: result.Delay };
-    if (type === CalculationType.WIDTH) patch.widthMM = pcbIUScale.iuToMM(result.Width);
-    else if (type === CalculationType.GAP && differential)
-      patch.diffPairGapMM = pcbIUScale.iuToMM(result.DiffPairGap);
-    setTrack(row, patch);
+
+    if (type === CalculationType.WIDTH) g.SetUnitValue(aRow, TRACK_GRID_TRACK_WIDTH, result.Width);
+    else if (type === CalculationType.GAP && isDiff)
+      g.SetUnitValue(aRow, TRACK_GRID_TRACK_GAP, result.DiffPairGap);
+
+    g.SetUnitValue(aRow, TRACK_GRID_DELAY, result.Delay);
+  }
+
+  /** `OnAddTrackRow` (`:517-568`): the next signal layer down, its neighbours as references. */
+  const onAddTrackRow = (): void => {
+    const g = track.grid;
+    const numRows = g.GetNumberRows();
+    g.InsertRows(numRows);
+
+    const setFrontRowLayers = (row: number): void => {
+      if (layerNames.length === 0) return;
+      g.SetCellValue(row, TRACK_GRID_SIGNAL_LAYER, layerNames[0]!);
+      if (layerNames.length < 2) return;
+      g.SetCellValue(row, TRACK_GRID_BOTTOM_REFERENCE, layerNames[1]!);
+    };
+
+    if (numRows === 0) {
+      setFrontRowLayers(0);
+    } else {
+      const idx = layerNames.indexOf(g.GetCellValue(numRows - 1, TRACK_GRID_SIGNAL_LAYER));
+
+      if (idx === layerNames.length - 1) {
+        setFrontRowLayers(numRows);
+      } else if (idx !== -1) {
+        g.SetCellValue(numRows, TRACK_GRID_SIGNAL_LAYER, layerNames[idx + 1]!);
+        g.SetCellValue(numRows, TRACK_GRID_TOP_REFERENCE, layerNames[idx]!);
+
+        if (idx + 2 < layerNames.length)
+          g.SetCellValue(numRows, TRACK_GRID_BOTTOM_REFERENCE, layerNames[idx + 2]!);
+      }
+    }
+
+    g.SetUnitValue(numRows, TRACK_GRID_TRACK_WIDTH, 0);
+    g.SetUnitValue(numRows, TRACK_GRID_TRACK_GAP, 0);
+    g.SetUnitValue(numRows, TRACK_GRID_DELAY, 0);
   };
 
-  const layerCell = (
-    id: string,
-    options: { value: string; label: string }[],
-    label: string,
-    onPick: (id: string) => void,
-  ): JSX.Element => (
-    <td>
-      <Combo value={id} ariaLabel={label} options={options} onChange={onPick} />
-    </td>
-  );
+  /** `OnAddViaOverride` (`:581-593`): first layer to last, both pairs. */
+  const onAddViaOverride = (): void => {
+    const g = via.grid;
+    const numRows = g.GetNumberRows();
+    g.InsertRows(numRows);
+    g.SetUnitValue(numRows, VIA_GRID_DELAY, 0);
+    g.SetCellValue(numRows, VIA_GRID_SIGNAL_LAYER_FROM, layerNames[0] ?? '');
+    g.SetCellValue(numRows, VIA_GRID_SIGNAL_LAYER_TO, layerNames[layerNames.length - 1] ?? '');
+    g.SetCellValue(numRows, VIA_GRID_VIA_LAYER_FROM, layerNames[0] ?? '');
+    g.SetCellValue(numRows, VIA_GRID_VIA_LAYER_TO, layerNames[layerNames.length - 1] ?? '');
+  };
+
+  /** `OnRemoveTrackRow` / `OnRemoveViaOverride`: exactly one selected row goes. */
+  const removeSelected = (g: WX_GRID): void => {
+    const selRows = g.GetSelectedRows();
+
+    if (selRows.length === 1) g.DeleteRows(selRows[0]!, 1);
+  };
 
   return (
     <div className="ze-tuneprof-info">
@@ -497,85 +564,12 @@ function ProfileInfoPage({
         <div className="ze-tuneprof-track">
           <span className="ze-tuneprof-title">Track Propagation</span>
           <div className="ze-grid-pane ze-tuneprof-grid">
-            <table className="ze-grid">
-              <thead>
-                <tr>
-                  {TRACK_COLUMNS.map((c, i) =>
-                    i === 4 && !differential ? null : <th key={c}>{c}</th>,
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {profile.trackEntries.map((e, i) => (
-                  <tr
-                    key={i}
-                    className={trackSel === i ? 'selected' : undefined}
-                    onMouseDown={() => setTrackSel(i)}
-                  >
-                    {layerCell(e.signalLayer, layerOptions, `Signal layer ${i + 1}`, (id) =>
-                      setTrack(i, { signalLayer: id }),
-                    )}
-                    {layerCell(
-                      e.topReference,
-                      layerOptionsWithNone,
-                      `Top reference ${i + 1}`,
-                      (id) => setTrack(i, { topReference: id }),
-                    )}
-                    {layerCell(
-                      e.bottomReference,
-                      layerOptionsWithNone,
-                      `Bottom reference ${i + 1}`,
-                      (id) => setTrack(i, { bottomReference: id }),
-                    )}
-                    <td>
-                      <span className="ze-tuneprof-calc">
-                        <DistanceCell
-                          mm={e.widthMM}
-                          units={units}
-                          ariaLabel={`Track width ${i + 1}`}
-                          onCommit={(mm) => setTrack(i, { widthMM: mm })}
-                        />
-                        <RunFunctionButton
-                          title="Calculate width"
-                          onRun={() => calculate(i, CalculationType.WIDTH)}
-                        />
-                      </span>
-                    </td>
-                    {differential && (
-                      <td>
-                        <span className="ze-tuneprof-calc">
-                          <DistanceCell
-                            mm={e.diffPairGapMM}
-                            units={units}
-                            ariaLabel={`Diff pair gap ${i + 1}`}
-                            onCommit={(mm) => setTrack(i, { diffPairGapMM: mm })}
-                          />
-                          <RunFunctionButton
-                            title="Calculate gap"
-                            onRun={() => calculate(i, CalculationType.GAP)}
-                          />
-                        </span>
-                      </td>
-                    )}
-                    <td>
-                      <span className="ze-tuneprof-calc">
-                        <TypedUnitCell
-                          value={e.delay}
-                          provider={provider}
-                          type="length_delay"
-                          ariaLabel={`Unit delay ${i + 1}`}
-                          onCommit={(iu) => setTrack(i, { delay: iu })}
-                        />
-                        <RunFunctionButton
-                          title="Calculate delay"
-                          onRun={() => calculate(i, CalculationType.DELAY)}
-                        />
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <WxGridView
+              grid={track.grid}
+              tricks={track.tricks}
+              onUpdate={transferTrack}
+              ariaLabel="Track propagation"
+            />
           </div>
           {/* bSizer9: add, 20 px, remove. */}
           <div className="ze-grid-btns">
@@ -583,15 +577,14 @@ function ProfileInfoPage({
               bitmap="small_plus"
               title="Add track propagation row"
               tooltip={null}
-              onClick={addTrackRow}
+              onClick={onAddTrackRow}
             />
             <span className="ze-tuneprof-btngap" />
             <StdBitmapButton
               bitmap="small_trash"
               title="Remove track propagation row"
               tooltip={null}
-              disabled={trackSel === null}
-              onClick={removeTrackRow}
+              onClick={() => removeSelected(track.grid)}
             />
           </div>
         </div>
@@ -611,64 +604,26 @@ function ProfileInfoPage({
           </div>
           <span className="ze-tuneprof-sublabel">Via delay overrides:</span>
           <div className="ze-grid-pane ze-tuneprof-grid">
-            <table className="ze-grid">
-              <thead>
-                <tr>
-                  {VIA_COLUMNS.map((c) => (
-                    <th key={c}>{c}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {profile.viaOverrides.map((o, i) => (
-                  <tr
-                    key={i}
-                    className={viaSel === i ? 'selected' : undefined}
-                    onMouseDown={() => setViaSel(i)}
-                  >
-                    {layerCell(
-                      o.signalLayerFrom,
-                      layerOptions,
-                      `Signal layer from ${i + 1}`,
-                      (id) => setVia(i, { signalLayerFrom: id }),
-                    )}
-                    {layerCell(o.signalLayerTo, layerOptions, `Signal layer to ${i + 1}`, (id) =>
-                      setVia(i, { signalLayerTo: id }),
-                    )}
-                    {layerCell(o.viaLayerFrom, layerOptions, `Via layer from ${i + 1}`, (id) =>
-                      setVia(i, { viaLayerFrom: id }),
-                    )}
-                    {layerCell(o.viaLayerTo, layerOptions, `Via layer to ${i + 1}`, (id) =>
-                      setVia(i, { viaLayerTo: id }),
-                    )}
-                    <td>
-                      <TypedUnitCell
-                        value={o.delay}
-                        provider={provider}
-                        type="time"
-                        ariaLabel={`Via delay ${i + 1}`}
-                        onCommit={(iu) => setVia(i, { delay: iu })}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <WxGridView
+              grid={via.grid}
+              tricks={via.tricks}
+              onUpdate={transferVia}
+              ariaLabel="Via delay overrides"
+            />
           </div>
           <div className="ze-grid-btns">
             <StdBitmapButton
               bitmap="small_plus"
               title="Add via delay override"
               tooltip={null}
-              onClick={addViaOverride}
+              onClick={onAddViaOverride}
             />
             <span className="ze-tuneprof-btngap" />
             <StdBitmapButton
               bitmap="small_trash"
               title="Remove via delay override"
               tooltip={null}
-              disabled={viaSel === null}
-              onClick={removeViaOverride}
+              onClick={() => removeSelected(via.grid)}
             />
           </div>
         </div>

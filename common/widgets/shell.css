@@ -16848,16 +16848,16 @@ td.ze-grid-bool {
 .ze-tuneprof-via .ze-tuneprof-grid {
   margin: 5px; /* [data] `Add( m_viaOverrides, 1, wxALL|wxEXPAND, 5 )` (`_base.cpp:178`). */
 }
-/* A GRID_CELL_RUN_FUNCTION_EDITOR cell: the text and its button side by side. */
-.ze-tuneprof-calc {
+/* `GRID_CELL_TEXT_BUTTON`'s editor: the entry, and its button at the right. */
+.ze-grid-textbtn {
   display: flex;
   align-items: stretch;
 }
-.ze-tuneprof-calc .ze-grid-input {
+.ze-grid-textbtn .ze-grid-input {
   flex: 1;
   min-width: 0;
 }
-.ze-tuneprof-calc .ze-grid-cellbtn img {
+.ze-grid-textbtn .ze-grid-cellbtn img {
   width: 16px; /* [art] small_refresh.svg, KiCad's 16 px small_* bitmap. */
   height: 16px; /* [art] small_refresh.svg, KiCad's 16 px small_* bitmap. */
 }
