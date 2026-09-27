@@ -467,3 +467,33 @@ rows use these; `designer/src/widgets/pg_properties.ts` is gone. Not ported:
 `PGPROPERTY_AREA` / `_TIME` (the frame formatter has no AREA / TIME data type),
 `PGPROPERTY_NET`, `PG_RATIO_EDITOR`, `PG_URL_EDITOR` (its bitmaps are not
 vendored).
+
+## `netlist_reader/` — 4 KiCad files (+ 3 headers), CLOSED 09-27
+
+| KiCad | ours |
+|---|---|
+| `netlist.h`, `netlist.cpp` | `netlist.ts`: `COMPONENT_NET`, `NETLIST_GROUP`, `UNIT_INFO`, `COMPONENT` (the PCB-agnostic base — no `FOOTPRINT*`, no variants), `NETLIST` |
+| `netlist_reader.h`, `netlist_reader.cpp`, `legacy_netlist_reader.cpp` | `netlist_reader.ts`: dialect sniffing (`GuessNetlistFileType`), the legacy/OrcadPCB2 line reader, `CMP_READER::Load` for CvPcb `.cmp` footprint links |
+| `kicad_netlist_parser.h`, `kicad_netlist_reader.cpp` | `kicad_netlist_reader.ts`: `KICAD_NETLIST_PARSER` over the s-expression dialect |
+
+This was ported out of `pcbnew/netlist_reader/`, where it had lived since the
+netlist-from-schematic pipeline shipped, once `kicad-reference` turned out to
+carry the same four files twice: once here, PCB-agnostic, and again under
+`pcbnew/netlist_reader/pcb_netlist.{h,cpp}` with a cached `FOOTPRINT*` and
+design variants (`COMPONENT_VARIANT`) added. Our board model does neither —
+`BOARD_NETLIST_UPDATER` reconciles footprints against the board separately, and
+variants are not modeled — so `COMPONENT`/`NETLIST` here already matched the
+common header, not the pcbnew one, and the move was a relocation, not a
+rewrite. `pcbnew/netlist_reader/{pcb_netlist,kicad_netlist_reader,netlist_reader}.ts`
+are now three-line re-exports of these, so every existing pcbnew import keeps
+working. One genuine addition: `COMPONENT::GetNet` now expands stacked-pin
+notation (`ExpandStackedPinNotation`, already ported in `string_utils.ts`)
+before giving up, which the pcbnew-only copy never did. Not ported:
+`NETLIST::Format` / `FormatCvpcbNetlist` (the `OUTPUTFORMATTER` dump exists
+so CvPcb and a re-import can be diffed as text; nothing here needs the
+netlist echoed back), and the LIB_ID-shaped `fpidIsLegacy` / `fpidItemName` /
+`fpidLibNickname` free functions still duplicate `LIB_ID.IsLegacy` /
+`GetLibItemName` / `GetLibNickname` (`lib_id.ts`) over a plain string FPID
+rather than a `LIB_ID` instance — `COMPONENT`'s FPID field would need to
+become a `LIB_ID` throughout pcbnew's netlist consumers to fold that in, which
+is a larger change than this move.
