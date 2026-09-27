@@ -56,6 +56,7 @@ import { KiBitmapBundle } from '@ziroeda/common/bitmap.js';
 import { BITMAPS } from '@ziroeda/common/bitmaps/bitmaps_list.js';
 import { BitmapToggle } from '@ziroeda/common/widgets/bitmap_toggle.js';
 import { IndicatorIcon, ROW_ICON_STATE } from '@ziroeda/common/widgets/indicator_icon.js';
+import { WxCollapsiblePane } from '@ziroeda/common/widgets/wx_collapsible_pane.js';
 import { layerTooltip } from './appearance_layers.js';
 import {
   appearanceObjectRows,
@@ -507,87 +508,76 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
 
         {/* "Net Display Options" collapsible pane on the Nets tab. */}
         {page === 'Nets' && nets && (
-          <div className="ze-collapsepane">
-            <button
-              type="button"
-              className="ze-collapse-toggle"
-              onClick={() => nets.onOptionsOpen(!nets.optionsOpen)}
-            >
-              <span className={`ze-collapse-arrow${nets.optionsOpen ? ' open' : ''}`} />
-              Net Display Options
-            </button>
-            {nets.optionsOpen && (
-              <div className="ze-collapse-body">
-                <div
-                  className="ze-info ze-inset"
-                  title="Choose when to show net and netclass colors"
-                >
-                  Net colors:
-                </div>
-                <div className="ze-radio-row ze-radio-gap">
-                  <label title="Net and netclass colors are shown on all copper items">
-                    <input
-                      type="radio"
-                      name="ze-netcolor"
-                      checked={nets.netColorMode === 'all'}
-                      onChange={() => nets.onNetColorMode('all')}
-                    />
-                    All
-                  </label>
-                  <label title="Net and netclass colors are shown on the ratsnest only">
-                    <input
-                      type="radio"
-                      name="ze-netcolor"
-                      checked={nets.netColorMode === 'ratsnest'}
-                      onChange={() => nets.onNetColorMode('ratsnest')}
-                    />
-                    Ratsnest
-                  </label>
-                  <label title="Net and netclass colors are not shown">
-                    <input
-                      type="radio"
-                      name="ze-netcolor"
-                      checked={nets.netColorMode === 'off'}
-                      onChange={() => nets.onNetColorMode('off')}
-                    />
-                    None
-                  </label>
-                </div>
-                <div className="ze-info ze-inset" title="Choose which ratsnest lines to display">
-                  Ratsnest display:
-                </div>
-                <div className="ze-radio-row ze-radio-gap">
-                  <label title="Show ratsnest lines to items on all layers">
-                    <input
-                      type="radio"
-                      name="ze-ratsmode"
-                      checked={nets.ratsnestMode === 'all'}
-                      onChange={() => nets.onRatsnestMode('all')}
-                    />
-                    All
-                  </label>
-                  <label title="Show ratsnest lines to items on visible layers">
-                    <input
-                      type="radio"
-                      name="ze-ratsmode"
-                      checked={nets.ratsnestMode === 'visible'}
-                      onChange={() => nets.onRatsnestMode('visible')}
-                    />
-                    Visible layers
-                  </label>
-                  <label title="Hide all ratsnest lines">
-                    <input
-                      type="radio"
-                      name="ze-ratsmode"
-                      checked={nets.ratsnestMode === 'off'}
-                      onChange={() => nets.onRatsnestMode('off')}
-                    />
-                    None
-                  </label>
-                </div>
-              </div>
-            )}
-          </div>
+          <WxCollapsiblePane
+            label="Net Display Options"
+            collapsed={!nets.optionsOpen}
+            onChange={(collapsed) => nets.onOptionsOpen(!collapsed)}
+          >
+            <div className="ze-info ze-inset" title="Choose when to show net and netclass colors">
+              Net colors:
+            </div>
+            <div className="ze-radio-row ze-radio-gap">
+              <label title="Net and netclass colors are shown on all copper items">
+                <input
+                  type="radio"
+                  name="ze-netcolor"
+                  checked={nets.netColorMode === 'all'}
+                  onChange={() => nets.onNetColorMode('all')}
+                />
+                All
+              </label>
+              <label title="Net and netclass colors are shown on the ratsnest only">
+                <input
+                  type="radio"
+                  name="ze-netcolor"
+                  checked={nets.netColorMode === 'ratsnest'}
+                  onChange={() => nets.onNetColorMode('ratsnest')}
+                />
+                Ratsnest
+              </label>
+              <label title="Net and netclass colors are not shown">
+                <input
+                  type="radio"
+                  name="ze-netcolor"
+                  checked={nets.netColorMode === 'off'}
+                  onChange={() => nets.onNetColorMode('off')}
+                />
+                None
+              </label>
+            </div>
+            <div className="ze-info ze-inset" title="Choose which ratsnest lines to display">
+              Ratsnest display:
+            </div>
+            <div className="ze-radio-row ze-radio-gap">
+              <label title="Show ratsnest lines to items on all layers">
+                <input
+                  type="radio"
+                  name="ze-ratsmode"
+                  checked={nets.ratsnestMode === 'all'}
+                  onChange={() => nets.onRatsnestMode('all')}
+                />
+                All
+              </label>
+              <label title="Show ratsnest lines to items on visible layers">
+                <input
+                  type="radio"
+                  name="ze-ratsmode"
+                  checked={nets.ratsnestMode === 'visible'}
+                  onChange={() => nets.onRatsnestMode('visible')}
+                />
+                Visible layers
+              </label>
+              <label title="Hide all ratsnest lines">
+                <input
+                  type="radio"
+                  name="ze-ratsmode"
+                  checked={nets.ratsnestMode === 'off'}
+                  onChange={() => nets.onRatsnestMode('off')}
+                />
+                None
+              </label>
+            </div>
+          </WxCollapsiblePane>
         )}
 
         {/* "Layer Display Options" collapsible pane at the bottom of the Layers
@@ -595,58 +585,50 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
           three high-contrast radios are set from `GetDisplayOptions()` with no
           `m_isFpEditor` branch at all (UpdateDisplayOptions, :1500-1520). */}
         {page === 'Layers' && (
-          <div className="ze-collapsepane">
-            <button
-              type="button"
-              className="ze-collapse-toggle"
-              onClick={() => onLayerOptionsOpen(!layerOptionsOpen)}
-            >
-              <span className={`ze-collapse-arrow${layerOptionsOpen ? ' open' : ''}`} />
-              Layer Display Options
-            </button>
-            {layerOptionsOpen && (
-              <div className="ze-collapse-body">
-                {/* `wxString::Format( _( "Inactive layers (%s):" ),
+          <WxCollapsiblePane
+            label="Layer Display Options"
+            collapsed={!layerOptionsOpen}
+            onChange={(collapsed) => onLayerOptionsOpen(!collapsed)}
+          >
+            {/* `wxString::Format( _( "Inactive layers (%s):" ),
                   KeyNameFromKeyCode( hotkey ) )` — highContrastModeCycle is H
                   (appearance_controls.cpp:1944-1951). */}
-                <div className="ze-info">Inactive layers (H):</div>
-                <div className="ze-radio-row">
-                  <label title="Inactive layers will be shown in full color">
-                    <input
-                      type="radio"
-                      name="ze-hc"
-                      checked={contrast === 'normal'}
-                      onChange={() => onContrast('normal')}
-                    />
-                    Normal
-                  </label>
-                  <label title="Inactive layers will be dimmed">
-                    <input
-                      type="radio"
-                      name="ze-hc"
-                      checked={contrast === 'dim'}
-                      onChange={() => onContrast('dim')}
-                    />
-                    Dim
-                  </label>
-                  <label title="Inactive layers will be hidden">
-                    <input
-                      type="radio"
-                      name="ze-hc"
-                      checked={contrast === 'hide'}
-                      onChange={() => onContrast('hide')}
-                    />
-                    Hide
-                  </label>
-                </div>
-                <hr className="ze-hr" />
-                <label>
-                  <input type="checkbox" checked={flipBoard} onChange={onFlipBoard} />
-                  Flip board view
-                </label>
-              </div>
-            )}
-          </div>
+            <div className="ze-info">Inactive layers (H):</div>
+            <div className="ze-radio-row">
+              <label title="Inactive layers will be shown in full color">
+                <input
+                  type="radio"
+                  name="ze-hc"
+                  checked={contrast === 'normal'}
+                  onChange={() => onContrast('normal')}
+                />
+                Normal
+              </label>
+              <label title="Inactive layers will be dimmed">
+                <input
+                  type="radio"
+                  name="ze-hc"
+                  checked={contrast === 'dim'}
+                  onChange={() => onContrast('dim')}
+                />
+                Dim
+              </label>
+              <label title="Inactive layers will be hidden">
+                <input
+                  type="radio"
+                  name="ze-hc"
+                  checked={contrast === 'hide'}
+                  onChange={() => onContrast('hide')}
+                />
+                Hide
+              </label>
+            </div>
+            <hr className="ze-hr" />
+            <label>
+              <input type="checkbox" checked={flipBoard} onChange={onFlipBoard} />
+              Flip board view
+            </label>
+          </WxCollapsiblePane>
         )}
       </div>
 
