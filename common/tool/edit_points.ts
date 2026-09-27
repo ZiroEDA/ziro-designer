@@ -375,11 +375,7 @@ export class EDIT_POINTS extends EDA_ITEM {
   AddPoint(aPoint: EDIT_POINT): void;
   AddPoint(aPoint: VECTOR2I, aConnected?: [EDA_ITEM | null, number]): void;
   AddPoint(aPoint: EDIT_POINT | VECTOR2I, aConnected: [EDA_ITEM | null, number] = [null, 0]): void {
-    this.m_points.push(
-      aPoint instanceof EDIT_POINT
-        ? aPoint
-        : new EDIT_POINT(aPoint, aConnected),
-    );
+    this.m_points.push(aPoint instanceof EDIT_POINT ? aPoint : new EDIT_POINT(aPoint, aConnected));
   }
 
   /**
