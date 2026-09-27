@@ -13534,9 +13534,6 @@ fieldset.ze-sbox > legend {
   flex: 1 1 auto;
   margin: 5px 5px 0; /* [data] Add( m_grid, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5 ) */
 }
-.ze-pluginopts-col0 {
-  width: 120px; /* [data] m_grid->SetColSize( 0, 120 ) */
-}
 .ze-pluginopts-btngap {
   width: 20px; /* [data] bButtonsSizer->Add( 20, 0, 0, wxEXPAND, 5 ) */
 }

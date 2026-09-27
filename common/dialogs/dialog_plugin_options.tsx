@@ -17,13 +17,19 @@
  * A KiCad-format library's plugin offers no choices
  * (`IO_BASE::GetLibraryOptions` appends none), so for those the right-hand
  * list is empty and only the grid matters - which is still upstream's dialog.
+ *
+ * The grid is a WX_GRID with GRID_TRICKS, rows selected whole; column 0 is
+ * autosized with a 72 px floor and column 1 takes the rest (`onUpdateUI`).
  */
 import { useState, type JSX } from 'react';
 import { StdDialogButtons } from '../dialog_shim.js';
 import { formatLibraryTableOptions, parseLibraryTableOptions } from '../libraries/library_table.js';
 import { HtmlWindow } from '../widgets/html_window.js';
-import { Icon } from '../widgets/icons.js';
+import { StdBitmapButton } from '../widgets/std_bitmap_button.js';
+import type { WX_GRID } from '../widgets/wx_grid.js';
 import { useModalEscape } from '../dialog_shim.js';
+import { wxGridSelectionModes } from '../wx/grid.js';
+import { useStringGrid, WxGridView } from '../wx/grid_ui.js';
 
 /** INITIAL_HELP (dialog_plugin_options.cpp:35-37). */
 export const INITIAL_HELP =
@@ -78,23 +84,40 @@ export function DIALOG_PLUGIN_OPTIONS({
   onResult: (result: string | null) => void;
 }): JSX.Element {
   const [rows, setRows] = useState<Row[]>(() => pluginOptionsRows(formattedOptions));
-  const [sel, setSel] = useState<number | null>(null);
   const [choice, setChoice] = useState<string | null>(null);
   useModalEscape(() => onResult(null));
 
+  const { grid, tricks, onUpdate } = useStringGrid<Row>({
+    labels: ['Option', 'Value'],
+    mode: wxGridSelectionModes.wxGridSelectRows,
+    rows,
+    toCells: (r) => [r.name, r.value],
+    fromCells: (c) => ({ name: c[0]!, value: c[1]! }),
+    onChange: setRows,
+  });
+
   const choices = [...pluginOptions.keys()].sort();
   const help = choice !== null ? (pluginOptions.get(choice) ?? INITIAL_HELP) : INITIAL_HELP;
-  const setAt = (i: number, patch: Partial<Row>): void =>
-    setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+
+  /** `appendRow`. */
+  const appendRow = (aGrid: WX_GRID): number => {
+    aGrid.AppendRows(1);
+    return aGrid.GetNumberRows() - 1;
+  };
 
   /** `appendOption`: into the first row with an empty name, else a new one. */
-  const appendOption = (): void => {
-    if (choice === null) return;
-    setRows((rs) => {
-      const at = rs.findIndex((r) => r.name === '');
-      if (at >= 0) return rs.map((r, j) => (j === at ? { ...r, name: choice } : r));
-      return [...rs, { name: choice, value: '' }];
-    });
+  const appendOption = (aChoice: string | null = choice): number => {
+    let row = -1;
+
+    if (aChoice !== null) {
+      for (row = 0; row < grid.GetNumberRows(); ++row) if (!grid.GetCellValue(row, 0)) break;
+
+      if (row === grid.GetNumberRows()) row = appendRow(grid);
+
+      grid.SetCellValue(row, 0, aChoice);
+    }
+
+    return row;
   };
 
   return (
@@ -105,73 +128,29 @@ export function DIALOG_PLUGIN_OPTIONS({
           <fieldset className="ze-sbox ze-pluginopts-grid">
             <legend>Plugin Options</legend>
             <div className="ze-grid-pane ze-pluginopts-gridpane">
-              <table className="ze-grid">
-                <colgroup>
-                  <col className="ze-pluginopts-col0" />
-                  <col />
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th>Option</th>
-                    <th>Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r, i) => (
-                    <tr
-                      // Rows are positional, as a wxGrid's are.
-                      // biome-ignore lint/suspicious/noArrayIndexKey: grid row order is the identity
-                      key={i}
-                      className={i === sel ? 'selected' : undefined}
-                      onMouseDown={() => setSel(i)}
-                    >
-                      <td>
-                        <input
-                          type="text"
-                          aria-label={`Option ${i + 1}`}
-                          value={r.name}
-                          onChange={(e) => setAt(i, { name: e.target.value })}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="text"
-                          aria-label={`Value ${i + 1}`}
-                          value={r.value}
-                          onChange={(e) => setAt(i, { value: e.target.value })}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <WxGridView
+                grid={grid}
+                tricks={tricks}
+                columns={[{ width: 72 }]}
+                flexCol={1}
+                onUpdate={onUpdate}
+                ariaLabel="Plugin options"
+              />
             </div>
             <div className="ze-grid-btns">
-              <button
-                type="button"
-                className="ze-gridbtn"
-                aria-label="Add row"
-                onClick={() => {
-                  setRows((rs) => [...rs, { name: '', value: '' }]);
-                  setSel(rows.length);
-                }}
-              >
-                <Icon name="plus" />
-              </button>
+              <StdBitmapButton
+                bitmap="small_plus"
+                title="Add row"
+                tooltip={null}
+                onClick={() => grid.OnAddRow(() => [appendRow(grid), 0])}
+              />
               <span className="ze-pluginopts-btngap" />
-              <button
-                type="button"
-                className="ze-gridbtn"
-                aria-label="Delete row"
-                disabled={sel === null}
-                onClick={() => {
-                  if (sel === null) return;
-                  setRows((rs) => rs.filter((_, j) => j !== sel));
-                  setSel(null);
-                }}
-              >
-                <Icon name="delete" />
-              </button>
+              <StdBitmapButton
+                bitmap="small_trash"
+                title="Delete row"
+                tooltip={null}
+                onClick={() => grid.OnDeleteRows((row) => grid.DeleteRows(row, 1))}
+              />
             </div>
           </fieldset>
           <fieldset className="ze-sbox ze-pluginopts-choices">
@@ -191,14 +170,18 @@ export function DIALOG_PLUGIN_OPTIONS({
                   onClick={() => setChoice(c)}
                   onDoubleClick={() => {
                     setChoice(c);
-                    appendOption();
+                    appendOption(c);
                   }}
                 >
                   {c}
                 </div>
               ))}
             </div>
-            <button type="button" className="ze-btn ze-pluginopts-append" onClick={appendOption}>
+            <button
+              type="button"
+              className="ze-btn ze-pluginopts-append"
+              onClick={() => grid.OnAddRow(() => [appendOption(), -1])}
+            >
               {'<<    Append Selected Option'}
             </button>
             <span className="ze-pluginopts-spacer" />
@@ -207,7 +190,17 @@ export function DIALOG_PLUGIN_OPTIONS({
         </div>
         <StdDialogButtons
           onCancel={() => onResult(null)}
-          onOk={() => onResult(pluginOptionsResult(rows))}
+          onOk={() => {
+            if (!grid.CommitPendingChanges()) return;
+            onResult(
+              pluginOptionsResult(
+                Array.from({ length: grid.GetNumberRows() }, (_, r) => ({
+                  name: grid.GetCellValue(r, 0),
+                  value: grid.GetCellValue(r, 1),
+                })),
+              ),
+            );
+          }}
         />
       </div>
     </div>
