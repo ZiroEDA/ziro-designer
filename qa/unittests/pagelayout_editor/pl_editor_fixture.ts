@@ -182,6 +182,8 @@ export function makeHarness(
   aSetup(cfg);
 
   const frame = new PL_EDITOR_FRAME(cfg);
+  // `BASE_SCREEN::m_DrawingSheetFileName` is a static: a fresh process starts empty.
+  frame.SetCurrentFileName('');
 
   const gal = new STUB_GAL(new GAL_DISPLAY_OPTIONS());
   const view = new VIEW();

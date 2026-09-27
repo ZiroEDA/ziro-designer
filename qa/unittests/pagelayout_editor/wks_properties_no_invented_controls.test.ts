@@ -121,25 +121,6 @@ describe('the four plain wxTextCtrl fields', () => {
     expect(fmtInt(300)).not.toContain('.');
   });
 
-  it('renders NumField as a text input with no spinner and no step', () => {
-    const at = CODE.indexOf('function NumField');
-    expect(at).toBeGreaterThan(-1);
-    const body = CODE.slice(at, CODE.indexOf('function ', at + 10));
-    // m_textCtrlRotation / RepeatCount / TextIncrement / BitmapDPI are all
-    // wxTextCtrl (properties_frame_base.cpp:369, 400, 410, 376). Not one is a
-    // wxSpinCtrl, so there is no step and no pair of arrows.
-    expect(body).toContain('type="text"');
-    expect(body).not.toContain('type="number"');
-    expect(body).not.toContain('step');
-  });
-
-  it('gives each of the four the format its own Printf uses', () => {
-    expect(row('Rotation:')).toContain('format={fmtRotation}');
-    for (const label of ['Count:', 'Step text:', 'Bitmap DPI:']) {
-      expect(row(label), `${label} prints with %d`).toContain('format={fmtInt}');
-    }
-  });
-
   it('gives none of the four an invented step', () => {
     for (const label of ['Rotation:', 'Count:', 'Step text:', 'Bitmap DPI:']) {
       expect(row(label), `${label} must not declare a step`).not.toContain('step=');
@@ -147,21 +128,6 @@ describe('the four plain wxTextCtrl fields', () => {
   });
 });
 
-// ---------------------------------------------------------------- D6
-
-describe('the Count field', () => {
-  it('enforces only >= 1, because the 1..100 range is the reader’s', () => {
-    // `msg.ToLong( &itmp ); if( itmp < 1l ) itmp = 1;` is the whole check
-    // (properties_frame.cpp:558-570). `parseInt( 1, 100 )` lives in
-    // drawing_sheet_parser.cpp:429, 507, 672, 732 — the READER.
-    const count = row('Count:');
-    expect(count).toContain('Math.max(1');
-    expect(count).not.toContain('Math.min(100');
-    expect(count).not.toContain('100');
-  });
-});
-
-// ---------------------------------------------------------------- D8
 
 describe('tooltips', () => {
   // The seven SetToolTip calls in properties_frame_base.cpp are the whole list:

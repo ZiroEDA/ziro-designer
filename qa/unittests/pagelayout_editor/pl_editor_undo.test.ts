@@ -1,363 +1,279 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 /**
- * `PL_EDITOR_FRAME`'s undo/redo, against `pagelayout_editor/pl_editor_undo_redo.cpp`
- * and `common/drawing_sheet/ds_proxy_undo_item.cpp`.
+ * `PL_EDITOR_FRAME`'s undo/redo, driven through the frame and its tools,
+ * against `pagelayout_editor/pl_editor_undo_redo.cpp` and
+ * `common/drawing_sheet/ds_proxy_undo_item.cpp`.
  *
- * Every expectation here is derived from the C++, never from calling the code
+ *   SaveCopyInUndoList (:34-45)  `new DS_PROXY_UNDO_ITEM( this )`: EVERY entry
+ *       carries the page and the title block, then the redo list is cleared.
+ *   GetLayoutFromUndoList (:88-119) / GetLayoutFromRedoList (:52-83)  one
+ *       entry moves list to list; the item selected when the entry was taken
+ *       comes back selected (ds_proxy_undo_item.cpp:76-90).
+ *   RollbackFromUndo (:125-150)  pops and restores, pushes no redo.
+ *   setupUIConditions (pl_editor_frame.cpp:311-331)  Undo / Redo enable on
+ *       the depths; Paste on `Idle && NoActiveTool`.
+ *
+ * Every expectation is derived from the C++, never from calling the code
  * under test.
  */
-import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-  captureUndoItem,
-  clearUndoRedoList,
-  getLayoutFromRedoList,
-  getLayoutFromUndoList,
-  historyDepthOf,
-  newUndoRedoState,
-  NO_SELECTED_ITEM,
-  rebuildSelection,
-  rollbackFromUndo,
-  saveCopyInUndoList,
-} from '@ziroeda/pagelayout_editor/pl_editor_undo_redo.js';
-import {
-  pasteEnabled,
-  redoEnabled,
-  toolbarDisabledIds,
-  undoEnabled,
-} from '@ziroeda/pagelayout_editor/pl_editor_frame.js';
+  CORNER_ANCHOR,
+  DS_DATA_ITEM,
+  DS_ITEM_TYPE,
+} from '@ziroeda/common/drawing_sheet/ds_data_item.js';
+import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
+import { PAGE_INFO } from '@ziroeda/common/page_info.js';
+import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { EDA_UNITS_INT } from '@ziroeda/common/settings/app_settings.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
+import { wxUpdateUIEvent } from '@ziroeda/common/wx/wx_event.js';
+import type { PL_EDITOR_FRAME } from '@ziroeda/pagelayout_editor/pl_editor_frame.js';
+import { PL_ACTIONS } from '@ziroeda/pagelayout_editor/tools/pl_actions.js';
+import { PL_SELECTION_TOOL } from '@ziroeda/pagelayout_editor/tools/pl_selection_tool.js';
+import { type Harness, makeHarness, settle, toolbar } from './pl_editor_fixture.js';
 
-interface Layout {
-  readonly items: readonly string[];
-}
-interface Page {
-  readonly paper: string;
-}
+let model: DS_DATA_MODEL;
 
-const L = (...items: string[]): Layout => ({ items });
-const PAGE_A: Page = { paper: 'A3' };
-const PAGE_B: Page = { paper: 'A4' };
-
-const push = (
-  s: ReturnType<typeof newUndoRedoState<Layout, Page>>,
-  l: Layout,
-  sel: number[] = [],
-) => saveCopyInUndoList(s, captureUndoItem(l, sel, null));
-
-describe('DS_PROXY_UNDO_ITEM: what one entry carries', () => {
-  it('records INT_MAX when nothing is selected (ds_proxy_undo_item.cpp:35)', () => {
-    expect(captureUndoItem(L('a', 'b'), [], null).selectedDataItem).toBe(NO_SELECTED_ITEM);
-  });
-
-  it('records the one selected index', () => {
-    expect(captureUndoItem(L('a', 'b', 'c'), [1], null).selectedDataItem).toBe(1);
-  });
-
-  /**
-   * ds_proxy_undo_item.cpp:46-62. The `break` is on the INNER loop, so a later
-   * data item overwrites what an earlier one recorded: the LAST data item
-   * holding a selected draw item is what survives. Selecting items 0 and 2 and
-   * undoing therefore comes back with item 2 selected and item 0 not.
-   */
-  it('keeps the LAST selected index, not the first (the inner break)', () => {
-    expect(captureUndoItem(L('a', 'b', 'c'), [0, 2], null).selectedDataItem).toBe(2);
-    // Iteration order of a Set is insertion order, so this also pins that the
-    // rule is "highest index", not "last one added".
-    expect(captureUndoItem(L('a', 'b', 'c'), [2, 0], null).selectedDataItem).toBe(2);
-  });
-
-  it('is PLUS-typed exactly when the page settings are handed to it (:33-41)', () => {
-    expect(captureUndoItem(L('a'), [], null).withPageSettings).toBe(false);
-    expect(captureUndoItem(L('a'), [], PAGE_A).withPageSettings).toBe(true);
-    expect(captureUndoItem(L('a'), [], PAGE_A).page).toBe(PAGE_A);
-  });
+beforeEach(() => {
+  SetPgm(new PGM_BASE());
+  model = new DS_DATA_MODEL();
+  DS_DATA_MODEL.SetAltInstance(model);
 });
 
-describe('Restore + RebuildSelection (ds_proxy_undo_item.cpp:76-90, pl_selection_tool.cpp:455-467)', () => {
-  it('restores exactly one item, by index', () => {
-    const item = captureUndoItem(L('a', 'b', 'c'), [0, 2], null);
-    expect([...rebuildSelection(item, 3)]).toEqual([2]);
-  });
-
-  it('restores nothing when the index is gone from the restored model', () => {
-    // `Restore` guards with `m_selectedDrawItem < dataItem->GetDrawItems().size()`
-    // and only fires inside `ii == m_selectedDataItem`, so an index past the end
-    // of the restored model selects nothing at all.
-    const item = captureUndoItem(L('a', 'b', 'c'), [2], null);
-    expect(rebuildSelection(item, 2).size).toBe(0);
-  });
-
-  it('restores nothing for an entry captured with no selection', () => {
-    expect(rebuildSelection(captureUndoItem(L('a'), [], null), 1).size).toBe(0);
-  });
+afterEach(() => {
+  DS_DATA_MODEL.SetAltInstance(null);
+  SetPgm(null);
 });
+
+/** A frame on an empty sheet holding two lines, `a` then `b`. */
+function twoLines(): { h: Harness; a: DS_DATA_ITEM; b: DS_DATA_ITEM } {
+  const h = makeHarness(EDA_UNITS_INT.MM);
+  model.ClearList();
+
+  const a = new DS_DATA_ITEM(DS_ITEM_TYPE.DS_SEGMENT);
+  a.SetStart(10, 10, CORNER_ANCHOR.LT_CORNER);
+  a.SetEnd(50, 10, CORNER_ANCHOR.LT_CORNER);
+  model.Append(a);
+
+  const b = new DS_DATA_ITEM(DS_ITEM_TYPE.DS_SEGMENT);
+  b.SetStart(10, 30, CORNER_ANCHOR.LT_CORNER);
+  b.SetEnd(50, 30, CORNER_ANCHOR.LT_CORNER);
+  model.Append(b);
+
+  h.frame.HardRedraw();
+  h.frame.ClearUndoRedoList();
+  return { h, a, b };
+}
+
+/** `wxEVT_UPDATE_UI` for the control running `aAction`. */
+function update(aFrame: PL_EDITOR_FRAME, aAction: TOOL_ACTION): wxUpdateUIEvent {
+  const e = new wxUpdateUIEvent(aAction.GetUIId());
+  aFrame.ProcessUpdateUI(e);
+  return e;
+}
+
+/** The start of every line in the model, in mm from its anchor. */
+const starts = (): number[] => model.GetItems().map((i) => i.m_Pos.m_Pos.y);
 
 describe('SaveCopyInUndoList (pl_editor_undo_redo.cpp:34-45)', () => {
   it('pushes onto undo and CLEARS redo', () => {
-    const s = newUndoRedoState<Layout, Page>();
-    push(s, L('a'));
-    getLayoutFromUndoList(s, L('b'), [], PAGE_A);
-    expect(historyDepthOf(s)).toEqual({ undo: 0, redo: 1 });
+    const { h } = twoLines();
 
-    push(s, L('c'));
-    expect(historyDepthOf(s)).toEqual({ undo: 1, redo: 0 });
+    h.frame.SaveCopyInUndoList();
+    h.frame.GetLayoutFromUndoList();
+    expect(h.frame.GetRedoCommandCount()).toBe(1);
+
+    h.frame.SaveCopyInUndoList();
+    expect(h.frame.GetUndoCommandCount()).toBe(1);
+    expect(h.frame.GetRedoCommandCount()).toBe(0);
+  });
+
+  it('every entry carries the page: `DS_PROXY_UNDO_ITEM( this )` (:37)', () => {
+    const { h } = twoLines();
+
+    h.frame.SaveCopyInUndoList();
+    const a4 = new PAGE_INFO();
+    a4.SetType('A4');
+    h.frame.SetPageSettings(a4);
+
+    h.frame.GetLayoutFromUndoList();
+    // The settings page is A3 (pl_editor_settings.cpp:52), restored by the PLUS entry.
+    expect(h.frame.GetPageSettings().GetTypeAsString()).toBe('A3');
   });
 });
 
-describe('GetLayoutFromUndoList (pl_editor_undo_redo.cpp:88-119)', () => {
-  it('returns null and touches nothing when the stack is empty', () => {
-    const s = newUndoRedoState<Layout, Page>();
-    expect(getLayoutFromUndoList(s, L('a'), [], PAGE_A)).toBeNull();
-    expect(historyDepthOf(s)).toEqual({ undo: 0, redo: 0 });
+describe('GetLayoutFromUndoList / GetLayoutFromRedoList', () => {
+  it('does nothing on an empty stack', () => {
+    const { h } = twoLines();
+
+    h.frame.GetLayoutFromUndoList();
+    h.frame.GetLayoutFromRedoList();
+
+    expect(model.GetCount()).toBe(2);
+    expect(h.frame.GetUndoCommandCount()).toBe(0);
+    expect(h.frame.GetRedoCommandCount()).toBe(0);
+    expect(h.frame.IsContentModified()).toBe(false);
   });
 
-  it('moves one entry from undo to redo and hands back the popped layout', () => {
-    const s = newUndoRedoState<Layout, Page>();
-    const before = L('a');
-    push(s, before);
-    const r = getLayoutFromUndoList(s, L('a', 'b'), [], PAGE_A);
-    expect(r?.item.layout).toBe(before);
-    expect(historyDepthOf(s)).toEqual({ undo: 0, redo: 1 });
-    expect(s.redo[0]?.layout.items).toEqual(['a', 'b']);
+  it('delete, undo, redo: the sheet goes back and forth, one entry moving list to list', () => {
+    const { h, a } = twoLines();
+    h.mgr.GetTool(PL_SELECTION_TOOL)!.AddItemToSel(a.GetDrawItems()[0]!);
+
+    h.mgr.RunAction(ACTIONS.doDelete);
+    expect(starts()).toEqual([30]);
+
+    h.mgr.RunAction(ACTIONS.undo);
+    expect(starts()).toEqual([10, 30]);
+    expect(h.frame.GetUndoCommandCount()).toBe(0);
+    expect(h.frame.GetRedoCommandCount()).toBe(1);
+
+    h.mgr.RunAction(ACTIONS.redo);
+    expect(starts()).toEqual([30]);
+    expect(h.frame.GetUndoCommandCount()).toBe(1);
+    expect(h.frame.GetRedoCommandCount()).toBe(0);
   });
 
-  /**
-   * `new DS_PROXY_UNDO_ITEM( pageSettingsAndTitleBlock ? this : nullptr )` —
-   * the redo entry is PLUS-typed if and only if the popped one was. This is
-   * what makes undo-then-redo of a page change put the page back rather than
-   * drop it.
-   */
-  it('gives the redo entry the popped entry’s type, and only then the page', () => {
-    const s = newUndoRedoState<Layout, Page>();
-    saveCopyInUndoList(s, captureUndoItem(L('a'), [], PAGE_A));
-    const r = getLayoutFromUndoList(s, L('a'), [], PAGE_B);
-    expect(r?.hardRedraw).toBe(true);
-    expect(s.redo[0]?.withPageSettings).toBe(true);
-    expect(s.redo[0]?.page).toBe(PAGE_B);
+  it('delete, undo: the deleted item comes back SELECTED, as the entry recorded it', () => {
+    // DoDelete takes the copy while the item is still selected
+    // (pl_edit_tool.cpp:387), and Restore re-selects the recorded index.
+    const { h, b } = twoLines();
+    const sel = h.mgr.GetTool(PL_SELECTION_TOOL)!;
+    sel.AddItemToSel(b.GetDrawItems()[0]!);
 
-    const s2 = newUndoRedoState<Layout, Page>();
-    push(s2, L('a'));
-    const r2 = getLayoutFromUndoList(s2, L('a'), [], PAGE_B);
-    expect(r2?.hardRedraw).toBe(false);
-    expect(s2.redo[0]?.withPageSettings).toBe(false);
-    expect(s2.redo[0]?.page).toBeNull();
+    h.mgr.RunAction(ACTIONS.doDelete);
+    h.mgr.RunAction(ACTIONS.undo);
+
+    const selection = sel.GetSelection();
+    expect(selection.GetSize()).toBe(1);
+    expect(selection.Front()).toBe(model.GetItem(1)!.GetDrawItems()[0]);
   });
 
-  it('captures the LIVE selection into the redo entry, before ClearSelection', () => {
-    const s = newUndoRedoState<Layout, Page>();
-    push(s, L('a', 'b'));
-    getLayoutFromUndoList(s, L('a', 'b'), [1], PAGE_A);
-    expect(s.redo[0]?.selectedDataItem).toBe(1);
-  });
+  it('undo marks the sheet modified (OnModify, :118)', () => {
+    const { h, a } = twoLines();
+    h.mgr.GetTool(PL_SELECTION_TOOL)!.AddItemToSel(a.GetDrawItems()[0]!);
+    h.mgr.RunAction(ACTIONS.doDelete);
+    h.frame.GetScreen()!.SetContentModified(false);
 
-  it('rebuilds the selection from the popped entry, not from the live one', () => {
-    const s = newUndoRedoState<Layout, Page>();
-    push(s, L('a', 'b', 'c'), [0]);
-    const r = getLayoutFromUndoList(s, L('a', 'b', 'c'), [2], PAGE_A);
-    expect([...(r?.selection ?? [])]).toEqual([0]);
-  });
-});
+    h.mgr.RunAction(ACTIONS.undo);
 
-describe('GetLayoutFromRedoList (pl_editor_undo_redo.cpp:52-83)', () => {
-  it('round-trips a layout and its page through undo and redo', () => {
-    const s = newUndoRedoState<Layout, Page>();
-    saveCopyInUndoList(s, captureUndoItem(L('a'), [], PAGE_A));
-    const undone = getLayoutFromUndoList(s, L('a'), [], PAGE_B);
-    expect(undone?.item.page).toBe(PAGE_A);
-
-    const redone = getLayoutFromRedoList(s, L('a'), [], PAGE_A);
-    expect(redone?.item.page).toBe(PAGE_B);
-    expect(historyDepthOf(s)).toEqual({ undo: 1, redo: 0 });
-  });
-
-  it('returns null on an empty redo stack', () => {
-    expect(getLayoutFromRedoList(newUndoRedoState<Layout, Page>(), L('a'), [], PAGE_A)).toBeNull();
+    expect(h.frame.IsContentModified()).toBe(true);
   });
 });
 
 describe('RollbackFromUndo (pl_editor_undo_redo.cpp:125-150)', () => {
-  /**
-   * The whole point of the separate entry point: a cancelled dialog, a
-   * cancelled draw and a cancelled move leave NO redo behind. Ours called
-   * plain Undo for the cancelled-draw case, which armed a Redo that put the
-   * abandoned rectangle straight back.
-   */
-  it('pops the undo stack and pushes NOTHING onto redo', () => {
-    const s = newUndoRedoState<Layout, Page>();
-    push(s, L('a'));
-    const r = rollbackFromUndo(s);
-    expect(r?.item.layout.items).toEqual(['a']);
-    expect(historyDepthOf(s)).toEqual({ undo: 0, redo: 0 });
+  it('restores what the entry captured and pushes NOTHING onto redo', () => {
+    const { h } = twoLines();
+
+    h.frame.SaveCopyInUndoList();
+    model.Remove(model.GetItem(0)!);
+    h.frame.RollbackFromUndo();
+
+    expect(starts()).toEqual([10, 30]);
+    expect(h.frame.GetUndoCommandCount()).toBe(0);
+    expect(h.frame.GetRedoCommandCount()).toBe(0);
   });
 
-  it('restores what the entry captured, rather than only popping', () => {
-    const s = newUndoRedoState<Layout, Page>();
-    saveCopyInUndoList(s, captureUndoItem(L('a', 'b'), [1], PAGE_A));
-    const r = rollbackFromUndo(s);
-    expect(r?.item.page).toBe(PAGE_A);
-    expect(r?.hardRedraw).toBe(true);
-    expect([...(r?.selection ?? [])]).toEqual([1]);
-  });
+  it('draw, cancel: the half-drawn line is gone and Redo is not offered', () => {
+    const { h } = twoLines();
 
-  it('returns null on an empty stack', () => {
-    expect(rollbackFromUndo(newUndoRedoState<Layout, Page>())).toBeNull();
-  });
-});
+    toolbar(h.mgr, PL_ACTIONS.drawLine);
+    h.cursor.at = { x: 100000, y: 100000 };
+    h.mgr.RunAction(ACTIONS.cursorClick);
+    expect(model.GetCount()).toBe(3);
 
-describe('clearUndoRedoList (OnNewDrawingSheet, and loading a file)', () => {
-  it('empties both stacks', () => {
-    const s = newUndoRedoState<Layout, Page>();
-    push(s, L('a'));
-    push(s, L('b'));
-    getLayoutFromUndoList(s, L('c'), [], PAGE_A);
-    clearUndoRedoList(s);
-    expect(historyDepthOf(s)).toEqual({ undo: 0, redo: 0 });
+    h.mgr.RunAction(ACTIONS.cancelInteractive);
+
+    expect(model.GetCount()).toBe(2);
+    expect(h.frame.GetUndoCommandCount()).toBe(0);
+    expect(h.frame.GetRedoCommandCount()).toBe(0);
   });
 });
 
-describe('setupUIConditions (pl_editor_frame.cpp:311-368)', () => {
-  it('undo and redo follow GetUndoCommandCount() > 0 / GetRedoCommandCount() > 0', () => {
-    expect(undoEnabled({ undo: 0, redo: 0 })).toBe(false);
-    expect(undoEnabled({ undo: 1, redo: 0 })).toBe(true);
-    expect(redoEnabled({ undo: 5, redo: 0 })).toBe(false);
-    expect(redoEnabled({ undo: 0, redo: 1 })).toBe(true);
+describe('Page Preview Settings (pl_editor_control.cpp:90-111)', () => {
+  it('Cancel pops the entry it pushed and leaves no redo', async () => {
+    const { h } = twoLines();
+    h.host.pageSettingsAnswers.push(false);
+
+    h.mgr.RunAction(PL_ACTIONS.previewSettings);
+    await settle();
+
+    expect(h.frame.GetUndoCommandCount()).toBe(0);
+    expect(h.frame.GetRedoCommandCount()).toBe(0);
+    expect(h.frame.IsContentModified()).toBe(false);
   });
 
-  it('greys the toolbar Undo/Redo with the menu rows, from the same depths', () => {
-    expect([...toolbarDisabledIds({ undo: 0, redo: 0 })].sort()).toEqual(['redo', 'undo']);
-    expect([...toolbarDisabledIds({ undo: 2, redo: 0 })]).toEqual(['redo']);
-    expect([...toolbarDisabledIds({ undo: 2, redo: 1 })]).toEqual([]);
-  });
+  it('OK, then Undo: the page goes back to what it was', async () => {
+    const { h } = twoLines();
+    h.host.ShowPageSettingsDialog = () => {
+      const a4 = new PAGE_INFO();
+      a4.SetType('A4');
+      h.frame.SetPageSettings(a4);
+      return Promise.resolve(true);
+    };
 
-  /**
-   * ACTIONS::paste is `ENABLE( SELECTION_CONDITIONS::Idle && cond.NoActiveTool() )`
-   * (pl_editor_frame.cpp:326). `NoActiveTool` is `ToolStackIsEmpty()`, and the
-   * drawing tools, the delete tool and the zoom-area tool all `PushTool`.
-   */
-  it('disables Paste while any tool is armed or an edit is in flight', () => {
-    expect(pasteEnabled({ activeTool: 'select', moving: false, drawing: false })).toBe(true);
-    expect(pasteEnabled({ activeTool: 'dsAddLine', moving: false, drawing: false })).toBe(false);
-    expect(pasteEnabled({ activeTool: 'dsDelete', moving: false, drawing: false })).toBe(false);
-    expect(pasteEnabled({ activeTool: 'zoomTool', moving: false, drawing: false })).toBe(false);
-    expect(pasteEnabled({ activeTool: 'select', moving: true, drawing: false })).toBe(false);
-    expect(pasteEnabled({ activeTool: 'select', moving: false, drawing: true })).toBe(false);
-  });
-});
+    h.mgr.RunAction(PL_ACTIONS.previewSettings);
+    await settle();
+    expect(h.frame.GetPageSettings().GetTypeAsString()).toBe('A4');
+    expect(h.frame.IsContentModified()).toBe(true);
 
-describe('the sequence a user actually performs', () => {
-  it('draw, cancel, then Redo is not offered', () => {
-    // pl_drawing_tools.cpp:278 — Escape during a placement is RollbackFromUndo.
-    const s = newUndoRedoState<Layout, Page>();
-    push(s, L('a')); // SaveCopyInUndoList before the shape is added
-    rollbackFromUndo(s);
-    expect(redoEnabled(historyDepthOf(s))).toBe(false);
-    expect(undoEnabled(historyDepthOf(s))).toBe(false);
-  });
-
-  it('move, undo: the moved item comes back selected', () => {
-    const s = newUndoRedoState<Layout, Page>();
-    push(s, L('a', 'b'), [1]); // item 1 selected when the move started
-    const r = getLayoutFromUndoList(s, L('a', 'b'), [1], PAGE_A);
-    expect([...(r?.selection ?? [])]).toEqual([1]);
-  });
-
-  it('delete, undo: nothing comes back selected, because the entry recorded none', () => {
-    // deleteSelection commits with the selection still live, so the entry does
-    // record it — but the item is back at the same index, so it is selected.
-    const s = newUndoRedoState<Layout, Page>();
-    push(s, L('a', 'b'), [1]);
-    const r = getLayoutFromUndoList(s, L('a'), [], PAGE_A);
-    expect([...(r?.selection ?? [])]).toEqual([1]);
-    expect(r?.item.layout.items).toEqual(['a', 'b']);
-  });
-
-  it('page settings, Cancel: the page is restored and no redo is left', () => {
-    const s = newUndoRedoState<Layout, Page>();
-    saveCopyInUndoList(s, captureUndoItem(L('a'), [], PAGE_A)); // PageSetup, before the dialog
-    const r = rollbackFromUndo(s); // Cancel
-    expect(r?.item.page).toBe(PAGE_A);
-    expect(historyDepthOf(s)).toEqual({ undo: 0, redo: 0 });
-  });
-
-  it('page settings, OK, Undo: the page goes back to what it was', () => {
-    const s = newUndoRedoState<Layout, Page>();
-    saveCopyInUndoList(s, captureUndoItem(L('a'), [], PAGE_A)); // PageSetup
-    // OK: the frame now holds PAGE_B. Undo pops the PLUS entry.
-    const r = getLayoutFromUndoList(s, L('a'), [], PAGE_B);
-    expect(r?.item.withPageSettings).toBe(true);
-    expect(r?.item.page).toBe(PAGE_A);
-    // and Redo puts PAGE_B back.
-    expect(getLayoutFromRedoList(s, L('a'), [], PAGE_A)?.item.page).toBe(PAGE_B);
+    h.mgr.RunAction(ACTIONS.undo);
+    expect(h.frame.GetPageSettings().GetTypeAsString()).toBe('A3');
   });
 });
 
-/**
- * The rules above are executable because they live in a `.ts`. What is NOT
- * executable here is the wiring: that the frame's Undo row runs
- * `getLayoutFromUndoList` and its Cancel runs `rollbackFromUndo` rather than
- * something of its own. These are source guards over `DrawingSheetEditor.tsx`,
- * which `qa` cannot import — they pin spelling, not behaviour, and they exist
- * because every one of the three bugs above was a CALL SITE that quietly did
- * the wrong thing while the module beside it was fine.
- */
-describe('the frame runs these rules and not its own', () => {
-  const src = readFileSync(
-    new URL('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx', import.meta.url),
-    'utf8',
-  );
+describe('setupUIConditions (pl_editor_frame.cpp:311-331)', () => {
+  it('Undo and Redo enable on GetUndoCommandCount() > 0 / GetRedoCommandCount() > 0', () => {
+    const { h, a } = twoLines();
 
-  it('has no hand-rolled undo/redo arrays left', () => {
-    expect(src).not.toMatch(/undoStack|redoStack/);
+    expect(update(h.frame, ACTIONS.undo).GetEnabled()).toBe(false);
+    expect(update(h.frame, ACTIONS.redo).GetEnabled()).toBe(false);
+
+    h.mgr.GetTool(PL_SELECTION_TOOL)!.AddItemToSel(a.GetDrawItems()[0]!);
+    h.mgr.RunAction(ACTIONS.doDelete);
+    expect(update(h.frame, ACTIONS.undo).GetEnabled()).toBe(true);
+    expect(update(h.frame, ACTIONS.redo).GetEnabled()).toBe(false);
+
+    h.mgr.RunAction(ACTIONS.undo);
+    expect(update(h.frame, ACTIONS.undo).GetEnabled()).toBe(false);
+    expect(update(h.frame, ACTIONS.redo).GetEnabled()).toBe(true);
   });
 
-  /** All three pops go through the module; the rollback one is used four times. */
-  it('pops through the module at every call site', () => {
-    expect(src).toMatch(/getLayoutFromUndoList\(/);
-    expect(src).toMatch(/getLayoutFromRedoList\(/);
-    expect(src).toMatch(/rollbackFromUndo\(/);
+  it('Cut, Copy and Delete want a selection', () => {
+    const { h, a } = twoLines();
+
+    for (const act of [ACTIONS.cut, ACTIONS.copy, ACTIONS.doDelete])
+      expect(update(h.frame, act).GetEnabled()).toBe(false);
+
+    h.mgr.GetTool(PL_SELECTION_TOOL)!.AddItemToSel(a.GetDrawItems()[0]!);
+
+    for (const act of [ACTIONS.cut, ACTIONS.copy, ACTIONS.doDelete])
+      expect(update(h.frame, act).GetEnabled()).toBe(true);
   });
 
-  /**
-   * `PL_EDITOR_CONTROL::PageSetup` pushes the copy BEFORE the dialog opens and
-   * Cancel rolls it back (pl_editor_control.cpp:92, :103). The dialog must not
-   * be openable without that push, so nothing may call `setShowPageDialog(true)`
-   * except `pageSetup`.
-   */
-  it('opens Page Preview Settings only through pageSetup', () => {
-    const opens = [...src.matchAll(/setShowPageDialog\(true\)/g)];
-    expect(opens).toHaveLength(1);
-    expect(src).toMatch(
-      /const pageSetup = useCallback\(\(\) => \{\s*saveCopy\(previewRef\.current\);\s*setShowPageDialog\(true\);/,
-    );
+  it('Paste is greyed while a drawing tool is armed (NoActiveTool)', () => {
+    const { h } = twoLines();
+
+    expect(update(h.frame, ACTIONS.paste).GetEnabled()).toBe(true);
+
+    toolbar(h.mgr, PL_ACTIONS.drawRectangle);
+    expect(update(h.frame, ACTIONS.paste).GetEnabled()).toBe(false);
+
+    h.mgr.RunAction(ACTIONS.cancelInteractive);
+    expect(update(h.frame, ACTIONS.paste).GetEnabled()).toBe(true);
   });
 
-  /**
-   * `PL_POINT_EDITOR::Main` pushes the copy when the drag starts
-   * (pl_point_editor.cpp:214) and its cancel branch runs `RollbackFromUndo()`
-   * (:244), so Escape mid-resize puts the item back. Ours left it at the size
-   * the drag had reached, with the entry still on the stack.
-   */
-  it('rolls back a cancelled point drag, and drops the gesture with it', () => {
-    const esc = src.slice(src.indexOf("if (e.key === 'Escape')"));
-    const branch = esc.slice(0, esc.indexOf('return;') + 7);
-    expect(branch).toContain('pointDragUndoPushed.current');
-    expect(branch).toContain('cancelGesture()');
-    expect(branch).toContain('rollback()');
-  });
+  it('the armed tool and the title block mode are the checked controls', () => {
+    const { h } = twoLines();
 
-  /** Escaping a placement is the rollback, never the plain undo. */
-  it('cancels an in-flight shape with rollback', () => {
-    expect(src).toMatch(/const cancelDrawing = useCallback\(\(\) => \{[\s\S]*?rollback\(\);/);
-    expect(src).not.toMatch(/const cancelDrawing = useCallback\(\(\) => \{[\s\S]*?\n {4}undo\(\);/);
-  });
+    expect(update(h.frame, ACTIONS.selectionTool).GetChecked()).toBe(true);
+    expect(update(h.frame, PL_ACTIONS.layoutEditMode).GetChecked()).toBe(true);
+    expect(update(h.frame, PL_ACTIONS.layoutNormalMode).GetChecked()).toBe(false);
 
-  /** Both rows carry an enable condition read from the depths. */
-  it('greys Undo and Redo from the history depths', () => {
-    // The menu rows' state (menubar.ts' undoEnabled / redoEnabled) comes from
-    // the same two rules.
-    expect(src).toMatch(/undoEnabled: undoEnabled\(historyDepth\)/);
-    expect(src).toMatch(/redoEnabled: redoEnabled\(historyDepth\)/);
-    expect(src).toMatch(/disabledIds=\{toolbarDisabledIds\(historyDepth\)\}/);
+    toolbar(h.mgr, PL_ACTIONS.placeText);
+    expect(update(h.frame, PL_ACTIONS.placeText).GetChecked()).toBe(true);
+    expect(update(h.frame, ACTIONS.selectionTool).GetChecked()).toBe(false);
   });
 });

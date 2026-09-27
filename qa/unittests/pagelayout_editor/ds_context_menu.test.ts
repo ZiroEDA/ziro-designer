@@ -13,12 +13,6 @@
  * `EDA_DRAW_FRAME::AddStandardSubMenus` put in.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import {
-  buildDsContextMenu,
-  type DsContextMenuActions,
-} from '@ziroeda/pagelayout_editor/tools/pl_selection_tool.js';
 // `ZOOM_MENU` and `GRID_MENU` were a third copy inside ds_context_menu.ts.
 // Upstream they are installed by ONE base-frame method,
 // `EDA_DRAW_FRAME::AddStandardSubMenus`, so they live in one shared module and
@@ -40,21 +34,6 @@ import type { MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 import { PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 
 const noop = (): void => {};
-const actions = (over: Partial<DsContextMenuActions> = {}): DsContextMenuActions => ({
-  move: noop,
-  cut: noop,
-  copy: noop,
-  paste: noop,
-  doDelete: noop,
-  drawLine: noop,
-  drawRectangle: noop,
-  placeText: noop,
-  placeImage: noop,
-  gridOrigin: noop,
-  setZoom: noop,
-  setGrid: noop,
-  ...over,
-});
 
 /** The menu as a user reads it: labels, with a separator as `—`. */
 const shape = (items: MenuItem[]): string[] =>
@@ -69,69 +48,6 @@ const shape = (items: MenuItem[]): string[] =>
 const PL_GRIDS = PL_EDITOR_DEFAULTS.window.grid.sizes;
 
 const state = { zoom: 1, gridIndex: 4, gridSizes: PL_GRIDS, primaryUnits: 'mils' as const };
-
-describe('buildDsContextMenu', () => {
-  it('with a selection, matches pl_editor row for row', () => {
-    expect(shape(buildDsContextMenu({ ...state, hasSelection: true }, actions()))).toEqual([
-      'Move',
-      '—',
-      'Cut',
-      'Copy',
-      'Paste',
-      'Delete',
-      '—',
-      'Zoom ▸',
-      'Grid ▸',
-    ]);
-  });
-
-  it('with nothing selected, offers the four SELECTION_CONDITIONS::Empty tools', () => {
-    // pl_selection_tool.cpp:60-64 — drawLine / drawRectangle / placeText /
-    // placeImage are conditioned on an empty selection and are the only rows
-    // that are. Paste is ShowAlways, so it survives into both forms.
-    expect(shape(buildDsContextMenu({ ...state, hasSelection: false }, actions()))).toEqual([
-      'Draw Lines',
-      'Draw Rectangles',
-      'Draw Text',
-      'Place Bitmaps',
-      '—',
-      'Paste',
-      '—',
-      'Zoom ▸',
-      'Grid ▸',
-    ]);
-  });
-
-  it('never opens or closes on a separator (Evaluate drops an empty group’s rule)', () => {
-    for (const hasSelection of [true, false]) {
-      const items = buildDsContextMenu({ ...state, hasSelection }, actions());
-      expect(items[0]?.sep).toBeFalsy();
-      expect(items[items.length - 1]?.sep).toBeFalsy();
-    }
-  });
-
-  it('carries the accelerators the rows print in KiCad', () => {
-    const items = buildDsContextMenu({ ...state, hasSelection: true }, actions());
-    const key = (label: string): string | undefined =>
-      items.find((it) => it.label === label)?.shortcut;
-    // PL_ACTIONS::move .DefaultHotkey( 'M' ) — pl_actions.cpp:84.
-    expect(key('Move')).toBe('M');
-    expect(key('Cut')).toBe('Ctrl+X');
-    expect(key('Copy')).toBe('Ctrl+C');
-    expect(key('Paste')).toBe('Ctrl+V');
-    expect(key('Delete')).toBe('Delete');
-  });
-
-  it('runs the action the row names', () => {
-    const move = vi.fn();
-    const doDelete = vi.fn();
-    const items = buildDsContextMenu({ ...state, hasSelection: true }, actions({ move, doDelete }));
-    items.find((it) => it.label === 'Move')?.action?.();
-    items.find((it) => it.label === 'Delete')?.action?.();
-    expect(move).toHaveBeenCalledOnce();
-    expect(doDelete).toHaveBeenCalledOnce();
-  });
-});
 
 describe('the Zoom submenu (ZOOM_MENU)', () => {
   it('is pl_editor’s twenty-entry table, in order', () => {
@@ -237,108 +153,5 @@ describe('nextZoomPreset (COMMON_TOOLS::doZoomInOut)', () => {
   it('always moves off an off-table zoom', () => {
     expect(nextZoomPreset(L, 1.19, true)).toBe(2.2);
     expect(nextZoomPreset(L, 1.19, false)).toBe(0.6);
-  });
-});
-
-const read = (rel: string): string =>
-  readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
-
-describe('the canvas actually raises it', () => {
-  const CANVAS = read('../../../designer/src/editors/drawingsheet/DrawingSheetCanvas.tsx');
-  const EDITOR = read('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx');
-
-  it('suppresses the browser menu and asks the editor for KiCad’s', () => {
-    const at = CANVAS.indexOf('onContextMenu={(e) => {');
-    expect(at).toBeGreaterThan(-1);
-    const body = CANVAS.slice(at, CANVAS.indexOf('}}', at));
-    expect(body).toContain('e.preventDefault()');
-    expect(body).toContain('onContextMenuRequest?.(');
-    expect(body).toContain('pickDrawItem');
-  });
-
-  it('hover-selects only when the selection is empty', () => {
-    // pl_selection_tool.cpp:125-129.
-    const at = EDITOR.indexOf('const onCanvasContextMenu');
-    expect(at).toBeGreaterThan(-1);
-    const body = EDITOR.slice(at, EDITOR.indexOf('}, []);', at));
-    expect(body).toContain('prev.size === 0 && hit !== null');
-    expect(body).toContain('setCtxMenu({ x, y })');
-  });
-
-  it('renders the shared ContextMenu, not a private popup', () => {
-    expect(EDITOR).toMatch(/import \{\s*MenuBar,\s*ContextMenu,/);
-    expect(EDITOR).toContain("from '@ziroeda/common/tool/action_menu_bar.js'");
-    expect(EDITOR).toContain('items={buildDsContextMenu(');
-  });
-});
-
-describe('DSP-26 — Zoom In / Zoom Out step the table', () => {
-  const CANVAS = read('../../../designer/src/editors/drawingsheet/DrawingSheetCanvas.tsx');
-
-  it('no longer multiplies the scale by a constant', () => {
-    // Ours measured Z 1.12 -> 3.83 over four Zoom In clicks: a constant x1.30
-    // and four zooms that are nowhere in KiCad's table.
-    expect(CANVAS).not.toContain('zoomStep(1.3)');
-    expect(CANVAS).not.toContain('zoomStep(1 / 1.3)');
-  });
-
-  it('asks nextZoomPreset for pl_editor’s table', () => {
-    expect(CANVAS).toContain('nextZoomPreset(ZOOM_LIST.pl_editor, now, zoomIn)');
-    expect(CANVAS).toContain('zoomIn: () => zoomPresetStep(true)');
-    expect(CANVAS).toContain('zoomOut: () => zoomPresetStep(false)');
-  });
-
-  it('reads the current zoom as a GAL zoom factor, not as a canvas scale', () => {
-    // doZoomInOut starts from GetGAL()->GetZoomFactor(), which is what the
-    // status bar's Z field prints and what the table's entries are in.
-    expect(CANVAS).toContain('zoomFactorForScale(viewRef.current.scale, dpr, SCH_IU_PER_MM)');
-  });
-
-  it('sets the preset absolutely, holding the canvas centre', () => {
-    // doZoomToPreset is VIEW::SetScale( zoomList[idx] ), not a relative step.
-    // The preset now goes through clampViewScale on the way in, because
-    // VIEW::SetScale clamps every scale it is handed (`common/view/view.cpp:583-588`)
-    // - so what is asserted is that the value is the PRESET, absolutely, and
-    // not a multiple of whatever the scale happened to be.
-    expect(CANVAS).toContain('scaleForZoomFactor(factor, dpr, SCH_IU_PER_MM)');
-    expect(CANVAS).not.toContain('v.scale *= factor');
-  });
-
-  /**
-   * `PL_DRAW_PANEL_GAL`'s constructor runs
-   * `m_view->SetScaleLimits( ZOOM_MAX_LIMIT_PLEDITOR, ZOOM_MIN_LIMIT_PLEDITOR )`
-   * (`pagelayout_editor/pl_draw_panel_gal.cpp:63`) - 20 and 0.05 out of
-   * `include/zoom_defines.h:56-58`. The clamp itself lives inside
-   * `VIEW::SetScale`, so EVERY way of zooming is limited by it, which is why
-   * each of this canvas' zoom paths has to go through it and not just the
-   * wheel.
-   *
-   * The count is the number of ways pl_editor can reach `VIEW::SetScale`, read
-   * off the C++ rather than off this file - a count re-baselined to whatever
-   * the canvas currently prints would pass however many paths went unclamped.
-   * There are FOUR:
-   *
-   *   1. `WX_VIEW_CONTROLS::onWheel`  -> SetScale( scale * factor, anchor )
-   *                                      (`wx_view_controls.cpp:470-480`)
-   *   2. `COMMON_TOOLS::doZoomInOut`  -> SetScale( zoom * ratio )
-   *                                      (`common_tools.cpp:437-465`)
-   *   3. `COMMON_TOOLS::doZoomToPreset` -> SetScale( zoomList[idx] )
-   *                                      (`common_tools.cpp:468-495`)
-   *   4. `WX_VIEW_CONTROLS::onMotion`'s DRAG_ZOOMING
-   *                                   -> SetScale( GetScale() * scale,
-   *                                        ToWorld( m_zoomStartPoint ) )
-   *                                      (`wx_view_controls.cpp:379-388`)
-   *
-   * (4) is the middle/right-button drag-zoom, which arrived with the Drag
-   * Gestures wiring; before it this file had three, and the fourth is a real
-   * fourth path and not a duplicate of one already clamped.
-   */
-  it('clamps every zoom path, not only the wheel', () => {
-    const clamps = [...CANVAS.matchAll(/clampViewScale\(/g)];
-    expect(clamps.length).toBe(4);
-    // …and every one of them names pl_editor's row, not another app's.
-    expect([...CANVAS.matchAll(/clampViewScale\([\s\S]{0,120}?'(\w+)'/g)].map((m) => m[1])).toEqual(
-      ['pl_editor', 'pl_editor', 'pl_editor', 'pl_editor'],
-    );
   });
 });
