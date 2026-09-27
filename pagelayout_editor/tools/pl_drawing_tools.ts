@@ -14,13 +14,22 @@ import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import type { COROUTINE_BODY } from '@ziroeda/common/tool/coroutine.js';
 import { SELECTION_CONDITIONS } from '@ziroeda/common/tool/selection_conditions.js';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
-import { BUT_LEFT, BUT_RIGHT, type TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
+import {
+  BUT_LEFT,
+  BUT_RIGHT,
+  TA_ANY,
+  TC_MESSAGE,
+  TOOL_EVENT,
+} from '@ziroeda/common/tool/tool_event.js';
 import { TOOL_INTERACTIVE } from '@ziroeda/common/tool/tool_interactive.js';
 import type { VIEW_CONTROLS } from '@ziroeda/common/view/view_controls.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { PL_EDITOR_FRAME } from '../pl_editor_frame.js';
 import { PL_ACTIONS } from './pl_actions.js';
 import { PL_SELECTION_TOOL } from './pl_selection_tool.js';
+
+/** The message {@link PL_DRAWING_TOOLS.waitForModal} resumes on. Ours, no KiCad name. */
+const MODAL_DONE = 'plEditor.InteractiveDrawing.modalDone';
 
 /**
  * Tool responsible for drawing/placing items (lines, rectangles, text, etc.)
@@ -63,6 +72,32 @@ export class PL_DRAWING_TOOLS extends TOOL_INTERACTIVE {
   /// @copydoc TOOL_INTERACTIVE::Reset()
   Reset(aReason: RESET_REASON): void {
     if (aReason === RESET_REASON.MODEL_RELOAD) this.m_frame = this.getEditFrame<PL_EDITOR_FRAME>();
+  }
+
+  /**
+   * `dlg.ShowModal()` inside a coroutine: suspend until the page's dialog
+   * settles. wx runs a nested event loop and the canvas sees no events
+   * meanwhile; here the tool waits on one message only, and the page's modal
+   * backdrop keeps the canvas from being clicked. A tool torn down while it
+   * waits (Wait returns null) reads as Cancel.
+   */
+  private *waitForModal<T>(aPromise: Promise<T>): COROUTINE_BODY<T | null> {
+    let settled = false;
+    let result: T | null = null;
+
+    void aPromise.then((aResult) => {
+      result = aResult;
+      settled = true;
+      this.m_toolMgr?.ProcessEvent(new TOOL_EVENT(TC_MESSAGE, TA_ANY, MODAL_DONE));
+    });
+
+    while (!settled) {
+      const evt = yield* this.Wait(new TOOL_EVENT(TC_MESSAGE, TA_ANY, MODAL_DONE));
+
+      if (!evt) return null;
+    }
+
+    return result;
   }
 
   *PlaceItem(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
@@ -128,7 +163,14 @@ export class PL_DRAWING_TOOLS extends TOOL_INTERACTIVE {
         let placeItem = true;
 
         if (!item) {
-          const dataItem: DS_DATA_ITEM | null = frame.AddDrawingSheetItem(type);
+          // AddDrawingSheetItem( DS_BITMAP ) opens "Choose Image" and blocks on
+          // it; the page's dialog cannot block, so the tool waits for it here.
+          const imageFile =
+            type === DS_ITEM_TYPE.DS_BITMAP
+              ? yield* this.waitForModal(frame.ChooseImageFile())
+              : null;
+
+          const dataItem: DS_DATA_ITEM | null = frame.AddDrawingSheetItem(type, imageFile);
 
           if (dataItem) {
             // dataItem = nullptr can happens if the command was cancelled

@@ -329,7 +329,7 @@ export class PL_EDIT_TOOL extends TOOL_INTERACTIVE {
   ImportDrawingSheetContent(_aEvent: TOOL_EVENT): number {
     this.m_toolMgr!.RunAction(ACTIONS.cancelInteractive);
 
-    this.m_frame!.Files_io('ID_APPEND_DESCR_FILE');
+    void this.m_frame!.Files_io('ID_APPEND_DESCR_FILE');
 
     return 0;
   }

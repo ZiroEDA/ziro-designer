@@ -11,23 +11,17 @@
  * Clicking a row selects that item on the canvas and leaves the dialog open.
  */
 
-import type { JSX } from 'react';
-import type { WksItem } from '@ziroeda/common';
+import { type JSX, useReducer } from 'react';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
-import { DS_INSPECTOR_COLUMNS, dsInspectorRows } from './design_inspector.js';
 import {
-  DS_ICON_ROOT,
+  DIALOG_INSPECTOR,
   DS_INSPECTOR_BITMAP_SIZE,
-  DS_INSPECTOR_ICON,
+  DS_INSPECTOR_COLUMNS,
   DS_INSPECTOR_ICON_OFFSET,
   DS_INSPECTOR_ICON_PX,
   xpmRuns,
   type XpmIcon,
 } from './design_inspector.js';
-
-/** The row's icon, by item type — `ReCreateDesignList`'s switch (:243-263). */
-const iconFor = (item: WksItem | undefined): XpmIcon | undefined =>
-  item ? DS_INSPECTOR_ICON[item.type] : undefined;
 
 /**
  * One XPM, drawn at its native 12 x 12 with square pixels.
@@ -59,34 +53,22 @@ function XpmBitmap({ icon }: { icon: XpmIcon | undefined }): JSX.Element | null 
 }
 
 export function DesignInspector({
-  items,
-  selection,
-  title,
-  paperType,
-  pageMM,
-  onSelect,
+  dlg,
   onClose,
 }: {
-  items: WksItem[];
-  selection: ReadonlySet<number>;
-  /**
-   * `SetTitle( fn.GetName() )` (design_inspector.cpp:216-221) — already
-   * resolved by the caller through `dsInspectorTitle`, so a sheet that has
-   * never been saved reads `<default drawing sheet>`.
-   */
-  title: string;
-  /** `PAGE_INFO::GetTypeAsString()` — the page type NAME, e.g. `A3`. */
-  paperType: string;
-  /** `PL_EDITOR_FRAME::GetPageSizeIU`, in millimetres. */
-  pageMM: readonly [number, number];
-  onSelect: (index: number) => void;
+  /** The dialog's engine, made by `PL_EDITOR_FRAME::ShowDesignInspector`. */
+  dlg: DIALOG_INSPECTOR;
   onClose: () => void;
 }): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
   useModalEscape(onClose);
 
-  const rows = dsInspectorRows(items, paperType, pageMM);
+  /** `SelectRow`'s highlight follows the engine; a click repaints it. */
+  const [, repaint] = useReducer((n: number) => n + 1, 0);
+
+  const rows = dlg.GetRows();
+  const title = dlg.GetTitle();
 
   /**
    * The grid itself is the SHARED WX_GRID skin, `.ze-grid` in ui/shell.css -
@@ -152,12 +134,10 @@ export function DesignInspector({
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {rows.map((row, i) => (
                 <tr
                   key={row.number}
-                  className={
-                    row.itemIndex !== null && selection.has(row.itemIndex) ? 'selected' : undefined
-                  }
+                  className={dlg.GetSelectedRow() === i ? 'selected' : undefined}
                   style={{ cursor: 'default' }}
                   // DIALOG_INSPECTOR::onCellClicked
                   // (design_inspector.cpp:338-354) selects the row, selects the
@@ -166,9 +146,10 @@ export function DesignInspector({
                   // with it open, watching the canvas behind it.
                   //
                   // The root row is `m_itemsList[0] == nullptr` (:238), and
-                  // onCellClicked returns early on it.
+                  // onCellClicked returns early on it after selecting the row.
                   onClick={() => {
-                    if (row.itemIndex !== null) onSelect(row.itemIndex);
+                    dlg.onCellClicked(i);
+                    repaint();
                   }}
                 >
                   <td className="ze-grid-text ze-grid-rowlabel" style={gutter}>
@@ -179,9 +160,7 @@ export function DesignInspector({
                       at +5, +2 inside the cell. The table is
                       `inspector_icons.ts`, mirrored from the C++. */}
                   <td className="ze-grid-text" style={bitmapCell}>
-                    <XpmBitmap
-                      icon={row.itemIndex === null ? DS_ICON_ROOT : iconFor(items[row.itemIndex])}
-                    />
+                    <XpmBitmap icon={row.icon} />
                   </td>
                   <td className="ze-grid-text">{row.type}</td>
                   <td className="ze-grid-text">{row.count}</td>

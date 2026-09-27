@@ -7,18 +7,13 @@
  * the page it previews on, the coordinate origin and page choices, the tools,
  * the UI conditions, the status bar, and the item it adds for a drawing tool.
  *
- * Below the class, the parts of this file the React window
- * (`designer/.../DrawingSheetEditor.tsx`) still calls directly while the frame
- * is not hosted: the status bar's `dims[]`, the coordinate panes, the
- * `setupUIConditions` rules over its React state, and the page half of
- * `LoadSettings` / `SaveSettings`. STRUCTURE.md says why both exist.
+ * Below the class, the status bar's `dims[]` as the page's KISTATUSBAR sizes
+ * its panes, and the two coordinate panes `UpdateStatusBar` formats.
  */
 
 import { BASE_SCREEN } from '@ziroeda/common/base_screen.js';
 import { BITMAP_BASE } from '@ziroeda/common/bitmap_base.js';
 import { type Color4d, LEGACY_COLORS } from '@ziroeda/common/color4d.js';
-import { PAPER_MM } from '@ziroeda/common';
-import type { PageSettingsValue } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import {
   CORNER_ANCHOR,
   DS_DATA_ITEM,
@@ -61,7 +56,16 @@ import { wxChoice } from '@ziroeda/common/wx/choice.js';
 import type { WX_IMAGE } from '@ziroeda/common/wx_image.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-import { InsertDrawingSheetFile, LoadDrawingSheetFile, SaveDrawingSheetFile } from './files.js';
+import { DIALOG_INSPECTOR } from './dialogs/design_inspector.js';
+import { PROPERTIES_FRAME } from './dialogs/properties_frame.js';
+import {
+  dsErrorLoadingMsg,
+  Files_io,
+  InsertDrawingSheetFile,
+  LoadDrawingSheetFile,
+  OnFileHistory,
+  SaveDrawingSheetFile,
+} from './files.js';
 import type { PL_DRAW_PANEL_GAL } from './pl_draw_panel_gal.js';
 import { PL_EDITOR_LAYOUT } from './pl_editor_layout.js';
 import type { PL_EDITOR_SETTINGS, PL_EDITOR_SETTINGS_JSON } from './pl_editor_settings.js';
@@ -81,27 +85,26 @@ import { PL_SELECTION_TOOL } from './tools/pl_selection_tool.js';
 export { PL_EDITOR_FRAME_NAME };
 
 /**
- * The docked properties panel as the frame drives it: `PROPERTIES_FRAME`'s
- * two calls (`dialogs/properties_frame.cpp`), which the page's
- * `properties_frame_ui.tsx` answers.
- */
-export interface PROPERTIES_FRAME_LIKE {
-  CopyPrmsFromItemToPanel(aItem: DS_DATA_ITEM | null): void;
-  CopyPrmsFromGeneralToPanel(): void;
-  /** `GetSize().x`, for `SaveSettings`' `m_propertiesFrameWidth`. */
-  GetWidth(): number;
-}
-
-/**
  * What the frame asks of the page that hosts it, in place of the wx calls a
- * browser answers differently: the title bar, the modal message box, and the
- * file writes a desktop would make itself.
+ * browser answers differently: the title bar, the modal dialogs, and the file
+ * reads and writes a desktop would make itself.
+ *
+ * A wx modal blocks its caller; a page's cannot, so every dialog here answers
+ * with a Promise and the frame runs what follows `ShowModal()` when it
+ * settles (common_tools.ts' `GridOrigin` is the precedent).
  */
 export interface PL_EDITOR_FRAME_HOST {
   /** `wxFrame::SetTitle`. */
   SetTitle(aTitle: string): void;
-  /** `DisplayErrorMessage( this, aText, aExtraInfo )` / `wxMessageBox`. */
+  /** `DisplayErrorMessage( this, aText, aExtraInfo )`, queued in order. */
   DisplayErrorMessage(aText: string, aExtraInfo?: string): void;
+  /**
+   * `wxMessageBox( aMessage, aCaption )`: the plain information box. Its
+   * second argument is the CAPTION, which is why pl_editor's
+   * `wxMessageBox( _( "Could not load image from '%s'." ), fullFilename )`
+   * shows the `%s` and puts the path in the title bar.
+   */
+  MessageBox(aMessage: string, aCaption?: string): void;
   /**
    * Write `aContents` to `aFullFileName` (the temp-file-and-rename of
    * `SaveDrawingSheetFile`). False when the write failed.
@@ -113,19 +116,39 @@ export interface PL_EDITOR_FRAME_HOST {
   UpdateFileHistory(aFullFileName: string): void;
   /** `m_infoBar->ShowMessage` / `Dismiss` for the "older version" warning. */
   ShowOutdatedSaveInfoBar(aShow: boolean): void;
-  /** `Files_io( event )`: the file commands, whose dialogs are the page's. */
-  Files_io(aId: PL_FILES_IO_ID): void;
-  /** `ToPrinter( doPreview )`: the print dialog. */
+  /**
+   * `wxFileDialog( this, aTitle, …, DrawingSheetFileWildcard(), wxFD_OPEN )`:
+   * the chosen path, readable through {@link ReadFile}, or null on Cancel.
+   */
+  OpenFileDialog(aTitle: string, aAction: 'open' | 'append'): Promise<string | null>;
+  /**
+   * `wxFileDialog( this, _( "Save Drawing Sheet As" ), aDefaultDir, wxEmptyString,
+   * …, wxFD_SAVE | wxFD_OVERWRITE_PROMPT )`: the path typed, or null on Cancel.
+   */
+  SaveFileDialog(aTitle: string, aDefaultDir: string): Promise<string | null>;
+  /**
+   * `HandleUnsavedChanges( this, aMessage, aSaveFunction )` (common/confirm.cpp):
+   * Save runs `aSaveFunction` and proceeds on its answer, Discard proceeds,
+   * Cancel does not.
+   */
+  HandleUnsavedChanges(aMessage: string, aSaveFunction: () => Promise<boolean>): Promise<boolean>;
+  /** `ToPrinter( doPreview )`: `InvokeDialogPrint`, the browser's print. */
   ToPrinter(aDoPreview: boolean): void;
-  /** `ShowDesignInspector()`: the modal `DIALOG_INSPECTOR`. */
-  ShowDesignInspector(): void;
-  /** `DIALOG_PAGES_SETTINGS::ShowModal() == wxID_OK`. */
-  ShowPageSettingsDialog(): boolean;
+  /** `DIALOG_INSPECTOR dlg( this ); dlg.ShowModal();`. */
+  ShowDesignInspector(aDlg: DIALOG_INSPECTOR): Promise<void>;
+  /**
+   * `DIALOG_PAGES_SETTINGS dlg( … ); dlg.ShowModal() == wxID_OK`. On OK the
+   * dialog has already written the page and the title block back through
+   * `SetPageSettings` / `SetTitleBlock` (`TransferDataFromWindow`).
+   */
+  ShowPageSettingsDialog(): Promise<boolean>;
   /**
    * The "Choose Image" `wxFileDialog` (`ImageFileWildcard()`, starting in
    * `aDefaultDir`): the chosen file's path and bytes, or null on Cancel.
    */
-  ChooseImageFile(aDefaultDir: string): { path: string; data: Uint8Array } | null;
+  ChooseImageFile(aDefaultDir: string): Promise<{ path: string; data: Uint8Array } | null>;
+  /** `HTML_MESSAGE_BOX dlg( … ); dlg.AddHTML_Text( aHtml ); dlg.ListSet( aList ); dlg.ShowModal()`. */
+  HtmlMessageBox(aCaption: string, aHtml: string, aList: readonly string[]): void;
   /** `SaveClipboard( aTextUTF8 )` (common/clipboard.cpp). */
   SaveClipboard(aText: string): boolean;
   /** `GetClipboardUTF8()`: the text a paste carries. */
@@ -154,13 +177,13 @@ export type PL_FILES_IO_ID =
  * builds the frame and hands it the canvas with
  * {@link PL_EDITOR_FRAME.AttachCanvas}: the half of the C++ constructor that
  * runs once the GAL panel exists. The members KiCad defines in other files
- * keep their files — `files.ts` (`LoadDrawingSheetFile`,
- * `InsertDrawingSheetFile`, `SaveDrawingSheetFile`) and
- * `pl_editor_undo_redo.ts` (`SaveCopyInUndoList` and the three pops) — and are
- * bound here.
+ * keep their files — `files.ts` (`Files_io`, `OnFileHistory`,
+ * `LoadDrawingSheetFile`, `InsertDrawingSheetFile`, `SaveDrawingSheetFile`),
+ * `pl_editor_undo_redo.ts` (`SaveCopyInUndoList` and the three pops) and
+ * `dialogs/design_inspector.ts` (`ShowDesignInspector`) — and are bound here.
  */
 export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
-  protected m_propertiesPagelayout: PROPERTIES_FRAME_LIKE | null;
+  protected m_propertiesPagelayout: PROPERTIES_FRAME | null;
 
   private m_pageLayout = new PL_EDITOR_LAYOUT();
   private m_propertiesFrameWidth: number; // last width (in pixels) of m_propertiesPagelayout
@@ -231,17 +254,33 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
     return this.m_host;
   }
 
+  /** The page's repaint of the frame chrome (title, toolbars, menus, choices). */
+  private m_uiListener: (() => void) | null = null;
+
+  SetUiListener(aListener: (() => void) | null): void {
+    this.m_uiListener = aListener;
+  }
+
+  /**
+   * wx repaints a control whose state changed and sends `wxEVT_UPDATE_UI` on
+   * idle; a page repaints when told. Every place the frame changes what its
+   * chrome shows calls this.
+   */
+  protected uiChanged(): void {
+    this.m_uiListener?.();
+  }
+
   /** `m_aboutTitle`. */
   GetAboutTitle(): string {
     return this.m_aboutTitle;
   }
 
   /**
-   * The rest of the constructor, once the page has made the canvas and the
-   * properties panel: settings, screen, tools, UI conditions, units, the
+   * The rest of the constructor, once the page has made the canvas:
+   * settings, screen, tools, UI conditions, the properties panel, units, the
    * grid origin and the default drawing sheet.
    */
-  AttachCanvas(aCanvas: PL_DRAW_PANEL_GAL, aProperties: PROPERTIES_FRAME_LIKE | null): void {
+  AttachCanvas(aCanvas: PL_DRAW_PANEL_GAL): void {
     this.SetCanvas(aCanvas);
 
     this.LoadSettings(this.config());
@@ -254,7 +293,8 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
     this.setupTools();
     this.setupUIConditions();
 
-    this.m_propertiesPagelayout = aProperties;
+    this.m_propertiesPagelayout = new PROPERTIES_FRAME(this);
+    this.m_propertiesPagelayout.SetWidth(this.m_propertiesFrameWidth);
 
     this.SwitchCanvas(this.m_canvasType);
 
@@ -289,7 +329,7 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
     this.SetCanvas(null);
   }
 
-  GetPropertiesFrame(): PROPERTIES_FRAME_LIKE | null {
+  GetPropertiesFrame(): PROPERTIES_FRAME | null {
     return this.m_propertiesPagelayout;
   }
 
@@ -307,7 +347,7 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
     const fn = aFileSet[0]!;
 
     if (!this.LoadDrawingSheetFile(fn)) {
-      this.m_host?.DisplayErrorMessage(`Error loading drawing sheet '${fn}'.`);
+      this.m_host?.MessageBox(dsErrorLoadingMsg(fn));
       return false;
     } else {
       this.OnNewDrawingSheet();
@@ -316,6 +356,23 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
   }
 
   // ---- files.cpp ------------------------------------------------------------
+
+  /** `Files_io( event )`: the five file commands (files.cpp:98-238). */
+  Files_io(aId: PL_FILES_IO_ID): Promise<void> {
+    return Files_io(this, aId);
+  }
+
+  /** `OnFileHistory( event )` with the file the history row names (files.cpp:55-86). */
+  OnFileHistory(aFileName: string): Promise<void> {
+    return OnFileHistory(this, aFileName);
+  }
+
+  /** `saveCurrentPageLayout()`: Save, and whether nothing is left unsaved. */
+  async saveCurrentPageLayout(): Promise<boolean> {
+    await this.Files_io('wxID_SAVE');
+
+    return !this.IsContentModified();
+  }
 
   /**
    * Load a .kicad_wks drawing sheet file.
@@ -703,6 +760,7 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
 
     this.m_title = title;
     this.m_host?.SetTitle(title);
+    this.uiChanged();
   }
 
   /** The title `UpdateTitleAndInfo` last set. */
@@ -776,6 +834,7 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
     view.SetLayerVisible(LAYER_DRAWINGSHEET_PAGE1, this.m_pageSelectBox.GetSelection() === 0);
     view.SetLayerVisible(LAYER_DRAWINGSHEET_PAGEn, this.m_pageSelectBox.GetSelection() === 1);
     this.GetCanvas()!.Refresh();
+    this.uiChanged();
   }
 
   /**
@@ -787,6 +846,7 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
     this.UpdateStatusBar(); // Update grid origin
     this.GetCanvas()!.DisplayDrawingSheet();
     this.GetCanvas()!.Refresh();
+    this.uiChanged();
   }
 
   /**
@@ -821,6 +881,7 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
     this.m_propertiesPagelayout?.CopyPrmsFromGeneralToPanel();
     this.UpdateMsgPanelInfo();
     this.GetCanvas()!.Refresh();
+    this.uiChanged();
   }
 
   /**
@@ -828,9 +889,15 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
    *
    * @param aType is the type of item:
    *  DS_TEXT, DS_SEGMENT, DS_RECT, DS_POLYPOLYGON
+   * @param aImageFile for DS_BITMAP, what the "Choose Image" dialog returned.
+   *  Upstream the dialog is shown in here and blocks; a page's cannot, so the
+   *  caller shows it first ({@link ChooseImageFile}) and passes the answer.
    * @return a reference to the new item.
    */
-  AddDrawingSheetItem(aType: DS_ITEM_TYPE): DS_DATA_ITEM | null {
+  AddDrawingSheetItem(
+    aType: DS_ITEM_TYPE,
+    aImageFile: { path: string; data: Uint8Array } | null = null,
+  ): DS_DATA_ITEM | null {
     let item: DS_DATA_ITEM | null = null;
 
     switch (aType) {
@@ -851,8 +918,7 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
         break;
 
       case DS_ITEM_TYPE.DS_BITMAP: {
-        const aImageFile = this.m_host?.ChooseImageFile(this.m_mruImagePath) ?? null;
-
+        // `if( fileDlg.ShowModal() != wxID_OK ) return nullptr;`
         if (!aImageFile) return null;
 
         const fullFilename = aImageFile.path;
@@ -861,7 +927,9 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
         const image = new BITMAP_BASE();
 
         if (!image.ReadImageFile(aImageFile.data)) {
-          this.m_host?.DisplayErrorMessage(`Could not load image from '${fullFilename}'.`);
+          // The second argument is wxMessageBox's CAPTION: upstream's box
+          // really does read `'%s'` with the path in its title bar.
+          this.m_host?.MessageBox("Could not load image from '%s'.", fullFilename);
           break;
         }
 
@@ -951,11 +1019,6 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
     }
   }
 
-  /** `Files_io( event )`: the page's file dialogs (files.cpp:98-238). */
-  Files_io(aId: PL_FILES_IO_ID): void {
-    this.m_host?.Files_io(aId);
-  }
-
   /**
    * Open a dialog frame to print layers.
    */
@@ -966,20 +1029,20 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
   /**
    * Show the dialog displaying the list of DS_DATA_ITEM items in the page layout
    */
-  ShowDesignInspector(): void {
-    this.m_host?.ShowDesignInspector();
+  ShowDesignInspector(): Promise<void> {
+    const dlg = new DIALOG_INSPECTOR(this);
+
+    return this.m_host?.ShowDesignInspector(dlg) ?? Promise.resolve();
   }
 
   /** `DIALOG_PAGES_SETTINGS dlg( … ); dlg.ShowModal() == wxID_OK`. */
-  ShowPageSettingsDialog(): boolean {
-    return this.m_host?.ShowPageSettingsDialog() ?? false;
+  ShowPageSettingsDialog(): Promise<boolean> {
+    return this.m_host?.ShowPageSettingsDialog() ?? Promise.resolve(false);
   }
 
-  /** `saveCurrentPageLayout()`: Save, and whether nothing is left unsaved. */
-  saveCurrentPageLayout(): boolean {
-    this.Files_io('wxID_SAVE');
-
-    return !this.IsContentModified();
+  /** The "Choose Image" dialog `AddDrawingSheetItem( DS_BITMAP )` opens. */
+  ChooseImageFile(): Promise<{ path: string; data: Uint8Array } | null> {
+    return this.m_host?.ChooseImageFile(this.m_mruImagePath) ?? Promise.resolve(null);
   }
 }
 
@@ -994,7 +1057,7 @@ function fileNameWithoutExt(aPath: string): string {
 const colorEquals = (a: Color4d, b: Color4d): boolean =>
   a.r === b.r && a.g === b.g && a.b === b.b && a.a === b.a;
 
-// ---- the React window's half (see the file header) -------------------------
+// ---- UpdateStatusBar's panes -------------------------------------------------
 
 /**
  * pl_editor's own status-bar field widths: the constructor's `dims[]`.
@@ -1117,218 +1180,4 @@ export function plCoordFields(
     coords: `X ${at(c.x, aOrigin.x, aSigns.xs)}  Y ${at(c.y, aOrigin.y, aSigns.ys)}`,
     deltas: `dx ${at(c.x, aLocalOrigin.x, aSigns.xs)}  dy ${at(c.y, aLocalOrigin.y, aSigns.ys)}`,
   };
-}
-
-/**
- * `PL_EDITOR_FRAME::setupUIConditions` (pl_editor_frame.cpp:305-368) — the
- * table that decides which menu rows and toolbar buttons are greyed out, and
- * which paint checked.
- *
- * Upstream this is one table read by both the menu and the toolbar, because an
- * `ACTION_TOOLBAR` button and a menu row share the action's
- * `ACTION_CONDITIONS`. Ours has to be one module for the same reason: a rule
- * restated at two call sites drifts at one of them.
- *
- * `.ts` and not part of the frame component so the suite can execute the rules
- * rather than grep for them.
- */
-
-/** How deep the two stacks are — `GetUndoCommandCount()` / `GetRedoCommandCount()`. */
-export interface HistoryDepth {
-  readonly undo: number;
-  readonly redo: number;
-}
-
-/**
- * What the frame knows about which interactive tool is running. Upstream reads
- * this off `TOOLS_HOLDER::m_toolStack` and the selection's edit flags; ours
- * keeps the same two facts in React state.
- */
-export interface ToolState {
-  /** The armed right-toolbar tool. `'select'` is "nothing pushed". */
-  readonly activeTool: string;
-  /** An item is being dragged — `IS_MOVING` on the selection front. */
-  readonly moving: boolean;
-  /** A shape is mid-placement — `IS_NEW` on the selection front. */
-  readonly drawing: boolean;
-}
-
-/**
- * `ENABLE( cond.UndoAvailable() )` / `RedoAvailable()`
- * (pl_editor_frame.cpp:319-320), which resolve to `GetUndoCommandCount() > 0`
- * and `GetRedoCommandCount() > 0` (editor_conditions.cpp:169-178).
- */
-export function undoEnabled(depth: HistoryDepth): boolean {
-  return depth.undo > 0;
-}
-
-export function redoEnabled(depth: HistoryDepth): boolean {
-  return depth.redo > 0;
-}
-
-/**
- * `ENABLE( SELECTION_CONDITIONS::Idle && cond.NoActiveTool() )` on
- * `ACTIONS::paste` (pl_editor_frame.cpp:326).
- *
- * `NoActiveTool` is `ToolStackIsEmpty()` (editor_conditions.cpp:195-198): a
- * drawing tool, the delete tool and the zoom-area tool all `PushTool`
- * (pl_drawing_tools.cpp:81, :245; pl_edit_tool.cpp:128), so any of them armed
- * greys Paste out. `Idle` is the selection carrying none of
- * `IS_NEW | IS_PASTED | IS_MOVING` (selection_conditions.cpp:47-52), which
- * covers the moment between the two clicks of a placement and a drag in
- * progress.
- *
- * Cut, Copy and Delete take `SELECTION_CONDITIONS::NotEmpty` instead
- * (:328-331) — those are already wired.
- */
-export function pasteEnabled(tools: ToolState): boolean {
-  return tools.activeTool === 'select' && !tools.moving && !tools.drawing;
-}
-
-/**
- * The toolbar's half of the same table. `ACTION_TOOLBAR::RefreshBitmaps` walks
- * the action manager's conditions, so a top-toolbar Undo greys out with the
- * Edit menu's row and never separately.
- */
-export function toolbarDisabledIds(depth: HistoryDepth): ReadonlySet<string> {
-  const out = new Set<string>();
-
-  if (!undoEnabled(depth)) out.add('undo');
-  if (!redoEnabled(depth)) out.add('redo');
-
-  return out;
-}
-
-/**
- * The preview page and title-block data the Drawing Sheet Editor resolves
- * `${…}` against.
- *
- * Standalone `pl_editor` has no schematic and no board to take a page or a
- * title block from, so DIALOG_PAGES_SETTINGS edits a preview copy instead —
- * which is why its labels say "Preview" (dialog_page_settings.cpp:82-88) and
- * why none of this is written to the `.kicad_wks`.
- *
- * A `.ts` module rather than part of the dialog component, so the test suite
- * can reach it: `qa`'s tsconfig has no `--jsx` and cannot import a `.tsx` at
- * all.
- */
-
-/**
- * The preview page + title block data the resolver consumes.
- *
- * It is `DIALOG_PAGES_SETTINGS`' own state under a local name, not a second
- * shape: upstream this frame edits a `PAGE_INFO` and a `TITLE_BLOCK` like every
- * other caller, and the only thing pl_editor-specific about it is that nothing
- * writes it to the `.kicad_wks`. An alias rather than a copy, so a field added
- * to one is added to both.
- */
-export type PreviewSettings = PageSettingsValue;
-
-/**
- * The Drawing Sheet Editor's own page defaults — `PL_EDITOR_SETTINGS`, not the
- * shared page dialog's:
- *
- *     PARAM<wxString>( "last_paper_size",   &m_LastPaperSize,   "A3" )
- *     PARAM<int>(      "last_custom_width",  &m_LastCustomWidth,  17000 )
- *     PARAM<int>(      "last_custom_height", &m_LastCustomHeight, 11000 )
- *                                     pagelayout_editor/pl_editor_settings.cpp:52-56
- *
- * **A3, not A4.** pl_editor is the only editor whose page default is not the
- * schematic's A4, and `LoadSettings` feeds `m_LastPaperSize` straight into
- * `SetPageSettings` (`pl_editor_frame.cpp:543-548`), so it is what a fresh
- * profile opens on.
- *
- * It is visible the moment you put the two windows side by side: A3 is 420 mm
- * where A4 is 297, so the border's coordinate band runs 1..8 across the top on
- * KiCad's and ran 1..6 on ours — the marks repeat every 50 mm. The margin was
- * never the problem; measured off both windows it is 9.93 mm on KiCad's and
- * 9.95 mm on ours, which is the 10 mm the sheet declares. The PAGE was the
- * problem.
- *
- * The two custom sizes are already right: 17000 x 11000 mils is 431.8 x 279.4 mm.
- */
-export function defaultPreviewSettings(): PreviewSettings {
-  return {
-    paper: 'A3',
-    portrait: false,
-    customWidthMM: 431.8,
-    customHeightMM: 279.4,
-    date: '',
-    rev: '',
-    title: '',
-    company: '',
-    comments: ['', '', '', '', '', '', '', '', ''],
-  };
-}
-
-/** One mil in millimetres — the exact inch, not a rounded conversion. */
-const MM_PER_MIL = 0.0254;
-
-/**
- * `clampWidth` / `clampHeight` (common/page_info.cpp:180-195): a custom page
- * edge is floored at 10 mils on the way *in*, wherever it came from.
- */
-function clampMils(mils: number): number {
-  return mils < 10 ? 10 : mils;
-}
-
-/**
- * The page half of `PL_EDITOR_FRAME::LoadSettings` (pl_editor_frame.cpp:543-548).
- *
- *     PAGE_INFO::SetCustomWidthMils( cfg->m_LastCustomWidth );
- *     PAGE_INFO::SetCustomHeightMils( cfg->m_LastCustomHeight );
- *     PAGE_INFO pageInfo = GetPageSettings();
- *     pageInfo.SetType( cfg->m_LastPaperSize, cfg->m_LastWasPortrait );
- *     SetPageSettings( pageInfo );
- *
- * Only the page is restored; the title block, date, revision and the nine
- * comments are not persisted by any parameter and open blank every time
- * (`m_pageLayout.GetTitleBlock()` is default-constructed and nothing seeds it,
- * pl_editor_frame.cpp:625-634).
- */
-export function previewSettingsFromConfig(cfg: PL_EDITOR_SETTINGS_JSON): PreviewSettings {
-  return {
-    ...defaultPreviewSettings(),
-    paper: cfg.last_paper_size,
-    portrait: cfg.last_was_portrait,
-    customWidthMM: clampMils(cfg.last_custom_width) * MM_PER_MIL,
-    customHeightMM: clampMils(cfg.last_custom_height) * MM_PER_MIL,
-  };
-}
-
-/**
- * The page half of `PL_EDITOR_FRAME::SaveSettings` (pl_editor_frame.cpp:563-566).
- *
- *     cfg->m_LastPaperSize   = GetPageSettings().GetTypeAsString();
- *     cfg->m_LastWasPortrait = GetPageSettings().IsPortrait();
- *     cfg->m_LastCustomWidth  = PAGE_INFO::GetCustomWidthMils();
- *     cfg->m_LastCustomHeight = PAGE_INFO::GetCustomHeightMils();
- *
- * The two custom edges are **doubles** on `PAGE_INFO` (page_info.cpp:70-71,
- * include/page_info.h:197-202) and **ints** in the settings object
- * (pl_editor_settings.h:45-46), so the assignment truncates toward zero. That
- * loss is upstream's and is reproduced rather than corrected: a settings file
- * holding more precision than KiCad's would come back as a page KiCad cannot
- * produce. See the same rule for wx field text elsewhere in this tree.
- */
-export function writePageToConfig(cfg: PL_EDITOR_SETTINGS_JSON, s: PreviewSettings): void {
-  cfg.last_paper_size = s.paper;
-  cfg.last_was_portrait = s.portrait;
-  cfg.last_custom_width = Math.trunc(s.customWidthMM / MM_PER_MIL);
-  cfg.last_custom_height = Math.trunc(s.customHeightMM / MM_PER_MIL);
-}
-
-/** Resolved page size in mm for the current settings (orientation applied). */
-export function previewPageMM(s: PreviewSettings): [number, number] {
-  const base: [number, number] =
-    s.paper === 'User' ? [s.customWidthMM, s.customHeightMM] : (PAPER_MM[s.paper] ?? PAPER_MM.A4!);
-  // Custom sizes are stored as entered; standard sizes swap for portrait.
-  if (s.paper === 'User') return base;
-  return s.portrait ? [base[1], base[0]] : base;
-}
-
-/** Human description of the page (design-inspector root row / status bar). */
-export function paperDescription(s: PreviewSettings): string {
-  const [w, h] = previewPageMM(s);
-  return `${s.paper} ${w}x${h}mm ${s.paper === 'User' ? '' : s.portrait ? 'portrait' : 'landscape'}`.trim();
 }

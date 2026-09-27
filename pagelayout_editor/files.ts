@@ -43,9 +43,10 @@
  * open file dialogs, which are the page's: they stay in the window.
  */
 
+import { DRAWING_SHEET_FILE_EXTENSION } from '@ziroeda/common/common.js';
 import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
 import { WKS_FILE_VERSION } from '@ziroeda/common/drawing_sheet/types.js';
-import type { PL_EDITOR_FRAME } from './pl_editor_frame.js';
+import type { PL_EDITOR_FRAME, PL_FILES_IO_ID } from './pl_editor_frame.js';
 
 /** `_( "File '%s' loaded" )` — Open Recent only (files.cpp:82). */
 export function dsFileLoadedMsg(path: string): string {
@@ -132,6 +133,160 @@ export function dsNeedsUnsavedGuard(command: 'new' | 'open' | 'append'): boolean
 }
 
 // ---- the PL_EDITOR_FRAME members files.cpp defines --------------------------
+
+/** `HandleUnsavedChanges`' question, New / Open / a history row (files.cpp:61-63, :107-108). */
+export const DS_SAVE_CHANGES_QUESTION =
+  'The current drawing sheet has been modified. Save changes?';
+
+/**
+ * `PL_EDITOR_FRAME::OnFileHistory( event )` (files.cpp:55-86), from the
+ * point `GetFileFromHistory` has named the file.
+ *
+ * Note what it does after the load: `OnNewDrawingSheet()` runs whether or not
+ * the load worked, and the status line is written only when it did.
+ */
+export async function OnFileHistory(self: PL_EDITOR_FRAME, aFileName: string): Promise<void> {
+  const host = self.GetHost();
+  const filename = aFileName;
+
+  if (filename !== '' && host) {
+    if (self.IsContentModified()) {
+      if (
+        !(await host.HandleUnsavedChanges(DS_SAVE_CHANGES_QUESTION, () =>
+          self.saveCurrentPageLayout(),
+        ))
+      ) {
+        return;
+      }
+    }
+
+    // ::wxSetWorkingDirectory( ::wxPathOnly( filename ) ): a page has no cwd.
+
+    if (self.LoadDrawingSheetFile(filename)) self.SetStatusText(dsFileLoadedMsg(filename));
+
+    self.OnNewDrawingSheet();
+  }
+}
+
+/** `PL_EDITOR_FRAME::Files_io( event )`: the file commands (files.cpp:98-238). */
+export async function Files_io(self: PL_EDITOR_FRAME, aId: PL_FILES_IO_ID): Promise<void> {
+  const host = self.GetHost();
+
+  if (!host) return;
+
+  let id = aId;
+  let filename = self.GetCurrentFileName();
+  const pglayout = DS_DATA_MODEL.GetTheInstance();
+
+  if (dsSaveBecomesSaveAs(filename) && id === 'wxID_SAVE') id = 'wxID_SAVEAS';
+
+  if ((id === 'wxID_NEW' || id === 'wxID_OPEN') && self.IsContentModified()) {
+    if (
+      !(await host.HandleUnsavedChanges(DS_SAVE_CHANGES_QUESTION, () =>
+        self.saveCurrentPageLayout(),
+      ))
+    ) {
+      return;
+    }
+  }
+
+  switch (id) {
+    case 'wxID_NEW':
+      pglayout.AllowVoidList(true);
+      self.SetCurrentFileName('');
+      pglayout.ClearList();
+      self.OnNewDrawingSheet();
+      break;
+
+    case 'ID_APPEND_DESCR_FILE': {
+      const path = await host.OpenFileDialog(DS_APPEND_DIALOG_TITLE, 'append');
+
+      if (path === null) return;
+
+      filename = path;
+
+      if (!self.InsertDrawingSheetFile(filename)) {
+        host.DisplayErrorMessage(dsUnableToLoadMsg(filename));
+      } else {
+        self.GetScreen()!.SetContentModified();
+        self.HardRedraw();
+        self.SetStatusText(dsFileInsertedMsg(filename));
+      }
+
+      break;
+    }
+
+    case 'wxID_OPEN': {
+      const path = await host.OpenFileDialog(DS_OPEN_DIALOG_TITLE, 'open');
+
+      if (path === null) return;
+
+      filename = path;
+
+      if (!self.LoadDrawingSheetFile(filename)) {
+        host.DisplayErrorMessage(dsUnableToLoadMsg(filename));
+      } else {
+        self.OnNewDrawingSheet();
+        self.SetStatusText(dsFileSavedMsg(filename));
+      }
+
+      break;
+    }
+
+    case 'wxID_SAVE':
+      if (!self.SaveDrawingSheetFile(filename)) {
+        host.DisplayErrorMessage(dsUnableToWriteMsg(filename));
+      } else {
+        self.SetStatusText(dsFileSavedMsg(filename));
+      }
+
+      break;
+
+    case 'wxID_SAVEAS': {
+      // PATHS::GetUserTemplatesPath(): the account's Templates folder.
+      const path = await host.SaveFileDialog(DS_SAVE_AS_DIALOG_TITLE, DS_USER_TEMPLATES_PATH);
+
+      if (path === null) return;
+
+      filename = path;
+
+      // Ensure the file has the right extension:
+      // because a name like name.subname.subsubname is legal,
+      // add the right extension without replacing the wxFileName
+      // extension
+      if (fileNameGetExt(filename) !== DRAWING_SHEET_FILE_EXTENSION)
+        filename += `.${DRAWING_SHEET_FILE_EXTENSION}`;
+
+      if (!self.SaveDrawingSheetFile(filename)) {
+        host.DisplayErrorMessage(dsFailedToCreateMsg(filename));
+      } else {
+        self.SetStatusText(dsFileSavedMsg(filename));
+
+        self.SetCurrentFileName(filename);
+        self.UpdateTitleAndInfo();
+      }
+
+      break;
+    }
+
+    default:
+      break;
+  }
+}
+
+/**
+ * `PATHS::GetUserTemplatesPath()`: where Save As opens. The account's file
+ * tree has one templates folder, `/Templates`. [data]
+ */
+export const DS_USER_TEMPLATES_PATH = '/Templates';
+
+/** `wxFileName( aPath ).GetExt()`: after the last dot of the leaf, or empty. */
+function fileNameGetExt(aPath: string): string {
+  const leaf = aPath.slice(aPath.lastIndexOf('/') + 1);
+  const dot = leaf.lastIndexOf('.');
+
+  return dot > 0 ? leaf.slice(dot + 1) : '';
+}
 
 /**
  * `PL_EDITOR_FRAME::LoadDrawingSheetFile( aFullFileName )`.

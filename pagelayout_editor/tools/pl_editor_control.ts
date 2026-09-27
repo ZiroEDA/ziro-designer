@@ -43,22 +43,22 @@ export class PL_EDITOR_CONTROL extends TOOL_INTERACTIVE {
   }
 
   New(_aEvent: TOOL_EVENT): number {
-    this.m_frame!.Files_io('wxID_NEW');
+    void this.m_frame!.Files_io('wxID_NEW');
     return 0;
   }
 
   Open(_aEvent: TOOL_EVENT): number {
-    this.m_frame!.Files_io('wxID_OPEN');
+    void this.m_frame!.Files_io('wxID_OPEN');
     return 0;
   }
 
   Save(_aEvent: TOOL_EVENT): number {
-    this.m_frame!.Files_io('wxID_SAVE');
+    void this.m_frame!.Files_io('wxID_SAVE');
     return 0;
   }
 
   SaveAs(_aEvent: TOOL_EVENT): number {
-    this.m_frame!.Files_io('wxID_SAVEAS');
+    void this.m_frame!.Files_io('wxID_SAVEAS');
     return 0;
   }
 
@@ -69,13 +69,17 @@ export class PL_EDITOR_CONTROL extends TOOL_INTERACTIVE {
 
     // DIALOG_PAGES_SETTINGS dlg( m_frame, nullptr, IU_PER_MILS, MAX_PAGE_SIZE_EESCHEMA );
     // dlg.SetWksFileName( GetCurrentFileName() ); dlg.EnableWksFileNamePicker( false );
-    if (!frame.ShowPageSettingsDialog()) {
-      // Nothing to roll back but we have to at least pop the stack
-      frame.RollbackFromUndo();
-    } else {
-      frame.OnModify();
-      frame.HardRedraw();
-    }
+    // The dialog is the page's and is not modal to the script: what follows
+    // `if( dlg.ShowModal() != wxID_OK )` runs when it closes.
+    void frame.ShowPageSettingsDialog().then((aOk) => {
+      if (!aOk) {
+        // Nothing to roll back but we have to at least pop the stack
+        frame.RollbackFromUndo();
+      } else {
+        frame.OnModify();
+        frame.HardRedraw();
+      }
+    });
 
     return 0;
   }
@@ -91,7 +95,7 @@ export class PL_EDITOR_CONTROL extends TOOL_INTERACTIVE {
   }
 
   ShowInspector(_aEvent: TOOL_EVENT): number {
-    this.m_frame!.ShowDesignInspector();
+    void this.m_frame!.ShowDesignInspector();
     return 0;
   }
 
