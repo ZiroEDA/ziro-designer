@@ -51,6 +51,11 @@ describe('wxImage::ConvertToDisabled', () => {
     expect([...img.GetData()!]).toEqual(rgb); // a copy: the source is kept
   });
 
+  it('defaults to brightness 255, as wx declares it', () => {
+    const img = new WX_IMAGE(1, 1);
+    expect([...img.ConvertToDisabled().GetData()!]).toEqual([153, 153, 153]);
+  });
+
   it('keeps alpha', () => {
     const img = new WX_IMAGE(1, 1);
     img.SetAlpha();
