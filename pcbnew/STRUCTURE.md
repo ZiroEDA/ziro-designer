@@ -88,9 +88,56 @@ is already ported.
 anyway.
 
 These belong outside pcbnew entirely (central-value rule): `lset.ts`,
-`layer_ids.ts`, `properties_panel.ts` → `common/` (`board_project_settings.ts`
-moved 09-19); `convert_basic_shapes_to_polygon.ts`, `drc/shape_collisions.ts` →
-`libs/kimath/src/`.
+`properties_panel.ts` → `common/` (`board_project_settings.ts` moved 09-19,
+`layer_ids.ts` moved 09-28); `convert_basic_shapes_to_polygon.ts`, 
+`drc/shape_collisions.ts` → `libs/kimath/src/`.
+
+## Frame chrome, moving in from `designer/`
+
+Like `cvpcb/` and `pagelayout_editor/`, the frames/menubars/toolbars KiCad
+keeps in `pcbnew/` started out under `designer/src/editors/pcb/` and
+`designer/src/editors/footprint/`. Moved so far, all with zero `designer/`
+imports (no `PCBNEW_APP` needed yet — none of them touch the program):
+
+| KiCad | here |
+|---|---|
+| `menubar_pcb_editor` | `menubar_pcb_editor.ts` |
+| `toolbars_pcb_editor` | `toolbars_pcb_editor.ts` |
+| `pcb_layer_box_selector` | `pcb_layer_box_selector.ts` |
+| `menubar_footprint_editor` | `menubar_footprint_editor.ts` |
+| `toolbars_footprint_editor` | `toolbars_footprint_editor.ts` |
+| `fp_tree_synchronizing_adapter` | `fp_tree_synchronizing_adapter.ts` |
+| `footprint_edit_frame` | `footprint_edit_frame.ts` — the `KIWAY_PLAYER` mail half only; the window (`FootprintEditor.tsx`) stays in `designer/` for now, see below |
+
+`tsconfig.json` gained `jsx: "react-jsx"` and `DOM.Iterable` here:
+`pcb_layer_box_selector.ts` reaches `common/tool/action_menu_hotkeys.ts` →
+`common/dialog_shim.tsx`, the first time anything in this package needed to
+type-check a `.tsx` transitively.
+
+Still in `designer/`, and why:
+
+- `pcb_edit_frame.ts` — another agent has it uncommitted mid-edit
+  (`PcbEditor`/pcb-tools work); moving it now would carry their unsaved hunks.
+  `PcbEditor.tsx` (its window, 12.5k lines) is blocked with it — moving the
+  `.tsx` alone would leave it importing the `.ts` half out of `designer/`.
+- `FootprintEditor.tsx` — clean, but its window pulls in `prefs/settings.ts`,
+  `dialogs/PreferencesDialog.tsx`, `ui/HomeLink.tsx`, `fs/OpenFileDialog.ts`
+  and three more app-level `designer/` modules. Moving it is the `PCBNEW_APP`
+  design task (`CVPCB_APP` / `PL_EDITOR_APP`'s size), not a file move; left for
+  a dedicated pass once `pcb_edit_frame.ts` is free too, so both frames get one
+  `PCBNEW_APP` together.
+- `widgets/fp_tree_model_adapter.ts` (`fp_tree_model_adapter`) — needs
+  `designer/src/widgets/lib_table_descriptions.ts`, which the symbol chooser
+  also imports; that data table belongs in `common/` first (central-value
+  rule), out of scope here.
+- `dialogs/footprint_chooser_frame.tsx` (`footprint_chooser_frame`) — chains
+  into `widgets/panel_footprint_chooser.tsx`, `widgets/footprint_preview_3d.tsx`,
+  `Viewer3DFrame.tsx` and `designer/src/widgets/footprint_list.ts`; same story.
+- No separate `footprint_viewer_frame`, `footprint_editor_settings`,
+  `pcbnew_printout`, `load_select_footprint`, `footprint_editor_utils` or
+  `footprint_libraries_utils` module exists yet under either name — that logic
+  is still folded into `FootprintEditor.tsx` / `libraryManager.ts` /
+  `FootprintCanvas.tsx`, so there is nothing standalone to move.
 
 ## Gotchas this layout creates
 
