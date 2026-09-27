@@ -42,13 +42,10 @@
 import type { JSX } from 'react';
 import { Check, Group, Num, Radio } from '@ziroeda/common/wx/controls.js';
 import { PanelGalOptions } from '@ziroeda/common/dialogs/panel_gal_options.js';
-import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import {
-  GBR_PAGE_SIZE_CHOICES,
-  OPACITY_RANGE,
-} from '@ziroeda/gerbview/dialogs/panel_gerbview_display_options.js';
+import type { GBR_PREFS_CONTEXT } from '../gerbview.js';
+import { GBR_PAGE_SIZE_CHOICES, OPACITY_RANGE } from './panel_gerbview_display_options.js';
 
-export function PanelGerbviewDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {
+export function PanelGerbviewDisplayOptions({ ctx }: { ctx: GBR_PREFS_CONTEXT }): JSX.Element {
   const { gerbview, upGbr } = ctx;
   return (
     <div className="ze-pref-columns ze-gutter-40">

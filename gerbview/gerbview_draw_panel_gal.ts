@@ -33,7 +33,7 @@ import type { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import { ZOOM_MAX_LIMIT_GERBVIEW, ZOOM_MIN_LIMIT_GERBVIEW } from '@ziroeda/common/zoom_defines.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { GERBER_FILE_IMAGE_LIST } from './gerber_file_image_list.js';
-import { gerbIUScale } from './gerbview.js';
+import { gerbIUScale } from '@ziroeda/common/eda_units.js';
 import { GERBVIEW_PAINTER, type GERBVIEW_RENDER_SETTINGS } from './gerbview_painter.js';
 
 /**

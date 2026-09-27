@@ -29,6 +29,7 @@ import { LSET } from '@ziroeda/common/lset.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import type { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import type { GERBVIEW_FRAME } from '../gerbview_frame.js';
+import { GERBVIEW_PRINTOUT } from '../gerbview_printout.js';
 
 /** A wxCheckListBox: its rows' text and check state. */
 export interface CHECK_LIST_BOX {
@@ -192,6 +193,16 @@ export class DIALOG_PRINT_GERBVIEW {
     this.m_settings.m_blackWhite = this.m_outputMode === 1;
 
     return scale.info ?? null;
+  }
+
+  /** `createPrintout( aTitle )`: the pages, drawn from the frame's view. */
+  createPrintout(aTitle: string): GERBVIEW_PRINTOUT {
+    return new GERBVIEW_PRINTOUT(
+      this.m_parent.GetGerberLayout(),
+      this.m_settings,
+      this.m_parent.GetCanvas()!.GetView(),
+      aTitle,
+    );
   }
 
   /**

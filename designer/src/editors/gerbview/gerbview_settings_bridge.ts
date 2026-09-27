@@ -96,6 +96,9 @@ export function loadGerbviewSettings(aCfg: GERBVIEW_SETTINGS, aJson: GerbviewSet
   x.m_InchMantissaLen = aJson.excellon_defaults.inch_mantissa_len;
 
   aCfg.m_BoardLayersCount = aJson.gerber_to_pcb_copperlayers_count;
+  // `deepMerge` adopts a stored list whole, so a hand-edited file's non-numbers
+  // are dropped here rather than handed to the dialog as layer ids.
+  aCfg.m_GerberToPcbLayerMapping = aJson.gerber_to_pcb_layers.filter((v) => Number.isInteger(v));
 }
 
 /**
@@ -142,6 +145,16 @@ export function storeGerbviewSettings(aCfg: GERBVIEW_SETTINGS, aJson: GerbviewSe
   );
   if (crosshair) set(aJson.window.cursor, 'crosshair', crosshair);
   set(aJson.window.cursor, 'always_show_cursor', aCfg.m_Window.cursor.always_show_cursor);
+
+  // Written by the Map Gerber Layers dialog's Store Choice (`OnStoreSetup`).
+  set(aJson, 'gerber_to_pcb_copperlayers_count', aCfg.m_BoardLayersCount);
+  const mapping = aCfg.m_GerberToPcbLayerMapping;
+  const stored = aJson.gerber_to_pcb_layers;
+
+  if (mapping.length !== stored.length || mapping.some((v, i) => v !== stored[i])) {
+    aJson.gerber_to_pcb_layers = [...mapping];
+    changed = true;
+  }
 
   return changed;
 }

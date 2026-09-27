@@ -12,6 +12,10 @@
  * they are values, and the panel is the only thing that reads them.
  */
 
+import { resetKeys } from '@ziroeda/common/settings/json_settings.js';
+import type { GBR_PREFS_CONTEXT } from '../gerbview.js';
+import { GERBVIEW_DEFAULTS } from '../gerbview_settings.js';
+
 /**
  * The seven Page Size radios, in the base file's own order, each paired with
  * the string `TransferDataFromWindow` stores in `appearance.page_type`.
@@ -45,3 +49,52 @@ export const GBR_PAGE_SIZE_CHOICES: readonly (readonly [string, string])[] = [
  * and lives there rather than being restated here.
  */
 export const OPACITY_RANGE = { min: 0.2, max: 1, step: 0.1, digits: 2 } as const;
+
+/**
+ * `PANEL_GERBVIEW_DISPLAY_OPTIONS::ResetPanel`
+ * (`gerbview/dialogs/panel_gerbview_display_options.cpp:110-118`):
+ *
+ *     GERBVIEW_SETTINGS cfg;
+ *     cfg.Load();                       // defaults, no file
+ *     loadSettings( &cfg );
+ *     m_galOptsPanel->ResetPanel( &cfg );
+ *
+ * Two calls, so two slices, and both are exactly what those two functions
+ * read back:
+ *
+ *  - `loadSettings` (`:39-66`) touches the three fill flags, `show_dcodes`,
+ *    `m_OpacityModeAlphaValue`, the seven page-size radios and
+ *    `m_DisplayPageLimits` — this page's own controls, and nothing else on
+ *    `m_Appearance` (`show_border_and_titleblock` and `show_negative_objects`
+ *    are the layers manager's, not this page's, and stay put);
+ *  - `PANEL_GAL_OPTIONS::ResetPanel` is the four grid appearance keys and the
+ *    two cursor ones, the same slice every other Display Options page resets.
+ *
+ * The grid LIST, its two fast-switch indices and `overrides_enabled` belong to
+ * the Grids page, and `color_theme` to Colors.
+ */
+export function resetGerbviewDisplayOptions(ctx: GBR_PREFS_CONTEXT): void {
+  ctx.upGbr((s) => {
+    resetKeys(s.appearance, GERBVIEW_DEFAULTS.appearance, [
+      'show_dcodes',
+      'show_page_limit',
+      'mode_opacity_value',
+      'page_type',
+    ]);
+    resetKeys(s.display, GERBVIEW_DEFAULTS.display, [
+      'flashed_items_fill',
+      'lines_fill',
+      'polygons_fill',
+    ]);
+    resetKeys(s.window.grid, GERBVIEW_DEFAULTS.window.grid, [
+      'style',
+      'line_width',
+      'min_spacing',
+      'snap',
+    ]);
+    resetKeys(s.window.cursor, GERBVIEW_DEFAULTS.window.cursor, [
+      'crosshair',
+      'always_show_cursor',
+    ]);
+  });
+}

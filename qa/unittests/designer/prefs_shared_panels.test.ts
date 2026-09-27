@@ -313,7 +313,7 @@ describe('there is one implementation of each, and both consumers use it', () =>
    */
   const COLOR_SUBCLASSES = [
     'editors/schematic/prefs/PanelEeschemaColorSettings.tsx',
-    'editors/gerbview/prefs/PanelGerbviewColorSettings.tsx',
+    '../../gerbview/dialogs/panel_gerbview_color_settings_ui.tsx',
   ];
   const COLOR_NON_SUBCLASSES = [
     'editors/symbol/prefs/PanelSymbolEditorColorSettings.tsx',

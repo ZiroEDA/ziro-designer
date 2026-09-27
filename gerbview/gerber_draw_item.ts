@@ -41,7 +41,7 @@ import { D_CODE, APERTURE_T } from './dcode.js';
 import { GBR_NETLIST_METADATA, GBR_NETINFO_TYPE } from '@ziroeda/common/gbr_netlist_metadata.js';
 import type { GERBER_FILE_IMAGE } from './gerber_file_image.js';
 import { GERBER_FILE_IMAGE_LIST } from './gerber_file_image_list.js';
-import { gerbIUScale } from './gerbview.js';
+import { gerbIUScale } from '@ziroeda/common/eda_units.js';
 
 /** `GBR_BASIC_SHAPE_TYPE` (`gerber_draw_item.h:50-61`), `m_ShapeType`. */
 export enum GBR_BASIC_SHAPE_TYPE {

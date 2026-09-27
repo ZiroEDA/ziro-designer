@@ -20,6 +20,8 @@ import { KICURSOR } from './gal/cursors.js';
 import { RENDER_TARGET } from './gal/definitions.js';
 import type { GAL_DISPLAY_OPTIONS } from './gal/gal_display_options.js';
 import { GAL, GAL_CONTEXT_LOCKER, GAL_DRAWING_CONTEXT } from './gal/graphics_abstraction_layer.js';
+import type { CANVAS_2D } from './gal/cairo/cairo_api.js';
+import { CAIRO_GAL, type CAIRO_GAL_WINDOW } from './gal/cairo/cairo_gal.js';
 import { OPENGL_GAL, type OPENGL_GAL_CANVAS } from './gal/opengl/opengl_gal.js';
 import type { PAINTER } from './gal/painter.js';
 import * as KIPLATFORM_UI from './kiplatform/ui.js';
@@ -133,10 +135,9 @@ function wxGetLocalTimeMillis(): number {
 /**
  * The GAL-based canvas.
  */
-export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS {
-  // Cairo doesn't work on OSX so we really have no fallback available.
-  // (there is no Cairo GAL in the browser either)
-  static readonly GAL_FALLBACK = GAL_TYPE.GAL_TYPE_OPENGL;
+export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS, CAIRO_GAL_WINDOW {
+  // The Linux build: Cairo is the fallback (not on OSX, where it does not work).
+  static readonly GAL_FALLBACK: GAL_TYPE = GAL_TYPE.GAL_TYPE_CAIRO;
   static readonly GAL_FALLBACK_AVAILABLE =
     EDA_DRAW_PANEL_GAL.GAL_FALLBACK !== GAL_TYPE.GAL_TYPE_OPENGL;
 
@@ -147,7 +148,21 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS {
 
   /// The wxScrolledCanvas: the element the panel adopted.
   readonly window: DRAW_PANEL_GAL_WINDOW;
-  readonly gl: WebGL2RenderingContext;
+
+  /**
+   * The canvas's WebGL2 context, or null when the browser would not give one.
+   * A canvas takes one context type for life: with WebGL2 on it, a 2D context
+   * (Cairo's) is never available, and without it, it is.
+   */
+  private m_gl: WebGL2RenderingContext | null;
+  private m_ctx2d: CANVAS_2D | null = null;
+
+  /** `OPENGL_GAL_CANVAS::gl`: throws as the GL canvas would fail to create when there is none. */
+  get gl(): WebGL2RenderingContext {
+    if (!this.m_gl) throw new Error('Could not use OpenGL: WebGL2 is unavailable');
+
+    return this.m_gl;
+  }
 
   /// Pointer to the parent window
   protected m_parent: DRAW_PANEL_GAL_PARENT | EDA_DRAW_FRAME | null;
@@ -278,9 +293,8 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS {
       preserveDrawingBuffer: false,
     });
 
-    if (!gl) throw new Error('Could not use OpenGL: WebGL2 is unavailable');
-
-    this.gl = gl;
+    // No WebGL2: OPENGL_GAL fails its feature check and SwitchBackend falls back to Cairo.
+    this.m_gl = gl;
 
     // ShowScrollbars( show_scrollbars ? wxSHOW_SB_ALWAYS : wxSHOW_SB_NEVER ): the element
     // has none; the scroll state is kept for the view controls.
@@ -529,6 +543,30 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS {
     }, 0);
   }
 
+  // ------------------------------------------------------------------
+  // CAIRO_GAL_WINDOW (CAIRO_GAL is a wxWindow child of the panel)
+  // ------------------------------------------------------------------
+
+  GetContext2D(): CANVAS_2D | null {
+    // A canvas holding a WebGL context returns null for '2d'.
+    if (this.m_gl) return null;
+
+    // wxImage( w, h, data ): RGB, no alpha - an opaque window
+    if (!this.m_ctx2d) this.m_ctx2d = this.window.canvas.getContext('2d', { alpha: false });
+
+    return this.m_ctx2d;
+  }
+
+  /**
+   * Ours: whether the fallback can be switched to. `GAL_FALLBACK_AVAILABLE`
+   * is the build's answer; a canvas that already holds a WebGL context cannot
+   * take Cairo's 2D one, so after OpenGL has run there is no fallback here -
+   * only a second canvas element would give one.
+   */
+  protected galFallbackUsable(): boolean {
+    return EDA_DRAW_PANEL_GAL.GAL_FALLBACK_AVAILABLE && this.m_gl === null;
+  }
+
   GetBitmapFontImage(): TexImageSource {
     return this.window.GetBitmapFontImage();
   }
@@ -566,16 +604,21 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS {
           if (errormsg.length === 0) {
             new_gal = new OPENGL_GAL(this.m_options, this);
           } else {
-            // We're well and truly banjaxed if we get here without a fallback.
-            console.warn(`Could not use OpenGL: ${errormsg}`);
+            if (EDA_DRAW_PANEL_GAL.GAL_FALLBACK !== aGalType && this.galFallbackUsable()) {
+              aGalType = EDA_DRAW_PANEL_GAL.GAL_FALLBACK;
+              console.info(`Could not use OpenGL, falling back to software rendering: ${errormsg}`);
+              new_gal = new CAIRO_GAL(this.m_options, this);
+            } else {
+              // We're well and truly banjaxed if we get here without a fallback.
+              console.warn(`Could not use OpenGL: ${errormsg}`);
+            }
           }
 
           break;
         }
 
         case GAL_TYPE.GAL_TYPE_CAIRO:
-          // There is no Cairo in the browser.
-          console.warn('Could not use Cairo: no software renderer');
+          new_gal = new CAIRO_GAL(this.m_options, this);
           break;
 
         // biome-ignore lint/suspicious/noFallthroughSwitchClause: KI_FALLTHROUGH in the C++
@@ -1184,10 +1227,7 @@ export class EDA_DRAW_PANEL_GAL implements OPENGL_GAL_CANVAS {
         }
       }
 
-      if (
-        EDA_DRAW_PANEL_GAL.GAL_FALLBACK_AVAILABLE &&
-        EDA_DRAW_PANEL_GAL.GAL_FALLBACK !== this.m_backend
-      ) {
+      if (this.galFallbackUsable() && EDA_DRAW_PANEL_GAL.GAL_FALLBACK !== this.m_backend) {
         this.m_glRecoveryAttempted = false;
         this.SwitchBackend(EDA_DRAW_PANEL_GAL.GAL_FALLBACK);
         console.info(`Could not use OpenGL, falling back to software rendering: ${aError.message}`);

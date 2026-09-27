@@ -24,7 +24,7 @@ import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
 import { wxFileExists } from '@ziroeda/common/wx/filefn.js';
 import { D_CODE } from '../dcode.js';
 import type { GERBVIEW_FRAME } from '../gerbview_frame.js';
-import { gerbIUScale } from '../gerbview.js';
+import { gerbIUScale } from '@ziroeda/common/eda_units.js';
 import { GERBVIEW_ACTIONS } from './gerbview_actions.js';
 
 /** C's `%2.2d`. */

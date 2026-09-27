@@ -28,7 +28,7 @@ import {
 } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import type { APERTURE_MACRO } from './aperture_macro.js';
 import type { GERBER_DRAW_ITEM } from './gerber_draw_item.js';
-import { IU_PER_MM } from './gerbview.js';
+import { GERB_IU_PER_MM as IU_PER_MM } from '@ziroeda/common/eda_units.js';
 
 /**
  * `APERTURE_T` (`dcode.h:48-55`), the standard aperture templates and the

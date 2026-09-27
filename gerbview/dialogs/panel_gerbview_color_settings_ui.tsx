@@ -28,14 +28,12 @@
  * pcbnew's, so the space beside the list is empty. Reproduced: the list is
  * proportion zero and does not spread into it.
  */
-import { usePcmVersion } from '../../../pcm/pcmStore.js';
-import { colorSettingsList } from '../../../prefs/color_settings_list.js';
 import { useMemo, type JSX } from 'react';
 import {
   PanelColorSettings,
   type ColorSwatchRow,
 } from '@ziroeda/common/dialogs/panel_color_settings.js';
-import type { PrefsContext } from '../../../dialogs/prefs/types.js';
+import type { GBR_PREFS_CONTEXT } from '../gerbview.js';
 import { COLOR4D_UNSPECIFIED, parseColor4d, toCssColor } from '@ziroeda/common/color4d.js';
 import {
   GERBER_DRAWLAYERS_COUNT,
@@ -44,12 +42,10 @@ import {
   graphicLayerDefault,
   graphicLayerKey,
   graphicLayerName,
-} from '@ziroeda/gerbview/dialogs/panel_gerbview_color_settings.js';
-import { GERBER_BG_COLOR } from '../gerberColors.js';
+  GERBER_BG_COLOR,
+} from './panel_gerbview_color_settings.js';
 
-export function PanelGerbviewColorSettings({ ctx }: { ctx: PrefsContext }): JSX.Element {
-  // Re-render when a PCM theme is installed, as the choice used to itself.
-  usePcmVersion();
+export function PanelGerbviewColorSettings({ ctx }: { ctx: GBR_PREFS_CONTEXT }): JSX.Element {
   const { gerbview, upGbr, userColors, setUserColors } = ctx;
 
   /**
@@ -101,7 +97,7 @@ export function PanelGerbviewColorSettings({ ctx }: { ctx: PrefsContext }): JSX.
 
   return (
     <PanelColorSettings
-      installedThemes={colorSettingsList()}
+      installedThemes={ctx.installedThemes}
       themeId={gerbview.appearance.color_theme}
       onThemeChange={(v) =>
         upGbr((s) => {

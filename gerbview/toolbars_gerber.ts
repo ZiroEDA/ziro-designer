@@ -23,7 +23,7 @@ import type { ToolbarDefaults } from '@ziroeda/common/tool/ui/toolbar_configurat
 import { unescapeString } from '@ziroeda/common/string_utils.js';
 import { D_CODE } from './dcode.js';
 import { SortedKeys } from './gerber_file_image.js';
-import { gerbIUScale } from './gerbview.js';
+import { gerbIUScale } from '@ziroeda/common/eda_units.js';
 import type { GERBVIEW_FRAME } from './gerbview_frame.js';
 
 const sep: ToolEntry = 'sep';

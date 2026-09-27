@@ -439,3 +439,8 @@ export function fastGridActionForKey(key: string): FastGridAction | null {
   if (key === '4') return 'gridFastCycle';
   return null;
 }
+
+export interface GridOverride {
+  enabled: boolean;
+  size: string;
+}

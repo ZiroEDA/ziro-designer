@@ -25,7 +25,8 @@ import { APERTURE_DEF_HOLETYPE, APERTURE_T } from './dcode.js';
 import { FormatStringFromGerber } from '@ziroeda/common/gbr_metadata.js';
 import { GBR_NETINFO_TYPE } from '@ziroeda/common/gbr_netlist_metadata.js';
 import { GERBER_BUFZ, GERBER_FILE_IMAGE } from './gerber_file_image.js';
-import { Gerb_Analyse_Cmd, Gerb_Interpolation, gerbIUScale } from './gerbview.js';
+import { Gerb_Analyse_Cmd, Gerb_Interpolation } from './gerbview.js';
+import { gerbIUScale } from '@ziroeda/common/eda_units.js';
 import {
   type CHAR_PTR,
   type FILE,

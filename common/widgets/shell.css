@@ -13382,6 +13382,95 @@ fieldset.ze-sbox > legend {
   align-self: flex-start;
   margin: 5px; /* [data] Add( m_rbScope, 0, wxALL, 5 ) */
 }
+/* DIALOG_MAP_GERBER_LAYERS_TO_PCB (gerbview/dialogs/dialog_map_gerber_layers_to_pcb_ui.tsx),
+   from its _base.cpp and initDialog: every length is a per-Add() border. */
+.ze-mapgbr-upper {
+  display: flex; /* [data] sbUpperSizer, wxHORIZONTAL */
+  flex: 1 1 auto;
+  margin: 5px; /* [data] Add( sbUpperSizer, 1, wxEXPAND|wxALL, 5 ) */
+}
+.ze-mapgbr-selection {
+  display: flex; /* [data] bSizerLayerSelection, wxVERTICAL */
+  flex-direction: column;
+  flex: 1 1 auto;
+  margin-right: 5px; /* [data] Add( bSizerLayerSelection, 1, wxEXPAND|wxRIGHT, 5 ) */
+}
+.ze-mapgbr-list {
+  display: flex; /* [data] m_bSizerLayerList, wxHORIZONTAL, proportion 1 */
+  flex: 1 1 auto;
+}
+.ze-mapgbr-indent {
+  margin: 0 10px; /* [data] Add( 0, 0, 0, wxRIGHT|wxLEFT, 10 ) */
+}
+.ze-mapgbr-grid {
+  display: grid;
+  /* [data] wxFlexGridSizer( 16, 4, 0, 0 ): four columns, AddGrowableCol( 1 ) */
+  grid-template-columns: max-content 1fr max-content max-content;
+  align-items: center; /* [data] wxALIGN_CENTER_VERTICAL on every cell */
+  align-content: start;
+  flex: 1 1 auto; /* [data] Add( m_flex*ColumnBoxSizer, 1, wxEXPAND, 5 ) */
+}
+.ze-mapgbr-cell {
+  margin: 5px; /* [data] wxALL, 5 */
+  white-space: nowrap;
+}
+.ze-mapgbr-select {
+  margin: 0; /* [data] Add( Button, 0, wxALIGN_CENTER_VERTICAL | wxALL ): border 0 */
+}
+/* The mapped layer's foreground: `*wxBLUE` for "Do not export", and
+   `wxColour( 255, 0, 128 )` for a layer that is exported (:172, :242). */
+.ze-mapgbr-layer.blue {
+  color: #0000ff; /* [data] wxBLUE */
+}
+.ze-mapgbr-layer.fuchsia {
+  color: #ff0080; /* [data] wxColour( 255, 0, 128 ) */
+}
+.ze-mapgbr-vline {
+  width: 1px; /* [css] a wxStaticLine is a GtkSeparator: Yaru `separator { min-width: 1px }` */
+  margin: 5px; /* [data] Add( m_staticlineSep, 0, wxEXPAND | wxALL, 5 ) */
+  background: var(--gtk-separator);
+}
+.ze-mapgbr-right {
+  display: flex; /* [data] bRightSizer, wxVERTICAL */
+  flex-direction: column;
+  margin: 0 5px; /* [data] Add( bRightSizer, 0, wxRIGHT|wxLEFT|wxEXPAND, 5 ) */
+}
+.ze-mapgbr-lyrcnt-label {
+  margin: 5px 5px 0; /* [data] wxTOP|wxRIGHT|wxLEFT, 5 */
+  white-space: nowrap;
+}
+.ze-mapgbr-lyrcnt {
+  margin: 0 5px 5px; /* [data] wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5 */
+}
+.ze-mapgbr-stretch {
+  flex: 1 0 15px; /* [data] Add( 5, 15, 1, wxEXPAND, 5 ) */
+}
+.ze-mapgbr-button {
+  margin: 5px; /* [data] wxALL|wxEXPAND, 5 */
+}
+/* SELECT_LAYER_DIALOG (gerbview/dialogs/dialog_select_one_pcb_layer_ui.tsx),
+   whose sizers its constructor builds (dialog_select_one_pcb_layer.cpp:147-158). */
+.ze-selectlayer-main {
+  display: flex; /* [data] mainSizer, wxHORIZONTAL */
+}
+.ze-selectlayer-box {
+  margin: 5px; /* [data] Add( m_layerRadioBox, 1, wxEXPAND | wxALIGN_TOP | wxALL, 5 ) */
+}
+.ze-selectlayer-grid {
+  display: grid;
+  grid-auto-flow: column; /* [data] wxRA_SPECIFY_ROWS fills each column first */
+  column-gap: inherit;
+  row-gap: inherit;
+}
+.ze-selectlayer-buttons {
+  display: flex; /* [data] buttonsSizer, wxVERTICAL */
+  flex-direction: column;
+  align-self: flex-end;
+  margin: 5px; /* [data] Add( buttonsSizer, 0, wxALIGN_BOTTOM | wxALL, 5 ) */
+}
+.ze-selectlayer-buttons > .ze-btn {
+  margin: 5px; /* [data] Add( button, 0, wxGROW | wxALL, 5 ) */
+}
 .ze-multientry-grid {
   display: grid;
   grid-template-columns: max-content 1fr max-content; /* [data] AddGrowableCol( 1 ) */

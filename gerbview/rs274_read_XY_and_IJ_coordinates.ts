@@ -17,7 +17,7 @@ import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { GERBER_FILE_IMAGE } from './gerber_file_image.js';
 import { LAST_EXTRA_ARC_DATA_TYPE } from './gerber_file_image.js';
-import { IU_PER_MM } from './gerbview.js';
+import { GERB_IU_PER_MM as IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import { type CHAR_PTR, NUL, ToCDouble, isspace, strncasecmp0, strtol10 } from './libc.js';
 
 /**

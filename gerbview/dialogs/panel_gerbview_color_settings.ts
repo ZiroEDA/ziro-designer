@@ -42,6 +42,7 @@
  * GERBVIEW_LAYER_ID_START` (`:103-104`), so the first row is "Graphic Layer 1"
  * and not 0.
  */
+import type { GBR_PREFS_CONTEXT } from '../gerbview.js';
 import { toCssColor } from '@ziroeda/common/color4d.js';
 import { GERBER_DRAWLAYERS_COUNT } from '@ziroeda/common/layer_id.js';
 import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/settings/builtin_color_themes.js';
@@ -60,7 +61,7 @@ const GERBER_DCODE_COLOR = theme('LAYER_DCODES') as string;
 const GERBER_NEGATIVE_COLOR = theme('LAYER_NEGATIVE_OBJECTS') as string;
 const GERBER_GRID_COLOR = theme('LAYER_GERBVIEW_GRID') as string;
 const GERBER_AXES_COLOR = theme('LAYER_GERBVIEW_AXES') as string;
-const GERBER_BG_COLOR = theme('LAYER_GERBVIEW_BACKGROUND') as string;
+export const GERBER_BG_COLOR = theme('LAYER_GERBVIEW_BACKGROUND') as string;
 const GERBER_DRAWINGSHEET_COLOR = theme('LAYER_GERBVIEW_DRAWINGSHEET') as string;
 const GERBER_PAGE_LIMITS_COLOR = theme('LAYER_GERBVIEW_PAGE_LIMITS') as string;
 
@@ -185,4 +186,35 @@ export function gerbviewColor(
   overrides: Readonly<Record<string, string>>,
 ): string {
   return overrides[key] ?? fallback;
+}
+
+/**
+ * `PANEL_COLOR_SETTINGS::ResetPanel` (`common/dialogs/panel_color_settings.cpp:
+ * 72-87`):
+ *
+ *     if( !m_currentSettings || m_currentSettings->IsReadOnly() )
+ *         return;
+ *     for( … m_swatches )
+ *         m_currentSettings->SetColor( layer, GetDefaultColor( layer ) );
+ *
+ * — every SWATCH back to its default, and nothing else. Two consequences that
+ * are easy to get wrong:
+ *
+ *  - the THEME choice does not move. `m_cbTheme` is not a swatch, so a reset
+ *    leaves the user on whatever theme they picked and puts that theme's
+ *    colours back. eeschema's page resets `userColors` for the same reason;
+ *    pl_editor's, which has no swatches at all, resets only the choice.
+ *  - a read-only theme resets NOTHING. Our swatches are already unanswerable
+ *    off the "User" theme, and the overrides being cleared are that theme's.
+ *
+ * Only this app's namespace is cleared. `colors/user.json` holds every app's
+ * colours (upstream under `m_colorNamespace`, here in the key), and resetting
+ * the Gerber Viewer's Colors page must not take the schematic's wires with it.
+ */
+export function resetGerbviewColorSettings(ctx: GBR_PREFS_CONTEXT): void {
+  ctx.setUserColors((c) => {
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(c)) if (!k.startsWith('gerbview.')) out[k] = v;
+    return out;
+  });
 }
