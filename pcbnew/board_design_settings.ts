@@ -38,13 +38,13 @@ import {
   type JSON_SETTINGS,
   type JsonObject,
   type JsonValue,
-  NESTED_SETTINGS,
   PARAM,
   PARAM_ENUM,
   PARAM_LAMBDA,
   PARAM_SCALED,
   ref,
 } from '@ziroeda/common/settings/json_settings.js';
+import { NESTED_SETTINGS } from '@ziroeda/common/settings/nested_settings.js';
 import { TEXT_MAX_SIZE_MM, TEXT_MIN_SIZE_MM } from '@ziroeda/common/eda_text.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import {

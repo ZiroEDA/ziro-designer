@@ -16,7 +16,6 @@ import {
   JSON_SETTINGS,
   type JsonObject,
   type JsonValue,
-  type NESTED_SETTINGS,
   PARAM,
   PARAM_LAMBDA,
   PARAM_LIST,
@@ -24,6 +23,7 @@ import {
   ref,
   SETTINGS_LOC,
 } from '../settings/json_settings.js';
+import type { NESTED_SETTINGS } from '../settings/nested_settings.js';
 import {
   IP2581_BOM,
   type LAYER_PAIR_INFO,

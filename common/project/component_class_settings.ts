@@ -10,9 +10,9 @@ import {
   type JSON_SETTINGS,
   type JsonObject,
   type JsonValue,
-  NESTED_SETTINGS,
   PARAM_LAMBDA,
 } from '../settings/json_settings.js';
+import { NESTED_SETTINGS } from '../settings/nested_settings.js';
 
 const componentClassSettingsSchemaVersion = 0;
 
