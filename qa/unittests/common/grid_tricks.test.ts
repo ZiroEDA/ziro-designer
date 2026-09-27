@@ -178,6 +178,9 @@ describe('GRID_TRICKS cut, copy, paste and delete', () => {
 describe('GRID_TRICKS keys with the cell editor open', () => {
   it('adds a row with Enter on the last row, and commits there when editing', () => {
     const { g, added } = make();
+    g.SetGridCursor(1, 0);
+    key(g, WXK.WXK_RETURN);
+    expect(added).toEqual([]);
     g.SetGridCursor(2, 0);
     key(g, WXK.WXK_RETURN);
     expect(added).toEqual([3]);
