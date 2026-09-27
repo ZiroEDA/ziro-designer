@@ -36,6 +36,7 @@ import {
 import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/page_info.js';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { VIEW } from '@ziroeda/common/view/view.js';
 import { VC_SETTINGS } from '@ziroeda/common/view/view_controls.js';
 import { ACTION_CONDITIONS } from '@ziroeda/common/tool/action_manager.js';
@@ -1809,5 +1810,24 @@ describe('GERBVIEW_PRINTOUT pages', () => {
 
     expect([itemPaints(1), itemPaints(2)]).toEqual([2, 1]);
     factory.restore();
+  });
+});
+
+describe('COMMON_CONTROL is registered (gerbview_frame.cpp:1092)', () => {
+  it('answers ACTIONS::about with the frame m_aboutTitle', () => {
+    const env = setup();
+    const titles: string[] = [];
+    env.frame.SetAboutPresenter((t) => titles.push(t));
+    env.frame.GetToolManager()!.RunAction(ACTIONS.about);
+    // gerbview_frame.cpp:97, `m_aboutTitle = _HKI( "KiCad Gerber Viewer" )`.
+    expect(titles).toEqual([ABOUT_TITLES.gerbview]);
+  });
+
+  it('answers ACTIONS::openPreferences with ShowPreferences( "", "" )', () => {
+    const env = setup();
+    const pages: [string, string][] = [];
+    env.frame.SetPreferencesPresenter((p, pp) => pages.push([p, pp]));
+    env.frame.GetToolManager()!.RunAction(ACTIONS.openPreferences);
+    expect(pages).toEqual([['', '']]);
   });
 });

@@ -12,6 +12,7 @@
 import { describe, expect, it } from 'vitest';
 import type { MessageDialogIcon, YesNoResult } from '@ziroeda/common/confirm_types.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import type { ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
 import {
   BITMAP2CMP_SETTINGS,
@@ -631,5 +632,15 @@ describe('wxString::ToDouble', () => {
     expect(wxStringToDouble('')).toBeNull();
     expect(wxStringToDouble('2,5')).toBeNull();
     expect(wxStringToDouble('1e999')).toBeNull();
+  });
+});
+
+describe('COMMON_CONTROL is registered (bitmap2cmp_frame.cpp:191)', () => {
+  it('answers ACTIONS::about with the frame m_aboutTitle', () => {
+    const { frame } = makeFrame();
+    const titles: string[] = [];
+    frame.SetAboutPresenter((t) => titles.push(t));
+    frame.GetToolManager()!.RunAction(ACTIONS.about);
+    expect(titles).toEqual([ABOUT_TITLES.imageConverter]);
   });
 });

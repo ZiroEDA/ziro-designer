@@ -18,6 +18,7 @@
  *   The name offered is the source image's, with the format's extension
  *   (`EnsureFileExtension` / `SetExt`), where KiCad's dialog starts empty.
  */
+import { COMMON_CONTROL } from '@ziroeda/common/tool/common_control.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { EDA_BASE_FRAME } from '@ziroeda/common/eda_base_frame.js';
 import { unityScale } from '@ziroeda/common/eda_units.js';
@@ -120,7 +121,6 @@ const EXPORTS: Record<'wks' | 'ps' | 'sym' | 'mod', EXPORT_SPEC> = {
 };
 
 export class BITMAP2CMP_FRAME extends EDA_BASE_FRAME {
-  m_aboutTitle: string;
   private m_panel: BITMAP2CMP_PANEL;
   private m_dropTarget: DROP_FILE;
   private m_ui: BITMAP2CMP_FRAME_UI;
@@ -144,8 +144,8 @@ export class BITMAP2CMP_FRAME extends EDA_BASE_FRAME {
     this.m_toolManager = new TOOL_MANAGER();
     this.m_toolManager.SetEnvironment(null, null, null, this.config(), this);
 
-    // Register tools. COMMON_CONTROL (the Help and Preferences actions) is the
-    // window's: its menus call the app directly.
+    // Register tools
+    this.m_toolManager.RegisterTool(new COMMON_CONTROL());
     this.m_toolManager.RegisterTool(new BITMAP2CMP_CONTROL());
     this.m_toolManager.InitTools();
   }

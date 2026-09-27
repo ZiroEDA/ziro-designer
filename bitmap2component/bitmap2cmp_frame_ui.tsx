@@ -10,7 +10,8 @@
  * What only the program has comes in as {@link BITMAP2CMP_APP}: upstream
  * `Pgm()` (the settings manager, the language), `KIWAY` (the way home to the
  * project manager) and the toolkit's own dialogs - the file dialog, which here
- * is the account's file chooser, Preferences and the hotkey list.
+ * is the account's file chooser, and Preferences. The Help menu and
+ * Preferences... run through COMMON_CONTROL on the frame's tool manager.
  */
 
 import { type JSX, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -32,6 +33,7 @@ import { useMenuHotkeys } from '@ziroeda/common/tool/use_menu_hotkeys.js';
 import { addQuit } from '@ziroeda/common/tool/action_menu.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { imageFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
+import type { KIWAY } from '@ziroeda/common/kiway.js';
 import type { ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
 import type { BITMAP2CMP_FRAME, BITMAP2CMP_FRAME_UI } from './bitmap2cmp_frame.js';
 import { CreateKiWindow } from './bitmap2cmp_main.js';
@@ -77,8 +79,8 @@ export interface BITMAP2CMP_APP {
   AcceptAttribute(aFilters: readonly ChooserFilter[]): string;
   /** `EDA_BASE_FRAME::ShowPreferences( wxEmptyString, wxEmptyString )`: the dialog. */
   Preferences(aOnClose: () => void): ReactNode;
-  /** `DisplayHotkeyList( this )`. */
-  ShowHotkeyList(): void;
+  /** `Kiway()`: what COMMON_CONTROL asks of the program - Quit, the other editors. */
+  kiway: KIWAY;
 }
 
 const bytesToDataUrl = (bytes: Uint8Array, type: string): string => {
@@ -197,6 +199,20 @@ export function Bitmap2cmpFrameWindow({
   // bitmap2cmp_main.cpp's CreateKiWindow: the settings object, then the frame.
   const [frame] = useState<BITMAP2CMP_FRAME>(() => CreateKiWindow(ui, app.LoadSettings()));
 
+  // What COMMON_CONTROL reaches through the frame: ShowPreferences, the About
+  // dialog, and the program's KIWAY.
+  useEffect(() => {
+    frame.SetPreferencesPresenter(() => setPrefsOpen(true));
+    frame.SetAboutPresenter(() => setAboutOpen(true));
+    frame.SetKiway(app.kiway);
+
+    return () => {
+      frame.SetPreferencesPresenter(null);
+      frame.SetAboutPresenter(null);
+      frame.SetKiway(null);
+    };
+  }, [frame, app.kiway]);
+
   // SaveSettings: KiCad writes the settings once, from the frame destructor.
   // A tab has no destructor, so every change is written; the slice ignores a
   // save that changes nothing.
@@ -267,7 +283,12 @@ export function Bitmap2cmpFrameWindow({
     {
       label: 'Preferences',
       items: [
-        { label: 'Preferences...', shortcut: 'Ctrl+,', action: () => setPrefsOpen(true) },
+        // ACTIONS::openPreferences, which COMMON_CONTROL::OpenPreferences answers.
+        {
+          label: 'Preferences...',
+          shortcut: 'Ctrl+,',
+          action: () => frame.GetToolManager()?.RunAction(ACTIONS.openPreferences),
+        },
         { sep: true },
         setLanguageMenuItem({
           current: app.language,
@@ -275,10 +296,8 @@ export function Bitmap2cmpFrameWindow({
         }),
       ],
     },
-    standardHelpMenu({
-      showHotkeys: () => app.ShowHotkeyList(),
-      showAbout: () => setAboutOpen(true),
-    }),
+    // AddStandardHelpMenu: ACTION_MENU( false, commonControl ).
+    standardHelpMenu({ RunAction: (a) => frame.GetToolManager()?.RunAction(a) }),
   ];
 
   // The menus are the whole of this frame's keyboard: Ctrl+O, Ctrl+`,`,

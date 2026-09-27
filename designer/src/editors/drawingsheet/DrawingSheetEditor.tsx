@@ -156,7 +156,7 @@ import { imageFileToPng, decodeImageMeta } from '@ziroeda/common';
 import { drawDrawingSheetItems, DS_PRINT_PAPER_COLOR } from '@ziroeda/common';
 import '@ziroeda/common/widgets/shell.css';
 import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
-import { showHotkeyList } from '../../ui/hotkey_list_action.js';
+import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 // The shared Preferences dialog, the one every other launcher opens.
 // `EDA_BASE_FRAME::ShowPreferences` is on the base frame precisely so that no
 // editor writes its own (common/eda_base_frame.cpp:1573).

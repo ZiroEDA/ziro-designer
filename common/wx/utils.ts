@@ -38,3 +38,17 @@ export function wxSetEnv(aName: string, aValue: string): boolean {
 export function wxUnsetEnv(aName: string): boolean {
   return s_env.delete(aName);
 }
+
+/**
+ * `wxLaunchDefaultBrowser( url )`: the URL in a new tab.
+ *
+ * Always true outside a test: a window opened `noopener` is null to its opener
+ * by specification, so a popup blocker cannot be told from success, and the
+ * "could not launch the default browser" branches upstream are unreachable.
+ */
+export function wxLaunchDefaultBrowser(aUrl: string): boolean {
+  if (typeof window === 'undefined') return false;
+
+  window.open(aUrl, '_blank', 'noopener,noreferrer');
+  return true;
+}

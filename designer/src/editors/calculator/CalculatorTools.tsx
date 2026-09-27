@@ -28,7 +28,7 @@ import './calculator.css';
 import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
 import { useMenuHotkeys } from '@ziroeda/common/tool/use_menu_hotkeys.js';
 import { addClose, addQuit } from '@ziroeda/common/tool/action_menu.js';
-import { showHotkeyList } from '../../ui/hotkey_list_action.js';
+import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';

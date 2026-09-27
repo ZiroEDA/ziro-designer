@@ -1384,7 +1384,7 @@ describe('the schematic editor, pressed for real', () => {
     //
     // Ctrl+F1 is the exception and not an escape hatch: ACTIONS::listHotKeys is
     // AS_GLOBAL, so `standardHelpMenu` wires the row straight to
-    // `ui/hotkey_list_action.ts`'s emitter rather than through the frame's
+    // `common/hotkeys_basic.ts`'s emitter rather than through the frame's
     // handlers. Nothing reaches the spy because nothing was meant to - the
     // dispatch returning true is the whole assertion there.
     expect(calls, `${combo} ran more or less than one command`).toHaveLength(

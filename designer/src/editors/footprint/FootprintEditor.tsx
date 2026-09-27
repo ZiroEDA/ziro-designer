@@ -129,7 +129,7 @@ import { pcbThemeWithOverrides } from '../pcb/pcbTheme.js';
 import { settings } from '../../prefs/settings.js';
 import { hiContrastFactorFor } from '@ziroeda/common/render_settings.js';
 import { footprintEditorMenus } from './menubar.js';
-import { showHotkeyList } from '../../ui/hotkey_list_action.js';
+import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';

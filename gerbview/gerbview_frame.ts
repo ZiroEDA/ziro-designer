@@ -43,7 +43,9 @@ import type { SELECTION_CONDITION } from '@ziroeda/common/tool/selection_conditi
 import { ACTION_CONDITIONS } from '@ziroeda/common/tool/action_manager.js';
 import { EDITOR_CONDITIONS } from '@ziroeda/common/tool/editor_conditions.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { COMMON_CONTROL } from '@ziroeda/common/tool/common_control.js';
 import { COMMON_TOOLS } from '@ziroeda/common/tool/common_tools.js';
+import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
 import { TOOL_DISPATCHER } from '@ziroeda/common/tool/tool_dispatcher.js';
 import {
@@ -231,6 +233,7 @@ export class GERBVIEW_FRAME extends EDA_DRAW_FRAME {
     this.m_gerberLayout = null;
     this.m_show_layer_manager_tools = true;
     this.m_showBorderAndTitleBlock = false; // true for reference drawings.
+    this.m_aboutTitle = ABOUT_TITLES.gerbview;
     this.m_LayersManager = new GERBER_LAYER_WIDGET(this);
 
     // Be sure a page info is set. this default value will be overwritten later.
@@ -1155,8 +1158,7 @@ export class GERBVIEW_FRAME extends EDA_DRAW_FRAME {
     this.m_toolDispatcher = new TOOL_DISPATCHER(this.m_toolManager);
 
     // Register tools
-    // COMMON_CONTROL (help, preferences, about) waits for the menus to run
-    // through ACTION_MENU; the page's menu handles those actions directly.
+    this.m_toolManager.RegisterTool(new COMMON_CONTROL());
     this.m_toolManager.RegisterTool(new COMMON_TOOLS());
 
     this.m_toolManager.RegisterTool(new GERBVIEW_SELECTION_TOOL());

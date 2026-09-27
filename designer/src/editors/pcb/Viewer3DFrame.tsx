@@ -36,7 +36,7 @@ import {
   useViewer3dSettings,
 } from '../../prefs/useSettings.js';
 import { VIEWER3D_DEFAULTS } from '../../prefs/settings.js';
-import { showHotkeyList } from '../../ui/hotkey_list_action.js';
+import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import type { Board } from '@ziroeda/pcbnew';

@@ -34,7 +34,7 @@ import {
 } from '@ziroeda/common/dialogs/dialog_message.js';
 import { SingleChoiceDialog } from '@ziroeda/common/dialogs/dialog_single_choice.js';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
-import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
+import type { KIWAY } from '@ziroeda/common/kiway.js';
 import {
   GERBER_DRAW_LAYER,
   GERBER_DRAWLAYERS_COUNT,
@@ -90,7 +90,6 @@ import { settings } from '../../prefs/settings.js';
 import { useCommonSettings, useGerbviewSettings, useUserColors } from '../../prefs/useSettings.js';
 import { drawPanelWindow, loadBitmapFontImage } from '../../render/gal_window.js';
 import { HomeLink } from '../../ui/HomeLink.js';
-import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { layersPaneWidth } from './gerberAuxControls.js';
 import {
@@ -134,10 +133,13 @@ interface FileDialogRequest {
 
 export function GerberViewer({
   onExitToHome,
+  kiway,
   projectName,
   openRequest,
 }: {
   onExitToHome: () => void;
+  /** The program's KIWAY, which COMMON_CONTROL calls. */
+  kiway: KIWAY;
   projectName?: string;
   /**
    * A file the project manager activated into this viewer -
@@ -305,6 +307,8 @@ export function GerberViewer({
     frame.SetPreferencesPresenter((aPage, aParentPage) =>
       setPrefsOpen(aPage === '' ? true : pageFor(aPage, aParentPage)),
     );
+    frame.SetAboutPresenter(() => setAboutOpen(true));
+    frame.SetKiway(kiway);
 
     const boxes = [
       frame.m_SelComponentBox,
@@ -322,9 +326,11 @@ export function GerberViewer({
       frame.SetStatusTextSink(null);
       frame.SetMsgPanelSink(null);
       frame.SetPreferencesPresenter(null);
+      frame.SetAboutPresenter(null);
+      frame.SetKiway(null);
       for (const b of boxes) b?.SetChangeListener(null);
     };
-  }, [frame, host]);
+  }, [frame, host, kiway]);
 
   // Colours: the store into the frame's COLOR_SETTINGS, then the painter.
   useEffect(() => {
@@ -613,15 +619,12 @@ export function GerberViewer({
         measureTool: () => runAction(ACTIONS.measureTool),
         clearLayer: () => runAction(GERBVIEW_ACTIONS.clearLayer),
 
-        openPreferences: () => setPrefsOpen(true),
+        toolManager: { RunAction: (a) => runAction(a) },
         language: common.system.language,
         onSelectLanguage: (label) =>
           settings.updateCommon((c) => {
             c.system.language = label;
           }),
-
-        showHotkeys: showHotkeyList,
-        showAbout: () => setAboutOpen(true),
       }),
     // `checked` is a fresh Set each render, so the menus follow every repaint.
     [checked, runAction, onToolbarAction, onExitToHome, common.system.language],
@@ -1005,7 +1008,7 @@ export function GerberViewer({
       <ActionMenuPopup frame={frame} />
 
       {aboutOpen && (
-        <ShowAboutDialog title={ABOUT_TITLES.gerbview} onClose={() => setAboutOpen(false)} />
+        <ShowAboutDialog title={frame.m_aboutTitle} onClose={() => setAboutOpen(false)} />
       )}
       {prefsOpen && (
         <PreferencesDialog

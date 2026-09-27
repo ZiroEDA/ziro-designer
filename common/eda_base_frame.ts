@@ -12,6 +12,7 @@
  * held as a member here and its two accessors forwarded, since a class has one
  * base.
  */
+import type { KIWAY } from './kiway.js';
 import type { EdaIuScale, EdaUnits } from './eda_units.js';
 import { FRAME_T } from './frame_type.js';
 import { Pgm } from './pgm_base.js';
@@ -495,6 +496,39 @@ export abstract class EDA_BASE_FRAME
    * build with one language has no rows for.
    */
   protected setupUIConditions(): void {}
+
+  private m_kiway: KIWAY | null = null;
+
+  /** `KIWAY_HOLDER::SetKiway`: the program's services, {@link KIWAY}. */
+  SetKiway(aKiway: KIWAY | null): void {
+    this.m_kiway = aKiway;
+  }
+
+  /** `KIWAY_HOLDER::Kiway()`: null for a frame no program has adopted (a test's). */
+  Kiway(): KIWAY | null {
+    return this.m_kiway;
+  }
+
+  /**
+   * `m_aboutTitle`: the application name ShowAboutDialog( this ) titles the
+   * About dialog with. Each frame's constructor sets it.
+   */
+  m_aboutTitle = '';
+
+  private m_aboutPresenter: ((aTitle: string) => void) | null = null;
+
+  /**
+   * `ShowAboutDialog( EDA_BASE_FRAME* aParent )` (AboutDialog_main.cpp) for
+   * this frame. The dialog is the page's, installed with
+   * {@link SetAboutPresenter}, as the Preferences dialog is.
+   */
+  ShowAboutDialog(): void {
+    this.m_aboutPresenter?.(this.m_aboutTitle);
+  }
+
+  SetAboutPresenter(aPresenter: ((aTitle: string) => void) | null): void {
+    this.m_aboutPresenter = aPresenter;
+  }
 
   ShowPreferences(aStartPage: string, aStartParentPage: string): void {
     this.m_preferencesPresenter?.(aStartPage, aStartParentPage);

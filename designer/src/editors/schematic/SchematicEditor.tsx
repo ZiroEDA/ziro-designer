@@ -398,7 +398,7 @@ import { wasBrowserSuppressed, type FocusLike } from '@ziroeda/common/browser_ho
 import { remapEvent } from './hotkey_bindings.js';
 import { applyHotkeyOverrides } from './hotkey_list.js';
 import { DialogAssignNetclass } from '@ziroeda/common/dialogs/dialog_assign_netclass.js';
-import { showHotkeyList } from '../../ui/hotkey_list_action.js';
+import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { DialogTableCellProperties } from './dialogs/dialog_tablecell_properties.js';
 import {
   SchNavigateTool,

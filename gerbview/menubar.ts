@@ -45,9 +45,10 @@
 
 import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 import { addQuitOrClose } from '@ziroeda/common/tool/action_menu.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import {
   standardHelpMenu,
-  type HelpMenuHandlers,
+  type HelpMenuToolManager,
 } from '@ziroeda/common/eda_base_frame_help_menu.js';
 import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
 
@@ -71,7 +72,13 @@ export type GerbviewToggleId =
   | 'flipView'
   | 'showLayerManager';
 
-export interface GerbviewMenuHandlers extends HelpMenuHandlers {
+export interface GerbviewMenuHandlers {
+  /**
+   * The frame's TOOL_MANAGER, where COMMON_CONTROL answers Preferences... and
+   * the Help menu (`gerbview_frame.cpp:1092`).
+   */
+  toolManager: HelpMenuToolManager;
+
   /** GERBVIEW_ACTIONS::openAutodetected — one dialog, any of the four types. */
   openAutodetected: () => void;
   openGerber: () => void;
@@ -101,7 +108,6 @@ export interface GerbviewMenuHandlers extends HelpMenuHandlers {
   measureTool: () => void;
   clearLayer: () => void;
 
-  openPreferences: () => void;
   language: string;
   onSelectLanguage: (label: string) => void;
 }
@@ -351,7 +357,7 @@ function preferencesMenu(h: GerbviewMenuHandlers): Menu {
         icon: 'preferences',
         shortcut: 'Ctrl+,',
         tooltip: 'Show preferences for all open tools',
-        action: h.openPreferences,
+        action: () => h.toolManager.RunAction(ACTIONS.openPreferences),
       },
       SEP,
       setLanguageMenuItem({ current: h.language, onSelect: h.onSelectLanguage }),
@@ -369,6 +375,6 @@ export function gerbviewMenus(h: GerbviewMenuHandlers): Menu[] {
     viewMenu(h),
     toolsMenu(h),
     preferencesMenu(h),
-    standardHelpMenu({ showHotkeys: h.showHotkeys, showAbout: h.showAbout }),
+    standardHelpMenu(h.toolManager),
   ];
 }

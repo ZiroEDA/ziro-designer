@@ -35,13 +35,13 @@ import {
   claimBrowserHotkeys,
   lockReservedKeysWhileFullscreen,
 } from '@ziroeda/common/browser_hotkeys.js';
-import { onShowHotkeyList } from './hotkey_list_action.js';
+import { onShowHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { settings } from '../prefs/settings.js';
 
 /**
  * The host for ACTIONS::listHotKeys. One of these is mounted above the app, so
  * the action and its Ctrl+F1 are global exactly as `.Scope( AS_GLOBAL )` says -
- * the registry it subscribes to lives in hotkey_list_action.ts, which the menu
+ * the registry it subscribes to lives in common/hotkeys_basic.ts (DisplayHotkeyList), which the menu
  * builders can import without pulling JSX into qa's typecheck.
  */
 export function HotkeyListHost(): JSX.Element | null {

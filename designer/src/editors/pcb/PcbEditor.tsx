@@ -599,7 +599,7 @@ import { yieldToEventLoop } from '@ziroeda/common/yield_to_event_loop.js';
 import type { ProgressSnapshot } from '@ziroeda/common/widgets/progress_reporter_snapshot.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
-import { showHotkeyList } from '../../ui/hotkey_list_action.js';
+import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';

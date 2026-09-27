@@ -176,7 +176,7 @@ import { addClose } from '@ziroeda/common/tool/action_menu.js';
 import { UnsavedChangesDialog } from '@ziroeda/common/dialogs/dialog_unsaved_changes.js';
 import type { UnsavedChangesResult } from '@ziroeda/common/confirm.js';
 import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
-import { showHotkeyList } from '../../../ui/hotkey_list_action.js';
+import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';

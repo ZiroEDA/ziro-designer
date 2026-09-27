@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import type { KIWAY } from '@ziroeda/common/kiway.js';
 import {
   useEffect,
   useMemo,
@@ -1441,6 +1443,38 @@ export function App(): JSX.Element {
     flushSaves(); // persist pending edits before the tree/reopen can read them
     setView('home');
   }, [flushSaves]);
+  /**
+   * The program's KIWAY (`common/kiway.ts`), which frames call through
+   * COMMON_CONTROL: an editor is a view here, and home is the project manager.
+   */
+  const kiway = useMemo<KIWAY>(() => {
+    const PLAYER_VIEW: Partial<Record<FRAME_T, typeof view>> = {
+      [FRAME_T.FRAME_SCH]: 'schematic',
+      [FRAME_T.FRAME_SCH_SYMBOL_EDITOR]: 'symbols',
+      [FRAME_T.FRAME_PCB_EDITOR]: 'pcb',
+      [FRAME_T.FRAME_FOOTPRINT_EDITOR]: 'footprints',
+      [FRAME_T.FRAME_GERBER]: 'gerber',
+      [FRAME_T.FRAME_PL_EDITOR]: 'drawingsheet',
+      [FRAME_T.FRAME_BM2CMP]: 'image',
+      [FRAME_T.FRAME_CALC]: 'calculator',
+    };
+
+    return {
+      OnKiCadExit: goHome,
+      Player: (aFrameType) => {
+        const v = PLAYER_VIEW[aFrameType];
+        if (!v) return false;
+        mountFor(v);
+        setView(v);
+        return true;
+      },
+      HasProjectManager: () => true,
+      ShowProjectManager: goHome,
+      // The library tables and Configure Paths are raised by the editors that
+      // own them, not through a KIWAY here.
+      CreateKiWindow: () => false,
+    };
+  }, [goHome, mountFor]);
   const showPcb = useCallback(() => {
     setPcbMounted(true);
     setView('pcb');
@@ -1874,7 +1908,7 @@ export function App(): JSX.Element {
         <div style={frameStyle(view === 'image')}>
           <Frozen shown={view === 'image'}>
             <Suspense fallback={frameLoading}>
-              <ImageConverter onExitToHome={goHome} />
+              <ImageConverter onExitToHome={goHome} kiway={kiway} />
             </Suspense>
           </Frozen>
         </div>
@@ -1885,6 +1919,7 @@ export function App(): JSX.Element {
             <Suspense fallback={frameLoading}>
               <GerberViewer
                 onExitToHome={goHome}
+                kiway={kiway}
                 projectName={projectName}
                 openRequest={gbRequest}
               />

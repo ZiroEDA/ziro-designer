@@ -255,7 +255,6 @@ describe('every frame opens it', () => {
     'designer/src/editors/pcb/PcbEditor.tsx': 'pcb',
     'designer/src/editors/symbol/SymbolEditor.tsx': 'symbol',
     'designer/src/editors/footprint/FootprintEditor.tsx': 'footprint',
-    'designer/src/editors/gerbview/GerberViewer.tsx': 'gerbview',
     'designer/src/editors/drawingsheet/DrawingSheetEditor.tsx': 'drawingSheet',
     'designer/src/editors/pcb/Viewer3DFrame.tsx': 'viewer3d',
     'designer/src/editors/schematic/dialogs/dialog_assign_footprints.tsx': 'cvpcb',
@@ -267,6 +266,17 @@ describe('every frame opens it', () => {
       expect(read(file)).toContain(`<ShowAboutDialog title={ABOUT_TITLES.${title}}`);
     });
   }
+
+  it('GerberViewer.tsx shows it titled with the frame m_aboutTitle, ABOUT_TITLES.gerbview', () => {
+    // COMMON_CONTROL::About runs ShowAboutDialog( m_frame ); the frame sets
+    // m_aboutTitle in its constructor (gerbview_frame.cpp:97).
+    expect(read('designer/src/editors/gerbview/GerberViewer.tsx')).toContain(
+      '<ShowAboutDialog title={frame.m_aboutTitle}',
+    );
+    expect(read('gerbview/gerbview_frame.ts')).toContain(
+      'this.m_aboutTitle = ABOUT_TITLES.gerbview;',
+    );
+  });
 
   it('bitmap2cmp_frame_ui.tsx shows it titled with the frame m_aboutTitle, ABOUT_TITLES.imageConverter', () => {
     // BITMAP2CMP_FRAME sets m_aboutTitle in its constructor

@@ -23,7 +23,7 @@ import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 import { addQuitOrClose } from '@ziroeda/common/tool/action_menu.js';
 import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
 import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
-import { showHotkeyList } from '../../ui/hotkey_list_action.js';
+import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 
 export interface MenuHandlers {
   tool: (id: string) => void;

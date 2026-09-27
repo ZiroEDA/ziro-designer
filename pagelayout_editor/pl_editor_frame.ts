@@ -177,7 +177,6 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
   private m_settings: PL_EDITOR_SETTINGS;
   private m_host: PL_EDITOR_FRAME_HOST | null = null;
   private m_originTransforms = new ORIGIN_TRANSFORMS();
-  private m_aboutTitle: string;
 
   private m_originChoiceList: readonly string[] = [
     'Left Top paper corner',

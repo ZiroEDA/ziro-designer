@@ -360,3 +360,37 @@ export function WriteHotKeyConfig(
 
   return out;
 }
+
+// ---- DisplayHotkeyList --------------------------------------------------------
+
+type HotkeyListListener = () => void;
+
+const s_hotkeyListListeners = new Set<HotkeyListListener>();
+
+/**
+ * Subscribe the page that shows DIALOG_LIST_HOTKEYS. Returns the unsubscribe,
+ * for an effect's cleanup.
+ *
+ * ACTIONS::listHotKeys is AS_GLOBAL - one action, reachable from every frame -
+ * which is why this is one registry rather than a prop threaded through each
+ * editor.
+ */
+export function onShowHotkeyList(aListener: HotkeyListListener): () => void {
+  s_hotkeyListListeners.add(aListener);
+  return () => {
+    s_hotkeyListListeners.delete(aListener);
+  };
+}
+
+/**
+ * `DisplayHotkeyList( EDA_BASE_FRAME* aParent )` (hotkeys_basic.cpp): show the
+ * hotkey list. A no-op before the page subscribes, the same shape as a
+ * TOOL_ACTION fired at a tool manager that has no handler for it.
+ */
+export function showHotkeyList(): void {
+  for (const l of s_hotkeyListListeners) l();
+}
+
+export function DisplayHotkeyList(_aParent: unknown): void {
+  showHotkeyList();
+}
