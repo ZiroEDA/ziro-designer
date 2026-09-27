@@ -118,7 +118,10 @@ describe('GerbView opens from the account and from the machine', () => {
    * the machine, so both doors are offered - the same pair Open Existing
    * Project has had all along.
    */
+  /** The page: the account's chooser and the computer's, as GERBVIEW_APP::FileDialog. */
   const GV = src('editors/gerbview/GerberViewer.tsx');
+  /** The window: the answer onto the RAM disk, where the frame reads it by path. */
+  const WINDOW = src('../../gerbview/gerbview_frame_ui.tsx');
   /** The dialogs are GERBVIEW_FRAME's now, asked for through its host. */
   const FILES = readFileSync(
     fileURLToPath(new URL('../../../gerbview/files.ts', import.meta.url)),
@@ -177,7 +180,10 @@ describe('GerbView opens from the account and from the machine', () => {
   it('hands every chosen file back to the frame, which loads it by path', () => {
     // The chooser's rows go onto the RAM disk and their paths are the dialog's
     // answer, as GetPaths() is upstream; the frame's loader takes it from there.
-    expect(GV).toContain('[file, ...file.rest].map((f) => putFile(f.path, f.bytes))');
+    expect(GV).toContain(
+      'req.resolve([file, ...file.rest].map((f) => ({ name: f.path, bytes: f.bytes })));',
+    );
+    expect(WINDOW).toContain('paths: files.map((f) => putFile(f.name, f.bytes))');
   });
 });
 

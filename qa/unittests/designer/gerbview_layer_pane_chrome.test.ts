@@ -19,7 +19,7 @@ const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
 const SHELL = read('../../../common/widgets/shell.css');
-const GBR = read('../../../designer/src/editors/gerbview/gerbview.css');
+const GBR = read('../../../gerbview/gerbview_frame.css');
 
 /** The body of a rule, comments stripped so prose about a value is not the value. */
 const ruleBody = (css: string, selector: string): string => {

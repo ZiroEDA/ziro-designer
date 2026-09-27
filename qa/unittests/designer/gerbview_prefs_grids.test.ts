@@ -36,7 +36,7 @@ function gridsPage(): Record<string, unknown> {
   const element = page.Panel({ ctx: { gerbview } as unknown as GBR_PREFS_CONTEXT });
   return (element as unknown as { props: Record<string, unknown> }).props;
 }
-const FRAME = read('editors/gerbview/GerberViewer.tsx');
+const FRAME = read('../../gerbview/gerbview_frame_ui.tsx');
 
 /**
  * The frame with its comments blanked, for the NEGATIVE assertions only.
@@ -136,7 +136,10 @@ describe('the frame draws the grids the page edits', () => {
   it('the Edit Grids... row opens this page', () => {
     // ShowPreferences( _( "Grids" ), _( "Gerber Viewer" ) ) arrives at the
     // frame's presenter, which looks the page up (prefs_initial_page.test.tsx).
-    expect(FRAME).toContain("setPrefsOpen(aPage === '' ? true : pageFor(aPage, aParentPage))");
-    expect(FRAME).toContain('frameOwner="gerbview"');
+    expect(FRAME).toContain('setPrefsOpen({ page: aPage, parent: aParentPage })');
+    // The page looks it up: the Preferences dialog is the program's.
+    const PAGE = read('editors/gerbview/GerberViewer.tsx');
+    expect(PAGE).toContain("{...(page === '' ? {} : { initialPage: pageFor(page, parent) })}");
+    expect(PAGE).toContain('frameOwner="gerbview"');
   });
 });

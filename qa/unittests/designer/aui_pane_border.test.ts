@@ -152,7 +152,7 @@ describe('the sash, not a rule, separates a dock from the toolbar beside it', ()
 describe('a DockSash is a sibling of its pane, never a child', () => {
   const FRAMES = [
     'editors/pcb/PcbEditor.tsx',
-    'editors/gerbview/GerberViewer.tsx',
+    '../../gerbview/gerbview_frame_ui.tsx',
     'editors/drawingsheet/DrawingSheetEditor.tsx',
   ];
 

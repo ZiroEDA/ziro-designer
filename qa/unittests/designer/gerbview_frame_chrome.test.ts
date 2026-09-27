@@ -12,7 +12,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
-import { layersPaneWidth } from '@ziroeda/designer/src/editors/gerbview/gerberAuxControls.js';
+import { layersPaneWidth } from '@ziroeda/gerbview/widgets/layer_widget.js';
 import { GERBER_FILE_IMAGE } from '@ziroeda/gerbview/gerber_file_image.js';
 import { GERBER_FILE_IMAGE_LIST } from '@ziroeda/gerbview/gerber_file_image_list.js';
 import { GERBVIEW_FRAME } from '@ziroeda/gerbview/gerbview_frame.js';

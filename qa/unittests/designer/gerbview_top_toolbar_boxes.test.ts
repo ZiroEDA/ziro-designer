@@ -29,7 +29,7 @@ const read = (rel: string): string =>
 
 const SHELL = read('../../../common/widgets/shell.css');
 const COMBO = read('../../../common/widgets/wx_combobox.tsx');
-const VIEWER = read('../../../designer/src/editors/gerbview/GerberViewer.tsx');
+const VIEWER = read('../../../gerbview/gerbview_frame_ui.tsx');
 
 /**
  * Anchored at a line start, the way the other CSS readers in this suite are

@@ -267,10 +267,10 @@ describe('every frame opens it', () => {
     });
   }
 
-  it('GerberViewer.tsx shows it titled with the frame m_aboutTitle, ABOUT_TITLES.gerbview', () => {
+  it('gerbview_frame_ui.tsx shows it titled with the frame m_aboutTitle, ABOUT_TITLES.gerbview', () => {
     // COMMON_CONTROL::About runs ShowAboutDialog( m_frame ); the frame sets
     // m_aboutTitle in its constructor (gerbview_frame.cpp:97).
-    expect(read('designer/src/editors/gerbview/GerberViewer.tsx')).toContain(
+    expect(read('gerbview/gerbview_frame_ui.tsx')).toContain(
       '<ShowAboutDialog title={frame.m_aboutTitle}',
     );
     expect(read('gerbview/gerbview_frame.ts')).toContain(

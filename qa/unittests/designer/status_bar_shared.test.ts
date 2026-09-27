@@ -324,7 +324,7 @@ describe('the status bar and the message panel exist once', () => {
     ['editors/symbol/SymbolEditor.tsx', ['KiStatusBar', 'MsgPanel']],
     ['editors/footprint/FootprintEditor.tsx', ['KiStatusBar', 'MsgPanel']],
     ['editors/drawingsheet/DrawingSheetEditor.tsx', ['KiStatusBar', 'MsgPanel']],
-    ['editors/gerbview/GerberViewer.tsx', ['KiStatusBar', 'MsgPanel']],
+    ['../../gerbview/gerbview_frame_ui.tsx', ['KiStatusBar', 'MsgPanel']],
     ['editors/schematic/components/SymbolLibraryBrowser.tsx', ['MsgPanel']],
     ['../../bitmap2component/bitmap2cmp_frame_ui.tsx', ['KiStatusBar']],
     ['home/HomePage.tsx', ['KiStatusBar']],

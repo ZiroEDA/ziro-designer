@@ -27,10 +27,15 @@ import {
   layerColorAt,
 } from '../gerbview/builtin_theme_oracle.js';
 
-const FRAME = readFileSync(
+const PAGE = readFileSync(
   fileURLToPath(
     new URL('../../../designer/src/editors/gerbview/GerberViewer.tsx', import.meta.url),
   ),
+  'utf8',
+);
+
+const FRAME = readFileSync(
+  fileURLToPath(new URL('../../../gerbview/gerbview_frame_ui.tsx', import.meta.url)),
   'utf8',
 );
 
@@ -135,7 +140,10 @@ describe('the frame does not put a colour back on the file', () => {
    * manager had set, and the manager's colours died on reload.
    */
   it('the manager and Preferences write one store, not two', () => {
-    expect(FRAME).toContain('settings.setUserColors(');
+    // The window writes through GERBVIEW_APP; the page's SetUserColors is the
+    // settings manager's, the store Preferences > Colors writes too.
+    expect(FRAME).toContain('appRef.current.SetUserColors({');
+    expect(PAGE).toContain('SetUserColors: (c) => settings.setUserColors(c),');
     // Derived from that store rather than kept beside it: a second useState
     // would be the two-store bug again, one render later.
     expect(FRAME).not.toMatch(/useState<Record<number, string>>/);

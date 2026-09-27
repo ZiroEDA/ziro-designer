@@ -55,7 +55,7 @@ const CONVERTED = [
   'editors/calculator/CalculatorTools.tsx',
   'editors/drawingsheet/DrawingSheetEditor.tsx',
   'editors/footprint/FootprintEditor.tsx',
-  'editors/gerbview/GerberViewer.tsx',
+  '../../gerbview/gerbview_frame_ui.tsx',
   '../../bitmap2component/bitmap2cmp_frame_ui.tsx',
   'editors/pcb/PcbEditor.tsx',
   'editors/schematic/SchematicEditor.tsx',
@@ -386,7 +386,7 @@ describe('a converted frame has no listener of its own', () => {
     // in, zoom out, the ones its View menu never lists - are the
     // TOOL_DISPATCHER's on GERBVIEW_DRAW_PANEL_GAL, as upstream, so the page
     // has no key handler of its own left to hold them.
-    const gerb = source('editors/gerbview/GerberViewer.tsx');
+    const gerb = source('../../gerbview/gerbview_frame_ui.tsx');
     expect(gerb).not.toMatch(/\be\.key\b/);
     expect(gerb).not.toMatch(/addEventListener\('keydown'/);
     // CVPCB keeps Enter, which is CVPCB_ACTIONS::associate and has no row.

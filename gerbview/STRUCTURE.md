@@ -15,13 +15,16 @@ Conventions carried over from `common/STRUCTURE.md`:
   no engine half.
 - A header-only `<x>.h` is `<x>.ts`.
 
-## Where the screens are, and why some are still in `designer/`
+## Where the screens are
 
 `designer/src/editors/gerbview/` held the whole Gerber Viewer UI. Every KiCad
-unit's code is here now; what stays in `designer/` is the page that hosts
-GERBVIEW_FRAME (`GerberViewer.tsx`, its settings bridge and `gerbview.css`)
-and the seam to the app's Preferences dialog (`prefs/index.tsx`), because
-`gerbview` must not import `designer` (the package arrow runs the other way).
+unit's code is here now, the frame's window included
+(`gerbview_frame_ui.tsx`, 09-27). What stays in `designer/` is what KiCad
+keeps outside `gerbview/` too - the program: `GerberViewer.tsx` supplies
+`GERBVIEW_APP` (`Pgm()`'s settings and language, the KIWAY, the file dialog
+over the account's storage, the Preferences dialog, the toolbar layout), and
+`prefs/index.tsx` is the seam to that Preferences dialog. `gerbview` must not
+import `designer`; the package arrow runs the other way.
 
 ## The 50 KiCad units
 
@@ -56,12 +59,12 @@ which); **n/a** (a browser cannot have it).
 | `gerber_file_image` | here | `gerber_file_image.ts`; the members defined in `readgerb`, `rs274x`, `rs274d` and `rs274_read_XY_and_IJ_coordinates` are functions in those files taking `self`, which the class delegates to |
 | `gerber_file_image_list` | here | `gerber_file_image_list.ts` (`GERBER_FILE_IMAGE_LIST`, `sortFileExtension`, `sortZorder`) |
 | `gerbview` (+ `gerbview.h`) | here | `gerbview.ts`: `gerbview.h`'s enums and units, and `KIFACE::CreateKiWindow`'s panel half over `GBR_PREFS_CONTEXT` (the Grids and Toolbars pages are common's `PANEL_GRID_SETTINGS` / `PANEL_TOOLBAR_CUSTOMIZATION`, as `gerbview.cpp:82-111` constructs them). The frame half is the page's |
-| `gerbview_draw_panel_gal` | here | `gerbview_draw_panel_gal.ts` (`GERBVIEW_DRAW_PANEL_GAL`) on common's `EDA_DRAW_PANEL_GAL` / `OPENGL_GAL` / `VIEW` - the first frame hosted on the ported GAL. The page hands it its `<canvas>` (`designer/src/render/gal_window.ts`) |
-| `gerbview_frame` | here | `gerbview_frame.ts` (`GERBVIEW_FRAME`). The page, `designer/.../GerberViewer.tsx`, hosts it: the chrome, the dialogs behind `GERBVIEW_FRAME_HOST`, and `gerbview_settings_bridge.ts` between `gerbview.json` and `GERBVIEW_SETTINGS`. `setupUIConditions` is still `checkedSet` in that bridge rather than `EDITOR_CONDITIONS` |
+| `gerbview_draw_panel_gal` | here | `gerbview_draw_panel_gal.ts` (`GERBVIEW_DRAW_PANEL_GAL`) on common's `EDA_DRAW_PANEL_GAL` / `OPENGL_GAL` / `VIEW` - the first frame hosted on the ported GAL. The window hands it its `<canvas>` through `GERBVIEW_APP::DrawPanelWindow` |
+| `gerbview_frame` | here | `gerbview_frame.ts` (`GERBVIEW_FRAME`) + `gerbview_frame_ui.tsx` and `gerbview_frame.css`, the `wxFrame` half: the menu bar, the three toolbars, the docked Layers Manager, the canvas, the status bar and message panel, and the dialogs behind `GERBVIEW_FRAME_HOST`. What only the program has comes in as `GERBVIEW_APP` |
 | `gerbview_id.h` | n/a | wx command ids; our menus and toolbars dispatch by action name |
 | `gerbview_painter` | here | `gerbview_painter.ts` (`GERBVIEW_RENDER_SETTINGS`, `GERBVIEW_PAINTER`), drawing on `OPENGL_GAL` |
 | `gerbview_printout` | here | `gerbview_printout.ts` (`GERBVIEW_PRINTOUT` on common's `BOARD_PRINTOUT`, drawing each layer's page through `CAIRO_PRINT_GAL`); `common/wx/printer.ts`'s `wxPrinter` hands the pages to the browser's print dialog, A4 at 300 PPI |
-| `gerbview_settings` | here | `gerbview_settings.ts` (`GERBVIEW_SETTINGS`), which the frame reads. `JSON_SETTINGS::Load` / `Store` against the account-synced slice are `designer/.../gerbview_settings_bridge.ts` |
+| `gerbview_settings` | here | `gerbview_settings.ts` (`GERBVIEW_SETTINGS`), which the frame reads. `JSON_SETTINGS::Load` / `Store` against the account-synced slice are `gerbview_settings_bridge.ts` |
 | `job_file_reader` | here | `job_file_reader.ts` (`GERBER_JOBFILE_READER`) |
 | `menubar` | here | `menubar.ts` (`doReCreateMenuBar`'s tree); the frame renders it |
 | `readgerb` | here | `readgerb.ts` |
@@ -114,18 +117,17 @@ driver (`common/STRUCTURE.md` has `spacemouse` n/a for the same reason).
   and `wxString::ToCDouble` as measured by `qa/probes/gerbview_tocdouble_probe.cpp`.
   A `common/` helper by nature; here until `common/` has one.
 - `index.ts` — the package barrel, kept.
-- `designer/.../gerberAuxControls.ts` — `layersPaneWidth` alone,
-  `LAYER_WIDGET::GetBestSize` + `ReFillLayerWidget`'s arithmetic over widths
-  the page measures. Its other helpers were copies of what the frame's own
-  units now do, and went; their tests run against those units.
-- `designer/.../gerberColors.ts` — `s_defaultTheme`'s gerbview rows, which
-  `common/settings/builtin_color_themes.ts` already holds, plus
-  `COLOR4D::Brightened`; to read those instead of restating them.
-- `designer/.../gerbview_settings_bridge.ts` — `JSON_SETTINGS::Load` /
+- `gerberAuxControls.ts` is gone: its last function, `layersPaneWidth`
+  (`LAYER_WIDGET::GetBestSize` + `ReFillLayerWidget`), is in
+  `widgets/layer_widget.tsx` beside the widget it sizes.
+- `gerberColors.ts` is gone from the app: nothing read it; the frame reads
+  `common/settings/builtin_color_themes.ts`. It lives on as qa's independent
+  transcription (`qa/unittests/gerbview/builtin_theme_oracle.ts`).
+- `gerbview_settings_bridge.ts` — `JSON_SETTINGS::Load` /
   `Store` between the account-synced `gerbview.json` slice and
   `GERBVIEW_SETTINGS`, the colour store into the frame's `COLOR_SETTINGS`,
   and `checkedSet` (to become `setupUIConditions`).
-- `gerbview.css` — the frame's stylesheet; stays with the frame.
+- `gerbview_frame.css` — the frame window's stylesheet.
 - The page's own Canvas 2D / WebGL gerber renderer (`GerberCanvas.tsx`,
   `gerberRender.ts`, `gerber_surface_gal.ts`, `render/gl/gerbview_gl.ts`) and
   its `toggles.ts` / `cursors.ts` are gone: the frame draws through

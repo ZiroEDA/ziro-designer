@@ -258,6 +258,6 @@ describe('GerbView', () => {
   it('the layers dock has no canvas-facing rule either', () => {
     // `.PaneBorder( false )` (gerbview_frame.cpp:170), and the dock already
     // renders the 5px sash that separates it from the toolbar.
-    expect(body(read('editors/gerbview/gerbview.css'), '.ze-gbr-dock')).not.toMatch(/border/);
+    expect(body(read('../../gerbview/gerbview_frame.css'), '.ze-gbr-dock')).not.toMatch(/border/);
   });
 });

@@ -58,7 +58,7 @@ import type { DIALOG_DRAW_LAYERS_SETTINGS } from '@ziroeda/gerbview/dialogs/dial
 import { DIALOG_MAP_GERBER_LAYERS_TO_PCB } from '@ziroeda/gerbview/dialogs/dialog_map_gerber_layers_to_pcb.js';
 import type { SELECT_LAYER_DIALOG } from '@ziroeda/gerbview/dialogs/dialog_select_one_pcb_layer.js';
 import { GERBER_LAYER_WIDGET_ID } from '@ziroeda/gerbview/widgets/gerbview_layer_widget.js';
-import { checkedSet } from '@ziroeda/designer/src/editors/gerbview/gerbview_settings_bridge.js';
+import { checkedSet } from '@ziroeda/gerbview/gerbview_settings_bridge.js';
 import { DCODE_SELECTION_BOX } from '@ziroeda/gerbview/widgets/dcode_selection_box.js';
 import { GBR_LAYER_BOX_SELECTOR } from '@ziroeda/gerbview/widgets/gbr_layer_box_selector.js';
 

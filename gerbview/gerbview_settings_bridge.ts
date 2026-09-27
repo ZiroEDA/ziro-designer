@@ -26,14 +26,11 @@ import { CROSS_HAIR_MODE } from '@ziroeda/common/gal/gal_display_options.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import { wxUpdateUIEvent } from '@ziroeda/common/wx/wx_event.js';
-import { GERBVIEW_ACTIONS } from '@ziroeda/gerbview/tools/gerbview_actions.js';
-import {
-  GERBVIEW_FIXED_LAYERS,
-  graphicLayerKey,
-} from '@ziroeda/gerbview/dialogs/panel_gerbview_color_settings.js';
-import type { GERBVIEW_FRAME } from '@ziroeda/gerbview/gerbview_frame.js';
-import type { GERBVIEW_SETTINGS } from '@ziroeda/gerbview/gerbview_settings.js';
-import type { GerbviewSettings } from '../../prefs/settings.js';
+import { GERBVIEW_ACTIONS } from './tools/gerbview_actions.js';
+import { GERBVIEW_FIXED_LAYERS, graphicLayerKey } from './dialogs/panel_gerbview_color_settings.js';
+import type { GERBVIEW_FRAME } from './gerbview_frame.js';
+import type { GERBVIEW_SETTINGS } from './gerbview_settings.js';
+import type { GerbviewSettings } from './gerbview_settings.js';
 
 /** `grid.style`'s stored integers (`common/settings/app_settings.cpp`): 0 dots, 1 lines, 2 crosses. */
 const GRID_STYLE: readonly GerbviewSettings['window']['grid']['style'][] = [

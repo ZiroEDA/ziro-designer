@@ -22,7 +22,7 @@ import {
   loadGerbviewColors,
   loadGerbviewSettings,
   storeGerbviewSettings,
-} from '@ziroeda/designer/src/editors/gerbview/gerbview_settings_bridge.js';
+} from '@ziroeda/gerbview/gerbview_settings_bridge.js';
 import { GERBVIEW_DEFAULTS, type GerbviewSettings } from '@ziroeda/designer/src/prefs/settings.js';
 
 const slice = (): GerbviewSettings => structuredClone(GERBVIEW_DEFAULTS);
