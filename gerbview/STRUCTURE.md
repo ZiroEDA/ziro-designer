@@ -17,15 +17,11 @@ Conventions carried over from `common/STRUCTURE.md`:
 
 ## Where the screens are, and why some are still in `designer/`
 
-`designer/src/editors/gerbview/` held the whole Gerber Viewer UI. A screen can
-come here only when everything it imports is in `common/`, `pcbnew/` or here:
+`designer/src/editors/gerbview/` held the whole Gerber Viewer UI. Every KiCad
+unit's code is here now; what stays in `designer/` is the page that hosts
+GERBVIEW_FRAME (`GerberViewer.tsx`, its settings bridge and `gerbview.css`)
+and the seam to the app's Preferences dialog (`prefs/index.tsx`), because
 `gerbview` must not import `designer` (the package arrow runs the other way).
-The ones that still read the app's own modules — `designer/src/prefs/settings`
-(`GERBVIEW_SETTINGS`' JSON slice), `prefs/useSettings`, `dialogs/prefs/types`
-(`PrefsContext`, the Preferences book's draft), `fs/*` (the file chooser),
-`ui/*` (the toolbar and hotkey glue), `render/gl/*` — stay until those move to
-`common/` (the same "still in `designer/`" row `common/STRUCTURE.md` keeps for
-`common/widgets`). Each such row says which import holds it.
 
 ## The 50 KiCad units
 
@@ -59,7 +55,7 @@ which); **n/a** (a browser cannot have it).
 | `gerber_draw_item` | here | `gerber_draw_item.ts`, `GetMsgPanelInfo` included |
 | `gerber_file_image` | here | `gerber_file_image.ts`; the members defined in `readgerb`, `rs274x`, `rs274d` and `rs274_read_XY_and_IJ_coordinates` are functions in those files taking `self`, which the class delegates to |
 | `gerber_file_image_list` | here | `gerber_file_image_list.ts` (`GERBER_FILE_IMAGE_LIST`, `sortFileExtension`, `sortZorder`) |
-| `gerbview` (+ `gerbview.h`) | here / waiting | `gerbview.ts`: `gerbview.h`'s enums and units. `KIFACE::CreateKiWindow`'s panel switch is `designer/.../prefs/index.ts` (waiting on `dialogs/prefs/types`) |
+| `gerbview` (+ `gerbview.h`) | here | `gerbview.ts`: `gerbview.h`'s enums and units, and `KIFACE::CreateKiWindow`'s panel half over `GBR_PREFS_CONTEXT` (the Grids and Toolbars pages are common's `PANEL_GRID_SETTINGS` / `PANEL_TOOLBAR_CUSTOMIZATION`, as `gerbview.cpp:82-111` constructs them). The frame half is the page's |
 | `gerbview_draw_panel_gal` | here | `gerbview_draw_panel_gal.ts` (`GERBVIEW_DRAW_PANEL_GAL`) on common's `EDA_DRAW_PANEL_GAL` / `OPENGL_GAL` / `VIEW` - the first frame hosted on the ported GAL. The page hands it its `<canvas>` (`designer/src/render/gal_window.ts`) |
 | `gerbview_frame` | here | `gerbview_frame.ts` (`GERBVIEW_FRAME`). The page, `designer/.../GerberViewer.tsx`, hosts it: the chrome, the dialogs behind `GERBVIEW_FRAME_HOST`, and `gerbview_settings_bridge.ts` between `gerbview.json` and `GERBVIEW_SETTINGS`. `setupUIConditions` is still `checkedSet` in that bridge rather than `EDITOR_CONDITIONS` |
 | `gerbview_id.h` | n/a | wx command ids; our menus and toolbars dispatch by action name |
@@ -83,9 +79,9 @@ which); **n/a** (a browser cannot have it).
 | `dialog_map_gerber_layers_to_pcb` | here | `dialogs/dialog_map_gerber_layers_to_pcb.ts` (`DIALOG_MAP_GERBER_LAYERS_TO_PCB`: the rows, the copper count, Store / Get Stored / Reset into `GERBVIEW_SETTINGS`, TransferDataFromWindow, and `findKnownGerbersLoaded`'s three tables behind the "Automatic Layer Assignment" question) + `_ui.tsx`, shown through `GERBVIEW_FRAME_HOST::MapGerberLayersToPcbDialog` from ExportToPcbnew. `initDialog` is awaited by the caller rather than run by the constructor, since its question is a promise. `mapGerberLayersToPcb` in the same file is ours, not upstream: the exporter tests still drive `ExportPcb` through it |
 | `dialog_print_gerbview` | here | `dialogs/dialog_print_gerbview.ts` (`DIALOG_PRINT_GERBVIEW`: the generic state, the two layer lists, the transfers, and `GERBVIEW_CONTROL::Print`, which upstream defines in this file) + `_ui.tsx` over `DIALOG_PRINT_GENERIC`'s view. Its quirks are kept: checks by layer index, 32 layers at most, nothing persisted |
 | `dialog_select_one_pcb_layer` | here | `dialogs/dialog_select_one_pcb_layer.ts` (`SELECT_LAYER_DIALOG`: the "Layer" wxRadioBox's list and TransferDataFromWindow) + `_ui.tsx`, shown through `GERBVIEW_FRAME_HOST::SelectLayerDialog`. `GERBVIEW_FRAME::SelectPCBLayer`, defined in this `.cpp` upstream, is on the frame in `gerbview_frame.ts` |
-| `panel_gerbview_color_settings` | here (engine half), `.tsx` waiting | `dialogs/panel_gerbview_color_settings.ts` (`m_validLayers`, `createSwatches`), reading its defaults from `common/settings/builtin_color_themes.ts` rather than `designer/.../gerberColors.ts`. The panel `designer/.../prefs/PanelGerbviewColorSettings.tsx` reads `dialogs/prefs/types`, `pcm/pcmStore`, `prefs/color_settings_list` |
-| `panel_gerbview_display_options` | here (engine half), `.tsx` waiting | `dialogs/panel_gerbview_display_options.ts`; `designer/.../prefs/PanelGerbviewDisplayOptions.tsx` reads `dialogs/prefs/types` |
-| `panel_gerbview_excellon_settings` | here (engine half), `.tsx` waiting | `dialogs/panel_gerbview_excellon_settings.ts`; `designer/.../prefs/PanelGerbviewExcellonSettings.tsx` reads `dialogs/prefs/types` |
+| `panel_gerbview_color_settings` | here | `dialogs/panel_gerbview_color_settings.ts` (`m_validLayers`, `createSwatches`, `ResetPanel`) + `_ui.tsx` over common's `PANEL_COLOR_SETTINGS` |
+| `panel_gerbview_display_options` | here | `dialogs/panel_gerbview_display_options.ts` (the Page Size table, the opacity range, `ResetPanel`) + `_ui.tsx` over common's `PANEL_GAL_OPTIONS` |
+| `panel_gerbview_excellon_settings` | here | `dialogs/panel_gerbview_excellon_settings.ts` (the choice tables, `ResetPanel`) + `_ui.tsx` |
 
 ### `navlib/` — 2 units: n/a
 
@@ -134,11 +130,9 @@ driver (`common/STRUCTURE.md` has `spacemouse` n/a for the same reason).
   `gerberRender.ts`, `gerber_surface_gal.ts`, `render/gl/gerbview_gl.ts`) and
   its `toggles.ts` / `cursors.ts` are gone: the frame draws through
   `GERBVIEW_DRAW_PANEL_GAL` on common's `OPENGL_GAL`.
-- `designer/.../prefs/index.ts` (`KIFACE::CreateKiWindow`'s panel switch),
-  `prefs/resets.ts` (each panel's `ResetPanel`), `prefs/PanelGerbviewGrids.tsx`
-  and `prefs/PanelGerbviewToolbars.tsx` (the shared `PANEL_GRID_SETTINGS` /
-  `PANEL_TOOLBAR_CUSTOMIZATION` as `gerbview.cpp` constructs them) — all
-  `gerbview.cpp`'s; they move with the panels.
+- `designer/.../prefs/index.tsx` — the seam to the app's Preferences dialog:
+  its page ids to `PANEL_GBR_*`, its working copies to `GBR_PREFS_CONTEXT`,
+  and the installed themes and action catalogue only the app holds.
 
 ## Divergences found while tabling
 

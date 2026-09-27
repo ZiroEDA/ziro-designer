@@ -175,12 +175,13 @@ describe('Preferences > Grids asks the frame, not a constant', () => {
     }
   });
 
-  it('all four Grids pages now read their own app’s stored unit', () => {
+  // GerbView's Grids page is gerbview.ts's CreateKiWindow now, and
+  // gerbview_prefs_grids.test.ts calls it and reads the unit it passes.
+  it('the three Grids pages here read their own app’s stored unit', () => {
     for (const [rel, expr] of [
       ['editors/symbol/prefs/PanelSymbolEditorGrids.tsx', 'symbolEditor.system.units'],
       ['editors/schematic/prefs/PanelEeschemaGrids.tsx', 'eeschema.system.units'],
       ['editors/drawingsheet/prefs/PanelPlEditorGrids.tsx', 'plEditor.system.units'],
-      ['editors/gerbview/prefs/PanelGerbviewGrids.tsx', 'gerbview.system.units'],
     ] as const) {
       expect(read(rel), rel).toContain(`units={toStatusUnits(${expr})}`);
     }

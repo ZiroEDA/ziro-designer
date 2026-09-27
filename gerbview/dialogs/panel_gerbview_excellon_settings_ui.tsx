@@ -48,7 +48,7 @@
  */
 import type { JSX } from 'react';
 import { Group, Radio, Sel } from '@ziroeda/common/wx/controls.js';
-import type { PrefsContext } from '../../../dialogs/prefs/types.js';
+import type { GBR_PREFS_CONTEXT } from '../gerbview.js';
 import {
   EXCELLON_DIGIT_CHOICES,
   EXCELLON_STRINGS,
@@ -58,9 +58,9 @@ import {
   unitOf,
   zeroFormatOf,
   zeroIsLeading,
-} from '@ziroeda/gerbview/dialogs/panel_gerbview_excellon_settings.js';
+} from './panel_gerbview_excellon_settings.js';
 
-export function PanelGerbviewExcellonSettings({ ctx }: { ctx: PrefsContext }): JSX.Element {
+export function PanelGerbviewExcellonSettings({ ctx }: { ctx: GBR_PREFS_CONTEXT }): JSX.Element {
   const { gerbview, upGbr } = ctx;
   const ex = gerbview.excellon_defaults;
 

@@ -167,7 +167,7 @@ describe('the choice is drawn live, because it now is', () => {
     ['schematic', 'editors/schematic/prefs/PanelEeschemaDisplayOptions.tsx'],
     ['symbol', 'editors/symbol/prefs/PanelSymbolEditorDisplayOptions.tsx'],
     ['drawing sheet', 'editors/drawingsheet/prefs/PanelPlEditorDisplayOptions.tsx'],
-    ['gerbview', 'editors/gerbview/prefs/PanelGerbviewDisplayOptions.tsx'],
+    ['gerbview', '../../gerbview/dialogs/panel_gerbview_display_options_ui.tsx'],
   ])('%s embeds the shared PANEL_GAL_OPTIONS over its own window slice', (_name, rel) => {
     const src = read(rel);
     expect(src).toContain('<PanelGalOptions');

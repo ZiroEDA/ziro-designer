@@ -187,14 +187,18 @@ const OWNER_SOURCES: Record<string, string> = {
   // the Footprint Editor is its own bundle, so it is its own factory.
   footprint: 'editors/footprint/prefs/index.ts',
   pcb: 'editors/pcb/prefs/index.ts',
-  gerbview: 'editors/gerbview/prefs/index.ts',
+  gerbview: 'editors/gerbview/prefs/index.tsx',
   drawingsheet: 'editors/drawingsheet/prefs/index.ts',
 };
 
 describe('every page id is constructed by its owner', () => {
   it.each(Object.entries(OWNER_SOURCES))('%s constructs exactly its own ids', (owner, rel) => {
     const src = read(rel);
-    const cases = [...src.matchAll(/case '([a-z0-9-]+)':/g)].map((m) => m[1]).sort();
+    // A `case 'id':` in the factory's switch, or an id's row in a table that
+    // maps page ids to KiCad's PANEL_* class ids (gerbview's CLASS_ID).
+    const cases = [...src.matchAll(/case '([a-z0-9-]+)':|^\s+'([a-z0-9-]+)': FRAME_T\./gm)]
+      .map((m) => m[1] ?? m[2])
+      .sort();
     const mine = PAGES.filter((p) => p.owner === owner)
       .map((p) => p.id as string)
       .sort();
@@ -204,7 +208,9 @@ describe('every page id is constructed by its owner', () => {
   it('leaves no page id unowned by any factory', () => {
     const constructed = new Set(
       Object.values(OWNER_SOURCES).flatMap((rel) =>
-        [...read(rel).matchAll(/case '([a-z0-9-]+)':/g)].map((m) => m[1] as string),
+        [...read(rel).matchAll(/case '([a-z0-9-]+)':|^\s+'([a-z0-9-]+)': FRAME_T\./gm)].map(
+          (m) => (m[1] ?? m[2]) as string,
+        ),
       ),
     );
     for (const p of PAGES) if (p.id !== null) expect(constructed.has(p.id), p.id).toBe(true);

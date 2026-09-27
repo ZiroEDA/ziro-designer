@@ -85,13 +85,13 @@ import {
   resetSymbolEditorGrids,
   resetSymbolEditorToolbars,
 } from '@ziroeda/designer/src/editors/symbol/prefs/resets.js';
-import {
-  resetGerbviewColorSettings,
-  resetGerbviewDisplayOptions,
-  resetGerbviewExcellonSettings,
-  resetGerbviewGrids,
-  resetGerbviewToolbars,
-} from '@ziroeda/designer/src/editors/gerbview/prefs/resets.js';
+import { createPrefsPanel as createGerbviewPrefsPanel } from '@ziroeda/designer/src/editors/gerbview/prefs/index.js';
+
+/** A gerbview page's ResetPanel, through the KIFACE switch that makes the page. */
+const gbrReset =
+  (aId: 'gbr-colors' | 'gbr-display' | 'gbr-grids' | 'gbr-excellon' | 'gbr-toolbars') =>
+  (aCtx: PrefsContext): void =>
+    createGerbviewPrefsPanel(aId)!.reset!(aCtx);
 import {
   resetPlEditorColorSettings,
   resetPlEditorDisplayOptions,
@@ -401,7 +401,7 @@ const SLICES: Partial<Record<PrefsPageId, readonly string[]>> = {
   // `bagLeaves`). Checked by "the Colors pages share one file, one namespace
   // each" at the bottom of this file instead — a page skipped here without a
   // test of its own would be a page nobody checks.
-  // PanelGerbviewGrids.tsx — the same PANEL_GRID_SETTINGS the schematic's and
+  // gerbview.ts's Grids page — the same PANEL_GRID_SETTINGS the schematic's and
   // the Drawing Sheet Editor's Grids pages are, so the same slice over this
   // editor's settings object. `overrides` is in it even though FRAME_GERBER
   // draws no override row: the panel assigns the whole `m_grids` block back
@@ -451,11 +451,11 @@ const RESETS: Partial<Record<PrefsPageId, (ctx: PrefsContext) => void>> = {
   'ds-grids': resetPlEditorGrids,
   'ds-colors': resetPlEditorColorSettings,
   'ds-toolbars': resetPlEditorToolbars,
-  'gbr-colors': resetGerbviewColorSettings,
-  'gbr-display': resetGerbviewDisplayOptions,
-  'gbr-grids': resetGerbviewGrids,
-  'gbr-excellon': resetGerbviewExcellonSettings,
-  'gbr-toolbars': resetGerbviewToolbars,
+  'gbr-colors': gbrReset('gbr-colors'),
+  'gbr-display': gbrReset('gbr-display'),
+  'gbr-grids': gbrReset('gbr-grids'),
+  'gbr-excellon': gbrReset('gbr-excellon'),
+  'gbr-toolbars': gbrReset('gbr-toolbars'),
 };
 
 /**
@@ -925,7 +925,7 @@ describe('the Colors pages share one file, one namespace each', () => {
       'gerbview.layer3': '#ffff00',
     };
 
-    resetGerbviewColorSettings(makeCtx(bag));
+    gbrReset('gbr-colors')(makeCtx(bag));
 
     expect(bag.userColors).toEqual({ wire: '#ff0000', bus: '#00ff00' });
   });
@@ -936,7 +936,7 @@ describe('the Colors pages share one file, one namespace each', () => {
     // which is the same state — the fallback IS the default.
     const bag = freshBag();
     bag.userColors = { wire: '#ff0000' };
-    resetGerbviewColorSettings(makeCtx(bag));
+    gbrReset('gbr-colors')(makeCtx(bag));
     expect(bag.userColors).toEqual({ wire: '#ff0000' });
   });
 
@@ -1003,7 +1003,7 @@ describe('a Colors reset clears its own namespace and no other', () => {
 
   it('the Gerber Viewer page keeps the schematic’s', () => {
     const { ctx, get } = colourCtx();
-    resetGerbviewColorSettings(ctx);
+    gbrReset('gbr-colors')(ctx);
     expect(Object.keys(get()).sort()).toEqual(['bus', 'wire']);
   });
 });

@@ -14,6 +14,10 @@
  * number is `excellon_defaults.h`'s.
  */
 
+import { resetKeys } from '@ziroeda/common/settings/json_settings.js';
+import type { GBR_PREFS_CONTEXT } from '../gerbview.js';
+import { GERBVIEW_DEFAULTS } from '../gerbview_settings.js';
+
 /**
  * `File units:` — `m_rbInches` then `m_rbMM` (`:37-44`), in that order, with
  * `wxRB_GROUP` on the first. The stored value is `m_UnitsMM`, so the labels and
@@ -99,3 +103,28 @@ export const EXCELLON_STRINGS = {
   /** `m_staticText8` / `m_staticText9`, the separator between the two choices. */
   separator: ':',
 } as const;
+
+/**
+ * `PANEL_GERBVIEW_EXCELLON_SETTINGS::ResetPanel`
+ * (`gerbview/dialogs/panel_gerbview_excellon_settings.cpp:72-76`):
+ *
+ *     EXCELLON_DEFAULTS defaults;
+ *     applySettingsToPanel( defaults );
+ *
+ * — a DEFAULT-CONSTRUCTED `EXCELLON_DEFAULTS`, which runs `ResetToDefaults()`
+ * in its constructor (`gerbview/excellon_defaults.h:49`). So the six values go
+ * back to that struct's own, not to whatever is in `gerbview.json`, and they
+ * are the whole slice: this page owns nothing else on the settings object.
+ */
+export function resetGerbviewExcellonSettings(ctx: GBR_PREFS_CONTEXT): void {
+  ctx.upGbr((s) => {
+    resetKeys(s.excellon_defaults, GERBVIEW_DEFAULTS.excellon_defaults, [
+      'unit_mm',
+      'lz_format',
+      'mm_integer_len',
+      'mm_mantissa_len',
+      'inch_integer_len',
+      'inch_mantissa_len',
+    ]);
+  });
+}
