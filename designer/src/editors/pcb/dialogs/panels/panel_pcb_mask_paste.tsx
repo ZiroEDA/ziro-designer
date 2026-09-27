@@ -23,13 +23,21 @@
  * are why this page read smaller and heavier than the rest of the dialog.
  */
 
-import type { JSX } from 'react';
+import { useState, type JSX } from 'react';
 // Yaru's own `dialog-warning.png`, vendored — `wxArtProvider::GetBitmap` asks
 // the desktop icon theme, not KiCad's bitmaps. See `common/widgets/wx_infobar.tsx` for
 // the measurement that settled that.
 import warningIcon from '@ziroeda/bitmaps_png/sources/theme/dialog-warning.png';
 import { Check, Group, Num } from '@ziroeda/common/wx/controls.js';
 import type { MaskPaste } from '../../board_settings.js';
+import { pcbIUScale, pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
+import { MARGIN_OFFSET_BINDER } from '@ziroeda/common/widgets/margin_offset_binder.js';
+
+/** `m_pasteMarginLabel->SetToolTip( … )` (panel_setup_mask_and_paste.cpp:47-51). */
+const PASTE_MARGIN_TOOLTIP =
+  'Solder paste clearance relative to pad size.\n' +
+  'Enter an absolute value (e.g., -0.1mm), a percentage (e.g., -5%), or both (e.g., -0.1mm - 5%).\n' +
+  'This value can be superseded by local values for a footprint or a pad.';
 
 // The data model lives in board_settings.ts (KiCad's data/UI split);
 // re-exported so panel users keep importing from the panel module.
@@ -43,6 +51,23 @@ interface Props {
 export function PanelPcbMaskPaste({ value, onChange }: Props): JSX.Element {
   const set = <K extends keyof MaskPaste>(k: K, v: MaskPaste[K]): void =>
     onChange({ ...value, [k]: v });
+
+  // TransferDataToWindow: `m_pasteMargin.SetOffsetValue( m_SolderPasteMargin )`
+  // and `SetRatioValue( m_SolderPasteMarginRatio )`.
+  const [pasteBinder] = useState(() => {
+    const binder = new MARGIN_OFFSET_BINDER(pcbIUScale, 'mm');
+    binder.SetOffsetValue(pcbMmToIU(value.pasteClearanceMM));
+    binder.SetRatioValue(value.pasteRelativePct / 100);
+    return binder;
+  });
+  const [pasteText, setPasteText] = useState(() => pasteBinder.GetText());
+  // TransferDataFromWindow: `GetOffsetValue().value_or( 0 )`, and the ratio.
+  const commitPaste = (): void =>
+    onChange({
+      ...value,
+      pasteClearanceMM: pcbIuToMM(pasteBinder.GetOffsetValue() ?? 0),
+      pasteRelativePct: (pasteBinder.GetRatioValue() ?? 0) * 100,
+    });
 
   return (
     <div className="ze-pref-page-natural">
@@ -118,28 +143,37 @@ export function PanelPcbMaskPaste({ value, onChange }: Props): JSX.Element {
       </Group>
 
       <Group title="Solder Paste Settings">
-        <Num
-          label="Solder paste clearance:"
-          unit="mm"
-          spin={false}
-          value={value.pasteClearanceMM}
-          onChange={(n) => set('pasteClearanceMM', n)}
-        />
-        <Num
-          label="Solder paste relative clearance:"
-          unit="%"
-          spin={false}
-          value={value.pasteRelativePct}
-          onChange={(n) => set('pasteRelativePct', n)}
-        />
+        {/* KiCad 10 enters both halves in ONE field through a
+            MARGIN_OFFSET_BINDER and hides the old ratio row
+            (panel_setup_mask_and_paste.cpp:38-56); the binder blanks the
+            unit label, since the text carries its own. */}
+        <label className="ze-pref-row" title={PASTE_MARGIN_TOOLTIP}>
+          <span className="lbl">Solder paste clearance:</span>
+          <input
+            type="text"
+            className="ze-search"
+            value={pasteText}
+            onChange={(e) => {
+              pasteBinder.onTextChanged(e.target.value);
+              setPasteText(e.target.value);
+              commitPaste();
+            }}
+            onBlur={() => {
+              pasteBinder.onKillFocus();
+              setPasteText(pasteBinder.GetText());
+              commitPaste();
+            }}
+            onKeyDown={(e) => e.stopPropagation()}
+          />
+        </label>
       </Group>
 
       {/* The one SetFont on the page that changes anything:
           `KIUI::GetInfoFont( this ).Italic()`. */}
-      <div className="ze-pref-help">
-        Note: Solder paste clearances (absolute and relative) are added to determine the final
-        clearance.
-      </div>
+      {/* `m_staticTextInfoPaste`: wxEmptyString in 10.0.5's base, and
+          nothing sets it. The "Note: ... are added" line was 9.x's, when
+          the two halves were separate fields. */}
+      <div className="ze-pref-help" />
     </div>
   );
 }
