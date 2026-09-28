@@ -149,7 +149,8 @@ class Folder<T> {
   }
 }
 
-const paramsOf = (via: PcbVia): TeardropParams => via.teardrops ?? teardropParamsView(new TEARDROP_PARAMETERS());
+const paramsOf = (via: PcbVia): TeardropParams =>
+  via.teardrops ?? teardropParamsView(new TEARDROP_PARAMETERS());
 
 /**
  * DIALOG_TRACK_VIA_PROPERTIES::TransferDataToWindow: seed the form from the
