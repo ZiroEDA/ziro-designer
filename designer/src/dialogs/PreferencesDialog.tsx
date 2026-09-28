@@ -7,7 +7,6 @@ import {
   settings,
   TOOLBAR_APPS,
   type CommonSettings,
-  type EeschemaSettings,
   type GerbviewSettings,
   type PcbnewSettings,
   type PlEditorSettings,
@@ -18,6 +17,7 @@ import {
   type UserColorTheme,
   type Viewer3dSettings,
 } from '../prefs/settings.js';
+import { type EeschemaSettings } from '@ziroeda/eeschema/eeschema_settings.js';
 import type { PrefsTransferPrompt } from './prefs/types.js';
 import type { ToolbarSettings } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import { MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';

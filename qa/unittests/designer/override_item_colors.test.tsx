@@ -30,8 +30,8 @@ import { renderSchematic, setVectorText } from '@ziroeda/eeschema/sch_painter.js
 import { DEFAULT_RENDER_OPTS } from '@ziroeda/eeschema/sch_render_settings.js';
 import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import { PanelEeschemaColorSettings } from '@ziroeda/designer/src/editors/schematic/prefs/PanelEeschemaColorSettings.js';
-import { EESCHEMA_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
-import type { EeschemaSettings } from '@ziroeda/designer/src/prefs/settings.js';
+import { EESCHEMA_DEFAULTS } from '@ziroeda/eeschema/eeschema_settings.js';
+import type { EeschemaSettings } from '@ziroeda/eeschema/eeschema_settings.js';
 import type { PrefsContext } from '@ziroeda/designer/src/dialogs/prefs/types.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import { parse } from '@ziroeda/sexpr';

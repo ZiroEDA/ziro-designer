@@ -23,7 +23,7 @@ import { readSchematic } from '@ziroeda/eeschema';
 import { renderSchematic, setVectorText } from '@ziroeda/eeschema/sch_painter.js';
 import { DEFAULT_RENDER_OPTS } from '@ziroeda/eeschema/sch_render_settings.js';
 import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
-import { EESCHEMA_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
+import { EESCHEMA_DEFAULTS } from '@ziroeda/eeschema/eeschema_settings.js';
 
 /** Records every colour that reached the canvas. */
 function spy(): { colors: Set<string>; ctx: CanvasRenderingContext2D } {

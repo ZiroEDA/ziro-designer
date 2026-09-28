@@ -40,11 +40,11 @@ import {
 } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import { GRID_SNAP_CHOICES } from '@ziroeda/common/dialogs/panel_gal_options.js';
 import {
-  EESCHEMA_DEFAULTS,
   GERBVIEW_DEFAULTS,
   PL_EDITOR_DEFAULTS,
   SYMBOL_EDITOR_DEFAULTS,
 } from '@ziroeda/designer/src/prefs/settings.js';
+import { EESCHEMA_DEFAULTS } from '@ziroeda/eeschema/eeschema_settings.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');

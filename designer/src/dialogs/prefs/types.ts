@@ -30,7 +30,6 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { HotkeyOverrides } from '../../editors/schematic/hotkey_bindings.js';
 import type {
   CommonSettings,
-  EeschemaSettings,
   GerbviewSettings,
   PcbnewSettings,
   PlEditorSettings,
@@ -41,6 +40,7 @@ import type {
   UserColorTheme,
   Viewer3dSettings,
 } from '../../prefs/settings.js';
+import type { EeschemaSettings } from '@ziroeda/eeschema/eeschema_settings.js';
 import type { ToolbarSettings } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import type { MAINTENANCE_SETTINGS_MANAGER } from '@ziroeda/common/settings/common_settings.js';
 

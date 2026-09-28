@@ -30,7 +30,7 @@
  * here calls the module to work out what it should have said.
  */
 import { describe, expect, it } from 'vitest';
-import { EESCHEMA_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
+import { EESCHEMA_DEFAULTS } from '@ziroeda/eeschema/eeschema_settings.js';
 
 describe('grid overrides are enabled by default', () => {
   it('eeschema opens with the overrides on', () => {

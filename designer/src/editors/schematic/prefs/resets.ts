@@ -17,7 +17,7 @@
  * is a plain `wxPanel` (`eeschema/dialogs/panel_template_fieldnames_base.h:36`),
  * so upstream greys the button out on that page.
  */
-import { EESCHEMA_DEFAULTS } from '../../../prefs/settings.js';
+import { EESCHEMA_DEFAULTS } from '@ziroeda/eeschema/eeschema_settings.js';
 import { resetKeys } from '@ziroeda/common/settings/json_settings.js';
 import { MOUSE_DEFAULTS } from './PanelSimulatorPreferences.js';
 import {

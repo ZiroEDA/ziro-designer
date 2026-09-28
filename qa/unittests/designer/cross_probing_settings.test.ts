@@ -30,11 +30,8 @@ import {
 } from '@ziroeda/pcbnew';
 import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
-import {
-  EESCHEMA_DEFAULTS,
-  PCBNEW_DEFAULTS,
-  deepMerge,
-} from '@ziroeda/designer/src/prefs/settings.js';
+import { PCBNEW_DEFAULTS, deepMerge } from '@ziroeda/designer/src/prefs/settings.js';
+import { EESCHEMA_DEFAULTS } from '@ziroeda/eeschema/eeschema_settings.js';
 import { pcbnewSettingsOf } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 
 const BOARD = `(kicad_pcb (version 20241229) (generator "pcbnew")
