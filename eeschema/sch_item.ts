@@ -15,8 +15,7 @@
  * `sch_connection.ts` sets when it loads (a value import of it here would be a module
  * cycle: it needs `SCH_SHEET_PATH`, whose module extends `SCH_ITEM`).
  *
- * Not here (pending, marked in place): `CONNECTION_GRAPH::RemoveItem` in the destructor,
- * `GetMsgPanelInfo`, `Plot`, the `SCH_ITEM_DESC` property registration and
+ * Not here (pending, marked in place): `GetMsgPanelInfo`, `Plot`, the `SCH_ITEM_DESC` property registration and
  * `EESCHEMA_SETTINGS`' default font (the render settings' font or
  * `KICAD_FONT_NAME` is used).
  */
@@ -265,13 +264,21 @@ export abstract class SCH_ITEM extends EDA_ITEM {
   }
 
   /**
-   * `~SCH_ITEM()`: drop the connections and remove this item from any rule areas that
-   * contain it. The connection graph's `RemoveItem` is not called yet (see the header).
+   * `~SCH_ITEM()`: drop the connections, remove this item from any rule areas that
+   * contain it and from the schematic's connection graph.  (`SCHEMATIC::m_IsSchematicExists`
+   * guards a destructor running after the schematic's; a JS object outlives nothing.)
    */
   Destroy(): void {
+    this.m_connection_map.clear();
+
+    // Remove this item from any rule areas that contain it
     for (const ruleArea of this.m_rule_areas_cache) ruleArea.RemoveItem(this);
 
-    this.m_connection_map.clear();
+    // Do not try to modify SCHEMATIC::ConnectionGraph()
+    // if the schematic does not exist
+    const sch = this.Schematic();
+
+    if (sch !== null) sch.ConnectionGraph().RemoveItem(this);
   }
 
   override GetClass(): string {

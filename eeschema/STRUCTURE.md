@@ -652,3 +652,12 @@ sessions' concurrent SCH_* ports).
   the tree for lines only (same answer; `EE_RTREE` boxes every item per query,
   which made the 40-second `video` design take 3). Root match after: 62/83
   (the root grew with other stages in between).
+- `sch_commit.ts` (`SCH_COMMIT`), over `common/commit.ts`' `COMMIT`. The frame,
+  view and selection tool are reached through the tool manager as upstream
+  does, each optional; what the commit calls on them is spelt out as three
+  small interfaces (`SCH_EDIT_FRAME_FOR_COMMIT`, `SYMBOL_EDIT_FRAME_FOR_COMMIT`,
+  `SCH_SELECTION_TOOL_FOR_COMMIT`), since neither frame is a live class yet.
+  `SCHEMATIC` gained `ConnectionGraph()`, `GetNetClassAssignmentCandidates()`
+  and `RecalculateConnections()` - always the whole-graph rebuild (upstream's
+  incremental arm is an optimisation of the same answer; `CleanUp` is not on
+  the live model yet) - and `SCH_ITEM::Destroy` now leaves the graph.
