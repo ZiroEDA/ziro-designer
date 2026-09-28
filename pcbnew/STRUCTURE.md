@@ -214,34 +214,61 @@ imports (no `PCBNEW_APP` needed yet — none of them touch the program):
 `common/dialog_shim.tsx`, the first time anything in this package needed to
 type-check a `.tsx` transitively.
 
-Still in `designer/`, and why:
+**Stage A done (09-28).** ~50 of the ~61 sibling modules `PcbEditor.tsx` and
+`FootprintEditor.tsx` named by relative import — the ones with no `designer/`
+dependency of their own — moved into `pcbnew/` under KiCad's names where one
+exists: `dialogs/*.tsx` beside the `.ts` logic module already there (a `_ui`
+suffix where the base name collided, the same split `cvpcb_mainframe.ts` /
+`_ui.tsx` already uses — `dialog_pad_properties.ts` + the new
+`dialog_pad_properties_ui.tsx`); the Board Setup panels to
+`dialogs/panel_setup_*.tsx` (KiCad's own file) or
+`board_stackup_manager/panel_board_finish.tsx`; `tuning_profile_calc.ts` to
+`length_delay_calculation/`; `inspect_selection.ts` /
+`pcb_context_selection.ts` / `point_edit_canvas.ts` to `tools/`, named after
+the KiCad tool file they are a fragment of (`board_inspection_tool.ts`,
+`pcb_selection_tool.ts`) or the engine they companion (`pcb_point_editor_canvas.ts`
+next to `pcb_point_editor.ts`). `board_settings.ts` moved too — its only
+`designer/` coupling was three types re-exported from `schematic_settings.ts`
+but actually defined in `common/` already (`TextVar` in
+`common/project/project_file.ts`, `EmbeddedFilesData`/`defaultEmbeddedFiles`
+in `common/embedded_files.ts`); reading `common/` directly unblocked it and,
+with it, all 11 Board Setup panels that import types from it.
+`appearance_nets.ts`, `array_settings.ts`, `frame_title.ts`, `group_box.ts`,
+`image_cache.ts`, `netclass_resolve.ts`, `pcb_grid.ts`, `pcb_unit_binder.ts`,
+`picker_snap.ts`, `project_settings.ts`, `document_extents.ts`,
+`dimension_tools.ts`, `outset_settings.ts` have no KiCad file of their own;
+kept our name. `pcbnew/package.json` gained `@ziroeda/bitmaps_png` (three
+moved panels use its icons; nothing in the package had needed it before).
 
-- `PcbEditor.tsx` (the window, 12.5k lines) — its `.ts` half moved (above), but
-  the window itself names 61 distinct sibling modules by relative import.
-  About half are designer app plumbing that belongs behind a `PCBNEW_APP`
-  (`PreferencesDialog`, `HomeLink`, `SaveAsDialog`, `new_project`, `pgm_app`,
-  `prefs/settings`, `render/gl/scene`, `font/outline_fonts`,
-  `widgets/appearance_controls`/`appearance_layers`/`footprint_list`,
-  `ui/useToolbarEntries`, `ui/view_controls`, `Viewer3DFrame`); the rest —
-  `appearance_nets.ts`, `array_settings.ts`, `board_settings.ts`, `cursors.ts`,
-  ~25 files under `dialogs/`, `dimension_tools.ts`, `document_extents.ts`,
-  `image_cache.ts`, `inspect_selection.ts`, `model_cache.ts`,
-  `netclass_resolve.ts`, `netlist_from_schematic.ts`, `pcb_context_selection.ts`,
-  `pcb_grid.ts`, `PcbPropertiesPanel.tsx`, `picker_snap.ts`,
-  `point_edit_canvas.ts`, `preload.ts`, `project_settings.ts` — are pcbnew
-  domain code with no app dependency of their own, and would need to move into
-  `pcbnew/` alongside the window for the package boundary to hold (a package
-  here may not import `designer/`, even transitively through a sibling that
-  stayed behind). That is one `PCBNEW_APP` interface plus ~25 file moves, each
-  wanting its own typecheck + test pass — the `CVPCB_APP` / `PL_EDITOR_APP`
-  design task, sized up. Left for a dedicated multi-stage pass; this stage only
-  freed the `.ts` half that was blocking it.
-- `FootprintEditor.tsx` — clean, but its window pulls in `prefs/settings.ts`,
-  `dialogs/PreferencesDialog.tsx`, `ui/HomeLink.tsx`, `fs/OpenFileDialog.ts`
-  and three more app-level `designer/` modules. Moving it is the `PCBNEW_APP`
-  design task (`CVPCB_APP` / `PL_EDITOR_APP`'s size), not a file move; left for
-  a dedicated pass once `pcb_edit_frame.ts` is free too, so both frames get one
-  `PCBNEW_APP` together.
+Not moved, and why:
+
+- `PcbEditor.tsx` itself (12.5k lines) and `FootprintEditor.tsx` (2.4k lines)
+  — the windows. Roughly half of what each names by relative import is
+  designer app plumbing (`PreferencesDialog`, `HomeLink`, `SaveAsDialog`,
+  `new_project`, `pgm_app`, `prefs/settings`, `render/gl/scene`,
+  `font/outline_fonts`, `widgets/appearance_controls`/`appearance_layers`/
+  `footprint_list`, `ui/useToolbarEntries`, `ui/view_controls`,
+  `Viewer3DFrame`) that has to arrive through a `PCBNEW_APP`, the
+  `CVPCB_APP` / `PL_EDITOR_APP` design task, still to do (Stage B/C).
+- `viewer3d_cache_shim.ts` — moved and reverted: its one `designer/` import,
+  `model_cache.ts`, itself needs `cloud/blobStore.ts` + `home/idb_open.ts` +
+  `home/local_vault.ts`, real app storage plumbing for a `PCBNEW_APP`, not a
+  plain move.
+- `panel_pcb_severities.tsx` — dead code, not moved:
+  `common/dialogs/panel_setup_severities.tsx` is already the shared,
+  deduplicated severities panel (its own header says so — "we had two
+  copies... this is the one"), but `dialog_board_setup.tsx` still imports the
+  stale local copy instead. A behaviour fix, not a move; still open.
+- `dialog_plot_pcb.tsx`, `dialog_track_via_properties.tsx` — had another
+  agent's uncommitted hunks when Stage A ran; skipped rather than risk
+  carrying them. Worth a second pass once that work lands.
+- `widgets/fp_tree_model_adapter.ts` (`fp_tree_model_adapter`) — needs
+  `designer/src/widgets/lib_table_descriptions.ts`, which the symbol chooser
+  also imports; that data table belongs in `common/` first (central-value
+  rule), out of scope here.
+- `dialogs/footprint_chooser_frame.tsx` (`footprint_chooser_frame`) — chains
+  into `widgets/panel_footprint_chooser.tsx`, `widgets/footprint_preview_3d.tsx`,
+  `Viewer3DFrame.tsx` and `designer/src/widgets/footprint_list.ts`; same story.
 - `widgets/fp_tree_model_adapter.ts` (`fp_tree_model_adapter`) — needs
   `designer/src/widgets/lib_table_descriptions.ts`, which the symbol chooser
   also imports; that data table belongs in `common/` first (central-value
