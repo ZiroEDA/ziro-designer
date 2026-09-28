@@ -45,7 +45,11 @@ describe('the document editors use the chooser, not the OS picker', () => {
     // file,                                        kind it asks for,  and why
     ['editors/drawingsheet/DrawingSheetEditor.tsx', 'templates', 'GetUserTemplatesPath'],
     ['editors/symbol/SymbolEditor.tsx', 'symbols', 'GetDefaultUserSymbolsPath'],
-    ['editors/footprint/FootprintEditor.tsx', 'footprints', 'GetDefaultUserFootprintsPath'],
+    [
+      'editors/footprint/footprint_edit_frame_app.tsx',
+      'footprints',
+      'GetDefaultUserFootprintsPath',
+    ],
   ];
 
   /** Every `<OpenFileDialog …/>` and `<SaveAsDialog …/>` element in a file. */

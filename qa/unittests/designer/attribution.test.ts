@@ -97,7 +97,7 @@ describe('in-app attribution', () => {
     for (const f of [
       'designer/src/editors/pcb/PcbEditor.tsx',
       'designer/src/editors/symbol/SymbolEditor.tsx',
-      'designer/src/editors/footprint/FootprintEditor.tsx',
+      'pcbnew/footprint_edit_frame_ui.tsx',
       'designer/src/home/HomePage.tsx',
     ]) {
       expect(read(f)).toContain('ShowAboutDialog');
@@ -108,7 +108,7 @@ describe('in-app attribution', () => {
     for (const f of [
       'designer/src/editors/pcb/PcbEditor.tsx',
       'designer/src/editors/symbol/SymbolEditor.tsx',
-      'designer/src/editors/footprint/FootprintEditor.tsx',
+      'pcbnew/footprint_edit_frame_ui.tsx',
     ]) {
       expect(read(f)).not.toMatch(/About [^']*', action: \(\) => \{\}/);
     }

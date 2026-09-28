@@ -90,7 +90,7 @@ describe('the footprint canvas gates on the renamed id', () => {
    * the box-select, the cursor and the tool-wants-cursor flag on it.
    */
   const canvas = readFileSync(join(SRC, '../../pcbnew/pcb_draw_panel_gal_ui.tsx'), 'utf8');
-  const editor = readFileSync(join(SRC, 'editors/footprint/FootprintEditor.tsx'), 'utf8');
+  const editor = readFileSync(join(SRC, '../../pcbnew/footprint_edit_frame_ui.tsx'), 'utf8');
 
   it('compares against selectSetRect, never the bare select', () => {
     expect(canvas).toContain("'selectSetRect'");

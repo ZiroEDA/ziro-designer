@@ -87,7 +87,9 @@ const SymbolEditor = lazy(() =>
   import('./editors/symbol/SymbolEditor.js').then((m) => ({ default: m.SymbolEditor })),
 );
 const FootprintEditor = lazy(() =>
-  import('./editors/footprint/FootprintEditor.js').then((m) => ({ default: m.FootprintEditor })),
+  import('./editors/footprint/footprint_edit_frame_app.js').then((m) => ({
+    default: m.FootprintEditor,
+  })),
 );
 const CalculatorTools = lazy(() =>
   import('./editors/calculator/CalculatorTools.js').then((m) => ({ default: m.CalculatorTools })),
@@ -135,7 +137,7 @@ function prefetchEditors(): () => void {
     () => import('./editors/schematic/SchematicEditor.js'),
     () => import('./editors/pcb/PcbEditor.js'),
     () => import('./editors/symbol/SymbolEditor.js'),
-    () => import('./editors/footprint/FootprintEditor.js'),
+    () => import('./editors/footprint/footprint_edit_frame_app.js'),
   ];
   let cancelled = false;
   let i = 0;

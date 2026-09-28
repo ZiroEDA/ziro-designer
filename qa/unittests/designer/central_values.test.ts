@@ -195,7 +195,12 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // its appearance_layers.ts/appearance_objects.ts/appearance_presets.ts
   // siblings) moved to pcbnew/widgets/, which this scanner does not walk.
   // RESCANNED from this tree.
-  'editors/footprint': { colours: 4, metrics: 5 },
+  // 4/5 -> 0/0 (pcbnew stage C): FootprintEditor.tsx itself moved to
+  // pcbnew/footprint_edit_frame_ui.tsx, and pcbnew/ is counted under
+  // `editors/pcb`, so its four colours and five metrics are on that row now.
+  // What is left here is the thin app wrapper, footprint_edit_frame_app.tsx,
+  // which states none.
+  'editors/footprint': { colours: 0, metrics: 0 },
   // 1 -> 0 colours: gerberColors.ts, which nothing in the app read, left for
   // qa as the test-side transcription of s_defaultTheme (09-27).
   'editors/gerbview': { colours: 0, metrics: 4 },
@@ -309,7 +314,9 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // earlier drops (26 -> 17 colours, 1138 -> 1041 metrics) were sites carried
   // OUT of the scan by the file-structure move, not fixed; 141 is 44 plus
   // exactly the 97 that move removed from view.
-  'editors/pcb': { colours: 24, metrics: 141 },
+  // 24/141 -> 28/146 (pcbnew stage C): the Footprint Editor window's 4/5,
+  // moved in from `editors/footprint` (see that row) - moved, not added.
+  'editors/pcb': { colours: 28, metrics: 146 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`

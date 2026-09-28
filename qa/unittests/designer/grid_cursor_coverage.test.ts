@@ -159,13 +159,13 @@ describe('shared grid + crosshair', () => {
     // `view->SetLayerVisible( LAYER_GRID, … )` (:1420-1432). Unchecking Grid
     // there hides it in the footprint editor exactly as in the PCB editor,
     // where `objects.grid && toggles.has('toggleGrid')` was already the rule.
-    expect(read('editors/footprint/FootprintEditor.tsx')).toMatch(
+    expect(read('../../pcbnew/footprint_edit_frame_ui.tsx')).toMatch(
       /showGrid=\{objects\.grid && toggles\.has\('toggleGrid'\)\}/,
     );
   });
 
   it('the footprint grid combo is live and reads the STORED grid list', () => {
-    const src = read('editors/footprint/FootprintEditor.tsx');
+    const src = read('../../pcbnew/footprint_edit_frame_ui.tsx');
     // It used to be `<select className="ze-select" disabled title="Grid">` with
     // one hardcoded `Grid: 0.635 mm (25 mils)` option.
     expect(src).not.toMatch(/disabled title="Grid"/);

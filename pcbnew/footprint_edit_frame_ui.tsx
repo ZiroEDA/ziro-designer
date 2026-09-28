@@ -4,7 +4,7 @@
 import { parse } from '@ziroeda/sexpr';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
-import { FOOTPRINT_EDIT_FRAME } from '@ziroeda/pcbnew/footprint_edit_frame.js';
+import { FOOTPRINT_EDIT_FRAME } from './footprint_edit_frame.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import { mmToIU, pcbIuToMM, PCB_IU_PER_MM, SCH_IU_PER_MM } from '@ziroeda/common';
 import {
@@ -16,15 +16,12 @@ import {
   footprintGridForTool,
   footprintGridIU,
   footprintSnappingEnabled,
-} from '@ziroeda/pcbnew/footprint_edit_frame.js';
-import { newFootprint } from '@ziroeda/pcbnew/footprint_editor_utils.js';
-import { fpLineThicknessMM } from '@ziroeda/pcbnew/footprint_editor_settings.js';
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
-import {
-  applyBarcodeValues,
-  barcodeValues,
-} from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties.js';
-import { DialogBarcodeProperties } from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties_ui.js';
+} from './footprint_edit_frame.js';
+import { newFootprint } from './footprint_editor_utils.js';
+import { fpLineThicknessMM, type FP_EDIT_JSON_SETTINGS_LIKE } from './footprint_editor_settings.js';
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react';
+import { applyBarcodeValues, barcodeValues } from './dialogs/dialog_barcode_properties.js';
+import { DialogBarcodeProperties } from './dialogs/dialog_barcode_properties_ui.js';
 import {
   readFootprintFile,
   moveFootprintItems,
@@ -52,16 +49,13 @@ import {
   type PcbPad,
   type PcbShape,
   type PcbTextItem,
-} from '@ziroeda/pcbnew';
+} from './index.js';
 import {
   FootprintPropertiesDialog,
   PadPropertiesDialog,
-} from '@ziroeda/pcbnew/dialogs/dialog_footprint_properties_fp_editor.js';
+} from './dialogs/dialog_footprint_properties_fp_editor.js';
 import { MenuBar, ContextMenu, type Menu } from '@ziroeda/common/tool/action_menu_bar.js';
-import {
-  footprintTreeContextMenu,
-  fpTreeSelectedNodes,
-} from '@ziroeda/pcbnew/tools/footprint_editor_control.js';
+import { footprintTreeContextMenu, fpTreeSelectedNodes } from './tools/footprint_editor_control.js';
 import { LibrariesToRepin } from '@ziroeda/common/tool/library_editor_control.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
@@ -70,12 +64,11 @@ import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
 const FP_LOCAL_ORIGIN = { x: 0, y: 0 };
 import { ProgressDialog } from '@ziroeda/common/widgets/wx_progress_reporters.js';
 import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
-import { FP_FRAME_NAME, fpFrameTitle } from '@ziroeda/pcbnew/footprint_edit_frame.js';
+import { FP_FRAME_NAME, fpFrameTitle } from './footprint_edit_frame.js';
 import { useUnsavedGuard } from '@ziroeda/common/use_unsaved_guard.js';
-import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
 import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
-import { FpTreeSynchronizingAdapter } from '@ziroeda/pcbnew/fp_tree_synchronizing_adapter.js';
+import { FpTreeSynchronizingAdapter } from './fp_tree_synchronizing_adapter.js';
 import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
 import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/widgets/msgpanel_ui.js';
 import {
@@ -88,80 +81,66 @@ import {
   zoomFactorForScale,
   zoomMsg,
 } from '@ziroeda/common/widgets/kistatusbar_format.js';
+import { FP_DEFAULT_TOOLBARS, footprintToolMsg } from './toolbars_footprint_editor.js';
+import { applyToggle, DEFAULT_TOGGLES } from './footprint_edit_frame.js';
+import { FootprintCanvas, type FootprintCanvasController } from './pcb_draw_panel_gal_ui.js';
 import {
-  FP_DEFAULT_TOOLBARS,
-  footprintToolMsg,
-} from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
-import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
-import { applyToggle, DEFAULT_TOGGLES } from '@ziroeda/pcbnew/footprint_edit_frame.js';
-import {
-  FootprintCanvas,
-  type FootprintCanvasController,
-} from '@ziroeda/pcbnew/pcb_draw_panel_gal_ui.js';
-import { FootprintLibraryManager, fpNameOf } from '@ziroeda/pcbnew/footprint_libraries_utils.js';
-import { FP_LIBRARY_IO, footprintsBase } from './footprint_edit_frame_app.js';
+  FootprintLibraryManager,
+  fpNameOf,
+  type FOOTPRINT_LIBRARY_IO,
+} from './footprint_libraries_utils.js';
 import { projectFpLibTable, projectLibraryNickname } from '@ziroeda/common/fp_lib_table.js';
 import {
   FOOTPRINT_COPPER_STACK,
   footprintLayers,
   FP_DEFAULT_ACTIVE_LAYER,
-} from '@ziroeda/pcbnew/footprint_edit_frame.js';
-import { layerColor, PCB_BACKGROUND, PCB_OBJECT_COLORS } from '@ziroeda/pcbnew/pcbTheme.js';
-import { appearanceLayerRows } from '@ziroeda/pcbnew/widgets/appearance_layers.js';
+} from './footprint_edit_frame.js';
+import { layerColor, PCB_BACKGROUND, PCB_OBJECT_COLORS } from './pcbTheme.js';
+import { appearanceLayerRows } from './widgets/appearance_layers.js';
 // APPEARANCE_CONTROLS and PANEL_SELECTION_FILTER are the same two widgets
 // pcbnew docks; FOOTPRINT_EDIT_FRAME passes `aFpEditor = true` and its own
 // board's data, and that is the whole of the difference
 // (footprint_edit_frame.cpp:177-178).
-import {
-  AppearanceControls,
-  type AppearanceTab,
-} from '@ziroeda/pcbnew/widgets/appearance_controls.js';
+import { AppearanceControls, type AppearanceTab } from './widgets/appearance_controls.js';
 import {
   DEFAULT_OBJECTS,
   DEFAULT_OPACITY,
   OBJECT_ROWS,
   toggleObject,
   type ObjectState,
-} from '@ziroeda/pcbnew/widgets/appearance_objects.js';
+} from './widgets/appearance_objects.js';
 import {
   BUILTIN_PRESETS,
   matchPresetName,
   presetComboItems,
   PRESET_SEPARATOR,
   viewportComboItems,
-} from '@ziroeda/pcbnew/widgets/appearance_presets.js';
+} from './widgets/appearance_presets.js';
 import {
   DEFAULT_SELECTION_FILTER_OPTIONS,
   SelectionFilterOnlyMenu,
   SelectionFilterPanel,
   type SelectionFilterItem,
-} from '@ziroeda/pcbnew/widgets/panel_selection_filter.js';
+} from './widgets/panel_selection_filter.js';
 import { GetLayerName } from '@ziroeda/common/layer_ids.js';
-import { DEFAULT_DRAW_OPTIONS, type PcbDrawOptions } from '@ziroeda/pcbnew/renderBoard.js';
+import { DEFAULT_DRAW_OPTIONS, type PcbDrawOptions } from './renderBoard.js';
 import '@ziroeda/common/widgets/shell.css';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
-import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
-import type { PrefsPageId } from '../../dialogs/prefs/types.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import {
-  useCommonSettings,
-  useFpEditSettings,
-  useUserColors,
-  useUserThemes,
-} from '../../prefs/useSettings.js';
-import { pcbThemeWithOverrides } from '@ziroeda/pcbnew/pcbTheme.js';
-import { settings } from '../../prefs/settings.js';
+import { pcbThemeWithOverrides } from './pcbTheme.js';
 import { hiContrastFactorFor } from '@ziroeda/common/render_settings.js';
-import { footprintEditorMenus } from '@ziroeda/pcbnew/menubar_footprint_editor.js';
+import { footprintEditorMenus } from './menubar_footprint_editor.js';
 import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import { wasBrowserSuppressed, type FocusLike } from '@ziroeda/common/browser_hotkeys.js';
-import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { kicadFootprintLibWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import { CONFIRM_REVERT_EXTENDED, confirmRevertMessage } from '@ziroeda/common/confirm.js';
-import { HomeLink } from '../../ui/HomeLink.js';
+import type { ChooserFilter, OpenedFile } from '@ziroeda/common/wx/filedlg.js';
+import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
+import type { ToolbarDefaults, ToolbarLoc } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
+import type { CrosshairMode, GridStyle } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 
 /**
  * The Footprint Editor frame, the web mirror of KiCad's FOOTPRINT_EDIT_FRAME
@@ -171,7 +150,99 @@ import { HomeLink } from '../../ui/HomeLink.js';
  * drawing canvas. A footprint is edited on an internal one-item board, so the
  * canvas reuses the PCB painter directly. Editing tools are staged; library
  * navigation, viewing, layer control and save are functional.
+ *
+ * Moved from `designer/src/editors/footprint/FootprintEditor.tsx`. What it
+ * reached into `designer/` for now arrives as {@link FOOTPRINT_EDIT_FRAME_APP},
+ * the seam `CVPCB_APP` (`cvpcb/cvpcb_mainframe_ui.tsx`) and `PL_EDITOR_APP`
+ * give their windows; `designer/src/editors/footprint/footprint_edit_frame_app.tsx`
+ * is the one file that answers it.
  */
+
+/**
+ * `fpedit.json` as this window reads it: what the `footprint_edit_frame.ts` /
+ * `footprint_editor_utils.ts` / `footprint_editor_settings.ts` helpers it hands
+ * the object to already declare, plus the fields it reads itself.
+ */
+export interface FOOTPRINT_EDIT_FRAME_SETTINGS extends FP_EDIT_JSON_SETTINGS_LIKE {
+  window: FP_EDIT_JSON_SETTINGS_LIKE['window'] & {
+    grid: FP_EDIT_JSON_SETTINGS_LIKE['window']['grid'] & {
+      style: GridStyle;
+      line_width: number;
+      min_spacing: number;
+    };
+    cursor: { crosshair: CrosshairMode; always_show_cursor: boolean };
+    /** `window.lib_width`, `m_LibWidth`. */
+    lib_width: number;
+  };
+  editing: {
+    polar_coords: boolean;
+    /** Tenths of a degree. */
+    rotation_angle: number;
+    fp_angle_snap_mode: number;
+  };
+  origin_invert_x_axis: boolean;
+  origin_invert_y_axis: boolean;
+  appearance: { color_theme: string };
+  lib_tree: { columns: string[]; column_widths: Record<string, number>; open_libs: string[] };
+}
+
+/** `COMMON_SETTINGS`, the two keys this window reads. */
+export interface FOOTPRINT_EDIT_FRAME_COMMON_SETTINGS {
+  system: { language: string };
+  appearance: { hicontrast_dimming_factor: number };
+}
+
+/**
+ * What the Footprint Editor asks of the program it runs in, exactly as
+ * `CVPCB_APP` does for Assign Footprints: the settings store (subscribed and
+ * plain reads, and writes), the user's toolbar layout, the footprint
+ * libraries' storage, and the program's own widgets — the Preferences
+ * dialog, the account's Open dialog, the library-loading panel and the home
+ * link. One object per mount; everything on it is stable across renders.
+ */
+export interface FOOTPRINT_EDIT_FRAME_APP {
+  /** `GetAppSettings<FOOTPRINT_EDITOR_SETTINGS>( "fpedit" )`, subscribed: a
+   *  change re-renders the frame (`CommonSettingsChanged`). */
+  useFpEditSettings(): FOOTPRINT_EDIT_FRAME_SETTINGS;
+  /** The same, read at the moment of the call. */
+  fpEdit(): FOOTPRINT_EDIT_FRAME_SETTINGS;
+  updateFpEdit(mutate: (s: FOOTPRINT_EDIT_FRAME_SETTINGS) => void): void;
+  /** `Pgm().GetCommonSettings()`, subscribed. */
+  useCommonSettings(): FOOTPRINT_EDIT_FRAME_COMMON_SETTINGS;
+  /** The same, read at the moment of the call. */
+  common(): FOOTPRINT_EDIT_FRAME_COMMON_SETTINGS;
+  /** `Pgm().SetLanguage`, the Preferences menu's language list. */
+  SetLanguage(label: string): void;
+  /** `colors/user.json`'s `board.*` rows. */
+  useUserColors(): Readonly<Record<string, string>>;
+  /** The themes "New Theme..." made. */
+  useUserThemes(): Parameters<typeof pcbThemeWithOverrides>[2];
+  /** `TOOLBAR_SETTINGS`: each bar as the user configured it
+   *  (`EDA_BASE_FRAME::RecreateToolbars`). */
+  useToolbarEntries(frame: 'fpedit', loc: ToolbarLoc, defaults: ToolbarDefaults): ToolEntry[];
+
+  /** Where a global footprint library's files come from. */
+  libraryIo: FOOTPRINT_LIBRARY_IO;
+  /** The hosted footprint library set's base URL (its `index.json`). */
+  footprintsBase(): string;
+
+  /** The "still loading" panel every chooser shows. */
+  LibraryLoadingPanel(props: { label: string; fallback: JSX.Element | null }): ReactNode;
+  /**
+   * `EDA_BASE_FRAME::ShowPreferences`, opened from this frame. `'fp-grids'` is
+   * the one page it asks for by name (`COMMON_TOOLS::GridProperties`).
+   */
+  Preferences(onClose: () => void, initialPage?: 'fp-grids'): ReactNode;
+  /** The account's Open dialog, in the footprint library folder. */
+  OpenFileDialog(props: {
+    title: string;
+    accept: string;
+    filters?: readonly ChooserFilter[];
+    onDone: (file: OpenedFile | null) => void;
+  }): ReactNode;
+  /** The way back to the project manager, at the left of the menu bar. */
+  HomeLink(props: { onClick: () => void }): ReactNode;
+}
 
 export interface FootprintEditorFile {
   name: string;
@@ -260,11 +331,14 @@ function fpTargetOf(path: string): { lib: string; name: string } {
  */
 const FP_LEFT_DISABLED: ReadonlySet<string> = new Set(['gridOrigin']);
 
-export function FootprintEditor({
+export function FootprintEditFrame({
+  app,
   onExitToHome,
   initialProject,
   kiway,
 }: {
+  /** The program: settings, toolbars, library storage and its own widgets. */
+  app: FOOTPRINT_EDIT_FRAME_APP;
   onExitToHome: () => void;
   initialProject?: FootprintEditorFile[] | null;
   /**
@@ -288,11 +362,11 @@ export function FootprintEditor({
    * Preferences pages is handed. Subscribed, so pressing OK on any of them
    * repaints this frame — `EDA_BASE_FRAME::CommonSettingsChanged`.
    */
-  const fpCfg = useFpEditSettings();
+  const fpCfg = app.useFpEditSettings();
   /** `colors/user.json`'s `board.*` rows — the other half of what the Colors
    *  page writes. */
-  const userColors = useUserColors();
-  const userThemes = useUserThemes();
+  const userColors = app.useUserColors();
+  const userThemes = app.useUserThemes();
   /**
    * `updateEnabledLayers()` — this frame's layer set, whose `User.n` rows come
    * from Preferences > Footprint Editor > User Layer Names. A module constant
@@ -302,11 +376,11 @@ export function FootprintEditor({
   const fpLayers = useMemo(() => footprintLayers(fpCfg), [fpCfg]);
   const allFpLayers = useMemo(() => fpLayers.map((l) => l.name), [fpLayers]);
 
-  const fpTopBar = useToolbarEntries('fpedit', 'TOP_MAIN', FP_DEFAULT_TOOLBARS);
-  const fpLeftBar = useToolbarEntries('fpedit', 'LEFT', FP_DEFAULT_TOOLBARS);
-  const fpRightBar = useToolbarEntries('fpedit', 'RIGHT', FP_DEFAULT_TOOLBARS);
+  const fpTopBar = app.useToolbarEntries('fpedit', 'TOP_MAIN', FP_DEFAULT_TOOLBARS);
+  const fpLeftBar = app.useToolbarEntries('fpedit', 'LEFT', FP_DEFAULT_TOOLBARS);
+  const fpRightBar = app.useToolbarEntries('fpedit', 'RIGHT', FP_DEFAULT_TOOLBARS);
 
-  const manager = useRef(new FootprintLibraryManager(FP_LIBRARY_IO));
+  const manager = useRef(new FootprintLibraryManager(app.libraryIo));
   const [revision, setRevision] = useState(0);
   const bump = useCallback(() => setRevision((r) => r + 1), []);
 
@@ -395,11 +469,14 @@ export function FootprintEditor({
    * prints the current grid.
    */
   const toolGridIU = footprintGridForTool(fpCfg, activeTool);
-  const setGridIdx = useCallback((next: number) => {
-    settings.updateFpEdit((s) => {
-      s.window.grid.last_size_idx = next;
-    });
-  }, []);
+  const setGridIdx = useCallback(
+    (next: number) => {
+      app.updateFpEdit((s) => {
+        s.window.grid.last_size_idx = next;
+      });
+    },
+    [app.updateFpEdit],
+  );
   // First anchor of a 2-click graphic (line/rect/circle) being drawn.
   const [drawStart, setDrawStart] = useState<Vec2 | null>(null);
   /** The barcode properties dialog: `at` for a new one, `index` to edit one. */
@@ -460,7 +537,7 @@ export function FootprintEditor({
    * `BestSize`, which is the same number twice upstream.
    */
   const [panelWidth, setPanelWidth] = useState(
-    () => settings.fpEdit.window.lib_width || LIBRARY_TREE_WIDTH,
+    () => app.fpEdit().window.lib_width || LIBRARY_TREE_WIDTH,
   );
   /** Read by `onLeftToggle`, which must not be rebuilt on every drag frame. */
   const panelWidthRef = useRef(panelWidth);
@@ -478,8 +555,8 @@ export function FootprintEditor({
    * `COMMON_TOOLS::GridProperties` and the grid combo's Edit Grids... row ask
    * for (`common/tool/common_tools.cpp:609-634`).
    */
-  const [prefsOpen, setPrefsOpen] = useState<null | true | PrefsPageId>(null);
-  const common = useCommonSettings();
+  const [prefsOpen, setPrefsOpen] = useState<null | true | 'fp-grids'>(null);
+  const common = app.useCommonSettings();
   const [padDialogId, setPadDialogId] = useState<string | null>(null);
 
   const controller = useRef<FootprintCanvasController>(null);
@@ -552,7 +629,7 @@ export function FootprintEditor({
   }, [projectLibsKey]);
   useEffect(() => {
     // Bundled global footprint libraries (names up front, files fetched lazily).
-    fetch(`${footprintsBase()}/index.json`)
+    fetch(`${app.footprintsBase()}/index.json`)
       .then((r) => (r.ok ? r.json() : []))
       .then((idx: { name: string; footprints: string[] }[]) => {
         for (const lib of idx) manager.current.addGlobalLibrary(lib.name, lib.footprints);
@@ -560,7 +637,7 @@ export function FootprintEditor({
       })
       .catch(() => bump());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [app.footprintsBase]);
 
   const targetLib = treeSel?.lib ?? curLib;
 
@@ -595,7 +672,7 @@ export function FootprintEditor({
       // `m_hiContrastFactor = 1.0 - hicontrast_dimming_factor`
       // (`pcbnew/pcb_painter.cpp:176`). The inversion is the point: Preferences
       // asks how much to DIM and the painter wants how much SURVIVES.
-      hiContrastFactor: hiContrastFactorFor(settings.common.appearance.hicontrast_dimming_factor),
+      hiContrastFactor: hiContrastFactorFor(app.common().appearance.hicontrast_dimming_factor),
       activeLayer,
       // `FOOTPRINT_EDIT_FRAME::GetColorSettings()` is
       // `::GetColorSettings( GetSettings()->m_ColorTheme )` — this frame's own
@@ -613,6 +690,7 @@ export function FootprintEditor({
       fpCfg.appearance.color_theme,
       userColors,
       userThemes,
+      app.common,
     ],
   );
 
@@ -1059,62 +1137,65 @@ export function FootprintEditor({
   );
 
   // ----- toolbar / toggles ------------------------------------------------------
-  const onLeftToggle = useCallback((id: string) => {
-    // The Show Grid button's right-click menu, not a button
-    // (`pcbnew/toolbars_footprint_editor.cpp:53-62`): upstream runs its rows
-    // through the same TOOL_MANAGER the button goes through, so they arrive
-    // here. `COMMON_TOOLS::GridProperties` for FRAME_FOOTPRINT_EDITOR is
-    // `ShowPreferences( _( "Grids" ), _( "Footprint Editor" ) )`
-    // (`common/tool/common_tools.cpp:626`); that page is not in our book yet,
-    // so the dialog opens without naming one.
-    if (id === 'gridProperties') {
-      setPrefsOpen('fp-grids');
-      return;
-    }
-    // `FOOTPRINT_EDIT_FRAME::ToggleLibraryTree` (`:402-419`): hiding the pane
-    // writes its width out first, because once it is hidden `GetSize().x` is no
-    // longer the width to come back to. Outside the `setToggles` updater, which
-    // runs during the render pass — see `startResize`.
-    if (id === 'showLibraryTree' && togglesRef.current.has(id)) {
-      settings.updateFpEdit((s) => {
-        s.window.lib_width = panelWidthRef.current;
-      });
-    }
-    // `COMMON_TOOLS::CursorControl` (`common/tool/common_tools.cpp`) does not
-    // keep a toolbar state of its own: it writes
-    // `GetCanvas()->GetGAL()->GetOptions().m_gridStyle`'s neighbour,
-    // `m_Window.cursor.cross_hair_mode`, and the buttons' CHECK conditions read
-    // it back. So this group is the settings key, and Preferences > Display
-    // Options is the same three choices over the same value.
-    // `PCB_BASE_FRAME::SetShowPolarCoords` writes `m_PolarCoords` on the app's
-    // settings object (`footprint_editor_settings.cpp:115-116`), which is what
-    // `UpdateStatusBar`'s `if( GetShowPolarCoords() )` reads back. The button
-    // and pane 3 are one value.
-    if (id === 'togglePolarCoords') {
-      settings.updateFpEdit((s) => {
-        s.editing.polar_coords = !s.editing.polar_coords;
-      });
-    }
-    // `FOOTPRINT_EDITOR_CONTROL::OnAngleSnapModeChanged`
-    // (`pcbnew/tools/footprint_editor_control.cpp:1031-1048`) maps
-    // `m_AngleSnapMode` onto these three buttons, and `PCB_ACTIONS::lineMode*`
-    // writes it back — so the group and Preferences > Editing Options'
-    // "Constrain actions to H, V, 45 degrees" are one value.
-    if (id === 'lineModeFree' || id === 'lineMode90' || id === 'lineMode45') {
-      const mode = id === 'lineMode45' ? 1 : id === 'lineMode90' ? 2 : 0;
-      settings.updateFpEdit((s) => {
-        s.editing.fp_angle_snap_mode = mode;
-      });
-    }
-    if (id === 'crosshairSmall' || id === 'crosshairFull' || id === 'crosshair45') {
-      const mode = id === 'crosshair45' ? '45' : id === 'crosshairFull' ? 'full' : 'small';
-      settings.updateFpEdit((s) => {
-        s.window.cursor.crosshair = mode;
-      });
-    }
-    setToggles((prev) => applyToggle(prev, id));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const onLeftToggle = useCallback(
+    (id: string) => {
+      // The Show Grid button's right-click menu, not a button
+      // (`pcbnew/toolbars_footprint_editor.cpp:53-62`): upstream runs its rows
+      // through the same TOOL_MANAGER the button goes through, so they arrive
+      // here. `COMMON_TOOLS::GridProperties` for FRAME_FOOTPRINT_EDITOR is
+      // `ShowPreferences( _( "Grids" ), _( "Footprint Editor" ) )`
+      // (`common/tool/common_tools.cpp:626`); that page is not in our book yet,
+      // so the dialog opens without naming one.
+      if (id === 'gridProperties') {
+        setPrefsOpen('fp-grids');
+        return;
+      }
+      // `FOOTPRINT_EDIT_FRAME::ToggleLibraryTree` (`:402-419`): hiding the pane
+      // writes its width out first, because once it is hidden `GetSize().x` is no
+      // longer the width to come back to. Outside the `setToggles` updater, which
+      // runs during the render pass — see `startResize`.
+      if (id === 'showLibraryTree' && togglesRef.current.has(id)) {
+        app.updateFpEdit((s) => {
+          s.window.lib_width = panelWidthRef.current;
+        });
+      }
+      // `COMMON_TOOLS::CursorControl` (`common/tool/common_tools.cpp`) does not
+      // keep a toolbar state of its own: it writes
+      // `GetCanvas()->GetGAL()->GetOptions().m_gridStyle`'s neighbour,
+      // `m_Window.cursor.cross_hair_mode`, and the buttons' CHECK conditions read
+      // it back. So this group is the settings key, and Preferences > Display
+      // Options is the same three choices over the same value.
+      // `PCB_BASE_FRAME::SetShowPolarCoords` writes `m_PolarCoords` on the app's
+      // settings object (`footprint_editor_settings.cpp:115-116`), which is what
+      // `UpdateStatusBar`'s `if( GetShowPolarCoords() )` reads back. The button
+      // and pane 3 are one value.
+      if (id === 'togglePolarCoords') {
+        app.updateFpEdit((s) => {
+          s.editing.polar_coords = !s.editing.polar_coords;
+        });
+      }
+      // `FOOTPRINT_EDITOR_CONTROL::OnAngleSnapModeChanged`
+      // (`pcbnew/tools/footprint_editor_control.cpp:1031-1048`) maps
+      // `m_AngleSnapMode` onto these three buttons, and `PCB_ACTIONS::lineMode*`
+      // writes it back — so the group and Preferences > Editing Options'
+      // "Constrain actions to H, V, 45 degrees" are one value.
+      if (id === 'lineModeFree' || id === 'lineMode90' || id === 'lineMode45') {
+        const mode = id === 'lineMode45' ? 1 : id === 'lineMode90' ? 2 : 0;
+        app.updateFpEdit((s) => {
+          s.editing.fp_angle_snap_mode = mode;
+        });
+      }
+      if (id === 'crosshairSmall' || id === 'crosshairFull' || id === 'crosshair45') {
+        const mode = id === 'crosshair45' ? '45' : id === 'crosshairFull' ? 'full' : 'small';
+        app.updateFpEdit((s) => {
+          s.window.cursor.crosshair = mode;
+        });
+      }
+      setToggles((prev) => applyToggle(prev, id));
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [app.updateFpEdit],
+  );
 
   const showDatasheet = useCallback(() => {
     setStatus('Datasheet: not defined for this footprint');
@@ -1205,11 +1286,11 @@ export function FootprintEditor({
     // built on `GetViewerSettingsBase()->m_LibTree`
     // (`pcbnew/fp_tree_model_adapter.cpp:43-44`).
     adapter.loadColumnConfig({
-      columns: settings.fpEdit.lib_tree.columns,
-      widths: settings.fpEdit.lib_tree.column_widths,
+      columns: app.fpEdit().lib_tree.columns,
+      widths: app.fpEdit().lib_tree.column_widths,
     });
     return adapter;
-  }, []);
+  }, [app.fpEdit]);
 
   /**
    * `m_cfg.open_libs = GetOpenLibs()` (`lib_tree_model_adapter.cpp:246`) and
@@ -1219,8 +1300,8 @@ export function FootprintEditor({
    * way `GetOpenLibs` walks the dataview; it hears every change through
    * `onToggleLibrary` instead and keeps the set for the settings file alone.
    */
-  const openLibs = useRef<readonly string[]>(settings.fpEdit.lib_tree.open_libs);
-  const openLibSet = useRef(new Set(settings.fpEdit.lib_tree.open_libs));
+  const openLibs = useRef<readonly string[]>(app.fpEdit().lib_tree.open_libs);
+  const openLibSet = useRef(new Set(app.fpEdit().lib_tree.open_libs));
 
   /**
    * `FP_TREE_SYNCHRONIZING_ADAPTER::Sync` — rebuild the node tree when the SET
@@ -1332,13 +1413,13 @@ export function FootprintEditor({
     (node: LibTreeNode, open: boolean) => {
       if (open) openLibSet.current.add(node.name);
       else openLibSet.current.delete(node.name);
-      settings.updateFpEdit((s) => {
+      app.updateFpEdit((s) => {
         s.lib_tree.open_libs = [...openLibSet.current];
       });
       if (!open) return;
       void manager.current.ensureLoaded(node.name).then(bump);
     },
-    [bump],
+    [bump, app.updateFpEdit],
   );
 
   /**
@@ -1370,7 +1451,7 @@ export function FootprintEditor({
       // ref rather than out of a `setPanelWidth` updater: that updater runs
       // during React's render pass, and notifying the settings store from
       // there updates one component while another is rendering.
-      settings.updateFpEdit((s) => {
+      app.updateFpEdit((s) => {
         s.window.lib_width = panelWidthRef.current;
       });
     };
@@ -1628,10 +1709,7 @@ export function FootprintEditor({
           // Preferences > Set Language. COMMON_SETTINGS is shared by every
           // frame, so it is read and written through the common store.
           language: common.system.language,
-          onSelectLanguage: (label: string) =>
-            settings.updateCommon((c) => {
-              c.system.language = label;
-            }),
+          onSelectLanguage: (label: string) => app.SetLanguage(label),
           showHotkeys: showHotkeyList,
           showAbout: () => setAboutOpen(true),
         },
@@ -1672,6 +1750,7 @@ export function FootprintEditor({
       undoDepth,
       redoDepth,
       common.system.language,
+      app.SetLanguage,
     ],
   );
 
@@ -1800,28 +1879,25 @@ export function FootprintEditor({
       {/* `Add Library` and `Import Footprint`, over the account's tree. Both
           were a hidden `<input type="file">`, i.e. the operating system's
           picker, which cannot see the account at all. */}
-      {fpOpenDlg && (
-        <OpenFileDialog
-          title={fpOpenDlg === 'addLibrary' ? 'Add Library' : 'Import Footprint'}
-          accept={fpOpenDlg === 'addLibrary' ? 'Add' : 'Import'}
-          // A footprint library lives in the project or in
-          // `PATHS::GetDefaultUserFootprintsPath()` (paths.cpp:93).
-          kind="footprints"
-          filters={[kicadFootprintLibWildcard()]}
-          onDone={(file) => {
+      {fpOpenDlg &&
+        app.OpenFileDialog({
+          title: fpOpenDlg === 'addLibrary' ? 'Add Library' : 'Import Footprint',
+          accept: fpOpenDlg === 'addLibrary' ? 'Add' : 'Import',
+          // The folder — `PATHS::GetDefaultUserFootprintsPath()` — is the app's.
+          filters: [kicadFootprintLibWildcard()],
+          onDone: (file) => {
             const which = fpOpenDlg;
             setFpOpenDlg(null);
             if (!file) return; // wxID_CANCEL
             const leaf = file.path.split('/').filter(Boolean).pop() ?? file.path;
             if (which === 'addLibrary') addLibraryEntries([{ fileName: leaf, text: file.text }]);
             else importFootprintText(leaf, file.text);
-          }}
-        />
-      )}
+          },
+        })}
 
       <MenuBar
         menus={menus}
-        leftSlot={<HomeLink onClick={onExitToHome} />}
+        leftSlot={app.HomeLink({ onClick: onExitToHome })}
         title={
           <>
             <b>
@@ -1922,13 +1998,11 @@ export function FootprintEditor({
                  * why every fix made in `widgets/lib_tree.tsx` reached the
                  * chooser and not this pane.
                  */}
-                {libNames.length === 0 && (
-                  <LibraryLoadingPanel
-                    kind="footprints"
-                    fallback={<div className="ze-muted">No footprint libraries loaded.</div>}
-                    label="Loading footprint libraries..."
-                  />
-                )}
+                {libNames.length === 0 &&
+                  app.LibraryLoadingPanel({
+                    fallback: <div className="ze-muted">No footprint libraries loaded.</div>,
+                    label: 'Loading footprint libraries...',
+                  })}
                 <LibTree
                   adapter={treeAdapter}
                   // `LIB_TREE( this, wxT( "footprints" ), … )` — the recent
@@ -1944,12 +2018,12 @@ export function FootprintEditor({
                   onItemContextMenu={onTreeItemContextMenu}
                   openLibs={openLibs.current}
                   onColumnWidthsChanged={(widths) =>
-                    settings.updateFpEdit((s) => {
+                    app.updateFpEdit((s) => {
                       s.lib_tree.column_widths = widths;
                     })
                   }
                   onShownColumnsChanged={(columns) =>
-                    settings.updateFpEdit((s) => {
+                    app.updateFpEdit((s) => {
                       s.lib_tree.columns = [...columns];
                     })
                   }
@@ -2189,16 +2263,8 @@ export function FootprintEditor({
       {aboutOpen && (
         <ShowAboutDialog title={ABOUT_TITLES.footprint} onClose={() => setAboutOpen(false)} />
       )}
-      {prefsOpen && (
-        <PreferencesDialog
-          onClose={() => setPrefsOpen(null)}
-          {...(prefsOpen === true ? {} : { initialPage: prefsOpen })}
-          // `if( GetFrameType() == FRAME_FOOTPRINT_EDITOR ) expand.push_back( … )`
-          // (`common/eda_base_frame.cpp:1663-1664`) — the section the tree opens
-          // expanded is the one the window was opened FROM.
-          frameOwner="footprint"
-        />
-      )}
+      {prefsOpen &&
+        app.Preferences(() => setPrefsOpen(null), prefsOpen === true ? undefined : prefsOpen)}
       {propsOpen && workFp && (
         <FootprintPropertiesDialog
           footprint={workFp}

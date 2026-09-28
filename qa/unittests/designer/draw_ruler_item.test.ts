@@ -236,7 +236,7 @@ describe('one ruler, three canvases', () => {
     // viewer passed this and the editor did not, so the same canvas measured
     // in mm there whatever its Units radio said.
     for (const rel of [
-      'editors/footprint/FootprintEditor.tsx',
+      '../../pcbnew/footprint_edit_frame_ui.tsx',
       // `display_footprints_frame.tsx` moved to `cvpcb/` (cvpcb/STRUCTURE.md's
       // stage two) and hands `measureUnits` through `CVPCB_APP.FootprintCanvas`
       // as a plain object field; the actual `<FootprintCanvas measureUnits=.../>`

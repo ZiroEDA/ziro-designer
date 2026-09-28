@@ -225,4 +225,11 @@ describe('the hyphen titles', () => {
   ])('does not include the %s editor', (_name, prefix) => {
     expect(Object.keys(hyphenTitleCounts()).filter((f) => f.startsWith(prefix))).toEqual([]);
   });
+
+  /** The footprint editor's window moved out of `designer/src` into
+   *  `pcbnew/`, where the walk above does not reach; counted here instead. */
+  it('does not include the footprint editor window, now in pcbnew/', () => {
+    const text = readFileSync(join(SRC, '../../pcbnew/footprint_edit_frame_ui.tsx'), 'utf8');
+    expect([...text.matchAll(HYPHEN_TITLE)].length).toBe(0);
+  });
 });

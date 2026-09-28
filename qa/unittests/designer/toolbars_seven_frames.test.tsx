@@ -108,7 +108,7 @@ describe('the frame reads the store, not the module constant', () => {
       'pl_editor',
     ],
     ['editors/gerbview/GerberViewer.tsx+../../gerbview/gerbview_frame_ui.tsx', 'gerbview'],
-    ['editors/footprint/FootprintEditor.tsx', 'fpedit'],
+    ['../../pcbnew/footprint_edit_frame_ui.tsx', 'fpedit'],
     ['editors/pcb/Viewer3DFrame.tsx', '3d_viewer'],
   ];
 
@@ -135,7 +135,7 @@ describe('the frame reads the store, not the module constant', () => {
     it(`${app}: every <Toolbar> takes entries the store answered for`, () => {
       const text = src(file);
       const bound = new Set(
-        [...text.matchAll(/const\s+(\w+)\s*=\s*useToolbarEntries\(/g)].map((m) => m[1]),
+        [...text.matchAll(/const\s+(\w+)\s*=\s*(?:app\.)?useToolbarEntries\(/g)].map((m) => m[1]),
       );
       // A window in its KiCad package takes the bars from its page, which
       // binds them with the hook above: `const { top: x, ... } = app.toolbars`.

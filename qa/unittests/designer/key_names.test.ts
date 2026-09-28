@@ -197,7 +197,7 @@ describe('the menu rows print the accelerator, character for character', () => {
     // restatement -- upstream a menu accelerator IS the binding.
     'editors/symbol/menubar.ts',
     'editors/pcb/PcbEditor.tsx',
-    'editors/footprint/FootprintEditor.tsx',
+    '../../pcbnew/footprint_edit_frame_ui.tsx',
     '../../cvpcb/cvpcb_mainframe_ui.tsx',
     '../../eeschema/menubar.ts',
     // Already correct before this split, and pinned by
