@@ -15,7 +15,7 @@
  * FOOTPRINT_PREVIEW_PANEL::onSize / fitToCurrentFootprint).
  */
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import type { InputPrefs } from '@ziroeda/common/ui/view_controls.js';
+import type { InputPrefs } from '../ui/view_controls.js';
 import {
   commonInputPrefs,
   dragGesture,
@@ -23,7 +23,7 @@ import {
   makeMotionPan,
   makeZoomController,
   wheelAction,
-} from '@ziroeda/common/ui/view_controls.js';
+} from '../ui/view_controls.js';
 
 /** A canvas transform in device pixels: world -> screen. */
 export interface PreviewView {

@@ -15,7 +15,7 @@ import { useSchematicTheme } from '../../../prefs/useSettings.js';
 import {
   usePreviewViewControls,
   type PreviewView,
-} from '../../../widgets/preview_view_controls.js';
+} from '@ziroeda/common/widgets/preview_view_controls.js';
 import type { InputPrefs } from '@ziroeda/common/ui/view_controls.js';
 
 export interface SymbolPreviewWidgetProps {

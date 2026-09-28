@@ -43,7 +43,7 @@ import { drawGrid } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import {
   usePreviewViewControls,
   type PreviewView,
-} from '../../../widgets/preview_view_controls.js';
+} from '@ziroeda/common/widgets/preview_view_controls.js';
 import { PCB_BACKGROUND, type PcbColorTheme } from '@ziroeda/pcbnew/pcbTheme.js';
 import PREVIEW_BOARD_TEXT from '../data/color_preview_board.kicad_pcb?raw';
 

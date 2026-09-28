@@ -32,7 +32,7 @@ const CANVASES = [
   '../../pcbnew/pcb_draw_panel_gal_ui.tsx',
   // The preview panes are EDA_DRAW_PANEL_GALs upstream too, so they get
   // WX_VIEW_CONTROLS on the same terms.
-  'widgets/preview_view_controls.ts',
+  '../../common/widgets/preview_view_controls.ts',
 ];
 
 /** Where Zoom to Fit's maths lives for each editor. */
@@ -179,7 +179,7 @@ describe('shared view controls', () => {
    * filtered, so that adding a seventh canvas fails instead of inheriting an
    * exemption it did not earn.
    */
-  const AUTOPAN_CANVASES = CANVASES.filter((c) => c !== 'widgets/preview_view_controls.ts');
+  const AUTOPAN_CANVASES = CANVASES.filter((c) => c !== '../../common/widgets/preview_view_controls.ts');
 
   it('every editing canvas holds its own m_panTimer', () => {
     // Four, and the preview panes are the fifth CANVAS. If that count moves,
@@ -239,7 +239,7 @@ describe('shared view controls', () => {
   });
 
   it('nothing imports view controls sideways out of another editor', () => {
-    for (const rel of [...CANVASES, ...FITTERS, 'editors/pcb/footprint_preview_panel.tsx']) {
+    for (const rel of [...CANVASES, ...FITTERS, '../../pcbnew/footprint_preview_panel.tsx']) {
       expect(read(rel), rel).not.toMatch(/import[^;]*InputPrefs[^;]*SchematicCanvas\.js/);
     }
   });
