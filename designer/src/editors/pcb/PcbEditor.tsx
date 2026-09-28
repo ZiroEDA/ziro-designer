@@ -45,6 +45,7 @@ import { placeVia } from '@ziroeda/pcbnew/tools/drawing_tool.js';
 import { DEFAULT_RULE_AREA_KEEPOUT } from '@ziroeda/pcbnew/convert_shapes.js';
 import {
   collectPlacementSources,
+  DIALOG_RULE_AREA_PROPERTIES,
   uniqueZoneName,
   type RuleAreaValues,
   type ZoneBorderStyle,
@@ -262,7 +263,7 @@ import {
   DIALOG_BARCODE_PROPERTIES,
 } from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties.js';
 import { DialogBarcodeProperties } from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties_ui.js';
-import { GetLayerName } from '@ziroeda/common/layer_ids.js';
+import { GetLayerName, IsCopperLayer } from '@ziroeda/common/layer_ids.js';
 import {
   boardIsEmpty,
   hasLockedItems,
@@ -306,8 +307,7 @@ import { newTable, type TableDefaults } from '@ziroeda/pcbnew/draw_table.js';
 const EMPTY_IDS: ReadonlySet<string> = new Set();
 const ORTHO_ON: ReadonlySet<string> = new Set(['toggleOrtho']);
 import {
-  applyDimensionValues,
-  collectDimensionValues,
+  DIALOG_DIMENSION_PROPERTIES,
   dimensionAt,
   type DimensionValues,
 } from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties.js';
@@ -461,8 +461,7 @@ import { DialogTrackViaProperties } from '@ziroeda/pcbnew/dialogs/dialog_track_v
 import { DialogCopperZones } from '@ziroeda/pcbnew/dialogs/dialog_copper_zones.js';
 import { DialogFootprintProperties } from '@ziroeda/pcbnew/dialogs/dialog_footprint_properties_ui.js';
 import {
-  applyFootprintValues,
-  collectFootprintValues,
+  DIALOG_FOOTPRINT_PROPERTIES,
   footprintAt,
   type FootprintValues,
 } from '@ziroeda/pcbnew/dialogs/dialog_footprint_properties.js';
@@ -483,8 +482,7 @@ import {
   type ShapeValues,
 } from '@ziroeda/pcbnew/dialogs/dialog_shape_properties.js';
 import {
-  applyPadValues,
-  collectPadValues,
+  DIALOG_PAD_PROPERTIES,
   // `padAt` is taken by the local hit-test helper below.
   padAt as selectedPadAt,
   type PadRef,
@@ -493,6 +491,7 @@ import {
 import {
   applyZoneValues,
   collectZoneValues,
+  DIALOG_COPPER_ZONE,
   uniqueZonePriority,
   zoneAt,
   type ZoneValues,
@@ -8541,11 +8540,13 @@ export function PcbEditor({
       const brd = boardRef.current;
       const index = dimensionPropsIndex;
       setDimensionPropsIndex(null);
-      if (!brd || index === null) return;
-      const next = applyDimensionValues(brd, index, values, unitsRef.current);
-      if (next !== brd) commitBoard(next);
+      const frame = frameRef.current;
+      const k = index === null ? undefined : brd?.dimensions[index]?.k;
+      if (!frame || !k) return;
+      // DIALOG_DIMENSION_PROPERTIES on the live dimension: one BOARD_COMMIT.
+      new DIALOG_DIMENSION_PROPERTIES(frame, k).TransferDataFromWindow(values);
     },
-    [commitBoard, dimensionPropsIndex],
+    [dimensionPropsIndex],
   );
 
   const applyShapeEdit = useCallback(
@@ -8568,11 +8569,13 @@ export function PcbEditor({
       const brd = boardRef.current;
       const ref = padPropsRef;
       setPadPropsRef(null);
-      if (!brd || !ref) return;
-      const next = applyPadValues(brd, ref, values);
-      if (next !== brd) commitBoard(next);
+      const frame = frameRef.current;
+      const k = ref ? brd?.footprints[ref.footprint]?.pads[ref.pad]?.k : undefined;
+      if (!frame || !k) return;
+      // DIALOG_PAD_PROPERTIES on the live PAD: one BOARD_COMMIT.
+      new DIALOG_PAD_PROPERTIES(frame, k).TransferDataFromWindow(values);
     },
-    [commitBoard, padPropsRef],
+    [padPropsRef],
   );
 
   /** DIALOG_FOOTPRINT_PROPERTIES::TransferDataFromWindow. */
@@ -8581,11 +8584,13 @@ export function PcbEditor({
       const brd = boardRef.current;
       const index = fpPropsIndex;
       setFpPropsIndex(null);
-      if (!brd || index === null) return;
-      const next = applyFootprintValues(brd, index, values);
-      if (next !== brd) commitBoard(next);
+      const frame = frameRef.current;
+      const k = index === null ? undefined : brd?.footprints[index]?.k;
+      if (!frame || !k) return;
+      // DIALOG_FOOTPRINT_PROPERTIES on the live FOOTPRINT: one BOARD_COMMIT.
+      new DIALOG_FOOTPRINT_PROPERTIES(frame, k).TransferDataFromWindow(values);
     },
-    [commitBoard, fpPropsIndex],
+    [fpPropsIndex],
   );
 
   /** PANEL_ZONE_PROPERTIES::TransferDataFromWindow. */
@@ -8595,12 +8600,34 @@ export function PcbEditor({
       const index = zonePropsIndex;
       setZonePropsIndex(null);
       if (!brd || index === null) return;
+      const frame = frameRef.current;
+      const k = brd.zones[index]?.k;
+      // Edit_Zone_Params: a copper zone is DIALOG_COPPER_ZONE on the live
+      // ZONE, one BOARD_COMMIT; the commit refills under "Auto-refill zones".
+      if (frame && k && !k.GetIsRuleArea() && IsCopperLayer(k.GetFirstLayer())) {
+        new DIALOG_COPPER_ZONE(frame, k).TransferDataFromWindow(values);
+        return;
+      }
       const next = applyZoneValues(brd, index, values);
       // A changed zone has to be re-poured; its fill was built from the old
       // clearances (ZONE_FILLER runs on the commit that closes the dialog).
       if (next !== brd) commitBoard(fillZones(next, zoneFillOptions));
     },
     [commitBoard, zonePropsIndex, zoneFillOptions],
+  );
+
+  /** Edit_Zone_Params on a rule area: DIALOG_RULE_AREA_PROPERTIES on the live ZONE. */
+  const applyRuleAreaEdit = useCallback(
+    (values: RuleAreaValues) => {
+      const brd = boardRef.current;
+      const index = zonePropsIndex;
+      setZonePropsIndex(null);
+      const frame = frameRef.current;
+      const k = index === null ? undefined : brd?.zones[index]?.k;
+      if (!frame || !k) return;
+      new DIALOG_RULE_AREA_PROPERTIES(frame, k).TransferDataFromWindow(values);
+    },
+    [zonePropsIndex],
   );
 
   /**
@@ -12051,50 +12078,83 @@ export function PcbEditor({
           onClose={() => setImagePropsIndex(null)}
         />
       )}
-      {dimensionPropsIndex !== null && board?.dimensions[dimensionPropsIndex] && (
-        <DialogDimensionProperties
-          units={unitLabel}
-          initial={collectDimensionValues(board.dimensions[dimensionPropsIndex]!)}
-          kind={board.dimensions[dimensionPropsIndex]!.kind}
-          layers={board.layers.map((l) => l.name)}
-          onApply={applyDimensionEdit}
-          onClose={() => setDimensionPropsIndex(null)}
-        />
-      )}
-      {padPropsRef && board?.footprints[padPropsRef.footprint]?.pads[padPropsRef.pad] && (
-        <DialogPadProperties
-          units={unitLabel}
-          initial={collectPadValues(
-            board.footprints[padPropsRef.footprint]!.pads[padPropsRef.pad]!,
-          )}
-          nets={board.nets}
-          layers={board.layers.map((l) => l.name)}
-          onApply={applyPadEdit}
-          onClose={() => setPadPropsRef(null)}
-        />
-      )}
-      {fpPropsIndex !== null && board?.footprints[fpPropsIndex] && (
+      {dimensionPropsIndex !== null &&
+        board?.dimensions[dimensionPropsIndex]?.k &&
+        frameRef.current && (
+          <DialogDimensionProperties
+            units={unitLabel}
+            initial={new DIALOG_DIMENSION_PROPERTIES(
+              frameRef.current!,
+              board.dimensions[dimensionPropsIndex]!.k!,
+            ).TransferDataToWindow()}
+            kind={board.dimensions[dimensionPropsIndex]!.kind}
+            layers={board.layers.map((l) => l.name)}
+            onApply={applyDimensionEdit}
+            onClose={() => setDimensionPropsIndex(null)}
+          />
+        )}
+      {padPropsRef &&
+        board?.footprints[padPropsRef.footprint]?.pads[padPropsRef.pad]?.k &&
+        frameRef.current && (
+          <DialogPadProperties
+            units={unitLabel}
+            initial={new DIALOG_PAD_PROPERTIES(
+              frameRef.current!,
+              board.footprints[padPropsRef.footprint]!.pads[padPropsRef.pad]!.k!,
+            ).TransferDataToWindow()}
+            nets={board.nets}
+            layers={board.layers.map((l) => l.name)}
+            onApply={applyPadEdit}
+            onClose={() => setPadPropsRef(null)}
+          />
+        )}
+      {fpPropsIndex !== null && board?.footprints[fpPropsIndex]?.k && frameRef.current && (
         <DialogFootprintProperties
           units={unitLabel}
-          initial={collectFootprintValues(board.footprints[fpPropsIndex]!)}
+          initial={new DIALOG_FOOTPRINT_PROPERTIES(
+            frameRef.current!,
+            board.footprints[fpPropsIndex]!.k!,
+          ).TransferDataToWindow()}
           libId={board.footprints[fpPropsIndex]!.lib}
           onApply={applyFootprintEdit}
           onClose={() => setFpPropsIndex(null)}
         />
       )}
-      {zonePropsIndex !== null && board?.zones[zonePropsIndex] && (
-        <DialogCopperZones
-          units={unitLabel}
-          initial={collectZoneValues(board.zones[zonePropsIndex]!)}
-          nets={board.nets}
-          layers={copperLayerRows}
-          // "A zone still in creation … can't be edited by the Zone Manager";
-          // this path is a zone that already exists, so the button is shown.
-          existingZone
-          onApply={applyZoneEdit}
-          onClose={() => setZonePropsIndex(null)}
-        />
-      )}
+      {zonePropsIndex !== null &&
+        board?.zones[zonePropsIndex]?.k?.GetIsRuleArea() &&
+        frameRef.current && (
+          <DialogRuleAreaProperties
+            units={unitLabel}
+            initial={new DIALOG_RULE_AREA_PROPERTIES(
+              frameRef.current!,
+              board.zones[zonePropsIndex]!.k!,
+            ).TransferDataToWindow()}
+            layers={ruleAreaLayers}
+            sources={collectPlacementSources(board)}
+            onApply={applyRuleAreaEdit}
+            onClose={() => setZonePropsIndex(null)}
+          />
+        )}
+      {zonePropsIndex !== null &&
+        board?.zones[zonePropsIndex] &&
+        !board.zones[zonePropsIndex]!.k?.GetIsRuleArea() && (
+          <DialogCopperZones
+            units={unitLabel}
+            initial={(() => {
+              const k = board.zones[zonePropsIndex]!.k;
+              return frameRef.current && k && IsCopperLayer(k.GetFirstLayer())
+                ? new DIALOG_COPPER_ZONE(frameRef.current, k).TransferDataToWindow()
+                : collectZoneValues(board.zones[zonePropsIndex]!);
+            })()}
+            nets={board.nets}
+            layers={copperLayerRows}
+            // "A zone still in creation … can't be edited by the Zone Manager";
+            // this path is a zone that already exists, so the button is shown.
+            existingZone
+            onApply={applyZoneEdit}
+            onClose={() => setZonePropsIndex(null)}
+          />
+        )}
       {trackViaOpen && board && (
         <DialogTrackViaProperties
           selection={trackViaSelection(board, selection)}
