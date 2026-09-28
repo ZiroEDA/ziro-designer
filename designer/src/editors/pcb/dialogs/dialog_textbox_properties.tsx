@@ -6,7 +6,7 @@
  * Counterpart: `pcbnew/dialogs/dialog_textbox_properties.cpp` and its
  * `_base.cpp`.
  *
- * The decisions live in `pcbnew/textbox_properties.ts`; this is layout.
+ * The decisions live in `pcbnew/dialogs/dialog_textbox_properties.ts`; this is layout.
  *
  * ## The shape is one gridbag, and its placements are data
  *
@@ -65,7 +65,7 @@ import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbIUScale, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import { parseUnitValue, stringFromValue, unitLabel } from '@ziroeda/common/widgets/unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
-import type { TextBoxValues } from '@ziroeda/pcbnew/textbox_properties.js';
+import type { TextBoxValues } from '@ziroeda/pcbnew/dialogs/dialog_textbox_properties.js';
 import type { StrokeType } from '@ziroeda/pcbnew/types.js';
 import { LINE_STYLE_NAMES } from '@ziroeda/common/stroke_params.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';

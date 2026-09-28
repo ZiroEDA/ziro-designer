@@ -32,7 +32,7 @@ import {
   PAD_ENUMERATION_COMMIT_LABEL,
   PAD_ENUMERATION_SAMPLE_STEP_IU,
   type SequentialPadEnumerationParams,
-} from '@ziroeda/pcbnew/pad_enumerate.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_enum_pads.js';
 import type { PcbFootprint, PcbPad } from '@ziroeda/pcbnew/types.js';
 
 const pad = (over: Partial<PcbPad> = {}): PcbPad => ({

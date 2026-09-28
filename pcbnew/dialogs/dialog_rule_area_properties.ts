@@ -32,8 +32,8 @@
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 // ZONE_SETTINGS' defaults for a fresh rule area, which is also what a copper
 // zone being *converted* into one starts from.
-import { DEFAULT_RULE_AREA_KEEPOUT } from './convert_shapes.js';
-import type { Board, PcbZone, PlacementSourceType, ZonePlacementArea } from './types.js';
+import { DEFAULT_RULE_AREA_KEEPOUT } from '../convert_shapes.js';
+import type { Board, PcbZone, PlacementSourceType, ZonePlacementArea } from '../types.js';
 
 /** ZONE_BORDER_HATCH_{DIST,MINDIST,MAXDIST}_MM (pcbnew/zones.h:34-36). */
 const BORDER_HATCH_DEFAULT = mmToIU(0.5);

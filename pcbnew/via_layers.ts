@@ -9,7 +9,7 @@
  * drilled between.
  */
 
-import { copperRank, isCopperLayerName } from './swap_layers.js';
+import { copperRank, isCopperLayerName } from './dialogs/dialog_swap_layers.js';
 import type { PcbVia } from './types.js';
 
 export function viaIsOnLayer(via: PcbVia, layer: string): boolean {

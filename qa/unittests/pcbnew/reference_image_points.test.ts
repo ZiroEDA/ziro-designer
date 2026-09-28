@@ -29,7 +29,7 @@ import {
   boardEditHandles,
   dragBoardHandle,
   editablePointItems,
-} from '@ziroeda/pcbnew/point_editor.js';
+} from '@ziroeda/pcbnew/tools/pcb_point_editor.js';
 import { imageBBox } from '@ziroeda/pcbnew/image_geometry.js';
 import { boardItemId } from '@ziroeda/pcbnew/edit-board.js';
 import type { Board, PcbImage } from '@ziroeda/pcbnew/types.js';

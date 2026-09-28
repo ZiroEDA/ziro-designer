@@ -11,12 +11,12 @@
  * pad primitives (the model carries them but does not edit them), and the
  * per-pad thermal spoke angle.
  *
- * The decision logic lives in `pcbnew/pad_properties.ts`.
+ * The decision logic lives in `pcbnew/dialogs/dialog_pad_properties.ts`.
  */
 
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
-import type { PadValues } from '@ziroeda/pcbnew/pad_properties.js';
+import type { PadValues } from '@ziroeda/pcbnew/dialogs/dialog_pad_properties.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { NetSelector } from '@ziroeda/common/widgets/net_selector.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';

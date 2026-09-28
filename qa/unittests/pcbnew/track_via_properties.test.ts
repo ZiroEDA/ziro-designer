@@ -17,7 +17,7 @@ import {
   hasTrackOrVia,
   trackViaSelection,
   type TrackViaValues,
-} from '@ziroeda/pcbnew/track_via_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_track_via_properties.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);

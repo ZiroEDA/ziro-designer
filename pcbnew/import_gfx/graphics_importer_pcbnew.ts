@@ -43,7 +43,7 @@ import {
 } from '@ziroeda/common/import_gfx/graphics_importer.js';
 import { LINE_STYLE } from '@ziroeda/common/stroke_params.js';
 import type { PCB_LAYER_NAME } from '@ziroeda/common/layer_ids.js';
-import { joinJustify } from '../textbox_properties.js';
+import { joinJustify } from '../dialogs/dialog_textbox_properties.js';
 import type { PcbShape, PcbTextItem, StrokeType } from '../types.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/eda_text.js';

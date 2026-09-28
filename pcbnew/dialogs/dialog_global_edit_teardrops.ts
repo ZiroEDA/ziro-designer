@@ -19,8 +19,8 @@ import {
   defaultTeardropParameters,
   isRound,
   type TeardropParametersList,
-} from './teardrop.js';
-import type { Board, PcbPad, PcbVia, TeardropParams } from './types.js';
+} from '../teardrop.js';
+import type { Board, PcbPad, PcbVia, TeardropParams } from '../types.js';
 
 /** What the Action radio group offers. */
 export type TeardropEditAction =

@@ -25,7 +25,7 @@ import {
   withPlacementSelection,
   type PlacementSources,
   type RuleAreaValues,
-} from '@ziroeda/pcbnew/rule_area_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_rule_area_properties.js';
 import { convertToZone } from '@ziroeda/pcbnew/convert_shapes.js';
 import type { Board, PcbZone } from '@ziroeda/pcbnew/types.js';
 import { writtenItems } from './support/written_node.js';

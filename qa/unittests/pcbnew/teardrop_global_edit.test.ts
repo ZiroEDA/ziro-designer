@@ -12,7 +12,7 @@ import {
   countGlobalTeardropTargets,
   DEFAULT_GLOBAL_TEARDROP_EDIT,
   type GlobalTeardropEditOptions,
-} from '@ziroeda/pcbnew/teardrop_global_edit.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_global_edit_teardrops.js';
 import {
   defaultTeardropParameters,
   defaultTeardropParametersList,

@@ -27,7 +27,7 @@ import { chainPointInside } from '@ziroeda/kimath/src/geometry/shape_poly_set_al
 import { segSquaredDistance } from '@ziroeda/kimath/src/trigo.js';
 import { shapeBBox, shapeDist, type Shape } from './drc/drc_geometry.js';
 import { padShapePos } from './padstack.js';
-import { enabledCopperLayers } from './swap_layers.js';
+import { enabledCopperLayers } from './dialogs/dialog_swap_layers.js';
 import type { Board, PcbVia } from './types.js';
 import { viaCopperLayers } from './via_layers.js';
 

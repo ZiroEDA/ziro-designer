@@ -45,7 +45,7 @@
 import { PGPROPERTY_ANGLE } from '@ziroeda/common/properties/pg_properties.js';
 import { LINE_STYLE_CHOICES } from '@ziroeda/common/stroke_params.js';
 import { parseBoardItemId, setFootprintFieldByName } from './edit-board.js';
-import { applyPadValues, collectPadValues, type PadRef, type PadValues } from './pad_properties.js';
+import { applyPadValues, collectPadValues, type PadRef, type PadValues } from './dialogs/dialog_pad_properties.js';
 import {
   applyFootprintValues,
   collectFootprintValues,
@@ -74,7 +74,7 @@ import {
   trackViaSelection,
   type TrackViaSelection,
   type TrackViaValues,
-} from './track_via_properties.js';
+} from './dialogs/dialog_track_via_properties.js';
 import {
   applyZoneRuleArea,
   applyZoneValues,
@@ -96,8 +96,8 @@ import {
   applyTextBoxValues,
   collectTextBoxValues,
   type TextBoxValues,
-} from './textbox_properties.js';
-import { applyTableValues, collectTableValues, type TableValues } from './table_properties.js';
+} from './dialogs/dialog_textbox_properties.js';
+import { applyTableValues, collectTableValues, type TableValues } from './dialogs/dialog_table_properties.js';
 import {
   applyDimensionValues,
   collectDimensionValues,

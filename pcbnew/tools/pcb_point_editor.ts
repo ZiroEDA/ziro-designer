@@ -43,15 +43,15 @@ import {
   moveZoneCorner,
   moveZoneEdge,
   zoneHandles,
-} from './edit-board.js';
-import { arcCenter } from './read-board.js';
-import { dimensionCrossbar, radialKnee } from './dimension_geometry.js';
-import { updateDimension } from './dimension_text.js';
+} from '../edit-board.js';
+import { arcCenter } from '../read-board.js';
+import { dimensionCrossbar, radialKnee } from '../dimension_geometry.js';
+import { updateDimension } from '../dimension_text.js';
 import { segLineProject } from '@ziroeda/kimath/src/geometry/seg.js';
 import { vectorSnapped45 } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
-import type { Board, PcbBarcode, PcbDimension, PcbShape } from './types.js';
+import type { Board, PcbBarcode, PcbDimension, PcbShape } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { imageBBox } from './image_geometry.js';
+import { imageBBox } from '../image_geometry.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { ARC_EDIT_MODE } from '@ziroeda/common/frame_type.js';
@@ -59,7 +59,7 @@ import {
   ArcEditPointPositions,
   DragArcEditPoint,
 } from '@ziroeda/common/tool/point_editor_behavior.js';
-import type { PcbImage } from './types.js';
+import type { PcbImage } from '../types.js';
 
 /** A square handle on a corner or vertex (`EDIT_POINT`), or a circle at an edge
  *  midpoint (`EDIT_LINE`). */

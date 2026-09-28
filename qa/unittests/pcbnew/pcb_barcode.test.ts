@@ -41,7 +41,7 @@ import {
 } from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties.js';
 import { encodeBarcode } from '@ziroeda/zint';
 import { bestSnapAnchor } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
-import { boardEditHandles, dragBoardHandle } from '@ziroeda/pcbnew/point_editor.js';
+import { boardEditHandles, dragBoardHandle } from '@ziroeda/pcbnew/tools/pcb_point_editor.js';
 import { pcbBarcodeMsgPanelInfo } from '@ziroeda/pcbnew/msg_panel.js';
 import { pcbPropertiesFor } from '@ziroeda/pcbnew/properties_panel.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';

@@ -22,12 +22,12 @@ import { head, isList, type SList, type SNode } from '@ziroeda/sexpr/types.js';
 import { arg, numArg } from '@ziroeda/sexpr/query.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
-import { applyPadValues, collectPadValues, padAt } from '@ziroeda/pcbnew/pad_properties.js';
+import { applyPadValues, collectPadValues, padAt } from '@ziroeda/pcbnew/dialogs/dialog_pad_properties.js';
 import {
   applyTrackViaValues,
   collectTrackViaValues,
   trackViaSelection,
-} from '@ziroeda/pcbnew/track_via_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_track_via_properties.js';
 import { ORPHANED_NET } from '@ziroeda/pcbnew/netinfo.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 import { U } from './support/written_node.js';

@@ -31,8 +31,8 @@
  * of one, and the stroke stays in the file either way so the width survives
  * being toggled off and on.
  */
-import { parseBoardItemId } from './edit-board.js';
-import type { Board, PcbTextBox, StrokeType } from './types.js';
+import { parseBoardItemId } from '../edit-board.js';
+import type { Board, PcbTextBox, StrokeType } from '../types.js';
 
 export type HorizJustify = 'left' | 'center' | 'right';
 export type VertJustify = 'top' | 'center' | 'bottom';

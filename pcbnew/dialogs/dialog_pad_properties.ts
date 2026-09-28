@@ -15,17 +15,17 @@
  * The decision logic lives here so it can be tested without a UI.
  */
 
-import { parseBoardItemId } from './edit-board.js';
-import { rotatePcb } from './read-board.js';
-import type { Board, PadShape, PadType, PcbFootprint, PcbPad } from './types.js';
-import { defaultTeardropParameters } from './teardrop.js';
-import type { TeardropParams } from './types.js';
+import { parseBoardItemId } from '../edit-board.js';
+import { rotatePcb } from '../read-board.js';
+import type { Board, PadShape, PadType, PcbFootprint, PcbPad } from '../types.js';
+import { defaultTeardropParameters } from '../teardrop.js';
+import type { TeardropParams } from '../types.js';
 
 /** `BOARD_CONNECTED_ITEM::GetTeardropParams()`: the item's own, or the defaults. */
 const teardropParamsOf = (pad: PcbPad): TeardropParams =>
   pad.teardrops ?? defaultTeardropParameters();
-import { unconnectedLayerModeOf } from './unused_pad_layers.js';
-import type { UnconnectedLayerMode } from './types.js';
+import { unconnectedLayerModeOf } from '../unused_pad_layers.js';
+import type { UnconnectedLayerMode } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** Where a pad lives: which footprint, and which pad within it. */

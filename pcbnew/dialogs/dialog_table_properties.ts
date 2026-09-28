@@ -32,9 +32,9 @@
  * that case — so it is not modelled; the flags alone carry it, and the width is
  * kept so switching a border back on restores what was there.
  */
-import { parseBoardItemId } from './edit-board.js';
+import { parseBoardItemId } from '../edit-board.js';
 import { tableRowCount } from '@ziroeda/common/table.js';
-import type { Board, PcbTable, PcbTableCell, StrokeType } from './types.js';
+import type { Board, PcbTable, PcbTableCell, StrokeType } from '../types.js';
 
 /** Every control on the dialog, flattened. The cell texts are the grid. */
 export interface TableValues {

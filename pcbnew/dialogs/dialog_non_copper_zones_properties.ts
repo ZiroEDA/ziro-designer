@@ -23,8 +23,8 @@
  */
 
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import type { Board, PcbZone } from './types.js';
-import type { ZoneBorderStyle, ZoneValueError } from './rule_area_properties.js';
+import type { Board, PcbZone } from '../types.js';
+import type { ZoneBorderStyle, ZoneValueError } from './dialog_rule_area_properties.js';
 
 /** ZONE_BORDER_HATCH_{DIST,MINDIST,MAXDIST}_MM (pcbnew/zones.h:34-36). */
 const BORDER_HATCH_DEFAULT = mmToIU(0.5);

@@ -21,7 +21,7 @@ import {
   padAt,
   padLocalPos,
   type PadValues,
-} from '@ziroeda/pcbnew/pad_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_pad_properties.js';
 import type { Board, PcbPad } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);

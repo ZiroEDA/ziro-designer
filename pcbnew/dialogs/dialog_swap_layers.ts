@@ -31,7 +31,7 @@
  * Items on non-copper layers never move either — silk, mask, paste, Edge.Cuts
  * and user layers are neither keys nor values of the map.
  */
-import type { Board, PcbShape, PcbTrack, PcbArcTrack, PcbVia, PcbZone } from './types.js';
+import type { Board, PcbShape, PcbTrack, PcbArcTrack, PcbVia, PcbZone } from '../types.js';
 
 /** `IsCopperLayer` (layer_ids.h), by name: the front, the back, or an inner. */
 export function isCopperLayerName(name: string): boolean {

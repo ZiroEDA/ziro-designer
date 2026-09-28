@@ -11,7 +11,7 @@
  * the old position and orientation and matches nothing (pcb_edit_frame.cpp:2669-2675).
  */
 
-import { padIsAperturePad } from './pad_enumerate.js';
+import { padIsAperturePad } from './dialogs/dialog_enum_pads.js';
 import type { PcbFootprint } from './types.js';
 
 /**

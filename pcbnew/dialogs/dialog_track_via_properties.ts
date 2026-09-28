@@ -15,8 +15,8 @@
  * The decision logic lives here so it can be tested without a UI.
  */
 
-import { parseBoardItemId } from './edit-board.js';
-import { defaultTeardropParameters } from './teardrop.js';
+import { parseBoardItemId } from '../edit-board.js';
+import { defaultTeardropParameters } from '../teardrop.js';
 import type {
   Board,
   FrontBackOptBool,
@@ -24,7 +24,7 @@ import type {
   PcbTrack,
   PcbVia,
   TeardropParams,
-} from './types.js';
+} from '../types.js';
 
 /** The mask layer that pairs with a copper layer, F.Cu -> F.Mask. */
 const maskSideOf = (layer: string): string | undefined =>

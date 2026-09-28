@@ -70,11 +70,11 @@
 
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { EuclideanNormI, divideI } from '@ziroeda/kimath/src/math/vector2.js';
-import { padHit, patchPad } from './edit-footprint.js';
+import { padHit, patchPad } from '../edit-footprint.js';
 import { getTrailingInt } from '@ziroeda/common/string_utils.js';
-import { getRefDesPrefix } from './autorouter/spread_footprints.js';
-import { isCopperLayerName } from './swap_layers.js';
-import type { PcbFootprint, PcbPad } from './types.js';
+import { getRefDesPrefix } from '../autorouter/spread_footprints.js';
+import { isCopperLayerName } from './dialog_swap_layers.js';
+import type { PcbFootprint, PcbPad } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** The label both commit paths push, `commit.Push( _( "Renumber Pads" ) )`. */

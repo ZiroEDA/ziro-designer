@@ -15,7 +15,7 @@
  * hatch pitch. Those last two are outside the notebook, which is easy to get
  * wrong because they read like page content.
  *
- * All of the decision logic is `pcbnew/rule_area_properties.ts`, ported
+ * All of the decision logic is `pcbnew/dialogs/dialog_rule_area_properties.ts`, ported
  * separately so it can be driven without a canvas: which page opens, what the
  * three placement combos contain, what a "not found on board" source does, and
  * the validation order. This file is the widgets and nothing else.
@@ -38,7 +38,7 @@ import {
   type PlacementPage,
   type PlacementSources,
   type RuleAreaValues,
-} from '@ziroeda/pcbnew/rule_area_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_rule_area_properties.js';
 import type { PlacementSourceType } from '@ziroeda/pcbnew/types.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';

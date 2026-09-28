@@ -37,7 +37,7 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Board } from '@ziroeda/pcbnew';
 import { barcodeGeometry } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import { viaIsTented } from '@ziroeda/pcbnew/exporters/export_d356.js';
-import { padIsOnLayer } from '@ziroeda/pcbnew/pad_enumerate.js';
+import { padIsOnLayer } from '@ziroeda/pcbnew/dialogs/dialog_enum_pads.js';
 import {
   solderMaskExpansionFor,
   solderPasteMarginFor,

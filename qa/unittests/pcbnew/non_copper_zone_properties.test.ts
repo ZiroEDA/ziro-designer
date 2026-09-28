@@ -17,7 +17,7 @@ import {
   collectNonCopperZoneValues,
   nonCopperZoneValuesError,
   type NonCopperZoneValues,
-} from '@ziroeda/pcbnew/non_copper_zone_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_non_copper_zones_properties.js';
 import type { Board, PcbZone } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);

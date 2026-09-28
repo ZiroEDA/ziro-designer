@@ -19,7 +19,7 @@
  */
 
 import { unescapeString } from '@ziroeda/common/string_utils.js';
-import type { Board } from './types.js';
+import type { Board } from '../types.js';
 
 export interface NetRow {
   net: number;

@@ -30,7 +30,7 @@ import {
   splitJustify,
   textBoxAt,
   type TextBoxValues,
-} from '@ziroeda/pcbnew/textbox_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_textbox_properties.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 

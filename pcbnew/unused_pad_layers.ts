@@ -54,7 +54,7 @@
  */
 
 import { layerNameToId, viaIsTented } from './exporters/export_d356.js';
-import { enabledCopperLayers, isCopperLayerName } from './swap_layers.js';
+import { enabledCopperLayers, isCopperLayerName } from './dialogs/dialog_swap_layers.js';
 import type { Board, PcbFootprint, PcbPad, PcbVia, UnconnectedLayerMode } from './types.js';
 
 const F_CU = 0;
