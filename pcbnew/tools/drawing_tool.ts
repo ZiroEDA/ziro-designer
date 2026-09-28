@@ -51,6 +51,11 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { segNearestPoint } from '@ziroeda/kimath/src/geometry/seg.js';
 import { TestSegmentHit } from '@ziroeda/kimath/src/trigo.js';
 import type { Board, PcbTrack, PcbVia } from '../types.js';
+import {
+  DEFAULT_DIMENSION_DEFAULTS,
+  type DimensionDefaults as EngineDimensionDefaults,
+  type DimensionKind,
+} from '../index.js';
 
 /** The four control points of a `(gr_curve (pts …))`, in file order. */
 export type BezierPoints = [Vec2, Vec2, Vec2, Vec2];
@@ -291,3 +296,103 @@ export function placeVia(
     splitTrack: true,
   };
 }
+
+// --- the five `Go( &DRAWING_TOOL::DrawDimension, … )` registrations (was dimension_tools.ts) ---
+
+/** Toolbar/action id -> the kind it places. */
+export const DIMENSION_TOOLS: Readonly<Record<string, DimensionKind>> = {
+  drawAlignedDimension: 'aligned',
+  drawOrthogonalDimension: 'orthogonal',
+  drawCenterDimension: 'center',
+  drawRadialDimension: 'radial',
+  drawLeader: 'leader',
+};
+
+/** The kind this tool places, or null when it is not a dimension tool. */
+export function dimensionToolKind(toolId: string): DimensionKind | null {
+  return DIMENSION_TOOLS[toolId] ?? null;
+}
+
+/** Whether this tool id places a dimension at all. */
+export function isDimensionTool(toolId: string): boolean {
+  return dimensionToolKind(toolId) !== null;
+}
+
+/**
+ * Board Setup's dimension block, as the engine wants it.
+ *
+ * The panel stores these as the *display strings* the dropdowns show
+ * (`PANEL_SETUP_TEXT_AND_GRAPHICS`' choice lists), while the engine and the
+ * file format both use the numeric `DIM_*` enums. This is that translation, and
+ * it is the reason it lives in a plain module: it is the only real logic in the
+ * tool wiring, and getting a mapping off by one would silently write a
+ * different precision or the wrong units into every dimension placed.
+ *
+ * An unrecognised string falls back to the engine default rather than to zero —
+ * zero is a meaningful value for all four of these (inches, no suffix, `0`
+ * precision, outside), so a typo would otherwise look deliberate.
+ */
+export function dimensionDefaultsFrom(
+  setup: {
+    units: string;
+    format: string;
+    precision: string;
+    suppressTrailingZeroes: boolean;
+    textPosition: string;
+    keepTextAligned: boolean;
+    arrowLengthMM: number;
+    extLineOffsetMM: number;
+  },
+  layer: string,
+  lineThicknessIU: number,
+  /**
+   * `GetTextSize( layer )`, `GetTextThickness( layer )` and
+   * `GetTextItalic( layer )` — all three index `[ GetLayerClass( aLayer ) ]`
+   * (`board_design_settings.cpp:1689-1704`), so they must come from the row for
+   * the layer being drawn on. Passing the silkscreen row for every layer gave a
+   * dimension on `Dwgs.User` the silkscreen text size.
+   */
+  layerClass: { textWidth: number; textHeight: number; textThickness: number; italic: boolean },
+): EngineDimensionDefaults {
+  const mm = (v: number): number => Math.round(v * 1e6);
+  const idx = <T>(list: readonly string[], value: string, fallback: T): T | number => {
+    const i = list.indexOf(value);
+    return i < 0 ? fallback : i;
+  };
+
+  return {
+    layer,
+    lineThickness: lineThicknessIU || DEFAULT_DIMENSION_DEFAULTS.lineThickness,
+    arrowLength: mm(setup.arrowLengthMM) || DEFAULT_DIMENSION_DEFAULTS.arrowLength,
+    extensionOffset: mm(setup.extLineOffsetMM),
+    unitsMode: idx(DIM_UNITS, setup.units, DEFAULT_DIMENSION_DEFAULTS.unitsMode) as 0 | 1 | 2 | 3,
+    unitsFormat: idx(DIM_FORMATS, setup.format, DEFAULT_DIMENSION_DEFAULTS.unitsFormat) as
+      | 0
+      | 1
+      | 2,
+    precision: idx(
+      DIM_PRECISION,
+      setup.precision,
+      DEFAULT_DIMENSION_DEFAULTS.precision,
+    ) as EngineDimensionDefaults['precision'],
+    suppressZeroes: setup.suppressTrailingZeroes,
+    textPositionMode: idx(
+      DIM_POSITION,
+      setup.textPosition,
+      DEFAULT_DIMENSION_DEFAULTS.textPositionMode,
+    ) as 0 | 1 | 2,
+    keepTextAligned: setup.keepTextAligned,
+    textWidth: layerClass.textWidth || DEFAULT_DIMENSION_DEFAULTS.textWidth,
+    textHeight: layerClass.textHeight || DEFAULT_DIMENSION_DEFAULTS.textHeight,
+    textThickness: layerClass.textThickness || DEFAULT_DIMENSION_DEFAULTS.textThickness,
+    textItalic: layerClass.italic,
+  };
+}
+
+// The dropdown choice lists, in the order that gives each entry its enum value.
+const DIM_UNITS = ['Inches', 'Mils', 'Millimeters', 'Automatic'] as const;
+const DIM_FORMATS = ['1234', '1234 mm', '1234 (mm)'] as const;
+const DIM_PRECISION = ['0', '0.0', '0.00', '0.000', '0.0000', '0.00000'] as const;
+// DIM_TEXT_POSITION also has MANUAL, which the panel does not offer: it is set
+// by dragging the text, not chosen up front.
+const DIM_POSITION = ['Outside', 'Inline'] as const;

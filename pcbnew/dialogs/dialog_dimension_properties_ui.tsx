@@ -28,7 +28,7 @@ import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { DimensionValues } from './dialog_dimension_properties.js';
 import type { DimensionKind } from '../types.js';
-import { dimensionDialogFields } from '../dimension_tools.js';
+import { dimensionDialogFields } from './dialog_dimension_properties.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';

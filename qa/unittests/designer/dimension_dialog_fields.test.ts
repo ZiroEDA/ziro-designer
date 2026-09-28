@@ -21,7 +21,7 @@ import {
 } from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties.js';
 import { startDimension } from '@ziroeda/pcbnew';
 import type { DimensionKind } from '@ziroeda/pcbnew/types.js';
-import { dimensionDialogFields } from '@ziroeda/pcbnew/dimension_tools.js';
+import { dimensionDialogFields } from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties.js';
 
 const ALL: DimensionKind[] = ['aligned', 'orthogonal', 'center', 'radial', 'leader'];
 
