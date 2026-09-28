@@ -10,13 +10,11 @@ import { GENERATOR, GENERATOR_APPLICATION, GENERATOR_VERSION } from '@ziroeda/co
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
-import {
-  netlistKicadXml,
-  netlistOrcadPcb2,
-  netlistPads,
-  netlistCadstar,
-  generateNetlist,
-} from '@ziroeda/eeschema/netlist_exporters/netlist.js';
+import { netlistKicadXml } from '@ziroeda/eeschema/netlist_exporters/netlist_exporter_xml.js';
+import { netlistOrcadPcb2 } from '@ziroeda/eeschema/netlist_exporters/netlist_exporter_orcadpcb2.js';
+import { netlistPads } from '@ziroeda/eeschema/netlist_exporters/netlist_exporter_pads.js';
+import { netlistCadstar } from '@ziroeda/eeschema/netlist_exporters/netlist_exporter_cadstar.js';
+import { generateNetlist } from '@ziroeda/eeschema/netlist_exporters/netlist_generator.js';
 
 // A 2-pin resistor-like part and a wire joining R1 pin 2 to R2 pin 1.
 const LIB = `(symbol "Device:R" (pin_names (offset 0))
@@ -123,6 +121,36 @@ function pinRow(n: number): { doc: ReturnType<typeof readSchematic>; libById: Ma
   return { doc, libById: new Map(doc.libSymbols.map((l) => [l.libId, l])) };
 }
 
+/**
+ * A 2-unit part ("Device:DUAL") placed as two separate SCH_SYMBOL instances
+ * sharing one reference ("U1"), for the `findNextSymbol` dedup rule: PADS and
+ * CadStar's `*PART*`/`.ADD_COM` sections must carry exactly one line for it,
+ * not one per unit (`netlist_exporter_base.ts`'s `sheetOrderedBoardSymbols`).
+ */
+const multiUnit = (() => {
+  const lib = `(symbol "Device:DUAL" (pin_names (offset 0))
+    (property "Reference" "U" (at 0 0 0))
+    (property "Value" "DUAL" (at 0 0 0))
+    (symbol "DUAL_1_1"
+      (pin passive line (at 0 0 0) (length 1) (name "~") (number "1")))
+    (symbol "DUAL_2_1"
+      (pin passive line (at 0 0 0) (length 1) (name "~") (number "2"))))`;
+  const doc = readSchematic(
+    parse(`(kicad_sch (version 20230121) (generator eeschema) (lib_symbols ${lib})
+      (symbol (lib_id "Device:DUAL") (at 0 0 0) (unit 1)
+        (property "Reference" "U1" (at 0 0 0))
+        (property "Value" "DUAL" (at 0 0 0))
+        (property "Footprint" "F" (at 0 0 0))
+        (uuid "aaaaaaaa-0000-0000-0000-000000000001"))
+      (symbol (lib_id "Device:DUAL") (at 0 10 0) (unit 2)
+        (property "Reference" "U1" (at 0 10 0))
+        (property "Value" "DUAL" (at 0 10 0))
+        (property "Footprint" "F" (at 0 10 0))
+        (uuid "aaaaaaaa-0000-0000-0000-000000000002")))`),
+  );
+  return { doc, libById: new Map(doc.libSymbols.map((l) => [l.libId, l])) };
+})();
+
 describe('netlistPads', () => {
   const pads = netlistPads(doc, libById);
   const lines = pads.split('\n');
@@ -180,6 +208,14 @@ describe('netlistPads', () => {
     // The value stands in for the footprint, with spaces turned to underscores.
     expect(out).toContain(`${'R9'.padEnd(16)} 4k7_ohm`);
   });
+
+  it('writes one *PART* line per reference, not one per unit', () => {
+    // findNextSymbol skips a reference already seen: a 2-unit part placed as
+    // two separate SCH_SYMBOL instances must still get exactly one line.
+    const out = netlistPads(multiUnit.doc, multiUnit.libById);
+    const partLines = out.split('\n').filter((l) => l.startsWith('U1'));
+    expect(partLines).toHaveLength(1);
+  });
 });
 
 describe('netlistCadstar', () => {
@@ -232,6 +268,12 @@ describe('netlistCadstar', () => {
       source: 's',
     });
     expect(out).toContain('"$noname"');
+  });
+
+  it('writes one .ADD_COM per reference, not one per unit', () => {
+    const out = netlistCadstar(multiUnit.doc, multiUnit.libById, { source: 's' });
+    const addComLines = out.split('\n').filter((l) => l.includes('ADD_COM') && l.includes('U1'));
+    expect(addComLines).toHaveLength(1);
   });
 });
 

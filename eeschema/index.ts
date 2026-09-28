@@ -38,7 +38,7 @@ export * from './widgets/search_handlers.js';
 export * from './connectivity/index.js';
 export * from './erc/marker_nav.js';
 export * from './exporters/bom.js';
-export * from './netlist_exporters/netlist.js';
+export * from './netlist_exporters/netlist_generator.js';
 export * from './pin_type.js';
 export * from './netlist_exporters/netlist_exporter_kicad.js';
 export * from './netlist_exporters/netlist_exporter_spice.js';

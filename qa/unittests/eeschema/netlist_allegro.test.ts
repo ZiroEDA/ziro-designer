@@ -19,7 +19,7 @@ import {
   netlistAllegro,
   removeTailDigits,
 } from '@ziroeda/eeschema/netlist_exporters/netlist_exporter_allegro.js';
-import { netlistFiles } from '@ziroeda/eeschema/netlist_exporters/netlist.js';
+import { netlistFiles } from '@ziroeda/eeschema/netlist_exporters/netlist_generator.js';
 import type { LibPin, LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 /** Two resistors on one net plus a capacitor, so grouping has something to do. */
