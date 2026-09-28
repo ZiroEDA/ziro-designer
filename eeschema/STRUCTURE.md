@@ -469,3 +469,18 @@ from 45/28 before this stage; most of the delta is concurrent work from
 other agents on this branch, not this pass — this pass's own contribution is
 `symbol_tree_synchronizing_adapter.ts`, +1/+1). `SAME` in the regenerated
 probe output is 94 (up from 72).
+
+## Stage E3b (2026-09-28): markers, connections, the graph, commits on the live items
+
+One KiCad class per commit, each onto the live `SCH_*` model (nothing in the
+app calls these yet — the record-model engine stays wired until a later
+stage switches the callers).
+
+- `sch_marker.ts` (`SCH_MARKER`). It needed `ERC_ITEM`, so
+  `erc/erc_item.ts` came with it (the `allItemTypes` table and the per-item
+  sheet paths), and `erc/erc_settings.ts` gained `ERCE_T` and a live
+  `ERC_SETTINGS` class (the severity map and `GetSeverity`'s pin-to-pin /
+  duplicate-pin / generic special cases) beside the record model's
+  `ErcSettings`. `SCHEMATIC::ErcSettings()` is schematic-owned, as
+  `Settings()` already is — there is no live project file yet. Root match
+  after: 54/83.
