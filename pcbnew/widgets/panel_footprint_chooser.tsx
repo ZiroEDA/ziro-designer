@@ -36,8 +36,11 @@ import type { JSX } from 'react';
 import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
 import { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
 import { LibTreeNodeType, type LibTreeNode } from '@ziroeda/common/lib_tree_model.js';
-import { FootprintPreviewWidget } from '@ziroeda/common/widgets/footprint_preview_widget.js';
-import { PCB_FOOTPRINT_PREVIEW_PANEL } from '../footprint_preview_panel.js';
+import {
+  FootprintPreviewWidget,
+  type FOOTPRINT_PREVIEW_PANEL_BASE,
+} from '@ziroeda/common/widgets/footprint_preview_widget.js';
+import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';
 import type { FootprintIndexLibrary } from '@ziroeda/pcbnew/footprint_info_impl.js';
 import {
   addFootprintHistory,
@@ -80,6 +83,13 @@ export interface PanelFootprintChooserProps {
   /** `viewFpPanel->Show( m_showFpMode )` (footprint_chooser_frame.cpp:925). */
   showFpView?: boolean;
   /**
+   * `PCB_FOOTPRINT_PREVIEW_PANEL` (`editors/pcb/footprint_preview_panel.ts`) —
+   * app-level (it reaches the hosted footprint fetch and the settings store),
+   * so it arrives as a prop rather than an import, the same seam `PCBNEW_APP`
+   * gives a frame. Unused (and not required) while `showFpView` is false.
+   */
+  panel?: FOOTPRINT_PREVIEW_PANEL_BASE<PcbFootprint>;
+  /**
    * `m_preview3DCanvas`, which the FRAME builds and adds to this panel's
    * `m_RightPanelSizer` under the footprint view (:796); absent when
    * `m_show3DMode` is off.
@@ -112,6 +122,7 @@ export function PanelFootprintChooser({
   preselect,
   history = NO_HISTORY,
   showFpView = true,
+  panel,
   preview3D,
   showDetails = true,
   onSelect,
@@ -208,9 +219,9 @@ export function PanelFootprintChooser({
             so two shown share the column. The frame's two view buttons
             never hide both (on3DviewReq / onFpViewReq refuse the last). */}
         <div className="ze-fpchooser-preview">
-          {showFpView && (
+          {showFpView && panel && (
             <FootprintPreviewWidget
-              panel={PCB_FOOTPRINT_PREVIEW_PANEL}
+              panel={panel}
               footprint={selected ?? ''}
               // `m_preview_ctrl->SetStatusText( _( "No footprint selected" ) )`
               // (panel_footprint_chooser.cpp:367).
