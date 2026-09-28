@@ -277,10 +277,18 @@ function sourcesUnder(root: string): string[] {
   return out;
 }
 
-/** Every `.ts`/`.tsx` under `designer/src`. */
+/** Every `.ts`/`.tsx` under `designer/src` and `eeschema/` — the dialog and
+ *  the frames that open it moved into `eeschema/` (stage E2 pt 3). */
 function designerSources(): string[] {
-  return sourcesUnder(new URL('../../../designer/src/', import.meta.url).pathname);
+  return [
+    ...sourcesUnder(new URL('../../../designer/src/', import.meta.url).pathname),
+    ...sourcesUnder(new URL('../../../eeschema/', import.meta.url).pathname),
+  ];
 }
+
+/** A source's path from the repo root, e.g. `/eeschema/dialogs/x.tsx`. */
+const REPO = new URL('../../../', import.meta.url).pathname;
+const repoPath = (f: string): string => `/${f.slice(REPO.length)}`;
 
 /**
  * `designer/src` plus `pcbnew` — where the board editor's own dialogs live
@@ -309,17 +317,15 @@ describe('DIALOG_SCH_FIND is a SCH_BASE_FRAME facility', () => {
     const defs = designerSources().filter((f) =>
       /export function DialogSchFind\b/.test(readFileSync(f, 'utf8')),
     );
-    expect(defs.map((f) => f.slice(f.indexOf('/designer/src/')))).toEqual([
-      '/designer/src/widgets/dialog_sch_find.tsx',
-    ]);
+    expect(defs.map(repoPath)).toEqual(['/eeschema/dialogs/dialog_sch_find.tsx']);
   });
 
   /** Both editors reach the same module. Listed per importer rather than as a
    *  count, so an editor dropping its import is a named failure. */
   it('is imported by both the schematic and the symbol editor', () => {
     const importers = designerSources()
-      .filter((f) => /from '[^']*widgets\/dialog_sch_find\.js'/.test(readFileSync(f, 'utf8')))
-      .map((f) => f.slice(f.indexOf('/designer/src/')))
+      .filter((f) => /from '[^']*dialogs\/dialog_sch_find\.js'/.test(readFileSync(f, 'utf8')))
+      .map(repoPath)
       .sort();
     expect(importers).toEqual([
       '/designer/src/editors/schematic/SchematicEditor.tsx',
@@ -335,13 +341,9 @@ describe('DIALOG_SCH_FIND is a SCH_BASE_FRAME facility', () => {
    */
   it('leaves no per-editor find dialog behind', () => {
     const strays = appSources()
-      .filter((f) => !f.endsWith('/widgets/dialog_sch_find.tsx'))
+      .filter((f) => !f.endsWith('/eeschema/dialogs/dialog_sch_find.tsx'))
       .filter((f) => /(function|const)\s+Dialog\w*Find\w*\s*[=(]/.test(readFileSync(f, 'utf8')))
-      .map((f) =>
-        f.slice(
-          f.indexOf('/designer/src/') >= 0 ? f.indexOf('/designer/src/') : f.indexOf('/pcbnew/'),
-        ),
-      )
+      .map(repoPath)
       .sort();
     // Named, not filtered by directory: `pcbnew/dialogs/dialog_find.cpp`'s
     // DIALOG_FIND is a different upstream class on a different base frame

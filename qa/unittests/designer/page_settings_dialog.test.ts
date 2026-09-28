@@ -49,7 +49,7 @@ import {
 import {
   pageExportsFromSettings,
   pageExportsToSettings,
-} from '@ziroeda/designer/src/dialogs/dialog_eeschema_page_settings.js';
+} from '@ziroeda/eeschema/dialogs/dialog_eeschema_page_settings.js';
 import { validateUnitValue } from '@ziroeda/common/widgets/unit_binder.js';
 import { PAPER_MM } from '@ziroeda/common';
 
@@ -519,7 +519,7 @@ describe('the base class and its one subclass', () => {
   it('and the subclass is the only thing that knows about the export settings', () => {
     // The two transforms are the constructor/destructor pair; nothing else in
     // the tree should be applying them, or the guard gets restated.
-    const wrapper = EDITOR('dialogs/dialog_eeschema_page_settings.tsx');
+    const wrapper = EDITOR('../../eeschema/dialogs/dialog_eeschema_page_settings.tsx');
     // Calls, not the definitions: the pair is declared in this file since 09-26.
     expect([...wrapper.matchAll(/(?<!function )pageExportsFromSettings\(/g)]).toHaveLength(1);
     expect([...wrapper.matchAll(/(?<!function )pageExportsToSettings\(/g)]).toHaveLength(1);
@@ -539,7 +539,7 @@ describe('the base class and its one subclass', () => {
       ...DIALOG.matchAll(/\.page_settings\b|export_paper|updateEeschema|EeschemaSettings/g),
     ]).toEqual([]);
     // The wrapper is where all four of those live.
-    const wrapper = EDITOR('dialogs/dialog_eeschema_page_settings.tsx');
+    const wrapper = EDITOR('../../eeschema/dialogs/dialog_eeschema_page_settings.tsx');
     expect([...wrapper.matchAll(/frame="eeschema"/g)]).toHaveLength(1);
   });
 });

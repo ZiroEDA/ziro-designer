@@ -71,7 +71,7 @@
  * search panel) are greyed in place.
  */
 import { useEffect, useRef, useState, type JSX } from 'react';
-import type { MatchMode, SchSearchData } from '@ziroeda/eeschema';
+import type { MatchMode, SchSearchData } from '../tools/sch_find_replace_tool.js';
 
 /** `EDA_BASE_FRAME::GetFrameType()`, the only thing the dialog branches on. */
 export type SchFindFrame = 'FRAME_SCH' | 'FRAME_SCH_SYMBOL_EDITOR';

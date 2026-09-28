@@ -324,7 +324,7 @@ import {
   type TextPropsResult,
   type VAlign,
 } from '@ziroeda/eeschema/dialogs/dialog_text_properties.js';
-import { SymbolPropertiesDialog } from './components/SymbolPropertiesDialog.js';
+import { SymbolPropertiesDialog } from '@ziroeda/eeschema/dialogs/dialog_symbol_properties.js';
 import { ErcDialog, type ErcDialogNav } from '@ziroeda/eeschema/dialogs/dialog_erc.js';
 import {
   DialogSymbolChooser,
@@ -412,7 +412,7 @@ import {
   parentPath,
   type SheetRef,
 } from '@ziroeda/eeschema/tools/sch_navigate_tool.js';
-import { DialogSchFind } from '../../widgets/dialog_sch_find.js';
+import { DialogSchFind } from '@ziroeda/eeschema/dialogs/dialog_sch_find.js';
 import {
   DialogIncrementAnnotations,
   type IncrementAnnotationsResult,
@@ -428,7 +428,7 @@ import {
   DialogLineProperties,
   type ItemColor,
 } from '@ziroeda/eeschema/dialogs/dialog_line_properties.js';
-import { DialogEeschemaPageSettings } from '../../dialogs/dialog_eeschema_page_settings.js';
+import { DialogEeschemaPageSettings } from '@ziroeda/eeschema/dialogs/dialog_eeschema_page_settings.js';
 import {
   pageSettingsValue,
   toPaperToken,
@@ -455,7 +455,10 @@ import {
   DialogImageProperties,
   type ImagePropsResult,
 } from '@ziroeda/eeschema/dialogs/dialog_image_properties.js';
-import { DialogFieldProperties, type FieldPropsResult } from './dialogs/dialog_field_properties.js';
+import {
+  DialogFieldProperties,
+  type FieldPropsResult,
+} from '@ziroeda/eeschema/dialogs/dialog_field_properties.js';
 import {
   DialogSheetPinProperties,
   type SheetPinPropsResult,
@@ -550,7 +553,7 @@ import {
 import { resolveTemplateFieldnames } from './template_fieldnames.js';
 import type { RenderOpts } from '@ziroeda/eeschema/sch_render_settings.js';
 import type { InputPrefs } from '@ziroeda/common/ui/view_controls.js';
-import { SchPropertiesPanel } from './components/SchPropertiesPanel.js';
+import { SchPropertiesPanel } from '@ziroeda/eeschema/widgets/sch_properties_panel_ui.js';
 import { FootprintChooserFrame } from '../pcb/dialogs/footprint_chooser_frame.js';
 import { SearchPanel } from '@ziroeda/eeschema/widgets/sch_search_pane.js';
 import { NetNavigatorPanel } from '@ziroeda/eeschema/widgets/net_navigator_panel.js';

@@ -122,7 +122,7 @@ import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.j
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import type { PrefsPageId } from '../../dialogs/prefs/types.js';
 import { symbolEditorMenus } from './menubar.js';
-import { DialogSchFind } from '../../widgets/dialog_sch_find.js';
+import { DialogSchFind } from '@ziroeda/eeschema/dialogs/dialog_sch_find.js';
 import {
   defaultSearchData,
   findMatchesInSymbol,

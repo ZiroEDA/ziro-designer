@@ -39,7 +39,7 @@
  */
 import { useState, type JSX } from 'react';
 import { schIUScale } from '@ziroeda/common';
-import type { TextEffects } from '@ziroeda/eeschema';
+import type { TextEffects } from '../types.js';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { FontChoice } from '@ziroeda/common/widgets/font_choice.js';
 import {
@@ -49,11 +49,7 @@ import {
 } from '@ziroeda/common/widgets/text_format_bar.js';
 import { parseUnitValue, stringFromValue, unitLabel } from '@ziroeda/common/widgets/unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
-import {
-  color4dToItemColor,
-  type ItemColor,
-  itemColorToColor4d,
-} from '@ziroeda/eeschema/dialogs/item_color.js';
+import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 /** DEFAULT_SIZE_TEXT, 50 mil, the size a field falls back to. */

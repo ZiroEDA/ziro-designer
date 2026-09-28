@@ -6,10 +6,10 @@ import {
   PIN_TYPE_ENTRIES,
   electricalPinTypeGetText,
   pinShapeGetText,
-} from '@ziroeda/eeschema';
+} from '../pin_type.js';
 import { iuToMM, schIUScale } from '@ziroeda/common';
 import { mmToIU, symbolTransform, composeMirror, orientationFromTransform } from '@ziroeda/common';
-import type { FieldTemplate } from '@ziroeda/eeschema/schematic_settings.js';
+import type { FieldTemplate } from '../schematic_settings.js';
 import {
   canDeleteRow,
   canMoveRowDown,
@@ -26,7 +26,7 @@ import {
   rowsFromSymbol,
   validateRows,
   type FieldRow,
-} from '@ziroeda/eeschema/fields_grid_table.js';
+} from '../fields_grid_table.js';
 import { useMemo, useState, type JSX } from 'react';
 import {
   effectiveHorizJustify,
@@ -39,21 +39,14 @@ import {
   fieldShownText,
   DEFAULT_TEXT_SIZE,
   type SubpartSettings,
-  type SchSymbol,
-  type SchField,
-  type LibSymbol,
-  type SymbolEdit,
-  type EditedField,
-  type TextEffects,
-  pinGridRows,
-  setPinAlternate,
-  PIN_GRID_COLUMNS,
-  symbolUnitCount,
-  unitDisplayName,
-  hasAlternateBodyStyle,
-  embeddedFilesIn,
-} from '@ziroeda/eeschema';
-import { PIN_SHAPE_BITMAPS, PIN_TYPE_BITMAPS } from '../pin_icons.js';
+} from '../fieldbox.js';
+import { type SchSymbol, type SchField, type LibSymbol, type TextEffects } from '../types.js';
+import { type SymbolEdit, type EditedField } from '../tools/properties.js';
+import { pinGridRows, setPinAlternate, PIN_GRID_COLUMNS } from '../tools/pin_grid.js';
+import { symbolUnitCount, unitDisplayName } from '../tools/symbol_unit.js';
+import { hasAlternateBodyStyle } from '../tools/body_style.js';
+import { embeddedFilesIn } from '../tools/embedded.js';
+import { PIN_SHAPE_BITMAPS, PIN_TYPE_BITMAPS } from './pin_icons.js';
 import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
 import {
   DEFAULT_FONT_NAME,
@@ -74,7 +67,7 @@ import { Icon } from '@ziroeda/common/widgets/icons.js';
 // rgb(62,62,62) — see the header of ui/Combo.tsx for the measurements.
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
-import { color4dToItemColor, itemColorToColor4d } from '@ziroeda/eeschema/dialogs/item_color.js';
+import { color4dToItemColor, itemColorToColor4d } from './item_color.js';
 
 /**
  * Symbol Properties. Counterpart: `DIALOG_SYMBOL_PROPERTIES`

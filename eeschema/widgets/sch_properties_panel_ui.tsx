@@ -25,7 +25,8 @@
  */
 
 import type { JSX } from 'react';
-import type { EditCommand, PropRow } from '@ziroeda/eeschema';
+import type { EditCommand } from '../tools/command.js';
+import type { PropRow } from './sch_properties_panel.js';
 import { schIUScale } from '@ziroeda/common';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { PropertiesPanel } from '@ziroeda/common/widgets/properties_panel_ui.js';

@@ -36,12 +36,9 @@ import { join } from 'node:path';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import type { LibSymbol, SchSymbol, SymbolEdit } from '@ziroeda/eeschema';
-import { SymbolPropertiesDialog } from '@ziroeda/designer/src/editors/schematic/components/SymbolPropertiesDialog.js';
+import { SymbolPropertiesDialog } from '@ziroeda/eeschema/dialogs/dialog_symbol_properties.js';
 import { BUNDLED_FAMILIES } from '@ziroeda/common/font/outline_fonts.js';
-import {
-  PIN_SHAPE_BITMAPS,
-  PIN_TYPE_BITMAPS,
-} from '@ziroeda/designer/src/editors/schematic/pin_icons.js';
+import { PIN_SHAPE_BITMAPS, PIN_TYPE_BITMAPS } from '@ziroeda/eeschema/dialogs/pin_icons.js';
 import {} from '@ziroeda/eeschema/symbol_editor/symbol_renderer.js';
 
 /**
