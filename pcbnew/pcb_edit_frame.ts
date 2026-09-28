@@ -61,6 +61,7 @@ import type { RawFile } from '@ziroeda/common';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { INITPCB_MIXIN } from './initpcb.js';
 import { EDIT_MIXIN } from './edit.js';
+import { FILES_MIXIN } from './files.js';
 
 /**
  * The slice of the designer's `PcbnewSettings` (`prefs/settings.ts`)
@@ -239,7 +240,7 @@ export interface PCB_EDIT_FRAME_HOOKS {
   updatePcbFromSchematic(): void;
 }
 
-export interface PCB_EDIT_FRAME extends INITPCB_MIXIN, EDIT_MIXIN {}
+export interface PCB_EDIT_FRAME extends INITPCB_MIXIN, EDIT_MIXIN, FILES_MIXIN {}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (INITPCB_MIXIN mixin, see libs/core/mixins.ts)
 export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
@@ -711,7 +712,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   }
 }
 
-applyMixins(PCB_EDIT_FRAME, [INITPCB_MIXIN, EDIT_MIXIN]);
+applyMixins(PCB_EDIT_FRAME, [INITPCB_MIXIN, EDIT_MIXIN, FILES_MIXIN]);
 
 /**
  * The React side's BOARD_LISTENER: whatever the board reports, the view is

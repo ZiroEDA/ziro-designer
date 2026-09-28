@@ -21,7 +21,6 @@ import { EDA_VIEW_SWITCHER } from '@ziroeda/common/dialogs/eda_view_switcher.js'
 import { WxTextEntryDialog } from '@ziroeda/common/wx/textdlg.js';
 import { WX_TEXT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_text_entry.js';
 import { Pgm } from '@ziroeda/common/pgm_base.js';
-import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import { editPointColors } from '@ziroeda/common/gal/color4d.js';
 import { galPenWidth, galSnapPx } from '@ziroeda/common/gal_pixel_grid.js';
@@ -367,7 +366,6 @@ import {
 import {
   druFileName,
   findProjectDru,
-  findProjectPrl,
   findProjectPro,
   type PCBNEW_JSON_SETTINGS_LIKE,
 } from './pcb_edit_frame.js';
@@ -1011,19 +1009,12 @@ function promotePadsForCommand(
 }
 
 /**
- * The project's slices into the live BOARD, as `BOARD::SetProject` binds
- * `bds.m_NetSettings` to the project file's NET_SETTINGS and
- * `PCB_EDIT_FRAME::OnBoardLoaded` initialises the DRC engine on the
- * project's `.kicad_dru`: the `.kicad_pro`'s `board.design_settings` is
- * loaded into the board's BOARD_DESIGN_SETTINGS and its `net_settings` into
- * the board's own NET_SETTINGS, the nets take their classes
- * (`SynchronizeNetsAndNetClasses`), the engine compiles the implicit rules
- * plus the custom ones and fills the clearance cache. The files come from
- * the editor's project file list, the way SETTINGS_MANAGER reads them off disk.
- *
- * On a later change of those files (Board Setup's OK persists them) the
- * pads and tracks repaint with the new clearances, as
- * `ShowBoardSetupDialog`'s `UpdateAllItemsConditionally` has them do.
+ * `PCB_EDIT_FRAME::SyncProjectSettingsIntoBoard` (`files.ts`, `pcbnew/
+ * files.cpp`'s half of `OpenProjectFiles`), plus the one piece of it that
+ * is canvas work rather than model work: on a later change of those files
+ * (Board Setup's OK persists them) the pads and tracks repaint with the new
+ * clearances, as `ShowBoardSetupDialog`'s `UpdateAllItemsConditionally`
+ * has them do.
  */
 function syncProjectSettingsIntoBoard(
   frame: PCB_EDIT_FRAME,
@@ -1031,54 +1022,11 @@ function syncProjectSettingsIntoBoard(
   files: readonly { name: string; text: string }[],
   rootPro: string | undefined,
   aFromBoardSetup: boolean,
-  /**
-   * The project folder's absolute path, `/<projectName>` - where the file
-   * dialogs show it and where the 3D viewer mounts its files. KiCad's project
-   * is always an absolute path; KIPRJMOD and FILENAME_RESOLVER need one.
-   */
   aProjectDir: string,
 ): void {
   const kb = frame.GetBoard();
   if (!kb) return;
-  // SETTINGS_MANAGER::LoadProject + BOARD::SetProject: the `.kicad_pro` is
-  // the PROJECT_FILE, and its `board.design_settings`, `net_settings` and
-  // `tuning_profiles` become the board's. A changed file (Board Setup's OK
-  // persists one) is a fresh load: the manager drops the old project first.
-  const pro = findProjectPro(files, rootPro);
-  const manager = Pgm().GetSettingsManager();
-  const proName = pro?.name ?? `${rootPro ?? 'untitled'}.kicad_pro`;
-  const proPath = aProjectDir === '' ? proName : `${aProjectDir}/${proName}`;
-  let proJson: JsonValue | null = null;
-  if (pro) {
-    try {
-      proJson = JSON.parse(pro.text) as JsonValue;
-    } catch {
-      proJson = null;
-    }
-  }
-  const prl = findProjectPrl(files, rootPro);
-  let prlJson: JsonValue | null = null;
-  if (prl) {
-    try {
-      prlJson = JSON.parse(prl.text) as JsonValue;
-    } catch {
-      prlJson = null;
-    }
-  }
-  if (manager.GetProject(proPath)) manager.UnloadProject(manager.GetProject(proPath));
-  manager.LoadProject(proPath, proJson, prlJson);
-  kb.SetProject(manager.Prj());
-  // `SynchronizeNetsAndNetClasses( true )` after the dialog resets the custom
-  // track/via sizes to the Default class; the load's own call (inside
-  // InitEngine's loadImplicitRules) passes false.
-  kb.SynchronizeNetsAndNetClasses(aFromBoardSetup);
-  // "Initialise time domain tuning caches" (files.cpp:986), after the project's
-  // profiles are in and before anything asks for a length.
-  kb.SynchronizeTuningProfileProperties();
-  const dru = findProjectDru(files, rootPro);
-  frame.OnBoardLoaded(dru?.text ?? null, dru?.name ?? '');
-  // The load stops here: OnBoardLoaded's own tail (SetActiveLayer + a full
-  // UpdateAllItems) is the first display sync of the board, in pcb_canvas.
+  frame.SyncProjectSettingsIntoBoard(files, rootPro, aFromBoardSetup, aProjectDir);
   if (!aFromBoardSetup || !panel) return;
   boardSetupRepaint(frame, panel, kb);
 }
