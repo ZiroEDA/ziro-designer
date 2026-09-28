@@ -4,7 +4,11 @@
 /**
  * Align Items to Grid. Counterparts: `SCH_MOVE_TOOL::AlignToGrid`
  * (eeschema/tools/sch_move_tool.cpp) and `AlignSchematicItemsToGrid`
- * (eeschema/sch_item_alignment.cpp).
+ * (eeschema/sch_item_alignment.cpp) — the per-item-type dispatch below
+ * (wires, free text, majority-shift) is `AlignSchematicItemsToGrid`'s own
+ * loop; the pure snap geometry it calls (`EE_GRID_HELPER::AlignGrid`, the
+ * shifts histogram) lives in `../sch_item_alignment.ts` and is imported here.
+ * The commit/apply loop that drags each item is `SCH_MOVE_TOOL::AlignToGrid`.
  *
  * The action drags each selected item onto the grid *as a drag*, not a move —
  * connected wires come with it, so a symbol nudged half a grid step takes its
@@ -38,42 +42,9 @@ import { connectionPoints, planMove, planMoveFromPoints } from './connect.js';
 import { moveWithConnections } from './move.js';
 import { refId } from './hittest.js';
 import type { EditCommand } from './command.js';
-
-/** `EE_GRID_HELPER::AlignGrid`: the nearest multiple of the grid step. */
-export const alignToGridPoint = (p: Vec2, grid: number): Vec2 => ({
-  x: Math.round(p.x / grid) * grid,
-  y: Math.round(p.y / grid) * grid,
-});
+import { alignToGridPoint, mostCommonGridShift } from '../sch_item_alignment.js';
 
 const isZero = (d: Vec2): boolean => d.x === 0 && d.y === 0;
-const key = (p: Vec2): string => `${p.x},${p.y}`;
-
-/**
- * The shift that snaps the most of `points` onto the grid — upstream's
- * `shifts` histogram, whose winner is the most common delta.
- *
- * Ties go to the first shift to reach the running maximum, which is the order
- * the connection points come in, exactly as the `>` comparison upstream leaves
- * the incumbent in place.
- */
-export function mostCommonGridShift(points: readonly Vec2[], grid: number): Vec2 {
-  let best: Vec2 = { x: 0, y: 0 };
-  let bestCount = 0;
-  const counts = new Map<string, { shift: Vec2; n: number }>();
-  for (const p of points) {
-    const aligned = alignToGridPoint(p, grid);
-    const shift = { x: aligned.x - p.x, y: aligned.y - p.y };
-    const k = key(shift);
-    const entry = counts.get(k) ?? { shift, n: 0 };
-    entry.n++;
-    counts.set(k, entry);
-    if (entry.n > bestCount) {
-      bestCount = entry.n;
-      best = entry.shift;
-    }
-  }
-  return best;
-}
 
 /**
  * Build the sequence of drags that aligns `ids` to the grid.

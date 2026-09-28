@@ -9,11 +9,8 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
-import {
-  alignToGridCommand,
-  alignToGridPoint,
-  mostCommonGridShift,
-} from '@ziroeda/eeschema/tools/align_to_grid.js';
+import { alignToGridCommand } from '@ziroeda/eeschema/tools/align_to_grid.js';
+import { alignToGridPoint, mostCommonGridShift } from '@ziroeda/eeschema/sch_item_alignment.js';
 import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

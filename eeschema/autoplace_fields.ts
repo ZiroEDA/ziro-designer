@@ -47,7 +47,7 @@ import {
   type SymbolFieldBox,
 } from './fieldbox.js';
 import { measureText } from '@ziroeda/common/font/stroke_font.js';
-import { libPinBoundingBox } from './pin_box.js';
+import { libPinBoundingBox } from './pin_layout_cache.js';
 import {
   symbolTransform,
   applyTransform,

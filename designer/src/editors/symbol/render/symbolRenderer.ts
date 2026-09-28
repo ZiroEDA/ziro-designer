@@ -18,7 +18,7 @@
  */
 
 import { electricalPinTypeGetText, pinShapeGetText } from '@ziroeda/eeschema';
-import { altIconBox } from '@ziroeda/eeschema/pin_box.js';
+import { altIconBox } from '@ziroeda/eeschema/pin_layout_cache.js';
 import { drawAltPinModesIcon } from '@ziroeda/eeschema/pin_alt_icon.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import { zoomFitView } from '@ziroeda/common/ui/view_controls.js';

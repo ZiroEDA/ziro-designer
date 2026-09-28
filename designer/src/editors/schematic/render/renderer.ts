@@ -107,7 +107,7 @@ import {
   simExclusionMarker,
 } from '@ziroeda/eeschema/symbol_markers.js';
 import { dimmedColor } from '@ziroeda/eeschema/render_color.js';
-import { altIconBox } from '@ziroeda/eeschema/pin_box.js';
+import { altIconBox } from '@ziroeda/eeschema/pin_layout_cache.js';
 import { drawAltPinModesIcon } from '@ziroeda/eeschema/pin_alt_icon.js';
 
 /**
