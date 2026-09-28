@@ -1289,10 +1289,12 @@ function readSchematicBody(root: SList, reporter?: Reporter): Schematic {
     // (forward-compat, see the file header), but this one we know is not a
     // real 10.0.5 node, so it is dropped here rather than silently round-tripped
     // by the generic "preserve unknown structural nodes" fallback in the writer.
-    source:
-      root.items.some((it) => isList(it) && head(it) === 'net_chain')
-        ? { kind: 'list', items: root.items.filter((it) => !(isList(it) && head(it) === 'net_chain')) }
-        : root,
+    source: root.items.some((it) => isList(it) && head(it) === 'net_chain')
+      ? {
+          kind: 'list',
+          items: root.items.filter((it) => !(isList(it) && head(it) === 'net_chain')),
+        }
+      : root,
   };
   // parseSchSymbolInstances: the root's legacy per-path symbol table.
   const symbolInstancesNode = childNamed(root, 'symbol_instances');

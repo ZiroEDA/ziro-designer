@@ -28,7 +28,10 @@ import {
   applyTextValues,
   collectTextValues,
 } from '@ziroeda/pcbnew/dialogs/dialog_text_properties.js';
-import { applyTextBoxValues, collectTextBoxValues } from '@ziroeda/pcbnew/dialogs/dialog_textbox_properties.js';
+import {
+  applyTextBoxValues,
+  collectTextBoxValues,
+} from '@ziroeda/pcbnew/dialogs/dialog_textbox_properties.js';
 
 const BOARD = `(kicad_pcb (version 20241229) (generator "pcbnew")
   (gr_text "faced" (at 10 10) (layer "F.SilkS")

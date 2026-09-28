@@ -15,7 +15,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { DialogRuleAreaProperties } from '@ziroeda/designer/src/editors/pcb/dialogs/dialog_rule_area_properties.js';
-import type { PlacementSources, RuleAreaValues } from '@ziroeda/pcbnew/dialogs/dialog_rule_area_properties.js';
+import type {
+  PlacementSources,
+  RuleAreaValues,
+} from '@ziroeda/pcbnew/dialogs/dialog_rule_area_properties.js';
 
 afterEach(cleanup);
 

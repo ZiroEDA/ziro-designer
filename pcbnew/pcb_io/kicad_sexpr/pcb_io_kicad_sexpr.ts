@@ -62,7 +62,12 @@ import {
   RECT_CHAMFER_TOP_LEFT,
   RECT_CHAMFER_TOP_RIGHT,
 } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
-import { ANGLE_0, ANGLE_45, ANGLE_90, type EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import {
+  ANGLE_0,
+  ANGLE_45,
+  ANGLE_90,
+  type EDA_ANGLE,
+} from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';

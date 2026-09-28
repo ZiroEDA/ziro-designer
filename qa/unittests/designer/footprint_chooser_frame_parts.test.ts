@@ -99,9 +99,7 @@ describe('the library rows’ descriptions', () => {
     );
     expect(existsSync(script)).toBe(true);
     const out = readFileSync(
-      fileURLToPath(
-        new URL('../../../common/lib_table_descriptions.ts', import.meta.url),
-      ),
+      fileURLToPath(new URL('../../../common/lib_table_descriptions.ts', import.meta.url)),
       'utf8',
     );
     expect(out).toContain('GENERATED');

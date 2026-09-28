@@ -203,7 +203,7 @@ describe('PCB_GRID_HELPER (the helper the router asks)', () => {
     });
   });
 
-  it('drops the last gesture\'s aux axis when SetState is handed none', () => {
+  it("drops the last gesture's aux axis when SetState is handed none", () => {
     // The editor holds one helper and re-states it per event; a gesture's
     // origin must not outlive the gesture.
     const helper = new PCB_GRID_HELPER(gridState({ auxAxis: { x: 1_234, y: 5_678 } }));

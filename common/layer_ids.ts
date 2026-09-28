@@ -8,11 +8,7 @@
  * still speaks, each a delegate over the numeric one.
  */
 
-import {
-  FlipLayer as FlipLayerId,
-  LayerName as LayerNameId,
-  PCB_LAYER_ID,
-} from './layer_id.js';
+import { FlipLayer as FlipLayerId, LayerName as LayerNameId, PCB_LAYER_ID } from './layer_id.js';
 import { LSET } from './lset.js';
 
 /**

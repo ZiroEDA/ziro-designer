@@ -23,7 +23,10 @@ import { describe, expect, it, vi } from 'vitest';
 // the parser's last step), and a knockout QR takes a second or more.
 vi.setConfig({ testTimeout: 30_000 });
 import { parse, head } from '@ziroeda/sexpr/index.js';
-import { readBoard, readFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import {
+  readBoard,
+  readFootprintFile,
+} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { emptyBoard, flatText, writtenNode } from './support/written_node.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';

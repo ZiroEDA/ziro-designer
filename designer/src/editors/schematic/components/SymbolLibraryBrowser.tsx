@@ -49,7 +49,6 @@ interface Props {
   onClose: () => void;
 }
 
-
 /** BODY_STYLE::BASE / DEMORGAN (symbol_edit_frame.h DEMORGAN_STD / DEMORGAN_ALT). */
 const DEMORGAN_STD = 'Standard';
 const DEMORGAN_ALT = 'Alternate';

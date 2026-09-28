@@ -17,10 +17,7 @@
  * a per-launcher defect hides.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  FP_LEFT_TOOLBAR,
-  FP_RIGHT_TOOLBAR,
-} from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
+import { FP_LEFT_TOOLBAR, FP_RIGHT_TOOLBAR } from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
 import {
   groupIsCheckItem,
   type ToolEntry,

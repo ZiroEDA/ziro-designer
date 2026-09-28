@@ -22,7 +22,11 @@ import { head, isList, type SList, type SNode } from '@ziroeda/sexpr/types.js';
 import { arg, numArg } from '@ziroeda/sexpr/query.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { applyPadValues, collectPadValues, padAt } from '@ziroeda/pcbnew/dialogs/dialog_pad_properties.js';
+import {
+  applyPadValues,
+  collectPadValues,
+  padAt,
+} from '@ziroeda/pcbnew/dialogs/dialog_pad_properties.js';
 import {
   applyTrackViaValues,
   collectTrackViaValues,

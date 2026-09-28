@@ -20,10 +20,7 @@
 import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
 import type { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
 import { EDA_PATTERN_MATCH_WILDCARD_ANCHORED } from '@ziroeda/common/eda_pattern_match.js';
-import {
-  FOOTPRINT_INFO_IMPL,
-  type FootprintIndexLibrary,
-} from './footprint_info_impl.js';
+import { FOOTPRINT_INFO_IMPL, type FootprintIndexLibrary } from './footprint_info_impl.js';
 import { footprintLibraryDescription } from '@ziroeda/common/lib_table_descriptions.js';
 
 /**

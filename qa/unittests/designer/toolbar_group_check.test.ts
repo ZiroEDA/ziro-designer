@@ -40,19 +40,13 @@ import {
   RIGHT_TOOLBAR,
 } from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
 import { DS_LEFT_TOOLBAR } from '@ziroeda/pagelayout_editor/toolbars_pl_editor.js';
-import {
-  PCB_LEFT_TOOLBAR,
-  PCB_RIGHT_TOOLBAR,
-} from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
+import { PCB_LEFT_TOOLBAR, PCB_RIGHT_TOOLBAR } from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
 import { GBR_LEFT_TOOLBAR } from '@ziroeda/gerbview/toolbars_gerber.js';
 import {
   SYM_LEFT_TOOLBAR,
   SYM_RIGHT_TOOLBAR,
 } from '@ziroeda/designer/src/editors/symbol/symbolToolbars.js';
-import {
-  FP_LEFT_TOOLBAR,
-  FP_RIGHT_TOOLBAR,
-} from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
+import { FP_LEFT_TOOLBAR, FP_RIGHT_TOOLBAR } from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
 import {
   actionIsToolbarToggle,
   GROUP_ACTION_TOOLBAR_TOGGLE,

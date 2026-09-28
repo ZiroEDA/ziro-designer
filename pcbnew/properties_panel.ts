@@ -45,7 +45,12 @@
 import { PGPROPERTY_ANGLE } from '@ziroeda/common/properties/pg_properties.js';
 import { LINE_STYLE_CHOICES } from '@ziroeda/common/stroke_params.js';
 import { arcCenter, parseBoardItemId, setFootprintFieldByName } from './edit-board.js';
-import { applyPadValues, collectPadValues, type PadRef, type PadValues } from './dialogs/dialog_pad_properties.js';
+import {
+  applyPadValues,
+  collectPadValues,
+  type PadRef,
+  type PadValues,
+} from './dialogs/dialog_pad_properties.js';
 import {
   applyFootprintValues,
   collectFootprintValues,
@@ -66,7 +71,8 @@ import {
   type PcbPostMachining,
   type WithBackdrills,
 } from './padstack_drill.js';
-import { defaultTeardropParameters } from './teardrop.js';
+import { teardropParamsView } from './pcb_io/kicad_sexpr/board_view.js';
+import { TEARDROP_PARAMETERS } from './teardrop/teardrop_parameters.js';
 import { ELECTRICAL_PINTYPES, type ElectricalPinType } from '@ziroeda/common/pin_type.js';
 import {
   applyTrackViaValues,
@@ -98,7 +104,11 @@ import {
   collectTextBoxValues,
   type TextBoxValues,
 } from './dialogs/dialog_textbox_properties.js';
-import { applyTableValues, collectTableValues, type TableValues } from './dialogs/dialog_table_properties.js';
+import {
+  applyTableValues,
+  collectTableValues,
+  type TableValues,
+} from './dialogs/dialog_table_properties.js';
 import {
   applyDimensionValues,
   collectDimensionValues,
@@ -1338,7 +1348,7 @@ function viaRows(board: Board, id: string, ctx: PcbPropertiesContext): PcbPropRo
 
   if (boardHasItemTeardrops(board))
     rows.push(
-      ...teardropRows(via.teardrops ?? defaultTeardropParameters(), false, (td) =>
+      ...teardropRows(via.teardrops ?? teardropParamsView(new TEARDROP_PARAMETERS()), false, (td) =>
         commit({
           tdEnabled: td.enabled,
           tdAllowTwoTracks: td.allowUseTwoTracks,
