@@ -58,6 +58,8 @@ import {
 import { defaultUnitsToggle } from '@ziroeda/common/settings/app_settings_units.js';
 import type { CrosshairMode } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import type { RawFile } from '@ziroeda/common';
+import { applyMixins } from '@ziroeda/core/mixins.js';
+import { INITPCB_MIXIN } from './initpcb.js';
 
 /**
  * The slice of the designer's `PcbnewSettings` (`prefs/settings.ts`)
@@ -236,6 +238,9 @@ export interface PCB_EDIT_FRAME_HOOKS {
   updatePcbFromSchematic(): void;
 }
 
+export interface PCB_EDIT_FRAME extends INITPCB_MIXIN {}
+
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (INITPCB_MIXIN mixin, see libs/core/mixins.ts)
 export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   private readonly hooks: PCB_EDIT_FRAME_HOOKS;
   /** The project's .kicad_dru as last given to OnBoardLoaded: `GetDesignRulesPath()` and its text. */
@@ -569,15 +574,6 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   }
 
   /**
-   * `PCB_EDIT_FRAME::Clear_Pcb`, the part that outlives the window: the undo
-   * and redo lists go because the board is about to be replaced whole.
-   */
-  Clear_Pcb(): void {
-    // Clear undo and redo lists because we want a full deletion
-    this.ClearUndoRedoList();
-  }
-
-  /**
    * `PCB_EDIT_FRAME::SetActiveLayer( aLayer, aForceRedraw )` (pcb_edit_frame.cpp:1823):
    * the canvas half. The Appearance panel's `OnLayerChanged` is the React
    * state's, and `PCB_ACTIONS::layerChanged` is stage 3's.
@@ -717,6 +713,8 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.hooks.onUndoRedoIncomplete();
   }
 }
+
+applyMixins(PCB_EDIT_FRAME, [INITPCB_MIXIN]);
 
 /**
  * The React side's BOARD_LISTENER: whatever the board reports, the view is
