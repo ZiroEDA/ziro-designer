@@ -32,7 +32,7 @@ import {
   defaultPlotLayerSelection,
   parseLayerSetHex,
   plotLayerSelection,
-} from '@ziroeda/designer/src/editors/pcb/board_3d_layers.js';
+} from '@ziroeda/3d-viewer/board_3d_layers.js';
 
 const DATA = resolve(__dirname, '../../data/zone_fill');
 const load = (stem: string) =>

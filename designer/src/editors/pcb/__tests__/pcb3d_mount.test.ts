@@ -48,7 +48,7 @@ vi.mock('three', async (importOriginal) => {
 
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
-import { mount3DViewer } from '../pcb3d.js';
+import { mount3DViewer } from '@ziroeda/3d-viewer/pcb3d.js';
 import { InitPgm } from '../../../pgm_app.js';
 
 // main.tsx runs PGM_BASE::InitPgm before any frame exists; it is what puts

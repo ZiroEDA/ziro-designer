@@ -12,7 +12,7 @@ import {
   clickSelectionParts,
   hoveredItemMessage,
   pickBoardItem,
-} from '@ziroeda/designer/src/editors/pcb/pick3d.js';
+} from '@ziroeda/3d-viewer/pick3d.js';
 
 const MM = 1e6;
 const board = readBoard(
