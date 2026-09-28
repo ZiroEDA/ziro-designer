@@ -48,14 +48,67 @@ import { MARKER_T } from '@ziroeda/common/marker_base.js';
 import { RPT_SEVERITY_EXCLUSION } from '@ziroeda/common/reporter.js';
 import type { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import type { PcbnewSettings } from '../../prefs/settings.js';
+import type { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
+
+/**
+ * The slice of the designer's `PcbnewSettings` (`prefs/settings.ts`)
+ * `pcbnewSettingsOf` reads — named structurally, the way
+ * `FOOTPRINT_EDITOR_SETTINGS_LIKE` (`pcb_base_frame.ts`) already is, so this
+ * package states what it needs of the JSON without importing `designer/`.
+ * The designer's own `PcbnewSettings` satisfies this by construction; every
+ * field name and type below is copied from its `PcbDisplayOptions` /
+ * `PcbEditingSettings` (`prefs/settings.ts`).
+ */
+export interface PCBNEW_JSON_SETTINGS_LIKE {
+  DRC: {
+    report_all_track_errors: boolean;
+    crossprobe: boolean;
+    scroll_on_crossprobe: boolean;
+  };
+  appearance: {
+    color_theme: string;
+  };
+  cross_probing: CROSS_PROBING_SETTINGS;
+  pcb_display: {
+    net_names_mode: 0 | 1 | 2 | 3;
+    pad_numbers: boolean;
+    track_clearance_mode: 0 | 1 | 2 | 3 | 4;
+    pad_clearance: boolean;
+    pad_use_via_color_for_normal_th_padstacks: boolean;
+    force_show_fields_when_fp_selected: boolean;
+    live_3d_refresh: boolean;
+    origin_mode: 0 | 1 | 2;
+    origin_invert_x_axis: boolean;
+    origin_invert_y_axis: boolean;
+    ratsnest_footprint: boolean;
+    ratsnest_curved: boolean;
+    ratsnest_thickness: number;
+    show_page_borders: boolean;
+  };
+  editing: {
+    pcb_angle_snap_mode: 0 | 1 | 2;
+    rotation_angle: number;
+    arc_edit_mode: number;
+    track_drag_action: 0 | 1 | 2;
+    flip_left_right: boolean;
+    allow_free_pads: boolean;
+    auto_fill_zones: boolean;
+    magnetic_pads: 0 | 1 | 2;
+    magnetic_tracks: 0 | 1 | 2;
+    magnetic_graphics: boolean;
+    esc_clears_net_highlight: boolean;
+    show_courtyard_collisions: boolean;
+    ctrl_click_highlight: boolean;
+    polar_coords: boolean;
+  };
+}
 
 /**
  * `PCBNEW_SETTINGS`' PARAM list, the part of it the frame, the commit and the
  * undo code read, from the designer's `pcbnew.json` slice
  * (`pcbnew_settings.cpp`'s `pcb_display.*` and `editing.*` rows).
  */
-export function pcbnewSettingsOf(json: PcbnewSettings): PCBNEW_SETTINGS {
+export function pcbnewSettingsOf(json: PCBNEW_JSON_SETTINGS_LIKE): PCBNEW_SETTINGS {
   const s = new PCBNEW_SETTINGS();
   const d = json.pcb_display;
   const e = json.editing;
