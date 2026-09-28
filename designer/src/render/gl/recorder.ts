@@ -44,7 +44,10 @@ import {
   type Pt,
 } from './tessellate.js';
 import { triangulateRings } from './holes.js';
-import { layoutBitmapText, type BitmapTextPlacement } from '@ziroeda/common/gal/opengl/bitmap_text.js';
+import {
+  layoutBitmapText,
+  type BitmapTextPlacement,
+} from '@ziroeda/common/gal/opengl/bitmap_text.js';
 import { BITMAP_MINPX_FLAG, type ImageSource, parseColor, type Rgba, type Scene } from './scene.js';
 import type { GlPath } from './gl_path.js';
 

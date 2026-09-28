@@ -376,7 +376,10 @@ import { BoardSetupFromWindow, BoardSetupToWindow } from './dialogs/board_setup_
 import { DumpJson } from '@ziroeda/common/settings/json_dump.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { DialogDrc } from '@ziroeda/pcbnew/dialogs/dialog_drc.js';
-import { DialogUpdatePcb, type UpdatePcbOptions } from '@ziroeda/pcbnew/dialogs/dialog_update_pcb.js';
+import {
+  DialogUpdatePcb,
+  type UpdatePcbOptions,
+} from '@ziroeda/pcbnew/dialogs/dialog_update_pcb.js';
 import { DialogGlobalEditTeardrops } from '@ziroeda/pcbnew/dialogs/dialog_global_edit_teardrops_ui.js';
 import {
   BOARD_DESIGN_SETTINGS,
@@ -386,12 +389,23 @@ import {
 import { BuildBomTextFromBoard } from '@ziroeda/pcbnew/build_BOM_from_board.js';
 import { DialogBoardStatistics } from '@ziroeda/pcbnew/dialogs/dialog_board_statistics.js';
 import { DialogFilterSelection } from '@ziroeda/pcbnew/dialogs/dialog_filter_selection_ui.js';
-import { DialogMoveExact, type MoveExactValues } from '@ziroeda/pcbnew/dialogs/dialog_move_exact_ui.js';
+import {
+  DialogMoveExact,
+  type MoveExactValues,
+} from '@ziroeda/pcbnew/dialogs/dialog_move_exact_ui.js';
 import { WX_UNIT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_unit_entry.js';
 import { WX_MULTI_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_multi_unit_entry.js';
 import { DialogCreateArray } from '@ziroeda/pcbnew/dialogs/dialog_create_array_ui.js';
-import { DEFAULT_ARRAY_SETTINGS, arraySpecFrom, type ArraySettings } from '@ziroeda/pcbnew/dialogs/dialog_create_array.js';
-import { handleAtPoint, handleDragTarget, handleTolerance } from '@ziroeda/pcbnew/tools/pcb_point_editor_canvas.js';
+import {
+  DEFAULT_ARRAY_SETTINGS,
+  arraySpecFrom,
+  type ArraySettings,
+} from '@ziroeda/pcbnew/dialogs/dialog_create_array.js';
+import {
+  handleAtPoint,
+  handleDragTarget,
+  handleTolerance,
+} from '@ziroeda/pcbnew/tools/pcb_point_editor_canvas.js';
 import { DialogOutsetItems } from '@ziroeda/pcbnew/dialogs/dialog_outset_items.js';
 import { DialogPnsSettings } from './dialogs/dialog_pns_settings.js';
 import {
@@ -409,7 +423,10 @@ import { netClassFor, netclassesForNet } from '@ziroeda/pcbnew/netclass_resolve.
 // APPEARANCE_CONTROLS is ONE widget that PCB_EDIT_FRAME and
 // FOOTPRINT_EDIT_FRAME both construct, so the panel, its Objects table and its
 // presets live in `widgets/` and this frame supplies only its own data.
-import { AppearanceControls, type AppearanceTab } from '@ziroeda/pcbnew/widgets/appearance_controls.js';
+import {
+  AppearanceControls,
+  type AppearanceTab,
+} from '@ziroeda/pcbnew/widgets/appearance_controls.js';
 import {
   DEFAULT_OBJECTS,
   DEFAULT_OPACITY,
@@ -12057,9 +12074,7 @@ export function PcbEditor({
           onCancel={() => setTablePropsIndex(null)}
         />
       )}
-      {textBoxPropsIndex !== null &&
-        board?.textBoxes[textBoxPropsIndex]?.k &&
-        frameRef.current && (
+      {textBoxPropsIndex !== null && board?.textBoxes[textBoxPropsIndex]?.k && frameRef.current && (
         <DialogTextBoxProperties
           initial={new DIALOG_TEXTBOX_PROPERTIES(
             frameRef.current!,

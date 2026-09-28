@@ -9,10 +9,7 @@
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { FontChoice } from '@ziroeda/common/widgets/font_choice.js';
-import {
-  BUNDLED_FAMILIES,
-  installOutlineFontFaces,
-} from '@ziroeda/common/font/outline_fonts.js';
+import { BUNDLED_FAMILIES, installOutlineFontFaces } from '@ziroeda/common/font/outline_fonts.js';
 import { BUNDLED_FONTS } from '@ziroeda/common/font/fontconfig.js';
 
 afterEach(cleanup);
