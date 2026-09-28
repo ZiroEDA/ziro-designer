@@ -322,8 +322,15 @@ const STCI_LIB_NICKNAME = 0;
 const STCI_LIB_SYMBOL_NAME = 1;
 const STCI_LIB_ID = 2;
 
-/** `SCH_ITEM::operator<` as the sort order of the draw item container. */
-const drawItemLess = (a: SCH_ITEM, b: SCH_ITEM): boolean => a.lessThan(b);
+/**
+ * `SCH_ITEM::operator<` as the sort order of the draw item container.
+ * Exported so callers that build a `LIB_SYMBOL`'s draw items externally (e.g.
+ * `gfx_import_utils.ts`'s `ConvertImageToLibShapes`, which upstream calls
+ * `aSymbol->GetDrawItems().sort()` after appending each unsorted shape) can
+ * finish the same way `LIB_SYMBOL` itself does, rather than reimplementing
+ * `SCH_ITEM::operator<`.
+ */
+export const drawItemLess = (a: SCH_ITEM, b: SCH_ITEM): boolean => a.lessThan(b);
 
 /** `std::map<int, wxString>` / `std::vector<wxString>` operator<, lexicographic. */
 function lexLess<T>(a: readonly T[], b: readonly T[], less: (x: T, y: T) => boolean): number {
