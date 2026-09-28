@@ -42,7 +42,7 @@ import { GBR_LEFT_TOOLBAR } from '@ziroeda/gerbview/toolbars_gerber.js';
 import {
   SYM_LEFT_TOOLBAR,
   SYM_RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/symbol/symbolToolbars.js';
+} from '@ziroeda/eeschema/symbol_editor/toolbars_symbol_editor.js';
 import { FP_LEFT_TOOLBAR, FP_RIGHT_TOOLBAR } from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
 import {
   actionIsToolbarToggle,

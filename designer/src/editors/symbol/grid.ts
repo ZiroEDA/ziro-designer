@@ -23,7 +23,7 @@
  * the file by name — 50 mil, which is exactly what `GRID` was.
  */
 import { gridSizeToIU, settings, type SymbolEditorSettings } from '../../prefs/settings.js';
-import { SYM_SHAPE_TOOLS } from './symbolToolbars.js';
+import { SYM_SHAPE_TOOLS } from '@ziroeda/eeschema/symbol_editor/toolbars_symbol_editor.js';
 import { gridSnappingEnabled } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 
 /**

@@ -32,7 +32,7 @@ import {
   setAllSelectionFilterCategories,
   symSelectionFilterShown,
 } from '@ziroeda/designer/src/ui/selection_filter_panel.js';
-import { LISTBOX_WIDTH } from '@ziroeda/designer/src/editors/symbol/symbolToolbars.js';
+import { LISTBOX_WIDTH } from '@ziroeda/eeschema/symbol_editor/toolbars_symbol_editor.js';
 import {
   applyToggle,
   DEFAULT_TOGGLES,
@@ -51,6 +51,8 @@ import {
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
+const EESCHEMA = fileURLToPath(new URL('../../../eeschema', import.meta.url));
+const readEeschema = (rel: string): string => readFileSync(join(EESCHEMA, rel), 'utf8');
 
 // ---------------------------------------------------------------------------
 // 1. system.units
@@ -146,7 +148,7 @@ describe("SYMBOL_EDIT_FRAME's opening toggle state", () => {
     // would be the defect, so this pins WHERE it is shown.
     const menubar = read('editors/symbol/menubar.ts');
     expect(menubar).toContain("chk('Show Pin Alternate Icons', 'togglePinAltIcons')");
-    const toolbars = read('editors/symbol/symbolToolbars.ts');
+    const toolbars = readEeschema('symbol_editor/toolbars_symbol_editor.ts');
     expect(toolbars, 'upstream leaves this button commented out').not.toContain(
       'togglePinAltIcons',
     );

@@ -20,7 +20,7 @@ import { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
 import {
   SymbolTreeSynchronizingAdapter,
   type SymbolTreeSource,
-} from '@ziroeda/designer/src/editors/symbol/symbol_tree_synchronizing_adapter.js';
+} from '@ziroeda/eeschema/symbol_tree_synchronizing_adapter.js';
 
 /** A frame/manager that says no to everything, overridden per case. */
 const source = (over: Partial<SymbolTreeSource> = {}): SymbolTreeSource => ({

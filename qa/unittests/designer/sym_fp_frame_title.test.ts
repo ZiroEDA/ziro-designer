@@ -21,7 +21,7 @@ import {
   SYM_FRAME_NAME,
   SYM_NO_DOCUMENT,
   symFrameTitle,
-} from '@ziroeda/designer/src/editors/symbol/frame_title.js';
+} from '@ziroeda/eeschema/symbol_editor/frame_title.js';
 import {
   FP_FRAME_NAME,
   FP_NO_DOCUMENT,

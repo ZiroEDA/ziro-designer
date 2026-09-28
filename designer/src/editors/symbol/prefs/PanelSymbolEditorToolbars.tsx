@@ -27,7 +27,7 @@ import { catalogueFor, ourToolbarId } from '../../../ui/action_catalogue.js';
 import type { JSX } from 'react';
 import { PanelToolbarCustomization } from '@ziroeda/common/dialogs/panel_toolbar_customization.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { SYM_DEFAULT_TOOLBARS } from '../symbolToolbars.js';
+import { SYM_DEFAULT_TOOLBARS } from '@ziroeda/eeschema/symbol_editor/toolbars_symbol_editor.js';
 
 export function PanelSymbolEditorToolbars({ ctx }: { ctx: PrefsContext }): JSX.Element {
   return (

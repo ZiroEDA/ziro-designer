@@ -18,7 +18,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { SymbolLibraryManager } from '@ziroeda/designer/src/editors/symbol/libraryManager.js';
-import { deleteSymbolPrompts } from '@ziroeda/designer/src/editors/symbol/delete_symbol_prompt.js';
+import { deleteSymbolPrompts } from '@ziroeda/eeschema/symbol_editor/delete_symbol_prompt.js';
 
 /**
  * A library with a root `R` and two symbols derived from it, plus a chain

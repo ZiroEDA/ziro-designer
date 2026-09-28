@@ -29,7 +29,7 @@ import { sharedToolCursorName, toolCursorCss } from '@ziroeda/common/tool/tool_c
 import { kiCursor } from '@ziroeda/common/gal/kicursors.js';
 import { boardToolCursor } from '@ziroeda/pcbnew/cursors.js';
 import { footprintToolCursor } from '@ziroeda/pcbnew/footprint_cursors.js';
-import { symbolToolCursor } from '@ziroeda/designer/src/editors/symbol/cursors.js';
+import { symbolToolCursor } from '@ziroeda/eeschema/symbol_editor/cursors.js';
 import { toolCursorName } from '@ziroeda/designer/src/editors/schematic/cursors.js';
 
 describe('the delete tool wears the eraser everywhere', () => {
