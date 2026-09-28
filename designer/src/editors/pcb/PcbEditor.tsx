@@ -86,7 +86,7 @@ import {
   canvasBackingSize,
   isMeasured,
 } from '@ziroeda/common/widgets/canvas_size.js';
-import { appearanceNetRows } from '@ziroeda/pcbnew/appearance_nets.js';
+import { appearanceNetRows } from '@ziroeda/pcbnew/widgets/appearance_nets.js';
 import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
 
 /**
@@ -95,8 +95,8 @@ import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
  */
 const PCB_LOCAL_ORIGIN = { x: 0, y: 0 };
 import { drawRulerItem, rulerEnd } from '@ziroeda/common/preview_items/ruler_item.js';
-import { boardToolCursor } from './cursors.js';
-import { pickerSnapsToGridOnly } from '@ziroeda/pcbnew/picker_snap.js';
+import { boardToolCursor } from '@ziroeda/pcbnew/cursors.js';
+import { pickerSnapsToGridOnly } from '@ziroeda/pcbnew/tools/pcb_picker_tool.js';
 import {
   groupBoxSegments,
   groupLabelAnchor,
@@ -259,6 +259,7 @@ import {
   applyBarcodeValues,
   barcodeAt,
   barcodeValues,
+  DIALOG_BARCODE_PROPERTIES,
 } from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties.js';
 import { DialogBarcodeProperties } from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties_ui.js';
 import { GetLayerName } from '@ziroeda/common/layer_ids.js';
@@ -272,11 +273,11 @@ import { applyPnsChanges, PnsSession } from '@ziroeda/pcbnew/router/pns_session.
 import { PnsRouterMode } from '@ziroeda/pcbnew/router/pns_router.js';
 import type { PnsDesignSettings } from '@ziroeda/pcbnew/router/pns_board_iface.js';
 import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
-import { ReferenceImageCache } from '@ziroeda/pcbnew/image_cache.js';
+import { ReferenceImageCache } from '@ziroeda/pcbnew/pcb_reference_image.js';
 import { cleanup3dCache } from './model_cache.js';
 import { buildPcbMenus } from '@ziroeda/pcbnew/menubar_pcb_editor.js';
 import { Viewer3DFrame } from './Viewer3DFrame.js';
-import { dimensionDefaultsFrom, dimensionToolKind } from '@ziroeda/pcbnew/dimension_tools.js';
+import { dimensionDefaultsFrom, dimensionToolKind } from '@ziroeda/pcbnew/tools/drawing_tool.js';
 import { DialogDimensionProperties } from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties_ui.js';
 import { DialogTextBoxProperties } from './dialogs/dialog_textbox_properties.js';
 import { DialogReferenceImageProperties } from '@ziroeda/pcbnew/dialogs/dialog_reference_image_properties_ui.js';
@@ -284,6 +285,7 @@ import { DialogTableProperties } from '@ziroeda/common/dialogs/dialog_table_prop
 import {
   applyTableValues,
   collectTableValues,
+  DIALOG_TABLE_PROPERTIES,
   isBackLayer,
   tableAt,
   type TableValues,
@@ -291,6 +293,7 @@ import {
 import {
   applyTextBoxValues,
   collectTextBoxValues,
+  DIALOG_TEXTBOX_PROPERTIES,
   textBoxAt,
   type TextBoxValues,
 } from '@ziroeda/pcbnew/dialogs/dialog_textbox_properties.js';
@@ -320,7 +323,7 @@ import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { layerBoxLabel, layerForHotkey } from '@ziroeda/pcbnew/pcb_layer_box_selector.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
-import { PCB_FRAME_NAME, pcbFrameTitle } from '@ziroeda/pcbnew/frame_title.js';
+import { PCB_FRAME_NAME, pcbFrameTitle } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import { withSaveEnablement } from '@ziroeda/common/save_enablement.js';
 import {
   copySelectionToClipboardText,
@@ -348,7 +351,7 @@ import {
 import { DialogPcbFind, DEFAULT_PCB_FIND, type PcbFindOptions } from '@ziroeda/pcbnew/dialogs/dialog_find.js';
 import { DialogPageSettings } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import { pageSettingsValue, toPaperToken } from '@ziroeda/common/dialogs/dialog_page_settings.js';
-import { type ExtentsBox, pcbZoomFitBox } from '@ziroeda/pcbnew/document_extents.js';
+import { type ExtentsBox, pcbZoomFitBox } from '@ziroeda/pcbnew/pcb_base_frame.js';
 import { DialogPcbPrint } from './dialogs/dialog_print_pcb.js';
 import { DialogPcbPlot } from './dialogs/dialog_plot_pcb.js';
 import {
@@ -357,7 +360,7 @@ import {
   type BoardSetupValues,
   type PageId as BoardSetupPageId,
 } from './dialogs/dialog_board_setup.js';
-import { druFileName, findProjectDru, findProjectPrl, findProjectPro } from '@ziroeda/pcbnew/project_settings.js';
+import { druFileName, findProjectDru, findProjectPrl, findProjectPro } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import { clampMaxErrorMM } from '@ziroeda/pcbnew/board_settings.js';
 import type { TextGfxRow } from '@ziroeda/pcbnew/board_settings.js';
 import { BoardSetupFromWindow, BoardSetupToWindow } from './dialogs/board_setup_transfer.js';
@@ -378,7 +381,7 @@ import { DialogMoveExact, type MoveExactValues } from '@ziroeda/pcbnew/dialogs/d
 import { WX_UNIT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_unit_entry.js';
 import { WX_MULTI_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_multi_unit_entry.js';
 import { DialogCreateArray } from '@ziroeda/pcbnew/dialogs/dialog_create_array_ui.js';
-import { DEFAULT_ARRAY_SETTINGS, arraySpecFrom, type ArraySettings } from '@ziroeda/pcbnew/array_settings.js';
+import { DEFAULT_ARRAY_SETTINGS, arraySpecFrom, type ArraySettings } from '@ziroeda/pcbnew/dialogs/dialog_create_array.js';
 import { handleAtPoint, handleDragTarget, handleTolerance } from '@ziroeda/pcbnew/tools/pcb_point_editor_canvas.js';
 import { DialogOutsetItems } from '@ziroeda/pcbnew/dialogs/dialog_outset_items.js';
 import { DialogPnsSettings } from './dialogs/dialog_pns_settings.js';
@@ -386,7 +389,7 @@ import {
   DEFAULT_OUTSET_SETTINGS,
   outsetOptionsFrom,
   type OutsetSettings,
-} from '@ziroeda/pcbnew/outset_settings.js';
+} from '@ziroeda/pcbnew/tools/item_modification_routine.js';
 import {
   DialogPositionRelative,
   type PositionRelativeValues,
@@ -425,7 +428,7 @@ import { drawSnapIndicator } from '@ziroeda/common/preview_items/snap_indicator.
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { type BoardCursorSnap, snapToBoardCopper } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
 import { inheritTrackWidth } from '@ziroeda/pcbnew/inherit_track_width.js';
-import { moveDelta } from '@ziroeda/pcbnew/pcb_grid.js';
+import { moveDelta } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import { contextMenuPick } from '@ziroeda/pcbnew/tools/pcb_selection_tool.js';
 import { parseDrcRules } from '@ziroeda/pcbnew/drc/drc_rule_view.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties.js';
@@ -444,13 +447,12 @@ import { DialogShapeProperties } from '@ziroeda/pcbnew/dialogs/dialog_graphic_pr
 import { DialogTextProperties } from './dialogs/dialog_text_properties.js';
 import {
   applyTextValues,
-  collectTextValues,
+  DIALOG_TEXT_PROPERTIES,
   textAt,
   type TextValues,
 } from '@ziroeda/pcbnew/dialogs/dialog_text_properties.js';
 import {
-  applyShapeValues,
-  collectShapeValues,
+  DIALOG_SHAPE_PROPERTIES,
   shapeAt,
   type ShapeValues,
 } from '@ziroeda/pcbnew/dialogs/dialog_shape_properties.js';
@@ -504,7 +506,7 @@ import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.
 import { FootprintChooserFrame } from './dialogs/footprint_chooser_frame.js';
 import { addFootprintToHistory } from '@ziroeda/pcbnew/widgets/footprint_history.js';
 import { preloadBoardLibraries } from './preload.js';
-import { parseFootprint } from '@ziroeda/pcbnew/footprintBoard.js';
+import { parseFootprint } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import {
   buildScene,
   drawBoard,
@@ -555,7 +557,7 @@ import {
   isStoredPcbToggle,
   lineModeToggleId,
   pcbTogglesFromSettings,
-} from '@ziroeda/pcbnew/toggles.js';
+} from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import {
   layerColor,
   pcbThemeWithOverrides,
@@ -563,7 +565,7 @@ import {
   PCB_CURSOR,
   PCB_OBJECT_COLORS,
   PCB_SPECIAL,
-} from './pcbTheme.js';
+} from '@ziroeda/pcbnew/pcbTheme.js';
 import { PcbPropertiesPanel } from './PcbPropertiesPanel.js';
 import {
   drawGrid,
@@ -8515,11 +8517,13 @@ export function PcbEditor({
       const brd = boardRef.current;
       const index = textPropsIndex;
       setTextPropsIndex(null);
-      if (!brd || index === null) return;
-      const next = applyTextValues(brd, index, values);
-      if (next !== brd) commitBoard(next);
+      const frame = frameRef.current;
+      const k = index === null ? undefined : brd?.texts[index]?.k;
+      if (!frame || !k) return;
+      // DIALOG_TEXT_PROPERTIES on the live PCB_TEXT: one BOARD_COMMIT.
+      new DIALOG_TEXT_PROPERTIES(frame, k).TransferDataFromWindow(values);
     },
-    [commitBoard, textPropsIndex],
+    [textPropsIndex],
   );
 
   /** DIALOG_TABLE_PROPERTIES::TransferDataFromWindow. */
@@ -8528,11 +8532,13 @@ export function PcbEditor({
       const brd = boardRef.current;
       const index = tablePropsIndex;
       setTablePropsIndex(null);
-      if (!brd || index === null) return;
-      const next = applyTableValues(brd, index, values);
-      if (next !== brd) commitBoard(next);
+      const frame = frameRef.current;
+      const k = index === null ? undefined : brd?.tables[index]?.k;
+      if (!frame || !k) return;
+      // DIALOG_TABLE_PROPERTIES on the live PCB_TABLE: one BOARD_COMMIT.
+      new DIALOG_TABLE_PROPERTIES(frame, k).TransferDataFromWindow(values);
     },
-    [commitBoard, tablePropsIndex],
+    [tablePropsIndex],
   );
 
   /** DIALOG_TEXTBOX_PROPERTIES::TransferDataFromWindow. */
@@ -8541,11 +8547,13 @@ export function PcbEditor({
       const brd = boardRef.current;
       const index = textBoxPropsIndex;
       setTextBoxPropsIndex(null);
-      if (!brd || index === null) return;
-      const next = applyTextBoxValues(brd, index, values);
-      if (next !== brd) commitBoard(next);
+      const frame = frameRef.current;
+      const k = index === null ? undefined : brd?.textBoxes[index]?.k;
+      if (!frame || !k) return;
+      // DIALOG_TEXTBOX_PROPERTIES on the live PCB_TEXTBOX: one BOARD_COMMIT.
+      new DIALOG_TEXTBOX_PROPERTIES(frame, k).TransferDataFromWindow(values);
     },
-    [commitBoard, textBoxPropsIndex],
+    [textBoxPropsIndex],
   );
 
   /** DIALOG_REFERENCE_IMAGE_PROPERTIES::TransferDataFromWindow. */
@@ -8579,11 +8587,13 @@ export function PcbEditor({
       const brd = boardRef.current;
       const index = shapePropsIndex;
       setShapePropsIndex(null);
-      if (!brd || index === null) return;
-      const next = applyShapeValues(brd, index, values);
-      if (next !== brd) commitBoard(next);
+      const frame = frameRef.current;
+      const k = index === null ? undefined : brd?.shapes[index]?.k;
+      if (!frame || !k) return;
+      // DIALOG_SHAPE_PROPERTIES on the live PCB_SHAPE: one BOARD_COMMIT.
+      new DIALOG_SHAPE_PROPERTIES(frame, k).TransferDataFromWindow(values);
     },
-    [commitBoard, shapePropsIndex],
+    [shapePropsIndex],
   );
 
   /** DIALOG_PAD_PROPERTIES::TransferDataFromWindow. */
@@ -11715,7 +11725,11 @@ export function PcbEditor({
             <DialogBarcodeProperties
               units={unitLabel}
               barcode={bc}
-              initial={barcodeValues(bc)}
+              initial={
+                bc.k && frameRef.current
+                  ? new DIALOG_BARCODE_PROPERTIES(frameRef.current, bc.k).TransferDataToWindow()
+                  : barcodeValues(bc)
+              }
               layers={board?.layers.map((l) => l.name) ?? []}
               layerColor={layerColor}
               background={PCB_BACKGROUND}
@@ -11725,11 +11739,14 @@ export function PcbEditor({
                 const dlg = barcodeDialog;
                 setBarcodeDialog(null);
                 if (!brd || !dlg) return;
-                const next = applyBarcodeValues(bc, v);
                 if (dlg.index !== undefined) {
-                  commitBoard(setBoardBarcode(brd, dlg.index, next));
+                  // DIALOG_BARCODE_PROPERTIES on the live PCB_BARCODE: one BOARD_COMMIT.
+                  const k = brd.barcodes[dlg.index]?.k;
+                  if (k && frameRef.current)
+                    new DIALOG_BARCODE_PROPERTIES(frameRef.current, k).TransferDataFromWindow(v);
                   return;
                 }
+                const next = applyBarcodeValues(bc, v);
                 // `m_toolMgr->RunAction<EDA_ITEM*>( ACTIONS::selectItem, barcode )`
                 // (`drawing_tool.cpp:1558`): the new barcode is left selected.
                 const added = addBoardBarcode(brd, next);
@@ -11953,9 +11970,12 @@ export function PcbEditor({
           onClose={() => setUpdatePcb(null)}
         />
       )}
-      {textPropsIndex !== null && board?.texts[textPropsIndex] && (
+      {textPropsIndex !== null && board?.texts[textPropsIndex]?.k && frameRef.current && (
         <DialogTextProperties
-          initial={collectTextValues(board.texts[textPropsIndex]!)}
+          initial={new DIALOG_TEXT_PROPERTIES(
+            frameRef.current!,
+            board.texts[textPropsIndex]!.k!,
+          ).TransferDataToWindow()}
           units={unitLabel}
           layers={board.layers.map((l) => l.name)}
           layerColor={layerColor}
@@ -11963,10 +11983,13 @@ export function PcbEditor({
           onClose={() => setTextPropsIndex(null)}
         />
       )}
-      {shapePropsIndex !== null && board?.shapes[shapePropsIndex] && (
+      {shapePropsIndex !== null && board?.shapes[shapePropsIndex]?.k && frameRef.current && (
         <DialogShapeProperties
           units={unitLabel}
-          initial={collectShapeValues(board.shapes[shapePropsIndex]!)}
+          initial={new DIALOG_SHAPE_PROPERTIES(
+            frameRef.current!,
+            board.shapes[shapePropsIndex]!.k!,
+          ).TransferDataToWindow()}
           kind={board.shapes[shapePropsIndex]!.kind}
           layers={board.layers.map((l) => l.name)}
           onApply={applyShapeEdit}
@@ -12012,9 +12035,12 @@ export function PcbEditor({
           onClose={() => setPendingTextBox(null)}
         />
       )}
-      {tablePropsIndex !== null && board?.tables[tablePropsIndex] && (
+      {tablePropsIndex !== null && board?.tables[tablePropsIndex]?.k && frameRef.current && (
         <DialogTableProperties<TableValues>
-          initial={collectTableValues(board.tables[tablePropsIndex]!)}
+          initial={new DIALOG_TABLE_PROPERTIES(
+            frameRef.current!,
+            board.tables[tablePropsIndex]!.k!,
+          ).TransferDataToWindow()}
           iuScale={pcbIUScale}
           columnWidths={board.tables[tablePropsIndex]!.columnWidths}
           header={tableDialogHeader}
@@ -12022,9 +12048,14 @@ export function PcbEditor({
           onCancel={() => setTablePropsIndex(null)}
         />
       )}
-      {textBoxPropsIndex !== null && board?.textBoxes[textBoxPropsIndex] && (
+      {textBoxPropsIndex !== null &&
+        board?.textBoxes[textBoxPropsIndex]?.k &&
+        frameRef.current && (
         <DialogTextBoxProperties
-          initial={collectTextBoxValues(board.textBoxes[textBoxPropsIndex]!)}
+          initial={new DIALOG_TEXTBOX_PROPERTIES(
+            frameRef.current!,
+            board.textBoxes[textBoxPropsIndex]!.k!,
+          ).TransferDataToWindow()}
           units={unitLabel}
           layers={board.layers.map((l) => l.name)}
           layerColor={layerColor}
