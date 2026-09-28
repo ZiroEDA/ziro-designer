@@ -122,6 +122,16 @@ export interface LIB_TREE {
   CenterLibId(aLibId: LIB_ID): void;
 }
 
+/**
+ * `PROPERTIES_PANEL` (`include/widgets/properties_panel.h`), the two calls
+ * `UpdateProperties` makes. The panels themselves are React views.
+ */
+export interface PROPERTIES_PANEL {
+  IsShownOnScreen(): boolean;
+  /** Rebuild the grid from the current selection. */
+  UpdateData(): void;
+}
+
 export const SCH_EDIT_FRAME_NAME = 'SchematicFrame';
 export const SYMBOL_CHOOSER_FRAME_NAME = 'SymbolChooserFrame';
 export const PL_EDITOR_FRAME_NAME = 'PlEditorFrame';
@@ -133,6 +143,7 @@ export const PCB_EDIT_FRAME_NAME = 'PcbFrame';
 
 export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
   protected m_canvas: EDA_DRAW_PANEL_GAL | null = null;
+  protected m_propertiesPanel: PROPERTIES_PANEL | null = null;
   protected m_currentScreen: BASE_SCREEN | null = null; ///< current used SCREEN
   protected m_colorSettings: COLOR_SETTINGS | null = null;
   protected m_galDisplayOptions: GAL_DISPLAY_OPTIONS_IMPL = new GAL_DISPLAY_OPTIONS_IMPL();
@@ -491,6 +502,25 @@ export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
   }
   ToggleLibraryTree(): void {}
   FocusLibraryTreeInput(): void {}
+
+  GetPropertiesPanel(): PROPERTIES_PANEL | null {
+    return this.m_propertiesPanel;
+  }
+
+  /** The window that shows `m_propertiesPanel` hands it over here; null when it closes. */
+  SetPropertiesPanel(aPanel: PROPERTIES_PANEL | null): void {
+    this.m_propertiesPanel = aPanel;
+  }
+
+  /** `EDA_DRAW_FRAME::UpdateProperties()` (eda_draw_frame.cpp:1336-1342). */
+  UpdateProperties(): void {
+    if (this.m_isClosing || !this.m_propertiesPanel || !this.m_propertiesPanel.IsShownOnScreen())
+      return;
+
+    this.m_propertiesPanel.UpdateData();
+  }
+
+  ToggleProperties(): void {}
 
   // ---- grid ---------------------------------------------------------------
 
@@ -904,6 +934,7 @@ export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
 
     this.UpdateStatusBar();
     this.UpdateMsgPanel();
+    this.UpdateProperties();
   }
 
   ToggleUserUnits(): void {

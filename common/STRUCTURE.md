@@ -418,6 +418,14 @@ C++ says, a footprint row (or no row) shows Pin and Unpin together and repins
 nothing. Open: the footprint editor keeps pins in its library manager, not
 `Prj().PinLibrary`; the symbol editor has no tree menu.
 
+`tool/properties_tool` (09-28): PROPERTIES_TOOL, whole, with
+`EDA_DRAW_FRAME::UpdateProperties` / `Get`+`SetPropertiesPanel` over a
+`PROPERTIES_PANEL` interface (and `unitsChangeRefresh` now calls it, as
+upstream's does). PCB_EDIT_FRAME registers it; nothing hands the frame its
+panel yet (`PcbPropertiesPanel.tsx` / `SchPropertiesPanel.tsx` re-render from
+React state), and no selection tool posts the events it listens for until
+pcbnew's stage 3.
+
 The wxDC print path (09-27): `gr_basic` (here, whole), `gr_text`'s
 `GRTextWidth` / `GRPrintText`, `EDA_TEXT::Print`, `BITMAP_BASE::DrawBitmap`,
 `RENDER_SETTINGS`' print DC, the drawing sheet's `PrintWsItem`s and
