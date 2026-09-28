@@ -1952,6 +1952,7 @@ export function PcbEditor({
     schematicNetlistText: () => string | null;
     projectText: () => string | null;
     onEditItemRequest: (aItem: BOARD_ITEM | null) => void;
+    editZoneParams: (zoneIndex: number) => void;
     findDialogRects: () => BOX2D[];
     setViewCenter: (aPos: KVec2, aRects: readonly BOX2D[]) => void;
   } | null>(null);
@@ -1976,6 +1977,7 @@ export function PcbEditor({
       schematicNetlistText: () => drcWindowRef.current!.schematicNetlistText(),
       projectText: () => drcWindowRef.current!.projectText(),
       onEditItemRequest: (aItem) => drcWindowRef.current!.onEditItemRequest(aItem),
+      editZoneParams: (zoneIndex) => drcWindowRef.current!.editZoneParams(zoneIndex),
       showExchangeFootprintsDialog: () => {
         // DIALOG_EXCHANGE_FOOTPRINTS is not built (Edit > Change Footprints... is
         // greyed in the menu for the same reason).
@@ -5408,13 +5410,17 @@ export function PcbEditor({
       const sel = new Set([id]);
       setSelection(sel);
       // The Properties... row's dispatch, over this one item.
+      const zoneIndex = zoneAt(brd, sel);
       if (hasTrackOrVia(trackViaSelection(brd, sel))) setTrackViaOpen(true);
-      else if (zoneAt(brd, sel) !== null) setZonePropsIndex(zoneAt(brd, sel));
+      // `case PCB_ZONE_T: Edit_Zone_Params(...)` (edit.cpp:157-158).
+      else if (zoneIndex !== null) frameRef.current?.Edit_Zone_Params(zoneIndex);
       else if (selectedPadAt(brd, sel) !== null) setPadPropsRef(selectedPadAt(brd, sel));
       else if (textAt(brd, sel) !== null) setTextPropsIndex(textAt(brd, sel));
       else if (shapeAt(brd, sel) !== null) setShapePropsIndex(shapeAt(brd, sel));
       else if (footprintAt(brd, sel) !== null) setFpPropsIndex(footprintAt(brd, sel));
     },
+    /** `PCB_EDIT_FRAME::Edit_Zone_Params`'s actual open: the rendering trigger. */
+    editZoneParams: (zoneIndex: number): void => setZonePropsIndex(zoneIndex),
     // findDialogs(): the DRC dialog is the one modeless dialog of this frame; its
     // rect in canvas client pixels, as ScreenToClient( dialog->GetScreenPosition() ).
     findDialogRects: (): BOX2D[] => {
@@ -5814,7 +5820,7 @@ export function PcbEditor({
       setTrackViaOpen(true);
     } else if (top && r?.kind === 'zone') {
       setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
-      setZonePropsIndex(r.index);
+      frameRef.current?.Edit_Zone_Params(r.index);
     } else if (top && r?.kind === 'text') {
       setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
       setTextPropsIndex(r.index);
@@ -6346,7 +6352,7 @@ export function PcbEditor({
           disabled: !editable,
           action: () => {
             if (copper) setTrackViaOpen(true);
-            else if (zoneIdx !== null) setZonePropsIndex(zoneIdx);
+            else if (zoneIdx !== null) frameRef.current?.Edit_Zone_Params(zoneIdx);
             else if (padIdx !== null) setPadPropsRef(padIdx);
             else if (textIdx !== null) setTextPropsIndex(textIdx);
             else if (shapeIdx !== null) setShapePropsIndex(shapeIdx);
@@ -8367,7 +8373,7 @@ export function PcbEditor({
 
     const zi = zoneAt(brd, sel);
     if (zi !== null) {
-      setZonePropsIndex(zi);
+      frameRef.current?.Edit_Zone_Params(zi);
       return;
     }
 
