@@ -571,13 +571,12 @@ import {
   createPcbDrawPanel,
   type EditorDisplayState,
   GL_SELECTION,
-  installPgm,
   kItemsForIds,
   loadBitmapFontImage,
-  reloadUserColorSettings,
   setItemsHidden,
   syncViewTransform,
-} from './pcb_canvas.js';
+} from '@ziroeda/pcbnew/pcb_canvas.js';
+import { installPgm, reloadUserColorSettings } from './pcb_canvas.js';
 import type { PCB_DRAW_PANEL_GAL } from '@ziroeda/pcbnew/pcb_draw_panel_gal.js';
 import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
 import { PCB_DISPLAY_OPTIONS, type PCB_PAINTER } from '@ziroeda/pcbnew/pcb_painter.js';
