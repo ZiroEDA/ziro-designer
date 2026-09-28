@@ -15,7 +15,7 @@
  */
 
 import type { JSX } from 'react';
-import { SYMBOL_UNIT_NOTATIONS, type AnnotationSettings } from '@ziroeda/eeschema/schematic_settings.js';
+import { SYMBOL_UNIT_NOTATIONS, type AnnotationSettings } from '../schematic_settings.js';
 
 // The data model lives in schematic_settings.ts (KiCad's data/UI split);
 // re-exported here so the panel stays the import site for its slice.
@@ -25,7 +25,7 @@ export {
   type AnnotateSortOrder,
   type AnnotateNumbering,
   type AnnotationSettings,
-} from '@ziroeda/eeschema/schematic_settings.js';
+} from '../schematic_settings.js';
 
 interface Props {
   value: AnnotationSettings;

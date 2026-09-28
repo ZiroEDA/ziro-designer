@@ -248,7 +248,7 @@ export interface CVPCB_APP extends CvpcbDisplayFootprintsApp, CvpcbEquFilesApp {
   ): [CvpcbWidened<T>, Dispatch<SetStateAction<CvpcbWidened<T>>>];
 
   /** `PROJECT_FILE::m_EquivalenceFiles`, read from the project's `.kicad_pro`
-   *  (`editors/schematic/project_settings.ts`). */
+   *  (`eeschema/project_settings.ts`). */
   readEquivalenceFiles(projectFiles: readonly ProjectFile[]): readonly string[];
 
   /** The "still loading" panel every chooser shows (`widgets/library_loading_panel.tsx`). */

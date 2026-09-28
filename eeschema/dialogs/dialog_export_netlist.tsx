@@ -26,7 +26,7 @@ import {
   type NetlistFormat,
   type Schematic,
   type LibSymbol,
-} from '@ziroeda/eeschema';
+} from '../index.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {

@@ -32,9 +32,7 @@ const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
 const SHARED = read('../../../common/dialogs/panel_setup_severities.tsx');
-const SCH = read(
-  '../../../designer/src/editors/schematic/dialogs/panels/panel_setup_severities.tsx',
-);
+const SCH = read('../../../eeschema/dialogs/panel_setup_severities.tsx');
 const PCB = read('../../../designer/src/editors/pcb/dialogs/panels/panel_pcb_severities.tsx');
 
 describe('the two Setup dialogs share one severities panel', () => {

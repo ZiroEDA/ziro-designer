@@ -68,6 +68,9 @@ const COMMON = fileURLToPath(new URL('../../../common', import.meta.url));
 // into `cvpcb/` (cvpcb/STRUCTURE.md's stage two): same reason `common/` is
 // walked alongside `designer/src` above.
 const CVPCB = fileURLToPath(new URL('../../../cvpcb', import.meta.url));
+// The schematic editor's dialogs started moving out of `designer/src` into
+// `eeschema/` (eeschema/STRUCTURE.md's stage E2): same reason again.
+const EESCHEMA = fileURLToPath(new URL('../../../eeschema', import.meta.url));
 
 function walkCommon(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -79,7 +82,7 @@ function walkCommon(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-const FILES = [...walk(SRC), ...walkCommon(COMMON), ...walkCommon(CVPCB)].map((path) => ({
+const FILES = [...walk(SRC), ...walkCommon(COMMON), ...walkCommon(CVPCB), ...walkCommon(EESCHEMA)].map((path) => ({
   rel: relative(SRC, path),
   src: readFileSync(path, 'utf8'),
 }));
@@ -138,7 +141,7 @@ describe('what the registered cancel means', () => {
     expect(registered('../../cvpcb/cvpcb_mainframe_ui.tsx')).toEqual(['closeWindow']);
     // Same shape in the Symbol Fields Table: `onCancel` confirms, `onClose`
     // does not.
-    expect(registered('editors/schematic/dialogs/dialog_symbol_fields_table.tsx')).toEqual([
+    expect(registered('../../eeschema/dialogs/dialog_symbol_fields_table.tsx')).toEqual([
       'onCancel',
     ]);
     // DIALOG_PRINT's Close stores the print options on the way out.

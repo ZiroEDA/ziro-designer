@@ -30,8 +30,8 @@ import {
   type BackAnnotateOptions,
   type PcbFootprintData,
   type Schematic,
-} from '@ziroeda/eeschema';
-import type { EditCommand } from '@ziroeda/eeschema';
+} from '../index.js';
+import type { EditCommand } from '../index.js';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
 import {
   RPT_SEVERITY_ACTION,

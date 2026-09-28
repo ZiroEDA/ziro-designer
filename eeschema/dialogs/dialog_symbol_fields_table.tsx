@@ -34,7 +34,7 @@ import {
   type FieldsScope,
   type FieldsTableEdits,
   type Schematic,
-} from '@ziroeda/eeschema';
+} from '../index.js';
 import { GetGeneratedFieldDisplayName, IsGeneratedField } from '@ziroeda/common/common.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
 import {
@@ -43,7 +43,7 @@ import {
   type BomFmtPreset,
   type BomPreset,
   type BomPresets,
-} from '@ziroeda/eeschema/schematic_settings.js';
+} from '../schematic_settings.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 /** Changed cells, grouped by sheet file then symbol refId. */

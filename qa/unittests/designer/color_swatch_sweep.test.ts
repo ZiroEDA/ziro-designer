@@ -26,7 +26,7 @@ import { COLOR4D_UNSPECIFIED } from '@ziroeda/common/gal/color4d.js';
 import {
   color4dToItemColor,
   itemColorToColor4d,
-} from '@ziroeda/designer/src/editors/schematic/dialogs/item_color.js';
+} from '@ziroeda/eeschema/dialogs/item_color.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 /** The Drawing Sheet Editor's screens, beside KiCad's `pagelayout_editor/`. */
@@ -191,8 +191,8 @@ describe('no dialog keeps a Clear button the picker replaced', () => {
   it('keeps m_helpLabel2 where upstream has one, as a label', () => {
     // The two pages in our tree that correspond to a dialog carrying it.
     for (const rel of [
-      'editors/schematic/dialogs/dialog_shape_properties.tsx',
-      'editors/schematic/dialogs/dialog_line_properties.tsx',
+      '../../eeschema/dialogs/dialog_shape_properties.tsx',
+      '../../eeschema/dialogs/dialog_line_properties.tsx',
     ]) {
       const src = readFileSync(join(SRC, rel), 'utf8');
       // The class among any others on the element, not the whole attribute:

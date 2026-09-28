@@ -22,7 +22,7 @@ const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
 
 const SHARED = read('../../common/dialogs/dialog_table_properties.tsx');
-const SCH = read('editors/schematic/dialogs/dialog_table_properties.tsx');
+const SCH = read('../../eeschema/dialogs/dialog_table_properties.tsx');
 const CSS = read('../../common/widgets/shell.css');
 
 describe('there is one dialog', () => {

@@ -18,7 +18,7 @@
  * handed; the new id is typed.
  */
 import { type JSX, useState } from 'react';
-import { isValidLibId, type LibIdRow } from '@ziroeda/eeschema';
+import { isValidLibId, type LibIdRow } from '../index.js';
 import { DisplayInfoMessage } from '@ziroeda/common/confirm.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { SingleChoiceDialog } from '@ziroeda/common/dialogs/dialog_single_choice.js';

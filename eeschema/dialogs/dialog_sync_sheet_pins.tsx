@@ -40,8 +40,8 @@ import {
   type SyncLabel,
   type SyncPin,
   type SyncTemplate,
-} from '@ziroeda/eeschema';
-import type { Schematic } from '@ziroeda/eeschema';
+} from '../index.js';
+import type { Schematic } from '../index.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 /** One sheet in the dialog: the parent's sheet symbol and the sheet's document. */

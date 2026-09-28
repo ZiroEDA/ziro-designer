@@ -14,7 +14,7 @@
  */
 import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
-import type { GlobalEditAction, GlobalEditScope } from '@ziroeda/eeschema';
+import type { GlobalEditAction, GlobalEditScope } from '../index.js';
 import { LINE_STYLE_NAMES } from '@ziroeda/common/stroke_params.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { INDETERMINATE_ACTION } from '@ziroeda/common/widgets/ui_common.js';

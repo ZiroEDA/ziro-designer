@@ -20,7 +20,7 @@
  */
 import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
-import type { SchField, TextEffects } from '@ziroeda/eeschema';
+import type { SchField, TextEffects } from '../index.js';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';

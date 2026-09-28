@@ -30,7 +30,7 @@ import {
   readEquivalenceFiles,
   readEquivalenceFilesText,
   writeEquivalenceFilesText,
-} from '@ziroeda/designer/src/editors/schematic/project_settings.js';
+} from '@ziroeda/eeschema/project_settings.js';
 
 const PRO = JSON.stringify(
   {

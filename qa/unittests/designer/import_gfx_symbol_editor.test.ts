@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 import {
   DEFAULT_PARAMS,
   runImport,
-} from '@ziroeda/designer/src/editors/schematic/dialogs/dialog_import_gfx.js';
+} from '@ziroeda/eeschema/import_gfx/dialog_import_gfx_sch.js';
 import { symbolEditorMenus } from '@ziroeda/designer/src/editors/symbol/menubar.js';
 import { moveGraphic } from '@ziroeda/designer/src/editors/symbol/edits.js';
 

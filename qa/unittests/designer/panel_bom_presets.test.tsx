@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   type BomPresets,
   PanelBomPresets,
-} from '@ziroeda/designer/src/editors/schematic/dialogs/panels/panel_bom_presets.js';
+} from '@ziroeda/eeschema/dialogs/panel_bom_presets.js';
 
 afterEach(cleanup);
 

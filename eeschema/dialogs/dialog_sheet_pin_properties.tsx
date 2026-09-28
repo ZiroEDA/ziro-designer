@@ -13,7 +13,7 @@
  */
 import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
-import type { LabelShape, TextEffects } from '@ziroeda/eeschema';
+import type { LabelShape, TextEffects } from '../index.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 /** The flag shapes, in the dialog's order (LABEL_FLAG_SHAPE). */

@@ -13,7 +13,7 @@ import { SetErrorPresenter } from '@ziroeda/common/confirm.js';
 import {
   type BusAlias,
   PanelSetupBuses,
-} from '@ziroeda/designer/src/editors/schematic/dialogs/panels/panel_setup_buses.js';
+} from '@ziroeda/eeschema/dialogs/panel_setup_buses.js';
 
 afterEach(cleanup);
 

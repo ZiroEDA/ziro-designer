@@ -13,7 +13,7 @@
  * upstream simply returns without doing anything.
  */
 import { useState, type JSX } from 'react';
-import { isSplitNeeded } from '@ziroeda/eeschema';
+import { isSplitNeeded } from '../index.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 export interface IncrementAnnotationsResult {

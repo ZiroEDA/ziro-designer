@@ -4,7 +4,7 @@
 /**
  * Schematic Setup persistence: read/write of SCHEMATIC_SETTINGS / ERC_SETTINGS /
  * NET_SETTINGS / text_variables through the project's .kicad_pro
- * (designer/src/editors/schematic/project_settings.ts).
+ * (eeschema/project_settings.ts).
  */
 import { describe, it, expect } from 'vitest';
 import {
@@ -12,7 +12,7 @@ import {
   readSchematicSetup,
   readSchematicSetupText,
   writeSchematicSetupText,
-} from '@ziroeda/designer/src/editors/schematic/project_settings.js';
+} from '@ziroeda/eeschema/project_settings.js';
 import {
   blankNetClass,
   defaultSchematicSetup,

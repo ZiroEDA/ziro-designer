@@ -27,7 +27,7 @@ import {
   OPO_V_RANGES,
   OPO_I_RANGES,
   type FormattingSettings,
-} from '@ziroeda/eeschema/schematic_settings.js';
+} from '../schematic_settings.js';
 
 // The data model lives in schematic_settings.ts (KiCad's data/UI split);
 // re-exported here so the panel stays the import site for its slice.
@@ -38,7 +38,7 @@ export {
   OPO_I_RANGES,
   defaultFormatting,
   type FormattingSettings,
-} from '@ziroeda/eeschema/schematic_settings.js';
+} from '../schematic_settings.js';
 
 interface Props {
   value: FormattingSettings;

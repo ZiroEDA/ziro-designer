@@ -18,7 +18,7 @@
  */
 
 import { useMemo, type JSX } from 'react';
-import { ERC_ITEMS, type ErcSettings, type ErcSeverityLevel } from '@ziroeda/eeschema';
+import { ERC_ITEMS, type ErcSettings, type ErcSeverityLevel } from '../index.js';
 import { PanelSetupSeverities as SharedPanelSetupSeverities } from '@ziroeda/common/dialogs/panel_setup_severities.js';
 import {
   groupSeverityItems,

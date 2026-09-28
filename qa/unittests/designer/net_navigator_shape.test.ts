@@ -95,7 +95,7 @@ describe('disclosure arrows are the project tree chevron', () => {
     // that is what wxGrid's ShowSortIndicator draws, and it is not a disclosure
     // control.
     const FIELDS = read(
-      '../../../designer/src/editors/schematic/dialogs/dialog_symbol_fields_table.tsx',
+      '../../../eeschema/dialogs/dialog_symbol_fields_table.tsx',
     );
     for (const [name, src] of [
       ['net navigator', PANEL],
@@ -112,7 +112,7 @@ describe('disclosure arrows are the project tree chevron', () => {
   it('both use the twisty markup', () => {
     expect(PANEL).toContain('twisty expandable');
     expect(
-      read('../../../designer/src/editors/schematic/dialogs/dialog_symbol_fields_table.tsx'),
+      read('../../../eeschema/dialogs/dialog_symbol_fields_table.tsx'),
     ).toContain('twisty expandable');
   });
 });

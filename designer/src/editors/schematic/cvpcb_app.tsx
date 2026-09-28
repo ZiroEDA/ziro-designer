@@ -23,7 +23,7 @@ import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { useDialogControl } from '../../ui/useDialogControl.js';
 import { settings } from '../../prefs/settings.js';
-import { readEquivalenceFiles } from './project_settings.js';
+import { readEquivalenceFiles } from '@ziroeda/eeschema/project_settings.js';
 
 /**
  * Builds the `CVPCB_APP` Assign Footprints (and the two windows it opens)

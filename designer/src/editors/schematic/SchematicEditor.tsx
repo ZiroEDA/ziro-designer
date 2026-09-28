@@ -423,7 +423,7 @@ import {
 import {
   DialogChangeSymbols,
   type ChangeSymbolsSubject,
-} from '@ziroeda/eeschema/dialogs/dialog_change_symbols.js';
+} from './dialogs/dialog_change_symbols.js';
 import { DialogEditSymbolsLibId } from '@ziroeda/eeschema/dialogs/dialog_edit_symbols_libid.js';
 import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
 import {
@@ -472,7 +472,7 @@ import {
   readSchematicSetup,
   writeEquivalenceFilesText,
   writeSchematicSetupText,
-} from './project_settings.js';
+} from '@ziroeda/eeschema/project_settings.js';
 import {
   IU_PER_MILS,
   hopOverArcRadiusIU,

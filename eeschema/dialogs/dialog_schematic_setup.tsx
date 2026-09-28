@@ -15,7 +15,7 @@
  */
 
 import { useState, type JSX } from 'react';
-import { DEFAULT_PIN_MAP, DEFAULT_SEVERITIES, type ErcSettings } from '@ziroeda/eeschema';
+import { DEFAULT_PIN_MAP, DEFAULT_SEVERITIES, type ErcSettings } from '../index.js';
 import { PagedDialog, type PagedDialogSection } from '@ziroeda/common/widgets/paged_dialog.js';
 import {
   defaultAnnotation,
@@ -24,17 +24,17 @@ import {
   defaultFormatting,
   defaultNetClasses,
   type SchematicSetup,
-} from '@ziroeda/eeschema/schematic_settings.js';
+} from '../schematic_settings.js';
 import { readSchematicSetupText } from '../project_settings.js';
 import { DialogSchImportSettings, type SchImportOptions } from './dialog_sch_import_settings.js';
-import { PanelSetupSeverities } from './panels/panel_setup_severities.js';
-import { PanelSetupPinmap } from './panels/panel_setup_pinmap.js';
+import { PanelSetupSeverities } from './panel_setup_severities.js';
+import { PanelSetupPinmap } from './panel_setup_pinmap.js';
 import { PanelTextVariables } from '@ziroeda/common/dialogs/panel_text_variables.js';
-import { PanelTemplateFieldnames } from './panels/panel_template_fieldnames.js';
-import { PanelEeschemaAnnotationOptions } from './panels/panel_eeschema_annotation_options.js';
-import { PanelSetupFormatting } from './panels/panel_setup_formatting.js';
-import { PanelBomPresets } from './panels/panel_bom_presets.js';
-import { PanelSetupBuses } from './panels/panel_setup_buses.js';
+import { PanelTemplateFieldnames } from './panel_template_fieldnames.js';
+import { PanelEeschemaAnnotationOptions } from './panel_eeschema_annotation_options.js';
+import { PanelSetupFormatting } from './panel_setup_formatting.js';
+import { PanelBomPresets } from './panel_bom_presets.js';
+import { PanelSetupBuses } from './panel_setup_buses.js';
 import { PanelSetupNetclasses } from '@ziroeda/common/dialogs/panel_setup_netclasses.js';
 import {
   PanelEmbeddedFiles,
@@ -43,7 +43,7 @@ import {
 
 // The dialog's data model lives in schematic_settings.ts (KiCad's
 // SCHEMATIC_SETTINGS data/UI split); re-exported for existing importers.
-export { defaultSchematicSetup, type SchematicSetup } from '@ziroeda/eeschema/schematic_settings.js';
+export { defaultSchematicSetup, type SchematicSetup } from '../schematic_settings.js';
 
 type PageId =
   | 'formatting'

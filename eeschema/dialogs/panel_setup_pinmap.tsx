@@ -14,7 +14,7 @@
  */
 
 import type { JSX } from 'react';
-import { PIN_TYPES, type ErcSettings, type PinError } from '@ziroeda/eeschema';
+import { PIN_TYPES, type ErcSettings, type PinError } from '../index.js';
 
 interface Props {
   settings: ErcSettings;

@@ -31,7 +31,7 @@ import { useState } from 'react';
 import {
   PanelTemplateFieldnames,
   type FieldTemplate,
-} from '@ziroeda/designer/src/editors/schematic/dialogs/panels/panel_template_fieldnames.js';
+} from '@ziroeda/eeschema/dialogs/panel_template_fieldnames.js';
 
 afterEach(cleanup);
 
@@ -104,7 +104,7 @@ describe('one panel, two titles', () => {
     // The claim this whole change rests on: the prefs page constructs the
     // shared panel rather than owning a table.
     const page = read('editors/schematic/prefs/PanelTemplateFieldnames.tsx');
-    expect(page).toContain("from '../dialogs/panels/panel_template_fieldnames.js'");
+    expect(page).toContain("from '@ziroeda/eeschema/dialogs/panel_template_fieldnames.js'");
     expect(page).not.toContain('<table');
   });
 

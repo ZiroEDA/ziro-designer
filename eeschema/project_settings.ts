@@ -26,8 +26,8 @@
  * wire/bus widths in mils, the panel grids type file units directly.
  */
 
-import type { ErcCode, ErcSeverityLevel, PinError } from '@ziroeda/eeschema';
-import { ERC_ITEMS, PIN_TYPES } from '@ziroeda/eeschema';
+import type { ErcCode, ErcSeverityLevel, PinError } from './index.js';
+import { ERC_ITEMS, PIN_TYPES } from './index.js';
 import type { RawFile } from '@ziroeda/common';
 import {
   LINE_STYLES,
@@ -40,7 +40,7 @@ import {
   type NetClassAssignment,
   type SchematicSetup,
   type TextVar,
-} from '@ziroeda/eeschema/schematic_settings.js';
+} from './schematic_settings.js';
 
 const PRO_RE = /\.kicad_pro$/i;
 

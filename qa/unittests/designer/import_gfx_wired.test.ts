@@ -34,8 +34,8 @@ const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
 const EDITOR = read('../../../designer/src/editors/schematic/SchematicEditor.tsx');
-const MENUBAR = read('../../../designer/src/editors/schematic/menubar.ts');
-const DIALOG = read('../../../designer/src/editors/schematic/dialogs/dialog_import_gfx.tsx');
+const MENUBAR = read('../../../eeschema/menubar.ts');
+const DIALOG = read('../../../eeschema/import_gfx/dialog_import_gfx_sch.tsx');
 
 describe('the way in', () => {
   it('the File > Import > Graphics entry dispatches rather than being a stub', () => {

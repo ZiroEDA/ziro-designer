@@ -32,8 +32,8 @@ import { useMemo, useState, type JSX } from 'react';
 import {
   GRAPHICS_IMPORTER_SCH,
   type SchImportedItem,
-} from '@ziroeda/eeschema/import_gfx/graphics_importer_sch.js';
-import { GRAPHICS_IMPORTER_LIB_SYMBOL } from '@ziroeda/eeschema/import_gfx/graphics_importer_lib_symbol.js';
+} from './graphics_importer_sch.js';
+import { GRAPHICS_IMPORTER_LIB_SYMBOL } from './graphics_importer_lib_symbol.js';
 import {
   fileExtension,
   getImportableFileTypes,
@@ -44,7 +44,7 @@ import {
   DXF_IMPORT_PLUGIN,
   DXF_IMPORT_UNITS,
 } from '@ziroeda/common/import_gfx/dxf_import_plugin.js';
-import type { LibGraphic, SchLabel } from '@ziroeda/eeschema';
+import type { LibGraphic, SchLabel } from '../index.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {

@@ -43,7 +43,7 @@ import {
   type EditedLabelField,
   type LabelShape,
   type LabelSpin,
-} from '@ziroeda/eeschema';
+} from '../index.js';
 import { BitmapButton, BitmapButtonSeparator } from '@ziroeda/common/widgets/bitmap_button.js';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
