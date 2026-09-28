@@ -501,9 +501,9 @@ export {
   selectionAnchorId,
   selectionAnchorPosition,
   topLeftItem,
-  type PositionAnchorType,
   type PositionRelativeOptions,
-} from './position_relative.js';
+} from './tools/position_relative_tool.js';
+export { type PositionAnchorType } from './dialogs/dialog_position_relative.js';
 
 export {
   distributeBoardItems,

@@ -2,9 +2,10 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Position Relative To: put the selection at a typed offset from a reference
- * point, rather than displacing it by a typed amount.
- * Counterparts: `POSITION_RELATIVE_TOOL` and `DIALOG_POSITION_RELATIVE`.
+ * `POSITION_RELATIVE_TOOL`: put the selection at a typed offset from a
+ * reference point, rather than displacing it by a typed amount.
+ * Counterpart: `pcbnew/tools/position_relative_tool.cpp`. The dialog's own
+ * state (which anchor kind is picked) is `dialogs/dialog_position_relative.ts`.
  *
  * The distinction from Move Exactly is the whole point of the tool. Move
  * Exactly says "shift this by 5 mm"; Position Relative says "put this 5 mm from
@@ -17,13 +18,10 @@
  * Exactly would move twice as far.
  */
 
-import { moveBoardItems, parseBoardItemId } from './edit-board.js';
-import { itemAnchorPoint } from './dialogs/dialog_move_exact.js';
-import type { Board } from './types.js';
+import { moveBoardItems, parseBoardItemId } from '../edit-board.js';
+import { itemAnchorPoint } from '../dialogs/dialog_move_exact.js';
+import type { Board } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-
-/** `DIALOG_POSITION_RELATIVE::ANCHOR_TYPE`. */
-export type PositionAnchorType = 'gridOrigin' | 'userOrigin' | 'item' | 'point';
 
 /**
  * `PCB_SELECTION::GetTopLeftItem`: the leftmost item, ties broken by the
