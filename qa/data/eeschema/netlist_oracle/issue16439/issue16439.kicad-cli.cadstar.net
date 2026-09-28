@@ -1,0 +1,28 @@
+.HEA
+.TIM 2026-09-29T02:33:36
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     TP5     "TestPoint"     "$noname"
+.ADD_COM     TP6     "TestPoint"     "$noname"
+.ADD_COM     TP2     "TestPoint"     "$noname"
+.ADD_COM     TP3     "TestPoint"     "$noname"
+.ADD_COM     TP8     "TestPoint"     "$noname"
+.ADD_COM     TP4     "TestPoint"     "$noname"
+.ADD_COM     TP1     "TestPoint"     "$noname"
+.ADD_COM     TP7     "TestPoint"     "$noname"
+
+
+.ADD_TER   TP1   1     "/demo_bus.A0"
+.TER       TP5   1
+
+.ADD_TER   TP2   1     "/demo_bus.A1"
+.TER       TP6   1
+
+.ADD_TER   TP3   1     "/demo_bus.B0"
+.TER       TP7   1
+
+.ADD_TER   TP4   1     "/demo_bus.B1"
+.TER       TP8   1
+
+.END

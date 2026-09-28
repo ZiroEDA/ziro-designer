@@ -1,0 +1,19 @@
+.HEA
+.TIM 2026-09-29T02:33:38
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     U1     "BGA_TEST"     "$noname"
+.ADD_COM     U2     "BGA_TEST"     "$noname"
+
+
+.ADD_TER   U1   AAB12     "/NET_BOT"
+.TER       U2   AAB12
+
+.ADD_TER   U1   AAB11     "/NET_MID"
+.TER       U2   AAB11
+
+.ADD_TER   U1   AAB10     "/NET_TOP"
+.TER       U2   AAB10
+
+.END
