@@ -38,7 +38,7 @@ import { BezierStep } from '@ziroeda/common/preview_items/bezier_geom_manager.js
 import { PolygonGeomManager } from '@ziroeda/common/preview_items/polygon_geom_manager.js';
 import { COLOR4D_WHITE, brightness, cssWithAlpha, toCss } from '@ziroeda/common/gal/color4d.js';
 import { drawPolygonItem } from '@ziroeda/common/preview_items/polygon_item.js';
-import { DialogRuleAreaProperties } from './dialogs/dialog_rule_area_properties.js';
+import { DialogRuleAreaProperties } from '@ziroeda/pcbnew/dialogs/dialog_rule_area_properties_ui.js';
 import type { PROGRESS_REPORTER_LIKE } from '@ziroeda/pcbnew/connectivity/connectivity_algo.js';
 import { PROF_TIMER, traceAllegroPerf, wxLogTrace } from '@ziroeda/common/trace_helpers.js';
 import { placeVia } from '@ziroeda/pcbnew/tools/drawing_tool.js';
@@ -86,7 +86,7 @@ import {
   canvasBackingSize,
   isMeasured,
 } from '@ziroeda/common/widgets/canvas_size.js';
-import { appearanceNetRows } from './appearance_nets.js';
+import { appearanceNetRows } from '@ziroeda/pcbnew/appearance_nets.js';
 import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
 
 /**
@@ -96,14 +96,14 @@ import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
 const PCB_LOCAL_ORIGIN = { x: 0, y: 0 };
 import { drawRulerItem, rulerEnd } from '@ziroeda/common/preview_items/ruler_item.js';
 import { boardToolCursor } from './cursors.js';
-import { pickerSnapsToGridOnly } from './picker_snap.js';
+import { pickerSnapsToGridOnly } from '@ziroeda/pcbnew/picker_snap.js';
 import {
   groupBoxSegments,
   groupLabelAnchor,
   groupLabelFits,
   groupLabelTextSize,
-} from './group_box.js';
-import { appearanceLayerRows, layerTooltip } from '../../widgets/appearance_layers.js';
+} from '@ziroeda/pcbnew/group_box.js';
+import { appearanceLayerRows, layerTooltip } from '@ziroeda/pcbnew/widgets/appearance_layers.js';
 import {
   ZOOM_AUTO_LABEL,
   ZOOM_LIST,
@@ -260,7 +260,7 @@ import {
   barcodeAt,
   barcodeValues,
 } from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties.js';
-import { DialogBarcodeProperties } from './dialogs/dialog_barcode_properties.js';
+import { DialogBarcodeProperties } from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties_ui.js';
 import { GetLayerName } from '@ziroeda/common/layer_ids.js';
 import {
   boardIsEmpty,
@@ -272,14 +272,14 @@ import { applyPnsChanges, PnsSession } from '@ziroeda/pcbnew/router/pns_session.
 import { PnsRouterMode } from '@ziroeda/pcbnew/router/pns_router.js';
 import type { PnsDesignSettings } from '@ziroeda/pcbnew/router/pns_board_iface.js';
 import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
-import { ReferenceImageCache } from './image_cache.js';
+import { ReferenceImageCache } from '@ziroeda/pcbnew/image_cache.js';
 import { cleanup3dCache } from './model_cache.js';
 import { buildPcbMenus } from '@ziroeda/pcbnew/menubar_pcb_editor.js';
 import { Viewer3DFrame } from './Viewer3DFrame.js';
-import { dimensionDefaultsFrom, dimensionToolKind } from './dimension_tools.js';
-import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties.js';
+import { dimensionDefaultsFrom, dimensionToolKind } from '@ziroeda/pcbnew/dimension_tools.js';
+import { DialogDimensionProperties } from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties_ui.js';
 import { DialogTextBoxProperties } from './dialogs/dialog_textbox_properties.js';
-import { DialogReferenceImageProperties } from './dialogs/dialog_reference_image_properties.js';
+import { DialogReferenceImageProperties } from '@ziroeda/pcbnew/dialogs/dialog_reference_image_properties_ui.js';
 import { DialogTableProperties } from '@ziroeda/common/dialogs/dialog_table_properties.js';
 import {
   applyTableValues,
@@ -320,7 +320,7 @@ import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { layerBoxLabel, layerForHotkey } from '@ziroeda/pcbnew/pcb_layer_box_selector.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
-import { PCB_FRAME_NAME, pcbFrameTitle } from './frame_title.js';
+import { PCB_FRAME_NAME, pcbFrameTitle } from '@ziroeda/pcbnew/frame_title.js';
 import { withSaveEnablement } from '@ziroeda/common/save_enablement.js';
 import {
   copySelectionToClipboardText,
@@ -345,10 +345,10 @@ import {
   zoomFactorForScale,
   zoomMsg,
 } from '@ziroeda/common/widgets/kistatusbar_format.js';
-import { DialogPcbFind, DEFAULT_PCB_FIND, type PcbFindOptions } from './dialogs/dialog_find.js';
+import { DialogPcbFind, DEFAULT_PCB_FIND, type PcbFindOptions } from '@ziroeda/pcbnew/dialogs/dialog_find.js';
 import { DialogPageSettings } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import { pageSettingsValue, toPaperToken } from '@ziroeda/common/dialogs/dialog_page_settings.js';
-import { type ExtentsBox, pcbZoomFitBox } from './document_extents.js';
+import { type ExtentsBox, pcbZoomFitBox } from '@ziroeda/pcbnew/document_extents.js';
 import { DialogPcbPrint } from './dialogs/dialog_print_pcb.js';
 import { DialogPcbPlot } from './dialogs/dialog_plot_pcb.js';
 import {
@@ -357,47 +357,47 @@ import {
   type BoardSetupValues,
   type PageId as BoardSetupPageId,
 } from './dialogs/dialog_board_setup.js';
-import { druFileName, findProjectDru, findProjectPrl, findProjectPro } from './project_settings.js';
-import { clampMaxErrorMM } from './board_settings.js';
-import type { TextGfxRow } from './board_settings.js';
+import { druFileName, findProjectDru, findProjectPrl, findProjectPro } from '@ziroeda/pcbnew/project_settings.js';
+import { clampMaxErrorMM } from '@ziroeda/pcbnew/board_settings.js';
+import type { TextGfxRow } from '@ziroeda/pcbnew/board_settings.js';
 import { BoardSetupFromWindow, BoardSetupToWindow } from './dialogs/board_setup_transfer.js';
 import { DumpJson } from '@ziroeda/common/settings/json_dump.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
-import { DialogDrc } from './dialogs/dialog_drc.js';
-import { DialogUpdatePcb, type UpdatePcbOptions } from './dialogs/dialog_update_pcb.js';
-import { DialogGlobalEditTeardrops } from './dialogs/dialog_global_edit_teardrops.js';
+import { DialogDrc } from '@ziroeda/pcbnew/dialogs/dialog_drc.js';
+import { DialogUpdatePcb, type UpdatePcbOptions } from '@ziroeda/pcbnew/dialogs/dialog_update_pcb.js';
+import { DialogGlobalEditTeardrops } from '@ziroeda/pcbnew/dialogs/dialog_global_edit_teardrops_ui.js';
 import {
   BOARD_DESIGN_SETTINGS,
   DIFF_PAIR_DIMENSION,
   VIA_DIMENSION,
 } from '@ziroeda/pcbnew/board_design_settings.js';
 import { BuildBomTextFromBoard } from '@ziroeda/pcbnew/build_BOM_from_board.js';
-import { DialogBoardStatistics } from './dialogs/dialog_board_statistics.js';
-import { DialogFilterSelection } from './dialogs/dialog_filter_selection.js';
-import { DialogMoveExact, type MoveExactValues } from './dialogs/dialog_move_exact.js';
+import { DialogBoardStatistics } from '@ziroeda/pcbnew/dialogs/dialog_board_statistics.js';
+import { DialogFilterSelection } from '@ziroeda/pcbnew/dialogs/dialog_filter_selection_ui.js';
+import { DialogMoveExact, type MoveExactValues } from '@ziroeda/pcbnew/dialogs/dialog_move_exact_ui.js';
 import { WX_UNIT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_unit_entry.js';
 import { WX_MULTI_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_multi_unit_entry.js';
-import { DialogCreateArray } from './dialogs/dialog_create_array.js';
-import { DEFAULT_ARRAY_SETTINGS, arraySpecFrom, type ArraySettings } from './array_settings.js';
-import { handleAtPoint, handleDragTarget, handleTolerance } from './point_edit_canvas.js';
-import { DialogOutsetItems } from './dialogs/dialog_outset_items.js';
+import { DialogCreateArray } from '@ziroeda/pcbnew/dialogs/dialog_create_array_ui.js';
+import { DEFAULT_ARRAY_SETTINGS, arraySpecFrom, type ArraySettings } from '@ziroeda/pcbnew/array_settings.js';
+import { handleAtPoint, handleDragTarget, handleTolerance } from '@ziroeda/pcbnew/tools/pcb_point_editor_canvas.js';
+import { DialogOutsetItems } from '@ziroeda/pcbnew/dialogs/dialog_outset_items.js';
 import { DialogPnsSettings } from './dialogs/dialog_pns_settings.js';
 import {
   DEFAULT_OUTSET_SETTINGS,
   outsetOptionsFrom,
   type OutsetSettings,
-} from './outset_settings.js';
+} from '@ziroeda/pcbnew/outset_settings.js';
 import {
   DialogPositionRelative,
   type PositionRelativeValues,
-} from './dialogs/dialog_position_relative.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_position_relative_ui.js';
 import { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
-import { inspectReport, describeSelected } from './inspect_selection.js';
-import { netClassFor, netclassesForNet } from './netclass_resolve.js';
+import { inspectReport, describeSelected } from '@ziroeda/pcbnew/tools/board_inspection_tool.js';
+import { netClassFor, netclassesForNet } from '@ziroeda/pcbnew/netclass_resolve.js';
 // APPEARANCE_CONTROLS is ONE widget that PCB_EDIT_FRAME and
 // FOOTPRINT_EDIT_FRAME both construct, so the panel, its Objects table and its
 // presets live in `widgets/` and this frame supplies only its own data.
-import { AppearanceControls, type AppearanceTab } from '../../widgets/appearance_controls.js';
+import { AppearanceControls, type AppearanceTab } from '@ziroeda/pcbnew/widgets/appearance_controls.js';
 import {
   DEFAULT_OBJECTS,
   DEFAULT_OPACITY,
@@ -405,14 +405,14 @@ import {
   toggleObject,
   type ObjectOpacity,
   type ObjectState,
-} from '../../widgets/appearance_objects.js';
+} from '@ziroeda/pcbnew/widgets/appearance_objects.js';
 import {
   BUILTIN_PRESETS,
   matchPresetName,
   presetComboItems,
   PRESET_SEPARATOR,
   viewportComboItems,
-} from '../../widgets/appearance_presets.js';
+} from '@ziroeda/pcbnew/widgets/appearance_presets.js';
 import {
   DEFAULT_SELECTION_FILTER_OPTIONS,
   SelectionFilterOnlyMenu,
@@ -425,12 +425,12 @@ import { drawSnapIndicator } from '@ziroeda/common/preview_items/snap_indicator.
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { type BoardCursorSnap, snapToBoardCopper } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
 import { inheritTrackWidth } from '@ziroeda/pcbnew/inherit_track_width.js';
-import { moveDelta } from './pcb_grid.js';
-import { contextMenuPick } from './pcb_context_selection.js';
+import { moveDelta } from '@ziroeda/pcbnew/pcb_grid.js';
+import { contextMenuPick } from '@ziroeda/pcbnew/tools/pcb_selection_tool.js';
 import { parseDrcRules } from '@ziroeda/pcbnew/drc/drc_rule_view.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties.js';
-import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
-import { DialogFootprintProperties } from './dialogs/dialog_footprint_properties.js';
+import { DialogCopperZones } from '@ziroeda/pcbnew/dialogs/dialog_copper_zones.js';
+import { DialogFootprintProperties } from '@ziroeda/pcbnew/dialogs/dialog_footprint_properties_ui.js';
 import {
   applyFootprintValues,
   collectFootprintValues,
@@ -439,8 +439,8 @@ import {
 } from '@ziroeda/pcbnew/dialogs/dialog_footprint_properties.js';
 import { flipBoardItems, modificationPoint } from '@ziroeda/pcbnew/edit-board.js';
 import { zoneItemDescription } from '@ziroeda/pcbnew/item_description.js';
-import { DialogPadProperties } from './dialogs/dialog_pad_properties.js';
-import { DialogShapeProperties } from './dialogs/dialog_graphic_properties.js';
+import { DialogPadProperties } from '@ziroeda/pcbnew/dialogs/dialog_pad_properties_ui.js';
+import { DialogShapeProperties } from '@ziroeda/pcbnew/dialogs/dialog_graphic_properties.js';
 import { DialogTextProperties } from './dialogs/dialog_text_properties.js';
 import {
   applyTextValues,
@@ -479,10 +479,6 @@ import {
   applyGlobalTeardropEdit,
   type GlobalTeardropEditOptions,
 } from '@ziroeda/pcbnew/dialogs/dialog_global_edit_teardrops.js';
-import {
-  defaultTeardropParametersList,
-  type TeardropParametersList,
-} from '@ziroeda/pcbnew/teardrop.js';
 import { SKIP_TEARDROPS } from '@ziroeda/pcbnew/board_commit.js';
 import {
   boardFromBOARD,
@@ -495,19 +491,20 @@ import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
 import type { DRC_TOOL } from '@ziroeda/pcbnew/tools/drc_tool.js';
 import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import type { Vec2 as KVec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { DIALOG_DRC, type DIALOG_DRC_WINDOW } from './dialogs/dialog_drc_model.js';
+import { DIALOG_DRC, type DIALOG_DRC_WINDOW } from '@ziroeda/pcbnew/dialogs/dialog_drc_model.js';
 import { MessageDialogYesNoCancel } from '@ziroeda/common/dialogs/dialog_message.js';
+import { commitViewToBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view_commit.js';
 import {
-  applyTeardropParametersList,
-  commitViewToBoard,
-} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view_commit.js';
-import { PCB_EDIT_FRAME, REACT_BOARD_LISTENER, pcbnewSettingsOf } from './pcb_edit_frame.js';
+  PCB_EDIT_FRAME,
+  REACT_BOARD_LISTENER,
+  pcbnewSettingsOf,
+} from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import { FetchNetlistFromSchematic } from './netlist_from_schematic.js';
 import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
 import { FootprintChooserFrame } from './dialogs/footprint_chooser_frame.js';
 import { addFootprintToHistory } from '@ziroeda/pcbnew/widgets/footprint_history.js';
 import { preloadBoardLibraries } from './preload.js';
-import { parseFootprint } from '../footprint/footprintBoard.js';
+import { parseFootprint } from '@ziroeda/pcbnew/footprintBoard.js';
 import {
   buildScene,
   drawBoard,
@@ -558,7 +555,7 @@ import {
   isStoredPcbToggle,
   lineModeToggleId,
   pcbTogglesFromSettings,
-} from './toggles.js';
+} from '@ziroeda/pcbnew/toggles.js';
 import {
   layerColor,
   pcbThemeWithOverrides,
@@ -568,11 +565,6 @@ import {
   PCB_SPECIAL,
 } from './pcbTheme.js';
 import { PcbPropertiesPanel } from './PcbPropertiesPanel.js';
-import {
-  pcbItemFriendlyName,
-  pcbPropertiesFor,
-  type PcbPropRow,
-} from '@ziroeda/pcbnew/properties_panel.js';
 import {
   drawGrid,
   drawCrosshair,
@@ -10933,19 +10925,6 @@ export function PcbEditor({
   const fmtCoord = (iu: number): string =>
     messageTextFromValue(iuToMM(iu), unitLabel, PCB_IU_PER_MM);
 
-  // ----- PCB_PROPERTIES_PANEL -------------------------------------------------
-
-  const propRows = useMemo<PcbPropRow[]>(
-    () => (board ? pcbPropertiesFor(board, selection, { layerColor }) : []),
-    [board, selection],
-  );
-
-  // `PROPERTIES_PANEL::rebuildProperties` captions a single selection with
-  // `aSelection.Front()->GetFriendlyName()` — the item's TYPE.
-  const propFriendlyName = useMemo<string | undefined>(() => {
-    if (!board || selection.size !== 1) return undefined;
-    return pcbItemFriendlyName(board, [...selection][0] as string);
-  }, [board, selection]);
   const gridText = gridMsg(fmtCoord(gridIU));
   // TOP_AUX combo formatting (PCB_EDIT_FRAME::ComboBoxUnits): mm at %.3f,
   // mils at %.2f.
@@ -11272,11 +11251,10 @@ export function PcbEditor({
                     own (properties_panel.cpp:196-210), so the panel renders them
                     rather than the frame swapping in a placeholder. */}
                   <PcbPropertiesPanel
-                    rows={propRows}
-                    selectionCount={selection.size}
-                    friendlyName={propFriendlyName}
+                    frame={frameRef.current}
+                    board={board}
+                    selection={selection}
                     units={unitLabel}
-                    onCommand={commitBoard}
                   />
                 </div>
               </div>
