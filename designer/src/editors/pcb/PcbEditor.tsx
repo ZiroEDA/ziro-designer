@@ -357,7 +357,7 @@ import { DialogPageSettings } from '@ziroeda/common/dialogs/dialog_page_settings
 import { pageSettingsValue, toPaperToken } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import { type ExtentsBox, pcbZoomFitBox } from '@ziroeda/pcbnew/pcb_base_frame.js';
 import { DialogPcbPrint } from './dialogs/dialog_print_pcb.js';
-import { DialogPcbPlot } from './dialogs/dialog_plot_pcb.js';
+import { DialogPcbPlot } from '@ziroeda/pcbnew/dialogs/dialog_plot.js';
 import {
   DialogBoardSetup,
   defaultBoardSetup,
@@ -457,7 +457,7 @@ import { inheritTrackWidth } from '@ziroeda/pcbnew/inherit_track_width.js';
 import { moveDelta } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import { contextMenuPick } from '@ziroeda/pcbnew/tools/pcb_selection_tool.js';
 import { parseDrcRules } from '@ziroeda/pcbnew/drc/drc_rule_view.js';
-import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties.js';
+import { DialogTrackViaProperties } from '@ziroeda/pcbnew/dialogs/dialog_track_via_properties_ui.js';
 import { DialogCopperZones } from '@ziroeda/pcbnew/dialogs/dialog_copper_zones.js';
 import { DialogFootprintProperties } from '@ziroeda/pcbnew/dialogs/dialog_footprint_properties_ui.js';
 import {
