@@ -34,7 +34,7 @@ import {
   projectSymLibTablePath,
   projectSymbolFiles,
   rowSymLibName,
-} from '../editors/schematic/symbols/project_sym_lib_table.js';
+} from '@ziroeda/eeschema/project_sym_lib_table.js';
 import { hostedLibraryTable, LIB_LOADED, LibTablePanel, libNotFound } from './lib_table_panel.js';
 
 interface Props {
