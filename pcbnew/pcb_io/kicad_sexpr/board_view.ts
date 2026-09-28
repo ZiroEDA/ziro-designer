@@ -120,7 +120,7 @@ import { PCB_TEXTBOX } from '../../pcb_textbox.js';
 import { PCB_ARC, PCB_TRACK, PCB_VIA, UNDEFINED_DRILL_DIAMETER, VIATYPE } from '../../pcb_track.js';
 import { TEARDROP_PARAMETERS } from '../../teardrop/teardrop_parameters.js';
 import { TEARDROP_TYPE } from '../../teardrop/teardrop_types.js';
-import { type BoardItemKind, boardItemId } from '../../edit-board.js';
+import { type BoardItemKind, boardItemId, parseBoardItemId } from '../../edit-board.js';
 import type {
   BarcodeEcc,
   BarcodeKind,
@@ -2842,6 +2842,40 @@ export function viewIdOfBoardItem(board: Board, item: BOARD_ITEM): string | null
     scan('barcode', board.barcodes) ??
     scan('group', board.groups)
   );
+}
+
+/**
+ * The BOARD_ITEM a view id names — `viewIdOfBoardItem`'s inverse — or null
+ * when the id is stale or the view item has no model behind it. The editor's
+ * selection speaks ids until PCB_SELECTION_TOOL holds the items (#636 stage 3).
+ */
+export function boardItemOfViewId(board: Board, id: string): BOARD_ITEM | null {
+  const ref = parseBoardItemId(id);
+
+  if (!ref) return null;
+
+  const fp = (): Board['footprints'][number] | undefined => board.footprints[ref.index];
+  const lists: Partial<Record<BoardItemKind, readonly { k?: BOARD_ITEM }[]>> = {
+    footprint: board.footprints,
+    track: board.tracks,
+    arc: board.arcs,
+    via: board.vias,
+    zone: board.zones,
+    shape: board.shapes,
+    text: board.texts,
+    textbox: board.textBoxes,
+    table: board.tables,
+    image: board.images,
+    dimension: board.dimensions,
+    point: board.points,
+    barcode: board.barcodes,
+    group: board.groups,
+  };
+
+  if (ref.kind === 'pad') return fp()?.pads[ref.sub ?? 0]?.k ?? null;
+  if (ref.kind === 'fptext') return fp()?.texts[ref.sub ?? 0]?.k ?? null;
+
+  return lists[ref.kind]?.[ref.index]?.k ?? null;
 }
 
 // ---------------------------------------------------------------------------
