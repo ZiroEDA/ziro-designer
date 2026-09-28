@@ -60,10 +60,7 @@ describe('PCB_EDIT_FRAME needs the PGM_BASE before its first SetBoard', () => {
   it('PcbEditor installs it before it constructs the frame', () => {
     // qa cannot render PcbEditor, so this pins the order in its source: the
     // first installPgm() call comes before `new PCB_EDIT_FRAME(`.
-    const src = readFileSync(
-      resolve(process.cwd(), '../designer/src/editors/pcb/PcbEditor.tsx'),
-      'utf8',
-    );
+    const src = readFileSync(resolve(process.cwd(), '../pcbnew/pcb_edit_frame_ui.tsx'), 'utf8');
     const install = src.indexOf('installPgm();');
     const construct = src.indexOf('new PCB_EDIT_FRAME(');
     expect(install).toBeGreaterThan(0);

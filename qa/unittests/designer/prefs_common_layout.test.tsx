@@ -242,7 +242,7 @@ describe('a row is enabled exactly when something reads its setting', () => {
     [
       'High-contrast mode dimming factor:',
       'hicontrast_dimming_factor',
-      'designer/src/editors/pcb/PcbEditor.tsx',
+      'pcbnew/pcb_edit_frame_ui.tsx',
     ],
     // The ELEMENT, not the import above it: `indexOf('ZoomCorrectionCtrl')`
     // lands on the import, and the first `/>` after that is some other row's.

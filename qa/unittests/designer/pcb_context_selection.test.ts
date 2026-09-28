@@ -74,14 +74,12 @@ describe('the editor asks it', () => {
    * `pcb_move_ghost.test.ts` reads the same file for the same reason.
    */
   const text = readFileSync(
-    fileURLToPath(new URL('../../../designer/src/editors/pcb/PcbEditor.tsx', import.meta.url)),
+    fileURLToPath(new URL('../../../pcbnew/pcb_edit_frame_ui.tsx', import.meta.url)),
     'utf8',
   );
 
   it('routes the right-click through contextMenuPick', () => {
-    expect(text).toContain(
-      "import { contextMenuPick } from '@ziroeda/pcbnew/tools/pcb_selection_tool.js';",
-    );
+    expect(text).toContain("import { contextMenuPick } from './tools/pcb_selection_tool.js';");
     expect(text).toContain(
       'const pick = contextMenuPick(selForDrawRef.current, hitCandidates(w)[0] ?? null);',
     );

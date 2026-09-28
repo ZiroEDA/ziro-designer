@@ -51,7 +51,7 @@ const GRID_OWNERS: [canvas: string, file: string][] = [
 const CROSSHAIR_OWNERS: [canvas: string, file: string][] = [
   ['schematic', 'editors/schematic/components/SchematicCanvas.tsx'],
   ['symbol editor', 'editors/symbol/SymbolCanvas.tsx'],
-  ['pcb', 'editors/pcb/PcbEditor.tsx'],
+  ['pcb', '../../pcbnew/pcb_edit_frame_ui.tsx'],
   ['footprint editor', '../../pcbnew/pcb_draw_panel_gal_ui.tsx'],
 ];
 
@@ -79,7 +79,7 @@ describe('shared grid + crosshair', () => {
     // WebGL2 is on the browser-support gate, so there is one renderer and the
     // grid comes from `GAL::DrawGrid` through the VIEW. A `drawGrid(` back in
     // this file is the 2D fallback growing back.
-    expect(read('editors/pcb/PcbEditor.tsx')).not.toMatch(/\bdrawGrid\(/);
+    expect(read('../../pcbnew/pcb_edit_frame_ui.tsx')).not.toMatch(/\bdrawGrid\(/);
   });
 
   it('nobody keeps a local grid or crosshair painter any more', () => {
@@ -132,7 +132,7 @@ describe('shared grid + crosshair', () => {
       const src = read(rel);
       expect(src, `${rel} does not pass show:`).toMatch(/show:/);
     }
-    expect(read('editors/pcb/PcbEditor.tsx')).not.toMatch(
+    expect(read('../../pcbnew/pcb_edit_frame_ui.tsx')).not.toMatch(
       /if \([^)]*toggles\.has\('toggleGrid'\)[^)]*\) \{\s*drawGrid/,
     );
   });
@@ -185,7 +185,7 @@ describe('shared grid + crosshair', () => {
 
   it('nobody keeps a private copy of DefaultGridSizeList', () => {
     // pcbnew built the same 22 entries by hand from two arrays.
-    const pcb = read('editors/pcb/PcbEditor.tsx');
+    const pcb = read('../../pcbnew/pcb_edit_frame_ui.tsx');
     expect(pcb).toMatch(/gridSizesIU\('pcbnew'/);
     expect(pcb).not.toMatch(/\[1000, 500, 250, 200, 100, 50, 25, 20, 10, 5, 2, 1\]/);
   });

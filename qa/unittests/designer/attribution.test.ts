@@ -95,7 +95,7 @@ describe('in-app attribution', () => {
     // Attribution nobody can open is not attribution. These Help menus used to
     // be no-op stubs while the dialog existed only on the home screen.
     for (const f of [
-      'designer/src/editors/pcb/PcbEditor.tsx',
+      'pcbnew/pcb_edit_frame_ui.tsx',
       'designer/src/editors/symbol/SymbolEditor.tsx',
       'pcbnew/footprint_edit_frame_ui.tsx',
       'designer/src/home/HomePage.tsx',
@@ -106,7 +106,7 @@ describe('in-app attribution', () => {
 
   it('leaves no dead About menu entries behind', () => {
     for (const f of [
-      'designer/src/editors/pcb/PcbEditor.tsx',
+      'pcbnew/pcb_edit_frame_ui.tsx',
       'designer/src/editors/symbol/SymbolEditor.tsx',
       'pcbnew/footprint_edit_frame_ui.tsx',
     ]) {

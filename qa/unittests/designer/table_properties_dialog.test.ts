@@ -70,7 +70,7 @@ describe('what each editor keeps, because it genuinely differs', () => {
 
   it('lets the board add Layer and Locked, which a SCH_TABLE has neither of', () => {
     expect(SHARED).toContain('header?:');
-    const pcb = read('editors/pcb/PcbEditor.tsx');
+    const pcb = read('../../pcbnew/pcb_edit_frame_ui.tsx');
     expect(pcb).toContain('tableDialogHeader');
     // …and the schematic passes none.
     expect(SCH).not.toContain('header=');

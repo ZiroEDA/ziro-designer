@@ -242,7 +242,7 @@ describe('flash_selection blinks the new selection three times', () => {
  * four disabled checkboxes in the first place.
  */
 const PCB_EDITOR = readFileSync(
-  fileURLToPath(new URL('../../../designer/src/editors/pcb/PcbEditor.tsx', import.meta.url)),
+  fileURLToPath(new URL('../../../pcbnew/pcb_edit_frame_ui.tsx', import.meta.url)),
   'utf8',
 );
 

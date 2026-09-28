@@ -196,7 +196,7 @@ describe('the hyphen titles', () => {
    *
    * The migration is finished, so this is now a floor rather than a checklist:
    * it fails on a NEW one anywhere. Derived twice — the run that was failing
-   * reported three, in `editors/pcb/PcbEditor.tsx` (2) and
+   * reported three, in `pcbnew/pcb_edit_frame_ui.tsx` (2) and
    * `editors/schematic/dialogs/display_footprints_frame.tsx` (1), and a
    * `grep -ro` over `designer/src` counted the same three before the change
    * and none after.

@@ -83,7 +83,7 @@ const SchematicEditor = lazy(() =>
   import('./editors/schematic/SchematicEditor.js').then((m) => ({ default: m.SchematicEditor })),
 );
 const PcbEditor = lazy(() =>
-  import('./editors/pcb/PcbEditor.js').then((m) => ({ default: m.PcbEditor })),
+  import('@ziroeda/pcbnew/pcb_edit_frame_ui.js').then((m) => ({ default: m.PcbEditor })),
 );
 /**
  * `PcbEditor` takes `PCBNEW_APP` as a prop (`pcbnew/pcbnew_app.ts`); building
@@ -149,7 +149,7 @@ function prefetchEditors(): () => void {
     // put the session on the bundled subset. See its own note.
     () => warmLibraryIndexes(),
     () => import('./editors/schematic/SchematicEditor.js'),
-    () => import('./editors/pcb/PcbEditor.js'),
+    () => import('@ziroeda/pcbnew/pcb_edit_frame_ui.js'),
     () => import('./editors/symbol/SymbolEditor.js'),
     () => import('./editors/footprint/footprint_edit_frame_app.js'),
   ];

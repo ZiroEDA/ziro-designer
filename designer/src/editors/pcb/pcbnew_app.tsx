@@ -29,6 +29,7 @@ import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.
 import { preloadBoardLibraries } from './preload.js';
 import { cleanup3dCache } from './model_cache.js';
 import { installPgm, reloadUserColorSettings } from './pcb_canvas.js';
+import { addNetclassAssignment } from '@ziroeda/eeschema/tools/assign_netclass.js';
 
 /**
  * Builds the `PCBNEW_APP` `PcbEditor` is handed. One object per mount, like
@@ -74,6 +75,7 @@ export function usePcbnewApp(): PCBNEW_APP {
       cleanup3dCache,
 
       EMPTY_PCB,
+      addNetclassAssignment,
     }),
     [pcbCfg, commonCfg, userColors, userThemes],
   );

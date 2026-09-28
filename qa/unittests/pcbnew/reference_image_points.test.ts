@@ -178,7 +178,7 @@ describe('dragging a corner scales about the origin', () => {
 
 describe('and the canvas draws what a selected or half-placed image needs', () => {
   const EDITOR = readFileSync(
-    fileURLToPath(new URL('../../../designer/src/editors/pcb/PcbEditor.tsx', import.meta.url)),
+    fileURLToPath(new URL('../../../pcbnew/pcb_edit_frame_ui.tsx', import.meta.url)),
     'utf8',
   );
   const RENDER = readFileSync(
@@ -214,7 +214,7 @@ describe('and the canvas draws what a selected or half-placed image needs', () =
 
 describe('the two ways a picture failed to appear at all', () => {
   const EDITOR = readFileSync(
-    fileURLToPath(new URL('../../../designer/src/editors/pcb/PcbEditor.tsx', import.meta.url)),
+    fileURLToPath(new URL('../../../pcbnew/pcb_edit_frame_ui.tsx', import.meta.url)),
     'utf8',
   );
 

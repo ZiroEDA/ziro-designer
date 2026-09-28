@@ -275,8 +275,8 @@ describe.each([
  * its own case. `pcbTogglesFromSettings` is still `DEFAULT_TOGGLES` with those
  * four folded in, so the table itself stays in `./toggles.js`.
  */
-describe('editors/pcb/PcbEditor.tsx seeds its toolbar from the settings file', () => {
-  const PCB = 'editors/pcb/PcbEditor.tsx';
+describe('pcbnew/pcb_edit_frame_ui.tsx seeds its toolbar from the settings file', () => {
+  const PCB = '../../pcbnew/pcb_edit_frame_ui.tsx';
 
   it('seeds from pcbTogglesFromSettings, not from a constant set', () => {
     const s = src(PCB);

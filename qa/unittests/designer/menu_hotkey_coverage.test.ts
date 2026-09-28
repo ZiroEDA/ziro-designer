@@ -57,7 +57,7 @@ const CONVERTED = [
   '../../pcbnew/footprint_edit_frame_ui.tsx',
   '../../gerbview/gerbview_frame_ui.tsx',
   '../../bitmap2component/bitmap2cmp_frame_ui.tsx',
-  'editors/pcb/PcbEditor.tsx',
+  '../../pcbnew/pcb_edit_frame_ui.tsx',
   'editors/schematic/SchematicEditor.tsx',
   'editors/schematic/components/SymbolLibraryBrowser.tsx',
   '../../cvpcb/cvpcb_mainframe_ui.tsx',
@@ -119,7 +119,7 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
   '../../pcbnew/footprint_edit_frame_ui.tsx': [
     'const plain = !e.ctrlKey && !e.metaKey && !e.altKey;',
   ],
-  'editors/pcb/PcbEditor.tsx': [
+  '../../pcbnew/pcb_edit_frame_ui.tsx': [
     // The chain's own "no Ctrl/Cmd held" predicate - the same guard as the
     // other frames' `plain`, spelled the way this file already spelled it.
     'const mod = e.ctrlKey || e.metaKey;',
@@ -245,7 +245,7 @@ const MENU_MODULE: Readonly<Record<string, string>> = {
   'editors/schematic/SchematicEditor.tsx': '../../eeschema/menubar.ts',
   'editors/symbol/SymbolEditor.tsx': 'editors/symbol/menubar.ts',
   '../../pcbnew/footprint_edit_frame_ui.tsx': '../../pcbnew/menubar_footprint_editor.ts',
-  'editors/pcb/PcbEditor.tsx': '../../pcbnew/menubar_pcb_editor.ts',
+  '../../pcbnew/pcb_edit_frame_ui.tsx': '../../pcbnew/menubar_pcb_editor.ts',
   // pl_editor's bar is its package's menubar.ts, beside KiCad's menubar.cpp.
   '../../pagelayout_editor/pl_editor_frame_ui.tsx': '../../pagelayout_editor/menubar.ts',
 };
@@ -565,7 +565,7 @@ const CANVAS_KEYS: Readonly<
       ['Esc cancel', /e\.key === 'Escape'/],
     ],
   },
-  'editors/pcb/PcbEditor.tsx': {
+  '../../pcbnew/pcb_edit_frame_ui.tsx': {
     moved: [
       // Anchored on `if (mod` rather than `mod`, because `!mod && (e.key ===
       // 'd'` - the drag45 grab, which stays - contains the shorter pattern.
@@ -741,7 +741,7 @@ const MENU_BUILDER: Readonly<Record<string, () => Menu[]>> = {
         redoAvailable: true,
       },
     ),
-  'editors/pcb/PcbEditor.tsx': () =>
+  '../../pcbnew/pcb_edit_frame_ui.tsx': () =>
     pcbMenus(
       {
         action: noop,
@@ -1063,7 +1063,7 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     // Preferences: openPreferences Ctrl+,.
     'Ctrl+,',
   ],
-  'editors/pcb/PcbEditor.tsx': [
+  '../../pcbnew/pcb_edit_frame_ui.tsx': [
     /*
      * The MENU BAR's accelerators, read straight off
      * `pcbnew/menubar_pcb_editor.ts` now that the tree is a module — see
@@ -1470,7 +1470,7 @@ function rowsWithShortcut(
  * nothing because the row has no `action` for `invocable` to find.
  */
 const UNPRESSABLE: Readonly<Record<string, readonly string[]>> = {
-  'editors/pcb/PcbEditor.tsx': [
+  '../../pcbnew/pcb_edit_frame_ui.tsx': [
     // Canvas context-menu rows for commands that are not built. The row is
     // KiCad's and prints KiCad's key; there is nothing yet to run.
     'Get and Move Footprint',

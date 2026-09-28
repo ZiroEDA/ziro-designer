@@ -41,7 +41,7 @@ const BACKDROPS = ['ze-modal-backdrop', 'calc-modal-backdrop', 'imgc-modal-backd
 const OWNS_A_CANVAS = [
   '../../pagelayout_editor/pl_editor_frame_ui.tsx',
   '../../pcbnew/footprint_edit_frame_ui.tsx',
-  'editors/pcb/PcbEditor.tsx',
+  '../../pcbnew/pcb_edit_frame_ui.tsx',
   'editors/schematic/SchematicEditor.tsx',
   'editors/symbol/SymbolEditor.tsx',
   '../../common/widgets/widget_hotkey_list.tsx',

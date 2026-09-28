@@ -176,7 +176,7 @@ describe('the launchers that install it', () => {
    * and that is exactly what the Drawing Sheet Editor had.
    */
   it.each([
-    ['the PCB editor', 'editors/pcb/PcbEditor.tsx'],
+    ['the PCB editor', '../../pcbnew/pcb_edit_frame_ui.tsx'],
   ])('%s calls the shared one and builds no rows of its own', (_name, rel) => {
     const src = read(rel);
     expect(src).toContain('standardSubMenuEntries({');

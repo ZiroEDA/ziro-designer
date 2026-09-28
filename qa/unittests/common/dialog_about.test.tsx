@@ -252,7 +252,7 @@ describe('every frame opens it', () => {
   const FRAMES: Record<string, string> = {
     'designer/src/home/HomePage.tsx': 'manager',
     'designer/src/editors/schematic/SchematicEditor.tsx': 'schematic',
-    'designer/src/editors/pcb/PcbEditor.tsx': 'pcb',
+    'pcbnew/pcb_edit_frame_ui.tsx': 'pcb',
     'designer/src/editors/symbol/SymbolEditor.tsx': 'symbol',
     'pcbnew/footprint_edit_frame_ui.tsx': 'footprint',
     'designer/src/editors/pcb/Viewer3DFrame.tsx': 'viewer3d',

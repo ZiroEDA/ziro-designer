@@ -102,7 +102,7 @@ describe('the frame reads the store, not the module constant', () => {
   const FRAMES: [file: string, app: string][] = [
     ['editors/schematic/SchematicEditor.tsx', 'eeschema'],
     ['editors/symbol/SymbolEditor.tsx', 'symbol_editor'],
-    ['editors/pcb/PcbEditor.tsx', 'pcbnew'],
+    ['../../pcbnew/pcb_edit_frame_ui.tsx', 'pcbnew'],
     [
       'editors/drawingsheet/DrawingSheetEditor.tsx+../../pagelayout_editor/pl_editor_frame_ui.tsx',
       'pl_editor',

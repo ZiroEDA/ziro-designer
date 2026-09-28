@@ -60,10 +60,7 @@ describe('EDA_VIEW_SWITCHER', () => {
 });
 
 describe('the board editor', () => {
-  const src = readFileSync(
-    resolve(process.cwd(), '../designer/src/editors/pcb/PcbEditor.tsx'),
-    'utf8',
-  );
+  const src = readFileSync(resolve(process.cwd(), '../pcbnew/pcb_edit_frame_ui.tsx'), 'utf8');
 
   it('raises the switcher on Ctrl+Tab and Shift+Tab, from the MRU lists', () => {
     expect(src).toContain('<EDA_VIEW_SWITCHER');

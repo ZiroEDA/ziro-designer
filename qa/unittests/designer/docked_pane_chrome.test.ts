@@ -111,7 +111,7 @@ describe('PROPERTIES_PANEL', () => {
   it('carries the caption close box, which is the pane that asks for one', () => {
     // `.CloseButton( true )` on Properties (pcb_edit_frame.cpp:387) and
     // `.CloseButton( false )` on Appearance and Selection Filter (:356, :365).
-    const pcb = read('editors/pcb/PcbEditor.tsx');
+    const pcb = read('../../pcbnew/pcb_edit_frame_ui.tsx');
     const at = pcb.indexOf(
       '<div className="ze-panel-header">\n                  <span>Properties</span>',
     );

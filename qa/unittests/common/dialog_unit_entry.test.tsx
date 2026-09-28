@@ -102,10 +102,7 @@ describe('WX_MULTI_ENTRY_DIALOG', () => {
 });
 
 describe('the board editor asks as edit_tool.cpp does', () => {
-  const src = readFileSync(
-    resolve(process.cwd(), '../designer/src/editors/pcb/PcbEditor.tsx'),
-    'utf8',
-  );
+  const src = readFileSync(resolve(process.cwd(), '../pcbnew/pcb_edit_frame_ui.tsx'), 'utf8');
 
   it('Fillet / Chamfer through WX_UNIT_ENTRY_DIALOG, with upstream’s labels', () => {
     expect(src).toContain('<WX_UNIT_ENTRY_DIALOG');

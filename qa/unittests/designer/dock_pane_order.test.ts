@@ -71,7 +71,7 @@ const read = (rel: string): string =>
 const SRC = '../../../designer/src/';
 const DS = read(`${SRC}../../pagelayout_editor/pl_editor_frame_ui.tsx`);
 const SCH = read(`${SRC}editors/schematic/SchematicEditor.tsx`);
-const PCB = read(`${SRC}editors/pcb/PcbEditor.tsx`);
+const PCB = read(`${SRC}../../pcbnew/pcb_edit_frame_ui.tsx`);
 const SYM = read(`${SRC}editors/symbol/SymbolEditor.tsx`);
 const FP = read(`${SRC}../../pcbnew/footprint_edit_frame_ui.tsx`);
 const FP_TREE_PANE = read(`${SRC}../../pcbnew/footprint_tree_pane.tsx`);
@@ -102,14 +102,11 @@ describe('a vertical toolbar touches the canvas; a palette docks outside it', ()
   });
 
   it('footprint editor: Footprints tree L4 and Properties L3 outside LeftToolbar L2', () => {
-    before(
-      FP,
-      '<FootprintTreePane',
-      'entries={fpLeftBar}',
-      'fp left',
-    );
+    before(FP, '<FootprintTreePane', 'entries={fpLeftBar}', 'fp left');
     // The pane is the left dock itself (footprint_tree_pane.tsx).
-    expect(FP_TREE_PANE).toContain('<div className="ze-leftdock" style={{ width, minWidth: width }}>');
+    expect(FP_TREE_PANE).toContain(
+      '<div className="ze-leftdock" style={{ width, minWidth: width }}>',
+    );
   });
 
   it('footprint editor: LayersManager + SelectionFilter L3 outside RightToolbar L2', () => {

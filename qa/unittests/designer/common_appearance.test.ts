@@ -302,7 +302,7 @@ describe('the board painter dims the way pcb_painter does', () => {
 
   it('is passed by every frame that has a high-contrast mode', () => {
     for (const frame of [
-      'designer/src/editors/pcb/PcbEditor.tsx',
+      'pcbnew/pcb_edit_frame_ui.tsx',
       'pcbnew/footprint_edit_frame_ui.tsx',
       // Not GerbView: GERBVIEW_RENDER_SETTINGS never reads
       // hicontrast_dimming_factor - only pcb_painter.cpp:176 does - so it

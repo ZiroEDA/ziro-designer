@@ -507,7 +507,7 @@ describe('the base class and its one subclass', () => {
     // board_editor_control.cpp:530 and pl_editor_control.cpp:94 both construct
     // DIALOG_PAGES_SETTINGS itself; neither has a subclass.
     for (const rel of [
-      'editors/pcb/PcbEditor.tsx',
+      '../../pcbnew/pcb_edit_frame_ui.tsx',
       '../../pagelayout_editor/pl_editor_frame_ui.tsx',
     ]) {
       const src = EDITOR(rel);
@@ -525,7 +525,7 @@ describe('the base class and its one subclass', () => {
     expect([...wrapper.matchAll(/(?<!function )pageExportsToSettings\(/g)]).toHaveLength(1);
     expect([...DIALOG.matchAll(/pageExports(From|To)Settings/g)]).toEqual([]);
     for (const rel of [
-      'editors/pcb/PcbEditor.tsx',
+      '../../pcbnew/pcb_edit_frame_ui.tsx',
       '../../pagelayout_editor/pl_editor_frame_ui.tsx',
     ]) {
       expect([...EDITOR(rel).matchAll(/pageExports(From|To)Settings/g)], rel).toEqual([]);

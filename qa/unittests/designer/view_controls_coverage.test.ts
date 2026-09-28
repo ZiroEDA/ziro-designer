@@ -28,7 +28,7 @@ const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const CANVASES = [
   'editors/schematic/components/SchematicCanvas.tsx',
   'editors/symbol/SymbolCanvas.tsx',
-  'editors/pcb/PcbEditor.tsx',
+  '../../pcbnew/pcb_edit_frame_ui.tsx',
   '../../pcbnew/pcb_draw_panel_gal_ui.tsx',
   // The preview panes are EDA_DRAW_PANEL_GALs upstream too, so they get
   // WX_VIEW_CONTROLS on the same terms.
@@ -39,7 +39,7 @@ const CANVASES = [
 const FITTERS = [
   '../../eeschema/sch_painter.ts',
   '../../eeschema/symbol_editor/symbol_renderer.ts',
-  'editors/pcb/PcbEditor.tsx',
+  '../../pcbnew/pcb_edit_frame_ui.tsx',
   '../../pcbnew/pcb_draw_panel_gal_ui.tsx',
 ];
 
@@ -76,7 +76,7 @@ describe('shared view controls', () => {
   const FRAMES: [string, string][] = [
     ['../../eeschema/sch_painter.ts', "'sch'"],
     ['../../eeschema/symbol_editor/symbol_renderer.ts', "'symbol_editor'"],
-    ['editors/pcb/PcbEditor.tsx', "'pcb'"],
+    ['../../pcbnew/pcb_edit_frame_ui.tsx', "'pcb'"],
     ['../../pcbnew/pcb_draw_panel_gal_ui.tsx', "'footprint_editor'"],
   ];
 
@@ -179,7 +179,9 @@ describe('shared view controls', () => {
    * filtered, so that adding a seventh canvas fails instead of inheriting an
    * exemption it did not earn.
    */
-  const AUTOPAN_CANVASES = CANVASES.filter((c) => c !== '../../common/widgets/preview_view_controls.ts');
+  const AUTOPAN_CANVASES = CANVASES.filter(
+    (c) => c !== '../../common/widgets/preview_view_controls.ts',
+  );
 
   it('every editing canvas holds its own m_panTimer', () => {
     // Four, and the preview panes are the fifth CANVAS. If that count moves,
@@ -218,7 +220,7 @@ describe('shared view controls', () => {
     // document's size; doZoomFit's is a multiplier on the viewport.
     const OLD: [string, RegExp][] = [
       ['../../pcbnew/pcb_draw_panel_gal_ui.tsx', /const margin = 2 \* MM/],
-      ['editors/pcb/PcbEditor.tsx', /fitWorldBox\([^)]*5 \* MM/],
+      ['../../pcbnew/pcb_edit_frame_ui.tsx', /fitWorldBox\([^)]*5 \* MM/],
       // fitToContent / fitToBBox / fitSymbol each inflated their box by 8 mm
       // before scaling. (renderer.ts keeps an unrelated `pad` for a draw-cull
       // test on sheet fields, which is why these match the inflation itself.)

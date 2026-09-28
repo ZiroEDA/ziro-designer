@@ -625,10 +625,7 @@ describe('the private pcbnew copy of this widget is gone', () => {
   });
 
   it('leaves no Pg* components in PcbEditor.tsx', () => {
-    const pcb = readFileSync(
-      resolve(process.cwd(), '../designer/src/editors/pcb/PcbEditor.tsx'),
-      'utf8',
-    );
+    const pcb = readFileSync(resolve(process.cwd(), '../pcbnew/pcb_edit_frame_ui.tsx'), 'utf8');
     for (const sym of ['PgCat', 'PgRow', 'PgRO', 'PgCheck', 'PgLayer', 'PgEdit', 'PgChoice'])
       expect(pcb, sym).not.toContain(sym);
     expect(pcb).not.toContain('PcbSelectionInfo');

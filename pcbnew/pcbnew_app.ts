@@ -22,6 +22,7 @@ import type { ToolbarDefaults, ToolbarLoc } from '@ziroeda/common/tool/ui/toolba
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 import type { FootprintIndexLibrary } from './footprint_info_impl.js';
 import type { PcbFootprint, Board } from './types.js';
+import type { NetClassAssignmentLike } from '@ziroeda/common/netclass_resolve.js';
 
 /** `SaveAsDialog`'s props, the slice `PcbEditor` actually passes. */
 export interface PcbnewSaveAsDialogProps {
@@ -116,4 +117,16 @@ export interface PCBNEW_APP {
 
   // ----- misc ----------------------------------------------------------
   EMPTY_PCB: string;
+  /**
+   * `NET_SETTINGS::SetNetclassPatternAssignment` with bus-pattern expansion
+   * (`eeschema/tools/assign_netclass.ts`'s `addNetclassAssignment` — the
+   * expansion needs schematic bus notation, `parseBusVector`/`parseBusGroup`,
+   * so it cannot move to `common/` the way `netclass_resolve.ts`'s read side
+   * did). `pcbnew` may not import `eeschema` directly.
+   */
+  addNetclassAssignment(
+    assignments: readonly NetClassAssignmentLike[],
+    pattern: string,
+    netClass: string,
+  ): NetClassAssignmentLike[];
 }
