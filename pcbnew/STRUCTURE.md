@@ -375,27 +375,68 @@ Not moved, and why:
   `SaveAsDialog`/`useToolbarEntries`/the settings triad, none of which is
   written yet — but each patch shrinks what the eventual move has to touch.
 
-  Still blocked and why: `FootprintCanvas.tsx` needs both `pcbTheme.ts` and
-  `renderBoard.ts` (below); `cursors.ts` (footprint) needs
-  `ui/tool_cursors.ts` / `ui/kicursors.ts`, which are genuinely shared across
-  every editor (schematic, symbol, pcb, footprint all import them) — a
-  `common/` move, not a `designer/` one, and out of scope here rather than a
-  `PCBNEW_APP` case. `libraryManager.ts` still needs `libraryBundleStore.ts`,
-  `libraryHosts.ts` and `widgets/library_loading.ts` (real account/library
-  plumbing).
-- `pcbTheme.ts` / `renderBoard.ts` — both widely used (by `PcbEditor.tsx`,
-  `FootprintCanvas.tsx` and others) and both mostly pure, but
-  `pcbTheme.ts`'s `themeByFilename` calls `colorSettingsById`
-  (`prefs/color_settings_list.ts`), which reads the live PCM store for
-  user-installed themes — not a JSON-settings read the `_LIKE` structural
-  trick covers, an actually-live registry. Multiple callers (`dialog_print_pcb.tsx`,
-  several qa tests) rely on the single-argument call reading the real
-  built-in list, so narrowing the signature the way `FpEditSettings` was
-  narrowed is not a small edit here. `renderBoard.ts` needs
-  `font/outline_fonts.ts` / `font/draw_outline_text.ts` /
-  `render/gl/bitmap_text.ts`, the outline-font rasteriser, real app-level
-  asset plumbing. Both need their own `PCBNEW_APP` design, not attempted
-  this pass.
+  **Update (09-28, evening): all three named blockers closed the same way —
+  swappable hook, or move to common/, not a PCBNEW_APP case at all.**
+  - `ui/tool_cursors.ts` / `ui/kicursors.ts` moved to `common/tool/tool_cursors.ts`
+    / `common/gal/kicursors.ts`: genuinely shared across every editor, so
+    `common/` (central-value rule), not designer/ or pcbnew/.
+    `kicursors.ts`'s one live read (`use_custom_cursors`) is now
+    `setCustomCursorsEnabledProvider`, a swappable hook defaulting to `true`
+    (`APP_SETTINGS_BASE`'s own default); `designer/src/pgm_app.ts`'s `InitPgm`
+    registers the live one, once, for every editor. `cursors.ts` (pcb and
+    footprint) followed to `pcbnew/cursors.ts` / `pcbnew/footprint_cursors.ts`.
+    **Found and fixed in passing:** a concurrent commit (`e932929d`) had
+    relocated `appearance_nets.ts`'s content to `pcbnew/widgets/
+    appearance_controls.ts` — same stem as this pass's own `appearance_controls.tsx`
+    widget, different extension. `move_ts.py`'s collision check doesn't catch a
+    same-stem/different-extension pair, and TypeScript's `.ts`-before-`.tsx`
+    resolution order silently pointed every `widgets/appearance_controls.js`
+    specifier at the wrong file. Renamed to `appearance_nets.ts` and fixed the
+    specifiers move_ts.py's blanket rewrite had pointed at the wrong file.
+  - `pcbTheme.ts`'s `themeByFilename` (PCM lookup via `colorSettingsById`) got
+    the same hook shape — `setColorSettingsByIdProvider`, defaulting to
+    `undefined` (no installed theme), registered live by `InitPgm` — keeping
+    every single-arg caller (`dialog_print_pcb.tsx`, several qa tests) working
+    unchanged. `pcbTheme.ts` itself then moved to `pcbnew/pcbTheme.ts`.
+  - `renderBoard.ts`'s font assets — `font/outline_fonts.ts`,
+    `font/draw_outline_text.ts`, `render/gl/bitmap_text.ts` +
+    `render/gl/bitmap_font.ts` — turned out to have **zero** `designer/`
+    imports at all (only `@ziroeda/common/font/*`/`@ziroeda/kimath`; checking
+    `common/font/` first, as asked, found the answer). All four moved to
+    `common/font/` and `common/gal/opengl/` (beside `opengl_gal.ts`,
+    `OPENGL_GAL::BitmapText`'s layout half). `renderBoard.ts` itself is still
+    in `designer/` — it has other, real designer/ imports beyond these three,
+    not yet audited.
+
+  `PcbEditor.tsx`'s own remaining relative imports, current count: dialog
+  siblings (`board_setup_transfer.ts` now clean — its schematic_settings.ts
+  dependency moved to `eeschema/` in a concurrent pass, a legal cross-package
+  import now, but the file is mid-edit by that same pass; `dialog_pns_settings.tsx`
+  /`dialog_print_pcb.tsx` still need `prefs/settings.ts` directly;
+  `dialog_text_properties.tsx`/`dialog_textbox_properties.tsx` need
+  `ui/TextFormatBar.tsx`, not yet checked for its own designer/ coupling;
+  `footprint_chooser_frame.tsx` unchanged, see above), `model_cache.ts`
+  (real app storage), `netlist_from_schematic.ts` (still needs
+  `editors/schematic/symbols/*` and `project_settings.ts` — not yet moved to
+  eeschema/ as of this check), `PcbPropertiesPanel.tsx` (`widgets/
+  properties_panel.ts`, not yet checked), `preload.ts` (`libraryPreload.ts`,
+  `widgets/footprint_list.ts`, real account plumbing), plus the genuine
+  `PCBNEW_APP` surface: `PreferencesDialog`, `HomeLink`, `SaveAsDialog`,
+  `useToolbarEntries`, `new_project`, `pgm_app`, `prefs/settings` (the
+  settings triad), `ui/view_controls`, `Viewer3DFrame`, `widgets/
+  footprint_list`. **Not written yet.**
+
+  Two more handoff patches from the #636 helper applied and committed clean
+  through the same private-index technique (properties panel onto the live
+  BOARD; then the text/textbox/shape/table/barcode dialogs' `TransferData`
+  calls onto their live `DIALOG_*_PROPERTIES` classes) — each shrinks the
+  eventual move's surface without being the move itself. The file is under
+  write contention from at least two other agents (`#636` teardrop-BOARD
+  refactor, and a separate consolidation folding sibling `pcb_*.ts` files
+  into `pcb_edit_frame.ts`); a direct edit to it (an import-path fix) was
+  twice found reverted on a later check — evidence the file gets rewritten
+  from a stale in-memory copy by whichever agent saves it next. Re-applied;
+  expect this to keep happening until the file itself moves.
 - `viewer3d_cache_shim.ts` — moved and reverted: its one `designer/` import,
   `model_cache.ts`, itself needs `cloud/blobStore.ts` + `home/idb_open.ts` +
   `home/local_vault.ts`, real app storage plumbing for a `PCBNEW_APP`, not a
