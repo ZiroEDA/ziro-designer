@@ -8,8 +8,9 @@
  * `pcbnew` never imports `designer`; this is the one file that wires its
  * interface back to what designer actually has.
  */
-import { useMemo } from 'react';
+import { type ComponentProps, useMemo } from 'react';
 import type { PCBNEW_APP } from '@ziroeda/pcbnew/pcbnew_app.js';
+import { PcbEditor } from '@ziroeda/pcbnew/pcb_edit_frame_ui.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { HomeLink } from '../../ui/HomeLink.js';
 import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
@@ -79,4 +80,14 @@ export function usePcbnewApp(): PCBNEW_APP {
     }),
     [pcbCfg, commonCfg, userColors, userThemes],
   );
+}
+
+/**
+ * The PCB editor with its `PCBNEW_APP`. The hooks `usePcbnewApp` calls only
+ * run while this is mounted, as `PcbEditor`'s own settings subscriptions did
+ * before the move.
+ */
+export function PcbEditorMount(props: Omit<ComponentProps<typeof PcbEditor>, 'app'>): JSX.Element {
+  const app = usePcbnewApp();
+  return <PcbEditor app={app} {...props} />;
 }

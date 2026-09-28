@@ -31,7 +31,8 @@
 
 import type { RawFile } from '@ziroeda/common';
 import type { NetlistTextResult } from '@ziroeda/common/mail_sch_get_netlist.js';
-import { loadKicadNetlist, type NETLIST } from './index.js';
+import { loadKicadNetlist } from './netlist_reader/kicad_netlist_reader.js';
+import type { NETLIST } from '@ziroeda/common/netlist_reader/netlist.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';

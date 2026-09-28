@@ -13,7 +13,6 @@ import {
   lazy,
   Suspense,
   type CSSProperties,
-  type ComponentProps,
 } from 'react';
 import type { LibSymbol } from '@ziroeda/eeschema';
 import { HomePage } from './home/HomePage.js';
@@ -41,7 +40,6 @@ import { pushProject } from './cloud/sync.js';
 import { useRoute } from './nav/useRoute.js';
 import { fileForFrame, type ProjectView, type Route } from './nav/route.js';
 import { installSettingsSync } from './cloud/settingsSync.js';
-import { usePcbnewApp } from './editors/pcb/pcbnew_app.js';
 import type { DemoMeta } from './home/demos.js';
 import { useAuth } from './auth/AuthProvider.js';
 import {
@@ -82,21 +80,15 @@ import '@ziroeda/common/widgets/shell.css';
 const SchematicEditor = lazy(() =>
   import('./editors/schematic/SchematicEditor.js').then((m) => ({ default: m.SchematicEditor })),
 );
-const PcbEditor = lazy(() =>
-  import('@ziroeda/pcbnew/pcb_edit_frame_ui.js').then((m) => ({ default: m.PcbEditor })),
-);
 /**
- * `PcbEditor` takes `PCBNEW_APP` as a prop (`pcbnew/pcbnew_app.ts`); building
- * it calls React hooks (`usePcbnewSettings`, `useCommonSettings`, ...), so
- * they live in their own component, mounted only while `pcbMounted` is true
- * — the same reason `usePcbnewApp` itself only re-renders while this is on
- * screen, exactly as `PcbEditor`'s own settings subscriptions did before the
- * move.
+ * `PcbEditor` takes `PCBNEW_APP` as a prop, built by `usePcbnewApp`, and both
+ * load together: `pcbnew_app.tsx` pulls in the 3D viewer, the PCB canvas and
+ * Preferences, so a static import of it here put all of that in the entry
+ * chunk (5.5 MB, past the service worker's 2 MiB precache limit).
  */
-function PcbEditorMount(props: Omit<ComponentProps<typeof PcbEditor>, 'app'>): JSX.Element {
-  const app = usePcbnewApp();
-  return <PcbEditor app={app} {...props} />;
-}
+const PcbEditorMount = lazy(() =>
+  import('./editors/pcb/pcbnew_app.js').then((m) => ({ default: m.PcbEditorMount })),
+);
 const SymbolEditor = lazy(() =>
   import('./editors/symbol/SymbolEditor.js').then((m) => ({ default: m.SymbolEditor })),
 );
