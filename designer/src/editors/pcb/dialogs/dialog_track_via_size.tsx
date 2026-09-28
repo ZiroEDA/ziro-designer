@@ -27,7 +27,7 @@ import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { PCB_VIA, VIA_PARAMETER_ERROR_FIELD } from '@ziroeda/pcbnew/pcb_track.js';
 import { VIA_DIMENSION } from '@ziroeda/pcbnew/board_design_settings.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
-import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
+import { pcbUnitText, pcbUnitValue, unitLabel } from '@ziroeda/pcbnew/pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 
 /** [data] `const int minSize = (int)( 0.01 * pcbIUScale.IU_PER_MM )`, `:35`. */

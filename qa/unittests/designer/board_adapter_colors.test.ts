@@ -27,7 +27,7 @@ import {
   defaultBoardFinish,
   defaultPhysicalStackup,
   type PhysicalStackup,
-} from '@ziroeda/designer/src/editors/pcb/board_settings.js';
+} from '@ziroeda/pcbnew/board_settings.js';
 
 const ch = (v: number): number => v / 255;
 

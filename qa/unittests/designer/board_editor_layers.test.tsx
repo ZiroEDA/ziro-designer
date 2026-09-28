@@ -24,9 +24,9 @@ import {
   testLayerNames,
   layerNameInputId,
   type LayersSetup,
-} from '@ziroeda/designer/src/editors/pcb/dialogs/panels/panel_pcb_layers.js';
+} from '@ziroeda/pcbnew/dialogs/panel_setup_layers.js';
 import { readSetup, writeSetup } from './board_setup_test_utils.js';
-import { defaultBoardSetup } from '@ziroeda/designer/src/editors/pcb/board_settings.js';
+import { defaultBoardSetup } from '@ziroeda/pcbnew/board_settings.js';
 import { EMPTY_PCB } from '@ziroeda/designer/src/home/new_project.js';
 
 /** A two-layer board whose `(layers …)` has no User.N and no Margin. */

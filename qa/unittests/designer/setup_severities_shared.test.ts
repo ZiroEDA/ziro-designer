@@ -22,7 +22,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ERC_ITEMS } from '@ziroeda/eeschema';
-import { DRC_CATEGORIES } from '@ziroeda/designer/src/editors/pcb/board_settings.js';
+import { DRC_CATEGORIES } from '@ziroeda/pcbnew/board_settings.js';
 import {
   groupSeverityItems,
   type SeverityGroup,

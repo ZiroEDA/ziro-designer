@@ -37,7 +37,7 @@ import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { bestDragOrigin, bestSnapAnchor } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
 import { align, type PcbGridState } from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
-import { moveDelta } from '@ziroeda/designer/src/editors/pcb/pcb_grid.js';
+import { moveDelta } from '@ziroeda/pcbnew/pcb_grid.js';
 
 /** `PCB_GRID_HELPER::Align` on a grid of `size` about `origin`, snapping on. */
 const gridAlign = (p: { x: number; y: number }, size: number, origin: { x: number; y: number }) =>

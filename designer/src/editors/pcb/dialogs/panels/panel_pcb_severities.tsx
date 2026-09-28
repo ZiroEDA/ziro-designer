@@ -19,8 +19,8 @@
 
 import type { JSX } from 'react';
 
-import type { DrcSeverities, DrcSeverity } from '../../board_settings.js';
-import { DRC_CATEGORIES } from '../../board_settings.js';
+import type { DrcSeverities, DrcSeverity } from '@ziroeda/pcbnew/board_settings.js';
+import { DRC_CATEGORIES } from '@ziroeda/pcbnew/board_settings.js';
 import { PanelSetupSeverities } from '@ziroeda/common/dialogs/panel_setup_severities.js';
 
 // Re-exported so panel users keep importing from the panel module.
@@ -29,7 +29,7 @@ export {
   defaultDrcSeverities,
   type DrcSeverities,
   type DrcSeverity,
-} from '../../board_settings.js';
+} from '@ziroeda/pcbnew/board_settings.js';
 
 interface Props {
   value: DrcSeverities;

@@ -13,7 +13,7 @@ import {
   defaultMaskPaste,
   type MaskPaste,
   PanelPcbMaskPaste,
-} from '@ziroeda/designer/src/editors/pcb/dialogs/panels/panel_pcb_mask_paste.js';
+} from '@ziroeda/pcbnew/dialogs/panel_setup_mask_and_paste.js';
 
 afterEach(cleanup);
 

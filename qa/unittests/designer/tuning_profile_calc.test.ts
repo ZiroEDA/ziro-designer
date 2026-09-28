@@ -16,7 +16,7 @@ import {
   getMicrostripBoardParameters,
   getStackupLayerId,
   getStriplineBoardParameters,
-} from '@ziroeda/designer/src/editors/pcb/dialogs/tuning_profile_calc.js';
+} from '@ziroeda/pcbnew/length_delay_calculation/tuning_profile_calc.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 import {
   coupledMicrostripAnalyze,

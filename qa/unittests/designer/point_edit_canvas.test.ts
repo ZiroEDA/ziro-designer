@@ -20,7 +20,7 @@ import {
   handleAtPoint,
   handleDragTarget,
   handleTolerance,
-} from '@ziroeda/designer/src/editors/pcb/point_edit_canvas.js';
+} from '@ziroeda/pcbnew/tools/pcb_point_editor_canvas.js';
 
 const MM = (n: number): number => mmToIU(n);
 

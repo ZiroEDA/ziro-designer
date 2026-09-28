@@ -13,8 +13,8 @@ import {
   PanelPcbTuningProfiles,
   validateTuningProfiles,
   delayProfileNames,
-} from '@ziroeda/designer/src/editors/pcb/dialogs/panels/panel_pcb_tuning_profiles.js';
-import type { TuningProfilesData } from '@ziroeda/designer/src/editors/pcb/board_settings.js';
+} from '@ziroeda/pcbnew/dialogs/panel_setup_tuning_profiles.js';
+import type { TuningProfilesData } from '@ziroeda/pcbnew/board_settings.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 
 const LAYERS = [

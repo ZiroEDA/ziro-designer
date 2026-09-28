@@ -18,7 +18,7 @@ import {
   groupLabelAnchor,
   groupLabelFits,
   groupLabelTextSize,
-} from '@ziroeda/designer/src/editors/pcb/group_box.js';
+} from '@ziroeda/pcbnew/group_box.js';
 import { pcbIUScale, pcbMmToIU as MM } from '@ziroeda/common/eda_units.js';
 
 const box = { minX: MM(10), minY: MM(20), maxX: MM(110), maxY: MM(70) };

@@ -27,7 +27,7 @@
 
 import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import { parseColor4d, COLOR4D_UNSPECIFIED } from '@ziroeda/common/gal/color4d.js';
-import type { PhysicalStackup, BoardFinish } from './board_settings.js';
+import type { PhysicalStackup, BoardFinish } from './viewer3d_types.js';
 
 /** `ADD_COLOR( list, r, g, b, a, name )` — 0-255 channels, 0-1 alpha. */
 const rgba = (r: number, g: number, b: number, a: number): Color4d => ({

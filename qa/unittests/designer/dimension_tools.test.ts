@@ -19,7 +19,7 @@ import {
   dimensionDefaultsFrom,
   dimensionToolKind,
   isDimensionTool,
-} from '@ziroeda/designer/src/editors/pcb/dimension_tools.js';
+} from '@ziroeda/pcbnew/dimension_tools.js';
 
 const MM = (n: number): number => mmToIU(n);
 

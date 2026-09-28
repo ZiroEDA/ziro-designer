@@ -20,7 +20,7 @@ import {
   applyBarcodeValues,
   barcodeValues,
 } from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties.js';
-import { DialogBarcodeProperties } from '../pcb/dialogs/dialog_barcode_properties.js';
+import { DialogBarcodeProperties } from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties_ui.js';
 import {
   readFootprintFile,
   moveFootprintItems,
@@ -49,9 +49,9 @@ import {
   type PcbShape,
   type PcbTextItem,
 } from '@ziroeda/pcbnew';
-import { FootprintPropertiesDialog, PadPropertiesDialog } from './dialogs.js';
+import { FootprintPropertiesDialog, PadPropertiesDialog } from '@ziroeda/pcbnew/dialogs/dialog_footprint_properties_fp_editor.js';
 import { MenuBar, ContextMenu, type Menu } from '@ziroeda/common/tool/action_menu_bar.js';
-import { footprintTreeContextMenu, fpTreeSelectedNodes } from './tree_context_menu.js';
+import { footprintTreeContextMenu, fpTreeSelectedNodes } from '@ziroeda/pcbnew/footprint_tree_context_menu.js';
 import { LibrariesToRepin } from '@ziroeda/common/tool/library_editor_control.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
@@ -60,7 +60,7 @@ import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
 const FP_LOCAL_ORIGIN = { x: 0, y: 0 };
 import { ProgressDialog } from '@ziroeda/common/widgets/wx_progress_reporters.js';
 import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
-import { FP_FRAME_NAME, fpFrameTitle } from './frame_title.js';
+import { FP_FRAME_NAME, fpFrameTitle } from '@ziroeda/pcbnew/footprint_edit_frame_title.js';
 import { useUnsavedGuard } from '@ziroeda/common/use_unsaved_guard.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
@@ -83,7 +83,7 @@ import {
   footprintToolMsg,
 } from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
-import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
+import { applyToggle, DEFAULT_TOGGLES } from '@ziroeda/pcbnew/footprint_editor_toggles.js';
 import { FootprintCanvas, type FootprintCanvasController } from './FootprintCanvas.js';
 import { FootprintLibraryManager, fpNameOf, footprintsBase } from './libraryManager.js';
 import { projectFpLibTable, projectLibraryNickname } from '@ziroeda/common/fp_lib_table.js';

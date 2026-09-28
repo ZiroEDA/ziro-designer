@@ -361,6 +361,9 @@ importers:
 
   pcbnew:
     dependencies:
+      '@ziroeda/bitmaps_png':
+        specifier: workspace:*
+        version: link:../bitmaps_png
       '@ziroeda/common':
         specifier: workspace:*
         version: link:../common

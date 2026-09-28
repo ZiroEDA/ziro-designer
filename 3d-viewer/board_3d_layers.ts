@@ -76,7 +76,7 @@ import {
   Rescue,
   User_1,
 } from '@ziroeda/common/layer_ids.js';
-import { boardOutlineLoops, type Box } from './boardOutline.js';
+import { boardOutlineLoops, type Box } from './board_outline.js';
 
 /** The PCB_LAYER_IDs the 3D viewer builds (`techLayerList`). */
 export type Layer3d =

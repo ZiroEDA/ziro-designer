@@ -39,7 +39,7 @@ import {
   type DielectricSublayer,
   type PhysicalStackup,
   type StackupLayer,
-} from '../../board_settings.js';
+} from '@ziroeda/pcbnew/board_settings.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import { BOARD_STACKUP_ITEM_TYPE } from '@ziroeda/pcbnew/board_stackup_manager/board_stackup.js';
@@ -65,7 +65,7 @@ export {
   type DielectricSublayer,
   type PhysicalStackup,
   type StackupLayer,
-} from '../../board_settings.js';
+} from '@ziroeda/pcbnew/board_settings.js';
 
 const COPPER_COUNTS = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32];
 

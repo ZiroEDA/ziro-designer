@@ -17,7 +17,7 @@ import type { Board } from '@ziroeda/pcbnew';
 import {
   describeSelected,
   inspectSelection,
-} from '@ziroeda/designer/src/editors/pcb/inspect_selection.js';
+} from '@ziroeda/pcbnew/tools/board_inspection_tool.js';
 
 const MM = (n: number): number => mmToIU(n);
 

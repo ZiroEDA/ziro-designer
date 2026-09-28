@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ziroeda/bitmaps_png": "workspace:*",
     "@ziroeda/common": "workspace:*",
     "@ziroeda/core": "workspace:*",
     "@ziroeda/kimath": "workspace:*",

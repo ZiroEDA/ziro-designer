@@ -26,7 +26,7 @@
  */
 import { useState, type JSX } from 'react';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
-import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
+import { pcbUnitText, pcbUnitValue, unitLabel } from '@ziroeda/pcbnew/pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 
 /** The `PNS::SIZES_SETTINGS` members this dialog reads and writes, in IU. */

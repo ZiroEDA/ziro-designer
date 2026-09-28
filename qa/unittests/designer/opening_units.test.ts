@@ -43,7 +43,7 @@ import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { EDA_UNITS_INT } from '@ziroeda/common/settings/app_settings.js';
 import { makeHarness } from '../pagelayout_editor/pl_editor_fixture.js';
-import { DEFAULT_TOGGLES as FP_TOGGLES } from '@ziroeda/designer/src/editors/footprint/toggles.js';
+import { DEFAULT_TOGGLES as FP_TOGGLES } from '@ziroeda/pcbnew/footprint_editor_toggles.js';
 
 /** The three unit buttons every `EDA_DRAW_FRAME` toolbar carries. */
 const UNIT_IDS = ['unitsMm', 'unitsInches', 'unitsMils'] as const;

@@ -28,7 +28,7 @@ import {
   PanelPcbTeardrops,
   defaultTeardrops,
   type TeardropsSetup,
-} from '@ziroeda/designer/src/editors/pcb/dialogs/panels/panel_pcb_teardrops.js';
+} from '@ziroeda/pcbnew/dialogs/panel_setup_teardrops.js';
 import { BoardSetupFromWindow } from '@ziroeda/designer/src/editors/pcb/dialogs/board_setup_transfer.js';
 import { EMPTY_PCB } from '@ziroeda/designer/src/home/new_project.js';
 import { TARGET_TD } from '@ziroeda/pcbnew/teardrop/teardrop_parameters.js';

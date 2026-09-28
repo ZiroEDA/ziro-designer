@@ -22,7 +22,7 @@ import { describe, expect, it } from 'vitest';
 import {
   footprintTreeContextMenu,
   type FpTreeSelection,
-} from '@ziroeda/designer/src/editors/footprint/tree_context_menu.js';
+} from '@ziroeda/pcbnew/footprint_tree_context_menu.js';
 import type { MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 
 const noop = (): void => {};

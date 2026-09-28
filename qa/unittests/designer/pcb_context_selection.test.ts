@@ -25,7 +25,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { contextMenuPick } from '@ziroeda/designer/src/editors/pcb/pcb_context_selection.js';
+import { contextMenuPick } from '@ziroeda/pcbnew/tools/pcb_selection_tool.js';
 
 const FOOTPRINT = new Set(['footprint:5']);
 

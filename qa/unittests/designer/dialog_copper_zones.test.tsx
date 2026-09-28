@@ -14,7 +14,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { DialogCopperZones } from '@ziroeda/designer/src/editors/pcb/dialogs/dialog_copper_zones.js';
+import { DialogCopperZones } from '@ziroeda/pcbnew/dialogs/dialog_copper_zones.js';
 import type { ZoneValues } from '@ziroeda/pcbnew/dialogs/panel_zone_properties.js';
 
 afterEach(cleanup);

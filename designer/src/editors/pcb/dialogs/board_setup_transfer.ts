@@ -82,7 +82,7 @@ import {
   type TeardropShape,
   type TuningPattern,
   type ZoneLayerPropertiesMap,
-} from '../board_settings.js';
+} from '@ziroeda/pcbnew/board_settings.js';
 import type { EmbeddedFile } from '../../schematic/schematic_settings.js';
 
 const mmOf = (iu: number): number => pcbIUScale.iuToMM(iu);

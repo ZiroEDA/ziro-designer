@@ -50,7 +50,7 @@ import {
   type Layer3dFlag,
   pcbLayerOfFlag,
   userFlagIndex,
-} from './viewer3d_appearance.js';
+} from '../viewer3d_appearance.js';
 
 /** `COLOR4D::WHITE`, the `aBackground` every swatch of this pane is built with (`.cpp:475`). */
 const SWATCH_BACKGROUND: Color4d = { r: 1, g: 1, b: 1, a: 1 };

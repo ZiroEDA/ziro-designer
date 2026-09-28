@@ -28,7 +28,7 @@ import {
   fpFrameTitle,
   fromBoardSuffix,
   PCB_FILE_EXTENSION,
-} from '@ziroeda/designer/src/editors/footprint/frame_title.js';
+} from '@ziroeda/pcbnew/footprint_edit_frame_title.js';
 import { READ_ONLY_SUFFIX, UNSAVED_SUFFIX } from '@ziroeda/common/use_document_title.js';
 
 /** The one call shape the symbol editor's own module needs. */

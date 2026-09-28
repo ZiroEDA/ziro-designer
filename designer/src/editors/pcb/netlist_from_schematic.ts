@@ -20,7 +20,7 @@
  * show, which is the same information in one step fewer.
  */
 
-import { netClassFor } from './netclass_resolve.js';
+import { netClassFor } from '@ziroeda/pcbnew/netclass_resolve.js';
 import {
   buildSheetTree,
   checkAnnotation,

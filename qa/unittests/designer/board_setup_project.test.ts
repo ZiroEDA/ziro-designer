@@ -7,11 +7,11 @@
  * TUNING_PROFILES / text_variables, and the file SaveProject() writes.
  */
 import { describe, it, expect } from 'vitest';
-import { findProjectPro } from '@ziroeda/designer/src/editors/pcb/project_settings.js';
+import { findProjectPro } from '@ziroeda/pcbnew/project_settings.js';
 import {
   defaultBoardSetup,
   type BoardSetupValues,
-} from '@ziroeda/designer/src/editors/pcb/board_settings.js';
+} from '@ziroeda/pcbnew/board_settings.js';
 import { EMPTY_PCB, projectJson } from '@ziroeda/designer/src/home/new_project.js';
 import { readSetup, writeProject } from './board_setup_test_utils.js';
 

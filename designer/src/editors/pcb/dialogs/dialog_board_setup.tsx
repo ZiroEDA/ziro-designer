@@ -200,36 +200,36 @@ import { PanelTextVariables } from '@ziroeda/common/dialogs/panel_text_variables
 import { PanelSetupNetclasses } from '@ziroeda/common/dialogs/panel_setup_netclasses.js';
 import { PanelEmbeddedFiles } from '@ziroeda/common/dialogs/panel_embedded_files.js';
 import { PanelPcbSeverities } from './panels/panel_pcb_severities.js';
-import { PanelPcbTextGraphics } from './panels/panel_pcb_text_graphics.js';
-import { PanelPcbFormatting } from './panels/panel_pcb_formatting.js';
-import { PanelPcbMaskPaste } from './panels/panel_pcb_mask_paste.js';
-import { PanelPcbZones } from './panels/panel_pcb_zones.js';
-import { PanelPcbLayers, layerNameInputId, testLayerNames } from './panels/panel_pcb_layers.js';
+import { PanelPcbTextGraphics } from '@ziroeda/pcbnew/dialogs/panel_setup_text_and_graphics.js';
+import { PanelPcbFormatting } from '@ziroeda/pcbnew/dialogs/panel_setup_formatting.js';
+import { PanelPcbMaskPaste } from '@ziroeda/pcbnew/dialogs/panel_setup_mask_and_paste.js';
+import { PanelPcbZones } from '@ziroeda/pcbnew/dialogs/panel_setup_zones.js';
+import { PanelPcbLayers, layerNameInputId, testLayerNames } from '@ziroeda/pcbnew/dialogs/panel_setup_layers.js';
 import { PanelPcbZoneHatchOffsets } from './panels/panel_pcb_zone_hatch_offsets.js';
-import { PanelPcbTeardrops } from './panels/panel_pcb_teardrops.js';
-import { PanelPcbTuning } from './panels/panel_pcb_tuning.js';
-import { PanelPcbTuningProfiles } from './panels/panel_pcb_tuning_profiles.js';
-import { PanelPcbBoardFinish } from './panels/panel_pcb_board_finish.js';
+import { PanelPcbTeardrops } from '@ziroeda/pcbnew/dialogs/panel_setup_teardrops.js';
+import { PanelPcbTuning } from '@ziroeda/pcbnew/dialogs/panel_setup_tuning_patterns.js';
+import { PanelPcbTuningProfiles } from '@ziroeda/pcbnew/dialogs/panel_setup_tuning_profiles.js';
+import { PanelPcbBoardFinish } from '@ziroeda/pcbnew/board_stackup_manager/panel_board_finish.js';
 import { PanelPcbStackup } from './panels/panel_pcb_stackup.js';
-import { PanelPcbComponentClasses } from './panels/panel_pcb_component_classes.js';
-import { PanelPcbCustomRules } from './panels/panel_pcb_custom_rules.js';
-import { clampMaxErrorMM, copperStackNames, syncCopperLayers } from '../board_settings.js';
+import { PanelPcbComponentClasses } from '@ziroeda/pcbnew/dialogs/panel_pcb_component_classes.js';
+import { PanelPcbCustomRules } from '@ziroeda/pcbnew/dialogs/panel_setup_rules.js';
+import { clampMaxErrorMM, copperStackNames, syncCopperLayers } from '@ziroeda/pcbnew/board_settings.js';
 import type {
   BoardConstraints,
   BoardSetupValues,
   DiffPairSize,
   ViaSize,
-} from '../board_settings.js';
+} from '@ziroeda/pcbnew/board_settings.js';
 import { BoardSetupToWindow } from './board_setup_transfer.js';
-import { delayProfileNames, validateTuningProfiles } from './panels/panel_pcb_tuning_profiles.js';
+import { delayProfileNames, validateTuningProfiles } from '@ziroeda/pcbnew/dialogs/panel_setup_tuning_profiles.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
 import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { DialogImportSettings, type ImportSettingsOpts } from './dialog_import_settings.js';
-import { pcbUnitTextMM, pcbUnitValueMM, unitLabel } from '../pcb_unit_binder.js';
+import { DialogImportSettings, type ImportSettingsOpts } from '@ziroeda/pcbnew/dialogs/dialog_import_settings.js';
+import { pcbUnitTextMM, pcbUnitValueMM, unitLabel } from '@ziroeda/pcbnew/pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { svgUrl } from '@ziroeda/bitmaps_png';
 
@@ -241,7 +241,7 @@ export {
   type BoardSetupValues,
   type DiffPairSize,
   type ViaSize,
-} from '../board_settings.js';
+} from '@ziroeda/pcbnew/board_settings.js';
 
 export type PageId =
   | 'layers'

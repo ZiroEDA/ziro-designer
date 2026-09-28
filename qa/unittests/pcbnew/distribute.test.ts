@@ -20,7 +20,7 @@ import {
   deltasForDistributeByGaps,
   deltasForDistributeByPoints,
 } from '@ziroeda/kimath/src/geometry/distribute.js';
-import { distributeBoardItems } from '@ziroeda/pcbnew/distribute_items.js';
+import { distributeBoardItems } from '@ziroeda/pcbnew/tools/align_distribute_tool.js';
 import type { Board, PcbShape } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);

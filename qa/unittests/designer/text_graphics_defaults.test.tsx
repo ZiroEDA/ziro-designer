@@ -24,11 +24,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { useState, type JSX } from 'react';
 import { cleanup, fireEvent, render } from '@testing-library/react';
-import { PanelPcbTextGraphics } from '@ziroeda/designer/src/editors/pcb/dialogs/panels/panel_pcb_text_graphics.js';
+import { PanelPcbTextGraphics } from '@ziroeda/pcbnew/dialogs/panel_setup_text_and_graphics.js';
 import {
   defaultTextGraphics,
   type TextGfxDefaults,
-} from '@ziroeda/designer/src/editors/pcb/board_settings.js';
+} from '@ziroeda/pcbnew/board_settings.js';
 
 afterEach(cleanup);
 

@@ -37,7 +37,7 @@ import {
 import {
   defaultBoardSetup,
   type BoardSetupValues,
-} from '@ziroeda/designer/src/editors/pcb/board_settings.js';
+} from '@ziroeda/pcbnew/board_settings.js';
 
 afterEach(cleanup);
 

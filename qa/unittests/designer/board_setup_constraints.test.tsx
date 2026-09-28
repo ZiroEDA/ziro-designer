@@ -35,7 +35,7 @@ import {
   MAX_ERROR_SIZE_MM,
   MIN_ERROR_SIZE_MM,
   type BoardSetupValues,
-} from '@ziroeda/designer/src/editors/pcb/board_settings.js';
+} from '@ziroeda/pcbnew/board_settings.js';
 
 afterEach(cleanup);
 

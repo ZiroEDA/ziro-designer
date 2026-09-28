@@ -31,7 +31,7 @@
  */
 
 import type { JSX } from 'react';
-import type { ZoneLayerPropertiesMap } from '../../board_settings.js';
+import type { ZoneLayerPropertiesMap } from '@ziroeda/pcbnew/board_settings.js';
 import { ZoneLayerPropertiesGrid } from '../../../../widgets/zone_layer_properties_grid.js';
 
 // The data model lives in board_settings.ts (KiCad's data/UI split);
@@ -40,7 +40,7 @@ export {
   defaultZoneLayerProperties,
   type ZoneLayerProperties,
   type ZoneLayerPropertiesMap,
-} from '../../board_settings.js';
+} from '@ziroeda/pcbnew/board_settings.js';
 
 interface Props {
   /** The board's enabled copper layers, in `CuStack()` order. */

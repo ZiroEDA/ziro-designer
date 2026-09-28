@@ -34,7 +34,7 @@ import {
   applyToggle as fpApplyToggle,
   DEFAULT_TOGGLES as FP_TOGGLES,
   RADIO_GROUPS as FP_GROUPS,
-} from '@ziroeda/designer/src/editors/footprint/toggles.js';
+} from '@ziroeda/pcbnew/footprint_editor_toggles.js';
 import {
   applyToggle as schApplyToggle,
   DEFAULT_TOGGLES as SCH_TOGGLES,

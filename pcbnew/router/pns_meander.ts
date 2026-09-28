@@ -44,13 +44,15 @@
  *
  * ## Board Setup already has *a* meander settings type, and it is not this one
  *
- * `designer/src/editors/pcb/board_settings.ts` defines `TuningPattern`: six
- * millimetre-valued fields, persisted in the project file, read by
- * `PANEL_SETUP_TUNING_PATTERNS`. It is the UI mirror of six of the fields
- * below and it cannot be reused here, because `designer` depends on `pcbnew`
- * and not the reverse — importing it would invert the dependency. The
- * conversion (mm → IU, `'Fillet' | 'Chamfer'` → {@link MeanderStyle}) belongs
- * in `designer` alongside the panel, and lands with the placer that needs it.
+ * `pcbnew/board_settings.ts` defines `TuningPattern`: six millimetre-valued
+ * fields, persisted in the project file, read by `PANEL_SETUP_TUNING_PATTERNS`
+ * (`pcbnew/dialogs/panel_setup_tuning_patterns.tsx`). It is the UI mirror of
+ * six of the fields below and it cannot be reused here: it is the settings
+ * *panel's* shape (mm, `'Fillet' | 'Chamfer'`), one layer above the router,
+ * and importing it here would have the algorithm depend on the dialog that
+ * configures it rather than the other way round. The conversion (mm → IU,
+ * `'Fillet' | 'Chamfer'` → {@link MeanderStyle}) belongs beside that panel,
+ * and lands with the placer that needs it.
  *
  * ## Upstream oddities reproduced here
  *

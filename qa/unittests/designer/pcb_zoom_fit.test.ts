@@ -22,7 +22,7 @@ import {
   pcbPageSizeIU,
   pcbZoomFitBox,
   type ExtentsBox,
-} from '@ziroeda/designer/src/editors/pcb/document_extents.js';
+} from '@ziroeda/pcbnew/document_extents.js';
 
 /** A4 landscape, as `PAGE_INFO` stores it: mils, then x 25400 nm per mil. */
 const A4_W = 11693 * 25400;
