@@ -28,10 +28,10 @@
 
 import { useMemo, useRef, useState, type JSX } from 'react';
 import { mmToIU, iuToMM, type ReportLine } from '@ziroeda/common';
-import type { PlotOpts, PlotPageSize } from '@ziroeda/eeschema/sch_plotter.js';
-import { IU_PER_MILS } from '@ziroeda/eeschema/schematic_settings.js';
-import { BUILTIN_THEMES } from '@ziroeda/eeschema/sch_render_settings.js';
-import { settings } from '../../../prefs/settings.js';
+import type { PlotOpts, PlotPageSize } from '../sch_plotter.js';
+import { IU_PER_MILS } from '../schematic_settings.js';
+import { BUILTIN_THEMES } from '../sch_render_settings.js';
+import type { EESCHEMA_SETTINGS_STORE } from '../eeschema_app.js';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
@@ -70,6 +70,9 @@ interface Props {
   projectFolders?: readonly string[];
   onPlot: (request: PlotRequest) => void;
   onClose: () => void;
+  /** `Pgm().GetSettingsManager()`'s eeschema slice (`EESCHEMA_APP.settings`),
+   *  which this dialog reads its defaults from and writes back to. */
+  settings: EESCHEMA_SETTINGS_STORE;
 }
 
 const FORMATS: { id: PlotFormat; label: string }[] = [
@@ -87,7 +90,13 @@ const PEN_WIDTH_FORMATS: PlotFormat[] = ['ps', 'pdf', 'svg', 'png'];
 /** Formats a browser tab can display ("Open file after plot"). */
 const VIEWABLE_FORMATS: PlotFormat[] = ['pdf', 'svg', 'png'];
 
-export function DialogPlot({ themeId, projectFolders = [], onPlot, onClose }: Props): JSX.Element {
+export function DialogPlot({
+  settings,
+  themeId,
+  projectFolders = [],
+  onPlot,
+  onClose,
+}: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
   useModalEscape(onClose);

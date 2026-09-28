@@ -11,11 +11,11 @@
  * messages it just produced can be read.
  */
 import { useState, type JSX } from 'react';
-import type { AnnotateOptions } from '@ziroeda/eeschema';
+import type { AnnotateOptions } from '../sch_reference_list.js';
 import type { ReportLine, Severity } from '@ziroeda/common';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
 import { toolbarIconUrl } from '@ziroeda/common/bitmap_store.js';
-import { settings } from '../../../prefs/settings.js';
+import type { EESCHEMA_SETTINGS_STORE } from '../eeschema_app.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 /** The project-persisted slice of the dialog (SCHEMATIC_SETTINGS: sort order,
@@ -47,6 +47,9 @@ interface Props {
   /** ~DIALOG_ANNOTATE: the project slice is handed back on every close so the
    *  caller can persist it when changed (OnModify). */
   onClose: (settings: AnnotateProjectSettings) => void;
+  /** `Pgm().GetSettingsManager()`'s eeschema slice (`EESCHEMA_APP.settings`),
+   *  which this dialog reads its defaults from and writes back to. */
+  settings: EESCHEMA_SETTINGS_STORE;
 }
 
 const SCOPES: { id: AnnotateOptions['scope']; label: string }[] = [
@@ -56,6 +59,7 @@ const SCOPES: { id: AnnotateOptions['scope']; label: string }[] = [
 ];
 
 export function DialogAnnotate({
+  settings,
   hasSelection,
   initial,
   messages,

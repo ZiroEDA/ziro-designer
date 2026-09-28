@@ -38,6 +38,8 @@ import { fileURLToPath } from 'node:url';
 const ROOTS: Record<string, string> = {
   sch: fileURLToPath(new URL('../../../designer/src/editors/schematic/dialogs', import.meta.url)),
   eeschema: fileURLToPath(new URL('../../../eeschema/dialogs', import.meta.url)),
+  // KiCad keeps DIALOG_PRINT under eeschema/printing/, and so do we since E2 pt 3.
+  eeschema_printing: fileURLToPath(new URL('../../../eeschema/printing', import.meta.url)),
   pcb: fileURLToPath(new URL('../../../designer/src/editors/pcb/dialogs', import.meta.url)),
   pcbnew: fileURLToPath(new URL('../../../pcbnew/dialogs', import.meta.url)),
 };
@@ -119,7 +121,7 @@ const KNOWN_HARDCODED = new Set([
   'eeschema/dialog_global_edit_text_and_graphics.tsx',
   'eeschema/dialog_image_properties.tsx',
   'eeschema/dialog_line_properties.tsx',
-  'sch/dialog_plot.tsx',
+  'eeschema/dialog_plot_schematic.tsx',
   'eeschema/dialog_sheet_pin_properties.tsx',
   'eeschema/dialog_sheet_properties.tsx',
   // Never scanned until 09-28: these sat in designer/.../pcb/dialogs/panels/,

@@ -27,9 +27,9 @@
  */
 
 import { useState, type JSX } from 'react';
-import type { PlotOpts } from '@ziroeda/eeschema/sch_plotter.js';
-import { BUILTIN_THEMES } from '@ziroeda/eeschema/sch_render_settings.js';
-import { settings } from '../../../prefs/settings.js';
+import type { PlotOpts } from '../sch_plotter.js';
+import { BUILTIN_THEMES } from '../sch_render_settings.js';
+import type { EESCHEMA_SETTINGS_STORE } from '../eeschema_app.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {
@@ -39,12 +39,21 @@ interface Props {
   /** The editor's active theme id (used when a different print theme is off). */
   themeId?: string;
   onClose: () => void;
+  /** `Pgm().GetSettingsManager()`'s eeschema slice (`EESCHEMA_APP.settings`),
+   *  which this dialog reads its defaults from and writes back to. */
+  settings: EESCHEMA_SETTINGS_STORE;
 }
 
 // Note: KiCad's "Page Setup..." button (m_buttonPageSetup -> wxPageSetupDialog)
 // is intentionally omitted. On the web the browser's native print dialog already
 // controls paper size, orientation and margins for the print job.
-export function DialogPrint({ onPrint, onPreview, themeId, onClose }: Props): JSX.Element {
+export function DialogPrint({
+  settings,
+  onPrint,
+  onPreview,
+  themeId,
+  onClose,
+}: Props): JSX.Element {
   // TransferDataToWindow: seed from the saved printing.* options.
   const cfg = settings.eeschema.printing;
   const [color, setColor] = useState(!cfg.monochrome);

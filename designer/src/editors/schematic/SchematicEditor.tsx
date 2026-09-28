@@ -411,7 +411,7 @@ import {
 } from '@ziroeda/eeschema/dialogs/dialog_global_edit_text_and_graphics.js';
 import { DialogChangeSymbols, type ChangeSymbolsSubject } from './dialogs/dialog_change_symbols.js';
 import { DialogEditSymbolsLibId } from '@ziroeda/eeschema/dialogs/dialog_edit_symbols_libid.js';
-import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
+import { DialogAnnotate, type AnnotateRun } from '@ziroeda/eeschema/dialogs/dialog_annotate.js';
 import {
   DialogLineProperties,
   type ItemColor,
@@ -498,8 +498,8 @@ import {
 } from '@ziroeda/eeschema/dialogs/dialog_symbol_fields_table.js';
 import { DialogAssignFootprints } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
 import { useCvpcbApp } from './cvpcb_app.js';
-import { DialogPrint } from './dialogs/dialog_print.js';
-import { DialogPlot, type PlotRequest } from './dialogs/dialog_plot.js';
+import { DialogPrint } from '@ziroeda/eeschema/printing/dialog_print.js';
+import { DialogPlot, type PlotRequest } from '@ziroeda/eeschema/dialogs/dialog_plot_schematic.js';
 import {
   downloadBlob,
   printSheets,
@@ -10325,6 +10325,7 @@ export function SchematicEditor({
             )}
             {annotateOpen && (
               <DialogAnnotate
+                settings={app.settings}
                 hasSelection={selection.size > 0}
                 // Sort order, numbering method and start number are project
                 // settings (SCHEMATIC_SETTINGS), seed from Schematic Setup >
@@ -10473,6 +10474,7 @@ export function SchematicEditor({
             )}
             {printOpen && (
               <DialogPrint
+                settings={app.settings}
                 onPrint={doPrint}
                 onPreview={doPreview}
                 themeId={es.appearance.color_theme}
@@ -10512,6 +10514,7 @@ export function SchematicEditor({
             )}
             {plotOpen && (
               <DialogPlot
+                settings={app.settings}
                 themeId={es.appearance.color_theme}
                 projectFolders={projectFolders}
                 onPlot={doPlot}
