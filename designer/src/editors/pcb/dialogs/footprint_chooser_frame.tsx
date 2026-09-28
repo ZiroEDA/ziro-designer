@@ -32,8 +32,8 @@ import type { FootprintTreeFilter } from '@ziroeda/pcbnew/fp_tree_model_adapter.
 import { footprintHistory } from '../widgets/footprint_history.js';
 import { FootprintPreview3D, useFootprintHolderBoard } from '../widgets/footprint_preview_3d.js';
 import { Viewer3DFrame } from '../Viewer3DFrame.js';
-import { loadFootprintIndex } from '../../../widgets/footprint_list.js';
 import type { FootprintIndexLibrary } from '@ziroeda/pcbnew/footprint_info_impl.js';
+import type { PcbFootprint } from '@ziroeda/pcbnew';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { BitmapButton, BitmapButtonSeparator } from '@ziroeda/common/widgets/bitmap_button.js';
 
@@ -66,6 +66,16 @@ export interface FootprintChooserFrameProps {
   onOk: (libId: string) => void;
   /** Cancel, Escape, or OK with nothing chosen — `DismissModal( false )`. */
   onCancel: () => void;
+  /**
+   * `widgets/footprint_list.ts`'s hosted footprint library index and its lazy
+   * per-footprint fetch — app-level (they reach the account's hosted bundle),
+   * so they arrive as props rather than an import. The seam
+   * `PCBNEW_APP` / `CVPCB_APP` give a frame; this dialog is not a `_ui.tsx`
+   * frame yet, so it takes the two functions directly instead of a whole app
+   * object.
+   */
+  loadFootprintIndex: () => Promise<FootprintIndexLibrary[]>;
+  loadFootprint: (libId: string) => Promise<PcbFootprint | null>;
 }
 
 export function FootprintChooserFrame({
@@ -74,6 +84,8 @@ export function FootprintChooserFrame({
   pinCount,
   onOk,
   onCancel,
+  loadFootprintIndex,
+  loadFootprint,
 }: FootprintChooserFrameProps): JSX.Element {
   useModalEscape(onCancel);
 
@@ -103,7 +115,7 @@ export function FootprintChooserFrame({
   const [show3D, setShow3D] = useState(views.threeD);
   /** `m_show3DViewer`, unticked on every open — a plain wxCheckBox, no setting. */
   const [ownWindow, setOwnWindow] = useState(false);
-  const holderBoard = useFootprintHolderBoard(show3D ? (selected ?? '') : '');
+  const holderBoard = useFootprintHolderBoard(show3D ? (selected ?? '') : '', loadFootprint);
 
   /** `toggleBottomSplit` (:808-838). */
   const toggleDescription = (): void => {

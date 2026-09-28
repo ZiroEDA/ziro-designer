@@ -11144,6 +11144,8 @@ export function SchematicEditor({
             setFpChooser(null);
           }}
           onCancel={() => setFpChooser(null)}
+          loadFootprintIndex={loadFootprintIndex}
+          loadFootprint={loadFootprint}
         />
       )}
 

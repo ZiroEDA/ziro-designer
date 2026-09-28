@@ -501,7 +501,7 @@ import {
 } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view_commit.js';
 import { PCB_EDIT_FRAME, REACT_BOARD_LISTENER, pcbnewSettingsOf } from './pcb_edit_frame.js';
 import { FetchNetlistFromSchematic } from './netlist_from_schematic.js';
-import { loadFootprint } from '../../widgets/footprint_list.js';
+import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
 import { FootprintChooserFrame } from './dialogs/footprint_chooser_frame.js';
 import { addFootprintToHistory } from './widgets/footprint_history.js';
 import { preloadBoardLibraries } from './preload.js';
@@ -11769,7 +11769,12 @@ export function PcbEditor({
           (load_select_footprint.cpp:190-224). The same frame the schematic's
           footprint field opens; a cancel leaves the tool armed and waiting. */}
       {fpChooserOpen && (
-        <FootprintChooserFrame onOk={onFootprintChosen} onCancel={() => setFpChooserOpen(false)} />
+        <FootprintChooserFrame
+          onOk={onFootprintChosen}
+          onCancel={() => setFpChooserOpen(false)}
+          loadFootprintIndex={loadFootprintIndex}
+          loadFootprint={loadFootprint}
+        />
       )}
 
       {textDialog && (

@@ -34,18 +34,6 @@ import type { FootprintIndexLibrary } from '@ziroeda/pcbnew/footprint_info_impl.
 
 afterEach(cleanup);
 
-/**
- * The frame fetches the index itself, so a test that does not stand one up
- * gets an empty tree — and every assertion about counting or filtering then
- * holds trivially. Both the "title does not follow the filter" and the
- * "unticked by default" cases passed with their fixes removed for exactly that
- * reason. Mocked here so the frame has 4 footprints to be wrong about.
- */
-vi.mock('@ziroeda/designer/src/widgets/footprint_list.js', async (orig) => ({
-  ...(await orig<typeof import('@ziroeda/designer/src/widgets/footprint_list.js')>()),
-  loadFootprintIndex: () => Promise.resolve(INDEX),
-}));
-
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -301,9 +289,25 @@ describe('the chooser opens on the footprint the field already names', () => {
 });
 
 describe('the frame builds a checkbox only when it can filter on something', () => {
+  /**
+   * The frame fetches the index itself, so a test that does not stand one up
+   * gets an empty tree — and every assertion about counting or filtering then
+   * holds trivially. Both the "title does not follow the filter" and the
+   * "unticked by default" cases passed with their fixes removed for exactly
+   * that reason. Defaulted here so the frame has 4 footprints to be wrong
+   * about; `loadFootprintIndex` and `loadFootprint` are the two app-level
+   * hooks `PCBNEW_APP` (and, in designer/, the real `widgets/footprint_list.ts`)
+   * supply, so a test stands in for both.
+   */
   const frame = (props: Partial<React.ComponentProps<typeof FootprintChooserFrame>> = {}) =>
     render(
-      <FootprintChooserFrame onOk={props.onOk ?? (() => {})} onCancel={() => {}} {...props} />,
+      <FootprintChooserFrame
+        onOk={props.onOk ?? (() => {})}
+        onCancel={() => {}}
+        loadFootprintIndex={() => Promise.resolve(INDEX)}
+        loadFootprint={() => Promise.resolve(null)}
+        {...props}
+      />,
     );
 
   it('shows neither checkbox for a symbol with no filters and no pin count', () => {
@@ -386,7 +390,14 @@ describe('the frame builds a checkbox only when it can filter on something', () 
     // `if( !fpid.empty() ) … else DismissModal( false )`.
     const onOk = vi.fn();
     const onCancel = vi.fn();
-    render(<FootprintChooserFrame onOk={onOk} onCancel={onCancel} />);
+    render(
+      <FootprintChooserFrame
+        onOk={onOk}
+        onCancel={onCancel}
+        loadFootprintIndex={() => Promise.resolve([])}
+        loadFootprint={() => Promise.resolve(null)}
+      />,
+    );
     fireEvent.click(screen.getByText('OK'));
     expect(onOk).not.toHaveBeenCalled();
     expect(onCancel).toHaveBeenCalled();
@@ -402,7 +413,15 @@ describe('the frame builds a checkbox only when it can filter on something', () 
     // `preselect` and hand it straight back.
     const onOk = vi.fn();
     const onCancel = vi.fn();
-    render(<FootprintChooserFrame preselect="Lib:R_0603" onOk={onOk} onCancel={onCancel} />);
+    render(
+      <FootprintChooserFrame
+        preselect="Lib:R_0603"
+        onOk={onOk}
+        onCancel={onCancel}
+        loadFootprintIndex={() => Promise.resolve([])}
+        loadFootprint={() => Promise.resolve(null)}
+      />,
+    );
     fireEvent.click(screen.getByText('OK'));
     expect(onOk).not.toHaveBeenCalled();
     expect(onCancel).toHaveBeenCalled();
