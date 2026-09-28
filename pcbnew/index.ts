@@ -1551,11 +1551,3 @@ export {
   type PnsPendingChange,
 } from './router/pns_board_iface.js';
 
-// `PAD::GetSolderMaskExpansion` / `GetSolderPasteMargin` — the Board Setup >
-// Solder Mask/Paste values reaching a pad's aperture.
-export {
-  padApertureSize,
-  solderMaskExpansionFor,
-  solderPasteMarginFor,
-  type BoardMaskPasteDefaults,
-} from './pad_margins.js';

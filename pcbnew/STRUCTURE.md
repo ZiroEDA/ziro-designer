@@ -132,7 +132,7 @@ own `PADSTACK_DRILL_PROPS`), `eda_text_format.ts` (→ `common/eda_text.ts`'s ow
 `table_geometry.ts`, `textbox_geometry.ts` (all three marked `@deprecated`,
 explicitly pending "#636 stages 3 and 5" already), `dimension_geometry.ts`
 (same), `text_metrics.ts`, `zone_islands.ts`, `courtyard.ts`,
-`courtyard_collision.ts`, `pad_margins.ts`, `footprint_utils.ts`,
+`courtyard_collision.ts`, `footprint_utils.ts`,
 `inherit_track_width.ts`, `unused_pad_layers.ts` (its `PAD::FlashLayer` /
 `PCB_VIA::FlashLayer` half). This is a #636 dependency, not a #stage-5 gap;
 resolving it means finishing the consumer migration, then deleting the POJO
@@ -146,6 +146,12 @@ Teardrops; `dialogs/dialog_global_edit_teardrops.ts` is now
 Board Setup onto `m_TeardropParamsList` on every commit with `m_Enabled`
 forced on: Board Setup's OK writes the list, and `TARGET_TRACK`'s `m_Enabled`
 is set only by Edit Teardrops, as upstream.
+
+**`pad_margins.ts` resolved 09-28.** Its one production reader was the 3D
+viewer's `addPads`; it now asks the live `PAD::GetSolderMaskExpansion` /
+`GetSolderPasteMargin`, which also honour the DRC-rule override the view copy
+left out. The paste margin's per-axis split is still applied as its x there
+(a pre-existing `addPads` divergence, noted at `padMargin`).
 
 **`modify_lines.ts` + `outset_items.ts` + `polygon_booleans.ts` resolved
 09-28:** merged into `tools/item_modification_routine.ts`, matching

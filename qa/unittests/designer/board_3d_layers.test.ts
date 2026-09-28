@@ -225,3 +225,45 @@ describe('blind vias and plated-copper differentiation', () => {
     expect(area(plain.platedCopper['F.Cu'])).toBe(0);
   });
 });
+
+describe('addPads takes each pad’s margin from the live PAD', () => {
+  // PAD::GetSolderMaskExpansion / GetSolderPasteMargin: pad -> footprint ->
+  // BOARD_DESIGN_SETTINGS, the same answer the plotter flashes.
+  const TEXT = `(kicad_pcb (version 20241229) (generator "test")
+  (general (thickness 1.6))
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (1 "F.Mask" user) (3 "B.Mask" user)
+    (13 "F.Paste" user) (15 "B.Paste" user) (25 "Edge.Cuts" user))
+  (setup)
+  (net 0 "")
+  (gr_rect (start 0 0) (end 20 20) (stroke (width 0.1) (type default)) (fill no) (layer "Edge.Cuts")
+    (uuid "00000000-0000-4000-8000-0000000000e1"))
+  (footprint "R" (layer "F.Cu") (at 10 10) (uuid "00000000-0000-4000-8000-0000000000f1")
+    (pad "1" smd rect (at 0 0) (size 2 1) (layers "F.Cu" "F.Mask" "F.Paste")
+      (uuid "00000000-0000-4000-8000-0000000000a1")))
+)`;
+  const MM2 = 1e12; // IU² per mm²
+
+  const build = (mask: number, paste: number, ratio: number) => {
+    const board = readBoard(parse(TEXT));
+    const bds = board.k!.GetDesignSettings();
+    bds.m_SolderMaskExpansion = mask;
+    bds.m_SolderPasteMargin = paste;
+    bds.m_SolderPasteMarginRatio = ratio;
+    return buildBoard3dLayers(board, { minX: 0, minY: 0, maxX: 20e6, maxY: 20e6 });
+  };
+
+  it('grows the F.Mask opening by the board expansion, rounding its corners', () => {
+    const b = build(100_000, 0, 0);
+    // 2 x 1 mm grown 0.1 mm a side: 2.2 x 1.2 less the four corners' squares
+    // plus their quarter circles, 2.64 - 0.04 + pi 0.01 = 2.6314 mm².
+    expect(area(b.maskOpenings['F.Mask']) / MM2).toBeCloseTo(2.6314, 2);
+    expect(area(b.layers['F.Cu']!) / MM2).toBeCloseTo(2, 6);
+  });
+
+  it('shrinks the F.Paste aperture by the board clearance', () => {
+    // 2 x 1 mm less 0.05 mm a side: 1.9 x 0.9. (A ratio makes the margin
+    // per-axis; addPads here still applies its x to both — see padMargin.)
+    const b = build(0, -50_000, 0);
+    expect(area(b.layers['F.Paste']!) / MM2).toBeCloseTo(1.71, 6);
+  });
+});

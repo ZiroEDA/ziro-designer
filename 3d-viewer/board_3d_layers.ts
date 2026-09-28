@@ -38,11 +38,6 @@ import type { Board } from '@ziroeda/pcbnew';
 import { barcodeGeometry } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import { viaIsTented } from '@ziroeda/pcbnew/exporters/export_d356.js';
 import { padIsOnLayer } from '@ziroeda/pcbnew/dialogs/dialog_enum_pads.js';
-import {
-  solderMaskExpansionFor,
-  solderPasteMarginFor,
-  type BoardMaskPasteDefaults,
-} from '@ziroeda/pcbnew/pad_margins.js';
 import { textTransformTextToPolySet } from '@ziroeda/pcbnew/text_to_polyset.js';
 import {
   ErrorLoc,
@@ -328,6 +323,16 @@ export interface Board3dLayers {
 /** `ADVANCED_CFG::m_HoleWallThickness`, 0.020 mm, in IU. */
 export const DEFAULT_HOLE_PLATING_THICKNESS = 20000;
 
+/** The Board Setup > Solder Mask/Paste values, in IU (the ratio is a fraction). */
+export interface BoardMaskPasteDefaults {
+  /** `BOARD_DESIGN_SETTINGS::m_SolderMaskExpansion`. */
+  solderMaskExpansion?: number;
+  /** `m_SolderPasteMargin`. */
+  solderPasteMargin?: number;
+  /** `m_SolderPasteMarginRatio`, a fraction of the pad size, not a percent. */
+  solderPasteMarginRatio?: number;
+}
+
 /**
  * `BOARD_DESIGN_SETTINGS::m_SolderMaskExpansion` etc.; a board with no model
  * (a footprint holder) leaves them undefined, which the callers read as 0.
@@ -480,19 +485,26 @@ export function buildBoard3dLayers(
         for (const ring of poly) add(layer, ringPoly(ring));
     }
   };
-  /** `addPads` / `FOOTPRINT::TransformPadsToPolySet` with the layer's margin. */
-  const padMargin = (pad: PcbPad, fp: PcbFootprint, layer: string): Vec2 => {
+  /**
+   * `addPads` / `FOOTPRINT::TransformPadsToPolySet` with the layer's margin:
+   * `PAD::GetSolderMaskExpansion` / `GetSolderPasteMargin` on the live PAD,
+   * which resolve pad -> footprint -> BOARD_DESIGN_SETTINGS (and the DRC
+   * rules) themselves. A view pad with no PAD behind it has no margin.
+   */
+  const padMargin = (pad: PcbPad, layer: string): Vec2 => {
+    const k = pad.k;
+    if (!k) return { x: 0, y: 0 };
     if (isMaskLayer(layer)) {
-      const m = solderMaskExpansionFor(pad, fp, maskPaste, layer);
+      const m = k.GetSolderMaskExpansion(pcbLayerIdOf(layer));
       return { x: m, y: m };
     }
-    if (isPasteLayer(layer)) return solderPasteMarginFor(pad, fp, maskPaste, layer);
+    if (isPasteLayer(layer)) return k.GetSolderPasteMargin(pcbLayerIdOf(layer));
     return { x: 0, y: 0 };
   };
   const addPads = (fp: PcbFootprint, layer: string): void => {
     for (const pad of fp.pads) {
       if (!padIsOnLayer(pad, layer)) continue;
-      const m = padMargin(pad, fp, layer);
+      const m = padMargin(pad, layer);
       // `PAD::TransformShapeToPolygon` takes one clearance; the paste margin's
       // x/y split is applied through the pad size upstream (`addPads` builds a
       // pad copy with `GetSolderPasteMargin` folded into the size). The
