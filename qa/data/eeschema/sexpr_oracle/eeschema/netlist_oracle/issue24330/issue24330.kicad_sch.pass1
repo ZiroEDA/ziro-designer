@@ -1,0 +1,414 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "040f3d7b-909b-43b1-8331-444fe1a7d379")
+	(paper "A4")
+	(lib_symbols
+		(symbol "Local:BGA_TEST"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "U"
+				(at -7.62 20.955 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "BGA_TEST"
+				(at -7.62 19.05 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+						(italic yes)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "BGA_TEST_0_1"
+				(rectangle
+					(start -7.62 -15.24)
+					(end 7.62 17.78)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+			)
+			(symbol "BGA_TEST_1_1"
+				(pin passive line
+					(at -10.16 12.7 0)
+					(length 2.54)
+					(name "P1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "AAB10"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -10.16 7.62 0)
+					(length 2.54)
+					(name "P2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "AAB11"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -10.16 2.54 0)
+					(length 2.54)
+					(name "P3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "AAB12"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+	)
+	(wire
+		(pts
+			(xy 195.58 104.14) (xy 205.74 104.14)
+		)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(uuid "9cc086e7-ac49-40f0-9993-7eb1da4e369c")
+	)
+	(wire
+		(pts
+			(xy 129.54 104.14) (xy 139.7 104.14)
+		)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(uuid "9dc068c7-340f-4afb-b2ac-6d6095cc0793")
+	)
+	(wire
+		(pts
+			(xy 129.54 93.98) (xy 139.7 93.98)
+		)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(uuid "b5d2c8e7-c236-488f-8c45-db5933020a20")
+	)
+	(wire
+		(pts
+			(xy 195.58 99.06) (xy 205.74 99.06)
+		)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(uuid "d0b4fb98-b909-4e8a-b198-48c11cc471a1")
+	)
+	(wire
+		(pts
+			(xy 129.54 99.06) (xy 139.7 99.06)
+		)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(uuid "d6907d98-4b6e-4499-8394-2edf03aea91a")
+	)
+	(wire
+		(pts
+			(xy 195.58 93.98) (xy 205.74 93.98)
+		)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(uuid "e2a3da7c-8e8b-4af7-87af-c9fcad274422")
+	)
+	(label "NET_BOT"
+		(at 129.54 104.14 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "139b843c-538e-47b8-a8ed-70984c55087c")
+	)
+	(label "NET_MID"
+		(at 205.74 99.06 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "45b9ebc3-b643-487c-bb84-897c706a9b56")
+	)
+	(label "NET_TOP"
+		(at 205.74 93.98 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "6d7a2f82-ca8e-4c89-899b-30e28025889f")
+	)
+	(label "NET_BOT"
+		(at 205.74 104.14 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "8238887f-a1bf-4556-a666-eb17be82d4b3")
+	)
+	(label "NET_MID"
+		(at 129.54 99.06 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "ce6e6977-944c-4a9c-ba64-0c20b60e02ff")
+	)
+	(label "NET_TOP"
+		(at 129.54 93.98 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "d75acf29-e5be-48e9-8509-6ab8469982c5")
+	)
+	(symbol
+		(lib_id "Local:BGA_TEST")
+		(at 149.86 106.68 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "af06e391-97a5-4828-9343-f3162acaa60a")
+		(property "Reference" "U1"
+			(at 142.24 85.725 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "BGA_TEST"
+			(at 142.24 87.63 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 149.86 106.68 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(italic yes)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 149.86 106.68 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 149.86 106.68 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "AAB11"
+			(uuid "6a2f8d66-b3d7-42ad-b6df-f25d53dba7b9")
+		)
+		(pin "AAB12"
+			(uuid "a03d5696-1601-48f3-a0be-a9c9c675045f")
+		)
+		(pin "AAB10"
+			(uuid "ae688676-0a6b-471f-80ac-c00211dc47cb")
+		)
+	)
+	(symbol
+		(lib_id "Local:BGA_TEST")
+		(at 215.9 106.68 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "bf06e391-97a5-4828-9343-f3162acaa60b")
+		(property "Reference" "U2"
+			(at 208.28 85.725 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "BGA_TEST"
+			(at 208.28 87.63 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 215.9 106.68 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(italic yes)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 215.9 106.68 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 215.9 106.68 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "AAB10"
+			(uuid "5fdcbf7e-00a0-4206-89ae-2136122e7dfc")
+		)
+		(pin "AAB12"
+			(uuid "00e2c3a5-4233-430a-b932-6002235d4744")
+		)
+		(pin "AAB11"
+			(uuid "61360129-2bd2-4df7-bcb8-f5dd139dafbf")
+		)
+	)
+)

@@ -1,0 +1,79 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "e602c70f-05a6-4a8d-b379-8e76c2586249")
+	(paper "A4")
+	(lib_symbols)
+	(wire
+		(pts
+			(xy 139.7 76.2) (xy 152.4 76.2)
+		)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(uuid "3074abfa-705b-40de-ba99-d14b5df48b71")
+	)
+	(hierarchical_label "INPUT"
+		(shape input)
+		(at 139.7 76.2 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "a4939eee-f4b6-4417-bfab-880e11b1d9c3")
+	)
+	(sheet
+		(at 152.4 71.12)
+		(size 25.4 10.16)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.0006)
+			(type solid)
+			(color 132 0 132 1)
+		)
+		(fill
+			(color 255 255 255 0)
+		)
+		(uuid "8b055b93-d115-4991-b853-dd747f0957ab")
+		(property "Sheetname" "Subsheet1"
+			(at 152.4 70.4843 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "subsheet.kicad_sch"
+			(at 152.4 81.7887 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(pin "SUB_INPUT" input
+			(at 152.4 76.2 180)
+			(uuid "dbd0b769-7796-46eb-9458-f9c7cb70597c")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+	)
+)

@@ -1061,12 +1061,15 @@ export class SCH_SCREEN extends BASE_SCREEN {
    * data for their embedded files, only a reference.  This iterates over all lib
    * symbols in the schematic and updates the library symbols with the full data.
    *
-   * The font half (EDA_TEXT::ResolveFont over the schematic's embedded fonts) is pending.
+   * The fontconfig cache is not ported: `UpdateFontFiles()` answers no embedded fonts,
+   * and `ResolveFont` resolves each face by name.
    */
   FixupEmbeddedData(): void {
     const schematic = this.Schematic();
 
     if (!schematic) return;
+
+    const embeddedFonts: readonly string[] | null = null;
 
     for (const libSym of this.m_libSymbols.values()) {
       for (const [filename, embeddedFile] of libSym.EmbeddedFileMap()) {
@@ -1079,7 +1082,25 @@ export class SCH_SCREEN extends BASE_SCREEN {
           embeddedFile.is_valid = file.is_valid;
         }
       }
+
+      libSym.RunOnChildren((aChild) => {
+        resolveFontOf(aChild, embeddedFonts);
+      }, RECURSE_MODE.NO_RECURSE);
     }
+
+    const items_to_update: SCH_ITEM[] = [];
+
+    for (const item of this.Items()) {
+      let update = resolveFontOf(item, embeddedFonts);
+
+      item.RunOnChildren((aChild) => {
+        if (resolveFontOf(aChild, embeddedFonts)) update = true;
+      }, RECURSE_MODE.NO_RECURSE);
+
+      if (update) items_to_update.push(item);
+    }
+
+    for (const item of items_to_update) this.Update(item);
   }
 
   /**
@@ -1462,6 +1483,15 @@ export class SCH_SCREEN extends BASE_SCREEN {
 
     return aMatches.length;
   }
+}
+
+/** `dynamic_cast<EDA_TEXT*>( aItem )->ResolveFont( aEmbeddedFonts )`, false for a non-text. */
+function resolveFontOf(aItem: SCH_ITEM, aEmbeddedFonts: readonly string[] | null): boolean {
+  const textItem = aItem as unknown as {
+    ResolveFont?: (aFonts: readonly string[] | null) => boolean;
+  };
+
+  return typeof textItem.ResolveFont === 'function' ? textItem.ResolveFont(aEmbeddedFonts) : false;
 }
 
 /** `GetDrawItems().sort()`: each bucket by the items' `operator<`. */
