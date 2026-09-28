@@ -281,7 +281,12 @@ const BASELINE: Record<string, number> = {
   // 44 -> 41 on 09-26: the line-modification box's three.
   // 41 -> 39: Create Array's rows share one row() and one input style, so
   // the field and the count row no longer each state `fontSize: 12` twice.
-  'editors/pcb': 39,
+  // 39 -> 8 (pcbnew-file-structure-stage-a): the same pcbnew file-structure
+  // move central_values.test.ts's editors/pcb row describes — ~50 dialogs,
+  // panels and the appearance_controls widget carried their fontSize sites
+  // out to pcbnew/, which this scanner (designer/src only) does not walk.
+  // RESCANNED from this tree.
+  'editors/pcb': 8,
   // 55 -> 50: the COLOR_SWATCH sweep's second half. Seven Clear buttons and
   // one `(using Schematic Editor colors)` hint each carried an inline
   // `fontSize: 11`, and none of them exists upstream - the swatch clears
@@ -689,7 +694,10 @@ describe('hardcoded font sizes do not grow', () => {
     // 112 -> 100 (pcbnew-file-structure-stage-a): `editors/schematic` 41 -> 35
     // and `widgets` 6 -> 2, both stale rather than new — see the two rows.
     // 112 - 6 - 6 agrees with the rescan.
-    expect(sites.length).toBe(100);
+    // 100 -> 69: `editors/pcb` 39 -> 8, see that row - the file-structure
+    // move is still running and keeps carrying this scanner's sites out to
+    // pcbnew/.
+    expect(sites.length).toBe(69);
   });
 });
 

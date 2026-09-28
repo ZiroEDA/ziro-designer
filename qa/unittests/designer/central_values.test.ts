@@ -292,7 +292,10 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // pcbnew/dialogs/, pcbnew/widgets/, pcbnew/board_stackup_manager/ and
   // pcbnew/length_delay_calculation/ — none of which this scanner walks. Their
   // literals left with them; RESCANNED from this tree.
-  'editors/pcb': { colours: 18, metrics: 44 },
+  // 18 -> 17: the pcbnew file-structure move keeps carrying editors/pcb's
+  // dialogs out to pcbnew/ commit by commit; one more colour left with
+  // whichever of them went next. RESCANNED from this tree.
+  'editors/pcb': { colours: 17, metrics: 44 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -1313,7 +1316,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 299 -> 291 (pcbnew/pcb_edit_frame_ui Stage A): `editors/pcb` 26 -> 18,
     // the ~50-module dialogs/panels/appearance_controls move above; 299 - 8
     // agrees with the rescan.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(291);
+    // 291 -> 290: `editors/pcb` 18 -> 17, one more site carried out to
+    // pcbnew/ by the same still-running move.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(290);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
