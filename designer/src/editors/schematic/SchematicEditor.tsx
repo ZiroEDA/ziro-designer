@@ -348,6 +348,7 @@ import {
   legacyCacheFileNames,
   readLegacySymbolLibrary,
 } from '@ziroeda/eeschema/sch_io/legacy/read-lib.js';
+import { legacySchLibs } from '@ziroeda/eeschema/project_sch.js';
 import {
   legacyLibrarySymbols,
   legacyRootFile,
@@ -3831,7 +3832,8 @@ export function SchematicEditor({
   const pendingRescuePrompt = useRef(false);
 
   /**
-   * The project's `<project>-cache.lib`, read — `PROJECT_SCH::LegacySchLibs`.
+   * The project's `<project>-cache.lib`, read — `PROJECT_SCH::LegacySchLibs`
+   * (`@ziroeda/eeschema/project_sch.ts`'s `legacySchLibs`).
    *
    * `LoadAllLibraries` adds it whatever the schematic's format
    * (`legacy_symbol_library.cpp:589-600`, "add the special cache library"), and
@@ -3843,24 +3845,10 @@ export function SchematicEditor({
    * throws, `LoadAllLibraries` catches it, logs "Symbol library '%s' failed to
    * load." and carries on with the libraries it did get.
    */
-  const legacyCache = useCallback((): Map<string, LibSymbol> => {
-    const names = legacyCacheFileNames(
-      rawFiles.find((f) => /\.kicad_pro$/i.test(f.name))?.name ?? project.current.root,
-    );
-    const file = names
-      .map((n) => rawFiles.find((f) => f.name.replace(/\\/g, '/').split('/').pop() === n))
-      .find(Boolean);
-    if (!file) return new Map();
-    try {
-      // Keyed by the name the cache files each symbol under, which is what
-      // `LEGACY_SYMBOL_LIB::FindSymbol` looks up — aliases included, because
-      // `loadAliases` puts each one in the map under its own name.
-      return new Map(readLegacySymbolLibrary(file.text).map((sym) => [sym.libId, sym]));
-    } catch (e) {
-      console.warn(`Symbol library '${file.name}' failed to load.`, e);
-      return new Map();
-    }
-  }, [rawFiles]);
+  const legacyCache = useCallback(
+    (): Map<string, LibSymbol> => legacySchLibs(rawFiles, project.current.root),
+    [rawFiles],
+  );
 
   const runRescueSymbols = useCallback(
     async (onDemand = true) => {

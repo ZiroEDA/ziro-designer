@@ -17,6 +17,7 @@ const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
 const EDITOR = read('../../../designer/src/editors/schematic/SchematicEditor.tsx');
+const PROJECT_SCH = read('../../../eeschema/project_sch.ts');
 const MENUBAR = read('../../../eeschema/menubar.ts');
 const DIALOG = read('../../../designer/src/editors/schematic/dialogs/dialog_rescue_each.tsx');
 const PANEL = read('../../../designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx');
@@ -75,22 +76,24 @@ describe('the on-demand path', () => {
     );
   });
 
-  /** `PROJECT_SCH::LegacySchLibs`, which is the OTHER half of the comparison. */
+  /** `PROJECT_SCH::LegacySchLibs`, which is the OTHER half of the comparison —
+   *  `legacySchLibs` in `eeschema/project_sch.ts`, called from the editor. */
   it('reads the project’s legacy cache library, so the other arms can fire', () => {
-    expect(EDITOR).toContain('legacyCacheFileNames(');
-    expect(EDITOR).toContain('readLegacySymbolLibrary(file.text)');
     expect(EDITOR).toContain('cache: legacyCache()');
+    expect(EDITOR).toContain('legacySchLibs(rawFiles, project.current.root)');
+    expect(PROJECT_SCH).toContain('legacyCacheFileNames(');
+    expect(PROJECT_SCH).toContain('readLegacySymbolLibrary(file.text)');
     // The `.kicad_pro`'s name, not the root sheet's: `CacheName` takes
     // `aProject->GetProjectFullName()`.
-    expect(EDITOR).toContain('/\\.kicad_pro$/i.test(f.name)');
+    expect(PROJECT_SCH).toContain('/\\.kicad_pro$/i.test(f.name)');
   });
 
   it('runs the rescue anyway when that cache will not parse', () => {
     // `AddLibrary` throws, `LoadAllLibraries` logs and carries on.
-    const at = EDITOR.indexOf('const legacyCache');
+    const at = PROJECT_SCH.indexOf('export function legacySchLibs');
     expect(at).toBeGreaterThan(-1);
-    expect(EDITOR.slice(at, at + 1400)).toContain('failed to load.');
-    expect(EDITOR.slice(at, at + 1400)).toContain('return new Map();');
+    expect(PROJECT_SCH.slice(at, at + 1400)).toContain('failed to load.');
+    expect(PROJECT_SCH.slice(at, at + 1400)).toContain('return new Map();');
   });
 
   it('resolves each id through the library, never the sheet’s own cache', () => {
