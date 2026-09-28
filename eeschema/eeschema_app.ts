@@ -20,6 +20,9 @@ import type { ChooserFilter, OpenedFile } from '@ziroeda/common/wx/filedlg.js';
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 import type { ToolbarDefaults, ToolbarLoc } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import type { SelectionFilterOptions } from './tools/sch_selection_filter.js';
+import type { KeyLike } from '@ziroeda/common/hotkeys_basic_keys.js';
+import type { Menu } from '@ziroeda/common/tool/action_menu_types.js';
+import type { LibSymbol, Schematic } from './types.js';
 import type { EeschemaSettings } from './eeschema_settings.js';
 import type { Theme } from './sch_render_settings.js';
 
@@ -59,6 +62,12 @@ export interface EeschemaSaveAsDialogProps {
 export interface EeschemaFootprintIndexLibrary {
   name: string;
   footprints: readonly string[];
+}
+
+/** One hosted symbol library in the index, as far as the frame reads it. */
+export interface EeschemaSymbolIndexLibrary {
+  name: string;
+  symbols: readonly string[];
 }
 
 /** A loaded footprint, as far as ERC's pad tests read it. */
@@ -119,4 +128,28 @@ export interface EESCHEMA_APP {
   overrideItemColorsFor(themeId: string): boolean;
   /** A grid size as the preferences store it ("50 mil", "1.27 mm") in schematic IU. */
   gridSizeToIU(size: string): number;
+
+  // ----- symbol libraries -------------------------------------------------
+  /** The hosted symbol library index (names and their symbols). */
+  loadIndex(): Promise<readonly EeschemaSymbolIndexLibrary[]>;
+  /** One symbol from a hosted library, by library nickname and item name. */
+  loadSymbol(library: string, symbolName: string): Promise<LibSymbol | undefined>;
+  /** Where the hosted symbol libraries are served from. */
+  symbolsBase(): string;
+  /** A hosted library's `.kicad_sym` URI. */
+  libraryUri(library: string): string;
+  /** Warm the symbol and footprint libraries a set of sheets uses. */
+  preloadSchematicLibraries(docs: Iterable<Schematic>): void;
+
+  // ----- hotkeys -------------------------------------------------------
+  /** The event the user's hotkey overrides turn a keystroke into (null: swallowed). */
+  remapEvent<T extends KeyLike>(
+    e: T,
+    overrides?: Readonly<Record<string, string | null>>,
+  ): KeyLike | null;
+  /** The menus with the user's own keys shown against each action. */
+  applyHotkeyOverrides(
+    menus: readonly Menu[],
+    overrides: Readonly<Record<string, string | null>>,
+  ): Menu[];
 }

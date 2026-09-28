@@ -332,7 +332,6 @@ import {
   type SymbolChooserResult,
 } from './dialogs/dialog_symbol_chooser.js';
 import { SymbolLibraryBrowser } from './components/SymbolLibraryBrowser.js';
-import { libraryUri, loadIndex, loadSymbol, symbolsBase } from './symbols/index.js';
 import { repairSourceLibs } from '@ziroeda/eeschema/repair_source.js';
 import {
   findRescues,
@@ -346,14 +345,13 @@ import { DialogRescueEach, type RescueInstance } from './dialogs/dialog_rescue_e
 import {
   legacyCacheFileNames,
   readLegacySymbolLibrary,
-} from '@ziroeda/eeschema/sch_io/legacy/read-lib.js';
+} from '@ziroeda/eeschema/sch_io/kicad_legacy/sch_io_kicad_legacy_lib_cache.js';
 import { legacySchLibs } from '@ziroeda/eeschema/project_sch.js';
 import {
   legacyLibrarySymbols,
   legacyRootFile,
   readLegacyProject,
-} from '@ziroeda/eeschema/sch_io/legacy/read-schematic.js';
-import { preloadSchematicLibraries } from './preload.js';
+} from '@ziroeda/eeschema/sch_io/kicad_legacy/sch_io_kicad_legacy.js';
 import {
   projectSymbolLibraries,
   projectSymLibTable,
@@ -396,8 +394,6 @@ import { MessageDialogOk, MessageDialogYesNo } from '@ziroeda/common/dialogs/dia
 import { INFO_CAPTION } from '@ziroeda/common/confirm_types.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import { wasBrowserSuppressed, type FocusLike } from '@ziroeda/common/browser_hotkeys.js';
-import { remapEvent } from './hotkey_bindings.js';
-import { applyHotkeyOverrides } from './hotkey_list.js';
 import { DialogAssignNetclass } from '@ziroeda/common/dialogs/dialog_assign_netclass.js';
 import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { DialogTableCellProperties } from '@ziroeda/eeschema/dialogs/dialog_tablecell_properties.js';
@@ -931,6 +927,13 @@ export function SchematicEditor({
     useToolbarEntries,
     loadFootprintIndex,
     loadFootprint,
+    loadIndex,
+    loadSymbol,
+    symbolsBase,
+    libraryUri,
+    preloadSchematicLibraries,
+    remapEvent,
+    applyHotkeyOverrides,
   } = app;
   const [error, setError] = useState<string | null>(null);
   const initial = useMemo<Schematic | null>(() => {
@@ -3150,7 +3153,7 @@ export function SchematicEditor({
     void loadIndex()
       .then((index) => setHostedSymbolLibs(index.map((lib) => lib.name)))
       .catch(() => setHostedSymbolLibs([]));
-  }, [symLibTableOpen, hostedSymbolLibs.length]);
+  }, [symLibTableOpen, hostedSymbolLibs.length, loadIndex]);
 
   // The Annotation Messages the last Annotate / Clear Annotation run produced;
   // the dialog stays open showing them (WX_HTML_REPORT_PANEL).
@@ -3881,7 +3884,7 @@ export function SchematicEditor({
       }
       setRescueCandidates(found);
     },
-    [liveDocs, legacyCache],
+    [liveDocs, legacyCache, loadSymbol],
   );
 
   /**
@@ -4043,6 +4046,7 @@ export function SchematicEditor({
       selection,
       onProjectChange,
       sheetBatch,
+      loadSymbol,
     ],
   );
 
@@ -4796,7 +4800,7 @@ export function SchematicEditor({
         setLoading(null);
       }
     },
-    [resetTransient, resetErc],
+    [resetTransient, resetErc, preloadSchematicLibraries],
   );
 
   // Open a whole KiCad project: parse every .kicad_sch, find the root (the
@@ -4948,7 +4952,7 @@ export function SchematicEditor({
         setLoading(null);
       }
     },
-    [resetTransient, resetErc, rootPro, app],
+    [resetTransient, resetErc, rootPro, app, preloadSchematicLibraries],
   );
 
   /**
@@ -6225,6 +6229,9 @@ export function SchematicEditor({
     rawFiles,
     loadFootprintIndex,
     loadFootprint,
+    loadIndex,
+    loadSymbol,
+    libraryUri,
   ]);
 
   // Clicking a violation centres the fault and selects the offending items.
@@ -8764,7 +8771,7 @@ export function SchematicEditor({
   );
   const menus = useMemo(
     () => applyHotkeyOverrides(menusRaw, hotkeyOverrides),
-    [menusRaw, hotkeyOverrides],
+    [menusRaw, hotkeyOverrides, applyHotkeyOverrides],
   );
 
   /**
@@ -9301,6 +9308,7 @@ export function SchematicEditor({
     withSelection,
     finishCommand,
     app,
+    remapEvent,
   ]);
 
   const fmt = (iu: number): string => {

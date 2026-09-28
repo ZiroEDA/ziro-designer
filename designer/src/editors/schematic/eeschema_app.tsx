@@ -19,6 +19,10 @@ import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { DialogSymLibTable } from '../../widgets/dialog_sym_lib_table.js';
 import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
 import { FootprintChooserFrame } from '../pcb/dialogs/footprint_chooser_frame.js';
+import { libraryUri, loadIndex, loadSymbol, symbolsBase } from './symbols/index.js';
+import { preloadSchematicLibraries } from './preload.js';
+import { remapEvent } from './hotkey_bindings.js';
+import { applyHotkeyOverrides } from './hotkey_list.js';
 import { gridSizeToIU, settings } from '../../prefs/settings.js';
 import {
   overrideItemColorsFor,
@@ -58,6 +62,16 @@ export function useEeschemaApp(): EESCHEMA_APP {
 
       loadFootprintIndex,
       loadFootprint,
+
+      loadIndex,
+      loadSymbol,
+      symbolsBase,
+      libraryUri,
+      preloadSchematicLibraries,
+
+      // The schematic's own registry (remapEvent's default `app`).
+      remapEvent: (e, overrides) => remapEvent(e, overrides),
+      applyHotkeyOverrides,
     }),
     [],
   );
