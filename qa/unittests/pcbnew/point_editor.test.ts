@@ -25,7 +25,7 @@ import {
   hasEditPoints,
 } from '@ziroeda/pcbnew/tools/pcb_point_editor.js';
 import type { Board, PcbShape, PcbTrack } from '@ziroeda/pcbnew/types.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { flatText, writtenNode } from './support/written_node.js';
 
 const MM = (n: number): number => mmToIU(n);

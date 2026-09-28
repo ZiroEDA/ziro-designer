@@ -14,7 +14,7 @@ import { KIWAY_PLAYER } from '@ziroeda/common/kiway_player.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
-import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { installPgm } from '@ziroeda/designer/src/editors/pcb/pcb_canvas.js';
 import { PCB_EDIT_FRAME } from '@ziroeda/designer/src/editors/pcb/pcb_edit_frame.js';
 

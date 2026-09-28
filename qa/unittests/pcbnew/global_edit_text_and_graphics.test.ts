@@ -20,8 +20,8 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/write_board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import {
   DEFAULT_GLOBAL_TEXT_GFX_OPTIONS as DEFAULTS,
   applyGlobalTextAndGraphicsEdit,

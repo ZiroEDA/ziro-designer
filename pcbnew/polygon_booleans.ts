@@ -17,8 +17,7 @@
  * describes anything connected.
  */
 
-import { parseBoardItemId } from './edit-board.js';
-import { tessellateArc } from './pcb_io/kicad_sexpr/read_board.js';
+import { parseBoardItemId, tessellateArc } from './edit-board.js';
 import {
   booleanAdd,
   booleanIntersection,

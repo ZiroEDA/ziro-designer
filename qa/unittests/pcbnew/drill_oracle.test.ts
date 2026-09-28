@@ -14,7 +14,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PLOT_FORMAT } from '@ziroeda/common/plotters/plotter.js';
-import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { EXCELLON_WRITER } from '@ziroeda/pcbnew/exporters/gendrill_excellon_writer.js';
 import { DRILL_PRECISION, ZEROS_FMT } from '@ziroeda/pcbnew/exporters/gendrill_writer_base.js';
 

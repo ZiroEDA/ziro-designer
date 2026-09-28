@@ -15,8 +15,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/write_board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { fillZone } from '@ziroeda/pcbnew/zone_filler.js';
 import { moveBoardItems, moveZoneCorner } from '@ziroeda/pcbnew/edit-board.js';
 import { PCB_IU_PER_MM as MM } from '@ziroeda/common/eda_units.js';

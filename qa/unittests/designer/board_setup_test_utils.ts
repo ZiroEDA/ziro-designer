@@ -17,7 +17,7 @@ import {
 import type { BoardSetupValues } from '@ziroeda/designer/src/editors/pcb/board_settings.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { FormatBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
 export interface SetupFixture {
   board: BOARD;

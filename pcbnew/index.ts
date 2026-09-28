@@ -28,17 +28,12 @@ export {
 export {
   readBoard,
   readFootprintFile,
-  rotatePcb,
-  tessellateArc,
-  arcCenter,
-  DEFAULT_POINT_SIZE,
-} from './pcb_io/kicad_sexpr/read_board.js';
-export { arcSweepDegrees } from './autorouter/ar_matrix.js';
-export {
   serializeFootprint,
   FLIP_DIRECTION,
   type SerializeFootprintOptions,
-} from './pcb_io/kicad_sexpr/write_footprint.js';
+} from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+export { DEFAULT_POINT_SIZE } from './pcb_point.js';
+export { arcSweepDegrees } from './autorouter/ar_matrix.js';
 export {
   fpItemId,
   parseFpItemId,
@@ -125,6 +120,9 @@ export {
   type BoardItemKind,
   type BoardItemRef,
   type BoardBBox,
+  rotatePcb,
+  tessellateArc,
+  arcCenter,
 } from './edit-board.js';
 export {
   copySelectionToClipboardText,
@@ -188,7 +186,7 @@ export {
   StartPlotBoard,
 } from './plot_board_layers.js';
 export { BRDITEMS_PLOTTER } from './plot_brditems_plotter.js';
-export { serializeBoard, serializeBoardAsync } from './pcb_io/kicad_sexpr/write_board.js';
+export { serializeBoard, serializeBoardAsync } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 export type { DrcViolation, DrcItemRef } from './drc/drc_engine_view.js';
 // --- Netlist (eeschema -> pcbnew) --------------------------------------------
 export {

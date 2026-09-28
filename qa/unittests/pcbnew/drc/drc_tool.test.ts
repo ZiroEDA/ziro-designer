@@ -408,7 +408,7 @@ describe('DRC_TOOL: the board the worker gets', () => {
 `;
 
   it('carries every pad on the layers the live board has it on', async () => {
-    const { ParseBoard } = await import('@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js');
+    const { ParseBoard } = await import('@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js');
     const h = makeHarness();
     const board = ParseBoard(FIXTURE, 'transport.kicad_pcb');
 

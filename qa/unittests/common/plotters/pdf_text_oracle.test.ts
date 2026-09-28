@@ -24,7 +24,7 @@ import { COLOR4D_BLACK } from '@ziroeda/common/gal/color4d.js';
 import { PCB_RENDER_SETTINGS } from '@ziroeda/pcbnew/pcb_painter.js';
 import { DRILL_MARKS, PCB_PLOT_PARAMS } from '@ziroeda/pcbnew/pcb_plot_params.js';
 import { BRDITEMS_PLOTTER } from '@ziroeda/pcbnew/plot_brditems_plotter.js';
-import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
 const DIR = resolve(__dirname, '../../../data/pcbnew/plot/pdf_text');
 

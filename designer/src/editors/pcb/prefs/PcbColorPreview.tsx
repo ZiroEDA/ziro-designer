@@ -29,7 +29,7 @@
  */
 import { type JSX, useCallback, useEffect, useRef } from 'react';
 import { parse } from '@ziroeda/sexpr';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 import {
   buildScene,

@@ -26,7 +26,7 @@ import {
   CTL_FOR_BOARD,
   FormatBoard,
 } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
 /**
  * Four copper layers, so "front and back" and "all copper" are different

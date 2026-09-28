@@ -19,7 +19,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { boardGridOrigin } from '@ziroeda/pcbnew/board_design_settings.js';
 import { align } from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
 import { pcbGridOptions } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';

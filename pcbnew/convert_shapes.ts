@@ -31,8 +31,7 @@
  * conversion: the tool is best-effort, and upstream says so.
  */
 
-import { boardItemId, parseBoardItemId } from './edit-board.js';
-import { tessellateArc } from './pcb_io/kicad_sexpr/read_board.js';
+import { boardItemId, parseBoardItemId, tessellateArc } from './edit-board.js';
 import { barcodeGeometry } from './pcb_io/kicad_sexpr/board_view.js';
 import type { Board, PcbShape, PcbZone } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

@@ -20,7 +20,7 @@ import {
   isNetTie,
   mapPadNumbersToNetTieGroups,
 } from '@ziroeda/pcbnew/dialogs/dialog_footprint_checker.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { parse } from '@ziroeda/sexpr/index.js';
 import type { PcbFootprint, PcbPad, PcbShape } from '@ziroeda/pcbnew/types.js';
 

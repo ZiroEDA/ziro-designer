@@ -18,7 +18,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { PnsBoardIface } from '@ziroeda/pcbnew/router/pns_board_iface.js';
 import { PnsSession } from '@ziroeda/pcbnew/router/pns_session.js';
 import { PnsRouterMode } from '@ziroeda/pcbnew/router/pns_router.js';

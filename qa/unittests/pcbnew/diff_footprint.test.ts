@@ -23,7 +23,7 @@ import {
 } from '@ziroeda/pcbnew/diff_footprint.js';
 import { loadFootprintLibraryTables } from '@ziroeda/pcbnew/footprint_library.js';
 import type { FootprintLibraryFs, LibraryDirEntry } from '@ziroeda/pcbnew/footprint_library.js';
-import { readBoardFootprint } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
+import { readBoardFootprint } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';
 
 /** A filesystem over a flat path -> contents map, directories inferred. */

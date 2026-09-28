@@ -13,7 +13,7 @@ import {
   exchangeFootprint,
   placeFootprint,
 } from '@ziroeda/pcbnew/netlist_reader/pcb_netlist_utils.js';
-import { readFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
+import { readFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { parse } from '@ziroeda/sexpr/index.js';
 
 /** Two pads, pad 1 on the anchor. */

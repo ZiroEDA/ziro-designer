@@ -25,7 +25,7 @@ import type { PcbFootprint, PcbPad } from '@ziroeda/pcbnew/types.js';
 import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { PLOT_FORMAT } from '@ziroeda/common/plotters/plotter.js';
-import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { DRILL_MARKS, PCB_PLOT_PARAMS } from '@ziroeda/pcbnew/pcb_plot_params.js';
 import { PCB_PLOTTER } from '@ziroeda/pcbnew/pcb_plotter.js';
 

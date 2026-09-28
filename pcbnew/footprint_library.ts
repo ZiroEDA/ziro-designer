@@ -57,7 +57,7 @@ import {
   type UriVarResolver,
 } from './fp_lib_table.js';
 import { fpidItemName } from './netlist_reader/pcb_netlist.js';
-import { readFootprintFile } from './pcb_io/kicad_sexpr/read_board.js';
+import { readFootprintFile } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import type { PcbFootprint } from './types.js';
 
 /** `FILEEXT::FootprintLibraryTableFileName`. */

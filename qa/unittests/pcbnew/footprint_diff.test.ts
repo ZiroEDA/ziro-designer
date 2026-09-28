@@ -23,7 +23,7 @@ import {
   footprintLocalPos,
   footprintNeedsUpdate,
 } from '@ziroeda/pcbnew/footprint_diff.js';
-import { rotatePcb } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
+import { rotatePcb } from '@ziroeda/pcbnew/edit-board.js';
 import type { PcbFootprint, PcbPad, PcbShape, PcbTextItem } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);

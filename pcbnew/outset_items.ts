@@ -18,8 +18,7 @@
  * that a 200-sided polygon is not.
  */
 
-import { boardItemBBox, parseBoardItemId } from './edit-board.js';
-import { tessellateArc } from './pcb_io/kicad_sexpr/read_board.js';
+import { boardItemBBox, parseBoardItemId, tessellateArc } from './edit-board.js';
 import type { Board, PcbShape } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

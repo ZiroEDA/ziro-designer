@@ -13,7 +13,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PCB_IU_PER_MM as IU } from '@ziroeda/common/eda_units.js';
 import { netClassClearanceMM, type NetClassesData } from '@ziroeda/common/project/net_settings.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { fillZones, zoneClearanceOf, type ZoneFillOptions } from '@ziroeda/pcbnew/zone_filler.js';
 import { parse } from '@ziroeda/sexpr/index.js';
 

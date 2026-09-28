@@ -38,13 +38,13 @@
  */
 
 import {
+  arcCenter,
   boardItemId,
   parseBoardItemId,
   moveZoneCorner,
   moveZoneEdge,
   zoneHandles,
 } from '../edit-board.js';
-import { arcCenter } from '../pcb_io/kicad_sexpr/read_board.js';
 import { dimensionCrossbar, radialKnee } from '../dimension_geometry.js';
 import { updateDimension } from '../dimension_text.js';
 import { segLineProject } from '@ziroeda/kimath/src/geometry/seg.js';

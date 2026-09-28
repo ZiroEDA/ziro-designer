@@ -19,8 +19,8 @@ import { describe, expect, it } from 'vitest';
 import { U } from './support/written_node.js';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { segApproxCollinear } from '@ziroeda/kimath/src/geometry/seg.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/write_board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { cleanupErrorText } from '@ziroeda/pcbnew/cleanup_item.js';
 import {
   cleanupTrackGeometry,

@@ -21,9 +21,9 @@ import {
   selectionAnchorId,
   selectionAnchorPosition,
   topLeftItem,
-} from '@ziroeda/pcbnew/position_relative.js';
+} from '@ziroeda/pcbnew/tools/position_relative_tool.js';
 import { boardAuxOrigin, boardGridOrigin } from '@ziroeda/pcbnew/board_design_settings.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { parse } from '@ziroeda/sexpr/index.js';
 import type { Board, PcbFootprint, PcbPad, PcbTrack } from '@ziroeda/pcbnew/types.js';
 

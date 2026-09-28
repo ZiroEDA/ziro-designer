@@ -87,10 +87,9 @@ import {
   TYPED_POINT2I,
 } from '@ziroeda/kimath/src/geometry/point_types.js';
 import type { Board, PcbBarcode, PcbShape } from '../types.js';
-import { parseBoardItemId } from '../edit-board.js';
+import { parseBoardItemId, rotatePcb } from '../edit-board.js';
 import { footprintBBox, padBBox } from '../edit-footprint.js';
 import { barcodeGeometry, type BarcodeGeometry } from '../pcb_io/kicad_sexpr/board_view.js';
-import { rotatePcb } from '../pcb_io/kicad_sexpr/read_board.js';
 import { PnsMagneticOption } from '../router/pns_tool_base.js';
 import { arcSliceContainsPoint } from '../drc/shape_collisions.js';
 import { arcCenterI } from '../router/shape_arc_ops.js';

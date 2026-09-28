@@ -22,7 +22,7 @@ import { pcbMmToIU as MM } from '@ziroeda/common/eda_units.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
 import { DRC_CONSTRAINT_T } from '@ziroeda/pcbnew/drc/drc_rule.js';
-import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { boardFromBOARD } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import { fillZone } from '@ziroeda/pcbnew/zone_filler.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';

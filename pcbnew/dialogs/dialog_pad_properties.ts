@@ -15,8 +15,7 @@
  * The decision logic lives here so it can be tested without a UI.
  */
 
-import { parseBoardItemId } from '../edit-board.js';
-import { rotatePcb } from '../pcb_io/kicad_sexpr/read_board.js';
+import { parseBoardItemId, rotatePcb } from '../edit-board.js';
 import type { Board, PadShape, PadType, PcbFootprint, PcbPad } from '../types.js';
 import { defaultTeardropParameters } from '../teardrop.js';
 import type { TeardropParams } from '../types.js';

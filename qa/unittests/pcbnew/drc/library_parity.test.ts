@@ -20,7 +20,7 @@ import type {
   FOOTPRINT_LIBRARY_ADAPTER,
   LIBRARY_TABLE_ROW,
 } from '@ziroeda/pcbnew/footprint_library_adapter.js';
-import { ParseBoard, ParseFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
+import { ParseBoard, ParseFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
 const DEMO = new URL('../../../../designer/public/demos/ecc83/', import.meta.url);
 

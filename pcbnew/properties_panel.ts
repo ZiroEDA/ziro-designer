@@ -44,7 +44,7 @@
 
 import { PGPROPERTY_ANGLE } from '@ziroeda/common/properties/pg_properties.js';
 import { LINE_STYLE_CHOICES } from '@ziroeda/common/stroke_params.js';
-import { parseBoardItemId, setFootprintFieldByName } from './edit-board.js';
+import { arcCenter, parseBoardItemId, setFootprintFieldByName } from './edit-board.js';
 import { applyPadValues, collectPadValues, type PadRef, type PadValues } from './dialogs/dialog_pad_properties.js';
 import {
   applyFootprintValues,
@@ -67,7 +67,6 @@ import {
   type WithBackdrills,
 } from './padstack_drill.js';
 import { defaultTeardropParameters } from './teardrop.js';
-import { arcCenter } from './pcb_io/kicad_sexpr/read_board.js';
 import { ELECTRICAL_PINTYPES, type ElectricalPinType } from '@ziroeda/common/pin_type.js';
 import {
   applyTrackViaValues,

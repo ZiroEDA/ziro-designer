@@ -31,7 +31,7 @@ import { resetPcbColors } from '@ziroeda/designer/src/editors/pcb/prefs/resets.j
 import { pcbColorRows } from '@ziroeda/designer/src/editors/pcb/pcbColorLayers.js';
 import { fpColorRows } from '@ziroeda/designer/src/editors/footprint/fpColorLayers.js';
 import { parse } from '@ziroeda/sexpr';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { DEFAULT_DRAW_OPTIONS as PCB_DEFAULT_DRAW_OPTIONS } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 import { pageSizeMM } from '@ziroeda/common';
 import PREVIEW_BOARD_TEXT from '@ziroeda/designer/src/editors/pcb/data/color_preview_board.kicad_pcb?raw';

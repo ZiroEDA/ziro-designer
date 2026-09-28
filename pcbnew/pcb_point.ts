@@ -50,6 +50,9 @@ import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
 
 const DEFAULT_PT_SIZE_MM = 1.0;
 
+/** `DEFAULT_PT_SIZE_MM` (`pcb_point.cpp:41`), the size of a `PCB_POINT` built without one, in IU. */
+export const DEFAULT_POINT_SIZE = pcbIUScale.mmToIU(DEFAULT_PT_SIZE_MM);
+
 export class PCB_POINT extends BOARD_ITEM {
   // Center of the point
   private m_pos: VECTOR2I;
