@@ -137,6 +137,19 @@ export class ADVANCED_CFG {
   m_ExtensionSnapTimeoutMs = 500;
 
   /**
+   * Enable snap anchors based on item line extensions.
+   * Setting name: "EnableExtensionSnaps"; default true (`advanced_config.cpp:312`).
+   */
+  m_EnableExtensionSnaps = true;
+
+  /**
+   * If extension snaps are enabled, 'activate' items on hover, even if not
+   * near a snap point.
+   * Setting name: "ExtensionSnapActivateOnHover"; default true (`advanced_config.cpp:314`).
+   */
+  m_ExtensionSnapActivateOnHover = true;
+
+  /**
    * The drill mark size, in mm, the plotters use for "Small" drill marks.
    * Setting name: "SmallDrillMarkSize"; default 0.35 (clamped 0.0 .. 3.0).
    */

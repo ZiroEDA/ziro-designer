@@ -420,6 +420,9 @@ import {
   type SelectionFilterItem,
 } from '../../widgets/panel_selection_filter.js';
 import { PCB_GRID_HELPER, type PcbGridState } from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
+import { drawConstructionGeom } from '@ziroeda/common/preview_items/construction_geom.js';
+import { drawSnapIndicator } from '@ziroeda/common/preview_items/snap_indicator.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { type BoardCursorSnap, snapToBoardCopper } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
 import { inheritTrackWidth } from '@ziroeda/pcbnew/inherit_track_width.js';
 import { moveDelta } from './pcb_grid.js';
@@ -1703,7 +1706,12 @@ export function PcbEditor({
    */
   const gridHelperRef = useRef<PCB_GRID_HELPER | null>(null);
   const gridHelper = (): PCB_GRID_HELPER => {
-    gridHelperRef.current ??= new PCB_GRID_HELPER();
+    if (!gridHelperRef.current) {
+      gridHelperRef.current = new PCB_GRID_HELPER();
+      // The canvas is the helper's VIEW: its snap point and construction
+      // preview are drawn on the overlay, which repaints when they change.
+      gridHelperRef.current.AttachView(() => requestDrawRef.current());
+    }
     return gridHelperRef.current.SetState(gridState());
   };
   /**
@@ -3933,6 +3941,42 @@ export function PcbEditor({
       ctx.lineTo(ax, canvas.height);
       ctx.stroke();
       ctx.restore();
+    }
+    // The grid helper's own view items: `m_constructionGeomPreview`
+    // (grid_helper.cpp:67) and `m_viewSnapPoint`, a 10 px CIRCLE_CROSS in the
+    // aux-items colour (pcb_grid_helper.cpp:174-178).
+    const gh = gridHelperRef.current;
+    if (gh) {
+      const cg = gh.GetConstructionGeomState();
+      if (cg.visible) {
+        const x0 = (0 - v.tx) / sx;
+        const x1 = (canvas.width - v.tx) / sx;
+        const y0 = (0 - v.ty) / v.scale;
+        const y1 = (canvas.height - v.ty) / v.scale;
+        ctx.save();
+        ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
+        drawConstructionGeom(ctx, cg.geom, {
+          viewport: BOX2I.ByCorners({ x: x0, y: y0 }, { x: x1, y: y1 }),
+          worldScale: Math.abs(v.scale),
+        });
+        ctx.restore();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
+      const sp = gh.GetSnapIndicatorState();
+      if (sp.visible) {
+        drawSnapIndicator(ctx, {
+          position: sp.position,
+          toPx: (p) => ({ x: p.x * sx + v.tx, y: p.y * v.scale + v.ty }),
+          style: 'circle_cross',
+          size: 10 * dpr,
+          color: drawOpts.theme?.special.auxItems ?? PCB_SPECIAL.auxItems,
+          drawAtZero: true,
+          snapTypes: sp.snapTypes,
+          lineWidth: Math.max(1, dpr),
+          canvasWidth: canvas.width,
+          canvasHeight: canvas.height,
+        });
+      }
     }
     // Crosshair cursor (GAL::blitCursor): the LAYER_CURSOR cross at the
     // grid-snapped cursor, drawn topmost, by the shared painter.

@@ -23,26 +23,17 @@
  * The editors derive from it as upstream does: `EE_GRID_HELPER`
  * (`eeschema/tools/ee_grid_helper.ts`) and `PCB_GRID_HELPER`
  * (`pcbnew/tools/pcb_grid_helper.ts`), neither with a `TOOL_MANAGER` - they
- * feed the grid through the manual setters. Two pieces are still reduced,
- * because nothing in `GRID_HELPER` itself needs the full machinery behind
- * them:
+ * feed the grid through the manual setters, and a canvas stands in for the
+ * `VIEW` through {@link GRID_HELPER.AttachView}. Two pieces are reduced:
  *
  *  - `m_viewAxis` / `m_viewSnapPoint` are `ORIGIN_VIEWITEM` / `SNAP_INDICATOR`
- *    **instances** upstream, and it is the *subclass* constructor
- *    (`EE_GRID_HELPER`, `PCB_GRID_HELPER`) that calls `view->Add` on them -
- *    this base class never does. So here they stay plain state
- *    ({@link AxisViewState}, {@link SnapIndicatorViewState}, read through
- *    {@link GRID_HELPER.GetAxisState} / {@link GRID_HELPER.GetSnapIndicatorState}),
- *    for a subclass or renderer to feed into `drawOriginViewItem` /
- *    `drawSnapIndicator` (`preview_items/snap_indicator.ts`). `m_constructionGeomPreview`
- *    (`KIGFX::CONSTRUCTION_GEOM`) is ported the same way: real state
- *    (`preview_items/construction_geom.ts`), held by this class exactly as
- *    upstream holds it, but never added to a `VIEW` here - upstream's own
- *    `view->Add( &m_constructionGeomPreview )` lives in the
- *    `GRID_HELPER( TOOL_MANAGER*, int )` constructor, which is not reachable
- *    without a subclass wiring a canvas to it either. A renderer reaches the
- *    geometry through `getSnapManager().GetViewItem()` and draws it with
- *    `drawConstructionGeom`.
+ *    **instances** upstream, added to the view by the *subclass* constructor.
+ *    Here they stay plain state ({@link AxisViewState},
+ *    {@link SnapIndicatorViewState}, read through
+ *    {@link GRID_HELPER.GetAxisState} / {@link GRID_HELPER.GetSnapIndicatorState})
+ *    for the canvas to draw with `drawOriginViewItem` / `drawSnapIndicator`;
+ *    `m_constructionGeomPreview` likewise, through
+ *    {@link GRID_HELPER.GetConstructionGeomState} and `drawConstructionGeom`.
  *  - `m_anchorDebug` / `enableAndGetAnchorDebug` (`ANCHOR_DEBUG`, gated by an
  *    advanced-config flag that defaults off) is not ported; the getter always
  *    answers `null`, which is upstream's own default-config behaviour.
@@ -166,10 +157,13 @@ export class GRID_HELPER {
 
   /**
    * Whether a canvas stands in for the `VIEW` the two view items live in. An
-   * editor without a `TOOL_MANAGER` sets it with {@link SetViewAttached} when
+   * editor without a `TOOL_MANAGER` sets it with {@link AttachView} when
    * it draws {@link GetAxisState} / {@link GetSnapIndicatorState} itself.
    */
   private m_viewAttached = false;
+
+  /** `view->IsVisible( &m_constructionGeomPreview )`. */
+  private m_constructionGeomVisible = false;
 
   private m_viewAxis: AxisViewState = { position: { x: 0, y: 0 }, visible: false };
   private m_viewSnapPoint: SnapIndicatorViewState = {
@@ -574,11 +568,10 @@ export class GRID_HELPER {
     this.m_anchors = [];
   }
 
-  /**
-   * `GRID_HELPER::showConstructionGeometry`: a no-op here - the construction
-   * geometry preview it toggles is not ported (see the file comment).
-   */
-  protected showConstructionGeometry(_aShow: boolean): void {}
+  /** `GRID_HELPER::showConstructionGeometry` (`grid_helper.cpp:129-133`). */
+  protected showConstructionGeometry(aShow: boolean): void {
+    if (this.hasView()) this.m_constructionGeomVisible = aShow;
+  }
 
   /**
    * `GRID_HELPER::enableAndGetAnchorDebug`: always `null` - the anchor debug
@@ -610,9 +603,32 @@ export class GRID_HELPER {
     return !!this.m_toolMgr || this.m_viewAttached;
   }
 
-  /** Let a canvas stand in for the `VIEW`; see `m_viewAttached`. */
-  SetViewAttached(aAttached: boolean): void {
-    this.m_viewAttached = aAttached;
+  /**
+   * Let a canvas stand in for the `VIEW` (see `m_viewAttached`): the part of
+   * `GRID_HELPER( TOOL_MANAGER*, int )` (`grid_helper.cpp:58-87`) that adds
+   * the construction preview to the view and has the snap manager show, hide
+   * or update it - and `RefreshCanvas()`, which is `aRefresh` - whenever the
+   * construction geometry changes.
+   */
+  AttachView(aRefresh: () => void): void {
+    this.m_viewAttached = true;
+    this.m_constructionGeomVisible = false;
+
+    this.m_snapManager.SetUpdateCallback((aAnythingShown: boolean) => {
+      const currentlyVisible = this.m_constructionGeomVisible;
+
+      if (!(currentlyVisible && aAnythingShown)) this.m_constructionGeomVisible = aAnythingShown;
+
+      aRefresh();
+    });
+  }
+
+  /**
+   * The construction preview a canvas draws with `drawConstructionGeom`, and
+   * whether the view shows it.
+   */
+  GetConstructionGeomState(): { geom: CONSTRUCTION_GEOM; visible: boolean } {
+    return { geom: this.m_constructionGeomPreview, visible: this.m_constructionGeomVisible };
   }
 
   /** The `m_viewAxis` state; see the file comment. */

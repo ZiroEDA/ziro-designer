@@ -57,7 +57,36 @@ import {
 import { circleIntersectLine } from '@ziroeda/kimath/src/geometry/circle.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { type ANCHOR, ANCHOR_FLAGS, GRID_HELPER } from '@ziroeda/common/tool/grid_helper.js';
-import type { Board, PcbBarcode } from '../types.js';
+import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import type { CONSTRUCTION_GEOM_DRAWABLE } from '@ziroeda/common/preview_items/construction_geom.js';
+import {
+  type CONSTRUCTION_ITEM_BATCH,
+  CONSTRUCTION_MANAGER_SOURCE,
+} from '@ziroeda/common/tool/construction_manager.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+import { CIRCLE } from '@ziroeda/kimath/src/geometry/circle.js';
+import { HALF_LINE } from '@ziroeda/kimath/src/geometry/half_line.js';
+import { LINE } from '@ziroeda/kimath/src/geometry/line.js';
+import { SEG } from '@ziroeda/kimath/src/geometry/seg.js';
+import { SHAPE_ARC } from '@ziroeda/kimath/src/geometry/shape_arc.js';
+import {
+  INTERSECTION_VISITOR,
+  type INTERSECTABLE_GEOM,
+} from '@ziroeda/kimath/src/geometry/intersection.js';
+import {
+  GetNearestPoint,
+  GetNearestPointOfAny,
+  type NEARABLE_GEOM,
+} from '@ziroeda/kimath/src/geometry/nearest.js';
+import {
+  PT_INTERSECTION,
+  PT_NONE,
+  PT_ON_ELEMENT,
+  TYPED_POINT2I,
+} from '@ziroeda/kimath/src/geometry/point_types.js';
+import type { Board, PcbBarcode, PcbShape } from '../types.js';
 import { parseBoardItemId } from '../edit-board.js';
 import { footprintBBox, padBBox } from '../edit-footprint.js';
 import { barcodeGeometry, type BarcodeGeometry } from '../pcb_io/kicad_sexpr/board_view.js';
@@ -386,7 +415,297 @@ const symbolPolyBox = (
   return { x1, y1, x2, y2 };
 };
 
+/** `shape.GetCenter()` for a circle or a rectangle. */
+function shapeCenter(aShape: PcbShape): Vec2 | null {
+  if (aShape.kind === 'circle') {
+    const c = aShape.center ?? aShape.start;
+    return c ? { ...c } : null;
+  }
+
+  if (aShape.kind === 'rect' && aShape.start && aShape.end)
+    return {
+      x: Math.trunc((aShape.start.x + aShape.end.x) / 2),
+      y: Math.trunc((aShape.start.y + aShape.end.y) / 2),
+    };
+
+  return null;
+}
+
 export class PCB_GRID_HELPER extends GRID_HELPER {
+  /** The board the last query ran over - upstream's `m_toolMgr->GetModel()`. */
+  private m_board: Board | null = null;
+
+  /** `m_pointOnLineCandidates` (pcb_grid_helper.h:165). */
+  private m_pointOnLineCandidates: NEARABLE_GEOM[] = [];
+
+  /**
+   * Stand-ins for `BOARD_ITEM*`: one stable object per board item id, so that
+   * an `ANCHOR`'s items, a `CONSTRUCTION_ITEM`'s `Item` and the construction
+   * manager's involved-items set all compare by identity, as pointers do.
+   */
+  private m_itemTokens = new Map<string, EDA_ITEM>();
+
+  private itemToken(aId: string): EDA_ITEM[] {
+    let token = this.m_itemTokens.get(aId);
+
+    if (!token) {
+      token = { boardItemId: aId } as unknown as EDA_ITEM;
+      this.m_itemTokens.set(aId, token);
+    }
+
+    return [token];
+  }
+
+  private itemIdOf(aItem: EDA_ITEM | null): string | undefined {
+    return (aItem as unknown as { boardItemId?: string } | null)?.boardItemId;
+  }
+
+  /**
+   * `GetBoardIntersectable` (cpp:73-112): the idealised geometry of a graphic
+   * shape, a track or an arc on the board last queried.
+   */
+  private intersectableOf(aId: string | undefined): INTERSECTABLE_GEOM | null {
+    const board = this.m_board;
+    const ref = aId === undefined ? null : parseBoardItemId(aId);
+
+    if (!board || !ref) return null;
+
+    if (ref.kind === 'track') {
+      const t = board.tracks[ref.index];
+      return t ? new SEG(t.start, t.end) : null;
+    }
+
+    if (ref.kind === 'arc') {
+      const a = board.arcs[ref.index];
+      return a ? new SHAPE_ARC(a.start, a.mid, a.end, 0) : null;
+    }
+
+    if (ref.kind !== 'shape') return null;
+
+    const s = board.shapes[ref.index];
+
+    if (!s) return null;
+
+    switch (s.kind) {
+      case 'line':
+        return s.start && s.end ? new SEG(s.start, s.end) : null;
+      case 'circle': {
+        const c = s.center ?? s.start;
+        return c && s.end ? new CIRCLE(c, KiROUND(Math.hypot(s.end.x - c.x, s.end.y - c.y))) : null;
+      }
+      case 'arc':
+        return s.start && s.mid && s.end ? new SHAPE_ARC(s.start, s.mid, s.end, 0) : null;
+      case 'rect':
+        return s.start && s.end ? BOX2I.ByCorners(s.start, s.end) : null;
+      default:
+        return null;
+    }
+  }
+
+  /** `m_magneticSettings->allLayers || ( aLayers & item->GetLayerSet() ).any()`. */
+  private itemOnLayers(aBoard: Board, aId: string, aOpts: BestSnapOptions): boolean {
+    if (aOpts.allLayers || !aOpts.layer) return true;
+
+    const ref = parseBoardItemId(aId);
+    const layer =
+      ref?.kind === 'track'
+        ? aBoard.tracks[ref.index]?.layer
+        : ref?.kind === 'arc'
+          ? aBoard.arcs[ref.index]?.layer
+          : ref?.kind === 'shape'
+            ? aBoard.shapes[ref.index]?.layer
+            : undefined;
+
+    return layer === undefined || layerMatches(layer, aOpts.layer);
+  }
+
+  /** The shapes, tracks and arcs `queryVisible` returns round the cursor, as ids. */
+  private queryIntersectableIds(
+    aBoard: Board,
+    aWhere: Vec2,
+    aRange: number,
+    aOpts: BestSnapOptions,
+  ): string[] {
+    const ids: string[] = [];
+    const near = (pts: readonly (Vec2 | undefined)[], pad: number): boolean => {
+      let x1 = Number.POSITIVE_INFINITY;
+      let y1 = Number.POSITIVE_INFINITY;
+      let x2 = Number.NEGATIVE_INFINITY;
+      let y2 = Number.NEGATIVE_INFINITY;
+
+      for (const p of pts) {
+        if (!p) continue;
+        x1 = Math.min(x1, p.x);
+        y1 = Math.min(y1, p.y);
+        x2 = Math.max(x2, p.x);
+        y2 = Math.max(y2, p.y);
+      }
+
+      return (
+        x1 - pad <= aWhere.x + aRange &&
+        x2 + pad >= aWhere.x - aRange &&
+        y1 - pad <= aWhere.y + aRange &&
+        y2 + pad >= aWhere.y - aRange
+      );
+    };
+    const take = (id: string, box: boolean): void => {
+      if (aOpts.avoid?.has(id)) return;
+      if (!this.itemOnLayers(aBoard, id, aOpts)) return;
+      if (box) ids.push(id);
+    };
+
+    aBoard.tracks.forEach((t, i) => take(`track:${i}`, near([t.start, t.end], t.width / 2)));
+    aBoard.arcs.forEach((a, i) => {
+      const arc = new SHAPE_ARC(a.start, a.mid, a.end, 0);
+      const bb = arc.BBox();
+      take(
+        `arc:${i}`,
+        near(
+          [
+            { x: bb.GetLeft(), y: bb.GetTop() },
+            { x: bb.GetRight(), y: bb.GetBottom() },
+          ],
+          a.width / 2,
+        ),
+      );
+    });
+    aBoard.shapes.forEach((s, i) => {
+      const geom = this.intersectableOf(`shape:${i}`);
+
+      if (!geom) return;
+
+      if (geom instanceof CIRCLE) {
+        const c = geom.Center;
+        const r = geom.Radius;
+        take(
+          `shape:${i}`,
+          near(
+            [
+              { x: c.x - r, y: c.y - r },
+              { x: c.x + r, y: c.y + r },
+            ],
+            s.width / 2,
+          ),
+        );
+      } else if (geom instanceof SHAPE_ARC) {
+        const bb = geom.BBox();
+        take(
+          `shape:${i}`,
+          near(
+            [
+              { x: bb.GetLeft(), y: bb.GetTop() },
+              { x: bb.GetRight(), y: bb.GetBottom() },
+            ],
+            s.width / 2,
+          ),
+        );
+      } else {
+        take(`shape:${i}`, near([s.start, s.end], s.width / 2));
+      }
+    });
+
+    return ids;
+  }
+
+  /**
+   * `item->HitTest( aOrigin, 0 )` over the items round the cursor (cpp:866-882):
+   * the first whose outline - its geometry widened by half its width - holds
+   * the cursor.
+   */
+  private hoverHit(
+    aBoard: Board,
+    aWhere: Vec2,
+    aRange: number,
+    aOpts: BestSnapOptions,
+  ): string | null {
+    for (const id of this.queryIntersectableIds(aBoard, aWhere, aRange, aOpts)) {
+      const geom = this.intersectableOf(id);
+      const ref = parseBoardItemId(id);
+
+      if (!geom || !ref) continue;
+
+      const width =
+        ref.kind === 'track'
+          ? (aBoard.tracks[ref.index]?.width ?? 0)
+          : ref.kind === 'arc'
+            ? (aBoard.arcs[ref.index]?.width ?? 0)
+            : (aBoard.shapes[ref.index]?.width ?? 0);
+      const p = GetNearestPoint(geom, aWhere);
+
+      if (Math.hypot(p.x - aWhere.x, p.y - aWhere.y) <= width / 2) return id;
+    }
+
+    return null;
+  }
+
+  /**
+   * The construction-geometry half of `computeAnchors( aItems, … )`
+   * (cpp:1188-1300): the items' intersectables and the construction manager's
+   * geometry, free points as `SNAPPABLE | CONSTRUCTED` anchors, every crossing
+   * between two different items' geometry as a `PT_INTERSECTION` anchor, and
+   * the geometry kept as `m_pointOnLineCandidates`.
+   */
+  private computeConstructionAnchors(aIds: readonly string[]): void {
+    const intersectables: { item: EDA_ITEM | null; geom: INTERSECTABLE_GEOM }[] = [];
+
+    for (const id of aIds) {
+      const geom = this.intersectableOf(id);
+
+      if (geom) intersectables.push({ item: this.itemToken(id)[0]!, geom });
+    }
+
+    for (const batch of this.getSnapManager().GetConstructionItems()) {
+      for (const constructionItem of batch) {
+        for (const drawable of constructionItem.Constructions) {
+          const d = drawable.Drawable;
+
+          if (
+            d instanceof LINE ||
+            d instanceof CIRCLE ||
+            d instanceof HALF_LINE ||
+            d instanceof SHAPE_ARC
+          ) {
+            intersectables.push({ item: constructionItem.Item, geom: d });
+          } else if (!(d instanceof SEG)) {
+            // Add any free-floating points as snap points.
+            this.addAnchor(
+              { x: d.x, y: d.y },
+              ANCHOR_FLAGS.SNAPPABLE | ANCHOR_FLAGS.CONSTRUCTED,
+              constructionItem.Item ? [constructionItem.Item] : [],
+              PT_NONE,
+            );
+          }
+        }
+      }
+    }
+
+    for (let ii = 0; ii < intersectables.length; ++ii) {
+      const a = intersectables[ii]!;
+
+      for (let jj = ii + 1; jj < intersectables.length; ++jj) {
+        const b = intersectables[jj]!;
+
+        // An item and its own extension will often have intersections (as they
+        // are on top of each other), but they not useful points to snap to
+        if (a.item === b.item) continue;
+
+        const intersections: Vec2[] = [];
+        new INTERSECTION_VISITOR(a.geom, intersections).visit(b.geom);
+
+        for (const intersection of intersections) {
+          this.addAnchor(
+            intersection,
+            ANCHOR_FLAGS.SNAPPABLE | ANCHOR_FLAGS.CONSTRUCTED,
+            [a.item, b.item].filter((it): it is EDA_ITEM => it !== null),
+            PT_INTERSECTION,
+          );
+        }
+      }
+    }
+
+    this.m_pointOnLineCandidates = intersectables.map((it) => it.geom);
+  }
+
   /**
    * `PCB_GRID_HELPER()` — no `TOOL_MANAGER`, so the grid comes through the
    * base's manual setters; `aState`, when given, is applied at once.
@@ -508,7 +827,8 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
     aRange: number,
     aOpts: BestSnapOptions,
   ): void {
-    const add = (aPos: Vec2, aFlags: number): void => this.addAnchor(aPos, aFlags, []);
+    const add = (aPos: Vec2, aFlags: number, aId: string): void =>
+      this.addAnchor(aPos, aFlags, this.itemToken(aId));
     const pads = aOpts.magneticPads ?? PnsMagneticOption.CAPTURE_ALWAYS;
     const tracks = aOpts.magneticTracks ?? PnsMagneticOption.CAPTURE_ALWAYS;
 
@@ -527,11 +847,12 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
       for (const [fpIndex, fp] of aBoard.footprints.entries()) {
         if (skipped('footprint', fpIndex)) continue;
 
-        for (const pad of fp.pads) {
+        for (const [padIndex, pad] of fp.pads.entries()) {
           if (!pad.layers.some(onLayer)) continue;
 
           // `handlePadShape`: the pad's own position is its origin anchor.
-          if (inRange(pad.at)) add(pad.at, ANCHOR_FLAGS.ORIGIN | ANCHOR_FLAGS.SNAPPABLE);
+          if (inRange(pad.at))
+            add(pad.at, ANCHOR_FLAGS.ORIGIN | ANCHOR_FLAGS.SNAPPABLE, `pad:${fpIndex}:${padIndex}`);
         }
       }
     }
@@ -542,7 +863,7 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
 
         // A via spans layers, so the layer filter never excludes one.
         if (inRange(v.at))
-          add(v.at, ANCHOR_FLAGS.ORIGIN | ANCHOR_FLAGS.CORNER | ANCHOR_FLAGS.SNAPPABLE);
+          add(v.at, ANCHOR_FLAGS.ORIGIN | ANCHOR_FLAGS.CORNER | ANCHOR_FLAGS.SNAPPABLE, `via:${i}`);
       }
 
       const wires: { kind: string; index: number; t: (typeof aBoard.tracks)[number] }[] = [
@@ -556,7 +877,8 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
         if (!onLayer(t.layer)) continue;
 
         for (const end of [t.start, t.end]) {
-          if (inRange(end)) add(end, ANCHOR_FLAGS.CORNER | ANCHOR_FLAGS.SNAPPABLE);
+          if (inRange(end))
+            add(end, ANCHOR_FLAGS.CORNER | ANCHOR_FLAGS.SNAPPABLE, `${kind}:${index}`);
         }
 
         // `track->GetCenter()`, added as ORIGIN and *not* SNAPPABLE — see the
@@ -564,7 +886,7 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
         // leaving it out would make the omission look accidental.
         const mid = { x: (t.start.x + t.end.x) / 2, y: (t.start.y + t.end.y) / 2 };
 
-        if (inRange(mid)) add(mid, ANCHOR_FLAGS.ORIGIN);
+        if (inRange(mid)) add(mid, ANCHOR_FLAGS.ORIGIN, `${kind}:${index}`);
       }
     }
 
@@ -580,15 +902,16 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
       for (const [i, pt] of aBoard.points.entries()) {
         if (skipped('point', i)) continue;
         if (!onLayer(pt.layer)) continue;
-        if (inRange(pt.at)) add(pt.at, ANCHOR_FLAGS.ORIGIN | ANCHOR_FLAGS.SNAPPABLE);
+        if (inRange(pt.at)) add(pt.at, ANCHOR_FLAGS.ORIGIN | ANCHOR_FLAGS.SNAPPABLE, `point:${i}`);
       }
 
       for (const [fpIndex, fp] of aBoard.footprints.entries()) {
         if (skipped('footprint', fpIndex)) continue;
 
-        for (const pt of fp.points) {
+        for (const [j, pt] of fp.points.entries()) {
           if (!onLayer(pt.layer)) continue;
-          if (inRange(pt.at)) add(pt.at, ANCHOR_FLAGS.ORIGIN | ANCHOR_FLAGS.SNAPPABLE);
+          if (inRange(pt.at))
+            add(pt.at, ANCHOR_FLAGS.ORIGIN | ANCHOR_FLAGS.SNAPPABLE, `fppoint:${fpIndex}:${j}`);
         }
       }
     }
@@ -621,46 +944,83 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
         if (box.y2 < aWhere.y - aRange || box.y1 > aWhere.y + aRange) continue;
 
         // `addAnchor( aItem->GetPosition(), ORIGIN, barcode, PT_CENTER )`.
-        if (inRange(bc.at)) add(bc.at, ANCHOR_FLAGS.ORIGIN);
+        if (inRange(bc.at)) add(bc.at, ANCHOR_FLAGS.ORIGIN, `${kind}:${index}`);
 
         for (const p of barcodeSnapPoints(g, bc))
-          if (inRange(p)) add(p, ANCHOR_FLAGS.CORNER | ANCHOR_FLAGS.SNAPPABLE);
+          if (inRange(p)) add(p, ANCHOR_FLAGS.CORNER | ANCHOR_FLAGS.SNAPPABLE, `${kind}:${index}`);
       }
     }
+
+    this.computeConstructionAnchors(this.queryIntersectableIds(aBoard, aWhere, aRange, aOpts));
   }
 
   /**
-   * `PCB_GRID_HELPER::nearestAnchor( aPos, aFlags )` (pcbnew/tools/pcb_grid_helper.cpp:1966)
-   * — nearest anchor carrying every flag.
+   * `PCB_GRID_HELPER::nearestAnchor( aPos, aFlags )` (cpp:1966-2068): the
+   * nearest anchor carrying every flag.
    *
-   * A private member of `PCB_GRID_HELPER`, not of `GRID_HELPER`. The base
-   * (include/tool/grid_helper.h:55) holds `m_anchors` and the flag set; the search
-   * over them belongs to each editor and differs: eeschema's
-   * (`EE_GRID_HELPER::nearestAnchor`, eeschema/tools/ee_grid_helper.cpp:553) also
-   * takes a `GRID_HELPER_GRIDS` and filters on `SCH_ITEM::IsConnectable()`, which
-   * has no meaning on a board where the layer filtering has already happened as the
-   * anchors were collected. Ours mirrors that split: `EE_GRID_HELPER` has its own.
-   *
-   * Upstream then collects every anchor tied for nearest and asks the snap
-   * manager which of them the user has activated; that half is not ported.
+   * Every anchor tied at the nearest position is collected; a CONSTRUCTED one
+   * whose real items the construction manager has not activated is dropped,
+   * and of the rest the one whose item lies nearest the cursor wins - so of
+   * two lines meeting end to end, the one under the cursor is the one that
+   * gets extended.
    */
   private nearestAnchor(aPos: Vec2, aFlags: number): ANCHOR | null {
-    let best: ANCHOR | null = null;
-    // Upstream's is `std::numeric_limits<double>::max()`. `MAX_SAFE_INTEGER` is
-    // not the same seed here: these are *squared* distances in internal units, so
-    // it silently rejects every anchor further than ~95 mm from the cursor. That
-    // never showed while the only caller pre-filtered its anchors by a screen
-    // radius; `bestDragOrigin` does not, because a grabbed selection must always
-    // yield a reference point however far away it is.
+    // Upstream seeds with `numeric_limits<ecoord>::max()`; these are squared
+    // distances in IU, so anything finite would reject far anchors, which
+    // `BestDragOrigin` - with no snap radius - must still find.
     let minDist = Number.POSITIVE_INFINITY;
+    let anchorsAtMinDistance: ANCHOR[] = [];
 
     for (const anchor of this.m_anchors) {
       if ((aFlags & anchor.flags) !== aFlags) continue;
 
-      const d = squaredDist(anchor.pos, aPos);
+      const front = anchorsAtMinDistance[0];
 
-      if (d < minDist) {
-        minDist = d;
+      if (front && anchor.pos.x === front.pos.x && anchor.pos.y === front.pos.y) {
+        // Same distance as the previous best anchor
+        anchorsAtMinDistance.push(anchor);
+      } else {
+        const dist = squaredDist(anchor.pos, aPos);
+
+        if (dist < minDist) {
+          minDist = dist;
+          anchorsAtMinDistance = [anchor];
+        }
+      }
+    }
+
+    const snapManager = this.getSnapManager();
+    const noRealItemsInAnchorAreInvolved = (aAnchor: ANCHOR): boolean => {
+      if (!ADVANCED_CFG.GetCfg().m_EnableExtensionSnaps) return false;
+
+      if (!(aAnchor.flags & ANCHOR_FLAGS.CONSTRUCTED)) return false;
+
+      return !snapManager.GetConstructionManager().InvolvesAllGivenRealItems(aAnchor.items);
+    };
+
+    anchorsAtMinDistance = anchorsAtMinDistance.filter((a) => !noRealItemsInAnchorAreInvolved(a));
+
+    let minDistToItem = Number.POSITIVE_INFINITY;
+    let best: ANCHOR | null = null;
+
+    for (const anchor of anchorsAtMinDistance) {
+      let distToNearestItem = Number.POSITIVE_INFINITY;
+
+      for (const item of anchor.items) {
+        const geom = this.intersectableOf(this.itemIdOf(item));
+
+        if (geom) {
+          const d = squaredDist(GetNearestPoint(geom, aPos), aPos);
+          distToNearestItem = Math.min(distToNearestItem, d);
+        }
+      }
+
+      // If the item doesn't have any special min-dist handler, just use the
+      // distance to the anchor
+      distToNearestItem = Math.min(distToNearestItem, minDist);
+
+      if (distToNearestItem < minDistToItem) {
+        minDistToItem = distToNearestItem;
         best = anchor;
       }
     }
@@ -669,64 +1029,268 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
   }
 
   /**
-   * `PCB_GRID_HELPER::BestSnapAnchor` (cpp:597-934) — the cursor for every tool
-   * that is not the router.
+   * `PCB_GRID_HELPER::BestSnapAnchor` (cpp:593-930) - the cursor for every
+   * tool that is not the router.
    *
-   * Ported: the snap radius and its clamp to the visible grid, the anchor scan,
-   * the point-on-element fallback, and the grid as the last resort. Not ported:
-   * snap lines, construction geometry and the `m_snapItem` stickiness — the last
-   * of which is why only `snapIn` appears here and `snapOut` does not. `snapOut`
-   * exists solely to hold a snap that has *already* been made, so a stateless
-   * port is upstream's entry behaviour exactly.
+   * The snap radius and its clamp to the visible grid; the anchors, their
+   * intersections and the construction geometry's; snap lines, which have
+   * priority over new snaps; the held snap (`m_snapItem`) until the cursor is
+   * `snapOut` from it; a new anchor inside `snapIn`, which also proposes its
+   * items' construction geometry; the item under the cursor proposed on hover;
+   * the nearest point on an element when the grid is off; and the grid.
    */
   BestSnapAnchor(aBoard: Board, aWhere: Vec2, aOpts: BestSnapOptions): Vec2 {
+    this.m_board = aBoard;
+
     // Snapping distance is in screen space, clamped to the current grid so that
     // the grid points that are visible can always be snapped to (cpp:604-615).
-    const snapRange = Math.round(
-      this.canUseGrid() ? Math.min(aOpts.snapScale, aOpts.visibleGrid) : aOpts.snapScale,
+    const snapRange = KiROUND(
+      this.m_enableGrid ? Math.min(aOpts.snapScale, aOpts.visibleGrid) : aOpts.snapScale,
     );
 
-    const nearestGrid = this.Align(aWhere);
-
-    if (!this.m_enableSnap) return nearestGrid;
-
     this.clearAnchors();
-    this.m_snapItem = null;
     this.computeAnchors(aBoard, aWhere, snapRange, aOpts);
 
     const nearest = this.nearestAnchor(aWhere, ANCHOR_FLAGS.SNAPPABLE);
-    const snapIn = Math.max(0, snapRange - (aOpts.hysteresis ?? 0));
+    const nearestGrid = this.Align(aWhere);
+    const gridSize = this.GetGridSize(0);
+    const hysteresisWorld = KiROUND(aOpts.hysteresis ?? 0);
+    const snapIn = Math.max(0, snapRange - hysteresisWorld);
+    const snapOut = snapRange + hysteresisWorld;
 
-    if (nearest && nearest.Distance(aWhere) <= snapIn) {
-      this.m_snapItem = nearest;
+    // The distance to the nearest snap point, if any
+    let snapDist: number | null = nearest ? nearest.Distance(aWhere) : null;
 
-      return { ...nearest.pos };
+    if (this.m_snapItem) {
+      const existingDist = this.m_snapItem.Distance(aWhere);
+
+      if (snapDist === null || existingDist < snapDist) snapDist = existingDist;
     }
 
-    // "If we're snapping to a grid, on-element snaps would be too intrusive but
-    // they're useful when there isn't a grid to snap to" (cpp:896-917). This is
-    // the one path outside the router that puts the cursor on a track's
-    // centreline rather than at one of its ends.
-    if (!this.canUseGrid()) {
-      let best: Vec2 | null = null;
-      let bestDist = Number.MAX_SAFE_INTEGER;
+    this.showConstructionGeometry(this.m_enableSnap);
 
-      for (const t of [...aBoard.tracks, ...aBoard.arcs]) {
-        if (!aOpts.allLayers && aOpts.layer && !layerMatches(t.layer, aOpts.layer)) continue;
+    const snapManager = this.getSnapManager();
+    const snapLineManager = snapManager.GetSnapLineManager();
+    const ptIsReferenceOnly = (aPt: Vec2): boolean =>
+      snapManager.GetReferenceOnlyPoints().some((p) => p.x === aPt.x && p.y === aPt.y);
 
-        const p = segNearestPoint({ a: t.start, b: t.end }, aWhere);
-        const d = squaredDist(p, aWhere);
+    const proposeConstructionForItems = (aItems: readonly (EDA_ITEM | null)[]): void => {
+      // Null items represent geometry that isn't tied to a board item (a snap
+      // line from another anchor) and produce no construction items.
+      const ids: string[] = [];
 
-        if (d < bestDist) {
-          bestDist = d;
-          best = p;
+      for (const item of aItems) {
+        const id = this.itemIdOf(item);
+
+        if (id !== undefined && this.itemOnLayers(aBoard, id, aOpts)) ids.push(id);
+      }
+
+      this.AddConstructionItems(aBoard, ids, true, false);
+    };
+
+    let snapValid = false;
+
+    if (this.m_enableSnap) {
+      // Existing snap lines need priority over new snaps
+      if (this.m_enableSnapLine) {
+        let snapLineSnap = snapLineManager.GetNearestSnapLinePoint(
+          aWhere,
+          nearestGrid,
+          snapDist,
+          snapRange,
+          gridSize,
+          this.GetOrigin(),
+        );
+
+        if (!snapLineSnap)
+          snapLineSnap = this.SnapToConstructionLines(aWhere, nearestGrid, gridSize, snapRange);
+
+        // We found a better snap point that the nearest one
+        if (
+          snapLineSnap &&
+          (this.m_skipPoint.x !== snapLineSnap.x || this.m_skipPoint.y !== snapLineSnap.y)
+        ) {
+          // Prefer actual anchors over construction line grid intersections
+          const preferAnchor = !!nearest && nearest.Distance(aWhere) <= snapIn;
+
+          if (!preferAnchor) {
+            snapLineManager.SetSnapLineEnd(snapLineSnap);
+            snapValid = true;
+
+            // Don't show a snap point if we're snapping to a grid rather than an anchor
+            this.setSnapPointVisible(false);
+
+            // Only return the snap line end as a snap if it's not a reference
+            // point (we don't snap to reference points, but we can use them to
+            // update the snap line, without actually snapping)
+            if (!ptIsReferenceOnly(snapLineSnap)) return snapLineSnap;
+          }
         }
       }
 
-      if (best && Math.hypot(best.x - aWhere.x, best.y - aWhere.y) <= snapRange) return best;
+      if (this.m_snapItem) {
+        const dist = this.m_snapItem.Distance(aWhere);
+
+        if (dist <= snapOut) {
+          if (nearest && ptIsReferenceOnly(nearest.pos) && nearest.Distance(aWhere) <= snapRange)
+            snapLineManager.SetSnapLineOrigin(nearest.pos);
+
+          snapLineManager.SetSnappedAnchor(this.m_snapItem.pos);
+          this.updateSnapPoint(new TYPED_POINT2I(this.m_snapItem.pos, this.m_snapItem.pointTypes));
+
+          return { ...this.m_snapItem.pos };
+        }
+
+        this.m_snapItem = null;
+      }
+
+      // If there's a snap anchor within range, use it if we can
+      if (nearest && nearest.Distance(aWhere) <= snapIn) {
+        const anchorIsConstructed = !!(nearest.flags & ANCHOR_FLAGS.CONSTRUCTED);
+
+        // If the nearest anchor is a reference point, we don't snap to it, but
+        // we can update the snap line origin
+        if (ptIsReferenceOnly(nearest.pos)) {
+          snapLineManager.SetSnapLineOrigin(nearest.pos);
+        } else {
+          // 'Intrinsic' points of items can trigger adding construction
+          // geometry for _that_ item by proximity.
+          if (!anchorIsConstructed) proposeConstructionForItems(nearest.items);
+
+          this.m_snapItem = nearest;
+
+          // Set the snap line origin or end as needed
+          snapLineManager.SetSnappedAnchor(nearest.pos);
+
+          // Show the correct snap point marker
+          this.updateSnapPoint(new TYPED_POINT2I(nearest.pos, nearest.pointTypes));
+
+          return { ...nearest.pos };
+        }
+
+        snapValid = true;
+      } else if (ADVANCED_CFG.GetCfg().m_ExtensionSnapActivateOnHover) {
+        // An exact hit on an item, even if not near a snap point
+        const hit = this.hoverHit(aBoard, aWhere, snapRange, aOpts);
+
+        if (hit !== null) {
+          proposeConstructionForItems([this.itemToken(hit)[0]!]);
+          snapValid = true;
+        }
+      }
+
+      // If we got here, we didn't snap to an anchor or snap line. If we're
+      // snapping to a grid, on-element snaps would be too intrusive but they're
+      // useful when there isn't a grid to snap to
+      if (!this.m_enableGrid) {
+        const nearestPointOnAnElement = GetNearestPointOfAny(this.m_pointOnLineCandidates, aWhere);
+
+        // Got any nearest point - snap if in range
+        if (
+          nearestPointOnAnElement &&
+          Math.trunc(
+            Math.hypot(nearestPointOnAnElement.x - aWhere.x, nearestPointOnAnElement.y - aWhere.y),
+          ) <= snapRange
+        ) {
+          this.updateSnapPoint(new TYPED_POINT2I(nearestPointOnAnElement, PT_ON_ELEMENT));
+
+          // Clear the snap end, but keep the origin so touching another line
+          // doesn't kill a snap line
+          snapLineManager.SetSnapLineEnd(null);
+
+          return nearestPointOnAnElement;
+        }
+      }
     }
 
+    // Completely failed to find any snap point, so snap to the grid
+    this.m_snapItem = null;
+
+    if (!snapValid) snapManager.GetConstructionManager().CancelProposal();
+
+    snapLineManager.SetSnapLineEnd(null);
+    this.setSnapPointVisible(false);
+
     return nearestGrid;
+  }
+
+  /**
+   * `PCB_GRID_HELPER::AddConstructionItems` (cpp:204-343) over board item ids:
+   * a graphic segment's two extension rays (or the whole line), an arc's
+   * complement and centre (or its circle), a circle's or rectangle's centre;
+   * every other item is proposed with no geometry of its own.
+   */
+  AddConstructionItems(
+    aBoard: Board,
+    aItemIds: readonly string[],
+    aExtensionOnly: boolean,
+    aIsPersistent: boolean,
+  ): void {
+    if (!ADVANCED_CFG.GetCfg().m_EnableExtensionSnaps) return;
+
+    const batch: CONSTRUCTION_ITEM_BATCH = [];
+    const referenceOnlyPoints: Vec2[] = [];
+
+    for (const id of aItemIds) {
+      const drawables: CONSTRUCTION_GEOM_DRAWABLE[] = [];
+      const ref = parseBoardItemId(id);
+      const shape = ref?.kind === 'shape' ? aBoard.shapes[ref.index] : undefined;
+
+      if (shape?.kind === 'line' && shape.start && shape.end) {
+        const { start, end } = shape;
+
+        if (!aExtensionOnly) {
+          drawables.push(new LINE(start, end));
+        } else {
+          // Two rays, extending from the segment ends
+          const segVec = { x: end.x - start.x, y: end.y - start.y };
+          drawables.push(new HALF_LINE(start, { x: start.x - segVec.x, y: start.y - segVec.y }));
+          drawables.push(new HALF_LINE(end, { x: end.x + segVec.x, y: end.y + segVec.y }));
+        }
+
+        if (aIsPersistent) {
+          drawables.push({ ...start }, { ...end });
+          referenceOnlyPoints.push({ ...start }, { ...end });
+        }
+      } else if (shape?.kind === 'arc' && shape.start && shape.mid && shape.end) {
+        const arc = new SHAPE_ARC(shape.start, shape.mid, shape.end, 0);
+        const center = arc.GetCenter();
+
+        if (!aExtensionOnly) {
+          drawables.push(new CIRCLE(center, arc.GetRadius()));
+        } else {
+          // The rest of the circle is the arc through the opposite point to the midpoint
+          const arcMid = arc.GetArcMid();
+          const oppositeMid = {
+            x: center.x + (center.x - arcMid.x),
+            y: center.y + (center.y - arcMid.y),
+          };
+          drawables.push(new SHAPE_ARC(shape.start, oppositeMid, shape.end, 0));
+        }
+
+        drawables.push({ ...center });
+
+        if (aIsPersistent) {
+          drawables.push({ ...shape.start }, { ...shape.end });
+          referenceOnlyPoints.push({ ...shape.start }, { ...shape.end });
+        }
+      } else if (shape?.kind === 'circle' || shape?.kind === 'rect') {
+        const c = shapeCenter(shape);
+
+        if (c) drawables.push(c);
+      }
+
+      batch.push({
+        Source: CONSTRUCTION_MANAGER_SOURCE.FROM_ITEMS,
+        Item: this.itemToken(id)[0]!,
+        Constructions: drawables.map((d) => ({ Drawable: d, LineWidth: 1 })),
+      });
+    }
+
+    if (referenceOnlyPoints.length)
+      this.getSnapManager().SetReferenceOnlyPoints(referenceOnlyPoints);
+
+    this.getSnapManager().GetConstructionManager().ProposeConstructionItems(batch, aIsPersistent);
   }
 
   /**
@@ -757,7 +1321,9 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
     aWhere: Vec2,
     aOpts: DragOriginOptions,
   ): void {
-    const add = (aPos: Vec2, aFlags: number): void => this.addAnchor(aPos, aFlags, []);
+    let curId = '';
+    const add = (aPos: Vec2, aFlags: number): void =>
+      this.addAnchor(aPos, aFlags, this.itemToken(curId));
     // `VECTOR2I grid( GetGrid() ); … > grid.SquaredEuclideanNorm()`, and a GAL
     // grid is square here, so the threshold is both axes together.
     const gridSq = 2 * aOpts.gridSize * aOpts.gridSize;
@@ -769,6 +1335,7 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
     for (const id of aItems) {
       const ref = parseBoardItemId(id);
       if (!ref) continue;
+      curId = id;
 
       switch (ref.kind) {
         case 'footprint': {
@@ -857,6 +1424,7 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
     aWhere: Vec2,
     aOpts: DragOriginOptions,
   ): Vec2 {
+    this.m_board = aBoard;
     this.clearAnchors();
     this.computeDragAnchors(aBoard, aItems, aWhere, aOpts);
 

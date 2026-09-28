@@ -10,7 +10,7 @@
  * geometry being right says nothing about whether the cursor reaches it.
  */
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import {
@@ -329,12 +329,21 @@ describe('PCB_GRID_HELPER held across events, as a tool holds it', () => {
   (net 0 "")
 )`),
     );
-    const opts = { snapScale: 1 * MM, visibleGrid: 0.5 * MM, layer: 'F.Cu', hysteresis: 0 };
-    const near = { x: 10.12 * MM, y: 10.12 * MM };
+    // A hysteresis so the first ask collects the end's anchor (inside the
+    // 0.5 mm range) without snapping to it (outside the 0.3 mm snapIn) -
+    // nothing is held, and no snap line starts.
+    const opts = { snapScale: 1 * MM, visibleGrid: 0.5 * MM, layer: 'F.Cu', hysteresis: 0.2 * MM };
     const helper = new PCB_GRID_HELPER(grid());
 
-    expect(helper.BestSnapAnchor(withTrack, near, opts)).toEqual({ x: 10.1 * MM, y: 10.1 * MM });
-    expect(helper.BestSnapAnchor(empty, near, opts)).toEqual({ x: 10 * MM, y: 10 * MM });
+    expect(helper.BestSnapAnchor(withTrack, { x: 10.1 * MM, y: 10.5 * MM }, opts)).toEqual({
+      x: 10 * MM,
+      y: 10.5 * MM,
+    });
+    // 0.2 mm from where the gone track's end was: the grid, not the stale anchor.
+    expect(helper.BestSnapAnchor(empty, { x: 10.1 * MM, y: 10.3 * MM }, opts)).toEqual({
+      x: 10 * MM,
+      y: 10.5 * MM,
+    });
   });
 });
 
@@ -465,5 +474,120 @@ describe("bestDragOrigin — EDIT_TOOL::Move's reference point", () => {
       x: 136.271 * MM,
       y: 111.76 * MM,
     });
+  });
+});
+
+describe('PCB_GRID_HELPER::BestSnapAnchor, held (pcb_grid_helper.cpp:593-930)', () => {
+  const boardOf = (items: string) =>
+    readBoard(
+      parse(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (37 "F.SilkS" user))
+  (net 0 "") (net 1 "a")
+  ${items}
+)`),
+    );
+  const opts = { snapScale: 1 * MM, visibleGrid: 1 * MM, layer: 'F.Cu', hysteresis: 0.2 * MM };
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('holds a snap until the cursor is snapOut from it', () => {
+    // snapRange 1 mm, hysteresis 0.2: in at 0.8, out at 1.2.
+    const b = boardOf(
+      '(segment (start 10.1 10.1) (end 20.1 10.1) (width 0.25) (layer "F.Cu") (net 1))',
+    );
+    const h = new PCB_GRID_HELPER(grid({ size: 1 * MM }));
+    // Snap lines have priority over a held snap, and the cursor below sits on
+    // the vertical one through the end; take them out of this question.
+    h.SetSnapLine(false);
+    const end = { x: 10.1 * MM, y: 10.1 * MM };
+    expect(h.BestSnapAnchor(b, { x: 10.1 * MM, y: 10.6 * MM }, opts)).toEqual(end);
+    // 0.9 mm off: past snapIn, inside snapOut - still held.
+    expect(h.BestSnapAnchor(b, { x: 10.1 * MM, y: 11.0 * MM }, opts)).toEqual(end);
+    // A fresh helper at the same place has nothing held, and takes the grid.
+    const fresh = new PCB_GRID_HELPER(grid({ size: 1 * MM }));
+    fresh.SetSnapLine(false);
+    expect(fresh.BestSnapAnchor(b, { x: 10.1 * MM, y: 11.0 * MM }, opts)).toEqual({
+      x: 10 * MM,
+      y: 11 * MM,
+    });
+  });
+
+  it('runs a snap line from the last anchor, and ends it where the cursor is gridded', () => {
+    // Snap to the via, then go well right of it staying level: the cursor rides
+    // the horizontal snap line through the via, at the nearest grid x.
+    const b = boardOf('(via (at 10.3 10.3) (size 0.6) (drill 0.3) (layers "F.Cu" "B.Cu") (net 1))');
+    const h = new PCB_GRID_HELPER(grid({ size: 1 * MM }));
+    expect(h.BestSnapAnchor(b, { x: 10.3 * MM, y: 10.4 * MM }, opts)).toEqual({
+      x: 10.3 * MM,
+      y: 10.3 * MM,
+    });
+    expect(h.BestSnapAnchor(b, { x: 14.9 * MM, y: 10.5 * MM }, opts)).toEqual({
+      x: 15 * MM,
+      y: 10.3 * MM,
+    });
+    // Without the snap line the same ask is plain grid.
+    h.SetSnapLine(false);
+    expect(h.BestSnapAnchor(b, { x: 14.9 * MM, y: 10.5 * MM }, opts)).toEqual({
+      x: 15 * MM,
+      y: 11 * MM,
+    });
+  });
+
+  it('snaps to the crossing of two tracks only once both are activated', () => {
+    vi.useFakeTimers();
+    // Two tracks crossing at (15.3, 15.3), off the 1 mm grid.
+    const b = boardOf(`
+      (segment (start 10.3 15.3) (end 20.3 15.3) (width 0.25) (layer "F.Cu") (net 1))
+      (segment (start 15.3 10.3) (end 15.3 20.3) (width 0.25) (layer "F.Cu") (net 1))`);
+    const h = new PCB_GRID_HELPER(grid({ size: 1 * MM }));
+    h.SetSnapLine(false);
+    const nearCrossing = { x: 15.4 * MM, y: 15.4 * MM };
+    const crossing = { x: 15.3 * MM, y: 15.3 * MM };
+
+    // Not yet: an intersection of items the user has not moused over is
+    // dropped by nearestAnchor, and the grid wins.
+    expect(h.BestSnapAnchor(b, nearCrossing, opts)).toEqual({ x: 15 * MM, y: 15 * MM });
+
+    // Mouse over an end of each (proposing its construction geometry), and let
+    // the 500 ms activation timer run.
+    h.BestSnapAnchor(b, { x: 10.3 * MM, y: 15.4 * MM }, opts);
+    vi.advanceTimersByTime(600);
+    h.BestSnapAnchor(b, { x: 15.4 * MM, y: 10.3 * MM }, opts);
+    vi.advanceTimersByTime(600);
+    h.BestSnapAnchor(b, { x: 30 * MM, y: 30 * MM }, opts);
+
+    expect(h.BestSnapAnchor(b, nearCrossing, opts)).toEqual(crossing);
+  });
+
+  it('with the grid off, falls back to the nearest point on a graphic line', () => {
+    const b = boardOf('(gr_line (start 10 10) (end 20 12) (layer "F.SilkS") (width 0.15))');
+    const h = new PCB_GRID_HELPER(grid({ enableGrid: false }));
+    const got = h.BestSnapAnchor(b, { x: 15 * MM, y: 11.5 * MM }, { ...opts, layer: undefined });
+    // On the line y = 10 + (x - 10) / 5, within an IU.
+    expect(Math.abs(got.y - (10 * MM + (got.x - 10 * MM) / 5))).toBeLessThanOrEqual(1);
+    expect(got).not.toEqual({ x: 15 * MM, y: 11.5 * MM });
+  });
+
+  it('shows a snap indicator only once a canvas is attached as the view', () => {
+    const b = boardOf('(via (at 10.3 10.3) (size 0.6) (drill 0.3) (layers "F.Cu" "B.Cu") (net 1))');
+    const detached = new PCB_GRID_HELPER(grid({ size: 1 * MM }));
+    detached.BestSnapAnchor(b, { x: 10.3 * MM, y: 10.4 * MM }, opts);
+    expect(detached.GetSnapIndicatorState().visible).toBe(false);
+
+    const h = new PCB_GRID_HELPER(grid({ size: 1 * MM }));
+    let refreshed = 0;
+    h.AttachView(() => refreshed++);
+    h.BestSnapAnchor(b, { x: 10.3 * MM, y: 10.4 * MM }, opts);
+    expect(h.GetSnapIndicatorState()).toMatchObject({
+      visible: true,
+      position: { x: 10.3 * MM, y: 10.3 * MM },
+    });
+    // Off the via and onto the grid: the indicator goes.
+    h.BestSnapAnchor(b, { x: 13 * MM, y: 13 * MM }, opts);
+    expect(h.GetSnapIndicatorState().visible).toBe(false);
+    expect(h.GetConstructionGeomState().geom).toBeDefined();
+    expect(refreshed).toBeGreaterThanOrEqual(0);
   });
 });

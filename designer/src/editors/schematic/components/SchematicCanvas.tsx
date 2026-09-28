@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { drawOriginViewItem } from '@ziroeda/common/origin_viewitem.js';
+import { drawConstructionGeom } from '@ziroeda/common/preview_items/construction_geom.js';
+import {
+  drawSnapIndicator,
+  SNAP_INDICATOR_DEFAULT_SIZE,
+} from '@ziroeda/common/preview_items/snap_indicator.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { GRID_HELPER_GRIDS } from '@ziroeda/common/tool/grid_helper.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import { rotateOrientation, mirrorOrientation, type Orientation } from '@ziroeda/common';
@@ -959,7 +966,12 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   const gridCfgRef = useRef({ size: 0, snapping: true, overrides: o, libById });
   gridCfgRef.current = { size: renderOpts.grid.sizeIU, snapping, overrides: o, libById };
   const gridHelper = useCallback((doc: Schematic): EE_GRID_HELPER => {
-    gridHelperRef.current ??= new EE_GRID_HELPER();
+    if (!gridHelperRef.current) {
+      gridHelperRef.current = new EE_GRID_HELPER();
+      // The overlay is the helper's VIEW: the snap point and construction
+      // preview are drawn there, and it repaints when they change.
+      gridHelperRef.current.AttachView(() => requestOverlayRef.current());
+    }
     const h = gridHelperRef.current;
     const cfg = gridCfgRef.current;
     h.SetSchematic(doc, cfg.libById);
@@ -2816,12 +2828,70 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       }
     }
 
+    // The grid helper's view items (ee_grid_helper.cpp:47-65): the construction
+    // preview, `m_viewAxis` - a CROSS of 20000 px in (0, 0.1, 0.4, 0.8) - and
+    // `m_viewSnapPoint`, a default-sized CIRCLE_CROSS in (0, 0.1, 0.4, 1).
+    // Computed from the cursor first, so what is drawn is this frame's.
+    const gh = gridHelperRef.current;
+    const snappedCur = cur
+      ? CONNECTION_SNAP_TOOLS.has(activeTool)
+        ? snapConn(cur)
+        : snap(cur)
+      : null;
+    if (gh) {
+      const cg = gh.GetConstructionGeomState();
+      if (cg.visible) {
+        const x0 = -vp.offsetX / vp.scale;
+        const y0 = -vp.offsetY / vp.scale;
+        ctx.save();
+        ctx.setTransform(vp.scale, 0, 0, vp.scale, vp.offsetX, vp.offsetY);
+        drawConstructionGeom(ctx, cg.geom, {
+          viewport: BOX2I.ByCorners(
+            { x: x0, y: y0 },
+            { x: x0 + canvas.width / vp.scale, y: y0 + canvas.height / vp.scale },
+          ),
+          worldScale: vp.scale,
+        });
+        ctx.restore();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
+      const toPx = (p: Vec2): Vec2 => ({
+        x: p.x * vp.scale + vp.offsetX,
+        y: p.y * vp.scale + vp.offsetY,
+      });
+      const axis = gh.GetAxisState();
+      if (axis.visible)
+        drawOriginViewItem(ctx, {
+          position: axis.position,
+          toPx,
+          style: 'cross',
+          size: 20000 * dpr(),
+          color: 'rgba(0, 26, 102, 0.8)',
+          drawAtZero: true,
+          lineWidth: Math.max(1, dpr()),
+        });
+      const sp = gh.GetSnapIndicatorState();
+      if (sp.visible)
+        drawSnapIndicator(ctx, {
+          position: sp.position,
+          toPx,
+          style: 'circle_cross',
+          size: SNAP_INDICATOR_DEFAULT_SIZE * dpr(),
+          color: 'rgb(0, 26, 102)',
+          drawAtZero: true,
+          snapTypes: sp.snapTypes,
+          lineWidth: Math.max(1, dpr()),
+          canvasWidth: canvas.width,
+          canvasHeight: canvas.height,
+        });
+    }
+
     // Crosshair cursor (GAL::blitCursor), in the LAYER_SCHEMATIC_CURSOR colour.
     // The drawing tools ask for it (ShowCursor(true)); the selection tool does
     // not, so with `select` active it appears only because "Always show
     // crosshairs" forced it, and upstream dims a forced cursor to half alpha.
-    if (cur) {
-      const c = CONNECTION_SNAP_TOOLS.has(activeTool) ? snapConn(cur) : snap(cur);
+    if (snappedCur) {
+      const c = snappedCur;
       drawCrosshair(
         ctx,
         { x: c.x * vp.scale + vp.offsetX, y: c.y * vp.scale + vp.offsetY },
