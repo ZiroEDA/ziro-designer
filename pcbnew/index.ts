@@ -451,24 +451,18 @@ export {
   roundRectOutwards,
   type OutsetOptions,
   type OutsetResult,
-} from './outset_items.js';
-
-export {
   polygonBoolean,
   booleanableShapeCount,
   shapeAsPolygon,
   type PolygonBoolean,
   type PolygonBooleanOptions,
   type PolygonBooleanResult,
-} from './polygon_booleans.js';
-
-export {
   modifyLines,
   modifiableLineCount,
   type LineModification,
   type ModifyLinesOptions,
   type ModifyLinesResult,
-} from './modify_lines.js';
+} from './tools/item_modification_routine.js';
 
 export {
   convertToLines,

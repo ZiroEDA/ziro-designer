@@ -20,7 +20,7 @@ import {
   booleanableShapeCount,
   polygonBoolean,
   shapeAsPolygon,
-} from '@ziroeda/pcbnew/polygon_booleans.js';
+} from '@ziroeda/pcbnew/tools/item_modification_routine.js';
 import {
   booleanAdd,
   booleanIntersection,

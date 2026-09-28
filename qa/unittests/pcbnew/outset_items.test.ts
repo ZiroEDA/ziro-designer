@@ -12,7 +12,11 @@
  */
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import { outsetItems, outsetSegmentRing, roundRectOutwards } from '@ziroeda/pcbnew/outset_items.js';
+import {
+  outsetItems,
+  outsetSegmentRing,
+  roundRectOutwards,
+} from '@ziroeda/pcbnew/tools/item_modification_routine.js';
 import type { Board, PcbShape } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);

@@ -14,7 +14,10 @@ import { describe, expect, it } from 'vitest';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { flatText, writtenNodes } from './support/written_node.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import { modifiableLineCount, modifyLines } from '@ziroeda/pcbnew/modify_lines.js';
+import {
+  modifiableLineCount,
+  modifyLines,
+} from '@ziroeda/pcbnew/tools/item_modification_routine.js';
 import type { Board, PcbShape } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
