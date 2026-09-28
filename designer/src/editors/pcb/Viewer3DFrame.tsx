@@ -57,7 +57,7 @@ import type {
 import { VIEWER3D_DEFAULT_TOOLBARS } from '@ziroeda/3d-viewer/toolbars_3d.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { buildViewer3DMenus } from '@ziroeda/3d-viewer/3d_menubar.js';
-import { VIEWER_3D_FRAME_NAME } from '@ziroeda/pcbnew/frame_title.js';
+import { VIEWER_3D_FRAME_NAME } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import { stackupColors } from '@ziroeda/3d-viewer/board_adapter_colors.js';
 import type { BoardFinish, PhysicalStackup } from '@ziroeda/3d-viewer/viewer3d_types.js';
 import { MODELS3D_HOST } from '../../libraryHosts.js';

@@ -50,6 +50,14 @@ import type { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
 import type { GridEntry } from '@ziroeda/common/settings/grid_settings_ui.js';
+import {
+  frameTitle,
+  type FrameTitleParts,
+  READ_ONLY_SUFFIX,
+} from '@ziroeda/common/use_document_title.js';
+import { defaultUnitsToggle } from '@ziroeda/common/settings/app_settings_units.js';
+import type { CrosshairMode } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
+import type { RawFile } from '@ziroeda/common';
 
 /**
  * The slice of the designer's `PcbnewSettings` (`prefs/settings.ts`)
@@ -784,4 +792,394 @@ export class REACT_BOARD_LISTENER extends BOARD_LISTENER {
     this.touched = null;
     this.schedule();
   }
+}
+
+// --- PCB_EDIT_FRAME's grid + snap arithmetic (was pcb_grid.ts) ---
+
+/**
+ * Where the grid is, and how a point snaps onto it.
+ *
+ * A board carries its own grid origin — `(setup (grid_origin x y))`,
+ * `BOARD_DESIGN_SETTINGS::GetGridOrigin` — and pcbnew installs it on the GAL the
+ * moment a board is opened (`pcb_base_edit_frame.cpp`:
+ * `GetGAL()->SetGridOrigin( aBoard->GetDesignSettings().GetGridOrigin() )`).
+ * Everything that touches the grid then works relative to it: `CAIRO_GAL_BASE::
+ * DrawGrid` offsets every dot by `m_gridOrigin`, and `GRID_HELPER::AlignGrid`
+ * rounds about `GRID_HELPER::GetOrigin()`, which reads the same value back off
+ * the GAL.
+ *
+ * We had it hardcoded to (0, 0) in both places. That is invisible on a board
+ * whose origin happens to be a whole number of grid steps from the world origin
+ * — most of them, which is why it survived — and plainly wrong on one where it
+ * is not: the dots sit at a fixed fraction of a step away from every track and
+ * pad that KiCad placed on them.
+ *
+ * Lives in its own module rather than in `PcbEditor.tsx` so the qa package can
+ * typecheck it; qa's tsc has no `--jsx`, so anything imported from a `.tsx`
+ * fails the workspace typecheck even though vitest runs it happily.
+ */
+
+/** A point in internal units. */
+export interface GridPoint {
+  x: number;
+  y: number;
+}
+
+/**
+ * `EDIT_TOOL::Move`'s movement, for one frame (edit_tool_move_fct.cpp:1144-1177).
+ *
+ *     m_cursor = grid.BestSnapAnchor( mousePos, layers, selectionGrid, sel_items );
+ *     movement = m_cursor - prevPos;
+ *     …
+ *     prevPos  = m_cursor;
+ *
+ * `prevPos` is seeded to the drag origin — `grid.BestDragOrigin(…)`, an anchor
+ * *on the selection*, with the pointer warped onto it (:1311-1351). Summed over
+ * the gesture the telescoping leaves `anchor + Σmovement = BestSnapAnchor(…)`,
+ * so what is really being placed is the **anchor**, absolutely, at the snapped
+ * cursor. That is the whole of why two parts dragged in KiCad line up with each
+ * other: each one's anchor lands on a grid node rather than keeping whatever
+ * fraction of a grid step it had.
+ *
+ * `snap` is `BestSnapAnchor`, taken as an argument because it needs the board,
+ * the view scale and the moving items to skip — none of which this arithmetic
+ * has any business knowing.
+ *
+ * The browser cannot warp the pointer. It does not need to: with the warp,
+ * upstream's `mousePos` is the anchor plus the pointer's motion since the grab,
+ * which is what the first line reconstructs. Called with `anchor === grabOrigin`
+ * — a selection that offers no anchor at all, where `BestDragOrigin` returns the
+ * mouse position — it degenerates to exactly upstream's own answer for that case.
+ */
+export function moveDelta(
+  anchor: GridPoint,
+  grabOrigin: GridPoint,
+  cursor: GridPoint,
+  snap: (p: GridPoint) => GridPoint,
+): GridPoint {
+  const to = snap({
+    x: anchor.x + (cursor.x - grabOrigin.x),
+    y: anchor.y + (cursor.y - grabOrigin.y),
+  });
+
+  return { x: to.x - anchor.x, y: to.y - anchor.y };
+}
+
+// --- PCB_EDIT_FRAME::UpdateTitle (was frame_title.ts) ---
+
+/** `_( "PCB Editor" )`, the half after the dash. */
+export const PCB_FRAME_NAME = 'PCB Editor';
+
+/**
+ * `_( "3D Viewer" )` — `eda_3d_viewer_frame.cpp:634`, and row 12 of
+ * `docs/frame-titles.md`.
+ *
+ * The child 3D frame names ITSELF. A parent only overrides that title by
+ * passing `aTitle` to `PCB_BASE_FRAME::Update3DView` (pcb_base_frame.cpp:161),
+ * and exactly two frames do: the Footprint Library Browser
+ * (`footprint_viewer_frame.cpp:966`) and the Footprint Chooser
+ * (`footprint_chooser_frame.cpp:392-398`), which both build
+ * `_( "3D Viewer" ) + " — " + <footprint name>` — the frame name FIRST, the
+ * reverse of every other frame.
+ *
+ * Neither of our two call sites is one of those. `PCB_EDIT_FRAME` and
+ * `DISPLAY_FOOTPRINTS_FRAME` (`display_footprints_frame.cpp:417`) both call
+ * `Update3DView` with no title at all, so upstream shows the bare frame name.
+ * Ours prefixed the board or footprint name and an ASCII hyphen to both.
+ */
+export const VIEWER_3D_FRAME_NAME = '3D Viewer';
+
+export interface PcbFrameTitleSpec {
+  /**
+   * The board's file name, extension included or not — this drops it, the way
+   * `wxFileName::GetName()` does, along with any directory. Empty or absent is
+   * the no-board case.
+   */
+  fileName?: string | null;
+  /** `IsContentModified()`. */
+  modified?: boolean;
+  /**
+   * `!fn.IsFileWritable()`. A browser has no per-file writable bit; the
+   * condition that stands in for one here is the demo project, the same
+   * substitution `SchematicEditor`'s `readOnly` prop documents.
+   *
+   * There is no `[Unsaved]` counterpart, for the reason the schematic's module
+   * gives: upstream sets it from `!fn.FileExists()`, and a board in this app
+   * exists in the project store from the moment it is opened, so the flag
+   * would never be true.
+   */
+  readOnly?: boolean;
+}
+
+export function pcbFrameTitle(spec: PcbFrameTitleSpec): FrameTitleParts {
+  const raw = spec.fileName?.trim() ?? '';
+  // `wxFileName::GetName()` — the NAME half alone, no directory and no
+  // extension. A leading dot is not an extension, so `.kicad_pcb` stays whole.
+  const name = raw.split(/[/\\]/).filter(Boolean).pop() ?? '';
+  const document = name.replace(/(?!^)\.[^./\\]*$/, '');
+
+  return frameTitle({
+    frameName: PCB_FRAME_NAME,
+    document,
+    modified: spec.modified,
+    suffixes: spec.readOnly ? [READ_ONLY_SUFFIX] : [],
+  });
+}
+
+// --- PROJECT::GetProjectFullName / PCB_EDIT_FRAME::GetDesignRulesPath over a file list (was project_settings.ts) ---
+
+const PRO_RE = /\.kicad_pro$/i;
+
+/** Path basename (project references store a bare file name). */
+function basename(p: string): string {
+  return p.split(/[\\/]/).pop() ?? p;
+}
+
+/** The project's `.kicad_pro` (same pinning rule as the schematic side). */
+export function findProjectPro(files: readonly RawFile[], proBase?: string): RawFile | undefined {
+  const want = proBase ? `${proBase}.kicad_pro`.toLowerCase() : null;
+  if (want) {
+    const pinned = files.find(
+      (f) => PRO_RE.test(f.name) && basename(f.name).toLowerCase() === want,
+    );
+    if (pinned) return pinned;
+  }
+  return files.find((f) => PRO_RE.test(f.name));
+}
+
+const PRL_RE = /\.kicad_prl$/i;
+
+/** The project's `.kicad_prl` (PROJECT_LOCAL_SETTINGS), if it has ever written one. */
+export function findProjectPrl(files: readonly RawFile[], proBase?: string): RawFile | undefined {
+  const want = proBase ? `${proBase}.kicad_prl`.toLowerCase() : null;
+  if (want) {
+    const pinned = files.find(
+      (f) => PRL_RE.test(f.name) && basename(f.name).toLowerCase() === want,
+    );
+    if (pinned) return pinned;
+  }
+  return files.find((f) => PRL_RE.test(f.name));
+}
+
+/** The custom-rules file KiCad pairs with a project:
+ *  `<project>.kicad_dru` (FILEEXT::DesignRulesFileExtension). */
+export function druFileName(proName: string): string {
+  return proName.replace(/\.kicad_pro$/i, '.kicad_dru');
+}
+
+/** The project's `.kicad_dru`, resolved via its `.kicad_pro` sibling. */
+export function findProjectDru(files: readonly RawFile[], proBase?: string): RawFile | undefined {
+  const pro = findProjectPro(files, proBase);
+  if (!pro) return undefined;
+  const want = druFileName(pro.name).toLowerCase();
+  return files.find((f) => f.name.toLowerCase() === want);
+}
+
+
+/** Local alias so code merged in from toggles.ts is unchanged. */
+type PcbnewSettings = PCBNEW_JSON_SETTINGS_LIKE;
+
+// --- PCB_EDIT_FRAME's left-toolbar toggle state (was toggles.ts) ---
+
+/**
+ * The left toolbar's cycling groups — `AppendGroup( TOOLBAR_GROUP_CONFIG(...) )`
+ * (`pcbnew/toolbars_pcb_editor.cpp:164-177`), in upstream's own order. The
+ * units group leads with millimetres here and with inches in eeschema
+ * (`eeschema/toolbars_sch_editor.cpp:82-84`), so the order is per-frame data,
+ * not a shared constant: it is what the button cycles through on click.
+ *
+ * The zone-display pair is not an upstream group — those two are separate
+ * `AppendAction`s (`toolbars_pcb_editor.cpp:186-188`) — but they read one
+ * `ZONE_DISPLAY_MODE`, so only one can be in force.
+ */
+export const RADIO_GROUPS: readonly (readonly string[])[] = [
+  ['unitsMm', 'unitsInches', 'unitsMils'],
+  ['crosshairSmall', 'crosshairFull', 'crosshair45'],
+  ['lineModeFree', 'lineMode90', 'lineMode45'],
+  ['zoneDisplayFilled', 'zoneDisplayOutline'],
+];
+
+/**
+ * What a fresh PCB_EDIT_FRAME shows, entry by entry:
+ *
+ * - `toggleGrid` — `window.grid.show`, default `true`
+ *   (`common/settings/app_settings.cpp:555-556`).
+ * - the units button — the `APP_SETTINGS_BASE` branch
+ *   (`app_settings.cpp:228-238`). `PCBNEW_SETTINGS` passes the filename
+ *   `"pcbnew"` (`pcbnew/pcbnew_settings.cpp:50`), which is on neither imperial
+ *   name, so the board opens in millimetres.
+ * - `crosshairSmall` — `m_crossHairMode( CROSS_HAIR_MODE::SMALL_CROSS )`
+ *   (`common/gal/gal_display_options.cpp:52`).
+ * - `lineModeFree` — `m_AngleSnapMode( LEADER_MODE::DIRECT )`
+ *   (`pcbnew/pcbnew_settings.cpp:59`), which
+ *   `BOARD_EDITOR_CONTROL::OnAngleSnapModeChanged` maps to
+ *   `PCB_ACTIONS::lineModeFree` (`pcbnew/tools/board_editor_control.cpp:364`).
+ *   **This was `lineMode90`**, which is the DEG90 arm — a mode the board editor
+ *   never starts in. The footprint editor's own default is DEG45
+ *   (`pcbnew/footprint_editor_settings.cpp:55`), so the three pcbnew-family
+ *   frames disagree on purpose and none of them may be copied from a neighbour.
+ * - `zoneDisplayFilled` — `m_ZoneDisplayMode = ZONE_DISPLAY_MODE::SHOW_FILLED`
+ *   (`include/pcb_display_options.h:35`).
+ * - `showLayersManager` — `aui.show_layer_manager`, default `true`
+ *   (`pcbnew/pcbnew_settings.cpp:78-79`).
+ * - `showProperties` — `aui.show_properties`, default `true`
+ *   (`pcbnew/pcbnew_settings.cpp:110-111`).
+ *
+ * And one entry that is deliberately ABSENT: `ratsnestLineMode` is checked off
+ * `m_Display.m_DisplayRatsnestLinesCurved` (`curvedRatsnestCond`,
+ * `pcbnew/pcb_edit_frame.cpp:1150-1155`), whose default is `false`
+ * (`pcb_display.ratsnest_curved`, `pcbnew/pcbnew_settings.cpp:258-259`). Ours
+ * listed it, so a fresh board drew **curved** ratsnest lines where KiCad draws
+ * straight ones.
+ */
+export const DEFAULT_TOGGLES: ReadonlySet<string> = new Set([
+  'toggleGrid',
+  defaultUnitsToggle('pcbnew'),
+  'crosshairSmall',
+  'lineModeFree',
+  'zoneDisplayFilled',
+  'showLayersManager',
+  'showProperties',
+]);
+
+/**
+ * Activating `id`, given what is currently on.
+ *
+ * A member of a radio group REPLACES its group — including itself, so
+ * re-activating the member already on leaves it on rather than turning it off.
+ * Anything else flips.
+ */
+export function applyToggle(prev: ReadonlySet<string>, id: string): Set<string> {
+  const next = new Set(prev);
+  const group = RADIO_GROUPS.find((g) => g.includes(id));
+
+  if (group) {
+    for (const g of group) next.delete(g);
+    next.add(id);
+  } else if (next.has(id)) {
+    next.delete(id);
+  } else {
+    next.add(id);
+  }
+
+  return next;
+}
+
+/**
+ * {@link DEFAULT_TOGGLES}, but with the three entries that have a stored value
+ * taken FROM that value — `EDA_DRAW_FRAME::LoadSettings` reading
+ * `m_Window.grid.show`, `m_Window.cursor.cross_hair_mode` and the frame's unit
+ * back out of `pcbnew.json` on open (`common/eda_draw_frame.cpp`).
+ *
+ * Preferences > PCB Editor > Display Options edits the crosshair shape and the
+ * Grids page the rest of `window.grid`; a frame that booted from a hardcoded
+ * set would show a choice the canvas never took. `editors/drawingsheet/
+ * toggles.ts`' `togglesFromSettings` is the same function for pl_editor.
+ *
+ * The other four entries stay literal because no key of `PcbnewSettings` backs
+ * them yet — inventing one to derive them from would be the opposite of this.
+ */
+export function pcbTogglesFromSettings(cfg: PcbnewSettings): Set<string> {
+  const out = new Set(DEFAULT_TOGGLES);
+
+  out.delete('toggleGrid');
+  if (cfg.window.grid.show) out.add('toggleGrid');
+
+  for (const id of ['crosshairSmall', 'crosshairFull', 'crosshair45']) out.delete(id);
+  out.add(crosshairToggleId(cfg.window.cursor.crosshair));
+
+  // `curvedRatsnestCond` reads `m_Display.m_DisplayRatsnestLinesCurved`
+  // (`pcbnew/pcb_edit_frame.cpp:1150-1155`), which Preferences > PCB Editor >
+  // Editing Options is the other control over.
+  out.delete('ratsnestLineMode');
+  if (cfg.pcb_display.ratsnest_curved) out.add('ratsnestLineMode');
+
+  // `BOARD_EDITOR_CONTROL::OnAngleSnapModeChanged` maps `m_AngleSnapMode` onto
+  // one of the three Line mode buttons (`board_editor_control.cpp:360-368`), so
+  // the toolbar group and Editing Options' "Constrain actions to H, V, 45
+  // degrees" are ONE value.
+  for (const id of ['lineModeFree', 'lineMode45', 'lineMode90']) out.delete(id);
+  out.add(lineModeToggleId(cfg.editing.pcb_angle_snap_mode));
+
+  return out;
+}
+
+/** `LEADER_MODE` -> the left toolbar's button id. DIRECT 0, DEG45 1, DEG90 2. */
+export function lineModeToggleId(mode: number): string {
+  return mode === 1 ? 'lineMode45' : mode === 2 ? 'lineMode90' : 'lineModeFree';
+}
+
+/** …and back. */
+export function lineModeOf(id: string): 0 | 1 | 2 | null {
+  if (id === 'lineModeFree') return 0;
+  if (id === 'lineMode45') return 1;
+  if (id === 'lineMode90') return 2;
+  return null;
+}
+
+/** `CROSS_HAIR_MODE` -> the left toolbar's button id. */
+export function crosshairToggleId(mode: CrosshairMode): string {
+  return mode === 'full' ? 'crosshairFull' : mode === '45' ? 'crosshair45' : 'crosshairSmall';
+}
+
+/** …and back, for a click on one of the three. */
+export function crosshairModeOf(id: string): CrosshairMode | null {
+  if (id === 'crosshairFull') return 'full';
+  if (id === 'crosshair45') return '45';
+  if (id === 'crosshairSmall') return 'small';
+  return null;
+}
+
+/**
+ * Fold a toolbar activation back into `pcbnew.json`, so the button and
+ * Preferences are one value rather than two that drift.
+ *
+ * `GAL_DISPLAY_OPTIONS`' setters write straight through to the settings object
+ * upstream — `PCB_BASE_FRAME::SaveSettings` then persists it — which is why
+ * flipping the crosshair from the toolbar and reopening Preferences shows the
+ * new shape selected. Returns true when it took the click, so the caller knows
+ * not to treat it as canvas-only state.
+ */
+export function foldPcbToggle(cfg: PcbnewSettings, id: string): boolean {
+  const mode = crosshairModeOf(id);
+
+  if (mode !== null) {
+    cfg.window.cursor.crosshair = mode;
+    return true;
+  }
+
+  const line = lineModeOf(id);
+
+  if (line !== null) {
+    cfg.editing.pcb_angle_snap_mode = line;
+    return true;
+  }
+
+  if (id === 'toggleGrid') {
+    cfg.window.grid.show = !cfg.window.grid.show;
+    return true;
+  }
+
+  if (id === 'ratsnestLineMode') {
+    cfg.pcb_display.ratsnest_curved = !cfg.pcb_display.ratsnest_curved;
+    return true;
+  }
+
+  if (id === 'togglePolarCoords') {
+    cfg.editing.polar_coords = !cfg.editing.polar_coords;
+    return true;
+  }
+
+  return false;
+}
+
+/** Whether {@link foldPcbToggle} would write the file for this id. */
+export function isStoredPcbToggle(id: string): boolean {
+  return (
+    crosshairModeOf(id) !== null ||
+    lineModeOf(id) !== null ||
+    id === 'toggleGrid' ||
+    id === 'ratsnestLineMode' ||
+    id === 'togglePolarCoords'
+  );
 }

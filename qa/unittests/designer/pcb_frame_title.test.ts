@@ -11,7 +11,7 @@ import {
   PCB_FRAME_NAME,
   VIEWER_3D_FRAME_NAME,
   pcbFrameTitle,
-} from '@ziroeda/pcbnew/frame_title.js';
+} from '@ziroeda/pcbnew/pcb_edit_frame.js';
 
 describe('pcbFrameTitle', () => {
   /**
