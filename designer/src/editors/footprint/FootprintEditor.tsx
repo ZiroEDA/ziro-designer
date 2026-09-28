@@ -98,7 +98,8 @@ import {
   FootprintCanvas,
   type FootprintCanvasController,
 } from '@ziroeda/pcbnew/pcb_draw_panel_gal_ui.js';
-import { FootprintLibraryManager, fpNameOf, footprintsBase } from './libraryManager.js';
+import { FootprintLibraryManager, fpNameOf } from '@ziroeda/pcbnew/footprint_libraries_utils.js';
+import { FP_LIBRARY_IO, footprintsBase } from './footprint_edit_frame_app.js';
 import { projectFpLibTable, projectLibraryNickname } from '@ziroeda/common/fp_lib_table.js';
 import {
   FOOTPRINT_COPPER_STACK,
@@ -305,7 +306,7 @@ export function FootprintEditor({
   const fpLeftBar = useToolbarEntries('fpedit', 'LEFT', FP_DEFAULT_TOOLBARS);
   const fpRightBar = useToolbarEntries('fpedit', 'RIGHT', FP_DEFAULT_TOOLBARS);
 
-  const manager = useRef(new FootprintLibraryManager());
+  const manager = useRef(new FootprintLibraryManager(FP_LIBRARY_IO));
   const [revision, setRevision] = useState(0);
   const bump = useCallback(() => setRevision((r) => r + 1), []);
 

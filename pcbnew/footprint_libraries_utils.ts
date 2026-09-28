@@ -17,19 +17,36 @@
  * footprint and library modified until saved. "Saving" serializes the footprint
  * with the lossless writer (serializeFootprint) and hands the bytes back, a
  * browser download per `.kicad_mod` file replaces writing to the `.pretty` dir.
+ *
+ * Moved from `designer/src/editors/footprint/libraryManager.ts` under the name
+ * of the `.cpp` whose operations it stores for (`ImportFootprint`,
+ * `DeleteFootprintFromLibrary`, `SaveFootprint`, `RevertFootprint`, …). Its
+ * four `designer/` reads — the resident catalogue, the library host, the
+ * load-progress tracker and `settings.pcbnew` — arrive through
+ * {@link FOOTPRINT_LIBRARY_IO} instead.
  */
 
 import { parse } from '@ziroeda/sexpr';
-import { footprintText } from '../../libraryBundleStore.js';
 import {
   FLIP_DIRECTION,
   readFootprintFile,
   serializeFootprint,
   type PcbFootprint,
-} from '@ziroeda/pcbnew';
-import { settings } from '../../prefs/settings.js';
-import { libraryBase } from '../../libraryHosts.js';
-import { trackLibraryLoad } from '../../widgets/library_loading.js';
+} from './index.js';
+
+/**
+ * What the manager asks of the program it runs in: where a global library's
+ * `.kicad_mod` text comes from (the resident catalogue, else the hosted
+ * library set — `designer/`'s storage, which `pcbnew` never imports), and
+ * `PCBNEW_SETTINGS::m_FlipDirection`, which `FootprintSave` reads off
+ * `Kiface().KifaceSettings()` rather than the footprint editor's own file.
+ */
+export interface FOOTPRINT_LIBRARY_IO {
+  /** One global footprint's file text; rejects when it cannot be had. */
+  footprintText(libName: string, fpName: string): Promise<string>;
+  /** `pcbnew.json`'s `editing.flip_left_right`. */
+  flipLeftRight(): boolean;
+}
 
 export interface ManagedFpLibrary {
   /** Library nickname (the `.pretty` directory basename). */
@@ -50,10 +67,6 @@ export interface ManagedFpLibrary {
   libModified: boolean;
 }
 
-// The hosted footprint library set, or the bundled subset when it is
-// unreachable (see libraryHosts.ts).
-export const footprintsBase = (): string => libraryBase.footprints;
-
 /** A footprint's name is the `.kicad_mod` basename (its FPID item name). */
 export const fpNameOf = (path: string): string =>
   path
@@ -64,6 +77,8 @@ export const fpNameOf = (path: string): string =>
     .replace(/\.kicad_mod$/i, '');
 
 export class FootprintLibraryManager {
+  constructor(private readonly io: FOOTPRINT_LIBRARY_IO) {}
+
   private libs = new Map<string, ManagedFpLibrary>();
   /**
    * `Prj().PinLibrary( nickname, PROJECT::LIB_TYPE_T::FOOTPRINT_LIB )` —
@@ -211,20 +226,7 @@ export class FootprintLibraryManager {
     if (existing) return existing;
     if (lib.scope === 'global') {
       try {
-        // Resident catalogue first; null falls through to the network, which
-        // is what a device without a bundle still uses.
-        const text = await trackLibraryLoad(
-          'footprints',
-          `Loading ${lib.name}...`,
-          footprintText(lib.name, fpName).then(async (resident) => {
-            if (resident !== null) return resident;
-            const r = await fetch(
-              `${footprintsBase()}/${encodeURIComponent(lib.name)}.pretty/${encodeURIComponent(fpName)}.kicad_mod`,
-            );
-            if (!r.ok) throw new Error(`${r.status}`);
-            return r.text();
-          }),
-        );
+        const text = await this.io.footprintText(lib.name, fpName);
         const fp = readFootprintFile(parse(text));
         if (!fp) return undefined;
         lib.footprints.set(fpName, fp);
@@ -330,7 +332,7 @@ export class FootprintLibraryManager {
     const fp = lib?.footprints.get(fpName);
     if (!lib || !fp) return undefined;
     const text = serializeFootprint(fp, {
-      flipDirection: settings.pcbnew.editing.flip_left_right
+      flipDirection: this.io.flipLeftRight()
         ? FLIP_DIRECTION.LEFT_RIGHT
         : FLIP_DIRECTION.TOP_BOTTOM,
     });
