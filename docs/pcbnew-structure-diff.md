@@ -4,12 +4,12 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 
 | status | count | meaning |
 |---|---:|---|
-| SAME | 233 | same relative path and name as KiCad's `.cpp` |
+| SAME | 235 | same relative path and name as KiCad's `.cpp` |
 | MOVED | 0 | KiCad has this name, in a different directory |
 | DIALOG | 1 | KiCad has it as `dialogs/dialog_<name>.cpp` |
 | HEADER | 16 | KiCad declares it in a `.h` with no matching `.cpp` |
 | ELSEWHERE | 3 | KiCad puts it outside `pcbnew/` |
-| OURS | 95 | no KiCad file of this name anywhere |
+| OURS | 93 | no KiCad file of this name anywhere |
 
 ## MOVED
 
@@ -126,12 +126,10 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 | `router/pns_line_drag.ts` | `-` |
 | `router/pns_line_item.ts` | `-` |
 | `router/pns_obstacles.ts` | `-` |
-| `router/pns_optimizer_diff_pair.ts` | `-` |
 | `router/pns_rule_resolver.ts` | `-` |
 | `router/pns_seg_ops.ts` | `-` |
 | `router/pns_session.ts` | `-` |
 | `router/pns_shape_collider.ts` | `-` |
-| `router/pns_smart_pads.ts` | `-` |
 | `router/router_size_menus.ts` | `-` |
 | `router/shape_arc_ops.ts` | `-` |
 | `shape_fill.ts` | `-` |
@@ -153,7 +151,7 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 
 ## SAME
 
-<details><summary>233 files already at KiCad's own path</summary>
+<details><summary>235 files already at KiCad's own path</summary>
 
 - `array_pad_number_provider.ts`
 - `autorouter/ar_autoplacer.ts`
@@ -248,6 +246,7 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `drc/drc_test_provider_via_diameter.ts`
 - `drc/drc_test_provider_zone_connections.ts`
 - `edit_track_width.ts`
+- `edit.ts`
 - `exporters/export_d356.ts`
 - `exporters/gendrill_excellon_writer.ts`
 - `exporters/gendrill_writer_base.ts`
@@ -269,6 +268,7 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `graphics_cleaner.ts`
 - `grid_layer_box_helpers.ts`
 - `import_gfx/graphics_importer_pcbnew.ts`
+- `initpcb.ts`
 - `kicad_clipboard.ts`
 - `layer_pairs.ts`
 - `layer_utils.ts`
