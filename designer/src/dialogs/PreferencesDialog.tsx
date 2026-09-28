@@ -27,10 +27,10 @@ import { loadPrefsPanel, peekPrefsPanel } from './prefs/lazy_pages.js';
 import {
   DEFAULT_RESET_TOOLTIP,
   type PrefsContext,
-  type PrefsPageId,
   type PrefsPageOwner,
   type PrefsPanelModule,
 } from './prefs/types.js';
+import { type PrefsPageId } from '@ziroeda/common/frame_type.js';
 import type { HotkeyOverrides } from '../editors/schematic/hotkey_bindings.js';
 import { SENTRY } from '@ziroeda/common/app_monitor.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';

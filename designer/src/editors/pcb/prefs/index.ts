@@ -33,11 +33,8 @@ import { PanelPcbToolbars } from './PanelPcbToolbars.js';
 import { PanelViewer3dGeneral } from './PanelViewer3dGeneral.js';
 import { PanelViewer3dOpengl } from './PanelViewer3dOpengl.js';
 import { PanelViewer3dToolbars } from './PanelViewer3dToolbars.js';
-import type {
-  PrefsPageId,
-  PrefsPanelFactory,
-  PrefsPanelModule,
-} from '../../../dialogs/prefs/types.js';
+import type { PrefsPanelFactory, PrefsPanelModule } from '../../../dialogs/prefs/types.js';
+import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
 
 export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanelModule | null => {
   switch (id) {

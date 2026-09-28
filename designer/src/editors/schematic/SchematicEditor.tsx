@@ -533,7 +533,7 @@ import type { ProgressSnapshot } from '@ziroeda/common/widgets/progress_reporter
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
-import type { PrefsPageId } from '../../dialogs/prefs/types.js';
+import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
 import { useEeschemaApp } from './eeschema_app.js';
 import {
   fastGridActionForKey,

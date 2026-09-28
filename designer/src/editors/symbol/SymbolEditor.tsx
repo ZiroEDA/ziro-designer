@@ -120,7 +120,7 @@ import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import '@ziroeda/common/widgets/shell.css';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
-import type { PrefsPageId } from '../../dialogs/prefs/types.js';
+import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
 import { symbolEditorMenus } from './menubar.js';
 import { DialogSchFind } from '@ziroeda/eeschema/dialogs/dialog_sch_find.js';
 import {
