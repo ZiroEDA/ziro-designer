@@ -13,7 +13,7 @@
 import type { OutStr } from '@ziroeda/common/eda_item.js';
 import { type ARC_EDIT_MODE, FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
-import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
+import type { PCBNEW_APP } from '@ziroeda/pcbnew/pcbnew_app.js';
 import { jsonFileWildcard, reportFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import { DialogAssignNetclass } from '@ziroeda/common/dialogs/dialog_assign_netclass.js';
 import { addNetclassAssignment } from '@ziroeda/eeschema/tools/assign_netclass.js';
@@ -269,9 +269,7 @@ import { PnsRouterMode } from '@ziroeda/pcbnew/router/pns_router.js';
 import type { PnsDesignSettings } from '@ziroeda/pcbnew/router/pns_board_iface.js';
 import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
 import { ReferenceImageCache } from '@ziroeda/pcbnew/pcb_reference_image.js';
-import { cleanup3dCache } from './model_cache.js';
 import { buildPcbMenus } from '@ziroeda/pcbnew/menubar_pcb_editor.js';
-import { Viewer3DFrame } from './Viewer3DFrame.js';
 import { dimensionDefaultsFrom, dimensionToolKind } from '@ziroeda/pcbnew/tools/drawing_tool.js';
 import { DialogDimensionProperties } from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties_ui.js';
 import { DialogTextBoxProperties } from '@ziroeda/pcbnew/dialogs/dialog_textbox_properties_ui.js';
@@ -376,6 +374,7 @@ import {
   findProjectDru,
   findProjectPrl,
   findProjectPro,
+  type PCBNEW_JSON_SETTINGS_LIKE,
 } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import { clampMaxErrorMM } from '@ziroeda/pcbnew/board_settings.js';
 import type { TextGfxRow } from '@ziroeda/pcbnew/board_settings.js';
@@ -547,10 +546,7 @@ import {
   pcbnewSettingsOf,
 } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import { FetchNetlistFromSchematic } from '@ziroeda/pcbnew/netlist_from_schematic.js';
-import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
-import { FootprintChooserFrame } from './dialogs/footprint_chooser_frame.js';
 import { addFootprintToHistory } from '@ziroeda/pcbnew/widgets/footprint_history.js';
-import { preloadBoardLibraries } from './preload.js';
 import { parseFootprint } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import {
   buildScene,
@@ -578,7 +574,6 @@ import {
   setItemsHidden,
   syncViewTransform,
 } from '@ziroeda/pcbnew/pcb_canvas.js';
-import { installPgm, reloadUserColorSettings } from './pcb_canvas.js';
 import type { PCB_DRAW_PANEL_GAL } from '@ziroeda/pcbnew/pcb_draw_panel_gal.js';
 import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
 import { PCB_DISPLAY_OPTIONS, type PCB_PAINTER } from '@ziroeda/pcbnew/pcb_painter.js';
@@ -593,7 +588,6 @@ import { VIEW_UPDATE_FLAGS, type VIEW_ITEM } from '@ziroeda/common/view/view_ite
 import { PAD } from '@ziroeda/pcbnew/pad.js';
 import { PCB_TRACK, PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
 import { TRACK_CLEARANCE_MODE } from '@ziroeda/pcbnew/pcbnew_settings.js';
-import { commonSettingsOf, windowSettingsOf } from '../../pgm_app.js';
 import {
   applyToggle,
   crosshairToggleId,
@@ -630,14 +624,11 @@ import {
 } from '@ziroeda/common/tool/conditional_menu.js';
 import { standardSubMenuEntries } from '@ziroeda/common/eda_draw_frame_submenus.js';
 import { PCB_CONTROL, PCB_DEFAULT_TOOLBARS } from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
-import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import '@ziroeda/common/widgets/shell.css';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
-import { EMPTY_PCB } from '../../home/new_project.js';
 import { ProgressDialog, nextPaint } from '@ziroeda/common/widgets/wx_progress_reporters.js';
 import { yieldToEventLoop } from '@ziroeda/common/yield_to_event_loop.js';
 import type { ProgressSnapshot } from '@ziroeda/common/widgets/progress_reporter_snapshot.js';
-import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
 import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
@@ -651,15 +642,8 @@ import {
   type FocusLike,
 } from '@ziroeda/common/browser_hotkeys.js';
 import { browserSafeKey } from '@ziroeda/common/browser_reserved.js';
-import { settings } from '../../prefs/settings.js';
 import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
 import { hiContrastFactorFor } from '@ziroeda/common/render_settings.js';
-import {
-  useCommonSettings,
-  usePcbnewSettings,
-  useUserColors,
-  useUserThemes,
-} from '../../prefs/useSettings.js';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import {
   COLOR4D_UNSPECIFIED,
@@ -667,7 +651,6 @@ import {
   toCssColor,
   type Color4d,
 } from '@ziroeda/common/gal/color4d.js';
-import { HomeLink } from '../../ui/HomeLink.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
@@ -772,13 +755,12 @@ function notePcbPaint(path: 'gl' | 'raster', t0: number): void {
 const PCB_GRIDS: number[] = gridSizesIU('pcbnew', MM);
 
 /** The stored grid list, in IU — `window.grid.sizes` rather than the table. */
-function pcbGridSizesIU(cfg: typeof settings.pcbnew): number[] {
+function pcbGridSizesIU(cfg: PCBNEW_JSON_SETTINGS_LIKE): number[] {
   return cfg.window.grid.sizes.map((g) => gridSizeToIU(g.x, MM) ?? 0).filter((v) => v > 0);
 }
 
 /** The grid the frame opens on: `window.grid.last_size_idx` into that list. */
-function storedPcbGridIU(): number {
-  const cfg = settings.pcbnew;
+function storedPcbGridIU(cfg: PCBNEW_JSON_SETTINGS_LIKE): number {
   return pcbGridSizesIU(cfg)[cfg.window.grid.last_size_idx] ?? PCB_DEFAULT_GRID_IU;
 }
 
@@ -1166,6 +1148,7 @@ function boardSetupRepaint(frame: PCB_EDIT_FRAME, panel: PCB_DRAW_PANEL_GAL, kb:
 }
 
 export function PcbEditor({
+  app,
   fileName,
   text,
   onExit,
@@ -1187,6 +1170,11 @@ export function PcbEditor({
   readOnlyNotice,
   readOnly,
 }: {
+  /** What the program gives this window — PreferencesDialog, HomeLink,
+   *  SaveAsDialog, the 3D viewer, the footprint chooser, the settings
+   *  triad — the same seam `cvpcb`'s `CVPCB_APP` and `pagelayout_editor`'s
+   *  `PL_EDITOR_APP` already give theirs. See `pcbnew/pcbnew_app.ts`. */
+  app: PCBNEW_APP;
   fileName: string;
   text: string;
   onExit: () => void;
@@ -1272,6 +1260,33 @@ export function PcbEditor({
    */
   readOnly?: boolean;
 }): JSX.Element {
+  // What the program gives this window (pcbnew/pcbnew_app.ts's PCBNEW_APP);
+  // destructured once so the rest of this file's calls and JSX are
+  // unchanged from when each of these was its own designer/ import.
+  const {
+    PreferencesDialog,
+    HomeLink,
+    SaveAsDialog,
+    FootprintChooserFrame,
+    Viewer3DFrame,
+    pcbnewSettings: pcbCfg,
+    commonSettings: commonCfg,
+    updatePcbnewSettings,
+    updateCommonSettings,
+    commonInputImmediateActionsLive,
+    commonSettingsOf,
+    windowSettingsOf,
+    installPgm,
+    reloadUserColorSettings,
+    userColors,
+    userThemes,
+    useToolbarEntries,
+    loadFootprintIndex,
+    loadFootprint,
+    preloadBoardLibraries,
+    cleanup3dCache,
+    EMPTY_PCB,
+  } = app;
   /**
    * `EDA_BASE_FRAME::RecreateToolbars` (`common/eda_base_frame.cpp:1728-1843`):
    * the frame asks `GetToolbarConfig( loc, m_CustomToolbars )` for each bar and
@@ -1324,8 +1339,6 @@ export function PcbEditor({
    * call, and it is why Display Options' Grid Display, Cursor, Annotations and
    * Clearance Outlines groups take effect without a reload.
    */
-  const pcbCfg = usePcbnewSettings();
-  const commonCfg = useCommonSettings();
   /**
    * `PANEL_GAL_OPTIONS`' two groups, mirrored into a ref because `draw` is
    * memoised on the layer set alone and must not be rebuilt whenever a setting
@@ -1403,9 +1416,7 @@ export function PcbEditor({
   // `EDA_DRAW_FRAME::LoadSettings` — the frame opens on what the file holds,
   // not on a hardcoded set. Seeded once: after that the toolbar owns the state
   // and folds its own clicks back into the file (`foldPcbToggle`).
-  const [toggles, setToggles] = useState<Set<string>>(() =>
-    pcbTogglesFromSettings(settings.pcbnew),
-  );
+  const [toggles, setToggles] = useState<Set<string>>(() => pcbTogglesFromSettings(pcbCfg));
   const unitLabel: StatusUnits = toggles.has('unitsInches')
     ? 'in'
     : toggles.has('unitsMils')
@@ -1694,13 +1705,13 @@ export function PcbEditor({
   // which is what carries the choice across a reload: `COMMON_TOOLS::GridPreset`
   // takes an `int&` straight into the settings object and mutates it in place
   // (`common_tools.cpp:536`), so upstream never writes it explicitly either.
-  const [gridIU, setGridIU] = useState(() => storedPcbGridIU());
+  const [gridIU, setGridIU] = useState(() => storedPcbGridIU(pcbCfg));
   const gridIURef = useRef(gridIU);
   gridIURef.current = gridIU;
   /** {@link setGridIU}, plus the write-back that makes the choice survive. */
   const setGridIUStored = useCallback((iu: number) => {
     setGridIU(iu);
-    settings.updatePcbnew((s) => {
+    updatePcbnewSettings((s) => {
       const idx = pcbGridSizesIU(s).indexOf(iu);
       if (idx >= 0) s.window.grid.last_size_idx = idx;
     });
@@ -2777,8 +2788,6 @@ export function PcbEditor({
    * (`pcb_draw_panel_gal.cpp:780-790`), and `CommonSettingsChanged` re-runs it,
    * which is what the settings subscription above is.
    */
-  const userColors = useUserColors();
-  const userThemes = useUserThemes();
   const theme = useMemo(
     () => pcbThemeWithOverrides(pcbCfg.appearance.color_theme, userColors, userThemes),
     [pcbCfg.appearance.color_theme, userColors, userThemes],
@@ -2810,7 +2819,7 @@ export function PcbEditor({
       // `m_hiContrastFactor = 1.0 - hicontrast_dimming_factor`
       // (`pcbnew/pcb_painter.cpp:176`). The inversion is the point: Preferences
       // asks how much to DIM and the painter wants how much SURVIVES.
-      hiContrastFactor: hiContrastFactorFor(settings.common.appearance.hicontrast_dimming_factor),
+      hiContrastFactor: hiContrastFactorFor(commonCfg.appearance.hicontrast_dimming_factor),
       activeLayer,
       theme,
       // Preferences > PCB Editor > Display Options. `m_Display.m_NetNames` is
@@ -5142,7 +5151,7 @@ export function PcbEditor({
       const brd = boardRef.current;
       const canvas = canvasRef.current;
       if (!brd) return;
-      const cfg = settings.pcbnew.cross_probing;
+      const cfg = pcbCfg.cross_probing;
       // null is `case MAIL_SELECTION: if( !...on_selection ) break;` — the packet
       // is dropped whole, so the existing selection stays as the user left it.
       const ids = crossProbeSelection(cfg, brd, parts, force);
@@ -5211,7 +5220,7 @@ export function PcbEditor({
       };
       requestDraw();
     },
-    [requestDraw, settings.pcbnew.cross_probing],
+    [requestDraw, pcbCfg.cross_probing],
   );
   const applySyncSelectionRef = useRef(applySyncSelection);
   applySyncSelectionRef.current = applySyncSelection;
@@ -5409,7 +5418,7 @@ export function PcbEditor({
         isShownOnScreen: () => drcDialogRef.current !== null,
         destroy: () => setDrcDialog(null),
         saveDrcDialogSettings: (values) =>
-          settings.updatePcbnew((c) => {
+          updatePcbnewSettings((c) => {
             c.DRC.report_all_track_errors = values.report_all_track_errors;
             c.DRC.crossprobe = values.crossprobe;
             c.DRC.scroll_on_crossprobe = values.scroll_on_crossprobe;
@@ -7685,7 +7694,7 @@ export function PcbEditor({
    */
   useEffect(() => {
     if (activeTool !== 'placeFootprint') return;
-    if (settings.common.input.immediate_actions) setFpChooserOpen(true);
+    if (commonInputImmediateActionsLive()) setFpChooserOpen(true);
   }, [activeTool]);
 
   /**
@@ -10630,7 +10639,7 @@ export function PcbEditor({
     // The three crosshair shapes and Show Grid are stored settings, so the
     // button and Preferences are one value: `foldPcbToggle` writes the file and
     // the subscription above brings it back as a re-render.
-    if (isStoredPcbToggle(id)) settings.updatePcbnew((c) => void foldPcbToggle(c, id));
+    if (isStoredPcbToggle(id)) updatePcbnewSettings((c) => void foldPcbToggle(c, id));
     setToggles((prev) => applyToggle(prev, id));
   };
 
@@ -10922,7 +10931,7 @@ export function PcbEditor({
    * a view does not change.
    */
   const closeFrame = (): void => {
-    void cleanup3dCache(settings.common.system.clear_3d_cache_interval);
+    void cleanup3dCache(commonCfg.system.clear_3d_cache_interval);
     onExit();
   };
 
@@ -10950,9 +10959,9 @@ export function PcbEditor({
       action: onTopAction,
       tool: setActiveTool,
       toggle: onLeftToggle,
-      language: settings.common.system.language,
+      language: commonCfg.system.language,
       onSelectLanguage: (label: string) =>
-        settings.updateCommon((c) => {
+        updateCommonSettings((c) => {
           c.system.language = label;
         }),
       showHotkeys: showHotkeyList,

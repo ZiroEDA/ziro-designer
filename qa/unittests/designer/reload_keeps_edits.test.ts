@@ -115,13 +115,13 @@ describe('opening a project is an action, not a binding (OpenProjectFiles)', () 
     // The writers that must NOT reopen: a plot output file and the board
     // editor's Ctrl+S both write the project without opening anything.
     expect(body(APP, 'onOutputFile')).not.toContain('openProjectFiles(');
-    expect(element(APP, 'PcbEditor')).toContain('onSaveBoard');
-    expect(element(APP, 'PcbEditor')).not.toContain('openProjectFiles(');
+    expect(element(APP, 'PcbEditorMount')).toContain('onSaveBoard');
+    expect(element(APP, 'PcbEditorMount')).not.toContain('openProjectFiles(');
   });
 
   it('both editors are told when an open happens', () => {
     expect(element(APP, 'SchematicEditor')).toContain('openNonce={openNonce}');
-    expect(element(APP, 'PcbEditor')).toContain('openNonce={openNonce}');
+    expect(element(APP, 'PcbEditorMount')).toContain('openNonce={openNonce}');
   });
 
   it('eeschema re-reads the project only on an open, never on a new array', () => {
@@ -149,7 +149,7 @@ describe('opening a project is an action, not a binding (OpenProjectFiles)', () 
     expect(code).toMatch(/if \(parsedOpen\.current === open\) return;/);
     // App says which frame is on screen, to both.
     expect(element(APP, 'SchematicEditor')).toContain("shown={view === 'schematic'}");
-    expect(element(APP, 'PcbEditor')).toContain("shown={view === 'pcb'}");
+    expect(element(APP, 'PcbEditorMount')).toContain("shown={view === 'pcb'}");
   });
 
   it('pcbnew parses the board only on an open, and reads the live text by ref', () => {
@@ -168,7 +168,7 @@ describe('every editor that autosaves can be forced to flush', () => {
   });
 
   it('the board editor is given one — it had none, so its last second was unreachable', () => {
-    expect(element(APP, 'PcbEditor')).toContain('registerAutosaveFlush={registerPcbFlush}');
+    expect(element(APP, 'PcbEditorMount')).toContain('registerAutosaveFlush={registerPcbFlush}');
     const { code } = effectAround(PCB, 'registerAutosaveFlush((');
     expect(code).toContain('serializeBoard(brd)');
     expect(code).toContain('onBoardChange(');

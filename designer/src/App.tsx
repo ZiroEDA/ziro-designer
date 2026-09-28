@@ -13,6 +13,7 @@ import {
   lazy,
   Suspense,
   type CSSProperties,
+  type ComponentProps,
 } from 'react';
 import type { LibSymbol } from '@ziroeda/eeschema';
 import { HomePage } from './home/HomePage.js';
@@ -40,6 +41,7 @@ import { pushProject } from './cloud/sync.js';
 import { useRoute } from './nav/useRoute.js';
 import { fileForFrame, type ProjectView, type Route } from './nav/route.js';
 import { installSettingsSync } from './cloud/settingsSync.js';
+import { usePcbnewApp } from './editors/pcb/pcbnew_app.js';
 import type { DemoMeta } from './home/demos.js';
 import { useAuth } from './auth/AuthProvider.js';
 import {
@@ -83,6 +85,18 @@ const SchematicEditor = lazy(() =>
 const PcbEditor = lazy(() =>
   import('./editors/pcb/PcbEditor.js').then((m) => ({ default: m.PcbEditor })),
 );
+/**
+ * `PcbEditor` takes `PCBNEW_APP` as a prop (`pcbnew/pcbnew_app.ts`); building
+ * it calls React hooks (`usePcbnewSettings`, `useCommonSettings`, ...), so
+ * they live in their own component, mounted only while `pcbMounted` is true
+ * — the same reason `usePcbnewApp` itself only re-renders while this is on
+ * screen, exactly as `PcbEditor`'s own settings subscriptions did before the
+ * move.
+ */
+function PcbEditorMount(props: Omit<ComponentProps<typeof PcbEditor>, 'app'>): JSX.Element {
+  const app = usePcbnewApp();
+  return <PcbEditor app={app} {...props} />;
+}
 const SymbolEditor = lazy(() =>
   import('./editors/symbol/SymbolEditor.js').then((m) => ({ default: m.SymbolEditor })),
 );
@@ -1774,7 +1788,7 @@ export function App(): JSX.Element {
         <div style={frameStyle(view === 'pcb')}>
           <Frozen shown={view === 'pcb'}>
             <Suspense fallback={frameLoading}>
-              <PcbEditor
+              <PcbEditorMount
                 fileName={pcbBasename(boardFile.name)}
                 text={boardFile.text}
                 onExit={goHome}

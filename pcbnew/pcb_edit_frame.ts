@@ -116,15 +116,25 @@ export interface PCBNEW_JSON_SETTINGS_LIKE {
    * `pcbTogglesFromSettings` (`toggles.ts`) and the window's own
    * `pcbGridSizesIU`/`storedPcbGridIU`, both narrower readers of the same
    * `PcbnewSettings.window` than `windowSettingsOf` (`pgm_app.ts`) is.
+   * `style`/`line_width`/`min_spacing`/`snap`/`always_show_cursor` are the
+   * rest of `PANEL_GAL_OPTIONS`' two groups (`common/dialogs/
+   * panel_gal_options.cpp:110-124`), which `PcbEditor.tsx`'s `galRef`
+   * spreads together with `pcb_display` into a `windowSettingsOf`-shaped
+   * object.
    */
   window: {
     grid: {
       sizes: GridEntry[];
       last_size_idx: number;
       show: boolean;
+      style: 'dots' | 'lines' | 'crosses';
+      line_width: number;
+      min_spacing: number;
+      snap: 0 | 1 | 2;
     };
     cursor: {
       crosshair: 'small' | 'full' | '45';
+      always_show_cursor: boolean;
     };
   };
 }

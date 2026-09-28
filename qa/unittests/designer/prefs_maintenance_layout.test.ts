@@ -147,7 +147,7 @@ describe('the 3D cache duration is a live control', () => {
     // go through the same close, which is the failure a single-exit test would
     // miss.
     const frame = strip(src('editors/pcb/PcbEditor.tsx'));
-    expect(frame).toMatch(/cleanup3dCache\(settings\.common\.system\.clear_3d_cache_interval\)/);
+    expect(frame).toMatch(/cleanup3dCache\(commonCfg\.system\.clear_3d_cache_interval\)/);
     // Neither way out of the editor may call `onExit` raw. The File menu's
     // Close is one step further away since the bar became `pcbnew/menubar_pcb_editor.ts`:
     // the row dispatches `close`, and the frame's switch is what runs

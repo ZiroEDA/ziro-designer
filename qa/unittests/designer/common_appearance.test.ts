@@ -310,7 +310,7 @@ describe('the board painter dims the way pcb_painter does', () => {
     ]) {
       const src = readFileSync(resolve(process.cwd(), '..', frame), 'utf8');
       expect(src, frame).toMatch(
-        /hiContrastFactorFor\((?:settings\.common|app\.common\(\))\.appearance\.hicontrast_dimming_factor\)/,
+        /hiContrastFactorFor\((?:settings\.common|app\.common\(\)|commonCfg)\.appearance\.hicontrast_dimming_factor\)/,
       );
     }
   });

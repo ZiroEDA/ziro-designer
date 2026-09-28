@@ -251,7 +251,7 @@ describe('PcbEditor routes its cross-probes through the settings', () => {
     // Upstream the frame that RECEIVES the probe owns the settings that decide
     // what it does (pcbnew/cross-probing.cpp:734 `GetPcbNewSettings()`), and
     // Select on PCB is received here.
-    expect(PCB_EDITOR).toContain('settings.pcbnew.cross_probing');
+    expect(PCB_EDITOR).toContain('pcbCfg.cross_probing');
     expect(PCB_EDITOR).not.toContain('settings.eeschema.cross_probing');
   });
 

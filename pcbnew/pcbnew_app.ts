@@ -34,10 +34,11 @@ export interface PcbnewSaveAsDialogProps {
 }
 
 /**
- * `FootprintChooserFrame`'s props minus `loadFootprintIndex`/`loadFootprint`,
- * which the designer-side hook bakes in (see `footprint_chooser_frame.tsx`'s
- * own doc comment: "the seam PCBNEW_APP / CVPCB_APP give a frame; this
- * dialog is not a `_ui.tsx` frame yet").
+ * `FootprintChooserFrame`'s props, unchanged — including
+ * `loadFootprintIndex`/`loadFootprint`, which `PcbEditor.tsx` already gets
+ * from `PCBNEW_APP` itself (see `footprint_chooser_frame.tsx`'s own doc
+ * comment: "the seam PCBNEW_APP / CVPCB_APP give a frame; this dialog is
+ * not a `_ui.tsx` frame yet, so it takes the two functions directly").
  */
 export interface PcbnewFootprintChooserFrameProps {
   preselect?: string;
@@ -45,6 +46,8 @@ export interface PcbnewFootprintChooserFrameProps {
   pinCount?: number;
   onOk: (libId: string) => void;
   onCancel: () => void;
+  loadFootprintIndex: () => Promise<FootprintIndexLibrary[]>;
+  loadFootprint: (libId: string) => Promise<PcbFootprint | null>;
 }
 
 /** `settings.common`, the fields `PcbEditor` reads at render time. */
