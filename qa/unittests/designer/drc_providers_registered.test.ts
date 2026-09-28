@@ -15,7 +15,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { DRC_TEST_PROVIDER_REGISTRY } from '@ziroeda/pcbnew/drc/drc_test_provider.js';
-import '@ziroeda/designer/src/editors/pcb/pcb_edit_frame.js';
+import '@ziroeda/pcbnew/pcb_edit_frame.js';
 
 /**
  * The order the installed build's static initialisers run in, which is

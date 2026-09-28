@@ -16,7 +16,7 @@ import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { wxGetTempDir, wxWriteFileSync } from '@ziroeda/common/wx/filefn.js';
 import { installPgm } from '@ziroeda/designer/src/editors/pcb/pcb_canvas.js';
-import { PCB_EDIT_FRAME } from '@ziroeda/designer/src/editors/pcb/pcb_edit_frame.js';
+import { PCB_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 

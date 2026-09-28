@@ -50,7 +50,7 @@ import { PCB_TRACK } from '@ziroeda/pcbnew/pcb_track.js';
 import { ZONE } from '@ziroeda/pcbnew/zone.js';
 import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
 import { DRC_TOOL, type ZONE_FILLER_TOOL_LIKE } from '@ziroeda/pcbnew/tools/drc_tool.js';
-import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
+import type { PCB_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 
 /** `BOARD_INSPECTION_TOOL` as the row menu asks it; found by name until stage 3. */
 export interface BOARD_INSPECTION_TOOL_LIKE {

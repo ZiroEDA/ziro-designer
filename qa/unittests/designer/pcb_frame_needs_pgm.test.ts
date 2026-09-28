@@ -15,7 +15,7 @@ import { SetPgm } from '@ziroeda/common/pgm_base.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 import { installPgm } from '@ziroeda/designer/src/editors/pcb/pcb_canvas.js';
-import { PCB_EDIT_FRAME } from '@ziroeda/designer/src/editors/pcb/pcb_edit_frame.js';
+import { PCB_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 
 afterEach(() => SetPgm(null));
 

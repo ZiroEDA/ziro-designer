@@ -15,7 +15,7 @@ import { CLEARANCE_LAYER_FOR, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { PCB_DRAW_PANEL_GAL } from '@ziroeda/pcbnew/pcb_draw_panel_gal.js';
 import { PCB_SCREEN } from '@ziroeda/pcbnew/pcb_screen.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
-import { PCB_EDIT_FRAME } from '@ziroeda/designer/src/editors/pcb/pcb_edit_frame.js';
+import { PCB_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 
 function makeFrame() {
   const frame = new PCB_EDIT_FRAME({

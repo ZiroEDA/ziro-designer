@@ -16,7 +16,7 @@ import { schIUScale } from '@ziroeda/common/eda_units.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { installPgm } from '@ziroeda/designer/src/editors/pcb/pcb_canvas.js';
-import { PCB_EDIT_FRAME } from '@ziroeda/designer/src/editors/pcb/pcb_edit_frame.js';
+import { PCB_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 
 const BOARD = `(kicad_pcb (version 20241229) (generator "pcbnew")
   (general (thickness 1.6))

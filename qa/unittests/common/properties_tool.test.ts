@@ -20,7 +20,7 @@ import {
 } from '@ziroeda/common/tool/tool_event.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { installPgm } from '@ziroeda/designer/src/editors/pcb/pcb_canvas.js';
-import { PCB_EDIT_FRAME } from '@ziroeda/designer/src/editors/pcb/pcb_edit_frame.js';
+import { PCB_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 
 class TEST_FRAME extends (EDA_DRAW_FRAME as unknown as new (

@@ -19,7 +19,7 @@ import {
   DIALOG_DRC,
   type DIALOG_DRC_WINDOW,
 } from '@ziroeda/designer/src/editors/pcb/dialogs/dialog_drc_model.js';
-import { PCB_EDIT_FRAME } from '@ziroeda/designer/src/editors/pcb/pcb_edit_frame.js';
+import { PCB_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 import { DRC_ITEM, PCB_DRC_CODE } from '@ziroeda/pcbnew/drc/drc_item.js';

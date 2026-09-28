@@ -32,7 +32,7 @@ import type { VIEW } from '@ziroeda/common/view/view.js';
 import { PCB_DRAW_PANEL_GAL } from '@ziroeda/pcbnew/pcb_draw_panel_gal.js';
 import type { PCB_DISPLAY_OPTIONS } from '@ziroeda/pcbnew/pcb_painter.js';
 import { PCB_SCREEN } from '@ziroeda/pcbnew/pcb_screen.js';
-import { pcbnewSettingsOf, type PCB_EDIT_FRAME } from './pcb_edit_frame.js';
+import { pcbnewSettingsOf, type PCB_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import { type KiCursor, kiCursor } from '../../ui/kicursors.js';
 import { settings } from '../../prefs/settings.js';
 import { drawPanelWindow } from '../../render/gal_window.js';

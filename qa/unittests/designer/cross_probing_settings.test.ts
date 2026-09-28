@@ -35,7 +35,7 @@ import {
   PCBNEW_DEFAULTS,
   deepMerge,
 } from '@ziroeda/designer/src/prefs/settings.js';
-import { pcbnewSettingsOf } from '@ziroeda/designer/src/editors/pcb/pcb_edit_frame.js';
+import { pcbnewSettingsOf } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 
 const BOARD = `(kicad_pcb (version 20241229) (generator "pcbnew")
   (general (thickness 1.6))
