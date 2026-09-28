@@ -29,7 +29,9 @@ describe('LAYER_PAIR_SETTINGS', () => {
     const s = new LAYER_PAIR_SETTINGS();
     expect(s.AddLayerPair(new LAYER_PAIR_INFO(new LAYER_PAIR(F_Cu, In1_Cu), true, 'A'))).toBe(true);
     // Same two layers, reversed order - still a duplicate.
-    expect(s.AddLayerPair(new LAYER_PAIR_INFO(new LAYER_PAIR(In1_Cu, F_Cu), true, 'B'))).toBe(false);
+    expect(s.AddLayerPair(new LAYER_PAIR_INFO(new LAYER_PAIR(In1_Cu, F_Cu), true, 'B'))).toBe(
+      false,
+    );
     expect(s.GetLayerPairs()).toHaveLength(1);
   });
 

@@ -19,13 +19,13 @@
  * of that.
  */
 import { LSET } from '@ziroeda/common/lset.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { PROGRESS_REPORTER } from '@ziroeda/common/progress_reporter.js';
 import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { BOARD } from './board.js';
 import { PCB_VIA } from './pcb_track.js';
-import { ZONE } from './zone.js';
+import type { ZONE } from './zone.js';
 
 /** `RuleAreasHaveSameProps` (`zone_utils.cpp:42`, file-local). */
 function ruleAreasHaveSameProps(a: ZONE, b: ZONE): boolean {
@@ -243,7 +243,11 @@ function computeConstraint(aPair: ZONE_OVERLAP_PAIR, aBoard: BOARD): ZONE_PRIORI
   let countA = 0;
   let countB = 0;
 
-  const countIfInOverlap = (aPos: { x: number; y: number }, aNetCode: number, aLayer: PCB_LAYER_ID): void => {
+  const countIfInOverlap = (
+    aPos: { x: number; y: number },
+    aNetCode: number,
+    aLayer: PCB_LAYER_ID,
+  ): void => {
     if (!aPair.sharedLayers.test(aLayer)) return;
 
     if (intersection.Contains(aPos)) {
@@ -299,7 +303,10 @@ function computeConstraint(aPair: ZONE_OVERLAP_PAIR, aBoard: BOARD): ZONE_PRIORI
 }
 
 /** `assignPrioritiesFromGraph` (`zone_utils.cpp:373`, file-local). */
-function assignPrioritiesFromGraph(aEdges: readonly ZONE_PRIORITY_EDGE[], aAllZones: readonly ZONE[]): void {
+function assignPrioritiesFromGraph(
+  aEdges: readonly ZONE_PRIORITY_EDGE[],
+  aAllZones: readonly ZONE[],
+): void {
   const adj = new Map<ZONE, ZONE[]>();
   const inDegree = new Map<ZONE, number>();
 
@@ -323,7 +330,8 @@ function assignPrioritiesFromGraph(aEdges: readonly ZONE_PRIORITY_EDGE[], aAllZo
 
   // Kahn's algorithm: sources (in-degree 0) have nothing constraining them to be lower,
   // so they are the highest-priority zones. Process them first.
-  const byAssignedPriority = (a: ZONE, b: ZONE) => a.GetAssignedPriority() - b.GetAssignedPriority();
+  const byAssignedPriority = (a: ZONE, b: ZONE) =>
+    a.GetAssignedPriority() - b.GetAssignedPriority();
 
   const queue: ZONE[] = [];
 

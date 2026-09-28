@@ -332,7 +332,10 @@ function connectPair(aPrevShape: PCB_SHAPE, aShape: PCB_SHAPE, aWeldGapTolerance
     };
 
     if (i0 === 0) {
-      const delta = { x: middle.x - aPrevShape.GetStart().x, y: middle.y - aPrevShape.GetStart().y };
+      const delta = {
+        x: middle.x - aPrevShape.GetStart().x,
+        y: middle.y - aPrevShape.GetStart().y,
+      };
       aPrevShape.SetStart(middle);
       const c1 = aPrevShape.GetBezierC1();
       aPrevShape.SetBezierC1({ x: c1.x + delta.x, y: c1.y + delta.y });
@@ -382,7 +385,11 @@ export function ConnectBoardShapes(aShapeList: PCB_SHAPE[], aChainingEpsilon: nu
     endpoints.push({ pt: shape.GetEnd(), shape });
   }
 
-  const walkFrom = (aStartGraphic: PCB_SHAPE, aStartPt: VECTOR2I, aStartCandidates: Set<PCB_SHAPE>): void => {
+  const walkFrom = (
+    aStartGraphic: PCB_SHAPE,
+    aStartPt: VECTOR2I,
+    aStartCandidates: Set<PCB_SHAPE>,
+  ): void => {
     let currGraphic = aStartGraphic;
     let prevPt = aStartPt;
 

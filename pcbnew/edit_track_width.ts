@@ -25,7 +25,11 @@
  * left untouched to avoid fighting that migration.
  */
 import type { MINOPTMAX } from '@ziroeda/core/minoptmax.js';
-import { ITEM_PICKER, PICKED_ITEMS_LIST, UNDO_REDO } from '@ziroeda/common/undo_redo_container.js';
+import {
+  ITEM_PICKER,
+  type PICKED_ITEMS_LIST,
+  UNDO_REDO,
+} from '@ziroeda/common/undo_redo_container.js';
 import { VIATYPE } from './pcb_track_types.js';
 import { PCB_VIA, type PCB_TRACK } from './pcb_track.js';
 

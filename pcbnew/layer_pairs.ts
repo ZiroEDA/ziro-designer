@@ -20,10 +20,7 @@
  * here (the grid arc, the tool dispatcher) reads events the moment they're
  * raised.
  */
-import {
-  LAYER_PAIR,
-  LAYER_PAIR_INFO,
-} from '@ziroeda/common/project/board_project_settings.js';
+import { LAYER_PAIR, LAYER_PAIR_INFO } from '@ziroeda/common/project/board_project_settings.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { wxEvent, wxEvtHandler, wxNewEventType } from '@ziroeda/common/wx/wx_event.js';
 
