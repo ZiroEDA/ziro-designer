@@ -21,8 +21,8 @@ import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type {
   TrackViaSelection,
   TrackViaValues,
-} from '@ziroeda/pcbnew/dialogs/dialog_track_via_properties.js';
-import { collectTrackViaValues } from '@ziroeda/pcbnew/dialogs/dialog_track_via_properties.js';
+} from './dialog_track_via_properties.js';
+import { collectTrackViaValues } from './dialog_track_via_properties.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { NetSelector } from '@ziroeda/common/widgets/net_selector.js';
 import { INDETERMINATE_STATE } from '@ziroeda/common/widgets/ui_common.js';

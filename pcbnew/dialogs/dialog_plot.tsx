@@ -25,10 +25,10 @@
  */
 import { useMemo, useRef, useState, type JSX } from 'react';
 import { zipSync, zlibSync, strToU8 } from 'fflate';
-import { boardAuxOrigin, PCB_PLOTTER, type Board } from '@ziroeda/pcbnew';
-import { DRILL_MARKS, PCB_PLOT_PARAMS } from '@ziroeda/pcbnew/pcb_plot_params.js';
-import { EXCELLON_WRITER } from '@ziroeda/pcbnew/exporters/gendrill_excellon_writer.js';
-import { ZEROS_FMT } from '@ziroeda/pcbnew/exporters/gendrill_writer_base.js';
+import { boardAuxOrigin, PCB_PLOTTER, type Board } from '../index.js';
+import { DRILL_MARKS, PCB_PLOT_PARAMS } from '../pcb_plot_params.js';
+import { EXCELLON_WRITER } from '../exporters/gendrill_excellon_writer.js';
+import { ZEROS_FMT } from '../exporters/gendrill_writer_base.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { DXF_OUTLINE_MODE, DXF_UNITS, PLOT_FORMAT } from '@ziroeda/common/plotters/plotter.js';
@@ -49,7 +49,7 @@ import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_ht
 import { Icon } from '@ziroeda/common/widgets/icons.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
-import { pcbUnitTextMM, pcbUnitValueMM, unitLabel } from '@ziroeda/pcbnew/pcb_unit_binder.js';
+import { pcbUnitTextMM, pcbUnitValueMM, unitLabel } from '../pcb_unit_binder.js';
 
 interface Props {
   board: Board;
