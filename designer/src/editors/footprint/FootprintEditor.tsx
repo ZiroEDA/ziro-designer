@@ -12,9 +12,9 @@ import {
   GRID_LIST_SEPARATOR,
   gridChoiceLabel,
 } from '@ziroeda/common/settings/grid_settings_ui.js';
-import { footprintGridForTool, footprintGridIU, footprintSnappingEnabled } from './grid.js';
-import { newFootprint } from './new_footprint.js';
-import { fpLineThicknessMM } from './graphics_defaults.js';
+import { footprintGridForTool, footprintGridIU, footprintSnappingEnabled } from '@ziroeda/pcbnew/fp_grid.js';
+import { newFootprint } from '@ziroeda/pcbnew/new_footprint.js';
+import { fpLineThicknessMM } from '@ziroeda/pcbnew/graphics_defaults.js';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import {
   applyBarcodeValues,
@@ -97,7 +97,7 @@ import {
   FOOTPRINT_COPPER_STACK,
   footprintLayers,
   FP_DEFAULT_ACTIVE_LAYER,
-} from './footprintBoard.js';
+} from '@ziroeda/pcbnew/footprintBoard.js';
 import { layerColor, PCB_BACKGROUND, PCB_OBJECT_COLORS } from '../pcb/pcbTheme.js';
 import { appearanceLayerRows } from '@ziroeda/pcbnew/widgets/appearance_layers.js';
 // APPEARANCE_CONTROLS and PANEL_SELECTION_FILTER are the same two widgets
