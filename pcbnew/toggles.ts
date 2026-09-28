@@ -21,7 +21,7 @@
 
 import { defaultUnitsToggle } from '@ziroeda/common/settings/app_settings_units.js';
 import type { CrosshairMode } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
-import type { PcbnewSettings } from '../../prefs/settings.js';
+import type { PCBNEW_JSON_SETTINGS_LIKE as PcbnewSettings } from './pcb_edit_frame.js';
 
 /**
  * The left toolbar's cycling groups — `AppendGroup( TOOLBAR_GROUP_CONFIG(...) )`

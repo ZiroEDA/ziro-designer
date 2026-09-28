@@ -29,7 +29,7 @@ import {
   DEFAULT_TOGGLES as PCB_TOGGLES,
   isStoredPcbToggle,
   RADIO_GROUPS as PCB_GROUPS,
-} from '@ziroeda/designer/src/editors/pcb/toggles.js';
+} from '@ziroeda/pcbnew/toggles.js';
 import {
   applyToggle as fpApplyToggle,
   DEFAULT_TOGGLES as FP_TOGGLES,
