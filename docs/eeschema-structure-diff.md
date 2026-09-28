@@ -4,7 +4,7 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 
 | status | count | meaning |
 |---|---:|---|
-| SAME | 94 | same relative path and name as KiCad's `.cpp` |
+| SAME | 95 | same relative path and name as KiCad's `.cpp` |
 | MOVED | 2 | KiCad has this name, in a different directory |
 | DIALOG | 5 | KiCad has it as `dialogs/dialog_<name>.cpp` |
 | HEADER | 4 | KiCad declares it in a `.h` with no matching `.cpp` |
@@ -164,7 +164,7 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 
 ## SAME
 
-<details><summary>94 files already at KiCad's own path</summary>
+<details><summary>95 files already at KiCad's own path</summary>
 
 - `annotate.ts`
 - `autoplace_fields.ts`
@@ -230,6 +230,7 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 - `sch_no_connect.ts`
 - `sch_pin.ts`
 - `sch_reference_list.ts`
+- `sch_render_settings.ts`
 - `sch_rule_area.ts`
 - `sch_screen.ts`
 - `sch_shape.ts`
