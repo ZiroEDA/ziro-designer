@@ -39,6 +39,13 @@
 import { parseBoardItemId } from '../edit-board.js';
 import { imageSizeIU } from '../pcb_reference_image.js';
 import type { Board, PcbImage } from '../types.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
+import { UNDO_REDO } from '@ziroeda/common/undo_redo_container.js';
+import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
+import { base64Decode } from '../pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_items.js';
+import type { PCB_REFERENCE_IMAGE } from '../pcb_reference_image.js';
+import type { TransferResult } from './dialog_text_properties.js';
 
 /** Every control on the dialog, flattened. */
 export interface ImageValues {
@@ -148,4 +155,114 @@ export function applyImageValues(board: Board, index: number, v: ImageValues): B
     ...board,
     images: board.images.map((cur, i) => (i === index ? next : cur)),
   };
+}
+
+// ---------------------------------------------------------------------------
+// The live dialog: DIALOG_REFERENCE_IMAGE_PROPERTIES on a PCB_REFERENCE_IMAGE
+// (#636 stage 6)
+// ---------------------------------------------------------------------------
+
+/** PANEL_IMAGE_EDITOR::CheckValues' limits, in scaled pixels (panel_image_editor.cpp:73-74). */
+const MIN_SIZE = 15; // Min size in pixels after scaling (50 mils)
+const MAX_SIZE = 6000; // Max size in pixels after scaling (20 inches)
+
+/**
+ * `DIALOG_REFERENCE_IMAGE_PROPERTIES` (dialog_reference_image_properties.cpp)
+ * on a live PCB_REFERENCE_IMAGE, with PANEL_IMAGE_EDITOR's CheckValues and
+ * TransferToImage.
+ *
+ * Not a BOARD_COMMIT: upstream files the undo entry itself with
+ * `SaveCopyInUndoList( &m_bitmap, UNDO_REDO::CHANGED )` when the item is not
+ * already in an edit, then writes the item in place. The caller
+ * (`ShowReferenceImagePropertiesDialog`) refreshes the view afterwards, so no
+ * board listener hears this edit; the call site re-derives the view.
+ *
+ * The scale is written onto the bitmap directly (`m_workingImage->SetScale`,
+ * `ImportData`), not through REFERENCE_IMAGE::SetImageScale, so the image
+ * grows about its centre rather than its transform origin. Width and height
+ * are the scale seen another way and are not written.
+ */
+export class DIALOG_REFERENCE_IMAGE_PROPERTIES {
+  private readonly m_frame: PCB_BASE_EDIT_FRAME;
+  private readonly m_bitmap: PCB_REFERENCE_IMAGE;
+
+  constructor(aFrame: PCB_BASE_EDIT_FRAME, aBitmap: PCB_REFERENCE_IMAGE) {
+    this.m_frame = aFrame;
+    this.m_bitmap = aBitmap;
+  }
+
+  TransferDataToWindow(): ImageValues {
+    const b = this.m_bitmap;
+    const size = b.GetReferenceImage().GetSize();
+
+    return {
+      x: b.GetPosition().x,
+      y: b.GetPosition().y,
+      layer: LSET_Name(b.GetLayer()),
+      locked: b.IsLocked(),
+      scale: b.GetReferenceImage().GetImageScale(),
+      width: size.x,
+      height: size.y,
+    };
+  }
+
+  /**
+   * PANEL_IMAGE_EDITOR::CheckValues (:69-112). `aIsOK` is the "very large"
+   * question's answer; without one the question is taken as yes.
+   */
+  private checkValues(aScale: number, aIsOK: (aMessage: string) => boolean): TransferResult {
+    // Test number correctness
+    if (aScale < 0.0) return { ok: false, message: 'Scale must be a positive number.' };
+
+    // Test value correctness
+    const psize = this.m_bitmap.GetReferenceImage().GetImage().GetSizePixels();
+    const size_min = Math.trunc(Math.min(psize.x * aScale, psize.y * aScale));
+
+    if (size_min < MIN_SIZE)
+      return {
+        ok: false,
+        message: `This scale results in an image which is too small (${((25.4 / 300) * size_min).toFixed(2)} mm or ${((1000.0 / 300.0) * size_min).toFixed(1)} mil).`,
+      };
+
+    const size_max = Math.trunc(Math.max(psize.x * aScale, psize.y * aScale));
+
+    if (
+      size_max > MAX_SIZE &&
+      !aIsOK(
+        `This scale results in an image which is very large (${((25.4 / 300) * size_max).toFixed(1)} mm or ${(size_max / 300.0).toFixed(2)} in). Are you sure?`,
+      )
+    )
+      return { ok: false };
+
+    return { ok: true };
+  }
+
+  TransferDataFromWindow(
+    v: ImageValues,
+    aIsOK: (aMessage: string) => boolean = () => true,
+  ): TransferResult {
+    const check = this.checkValues(v.scale, aIsOK);
+    if (!check.ok) return check;
+
+    const b = this.m_bitmap;
+
+    // Save old image in undo list if not already in edit
+    if (b.GetEditFlags() === 0) this.m_frame.SaveCopyInUndoList(b, UNDO_REDO.CHANGED);
+
+    // Update our bitmap from the editor
+    const image = b.GetReferenceImage().MutableImage();
+    if (v.data !== undefined) image.ReadImageFile(base64Decode(v.data));
+    image.SetScale(v.scale);
+
+    // Set position, etc.
+    b.SetPosition({ x: v.x, y: v.y });
+    b.SetLayer(LSET_NameToLayer(v.layer) as PCB_LAYER_ID);
+
+    // Only save locked status on non-footprint editor windows
+    if (!this.m_frame.GetBoard()?.IsFootprintHolder()) b.SetLocked(v.locked);
+
+    this.m_frame.OnModify();
+
+    return { ok: true };
+  }
 }
