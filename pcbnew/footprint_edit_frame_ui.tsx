@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
-import { parse } from '@ziroeda/sexpr';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import { FOOTPRINT_EDIT_FRAME } from './footprint_edit_frame.js';
@@ -23,7 +22,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type React
 import { applyBarcodeValues, barcodeValues } from './dialogs/dialog_barcode_properties.js';
 import { DialogBarcodeProperties } from './dialogs/dialog_barcode_properties_ui.js';
 import {
-  readFootprintFile,
   moveFootprintItems,
   rotateFootprintItems,
   mirrorFootprintItems,
@@ -86,7 +84,7 @@ import { applyToggle, DEFAULT_TOGGLES } from './footprint_edit_frame.js';
 import { FootprintCanvas, type FootprintCanvasController } from './pcb_draw_panel_gal_ui.js';
 import {
   FootprintLibraryManager,
-  fpNameOf,
+  ImportFootprint,
   type FOOTPRINT_LIBRARY_IO,
 } from './footprint_libraries_utils.js';
 import { projectFpLibTable, projectLibraryNickname } from '@ziroeda/common/fp_lib_table.js';
@@ -1098,14 +1096,11 @@ export function FootprintEditFrame({
         setStatus('Select a library first');
         return;
       }
-      const fp = readFootprintFile(parse(text));
-      if (!fp) {
+      const name = ImportFootprint(manager.current, libName, fileName, text);
+      if (name === null) {
         setStatus(`No footprint in ${fileName}`);
         return;
       }
-      let name = fp.lib || fpNameOf(fileName);
-      while (manager.current.footprintExists(libName, name)) name = `${name}_1`;
-      manager.current.updateFootprint(libName, name, { ...fp, lib: name });
       bump();
       void loadFootprint(libName, name);
     },

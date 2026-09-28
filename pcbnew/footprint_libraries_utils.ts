@@ -355,3 +355,27 @@ export class FootprintLibraryManager {
     return out;
   }
 }
+
+/**
+ * `FOOTPRINT_EDIT_FRAME::ImportFootprint` (`footprint_libraries_utils.cpp:83-233`),
+ * the half after the file dialog: read the `.kicad_mod` text, name the
+ * footprint (its own `(footprint "…")` name, else the file's), step past a
+ * name the library already holds, and buffer it into `libName`. Returns the
+ * name it was stored under, or null when the text held no footprint.
+ *
+ * Moved here from `footprint_edit_frame_ui.tsx`'s Import handler, which keeps
+ * the dialog, the status line and the load onto the canvas.
+ */
+export function ImportFootprint(
+  manager: FootprintLibraryManager,
+  libName: string,
+  fileName: string,
+  text: string,
+): string | null {
+  const fp = readFootprintFile(parse(text));
+  if (!fp) return null;
+  let name = fp.lib || fpNameOf(fileName);
+  while (manager.footprintExists(libName, name)) name = `${name}_1`;
+  manager.updateFootprint(libName, name, { ...fp, lib: name });
+  return name;
+}
