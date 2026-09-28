@@ -1984,6 +1984,19 @@ export function PcbEditor({
   const setDirtyRef = useRef(setDirty);
   setDirtyRef.current = setDirty;
   const frameRef = useRef<PCB_EDIT_FRAME | null>(null);
+  /**
+   * `PCB_EDIT_FRAME::SwitchLayer` (edit.cpp:72-95): the validated entry
+   * point every explicit layer pick (the toolbar combo, a layer hotkey, a
+   * saved preset, the zone tool's dialog) goes through, so a disabled
+   * copper layer is refused the same way upstream refuses it. The router's
+   * own layer-follow (`syncRouterAndFrameLayer`) does not: it mirrors a
+   * layer the interactive router session already validated, not a new pick.
+   */
+  const switchActiveLayer = (layerName: string): void => {
+    const id = boardRef.current?.layers.find((l) => l.name === layerName)?.id;
+    if (id !== undefined) frameRef.current?.SwitchLayer(id);
+    setActiveLayer(layerName);
+  };
   const drcWindowRef = useRef<{
     createDrcDialog: (aTool: DRC_TOOL, aParent: unknown) => DIALOG_DRC;
     isSingle: () => boolean;
@@ -9674,7 +9687,7 @@ export function PcbEditor({
         // is not enabled is not a thing upstream can do either.
         if (toLayer && (boardRef.current?.layers ?? []).some((l) => l.name === toLayer)) {
           e.preventDefault();
-          setActiveLayer(toLayer);
+          switchActiveLayer(toLayer);
           return;
         }
       }
@@ -9841,7 +9854,7 @@ export function PcbEditor({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [zoomToFit, rotateSel]);
+  }, [zoomToFit, rotateSel, switchActiveLayer]);
 
   // The snap modifiers, tracked on the keyboard as well as the pointer.
   // Upstream a modifier arrives as its own `TOOL_EVENT`, so pressing Shift or
@@ -10003,7 +10016,7 @@ export function PcbEditor({
     setVisible(new Set(p.layers(all, copperLayers).filter((l) => all.includes(l))));
     // doApplyLayerPreset also carries the preset's flipBoard and activeLayer.
     setFlipView(p.flipBoard);
-    if (p.activeLayer && all.includes(p.activeLayer)) setActiveLayer(p.activeLayer);
+    if (p.activeLayer && all.includes(p.activeLayer)) switchActiveLayer(p.activeLayer);
   };
 
   // Layer right-click context menu ops (APPEARANCE_CONTROLS::onLayerContextMenu).
@@ -10022,7 +10035,7 @@ export function PcbEditor({
       const p = BUILTIN_PRESETS.find((x) => x.name === name);
       if (!p) return;
       setVisibleUnsaved(p.layers(all, copperLayers).filter(has));
-      if (active && has(active)) setActiveLayer(active);
+      if (active && has(active)) switchActiveLayer(active);
     };
     const groups: { label: string; run: () => void }[][] = [
       [
@@ -11200,7 +11213,7 @@ export function PcbEditor({
                 label: layerBoxLabel(layerName(l.name), l.name),
                 swatch: layerColor(l.name),
               }))}
-              onChange={(v) => setActiveLayer(v)}
+              onChange={(v) => switchActiveLayer(v)}
             />
           ),
           /* GRID_MENU::BuildChoiceList: `"%s%s (%s)"`, both halves formatted by
@@ -11844,7 +11857,7 @@ export function PcbEditor({
               values,
             };
             if (values.layers[0] && values.layers[0] !== activeLayer)
-              setActiveLayer(values.layers[0]);
+              switchActiveLayer(values.layers[0]);
             zoneMgr().addPoint(zoneDialog.at);
             setZoneDialog(null);
             requestDraw();

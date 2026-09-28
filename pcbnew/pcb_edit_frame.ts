@@ -60,6 +60,7 @@ import type { CrosshairMode } from '@ziroeda/common/draw_panel_gal_grid_cursor.j
 import type { RawFile } from '@ziroeda/common';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { INITPCB_MIXIN } from './initpcb.js';
+import { EDIT_MIXIN } from './edit.js';
 
 /**
  * The slice of the designer's `PcbnewSettings` (`prefs/settings.ts`)
@@ -238,11 +239,11 @@ export interface PCB_EDIT_FRAME_HOOKS {
   updatePcbFromSchematic(): void;
 }
 
-export interface PCB_EDIT_FRAME extends INITPCB_MIXIN {}
+export interface PCB_EDIT_FRAME extends INITPCB_MIXIN, EDIT_MIXIN {}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (INITPCB_MIXIN mixin, see libs/core/mixins.ts)
 export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
-  private readonly hooks: PCB_EDIT_FRAME_HOOKS;
+  protected readonly hooks: PCB_EDIT_FRAME_HOOKS;
   /** The project's .kicad_dru as last given to OnBoardLoaded: `GetDesignRulesPath()` and its text. */
   private m_designRulesText: string | null = null;
   private m_designRulesPath = '';
@@ -470,10 +471,6 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
   FetchNetlistFromSchematic(aNetlist: NETLIST, aAnnotateMessage: string): boolean {
     return this.hooks.fetchNetlistFromSchematic(aNetlist, aAnnotateMessage);
-  }
-
-  OnEditItemRequest(aItem: BOARD_ITEM | null): void {
-    this.hooks.onEditItemRequest(aItem);
   }
 
   ShowExchangeFootprintsDialog(aFootprint: FOOTPRINT, aUpdateMode: boolean): void {
@@ -714,7 +711,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   }
 }
 
-applyMixins(PCB_EDIT_FRAME, [INITPCB_MIXIN]);
+applyMixins(PCB_EDIT_FRAME, [INITPCB_MIXIN, EDIT_MIXIN]);
 
 /**
  * The React side's BOARD_LISTENER: whatever the board reports, the view is
