@@ -46,11 +46,7 @@ import {
   type AppKey,
   type RegistryAction,
 } from './hotkey_apps.js';
-import {
-  TOP_TOOLBAR,
-  LEFT_TOOLBAR,
-  RIGHT_TOOLBAR,
-} from '@ziroeda/eeschema/toolbars_sch_editor.js';
+import { TOP_TOOLBAR, LEFT_TOOLBAR, RIGHT_TOOLBAR } from '@ziroeda/eeschema/toolbars_sch_editor.js';
 import {
   PCB_TOP_TOOLBAR,
   PCB_LEFT_TOOLBAR,

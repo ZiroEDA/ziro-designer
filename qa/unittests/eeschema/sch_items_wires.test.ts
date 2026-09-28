@@ -18,7 +18,11 @@ import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { SCH_BUS_BUS_ENTRY, SCH_BUS_WIRE_ENTRY } from '@ziroeda/eeschema/sch_bus_entry.js';
 import { SCH_FIELD } from '@ziroeda/eeschema/sch_field.js';
-import { DANGLING_END_ITEM, DANGLING_END_ITEM_HELPER, SCH_ITEM } from '@ziroeda/eeschema/sch_item.js';
+import {
+  DANGLING_END_ITEM,
+  DANGLING_END_ITEM_HELPER,
+  SCH_ITEM,
+} from '@ziroeda/eeschema/sch_item.js';
 import { SCH_JUNCTION } from '@ziroeda/eeschema/sch_junction.js';
 import { SCH_LINE } from '@ziroeda/eeschema/sch_line.js';
 import { SCH_NO_CONNECT } from '@ziroeda/eeschema/sch_no_connect.js';
