@@ -16,7 +16,7 @@ import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import { replaceBusEntry } from '@ziroeda/eeschema/tools/mutate.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import { schPropertiesFor } from '@ziroeda/eeschema/tools/sch_properties_panel.js';
+import { schPropertiesFor } from '@ziroeda/eeschema/widgets/sch_properties_panel.js';
 import { itemRefById, refId } from '@ziroeda/eeschema/tools/hittest.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 

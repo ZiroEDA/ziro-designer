@@ -36,7 +36,7 @@ import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readSymbolLib } from '@ziroeda/eeschema/index.js';
 import { makeSymbol } from '@ziroeda/eeschema/tools/build.js';
-import { autoplacePlacedSymbol } from '@ziroeda/eeschema/tools/autoplace_fields.js';
+import { autoplacePlacedSymbol } from '@ziroeda/eeschema/autoplace_fields.js';
 import { transformSymbol } from '@ziroeda/eeschema/tools/transform.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { SchField, SchSymbol, Vec2 } from '@ziroeda/eeschema/types.js';

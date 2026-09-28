@@ -20,7 +20,7 @@ import { parse } from '@ziroeda/sexpr';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
-import { schPropertiesFor } from '@ziroeda/eeschema/tools/sch_properties_panel.js';
+import { schPropertiesFor } from '@ziroeda/eeschema/widgets/sch_properties_panel.js';
 import { itemRefById } from '@ziroeda/eeschema/tools/hittest.js';
 import { SchPropertiesPanel } from '@ziroeda/designer/src/editors/schematic/components/SchPropertiesPanel.js';
 import type { LibSymbol } from '@ziroeda/eeschema/types.js';

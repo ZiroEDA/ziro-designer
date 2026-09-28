@@ -12,7 +12,7 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { annotateCommand, setSymbolsCommand } from '@ziroeda/eeschema/tools/annotate.js';
+import { annotateCommand, setSymbolsCommand } from '@ziroeda/eeschema/annotate.js';
 import { splitLinesCommand } from '@ziroeda/eeschema/tools/break_wire.js';
 import { embeddedFilesCommand, setEmbedFonts } from '@ziroeda/eeschema/tools/embedded.js';
 import { replaceSheetPin } from '@ziroeda/eeschema/tools/sch_sheet_pin_tool.js';

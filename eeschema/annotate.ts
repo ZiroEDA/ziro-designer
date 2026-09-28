@@ -21,10 +21,10 @@
  * references instead of getting a set per instance.
  */
 
-import type { SchField, SchSymbol, Schematic, LibSymbol } from '../types.js';
+import type { SchField, SchSymbol, Schematic, LibSymbol } from './types.js';
 import type { RefDesTracker } from './refdes_tracker.js';
-import type { EditCommand } from './command.js';
-import { refId } from './hittest.js';
+import type { EditCommand } from './tools/command.js';
+import { refId } from './tools/hittest.js';
 import { str } from '@ziroeda/sexpr';
 import type { SList } from '@ziroeda/sexpr';
 import {

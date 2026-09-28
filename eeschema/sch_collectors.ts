@@ -15,7 +15,7 @@
  * selects directly; several mean the caller shows the Clarify menu.
  */
 
-import type { LibSymbol, SchLabel, Schematic, Vec2 } from '../types.js';
+import type { LibSymbol, SchLabel, Schematic, Vec2 } from './types.js';
 import { iuToMM } from '@ziroeda/common';
 import {
   refId,
@@ -25,9 +25,9 @@ import {
   collectPinSegments,
   pinDistance,
   pinAccuracy,
-} from './hittest.js';
-import { contains, inflate, labelBox, symbolBodyBBox, type BBox } from './bbox.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+} from './tools/hittest.js';
+import { contains, inflate, labelBox, symbolBodyBBox, type BBox } from './tools/bbox.js';
+import { schSymbolLibraryName } from './lib_symbol_compare.js';
 
 interface Candidate {
   ref: ItemRef;
@@ -352,7 +352,7 @@ export function collectAndGuess(
 }
 
 function graphicHitInfo(
-  g: import('../types.js').LibGraphic,
+  g: import('./types.js').LibGraphic,
   p: Vec2,
   accuracy: number,
   lineSlop: number,

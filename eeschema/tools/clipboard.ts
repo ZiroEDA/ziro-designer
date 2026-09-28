@@ -51,7 +51,7 @@ import {
   splitReference,
   type AnnotateOptions,
   type AnnotateSheet,
-} from './annotate.js';
+} from '../annotate.js';
 
 // ----- copy -------------------------------------------------------------------
 

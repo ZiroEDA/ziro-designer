@@ -27,7 +27,7 @@
  */
 
 import type { LibSymbol, Schematic, SchLine, SchBusEntry, Vec2 } from '../types.js';
-import { analyzePoint } from './junction_helpers.js';
+import { analyzePoint } from '../junction_helpers.js';
 import { makeBusEntry } from './build-graphics.js';
 import { makeBus } from './build.js';
 

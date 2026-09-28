@@ -581,7 +581,7 @@ function sourceReference(node: SList): string | undefined {
  * writes the reference into the instance for the current `SCH_SHEET_PATH` and
  * `GetRef` (:646) reads it back out of there, treating the Reference property
  * as a fallback for files with no instance data. Our model has one reference
- * per symbol and no notion of a current sheet path (see `tools/annotate.ts`),
+ * per symbol and no notion of a current sheet path (see `annotate.ts`),
  * so this reconciles the two: the edit is applied to the instance whose
  * reference is the one the model started from — the record the model's single
  * reference *is*. Other sheet paths, which our model cannot represent, keep the

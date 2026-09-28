@@ -36,7 +36,7 @@ import type {
 } from '../types.js';
 import { wildCompareString } from '@ziroeda/common/string_utils.js';
 import type { EditCommand } from './command.js';
-import { isBusLabelText } from './junction_helpers.js';
+import { isBusLabelText } from '../junction_helpers.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 /** Which items the sweep visits (the dialog's Scope box, in its order). */

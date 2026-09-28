@@ -32,7 +32,7 @@ import { transformItems } from '@ziroeda/eeschema/tools/transform.js';
 import { setSymbolUnit } from '@ziroeda/eeschema/tools/symbol_unit.js';
 import { setBodyStyle } from '@ziroeda/eeschema/tools/body_style.js';
 import { setAttribute } from '@ziroeda/eeschema/tools/set_attribute.js';
-import { autoplaceFields } from '@ziroeda/eeschema/tools/autoplace_fields.js';
+import { autoplaceFields } from '@ziroeda/eeschema/autoplace_fields.js';
 import { groupItemsCommand } from '@ziroeda/eeschema/tools/sch_group_tool.js';
 import { makeWire, makeJunction, makeLabel } from '@ziroeda/eeschema/tools/build.js';
 import { refId, sheetPinId } from '@ziroeda/eeschema/tools/hittest.js';

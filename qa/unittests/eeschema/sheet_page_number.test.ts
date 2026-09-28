@@ -21,7 +21,7 @@ import {
   getRootPageNumber,
   setSheetPageNumberCommand,
   setRootPageNumberCommand,
-} from '@ziroeda/eeschema/tools/sch_sheet_path.js';
+} from '@ziroeda/eeschema/sch_sheet_path.js';
 
 const fixture = readFileSync(
   fileURLToPath(new URL('../../data/complex_hierarchy.kicad_sch', import.meta.url)),

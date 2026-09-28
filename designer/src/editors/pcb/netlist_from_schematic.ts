@@ -48,7 +48,7 @@ import {
   SheetInstanceView,
   UpdateSymbolInstanceData,
   sheetKiidPath,
-} from '@ziroeda/eeschema/tools/sch_sheet_path.js';
+} from '@ziroeda/eeschema/sch_sheet_path.js';
 import { findProjectPro, readSchematicSetup } from '../schematic/project_settings.js';
 
 export interface RawFile {

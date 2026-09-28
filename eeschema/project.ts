@@ -16,7 +16,7 @@ import {
   getSheetPageNumber,
   setRootPageNumberCommand,
   setSheetPageNumberCommand,
-} from './tools/sch_sheet_path.js';
+} from './sch_sheet_path.js';
 
 /** The "Sheetname" field value (KiCad's mandatory sheet-name field). */
 export function sheetName(sheet: SchSheet): string {

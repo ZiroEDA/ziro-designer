@@ -17,7 +17,7 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
-import { schPropertiesFor } from '@ziroeda/eeschema/tools/sch_properties_panel.js';
+import { schPropertiesFor } from '@ziroeda/eeschema/widgets/sch_properties_panel.js';
 import { itemRefById, collectPinSegments } from '@ziroeda/eeschema/tools/hittest.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

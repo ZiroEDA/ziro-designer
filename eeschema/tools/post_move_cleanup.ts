@@ -41,7 +41,7 @@ import { onSegment } from '../connectivity/segment_index.js';
 import { wireDangleStates } from '../connectivity/dangling.js';
 import { connectionPoints, type MoveSpec } from './connect.js';
 import type { EditCommand } from './command.js';
-import { isExplicitJunctionNeeded } from './junction_helpers.js';
+import { isExplicitJunctionNeeded } from '../junction_helpers.js';
 import { makeJunction } from './build.js';
 import { refId } from './hittest.js';
 

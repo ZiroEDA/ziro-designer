@@ -20,7 +20,7 @@ Ground truth for every mapping below is the KiCad source
 | Panels (UI only; re-export their data slices from schematic_settings.ts) | `designer/src/editors/schematic/dialogs/panels/panel_*.tsx` |
 | Hydrate on project load / persist on OK | `SchematicEditor.tsx` (project-load effect + dialog `onOk`; same flow as the drawing-sheet ref in `projectSheet.ts`) |
 | Render-time consumers | `render/renderer.ts` (`RenderOpts` + module globals), threaded to print/plot via `PlotOpts` (`render/plot.ts`); editor builds them once in the `drawingDefaults` memo |
-| ERC consumers | `eeschema/connectivity/erc.ts` (`runErc(sch, libById, settings, { connectionGridIU })`) |
+| ERC consumers | `eeschema/erc/erc.ts` (`runErc(sch, libById, settings, { connectionGridIU })`) |
 | Tests | `qa/unittests/designer/project_settings.test.ts`, `qa/unittests/designer/schematic_settings.test.ts`, `qa/unittests/eeschema/erc_settings.test.ts` |
 
 ## Page-by-page status

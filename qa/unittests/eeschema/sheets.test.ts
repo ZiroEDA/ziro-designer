@@ -15,10 +15,10 @@ import {
   sheetFile,
   sheetName,
 } from '@ziroeda/eeschema/project.js';
-import { comparePageNum } from '@ziroeda/eeschema/tools/sch_sheet_path.js';
+import { comparePageNum } from '@ziroeda/eeschema/sch_sheet_path.js';
 import { existsSync, readFileSync } from 'node:fs';
 import { moveItems } from '@ziroeda/eeschema/tools/move.js';
-import { runErc } from '@ziroeda/eeschema/connectivity/erc.js';
+import { runErc } from '@ziroeda/eeschema/erc/erc.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const SHEET = `(sheet (at 100 50) (size 40 30)

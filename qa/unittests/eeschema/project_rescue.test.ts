@@ -24,7 +24,7 @@ import {
   repointSymbols,
   RESCUE_PIN_TESTS,
   type RescueSources,
-} from '@ziroeda/eeschema/tools/project_rescue.js';
+} from '@ziroeda/eeschema/project_rescue.js';
 import { readLegacySymbolLibrary } from '@ziroeda/eeschema/sch_io/legacy/read-lib.js';
 import type { LibSymbol, Schematic, SchSymbol } from '@ziroeda/eeschema/types.js';
 

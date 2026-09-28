@@ -24,7 +24,7 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { ercExclusionKey, ercParentId, readSchematic } from '@ziroeda/eeschema';
-import { runErc } from '@ziroeda/eeschema/connectivity/erc.js';
+import { runErc } from '@ziroeda/eeschema/erc/erc.js';
 import { defaultErcSettings } from '@ziroeda/eeschema/erc/erc_settings.js';
 
 describe('ercParentId', () => {

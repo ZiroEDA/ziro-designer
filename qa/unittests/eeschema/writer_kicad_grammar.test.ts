@@ -35,7 +35,7 @@ import { fileURLToPath } from 'node:url';
 import { parse, serialize, isList, head, type SNode } from '@ziroeda/sexpr';
 import { readSchematic, writeSchematic } from '@ziroeda/eeschema';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import { annotateSymbols, defaultAnnotateOptions } from '@ziroeda/eeschema/tools/annotate.js';
+import { annotateSymbols, defaultAnnotateOptions } from '@ziroeda/eeschema/annotate.js';
 import type { Schematic } from '@ziroeda/eeschema/types.js';
 import {
   copySelectionText,
@@ -440,7 +440,7 @@ describe('a symbol reference lives in its (instances …), not its property', ()
   });
 
   // A symbol placed on two sheet paths. Our model has one reference per symbol
-  // and no current sheet path (tools/annotate.ts documents the difference), so
+  // and no current sheet path (annotate.ts documents the difference), so
   // the edit goes to the record the model's reference came from — the other
   // path keeps the annotation the file gave it rather than being overwritten
   // with a reference that was never about it.

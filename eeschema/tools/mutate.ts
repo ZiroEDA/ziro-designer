@@ -34,7 +34,7 @@ import { hasCellSelection, tableCellId } from './table_cells.js';
 import { makeSymbol } from './build.js';
 import { flattenLibSymbol } from '../lib_symbol.js';
 import type { EditCommand } from './command.js';
-import { isExplicitJunctionNeeded } from './junction_helpers.js';
+import { isExplicitJunctionNeeded } from '../junction_helpers.js';
 
 /** A batch of items to add or restore, grouped by kind. */
 export interface ItemsBatch {

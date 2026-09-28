@@ -17,7 +17,7 @@ import {
   isExplicitJunctionAllowed,
   isExplicitJunctionNeeded,
   isBusLabelText,
-} from '@ziroeda/eeschema/tools/junction_helpers.js';
+} from '@ziroeda/eeschema/junction_helpers.js';
 import { mergeColinearWires } from '@ziroeda/eeschema/tools/cleanup.js';
 import { finishWires } from '@ziroeda/eeschema/tools/sch_line_wire_bus_tool.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';

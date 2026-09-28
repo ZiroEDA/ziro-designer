@@ -21,7 +21,7 @@ import { makeWireWithUuid, makeBus, makeJunction } from './build.js';
 import { newKiid } from '@ziroeda/common/kiid.js';
 import { pruneGroupMembers } from './sch_group_tool.js';
 import type { EditCommand } from './command.js';
-import { isExplicitJunction, isExplicitJunctionNeeded } from './junction_helpers.js';
+import { isExplicitJunction, isExplicitJunctionNeeded } from '../junction_helpers.js';
 import { deleteByIds } from './mutate.js';
 import { refId } from './hittest.js';
 

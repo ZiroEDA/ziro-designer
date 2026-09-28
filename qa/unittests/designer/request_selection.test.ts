@@ -43,7 +43,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
-import { collectAndGuess } from '@ziroeda/eeschema/tools/sch_collectors.js';
+import { collectAndGuess } from '@ziroeda/eeschema/sch_collectors.js';
 import { refId, type ItemRef } from '@ziroeda/eeschema/tools/hittest.js';
 import {
   AnyItems,

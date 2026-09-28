@@ -29,7 +29,7 @@ import {
   itemPassesFilter,
   defaultSelectionFilter,
 } from '@ziroeda/eeschema/tools/sch_selection_filter.js';
-import { collectAndGuess } from '@ziroeda/eeschema/tools/sch_collectors.js';
+import { collectAndGuess } from '@ziroeda/eeschema/sch_collectors.js';
 import { moveItems, planMove } from '@ziroeda/eeschema/tools/index.js';
 import { placeSymbol } from '@ziroeda/eeschema/tools/index.js';
 import { moveWithConnections } from '@ziroeda/eeschema/tools/move.js';

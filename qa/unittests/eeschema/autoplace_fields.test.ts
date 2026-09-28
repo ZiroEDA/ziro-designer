@@ -12,7 +12,7 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import { refId } from '@ziroeda/eeschema/tools/hittest.js';
-import { autoplaceFields } from '@ziroeda/eeschema/tools/autoplace_fields.js';
+import { autoplaceFields } from '@ziroeda/eeschema/autoplace_fields.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 /** A resistor: body 2.54 x 7.62 with a pin out of each end (up and down). */

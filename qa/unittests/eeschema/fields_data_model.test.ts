@@ -17,7 +17,7 @@ import {
   loadFieldNames,
   QUANTITY_VARIABLE,
   type BomPresetSpec,
-} from '@ziroeda/eeschema/tools/fields_data_model.js';
+} from '@ziroeda/eeschema/fields_data_model.js';
 
 const sym = (
   ref: string,

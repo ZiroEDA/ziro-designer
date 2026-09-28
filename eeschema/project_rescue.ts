@@ -51,11 +51,11 @@
  * modern cache; this is the KiCad 4/5 one. Upstream keeps both, and so do we.
  */
 
-import type { LibSymbol, LibPin, SchSymbol, Schematic } from '../types.js';
-import type { EditCommand } from './command.js';
-import { flattenLibSymbol } from '../lib_symbol.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
-import { libItemName, libNickname, libItemNameIllegalCharOffset } from './edit_symbol_libid.js';
+import type { LibSymbol, LibPin, SchSymbol, Schematic } from './types.js';
+import type { EditCommand } from './tools/command.js';
+import { flattenLibSymbol } from './lib_symbol.js';
+import { schSymbolLibraryName } from './lib_symbol_compare.js';
+import { libItemName, libNickname, libItemNameIllegalCharOffset } from './tools/edit_symbol_libid.js';
 import { escapeLibId, unescapeString } from '@ziroeda/common';
 
 /**

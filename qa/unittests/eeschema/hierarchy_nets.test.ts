@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import { computeHierarchyNetlist } from '@ziroeda/eeschema/connectivity/hierarchy.js';
-import { runErc, type ExternalPin } from '@ziroeda/eeschema/connectivity/erc.js';
+import { runErc, type ExternalPin } from '@ziroeda/eeschema/erc/erc.js';
 import { enumeratePins } from '@ziroeda/eeschema/connectivity/nets.js';
 import type { Schematic } from '@ziroeda/eeschema';
 

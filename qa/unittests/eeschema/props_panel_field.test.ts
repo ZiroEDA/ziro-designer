@@ -23,7 +23,7 @@ import {
   schItemFriendlyName,
   schPropertiesFor,
   type PropRow,
-} from '@ziroeda/eeschema/tools/sch_properties_panel.js';
+} from '@ziroeda/eeschema/widgets/sch_properties_panel.js';
 import { itemRefById, refId } from '@ziroeda/eeschema/tools/hittest.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';

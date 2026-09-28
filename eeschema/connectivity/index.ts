@@ -4,5 +4,5 @@
 export * from './nets.js';
 export * from './hierarchy.js';
 export * from './dangling.js';
-export * from './erc.js';
+export * from '../erc/erc.js';
 export * from './bus.js';

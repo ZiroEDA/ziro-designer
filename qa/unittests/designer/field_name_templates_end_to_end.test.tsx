@@ -34,13 +34,13 @@ import type { EeschemaSettings } from '@ziroeda/designer/src/prefs/settings.js';
 import type { PrefsContext } from '@ziroeda/designer/src/dialogs/prefs/types.js';
 import { transferTemplateFieldnamesPage } from '@ziroeda/designer/src/editors/schematic/prefs/resets.js';
 import { resolveTemplateFieldnames } from '@ziroeda/designer/src/editors/schematic/template_fieldnames.js';
-import { rowsFromSymbol } from '@ziroeda/designer/src/editors/schematic/symbol_props_rows.js';
+import { rowsFromSymbol } from '@ziroeda/eeschema/fields_grid_table.js';
 import {
   buildFieldsReferences,
   FieldsDataModel,
   loadFieldNames,
   symbolTextVarResolver,
-} from '@ziroeda/eeschema/tools/fields_data_model.js';
+} from '@ziroeda/eeschema/fields_data_model.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import { parse } from '@ziroeda/sexpr';
 

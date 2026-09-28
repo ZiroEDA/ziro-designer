@@ -35,7 +35,7 @@ const SOURCE_DIRS = ['designer/src', 'common', 'eeschema', 'pcbnew', 'gerbview',
  * one is a decision somebody writes down.
  */
 const ALLOWED = new Map<string, string>([
-  ['eeschema/tools/sch_collectors.ts', 'ellipsize() truncates a long name'],
+  ['eeschema/sch_collectors.ts', 'ellipsize() truncates a long name'],
   ['designer/src/ui/hotkeys_inventory.ts', 'a regex that must keep matching BOTH forms'],
   // The marker moved with the Nets list into the shared APPEARANCE_CONTROLS.
   ['pcbnew/widgets/appearance_controls.tsx', 'a leading "…N more" truncation marker'],

@@ -23,10 +23,10 @@
 
 import type { BOM_FIELD, BOM_PRESET } from '@ziroeda/common/settings/bom_settings.js';
 import { strNumCmp, valueStringCompare } from '@ziroeda/common/string_utils.js';
-import type { Schematic, SchSymbol } from '../types.js';
-import { buildSheetTree } from '../project.js';
-import { refId } from './hittest.js';
-import { isMandatoryField, type SymbolAttrEdit } from './properties.js';
+import type { Schematic, SchSymbol } from './types.js';
+import { buildSheetTree } from './project.js';
+import { refId } from './tools/hittest.js';
+import { isMandatoryField, type SymbolAttrEdit } from './tools/properties.js';
 import {
   GetGeneratedFieldDisplayName,
   IsGeneratedField,
@@ -34,7 +34,7 @@ import {
   type TextVarResolverFn,
 } from '@ziroeda/common/common.js';
 import type { OutStr } from '@ziroeda/common/eda_item.js';
-import { refsShorthand, type BomOutputFormat } from '../exporters/bom.js';
+import { refsShorthand, type BomOutputFormat } from './exporters/bom.js';
 
 /** FIELDS_EDITOR_GRID_DATA_MODEL::QUANTITY_VARIABLE. */
 export const QUANTITY_VARIABLE = '${QUANTITY}';

@@ -30,7 +30,7 @@ import {
   fieldEditTarget,
 } from '@ziroeda/eeschema/tools/field_properties.js';
 import { collectFieldBoxes, refId } from '@ziroeda/eeschema/tools/hittest.js';
-import { collectAndGuess } from '@ziroeda/eeschema/tools/sch_collectors.js';
+import { collectAndGuess } from '@ziroeda/eeschema/sch_collectors.js';
 import { symbolBodyBBox } from '@ziroeda/eeschema/tools/bbox.js';
 import { placeSymbol } from '@ziroeda/eeschema/tools/index.js';
 import { titleCaps } from '@ziroeda/common/string_utils.js';

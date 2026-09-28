@@ -25,9 +25,9 @@ import type {
   Vec2,
 } from '../types.js';
 import { FILL_MODE_NAMES, FILL_MODE_TOKENS, parseColor4d, rgb8ToCss } from '@ziroeda/common';
-import type { EditCommand } from './command.js';
-import { refId, type ItemRef } from './hittest.js';
-import { cellIndexOfId, tableOfCellId } from './table_cells.js';
+import type { EditCommand } from '../tools/command.js';
+import { refId, type ItemRef } from '../tools/hittest.js';
+import { cellIndexOfId, tableOfCellId } from '../tools/table_cells.js';
 import {
   replaceBusEntry,
   replaceGraphic,
@@ -38,12 +38,12 @@ import {
   replaceSheet,
   replaceTable,
   replaceTextBox,
-} from './mutate.js';
-import { imageSizeIU } from './image_size.js';
-import { moveItems } from './move.js';
-import { parseSheetPinId } from './sch_sheet_pin_tool.js';
-import { transformItems } from './transform.js';
-import { bulkEditFieldsCommand } from './properties.js';
+} from '../tools/mutate.js';
+import { imageSizeIU } from '../tools/image_size.js';
+import { moveItems } from '../tools/move.js';
+import { parseSheetPinId } from '../tools/sch_sheet_pin_tool.js';
+import { transformItems } from '../tools/transform.js';
+import { bulkEditFieldsCommand } from '../tools/properties.js';
 import { IsGeneratedField } from '@ziroeda/common/common.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 

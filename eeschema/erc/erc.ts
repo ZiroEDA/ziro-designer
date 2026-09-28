@@ -49,9 +49,9 @@ import { compareLibSymbolsForErc } from '../lib_symbol_compare.js';
 import { flattenLibSymbol } from '../lib_symbol.js';
 import { checkSimModel } from '../sim/sim_model.js';
 import { isNetclassFieldName } from '../sch_field.js';
-import { computeNetlist, enumeratePins, onSegment, type PinNode } from './nets.js';
-import { expandBusLabel, isBusLabel } from './bus.js';
-import { wireDangleStates } from './dangling.js';
+import { computeNetlist, enumeratePins, onSegment, type PinNode } from '../connectivity/nets.js';
+import { expandBusLabel, isBusLabel } from '../connectivity/bus.js';
+import { wireDangleStates } from '../connectivity/dangling.js';
 import {
   OK,
   WAR,
@@ -63,7 +63,7 @@ import {
   type ErcCode,
   type ErcSeverity,
   type ErcSettings,
-} from '../erc/erc_settings.js';
+} from './erc_settings.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 // Re-export the ERC settings surface so `@ziroeda/eeschema` consumers keep
@@ -80,7 +80,7 @@ export {
   type ErcSeverityLevel,
   type ErcSettings,
   type PinError,
-} from '../erc/erc_settings.js';
+} from './erc_settings.js';
 
 // erc.cpp pin-type driver sets.
 const DRIVING = new Set(['output', 'power_out', 'passive', 'tri_state', 'bidirectional']);

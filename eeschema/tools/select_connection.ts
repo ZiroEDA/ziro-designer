@@ -22,7 +22,7 @@
 import type { LibSymbol, Schematic, Vec2 } from '../types.js';
 import { enumeratePins } from '../connectivity/nets.js';
 import { refId, sheetPinId } from './hittest.js';
-import { analyzePoint, isBusLabelText, isExplicitJunction } from './junction_helpers.js';
+import { analyzePoint, isBusLabelText, isExplicitJunction } from '../junction_helpers.js';
 
 /**
  * How far a walk along a wire is allowed to run. `STOP_CONDITION` in

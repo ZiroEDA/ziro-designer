@@ -161,7 +161,7 @@ wildcards_and_files_ext.
 | `dpi_scaling`, `dpi_scaling_common`, `gal_display_options_common` | done 09-27: `DPI_SCALING`, `DPI_SCALING_COMMON` (config > `GDK_SCALE` > the window's `devicePixelRatio` > 1.0), `GAL_DISPLAY_OPTIONS_IMPL` (the frame's options). Our default scale was 0, not 1.0, and nothing set it: GAL's grid pen was 0.25 + 0 where KiCad's is 1.25 |
 | `env_vars` | done 09-26: the whole `ENV_VAR` namespace (was three functions in `common.ts`); `wxGetEnv` is `wx/utils.ts` |
 | `increment` | done 09-26: `IncrementString`, `STRING_INCREMENTER`, `IndexFromAlphabetic`, `AlphabeticFromIndex` (were in `repeat_item.ts` and `array_options.ts`; the drawing sheet stepped only its last character) |
-| `xnode` | done 09-26: `XNODE` + `XATTR` over a `wxXmlNode`-shaped tree; the KiCad netlist prints through it and matches `kicad-cli` byte for byte in layout. **Still a second copy:** `class X` in `eeschema/exporters/netlist.ts` (the generic XML netlist), which KiCad builds from the SAME `makeRoot` tree and saves with `wxXmlDocument::Save` - settled with eeschema's exporters, see below |
+| `xnode` | done 09-26: `XNODE` + `XATTR` over a `wxXmlNode`-shaped tree; the KiCad netlist prints through it and matches `kicad-cli` byte for byte in layout. **Still a second copy:** `class X` in `eeschema/netlist_exporters/netlist.ts` (the generic XML netlist), which KiCad builds from the SAME `makeRoot` tree and saves with `wxXmlDocument::Save` - settled with eeschema's exporters, see below |
 | `status_popup` | done 09-26: `STATUS_POPUP` / `STATUS_TEXT_POPUP` (measured by `qa/probes/status_popup_probe.cpp`); wired where the tool exists - the schematic sheet-pin tool's "Click over a sheet." and "No new hierarchical labels found." (was the info bar, and nothing). KiCad's other callers wait on their tools: pad renumbering (engine only, no UI), `PCB_GROUP_TOOL`/`SCH_GROUP_TOOL::PickNewMember`, `POSITION_RELATIVE_TOOL`'s picks, `PCB_PICKER_TOOL`, `EDIT_TOOL::pickReferencePoint` (Copy with Reference is a TODO), `PCB_CONTROL`'s "Item locked.", the array-move count |
 | `filename_resolver` | done 09-26: `FILENAME_RESOLVER`, the class, over `wxFileExists` / `wxDirExists` (`wx/filefn.ts`, a mount table: the open project at `/<projectName>`, the hosted 3D library at `${KICAD10_3DMODEL_DIR}` = `/usr/share/kicad/3dmodels`, `/tmp` a RAM disk for `GetTemporaryFileName`). The web-only rescues (basename match, `.3dshapes/` suffix) are gone: KiCad does not do them. Open: the 3D view passes no embedded-files stack (the plain board view carries none) and no footprint library path |
 | `footprint_filter`, `footprint_info` | done 09-27: `FOOTPRINT_INFO`, `FOOTPRINT_LIST`, `FOOTPRINT_FILTER` (and `EDA_PATTERN_MATCH_WILDCARD_ANCHORED` in `eda_pattern_match.ts`); pcbnew's `FOOTPRINT_LIST_IMPL` builds the list from the hosted index (`pcbnew/footprint_info_impl.ts`) and its `filterFootprints` answers the symbol chooser (`pcbnew/pcbnew.ts`). `designer/src/widgets/footprint_list.ts` keeps only the hosted I/O |
@@ -180,7 +180,7 @@ unknown library; `source` is the full path and `date` is
 `GetISO8601CurrentDateTime`. Every line of the oracle's netlist now matches
 (`~/netlist-oracle`). Still open: the per-component `(variants …)` blocks
 (the variants model does not exist yet) and the second XNODE copy in
-`eeschema/exporters/netlist.ts`.
+`eeschema/netlist_exporters/netlist.ts`.
 
 **The library tables (09-27): `libraries/` + the two lib-table units.**
 `libraries/library_table` (LIBRARY_TABLE, LIBRARY_TABLE_ROW, the options

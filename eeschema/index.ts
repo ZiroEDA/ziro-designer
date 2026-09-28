@@ -33,10 +33,10 @@ export * from './widgets/search_handlers.js';
 export * from './connectivity/index.js';
 export * from './erc/marker_nav.js';
 export * from './exporters/bom.js';
-export * from './exporters/netlist.js';
+export * from './netlist_exporters/netlist.js';
 export * from './pin_type.js';
-export * from './exporters/netlist_exporter_kicad.js';
-export * from './exporters/spice.js';
+export * from './netlist_exporters/netlist_exporter_kicad.js';
+export * from './netlist_exporters/netlist_exporter_spice.js';
 
 import { writeSchematic as _writeSchematic } from './sch_io/sexpr/write-schematic.js';
 import { serialize as _serialize } from '@ziroeda/sexpr/serializer.js';

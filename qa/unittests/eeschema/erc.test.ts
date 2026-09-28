@@ -10,7 +10,7 @@ import { wxSetEnv, wxUnsetEnv } from '@ziroeda/common/wx/utils.js';
 import { describe, it, expect } from 'vitest';
 import { parse, serialize } from '@ziroeda/sexpr/index.js';
 import { readSchematic, writeSchematic } from '@ziroeda/eeschema';
-import { runErc } from '@ziroeda/eeschema/connectivity/erc.js';
+import { runErc } from '@ziroeda/eeschema/erc/erc.js';
 import { computeNetlist } from '@ziroeda/eeschema/connectivity/nets.js';
 import { defaultErcSettings } from '@ziroeda/eeschema/erc/erc_settings.js';
 import { makeNoConnect } from '@ziroeda/eeschema/tools/build.js';

@@ -53,7 +53,7 @@ import { transformItems, type TransformAutoplace } from '@ziroeda/eeschema/tools
 import {
   autoplaceFields,
   autoplacePlacedSymbol,
-} from '@ziroeda/eeschema/tools/autoplace_fields.js';
+} from '@ziroeda/eeschema/autoplace_fields.js';
 import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import { fieldDrawRotation } from '@ziroeda/eeschema/fieldbox.js';
 import type { LibSymbol, SchSymbol, Schematic } from '@ziroeda/eeschema/types.js';

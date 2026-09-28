@@ -12,7 +12,7 @@
  * KiCad.
  *
  * Ours had FOUR copies of the type table — `erc/erc_settings.ts`,
- * `tools/sch_properties_panel.ts`, the designer's `symbolRenderer.ts` and one
+ * `widgets/sch_properties_panel.ts`, the designer's `symbolRenderer.ts` and one
  * more — and two of the shape table, which is exactly the drift the
  * central-value rule exists to stop.
  *

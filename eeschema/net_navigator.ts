@@ -26,10 +26,10 @@
  *    somehow contains one explains itself.
  */
 
-import type { LibSymbol, Schematic } from '../types.js';
-import { computeNetlist, enumeratePins, type NetlistOptions } from '../connectivity/nets.js';
-import { computeHierarchyNetlist, type HierSheet } from '../connectivity/hierarchy.js';
-import { refId } from './hittest.js';
+import type { LibSymbol, Schematic } from './types.js';
+import { computeNetlist, enumeratePins, type NetlistOptions } from './connectivity/nets.js';
+import { computeHierarchyNetlist, type HierSheet } from './connectivity/hierarchy.js';
+import { refId } from './tools/hittest.js';
 
 /** One leaf: an item on the net, and the words that describe it. */
 export interface NetNavigatorItem {

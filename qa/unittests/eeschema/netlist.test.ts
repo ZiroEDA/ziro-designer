@@ -16,7 +16,7 @@ import {
   netlistPads,
   netlistCadstar,
   generateNetlist,
-} from '@ziroeda/eeschema/exporters/netlist.js';
+} from '@ziroeda/eeschema/netlist_exporters/netlist.js';
 
 // A 2-pin resistor-like part and a wire joining R1 pin 2 to R2 pin 1.
 const LIB = `(symbol "Device:R" (pin_names (offset 0))

@@ -31,7 +31,7 @@ import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js'
 import {
   dynamicFieldNames,
   schPropertiesFor,
-} from '@ziroeda/eeschema/tools/sch_properties_panel.js';
+} from '@ziroeda/eeschema/widgets/sch_properties_panel.js';
 import { itemRefById } from '@ziroeda/eeschema/tools/hittest.js';
 
 /**

@@ -22,7 +22,7 @@ import { readSchematic } from '@ziroeda/eeschema';
 import {
   schItemFriendlyName,
   schPropertiesFor,
-} from '@ziroeda/eeschema/tools/sch_properties_panel.js';
+} from '@ziroeda/eeschema/widgets/sch_properties_panel.js';
 import { itemRefById, refId } from '@ziroeda/eeschema/tools/hittest.js';
 import { tableCellId } from '@ziroeda/eeschema/tools/table_cells.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';

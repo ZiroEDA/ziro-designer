@@ -17,7 +17,7 @@ import {
   generateSpiceNetlist,
   inferSimModel,
   toSpice,
-} from '@ziroeda/eeschema/exporters/spice.js';
+} from '@ziroeda/eeschema/netlist_exporters/netlist_exporter_spice.js';
 
 describe('convertToSpiceMarkup', () => {
   it('flattens markup and replaces ngspice-hostile characters', () => {

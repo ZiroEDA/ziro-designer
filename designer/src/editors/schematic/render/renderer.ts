@@ -97,7 +97,7 @@ import { contentBBox } from '@ziroeda/eeschema/tools/scene_bbox.js';
 import { tableCellId } from '@ziroeda/eeschema/tools/table_cells.js';
 import { schSymbolLibraryName } from '@ziroeda/eeschema';
 import { imageDataUrl } from '@ziroeda/eeschema/import_gfx/image_format.js';
-import { libPreviewFields } from '@ziroeda/eeschema/tools/autoplace_fields.js';
+import { libPreviewFields } from '@ziroeda/eeschema/autoplace_fields.js';
 import { drawField } from '../../symbol/render/symbolRenderer.js';
 import {
   DNP_MARKER_STROKE_WIDTH,

@@ -37,17 +37,17 @@
  *       to fixed one-wire-per-field spacing.
  */
 
-import type { LibPin, LibSymbol, SchField, SchSheet, SchSymbol, SchLine, Vec2 } from '../types.js';
-import { symbolBodyBBox, labelBox, type BBox } from './bbox.js';
+import type { LibPin, LibSymbol, SchField, SchSheet, SchSymbol, SchLine, Vec2 } from './types.js';
+import { symbolBodyBBox, labelBox, type BBox } from './tools/bbox.js';
 import {
   symbolFieldBoxes,
   effectiveHorizJustify,
   storedForEffectiveHoriz,
   type HJustify,
   type SymbolFieldBox,
-} from '../fieldbox.js';
+} from './fieldbox.js';
 import { measureText } from '@ziroeda/common/font/stroke_font.js';
-import { libPinBoundingBox } from '../pin_box.js';
+import { libPinBoundingBox } from './pin_box.js';
 import {
   symbolTransform,
   applyTransform,
@@ -59,11 +59,11 @@ import {
   SYM_ORIENT_270,
 } from '@ziroeda/kimath/src/transform.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import { refId } from './hittest.js';
-import type { Schematic } from '../types.js';
-import type { EditCommand } from './command.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
-import { buildPropertyNode } from '../sch_io/sexpr/write-schematic.js';
+import { refId } from './tools/hittest.js';
+import type { Schematic } from './types.js';
+import type { EditCommand } from './tools/command.js';
+import { schSymbolLibraryName } from './lib_symbol_compare.js';
+import { buildPropertyNode } from './sch_io/sexpr/write-schematic.js';
 
 /** The paddings, all "arbitrarily chosen for aesthetics" upstream. */
 const FIELD_PADDING = mmToIU(15 * 0.0254);

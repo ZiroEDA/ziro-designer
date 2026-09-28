@@ -16,9 +16,9 @@
  * key; its page lives in the document-level (sheet_instances (path "/" …)).
  */
 
-import type { LEGACY_SYMBOL_INSTANCE, SchSheet, SheetInstance, Schematic } from '../types.js';
-import { AddHierarchicalReference, GetRef, GetUnitSelection } from '../sch_symbol.js';
-import type { EditCommand } from './command.js';
+import type { LEGACY_SYMBOL_INSTANCE, SchSheet, SheetInstance, Schematic } from './types.js';
+import { AddHierarchicalReference, GetRef, GetUnitSelection } from './sch_symbol.js';
+import type { EditCommand } from './tools/command.js';
 import { str } from '@ziroeda/sexpr';
 import type { SList } from '@ziroeda/sexpr';
 import { strNumCmp } from '@ziroeda/common';

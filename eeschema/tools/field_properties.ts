@@ -21,7 +21,7 @@ import {
   autoplacedFields,
   type AutoplaceOptions,
   type AutoplaceSheet,
-} from './autoplace_fields.js';
+} from '../autoplace_fields.js';
 
 /**
  * Resolve a `field` item id — `"<symbolRefId>:field<k>"`, what `collectAndGuess`
