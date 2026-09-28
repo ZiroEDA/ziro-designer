@@ -4,12 +4,12 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 
 | status | count | meaning |
 |---|---:|---|
-| SAME | 202 | same relative path and name as KiCad's `.cpp` |
+| SAME | 209 | same relative path and name as KiCad's `.cpp` |
 | MOVED | 1 | KiCad has this name, in a different directory |
-| DIALOG | 3 | KiCad has it as `dialogs/dialog_<name>.cpp` |
+| DIALOG | 2 | KiCad has it as `dialogs/dialog_<name>.cpp` |
 | HEADER | 14 | KiCad declares it in a `.h` with no matching `.cpp` |
 | ELSEWHERE | 4 | KiCad puts it outside `pcbnew/` |
-| OURS | 88 | no KiCad file of this name anywhere |
+| OURS | 82 | no KiCad file of this name anywhere |
 
 ## MOVED
 
@@ -22,7 +22,6 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 | ours (`pcbnew/`) | KiCad (`pcbnew/` unless noted) |
 |---|---|
 | `outset_items.ts` | `dialogs/dialog_outset_items_base.cpp` |
-| `position_relative.ts` | `dialogs/dialog_position_relative_base.cpp` |
 | `unused_pad_layers.ts` | `dialogs/dialog_unused_pad_layers_base.cpp` |
 
 ## ELSEWHERE
@@ -69,7 +68,6 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 | `diff_footprint.ts` | `-` |
 | `dimension_geometry.ts` | `-` |
 | `dimension_text.ts` | `-` |
-| `distribute_items.ts` | `-` |
 | `draw_dimension.ts` | `-` |
 | `draw_table.ts` | `-` |
 | `draw_textbox.ts` | `-` |
@@ -93,7 +91,6 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 | `footprint_needs_update.ts` | `-` |
 | `footprint_utils.ts` | `-` |
 | `fp_lib_table.ts` | `-` |
-| `graphic_properties.ts` | `-` |
 | `image_geometry.ts` | `-` |
 | `index.ts` | `-` |
 | `inherit_track_width.ts` | `-` |
@@ -109,7 +106,6 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 | `pcb_io/kicad_sexpr/board_view_commit.ts` | `-` |
 | `pcb_io/kicad_sexpr/board_view.ts` | `-` |
 | `pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_items.ts` | `-` |
-| `pcb_io/kicad_sexpr/read_board.ts` | `-` |
 | `pcb_text_help.ts` | `-` |
 | `place_image.ts` | `-` |
 | `polygon_booleans.ts` | `-` |
@@ -139,16 +135,13 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 | `transform_shape_to_polygon.ts` | `-` |
 | `types.ts` | `-` |
 | `via_layers.ts` | `-` |
-| `via_placer.ts` | `-` |
-| `write-board.ts` | `-` |
-| `write-footprint.ts` | `-` |
+| `widgets/footprint_history.ts` | `-` |
 | `zone_connection.ts` | `-` |
 | `zone_islands.ts` | `-` |
-| `zone_properties.ts` | `-` |
 
 ## SAME
 
-<details><summary>202 files already at KiCad's own path</summary>
+<details><summary>209 files already at KiCad's own path</summary>
 
 - `array_pad_number_provider.ts`
 - `autorouter/ar_autoplacer.ts`
@@ -195,12 +188,16 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `dialogs/dialog_move_exact.ts`
 - `dialogs/dialog_non_copper_zones_properties.ts`
 - `dialogs/dialog_pad_properties.ts`
+- `dialogs/dialog_position_relative.ts`
 - `dialogs/dialog_reference_image_properties.ts`
 - `dialogs/dialog_rule_area_properties.ts`
+- `dialogs/dialog_shape_properties.ts`
 - `dialogs/dialog_swap_layers.ts`
 - `dialogs/dialog_table_properties.ts`
 - `dialogs/dialog_textbox_properties.ts`
+- `dialogs/dialog_text_properties.ts`
 - `dialogs/dialog_track_via_properties.ts`
+- `dialogs/panel_zone_properties.ts`
 - `drc/drc_cache_generator.ts`
 - `drc/drc_creepage_utils.ts`
 - `drc/drc_engine.ts`
@@ -248,6 +245,7 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `footprint.ts`
 - `fp_tree_model_adapter.ts`
 - `fp_tree_synchronizing_adapter.ts`
+- `generate_footprint_info.ts`
 - `generators_mgr.ts`
 - `generators/pcb_tuning_pattern.ts`
 - `graphics_cleaner.ts`
@@ -338,6 +336,7 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `teardrop/teardrop.ts`
 - `toolbars_footprint_editor.ts`
 - `toolbars_pcb_editor.ts`
+- `tools/align_distribute_tool.ts`
 - `tools/board_editor_control.ts`
 - `tools/drawing_tool.ts`
 - `tools/drc_tool.ts`
@@ -347,6 +346,7 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `tools/pcb_selection_conditions.ts`
 - `tools/pcb_selection.ts`
 - `tools/pcb_tool_base.ts`
+- `tools/position_relative_tool.ts`
 - `tracks_cleaner.ts`
 - `widgets/pcb_net_inspector_panel.ts`
 - `zone_filler.ts`

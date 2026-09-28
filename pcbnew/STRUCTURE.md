@@ -95,6 +95,52 @@ These belong outside pcbnew entirely (central-value rule): `lset.ts`,
 `layer_ids.ts` moved 09-28); `convert_basic_shapes_to_polygon.ts`, 
 `drc/shape_collisions.ts` → `libs/kimath/src/`.
 
+### The teardrop pattern: two architectures, one concept, both live
+
+09-28 stage 5 tried to fold ~25 root helpers into "the KiCad class file their
+methods mirror" (`text_geometry` → `pcb_text.ts`, `zone_connection` →
+`zones.ts`, `padstack_drill` → `padstack.ts`, `eda_text_format` →
+`common/eda_text.ts`, and so on). Every one checked hit the same wall
+`teardrop.ts` already illustrates: the "KiCad class file" is a **live-BOARD
+class port** from #636 (`PADSTACK_DRILL_PROPS`/`PADSTACK_POST_MACHINING_PROPS`
+already in `padstack.ts`, a numeric `ZONE_CONNECTION` enum already in
+`zones.ts`, `EDA_TEXT::Format` already in `common/eda_text.ts`…), while the
+root helper is a **plain-`Board`-POJO bridge** the *current* dialogs,
+properties panel and renderer actually call. The two sides model the same
+concept independently — a string `ZoneConnection` vs. a numeric
+`ZONE_CONNECTION`, a `TeardropParameters` type vs. a `TEARDROP_PARAMETERS`
+class — because #636 hasn't reached the consumers yet.
+
+Folding the POJO file into the class file either duplicates the concept in
+one place under two names, or silently asks every consumer (dialogs, the
+properties panel, ~150 tests in `teardrop.ts`'s case) to switch to the class
+API — a behaviour migration, not a move, and out of scope for a file-layout
+stage. **Verified blocked this way, 09-28:** `teardrop.ts`, `zone_connection.ts`
+(→ `zones.ts`'s own `ZONE_CONNECTION`), `padstack_drill.ts` (→ `padstack.ts`'s
+own `PADSTACK_DRILL_PROPS`), `eda_text_format.ts` (→ `common/eda_text.ts`'s own
+`EDA_TEXT::Format`), and by the same architecture (POJO source importing
+`./types.js`, class target already `export class`): `text_geometry.ts`,
+`table_geometry.ts`, `textbox_geometry.ts` (all three marked `@deprecated`,
+explicitly pending "#636 stages 3 and 5" already), `dimension_geometry.ts`
+(same), `text_metrics.ts`, `zone_islands.ts`, `courtyard.ts`,
+`courtyard_collision.ts`, `pad_margins.ts`, `footprint_utils.ts`,
+`inherit_track_width.ts`, `unused_pad_layers.ts` (its `PAD::FlashLayer` /
+`PCB_VIA::FlashLayer` half). This is a #636 dependency, not a #stage-5 gap;
+resolving it means finishing the consumer migration, then deleting the POJO
+side, the way `teardrop.ts` itself is already noted above.
+
+**Not blocked, not yet done:** `modify_lines.ts` + `outset_items.ts` +
+`polygon_booleans.ts` all cite `pcbnew/tools/item_modification_routine.cpp`,
+which has no port at all yet (no class to collide with) — a genuine 3-into-1
+merge, exports don't collide, left for the next pass. `image_geometry.ts`
+spans three upstream classes (`BITMAP_BASE`, `REFERENCE_IMAGE`,
+`PCB_REFERENCE_IMAGE`) and needs a real three-way read before splitting.
+`item_description.ts` and `msg_panel.ts` each aggregate many item classes'
+`GetItemDescription`/`GetMsgPanelInfo` in one file on purpose (one dispatch
+site upstream reaches many overrides); splitting them apart would be the
+wrong direction. `pcb_text_help.ts`'s counterpart is a CMake-generated
+header with no hand-authored `.cpp` — nothing to fold into.
+
 ## Frame chrome, moving in from `designer/`
 
 Like `cvpcb/` and `pagelayout_editor/`, the frames/menubars/toolbars KiCad
