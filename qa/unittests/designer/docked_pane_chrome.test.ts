@@ -51,7 +51,7 @@ function read(rel: string): string {
 
 const SHELL = read('../../common/widgets/shell.css');
 const PROPS = read('widgets/properties_panel.css');
-const APPEAR = read('widgets/appearance_controls.css');
+const APPEAR = read('../../pcbnew/widgets/appearance_controls.css');
 
 /**
  * A rule's DECLARATIONS, by exact selector, with the comments stripped.
@@ -155,7 +155,7 @@ describe('APPEARANCE_CONTROLS', () => {
     expect(body(APPEAR, '.ze-appearance > .ze-nb-frame')).toMatch(/margin:\s*5px 0/);
     // The shared notebook box, the same one PANEL_SYMBOL_PROPS takes.
     expect(SHELL).toContain('.ze-nb-frame {');
-    const tsx = read('widgets/appearance_controls.tsx');
+    const tsx = read('../../pcbnew/widgets/appearance_controls.tsx');
     expect(tsx).toContain('className="ze-nb-frame ze-appearance-nb"');
   });
 
@@ -211,7 +211,7 @@ describe('the three pages, and the controls on them', () => {
   });
 
   it('and the slider on it is the shared one, not a range input of its own', () => {
-    const tsx = read('widgets/appearance_controls.tsx');
+    const tsx = read('../../pcbnew/widgets/appearance_controls.tsx');
     expect(tsx).toContain("import { Slider } from '@ziroeda/common/widgets/slider.js'");
     // The JSX, with the comments stripped: the note at the call site names the
     // input it replaced, and a raw `toContain` matches that prose.
@@ -230,7 +230,7 @@ describe('the three pages, and the controls on them', () => {
     // `m_netsTabSplitter->SplitHorizontally( m_panelNets, m_panelNetclasses,
     // 300 )` with `SetMinimumPaneSize( 80 )` (appearance_controls_base.cpp:52,
     // :144). Without it a 220-net board pushed Net Classes off the pane.
-    const tsx = read('widgets/appearance_controls.tsx');
+    const tsx = read('../../pcbnew/widgets/appearance_controls.tsx');
     expect(tsx).toContain("import { Sash } from '@ziroeda/common/widgets/wx_splitter_window.js'");
     expect(tsx).toMatch(/const NETS_SASH_POS = 300;/);
     expect(tsx).toMatch(/const NETS_MIN_PANE = 80;/);

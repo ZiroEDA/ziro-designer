@@ -180,7 +180,12 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // with the native `<select>` it was on. `UpdateGridSelectBox` builds a
   // wxChoice and the toolbar's own sizer spaces it; a margin typed at the call
   // site was this launcher deciding for itself what the toolbar looks like.
-  'editors/footprint': { colours: 4, metrics: 13 },
+  // 13 -> 5 (pcbnew/pcb_edit_frame_ui stage A+widgets move): FootprintEditor.tsx
+  // no longer states appearance_controls.tsx's metrics inline — the widget (and
+  // its appearance_layers.ts/appearance_objects.ts/appearance_presets.ts
+  // siblings) moved to pcbnew/widgets/, which this scanner does not walk.
+  // RESCANNED from this tree.
+  'editors/footprint': { colours: 4, metrics: 5 },
   // 1 -> 0 colours: gerberColors.ts, which nothing in the app read, left for
   // qa as the test-side transcription of s_defaultTheme (09-27).
   'editors/gerbview': { colours: 0, metrics: 4 },
@@ -280,7 +285,14 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // to pcbnew/widgets/, which this scanner does not walk. Its one colour
   // literal left with it; metrics is unchanged because it had none of the
   // tracked CHROME_PROPS kind. RESCANNED from this tree.
-  'editors/pcb': { colours: 26, metrics: 133 },
+  // 26 -> 18 colours, 133 -> 44 metrics (pcbnew/pcb_edit_frame_ui Stage A):
+  // ~50 dialog/panel .tsx modules PcbEditor.tsx and FootprintEditor.tsx named
+  // by relative import, plus the shared appearance_controls.tsx widget and its
+  // appearance_layers/appearance_objects/appearance_presets siblings, moved to
+  // pcbnew/dialogs/, pcbnew/widgets/, pcbnew/board_stackup_manager/ and
+  // pcbnew/length_delay_calculation/ — none of which this scanner walks. Their
+  // literals left with them; RESCANNED from this tree.
+  'editors/pcb': { colours: 18, metrics: 44 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -1298,7 +1310,10 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // uncited by 3b147005, now carry [data] on their own lines against
     // ee_grid_helper.cpp:58 and :64 - a real grown-then-fixed pair, not a
     // baseline change). 321 - 1 - 5 agrees with the rescan.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(299);
+    // 299 -> 291 (pcbnew/pcb_edit_frame_ui Stage A): `editors/pcb` 26 -> 18,
+    // the ~50-module dialogs/panels/appearance_controls move above; 299 - 8
+    // agrees with the rescan.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(291);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1490,7 +1505,10 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 692 (SEARCH_PANE seeded new, plus two lib_tree.tsx sites missed at
     // 4edba88a - see that row) and `widgets` 39 -> 6 (the same consolidation
     // as its colours, above). 1205 + 8 - 33 agrees with the rescan; 1138.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1138);
+    // 1138 -> 1041 (pcbnew/pcb_edit_frame_ui Stage A): `editors/pcb` 133 -> 44
+    // and `editors/footprint` 13 -> 5, the same dialogs/panels/appearance_controls
+    // move; 1138 - 89 - 8 agrees with the rescan.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1041);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

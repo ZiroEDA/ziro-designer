@@ -99,26 +99,26 @@ import {
   FP_DEFAULT_ACTIVE_LAYER,
 } from './footprintBoard.js';
 import { layerColor, PCB_BACKGROUND, PCB_OBJECT_COLORS } from '../pcb/pcbTheme.js';
-import { appearanceLayerRows } from '../../widgets/appearance_layers.js';
+import { appearanceLayerRows } from '@ziroeda/pcbnew/widgets/appearance_layers.js';
 // APPEARANCE_CONTROLS and PANEL_SELECTION_FILTER are the same two widgets
 // pcbnew docks; FOOTPRINT_EDIT_FRAME passes `aFpEditor = true` and its own
 // board's data, and that is the whole of the difference
 // (footprint_edit_frame.cpp:177-178).
-import { AppearanceControls, type AppearanceTab } from '../../widgets/appearance_controls.js';
+import { AppearanceControls, type AppearanceTab } from '@ziroeda/pcbnew/widgets/appearance_controls.js';
 import {
   DEFAULT_OBJECTS,
   DEFAULT_OPACITY,
   OBJECT_ROWS,
   toggleObject,
   type ObjectState,
-} from '../../widgets/appearance_objects.js';
+} from '@ziroeda/pcbnew/widgets/appearance_objects.js';
 import {
   BUILTIN_PRESETS,
   matchPresetName,
   presetComboItems,
   PRESET_SEPARATOR,
   viewportComboItems,
-} from '../../widgets/appearance_presets.js';
+} from '@ziroeda/pcbnew/widgets/appearance_presets.js';
 import {
   DEFAULT_SELECTION_FILTER_OPTIONS,
   SelectionFilterOnlyMenu,

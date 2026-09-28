@@ -22,7 +22,7 @@ const SHELL = read('../../../common/widgets/shell.css');
 // The panel is now ONE widget both frames construct, so what used to be read
 // out of `PcbEditor.tsx` is read out of the widget — see
 // `appearance_controls_shared.test.tsx` for the per-frame assertions.
-const PCB = read('../../../designer/src/widgets/appearance_controls.tsx');
+const PCB = read('../../../pcbnew/widgets/appearance_controls.tsx');
 // The frame that fills it. The wrench button's action is the frame's — upstream
 // it is `m_frame->ShowBoardSetupDialog( _( "Net Classes" ) )`, a PCB_EDIT_FRAME
 // call the panel makes through its m_frame pointer.
