@@ -31,7 +31,27 @@ import {
   parseColor4d,
   toCssColor,
 } from '@ziroeda/common';
-import { colorSettingsById } from '../../prefs/color_settings_list.js';
+
+/**
+ * `SETTINGS_MANAGER::GetColorSettings( aFilename )`'s installed-theme half —
+ * `prefs/color_settings_list.ts`'s `colorSettingsById`, which reads the
+ * account's PCM (plugin/content) store for a user-installed theme. That is a
+ * live, app-owned registry, not a JSON-settings read the `_LIKE` structural
+ * trick covers, so it arrives as a swappable hook — the same shape
+ * `common/gal/kicursors.ts`'s `setCustomCursorsEnabledProvider` uses — rather
+ * than a designer/ import this package may not make. No app registered
+ * (a package test, say) answers `undefined`: no installed theme, the same as
+ * upstream's own "found nothing" branch.
+ */
+let colorSettingsByIdProvider: (filename: string) => ColorThemeContents | undefined = () =>
+  undefined;
+
+/** `PCBNEW_APP`'s theme hook calls this once; see `themeByFilename` below. */
+export function setColorSettingsByIdProvider(
+  fn: (filename: string) => ColorThemeContents | undefined,
+): void {
+  colorSettingsByIdProvider = fn;
+}
 
 /** One theme's colours, indexed by KiCad layer-id name. */
 type ThemeColors = Partial<Record<string, Color4d>>;
@@ -278,7 +298,7 @@ export function pcbThemeFromFile(filename: string, contents: ColorThemeContents)
 export function themeByFilename(filename: string): PcbColorTheme {
   const builtin = PCB_THEMES.find((t) => t.filename === filename);
   if (builtin) return builtin;
-  const installed = colorSettingsById(filename);
+  const installed = colorSettingsByIdProvider(filename);
   if (installed) return pcbThemeFromFile(filename, installed);
   return PCB_THEMES[0]!;
 }
