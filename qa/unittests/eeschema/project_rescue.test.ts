@@ -25,7 +25,7 @@ import {
   RESCUE_PIN_TESTS,
   type RescueSources,
 } from '@ziroeda/eeschema/project_rescue.js';
-import { readLegacySymbolLibrary } from '@ziroeda/eeschema/sch_io/legacy/read-lib.js';
+import { readLegacySymbolLibrary } from '@ziroeda/eeschema/sch_io/kicad_legacy/sch_io_kicad_legacy_lib_cache.js';
 import type { LibSymbol, Schematic, SchSymbol } from '@ziroeda/eeschema/types.js';
 
 const BODY = `

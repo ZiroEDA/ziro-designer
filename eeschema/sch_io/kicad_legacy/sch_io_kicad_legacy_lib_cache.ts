@@ -38,7 +38,7 @@
  */
 
 import { atom, list, str, type SList, type SNode } from '@ziroeda/sexpr/index.js';
-import { fx, fy, kiRound, mil, mm, ParseError, Scanner } from './parse.js';
+import { fx, fy, kiRound, mil, mm, ParseError, Scanner } from './sch_io_kicad_legacy_helpers.js';
 import { convertToNewOverbarNotation } from '@ziroeda/common/string_utils.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
 import type { Reporter } from '@ziroeda/common/reporter.js';

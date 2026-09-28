@@ -20,7 +20,10 @@
  */
 
 import type { LibSymbol } from './types.js';
-import { legacyCacheFileNames, readLegacySymbolLibrary } from './sch_io/legacy/read-lib.js';
+import {
+  legacyCacheFileNames,
+  readLegacySymbolLibrary,
+} from './sch_io/kicad_legacy/sch_io_kicad_legacy_lib_cache.js';
 
 /** The shape `legacySchLibs` needs from a project's file list — a structural
  *  subset of `PickedFile` (`designer/.../SchematicEditor.tsx`), so this stays
