@@ -2,6 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** BOARD_DESIGN_SETTINGS as the project file's `board.design_settings`. */
+import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
@@ -16,7 +17,10 @@ import {
 import { VIATYPE } from '@ziroeda/pcbnew/pcb_track_types.js';
 
 // A project KiCad 10 wrote (schema 2, 66 severities, every defaults.zones key).
-const PRO = '/home/akshay/kicad-reference/qa/data/pcbnew/diff_pair_uncoupled_tuning_drc.kicad_pro';
+// KiCad's own qa file, copied into qa/data so CI (which has no kicad-reference) runs this.
+const PRO = fileURLToPath(
+  new URL('../../data/pcbnew/diff_pair_uncoupled_tuning_drc.kicad_pro', import.meta.url),
+);
 
 function proJson(): JsonObject {
   return JSON.parse(readFileSync(PRO, 'utf8')) as JsonObject;

@@ -6,7 +6,7 @@
  * `dielectric_material.cpp`: the finish, colour and material tables, read
  * back out of the C++ source so a dropped or retyped row cannot pass.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { BOARD_STACKUP_ITEM_TYPE } from '@ziroeda/pcbnew/board_stackup_manager/board_stackup.js';
 import {
@@ -24,6 +24,12 @@ import {
 } from '@ziroeda/pcbnew/board_stackup_manager/stackup_predefined_prms.js';
 
 const REF = '/home/akshay/kicad-reference/pcbnew/board_stackup_manager/';
+/**
+ * These tests read KiCad's own C++ tables, which exist only where the
+ * reference tree is checked out (not in CI). They skip rather than fail
+ * without it; vendoring KiCad's source into the repo would be the wrong fix.
+ */
+const HAVE_REF = existsSync(REF);
 const cpp = (f: string): string => readFileSync(REF + f, 'utf8');
 
 /** The rows of a `static … name[] = { … };` block, in order. */
@@ -32,7 +38,7 @@ const block = (src: string, name: string): string => {
   return src.slice(i, src.indexOf('};', i));
 };
 
-describe('the copper finishes', () => {
+describe.skipIf(!HAVE_REF)('the copper finishes', () => {
   it('are copperFinishType[] in order, "Not specified" first and "User defined" last', () => {
     const names = [
       ...block(cpp('stackup_predefined_prms.cpp'), 'copperFinishType[]').matchAll(
@@ -44,7 +50,7 @@ describe('the copper finishes', () => {
   });
 });
 
-describe('the colour lists', () => {
+describe.skipIf(!HAVE_REF)('the colour lists', () => {
   const rows = (name: string): [string, number, number, number][] =>
     [
       ...block(cpp('stackup_predefined_prms.cpp'), name).matchAll(
@@ -96,7 +102,7 @@ describe('the colour lists', () => {
   });
 });
 
-describe('the material lists', () => {
+describe.skipIf(!HAVE_REF)('the material lists', () => {
   const rows = (name: string): [string, number, number][] =>
     [
       ...block(cpp('dielectric_material.cpp'), name).matchAll(

@@ -2,6 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** DumpJson against files KiCad itself wrote. */
+import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
@@ -9,7 +10,8 @@ import { DumpDouble, DumpJson } from '@ziroeda/common/settings/json_dump.js';
 import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 
-const DATA = '/home/akshay/kicad-reference/qa/data/pcbnew/';
+// KiCad's own qa file, copied into qa/data so CI (which has no kicad-reference) runs this.
+const DATA = fileURLToPath(new URL('../../data/pcbnew/', import.meta.url));
 
 describe('DumpJson', () => {
   it('prints a double the way nlohmann does', () => {
