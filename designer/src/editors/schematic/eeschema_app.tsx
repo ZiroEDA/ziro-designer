@@ -10,6 +10,15 @@
  */
 import { useMemo } from 'react';
 import type { EESCHEMA_APP } from '@ziroeda/eeschema/eeschema_app.js';
+import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
+import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
+import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
+import { HomeLink } from '../../ui/HomeLink.js';
+import { SelectionFilterPanel } from '../../ui/SelectionFilterPanel.js';
+import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
+import { DialogSymLibTable } from '../../widgets/dialog_sym_lib_table.js';
+import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
+import { FootprintChooserFrame } from '../pcb/dialogs/footprint_chooser_frame.js';
 import { gridSizeToIU, settings } from '../../prefs/settings.js';
 import {
   overrideItemColorsFor,
@@ -30,6 +39,25 @@ export function useEeschemaApp(): EESCHEMA_APP {
       useSchematicTheme,
       overrideItemColorsFor,
       gridSizeToIU,
+
+      PreferencesDialog: (props) => <PreferencesDialog {...props} />,
+      HomeLink: (props) => <HomeLink {...props} />,
+      OpenFileDialog: (props) => <OpenFileDialog {...props} />,
+      SaveAsDialog: (props) => <SaveAsDialog {...props} />,
+      SelectionFilterPanel: (props) => <SelectionFilterPanel {...props} />,
+      DialogSymLibTable: (props) => <DialogSymLibTable {...props} />,
+      FootprintChooserFrame: (props) => (
+        <FootprintChooserFrame
+          {...props}
+          loadFootprintIndex={loadFootprintIndex}
+          loadFootprint={loadFootprint}
+        />
+      ),
+
+      useToolbarEntries,
+
+      loadFootprintIndex,
+      loadFootprint,
     }),
     [],
   );

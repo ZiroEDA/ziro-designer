@@ -12,7 +12,14 @@
  * (`designer/src/editors/schematic/eeschema_app.tsx`) is the one file that
  * wires this interface back to what designer actually has.
  */
+import type { ReactNode } from 'react';
 import type { CommonSettings } from '@ziroeda/common/settings/common_settings.js';
+import type { FpLibRow } from '@ziroeda/common/fp_lib_table.js';
+import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
+import type { ChooserFilter, OpenedFile } from '@ziroeda/common/wx/filedlg.js';
+import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
+import type { ToolbarDefaults, ToolbarLoc } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
+import type { SelectionFilterOptions } from './tools/sch_selection_filter.js';
 import type { EeschemaSettings } from './eeschema_settings.js';
 import type { Theme } from './sch_render_settings.js';
 
@@ -30,7 +37,74 @@ export interface EESCHEMA_SETTINGS_STORE {
   updateCommon(mutate: (c: CommonSettings) => void): void;
 }
 
+/** The Open dialog over the account's files, the props the frame passes. */
+export interface EeschemaOpenFileDialogProps {
+  filters?: readonly ChooserFilter[];
+  title?: string;
+  accept?: string;
+  onDone: (file: OpenedFile | null) => void;
+}
+
+/** The Save As dialog, the props the frame passes. */
+export interface EeschemaSaveAsDialogProps {
+  title?: string;
+  initialName: string;
+  filters?: readonly ChooserFilter[];
+  projectDir?: string | null;
+  initialPath?: string;
+  onDone: (path: string | null, placeId?: string) => void;
+}
+
+/** One hosted footprint library, as far as ERC's footprint tests read it. */
+export interface EeschemaFootprintIndexLibrary {
+  name: string;
+  footprints: readonly string[];
+}
+
+/** A loaded footprint, as far as ERC's pad tests read it. */
+export interface EeschemaFootprintPads {
+  pads: readonly { number: string }[];
+}
+
 export interface EESCHEMA_APP {
+  // ----- windows/dialogs (component-shaped, called as JSX) ----------------
+  /** `EDA_BASE_FRAME::ShowPreferences()`, opened on a page. */
+  PreferencesDialog: (props: { initialPage?: PrefsPageId; onClose: () => void }) => ReactNode;
+  /** The home link in the menu bar's left slot. */
+  HomeLink: (props: { onClick?: () => void }) => ReactNode;
+  OpenFileDialog: (props: EeschemaOpenFileDialogProps) => ReactNode;
+  SaveAsDialog: (props: EeschemaSaveAsDialogProps) => ReactNode;
+  /** `PANEL_SCH_SELECTION_FILTER` (shared with the symbol editor). */
+  SelectionFilterPanel: (props: {
+    frame: 'FRAME_SCH' | 'FRAME_SCH_SYMBOL_EDITOR';
+    filter: SelectionFilterOptions;
+    onChange: (next: SelectionFilterOptions) => void;
+    onClose?: () => void;
+  }) => ReactNode;
+  /** Preferences > Manage Symbol Libraries (`PANEL_SYM_LIB_TABLE`). */
+  DialogSymLibTable: (props: {
+    projectFiles: readonly { name: string; text: string }[];
+    globalLibraries: readonly string[];
+    globalBase: string;
+    onSave: (rows: FpLibRow[]) => void;
+    onClose: () => void;
+  }) => ReactNode;
+  /** `FRAME_FOOTPRINT_CHOOSER`, with the hosted footprint library reads baked in. */
+  FootprintChooserFrame: (props: {
+    preselect?: string;
+    fpFilters?: readonly string[];
+    pinCount?: number;
+    onOk: (libId: string) => void;
+    onCancel: () => void;
+  }) => ReactNode;
+
+  // ----- toolbars ------------------------------------------------------
+  useToolbarEntries(app: 'eeschema', loc: ToolbarLoc, defaults: ToolbarDefaults): ToolEntry[];
+
+  // ----- footprint libraries (ERC's footprint tests) ------------------------
+  loadFootprintIndex(): Promise<readonly EeschemaFootprintIndexLibrary[]>;
+  loadFootprint(libId: string): Promise<EeschemaFootprintPads | null>;
+
   // ----- settings ----------------------------------------------------------
   settings: EESCHEMA_SETTINGS_STORE;
   /** The `eeschema.json` slice for this render (re-renders on change). */

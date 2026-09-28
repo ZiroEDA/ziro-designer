@@ -332,7 +332,6 @@ import {
   type SymbolChooserResult,
 } from './dialogs/dialog_symbol_chooser.js';
 import { SymbolLibraryBrowser } from './components/SymbolLibraryBrowser.js';
-import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
 import { libraryUri, loadIndex, loadSymbol, symbolsBase } from './symbols/index.js';
 import { repairSourceLibs } from '@ziroeda/eeschema/repair_source.js';
 import {
@@ -361,21 +360,17 @@ import {
   projectSymLibTablePath,
   serializeSymLibTable,
 } from '@ziroeda/eeschema/project_sym_lib_table.js';
-import { DialogSymLibTable } from '../../widgets/dialog_sym_lib_table.js';
 import {
   projectFpLibTablePath,
   serializeFpLibTable,
   type FpLibRow,
 } from '@ziroeda/common/fp_lib_table.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
-import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
-import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
 import { kicadSchematicWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import {
   RIGHT_TOOLBAR_COMMANDS,
   SCH_DEFAULT_TOOLBARS,
 } from '@ziroeda/eeschema/toolbars_sch_editor.js';
-import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import {
   MenuBar,
   ContextMenu,
@@ -530,7 +525,6 @@ import { DEFAULT_SETUP } from '@ziroeda/common/drawing_sheet/types.js';
 import { BUILTIN_THEMES } from '@ziroeda/eeschema/sch_render_settings.js';
 import { ProgressDialog, nextPaint } from '@ziroeda/common/widgets/wx_progress_reporters.js';
 import type { ProgressSnapshot } from '@ziroeda/common/widgets/progress_reporter_snapshot.js';
-import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
@@ -547,7 +541,6 @@ import { resolveTemplateFieldnames } from '@ziroeda/common/template_fieldnames.j
 import type { RenderOpts } from '@ziroeda/eeschema/sch_render_settings.js';
 import type { InputPrefs } from '@ziroeda/common/ui/view_controls.js';
 import { SchPropertiesPanel } from '@ziroeda/eeschema/widgets/sch_properties_panel_ui.js';
-import { FootprintChooserFrame } from '../pcb/dialogs/footprint_chooser_frame.js';
 import { SearchPanel } from '@ziroeda/eeschema/widgets/sch_search_pane.js';
 import { NetNavigatorPanel } from '@ziroeda/eeschema/widgets/net_navigator_panel.js';
 import { DialogUpdateFromPcb } from '@ziroeda/eeschema/dialogs/dialog_update_from_pcb.js';
@@ -590,7 +583,6 @@ import {
   type SchDockPos,
   type SchLeftPane,
 } from '@ziroeda/eeschema/panes.js';
-import { SelectionFilterPanel } from '../../ui/SelectionFilterPanel.js';
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
 import { loadOutlineFontsFor } from '@ziroeda/common/font/outline_fonts.js';
 import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
@@ -606,7 +598,6 @@ import {
   crossProbeFlashSelection,
   crossProbeViewChange,
 } from '@ziroeda/pcbnew';
-import { HomeLink } from '../../ui/HomeLink.js';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
 // Launching the editor without a project starts here (no bundled demo).
@@ -929,6 +920,18 @@ export function SchematicEditor({
   kiway?: KIWAY;
 }): JSX.Element {
   const app = useEeschemaApp();
+  const {
+    PreferencesDialog,
+    HomeLink,
+    OpenFileDialog,
+    SaveAsDialog,
+    SelectionFilterPanel,
+    DialogSymLibTable,
+    FootprintChooserFrame,
+    useToolbarEntries,
+    loadFootprintIndex,
+    loadFootprint,
+  } = app;
   const [error, setError] = useState<string | null>(null);
   const initial = useMemo<Schematic | null>(() => {
     try {
@@ -6211,7 +6214,18 @@ export function SchematicEditor({
     setErcResult(found);
     setErcFocusedMarker(null);
     setErcRunning(null);
-  }, [doc, setup, ercOptions, ercRunning, liveDocs, flatSheets, currentFile, rawFiles]);
+  }, [
+    doc,
+    setup,
+    ercOptions,
+    ercRunning,
+    liveDocs,
+    flatSheets,
+    currentFile,
+    rawFiles,
+    loadFootprintIndex,
+    loadFootprint,
+  ]);
 
   // Clicking a violation centres the fault and selects the offending items.
   // DIALOG_ERC's cross-probe: select the violation's items, and scroll the
@@ -11158,8 +11172,6 @@ export function SchematicEditor({
             setFpChooser(null);
           }}
           onCancel={() => setFpChooser(null)}
-          loadFootprintIndex={loadFootprintIndex}
-          loadFootprint={loadFootprint}
         />
       )}
 
