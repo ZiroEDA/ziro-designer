@@ -23,6 +23,10 @@ import type { SelectionFilterOptions } from './tools/sch_selection_filter.js';
 import type { KeyLike } from '@ziroeda/common/hotkeys_basic_keys.js';
 import type { Menu } from '@ziroeda/common/tool/action_menu_types.js';
 import type { LibSymbol, Schematic } from './types.js';
+import type { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
+import type { KIWAY } from '@ziroeda/common/kiway.js';
+import type { ProjectFile } from '@ziroeda/common/project_paths.js';
+import type { RawFile } from '@ziroeda/common';
 import type { PeerRole, PresenceInfo, ProjectSyncTransport } from './project_sync_transport.js';
 import type { EeschemaSettings } from './eeschema_settings.js';
 import type { Theme } from './sch_render_settings.js';
@@ -166,4 +170,50 @@ export interface EESCHEMA_APP {
     onSetRole: (peerId: string, role: 'editor' | 'viewer') => void;
     onClose: () => void;
   }) => ReactNode;
+
+  // ----- the other KIWAY players --------------------------------------------
+  // eeschema reaches CvPcb and pcbnew through the app, as upstream reaches
+  // them through KIWAY: `cvpcb` imports eeschema, so a direct import back
+  // would be a package cycle, and eeschema takes no pcbnew dependency.
+
+  /** CvPcb's Assign Footprints window (`FRAME_CVPCB`), given this project. */
+  AssignFootprints: (props: {
+    docs: ReadonlyMap<string, Schematic>;
+    files?: readonly string[];
+    projectFootprints?: readonly { name: string; text: string }[];
+    kiway?: KIWAY;
+    onSaveLibTable?: (rows: FpLibRow[]) => void;
+    onSaveEquFiles?: (files: readonly string[], newFiles: readonly ProjectFile[]) => void;
+    onClose: () => void;
+  }) => ReactNode;
+  /**
+   * `PCB_EDIT_FRAME::FetchNetlistFromSchematic`'s headless path over a set of
+   * project files: the netlist text, when it reads back as a netlist.
+   */
+  fetchNetlistFromSchematic(
+    files: readonly RawFile[],
+    annotateMessage: string,
+    rootPro?: string,
+  ): { ok: true; netlistText: string } | { ok: false };
+  /**
+   * The cross-probe view decision both frames spell identically
+   * (`SCH_SELECTION_TOOL::SyncSelection`, `PCB_SELECTION_TOOL::…`); the zoom
+   * LUT is the caller's.
+   */
+  crossProbeViewChange(
+    cfg: CROSS_PROBING_SETTINGS,
+    bbox: { minX: number; minY: number; maxX: number; maxY: number } | null,
+    view: { scale: number; cx: number; cy: number },
+    canvas: { width: number; height: number },
+    zoomScale?: (
+      bbox: { minX: number; minY: number; maxX: number; maxY: number },
+      screen: { x: number; y: number },
+      scale: number,
+    ) => number | null,
+  ): { scale: number; cx: number; cy: number } | null;
+  /** The selection shown at a cross-probe flash phase. */
+  crossProbeFlashSelection(phase: number, ids: readonly string[]): readonly string[];
+  /** The flash timer's period and last phase. */
+  CROSS_PROBE_FLASH_INTERVAL_MS: number;
+  CROSS_PROBE_FLASH_LAST_PHASE: number;
 }

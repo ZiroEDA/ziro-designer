@@ -26,6 +26,25 @@ import { applyHotkeyOverrides } from './hotkey_list.js';
 import { useProjectSync } from '../../sync/ProjectSyncProvider.js';
 import { useAuth } from '../../auth/AuthProvider.js';
 import { PresencePanel } from '../../ui/PresencePanel.js';
+import { DialogAssignFootprints } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
+import { useCvpcbApp } from './cvpcb_app.js';
+import { fetchNetlistFromSchematic } from '@ziroeda/pcbnew/netlist_from_schematic.js';
+import {
+  CROSS_PROBE_FLASH_INTERVAL_MS,
+  CROSS_PROBE_FLASH_LAST_PHASE,
+  crossProbeFlashSelection,
+  crossProbeViewChange,
+} from '@ziroeda/pcbnew';
+import type { ComponentProps, JSX } from 'react';
+
+/** CvPcb's window with the program's own `CVPCB_APP` — a component so the
+ *  `useCvpcbApp()` hook runs inside it. */
+function AssignFootprintsWithApp(
+  props: Omit<ComponentProps<typeof DialogAssignFootprints>, 'app'>,
+): JSX.Element {
+  const cvpcbApp = useCvpcbApp();
+  return <DialogAssignFootprints app={cvpcbApp} {...props} />;
+}
 import { gridSizeToIU, settings } from '../../prefs/settings.js';
 import {
   overrideItemColorsFor,
@@ -79,6 +98,16 @@ export function useEeschemaApp(): EESCHEMA_APP {
       useProjectSync,
       useAuth,
       PresencePanel: (props) => <PresencePanel {...props} />,
+
+      AssignFootprints: (props) => <AssignFootprintsWithApp {...props} />,
+      fetchNetlistFromSchematic: (files, annotateMessage, rootPro) => {
+        const r = fetchNetlistFromSchematic(files, annotateMessage, rootPro);
+        return r.ok ? { ok: true, netlistText: r.netlistText } : { ok: false };
+      },
+      crossProbeViewChange,
+      crossProbeFlashSelection,
+      CROSS_PROBE_FLASH_INTERVAL_MS,
+      CROSS_PROBE_FLASH_LAST_PHASE,
     }),
     [],
   );

@@ -24,7 +24,6 @@ import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import { SCH_EDIT_FRAME } from '@ziroeda/eeschema/sch_edit_frame.js';
 import { assignFootprintsCommands } from '@ziroeda/eeschema/tools/assign_footprints.js';
-import { fetchNetlistFromSchematic } from '@ziroeda/pcbnew/netlist_from_schematic.js';
 import { parse } from '@ziroeda/sexpr';
 import {
   applySchematicPatch,
@@ -496,8 +495,6 @@ import {
   DialogSymbolFieldsTable,
   type FieldsEdits,
 } from '@ziroeda/eeschema/dialogs/dialog_symbol_fields_table.js';
-import { DialogAssignFootprints } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
-import { useCvpcbApp } from './cvpcb_app.js';
 import { DialogPrint } from '@ziroeda/eeschema/printing/dialog_print.js';
 import { DialogPlot, type PlotRequest } from '@ziroeda/eeschema/dialogs/dialog_plot_schematic.js';
 import {
@@ -585,12 +582,6 @@ import { schSymbolLibraryName } from '@ziroeda/eeschema';
 import { busJunctionIds as busJunctionIdsOf } from '@ziroeda/eeschema/connectivity/bus.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { applyToggle, DEFAULT_TOGGLES } from '@ziroeda/eeschema/toggles.js';
-import {
-  CROSS_PROBE_FLASH_INTERVAL_MS,
-  CROSS_PROBE_FLASH_LAST_PHASE,
-  crossProbeFlashSelection,
-  crossProbeViewChange,
-} from '@ziroeda/pcbnew';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
 // Launching the editor without a project starts here (no bundled demo).
@@ -934,6 +925,12 @@ export function SchematicEditor({
     useProjectSync,
     useAuth,
     PresencePanel,
+    AssignFootprints,
+    fetchNetlistFromSchematic,
+    crossProbeViewChange,
+    crossProbeFlashSelection,
+    CROSS_PROBE_FLASH_INTERVAL_MS,
+    CROSS_PROBE_FLASH_LAST_PHASE,
   } = app;
   const [error, setError] = useState<string | null>(null);
   const initial = useMemo<Schematic | null>(() => {
@@ -2049,7 +2046,7 @@ export function SchematicEditor({
       flashPhase === null
         ? selection
         : new Set(crossProbeFlashSelection(flashPhase, [...selection])),
-    [selection, flashPhase],
+    [selection, flashPhase, crossProbeFlashSelection],
   );
   useEffect(() => {
     if (flashPhase === null) return;
@@ -2062,7 +2059,7 @@ export function SchematicEditor({
       CROSS_PROBE_FLASH_INTERVAL_MS,
     );
     return () => clearTimeout(t);
-  }, [flashPhase]);
+  }, [flashPhase, CROSS_PROBE_FLASH_INTERVAL_MS, CROSS_PROBE_FLASH_LAST_PHASE]);
 
   // The live document for stable callbacks is `docRef`, kept by `setDoc`.
   // Which file that document is, for the same reason: an undo step is applied
@@ -3042,10 +3039,6 @@ export function SchematicEditor({
   const [browserOpen, setBrowserOpen] = useState(false);
   // Assign Footprints (CVPCB_MAINFRAME).
   const [assignFpOpen, setAssignFpOpen] = useState(false);
-  // What `cvpcb` (Assign Footprints, its footprint viewer and Manage
-  // Footprint Association Files) asks of the program: `cvpcb` never imports
-  // `designer`. See `cvpcb_app.tsx`.
-  const cvpcbApp = useCvpcbApp();
   // The sheets of THIS design, in hierarchy order, cvpcb is handed the
   // current schematic's netlist, so sibling projects sharing the folder (and
   // sheets reached twice) must not add rows.
@@ -10617,8 +10610,7 @@ export function SchematicEditor({
             {/* Assign Footprints (cvpcb): assignments apply as Footprint field
               edits through the same per-sheet pathway as the fields table. */}
             {assignFpOpen && (
-              <DialogAssignFootprints
-                app={cvpcbApp}
+              <AssignFootprints
                 docs={liveDocs()}
                 // The netlist CVPCB works on is this design's sheets, in
                 // hierarchy order, not every .kicad_sch in the project folder.
