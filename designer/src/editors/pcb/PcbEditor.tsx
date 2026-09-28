@@ -507,11 +507,13 @@ import {
   type ZoneValues,
 } from '@ziroeda/pcbnew/dialogs/panel_zone_properties.js';
 import {
-  applyTrackViaValues,
+  DIALOG_TRACK_VIA_PROPERTIES,
   hasTrackOrVia,
+  trackViaLiveSelection,
   trackViaSelection,
   type TrackViaValues,
 } from '@ziroeda/pcbnew/dialogs/dialog_track_via_properties.js';
+import { useKiDialog } from '@ziroeda/common/kidialog.js';
 import {
   applyGlobalTeardropEdit,
   type GlobalTeardropEditOptions,
@@ -523,7 +525,7 @@ import {
   tableView,
   viewIdOfBoardItem,
 } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
-import { IsOK } from '@ziroeda/common/confirm.js';
+import { DisplayErrorMessage, IsOK } from '@ziroeda/common/confirm.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { DIALOG_REFERENCE_IMAGE_PROPERTIES } from '@ziroeda/pcbnew/dialogs/dialog_reference_image_properties.js';
 import { moveExactOnSelection } from '@ziroeda/pcbnew/dialogs/dialog_move_exact.js';
@@ -2228,6 +2230,8 @@ export function PcbEditor({
   // Track & Via Properties (DIALOG_TRACK_VIA_PROPERTIES), opened by E or a
   // double-click on a copper item.
   const [trackViaOpen, setTrackViaOpen] = useState(false);
+  // The KIDIALOGs its OK asks (confirmShortingNets, confirmPadChange).
+  const { ask: askKiDialog, node: kiDialogNode } = useKiDialog();
   // Copper Zone Properties (DIALOG_COPPER_ZONE), on the selected zone.
   const [zonePropsIndex, setZonePropsIndex] = useState<number | null>(null);
   // Footprint Properties (DIALOG_FOOTPRINT_PROPERTIES), board side.
@@ -8466,13 +8470,21 @@ export function PcbEditor({
   const applyTrackViaEdit = useCallback(
     (values: TrackViaValues) => {
       const brd = boardRef.current;
-      setTrackViaOpen(false);
-      if (!brd) return;
-      const sel = trackViaSelection(brd, selForDrawRef.current);
-      const next = applyTrackViaValues(brd, sel, values);
-      if (next !== brd) commitBoard(next);
+      const frame = frameRef.current;
+      if (!brd || !frame) {
+        setTrackViaOpen(false);
+        return;
+      }
+      // DIALOG_TRACK_VIA_PROPERTIES on the live items: one BOARD_COMMIT. A
+      // refused OK leaves the dialog up behind its error, as DisplayError does.
+      void new DIALOG_TRACK_VIA_PROPERTIES(frame, trackViaLiveSelection(brd, selForDrawRef.current))
+        .TransferDataFromWindow(values, askKiDialog)
+        .then((r) => {
+          if (r.ok) setTrackViaOpen(false);
+          else if (r.message) DisplayErrorMessage(r.message);
+        });
     },
-    [commitBoard],
+    [askKiDialog],
   );
 
   /**
@@ -12190,17 +12202,29 @@ export function PcbEditor({
             onClose={() => setZonePropsIndex(null)}
           />
         )}
-      {trackViaOpen && board && (
-        <DialogTrackViaProperties
-          selection={trackViaSelection(board, selection)}
-          nets={board.nets}
-          layers={board.layers.filter((l) => /\.Cu$/.test(l.name)).map((l) => l.name)}
-          trackWidths={trackWidthList}
-          viaSizes={viaSizeList}
-          onApply={applyTrackViaEdit}
-          onClose={() => setTrackViaOpen(false)}
-        />
-      )}
+      {trackViaOpen &&
+        board &&
+        frameRef.current &&
+        (() => {
+          const dlg = new DIALOG_TRACK_VIA_PROPERTIES(
+            frameRef.current!,
+            trackViaLiveSelection(board, selection),
+          );
+          return (
+            <DialogTrackViaProperties
+              initial={dlg.TransferDataToWindow()}
+              hasTracks={dlg.m_tracks}
+              hasVias={dlg.m_vias}
+              nets={board.nets}
+              layers={board.layers.filter((l) => /\.Cu$/.test(l.name)).map((l) => l.name)}
+              trackWidths={trackWidthList}
+              viaSizes={viaSizeList}
+              onApply={applyTrackViaEdit}
+              onClose={() => setTrackViaOpen(false)}
+            />
+          );
+        })()}
+      {kiDialogNode}
       {moveExactOpen && board && (
         <DialogMoveExact
           bbox={boardSelectionBBox(board, selection)}
