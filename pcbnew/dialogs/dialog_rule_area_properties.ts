@@ -34,6 +34,18 @@ import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 // zone being *converted* into one starts from.
 import { DEFAULT_RULE_AREA_KEEPOUT } from '../convert_shapes.js';
 import type { Board, PcbZone, PlacementSourceType, ZonePlacementArea } from '../types.js';
+import { LSET_Name } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
+import { layerSetOfTokens, layerTokens } from '../pcb_io/kicad_sexpr/board_view.js';
+import type { ZONE } from '../zone.js';
+import {
+  PLACEMENT_SOURCE_T,
+  ZONE_BORDER_DISPLAY_STYLE,
+  type ZONE_SETTINGS,
+} from '../zone_settings.js';
+import type { TransferResult } from './dialog_text_properties.js';
+import { editZoneParamsCommit } from './panel_zone_properties.js';
 
 /** ZONE_BORDER_HATCH_{DIST,MINDIST,MAXDIST}_MM (pcbnew/zones.h:34-36). */
 const BORDER_HATCH_DEFAULT = mmToIU(0.5);
@@ -409,4 +421,115 @@ export function applyRuleAreaValues(board: Board, index: number, v: RuleAreaValu
   // No "nothing changed" shortcut: `Edit_Zone_Params` pushes a commit on every
   // OK, so an untouched dialog is still an undo entry upstream.
   return { ...board, zones: board.zones.map((z, i) => (i === index ? next : z)) };
+}
+
+// ---------------------------------------------------------------------------
+// The live dialog: DIALOG_RULE_AREA_PROPERTIES on a ZONE (#636 stage 6)
+// ---------------------------------------------------------------------------
+
+const BORDER_STYLE: readonly [ZoneBorderStyle, ZONE_BORDER_DISPLAY_STYLE][] = [
+  ['none', ZONE_BORDER_DISPLAY_STYLE.NO_HATCH],
+  ['edge', ZONE_BORDER_DISPLAY_STYLE.DIAGONAL_EDGE],
+  ['full', ZONE_BORDER_DISPLAY_STYLE.DIAGONAL_FULL],
+];
+
+const PLACEMENT_SOURCE: readonly [PlacementSourceType, PLACEMENT_SOURCE_T][] = [
+  ['sheetname', PLACEMENT_SOURCE_T.SHEETNAME],
+  ['component_class', PLACEMENT_SOURCE_T.COMPONENT_CLASS],
+  ['group', PLACEMENT_SOURCE_T.GROUP_PLACEMENT],
+];
+
+/**
+ * `DIALOG_RULE_AREA_PROPERTIES` on a live rule-area ZONE, as
+ * `PCB_EDIT_FRAME::Edit_Zone_Params` (edit_zone_helpers.cpp:47-52) drives it:
+ * the board's default zone settings with the zone read over them, then
+ * TransferDataFromWindow (:421-537) and the shared commit tail
+ * ({@link editZoneParamsCommit}), "Edit Zone Properties".
+ *
+ * The placement page's combo logic stays with {@link placementFromPage}; the
+ * values carry its result, the triple the dialog writes.
+ */
+export class DIALOG_RULE_AREA_PROPERTIES {
+  private readonly m_frame: PCB_BASE_EDIT_FRAME;
+  private readonly m_zone: ZONE;
+  private readonly m_zonesettings: ZONE_SETTINGS;
+  private readonly m_originalName: string;
+
+  constructor(aFrame: PCB_BASE_EDIT_FRAME, aZone: ZONE) {
+    this.m_frame = aFrame;
+    this.m_zone = aZone;
+    this.m_zonesettings = aFrame.GetDesignSettings().GetDefaultZoneSettings().clone();
+    this.m_zonesettings.importFrom(aZone);
+    this.m_originalName = this.m_zonesettings.m_Name;
+  }
+
+  TransferDataToWindow(): RuleAreaValues {
+    const s = this.m_zonesettings;
+    const layers = s.m_Layers;
+    const copperLayerCount = this.m_zone.GetBoard()?.GetCopperLayerCount() ?? 2;
+
+    return {
+      doNotAllowTracks: s.GetDoNotAllowTracks(),
+      doNotAllowVias: s.GetDoNotAllowVias(),
+      doNotAllowPads: s.GetDoNotAllowPads(),
+      doNotAllowCopperPour: s.GetDoNotAllowZoneFills(),
+      doNotAllowFootprints: s.GetDoNotAllowFootprints(),
+      placementEnabled: s.GetPlacementAreaEnabled(),
+      placementSourceType:
+        PLACEMENT_SOURCE.find(([, t]) => t === s.GetPlacementAreaSourceType())?.[0] ?? 'sheetname',
+      placementSource: s.GetPlacementAreaSource(),
+      name: s.m_Name,
+      locked: s.m_Locked,
+      layers:
+        layers.count() > 1
+          ? layerTokens(layers, copperLayerCount, true, layers.and(LSET.AllCuMask()).any())
+          : layers.Seq().map((l) => LSET_Name(l)),
+      // INVISIBLE_BORDER leaves the radio at its default, the first row.
+      hatchStyle: BORDER_STYLE.find(([, d]) => d === s.m_ZoneBorderDisplayStyle)?.[0] ?? 'none',
+      hatchPitch: s.m_BorderHatchPitch,
+    };
+  }
+
+  TransferDataFromWindow(v: RuleAreaValues): TransferResult {
+    const s = this.m_zonesettings;
+
+    // Set keepout parameters:
+    s.SetIsRuleArea(true);
+    s.SetDoNotAllowTracks(v.doNotAllowTracks);
+    s.SetDoNotAllowVias(v.doNotAllowVias);
+    s.SetDoNotAllowZoneFills(v.doNotAllowCopperPour);
+    s.SetDoNotAllowPads(v.doNotAllowPads);
+    s.SetDoNotAllowFootprints(v.doNotAllowFootprints);
+
+    // Set placement parameters
+    s.SetPlacementAreaEnabled(v.placementEnabled);
+    s.SetPlacementAreaSourceType(
+      PLACEMENT_SOURCE.find(([name]) => name === v.placementSourceType)?.[1] ??
+        PLACEMENT_SOURCE_T.SHEETNAME,
+    );
+    s.SetPlacementAreaSource(v.placementSource);
+
+    s.m_Layers = layerSetOfTokens(v.layers);
+
+    if (s.m_Layers.count() === 0) return { ok: false, message: NO_LAYERS_SELECTED };
+
+    const style = BORDER_STYLE.find(([name]) => name === v.hatchStyle);
+    if (style) s.m_ZoneBorderDisplayStyle = style[1];
+
+    if (v.hatchPitch < BORDER_HATCH_MIN || v.hatchPitch > BORDER_HATCH_MAX) return { ok: false };
+
+    s.m_BorderHatchPitch = v.hatchPitch;
+    s.m_Locked = v.locked;
+    s.m_ZonePriority = 0; // for a keepout, this param is not used.
+    s.m_Name = v.name;
+
+    // Only enforce uniqueness when the user actually changed the name (issue 23131)
+    const board = this.m_zone.GetBoard();
+    if (board && s.m_Name !== this.m_originalName)
+      s.m_Name = board.GetUniqueZoneName(s.m_Name, null);
+
+    editZoneParamsCommit(this.m_frame, this.m_zone, s);
+
+    return { ok: true };
+  }
 }
