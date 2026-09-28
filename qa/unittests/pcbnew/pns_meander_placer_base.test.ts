@@ -61,7 +61,7 @@ import type {
 import { PnsConstraintType } from '@ziroeda/pcbnew/router/pns_collision.js';
 import { PnsItemSet } from '@ziroeda/pcbnew/router/pns_itemset.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
-import { PnsLineChain } from '@ziroeda/pcbnew/router/pns_line_item.js';
+import { PnsLineChain } from '@ziroeda/pcbnew/router/pns_line.js';
 import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
 import type { NetHandle } from '@ziroeda/pcbnew/router/pns_collision.js';

@@ -69,7 +69,7 @@ import { PnsConstraintType } from './pns_collision.js';
 import type { DpNetPair, NetHandle, PnsRuleResolver } from './pns_collision.js';
 import type { PnsItem } from './pns_item.js';
 import type { PnsItemSet } from './pns_itemset.js';
-import type { PnsLineChain } from './pns_line_item.js';
+import type { PnsLineChain } from './pns_line.js';
 import type { PnsNode } from './pns_node.js';
 import type { PnsResolverHost } from './pns_rule_resolver.js';
 import type { PnsRouterIface, PnsRouterSizes } from './pns_router.js';

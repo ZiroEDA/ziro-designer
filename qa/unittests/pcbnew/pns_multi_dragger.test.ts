@@ -36,7 +36,7 @@ import {
 } from '@ziroeda/pcbnew/router/pns_multi_dragger.js';
 import { PnsDragMode, makePnsRouterHost } from '@ziroeda/pcbnew/router/pns_drag_algo.js';
 import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
-import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line_item.js';
+import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
 import { PnsItemSet } from '@ziroeda/pcbnew/router/pns_itemset.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';

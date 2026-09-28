@@ -87,7 +87,7 @@ import { PnsJoint, type JointTag } from './pns_joint.js';
 import { PnsItemSet } from './pns_itemset.js';
 import { LineMarker, PnsKind, type PnsBoardItem, type PnsItem } from './pns_item.js';
 import { PnsLayerRange } from './pns_layerset.js';
-import { PNS_HULL_MARGIN, PnsLine } from './pns_line_item.js';
+import { PNS_HULL_MARGIN, PnsLine } from './pns_line.js';
 import { PnsArc, reversedArc } from './pns_arc.js';
 import { PnsSegment } from './pns_segment.js';
 import { PnsVVia } from './pns_via.js';

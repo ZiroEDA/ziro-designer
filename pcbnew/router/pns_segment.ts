@@ -16,7 +16,7 @@
  * division and every clearance computed from it inherits the truncation.
  */
 import { PnsKind, PnsLinkedItem, type PnsItem } from './pns_item.js';
-import type { PnsLine } from './pns_line_item.js';
+import type { PnsLine } from './pns_line.js';
 import type { Shape } from '../drc/drc_geometry.js';
 import type { Chain, Seg } from './pns_line.js';
 import type { NetHandle } from './pns_collision.js';

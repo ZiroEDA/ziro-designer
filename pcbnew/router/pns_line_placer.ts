@@ -55,7 +55,7 @@ import {
 import { PnsArc } from './pns_arc.js';
 import { PnsKind, type PnsItem, type PnsLinkedItem } from './pns_item.js';
 import { PnsLayerRange } from './pns_layerset.js';
-import { PnsLine, PnsLineChain } from './pns_line_item.js';
+import { PnsLine, PnsLineChain } from './pns_line.js';
 import {
   PnsMode,
   PnsOptimizationEffort,

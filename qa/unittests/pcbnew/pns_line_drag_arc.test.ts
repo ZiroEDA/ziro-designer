@@ -31,8 +31,8 @@
 import { describe, expect, it } from 'vitest';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { lineDragArc } from '@ziroeda/pcbnew/router/pns_line_drag.js';
-import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line_item.js';
+import { lineDragArc } from '@ziroeda/pcbnew/router/pns_line.js';
+import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line.js';
 import {
   arcRadius,
   constructArcFromStartEndAngle,

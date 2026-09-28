@@ -56,7 +56,7 @@ import {
 } from '@ziroeda/pcbnew/router/pns_optimizer.js';
 import { DiffPair } from '@ziroeda/pcbnew/router/pns_diff_pair.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
-import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line_item.js';
+import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line.js';
 import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
 import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';

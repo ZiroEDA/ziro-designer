@@ -56,7 +56,7 @@ import { ObstacleSet } from './pns_collision.js';
 import { PnsItemSet } from './pns_itemset.js';
 import { PnsKind, LineMarker } from './pns_item.js';
 import { PnsLayerRange } from './pns_layerset.js';
-import { PnsLine, PnsLineChain } from './pns_line_item.js';
+import { PnsLine, PnsLineChain } from './pns_line.js';
 import { PnsNode } from './pns_node.js';
 import { PnsSegment } from './pns_segment.js';
 import { findDpPrimitivePair, type DpPlacerSizes } from './pns_diff_pair_placer.js';

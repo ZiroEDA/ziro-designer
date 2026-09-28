@@ -64,7 +64,7 @@
  * `/var/tmp/ziro-router-specs/pns_shove_impl.md`.
  */
 import { LineMarker, PnsKind } from './pns_item.js';
-import { PnsLine, PnsLineChain } from './pns_line_item.js';
+import { PnsLine, PnsLineChain } from './pns_line.js';
 import { PnsSegment } from './pns_segment.js';
 import { PnsItemSet } from './pns_itemset.js';
 import type { PnsVia } from './pns_via.js';

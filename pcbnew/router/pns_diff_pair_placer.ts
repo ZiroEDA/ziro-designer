@@ -75,7 +75,7 @@ import { ObstacleSet } from './pns_collision.js';
 import { PnsItemSet } from './pns_itemset.js';
 import { PnsKind } from './pns_item.js';
 import { PnsLayerRange } from './pns_layerset.js';
-import { PNS_HULL_MARGIN, type PnsLine, PnsLineChain } from './pns_line_item.js';
+import { PNS_HULL_MARGIN, type PnsLine, PnsLineChain } from './pns_line.js';
 import { PnsMode, pnsAllowDrcViolations } from './pns_routing_settings.js';
 import { PnsShove, PnsShoveStatus } from './pns_shove.js';
 import { PnsSegment } from './pns_segment.js';

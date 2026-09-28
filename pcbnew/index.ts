@@ -1045,7 +1045,13 @@ export {
   PnsLine,
   PnsLineChain,
   PNS_HULL_MARGIN,
-} from './router/pns_line_item.js';
+  chainSplit,
+  lineDragArc,
+  lineDragCorner,
+  lineDragSegment,
+  type ChainIntersection,
+  type LineDragArcFn,
+} from './router/pns_line.js';
 
 export { PnsNode, type PnsBox } from './router/pns_node.js';
 // ----- the shape collision table (shape_collisions.cpp) -------------------------
@@ -1401,13 +1407,10 @@ export {
   type PnsRouterHost,
 } from './router/pns_drag_algo.js';
 export { PnsMouseTrailTracer } from './router/pns_mouse_trail_tracer.js';
-export {
-  chainSplit,
-  lineDragArc,
-  lineDragCorner,
-  lineDragSegment,
-  type LineDragArcFn,
-} from './router/pns_line_drag.js';
+// `chainSplit`/`lineDragArc`/`lineDragCorner`/`lineDragSegment`/`LineDragArcFn`
+// are already exported above, from the `pns_line.js` block (that module now
+// carries `pns_line_drag.cpp`'s content too, since the router file-structure
+// parity pass merged them).
 export {
   PnsDragger,
   collectObstacleHulls,
@@ -1526,7 +1529,7 @@ export {
 // `PnsMode`, `PnsOptimizationEffort` and `RoutingSettings` are already exported
 // above, from the routing-settings block this port builds on.
 export { PnsSizesSettings, type PnsViaTypeSetting } from './router/pns_sizes_settings.js';
-export type { ChainIntersection } from './router/pns_line_item.js';
+// `ChainIntersection` is already exported above, from the `pns_line.js` block.
 // The board bridge — `PNS_KICAD_IFACE` over this repo's `Board`. `PnsRouterIface`
 // itself is *not* re-exported: `pns_collision.ts` already exports a type of that
 // name (the one-member `isFlashedOnLayer` slice), and the full interface is

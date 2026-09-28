@@ -134,7 +134,7 @@ import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { EuclideanNormI, type Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { intersectLines, segmentCount, type Seg } from './pns_line.js';
 import type { Chain } from './pns_chain.js';
-import { PnsLine, PnsLineChain } from './pns_line_item.js';
+import { PnsLine, PnsLineChain } from './pns_line.js';
 import { segApproxParallel, segLineProject } from './pns_seg_ops.js';
 import type { DiffPair } from './pns_diff_pair.js';
 import type { PnsNode } from './pns_node.js';
