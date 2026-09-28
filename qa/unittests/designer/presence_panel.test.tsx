@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { PresencePanel } from '@ziroeda/designer/src/ui/PresencePanel.js';
 import { peerColor } from '@ziroeda/designer/src/sync/peerColor.js';
-import type { PresenceInfo } from '@ziroeda/designer/src/sync/ProjectSyncTransport.js';
+import type { PresenceInfo } from '@ziroeda/eeschema/project_sync_transport.js';
 
 afterEach(cleanup);
 

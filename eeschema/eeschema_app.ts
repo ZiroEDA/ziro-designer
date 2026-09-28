@@ -23,6 +23,7 @@ import type { SelectionFilterOptions } from './tools/sch_selection_filter.js';
 import type { KeyLike } from '@ziroeda/common/hotkeys_basic_keys.js';
 import type { Menu } from '@ziroeda/common/tool/action_menu_types.js';
 import type { LibSymbol, Schematic } from './types.js';
+import type { PeerRole, PresenceInfo, ProjectSyncTransport } from './project_sync_transport.js';
 import type { EeschemaSettings } from './eeschema_settings.js';
 import type { Theme } from './sch_render_settings.js';
 
@@ -152,4 +153,17 @@ export interface EESCHEMA_APP {
     menus: readonly Menu[],
     overrides: Readonly<Record<string, string | null>>,
   ): Menu[];
+
+  // ----- live collaboration ------------------------------------------------
+  /** The project's shared live connection, or null when there is none. */
+  useProjectSync(): ProjectSyncTransport | null;
+  /** The signed-in account, as far as presence reads it (its email). */
+  useAuth(): { session: { user: { email?: string | null } } | null };
+  /** The presence popover the "N other viewers" badge opens. */
+  PresencePanel: (props: {
+    me: { peerId: string; role: PeerRole; displayName: string | null };
+    peers: readonly PresenceInfo[];
+    onSetRole: (peerId: string, role: 'editor' | 'viewer') => void;
+    onClose: () => void;
+  }) => ReactNode;
 }

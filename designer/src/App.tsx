@@ -21,7 +21,7 @@ import type { PickedFile } from './editors/schematic/SchematicEditor.js';
 import { EMPTY_PCB } from './home/new_project.js';
 import { ProgressDialog } from '@ziroeda/common/widgets/wx_progress_reporters.js';
 import { ProjectSyncProvider } from './sync/ProjectSyncProvider.js';
-import type { EditorKind } from './sync/ProjectSyncTransport.js';
+import type { EditorKind } from '@ziroeda/eeschema/project_sync_transport.js';
 import {
   storageAvailable,
   cloudIdentityOf,

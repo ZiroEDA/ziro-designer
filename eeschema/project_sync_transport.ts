@@ -9,7 +9,7 @@
  * Realtime channel, cross-device).
  */
 
-import type { SchematicPatch } from '@ziroeda/eeschema/sch_diff.js';
+import type { SchematicPatch } from './sch_diff.js';
 
 export type EditorKind = 'schematic' | 'pcb' | 'symbol' | 'footprint';
 

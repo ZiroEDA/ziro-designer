@@ -29,7 +29,7 @@
  * Presence is bound the same way to the `peerId` it is tracked under.
  */
 import { base64ToBytes, bytesToBase64, decryptSecret, encryptSecret } from '../cloud/crypto.js';
-import type { EditorKind, ProjectSyncPayload } from './ProjectSyncTransport.js';
+import type { EditorKind, ProjectSyncPayload } from '@ziroeda/eeschema/project_sync_transport.js';
 
 /**
  * The half of a peer's presence record that is nobody's business but the

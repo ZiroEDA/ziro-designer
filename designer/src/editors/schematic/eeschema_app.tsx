@@ -23,6 +23,9 @@ import { libraryUri, loadIndex, loadSymbol, symbolsBase } from './symbols/index.
 import { preloadSchematicLibraries } from './preload.js';
 import { remapEvent } from './hotkey_bindings.js';
 import { applyHotkeyOverrides } from './hotkey_list.js';
+import { useProjectSync } from '../../sync/ProjectSyncProvider.js';
+import { useAuth } from '../../auth/AuthProvider.js';
+import { PresencePanel } from '../../ui/PresencePanel.js';
 import { gridSizeToIU, settings } from '../../prefs/settings.js';
 import {
   overrideItemColorsFor,
@@ -72,6 +75,10 @@ export function useEeschemaApp(): EESCHEMA_APP {
       // The schematic's own registry (remapEvent's default `app`).
       remapEvent: (e, overrides) => remapEvent(e, overrides),
       applyHotkeyOverrides,
+
+      useProjectSync,
+      useAuth,
+      PresencePanel: (props) => <PresencePanel {...props} />,
     }),
     [],
   );

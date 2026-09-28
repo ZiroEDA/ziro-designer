@@ -6,7 +6,7 @@ import type {
   PresenceInfo,
   ProjectSyncPayload,
   ProjectSyncTransport,
-} from './ProjectSyncTransport.js';
+} from '@ziroeda/eeschema/project_sync_transport.js';
 
 type WireMessage =
   | {

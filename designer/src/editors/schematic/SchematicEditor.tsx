@@ -26,7 +26,6 @@ import { SCH_EDIT_FRAME } from '@ziroeda/eeschema/sch_edit_frame.js';
 import { assignFootprintsCommands } from '@ziroeda/eeschema/tools/assign_footprints.js';
 import { fetchNetlistFromSchematic } from '@ziroeda/pcbnew/netlist_from_schematic.js';
 import { parse } from '@ziroeda/sexpr';
-import { useProjectSync } from '../../sync/ProjectSyncProvider.js';
 import {
   applySchematicPatch,
   diffSchematic,
@@ -37,10 +36,8 @@ import type {
   PeerRole,
   PresenceInfo,
   ProjectSyncTransport,
-} from '../../sync/ProjectSyncTransport.js';
-import { PresencePanel } from '../../ui/PresencePanel.js';
+} from '@ziroeda/eeschema/project_sync_transport.js';
 import { ReadOnlyNotice } from '@ziroeda/common/widgets/wx_infobar.js';
-import { useAuth } from '../../auth/AuthProvider.js';
 import {
   type ArcEditMode,
   incrementArcEditMode,
@@ -934,6 +931,9 @@ export function SchematicEditor({
     preloadSchematicLibraries,
     remapEvent,
     applyHotkeyOverrides,
+    useProjectSync,
+    useAuth,
+    PresencePanel,
   } = app;
   const [error, setError] = useState<string | null>(null);
   const initial = useMemo<Schematic | null>(() => {
@@ -989,7 +989,7 @@ export function SchematicEditor({
    *  this editor — see the comment on the subscription effect below. */
   const sharedSync = useProjectSync();
   // This tab's own role in the live session — see PcbEditor.tsx's own copy
-  // of this comment and designer/src/sync/ProjectSyncTransport.ts's
+  // of this comment and eeschema/project_sync_transport.ts's
   // PeerRole. Read by runCommand/applySheetDocument to refuse a local edit
   // from a viewer; mirrored into a ref for the same reason PcbEditor.tsx's
   // is. No interactive-gesture-start guard here the way PcbEditor.tsx's
@@ -2441,7 +2441,7 @@ export function SchematicEditor({
     (edit: ProjectEdit, persist = false): void => {
       // The one choke point every edit funnels through, whichever sheets it
       // touches — see PcbEditor.tsx's own copy of this guard and
-      // designer/src/sync/ProjectSyncTransport.ts's PeerRole.
+      // eeschema/project_sync_transport.ts's PeerRole.
       // applyingRemoteRef is what lets a remote update still land on a
       // Viewer's own tab while refusing a local edit.
       if (!applyingRemoteRef.current && myRoleRef.current === 'viewer') return;
