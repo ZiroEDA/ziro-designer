@@ -1023,3 +1023,88 @@ export function GetISO8601CurrentDateTime(): string {
 
   return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}T${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`;
 }
+
+/** `ESCAPE_CONTEXT` (include/string_utils.h:55-67). */
+export enum ESCAPE_CONTEXT {
+  CTX_NETNAME,
+  CTX_LIBID,
+  CTX_LEGACY_LIBID,
+  CTX_IPC,
+  CTX_QUOTED_STR,
+  CTX_JS_STR,
+  CTX_LINE,
+  CTX_CSV,
+  CTX_FILENAME,
+  CTX_NO_SPACE, // to replace spaces in names that do not accept spaces
+}
+
+/**
+ * `EscapeString( aSource, aContext )` (common/string_utils.cpp): the
+ * HTML-entity-reference-style encoding for the characters each context
+ * cannot hold.
+ */
+export function EscapeString(aSource: string, aContext: ESCAPE_CONTEXT): string {
+  let converted = '';
+
+  for (const c of aSource) {
+    if (aContext === ESCAPE_CONTEXT.CTX_NETNAME) {
+      if (c === '/') converted += '{slash}';
+      else if (c === '\n' || c === '\r')
+        converted += ''; // drop
+      else converted += c;
+    } else if (
+      aContext === ESCAPE_CONTEXT.CTX_LIBID ||
+      aContext === ESCAPE_CONTEXT.CTX_LEGACY_LIBID
+    ) {
+      // We no longer escape '/' in LIB_IDs, but we used to
+      if (c === '/' && aContext === ESCAPE_CONTEXT.CTX_LEGACY_LIBID) converted += '{slash}';
+      else if (c === '\\') converted += '{backslash}';
+      else if (c === '<') converted += '{lt}';
+      else if (c === '>') converted += '{gt}';
+      else if (c === ':') converted += '{colon}';
+      else if (c === '"') converted += '{dblquote}';
+      else if (c === '\n' || c === '\r')
+        converted += ''; // drop
+      else converted += c;
+    } else if (aContext === ESCAPE_CONTEXT.CTX_IPC) {
+      if (c === '/') converted += '{slash}';
+      else if (c === ',') converted += '{comma}';
+      else if (c === '"') converted += '{dblquote}';
+      else converted += c;
+    } else if (aContext === ESCAPE_CONTEXT.CTX_QUOTED_STR) {
+      if (c === '"') converted += '{dblquote}';
+      else converted += c;
+    } else if (aContext === ESCAPE_CONTEXT.CTX_JS_STR) {
+      const code = c.codePointAt(0)!;
+
+      if (code >= 0x7f || c === "'" || c === '"' || c === '\\' || c === '(' || c === ')')
+        converted += `\\u${code.toString(16).toUpperCase().padStart(4, '0')}`;
+      else converted += c;
+    } else if (aContext === ESCAPE_CONTEXT.CTX_LINE) {
+      if (c === '\n' || c === '\r') converted += '{return}';
+      else converted += c;
+    } else if (aContext === ESCAPE_CONTEXT.CTX_FILENAME) {
+      if (c === '/') converted += '{slash}';
+      else if (c === '\\') converted += '{backslash}';
+      else if (c === '"') converted += '{dblquote}';
+      else if (c === '<') converted += '{lt}';
+      else if (c === '>') converted += '{gt}';
+      else if (c === '|') converted += '{bar}';
+      else if (c === ':') converted += '{colon}';
+      else if (c === '\t') converted += '{tab}';
+      else if (c === '\n' || c === '\r') converted += '{return}';
+      else converted += c;
+    } else if (aContext === ESCAPE_CONTEXT.CTX_NO_SPACE) {
+      if (c === ' ') converted += '{space}';
+      else converted += c;
+    } else if (aContext === ESCAPE_CONTEXT.CTX_CSV) {
+      if (c === ',') converted += '{comma}';
+      else if (c === '\n' || c === '\r') converted += '{return}';
+      else converted += c;
+    } else {
+      converted += c;
+    }
+  }
+
+  return converted;
+}
