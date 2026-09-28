@@ -268,7 +268,7 @@ import { kiCursor } from '@ziroeda/common/gal/kicursors.js';
 import { remapEvent } from '../hotkey_bindings.js';
 import { settings } from '../../../prefs/settings.js';
 import { peerColor } from '../../../sync/peerColor.js';
-import type { InputPrefs } from '../../../ui/view_controls.js';
+import type { InputPrefs } from '@ziroeda/common/ui/view_controls.js';
 import { onOutlineFontsChanged } from '@ziroeda/common/font/outline_fonts.js';
 import {
   drawGrid,
@@ -284,7 +284,7 @@ import {
   makeMotionPan,
   makeZoomController,
   wheelAction,
-} from '../../../ui/view_controls.js';
+} from '@ziroeda/common/ui/view_controls.js';
 
 /**
  * Tools that snap to connection anchors (pins, wire ends) rather than plain

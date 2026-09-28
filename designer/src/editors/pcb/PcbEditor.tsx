@@ -78,7 +78,7 @@ import {
   makeZoomController,
   wheelAction,
   zoomFitScale,
-} from '../../ui/view_controls.js';
+} from '@ziroeda/common/ui/view_controls.js';
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
 import { onOutlineFontsChanged } from '@ziroeda/common/font/outline_fonts.js';
 import {
@@ -111,7 +111,7 @@ import {
   zoomSelectLabel,
 } from '@ziroeda/common/settings/zoom_settings.js';
 
-import type { FitType } from '../../ui/view_controls.js';
+import type { FitType } from '@ziroeda/common/ui/view_controls.js';
 import { pcbIUScale, pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common';
 import {
   useCallback,

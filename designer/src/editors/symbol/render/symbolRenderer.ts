@@ -21,7 +21,7 @@ import { electricalPinTypeGetText, pinShapeGetText } from '@ziroeda/eeschema';
 import { altIconBox } from '@ziroeda/eeschema/pin_box.js';
 import { drawAltPinModesIcon } from '@ziroeda/eeschema/pin_alt_icon.js';
 import type { Vec2 } from '@ziroeda/kimath';
-import { zoomFitView } from '../../../ui/view_controls.js';
+import { zoomFitView } from '@ziroeda/common/ui/view_controls.js';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import type { LibGraphic, LibPin, LibSymbol, LibSymbolUnit, SchField } from '@ziroeda/eeschema';
 import { layoutText, measureText } from '@ziroeda/common/font/stroke_font.js';

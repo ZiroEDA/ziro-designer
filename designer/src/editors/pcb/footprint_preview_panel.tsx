@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef, type JSX } from 'react';
 import type { FOOTPRINT_PREVIEW_PANEL_BASE } from '@ziroeda/common/widgets/footprint_preview_widget.js';
 import { footprintBBox, footprintTextOnly, type PcbFootprint } from '@ziroeda/pcbnew';
 import { usePreviewViewControls, type PreviewView } from '../../widgets/preview_view_controls.js';
-import type { InputPrefs } from '../../ui/view_controls.js';
+import type { InputPrefs } from '@ziroeda/common/ui/view_controls.js';
 import {
   buildScene,
   drawAnchors,

@@ -12,7 +12,7 @@
  */
 
 import { CalcArcCenter, type Vec2 } from '@ziroeda/kimath';
-import { zoomFitView } from '../../../ui/view_controls.js';
+import { zoomFitView } from '@ziroeda/common/ui/view_controls.js';
 import {
   drawGrid,
   viewFromOffsets,

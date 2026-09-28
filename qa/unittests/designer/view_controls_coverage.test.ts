@@ -48,7 +48,7 @@ const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
 describe('shared view controls', () => {
   it.each(CANVASES)('%s handles the wheel through the shared module', (rel) => {
     const src = read(rel);
-    expect(src).toMatch(/from '[./]+ui\/view_controls\.js'/);
+    expect(src).toMatch(/from '(?:[./]+ui\/|@ziroeda\/common\/ui\/)view_controls\.js'/);
     expect(src).toContain('wheelAction(');
   });
 
@@ -235,7 +235,7 @@ describe('shared view controls', () => {
     // which KiCad's common/ + include/ split exists to prevent.
     const canvas = read('editors/schematic/components/SchematicCanvas.tsx');
     expect(canvas).not.toMatch(/export\s+(interface\s+InputPrefs|const\s+DEFAULT_INPUT_PREFS)/);
-    expect(read('ui/view_controls.ts')).toMatch(/export interface InputPrefs/);
+    expect(read('../../common/ui/view_controls.ts')).toMatch(/export interface InputPrefs/);
   });
 
   it('nothing imports view controls sideways out of another editor', () => {

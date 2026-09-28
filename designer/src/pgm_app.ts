@@ -32,6 +32,10 @@ import { colorSettingsById } from './prefs/color_settings_list.js';
 import { type MouseDragAction, type ScrollModifier, settings } from './prefs/settings.js';
 import { setCustomCursorsEnabledProvider } from '@ziroeda/common/gal/kicursors.js';
 import { setColorSettingsByIdProvider } from '@ziroeda/pcbnew/pcbTheme.js';
+import {
+  commonInputPrefsFromSettings,
+  setCommonInputPrefsProvider,
+} from '@ziroeda/common/ui/view_controls.js';
 
 /** `panel_mouse_settings.cpp:113-119`: the four choices are `WXK_*` codes. */
 const MODIFIER_CODES: Readonly<Record<ScrollModifier, number>> = {
@@ -149,6 +153,7 @@ export function InitPgm(): PGM_BASE {
     // will route pcbnew's own use through it once pcbTheme.ts moves there,
     // but every caller — pcbnew's included — shares this one registration.
     setColorSettingsByIdProvider(colorSettingsById);
+    setCommonInputPrefsProvider(() => commonInputPrefsFromSettings(settings.common.input));
     SetPgm(pgm);
   }
   return pgm;

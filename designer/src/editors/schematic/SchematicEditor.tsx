@@ -548,7 +548,7 @@ import {
 } from '../../prefs/useSettings.js';
 import { resolveTemplateFieldnames } from './template_fieldnames.js';
 import type { RenderOpts } from './render/renderer.js';
-import type { InputPrefs } from '../../ui/view_controls.js';
+import type { InputPrefs } from '@ziroeda/common/ui/view_controls.js';
 import { SchPropertiesPanel } from './components/SchPropertiesPanel.js';
 import { FootprintChooserFrame } from '../pcb/dialogs/footprint_chooser_frame.js';
 import { SearchPanel } from '@ziroeda/eeschema/widgets/sch_search_pane.js';

@@ -31,7 +31,7 @@ import {
   wheelAction,
   zoomFitView,
   type FitFrame,
-} from '../../ui/view_controls.js';
+} from '@ziroeda/common/ui/view_controls.js';
 import {
   type CrosshairMode,
   drawCrosshair,
