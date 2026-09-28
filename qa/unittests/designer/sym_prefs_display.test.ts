@@ -128,7 +128,7 @@ describe('the fourth checkbox is live, and reaches the canvas by its own route',
     // The claim the un-greying rests on: `drawPin` calls KiCad's own
     // `drawAltPinModesIcon`, gated on the setting, and gets its box from
     // `altIconBox` — which is null unless the pin declares alternates.
-    const renderer = read('editors/symbol/render/symbolRenderer.ts');
+    const renderer = read('../../eeschema/symbol_editor/symbol_renderer.ts');
     expect(renderer).toContain('drawAltPinModesIcon');
     expect(renderer).toContain('altIconBox');
     expect(renderer).toMatch(/if \(sym\.showPinAltIcons\)/);

@@ -90,7 +90,11 @@ import {
   setUnitCount,
   unitCount,
 } from './edits.js';
-import { MM, symItemId, type SymbolViewOptions } from './render/symbolRenderer.js';
+import {
+  MM,
+  symItemId,
+  type SymbolViewOptions,
+} from '@ziroeda/eeschema/symbol_editor/symbol_renderer.js';
 import { symbolGridIU } from './grid.js';
 import { symbolItemDefaults } from './defaults.js';
 import {

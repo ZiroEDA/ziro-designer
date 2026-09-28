@@ -17,19 +17,19 @@
  * Geometry is the typed model's +Y-down space (the same space sch_painter draws in).
  */
 
-import { electricalPinTypeGetText, pinShapeGetText } from '@ziroeda/eeschema';
-import { altIconBox } from '@ziroeda/eeschema/pin_layout_cache.js';
-import { drawAltPinModesIcon } from '@ziroeda/eeschema/pin_alt_icon.js';
+import { electricalPinTypeGetText, pinShapeGetText } from '../pin_type.js';
+import { altIconBox } from '../pin_layout_cache.js';
+import { drawAltPinModesIcon } from '../pin_alt_icon.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import { zoomFitView } from '@ziroeda/common/ui/view_controls.js';
 import { iuToMM, mmToIU } from '@ziroeda/common';
-import type { LibGraphic, LibPin, LibSymbol, LibSymbolUnit, SchField } from '@ziroeda/eeschema';
+import type { LibGraphic, LibPin, LibSymbol, LibSymbolUnit, SchField } from '../types.js';
 import { layoutText, measureText } from '@ziroeda/common/font/stroke_font.js';
 import { textWidth } from '@ziroeda/common/font/font_provider.js';
 import { getOutlineFont } from '@ziroeda/common/font/outline_fonts.js';
 import { drawOutlineText } from '@ziroeda/common/font/draw_outline_text.js';
-import { ITALIC_TILT } from '@ziroeda/eeschema';
-import type { Theme } from '@ziroeda/eeschema/sch_render_settings.js';
+import { ITALIC_TILT } from '@ziroeda/common/font/font_metrics.js';
+import type { Theme } from '../sch_render_settings.js';
 import {
   drawGrid,
   viewFromOffsets,

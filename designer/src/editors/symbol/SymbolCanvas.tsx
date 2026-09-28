@@ -47,7 +47,7 @@ import {
   drawGraphic,
   type SymbolViewOptions,
   type Viewport,
-} from './render/symbolRenderer.js';
+} from '@ziroeda/eeschema/symbol_editor/symbol_renderer.js';
 import {
   boxSelectSymbol,
   deleteSymbolItems,

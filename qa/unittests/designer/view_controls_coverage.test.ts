@@ -38,7 +38,7 @@ const CANVASES = [
 /** Where Zoom to Fit's maths lives for each editor. */
 const FITTERS = [
   'editors/schematic/render/renderer.ts',
-  'editors/symbol/render/symbolRenderer.ts',
+  '../../eeschema/symbol_editor/symbol_renderer.ts',
   'editors/pcb/PcbEditor.tsx',
   'editors/footprint/FootprintCanvas.tsx',
 ];
@@ -75,7 +75,7 @@ describe('shared view controls', () => {
   /** Which FRAME_T each editor fits as, i.e. which margin row it lands on. */
   const FRAMES: [string, string][] = [
     ['editors/schematic/render/renderer.ts', "'sch'"],
-    ['editors/symbol/render/symbolRenderer.ts', "'symbol_editor'"],
+    ['../../eeschema/symbol_editor/symbol_renderer.ts', "'symbol_editor'"],
     ['editors/pcb/PcbEditor.tsx', "'pcb'"],
     ['editors/footprint/FootprintCanvas.tsx', "'footprint_editor'"],
   ];
@@ -224,7 +224,7 @@ describe('shared view controls', () => {
       // test on sheet fields, which is why these match the inflation itself.)
       ['editors/schematic/render/renderer.ts', /minX -= pad;/],
       ['editors/schematic/render/renderer.ts', /box\.minX - pad/],
-      ['editors/symbol/render/symbolRenderer.ts', /b\.minX - pad/],
+      ['../../eeschema/symbol_editor/symbol_renderer.ts', /b\.minX - pad/],
     ];
     for (const [rel, re] of OLD) expect(read(rel), `${rel} ${re}`).not.toMatch(re);
   });

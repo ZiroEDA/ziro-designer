@@ -103,7 +103,7 @@ import { tableCellId } from '@ziroeda/eeschema/tools/table_cells.js';
 import { schSymbolLibraryName } from '@ziroeda/eeschema';
 import { imageDataUrl } from '@ziroeda/eeschema/import_gfx/image_format.js';
 import { libPreviewFields } from '@ziroeda/eeschema/autoplace_fields.js';
-import { drawField } from '../../symbol/render/symbolRenderer.js';
+import { drawField } from '@ziroeda/eeschema/symbol_editor/symbol_renderer.js';
 import {
   DNP_MARKER_STROKE_WIDTH,
   SIM_EXCLUSION_BADGE_ALPHA,

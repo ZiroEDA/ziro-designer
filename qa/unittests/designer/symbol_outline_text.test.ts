@@ -13,7 +13,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
-import { drawField } from '@ziroeda/designer/src/editors/symbol/render/symbolRenderer.js';
+import { drawField } from '@ziroeda/eeschema/symbol_editor/symbol_renderer.js';
 import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import {
   getOutlineFont,
