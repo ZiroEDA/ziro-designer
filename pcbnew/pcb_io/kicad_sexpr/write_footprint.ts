@@ -10,11 +10,11 @@
 import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
 import { ANGLE_0 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
-import type { BOARD } from './board.js';
-import type { FOOTPRINT } from './footprint.js';
-import { footprintOfView } from './pcb_io/kicad_sexpr/board_view.js';
-import { FormatFootprintForLibrary } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import type { PcbFootprint } from './types.js';
+import type { BOARD } from '../../board.js';
+import type { FOOTPRINT } from '../../footprint.js';
+import { footprintOfView } from './board_view.js';
+import { FormatFootprintForLibrary } from './pcb_io_kicad_sexpr.js';
+import type { PcbFootprint } from '../../types.js';
 
 export { FLIP_DIRECTION };
 

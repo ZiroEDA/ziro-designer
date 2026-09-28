@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard, readFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/write_board.js';
-import { serializeFootprint } from '@ziroeda/pcbnew/write-footprint.js';
+import { serializeFootprint } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/write_footprint.js';
 
 const dataFile = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../data/${rel}`, import.meta.url)), 'utf8');

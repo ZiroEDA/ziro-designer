@@ -23,7 +23,7 @@ import {
   type LibraryDirEntry,
 } from '@ziroeda/pcbnew/footprint_library.js';
 import { flattenLibraryRows } from '@ziroeda/pcbnew/fp_lib_table.js';
-import { serializeFootprint } from '@ziroeda/pcbnew/write-footprint.js';
+import { serializeFootprint } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/write_footprint.js';
 
 /** mtime seconds and size for a path, when a test cares about the timestamp. */
 type Meta = Record<string, [number, number]>;

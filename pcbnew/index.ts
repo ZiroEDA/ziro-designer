@@ -38,7 +38,7 @@ export {
   serializeFootprint,
   FLIP_DIRECTION,
   type SerializeFootprintOptions,
-} from './write-footprint.js';
+} from './pcb_io/kicad_sexpr/write_footprint.js';
 export {
   fpItemId,
   parseFpItemId,
