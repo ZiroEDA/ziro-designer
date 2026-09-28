@@ -11,7 +11,7 @@ import {
   polyAsAxisAlignedRect,
   rectBreakouts,
   SMART_PADS_FORBIDDEN_ANGLES,
-} from '@ziroeda/pcbnew/router/pns_smart_pads.js';
+} from '@ziroeda/pcbnew/router/pns_optimizer.js';
 import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
 import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';

@@ -502,3 +502,119 @@ Not split, and why:
 
 `qa/probes/struct_diff.sh` regenerates the raw table into
 `docs/pcbnew-structure-diff.md`.
+
+## Subfolder audit (09-29): `drc/`, `router/`, `connectivity/`, `netlist_reader/`,
+## `teardrop/`, `length_delay_calculation/`, `board_stackup_manager/`,
+## `import_gfx/`, `autorouter/`
+
+File-for-file against KiCad's own `.cpp`s in each folder. Seven of the nine
+needed **no moves**: every extra file already cites its true KiCad source in
+its own header comment, and it is either a header-only counterpart (no
+`.cpp`), content that belongs in a root/`tools/`/`dialogs/`/`libs/kimath`
+file this pass does not own, or genuinely browser-only (no KiCad file at
+all).
+
+- `connectivity/`: `connectivity_algo/data/items`, `from_to_cache` match by
+  name; `connectivity_rtree.ts` matches `connectivity_rtree.h` (header-only,
+  no `.cpp`). **`topo_match.cpp` (1303 lines) is not ported** — no
+  `TOPO_MATCH`/`TopoMatch` anywhere in the tree.
+- `netlist_reader/`: `board_netlist_updater`, `kicad_netlist_reader`,
+  `netlist_reader`, `pcb_netlist` match by name (the last two are re-exports
+  of `common/netlist_reader/*.ts`, itself matching KiCad's *own* duplicate
+  `common/netlist_reader/` tree). `pcb_netlist_utils.ts` is extra: its real
+  counterpart is `PCB_EDIT_FRAME::ExchangeFootprint` (`pcbnew/pcb_edit_frame.cpp`,
+  package root, off-limits this pass — already recorded above under "Stage A
+  done"). **Not ported:** `pcb_component.cpp` (`PCB_COMPONENT`, footprint
+  caching on `COMPONENT` — `pcb_netlist.ts`'s own header already says our
+  board model reconciles footprints separately) and the `PCB_EDIT_FRAME`
+  netlist-import glue in KiCad's `netlist_reader/netlist.cpp` (`ReadNetlistFromFile`,
+  `OnNetlistChanged`, `LoadFootprints` — these live in `pcb_edit_frame_ui.tsx`
+  at the package root, another agent's file this pass, not a netlist_reader/ gap).
+- `teardrop/`: **complete, no extras.** `teardrop.ts` (2088 lines) already
+  merges `teardrop.cpp` + `teardrop_utils.cpp` (`TEARDROP_MANAGER` is one
+  class split across both upstream); `teardrop_parameters.ts` matches;
+  `teardrop_types.ts` matches `teardrop_types.h` (header-only).
+- `length_delay_calculation/`: `length_delay_calculation(_item)`,
+  `tuning_profile_parameters_user_defined` match by name;
+  `tuning_profile_parameters_iface.ts` matches the header-only
+  `tuning_profile_parameters_iface.h`. `tuning_profile_calc.ts` is extra: its
+  real counterpart is `pcbnew/dialogs/panel_setup_tuning_profile_info.cpp`,
+  deliberately placed here in Stage A (dialogs/ off-limits this pass; already
+  recorded above).
+- `board_stackup_manager/`: **complete.** `board_stackup`,
+  `board_stackup_reporter`, `dielectric_material`, `stackup_predefined_prms`,
+  `panel_board_finish.tsx` all match. The three remaining KiCad files
+  (`panel_board_stackup(_base)`, `dialog_dielectric_list_manager(_base)`) are
+  dialog/panel UI at `pcbnew/dialogs/panels/panel_pcb_stackup.tsx` (dialogs/,
+  off-limits) and genuinely unported (no dielectric-material-list dialog
+  anywhere in the tree).
+- `import_gfx/`: `graphics_importer_pcbnew.ts` matches. **Not ported:**
+  `dialog_import_graphics(_base).cpp` — no Import Graphics dialog exists
+  anywhere in the tree.
+- `autorouter/`: `ar_autoplacer`, `ar_matrix`, `spread_footprints` match (see
+  Content divergences above). **Not wired:** `autoplace_tool.cpp` — already
+  recorded above, lands with #636 stage 3.
+- `drc/`: **complete, no extras despite 51 files against KiCad's 37.** Every
+  one of the 14 apparently-extra files already names its real counterpart in
+  its own header, and none of them is a drc/-local split of a drc/ file:
+  `drc_length_report.ts`/`drc_rtree.ts` match header-only `.h`s;
+  `drc_areas.ts`/`drc_expr.ts`/`drc_inspect.ts` cite root (`pcbexpr_*.cpp`) or
+  `tools/` (`board_inspection_tool.cpp`) files, off-limits this pass;
+  `drc_geometry.ts`/`shape_collisions.ts` cite `libs/kimath` (already flagged
+  above under "belong outside pcbnew entirely"); `drc_job.ts`/`ptr_order.ts`/
+  `drc_test_providers.ts` are genuinely browser-only, no KiCad file at all;
+  `drc_diff_pair.ts` is upstream's *own* verbatim duplication between
+  `drc_test_provider_diff_pair_coupling.cpp:66` and `pns_diff_pair.cpp:786`
+  (see `router/pns_diff_pair.ts`'s own doc comment), so hosting it once in
+  `drc/` and importing it from `router/` is structurally exact, not a
+  misplacement. `drc_engine_view.ts`, `drc_rules_engine.ts` and
+  `drc_rule_view.ts` are the **view-side POJO architecture** (a plain-`Board`
+  rule/constraint engine and `.kicad_dru` parser, parallel to the live-BOARD
+  `drc_engine.ts`/`drc_rule.ts`/`drc_rule_parser.ts`), the same "teardrop
+  pattern" already documented above — both `router/` and `drc/` still read
+  the view-side engine, so folding it in is a #636 consumer migration, not a
+  file move.
+- `router/`: **one merge done, the rest audited and left.** KiCad's
+  `pns_optimizer.cpp` (1539 lines, one file) had been split into
+  `pns_optimizer.ts` (the pure single-line merge passes),
+  `pns_smart_pads.ts` (`SMART_PADS`/`FANOUT_CLEANUP` + the breakout
+  machinery, plus `pns_utils.cpp`'s `ApproximateSegmentAsRect`) and
+  `pns_optimizer_diff_pair.ts` (`Optimize( DIFF_PAIR* )` and its passes,
+  `pns_optimizer.cpp:1157-1374`) — merged back into one `pns_optimizer.ts`
+  09-29 (the split files' own stated reason — "callable with no world, which
+  is how `route_tool.ts` uses them today" — was stale: `route_tool.ts` was
+  deleted 09-12, see `pns-router-wiring.md`). `pcbnew/index.ts`'s three
+  separate export blocks merged into one. 680 router tests green after.
+  Every other apparent gap was audited and is a deliberate, already-documented
+  split or a folded simplification, left alone as too central/high-blast-radius
+  for a moves-only pass without a matching upstream restructure:
+  `pns_kicad_iface.cpp` → `pns_board_iface.ts` is a **rename we cannot make**
+  (no "kicad" in a filename, trademark — `designer-keeps-its-name`);
+  `pns_utils.cpp` is split across `pns_hull.ts` (`OctagonalHull`/`SegmentHull`),
+  `pns_item_hull.ts` (`ArcHull`/`ConvexHull`/`MoveDiagonal`/
+  `BuildHullForPrimitiveShape`, plus the five per-kind `Hull()` overrides —
+  `SEGMENT::Hull`, `ARC::Hull`, `VIA::Hull`, `SOLID::Hull`, `HOLE::Hull` —
+  consolidated as one `itemHull()` switch rather than a method per item class)
+  and `pns_chain.ts` (mostly `shape_line_chain.cpp`, one function,
+  `HullIntersection`, from `pns_utils.cpp`) — each split is separately argued
+  in its own header and touches the router's hottest geometry path, not
+  attempted;
+  `pns_line.cpp`/`.h` (`LINE`) is split across `pns_line.ts` (pure drag
+  geometry), `pns_line_item.ts` (2395 lines, the actual `LINE` class — the
+  file that would need the KiCad-matching name) and `pns_line_drag.ts`
+  (`DragCorner`/`DragSegment`/`DragArc` bound to `PnsLine`) — same reasoning,
+  not attempted (2395+840 lines, the router's most central file);
+  `pns_algo_base.cpp` (`Router()`/`Settings()` accessors) is folded inline
+  per consumer rather than a shared base, and its logger/debug-decorator
+  half is intentionally not ported (compiled out of a release build
+  upstream too); **`pns_logger.cpp` is not ported** (debug event sink, no
+  browser use); `router_tool.cpp` is split between `pns_session.ts` (the
+  `ROUTER_TOOL` equivalent, headless — see `pns-router-wiring.md`) and
+  `router_size_menus.ts` (its two size menus), with the wx-level click
+  wiring in `pcb_edit_frame_ui.tsx` (root, off-limits this pass);
+  **`router_preview_item.cpp`/`router_status_view_item.cpp` are not ported
+  as classes** — the preview draws through a callback dep
+  (`session.preview`/`onDisplayItem`) instead of a ported `VIEW_ITEM`
+  hierarchy; `time_limit.cpp` (`TIME_LIMIT`) is folded inline as a
+  `Date.now() + shoveTimeLimit` deadline in `pns_shove.ts` rather than
+  ported as a class.

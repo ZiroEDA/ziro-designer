@@ -673,6 +673,15 @@ export {
 
 export { boardObstacleHulls, type ObstacleQuery } from './router/pns_obstacles.js';
 
+// The whole of OPTIMIZER: the single-line merge passes, SMART_PADS /
+// FANOUT_CLEANUP and the pad-aware breakout machinery underneath them, and
+// OPTIMIZER::Optimize( DIFF_PAIR* ) and the passes underneath it — one file,
+// matching upstream's single pns_optimizer.cpp (merged back 2026-09-29; see
+// that file's own header). `linesCollide` used to be exported alongside the
+// diff-pair passes, as the local stand-in for the `LINE::Collide( LINE* )`
+// that ZiroEDA issue #484 made unreachable. That issue is fixed —
+// `PnsItem.shapes()` hands the collision path a LINE's chain — so the
+// stand-in is gone and its callers use `PnsItem.collide` directly.
 export {
   optimize,
   cornerCost,
@@ -682,6 +691,25 @@ export {
   mergeFull,
   type CollisionTest,
   type OptimizeEffort,
+  approximateSegmentAsRect,
+  circleBreakouts,
+  computeBreakouts,
+  countCorners,
+  customBreakouts,
+  fanoutCleanup,
+  findPadOrVia,
+  polyAsAxisAlignedRect,
+  rectBreakouts,
+  runSmartPads,
+  smartPadsSingle,
+  SMART_PADS_FORBIDDEN_ANGLES,
+  checkDpColliding,
+  coupledBypass,
+  findCoupledVertices,
+  mergeDpSegments,
+  mergeDpStep,
+  optimizeDiffPair,
+  verifyDpBypass,
 } from './router/pns_optimizer.js';
 
 export {
@@ -1299,25 +1327,6 @@ export {
   type CoupledSegments,
 } from './router/pns_diff_pair.js';
 
-// ----- OPTIMIZER's pad-aware passes (SMART_PADS, FANOUT_CLEANUP) -----------------
-//
-// Kept out of pns_optimizer.js because these take a PnsNode and a PnsLine where
-// the merge passes take a chain and a callback. BreakoutList and BreakoutRect
-// stay importable from './router/pns_smart_pads.js' alone.
-export {
-  approximateSegmentAsRect,
-  circleBreakouts,
-  computeBreakouts,
-  countCorners,
-  customBreakouts,
-  fanoutCleanup,
-  findPadOrVia,
-  polyAsAxisAlignedRect,
-  rectBreakouts,
-  runSmartPads,
-  smartPadsSingle,
-  SMART_PADS_FORBIDDEN_ANGLES,
-} from './router/pns_smart_pads.js';
 // The length-tuning placers: `PNS::MEANDER_PLACER_BASE` and its three
 // subclasses. `pns_meander.js` above is the geometry these drive.
 //
@@ -1431,21 +1440,6 @@ export {
   type PnsTuningHost,
   type PnsUnconnectedAnchor,
 } from './router/pns_topology.js';
-// `OPTIMIZER::Optimize( DIFF_PAIR* )` and the passes underneath it.
-//
-// `linesCollide` used to be exported alongside them, as the local stand-in for
-// the `LINE::Collide( LINE* )` that ZiroEDA issue #484 made unreachable. That
-// issue is fixed — `PnsItem.shapes()` hands the collision path a LINE's chain —
-// so the stand-in is gone and its callers use `PnsItem.collide` directly.
-export {
-  checkDpColliding,
-  coupledBypass,
-  findCoupledVertices,
-  mergeDpSegments,
-  mergeDpStep,
-  optimizeDiffPair,
-  verifyDpBypass,
-} from './router/pns_optimizer_diff_pair.js';
 
 // ----- PNS::ROUTER and PNS::TOOL_BASE -------------------------------------------
 //

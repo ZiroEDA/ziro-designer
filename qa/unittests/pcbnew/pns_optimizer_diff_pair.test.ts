@@ -53,7 +53,7 @@ import {
   mergeDpStep,
   optimizeDiffPair,
   verifyDpBypass,
-} from '@ziroeda/pcbnew/router/pns_optimizer_diff_pair.js';
+} from '@ziroeda/pcbnew/router/pns_optimizer.js';
 import { DiffPair } from '@ziroeda/pcbnew/router/pns_diff_pair.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
 import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line_item.js';
