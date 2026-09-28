@@ -264,16 +264,52 @@ with it, all 11 Board Setup panels that import types from it.
 kept our name. `pcbnew/package.json` gained `@ziroeda/bitmaps_png` (three
 moved panels use its icons; nothing in the package had needed it before).
 
+**Also moved since (09-28), same reasoning:**
+
+- `widgets/appearance_controls.tsx` (`appearance_controls.cpp`) + its three
+  support modules `appearance_layers.ts`, `appearance_objects.ts`,
+  `appearance_presets.ts` — shared by both frames and, it turned out, zero
+  `designer/` imports of its own (only React + `@ziroeda/common`). This was
+  going to be the largest `PCBNEW_APP` surface (`AppearanceControlsProps` is
+  ~30 fields plus the Nets-page and object/opacity nested types); it needed no
+  interface at all. `appearance_controls.css` moved with it by hand
+  (`move_ts.py` only moves `.ts`/`.tsx`).
+- `toggles.ts` (the PCB editor's left-toolbar toggle table) — `PCBNEW_JSON_SETTINGS_LIKE`
+  gained `window.grid.{sizes,last_size_idx,show}` and `window.cursor.crosshair`
+  (what `pcbTogglesFromSettings`/`foldPcbToggle` read and write), the same
+  structural-type move `pcb_edit_frame.ts` used first.
+
 Not moved, and why:
 
 - `PcbEditor.tsx` itself (12.5k lines) and `FootprintEditor.tsx` (2.4k lines)
-  — the windows. Roughly half of what each names by relative import is
-  designer app plumbing (`PreferencesDialog`, `HomeLink`, `SaveAsDialog`,
-  `new_project`, `pgm_app`, `prefs/settings`, `render/gl/scene`,
-  `font/outline_fonts`, `widgets/appearance_controls`/`appearance_layers`/
-  `footprint_list`, `ui/useToolbarEntries`, `ui/view_controls`,
-  `Viewer3DFrame`) that has to arrive through a `PCBNEW_APP`, the
-  `CVPCB_APP` / `PL_EDITOR_APP` design task, still to do (Stage B/C).
+  — the windows. With `appearance_controls`/`appearance_layers` and the
+  settings-shaped modules now out of the way, what is left of each's app
+  plumbing is smaller than first sized: `PreferencesDialog`, `HomeLink`,
+  `SaveAsDialog`, `useToolbarEntries` (a hook, passed through the same way
+  `CVPCB_APP.useDialogControl` already is), `onOutlineFontsChanged`,
+  `EMPTY_PCB` (a string constant), `loadFootprint`/`loadFootprintIndex`
+  (already precedented — `CVPCB_APP` declares the identical two), a `settings.pcbnew`
+  / `settings.common` / `settings.updatePcbnew` / `settings.updateCommon`
+  triad (`PcbEditor.tsx`, 14 call sites, all narrow field reads), and, for
+  the footprint editor, `model_cache.ts`'s `cleanup3dCache` (real app storage
+  plumbing: `cloud/blobStore` + `home/idb_open` + `home/local_vault`, same
+  reason `viewer3d_cache_shim.ts` stayed below). `Viewer3DFrame`'s and
+  `SaveAsDialog`'s own prop types turn out importable whole from `pcbnew`/
+  `3d-viewer`/`common` — no designer-only type in either — so `PCBNEW_APP`
+  can declare their real signatures rather than a loosened stand-in.
+  **Blocked, not just undone:** `PcbEditor.tsx` currently carries another
+  agent's uncommitted teardrop-BOARD work interleaved line-for-line with this
+  pass's import-path edits; it cannot be safely split into "their hunks" and
+  "these hunks" for a partial commit, so nothing in it beyond the import
+  lines already needed for the modules above to typecheck was touched. The
+  footprint editor's own remaining siblings — `FootprintCanvas.tsx`,
+  `cursors.ts`, `footprintBoard.ts`, `graphics_defaults.ts`, `grid.ts`,
+  `libraryManager.ts`, `new_footprint.ts` — are clean (no concurrent edits)
+  but each defaults a `cfg: FpEditSettings` parameter to the live
+  `settings.fpEdit` singleton the same way `board_settings.ts` and
+  `toggles.ts` did; each needs its own narrow `FP_EDIT_JSON_SETTINGS_LIKE`
+  slice (`design_settings.*`, `window.grid.*`) before it can move, and none
+  of that slice is written yet.
 - `viewer3d_cache_shim.ts` — moved and reverted: its one `designer/` import,
   `model_cache.ts`, itself needs `cloud/blobStore.ts` + `home/idb_open.ts` +
   `home/local_vault.ts`, real app storage plumbing for a `PCBNEW_APP`, not a
