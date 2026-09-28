@@ -8,9 +8,9 @@
  * tree-patching writer that used to live here is gone with the `source`
  * nodes it patched.
  */
-import { boardToBOARD } from './pcb_io/kicad_sexpr/board_view.js';
-import { FormatBoard, FormatBoardAsync } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import type { Board } from './types.js';
+import { boardToBOARD } from './board_view.js';
+import { FormatBoard, FormatBoardAsync } from './pcb_io_kicad_sexpr.js';
+import type { Board } from '../../types.js';
 
 /**
  * Serialize a board to `.kicad_pcb` text: the view's edits go back into

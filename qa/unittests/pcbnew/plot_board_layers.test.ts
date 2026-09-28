@@ -14,7 +14,7 @@ import { PLOT_FORMAT } from '@ziroeda/common/plotters/plotter.js';
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { ParseBoard, readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/write_board.js';
 import { setBoardPageSettings } from '@ziroeda/pcbnew/edit-board.js';
 import { boardAuxOrigin } from '@ziroeda/pcbnew/board_design_settings.js';
 import { EXCELLON_WRITER } from '@ziroeda/pcbnew/exporters/gendrill_excellon_writer.js';

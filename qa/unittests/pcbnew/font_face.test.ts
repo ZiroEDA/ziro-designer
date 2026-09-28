@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/write_board.js';
 import { fontNode } from '@ziroeda/pcbnew/eda_text_format.js';
 import { flatText, writtenNodes } from './support/written_node.js';
 import { applyTextValues, collectTextValues } from '@ziroeda/pcbnew/graphic_properties.js';

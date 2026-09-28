@@ -188,7 +188,7 @@ export {
   StartPlotBoard,
 } from './plot_board_layers.js';
 export { BRDITEMS_PLOTTER } from './plot_brditems_plotter.js';
-export { serializeBoard, serializeBoardAsync } from './write-board.js';
+export { serializeBoard, serializeBoardAsync } from './pcb_io/kicad_sexpr/write_board.js';
 export type { DrcViolation, DrcItemRef } from './drc/drc_engine_view.js';
 // --- Netlist (eeschema -> pcbnew) --------------------------------------------
 export {

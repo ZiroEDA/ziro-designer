@@ -10,7 +10,7 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
+import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/write_board.js';
 import { applyTeardrops, updateTeardrops } from '@ziroeda/pcbnew/teardrop.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 
