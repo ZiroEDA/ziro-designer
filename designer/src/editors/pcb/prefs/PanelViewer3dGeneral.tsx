@@ -27,7 +27,7 @@
  * two `Enable` calls on load — so the pair opens disabled for a user who has
  * turned the animation off, not merely on the next click.
  *
- * **What reads each control.** `editors/pcb/pcb3d.ts` is the scene: the
+ * **What reads each control.** `3d-viewer/pcb3d.ts` is the scene: the
  * material mode picks the `MeshStandardMaterial` parameters, Show filled areas
  * in zones is the zone geometry group's visibility, and the Camera group is
  * what `Viewer3DFrame`'s rotate actions and the orbit transition read. The two

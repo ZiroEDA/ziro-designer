@@ -46,7 +46,7 @@ import {
   browserSafeKey,
   isBrowserReserved,
 } from '@ziroeda/common/browser_reserved.js';
-import { buildViewer3DMenus } from '@ziroeda/designer/src/editors/pcb/viewer3dMenus.js';
+import { buildViewer3DMenus } from '@ziroeda/3d-viewer/3d_menubar.js';
 import { buildMenus as buildSchMenus } from '@ziroeda/designer/src/editors/schematic/menubar.js';
 import { buildHotkeySections } from '@ziroeda/designer/src/ui/hotkeys_inventory.js';
 import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
@@ -190,7 +190,7 @@ const FRAMES: FrameRow[] = [
     rows: ['close', 'quit'],
   },
   {
-    file: 'editors/pcb/viewer3dMenus.ts',
+    file: '../../3d-viewer/3d_menubar.ts',
     upstream: '3d-viewer/3d_viewer/3d_menubar.cpp:54',
     app: '3D Viewer',
     rows: ['close'],
@@ -375,6 +375,7 @@ describe('no menu declares a key the browser will not deliver', () => {
     walk(join(SRC, '../../bitmap2component'));
     walk(join(SRC, '../../cvpcb'));
     walk(join(SRC, '../../pcbnew'));
+    walk(join(SRC, '../../3d-viewer'));
     return { declared: out, visited: new Set(files) };
   })();
 

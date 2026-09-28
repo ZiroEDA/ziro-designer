@@ -6,6 +6,7 @@ packages:
   - "pagelayout_editor"
   - "cvpcb"
   - "pcbnew"
+  - "3d-viewer"
   - "pcb_calculator"
   - "designer"
   - "libs/*"

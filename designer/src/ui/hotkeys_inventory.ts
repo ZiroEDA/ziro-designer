@@ -56,8 +56,8 @@ import {
   PCB_LEFT_TOOLBAR,
   PCB_RIGHT_TOOLBAR,
 } from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
-import { VIEWER3D_TOP_TOOLBAR } from '../editors/pcb/viewer3dToolbars.js';
-import { buildViewer3DMenus } from '../editors/pcb/viewer3dMenus.js';
+import { VIEWER3D_TOP_TOOLBAR } from '@ziroeda/3d-viewer/toolbars_3d.js';
+import { buildViewer3DMenus } from '@ziroeda/3d-viewer/3d_menubar.js';
 // HOTKEY_STORE's model (common/hotkey_store.cpp) lives in common/; this module
 // is the app's actions list that fills it.
 export {

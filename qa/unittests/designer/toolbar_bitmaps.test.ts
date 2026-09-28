@@ -55,7 +55,7 @@ import {
   DS_LEFT_TOOLBAR,
   DS_RIGHT_TOOLBAR,
 } from '@ziroeda/pagelayout_editor/toolbars_pl_editor.js';
-import { VIEWER3D_TOP_TOOLBAR } from '@ziroeda/designer/src/editors/pcb/viewer3dToolbars.js';
+import { VIEWER3D_TOP_TOOLBAR } from '@ziroeda/3d-viewer/toolbars_3d.js';
 import type { ToolButton, ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 
 const buttons = (entries: readonly ToolEntry[]): ToolButton[] =>

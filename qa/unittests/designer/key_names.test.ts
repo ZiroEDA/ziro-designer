@@ -233,7 +233,7 @@ describe('the menu rows print the accelerator, character for character', () => {
     // EDA_3D_ACTIONS::moveLeft is WXK_LEFT; GTK labels it `Left`. A glyph is
     // neither spelling, and is not a KeyboardEvent.key either, so the row was
     // undispatchable as well as wrong.
-    const src = SRC('editors/pcb/viewer3dMenus.ts');
+    const src = SRC('../../3d-viewer/3d_menubar.ts');
     for (const key of ['Left', 'Right', 'Up', 'Down']) {
       expect(src).toContain(`shortcut: '${key}'`);
     }

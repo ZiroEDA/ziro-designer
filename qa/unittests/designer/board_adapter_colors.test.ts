@@ -22,7 +22,7 @@ import {
   findColor,
   mix,
   stackupColors,
-} from '@ziroeda/designer/src/editors/pcb/board_adapter_colors.js';
+} from '@ziroeda/3d-viewer/board_adapter_colors.js';
 import {
   defaultBoardFinish,
   defaultPhysicalStackup,

@@ -24,7 +24,7 @@
 
 import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import { pageSizeMM } from '@ziroeda/common/page_info.js';
-import { boardOutlineLoops } from './boardOutline.js';
+import { boardOutlineLoops } from '@ziroeda/3d-viewer/board_outline.js';
 import { galSnapPx } from '@ziroeda/common/gal_pixel_grid.js';
 import {
   brightened,

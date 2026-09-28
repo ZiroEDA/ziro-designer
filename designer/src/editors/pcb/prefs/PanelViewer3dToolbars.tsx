@@ -21,7 +21,7 @@ import { catalogueFor, ourToolbarId } from '../../../ui/action_catalogue.js';
 import type { JSX } from 'react';
 import { PanelToolbarCustomization } from '@ziroeda/common/dialogs/panel_toolbar_customization.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { VIEWER3D_DEFAULT_TOOLBARS } from '../viewer3dToolbars.js';
+import { VIEWER3D_DEFAULT_TOOLBARS } from '@ziroeda/3d-viewer/toolbars_3d.js';
 
 export function PanelViewer3dToolbars({ ctx }: { ctx: PrefsContext }): JSX.Element {
   return (

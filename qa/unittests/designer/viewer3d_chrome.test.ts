@@ -23,12 +23,12 @@
 import { describe, it, expect } from 'vitest';
 import { readdirSync } from 'node:fs';
 import { BITMAP } from '@ziroeda/common/bitmap_store_actions.js';
-import { VIEWER3D_TOP_TOOLBAR } from '@ziroeda/designer/src/editors/pcb/viewer3dToolbars.js';
+import { VIEWER3D_TOP_TOOLBAR } from '@ziroeda/3d-viewer/toolbars_3d.js';
 import {
   buildViewer3DMenus,
   type Viewer3DMenuActions,
   type Viewer3DMenuState,
-} from '@ziroeda/designer/src/editors/pcb/viewer3dMenus.js';
+} from '@ziroeda/3d-viewer/3d_menubar.js';
 import type { ToolButton, ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 import type { MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 

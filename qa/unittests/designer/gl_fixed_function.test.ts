@@ -30,7 +30,7 @@ import {
   sphericalToCartesian,
   stepFaceMaterial,
   type AdapterColors,
-} from '@ziroeda/designer/src/editors/pcb/gl_fixed_function.js';
+} from '@ziroeda/3d-viewer/gl_fixed_function.js';
 
 const near = (a: ArrayLike<number>, b: ArrayLike<number>, digits = 6): void => {
   expect(a.length).toBe(b.length);

@@ -18,6 +18,46 @@ importers:
         specifier: ^3.0.5
         version: 3.2.6(@types/node@22.20.0)(happy-dom@20.11.6)(terser@5.51.2)
 
+  3d-viewer:
+    dependencies:
+      '@ziroeda/common':
+        specifier: workspace:*
+        version: link:../common
+      '@ziroeda/core':
+        specifier: workspace:*
+        version: link:../libs/core
+      '@ziroeda/kimath':
+        specifier: workspace:*
+        version: link:../libs/kimath
+      '@ziroeda/pcbnew':
+        specifier: workspace:*
+        version: link:../pcbnew
+      earcut:
+        specifier: ^3.2.3
+        version: 3.2.3
+      occt-import-js:
+        specifier: ^0.0.23
+        version: 0.0.23
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      three:
+        specifier: ^0.185.1
+        version: 0.185.1
+    devDependencies:
+      '@types/earcut':
+        specifier: ^3.0.0
+        version: 3.0.0
+      '@types/react':
+        specifier: ^18.3.18
+        version: 18.3.31
+      '@types/three':
+        specifier: ^0.185.1
+        version: 0.185.1
+      vite:
+        specifier: ^6.0.7
+        version: 6.4.3(@types/node@22.20.0)(terser@5.51.2)
+
   bitmap2component:
     dependencies:
       '@ziroeda/common':
@@ -125,6 +165,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.110.0
         version: 2.110.1
+      '@ziroeda/3d-viewer':
+        specifier: workspace:*
+        version: link:../3d-viewer
       '@ziroeda/bitmap2component':
         specifier: workspace:*
         version: link:../bitmap2component
@@ -345,6 +388,9 @@ importers:
 
   qa:
     dependencies:
+      '@ziroeda/3d-viewer':
+        specifier: workspace:*
+        version: link:../3d-viewer
       '@ziroeda/bitmap2component':
         specifier: workspace:*
         version: link:../bitmap2component

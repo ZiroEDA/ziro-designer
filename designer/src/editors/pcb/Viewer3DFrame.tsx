@@ -53,19 +53,21 @@ import type {
   Grid3D,
   View3DDir,
   Viewer3dRenderOptions,
-} from './viewer3d_types.js';
-import { VIEWER3D_DEFAULT_TOOLBARS } from './viewer3dToolbars.js';
+} from '@ziroeda/3d-viewer/viewer3d_types.js';
+import { VIEWER3D_DEFAULT_TOOLBARS } from '@ziroeda/3d-viewer/toolbars_3d.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
-import { buildViewer3DMenus } from './viewer3dMenus.js';
+import { buildViewer3DMenus } from '@ziroeda/3d-viewer/3d_menubar.js';
 import { VIEWER_3D_FRAME_NAME } from './frame_title.js';
-import { stackupColors } from './board_adapter_colors.js';
-import type { BoardFinish, PhysicalStackup } from './board_settings.js';
-import { Appearance3DPanel } from './Appearance3DPanel.js';
+import { stackupColors } from '@ziroeda/3d-viewer/board_adapter_colors.js';
+import type { BoardFinish, PhysicalStackup } from '@ziroeda/3d-viewer/viewer3d_types.js';
+import { MODELS3D_HOST } from '../../libraryHosts.js';
+import './viewer3d_cache_shim.js';
+import { Appearance3DPanel } from '@ziroeda/3d-viewer/dialogs/appearance_controls_3d.js';
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
 import { EdaListDialog } from '@ziroeda/common/dialogs/eda_list_dialog.js';
 import { settings } from '../../prefs/settings.js';
 import { parseColor4d, toCssColor, type Color4d } from '@ziroeda/common/gal/color4d.js';
-import { pcbLayerIdOf, plotLayerSelection } from './board_3d_layers.js';
+import { pcbLayerIdOf, plotLayerSelection } from '@ziroeda/3d-viewer/board_3d_layers.js';
 import { PCB_LAYER_COLORS } from './pcbTheme.js';
 import {
   FOLLOW_PCB,
@@ -85,7 +87,7 @@ import {
   type Layer3dFlag,
   type LayerPreset3d,
   type PcbEditorVisibility,
-} from './viewer3d_appearance.js';
+} from '@ziroeda/3d-viewer/viewer3d_appearance.js';
 
 /**
  * `EDA_PANE().Name( "LayersManager" ).Right()…MinSize( FromDIP( 180 ), -1 )
@@ -476,11 +478,18 @@ export function Viewer3DFrame({
     let cancelled = false;
     setReady(false);
     const el = hostRef.current;
-    void import('./pcb3d.js').then(({ mount3DViewer }) => {
+    void import('@ziroeda/3d-viewer/pcb3d.js').then(({ mount3DViewer }) => {
       if (cancelled) return;
       const opts = sceneOptionsRef.current;
       try {
-        viewer = mount3DViewer(el, board, projectFilesRef.current, stackupColsRef.current, opts);
+        viewer = mount3DViewer(
+          el,
+          board,
+          projectFilesRef.current,
+          stackupColsRef.current,
+          opts,
+          MODELS3D_HOST,
+        );
       } catch {
         viewer = null;
       }

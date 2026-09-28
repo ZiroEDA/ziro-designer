@@ -17,7 +17,9 @@ import { useEffect, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { parse } from '@ziroeda/sexpr';
 import { placeFootprint, readBoard, type Board, type PcbFootprint } from '@ziroeda/pcbnew';
-import type { Viewer3D } from '../viewer3d_types.js';
+import type { Viewer3D } from '@ziroeda/3d-viewer/viewer3d_types.js';
+import { MODELS3D_HOST } from '../../../libraryHosts.js';
+import '../viewer3d_cache_shim.js';
 
 /**
  * The panel's `dummyBoard` as a file: `SetBoardThickness( 1.6 )`, front and
@@ -97,10 +99,17 @@ export function FootprintPreview3D({ board }: FootprintPreview3DProps): JSX.Elem
     if (!el || !board) return undefined;
     let viewer: Viewer3D | null = null;
     let cancelled = false;
-    void import('../pcb3d.js').then(({ mount3DViewer }) => {
+    void import('@ziroeda/3d-viewer/pcb3d.js').then(({ mount3DViewer }) => {
       if (cancelled) return;
       try {
-        viewer = mount3DViewer(el, board, [], undefined, { footprintHolder: true });
+        viewer = mount3DViewer(
+          el,
+          board,
+          [],
+          undefined,
+          { footprintHolder: true },
+          MODELS3D_HOST,
+        );
       } catch {
         viewer = null;
       }
