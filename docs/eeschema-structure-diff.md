@@ -4,12 +4,12 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 
 | status | count | meaning |
 |---|---:|---|
-| SAME | 72 | same relative path and name as KiCad's `.cpp` |
+| SAME | 94 | same relative path and name as KiCad's `.cpp` |
 | MOVED | 2 | KiCad has this name, in a different directory |
 | DIALOG | 5 | KiCad has it as `dialogs/dialog_<name>.cpp` |
-| HEADER | 2 | KiCad declares it in a `.h` with no matching `.cpp` |
-| ELSEWHERE | 5 | KiCad puts it outside `eeschema/` |
-| OURS | 93 | no KiCad file of this name anywhere |
+| HEADER | 4 | KiCad declares it in a `.h` with no matching `.cpp` |
+| ELSEWHERE | 6 | KiCad puts it outside `eeschema/` |
+| OURS | 94 | no KiCad file of this name anywhere |
 | DESIGNER_CANDIDATE | 9 | in designer/src/editors/schematic but named after a KiCad eeschema file — check for designer/ imports before moving |
 
 ## MOVED
@@ -36,6 +36,7 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 | `dialogs/panel_setup_severities.tsx` | `common/dialogs/panel_setup_severities.cpp` |
 | `lib_tree_item.ts` | `include/lib_tree_item.h` |
 | `project.ts` | `common/project.cpp` |
+| `symbol_editor/cursors.ts` | `common/gal/cursors.cpp` |
 | `tools/clipboard.ts` | `common/clipboard.cpp` |
 | `tools/transform.ts` | `libs/kimath/src/transform.cpp` |
 
@@ -43,8 +44,10 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 
 | ours | KiCad (`eeschema/` unless noted) |
 |---|---|
+| `bus_alias.ts` | `bus_alias.h` |
 | `default_values.ts` | `default_values.h` |
 | `netlist_exporters/netlist.ts` | `netlist_exporters/netlist.h` |
+| `sch_rtree.ts` | `sch_rtree.h` |
 
 ## OURS
 
@@ -67,7 +70,6 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 | `lib_symbol_compare.ts` | `-` |
 | `pdf_annotations.ts` | `-` |
 | `pin_alt_icon.ts` | `-` |
-| `pin_box.ts` | `-` |
 | `project_settings.ts` | `-` |
 | `project_sym_lib_table.ts` | `-` |
 | `render_color.ts` | `-` |
@@ -79,6 +81,8 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 | `sch_io/sexpr/write-schematic.ts` | `-` |
 | `sch_io/sexpr/write-symbol-lib.ts` | `-` |
 | `sim/sim_model_types.ts` | `-` |
+| `symbol_editor/delete_symbol_prompt.ts` | `-` |
+| `symbol_editor/frame_title.ts` | `-` |
 | `symbol_markers.ts` | `-` |
 | `symbol_search_terms.ts` | `-` |
 | `tools/align_to_grid.ts` | `-` |
@@ -160,10 +164,11 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 
 ## SAME
 
-<details><summary>72 files already at KiCad's own path</summary>
+<details><summary>94 files already at KiCad's own path</summary>
 
 - `annotate.ts`
 - `autoplace_fields.ts`
+- `bus-wire-junction.ts`
 - `cross-probing.ts`
 - `dialogs/dialog_edit_symbols_libid.tsx`
 - `dialogs/dialog_erc.tsx`
@@ -204,23 +209,44 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 - `netlist_exporters/netlist_exporter_kicad.ts`
 - `netlist_exporters/netlist_exporter_spice.ts`
 - `net_navigator.ts`
+- `pin_layout_cache.ts`
 - `pin_type.ts`
 - `project_rescue.ts`
+- `project_sch.ts`
 - `refdes_tracker.ts`
+- `sch_bitmap.ts`
 - `sch_bus_entry.ts`
 - `sch_collectors.ts`
 - `sch_edit_frame.ts`
 - `schematic_settings.ts`
 - `schematic.ts`
 - `sch_field.ts`
+- `sch_group.ts`
+- `sch_item_alignment.ts`
 - `sch_item.ts`
 - `sch_junction.ts`
+- `sch_label.ts`
 - `sch_line.ts`
 - `sch_no_connect.ts`
 - `sch_pin.ts`
+- `sch_reference_list.ts`
+- `sch_rule_area.ts`
+- `sch_screen.ts`
+- `sch_shape.ts`
 - `sch_sheet_path.ts`
+- `sch_sheet_pin.ts`
+- `sch_sheet.ts`
 - `sch_symbol.ts`
+- `sch_tablecell.ts`
+- `sch_table.ts`
+- `sch_textbox.ts`
+- `sch_text.ts`
 - `sim/sim_model.ts`
+- `symbol_editor/symbol_edit_frame.ts`
+- `symbol_editor/toolbars_symbol_editor.ts`
+- `symbol_tree_synchronizing_adapter.ts`
+- `symbol.ts`
+- `symb_transforms_utils.ts`
 - `toolbars_sch_editor.ts`
 - `tools/assign_footprints.ts`
 - `tools/backannotate.ts`

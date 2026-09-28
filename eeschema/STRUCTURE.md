@@ -304,3 +304,114 @@ attempted in this pass; the dependency list above is the resume point.
 The symbol editor (`designer/src/editors/symbol/*` → `eeschema/symbol_editor/`,
 `SymbolEditor.tsx` → `eeschema/symbol_editor/symbol_edit_frame_ui.tsx`) was
 not started this pass either, for the same budget reason.
+
+### Stage E2 pt 2, attempt (2026-09-28): EESCHEMA_APP not attempted, symbol
+### editor's six clean files moved
+
+**`EESCHEMA_APP` + the `SchematicEditor.tsx` move: not done, two reasons.**
+First, the size gap from `CVPCB_APP`'s precedent is real, not just larger —
+`CVPCB_APP` is 63 members covering three windows totalling ~1.7k lines;
+`SchematicEditor.tsx` alone is 11.5k lines with ~19 `designer/`-only imports
+reached from call sites scattered across the whole file (`settings.*`,
+`useAuth()`, `<HomeLink/>`, `<PreferencesDialog/>`, `<SchematicCanvas/>`,
+`<FootprintChooserFrame/>`, …), not concentrated the way `FootprintCanvas`/
+`Viewer3DFrame` are cvpcb's only two JSX-returning interface members. Turning
+every one of those call sites into `app.X` is a refactor across thousands of
+lines, not a `sed` over import lines — the "moves and seams only, small
+commits" method this whole file otherwise uses does not cover it safely in
+one pass. Second, and decisive for *this* pass specifically:
+`designer/src/editors/schematic/SchematicEditor.tsx` had another agent's
+uncommitted changes in the working tree the whole time (a live, shared
+checkout — see `CLAUDE.md`'s "Concurrent session branch hazard"), so touching
+it at all this pass would have been the one thing the commit rules
+categorically forbid, independent of the size question.
+
+The task's second instruction — split `sch_base_frame`, `sch_draw_panel`,
+`sch_view`, `sch_painter`, `sch_preview_panel`, `sch_plotter`,
+`sch_render_settings`, `eeschema_config`, `picksymbol`, `sheet` out "where
+clearly separable" — turned up nothing to move: none of the ten exists as a
+file anywhere in the tree yet (checked by name), and inside
+`SchematicEditor.tsx` each is only a comment naming the C++ counterpart of
+code woven through the surrounding JSX (e.g. `sch_render_settings`/
+`sch_painter`/`eeschema_config` are three or four sentences apiece inside
+`applyRenderSettings`-style blocks, not standalone functions). Pulling one
+out clean would be new module-boundary design, not a move — the render-path
+half of this (`sch_painter`/`sch_view`/`sch_preview_panel`) is the same
+`render/renderer.ts`+`render/plot.ts`+`theme.ts` cluster the previous pass
+already flagged "genuinely `designer/`-coupled ... not attempted this pass".
+
+**The exact `designer/`-only surface `EESCHEMA_APP` would need to cover**,
+read off `SchematicEditor.tsx`'s own imports (supersedes the prose list two
+sections up): `auth/AuthProvider.js` (`useAuth`), `dialogs/
+dialog_eeschema_page_settings.js` (`DialogEeschemaPageSettings`), `dialogs/
+PreferencesDialog.js`, `dialogs/prefs/types.js` (`PrefsPageId`), `fs/
+OpenFileDialog.js`, `fs/SaveAsDialog.js`, `prefs/settings.js` (`settings`,
+`gridSizeToIU`), `prefs/useSettings.js`, `sync/ProjectSyncProvider.js`
+(`useProjectSync`), `sync/ProjectSyncTransport.js`, `sync/sch_diff.js`, `ui/
+HomeLink.js`, `ui/PresencePanel.js`, `ui/SelectionFilterPanel.js`, `ui/
+useToolbarEntries.js`, `widgets/dialog_sch_find.js`, `widgets/
+dialog_sym_lib_table.js`, `widgets/footprint_list.js`, and one cross-editor
+one, `../pcb/dialogs/footprint_chooser_frame.js`. Plus, from inside
+`editors/schematic/` itself, the modules already known to be transitively
+`designer/`-coupled and therefore also `EESCHEMA_APP` candidates rather than
+plain moves: `components/SchematicCanvas.tsx` (own JSX member, the
+`FootprintCanvas` pattern), `dialogs/dialog_change_symbols.tsx`, `render/
+plot.ts`, `render/renderer.ts`, `symbols/preload_pool.ts`,
+`widgets/panel_symbol_chooser.tsx`. This is the resume point; still nobody's
+built it, for either frame.
+
+**Symbol editor (task step 3): six of ~20 files moved, the rest blocked the
+same way.** Read as a fresh check rather than trusting the prior pass's
+one-hop scan, every file in `designer/src/editors/symbol/` was checked for
+`designer/`-only imports transitively (not just one relative-import hop —
+the same miss this file's own E2 pt 1 note warns about). Six had none, ever,
+at any hop, and moved: `symbol_edit_frame.ts` (unchanged name — `SYMBOL_
+EDIT_FRAME`'s KIWAY half, same shape as `eeschema/sch_edit_frame.ts`),
+`frame_title.ts` and `delete_symbol_prompt.ts` (kept under their own names,
+both fragments of `symbol_editor.cpp`, same "kept under our own name" reason
+as the fused-file table above), `symbolToolbars.ts` → `symbol_editor/
+toolbars_symbol_editor.ts` (KiCad's own name), `cursors.ts` (own name, no
+KiCad file, same as `pcbnew/footprint_cursors.ts`'s reasoning) — all four
+to `eeschema/symbol_editor/`, matching `symbol_edit_frame.{cpp,h}` etc.
+sitting under that directory upstream — and `symbol_tree_synchronizing_
+adapter.ts` to the **eeschema root**, because KiCad's own
+`symbol_tree_synchronizing_adapter.cpp` lives at `eeschema/`, not
+`eeschema/symbol_editor/`.
+
+The rest of the directory is more interconnected than the "no `designer/`
+import" grep alone shows, three chains deep:
+
+- `libraryManager.ts` reaches `designer/src/libraryHosts.ts` directly (the
+  same seam `CVPCB_APP.footprintsBase()` abstracts for the footprint
+  editor's own `libraryManager.ts` — nothing wires the equivalent for symbols
+  yet).
+- `edits.ts` reaches `./grid.js` (`symbolGridIU`), and `grid.ts` reaches
+  `prefs/settings.js` for `SymbolEditorSettings`/`gridSizeToIU` — a central
+  store that stays in `designer/` permanently by design (same reasoning as
+  `eeschema_settings.cpp` in the "Not ported" table above), so `edits.ts`
+  cannot move without a seam either. `conditions.ts` and `menubar.ts` both
+  import `edits.ts` (directly or via `conditions.ts`), so the same block
+  reaches them too.
+- `render/symbolRenderer.ts` and `components/dialogs.tsx` both reach
+  `editors/schematic/theme.ts` — itself `designer/`-import-clean and a
+  plausible eeschema-root move on its own, but moving it does not unblock
+  either file, since both also reach the `edits.ts`→`grid.ts` chain above
+  through other imports.
+
+None of `SymbolCanvas.tsx`, `SymbolEditor.tsx`, `grid.ts`, `defaults.ts`,
+`toggles.ts` (same `prefs/settings.js` coupling as `grid.ts`), or
+`prefs/*.tsx` (the six Preferences-dialog panels — `PrefsContext`, `ui/
+action_catalogue.js`, `pcm/pcmStore.js`, all central-dialog plumbing, the
+same category `pcbnew/STRUCTURE.md` and this file both leave for stage E2's
+app-interface work rather than move) went anywhere this pass. A
+`SYMBOL_EDIT_FRAME_APP` covering `libraryHosts`, `prefs/settings`'s symbol
+slice, and `SchematicCanvas`-style theme access is the resume point for the
+rest of this directory — the same shape of gap `EESCHEMA_APP` has for the
+schematic editor above, one size class smaller.
+
+`qa/probes/struct_diff_eeschema.sh`'s root-name-match count after this stage:
+48 of 66 eeschema-root `.ts`/`.tsx` files are 1:1 KiCad root-name matches (up
+from 45/28 before this stage; most of the delta is concurrent work from
+other agents on this branch, not this pass — this pass's own contribution is
+`symbol_tree_synchronizing_adapter.ts`, +1/+1). `SAME` in the regenerated
+probe output is 94 (up from 72).
