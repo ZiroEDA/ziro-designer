@@ -306,7 +306,7 @@ export {
   type GlobalTeardropEditOptions,
   type GlobalTeardropEditContext,
   type TeardropEditAction,
-} from './teardrop_global_edit.js';
+} from './dialogs/dialog_global_edit_teardrops.js';
 
 // Item properties dialogs (pcbnew/dialogs/: DIALOG_TRACK_VIA_PROPERTIES,
 // DIALOG_COPPER_ZONE over PANEL_ZONE_PROPERTIES).
@@ -317,7 +317,7 @@ export {
   hasTrackOrVia,
   type TrackViaSelection,
   type TrackViaValues,
-} from './track_via_properties.js';
+} from './dialogs/dialog_track_via_properties.js';
 export {
   zoneAt,
   collectZoneValues,
@@ -343,7 +343,7 @@ export {
   type PlacementCombo,
   type ZoneBorderStyle,
   type ZoneValueError,
-} from './rule_area_properties.js';
+} from './dialogs/dialog_rule_area_properties.js';
 // Non-Copper Zone Properties (pcbnew/dialogs/dialog_non_copper_zones_properties.cpp).
 export {
   collectNonCopperZoneValues,
@@ -351,7 +351,7 @@ export {
   nonCopperZoneValuesError,
   NO_LAYER_SELECTED,
   type NonCopperZoneValues,
-} from './non_copper_zone_properties.js';
+} from './dialogs/dialog_non_copper_zones_properties.js';
 export {
   footprintAt,
   collectFootprintValues,
@@ -368,7 +368,7 @@ export {
   padLocalPos,
   type PadRef,
   type PadValues,
-} from './pad_properties.js';
+} from './dialogs/dialog_pad_properties.js';
 export {
   textAt,
   shapeAt,
@@ -434,7 +434,7 @@ export {
   type BoardEditHandle,
   type BoardIndicatorLine,
   type HandleKind,
-} from './point_editor.js';
+} from './tools/pcb_point_editor.js';
 
 export {
   createArray,
@@ -598,7 +598,7 @@ export {
   type TextBoxValues,
   type HorizJustify,
   type VertJustify,
-} from './textbox_properties.js';
+} from './dialogs/dialog_textbox_properties.js';
 
 export {
   newTextBox,
@@ -626,7 +626,7 @@ export {
   isBackLayer,
   displayToStoredCol,
   type TableValues,
-} from './table_properties.js';
+} from './dialogs/dialog_table_properties.js';
 
 export {
   newTable,
@@ -720,7 +720,7 @@ export {
   swapItemLayers,
   swapViaLayerPair,
   swapBoardLayers,
-} from './swap_layers.js';
+} from './dialogs/dialog_swap_layers.js';
 
 export {
   passesGlobalTrackViaFilters,
@@ -802,7 +802,7 @@ export {
   type SequentialPadEnumerationParams,
   type PadEnumerationState,
   type PadEnumerationUndo,
-} from './pad_enumerate.js';
+} from './dialogs/dialog_enum_pads.js';
 
 export {
   checkFootprint,
