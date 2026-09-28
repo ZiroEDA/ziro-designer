@@ -28,7 +28,7 @@ import {
   TRIANGLE_STRIDE,
 } from '@ziroeda/designer/src/render/gl/scene.js';
 import { overlayRecorder } from '@ziroeda/designer/src/render/gl/pcb_gl.js';
-import { PCB_SPECIAL } from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
+import { PCB_SPECIAL } from '@ziroeda/pcbnew/pcbTheme.js';
 import { selectedColor } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 
 /**

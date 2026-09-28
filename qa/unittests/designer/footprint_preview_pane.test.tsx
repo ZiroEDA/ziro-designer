@@ -35,7 +35,7 @@ import {
   PCB_CURSOR,
   PCB_GRID,
   PCB_SPECIAL,
-} from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
+} from '@ziroeda/pcbnew/pcbTheme.js';
 import { netnameColorFor } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 import { dimmedCursorColor } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 

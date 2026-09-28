@@ -32,7 +32,7 @@ import {
   TRIANGLE_FRAG,
   TRIANGLE_VERT,
 } from './shaders.js';
-import { ATLAS_HEIGHT, ATLAS_WIDTH } from './bitmap_font.js';
+import { ATLAS_HEIGHT, ATLAS_WIDTH } from '@ziroeda/common/gal/opengl/bitmap_font.js';
 import { loadFontAtlas } from './font_atlas.js';
 import {
   DISC_STRIDE,

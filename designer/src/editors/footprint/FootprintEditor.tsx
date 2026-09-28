@@ -98,7 +98,7 @@ import {
   footprintLayers,
   FP_DEFAULT_ACTIVE_LAYER,
 } from '@ziroeda/pcbnew/footprint_edit_frame.js';
-import { layerColor, PCB_BACKGROUND, PCB_OBJECT_COLORS } from '../pcb/pcbTheme.js';
+import { layerColor, PCB_BACKGROUND, PCB_OBJECT_COLORS } from '@ziroeda/pcbnew/pcbTheme.js';
 import { appearanceLayerRows } from '@ziroeda/pcbnew/widgets/appearance_layers.js';
 // APPEARANCE_CONTROLS and PANEL_SELECTION_FILTER are the same two widgets
 // pcbnew docks; FOOTPRINT_EDIT_FRAME passes `aFpEditor = true` and its own
@@ -138,7 +138,7 @@ import {
   useUserColors,
   useUserThemes,
 } from '../../prefs/useSettings.js';
-import { pcbThemeWithOverrides } from '../pcb/pcbTheme.js';
+import { pcbThemeWithOverrides } from '@ziroeda/pcbnew/pcbTheme.js';
 import { settings } from '../../prefs/settings.js';
 import { hiContrastFactorFor } from '@ziroeda/common/render_settings.js';
 import { footprintEditorMenus } from '@ziroeda/pcbnew/menubar_footprint_editor.js';

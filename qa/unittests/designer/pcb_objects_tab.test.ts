@@ -14,7 +14,7 @@ import {
   type ObjectRow,
   type ObjectState,
 } from '@ziroeda/pcbnew/widgets/appearance_objects.js';
-import { PCB_OBJECT_COLORS } from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
+import { PCB_OBJECT_COLORS } from '@ziroeda/pcbnew/pcbTheme.js';
 
 /** s_objectSettings in order; `null` is a bare `RR()` spacer. */
 const UPSTREAM: (string | null)[] = [

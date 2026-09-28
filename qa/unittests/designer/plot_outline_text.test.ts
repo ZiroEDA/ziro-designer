@@ -30,7 +30,7 @@ import {
   loadOutlineFontsFor,
   resetOutlineFonts,
   setFaceFetcher,
-} from '@ziroeda/designer/src/font/outline_fonts.js';
+} from '@ziroeda/common/font/outline_fonts.js';
 
 const FONTS = fileURLToPath(new URL('../../../designer/public/fonts/', import.meta.url));
 const DATA = fileURLToPath(new URL('../../data/font/', import.meta.url));

@@ -23,7 +23,7 @@ import {
   bitmapTextSize,
   glyphIndex,
   layoutBitmapText,
-} from '@ziroeda/designer/src/render/gl/bitmap_text.js';
+} from '@ziroeda/common/gal/opengl/bitmap_text.js';
 import {
   ATLAS_HEIGHT,
   ATLAS_WIDTH,
@@ -31,7 +31,7 @@ import {
   GLYPHS,
   GLYPH_STRIDE,
   LAST_CODEPOINT,
-} from '@ziroeda/designer/src/render/gl/bitmap_font.js';
+} from '@ziroeda/common/gal/opengl/bitmap_font.js';
 import { buildScene, drawNetNames } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 import { GL_PATH_FACTORY } from '@ziroeda/designer/src/render/gl/gl_path.js';
 import { GlRecorder } from '@ziroeda/designer/src/render/gl/recorder.js';

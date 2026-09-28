@@ -32,7 +32,7 @@ import { FOOTPRINT_NAME_VALIDATOR } from '@ziroeda/common/validators.js';
 
 import { PanelEeschemaColorSettings } from '@ziroeda/designer/src/editors/schematic/prefs/PanelEeschemaColorSettings.js';
 import { PanelFpColorSettings } from '@ziroeda/designer/src/editors/footprint/prefs/PanelFpColorSettings.js';
-import { pcbThemeWithOverrides } from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
+import { pcbThemeWithOverrides } from '@ziroeda/pcbnew/pcbTheme.js';
 import {
   normalizeUserThemes,
   EESCHEMA_DEFAULTS,

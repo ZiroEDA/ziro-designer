@@ -23,7 +23,7 @@ import { LayerName, LSET_Name } from '@ziroeda/common/layer_ids.js';
 import { type Color4d, parseColor4d, toCssColor } from '@ziroeda/common/gal/color4d.js';
 import { GAL_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LAYER_PRESENTATION } from '@ziroeda/common/widgets/layer_presentation.js';
-import { layerColor } from './pcbTheme.js';
+import { layerColor } from '@ziroeda/pcbnew/pcbTheme.js';
 
 /**
  * Class that manages the presentation of PCB layers in a PCB frame.

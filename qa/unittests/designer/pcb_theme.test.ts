@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * PCB color themes (designer/src/editors/pcb/pcbTheme.ts): the two built-in
+ * PCB color themes (pcbnew/pcbTheme.ts): the two built-in
  * COLOR_SETTINGS palettes from common/settings/builtin_color_themes.h and the
  * synthetic black-and-white print palette.
  */
@@ -12,7 +12,7 @@ import {
   PCB_LAYER_COLORS,
   PCB_THEMES,
   themeByFilename,
-} from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
+} from '@ziroeda/pcbnew/pcbTheme.js';
 import {
   brightenColor,
   colorBrightness,

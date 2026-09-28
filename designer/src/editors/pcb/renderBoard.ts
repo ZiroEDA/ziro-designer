@@ -87,14 +87,14 @@ import {
   PCB_GRID,
   PCB_PLACE_ORIGIN,
   type PcbColorTheme,
-} from './pcbTheme.js';
+} from '@ziroeda/pcbnew/pcbTheme.js';
 import { layoutText, measureText, textBlockOffset } from '@ziroeda/common/font/stroke_font.js';
 import { metricsInterline } from '@ziroeda/common/font/font_metrics.js';
 import type { OutlineFont } from '@ziroeda/common/font/outline_font.js';
-import { getOutlineFont } from '../../font/outline_fonts.js';
-import { outlineLayout } from '../../font/draw_outline_text.js';
+import { getOutlineFont } from '@ziroeda/common/font/outline_fonts.js';
+import { outlineLayout } from '@ziroeda/common/font/draw_outline_text.js';
 import { padShapePos } from '@ziroeda/pcbnew/padstack.js';
-import type { BitmapTextPlacement } from '../../render/gl/bitmap_text.js';
+import type { BitmapTextPlacement } from '@ziroeda/common/gal/opengl/bitmap_text.js';
 import { ResolveShownText, type TextVarResolverFn } from '@ziroeda/common/common.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)

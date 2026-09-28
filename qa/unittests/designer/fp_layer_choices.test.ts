@@ -29,7 +29,7 @@ import {
   allLayerChoices,
   userLayerChoices,
 } from '@ziroeda/designer/src/editors/footprint/fp_layer_choices.js';
-import { layerColor } from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
+import { layerColor } from '@ziroeda/pcbnew/pcbTheme.js';
 import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common';
 import { toCssColor } from '@ziroeda/common/gal/color4d.js';
 

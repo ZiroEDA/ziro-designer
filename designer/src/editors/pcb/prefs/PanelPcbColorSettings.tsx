@@ -30,7 +30,7 @@ import {
 } from '@ziroeda/common/dialogs/panel_color_settings.js';
 import { themeFilesFor } from '../../../prefs/theme_files.js';
 import { pcbColorRows, pcbDefaultColor, PCB_COLOR_BACKGROUND_KEY } from '../pcbColorLayers.js';
-import { pcbThemeWithOverrides } from '../pcbTheme.js';
+import { pcbThemeWithOverrides } from '@ziroeda/pcbnew/pcbTheme.js';
 import { PcbColorPreview } from './PcbColorPreview.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 

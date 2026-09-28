@@ -31,7 +31,7 @@ import { WINDOW_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
 import { colorSettingsById } from './prefs/color_settings_list.js';
 import { type MouseDragAction, type ScrollModifier, settings } from './prefs/settings.js';
 import { setCustomCursorsEnabledProvider } from '@ziroeda/common/gal/kicursors.js';
-import { setColorSettingsByIdProvider } from './editors/pcb/pcbTheme.js';
+import { setColorSettingsByIdProvider } from '@ziroeda/pcbnew/pcbTheme.js';
 
 /** `panel_mouse_settings.cpp:113-119`: the four choices are `WXK_*` codes. */
 const MODIFIER_CODES: Readonly<Record<ScrollModifier, number>> = {

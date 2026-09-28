@@ -26,7 +26,7 @@ import { installDialogSizeHints } from '@ziroeda/common/dialog_shim.js';
 import { SetFileDialog } from '@ziroeda/common/wx/filedlg.js';
 import { InitPgm } from './pgm_app.js';
 import { OpenFileDialog } from './fs/OpenFileDialog.js';
-import { installOutlineFontProvider } from './font/outline_fonts.js';
+import { installOutlineFontProvider } from '@ziroeda/common/font/outline_fonts.js';
 import { missingFeatures, unsupportedMessage } from './browser_support.js';
 import { checkStorageHealth, setTemplateSink } from './home/projectStore.js';
 import { updateUserTemplateFiles } from './home/user_templates.js';

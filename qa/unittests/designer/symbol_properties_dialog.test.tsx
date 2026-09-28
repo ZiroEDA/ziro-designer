@@ -37,7 +37,7 @@ import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import type { LibSymbol, SchSymbol, SymbolEdit } from '@ziroeda/eeschema';
 import { SymbolPropertiesDialog } from '@ziroeda/designer/src/editors/schematic/components/SymbolPropertiesDialog.js';
-import { BUNDLED_FAMILIES } from '@ziroeda/designer/src/font/outline_fonts.js';
+import { BUNDLED_FAMILIES } from '@ziroeda/common/font/outline_fonts.js';
 import {
   PIN_SHAPE_BITMAPS,
   PIN_TYPE_BITMAPS,

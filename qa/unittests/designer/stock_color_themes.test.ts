@@ -25,7 +25,7 @@ import {
   overrideItemColorsFor,
   resolveThemeById,
 } from '@ziroeda/designer/src/prefs/useSettings.js';
-import { PCB_THEMES, themeByFilename } from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
+import { PCB_THEMES, themeByFilename } from '@ziroeda/pcbnew/pcbTheme.js';
 import { themeFilesFor } from '@ziroeda/designer/src/prefs/theme_files.js';
 
 const DIR = resolve(import.meta.dirname, '../../../designer/src/assets/color_schemes');

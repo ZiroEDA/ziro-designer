@@ -90,8 +90,8 @@ import {
 } from '@ziroeda/common/font/stroke_font.js';
 import type { TextEffects as SchTextEffects } from '@ziroeda/eeschema/types.js';
 import { outlineBoundaryLimits } from '@ziroeda/common/font/outline_layout.js';
-import { getOutlineFont } from '../../../font/outline_fonts.js';
-import { drawOutlineText } from '../../../font/draw_outline_text.js';
+import { getOutlineFont } from '@ziroeda/common/font/outline_fonts.js';
+import { drawOutlineText } from '@ziroeda/common/font/draw_outline_text.js';
 import { globalLabelShape, isEmpty, textPenWidth } from '@ziroeda/eeschema/tools/bbox.js';
 import { contentBBox } from '@ziroeda/eeschema/tools/scene_bbox.js';
 import { tableCellId } from '@ziroeda/eeschema/tools/table_cells.js';

@@ -317,13 +317,13 @@ import {
   DialogLabelProperties,
   type LabelPropsKind,
   type LabelPropsResult,
-} from './dialogs/dialog_label_properties.js';
+} from '@ziroeda/eeschema/dialogs/dialog_label_properties.js';
 import {
   DialogTextProperties,
   type HAlign,
   type TextPropsResult,
   type VAlign,
-} from './dialogs/dialog_text_properties.js';
+} from '@ziroeda/eeschema/dialogs/dialog_text_properties.js';
 import { SymbolPropertiesDialog } from './components/SymbolPropertiesDialog.js';
 import { ErcDialog, type ErcDialogNav } from './components/ErcDialog.js';
 import {
@@ -401,7 +401,7 @@ import { remapEvent } from './hotkey_bindings.js';
 import { applyHotkeyOverrides } from './hotkey_list.js';
 import { DialogAssignNetclass } from '@ziroeda/common/dialogs/dialog_assign_netclass.js';
 import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
-import { DialogTableCellProperties } from './dialogs/dialog_tablecell_properties.js';
+import { DialogTableCellProperties } from '@ziroeda/eeschema/dialogs/dialog_tablecell_properties.js';
 import {
   SchNavigateTool,
   flattenHierarchy,
@@ -412,15 +412,15 @@ import { DialogSchFind } from '../../widgets/dialog_sch_find.js';
 import {
   DialogIncrementAnnotations,
   type IncrementAnnotationsResult,
-} from './dialogs/dialog_increment_annotations.js';
+} from '@ziroeda/eeschema/dialogs/dialog_increment_annotations.js';
 import {
   DialogGlobalEditTextAndGraphics,
   type GlobalEditResult,
-} from './dialogs/dialog_global_edit_text_and_graphics.js';
-import { DialogChangeSymbols, type ChangeSymbolsSubject } from './dialogs/dialog_change_symbols.js';
-import { DialogEditSymbolsLibId } from './dialogs/dialog_edit_symbols_libid.js';
+} from '@ziroeda/eeschema/dialogs/dialog_global_edit_text_and_graphics.js';
+import { DialogChangeSymbols, type ChangeSymbolsSubject } from '@ziroeda/eeschema/dialogs/dialog_change_symbols.js';
+import { DialogEditSymbolsLibId } from '@ziroeda/eeschema/dialogs/dialog_edit_symbols_libid.js';
 import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
-import { DialogLineProperties, type ItemColor } from './dialogs/dialog_line_properties.js';
+import { DialogLineProperties, type ItemColor } from '@ziroeda/eeschema/dialogs/dialog_line_properties.js';
 import { DialogEeschemaPageSettings } from '../../dialogs/dialog_eeschema_page_settings.js';
 import {
   pageSettingsValue,
@@ -436,19 +436,19 @@ import {
   DialogPasteSpecial,
   type PasteSpecialMode,
 } from '@ziroeda/common/dialogs/dialog_paste_special.js';
-import { DialogSheetProperties, type SheetPropsResult } from './dialogs/dialog_sheet_properties.js';
-import { DialogShapeProperties, type ShapePropsResult } from './dialogs/dialog_shape_properties.js';
-import { DialogImageProperties, type ImagePropsResult } from './dialogs/dialog_image_properties.js';
+import { DialogSheetProperties, type SheetPropsResult } from '@ziroeda/eeschema/dialogs/dialog_sheet_properties.js';
+import { DialogShapeProperties, type ShapePropsResult } from '@ziroeda/eeschema/dialogs/dialog_shape_properties.js';
+import { DialogImageProperties, type ImagePropsResult } from '@ziroeda/eeschema/dialogs/dialog_image_properties.js';
 import { DialogFieldProperties, type FieldPropsResult } from './dialogs/dialog_field_properties.js';
 import {
   DialogSheetPinProperties,
   type SheetPinPropsResult,
-} from './dialogs/dialog_sheet_pin_properties.js';
+} from '@ziroeda/eeschema/dialogs/dialog_sheet_pin_properties.js';
 import {
   DialogSchematicSetup,
   defaultSchematicSetup,
   type SchematicSetup,
-} from './dialogs/dialog_schematic_setup.js';
+} from '@ziroeda/eeschema/dialogs/dialog_schematic_setup.js';
 import {
   findProjectPro,
   readSchematicSetup,
@@ -484,8 +484,8 @@ import {
 } from '@ziroeda/eeschema';
 import { schematicTextVarResolver } from '@ziroeda/eeschema/schematic.js';
 import { ResolveShownText, type TextVarResolverFn } from '@ziroeda/common/common.js';
-import { DialogExportNetlist } from './dialogs/dialog_export_netlist.js';
-import { DialogSymbolFieldsTable, type FieldsEdits } from './dialogs/dialog_symbol_fields_table.js';
+import { DialogExportNetlist } from '@ziroeda/eeschema/dialogs/dialog_export_netlist.js';
+import { DialogSymbolFieldsTable, type FieldsEdits } from '@ziroeda/eeschema/dialogs/dialog_symbol_fields_table.js';
 import { DialogAssignFootprints } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
 import { useCvpcbApp } from './cvpcb_app.js';
 import { DialogPrint } from './dialogs/dialog_print.js';
@@ -535,16 +535,16 @@ import { SchPropertiesPanel } from './components/SchPropertiesPanel.js';
 import { FootprintChooserFrame } from '../pcb/dialogs/footprint_chooser_frame.js';
 import { SearchPanel } from './components/SearchPanel.js';
 import { NetNavigatorPanel } from './components/NetNavigatorPanel.js';
-import { DialogUpdateFromPcb } from './dialogs/dialog_update_from_pcb.js';
-import { DialogSyncSheetPins, type SyncSheetEntry } from './dialogs/dialog_sync_sheet_pins.js';
+import { DialogUpdateFromPcb } from '@ziroeda/eeschema/dialogs/dialog_update_from_pcb.js';
+import { DialogSyncSheetPins, type SyncSheetEntry } from '@ziroeda/eeschema/dialogs/dialog_sync_sheet_pins.js';
 import {
   applySchTableValues,
   collectSchTableValues,
   tableWithValues,
   type SchTableValues,
 } from '@ziroeda/eeschema/tools/sch_table_properties.js';
-import { DialogTableProperties } from './dialogs/dialog_table_properties.js';
-import { DialogImportGfx } from './dialogs/dialog_import_gfx.js';
+import { DialogTableProperties } from '@ziroeda/eeschema/dialogs/dialog_table_properties.js';
+import { DialogImportGfx } from '@ziroeda/eeschema/import_gfx/dialog_import_gfx_sch.js';
 import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
 import { MsgPanel } from '@ziroeda/common/widgets/msgpanel_ui.js';
 import {
@@ -569,7 +569,7 @@ import {
 } from './panes.js';
 import { SelectionFilterPanel } from '../../ui/SelectionFilterPanel.js';
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
-import { loadOutlineFontsFor } from '../../font/outline_fonts.js';
+import { loadOutlineFontsFor } from '@ziroeda/common/font/outline_fonts.js';
 import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
 import { useUnsavedGuard } from '@ziroeda/common/use_unsaved_guard.js';
 import '@ziroeda/common/widgets/shell.css';

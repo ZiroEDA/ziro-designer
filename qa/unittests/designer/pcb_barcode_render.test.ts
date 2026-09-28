@@ -28,7 +28,7 @@ import {
   DEFAULT_DRAW_OPTIONS,
   type ScenePathFactory,
 } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
-import { PCB_LAYER_COLORS } from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
+import { PCB_LAYER_COLORS } from '@ziroeda/pcbnew/pcbTheme.js';
 
 interface Op {
   op: string;

@@ -38,7 +38,7 @@ import {
   drawGrid,
   type GridStyle,
 } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
-import { footprintToolCursor } from './cursors.js';
+import { footprintToolCursor } from '@ziroeda/pcbnew/footprint_cursors.js';
 import { clampViewScale } from '@ziroeda/common/settings/zoom_settings.js';
 import { zoomAreaTarget, type ZoomArea } from '@ziroeda/common/tool/zoom_tool.js';
 import {
@@ -58,7 +58,7 @@ import {
   type BoardScene,
   type PcbDrawOptions,
 } from '../pcb/renderBoard.js';
-import { PCB_BACKGROUND, PCB_CURSOR, PCB_GRID_AXES, PCB_SPECIAL } from '../pcb/pcbTheme.js';
+import { PCB_BACKGROUND, PCB_CURSOR, PCB_GRID_AXES, PCB_SPECIAL } from '@ziroeda/pcbnew/pcbTheme.js';
 import { drawSelectionArea, isBackgroundDark, selectionAreaColors } from '@ziroeda/common';
 import { FOOTPRINT_LAYERS, footprintToBoard } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import type { PcbLayerDef } from '@ziroeda/pcbnew/types.js';

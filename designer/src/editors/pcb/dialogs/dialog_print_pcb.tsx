@@ -46,7 +46,7 @@ import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import { useState, type JSX } from 'react';
 import type { Board } from '@ziroeda/pcbnew';
 import { buildScene, drawBoard, type PcbDrawOptions } from '../renderBoard.js';
-import { PCB_BW_PRINT_THEME, PCB_THEMES, themeByFilename } from '../pcbTheme.js';
+import { PCB_BW_PRINT_THEME, PCB_THEMES, themeByFilename } from '@ziroeda/pcbnew/pcbTheme.js';
 import { settings } from '../../../prefs/settings.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)

@@ -23,7 +23,7 @@ import {
   PCB_DEFAULT_GRID_IU,
 } from './renderBoard.js';
 import { drawCrosshair, drawGrid } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
-import { PCB_BACKGROUND, PCB_CURSOR } from './pcbTheme.js';
+import { PCB_BACKGROUND, PCB_CURSOR } from '@ziroeda/pcbnew/pcbTheme.js';
 import { settings } from '../../prefs/settings.js';
 import { footprintToBoard, FOOTPRINT_LAYERS } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import { loadFootprint } from '../../widgets/footprint_list.js';

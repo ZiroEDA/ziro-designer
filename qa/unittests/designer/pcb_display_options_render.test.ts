@@ -27,7 +27,7 @@ import {
   DEFAULT_DRAW_OPTIONS,
   type PcbDrawOptions,
 } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
-import { PCB_SPECIAL } from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
+import { PCB_SPECIAL } from '@ziroeda/pcbnew/pcbTheme.js';
 import { DEFAULT_OBJECTS } from '@ziroeda/pcbnew/widgets/appearance_objects.js';
 
 const MM = 1e6;

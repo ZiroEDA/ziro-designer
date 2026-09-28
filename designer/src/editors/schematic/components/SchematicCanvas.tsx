@@ -269,7 +269,7 @@ import { remapEvent } from '../hotkey_bindings.js';
 import { settings } from '../../../prefs/settings.js';
 import { peerColor } from '../../../sync/peerColor.js';
 import type { InputPrefs } from '../../../ui/view_controls.js';
-import { onOutlineFontsChanged } from '../../../font/outline_fonts.js';
+import { onOutlineFontsChanged } from '@ziroeda/common/font/outline_fonts.js';
 import {
   drawGrid,
   drawCrosshair,

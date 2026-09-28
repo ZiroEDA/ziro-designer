@@ -28,13 +28,13 @@
  * as `s_fontMap` is keyed — the same face file serves "Arial" and
  * "Liberation Sans", but each keeps the name it was asked for.
  */
-import { BUNDLED_FONTS, findFont } from '@ziroeda/common/font/fontconfig.js';
-import { FONT } from '@ziroeda/common/font/font.js';
-import { setFontProvider } from '@ziroeda/common/font/font_provider.js';
-import { type OutlineFace, parseOutlineFace } from '@ziroeda/common/font/outline_face.js';
-import { OUTLINE_FONT, OutlineFont } from '@ziroeda/common/font/outline_font.js';
-import { outlineBoundaryLimits, outlineTextWidth } from '@ziroeda/common/font/outline_layout.js';
-import { isStrokeFont } from '@ziroeda/common/font/text_box.js';
+import { BUNDLED_FONTS, findFont } from './fontconfig.js';
+import { FONT } from './font.js';
+import { setFontProvider } from './font_provider.js';
+import { type OutlineFace, parseOutlineFace } from './outline_face.js';
+import { OUTLINE_FONT, OutlineFont } from './outline_font.js';
+import { outlineBoundaryLimits, outlineTextWidth } from './outline_layout.js';
+import { isStrokeFont } from './text_box.js';
 
 /** Where the bundled files are served from; see `fontconfig.ts`'s catalogue. */
 const FONTS_URL = '/fonts/';
@@ -218,7 +218,7 @@ export function loadOutlineFontsFor(docs: Iterable<unknown>): Promise<void> {
 
 // `FONT_LIST_MANAGER::GetFonts()` and `c_sampleString` live with FONT_CHOICE,
 // as upstream (font_choice.cpp); re-exported for the callers that load faces.
-export { BUNDLED_FAMILIES, FONT_SAMPLE } from '@ziroeda/common/widgets/font_choice.js';
+export { BUNDLED_FAMILIES, FONT_SAMPLE } from '../widgets/font_choice.js';
 
 /**
  * Declare every catalogue file as a CSS `@font-face`, so a dialog can show a

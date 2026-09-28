@@ -12,7 +12,7 @@ import { FontChoice } from '@ziroeda/common/widgets/font_choice.js';
 import {
   BUNDLED_FAMILIES,
   installOutlineFontFaces,
-} from '@ziroeda/designer/src/font/outline_fonts.js';
+} from '@ziroeda/common/font/outline_fonts.js';
 import { BUNDLED_FONTS } from '@ziroeda/common/font/fontconfig.js';
 
 afterEach(cleanup);

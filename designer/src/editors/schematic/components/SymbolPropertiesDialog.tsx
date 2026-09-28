@@ -60,7 +60,7 @@ import {
   KICAD_FONT_NAME,
   measureText,
 } from '@ziroeda/common/font/stroke_font.js';
-import { BUNDLED_FAMILIES } from '../../../font/outline_fonts.js';
+import { BUNDLED_FAMILIES } from '@ziroeda/common/font/outline_fonts.js';
 import {
   parseUnitValueDouble,
   stringFromValue,
@@ -74,7 +74,7 @@ import { Icon } from '@ziroeda/common/widgets/icons.js';
 // rgb(62,62,62) — see the header of ui/Combo.tsx for the measurements.
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
-import { color4dToItemColor, itemColorToColor4d } from '../dialogs/item_color.js';
+import { color4dToItemColor, itemColorToColor4d } from '@ziroeda/eeschema/dialogs/item_color.js';
 
 /**
  * Symbol Properties. Counterpart: `DIALOG_SYMBOL_PROPERTIES`

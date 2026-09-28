@@ -44,7 +44,7 @@ import {
   usePreviewViewControls,
   type PreviewView,
 } from '../../../widgets/preview_view_controls.js';
-import { PCB_BACKGROUND, type PcbColorTheme } from '../pcbTheme.js';
+import { PCB_BACKGROUND, type PcbColorTheme } from '@ziroeda/pcbnew/pcbTheme.js';
 import PREVIEW_BOARD_TEXT from '../data/color_preview_board.kicad_pcb?raw';
 
 /**
