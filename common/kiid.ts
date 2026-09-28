@@ -247,3 +247,135 @@ export function kiidSniffTest(aCandidate: string): boolean {
 
   return true;
 }
+
+/**
+ * `KIID_PATH` (include/kiid.h, common/kiid.cpp): a path of KIIDs from the root sheet down,
+ * as a sheet path or a symbol instance is keyed by. `std::vector<KIID>` upstream; the
+ * vector operations it is used through are methods here.
+ */
+export class KIID_PATH {
+  private m_steps: KIID[];
+
+  /** `KIID_PATH()`, or `KIID_PATH( const wxString& aString )`: "/uuid/uuid". */
+  constructor(aString?: string | readonly KIID[]) {
+    this.m_steps = [];
+
+    if (typeof aString === 'string') {
+      for (const pathStep of aString.split('/')) {
+        if (pathStep !== '') this.m_steps.push(kiidFromString(pathStep));
+      }
+    } else if (aString) {
+      this.m_steps = [...aString];
+    }
+  }
+
+  Clone(): KIID_PATH {
+    return new KIID_PATH(this.m_steps);
+  }
+
+  size(): number {
+    return this.m_steps.length;
+  }
+
+  empty(): boolean {
+    return this.m_steps.length === 0;
+  }
+
+  at(aIndex: number): KIID {
+    return this.m_steps[aIndex]!;
+  }
+
+  push_back(aKiid: KIID): void {
+    this.m_steps.push(aKiid);
+  }
+
+  pop_back(): void {
+    this.m_steps.pop();
+  }
+
+  clear(): void {
+    this.m_steps = [];
+  }
+
+  /** `erase( begin() )`. */
+  eraseFirst(): void {
+    this.m_steps.shift();
+  }
+
+  steps(): readonly KIID[] {
+    return this.m_steps;
+  }
+
+  /**
+   * Make this path relative to \a aPath.
+   *
+   * @param aPath is the path to make this path relative to.
+   * @return true if this path was relative to \a aPath, false otherwise.
+   */
+  MakeRelativeTo(aPath: KIID_PATH): boolean {
+    const copy = [...this.m_steps];
+    this.m_steps = [];
+
+    if (aPath.size() > copy.length) return false; // this path is not contained within aPath
+
+    for (let i = 0; i < aPath.size(); ++i) {
+      if (copy[i] !== aPath.at(i)) {
+        this.m_steps = copy;
+        return false; // this path is not contained within aPath
+      }
+    }
+
+    for (let i = aPath.size(); i < copy.length; ++i) this.m_steps.push(copy[i]!);
+
+    return true;
+  }
+
+  /**
+   * Test if \a aPath from the last path towards the first path.
+   *
+   * @return true if \a aPath is the tail of this path.
+   */
+  EndsWith(aPath: KIID_PATH): boolean {
+    if (aPath.size() > this.size()) return false; // this path can not end aPath
+
+    for (let i = 1; i <= aPath.size(); i++) {
+      if (this.m_steps[this.m_steps.length - i] !== aPath.at(aPath.size() - i)) return false;
+    }
+
+    return true;
+  }
+
+  AsString(): string {
+    let path = '';
+
+    for (const pathStep of this.m_steps) path += `/${pathStep}`;
+
+    return path;
+  }
+
+  /** `operator==`. */
+  equals(aOther: KIID_PATH): boolean {
+    return (
+      this.m_steps.length === aOther.m_steps.length &&
+      this.m_steps.every((s, i) => s === aOther.m_steps[i])
+    );
+  }
+
+  /** `operator<`: lexicographic over the KIIDs (which order as their text does). */
+  lessThan(aOther: KIID_PATH): boolean {
+    return this.compare(aOther) < 0;
+  }
+
+  /** Three-way form of the lexicographic `std::vector` order. */
+  compare(aOther: KIID_PATH): number {
+    const n = Math.min(this.m_steps.length, aOther.m_steps.length);
+
+    for (let i = 0; i < n; i++) {
+      if (this.m_steps[i]! < aOther.m_steps[i]!) return -1;
+
+      if (this.m_steps[i]! > aOther.m_steps[i]!) return 1;
+    }
+
+    return this.m_steps.length - aOther.m_steps.length;
+  }
+}

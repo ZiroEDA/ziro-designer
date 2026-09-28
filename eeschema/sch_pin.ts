@@ -622,6 +622,14 @@ export class SCH_PIN extends SCH_ITEM {
     return this.m_alternates;
   }
 
+  /**
+   * `GetAlternates() = aAlternates` on a pin with no library pin (SCH_SYMBOL::UpdatePins
+   * clears the link first): the map is copied into this pin's own.
+   */
+  assignAlternates(aAlternates: ReadonlyMap<string, SCH_PIN_ALT>): void {
+    this.m_alternates = new Map([...aAlternates].map(([k, v]) => [k, { ...v }]));
+  }
+
   /** `GetAlt( const wxString& aAlt )`: `std::map::operator[]`, which inserts a default. */
   GetAlt(aAlt: string): SCH_PIN_ALT;
   /** `GetAlt()`: the current alternate. */
