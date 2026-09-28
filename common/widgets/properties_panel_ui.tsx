@@ -56,12 +56,12 @@
  */
 import { Fragment, useEffect, useState } from 'react';
 import type { JSX } from 'react';
-import { toHexString } from '@ziroeda/common';
-import { PG_CELL_RENDERER } from '@ziroeda/common/properties/pg_cell_renderer.js';
-import { PG_COLOR_EDITOR } from '@ziroeda/common/properties/pg_editors.js';
-import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
-import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { Icon } from '@ziroeda/common/widgets/icons.js';
+import { toHexString } from '../index.js';
+import { PG_CELL_RENDERER } from '../properties/pg_cell_renderer.js';
+import { PG_COLOR_EDITOR } from '../properties/pg_editors.js';
+import { ColorSwatch } from './color_swatch.js';
+import { Combo } from './wx_combobox.js';
+import { Icon } from './icons.js';
 import './properties_panel.css';
 
 /**

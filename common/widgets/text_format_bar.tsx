@@ -28,7 +28,7 @@
  * still stored, so a file that names a face keeps it.
  */
 import type { JSX } from 'react';
-import { BitmapButton, BitmapButtonSeparator } from '@ziroeda/common/widgets/bitmap_button.js';
+import { BitmapButton, BitmapButtonSeparator } from './bitmap_button.js';
 
 /** `GR_TEXT_H_ALIGN_T` minus INDETERMINATE, which no button stands for. */
 export type HAlign = 'left' | 'center' | 'right';

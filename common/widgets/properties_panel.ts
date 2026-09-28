@@ -5,7 +5,7 @@
  * `PROPERTIES_PANEL` (`common/widgets/properties_panel.{h,cpp}`), the model
  * half: which properties a selection shows, in which groups and order, with
  * which common value, and whether each is writeable. The wxPropertyGrid it
- * fills is `designer/src/widgets/properties_panel.tsx`; what the grid holds
+ * fills is `common/widgets/properties_panel_ui.tsx`; what the grid holds
  * between rebuilds is `m_groups` here.
  *
  * Every rule below is `rebuildProperties` / `extractValueAndWritability` /

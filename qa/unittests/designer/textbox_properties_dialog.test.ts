@@ -120,7 +120,7 @@ describe('the shared pieces it reuses', () => {
     // `m_mirrored` is the last BITMAP_BUTTON on pcbnew's bars; eeschema spends
     // that slot on the horizontal/vertical pair instead.
     expect(code).toContain('onMirrored');
-    const bar = read('ui/TextFormatBar.tsx');
+    const bar = read('../../common/widgets/text_format_bar.tsx');
     expect(bar).toContain('text_mirrored');
     expect(bar).toContain('onMirrored');
   });

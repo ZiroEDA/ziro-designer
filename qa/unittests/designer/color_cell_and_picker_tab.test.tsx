@@ -29,8 +29,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { cleanup, fireEvent, render } from '@testing-library/react';
-import { PropertiesPanel } from '@ziroeda/designer/src/widgets/properties_panel.js';
-import type { PropertyGridRow } from '@ziroeda/designer/src/widgets/properties_panel.js';
+import { PropertiesPanel } from '@ziroeda/common/widgets/properties_panel_ui.js';
+import type { PropertyGridRow } from '@ziroeda/common/widgets/properties_panel_ui.js';
 import { DialogColorPicker } from '@ziroeda/common/dialogs/dialog_color_picker.js';
 import {
   COLOR_PICKER_TABS,
@@ -99,7 +99,7 @@ describe("PG_COLOR_EDITOR's swatch", () => {
     // happy-dom computes no var() and paints nothing, so the rule itself is
     // what says this.
     const css = readFileSync(
-      resolve(process.cwd(), '../designer/src/widgets/properties_panel.css'),
+      resolve(process.cwd(), '../common/widgets/properties_panel.css'),
       'utf8',
     );
     const start = css.indexOf('.ze-pgrid-colorcell {');

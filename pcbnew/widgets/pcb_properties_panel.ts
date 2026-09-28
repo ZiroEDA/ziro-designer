@@ -145,7 +145,7 @@ export class PCB_FOOTPRINT_FIELD_PROPERTY extends PROPERTY_BASE {
 }
 
 /**
- * One cell of the grid as `designer/src/widgets/properties_panel.tsx` draws
+ * One cell of the grid as `common/widgets/properties_panel_ui.tsx` draws
  * it: what `createPGProperty` / `PGPropertyFactory` built, holding the cell's
  * value (`wxPGProperty::SetValue`), with `set` standing for the grid's
  * `EVT_PG_CHANGING` + `EVT_PG_CHANGED` pair. `set` returns the edit to run

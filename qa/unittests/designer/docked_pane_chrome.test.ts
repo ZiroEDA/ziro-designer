@@ -50,7 +50,7 @@ function read(rel: string): string {
 }
 
 const SHELL = read('../../common/widgets/shell.css');
-const PROPS = read('widgets/properties_panel.css');
+const PROPS = read('../../common/widgets/properties_panel.css');
 const APPEAR = read('../../pcbnew/widgets/appearance_controls.css');
 
 /**

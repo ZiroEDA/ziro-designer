@@ -28,7 +28,7 @@ import type { JSX } from 'react';
 import type { EditCommand, PropRow } from '@ziroeda/eeschema';
 import { schIUScale } from '@ziroeda/common';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
-import { PropertiesPanel } from '../../../widgets/properties_panel.js';
+import { PropertiesPanel } from '@ziroeda/common/widgets/properties_panel_ui.js';
 import { PGPROPERTY_DISTANCE, type PG_FRAME } from '@ziroeda/common/properties/pg_properties.js';
 import { PG_UNIT_EDITOR } from '@ziroeda/common/properties/pg_editors.js';
 

@@ -35,7 +35,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const CSS = readFileSync(
-  fileURLToPath(new URL('../../../designer/src/widgets/properties_panel.css', import.meta.url)),
+  fileURLToPath(new URL('../../../common/widgets/properties_panel.css', import.meta.url)),
   'utf8',
 );
 

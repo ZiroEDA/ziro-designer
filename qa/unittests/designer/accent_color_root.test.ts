@@ -59,7 +59,7 @@ describe('no launcher restates it', () => {
   const LAUNCHERS = [
     'editors/calculator/calculator.css',
     '../../bitmap2component/bitmap2cmp_frame.css',
-    'widgets/properties_panel.css',
+    '../../common/widgets/properties_panel.css',
   ];
 
   it.each(LAUNCHERS)('%s states no accent-color of its own', (rel) => {

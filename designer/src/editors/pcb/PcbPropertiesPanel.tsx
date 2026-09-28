@@ -36,7 +36,7 @@ import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js'
 import type { PCB_BASE_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_base_edit_frame.js';
 import { boardItemOfViewId } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import { PCB_PROPERTIES_PANEL } from '@ziroeda/pcbnew/widgets/pcb_properties_panel.js';
-import { PropertiesPanel } from '../../widgets/properties_panel.js';
+import { PropertiesPanel } from '@ziroeda/common/widgets/properties_panel_ui.js';
 import { PGPROPERTY_DISTANCE, type PG_FRAME } from '@ziroeda/common/properties/pg_properties.js';
 import { PG_UNIT_EDITOR } from '@ziroeda/common/properties/pg_editors.js';
 
