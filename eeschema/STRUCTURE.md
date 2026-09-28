@@ -523,3 +523,40 @@ stage switches the callers).
   `ErcSettings`. `SCHEMATIC::ErcSettings()` is schematic-owned, as
   `Settings()` already is — there is no live project file yet. Root match
   after: 54/83.
+
+## Stage E2 pt 3 (2026-09-28): the frame files out of `SchematicEditor.tsx` and `render/`
+
+Moves only; every step is its own commit, importers repointed by
+`qa/probes/relocate_imports.mjs` (whole-module or named-export moves) and
+self-alias imports rewritten by `qa/probes/deself_imports.mjs`.
+
+**Step 1 — the render cluster** (`render/renderer.ts`, `render/plot.ts`,
+`theme.ts`, which the previous pass called "genuinely `designer/`-coupled"):
+it was not. `theme.ts` only ever imported `@ziroeda/common`, and the one
+`designer/` edge left in `renderer.ts` was `drawField` from the symbol
+editor's painter, which is itself pure. Order that made each step a plain
+move:
+
+| was | now | KiCad |
+|---|---|---|
+| `editors/schematic/theme.ts` + `RenderOpts`/`Viewport`/`DEFAULT_RENDER_OPTS` out of `renderer.ts` | `sch_render_settings.ts` | `sch_render_settings.{h,cpp}` (`LoadColors` + the `m_Show*` / ratio members) |
+| `editors/symbol/render/symbolRenderer.ts` | `symbol_editor/symbol_renderer.ts` (own name) | the `m_IsSymbolEditor` half of `sch_painter.cpp` |
+| `editors/schematic/render/renderer.ts` | `sch_painter.ts` | `sch_painter.{h,cpp}` |
+| `editors/schematic/render/plot.ts` | `sch_plotter.ts` | `sch_plotter.cpp` + `printing/sch_printout.cpp` (still fused) |
+
+`symbol_renderer.ts` keeps our name: fusing it into `sch_painter.ts` as
+KiCad has it is not a move (both define `MM`, `Viewport`, grid helpers).
+
+Two traps found on the way:
+
+- `sch_painter.ts`'s `'@ziroeda/eeschema'` imports became `'./index.js'`,
+  not the declaring modules — splitting them changes module evaluation order,
+  and `eeschema/`'s index has cycles (`project_settings.ts` reads
+  `ERC_ITEMS` from `./index.js` at module scope).
+- `central_values`' walk of `eeschema/` read `.css`/`.tsx` only, so moving
+  `renderer.ts` dropped four colour sites from the ratchet (a test that cannot
+  fail). It now reads `.ts` there too; pcbnew/ and 3d-viewer/ still do not
+  (five uncounted `.ts` sites, listed in the test).
+
+Root match after step 1: 58/83 (probe `SAME` 109; both include other
+sessions' concurrent SCH_* ports).
