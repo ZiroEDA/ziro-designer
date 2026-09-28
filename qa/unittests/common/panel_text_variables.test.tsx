@@ -61,18 +61,22 @@ describe('Text Variables', () => {
     expect(last()).toEqual([{ name: 'MYVARX', value: '' }]);
   });
 
-  it('vetoes an empty name and says so', () => {
+  it('vetoes an empty name and says so', async () => {
     const errors: string[] = [];
     SetErrorPresenter((m) => errors.push(m));
     const { edit, cell, last } = setup([{ name: 'REV', value: 'A' }]);
     edit(0, 0, '');
-    return act(async () => {
+    // The veto's DisplayErrorMessage / SetGridCursor / EnableCellEditControl
+    // are queued with queueMicrotask (panel_text_variables.tsx), so they run
+    // after this handler returns; awaiting inside `act` — not chaining a
+    // `.then` onto it — is what makes the test's own promise, and not just a
+    // detached continuation, wait for them.
+    await act(async () => {
       await Promise.resolve();
-    }).then(() => {
-      expect(errors).toEqual(['Variable name cannot be empty.']);
-      expect(cell(0, 0).querySelector('input')).not.toBeNull();
-      expect(last()).toBeUndefined();
     });
+    expect(errors).toEqual(['Variable name cannot be empty.']);
+    expect(cell(0, 0).querySelector('input')).not.toBeNull();
+    expect(last()).toBeUndefined();
   });
 
   it('deletes the selected row', () => {
