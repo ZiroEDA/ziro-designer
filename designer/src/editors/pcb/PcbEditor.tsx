@@ -48,7 +48,7 @@ import {
   uniqueZoneName,
   type RuleAreaValues,
   type ZoneBorderStyle,
-} from '@ziroeda/pcbnew/rule_area_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_rule_area_properties.js';
 import { TWO_POINT_GEOMETRY_MANAGER } from '@ziroeda/common/preview_items/two_point_geom_manager.js';
 import { ArcGeomManager, ArcStep } from '@ziroeda/common/preview_items/arc_geom_manager.js';
 import { arcMidPoint, drawArcAssistant } from '@ziroeda/common/preview_items/arc_assistant.js';
@@ -287,13 +287,13 @@ import {
   isBackLayer,
   tableAt,
   type TableValues,
-} from '@ziroeda/pcbnew/table_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_table_properties.js';
 import {
   applyTextBoxValues,
   collectTextBoxValues,
   textBoxAt,
   type TextBoxValues,
-} from '@ziroeda/pcbnew/textbox_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_textbox_properties.js';
 import { isDrawableTextBox, newTextBox } from '@ziroeda/pcbnew/draw_textbox.js';
 import { newTable, type TableDefaults } from '@ziroeda/pcbnew/draw_table.js';
 
@@ -459,7 +459,7 @@ import {
   padAt as selectedPadAt,
   type PadRef,
   type PadValues,
-} from '@ziroeda/pcbnew/pad_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_pad_properties.js';
 import {
   applyZoneValues,
   collectZoneValues,
@@ -472,11 +472,11 @@ import {
   hasTrackOrVia,
   trackViaSelection,
   type TrackViaValues,
-} from '@ziroeda/pcbnew/track_via_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_track_via_properties.js';
 import {
   applyGlobalTeardropEdit,
   type GlobalTeardropEditOptions,
-} from '@ziroeda/pcbnew/teardrop_global_edit.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_global_edit_teardrops.js';
 import {
   defaultTeardropParametersList,
   type TeardropParametersList,
