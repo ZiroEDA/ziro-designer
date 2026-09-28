@@ -11900,6 +11900,7 @@ export function PcbEditor({
         <DialogPcbPlot
           board={board}
           visibleLayers={visible}
+          units={unitLabel}
           projectFolders={projectFolders}
           onOutputFile={onOutputFile}
           onRunDrc={() => {

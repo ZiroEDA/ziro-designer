@@ -48,10 +48,16 @@ import {
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
+import { pcbUnitTextMM, pcbUnitValueMM, unitLabel } from '../pcb_unit_binder.js';
 
 interface Props {
   board: Board;
   visibleLayers: ReadonlySet<string>;
+  /** The frame's display units. `m_trackWidthCorrection`
+   *  (`dialog_plot.cpp:116`) is a `UNIT_BINDER` on the edit frame like every
+   *  other distance field, even though its model is millimetres. */
+  units: StatusUnits;
   /** Folders that already exist in the project (browse choices). */
   projectFolders?: readonly string[];
   /** Write a generated file into the project (path relative to the project
@@ -105,6 +111,7 @@ const download = (name: string, data: Uint8Array | string): void => {
 export function DialogPcbPlot({
   board,
   visibleLayers,
+  units,
   projectFolders = [],
   onOutputFile,
   onRunDrc,
@@ -140,7 +147,7 @@ export function DialogPcbPlot({
   const [fineX, setFineX] = useState(() => String(initial.GetFineScaleAdjustX()));
   const [fineY, setFineY] = useState(() => String(initial.GetFineScaleAdjustY()));
   const [widthAdjust, setWidthAdjust] = useState(() =>
-    String(pcbIUScale.iuToMM(initial.GetWidthAdjust())),
+    pcbUnitTextMM(pcbIUScale.iuToMM(initial.GetWidthAdjust()), units),
   );
   const [dxfContours, setDxfContours] = useState(() => initial.GetDXFPlotPolygonMode());
   const [dxfUnits, setDxfUnits] = useState(() =>
@@ -254,7 +261,7 @@ export function DialogPcbPlot({
     if (format === PLOT_FORMAT.POST) {
       params.SetFineScaleAdjustX(Number(fineX) || 1);
       params.SetFineScaleAdjustY(Number(fineY) || 1);
-      params.SetWidthAdjust(Math.round((Number(widthAdjust) || 0) * pcbIUScale.IU_PER_MM));
+      params.SetWidthAdjust(Math.round(pcbUnitValueMM(widthAdjust, units) * pcbIUScale.IU_PER_MM));
     }
 
     params.SetUseGerberProtelExtensions(protel);
@@ -623,7 +630,7 @@ export function DialogPcbPlot({
                       value={widthAdjust}
                       onChange={(e) => setWidthAdjust(e.target.value)}
                     />
-                    <span>mm</span>
+                    <span className="ze-unit-label">{unitLabel(units)}</span>
                   </div>
                 </fieldset>
               )}
