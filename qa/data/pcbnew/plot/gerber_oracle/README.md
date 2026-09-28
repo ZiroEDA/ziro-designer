@@ -10,6 +10,7 @@ set:
 | prec5 | `--precision 5 -l F.Cu` |
 | auxorigin | `--use-drill-file-origin -l F.Cu` |
 | nonetlist | `--no-netlist -l F.Cu` |
+| frame | `--include-border-title -l F.SilkS,Edge.Cuts` |
 
 `qa/unittests/pcbnew/plot_gerber_oracle.test.ts` plots the same board through
 `GERBER_PLOTTER` and compares byte for byte, except the three lines that name

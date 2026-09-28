@@ -94,6 +94,7 @@ export class PCB_PLOTTER {
 
     let fileExt = GERBER_EXTENSION;
     let success = true;
+    let pageNum = 1;
 
     for (const layer of layersToPlot) {
       if (this.copperLayerShouldBeSkipped(layer)) continue;
@@ -121,7 +122,7 @@ export class PCB_PLOTTER {
         layerName,
         '',
         layerName,
-        '1',
+        String(pageNum), // this will only be used by pdf
         layersToExport.length,
         aDate,
       );
@@ -153,6 +154,8 @@ export class PCB_PLOTTER {
 
         success = false;
       }
+
+      pageNum++;
     }
 
     return { success, files };

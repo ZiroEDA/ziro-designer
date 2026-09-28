@@ -29,7 +29,7 @@ import { schIUScale } from '@ziroeda/common/eda_units.js';
 import { fracture, type Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import type { Color4d } from '@ziroeda/common/gal/color4d.js';
+import { COLOR4D_BLACK, type Color4d } from '@ziroeda/common/gal/color4d.js';
 import { plotterRenderSettings } from '@ziroeda/common/render_settings.js';
 import {
   DXF_UNITS,
@@ -41,6 +41,17 @@ import { DXF_PLOTTER } from '@ziroeda/common/plotters/DXF_plotter.js';
 import { PDF_PLOTTER, pdfRenderSettings } from '@ziroeda/common/plotters/PDF_plotter.js';
 import { PS_PLOTTER } from '@ziroeda/common/plotters/PS_plotter.js';
 import { SVG_PLOTTER } from '@ziroeda/common/plotters/SVG_plotter.js';
+import { PlotDrawingSheet } from '@ziroeda/common/plotters/common_plot_functions.js';
+import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
+import { serializeDrawingSheet } from '@ziroeda/common/drawing_sheet/write.js';
+import {
+  MAX_PAGE_SIZE_EESCHEMA_MM,
+  MIN_PAGE_SIZE_MM,
+  PAGE_INFO,
+  PAGE_SIZE_TYPE,
+} from '@ziroeda/common/page_info.js';
+import { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
+import { getPageSettings } from '@ziroeda/eeschema/tools/page_settings.js';
 
 const MM = 10000; // IU per mm (matches the renderer)
 
@@ -782,6 +793,10 @@ class PlotterContext extends VectorContext {
   ) {
     super(pw, ph);
   }
+  /** The plotter this context draws into. */
+  Plotter(): PLOTTER {
+    return this.plotter;
+  }
   private static colour(color: string): Color4d {
     const [r, g, b] = parseColor(color);
     return { r: r / 255, g: g / 255, b: b / 255, a: 1 };
@@ -932,10 +947,91 @@ export function sheetToPs(
   return plotter.text();
 }
 
+/**
+ * The schematic's page as `PAGE_INFO`: `SCH_IO_KICAD_SEXPR_PARSER::parsePAGE_INFO`
+ * over the `(paper …)` token, eeschema's size limits.
+ */
+function schPageInfo(sch: Schematic): PAGE_INFO {
+  const parts = (sch.paper ?? 'A4').trim().split(/\s+/);
+  const pageInfo = new PAGE_INFO();
+
+  if (!pageInfo.SetType(parts[0] ?? 'A4')) pageInfo.SetType(PAGE_SIZE_TYPE.A4);
+
+  if (pageInfo.GetType() === PAGE_SIZE_TYPE.User) {
+    const clamp = (v: number): number =>
+      Math.min(Math.max(v, MIN_PAGE_SIZE_MM), MAX_PAGE_SIZE_EESCHEMA_MM);
+    const width = Number(parts[1]);
+    const height = Number(parts[2]);
+
+    if (Number.isFinite(width) && Number.isFinite(height)) {
+      pageInfo.SetWidthMils((clamp(width) * 1000.0) / 25.4);
+      pageInfo.SetHeightMils((clamp(height) * 1000.0) / 25.4);
+    }
+  }
+
+  if (parts.includes('portrait')) pageInfo.SetPortrait(true);
+
+  return pageInfo;
+}
+
+/**
+ * `SCH_PLOTTER::plotOneSheet*`'s `PlotDrawingSheet` call: the page frame and
+ * title block through the plotter itself, in LAYER_SCHEMATIC_DRAWINGSHEET's
+ * colour (black when the plotter is not in colour mode). The A4 / A page
+ * choice is the plotter's scale for the sheet, as upstream's viewport is.
+ */
+function plotDrawingSheetHook(
+  plotter: PLOTTER,
+  sch: Schematic,
+  opts: PlotOpts,
+  theme: Theme,
+  scale: number,
+): () => void {
+  return () => {
+    const model = DS_DATA_MODEL.GetTheInstance();
+
+    if (opts.sheet) model.SetPageLayout(serializeDrawingSheet(opts.sheet));
+    else model.SetDefaultLayout();
+
+    const ps = getPageSettings(sch);
+    const titleBlock = new TITLE_BLOCK();
+    titleBlock.SetTitle(ps.title);
+    titleBlock.SetDate(ps.date);
+    titleBlock.SetRevision(ps.rev);
+    titleBlock.SetCompany(ps.company);
+    ps.comments.forEach((c, i) => titleBlock.SetComment(i, c));
+
+    const mils = schIUScale.IU_PER_MILS;
+
+    if (scale !== 1) plotter.SetViewport({ x: 0, y: 0 }, mils / 10, scale, false);
+
+    const [r, g, b] = parseColor(theme.pageFrame);
+    const resolve = opts.resolveTextVar;
+
+    PlotDrawingSheet(
+      plotter,
+      resolve ? { TextVarResolver: resolve } : null,
+      titleBlock,
+      schPageInfo(sch),
+      null,
+      opts.pageNumber ?? '1',
+      opts.sheetCount ?? 1,
+      opts.sheetName ?? '',
+      opts.sheetPath ?? '/',
+      sch.fileName ?? '',
+      plotter.GetColorMode() ? { r: r / 255, g: g / 255, b: b / 255, a: 1 } : COLOR4D_BLACK,
+      (opts.sheetNumber ?? 1) === 1,
+    );
+
+    if (scale !== 1) plotter.SetViewport({ x: 0, y: 0 }, mils / 10, 1, false);
+  };
+}
+
 /** Run the shared render walk into a plotter context. */
 function renderToVector(sch: Schematic, base: Theme, opts: PlotOpts, ctx: VectorContext): void {
   const page = plotPageIU(sch, opts);
   const theme = outputTheme(base, opts);
+  const plotter = ctx instanceof PlotterContext ? ctx.Plotter() : null;
   setVectorText(true);
   try {
     renderSchematic(
@@ -947,7 +1043,12 @@ function renderToVector(sch: Schematic, base: Theme, opts: PlotOpts, ctx: Vector
       page.h,
       undefined,
       undefined,
-      outputRenderOpts(opts, sch),
+      {
+        ...outputRenderOpts(opts, sch),
+        ...(plotter
+          ? { plotDrawingSheet: plotDrawingSheetHook(plotter, sch, opts, theme, page.scale) }
+          : {}),
+      },
     );
   } finally {
     setVectorText(false);

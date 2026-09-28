@@ -5,9 +5,10 @@
  * Gerber output against KiCad's own: `qa/data/pcbnew/plot/gerber_oracle/`
  * holds what `kicad-cli pcb export gerbers` (10.0.6) wrote for
  * `gerber_oracle.kicad_pcb` (its README has the commands). The same board goes
- * through PCB_PLOTTER -> StartPlotBoard -> PlotBoardLayers -> GERBER_PLOTTER
+ * through StartPlotBoard -> PlotBoardLayers -> GERBER_PLOTTER
  * here and every file must match byte for byte, except the three lines that
- * name the program and the time.
+ * name the program and the time (and, with the frame, the title block's
+ * `${KICAD_VERSION}`).
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -17,6 +18,9 @@ import { PLOT_FORMAT } from '@ziroeda/common/plotters/plotter.js';
 import { ParseBoard } from '@ziroeda/pcbnew/read-board.js';
 import { DRILL_MARKS, PCB_PLOT_PARAMS } from '@ziroeda/pcbnew/pcb_plot_params.js';
 import { PCB_PLOTTER } from '@ziroeda/pcbnew/pcb_plotter.js';
+import { PlotBoardLayers, StartPlotBoard } from '@ziroeda/pcbnew/plot_board_layers.js';
+import { GetGerberProtelExtension } from '@ziroeda/pcbnew/pcbplot.js';
+import type { GERBER_PLOTTER } from '@ziroeda/common/plotters/GERBER_plotter.js';
 
 const DIR = resolve(__dirname, '../../data/pcbnew/plot');
 
@@ -28,7 +32,21 @@ const normalise = (text: string): string =>
   text
     .split('\n')
     .map((line) => (IDENTITY.test(line) ? line.replace(/,.*|by .*/, ',<identity>') : line))
+    .filter((line) => !inVersionText(line))
     .join('\n');
+
+/**
+ * The title block's `${KICAD_VERSION}` text names the program ("KiCad E.D.A.
+ * 10.0.6" there, ours here), so its strokes are dropped: every draw inside its
+ * cell, x 177.0 .. 215.0 mm, y 194.6 .. 197.5 mm (the page is A4, 4.6 format).
+ */
+function inVersionText(aLine: string): boolean {
+  const m = /^X(-?\d+)Y(-?\d+)D0[12]\*$/.exec(aLine);
+  if (!m) return false;
+  const x = Number(m[1]) / 1e6;
+  const y = -Number(m[2]) / 1e6;
+  return x > 177.0 && x < 215.0 && y > 194.6 && y < 197.5;
+}
 
 const LAYERS: Record<string, PCB_LAYER_ID> = {
   F_Cu: PCB_LAYER_ID.F_Cu,
@@ -55,23 +73,42 @@ function cliParams(aVariant: string): PCB_PLOT_PARAMS {
   params.SetDisableGerberMacros(aVariant === 'nomacros');
   params.SetGerberPrecision(aVariant === 'prec5' ? 5 : 6);
   params.SetUseAuxOrigin(aVariant === 'auxorigin');
+  params.SetPlotFrameRef(aVariant === 'frame');
   params.SetSubtractMaskFromSilk(false);
   // PCB_PLOTTER::PlotJobToPlotOpts: "Always disable plot pad holes" for Gerber.
   params.SetDrillMarksType(DRILL_MARKS.NO_DRILL_SHAPE);
   return params;
 }
 
+/**
+ * `PCBNEW_JOBS_HANDLER::JobExportGerbers`, which is what kicad-cli runs: per
+ * layer, `StartPlotBoard( brd, &plotOpts, layer, layerName, path, sheetName,
+ * sheetPath )` with the page arguments at their defaults, `PlotBoardLayers`
+ * over the layer, `EndPlot`. (The plot dialog runs PCB_PLOTTER instead, which
+ * numbers the pages; plot_board_layers.test.ts drives that.)
+ */
 function plot(aVariant: string, aLayers: PCB_LAYER_ID[]): Map<string, string> {
   const board = ParseBoard(readFileSync(resolve(DIR, 'gerber_oracle.kicad_pcb'), 'utf8'));
   board.SetFileName('/oracle/gerber_oracle.kicad_pcb');
 
   const out = new Map<string, string>();
-  const plotter = new PCB_PLOTTER(board, null, cliParams(aVariant));
-  const { success } = plotter.Plot('out', aLayers, [], true, (path, bytes) => {
-    out.set(path.replace(/^out\//, ''), new TextDecoder().decode(bytes));
-  });
+  const params = cliParams(aVariant);
 
-  expect(success).toBe(true);
+  for (const layer of aLayers) {
+    const layerName = board.GetLayerName(layer);
+    const fileName = PCB_PLOTTER.BuildPlotFileName(
+      'gerber_oracle',
+      layerName,
+      GetGerberProtelExtension(layer),
+    );
+    const plotter = StartPlotBoard(board, params, layer, layerName, fileName, '', '');
+
+    expect(plotter).not.toBeNull();
+    PlotBoardLayers(board, plotter!, [layer], params);
+    plotter!.EndPlot();
+    out.set(fileName, new TextDecoder().decode((plotter as GERBER_PLOTTER).bytes()));
+  }
+
   return out;
 }
 

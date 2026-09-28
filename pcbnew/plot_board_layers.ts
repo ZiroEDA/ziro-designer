@@ -12,7 +12,6 @@
  *   the plot params first (plot_brditems_plotter.ts).
  * - `PlotInteractiveLayer` (PDF property popups and bookmarks) is PDF-only,
  *   so it waits on the same thing.
- * - The drawing sheet (`PlotDrawingSheet`) is drawn when `GetPlotFrameRef()`.
  */
 
 import { COLOR4D_BLACK, COLOR4D_WHITE } from '@ziroeda/common/gal/color4d.js';
@@ -23,6 +22,8 @@ import { LSET } from '@ziroeda/common/lset.js';
 import type { LSEQ } from '@ziroeda/common/lseq.js';
 import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/page_info.js';
 import { GERBER_PLOTTER } from '@ziroeda/common/plotters/GERBER_plotter.js';
+import { PlotDrawingSheet } from '@ziroeda/common/plotters/common_plot_functions.js';
+import { GAL_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { FILL_T, PLOT_FORMAT, PLOTTER } from '@ziroeda/common/plotters/plotter.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { DISABLE_ARC_RADIUS_CORRECTION } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
@@ -1163,11 +1164,11 @@ export function StartPlotBoard(
   aLayer: PCB_LAYER_ID,
   aLayerName: string,
   aFullFileName: string,
-  _aSheetName = '',
-  _aSheetPath = '',
-  aPageName = '',
-  _aPageNumber = '1',
-  _aPageCount = 1,
+  aSheetName = '',
+  aSheetPath = '',
+  aPageName = '1',
+  aPageNumber = '',
+  aPageCount = 1,
   aDate: Date = new Date(),
 ): PLOTTER | null {
   // Create the plotter driver and set the few plotter specific options
@@ -1238,6 +1239,33 @@ export function StartPlotBoard(
 
     if (startPlotSuccess) {
       // (plotPdfBackground: PDF only, see the file comment)
+
+      // Plot the frame reference if requested
+      if (aPlotOpts.GetPlotFrameRef()) {
+        const variantName = aBoard.GetCurrentVariant();
+        const variantDesc = aBoard.GetVariantDescription(variantName);
+        const project = aBoard.GetProject();
+
+        PlotDrawingSheet(
+          plotter,
+          project ? { TextVarResolver: (token) => project.TextVarResolver(token) } : null,
+          aBoard.GetTitleBlock(),
+          aBoard.GetPageSettings(),
+          aBoard.GetProperties(),
+          aPageNumber,
+          aPageCount,
+          aSheetName,
+          aSheetPath,
+          aBoard.GetFileName(),
+          renderSettings.GetLayerColor(GAL_LAYER_ID.LAYER_DRAWINGSHEET),
+          true,
+          variantName,
+          variantDesc,
+        );
+
+        if (aPlotOpts.GetMirror() || aPlotOpts.GetScale() !== 1.0 || aPlotOpts.GetAutoScale())
+          initializePlotter(plotter, aBoard, aPlotOpts);
+      }
 
       // When plotting a negative board: draw a black rectangle (background for plot board
       // in white) and switch the current color to WHITE; note the color inversion is actually

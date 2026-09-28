@@ -561,6 +561,12 @@ export interface RenderOpts {
   /** Custom drawing sheet (a loaded `.kicad_wks`), like KiCad's project
    *  `m_DrawingSheetFileName`. Unset = the built-in default stationery. */
   drawingSheet?: WksSheet;
+  /**
+   * A plot draws the drawing sheet itself (`PlotDrawingSheet`, straight into
+   * the plotter) at the point the frame would be painted, after the page
+   * background and before the items. Unset = paint it here.
+   */
+  plotDrawingSheet?: () => void;
   /** Pen width (IU) for zero-width strokes, the plot dialog's "Minimum line
    *  width" (default pen thickness). Unset = KiCad's 6-mil default. */
   defaultPenIU?: number;
@@ -1086,8 +1092,10 @@ export function renderSchematic(
   // *only* the items named: including the frame would repaint it on every
   // pointer move of a drag, and draw it twice over the background that already
   // has it.
-  if (opts.showDrawingSheet !== false && !overlayPass)
-    drawDrawingSheet(ctx, sch, theme, opts.drawingSheet, opts);
+  if (opts.showDrawingSheet !== false && !overlayPass) {
+    if (opts.plotDrawingSheet) opts.plotDrawingSheet();
+    else drawDrawingSheet(ctx, sch, theme, opts.drawingSheet, opts);
+  }
 
   const hl = (id: string): boolean => highlight?.has(id) ?? false;
 

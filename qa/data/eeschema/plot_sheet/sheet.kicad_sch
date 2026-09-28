@@ -1,0 +1,21 @@
+(kicad_sch
+	(version 20250114)
+	(generator "eeschema")
+	(generator_version "9.0")
+	(uuid "c1b2c3d4-0000-4000-8000-000000000001")
+	(paper "A4")
+	(title_block
+		(title "Frame Oracle")
+		(date "2026-09-28")
+		(rev "C")
+		(company "Test Co")
+		(comment 1 "first comment")
+	)
+	(lib_symbols)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+	)
+	(embedded_fonts no)
+)

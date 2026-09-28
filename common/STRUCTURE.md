@@ -544,7 +544,7 @@ goes through `GERBER_PLOTTER` (09-27).
 | `SVG_plotter.cpp` | `SVG_plotter.ts`: `SVG_PLOTTER` |
 | `DXF_plotter.cpp` + `plotter_dxf.h` | `DXF_plotter.ts`: `DXF_PLOTTER` |
 | `GERBER_plotter.cpp` + `plotter_gerber.h`, `gbr_plotter_apertures.h`, `gbr_plotter_aperture_macros.h` | `GERBER_plotter.ts`: `GERBER_PLOTTER`, `APERTURE`, `APER_MACRO_FREEPOLY(_LIST)` and the `%AM` texts, whole. pcbnew's Gerber goes through it (`pcb_plotter.ts` -> `plot_board_layers.ts` -> `plot_brditems_plotter.ts`) and matches kicad-cli byte for byte (`qa/data/pcbnew/plot/gerber_oracle`) but for our name and the clock. The polygon overloads are `GetOrCreateApertureCorners` / `selectApertureCorners` / `plotArcShape` / `PlotGerberRegionLineChain` |
-| `common_plot_functions.cpp` | **missing**: `GetDefaultPlotExtension`, `PlotDrawingSheet` (eeschema draws the sheet through the renderer instead) |
+| `common_plot_functions.cpp` | `common_plot_functions.ts`: `GetDefaultPlotExtension`, `PlotDrawingSheet`. The schematic plots (SVG / PDF / PS / DXF) and pcbnew's `StartPlotBoard` frame the page through it; kicad-cli-identical but for the `${KICAD_VERSION}` text (`qa/data/eeschema/plot_sheet`, `gerber_oracle/frame`) |
 | `pdf_stroke_font.cpp`, `pdf_outline_font.cpp` (+ `.h`) | `pdf_stroke_font.ts`, `pdf_outline_font.ts`. The outline font's FreeType/HarfBuzz questions go to `OutlineFace` (bbox, fsType, unscaled advance, shaped clusters, the file bytes); HarfBuzz's full GSUB/GPOS is pair kerning there. `std::map`'s font-pointer order is first-sight order. The outline path is pinned by formula (`pdf_outline_font.test.ts`), not by kicad-cli: pcbnew never reaches it without embedded fonts |
 | — | `fmt.ts` is ours: the `{fmt}` conversions every backend prints through |
 
