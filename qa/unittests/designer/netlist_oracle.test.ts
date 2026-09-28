@@ -14,8 +14,18 @@
  * matches.
  */
 import { readdirSync, readFileSync } from 'node:fs';
-import { fetchNetlistFromSchematic } from '@ziroeda/pcbnew/netlist_from_schematic.js';
-import { describe, expect, it } from 'vitest';
+import { formatSchematicNetlist } from '@ziroeda/eeschema/cross-probing.js';
+import {
+  fetchNetlistFromSchematic,
+  setHeadlessNetlistProvider,
+} from '@ziroeda/pcbnew/netlist_from_schematic.js';
+import { beforeAll, describe, expect, it } from 'vitest';
+
+// The app registers the headless MAIL_SCH_GET_NETLIST answer at startup
+// (pgm_app.ts: `setHeadlessNetlistProvider(formatSchematicNetlist)`), since
+// pcbnew/ may not import eeschema/. A test that never starts the app does
+// the same, or every fetch falls back to a refusal.
+beforeAll(() => setHeadlessNetlistProvider(formatSchematicNetlist));
 
 const ORACLE = new URL('../../data/eeschema/netlist_oracle/', import.meta.url).pathname;
 
