@@ -36,6 +36,10 @@ import {
   commonInputPrefsFromSettings,
   setCommonInputPrefsProvider,
 } from '@ziroeda/common/ui/view_controls.js';
+import {
+  setPcbnewLiveSettingsProvider,
+  setUpdatePcbnewLiveSettingsProvider,
+} from '@ziroeda/pcbnew/pcbnew_live_settings.js';
 
 /** `panel_mouse_settings.cpp:113-119`: the four choices are `WXK_*` codes. */
 const MODIFIER_CODES: Readonly<Record<ScrollModifier, number>> = {
@@ -154,6 +158,10 @@ export function InitPgm(): PGM_BASE {
     // but every caller — pcbnew's included — shares this one registration.
     setColorSettingsByIdProvider(colorSettingsById);
     setCommonInputPrefsProvider(() => commonInputPrefsFromSettings(settings.common.input));
+    // pcbnew_live_settings.ts's read/write pair for DIALOG_PRINT_PCB and
+    // DIALOG_PNS_SETTINGS, the same shape for the same reason.
+    setPcbnewLiveSettingsProvider(() => settings.pcbnew);
+    setUpdatePcbnewLiveSettingsProvider((mutate) => settings.updatePcbnew(mutate));
     SetPgm(pgm);
   }
   return pgm;

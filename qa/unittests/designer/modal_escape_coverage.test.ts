@@ -71,6 +71,10 @@ const CVPCB = fileURLToPath(new URL('../../../cvpcb', import.meta.url));
 // The schematic editor's dialogs started moving out of `designer/src` into
 // `eeschema/` (eeschema/STRUCTURE.md's stage E2): same reason again.
 const EESCHEMA = fileURLToPath(new URL('../../../eeschema', import.meta.url));
+// The PCB and Footprint editors' windows started moving out of `designer/src`
+// into `pcbnew/` (pcbnew/STRUCTURE.md's file-structure-parity stage): same
+// reason again.
+const PCBNEW = fileURLToPath(new URL('../../../pcbnew', import.meta.url));
 
 function walkCommon(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -87,6 +91,7 @@ const FILES = [
   ...walkCommon(COMMON),
   ...walkCommon(CVPCB),
   ...walkCommon(EESCHEMA),
+  ...walkCommon(PCBNEW),
 ].map((path) => ({
   rel: relative(SRC, path),
   src: readFileSync(path, 'utf8'),
@@ -154,9 +159,9 @@ describe('what the registered cancel means', () => {
     // The board's is DIALOG_PRINT_PCBNEW on the common DIALOG_PRINT_GENERIC:
     // the base registers its Close, and the board hands it saveAndClose.
     expect(registered('../../common/dialogs/dialog_print_generic_ui.tsx')).toEqual(['onClose']);
-    expect(FILES.find((f) => f.rel === 'editors/pcb/dialogs/dialog_print_pcb.tsx')?.src).toContain(
-      'onClose={saveAndClose}',
-    );
+    expect(
+      FILES.find((f) => f.rel === '../../pcbnew/dialogs/dialog_print_pcbnew.tsx')?.src,
+    ).toContain('onClose={saveAndClose}');
   });
 
   it('is not registered at all where the dialog has no Cancel', () => {

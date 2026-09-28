@@ -33,7 +33,6 @@ import {
   lassoIsInside,
   selectionAreaColors,
 } from '@ziroeda/common/preview_items/selection_area.js';
-import { overlayTargetColor } from '../../render/gl/scene.js';
 import { BezierStep } from '@ziroeda/common/preview_items/bezier_geom_manager.js';
 import { PolygonGeomManager } from '@ziroeda/common/preview_items/polygon_geom_manager.js';
 import { COLOR4D_WHITE, brightness, cssWithAlpha, toCss } from '@ziroeda/common/gal/color4d.js';
@@ -356,7 +355,7 @@ import {
 import { DialogPageSettings } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import { pageSettingsValue, toPaperToken } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import { type ExtentsBox, pcbZoomFitBox } from '@ziroeda/pcbnew/pcb_base_frame.js';
-import { DialogPcbPrint } from './dialogs/dialog_print_pcb.js';
+import { DialogPcbPrint } from '@ziroeda/pcbnew/dialogs/dialog_print_pcbnew.js';
 import { DialogPcbPlot } from '@ziroeda/pcbnew/dialogs/dialog_plot.js';
 import {
   DialogBoardSetup,
@@ -410,7 +409,7 @@ import {
   handleTolerance,
 } from '@ziroeda/pcbnew/tools/pcb_point_editor_canvas.js';
 import { DialogOutsetItems } from '@ziroeda/pcbnew/dialogs/dialog_outset_items.js';
-import { DialogPnsSettings } from './dialogs/dialog_pns_settings.js';
+import { DialogPnsSettings } from '@ziroeda/pcbnew/dialogs/dialog_pns_settings.js';
 import {
   DEFAULT_OUTSET_SETTINGS,
   outsetOptionsFrom,
@@ -450,7 +449,7 @@ import {
   SelectionFilterOnlyMenu,
   SelectionFilterPanel,
   type SelectionFilterItem,
-} from '../../widgets/panel_selection_filter.js';
+} from '@ziroeda/pcbnew/widgets/panel_selection_filter.js';
 import { PCB_GRID_HELPER, type PcbGridState } from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
 import { drawConstructionGeom } from '@ziroeda/common/preview_items/construction_geom.js';
 import { drawSnapIndicator } from '@ziroeda/common/preview_items/snap_indicator.js';

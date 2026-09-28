@@ -8,7 +8,7 @@
  * size reads it: the shared `DIALOG_PAGES_SETTINGS`, the plotters, the
  * renderers. It is `common/` here for the same reason, and because it was not:
  * `PAPER_MM` had grown FIVE copies in this tree — the drawing sheet's, one in
- * `dialog_print_pcb.tsx`, one in `renderBoard.ts`, one in the schematic
+ * `dialog_print_pcbnew.tsx`, one in `renderBoard.ts`, one in the schematic
  * renderer, and the schematic's page-settings dialog importing the drawing
  * sheet's *component file* sideways, which is the circular ownership between
  * peers the project brief already names. This module is where they collapse to.

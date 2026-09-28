@@ -42,7 +42,7 @@ import {
   SelectionFilterPanel,
   selectionFilterAll,
   toggleSelectionFilterAll,
-} from '@ziroeda/designer/src/widgets/panel_selection_filter.js';
+} from '@ziroeda/pcbnew/widgets/panel_selection_filter.js';
 import { appearanceLayerRows } from '@ziroeda/pcbnew/widgets/appearance_layers.js';
 import {
   presetComboItems,

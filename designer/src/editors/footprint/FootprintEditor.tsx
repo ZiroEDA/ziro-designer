@@ -131,7 +131,7 @@ import {
   SelectionFilterOnlyMenu,
   SelectionFilterPanel,
   type SelectionFilterItem,
-} from '../../widgets/panel_selection_filter.js';
+} from '@ziroeda/pcbnew/widgets/panel_selection_filter.js';
 import { GetLayerName } from '@ziroeda/common/layer_ids.js';
 import { DEFAULT_DRAW_OPTIONS, type PcbDrawOptions } from '@ziroeda/pcbnew/renderBoard.js';
 import '@ziroeda/common/widgets/shell.css';
