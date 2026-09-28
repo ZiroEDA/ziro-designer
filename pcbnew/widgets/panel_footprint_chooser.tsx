@@ -40,13 +40,13 @@ import {
   FootprintPreviewWidget,
   type FOOTPRINT_PREVIEW_PANEL_BASE,
 } from '@ziroeda/common/widgets/footprint_preview_widget.js';
-import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';
-import type { FootprintIndexLibrary } from '@ziroeda/pcbnew/footprint_info_impl.js';
+import type { PcbFootprint } from '../types.js';
+import type { FootprintIndexLibrary } from '../footprint_info_impl.js';
 import {
   addFootprintHistory,
   addFootprintLibraries,
   type FootprintTreeFilter,
-} from '@ziroeda/pcbnew/fp_tree_model_adapter.js';
+} from '../fp_tree_model_adapter.js';
 import { generateFootprintInfo } from '../generate_footprint_info.js';
 
 /** `m_vsplitter->SetSashGravity( 0.5 )` — tree+preview over details. [data] */
