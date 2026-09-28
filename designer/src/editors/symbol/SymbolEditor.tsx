@@ -61,7 +61,7 @@ import { SymbolLibraryManager, type ManagedLibrary } from './libraryManager.js';
 import {
   findSymLibRowByUri,
   resolvedProjectSymLibs,
-} from '../schematic/symbols/project_sym_lib_table.js';
+} from '@ziroeda/eeschema/project_sym_lib_table.js';
 import { unescapeString } from '@ziroeda/common/string_utils.js';
 import { SYM_FRAME_NAME, symFrameTitle } from './frame_title.js';
 import { loadIndex } from '../schematic/symbols/index.js';
@@ -111,7 +111,7 @@ import {
   type NewSymbolResult,
   type PinDialogResult,
 } from './components/dialogs.js';
-import { DialogImportGfx } from '../schematic/dialogs/dialog_import_gfx.js';
+import { DialogImportGfx } from '@ziroeda/eeschema/import_gfx/dialog_import_gfx_sch.js';
 import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import '@ziroeda/common/widgets/shell.css';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';

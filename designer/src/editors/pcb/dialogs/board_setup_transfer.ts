@@ -83,7 +83,7 @@ import {
   type TuningPattern,
   type ZoneLayerPropertiesMap,
 } from '@ziroeda/pcbnew/board_settings.js';
-import type { EmbeddedFile } from '../../schematic/schematic_settings.js';
+import type { EmbeddedFile } from '@ziroeda/eeschema/schematic_settings.js';
 
 const mmOf = (iu: number): number => pcbIUScale.iuToMM(iu);
 const iuOf = (mm: number): number => pcbIUScale.mmToIU(mm);

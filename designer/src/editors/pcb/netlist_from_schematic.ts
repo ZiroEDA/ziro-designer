@@ -41,15 +41,15 @@ import { RPT_SEVERITY_ERROR } from '@ziroeda/common';
 import { ENV_VAR } from '@ziroeda/common/env_vars.js';
 import { niluuid } from '@ziroeda/common/kiid.js';
 import { PgmOrNull, SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
-import { GLOBAL_SYM_LIB_NICKNAMES } from '../schematic/symbols/global_sym_lib_table.js';
-import { projectSymLibTable } from '../schematic/symbols/project_sym_lib_table.js';
+import { GLOBAL_SYM_LIB_NICKNAMES } from '@ziroeda/eeschema/global_sym_lib_table.js';
+import { projectSymLibTable } from '@ziroeda/eeschema/project_sym_lib_table.js';
 import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import {
   SheetInstanceView,
   UpdateSymbolInstanceData,
   sheetKiidPath,
 } from '@ziroeda/eeschema/sch_sheet_path.js';
-import { findProjectPro, readSchematicSetup } from '../schematic/project_settings.js';
+import { findProjectPro, readSchematicSetup } from '@ziroeda/eeschema/project_settings.js';
 
 export interface RawFile {
   name: string;

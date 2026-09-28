@@ -37,7 +37,7 @@ import { DEFAULT_LANGUAGE } from '@ziroeda/common/eda_base_frame_language_menu.j
 import { browserSafeKey } from '@ziroeda/common/browser_reserved.js';
 import { hotkeyListName } from '@ziroeda/common/tool/action_menu_key_names.js';
 import { buildManagerMenus } from '../home/menubar.js';
-import { TOOL_HOTKEYS, buildMenus as buildSchMenus } from '../editors/schematic/menubar.js';
+import { TOOL_HOTKEYS, buildMenus as buildSchMenus } from '@ziroeda/eeschema/menubar.js';
 import {
   APP_ORDER,
   APP_REGISTRIES,
@@ -50,7 +50,7 @@ import {
   TOP_TOOLBAR,
   LEFT_TOOLBAR,
   RIGHT_TOOLBAR,
-} from '../editors/schematic/toolbars_sch_editor.js';
+} from '@ziroeda/eeschema/toolbars_sch_editor.js';
 import {
   PCB_TOP_TOOLBAR,
   PCB_LEFT_TOOLBAR,
