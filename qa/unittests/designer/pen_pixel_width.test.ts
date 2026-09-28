@@ -35,11 +35,11 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_RENDER_OPTS,
   paperSizeIU,
   renderSchematic,
   setVectorText,
 } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
+import { DEFAULT_RENDER_OPTS } from '@ziroeda/eeschema/sch_render_settings.js';
 import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import {
   COLOR_PREVIEW_SCHEMATIC,

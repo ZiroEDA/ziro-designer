@@ -18,8 +18,9 @@
  * editors do rather than a wheel rule invented here.
  */
 import { useEffect, useRef, type JSX } from 'react';
-import { DEFAULT_RENDER_OPTS, renderSchematic, paperSizeIU } from '../render/renderer.js';
-import type { RenderOpts, Viewport } from '../render/renderer.js';
+import { renderSchematic, paperSizeIU } from '../render/renderer.js';
+import { DEFAULT_RENDER_OPTS } from '@ziroeda/eeschema/sch_render_settings.js';
+import type { RenderOpts, Viewport } from '@ziroeda/eeschema/sch_render_settings.js';
 import { commonInputPrefs, wheelAction } from '@ziroeda/common/ui/view_controls.js';
 import { COLOR_PREVIEW_SCHEMATIC, COLOR_PREVIEW_SELECTION } from './color_preview_schematic.js';
 import type { Theme } from '@ziroeda/eeschema/sch_render_settings.js';

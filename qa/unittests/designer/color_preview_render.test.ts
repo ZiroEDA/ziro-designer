@@ -18,12 +18,11 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  DEFAULT_RENDER_OPTS,
   fitToContent,
   renderSchematic,
   setVectorText,
-  type RenderOpts,
 } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
+import { DEFAULT_RENDER_OPTS, type RenderOpts } from '@ziroeda/eeschema/sch_render_settings.js';
 import { KICAD_CLASSIC, KICAD_DEFAULT, type Theme } from '@ziroeda/eeschema/sch_render_settings.js';
 import {
   COLOR_PREVIEW_SCHEMATIC,

@@ -19,10 +19,10 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
 import {
-  DEFAULT_RENDER_OPTS,
   renderSchematic,
   setVectorText,
 } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
+import { DEFAULT_RENDER_OPTS } from '@ziroeda/eeschema/sch_render_settings.js';
 import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import {
   DNP_MARKER_STROKE_WIDTH,
@@ -35,7 +35,7 @@ import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/settings/builtin_color_th
 import { toCssColor } from '@ziroeda/common';
 import { symbolBodyBBox, type BBox } from '@ziroeda/eeschema/tools/bbox.js';
 import type { Schematic } from '@ziroeda/eeschema/types.js';
-import type { RenderOpts } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
+import type { RenderOpts } from '@ziroeda/eeschema/sch_render_settings.js';
 
 /* ------------------------------------------------------------------ geometry */
 

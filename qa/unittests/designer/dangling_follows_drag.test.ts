@@ -19,10 +19,10 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { danglingPinPositions, readSchematic, refId } from '@ziroeda/eeschema';
 import {
-  DEFAULT_RENDER_OPTS,
   renderSchematic,
   setVectorText,
 } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
+import { DEFAULT_RENDER_OPTS } from '@ziroeda/eeschema/sch_render_settings.js';
 import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';

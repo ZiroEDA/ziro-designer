@@ -157,14 +157,16 @@ import {
   fitToBBox,
   setRenderInvalidator,
   schematicGridOptions,
-  DEFAULT_RENDER_OPTS,
   DEFAULT_LINE_WIDTH,
   DEFAULT_WIRE_WIDTH,
   DEFAULT_BUS_WIDTH,
   shadowWidthIU,
+} from '../render/renderer.js';
+import {
+  DEFAULT_RENDER_OPTS,
   type RenderOpts,
   type Viewport,
-} from '../render/renderer.js';
+} from '@ziroeda/eeschema/sch_render_settings.js';
 import { SchematicGl } from '../../../render/gl/schematic_gl.js';
 import { dragSplit, movingIds, sameIds } from '../moving_ids.js';
 

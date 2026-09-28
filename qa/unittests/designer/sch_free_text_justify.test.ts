@@ -28,10 +28,10 @@ import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
 import type { Schematic } from '@ziroeda/eeschema';
 import {
-  DEFAULT_RENDER_OPTS,
   renderSchematic,
   setVectorText,
 } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
+import { DEFAULT_RENDER_OPTS } from '@ziroeda/eeschema/sch_render_settings.js';
 import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 
 /** The anchor, in the millimetres the file format writes. */

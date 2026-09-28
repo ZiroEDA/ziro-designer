@@ -37,10 +37,8 @@ import { orthoMove } from '@ziroeda/eeschema/tools/ortho.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { symbolBodyBBox } from '@ziroeda/eeschema/tools/bbox.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
-import {
-  renderSchematic,
-  DEFAULT_RENDER_OPTS,
-} from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
+import { renderSchematic } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
+import { DEFAULT_RENDER_OPTS } from '@ziroeda/eeschema/sch_render_settings.js';
 import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 
 const R = readSymbolLib(
