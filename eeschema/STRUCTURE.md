@@ -560,3 +560,15 @@ Two traps found on the way:
 
 Root match after step 1: 58/83 (probe `SAME` 109; both include other
 sessions' concurrent SCH_* ports).
+- `sch_connection.ts` (`SCH_CONNECTION`, `CONNECTION_TYPE`), plus the
+  per-sheet connection map on `SCH_ITEM` (`Connection`,
+  `InitializeConnection`, `GetOrInitConnection`, `SetConnectionGraph`,
+  `GetEffectiveNetClass`). `SCH_ITEM` creates its connections through a
+  factory `sch_connection.ts` installs on load
+  (`SCH_ITEM.s_newConnection`): a value import the other way would be a
+  module cycle, since `sch_connection.ts` needs `SCH_SHEET_PATH` and
+  `sch_sheet_path.ts` extends `SCH_ITEM` at load time. The graph is typed
+  as the two calls the class makes of it (`SCH_CONNECTION_GRAPH`). The
+  record model's `IsBusLabel` copies (`junction_helpers.ts`,
+  `sch_bus_entry.ts`) are left for the caller switch. Root match after:
+  55/83.

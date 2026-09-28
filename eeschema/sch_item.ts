@@ -9,9 +9,13 @@
  * This is the live-model half of eeschema stage E3: it stands beside the
  * plain records in `types.ts` and nothing in the editor reads it yet.
  *
- * Not here (pending, marked in place): `SCH_CONNECTION` and the
- * `CONNECTION_GRAPH` (`Connection`, `InitializeConnection`,
- * `GetEffectiveNetClass` answer "no connection" until the graph is ported),
+ * The per-sheet `SCH_CONNECTION` map (`Connection`, `InitializeConnection`,
+ * `GetOrInitConnection`, `SetConnectionGraph`, `GetEffectiveNetClass`) is here;
+ * `SCH_CONNECTION` itself is created through {@link SCH_ITEM.s_newConnection}, which
+ * `sch_connection.ts` sets when it loads (a value import of it here would be a module
+ * cycle: it needs `SCH_SHEET_PATH`, whose module extends `SCH_ITEM`).
+ *
+ * Not here (pending, marked in place): `CONNECTION_GRAPH::RemoveItem` in the destructor,
  * `GetMsgPanelInfo`, `Plot`, the `SCH_ITEM_DESC` property registration and
  * `EESCHEMA_SETTINGS`' default font (the render settings' font or
  * `KICAD_FONT_NAME` is used).
@@ -31,11 +35,13 @@ import { schIUScale } from '@ziroeda/common/eda_units.js';
 import { METRICS } from '@ziroeda/common/font/font_metrics.js';
 import { type KIID, newKiid } from '@ziroeda/common/kiid.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import type { NETCLASS } from '@ziroeda/common/netclass.js';
 import type { RENDER_SETTINGS } from '@ziroeda/common/render_settings.js';
 import type { STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ARC_LOW_DEF_MM } from '@ziroeda/kimath/src/base_units.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import type { SCH_CONNECTION, SCH_CONNECTION_GRAPH } from './sch_connection.js';
 import type { SCH_RULE_AREA } from './sch_rule_area.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import type { SCHEMATIC } from './schematic.js';
@@ -209,8 +215,8 @@ export abstract class SCH_ITEM extends EDA_ITEM {
 
   /** Store pointers to other items that are connected to this one, per sheet. */
   protected m_connected_items: Map<string, SCH_ITEM_VEC>;
-  /** Store connectivity information, per sheet. -- SCH_CONNECTION pending (E3 part 2). */
-  protected m_connection_map: Map<string, unknown>;
+  /** Store connectivity information, per sheet. */
+  protected m_connection_map: Map<string, SCH_CONNECTION>;
   protected m_connectivity_dirty: boolean;
   /** Store pointers to rule areas which this item is contained within. */
   protected m_rule_areas_cache: Set<SCH_RULE_AREA>;
@@ -259,8 +265,8 @@ export abstract class SCH_ITEM extends EDA_ITEM {
   }
 
   /**
-   * `~SCH_ITEM()`: remove this item from any rule areas that contain it. The connection
-   * graph's `RemoveItem` is pending with the graph.
+   * `~SCH_ITEM()`: drop the connections and remove this item from any rule areas that
+   * contain it. The connection graph's `RemoveItem` is not called yet (see the header).
    */
   Destroy(): void {
     for (const ruleArea of this.m_rule_areas_cache) ruleArea.RemoveItem(this);
@@ -921,15 +927,98 @@ export abstract class SCH_ITEM extends EDA_ITEM {
   }
 
   /**
+   * `new SCH_CONNECTION( aParent )`: set by `sch_connection.ts` when it loads (see the
+   * header note on the module cycle).
+   */
+  static s_newConnection: ((aParent: SCH_ITEM) => SCH_CONNECTION) | null = null;
+
+  /**
    * Retrieve the connection associated with this object in the given sheet.
    *
-   * -- SCH_CONNECTION pending (E3 part 2): no item has a connection until the
-   * `CONNECTION_GRAPH` is ported, so this answers null for every sheet.
+   * @note The returned value can be null.
    */
-  Connection(_aSheet: SCH_SHEET_PATH | null = null): unknown {
+  Connection(aSheet: SCH_SHEET_PATH | null = null): SCH_CONNECTION | null {
     if (!this.IsConnectable()) return null;
 
-    return null;
+    if (!aSheet) {
+      const sch = this.Schematic();
+
+      if (!sch) return null; // Item has been removed from schematic (e.g. SCH_PIN during symbol deletion)
+
+      aSheet = sch.CurrentSheet();
+    }
+
+    return this.m_connection_map.get(aSheet.PathAsString()) ?? null;
+  }
+
+  /** Update the connection graph for all connections in this item. */
+  SetConnectionGraph(aGraph: SCH_CONNECTION_GRAPH | null): void {
+    for (const conn of this.m_connection_map.values()) {
+      conn.SetGraph(aGraph);
+
+      for (const member of conn.AllMembers()) member.SetGraph(aGraph);
+    }
+  }
+
+  /** The net class of this item's connection on \a aSheet (the current sheet if null). */
+  GetEffectiveNetClass(aSheet: SCH_SHEET_PATH | null = null): NETCLASS | null {
+    // static std::shared_ptr<NETCLASS> nullNetclass: null here, the callers' "no class".
+    const schematic = this.Schematic();
+
+    if (!schematic || !schematic.IsValid()) return null;
+
+    const netSettings = schematic.Project().GetProjectFile().m_NetSettings;
+
+    if (!netSettings) return null;
+
+    const connection = this.Connection(aSheet);
+
+    if (connection) return netSettings.GetEffectiveNetClass(connection.Name());
+
+    return netSettings.GetDefaultNetclass() ?? null;
+  }
+
+  /**
+   * Create a new connection object associated with this object.
+   *
+   * @param aPath is the sheet path to initialize.
+   */
+  InitializeConnection(
+    aSheet: SCH_SHEET_PATH,
+    aGraph: SCH_CONNECTION_GRAPH | null,
+  ): SCH_CONNECTION {
+    let connection = this.Connection(aSheet);
+
+    // N.B. Do not clear the dirty connectivity flag here because we may need
+    // to create a connection for a different sheet, and we don't want to
+    // skip the connection creation because the flag is cleared.
+    if (connection) {
+      connection.Reset();
+    } else {
+      if (!SCH_ITEM.s_newConnection) throw new Error('sch_connection.ts is not loaded');
+
+      connection = SCH_ITEM.s_newConnection(this);
+      this.m_connection_map.set(aSheet.PathAsString(), connection);
+    }
+
+    connection.SetGraph(aGraph);
+    connection.SetSheet(aSheet);
+    return connection;
+  }
+
+  /**
+   * Return the existing connection or initialize a new one.
+   */
+  GetOrInitConnection(
+    aSheet: SCH_SHEET_PATH,
+    aGraph: SCH_CONNECTION_GRAPH | null,
+  ): SCH_CONNECTION | null {
+    if (!this.IsConnectable()) return null;
+
+    const connection = this.Connection(aSheet);
+
+    if (connection) return connection;
+    else return this.InitializeConnection(aSheet, aGraph);
   }
 
   /** Retrieve the set of items connected to this item on the given sheet. */
