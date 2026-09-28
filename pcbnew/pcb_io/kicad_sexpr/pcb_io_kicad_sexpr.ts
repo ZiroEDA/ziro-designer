@@ -85,7 +85,7 @@ import {
   FP_SMD,
   FP_THROUGH_HOLE,
 } from '../../footprint.js';
-import { PAD } from '../../pad.js';
+import type { PAD } from '../../pad.js';
 import {
   CUSTOM_SHAPE_ZONE_MODE,
   PAD_ATTRIB,
@@ -98,7 +98,7 @@ import {
   type PADSTACK_POST_MACHINING_PROPS,
   UNCONNECTED_LAYER_MODE,
 } from '../../padstack.js';
-import { BARCODE_ECC_T, BARCODE_T, PCB_BARCODE } from '../../pcb_barcode.js';
+import { BARCODE_ECC_T, BARCODE_T, type PCB_BARCODE } from '../../pcb_barcode.js';
 import { DIM_ARROW_DIRECTION } from '../../pcb_dimension_types.js';
 import {
   PCB_DIM_ALIGNED,
@@ -110,18 +110,25 @@ import {
 } from '../../pcb_dimension.js';
 import { PCB_FIELD } from '../../pcb_field.js';
 import type { PCB_GENERATOR } from '../../pcb_generator.js';
-import { PCB_GROUP } from '../../pcb_group.js';
+import type { PCB_GROUP } from '../../pcb_group.js';
 import { PCB_POINT } from '../../pcb_point.js';
-import { PCB_REFERENCE_IMAGE } from '../../pcb_reference_image.js';
-import { PCB_SHAPE } from '../../pcb_shape.js';
-import { PCB_TABLE, PCB_TABLECELL } from '../../pcb_table.js';
-import { PCB_TARGET } from '../../pcb_target.js';
-import { PCB_TEXT } from '../../pcb_text.js';
-import { PCB_TEXTBOX } from '../../pcb_textbox.js';
-import { PCB_ARC, PCB_TRACK, PCB_VIA, UNDEFINED_DRILL_DIAMETER, VIATYPE } from '../../pcb_track.js';
+import type { PCB_REFERENCE_IMAGE } from '../../pcb_reference_image.js';
+import type { PCB_SHAPE } from '../../pcb_shape.js';
+import type { PCB_TABLE } from '../../pcb_table.js';
+import { PCB_TABLECELL } from '../../pcb_tablecell.js';
+import type { PCB_TARGET } from '../../pcb_target.js';
+import type { PCB_TEXT } from '../../pcb_text.js';
+import type { PCB_TEXTBOX } from '../../pcb_textbox.js';
+import {
+  type PCB_ARC,
+  PCB_TRACK,
+  type PCB_VIA,
+  UNDEFINED_DRILL_DIAMETER,
+  VIATYPE,
+} from '../../pcb_track.js';
 import { TEARDROP_PARAMETERS } from '../../teardrop/teardrop_parameters.js';
 import { TEARDROP_TYPE } from '../../teardrop/teardrop_types.js';
-import { ZONE } from '../../zone.js';
+import type { ZONE } from '../../zone.js';
 import {
   ISLAND_REMOVAL_MODE,
   PLACEMENT_SOURCE_T,

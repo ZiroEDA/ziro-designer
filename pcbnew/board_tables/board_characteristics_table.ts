@@ -25,7 +25,8 @@ import {
   DEFAULT_BOARD_STATISTICS_OPTIONS,
   InitializeBoardStatisticsData,
 } from '../board_statistics_report.js';
-import { PCB_TABLE, PCB_TABLECELL } from '../pcb_table.js';
+import { PCB_TABLE } from '../pcb_table.js';
+import { PCB_TABLECELL } from '../pcb_tablecell.js';
 
 export function Build_Board_Characteristics_Table(
   aBoard: BOARD,

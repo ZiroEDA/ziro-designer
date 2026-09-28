@@ -22,7 +22,8 @@ import {
   BOARD_STACKUP_ITEM_TYPE,
   NotSpecifiedPrm,
 } from '../board_stackup_manager/board_stackup.js';
-import { PCB_TABLE, PCB_TABLECELL } from '../pcb_table.js';
+import { PCB_TABLE } from '../pcb_table.js';
+import { PCB_TABLECELL } from '../pcb_tablecell.js';
 
 export function Build_Board_Stackup_Table(aBoard: BOARD, aDisplayUnits: EdaUnits): PCB_TABLE {
   const settings = aBoard.GetDesignSettings();

@@ -148,7 +148,7 @@ import type { PCB_POINT } from './pcb_point.js';
 import type { PCB_REFERENCE_IMAGE } from './pcb_reference_image.js';
 import type { PCB_SHAPE } from './pcb_shape.js';
 import type { PCB_TABLE } from './pcb_table.js';
-import type { PCB_TABLECELL } from './pcb_table.js';
+import type { PCB_TABLECELL } from './pcb_tablecell.js';
 import type { PCB_TARGET } from './pcb_target.js';
 import { PCB_TEXT } from './pcb_text.js';
 import type { PCB_TEXTBOX } from './pcb_textbox.js';

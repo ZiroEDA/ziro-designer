@@ -87,11 +87,11 @@ import {
 import { BARCODE_ECC_T, BARCODE_T, PCB_BARCODE } from '../../pcb_barcode.js';
 import {
   DIM_ARROW_DIRECTION,
-  DIM_PRECISION,
-  DIM_TEXT_BORDER,
+  type DIM_PRECISION,
+  type DIM_TEXT_BORDER,
   DIM_TEXT_POSITION,
-  DIM_UNITS_FORMAT,
-  DIM_UNITS_MODE,
+  type DIM_UNITS_FORMAT,
+  type DIM_UNITS_MODE,
 } from '../../pcb_dimension_types.js';
 import {
   PCB_DIM_ALIGNED,
@@ -106,7 +106,8 @@ import { PCB_FIELD } from '../../pcb_field.js';
 import { PCB_POINT } from '../../pcb_point.js';
 import { PCB_REFERENCE_IMAGE } from '../../pcb_reference_image.js';
 import { PCB_SHAPE } from '../../pcb_shape.js';
-import { PCB_TABLE, PCB_TABLECELL } from '../../pcb_table.js';
+import { PCB_TABLE } from '../../pcb_table.js';
+import { PCB_TABLECELL } from '../../pcb_tablecell.js';
 import { PCB_TARGET } from '../../pcb_target.js';
 import { PCB_TEXT } from '../../pcb_text.js';
 import { PCB_TEXTBOX } from '../../pcb_textbox.js';

@@ -18,7 +18,8 @@ import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.j
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
-import { PCB_TABLE, PCB_TABLECELL } from '@ziroeda/pcbnew/pcb_table.js';
+import { PCB_TABLE } from '@ziroeda/pcbnew/pcb_table.js';
+import { PCB_TABLECELL } from '@ziroeda/pcbnew/pcb_tablecell.js';
 
 const deg = (d: number) => new EDA_ANGLE(d, EDA_ANGLE_T.DEGREES_T);
 
