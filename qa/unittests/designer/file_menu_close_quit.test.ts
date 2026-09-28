@@ -376,6 +376,7 @@ describe('no menu declares a key the browser will not deliver', () => {
     walk(join(SRC, '../../cvpcb'));
     walk(join(SRC, '../../pcbnew'));
     walk(join(SRC, '../../3d-viewer'));
+    walk(join(SRC, '../../eeschema'));
     return { declared: out, visited: new Set(files) };
   })();
 

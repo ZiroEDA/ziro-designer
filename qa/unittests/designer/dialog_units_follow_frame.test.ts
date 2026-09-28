@@ -26,13 +26,21 @@
  * catches the next file to acquire it.
  */
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const DIALOGS = fileURLToPath(
-  new URL('../../../designer/src/editors/schematic/dialogs', import.meta.url),
-);
+/**
+ * Every folder a dialog lives in, keyed by a short root name, because the
+ * file-structure moves put same-named dialogs in two editors (dialog_plot.tsx
+ * is both eeschema's and pcbnew's). A scanned file is `<root>/<basename>`.
+ */
+const ROOTS: Record<string, string> = {
+  sch: fileURLToPath(new URL('../../../designer/src/editors/schematic/dialogs', import.meta.url)),
+  eeschema: fileURLToPath(new URL('../../../eeschema/dialogs', import.meta.url)),
+  pcb: fileURLToPath(new URL('../../../designer/src/editors/pcb/dialogs', import.meta.url)),
+  pcbnew: fileURLToPath(new URL('../../../pcbnew/dialogs', import.meta.url)),
+};
 /**
  * Dialogs shared between editors live in `ui/`, and they are scanned too.
  *
@@ -62,22 +70,22 @@ const SHARED_FILES = readdirSync(SHARED_DIALOGS)
  * `UNIT_BINDER` is `common/widgets/`, not eeschema's, which is the whole reason
  * one scan can cover both editors: the rule is per-dialog and the widget is one.
  */
-const PCB_DIALOGS = fileURLToPath(
-  new URL('../../../designer/src/editors/pcb/dialogs', import.meta.url),
-);
-const PCB_FILES = readdirSync(PCB_DIALOGS).filter((f) => f.endsWith('.tsx'));
-
 const files = [
-  ...readdirSync(DIALOGS).filter((f) => f.endsWith('.tsx')),
+  ...Object.entries(ROOTS).flatMap(([root, dir]) =>
+    existsSync(dir)
+      ? readdirSync(dir)
+          .filter((f) => f.endsWith('.tsx'))
+          .map((f) => `${root}/${f}`)
+      : [],
+  ),
   ...SHARED_FILES,
-  ...PCB_FILES,
 ];
 
-/** Where a scanned file lives — three roots, and no basename is in two of them. */
-const pathOf = (file: string): string =>
-  SHARED_FILES.includes(file)
-    ? join(SHARED_DIALOGS, file.slice('common/'.length))
-    : join(PCB_FILES.includes(file) ? PCB_DIALOGS : DIALOGS, file);
+/** Where a scanned `<root>/<basename>` lives. */
+const pathOf = (file: string): string => {
+  const [root, name] = file.split('/') as [string, string];
+  return root === 'common' ? join(SHARED_DIALOGS, name) : join(ROOTS[root]!, name);
+};
 
 /** Comments are prose: a `mm` in a header block is documentation, not a label. */
 const code = (text: string): string =>
@@ -108,12 +116,19 @@ function hardcodesUnits(file: string): string[] {
  * (dialog_sheet_pin_properties.cpp:44) while ours renders a literal "mm".
  */
 const KNOWN_HARDCODED = new Set([
-  'dialog_global_edit_text_and_graphics.tsx',
-  'dialog_image_properties.tsx',
-  'dialog_line_properties.tsx',
-  'dialog_plot.tsx',
-  'dialog_sheet_pin_properties.tsx',
-  'dialog_sheet_properties.tsx',
+  'eeschema/dialog_global_edit_text_and_graphics.tsx',
+  'eeschema/dialog_image_properties.tsx',
+  'eeschema/dialog_line_properties.tsx',
+  'sch/dialog_plot.tsx',
+  'eeschema/dialog_sheet_pin_properties.tsx',
+  'eeschema/dialog_sheet_properties.tsx',
+  // Never scanned until 09-28: these sat in designer/.../pcb/dialogs/panels/,
+  // a folder below the one the scan read, and moved up into pcbnew/dialogs/
+  // with the file-structure pass. Existing debt made visible, not a regression.
+  'pcbnew/dialog_footprint_properties_fp_editor.tsx',
+  'pcbnew/panel_setup_teardrops.tsx',
+  'pcbnew/panel_setup_text_and_graphics.tsx',
+  'pcbnew/panel_setup_tuning_patterns.tsx',
   // Table Properties, now `common/dialogs/dialog_table_properties.tsx` and shared with the
   // board editor. The debt moved with the file rather than being paid: both
   // width fields still print a literal "mm" where `UNIT_BINDER` would print the
@@ -159,7 +174,7 @@ describe('the debt list stays honest', () => {
     // It keeps the schematic's IU scale, its stroke colours and its greying
     // rule; every unit-bearing field went to the shared dialog with the layout.
     // Redundant with the scan above only for as long as that stays true.
-    expect(hardcodesUnits('dialog_table_properties.tsx')).toEqual([]);
+    expect(hardcodesUnits('eeschema/dialog_table_properties.tsx')).toEqual([]);
   });
 });
 
@@ -167,7 +182,7 @@ describe('the board editor’s Text Box Properties takes the units as a prop', (
   // Named for the same reason the two schematic ones below are: the scan passes
   // for a dialog with no distance field at all, so "clean" is not the same as
   // "fixed". This one has four.
-  const src = readFileSync(join(PCB_DIALOGS, 'dialog_textbox_properties.tsx'), 'utf8');
+  const src = readFileSync(pathOf('pcbnew/dialog_textbox_properties_ui.tsx'), 'utf8');
 
   it('binds every distance through UNIT_BINDER rather than assuming millimetres', () => {
     expect(src).toMatch(/units:\s*StatusUnits/);
@@ -195,7 +210,7 @@ describe('the two dialogs this was found in take the units as a prop', () => {
   // Named, so the fix cannot be reverted quietly: the scan above also passes
   // for a dialog that simply has no distance field at all.
   it.each(['dialog_label_properties.tsx', 'dialog_text_properties.tsx'])('%s', (file) => {
-    const src = readFileSync(join(DIALOGS, file), 'utf8');
+    const src = readFileSync(pathOf(`eeschema/${file}`), 'utf8');
     expect(src).toMatch(/units:\s*StatusUnits/);
     expect(src).toMatch(/unitLabel\(units\)/);
     expect(src).toMatch(/parseUnitValueDouble\(/);

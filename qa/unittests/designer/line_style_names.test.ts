@@ -47,24 +47,24 @@ const D = '../../../designer/src/editors/';
 /** Every place that used to carry its own copy of the list. */
 const CALL_SITES: Record<string, string> = {
   'schematic/dialogs/dialog_shape_properties.tsx': read(
-    `${D}schematic/dialogs/dialog_shape_properties.tsx`,
+    `../../../eeschema/dialogs/dialog_shape_properties.tsx`,
   ),
   'schematic/dialogs/dialog_line_properties.tsx': read(
-    `${D}schematic/dialogs/dialog_line_properties.tsx`,
+    `../../../eeschema/dialogs/dialog_line_properties.tsx`,
   ),
   'schematic/dialogs/dialog_text_properties.tsx': read(
-    `${D}schematic/dialogs/dialog_text_properties.tsx`,
+    `../../../eeschema/dialogs/dialog_text_properties.tsx`,
   ),
   'schematic/dialogs/dialog_global_edit_text_and_graphics.tsx': read(
-    `${D}schematic/dialogs/dialog_global_edit_text_and_graphics.tsx`,
+    `../../../eeschema/dialogs/dialog_global_edit_text_and_graphics.tsx`,
   ),
   'schematic/net_overrides.ts': read(`${D}schematic/net_overrides.ts`),
   'eeschema/schematic_settings.ts': read('../../../eeschema/schematic_settings.ts'),
   'pcb/dialogs/dialog_graphic_properties.tsx': read(
-    `${D}pcb/dialogs/dialog_graphic_properties.tsx`,
+    `../../../pcbnew/dialogs/dialog_graphic_properties.tsx`,
   ),
   'pcb/dialogs/dialog_textbox_properties.tsx': read(
-    `${D}pcb/dialogs/dialog_textbox_properties.tsx`,
+    `../../../pcbnew/dialogs/dialog_textbox_properties_ui.tsx`,
   ),
   // Was `schematic/dialogs/dialog_table_properties.tsx` AND
   // `pcb/dialogs/dialog_table_properties.tsx`. DIALOG_TABLE_PROPERTIES is one
