@@ -16,8 +16,8 @@
  * The zone's *outline* is not edited here; that is the point editor's job.
  */
 
-import { parseBoardItemId } from './edit-board.js';
-import type { Board, PcbZone, RuleAreaKeepout, ZonePlacementArea } from './types.js';
+import { parseBoardItemId } from '../edit-board.js';
+import type { Board, PcbZone, RuleAreaKeepout, ZonePlacementArea } from '../types.js';
 
 /** Every field PANEL_ZONE_PROPERTIES edits. */
 export interface ZoneValues {

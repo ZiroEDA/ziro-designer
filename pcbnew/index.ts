@@ -322,7 +322,7 @@ export {
   collectZoneValues,
   applyZoneValues,
   type ZoneValues,
-} from './zone_properties.js';
+} from './dialogs/panel_zone_properties.js';
 // Rule Area Properties (pcbnew/dialogs/dialog_rule_area_properties.cpp).
 export {
   collectRuleAreaValues,

@@ -79,7 +79,7 @@ import {
   applyZoneValues,
   collectZoneValues,
   type ZoneValues,
-} from './zone_properties.js';
+} from './dialogs/panel_zone_properties.js';
 import {
   applyTextValues,
   collectTextValues,

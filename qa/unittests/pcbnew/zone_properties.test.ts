@@ -16,7 +16,7 @@ import {
   uniqueZonePriority,
   zoneAt,
   type ZoneValues,
-} from '@ziroeda/pcbnew/zone_properties.js';
+} from '@ziroeda/pcbnew/dialogs/panel_zone_properties.js';
 import { fillZone } from '@ziroeda/pcbnew/zone_filler.js';
 import { boardFromBOARD, boardToBOARD } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import type { Board, PcbZone } from '@ziroeda/pcbnew/types.js';

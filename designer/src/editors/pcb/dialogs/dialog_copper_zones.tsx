@@ -39,7 +39,7 @@
  */
 
 import { useState, type JSX } from 'react';
-import type { ZoneValues } from '@ziroeda/pcbnew/zone_properties.js';
+import type { ZoneValues } from '@ziroeda/pcbnew/dialogs/panel_zone_properties.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
 import { NetSelector } from '@ziroeda/common/widgets/net_selector.js';

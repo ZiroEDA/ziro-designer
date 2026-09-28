@@ -468,7 +468,7 @@ import {
   uniqueZonePriority,
   zoneAt,
   type ZoneValues,
-} from '@ziroeda/pcbnew/zone_properties.js';
+} from '@ziroeda/pcbnew/dialogs/panel_zone_properties.js';
 import {
   applyTrackViaValues,
   hasTrackOrVia,
