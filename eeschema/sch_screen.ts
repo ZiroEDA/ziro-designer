@@ -17,7 +17,8 @@ import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 /** The part of `EE_RTREE` the items walk. */
 export interface EE_RTREE_LIKE extends Iterable<SCH_ITEM> {
   OfType(aType: KICAD_T): Iterable<SCH_ITEM>;
-  Overlapping(aType: KICAD_T, aRect: BOX2I): Iterable<SCH_ITEM>;
+  /** `Overlapping( aRect )` is `Overlapping( null, aRect )` here: every type. */
+  Overlapping(aType: KICAD_T | null, aRect: BOX2I): Iterable<SCH_ITEM>;
 }
 
 export interface SCH_SCREEN {

@@ -47,8 +47,10 @@ export interface SCH_SHAPE
     | 'getMaxError'
     | 'MakeEffectiveShapes'
     | 'getFriendlyName'
+    | 'IsFilledForHitTesting'
   > {
   Compare(aOther: EDA_SHAPE): number;
+  IsFilledForHitTesting(): boolean;
 }
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: KiCad's multiple inheritance, see libs/core/mixins.ts
