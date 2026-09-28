@@ -25,7 +25,9 @@
  * A `.ts`, not part of `FootprintEditor.tsx`, so a test can read the rows.
  */
 
+import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
 import type { MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
+import { CheckPinnedStatus } from '@ziroeda/common/tool/library_editor_control.js';
 import {
   type ConditionalEntry,
   evaluateConditionalMenu,
@@ -44,6 +46,23 @@ export interface FpTreeSelection {
   footprint: string;
   /** `LIB_TREE_NODE::m_Pinned` for the selected library. */
   pinned: boolean;
+}
+
+/**
+ * `GetLibTree()->GetSelectedTreeNodes()` for that selection: the one row
+ * right-clicked, a LIBRARY node for a library row and an ITEM node for a
+ * footprint row; nothing selected is no node.
+ */
+export function fpTreeSelectedNodes(sel: FpTreeSelection): LibTreeNode[] {
+  if (sel.library === '') return [];
+
+  const node = new LibTreeNode();
+  node.type = sel.footprint === '' ? LibTreeNodeType.LIBRARY : LibTreeNodeType.ITEM;
+  node.libNickname = sel.library;
+  node.libItemName = sel.footprint;
+  node.name = sel.footprint === '' ? sel.library : sel.footprint;
+  node.pinned = sel.pinned;
+  return [node];
 }
 
 /** The handlers the rows dispatch to, keyed the way the toolbars key ids. */
@@ -116,10 +135,15 @@ export function footprintTreeContextMenu(
   const libInferred = sel.library !== '';
   const fpSelected = sel.library !== '' && sel.footprint !== '';
 
+  // LIBRARY_EDITOR_CONTROL's `unpinnedLibSelectedCondition` /
+  // `pinnedLibSelectedCondition`: only a selected LIBRARY node can fail them,
+  // so a footprint row - or no row - shows both.
+  const nodes = fpTreeSelectedNodes(sel);
+
   const entries: ConditionalEntry[] = [
     // --- LIBRARY_EDITOR_CONTROL::AddContextMenuItems, order 1 -----------------
-    row(h, 'Pin Library', 'pinLibrary', libInferred && !sel.pinned, 1),
-    row(h, 'Unpin Library', 'unpinLibrary', libInferred && sel.pinned, 1),
+    row(h, 'Pin Library', 'pinLibrary', CheckPinnedStatus(nodes, false), 1),
+    row(h, 'Unpin Library', 'unpinLibrary', CheckPinnedStatus(nodes, true), 1),
     menuSeparator(1),
 
     // --- FOOTPRINT_EDITOR_CONTROL::Init, order 10 ----------------------------

@@ -406,6 +406,18 @@ through the in-memory mounts. PCB_EDIT_FRAME registers it; the schematic,
 symbol and footprint frames have no TOOL_MANAGER yet. Nothing in 10.0.5 runs
 either action - `PANEL_EMBEDDED_FILES` edits its collection directly.
 
+`tool/library_editor_control` (09-28): LIBRARY_EDITOR_CONTROL, whole, with
+`KIWAY::KifaceType` + `FACE_T` in `kiway.ts` and `EDA_DRAW_FRAME`'s lib-tree
+virtuals (`GetLibTree` over a `LIB_TREE` interface, `GetTargetLibId`,
+`IsLibraryTreeShown`, `ToggleLibraryTree`, `FocusLibraryTreeInput`).
+`RenameLibrary` resolves a promise through `SetRenameDialogPresenter`; nothing
+calls it yet (Rename Footprint / Change Symbol Name are unported). No library
+editor has a TOOL_MANAGER, so none registers the tool; the footprint tree menu
+and its pin handler run on `CheckPinnedStatus` / `LibrariesToRepin`. As the
+C++ says, a footprint row (or no row) shows Pin and Unpin together and repins
+nothing. Open: the footprint editor keeps pins in its library manager, not
+`Prj().PinLibrary`; the symbol editor has no tree menu.
+
 The wxDC print path (09-27): `gr_basic` (here, whole), `gr_text`'s
 `GRTextWidth` / `GRPrintText`, `EDA_TEXT::Print`, `BITMAP_BASE::DrawBitmap`,
 `RENDER_SETTINGS`' print DC, the drawing sheet's `PrintWsItem`s and

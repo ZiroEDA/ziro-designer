@@ -22,6 +22,8 @@
  * `gridOrigin` defaults to zero, which makes both `fmod` offsets zero.
  */
 
+import { LIB_ID } from './lib_id.js';
+import type { LibTreeNode } from './lib_tree_model.js';
 import { type Color4d, LEGACY_COLORS } from './gal/color4d.js';
 import { EDITOR_CONDITIONS } from './tool/editor_conditions.js';
 import { ACTION_CONDITIONS } from './tool/action_manager.js';
@@ -107,6 +109,19 @@ export function nearestHalfGridPosition(
 
 // The frame names (`eda_draw_frame.h:70-77`), which an item's message panel reads to know
 // which editor it is describing itself for.
+/**
+ * `LIB_TREE` (`include/widgets/lib_tree.h`), the part of it a frame's tools
+ * reach through `GetLibTree()`. The widget itself is `widgets/lib_tree.tsx`.
+ */
+export interface LIB_TREE {
+  /** Append the selected rows' nodes; return how many rows are selected. */
+  GetSelectedTreeNodes(aSelection: LibTreeNode[]): number;
+  /** Regenerate the tree, keeping the expanded state when @p aKeepState. */
+  Regenerate(aKeepState: boolean): void;
+  /** Scroll so @p aLibId's row is centred. */
+  CenterLibId(aLibId: LIB_ID): void;
+}
+
 export const SCH_EDIT_FRAME_NAME = 'SchematicFrame';
 export const SYMBOL_CHOOSER_FRAME_NAME = 'SymbolChooserFrame';
 export const PL_EDITOR_FRAME_NAME = 'PlEditorFrame';
@@ -463,6 +478,19 @@ export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
    * Redraw the message panel.
    */
   UpdateMsgPanel(): void {}
+
+  GetLibTree(): LIB_TREE | null {
+    return null;
+  }
+  GetTargetLibId(): LIB_ID {
+    return new LIB_ID();
+  }
+
+  IsLibraryTreeShown(): boolean {
+    return false;
+  }
+  ToggleLibraryTree(): void {}
+  FocusLibraryTreeInput(): void {}
 
   // ---- grid ---------------------------------------------------------------
 

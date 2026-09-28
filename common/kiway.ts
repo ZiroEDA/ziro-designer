@@ -18,11 +18,25 @@
  * upstream's synchronous creation gives its callers for free
  * (`Player( FRAME_FOOTPRINT_EDITOR, true )` then `ExpressMail( ..., MAIL_FP_EDIT )`).
  */
-import type { FRAME_T } from './frame_type.js';
+import { FRAME_T } from './frame_type.js';
 import type { KIWAY_PLAYER } from './kiway_player.js';
 import { KIWAY_MAIL_EVENT, type MAIL_PAYLOAD } from './kiway_mail.js';
 import type { MAIL_T } from './mail_type.js';
 import type { wxEvent } from './wx/wx_event.js';
+
+/** `KIWAY::FACE_T`: the kiface DSOs a frame type belongs to. */
+export enum FACE_T {
+  FACE_SCH, ///< eeschema DSO
+  FACE_PCB, ///< pcbnew DSO
+  FACE_CVPCB,
+  FACE_GERBVIEW,
+  FACE_PL_EDITOR,
+  FACE_PCB_CALCULATOR,
+  FACE_BMP2CMP,
+  FACE_PYTHON,
+
+  KIWAY_FACE_COUNT,
+}
 
 /** What the program does for KIWAY: the kifaces' windows and the top frame. */
 export interface KIWAY_PROGRAM {
@@ -63,6 +77,51 @@ export class KIWAY {
 
   constructor(aProgram: KIWAY_PROGRAM) {
     this.m_program = aProgram;
+  }
+
+  /**
+   * A simple mapping function which returns the FACE_T which is known to
+   * implement @a aFrameType; `FACE_T( -1 )` for none (kiway.cpp:345-386).
+   */
+  static KifaceType(aFrameType: FRAME_T): FACE_T {
+    switch (aFrameType) {
+      case FRAME_T.FRAME_SCH:
+      case FRAME_T.FRAME_SCH_SYMBOL_EDITOR:
+      case FRAME_T.FRAME_SCH_VIEWER:
+      case FRAME_T.FRAME_SYMBOL_CHOOSER:
+      case FRAME_T.FRAME_SIMULATOR:
+        return FACE_T.FACE_SCH;
+
+      case FRAME_T.FRAME_PCB_EDITOR:
+      case FRAME_T.FRAME_FOOTPRINT_EDITOR:
+      case FRAME_T.FRAME_FOOTPRINT_VIEWER:
+      case FRAME_T.FRAME_FOOTPRINT_CHOOSER:
+      case FRAME_T.FRAME_FOOTPRINT_WIZARD:
+      case FRAME_T.FRAME_PCB_DISPLAY3D:
+        return FACE_T.FACE_PCB;
+
+      case FRAME_T.FRAME_CVPCB:
+      case FRAME_T.FRAME_CVPCB_DISPLAY:
+        return FACE_T.FACE_CVPCB;
+
+      case FRAME_T.FRAME_PYTHON:
+        return FACE_T.FACE_PYTHON;
+
+      case FRAME_T.FRAME_GERBER:
+        return FACE_T.FACE_GERBVIEW;
+
+      case FRAME_T.FRAME_PL_EDITOR:
+        return FACE_T.FACE_PL_EDITOR;
+
+      case FRAME_T.FRAME_CALC:
+        return FACE_T.FACE_PCB_CALCULATOR;
+
+      case FRAME_T.FRAME_BM2CMP:
+        return FACE_T.FACE_BMP2CMP;
+
+      default:
+        return -1 as FACE_T;
+    }
   }
 
   OnKiCadExit(): void {

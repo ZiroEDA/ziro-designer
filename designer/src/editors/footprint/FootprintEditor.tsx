@@ -51,7 +51,8 @@ import {
 } from '@ziroeda/pcbnew';
 import { FootprintPropertiesDialog, PadPropertiesDialog } from './dialogs.js';
 import { MenuBar, ContextMenu, type Menu } from '@ziroeda/common/tool/action_menu_bar.js';
-import { footprintTreeContextMenu } from './tree_context_menu.js';
+import { footprintTreeContextMenu, fpTreeSelectedNodes } from './tree_context_menu.js';
+import { LibrariesToRepin } from '@ziroeda/common/tool/library_editor_control.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
 
@@ -77,7 +78,10 @@ import {
   zoomFactorForScale,
   zoomMsg,
 } from '@ziroeda/common/widgets/kistatusbar_format.js';
-import { FP_DEFAULT_TOOLBARS, footprintToolMsg } from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
+import {
+  FP_DEFAULT_TOOLBARS,
+  footprintToolMsg,
+} from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
 import { FootprintCanvas, type FootprintCanvasController } from './FootprintCanvas.js';
@@ -1565,11 +1569,20 @@ export function FootprintEditor({
       switch (id) {
         // `LIBRARY_EDITOR_CONTROL::changeSelectedPinStatus`
         // (`common/tool/library_editor_control.cpp:99-130`).
+        // Only a selected LIBRARY row is repinned; a footprint row is not.
         case 'pinLibrary':
-        case 'unpinLibrary':
-          manager.current.setPinned(target.lib, id === 'pinLibrary');
+        case 'unpinLibrary': {
+          const pin = id === 'pinLibrary';
+          const sel = fpTreeSelectedNodes({
+            library: target.lib,
+            footprint: target.name,
+            pinned: manager.current.isPinned(target.lib),
+          });
+          for (const lib of LibrariesToRepin(sel, pin))
+            manager.current.setPinned(lib.libNickname, pin);
           bump();
           break;
+        }
         // `PCB_ACTIONS::deleteFootprint` — the tree's row, which acts on the
         // tree selection and not on the canvas.
         case 'deleteFootprint':
