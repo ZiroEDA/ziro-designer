@@ -992,13 +992,13 @@ export function FootprintEditor({
       setNewFpName(null);
       const libName = targetLib;
       if (!libName || !name.trim()) return;
-      const fp = newFootprint(name.trim());
+      const fp = newFootprint(name.trim(), fpCfg);
       manager.current.updateFootprint(libName, name.trim(), fp);
       setSelectLibId(`${libName}:${name.trim()}`);
       bump();
       void loadFootprint(libName, name.trim());
     },
-    [targetLib, bump, loadFootprint],
+    [targetLib, bump, loadFootprint, fpCfg],
   );
 
   const addLibraryEntries = useCallback(

@@ -23,7 +23,7 @@
  * the `defaultGridIdx` of 15 that `common/settings/app_settings.cpp:463-481`
  * gives every file the switch does not name, which is `0.5 mm`.
  */
-import { settings, type FpEditSettings } from '../../prefs/settings.js';
+import type { FP_EDIT_JSON_SETTINGS_LIKE as FpEditSettings } from '@ziroeda/pcbnew/footprint_editor_settings.js';
 import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import { gridSizeToIU } from '@ziroeda/common/settings/grid_settings_ui.js';
 import { gridSnappingEnabled } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
@@ -50,7 +50,7 @@ const toIU = (size: string): number => gridSizeToIU(size, PCB_IU_PER_MM) ?? 0;
  * points past the end — and a frame that read `undefined` there would snap to
  * nothing at all.
  */
-export function footprintGridIU(cfg: FpEditSettings = settings.fpEdit): number {
+export function footprintGridIU(cfg: FpEditSettings): number {
   const { sizes, last_size_idx } = cfg.window.grid;
   const idx = Math.max(0, Math.min(last_size_idx, sizes.length - 1));
   return toIU(sizes[idx]?.x ?? '0.5 mm') || toIU('0.5 mm');

@@ -17,8 +17,10 @@
  * board's design settings, and only the object they are read out of differs.
  */
 import { PCB_IU_PER_MM } from '@ziroeda/common';
-import type { FpEditSettings, FpGraphicsTextClass } from '../../prefs/settings.js';
-import { settings } from '../../prefs/settings.js';
+import type {
+  FP_EDIT_JSON_SETTINGS_LIKE as FpEditSettings,
+  FP_GRAPHICS_TEXT_CLASS_LIKE as FpGraphicsTextClass,
+} from '@ziroeda/pcbnew/footprint_editor_settings.js';
 
 /** The six `LAYER_CLASS_*` buckets, as the keys `design_settings` stores. */
 export type FpGraphicsRowKey = 'silk' | 'copper' | 'edges' | 'courtyard' | 'fab' | 'others';
@@ -59,7 +61,7 @@ export function fpLayerClass(layer: string): FpGraphicsRowKey {
 }
 
 /** `GetLineThickness( aLayer )`, in **millimetres** — the unit the file holds. */
-export function fpLineThicknessMM(layer: string, cfg: FpEditSettings = settings.fpEdit): number {
+export function fpLineThicknessMM(layer: string, cfg: FpEditSettings): number {
   return cfg.design_settings[fpLayerClass(layer)].line_width;
 }
 
@@ -73,10 +75,7 @@ export function fpLineThicknessMM(layer: string, cfg: FpEditSettings = settings.
  * for a text default on one of them is asking a question the settings file
  * cannot answer, so this returns null rather than a number nobody wrote.
  */
-export function fpTextDefaults(
-  layer: string,
-  cfg: FpEditSettings = settings.fpEdit,
-): FpGraphicsTextClass | null {
+export function fpTextDefaults(layer: string, cfg: FpEditSettings): FpGraphicsTextClass | null {
   const row = cfg.design_settings[fpLayerClass(layer)];
   return 'text_size_h' in row ? row : null;
 }

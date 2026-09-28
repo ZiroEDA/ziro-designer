@@ -30,7 +30,7 @@
  */
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { PcbFootprint, PcbTextItem } from '@ziroeda/pcbnew/types.js';
-import { settings, type FpEditSettings } from '../../prefs/settings.js';
+import type { FP_EDIT_JSON_SETTINGS_LIKE as FpEditSettings } from '@ziroeda/pcbnew/footprint_editor_settings.js';
 import { fpTextDefaults } from './graphics_defaults.js';
 
 /**
@@ -79,7 +79,7 @@ function textItem(
  * `name` is what the New Footprint dialog was given; it becomes the Value
  * field's text and the library id.
  */
-export function newFootprint(name: string, cfg: FpEditSettings = settings.fpEdit): PcbFootprint {
+export function newFootprint(name: string, cfg: FpEditSettings): PcbFootprint {
   const items = cfg.design_settings.default_footprint_text_items;
   // Items 0 and 1 are the two FIELDS. `normalizeFpTextItems` guarantees at
   // least two rows, so a settings file cannot leave a footprint with no

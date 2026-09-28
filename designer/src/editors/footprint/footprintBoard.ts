@@ -13,7 +13,7 @@
  */
 
 import { parse } from '@ziroeda/sexpr';
-import { settings, type FpEditSettings } from '../../prefs/settings.js';
+import type { FP_EDIT_JSON_SETTINGS_LIKE as FpEditSettings } from '@ziroeda/pcbnew/footprint_editor_settings.js';
 import {
   readFootprintFile,
   type Board,
@@ -115,7 +115,7 @@ export const FOOTPRINT_LAYERS: PcbLayerDef[] = [
  * the two VIEWER frames — CVPCB's and the schematic's footprint preview — which
  * have no such preference and open on the default count of 4.
  */
-export function footprintLayers(cfg: FpEditSettings = settings.fpEdit): PcbLayerDef[] {
+export function footprintLayers(cfg: FpEditSettings): PcbLayerDef[] {
   const count = Math.max(0, Math.min(9, cfg.design_settings.user_layer_count));
   const names = cfg.design_settings.default_footprint_layer_names;
   const out: PcbLayerDef[] = [];
