@@ -250,7 +250,7 @@ imports (no `PCBNEW_APP` needed yet — none of them touch the program):
 | `menubar_footprint_editor` | `menubar_footprint_editor.ts` |
 | `toolbars_footprint_editor` | `toolbars_footprint_editor.ts` |
 | `fp_tree_synchronizing_adapter` | `fp_tree_synchronizing_adapter.ts` |
-| `footprint_edit_frame` | `footprint_edit_frame.ts` — the `KIWAY_PLAYER` mail half only; the window (`FootprintEditor.tsx`) stays in `designer/` for now, see below |
+| `footprint_edit_frame` | `footprint_edit_frame.ts` — the `KIWAY_PLAYER` mail half — and, since stage C (09-29), `footprint_edit_frame_ui.tsx`, the window, see "Stage C" below |
 | `pcb_edit_frame` | `pcb_edit_frame.ts` (09-28) — moved once its only `designer/` coupling (`prefs/settings.ts`'s `PcbnewSettings`) was replaced by the structural `PCBNEW_JSON_SETTINGS_LIKE`, the same pattern `FOOTPRINT_EDITOR_SETTINGS_LIKE` (`pcb_base_frame.ts`) already used — `PCB_EDIT_FRAME_HOOKS` already carried everything else. Brought `drc_runner.ts` (the worker launcher) and `drc_worker.ts` (the worker entry) with it: neither had a `designer/` import, they were just sitting next to the window that used them. `PcbEditor.tsx` (its window, 12.5k lines) is unblocked by this but not yet moved — see below. |
 
 `tsconfig.json` gained `jsx: "react-jsx"` and `DOM.Iterable` here:
@@ -454,23 +454,38 @@ Not moved, and why:
   `designer/src/widgets/lib_table_descriptions.ts`, which the symbol chooser
   also imports; that data table belongs in `common/` first (central-value
   rule), out of scope here.
-- `dialogs/footprint_chooser_frame.tsx` (`footprint_chooser_frame`) — chains
-  into `widgets/panel_footprint_chooser.tsx`, `widgets/footprint_preview_3d.tsx`,
-  `Viewer3DFrame.tsx` and `designer/src/widgets/footprint_list.ts`; same story.
-- `widgets/fp_tree_model_adapter.ts` (`fp_tree_model_adapter`) — needs
-  `designer/src/widgets/lib_table_descriptions.ts`, which the symbol chooser
-  also imports; that data table belongs in `common/` first (central-value
-  rule), out of scope here.
-- `dialogs/footprint_chooser_frame.tsx` (`footprint_chooser_frame`) — chains
-  into `widgets/panel_footprint_chooser.tsx`, `widgets/footprint_preview_3d.tsx`,
-  `Viewer3DFrame.tsx` and `designer/src/widgets/footprint_list.ts`; same story.
-- No separate `footprint_viewer_frame`, `pcbnew_printout`,
-  `load_select_footprint` or `footprint_libraries_utils` module exists yet
-  under either name — that logic is still folded into `FootprintEditor.tsx` /
-  `libraryManager.ts` / `FootprintCanvas.tsx`, so there is nothing standalone
-  to move. (`footprint_editor_settings.ts` and, since 09-28,
-  `footprint_editor_utils.ts` — `FOOTPRINT_EDIT_FRAME::CreateNewFootprint` —
-  both exist now.)
+- `footprint_chooser_frame`, `footprint_preview_panel`,
+  `footprint_libraries_utils`, `pcbnew_printout` — moved in stage C, below.
+
+### Stage C (09-29): the Footprint Editor window and its KiCad files
+
+The window moved the way `cvpcb_mainframe_ui.tsx` did: a prop-based app
+interface in `pcbnew/`, answered by one thin file in `designer/`.
+
+| KiCad | here | was |
+|---|---|---|
+| `footprint_edit_frame` (the window) | `footprint_edit_frame_ui.tsx` — `FootprintEditFrame`, behind `FOOTPRINT_EDIT_FRAME_APP` (settings reads/writes, toolbars, library IO/host, Preferences, Open dialog, loading panel, `HomeLink` — the last typed as `PCBNEW_APP['HomeLink']`, the one member both interfaces mean identically). `designer/src/editors/footprint/footprint_edit_frame_app.tsx` builds the app and keeps the `FootprintEditor` component `App.tsx` loads. | `designer/.../footprint/FootprintEditor.tsx` |
+| `pcb_draw_panel_gal` (footprint frames' canvas) | `pcb_draw_panel_gal_ui.tsx` (`FootprintCanvas`), beside the logic port `pcb_draw_panel_gal.ts` | `designer/.../footprint/FootprintCanvas.tsx` |
+| `footprint_libraries_utils` | `footprint_libraries_utils.ts` — `FootprintLibraryManager` (its designer reads behind `FOOTPRINT_LIBRARY_IO`), `fpNameOf`, and `ImportFootprint` out of the window's Import handler | `designer/.../footprint/libraryManager.ts` |
+| `footprint_editor_utils` | + `fpTargetOf`, `KiwayMailIn`'s `MAIL_FP_EDIT` `LIB_ID` | a private helper of the window |
+| `footprint_tree_pane` | `footprint_tree_pane.tsx` — the dock and `onComponentSelected` | inline JSX in the window |
+| `footprint_preview_panel` | `footprint_preview_panel.tsx`; `FOOTPRINT_PREVIEW_PANEL_New( { resolve, cursorPrefs } )` stands for upstream's `::New( aKiway, … )`. designer's file of the same name is now only that call. `preview_view_controls.ts` went to `common/widgets/` with it (common-only imports; the symbol and colour previews share it). | `designer/.../pcb/footprint_preview_panel.tsx` |
+| `footprint_chooser_frame` | `footprint_chooser_frame.tsx`, its preview panel / 3D preview / 3D viewer behind `FOOTPRINT_CHOOSER_FRAME_APP`; designer's file keeps the old props as wiring | `designer/.../pcb/dialogs/footprint_chooser_frame.tsx` |
+| `pcbnew_printout` | `pcbnew_printout.ts` — `OnPrintPage`'s per-page layer set and `setupViewLayers`/`setupPainter`'s draw options | inline in `dialogs/dialog_print_pcbnew.tsx` |
+
+Not split, and why:
+
+- `footprint_viewer_frame`, `toolbars_footprint_viewer` — there is no
+  `FOOTPRINT_VIEWER_FRAME` in this port at all (only `FPVIEWER_CONSTANTS` in
+  `tools/pcb_actions.ts`); nothing to move.
+- `load_select_footprint` — `AddFootprintToHistory` is already
+  `widgets/footprint_history.ts`; the rest (`SelectFootprintFromLibrary`,
+  `PlaceFootprint`) is inside the PCB editor's window, another pass's file.
+- `pcbnew_config` — `LoadProjectSettings` & co. live in the PCB editor's
+  window too; same reason.
+- `pcbnew_printout.ts` carries one divergence, noted in the file and left
+  alone: upstream adds Edge.Cuts to a single-page print as well when "Print
+  board edges on all pages" is stored.
 
 ## Gotchas this layout creates
 
