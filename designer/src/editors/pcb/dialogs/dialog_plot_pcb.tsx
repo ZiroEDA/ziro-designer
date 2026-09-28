@@ -49,7 +49,7 @@ import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_ht
 import { Icon } from '@ziroeda/common/widgets/icons.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
-import { pcbUnitTextMM, pcbUnitValueMM, unitLabel } from '../pcb_unit_binder.js';
+import { pcbUnitTextMM, pcbUnitValueMM, unitLabel } from '@ziroeda/pcbnew/pcb_unit_binder.js';
 
 interface Props {
   board: Board;
