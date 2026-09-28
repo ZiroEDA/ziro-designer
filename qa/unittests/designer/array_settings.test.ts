@@ -18,7 +18,7 @@ import {
   arraySettingsValid,
   arraySpecFrom,
   type ArraySettings,
-} from '@ziroeda/pcbnew/array_settings.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_create_array.js';
 
 const MM = (n: number): number => mmToIU(n);
 

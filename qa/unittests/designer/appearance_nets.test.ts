@@ -13,7 +13,7 @@
  * and +BATT, and ours opened on /CC1 with all four missing from view.
  */
 import { describe, expect, it } from 'vitest';
-import { appearanceNetRows } from '@ziroeda/pcbnew/appearance_nets.js';
+import { appearanceNetRows } from '@ziroeda/pcbnew/widgets/appearance_controls.js';
 
 const names = (rows: readonly (readonly [number, string])[]): string[] => rows.map(([, n]) => n);
 

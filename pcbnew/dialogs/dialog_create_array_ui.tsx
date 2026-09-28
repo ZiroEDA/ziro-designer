@@ -17,7 +17,7 @@ import {
   arraySettingsValid,
   type ArrayMode,
   type ArraySettings,
-} from '../array_settings.js';
+} from './dialog_create_array.js';
 import { TextCtrlEval } from '@ziroeda/common/widgets/text_ctrl_eval.js';
 
 interface Props {
