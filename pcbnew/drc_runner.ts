@@ -16,9 +16,9 @@
  * from the text it was handed. Every violation found before the stop has
  * already been delivered.
  */
-import type { DRC_JOB_HOOKS, DRC_JOB_REQUEST } from '@ziroeda/pcbnew/drc/drc_job.js';
-import { runDrcJob } from '@ziroeda/pcbnew/drc/drc_job.js';
-import type { DRC_WORKER_MESSAGE } from '@ziroeda/pcbnew/drc_worker.js';
+import type { DRC_JOB_HOOKS, DRC_JOB_REQUEST } from './drc/drc_job.js';
+import { runDrcJob } from './drc/drc_job.js';
+import type { DRC_WORKER_MESSAGE } from './drc_worker.js';
 
 /** Set once `new Worker` has failed, so we stop trying for the session. */
 let workersUnavailable = false;

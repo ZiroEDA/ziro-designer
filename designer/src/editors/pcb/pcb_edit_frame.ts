@@ -42,7 +42,7 @@ import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
 import type { NETLIST } from '@ziroeda/pcbnew/netlist_reader/pcb_netlist.js';
 import { type DIALOG_DRC_LIKE, DRC_TOOL } from '@ziroeda/pcbnew/tools/drc_tool.js';
 import type { DRC_JOB_HOOKS, DRC_JOB_REQUEST } from '@ziroeda/pcbnew/drc/drc_job.js';
-import { runDrcJobOffThread } from './drc_runner.js';
+import { runDrcJobOffThread } from '@ziroeda/pcbnew/drc_runner.js';
 import { PCB_TOOL_BASE } from '@ziroeda/pcbnew/tools/pcb_tool_base.js';
 import { MARKER_T } from '@ziroeda/common/marker_base.js';
 import { RPT_SEVERITY_EXCLUSION } from '@ziroeda/common/reporter.js';
