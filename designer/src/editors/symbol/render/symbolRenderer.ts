@@ -19,7 +19,7 @@
 
 import { electricalPinTypeGetText, pinShapeGetText } from '@ziroeda/eeschema';
 import { altIconBox } from '@ziroeda/eeschema/pin_box.js';
-import { drawAltPinModesIcon } from '../../schematic/render/pin_alt_icon.js';
+import { drawAltPinModesIcon } from '@ziroeda/eeschema/pin_alt_icon.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import { zoomFitView } from '../../../ui/view_controls.js';
 import { iuToMM, mmToIU } from '@ziroeda/common';
