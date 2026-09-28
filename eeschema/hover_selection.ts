@@ -63,13 +63,9 @@
  * only, and a rule nobody can test is a rule that quietly rots.
  */
 
-import {
-  type ItemRef,
-  type ScanTypes,
-  type Schematic,
-  selectPoint,
-  trimToScanTypes,
-} from '@ziroeda/eeschema';
+import { type ItemRef } from './tools/hittest.js';
+import { type ScanTypes, selectPoint, trimToScanTypes } from './tools/sch_request_selection.js';
+import { type Schematic } from './types.js';
 
 /** A selection and, when it is a hover one, the set that hover applies to. */
 export interface HoverSelection {

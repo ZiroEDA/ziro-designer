@@ -39,7 +39,7 @@ import {
   applyToggle as schApplyToggle,
   DEFAULT_TOGGLES as SCH_TOGGLES,
   RADIO_GROUPS as SCH_GROUPS,
-} from '@ziroeda/designer/src/editors/schematic/toggles.js';
+} from '@ziroeda/eeschema/toggles.js';
 import {
   persistSymbolToggle,
   SYMBOL_SETTING_TOGGLES,
@@ -242,12 +242,12 @@ const src = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
 
 describe.each([
-  ['editors/schematic/SchematicEditor.tsx', './toggles.js'],
+  ['editors/schematic/SchematicEditor.tsx', '@ziroeda/eeschema/toggles.js'],
   // footprint_editor_toggles.ts merged into footprint_edit_frame.ts (Stage A
   // of the pcbnew/ file-structure move): FOOTPRINT_EDIT_FRAME's toolbar
   // groups sit beside the rest of that class's ported state now, the same
   // file `UpdateTitle`, the grid and `footprintToBoard` moved into.
-  ['../../pcbnew/footprint_edit_frame_ui.tsx', './footprint_edit_frame.js'],
+  ['editors/footprint/FootprintEditor.tsx', '@ziroeda/pcbnew/footprint_edit_frame.js'],
 ])('%s seeds its toolbar from its toggles module', (rel, specifier) => {
   it('takes DEFAULT_TOGGLES from its toggles module', () => {
     const pattern = new RegExp(

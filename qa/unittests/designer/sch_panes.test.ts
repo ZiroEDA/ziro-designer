@@ -30,7 +30,7 @@ import {
   schSelectionFilterShown,
   type SchDockPos,
   type SchLeftPane,
-} from '@ziroeda/designer/src/editors/schematic/panes.js';
+} from '@ziroeda/eeschema/panes.js';
 
 describe('the Position() each pane is docked at', () => {
   /**

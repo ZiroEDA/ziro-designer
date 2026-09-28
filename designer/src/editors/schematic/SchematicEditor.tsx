@@ -389,7 +389,7 @@ import {
   requestSelection,
   rightClickSelection,
   type HoverSelection,
-} from './hover_selection.js';
+} from '@ziroeda/eeschema/hover_selection.js';
 import { buildMenus } from '@ziroeda/eeschema/menubar.js';
 import {
   CONFIRMATION_CAPTION,
@@ -485,7 +485,7 @@ import { netClassHumanReadableName } from '@ziroeda/common/project/net_settings.
 import type { PdfNetInfo } from '@ziroeda/eeschema/pdf_annotations.js';
 import type { Netlist } from '@ziroeda/eeschema/connectivity/nets.js';
 import { DEFAULT_WIRE_WIDTH } from '@ziroeda/eeschema/sch_painter.js';
-import { computeNetClassOverrides } from './net_overrides.js';
+import { computeNetClassOverrides } from '@ziroeda/eeschema/net_overrides.js';
 import {
   RefDesTracker,
   buildPageRefsMap,
@@ -550,7 +550,7 @@ import {
   useSchematicTheme,
   overrideItemColorsFor,
 } from '../../prefs/useSettings.js';
-import { resolveTemplateFieldnames } from './template_fieldnames.js';
+import { resolveTemplateFieldnames } from '@ziroeda/common/template_fieldnames.js';
 import type { RenderOpts } from '@ziroeda/eeschema/sch_render_settings.js';
 import type { InputPrefs } from '@ziroeda/common/ui/view_controls.js';
 import { SchPropertiesPanel } from '@ziroeda/eeschema/widgets/sch_properties_panel_ui.js';
@@ -581,7 +581,12 @@ import {
 import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
 import { useLiveState } from '@ziroeda/common/use_live_state.js';
 import { withSaveEnablement } from '@ziroeda/common/save_enablement.js';
-import { fileBaseName, pathHumanReadable, SCH_FRAME_NAME, schFrameTitle } from './frame_title.js';
+import {
+  fileBaseName,
+  pathHumanReadable,
+  SCH_FRAME_NAME,
+  schFrameTitle,
+} from '@ziroeda/eeschema/frame_title.js';
 import {
   SCH_BOTTOM_DOCK,
   SCH_LEFT_PANE_ADD_ORDER,
@@ -591,7 +596,7 @@ import {
   schSelectionFilterShown,
   type SchDockPos,
   type SchLeftPane,
-} from './panes.js';
+} from '@ziroeda/eeschema/panes.js';
 import { SelectionFilterPanel } from '../../ui/SelectionFilterPanel.js';
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
 import { loadOutlineFontsFor } from '@ziroeda/common/font/outline_fonts.js';
@@ -601,7 +606,7 @@ import '@ziroeda/common/widgets/shell.css';
 import { schSymbolLibraryName } from '@ziroeda/eeschema';
 import { busJunctionIds as busJunctionIdsOf } from '@ziroeda/eeschema/connectivity/bus.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
-import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
+import { applyToggle, DEFAULT_TOGGLES } from '@ziroeda/eeschema/toggles.js';
 import {
   CROSS_PROBE_FLASH_INTERVAL_MS,
   CROSS_PROBE_FLASH_LAST_PHASE,

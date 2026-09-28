@@ -33,7 +33,7 @@ import { EESCHEMA_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 import type { EeschemaSettings } from '@ziroeda/designer/src/prefs/settings.js';
 import type { PrefsContext } from '@ziroeda/designer/src/dialogs/prefs/types.js';
 import { transferTemplateFieldnamesPage } from '@ziroeda/designer/src/editors/schematic/prefs/resets.js';
-import { resolveTemplateFieldnames } from '@ziroeda/designer/src/editors/schematic/template_fieldnames.js';
+import { resolveTemplateFieldnames } from '@ziroeda/common/template_fieldnames.js';
 import { rowsFromSymbol } from '@ziroeda/eeschema/fields_grid_table.js';
 import {
   buildFieldsReferences,

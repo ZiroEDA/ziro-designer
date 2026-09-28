@@ -30,7 +30,7 @@ import {
   isHoverSelection,
   rightClickSelection,
   type HoverSelection,
-} from '@ziroeda/designer/src/editors/schematic/hover_selection.js';
+} from '@ziroeda/eeschema/hover_selection.js';
 
 const EMPTY: HoverSelection = { selection: new Set(), hover: null };
 

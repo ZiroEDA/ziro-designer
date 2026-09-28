@@ -12,13 +12,9 @@
  * where the item itself doesn't override (explicit stroke wins, per upstream).
  */
 
-import {
-  computeNetlist,
-  refId,
-  type LibSymbol,
-  type Netlist,
-  type Schematic,
-} from '@ziroeda/eeschema';
+import { computeNetlist, type Netlist } from './connectivity/nets.js';
+import { refId } from './tools/hittest.js';
+import { type LibSymbol, type Schematic } from './types.js';
 import { LINE_STYLE, LINE_STYLE_NAMES } from '@ziroeda/common/stroke_params.js';
 import {
   IU_PER_MILS,
@@ -26,7 +22,7 @@ import {
   junctionDotDiameterIU,
   resolveEffectiveNetClass,
   type SchematicSetup,
-} from '@ziroeda/eeschema/schematic_settings.js';
+} from './schematic_settings.js';
 
 export interface NetClassOverrides {
   /** Line refId -> stroke fallback (wires get wire width, buses bus width). */

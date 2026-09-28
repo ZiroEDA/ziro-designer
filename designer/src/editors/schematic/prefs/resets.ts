@@ -20,7 +20,10 @@
 import { EESCHEMA_DEFAULTS } from '../../../prefs/settings.js';
 import { resetKeys } from '@ziroeda/common/settings/json_settings.js';
 import { MOUSE_DEFAULTS } from './PanelSimulatorPreferences.js';
-import { templateNamesNeedingTrim, transferTemplateFieldnames } from '../template_fieldnames.js';
+import {
+  templateNamesNeedingTrim,
+  transferTemplateFieldnames,
+} from '@ziroeda/common/template_fieldnames.js';
 import type { PrefsContext, PrefsTransferPrompt } from '../../../dialogs/prefs/types.js';
 import { resetToolbarsPanel } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 
