@@ -64,7 +64,7 @@ import { ProgressDialog } from '@ziroeda/common/widgets/wx_progress_reporters.js
 import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
 import { FP_FRAME_NAME, fpFrameTitle } from './footprint_edit_frame.js';
 import { useUnsavedGuard } from '@ziroeda/common/use_unsaved_guard.js';
-import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
+import { FootprintTreePane } from './footprint_tree_pane.js';
 import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
 import { FpTreeSynchronizingAdapter } from './fp_tree_synchronizing_adapter.js';
 import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
@@ -1357,12 +1357,6 @@ export function FootprintEditFrame({
    * upstream is one call either way.
    */
   const [selectLibId, setSelectLibId] = useState('');
-  /**
-   * `LIB_TREE::Unselect()`, which `FOOTPRINT_TREE_PANE::onComponentSelected`
-   * calls right after the double-click has loaded the footprint (`:88-93`).
-   */
-  const [unselectNonce, setUnselectNonce] = useState(0);
-
   /** `EVT_LIBITEM_SELECTED` — the tree's selection, which is what
    *  `GetTargetFPID` and the four `Init` conditions read. */
   const onTreeSelect = useCallback((node: LibTreeNode | null) => {
@@ -1374,20 +1368,10 @@ export function FootprintEditFrame({
     else setTreeSel({ lib: node.libNickname, name: node.libItemName });
   }, []);
 
-  /**
-   * `FOOTPRINT_TREE_PANE::onComponentSelected`, bound to `EVT_LIBITEM_CHOSEN`
-   * (`footprint_tree_pane.cpp:48`):
-   *
-   *     m_frame->LoadFootprintFromLibrary( GetLibTree()->GetSelectedLibId() );
-   *     // Make sure current-part highlighting doesn't get lost in seleciton highlighting
-   *     m_tree->Unselect();
-   */
-  const onTreeChoose = useCallback(
-    (node: LibTreeNode) => {
-      if (node.type === LibTreeNodeType.LIBRARY) return;
-      void loadFootprint(node.libNickname, node.libItemName);
-      setUnselectNonce((n) => n + 1);
-    },
+  /** `LoadFootprintFromLibrary`, which `FOOTPRINT_TREE_PANE::onComponentSelected`
+   *  (`footprint_tree_pane.tsx`) calls on a double-clicked footprint row. */
+  const onLoadFootprintFromTree = useCallback(
+    (lib: string, name: string) => void loadFootprint(lib, name),
     [loadFootprint],
   );
 
@@ -1958,63 +1942,34 @@ export function FootprintEditFrame({
       <div className="ze-body">
         {toggles.has('showLibraryTree') && (
           <>
-            <div className="ze-leftdock" style={{ width: panelWidth, minWidth: panelWidth }}>
-              <div className="ze-panel grow">
-                <div className="ze-panel-header">Libraries</div>
-                {/*
-                 * `FOOTPRINT_TREE_PANE` (`pcbnew/footprint_tree_pane.cpp:30-52`)
-                 * is a panel whose entire body is ONE `LIB_TREE`:
-                 *
-                 *     m_tree = new LIB_TREE( this, wxT( "footprints" ),
-                 *                            m_frame->GetLibTreeAdapter(),
-                 *                            LIB_TREE::SEARCH );
-                 *
-                 * SEARCH alone — no `MULTISELECT` and no `DETAILS`, hence
-                 * `hasExternalDetails`, which keeps the HTML info pane the
-                 * chooser has out of this dock.
-                 *
-                 * What stood here was a third tree: a `treeRows` memo and about
-                 * a hundred lines of JSX. That is why this pane had no "Item"
-                 * header, a bare `<input>` instead of the `wxSearchCtrl` with
-                 * its magnifier and its recent-search menu, no sort/expand
-                 * menu, a library glyph KiCad does not draw, no Description
-                 * column, no virtual scrolling and none of the row faces — and
-                 * why every fix made in `widgets/lib_tree.tsx` reached the
-                 * chooser and not this pane.
-                 */}
-                {libNames.length === 0 &&
-                  app.LibraryLoadingPanel({
-                    fallback: <div className="ze-muted">No footprint libraries loaded.</div>,
-                    label: 'Loading footprint libraries...',
-                  })}
-                <LibTree
-                  adapter={treeAdapter}
-                  // `LIB_TREE( this, wxT( "footprints" ), … )` — the recent
-                  // searches key upstream gives this tree, which is the one
-                  // CvPcb's footprint tree shares and NOT the symbols' list.
-                  recentSearchesKey="footprints"
-                  regenerateNonce={treeNonce}
-                  selectLibId={selectLibId}
-                  unselectNonce={unselectNonce}
-                  onSelect={onTreeSelect}
-                  onChoose={onTreeChoose}
-                  onToggleLibrary={onTreeToggleLibrary}
-                  onItemContextMenu={onTreeItemContextMenu}
-                  openLibs={openLibs.current}
-                  onColumnWidthsChanged={(widths) =>
-                    app.updateFpEdit((s) => {
-                      s.lib_tree.column_widths = widths;
-                    })
-                  }
-                  onShownColumnsChanged={(columns) =>
-                    app.updateFpEdit((s) => {
-                      s.lib_tree.columns = [...columns];
-                    })
-                  }
-                  hasExternalDetails
-                />
-              </div>
-            </div>
+            <FootprintTreePane
+              width={panelWidth}
+              placeholder={
+                libNames.length === 0 &&
+                app.LibraryLoadingPanel({
+                  fallback: <div className="ze-muted">No footprint libraries loaded.</div>,
+                  label: 'Loading footprint libraries...',
+                })
+              }
+              onLoadFootprint={onLoadFootprintFromTree}
+              adapter={treeAdapter}
+              regenerateNonce={treeNonce}
+              selectLibId={selectLibId}
+              onSelect={onTreeSelect}
+              onToggleLibrary={onTreeToggleLibrary}
+              onItemContextMenu={onTreeItemContextMenu}
+              openLibs={openLibs.current}
+              onColumnWidthsChanged={(widths) =>
+                app.updateFpEdit((s) => {
+                  s.lib_tree.column_widths = widths;
+                })
+              }
+              onShownColumnsChanged={(columns) =>
+                app.updateFpEdit((s) => {
+                  s.lib_tree.columns = [...columns];
+                })
+              }
+            />
             <div className="ze-splitter" onMouseDown={startResize} title="Drag to resize" />
           </>
         )}
